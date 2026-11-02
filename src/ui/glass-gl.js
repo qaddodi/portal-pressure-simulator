@@ -31,8 +31,8 @@ const SOFT = typeof location !== 'undefined' && /[?&]cardfrost=soft\b/.test(loca
 export const CARD = SOFT ? { ...GLASS } : { blur: 22, sat: 1.15, scale: 8, margin: 66 };
 /** A rounded rectangle's outline (w × h, corner radius r), as an SVG path. */
 export function roundPath(w, h, r) {
-  const f = (n) => +n.toFixed(2), q = Math.max(0, Math.min(r, w / 2, h / 2));
-  return `M${f(q)} 0H${f(w - q)}A${f(q)} ${f(q)} 0 0 1 ${f(w)} ${f(q)}V${f(h - q)}A${f(q)} ${f(q)} 0 0 1 ${f(w - q)} ${f(h)}H${f(q)}A${f(q)} ${f(q)} 0 0 1 0 ${f(h - q)}V${f(q)}A${f(q)} ${f(q)} 0 0 1 ${f(q)} 0Z`;
+  const f = (n) => +n.toFixed(2), q = Math.max(0, Math.min(r, w / 2, h / 2));   // alloc-rare: the pane's outline is built when the page is read (readPanes), never in a frame's draw
+  return `M${f(q)} 0H${f(w - q)}A${f(q)} ${f(q)} 0 0 1 ${f(w)} ${f(q)}V${f(h - q)}A${f(q)} ${f(q)} 0 0 1 ${f(w - q)} ${f(h)}H${f(q)}A${f(q)} ${f(q)} 0 0 1 0 ${f(h - q)}V${f(q)}A${f(q)} ${f(q)} 0 0 1 ${f(q)} 0Z`;   // alloc-rare: built when the page is read (readPanes), never in a frame's draw
 }
 const SCALE0 = 4;    // CSS px for each texel of the blurred copy
 // The glass's canvas holds at most 2 device px per CSS px (30 Oct, review H3): what it draws is a blur, a flat tint and a soft shadow,
@@ -97,33 +97,33 @@ export const drawnRect = (e) => (e.drawnBox ? e.drawnBox() : e.getBoundingClient
  * (The color(srgb) form was read as no colour until 1 Nov 2026, so a card tinted by color-mix() was never drawn in the figure's canvas.)
  */
 export function parseColour(v) {
-  const sv = String(v ?? '').trim();
-  if (sv === 'transparent') return [0, 0, 0, 0];
+  const sv = String(v ?? '').trim();   // alloc-rare: colour parse: once per colour string (resolveColour caches it; a frame only looks it up)
+  if (sv === 'transparent') return [0, 0, 0, 0];   // alloc-rare: colour parse: once per colour string (resolveColour caches it; a frame only looks it up)
   const h = /^#([\da-f]{3,4}|[\da-f]{6}|[\da-f]{8})$/i.exec(sv)?.[1];
   if (h) {
-    const f = h.length <= 4 ? [...h].map((c) => c + c).join('') : h, n = (i) => parseInt(f.slice(i, i + 2), 16) / 255;
-    return [n(0), n(2), n(4), f.length === 8 ? n(6) : 1];
+    const f = h.length <= 4 ? [...h].map((c) => c + c).join('') : h, n = (i) => parseInt(f.slice(i, i + 2), 16) / 255;   // alloc-rare: colour parse: once per colour string (resolveColour caches it; a frame only looks it up)
+    return [n(0), n(2), n(4), f.length === 8 ? n(6) : 1];   // alloc-rare: colour parse: once per colour string (resolveColour caches it; a frame only looks it up)
   }
-  const c = /^color\(srgb\s+([^)]+)\)$/i.exec(String(v).trim());
+  const c = /^color\(srgb\s+([^)]+)\)$/i.exec(String(v).trim());   // alloc-rare: colour parse: once per colour string (resolveColour caches it; a frame only looks it up)
   if (c) {
-    const [rgb, a] = c[1].split('/');
-    const n = rgb.trim().split(/\s+/).map((x) => (x.endsWith('%') ? parseFloat(x) / 100 : parseFloat(x)));
-    const al = a == null ? 1 : a.trim().endsWith('%') ? parseFloat(a) / 100 : parseFloat(a);
-    if (n.length === 3 && n.every(Number.isFinite) && Number.isFinite(al)) return [...n.map((x) => Math.min(1, Math.max(0, x))), Math.min(1, Math.max(0, al))];
-    return [0, 0, 0, 0];
+    const [rgb, a] = c[1].split('/');   // alloc-rare: colour parse: once per colour string (resolveColour caches it; a frame only looks it up)
+    const n = rgb.trim().split(/\s+/).map((x) => (x.endsWith('%') ? parseFloat(x) / 100 : parseFloat(x)));   // alloc-rare: colour parse: once per colour string (resolveColour caches it; a frame only looks it up)
+    const al = a == null ? 1 : a.trim().endsWith('%') ? parseFloat(a) / 100 : parseFloat(a);   // alloc-rare: colour parse: once per colour string (resolveColour caches it; a frame only looks it up)
+    if (n.length === 3 && n.every(Number.isFinite) && Number.isFinite(al)) return [...n.map((x) => Math.min(1, Math.max(0, x))), Math.min(1, Math.max(0, al))];   // alloc-rare: colour parse: once per colour string (resolveColour caches it; a frame only looks it up)
+    return [0, 0, 0, 0];   // alloc-rare: colour parse: once per colour string (resolveColour caches it; a frame only looks it up)
   }
-  const q = /^rgba?\(([^)]+)\)$/.exec(sv)?.[1].split(/[\s,/]+/).filter(Boolean).map((x, i) => (x.endsWith('%') ? (i < 3 ? 2.55 : 0.01) * parseFloat(x) : +x));
-  return q && q.length >= 3 && q.every(Number.isFinite) ? [q[0] / 255, q[1] / 255, q[2] / 255, q.length > 3 ? q[3] : 1] : [0, 0, 0, 0];
+  const q = /^rgba?\(([^)]+)\)$/.exec(sv)?.[1].split(/[\s,/]+/).filter(Boolean).map((x, i) => (x.endsWith('%') ? (i < 3 ? 2.55 : 0.01) * parseFloat(x) : +x));   // alloc-rare: colour parse: once per colour string (resolveColour caches it; a frame only looks it up)
+  return q && q.length >= 3 && q.every(Number.isFinite) ? [q[0] / 255, q[1] / 255, q[2] / 255, q.length > 3 ? q[3] : 1] : [0, 0, 0, 0];   // alloc-rare: colour parse: once per colour string (resolveColour caches it; a frame only looks it up)
 }
 /** The first shadow of a computed box-shadow: { c: [r, g, b, a] (0–1), x, y, blur, spread } or null. */
 export function parseShadow(s) {
   if (!s || s === 'none') return null;
   const c = /rgba?\(([^)]+)\)/.exec(s);
   if (!c) return null;
-  const v = c[1].split(/[\s,/]+/).filter(Boolean).map(Number);
-  const n = s.replace(c[0], '').match(/-?[\d.]+px/g)?.map(NUM) || [];
+  const v = c[1].split(/[\s,/]+/).filter(Boolean).map(Number);   // alloc-rare: shadow parse: when the page is read (readPanes), never in a frame's draw
+  const n = s.replace(c[0], '').match(/-?[\d.]+px/g)?.map(NUM) || [];   // alloc-rare: shadow parse: when the page is read (readPanes), never in a frame's draw
   if (/inset/.test(s) || n.length < 2) return null;
-  return { c: [v[0] / 255, v[1] / 255, v[2] / 255, v.length > 3 ? v[3] : 1], x: n[0], y: n[1], blur: n[2] || 0, spread: n[3] || 0 };
+  return { c: [v[0] / 255, v[1] / 255, v[2] / 255, v.length > 3 ? v[3] : 1], x: n[0], y: n[1], blur: n[2] || 0, spread: n[3] || 0 };   // alloc-rare: shadow parse: when the page is read (readPanes), never in a frame's draw
 }
 /** Whether the page asks for frosted glass at all (Settings' blur effect, reduced transparency, a browser with backdrop blur). */
 export function glassWanted(doc = document, win = window) {
@@ -235,8 +235,8 @@ void main() {
 function programsOf(gl) {
   // (Through gl-compile.js: both started before either is read, so the driver compiles them side by side, and only the link's status
   // read when it went. ?shaderwarm=0 links and reads one, then the other.)
-  const start = (fs) => startProgram(gl, QVS, fs);
-  const read = (h) => { try { return checkProgram(gl, h); } catch { gl.deleteProgram(h.p); return null; } };
+  const start = (fs) => startProgram(gl, QVS, fs);   // alloc-rare: a context's two programs are linked once (setHost, a restored context), never per frame
+  const read = (h) => { try { return checkProgram(gl, h); } catch { gl.deleteProgram(h.p); return null; } };   // alloc-rare: a context's two programs are linked once (setHost, a restored context), never per frame
   let bprog, pprog;
   if (SHADER_WARM) { const b = start(BFS), q = start(PFS); bprog = read(b); pprog = read(q); }
   else { bprog = read(start(BFS)); pprog = read(start(PFS)); }
@@ -244,10 +244,10 @@ function programsOf(gl) {
   return uniformsOf(gl, bprog, pprog);
 }
 function uniformsOf(gl, bprog, pprog) {
-  const uni = (p, ks) => Object.fromEntries(ks.map((k) => [k, gl.getUniformLocation(p, k)]));
-  const BU = uni(bprog, ['uBox', 'uView', 'uT', 'uDir', 'uW']);
-  const PU = uni(pprog, ['uBox', 'uView', 'uMS', 'uReg', 'uScene', 'uMask', 'uBg', 'uTint', 'uSat', 'uA', 'uBB', 'uShC', 'uShB', 'uShS', 'uRad', 'uMode', 'uGrow', 'uD0C', 'uD1C', 'uD0B', 'uD1B', 'uDS', 'uLine', 'uLW']);
-  return { bprog, pprog, BU, PU };
+  const uni = (p, ks) => Object.fromEntries(ks.map((k) => [k, gl.getUniformLocation(p, k)]));   // alloc-rare: a context's two programs are linked once (setHost, a restored context), never per frame
+  const BU = uni(bprog, ['uBox', 'uView', 'uT', 'uDir', 'uW']);   // alloc-rare: a context's two programs are linked once (setHost, a restored context), never per frame
+  const PU = uni(pprog, ['uBox', 'uView', 'uMS', 'uReg', 'uScene', 'uMask', 'uBg', 'uTint', 'uSat', 'uA', 'uBB', 'uShC', 'uShB', 'uShS', 'uRad', 'uMode', 'uGrow', 'uD0C', 'uD1C', 'uD0B', 'uD1B', 'uDS', 'uLine', 'uLW']);   // alloc-rare: a context's two programs are linked once (setHost, a restored context), never per frame
+  return { bprog, pprog, BU, PU };   // alloc-rare: a context's two programs are linked once (setHost, a restored context), never per frame
 }
 // Shader warm-up for the glass drawn in the figure's canvas (GPU practice, MDN "WebGL best practices": compile and link early, read the
 // status later, KHR_parallel_shader_compile where there is one). The blur's and the glass's programs are started the moment the figure's
@@ -266,9 +266,9 @@ function warmPrograms(gl, now) {
   if (!e) {
     if (gl.isContextLost()) return null;
     gl.getExtension('KHR_parallel_shader_compile');   // (asked for, the driver compiles and links on threads of its own)
-    const sh = (type, src) => { const x = gl.createShader(type); gl.shaderSource(x, src); gl.compileShader(x); return x; };
-    const start = (fs) => { const p = gl.createProgram(), v = sh(gl.VERTEX_SHADER, QVS), f = sh(gl.FRAGMENT_SHADER, fs); gl.attachShader(p, v); gl.attachShader(p, f); gl.linkProgram(p); return { p, sh: [v, f] }; };
-    e = { hs: [start(BFS), start(PFS)], P: undefined };   // (nothing read back here)
+    const sh = (type, src) => { const x = gl.createShader(type); gl.shaderSource(x, src); gl.compileShader(x); return x; };   // alloc-rare: a context's two programs are linked once (setHost, a restored context), never per frame
+    const start = (fs) => { const p = gl.createProgram(), v = sh(gl.VERTEX_SHADER, QVS), f = sh(gl.FRAGMENT_SHADER, fs); gl.attachShader(p, v); gl.attachShader(p, f); gl.linkProgram(p); return { p, sh: [v, f] }; };   // alloc-rare: a context's two programs are linked once (setHost, a restored context), never per frame
+    e = { hs: [start(BFS), start(PFS)], P: undefined };   // (nothing read back here)   // alloc-rare: a context's two programs are linked once (setHost, a restored context), never per frame
     warmed.set(gl, e);   // (forgotten when the context is lost: onHostLost)
   }
   if (now) readWarm(gl, e);
@@ -306,7 +306,7 @@ function readWarm(gl, e) {
   if (e.P !== undefined || gl.isContextLost()) return;
   // (Through gl-compile.js checkProgram: the link's status first, a shader's only for a failure's log. Published by warmTask once the
   // driver says both are compiled, so this read no longer waits.)
-  const ok = e.hs.map((h) => { try { checkProgram(gl, h); return true; } catch { return false; } });
+  const ok = e.hs.map((h) => { try { checkProgram(gl, h); return true; } catch { return false; } });   // alloc-rare: a context's two programs are linked once (setHost, a restored context), never per frame
   e.P = ok[0] && ok[1] ? uniformsOf(gl, e.hs[0].p, e.hs[1].p) : null;
 }
 // A mask's fill (fillMask): the triangles of a callout's outline (mask px, y down) turn each pixel they cover over, 0 to 1 and back
@@ -331,7 +331,7 @@ function fillKit(G) {
     const at = G.getAttribLocation(p, 'aP');
     G.enableVertexAttribArray(at); G.vertexAttribPointer(at, 2, G.FLOAT, false, 0, 0);
     G.bindVertexArray(null); G.bindBuffer(G.ARRAY_BUFFER, null);
-    f = { p, vao, buf, uS: G.getUniformLocation(p, 'uS') };
+    f = { p, vao, buf, uS: G.getUniformLocation(p, 'uS') };   // alloc-rare: the mask fill kit is made once per context, at its first mask
   } catch { f = null; }   // (it will not build: no mask is made, and each such glass keeps the CSS's solid look)
   fills.set(G, f);
   return f;
@@ -396,18 +396,18 @@ const MOTION = typeof location === 'undefined' || !/[?&]glassmotion=0\b/.test(lo
 const GPU_EDGE = typeof location === 'undefined' || !/[?&]gpuedge=0\b/.test(location.search);
 /** A --gl-drop value ("x y blur spread colour, ..." as written, var() substituted) as [{ x, y, blur, spread, c }] (CSS px), at most two. */
 export function dropsOf(v) {
-  const out = [];
+  const out = [];   // alloc-rare: --gl-drop parse: when the page is read (readPanes), never in a frame's draw
   let depth = 0, cur = '';
-  const parts = [];
+  const parts = [];   // alloc-rare: --gl-drop parse: when the page is read (readPanes), never in a frame's draw
   for (const ch of v || '') { if (ch === '(') depth++; else if (ch === ')') depth--; if (ch === ',' && !depth) { parts.push(cur); cur = ''; } else cur += ch; }
-  if (cur.trim()) parts.push(cur);
+  if (cur.trim()) parts.push(cur);   // alloc-rare: --gl-drop parse: when the page is read (readPanes), never in a frame's draw
   for (const part of parts) {
-    const t = part.trim();
+    const t = part.trim();   // alloc-rare: --gl-drop parse: when the page is read (readPanes), never in a frame's draw
     if (!t || /\binset\b/.test(t)) continue;
     const m = /^((?:-?[\d.]+(?:px)?\s+){1,3}-?[\d.]+(?:px)?)\s+(.+)$/.exec(t);
     if (!m) continue;
-    const n = m[1].trim().split(/\s+/).map(NUM);
-    out.push({ x: n[0] || 0, y: n[1] || 0, blur: n[2] || 0, spread: n[3] || 0, c: m[2].trim() });
+    const n = m[1].trim().split(/\s+/).map(NUM);   // alloc-rare: --gl-drop parse: when the page is read (readPanes), never in a frame's draw
+    out.push({ x: n[0] || 0, y: n[1] || 0, blur: n[2] || 0, spread: n[3] || 0, c: m[2].trim() });   // alloc-rare: --gl-drop parse: when the page is read (readPanes), never in a frame's draw
     if (out.length === 2) break;
   }
   return out;
@@ -467,14 +467,14 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   const colours = new Map();
   let probe = null;
   function resolveColour(str) {
-    const k = (str || '').trim();
+    const k = (str || '').trim();   // alloc-rare: page read (resolveColour, from measureGeo): runs when the page changed, never in a frame's draw
     if (!k || colours.has(k)) return;
     let v = parseColour(k);
     if (!(v[3] > 0) && k !== 'transparent' && !/^#|^rgba?\(|^color\(srgb/i.test(k)) {
       try {
         if (!probe) { probe = document.createElement('i'); probe.style.display = 'none'; document.head?.appendChild(probe); }
         if (probe?.isConnected) {
-          probe.style.color = ''; probe.style.color = `color-mix(in srgb, ${k} 100%, transparent)`;
+          probe.style.color = ''; probe.style.color = `color-mix(in srgb, ${k} 100%, transparent)`;   // alloc-rare: page read (resolveColour, from measureGeo): runs when the page changed, never in a frame's draw
           if (!probe.style.color) probe.style.color = k;
           v = parseColour(getComputedStyle(probe).color);
         }
@@ -527,7 +527,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   const wanted = glassCheck(document, window);
   const glassesOf = () => (cards ? cards.find().filter((g) => g?.isConnected) : pane ? (pane.isConnected ? [pane] : []) : layers.flatMap((l) => [...l.getElementsByClassName('cl-glass')]));
   // A card's corner radii (CSS px, top left round to bottom left): the first length of each computed radius (an elliptical corner's across).
-  const radiiOf = (cs) => [cs.borderTopLeftRadius, cs.borderTopRightRadius, cs.borderBottomRightRadius, cs.borderBottomLeftRadius].map(NUM);
+  const radiiOf = (cs) => [cs.borderTopLeftRadius, cs.borderTopRightRadius, cs.borderBottomRightRadius, cs.borderBottomLeftRadius].map(NUM);   // alloc-rare: page read (readPanes, from measureGeo): runs when the page changed, never in a frame's draw
 
   // What fades a glass from above: the opacity of whatever holds it, up to where the canvas takes over (the callout, its layer). The DOM
   // applies such a fade to the callout's words and outline as one, so the glass beside them takes it too: a layer faded as a whole once
@@ -577,7 +577,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   function take(reg, cr, sr) {
     if (!sr.width || !sr.height || !source.width) return;
     // (The key of the figure as it is copied now, read before the copy is asked for: the browser takes its snapshot in that call.)
-    const key = version ? `${version()}|${reg.x}|${reg.y}|${reg.w}|${reg.h}|${cr.left}|${cr.top}|${sr.left}|${sr.top}|${sr.width}|${sr.height}|${source.width}x${source.height}` : '';
+    const key = version ? `${version()}|${reg.x}|${reg.y}|${reg.w}|${reg.h}|${cr.left}|${cr.top}|${sr.left}|${sr.top}|${sr.width}|${sr.height}|${source.width}x${source.height}` : '';   // alloc-rare: copy mode only (every caller passes copy: false); the figure's canvas takes the glass, this path never runs
     if (key && key === takenKey && ready) { if (gpuProbe.on) gpuProbe.note(cards ? COUNTED.cardSkip : pane ? COUNTED.paneSkip : COUNTED.glassSkip); return; }
     const kx = source.width / sr.width, ky = source.height / sr.height;
     const bw = Math.max(1, Math.ceil(reg.w / SCALE)), bh = Math.max(1, Math.ceil(reg.h / SCALE));
@@ -590,10 +590,10 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       const sx = Math.round((reg.x + cr.left - sr.left) * kx), sy = Math.round((reg.y + cr.top - sr.top) * ky), sw = Math.max(1, Math.round(reg.w * kx)), sh = Math.max(1, Math.round(reg.h * ky));
       // (The region as copied, on the source's own pixels: the glass is laid from where the copy really starts. Laid from the region
       // asked for, a copy from a coarse source (the lobule's pills: half a CSS px) sat up to a pixel off, a different way each copy.)
-      got = { x: sx / kx - cr.left + sr.left, y: sy / ky - cr.top + sr.top, w: sw / kx, h: sh / ky };
-      p = createImageBitmap(source, sx, sy, sw, sh, { resizeWidth: bw, resizeHeight: bh, resizeQuality: 'medium', premultiplyAlpha: 'premultiply' });
+      got = { x: sx / kx - cr.left + sr.left, y: sy / ky - cr.top + sr.top, w: sw / kx, h: sh / ky };   // alloc-rare: copy mode only (every caller passes copy: false); the figure's canvas takes the glass, this path never runs
+      p = createImageBitmap(source, sx, sy, sw, sh, { resizeWidth: bw, resizeHeight: bh, resizeQuality: 'medium', premultiplyAlpha: 'premultiply' });   // alloc-rare: copy mode only (every caller passes copy: false); the figure's canvas takes the glass, this path never runs
     } catch { p = Promise.reject(); }
-    p.then((bm) => {
+    p.then((bm) => {   // alloc-rare: copy mode only (every caller passes copy: false); the figure's canvas takes the glass, this path never runs
       pending = false;
       if (lost || dead || job !== gen) { bm.close?.(); return; }
       fails = 0;
@@ -601,9 +601,9 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, bm);
       bm.close?.();
-      if (fbSize !== `${bw}x${bh}`) {
-        fbSize = `${bw}x${bh}`;
-        for (const [t, fb] of [[pass, fbPass], [blurred, fbOut]]) {
+      if (fbSize !== `${bw}x${bh}`) {   // alloc-rare: copy mode only (every caller passes copy: false); the figure's canvas takes the glass, this path never runs
+        fbSize = `${bw}x${bh}`;   // alloc-rare: copy mode only (every caller passes copy: false); the figure's canvas takes the glass, this path never runs
+        for (const [t, fb] of [[pass, fbPass], [blurred, fbOut]]) {   // alloc-rare: copy mode only (every caller passes copy: false); the figure's canvas takes the glass, this path never runs
           gl.bindTexture(gl.TEXTURE_2D, t);
           gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, bw, bh, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
           gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
@@ -618,11 +618,12 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       gl.bindFramebuffer(gl.FRAMEBUFFER, fbPass); gl.bindTexture(gl.TEXTURE_2D, copyTex); gl.uniform2f(BU.uDir, 1, 0); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       gl.bindFramebuffer(gl.FRAMEBUFFER, fbOut); gl.bindTexture(gl.TEXTURE_2D, pass); gl.uniform2f(BU.uDir, 0, 1); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      // alloc-rare: copy mode only (every caller passes copy: false); the figure's canvas takes the glass, this path never runs
       ready = { ...got };
       takenKey = key;
       readySeq++;
       ask();
-    }, () => {
+    }, () => {   // alloc-rare: copy mode only (every caller passes copy: false); the figure's canvas takes the glass, this path never runs
       // (A browser that refuses the copy keeps its own glass.)
       pending = false;
       if (job !== gen) return;
@@ -635,10 +636,10 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   }
   // Each callout's glass as the page lays it out this frame (its fades, glides and the card's shadow included).
   function readPanes(list, keep0 = false) {
-    fadeMemo = new Map();
-    fadedNow = new Set();
-    const panes = [];
-    const shows = (a) => keep0 || a > 0.001;   // (keep0: a glass faded right out is kept too, its fade put back each frame by the motion)
+    fadeMemo = new Map();   // alloc-rare: page read (readPanes, from measureGeo): runs when the page changed, never in a frame's draw
+    fadedNow = new Set();   // alloc-rare: page read (readPanes, from measureGeo): runs when the page changed, never in a frame's draw
+    const panes = [];   // alloc-rare: page read (readPanes, from measureGeo): runs when the page changed, never in a frame's draw
+    const shows = (a) => keep0 || a > 0.001;   // (keep0: a glass faded right out is kept too, its fade put back each frame by the motion)   // alloc-rare: page read (readPanes, from measureGeo): runs when the page changed, never in a frame's draw
     for (const g of list) {
       const el = cards ? g : g.parentElement, cs = getComputedStyle(g);
       if (!el || cs.display === 'none' || cs.visibility !== 'visible') continue;
@@ -647,35 +648,35 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       // (none shows); undefined reads the card as usual. The lobule's pills and the split sheet's cards, pseudo-elements; d: a mask path.)
       const q = cards?.read ? cards.read(g) : undefined;
       if (q !== undefined) {
-        for (const one of [].concat(q || [])) {
+        for (const one of [].concat(q || [])) {   // alloc-rare: page read (readPanes, from measureGeo): runs when the page changed, never in a frame's draw
           if (!one || !shows(a * one.a) || !one.r.width || !one.r.height) { if (one && one.r.width && one.r.height) fadedNow.add(g); continue; }
-          panes.push({ g, el, oa: one.a, a: a * one.a, r: one.r, d: one.d || null, rad: one.d ? null : one.rad, lw: one.r.width, lh: one.r.height, er: one.r, shadow: null, tint: one.tint, k: 1 });
+          panes.push({ g, el, oa: one.a, a: a * one.a, r: one.r, d: one.d || null, rad: one.d ? null : one.rad, lw: one.r.width, lh: one.r.height, er: one.r, shadow: null, tint: one.tint, k: 1 });   // alloc-rare: page read (readPanes, from measureGeo): runs when the page changed, never in a frame's draw
         }
         continue;
       }
       if (cards) {
         // (Its CSS says whether this element's glass is its own (--gl-glass 1) and what its tint is; a filter on it (a brightness) would
         // not reach a glass drawn here, so such a card keeps the browser's.)
-        if (cs.getPropertyValue('--gl-glass').trim() !== '1' || (cs.filter && cs.filter !== 'none')) continue;
+        if (cs.getPropertyValue('--gl-glass').trim() !== '1' || (cs.filter && cs.filter !== 'none')) continue;   // alloc-rare: page read (readPanes, from measureGeo): runs when the page changed, never in a frame's draw
         const r = drawnRect(g);
         if (!r.width || !r.height || !shows(a)) { if (r.width && r.height) fadedNow.add(g); continue; }
         const zk = g.drawnScale ? g.drawnScale() : 1;   // (a zoomed card's scale: its corners grow with it)
         // (A card's own edge and drop shadows, drawn here with its glass where its CSS names them (--gl-line, --gl-drop): the page's own
         // are taken off while it is drawn here ([data-gl="edge"]), so the card is one GPU shape that may change size in view.)
-        const drops = GPU_EDGE ? dropsOf(cs.getPropertyValue('--gl-drop')) : [], line = GPU_EDGE ? cs.getPropertyValue('--gl-line').trim() : '';
+        const drops = GPU_EDGE ? dropsOf(cs.getPropertyValue('--gl-drop')) : [], line = GPU_EDGE ? cs.getPropertyValue('--gl-line').trim() : '';   // alloc-rare: page read (readPanes, from measureGeo): runs when the page changed, never in a frame's draw
         // (cut: the still box a glass that slides is cut off at (a phone sheet's paper sliding below its resting foot, which the sheet's
         // own clip hides on the page): { bottom } in client px, from cards.cut(g), kept where it is while the glass moves.)
         const cut = cards.cut ? cards.cut(g) || null : null;
-        panes.push({ g, el, oa: 1, a, r, d: null, rad: zk > 1.001 || zk < 0.999 ? radiiOf(cs).map((v) => v * zk) : radiiOf(cs), lw: r.width, lh: r.height, er: r, shadow: null, tint: cs.getPropertyValue('--gl-tint'), k: 1, drops, line, cut });
+        panes.push({ g, el, oa: 1, a, r, d: null, rad: zk > 1.001 || zk < 0.999 ? radiiOf(cs).map((v) => v * zk) : radiiOf(cs), lw: r.width, lh: r.height, er: r, shadow: null, tint: cs.getPropertyValue('--gl-tint'), k: 1, drops, line, cut });   // alloc-rare: page read (readPanes, from measureGeo): runs when the page changed, never in a frame's draw
         continue;
       }
       const r = g.getBoundingClientRect(), lw = NUM(g.style.width), lh = NUM(g.style.height);
       if (!r.width || !r.height || !lw || !lh || !shows(a)) continue;
       // (The liver's pane: its own rounded box, tinted with --frost as it stands; its soft shadow, outside it, stays the DOM's.)
-      if (pane) { panes.push({ g, el, oa: 1, a, r, d: roundPath(lw, lh, NUM(cs.borderTopLeftRadius)), lw, lh, er: r, shadow: null, tint: cs.getPropertyValue('--frost'), k: 1 }); continue; }
+      if (pane) { panes.push({ g, el, oa: 1, a, r, d: roundPath(lw, lh, NUM(cs.borderTopLeftRadius)), lw, lh, er: r, shadow: null, tint: cs.getPropertyValue('--frost'), k: 1 }); continue; }   // alloc-rare: page read (readPanes, from measureGeo): runs when the page changed, never in a frame's draw
       const d = g.firstChild?.firstChild?.getAttribute?.('d');
       if (!d) continue;
-      panes.push({ g, el, oa: 1, a, r, d, lw, lh, er: el.getBoundingClientRect(), shadow: parseShadow(getComputedStyle(el).boxShadow), tint: cs.getPropertyValue('--surface'), k: GLASS.tint });
+      panes.push({ g, el, oa: 1, a, r, d, lw, lh, er: el.getBoundingClientRect(), shadow: parseShadow(getComputedStyle(el).boxShadow), tint: cs.getPropertyValue('--surface'), k: GLASS.tint });   // alloc-rare: page read (readPanes, from measureGeo): runs when the page changed, never in a frame's draw
     }
     return panes;
   }
@@ -700,7 +701,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       for (const p of panes) { x0 = Math.min(x0, p.r.left); y0 = Math.min(y0, p.r.top); x1 = Math.max(x1, p.r.right); y1 = Math.max(y1, p.r.bottom); }
       x0 = Math.max(0, x0 - cr.left - MARGIN); y0 = Math.max(0, y0 - cr.top - MARGIN);
       x1 = Math.min(cr.width, x1 - cr.left + MARGIN); y1 = Math.min(cr.height, y1 - cr.top + MARGIN);
-      if (x1 > x0 && y1 > y0 && !pending) take({ x: x0, y: y0, w: x1 - x0, h: y1 - y0 }, cr, N.sr);
+      if (x1 > x0 && y1 > y0 && !pending) take({ x: x0, y: y0, w: x1 - x0, h: y1 - y0 }, cr, N.sr);   // alloc-rare: copy mode only (every caller passes copy: false); the figure's canvas takes the glass, this path never runs
     }
     // No glass shows (all hidden, faded out or empty): the canvas is cleared once and nothing more is done. (A card still marked from an
     // earlier frame goes back to the browser's glass: its CSS may have turned its own off while it was the only one.)
@@ -713,7 +714,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   function paint(panes, cr, bgs, bg, bgVar) {
     // Everything this picture is drawn from: the blurred copy, the canvas, the stage's colour and each glass as laid out now (its place,
     // fade, shape, tint and the card's shadow). The same as the picture on the canvas: it is left as it is ('same').
-    const key = `${W}x${H}|${dpr}|${readySeq}|${cr.left}|${cr.top}|${bgs}|${bgVar}` + panesKey(panes);
+    const key = `${W}x${H}|${dpr}|${readySeq}|${cr.left}|${cr.top}|${bgs}|${bgVar}` + panesKey(panes);   // alloc-rare: copy mode only (every caller passes copy: false); the figure's canvas takes the glass, this path never runs
     if (drawn && key === drawnKey) return 'same';
     noteDraw(cards ? 'glass-cards' : pane ? 'glass-pane' : 'glass');
     if (gpuProbe.on) gpuProbe.note(cards ? COUNTED.cardDrawn : pane ? COUNTED.paneDrawn : COUNTED.glassDrawn);
@@ -726,7 +727,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     const base = bg[3] > 0 ? bg : colour(bgVar, 'transparent');
     gl.uniform3f(PU.uBg, base[0], base[1], base[2]);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, blurred);
-    drawPanes(gl, PU, panes, cr, dpr, (p) => maskOf(p.g, p.d, p.lw, p.lh));
+    drawPanes(gl, PU, panes, cr, dpr, (p) => maskOf(p.g, p.d, p.lw, p.lh));   // alloc-rare: copy mode only (every caller passes copy: false); the figure's canvas takes the glass, this path never runs
     drawn = true; drawnKey = key;
     return true;
   }
@@ -1251,17 +1252,17 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   }
   const stateOf = CLOCK ? clockState : readState;
   function timeAnim(an) {
-    const rec = { kf: null, c: null };
+    const rec = { kf: null, c: null };   // alloc-rare: an animation is timed once, the first time it is seen (trackSoon/measureGeo), never per frame
     try { rec.kf = an.effect?.getKeyframes?.() || null; } catch { rec.kf = null; }
     if (!CLOCK) return rec;
     const c = rec.c = clockOf(an, tlNow());
     if (!c) return rec;
-    const stop = (done) => () => { if (done) c.done = true; else c.idle = true; wake(); measureSoon(); };
+    const stop = (done) => () => { if (done) c.done = true; else c.idle = true; wake(); measureSoon(); };   // alloc-rare: an animation is timed once, the first time it is seen (trackSoon/measureGeo), never per frame
     try {
       an.addEventListener?.('finish', stop(true));
       an.addEventListener?.('cancel', stop(false));
       an.addEventListener?.('remove', stop(false));
-      if (c.s == null) an.ready?.then?.(() => { const s = an.startTime; if (Number.isFinite(s) && c.rate !== 0) c.s = s; wake(); }, () => {});
+      if (c.s == null) an.ready?.then?.(() => { const s = an.startTime; if (Number.isFinite(s) && c.rate !== 0) c.s = s; wake(); }, () => {});   // alloc-rare: an animation is timed once, the first time it is seen (trackSoon/measureGeo), never per frame
     } catch (e) { caught('glass-gl:1233', e); /* (a stand-in with no events: its timing alone) */ }
     return rec;
   }
@@ -1273,10 +1274,10 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   const ended = new Map();
   const RISE = !/[?&]glassrise=0\b/.test(SEARCH);
   const LIVE_READ = !/[?&]liveread=0\b/.test(SEARCH);
-  const chainOf = (g) => { const c = []; for (let e = g; e && e !== stop && e.nodeType !== 9; e = e.parentElement) c.push(e); return c; };
+  const chainOf = (g) => { const c = []; for (let e = g; e && e !== stop && e.nodeType !== 9; e = e.parentElement) c.push(e); return c; };   // alloc-rare: page read (measureGeo): runs when the page changed, never in a frame's draw
   function addAnim(e, an) {
     let m = anims.get(e);
-    if (!m) anims.set(e, (m = new Map()));
+    if (!m) anims.set(e, (m = new Map()));   // alloc-rare: page read (measureGeo): runs when the page changed, never in a frame's draw
     if (!m.has(an)) m.set(an, timeAnim(an));
   }
   function track(e) {
@@ -1297,7 +1298,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     if (!e || hooked.has(e) || typeof e.animate !== 'function') return;
     hooked.add(e);
     const own = e.animate;
-    e.animate = function (...args) { const an = own.apply(this, args); if (an) { addAnim(this, an); wake(); } return an; };
+    e.animate = function (...args) { const an = own.apply(this, args); if (an) { addAnim(this, an); wake(); } return an; };   // alloc-rare: an element's animate() is hooked once, the first time it is seen
   }
   const fillsOn = (an) => /forwards|both/.test(an.effect?.getTiming?.().fill || '');
   // One element's moving part now: { t: [x, y] (its translation), o (its opacity, or null when not moving) }; bad: something it cannot
@@ -1318,7 +1319,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
         const kf = rec.kf, S = stateOf(an, rec), st = S.st;
         if (st === 'idle' || (st === 'finished' && !S.fills)) {
           m.delete(an); flag.ended = true;
-          if (ENDS && st === 'finished') { const v = kf && motionAt(kf, 1); if (v) { const was = ended.get(e) || {}; ended.set(e, { t: v.t || was.t || null, o: v.o ?? was.o ?? null }); } }
+          if (ENDS && st === 'finished') { const v = kf && motionAt(kf, 1); if (v) { const was = ended.get(e) || {}; ended.set(e, { t: v.t || was.t || null, o: v.o ?? was.o ?? null }); } }   // alloc-rare: an animation has just finished (once per animation), not per frame
           continue;
         }
         if (S.bad) { flag.bad = true; continue; }
@@ -1359,11 +1360,11 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     if (u >= 1) return q.r0;
     const e = easeArrive(u), a = M.from, b = q.r0, L = a.left + (b.left - a.left) * e, T = a.top + (b.top - a.top) * e;
     const W = a.width + (b.width - a.width) * e, H = a.height + (b.height - a.height) * e;
-    return { left: L, top: T, right: L + W, bottom: T + H, width: W, height: H };
+    return { left: L, top: T, right: L + W, bottom: T + H, width: W, height: H };   // alloc-rare: page read (measureGeo's morph start), never in a frame's draw
   }
   // (card-zoom.js zoomAffine(): the zoom's scale s about (ox, oy), then the move (dx, dy), in screen px, as the card is drawn this frame.)
   const zoomed = (r, a) => { const f = (v, m, d) => m + (v - m) * a.s + d, l = f(r.left, a.ox, a.dx), t = f(r.top, a.oy, a.dy), rt = f(r.right, a.ox, a.dx), b = f(r.bottom, a.oy, a.dy); return { left: l, top: t, right: rt, bottom: b, width: rt - l, height: b - t }; };
-  const unzoom = (r, a) => { const f = (v, m, d) => m + (v - d - m) / a.s, l = f(r.left, a.ox, a.dx), t = f(r.top, a.oy, a.dy), rt = f(r.right, a.ox, a.dx), b = f(r.bottom, a.oy, a.dy); return { left: l, top: t, right: rt, bottom: b, width: rt - l, height: b - t }; };
+  const unzoom = (r, a) => { const f = (v, m, d) => m + (v - d - m) / a.s, l = f(r.left, a.ox, a.dx), t = f(r.top, a.oy, a.dy), rt = f(r.right, a.ox, a.dx), b = f(r.bottom, a.oy, a.dy); return { left: l, top: t, right: rt, bottom: b, width: rt - l, height: b - t }; };   // alloc-rare: page read (measureGeo takes a zoomed card back to its rest box), never in a frame's draw
   const shift = (r, t) => (t[0] || t[1] ? { left: r.left + t[0], top: r.top + t[1], right: r.right + t[0], bottom: r.bottom + t[1], width: r.width, height: r.height } : r);
   function chainMove(chain, flag) {
     let x = 0, y = 0, o = 1;
@@ -1378,48 +1379,48 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     const tgt = host?.canvas || canvas;
     for (const g of list) for (const e of chainOf(g)) { track(e); hook(e); }
     if (tgt) track(tgt);
-    const flag = {};
-    const cr = tgt ? tgt.getBoundingClientRect() : { left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 };
-    const cm = tgt ? moveOf(tgt, flag) : { t: [0, 0] };
+    const flag = {};   // alloc-rare: page read (measureGeo): runs when the page changed, never in a frame's draw
+    const cr = tgt ? tgt.getBoundingClientRect() : { left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 };   // alloc-rare: page read (measureGeo): runs when the page changed, never in a frame's draw
+    const cm = tgt ? moveOf(tgt, flag) : { t: [0, 0] };   // alloc-rare: page read (measureGeo): runs when the page changed, never in a frame's draw
     const vw = document.documentElement?.clientWidth || window.innerWidth || cr.right, vh = document.documentElement?.clientHeight || window.innerHeight || cr.bottom;
     const ws = getComputedStyle(wrap), bgs = ws.backgroundColor;
     resolveColour(bgs);
     const bg = colour(bgs, 'transparent');
-    const bgVar = bg[3] > 0 ? '' : ws.getPropertyValue('--stage-bg').trim() || ws.getPropertyValue('--bg').trim();
+    const bgVar = bg[3] > 0 ? '' : ws.getPropertyValue('--stage-bg').trim() || ws.getPropertyValue('--bg').trim();   // alloc-rare: page read (measureGeo): runs when the page changed, never in a frame's draw
     resolveColour(bgVar);
-    const prev = geo?.panes || [], tNow = performance.now();
-    const panes = readPanes(list, MOTION).map((p) => {
+    const prev = geo?.panes || [], tNow = performance.now();   // alloc-rare: page read (measureGeo): runs when the page changed, never in a frame's draw
+    const panes = readPanes(list, MOTION).map((p) => {   // alloc-rare: page read (measureGeo): runs when the page changed, never in a frame's draw
       resolveColour(p.tint);
       if (p.line) resolveColour(p.line);
-      for (const d of p.drops || []) resolveColour(d.c);
+      for (const d of p.drops || []) resolveColour(d.c);   // alloc-rare: page read (measureGeo): runs when the page changed, never in a frame's draw
       const chain = chainOf(p.g);
-      for (const e of chain) { const so = e.style?.opacity; if (so !== '' && so != null && ![...(anims.get(e) || [])].some(([an, rec]) => stateOf(an, rec).st === 'running') && Math.abs(fadeOf(e) - NUM(so)) > 0.01) inlineLoses.add(e); else inlineLoses.delete(e); }
+      for (const e of chain) { const so = e.style?.opacity; if (so !== '' && so != null && ![...(anims.get(e) || [])].some(([an, rec]) => stateOf(an, rec).st === 'running') && Math.abs(fadeOf(e) - NUM(so)) > 0.01) inlineLoses.add(e); else inlineLoses.delete(e); }   // alloc-rare: page read (measureGeo): runs when the page changed, never in a frame's draw
       const mv = chainMove(chain, flag);
       // (The fade of what does not move, read now; what moves is put back each frame.)
       let aS = p.oa ?? 1;
       for (const e of chain) { if (moveOf(e, flag).o != null) continue; const v = fadeOf(e); if (v < 1) aS *= v; }   // (a missing or odd value is no fade)
-      const back = [-mv.t[0], -mv.t[1]];
+      const back = [-mv.t[0], -mv.t[1]];   // alloc-rare: page read (measureGeo): runs when the page changed, never in a frame's draw
       // (A card card-zoom.js moves: its box is the rest box, its motion the zoom's analytic one (zoomAffine, put back each frame in nowGeo), so what is
       // read now, at the zoom it has, is taken back to where the card rests.)
       const za = p.g.zoomAffine?.() ?? null;
-      const rest = (r) => (za ? unzoom(r, za) : r);
+      const rest = (r) => (za ? unzoom(r, za) : r);   // alloc-rare: page read (measureGeo): runs when the page changed, never in a frame's draw
       const r0 = rest(shift(p.r, back)), er0 = rest(shift(p.er, back));
       // (A card the page asks to change size in view (data-gl-morph: the teaching card's glass kept up through a slide change) eases from
       // where it is drawn now to its new box on the GPU, its edge and shadows with it; read again mid-way, it carries on from there.)
       let morph = null;
       if (GPU_EDGE && p.rad && !p.d) {
-        const q = prev.find((x) => x.g === p.g && x.rad && !x.d);
+        const q = prev.find((x) => x.g === p.g && x.rad && !x.d);   // alloc-rare: page read (measureGeo): runs when the page changed, never in a frame's draw
         if (q) {
           const cur = morphAt(q, tNow);
-          if (p.g.hasAttribute('data-gl-morph') && !sameRect(cur, r0)) morph = { from: cur, t0: tNow, ms: D_SURFACE };
+          if (p.g.hasAttribute('data-gl-morph') && !sameRect(cur, r0)) morph = { from: cur, t0: tNow, ms: D_SURFACE };   // alloc-rare: page read (measureGeo): runs when the page changed, never in a frame's draw
           else if (q.morph && tNow - q.morph.t0 < q.morph.ms && sameRect(q.r0, r0)) morph = q.morph;
         }
       }
       if (morph) liveUntil = Math.max(liveUntil, morph.t0 + morph.ms + 34);
-      return { ...p, chain, r0, er0, aS, morph, zoomed: !!za, rad0: za && p.rad ? p.rad.map((v) => v / za.s) : p.rad };
+      return { ...p, chain, r0, er0, aS, morph, zoomed: !!za, rad0: za && p.rad ? p.rad.map((v) => v / za.s) : p.rad };   // alloc-rare: page read (measureGeo): runs when the page changed, never in a frame's draw
     });
-    const over = host ? (cards ? { low: host.over?.('low') || [], high: host.over?.('high') || [] } : { all: host.over?.() || [] }) : null;
-    geo = { list, cr0: shift(cr, [-cm.t[0], -cm.t[1]]), tgt, sr: source.getBoundingClientRect(), vw, vh, bgs, bg, bgVar, panes, over, vk: host?.view?.() ?? null };
+    const over = host ? (cards ? { low: host.over?.('low') || [], high: host.over?.('high') || [] } : { all: host.over?.() || [] }) : null;   // alloc-rare: page read (measureGeo): runs when the page changed, never in a frame's draw
+    geo = { list, cr0: shift(cr, [-cm.t[0], -cm.t[1]]), tgt, sr: source.getBoundingClientRect(), vw, vh, bgs, bg, bgVar, panes, over, vk: host?.view?.() ?? null };   // alloc-rare: page read (measureGeo): runs when the page changed, never in a frame's draw
     if (watchRo) { if (tgt) watchRo.observe(tgt); for (const g of list) watchRo.observe(g); }
     wake();
   }
@@ -1455,7 +1456,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   /** The page read again just after this frame (or now, outside a frame), once however often asked. */
   function measureSoon(ms = 0) { if (!geoT) geoT = setTimeout(measureGeo, ms); }
   // (The labels drawn anew (their boxes may now lie across a glass): read once they rest, 250 ms after the last change.)
-  function measureAtRest() { clearTimeout(restT); restT = setTimeout(() => { restT = 0; measureGeo(); }, 250); }
+  function measureAtRest() { clearTimeout(restT); restT = setTimeout(() => { restT = 0; measureGeo(); }, 250); }   // alloc-rare: the labels' rest timer is armed from a redraw, not drawn per frame
   let vkSeen = null, vkAt = 0;
   /** The glasses as they are this frame, from geo and their motion: { cr, panes, sr, bgs, bg, bgVar, over, vw, vh }, or null with none read yet. */
   function nowGeo(list) {
