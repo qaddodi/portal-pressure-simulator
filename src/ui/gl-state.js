@@ -99,7 +99,7 @@ function wrap(gl, r) {
   own('drawElementsInstanced', (f) => (m, n, t, o, k) => { f(m, n, t, o, k); pass('draw', n * k); });
   own('clear', (f) => (m) => { f(m); if (hook) hook(gl, 'clear', clearArea()); });
   for (const name of ['clearBufferfv', 'clearBufferiv', 'clearBufferuiv', 'clearBufferfi']) {
-    own(name, (f) => (...a) => { f(...a); if (hook) hook(gl, 'clear', clearArea()); });
+    own(name, (f) => (b, i, v, o) => { if (o === undefined) f(b, i, v); else f(b, i, v, o); if (hook) hook(gl, 'clear', clearArea()); });   // (named arguments, no rest array: called every frame)
   }
   own('blitFramebuffer', (f) => (a, b, c, d, e, g, h, i, m, n) => { f(a, b, c, d, e, g, h, i, m, n); if (hook) hook(gl, 'copy', Math.abs((h - e) * (i - g))); });
   own('copyTexSubImage2D', (f) => (t, l, a, b, x, y, w, h) => { f(t, l, a, b, x, y, w, h); if (hook) hook(gl, 'copy', w * h); });

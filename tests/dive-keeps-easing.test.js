@@ -36,7 +36,7 @@ test('model frames update the anatomy while it shows through the zoom, and only 
 test('the frame loop draws what eases while the anatomy shows; at rest the zoom only moves the blood (no idle redraws)', () => {
   const ease = line('const anatEasing = () =>') + st.slice(st.indexOf('const anatEasing = () =>')).split('\n')[1];
   assert.match(ease, /liveOn\(\) && !anatCovered\(\) && !diveHid && diveFadeO !== 0/);
-  for (const e of ['widthEasing', 'ascShown !== ascTarget', 'veinsDirty', 'lvMoving', 'spleenMoving()', 'plateEasing()', 'x.reveal']) assert.ok(ease.includes(e), e);
+  for (const e of ['widthEasing', 'ascShown !== ascTarget', 'veinsDirty', 'lvMoving', 'spleenMoving()', 'plateEasing()', 'anyReveal()']) assert.ok(ease.includes(e), e);
   const loop = fn('  function animate(now) {');
   const gate = loop.indexOf('if (diveT > 0 && diveT < 1 && !drawOnce && !forceDraw && !anatEasing()) {');
   assert.ok(gate > 0, 'the dive holds the figure only when nothing on it eases');

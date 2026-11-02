@@ -7,7 +7,7 @@
 // the minute (frame.js watchFrames: nothing is timed while nobody watches).
 import { watchFrames, shedStats, mayStats, targetHz, frameBudget } from './frame.js?v=897b4f8e7e';
 import { createFrameRecorder, summarize, longFrameLine } from './frame-stats.js?v=5cd07c7e9b';
-import { tierLog } from './adapt-tier.js?v=d916b4b4b7';
+import { tierLog } from './adapt-tier.js?v=cf7fd31cd8';
 import { countReads, layoutReads } from './layout-snap.js?v=c1e0ef7c11';
 
 export const REPORT_S = 60;

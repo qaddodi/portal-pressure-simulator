@@ -58,11 +58,13 @@ void main() {
   }
 }`;
 
-import { createShapeGL } from './shape-gl.js?v=785ee20a7f';
-import { createOrganPaint, mul, prestartOrganPaint } from './organ-paint.js?v=1221ba353e';
-import { prestart, linkProgram } from './gl-compile.js?v=0ca233872f';
+import { createShapeGL } from './shape-gl.js?v=b6b160b28e';
+import { createOrganPaint, mul, prestartOrganPaint } from './organ-paint.js?v=8114d8757a';
+import { prestart, linkProgram } from './gl-compile.js?v=c4010cf467';
 import { netChanged } from './idle-keys.js?v=81fbedda6b';
 import { easeMove, D_SURFACE } from './ease.js?v=7513a88c68';
+// (The colour a clear writes, one array for every clear: none made per call, plan rev 2 §2.8.)
+const CLEAR0 = new Float32Array(4);
 
 /** The pixels (bytes) of live groups' pictures kept at a time on a canvas cw × ch: most of a screen, never more than 12 MB (an iPhone's budget is a few MB). */
 export const cacheBudget = (cw, ch) => Math.min(cw * ch * 4 * 0.75, 12e6);
@@ -209,7 +211,7 @@ export function createOrganStack(gl, { painter: shared = null } = {}) {
       gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
       gl.viewport(0, 0, W, H);
       gl.disable(gl.SCISSOR_TEST);
-      gl.clearBufferfv(gl.COLOR, 0, [0, 0, 0, 0]);
+      gl.clearBufferfv(gl.COLOR, 0, CLEAR0);
       gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
       // (World → the picture's pixels, y down; on the GPU its first row lands at the bottom, which the layer's draw turns back: flip.)
       const T = [W / rect[2], 0, 0, H / rect[3], -rect[0] * W / rect[2], -rect[1] * H / rect[3]];
@@ -228,7 +230,7 @@ export function createOrganStack(gl, { painter: shared = null } = {}) {
               // (The painter's layers were made again meanwhile, a half-painted group with them: the picture starts over.)
               cur = null; gi = 0;
               gl.bindFramebuffer(gl.FRAMEBUFFER, fb); gl.viewport(0, 0, W, H); gl.disable(gl.SCISSOR_TEST);
-              gl.clearBufferfv(gl.COLOR, 0, [0, 0, 0, 0]);
+              gl.clearBufferfv(gl.COLOR, 0, CLEAR0);
               break;
             }
             if (r !== 'done') break;
@@ -371,7 +373,7 @@ export function createOrganStack(gl, { painter: shared = null } = {}) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
       gl.viewport(0, 0, w, h);
       clip();
-      gl.clearBufferfv(gl.COLOR, 0, [0, 0, 0, 0]);
+      gl.clearBufferfv(gl.COLOR, 0, CLEAR0);
       gl.disable(gl.SCISSOR_TEST);
       mat.set([m[0], m[1], 0, m[2], m[3], 0, m[4], m[5], 1]);
       // (A layer's quad within the box being drawn: `b` for one laid under a cut, else the stack's.)
@@ -428,7 +430,7 @@ export function createOrganStack(gl, { painter: shared = null } = {}) {
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
         gl.viewport(0, 0, bw, bh);
         gl.disable(gl.SCISSOR_TEST);
-        gl.clearBufferfv(gl.COLOR, 0, [0, 0, 0, 0]);
+        gl.clearBufferfv(gl.COLOR, 0, CLEAR0);
         // (Its frame moved by whole device pixels, so every shape is cut as it is in place.)
         painter.paintGroupInto(o.spec, mul([1, 0, 0, 1, -box[0], -box[1]], mul(m, o.m)), bw, bh, fb, cw, ch);
         cache.set(o.spec, { key, tex, fb, box, bytes }); cacheBytes += bytes;
