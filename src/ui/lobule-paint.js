@@ -3,16 +3,17 @@
 // in it: it draws through a 2D-context API that paint-gl.js records and the GPU paints (1 Nov 2026, nothing off the GPU), from
 // the same plain values (the view's worldInput).
 
-import { cordTone, bandOutline } from './lobule-look.js?v=6f03da8f1b';
+import { cordToneInto, bandOutline } from './lobule-look.js?v=4368630f97';
 
 const TAU = Math.PI * 2;
+const TONE = [0, 0, 0];   // (a cell's tone, written anew for each cell and read at once)
 const lerp = (a, b, t) => a + (b - a) * t;
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));   // (as util.js clamp)
 function at(pts, u) {
   const f = clamp(u, 0, 1) * (pts.length - 1), i = Math.min(pts.length - 2, Math.floor(f)), t = f - i;
-  return [lerp(pts[i][0], pts[i + 1][0], t), lerp(pts[i][1], pts[i + 1][1], t)];
+  return [lerp(pts[i][0], pts[i + 1][0], t), lerp(pts[i][1], pts[i + 1][1], t)];   // alloc-rare: painted (recorded) into the cached tissue bitmap or a field tile only when its key changes (paintTissue: wk !== worldKey, spareMake, fieldTile's tile cache), never on a frame that repeats the state
 }
-export const css = (a, al = 1) => `rgba(${Math.round(a[0] * 255)},${Math.round(a[1] * 255)},${Math.round(a[2] * 255)},${al})`;
+export const css = (a, al = 1) => `rgba(${Math.round(a[0] * 255)},${Math.round(a[1] * 255)},${Math.round(a[2] * 255)},${al})`;   // alloc-rare: painted (recorded) into the cached tissue bitmap or a field tile only when its key changes (paintTissue: wk !== worldKey, spareMake, fieldTile's tile cache), never on a frame that repeats the state
 
 // The colour tokens the painting reads (a token, optionally with an alpha): on the page the live tokens (lobule-zoom.js tk), in the
 // worker the same tokens' values, sent with each job (TOKENS, tokenReader).
@@ -36,28 +37,28 @@ export const tokenReader = (T) => (n, a) => {
 export const fibHash = (i) => { let q = (i * 374761393 + 668265263) >>> 0; q = ((q ^ (q >>> 13)) * 1274126177) >>> 0; return (q >>> 8) / 16777216; };
 /** A band's centre line and widths: 27 samples (n = 26), each with its point P, unit normal N and width Wd; L0, the chord's length. */
 export function bandGeom(A, B, { w, seed = 0, e0 = 1.5, e1 = 1.5, amp = 0, path = null }) {
-  const n = 26, P = [], N = [], Wd = [];
+  const n = 26, P = [], N = [], Wd = [];   // alloc-rare: painted (recorded) into the cached tissue bitmap or a field tile only when its key changes (paintTissue: wk !== worldKey, spareMake, fieldTile's tile cache), never on a frame that repeats the state
   const ph = fibHash(seed) * TAU, ph2 = fibHash(seed + 9) * TAU;
   const dx = B[0] - A[0], dy = B[1] - A[1], L0 = Math.hypot(dx, dy) || 1;
   for (let i = 0; i <= n; i++) {
     const u = i / n;
     if (path) P.push(path(u));
-    else { const e = amp * Math.sin(Math.PI * u) * (0.75 * Math.sin(3 * Math.PI * u + ph) + 0.25 * Math.sin(7 * Math.PI * u + ph2)); P.push([A[0] + dx * u - (dy / L0) * e, A[1] + dy * u + (dx / L0) * e]); }
+    else { const e = amp * Math.sin(Math.PI * u) * (0.75 * Math.sin(3 * Math.PI * u + ph) + 0.25 * Math.sin(7 * Math.PI * u + ph2)); P.push([A[0] + dx * u - (dy / L0) * e, A[1] + dy * u + (dx / L0) * e]); }   // alloc-rare: painted (recorded) into the cached tissue bitmap or a field tile only when its key changes (paintTissue: wk !== worldKey, spareMake, fieldTile's tile cache), never on a frame that repeats the state
   }
   for (let i = 0; i <= n; i++) {
     const p = P[Math.max(0, i - 1)], q = P[Math.min(n, i + 1)], ex = q[0] - p[0], ey = q[1] - p[1], L = Math.hypot(ex, ey) || 1, u = i / n;
-    N.push([-ey / L, ex / L]);
+    N.push([-ey / L, ex / L]);   // alloc-rare: painted (recorded) into the cached tissue bitmap or a field tile only when its key changes (paintTissue: wk !== worldKey, spareMake, fieldTile's tile cache), never on a frame that repeats the state
     const lump = 0.78 + 0.22 * Math.sin(TAU * 1.4 * u + ph) + 0.14 * Math.sin(TAU * 3.3 * u + ph2);
     const end = 1 + (e0 - 1) * Math.max(0, 1 - u * 3) ** 2 + (e1 - 1) * Math.max(0, u * 3 - 2) ** 2;
     Wd.push(Math.max(0, w * lump * end));
   }
-  return { n, P, N, Wd, L0 };
+  return { n, P, N, Wd, L0 };   // alloc-rare: painted (recorded) into the cached tissue bitmap or a field tile only when its key changes (paintTissue: wk !== worldKey, spareMake, fieldTile's tile cache), never on a frame that repeats the state
 }
 /** Fibre f of a band: its offset across the band (in widths), phase, waviness, where along it (samples iA … iB) and how thick (world units). */
 export function bandFibre(seed, f, w, n = 26) {
   const off = (fibHash(seed * 31 + f) - 0.5) * 0.9, fp = fibHash(seed * 17 + f) * TAU, wav = 0.05 + 0.08 * fibHash(seed * 7 + f);
   const u0 = fibHash(seed * 13 + f) * 0.25, u1 = 1 - fibHash(seed * 19 + f) * 0.25;
-  return { off, fp, wav, iA: Math.floor(u0 * n), iB: Math.ceil(u1 * n), lw: Math.max(0.45, w * (0.035 + 0.03 * fibHash(seed * 5 + f))), deep: f % 3 === 0 };
+  return { off, fp, wav, iA: Math.floor(u0 * n), iB: Math.ceil(u1 * n), lw: Math.max(0.45, w * (0.035 + 0.03 * fibHash(seed * 5 + f))), deep: f % 3 === 0 };   // alloc-rare: painted (recorded) into the cached tissue bitmap or a field tile only when its key changes (paintTissue: wk !== worldKey, spareMake, fieldTile's tile cache), never on a frame that repeats the state
 }
 /** How many fibres a band has, and how many nuclei (0 when it is too small on screen or too narrow to show them). */
 export const bandFibreCount = (w, detail = 1) => (detail <= 0 || w < 1.2 ? 0 : Math.round((3 + Math.min(7, w / 1.6)) * detail));
@@ -66,20 +67,20 @@ export const bandNucleiCount = (g, w, detail = 1) => (detail <= 0 || w < 1.2 || 
 export function bandNucleus(g, seed, k, w) {
   const { n, P, N, Wd } = g;
   const i = Math.min(n - 1, Math.max(1, Math.round(fibHash(seed * 41 + k) * n))), h = Wd[i] * (fibHash(seed * 43 + k) - 0.5) * 0.7;
-  return { x: P[i][0] + N[i][0] * h, y: P[i][1] + N[i][1] * h, rx: Math.max(0.8, w * 0.16), ry: Math.max(0.35, w * 0.045), ang: Math.atan2(N[i][0], -N[i][1]) };
+  return { x: P[i][0] + N[i][0] * h, y: P[i][1] + N[i][1] * h, rx: Math.max(0.8, w * 0.16), ry: Math.max(0.35, w * 0.045), ang: Math.atan2(N[i][0], -N[i][1]) };   // alloc-rare: painted (recorded) into the cached tissue bitmap or a field tile only when its key changes (paintTissue: wk !== worldKey, spareMake, fieldTile's tile cache), never on a frame that repeats the state
 }
 export function fibrousBand(c, A, B, { w, rgb, a = 1, seed = 0, e0 = 1.5, e1 = 1.5, amp = 0, detail = 1, path = null }) {
-  const g = bandGeom(A, B, { w, seed, e0, e1, amp, path }), { n, P, N, Wd } = g;
+  const g = bandGeom(A, B, { w, seed, e0, e1, amp, path }), { n, P, N, Wd } = g;   // alloc-rare: painted (recorded) into the cached tissue bitmap or a field tile only when its key changes (paintTissue: wk !== worldKey, spareMake, fieldTile's tile cache), never on a frame that repeats the state
   // (Round ends, so bands meeting at a tract blend; the widest, faintest pass narrows to the middle one's width at the
   // ends, so it leaves no outer halo round the tract.)
-  const outline = (k) => bandOutline(c, P, N, Wd, k, Math.min(k, 1.45));
+  const outline = (k) => bandOutline(c, P, N, Wd, k, Math.min(k, 1.45));   // alloc-rare: painted (recorded) into the cached tissue bitmap or a field tile only when its key changes (paintTissue: wk !== worldKey, spareMake, fieldTile's tile cache), never on a frame that repeats the state
   // Soft edges: the band laid down in three passes, wide and faint to narrow and dense.
   const sb = c.shadowBlur;   // a shade (set by the caller) is cast by the faint outer pass only
-  for (const [k, al] of [[2.1, 0.12], [1.45, 0.24], [1, 0.5]]) { c.fillStyle = css(rgb, al * a); outline(k); c.fill(); c.shadowBlur = 0; }
+  for (const [k, al] of [[2.1, 0.12], [1.45, 0.24], [1, 0.5]]) { c.fillStyle = css(rgb, al * a); outline(k); c.fill(); c.shadowBlur = 0; }   // alloc-rare: painted (recorded) into the cached tissue bitmap or a field tile only when its key changes (paintTissue: wk !== worldKey, spareMake, fieldTile's tile cache), never on a frame that repeats the state
   c.shadowBlur = sb;
   if (detail <= 0 || w < 1.2) return;
   // Fibres: thin wavy strands along the band, some brighter, some deeper.
-  const lite = rgb.map((x) => x + (1 - x) * 0.45), deep = rgb.map((x, j) => x * [0.78, 0.74, 0.7][j]);
+  const lite = rgb.map((x) => x + (1 - x) * 0.45), deep = rgb.map((x, j) => x * [0.78, 0.74, 0.7][j]);   // alloc-rare: painted (recorded) into the cached tissue bitmap or a field tile only when its key changes (paintTissue: wk !== worldKey, spareMake, fieldTile's tile cache), never on a frame that repeats the state
   const nf = bandFibreCount(w, detail);
   c.lineCap = 'round'; c.shadowBlur = 0;
   for (let f = 0; f < nf; f++) {
@@ -120,12 +121,12 @@ export function fibrousTract(c, x, y, radius, angle, rgb, fibrosis, seed, detail
   for (let k = 0; k < count; k++) {
     const sd = seed + k * 37, a0 = fibHash(sd) * TAU;
     const span = 1.2 + 2 * fibHash(sd + 1), r0 = 0.25 + 0.65 * fibHash(sd + 2);
-    const path = (u) => {
+    const path = (u) => {   // alloc-rare: painted (recorded) into the cached tissue bitmap or a field tile only when its key changes (paintTissue: wk !== worldKey, spareMake, fieldTile's tile cache), never on a frame that repeats the state
       const a = a0 + span * u;
       const r = r0 + 0.09 * Math.sin(5 * a + phase) + 0.12 * Math.sin(Math.PI * u);
-      return [Math.cos(a) * rx * r, Math.sin(a) * ry * r];
+      return [Math.cos(a) * rx * r, Math.sin(a) * ry * r];   // alloc-rare: painted (recorded) into the cached tissue bitmap or a field tile only when its key changes (paintTissue: wk !== worldKey, spareMake, fieldTile's tile cache), never on a frame that repeats the state
     };
-    fibrousBand(c, path(0), path(1), {
+    fibrousBand(c, path(0), path(1), {   // alloc-rare: painted (recorded) into the cached tissue bitmap or a field tile only when its key changes (paintTissue: wk !== worldKey, spareMake, fieldTile's tile cache), never on a frame that repeats the state
       w: radius * (0.08 + 0.085 * fibrosis) * (0.7 + fibHash(sd + 3)),
       rgb, a: Math.min(1, fibrosis * (0.75 + 0.35 * fibHash(sd + 4))),
       e0: 0.2, e1: 0.25, seed: sd, path, detail,
@@ -137,7 +138,7 @@ export function fibrousTract(c, x, y, radius, angle, rgb, fibrosis, seed, detail
 // Perivenular collagen: overlapping curved bundles rather than a smooth, solid disc.
 // Like the bridging bands, this texture is painted only into the cached tissue bitmap.
 export function fibrousCuff(c, cx, cy, inner, outer, rgb, fibrosis) {
-  const annulus = () => {
+  const annulus = () => {   // alloc-rare: painted (recorded) into the cached tissue bitmap or a field tile only when its key changes (paintTissue: wk !== worldKey, spareMake, fieldTile's tile cache), never on a frame that repeats the state
     c.beginPath();
     for (let i = 0; i <= 80; i++) {
       const a = TAU * i / 80, r = outer * (1 + 0.035 * Math.sin(3 * a) + 0.025 * Math.sin(7 * a + 0.8));
@@ -151,11 +152,11 @@ export function fibrousCuff(c, cx, cy, inner, outer, rgb, fibrosis) {
   for (let ring = 0; ring < 3; ring++) for (let k = 0; k < 6; k++) {
     const seed = 211 + ring * 17 + k, a0 = TAU * k / 6 + ring * 0.27;
     const span = TAU / 6 * (1.2 + 0.5 * fibHash(seed)), r0 = inner + thickness * (0.18 + ring * 0.3);
-    const path = (u) => {
+    const path = (u) => {   // alloc-rare: painted (recorded) into the cached tissue bitmap or a field tile only when its key changes (paintTissue: wk !== worldKey, spareMake, fieldTile's tile cache), never on a frame that repeats the state
       const a = a0 + span * u, r = r0 + thickness * 0.1 * Math.sin(a * 5 + fibHash(seed + 5) * TAU);
-      return [cx + Math.cos(a) * r, cy + Math.sin(a) * r];
+      return [cx + Math.cos(a) * r, cy + Math.sin(a) * r];   // alloc-rare: painted (recorded) into the cached tissue bitmap or a field tile only when its key changes (paintTissue: wk !== worldKey, spareMake, fieldTile's tile cache), never on a frame that repeats the state
     };
-    fibrousBand(c, path(0), path(1), { w: thickness * 0.34, rgb, a: Math.min(1, 1.0 * fibrosis), e0: 0.45, e1: 0.5, seed, path });
+    fibrousBand(c, path(0), path(1), { w: thickness * 0.34, rgb, a: Math.min(1, 1.0 * fibrosis), e0: 0.45, e1: 0.5, seed, path });   // alloc-rare: painted (recorded) into the cached tissue bitmap or a field tile only when its key changes (paintTissue: wk !== worldKey, spareMake, fieldTile's tile cache), never on a frame that repeats the state
   }
   c.restore();
 }
@@ -165,12 +166,12 @@ export function fibrousCuff(c, cx, cy, inner, outer, rgb, fibrosis) {
 // calibers; cvIn, the central vein's.
 export function paintLobule(c, P) {
   const { m, G, dark, zonesOn, rgb } = P, { R, cx, cy, lobules } = G;
-  { const l = lobules[0], bq = rgb.bg; c.fillStyle = css(rgb.gap.map((x, i) => lerp(bq[i], x, 0.55)), 1); c.beginPath(); l.corners.forEach(([x, y], i) => { const px = l.x + (x - l.x) * 1.015, py = l.y + (y - l.y) * 1.015; if (i) c.lineTo(px, py); else c.moveTo(px, py); }); c.closePath(); c.fill(); }
+  { const l = lobules[0], bq = rgb.bg; c.fillStyle = css(rgb.gap.map((x, i) => lerp(bq[i], x, 0.55)), 1); c.beginPath(); l.corners.forEach(([x, y], i) => { const px = l.x + (x - l.x) * 1.015, py = l.y + (y - l.y) * 1.015; if (i) c.lineTo(px, py); else c.moveTo(px, py); }); c.closePath(); c.fill(); }   // alloc-rare: painted (recorded) into the cached tissue bitmap or a field tile only when its key changes (paintTissue: wk !== worldKey, spareMake, fieldTile's tile cache), never on a frame that repeats the state
   const gap = rgb.gap, cell = rgb.cell;
   const COL = rgb.col;   // (light and Soft: a deeper tan than the collagen token, to read on the pale cells)
-  const PRE = dark ? [0.86, 0.78, 0.6] : [0.78, 0.64, 0.44];   // periportal scar: deeper than COL to read on the tissue
-  const DIS = rgb.dis, col = (a) => css(DIS, a);   // (the space of Disse's lining keeps the paler collagen)
-  const hexPath = (l, k = 1) => { c.beginPath(); l.corners.forEach(([x, y], i) => { const px = l.x + (x - l.x) * k, py = l.y + (y - l.y) * k; if (i) c.lineTo(px, py); else c.moveTo(px, py); }); c.closePath(); };
+  const PRE = dark ? [0.86, 0.78, 0.6] : [0.78, 0.64, 0.44];   // periportal scar: deeper than COL to read on the tissue   // alloc-rare: painted (recorded) into the cached tissue bitmap or a field tile only when its key changes (paintTissue: wk !== worldKey, spareMake, fieldTile's tile cache), never on a frame that repeats the state
+  const DIS = rgb.dis, col = (a) => css(DIS, a);   // (the space of Disse's lining keeps the paler collagen)   // alloc-rare: painted (recorded) into the cached tissue bitmap or a field tile only when its key changes (paintTissue: wk !== worldKey, spareMake, fieldTile's tile cache), never on a frame that repeats the state
+  const hexPath = (l, k = 1) => { c.beginPath(); l.corners.forEach(([x, y], i) => { const px = l.x + (x - l.x) * k, py = l.y + (y - l.y) * k; if (i) c.lineTo(px, py); else c.moveTo(px, py); }); c.closePath(); };   // alloc-rare: painted (recorded) into the cached tissue bitmap or a field tile only when its key changes (paintTissue: wk !== worldKey, spareMake, fieldTile's tile cache), never on a frame that repeats the state
   // The lobule's own plates: hepatocytes in radial cords, one cell thick.
   const main = lobules[0];
   hexPath(main); c.fillStyle = css(gap, dark ? 0.55 : 0.5); c.fill();
@@ -181,9 +182,9 @@ export function paintLobule(c, P) {
   for (const k of G.cells) {
     const z3 = k.q < 0.4, dead = z3 && cu > 0.12 && k.drop < cu * (1.25 - k.q * 1.6);
     const t = 0.88 + 0.12 * k.tone;
-    const base = dark ? cell.map((x, i) => lerp(gap[i], x, 0.28)) : cell;
+    const base = dark ? cell.map((x, i) => lerp(gap[i], x, 0.28)) : cell;   // alloc-rare: painted (recorded) into the cached tissue bitmap or a field tile only when its key changes (paintTissue: wk !== worldKey, spareMake, fieldTile's tile cache), never on a frame that repeats the state
     // (Zone 3, by the central vein, deeper and warmer than zone 1: cordTone.)
-    const fill = dead ? (dark ? [0.42, 0.33, 0.3] : [0.93, 0.86, 0.72]) : cordTone(base.map((x) => x * t + (1 - t) * (dark ? 0.15 : 1) * 0.3), k.q, dark);
+    const fill = dead ? (dark ? [0.42, 0.33, 0.3] : [0.93, 0.86, 0.72]) : cordToneInto(TONE, base.map((x) => x * t + (1 - t) * (dark ? 0.15 : 1) * 0.3), k.q, dark);   // alloc-rare: painted (recorded) into the cached tissue bitmap or a field tile only when its key changes (paintTissue: wk !== worldKey, spareMake, fieldTile's tile cache), never on a frame that repeats the state
     // In cirrhosis the plates thicken and lose their order (regenerating nodules).
     const sj = m.septU, dz = sj * Math.min(k.l, k.w) * 0.45;
     c.save(); c.translate(k.x + k.jx * dz, k.y + k.jy * dz); c.rotate(k.a + k.ja * sj * 0.9);
@@ -202,16 +203,16 @@ export function paintLobule(c, P) {
   }
   // Zones of the acinus (toggle): hexagonal bands from the triads (1) to the central vein (3).
   if (zonesOn) {
-    [[1, 0], [0.66, 1], [0.36, 2]].forEach(([k, i]) => { hexPath(main, k); c.fillStyle = tk(`--lz-zone-${i + 1}`, dark ? 0.2 : 0.17); c.fill(); });
+    [[1, 0], [0.66, 1], [0.36, 2]].forEach(([k, i]) => { hexPath(main, k); c.fillStyle = tk(`--lz-zone-${i + 1}`, dark ? 0.2 : 0.17); c.fill(); });   // alloc-rare: painted (recorded) into the cached tissue bitmap or a field tile only when its key changes (paintTissue: wk !== worldKey, spareMake, fieldTile's tile cache), never on a frame that repeats the state
     c.lineWidth = 1; c.strokeStyle = tk('--lz-zone-line');
-    for (const k of [0.66, 0.36]) { hexPath(main, k); c.stroke(); }
+    for (const k of [0.66, 0.36]) { hexPath(main, k); c.stroke(); }   // alloc-rare: painted (recorded) into the cached tissue bitmap or a field tile only when its key changes (paintTissue: wk !== worldKey, spareMake, fieldTile's tile cache), never on a frame that repeats the state
   }
   // Space of Disse collagen (capillarization) along every sinusoid.
   if (m.fibSin > 0.05) {
     c.strokeStyle = col(0.75 * m.fibSin); c.lineCap = 'round'; c.lineJoin = 'round';
     for (const t of P.sin) {
       c.lineWidth = 2 * t.r + 2 + 3.5 * m.fibSin;
-      c.beginPath(); t.pts.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y))); c.stroke();
+      c.beginPath(); t.pts.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y))); c.stroke();   // alloc-rare: painted (recorded) into the cached tissue bitmap or a field tile only when its key changes (paintTissue: wk !== worldKey, spareMake, fieldTile's tile cache), never on a frame that repeats the state
     }
   }
   // Stellate (Ito) cells, in the space of Disse between a plate and its sinusoid: shown once fibrosis
@@ -219,11 +220,11 @@ export function paintLobule(c, P) {
   // processes hugging its wall; activated (myofibroblasts), they grow, darken and lay down collagen.
   if (m.act > 0.08) {
     const a = m.act, L = G.rs0 * (2.4 + 1.4 * a), Wb = G.rs0 * (0.42 + 0.2 * a);
-    const body = tk('--lz-hsc-body', (0.22 + 0.3 * a).toFixed(3)), nuc = tk('--lz-hsc-nucleus', (0.3 + 0.3 * a).toFixed(3));
+    const body = tk('--lz-hsc-body', (0.22 + 0.3 * a).toFixed(3)), nuc = tk('--lz-hsc-nucleus', (0.3 + 0.3 * a).toFixed(3));   // alloc-rare: painted (recorded) into the cached tissue bitmap or a field tile only when its key changes (paintTissue: wk !== worldKey, spareMake, fieldTile's tile cache), never on a frame that repeats the state
     // A tapered strand: from (x0, y0) along the wall, bowing toward the sinusoid, width w0 → 0.
-    const strand = (k, x0, y0, sgn, len, w0, bow) => {
-      const ux = Math.cos(k.a) * sgn, uy = Math.sin(k.a) * sgn, n = 10, Pq = [];
-      for (let i = 0; i <= n; i++) { const u = i / n, b = bow * Math.sin(Math.PI * u * 0.8) * G.rs0; Pq.push([x0 + ux * len * u - k.nx * b, y0 + uy * len * u - k.ny * b, w0 * (1 - u) ** 1.3]); }
+    const strand = (k, x0, y0, sgn, len, w0, bow) => {   // alloc-rare: painted (recorded) into the cached tissue bitmap or a field tile only when its key changes (paintTissue: wk !== worldKey, spareMake, fieldTile's tile cache), never on a frame that repeats the state
+      const ux = Math.cos(k.a) * sgn, uy = Math.sin(k.a) * sgn, n = 10, Pq = [];   // alloc-rare: painted (recorded) into the cached tissue bitmap or a field tile only when its key changes (paintTissue: wk !== worldKey, spareMake, fieldTile's tile cache), never on a frame that repeats the state
+      for (let i = 0; i <= n; i++) { const u = i / n, b = bow * Math.sin(Math.PI * u * 0.8) * G.rs0; Pq.push([x0 + ux * len * u - k.nx * b, y0 + uy * len * u - k.ny * b, w0 * (1 - u) ** 1.3]); }   // alloc-rare: painted (recorded) into the cached tissue bitmap or a field tile only when its key changes (paintTissue: wk !== worldKey, spareMake, fieldTile's tile cache), never on a frame that repeats the state
       c.moveTo(Pq[0][0] + k.nx * Pq[0][2], Pq[0][1] + k.ny * Pq[0][2]);
       for (const [x, y, w] of Pq) c.lineTo(x + k.nx * w, y + k.ny * w);
       for (let i = n; i >= 0; i--) c.lineTo(Pq[i][0] - k.nx * Pq[i][2], Pq[i][1] - k.ny * Pq[i][2]);
@@ -234,7 +235,7 @@ export function paintLobule(c, P) {
       c.fillStyle = body; c.beginPath();
       // Body: a slender spindle, its ends drawn out into the processes along the sinusoid.
       c.ellipse(k.x, k.y, L * 0.6, Wb, k.a, 0, TAU);
-      for (const sgn of [-1, 1]) {
+      for (const sgn of [-1, 1]) {   // alloc-rare: painted (recorded) into the cached tissue bitmap or a field tile only when its key changes (paintTissue: wk !== worldKey, spareMake, fieldTile's tile cache), never on a frame that repeats the state
         const x0 = k.x + ux * sgn * L * 0.45, y0 = k.y + uy * sgn * L * 0.45;
         strand(k, x0, y0, sgn, L * (2 + 0.6 * a), Wb * 0.55, 0.45);
         strand(k, x0, y0, sgn, L * (1.1 + 0.4 * a), Wb * 0.35, -0.25);   // a finer branch on the plate side
@@ -253,19 +254,19 @@ export function paintLobule(c, P) {
     const reach = Math.min(1, 0.3 + 2.4 * su);
     c.save();
     c.shadowColor = tk('--lz-nodule-shadow'); c.shadowBlur = R * 0.06 * su;   // nodules bulge beside the bands
-    crn.forEach((A, i) => {
-      const B = crn[(i + 1) % 6], o = { w, rgb: COL, a: 0.55 + 0.45 * su, amp: R * 0.025, seed: 11 + i };
+    crn.forEach((A, i) => {   // alloc-rare: painted (recorded) into the cached tissue bitmap or a field tile only when its key changes (paintTissue: wk !== worldKey, spareMake, fieldTile's tile cache), never on a frame that repeats the state
+      const B = crn[(i + 1) % 6], o = { w, rgb: COL, a: 0.55 + 0.45 * su, amp: R * 0.025, seed: 11 + i };   // alloc-rare: painted (recorded) into the cached tissue bitmap or a field tile only when its key changes (paintTissue: wk !== worldKey, spareMake, fieldTile's tile cache), never on a frame that repeats the state
       if (reach >= 1) fibrousBand(c, A, B, o);
-      else { const M = (t, P, Q) => [lerp(P[0], Q[0], t), lerp(P[1], Q[1], t)], h = reach / 2;
-        fibrousBand(c, A, M(h, A, B), { ...o, e1: 0.2, seed: 11 + i }); fibrousBand(c, B, M(h, B, A), { ...o, e1: 0.2, seed: 61 + i }); }
+      else { const M = (t, P, Q) => [lerp(P[0], Q[0], t), lerp(P[1], Q[1], t)], h = reach / 2;   // alloc-rare: painted (recorded) into the cached tissue bitmap or a field tile only when its key changes (paintTissue: wk !== worldKey, spareMake, fieldTile's tile cache), never on a frame that repeats the state
+        fibrousBand(c, A, M(h, A, B), { ...o, e1: 0.2, seed: 11 + i }); fibrousBand(c, B, M(h, B, A), { ...o, e1: 0.2, seed: 61 + i }); }   // alloc-rare: painted (recorded) into the cached tissue bitmap or a field tile only when its key changes (paintTissue: wk !== worldKey, spareMake, fieldTile's tile cache), never on a frame that repeats the state
     });
     // Portal-central bridges (advanced): from three tracts to the central vein, then spurs from the others.
     if (su > 0.18) {
       const g = Math.min(1, (su - 0.18) / 0.4);
-      G.septaPC.forEach((sp, k) => { const P = sp.pts, q = P.length - 1;
-        fibrousBand(c, P[0], P[q], { w: w * (0.6 + 0.3 * g), rgb: COL, a: 0.45 + 0.5 * g, e1: 0.9, seed: 31 + k, path: (u) => at(P, u) }); });
-      if (su > 0.6) [1, 3, 5].forEach((i, k) => { const A = crn[i], t = 0.25 + 0.3 * Math.min(1, (su - 0.6) / 0.3);
-        fibrousBand(c, A, [lerp(A[0], cx, t), lerp(A[1], cy, t)], { w: w * 0.55, rgb: COL, a: 0.6, e1: 0.15, amp: R * 0.03, seed: 41 + k }); });
+      G.septaPC.forEach((sp, k) => { const P = sp.pts, q = P.length - 1;   // alloc-rare: painted (recorded) into the cached tissue bitmap or a field tile only when its key changes (paintTissue: wk !== worldKey, spareMake, fieldTile's tile cache), never on a frame that repeats the state
+        fibrousBand(c, P[0], P[q], { w: w * (0.6 + 0.3 * g), rgb: COL, a: 0.45 + 0.5 * g, e1: 0.9, seed: 31 + k, path: (u) => at(P, u) }); });   // alloc-rare: painted (recorded) into the cached tissue bitmap or a field tile only when its key changes (paintTissue: wk !== worldKey, spareMake, fieldTile's tile cache), never on a frame that repeats the state
+      if (su > 0.6) [1, 3, 5].forEach((i, k) => { const A = crn[i], t = 0.25 + 0.3 * Math.min(1, (su - 0.6) / 0.3);   // alloc-rare: painted (recorded) into the cached tissue bitmap or a field tile only when its key changes (paintTissue: wk !== worldKey, spareMake, fieldTile's tile cache), never on a frame that repeats the state
+        fibrousBand(c, A, [lerp(A[0], cx, t), lerp(A[1], cy, t)], { w: w * 0.55, rgb: COL, a: 0.6, e1: 0.15, amp: R * 0.03, seed: 41 + k }); });   // alloc-rare: painted (recorded) into the cached tissue bitmap or a field tile only when its key changes (paintTissue: wk !== worldKey, spareMake, fieldTile's tile cache), never on a frame that repeats the state
     }
     c.restore();
   } else {
@@ -274,10 +275,10 @@ export function paintLobule(c, P) {
     hexPath(lobules[0]); c.stroke();
   }
   // Portal tracts (connective tissue), thicker with portal fibrosis.
-  const seen = new Set();
+  const seen = new Set();   // alloc-rare: painted (recorded) into the cached tissue bitmap or a field tile only when its key changes (paintTissue: wk !== worldKey, spareMake, fieldTile's tile cache), never on a frame that repeats the state
   c.globalAlpha = 1;
   for (const [x, y] of lobules[0].corners) {
-    const kk = Math.round(x) + ',' + Math.round(y);
+    const kk = Math.round(x) + ',' + Math.round(y);   // alloc-rare: painted (recorded) into the cached tissue bitmap or a field tile only when its key changes (paintTissue: wk !== worldKey, spareMake, fieldTile's tile cache), never on a frame that repeats the state
     if (seen.has(kk)) continue; seen.add(kk);
     // (Only this lobule's own corners: every one is a near triad, drawn whole.)
     const gp = scarGrowth(m.fibPre), rt = G.rt * (0.8 + 0.9 * gp);
@@ -285,7 +286,7 @@ export function paintLobule(c, P) {
     // disease a denser, deeper-toned periportal collar (pipestem) rings the tract, clear of the orchid sinusoids.
     if (m.fibPre > 0.03) {
       fibrousTract(c, x, y, rt, Math.atan2(y - cy, x - cx), PRE, gp,
-        900 + lobules[0].corners.findIndex((p) => p[0] === x && p[1] === y) * 71);
+        900 + lobules[0].corners.findIndex((p) => p[0] === x && p[1] === y) * 71);   // alloc-rare: painted (recorded) into the cached tissue bitmap or a field tile only when its key changes (paintTissue: wk !== worldKey, spareMake, fieldTile's tile cache), never on a frame that repeats the state
       fibrousCuff(c, x, y, rt * 0.62, rt * 1.08, PRE, gp);
     }
   }

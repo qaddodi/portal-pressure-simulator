@@ -20,10 +20,10 @@ import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js?v=7
 import { createAtlasPacker } from './atlas-pack.js?v=43b8bc019d';
 import { easeMove, D_SURFACE } from './ease.js?v=dc92422977';
 import { createShapeGL, flattenPath, polyMesh, ellipsePoly } from './shape-gl.js?v=23dcebba43';
-import { createOrganPaint, parseColor, mul } from './organ-paint.js?v=ebb6deb625';
+import { createOrganPaint, parseColor, mul } from './organ-paint.js?v=4bf0f15cba';
 import { textPolys, textWidth, loadGlyphs, glyphsReady, textCovers } from './text-gl.js?v=3203debbbd';
 import { watchSize, sizeOf, rectSoon } from './geom.js?v=254133713c';
-import { trackOf, trackAt, mixColour, timingOf, progressAt, keysOf } from './label-track.js?v=aa3882f5d0';
+import { trackOf, trackAt, mixColour, timingOf, progressAt, keysOf } from './label-track.js?v=ca1cefc2f7';
 import { caught } from './caught.js?v=b96b17594a';
 // (The colour a clear writes, one array for every clear: none made per call, plan rev 2 §2.8.)
 const CLEAR0 = new Float32Array(4);

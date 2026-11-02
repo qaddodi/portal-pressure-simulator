@@ -17,14 +17,15 @@ const KW = { ease: [0.25, 0.1, 0.25, 1], 'ease-in': [0.42, 0, 1, 1], 'ease-out':
 const memo = new Map();
 /** A CSS easing as a function of 0..1, or null when it is not one this follows exactly (steps, linear() with stops). */
 export function easingOf(s) {
-  s = String(s ?? 'linear').trim() || 'linear';
+  if (typeof s === 'string' && memo.has(s)) return memo.get(s);   // (a string seen before: nothing built)
+  s = String(s ?? 'linear').trim() || 'linear';   // alloc-rare: only an easing string not seen before; read as a label's animations start, never per frame
   if (memo.has(s)) return memo.get(s);
   let f = null;
-  if (s === 'linear') f = (u) => u;
-  else if (KW[s]) f = cubicBezier(...KW[s]);
+  if (s === 'linear') f = (u) => u;   // alloc-rare: first sight of this easing string (memoised after)
+  else if (KW[s]) f = cubicBezier(...KW[s]);   // alloc-rare: first sight of this easing string (memoised after)
   else {
     const m = /^cubic-bezier\(([^)]+)\)$/.exec(s);
-    if (m) { const v = m[1].split(',').map(Number); if (v.length === 4 && v.every(Number.isFinite)) f = cubicBezier(...v); }
+    if (m) { const v = m[1].split(',').map(Number); if (v.length === 4 && v.every(Number.isFinite)) f = cubicBezier(...v); }   // alloc-rare: first sight of this easing string (memoised after)
   }
   memo.set(s, f);
   return f;
@@ -39,7 +40,7 @@ export function timingOf(a, now) {
   if (typeof dur !== 'number' || !(dur >= 0) || !Number.isFinite(delay) || (ct != null && typeof ct !== 'number')) return null;
   const ease = easingOf(tm.easing);
   if (!ease) return null;
-  return { t0: now - (ct ?? 0), delay, dur, ease, fill: String(tm.fill || 'none'), es: String(tm.easing || 'linear') };
+  return { t0: now - (ct ?? 0), delay, dur, ease, fill: String(tm.fill || 'none'), es: String(tm.easing || 'linear') };   // alloc-rare: read once as a label's animation starts (capture), then followed by progressAt with no read
 }
 /** Where a timing stands at `now`, after its easing (0..1), or null where it has no effect (outside it, with no fill there). */
 export function progressAt(t, now) {
@@ -54,24 +55,24 @@ const HARMLESS = new Set(['transform', 'translate', 'scale', 'rotate', 'visibili
 /** A keyframe list for `prop`: [{ o, v, ease }] from offset 0 to 1, or null. */
 export function keysOf(kf, prop) {
   if (!kf?.length) return null;
-  const out = [];
+  const out = [];   // alloc-rare: read once as a label's animation starts (capture), then followed by trackAt with no read
   for (const k of kf) {
     if (k.composite && k.composite !== 'auto' && k.composite !== 'replace') return null;
     const v = k[prop];
     if (v == null || v === '') return null;
     const o = k.computedOffset ?? k.offset, ease = easingOf(k.easing);
     if (!Number.isFinite(o) || !ease) return null;
-    out.push({ o, v, ease });
+    out.push({ o, v, ease });   // alloc-rare: read once as a label's animation starts (capture)
   }
   if (out.length < 2 || out[0].o !== 0 || out[out.length - 1].o !== 1) return null;
   return out;
 }
-/** The keyframes' value pair and share at progress p: [a, b, u]. */
+/** The keyframes' value at progress p. */
 function along(keys, p) {
   let i = 0;
   while (i < keys.length - 2 && p >= keys[i + 1].o) i++;
   const a = keys[i], b = keys[i + 1], span = b.o - a.o;
-  return [a.v, b.v, span > 0 ? a.ease(Math.min(1, Math.max(0, (p - a.o) / span))) : 1];
+  return a.v + (b.v - a.v) * (span > 0 ? a.ease(Math.min(1, Math.max(0, (p - a.o) / span))) : 1);
 }
 const isTransition = (a) => a && 'transitionProperty' in a;
 
@@ -82,14 +83,14 @@ const isTransition = (a) => a && 'transitionProperty' in a;
  * Returns { ops: [{ t, keys }] (opacity layers, lowest first), under, paint: { t, ease, pairs: [{ el, prop, from, to }] } | null, end }.
  */
 export function trackOf(anims, opEl, paintOk, now) {
-  const ops = [], pairs = [];
+  const ops = [], pairs = [];   // alloc-rare: a track is read once as a label's animations start (capture, only when the label is new or dirty), then followed by trackAt
   let paintT = null, paintEase = null, paintES = '', end = -Infinity, opTrans = false, opAnim = false;
-  for (const a of anims || []) {
+  for (const a of anims || []) {   // alloc-rare: as above, read once at an animation's start
     const e = a?.effect, el = e?.target;
     if (!e || !el || e.pseudoElement) return null;
     let kf;
     try { kf = e.getKeyframes(); } catch { return null; }
-    const props = new Set();
+    const props = new Set();   // alloc-rare: as above, read once at an animation's start
     for (const k of kf) for (const p in k) if (!META.has(p)) props.add(p);
     let t = null;
     for (const p of props) {
@@ -101,24 +102,29 @@ export function trackOf(anims, opEl, paintOk, now) {
         if (!keys) return null;
         for (const k of keys) { k.v = parseFloat(k.v); if (!Number.isFinite(k.v)) return null; }
         if (isTransition(a)) opTrans = true; else opAnim = true;
-        ops.push({ t, keys });
+        ops.push({ t, keys });   // alloc-rare: as above, read once at an animation's start
       } else if ((p === 'fill' || p === 'stroke') && paintOk(el) && isTransition(a)) {
         const keys = keysOf(kf, p);
         if (!keys || keys.length !== 2 || !rgbOf(keys[0].v) || !rgbOf(keys[1].v)) return null;
-        if (pairs.some((q) => q.el === el && q.prop === p)) return null;
+        if (pairs.some((q) => q.el === el && q.prop === p)) return null;   // alloc-rare: as above, read once at an animation's start
         // (Every colour ease on one clock: a pill and its words, or a whole line, ease together.)
-        if (!paintT) { paintT = t; paintEase = keys[0].ease; paintES = String(kf[0].easing || 'linear'); }
-        else if (Math.abs(paintT.t0 - t.t0) > 2 || paintT.delay !== t.delay || paintT.dur !== t.dur || paintT.es !== t.es || paintT.fill !== t.fill || paintES !== String(kf[0].easing || 'linear')) return null;
-        pairs.push({ el, prop: p, from: keys[0].v, to: keys[1].v });
+        if (!paintT) { paintT = t; paintEase = keys[0].ease; paintES = String(kf[0].easing || 'linear'); }   // alloc-rare: as above, read once at an animation's start
+        else if (Math.abs(paintT.t0 - t.t0) > 2 || paintT.delay !== t.delay || paintT.dur !== t.dur || paintT.es !== t.es || paintT.fill !== t.fill || paintES !== String(kf[0].easing || 'linear')) return null;   // alloc-rare: as above, read once at an animation's start
+        pairs.push({ el, prop: p, from: keys[0].v, to: keys[1].v });   // alloc-rare: as above, read once at an animation's start
       } else return null;
     }
     if (t) end = Math.max(end, t.t0 + t.delay + t.dur);
   }
   // (A transition and an animation of the opacity at once: which wins is the cascade's, not followed here.)
   if (opTrans && opAnim) return null;
+  // alloc-rare: as above, read once at an animation's start
   return { ops, under: ops.length ? ops[ops.length - 1].keys[ops[ops.length - 1].keys.length - 1].v : null, paint: pairs.length ? { t: paintT, ease: paintEase, pairs } : null, end };
 }
-/** A track at `now`: { op: the opacity (null: not animated), w: the colours' share from `from` to `to` (null: none) }. */
+const AT = { op: null, w: null };
+/**
+ * A track at `now`: { op: the opacity (null: not animated), w: the colours' share from `from` to `to` (null: none) }.
+ * The returned object is one kept object, written anew by every call: read it before the next call, do not keep it.
+ */
 export function trackAt(m, now) {
   let op = null, w = null;
   if (m.ops.length) {
@@ -126,8 +132,7 @@ export function trackAt(m, now) {
     for (let i = m.ops.length - 1; i >= 0; i--) {
       const L = m.ops[i], p = progressAt(L.t, now);
       if (p == null) continue;
-      const [a, b, u] = along(L.keys, p);
-      op = a + (b - a) * u;
+      op = along(L.keys, p);
       break;
     }
   }
@@ -135,17 +140,32 @@ export function trackAt(m, now) {
     const p = progressAt(m.paint.t, now);
     w = p == null ? (now - m.paint.t.t0 < m.paint.t.delay ? 0 : 1) : m.paint.ease(Math.min(1, Math.max(0, p)));
   }
-  return { op, w };
+  AT.op = op; AT.w = w;
+  return AT;
 }
 
-/** A computed colour as straight RGBA (0..255, 0..1 alpha), or null when it is not written as rgb()/rgba(). */
+const RGB = new Map();   // (colour string → its channels, or null; the strings of a page's few eases, so it stays small)
+/**
+ * A computed colour as straight RGBA (0..255, 0..1 alpha), or null when it is not written as rgb()/rgba().
+ * The array is the memo's own, shared by every caller of that string: read it, do not change or keep it for writing.
+ */
 export function rgbOf(c) {
-  const m = /^rgba?\(([^)]+)\)$/.exec(String(c || '').trim());
-  if (!m) return null;
-  const v = m[1].split(/[\s,/]+/).filter(Boolean).map(Number);
-  if (v.length < 3 || v.some((x) => !Number.isFinite(x))) return null;
-  return [v[0], v[1], v[2], v.length > 3 ? v[3] : 1];
+  const str = typeof c === 'string';
+  if (str) { const hit = RGB.get(c); if (hit !== undefined) return hit; }
+  const v = parseRgb(c);
+  if (str) { if (RGB.size >= 256) RGB.clear(); RGB.set(c, v); }
+  return v;
 }
+function parseRgb(c) {
+  const m = /^rgba?\(([^)]+)\)$/.exec(String(c || '').trim());   // alloc-rare: only a colour string not seen before (memoised by rgbOf), read as an ease starts
+  if (!m) return null;
+  const v = m[1].split(/[\s,/]+/).filter(Boolean).map(Number);   // alloc-rare: as above, first sight of this colour string
+  if (v.length < 3 || v.some((x) => !Number.isFinite(x))) return null;   // alloc-rare: as above, first sight of this colour string
+  return [v[0], v[1], v[2], v.length > 3 ? v[3] : 1];   // alloc-rare: as above, first sight of this colour string
+}
+const MIX = new Map();   // (a mixed colour's channels and alpha → its rgba() text, so an ease or a repeat of one builds each text once)
+/** One channel of the premultiplied mix of A and B, share w of B, over the mixed alpha `al`. */
+const chan = (A, B, i, w, al) => Math.round((A[i] * A[3] + (B[i] * B[3] - A[i] * A[3]) * w) / al);
 /** Two colours mixed as CSS mixes a transition's (premultiplied sRGB), share w of the second, as an rgba() the page and the GPU read alike. */
 export function mixColour(a, b, w) {
   if (w <= 0) return a;
@@ -154,6 +174,16 @@ export function mixColour(a, b, w) {
   if (!A || !B) return w < 0.5 ? a : b;
   const al = A[3] + (B[3] - A[3]) * w;
   if (!(al > 0)) return 'transparent';
-  const ch = (i) => Math.round((A[i] * A[3] + (B[i] * B[3] - A[i] * A[3]) * w) / al);
-  return `rgba(${ch(0)}, ${ch(1)}, ${ch(2)}, ${+al.toFixed(4)})`;
+  const r = chan(A, B, 0, w, al), g = chan(A, B, 1, w, al), bl = chan(A, B, 2, w, al), a4 = Math.round(al * 10000);
+  // (The alpha to four places, as before: the text is `${a4 / 10000}`, the shortest form of that number, which is what +al.toFixed(4) gave.)
+  // (A key only for values a colour can have; anything else, which a page's rgb() never gives, is written out each time.)
+  if (!(r >= 0 && r <= 255 && g >= 0 && g <= 255 && bl >= 0 && bl <= 255 && a4 <= 10000)) return `rgba(${r}, ${g}, ${bl}, ${a4 / 10000})`;   // alloc-rare: never reached with a valid colour (the channels are 0..255 and the alpha 0..1)
+  const key = ((r * 256 + g) * 256 + bl) * 16384 + a4;
+  let t = MIX.get(key);
+  if (t === undefined) {
+    if (MIX.size >= 1024) MIX.clear();
+    t = `rgba(${r}, ${g}, ${bl}, ${a4 / 10000})`;   // alloc-rare: only a mixed colour not seen before (the text is kept by its channels); an ease repeats a few dozen values, then every frame reads the kept text
+    MIX.set(key, t);
+  }
+  return t;
 }

@@ -7,7 +7,7 @@
 // disorder), the nutmeg, the zones, and the limiting plate's hairline. A state with anything else in it (the collagen of fibrosis, the
 // stellate cells, septa, tracts, the central vein's cuff) is drawn from the bitmap, as before, until the shader draws that too.
 
-import { fibHash, bandGeom, bandFibre, bandFibreCount, bandNucleiCount, bandNucleus, scarGrowth } from './lobule-paint.js?v=523c7b8cd3';
+import { fibHash, bandGeom, bandFibre, bandFibreCount, bandNucleiCount, bandNucleus, scarGrowth } from './lobule-paint.js?v=7dc3ed62e9';
 
 export const BIN = 16;          // a bin's side, world units
 export const CELLS_PER_ROW = 512;   // the cell texture: three texels a cell, so 1536 wide
@@ -66,23 +66,47 @@ export function panPlan(W, H, dx, dy) {
 
 /** A colour token's value as [r, g, b, a], r g b in 0–1 ('#rgb', '#rrggbb', 'rgb()' or 'rgba()'). */
 export function parseRGBA(c) {
-  c = (c || '').trim();
+  c = (c || '').trim();   // alloc-rare: only when a colour or the theme changed: liveColours gives the last colours back otherwise (LAST_COL), so a frame that repeats them builds none
   if (c[0] === '#') {
-    const x = c.length < 6 ? [...c.slice(1, 4)].map((d) => d + d).join('') : c.slice(1, 7);
-    return [0, 2, 4].map((k) => parseInt(x.slice(k, k + 2), 16) / 255).concat(1);
+    const x = c.length < 6 ? [...c.slice(1, 4)].map((d) => d + d).join('') : c.slice(1, 7);   // alloc-rare: only when a colour or the theme changed: liveColours gives the last colours back otherwise (LAST_COL), so a frame that repeats them builds none
+    return [0, 2, 4].map((k) => parseInt(x.slice(k, k + 2), 16) / 255).concat(1);   // alloc-rare: only when a colour or the theme changed: liveColours gives the last colours back otherwise (LAST_COL), so a frame that repeats them builds none
   }
-  const n = c.match(/[\d.]+/g) || [];
-  return [(+n[0] || 0) / 255, (+n[1] || 0) / 255, (+n[2] || 0) / 255, n.length > 3 ? +n[3] : 1];
+  const n = c.match(/[\d.]+/g) || [];   // alloc-rare: only when a colour or the theme changed: liveColours gives the last colours back otherwise (LAST_COL), so a frame that repeats them builds none
+  return [(+n[0] || 0) / 255, (+n[1] || 0) / 255, (+n[2] || 0) / 255, n.length > 3 ? +n[3] : 1];   // alloc-rare: only when a colour or the theme changed: liveColours gives the last colours back otherwise (LAST_COL), so a frame that repeats them builds none
 }
 
 /** The colours the shader needs, from the painting's own colours (worldInput's rgb: bg, gap, cell) and the tokens it reads (tok: a
  *  token's name → its value). The same arithmetic paintLobule does with them. */
 export function liveColours(rgb, dark, tok) {
+  // (The same colours as the last call give that call's object back: it is asked for in every frame the tissue is drawn, and the colours
+  // change only with the theme or a token, so the work below is done then. The caller reads it at once and keeps no copy to change.)
+  const hit = LAST_COL;
+  if (hit.out && colourSame(hit, rgb, dark, tok)) return hit.out;
+  return remakeColours(rgb, dark, tok);
+}
+const COL_TOKENS = ['--lz-plate-line', '--lz-nodule-ink', '--lz-zone-line', '--lz-nodule-shadow', '--lz-shade', '--lz-hsc-body', '--lz-hsc-nucleus', '--lz-nutmeg', '--lz-zone-1', '--lz-zone-2', '--lz-zone-3'];
+// What the last colours were made from: the painting's own colours as numbers, the theme, and each token's text.
+const LAST_COL = { out: null, dark: false, nums: new Float64Array(15), toks: new Array(COL_TOKENS.length).fill('') };
+function colourSame(h, rgb, dark, tok) {
+  if (h.dark !== dark) return false;
+  const n = h.nums;
+  for (let i = 0; i < 3; i++) if (n[i] !== rgb.bg[i] || n[3 + i] !== rgb.gap[i] || n[6 + i] !== rgb.cell[i] || n[9 + i] !== (rgb.col || rgb.gap)[i] || n[12 + i] !== (rgb.dis || rgb.gap)[i]) return false;
+  for (let i = 0; i < COL_TOKENS.length; i++) if (h.toks[i] !== tok(COL_TOKENS[i])) return false;
+  return true;
+}
+function remakeColours(rgb, dark, tok) {
+  const h = LAST_COL, n = h.nums;
+  h.dark = dark;
+  for (let i = 0; i < 3; i++) { n[i] = rgb.bg[i]; n[3 + i] = rgb.gap[i]; n[6 + i] = rgb.cell[i]; n[9 + i] = (rgb.col || rgb.gap)[i]; n[12 + i] = (rgb.dis || rgb.gap)[i]; }
+  for (let i = 0; i < COL_TOKENS.length; i++) h.toks[i] = tok(COL_TOKENS[i]);
+  return (h.out = liveColoursOf(rgb, dark, tok));
+}
+function liveColoursOf(rgb, dark, tok) {
   const { bg, gap, cell } = rgb;
-  const t3 = (n) => parseRGBA(tok(n)).slice(0, 3);
-  return {
-    gap, gap55: gap.map((x, i) => lerp(bg[i], x, 0.55)),
-    base: dark ? cell.map((x, i) => lerp(gap[i], x, 0.28)) : cell,
+  const t3 = (n) => parseRGBA(tok(n)).slice(0, 3);   // alloc-rare: only when a colour or the theme changed: liveColours gives the last colours back otherwise (LAST_COL), so a frame that repeats them builds none
+  return {   // alloc-rare: only when a colour or the theme changed: liveColours gives the last colours back otherwise (LAST_COL), so a frame that repeats them builds none
+    gap, gap55: gap.map((x, i) => lerp(bg[i], x, 0.55)),   // alloc-rare: only when a colour or the theme changed: liveColours gives the last colours back otherwise (LAST_COL), so a frame that repeats them builds none
+    base: dark ? cell.map((x, i) => lerp(gap[i], x, 0.28)) : cell,   // alloc-rare: only when a colour or the theme changed: liveColours gives the last colours back otherwise (LAST_COL), so a frame that repeats them builds none
     plate: parseRGBA(tok('--lz-plate-line')), ink: parseRGBA(tok('--lz-nodule-ink')), zl: parseRGBA(tok('--lz-zone-line')),
     col: rgb.col || gap, dis: rgb.dis || gap, shd: parseRGBA(tok('--lz-nodule-shadow')), shade: t3('--lz-shade'), body: t3('--lz-hsc-body'), nuc: t3('--lz-hsc-nucleus'),
     nut: t3('--lz-nutmeg'), z1: t3('--lz-zone-1'), z2: t3('--lz-zone-2'), z3: t3('--lz-zone-3'),
@@ -97,18 +121,18 @@ export function liveColours(rgb, dark, tok) {
 export function buildLive(shape) {
   const { R, cx, cy, lobules, cells } = shape, l = lobules[0], B = 1.3 * R, bx = cx - B, by = cy - B, side = 2 * B;
   const nb = Math.ceil(side / BIN);
-  const edges = new Float32Array(18);
+  const edges = new Float32Array(18);   // alloc-rare: built once per lobule shape and kept (lobule-zoom liveArgs: liveData WeakMap, the 'if (!data)' guard)
   for (let i = 0; i < 6; i++) {
     const [x0, y0] = l.corners[i], [x1, y1] = l.corners[(i + 1) % 6], ex = x1 - x0, ey = y1 - y0, L = Math.hypot(ex, ey) || 1;
     let nx = ey / L, ny = -ex / L;
     if (nx * (x0 - l.x) + ny * (y0 - l.y) < 0) { nx = -nx; ny = -ny; }
-    edges.set([nx, ny, nx * (x0 - l.x) + ny * (y0 - l.y)], i * 3);
+    edges.set([nx, ny, nx * (x0 - l.x) + ny * (y0 - l.y)], i * 3);   // alloc-rare: built once per lobule shape and kept (lobule-zoom liveArgs: liveData WeakMap, the 'if (!data)' guard)
   }
-  const rows = Math.max(1, Math.ceil(cells.length / CELLS_PER_ROW)), cellData = new Float32Array(CELLS_PER_ROW * 3 * rows * 4);
-  const lists = Array.from({ length: nb * nb }, () => []);
-  cells.forEach((k, i) => {
+  const rows = Math.max(1, Math.ceil(cells.length / CELLS_PER_ROW)), cellData = new Float32Array(CELLS_PER_ROW * 3 * rows * 4);   // alloc-rare: built once per lobule shape and kept (lobule-zoom liveArgs: liveData WeakMap, the 'if (!data)' guard)
+  const lists = Array.from({ length: nb * nb }, () => []);   // alloc-rare: built once per lobule shape and kept (lobule-zoom liveArgs: liveData WeakMap, the 'if (!data)' guard)
+  cells.forEach((k, i) => {   // alloc-rare: built once per lobule shape and kept (lobule-zoom liveArgs: liveData WeakMap, the 'if (!data)' guard)
     const o = ((Math.floor(i / CELLS_PER_ROW) * CELLS_PER_ROW * 3) + (i % CELLS_PER_ROW) * 3) * 4;
-    cellData.set([k.x, k.y, k.a, k.l, k.w, k.tone, k.nu, k.q, k.drop, k.jx, k.jy, k.ja], o);
+    cellData.set([k.x, k.y, k.a, k.l, k.w, k.tone, k.nu, k.q, k.drop, k.jx, k.jy, k.ja], o);   // alloc-rare: built once per lobule shape and kept (lobule-zoom liveArgs: liveData WeakMap, the 'if (!data)' guard)
     const reach = cellReach(k);
     const i0 = Math.max(0, Math.floor((k.x - reach - bx) / BIN)), i1 = Math.min(nb - 1, Math.floor((k.x + reach - bx) / BIN));
     const j0 = Math.max(0, Math.floor((k.y - reach - by) / BIN)), j1 = Math.min(nb - 1, Math.floor((k.y + reach - by) / BIN));
@@ -116,23 +140,23 @@ export function buildLive(shape) {
   });
   // The sinusoids' segments (for the collagen of the space of Disse): two texels each, (x0, y0, x1, y1) and (tube, 0, 0, 0), SEG_ROW
   // segments to a row; binned like the cells, each segment into every bin its widest stroke can reach, tube by tube in drawing order.
-  const sinTubes = shape.sin || [], mar = 5 * (shape.rs0 || 3) + 4, segList = [];
-  sinTubes.forEach((t, ti) => { for (let i = 0; i + 1 < t.pts.length; i++) segList.push([t.pts[i][0], t.pts[i][1], t.pts[i + 1][0], t.pts[i + 1][1], ti]); });
-  const segRows = Math.max(1, Math.ceil(segList.length / SEG_ROW)), segData = new Float32Array(SEG_ROW * 2 * segRows * 4);
-  const slists = Array.from({ length: nb * nb }, () => []);
-  segList.forEach((g, i) => {
+  const sinTubes = shape.sin || [], mar = 5 * (shape.rs0 || 3) + 4, segList = [];   // alloc-rare: built once per lobule shape and kept (lobule-zoom liveArgs: liveData WeakMap, the 'if (!data)' guard)
+  sinTubes.forEach((t, ti) => { for (let i = 0; i + 1 < t.pts.length; i++) segList.push([t.pts[i][0], t.pts[i][1], t.pts[i + 1][0], t.pts[i + 1][1], ti]); });   // alloc-rare: built once per lobule shape and kept (lobule-zoom liveArgs: liveData WeakMap, the 'if (!data)' guard)
+  const segRows = Math.max(1, Math.ceil(segList.length / SEG_ROW)), segData = new Float32Array(SEG_ROW * 2 * segRows * 4);   // alloc-rare: built once per lobule shape and kept (lobule-zoom liveArgs: liveData WeakMap, the 'if (!data)' guard)
+  const slists = Array.from({ length: nb * nb }, () => []);   // alloc-rare: built once per lobule shape and kept (lobule-zoom liveArgs: liveData WeakMap, the 'if (!data)' guard)
+  segList.forEach((g, i) => {   // alloc-rare: built once per lobule shape and kept (lobule-zoom liveArgs: liveData WeakMap, the 'if (!data)' guard)
     const o = ((Math.floor(i / SEG_ROW) * SEG_ROW * 2) + (i % SEG_ROW) * 2) * 4;
-    segData.set([g[0], g[1], g[2], g[3], g[4], 0, 0, 0], o);
+    segData.set([g[0], g[1], g[2], g[3], g[4], 0, 0, 0], o);   // alloc-rare: built once per lobule shape and kept (lobule-zoom liveArgs: liveData WeakMap, the 'if (!data)' guard)
     const i0 = Math.max(0, Math.floor((Math.min(g[0], g[2]) - mar - bx) / BIN)), i1 = Math.min(nb - 1, Math.floor((Math.max(g[0], g[2]) + mar - bx) / BIN));
     const j0 = Math.max(0, Math.floor((Math.min(g[1], g[3]) - mar - by) / BIN)), j1 = Math.min(nb - 1, Math.floor((Math.max(g[1], g[3]) + mar - by) / BIN));
     for (let j = j0; j <= j1; j++) for (let ii = i0; ii <= i1; ii++) slists[j * nb + ii].push(i);
   });
-  const total = lists.reduce((s, a) => s + a.length, 0) + slists.reduce((s, a) => s + a.length, 0), irows = Math.max(1, Math.ceil(total / IDX_ROW));
-  const bins = new Float32Array(nb * nb * 4), idx = new Float32Array(IDX_ROW * irows);
+  const total = lists.reduce((s, a) => s + a.length, 0) + slists.reduce((s, a) => s + a.length, 0), irows = Math.max(1, Math.ceil(total / IDX_ROW));   // alloc-rare: built once per lobule shape and kept (lobule-zoom liveArgs: liveData WeakMap, the 'if (!data)' guard)
+  const bins = new Float32Array(nb * nb * 4), idx = new Float32Array(IDX_ROW * irows);   // alloc-rare: built once per lobule shape and kept (lobule-zoom liveArgs: liveData WeakMap, the 'if (!data)' guard)
   let at = 0;
-  lists.forEach((a, b) => { bins[b * 4] = at; bins[b * 4 + 1] = a.length; for (const c of a) idx[at++] = c; });
-  slists.forEach((a, b) => { bins[b * 4 + 2] = at; bins[b * 4 + 3] = a.length; for (const c of a) idx[at++] = c; });
-  return { nb, box: [bx, by, side], edges, ctr: [l.x, l.y], cellData, cellRows: rows, bins, idx, idxRows: irows, segData, segRows };
+  lists.forEach((a, b) => { bins[b * 4] = at; bins[b * 4 + 1] = a.length; for (const c of a) idx[at++] = c; });   // alloc-rare: built once per lobule shape and kept (lobule-zoom liveArgs: liveData WeakMap, the 'if (!data)' guard)
+  slists.forEach((a, b) => { bins[b * 4 + 2] = at; bins[b * 4 + 3] = a.length; for (const c of a) idx[at++] = c; });   // alloc-rare: built once per lobule shape and kept (lobule-zoom liveArgs: liveData WeakMap, the 'if (!data)' guard)
+  return { nb, box: [bx, by, side], edges, ctr: [l.x, l.y], cellData, cellRows: rows, bins, idx, idxRows: irows, segData, segRows };   // alloc-rare: built once per lobule shape and kept (lobule-zoom liveArgs: liveData WeakMap, the 'if (!data)' guard)
 }
 
 const ramp = (a, b, x) => smooth(a, b, x);
@@ -148,67 +172,76 @@ const atPath = (pts, u) => {
  *  An item: { type 0 band, 1 disc fill, 2 annulus fill; rgb, a; clip: [kind 0 none / 1 disc / 2 annulus, x, y, r, r2]; shadow (blur, px);
  *  band: { P, N, Wd } in the world, fibres, nuclei }. Septa that have just begun, and the like, ease in rather than pop. */
 export function buildItems(shape, m, o) {
-  const { R, cx, cy, rcv0, lobules } = shape, crn = lobules[0].corners, items = [], COL = o.col;
-  const PRE = o.dark ? [0.86, 0.78, 0.6] : [0.78, 0.64, 0.44];
-  const band = (A, B, opt, extra = {}) => {
+  // (The same shape, strengths, colour and theme as the last call give that call's items back: they do not depend on the sinusoids' radii,
+  // which move on every frame of a caliber ease and are what asks for them again. They are worked out when one of these changes.)
+  const h = LAST_ITEMS, c = o.col;
+  if (h.items && h.shape === shape && h.su === m.septU && h.pre === m.fibPre && h.post === m.fibPost && h.dark === o.dark && h.cvIn === o.cvIn && h.c0 === c?.[0] && h.c1 === c?.[1] && h.c2 === c?.[2]) return h.items;
+  h.shape = shape; h.su = m.septU; h.pre = m.fibPre; h.post = m.fibPost; h.dark = o.dark; h.cvIn = o.cvIn; h.c0 = c?.[0]; h.c1 = c?.[1]; h.c2 = c?.[2];
+  return (h.items = itemsOf(shape, m, o));
+}
+const LAST_ITEMS = { items: null, shape: null, su: 0, pre: 0, post: 0, dark: false, cvIn: 0, c0: 0, c1: 0, c2: 0 };
+function itemsOf(shape, m, o) {
+  const { R, cx, cy, rcv0, lobules } = shape, crn = lobules[0].corners, items = [], COL = o.col;   // alloc-rare: only when the shape, the septa/tract strengths, the colour or the theme change: buildItems gives the last items back otherwise (LAST_ITEMS), and they do not depend on the radii that move every frame of a caliber ease
+  const PRE = o.dark ? [0.86, 0.78, 0.6] : [0.78, 0.64, 0.44];   // alloc-rare: only when the shape, the septa/tract strengths, the colour or the theme change: buildItems gives the last items back otherwise (LAST_ITEMS), and they do not depend on the radii that move every frame of a caliber ease
+  const band = (A, B, opt, extra = {}) => {   // alloc-rare: only when the shape, the septa/tract strengths, the colour or the theme change: buildItems gives the last items back otherwise (LAST_ITEMS), and they do not depend on the radii that move every frame of a caliber ease
     const w = opt.w, a = opt.a === undefined ? 1 : opt.a, g = bandGeom(A, B, opt);
-    const fibres = Array.from({ length: bandFibreCount(w) }, (_, f) => bandFibre(opt.seed || 0, f, w));
-    const nuclei = Array.from({ length: bandNucleiCount(g, w) }, (_, k) => bandNucleus(g, opt.seed || 0, k, w));
+    const fibres = Array.from({ length: bandFibreCount(w) }, (_, f) => bandFibre(opt.seed || 0, f, w));   // alloc-rare: only when the shape, the septa/tract strengths, the colour or the theme change: buildItems gives the last items back otherwise (LAST_ITEMS), and they do not depend on the radii that move every frame of a caliber ease
+    const nuclei = Array.from({ length: bandNucleiCount(g, w) }, (_, k) => bandNucleus(g, opt.seed || 0, k, w));   // alloc-rare: only when the shape, the septa/tract strengths, the colour or the theme change: buildItems gives the last items back otherwise (LAST_ITEMS), and they do not depend on the radii that move every frame of a caliber ease
     const T = extra.xf;
     let P = g.P, N = g.N, nu = nuclei;
     if (T) {
       const c = Math.cos(T.ang), s = Math.sin(T.ang);
-      P = g.P.map(([x, y]) => [T.x + c * x - s * y, T.y + s * x + c * y]); N = g.N.map(([x, y]) => [c * x - s * y, s * x + c * y]);
-      nu = nuclei.map((q) => ({ ...q, x: T.x + c * q.x - s * q.y, y: T.y + s * q.x + c * q.y, ang: q.ang + T.ang }));
+      P = g.P.map(([x, y]) => [T.x + c * x - s * y, T.y + s * x + c * y]); N = g.N.map(([x, y]) => [c * x - s * y, s * x + c * y]);   // alloc-rare: only when the shape, the septa/tract strengths, the colour or the theme change: buildItems gives the last items back otherwise (LAST_ITEMS), and they do not depend on the radii that move every frame of a caliber ease
+      nu = nuclei.map((q) => ({ ...q, x: T.x + c * q.x - s * q.y, y: T.y + s * q.x + c * q.y, ang: q.ang + T.ang }));   // alloc-rare: only when the shape, the septa/tract strengths, the colour or the theme change: buildItems gives the last items back otherwise (LAST_ITEMS), and they do not depend on the radii that move every frame of a caliber ease
     }
-    items.push({ type: 0, rgb: opt.rgb, a: a * (extra.fade === undefined ? 1 : extra.fade), clip: extra.clip || [0, 0, 0, 0, 0], shadow: extra.shadow || 0, w, band: { P, N, Wd: g.Wd }, fibres, nuclei: nu });
+    items.push({ type: 0, rgb: opt.rgb, a: a * (extra.fade === undefined ? 1 : extra.fade), clip: extra.clip || [0, 0, 0, 0, 0], shadow: extra.shadow || 0, w, band: { P, N, Wd: g.Wd }, fibres, nuclei: nu });   // alloc-rare: only when the shape, the septa/tract strengths, the colour or the theme change: buildItems gives the last items back otherwise (LAST_ITEMS), and they do not depend on the radii that move every frame of a caliber ease
   };
-  const cuff = (x, y, inner, outer, rgb, fib) => {
-    const clip = [2, x, y, outer, inner];
-    items.push({ type: 2, rgb, a: 0.4 * fib, clip });
+  const cuff = (x, y, inner, outer, rgb, fib) => {   // alloc-rare: only when the shape, the septa/tract strengths, the colour or the theme change: buildItems gives the last items back otherwise (LAST_ITEMS), and they do not depend on the radii that move every frame of a caliber ease
+    const clip = [2, x, y, outer, inner];   // alloc-rare: only when the shape, the septa/tract strengths, the colour or the theme change: buildItems gives the last items back otherwise (LAST_ITEMS), and they do not depend on the radii that move every frame of a caliber ease
+    items.push({ type: 2, rgb, a: 0.4 * fib, clip });   // alloc-rare: only when the shape, the septa/tract strengths, the colour or the theme change: buildItems gives the last items back otherwise (LAST_ITEMS), and they do not depend on the radii that move every frame of a caliber ease
     const th = outer - inner;
     for (let ring = 0; ring < 3; ring++) for (let k = 0; k < 6; k++) {
       const seed = 211 + ring * 17 + k, a0 = TAU * k / 6 + ring * 0.27, span = TAU / 6 * (1.2 + 0.5 * fibHash(seed)), r0 = inner + th * (0.18 + ring * 0.3);
-      const path = (u) => { const an = a0 + span * u, r = r0 + th * 0.1 * Math.sin(an * 5 + fibHash(seed + 5) * TAU); return [x + Math.cos(an) * r, y + Math.sin(an) * r]; };
-      band(path(0), path(1), { w: th * 0.34, rgb, a: Math.min(1, 1.0 * fib), e0: 0.45, e1: 0.5, seed, path }, { clip });
+      const path = (u) => { const an = a0 + span * u, r = r0 + th * 0.1 * Math.sin(an * 5 + fibHash(seed + 5) * TAU); return [x + Math.cos(an) * r, y + Math.sin(an) * r]; };   // alloc-rare: only when the shape, the septa/tract strengths, the colour or the theme change: buildItems gives the last items back otherwise (LAST_ITEMS), and they do not depend on the radii that move every frame of a caliber ease
+      band(path(0), path(1), { w: th * 0.34, rgb, a: Math.min(1, 1.0 * fib), e0: 0.45, e1: 0.5, seed, path }, { clip });   // alloc-rare: only when the shape, the septa/tract strengths, the colour or the theme change: buildItems gives the last items back otherwise (LAST_ITEMS), and they do not depend on the radii that move every frame of a caliber ease
     }
   };
   const su = m.septU;
   if (su > 0) {
     const w = R * (0.045 + 0.075 * su), reach = Math.min(1, 0.3 + 2.4 * su), fade = ramp(0, 0.05, su), sh = R * 0.06 * su;
-    crn.forEach((A, i) => {
-      const B = crn[(i + 1) % 6], op = { w, rgb: COL, a: 0.55 + 0.45 * su, amp: R * 0.025, seed: 11 + i }, ex = { fade, shadow: sh };
+    crn.forEach((A, i) => {   // alloc-rare: only when the shape, the septa/tract strengths, the colour or the theme change: buildItems gives the last items back otherwise (LAST_ITEMS), and they do not depend on the radii that move every frame of a caliber ease
+      const B = crn[(i + 1) % 6], op = { w, rgb: COL, a: 0.55 + 0.45 * su, amp: R * 0.025, seed: 11 + i }, ex = { fade, shadow: sh };   // alloc-rare: only when the shape, the septa/tract strengths, the colour or the theme change: buildItems gives the last items back otherwise (LAST_ITEMS), and they do not depend on the radii that move every frame of a caliber ease
       if (reach >= 1) band(A, B, op, ex);
       else {
-        const M = (t, P, Q) => [lerp(P[0], Q[0], t), lerp(P[1], Q[1], t)], h = reach / 2;
-        band(A, M(h, A, B), { ...op, e1: 0.2, seed: 11 + i }, ex); band(B, M(h, B, A), { ...op, e1: 0.2, seed: 61 + i }, ex);
+        const M = (t, P, Q) => [lerp(P[0], Q[0], t), lerp(P[1], Q[1], t)], h = reach / 2;   // alloc-rare: only when the shape, the septa/tract strengths, the colour or the theme change: buildItems gives the last items back otherwise (LAST_ITEMS), and they do not depend on the radii that move every frame of a caliber ease
+        band(A, M(h, A, B), { ...op, e1: 0.2, seed: 11 + i }, ex); band(B, M(h, B, A), { ...op, e1: 0.2, seed: 61 + i }, ex);   // alloc-rare: only when the shape, the septa/tract strengths, the colour or the theme change: buildItems gives the last items back otherwise (LAST_ITEMS), and they do not depend on the radii that move every frame of a caliber ease
       }
     });
     if (su > 0.18) {
       const g = Math.min(1, (su - 0.18) / 0.4);
-      shape.septaPC.forEach((sp, k) => {
+      shape.septaPC.forEach((sp, k) => {   // alloc-rare: only when the shape, the septa/tract strengths, the colour or the theme change: buildItems gives the last items back otherwise (LAST_ITEMS), and they do not depend on the radii that move every frame of a caliber ease
         const P = sp.pts, q = P.length - 1;
-        band(P[0], P[q], { w: w * (0.6 + 0.3 * g), rgb: COL, a: 0.45 + 0.5 * g, e1: 0.9, seed: 31 + k, path: (u) => atPath(P, u) }, { fade, shadow: sh });
+        band(P[0], P[q], { w: w * (0.6 + 0.3 * g), rgb: COL, a: 0.45 + 0.5 * g, e1: 0.9, seed: 31 + k, path: (u) => atPath(P, u) }, { fade, shadow: sh });   // alloc-rare: only when the shape, the septa/tract strengths, the colour or the theme change: buildItems gives the last items back otherwise (LAST_ITEMS), and they do not depend on the radii that move every frame of a caliber ease
       });
-      if (su > 0.6) [1, 3, 5].forEach((i, k) => {
+      if (su > 0.6) [1, 3, 5].forEach((i, k) => {   // alloc-rare: only when the shape, the septa/tract strengths, the colour or the theme change: buildItems gives the last items back otherwise (LAST_ITEMS), and they do not depend on the radii that move every frame of a caliber ease
         const A = crn[i], t = 0.25 + 0.3 * Math.min(1, (su - 0.6) / 0.3);
-        band(A, [lerp(A[0], cx, t), lerp(A[1], cy, t)], { w: w * 0.55, rgb: COL, a: 0.6, e1: 0.15, amp: R * 0.03, seed: 41 + k }, { fade, shadow: sh });
+        band(A, [lerp(A[0], cx, t), lerp(A[1], cy, t)], { w: w * 0.55, rgb: COL, a: 0.6, e1: 0.15, amp: R * 0.03, seed: 41 + k }, { fade, shadow: sh });   // alloc-rare: only when the shape, the septa/tract strengths, the colour or the theme change: buildItems gives the last items back otherwise (LAST_ITEMS), and they do not depend on the radii that move every frame of a caliber ease
       });
     }
   }
-  const seen = new Set();
+  const seen = new Set();   // alloc-rare: only when the shape, the septa/tract strengths, the colour or the theme change: buildItems gives the last items back otherwise (LAST_ITEMS), and they do not depend on the radii that move every frame of a caliber ease
   for (const [x, y] of crn) {
-    const kk = Math.round(x) + ',' + Math.round(y);
+    const kk = Math.round(x) + ',' + Math.round(y);   // alloc-rare: only when the shape, the septa/tract strengths, the colour or the theme change: buildItems gives the last items back otherwise (LAST_ITEMS), and they do not depend on the radii that move every frame of a caliber ease
     if (seen.has(kk)) continue; seen.add(kk);
     const gp = scarGrowth(m.fibPre), rt = shape.rt * (0.8 + 0.9 * gp);
     if (!(m.fibPre > 0.03)) continue;
-    const ang = Math.atan2(y - cy, x - cx), seed0 = 900 + crn.findIndex((p) => p[0] === x && p[1] === y) * 71, clip = [1, x, y, rt, 0];
-    items.push({ type: 1, rgb: PRE, a: gp * 0.24, clip });
+    const ang = Math.atan2(y - cy, x - cx), seed0 = 900 + crn.findIndex((p) => p[0] === x && p[1] === y) * 71, clip = [1, x, y, rt, 0];   // alloc-rare: only when the shape, the septa/tract strengths, the colour or the theme change: buildItems gives the last items back otherwise (LAST_ITEMS), and they do not depend on the radii that move every frame of a caliber ease
+    items.push({ type: 1, rgb: PRE, a: gp * 0.24, clip });   // alloc-rare: only when the shape, the septa/tract strengths, the colour or the theme change: buildItems gives the last items back otherwise (LAST_ITEMS), and they do not depend on the radii that move every frame of a caliber ease
     const phase = fibHash(seed0) * TAU;
     for (let k = 0; k < 10; k++) {
       const sd = seed0 + k * 37, a0 = fibHash(sd) * TAU, span = 1.2 + 2 * fibHash(sd + 1), r0 = 0.25 + 0.65 * fibHash(sd + 2);
-      const path = (u) => { const an = a0 + span * u, r = r0 + 0.09 * Math.sin(5 * an + phase) + 0.12 * Math.sin(Math.PI * u); return [Math.cos(an) * rt * r, Math.sin(an) * rt * r]; };
-      band(path(0), path(1), { w: rt * (0.08 + 0.085 * gp) * (0.7 + fibHash(sd + 3)), rgb: PRE, a: Math.min(1, gp * (0.75 + 0.35 * fibHash(sd + 4))), e0: 0.2, e1: 0.25, seed: sd, path }, { clip, xf: { x, y, ang } });
+      const path = (u) => { const an = a0 + span * u, r = r0 + 0.09 * Math.sin(5 * an + phase) + 0.12 * Math.sin(Math.PI * u); return [Math.cos(an) * rt * r, Math.sin(an) * rt * r]; };   // alloc-rare: only when the shape, the septa/tract strengths, the colour or the theme change: buildItems gives the last items back otherwise (LAST_ITEMS), and they do not depend on the radii that move every frame of a caliber ease
+      band(path(0), path(1), { w: rt * (0.08 + 0.085 * gp) * (0.7 + fibHash(sd + 3)), rgb: PRE, a: Math.min(1, gp * (0.75 + 0.35 * fibHash(sd + 4))), e0: 0.2, e1: 0.25, seed: sd, path }, { clip, xf: { x, y, ang } });   // alloc-rare: only when the shape, the septa/tract strengths, the colour or the theme change: buildItems gives the last items back otherwise (LAST_ITEMS), and they do not depend on the radii that move every frame of a caliber ease
     }
     cuff(x, y, rt * 0.62, rt * 1.08, PRE, gp);
   }
@@ -224,42 +257,59 @@ export function buildItems(shape, m, o) {
  *  An item: five header texels (type, 0, clip kind, alpha / colour, width / bound radius, fibre count, nucleus count, shadow blur /
  *  the clip (x, y, r, r2) / the bound's centre), then for a band 27 points (x, y, width, the normal's angle), two texels a fibre
  *  (offset, phase, waviness, first sample / last sample, thickness, deep) and two a nucleus (x, y, rx, ry / angle). */
-export function buildDyn(shape, radii, items = []) {
-  const hsc = shape.hsc || [], hOff = Math.ceil(radii.length / 4), bOff = hOff + hsc.length * 2;
+export function buildDyn(shape, radii, items = NO_ITEMS) {
+  // (Only the radii moved since the last call, as on every frame of a caliber ease: the texels are the last call's with the radii written
+  // over theirs, in the same array. A new result is returned all the same, as tissue-gl.js sends the texels again when it is not the one
+  // it last sent.)
+  const l = LAST_DYN;
+  if (l.out && l.shape === shape && l.items === items && l.hsc === shape.hsc && l.nr === radii.length) {
+    const k = l.out.k;
+    for (let i = 0; i < radii.length; i++) k[i] = radii[i];
+    const o = l.out;
+    return (l.out = { k, rows: o.rows, hOff: o.hOff, nH: o.nH, nk: o.nk, bOff: o.bOff, iOff: o.iOff, margin: o.margin, nItems: o.nItems });
+  }
+  const out = dynOf(shape, radii, items);
+  l.shape = shape; l.items = items; l.hsc = shape.hsc; l.nr = radii.length; l.out = out;
+  return out;
+}
+const NO_ITEMS = [], NO_HSC = [];
+const LAST_DYN = { out: null, shape: null, items: null, hsc: null, nr: 0 };
+function dynOf(shape, radii, items) {
+  const hsc = shape.hsc || NO_HSC, hOff = Math.ceil(radii.length / 4), bOff = hOff + hsc.length * 2;
   const B = 1.3 * shape.R, bx = shape.cx - B, by = shape.cy - B, nk = Math.max(1, Math.ceil(2 * B / KB));
-  const sizeOf = (it) => (it.type === 0 ? 5 + 27 + 2 * it.fibres.length + 2 * it.nuclei.length : 5);
+  const sizeOf = (it) => (it.type === 0 ? 5 + 27 + 2 * it.fibres.length + 2 * it.nuclei.length : 5);   // alloc-rare: only when the shape, the tissue items or the stellate cells change: a change of the radii alone takes buildDyn's fast path (LAST_DYN) and writes them in place
   const iOff = bOff + nk * nk;
   // Each item's bounding disc: a band's points and their widest reach, with the shadow; a fill's disc.
   let margin = 2;
-  const ctr = [shape.lobules[0].x, shape.lobules[0].y], ap = shape.lobules[0].corners.length ? Math.min(...[0, 1, 2, 3, 4, 5].map((i) => { const c = shape.lobules[0].corners[i], d = shape.lobules[0].corners[(i + 1) % 6]; return Math.hypot((c[0] + d[0]) / 2 - ctr[0], (c[1] + d[1]) / 2 - ctr[1]); })) : 0;
+  const ctr = [shape.lobules[0].x, shape.lobules[0].y], ap = shape.lobules[0].corners.length ? Math.min(...[0, 1, 2, 3, 4, 5].map((i) => { const c = shape.lobules[0].corners[i], d = shape.lobules[0].corners[(i + 1) % 6]; return Math.hypot((c[0] + d[0]) / 2 - ctr[0], (c[1] + d[1]) / 2 - ctr[1]); })) : 0;   // alloc-rare: only when the shape, the tissue items or the stellate cells change: a change of the radii alone takes buildDyn's fast path (LAST_DYN) and writes them in place
   for (const it of items) {
     if (it.type === 0) {
       const P = it.band.P; let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9, wm = 0;
-      P.forEach(([x, y], i) => { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); wm = Math.max(wm, it.band.Wd[i]); });
+      P.forEach(([x, y], i) => { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); wm = Math.max(wm, it.band.Wd[i]); });   // alloc-rare: only when the shape, the tissue items or the stellate cells change: a change of the radii alone takes buildDyn's fast path (LAST_DYN) and writes them in place
       const cxx = (x0 + x1) / 2, cyy = (y0 + y1) / 2;
       let r = 0; for (const [x, y] of P) r = Math.max(r, Math.hypot(x - cxx, y - cyy));
-      it.bc = [cxx, cyy, r + wm * 1.1 + it.shadow * 1.5 + 3];
-    } else it.bc = [it.clip[1], it.clip[2], (it.type === 2 ? it.clip[3] * 1.07 : it.clip[3]) + 3];
+      it.bc = [cxx, cyy, r + wm * 1.1 + it.shadow * 1.5 + 3];   // alloc-rare: only when the shape, the tissue items or the stellate cells change: a change of the radii alone takes buildDyn's fast path (LAST_DYN) and writes them in place
+    } else it.bc = [it.clip[1], it.clip[2], (it.type === 2 ? it.clip[3] * 1.07 : it.clip[3]) + 3];   // alloc-rare: only when the shape, the tissue items or the stellate cells change: a change of the radii alone takes buildDyn's fast path (LAST_DYN) and writes them in place
     margin = Math.max(margin, Math.hypot(it.bc[0] - ctr[0], it.bc[1] - ctr[1]) + it.bc[2] - 1.015 * ap);
   }
-  const lists = Array.from({ length: nk * nk }, () => []);
+  const lists = Array.from({ length: nk * nk }, () => []);   // alloc-rare: only when the shape, the tissue items or the stellate cells change: a change of the radii alone takes buildDyn's fast path (LAST_DYN) and writes them in place
   let at = 0;
-  const heads = items.map((it) => { const h = at; at += sizeOf(it); return h; });
-  items.forEach((it, n) => {
+  const heads = items.map((it) => { const h = at; at += sizeOf(it); return h; });   // alloc-rare: only when the shape, the tissue items or the stellate cells change: a change of the radii alone takes buildDyn's fast path (LAST_DYN) and writes them in place
+  items.forEach((it, n) => {   // alloc-rare: only when the shape, the tissue items or the stellate cells change: a change of the radii alone takes buildDyn's fast path (LAST_DYN) and writes them in place
     const [x, y, r] = it.bc;
     const i0 = Math.max(0, Math.floor((x - r - bx) / KB)), i1 = Math.min(nk - 1, Math.floor((x + r - bx) / KB));
     const j0 = Math.max(0, Math.floor((y - r - by) / KB)), j1 = Math.min(nk - 1, Math.floor((y + r - by) / KB));
     for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) lists[j * nk + i].push(n);
   });
-  const entries = lists.reduce((q, a) => q + a.length, 0), itemsOff = iOff + entries, total = itemsOff + at;
-  const rows = Math.max(1, Math.ceil(total / K_ROW)), k = new Float32Array(K_ROW * rows * 4);
-  radii.forEach((r, i) => { k[i] = r; });
-  hsc.forEach((h, i) => k.set([h.x, h.y, h.a, h.nx, h.ny, 0, 0, 0], (hOff + i * 2) * 4));
+  const entries = lists.reduce((q, a) => q + a.length, 0), itemsOff = iOff + entries, total = itemsOff + at;   // alloc-rare: only when the shape, the tissue items or the stellate cells change: a change of the radii alone takes buildDyn's fast path (LAST_DYN) and writes them in place
+  const rows = Math.max(1, Math.ceil(total / K_ROW)), k = new Float32Array(K_ROW * rows * 4);   // alloc-rare: only when the shape, the tissue items or the stellate cells change: a change of the radii alone takes buildDyn's fast path (LAST_DYN) and writes them in place
+  radii.forEach((r, i) => { k[i] = r; });   // alloc-rare: only when the shape, the tissue items or the stellate cells change: a change of the radii alone takes buildDyn's fast path (LAST_DYN) and writes them in place
+  hsc.forEach((h, i) => k.set([h.x, h.y, h.a, h.nx, h.ny, 0, 0, 0], (hOff + i * 2) * 4));   // alloc-rare: only when the shape, the tissue items or the stellate cells change: a change of the radii alone takes buildDyn's fast path (LAST_DYN) and writes them in place
   let e = 0;
-  lists.forEach((a, b) => { k.set([e, a.length, 0, 0], (bOff + b) * 4); for (const n of a) { k[(iOff + e) * 4] = itemsOff + heads[n]; e++; } });
-  items.forEach((it, n) => {
+  lists.forEach((a, b) => { k.set([e, a.length, 0, 0], (bOff + b) * 4); for (const n of a) { k[(iOff + e) * 4] = itemsOff + heads[n]; e++; } });   // alloc-rare: only when the shape, the tissue items or the stellate cells change: a change of the radii alone takes buildDyn's fast path (LAST_DYN) and writes them in place
+  items.forEach((it, n) => {   // alloc-rare: only when the shape, the tissue items or the stellate cells change: a change of the radii alone takes buildDyn's fast path (LAST_DYN) and writes them in place
     let o = (itemsOff + heads[n]) * 4;
-    const put = (...v) => { k.set(v, o); o += 4; };
+    const put = (...v) => { k.set(v, o); o += 4; };   // alloc-rare: only when the shape, the tissue items or the stellate cells change: a change of the radii alone takes buildDyn's fast path (LAST_DYN) and writes them in place
     const nf = it.fibres ? it.fibres.length : 0, nn = it.nuclei ? it.nuclei.length : 0;
     put(it.type, 0, it.clip[0], it.a);
     put(it.rgb[0], it.rgb[1], it.rgb[2], it.w || 0);
@@ -267,14 +317,20 @@ export function buildDyn(shape, radii, items = []) {
     put(it.clip[1], it.clip[2], it.clip[3], it.clip[4]);
     put(it.bc[0], it.bc[1], 0, 0);
     if (it.type !== 0) return;
-    it.band.P.forEach(([x, y], i) => put(x, y, it.band.Wd[i], Math.atan2(it.band.N[i][1], it.band.N[i][0])));
+    it.band.P.forEach(([x, y], i) => put(x, y, it.band.Wd[i], Math.atan2(it.band.N[i][1], it.band.N[i][0])));   // alloc-rare: only when the shape, the tissue items or the stellate cells change: a change of the radii alone takes buildDyn's fast path (LAST_DYN) and writes them in place
     for (const f of it.fibres) { put(f.off, f.fp, f.wav, f.iA); put(f.iB, f.lw, f.deep ? 1 : 0, 0); }
     for (const q of it.nuclei) { put(q.x, q.y, q.rx, q.ry); put(q.ang, 0, 0, 0); }
   });
-  return { k, rows, hOff, nH: hsc.length, nk, bOff, iOff, margin, nItems: items.length };
+  return { k, rows, hOff, nH: hsc.length, nk, bOff, iOff, margin, nItems: items.length };   // alloc-rare: only when the shape, the tissue items or the stellate cells change: a change of the radii alone takes buildDyn's fast path (LAST_DYN) and writes them in place
 }
 /** The sinusoid collagen's and the stellate cells' strengths from the tissue values (the bitmap's own thresholds, eased). */
-export const liveFibre = (m) => ({ sin: ramp(0.05, 0.09, m.fibSin), act: ramp(0.08, 0.13, m.act), fibSin: m.fibSin, actV: m.act });
+export const liveFibre = (m) => {
+  // (The same strengths as the last call give that call's object back; a new one is made only when a value changes.)
+  const l = LAST_FIB;
+  if (l && l.fibSin === m.fibSin && l.actV === m.act) return l;
+  return (LAST_FIB = { sin: ramp(0.05, 0.09, m.fibSin), act: ramp(0.08, 0.13, m.act), fibSin: m.fibSin, actV: m.act });   // alloc-rare: only when the sinusoid collagen's or the stellate cells' strength changes (a patient or a fibrosis slider move), not on a frame that repeats them
+};
+let LAST_FIB = null;
 
 /** How far from its centre a cell can reach in any state, world units: the corners of its largest box (the plates thicken with
  *  disorder: length ×1.12, width ×1.3), the farthest it wanders, the membrane's half width (at most about 1.2 in the sizes the

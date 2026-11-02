@@ -4,7 +4,7 @@
 import { store, hiddenNow } from './store.js?v=a21c31dcb5';
 import { EDGES } from '../engine/topology.js?v=512e725aea';
 import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, fadeIn, glideOnResize, foldHidden, hasBox, putText } from './util.js?v=c328c93806';
-import { lobuleFlows } from './lobule-model.js?v=91e281aa89';
+import { lobuleFlows } from './lobule-model.js?v=0caa153c6a';
 import { createProfile } from './charts.js?v=136ec0fdb6';
 import { createPressureTime } from './pressure-time.js?v=0e3d71ecdb';
 import { createHvpgProcedure } from './hvpg-proc.js?v=602c7d0379';

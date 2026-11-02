@@ -49,7 +49,7 @@ test('G21: zone 3 cells are deeper and warmer; zone 1 keeps its tone', () => {
   const drop = z3.map((x, i) => 1 - x / cell[i]);
   assert.ok(drop[2] > drop[1] && drop[1] > drop[0], 'warmer: blue drops most, red least');
   assert.ok(cordTone(cell, 0, true)[2] > z3[2], 'gentler in dark mode');
-  assert.match(lp, /cordTone\(base\.map\(/);
+  assert.match(lp, /cordToneInto\(TONE, base\.map\(/);
   assert.match(lp, /if \(!dead\) c\.stroke\(\);/, 'a thin membrane between neighbouring cells');
   assert.match(lp, /c\.lineWidth = Math\.max\(0\.6, 0\.6 \/ \(c\.getTransform\(\)\.a \|\| 1\)\)/);
 });
@@ -144,13 +144,13 @@ test('a patient changed while the lobule is closed dives into that patient\'s lo
   assert.match(lz, /showTissueGL\(paintTissue\(W, H, dpr, dark, cs, !g, [^\n]*\)\);\n\s+snapNext = false;/, 'one frame only');
   // Every way the lobule is drawn out of sight starts from the patient's state: the dive's staging, the idle preparation, a reopen.
   assert.match(lz, /staging = true; snapState\(\);\n\s+try \{ update\(F\); \}/);
-  assert.match(lz, /snapState\(\);\n\s+model = lobuleState\(\{ \.\.\.F, P: F\.Pf \|\| F\.P \}, st\);/);
+  assert.match(lz, /snapState\(\);\n\s+model = lobuleStateInto\(modelBuf, F, st, undefined, F\.Pf \|\| F\.P\);/);
   assert.match(lz, /diveDrawn = false; snapState\(\); if \(F\) update\(F\);/);
   // Out of sight, the surround's tiles are drawn for the new state at once, not left on the last state's.
   assert.match(lz, /const ta = fieldTile\(cs, dark, FIELD_RS\[a\], !unseen\(\)\)/);
   // And the dive's field follows the latest frame, not the model left from the last visit.
   assert.match(lz, /const fieldState = \(\) => \{ const m = !unseen\(\) && model \? model : F \? closedModel\(\) : model;/);
-  assert.match(lz, /fsM = lobuleState\(\{ \.\.\.F, P: F\.Pf \|\| F\.P \}, st\);/);
+  assert.match(lz, /fsM = lobuleStateInto\(fsBuf, F, st, undefined, F\.Pf \|\| F\.P\);/);
 });
 
 test('the lobule\'s tissue is one shader pass a frame, so a slide\'s camera glide stays smooth (Mohammad, 17 Oct)', async () => {

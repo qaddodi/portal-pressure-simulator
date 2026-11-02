@@ -75,7 +75,7 @@ test('the lobule draws the lens as the Change colours, eases its reference and n
   assert.match(lz, /m\.mode === 'delta' \|\| m\.mode === 'since' \? deltaColor\(qP\(d\)\) : pc\(v\)/, 'a label bar takes the change\'s colour');
   assert.match(lz, /L\.aSince \? 'since the slide before'/, 'the label says what it counts from');
   // The reference eases as the pressures do, in both places the model is redrawn, and a closed lobule starts from the state itself.
-  assert.match(lz, /const eased = easeP\.step\(f\.Pf \|\| f\.P\), since = sinceStep\(st\);\n\s+model = lobuleState\(mixFrame\(f, eased\.v\), st, since\.v\);/);
+  assert.match(lz, /const eased = easeP\.step\(f\.Pf \|\| f\.P\), since = sinceStep\(st\);\n\s+model = lobuleStateInto\(modelBuf, f, st, since\.v, eased\.v\);/);
   assert.match(lz, /const st = store\.get\(\), eased = easeP\.step\(F\.Pf \|\| F\.P\), since = sinceStep\(st\);/);
   assert.equal((lz.match(/if \(eased\.moving \|\| since\.moving\) easeRaf = nextFrame\(glideP\);/g) || []).length, 2, 'the glide runs while the reference moves');
   assert.match(lz, /easeP = createEaser\(\); easeS = createEaser\(\); rz = null;/, 'out of sight it takes the reference at once');

@@ -6,7 +6,7 @@ const live = new WeakMap();
 /** Holds `v` as `el`'s `prop` (as the style names it: 'opacity'). */
 export function setLive(el, prop, v) {
   let m = live.get(el);
-  if (!m) live.set(el, (m = {}));
+  if (!m) live.set(el, (m = {}));   // alloc-rare: once per element, the first time a style is held for it (then written in place)
   m[prop] = v;
 }
 /** The held value of `el`'s `prop`, or undefined when the page's own is current. */

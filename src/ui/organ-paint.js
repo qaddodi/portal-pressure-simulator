@@ -15,8 +15,8 @@
 
 import { flattenPath, flattenCmds, ellipsePoly, polyBox, polyMesh, prestartShapes } from './shape-gl.js?v=23dcebba43';
 import { prestart, linkProgram } from './gl-compile.js?v=79231d7c6b';
-import { strHash } from './liver-geo.js?v=977185f80a';
-import { getLive } from './live-style.js?v=334be862fb';
+import { strHash } from './liver-geo.js?v=67a532bc39';
+import { getLive } from './live-style.js?v=1a585312ec';
 // (The colour a clear writes, one array for every clear: none made per call, plan rev 2 §2.8.)
 const CLEAR0 = new Float32Array(4);
 

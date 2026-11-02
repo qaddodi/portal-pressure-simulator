@@ -15,7 +15,7 @@ import { startProgram, checkProgram, exerciseDraw, publishWhenDone, compileDone 
 import { sendCanvas, SEND_RETRY } from './field-gl.js?v=f2858cd185';
 import { isTileCopy, createTileCopier } from './tile-gl.js?v=9ab67884be';
 import { isGpuPicture, paintGL } from './paint-gl.js?v=ff1638bbe6';
-import { LIVE_FS, CELLS_PER_ROW, IDX_ROW, SEG_ROW, K_ROW, BIN, panShift, panPlan } from './lobule-live.js?v=46984e0af6';
+import { LIVE_FS, CELLS_PER_ROW, IDX_ROW, SEG_ROW, K_ROW, BIN, panShift, panPlan } from './lobule-live.js?v=44e9839c99';
 import { fbComplete } from './gl-state.js?v=4163c507aa';
 import { uniformCache } from './uniform-cache.js?v=6488216aa0';
 

@@ -32,9 +32,9 @@ import { segHitsBox, lineIndex, indexHits, segsCross } from './seg-hits.js?v=1f4
 import { glassCallout, withGlass } from './callout.js?v=cdbaf33b3f';
 import { flipFrom, flipAt } from './cath-flip.js?v=6b016952c4';
 import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=d7cca3fb73';
-import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=977185f80a';
+import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=67a532bc39';
 import { diaphragmLine, diaphragmD } from './diaphragm.js?v=8012ab6b28';
-import { CIRR, smooth01, liverField, liverShrink, outlineNormals, contourNodules, morphOutline, fix1 } from './liver-morph.js?v=e52f3f2882';
+import { CIRR, smooth01, liverField, liverShrink, outlineNormals, contourNodules, morphOutline, fix1 } from './liver-morph.js?v=49b0db6027';
 import { LIVER_GEO } from './liver-geo-data.js?v=41a20a25ac';
 import { COLON_ART, BOWEL_ART, DUO_CLIPS, DUO_A, DUO_B } from './organ-art.js?v=a6a766d521';
 import { warmVisible, ringGrid, inGrid } from './warm-vis.js?v=5f4fb81b66';
@@ -44,21 +44,21 @@ import { refine } from './refine.js?v=9cf44f08bd';
 import { fadeOver, fadeStop, fading } from './res-fade.js?v=e216f9e4bc';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { leftAlone, sinceInput, booting, holdCover } from './quiet.js?v=388052eba8';
-import { cropToGrid } from './organs-gl.js?v=8cb463bcc0';
+import { cropToGrid } from './organs-gl.js?v=20aca08dc8';
 import { textPolys, loadGlyphs, glyphsReady, textBox } from './text-gl.js?v=3203debbbd';
 import { cssColor8 } from './css-color.js?v=e56f0c77ae';
 import { measure as measureWords } from './glyph-measure.js?v=1e477bd6b3';
-import { readGroup as readGroupNow, readGroupRefs, readFail, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=ebb6deb625';
-import { setLive, getLive, dropLive } from './live-style.js?v=334be862fb';
+import { readGroup as readGroupNow, readGroupRefs, readFail, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=4bf0f15cba';
+import { setLive, getLive, dropLive } from './live-style.js?v=1a585312ec';
 import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js?v=92f2104661';
 import { pathCmds, flattenCmds, polyBox, measurePath, elBox, chainMat } from './shape-gl.js?v=23dcebba43';
-import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=081f335000';
+import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=a4cc5b0378';
 import { nameSpots, NAME_BREAK } from './organ-names.js?v=4b9f97e8af';
-import { createLabelGL } from './label-gl.js?v=1f3a089a66';
+import { createLabelGL } from './label-gl.js?v=99f7adadea';
 import { createGlassGL } from './glass-gl.js?v=e760b28169';
 import { writePoints, writeJoinNow } from './veins-sweep.js?v=b6f17b648f';
 import { ENT_W } from './veins-bin.js?v=fc0fc1fc58';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=5554f98878';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=a513e331f8';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=d950c5cd1c';
 import { alongCurve } from './pressure-along.js?v=e669103117';
@@ -75,7 +75,7 @@ import { softwareYield } from './sw-yield.js?v=f7e0bc683b';
 import { portalSplit } from './table-marks.js?v=a483b9975e';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
 import { createVesselPick } from './vessel-pick.js?v=e72f880350';
-import { leaderEnd as edgeOf, leaderEndRects as edgeOfRects } from './leader-end.js?v=8e884700ab';
+import { leaderEnd as edgeOf, leaderEndRects as edgeOfRects } from './leader-end.js?v=56bb38b34d';
 import { balloonShape, esoAt, smoothPath, BALLOON, BALLOON_MS } from './balloon-eso.js?v=a56c97a289';
 import { GAS, gasShape, tubePath, tubeTip, tubeTo, pathAt, sheath, sheathArcs, pullArrow } from './balloon-gas.js?v=1d1feab3d4';
 import { balloonRy, balloonOutline, routeRadii } from './hvpg-balloon.js?v=35d7bb162c';
@@ -2667,7 +2667,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=5b3ba48611').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=2a48cca462').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor, binAway: (tubes, joins) => sweepBin({ kind: 'bin', tubes, joins }) });

@@ -4,6 +4,9 @@
 // Null when the spot lies inside the box: there is no leader to draw.
 // A pill's rounded corners (`box.r`, the corner radius) are followed too: a leader towards a corner stops on its curve,
 // not on the square corner a few pixels short of it.
+// (The point returned is one kept object, written anew by each call of leaderEnd and leaderEndRects: read it before the next call,
+// do not keep it. Every caller takes x and y at once.)
+const END = { x: 0, y: 0 };
 export function leaderEnd(box, ax, ay) {
   const cx = (box.x0 + box.x1) / 2, cy = (box.y0 + box.y1) / 2;
   const hw = (box.x1 - box.x0) / 2, hh = (box.y1 - box.y0) / 2;
@@ -19,16 +22,19 @@ export function leaderEnd(box, ax, ay) {
       t = (-b + Math.sqrt(Math.max(0, b * b - a * c))) / a;
     }
   }
-  return t >= 1 ? null : { x: cx + dx * t, y: cy + dy * t };
+  if (t >= 1) return null;
+  END.x = cx + dx * t; END.y = cy + dy * t;
+  return END;
 }
 
 // How far the segment p→q runs inside `box` (0 when it misses it, or only grazes an edge or a corner).
 export function runInside(p, q, box) {
   let t0 = 0, t1 = 1;
-  for (const [d, lo, hi, o] of [[q[0] - p[0], box.x0, box.x1, p[0]], [q[1] - p[1], box.y0, box.y1, p[1]]]) {
+  for (let i = 0; i < 2; i++) {   // (x, then y)
+    const d = i ? q[1] - p[1] : q[0] - p[0], lo = i ? box.y0 : box.x0, hi = i ? box.y1 : box.x1, o = i ? p[1] : p[0];
     if (Math.abs(d) < 1e-9) { if (o <= lo || o >= hi) return 0; continue; }
     let u = (lo - o) / d, v = (hi - o) / d;
-    if (u > v) [u, v] = [v, u];
+    if (u > v) { const w = u; u = v; v = w; }
     t0 = Math.max(t0, u); t1 = Math.min(t1, v);
     if (t0 >= t1) return 0;
   }
@@ -43,14 +49,16 @@ export function leaderEndRects(rects, outer, ax, ay) {
   let best = Infinity;
   for (const b of rects) {
     let t0 = 0, t1 = 1, hit = true;
-    for (const [d, lo, hi, o] of [[dx, b.x0, b.x1, ax], [dy, b.y0, b.y1, ay]]) {
+    for (let i = 0; i < 2; i++) {   // (x, then y)
+      const d = i ? dy : dx, lo = i ? b.y0 : b.x0, hi = i ? b.y1 : b.x1, o = i ? ay : ax;
       if (Math.abs(d) < 1e-9) { if (o < lo || o > hi) hit = false; continue; }
       let u = (lo - o) / d, v = (hi - o) / d;
-      if (u > v) [u, v] = [v, u];
+      if (u > v) { const w = u; u = v; v = w; }
       t0 = Math.max(t0, u); t1 = Math.min(t1, v);
     }
     if (hit && t0 <= t1) best = Math.min(best, t0);
   }
   if (best === 0) return null;
-  return best < Infinity ? { x: ax + dx * best, y: ay + dy * best } : leaderEnd(outer, ax, ay);
+  if (best < Infinity) { END.x = ax + dx * best; END.y = ay + dy * best; return END; }
+  return leaderEnd(outer, ax, ay);
 }

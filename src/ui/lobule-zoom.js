@@ -22,32 +22,32 @@
 import { runFlick, FLICK } from './flick.js?v=9d438ba315';
 import { store } from './store.js?v=a21c31dcb5';
 import { glideClock } from './glide-clock.js?v=220d7f875c';
-import { radiiChanged, canvasPx, fxMoves, DIVE_RIM } from './lobule-render-cache.js?v=84bf4c2222';
+import { radiiChanged, canvasPx, fxMoves, DIVE_RIM } from './lobule-render-cache.js?v=1bdcf2ecea';
 import { softwareYield } from './sw-yield.js?v=f7e0bc683b';
-import { lobuleState, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-model.js?v=91e281aa89';
-import { SIN_NARROW, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend, fieldDof, surroundGrade, greyStep } from './lobule-look.js?v=6f03da8f1b';
+import { lobuleStateInto, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-model.js?v=0caa153c6a';
+import { SIN_NARROW, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend, fieldDof, surroundGrade, greyStep } from './lobule-look.js?v=4368630f97';
 import { isGreyLens } from './organ-dim.js?v=485d50a599';
 import { createFieldGL } from './field-gl.js?v=f2858cd185';
-import { createTissueGL } from './tissue-gl.js?v=069ab16351';
+import { createTissueGL } from './tissue-gl.js?v=e030351ba2';
 import { tileCopy } from './tile-gl.js?v=9ab67884be';
 import { FX_GPU, createFxGL } from './fx-gl.js?v=11bfed24c7';
 import { WIDE_GL, createWideGL } from './wide-gl.js?v=aebd11fcf3';
-import { buildLive, buildDyn, buildItems, liveFibre, liveEligible, liveZoomShare, liveColours, liveEase, liveShareOf } from './lobule-live.js?v=46984e0af6';
+import { buildLive, buildDyn, buildItems, liveFibre, liveEligible, liveZoomShare, liveColours, liveEase, liveShareOf } from './lobule-live.js?v=44e9839c99';
 import { recordPaint, gpuPicture } from './paint-gl.js?v=ff1638bbe6';
 import { cssColor8 } from './css-color.js?v=e56f0c77ae';
-import { fibrousBand, fibrousTract, fibrousCuff, scarGrowth, paintWorldInto, useTokens } from './lobule-paint.js?v=523c7b8cd3';
+import { fibrousBand, fibrousTract, fibrousCuff, scarGrowth, paintWorldInto, useTokens } from './lobule-paint.js?v=7dc3ed62e9';
 import { h, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=c328c93806';
 import { createSvgGL, svgModel, setGeo, geoOf } from './svg-gl.js?v=e5886331c8';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=f8fa326224';
 import { NODES, EDGES } from '../engine/topology.js?v=512e725aea';
-import { createVeinsGL, LZ_ONE, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=5554f98878';
+import { createVeinsGL, LZ_ONE, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=a513e331f8';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=8aea855ce8';
 import { createSinusoidView } from './sinusoid-view.js?v=831d381c3b';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, framePart, easeNow, inMotion, PACED } from './frame.js?v=1d147c7c9a';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { FADE_MS, fadeAlpha, viewFollow } from './res-fade.js?v=e216f9e4bc';
 import { createResCover, coverFollow } from './res-cover-gl.js?v=f1f93df452';
-import { leaderEnd, runInside } from './leader-end.js?v=8e884700ab';
+import { leaderEnd, runInside } from './leader-end.js?v=56bb38b34d';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { restPass, cancelRest, restAttr, restRemove, flushRestAttrs } from './rest-pass.js?v=bb619a1659';
 import { classSoon, classHas } from './class-soon.js?v=97b9d0e0db';
@@ -681,6 +681,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (lzWant != null) coverGL()?.prepare();   // (the cover's program compiles while the lobule comes to rest: res-cover-gl.js)
     if (lzWant != null && !raf) raf = nextFrame(loop);
   });
+  // (The model and the field's are two objects kept for the view and written in place by lobuleStateInto, so a frame makes none.)
+  const modelBuf = {}, fsBuf = {};
   let geo = null, geoKey = '', model = null;
   // Where each vessel's moving marks are (blood stream, chevrons, lymph drops), kept by tube id so a
   // rebuilt geometry (a resize, the phone's toolbar sliding) carries on from the same place, not a jump.
@@ -987,10 +989,6 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (easeSUsed) { easeSUsed = false; easeS = createEaser(); }   // (a reference that was counted is let go once; an easer never stepped needs no new one)
     return NO_SINCE;
   };
-  // The frame the model is made from, with the eased pressures in place of the engine's: one object, written again in place (lobuleState
-  // reads it and keeps none of it). The keys a frame may lack are cleared first, so nothing of the frame before shows through.
-  const fMix = {};
-  const mixFrame = (f, P) => { fMix.params = fMix.viewParams = fMix.Pf = fMix.Qf = fMix.metrics = undefined; Object.assign(fMix, f); fMix.P = P; return fMix; };
   // The four lumen inks, from the page's styles, in one kept object. A value is trimmed again only when the style's text changed.
   const INK_VARS = ['--flow-normal', '--flow-reversed', '--vein-portal', '--vein-systemic'];
   const inksO = { normal: undefined, reversed: undefined, portal: undefined, systemic: undefined };
@@ -1022,7 +1020,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // Pressures ease toward the model's beat-filtered values (shared with the Pressure card), so the
     // ladder, labels and colors glide rather than jump, every display frame between model frames.
     const eased = easeP.step(f.Pf || f.P), since = sinceStep(st);
-    model = lobuleState(mixFrame(f, eased.v), st, since.v);
+    model = lobuleStateInto(modelBuf, f, st, since.v, eased.v);
     noteLens(model.mode);
     cancelFrame(easeRaf);
     if (eased.moving || since.moving) easeRaf = nextFrame(glideP);
@@ -1043,7 +1041,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const st = store.get(), eased = easeP.step(F.Pf || F.P), since = sinceStep(st);
     const inks = model.inks;
     drawVersion++;
-    model = lobuleState(mixFrame(F, eased.v), st, since.v);
+    model = lobuleStateInto(modelBuf, F, st, since.v, eased.v);
     noteLens(model.mode);
     model.inks = inks;
     panel();
@@ -2525,7 +2523,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   let fsM = null, fsKey = [];
   const closedModel = () => {
     const st = store.get(), k = [F, st.params, st.healthy, st.imaging];
-    if (k.some((x, i) => x !== fsKey[i])) { fsKey = k; fsM = lobuleState({ ...F, P: F.Pf || F.P }, st); }
+    if (k.some((x, i) => x !== fsKey[i])) { fsKey = k; fsM = lobuleStateInto(fsBuf, F, st, undefined, F.Pf || F.P); }
     return fsM;
   };
   const fieldState = () => { const m = !unseen() && model ? model : F ? closedModel() : model; return m ? { su: fsQ('su', m.septU), pre: fsQ('pre', m.fibPre), post: fsQ('post', m.fibPost), sin: fsQ('sin', m.fibSin), cong: fsQ('cong', m.congU) } : { su: 0, pre: 0, post: 0, sin: 0, cong: 0 }; };
@@ -2815,7 +2813,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     q.push(() => {   // the landed lobule: its state, then the tissue, then one full frame
       const st = store.get();
       snapState();
-      model = lobuleState({ ...F, P: F.Pf || F.P }, st);
+      model = lobuleStateInto(modelBuf, F, st, undefined, F.Pf || F.P);
       const cv = (n, d) => cs.getPropertyValue(n).trim() || d;
       model.inks = { normal: cv('--flow-normal'), reversed: cv('--flow-reversed'), portal: cv('--vein-portal'), systemic: cv('--vein-systemic') };
       const dpr = Math.min(2, devicePixelRatio || 1);

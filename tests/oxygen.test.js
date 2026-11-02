@@ -95,5 +95,5 @@ test('oxygen: the labels read % O₂ in the Oxygen lens, from the value the lens
   const mv = lz.slice(lz.indexOf('function station(m, key, v, r) {'), lz.indexOf("station(m, 'triad'"));
   assert.match(mv, /m\.mode === 'oxygen' && m\.oxy/, 'lobule labels switch to oxygen in the Oxygen lens');
   assert.match(mv, /'% O₂'/);
-  assert.match(src('src/ui/lobule-model.js'), /m\.oxy = \[node\[NI\[S\.pv\]\], node\[NI\[S\.sin\]\], node\[NI\[S\.cv\]\]\]/, 'portal venule, sinusoids, central vein in that order');
+  assert.match(src('src/ui/lobule-model.js'), /oxy\[0\] = node\[NI\[S\.pv\]\]; oxy\[1\] = node\[NI\[S\.sin\]\]; oxy\[2\] = node\[NI\[S\.cv\]\]/, 'portal venule, sinusoids, central vein in that order');
 });
