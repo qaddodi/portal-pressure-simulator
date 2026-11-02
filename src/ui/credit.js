@@ -6,7 +6,7 @@ import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { restPass } from './rest-pass.js?v=bf0c42ead5';
 import { CELL, cellFor, regionFor, contains, touches, artTest, boxThrough, multiply, invert } from './credit-art.js?v=77b95dafe8';
 import { CellGrid, geomOf } from './cell-grid.js?v=92b12a8464';
-import { layoutWatch, PLACED } from './idle-keys.js?v=81fbedda6b';
+import { layoutWatch, PLACED, GESTURE_LOOK } from './idle-keys.js?v=81fbedda6b';
 // (The art's walk looks at the camera once a frame: in the frame's first, read-only phase (2 Nov 2026), where the layout is the one the
 // browser last drew, never after the frame's writes.)
 const nextFrame = readFrameFor('credit');
@@ -15,6 +15,26 @@ const CREDIT_STEP = !(typeof location !== 'undefined' && /[?&]creditstep=0\b/.te
 // (?creditcache=0: every shape and label is measured again on every look, as before. Otherwise a shape's facts and the labels' boxes are kept
 // until what they were read from changes, so a view switch re-reads only what moved, between two frames (rest-pass.js).)
 const CREDIT_CACHE = !(typeof location !== 'undefined' && /[?&]creditcache=0\b/.test(location.search || ''));
+// The figure's shapes are never read while the figure is being moved by hand or by a glide (a pan, a pinch, a camera move: the app's
+// stage-busy, the stage's gesture classes): a pinch on the iPhone read every organ and vessel's box and style again some four times in
+// 8 s, as the zoom's own redraws of the art kept marking the facts stale (2 Nov 2026, "zoom is miserable"). The look waits and lands as
+// the figure stops. ?creditstill=0 reads them in a gesture, as before.
+const CREDIT_STILL = !(typeof location !== 'undefined' && /[?&]creditstill=0\b/.test(location.search || ''));
+const figureMoving = (world) => {
+  if (!CREDIT_STILL) return false;
+  if (document.getElementById('app')?.classList.contains('stage-busy')) return true;
+  const sv = world?.closest('.stage-view');
+  if (sv) for (const c of GESTURE_LOOK) if (sv.classList.contains(c)) return true;
+  return false;
+};
+let stillWait = null;
+// (Calls `done` once the figure holds still: polled with a timer, never a frame.)
+function whenStill(world, done) {
+  if (stillWait) { stillWait.done = done; return; }
+  stillWait = { done };
+  const go = () => { if (figureMoving(world)) { setTimeout(go, 120); return; } const w = stillWait; stillWait = null; w.done?.(); };
+  setTimeout(go, 120);
+}
 const CREDIT_POLL = typeof location !== 'undefined' && /[?&]creditpoll=1\b/.test(location.search || '');
 
 // Corners in order of preference. A bottom corner rises above whatever covers it (up to the middle of the figure);
@@ -473,6 +493,7 @@ function spreadTest(world, wm, wr, sc, glows, gk, view, pad, done) {
   if (fresh && artLevel?.facts === artFacts && covers(artLevel, sc, gk, view, pad)) { gpuProbe.note(COUNTED.creditKept); return artTest(artLevel, wm, wr); }
   const reg = regionFor(view, cellFor(sc), pad);
   if (!reg) return null;   // (past the cap: the screen grid, as before)
+  if (!fresh && figureMoving(world)) { whenStill(world, done); return PENDING; }   // (no shape read in a gesture: the look waits for it to end)
   // (The facts the job reads are watched from its start: a change while it runs leaves them stale for the look after ART_TAKE.)
   const facts = fresh ? artFacts : null;
   if (!facts) { gpuProbe.note(COUNTED.creditRead); artDirty = false; watchArt(world); }
@@ -489,6 +510,7 @@ const HOLD_STILL = 100, HOLD_MAX = 600;
 function artHold(j, world) {
   if (!CREDIT_STEP || j.quiet || j.stage !== 0 || j.list || j.ri) return false;
   const now = performance.now();
+  if (figureMoving(world)) { j.at = j.armed = now; return true; }   // (a gesture is waited out whole: it ends, unlike a breath)
   if (now - j.at >= HOLD_MAX) { j.quiet = true; return false; }
   if (j.armed === undefined || artDirty) { j.armed = now; artDirty = false; watchArt(world); return true; }
   if (now - j.armed < HOLD_STILL) return true;
@@ -498,6 +520,8 @@ function artHold(j, world) {
 function artStep() {
   const j = artJob;
   if (!j) return;
+  // (A job's reads stop while the figure is moved, part-way too, and go on where they were once it stops: its facts are in world units.)
+  if (j.stage === 0 && figureMoving(j.world)) { j.quiet = false; setTimeout(() => { if (artJob === j) nextFrame(artStep); }, HOLD_STILL); return; }
   if (j.stage === 0 && !j.quiet && CREDIT_STEP) {
     const w = document.getElementById('world');
     if (w && w === j.world && artHold(j, w)) { setTimeout(() => { if (artJob === j) nextFrame(artStep); }, HOLD_STILL / 2); return; }
