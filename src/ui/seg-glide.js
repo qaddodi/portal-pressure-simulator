@@ -36,13 +36,27 @@ export function chosen(ctl) {
   return one;
 }
 
+/** The translation a button is drawn at now by its own transform or translate (px, its own), [0, 0] when none. */
+function shiftNow(btn) {
+  if (typeof getComputedStyle !== 'function' || typeof DOMMatrix !== 'function') return [0, 0];
+  const cs = getComputedStyle(btn);
+  let x = 0, y = 0;
+  if (cs.transform && cs.transform !== 'none') { try { const m = new DOMMatrix(cs.transform); x += m.e; y += m.f; } catch { /* an odd value: none */ } }
+  if (cs.translate && cs.translate !== 'none') { const [tx = 0, ty = 0] = cs.translate.split(/\s+/).map((v) => parseFloat(v) || 0); x += tx; y += ty; }
+  return [x, y];
+}
+
 /** The button's box in the control's own pixels (from its padding edge), whatever scale an ancestor is drawn at; null while
  *  either has no box (hidden, or its card not yet open). */
 export function boxIn(ctl, btn) {
   const c = ctl.getBoundingClientRect(), b = btn.getBoundingClientRect(), w = ctl.offsetWidth;
   if (!c.width || !b.width || !w) return null;
   const k = c.width / w;
-  return { x: (b.left - c.left) / k - ctl.clientLeft, y: (b.top - c.top) / k - ctl.clientTop, w: b.width / k, h: b.height / k };
+  // (Where the button rests, not where a slide of its own draws it now: the view pill's buttons fold in and out by a translate
+  // (pill-motion.js), and a box read mid-fold left the piece off its button once the fold ended, as no resize follows a transform:
+  // the Lobule pill sat 13 px right of its word on iPhone, 2 Nov 2026.)
+  const [dx, dy] = shiftNow(btn);
+  return { x: (b.left - c.left) / k - ctl.clientLeft - dx, y: (b.top - c.top) / k - ctl.clientTop - dy, w: b.width / k, h: b.height / k };
 }
 
 const same = (a, b) => !!a && !!b && Math.abs(a.x - b.x) < .05 && Math.abs(a.y - b.y) < .05 && Math.abs(a.w - b.w) < .05 && Math.abs(a.h - b.h) < .05;
