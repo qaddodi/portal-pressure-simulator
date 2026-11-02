@@ -6,6 +6,7 @@ import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { restPass, cancelRest } from './rest-pass.js?v=ed71462b47';
 import { CELL, cellFor, regionFor, contains, touches, artTest, boxThrough, multiply, invert } from './credit-art.js?v=77b95dafe8';
 import { CellGrid, geomOf } from './cell-grid.js?v=8a51d713c4';
+import { elBox, chainMat } from './shape-gl.js?v=425612f909';
 import { layoutWatch, PLACED, GESTURE_LOOK } from './idle-keys.js?v=81fbedda6b';
 import { readAnims, readBox, readCTM, readMetric, readStyle, readTiming, worldCTM } from './layout-snap.js?v=f87939cccb';
 // (The art's walk looks at the camera once a frame: in the frame's first, read-only phase (2 Nov 2026), where the layout is the one the
@@ -357,15 +358,31 @@ function readShape(el, kind, inv) {
   shapeMemo.set(el, { sig, kind, fact });
   return fact;
 }
+// (A shape the GPU draws in its place, its SVG out of the page's layout (app.css: the organs and the backdrop under the plate, the fluid
+// and the ghosts whenever the GPU draws the vessels): its frame and box are worked out from its own numbers (shape-gl.js chainMat,
+// elBox), since the browser gives a shape outside the layout no box. It still counts as art: the GPU draws it there.)
+const gpuDrawn = (el) => {
+  const sv = el.closest?.('.stage-view');
+  return !!sv && ((sv.classList.contains('gl-plate') && !!el.closest('#organs, #backdrop')) || (sv.classList.contains('gl-on') && !!el.closest('#ascites, #ghosts')));
+};
 function readShapeNow(el, kind, inv) {
   const asDrawn = kind === 'fluid', vessel = kind === 'ves';
-  const m = readCTM(el), r = readBox(el);
-  if (!m || !r.width) return null;
+  let rel, bb;
+  if (gpuDrawn(el)) {
+    const world = document.getElementById('world'), own = world && elBox(el);
+    if (!own || !(own.width || own.height)) return null;
+    rel = chainMat(el, world);
+    bb = boxThrough(rel, own.x, own.y, own.x + own.width, own.y + own.height);
+  } else {
+    const m = readCTM(el), r = readBox(el);
+    if (!m || !r.width) return null;
+    rel = multiply(inv, m); bb = boxThrough(inv, r.left, r.top, r.right, r.bottom);
+  }
   const cs = readStyle(el);
   if (cs.display === 'none') return null;
-  const w = parseFloat(cs.strokeWidth) || 0, hit = el.classList.contains('v-hit'), rel = multiply(inv, m);
+  const w = parseFloat(cs.strokeWidth) || 0, hit = el.classList.contains('v-hit');
   // (The shape's box is the fill's, grown by the most its stroke reaches, a miter at the default limit: twice the stroke width.)
-  const g = 2 * w * Math.max(Math.hypot(rel.a, rel.b), Math.hypot(rel.c, rel.d)), bb = boxThrough(inv, r.left, r.top, r.right, r.bottom);
+  const g = 2 * w * Math.max(Math.hypot(rel.a, rel.b), Math.hypot(rel.c, rel.d));
   const fill = asDrawn ? cs.fill !== 'none' : !vessel || (cs.fill !== 'none' && !hit);
   const stroke = w > 0 && (asDrawn ? cs.stroke !== 'none' : !vessel || cs.stroke !== 'none' || hit);
   return { path: shapePath(el), m: rel, l: bb.l - g, t: bb.t - g, r: bb.r + g, b: bb.b + g, fill, lw: stroke ? (hit ? w * 0.7 : w) : 0, cap: cs.strokeLinecap || 'butt', join: cs.strokeLinejoin || 'miter' };

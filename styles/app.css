@@ -133,6 +133,12 @@ html.fr :is(.lens-btn, .ps-btn, .tl-pop-ic, .pz-zbtn, .ask-field, .pz-abb, .pzc-
    boxes, frames and picking are worked out in script from their own numbers), and the painter reads their styles, computed as well under
    display: none. The SVG organs come back the moment the plate goes.) */
 .stage-view.gl-plate #organs { display: none; }
+/* (So do the backdrop (the diaphragm and the flank) under the plate, and the ascites and the ghosts whenever the GPU draws the vessels: nothing
+   reads their layout (the home framing's boxes are worked out in script, elBox; the painter and the grey read their styles, computed as
+   well under display: none; picking is in script), and hidden they were still styled, laid out and their masks built on every frame
+   (plan rev 2 step 2). They come back the moment the plate or the GPU goes.) */
+.stage-view.gl-plate #backdrop { display: none; }
+.stage-view.gl-on :is(#ascites, #ghosts) { display: none; }
 /* The ghosts (a faint copy of a vein behind an organ) are SVG <use> copies of its group. While the GPU draws the vessels it fades
    them behind the organs itself (veins-gl VEIL_K), and the copies, whose styles under gl-on do not reach into a <use>, filled the
    vessels' outline paths black at the layer's 34 %: a dark grey blob on the cava (the veins of Retzius), a wedge over the liver
