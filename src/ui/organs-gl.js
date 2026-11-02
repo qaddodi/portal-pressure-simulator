@@ -115,7 +115,7 @@ export function marginViewTo(o, m, cw, ch) {
 import { createShapeGL } from './shape-gl.js?v=0d23af9d17';
 import { createOrganPaint, mul, mulTo, invTo, prestartOrganPaint } from './organ-paint.js?v=3a876f3513';
 import { prestart, linkProgram, exerciseDraw } from './gl-compile.js?v=f9222c848a';
-import { netChanged } from './idle-keys.js?v=6329c6ef1f';
+import { netChanged } from './idle-keys.js?v=1b5b7b8ddd';
 import { uniformCache } from './uniform-cache.js?v=6488216aa0';
 import { easeMove, D_SURFACE } from './ease.js?v=dc92422977';
 // (The colour a clear writes, one array for every clear: none made per call, plan rev 2 §2.8.)

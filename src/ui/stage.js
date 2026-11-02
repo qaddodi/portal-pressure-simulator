@@ -44,7 +44,7 @@ import { refine } from './refine.js?v=374285626e';
 import { fadeOver, fadeStop, fading } from './res-fade.js?v=e7ef96bb3c';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { leftAlone, sinceInput, booting, holdCover } from './quiet.js?v=856a3cdf1e';
-import { cropToGrid } from './organs-gl.js?v=d581f66f9f';
+import { cropToGrid } from './organs-gl.js?v=c5f5755874';
 import { textPolys, loadGlyphs, glyphsReady, textBox } from './text-gl.js?v=6ea0901c77';
 import { cssColor8 } from './css-color.js?v=59ed182174';
 import { measure as measureWords } from './glyph-measure.js?v=fb732c3b0d';
@@ -54,11 +54,11 @@ import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } fro
 import { pathCmds, flattenCmds, polyBox, measurePath, elBox, chainMat } from './shape-gl.js?v=0d23af9d17';
 import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=fc722fbb9d';
 import { nameSpots, NAME_BREAK } from './organ-names.js?v=d0c212a21b';
-import { createLabelGL } from './label-gl.js?v=c06dc1d12f';
+import { createLabelGL } from './label-gl.js?v=e93543a57c';
 import { createGlassGL } from './glass-gl.js?v=62a552932d';
 import { writePoints, writeJoinNow } from './veins-sweep.js?v=a38b10c598';
 import { ENT_W } from './veins-bin.js?v=49b311283d';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=e06597dc7d';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=4680f7f811';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=d950c5cd1c';
 import { alongCurve } from './pressure-along.js?v=e669103117';
@@ -68,7 +68,7 @@ import { createDyeRemote } from './dye-remote.js?v=9b2a2af354';
 import { createSweepClient } from './sweep-client.js?v=82d428b46d';
 import { retireRows, flowClose } from './flow-rows.js?v=6cd335f84b';
 import { createFlowDash, chevSpacing, inHole } from './flow-dash.js?v=172ff00667';
-import { createJunctionWidths } from './junction-widths.js?v=c5726a67f9';
+import { createJunctionWidths } from './junction-widths.js?v=24af760f06';
 import { chainsOf, planChainInto, taperAt } from './vessel-taper.js?v=01b79bbfbd';
 import { frameFor, lateFrameFor, cancelFrame, mayTask, cancelMay, noteDraw, easeNow, inMotion, afterMotion, PACED, setSaver as setFrameSaver, paceMs, renderScale, renderSetting, onRenderScale, figOpt, figLab, onFigLab, MOTION60_MS, PINCH_LOW_K, readFrameFor } from './frame.js?v=1d147c7c9a';
 import { softwareYield } from './sw-yield.js?v=f7e0bc683b';
@@ -81,7 +81,7 @@ import { GAS, gasShape, tubePath, tubeTip, tubeTo, pathAt, sheath, sheathArcs, p
 import { balloonRy, balloonOutline, routeRadii } from './hvpg-balloon.js?v=35d7bb162c';
 import { outlineBox, placeSummary } from './cath-place.js?v=371043a93a';
 import { placePills, pillsClear, PILL_GAP } from './cath-pill.js?v=ef3ce78784';
-import { layoutWatch } from './idle-keys.js?v=6329c6ef1f';
+import { layoutWatch } from './idle-keys.js?v=1b5b7b8ddd';
 import { writeGlowTexels } from './glow-texels.js?v=e578794a92';
 import { SIN_PERFUSION, sinStrandRadius } from './sin-perfusion.js?v=25a8407fdd';
 import { wavePacks, paintWave } from './scan-waves.js?v=6c2cc348ba';
@@ -2654,7 +2654,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=3b32d43435').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=d2c1759df5').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor, binAway: (tubes, joins) => sweepBin({ kind: 'bin', tubes, joins }) });

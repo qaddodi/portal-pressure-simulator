@@ -6,13 +6,13 @@ import { budget as gpuBudget } from './gpu-budget.js?v=5a5dcd699f';   // (the re
 import './gl-state.js?v=4163c507aa';   // (early: every WebGL2 context is recorded from its creation, R09/R06)
 import { startHost, host, hostFailed, restartHost } from './host.js?v=00e68113c8';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=2e6b562412';
-import { createStage } from './stage.js?v=59020ff3e7';
-import { createCreditPlacer } from './credit.js?v=6cabdae435';
+import { createStage } from './stage.js?v=3f827ca2e0';
+import { createCreditPlacer } from './credit.js?v=c8c3ac26ca';
 import { whenQuiet, booting, holdCover } from './quiet.js?v=856a3cdf1e';
 import { sinusoidSupported } from './gl-support.js?v=6219c6f004';
 import { createInspector } from './inspector.js?v=ad0dde95b5';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=819d6bff50';
-import { setHvpgStage } from './hvpg-proc.js?v=2c33dc1650';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=67c1d204c2';
+import { setHvpgStage } from './hvpg-proc.js?v=8336b4d4c0';
 import { createWhy } from './why.js?v=ffa0e6db6a';
 import { createTimeline, LAPSES } from './timeline.js?v=1f02653bd9';
 import { createCompare } from './compare.js?v=3276e577f4';
@@ -74,7 +74,7 @@ import { feedbackDiagnostics } from './feedback-diag.js?v=75097a9d74';
 import { noteJump } from './display-state.js?v=3783649ed7';
 import { createIdleRest } from './idle-rest.js?v=4d23822371';
 import { pillState, foldPill, stopFold } from './pill-motion.js?v=9560aa7273';
-import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=6329c6ef1f';
+import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=1b5b7b8ddd';
 import { readAnims, readBox, readElAt, readMetric, readStyle, scrollInto } from './layout-snap.js?v=a48d65266b';
 import './scroll-edges.js?v=2e0bd0ab5e';   // (soft fades at the ends of lists that scroll, only where there is more; ?edges=0 off)
 import { caught } from './caught.js?v=b96b17594a';
@@ -141,8 +141,8 @@ async function main() {
   // The Doppler and the FibroScan load after the first paint (a tab for one that has not come waits for it, dock.js). One left open when the
   // app was last used is asked for now and waited for with the model's first answers, so its pane is whole with the dock.
   const probeTo = (id) => { host.send({ type: 'probe', id }); logAction('probe', id); };
-  dopplerL = lazy(() => import('./doppler.js?v=0757d777f7'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
-  fibroL = lazy(() => import('./fibroscan.js?v=86904de471'), ({ createFibroScan }) => createFibroScan());
+  dopplerL = lazy(() => import('./doppler.js?v=e77af1022f'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
+  fibroL = lazy(() => import('./fibroscan.js?v=47fc08ce8b'), ({ createFibroScan }) => createFibroScan());
   const wasOpen = savedInstruments().open;
   const openAtStart = [];
   if (Array.isArray(wasOpen)) for (const [id, l] of [['doppler', dopplerL], ['fibroscan', fibroL]]) if (wasOpen.includes(id)) openAtStart.push(l.get().catch(() => {}));
@@ -247,7 +247,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=6bf0021c0f'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=7ece27ae91'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({

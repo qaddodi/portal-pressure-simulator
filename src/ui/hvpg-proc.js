@@ -11,7 +11,7 @@
 import { h, fmt, clamp, icon, cssVar, toast, swapText } from './util.js?v=5f0ea736f1';
 import { glWords } from './gl-words.js?v=dc0a4f535e';
 import { hvpgSev, hvBlocked } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { FONT } from './charts.js?v=b8e84b1238';
+import { FONT } from './charts.js?v=555762a6d1';
 import { pressureColor } from './colormap.js?v=fceca9cef5';
 import { store, logAction, hiddenNow, updateParams } from './store.js?v=2e6b562412';
 import { shownOr } from './shown.js?v=33ffa6d9eb';

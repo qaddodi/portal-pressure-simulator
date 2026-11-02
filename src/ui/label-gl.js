@@ -15,7 +15,7 @@
 import { glGet, glCap } from './gl-state.js?v=4163c507aa';
 import { frameFor, cancelFrame } from './frame.js?v=1d147c7c9a';
 import { ucOf } from './uniform-cache.js?v=6488216aa0';
-import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=6329c6ef1f';
+import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=1b5b7b8ddd';
 import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js?v=f9222c848a';
 import { createAtlasPacker } from './atlas-pack.js?v=f51c5cf455';
 import { easeMove, D_SURFACE } from './ease.js?v=dc92422977';

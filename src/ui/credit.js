@@ -7,7 +7,7 @@ import { restPass, cancelRest } from './rest-pass.js?v=bb619a1659';
 import { CELL, cellFor, regionFor, contains, touches, artTest, boxThrough, multiply, invert } from './credit-art.js?v=77b95dafe8';
 import { CellGrid, geomOf } from './cell-grid.js?v=b95ffc7129';
 import { elBox, chainMat } from './shape-gl.js?v=0d23af9d17';
-import { layoutWatch, PLACED, GESTURE_LOOK } from './idle-keys.js?v=6329c6ef1f';
+import { layoutWatch, PLACED, GESTURE_LOOK } from './idle-keys.js?v=1b5b7b8ddd';
 import { readAnims, readBox, readCTM, readMetric, readStyle, readTiming, worldCTM } from './layout-snap.js?v=a48d65266b';
 // (The art's walk looks at the camera once a frame: in the frame's first, read-only phase (2 Nov 2026), where the layout is the one the
 // browser last drew, never after the frame's writes.)
