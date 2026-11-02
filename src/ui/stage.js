@@ -1124,7 +1124,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const lumenP = isArt ? null : s('path', { class: 'v-lumenP', fill: `url(#gr-${e.id})` });
     const hit = s('path', { class: 'v-hit', tabindex: keyStops ? 0 : -1, role: 'button', 'aria-label': e.label || e.id, 'data-id': e.id });
     // Extra channels of a braided collateral (cavernoma): plain strokes under the main tube.
-    const strands = !isArt && STRANDS[e.id] ? STRANDS[e.id].map(([off, ph, k, ua, ub]) => ({ off, ph, k, span: ua != null ? [ua, ub] : null, wall: s('path', { class: 'v-strand-wall' }), lumen: s('path', { class: 'v-strand', stroke: `url(#gr-${e.id})` }) })) : null;
+    const strands = !isArt && STRANDS[e.id] ? STRANDS[e.id].map(([off, ph, k, ua, ub]) => ({ off, ph, k, span: ua != null ? [ua, ub] : null, wall: s('path', { class: 'v-strand-wall' }), lumen: s('path', { class: 'v-strand', stroke: `url(#gr-${e.id})` }), hit: s('path', { class: 'v-hit', 'data-id': e.id, 'aria-hidden': 'true', style: '--hit-w: 12' }) })) : null;
     const feeders = !isArt && feedGeo[e.id] ? feedGeo[e.id].map(({ pts: cur, k: fk, fan, when, src, out }, i) => ({ cur, fk, fan, when, src, out, len: arcLen(cur), ph: i * 0.37, wall: s('path', { class: 'v-strand-wall' }), lumen: s('path', { class: 'v-strand', stroke: `url(#gr-${e.id})` }) })) : null;
     // A feeder that leaves a named vein is colored from that vein's pressure to the vessel's.
     if (feeders) feeders.forEach((fd, i) => {
@@ -1159,7 +1159,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       gc.append(halo, sel, wall, wallP);
       g.append(lumen, lumenP, hit);
       gh.append(shade, sheen);
-      if (strands) { gc.prepend(...strands.map((sd) => sd.wall)); g.prepend(...strands.map((sd) => sd.lumen)); }
+      if (strands) { gc.prepend(...strands.map((sd) => sd.wall)); g.prepend(...strands.map((sd) => sd.lumen)); g.append(...strands.map((sd) => sd.hit)); }   // (each strand's hit made with it, never on a frame)
       if (feeders) {
         for (const fd of feeders) { const d = polyD(fd.cur); fd.wall.setAttribute('d', d); fd.lumen.setAttribute('d', d); }
         gc.prepend(...feeders.map((fd) => fd.wall)); g.prepend(...feeders.map((fd) => fd.lumen));
@@ -3093,7 +3093,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (lazy) continue;
         const d = polyD(sp);
         setG(sd.wall, 'd', d, hold); setG(sd.lumen, 'd', d, hold);
-        if (!sd.hit) { sd.hit = s('path', { class: 'v-hit', 'data-id': x.e.id, 'aria-hidden': 'true', style: '--hit-w: 12' }); late('add', x.g, sd.hit); }   // each strand of a varix is part of its vessel
+        // (each strand of a varix is part of its vessel: its hit is made with the strand, as the vessel is built)
         setG(sd.hit, 'd', d, hold); setG(sd.hit, 'style:display', (sd.live ?? 1) >= 0.5 && morph < 0.5 ? '' : 'none', hold);
       }
       g.cur = pts;
@@ -7219,11 +7219,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const SITE_EL = [document.createElement('div'), withGlass(document.createElement('div'))];
   const SITE_TPL = (() => { const e = document.createElement('div'); e.innerHTML = '<small></small><b></b><span></span><i class="res-k"></i>'; return e; })();
   const SPLIT_B = (() => { const e = document.createElement('b'); e.innerHTML = '<span class="sp-h"><em class="sp-n"></em>% bypasses the liver</span><span class="sp-bar"><i class="sp-l"></i><i class="sp-s"></i></span><span class="sp-cap"><em class="sp-lt"></em><em class="sp-st"></em></span>'; return e; })();
+  // (A resistor's zigzag, built once as a model and cloned as one comes in: a frame builds no page art for it, 2 Nov 2026, "Move everything to GPU".)
+  const RES_TPL = s('g', { class: 'res-one' }, s('path', { class: 'res-halo' }), s('path', { class: 'res-line' }));
   function resPaint(k, d, ratio) {
     let g = resMade.get(k);
     const want = sites.list?.includes(k) && ratio != null;
     if (!want) { if (g) { resMade.delete(k); g.style.opacity = 0; setTimeout(() => g.remove(), 700); } return; }   // (faded out whole first: .res-one, .6 s)
-    if (!g) { g = s('g', { class: 'res-one' }); g.style.opacity = 0; late('add', resG, g); resMade.set(k, g); nextFrame(() => nextFrame(() => { g.style.opacity = 1; })); }
+    if (!g) { g = RES_TPL.cloneNode(true); g.style.opacity = 0; late('add', resG, g); resMade.set(k, g); nextFrame(() => nextFrame(() => { g.style.opacity = 1; })); }
     const segs = d.res === 'liver' ? [[[812, 303], [888, 303]], [[812, 387], [888, 387]]] : (() => {
       const q = d.res === 'gut' ? geo.A_SMA?.cur && pointAt(geo.A_SMA.cur, 0.5) : geo.C1b && pointAt(geo.C1b.cur, 0.5);
       return q ? [[[q[0] - q[2] * 34, q[1] - q[3] * 34], [q[0] + q[2] * 34, q[1] + q[3] * 34]]] : [];
@@ -7232,7 +7234,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     g.classList.toggle('lit', !!lit); g.style.setProperty('--res-c', lit ? toneCol(lit) : 'var(--text)');
     g._segs = segs;   // (the figure's labels keep off the zigzags too: buildSegs)
     const path = segs.map(([a, b]) => zig(a, b)).join(' ');
-    if (g.dataset.d !== path) { g.dataset.d = path; g.replaceChildren(s('path', { class: 'res-halo', d: path }), s('path', { class: 'res-line', d: path })); }
+    if (g.dataset.d !== path) { g.dataset.d = path; for (const e of g.children) e.setAttribute('d', path); }
     // Heavier as the resistance rises: 1.5 px at the healthy liver's, about 4 px at four times it (eased by CSS).
     g.style.setProperty('--res-w', `${clamp(1.5 + 1.25 * Math.log2(Math.max(0.25, ratio)), 0.8, 5).toFixed(2)}px`);
   }

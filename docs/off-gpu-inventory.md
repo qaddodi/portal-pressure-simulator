@@ -36,4 +36,4 @@ Deploy gate: 85% on the GPU (owner, 1 Nov 2026); now passes. The goal is still 0
 |---|---|---|---|---|
 | src/ui/presenter.js:490 | svgDom | sv | document.createElementNS(SVGNS, tag) | Clear layout reads in presenter (cmsg_018GZjFhtvTeoUFdeosmA9rJ3jVCfyZvFY8se4LGx6kF8g) |
 | src/ui/util.js:51 | svgDom | s | document.createElementNS(SVGNS, tag) | Move organ raster layers to GPU (cmsg_018GZjFhtvTeoUFdeosmA9rJRs65tgkFw47V1LsQF3yHrs) |
-| src/ui/util.js:53 | domWrite | s | append() — frame path: stage.js#venousTick@7094 → stage.js#venousDraw@7057 → s@50 | Move organ raster layers to GPU (cmsg_018GZjFhtvTeoUFdeosmA9rJRs65tgkFw47V1LsQF3yHrs) |
+| src/ui/util.js:53 | domWrite | s | append() — frame path: stage.js#anon@9609 → stage.js#updateLabels@10275 → stage.js#layoutLabels@10460 → stage.js#renderBlock@9635 → s@50 | Move organ raster layers to GPU (cmsg_018GZjFhtvTeoUFdeosmA9rJRs65tgkFw47V1LsQF3yHrs) |
