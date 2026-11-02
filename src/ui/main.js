@@ -6,20 +6,20 @@ import { budget as gpuBudget } from './gpu-budget.js?v=0cf9fbf280';   // (the re
 import './gl-state.js?v=d8ce472a0d';   // (early: every WebGL2 context is recorded from its creation, R09/R06)
 import { startHost, host, hostFailed, restartHost } from './host.js?v=8d640e9c36';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=afc4d7c743';
-import { createStage } from './stage.js?v=7545b83549';
+import { createStage } from './stage.js?v=cfef029054';
 import { createCreditPlacer } from './credit.js?v=cfcb30f07e';
 import { whenQuiet, booting, holdCover } from './quiet.js?v=388052eba8';
 import { sinusoidSupported } from './gl-support.js?v=52a4c9c036';
-import { createInspector } from './inspector.js?v=b14d1dbdc0';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=f9fe9cb94c';
-import { setHvpgStage } from './hvpg-proc.js?v=991a79441a';
-import { createWhy } from './why.js?v=7e1bb48e1c';
-import { createTimeline, LAPSES } from './timeline.js?v=1fb35037cd';
-import { createCompare } from './compare.js?v=926277617f';
-import { createCard } from './card.js?v=374d565126';
-import { createChart } from './chart.js?v=06d23a9317';
-import { createMenu } from './menu.js?v=54b0769bcd';
-import { caption } from './a11y.js?v=da8cab694f';
+import { createInspector } from './inspector.js?v=de56e4e58d';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=79074fd97d';
+import { setHvpgStage } from './hvpg-proc.js?v=a1952c8eb9';
+import { createWhy } from './why.js?v=b99e3f0945';
+import { createTimeline, LAPSES } from './timeline.js?v=3407adc990';
+import { createCompare } from './compare.js?v=94363deaba';
+import { createCard } from './card.js?v=81dd6ce9c2';
+import { createChart } from './chart.js?v=dbf17f88a9';
+import { createMenu } from './menu.js?v=b8670257d6';
+import { caption } from './a11y.js?v=0e5a0fbdfc';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=a9debc0de8';
 import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=bd42614da8';
@@ -213,7 +213,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=c09cd8c3e6'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=9b9c9fcfca'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
