@@ -697,7 +697,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   store.on('*', (keys) => { if (!Array.isArray(keys) || keys.some(seen)) { drawVersion++; if (!raf && fade > 0) raf = nextFrame(loop); } });
   let lzYield = null;
   let surfCs = null, flowG = null, flowAt = -1;   // what the last surface pass and flow upload in drawGL were made for (see there)
-  let layoutV = '', gl = null, glTried = false, binKey = '', binReach = [], radKey = [], radAll = '', radCal = '', inkWas = [], attrKey = '', drawKey = '', glDirty = true, tissueKey = '', worldKey = '', layoutKey = '';
+  let gl = null, glTried = false, binKey = '', binReach = [], radKey = [], radAll = '', radCal = '', inkWas = [], attrKey = '', drawKey = '', glDirty = true, tissueKey = '', worldKey = '', layoutKey = '';
   // The lobule's tissue in world space (see paintTissue): a GPU picture (paint-gl.js), which stands where its canvas did.
   const noPicture = () => ({ width: 0, height: 0 });
   let worldCv = noPicture();
@@ -1672,57 +1672,81 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     return boxes;
   }
   const zInV = (fr0, x, y) => x > fr0.l + 40 && x < fr0.r - 40 && y > fr0.t + 20 && y < fr0.b - 20;
-  // The layout the labels were last placed for ({ b: everything but the view, k, x, y }), which a pan carries them from.
+  // The layout the labels were last placed for (everything but the view, and the view: k, x, y), which a pan carries them from.
+  // (Two kept records, taken in turn: a layout writes the one not standing in place while the other still stands, so a layout that has to
+  // wait for the labels to be measured can put the standing one back. Their inputs are compared as numbers, in place: a key string built
+  // from them on every frame was garbage, 2 Nov 2026.)
+  const mkFollow = () => ({ W: 0, H: 0, zones: false, lymph: false, ha: false, bd: false, hasCall: false, callAt: '', callLabel: '', lks: ['', '', '', '', '', ''],
+    t: 0, b: 0, l: 0, r: 0, k: 0, x: 0, y: 0, ride: null,
+    rideBuf: { labs: [], chips: [], zones: [], nl: 0, nc: 0, nz: 0, cards: null, ix: 0, iy: 0 } });
+  const follows = [mkFollow(), mkFollow()];
   let follow = null, followT = 0, rough = false;
+  // The labels in the order they were made (the panel's), and in the order a layout takes them.
+  const LAB_KEYS = ['triad', 'sin', 'cv', 'lymph', 'ha', 'bd'], LAY_ORDER = ['cv', 'sin', 'triad', 'lymph', 'ha', 'bd'];
+  const LAB_TARGET = {};   // (the slide's name for each label, built once)
+  for (const k of LAY_ORDER) LAB_TARGET[k] = `lobule:${LZ_TARGET[k] || k}`;
+  // Whether the layout's inputs but the view are those record f was taken for: the labels' make-up, the zone and lymph switches, the
+  // slide's pointer and the free space.
+  function sameBase(f, fr0, g) {
+    if (f.W !== g.W || f.H !== g.H || f.zones !== zonesOn || f.lymph !== lymphOn || f.ha !== named('ha') || f.bd !== named('bd')) return false;
+    if (f.hasCall !== !!call || (call && (f.callAt !== call.at || f.callLabel !== call.label))) return false;
+    if (f.t !== fr0.t || f.b !== fr0.b || f.l !== fr0.l || f.r !== fr0.r) return false;
+    for (let i = 0; i < LAB_KEYS.length; i++) if (f.lks[i] !== labs[LAB_KEYS[i]].lk) return false;
+    return true;
+  }
+  function fillBase(f, fr0, g) {
+    f.W = g.W; f.H = g.H; f.zones = zonesOn; f.lymph = lymphOn; f.ha = named('ha'); f.bd = named('bd');
+    f.hasCall = !!call; f.callAt = call ? call.at : ''; f.callLabel = call ? call.label : '';
+    f.t = fr0.t; f.b = fr0.b; f.l = fr0.l; f.r = fr0.r;
+    for (let i = 0; i < LAB_KEYS.length; i++) f.lks[i] = labs[LAB_KEYS[i]].lk;
+  }
   // (A wheel or a trackpad's pinch is a hand too, as a scroll is: each of them changed the zoom on every frame and laid the labels out in
   // full there, and redrew the lobule's bitmap at each √2 step, which is what made zooming the lobule on a Mac lag.)
   const handOn = () => touches.size > 0 || !!cancelFlick || (!!wheelKind && performance.now() - wheelAt < 250);
   // The hand let go (or paused): place the labels again for where the view now is.
   function followEnd() { if (handOn()) { followT = setTimeout(followEnd, 140); return; } if (labels.style.transform || rough || rides) { rough = false; layoutKey = ''; viewChanged(); } }
+  // Boxes and leader ends the ride's check works in, kept and written in place (a pool grows by index, once, to the most labels there are).
+  const rhBox = [], rhLead = [], rhOth = [];
+  const poolBox = (pool, i) => pool[i] || (pool[i] = { l: 0, r: 0, t: 0, b: 0 });   // alloc-once: a pool grows the first time a larger count is asked for, then it is reused
+  const poolPair = (pool, i) => pool[i] || (pool[i] = [[0, 0], [0, 0]]);   // alloc-once: a pool grows the first time a larger count is asked for, then it is reused
   // Whether the labels as laid out (follow.ride), each carried with its spot to the view now, still keep the layout's rules: no label on
   // another, a zone's name or a chip, none on another's leader, no two leaders crossed, none on a structure (which grows as the view
   // zooms in) or a card, each inside the free space and what it names still in it, and no chip's spot come back into view.
-  // (rideHolds' scratch: a spot carried to the view now, and the pieces carried: boxes and leaders, grown to the number on show.)
-  let mvx = 0, mvy = 0;
-  const rideMv = (f, ax, ay) => { mvx = (ax - f.x) / f.k * V.k + V.x; mvy = (ay - f.y) / f.k * V.k + V.y; };
-  const rhZ = [], rhB = [], rhP = [], rhQ = [];
-  const rhBox = (pool, i) => pool[i] || (pool[i] = { l: 0, r: 0, t: 0, b: 0 });   // alloc-rare: only grows to the most pieces ever shown
-  const rhPt = (pool, i) => pool[i] || (pool[i] = [0, 0]);   // alloc-rare: only grows to the most labels ever shown
   function rideHolds(fr) {
-    const R = follow.ride, f = follow, g = geo;
+    const R = follow.ride, f = follow, g = geo, fx = f.x, fy = f.y, fk = f.k;
     if (call && callRingAt(fr)) return false;
-    const chips = R.chips, labsR = R.labs, zones = R.zones;
-    for (let i = 0; i < chips.length; i++) {
-      rideMv(f, chips[i].a[0], chips[i].a[1]);
-      if (mvx >= fr.l - 4 && mvx <= fr.r + 4 && mvy >= fr.t - 4 && mvy <= fr.b + 4) return false;
+    const chips = R.chips, labsR = R.labs, zonesR = R.zones, cards = R.cards;
+    for (let i = 0; i < R.nc; i++) {
+      const a = chips[i].a, x = (a[0] - fx) / fk * V.k + V.x, y = (a[1] - fy) / fk * V.k + V.y;
+      if (x >= fr.l - 4 && x <= fr.r + 4 && y >= fr.t - 4 && y <= fr.b + 4) return false;
     }
     const keep = keepDiscs(g);
-    // The zone names, each moved by its own centre's move.
-    for (let i = 0; i < zones.length; i++) {
-      const b = zones[i], ax = (b.l + b.r) / 2, ay = (b.t + b.b) / 2;
-      rideMv(f, ax, ay);
-      const dx = mvx - ax, dy = mvy - ay, o = rhBox(rhZ, i);
-      o.l = b.l + dx; o.r = b.r + dx; o.t = b.t + dy; o.b = b.b + dy;
+    // (The zones' names carried by their own spot's move, the chips' boxes as they stand.)
+    rhOth.length = 0;
+    for (let i = 0; i < R.nz; i++) {
+      const b = zonesR[i], cx = (b.l + b.r) / 2, cy = (b.t + b.b) / 2, dx = (cx - fx) / fk * V.k + V.x - cx, dy = (cy - fy) / fk * V.k + V.y - cy, s = poolBox(rhBox, 8 + i);
+      s.l = b.l + dx; s.r = b.r + dx; s.t = b.t + dy; s.b = b.b + dy;
+      rhOth.push(s);
     }
-    const n = labsR.length;
-    for (let i = 0; i < n; i++) {
-      const it = labsR[i], bx = it.box;
-      rideMv(f, it.a[0], it.a[1]);
-      const ax = mvx, ay = mvy, dx = ax - it.a[0], dy = ay - it.a[1], b = rhBox(rhB, i);
-      b.l = bx.l + dx; b.r = bx.r + dx; b.t = bx.t + dy; b.b = bx.b + dy;
+    for (let i = 0; i < R.nc; i++) rhOth.push(chips[i].box);
+    let nb = 0;
+    for (let i = 0; i < R.nl; i++) {
+      const it = labsR[i], ia = it.a, ib = it.box, ax = (ia[0] - fx) / fk * V.k + V.x, ay = (ia[1] - fy) / fk * V.k + V.y, dx = ax - ia[0], dy = ay - ia[1], b = poolBox(rhBox, nb);
+      b.l = ib.l + dx; b.r = ib.r + dx; b.t = ib.t + dy; b.b = ib.b + dy;
       if (!(ax >= fr.l - 4 && ax <= fr.r + 4 && ay >= fr.t - 4 && ay <= fr.b + 4) || b.l < fr.l + R.ix - 0.5 || b.r > fr.r - R.ix + 0.5 || b.t < fr.t + R.iy - 0.5 || b.b > fr.b - R.iy + 0.5) return false;
-      for (let k = 0; k < keep.length; k++) if (into(keep[k], b) > 0) return false;
-      for (let k = 0; k < R.cards.length; k++) if (overlap(b, R.cards[k]) > 0) return false;
-      const pa = rhPt(rhP, i), pq = rhPt(rhQ, i);
-      pa[0] = ax; pa[1] = ay; pq[0] = it.c[0] + ax - it.a[0]; pq[1] = it.c[1] + ay - it.a[1];
+      for (let q = 0; q < keep.length; q++) if (into(keep[q], b) > 0) return false;
+      for (let q = 0; q < cards.length; q++) if (overlap(b, cards[q]) > 0) return false;
+      const ld = poolPair(rhLead, nb);
+      ld[0][0] = ax; ld[0][1] = ay; ld[1][0] = it.c[0] + ax - ia[0]; ld[1][1] = it.c[1] + ay - ia[1];
+      nb++;
     }
-    for (let i = 0; i < n; i++) {
-      const bi = rhB[i], pa = rhP[i], pq = rhQ[i];
-      for (let k = 0; k < zones.length; k++) { const o = rhZ[k]; if (overlap(bi, o) > 0 || crosses(pa, pq, o)) return false; }
-      for (let k = 0; k < chips.length; k++) { const o = chips[k].box; if (overlap(bi, o) > 0 || crosses(pa, pq, o)) return false; }
-      for (let j = 0; j < n; j++) {
+    for (let i = 0; i < nb; i++) {
+      const bi = rhBox[i], pi = rhLead[i][0], qi = rhLead[i][1];
+      for (let o = 0; o < rhOth.length; o++) if (overlap(bi, rhOth[o]) > 0 || crosses(pi, qi, rhOth[o])) return false;
+      for (let j = 0; j < nb; j++) {
         if (j === i) continue;
-        if ((j > i && overlap(bi, rhB[j]) > 0) || crosses(pa, pq, rhB[j]) || (j > i && cut(pa, pq, rhP[j], rhQ[j]))) return false;
+        const bj = rhBox[j];
+        if ((j > i && overlap(bi, bj) > 0) || crosses(pi, qi, bj) || (j > i && cut(pi, qi, rhLead[j][0], rhLead[j][1]))) return false;
       }
     }
     return true;
@@ -1731,62 +1755,92 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // Every label, zone name and pill stands where `translate` puts it (laid out once at the box's corner, so a move or glide is the
   // compositor's, never a layout per frame); its spot is kept here, and a pan's ride adds its shift on top.
   const spot = new WeakMap();
-  const tr = (e, x, y) => { e.style.translate = `${x.toFixed(2)}px ${y.toFixed(2)}px`; };
-  function put(e, x, y) { spot.set(e, [x, y]); tr(e, x, y); }
-  let rides = null;
+  // (Written only when the place changed; the element keeps the last it was given, _tx and _ty, NaN where its translate was cleared.)
+  const tr = (e, x, y) => { if (e._tx === x && e._ty === y) return; e._tx = x; e._ty = y; e.style.translate = `${x.toFixed(2)}px ${y.toFixed(2)}px`; };
+  function put(e, x, y) {
+    const p = spot.get(e);
+    if (p) { p[0] = x; p[1] = y; } else spot.set(e, [x, y]);   // alloc-once: the first spot an element is given; after it the pair is written in place
+    tr(e, x, y);
+  }
+  // The pieces of a ride, kept and written in place (grown by index, once, to the most pieces there are).
+  const rideList = [];
+  let rides = null, rideN = 0;
+  function rideAdd(ax, ay) {
+    const r = rideList[rideN] || (rideList[rideN] = { a: [0, 0], d: [0, 0], els: [null, null, null], ne: 0, tx: NaN, ty: NaN, ts: '' });   // alloc-once: a piece is made the first time a ride needs that many, then reused
+    rideN++; r.a[0] = ax; r.a[1] = ay; r.ne = 0;
+    return r;
+  }
   function ride() {
-    const f = follow, at = (a) => [(a[0] - f.x) / f.k * V.k + V.x - a[0], (a[1] - f.y) / f.k * V.k + V.y - a[1]];
+    const f = follow;
     if (!rides) {
       // (the pan carries them by the same translate a layout glides: no glide may run under it, or they would trail the hand)
       labels.classList.remove('lz-ease');
-      rides = [];
-      for (const L of Object.values(labs)) if (L.a && !isHid(L.el) && !L.el.classList.contains('edge')) rides.push({ a: [...L.a], els: [L.el, L.line, L.dotEl] });
-      for (const z of zoneEls) if (z.isConnected && spot.has(z)) rides.push({ a: [...spot.get(z)], els: [z] });
-      if (callRing.classList.contains('on')) rides.push({ a: [+geoOf(callRing, 'cx'), +geoOf(callRing, 'cy')], els: [callEl, callLine, callRing] });
+      rides = rideList; rideN = 0;
+      for (let i = 0; i < LAB_KEYS.length; i++) {
+        const L = labs[LAB_KEYS[i]];
+        if (L.a && !isHid(L.el) && !L.el.classList.contains('edge')) { const r = rideAdd(L.a[0], L.a[1]); r.els[0] = L.el; r.els[1] = L.line; r.els[2] = L.dotEl; r.ne = 3; }
+      }
+      for (let i = 0; i < zoneEls.length; i++) {
+        const z = zoneEls[i], s = z.isConnected && spot.get(z);
+        if (s) { const r = rideAdd(s[0], s[1]); r.els[0] = z; r.ne = 1; }
+      }
+      if (callRing.classList.contains('on')) { const r = rideAdd(+geoOf(callRing, 'cx'), +geoOf(callRing, 'cy')); r.els[0] = callEl; r.els[1] = callLine; r.els[2] = callRing; r.ne = 3; }
     }
-    for (const r of rides) {
-      r.d = at(r.a);
-      const t = `${r.d[0].toFixed(2)}px ${r.d[1].toFixed(2)}px`;
-      for (const e of r.els) { const p = spot.get(e); if (p) tr(e, p[0] + r.d[0], p[1] + r.d[1]); else e.style.translate = t; }
+    for (let i = 0; i < rideN; i++) {
+      const r = rideList[i], a0 = r.a[0], a1 = r.a[1], d0 = (a0 - f.x) / f.k * V.k + V.x - a0, d1 = (a1 - f.y) / f.k * V.k + V.y - a1;
+      r.d[0] = d0; r.d[1] = d1;
+      for (let j = 0; j < r.ne; j++) {
+        const e = r.els[j], p = spot.get(e);
+        if (p) tr(e, p[0] + d0, p[1] + d1);
+        else {
+          // (A leader, its dot or the ring: the same shift as its label, the string made when the shift changed.)
+          if (r.tx !== d0 || r.ty !== d1) { r.tx = d0; r.ty = d1; r.ts = `${d0.toFixed(2)}px ${d1.toFixed(2)}px`; }
+          e.style.translate = r.ts; e._tx = NaN;
+        }
+      }
     }
   }
   // A model piece's ends and centre carried by the pan's shift (held on the piece, never written as attributes).
+  const shiftAttr = (e, a, v) => { const o = geoOf(e, a); if (o != null && o !== '') setGeo(e, a, +o + v); };
   function shiftGeo(e, dx, dy) {
-    for (const [a, v] of [['x1', dx], ['x2', dx], ['cx', dx], ['y1', dy], ['y2', dy], ['cy', dy]]) { const o = geoOf(e, a); if (o != null && o !== '') setGeo(e, a, +o + v); }
+    shiftAttr(e, 'x1', dx); shiftAttr(e, 'x2', dx); shiftAttr(e, 'cx', dx); shiftAttr(e, 'y1', dy); shiftAttr(e, 'y2', dy); shiftAttr(e, 'cy', dy);
     leadGL.paint();
   }
+  const unglide = () => { for (let i = 0; i < LAB_KEYS.length; i++) labs[LAB_KEYS[i]].gl = null; };
   function bakeRides() {
     if (!rides) return false;
     // (Written in place with no glide on, then the page styled once, so the layout's glide starts from where each piece is seen.)
     labels.classList.remove('lz-ease');
     let moved = false;
-    for (const { d, els } of rides) {
-      if (!d) continue;
-      const [dx, dy] = d;
+    for (let i = 0; i < rideN; i++) {
+      const r = rideList[i], dx = r.d[0], dy = r.d[1];
       if (dx || dy) moved = true;
-      for (const e of els) {
-        const p = spot.get(e);
-        if (p) put(e, p[0] + dx, p[1] + dy); else e.style.translate = '';
+      for (let j = 0; j < r.ne; j++) {
+        const e = r.els[j], p = spot.get(e);
+        if (p) put(e, p[0] + dx, p[1] + dy); else { e.style.translate = ''; e._tx = NaN; }
         shiftGeo(e, dx, dy);
       }
     }
     rides = null;
     // (No read to make the page take these in: the layout waits for the next frame, which starts the glide from here. See layoutLabels.)
-    for (const L of Object.values(labs)) L.gl = null;
+    unglide();
     return moved;
   }
+  // The pan's shift as last written to the labels and leaders (a string made only when it changed), and its numbers.
+  let panStr = null, panDX = 0, panDY = 0;
   // Writes the pan's shift into the labels' and leaders' own positions and drops the shared shift, so they glide on from where they are seen.
   function bakeFollow() {
     if (bakeRides()) { clearTimeout(followT); labels.style.transform = leadersBox.style.transform = ''; return true; }
     clearTimeout(followT);
-    const m = /translate3d\(([-\d.e]+)px, ([-\d.e]+)px/.exec(labels.style.transform);
+    // (Only this function's own shift is a translate3d: the dive's is a translate and a scale.)
+    const mine = labels.style.transform.startsWith('translate3d(');
     labels.style.transform = leadersBox.style.transform = '';
-    if (!m) return false;
-    const dx = +m[1], dy = +m[2];
+    if (!mine) return false;
+    const dx = panDX, dy = panDY;
     if (!dx && !dy) return false;
-    for (const e of labels.children) { const p = spot.get(e); if (p) put(e, p[0] + dx, p[1] + dy); }
-    for (const L of Object.values(labs)) L.gl = null;
-    for (const e of leaders.children) shiftGeo(e, dx, dy);
+    for (let e = labels.firstElementChild; e; e = e.nextElementSibling) { const p = spot.get(e); if (p) put(e, p[0] + dx, p[1] + dy); }
+    unglide();
+    for (let e = leaders.firstElementChild; e; e = e.nextElementSibling) shiftGeo(e, dx, dy);
     leadGL.paint();
     return true;
   }
@@ -1795,46 +1849,327 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     * Math.max(0, Math.min(a.b, b.b) - Math.max(a.t, b.t));
   const into = (q, b) => Math.max(0, q.r - Math.hypot(Math.max(b.l - q.x, 0, q.x - b.r), Math.max(b.t - q.y, 0, q.y - b.b)));
   // Leaders run to each label's centre; a leader never crosses another label, and a label never sits on another's leader.
+  // (The segment's parameter range, narrowed by each axis in turn: kept here, so a test makes no array.)
+  let ct0 = 0, ct1 = 1;
+  const clipAxis = (d, lo, hi, o) => {
+    if (Math.abs(d) < 1e-9) return !(o < lo || o > hi);
+    let u = (lo - o) / d, v = (hi - o) / d;
+    if (u > v) { const w = u; u = v; v = w; }
+    ct0 = Math.max(ct0, u); ct1 = Math.min(ct1, v);
+    return !(ct0 > ct1);
+  };
   const crosses = (p, q, b) => {
-    let t0 = 0, t1 = 1;
-    const dx = q[0] - p[0], dy = q[1] - p[1];
-    for (const [d, lo, hi, o] of [[dx, b.l, b.r, p[0]], [dy, b.t, b.b, p[1]]]) {
-      if (Math.abs(d) < 1e-9) { if (o < lo || o > hi) return false; continue; }
-      let u = (lo - o) / d, v = (hi - o) / d;
-      if (u > v) [u, v] = [v, u];
-      t0 = Math.max(t0, u); t1 = Math.min(t1, v);
-      if (t0 > t1) return false;
-    }
-    return true;
+    ct0 = 0; ct1 = 1;
+    return clipAxis(q[0] - p[0], b.l, b.r, p[0]) && clipAxis(q[1] - p[1], b.t, b.b, p[1]);
   };
   // Two leaders never cross each other either (a shared end, two labels on one spot, is not a crossing).
   const side = (p, q, r) => Math.sign((q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]));
   const cut = (p, q, r, t) => side(p, q, r) * side(p, q, t) < 0 && side(r, t, p) * side(r, t, q) < 0;
   let layoutN = 0, bakedEase = false;   // (layoutN, for the checks: how many times the labels have been placed in full)
+  // ── The layout's kept records ──
+  // A layout (and the ride and the leaders' sync around it) makes no array, object or closure of its own: what it works on is kept here
+  // and written in place (2 Nov 2026: a pinch whose labels cannot ride is laid out on every frame, and a layout tried hundreds of spots
+  // as arrays and objects). Nothing in it is read after the layout that wrote it but through the records the layout leaves: follow
+  // (the ride's check), L.a (each label's spot, in its own pair), and the boxes in sol.
+  const mkRes = () => ({ k: '', it: null, out: false, x: 0, y: 0, cost: 0, crossed: false, box: { l: 0, r: 0, t: 0, b: 0 }, pair: [null, [0, 0]] });   // alloc-rare: made with the view, and in the settled re-layout that still has a clash (never a frame of a hand's move)
+  const mkSol = () => ({ res: [mkRes(), mkRes(), mkRes(), mkRes(), mkRes(), mkRes()], n: 0, total: 0, pl: [], ld: [], lead: null, call: null });   // alloc-rare: made with the view, and in the settled re-layout that still has a clash (never a frame of a hand's move)
+  const mkItem = () => ({ k: '', L: null, w: 0, hh: 0, a: [0, 0], ea: [0, 0], edge: null });
+  const mkInk = () => ({ x0: 0, y0: 0, x1: 0, y1: 0, r: 0, L: null });
+  const LC = {
+    fr: null, ring: null, cards: null, keep: null, lk: 1, hx: 0, hy: 0,
+    placed: [], pre: [], base: [], ld0: [], none: [], shK: [], shL: [], stack: [], sizes: [],
+    items: [], pool: [mkItem(), mkItem(), mkItem(), mkItem(), mkItem(), mkItem()],
+    inks: [mkInk(), mkInk(), mkInk(), mkInk(), mkInk(), mkInk()], ink0: mkInk(),
+    syncOn: [], syncInks: [mkInk(), mkInk(), mkInk(), mkInk(), mkInk(), mkInk()],
+    want: { ks: [], fw: 0 }, ord: [], idx: [], core: [], rest: [],
+    ux: -1, uy: 0, nx: 0, ny: -1, tractR: 14, paired: false, pairN: 0, triIt: null, lyIt: null, px: 0, py: 0,
+    cand: new Float64Array(2048), cb: { l: 0, r: 0, t: 0, b: 0 }, bb: { l: 0, r: 0, t: 0, b: 0 }, q: [0, 0], disc: { x: 0, y: 0, r: 10 },
+    room: { fr: [0, 0, 0, 0], pad: 0, hx: 0, hy: 0, keep: [], nk: 0, cards: null },
+    vb: '', vbW: -1, vbH: -1,
+  };
+  const SOL_A = mkSol(), SOL_B = mkSol();
+  const N7 = [0, -1, 1, -2, 2, -3, 3], R3 = [1, 1.6, 2.4];
+  const rnd1 = (v) => Math.round(v * 10) / 10;
+  // The room the labels were given, written between frames for the browser check that a label left out had no clear spot (a rest pass,
+  // from the numbers the last layout left).
+  let roomT = 0;
+  function writeRoom() {
+    roomT = 0;
+    const R = LC.room, keep = [], cards = [];
+    for (let i = 0; i < R.nk; i++) keep.push([R.keep[i][0], R.keep[i][1], R.keep[i][2]].map(rnd1));
+    for (const c of R.cards) cards.push([c.l, c.t, c.r, c.b].map(rnd1));
+    labels.setAttribute('data-room', JSON.stringify({ fr: R.fr.map(rnd1), pad: rnd1(R.pad), hx: rnd1(R.hx), hy: rnd1(R.hy), lead: LONG_LEAD, keep, cards }));
+  }
+  // The lit terms (a presenter slide's words), split once each time they change.
+  let litRaw2 = null;
+  const litSet2 = new Set();
+  const litIn = (target) => {
+    const raw = document.getElementById('app')?.dataset.lit || '';
+    if (raw !== litRaw2) { litRaw2 = raw; litSet2.clear(); for (const p of raw.split(' ')) litSet2.add(p); }   // alloc-rare: only when the slide's lit terms change
+    return litSet2.has(target);
+  };
+  // A label's letters: its box less the padding, written into `o`.
+  // A label the slide's words light sits in its pill (its ::before, past the box at every side, with rounded corners):
+  // the leader stops on the pill's outline.
+  const lettersInto = (o, L, l, t, w, hh) => {
+    o.L = L;
+    if (litIn(L.el.dataset.target)) {
+      // (Its pill's insets as measured with its size, measureRun; before that, app.css's own sums for them.)
+      const lk = parseFloat(document.documentElement.style.getPropertyValue('--label-k')) || 1, q = L.pillQ;
+      o.x0 = l + (q ? q[0] : -4 * lk); o.y0 = t + (q ? q[1] : -5 * lk); o.x1 = l + w - (q ? q[2] : -4 * lk); o.y1 = t + hh - (q ? q[3] : -5 * lk); o.r = q ? q[4] : 12;
+      return o;
+    }
+    const p = L.pad;
+    o.x0 = l + (p ? p[0] : 0); o.y0 = t + (p ? p[2] : 0); o.x1 = l + w - (p ? p[1] : 0); o.y1 = t + hh - (p ? p[3] : 0); o.r = 0;
+    return o;
+  };
+  // The cost of leaving a label out, by how much it matters: a label the slide names most, a vessel label next.
+  const dropCost = (k) => (named(k) ? 2e7 : CORE.includes(k) ? 1e7 : 3e4);
+  // The ring a spot lies just outside of, for a vessel label (the centre's, where the label sits beside it).
+  const ownR = (a) => {
+    const keep = LC.keep;
+    for (let i = 0; i < keep.length; i++) { const q = keep[i]; if (Math.hypot(q.x - a[0], q.y - a[1]) < q.r) return q.r + Math.hypot(q.x - a[0], q.y - a[1]); }
+    return 10;
+  };
+  // The designed spots (Mohammad, 2 Nov 2026, label mocks: "shorter callout lines, that are better, and well placed"). The portal
+  // tract's venule and lymphatic are named as a pair just outside their corner, one on each side of the ray from the central vein
+  // through it (above and below on a side corner, left and right on a top or bottom one), so their short leaders splay apart and
+  // never cross; the central vein's name stands right beside the vein, on the side away from the tract, with no leader; the
+  // sinusoids' just below their sinusoid, on a short straight one.
+  // Sets LC.px, LC.py to the label's preferred spot.
+  function setPreferred(k, a, w, hh) {
+    const ux = LC.ux, uy = LC.uy, nx = LC.nx, ny = LC.ny, hx = LC.hx, hy = LC.hy, keep = LC.keep, triIt = LC.triIt, paired = LC.paired;
+    const ex = Math.abs(ux) * w / 2 + Math.abs(uy) * hh / 2, ey = Math.abs(ux) * hh / 2 + Math.abs(uy) * w / 2;
+    // (Offsets reach past each box's margins (hx, hy): the box's inner corner just clears the tract's disc, or the lymphatic's own spot.)
+    const mx = Math.abs(ux) * hx + Math.abs(uy) * hy, my = Math.abs(ux) * hy + Math.abs(uy) * hx;
+    if (k === 'triad' && paired) { const cu = a[0] * ux + a[1] * uy + ex + mx + LC.tractR + 2, cn = LC.pairN + ey + my + 2; LC.px = ux * cu + nx * cn; LC.py = uy * cu + ny * cn; }
+    else if (k === 'lymph' && paired) { const cu = a[0] * ux + a[1] * uy + ex + mx + 12, cn = LC.pairN - ey - my - 2; LC.px = ux * cu + nx * cn; LC.py = uy * cu + ny * cn; }
+    else if (k === 'triad') { LC.px = a[0]; LC.py = a[1] + hh / 2 + 12; }
+    else if (k === 'lymph') { LC.px = a[0]; LC.py = a[1] - hh / 2 - 14; }
+    else if (k === 'cv') { const sd = triIt && triIt.a[0] > a[0] + 1 ? -1 : 1; LC.px = a[0] + sd * (keep[0].r + hx + 2 + w / 2); LC.py = a[1]; }
+    else if (k === 'sin') { LC.px = a[0]; LC.py = a[1] + hh / 2 + hy + 14; }
+    else if (k === 'ha') { LC.px = a[0] - w / 2 - 14; LC.py = a[1] - hh / 2 - 10; }
+    else if (k === 'bd') { LC.px = a[0] + w / 2 + 14; LC.py = a[1] - hh / 2 - 10; }
+    else { LC.px = a[0]; LC.py = a[1]; }
+  }
+  // Places the labels of `order` one at a time into `S` (a kept solution: its result for each label, its boxes and its leaders), on top of
+  // the boxes pl0 and the leaders ld0 already standing; the candidate spots are written into a kept buffer, in the order they are tried, and
+  // the cheapest kept (the first of equals).
+  function solve(order, pl0, ld0, S) {
+    const fr = LC.fr, cards = LC.cards, keep = LC.keep, ring = LC.ring, lk = LC.lk, hx = LC.hx, hy = LC.hy, cb = LC.cb, bb = LC.bb, q = LC.q, disc = LC.disc;
+    const pl = S.pl, ld = S.ld, res = S.res, pad = 8 + 4 * lk;
+    pl.length = 0; for (let i = 0; i < pl0.length; i++) pl.push(pl0[i]);
+    ld.length = 0; for (let i = 0; i < ld0.length; i++) ld.push(ld0[i]);
+    let total = 0, nr = 0;
+    for (let oi = 0; oi < order.length; oi++) {
+      const it = order[oi], k = it.k, w = it.w, hh = it.hh, a = it.a, edge = it.edge, step = hh + 12, r = res[nr++];
+      r.k = k; r.it = it;
+      let have = false, bestCost = 0, bestX = 0, bestY = 0;
+      if (edge) {   // an edge chip slides along its edge only as far as it needs to clear the others
+        const near = Math.abs(edge[0] - fr.l) < 40 + w || Math.abs(edge[0] - fr.r) < 40 + w;
+        for (let ni = 0; ni < N7.length; ni++) {
+          const n = N7[ni];
+          const x = clamp(edge[0] + (near ? 0 : n * (w / 2 + 12)), fr.l + w / 2 + pad, fr.r - w / 2 - pad), y = clamp(edge[1] + (near ? n * step : 0), fr.t + hh / 2 + pad, fr.b - hh / 2 - pad);
+          cb.l = x - w / 2 - hx; cb.r = x + w / 2 + hx; cb.t = y - hh / 2 - hy; cb.b = y + hh / 2 + hy;
+          let plS = 0, cardS = 0;
+          for (let i = 0; i < pl.length; i++) plS = plS + (overlap(cb, pl[i]) > 0 ? 1e6 + overlap(cb, pl[i]) * 100 : 0);
+          for (let i = 0; i < cards.length; i++) cardS = cardS + (overlap(cb, cards[i]) > 0 ? 1e6 + overlap(cb, cards[i]) * 400 : 0);
+          const cost = plS + cardS + Math.abs(n) * 10;
+          if (!have || cost < bestCost) { have = true; bestCost = cost; bestX = x; bestY = y; bb.l = cb.l; bb.r = cb.r; bb.t = cb.t; bb.b = cb.b; }
+        }
+        if (bestCost >= 1e6) { r.out = true; total += dropCost(k); continue; }
+        r.out = false; r.x = bestX; r.y = bestY; r.cost = bestCost; r.box.l = bb.l; r.box.r = bb.r; r.box.t = bb.t; r.box.b = bb.b;
+        pl.push(r.box); total += bestCost;
+        continue;
+      }
+      setPreferred(k, a, w, hh);
+      const px = LC.px, py = LC.py;
+      const pw = DESIGN.includes(k) ? 6 : 0.5;   // (a designed spot holds unless it clashes: its pull beats a shorter leader elsewhere)
+      const nameless = !CORE.includes(k) && !named(k);
+      // Steps in proportion to the label, so larger text searches proportionally farther (above, below, beside, diagonally).
+      let cand = LC.cand;
+      const need = 2 * (35 + 96 + 49 + 4 * pl.length);
+      if (cand.length < need) cand = LC.cand = new Float64Array(need * 2);   // alloc-once: the buffer grows the first time more boxes stand than it holds, then it is reused
+      let nc = 0;
+      cand[nc++] = px; cand[nc++] = py;
+      for (let di = 0; di < 5; di++) {
+        const dx = di === 0 ? 0 : di === 1 ? -(w / 2 + 12) : di === 2 ? w / 2 + 12 : di === 3 ? -(w + 24) : w + 24;
+        for (let ni = 0; ni < N7.length; ni++) { const n = N7[ni]; if (dx || n) { cand[nc++] = px + dx; cand[nc++] = py + n * step; } }
+      }
+      // And all round what it names, just clear of it and a little farther, so a crowded side still leaves a free spot near it.
+      const r0 = ownR(a);
+      for (let ri = 0; ri < 3; ri++) {
+        const rr = R3[ri];
+        for (let i = 0; i < 16; i++) {
+          const t = (i / 16) * Math.PI * 2, c = Math.cos(t), sn = Math.sin(t);
+          cand[nc++] = a[0] + c * (w / 2 + 18) * rr; cand[nc++] = a[1] + sn * (hh / 2 + 18) * rr;
+          const d = (r0 + 10) * rr + Math.min(w / 2 / Math.max(Math.abs(c), 1e-6), hh / 2 / Math.max(Math.abs(sn), 1e-6));
+          cand[nc++] = a[0] + c * d; cand[nc++] = a[1] + sn * d;
+        }
+      }
+      // And a coarse grid over the whole free space, a last resort that still finds the one clear band on a short phone figure.
+      for (let gx = 0; gx <= 6; gx++) for (let gy = 0; gy <= 6; gy++) { cand[nc++] = fr.l + (fr.r - fr.l) * gx / 6; cand[nc++] = fr.t + (fr.b - fr.t) * gy / 6; }
+      // Snug against each label already placed (above, below or beside it), so a tight gap between two is found.
+      for (let i = 0; i < pl.length; i++) {
+        const o = pl[i];
+        cand[nc++] = px; cand[nc++] = o.b + hh / 2 + hy; cand[nc++] = px; cand[nc++] = o.t - hh / 2 - hy;
+        cand[nc++] = o.r + w / 2 + hx; cand[nc++] = py; cand[nc++] = o.l - w / 2 - hx; cand[nc++] = py;
+      }
+      for (let ci = 0; ci < nc; ci += 2) {
+        const x = clamp(cand[ci], fr.l + w / 2 + pad, fr.r - w / 2 - pad);
+        const y = clamp(cand[ci + 1], fr.t + hh / 2 + pad, fr.b - hh / 2 - pad);
+        cb.l = x - w / 2 - hx; cb.r = x + w / 2 + hx; cb.t = y - hh / 2 - hy; cb.b = y + hh / 2 + hy;
+        // A label with a leader keeps a visible stretch of it: it never sits right over the vessel it names.
+        const lead = Math.hypot(Math.max(0, Math.abs(a[0] - x) - w / 2), Math.max(0, Math.abs(a[1] - y) - hh / 2));
+        q[0] = x; q[1] = y;
+        // Two labels never touch, and no leader runs under a label: any spot clear of both beats every spot that is not.
+        let plS = 0, ldS = 0, cardS = 0, keepS = 0;
+        for (let i = 0; i < pl.length; i++) { const o = pl[i]; plS = plS + (overlap(cb, o) > 0 ? 1e6 + overlap(cb, o) * 100 : 0) + (crosses(a, q, o) ? 1e5 : 0); }
+        for (let i = 0; i < ld.length; i++) { const p = ld[i][0], e = ld[i][1]; ldS = ldS + (crosses(p, e, cb) ? 1e5 : 0) + (cut(p, e, a, q) ? 1e5 : 0); }
+        for (let i = 0; i < cards.length; i++) cardS = cardS + (overlap(cb, cards[i]) > 0 ? 1e6 + overlap(cb, cards[i]) * 400 : 0);
+        const rd = ringDepth(ring, cb);
+        for (let i = 0; i < keep.length; i++) { const d = into(keep[i], cb); keepS = keepS + (d > 0 ? 1e6 + d * 1e3 : 0); }
+        disc.x = a[0]; disc.y = a[1];
+        const cost = plS + ldS
+          + Math.max(0, 16 - lead) * 40
+          + cardS
+          + (rd > 0 ? 1e6 + rd * 1e3 : 0)
+          + keepS
+          + (into(disc, cb) > 0 ? 1e6 : 0)
+          + lead * 8 + Math.max(0, lead - 3 * hh) * 60 + Math.max(0, lead - SHORT_LEAD) * 30 + Math.hypot(x - px, y - py) * pw
+          // A label no slide names (the lymph, an arteriole, a ductule) is left out sooner than sent far from what it names
+          // on a leader across the lobule (a phone once ran the Lymph label's 420 px over it, past every other label).
+          + (nameless && lead > LONG_LEAD ? 1e6 : Math.max(0, lead - LONG_LEAD) * 400);
+        if (!have || cost < bestCost) { have = true; bestCost = cost; bestX = x; bestY = y; bb.l = cb.l; bb.r = cb.r; bb.t = cb.t; bb.b = cb.b; }
+      }
+      if (bestCost >= 1e6) { r.out = true; total += dropCost(k); continue; }
+      r.out = false; r.x = bestX; r.y = bestY; r.cost = bestCost; r.box.l = bb.l; r.box.r = bb.r; r.box.t = bb.t; r.box.b = bb.b;
+      pl.push(r.box);
+      r.pair[0] = a; r.pair[1][0] = bestX; r.pair[1][1] = bestY; ld.push(r.pair);
+      total += bestCost;
+    }
+    S.n = nr; S.total = total;
+    return S;
+  }
+  // The orders of the first n of a list, one after the other (the next after idx, in the order the orders sort by their positions).
+  function nextPerm(a, n) {
+    let i = n - 2;
+    while (i >= 0 && a[i] >= a[i + 1]) i--;
+    if (i < 0) return false;
+    let j = n - 1;
+    while (a[j] <= a[i]) j--;
+    let t = a[i]; a[i] = a[j]; a[j] = t;
+    for (let l = i + 1, r = n - 1; l < r; l++, r--) { t = a[l]; a[l] = a[r]; a[r] = t; }
+    return true;
+  }
+  const permStart = (idx, n) => { idx.length = n; for (let i = 0; i < n; i++) idx[i] = i; };
+  const permOf = (src, idx, out) => { out.length = idx.length; for (let i = 0; i < idx.length; i++) out[i] = src[idx[i]]; return out; };
+  // A kept solution's results copied into another's (the first n).
+  const copyRes = (dst, i, src) => {
+    const d = dst.res[i];
+    d.k = src.k; d.it = src.it; d.out = src.out; d.x = src.x; d.y = src.y; d.cost = src.cost; d.box.l = src.box.l; d.box.r = src.box.r; d.box.t = src.box.t; d.box.b = src.box.b;
+  };
+  const isCoreK = (k) => CORE.includes(k) || named(k);
+  const outsOf = (s) => { let n = 0; for (let i = 0; i < s.n; i++) if (s.res[i].out && isCoreK(s.res[i].k)) n++; return n; };
+  const betterSol = (p, q) => outsOf(p) < outsOf(q) || (outsOf(p) === outsOf(q) && p.total < q.total);
+  // The pill's state as it stands (where it was put, its ends, what it cost), kept to put back should a layout not win.
+  const callState = (lead) => ({ lead, prev: callPrev, cost: callCost, hasAt: spot.has(callEl), ax: spot.has(callEl) ? spot.get(callEl)[0] : 0, ay: spot.has(callEl) ? spot.get(callEl)[1] : 0, line: [geoOf(callLine, 'x1'), geoOf(callLine, 'y1'), geoOf(callLine, 'x2'), geoOf(callLine, 'y2')] });   // alloc-rare: only the settled re-layout that still has a clash (sol.total >= 1e5, the hand up), never a frame of a hand's move
+  // A vessel label hidden or crowded: two more layouts are tried, and the one hiding the fewest vessel labels (central
+  // vein, sinusoids, portal tract, and any the slide names), then crowding least, is kept. First, the vessel labels
+  // placed before the slide's pill, the pill clear of them and their leaders, the optional labels in what is left.
+  // Second, as the sinusoids are everywhere, another sinusoid in view for its label, when the one picked leaves none
+  // (a crowded phone band once dropped the Sinusoids label on a slide about the sinusoids). The pill is never left on a label.
+  // Runs only in the settled re-layout that still has a clash (the first order left sol.total >= 1e5 and no hand is moving the view):
+  // its objects are made fresh, once per such layout.
+  function coreFirst(items, fr, ring, hex, cards, keep, callLead) {
+    const core = [], rest = [];   // alloc-rare: only the settled re-layout that still has a clash, never a frame of a hand's move
+    for (const it of items) (isCoreK(it.k) ? core : rest).push(it);   // alloc-rare: only the settled re-layout that still has a clash, never a frame of a hand's move
+    let s1 = solve(core, LC.pre, LC.none, mkSol()), tb = mkSol();   // alloc-rare: only the settled re-layout that still has a clash, never a frame of a hand's move
+    const idx = [], ord = [];   // alloc-rare: only the settled re-layout that still has a clash, never a frame of a hand's move
+    permStart(idx, core.length);
+    do { if (s1.total < 1e5) break; const t = solve(permOf(core, idx, ord), LC.pre, LC.none, tb); if (t.total < s1.total) { tb = s1; s1 = t; } } while (nextPerm(idx, core.length));
+    const pl2 = s1.pl.slice();   // alloc-rare: only the settled re-layout that still has a clash, never a frame of a hand's move
+    const lead2 = placeCall(fr, pl2, cards, s1.ld, crosses, ring, hex, keep, into);
+    if (callLead && callCost >= 1e6) return null;
+    const s3 = solve(rest, pl2, lead2 ? [...s1.ld, lead2] : s1.ld, mkSol());   // alloc-rare: only the settled re-layout that still has a clash, never a frame of a hand's move
+    const out = mkSol();   // alloc-rare: only the settled re-layout that still has a clash, never a frame of a hand's move
+    for (let i = 0; i < s1.n; i++) copyRes(out, i, s1.res[i]);
+    for (let i = 0; i < s3.n; i++) copyRes(out, s1.n + i, s3.res[i]);
+    out.n = s1.n + s3.n; out.total = s1.total + s3.total; out.lead = lead2; out.call = callState(lead2);
+    return out;
+  }
+  function pillFirst(items, shown) {
+    const ld = shown.lead ? [shown.lead] : [];   // alloc-rare: only the settled re-layout that still has a clash, never a frame of a hand's move
+    let s2 = solve(items, LC.base, ld, mkSol()), tb = mkSol();   // alloc-rare: only the settled re-layout that still has a clash, never a frame of a hand's move
+    if (items.length <= 5) {
+      const idx = [], ord = [];   // alloc-rare: only the settled re-layout that still has a clash, never a frame of a hand's move
+      permStart(idx, items.length);
+      do { if (s2.total < 1e5) break; const t = solve(permOf(items, idx, ord), LC.base, ld, tb); if (t.total < s2.total) { tb = s2; s2 = t; } } while (nextPerm(idx, items.length));
+    }
+    s2.lead = shown.lead; s2.call = shown;
+    return s2;
+  }
+  function retryClash(sol, items, fr, ring, hex, cards, keep, callLead) {
+    const shown = callState(callLead);
+    let won = null;
+    if (callLead) { const c = coreFirst(items, fr, ring, hex, cards, keep, callLead); if (c && betterSol(c, sol)) { sol = c; won = c; } }
+    let sinIt = null;
+    for (let i = 0; i < items.length; i++) if (items[i].k === 'sin' && !items[i].edge) { sinIt = items[i]; break; }
+    let sinOut = false;
+    if (sinIt) for (let i = 0; i < sol.n; i++) if (sol.res[i].k === 'sin' && sol.res[i].out) sinOut = true;
+    if (sinIt && sinOut) {
+      const g = geo, cx = (fr.l + fr.r) / 2, cy = (fr.t + fr.b) / 2, a0x = sinIt.a[0], a0y = sinIt.a[1];
+      const cands = [];   // alloc-rare: only the settled re-layout that still has a clash, never a frame of a hand's move
+      for (const list of [g.L1, g.L2, g.L0]) for (const t of list) {   // alloc-rare: only the settled re-layout that still has a clash, never a frame of a hand's move
+        const p = toScreen(sinAt(t));
+        if (p[0] > fr.l + 30 && p[0] < fr.r - 30 && p[1] > fr.t + 30 && p[1] < fr.b - 30) cands.push([t, p]);   // alloc-rare: only the settled re-layout that still has a clash, never a frame of a hand's move
+      }
+      cands.sort((p, q) => Math.hypot(p[1][0] - cx, p[1][1] - cy) - Math.hypot(q[1][0] - cx, q[1][1] - cy));   // alloc-rare: only the settled re-layout that still has a clash, never a frame of a hand's move
+      cands.length = Math.min(cands.length, 30);
+      let winX = a0x, winY = a0y;
+      for (const [t, a] of cands) {   // alloc-rare: only the settled re-layout that still has a clash, never a frame of a hand's move
+        sinIt.a[0] = a[0]; sinIt.a[1] = a[1];
+        const s2 = pillFirst(items, shown);
+        if (betterSol(s2, sol)) { sol = s2; won = s2; winX = a[0]; winY = a[1]; pick.sin = t.id; }
+        const s3 = callLead ? coreFirst(items, fr, ring, hex, cards, keep, callLead) : null;
+        if (s3 && betterSol(s3, sol)) { sol = s3; won = s3; winX = a[0]; winY = a[1]; pick.sin = t.id; }
+        if (outsOf(sol) === 0) break;
+      }
+      sinIt.a[0] = winX; sinIt.a[1] = winY;
+    }
+    const c = won ? won.call : shown;
+    callPrev = c.prev; callCost = c.cost;
+    if (c.hasAt) put(callEl, c.ax, c.ay); else { spot.delete(callEl); callEl.style.translate = ''; callEl._tx = NaN; }
+    for (let i = 0; i < 4; i++) setGeo(callLine, CALL_ENDS[i], c.line[i] ?? null);
+    leadGL.paint();
+    return sol;
+  }
+  const CALL_ENDS = ['x1', 'y1', 'x2', 'y2'];
   function layoutLabels() {
     // Laid out where the presenter's glide lands (see camSettle), or once its time is up if the hand cut it short.
     if (camMove) { if (performance.now() >= camUntil) camSettle(); return; }
-    const fr0 = freeRect(), g = geo, bKey = `${g.W}x${g.H}|${Object.values(labs).map((l) => l.lk).join('|')}|${zonesOn}|${lymphOn}|${named('ha')}${named('bd')}|${call ? call.at + call.label : ''}|${fr0.t},${fr0.b},${fr0.l},${fr0.r}`,
-      key = `${bKey}|${V.k},${V.x},${V.y}`;
-    if (key === layoutKey) return;
+    const fr0 = freeRect(), g = geo;
+    const sameB = !!follow && sameBase(follow, fr0, g);
+    if (layoutKey && sameB && V.k === follow.k && V.x === follow.x && V.y === follow.y) return;
     // While a hand pans the lobule (a drag, its flick, a trackpad scroll), the labels ride with the picture as one
     // layer: placing them again every frame (measuring each, then trying hundreds of spots and orders) is what made
     // panning lag on a phone. They are placed again, gliding to their new spots, once the hand lets go.
-    if (follow && bKey === follow.b && V.k === follow.k && handOn() && !rides) {
-      const t = `translate3d(${V.x - follow.x}px, ${V.y - follow.y}px, 0)`;
-      labels.style.transform = leadersBox.style.transform = t;
+    if (sameB && V.k === follow.k && handOn() && !rides) {
+      const dx = V.x - follow.x, dy = V.y - follow.y;
+      if (panStr === null || dx !== panDX || dy !== panDY) { panDX = dx; panDY = dy; panStr = `translate3d(${dx}px, ${dy}px, 0)`; }
+      labels.style.transform = leadersBox.style.transform = panStr;
       clearTimeout(followT); followT = setTimeout(followEnd, 140);
       return;
     }
     // A short glide (+, −, Fit, a space that holds still) carries each label, leader and zone name with the spot it names, at
     // its own size, and lays them out once where the glide lands (they glide there from where they are seen). Solving the
     // layout on every frame of the glide (measuring the cards, trying hundreds of spots and orders) stalled it on a phone.
-    if (follow && bKey === follow.b && gliding && !camMove && !handOn() && !labels.style.transform) { ride(); return; }
+    if (sameB && gliding && !camMove && !handOn() && !labels.style.transform) { ride(); return; }
     // A hand's zoom (a pinch, the wheel, a trackpad's pinch) carries them the same way, each with its own spot at its own size, for as
     // long as that leaves every label clear of the others, of their leaders, of the structures, of the cards and inside the free space
     // (rideHolds); a frame where it would not, they are placed again (gliding there), and once the hand lets go, placed for where it
     // stopped. Placing them in full on every frame of a pinch (measuring, then trying hundreds of spots) is what made zooming lag.
-    if (follow?.ride && bKey === follow.b && V.k !== follow.k && handOn() && rideHolds(fr0)) {
+    if (sameB && follow.ride && V.k !== follow.k && handOn() && rideHolds(fr0)) {
       labels.style.transform = leadersBox.style.transform = '';   // (a pan's shared shift before it: ride moves each piece from the layout itself)
       ride(); clearTimeout(followT); followT = setTimeout(followEnd, 140);
       return;
@@ -1846,304 +2181,241 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     layoutN++;
     // A label that moves while the view holds still (a term lit, a value's width changed) glides to its new spot;
     // while the view itself pans or zooms, the labels follow it at once.
-    const vKey = `${g.W}x${g.H}|${V.k},${V.x},${V.y}`;
-    if ((layoutKey && vKey === layoutV) || baked) { labels.classList.add('lz-ease'); clearTimeout(easeT); easeT = setTimeout(easeEnd, 450); }
-    const wasFollow = follow, wasV = layoutV;   // (put back should the labels wait to be measured, below)
-    layoutKey = key; layoutV = vKey; follow = { b: bKey, k: V.k, x: V.x, y: V.y, ride: null };
+    const wasFollow = follow;   // (put back should the labels wait to be measured, below)
+    if ((layoutKey && follow.W === g.W && follow.H === g.H && V.k === follow.k && V.x === follow.x && V.y === follow.y) || baked) { labels.classList.add('lz-ease'); clearTimeout(easeT); easeT = setTimeout(easeEnd, 450); }
+    const nf = wasFollow === follows[0] ? follows[1] : follows[0];
+    layoutKey = 'laid'; fillBase(nf, fr0, g); nf.k = V.k; nf.x = V.x; nf.y = V.y; nf.ride = null; follow = nf;
     pickAnchors(fr0);
-    if (setGeo(leaders, 'viewBox', `0 0 ${g.W} ${g.H}`)) leadGL.paint();
+    if (LC.vbW !== g.W || LC.vbH !== g.H) { LC.vbW = g.W; LC.vbH = g.H; LC.vb = `0 0 ${g.W} ${g.H}`; }   // alloc-rare: only when the lobule's size changed
+    if (setGeo(leaders, 'viewBox', LC.vb)) leadGL.paint();
     // Every label has a leader to what it names, aimed at the label's centre and stopping on the edge of its letters.
     // Score nearby placements together so zooming, panning and narrow screens do not stack labels.
-    const fr = fr0, placed = [];
+    const fr = fr0, placed = LC.placed;
+    placed.length = 0;
     if (lymphOn) {
       // The lymph label follows whichever lymphatic is in view (the picked triad's first, else the one nearest the middle).
-      const mx = (fr0.l + fr0.r) / 2, my = (fr0.t + fr0.b) / 2, edge = (p) => { const [x, y] = toScreen(p); return x > 0 && x < g.W && y > 0 && y < g.H; };
-      const dist = (i) => { const [x, y] = toScreen(g.triads[i].lv.pts[0]); return Math.hypot(x - mx, y - my); };
-      const vis = [0, 1, 2, 3, 4, 5].filter((i) => edge(g.triads[i].lv.pts[0]));
-      pick.lt = vis.includes(pick.lt ?? pick.triad) ? (pick.lt ?? pick.triad) : vis.sort((a, b) => dist(a) - dist(b))[0] ?? null;
+      const mx = (fr0.l + fr0.r) / 2, my = (fr0.t + fr0.b) / 2, cur = pick.lt ?? pick.triad;
+      let curIn = false, bestI = -1, bestD = 0;
+      for (let i = 0; i < 6; i++) {
+        const p = g.triads[i].lv.pts[0], x = p[0] * V.k + V.x, y = p[1] * V.k + V.y;
+        if (!(x > 0 && x < g.W && y > 0 && y < g.H)) continue;
+        if (i === cur) curIn = true;
+        const d = Math.hypot(x - mx, y - my);
+        if (bestI < 0 || d < bestD) { bestI = i; bestD = d; }
+      }
+      pick.lt = curIn ? cur : bestI < 0 ? null : bestI;
       if (pick.lt == null) pick.lt = pick.triad;
     }
     // Open cards over the figure (a presenter slide's numbers, notices) and the labelled structures themselves:
     // a label pays heavily to sit on either, so at large text sizes the labels move off them rather than cover them.
-    // (Their boxes as kept, snap.cards: read at a rest boundary, never in the frame.)
-    const cards = snap.cards.slice();
+    // (Their boxes as kept, snap.cards: read at a rest boundary, never in the frame; a new reading is a new list, this one is never written.)
+    const cards = snap.cards;
     // What no label may cover: the central vein, every portal tract (venule, arteriole, ductule and lymphatic) and the
     // spot each label names, each a disc on screen. A label is pinned just beside what it names, on a short leader, clear of them all.
     const keep = keepDiscs(g);
-    const ownR = (k, a) => {
-      const d = keep.find((q) => Math.hypot(q.x - a[0], q.y - a[1]) < q.r);
-      return d ? d.r + Math.hypot(d.x - a[0], d.y - a[1]) : 10;
-    };
     // The letters' halo reaches past each label's box, more so at larger text: the margins grow with it.
     // Each box also takes in the label's pill (it reaches 4×5 px past the text at --label-k 1) and half the gap kept
     // between two labels, so no two pills ever touch.
     const lk = parseFloat(document.documentElement.style.getPropertyValue('--label-k')) || 1, hm = 4 + 2 * lk,
       hx = Math.max(hm, 4 * lk + 5), hy = Math.max(hm, 5 * lk + 5);
-    const hit = (a, b) => overlap(a, b) > 0;
-    // (What a label must keep clear of, for the browser check that proves a label left out had no clear spot.)
-    const r1 = (v) => Math.round(v * 10) / 10;
-    restAttr(labels, 'data-room', JSON.stringify({ fr: [fr.l, fr.t, fr.r, fr.b].map(r1), pad: r1(8 + 4 * lk), hx: r1(hx), hy: r1(hy), lead: LONG_LEAD,
-      keep: keep.map((q) => [q.x, q.y, q.r].map(r1)), cards: cards.map((c) => [c.l, c.t, c.r, c.b].map(r1)) }));
+    LC.fr = fr; LC.cards = cards; LC.keep = keep; LC.lk = lk; LC.hx = hx; LC.hy = hy;
+    // (What a label must keep clear of, for the browser check that proves a label left out had no clear spot: written between frames.)
+    const room = LC.room;
+    room.fr[0] = fr.l; room.fr[1] = fr.t; room.fr[2] = fr.r; room.fr[3] = fr.b; room.pad = 8 + 4 * lk; room.hx = hx; room.hy = hy; room.cards = cards; room.nk = keep.length;
+    for (let i = 0; i < keep.length; i++) { const kr = room.keep[i] || (room.keep[i] = [0, 0, 0]); kr[0] = keep[i].x; kr[1] = keep[i].y; kr[2] = keep[i].r; }   // alloc-once: a pair is made the first time that many discs are kept, then reused
+    if (!roomT) roomT = restPass(writeRoom);
     const zoneBoxes = placeZones(fr0, hx, hy, callRingAt(fr0));
-    placed.push(...zoneBoxes);
+    for (let i = 0; i < zoneBoxes.length; i++) placed.push(zoneBoxes[i]);
     // Measured first; then placed one at a time, in a few orders, keeping the order that leaves no label on another
     // and no leader under another label (or the fewest), so an early label never blocks a later one's only clear spot.
-    const items = [], shown = [];
-    for (const k of ['cv', 'sin', 'triad', 'lymph', 'ha', 'bd']) {
-      const L = labs[k];
+    const items = LC.items;
+    items.length = 0;
+    const shK = LC.shK, shL = LC.shL;
+    let ns = 0;
+    for (let ki = 0; ki < LAY_ORDER.length; ki++) {
+      const k = LAY_ORDER[ki], L = labs[k];
       if (!L) continue;
       if ((k === 'lymph' && !lymphOn) || ((k === 'ha' || k === 'bd') && !named(k))) { fadeOut(L.el); leadOff(L); continue; }
-      if (faded(`lobule:${LZ_TARGET[k] || k}`)) { fadeOut(L.el); leadOff(L); continue; }
+      if (faded(LAB_TARGET[k])) { fadeOut(L.el); leadOff(L); continue; }
       // (Shown to be measured; one that was hidden and stays out is hidden again before anything is drawn.)
       L.peek = isHid(L.el); setHid(L.el, false);
-      shown.push([k, L]);
+      shK[ns] = k; shL[ns] = L; ns++;
     }
     // Too wide for the free space (large text, a narrow screen): the label stacks its second reading.
     // A label's size is read back from the page only when what decides it changed (its text and classes, the text size,
     // the theme, the window, the fonts): each read lays the page out, and two of them on every frame of a pinch were most
     // of what placing the lobule's labels cost. Otherwise the sizes last read are used, which are the same numbers.
-    const env = sizeEnv(), fw = (fr.r - fr.l) * 0.32;
-    const keys = shown.map(([, L]) => labKey(env, L));
-    let stack, sizes;
-    const known = ([, L]) => L.sz && (L.sz.w0 > fw && L.sz.u2 ? L.sz.s1 : L.sz.s0);
-    if (shown.every(known)) {
+    const env = sizeEnv(), fw = (fr.r - fr.l) * 0.32, stack = LC.stack, sizes = LC.sizes;
+    let allKnown = true;
+    for (let i = 0; i < ns; i++) { const sz = shL[i].sz; if (!(sz && (sz.w0 > fw && sz.u2 ? sz.s1 : sz.s0))) { allKnown = false; break; } }
+    if (allKnown) {
       // (Measured for what decides their sizes now, or, where something changed since (a class on the lobule mid-dive, new words),
       // for what came before: laid out with those, and measured afresh in a task after this frame (measureRun), which lays them out
       // again only should a size have changed.)
-      if (!shown.every(([, L], i) => L.sz.key === keys[i])) { labWant = { ks: shown.map(([k]) => k), fw }; if (!measT) measT = restPass(measureRun); }
-      stack = shown.map(([, L]) => L.sz.w0 > fw && L.sz.u2);
-      shown.forEach(([, L], i) => L.el.classList.toggle('stack', stack[i]));
-      sizes = shown.map(([, L], i) => (stack[i] ? L.sz.s1 : L.sz.s0));
+      let stale = false;
+      for (let i = 0; i < ns; i++) if (shL[i].sz.key !== labKey(env, shL[i])) { stale = true; break; }
+      if (stale) { wantLabels(ns, fw); if (!measT) measT = restPass(measureRun); }
+      for (let i = 0; i < ns; i++) {
+        const L = shL[i], sz = L.sz;
+        stack[i] = sz.w0 > fw && sz.u2;
+        L.el.classList.toggle('stack', stack[i]);
+      }
+      for (let i = 0; i < ns; i++) sizes[i] = stack[i] ? shL[i].sz.s1 : shL[i].sz.s0;
     } else {
       // Never measured at this width: measured in a task after this frame (measureRun), and laid out in the next frame. The labels
       // stay as they are seen until then (one frame); the frame itself never reads the page.
-      for (const [, L] of shown) if (L.peek) setHid(L.el, true);
-      labWant = { ks: shown.map(([k]) => k), fw };
+      for (let i = 0; i < ns; i++) if (shL[i].peek) setHid(shL[i].el, true);
+      wantLabels(ns, fw);
       if (!measT) measT = restPass(measureRun);
-      layoutKey = ''; follow = wasFollow; layoutV = wasV;
+      layoutKey = ''; follow = wasFollow;
       return;
     }
-    for (const [i, [k, L]] of shown.entries()) {
-      const [w, hh] = sizes[i];
-      const a = toScreen(anchorOf(k));
-      const outside = k === 'lymph' ? a[0] < 0 || a[0] > g.W || a[1] < 0 || a[1] > g.H : a[0] < fr.l - 4 || a[0] > fr.r + 4 || a[1] < fr.t - 4 || a[1] > fr.b + 4;
+    let ni = 0;
+    for (let i = 0; i < ns; i++) {
+      const k = shK[i], L = shL[i], w = sizes[i][0], hh = sizes[i][1];
+      const p = anchorOf(k), ax = p[0] * V.k + V.x, ay = p[1] * V.k + V.y;
+      const outside = k === 'lymph' ? ax < 0 || ax > g.W || ay < 0 || ay > g.H : ax < fr.l - 4 || ax > fr.r + 4 || ay < fr.t - 4 || ay > fr.b + 4;
       // What it names has left the screen: the label waits at the free space's edge, pointing the way (a tap brings it back into view).
       const chip = outside && k !== 'lymph';
       const off = (outside && !chip) || fr.r - fr.l < w + 16 || fr.b - fr.t < hh + 16;
       if (off) { if (L.peek) { setHid(L.el, true); L.el.classList.remove('edge'); } else fadeOut(L.el); leadOff(L); continue; }
       L.el.classList.toggle('edge', chip);
-      let edge = null;
+      const it = LC.pool[ni++];
+      it.k = k; it.L = L; it.w = w; it.hh = hh; it.a[0] = ax; it.a[1] = ay; it.edge = null;
       if (chip) {
-        const mx = (fr.l + fr.r) / 2, my = (fr.t + fr.b) / 2, dx = a[0] - mx, dy = a[1] - my, pad = 10;
+        const mx = (fr.l + fr.r) / 2, my = (fr.t + fr.b) / 2, dx = ax - mx, dy = ay - my, pad = 10;
         const sx = (fr.r - fr.l) / 2 - w / 2 - pad, sy = (fr.b - fr.t) / 2 - hh / 2 - pad;
         const f = Math.min(sx / Math.max(Math.abs(dx), 1e-6), sy / Math.max(Math.abs(dy), 1e-6));
         const ang = Math.atan2(dy, dx), c = Math.cos(ang), sn = Math.sin(ang);
-        edge = [mx + dx * f, my + dy * f];
-        L.el.style.setProperty('--edge-a', `${ang}rad`);
-        L.el.style.setProperty('--edge-r', `${Math.min(w / 2 / Math.max(Math.abs(c), 1e-6), hh / 2 / Math.max(Math.abs(sn), 1e-6)) + 7}px`);
+        it.ea[0] = mx + dx * f; it.ea[1] = my + dy * f; it.edge = it.ea;
+        const er = Math.min(w / 2 / Math.max(Math.abs(c), 1e-6), hh / 2 / Math.max(Math.abs(sn), 1e-6)) + 7;
+        // (The strings made when the angle or the radius changed.)
+        if (L.eAng !== ang) { L.eAng = ang; L.eAngS = `${ang}rad`; }   // alloc-rare: only when the chip's angle changed
+        if (L.eRad !== er) { L.eRad = er; L.eRadS = `${er}px`; }   // alloc-rare: only when the chip's radius changed
+        L.el.style.setProperty('--edge-a', L.eAngS);
+        L.el.style.setProperty('--edge-r', L.eRadS);
       }
-      items.push({ k, L, w, hh, a, edge });
+      items.push(it);
     }
     const ring = callRingAt(fr), hex = hexOf();
+    LC.ring = ring;
     // The slide's pointer pill is placed first (it is the slide's point): the labels then keep clear of it and its leader.
-    const pre = placed.slice();
-    let callLead = placeCall(fr, placed, cards, [], crosses, ring, hex, keep, into);
-    let base = placed.slice();
-    // A label that finds no spot clear of the others, the pill, the cards and the structures is left out rather than
-    // stacked: leaving one out costs more than any clear spot, and more still for a label the slide's words name.
-    // A label no slide names and that is not one of the vessel labels (the lymph, an arteriole, a ductule) costs far less
-    // to leave out: it gives way rather than push a vessel label onto a long leader across the lobule.
-    const drop = (k) => (named(k) ? 2e7 : CORE.includes(k) ? 1e7 : 3e4);
-    // The designed spots (Mohammad, 2 Nov 2026, label mocks: "shorter callout lines, that are better, and well placed"). The portal
-    // tract's venule and lymphatic are named as a pair just outside their corner, one on each side of the ray from the central vein
-    // through it (above and below on a side corner, left and right on a top or bottom one), so their short leaders splay apart and
-    // never cross; the central vein's name stands right beside the vein, on the side away from the tract, with no leader; the
-    // sinusoids' just below their sinusoid, on a short straight one.
-    const cvS = toScreen([g.cx, g.cy]), triIt = items.find((it) => it.k === 'triad'), lyIt = items.find((it) => it.k === 'lymph');
+    const pre = LC.pre, base = LC.base;
+    pre.length = 0; for (let i = 0; i < placed.length; i++) pre.push(placed[i]);
+    const callLead = placeCall(fr, placed, cards, LC.none, crosses, ring, hex, keep, into);
+    base.length = 0; for (let i = 0; i < placed.length; i++) base.push(placed[i]);
+    LC.ld0.length = 0; if (callLead) LC.ld0.push(callLead);
+    // The designed spots: where the portal tract stands, outward from the central vein.
+    let triIt = null, lyIt = null;
+    for (let i = 0; i < items.length; i++) { if (items[i].k === 'triad') triIt = items[i]; else if (items[i].k === 'lymph') lyIt = items[i]; }
     const paired = !!triIt && !!lyIt && !triIt.edge && !lyIt.edge && (pick.lt ?? pick.triad) === pick.triad;
     // (Outward along the screen's axis nearest the ray: out to the side from a side corner, down or up from a bottom or top one. The
     // venule's name is split above (side corner) or left (top or bottom corner) of that axis, the lymphatic's below or right.)
-    const tractU = triIt ? (() => { const dx = triIt.a[0] - cvS[0], dy = triIt.a[1] - cvS[1]; return Math.abs(dx) >= Math.abs(dy) ? [Math.sign(dx) || -1, 0] : [0, Math.sign(dy) || 1]; })() : [-1, 0];
-    const tractN = tractU[0] ? [0, -1] : [-1, 0];
-    const tractR = triIt ? (keep.find((q) => Math.hypot(q.x - triIt.a[0], q.y - triIt.a[1]) < 1)?.r ?? 14) : 14;
+    if (triIt) {
+      const dx = triIt.a[0] - (g.cx * V.k + V.x), dy = triIt.a[1] - (g.cy * V.k + V.y);
+      if (Math.abs(dx) >= Math.abs(dy)) { LC.ux = Math.sign(dx) || -1; LC.uy = 0; } else { LC.ux = 0; LC.uy = Math.sign(dy) || 1; }
+    } else { LC.ux = -1; LC.uy = 0; }
+    LC.nx = LC.ux ? 0 : -1; LC.ny = LC.ux ? -1 : 0;
+    let tractR = 14;
+    if (triIt) for (let i = 0; i < keep.length; i++) if (Math.hypot(keep[i].x - triIt.a[0], keep[i].y - triIt.a[1]) < 1) { tractR = keep[i].r ?? 14; break; }
+    LC.tractR = tractR; LC.paired = paired; LC.triIt = triIt; LC.lyIt = lyIt;
     // (The two split about the line midway between the venule and the lymphatic, each box, margins and all, wholly on its side; on a
     // phone whose corner is near the screen's edge the line moves toward the venule's side until the lymphatic's name fits.)
-    const dotV = (p, v) => p[0] * v[0] + p[1] * v[1];
-    let pairN = paired ? (dotV(triIt.a, tractN) + dotV(lyIt.a, tractN)) / 2 : 0;
+    const nx = LC.nx, ny = LC.ny;
+    let pairN = paired ? (triIt.a[0] * nx + triIt.a[1] * ny + (lyIt.a[0] * nx + lyIt.a[1] * ny)) / 2 : 0;
     if (paired) {
-      const pad = 8 + 4 * lk, half = tractN[0] ? lyIt.w / 2 + hx : lyIt.hh / 2 + hy;
+      const pad = 8 + 4 * lk, half = nx ? lyIt.w / 2 + hx : lyIt.hh / 2 + hy;
       // (how far the lymphatic's box, its far edge 2 px + its width past the line, reaches past the free space on its side)
-      const far = pairN - 2 - 2 * half, lim = tractN[0] ? (tractN[0] < 0 ? -(fr.r - pad + hx) : fr.l + pad - hx) : (tractN[1] < 0 ? -(fr.b - pad + hy) : fr.t + pad - hy);
+      const far = pairN - 2 - 2 * half, lim = nx ? (nx < 0 ? -(fr.r - pad + hx) : fr.l + pad - hx) : (ny < 0 ? -(fr.b - pad + hy) : fr.t + pad - hy);
       const over = lim - far;
       if (over > 0) pairN += over + 1;
     }
-    function designed(k, a, w, hh) {
-      const [ux, uy] = tractU, ex = Math.abs(ux) * w / 2 + Math.abs(uy) * hh / 2, ey = Math.abs(ux) * hh / 2 + Math.abs(uy) * w / 2;
-      // (Offsets reach past each box's margins (hx, hy): the box's inner corner just clears the tract's disc, or the lymphatic's own spot.)
-      const mx = Math.abs(ux) * hx + Math.abs(uy) * hy, my = Math.abs(ux) * hy + Math.abs(uy) * hx;
-      const at = (cu, cn) => [ux * cu + tractN[0] * cn, uy * cu + tractN[1] * cn];
-      if (k === 'triad' && paired) return at(dotV(a, tractU) + ex + mx + tractR + 2, pairN + ey + my + 2);
-      if (k === 'lymph' && paired) return at(dotV(a, tractU) + ex + mx + 12, pairN - ey - my - 2);
-      if (k === 'triad') return [a[0], a[1] + hh / 2 + 12];
-      if (k === 'lymph') return [a[0], a[1] - hh / 2 - 14];
-      if (k === 'cv') { const sd = triIt && triIt.a[0] > a[0] + 1 ? -1 : 1; return [a[0] + sd * (keep[0].r + hx + 2 + w / 2), a[1]]; }
-      if (k === 'sin') return [a[0], a[1] + hh / 2 + hy + 14];
-      return null;
-    }
-    const solve = (order, pl0 = base, ld0 = callLead ? [callLead] : []) => {
-      const pl = pl0.slice(), ld = ld0.slice(), res = [];
-      let total = 0;
-      for (const { k, w, hh, a, edge } of order) {
-        const pad = 8 + 4 * lk, step = hh + 12;
-        if (edge) {   // an edge chip slides along its edge only as far as it needs to clear the others
-          let best = null;
-          for (const n of [0, -1, 1, -2, 2, -3, 3]) {
-            const along = Math.abs(edge[0] - fr.l) < 40 + w || Math.abs(edge[0] - fr.r) < 40 + w ? [0, n * step] : [n * (w / 2 + 12), 0];
-            const x = clamp(edge[0] + along[0], fr.l + w / 2 + pad, fr.r - w / 2 - pad), y = clamp(edge[1] + along[1], fr.t + hh / 2 + pad, fr.b - hh / 2 - pad);
-            const box = { l: x - w / 2 - hx, r: x + w / 2 + hx, t: y - hh / 2 - hy, b: y + hh / 2 + hy };
-            const cost = pl.reduce((sum, o) => sum + (hit(box, o) ? 1e6 + overlap(box, o) * 100 : 0), 0) + cards.reduce((sum, c) => sum + (hit(box, c) ? 1e6 + overlap(box, c) * 400 : 0), 0) + Math.abs(n) * 10;
-            if (!best || cost < best.cost) best = { x, y, box, cost };
-          }
-          if (best.cost >= 1e6) { res.push({ k, out: true }); total += drop(k); continue; }
-          pl.push(best.box); res.push({ k, ...best }); total += best.cost;
-          continue;
-        }
-        const preferred = designed(k, a, w, hh) || (k === 'ha' ? [a[0] - w / 2 - 14, a[1] - hh / 2 - 10] : k === 'bd' ? [a[0] + w / 2 + 14, a[1] - hh / 2 - 10] : a);
-        const pw = DESIGN.includes(k) ? 6 : 0.5;   // (a designed spot holds unless it clashes: its pull beats a shorter leader elsewhere)
-        // Steps in proportion to the label, so larger text searches proportionally farther (above, below, beside, diagonally).
-        const candidates = [preferred];
-        for (const dx of [0, -(w / 2 + 12), w / 2 + 12, -(w + 24), w + 24])
-          for (const n of [0, -1, 1, -2, 2, -3, 3]) if (dx || n) candidates.push([preferred[0] + dx, preferred[1] + n * step]);
-        // And all round what it names, just clear of it and a little farther, so a crowded side still leaves a free spot near it.
-        const r0 = ownR(k, a);
-        for (const r of [1, 1.6, 2.4]) for (let i = 0; i < 16; i++) {
-          const t = (i / 16) * Math.PI * 2, c = Math.cos(t), sn = Math.sin(t);
-          candidates.push([a[0] + c * (w / 2 + 18) * r, a[1] + sn * (hh / 2 + 18) * r]);
-          const d = (r0 + 10) * r + Math.min(w / 2 / Math.max(Math.abs(c), 1e-6), hh / 2 / Math.max(Math.abs(sn), 1e-6));
-          candidates.push([a[0] + c * d, a[1] + sn * d]);
-        }
-        // And a coarse grid over the whole free space, a last resort that still finds the one clear band on a short phone figure.
-        for (let gx = 0; gx <= 6; gx++) for (let gy = 0; gy <= 6; gy++) candidates.push([fr.l + (fr.r - fr.l) * gx / 6, fr.t + (fr.b - fr.t) * gy / 6]);
-        // Snug against each label already placed (above, below or beside it), so a tight gap between two is found.
-        for (const o of pl) candidates.push([preferred[0], o.b + hh / 2 + hy], [preferred[0], o.t - hh / 2 - hy], [o.r + w / 2 + hx, preferred[1]], [o.l - w / 2 - hx, preferred[1]]);
-        let best = null;
-        for (const [px, py] of candidates) {
-          const x = clamp(px, fr.l + w / 2 + pad, fr.r - w / 2 - pad);
-          const y = clamp(py, fr.t + hh / 2 + pad, fr.b - hh / 2 - pad);
-          const box = { l: x - w / 2 - hx, r: x + w / 2 + hx, t: y - hh / 2 - hy, b: y + hh / 2 + hy };
-          // A label with a leader keeps a visible stretch of it: it never sits right over the vessel it names.
-          const lead = Math.hypot(Math.max(0, Math.abs(a[0] - x) - w / 2), Math.max(0, Math.abs(a[1] - y) - hh / 2));
-          // Two labels never touch, and no leader runs under a label: any spot clear of both beats every spot that is not.
-          const cost = pl.reduce((sum, other) => sum + (hit(box, other) ? 1e6 + overlap(box, other) * 100 : 0)
-              + (crosses(a, [x, y], other) ? 1e5 : 0), 0)
-            + ld.reduce((sum, [p, q]) => sum + (crosses(p, q, box) ? 1e5 : 0) + (cut(p, q, a, [x, y]) ? 1e5 : 0), 0)
-            + Math.max(0, 16 - lead) * 40
-            + cards.reduce((sum, c) => sum + (hit(box, c) ? 1e6 + overlap(box, c) * 400 : 0), 0)
-            + (ringDepth(ring, box) > 0 ? 1e6 + ringDepth(ring, box) * 1e3 : 0)
-            + keep.reduce((sum, q) => { const d = into(q, box); return sum + (d > 0 ? 1e6 + d * 1e3 : 0); }, 0)
-            + (into({ x: a[0], y: a[1], r: 10 }, box) > 0 ? 1e6 : 0)
-            + lead * 8 + Math.max(0, lead - 3 * hh) * 60 + Math.max(0, lead - SHORT_LEAD) * 30 + Math.hypot(x - preferred[0], y - preferred[1]) * pw
-            // A label no slide names (the lymph, an arteriole, a ductule) is left out sooner than sent far from what it names
-            // on a leader across the lobule (a phone once ran the Lymph label's 420 px over it, past every other label).
-            + (!CORE.includes(k) && !named(k) && lead > LONG_LEAD ? 1e6 : Math.max(0, lead - LONG_LEAD) * 400);
-          if (!best || cost < best.cost) best = { x, y, box, cost };
-        }
-        if (best.cost >= 1e6) { res.push({ k, out: true }); total += drop(k); continue; }
-        pl.push(best.box); ld.push([a, [best.x, best.y]]); res.push({ k, ...best });
-        total += best.cost;
-      }
-      return { res, total, pl, ld };
-    };
-    const perms = (xs) => (xs.length <= 1 ? [xs] : xs.flatMap((x, i) => perms([...xs.slice(0, i), ...xs.slice(i + 1)]).map((r) => [x, ...r])));
-    let sol = solve(items);
+    LC.pairN = pairN;
+    let sol = solve(items, base, LC.ld0, SOL_A);
     // (Mid-pinch, the first order is kept; the full search runs once the hand lets go.)
     rough = sol.total >= 1e5 && handOn();
     if (rough) { clearTimeout(followT); followT = setTimeout(followEnd, 140); }
     if (sol.total >= 1e5 && !rough) {
       // Every order of up to six labels (720 at most, only while a clash remains: a few milliseconds).
-      for (const order of perms(items)) {
-        const s2 = solve(order);
-        if (s2.total < sol.total) sol = s2;
+      let trial = SOL_B;
+      const idx = LC.idx, ord = LC.ord;
+      permStart(idx, items.length);
+      do {
+        const s2 = solve(permOf(items, idx, ord), base, LC.ld0, trial);
+        if (s2.total < sol.total) { trial = sol; sol = s2; }
         if (sol.total < 1e5 && items.length > 5) break;   // (up to five labels, 120 orders at most: the shortest leaders win, not just the first clear order)
-      }
-    }
-    // A vessel label hidden or crowded: two more layouts are tried, and the one hiding the fewest vessel labels (central
-    // vein, sinusoids, portal tract, and any the slide names), then crowding least, is kept. First, the vessel labels
-    // placed before the slide's pill, the pill clear of them and their leaders, the optional labels in what is left.
-    // Second, as the sinusoids are everywhere, another sinusoid in view for its label, when the one picked leaves none
-    // (a crowded phone band once dropped the Sinusoids label on a slide about the sinusoids). The pill is never left on a label.
-    const isCore = (k) => CORE.includes(k) || named(k), outs = (s) => s.res.filter((r) => r.out && isCore(r.k)).length;
-    const better = (p, q) => outs(p) < outs(q) || (outs(p) === outs(q) && p.total < q.total);
-    if (sol.total >= 1e5 && !rough) {
-      const shown = { lead: callLead, prev: callPrev, cost: callCost, at: spot.get(callEl), line: ['x1', 'y1', 'x2', 'y2'].map((k) => geoOf(callLine, k)) };
-      let won = null;
-      const core = items.filter((it) => isCore(it.k)), rest = items.filter((it) => !isCore(it.k));
-      const coreFirst = () => {
-        let s1 = solve(core, pre, []);
-        for (const order of perms(core)) { if (s1.total < 1e5) break; const t = solve(order, pre, []); if (t.total < s1.total) s1 = t; }
-        const pl2 = s1.pl.slice();
-        const lead2 = placeCall(fr, pl2, cards, s1.ld, crosses, ring, hex, keep, into);
-        if (callLead && callCost >= 1e6) return null;
-        const s3 = solve(rest, pl2, lead2 ? [...s1.ld, lead2] : s1.ld);
-        return { res: [...s1.res, ...s3.res], total: s1.total + s3.total, lead: lead2, call: { prev: callPrev, cost: callCost, at: spot.get(callEl), line: ['x1', 'y1', 'x2', 'y2'].map((k) => geoOf(callLine, k)) } };
-      };
-      const pillFirst = () => {
-        let s2 = solve(items, base, shown.lead ? [shown.lead] : []);
-        for (const order of items.length <= 5 ? perms(items) : []) { if (s2.total < 1e5) break; const t = solve(order, base, shown.lead ? [shown.lead] : []); if (t.total < s2.total) s2 = t; }
-        return { ...s2, lead: shown.lead, call: shown };
-      };
-      if (callLead) { const c = coreFirst(); if (c && better(c, sol)) { sol = c; won = c; } }
-      const sinIt = items.find((it) => it.k === 'sin' && !it.edge);
-      if (sinIt && sol.res.some((r) => r.k === 'sin' && r.out)) {
-        const g = geo, cx = (fr.l + fr.r) / 2, cy = (fr.t + fr.b) / 2, a0 = sinIt.a;
-        const cands = [...g.L1, ...g.L2, ...g.L0].map((t) => [t, toScreen(sinAt(t))]).filter(([, [x, y]]) => x > fr.l + 30 && x < fr.r - 30 && y > fr.t + 30 && y < fr.b - 30)
-          .sort((p, q) => Math.hypot(p[1][0] - cx, p[1][1] - cy) - Math.hypot(q[1][0] - cx, q[1][1] - cy)).slice(0, 30);
-        let winA = a0;
-        for (const [t, a] of cands) {
-          sinIt.a = a;
-          for (const s2 of [pillFirst(), callLead ? coreFirst() : null]) if (s2 && better(s2, sol)) { sol = s2; won = s2; winA = a; pick.sin = t.id; }
-          if (outs(sol) === 0) break;
-        }
-        sinIt.a = winA;
-      }
-      const c = won ? won.call : shown;
-      if (won) callLead = won.lead;
-      callPrev = c.prev; callCost = c.cost; if (c.at) put(callEl, c.at[0], c.at[1]); else { spot.delete(callEl); callEl.style.translate = ''; }
-      // (A line never drawn has no ends to put back: setting "null" logged an error per end on a small phone.)
-      ['x1', 'y1', 'x2', 'y2'].forEach((k, i) => setGeo(callLine, k, c.line[i] ?? null));
-      leadGL.paint();
+      } while (nextPerm(idx, items.length));
+      if (sol.total >= 1e5) sol = retryClash(sol, items, fr, ring, hex, cards, keep, callLead);
     }
     // A label waiting at the edge (what it names is off screen) never lies across another label's leader: its place is
     // set by the way it points, so it gives way (at 200 % text on a phone the Central vein's chip covered the Sinusoids' node).
-    const itOf = (k) => items.find((it) => it.k === k);
-    const crossed = new Set(sol.res.filter((r) => !r.out && itOf(r.k).edge).filter((r) => {
-      const c = itOf(r.k), box = lettersOf(c.L, r.x - c.w / 2, r.y - c.hh / 2, c.w, c.hh);
-      return sol.res.some((o) => o !== r && !o.out && !itOf(o.k).edge && runInside(itOf(o.k).a, [o.x, o.y], box) > 0.5);
-    }).map((r) => r.k));
-    if (crossed.size) sol = { ...sol, res: sol.res.map((r) => (crossed.has(r.k) ? { ...r, out: true } : r)) };
+    const res = sol.res, nr = sol.n, lt = LC.ink0, qq = LC.q;
+    let anyCrossed = false;
+    for (let i = 0; i < nr; i++) {
+      const r = res[i], c = r.it;
+      r.crossed = false;
+      if (r.out || !c.edge) continue;
+      lettersInto(lt, c.L, r.x - c.w / 2, r.y - c.hh / 2, c.w, c.hh);
+      for (let j = 0; j < nr; j++) {
+        const o = res[j];
+        if (o === r || o.out || o.it.edge) continue;
+        qq[0] = o.x; qq[1] = o.y;
+        if (runInside(o.it.a, qq, lt) > 0.5) { r.crossed = true; anyCrossed = true; break; }
+      }
+    }
+    if (anyCrossed) for (let i = 0; i < nr; i++) if (res[i].crossed) res[i].out = true;
     // (What a hand's zoom checks as it carries them: rideHolds.)
     if (!callRing.classList.contains('on')) {
-      const res = sol.res.filter((r) => !r.out);
-      follow.ride = { labs: res.filter((r) => !itOf(r.k).edge).map((r) => ({ a: itOf(r.k).a, c: [r.x, r.y], box: r.box })), chips: res.filter((r) => itOf(r.k).edge).map((r) => ({ a: itOf(r.k).a, box: r.box })),
-        zones: zoneBoxes, cards, ix: 8 + 4 * lk - hx, iy: 8 + 4 * lk - hy };
+      const R = follow.rideBuf;
+      let nl = 0, nc = 0;
+      for (let i = 0; i < nr; i++) {
+        const r = res[i];
+        if (r.out) continue;
+        const a = r.it.a;
+        if (!r.it.edge) {
+          const e = R.labs[nl++] || (R.labs[nl - 1] = { a: [0, 0], c: [0, 0], box: { l: 0, r: 0, t: 0, b: 0 } });   // alloc-once: a record is made the first time that many labels ride, then reused
+          e.a[0] = a[0]; e.a[1] = a[1]; e.c[0] = r.x; e.c[1] = r.y; e.box.l = r.box.l; e.box.r = r.box.r; e.box.t = r.box.t; e.box.b = r.box.b;
+        } else {
+          const e = R.chips[nc++] || (R.chips[nc - 1] = { a: [0, 0], box: { l: 0, r: 0, t: 0, b: 0 } });   // alloc-once: a record is made the first time that many chips ride, then reused
+          e.a[0] = a[0]; e.a[1] = a[1]; e.box.l = r.box.l; e.box.r = r.box.r; e.box.t = r.box.t; e.box.b = r.box.b;
+        }
+      }
+      for (let i = 0; i < zoneBoxes.length; i++) {
+        const z = R.zones[i] || (R.zones[i] = { l: 0, r: 0, t: 0, b: 0 }), b = zoneBoxes[i];   // alloc-once: a box is made the first time that many zone names ride, then reused
+        z.l = b.l; z.r = b.r; z.t = b.t; z.b = b.b;
+      }
+      R.nl = nl; R.nc = nc; R.nz = zoneBoxes.length; R.cards = cards; R.ix = 8 + 4 * lk - hx; R.iy = 8 + 4 * lk - hy;
+      follow.ride = R;
     }
     // (Every label's letters where it lands, for the leaders to keep off.)
-    const inks = sol.res.filter((r) => !r.out).map(({ k, x, y }) => { const { L, w, hh } = items.find((it) => it.k === k); return lettersOf(L, x - w / 2, y - hh / 2, w, hh); });
-    for (const { k, x, y, out } of sol.res) {
-      const { L, w, hh, a, edge } = items.find((it) => it.k === k);
-      restAttr(L.el, 'data-at', `${r1(a[0])},${r1(a[1])}`);
-      if (out) { if (L.peek) { setHid(L.el, true); L.el.classList.remove('edge'); } else fadeOut(L.el); leadOff(L); continue; }
+    const inks = LC.inks;
+    let nInk = 0;
+    for (let i = 0; i < nr; i++) {
+      const r = res[i];
+      if (r.out) continue;
+      const c = r.it;
+      lettersInto(inks[nInk++], c.L, r.x - c.w / 2, r.y - c.hh / 2, c.w, c.hh);
+    }
+    for (let i = 0; i < nr; i++) {
+      const r = res[i], it = r.it, L = it.L, k = it.k, w = it.w, hh = it.hh, a = it.a, edge = it.edge, x = r.x, y = r.y;
+      const ax = rnd1(a[0]), ay = rnd1(a[1]);
+      if (L.atX !== ax || L.atY !== ay) { L.atX = ax; L.atY = ay; L.atS = `${ax},${ay}`; }   // alloc-rare: only when the label's spot changed by a tenth of a pixel
+      restAttr(L.el, 'data-at', L.atS);
+      if (r.out) { if (L.peek) { setHid(L.el, true); L.el.classList.remove('edge'); } else fadeOut(L.el); leadOff(L); continue; }
       fadeIn(L.el);
       put(L.el, x - w / 2, y - hh / 2);
       noteAt(L);
       L.el.classList.toggle('left', !edge && (k === 'triad' || k === 'lymph') && x + w / 2 < a[0] - 4);
       if (edge) { leadOff(L); continue; }
+      // (The label's spot is kept in the label's own pair: the layout's records are written again by the next.)
+      const ab = L.ab || (L.ab = [0, 0]);   // alloc-once: a label's pair is made with its first layout
+      ab[0] = a[0]; ab[1] = a[1];
       // (A name that stands against the central vein's rim names it by standing there: no leader.)
-      if (k === 'cv' && Math.hypot(Math.max(0, Math.abs(a[0] - x) - w / 2), Math.max(0, Math.abs(a[1] - y) - hh / 2)) <= cvKeep(g) + hx + 10) { leadOff(L); L.a = a; continue; }
+      if (k === 'cv' && Math.hypot(Math.max(0, Math.abs(a[0] - x) - w / 2), Math.max(0, Math.abs(a[1] - y) - hh / 2)) <= cvKeep(g) + hx + 10) { leadOff(L); L.a = ab; continue; }
       leadOn(L);
-      L.a = a;
+      L.a = ab;
       setGeo(L.line, 'x1', a[0]); setGeo(L.line, 'y1', a[1]);
-      leadTo(L, lettersOf(L, x - w / 2, y - hh / 2, w, hh), inks);
+      leadTo(L, lettersInto(lt, L, x - w / 2, y - hh / 2, w, hh), inks, nInk);
       setGeo(L.dotEl, 'cx', a[0]); setGeo(L.dotEl, 'cy', a[1]);
       leadGL.paint();
     }
@@ -2151,30 +2423,28 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // through it or stops short of it on the way.
     if (labels.classList.contains('lz-ease')) { syncLeaders(); glideUntil = performance.now() + 480; if (!glideRaf) glideRaf = frame(glideLeaders, 'lobule-glide'); }
   }
-  // A label's letters: its box less the padding.
-  // A label the slide's words light sits in its pill (its ::before, past the box at every side, with rounded corners):
-  // the leader stops on the pill's outline.
-  const lettersOf = (L, l, t, w, hh) => {
-    if ((document.getElementById('app')?.dataset.lit || '').split(' ').includes(L.el.dataset.target)) {
-      // (Its pill's insets as measured with its size, measureRun; before that, app.css's own sums for them.)
-      const lk = parseFloat(document.documentElement.style.getPropertyValue('--label-k')) || 1;
-      const q = L.pillQ || [-4 * lk, -5 * lk, -4 * lk, -5 * lk, 12];
-      return { x0: l + q[0], y0: t + q[1], x1: l + w - q[2], y1: t + hh - q[3], r: q[4], L };
-    }
-    const [pl, pr, pt, pb] = L.pad || [0, 0, 0, 0];
-    return { x0: l + pl, y0: t + pt, x1: l + w - pr, y1: t + hh - pb, L };
-  };
+  // The labels to be measured, asked for (kept, written in place: measureRun takes it and clears it).
+  function wantLabels(ns, fw) {
+    const w = LC.want, ks = w.ks;
+    ks.length = 0;
+    for (let i = 0; i < ns; i++) ks.push(LC.shK[i]);
+    w.fw = fw; labWant = w;
+  }
   // A leader's end: on the edge of its label's letters, on the way to the label's middle. While another label lies across
   // it (one gliding past), the leader is hidden, and eases back once clear: a leader never runs across a label.
-  function leadTo(L, ink, inks) {
+  function leadTo(L, ink, inks, n) {
     const e = leaderEnd(ink, L.a[0], L.a[1]);
     if (!e) { classSoon(L.line, 'ld-gone', true); return; }
     setGeo(L.line, 'x2', e.x); setGeo(L.line, 'y2', e.y);
-    classSoon(L.line, 'lz-hid', inks.some((o) => o.L !== L && runInside(L.a, [e.x, e.y], o) > 0.5));
+    const q = LC.q;
+    q[0] = e.x; q[1] = e.y;
+    let hidden = false;
+    for (let i = 0; i < n; i++) if (inks[i].L !== L && runInside(L.a, q, inks[i]) > 0.5) { hidden = true; break; }
+    classSoon(L.line, 'lz-hid', hidden);
   }
   let glideRaf = 0, glideUntil = 0;
   // The glide cut short (its time is up): the labels land at once, and their leaders with them.
-  function easeEnd() { labels.classList.remove('lz-ease'); for (const L of Object.values(labs)) L.gl = null; syncLeaders(); }
+  function easeEnd() { labels.classList.remove('lz-ease'); unglide(); syncLeaders(); }
   function glideLeaders(now) {
     glideRaf = 0;
     // (Followed until every glide has ended: a slow frame can start one late.)
@@ -2184,15 +2454,17 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   function syncLeaders() {
     let moving = false;
     // (Where each label is seen is worked out from its glide, seenAt: never read back from the page.)
-    const now = tlNow();
-    const on = fade > 0 ? Object.values(labs).filter((L) => !gone(L.el) && spot.has(L.el)) : [];
-    const inks = on.map((L) => { const [x, y] = seenAt(L, now), [w, hh] = labWH(L); return lettersOf(L, x, y, w, hh); });
-    on.forEach((L, i) => {
-      if (!L.a || L.el.classList.contains('edge') || classHas(L.dotEl, 'ld-gone')) return;
+    const now = tlNow(), on = LC.syncOn, inks = LC.syncInks;
+    let n = 0;
+    if (fade > 0) for (let i = 0; i < LAB_KEYS.length; i++) { const L = labs[LAB_KEYS[i]]; if (!gone(L.el) && spot.has(L.el)) on[n++] = L; }
+    for (let i = 0; i < n; i++) { const L = on[i], [x, y] = seenAt(L, now), [w, hh] = labWH(L); lettersInto(inks[i], L, x, y, w, hh); }
+    for (let i = 0; i < n; i++) {
+      const L = on[i];
+      if (!L.a || L.el.classList.contains('edge') || classHas(L.dotEl, 'ld-gone')) continue;
       classSoon(L.line, 'ld-gone', false);
-      leadTo(L, inks[i], inks);
+      leadTo(L, inks[i], inks, n);
       moving ||= labGliding(L, now);
-    });
+    }
     return moving;
   }
 
@@ -2224,12 +2496,13 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // looks again four times a second in case a change came by a path that does not.
     if (!drew && !moving && !rzMoving && (flowA === 0 || flowA === 1) && !resCover) {
       last = 0;   // (on waking, the first frame steps nothing: no jump in the flow)
-      clearTimeout(sleepT); sleepT = setTimeout(() => { if (!raf && fade > 0) raf = nextFrame(loop); }, 250);
+      clearTimeout(sleepT); sleepT = setTimeout(sleepWake, 250);
       return;
     }
     raf = nextFrame(loop);
   }
   let sleepT = 0;
+  function sleepWake() { if (!raf && fade > 0) raf = nextFrame(loop); }
   // A Figure resolution change made while the lobule shows: the layers are drawn once more as they stand (in this frame, so the GPU
   // ones can be read), stacked into one opaque picture laid over them (resCover, under the labels), and the loop then draws them at
   // the new share under it while it fades out over FADE_MS, the same smoothstep as the anatomy's (res-fade.js). The layers
@@ -2242,34 +2515,36 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   let resCover = null, resT0 = 0, resV0 = null, resGL;
   // (Its canvas is made with the view, its context only at the first change: a frame makes no element for it. 2 Nov 2026.)
   const resCv = h('canvas', { class: 'lz-canvas lz-res', 'aria-hidden': 'true', style: { transformOrigin: '0 0' } });
-  const coverGL = () => (resGL === undefined ? (resGL = createResCover(() => resCv)) : resGL);
+  const resCvOf = () => resCv;
+  const coverGL = () => (resGL === undefined ? (resGL = createResCover(resCvOf)) : resGL);
   const resSteady = () => fade > 0.98 && !diveScaled && sinU === 0 && !sinTo && !wide && !staging && !!geo && !!model;
   function resSwap() {
     const k = lzWant;
     lzWant = null;
     if (k === lzK) return;
-    const fresh = () => { tissueKey = ''; drawKey = ''; glDirty = true; idleDrawn = ''; };
-    fresh();
+    freshDraw();
     const g = coverGL();
     if (g?.ready && draw(0)) {
       // (A change while one still fades starts from the mix as it shows: the cover before, laid over at its weight and place.)
-      const [W, H] = snap.hostWH || [g.cv.width || 1, g.cv.height || 1];
-      const prev = resCover ? { a: +resCover.style.opacity, m: coverFollow(resV0, V, W, H) } : null;
-      if (g.build([tissue, tissueG, glCv, fx], prev)) {
+      const [W, H] = snap.hostWH || [g.cv.width || 1, g.cv.height || 1];   // alloc-rare: only on a change of the Figure's resolution (lzWant), never a frame's own
+      const prev = resCover ? { a: +resCover.style.opacity, m: coverFollow(resV0, V, W, H) } : null;   // alloc-rare: only on a change of the Figure's resolution (lzWant), never a frame's own
+      if (g.build([tissue, tissueG, glCv, fx], prev)) {   // alloc-rare: only on a change of the Figure's resolution (lzWant), never a frame's own
         const cv = g.cv;
         if (!cv.isConnected) fx.after(cv);
         cv.style.transform = '';
         cv.style.opacity = '1';
-        resCover = cv; resT0 = performance.now(); resV0 = { ...V };
+        resCover = cv; resT0 = performance.now(); resV0 = { ...V };   // alloc-rare: only on a change of the Figure's resolution (lzWant), never a frame's own
       } else resCoverEnd();
     } else resCoverEnd();
     lzK = k;
-    fresh();
+    freshDraw();
   }
+  // (The next frame draws everything again.)
+  function freshDraw() { tissueKey = ''; drawKey = ''; glDirty = true; idleDrawn = ''; }
   function resCoverStep(now) {
     const u = (now - resT0) / FADE_MS;
     if (u >= 1 || diveScaled || wide || fade <= 0) { resCoverEnd(); return; }
-    resCover.style.opacity = fadeAlpha(u).toFixed(4);
+    resCover.style.opacity = Math.round(fadeAlpha(u) * 1e4) / 1e4;   // (a number: the page writes it as text, to four places)
     const t = viewFollow(resV0, V);
     if (resCover.style.transform !== t) resCover.style.transform = t;
   }
@@ -2295,6 +2570,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   let staging = false, staged = '', relLater = false;
   // (tissueDrew: the tissue was drawn in this frame, so a hosted one lies in the vessels' canvas now: draw.)
   let tissueDrew = false;
+  const idleSeen = { W: 0, H: 0, dpr: 0, dark: false, k: 0, x: 0, y: 0, ver: 0, fl: 0 };
   function draw(dt) {
     stepFlowA();
     tissueDrew = false;
@@ -2307,9 +2583,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const dpr = Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * lzScale();   // (Battery saver: one pixel per CSS pixel)
     const dark = isDark();
     // Keep watching for view/theme/size changes, but leave a settled paused picture alone.
-    const idleKey = [W, H, dpr, dark, V.k, V.x, V.y, drawVersion, flowA.toFixed(2)].join('|');
-    if (dt === 0 && idleKey === idleDrawn) return false;
-    idleDrawn = dt === 0 ? idleKey : '';
+    // (The picture it last drew, kept as numbers and compared in place: idleDrawn is '' when no paused picture stands.)
+    const idle = idleSeen, fl = Math.round(flowA * 100);
+    if (dt === 0 && idleDrawn && idle.W === W && idle.H === H && idle.dpr === dpr && idle.dark === dark && idle.k === V.k && idle.x === V.x && idle.y === V.y && idle.ver === drawVersion && idle.fl === fl) return false;
+    if (dt === 0) { idle.W = W; idle.H = H; idle.dpr = dpr; idle.dark = dark; idle.k = V.k; idle.x = V.x; idle.y = V.y; idle.ver = drawVersion; idle.fl = fl; idleDrawn = 'on'; } else idleDrawn = '';
     const cs = styles();   // (the stage's kept copy of its styles, read again when a class, theme or system setting changes)
     const g = glNow();
     // (On the GPU, always: through the dive, the rise and the zoom into and out of a sinusoid too, the GPU canvas, drawn once, is
@@ -2469,21 +2746,21 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   }
   const apple = () => /iP(hone|ad|od)/.test(navigator.platform) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
+  let geoW = -1, geoH = -1;
   function ensureGeo(W, H) {
-    const key = W + 'x' + H;
-    if (key === geoKey) return;
+    if (W === geoW && H === geoH) return;
     // Zoomed in, the spot at the middle of the free space, in lobule radii from its centre, and the zoom against the framing:
     // the lobule is built again for the new size, so the view keeps both (its screen numbers alone would show another spot).
     const keep = geo && !atFit && !camAim && !(aimed && fade <= 0.98) ? viewSpot() : null;
-    geo = build(W, H); geoKey = key; binKey = ''; binReach = []; binCache.clear(); radKey = []; radAll = ''; radCal = ''; tissueKey = ''; layoutKey = '';
+    geo = build(W, H); geoW = W; geoH = H; geoKey = W + 'x' + H; binKey = ''; binReach = []; binCache.clear(); radKey = []; radAll = ''; radCal = ''; tissueKey = ''; layoutKey = '';   // alloc-rare: only when the lobule's size changed (a new build), never a frame's own
     if (atFit || (aimed && fade <= 0.98)) resetView();
     else if (camAim) { kFit = fitV().k; Object.assign(camAim.to, framing(camAim.part, camAim.zoom)); }
     else if (keep) toSpot(keep);
     else clampV();
   }
   function viewSpot() {
-    const f = freeRect(), [wx, wy] = toWorld([(f.l + f.r) / 2, (f.t + f.b) / 2]);
-    return { u: (wx - geo.cx) / geo.R, v: (wy - geo.cy) / geo.R, z: V.k / (kFit || V.k) };
+    const f = freeRect(), [wx, wy] = toWorld([(f.l + f.r) / 2, (f.t + f.b) / 2]);   // alloc-rare: only when the lobule's size changed (a new build), never a frame's own
+    return { u: (wx - geo.cx) / geo.R, v: (wy - geo.cy) / geo.R, z: V.k / (kFit || V.k) };   // alloc-rare: only when the lobule's size changed (a new build), never a frame's own
   }
   function toSpot(p) {
     const F0 = fitV(); kFit = F0.k;
@@ -2494,8 +2771,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // The lobule's size, kept and read again only when it may have changed: read on every frame, it laid the page out mid-frame.
   // A size change that lands after this frame's draw (a panel opening, the phone's toolbar) is drawn at once, before the screen shows it.
   // (Kept with the lobule's boxes, snap.hostWH: read by the ResizeObserver, a resize and the lobule opening, never in a frame.)
+  const NO_SIZE = [1, 1];
   function hostSize() {
-    return snap.hostWH || [1, 1];   // (read as the lobule is made, below snap, so never empty)
+    return snap.hostWH || NO_SIZE;   // (read as the lobule is made, below snap, so never empty)
   }
   new ResizeObserver(() => {
     const was = snap.hostWH;
@@ -2520,13 +2798,20 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const fsLast = {};
   const fsQ = (k, x) => { const v = x || 0, o = fsLast[k]; return o !== undefined && Math.abs(v - o) < 0.09 ? o : (fsLast[k] = Math.round(v * 8) / 8); };
   // (Closed, the lobule's model is its last visit's, not this patient's: the field follows the latest frame instead.)
-  let fsM = null, fsKey = [];
+  let fsM = null, fsF, fsP, fsH, fsI;
   const closedModel = () => {
-    const st = store.get(), k = [F, st.params, st.healthy, st.imaging];
-    if (k.some((x, i) => x !== fsKey[i])) { fsKey = k; fsM = lobuleStateInto(fsBuf, F, st, undefined, F.Pf || F.P); }
+    const st = store.get(), p = st.params, hl = st.healthy, im = st.imaging;
+    if (F !== fsF || p !== fsP || hl !== fsH || im !== fsI) { fsF = F; fsP = p; fsH = hl; fsI = im; fsM = lobuleStateInto(fsBuf, F, st, undefined, F.Pf || F.P); }   // alloc-rare: only when the frame or the patient's inputs changed
     return fsM;
   };
-  const fieldState = () => { const m = !unseen() && model ? model : F ? closedModel() : model; return m ? { su: fsQ('su', m.septU), pre: fsQ('pre', m.fibPre), post: fsQ('post', m.fibPost), sin: fsQ('sin', m.fibSin), cong: fsQ('cong', m.congU) } : { su: 0, pre: 0, post: 0, sin: 0, cong: 0 }; };
+  // (One kept record, written in place: read at once by whoever asks, never held.)
+  const fsOut = { su: 0, pre: 0, post: 0, sin: 0, cong: 0 };
+  const fieldState = () => {
+    const m = !unseen() && model ? model : F ? closedModel() : model;
+    if (m) { fsOut.su = fsQ('su', m.septU); fsOut.pre = fsQ('pre', m.fibPre); fsOut.post = fsQ('post', m.fibPost); fsOut.sin = fsQ('sin', m.fibSin); fsOut.cong = fsQ('cong', m.congU); }
+    else { fsOut.su = 0; fsOut.pre = 0; fsOut.post = 0; fsOut.sin = 0; fsOut.cong = 0; }
+    return fsOut;
+  };
   // The surround's grey. A lens other than Pressure greys the anatomy's organs (stage.js plateTargets); the neighbouring lobules, the dive's
   // field and the tissue round the open lobule take the same grey, so they match the liver they are zoomed into or out of (the lobule in
   // focus keeps its lens's colours). grey.k: 0 (the tiles as drawn) … 1 (the lens's grey liver), eased over the lens crossfade; it is
@@ -2553,7 +2838,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const TILE_RETRY = 250;
   const tileDue = (q) => !!q && !!q.blank && performance.now() >= q.blankAt + TILE_RETRY;
   // A tile's toned copies given back (quietG, liverG: tile-gl.js descriptions, whose textures each GPU context gives back at its next sweep).
-  const freeCopies = (q) => { for (const k of ['quietG', 'liverG']) if (q[k]) { free(q[k].cv); q[k] = null; } };
+  const freeCopies = (q) => { if (q.quietG) { free(q.quietG.cv); q.quietG = null; } if (q.liverG) { free(q.liverG.cv); q.liverG = null; } };
   // The copies the GPU draws from, made on the GPU itself (tile-gl.js): the neighbours' quiet copy (blurred, wrapping round the repeat,
   // drained and flattened toward the page) and the dive's liver-toned one, each a description each GPU context draws into its own
   // texture from the tile, once, with no blur in script and no canvas held for them. Remade when the tile was drawn again or the tone
@@ -2563,37 +2848,74 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (q && q.k === k && q.cv.src === t.cv && q.cv.width) return q;
     if (q) { free(q.cv); fieldGL?.sweep(); tissueGL?.sweep(); }
     const blank = !t.cv || !t.cv.width || t.blank;
-    return (t[slot] = { k, R: t.R, tw: t.tw, th: t.th, TW: t.TW, TH: t.TH, cv: tileCopy(t.cv, t.tw, t.th, look, blank), blank, blankAt: 0 });
+    return (t[slot] = { k, R: t.R, tw: t.tw, th: t.th, TW: t.TW, TH: t.TH, cv: tileCopy(t.cv, t.tw, t.th, look, blank), blank, blankAt: 0, bg: null });   // alloc-rare: only when the tile was drawn again or the surround's tone changed
   }
-  const quietCopy = (t, bg) => gpuCopy(t, 'quietG', bg.join(','), { blur: neighbourBlur(t.R), sat: 0.45, tone: bg, toneA: 0.42, flat: NEIGHBOUR_FLAT });
+  // (The quiet copy stands while its tile and tone do: the tone compared as numbers, the text that names it made only when it is remade.)
+  const quietCopy = (t, bg) => {
+    const q = t.quietG;
+    if (q && q.bg && q.bg.length === bg.length && q.cv.src === t.cv && q.cv.width) {
+      let same = true;
+      for (let i = 0; i < bg.length; i++) if (q.bg[i] !== bg[i]) { same = false; break; }
+      if (same) return q;
+    }
+    const r = gpuCopy(t, 'quietG', bg.join(','), { blur: neighbourBlur(t.R), sat: 0.45, tone: bg, toneA: 0.42, flat: NEIGHBOUR_FLAT });   // alloc-rare: only when the tile was drawn again or the surround's tone changed
+    r.bg = bg.slice();   // alloc-rare: only when the tile was drawn again or the surround's tone changed
+    return r;
+  };
   const liverCopy = (t, cs, dark, bg) => {
     const tone = liverTone(cs, bg);
     return gpuCopy(t, 'liverG', tone.map((x) => x.toFixed(2)).join(','), { blur: 0, sat: 0.45, tone, toneA: 0.42, flat: 0 });
   };
+  // The tile look's inputs as last read (the four colours' text as the page gave it, the field state, the theme) and what they make: the colours
+  // trimmed, and the key naming the tile set. Read from the page each time, compared in place, and made again only when one changed.
+  const fcLook = { dark: null, raw: ['', '', '', ''], fs: [NaN, NaN, NaN, NaN, NaN], key: '', cell: undefined, gap: undefined, cvc: undefined, pvc: undefined };
+  const FC_NAMES = ['--og-liver-1', '--og-liver-2', '--vein-systemic', '--vein-portal'];
+  const cssTrim = (cs, n) => cs.getPropertyValue(n).trim() || undefined;   // alloc-rare: only when a tile is drawn, or its look changed (the trimmed text is a new string)
+  function fieldLook(cs, dark, fs) {
+    const L = fcLook, raw = L.raw, f = L.fs;
+    let same = L.key !== '' && L.dark === dark && f[0] === fs.su && f[1] === fs.pre && f[2] === fs.post && f[3] === fs.sin && f[4] === fs.cong;
+    for (let i = 0; i < 4; i++) { const r = cs.getPropertyValue(FC_NAMES[i]); if (r !== raw[i]) { raw[i] = r; same = false; } }
+    if (!same) {
+      L.dark = dark; f[0] = fs.su; f[1] = fs.pre; f[2] = fs.post; f[3] = fs.sin; f[4] = fs.cong;
+      L.cell = raw[0].trim() || undefined; L.gap = raw[1].trim() || undefined; L.cvc = raw[2].trim() || undefined; L.pvc = raw[3].trim() || undefined;   // alloc-rare: only when the tile's look (a colour, the theme or the field state) changed
+      L.key = [dark, L.cell, L.gap, L.cvc, L.pvc, Object.values(fs).join(',')].join('|');   // alloc-rare: only when the tile's look (a colour, the theme or the field state) changed
+    }
+    return L;
+  }
+  // The tile at or just above the size asked for (the largest when none is), and the nearest drawn one for a look that is still being drawn.
+  const tileAt = (ts, rd) => { for (let i = 0; i < ts.length; i++) if (ts[i].R >= rd) return ts[i]; return ts[ts.length - 1]; };
+  const tileDrawn = (ts, rd) => {
+    for (let i = 0; i < ts.length; i++) if (ts[i].R >= rd && ts[i].cv) return ts[i];
+    for (let i = ts.length - 1; i >= 0; i--) if (ts[i].cv) return ts[i];
+    return undefined;
+  };
+  let tileLastObj = null, tileLru = null;
   function fieldTile(cs, dark, rd, later = false) {
-    const v = (n, d) => cs.getPropertyValue(n).trim() || d;
-    const cell = v('--og-liver-1'), gap = v('--og-liver-2'), cvc = v('--vein-systemic'), pvc = v('--vein-portal');
-    const fs = fieldState();
-    const key = [dark, cell, gap, cvc, pvc, Object.values(fs).join(',')].join('|');
+    const fs = fieldState(), L = fieldLook(cs, dark, fs), key = L.key;
     if (later && tileLast && tileLast.key !== key && tileLast.dark === dark) {
-      const ts = tileSets.get(key), ready = ts && (ts.find((q) => q.R >= rd) || ts[ts.length - 1]);
+      const ts = tileSets.get(key), ready = ts && tileAt(ts, rd);
       if (!ready?.cv) {
         if (!tileLater) { tileLaterRd = rd; tileLater = setTimeout(tileLaterRun, 0); }
         const old = tileSets.get(tileLast.key);
-        const t = old && (old.find((q) => q.R >= rd && q.cv) || [...old].reverse().find((q) => q.cv));
+        const t = old && tileDrawn(old, rd);
         if (t) return t;
       }
     }
-    if (later) tileLast = { key, dark };
+    if (later) {
+      if (!tileLastObj) tileLastObj = { key, dark };   // alloc-once: the record is made with the first tile asked for later, then written in place
+      else { tileLastObj.key = key; tileLastObj.dark = dark; }
+      tileLast = tileLastObj;
+    }
     let tiles = tileSets.get(key);
     if (!tiles) {
-      tiles = FIELD_RS.map((R) => ({ R, cv: null, set: key })); tileSets.set(key, tiles);
-      if (tileSets.size > 3) { const k0 = tileSets.keys().next().value; for (const q of tileSets.get(k0)) { if (q.cv) free(q.cv); freeCopies(q); } tileSets.delete(k0); }   // (zeroed: Safari frees a dropped canvas's memory late)
+      tiles = FIELD_RS.map((R) => ({ R, cv: null, set: key })); tileSets.set(key, tiles);   // alloc-rare: only when a tile set for a new look is first asked for
+      if (tileSets.size > 3) { const k0 = tileSets.keys().next().value; for (const q of tileSets.get(k0)) { if (q.cv) free(q.cv); freeCopies(q); } tileSets.delete(k0); }   // alloc-rare: only when a fourth tile set is made (zeroed: Safari frees a dropped canvas's memory late)
+      tileLru = key;
     }
-    else { tileSets.delete(key); tileSets.set(key, tiles); }
-    const t = tiles.find((q) => q.R >= rd) || tiles[tiles.length - 1];
+    else if (key !== tileLru) { tileSets.delete(key); tileSets.set(key, tiles); tileLru = key; }   // (the most recently asked kept last; a repeat of the same look moves nothing)
+    const t = tileAt(tiles, rd);
     if (t.cv && tileDue(t)) { free(t.cv); t.cv = null; freeCopies(t); fieldGL?.sweep(); tissueGL?.sweep(); }
-    if (!t.cv) framePart('lz.drawTile', () => drawTile(t, { cell, gap, cvc, pvc, art: v('--artery'), duct: v('--bile-duct'), dark, fs }));
+    if (!t.cv) framePart('lz.drawTile', () => drawTile(t, { cell: L.cell, gap: L.gap, cvc: L.cvc, pvc: L.pvc, art: cssTrim(cs, '--artery'), duct: cssTrim(cs, '--bile-duct'), dark, fs }));   // alloc-rare: only when the tile is not drawn yet (a new look, a theme change, a retry), never a frame that has it
     return t;
   }
   // Tissue, not a diagram: the repeat is two lobules wide and two high, and every corner of the
@@ -2603,30 +2925,30 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // arteriole, ductule) sits at each corner.
   function drawTile(t, { cell, gap, cvc, pvc, art, duct, dark, fs }) {
     const S3 = Math.sqrt(3), R = t.R;
-    const hash = (i, j) => { let q = (i * 374761393 + j * 668265263) >>> 0; q = ((q ^ (q >>> 13)) * 1274126177) >>> 0; return (q >>> 8) / 16777216; };
-    const COLa = cssRGB01('--lz-septum'), edges = new Set();
+    const hash = (i, j) => { let q = (i * 374761393 + j * 668265263) >>> 0; q = ((q ^ (q >>> 13)) * 1274126177) >>> 0; return (q >>> 8) / 16777216; };   // alloc-rare: only when a tile is drawn (a new look or size), never a frame that already has its tile
+    const COLa = cssRGB01('--lz-septum'), edges = new Set();   // alloc-rare: only when a tile is drawn (a new look or size), never a frame that already has its tile
     const TW = 6 * R, TH = 2 * S3 * R, tw = Math.round(TW), th = Math.round(TH);
     // (Recorded as shapes and painted by the GPU, paint-gl.js: no 2D canvas.)
-    const rec = recordPaint(tw, th, (c) => {
+    const rec = recordPaint(tw, th, (c) => {   // alloc-rare: only when a tile is drawn (a new look or size), never a frame that already has its tile
     c.scale(tw / TW, th / TH);
     c.fillStyle = gap; c.fillRect(0, 0, TW, TH);
     // The corners of the lobule at the pattern's origin (where the lobule view draws its own lobule) stay
     // on the regular lattice, and their triads are the view's own, so none is drawn twice.
-    const HOME = new Set(['2,0', '1,1', '11,1', '10,0', '11,3', '1,3']);
-    const home = (ix, iy) => HOME.has(`${((ix % 12) + 12) % 12},${((iy % 4) + 4) % 4}`);
+    const HOME = new Set(['2,0', '1,1', '11,1', '10,0', '11,3', '1,3']);   // alloc-rare: only when a tile is drawn (a new look or size), never a frame that already has its tile
+    const home = (ix, iy) => HOME.has(`${((ix % 12) + 12) % 12},${((iy % 4) + 4) % 4}`);   // alloc-rare: only when a tile is drawn (a new look or size), never a frame that already has its tile
     // A lattice point, nudged (ix, iy in half-R and half-height steps, wrapped to the repeat).
-    const corner = (x, y) => {
+    const corner = (x, y) => {   // alloc-rare: only when a tile is drawn (a new look or size), never a frame that already has its tile
       const ix = Math.round(x / (R / 2)), iy = Math.round(y / (S3 * R / 2));
-      if (home(ix, iy)) return [x, y];
+      if (home(ix, iy)) return [x, y];   // alloc-rare: only when a tile is drawn (a new look or size), never a frame that already has its tile
       const u = hash(((ix % 12) + 12) % 12, ((iy % 4) + 4) % 4), w = hash(((ix % 12) + 12) % 12 + 31, ((iy % 4) + 4) % 4 + 17);
       const a = u * TAU, m = 0.11 * R * (0.4 + 0.6 * w);
-      return [x + Math.cos(a) * m, y + Math.sin(a) * m];
+      return [x + Math.cos(a) * m, y + Math.sin(a) * m];   // alloc-rare: only when a tile is drawn (a new look or size), never a frame that already has its tile
     };
-    const lat = (q) => (((Math.round(q[0] / (R / 2)) % 12) + 12) % 12) * 4 + (((Math.round(q[1] / (S3 * R / 2)) % 4) + 4) % 4);   // wrapped lattice index
-    const centres = [];
-    for (let i = -1; i <= 4; i++) for (let j = -1; j <= 2; j++) centres.push([1.5 * R * i, S3 * R * (j + (i & 1 ? 0.5 : 0))]);
+    const lat = (q) => (((Math.round(q[0] / (R / 2)) % 12) + 12) % 12) * 4 + (((Math.round(q[1] / (S3 * R / 2)) % 4) + 4) % 4);   // wrapped lattice index   // alloc-rare: only when a tile is drawn (a new look or size), never a frame that already has its tile
+    const centres = [];   // alloc-rare: only when a tile is drawn (a new look or size), never a frame that already has its tile
+    for (let i = -1; i <= 4; i++) for (let j = -1; j <= 2; j++) centres.push([1.5 * R * i, S3 * R * (j + (i & 1 ? 0.5 : 0))]);   // alloc-rare: only when a tile is drawn (a new look or size), never a frame that already has its tile
     const lw = Math.max(0.6, R * 0.05), round = 1 + 0.6 * fs.su;   // nodules: rounder plates
-    const Ps = centres.map(([x, y]) => Array.from({ length: 6 }, (_, i) => corner(x + Math.cos((i * Math.PI) / 3) * R, y + Math.sin((i * Math.PI) / 3) * R)));
+    const Ps = centres.map(([x, y]) => Array.from({ length: 6 }, (_, i) => corner(x + Math.cos((i * Math.PI) / 3) * R, y + Math.sin((i * Math.PI) / 3) * R)));   // alloc-rare: only when a tile is drawn (a new look or size), never a frame that already has its tile
     // In three passes, so the septa lie over every plate and the triads and veins over the septa.
     for (const [ci, [x, y]] of centres.entries()) {
       const P = Ps[ci];
@@ -2634,7 +2956,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       c.beginPath();
       for (let i = 0; i < 6; i++) {
         const A = P[i], B = P[(i + 1) % 6], C = P[(i + 2) % 6];
-        const m1 = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2], m2 = [(B[0] + C[0]) / 2, (B[1] + C[1]) / 2];
+        const m1 = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2], m2 = [(B[0] + C[0]) / 2, (B[1] + C[1]) / 2];   // alloc-rare: only when a tile is drawn (a new look or size), never a frame that already has its tile
         const k = Math.min(1, round - 1), bx = B[0] + (x - B[0]) * 0.12 * k, by = B[1] + (y - B[1]) * 0.12 * k;
         if (!i) c.moveTo(m1[0], m1[1]);
         c.quadraticCurveTo(bx, by, m2[0], m2[1]);
@@ -2647,7 +2969,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       // Congestion: zone 3 pooled with blood (nutmeg).
       if (fs.cong > 0) {
         const n = c.createRadialGradient(x, y, R * 0.08, x, y, R * (0.35 + 0.25 * fs.cong));
-        n.addColorStop(0, tk('--lz-congestion', (0.55 * fs.cong).toFixed(3))); n.addColorStop(1, tk('--lz-congestion', 0));
+        n.addColorStop(0, tk('--lz-congestion', (0.55 * fs.cong).toFixed(3))); n.addColorStop(1, tk('--lz-congestion', 0));   // alloc-rare: only when a tile is drawn (a new look or size), never a frame that already has its tile
         c.fillStyle = n; c.fillRect(x - R, y - R, 2 * R, 2 * R);
       }
       // Sinusoids: from each edge's portal side toward the central vein, each with a slight bend;
@@ -2665,7 +2987,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       // Septa: soft bands along the borders; in cirrhosis, broad pale bands of collagen.
       c.lineJoin = 'round';
       c.globalAlpha = dark ? 0.5 : 0.38; c.strokeStyle = gap; c.lineWidth = lw * 1.6;
-      c.beginPath(); P.forEach((q, i) => c[i ? 'lineTo' : 'moveTo'](q[0], q[1])); c.closePath(); c.stroke();
+      c.beginPath(); P.forEach((q, i) => c[i ? 'lineTo' : 'moveTo'](q[0], q[1])); c.closePath(); c.stroke();   // alloc-rare: only when a tile is drawn (a new look or size), never a frame that already has its tile
     }
     c.globalAlpha = 1;
     if (fs.su > 0) for (const [ci, [x, y]] of centres.entries()) {
@@ -2675,17 +2997,17 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         const bw = R * (0.045 + 0.075 * fs.su), reach = Math.min(1, 0.3 + 2.4 * fs.su), det = R < 40 ? 0 : R < 120 ? 0.5 : 1;
         for (let k = 0; k < 6; k++) {
           let A = P[k], B = P[(k + 1) % 6], ka = lat(A), kb = lat(B);
-          const key = Math.round(A[0] + B[0]) + ',' + Math.round(A[1] + B[1]);
+          const key = Math.round(A[0] + B[0]) + ',' + Math.round(A[1] + B[1]);   // alloc-rare: only when a tile is drawn (a new look or size), never a frame that already has its tile
           if (edges.has(key)) continue; edges.add(key);
           // Seeded and oriented by the wrapped lattice, so a band crossing the repeat matches its copy.
-          if (ka > kb) { [A, B] = [B, A]; [ka, kb] = [kb, ka]; }
-          const sd = ka * 48 + kb, o = { w: bw, rgb: COLa, a: 0.5 + 0.4 * fs.su, amp: R * 0.025, seed: sd, detail: det };
+          if (ka > kb) { [A, B] = [B, A]; [ka, kb] = [kb, ka]; }   // alloc-rare: only when a tile is drawn (a new look or size), never a frame that already has its tile
+          const sd = ka * 48 + kb, o = { w: bw, rgb: COLa, a: 0.5 + 0.4 * fs.su, amp: R * 0.025, seed: sd, detail: det };   // alloc-rare: only when a tile is drawn (a new look or size), never a frame that already has its tile
           if (reach >= 1) fibrousBand(c, A, B, o);
-          else { const M = (t, U, Q) => [lerp(U[0], Q[0], t), lerp(U[1], Q[1], t)]; fibrousBand(c, A, M(reach / 2, A, B), { ...o, e1: 0.2 }); fibrousBand(c, B, M(reach / 2, B, A), { ...o, e1: 0.2, seed: sd + 1 }); }
+          else { const M = (t, U, Q) => [lerp(U[0], Q[0], t), lerp(U[1], Q[1], t)]; fibrousBand(c, A, M(reach / 2, A, B), { ...o, e1: 0.2 }); fibrousBand(c, B, M(reach / 2, B, A), { ...o, e1: 0.2, seed: sd + 1 }); }   // alloc-rare: only when a tile is drawn (a new look or size), never a frame that already has its tile
         }
         // Portal-central bridges, late in cirrhosis.
         if (fs.su > 0.18) { const g = Math.min(1, (fs.su - 0.18) / 0.4);
-          for (const k of [0, 2, 4]) fibrousBand(c, P[k], [lerp(P[k][0], x, 0.82), lerp(P[k][1], y, 0.82)], { w: bw * (0.6 + 0.3 * g), rgb: COLa, a: 0.4 + 0.45 * g, e1: 0.35, amp: R * 0.04, seed: 5000 + k * 97 + lat([x, y]), detail: det }); }
+          for (const k of [0, 2, 4]) fibrousBand(c, P[k], [lerp(P[k][0], x, 0.82), lerp(P[k][1], y, 0.82)], { w: bw * (0.6 + 0.3 * g), rgb: COLa, a: 0.4 + 0.45 * g, e1: 0.35, amp: R * 0.04, seed: 5000 + k * 97 + lat([x, y]), detail: det }); }   // alloc-rare: only when a tile is drawn (a new look or size), never a frame that already has its tile
       }
     }
     for (const [ci, [x, y]] of centres.entries()) {
@@ -2703,7 +3025,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         if (home(Math.round(px / (R / 2)), Math.round(py / (S3 * R / 2)))) continue;
         if (fs.pre > 0) {
           c.globalAlpha = 1;
-          fibrousTract(c, px, py, R * 0.09 * (0.8 + 0.18 * scarGrowth(fs.pre)), Math.atan2(py - y, px - x), COLa, scarGrowth(fs.pre), 700 + lat([px, py]), 0.35);
+          fibrousTract(c, px, py, R * 0.09 * (0.8 + 0.18 * scarGrowth(fs.pre)), Math.atan2(py - y, px - x), COLa, scarGrowth(fs.pre), 700 + lat([px, py]), 0.35);   // alloc-rare: only when a tile is drawn (a new look or size), never a frame that already has its tile
         }
         c.globalAlpha = 0.85; c.fillStyle = pvc; c.beginPath(); c.ellipse(px, py, R * 0.055, R * 0.04, 0.6, 0, TAU); c.fill();
         c.fillStyle = art; c.beginPath(); c.arc(px + R * 0.06, py - R * 0.035, R * 0.022, 0, TAU); c.fill();
@@ -2712,7 +3034,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       c.globalAlpha = 1;
     }
     });
-    Object.assign(t, { tw, th, TW, TH, cv: gpuPicture(rec, ++texVer), blank: false, blankAt: 0 });
+    Object.assign(t, { tw, th, TW, TH, cv: gpuPicture(rec, ++texVer), blank: false, blankAt: 0 });   // alloc-rare: only when a tile is drawn (a new look or size), never a frame that already has its tile
   }
   // The surround fading into the page with distance from the lobule (q: 0..1, how far it has faded).
   // The surround fades into the page (light in light mode, dark in dark mode).
@@ -2913,11 +3235,13 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // The few model values the calibers follow, eased toward the model's every display frame (~0.3 s), so a
   // vessel widens or narrows smoothly instead of stepping with each model update.
   let rz = null, rzMoving = false;
-  const rzTarget = (m) => ({ sin: m.zone.sin, congU: m.congU, fibPre: m.fibPre, fibPost: m.fibPost, art: m.art, lr: lymphRate(m) });
-  const rzOf = () => rz || (rz = rzTarget(model));
+  // (The model's values now, written in place into the target record each frame; the eased ones are a record of their own.)
+  const rzTg = { sin: 0, congU: 0, fibPre: 0, fibPost: 0, art: 0, lr: 0 };
+  const rzFill = (o, m) => { o.sin = m.zone.sin; o.congU = m.congU; o.fibPre = m.fibPre; o.fibPost = m.fibPost; o.art = m.art; o.lr = lymphRate(m); return o; };
+  const rzOf = () => rz || (rz = rzFill({ sin: 0, congU: 0, fibPre: 0, fibPost: 0, art: 0, lr: 0 }, model));   // alloc-once: the eased values are made with the first reading, and again after a reset
   function easeRadii(dt) {
-    const tg = rzTarget(model);
-    if (!rz) { rz = tg; return false; }
+    const tg = rzFill(rzTg, model);
+    if (!rz) { rzOf(); return false; }
     const k = -Math.expm1(-dt / 0.3);
     let mv = false;
     for (const key in tg) {
@@ -2960,10 +3284,15 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // albumin beads in each drop and, once capillarized, a collagen line along the sinusoids.
   const lyF = (m) => smooth(1, 4, lymphRate(m));
   const lyProt = (m) => clamp((m.lyProt - 0.42) / 0.42, 0, 1);
-  const lyInk = (m, dark) => {
-    const p = lyProt(m), lo = dark ? [0.72, 0.76, 0.69] : [0.92, 0.94, 0.88], mid = dark ? [0.7, 0.77, 0.66] : [0.88, 0.92, 0.82], hi = dark ? [0.64, 0.75, 0.58] : [0.82, 0.89, 0.74];
-    return p < 0.45 ? lo.map((x, i) => lerp(x, mid[i], p / 0.45)) : mid.map((x, i) => lerp(x, hi[i], (p - 0.45) / 0.55));
-  };
+  // (The lymph's colour at three depths of protein, light and dark; written into the caller's own triple.)
+  const LY_LIGHT = { lo: [0.92, 0.94, 0.88], mid: [0.88, 0.92, 0.82], hi: [0.82, 0.89, 0.74] }, LY_DARK = { lo: [0.72, 0.76, 0.69], mid: [0.7, 0.77, 0.66], hi: [0.64, 0.75, 0.58] };
+  function lyInkInto(out, m, dark) {
+    const p = lyProt(m), c = dark ? LY_DARK : LY_LIGHT;
+    if (p < 0.45) { const u = p / 0.45; for (let i = 0; i < 3; i++) out[i] = lerp(c.lo[i], c.mid[i], u); }
+    else { const u = (p - 0.45) / 0.55; for (let i = 0; i < 3; i++) out[i] = lerp(c.mid[i], c.hi[i], u); }
+    return out;
+  }
+  const lyInk = (m, dark) => lyInkInto([0, 0, 0], m, dark);
   // The triad's outlines: dark blue, red and green (the venule, arteriole and ductule), against the common casing.
   const EDGE = { pv: [0.12, 0.27, 0.58], in: [0.12, 0.27, 0.58], ha: [0.55, 0.1, 0.16], tw: [0.55, 0.1, 0.16], bd: [0.27, 0.29, 0.12] }, BD_FILL = [0.48, 0.5, 0.24];   // bile: a dark, dull olive
   // Radius (in lobule radii) inside which the sinusoid outlines stop: the central vein's edge.
@@ -2980,25 +3309,36 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   function ink(seg, w = 0) {
     const k = lensK();
     if (k >= 1) return inkOf(model.mode, seg, w);
-    return css(inkRGB(seg, w, k));
+    return css(inkRGBInto(INK_TMP, seg, w, k));
   }
-  // The same as [r, g, b] 0–1; mid-switch, the old lens's color eased into the new one's (k: 0 … 1).
+  const INK_TMP = [0, 0, 0], NEUTRAL_TMP = [0, 0, 0], VEL_RANGE = [1 / 1.5, 1.5], OXY_FULL = [1, 1, 1];
+  // The same as [r, g, b] 0–1 in the caller's own triple; mid-switch, the old lens's color eased into the new one's (k: 0 … 1).
+  function inkRGBInto(out, seg, w = 0, k = lensK()) {
+    const M = model.mode, to = M === 'origin' ? ORIGIN_RGB : rgb01(inkOf(M, seg, w));
+    if (k >= 1) { out[0] = to[0]; out[1] = to[1]; out[2] = to[2]; return out; }
+    return inkMix(out, to, seg, w, k);
+  }
+  function inkMix(out, to, seg, w, k) {
+    const from = lensFrom === 'origin' ? ORIGIN_RGB : rgb01(inkOf(lensFrom, seg, w));
+    for (let i = 0; i < 3; i++) out[i] = from[i] + (to[i] - from[i]) * k;
+    return out;
+  }
+  // The same as a [r, g, b] 0–1 to be kept: the colour itself (a stable array, read only), or mid-switch a new mix.
   function inkRGB(seg, w = 0, k = lensK()) {
     const M = model.mode, to = M === 'origin' ? ORIGIN_RGB : rgb01(inkOf(M, seg, w));
     if (k >= 1) return to;
-    const from = lensFrom === 'origin' ? ORIGIN_RGB : rgb01(inkOf(lensFrom, seg, w));
-    return from.map((x, i) => x + (to[i] - x) * k);
+    return inkMix([0, 0, 0], to, seg, w, k);
   }
   function inkOf(M, seg, w) {
     const m = model;
     // ('since': a slide's Change colours, the same scale as 'delta', counted from the slide's own reference: lobule-model.js m.dP.)
     if (M === 'pressure' || M === 'delta' || M === 'since' || M === 'heat') {
-      const V = M === 'pressure' ? [m.P1, m.P2, m.P3].map(qP) : m.dP;
-      const v = seg === 'pv' ? V[0] : seg === 'in' ? lerp(V[0], V[1], 0.6 * w) : seg === 'cv' ? V[2] : V[2] + (V[1] - V[2]) * w;
+      const V = M === 'pressure' ? null : m.dP, v0 = V ? V[0] : qP(m.P1), v1 = V ? V[1] : qP(m.P2), v2 = V ? V[2] : qP(m.P3);
+      const v = seg === 'pv' ? v0 : seg === 'in' ? lerp(v0, v1, 0.6 * w) : seg === 'cv' ? v2 : v2 + (v1 - v2) * w;
       return M === 'pressure' ? pressureColor(qP(v)) : M === 'heat' ? heatColor(qP(v)) : deltaColor(qP(v));
     }
     if (M === 'oxygen') {
-      const [a, b, c] = m.oxy || [1, 1, 1];
+      const [a, b, c] = m.oxy || OXY_FULL;
       return oxygenColor(seg === 'pv' ? a : seg === 'in' ? lerp(a, b, w) : seg === 'cv' ? c : c + (b - c) * w);
     }
     const e = seg === 'sin' ? 'sin' : seg === 'cv' ? 'post' : 'pre';
@@ -3008,10 +3348,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       case 'flow': return flowColor(Math.abs(m.Qs[e]) * 0.06);
       // Velocity against the healthy liver's own beds (no Doppler range covers them): normal from two-thirds to one and
       // a half times the healthy flow, as the anatomy colors its veins without a published range (velNormal.js).
-      case 'velocity': return velocityColor(Math.abs(m.Qs[e]) / Math.max(1e-6, Math.abs(m.Q0[e] ?? m.Qs[e])), [1 / 1.5, 1.5]);
+      case 'velocity': return velocityColor(Math.abs(m.Qs[e]) / Math.max(1e-6, Math.abs(m.Q0[e] ?? m.Qs[e])), VEL_RANGE);
       case 'neutral': {
         const a = rgb01(m.inks.portal), b = rgb01(m.inks.systemic), k = seg === 'cv' ? 1 : seg === 'sin' ? 1 - w : 0;
-        return css(a.map((x, i) => lerp(x, b[i], k)));
+        for (let i = 0; i < 3; i++) NEUTRAL_TMP[i] = lerp(a[i], b[i], k);
+        return css(NEUTRAL_TMP);
       }
       default: return pressureColor(seg === 'pv' || seg === 'in' ? m.P1 : seg === 'cv' ? m.P3 : m.P3 + (m.P2 - m.P3) * w);
     }

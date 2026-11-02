@@ -81,7 +81,7 @@ test('G22: the neighbouring lobules are blurred once per tile, seamlessly, with 
   assert.ok(neighbourBlur(192) > 3 && neighbourBlur(192) < 5);
   // Built into the cached quiet copy (the lobule view's surround and the dive's quieting), never per frame: made once on the GPU
   // (tile-gl.js, a wrapped Gaussian, the same on every browser) since 1 Nov, with no blur in script and no canvas filter.
-  assert.match(lz, /const quietCopy = \(t, bg\) => gpuCopy\(t, 'quietG', bg\.join\(','\), \{ blur: neighbourBlur\(t\.R\), sat: 0\.45, tone: bg, toneA: 0\.42, flat: NEIGHBOUR_FLAT \}\);/);
+  assert.match(lz, /const quietCopy = \(t, bg\) => \{[\s\S]*?gpuCopy\(t, 'quietG', bg\.join\(','\), \{ blur: neighbourBlur\(t\.R\), sat: 0\.45, tone: bg, toneA: 0\.42, flat: NEIGHBOUR_FLAT \}\);/);
   assert.match(lz, /if \(q && q\.k === k && q\.cv\.src === t\.cv && q\.cv\.width\) return q;/, 'kept while the tile and the tone are the same');
   assert.doesNotMatch(lz, /blurWrapped|getImageData/, 'no blur in script');
   assert.doesNotMatch(lz, /\.filter = `blur/, 'no canvas filter (some Safaris lack it)');
@@ -149,7 +149,7 @@ test('a patient changed while the lobule is closed dives into that patient\'s lo
   // Out of sight, the surround's tiles are drawn for the new state at once, not left on the last state's.
   assert.match(lz, /const ta = fieldTile\(cs, dark, FIELD_RS\[a\], !unseen\(\)\)/);
   // And the dive's field follows the latest frame, not the model left from the last visit.
-  assert.match(lz, /const fieldState = \(\) => \{ const m = !unseen\(\) && model \? model : F \? closedModel\(\) : model;/);
+  assert.match(lz, /const fieldState = \(\) => \{\s+const m = !unseen\(\) && model \? model : F \? closedModel\(\) : model;/);
   assert.match(lz, /fsM = lobuleStateInto\(fsBuf, F, st, undefined, F\.Pf \|\| F\.P\);/);
 });
 

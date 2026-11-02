@@ -26,7 +26,7 @@ test('every uniform the shaders declare is located by the JavaScript', () => {
 });
 
 test('a quiet copy is the old quiet tile\'s steps, on the GPU: the wrapped blur, the grey blend 0.45, the page at 0.42, then NEIGHBOUR_FLAT', () => {
-  assert.match(lz, /const quietCopy = \(t, bg\) => gpuCopy\(t, 'quietG', bg\.join\(','\), \{ blur: neighbourBlur\(t\.R\), sat: 0\.45, tone: bg, toneA: 0\.42, flat: NEIGHBOUR_FLAT \}\);/);
+  assert.match(lz, /const quietCopy = \(t, bg\) => \{[\s\S]*?gpuCopy\(t, 'quietG', bg\.join\(','\), \{ blur: neighbourBlur\(t\.R\), sat: 0\.45, tone: bg, toneA: 0\.42, flat: NEIGHBOUR_FLAT \}\);/);
   assert.match(lz, /\{ blur: 0, sat: 0\.45, tone, toneA: 0\.42, flat: 0 \}/, 'the liver copy: the same quieting with the liver tone, no blur');
   assert.doesNotMatch(lz, /function (quietTile|blurTile|liverTile|fieldQuiet|fieldFill|fieldFade|fieldGrey|tileBlank)\(/, 'no 2D copy left (1 Nov)');
   // The canvas's saturation blend with a grey source is the backdrop's luminosity (W3C weights), mixed in by the source's alpha.
@@ -40,7 +40,7 @@ test('a copy stands where a canvas did: its size, given back by free(), told apa
   assert.equal(c.width, 60); assert.equal(c.height, 35);
   assert.match(read('../src/ui/field-gl.js'), /if \(isTileCopy\(cv\)\) \{\n\s+const tex = copier\.make\(cv\);/);
   assert.match(read('../src/ui/tissue-gl.js'), /if \(isTileCopy\(cv\)\) \{/);
-  assert.match(lz, /const freeCopies = \(q\) => \{ for \(const k of \['quietG', 'liverG'\]\) if \(q\[k\]\) \{ free\(q\[k\]\.cv\); q\[k\] = null; \} \};/);
+  assert.match(lz, /const freeCopies = \(q\) => \{ if \(q\.quietG\) \{ free\(q\.quietG\.cv\); q\.quietG = null; \} if \(q\.liverG\) \{ free\(q\.liverG\.cv\); q\.liverG = null; \} \};/);
   assert.doesNotMatch(lz, /drawImage\(surOld|surOld\.cv\.getContext/, 'no 2D canvas lays a tile (1 Nov: the tissue is the GPU\'s alone)');
 });
 
