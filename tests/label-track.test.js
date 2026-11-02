@@ -56,10 +56,13 @@ test('what is not followed exactly is left to be read each frame (null)', () => 
 });
 
 test('label-gl follows a label\'s own animations, hovers, focus and theme changes included, and reads no style in a frame', () => {
-  assert.match(src, /g\.getAnimations\(\{ subtree: true \}\)/);
+  // (2 Nov 2026: taken where the page is up to date, in the event that announced them or just after a frame; the frame only takes them.)
+  assert.match(src, /el\.getAnimations\(\{ subtree: true \}\)/);
+  assert.match(src, /try \{ list = takeAnims\(g, true\); \} catch \{ list = \[\]; \}/);
+  assert.match(src, /const hold = \(ev, ms = 700\) => \{ const g = labelOf\(ev\.target\); if \(g\) \{ keepAnims\(g, true\);/);
   assert.doesNotMatch(src, /labeltrack=0\\b/);
   // (Styles are kept by what decides them and read in a task after the frame; the eases are followed meanwhile.)
-  assert.match(src, /try \{ d = given \|\| describeBlock\(g, styleOf\); \}/);
+  assert.match(src, /try \{ d = given \|\| describeBlock\(g, styleOf, ringBoxOf\); \}/);
   assert.match(src, /describeMark\(el, styleOf\)/);
   assert.match(src, /if \(!fillT\) fillT = setTimeout\(fillStyles, 0\);/);
   const fn = src.slice(src.indexOf('function styleOf('), src.indexOf('function fillStyles('));

@@ -248,7 +248,7 @@ export function lineOf(d) {
 const none = (c) => !c || c === 'none' || c === 'transparent' || /^rgba\([^)]*,\s*0\)$/.test(c);
 
 /** What a label's group draws, read from the page: null when it shows nothing; { svg: why } when this drawing cannot give it. */
-export function describeBlock(g, cs = getComputedStyle) {
+export function describeBlock(g, cs = getComputedStyle, boxOf) {   // (boxOf: a focused label's box, kept outside the frames: ringBoxOf)
   const gs = cs(g);
   if (g.style.display === 'none' || gs.display === 'none') return null;
   let focused;
@@ -262,7 +262,7 @@ export function describeBlock(g, cs = getComputedStyle) {
     const w = NUM(gs.outlineWidth);
     if (gs.outlineStyle && gs.outlineStyle !== 'none' && w > 0 && !none(gs.outlineColor)) {
       let b;
-      try { const bb = g.getBBox(); b = [bb.x, bb.y, bb.width, bb.height]; } catch { b = null; }
+      try { const bb = boxOf(g); b = [bb.x, bb.y, bb.width, bb.height]; } catch (e) { if (e?.message === 'style not read yet') throw e; b = null; }
       if (!b) return { svg: 'focus' };
       d.ring = { w, color: gs.outlineColor, off: NUM(gs.outlineOffset), box: b.map((v) => +v.toFixed(2)) };
     }
@@ -582,6 +582,50 @@ void main() { o = texture(uT, vUV) * uA; }`;
     if (!fillT) fillT = setTimeout(fillStyles, 0);
     throw MISS;
   }
+  // (2 Nov 2026, the iPhone trace: a label's or a mark's animations were asked for (getAnimations) in the frame that began following them,
+  // after that frame's writes, and the browser restyled the page there. They are taken where the page is up to date: in the event that
+  // announced them (a transition or animation starting, a hover, a focus), or else in a task just after the frame; the frame only takes
+  // what was kept, and one with nothing kept yet is drawn as it was for that frame and followed from the next. ?animskept=0: read in the
+  // frame, as before.)
+  const animsKept = new WeakMap(), animsWant = new Map();
+  let animsT = 0;
+  function keepAnims(el, sub) {
+    if (!el) return;
+    let a;
+    try { a = sub ? el.getAnimations({ subtree: true }) : el.getAnimations(); } catch { a = []; }
+    animsKept.set(el, { a, sub, at: performance.now() });
+  }
+  // (A focused label's box for its ring likewise: read in the focus event or just after a frame, kept till the label is written again.)
+  const ringKept = new WeakMap(), ringWant = new Set();
+  let ringT = 0;
+  function keepRing(g) { try { ringKept.set(g, g.getBBox()); } catch { ringKept.delete(g); } }
+  function ringBoxOf(g) {
+    const b = ringKept.get(g);
+    if (b) return b;
+    ringWant.add(g);
+    if (!ringT) ringT = setTimeout(fillRings, 0);
+    throw MISS;
+  }
+  function fillRings() {
+    ringT = 0;
+    for (const g of ringWant) if (g.isConnected) { keepRing(g); dirty.add(g); }
+    ringWant.clear();
+    ask();
+  }
+  /** The element's animations as kept in the last 100 ms, or null (then read just after this frame, and the element looked at again). */
+  function takeAnims(el, sub) {
+    const k = animsKept.get(el);
+    if (k && k.sub === sub && performance.now() - k.at < 100) { animsKept.delete(el); return k.a; }
+    animsWant.set(el, sub);
+    if (!animsT) animsT = setTimeout(fillAnims, 0);
+    return null;
+  }
+  function fillAnims() {
+    animsT = 0;
+    for (const [el, sub] of animsWant) { if (!el.isConnected) continue; keepAnims(el, sub); if (markOf(el)) markDirty.add(el); else dirty.add(el); }
+    animsWant.clear();
+    ask();
+  }
   function fillStyles() {
     fillT = 0;
     const els = [...unread];
@@ -627,7 +671,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // nothing (classList.add of a class it has) is passed over.)
   const changed = (r) => r.type !== 'attributes' || r.oldValue !== r.target.getAttribute(r.attributeName);
   // (The layer's own group: its text scale, --lbk, sets the halos' width: every label.)
-  const take = (rs) => { for (const r of rs) { if (!changed(r)) continue; if (r.target === blocks && r.type === 'attributes') { restyle(); for (const s of last) dirty.add(s.g); continue; } const g = labelOf(r.target); if (g) dirty.add(g); } };
+  const take = (rs) => { for (const r of rs) { if (!changed(r)) continue; if (r.target === blocks && r.type === 'attributes') { restyle(); for (const s of last) dirty.add(s.g); continue; } const g = labelOf(r.target); if (g) { dirty.add(g); ringKept.delete(g); } } };
   const mo = new MutationObserver((rs) => { take(rs); if (dirty.size) ask(); });
   mo.observe(blocks, { subtree: true, childList: true, characterData: true, attributes: true, attributeOldValue: true, attributeFilter: ['class', 'style', 'x', 'y', 'dx', 'width', 'height', 'rx', 'fill', 'font-size', 'font-weight', 'letter-spacing', 'text-anchor'] });
   // Anything outside them that can change how they look (the theme, the glass setting, the text size, a mode's class): every label.
@@ -639,7 +683,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', all);
   addEventListener('pps:labelscale', all);   // (the text size: --label-k on the page)
   // A CSS fade or colour ease, a hover, a focus: that label's eases are followed till they end (its style read once, off the frame: styleOf).
-  const hold = (ev, ms = 700) => { const g = labelOf(ev.target); if (g) { dirty.add(g); const t = performance.now() + ms; live.set(g, t); if (!TRACK) exact.set(g, t); ask(); } };
+  const hold = (ev, ms = 700) => { const g = labelOf(ev.target); if (g) { keepAnims(g, true); if (ev.type === 'focusin') keepRing(g); dirty.add(g); const t = performance.now() + ms; live.set(g, t); if (!TRACK) exact.set(g, t); ask(); } };
   for (const t of ['transitionrun', 'transitionend', 'transitioncancel', 'animationstart', 'animationend', 'animationcancel', 'pointerover', 'pointerout', 'focusin', 'focusout']) blocks.addEventListener(t, (ev) => hold(ev), true);
   // The leaders and their dots (marks: their layers, the leaders' and the FibroScan callout's): read as the labels are.
   const looks = new WeakMap(), markLive = new Until(), markDirty = new Set(), markExact = new Until();
@@ -647,7 +691,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   const mmo = new MutationObserver((rs) => { for (const r of rs) { if (!changed(r)) continue; const el = markOf(r.target); if (el) markDirty.add(el); } ask(); });
   for (const root of marks) {
     mmo.observe(root, { subtree: true, childList: true, attributes: true, attributeOldValue: true, attributeFilter: ['class', 'style'] });
-    for (const t of ['transitionrun', 'transitionend', 'transitioncancel', 'animationstart', 'animationend', 'animationcancel']) root.addEventListener(t, (ev) => { const el = markOf(ev.target); if (el) { markDirty.add(el); markLive.set(el, performance.now() + 800); ask(); } }, true);
+    for (const t of ['transitionrun', 'transitionend', 'transitioncancel', 'animationstart', 'animationend', 'animationcancel']) root.addEventListener(t, (ev) => { const el = markOf(ev.target); if (el) { keepAnims(el, false); markDirty.add(el); markLive.set(el, performance.now() + 800); ask(); } }, true);
   }
   const allMarks = () => { const t = performance.now() + 700; for (const root of marks) { markDirty.add(root); markLive.set(root, t); if (!TRACK) markExact.set(root, t); for (const el of root.children) { markDirty.add(el); markLive.set(el, t); if (!TRACK) markExact.set(el, t); } } };
   canvas.addEventListener('webglcontextlost', (e) => {
@@ -727,7 +771,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     let st = sprites.get(g);
     if (!st) { st = { mode: 'none', key: '', slot: null }; sprites.set(g, st); }
     let d;
-    try { d = given || describeBlock(g, styleOf); } catch (e) {
+    try { d = given || describeBlock(g, styleOf, ringBoxOf); } catch (e) {
       if (e !== MISS) throw e;
       // (Its style not read yet: its last picture stays, or the SVG draws it for this frame; read just after it, then drawn again.)
       waiting.add(g);
@@ -757,8 +801,11 @@ void main() { o = texture(uT, vUV) * uA; }`;
   const TOK = '\u0001';
   const paintOk = (g) => (el) => (el.tagName === 'rect' && el.parentElement === g) || (el.tagName === 'tspan' && el.parentElement?.tagName === 'text' && el.parentElement.parentElement === g);
   function capture(g, rot, now) {
+    let list;
+    try { list = takeAnims(g, true); } catch { list = []; }
+    if (!list) { const st0 = refresh(g, rot); st0.trk = null; return st0; }   // (its animations taken just after this frame: followed from the next)
     let m;
-    try { m = trackOf(g.getAnimations({ subtree: true }), g, paintOk(g), now); } catch { m = null; }
+    try { m = trackOf(list, g, paintOk(g), now); } catch { m = null; }
     let st;
     if (m?.paint) {
       const pairs = m.paint.pairs;
@@ -768,7 +815,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
         return mine.length ? new Proxy(c, { get: (o, k) => { const hit = mine.find((x) => x[0] === k); return hit ? hit[1] : o[k]; } }) : c;
       };
       let base;
-      try { base = describeBlock(g, cs); } catch (e) { if (e !== MISS) throw e; base = null; }
+      try { base = describeBlock(g, cs, ringBoxOf); } catch (e) { if (e !== MISS) throw e; base = null; }
       if (base && !base.svg && base.parts) {
         m.base = base; m.w = trackAt(m, now).w;
         st = refresh(g, rot, fillLook(m, m.w));
@@ -1063,8 +1110,13 @@ void main() { o = texture(uT, vUV) * uA; }`;
       lk = { st: st0, trk: tracked ? false : null };
       if (tracked && lk.st) {
         let m;
-        try { m = trackOf(el.getAnimations(), el, (t) => t === el && el.tagName !== 'g', now); } catch { m = null; }
-        if (m) { if (m.end <= now) m.ended = true; lk.trk = m; }
+        let list;
+        try { list = takeAnims(el, false); } catch { list = []; }
+        if (!list) lk.trk = null;   // (taken just after this frame: followed from the next)
+        else {
+          try { m = trackOf(list, el, (t) => t === el && el.tagName !== 'g', now); } catch { m = null; }
+          if (m) { if (m.end <= now) m.ended = true; lk.trk = m; }
+        }
       }
       looks.set(el, lk);
     }

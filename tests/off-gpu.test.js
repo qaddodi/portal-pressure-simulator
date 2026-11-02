@@ -44,7 +44,7 @@ export function setup(el, cv) {
   return w;
 }
 function step() { place(); measure(); }
-function place() { return document.body.getBoundingClientRect(); }
+function place() { document.body.getAnimations(); svgEl.getBBox(); return document.body.getBoundingClientRect(); }
 `);
   writeFileSync(join(root, 'src/ui/n.js'), 'export function measure() { return getComputedStyle(document.body); }\nexport function idle() { return document.body.clientWidth; }\n');
   const hits = scan({ root });
@@ -68,6 +68,7 @@ function place() { return document.body.getBoundingClientRect(); }
   assert.ok(has('layoutWrite', 'src/ui/m.js', /style\.left/), 'a write in a pointermove handler');
   assert.ok(has('layoutRead', 'src/ui/m.js', /getBoundingClientRect.*step@\d+ → place/), 'reached from a scheduler callback by name');
   assert.ok(has('layoutRead', 'src/ui/n.js', /getComputedStyle/), 'followed through an import');
+  assert.ok(has('layoutRead', 'src/ui/m.js', /getAnimations\(\)/) && has('layoutRead', 'src/ui/m.js', /getBBox\(\)/), 'an element\'s animations and an SVG box restyle the page too (2 Nov 2026 trace)');
   assert.ok(!hits.some((h) => h.cat === 'layoutRead' && /offsetWidth|clientWidth/.test(h.detail)), 'one-shot reads outside a frame pass');
   assert.ok(hits.onGpu >= 2 && hits.sites === hits.onGpu + hits.length, 'the webgl2 context and the opacity animation count as on the GPU, every hit as a site');
   assert.match(inventory(hits), /\*\*\d+\/\d+ on GPU/);

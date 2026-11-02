@@ -359,12 +359,9 @@ export function createProfile() {
     // stroke's very edge: the same answers as asking it every time, without stroking the path thousands of times a frame.)
     const testers = new Map([[curve, curveTester(P0)]]);
     if (hCurve) testers.set(hCurve, curveTester(pts(stations.map((n) => healthy.P[NI[n]]))));
-    const nearCurve = (r, pad, path = curve) => {
-      if (ctx.onGPU === true) return testers.get(path)(r, 3 + 2 * pad, null);   // (no canvas to ask: the curve's own distance settles every point)
-      ctx.save(); ctx.lineWidth = 3 + 2 * pad; const M = ctx.getTransform();
-      const hit = testers.get(path)(r, 3 + 2 * pad, (px, py) => ctx.isPointInStroke(path, M.a * px + M.e, M.d * py + M.f));
-      ctx.restore(); return hit;
-    };
+    // (No canvas to ask since the last 2D canvas went, 1 Nov 2026: the curve's own distance settles every point, on the GPU and on the
+    // blank pen alike; the pen's isPointInStroke only ever said no.)
+    const nearCurve = (r, pad, path = curve) => testers.get(path)(r, 3 + 2 * pad, null);
     let fail = false;   // (a label with no clear spot: the strip instead)
     // arterial stations: a dot in the band, a dotted lead to the curve, and the true value
     stations.forEach((n, i) => {

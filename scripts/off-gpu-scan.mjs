@@ -18,7 +18,8 @@
 //   layoutAnim   CSS transition/@keyframes or a WAAPI animate() of width, height, top, left, right, bottom, inset,
 //                margin*, padding*, min/max-width/height (a transition with no property, or 'all', counts too)
 //   layoutWrite  a style write of one of those properties in a frame or motion callback
-//   layoutRead   getBoundingClientRect, getClientRects, getComputedStyle, offset*, client*, scroll* reads in a frame or
+//   layoutRead   getBoundingClientRect, getClientRects, getComputedStyle, getAnimations, checkVisibility, getBBox, getScreenCTM, getCTM,
+//                getTotalLength, getPointAtLength, isPointInStroke/Fill, scrollIntoView, offset*, client*, scroll*, innerWidth/Height, innerText reads in a frame or
 //                motion callback
 //   rawRaf       requestAnimationFrame anywhere but the one scheduler (src/ui/frame.js)
 //   syncStatus   getShaderParameter(COMPILE_STATUS) / getProgramParameter(LINK_STATUS) not behind a COMPLETION_STATUS poll
@@ -64,8 +65,12 @@ const PAINT_JS = /^(webkit)?[Mm]ask|^(webkit)?[Cc]lipPath$|^(background|border|o
 const camel = (s) => s.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
 const LAYOUT_JS = new Set([...LAYOUT_PROPS].filter((p) => p !== 'all').map(camel));
 const READ_PROPS = new Set(['offsetWidth', 'offsetHeight', 'offsetTop', 'offsetLeft', 'offsetParent', 'clientWidth', 'clientHeight', 'clientTop',
-  'clientLeft', 'scrollWidth', 'scrollHeight', 'scrollTop', 'scrollLeft']);
-const READ_CALLS = new Set(['getBoundingClientRect', 'getClientRects', 'getComputedStyle', 'elementFromPoint', 'elementsFromPoint']);
+  'clientLeft', 'scrollWidth', 'scrollHeight', 'scrollTop', 'scrollLeft', 'innerWidth', 'innerHeight', 'innerText']);   // (the window's size and an element's rendered text: 2 Nov 2026)
+// (2 Nov 2026, from an iPhone trace of a slide change: these bring the page's style or layout up to date when called too, and were
+// not counted: an element's animations, its visibility check, an SVG box, matrix or outline length, a point test on a stroke or fill,
+// and a scroll into view.)
+const READ_CALLS = new Set(['getBoundingClientRect', 'getClientRects', 'getComputedStyle', 'elementFromPoint', 'elementsFromPoint',
+  'getAnimations', 'checkVisibility', 'getBBox', 'getScreenCTM', 'getCTM', 'getTotalLength', 'getPointAtLength', 'isPointInStroke', 'isPointInFill', 'scrollIntoView']);
 const MOTION_EVENTS = new Set(['pointermove', 'touchmove', 'mousemove', 'scroll', 'wheel', 'gesturechange', 'drag', 'dragover', 'pointerrawupdate']);
 // An argument that names a motion event, also as one choice of several (isTouch ? 'touchmove' : 'pointermove').
 const MOTION_RE = /['"`](pointermove|touchmove|mousemove|scroll|wheel|gesturechange|drag|dragover|pointerrawupdate)['"`]/;
