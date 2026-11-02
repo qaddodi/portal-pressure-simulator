@@ -19,11 +19,11 @@
 // cut glyphs do not have, an element with no box. ?glwords=0: every change is written into the page between frames, with no picture.
 
 <<<<<<< HEAD
-import { createSvgGL, svgModel } from './svg-gl.js?v=0351baf0a0';
+import { createSvgGL, svgModel } from './svg-gl.js?v=3c43a7c8e2';
 import { textPolys, textWidth, textBox, loadGlyphs, glyphsReady, textCovers, glyphRun } from './text-gl.js?v=3203debbbd';
 import { restPass, cancelRest } from './rest-pass.js?v=bb619a1659';
 =======
-import { createSvgGL, svgModel, setGeo, geoOf } from './svg-gl.js?v=0351baf0a0';
+import { createSvgGL, svgModel, setGeo, geoOf } from './svg-gl.js?v=3c43a7c8e2';
 import { textPolys, textWidth, textBox, loadGlyphs, glyphsReady, textCovers, glyphRun } from './text-gl.js?v=3203debbbd';
 import { restPass, cancelRest } from './rest-pass.js?v=bb619a1659';
 >>>>>>> 3207b43b (Chart, dial, callout and glyph-slot models keep their moving numbers on the piece (setGeo); card and inspector control syncs land in a rest pass)

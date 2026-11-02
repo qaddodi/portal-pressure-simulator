@@ -15,9 +15,9 @@ import { restPass } from './rest-pass.js?v=bb619a1659';
 import { plotPanel } from './plot-look.js?v=5037697da7';
 import { RX, bandKeys } from './rx-bands.js?v=51e83c7c59';
 <<<<<<< HEAD
-import { createSvgGL, svgModel, setWords } from './svg-gl.js?v=0351baf0a0';
+import { createSvgGL, svgModel, setWords } from './svg-gl.js?v=3c43a7c8e2';
 =======
-import { createSvgGL, svgModel, setWords, setGeo } from './svg-gl.js?v=0351baf0a0';
+import { createSvgGL, svgModel, setWords, setGeo } from './svg-gl.js?v=3c43a7c8e2';
 >>>>>>> 3207b43b (Chart, dial, callout and glyph-slot models keep their moving numbers on the piece (setGeo); card and inspector control syncs land in a rest pass)
 import { D_SURFACE, EASE_ARRIVE } from './ease.js?v=7513a88c68';
 const nextFrame = frameFor('flow-time');

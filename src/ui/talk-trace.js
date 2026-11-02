@@ -2,12 +2,12 @@
 // every state up to the slide, one point each, and the HVPG in its own lane with its cut-offs. (Moved here unchanged from
 // presenter-tools.js, so the deck visuals' chart package can extend it without touching the instruments' file.)
 
-import { h, fmt, clamp } from './util.js?v=08dd1f0db5';
+import { h, fmt, clamp } from './util.js?v=b1acbdf27d';
 import { hvpgRate } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { traceLabel, traceLabelRoom } from './trace-labels.js?v=fc916a95c6';
 import { plotPanel } from './plot-look.js?v=5037697da7';
 import { bandKeys, bandRuns, bandSpan, namePlaces } from './rx-bands.js?v=51e83c7c59';
-import { createSvgGL, svgModel } from './svg-gl.js?v=0351baf0a0';
+import { createSvgGL, svgModel } from './svg-gl.js?v=3c43a7c8e2';
 import { measure } from './glyph-measure.js?v=1e477bd6b3';
 
 // ── The talk so far: PV, WHVP and FHVP at each state, the HVPG in its own lane with its cut-offs ──

@@ -19,7 +19,7 @@ import { finalFrameFor, easeNow, cancelFrame } from './frame.js?v=1d147c7c9a';
 import { restPass, cancelRest } from './rest-pass.js?v=bb619a1659';
 import { cssCurve, D_SURFACE, EASE_ARRIVE } from './ease.js?v=7513a88c68';
 import { cssColor } from './css-color.js?v=e56f0c77ae';
-import { morphSvg } from './svg-morph.js?v=b317c2e535';
+import { morphSvg } from './svg-morph.js?v=938cdaa7bb';
 import { attrSoon } from './class-soon.js?v=97b9d0e0db';
 
 // (No bleed: a picture reaching past the box counts as overflow, and the card's fit then shrank the whole card to take it in.)
