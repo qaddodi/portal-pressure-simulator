@@ -31,30 +31,31 @@ const ID = [1, 0, 0, 0, 1, 0, 0, 0, 1];
 export const layerShows = (l) => !!l?.isConnected && l.width > 0 && l.height > 0 && l.style.opacity !== '0' && l.style.visibility !== 'hidden';
 
 /** A cover kept for the lobule: { cv, prepare(), ready, build(layers, prev), drop() }; null where WebGL 2 cannot be had. */
-export function createResCover(make = () => document.createElement('canvas')) {
+export function createResCover(make = () => document.createElement('canvas')) {   // alloc-rare: the default maker is a closure made once per cover, on its first use
   if (typeof WebGL2RenderingContext === 'undefined') return null;
   const cv = make();
   let gl = null;
-  try { gl = cv.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, preserveDrawingBuffer: false }); } catch { gl = null; }
+  try { gl = cv.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, preserveDrawingBuffer: false }); } catch { gl = null; }   // alloc-rare: once per cover, its context's options
   if (!gl) return null;
+  const shown = [];   // alloc-rare: once per cover, the one list its builds gather the layers that show in, emptied again after each
   let K = null, handle = null, lost = false, kept = null;   // kept: { tex, fbo, w, h } the picture the canvas shows
-  cv.addEventListener('webglcontextlost', (e) => { e.preventDefault(); lost = true; K = null; handle = null; kept = null; });
-  cv.addEventListener('webglcontextrestored', () => { lost = false; });
+  cv.addEventListener('webglcontextlost', (e) => { e.preventDefault(); lost = true; K = null; handle = null; kept = null; });   // alloc-rare: once per cover, made on first use (lobule-zoom coverGL); not per frame
+  cv.addEventListener('webglcontextrestored', () => { lost = false; });   // alloc-rare: once per cover, made on first use (lobule-zoom coverGL); not per frame
 
-  function prepare() { if (!lost && !K && !handle) handle = startProgram(gl, VS, FS, [['c', 0]]); }
+  function prepare() { if (!lost && !K && !handle) handle = startProgram(gl, VS, FS, [['c', 0]]); }   // alloc-rare: starts the programs once, the first time the lobule comes to rest
   function ready() {
     if (K) return true;
     if (lost || !handle || !compileDone(gl, handle)) return false;
     try { checkProgram(gl, handle); } catch { handle = null; return false; }
     const p = handle.p, vao = gl.createVertexArray(), buf = gl.createBuffer();
     gl.bindVertexArray(vao); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]), gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]), gl.STATIC_DRAW);   // alloc-rare: once per cover, when its program is first ready
     gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
     gl.bindVertexArray(null);
-    K = { p, vao, m: gl.getUniformLocation(p, 'm'), t: gl.getUniformLocation(p, 't'), a: gl.getUniformLocation(p, 'a'), flip: gl.getUniformLocation(p, 'flip'), src: gl.createTexture() };
+    K = { p, vao, m: gl.getUniformLocation(p, 'm'), t: gl.getUniformLocation(p, 't'), a: gl.getUniformLocation(p, 'a'), flip: gl.getUniformLocation(p, 'flip'), src: gl.createTexture() };   // alloc-rare: once per cover, when its program is first ready
     return true;
   }
-  const params = (tex) => {
+  const params = (tex) => {   // alloc-rare: once per cover, made on first use (lobule-zoom coverGL); not per frame
     gl.bindTexture(gl.TEXTURE_2D, tex);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
@@ -65,19 +66,19 @@ export function createResCover(make = () => document.createElement('canvas')) {
     const fbo = gl.createFramebuffer();
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
-    return { tex, fbo, w, h };
+    return { tex, fbo, w, h };   // alloc-rare: once per resolution change (a swap): the kept picture's record
   }
-  const free = (t) => { if (t) { gl.deleteFramebuffer(t.fbo); gl.deleteTexture(t.tex); } };
+  const free = (t) => { if (t) { gl.deleteFramebuffer(t.fbo); gl.deleteTexture(t.tex); } };   // alloc-rare: once per cover, made on first use (lobule-zoom coverGL); not per frame
   function quad(tex, a, m, flip) {
     gl.useProgram(K.p); gl.uniformMatrix3fv(K.m, false, m || ID); gl.uniform1i(K.t, 0); gl.uniform1f(K.a, a); gl.uniform1f(K.flip, flip ? 1 : 0);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex);
     gl.bindVertexArray(K.vao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
 
-  return {
+  return {   // alloc-rare: once per cover
     cv,
     prepare,
-    get ready() { return ready(); },
+    get ready() { return ready(); },   // alloc-rare: once per cover
     /**
      * Stacks the layers that show into a new kept picture and shows it on the cover's canvas. prev ({ a, m }: the weight the cover before
      * shows at and its place now, m a 3 × 3 column-major matrix over [0,1]²) lays the picture before over it, so the screen does not jump.
@@ -85,9 +86,16 @@ export function createResCover(make = () => document.createElement('canvas')) {
      */
     build(layers, prev = null) {
       if (lost || gl.isContextLost() || !ready()) return false;
-      const shown = layers.filter(layerShows);
+      shown.length = 0;
+      let w = 0, h = 0;
+      for (let i = 0; i < layers.length; i++) {
+        const l = layers[i];
+        if (!layerShows(l)) continue;
+        shown.push(l);
+        if (l.width > w) w = l.width;
+        if (l.height > h) h = l.height;
+      }
       if (!shown.length) return false;
-      const w = Math.max(...shown.map((l) => l.width)), h = Math.max(...shown.map((l) => l.height));
       const next = target(w, h);
       gl.viewport(0, 0, w, h);
       gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
@@ -101,7 +109,8 @@ export function createResCover(make = () => document.createElement('canvas')) {
           gl.bindFramebuffer(gl.FRAMEBUFFER, next.fbo);
           quad(K.src, 1, null, false);
         }
-      } catch { free(next); gl.bindFramebuffer(gl.FRAMEBUFFER, null); return false; }
+      } catch { shown.length = 0; free(next); gl.bindFramebuffer(gl.FRAMEBUFFER, null); return false; }
+      shown.length = 0;
       gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
       if (prev && kept) { gl.bindFramebuffer(gl.FRAMEBUFFER, next.fbo); quad(kept.tex, prev.a, prev.m, true); }
       // (The source texture let go of its pixels: a 1 × 1 keeps the name.)
@@ -123,5 +132,5 @@ export function createResCover(make = () => document.createElement('canvas')) {
 /** The 3 × 3 (column-major) that carries the cover drawn at view v0 to where view v puts it, over the box's [0,1]² (box W × H CSS px). */
 export function coverFollow(v0, v, W, H) {
   const r = v.k / v0.k;
-  return [r, 0, 0, 0, r, 0, (v.x - v0.x * r) / W, (v.y - v0.y * r) / H, 1];
+  return [r, 0, 0, 0, r, 0, (v.x - v0.x * r) / W, (v.y - v0.y * r) / H, 1];   // alloc-rare: once per resolution change (lobule-zoom resSwap), the place the kept picture starts from
 }
