@@ -7,7 +7,7 @@
 // Everything is made once (the kept arrays below) and written in place; a call in a frame makes nothing.
 
 import { firstAtOrAbove } from './sorted.js?v=662e543c85';
-import { ekgRate, beatWalk, walkBeats } from './ekg.js?v=ee939fbe92';
+import { ekgRate, beatWalk, walkBeats } from './ekg.js?v=0cc9df5a1b';
 
 const STEP_MIN = 0.004, STEP_MAX = 0.03, MAX_STEPS = 400;   // (spacing of the samples laid, s: the live ones' own, kept within these; most steps in a call)
 
