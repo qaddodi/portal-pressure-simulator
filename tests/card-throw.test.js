@@ -103,11 +103,13 @@ test('R05: the cards that show wait for the slide going in to be prepared, at mo
 
 test('a thrown readings sheet keeps its parts and glass whole: only the throw fades it (no CSS clock of its own)', () => {
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
-  assert.match(src, /el\.setAttribute\?\.\('data-thrown', ''\);\n\s+el\.style\.setProperty\('transition', 'none', 'important'\);/, 'marked in the task that starts the move');
-  assert.match(src, /const rest = \(el\) => \{[^\n]*removeAttribute\?\.\('data-thrown'\)/, 'let go at rest');
+  assert.match(src, /el\.classList\?\.add\(THROWING\); classSoon\(el, THROWING, true\);[^\n]*\n\s+el\.style\.setProperty\('transition', 'none', 'important'\);/, 'marked in the task that starts the move');
+  assert.match(src, /const rest = \(el\) => \{[^\n]*classSoon\(el, THROWING, false\)/, 'let go at rest, a task after the frame');
+  assert.doesNotMatch(src, /data-thrown/, 'no attribute written in a frame');
+  assert.match(src, /if \(r\.kind === 'in'\) runSoon\(\(\) => \{ if \(!runs\.has\(el\) && !held\.has\(el\) && !pinned\.has\(el\)\) rest\(el\); \}\);/, 'a card come in is let go a task after the frame, unless a new move took it');
   for (const pre of ['.pz.stack.stack', '.pz.pz-wide.pz-wide']) {
-    assert.ok(css.includes(`${pre} .pz-data.pz-sheet.pz-hide[data-thrown] { visibility: visible; pointer-events: none; }`), `${pre}: not hidden on its own timer`);
-    assert.ok(css.includes(`${pre} .pz-data.pz-sheet[data-thrown]::before, ${pre} .pz-data.pz-sheet[data-thrown]::after, ${pre} .pz-data.pz-sheet[data-thrown] > :is(.pz-dh, .pz-tool, .pz-tiles) { opacity: 1; transition: none; }`), `${pre}: parts and glass pieces whole`);
-    assert.ok(css.indexOf(`${pre} .pz-data.pz-sheet[data-thrown]::before`) > css.indexOf(`${pre} .pz-data.pz-sheet.pz-hide::before`), `${pre}: after the leave rule it overrides`);
+    assert.ok(css.includes(`${pre} .pz-data.pz-sheet.pz-hide.pz-throwing { visibility: visible; pointer-events: none; }`), `${pre}: not hidden on its own timer`);
+    assert.ok(css.includes(`${pre} .pz-data.pz-sheet.pz-throwing::before, ${pre} .pz-data.pz-sheet.pz-throwing::after, ${pre} .pz-data.pz-sheet.pz-throwing > :is(.pz-dh, .pz-tool, .pz-tiles) { opacity: 1; transition: none; }`), `${pre}: parts and glass pieces whole`);
+    assert.ok(css.indexOf(`${pre} .pz-data.pz-sheet.pz-throwing::before`) > css.indexOf(`${pre} .pz-data.pz-sheet.pz-hide::before`), `${pre}: after the leave rule it overrides`);
   }
 });

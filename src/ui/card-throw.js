@@ -8,6 +8,7 @@
 
 import { frameFor, cancelFrame, easeNow, beginMotion } from './frame.js?v=26e2e46fff';
 import { cubicBezier } from './ease.js?v=7513a88c68';
+import { classSoon, runSoon } from './class-soon.js?v=6cc03f6a35';
 
 /** How far (px) the new card comes in from, and the stagger (ms) of a second card behind the first. */
 export const THROW_IN = 56, THROW_STAGGER = 40;
@@ -35,12 +36,13 @@ let ask = 0;
 // (Written important: a card's leave class holds its opacity at 0 with !important (app.css .pz-shade.stack.pz-leave), which put the glass
 // out at once while its words were still going.)
 const write = (el, x, o) => { el.style.setProperty('transform', `translateX(${x.toFixed(2)}px)`, 'important'); el.style.setProperty('opacity', o.toFixed(3), 'important'); };
-// (data-thrown: the card is moved here, from its first frame out until it is let go at rest (or out of sight, held, until its class lets it go).
+// (pz-throwing: the card is moved here, from its first frame out until it is let go at rest (or out of sight, held, until its class lets it go).
 // Mohammad, 2 Nov 2026: "the teaching card moves away, the data card just pops out disappears, and they don't go away same time". The data
 // card on the Mac, iPad and phone is a readings sheet whose leave class (.pz-sheet.pz-hide) faded its parts and its two glass pieces on a CSS
 // clock of their own (--d-small) and hid it after that, while the card itself rode 560 ms with the words: its glass and its readings were
 // gone in a third of the move. While thrown, its parts stand whole and only the card's inline opacity, on this clock, fades it: app.css.)
-const rest = (el) => { el.style.removeProperty('transform'); el.style.removeProperty('opacity'); el.style.removeProperty('transition'); el.removeAttribute?.('data-thrown'); };
+const rest = (el) => { el.style.removeProperty('transform'); el.style.removeProperty('opacity'); el.style.removeProperty('transition'); classSoon(el, THROWING, false); };   // (let go a task after the frame, never in it: class-soon.js)
+const THROWING = 'pz-throwing';
 // (Where a card stands now: its inline translateX and opacity, as a swipe's finger or an earlier move left them, else at rest.)
 function here(el) {
   const r = runs.get(el);
@@ -57,7 +59,7 @@ function step() {
     if (k < 0) continue;   // (a staggered card waits where it starts)
     const p = throwAt(r.kind, k, r.from, r.to);
     r.x = p.x; r.o = p.o;
-    if (k >= 1 || (r.kind === 'out' && p.o <= 0.001)) { runs.delete(el); if (r.kind === 'in') rest(el); else write(el, p.x, p.o); r.done?.(); continue; }
+    if (k >= 1 || (r.kind === 'out' && p.o <= 0.001)) { runs.delete(el); write(el, p.x, p.o); if (r.kind === 'in') runSoon(() => { if (!runs.has(el) && !held.has(el) && !pinned.has(el)) rest(el); }); r.done?.(); continue; }   // (in: at rest now, its inline values let go a task after the frame, unless a new move took it: class-soon.js)
     write(el, p.x, p.o);
   }
   if (runs.size) ask = nextFrame(step);
@@ -71,7 +73,7 @@ function start(el, kind, to, ms, delay, done) {
   endMove ||= beginMotion('card throw', ms + delay + 2000);
   const from = here(el);
   runs.delete(el); pinned.delete(el);
-  el.setAttribute?.('data-thrown', '');
+  el.classList?.add(THROWING); classSoon(el, THROWING, true);   // (on in the task that starts the move; a let-go still waiting is overruled)
   el.style.setProperty('transition', 'none', 'important');
   write(el, from.x, from.o);   // (at once, in the task that starts it: no frame shows the class's own place in between)
   runs.set(el, { kind, from, to, x: from.x, o: from.o, t0: easeNow() + delay, ms, done });
@@ -145,7 +147,7 @@ function outCheck() {
 export const throwing = (el) => runs.has(el);
 
 /** Stops el's move where it is (a finger takes it), its inline values kept for whoever takes it next. */
-export function throwStop(el) { el?.removeAttribute?.('data-thrown'); runs.delete(el); held.delete(el); pinned.delete(el); if (!runs.size && ask) { cancelFrame(ask); ask = 0; } settle(); outCheck(); }
+export function throwStop(el) { classSoon(el, THROWING, false); runs.delete(el); held.delete(el); pinned.delete(el); if (!runs.size && ask) { cancelFrame(ask); ask = 0; } settle(); outCheck(); }
 
 // (The copies that held the old card on one track until the new one was ready (railHold) are gone: every leaving card sets off on the
 // frame of the tap. These are kept, as what they did with no copy, for presenter.js until its own pass.)

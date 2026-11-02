@@ -5986,11 +5986,11 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .pz.stack.stack .pz-data.pz-sheet::before, .pz.stack.stack .pz-data.pz-sheet::after, .pz.stack.stack .pz-data.pz-sheet > :is(.pz-dh, .pz-tool) { transition: opacity var(--d-small) var(--ease); }
 .pz.stack.stack .pz-data.pz-sheet:not(.pz-hide)::before, .pz.stack.stack .pz-data.pz-sheet:not(.pz-hide)::after, .pz.stack.stack .pz-data.pz-sheet:not(.pz-hide) > :is(.pz-dh, .pz-tool) { transition-duration: var(--d-surface); transition-delay: .12s; }
 .pz.stack.stack .pz-data.pz-sheet.pz-hide::before, .pz.stack.stack .pz-data.pz-sheet.pz-hide::after, .pz.stack.stack .pz-data.pz-sheet.pz-hide > :is(.pz-dh, .pz-tool, .pz-tiles) { opacity: 0; }
-/* (Thrown on a slide change (card-throw.js data-thrown): the sheet leaves and comes in whole with the words, on their one clock, its parts and
+/* (Thrown on a slide change (card-throw.js pz-throwing): the sheet leaves and comes in whole with the words, on their one clock, its parts and
    its two glass pieces standing at full and the card faded only by the throw's inline opacity, so its frost and readings never go ahead of it.) */
-.pz.stack.stack .pz-data.pz-sheet.pz-hide[data-thrown] { visibility: visible; pointer-events: none; }
-.pz.stack.stack .pz-data.pz-sheet[data-thrown]::before, .pz.stack.stack .pz-data.pz-sheet[data-thrown]::after, .pz.stack.stack .pz-data.pz-sheet[data-thrown] > :is(.pz-dh, .pz-tool, .pz-tiles) { opacity: 1; transition: none; }
-.pz.stack.stack .pz-data.pz-sheet.pz-hide[data-thrown] * { pointer-events: none; }
+.pz.stack.stack .pz-data.pz-sheet.pz-hide.pz-throwing { visibility: visible; pointer-events: none; }
+.pz.stack.stack .pz-data.pz-sheet.pz-throwing::before, .pz.stack.stack .pz-data.pz-sheet.pz-throwing::after, .pz.stack.stack .pz-data.pz-sheet.pz-throwing > :is(.pz-dh, .pz-tool, .pz-tiles) { opacity: 1; transition: none; }
+.pz.stack.stack .pz-data.pz-sheet.pz-hide.pz-throwing * { pointer-events: none; }
 .pz.pz-turning .pz-data.pz-sheet::before, .pz.pz-turning .pz-data.pz-sheet::after, .pz.pz-turning .pz-data.pz-sheet > .pz-dh { transition: none !important; }
 @media (prefers-reduced-motion: reduce) {
   .pz.stack.stack > .pz-data.pz-sheet.pz-hide { transition: visibility 0s linear var(--d-small) !important; }
@@ -6045,11 +6045,11 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .pz.pz-wide.pz-wide .pz-data.pz-sheet::before, .pz.pz-wide.pz-wide .pz-data.pz-sheet::after, .pz.pz-wide.pz-wide .pz-data.pz-sheet > :is(.pz-dh, .pz-tool) { transition: opacity var(--d-small) var(--ease); }
 .pz.pz-wide.pz-wide .pz-data.pz-sheet:not(.pz-hide)::before, .pz.pz-wide.pz-wide .pz-data.pz-sheet:not(.pz-hide)::after, .pz.pz-wide.pz-wide .pz-data.pz-sheet:not(.pz-hide) > :is(.pz-dh, .pz-tool) { transition-duration: var(--d-surface); transition-delay: .12s; }
 .pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-hide::before, .pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-hide::after, .pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-hide > :is(.pz-dh, .pz-tool, .pz-tiles) { opacity: 0; }
-/* (Thrown on a slide change (card-throw.js data-thrown): the sheet leaves and comes in whole with the words, on their one clock, its parts and
+/* (Thrown on a slide change (card-throw.js pz-throwing): the sheet leaves and comes in whole with the words, on their one clock, its parts and
    its two glass pieces standing at full and the card faded only by the throw's inline opacity, so its frost and readings never go ahead of it.) */
-.pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-hide[data-thrown] { visibility: visible; pointer-events: none; }
-.pz.pz-wide.pz-wide .pz-data.pz-sheet[data-thrown]::before, .pz.pz-wide.pz-wide .pz-data.pz-sheet[data-thrown]::after, .pz.pz-wide.pz-wide .pz-data.pz-sheet[data-thrown] > :is(.pz-dh, .pz-tool, .pz-tiles) { opacity: 1; transition: none; }
-.pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-hide[data-thrown] * { pointer-events: none; }
+.pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-hide.pz-throwing { visibility: visible; pointer-events: none; }
+.pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-throwing::before, .pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-throwing::after, .pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-throwing > :is(.pz-dh, .pz-tool, .pz-tiles) { opacity: 1; transition: none; }
+.pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-hide.pz-throwing * { pointer-events: none; }
 @media (prefers-reduced-motion: reduce) {
   .pz.pz-wide.pz-wide > .pz-data.pz-sheet.pz-hide { transition: visibility 0s linear var(--d-small) !important; }
   .pz.pz-wide.pz-wide > .pz-data.pz-sheet::before, .pz.pz-wide.pz-wide > .pz-data.pz-sheet::after, .pz.pz-wide.pz-wide > .pz-data.pz-sheet > :is(.pz-dh, .pz-tool, .pz-tiles) { transition: opacity var(--d-small) var(--ease) !important; }
