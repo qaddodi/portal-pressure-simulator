@@ -1876,6 +1876,14 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // each { order, prep?, draw }. Every prep runs first (each glass takes its blur from the picture just laid, before any glass is drawn
   // on it), then every draw, lowest order first.
   const tops = [];
+  // (2 Nov 2026, bug sweep: one throw had taken a hook out for good, so a single bad frame of the cards' glass left every card solid
+  // until a reload. A hook that throws is told once and kept; only one failing TOP_FAILS pictures in a row is taken out.)
+  const TOP_FAILS = 30;
+  const topFailed = (t, e) => {
+    t.fails = (t.fails || 0) + 1;
+    if (t.fails === 1) console.warn('Veins renderer: what is drawn over the figure failed.', e);
+    if (t.fails >= TOP_FAILS) { const i = tops.indexOf(t); if (i >= 0) tops.splice(i, 1); console.warn(`Veins renderer: what is drawn over the figure failed. It failed ${TOP_FAILS} pictures in a row and is taken out.`); }
+  };
   // What is drawn under the figure in this canvas (the lobule's tissue, tissue-gl.js host, LZ_ONE): { on(), draw() }. With one, each
   // present lays it on the cleared canvas first and the kept picture over it (premultiplied, pixel for pixel), then the tops; null: the
   // kept picture is copied as it is. presents counts the pictures laid, so an owner can tell whether a frame laid one.
@@ -2750,8 +2758,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       gl.disable(gl.SCISSOR_TEST);
       overLay();
       if (top && tops.length) {
-        for (const t of tops.slice()) { try { t.prep?.(); } catch (e) { console.warn('Veins renderer: what is drawn over the figure failed.', e); tops.splice(tops.indexOf(t), 1); } }
-        for (const t of tops.slice()) { try { t.draw(); } catch (e) { console.warn('Veins renderer: what is drawn over the figure failed.', e); tops.splice(tops.indexOf(t), 1); } }
+        for (const t of tops.slice()) { try { t.prep?.(); t.fails = 0; } catch (e) { topFailed(t, e); } }
+        for (const t of tops.slice()) { try { t.draw(); t.fails = 0; } catch (e) { topFailed(t, e); } }
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       }
       directNow = false; directKey = `${pictureSeq}:${bloodSeq}`;
@@ -2771,8 +2779,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     overLay();
     // (What is drawn over the figure in this canvas, the glasses: on every picture laid, as the overlays are.)
     if (top && tops.length) {
-      for (const t of tops.slice()) { try { t.prep?.(); } catch (e) { console.warn('Veins renderer: what is drawn over the figure failed.', e); tops.splice(tops.indexOf(t), 1); } }
-      for (const t of tops.slice()) { try { t.draw(); } catch (e) { console.warn('Veins renderer: what is drawn over the figure failed.', e); tops.splice(tops.indexOf(t), 1); } }
+      for (const t of tops.slice()) { try { t.prep?.(); t.fails = 0; } catch (e) { topFailed(t, e); } }
+      for (const t of tops.slice()) { try { t.draw(); t.fails = 0; } catch (e) { topFailed(t, e); } }
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     }
   }

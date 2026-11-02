@@ -630,11 +630,19 @@ export function createSinusoidGL(canvas, { warm = false, onReady = null } = {}) 
   // all on top, solid card on bottom"): the same top hook as the figure's canvas (veins-gl top), laid at the end of every draw, so the
   // glass is blurred from the sinusoid's own picture on the GPU. last: the last draw's arguments, so present() lays it again at once.
   const tops = [], pics = new Set();
+  // (2 Nov 2026, bug sweep: one throw had taken a hook out for good, so a single bad frame of the cards' glass left every card solid
+  // until a reload. A hook that throws is told once and kept; only one failing TOP_FAILS pictures in a row is taken out.)
+  const TOP_FAILS = 30;
+  const topFailed = (t, e) => {
+    t.fails = (t.fails || 0) + 1;
+    if (t.fails === 1) console.warn('sinusoid: what is drawn over it failed.', e);
+    if (t.fails >= TOP_FAILS) { const i = tops.indexOf(t); if (i >= 0) tops.splice(i, 1); console.warn(`sinusoid: what is drawn over it failed. It failed ${TOP_FAILS} pictures in a row and is taken out.`); }
+  };
   let presents = 0, seq = 0, last = null;
   const runTops = () => {
     if (!tops.length) return;
-    for (const t of tops.slice()) { try { t.prep?.(); } catch (e) { console.warn('sinusoid: what is drawn over it failed.', e); tops.splice(tops.indexOf(t), 1); } }
-    for (const t of tops.slice()) { try { t.draw(); } catch (e) { console.warn('sinusoid: what is drawn over it failed.', e); tops.splice(tops.indexOf(t), 1); } }
+    for (const t of tops.slice()) { try { t.prep?.(); t.fails = 0; } catch (e) { topFailed(t, e); } }
+    for (const t of tops.slice()) { try { t.draw(); t.fails = 0; } catch (e) { topFailed(t, e); } }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   };
   const top = {

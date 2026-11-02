@@ -11,7 +11,7 @@
 import { GLASS_SHARE, shareFor, sharePrep, sharePlan, shareTurn, shareUse, shareRelease, shareBytes } from './blur-share.js?v=00eb65ddf2';
 import { hold } from './gpu-budget.js?v=2808cb3d0b';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
-import { finalFrameFor, readFrameFor, framePhase, cancelFrame, noteDraw } from './frame.js?v=8c8f2f530e';
+import { finalFrameFor, readFrameFor, framePhase, frameCount, cancelFrame, noteDraw } from './frame.js?v=8c8f2f530e';
 import { startProgram, checkProgram, compileDone, exerciseDraw, SHADER_WARM } from './gl-compile.js?v=3e750c4fef';
 import { shiftOf, translateOf, motionAt, movesOnly, clockOf, clockAt, fillsAfter } from './glass-motion.js?v=2b98554adc';
 import { pathPolys, fanTriangles } from './path-poly.js?v=07f30beea9';
@@ -1122,13 +1122,25 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     const bw = (grid.X1 - grid.X0) / grid.T, bh = (grid.Y1 - grid.Y0) / grid.T;
     const plan = sharePlan(S, grid, grid.T / k, bw, bh, full, blurBoxes);
     S.reg = { x: grid.x, y: grid.y, w: grid.w, h: grid.h };
+    // (In use in this frame, kept or made again: see the release below.)
+    S.usedIn = frameCount();
     if (plan.key === S.key && S.t) { S.ok = true; S.skips++; if (gpuProbe.on) gpuProbe.note(COUNTED.glassSkip); return true; }
     if (!S.t) {
       S.t = { copy: texOf(G, G.LINEAR), pass: texOf(G, G.LINEAR), blurred: texOf(G, G.LINEAR), fbCopy: G.createFramebuffer(), fbPass: G.createFramebuffer(), fbOut: G.createFramebuffer(), steps: [], size: '', allocs: 0 };
       // (A retained holder of the budget: under pressure it is freed between frames and made again by the next blur that needs it.)
       S.hold?.drop();
       const mine = S.t;
-      S.hold = hold({ owner: `shared glass blur ${S.look}`, kind: 'retained', gl: G, bytes: () => shareBytes(S), release: () => { if (S.t !== mine) return; freeShare(G)(mine); S.t = null; S.key = ''; S.ok = false; S.hold = null; } });
+      // (2 Nov 2026, bug sweep: hold() looks at the budget at once, and over its envelope (a phone in the lobule or the sinusoid) it let go
+      // of this very blur before its first use: S.t was null on the next line, the throw took the cards' glass out of the canvas for the
+      // rest of the session and every card stayed solid. A blur asked for in this frame (S.usedIn) is the glass on screen, not one kept for
+      // later: a release then only takes it out of the budget's keeping (it is freed with its kit, hostFree), never out from under the
+      // cards, and never freed and made again frame after frame. Between frames, unused, it is let go as before.)
+      S.hold = hold({ owner: `shared glass blur ${S.look}`, kind: 'retained', gl: G, bytes: () => shareBytes(S), release: () => {
+        if (S.t !== mine) return;
+        S.hold = null;
+        if (S.usedIn === frameCount()) return;
+        freeShare(G)(mine); S.t = null; S.key = ''; S.ok = false;
+      } });
     }
     S.hold?.touch();
     const B = Object.assign(S.t, { G, bprog: hk.bprog, BU: hk.BU, vao: hk.vao });
