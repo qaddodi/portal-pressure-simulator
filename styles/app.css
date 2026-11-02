@@ -6290,6 +6290,17 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .pz.stack .pz-data .pz-tiles .pzt-bar { font-size: var(--pz-psm); margin-top: .25em; }
 .pz.stack .pz-data .pz-tiles.pzb-nonum .pzt-bar { height: 15px; }   /* (no cut-off number shows in the row: no empty row kept for them, presenter.js fitCards) */
 .pzt-bar.empty { visibility: hidden; }
+/* One tile height on every slide (2 Nov 2026, Mohammad: "the tiles are variable in height"): a tile with no rating word or no
+   change keeps that line, empty, so its card never grows or shrinks as a rating comes and goes or a slide counts no change; rows
+   of a grid share one height; and every card's names keep room for two lines, as three across always did. */
+.pz-tile :is(.pzt-r, .pzt-d):empty::before { content: '\00a0'; }
+/* (A tile with a scale keeps its change line under the bar, where its ring already says where it started: the line's room is then
+   the tile's foot, not a gap between the rating and the bar. A tile with no scale says its change over its unseen bar.) */
+.pz-tile.scaled .pzt-d { order: 1; }
+.app.pz-hi .pz-tile .pzt-r:empty { background: none; padding-block: 0; }
+.pz-tiles { grid-auto-rows: 1fr; }
+.pz:not(.stack) .pz-data:is(.col, .under, .has-tool) .pz-tiles .pzt-k { min-height: 2.4em; display: flex; align-items: flex-end; justify-content: center; }
+.pz.stack .pz-data .pz-tiles .pzt-k { white-space: normal; text-wrap: balance; min-height: 2.5em; display: flex; align-items: flex-end; justify-content: center; line-height: 1.25; }
 .pzt-bar [hidden] { display: none; }
 /* (The dot, 12 px with its 2 px ring, overhangs the 6 px track by 5 px above and below: the track sits 4 px into the bar and the
    cut-off numbers start under the ring, so the dot never touches the rating over the bar or a number under it. iPad, 16 Oct.) */
@@ -6335,7 +6346,8 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .pz .pz-data .pz-tiles .pzt-d, .pz .pz-data .pz-tiles .pzt-d[data-way] { color: var(--text-3); }
 /* (Where the bar's ring marks where the value started, the "from" words fold away: the bar takes the place of the change
    line, so a tile is no taller than it was before the bar and the data card never grows for it.) */
-.pz .pz-data .pz-tiles .pz-tile:has(.pzb-was:not([hidden])) .pzt-d { display: none; }
+/* (Its line stays, unseen, since 2 Nov 2026: every tile keeps one height on every slide, with a change counted or not.) */
+.pz .pz-data .pz-tiles .pz-tile:has(.pzb-was:not([hidden])) .pzt-d { visibility: hidden; }
 
 /* Readouts tab (Tests): every readout the bottom bar used to carry, in its groups. The tiles are the bar's own (.metric),
    set on a soft panel with the full names and "Not measured" spelled out, since the pane has the room. */

@@ -80,9 +80,14 @@ test('the Tests › HVPG readings carry their tile\'s colour too, and ease into 
   assert.match(css, /\.hvpg-kv dd \{[^}]*transition: none/, 'the colour is taken with the reading (1 Nov 2026, move everything to GPU: a colour, shadow or edge eased repaints every frame, so it is taken at once)');
 });
 
-test('the bar takes the change line\'s place, so a tile never grows for it', () => {
+test('every tile is one height on every slide: its bar, rating and change lines always keep their room (2 Nov 2026)', () => {
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
-  assert.match(css, /\.pz-tile:has\(\.pzb-was:not\(\[hidden\]\)\) \.pzt-d \{ display: none; \}/);
+  const js = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  assert.match(css, /\.pz-tile:has\(\.pzb-was:not\(\[hidden\]\)\) \.pzt-d \{ visibility: hidden; \}/, 'the ring\'s change line folds out of sight, not out of the layout');
+  assert.ok(css.includes(".pz-tile :is(.pzt-r, .pzt-d):empty::before { content: '\\00a0'; }"), 'an empty rating or change keeps its line');
+  assert.ok(css.includes('.pz-tiles { grid-auto-rows: 1fr; }'), 'rows of a grid share one height');
+  assert.match(js, /const bar = h\('span', \{ class: 'pzt-bar'/, 'every tile has a bar, an empty one with no scale');
+  assert.match(js, /h\('span', \{ class: 'pzt-vu'[^\n]*\}, v, u\), r, d, bar\);/, 'every tile has its change line');
   assert.match(css, /\.pz-tile \.pzt-bar \{[^}]*height: calc\(/, 'the bar has a fixed height');
   assert.match(css, /\.pzt-bar\.empty \{ visibility: hidden; \}/, 'a tile with no scale keeps the room, so a row stays one height');
 });

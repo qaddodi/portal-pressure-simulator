@@ -582,22 +582,22 @@ function bigTiles() {
   el.classList.toggle('tglide', TILE_GLIDE && odoOn());   // (the bar's marks glide on the compositor: tileGlide)
   document.fonts?.ready?.then(fitSoon);
   function buildTiles(ks, withRef) {
-    const bars = ks.some((k) => SCALE[k]);
     parts = ks.map((k) => {
       const T = tileOf(k) || { t: k, s: '', u: '' };
       const v = h('span', { class: 'pzt-v' }), u = h('small', {}, T.u), r = h('span', { class: 'pzt-r' });
-      const d = h('span', { class: 'pzt-d' }), resp = k === 'hvpgFall';
+      const d = h('span', { class: 'pzt-d' });
       // The scale bar: the tile's bands (coloured by its rating), its cut-offs, a ring where it started (given ref) and a dot
-      // where it is. A tile with no scale beside one that has one keeps an empty bar, so every tile in a row is the same height.
+      // where it is. A tile with no scale keeps an empty bar, and every tile keeps its change line (empty on a slide that counts
+      // no change), so every tile of every slide is the same height (2 Nov 2026, Mohammad: "the tiles are variable in height").)
       const bands = bandsOf(k) || [], S = SCALE[k];
       const zs = bands.map((z) => h('i', { class: 'pzb-z', style: `left:${at(k, z.a / (T.x ?? 1))}%;width:${at(k, z.b / (T.x ?? 1)) - at(k, z.a / (T.x ?? 1))}%` }));
       const ts = S ? S[2].map((c) => h('i', { class: 'pzb-t', style: `left:${at(k, c / (T.x ?? 1))}%` })) : [];
       const ls = S ? S[2].map((c) => h('span', { class: 'pzb-l', style: `left:${at(k, c / (T.x ?? 1))}%` }, fmt(c, cutDp(c)))) : [];
       const link = withRef ? h('i', { class: 'pzb-link' }) : null, was = withRef ? h('i', { class: 'pzb-was' }) : null, now = h('i', { class: 'pzb-now' });
-      const bar = bars ? h('span', { class: 'pzt-bar' + (S ? '' : ' empty'), 'aria-hidden': 'true' }, h('span', { class: 'pzb-track' }, h('span', { class: 'pzb-zs' }, zs), ts, link, was, S ? now : null), ls) : null;
+      const bar = h('span', { class: 'pzt-bar' + (S ? '' : ' empty'), 'aria-hidden': 'true' }, h('span', { class: 'pzb-track' }, h('span', { class: 'pzb-zs' }, zs), ts, link, was, S ? now : null), ls);
       const pic = k === 'scope' ? createScopeTile() : null;   // (the endoscopic view: a picture in place of a number; v, u and r stay unplaced)
       const tile = pic ? h('div', { class: 'pz-tile pz-scope' }, h('span', { class: 'pzt-k' }, T.t), pic.el)
-        : h('div', { class: 'pz-tile' + (S ? ' scaled' : '') }, h('span', { class: 'pzt-k', 'data-s': T.n || null }, T.t), h('span', { class: 'pzt-vu' + (T.u === '%' ? ' pct' : '') }, v, u), r, withRef || resp ? d : null, bar);
+        : h('div', { class: 'pz-tile' + (S ? ' scaled' : '') }, h('span', { class: 'pzt-k', 'data-s': T.n || null }, T.t), h('span', { class: 'pzt-vu' + (T.u === '%' ? ' pct' : '') }, v, u), r, d, bar);
       return { k, T, tile, v, u, r, d, S, bands, zs, link, was, now, zr: '', pic };
     });
     el.replaceChildren(...parts.map((p) => p.tile));
