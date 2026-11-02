@@ -13,6 +13,8 @@ import { ownsSideways, pageGo } from './swipe.js?v=c1f19a57dd';
 import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=0eed029d3c';
 import { createReadoutsPane } from './readouts-pane.js?v=f088e9056a';
 import { frameFor } from './frame.js?v=7710f677e2';
+import { glWords } from './gl-words.js?v=aa61179830';
+import { restPass } from './rest-pass.js?v=bf0c42ead5';
 import { vitalReading, VITALS } from './vital-read.js?v=cbba41a6b7';
 import { setShown, shownState, FILL_SMALL, fillQ } from './shown.js?v=d456014820';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
@@ -167,7 +169,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     else if (t.pane) el.addEventListener('click', () => show(t.pane, { reveal: true }));
     // HVPG not yet measured (Explore): the tile opens the catheter procedure instead.
     else if (t.why) el.addEventListener('click', () => (t.id === 'hvpg' && readoutValue(t, {}, hiddenNow()) == null ? show('hvpg', { reveal: true }) : onWhy(t.why, el)));
-    tileEls[t.id] = { el, t, val, tr, st, cmp, fill, hist: [], sev: null, trend: '', ariaTxt: '' };
+    tileEls[t.id] = { el, t, val, tr, st, cmp, cmpW: glWords(cmp), cmpCls: '', fill, hist: [], sev: null, trend: '', ariaTxt: '' };
     return el;
   }
   for (const [g, label] of [['lobule', 'Lobule, % of normal'], ...GROUPS]) {
@@ -314,11 +316,13 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
         const d = v - (lz ? (st0.compareSnap.frame ? t.v(st0.compareSnap.frame, st0) : v) : t.v(A));
         const same = Math.abs(d) < Math.pow(10, -t.d) * 0.5;
         // (Written only when they change, as in the readouts pane: each model frame rewrote every tile's.)
-        const ct = same ? 'same as then' : `${d > 0 ? '+' : '−'}${fmt(Math.abs(d), t.d)} vs then`, cc = 'cmp ' + (same ? 'same' : d > 0 ? 'up' : 'down');
-        if (x.cmp.textContent !== ct) x.cmp.textContent = ct;
-        if (x.cmp.className !== cc) x.cmp.className = cc;
+        const ct = same ? 'same as then' : `${d > 0 ? '+' : '−'}${fmt(Math.abs(d), t.d)} vs then`, cc = same ? 'same' : d > 0 ? 'up' : 'down';
+        // (The words drawn on the GPU while they change, gl-words.js; a new colour (the change crossing zero) is taken by the page's own words,
+        // between frames, and read again for the picture.)
+        if (x.cmpCls !== cc) { if (x.cmpCls) x.cmp.classList.remove(x.cmpCls); x.cmp.classList.add(cc); x.cmpCls = cc; x.cmpW.set(ct); x.cmpW.settle(); }
+        else x.cmpW.set(ct);
         if (!x.st.hidden) { x.st.hidden = true; fadeIn(x.cmp); }
-      } else if (x.cmp.textContent) { x.cmp.textContent = ''; x.st.hidden = false; fadeIn(x.st); }
+      } else if (x.cmpW.text) { x.cmpW.set(''); x.st.hidden = false; fadeIn(x.st); }
       // A new band must hold for a moment before the tile takes it, so a value hovering on a
       // cut-off does not flicker between two colors. (A paused model sends no more frames: it takes the band at once.)
       if (sev !== x.sev) {
@@ -871,6 +875,14 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   sizeObserver.observe(stageWrap); sizeObserver.observe(body);
   sideMQ.addEventListener('change', () => { updateSize(); layout(); });
   store.on('compareSnap', () => updateHeader());
+  let cmpRows = [], cmpNums = [], cmpWhen = '', cmpAsk = 0;
+  function buildComparison() {
+    cmpAsk = 0;
+    const bs = cmpRows.map(([, txt]) => h('b', {}, txt));
+    comparison.replaceChildren(h('span', { class: 'comparison-label' }, `Since ${cmpWhen}`),   // (the moment by its time, as the figure header names it: "baseline" was a third word for "then")
+      ...cmpRows.map(([label], i) => h('span', {}, label, bs[i])));
+    cmpNums = bs.map((b) => glWords(b));
+  }
   function updateHeader() {
     const st = store.get(), comparing = !!st.compareSnap;
     const hideCmp = !comparing || state === 'peek' || st.imaging;
@@ -878,13 +890,12 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     if (comparing && frame) {
       const a = st.compareSnap.metrics, b = frame.metrics;
       const rows = compareRows(a, b, !hiddenNow(st)?.has('trueHVPG'), !st.hiddenReadouts?.has('model'), fmt);
-      // (Frames arrive ten times a second: the line is rebuilt only when a shown number changes, as the comparison table is.)
-      const sig = st.compareSnap.when + '|' + rows.map((r) => r.join(' ')).join('|');
-      if (comparison._sig !== sig) {
-        comparison._sig = sig;
-        comparison.replaceChildren(h('span', { class: 'comparison-label' }, `Since ${st.compareSnap.when}`),   // (the moment by its time, as the figure header names it: "baseline" was a third word for "then")
-          ...rows.map(([label, txt]) => h('span', {}, label, h('b', {}, txt))));
-      }
+      // (Frames arrive ten times a second. The line is built between frames, when its moment or its names change; its numbers are drawn on
+      // the GPU as they change (gl-words.js), so no frame writes into it.)
+      const key = st.compareSnap.when + '|' + rows.map((r) => r[0]).join('|');
+      cmpRows = rows;
+      if (comparison._key !== key) { comparison._key = key; cmpWhen = st.compareSnap.when; cmpAsk ||= restPass(buildComparison); }
+      else if (!cmpAsk) rows.forEach(([, txt], i) => cmpNums[i]?.set(txt));
     }
     paintTitle();
     const txt = !frame ? '' : state === 'peek' && !st.imaging ? INFO[open[0]][1](frame)

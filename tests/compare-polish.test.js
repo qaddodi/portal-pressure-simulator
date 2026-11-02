@@ -25,5 +25,6 @@ test('a name sits above its unit; the triangle is 12 px and comes before the sig
 
 test('the Tests strip names the moment by its time', () => {
   assert.doesNotMatch(dock, /Change since baseline/);
-  assert.match(dock, /`Since \$\{st\.compareSnap\.when\}`/);
+  assert.match(dock, /`Since \$\{cmpWhen\}`/);
+  assert.match(dock, /cmpWhen = st\.compareSnap\.when;/);
 });

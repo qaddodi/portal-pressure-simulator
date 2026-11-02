@@ -27,7 +27,9 @@ test('the comparison line shows the same deltas and is rebuilt only when one cha
   assert.deepEqual(compareRows(a, b, true, true, fmt), [['HVPG', '+2.3 mmHg'], ['Liver flow', '-10 pts'], ['Shunting', '+15 pts']]);
   assert.deepEqual(compareRows(a, b, false, true, fmt).map((r) => r[0]), ['Liver flow', 'Shunting']);
   assert.deepEqual(compareRows(a, b, true, false, fmt).map((r) => r[0]), ['HVPG']);
-  assert.match(src('dock.js'), /if \(comparison\._sig !== sig\)/);
+  // (2 Nov 2026: rebuilt between frames only when its moment or names change; its numbers drawn on the GPU, gl-words.js, as they change.)
+  assert.match(src('dock.js'), /if \(comparison\._key !== key\) \{ comparison\._key = key; cmpWhen = st\.compareSnap\.when; cmpAsk \|\|= restPass\(buildComparison\); \}/);
+  assert.match(src('dock.js'), /rows\.forEach\(\(\[, txt\], i\) => cmpNums\[i\]\?\.set\(txt\)\)/);
 });
 
 // A record as a MutationObserver gives it, over a fake element.

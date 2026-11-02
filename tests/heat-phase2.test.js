@@ -124,8 +124,10 @@ test('width step: junction widths reused, no per-node arrays or sorts; the sync 
 
 test('Compare words on the dock tiles and the lobule label numbers are written only when they change', () => {
   const dock = read('src/ui/dock.js'), lz = read('src/ui/lobule-zoom.js');
-  assert.match(dock, /if \(x\.cmp\.textContent !== ct\) x\.cmp\.textContent = ct;/);
-  assert.match(dock, /if \(x\.cmp\.className !== cc\) x\.cmp\.className = cc;/);
+  // (2 Nov 2026: the words drawn on the GPU, gl-words.js, whose set() does nothing for the words it already shows; the colour class only on a change.)
+  assert.match(dock, /if \(x\.cmpCls !== cc\)/);
+  assert.match(dock, /else x\.cmpW\.set\(ct\);/);
+  assert.match(read('src/ui/gl-words.js'), /if \(t === S\.want\.t && u === S\.want\.u\) return;/);
   // (Asked for in the frame, written between frames: pageRun.)
   assert.match(lz, /if \(L\.bv !== String\(v\)\) \{ L\.bv = String\(v\); writeLab\(L\); \}/);
   assert.match(lz, /if \(d && L\.dv !== d\) \{ L\.dv = d; writeLab\(L\); \}/);
