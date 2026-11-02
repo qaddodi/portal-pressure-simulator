@@ -5156,6 +5156,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .instrument-workspace .dock-pane > .instrument-view.ab .ab-vol > .ab-gauge > .ab-belly.ab-belly { width: var(--ab-bw); height: var(--ab-bw); }
 .dock-pane > .instrument-view.ab .ab-dial-box { display: block; position: absolute; top: 50%; right: calc(100% + 6px); width: var(--ab-dw); transform: translateY(-50%); }
 .ab-dial { display: block; width: 100%; height: auto; overflow: visible; }
+.ab-dial-box { aspect-ratio: 76 / 128; }   /* (the dial is a model drawn on the GPU, svg-gl: the box keeps the drawing's shape itself) */
 .ab-dial-band { fill: none; stroke-width: 7; opacity: .2; }
 .ab-dial-live { fill: none; stroke-width: 7; transition: none; }
 .ab-dial :is(.ab-dial-band, .ab-dial-live)[data-sev="ok"] { stroke: var(--ok); }

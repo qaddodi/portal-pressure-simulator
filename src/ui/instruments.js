@@ -6,7 +6,7 @@ import { gastricUp } from '../engine/scenario.js?v=0762d1b820';
 import { wallRead } from '../engine/wall-read.js?v=09449acd01';
 import { pressureColor } from './colormap.js?v=fa7ff19abc';
 import { h, fmt, canvasSize, cssVar, cssAlpha, clamp, icon, swapText, putText, countTo } from './util.js?v=9e8d423483';
-import { wordSetter, glWords } from './gl-words.js?v=9d01733fcb';
+import { wordSetter } from './gl-words.js?v=9d01733fcb';
 import { simTime, isPaused } from './clock.js?v=16aba0e2eb';
 import { createEndoGL } from './endo-gl.js?v=7948b5de62';
 import { CTX_LAZY } from './gl-support.js?v=38189f60f5';
@@ -19,9 +19,12 @@ import { poolFill } from './blood.js?v=f6c91d8676';
 import { FONT } from './charts.js?v=328edf3a27';
 import { store, updateParams, varicesPresent } from './store.js?v=4ef2a6ffd8';
 import { balanceHold, balanceLine } from './balance-hold.js?v=1792704e7a';
-import { lateFrameFor, cancelFrame, framePhase } from './frame.js?v=7710f677e2';
+import { lateFrameFor, cancelFrame, framePhase, easeNow } from './frame.js?v=7710f677e2';
 import { restPass } from './rest-pass.js?v=bf0c42ead5';
 import { createTraceGL, fitPen } from './trace-gl.js?v=254a25fae0';
+import { createSvgGL, svgModel, setWords, wordsOf } from './svg-gl.js?v=4cdb912e89';
+import { textWidth } from './text-gl.js?v=8db702aacd';
+import { D_SURFACE, easeArrive } from './ease.js?v=7513a88c68';
 import { inkBox } from './glyph-measure.js?v=131d137ce2';
 // (The endoscope's field: drawn in the late part of a frame, after the model's frame of it has been taken in, so once a frame.)
 const drawFrame = lateFrameFor('instruments');
@@ -518,13 +521,14 @@ const GRADE_TIP = ['No free fluid', 'Grade 1: seen on ultrasound only', 'Grade 2
 const IAP_MAX = 30, IAP_BANDS = [[0, 12, 'ok'], [12, 20, 'caution'], [20, 30, 'danger']];
 const iapSev = (v) => (v >= 20 ? 'danger' : v >= 12 ? 'caution' : 'ok');
 const IAP_WORD = { ok: 'Normal', caution: 'High', danger: 'Very high' };
+// (On the GPU, 2 Nov 2026, "Move everything to GPU": the dial is a model (svg-gl svgModel, never SVG the page paints) drawn by createSvgGL
+// in the charts' shared context; its knob eases round on the frame clock, its number and word are the model's words.)
 function iapDial() {
-  const NS = 'http://www.w3.org/2000/svg';
-  const s = (t, a = {}, txt) => { const e = document.createElementNS(NS, t); for (const [k, v] of Object.entries(a)) e.setAttribute(k, v); if (txt != null) e.textContent = txt; return e; };
+  const s = (t, a = {}, txt) => { const e = svgModel(t, a); if (txt != null) setWords(e, txt); return e; };
   const C = 64, R = 56, TX = 42;   // pivot on the flat (belly) side, ring radius, the text column
   const pt = (v, r) => { const t = Math.PI / 2 + (v / IAP_MAX) * Math.PI; return [C + r * Math.cos(t), C + r * Math.sin(t)]; };
   const arc = (a, b, r) => { const [x0, y0] = pt(a, r), [x1, y1] = pt(b, r); return `M${x0.toFixed(2)} ${y0.toFixed(2)}A${r} ${r} 0 0 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`; };
-  const svg = s('svg', { class: 'ab-dial', viewBox: '-12 0 76 128', role: 'img' });
+  const svg = s('svg', { class: 'ab-dial', viewBox: '-12 0 76 128', preserveAspectRatio: 'xMidYMid meet' });
   const live = [];
   for (const [a, b, sev] of IAP_BANDS) {
     const a1 = a ? a + 0.3 : a, b1 = b < IAP_MAX ? b - 0.3 : b, d = arc(a1, b1, R);
@@ -539,22 +543,22 @@ function iapDial() {
     const tl = s('text', { class: 'ab-dial-tl' }, String(v));
     svg.append(tl); tls.push([v, tl]);
   }
-  // The knob: drawn pointing right (into the belly), then turned to the reading, so it eases round the ring.
+  // The knob: drawn pointing right (into the belly), then turned to the reading about the pivot, eased round the ring.
   const knob = s('g', { class: 'ab-dial-knob' });
   knob.append(s('line', { x1: C + R - 12, y1: C, x2: C + R - 6, y2: C }), s('circle', { cx: C + R, cy: C, r: 4.6 }));
-  const num = s('text', { class: 'ab-dial-n', x: TX, y: 70 }, '—'), word = s('text', { class: 'ab-dial-w', x: TX });
+  const num = s('text', { class: 'ab-dial-n', x: TX, y: 70 }, '—'), word = s('text', { class: 'ab-dial-w', x: TX }, '');
   const key = s('text', { class: 'ab-dial-k', x: TX, y: 43 }, 'IAP'), unit = s('text', { class: 'ab-dial-u', x: TX }, 'mmHg');
   svg.append(knob, key, num, unit, word);
-  const el = h('div', { class: 'ab-dial-box', title: 'Intra-abdominal pressure. 12 mmHg and above: intra-abdominal hypertension. 20 mmHg and above: abdominal compartment syndrome.' }, svg);
-  // (The number and its word are drawn on the GPU while they change, over the dial, gl-words.js; the word's fit runs as it lands.)
-  const numW = glWords(num, { host: el }), wordW = glWords(word, { host: el, onLand: () => { if (fitK) fitWord(); } });
+  const el = h('div', { class: 'ab-dial-box svg-gl-box', title: 'Intra-abdominal pressure. 12 mmHg and above: intra-abdominal hypertension. 20 mmHg and above: abdominal compartment syndrome.' }, svg);
+  const gl = createSvgGL(el);
+  gl.show(svg, false);
   // The small words are 12 px on screen at least, however small the dial is drawn (sweep batch 04: the ticks at about 7 px,
   // the caption at 9.6 px on a phone): their size in the drawing grows as the dial shrinks, the lines below the number move
   // down to make room, and the word under them is left out when it no longer fits inside the half circle (the number's
-  // colour and the arc still say how high it is; the dial's label reads the word).
-  let fitK = 0;
+  // colour and the arc still say how high it is; the dial's label reads the word). The dial's width comes from its observer.
+  let fitK = 0, boxW = 0;
   const fit = () => {
-    const w = svg.getBoundingClientRect().width;
+    const w = boxW;
     if (!w) return;
     const k = 76 / w;
     if (Math.abs(k - fitK) < 0.005) return;
@@ -568,29 +572,46 @@ function iapDial() {
       const [lx, ly] = pt(v, R + 10 + 0.65 * ft);
       tl.style.fontSize = `${ft.toFixed(2)}px`; tl.setAttribute('x', lx.toFixed(2)); tl.setAttribute('y', (ly + 0.36 * ft).toFixed(2));
     }
+    gl.relook();   // (the new type sizes are styles: the model's looks are read again, between frames)
     fitWord();
   };
-  // (The chord of the ring's inside at the word's baseline, from the text column to the flat side.)
+  // (The chord of the ring's inside at the word's baseline, from the text column to the flat side; the word's width from its outlines.)
   const fitWord = () => {
     const fw = parseFloat(word.style.fontSize) || 9, y = parseFloat(word.getAttribute('y')) || 92, top = y - 0.72 * fw;
     const dy = Math.max(Math.abs(y - C), Math.abs(top - C)), half = Math.sqrt(Math.max(0, (R - 4) ** 2 - dy * dy));
-    word.style.display = '';
-    const tw = word.getComputedTextLength?.() || 0;
+    const tw = textWidth(wordsOf(word), { weight: 650, size: fw });
     word.style.display = tw > 0 && (tw / 2 > C - TX + 0 || TX - tw / 2 < C - half) ? 'none' : '';
+    gl.paint();
   };
-  if (typeof ResizeObserver === 'function') new ResizeObserver(fit).observe(svg);
+  if (typeof ResizeObserver === 'function') new ResizeObserver((es) => { const b = es[es.length - 1].contentBoxSize?.[0]; boxW = b ? b.inlineSize : es[es.length - 1].contentRect.width; fit(); }).observe(el);
+  // The knob's turn, eased on the frame clock as the page's transition was (D_SURFACE on the arrive curve); reduced motion: at once.
+  let ang = 90, turn = null, turnAsk = 0;
+  const KNOB_STILL = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : { matches: false };
+  const knobAt = (a) => knob.setAttribute('transform', `rotate(${a.toFixed(2)} ${C} ${C})`);
+  knobAt(ang);
+  function knobStep() {
+    turnAsk = 0;
+    if (!turn) return;
+    const u = clamp((easeNow() - turn.t0) / D_SURFACE, 0, 1);
+    ang = turn.from + (turn.to - turn.from) * easeArrive(u);
+    knobAt(ang); gl.paint();
+    if (u < 1) turnAsk = lateFrameFor('instruments')(knobStep); else turn = null;
+  }
   let last = null;
   function set(iap) {
     const n = Math.max(0, Math.round(iap) || 0), v = Math.min(n, IAP_MAX);   // (whole mmHg, as the number reads, so the word and the arc agree with it)
     if (n === last) return;
     last = n;
     const sev = iapSev(v);
-    numW.set(String(n)); wordW.set(IAP_WORD[sev]);
+    setWords(num, String(n)); setWords(word, IAP_WORD[sev]);
     svg.dataset.sev = sev;
     for (const [a, b, lp] of live) lp.setAttribute('stroke-dasharray', `${(clamp((v - a) / (b - a), 0, 1) * 100).toFixed(1)} 100`);
-    knob.style.transform = `rotate(${(90 + (v / IAP_MAX) * 180).toFixed(1)}deg)`;
-    svg.setAttribute('aria-label', `Intra-abdominal pressure ${n} mmHg, ${IAP_WORD[sev].toLowerCase()}`);
+    const to = 90 + (v / IAP_MAX) * 180;
+    if (KNOB_STILL.matches) { turn = null; ang = to; knobAt(ang); } else { turn = { from: ang, to, t0: easeNow() }; if (!turnAsk) turnAsk = lateFrameFor('instruments')(knobStep); }
+    el.setAttribute('aria-label', `Intra-abdominal pressure ${n} mmHg, ${IAP_WORD[sev].toLowerCase()}`);
+    if (fitK) fitWord(); else gl.paint();
   }
+  el.setAttribute('role', 'img');
   return { el, set };
 }
 /** A stepper's number rolls to its new value over a small step instead of jumping (the tiles' number roll, util.js countTo); the

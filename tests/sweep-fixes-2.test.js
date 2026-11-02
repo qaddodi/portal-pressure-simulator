@@ -60,7 +60,7 @@ test('the stylesheet sets no word under 12 px (the legend and the data card stri
 
 test('the pressure dial sets its words to 12 px on screen at least, and leaves out its word only when it does not fit', () => {
   assert.match(instr, /Math\.max\(base, 12\.2 \* k\)/);
-  assert.match(instr, /new ResizeObserver\(fit\)\.observe\(svg\)/);
+  assert.match(instr, /new ResizeObserver\(\(es\) => \{[^\n]*fit\(\); \}\)\.observe\(el\)/);   // (the dial's box: its drawing is a GPU model, 2 Nov)
   assert.match(instr, /word\.style\.display = tw > 0 &&/);
 });
 
