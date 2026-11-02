@@ -7,7 +7,7 @@ import { store, updateParams, hiddenNow } from './store.js?v=a21c31dcb5';
 import { h, fmt, fmtFlow, fp, ff, clamp, tooltipFor, infoButton, icon, svgIcon, paintRange } from './util.js?v=ad6469643b';
 import { liveBalance } from './balance-hold.js?v=1792704e7a';
 import { frameFor, cancelFrame } from './frame.js?v=1d147c7c9a';
-import { runSoon } from './class-soon.js?v=97b9d0e0db';
+import { runSoon, propSoon, attrSoon } from './class-soon.js?v=0000000000';
 const nextFrame = frameFor('inspector');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -94,7 +94,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
       h('div', { class: 'range-wrap' }, normal ? h('span', { class: 'normal', title: 'Normal range', style: { left: `calc(var(--tw) / 2 + (100% - var(--tw)) * ${(normal[0] - min) / (max - min)})`, width: `calc((100% - var(--tw)) * ${(normal[1] - normal[0]) / (max - min)})` } }) : null, input),
       sub ? h('div', { class: 'ctl-sub' }, sub) : null);
     const paint = (v) => {
-      input.value = v; val.textContent = format(v);
+      propSoon(input, 'value', String(v)); val.textContent = format(v);
       paintRange(input, (v - min) / (max - min));
       wrap.classList.toggle('changed', def != null && Math.abs(v - def) > 1e-9);
     };
@@ -120,7 +120,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
       updateParams((pp) => { set(pp, def); return pp; }, { label: `Reset ${label}` });
     });
     paint(get(store.get().params));
-    wrap._sync = (pp) => { if (document.activeElement !== input) paint(get(pp)); if (c.showIf) wrap.hidden = !c.showIf(pp); };
+    wrap._sync = (pp) => { if (document.activeElement !== input) paint(get(pp)); if (c.showIf) propSoon(wrap, 'hidden', !c.showIf(pp)); };
     if (c.showIf) wrap.hidden = !c.showIf(store.get().params);
     return wrap;
   }
@@ -129,7 +129,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
     cb.checked = !!get(store.get().params);
     cb.addEventListener('change', () => updateParams((pp) => { set(pp, cb.checked); return pp; }, { label: `${label} ${cb.checked ? 'on' : 'off'}` }));
     const row = h('div', { class: 'ctl' }, h('label', { class: 'toggle-row' }, h('span', { class: 'ctl-label' }, label, info ? infoButton(info) : null), h('span', { class: 'switch' }, cb, h('span'))), sub ? h('div', { class: 'ctl-sub' }, sub) : null);
-    row._sync = (pp) => { cb.checked = !!get(pp); };
+    row._sync = (pp) => { propSoon(cb, 'checked', !!get(pp)); };
     return row;
   }
   function drugCard(k) {
@@ -138,7 +138,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
       h('span', { class: 'dn' }, d.label, h('span', { class: 'dot' }, icon('check'))), h('span', { class: 'dd' }, DRUG_SHORT[k] || ''));
     tooltipFor(b, d.info);
     b.addEventListener('click', () => updateParams((pp) => { pp.drugs[k] = !pp.drugs[k]; return pp; }, { label: d.label }));
-    b._sync = (pp) => b.setAttribute('aria-pressed', String(!!pp.drugs[k]));
+    b._sync = (pp) => attrSoon(b, 'aria-pressed', String(!!pp.drugs[k]));
     return b;
   }
   /** Build any registered control (used by panels). */

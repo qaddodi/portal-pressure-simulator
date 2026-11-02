@@ -10,10 +10,15 @@
 // A line the model does not compute (weight lost, which the model has no body for) is given by the slide (tool.given: { wt: 12 }):
 // it climbs from 0 to that number in step with the time-lapse's ramp, and every other line is still the model's own.
 import { frameFor, cancelFrame } from './frame.js?v=1d147c7c9a';
-import { classSoon } from './class-soon.js?v=97b9d0e0db';
+import { classSoon, attrSoon, dataSoon } from './class-soon.js?v=97b9d0e0db';
+import { restPass } from './rest-pass.js?v=d13e397f0b';
 import { plotPanel } from './plot-look.js?v=5037697da7';
 import { RX, bandKeys } from './rx-bands.js?v=51e83c7c59';
+<<<<<<< HEAD
 import { createSvgGL, svgModel, setWords } from './svg-gl.js?v=949ac7fd0e';
+=======
+import { createSvgGL, svgModel, setWords, setGeo } from './svg-gl.js?v=d5c69f5f25';
+>>>>>>> 3207b43b (Chart, dial, callout and glyph-slot models keep their moving numbers on the piece (setGeo); card and inspector control syncs land in a rest pass)
 import { D_SURFACE, EASE_ARRIVE } from './ease.js?v=7513a88c68';
 const nextFrame = frameFor('flow-time');
 
@@ -203,22 +208,22 @@ export function createFlowTime() {
     const heads = parts.lines.map((l) => {
       const arr = ser[l.k], p = ser.min.filter((x) => x < m).map((x, j) => [X(x), l.Y(arr[j])]);
       p.push([X(m), l.Y(val(arr, m))]);
-      l.path.setAttribute('d', p.map(([x, y], j) => `${j ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join(''));
+      setGeo(l.path, 'd', p.map(([x, y], j) => `${j ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join(''));
       const [hx, hy] = p.at(-1), v = val(arr, m), txt = withUnit(v, l.d, l.unit), left = headLeft(hx, hy, cw(txt, G.f * 1.1, 1), G.f, G.w, parts.boxes);
-      l.dot.setAttribute('cx', hx.toFixed(1)); l.dot.setAttribute('cy', hy.toFixed(1));
-      l.val.setAttribute('x', (hx + (left ? -0.6 : 0.6) * G.f).toFixed(1)); l.val.setAttribute('y', (hy - 0.7 * G.f).toFixed(1));
-      l.val.setAttribute('text-anchor', left ? 'end' : 'start');
+      setGeo(l.dot, 'cx', hx.toFixed(1)); setGeo(l.dot, 'cy', hy.toFixed(1));
+      setGeo(l.val, 'x', (hx + (left ? -0.6 : 0.6) * G.f).toFixed(1)); setGeo(l.val, 'y', (hy - 0.7 * G.f).toFixed(1));
+      setGeo(l.val, 'text-anchor', left ? 'end' : 'start');
       setWords(l.val, txt);   // (kept on the piece and drawn by the picture: no text node, no mutation, nothing read again)
       classSoon(l.val, 'off', m - ax().from < 0.36 * (ax().end - ax().from));   // (near the start the first value is already there)
       return v;
     });
     // (Two heads close together, the bands short on a phone: the lower band's value goes under its head, clear of the other.)
     const [a, b] = parts.lines.map((l) => +l.val.getAttribute('y'));
-    if (Math.abs(a - b) < 1.4 * G.f) { const lo = parts.lines[a > b ? 0 : 1]; lo.val.setAttribute('y', (+lo.dot.getAttribute('cy') + 1.5 * G.f).toFixed(1)); }
-    parts.svg.setAttribute('aria-label', `${LINES[0][4]} and ${LINES[1][4].toLowerCase()} ${clock === 'days' ? `over ${ax().end} days` : 'around a meal'}: `
+    if (Math.abs(a - b) < 1.4 * G.f) { const lo = parts.lines[a > b ? 0 : 1]; setGeo(lo.val, 'y', (+lo.dot.getAttribute('cy') + 1.5 * G.f).toFixed(1)); }
+    attrSoon(parts.svg, 'aria-label', `${LINES[0][4]} and ${LINES[1][4].toLowerCase()} ${clock === 'days' ? `over ${ax().end} days` : 'around a meal'}: `
       + LINES.map(([k, , , , name, unit, d], j) => `${name.toLowerCase()} ${withUnit(ser[k][0], d, unit)} to ${withUnit(heads[j], d, unit)}`).join(', '));
-    parts.svg.dataset.points = String(ser.min.filter((x) => x < m).length + 1);   // (the points drawn so far, of data-of: the browser checks read them)
-    parts.svg.dataset.of = String(ser.min.length);
+    dataSoon(parts.svg, 'points', String(ser.min.filter((x) => x < m).length + 1));   // (the points drawn so far, of data-of: the browser checks read them)
+    dataSoon(parts.svg, 'of', String(ser.min.length));
   }
   // The heads glide after the goal (never a jump).
   function tick() {
@@ -268,7 +273,7 @@ export function createFlowTime() {
         shown = goal = minuteOf(k);
         // (The new chart fades in over the old, in the GPU's picture, on the stylesheet's old ease, --d-surface on --ease.)
         if (parts) { el.append(parts.svg); paint(shown); gl.place(parts.svg); gl.fadeIn(parts.svg, D_SURFACE, EASE_ARRIVE); }
-        setTimeout(() => { old.forEach((o) => o.remove()); gl.paint(); }, 480);
+        setTimeout(() => restPass(() => { old.forEach((o) => o.remove()); gl.paint(); }), 480);
         return;
       }
       goal = minuteOf(k);

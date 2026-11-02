@@ -3,13 +3,7 @@
 // sliders that used to live in the side panel. Every verb takes effect at once and becomes one
 // entry in the timeline; nothing stays "armed".
 
-import { store, updateParams } from './store.js?v=a21c31dcb5';
-import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout, countTo, swapText, transformEndX, afterExit, markGone, releaseWords } from './util.js?v=ad6469643b';
-import { releaseSpeed, isFlick, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=7513a88c68';
-import { cardFor, normalizeSel } from './actions.js?v=58d8e8eed0';
-import { frameFor, cancelFrame } from './frame.js?v=1d147c7c9a';
-import { restPass, cancelRest } from './rest-pass.js?v=bb619a1659';
-import { classSoon, runSoon } from './class-soon.js?v=97b9d0e0db';
+import { classSoon, runSoon, propSoon, attrSoon, textSoon } from './class-soon.js?v=0000000000';
 import { placeCard, coverCount, vesselPoints } from './card-place.js?v=4eb9859ce3';
 import { readBox, readMetric } from './layout-snap.js?v=f609965236';
 const nextFrame = frameFor('card');
@@ -288,7 +282,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
       const lab = typeof v.label === 'function' ? v.label() : v.label;
       const input = h('input', { type: 'range', min: v.min, max: v.max, step: v.step, 'aria-label': lab, 'data-def': v.def ?? null });
       const val = h('span', { class: 'ctl-val' });
-      const paint = (x) => { input.value = x; val.textContent = v.format(x); paintRange(input, (x - v.min) / (v.max - v.min)); row.classList.toggle('changed', v.def != null && Math.abs(x - v.def) > 1e-9); };
+      const paint = (x) => { propSoon(input, 'value', String(x)); val.textContent = v.format(x); paintRange(input, (x - v.min) / (v.max - v.min)); row.classList.toggle('changed', v.def != null && Math.abs(x - v.def) > 1e-9); };
       let fresh = true;
       input.addEventListener('pointerdown', () => { fresh = true; });
       input.addEventListener('keydown', () => { fresh = true; });
@@ -320,7 +314,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
       const b = h('button', { class: 'ac-toggle', role: 'switch', 'aria-checked': String(!!v.get(p0)) },
         v.icon ? svgIcon(v.icon, 'ac-ic') : null, h('span', { class: 'ac-tl' }, v.label), h('span', { class: 'switch-vis', 'aria-hidden': 'true' }, h('i')));
       b.addEventListener('click', () => { const on = !v.get(store.get().params); updateParams((pp) => { v.set(pp, on); return pp; }, { label: `${v.hist || v.label} ${on ? 'on' : 'off'}` }); });
-      syncs.push((p) => b.setAttribute('aria-checked', String(!!v.get(p))));
+      syncs.push((p) => attrSoon(b, 'aria-checked', String(!!v.get(p))));
       actionable.push({ el: b, run: () => b.click(), focus: () => b.focus() });
       return b;
     }
@@ -337,7 +331,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
           if (v.labelFor) { const t = v.labelFor(p); if (lbl.textContent !== t) lbl.textContent = t; }
           if (v.on) b.classList.toggle('on', !!v.on(p));
           const t = f && v.note ? v.note(f, p) : null;
-          note.hidden = !t; if (t && note.textContent !== t) note.textContent = t;
+          propSoon(note, 'hidden', !t); if (t) textSoon(note, t);
         });
       }
       actionable.push({ el: b, run: () => b.click(), focus: () => b.focus() });

@@ -4,6 +4,7 @@
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { gastricUp } from '../engine/scenario.js?v=d2669cef9b';
 import { wallRead } from '../engine/wall-read.js?v=09449acd01';
+<<<<<<< HEAD
 import { pressureColor } from './colormap.js?v=b90c94f961';
 import { h, fmt, canvasSize, cssVar, cssAlpha, clamp, icon, swapText, putText, countTo } from './util.js?v=ad6469643b';
 import { wordSetter } from './gl-words.js?v=c4ea89c775';
@@ -24,6 +25,28 @@ import { restPass } from './rest-pass.js?v=bb619a1659';
 import { createTraceGL, fitPen } from './trace-gl.js?v=2d7b4b37ee';
 import { createSvgGL, svgModel, setWords, wordsOf } from './svg-gl.js?v=949ac7fd0e';
 import { textWidth } from './text-gl.js?v=3203debbbd';
+=======
+import { pressureColor } from './colormap.js?v=9bd5312be0';
+import { h, fmt, canvasSize, cssVar, cssAlpha, clamp, icon, swapText, putText, countTo } from './util.js?v=a1b4013d91';
+import { wordSetter } from './gl-words.js?v=2a2cda78ea';
+import { simTime, isPaused } from './clock.js?v=b93873f913';
+import { createEndoGL } from './endo-gl.js?v=4a364f0f74';
+import { surface } from './gpu-surfaces.js?v=2af17044e7';
+import { renderEndo } from './endo-render.js?v=1f444a0ab1';
+import { endoGrow, airRatio, airFlat } from './endo-size.js?v=e0a58bf20e';
+import { DEFLATE_MS, BAND_MS, BAND_DELAY_MS, fadeIn, glide, scopeTear } from './endo-motion.js?v=ea7ccb902e';
+import { drawScopeBleed } from './endo-bleed.js?v=64d84aed84';
+import { poolFill } from './blood.js?v=a70439097a';
+import { FONT } from './charts.js?v=b915a4432e';
+import { store, updateParams, varicesPresent } from './store.js?v=5174ae465b';
+import { classSoon, attrSoon, dataSoon, propSoon } from './class-soon.js?v=97b9d0e0db';
+import { balanceHold, balanceLine } from './balance-hold.js?v=1792704e7a';
+import { lateFrameFor, cancelFrame, framePhase, easeNow } from './frame.js?v=1d147c7c9a';
+import { restPass } from './rest-pass.js?v=d13e397f0b';
+import { createTraceGL, fitPen } from './trace-gl.js?v=516ddfbcc9';
+import { createSvgGL, svgModel, setWords, wordsOf, setGeo } from './svg-gl.js?v=d5c69f5f25';
+import { textWidth } from './text-gl.js?v=96ad9e26a5';
+>>>>>>> 3207b43b (Chart, dial, callout and glyph-slot models keep their moving numbers on the piece (setGeo); card and inspector control syncs land in a rest pass)
 import { D_SURFACE, easeArrive } from './ease.js?v=7513a88c68';
 import { inkBox } from './glyph-measure.js?v=1e477bd6b3';
 // (The endoscope's field: drawn in the late part of a frame, after the model's frame of it has been taken in, so once a frame.)
@@ -587,7 +610,7 @@ function iapDial() {
   // The knob's turn, eased on the frame clock as the page's transition was (D_SURFACE on the arrive curve); reduced motion: at once.
   let ang = 90, turn = null, turnAsk = 0;
   const KNOB_STILL = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : { matches: false };
-  const knobAt = (a) => knob.setAttribute('transform', `rotate(${a.toFixed(2)} ${C} ${C})`);
+  const knobAt = (a) => setGeo(knob, 'transform', `rotate(${a.toFixed(2)} ${C} ${C})`);
   knobAt(ang);
   function knobStep() {
     turnAsk = 0;
@@ -605,7 +628,7 @@ function iapDial() {
     const sev = iapSev(v);
     setWords(num, String(n)); setWords(word, IAP_WORD[sev]);
     dataSoon(svg, 'sev', sev);
-    for (const [a, b, lp] of live) lp.setAttribute('stroke-dasharray', `${(clamp((v - a) / (b - a), 0, 1) * 100).toFixed(1)} 100`);
+    for (const [a, b, lp] of live) setGeo(lp, 'stroke-dasharray', `${(clamp((v - a) / (b - a), 0, 1) * 100).toFixed(1)} 100`);
     const to = 90 + (v / IAP_MAX) * 180;
     if (KNOB_STILL.matches) { turn = null; ang = to; knobAt(ang); } else { turn = { from: ang, to, t0: easeNow() }; if (!turnAsk) turnAsk = lateFrameFor('instruments')(knobStep); }
     attrSoon(el, 'aria-label', `Intra-abdominal pressure ${n} mmHg, ${IAP_WORD[sev].toLowerCase()}`);

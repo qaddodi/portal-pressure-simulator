@@ -326,7 +326,10 @@ export function setGeo(el, k, v) {
   if (!g) {
     // (Read back as an attribute too, so what asks a piece for its ends or centre (the browser checks, svg-morph) finds them.)
     g = el._g = {};
-    el.getAttribute = (n) => { const x = g[n]; return x === undefined ? Element.prototype.getAttribute.call(el, n) : x == null ? null : String(x); };
+    const got = el.getAttribute?.bind(el);
+    el.getAttribute = (n) => { const x = g[n]; return x === undefined ? (got ? got(n) : null) : x == null ? null : String(x); };
+    const had = el.hasAttribute?.bind(el);
+    el.hasAttribute = (n) => { const x = g[n]; return x === undefined ? !!had?.(n) : x != null; };
   }
   if (g[k] === v) return false;
   g[k] = v;

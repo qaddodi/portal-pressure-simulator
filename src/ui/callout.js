@@ -3,8 +3,13 @@
 // and tint, clipped to the shape's path); the outline is that same path stroked inside it (4 px, so only the inner 2 px shows; the
 // hairline of cl-hair strokes 2 px, so 1 px shows). The pointer reaches outside the card's box, so the child is the box grown by the pointer's depth.
 
+<<<<<<< HEAD
 import { createSvgGL, svgModel } from './svg-gl.js?v=949ac7fd0e';
 import { restPass } from './rest-pass.js?v=bb619a1659';
+=======
+import { createSvgGL, svgModel, setGeo } from './svg-gl.js?v=d5c69f5f25';
+import { restPass } from './rest-pass.js?v=d13e397f0b';
+>>>>>>> 3207b43b (Chart, dial, callout and glyph-slot models keep their moving numbers on the piece (setGeo); card and inspector control syncs land in a rest pass)
 
 const PTR = 11;   // how far the pointer reaches past the card's edge, and its half-width at the edge
 const KEEP = 28;  // the pointer stays this far from the card's sides, clear of the rounded corners
@@ -74,8 +79,8 @@ export function glassCallout(el, { pointer = true } = {}) {
     const px = Math.max(KEEP, Math.min(w - KEEP, w / 2 + Math.max(-0.4 * w, Math.min(0.4 * w, ax)))), up = dir === 'top' ? PTR : 0;
     const d = outline(w, h, r, up, px, dir);
     glass.style.cssText = `left:${-BORDER}px;top:${-BORDER - up}px;width:${+w.toFixed(2)}px;height:${+(h + (dir === 'none' ? 0 : PTR)).toFixed(2)}px;clip-path:path('${d}')`;
-    path.setAttribute('d', d);
-    svg.setAttribute('viewBox', `0 0 ${+w.toFixed(2)} ${+(h + (dir === 'none' ? 0 : PTR)).toFixed(2)}`);
+    setGeo(path, 'd', d);
+    setGeo(svg, 'viewBox', `0 0 ${+w.toFixed(2)} ${+(h + (dir === 'none' ? 0 : PTR)).toFixed(2)}`);
     S.gl?.paint();
   };
   // A live observation keeps the observer and the card alive: it ends with dispose(), or when the card leaves the page.

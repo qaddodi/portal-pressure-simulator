@@ -18,9 +18,15 @@
 // The words fall back to a write between frames (never in a frame) where the GPU cannot set them: no outlines yet, a character the
 // cut glyphs do not have, an element with no box. ?glwords=0: every change is written into the page between frames, with no picture.
 
+<<<<<<< HEAD
 import { createSvgGL, svgModel } from './svg-gl.js?v=949ac7fd0e';
 import { textPolys, textWidth, textBox, loadGlyphs, glyphsReady, textCovers, glyphRun } from './text-gl.js?v=3203debbbd';
 import { restPass, cancelRest } from './rest-pass.js?v=bb619a1659';
+=======
+import { createSvgGL, svgModel, setGeo, geoOf } from './svg-gl.js?v=d5c69f5f25';
+import { textPolys, textWidth, textBox, loadGlyphs, glyphsReady, textCovers, glyphRun } from './text-gl.js?v=96ad9e26a5';
+import { restPass, cancelRest } from './rest-pass.js?v=d13e397f0b';
+>>>>>>> 3207b43b (Chart, dial, callout and glyph-slot models keep their moving numbers on the piece (setGeo); card and inspector control syncs land in a rest pass)
 import { readMetric } from './layout-snap.js?v=f609965236';
 import { cssColor } from './css-color.js?v=e56f0c77ae';
 import { caught } from './caught.js?v=b96b17594a';
@@ -177,7 +183,7 @@ const askMeasure = (S) => { if (S.dead) return; measureQ.add(S); S.measureAsk = 
 // ── A frame: the new words drawn, nothing written into the page ──
 const V_CAP = 24, U_CAP = 12;
 const slotsOf = (n, fill) => Array.from({ length: n }, () => ({ el: svgModel('path', { fill, d: '' }), d: '', tr: '' }));
-const setA = (q, d, tr) => { if (q.d !== d) { q.d = d; q.el.setAttribute('d', d); } if (tr != null && q.tr !== tr) { q.tr = tr; q.el.setAttribute('transform', tr); } };
+const setA = (q, d, tr) => { if (q.d !== d) { q.d = d; setGeo(q.el, 'd', d); } if (tr != null && q.tr !== tr) { q.tr = tr; setGeo(q.el, 'transform', tr); } };
 const runV = [], runU = [];
 // (The slots filled from a run of cached glyph paths; the rest emptied. Only what changed is written.)
 function fillSlots(slots, run, y) {
@@ -196,13 +202,13 @@ function draw(S, t, u) {
   const uy = S.small && !after ? at.uy : at.y;
   const rv = glyphRun(tt, x, L, runV).glyphs, ru = u ? glyphRun(uu, x + wv + sp, U, runU).glyphs : (runU.length = 0, runU);
   if (S.vSlots && rv.length <= S.vSlots.length && ru.length <= S.uSlots.length) {
-    if (S.vPath.getAttribute('d')) S.vPath.setAttribute('d', '');
-    if (S.uPath.getAttribute('d')) S.uPath.setAttribute('d', '');
+    if (geoOf(S.vPath, 'd')) setGeo(S.vPath, 'd', '');
+    if (geoOf(S.uPath, 'd')) setGeo(S.uPath, 'd', '');
     fillSlots(S.vSlots, rv, at.y); fillSlots(S.uSlots, ru, uy);
   } else {
     clearSlots(S);
-    S.vPath.setAttribute('d', dOf(textPolys(tt, x, at.y, L).polys));
-    S.uPath.setAttribute('d', u ? dOf(textPolys(uu, x + wv + sp, uy, U).polys) : '');
+    setGeo(S.vPath, 'd', dOf(textPolys(tt, x, at.y, L).polys));
+    setGeo(S.uPath, 'd', u ? dOf(textPolys(uu, x + wv + sp, uy, U).polys) : '');
   }
   S.pend = true;
   S.gl.paint();
