@@ -50,8 +50,17 @@ if (GL_WORDS && typeof MutationObserver === 'function' && typeof document !== 'u
 // call them, never in the frame that asks for new words.)
 
 // ── Read between frames: where and how the page sets the words ──
-function measure(S) {
-  S.measureAsk = 0;
+// (Every readout asked for in a pass is read first, then all are written: a write between two reads made the browser lay the page
+// out again for the next, one layout per readout as a slide's cards landed. 2 Nov 2026, "Move everything to GPU".)
+const measureQ = new Set();
+let measureAll = 0;
+function measurePass() {
+  measureAll = 0;
+  const qs = [...measureQ]; measureQ.clear();
+  const reads = qs.map((S) => { S.measureAsk = 0; return measureRead(S); });
+  qs.forEach((S, i) => { if (reads[i]) measureWrite(S, reads[i]); });
+}
+function measureRead(S) {
   const { el, host, after } = S;
   if (!GL_WORDS || S.on) return;
   if (!el.isConnected || !glyphsReady() || !S.txt?.data || S.txt.parentNode !== el) { S.at = null; return; }
@@ -87,6 +96,10 @@ function measure(S) {
   }
   const room = (v) => Math.max(0, Math.min(most, Math.floor(v)));
   const pad = { l: room(box.left - cl), t: room(box.top - ct), r: room(cr - box.right), b: room(cb - box.bottom) };
+  return { at, pad, L, U };
+}
+function measureWrite(S, { at, pad, L, U }) {
+  const { host } = S;
   if (!S.gl) {
     S.gl = createSvgGL(host);
     S.gl.cv.setAttribute('aria-hidden', 'true'); S.gl.cv.removeAttribute('role');
@@ -104,7 +117,7 @@ function measure(S) {
   S.at = at;
   S.gl.paint();   // (a first, empty, drawing: the picture's canvas is sized now, between frames, so the first new words are drawn whole)
 }
-const askMeasure = (S) => { if (!S.measureAsk) S.measureAsk = restPass(() => measure(S)); };
+const askMeasure = (S) => { measureQ.add(S); S.measureAsk = 1; if (!measureAll) measureAll = restPass(measurePass); };
 
 // ── A frame: the new words drawn, nothing written into the page ──
 function draw(S, t, u) {
