@@ -20,7 +20,7 @@ import { restPass } from './rest-pass.js?v=ed71462b47';
 import { cssCurve, D_SURFACE, EASE_ARRIVE } from './ease.js?v=7513a88c68';
 import { cssColor } from './css-color.js?v=e56f0c77ae';
 import { morphSvg } from './svg-morph.js?v=979224c12c';
-import { attrSoon } from './class-soon.js?v=fe4bf30794';
+import { attrSoon } from './class-soon.js?v=6ad82f25a8';
 
 // (No bleed: a picture reaching past the box counts as overflow, and the card's fit then shrank the whole card to take it in.)
 export const BLEED = 0;

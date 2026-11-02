@@ -96,3 +96,9 @@ export function dataSoon(el, key, value) { if (el) into(datas, readData, el, key
 export function propSoon(el, prop, value) { if (el) into(props, readProp, el, prop, value); }
 /** Takes the element out of the page in the next rest pass. */
 export function removeSoon(el) { if (el) { gone.add(el); ask(); } }
+
+/** Writes the class now (a change at a boundary that must show at once) and drops any ask waiting for that class. */
+export function classNow(el, name, on) {
+  classes.get(el)?.delete(name);
+  if (el.classList.contains(name) !== !!on) el.classList.toggle(name, !!on);
+}

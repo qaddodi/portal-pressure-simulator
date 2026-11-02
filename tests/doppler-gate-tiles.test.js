@@ -18,7 +18,7 @@ test('each segment tile holds a real button that sets the gate and says which on
   assert.match(src, /btn\?\.addEventListener\('click', \(\) => pickSeg\(seg\)\)/);
   assert.match(src, /store\.set\(\{ dopGate: seg \}\)/);
   assert.match(src, /attrSoon\(b, 'aria-pressed', on\)/);
-  assert.match(src, /setClass\(w, 'on', seg === at\)/);   // (the highlight, a thicker edge, follows the gate as before)
+  assert.match(src, /classSoon\(w, 'on', seg === at\)/);   // (the highlight, a thicker edge, follows the gate as before)
 });
 
 test('the button covers its whole tile and is keyboard focusable', () => {

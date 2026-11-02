@@ -5,12 +5,12 @@
 // full. It scrolls smoothly, one spectral line at a time, as the machine does.
 
 import { EDGES, dopplerK, stentSegments, stentSite, stentGate, stentCourse } from '../engine/topology.js?v=4044766e96';
-import { glWords, wordsRect } from './gl-words.js?v=99fb447a2d';
-import { h, fmt, canvasSize, clamp, icon, cssVar, cssAlpha, swapText } from './util.js?v=d9ebc1fd77';
-import { FONT, textW } from './charts.js?v=1e8ddf9136';
-import { setClass } from './class-batch.js?v=8f8669161e';
+import { glWords, wordsRect } from './gl-words.js?v=dc1d382deb';
+import { h, fmt, canvasSize, clamp, icon, cssVar, cssAlpha, swapText } from './util.js?v=784ba7732c';
+import { FONT, textW } from './charts.js?v=3c9bdc9491';
+import { classSoon } from './class-soon.js?v=6ad82f25a8';
 import { logAction, shownVel, store } from './store.js?v=afc4d7c743';
-import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=a86c4a70aa';
+import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=05f2177f16';
 import { frameFor, noteDraw, paceMs, cancelFrame } from './frame.js?v=26e2e46fff';
 import { windowIndexFor, scaleFor, fitScale } from './dopplerWindow.js?v=1d34e63b32';
 import { velNormal, dopplerVel, judgeFlow } from './velNormal.js?v=97920ddf3f';
@@ -22,7 +22,7 @@ import { createFollow } from './display-state.js?v=8d062d39dc';
 import { D_SMALL, EASE_ARRIVE } from './ease.js?v=7513a88c68';
 import { restPass } from './rest-pass.js?v=ed71462b47';
 import { createTraceGL, fitPen, keepLayer } from './trace-gl.js?v=671f8a9cea';
-import { attrSoon, dataSoon, propSoon } from './class-soon.js?v=fe4bf30794';
+import { attrSoon, dataSoon, propSoon } from './class-soon.js?v=6ad82f25a8';
 const nextFrame = frameFor('doppler');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -533,7 +533,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
         const [seg, name] = SEGS[i], w = statEls[name].wrap, out = String(v < p.normal[0] || v > p.normal[1]);
         setStat(statEls[name].dd, num(v), 'cm/s');
         dataSoon(w, 'out', out);
-        setClass(w, 'on', seg === at);
+        classSoon(w, 'on', seg === at);
         const b = statEls[name].btn;
         if (b) {
           const on = String(seg === at), label = `${name}, ${num(v)} centimeters per second${seg === at ? ', sampling here' : ''}. Activate to sample here.`;
