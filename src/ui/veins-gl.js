@@ -2802,23 +2802,31 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // composite then lays the layer as after any whole draw, with its own shader. Such a layer is not the exact one (`soft`), so the
   // next draw at this view draws it whole: the view a pinch stops at is always shaded at Full. lowK 0: nothing here runs.
   // (Pinch frame reuse, when on, takes the zoom frames instead: its kept picture is laid only over a layer left empty.)
-  let lowK = 0, lowOn = false, soft = false;
-  const lw = { fbo: null, tex: null, w: 0, h: 0 };
-  function lowPass(m, look) {
-    const w = Math.max(1, Math.round(PW() * lowK)), h = Math.max(1, Math.round(PH() * lowK));
+  // (Quality tiers, adapt-tier.js (R07): the targets are made once at the top tier's size (lowTop) and every tier draws inside them
+  // at its own viewport, so stepping between tiers allocates nothing; prepLow makes them between frames, before the first is needed.)
+  let lowK = 0, lowOn = false, soft = false, lowTop = 0;
+  const lw = { fbo: null, tex: null, w: 0, h: 0, pw: 0, ph: 0 };
+  function lowTargets(w, h) {
     if (!lw.fbo) { lw.fbo = gl.createFramebuffer(); lw.tex = ATTACH.map(() => dataTex(gl)); }
     gl.bindFramebuffer(gl.FRAMEBUFFER, lw.fbo);
-    if (lw.w !== w || lw.h !== h) {
-      lw.w = w; lw.h = h;
+    if (lw.w < w || lw.h < h || lw.pw !== PW() || lw.ph !== PH()) {
+      lw.w = Math.max(w, Math.round(PW() * lowTop)); lw.h = Math.max(h, Math.round(PH() * lowTop)); lw.pw = PW(); lw.ph = PH();
       const fmt = layerFmt();
-      lw.tex.forEach((t, i) => { gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, fmt[i][0], w, h, 0, fmt[i][1], fmt[i][2], null); gl.framebufferTexture2D(gl.FRAMEBUFFER, ATTACH[i], gl.TEXTURE_2D, t, 0); });
+      lw.tex.forEach((t, i) => { gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, fmt[i][0], lw.w, lw.h, 0, fmt[i][1], fmt[i][2], null); gl.framebufferTexture2D(gl.FRAMEBUFFER, ATTACH[i], gl.TEXTURE_2D, t, 0); });
       gl.drawBuffers(ATTACH);
     }
+  }
+  function lowPass(m, look) {
+    const w = Math.max(1, Math.round(PW() * lowK)), h = Math.max(1, Math.round(PH() * lowK));
+    lowTargets(w, h);
+    // (Only the tier's corner of the targets is cleared and drawn.)
+    if (lw.w > w || lw.h > h) { gl.enable(gl.SCISSOR_TEST); gl.scissor(0, 0, w, h); clearLayer(); }
     // (The transform to the small target's pixels, each axis by its own share, so the stretch lays every pixel back where it belongs.)
     const kx = w / PW(), ky = h / PH();
     gl.viewport(0, 0, w, h);
+    const cleared = lw.w > w || lw.h > h;
     gl.disable(gl.SCISSOR_TEST);
-    clearLayer();
+    if (!cleared) clearLayer();
     vesselPass([m[0] * kx, m[1] * ky, m[2] * kx, m[3] * ky, m[4] * kx, m[5] * ky], look, [vao, nGen], [oneVAO, nSimple], false, false, [w, h]);
     gl.bindFramebuffer(gl.READ_FRAMEBUFFER, lw.fbo);
     gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, fbo);
@@ -2837,7 +2845,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     if (!lw.fbo || lost) return;
     for (const t of lw.tex) gl.deleteTexture(t);
     gl.deleteFramebuffer(lw.fbo);
-    lw.fbo = lw.tex = null; lw.w = lw.h = 0;
+    lw.fbo = lw.tex = null; lw.w = lw.h = lw.pw = lw.ph = 0;
   }
   // The composite's textures, each on its unit (U: the program's uniforms; the flags: which of the layers it lays this frame).
   function compBind(U, layer, glow, warm, useStack) {
@@ -3480,12 +3488,20 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      * Vessels lower while pinching: `k` (0 off, else the share of the layer's width and height a zoom frame draws it at) and `now` (a
      * hand is zooming: only then). Off gives the small targets back.
      */
-    setLow(k, now) {
+    setLow(k, now, top = 0) {
       lowOn = !!now;
       k = k > 0 && k < 1 ? k : 0;
+      lowTop = top > 0 && top < 1 ? Math.max(top, k) : k;   // (the quality tiers' top: the targets' size, so a step allocates nothing)
       if (k === lowK) return;
       lowK = k;
-      if (!k) lowFree();
+      if (!k && !lowTop) lowFree();
+    },
+    /** The quality tiers' targets made now, at `top` of the layer's width and height (between frames: adapt-tier.js asks once). */
+    prepLow(top) {
+      if (lost || !(top > 0 && top < 1) || PW() < 1 || PH() < 1) return;
+      lowTop = Math.max(lowTop, top);
+      lowTargets(Math.round(PW() * top), Math.round(PH() * top));
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     },
     /** Whether the last draw drew the layer lower (Vessels lower while pinching): the next one at that view has to draw it whole. */
     get soft() { return soft; },

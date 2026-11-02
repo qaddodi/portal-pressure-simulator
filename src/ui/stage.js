@@ -1,6 +1,7 @@
 // Anatomical stage (blueprint §6): the figure drawn on the GPU (plate, vessels, moving blood),
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
+import { TIERS_ON, TIER_TOP, tierK, onTierWarm } from './adapt-tier.js?v=c58e6c0771';
 import { WARM_VIEWS, WARM_MS } from './warm-views.js?v=510b2dee9e';
 import { gastricUp } from '../engine/scenario.js?v=0762d1b820';
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
@@ -55,7 +56,7 @@ import { createLabelGL } from './label-gl.js?v=74c48b90f4';
 import { createGlassGL } from './glass-gl.js?v=0af149ee12';
 import { writePoints, writeJoinNow } from './veins-sweep.js?v=c4ad517372';
 import { ENT_W } from './veins-bin.js?v=6e462a9e6c';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=6c4f90b2d0';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=c7fb7ff625';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=d950c5cd1c';
 import { alongCurve } from './pressure-along.js?v=74c64e4286';
@@ -2762,7 +2763,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=b35058e8bc').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=2b19fc3825').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -2981,6 +2982,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   new ResizeObserver(resizeCanvas).observe(wrap);
   // (A change that leaves the canvas's size as it is (Glows alone) still draws the figure again, its glow layers remade.)
   // (Auto's step is taken at once for the view as it stands, so a change goes in one eased step, not by Full and back.)
+  if (TIERS_ON) onTierWarm(() => { if (veins && !veins.lost) veins.prepLow?.(TIER_TOP); });   // (the tiers' targets, made between frames)
   onRenderScale(() => { autoK = autoNow(); moveLow = false; adaptK = 1; moveGaps = []; easeRes(); veinsDirty = true; forceDraw = true; stageWake(); settleRes(); });
   resizeCanvas(); resizeReady = true;
   // A window dragged to a screen of another density keeps its CSS size, so no resize notice follows and the figure would stay at the old screen's
@@ -4996,7 +4998,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     veins.setReuse?.(reuse, !!reuse && gestureOn());
     // (Vessels lower while pinching: likewise only while a hand zooms, and a frame drawn lower leaves the layer to be drawn whole.)
     const low = figLab('pinchLow');
-    veins.setLow?.(low ? PINCH_LOW_K : 0, low && gestureOn());
+    // (Quality tiers, adapt-tier.js (R07): under deadline pressure every zoom frame of a move, a hand's or a glide's, draws the layer at
+    // the tier's share inside targets made once at the top tier's size; the view a move stops at is drawn at Full. ?tiers=0: off.)
+    const tk = TIERS_ON ? tierK() : 0;
+    veins.setLow?.(tk || (low ? PINCH_LOW_K : 0), tk ? true : low && gestureOn(), TIERS_ON ? TIER_TOP : 0);
     veins.draw(T, vLook, bloodLook(), rows);
     if (veins.reused || veins.soft) veinsDirty = true;
     return true;

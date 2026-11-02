@@ -4,6 +4,7 @@
 // (gpu-probe.js cpuOnly: no waiting for the GPU), every frame that missed the screen's refresh in the window is listed with the
 // steps that ran in it (and every interval counted in a histogram at that refresh, with p50/p95/p99), and so is each long task the browser reports (Chrome; Safari reports none, its frame gaps still show). The panel is
 // written only when a window closes, never during a gesture, and the last five gestures stay listed with a Copy button.
+import { TIERS_ON, TIERS, sceneTier, tierLog } from './adapt-tier.js?v=c58e6c0771';
 import { gpuProbe, COUNTED, TWICE, WHY, ROWS_REFUSED, BY, TISSUE_WHY } from './gpu-probe.js?v=625c2c9315';
 import { restPass } from './rest-pass.js?v=bf0c42ead5';
 import { perf, watchFrames, finalFrameFor } from './frame.js?v=028685e44a';
@@ -294,7 +295,10 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
   // written twice a second from each surface's own state while no gesture's window is open (a write during one would be measured).
   const surfEl = document.createElement('div');
   surfEl.style.cssText = 'margin-top:8px';
-  const surfText = () => `${surfacesText(surfaceRows())}\n${gpuBudgetText()}`;   // (and the render graph's budget, gpu-budget.js, R06)
+  // (The quality tier now (adapt-tier.js, R07) and its last change, with why.)
+  const tierText = () => { if (!TIERS_ON) return 'Quality tier: off (?tiers=0)'; const t = sceneTier(), l = tierLog().at(-1); return `Quality tier: ${t ? `${Math.round(TIERS[t] * 100)}% on moving frames` : 'Full'}${l ? `; last change ${l.from}→${l.to}: ${l.why} (${l.mb} MB)` : ''}`; };
+  if (window.pps) window.pps.tiers = () => tierLog();
+  const surfText = () => `${surfacesText(surfaceRows())}\n${gpuBudgetText()}\n${tierText()}`;   // (and the render graph's budget, gpu-budget.js, R06)
   pSurfEl = surfEl; pSurfText = surfText;
   setInterval(() => { if (!cur && !folded && !document.hidden) restPass(writeSurf); }, 500);
   if (window.pps) window.pps.surfaces = () => surfaceRows();   // (for a headless run: pps.surfaces())
