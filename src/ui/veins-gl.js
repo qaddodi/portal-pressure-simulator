@@ -41,7 +41,7 @@ import { CELL, ENT_W, binVeins, splitRows, simpleCells, splitCells, cellsOfJoinE
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { changedRows } from './flow-rows.js?v=59053c0155';
 import { leftAlone } from './quiet.js?v=388052eba8';
-import { uniformCache } from './uniform-cache.js?v=2a2500a2e8';
+import { uniformCache } from './uniform-cache.js?v=d2bd54b612';
 import { PUBLISH_QUIET_MS, SHADER_WARM, exerciseDraw } from './gl-compile.js?v=e48e05cdb3';
 import { createShapeGL, flattenPath, ellipsePoly, polyMesh } from './shape-gl.js?v=f7d920b7d0';
 import { createOrganStack, prestartOrganStack, prestartLayer } from './organs-gl.js?v=ecf7b49c24';
@@ -121,6 +121,9 @@ const INVALIDATE = !(typeof location !== 'undefined' && /[?&]invalidate=0\b/.tes
 // that buffer's stencil, never the canvas's, so the canvas's was a second screen-sized stencil kept for nothing (GPU memory, and on a
 // tile GPU a buffer stored every frame). ?stencilfree=0 in the address: the canvas keeps one, as before.
 const CTX_STENCIL_FREE = !(typeof location !== 'undefined' && /[?&]stencilfree=0\b/.test(location.search));
+// A uniform is sent only when it differs from what its program holds, at every per-frame draw (uniform-cache.js). ?ucache=0 in the
+// address: every uniform is sent each draw, as before.
+const UNIFORM_CACHE = !(typeof location !== 'undefined' && /[?&]ucache=0\b/.test(location.search));
 // Tube depth (vessel depth pass, 31 Oct): a lumen darkens a little toward its wall, more on the side away from the light, and
 // a pale band of wall sits between the lumen and the casing; a vessel passing over another casts a slightly fuller contact
 // shadow. The centre of every lumen keeps its pressure or flow colour exactly. ALU only, no texture reads. ?depth=0: as before.
@@ -1815,7 +1818,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: ONE_PASS && !(ownBuf && CTX_STENCIL_FREE), preserveDrawingBuffer: !ownBuf, failIfMajorPerformanceCaveat: !force }); } catch { gl = null; }
   if (!gl) return null;
   // The composite's per-frame uniforms are sent only when they changed (uniform-cache.js; laptop-heat Q2). They are set nowhere else.
-  const UC = uniformCache(gl);
+  const UC = uniformCache(gl, { on: UNIFORM_CACHE });
   // Settings › Figure performance › Sharper upscaling (frame.js upscale, off by default): the picture's own size, [w, h], when the stage
   // draws the figure under Full into a buffer of its own and the canvas stays at Full (setPicture); null otherwise, and then the picture
   // is the canvas, as ever. Every size inside reads PW() and PH().
@@ -2008,18 +2011,18 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   function drawLines(m, soft, warm = false) {
     const U = lineP.u;
     gl.useProgram(lineP.p);
-    gl.uniformMatrix3fv(U.world, false, new Float32Array([m[0], m[1], 0, m[2], m[3], 0, m[4], m[5], 1]));
-    gl.uniform2f(U.size, PW(), PH());
-    gl.uniform1f(U.soft, soft ? 1 : 0);
-    gl.uniform1f(U.pack, warm ? 1 : 0);
+    UC.m3(U.world, put(SCR.world, [m[0], m[1], 0, m[2], m[3], 0, m[4], m[5], 1]));
+    UC.f2(U.size, PW(), PH());
+    UC.f1(U.soft, soft ? 1 : 0);
+    UC.f1(U.pack, warm ? 1 : 0);
     gl.enable(gl.BLEND);
     // The warm glow's strips take the strongest where they meet (one colour, so max is exact on premultiplied output): overlaps never stack.
     if (warm) { gl.blendEquation(gl.MAX); gl.blendFunc(gl.ONE, gl.ONE); } else gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.bindVertexArray(lineVAO);
     for (const d of lines.draws) {
       if (d.alpha <= 0 || !!d.soft !== !!soft || !!d.warm !== warm) continue;
-      gl.uniform4f(U.col, ...d.col, d.alpha);
-      gl.uniform2f(U.endFade, d.endFade ? d.endFade[0] : 0, d.endFade ? d.endFade[1] : 0);
+      UC.f4(U.col, d.col[0], d.col[1], d.col[2], d.alpha);
+      UC.f2(U.endFade, d.endFade ? d.endFade[0] : 0, d.endFade ? d.endFade[1] : 0);
       gl.drawArrays(d.tri ? gl.TRIANGLES : gl.TRIANGLE_STRIP, d.first, d.count);
     }
     gl.bindVertexArray(null);
@@ -2305,18 +2308,18 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   function drawCath(m) {
     const U = cathP.u;
     gl.useProgram(cathP.p);
-    gl.uniformMatrix3fv(U.world, false, new Float32Array([m[0], m[1], 0, m[2], m[3], 0, m[4], m[5], 1]));
-    gl.uniform2f(U.size, PW(), PH());
-    gl.uniform2f(U.light, ...(cath.light || LIGHT));
+    UC.m3(U.world, put(SCR.world, [m[0], m[1], 0, m[2], m[3], 0, m[4], m[5], 1]));
+    UC.f2(U.size, PW(), PH());
+    UC.f2a(U.light, (cath.light || LIGHT));
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.bindVertexArray(cathVAO);
     for (const d of cath.draws) {
-      gl.uniform1i(U.mode, d.mode);
-      gl.uniform3f(U.col, ...d.col);
-      gl.uniform1f(U.alpha, d.alpha);
-      gl.uniform2f(U.fade, ...(d.fade || [0, 0]));
-      gl.uniform1f(U.len, d.len ?? 1e9);
+      UC.i1(U.mode, d.mode);
+      UC.f3a(U.col, d.col);
+      UC.f1(U.alpha, d.alpha);
+      UC.f2a(U.fade, (d.fade || [0, 0]));
+      UC.f1(U.len, d.len ?? 1e9);
       gl.drawArrays(d.tri ? gl.TRIANGLES : gl.TRIANGLE_STRIP, d.first, d.count);
     }
     gl.bindVertexArray(null);
@@ -2519,41 +2522,41 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   }
   // The vessel pass's program, uniforms and textures (vesselDraw; and the vessel half of a one-pass build, fuseBind).
   function vesselSet({ p, u }, m, look, redraw, tint, size = null) {
-    const M = new Float32Array([m[0], m[1], 0, m[2], m[3], 0, m[4], m[5], 1]);
+    const M = put(SCR.world, [m[0], m[1], 0, m[2], m[3], 0, m[4], m[5], 1]);
     const [SW, SH] = size || [fboW, fboH];   // (the layer's; a one-pass build draws onto the picture: fuseBind)
     gl.useProgram(p);
-    gl.uniformMatrix3fv(u.world, false, M);
-    gl.uniform2f(u.size, SW, SH);
-    gl.uniform1f(u.cell, CELL);
-    gl.uniform1f(u.px, 1 / Math.max(1e-6, Math.hypot(m[0], m[1])));
+    UC.m3(u.world, M);
+    UC.f2(u.size, SW, SH);
+    UC.f1(u.cell, CELL);
+    UC.f1(u.px, 1 / Math.max(1e-6, Math.hypot(m[0], m[1])));
     const det = m[0] * m[3] - m[1] * m[2] || 1e-9;
-    gl.uniform4f(u.invA, m[3] / det, -m[1] / det, -m[2] / det, m[0] / det);
-    gl.uniform2f(u.tOff, m[4], m[5]);
-    gl.uniform2f(u.lOff, lOffNow[0], lOffNow[1]);
-    gl.uniform2f(u.sizeF, SW, SH);
-    gl.uniform1f(u.reachU, look.reach);
-    gl.uniform2f(u.shOff, ...look.shOff);
-    gl.uniform4f(u.casing, ...look.casing);
-    gl.uniform4f(u.shadow, ...look.shadow);
-    gl.uniform4f(u.sheenInk, ...look.sheen);
-    gl.uniform4f(u.shadeInk, ...look.shade);
-    gl.uniform4f(u.ring, ...look.ring);
-    gl.uniform2f(u.light, ...look.light);
-    gl.uniform1f(u.netAlpha, look.netAlpha);
-    gl.uniform1i(u.fx, look.fx ? 1 : 0);
-    gl.uniform1i(u.redraw, redraw ? 1 : 0);
-    gl.uniform1i(u.tint, tint ? 1 : 0);
-    gl.uniform1fv(u.tierAlpha, look.tierAlpha);
-    gl.uniform1iv(u.tierGroup, look.tierGroup);
-    gl.uniform1i(u.useOrgan, look.organs > 0 && organRect ? 1 : 0);
-    gl.uniform1f(u.organK, +look.organs || 0);
-    if (organRect) gl.uniform4f(u.organRect, ...organRect);
-    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, entTex); gl.uniform1i(u.ent, 0);
-    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, radTex); gl.uniform1i(u.rad, 1);
-    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, tubeTex); gl.uniform1i(u.tube, 2);
-    gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, organTex); gl.uniform1i(u.organ, 3);
-    gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, rmaxTex); gl.uniform1i(u.rmax, 4);
-    gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, tint ? depTex : depNone); gl.uniform1i(u.depL, 5);
+    UC.f4(u.invA, m[3] / det, -m[1] / det, -m[2] / det, m[0] / det);
+    UC.f2(u.tOff, m[4], m[5]);
+    UC.f2(u.lOff, lOffNow[0], lOffNow[1]);
+    UC.f2(u.sizeF, SW, SH);
+    UC.f1(u.reachU, look.reach);
+    UC.f2a(u.shOff, look.shOff);
+    UC.f4a(u.casing, look.casing);
+    UC.f4a(u.shadow, look.shadow);
+    UC.f4a(u.sheenInk, look.sheen);
+    UC.f4a(u.shadeInk, look.shade);
+    UC.f4a(u.ring, look.ring);
+    UC.f2a(u.light, look.light);
+    UC.f1(u.netAlpha, look.netAlpha);
+    UC.i1(u.fx, look.fx ? 1 : 0);
+    UC.i1(u.redraw, redraw ? 1 : 0);
+    UC.i1(u.tint, tint ? 1 : 0);
+    UC.fv1(u.tierAlpha, look.tierAlpha);
+    UC.iv1(u.tierGroup, look.tierGroup);
+    UC.i1(u.useOrgan, look.organs > 0 && organRect ? 1 : 0);
+    UC.f1(u.organK, +look.organs || 0);
+    if (organRect) UC.f4a(u.organRect, organRect);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, entTex); UC.i1(u.ent, 0);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, radTex); UC.i1(u.rad, 1);
+    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, tubeTex); UC.i1(u.tube, 2);
+    gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, organTex); UC.i1(u.organ, 3);
+    gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, rmaxTex); UC.i1(u.rmax, 4);
+    gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, tint ? depTex : depNone); UC.i1(u.depL, 5);
   }
   // A one-pass build ready to draw: the vessel half's uniforms and textures, then the composite's textures (compBind), and the
   // vessel textures the composite half has no unit for put on the units of the layer it no longer reads (base, gbuf, gbuf2:
@@ -2561,7 +2564,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   function fuseBind(P, m, look, layer, glow, warm, useStack) {
     vesselSet(P, m, look, false, false, [PW(), PH()]);
     compBind(P.u, layer, glow, warm, useStack);
-    for (const [unit, tex, name] of [[0, entTex, 'ent'], [1, organTex, 'organ'], [8, rmaxTex, 'rmax']]) { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, tex); gl.uniform1i(P.u[name], unit); }
+    for (const [unit, tex, name] of [[0, entTex, 'ent'], [1, organTex, 'organ'], [8, rmaxTex, 'rmax']]) { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, tex); UC.i1(P.u[name], unit); }
   }
   // The picture's own copy (on unless ?vesselbuf=keep): what the canvas would keep with preserveDrawingBuffer. Every composite draws
   // into it and present() copies it whole onto the canvas, so the canvas always holds a whole, current picture, whatever the
@@ -2643,7 +2646,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.enable(gl.BLEND); gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.useProgram(layP.p);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, own.tex);
-    gl.uniform1i(layP.u.uT, 0);
+    UC.i1(layP.u.uT, 0);
     gl.bindVertexArray(compVAO);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     gl.bindVertexArray(null);
@@ -2671,7 +2674,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.enable(gl.BLEND); gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.useProgram(layP.p);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, over.texture);
-    gl.uniform1i(layP.u.uT, 0);
+    UC.i1(layP.u.uT, 0);
     gl.bindVertexArray(compVAO);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     gl.bindVertexArray(null);
@@ -2695,9 +2698,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.useProgram(upP.p);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, own.tex);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.uniform1i(upP.u.uT, 0);
-    gl.uniform2f(upP.u.uSrc, own.w, own.h);
-    gl.uniform2f(upP.u.uDst, canvas.width, canvas.height);
+    UC.i1(upP.u.uT, 0);
+    UC.f2(upP.u.uSrc, own.w, own.h);
+    UC.f2(upP.u.uDst, canvas.width, canvas.height);
     gl.bindVertexArray(compVAO);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     gl.bindVertexArray(null);
@@ -2728,7 +2731,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     exerciseDraw(gl, () => {
       gl.useProgram(P.p);
       if (k === 'lay') { gl.enable(gl.BLEND); gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); } else gl.disable(gl.BLEND);
-      if (P.u.uT) gl.uniform1i(P.u.uT, 0);
+      if (P.u.uT) UC.i1(P.u.uT, 0);
       gl.bindVertexArray(compVAO); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); gl.bindVertexArray(null);
       gl.disable(gl.BLEND);
     });
@@ -2766,9 +2769,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.viewport(0, 0, PW(), PH());
     gl.disable(gl.BLEND); gl.disable(gl.SCISSOR_TEST); gl.disable(gl.STENCIL_TEST);
     gl.useProgram(rz.P.p);
-    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, rz.tex); gl.uniform1i(rz.P.u.uT, 0);
-    gl.uniform2f(rz.P.u.uSize, PW(), PH());
-    gl.uniformMatrix3fv(rz.P.u.uMap, false, new Float32Array([k[0], k[1], 0, k[2], k[3], 0, k[4], k[5], 1]));
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, rz.tex); UC.i1(rz.P.u.uT, 0);
+    UC.f2(rz.P.u.uSize, PW(), PH());
+    UC.m3(rz.P.u.uMap, put(SCR.world, [k[0], k[1], 0, k[2], k[3], 0, k[4], k[5], 1]));
     gl.bindVertexArray(compVAO);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     gl.bindVertexArray(null);
@@ -2822,7 +2825,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   }
   // The composite's textures, each on its unit (U: the program's uniforms; the flags: which of the layers it lays this frame).
   function compBind(U, layer, glow, warm, useStack) {
-    const bind = (unit, tex, name) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, tex); gl.uniform1i(U[name], unit); };
+    const bind = (unit, tex, name) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, tex); UC.i1(U[name], unit); };
     UC.i2(U.lA, la[0], la[1]); UC.i2(U.lWrap, wo[0], wo[1]); UC.i2(U.lSize, fboW, fboH); UC.i1(U.lH, PH());
     bind(0, baseTex, 'base'); bind(1, gTex, 'gbuf'); bind(2, flowTex, 'flow'); bind(3, radTex, 'rad'); bind(4, tubeTex, 'tube');
     bind(5, dyeTex, 'dye'); bind(6, plates[0]?.tex || baseTex, 'plate0'); bind(7, plates[1]?.tex || baseTex, 'plate1'); bind(8, gTex2, 'gbuf2'); bind(9, fluidTex, 'fluidMask');
@@ -2907,8 +2910,10 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // (Started now: the overlays' laying where there are overlays, the resolution fade where the canvas keeps its picture (res-fade-gl).)
   if (overOK) auxStart('lay');
   if (ownBuf && SHADER_WARM) { const t = warmFade(gl); if (t) freeTasks.push(t); }
-  const onLost = (e) => { e.preventDefault(); lost = true; };
+  const onLost = (e) => { e.preventDefault(); lost = true; UC.reset(); };
+  const onRestored = () => UC.reset();
   canvas.addEventListener('webglcontextlost', onLost);
+  canvas.addEventListener('webglcontextrestored', onRestored);
   // A software renderer (no usable GPU: the browser draws on the CPU) is told apart so the stage
   // can draw less often and at a lower resolution there.
   let software;
@@ -3509,9 +3514,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         gl.useProgram(P.p);
         const U = P.u;
         if (!full) {
-          gl.uniformMatrix3fv(U.world, false, put(SCR.world, [m[0], m[1], 0, m[2], m[3], 0, m[4], m[5], 1]));
-          gl.uniform2f(U.size, PW(), PH());
-          gl.uniform1f(U.cell, CELL);
+          UC.m3(U.world, put(SCR.world, [m[0], m[1], 0, m[2], m[3], 0, m[4], m[5], 1]));
+          UC.f2(U.size, PW(), PH());
+          UC.f1(U.cell, CELL);
         }
         UC.m3(U.inv, put(SCR.inv, [ia, ib, 0, ic, id, 0, ie, iff, 1]));
         UC.f1(U.H, PH());
@@ -3586,7 +3591,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         for (let r = 0; r < nTubes; r++) if (movedUp[r * 4] !== moved[r]) { movedUp[r * 4] = moved[r]; ch = true; }
         if (ch) { gl.bindTexture(gl.TEXTURE_2D, flowTex); gl.texSubImage2D(gl.TEXTURE_2D, 0, FLOW_TEXELS, 0, 1, nTubes, gl.RGBA, gl.FLOAT, movedUp); }
       }
-      gl.uniform1i(U.stillOn, still ? 1 : 0);
+      UC.i1(U.stillOn, still ? 1 : 0);
       if (gpuProbe.on) gpuProbe.gauge('still lumens left alone', still ? `${nTubes - moved.reduce((n, v) => n + v, 0)} of ${nTubes} rows` : 'off');
       compBind(U, layer, glow, warm, useStack);
       if (fused) {
@@ -3605,7 +3610,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         gl.stencilFunc(gl.EQUAL, 0, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
         gl.useProgram(prg.p);
         compBind(U, layer, glow, warm, useStack);
-        gl.uniform1i(U.bloodOnly, 0);
+        UC.i1(U.bloodOnly, 0);
         gl.bindVertexArray(compVAO);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
         gl.disable(gl.STENCIL_TEST);
@@ -3613,7 +3618,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         // the pass; the next one-pass frame clears it before reading it. See INVALIDATE.)
         if (INVALIDATE) gl.invalidateFramebuffer(gl.FRAMEBUFFER, [own ? gl.STENCIL_ATTACHMENT : gl.STENCIL]);
       } else if (full) {
-        gl.uniform1i(U.bloodOnly, 0);
+        UC.i1(U.bloodOnly, 0);
         if (gpuProbe.on) gpuProbe.gauge('blood squares on screen', 'whole picture');
         gl.bindVertexArray(compVAO);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
@@ -3621,11 +3626,11 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         if (gpuProbe.on) gpuProbe.gauge('blood squares on screen', squaresOnScreen(bloodCPU, nBlood, m, bloodCell));
         // (The blood's own frame skips the pixels with no lumen; the cells drawRows drew again (`part`) and the fluid's ripple, which
         // moves the whole of its cells, are drawn whole. A pixel drawn twice comes out the same: no blending, and from its own inputs.)
-        gl.uniform1i(U.bloodOnly, 0);
+        UC.i1(U.bloodOnly, 0);
         if (part) { if (partG) { gl.bindVertexArray(partVAO); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, partG); } if (partS) { gl.bindVertexArray(partSVAO); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, partS); } }
-        gl.uniform1i(U.bloodOnly, 1);
-        if (nBlood) { gl.bindVertexArray(bloodVAO); gl.uniform1f(U.cell, bloodCell); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, nBlood); gl.uniform1f(U.cell, CELL); }
-        gl.uniform1i(U.bloodOnly, 0);
+        UC.i1(U.bloodOnly, 1);
+        if (nBlood) { gl.bindVertexArray(bloodVAO); UC.f1(U.cell, bloodCell); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, nBlood); UC.f1(U.cell, CELL); }
+        UC.i1(U.bloodOnly, 0);
         if (fl?.ripple && nFluid) { gl.bindVertexArray(fluidVAO); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, nFluid); }
         if (pool) { gl.bindVertexArray(poolVAO); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, pool); }
         if (dirt) { gl.bindVertexArray(dirtVAO); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, dirt); }
@@ -3643,8 +3648,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         gl.scissor(cathRect[0], PH() - cathRect[3], cathRect[2] - cathRect[0], cathRect[3] - cathRect[1]);
         gl.useProgram(cathPass.p);
         compBind(cathPass.u, false, glow, warm, useStack);
-        gl.uniform1i(cathPass.u.stillOn, 0);
-        gl.uniform1i(cathPass.u.bloodOnly, 0);
+        UC.i1(cathPass.u.stillOn, 0);
+        UC.i1(cathPass.u.bloodOnly, 0);
         gl.bindVertexArray(compVAO);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
         gl.bindVertexArray(null);
@@ -3751,6 +3756,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      */
     dispose({ lose = false } = {}) {
       canvas.removeEventListener('webglcontextlost', onLost);
+      canvas.removeEventListener('webglcontextrestored', onRestored);
       if (!lost) {
         for (const t of [entTex, radTex, bendTex, rmaxTex, tubeTex, organTex, flowTex, dyeTex, noiseTex, fluidTex, baseTex, gTex, gTex2, depTex, depNone, lineLayer.tex, glowLayer.tex, warmLayer.tex, ...plates.map((x) => x?.tex)]) if (t) gl.deleteTexture(t);
         for (const b of [quad, cellBuf, simpleBuf, bloodBuf, partBuf, partSBuf, fluidBuf, poolBuf, dirtBuf, cathBuf, lineBuf]) gl.deleteBuffer(b);

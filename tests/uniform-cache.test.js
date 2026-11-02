@@ -79,6 +79,29 @@ test('veins-gl.js sets the composite\'s per-frame uniforms through the cache and
     assert.ok(uses.length >= 1, `${n} is set`);
     for (const l of uses) assert.match(l, /UC\.\w+\(U\./, `${n}: ${l.trim().slice(0, 90)}`);
   }
-  assert.match(src, /const UC = uniformCache\(gl\);/);
+  assert.match(src, /const UC = uniformCache\(gl, \{ on: UNIFORM_CACHE \}\);/);
   assert.match(src, /import \{ uniformCache \} from '\.\/uniform-cache\.js/);
+});
+
+test('ucache=0 sends every uniform; reset() forgets what is held (context loss and restore)', () => {
+  const gl = fakeGL(), a = loc('a'), m = loc('m');
+  const off = uniformCache(gl, { on: false });
+  off.f1(a, 1); off.f1(a, 1); off.m3(m, new Float32Array(9)); off.m3(m, new Float32Array(9));
+  assert.equal(gl.calls.length, 4, 'off: nothing is skipped');
+  gl.calls.length = 0;
+  const U = uniformCache(gl);
+  U.f1(a, 2); U.f1(a, 2); U.iv1(m, new Int32Array([1, 2])); U.iv1(m, new Int32Array([1, 2]));
+  assert.equal(gl.calls.length, 2, 'equal sets are skipped');
+  U.reset();
+  U.f1(a, 2); U.iv1(m, new Int32Array([1, 2]));
+  assert.equal(gl.calls.length, 4, 'after a loss the same values are sent again');
+});
+
+test('veins-gl.js sends no uniform around the cache, and forgets the cache on loss and restore', () => {
+  const src = read('../src/ui/veins-gl.js');
+  assert.equal(src.split('\n').filter((l) => /\bgl\.uniform/.test(l)).length, 0, 'every uniform goes through UC');
+  assert.match(src, /uniformCache\(gl, \{ on: UNIFORM_CACHE \}\)/);
+  assert.match(src, /ucache=0/);
+  assert.match(src, /onLost = \(e\) => \{[^}]*UC\.reset\(\)/);
+  assert.match(src, /webglcontextrestored', onRestored/);
 });

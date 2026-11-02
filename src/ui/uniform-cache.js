@@ -8,13 +8,16 @@
 // same program would leave the cache believing in a value that is no longer there (veins-gl.js sets these names nowhere else; its
 // test pins that).
 
-export function uniformCache(gl) {
-  const last = new WeakMap();
+// `on: false` (?ucache=0 in the address) sends every uniform as before. reset() forgets what every location holds: call it when the context
+// is lost or restored (the new programs hold their defaults, not the values this cache last sent).
+export function uniformCache(gl, { on = true } = {}) {
+  let last = new WeakMap();
   // True when `loc` is not already holding these n numbers (and records them as now held).
   function changed(loc, n, a, b, c, d) {
     let s = last.get(loc);
     if (!s) { s = { n: -1, v: new Float64Array(4) }; last.set(loc, s); }
     const v = s.v;
+    if (!on) return true;
     if (s.n === n && v[0] === a && (n < 2 || v[1] === b) && (n < 3 || v[2] === c) && (n < 4 || v[3] === d)) return false;
     s.n = n; v[0] = a;
     if (n > 1) v[1] = b;
@@ -26,6 +29,7 @@ export function uniformCache(gl) {
   function changedArr(loc, arr) {
     let s = last.get(loc);
     if (!s || !s.arr || s.arr.length !== arr.length) { s = { arr: new Float32Array(arr.length), fresh: true }; last.set(loc, s); }
+    if (!on) return true;
     const held = s.arr;
     let diff = !!s.fresh;
     for (let i = 0; i < held.length; i++) if (held[i] !== arr[i]) { diff = true; break; }
@@ -34,6 +38,7 @@ export function uniformCache(gl) {
     return true;
   }
   return {
+    reset() { last = new WeakMap(); },
     f1: (loc, a) => { if (loc && changed(loc, 1, a)) gl.uniform1f(loc, a); },
     i1: (loc, a) => { if (loc && changed(loc, 1, a)) gl.uniform1i(loc, a); },
     f2: (loc, a, b) => { if (loc && changed(loc, 2, a, b)) gl.uniform2f(loc, a, b); },
@@ -46,6 +51,7 @@ export function uniformCache(gl) {
     f4a: (loc, v) => { if (loc && changed(loc, 4, v[0], v[1], v[2], v[3])) gl.uniform4f(loc, v[0], v[1], v[2], v[3]); },
     /** Arrays: Float32Arrays (a plain array of doubles would never compare equal to its float copy and be sent each time). */
     fv1: (loc, arr) => { if (loc && changedArr(loc, arr)) gl.uniform1fv(loc, arr); },
+    iv1: (loc, arr) => { if (loc && changedArr(loc, arr)) gl.uniform1iv(loc, arr); },
     fv3: (loc, arr) => { if (loc && changedArr(loc, arr)) gl.uniform3fv(loc, arr); },
     fv4: (loc, arr) => { if (loc && changedArr(loc, arr)) gl.uniform4fv(loc, arr); },
     m3: (loc, arr) => { if (loc && changedArr(loc, arr)) gl.uniformMatrix3fv(loc, false, arr); },

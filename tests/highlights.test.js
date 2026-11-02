@@ -290,7 +290,7 @@ test('a lapse glow goes when the slide leaves, and is drawn from the pile\'s own
   assert.match(STAGE, /Math\.min\(dist\[k\], L - dist\[k\]\) \/ WARM\.taper/, 'the ends fade by length, not by points');
   assert.match(GLSRC, /vF = c \/ 63\.0;/);
   assert.match(GLSRC, /a = col\.a \* vF \* exp\(/, 'the fade multiplies the alpha, so an end is not a thin full-strength line');
-  assert.match(GLSRC, /gl\.uniform1f\(U\.pack, warm \? 1 : 0\)/);
+  assert.match(GLSRC, /UC\.f1\(U\.pack, warm \? 1 : 0\)/);
   assert.match(STAGE, /64 \* Math\.round\(e \* 63\)/);
   assert.ok(+/const WARM = \{ reach: (\d+)/.exec(STAGE)[1] < 64, 'the reach fits under the fade packing (64 x the fade + the width)');
   assert.match(STAGE, /Math\.min\(63, WARM\.reach, 0\.8 \* rad\)/, 'the reach follows the measured tube radius');

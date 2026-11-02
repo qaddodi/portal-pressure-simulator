@@ -14,6 +14,7 @@ globalThis.document ??= { documentElement: { dataset: {}, style: { setProperty()
 globalThis.addEventListener ??= () => {};
 globalThis.getComputedStyle ??= () => ({ getPropertyValue: () => '' });
 
+const UNIFORMS = ['world', 'size', 'sizeF', 'cell'];
 function fakeGL() {
   const calls = [], enums = new Map();
   let nextObj = 1;
@@ -22,12 +23,14 @@ function fakeGL() {
       if (typeof k !== 'string') return undefined;
       if (/^[A-Z0-9_]+$/.test(k)) { if (!enums.has(k)) enums.set(k, 0x10000 + enums.size); return enums.get(k); }
       return (...a) => {
-        calls.push([k, ...a]);
+        calls.push([k, ...a.map((v) => (ArrayBuffer.isView(v) ? v.slice() : v))]);   // (a real context copies an array at the call)
         if (k === 'getShaderParameter') return true;
-        if (k === 'getProgramParameter') return a[1] === gl.ACTIVE_UNIFORMS ? 0 : true;
+        if (k === 'getProgramParameter') return a[1] === gl.ACTIVE_UNIFORMS ? UNIFORMS.length : true;
+        if (k === 'getActiveUniform') return { name: UNIFORMS[a[1]] };   // (the uniform cache skips a uniform with no location, as the GPU would ignore it)
         if (k === 'getExtension') return null;
         if (k === 'getParameter') return 'stand-in';
         if (k === 'getContextAttributes') return { stencil: true };
+        if (k === 'getUniformLocation') return { p: a[0]?.obj, name: a[1] };
         if (k.startsWith('create')) return { obj: nextObj++, kind: k };
         return undefined;
       };

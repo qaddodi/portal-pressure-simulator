@@ -140,7 +140,7 @@ test('H6: a still catheter repaints only its box (now and as last drawn), whole 
   assert.match(comp, /if \(\(cath && !cathRect\) \|\| cathWas && !cath\) full = true;/, 'a moving view, the first frame and the frame after it is gone: whole');
   // In the box: the whole build with no outline layer, the catheter, then the outlines: exactly the whole picture's order there.
   const box = comp.slice(comp.indexOf('      if (cathRect) {'), comp.indexOf('      } else if (cath) gpuProbe'));
-  const order = ['gl.scissor(cathRect[0], PH() - cathRect[3]', 'compBind(cathPass.u, false, glow, warm, useStack);', 'gl.uniform1i(cathPass.u.stillOn, 0);', 'gl.uniform1i(cathPass.u.bloodOnly, 0);', 'gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);', 'drawCath(m)', 'if (hard) gpuProbe.time(gl, \'outlines\', () => drawLines(m, false));', 'gl.disable(gl.SCISSOR_TEST);'];
+  const order = ['gl.scissor(cathRect[0], PH() - cathRect[3]', 'compBind(cathPass.u, false, glow, warm, useStack);', 'UC.i1(cathPass.u.stillOn, 0);', 'UC.i1(cathPass.u.bloodOnly, 0);', 'gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);', 'drawCath(m)', 'if (hard) gpuProbe.time(gl, \'outlines\', () => drawLines(m, false));', 'gl.disable(gl.SCISSOR_TEST);'];
   let at = -1;
   for (const k of order) { const i = box.indexOf(k); assert.ok(i > at, k); at = i; }
   assert.match(comp, /const cathPass = cathRect \? \(bare \? plain : comp\) : null;/, 'the whole picture\'s own build');

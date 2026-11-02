@@ -118,9 +118,9 @@ test('a frame where only the blood moved leaves the pixels with no lumen as draw
   // Set to 1 only around the blood squares' own draw; the whole picture, the redraw after drawRows (all) and the fluid's cells
   // (its ripple moves every pixel of them) draw every pixel.
   const comp = gl.slice(gl.indexOf('    composite(look, blood = {}, full = false, part = 0) {'), gl.indexOf('    /** Whether organ outlines can be drawn here'));
-  assert.match(comp, /if \(full\) \{\n\s*gl\.uniform1i\(U\.bloodOnly, 0\);/);
-  assert.match(comp, /gl\.uniform1i\(U\.bloodOnly, 0\);\n\s*if \(part\) \{[^\n]*\}\n\s*gl\.uniform1i\(U\.bloodOnly, 1\);\n\s*if \(nBlood\) \{ gl\.bindVertexArray\(bloodVAO\);[^\n]*\}\n\s*gl\.uniform1i\(U\.bloodOnly, 0\);\n\s*if \(fl\?\.ripple && nFluid\)/);
+  assert.match(comp, /if \(full\) \{\n\s*UC\.i1\(U\.bloodOnly, 0\);/);
+  assert.match(comp, /UC\.i1\(U\.bloodOnly, 0\);\n\s*if \(part\) \{[^\n]*\}\n\s*UC\.i1\(U\.bloodOnly, 1\);\n\s*if \(nBlood\) \{ gl\.bindVertexArray\(bloodVAO\);[^\n]*\}\n\s*UC\.i1\(U\.bloodOnly, 0\);\n\s*if \(fl\?\.ripple && nFluid\)/);
   // (The fifth: the one-pass frame's picture outside the vessel cells, also every pixel.)
-  assert.match(comp, /gl\.stencilFunc\(gl\.EQUAL, 0, 0xff\);[\s\S]*?gl\.uniform1i\(U\.bloodOnly, 0\);\n\s*gl\.bindVertexArray\(compVAO\);/);
+  assert.match(comp, /gl\.stencilFunc\(gl\.EQUAL, 0, 0xff\);[\s\S]*?UC\.i1\(U\.bloodOnly, 0\);\n\s*gl\.bindVertexArray\(compVAO\);/);
   assert.equal((comp.match(/U\.bloodOnly/g) || []).length, 5);
 });
