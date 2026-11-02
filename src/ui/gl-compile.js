@@ -6,6 +6,7 @@
 // Publishing waits for the page to be left alone (quiet.js): the status read, the uniform lookups and the small draw are a few ms of
 // script, and a program that finishes mid pan or pinch had them land in a gesture's frame.
 import { leftAlone } from './quiet.js?v=388052eba8';
+import { glGet } from './gl-state.js?v=fb0dea79ba';
 
 // (Asked once per context where it is there: getExtension is a call into the browser each time. Not kept when it is missing, so a
 // context that came back from a loss is asked again; and one that is there is forgotten when its context is restored, as a restored
@@ -100,12 +101,17 @@ export function linkProgram(gl, vs, fs, bind = []) {
  *  The target texture is bound on no unit while it is drawn to (a program whose sampler read it would be reading what it writes, a
  *  feedback loop: the driver refuses the draw and warns, and on another it is undefined); every unit holds a blank 1 × 1 meanwhile, and
  *  every unit's own binding is put back. */
+// (Review pass 2, item 9: what is bound is read from the renderer's own record (gl-state.js), not asked of the driver 17 times; and the
+// host's framebuffers, viewport, program and vertex array are put back too: the warm-up used to leave the default framebuffer bound and
+// a 1 × 1 viewport behind, for whoever drew next in the same context. ?glstate=0: asked of the driver, as before.)
 export function exerciseDraw(gl, draw) {
   const fbo = gl.createFramebuffer(), tex = gl.createTexture(), blank = gl.createTexture();
-  const unit = gl.getParameter(gl.ACTIVE_TEXTURE), saved = [];
+  const g = (k) => glGet(gl, k);
+  const unit = g(gl.ACTIVE_TEXTURE), saved = [];
+  const fbR = g(gl.READ_FRAMEBUFFER_BINDING), fbD = g(gl.DRAW_FRAMEBUFFER_BINDING), vp = g(gl.VIEWPORT), prog = g(gl.CURRENT_PROGRAM), vao = g(gl.VERTEX_ARRAY_BINDING);
   const UNITS = 16, T0 = gl.TEXTURE0 ?? 0x84C0;
   try {
-    for (let u = 0; u < UNITS; u++) { gl.activeTexture(T0 + u); saved.push(gl.getParameter(gl.TEXTURE_BINDING_2D)); }
+    for (let u = 0; u < UNITS; u++) { gl.activeTexture(T0 + u); saved.push(g(gl.TEXTURE_BINDING_2D)); }
     // (The target is made on the last unit and let go of at once: attached, it needs no unit.)
     gl.activeTexture(T0 + UNITS - 1);
     gl.bindTexture(gl.TEXTURE_2D, tex);
@@ -121,7 +127,11 @@ export function exerciseDraw(gl, draw) {
     gl.viewport(0, 0, 1, 1);
     draw();
   } catch { /* only a head start */ } finally {
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    if ((fbR ?? null) === (fbD ?? null)) gl.bindFramebuffer(gl.FRAMEBUFFER, fbD ?? null);
+    else { gl.bindFramebuffer(gl.READ_FRAMEBUFFER, fbR ?? null); gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, fbD ?? null); }
+    if (vp?.length === 4) gl.viewport(vp[0], vp[1], vp[2], vp[3]);
+    if (prog) gl.useProgram?.(prog);   // (the host's program back; with none bound, the warm-up's may stay: nothing draws without one)
+    if (vao !== undefined) gl.bindVertexArray?.(vao);
     for (let u = 0; u < saved.length; u++) { gl.activeTexture(T0 + u); gl.bindTexture(gl.TEXTURE_2D, saved[u]); }
     gl.activeTexture(unit);
     gl.deleteFramebuffer(fbo); gl.deleteTexture(tex); gl.deleteTexture(blank);
@@ -138,6 +148,7 @@ export const PUBLISH_QUIET_MS = 200;
 // program still waiting can be published ahead of use by prepareShaders(), called from a slide's preparation (slide-prep.js), so a
 // slide change finds its programs published before its first frame. ?shaderready=0: publishing at the first draw, as before.
 export const SHADER_READY = !(typeof location !== 'undefined' && /[?&]shaderready=0\b/.test(location.search || ''));
+const POLL_FOREVER = !(typeof location !== 'undefined' && /[?&]pollforever=0\b/.test(location.search || ''));
 const waitingPub = new Set();   // { gl, handles, publish, wanted }: started programs not yet published
 // (recs-production-120hz §6/§17: a slide's preparation that found programs still compiling waits for the next one to be published, or
 // to fail, instead of reading a stale boolean; failures are counted, never taken for a publication.)
@@ -191,6 +202,10 @@ export function publishWhenDone(gl, handles, publish, tries = 400, calm = leftAl
     try { done = gl.isContextLost() || compileDone(gl, handles); } catch { done = true; }
     if (done) { if (entry.wanted || calm(PUBLISH_QUIET_MS)) entry.publish(); else idle(tick); }   // (a finished program waits out the gesture; no poll of it is counted)
     else if (--tries > 0) idle(tick);
+    // (Review pass 2, item 2: past its `tries` the poll no longer gives up and leaves the publishing to the first draw, where reading
+    // the status waits for the driver inside a frame. It slows to one ask every half second and keeps its place in the queue, so a
+    // slide's preparation (prepareShaders) can still publish it ahead of use. ?pollforever=0: it stops there, as before.)
+    else if (POLL_FOREVER) setTimeout(tick, 500);
     else { waitingPub.delete(entry); moved(); }
   };
   idle(tick);

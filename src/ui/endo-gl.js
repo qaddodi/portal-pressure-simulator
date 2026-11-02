@@ -6,9 +6,9 @@
 // the four columns a deflation (0 engorged .. 1 strangulated) and up to four knuckle strengths
 // (0 none .. 1 a cinched band with its dusky knuckle).
 
-import { cssRGB } from './util.js?v=275558a385';
+import { cssRGB } from './util.js?v=5f51c5b319';
 import { columnConsts } from './endo-columns.js?v=381d1443b7';
-import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=c79638f168';
+import { startProgram, checkProgram, exerciseDraw, publishWhenDone, stillCompiling } from './gl-compile.js?v=5096509185';
 
 const VS = 'attribute vec2 p; void main(){ gl_Position = vec4(p, 0.0, 1.0); }';
 // The colours are tokens (--endo-* in styles/tokens.css), written into the shader when it is built.
@@ -207,7 +207,7 @@ export function createEndoGL({ onBack = null } = {}) {
   cv.addEventListener('webglcontextlost', (e) => { e.preventDefault(); lost = true; });
   // Started now, published when the driver has finished it (gl-compile.js; this shader is the longest in the app); ready() publishes it
   // at once if a render comes first, and says false if it failed (the CPU renderer then draws the field, as with no WebGL).
-  let started = null, buf = null, stopPoll = null, u = null, failed = false;
+  let started = null, buf = null, stopPoll = null, u = null, failed = false, wanted = false;
   const { c0, c1 } = columnConsts();
   function publish() {
     if (u || failed || gl.isContextLost()) return;
@@ -218,7 +218,7 @@ export function createEndoGL({ onBack = null } = {}) {
       u = { size: U('uSize'), grow: U('uGrow'), vis: U('uVis'), red: U('uRed'), c0: U('uC0'), c1: U('uC1'), def: U('uDef'), kn: U('uKn') };
       gl.uniform4fv(u.c0, new Float32Array(c0)); gl.uniform4fv(u.c1, new Float32Array(c1));
       exerciseDraw(gl, () => { gl.uniform1f(u.size, 1); gl.drawArrays(gl.TRIANGLES, 0, 3); });
-      if (lost) { lost = false; try { onBack?.(); } catch { /* (the owner's redraw: not this drawing's failure) */ } }   // (after a restore: the GPU draws again)
+      if (lost || wanted) { lost = false; wanted = false; try { onBack?.(); } catch { /* (the owner's redraw: not this drawing's failure) */ } }   // (after a restore, or a frame that found it compiling: the GPU draws again)
     } catch { u = null; if (!gl.isContextLost()) failed = true; }   // (lost while it was read: the restore makes it again)
   }
   // What the context holds: the program and the one triangle that covers the field. Made at the start and again after a restore.
@@ -240,7 +240,15 @@ export function createEndoGL({ onBack = null } = {}) {
   return {
     canvas: cv,
     /** True once the shader is published (waiting for it if it is not yet); false if it failed. */
-    ready() { if (lost) return false; publish(); return !!u; },
+    ready() { if (lost) return false; if (this.pending) return true; publish(); return !!u; },
+    /** True while the shader is still compiling (asked without waiting): not a failure. The owner draws no new field meanwhile (it keeps
+     *  what it shows), the poller publishes the program once the driver is done, and onBack asks for the frame then (review pass 2,
+     *  item 2: never a status read that waits inside a frame). False with ?shaderready=0. */
+    get pending() {
+      if (u || failed || lost || !started || !stillCompiling(gl, [started])) return false;
+      wanted = true; stopPoll?.want?.();
+      return true;
+    },
     /** True from the loss of the context until it is built again: not a failure, the scope draws the CPU field meanwhile and keeps this. */
     get lost() { return lost && !failed; },
     /** Free the GL context now (a presenter copy that is done), rather than whenever the browser gets to it. */
@@ -249,7 +257,7 @@ export function createEndoGL({ onBack = null } = {}) {
     pixels() { const n = cv.width, a = new Uint8Array(n * n * 4); gl.readPixels(0, 0, n, n, gl.RGBA, gl.UNSIGNED_BYTE, a); return a; },
     // st: { grow, vis, red (0..1 red-sign strength), def: [4], kn: [16] }; draws into the shared canvas at res x res.
     render(res, st) {
-      if (lost) return cv;
+      if (lost || this.pending) return cv;
       publish();
       if (cv.width !== res) { cv.width = cv.height = res; }
       gl.viewport(0, 0, res, res);

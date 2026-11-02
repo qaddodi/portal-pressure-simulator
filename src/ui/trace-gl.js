@@ -16,11 +16,12 @@
 // chart is not drawn until the GPU can draw it (fitCanvas's pen draws nothing; no 2D canvas is drawn on), and it draws again the moment
 // the GPU can (publish). ?tracegl=0 keeps every chart undrawn.
 
-import { startProgram, checkProgram, exerciseDraw, publishWhenDone, stillCompiling } from './gl-compile.js?v=c79638f168';
+import { startProgram, checkProgram, exerciseDraw, publishWhenDone, stillCompiling } from './gl-compile.js?v=5096509185';
 import { canvasSize, fitCanvas, onCanvasSized } from './util.js?v=92114c1315';
-import { sdfAtlas } from './text-gl.js?v=19dfe922f8';   // (the app's one door to GPU text: its SDF atlas, for text that changes every frame)
-import { notePass, hold } from './gpu-budget.js?v=60fb39ce3e';
-import { fontOf, measure } from './glyph-measure.js?v=c00a2078e8';
+import { sdfAtlas } from './text-gl.js?v=f983c94e6f';   // (the app's one door to GPU text: its SDF atlas, for text that changes every frame)
+import { notePass, hold } from './gpu-budget.js?v=0ddd29f844';
+import { fontOf, measure } from './glyph-measure.js?v=d5602f13b1';
+import { fbComplete } from './gl-state.js?v=fb0dea79ba';
 export { measure };
 const { GLYPHS, KERN, BASELINES, BASE, RADIUS, CUTOFF, ATLAS_W, ATLAS_H, ATLAS_PNG } = sdfAtlas;
 
@@ -328,6 +329,7 @@ void main() {
 
 // The glyphs' field, decoded once for every chart (an image, no canvas).
 let glyphImage = null;
+const ATLAS_IDLE = !(typeof location !== 'undefined' && /[?&]atlasidle=0\b/.test(location.search || ''));
 // (A chart that drew on its own canvas while the field was still decoding is drawn again on the GPU once it is in.)
 const waiting = new Set();
 const SRC = { seg: [SEG_VS, SEG_FS], comp: [QUAD_VS, COMP_FS], fill: [FILL_VS, FILL_FS], box: [BOX_VS, BOX_FS], text: [TEXT_VS, TEXT_FS], img: [IMG_VS, IMG_FS] };
@@ -448,6 +450,24 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
     atlasIn = false;
     stopPoll?.(); stopPoll = publishWhenDone(gl, Object.values(started), publish);
   }
+  // The glyphs' field, sent once per context (generation), shared by every chart drawn in the shared context.
+  function sendAtlas() {
+    if (shown && shared.atlasIn) atlasIn = true;
+    if (atlasIn || !glyphImage || !atlasTex || dead || lost || gl.isContextLost()) return atlasIn;
+    if (shown) shared.atlasIn = true;
+    gl.bindTexture(gl.TEXTURE_2D, atlasTex);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, ATLAS_W, ATLAS_H, 0, gl.RED, gl.UNSIGNED_BYTE, glyphImage);
+    atlasIn = true;
+    return true;
+  }
+  let atlasSoon = false;
+  function sendAtlasSoon() {
+    if (atlasSoon) return;
+    atlasSoon = true;
+    const later = typeof requestIdleCallback === 'function' ? (f) => requestIdleCallback(f, { timeout: 120 }) : (f) => setTimeout(f, 16);
+    later(() => { atlasSoon = false; if (sendAtlas() && redraw && !dead) { try { redraw(); } catch (e) { console.warn('Charts on the GPU: the redraw failed.', e); } } });
+  }
   function publish() {
     if (P || failed || gl.isContextLost()) return;
     try {
@@ -459,6 +479,7 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
         gl.bindVertexArray(null);
       });
       P = out; lost = false;
+      if (ATLAS_IDLE) sendAtlas();   // (the glyphs go up with the programs, in the same idle moment, not in the first frame)
       // (A frame that came while the GPU could not draw (still compiling, or the context lost or parked and now built again) drew nothing:
       // the chart draws again now, at once, rather than at its next change.)
       if ((missed || back) && redraw && !dead) { missed = back = false; try { redraw(); } catch (e2) { console.warn('Charts on the GPU: the redraw failed.', e2); } }
@@ -688,11 +709,11 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
       if (!P || lost || failed || dead || gl.isContextLost() || !glyphImage) return false;
       if (shown && shared.atlasIn) atlasIn = true;
       if (!atlasIn) {
-        if (shown) shared.atlasIn = true;
-        gl.bindTexture(gl.TEXTURE_2D, atlasTex);
-        gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, ATLAS_W, ATLAS_H, 0, gl.RED, gl.UNSIGNED_BYTE, glyphImage);
-        atlasIn = true;
+        // (Review pass 2, item 2: the glyphs' 1 MB field is never sent inside the frame that first asks for it. It goes up as the
+        // programs are published (publish) or, if the picture was decoded later, at the next idle moment, and the chart is drawn then.
+        // ?atlasidle=0: sent here, in the first frame, as before.)
+        if (ATLAS_IDLE) { sendAtlasSoon(); return false; }
+        sendAtlas();
       }
       return true;
     },
@@ -982,7 +1003,7 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
         gl.bindFramebuffer(gl.FRAMEBUFFER, e.fb);
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, e.tex, 0);
         gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.STENCIL_ATTACHMENT, gl.RENDERBUFFER, e.rb);
-        const okFb = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+        const okFb = fbComplete(gl, gl.FRAMEBUFFER, 'rgba8+s8', W, H);   // (asked once per layout and context generation: gl-state.js)
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         if (!okFb) { dropLayer(e); layers.delete(name); draw(); return false; }
         e.w = W; e.h = H; e.sig = null;

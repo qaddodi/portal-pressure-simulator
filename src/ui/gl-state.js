@@ -48,25 +48,26 @@ function wrap(gl, r) {
   const own = (name, make) => { const f = gl[name]; if (typeof f === 'function') gl[name] = make(f.bind(gl)); };
   const FB = gl.FRAMEBUFFER, RFB = gl.READ_FRAMEBUFFER, DFB = gl.DRAW_FRAMEBUFFER, AB = gl.ARRAY_BUFFER, T2 = gl.TEXTURE_2D;
   const tell = (name, a) => { if (hook) hook(gl, name, a); };
-  own('bindFramebuffer', (f) => (t, fb) => { if (t === FB || t === RFB) r.fbR = fb; if (t === FB || t === DFB) r.fbD = fb; f(t, fb); if (hook && t !== RFB) hook(gl, 'target', fb); });
-  own('viewport', (f) => (x, y, w, h) => { const v = r.vp; v[0] = x; v[1] = y; v[2] = w; v[3] = h; f(x, y, w, h); });
-  own('scissor', (f) => (x, y, w, h) => { const v = r.sci; v[0] = x; v[1] = y; v[2] = w; v[3] = h; f(x, y, w, h); });
-  own('useProgram', (f) => (p) => { r.prog = p; f(p); });
-  own('bindVertexArray', (f) => (v) => { r.vao = v; f(v); });
-  own('bindBuffer', (f) => (t, b) => { if (t === AB) r.buf = b; f(t, b); });
-  own('bindRenderbuffer', (f) => (t, b) => { r.rb = b; f(t, b); });
-  own('activeTexture', (f) => (u) => { r.unit = u; f(u); });
-  own('bindTexture', (f) => (t, x) => { if (t === T2) r.tex.set(r.unit, x); f(t, x); });
-  own('enable', (f) => (c) => { r.caps.set(c, true); f(c); });
-  own('disable', (f) => (c) => { r.caps.set(c, false); f(c); });
-  own('blendFunc', (f) => (s, d) => { r.bf[0] = r.bf[2] = s; r.bf[1] = r.bf[3] = d; f(s, d); });
-  own('blendFuncSeparate', (f) => (a, b, c, d) => { const v = r.bf; v[0] = a; v[1] = b; v[2] = c; v[3] = d; f(a, b, c, d); });
-  own('blendEquation', (f) => (m) => { r.be[0] = r.be[1] = m; f(m); });
-  own('blendEquationSeparate', (f) => (a, b) => { r.be[0] = a; r.be[1] = b; f(a, b); });
-  own('colorMask', (f) => (a, b, c, d) => { const v = r.cm; v[0] = a; v[1] = b; v[2] = c; v[3] = d; f(a, b, c, d); });
-  own('clearColor', (f) => (a, b, c, d) => { const v = r.cc; v[0] = a; v[1] = b; v[2] = c; v[3] = d; f(a, b, c, d); });
-  own('stencilMask', (f) => (m) => { r.sm = r.sbm = m; f(m); });
-  own('stencilMaskSeparate', (f) => (face, m) => { if (face !== gl.BACK) r.sm = m; if (face !== gl.FRONT) r.sbm = m; f(face, m); });
+  // (The driver's call first, then the record: a call that throws (a wrong argument type) leaves the record as the driver has it.)
+  own('bindFramebuffer', (f) => (t, fb) => { f(t, fb); if (t === FB || t === RFB) r.fbR = fb; if (t === FB || t === DFB) r.fbD = fb; if (hook && t !== RFB) hook(gl, 'target', fb); });
+  own('viewport', (f) => (x, y, w, h) => { f(x, y, w, h); const v = r.vp; v[0] = x; v[1] = y; v[2] = w; v[3] = h; });
+  own('scissor', (f) => (x, y, w, h) => { f(x, y, w, h); const v = r.sci; v[0] = x; v[1] = y; v[2] = w; v[3] = h; });
+  own('useProgram', (f) => (p) => { f(p); r.prog = p; });
+  own('bindVertexArray', (f) => (v) => { f(v); r.vao = v; });
+  own('bindBuffer', (f) => (t, b) => { f(t, b); if (t === AB) r.buf = b; });
+  own('bindRenderbuffer', (f) => (t, b) => { f(t, b); r.rb = b; });
+  own('activeTexture', (f) => (u) => { f(u); r.unit = u; });
+  own('bindTexture', (f) => (t, x) => { f(t, x); if (t === T2) r.tex.set(r.unit, x); });
+  own('enable', (f) => (c) => { f(c); r.caps.set(c, true); });
+  own('disable', (f) => (c) => { f(c); r.caps.set(c, false); });
+  own('blendFunc', (f) => (s, d) => { f(s, d); r.bf[0] = r.bf[2] = s; r.bf[1] = r.bf[3] = d; });
+  own('blendFuncSeparate', (f) => (a, b, c, d) => { f(a, b, c, d); const v = r.bf; v[0] = a; v[1] = b; v[2] = c; v[3] = d; });
+  own('blendEquation', (f) => (m) => { f(m); r.be[0] = r.be[1] = m; });
+  own('blendEquationSeparate', (f) => (a, b) => { f(a, b); r.be[0] = a; r.be[1] = b; });
+  own('colorMask', (f) => (a, b, c, d) => { f(a, b, c, d); const v = r.cm; v[0] = a; v[1] = b; v[2] = c; v[3] = d; });
+  own('clearColor', (f) => (a, b, c, d) => { f(a, b, c, d); const v = r.cc; v[0] = a; v[1] = b; v[2] = c; v[3] = d; });
+  own('stencilMask', (f) => (m) => { f(m); r.sm = r.sbm = m; });
+  own('stencilMaskSeparate', (f) => (face, m) => { f(face, m); if (face !== gl.BACK) r.sm = m; if (face !== gl.FRONT) r.sbm = m; });
   // (A bound object that is deleted reads back as null, as the context's own query would answer.)
   own('deleteFramebuffer', (f) => (x) => { if (x && r.fbR === x) r.fbR = null; if (x && r.fbD === x) r.fbD = null; f(x); tell('deleteFramebuffer', [x]); });
   own('deleteTexture', (f) => (x) => { if (x) for (const [u, t] of r.tex) if (t === x) r.tex.set(u, null); f(x); tell('deleteTexture', [x]); });
@@ -103,15 +104,17 @@ function wrap(gl, r) {
   own('blitFramebuffer', (f) => (a, b, c, d, e, g, h, i, m, n) => { f(a, b, c, d, e, g, h, i, m, n); if (hook) hook(gl, 'copy', Math.abs((h - e) * (i - g))); });
   own('copyTexSubImage2D', (f) => (t, l, a, b, x, y, w, h) => { f(t, l, a, b, x, y, w, h); if (hook) hook(gl, 'copy', w * h); });
   const c = gl.canvas;
-  c?.addEventListener?.('webglcontextlost', () => { r.fresh = false; });
-  c?.addEventListener?.('webglcontextrestored', () => { r.fresh = false; r.lim = new Map(); if (hook) tell('restored', []); });
+  // (A loss ends the generation at once: nothing kept from it (limits, framebuffer verdicts, bindings) answers for the next one.)
+  const end = () => { r.fresh = false; r.lim = new Map(); r.fbOk = new Set(); r.gen++; };
+  c?.addEventListener?.('webglcontextlost', end);
+  c?.addEventListener?.('webglcontextrestored', () => { end(); if (hook) tell('restored', []); });
 }
 
 function recOf(gl) {
   let r = recs.get(gl);
   if (r === undefined) {
     if (!GL_STATE || !isGL2(gl)) { recs.set(gl, null); return null; }
-    r = { fresh: false };
+    r = { fresh: false, gen: 1, fbOk: new Set() };
     sweep(gl, r);
     wrap(gl, r);
     recs.set(gl, r);
@@ -188,6 +191,37 @@ export function glCap(gl, k) {
   if (!r.lim.has(k)) { const v = gl.getParameter(k); if (gl.isContextLost()) return v; r.lim.set(k, v); }
   return r.lim.get(k);
 }
+
+/** The context's generation: 1 from its creation, one more at each loss and restore (an object or verdict kept from an older
+ *  generation is not this one's). 0 where nothing is recorded (?glstate=0, WebGL 1). */
+export function glGen(gl) { const r = recOf(gl); return r ? r.gen : 0; }
+
+// Framebuffer completeness, asked once per attachment layout per context generation (R09 / review pass 2, item 9). checkFramebufferStatus
+// is a synchronous trip into the driver (a GPU-process round trip in Chrome and Safari), and the app asked it for every chart layer,
+// lobule tile copy, wide-copy tile and overlay target it made, often inside a frame. A layout's verdict does not change within a
+// generation (a colour texture of a renderable format, with or without a stencil buffer, at a size the context allows), so once one such
+// framebuffer was complete the next is taken as complete. Only a complete verdict is kept: an incomplete one is asked again next time.
+// A size of 0 (or past the texture limit) is never complete and never asked. ?fbcache=0: asked every time, as before;
+// ?glstate=check: asked every time and compared.
+const FB_CACHE = !/[?&]fbcache=0\b/.test(SEARCH);
+/** gl.checkFramebufferStatus(target) === FRAMEBUFFER_COMPLETE for the framebuffer bound there, whose attachments have layout `key`
+ *  (e.g. 'rgba8', 'rgba8+s8') and size w × h. */
+export function fbComplete(gl, target, key, w, h) {
+  if (!(w > 0 && h > 0)) return false;
+  const r = recOf(gl);
+  if (!r || !FB_CACHE || !r.fresh) return gl.checkFramebufferStatus(target) === gl.FRAMEBUFFER_COMPLETE;
+  const max = glCap(gl, gl.MAX_TEXTURE_SIZE);
+  if (max && (w > max || h > max)) return false;
+  if (r.fbOk.has(key)) {
+    if (CHECK) check(gl, `fb:${key}`, true, gl.checkFramebufferStatus(target) === gl.FRAMEBUFFER_COMPLETE);
+    return true;
+  }
+  const ok = gl.checkFramebufferStatus(target) === gl.FRAMEBUFFER_COMPLETE;
+  if (ok && !gl.isContextLost()) r.fbOk.add(key);
+  return ok;
+}
+/** For tests and ?perf: how many layouts this context's generation holds a complete verdict for. */
+export const fbVerdicts = (gl) => recs.get(gl)?.fbOk?.size ?? 0;
 
 // Every WebGL2 context the page makes is recorded from its creation (the registry then sees its first allocation too).
 if (GL_STATE && W2) {

@@ -10,7 +10,8 @@
 // returns false and the caller builds the 2D tiles instead. A context lost mid-zoom reports lost; the caller then drops the copy. When
 // the browser gives the context back, the programs are made again in place, and the next copy is built on it (the lost one stays lost).
 
-import { startProgram, checkProgram } from './gl-compile.js?v=c79638f168';
+import { startProgram, checkProgram } from './gl-compile.js?v=5096509185';
+import { fbComplete, glCap } from './gl-state.js?v=fb0dea79ba';
 
 export const WIDE_GL = !(typeof location !== 'undefined' && /[?&]widegl=0\b/.test(location.search || ''));
 
@@ -85,7 +86,7 @@ export function createWideGL(canvas, { host = null } = {}) {
     gl.bindBuffer(gl.ARRAY_BUFFER, quad); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]), gl.STATIC_DRAW);
     gl.enableVertexAttribArray(0);
     gl.disable(gl.DEPTH_TEST);
-    MAX = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+    MAX = glCap(gl, gl.MAX_TEXTURE_SIZE);   // (asked once per context generation: gl-state.js)
     scratch = gl.createTexture();
     hostDone();
   }
@@ -113,7 +114,7 @@ export function createWideGL(canvas, { host = null } = {}) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
       gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
       const done = (good) => { gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.deleteFramebuffer(fbo); if (!good) gl.deleteTexture(tex); return good; };
-      if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE || !ok()) return done(false);
+      if (!fbComplete(gl, gl.FRAMEBUFFER, 'rgba8mip', pw, ph) || !ok()) return done(false);   // (asked once per layout and generation: gl-state.js)
       gl.viewport(0, 0, pw, ph);
       gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
       gl.useProgram(lay);
@@ -188,7 +189,7 @@ export function createWideGL(canvas, { host = null } = {}) {
     gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, fbo);
     gl.framebufferTexture2D(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
     const done = (good) => { gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.deleteFramebuffer(fbo); if (!good) gl.deleteTexture(tex); hostDone(); return good; };
-    if (gl.checkFramebufferStatus(gl.DRAW_FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE || !ok()) return done(false);
+    if (!fbComplete(gl, gl.DRAW_FRAMEBUFFER, 'rgba8mip', pw, ph) || !ok()) return done(false);
     gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
     gl.disable(gl.SCISSOR_TEST);
     gl.blitFramebuffer(0, ch - ph, pw, ch, 0, ph, pw, 0, gl.COLOR_BUFFER_BIT, gl.NEAREST);

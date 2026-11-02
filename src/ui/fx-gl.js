@@ -13,7 +13,8 @@
 // Without WebGL2, on a software renderer or once the context is lost, createFxGL returns null / reports lost, and paintFx draws.
 // ?fxgpu=0: paintFx always, as before.
 
-import { startProgram, checkProgram } from './gl-compile.js?v=c79638f168';
+import { startProgram, checkProgram } from './gl-compile.js?v=5096509185';
+import { fbComplete } from './gl-state.js?v=fb0dea79ba';
 
 const FX_KEEP = !(typeof location !== 'undefined' && /[?&]lykeep=0\b/.test(location.search || ''));
 export const FX_GPU = !(typeof location !== 'undefined' && /[?&]fxgpu=0\b/.test(location.search || ''));
@@ -161,7 +162,7 @@ export function createFxGL(canvas, { host = null } = {}) {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
-    const ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+    const ok = fbComplete(gl, gl.FRAMEBUFFER, 'rgba8', w, h);   // (asked once per layout and context generation: gl-state.js)
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     return ok ? { tex, fbo, w, h } : (gl.deleteFramebuffer(fbo), gl.deleteTexture(tex), null);
   }

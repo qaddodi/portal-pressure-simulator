@@ -16,13 +16,19 @@
 const SOFTWARE = /SwiftShader|llvmpipe|softpipe|Software|Basic Render/i;
 /** Whether this WebGL context is drawn on the CPU. */
 export function softwareGL(gl) {
-  let named;
+  let name;
   try {
     const ri = gl.getExtension('WEBGL_debug_renderer_info');
-    named = SOFTWARE.test(String(gl.getParameter(ri ? ri.UNMASKED_RENDERER_WEBGL : gl.RENDERER)));
-  } catch { named = false; }
-  return rendererVerdict(named);
+    name = String(gl.getParameter(ri ? ri.UNMASKED_RENDERER_WEBGL : gl.RENDERER));
+  } catch { name = ''; }
+  return rendererVerdict(SOFTWARE.test(name), name);
 }
+// A rasterizer the renderer string names outright (Chrome's SwiftShader, Mesa's llvmpipe and softpipe, Windows' WARP "Basic Render
+// Driver") draws on the CPU whatever else the browser says: failIfMajorPerformanceCaveat is a browser's blocklist, not a test of the
+// rasterizer (Firefox on llvmpipe, a headless Chrome given --ignore-gpu-blocklist, both hand out the context). Only the vaguer
+// "Software" match is still asked of the browser. (Review pass 2, item 12: a genuinely software renderer is never put on the GPU path.)
+const RASTERIZER = /SwiftShader|llvmpipe|softpipe|Basic Render/i;
+const SW_NAMED = !/[?&]swname=0\b/.test(typeof location !== 'undefined' ? location.search || '' : '');
 
 // The software path (8 frames a second at half the pixels) must never be taken on a device with a real GPU (120 Hz recs P3, 2 Nov 2026).
 // ?renderer=gpu always takes the GPU path, ?renderer=software always the software one. Otherwise a renderer named as software is asked
@@ -45,9 +51,10 @@ export function browserAccelerated() {
   return accel;
 }
 /** The final word on software, from the renderer's name (`named`), the address's override and the browser's own answer. */
-export function rendererVerdict(named) {
+export function rendererVerdict(named, name = '') {
   if (RENDERER_FORCE) return RENDERER_FORCE === 'software';
   if (!named) return false;
+  if (SW_NAMED && RASTERIZER.test(String(name))) return true;   // (?swname=0: the browser's answer overrides the name, as before)
   return !(SW_CHECK && browserAccelerated());
 }
 

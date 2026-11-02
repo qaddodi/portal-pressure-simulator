@@ -12,7 +12,7 @@
 // up to SHADER_TRIES times, instead of leaving the slide unready for good; a step that fails marks the manifest failed, never ready;
 // cancel() is the presenter's teardown and drops every manifest. States: unprepared, preparing, ready, failed.)
 import { prepJob, prepLeft } from './prep-budget.js?v=d133846f6a';
-import { whenShadersMove } from './gl-compile.js?v=c79638f168';
+import { whenShadersMove } from './gl-compile.js?v=5096509185';
 export const SLIDE_PREP = !(typeof location !== 'undefined' && /[?&]slideprep=0\b/.test(location.search || ''));
 
 // (Review pass 2, priorities 1 and 3: each slide's preparation is a job of the shared preparation budget, prep-budget.js, one step at a

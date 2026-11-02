@@ -6,9 +6,9 @@
 //   so a number that changes, a reading that turns to the alarm colour or a new size needs no new picture.
 // Its three programs are started when the monitor is made (gl-compile.js) and published once the driver says they are done; a frame
 // before that draws nothing new. A lost context draws nothing until it is restored, when everything is made again.
-import { sdfAtlas } from './text-gl.js?v=19dfe922f8';   // (the app's one door to GPU text: its SDF atlas, for text that changes every frame)
+import { sdfAtlas } from './text-gl.js?v=f983c94e6f';   // (the app's one door to GPU text: its SDF atlas, for text that changes every frame)
 const { GLYPHS, KERN, BASE, RADIUS, CUTOFF, ATLAS_W, ATLAS_H, ATLAS_PNG } = sdfAtlas;
-import { startProgram, compileDone, checkProgram } from './gl-compile.js?v=c79638f168';
+import { startProgram, compileDone, checkProgram, publishWhenDone } from './gl-compile.js?v=5096509185';
 
 /** '#rgb', '#rrggbb', 'rgb()' or 'rgba()' as premultiplied [r, g, b, a] in 0–1. */
 export function colorOf(c) {
@@ -76,7 +76,11 @@ void main() {
 // The atlas's image, decoded once for every monitor (no canvas); a monitor drawn before it is in is drawn again when it is.
 let atlasImage = null;
 const waiting = new Set();
-if (typeof Image === 'function') { const im = new Image(); im.decoding = 'async'; im.onload = () => { atlasImage = im; for (const f of [...waiting]) f(); waiting.clear(); }; im.src = ATLAS_PNG; }
+// (Review pass 2, item 2: each monitor's context takes the atlas up as the picture is decoded (a task of its own) or as its programs are
+// published, never in the first frame that draws words. ?atlasidle=0: sent in that frame, as before.)
+const ATLAS_IDLE = !(typeof location !== 'undefined' && /[?&]atlasidle=0\b/.test(location.search || ''));
+const atlasTakers = new Set();
+if (typeof Image === 'function') { const im = new Image(); im.decoding = 'async'; im.onload = () => { atlasImage = im; if (ATLAS_IDLE) { for (const f of [...atlasTakers]) f(); atlasTakers.clear(); } for (const f of [...waiting]) f(); waiting.clear(); }; im.src = ATLAS_PNG; }
 const WEIGHTS = Object.keys(GLYPHS).map(Number);
 const weightOf = (w) => WEIGHTS.reduce((a, b) => (Math.abs(b - w) < Math.abs(a - w) ? b : a));
 /** A word's width in CSS px at weight w and size px, from the atlas's advances and kerning (no canvas). */
@@ -127,7 +131,10 @@ export function createVitalsGL(cv) {
       glyph: mk([[1, 4, 52, 0], [2, 4, 52, 16], [3, 4, 52, 32], [4, 1, 52, 48]]),
     };
     atlasIn = false;
+    if (ATLAS_IDLE) publishWhenDone(gl, Object.values(progs), () => { if (R && !lost && publish()) atlasReady(); });
   }
+  const taker = () => { if (R && !lost && !gl.isContextLost()) atlasReady(); };
+  if (ATLAS_IDLE && !atlasImage) atlasTakers.add(taker);
   function publish() {
     if (R.ready) return true;
     if (!compileDone(gl, Object.values(R.progs))) return false;
@@ -228,6 +235,6 @@ export function createVitalsGL(cv) {
       gl.bindVertexArray(null);
       return true;
     },
-    dispose() { gl.getExtension('WEBGL_lose_context')?.loseContext(); R = null; lost = true; },
+    dispose() { atlasTakers.delete(taker); gl.getExtension('WEBGL_lose_context')?.loseContext(); R = null; lost = true; },
   };
 }

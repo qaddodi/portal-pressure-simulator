@@ -5,21 +5,21 @@
 // full. It scrolls smoothly, one spectral line at a time, as the machine does.
 
 import { EDGES, dopplerK, stentSegments, stentSite, stentGate, stentCourse } from '../engine/topology.js?v=4044766e96';
-import { glWords, wordsRect } from './gl-words.js?v=ae22cd79d0';
-import { h, fmt, canvasSize, clamp, icon, cssVar, cssAlpha, swapText } from './util.js?v=275558a385';
-import { FONT, textW } from './charts.js?v=cb76140fa8';
+import { glWords, wordsRect } from './gl-words.js?v=6f6aef0a32';
+import { h, fmt, canvasSize, clamp, icon, cssVar, cssAlpha, swapText } from './util.js?v=5f51c5b319';
+import { FONT, textW } from './charts.js?v=2a31a51ed2';
 import { logAction, shownVel, store } from './store.js?v=bf85512db4';
-import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=35ed51afe0';
+import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=1cef35948a';
 import { frameFor, noteDraw, paceMs, cancelFrame } from './frame.js?v=2cc59e19c4';
 import { windowIndexFor, scaleFor, fitScale } from './dopplerWindow.js?v=1d34e63b32';
 import { velNormal, dopplerVel, judgeFlow } from './velNormal.js?v=97920ddf3f';
 import { caliperFrame, caliperLevel, caliperX, CAL_FADE, pairOf, pairBand, pairScale, PAIR_GAP } from './doppler-marks.js?v=15fc499dcd';
-import { createDopplerGL } from './doppler-gl.js?v=b32e865eda';
+import { createDopplerGL } from './doppler-gl.js?v=443b6271dc';
 import { surface } from './gpu-surfaces.js?v=2af17044e7';
 import { olderThan } from './backfill.js?v=455d888760';
 import { createFollow } from './display-state.js?v=8d062d39dc';
 import { D_SMALL, EASE_ARRIVE } from './ease.js?v=7513a88c68';
-import { createTraceGL, fitPen, keepLayer } from './trace-gl.js?v=922f51aa5f';
+import { createTraceGL, fitPen, keepLayer } from './trace-gl.js?v=e058979508';
 const nextFrame = frameFor('doppler');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -131,7 +131,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   // Mohammad, 22 Oct: "Move to GPU"), and the margins, words, ticks and calipers by the GPU's chart drawer in a canvas over it
   // (trace-gl.js; 1 Nov: nothing off the GPU). This canvas is only their host: it takes the pointer and is never drawn (?tracegl=0 draws
   // the margins and words on it, as before). Nothing of the trace is drawn on the CPU: without WebGL2 it stays black.
-  const gpu = createDopplerGL();
+  const gpu = createDopplerGL({ onReady: () => redraw() });
   if (gpu) { gpu.canvas.setAttribute('aria-hidden', 'true'); cv.before(gpu.canvas); }
   const words = createTraceGL(cv, { redraw: () => redraw() });
   // (The ?perf surfaces list, gpu-surfaces.js: read by the readout only.)

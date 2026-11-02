@@ -61,7 +61,7 @@ function bindingGL() {
     TEXTURE0: 0x84C0, ACTIVE_TEXTURE: 'active', TEXTURE_BINDING_2D: 'binding', TEXTURE_2D: 5, FRAMEBUFFER: 6, COLOR_ATTACHMENT0: 7, RGBA: 8, UNSIGNED_BYTE: 9, TEXTURE_MIN_FILTER: 10, NEAREST: 11,
     unit: 0, bound: Array(16).fill(null), fb: null, attach: new Map(), deleted: [],
     createFramebuffer: () => ({ fbo: true }), createTexture: () => ({ tex: gl.deleted.length + Math.random() }),
-    getParameter(k) { return k === 'active' ? gl.TEXTURE0 + gl.unit : gl.bound[gl.unit]; },
+    getParameter(k) { return k === 'active' ? gl.TEXTURE0 + gl.unit : k === 'binding' ? gl.bound[gl.unit] : null; },   // (other names: nothing bound)
     activeTexture(u) { gl.unit = u - gl.TEXTURE0; },
     bindTexture(t, x) { gl.bound[gl.unit] = x; },
     bindFramebuffer(t, f) { gl.fb = f; },
@@ -174,11 +174,12 @@ test('a draw that comes before its program is published publishes it first', () 
   // they hold their frame or the 2D canvas draws it. shader-warm.test.js.)
   assert.match(src('src/ui/tissue-gl.js'), /if \(!ready\) return hold && pictured && tgt\.width === W && tgt\.height === H \? 'held' : false;\n\s+\}\n\s+publish\(\);\n\s+if \(this\.lost\) return false;/);
   assert.match(src('src/ui/field-gl.js'), /if \(ready\) publish\(\);\n\s+else return hold && pictured && canvas\.width === W && canvas\.height === H \? 'held' : false;\n\s+\}\n\s+if \(this\.lost \|\| !prog\) return false;/);
-  assert.match(src('src/ui/doppler-gl.js'), /render\(\{[^\n]*\}\) \{\n\s+publish\(\);\n\s+if \(lost \|\| failed/);
-  assert.match(src('src/ui/endo-gl.js'), /render\(res, st\) \{\n\s+if \(lost\) return cv;\n\s+publish\(\);/);
+  // (Review pass 2: the Doppler monitor and the endoscopy field publish in a draw only once the driver says it is compiled, too.)
+  assert.match(src('src/ui/doppler-gl.js'), /if \(!prog && started && stillCompiling\(gl, \[started\]\)\) \{ stopPoll\?\.want\?\.\(\); waitingDraw = true; return false; \}\n\s+publish\(\);\n\s+if \(lost \|\| failed/);
+  assert.match(src('src/ui/endo-gl.js'), /render\(res, st\) \{\n\s+if \(lost \|\| this\.pending\) return cv;\n\s+publish\(\);/);
   // (Recs B8: a lost context is not ready, so the scope draws on the CPU, as with no WebGL.)
   assert.match(src('src/ui/endo-gl.js'), /cv\.addEventListener\('webglcontextlost', \(e\) => \{ e\.preventDefault\(\); lost = true; \}\);/);
-  assert.match(src('src/ui/endo-gl.js'), /ready\(\) \{ if \(lost\) return false; publish\(\); return !!u; \},/);
+  assert.match(src('src/ui/endo-gl.js'), /ready\(\) \{ if \(lost\) return false; if \(this\.pending\) return true; publish\(\); return !!u; \},/);
   // (A shader that failed is let go for the CPU renderer; a lost context is kept, for the GPU to take over again once it is built afresh.)
   assert.match(src('src/ui/instruments.js'), /if \(gl && !gl\.ready\(\) && !gl\.lost\) \{ gl\.dispose\(\); gl = null; glKey = ''; noGl = true; \}/);
   assert.match(src('src/ui/fibroscan-gl.js'), /s\.publish\(\);\n\s+if \(s\.lost \|\| !s\.published\) return null;/);

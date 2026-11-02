@@ -19,19 +19,19 @@
 // the sinusoid exactly over the lobule's one at every step: first the vessel itself, then the tissue
 // around it.
 
-import { h, fmt, clamp, lerp } from './util.js?v=275558a385';
-import { createSvgGL, svgModel } from './svg-gl.js?v=d9c2df4b9d';
-import { pressureColor } from './colormap.js?v=8e9abfe28b';
+import { h, fmt, clamp, lerp } from './util.js?v=5f51c5b319';
+import { createSvgGL, svgModel } from './svg-gl.js?v=3fc06e1e96';
+import { pressureColor } from './colormap.js?v=c4f2cbf927';
 import { isPaused } from './clock.js?v=b2a395ebe7';
 import { store } from './store.js?v=bf85512db4';
 import { STEP_MAX } from './glide-clock.js?v=220d7f875c';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
-import { createSinusoidGL, poreAt, poreOpenness, calloutPore, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=562756ecc2';
-import { placeFenDisse } from './fen-place.js?v=18f303ce7d';
+import { createSinusoidGL, poreAt, poreOpenness, calloutPore, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=c85238f938';
+import { placeFenDisse } from './fen-place.js?v=eeda951a6d';
 import { frameFor, noteDraw, saver, paceMs, renderScale, onRenderScale } from './frame.js?v=2cc59e19c4';
-import { softwareGL, softwareYield } from './sw-yield.js?v=703c656c2b';
+import { softwareGL, softwareYield } from './sw-yield.js?v=18a3b54a4d';
 import { noteSinusoidSupport, sinusoidSupported, CTX_LAZY } from './gl-support.js?v=38189f60f5';
-import { FADE_MS, fadeAlpha } from './res-fade.js?v=f8b45ffce5';
+import { FADE_MS, fadeAlpha } from './res-fade.js?v=dae146a3f4';
 import { cssColor8 } from './css-color.js?v=e56f0c77ae';
 import { surface } from './gpu-surfaces.js?v=2af17044e7';
 import { restPass } from './rest-pass.js?v=ab96e02d7b';

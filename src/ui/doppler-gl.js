@@ -11,7 +11,7 @@
 // There is no 2D path any more (the owner, 1 Nov 2026: nothing off the GPU): a monitor with no WebGL2 shows its words over a black trace,
 // and a lost context shows the trace black until the ring is sent again.
 
-import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=c79638f168';
+import { startProgram, checkProgram, exerciseDraw, publishWhenDone, stillCompiling } from './gl-compile.js?v=5096509185';
 
 const VS = `#version 300 es
 in vec2 p;
@@ -39,7 +39,7 @@ void main() {
 }`;
 
 /** The monitor's GPU drawer, or null where WebGL2 is missing (the trace then stays black: nothing of it is drawn on the CPU). */
-export function createDopplerGL() {
+export function createDopplerGL({ onReady = null } = {}) {
   if (typeof document === 'undefined') return null;
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = 1;
@@ -48,7 +48,7 @@ export function createDopplerGL() {
   // (lost: the GPU does not draw the monitor, from the loss until the rebuilt program is published.)
   let lost = false, dead = false;
   canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); lost = true; });
-  let started = null, quad = null, vao = null, ringT = null, noiseT = null, stopPoll = null;
+  let started = null, quad = null, vao = null, ringT = null, noiseT = null, stopPoll = null, waitingDraw = false;
   let prog = null, U = null, failed = false;
   let rw = 0, rh = 0, noiseSrc = null;   // (noiseSrc: the noise floor as last sent, to send it again to a context that came back)
   const tex = () => { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v); return t; };
@@ -88,6 +88,7 @@ export function createDopplerGL() {
       });
       for (const t of dummy) gl.deleteTexture(t);
       lost = false;   // (after a restore: the GPU draws the monitor again from the next frame)
+      if (waitingDraw) { waitingDraw = false; try { onReady?.(); } catch (e2) { console.warn('Doppler on the GPU: the redraw failed.', e2); } }
     } catch (e) {
       if (gl.isContextLost()) { prog = null; U = null; return; }   // (lost while it was read: the restore makes it again)
       failed = true; console.warn('Doppler on the GPU: shader failed; the 2D monitor stays.', e);
@@ -165,6 +166,10 @@ export function createDopplerGL() {
      * trace's top, half height wf px). The rest of the canvas is black (the 2D canvas covers it anyway).
      */
     render({ W, H, dx, dy, RW, RH, p, nx, ny, noiseA, base, wf }) {
+      // (Review pass 2, item 2: a frame that comes while the shader is still compiling does not publish it, where reading its status
+      // waits for the driver inside the frame. It draws nothing (the trace stays black, as for a lost context), the poller publishes
+      // the program the moment the driver is done, and onReady asks the monitor to draw again. ?shaderready=0: published here, as before.)
+      if (!prog && started && stillCompiling(gl, [started])) { stopPoll?.want?.(); waitingDraw = true; return false; }
       publish();
       if (lost || failed || RW !== rw || RH !== rh || gl.isContextLost()) return false;
       if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }

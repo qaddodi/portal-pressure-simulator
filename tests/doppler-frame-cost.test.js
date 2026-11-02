@@ -20,7 +20,7 @@ test('the Doppler monitor sends only its new lines to the GPU and draws none of 
 test('the Doppler trace and its words are drawn on the GPU', () => {
   const src = readFileSync(new URL('../src/ui/doppler.js', import.meta.url), 'utf8');
   const gl = readFileSync(new URL('../src/ui/doppler-gl.js', import.meta.url), 'utf8');
-  assert.match(src, /const gpu = createDopplerGL\(\);\n\s+if \(gpu\) \{ gpu\.canvas\.setAttribute\('aria-hidden', 'true'\); cv\.before\(gpu\.canvas\); \}/);
+  assert.match(src, /const gpu = createDopplerGL\(\{ onReady: \(\) => redraw\(\) \}\);\n\s+if \(gpu\) \{ gpu\.canvas\.setAttribute\('aria-hidden', 'true'\); cv\.before\(gpu\.canvas\); \}/);
   assert.match(src, /const words = createTraceGL\(cv, \{ redraw: \(\) => redraw\(\) \}\);/);
   assert.match(src, /const pen = fitPen\(cv, words\);\n\s+try \{ drawWith\(pen, now\); \} finally \{ pen\.ctx\.end\?\.\(\); \}/);
   assert.match(src, /const onGpu = !!gpu && !gpu\.lost;/);

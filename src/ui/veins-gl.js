@@ -31,25 +31,25 @@
 //
 // createVeinsGL(canvas) returns null only when WebGL2 is unavailable altogether.
 
-import { glGet, glCap } from './gl-state.js?v=e355476de1';
+import { glGet, glCap } from './gl-state.js?v=fb0dea79ba';
 import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { EDGE_GLSL } from './edge.js?v=8321a8017f';
 import { SLOT, DYE_BINS } from './blood.js?v=f6c91d8676';
-import { cssRGB } from './util.js?v=275558a385';
+import { cssRGB } from './util.js?v=5f51c5b319';
 import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js?v=d72157dbac';
 import { CELL, ENT_W, binVeins, splitRows, simpleCells, splitCells, cellsOfJoinEntries } from './veins-bin.js?v=6e462a9e6c';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { changedRows } from './flow-rows.js?v=59053c0155';
 import { leftAlone } from './quiet.js?v=388052eba8';
 import { uniformCache } from './uniform-cache.js?v=d2bd54b612';
-import { PUBLISH_QUIET_MS, SHADER_WARM, exerciseDraw } from './gl-compile.js?v=c79638f168';
-import { createShapeGL, flattenPath, ellipsePoly, polyMesh } from './shape-gl.js?v=662f61f3d8';
-import { createOrganStack, prestartOrganStack, prestartLayer } from './organs-gl.js?v=a4761842c3';
-import { warmFade } from './res-fade-gl.js?v=97a8ecbbd0';
+import { PUBLISH_QUIET_MS, SHADER_WARM, exerciseDraw } from './gl-compile.js?v=5096509185';
+import { createShapeGL, flattenPath, ellipsePoly, polyMesh } from './shape-gl.js?v=d8f75afcd5';
+import { createOrganStack, prestartOrganStack, prestartLayer } from './organs-gl.js?v=91065724c7';
+import { warmFade } from './res-fade-gl.js?v=be9f0e74b9';
 import { fusedVS, fusedFS } from './veins-fuse.js?v=892ef12160';
 import { NOISE_W, NOISE_H, NOISE_PER_ROW, OCTAVES, noiseBlock, blockAt, tableSize } from './blood-noise.js?v=bc65994b25';
-import { rendererVerdict } from './sw-yield.js?v=703c656c2b';
+import { softwareGL } from './sw-yield.js?v=18a3b54a4d';
 import { frameCount, framePhase } from './frame.js?v=2cc59e19c4';
 
 export { binVeins };
@@ -3024,12 +3024,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   canvas.addEventListener('webglcontextrestored', onRestored);
   // A software renderer (no usable GPU: the browser draws on the CPU) is told apart so the stage
   // can draw less often and at a lower resolution there.
-  let software;
-  try {
-    const ri = gl.getExtension('WEBGL_debug_renderer_info');
-    software = /SwiftShader|llvmpipe|softpipe|Software|Basic Render/i.test(String(gl.getParameter(ri ? ri.UNMASKED_RENDERER_WEBGL : gl.RENDERER)));
-  } catch { software = false; }
-  software = rendererVerdict(software);   // (never the software path on a real GPU; ?renderer=gpu|software overrides: sw-yield.js)
+  // (One test for every view, sw-yield.js softwareGL: the renderer's name, the address's override and the browser's own answer. Never
+  // the software path on a real GPU, never the GPU path on a named rasterizer; ?renderer=gpu|software overrides.)
+  const software = softwareGL(gl);
 
   // For the ?perf readout (gpuProbe on): how much of the canvas the squares a frame repaints cover (cells: 6 floats each, the
   // square's corner first; m: world → device pixels).

@@ -4,28 +4,28 @@
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { gastricUp } from '../engine/scenario.js?v=0762d1b820';
 import { wallRead } from '../engine/wall-read.js?v=09449acd01';
-import { pressureColor } from './colormap.js?v=8e9abfe28b';
-import { h, fmt, canvasSize, cssVar, cssAlpha, clamp, icon, swapText, putText, countTo } from './util.js?v=275558a385';
-import { wordSetter } from './gl-words.js?v=ae22cd79d0';
+import { pressureColor } from './colormap.js?v=c4f2cbf927';
+import { h, fmt, canvasSize, cssVar, cssAlpha, clamp, icon, swapText, putText, countTo } from './util.js?v=5f51c5b319';
+import { wordSetter } from './gl-words.js?v=6f6aef0a32';
 import { simTime, isPaused } from './clock.js?v=b2a395ebe7';
-import { createEndoGL } from './endo-gl.js?v=6d849933df';
+import { createEndoGL } from './endo-gl.js?v=18002758dc';
 import { CTX_LAZY } from './gl-support.js?v=38189f60f5';
 import { surface } from './gpu-surfaces.js?v=2af17044e7';
-import { renderEndo } from './endo-render.js?v=f43d2c881f';
+import { renderEndo } from './endo-render.js?v=25157919f2';
 import { endoGrow, airRatio, airFlat } from './endo-size.js?v=e0a58bf20e';
 import { DEFLATE_MS, BAND_MS, BAND_DELAY_MS, fadeIn, glide, scopeTear } from './endo-motion.js?v=1dc4743d1e';
-import { drawScopeBleed } from './endo-bleed.js?v=393fe20d1a';
+import { drawScopeBleed } from './endo-bleed.js?v=7666120b9d';
 import { poolFill } from './blood.js?v=f6c91d8676';
-import { FONT } from './charts.js?v=cb76140fa8';
+import { FONT } from './charts.js?v=2a31a51ed2';
 import { store, updateParams, varicesPresent } from './store.js?v=bf85512db4';
 import { balanceHold, balanceLine } from './balance-hold.js?v=1792704e7a';
 import { lateFrameFor, cancelFrame, framePhase, easeNow } from './frame.js?v=2cc59e19c4';
 import { restPass } from './rest-pass.js?v=ab96e02d7b';
-import { createTraceGL, fitPen } from './trace-gl.js?v=922f51aa5f';
-import { createSvgGL, svgModel, setWords, wordsOf } from './svg-gl.js?v=d9c2df4b9d';
-import { textWidth } from './text-gl.js?v=19dfe922f8';
+import { createTraceGL, fitPen } from './trace-gl.js?v=e058979508';
+import { createSvgGL, svgModel, setWords, wordsOf } from './svg-gl.js?v=3fc06e1e96';
+import { textWidth } from './text-gl.js?v=f983c94e6f';
 import { D_SURFACE, easeArrive } from './ease.js?v=7513a88c68';
-import { inkBox } from './glyph-measure.js?v=c00a2078e8';
+import { inkBox } from './glyph-measure.js?v=d5602f13b1';
 // (The endoscope's field: drawn in the late part of a frame, after the model's frame of it has been taken in, so once a frame.)
 const drawFrame = lateFrameFor('instruments');
 
@@ -202,7 +202,8 @@ export function createEndoscopy({ onAction }) {
       // or the last of the beat's swell does not redraw it to and fro across one step; banding redraws at every step.)
       held = [an.g, an.v, an.r].map((x, i) => (held && Math.abs(x * 32 - held[i]) < 1.5 ? held[i] : Math.round(x * 32)));
       const gk = [res, ...held, ...[...an.def.map((t) => t.cur), ...an.kn.map((t) => t.cur)].map((x) => Math.round(x * 32))].join('|');
-      if (gk !== glKey) {
+      // (A shader still compiling draws no new field: the one shown stays, and endo-gl's onBack asks for this frame again once it is published.)
+      if (gk !== glKey && !gl.pending) {
         if (glKey) keep(); else fadeT0 = -1;
         glKey = gk;
         gl.render(res, { grow: an.g, vis: an.v, red: an.r, def: an.def.map((t) => t.cur), kn: an.kn.map((t) => t.cur) });

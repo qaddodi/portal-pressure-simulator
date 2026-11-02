@@ -11,11 +11,12 @@
 // Without WebGL2 (or once the context is lost) createTissueGL returns null / reports lost, and the tissue is not drawn until the
 // context is back: there is no 2D drawing of it (1 Nov 2026, nothing off the GPU). A software renderer draws it too.
 
-import { startProgram, checkProgram, exerciseDraw, publishWhenDone, compileDone, SHADER_WARM } from './gl-compile.js?v=c79638f168';
-import { TILE_OVER, sendCanvas, SEND_RETRY } from './field-gl.js?v=06591a92a0';
-import { isTileCopy, createTileCopier } from './tile-gl.js?v=ac1cb21eb6';
-import { isGpuPicture, paintGL } from './paint-gl.js?v=892ae5d5e2';
+import { startProgram, checkProgram, exerciseDraw, publishWhenDone, compileDone, SHADER_WARM } from './gl-compile.js?v=5096509185';
+import { TILE_OVER, sendCanvas, SEND_RETRY } from './field-gl.js?v=c2033d32e0';
+import { isTileCopy, createTileCopier } from './tile-gl.js?v=707c7f2df9';
+import { isGpuPicture, paintGL } from './paint-gl.js?v=01a776d883';
 import { LIVE_FS, CELLS_PER_ROW, IDX_ROW, SEG_ROW, K_ROW, BIN, panShift, panPlan } from './lobule-live.js?v=b585d4fb63';
+import { fbComplete } from './gl-state.js?v=fb0dea79ba';
 
 const VS = `#version 300 es
 in vec2 p;
@@ -268,7 +269,7 @@ export function createTissueGL(canvas, opts = {}) {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
-    const ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+    const ok = fbComplete(gl, gl.FRAMEBUFFER, 'rgba8', w, h);   // (asked once per layout and context generation: gl-state.js)
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.bindTexture(gl.TEXTURE_2D, null);   // (not left bound on a unit: the target is only ever drawn into and copied from)
     return { tex, fbo, ok };

@@ -9,10 +9,11 @@ import { softwareYield, softwareGL } from '../src/ui/sw-yield.js';
 const SRC = new URL('../src/ui/', import.meta.url);
 
 // The renderer test the stage reads (veins-gl.js: software), as written there.
+// (Review pass 2: veins-gl.js asks sw-yield.js's softwareGL itself, so the two can no longer differ.)
 const softwareTest = () => {
   const js = readFileSync(new URL('veins-gl.js', SRC), 'utf8');
-  const m = js.match(/software = \/(.+?)\/(\w*)\.test\(String\(gl\.getParameter\(ri \? ri\.UNMASKED_RENDERER_WEBGL : gl\.RENDERER\)\)\)/);
-  assert.ok(m, 'veins-gl.js decides software from the WebGL renderer string alone');
+  assert.match(js, /const software = softwareGL\(gl\);/, 'veins-gl.js decides software through sw-yield.js');
+  const m = readFileSync(new URL('sw-yield.js', SRC), 'utf8').match(/const SOFTWARE = \/(.+?)\/(\w*);/);
   return new RegExp(m[1], m[2]);
 };
 

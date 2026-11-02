@@ -12,9 +12,9 @@
 // as for a canvas. The tile itself is a picture recorded for the GPU (lobule-zoom.js drawTile, paint-gl.js), painted into the copier's
 // texture: no 2D canvas anywhere (1 Nov 2026). (No 2D copies since then.)
 
-import { glGet, glOn } from './gl-state.js?v=e355476de1';
-import { prestart, linkProgram } from './gl-compile.js?v=c79638f168';
-import { isGpuPicture, paintGL } from './paint-gl.js?v=892ae5d5e2';
+import { glGet, glOn, fbComplete } from './gl-state.js?v=fb0dea79ba';
+import { prestart, linkProgram } from './gl-compile.js?v=5096509185';
+import { isGpuPicture, paintGL } from './paint-gl.js?v=01a776d883';
 
 /** A copy of tile canvas src made on the GPU. look: { blur (Gaussian sigma, tile px; 0 for none), sat (the grey blend's share),
  *  tone ([r, g, b] 0–1, the colour laid over it), toneA (its opacity), flat (a second layer of the same colour, 0 for none) }.
@@ -116,7 +116,7 @@ export function createTileCopier(gl) {
   // One pass from texture `from` into texture `to` (w × h).
   function pass(fbo, from, to, w, h, dir, sigma, n, look) {
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, to, 0);
-    if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) return false;
+    if (!fbComplete(gl, gl.FRAMEBUFFER, 'rgba8', w, h)) return false;   // (asked once per layout and context generation: gl-state.js)
     gl.bindTexture(gl.TEXTURE_2D, from);
     gl.uniform2i(U.uDir, dir[0], dir[1]); gl.uniform1f(U.uSigma, Math.max(sigma, 1e-3)); gl.uniform1i(U.uN, n);
     if (look) { const c = look.tone; gl.uniform4f(U.uTone, c[0], c[1], c[2], 1); gl.uniform3f(U.uK, look.sat, look.toneA, look.flat || 0); }
@@ -142,7 +142,7 @@ export function createTileCopier(gl) {
       if (copy.blank) {
         // (A tile with no picture: the copy is clear, so the shaders lay the page's colour where it would be, as for the canvas copy.)
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, out, 0);
-        ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+        ok = fbComplete(gl, gl.FRAMEBUFFER, 'rgba8', w, h);
         if (ok) { gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); }
       } else {
         const src = rawFor(copy.src);
