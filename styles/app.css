@@ -2551,6 +2551,17 @@ button.finding { cursor: pointer; }
 .pz .pz-text.pz-text.pz-thrown[data-out].pz-leave { transition-timing-function: var(--ease-arrive); }
 .pz-shade.pz-shade.pz-shade.pz-shade.pz-shade.pz-page.pz-thrown:is(.pz-card, .stack).pz-leave { transition-timing-function: var(--ease-arrive), var(--ease-arrive); }
 .pz-shade.pz-shade.pz-shade.pz-shade.pz-page:is(.pz-card, .stack):is([data-out="next"], [data-out="back"], [data-out="jump"]):not(.pz-leave) { transition-property: opacity; transition-duration: var(--d-surface); transition-delay: .12s; }
+/* Thrown (presenter.js CARD_THROW, Mohammad 2 Nov 2026; ?cardthrow=0 off): on Next every card that leaves is thrown out to the left, on
+   Back to the right, like a flung case card: it gathers pace as it goes (ease-in) and fades, a good way across the screen (--pz-throw), the
+   glass with its words. The new cards come in from the other side by presenter.js throwIn (slowing to rest, no overshoot). */
+.pz.pz-throw, .pz-shade.pz-throw { --pz-throw: clamp(120px, 30vw, 420px); }
+:root:root .pz.pz-throw .pz-text.pz-text[data-out="next"].pz-leave, :root:root .pz-shade.pz-throw.pz-page:is(.pz-card, .stack)[data-out="next"].pz-leave,
+:root:root .pz.pz-throw > :is(.pz-data.pz-hide, .pz-panel.pz-leave)[data-out="next"] { transform: translateX(calc(-1 * (var(--pz-turn-d) + var(--pz-throw)))); }
+:root:root .pz.pz-throw .pz-text.pz-text[data-out="back"].pz-leave, :root:root .pz-shade.pz-throw.pz-page:is(.pz-card, .stack)[data-out="back"].pz-leave,
+:root:root .pz.pz-throw > :is(.pz-data.pz-hide, .pz-panel.pz-leave)[data-out="back"] { transform: translateX(calc(var(--pz-turn-d) + var(--pz-throw))); }
+:root:root .pz.pz-throw .pz-text.pz-text:is([data-out="next"], [data-out="back"]).pz-leave, :root:root .pz-shade.pz-throw.pz-page:is(.pz-card, .stack):is([data-out="next"], [data-out="back"]).pz-leave,
+:root:root .pz.pz-throw > :is(.pz-data.pz-hide, .pz-panel.pz-leave):is([data-out="next"], [data-out="back"]) { transition-property: opacity, transform; transition-duration: var(--d-small), var(--d-small); transition-delay: 0s, 0s; transition-timing-function: var(--ease-in), var(--ease-in); }
+:root:root .pz.pz-throw .pz-text.pz-text.pz-thrown[data-out].pz-leave, :root:root .pz-shade.pz-throw.pz-page.pz-thrown:is(.pz-card, .stack)[data-out].pz-leave { transition-timing-function: var(--ease-arrive), var(--ease-arrive); transition-duration: var(--d-surface), var(--d-surface); }   /* (a swipe's throw carries on from the finger at its pace) */
 .pz.stack .pz-text { --pz-lh: calc(1.38 * clamp(14px, calc(1.9 * var(--pzh)), 20px)); left: 21px; right: 21px; top: auto; bottom: calc(max(26px, 65px - var(--pz-lh)) + var(--pz-sb)); margin-block: 0; width: auto; max-height: 62%; gap: 6px; }/* (With a data card under the words, the pair keeps to the top so the card has room.) */
 .pz:not(.stack):has(.pz-data.under:not(.pz-hide)) .pz-text { bottom: auto; margin-block: 0; }
 .pz.stack .pz-kick { font-size: var(--s-lab); }

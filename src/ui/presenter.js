@@ -1787,11 +1787,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     pageCaught();   // (a swipe's throw over: the way in is the slide's own distance)
     if (!turnIn || !ui) return;
     turnIn = false;
-    const t = ui.text, k = t.dataset.turn, d = parseFloat(getComputedStyle(t).getPropertyValue('--pz-turn-d')) || 20;
+    const t = ui.text, k = t.dataset.turn, thrown = CARD_THROW && !!throwDir && (k === 'next' || k === 'back');
+    const d = thrown ? THROW_IN : parseFloat(getComputedStyle(t).getPropertyValue('--pz-turn-d')) || 20;   // (thrown: from further, and no style read)
     const x = k === 'next' ? d : k === 'back' ? -d : 0, from = x ? `translateX(${x}px)` : `translateY(${RISE_PX}px)`;
     if (CARD_PAGE) {
       // (The page: the glass and its words come in as one card, the same keyframes on both, started in the same frame.)
-      const frames = pageIn(k, d, RISE_PX), how = { duration: D_SURFACE, delay: QUICK_SLIDE ? 0 : 120, easing: EASE_ARRIVE, fill: 'backwards' };
+      const frames = pageIn(k, d, RISE_PX), how = { duration: D_SURFACE, delay: QUICK_SLIDE || thrown ? 0 : 120, easing: thrown ? EASE_MOVE : EASE_ARRIVE, fill: 'backwards' };
       // (No delay on the glass's own fade either, so it never runs on after the keyframes end and dips: app.css gives it .12s.)
       if (QUICK_SLIDE && ui.shade.style.transitionDelay !== '0s') ui.shade.style.transitionDelay = '0s';
       turnAnim = t.animate?.(frames, how) || null;
@@ -1820,7 +1821,24 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // taken down and put up again. Only its words page out and in; the glass changes to the new words' size in view, on the GPU (glass-gl.js
   // data-gl-morph, its edge and shadows drawn there too), and its tabs ride along by transform. Only where the GPU draws that glass, its
   // edge and shadow ([data-gl="edge"]); elsewhere the card leaves and comes back whole, as before. ?glassstay=0: as before.
-  const GLASS_STAY = CARD_PAGE && SHADE_GL && !/[?&]glassstay=0\b/.test(location.search);
+  // (Opt-in now, ?glassstay=1: Mohammad, 2 Nov 2026, wants the whole card thrown and a new one brought in instead, CARD_THROW.)
+  const GLASS_STAY = CARD_PAGE && SHADE_GL && /[?&]glassstay=1\b/.test(location.search);
+  // Next and Back throw the whole card out and bring the new one in (Mohammad, 2 Nov 2026: "Why don't we make the whole card go out throw
+  // away just like the question and case card"; "throw to the left ... reappear from the right to the left"; "Same for outline and tables
+  // and graphs conclusion cards too"): on Next every card leaving (the teaching card with its glass, a data card that changes, an outline,
+  // table or conclusion panel) is thrown out to the left, gathering pace and fading (app.css .pz-throw), and the new one comes in from the
+  // right, moving left, speeding up and slowing to rest evenly with no overshoot (THROW_IN, EASE_MOVE: not ease-arrive, whose first fifth
+  // of the time covers four fifths of the way, which read as the card snapping in and settling like a spring). Back mirrors it; a jump still fades and rises in place.
+  // A data card that stays (the same instrument) stays put. Transform and opacity only. ?cardthrow=0: as before.
+  const CARD_THROW = CARD_PAGE && !/[?&]cardthrow=0\b/.test(location.search);
+  const THROW_IN = 56, THROW_STAGGER = 40;
+  let throwDir = '';
+  // (The new card's way in: from THROW_IN px on the side away from where the old one went, fading in over its first part.)
+  function throwIn(el, delay = 0) {
+    if (!el || !throwDir || reduce.matches) return null;
+    const x = throwDir === 'next' ? THROW_IN : -THROW_IN;
+    return el.animate?.([{ transform: `translateX(${x}px)`, opacity: 0 }, { transform: 'translateX(0px)', opacity: 1, offset: 1 }], { duration: D_SURFACE, delay, easing: EASE_MOVE, fill: 'backwards' }) || null;
+  }
   const glassStays = () => GLASS_STAY && !!ui && ui.shade.getAttribute('data-gl') === 'edge';
   let stayTurn = false;
   const pageEls = () => (glassStays() ? [ui.text] : [ui.text, ui.shade]);
@@ -2191,7 +2209,16 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // at is the size they keep: keyed only once the slide was shown, the passes while the cards eased in measured afresh, and on a
   // tight iPad a reading settling or a chart lettered stepped the title or folded the ladder, so the card came in and then snapped.)
   // (While they fade in, the work that can wait does: frame.js holdMotion, the delay and the fade, app.css .pz-text.pz-enter.)
-  function cardsIn(at) { if (ui) { if (!reduce.matches) holdMotion(D_SURFACE + 220); if (at) { entering = at; layout(); } reFit(); if (!bare) { ui.text.classList.remove('pz-leave'); wordsTurnIn(); ui.scl.classList.remove('pz-leave'); delete ui.root.dataset.bare; } ui.root.classList.remove('pz-prep'); ui.panel.classList.remove('pz-leave'); if (ui.data.dataset.prep && !('hold' in ui.data.dataset)) { delete ui.data.dataset.prep; ui.data.classList.remove('pz-hide'); } } }
+  function cardsIn(at) { if (ui) { if (!reduce.matches) holdMotion(D_SURFACE + 220); if (at) { entering = at; layout(); } reFit(); if (!bare) { ui.text.classList.remove('pz-leave'); wordsTurnIn(); ui.scl.classList.remove('pz-leave'); delete ui.root.dataset.bare; } ui.root.classList.remove('pz-prep'); cardIn(ui.panel, 'pz-leave'); if (ui.data.dataset.prep && !('hold' in ui.data.dataset)) { delete ui.data.dataset.prep; cardIn(ui.data, 'pz-hide', THROW_STAGGER); } throwDir = ''; } }
+  // (A data card or panel coming in: thrown in from the side the talk goes when the old cards were thrown (CARD_THROW), else as before.
+  // Its way out is forgotten in the same style change, so the leave's place never runs back across the screen under the way in.)
+  function cardIn(el, cls, delay = 0) {
+    if (!el.classList.contains(cls)) return;
+    const a = throwDir && !el.hidden ? throwIn(el, delay) : null;
+    delete el.dataset.out;
+    el.classList.remove(cls);
+    return a;
+  }
   // The last refits that used to run as the cards came in (a ladder's strip given back its plot, the charts lettered again, the
   // layout their new sizes call for, a frame later) run while the cards are still unseen, so they come in at their final size and
   // never snap to it in view (an upright iPad's teaching card did). cardsIn's own reFit then finds nothing left to change.
@@ -2301,6 +2328,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const leaving = !dataOut && !out.some((el) => !el.hidden && el.childElementCount && !(keep && el === ui.text ? [...el.children].every((c) => c === mon.el || c.classList.contains('pz-leave')) : el.classList.contains('pz-leave')));
     const fading = leaving ? fadeLeft([...out, data, ui.scl, ui.shade]) : 0;
     if (!keepNow.text) ui.text.dataset.out = turnNow;   // (set with the leave, in the same style change, so the words go the right way at once)
+    throwDir = CARD_THROW && !reduce.matches && (turnNow === 'next' || turnNow === 'back') ? turnNow : '';
+    // (Thrown: the data card and a panel go the same way as the words.)
+    for (const el of [data, ui.panel]) { if (throwDir) el.dataset.out = throwDir; else delete el.dataset.out; }
     if (!keepNow.text && CARD_PAGE && !stayTurn) {
       // (The glass goes the same way and the same distance as its words, as one card.)
       ui.shade.dataset.out = turnNow;
@@ -2490,7 +2520,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       panel.classList.toggle('tabbed', !!tab);
       panel.replaceChildren(...(tab ? [tab] : []), h('div', { class: 'pz-ph' }, s.visual === 'outline' ? h('h1', { class: 'pz-dtitle' }, nb(deck.title)) : null, h('h1', { class: 'pz-h' }, ...diseaseNodes(nb(s.title))), s.eq ? equation(s.eq) : null, s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp, !!st?.params?.tips?.on)) : null, s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null, citeEl(s)),
         visualOf(s, i));
-      if (!ui.root.classList.contains('pz-prep')) panel.classList.remove('pz-leave');   // (else once fitted: settle)
+      if (!ui.root.classList.contains('pz-prep')) cardIn(panel, 'pz-leave');   // (else once fitted: settle)
       ui.veil.classList.add('on');
     } else {
       panel.hidden = true; panel.replaceChildren(); panel.classList.remove('pz-leave'); ui.veil.classList.remove('on');
@@ -2553,7 +2583,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       ui.tools.pin(now.fp);
       clearTimeout(dataHideT); dataHideT = 0;   // (a card shown again is not hidden by the timer of its last leaving, while it fades in or waits to)
       if (data.hidden) { data.hidden = false; data.classList.add('pz-hide'); void data.offsetWidth; }
-      if (!ui.root.classList.contains('pz-prep')) data.classList.remove('pz-hide');   // (else once fitted: settle)
+      if (!ui.root.classList.contains('pz-prep')) cardIn(data, 'pz-hide', THROW_STAGGER);   // (else once fitted: settle)
       else data.dataset.prep = '1';
       delete data.dataset.gone;
     } else if (!data.hidden) {
@@ -5305,6 +5335,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     tapTracker(panel, { ok: () => cellReady() || zoom.up, onTap: cellTap });
     const root = h('div', { class: 'pz' }, safe, veil, load, fk, text, zscrim, data, lip, panel, vcase, prog, scl, bar, jump, blackEl, say);
     if (CARD_PAGE) { root.classList.add('pz-page'); shade.classList.add('pz-page'); }   // (the teaching card as one page: card-page.js)
+    if (CARD_THROW) { root.classList.add('pz-throw'); shade.classList.add('pz-throw'); }   // (Next and Back throw the cards: app.css .pz-throw)
     veil.after(pscrim);   // (above the page's veil, under everything else)
     wrap.insertBefore(shade, wrap.querySelector('.stage-credit'));
     // The teaching card's glass is the card itself: it leaves and arrives with the words, never resizing in view.
