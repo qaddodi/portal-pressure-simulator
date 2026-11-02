@@ -17,7 +17,7 @@ import { NODES } from '../engine/topology.js?v=4044766e96';
 import { RATE } from './table-marks.js?v=ff3ed0cc47';
 import { monotoneSegs } from './curve-near.js?v=663c98a29c';
 import { plotPanel } from './plot-look.js?v=5037697da7';
-import { pressureColor } from './colormap.js?v=2227a56f90';
+import { pressureColor } from './colormap.js?v=75b8470bc8';
 import { measure } from './glyph-measure.js?v=cdab65e16b';
 import { createSvgGL, svgModel, FIRST_LOOK } from './svg-gl.js?v=bbe4d0d65d';
 

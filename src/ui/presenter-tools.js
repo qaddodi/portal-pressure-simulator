@@ -39,19 +39,19 @@
 // has recorded (backfill.js), so the trace sweeps on live from there instead of in from empty.
 
 import { store } from './store.js?v=afc4d7c743';
-import { h } from './util.js?v=f926cd5572';
+import { h } from './util.js?v=fa4109170f';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { createDoppler } from './doppler.js?v=f551e58535';
-import { createFibroScan } from './fibroscan.js?v=4088b65e81';
-import { createPressureTime } from './pressure-time.js?v=9219d912a2';
-import { createVitalsMonitor } from './vitals-monitor.js?v=61401acc30';
-import { createHvpgCard } from './tool-hvpg.js?v=8621cb29df';
+import { createDoppler } from './doppler.js?v=6bbb0d5f26';
+import { createFibroScan } from './fibroscan.js?v=4669334ae0';
+import { createPressureTime } from './pressure-time.js?v=98b7c72dc6';
+import { createVitalsMonitor } from './vitals-monitor.js?v=972a7b2c25';
+import { createHvpgCard } from './tool-hvpg.js?v=d65255a81a';
 import { createFlowTime } from './flow-time.js?v=58aa5c2b12';
-import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=22fa0cdd65';
+import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=c48d34bd7a';
 import { frameFor } from './frame.js?v=26e2e46fff';
 import { restPass, cancelRest } from './rest-pass.js?v=ed71462b47';
-import { talkTrace } from './talk-trace.js?v=e525e09ca8';
-import { EXT, guard, safe } from './slide-ext.js?v=51d10aa398';
+import { talkTrace } from './talk-trace.js?v=a4060679ff';
+import { EXT, guard, safe } from './slide-ext.js?v=1dccb833e1';
 const nextFrame = frameFor('presenter-tools');
 
 const VESSEL = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L: 'left portal vein', SV_CONF: 'splenic vein', SV_MID: 'splenic vein', V_SPL: 'splenic vein, at the hilum',
@@ -89,7 +89,8 @@ export function createTools({ host, stage }) {
    *  that has been cleared or held since (a newer ask, a state changing again) is let go. */
   function prime(inst, k) {
     const tok = ++primeTok;
-    primeP = host.request('history', { secs: inst.historySecs?.() ?? 10 })
+    // (The Doppler asks for its longest sweep, 12 s: the window it draws is chosen after this asks, from the card's width (autoWindow), and a 3 s answer left the left half of a 6 s window empty.)
+    primeP = host.request('history', { secs: k === 'doppler' ? Math.max(12, inst.historySecs?.() ?? 0) : inst.historySecs?.() ?? 10 })
       .then((m) => { if (tok === primeTok && !held && made[k] === inst && m?.samples) inst.backfill?.({ ...m.samples, probe: m.probe }); })
       .catch(noop);   // (an engine that cannot answer: the trace fills as it records)
   }
