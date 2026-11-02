@@ -10,7 +10,7 @@ const body = (name) => { const at = STAGE.indexOf(`  function ${name}(`); assert
 test('the FibroScan probe never asks the browser for the liver\'s box', () => {
   const fn = body('scanTipLocal');
   assert.doesNotMatch(fn, /getBoundingClientRect|getBBox|getScreenCTM/);
-  assert.match(fn, /polyBoxInto\(flattenCmds\(pathCmds\(d\)/);
+  assert.match(fn, /polyBoxInto\(flattenPath\(d/);
   assert.match(fn, /gMatrix\(organG\.liver\)/);
   assert.match(fn, /worldToLocal\(/);
 });

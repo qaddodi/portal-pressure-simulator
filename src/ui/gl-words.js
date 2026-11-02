@@ -18,8 +18,8 @@
 // The words fall back to a write between frames (never in a frame) where the GPU cannot set them: no outlines yet, a character the
 // cut glyphs do not have, an element with no box. ?glwords=0: every change is written into the page between frames, with no picture.
 
-import { createSvgGL, svgModel, setGeo, geoOf } from './svg-gl.js?v=a6421bfa51';
-import { textPolys, textWidth, textBox, loadGlyphs, glyphsReady, textCovers, glyphRun } from './text-gl.js?v=c7ddbab5a6';
+import { createSvgGL, svgModel, setGeo, geoOf } from './svg-gl.js?v=88731ae229';
+import { textPolys, textWidth, textBox, loadGlyphs, glyphsReady, textCovers, glyphRun } from './text-gl.js?v=db56442a0b';
 import { restPass, cancelRest } from './rest-pass.js?v=b1da783ead';
 import { readMetric } from './layout-snap.js?v=890c8333b8';
 import { cssColor } from './css-color.js?v=59ed182174';

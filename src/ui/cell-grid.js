@@ -7,7 +7,7 @@
 //
 //   const g = new CellGrid(); g.clearRect(0, 0, cols, rows); g.setTransform(a, b, c, d, e, f); g.fill(shapeGeom(el)); g.readInto(grid);
 
-import { flattenPath } from './shape-gl.js?v=eca7084bde';
+import { flattenPath } from './shape-gl.js?v=3efd12785d';
 
 const SUB = 4;   // (scan rows a cell)
 

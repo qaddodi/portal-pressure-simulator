@@ -72,14 +72,40 @@ function scan() {
 function pnum() { scan(); if (TK !== 2) return NaN; PI = TE; return TV; }
 
 /**
- * An SVG path's `d` as its commands, every one absolute and in one of six forms: ['M', x, y], ['L', x, y], ['C', x1, y1, x2, y2,
- * x, y], ['Q', x1, y1, x, y], ['A', rx, ry, phi, large, sweep, x, y], ['Z'] (H and V as L, S and T as C and Q with their
- * reflected control point). A shape made by the app's own code (the liver's outline and nodules, stage.js) is handed to the
+ * A path's commands as numbers in two typed arrays, written in place: `op` the commands (Z 0, M 1, L 2, C 3, Q 4, A 5) and `v` the numbers
+ * they take, in order (M and L two, Q four, C six, A seven, Z none), `n` the commands and `nv` the numbers written. A buffer is made once
+ * (newCmds) and written again for each shape of its slot (cmdsReset, then cmdM ...); it grows when a shape is longer than any before, never
+ * shrinks, and nothing else is made per shape (the arrays of arrays this replaced made one per command).
+ */
+export const newCmds = () => ({ op: new Uint8Array(32), v: new Float64Array(128), n: 0, nv: 0 });
+const grown = (a, need) => { const g = new a.constructor(Math.max(need, a.length * 2)); g.set(a); return g; };
+function room(c, nv) {
+  if (c.n >= c.op.length) c.op = grown(c.op, c.n + 1);
+  if (c.nv + nv > c.v.length) c.v = grown(c.v, c.nv + nv);
+}
+/** Empties a buffer for the next shape. Returns it. */
+export const cmdsReset = (c) => { c.n = 0; c.nv = 0; return c; };
+export function cmdZ(c) { room(c, 0); c.op[c.n++] = 0; return c; }
+export function cmdM(c, x, y) { room(c, 2); c.op[c.n++] = 1; c.v[c.nv++] = x; c.v[c.nv++] = y; return c; }
+export function cmdL(c, x, y) { room(c, 2); c.op[c.n++] = 2; c.v[c.nv++] = x; c.v[c.nv++] = y; return c; }
+export function cmdC(c, x1, y1, x2, y2, x, y) { room(c, 6); c.op[c.n++] = 3; const v = c.v; let k = c.nv; v[k++] = x1; v[k++] = y1; v[k++] = x2; v[k++] = y2; v[k++] = x; v[k++] = y; c.nv = k; return c; }
+export function cmdQ(c, x1, y1, x, y) { room(c, 4); c.op[c.n++] = 4; const v = c.v; let k = c.nv; v[k++] = x1; v[k++] = y1; v[k++] = x; v[k++] = y; c.nv = k; return c; }
+export function cmdA(c, rx, ry, ph, la, sw, x, y) { room(c, 7); c.op[c.n++] = 5; const v = c.v; let k = c.nv; v[k++] = rx; v[k++] = ry; v[k++] = ph; v[k++] = la; v[k++] = sw; v[k++] = x; v[k++] = y; c.nv = k; return c; }
+/** The commands as arrays, ['M', x, y] ... (tests and the console: made here, never in a frame). */
+export function cmdsToArrays(c) {
+  const out = [], names = 'ZMLCQA', len = [0, 2, 2, 6, 4, 7];
+  for (let i = 0, k = 0; i < c.n; i++) { out.push([names[c.op[i]], ...c.v.subarray(k, k + len[c.op[i]])]); k += len[c.op[i]]; }
+  return out;
+}
+/**
+ * An SVG path's `d` as its commands (a buffer, above), every one absolute and in one of six forms: M x y, L x y, C x1 y1 x2 y2 x y, Q x1 y1
+ * x y, A rx ry phi large sweep x y, Z (H and V as L, S and T as C and Q with their reflected control point). `into`: a buffer of the
+ * caller's, written again (else one is made). A shape made by the app's own code (the liver's outline and nodules, stage.js) is handed to the
  * painter in this form as it is made, so its `d` is never parsed again there (organ-paint.js shapeSource).
  */
-export function pathCmds(d) {
+export function pathCmds(d, into = null) {
   PS = d ? (typeof d === 'string' ? d : String(d)) : ''; PI = 0; PN = PS.length; SP = -1;
-  const out = [];
+  const out = into ? cmdsReset(into) : newCmds();
   let cx = 0, cy = 0, sx = 0, sy = 0, cmd = 0, hasC = false, lcx = 0, lcy = 0, hasQ = false, lqx = 0, lqy = 0;
   for (;;) {
     scan();
@@ -87,28 +113,28 @@ export function pathCmds(d) {
     if (TK === 1) { cmd = TC; PI = TE; } else if (!cmd) { PI = TE; continue; }
     const C = cmd & 0xDF, rel = cmd >= 97, ox = rel ? cx : 0, oy = rel ? cy : 0;
     let nc = false, nq = false;
-    if (C === 90) { out.push(['Z']); cx = sx; cy = sy; hasC = hasQ = false; cmd = 0; continue; }   // (numbers after a Z, never written: skipped)
+    if (C === 90) { cmdZ(out); cx = sx; cy = sy; hasC = hasQ = false; cmd = 0; continue; }   // (numbers after a Z, never written: skipped)
     scan();
     if (TK !== 2) { cmd = 0; continue; }
-    if (C === 77) { cx = ox + pnum(); cy = oy + pnum(); sx = cx; sy = cy; out.push(['M', cx, cy]); cmd = rel ? 108 : 76; }
-    else if (C === 76) { const x = ox + pnum(), y = oy + pnum(); out.push(['L', x, y]); cx = x; cy = y; }
-    else if (C === 72) { const x = ox + pnum(); out.push(['L', x, cy]); cx = x; }
-    else if (C === 86) { const y = (rel ? cy : 0) + pnum(); out.push(['L', cx, y]); cy = y; }
+    if (C === 77) { cx = ox + pnum(); cy = oy + pnum(); sx = cx; sy = cy; cmdM(out, cx, cy); cmd = rel ? 108 : 76; }
+    else if (C === 76) { const x = ox + pnum(), y = oy + pnum(); cmdL(out, x, y); cx = x; cy = y; }
+    else if (C === 72) { const x = ox + pnum(); cmdL(out, x, cy); cx = x; }
+    else if (C === 86) { const y = (rel ? cy : 0) + pnum(); cmdL(out, cx, y); cy = y; }
     else if (C === 67) {
       const a0 = ox + pnum(), a1 = oy + pnum(), a2 = ox + pnum(), a3 = oy + pnum(), a4 = ox + pnum(), a5 = oy + pnum();
-      out.push(['C', a0, a1, a2, a3, a4, a5]); nc = true; lcx = a2; lcy = a3; cx = a4; cy = a5;
+      cmdC(out, a0, a1, a2, a3, a4, a5); nc = true; lcx = a2; lcy = a3; cx = a4; cy = a5;
     } else if (C === 83) {
       const x1 = hasC ? 2 * cx - lcx : cx, y1 = hasC ? 2 * cy - lcy : cy, a0 = ox + pnum(), a1 = oy + pnum(), a2 = ox + pnum(), a3 = oy + pnum();
-      out.push(['C', x1, y1, a0, a1, a2, a3]); nc = true; lcx = a0; lcy = a1; cx = a2; cy = a3;
+      cmdC(out, x1, y1, a0, a1, a2, a3); nc = true; lcx = a0; lcy = a1; cx = a2; cy = a3;
     } else if (C === 81) {
       const a0 = ox + pnum(), a1 = oy + pnum(), a2 = ox + pnum(), a3 = oy + pnum();
-      out.push(['Q', a0, a1, a2, a3]); nq = true; lqx = a0; lqy = a1; cx = a2; cy = a3;
+      cmdQ(out, a0, a1, a2, a3); nq = true; lqx = a0; lqy = a1; cx = a2; cy = a3;
     } else if (C === 84) {
       const x1 = hasQ ? 2 * cx - lqx : cx, y1 = hasQ ? 2 * cy - lqy : cy, x = ox + pnum(), y = oy + pnum();
-      out.push(['Q', x1, y1, x, y]); nq = true; lqx = x1; lqy = y1; cx = x; cy = y;
+      cmdQ(out, x1, y1, x, y); nq = true; lqx = x1; lqy = y1; cx = x; cy = y;
     } else if (C === 65) {
       const rx = pnum(), ry = pnum(), ph = pnum(), la = pnum(), sw = pnum(), x = ox + pnum(), y = oy + pnum();
-      out.push(['A', rx, ry, ph, la ? 1 : 0, sw ? 1 : 0, x, y]); cx = x; cy = y;
+      cmdA(out, rx, ry, ph, la ? 1 : 0, sw ? 1 : 0, x, y); cx = x; cy = y;
     } else { PI = TE; continue; }
     hasC = nc; hasQ = nq;
   }
@@ -119,7 +145,8 @@ export function pathCmds(d) {
  * An SVG path's `d` as polylines: [{ pts: Float32Array (x, y pairs), closed }]. Curves (cubic, quadratic, arcs) are cut
  * into chords no further than `tol` (path units) from the curve.
  */
-export const flattenPath = (d, tol = 0.01) => flattenCmds(pathCmds(d), tol);
+let PATH_BUF = null;   // (the buffer flattenPath reads a path into: one for every call, the polylines made from it at once)
+export const flattenPath = (d, tol = 0.01) => flattenCmds(pathCmds(d, PATH_BUF || (PATH_BUF = newCmds())), tol);
 
 // A path is cut with one scratch run of points (doubles, grown when a run is longer than any before) and module state, so the
 // cutting makes only its result: each run's Float32Array and its record, none of the plain arrays, closures and slices it made before.
@@ -180,19 +207,19 @@ function farc(rx, ry, phi, large, sweep, x, y) {
   }
 }
 
-/** A path's commands (pathCmds) as polylines, as flattenPath gives its `d`. */
+/** A path's commands (pathCmds, a buffer) as polylines, as flattenPath gives its `d`. */
 export function flattenCmds(cmds, tol = 0.01) {
   const out = [];
   FOUT = out; FTOL = tol; FN = 0; FHAS = false; fcx = fcy = fsx = fsy = 0;
-  for (let i = 0; i < cmds.length; i++) {
-    const c = cmds[i];
-    switch (c[0]) {
-      case 'Z': fflush(true); FHAS = false; fcx = fsx; fcy = fsy; break;
-      case 'M': fcx = c[1]; fcy = c[2]; fstart(fcx, fcy); break;
-      case 'L': fline(c[1], c[2]); fcx = c[1]; fcy = c[2]; break;
-      case 'C': fcubic(c[1], c[2], c[3], c[4], c[5], c[6]); fcx = c[5]; fcy = c[6]; break;
-      case 'Q': fquad(c[1], c[2], c[3], c[4]); fcx = c[3]; fcy = c[4]; break;
-      case 'A': farc(c[1], c[2], c[3], c[4], c[5], c[6], c[7]); fcx = c[6]; fcy = c[7]; break;
+  const op = cmds.op, v = cmds.v;
+  for (let i = 0, k = 0; i < cmds.n; i++) {
+    switch (op[i]) {
+      case 0: fflush(true); FHAS = false; fcx = fsx; fcy = fsy; break;
+      case 1: fcx = v[k]; fcy = v[k + 1]; fstart(fcx, fcy); k += 2; break;
+      case 2: fline(v[k], v[k + 1]); fcx = v[k]; fcy = v[k + 1]; k += 2; break;
+      case 3: fcubic(v[k], v[k + 1], v[k + 2], v[k + 3], v[k + 4], v[k + 5]); fcx = v[k + 4]; fcy = v[k + 5]; k += 6; break;
+      case 4: fquad(v[k], v[k + 1], v[k + 2], v[k + 3]); fcx = v[k + 2]; fcy = v[k + 3]; k += 4; break;
+      case 5: farc(v[k], v[k + 1], v[k + 2], v[k + 3], v[k + 4], v[k + 5], v[k + 6]); fcx = v[k + 5]; fcy = v[k + 6]; k += 7; break;
     }
   }
   fflush(false);

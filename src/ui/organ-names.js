@@ -8,7 +8,7 @@
 // it, the atrium's and the esophagus's at their side) stays within NEAR units of it. The spots are the centres of the caption's box
 // on a grid, nearest the anchor first, so the label rests where it always did whenever nothing is in the way.
 import { ORGANS, ORGAN_LABELS } from './anatomy.js?v=b75990ccb4';
-import { pathCmds, flattenCmds } from './shape-gl.js?v=eca7084bde';
+import { flattenPath } from './shape-gl.js?v=3efd12785d';
 
 /** The organ outline each caption belongs to (anatomy.js ORGANS ids; a band shape such as the colon takes its ring). */
 export const NAME_ORGAN = { Liver: 'liver', Stomach: 'stomach', Spleen: 'spleen', Colon: 'colon', Kidney: 'kidney-l', 'Small bowel': 'bowel', Esophagus: 'esophagus', 'Right atrium': 'heart' };
@@ -24,7 +24,7 @@ export const REACH = 140, STEP = 8, APART = 22, MOST = 36;
 const outlines = new Map();
 function outlineOf(id) {
   if (!outlines.has(id)) {
-    const o = ORGANS.find((q) => q.id === id), polys = o ? flattenCmds(pathCmds(o.ring || o.d), 2) : [];   // alloc-rare: a caption's spots are worked out the first time that name is asked and kept in `kept` (and the outlines in `outlines`), never again
+    const o = ORGANS.find((q) => q.id === id), polys = o ? flattenPath(o.ring || o.d, 2) : [];   // alloc-rare: a caption's spots are worked out the first time that name is asked and kept in `kept` (and the outlines in `outlines`), never again
     const rings = polys.map((p) => Array.from({ length: p.pts.length / 2 }, (_, i) => [p.pts[2 * i], p.pts[2 * i + 1]])).filter((r) => r.length > 2);   // alloc-rare: a caption's spots are worked out the first time that name is asked and kept in `kept` (and the outlines in `outlines`), never again
     outlines.set(id, rings);
   }

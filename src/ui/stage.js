@@ -7,13 +7,13 @@ import { WARM_VIEWS, WARM_MS } from './warm-views.js?v=5709bebee7';
 import { gastricUp } from '../engine/scenario.js?v=d2669cef9b';
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=512e725aea';
 import { route as metroRoute, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, CAVITY_LOW, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=b75990ccb4';
-import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=3f2edc7baa';
+import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=d866c865da';
 import { nodeJoins, sideEndScale } from './fork-joins.js?v=13643dbace';
 import { nodeEnds, nodeDrawn, dotRadius, bareDots } from './circuit-nodes.js?v=94a9372b68';
 import { STATION_VESSEL, meanVel, velNormal, judgeFlow } from './velNormal.js?v=ad0e95380d';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=a51981892d';
 import { fibroReading } from './clock.js?v=e507b54cba';
-import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, loadFailed, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=3021104d7d';
+import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, loadFailed, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=ae9dfc2acc';
 import { riseCentre } from './rise-path.js?v=9a6cc7c969';
 import { lerpVT, camPath, blendPaths, viewsOverlap, driftEase } from './cam-arc.js?v=7a94734b0b';
 import { easeMove, easeArrive, camMs, carryRate, carried, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js?v=7d7bfe9a62';
@@ -29,7 +29,7 @@ import { easeTo, fluidSpring, fluidSpringFor } from './organ-ease.js?v=2a6fd3897
 import { spleenMotion } from './spleen-motion.js?v=4e87db0dbb';
 import { paintBox } from './plate-copy.js?v=20b30d30b0';
 import { segHitsBox, lineIndex, indexHits, segsCross } from './seg-hits.js?v=1f4bb9dad9';
-import { glassCallout, withGlass } from './callout.js?v=c63f3c5058';
+import { glassCallout, withGlass } from './callout.js?v=252dc502a2';
 import { flipFrom, flipAt } from './cath-flip.js?v=2e923c771a';
 import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=d7cca3fb73';
 import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=67a532bc39';
@@ -44,21 +44,21 @@ import { refine } from './refine.js?v=fb64519cbd';
 import { fadeOver, fadeStop, fading } from './res-fade.js?v=bb282583bc';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { leftAlone, sinceInput, booting, holdCover } from './quiet.js?v=856a3cdf1e';
-import { cropToGrid } from './organs-gl.js?v=7156cfc2cf';
-import { textPolys, loadGlyphs, glyphsReady, textBox } from './text-gl.js?v=c7ddbab5a6';
+import { cropToGrid } from './organs-gl.js?v=e31674ffeb';
+import { textPolys, loadGlyphs, glyphsReady, textBox } from './text-gl.js?v=db56442a0b';
 import { cssColor8 } from './css-color.js?v=59ed182174';
-import { measure as measureWords } from './glyph-measure.js?v=4aa1a7b6f3';
-import { readGroup as readGroupNow, readGroupRefs, readFail, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=d477755fd4';
+import { measure as measureWords } from './glyph-measure.js?v=f7df9c8270';
+import { readGroup as readGroupNow, readGroupRefs, readFail, shapeSource, reshape, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=3d7ee446f8';
 import { setLive, getLive, dropLive } from './live-style.js?v=1a585312ec';
 import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js?v=92f2104661';
-import { pathCmds, flattenCmds, polyBoxInto, measurePath, elBoxInto, chainMat } from './shape-gl.js?v=eca7084bde';
-import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=a82dfe5415';
-import { nameSpots, NAME_BREAK } from './organ-names.js?v=7095cce8df';
-import { createLabelGL } from './label-gl.js?v=5b001bdfe9';
+import { pathCmds, flattenPath, newCmds, cmdsReset, cmdM, cmdL, cmdQ, cmdZ, polyBoxInto, measurePath, elBoxInto, chainMat } from './shape-gl.js?v=3efd12785d';
+import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=9546e67879';
+import { nameSpots, NAME_BREAK } from './organ-names.js?v=e6337f9cef';
+import { createLabelGL } from './label-gl.js?v=0b5554e721';
 import { createGlassGL } from './glass-gl.js?v=d830edee02';
 import { writePoints, writeJoinNow } from './veins-sweep.js?v=a38b10c598';
 import { ENT_W } from './veins-bin.js?v=49b311283d';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=62ee0b375a';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=d3ace919d4';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=d950c5cd1c';
 import { alongCurve } from './pressure-along.js?v=e669103117';
@@ -76,7 +76,7 @@ import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_E
 import { createVesselPick } from './vessel-pick.js?v=e72f880350';
 import { leaderEnd as edgeOf, leaderEndRects as edgeOfRects } from './leader-end.js?v=56bb38b34d';
 import { balloonShape, esoAt, smoothPath, BALLOON, BALLOON_MS } from './balloon-eso.js?v=a56c97a289';
-import { GAS, gasShape, tubePath, tubeTip, tubeTo, pathAt, sheath, sheathArcs, pullArrow } from './balloon-gas.js?v=e04d4c4819';
+import { GAS, gasShape, tubePath, tubeTip, tubeTo, pathAt, sheath, sheathArcs, pullArrow } from './balloon-gas.js?v=95cc534eba';
 import { balloonRy, balloonOutline, routeRadii } from './hvpg-balloon.js?v=35d7bb162c';
 import { outlineBox, placeSummary } from './cath-place.js?v=371043a93a';
 import { placePills, pillsClear, PILL_GAP } from './cath-pill.js?v=419e60a907';
@@ -92,12 +92,12 @@ import { guardBlur } from './blur-guard.js?v=5228284718';
 import { capDensity } from './pixel-budget.js?v=279a2b54f6';
 import { bandRing, dashRings, liftEnd, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=58d3b30db1';
 import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js?v=6b4a03bb1e';
-import { CellGrid, geomOf } from './cell-grid.js?v=a6785a1cd9';
+import { CellGrid, geomOf } from './cell-grid.js?v=c53484b8dc';
 import { classSoon } from './class-soon.js?v=d59b314e61';
 import { restPass, cancelRest } from './rest-pass.js?v=b1da783ead';
 import { createLateQueue } from './late-queue.js?v=d7da770ef7';
 import { dropLabel } from './drop-label.js?v=90ece7f11f';
-import { glWords } from './gl-words.js?v=1264b23ab4';
+import { glWords } from './gl-words.js?v=64c2621998';
 import { provideStage } from './layout-snap.js?v=890c8333b8';
 const STENT_FACTORS = [0, 0, 0];   // alloc-rare: made once (stentSegments writes into it; the caller reads one entry at once)
 const EBOX = { x: 0, y: 0, width: 0, height: 0 }, SCAN_BOX = [0, 0, 0, 0];   // alloc-rare: made once (an element's box is read from EBOX at once; scanLvBox is SCAN_BOX)
@@ -864,6 +864,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (Cirrhosis's reshaping of the liver, CIRR and liverField: liver-morph.js.)
   let baseLiver = null, liverKey = '', islSrc = null, nodKey = null, islOn = null;   // (nodKey, islOn: what the nodules and the islands were last written for)
   const liverCmds = pathCmds(liverD);   // (the healthy outline as numbers, for the GPU painter: read once)
+  // (The morphing outline's and nodules' numbers, and the records the painter is given them under, one each for every step of the morph, written in place.)
+  const liverMorphCmds = newCmds(), nodMorphCmds = newCmds(), liverSrc = shapeSource(liverD, liverCmds), nodSrc = shapeSource('', nodMorphCmds);
   // The diseased liver's outline without its nodular bulges and notches, for the diaphragm: one smooth dome the nodules
   // never dent (Mohammad, 20 Oct: it was "morphing to the nodules of the liver"). null while the liver is healthy.
   let liverDome = null;
@@ -930,14 +932,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     });
     const n = p.length, m = (j) => { const a = p[j % n], q = p[(j + 1) % n]; return [fix1((a[0] + q[0]) / 2), fix1((a[1] + q[1]) / 2)]; };
     let [mx, my] = m(n - 1), d = `M${mx} ${my}`;
-    cmds.push(['M', +mx, +my]);
+    cmdM(cmds, +mx, +my);
     for (let j = 0; j < n; j++) {
       const qx = fix1(p[j][0]), qy = fix1(p[j][1]);
       [mx, my] = m(j);
       d += `Q${qx} ${qy} ${mx} ${my}`;
-      cmds.push(['Q', +qx, +qy, +mx, +my]);
+      cmdQ(cmds, +qx, +qy, +mx, +my);
     }
-    cmds.push(['Z']);
+    cmdZ(cmds);
     return d + 'Z';
   }
   // A closed smooth blob (quadratics through the edge midpoints) of radius r at (x, y).
@@ -978,10 +980,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (c + g > 0) {
       const xy = out.map(([x, y]) => [f1(x), f1(y)]);
       d = 'M' + xy.map(([x, y]) => `${x} ${y}`).join(' L') + ' Z';
-      cmds = xy.map(([x, y], i) => [i ? 'L' : 'M', +x, +y]);
-      cmds.push(['Z']);
+      cmds = cmdsReset(liverMorphCmds);
+      for (let i = 0; i < xy.length; i++) (i ? cmdL : cmdM)(cmds, +xy[i][0], +xy[i][1]);
+      cmdZ(cmds);
     }
-    const src = shapeSource(d, cmds);
+    const src = reshape(liverSrc, d, cmds);
     gpuProbe.time(null, 'liver: writes', () => { for (const el of liverPaths) { el.setAttribute('d', d); bindShape(el, src); } });
     liverDome = c + g > 0 ? dome : null;
     liverFloor = lowerEdge(c + g > 0 ? out : baseLiver.pts);
@@ -995,9 +998,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const nk = cn > 0.01 ? c : -1;
     if (nk !== nodKey) {
       nodKey = nk;
-      const nodCmds = [];
+      const nodCmds = cmdsReset(nodMorphCmds);
       const nod = gpuProbe.time(null, 'liver: nodules (maths)', () => (cn > 0.01 ? baseLiver.cells.map((cl) => cellPath(cl, c, (0.3 + 0.45 * c) * CIRR.sep, nodCmds)).join('') : ''));
-      gpuProbe.time(null, 'liver: writes', () => { lv.nod.setAttribute('d', nod); bindShape(lv.nod, shapeSource(nod, nodCmds)); });
+      gpuProbe.time(null, 'liver: writes', () => { lv.nod.setAttribute('d', nod); bindShape(lv.nod, reshape(nodSrc, nod, nodCmds)); });
     }
     lvFade(lv.sep, cn); lvFade(lv.nod, cn);
     // Nutmeg: the even dusky tone and its pale islands, fading in as congestion deepens.
@@ -2594,7 +2597,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=a688106f3c').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=2f6290d428').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor, binAway: (tubes, joins) => sweepBin({ kind: 'bin', tubes, joins }) });
@@ -7413,7 +7416,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!scan.on || !lv || morph > 0.5) return null;
     const d = lv.getAttribute('d');
     if (!d) return null;
-    if (d !== scanLvD) { scanLvD = d; polyBoxInto(flattenCmds(pathCmds(d), 0.05), SCAN_BOX); scanLvBox = SCAN_BOX[2] >= SCAN_BOX[0] ? SCAN_BOX : null; }
+    if (d !== scanLvD) { scanLvD = d; polyBoxInto(flattenPath(d, 0.05), SCAN_BOX); scanLvBox = SCAN_BOX[2] >= SCAN_BOX[0] ? SCAN_BOX : null; }
     if (!scanLvBox) return null;
     const m = gMatrix(organG.liver), [bx0, by0, bx1, by1] = scanLvBox, xs = [], ys = [];
     for (const [qx, qy] of [[bx0, by0], [bx1, by0], [bx0, by1], [bx1, by1]]) {
@@ -12331,7 +12334,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function ptSWRead() { ptSWAsk = 0; for (const el of ptSWWant) ptSW.set(el, parseFloat(getComputedStyle(el).strokeWidth) || 0); ptSWWant.clear(); }
   const polysOf = (d) => {
     let p = ptPolys.get(d);
-    if (!p) { p = flattenCmds(pathCmds(d), 0.25); if (ptPolys.size > 64) ptPolys.clear(); ptPolys.set(d, p); }
+    if (!p) { p = flattenPath(d, 0.25); if (ptPolys.size > 64) ptPolys.clear(); ptPolys.set(d, p); }
     return p;
   };
   const ptIn = (el, x, y, stroke) => {

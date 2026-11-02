@@ -13,8 +13,8 @@
 //   reading      a site's pressure pill (a station's reading on the figure)
 import { NODE_POS, EDGE_PATH, LABEL_VESSEL, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN_NODES } from './anatomy.js?v=b75990ccb4';
 import { EDGES } from '../engine/topology.js?v=512e725aea';
-import { pathCmds, flattenCmds } from './shape-gl.js?v=eca7084bde';
-import { expandIds } from './slide-ext.js?v=9afe24fda6';
+import { flattenPath } from './shape-gl.js?v=3efd12785d';
+import { expandIds } from './slide-ext.js?v=0b4ec2c73c';
 
 /** The room kept round an anchor that the frame grows to hold, in world units (a ring and a label's dot need a little air). */
 export const ROOM = 28;
@@ -36,7 +36,7 @@ function flatRun(id) {
   const e = EDGE.get(id), a = NODE_POS[e.from]?.[0], b = NODE_POS[e.to]?.[0];
   const d = EDGE_PATH[id] || (a && b ? `M${a[0]} ${a[1]} L ${b[0]} ${b[1]}` : '');
   const flat = [];
-  if (d) for (const piece of flattenCmds(pathCmds(d), 0.5)) for (let i = 0; i < piece.pts.length; i++) flat.push(piece.pts[i]);
+  if (d) for (const piece of flattenPath(d, 0.5)) for (let i = 0; i < piece.pts.length; i++) flat.push(piece.pts[i]);
   return flat.length > 2 ? flat : null;
 }
 for (const e of EDGES) if (shown(e.id)) RUN_FLAT.set(e.id, flatRun(e.id));

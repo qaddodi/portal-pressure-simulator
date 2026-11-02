@@ -15,7 +15,7 @@
 // flattens against it, softly and a little more with every unit of traction, and the rest of the balloon is as it was. The give is worked
 // out from the stomach's own outline (wallPress), so it follows a redrawn stomach too, and never goes through the wall.
 import { ORGANS, SEAM_D } from './anatomy.js?v=b75990ccb4';
-import { pathCmds, flattenCmds } from './shape-gl.js?v=eca7084bde';
+import { flattenPath } from './shape-gl.js?v=3efd12785d';
 import { esoAt, BALLOON, setTubeLine } from './balloon-eso.js?v=a56c97a289';
 
 export const GAS = {
@@ -40,7 +40,7 @@ export const GAS = {
 // ── The stomach's outline ─────────────────────────────
 /** A path as a polygon: the points of its first subpath, [[x, y], …]. */
 export function outlineOf(d) {
-  const f = flattenCmds(pathCmds(d), 0.25)[0].pts, out = [];
+  const f = flattenPath(d, 0.25)[0].pts, out = [];
   for (let i = 0; i < f.length; i += 2) out.push([f[i], f[i + 1]]);
   return out;
 }
