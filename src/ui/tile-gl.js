@@ -12,9 +12,9 @@
 // as for a canvas. The tile itself is a picture recorded for the GPU (lobule-zoom.js drawTile, paint-gl.js), painted into the copier's
 // texture: no 2D canvas anywhere (1 Nov 2026). (No 2D copies since then.)
 
-import { glGet, glOn, fbComplete } from './gl-state.js?v=3569b73302';
-import { prestart, prestarted, linkProgram, publishWhenDone, stillCompiling } from './gl-compile.js?v=3e750c4fef';
-import { isGpuPicture, paintGL } from './paint-gl.js?v=422be7e338';
+import { glGet, glOn, fbComplete } from './gl-state.js?v=d8ce472a0d';
+import { prestart, prestarted, linkProgram, publishWhenDone, stillCompiling } from './gl-compile.js?v=6270bdf1ba';
+import { isGpuPicture, paintGL } from './paint-gl.js?v=b7d795a4f6';
 
 /** A copy of tile canvas src made on the GPU. look: { blur (Gaussian sigma, tile px; 0 for none), sat (the grey blend's share),
  *  tone ([r, g, b] 0–1, the colour laid over it), toneA (its opacity), flat (a second layer of the same colour, 0 for none) }.

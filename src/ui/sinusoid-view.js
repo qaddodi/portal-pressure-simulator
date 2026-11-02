@@ -19,19 +19,19 @@
 // the sinusoid exactly over the lobule's one at every step: first the vessel itself, then the tissue
 // around it.
 
-import { h, fmt, clamp, lerp } from './util.js?v=a772cdc0fe';
-import { createSvgGL, svgModel, setGeo, geoOf } from './svg-gl.js?v=985f3a633d';
-import { pressureColor } from './colormap.js?v=4a3f4f1c83';
+import { h, fmt, clamp, lerp } from './util.js?v=c0a2baa85c';
+import { createSvgGL, svgModel, setGeo, geoOf } from './svg-gl.js?v=4d771742f3';
+import { pressureColor } from './colormap.js?v=9d8079cdd7';
 import { isPaused } from './clock.js?v=d6c06e7017';
 import { store } from './store.js?v=afc4d7c743';
 import { STEP_MAX } from './glide-clock.js?v=220d7f875c';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
-import { createSinusoidGL, poreAt, poreOpenness, calloutPore, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=a487257fa5';
-import { placeFenDisse } from './fen-place.js?v=f4876f7916';
+import { createSinusoidGL, poreAt, poreOpenness, calloutPore, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=ed7aac1c5c';
+import { placeFenDisse } from './fen-place.js?v=e755ab0d0d';
 import { frameFor, noteDraw, saver, paceMs, renderScale, onRenderScale } from './frame.js?v=26e2e46fff';
 import { softwareGL, softwareYield } from './sw-yield.js?v=1ec3c87eab';
-import { noteSinusoidSupport, sinusoidSupported, CTX_LAZY } from './gl-support.js?v=622a3b9520';
-import { FADE_MS, fadeAlpha } from './res-fade.js?v=531c1defc6';
+import { noteSinusoidSupport, sinusoidSupported, CTX_LAZY } from './gl-support.js?v=52a4c9c036';
+import { FADE_MS, fadeAlpha } from './res-fade.js?v=697067d495';
 import { cssColor8 } from './css-color.js?v=e56f0c77ae';
 import { surface } from './gpu-surfaces.js?v=2af17044e7';
 import { restPass, restClass, restAttr } from './rest-pass.js?v=f6a3355959';
@@ -42,7 +42,7 @@ const nextFrame = frameFor('sinusoid-view');
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 function rng(seed) { let q = seed >>> 0; return () => { q = (q * 1664525 + 1013904223) >>> 0; return q / 4294967296; }; }
 
-export { sinusoidSupported } from './gl-support.js?v=622a3b9520';
+export { sinusoidSupported } from './gl-support.js?v=52a4c9c036';
 
 /** `before`: a node of `host` to sit ahead of (the lobule layer, built late, takes the place it would have had). */
 export function createSinusoidView({ host, before = null }) {

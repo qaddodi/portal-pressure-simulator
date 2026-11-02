@@ -11,7 +11,7 @@
 // quality tiers read (adapt-tier.js, R07) to step the scene's resolution down before the motion skips frames.
 // Read it: ?perf (the readout's Surfaces block ends with the budget), or pps.budget() in the console.
 
-import { onGLCall, glRec } from './gl-state.js?v=3569b73302';
+import { onGLCall, glRec } from './gl-state.js?v=d8ce472a0d';
 import { onFrameEnd } from './frame.js?v=26e2e46fff';
 
 const SEARCH = typeof location !== 'undefined' ? location.search || '' : '';

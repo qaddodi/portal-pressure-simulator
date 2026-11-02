@@ -31,25 +31,25 @@
 //
 // createVeinsGL(canvas) returns null only when WebGL2 is unavailable altogether.
 
-import { glGet, glCap, glOkBefore, glOkAfter } from './gl-state.js?v=3569b73302';
+import { glGet, glCap, glOkBefore, glOkAfter } from './gl-state.js?v=d8ce472a0d';
 import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { EDGE_GLSL } from './edge.js?v=8321a8017f';
 import { SLOT, DYE_BINS, PERIOD, DRIFT_PERIOD } from './blood.js?v=a70439097a';
-import { cssRGB } from './util.js?v=a772cdc0fe';
+import { cssRGB } from './util.js?v=c0a2baa85c';
 import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js?v=d72157dbac';
 import { CELL, ENT_W, binVeins, splitRows, simpleCells, splitCells, cellsOfJoinEntries } from './veins-bin.js?v=6e462a9e6c';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { changedRows } from './flow-rows.js?v=6cd335f84b';
 import { leftAlone } from './quiet.js?v=388052eba8';
 import { uniformCache } from './uniform-cache.js?v=b914b447dd';
-import { PUBLISH_QUIET_MS, SHADER_WARM, exerciseDraw } from './gl-compile.js?v=3e750c4fef';
-import { createShapeGL, flattenPath, ellipsePoly, polyMesh } from './shape-gl.js?v=425612f909';
-import { createOrganStack, prestartOrganStack, prestartLayer } from './organs-gl.js?v=822da32e53';
-import { warmFade } from './res-fade-gl.js?v=e59f5568e0';
+import { PUBLISH_QUIET_MS, SHADER_WARM, exerciseDraw } from './gl-compile.js?v=6270bdf1ba';
+import { createShapeGL, flattenPath, ellipsePoly, polyMesh } from './shape-gl.js?v=fde1af982c';
+import { createOrganStack, prestartOrganStack, prestartLayer } from './organs-gl.js?v=2d527c43aa';
+import { warmFade } from './res-fade-gl.js?v=37eeefeccf';
 import { fusedVS, fusedFS } from './veins-fuse.js?v=b34d325734';
 import { NOISE_W, NOISE_H, NOISE_PER_ROW, OCTAVES, noiseBlock, blockAt, tableSize } from './blood-noise.js?v=bc65994b25';
-import { createNoiseFiller } from './noise-gl.js?v=d89c52c7e7';
+import { createNoiseFiller } from './noise-gl.js?v=94722cb69d';
 import { softwareGL } from './sw-yield.js?v=1ec3c87eab';
 import { frameCount, framePhase } from './frame.js?v=26e2e46fff';
 

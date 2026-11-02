@@ -6,7 +6,7 @@
 // A second change while one fades lays the kept picture over the new stack at its weight and place, inside the GPU, so nothing jumps.
 // The programs are started when a change is asked for (prepare), before the lobule stands still for it; a change that comes before they
 // are ready takes the new share at once rather than wait on a compile in a frame.
-import { startProgram, compileDone, checkProgram } from './gl-compile.js?v=3e750c4fef';
+import { startProgram, compileDone, checkProgram } from './gl-compile.js?v=6270bdf1ba';
 
 const VS = `#version 300 es
 in vec2 c;

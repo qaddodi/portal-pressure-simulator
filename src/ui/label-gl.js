@@ -12,16 +12,16 @@
 // know, a keyboard focus ring) stays drawn by the SVG, label by label. Without WebGL2, on a software renderer, with ?gpulabels=0, or
 // once the context is lost, the SVG draws them all, as it always has.
 
-import { glGet, glCap } from './gl-state.js?v=3569b73302';
+import { glGet, glCap } from './gl-state.js?v=d8ce472a0d';
 import { frameFor, cancelFrame } from './frame.js?v=26e2e46fff';
 import { ucOf } from './uniform-cache.js?v=b914b447dd';
 import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=81fbedda6b';
-import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js?v=3e750c4fef';
+import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js?v=6270bdf1ba';
 import { createAtlasPacker, batchRuns } from './atlas-pack.js?v=43b8bc019d';
 import { easeMove, D_SURFACE } from './ease.js?v=7513a88c68';
-import { createShapeGL, flattenPath, polyMesh, ellipsePoly } from './shape-gl.js?v=425612f909';
-import { createOrganPaint, parseColor, mul } from './organ-paint.js?v=bd4664b79e';
-import { textPolys, textWidth, loadGlyphs, glyphsReady, textCovers } from './text-gl.js?v=978a757555';
+import { createShapeGL, flattenPath, polyMesh, ellipsePoly } from './shape-gl.js?v=fde1af982c';
+import { createOrganPaint, parseColor, mul } from './organ-paint.js?v=175a9fe471';
+import { textPolys, textWidth, loadGlyphs, glyphsReady, textCovers } from './text-gl.js?v=d9c4b5088e';
 import { watchSize, sizeOf, rectSoon } from './geom.js?v=254133713c';
 import { trackOf, trackAt, mixColour, timingOf, progressAt, keysOf } from './label-track.js?v=814746f511';
 // (The colour a clear writes, one array for every clear: none made per call, plan rev 2 §2.8.)

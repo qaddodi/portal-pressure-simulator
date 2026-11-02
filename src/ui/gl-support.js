@@ -1,6 +1,6 @@
 // Whether this browser can draw the sinusoid view (it needs WebGL2). Kept apart from sinusoid-view.js so the app's start-up and the
 // presenter can ask without loading the view (the sinusoid view loads after the first paint, with the lobule).
-import { heldGL } from './gl-state.js?v=3569b73302';
+import { heldGL } from './gl-state.js?v=d8ce472a0d';
 
 let support = null;
 

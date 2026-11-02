@@ -6,7 +6,7 @@
 // made only on the GPU, inside the canvas's own presents (res-fade-gl.js); the canvas stays shown, so its opacity is never touched.
 import { finalFrameFor, noteDraw } from './frame.js?v=26e2e46fff';
 import { D_SURFACE } from './ease.js?v=7513a88c68';
-import { keepOnGpu } from './res-fade-gl.js?v=e59f5568e0';
+import { keepOnGpu } from './res-fade-gl.js?v=37eeefeccf';
 
 export const FADE_MS = D_SURFACE;
 /** The old picture's weight u of the way through the fade: 1 to 0, smoothstep (no step at either end). */

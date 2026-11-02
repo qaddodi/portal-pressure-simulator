@@ -5,8 +5,8 @@ import { readFrameFor, figLab, mayTask } from './frame.js?v=26e2e46fff';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { restPass, cancelRest } from './rest-pass.js?v=f6a3355959';
 import { CELL, cellFor, regionFor, contains, touches, artTest, boxThrough, multiply, invert } from './credit-art.js?v=77b95dafe8';
-import { CellGrid, geomOf } from './cell-grid.js?v=8a51d713c4';
-import { elBox, chainMat } from './shape-gl.js?v=425612f909';
+import { CellGrid, geomOf } from './cell-grid.js?v=1ffbbc6c34';
+import { elBox, chainMat } from './shape-gl.js?v=fde1af982c';
 import { layoutWatch, PLACED, GESTURE_LOOK } from './idle-keys.js?v=81fbedda6b';
 import { readAnims, readBox, readCTM, readMetric, readStyle, readTiming, worldCTM } from './layout-snap.js?v=f87939cccb';
 // (The art's walk looks at the camera once a frame: in the frame's first, read-only phase (2 Nov 2026), where the layout is the one the

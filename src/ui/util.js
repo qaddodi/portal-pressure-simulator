@@ -1,12 +1,12 @@
 // DOM & formatting helpers.
 import { saver, frame, cancelFrame, easeNow, readFrame } from './frame.js?v=26e2e46fff';
 import { restPass, restAttr, restRemove } from './rest-pass.js?v=f6a3355959';
-import { glWords } from './gl-words.js?v=c8ca6f6e62';
+import { glWords } from './gl-words.js?v=29a9632f6b';
 import { slideFold } from './fold-slide.js?v=1b10231dcf';
 import { releaseSpeed, isFlick, carryCurve, settleSlope, settleAt, easeMove, D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js?v=7513a88c68';
 import { leaveFromHere } from './menu-leave.js?v=0557b9a306';
 import { follow2, jumpCount, SHOWN_TAU } from './display-state.js?v=8d062d39dc';
-import { measure as measureWords } from './glyph-measure.js?v=cdab65e16b';
+import { measure as measureWords } from './glyph-measure.js?v=752ae0a7bb';
 
 // replaceChildren/append stringify null and arrays: flatten and drop empties instead.
 for (const m of ['replaceChildren', 'append', 'prepend']) {

@@ -8,8 +8,8 @@
 // The canvas keeps no picture between frames, so the old one is laid on the blank canvas at once after its resize (seed), and from
 // then on only by a present (which first puts the whole current picture back): a frame that draws nothing shows the last one.
 
-import { prestart, prestarted, linkProgram, compileDone, exerciseDraw, SHADER_WARM } from './gl-compile.js?v=3e750c4fef';
-import { glOkBefore, glOkAfter } from './gl-state.js?v=3569b73302';
+import { prestart, prestarted, linkProgram, compileDone, exerciseDraw, SHADER_WARM } from './gl-compile.js?v=6270bdf1ba';
+import { glOkBefore, glOkAfter } from './gl-state.js?v=d8ce472a0d';
 
 const VS = `#version 300 es
 in vec2 c;
