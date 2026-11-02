@@ -1820,6 +1820,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const lastBeat = (i) => beatCount(slides[i]) - 1;
   function go(i) {
     if (!deck || leaving) return;
+    dispatchEvent(new Event('pps:go'));   // (the ?perf readout's slide-change window; nothing listens otherwise)
     turn = i === want + 1 || firstBeat ? 'next' : i === want - 1 ? 'back' : 'jump';   // (the slide before or after, by whatever key or button: a turn; further: a jump)
     want = clamp(i, 0, slides.length - 1);
     noteResume(deck.id, want, slides.length);   // (the Present menu offers to resume here; the first or last slide forgets it)
@@ -1840,6 +1841,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // A beat asked for: the cards stay, the figure moves (beatMove, run). A zoomed card glides back first, as for a slide.
   function toBeat(k) {
     if (!deck || leaving) return;
+    dispatchEvent(new Event('pps:go'));
     beat = clamp(k, 0, lastBeat(want));
     paintChrome();
     if (zoomOn()) { ui.zoom.close().then(() => { paintZoom(); zoomMissed = false; if (deck && !busy) run(); }); return; }

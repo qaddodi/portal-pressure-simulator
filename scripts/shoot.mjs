@@ -90,7 +90,7 @@ const colourShare = (page, png) => page.evaluate(async (b64) => {
  *  cards are built unseen (`pz-prep`, the words held at opacity 0 behind a card that shows only its tag), while a card is fading or
  *  sliding in or out (a running finite animation or transition in it, or its own opacity under 1), and while the Doppler still says
  *  "Acquiring…" (it needs 1.5 s of the vessel recorded). A slide held behind its case card counts once that card is up. */
-const CARDS_LANDED = () => {
+export const CARDS_LANDED = () => {
   const root = document.querySelector('.pz');
   if (!root || root.classList.contains('pz-prep') || 'bare' in root.dataset) return false;
   const shown = (e) => !!e && !e.hidden && getComputedStyle(e).display !== 'none';

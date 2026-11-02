@@ -11,6 +11,7 @@ const nextFrame = finalFrameFor('perf readout');
 import { createFrameRecorder, longFrameLine, LONG_FRAME_MS } from './frame-stats.js?v=9cd1d0c4e3';
 import { scanBlurs, blurText } from './blur-gauge.js?v=215cf3d483';
 import { surfaceRows, surfacesText } from './gpu-surfaces.js?v=2af17044e7';
+import { motionBudget, budgetText } from './motion-budget.js?v=7c8fbb8f19';
 
 const WINDOW = 2000, KEEP = 5, GAP_LINES = 40, LONG_LINES = 15;
 // The display's own refresh, as the browser offers it, from the frame intervals the readout sees (30 Oct, review 6a: a list of gaps
@@ -115,7 +116,7 @@ export function gestureText(r) {
   const shown = r.gaps.length > GAP_LINES ? r.gaps.slice().sort((a, b) => b.dt - a.dt).slice(0, GAP_LINES).sort((a, b) => a.at - b.at) : r.gaps;
   const gaps = r.gaps.length ? [...shown.map(gapLine), ...(r.gaps.length > GAP_LINES ? [`  and ${r.gaps.length - GAP_LINES} shorter missed frames`] : [])] : [`  no frame missed${r.limit ? ` (none over ${r.limit.toFixed(1)} ms)` : ''}`];
   const tasks = r.tasks.map((t) => `  long task +${t.at.toFixed(0)} ms: ${t.dt.toFixed(0)} ms${t.src ? ` (${t.src})` : ''}`);
-  return [head, ...gauges, ...gaps, ...tasks].join('\n');
+  return [head, ...(r.budget ? [budgetText(r.budget)] : []), ...gauges, ...gaps, ...tasks].join('\n');
 }
 
 export function startPerfReadout({ zoom = () => '?' } = {}) {
@@ -146,7 +147,8 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
   };
   const begin = (kind, win = WINDOW) => {
     const was = !!cur;
-    cur = { n: ++n, kind, win, tally: {}, counts: {}, view: view(), zoom: (+zoom() || 0).toFixed(2), t0: performance.now(), frames: 0, worst: 0, gaps: [], tasks: [], gauges: {}, gpu: !gpuProbe.cpuOnly, hide: HIDES[hideAt], orgs: gpuProbe.gpuOrgans, dts: [], totals: perf().totals };
+    if (cur?.mb) cur.budget = motionBudget.stop(cur.mb);   // (a window cut short by the next keeps what it counted)
+    cur = { n: ++n, kind, win, mb: motionBudget.on() ? motionBudget.start(kind) : null, tally: {}, counts: {}, view: view(), zoom: (+zoom() || 0).toFixed(2), t0: performance.now(), frames: 0, worst: 0, gaps: [], tasks: [], gauges: {}, gpu: !gpuProbe.cpuOnly, hide: HIDES[hideAt], orgs: gpuProbe.gpuOrgans, dts: [], totals: perf().totals };
     gpuProbe.take(); gpuProbe.takeNotes(); gpuProbe.takeGauges();
     cur.paths = surfaceRows();
     if (recent.length < 30) calUntil = Math.max(calUntil, performance.now() + 1000);
@@ -161,6 +163,10 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
     maxDown = 0; moved = false;
   };
   addEventListener('pointerup', up, { capture: true, passive: true });
+  // A slide or beat change (presenter go / toBeat, any key, button or swipe) and an Anatomy to Circuit switch each open a window of their
+  // own, with the motion budget's counts (merged GPU plan, item 1): the frames and the main-thread work from the press to the settle.
+  addEventListener('pps:go', () => begin('slide change', 3000));
+  addEventListener('pps:view', () => begin('view switch', 2500));
   addEventListener('pointercancel', up, { capture: true, passive: true });
   // A scroll or trackpad pinch ends when no wheel event has come for 150 ms (the window then starts at its last event).
   addEventListener('wheel', (e) => {
@@ -208,6 +214,7 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
         cur.stats = hz ? intervalStats(cur.dts, hz) : null;
         cur.surfaces = surfaceLine(cur.totals, perf().totals);
         cur.dts = cur.totals = null;
+        if (cur.mb) cur.budget = motionBudget.stop(cur.mb);
         reports.unshift(cur); reports.length = Math.min(reports.length, KEEP); cur = null; paint();
       }
     }
@@ -288,12 +295,12 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
   blurs.onclick = () => { blurEl.textContent = scan(); };
   if (window.pps) window.pps.blurs = scan;   // (for a headless run: pps.blurs())
   for (const b of [title, rest, rec, hide, gpu, orgs, blurs, copy]) b.style.cssText = 'font:inherit;color:#fff;background:rgb(255 255 255 / .16);border:0;border-radius:6px;padding:4px 8px;min-height:28px';   // colour-exempt
-  title.textContent = 'Lag after gestures (tap to fold)';
+  title.textContent = 'Lag after slides and gestures (tap to fold)';
   copy.textContent = 'Copy';
   rest.textContent = 'At rest';
   rest.onclick = () => { rest.textContent = 'Wait 3 s'; setTimeout(() => { begin('at rest'); setTimeout(() => { rest.textContent = 'At rest'; }, 2000); }, 1000); };
   const body = document.createElement('div');
-  body.textContent = 'Pan, pinch or scroll-zoom the figure, then let go and wait 2 s.';
+  body.textContent = 'Change slide, switch view, or pan, pinch or scroll-zoom the figure, then wait 3 s.';
   // Under the gestures: the long frames and the slowest inputs, written once a second and never while a gesture's window is open
   // (a write during it would be part of what it measures).
   const logEl = document.createElement('div');
