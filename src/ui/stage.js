@@ -12277,8 +12277,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // Fully inside the lobule, the plate is covered (a pending redraw waits for the frame it can show in): the loop sleeps
     // there, and leaving the lobule (a store change) wakes it. While the lobule only covers it on the way in or out, it keeps looking.
     if (lz?.isOpen()) { trimVeins(); sleep(); return; }
-    hiddenAt = 0;   // (shown: a later hide starts its warm window afresh)
     veinsTrimmed = false;   // (shown again: the next draw makes what trimVeins gave back)
+    hiddenAt = 0;   // (shown: a later hide starts its warm window afresh)
     if (lz?.covers()) { askAnimate(); return; }
     forceDraw = false; drawOnce = false;
     const st = store.get();

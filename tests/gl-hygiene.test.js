@@ -20,7 +20,7 @@ test('the vessel framebuffer and layers are given back while the figure is hidde
   const s = src('src/ui/stage.js');
   assert.match(s, /home-open'\)\) \{ lastT = flowGate = now; trimVeins\(\); sleep\(\); return; \}/);
   assert.match(s, /if \(lz\?\.isOpen\(\)\) \{ trimVeins\(\); sleep\(\); return; \}\n\s+veinsTrimmed = false;/);
-  assert.match(s, /function trimVeins\(\) \{\n\s+if \(veinsTrimmed \|\| !veins \|\| veins\.lost \|\| glowSync\) return;\n\s+veins\.trim\(\); veinsTrimmed = true; veinsDirty = true;/);
+  assert.match(s, /function trimVeins\(\) \{\n\s+if \(veinsTrimmed \|\| !veins \|\| veins\.lost \|\| glowSync\) return;\n(\s+if \(WARM_VIEWS && !document\.hidden\) \{[^\n]*\n)?\s+veins\.trim\(\); veinsTrimmed = true; veinsDirty = true;/);
   assert.match(src('src/ui/veins-gl.js'), /trim\(\) \{\n\s+if \(lost\) return;/);
 });
 
