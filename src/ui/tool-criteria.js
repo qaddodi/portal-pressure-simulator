@@ -29,7 +29,7 @@
 // the graph, centred ('**Gray:** ...', or { text, swatch: 'hatch' } for the hatched area's line). The plot's height follows its width
 // only, so the card never changes size with the case.
 
-import { h, fmt } from './util.js?v=fa4109170f';
+import { h, fmt } from './util.js?v=90f84b6450';
 import { TILE } from './table-marks.js?v=ff3ed0cc47';
 import { plotPanel } from './plot-look.js?v=5037697da7';
 import { createSvgGL, svgModel } from './svg-gl.js?v=bbe4d0d65d';
@@ -136,7 +136,8 @@ export function createCriteria() {
       word(8, 8 + sm, fig.yName, 'q', 'start', sm)), false);
     plot.style.height = `${ph}px`;   // (the picture's box: the model takes no room)
   }
-  if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (fig && el.isConnected) drawZones(); }).observe(plot);
+  const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(() => { if (fig && el.isConnected) drawZones(); }) : null;
+  ro?.observe(plot);
   // (The hatch's swatch in the key: the same grey with its diagonal lines, a plain block the page draws once.)
   function swatch() { return h('span', { class: 'pzc-sw', 'aria-hidden': 'true' }); }
   function caseCell(r, ticks) {
@@ -202,6 +203,7 @@ export function createCriteria() {
     configure(t, ctx) { build(t); if (ctx?.fp) pin(ctx.fp); },
     pin(fp) { if (fp) pin(fp); },
     clear() {},
-    dispose() {},
+    // (2 Nov 2026, bug sweep: its GPU drawer and observer were kept for the session after each presentation.)
+    dispose() { ro?.disconnect(); gl.dispose?.(); },
   };
 }

@@ -6,9 +6,9 @@
 // (engine.js starling), read from the slide's fingerprint at rest and from the live model while a time-lapse, a what-if or a
 // compare button moves it.
 
-import { frame } from './frame.js?v=26e2e46fff';
+import { frame, cancelFrame } from './frame.js?v=26e2e46fff';
 import { createSvgGL, svgModel } from './svg-gl.js?v=bbe4d0d65d';
-import { h, fmt, clamp } from './util.js?v=fa4109170f';
+import { h, fmt, clamp } from './util.js?v=90f84b6450';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { store } from './store.js?v=afc4d7c743';
 import { measure } from './glyph-measure.js?v=cdab65e16b';
@@ -335,6 +335,7 @@ export function createFluid() {
   }
   function tick(now) {
     raf = 0;
+    if (dead) return;
     const dt = last ? Math.min(0.1, (now - last) / 1000) : 0.016; last = now;
     const a = 1 - Math.exp(-dt / 0.15);
     let moving = false;
@@ -349,9 +350,10 @@ export function createFluid() {
     draw();
     if (moving) raf = frame(tick, 'tool-fluid'); else last = 0;
   }
-  const kick = () => { if (!raf && typeof requestAnimationFrame === 'function') raf = frame(tick, 'tool-fluid'); };
+  let dead = false, ro = null;
+  const kick = () => { if (!dead && !raf && typeof requestAnimationFrame === 'function') raf = frame(tick, 'tool-fluid'); };
   if (typeof ResizeObserver === 'function') {
-    const ro = new ResizeObserver(() => { W = flowBox.getBoundingClientRect().width; gl.relook(); TW = trk.clientWidth; FW = tug.clientWidth; roSeen = true; labSig = ''; labels(); draw(); });
+    ro = new ResizeObserver(() => { W = flowBox.getBoundingClientRect().width; gl.relook(); TW = trk.clientWidth; FW = tug.clientWidth; roSeen = true; labSig = ''; labels(); draw(); });
     ro.observe(el); ro.observe(trk); ro.observe(tug); ro.observe(flowBox);
   }
   document.fonts?.ready.then(() => { labSig = ''; labels(); });
@@ -424,6 +426,15 @@ export function createFluid() {
       caveat.hidden = wo || !cav;
       labSig = '';
       if (pinned) paint(pinned);
+    },
+    // (2 Nov 2026, bug sweep: each presentation makes its own instrument (presenter-tools.js dispose), and this one had no dispose: its
+    // GPU drawer (buffers, arrays and textures in the shared chart context), its observer and its frame stayed for the session.)
+    dispose() {
+      if (dead) return;
+      dead = true;
+      cancelFrame(raf); raf = 0;
+      ro?.disconnect(); ro = null;
+      gl.dispose?.();
     },
   };
 }

@@ -66,8 +66,35 @@ const live = new Set();   // (every glWords not yet disposed: glWordsLive() coun
 /** How many GPU word wrappers are alive (not disposed): registry, observers and queued work all follow it back to baseline. */
 export const glWordsLive = () => ({ live: live.size, themed: ALL.size, queued: measureQ.size });
 let measureAll = 0;
+// (2 Nov 2026, bug sweep: a readout whose element had left the page (a slide's card built anew, an instrument closed, a callout
+// gone) kept its GPU drawer, its context's buffers and arrays, its observer and its place here for the rest of the session: every
+// deck opened added its cards' words again, about a dozen GPU drawers a walk through Ascites. Between frames such a one is put to
+// sleep: its GPU picture freed, its observer and its places here let go, so nothing but its owner holds it. Its words stay in the
+// page; set, settle or now wakes it, written into the page between frames and measured again (a new picture) once it is back.)
+function sleep(S) {
+  if (S.dead || S.asleep) return;
+  S.asleep = true;
+  S.ro?.disconnect();
+  ALL.delete(S.ask); measureQ.delete(S); live.delete(S);
+  clearTimeout(S.landT); S.landT = 0;
+  if (S.on) { S.on = false; S.el.classList.remove('glw-on'); }
+  S.pend = false;
+  if (S.gl) { try { S.gl.dispose?.(); } catch { /* a lost context: nothing left to free */ } S.gl.cv?.remove(); S.gl = null; S.host.classList.remove('glw'); }
+  S.vPath = S.uPath = null; S.vSlots = S.uSlots = null; S.at = null;
+}
+function wake(S) {
+  if (S.dead || !S.asleep) return;
+  S.asleep = false;
+  ALL.add(S.ask); live.add(S);
+  if (S.ro) S.ro.observe(S.el);
+}
+// (Only isConnected is read: no layout.)
+function sweep() { for (const S of live) if (!S.el.isConnected) sleep(S); }
+let sweepAsk = 0, madeSince = 0;
+const askSweep = () => { if (!sweepAsk) sweepAsk = restPass(() => { sweepAsk = 0; madeSince = 0; sweep(); }); };
 function measurePass() {
   measureAll = 0;
+  sweep();
   const qs = [...measureQ]; measureQ.clear();
   const reads = qs.map((S) => { S.measureAsk = 0; return measureRead(S); });
   qs.forEach((S, i) => { if (reads[i]) measureWrite(S, reads[i]); });
@@ -184,7 +211,7 @@ function draw(S, t, u) {
 // now go clear only in the frame the GPU has drawn the new ones; a frame it cannot draw shows the page's words again, and they are
 // written into the page between frames.)
 function drawn(S, ok) {
-  if (S.dead) return;
+  if (S.dead || S.asleep) return;
   if (ok) { if (S.pend && !S.on) { S.on = true; S.el.classList.add('glw-on'); } S.pend = false; return; }
   if (!S.pend && !S.on) return;
   S.pend = false;
@@ -224,14 +251,15 @@ export function glWords(el, { unitClass = '', after = false, host = el, onLand =
   const S = { el, host, after, unitClass, onLand, txt: only, small: null, want: { t: t0, u: '' }, shown: { t: t0, u: '' },
     at: null, gl: null, vPath: null, uPath: null, on: false, pend: false, landT: 0, measureAsk: 0, landAsk: 0, dead: false, ro: null };
   if (!only && t0) askLand(S);
-  const ask = () => askMeasure(S);
+  const ask = S.ask = () => askMeasure(S);
   if (typeof ResizeObserver === 'function') (S.ro = new ResizeObserver(ask)).observe(el);
   else ask();
   ALL.add(ask);
   live.add(S);
+  if (++madeSince >= 16) askSweep();   // (a view built anew makes many: the ones it replaced are looked for between frames)
   const dispose = () => {
     if (S.dead) return;
-    S.dead = true;
+    S.dead = true; S.asleep = false;
     S.ro?.disconnect(); S.ro = null;
     ALL.delete(ask); measureQ.delete(S); live.delete(S);
     clearTimeout(S.landT); S.landT = 0;
@@ -257,6 +285,7 @@ export function glWords(el, { unitClass = '', after = false, host = el, onLand =
     set(t, u = '') {
       t = String(t ?? ''); u = String(u ?? '');
       if (S.dead || (t === S.want.t && u === S.want.u)) return;
+      wake(S);
       S.want.t = t; S.want.u = u;
       // (?glwords=0, no look read yet, no outlines, a character not cut, words gone or a unit that has no place yet: written between frames.)
       if (!S.at || !glyphsReady() || !t || !textCovers(t + u) || (u && !S.small && !after)) { askLand(S); return; }
@@ -265,10 +294,11 @@ export function glWords(el, { unitClass = '', after = false, host = el, onLand =
       S.landT = setTimeout(() => askLand(S), QUIET);
     },
     /** Takes the words into the page between frames, where a caller needs them laid out soon. */
-    settle: () => askLand(S),
+    settle: () => { wake(S); askLand(S); },
     /** Writes the words into the page at once: for a caller between frames that measures them (a fit trying its widest words). */
     now(t, u = '') {
       if (S.dead) return;
+      wake(S);
       S.want.t = String(t ?? ''); S.want.u = String(u ?? '');
       clearTimeout(S.landT); S.landT = 0; cancelRest(S.landAsk);
       land(S);

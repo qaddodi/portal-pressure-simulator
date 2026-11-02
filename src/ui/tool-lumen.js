@@ -4,10 +4,10 @@
 // (params.thrombus and params.stenosis for the vessel, combined as engine.js occlusion), so it moves with a clot-size slider,
 // a compare button or the days of anticoagulation, easing from one state to the next.
 
-import { h, clamp } from './util.js?v=fa4109170f';
+import { h, clamp } from './util.js?v=90f84b6450';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { store } from './store.js?v=afc4d7c743';
-import { frameFor } from './frame.js?v=26e2e46fff';
+import { frameFor, cancelFrame } from './frame.js?v=26e2e46fff';
 import { createSvgGL, svgModel, snapOp, setWords } from './svg-gl.js?v=bbe4d0d65d';
 const nextFrame = frameFor('lumen');
 
@@ -189,6 +189,9 @@ export function createLumen() {
   // The word is never under 12 px on screen: the picture scales with its card, so tell the style how many px one unit is.
   const stage = el.firstChild;
   const fit = () => { const w = stage.offsetWidth; if (w > 0) { el.style.setProperty('--gl-u', (w / 100).toFixed(3)); gl.relook(); } };   // (the words' size read again)
-  if (typeof ResizeObserver === 'function') new ResizeObserver(fit).observe(stage);
-  return { el, update, configure };
+  const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(fit) : null;
+  ro?.observe(stage);
+  // (2 Nov 2026, bug sweep: the instrument had no dispose, so each presentation's cross-section kept its GPU drawer and observer.)
+  const dispose = () => { ro?.disconnect(); if (raf) cancelFrame(raf); raf = 0; gl.dispose?.(); };
+  return { el, update, configure, dispose };
 }
