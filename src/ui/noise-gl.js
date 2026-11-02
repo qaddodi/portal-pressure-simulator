@@ -35,6 +35,11 @@ void main() {
   o = vec4(corner(s, uint(x0), y0), corner(s, uint(x1), y0), corner(s, uint(x0), y0 + 1u), corner(s, uint(x1), y0 + 1u));
 }`;
 
+// The states a fill turns off, and which of them were on (written in place by each fill, which never runs inside another). The
+// numbers are the WebGL constants gl.SCISSOR_TEST, BLEND, DEPTH_TEST, STENCIL_TEST, CULL_FACE, RASTERIZER_DISCARD and SAMPLE_ALPHA_TO_COVERAGE.
+const caps = [0x0C11, 0x0BE2, 0x0B71, 0x0B90, 0x0B44, 0x8C89, 0x809E];
+const capOn = [false, false, false, false, false, false, false];
+
 /**
  * A filler for gl's noise tables, or null where the context cannot render to a float texture.
  *   fill(tex, w, h): writes the whole table (an RGBA32F texture w × h) and returns true; false when it cannot yet (the program still
@@ -58,12 +63,12 @@ export function createNoiseFiller(gl) {
       if (broken || gl.isContextLost() || !take()) return false;
       const fbR = glGet(gl, gl.READ_FRAMEBUFFER_BINDING), fbD = glGet(gl, gl.DRAW_FRAMEBUFFER_BINDING), vp = glGet(gl, gl.VIEWPORT);
       const was = glGet(gl, gl.CURRENT_PROGRAM), wasVao = glGet(gl, gl.VERTEX_ARRAY_BINDING), mask = glGet(gl, gl.COLOR_WRITEMASK);
-      const caps = [gl.SCISSOR_TEST, gl.BLEND, gl.DEPTH_TEST, gl.STENCIL_TEST, gl.CULL_FACE, gl.RASTERIZER_DISCARD, gl.SAMPLE_ALPHA_TO_COVERAGE].map((c) => [c, glOn(gl, c)]);
+      for (let i = 0; i < caps.length; i++) capOn[i] = glOn(gl, caps[i]);
       try {
         gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
         if (!fbComplete(gl, gl.FRAMEBUFFER, 'rgba32f', w, hgt)) { broken = true; return false; }
-        for (const [c, on] of caps) if (on) gl.disable(c);
+        for (let i = 0; i < caps.length; i++) if (capOn[i]) gl.disable(caps[i]);
         gl.colorMask(true, true, true, true);
         gl.viewport(0, 0, w, hgt);
         gl.useProgram(prog);
@@ -78,7 +83,7 @@ export function createNoiseFiller(gl) {
         gl.useProgram(was ?? null);
         gl.bindVertexArray(wasVao ?? null);
         if (mask?.length === 4) gl.colorMask(mask[0], mask[1], mask[2], mask[3]);
-        for (const [c, on] of caps) if (on) gl.enable(c);
+        for (let i = 0; i < caps.length; i++) if (capOn[i]) gl.enable(caps[i]);
       }
     },
     dispose() {

@@ -10,17 +10,25 @@ export function easeTo(v, target, dt, tau = LIVER_TAU) {
   return Math.abs(target - n) < 0.004 ? target : n;
 }
 
-/** One step of the ascites spring (at most 50 ms): { shown, vel }, with shown landing exactly on `target` once at rest. */
-export function fluidSpring(shown, vel, target, dt) {
+// The two spring functions each hand back one object of their own, written in place on every call: read { shown, vel } (as the
+// callers do, by destructuring) before the next call, and do not keep the object. (fluidSpringFor runs the step into its own.)
+const springOut = { shown: 0, vel: 0 }, springForOut = { shown: 0, vel: 0 };
+function springStep(out, shown, vel, target, dt) {
   const w = 4.2, h = Math.min(dt, 0.05), vs = Math.pow(shown, 0.6), vt = Math.pow(target, 0.6);
   vel += (-w * w * (vs - vt) - 2 * w * vel) * h;
   const nv = Math.max(0, vs + vel * h);
-  if (Math.abs(nv - vt) < 0.2 && Math.abs(vel) < 0.5) return { shown: target, vel: 0 };
-  return { shown: Math.pow(nv, 1 / 0.6), vel };
+  if (Math.abs(nv - vt) < 0.2 && Math.abs(vel) < 0.5) { out.shown = target; out.vel = 0; return out; }
+  out.shown = Math.pow(nv, 1 / 0.6); out.vel = vel;
+  return out;
+}
+/** One step of the ascites spring (at most 50 ms): { shown, vel }, with shown landing exactly on `target` once at rest. */
+export function fluidSpring(shown, vel, target, dt) {
+  return springStep(springOut, shown, vel, target, dt);
 }
 /** The spring run over `dt` seconds in 50 ms steps (a hidden figure catching up on time it was not drawn), stopping once at rest. */
 export function fluidSpringFor(shown, vel, target, dt) {
-  let r = { shown, vel };
-  for (let left = dt; left > 1e-6 && r.shown !== target; left -= 0.05) r = fluidSpring(r.shown, r.vel, target, Math.min(left, 0.05));
+  const r = springForOut;
+  r.shown = shown; r.vel = vel;
+  for (let left = dt; left > 1e-6 && r.shown !== target; left -= 0.05) springStep(r, r.shown, r.vel, target, Math.min(left, 0.05));
   return r;
 }

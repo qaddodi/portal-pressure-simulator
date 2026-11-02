@@ -15,10 +15,11 @@ export function parseColor(s) {
   return null;
 }
 
+const greyMix = (l, c, sat) => +(l + (c - l) * sat).toFixed(6);
 /** The colour mixed toward its luma by `sat` (1: as it is, 0: grey), as the filter's matrix did; alpha kept. */
-export function greyOf([r, g, b, a], sat) {
-  const l = LUMA[0] * r + LUMA[1] * g + LUMA[2] * b, f = (c) => +(l + (c - l) * sat).toFixed(6);
-  return `color(srgb ${f(r)} ${f(g)} ${f(b)}${a < 1 ? ` / ${+a.toFixed(6)}` : ''})`;
+export function greyOf(c, sat) {
+  const r = c[0], g = c[1], b = c[2], a = c[3], l = LUMA[0] * r + LUMA[1] * g + LUMA[2] * b;
+  return `color(srgb ${greyMix(l, r, sat)} ${greyMix(l, g, sat)} ${greyMix(l, b, sat)}${a < 1 ? ` / ${+a.toFixed(6)}` : ''})`;
 }
 
 /** The ids a computed paint refers to ('url("#gLiver")' → 'gLiver'), or null. */
