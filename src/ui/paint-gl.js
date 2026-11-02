@@ -13,7 +13,7 @@
 
 import { glGet, glOn, glCap } from './gl-state.js?v=7962476b4a';
 import { cssColor } from './css-color.js?v=e56f0c77ae';
-import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js?v=e48e05cdb3';
+import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js?v=62b8693f78';
 
 const TAU = Math.PI * 2;
 const TOL = 0.2;   // (curves flattened to within 0.2 device px)

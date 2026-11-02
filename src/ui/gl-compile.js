@@ -131,6 +131,35 @@ export function exerciseDraw(gl, draw) {
 /** How long the page is left alone before a finished program is published (ms). */
 export const PUBLISH_QUIET_MS = 200;
 
+// Shader readiness (recs R10, 2 Nov 2026): a program a draw asks for before it is published is no longer published inside that draw,
+// where reading its status waits for the driver while the frame's deadline runs. ready() first asks, without waiting, whether the
+// compile is done (compileDone: COMPLETION_STATUS_KHR); while it is not, the draw is skipped (the caller keeps what it showed) and the
+// program is marked WANTED, so the idle poller publishes it the moment the driver is done, without waiting out a gesture. And every
+// program still waiting can be published ahead of use by prepareShaders(), called from a slide's preparation (slide-prep.js), so a
+// slide change finds its programs published before its first frame. ?shaderready=0: publishing at the first draw, as before.
+export const SHADER_READY = !(typeof location !== 'undefined' && /[?&]shaderready=0\b/.test(location.search || ''));
+const waitingPub = new Set();   // { gl, handles, publish, wanted }: started programs not yet published
+/** Publishes, ahead of their first draw, every waiting program whose compile is done (asked without waiting), within `budgetMs` of
+ *  script. Where the driver cannot say, the status is read here (a controlled preparation step, never a frame). Returns how many wait. */
+export function prepareShaders(budgetMs = 4) {
+  if (!SHADER_READY) return 0;
+  const t0 = performance.now();
+  for (const e of [...waitingPub]) {
+    if (performance.now() - t0 > budgetMs) break;
+    let done;
+    try { done = e.gl.isContextLost() || compileDone(e.gl, e.handles); } catch { done = true; }
+    if (!done) continue;
+    waitingPub.delete(e);
+    try { e.publish(); } catch { /* read at the first draw, as before */ }
+  }
+  return waitingPub.size;
+}
+/** True while these started programs are still compiling (asked without waiting; false where the driver cannot say). */
+export function stillCompiling(gl, handles) {
+  if (!SHADER_READY || !handles) return false;
+  try { return !gl.isContextLost() && !compileDone(gl, handles); } catch { return false; }
+}
+
 /**
  * Calls publish() once the started programs are done, polled from idle moments (never waited on, so never during a gesture's frame
  * for longer than a status query), and once the page has been left alone (`calm(ms)`, quiet.js's leftAlone): a program done in the
@@ -140,13 +169,19 @@ export const PUBLISH_QUIET_MS = 200;
 export function publishWhenDone(gl, handles, publish, tries = 400, calm = leftAlone) {
   let dead = false;
   const idle = typeof requestIdleCallback === 'function' ? (f) => requestIdleCallback(f, { timeout: 250 }) : (f) => setTimeout(f, 32);
+  // (R10: registered while it waits, so a slide's preparation can publish it first; a draw that wanted it lifts the wait for calm.)
+  const entry = { gl, handles, wanted: false, publish: () => { if (dead) return; dead = true; waitingPub.delete(entry); publish(); } };
+  if (SHADER_READY) waitingPub.add(entry);
   const tick = () => {
     if (dead) return;
     let done;
     try { done = gl.isContextLost() || compileDone(gl, handles); } catch { done = true; }
-    if (done) { if (calm(PUBLISH_QUIET_MS)) publish(); else idle(tick); }   // (a finished program waits out the gesture; no poll of it is counted)
+    if (done) { if (entry.wanted || calm(PUBLISH_QUIET_MS)) entry.publish(); else idle(tick); }   // (a finished program waits out the gesture; no poll of it is counted)
     else if (--tries > 0) idle(tick);
+    else waitingPub.delete(entry);
   };
   idle(tick);
-  return () => { dead = true; };
+  const stop = () => { dead = true; waitingPub.delete(entry); };
+  stop.want = () => { entry.wanted = true; };
+  return stop;
 }

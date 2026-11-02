@@ -16,10 +16,10 @@
 // chart is not drawn until the GPU can draw it (fitCanvas's pen draws nothing; no 2D canvas is drawn on), and it draws again the moment
 // the GPU can (publish). ?tracegl=0 keeps every chart undrawn.
 
-import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=e48e05cdb3';
+import { startProgram, checkProgram, exerciseDraw, publishWhenDone, stillCompiling } from './gl-compile.js?v=62b8693f78';
 import { canvasSize, fitCanvas, onCanvasSized } from './util.js?v=92114c1315';
-import { sdfAtlas } from './text-gl.js?v=8db702aacd';   // (the app's one door to GPU text: its SDF atlas, for text that changes every frame)
-import { fontOf, measure } from './glyph-measure.js?v=131d137ce2';
+import { sdfAtlas } from './text-gl.js?v=b1a30d90ad';   // (the app's one door to GPU text: its SDF atlas, for text that changes every frame)
+import { fontOf, measure } from './glyph-measure.js?v=5fc78d0edb';
 export { measure };
 const { GLYPHS, KERN, BASELINES, BASE, RADIUS, CUTOFF, ATLAS_W, ATLAS_H, ATLAS_PNG } = sdfAtlas;
 
@@ -564,6 +564,9 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
   const api = {
     canvas,
     get ready() {
+      // (R10: still compiling, the draw is not where it is published: the chart keeps what it shows, the poller publishes it as soon as
+      // the driver is done and draws it then. ?shaderready=0: published here, as before.)
+      if (!P && !failed && !dead && started && stillCompiling(gl, Object.values(started))) { missed = true; stopPoll?.want?.(); return false; }
       missed = false;   // (published here, the frame asking draws it: no second draw from publish)
       publish();
       if (!glyphImage && redraw && !dead) waiting.add(redraw);

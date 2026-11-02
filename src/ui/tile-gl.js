@@ -13,8 +13,8 @@
 // texture: no 2D canvas anywhere (1 Nov 2026). (No 2D copies since then.)
 
 import { glGet, glOn } from './gl-state.js?v=7962476b4a';
-import { prestart, linkProgram } from './gl-compile.js?v=e48e05cdb3';
-import { isGpuPicture, paintGL } from './paint-gl.js?v=a99fe43a10';
+import { prestart, linkProgram } from './gl-compile.js?v=62b8693f78';
+import { isGpuPicture, paintGL } from './paint-gl.js?v=923194357d';
 
 /** A copy of tile canvas src made on the GPU. look: { blur (Gaussian sigma, tile px; 0 for none), sat (the grey blend's share),
  *  tone ([r, g, b] 0–1, the colour laid over it), toneA (its opacity), flat (a second layer of the same colour, 0 for none) }.

@@ -13,7 +13,7 @@
 // Without WebGL2, on a software renderer or once the context is lost, createFxGL returns null / reports lost, and paintFx draws.
 // ?fxgpu=0: paintFx always, as before.
 
-import { startProgram, checkProgram } from './gl-compile.js?v=e48e05cdb3';
+import { startProgram, checkProgram } from './gl-compile.js?v=62b8693f78';
 
 const FX_KEEP = !(typeof location !== 'undefined' && /[?&]lykeep=0\b/.test(location.search || ''));
 export const FX_GPU = !(typeof location !== 'undefined' && /[?&]fxgpu=0\b/.test(location.search || ''));
