@@ -57,6 +57,8 @@ if (GL_WORDS && typeof MutationObserver === 'function' && typeof document !== 'u
 // ── Read between frames: where and how the page sets the words ──
 // (Every readout asked for in a pass is read first, then all are written: a write between two reads made the browser lay the page
 // out again for the next, one layout per readout as a slide's cards landed. 2 Nov 2026, "Move everything to GPU".)
+// The slide cards whose fit reads their scroll sizes (presenter.js): a picture never reaches past them or their parts (measureRead).
+const SLIDE_CARD = '.pz-text, .pz-data, .pz-panel';
 const measureQ = new Set();
 let measureAll = 0;
 function measurePass() {
@@ -93,9 +95,13 @@ function measureRead(S) {
   // past an ancestor that clips or scrolls, where the picture would count as overflow and a card's fit would shrink the card for it.)
   const most = Math.ceil(L.size * 3);
   let cl = -Infinity, ct = -Infinity, cr = Infinity, cb = Infinity;
+  // (A slide card and each part of it count as clipping too: the card is fitted from its own and its parts' scroll sizes (presenter.js
+  // overflowOf), so a picture reaching past either read as overflow and shrank the whole card to its half floor, 2 Nov 2026: the Ascites
+  // SAAG tiles over The abdomen, Portal vein flow over the Doppler card, drawn at half size behind their own glass.)
   for (let a = host.parentElement, n = 0; a && n < 12; a = a.parentElement, n++) {
     const acs = getComputedStyle(a);
-    if (acs.overflowX === 'visible' && acs.overflowY === 'visible' && !/paint|strict|content/.test(acs.contain || '')) continue;
+    const card = a.matches(SLIDE_CARD) || a.parentElement?.matches(SLIDE_CARD);
+    if (!card && acs.overflowX === 'visible' && acs.overflowY === 'visible' && !/paint|strict|content/.test(acs.contain || '')) continue;
     const ab = a.getBoundingClientRect();
     cl = Math.max(cl, ab.left); ct = Math.max(ct, ab.top); cr = Math.min(cr, ab.right); cb = Math.min(cb, ab.bottom);
   }
