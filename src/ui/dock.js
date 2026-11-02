@@ -21,6 +21,7 @@ import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { HVPG_CUTS, PPG_CUTS, hvpgSev, ppgSev, hvBlocked } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { compareRows } from './idle-keys.js?v=81fbedda6b';
 import { releaseSpeed, carryCurve, cubicBezier, easeArrive, D_FLIP, D_SMALL, EASE_IN, EASE_ARRIVE } from './ease.js?v=7513a88c68';
+import { readAnims, readBox, readMetric, readStyle, scrollInto } from './layout-snap.js?v=10b6ed9eba';
 const nextFrame = frameFor('dock');
 const DRAG_GUIDE = !/[?&]dockdrag=0\b/.test(typeof location === 'object' ? location.search : '');
 
@@ -470,13 +471,13 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   // Tightest (a phone's sheet, beside the close button): only the open tab keeps its name, the others are icons.
   // (Tightest and still too narrow for the open tab's whole name beside the icons: that tab is an icon too, never a cut name.)
   const fitTabs = () => {
-    const w = tabs.clientWidth;
+    const w = readMetric(tabs, 'clientWidth');
     if (!w) return;
     tabs.classList.toggle('compact', w < 780); tabs.classList.toggle('narrow', w < 520); tabs.classList.toggle('tight', w < 420);
     tabs.classList.remove('bare');
     if (w < 420) {
       const on = tabs.querySelector('.instr-tab[aria-selected="true"]'), t = on?.querySelector('.it-t b');
-      const need = [...tabs.children].reduce((a, b) => a + (b === on ? 0 : 26), 0) + (on ? on.offsetWidth - (on.querySelector('.it-t')?.offsetWidth || 0) + (t?.scrollWidth || 0) + 5 : 0) + 2 * (tabs.children.length - 1) + 6;
+      const need = [...tabs.children].reduce((a, b) => a + (b === on ? 0 : 26), 0) + (on ? readMetric(on, 'offsetWidth') - (readMetric(on.querySelector('.it-t'), 'offsetWidth') || 0) + (readMetric(t, 'scrollWidth') || 0) + 5 : 0) + 2 * (tabs.children.length - 1) + 6;
       if (need > w) tabs.classList.add('bare');
     }
   };
@@ -496,7 +497,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   const shiftX = (el) => { const e = easing; if (!e || e.el !== el) return 0; return e.from + (e.to - e.from) * e.f(Math.min(1, (performance.now() - e.t0) / e.ms)); };
   // (The body's width, kept by an observer: read when a sideways drag began, it laid the page out in the touch's frame.)
   let bodyW = 0;
-  new ResizeObserver(() => { bodyW = body.clientWidth; }).observe(body);
+  new ResizeObserver(() => { bodyW = readMetric(body, 'clientWidth'); }).observe(body);
   const paneFor = (id) => (panes.find((p) => p.id === id) || panes.find((p) => tabOf(p.id) === id))?.el;
   const clearSwipe = (els) => { for (const e of els) if (e) { e.style.transform = ''; e.style.transition = ''; e.classList.remove('swipe-peer'); } };
   body.addEventListener('touchstart', (e) => {
@@ -539,7 +540,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       // (The pane that slid in is already in place: it must not play its entrance again once the drag's classes go, a blink.)
       if (go) s.nb?.classList.add('landed');
       clearSwipe([s.cur, s.nb]);
-      if (go) { pick(TABS[s.j]); tabEls[TABS[s.j]].b.scrollIntoView?.({ block: 'nearest', inline: 'nearest', behavior: scrollBehavior() }); }
+      if (go) { pick(TABS[s.j]); scrollInto(tabEls[TABS[s.j]].b, { block: 'nearest', inline: 'nearest', behavior: scrollBehavior() }); }
     };
     const timer = setTimeout(done, 250);
     settle = done; resting = go ? s.nb : s.cur;
@@ -595,7 +596,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   // Whether each pane overflows (it scrolls), kept by an observer on the pane and what it holds: read in the refresh, a frame, it laid
   // the page out there.
   const overflows = new WeakMap();
-  const overflowWatch = new ResizeObserver((es) => { for (const en of es) { const el = en.target.closest('.dock-pane'); if (el) overflows.set(el, el.scrollHeight > el.clientHeight + 1); } });
+  const overflowWatch = new ResizeObserver((es) => { for (const en of es) { const el = en.target.closest('.dock-pane'); if (el) overflows.set(el, readMetric(el, 'scrollHeight') > readMetric(el, 'clientHeight') + 1); } });
   for (const p of panes) { overflowWatch.observe(p.el); for (const c of p.el.children) overflowWatch.observe(c); }
   function refresh() {
     if (!frame || !isVisible() || state === 'peek' || !isDisplayed()) return;
@@ -610,14 +611,14 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     if (resizeFrame) return;
     resizeFrame = nextFrame(() => { resizeFrame = 0; refresh(); });
   }
-  const css = (k) => parseFloat(getComputedStyle(app).getPropertyValue(k)) || 0;
+  const css = (k) => parseFloat(readStyle(app).getPropertyValue(k)) || 0;
   function updateSize() {
     const side = isSide();
     workspace.classList.toggle('side', side);
     workspace.dataset.safe = side ? 'right' : 'bottom';
     divider.setAttribute('aria-orientation', side ? 'vertical' : 'horizontal');
-    if (side) putWidth(stageWrap.clientWidth);
-    else putHeight(stageWrap.clientHeight, sheetMax(stageWrap.clientHeight));
+    if (side) putWidth(readMetric(stageWrap, 'clientWidth'));
+    else putHeight(readMetric(stageWrap, 'clientHeight'), sheetMax(readMetric(stageWrap, 'clientHeight')));
     fitHeight();
   }
   // The card's size from the stage's (W wide, H high): worked out with no read of the page, so a drag can size it from the stage
@@ -656,25 +657,25 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     // Over the thumb dock (a phone, an upright iPad) the card keeps its height whatever the tab: nothing fits there.
     let fits = !!view && !sidewaysMQ.matches && (isSide() || heightRatio == null) && matchMedia('(min-width: 768px)').matches && !document.getElementById('app')?.classList.contains('thumb');
     if (view) view.classList.toggle('nat', fits);   // nat: the view at its natural height, to measure it
-    fits = fits && view.offsetHeight > 0;
+    fits = fits && readMetric(view, 'offsetHeight') > 0;
     const on = workspace.classList.contains('fit');
     if (!fits && !on) return;
     clearTimeout(fitTimer);
-    if (!workspace.offsetParent) return;   // the dock is closed (display: none): nothing to fit
-    const cs = getComputedStyle(workspace);
-    const full = isSide() ? workspace.offsetParent.clientHeight - parseFloat(cs.top) - parseFloat(cs.bottom) : parseFloat(workspace.style.getPropertyValue('--instrument-h')) || workspace.offsetHeight;
+    if (!readMetric(workspace, 'offsetParent')) return;   // the dock is closed (display: none): nothing to fit
+    const cs = readStyle(workspace);
+    const full = isSide() ? readMetric(readMetric(workspace, 'offsetParent'), 'clientHeight') - parseFloat(cs.top) - parseFloat(cs.bottom) : parseFloat(workspace.style.getPropertyValue('--instrument-h')) || readMetric(workspace, 'offsetHeight');
     let need = 0;
     if (fits) {
-      const pcs = getComputedStyle(view.parentElement);
+      const pcs = readStyle(view.parentElement);
       // (everything the pane shows, stacked: the view, and on Scope the switch above it)
-      const kids = [...view.parentElement.children].filter((c) => c.offsetHeight > 0);
-      const measure = () => Math.ceil(workspace.offsetHeight - body.clientHeight + parseFloat(pcs.paddingTop) + parseFloat(pcs.paddingBottom)
-        + kids.reduce((a, c) => a + c.offsetHeight, 0) + (parseFloat(pcs.rowGap) || 0) * (kids.length - 1));
+      const kids = [...view.parentElement.children].filter((c) => readMetric(c, 'offsetHeight') > 0);
+      const measure = () => Math.ceil(readMetric(workspace, 'offsetHeight') - readMetric(body, 'clientHeight') + parseFloat(pcs.paddingTop) + parseFloat(pcs.paddingBottom)
+        + kids.reduce((a, c) => a + readMetric(c, 'offsetHeight'), 0) + (parseFloat(pcs.rowGap) || 0) * (kids.length - 1));
       need = measure();
       // too tall for the card (a short window): leave it to scale as it always did
       if (need > full + 1 && id !== 'abdomen') { view.classList.remove('nat'); fits = false; }
     }
-    const h0 = workspace.offsetHeight;
+    const h0 = readMetric(workspace, 'offsetHeight');
     if (!on) { workspace.style.setProperty('--fit-h', `${h0}px`); workspace.classList.add('fit'); }
     if (!fits) {
       setFit(h0, Math.round(full));
@@ -701,7 +702,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     fitAnims.push(workspace.animate(card, opt));
     for (const c of workspace.children) {
       if (c.classList.contains('sheet-plate') || c.hidden) continue;
-      c.style.transformOrigin = `50% ${top ? -c.offsetTop : h1 - c.offsetTop}px`;
+      c.style.transformOrigin = `50% ${top ? -readMetric(c, 'offsetTop') : h1 - readMetric(c, 'offsetTop')}px`;
       fitAnims.push(c.animate(back, opt));
     }
   }
@@ -720,11 +721,11 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     queueRefresh();
     resizeSoon();
   }
-  const canSplit = () => (isSide() ? stageWrap.clientHeight - css('--top-safe') - css('--vdock-h') >= 620 : body.clientWidth >= 1000 || workspace.clientWidth >= 1000) || state === 'focus';
+  const canSplit = () => (isSide() ? readMetric(stageWrap, 'clientHeight') - css('--top-safe') - css('--vdock-h') >= 620 : readMetric(body, 'clientWidth') >= 1000 || readMetric(workspace, 'clientWidth') >= 1000) || state === 'focus';
   // Pressure and Over time read as one story: where the card is roomy (desktop, iPad landscape) they open
   // together, stacked, with no switch; elsewhere the Pressure tab keeps its Along the circuit / Over time switch.
   const PAIR = ['profile', 'scope'];
-  const roomy = () => isSide() && canSplit() && body.clientHeight >= 600;
+  const roomy = () => isSide() && canSplit() && readMetric(body, 'clientHeight') >= 600;
   const isPair = () => open.length === 2 && tabOf(open[0]) === tabOf(open[1]);
   function layout() {
     // Never keep two cramped instruments after rotation or resizing.
@@ -737,7 +738,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     body.classList.toggle('pair', isPair());
     paintTitle();
     // (In a tight row the open tab shows its name and the others give way at once; each slides from where it stood by translate.)
-    const flip = tabs.classList.contains('tight') && !matchMedia('(prefers-reduced-motion: reduce)').matches ? TABS.map((id) => [tabEls[id].b, tabEls[id].b.offsetLeft]) : null;
+    const flip = tabs.classList.contains('tight') && !matchMedia('(prefers-reduced-motion: reduce)').matches ? TABS.map((id) => [tabEls[id].b, readMetric(tabEls[id].b, 'offsetLeft')]) : null;
     for (const id of TABS) {
       const at = open.findIndex((x) => tabOf(x) === id), on = at >= 0;
       tabEls[id].b.setAttribute('aria-selected', String(on));
@@ -745,7 +746,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       tabEls[id].b.dataset.slot = on && open.length > 1 && !isPair() ? String(at + 1) : '';
     }
     fitTabs();
-    if (flip) for (const [b, x0] of flip) { const dx = x0 - b.offsetLeft; if (Math.abs(dx) > 0.5) b.animate([{ translate: `${dx}px 0` }, { translate: '0 0' }], { duration: D_SMALL, easing: EASE_ARRIVE }); }
+    if (flip) for (const [b, x0] of flip) { const dx = x0 - readMetric(b, 'offsetLeft'); if (Math.abs(dx) > 0.5) b.animate([{ translate: `${dx}px 0` }, { translate: '0 0' }], { duration: D_SMALL, easing: EASE_ARRIVE }); }
     remember();
     fitHeight();
     queueRefresh();
@@ -770,10 +771,10 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     tabs.querySelector(`.instr-tab:not([data-instrument="${tabOf(open[0])}"])`)?.focus();
   }
   function paneOut(el, top) {
-    for (const a of el.getAnimations()) if (a.id === 'pane-out') a.cancel();
+    for (const a of readAnims(el)) if (a.id === 'pane-out') a.cancel();
     el.classList.add('pane-out'); el.scrollTop = top;
     const a = el.animate([{ opacity: 1 }, { opacity: 0 }], { id: 'pane-out', duration: D_FLIP, easing: EASE_IN, fill: 'forwards' });
-    const done = () => { if (el.getAnimations().includes(a)) a.cancel(); el.classList.remove('pane-out'); };
+    const done = () => { if (readAnims(el).includes(a)) a.cancel(); el.classList.remove('pane-out'); };
     a.finished.then(done, () => el.classList.remove('pane-out'));
   }
   function pick(id) {
@@ -783,7 +784,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     if (picking && id !== tabOf(open[0])) { open = [open[0], id]; endPick(); layout(); return; }
     endPick();
     // A tab shows that instrument alone (the Pressure tab keeps the view it was on).
-    const was = open.length === 1 ? body.querySelector('.dock-pane.active') : null, top = was?.scrollTop || 0;
+    const was = open.length === 1 ? body.querySelector('.dock-pane.active') : null, top = readMetric(was, 'scrollTop') || 0;
     open = [open.find((x) => tabOf(x) === id) || id];
     if (state === 'peek') setState('open');
     layout();
@@ -824,7 +825,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     onLayout?.();
     document.getElementById('tabInstruments')?.focus();
   }
-  function ensure() { updateSize(); layout(); workspace.classList.remove('entering'); void workspace.offsetWidth; workspace.classList.add('entering'); }
+  function ensure() { updateSize(); layout(); workspace.classList.remove('entering'); void readMetric(workspace, 'offsetWidth'); workspace.classList.add('entering'); }
   function toggleDock() {
     if (isVisible()) close();
     else { onOpen(); setState('open'); ensure(); }
@@ -843,10 +844,10 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   if (!GUIDE_LAYER) guide.classList.add('dg-live');
   divider.addEventListener('pointerdown', (e) => {
     if (e.button !== 0) return;
-    const side = isSide(), W = stageWrap.clientWidth, H = stageWrap.clientHeight;
-    drag = { x: e.clientX, y: e.clientY, w: workspace.clientWidth, height: workspace.clientHeight, side, W, H, max: side ? 0 : sheetMax(H) };
+    const side = isSide(), W = readMetric(stageWrap, 'clientWidth'), H = readMetric(stageWrap, 'clientHeight');
+    drag = { x: e.clientX, y: e.clientY, w: readMetric(workspace, 'clientWidth'), height: readMetric(workspace, 'clientHeight'), side, W, H, max: side ? 0 : sheetMax(H) };
     if (DRAG_GUIDE) {
-      const d = divider.getBoundingClientRect(), c = workspace.getBoundingClientRect();
+      const d = readBox(divider), c = readBox(workspace);
       if (!guide.isConnected) document.body.append(guide);
       guide.classList.toggle('side', side);
       Object.assign(guide.style, side
@@ -875,10 +876,10 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     if (!grow && !shrink && e.key !== 'Home' && e.key !== 'End') return;
     e.preventDefault();
     if (isSide()) {
-      const W = stageWrap.clientWidth;
-      widthPx = e.key === 'Home' ? 360 : e.key === 'End' ? W * 0.62 : workspace.clientWidth + (grow ? 40 : -40);
+      const W = readMetric(stageWrap, 'clientWidth');
+      widthPx = e.key === 'Home' ? 360 : e.key === 'End' ? W * 0.62 : readMetric(workspace, 'clientWidth') + (grow ? 40 : -40);
     } else {
-      heightRatio = e.key === 'Home' ? 0.25 : e.key === 'End' ? 0.75 : clamp((heightRatio ?? workspace.clientHeight / stageWrap.clientHeight) + (grow ? 0.05 : -0.05), 0.25, 0.75);
+      heightRatio = e.key === 'Home' ? 0.25 : e.key === 'End' ? 0.75 : clamp((heightRatio ?? readMetric(workspace, 'clientHeight') / readMetric(stageWrap, 'clientHeight')) + (grow ? 0.05 : -0.05), 0.25, 0.75);
     }
     updateSize(); remember();
   });
@@ -892,11 +893,11 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   });
   const sizeObserver = new ResizeObserver(() => {
     updateSize();
-    const h0 = workspace.clientHeight, side = isSide() && state !== 'focus';
+    const h0 = readMetric(workspace, 'clientHeight'), side = isSide() && state !== 'focus';
     // As a tall card the plots take a sensible share of the height, so a pair still fits.
-    const plot = side ? clamp((body.clientHeight / (open.length > 1 ? 2 : 1)) - 90, 190, 380) : clamp(h0 - (isPhoneLayout() ? 150 : 190), 190, 420);   // a tablet's sheet has a taller header and tab row (an upright one is a phone's)
+    const plot = side ? clamp((readMetric(body, 'clientHeight') / (open.length > 1 ? 2 : 1)) - 90, 190, 380) : clamp(h0 - (isPhoneLayout() ? 150 : 190), 190, 420);   // a tablet's sheet has a taller header and tab row (an upright one is a phone's)
     workspace.style.setProperty('--plot-h', `${plot}px`);
-    workspace.style.setProperty('--square-size', `${clamp(side ? workspace.clientWidth - 80 : h0 - 160, 220, 380)}px`);
+    workspace.style.setProperty('--square-size', `${clamp(side ? readMetric(workspace, 'clientWidth') - 80 : h0 - 160, 220, 380)}px`);
     layout();
   });
   sizeObserver.observe(stageWrap); sizeObserver.observe(body);

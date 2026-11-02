@@ -77,7 +77,11 @@ const READ_PROPS = new Set(['offsetWidth', 'offsetHeight', 'offsetTop', 'offsetL
 // not counted: an element's animations, its visibility check, an SVG box, matrix or outline length, a point test on a stroke or fill,
 // and a scroll into view.)
 const READ_CALLS = new Set(['getComputedTiming', 'getBoundingClientRect', 'getClientRects', 'getComputedStyle', 'elementFromPoint', 'elementsFromPoint',
-  'getAnimations', 'checkVisibility', 'getBBox', 'getScreenCTM', 'getCTM', 'getTotalLength', 'getPointAtLength', 'isPointInStroke', 'isPointInFill', 'scrollIntoView']);
+  'getAnimations', 'checkVisibility', 'getBBox', 'getScreenCTM', 'getCTM', 'getTotalLength', 'getPointAtLength', 'isPointInStroke', 'isPointInFill', 'scrollIntoView',
+  // (The page's reads made through the one place that asks the browser (src/ui/layout-snap.js): the same reads, by their own names, so a
+  // frame path that reaches one is still found.)
+  'readBox', 'readRects', 'readStyle', 'readCTM', 'readLocalCTM', 'readBBox', 'readLength', 'readPoint', 'readMetric', 'readElAt', 'readElsAt',
+  'readAnims', 'readTiming', 'readVisible', 'readInStroke', 'readInFill', 'scrollInto']);
 const MOTION_EVENTS = new Set(['pointermove', 'touchmove', 'mousemove', 'scroll', 'wheel', 'gesturechange', 'drag', 'dragover', 'pointerrawupdate']);
 // An argument that names a motion event, also as one choice of several (isTouch ? 'touchmove' : 'pointermove').
 const MOTION_RE = /['"`](pointermove|touchmove|mousemove|scroll|wheel|gesturechange|drag|dragover|pointerrawupdate)['"`]/;
@@ -509,6 +513,41 @@ export function scan({ root = ROOT } = {}) {
   out.onGpu = onGpu; out.sites = onGpu + out.length;
   return out;
 }
+// Layout reads outside the one place (plan "Holding 120 Hz, always", 3.4): the page's geometry is asked of the browser only in
+// src/ui/layout-snap.js (its read* functions), so every read can be counted by where it happens and the snapshot can hold what the app
+// asks for most. A direct read anywhere else (getBoundingClientRect, getBBox, getComputedStyle, getScreenCTM, offset*, client*, scroll*,
+// getTotalLength, getPointAtLength, elementFromPoint and the rest below) fails the scan once its file has more of them than its
+// allowance in scripts/layout-read-allowance.json; the allowances are the reads still to move and may only go down (a file with fewer
+// than allowed fails too, until its allowance is lowered to match). A file not listed is allowed none.
+export const SNAPSHOT_FILE = 'src/ui/layout-snap.js';
+const DIRECT_READ = new RegExp([
+  String.raw`\.(?:getBoundingClientRect|getClientRects|getBBox|getScreenCTM|getCTM|getTotalLength|getPointAtLength|getAnimations|getComputedTiming|checkVisibility|isPointInStroke|isPointInFill|scrollIntoView)\s*(?:\?\.)?\(`,
+  String.raw`(?<![\w.])(?:window\.|globalThis\.)?getComputedStyle\s*\(`,
+  String.raw`\bdocument\.elements?FromPoint\s*\(`,
+  String.raw`\.(?:offsetWidth|offsetHeight|offsetTop|offsetLeft|offsetParent|clientWidth|clientHeight|clientTop|clientLeft|scrollWidth|scrollHeight|scrollTop|scrollLeft|innerText)\b(?!\s*=(?!=))`,
+].join('|'), 'g');
+const stripComments = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').split('\n').map((l) => l.replace(/(^|[^:'"`\\])\/\/.*$/, '$1')).join('\n');
+export function directReads({ root = ROOT } = {}) {
+  const out = {};
+  for (const p of walk(join(root, 'src'))) {
+    const f = relative(root, p).split('\\').join('/');
+    if (!f.endsWith('.js') || f === SNAPSHOT_FILE) continue;
+    const n = stripComments(readFileSync(p, 'utf8')).match(DIRECT_READ)?.length || 0;
+    if (n) out[f] = n;
+  }
+  return out;
+}
+export function readAllowance({ root = ROOT } = {}) {
+  try { return JSON.parse(readFileSync(join(root, 'scripts/layout-read-allowance.json'), 'utf8')).files || {}; } catch { return {}; }
+}
+// Files over their allowance (a read added outside the snapshot) and under it (a read moved: lower the allowance).
+export function readRatchet(found = directReads(), allowed = readAllowance()) {
+  const over = [], under = [];
+  for (const [f, n] of Object.entries(found)) if (n > (allowed[f] || 0)) over.push(`${f}: ${n} direct layout reads, ${allowed[f] || 0} allowed`);
+  for (const [f, n] of Object.entries(allowed)) if ((found[f] || 0) < n) under.push(`${f}: ${found[f] || 0} direct layout reads, ${n} allowed (lower its allowance)`);
+  return { over, under, total: Object.values(found).reduce((a, b) => a + b, 0) };
+}
+
 // The deploy gate (owner, 1 Nov 2026, 6:29 PM ET: "at 90% you can let things through"): lint, the unit test and the Pages step
 // pass once at least GATE_PCT of the sites are on the GPU. The scan stays as strict as ever and every hit is still listed; the goal
 // is still nothing off the GPU.
@@ -543,11 +582,16 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   if (args.has('--json')) { console.log(JSON.stringify(hits, null, 1)); process.exit(passes(hits) ? 0 : 1); }
   if (args.has('--doc')) writeFileSync(join(ROOT, 'docs/off-gpu-inventory.md'), inventory(hits, { commit: process.env.GITHUB_SHA?.slice(0, 8) || '' }));
   if (args.has('--summary') && process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, inventory(hits, { commit: process.env.GITHUB_SHA?.slice(0, 8) || '' }));
+  const rr = readRatchet();
+  for (const l of [...rr.over, ...rr.under]) console.error(`layout reads: ${l}`);
+  console.error(`layout reads: ${rr.total} direct reads left outside ${SNAPSHOT_FILE}${rr.over.length || rr.under.length ? ': fails (scripts/layout-read-allowance.json)' : ', none over its allowance'}.`);
+  const readsOk = !rr.over.length && !rr.under.length;
   const byCat = {};
   for (const h of hits) byCat[h.cat] = (byCat[h.cat] || 0) + 1;
+  if (!hits.length && !readsOk) process.exit(1);
   if (!hits.length) { console.log(`off-gpu: ${score(hits)}. Nothing off the GPU.`); process.exit(0); }
   for (const h of hits) console.error(`${h.file}:${h.line}  ${h.cat}  ${h.fn}  ${h.detail}  [${h.owner}]`);
   console.error(`\noff-gpu: ${score(hits)} (${Object.entries(byCat).map(([c, n]) => `${c} ${n}`).join(', ')}). The goal is 0; see docs/off-gpu-inventory.md.`);
   console.error(passes(hits) ? `off-gpu: ${pctOf(hits)}% is at or above the gate (${GATE_PCT}%): passes. The goal is still 0 off.` : `off-gpu: ${pctOf(hits)}% is below the gate (${GATE_PCT}%): fails.`);
-  process.exit(passes(hits) ? 0 : 1);
+  process.exit(passes(hits) && readsOk ? 0 : 1);
 }

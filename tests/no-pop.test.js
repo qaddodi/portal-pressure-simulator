@@ -2,8 +2,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { unsnap } from './unsnap.js';
 
-const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
+const read = (p) => unsnap(readFileSync(new URL(`../${p}`, import.meta.url), 'utf8'));
 const css = read('styles/app.css'), tokens = read('styles/tokens.css'), util = read('src/ui/util.js');
 const card = read('src/ui/card.js'), dock = read('src/ui/dock.js'), stageSrc = read('src/ui/stage.js');
 

@@ -2,9 +2,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { unsnap } from './unsnap.js';
 
 const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
-const mn = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8');
+const mn = unsnap(readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8'));
 
 test("a card's own list scrolling keeps the figure's box; the page's scroll, or one holding the figure, drops it", () => {
   assert.match(st, /addEventListener\('scroll', \(e\) => \{ const t = e\.target; if \(t === document \|\| t === window \|\| t\?\.contains\?\.\(wrap\)\) boxAgain\(\); \}, true\);/);
@@ -21,7 +22,7 @@ test('a hover reads the kept box and transform, never a fresh layout', () => {
 });
 
 test('a card leaving never lays the page out: a leave already playing is set back to its start', () => {
-  assert.match(mn, /if \(el\.classList\.contains\('card-leaving'\)\) \{ for \(const a of el\.getAnimations\?\.\(\) \|\| \[\]\) if \(a\.animationName\) a\.currentTime = 0; \}\n\s+el\.classList\.add\('card-leaving'\);/);
+  assert.match(mn, /if \(el\.classList\.contains\('card-leaving'\)\) \{ for \(const a of el\.getAnimations(?:\?\.)?\(\) \|\| \[\]\) if \(a\.animationName\) a\.currentTime = 0; \}\n\s+el\.classList\.add\('card-leaving'\);/);
   assert.doesNotMatch(mn, /void el\.offsetWidth/);
 });
 

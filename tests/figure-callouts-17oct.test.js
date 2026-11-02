@@ -5,10 +5,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { unsnap } from './unsnap.js';
 import { SHORT } from '../src/ui/anatomy.js';
 
 const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
-const presenter = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const presenter = unsnap(readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8'));
 const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 
 test('stations are named in full, with no abbreviation ending in a full stop', () => {

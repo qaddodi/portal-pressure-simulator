@@ -3,11 +3,12 @@ import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
+import { unsnap } from './unsnap.js';
 import { SITES } from '../src/ui/decks/sites.js';
 import { withOverview } from '../src/ui/decks.js';
 import { createCore } from '../src/worker-core.js';
 
-const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const src = unsnap(readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8'));
 const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 
 test('Sites and causes gives each site slide (and only those) a case', () => {

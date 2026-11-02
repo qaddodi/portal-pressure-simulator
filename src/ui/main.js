@@ -6,17 +6,17 @@ import { budget as gpuBudget } from './gpu-budget.js?v=47759d6d7b';   // (the re
 import './gl-state.js?v=900a43dce7';   // (early: every WebGL2 context is recorded from its creation, R09/R06)
 import { startHost, host } from './host.js?v=606ab97574';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=bf85512db4';
-import { createStage } from './stage.js?v=76d340b03a';
-import { createCreditPlacer } from './credit.js?v=6c911a64c2';
+import { createStage } from './stage.js?v=cda6049224';
+import { createCreditPlacer } from './credit.js?v=a6bac19a8b';
 import { whenQuiet, booting, holdCover } from './quiet.js?v=388052eba8';
 import { sinusoidSupported } from './gl-support.js?v=38189f60f5';
 import { createInspector } from './inspector.js?v=112fc40e63';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=f220df357d';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=8523371551';
 import { setHvpgStage } from './hvpg-proc.js?v=c885db9114';
 import { createWhy } from './why.js?v=78bbd41232';
 import { createTimeline, LAPSES } from './timeline.js?v=1094d7bd1e';
 import { createCompare } from './compare.js?v=6433a22c37';
-import { createCard } from './card.js?v=1ab3a012f5';
+import { createCard } from './card.js?v=06611cac57';
 import { createChart } from './chart.js?v=89e6a30566';
 import { createMenu } from './menu.js?v=312d84dea6';
 import { caption } from './a11y.js?v=9e01d6073d';
@@ -62,6 +62,7 @@ import { noteJump } from './display-state.js?v=8d062d39dc';
 import { createIdleRest } from './idle-rest.js?v=4d23822371';
 import { easeIO3, glideShift, pillState, foldPill, stopFold } from './pill-motion.js?v=8b7a9002b0';
 import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=81fbedda6b';
+import { readAnims, readBox, readElAt, readMetric, readStyle, scrollInto } from './layout-snap.js?v=10b6ed9eba';
 import './scroll-edges.js?v=c92be3d2d4';   // (soft fades at the ends of lists that scroll, only where there is more; ?edges=0 off)
 const nextFrame = frameFor('main');
 
@@ -211,7 +212,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=1d1e2e5fff'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=db1e4881b7'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -973,7 +974,7 @@ function renderBanner() {
     const tbl = h('button', { class: 'btn sm cmp-table-btn', title: 'Every value, then and now, in a table', onclick: () => {
       // (The table scrolls into view once the card has come in, not while it is still sliding: P22.)
       const was = panelShown(); openPanel();
-      setTimeout(() => $('.cmp-section')?.scrollIntoView({ block: 'start', behavior: scrollBehavior() }), was ? 0 : 260);
+      setTimeout(() => scrollInto($('.cmp-section'), { block: 'start', behavior: scrollBehavior() }), was ? 0 : 260);
     } }, 'Differences');
     kids.push(tbl);
   }
@@ -1049,7 +1050,7 @@ function openSettings(anchor, withSearch = false) {
       h('div', { class: 'menu-title' }, 'Model'),
       menuToggle(store.get().showHvpg, 'gauge', 'Always show HVPG', 'Show HVPG without measuring it first', (on) => {
         try { localStorage.setItem('pps.showHvpg', on ? '1' : '0'); } catch { /* storage unavailable */ }
-        document.body.classList.remove('hvpg-swap'); void document.body.offsetWidth; document.body.classList.add('hvpg-swap');
+        document.body.classList.remove('hvpg-swap'); void readMetric(document.body, 'offsetWidth'); document.body.classList.add('hvpg-swap');
         setTimeout(() => document.body.classList.remove('hvpg-swap'), 600);
         store.set({ showHvpg: on });
       }),
@@ -1167,7 +1168,7 @@ addEventListener('pointerdown', (e) => {
   e.stopImmediatePropagation(); e.preventDefault();
   const { clientX: x, clientY: y } = e;
   vt.skipTransition();
-  vt.finished.catch(() => {}).finally(() => document.elementFromPoint(x, y)?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, clientX: x, clientY: y, view: window })));
+  vt.finished.catch(() => {}).finally(() => readElAt(x, y)?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, clientX: x, clientY: y, view: window })));
 }, true);
 function applyTheme(t, clear) {
   applyLookAttrs(document.documentElement, t);   // (data-theme, and data-palette for Navy and Black: looks.js)
@@ -1179,7 +1180,7 @@ function applyTheme(t, clear) {
 // figure (the top bar floats over it). The theme can differ from the system's, so the color comes from the page, not from a media query.
 function syncStatusBar() {
   const el = document.getElementById('stageWrap');
-  const c = el && getComputedStyle(el).backgroundColor;
+  const c = el && readStyle(el).backgroundColor;
   if (!c || c === 'rgba(0, 0, 0, 0)') return;   // colour-exempt: the computed value of transparent
   let m = document.querySelector('meta[name="theme-color"]:not([media])');
   if (!m) {
@@ -1217,7 +1218,7 @@ function leave(el) {
   if (el.dataset.swiped) { delete el.dataset.swiped; return; }   // (swiped away: already slid out of sight behind the tab row)
   // (With Reduce Motion it fades where it stands: app.css turns the leaving keyframes into fades.)
   // (A leave already playing starts again from its first frame: its own animations are set back to the start, no reflow to restart it.)
-  if (el.classList.contains('card-leaving')) { for (const a of el.getAnimations?.() || []) if (a.animationName) a.currentTime = 0; }
+  if (el.classList.contains('card-leaving')) { for (const a of readAnims(el) || []) if (a.animationName) a.currentTime = 0; }
   el.classList.add('card-leaving');
   markGone(180);
   const done = (e) => { if (e && e.target !== el) return; el.classList.remove('card-leaving'); el.removeEventListener('animationend', done); };
@@ -1233,11 +1234,11 @@ function panelShown() { return !app.classList.contains('instrument-focus') && ap
 // as it always has. (styles: .scenario-v[data-form])
 function fitScenarioName() {
   const e = document.getElementById('scenarioName');
-  if (!e?.querySelector('.sn-c') || !e.offsetParent) return;
+  if (!e?.querySelector('.sn-c') || !readMetric(e, 'offsetParent')) return;
   const forms = matchMedia('(max-width: 480px)').matches ? ['s2', 'c2'] : ['l', 's', 's2', 'c2'];
   for (const f of forms) {
     e.dataset.form = f;
-    if (e.scrollWidth <= e.clientWidth + 0.5 && e.scrollHeight <= e.clientHeight + 0.5) return;
+    if (readMetric(e, 'scrollWidth') <= readMetric(e, 'clientWidth') + 0.5 && readMetric(e, 'scrollHeight') <= readMetric(e, 'clientHeight') + 0.5) return;
   }
 }
 let refitT = 0;
@@ -1361,21 +1362,21 @@ function wireFloating() {
     const nbvPad = innerHeight <= 500 && innerWidth > innerHeight ? '24' : '12';
     if ($('#nbViews') && $('#nbViews').dataset.safePad !== nbvPad) $('#nbViews').dataset.safePad = nbvPad;
     // (Its place at rest: less the shift of a glide into or out of the sinusoid, sinMotion.)
-    const nbv = $('#nbViews'), nbvH = nbv && nbv.offsetHeight ? Math.max(0, vd.getBoundingClientRect().top - nbv.getBoundingClientRect().top + (pillEl === nbv ? pillShiftY : 0) + 8) : 0;
+    const nbv = $('#nbViews'), nbvH = nbv && readMetric(nbv, 'offsetHeight') ? Math.max(0, readBox(vd).top - readBox(nbv).top + (pillEl === nbv ? pillShiftY : 0) + 8) : 0;
     // (The dock as it rests: none in the sinusoid view, also while it slides away; less its slide while it comes back.)
-    const vdH = app.classList.contains('sin-focus') ? 0 : vd.offsetHeight, vdSlide = +vd.dataset.slideY || 0;
+    const vdH = app.classList.contains('sin-focus') ? 0 : readMetric(vd, 'offsetHeight'), vdSlide = +vd.dataset.slideY || 0;
     if (!vd.classList.contains('mini') && vdH) vd.dataset.fullH = String(vdH + nbvH);
-    const vdTop = vdH ? $('#stageView').getBoundingClientRect().bottom - (vd.getBoundingClientRect().top - vdSlide) + nbvH : 0;
+    const vdTop = vdH ? readBox($('#stageView')).bottom - (readBox(vd).top - vdSlide) + nbvH : 0;
     const vdock = vdH ? Math.max(vdH + nbvH, vdTop - gap) : 0, wide = !isPhone();
     // The top bar keeps one row when everything fits at its natural width (with a little to spare,
     // so it does not flip back and forth), else the view and legend move to a second row.
     // Off a phone the bar first compacts step by step (data-fit 1-3: shorter patient name, icon-only
     // buttons), so the view and the lens stay on the one row; two rows only if even that fails.
-    const tb = $('#topbar'), cs = getComputedStyle(tb);
+    const tb = $('#topbar'), cs = readStyle(tb);
     // (Measured with the patient's full name, as always, so the name's form, picked after, never moves the bar's step.)
     if ($('#scenarioName').dataset.form) $('#scenarioName').dataset.form = 'l';
-    const need = () => $('.tb-id').scrollWidth + ($('#viewSeg').closest('.topbar') ? $('#viewSeg').offsetWidth : 0) + $('.topbar .sb-right').offsetWidth + $('.top-right').scrollWidth + 6 * 8 + 16;
-    const avail = tb.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    const need = () => readMetric($('.tb-id'), 'scrollWidth') + ($('#viewSeg').closest('.topbar') ? readMetric($('#viewSeg'), 'offsetWidth') : 0) + readMetric($('.topbar .sb-right'), 'offsetWidth') + readMetric($('.top-right'), 'scrollWidth') + 6 * 8 + 16;
+    const avail = readMetric(tb, 'clientWidth') - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
     const was = +(tb.dataset.fit || 0) + (tb.classList.contains('two-rows') ? 1 : 0);
     tb.classList.remove('two-rows');
     let fit = 0;
@@ -1395,24 +1396,24 @@ function wireFloating() {
     // Every box is read first and the custom properties written after, so the whole pass costs one layout
     // instead of one per write; a value is written only when it changed, and the occupancy is announced
     // (pps:occ: the cards and the credit place themselves again) only when something did change.
-    const tbH = tb.offsetHeight;
+    const tbH = readMetric(tb, 'offsetHeight');
     const ws = $('#dock'), wsOn = app.classList.contains('dock-open') && !app.classList.contains('instrument-focus');
-    const panelOcc = wide && app.classList.contains('panel-open') ? $('#panel').offsetWidth + gap : 0;
-    const instrOcc = wsOn && ws.classList.contains('side') ? ws.offsetWidth + gap : 0;
-    const tc = $('#treatCard'), hc = $('#historyCard'), treatOcc = wide && !tc.hidden ? tc.offsetWidth + gap : wide && !hc.hidden ? hc.offsetWidth + gap : 0;
-    const sheet = wsOn && !ws.classList.contains('side') && ws.dataset.state !== 'peek' ? ws.offsetHeight + gap : 0;
+    const panelOcc = wide && app.classList.contains('panel-open') ? readMetric($('#panel'), 'offsetWidth') + gap : 0;
+    const instrOcc = wsOn && ws.classList.contains('side') ? readMetric(ws, 'offsetWidth') + gap : 0;
+    const tc = $('#treatCard'), hc = $('#historyCard'), treatOcc = wide && !tc.hidden ? readMetric(tc, 'offsetWidth') + gap : wide && !hc.hidden ? readMetric(hc, 'offsetWidth') + gap : 0;
+    const sheet = wsOn && !ws.classList.contains('side') && ws.dataset.state !== 'peek' ? readMetric(ws, 'offsetHeight') + gap : 0;
     // On a phone the instruments sheet rises from the bottom edge, over the vitals dock.
     // (With the thumb dock the sheet sits above the dock instead.)
     // (Over the thumb dock a sheet sits on the tab row's top edge, so a card above it rests on the sheet, not above the whole dock.)
-    const nbR = thumb && vdH ? (({ x, y, width, height }) => new DOMRect(x, y - vdSlide, width, height))($('#thumbBar').getBoundingClientRect()) : null;
-    const ar = app.getBoundingClientRect(), tabOcc = nbR && nbR.height ? ar.bottom - nbR.top + 8 : 0;
+    const nbR = thumb && vdH ? (({ x, y, width, height }) => new DOMRect(x, y - vdSlide, width, height))(readBox($('#thumbBar'))) : null;
+    const ar = readBox(app), tabOcc = nbR && nbR.height ? ar.bottom - nbR.top + 8 : 0;
     const bot = isPhone() && sheet && !thumb ? Math.max(vdock + gap, sheet) : tabOcc && sheet ? tabOcc + sheet : vdock + gap + sheet;
     // The patient chart is a bottom sheet on a phone, over the dock: the corner credit rides above it, unless the
     // sheet is so tall (nearly full screen) that there is no figure left to ride on.
-    const pn = $('#panel'), lift = isPhone() && panelShown() && pn.offsetParent ? pn.offsetParent.clientHeight - pn.offsetTop + 8 : 0;
-    const tall = !!pn.offsetParent && lift > 0 && pn.offsetParent.clientHeight - lift < tbH + 48;
+    const pn = $('#panel'), lift = isPhone() && panelShown() && readMetric(pn, 'offsetParent') ? readMetric(readMetric(pn, 'offsetParent'), 'clientHeight') - readMetric(pn, 'offsetTop') + 8 : 0;
+    const tall = !!readMetric(pn, 'offsetParent') && lift > 0 && readMetric(readMetric(pn, 'offsetParent'), 'clientHeight') - lift < tbH + 48;
     const vars = {
-      '--top-safe': px(tbH), '--vdock-h': px(vdock), '--vdock-top': px(vd.offsetHeight ? vdTop : 0),
+      '--top-safe': px(tbH), '--vdock-h': px(vdock), '--vdock-top': px(readMetric(vd, 'offsetHeight') ? vdTop : 0),
       '--panel-occ': px(panelOcc), '--instr-occ': px(instrOcc), '--right-occ': px(panelOcc + instrOcc + treatOcc), '--bot-occ': px(bot),
       '--panel-h': px(tall || !lift ? 0 : lift + 4), '--panel-cover': tall ? '1' : '0',
     };
@@ -1428,7 +1429,7 @@ function wireFloating() {
     const occ = px(nbR && nbR.height ? innerHeight - nbR.top + 8 : 0);
     if (pubVals.occ !== occ) { pubVals.occ = occ; document.documentElement.style.setProperty('--thumb-occ', occ); }
     // (and the top bar's foot, so a tall sheet stops under the view switch and leaves it in reach)
-    const topOcc = px(thumb ? tb.getBoundingClientRect().bottom : 0);
+    const topOcc = px(thumb ? readBox(tb).bottom : 0);
     if (pubVals.topOcc !== topOcc) { pubVals.topOcc = topOcc; document.documentElement.style.setProperty('--thumb-top', topOcc); }
     const sig = `${appClass()}|${tb.className}|${tb.dataset.fit}`;
     if (changed || sig !== pubSig) { pubSig = sig; dispatchEvent(new Event('pps:occ')); }
@@ -1487,7 +1488,7 @@ function wireFloating() {
   // old size by transform (plate-glide.js: nine pieces of one plate slide and stretch, bottom left corner still) while the new
   // content fades in. Nothing is measured by the fold itself: the sizes come from the bar's ResizeObserver (geom.js).
   // The zoom pill grows and folds by transform when a button comes or goes (the circuit's turn upright): plate-glide.js glideOnResize.
-  { const zp = document.getElementById('zoomPill'); if (zp) glideOnResize(zp, { R: parseFloat(getComputedStyle(zp).borderTopLeftRadius) || 16 }); }
+  { const zp = document.getElementById('zoomPill'); if (zp) glideOnResize(zp, { R: parseFloat(readStyle(zp).borderTopLeftRadius) || 16 }); }
   const vdockEl = $('#vdock');
   const vdockPlate = vdockEl ? platePieces(vdockEl) : null;   // (its glass's pieces, put in once here: a fold that starts in a frame adds nothing to the page)
   let foldTok = 0, foldAnims = [], foldGoal = false, foldEnd = null;
@@ -1559,10 +1560,10 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
   // (17 Oct, Mohammad: an upright iPad's cards open "proportional to the ipad proportions vertically" and never fill the whole
   // screen: Half takes the share of the screen's height an iPhone's Half takes, 45 %, and Full stops at 62 %, the figure in view
   // above it. As shares of the room, like the phone's, so a drag and its release are measured the same way.)
-  const stops = () => (!thumb() ? SIZES : tabletMQ.matches ? TABLET.map((s) => Math.min(1, (s * app.clientHeight) / (room() || app.clientHeight))) : THUMB);
+  const stops = () => (!thumb() ? SIZES : tabletMQ.matches ? TABLET.map((s) => Math.min(1, (s * readMetric(app, 'clientHeight')) / (room() || readMetric(app, 'clientHeight')))) : THUMB);
   const half = () => stops().length - 2;
   // The room a thumb sheet may fill: the CSS cap (100% - top bar - tab row - 22 px, styles/app.css thumb block).
-  const room = () => (thumb() ? app.clientHeight - (parseFloat(app.style.getPropertyValue('--top-safe')) || 0) - (parseFloat(app.style.getPropertyValue('--nb-occ')) || 0) - 22 : 0);
+  const room = () => (thumb() ? readMetric(app, 'clientHeight') - (parseFloat(app.style.getPropertyValue('--top-safe')) || 0) - (parseFloat(app.style.getPropertyValue('--nb-occ')) || 0) - 22 : 0);
   let size = 1, lastN = stops().length;
   el.prepend(handle);
   // The sheet moves by its content's offset only (sheet-move.js): its box is laid out once for a gesture and committed once at
@@ -1571,10 +1572,10 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
   let lay = 0;
   const natural = () => {
     if (!fit || !isPhone() || el.hidden) return Infinity;
-    const cs = getComputedStyle(el);
+    const cs = readStyle(el);
     // The body fills the sheet, so its own height says nothing: measure down to its last child.
-    const inner = (c) => { const l = c.lastElementChild; if (!l) return 0; const b = parseFloat(getComputedStyle(c).paddingBottom) + parseFloat(getComputedStyle(l).marginBottom); return l.getBoundingClientRect().bottom - c.getBoundingClientRect().top + c.scrollTop + b; };
-    return [...el.children].reduce((a, c) => a + (c.classList.contains('sheet-plate') ? 0 : c.matches(fit) ? inner(c) : c.offsetHeight), 0) + parseFloat(cs.paddingBottom) + parseFloat(cs.paddingTop);
+    const inner = (c) => { const l = c.lastElementChild; if (!l) return 0; const b = parseFloat(readStyle(c).paddingBottom) + parseFloat(readStyle(l).marginBottom); return readBox(l).bottom - readBox(c).top + readMetric(c, 'scrollTop') + b; };
+    return [...el.children].reduce((a, c) => a + (c.classList.contains('sheet-plate') ? 0 : c.matches(fit) ? inner(c) : readMetric(c, 'offsetHeight')), 0) + parseFloat(cs.paddingBottom) + parseFloat(cs.paddingTop);
   };
   // (A phone turned upright or sideways changes the stops, three sideways and two over the thumb dock: Half stays Half and the top stays the top.)
   const remap = () => { const n = stops().length; if (n !== lastN) { size = size === lastN - 1 ? n - 1 : n - 2; lastN = n; } };
@@ -1584,9 +1585,9 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
     const S = stops(), r = room();
     size = Math.min(size, S.length - 1);
     const need = size === half() ? natural() : Infinity;
-    return need < S[half()] * (r || app.clientHeight) ? `${Math.ceil(need)}px` : r ? `${Math.round(S[size] * r)}px` : `${Math.round(S[size] * 100)}%`;
+    return need < S[half()] * (r || readMetric(app, 'clientHeight')) ? `${Math.ceil(need)}px` : r ? `${Math.round(S[size] * r)}px` : `${Math.round(S[size] * 100)}%`;
   };
-  const pxOf = (v) => (/px$/.test(v) ? parseFloat(v) : (parseFloat(v) / 100) * app.clientHeight);
+  const pxOf = (v) => (/px$/.test(v) ? parseFloat(v) : (parseFloat(v) / 100) * readMetric(app, 'clientHeight'));
   // Commits the sheet at rest: its own height, the content in place (the same picture: what was drawn lay - off tall now is).
   const commit = (v) => {
     el.classList.toggle('sheet-half', thumb() && size === half());   // (a phone's Tests card hides its longer words at Half)
@@ -1605,7 +1606,7 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
     el.classList.toggle('sheet-half', thumb() && size === half());
     glideSheet(el, H - h1, { easing, done: () => commit(v) });
   };
-  const drawnHeight = () => (lay || el.offsetHeight) - sheetOffset(el);
+  const drawnHeight = () => (lay || readMetric(el, 'offsetHeight')) - sheetOffset(el);
   // A new tab refits the sheet to its content (the height eases).
   if (fit) el.addEventListener('click', (e) => { if (size === half() && e.target.closest('[role="tab"]')) restPass(refitTab); });   // (measured between frames, rest-pass.js)
   const refitTab = () => apply(true, drawnHeight());
@@ -1620,7 +1621,7 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
   // card moves it too; a sideways one is left alone, and content scrolled away from its top scrolls back first.
   const FIELDS = 'input:not([type="checkbox"]):not([type="radio"]):not([type="button"]), select, textarea, [role="slider"], [contenteditable]';
   const CONTROLS = 'button, a, input, select, textarea, label, [role="tab"], [role="slider"], [contenteditable]';
-  const scroller = (t) => { for (let n = t; n && n !== el; n = n.parentElement) { if (n.scrollHeight > n.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(n).overflowY)) return n; } return null; };
+  const scroller = (t) => { for (let n = t; n && n !== el; n = n.parentElement) { if (readMetric(n, 'scrollHeight') > readMetric(n, 'clientHeight') + 1 && /auto|scroll/.test(readStyle(n).overflowY)) return n; } return null; };
   el.addEventListener('pointerdown', (e) => {
     if (start || !active() || (e.pointerType === 'mouse' && e.button !== 0)) return;
     const own = e.target === handle || !!e.target.closest(drag);
@@ -1630,10 +1631,10 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
     if (e.target !== handle && e.target.closest(thumb() && anywhere ? FIELDS : CONTROLS) && !headTab) return;
     if (!own && !(anywhere && isPhone())) return;
     // Everything the pull needs is read here, once: nothing is measured while the finger moves.
-    const mv = (el.style.translate || '0px 0px').split(' ').map(parseFloat), S = stops(), R = room() || app.clientHeight;
+    const mv = (el.style.translate || '0px 0px').split(' ').map(parseFloat), S = stops(), R = room() || readMetric(app, 'clientHeight');
     const sc = own ? null : scroller(e.target);
-    const h0 = drawnHeight(), box = lay || el.offsetHeight;
-    start = { id: e.pointerId, t0: performance.now(), x: e.clientX, y: e.clientY, h: h0, box, H: R, S, size, thumb: thumb(), phone: isPhone(), tx: mv[0] || 0, ty: mv[1] || 0, moved: false, loose: !own || headTab, sc, scTop: sc ? sc.scrollTop : 0, top: S[S.length - 1] * R };
+    const h0 = drawnHeight(), box = lay || readMetric(el, 'offsetHeight');
+    start = { id: e.pointerId, t0: performance.now(), x: e.clientX, y: e.clientY, h: h0, box, H: R, S, size, thumb: thumb(), phone: isPhone(), tx: mv[0] || 0, ty: mv[1] || 0, moved: false, loose: !own || headTab, sc, scTop: sc ? readMetric(sc, 'scrollTop') : 0, top: S[S.length - 1] * R };
     // (Half's height, as apply() sets it: the content's own height when that is less)
     if (start.thumb && size === S.length - 1 && S.length > 1) { start.full = true; start.half = Math.min(h0, natural(), S[half()] * R); }
   });
@@ -1644,7 +1645,7 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
     if (H <= start.box + 1) return;
     stopSheet(el);
     el.style.height = `${H}px`; lay = H;
-    start.box = el.offsetHeight;   // (as laid out: the stylesheet's cap may hold it lower)
+    start.box = readMetric(el, 'offsetHeight');   // (as laid out: the stylesheet's cap may hold it lower)
     lay = start.box;
     setSheetOffset(el, start.box - drawn);
   });
@@ -1772,11 +1773,11 @@ const PILL_IN = 1150, PILL_OUT = 950;
 let publishNow = () => {}, pillRemeasure = null;
 let pillRaf = 0, pillEl = null, pillShiftY = 0;   // (pillShiftY: the glide's vertical shift now, in screen px)
 let barY = 0;   // (the dock's slide now, in its own px: 0 at rest, down is positive)
-const pillHome = () => { const b = $('#viewSeg')?.parentElement; return b && (b.id === 'nbViews' || b.id === 'sinViews') && b.offsetWidth ? b : null; };
+const pillHome = () => { const b = $('#viewSeg')?.parentElement; return b && (b.id === 'nbViews' || b.id === 'sinViews') && readMetric(b, 'offsetWidth') ? b : null; };
 function viewPillRect() {
   const box = pillHome();
   if (!box) return null;
-  const r = box.getBoundingClientRect();
+  const r = readBox(box);
   return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
 }
 // One change of the pill's buttons: kind 'in' / 'out' (into or out of the sinusoid), 'down' / 'up' (into or out of the lobule).
@@ -1791,7 +1792,7 @@ function pillChange(change, kind) {
   const box1 = pillHome();
   if (before && box1) foldPill(seg, box1, before);
   else stopFold();
-  if (sin) { sinMotion(from, kind === 'in'); getComputedStyle(seg).color; }   // (styles settled in the new home before the pressed button changes, so it crossfades)
+  if (sin) { sinMotion(from, kind === 'in'); readStyle(seg).color; }   // (styles settled in the new home before the pressed button changes, so it crossfades)
 }
 function sinMotion(from, intoSin) {
   cancelFrame(pillRaf); pillRaf = 0;
@@ -1800,9 +1801,9 @@ function sinMotion(from, intoSin) {
   const vd = $('#vdock'), reduce = matchMedia('(prefers-reduced-motion: reduce)').matches, ms = intoSin ? PILL_IN : PILL_OUT, t0 = performance.now();
   // The dock: from where it is drawn now (at rest, part way, or off the screen) to off the screen, or back to rest.
   const leaving = vd.classList.contains('vd-out');
-  let bars = !reduce && !app.classList.contains('presenting') && vd.offsetHeight > 0, y0 = barY, y1 = 0;
+  let bars = !reduce && !app.classList.contains('presenting') && readMetric(vd, 'offsetHeight') > 0, y0 = barY, y1 = 0;
   if (bars) {
-    const r = vd.getBoundingClientRect();
+    const r = readBox(vd);
     // (Its top, at rest, to past the screen's foot, with its shadow.)
     const off = innerHeight - (r.top - barY) + 24;
     if (intoSin) y1 = off; else if (!leaving) y0 = off;
@@ -1819,7 +1820,7 @@ function sinMotion(from, intoSin) {
   // space and then jumps (17 Oct).)
   const measure = () => {
     if (pillEl !== box) return;
-    const r = box.getBoundingClientRect();
+    const r = readBox(box);
     rest = r.width ? { x: r.left + r.width / 2 - shift[0], y: r.top + r.height / 2 - shift[1] - drawnDock } : 'gone';
   };
   if (box) {
@@ -2200,7 +2201,7 @@ function openHelp(section) {
 // Help and About open at a named section (Keyboard shortcuts, References).
 // (2 Nov 2026: scrolled between frames (rest-pass.js), never inside one: scrollIntoView lays the page out.)
 function scrollToSection(section) { if (section) nextFrame(() => restPass(() => sectionInView(section))); }
-function sectionInView(section) { $(`#modal [data-sec="${section}"]`)?.scrollIntoView({ block: 'start' }); }
+function sectionInView(section) { scrollInto($(`#modal [data-sec="${section}"]`), { block: 'start' }); }
 const pmid = (id) => h('a', { href: `https://pubmed.ncbi.nlm.nih.gov/${id}/`, target: '_blank', rel: 'noopener' }, `PMID ${id}`);
 const CUT_HEADS = ['Readout', 'Normal', 'Borderline', 'Past a threshold', 'High risk'], CUT_SEV = ['', 'ok', 'caution', 'danger', 'critical'];
 function openAbout(section) {

@@ -10,6 +10,7 @@ import { cardFor, normalizeSel } from './actions.js?v=89a74c950f';
 import { frameFor, cancelFrame } from './frame.js?v=c67ad74ad8';
 import { restPass, cancelRest } from './rest-pass.js?v=6eb6322f82';
 import { placeCard, coverCount, vesselPoints } from './card-place.js?v=4eb9859ce3';
+import { readBox, readMetric } from './layout-snap.js?v=10b6ed9eba';
 const nextFrame = frameFor('card');
 // A reading's printed number ("12.5", "−3.0"), with its decimals, or null for one that isn't a plain number.
 const numOf = (t) => { const s = String(t).replace('−', '-'); return /^-?\d+(\.\d+)?$/.test(s) ? { n: +s, d: (s.split('.')[1] || '').length } : null; };
@@ -377,13 +378,13 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   let dragTop = 0;
   const dragRO = typeof ResizeObserver === 'function' ? new ResizeObserver(() => {
     if (!dragEl?.isConnected) return;
-    const t = dragEl.getBoundingClientRect().top, d = t - dragTop, sc = el.querySelector('.ac-scroll');
-    if (d && sc) { const s0 = sc.scrollTop; sc.scrollTop = s0 + d; dragTop = t - (sc.scrollTop - s0); } else dragTop = t;
+    const t = readBox(dragEl).top, d = t - dragTop, sc = el.querySelector('.ac-scroll');
+    if (d && sc) { const s0 = readMetric(sc, 'scrollTop'); sc.scrollTop = s0 + d; dragTop = t - (readMetric(sc, 'scrollTop') - s0); } else dragTop = t;
   }) : null;
   el.addEventListener('pointerdown', (e) => {
     dragEl = e.target.closest?.('input[type=range], .ac-btn, .ac-toggle, .seg button') || null;
     if (!dragRO || !dragEl) return;
-    dragTop = dragEl.getBoundingClientRect().top;   // (once, in the press's own event)
+    dragTop = readBox(dragEl).top;   // (once, in the press's own event)
     dragRO.disconnect();
     const topEl = el.querySelector('.ac-top'), body = el.querySelector('.ac-scroll')?.firstElementChild;
     if (topEl) dragRO.observe(topEl);

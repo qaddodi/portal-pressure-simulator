@@ -78,6 +78,9 @@ Pages serves each copy as its production build (`npm run build` → `dist/`: bun
 - No per-frame DOM writes outside `transform`, `opacity` and `clip-path`. A number, a trace or a label that changes every frame
   is drawn by the GPU or the canvas, not by layout.
 - No `backdrop-filter` on anything that moves over the figure: the figure's own GPU glass (`glass-gl.js`) exists for that.
+- Layout reads go through `src/ui/layout-snap.js` only (plan 3.4): `readBox`, `readStyle`, `readMetric(el, 'offsetHeight')`, `readCTM`…,
+  and the snapshot it keeps (`stageBox()`, `worldCTM()`, `safeSides()`, kept boxes). `scripts/off-gpu-scan.mjs` (lint) fails a file with more
+  direct reads than its allowance in `scripts/layout-read-allowance.json`, or fewer: lower the number when you move reads, never raise it.
 - Pressure colours and cut-offs live once: HVPG amber 5, red 10; PPG amber 6, red 12, in `src/engine/pressure-cuts.js`.
   Read them from there and the colour tokens (`--ok`, `--caution`, `--danger`); `tests/pressure-vocabulary.test.js` fails on a
   second copy.

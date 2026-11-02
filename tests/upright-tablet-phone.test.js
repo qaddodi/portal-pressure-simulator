@@ -1,12 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { unsnap } from './unsnap.js';
 
 // An upright iPad takes the phone's layout (Mohammad, 17 Oct: "replicate the phone cards and behavior of the bottom bar and cards
 // to the upright iPad"): its cards, sheets, bottom bar, menus and the Tests card's one column. Its decks' instrument cards open
 // their readings on a card of their own under the instrument ("The top data card doesn't truly open as an extended card under
 // the Doppler. It should.").
-const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
+const read = (p) => unsnap(readFileSync(new URL(p, import.meta.url), 'utf8'));
 const css = read('../styles/app.css');
 const util = read('../src/ui/util.js');
 const js = read('../src/ui/presenter.js');

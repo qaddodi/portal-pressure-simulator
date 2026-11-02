@@ -5,9 +5,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { unsnap } from './unsnap.js';
 import { wheelFinger, wheelGesture, ownsWheel, wheelScrollers, WHEEL_X, WHEEL_Y, WHEEL_QUIET } from '../src/ui/swipe.js';
 
-const pz = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const pz = unsnap(readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8'));
 
 // Feeds a run of finger movements, 16 ms apart, and gives every action it took.
 function run(steps, t0 = 1000, g = null) {
@@ -166,6 +167,6 @@ test('presenter: the up arrow untucks the stack and the down arrow tucks it, and
   assert.match(onKey, /if \(tag === 'input' \|\| tag === 'textarea' \|\| tag === 'select'\) return;/);
   assert.match(onKey, /if \(ui && !ui\.jump\.hidden\) \{ jumpKey\(e\); return; \}/);
   // The Guide lists the keys.
-  const main = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8');
+  const main = unsnap(readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8'));
   assert.match(main.slice(main.indexOf('const PRESENT_KEYS'), main.indexOf('];', main.indexOf('const PRESENT_KEYS'))), /\['↑ · ↓', /);
 });

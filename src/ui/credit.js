@@ -7,6 +7,7 @@ import { restPass } from './rest-pass.js?v=6eb6322f82';
 import { CELL, cellFor, regionFor, contains, touches, artTest, boxThrough, multiply, invert } from './credit-art.js?v=77b95dafe8';
 import { CellGrid, geomOf } from './cell-grid.js?v=a2147726d7';
 import { layoutWatch, PLACED, GESTURE_LOOK } from './idle-keys.js?v=81fbedda6b';
+import { readAnims, readBox, readCTM, readMetric, readStyle, readTiming } from './layout-snap.js?v=10b6ed9eba';
 // (The art's walk looks at the camera once a frame: in the frame's first, read-only phase (2 Nov 2026), where the layout is the one the
 // browser last drew, never after the frame's writes.)
 const nextFrame = readFrameFor('credit');
@@ -161,7 +162,7 @@ const attrSig = (el) => at(el, 'transform') + '~' + at(el, 'class') + '~' + at(e
 // What the label boxes were read from, with no layout read: each label's and callout's attributes, text and ancestors' attributes, the
 // wrap's box and the figure's matrix (a label's box moves with the camera).
 function labelSig(wr, wrap, world) {
-  const parts = [wr.left, wr.top, wr.width, wr.height, world ? [world.a, world.b, world.c, world.d, world.e, world.f].map((v) => v.toFixed(2)).join() : '', globalThis.innerWidth, globalThis.innerHeight], anc = new Set();
+  const parts = [wr.left, wr.top, wr.width, wr.height, world ? [world.a, world.b, world.c, world.d, world.e, world.f].map((v) => v.toFixed(2)).join() : '', readMetric(globalThis, 'innerWidth'), readMetric(globalThis, 'innerHeight')], anc = new Set();
   for (const g of document.querySelectorAll('#labels .lb:not(.lb-off), ' + LABEL_SEL)) {
     parts.push(attrSig(g), g.textContent);
     for (let el = g.parentElement; el && el !== wrap && !anc.has(el); el = el.parentElement) { anc.add(el); parts.push(attrSig(el)); }
@@ -170,7 +171,7 @@ function labelSig(wr, wrap, world) {
 }
 export function labelRects(wr, wrap, kept = null) {
   if (!CREDIT_CACHE || typeof document === 'undefined') return labelRectsRead(wr, wrap, kept);
-  const sig = labelSig(wr, wrap, document.getElementById('world')?.getScreenCTM?.());
+  const sig = labelSig(wr, wrap, readCTM(document.getElementById('world')));
   // (A box is trusted once two reads of the same sig agreed, so a label mid-transition, whose attributes are already final, is read again.)
   if (labelMemo.sig === sig && labelMemo.confirmed) return labelMemo.out.map((o) => ({ ...o }));
   const out = labelRectsRead(wr, wrap, kept), same = labelMemo.sig === sig && JSON.stringify(labelMemo.out) === JSON.stringify(out);
@@ -180,14 +181,14 @@ export function labelRects(wr, wrap, kept = null) {
 function labelRectsRead(wr, wrap, kept = null) {
   const out = [], seen = new Map();   // the shared ancestors' own opacity, read once per pass
   // (kept: the stage's own kept copy of its styles, for the figure's element: a live read made the browser bring its styles up to date)
-  const own = (el) => { let v = seen.get(el); if (v === undefined) { const s = kept?.(el) || getComputedStyle(el), p = (n) => s.getPropertyValue(n); v = p('display') === 'none' || p('visibility') === 'hidden' ? 0 : +p('opacity'); seen.set(el, v); } return v; };
+  const own = (el) => { let v = seen.get(el); if (v === undefined) { const s = kept?.(el) || readStyle(el), p = (n) => s.getPropertyValue(n); v = p('display') === 'none' || p('visibility') === 'hidden' ? 0 : +p('opacity'); seen.set(el, v); } return v; };
   for (const g of document.querySelectorAll('#labels .lb:not(.lb-off)')) {
     let o = 1;
     for (let el = g; el && el !== wrap && o > 0.01; el = el.parentElement) o *= own(el);
     if (o <= 0.01) continue;
     let l = Infinity, t = Infinity, r = -Infinity, b = -Infinity;
     for (const q of g.querySelectorAll('text, .lb-bg')) {
-      const k = q.getBoundingClientRect();
+      const k = readBox(q);
       if (k.width < 1 || k.height < 1) continue;
       l = Math.min(l, k.left); t = Math.min(t, k.top); r = Math.max(r, k.right); b = Math.max(b, k.bottom);
     }
@@ -200,7 +201,7 @@ function labelRectsRead(wr, wrap, kept = null) {
     let o = 1;
     for (let q = el; q && q !== wrap && o > 0.01; q = q.parentElement) o *= own(q);
     if (o <= 0.01) continue;
-    const k = el.getBoundingClientRect();
+    const k = readBox(el);
     if (k.width < 1 || k.height < 1) continue;
     out.push({ l: Math.floor((k.left - wr.left - 2) / GRID) * GRID, t: Math.floor((k.top - wr.top - 2) / GRID) * GRID, r: Math.ceil((k.right - wr.left + 2) / GRID) * GRID, b: Math.ceil((k.bottom - wr.top + 2) / GRID) * GRID, chrome: true });
   }
@@ -247,7 +248,7 @@ let organMemo = { key: '', test: null };
 function screenTest(wr, ring = null) {
   window.pps?.stage?.flushHeld?.();   // (the lumens' widths the stage holds while the GPU draws them, written before they are read)
   const glows = ring ? [] : window.pps?.stage?.steadyGlows?.() || [];
-  const world = document.getElementById('world')?.getScreenCTM(), key = [wr.left, wr.top, wr.width, wr.height, world && [world.a, world.d, world.e, world.f].map((v) => v.toFixed(2)), ring && ring.flat().map((v) => v.toFixed(1)), glows.flat().join()].join('|');
+  const world = readCTM(document.getElementById('world')), key = [wr.left, wr.top, wr.width, wr.height, world && [world.a, world.d, world.e, world.f].map((v) => v.toFixed(2)), ring && ring.flat().map((v) => v.toFixed(1)), glows.flat().join()].join('|');
   if (organMemo.key === key) return organMemo.test;
   const cols = Math.ceil(wr.width / CELL) + 1, rows = Math.ceil(wr.height / CELL) + 1, grids = { org: new Uint8Array(cols * rows), ves: new Uint8Array(cols * rows) };
   const ctx = new CellGrid();
@@ -257,9 +258,9 @@ function screenTest(wr, ring = null) {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       if (!asDrawn) ctx.clearRect(0, 0, cols, rows);   // (as drawn: added to the organs just painted)
       for (const el of document.querySelectorAll(sel)) {
-        const m = el.getScreenCTM?.(), r = el.getBoundingClientRect();
+        const m = readCTM(el), r = readBox(el);
         if (!m || !r.width) continue;   // (drawn as a bitmap plate, the shapes stay in place but hidden: they still count)
-        const cs = getComputedStyle(el);
+        const cs = readStyle(el);
         if (cs.display === 'none') continue;
         const w = parseFloat(cs.strokeWidth) || 0;
         // A shape wholly off the grid paints nothing in it, and is not drawn: zoomed in, most of the organs' shapes are off
@@ -291,10 +292,10 @@ function screenTest(wr, ring = null) {
       // (sweep 01 review: an iPad zoomed in had put the credit on a glow).
       if (glows.length) {
         for (const [id, wide] of glows) for (const el of document.querySelectorAll(`#world .v-hit[data-id="${CSS.escape(id)}"]`)) {
-          const m = el.getScreenCTM?.(), lumen = el.parentNode?.querySelector('.v-lumen');
+          const m = readCTM(el), lumen = el.parentNode?.querySelector('.v-lumen');
           if (!m) continue;
           ctx.setTransform(m.a / CELL, m.b / CELL, m.c / CELL, m.d / CELL, (m.e - wr.left) / CELL, (m.f - wr.top) / CELL);
-          ctx.lineWidth = (lumen ? parseFloat(getComputedStyle(lumen).strokeWidth) || 0 : parseFloat(getComputedStyle(el).strokeWidth) || 0) + 2 * 12 * Math.min(1.3, Math.max(0.5, wide));
+          ctx.lineWidth = (lumen ? parseFloat(readStyle(lumen).strokeWidth) || 0 : parseFloat(readStyle(el).strokeWidth) || 0) + 2 * 12 * Math.min(1.3, Math.max(0.5, wide));
           ctx.lineCap = ctx.lineJoin = 'round'; ctx.stroke(shapePath(el));
         }
         ctx.readInto(grids.ves);
@@ -352,7 +353,7 @@ function shapeSig(el) {
 }
 function newEpoch() {
   const de = document.documentElement, sv = document.getElementById('world')?.closest('.stage-view');
-  shapeEpoch = [de.className, de.dataset?.theme, sv?.className, globalThis.innerWidth, globalThis.innerHeight, globalThis.devicePixelRatio, staleSalt].join('~');
+  shapeEpoch = [de.className, de.dataset?.theme, sv?.className, readMetric(globalThis, 'innerWidth'), readMetric(globalThis, 'innerHeight'), globalThis.devicePixelRatio, staleSalt].join('~');
 }
 function readShape(el, kind, inv) {
   if (!CREDIT_CACHE || Math.abs(inv.b) > 1e-9 || Math.abs(inv.c) > 1e-9) return readShapeNow(el, kind, inv);
@@ -364,9 +365,9 @@ function readShape(el, kind, inv) {
 }
 function readShapeNow(el, kind, inv) {
   const asDrawn = kind === 'fluid', vessel = kind === 'ves';
-  const m = el.getScreenCTM?.(), r = el.getBoundingClientRect();
+  const m = readCTM(el), r = readBox(el);
   if (!m || !r.width) return null;
-  const cs = getComputedStyle(el);
+  const cs = readStyle(el);
   if (cs.display === 'none') return null;
   const w = parseFloat(cs.strokeWidth) || 0, hit = el.classList.contains('v-hit'), rel = multiply(inv, m);
   // (The shape's box is the fill's, grown by the most its stroke reaches, a miter at the default limit: twice the stroke width.)
@@ -381,9 +382,9 @@ function hitsOf(facts, id, inv) {
   if (out) return out;
   out = [];
   for (const el of document.querySelectorAll(`#world .v-hit[data-id="${CSS.escape(id)}"]`)) {
-    const m = el.getScreenCTM?.(), lumen = el.parentNode?.querySelector('.v-lumen');
+    const m = readCTM(el), lumen = el.parentNode?.querySelector('.v-lumen');
     if (!m) continue;
-    out.push({ path: shapePath(el), m: multiply(inv, m), w: (lumen ? parseFloat(getComputedStyle(lumen).strokeWidth) || 0 : parseFloat(getComputedStyle(el).strokeWidth) || 0) });
+    out.push({ path: shapePath(el), m: multiply(inv, m), w: (lumen ? parseFloat(readStyle(lumen).strokeWidth) || 0 : parseFloat(readStyle(el).strokeWidth) || 0) });
   }
   facts.hits.set(id, out);
   return out;
@@ -454,7 +455,7 @@ function gridRead(ctx, reg, grid) { ctx.readInto(grid); }
 // The art test of the GPU figure in the world's coordinates, or null where it does not apply (the Lite graphics' SVG figure, a
 // view whose grid would pass the cap): organTest then draws the screen grid.
 function worldTest(wr, spread = null) {
-  const world = document.getElementById('world'), wm = world?.getScreenCTM?.(), inv = wm && invert(wm), sc = wm ? Math.hypot(wm.a, wm.b) : 0;
+  const world = document.getElementById('world'), wm = readCTM(world), inv = wm && invert(wm), sc = wm ? Math.hypot(wm.a, wm.b) : 0;
   if (!inv || !(sc > 1e-6)) return null;
   if (!world.closest('.stage-view')?.classList.contains('gl-on')) { artDirty = true; artJob = null; return null; }   // (the SVG tubes show: what counts differs, so the facts are read again when the GPU figure is back)
   const glows = window.pps?.stage?.steadyGlows?.() || [], gk = glows.flat().join();
@@ -526,7 +527,7 @@ function artStep() {
     const w = document.getElementById('world');
     if (w && w === j.world && artHold(j, w)) { setTimeout(() => { if (artJob === j) nextFrame(artStep); }, HOLD_STILL / 2); return; }
   }
-  const world = document.getElementById('world'), wm = world?.getScreenCTM?.(), inv = wm && invert(wm);
+  const world = document.getElementById('world'), wm = readCTM(world), inv = wm && invert(wm);
   if (world !== j.world || !inv || !world.closest('.stage-view')?.classList.contains('gl-on')) { artJob = null; artDirty = true; j.done?.(); return; }
   const wk = [wm.a, wm.b, wm.c, wm.d, wm.e, wm.f].join();
   const still = j.wk === null || wk === j.wk;
@@ -543,7 +544,7 @@ function artStep() {
 const artReadJob = () => artRead(artJob);
 function artRead(j) {
   if (!j || artJob !== j) return;
-  const world = document.getElementById('world'), wm = world?.getScreenCTM?.(), inv = wm && invert(wm);
+  const world = document.getElementById('world'), wm = readCTM(world), inv = wm && invert(wm);
   if (world !== j.world || !inv || !world.closest('.stage-view')?.classList.contains('gl-on')) { artJob = null; artDirty = true; j.done?.(); return; }
   gpuProbe.time(null, j.stage === 0 ? 'credit: art read' : 'credit: art grid', () => artSlice(j, inv, performance.now() + ART_SLICE));
   artNext(j);
@@ -617,7 +618,7 @@ export const inSinusoidView = (pps) => !!(pps?.store?.get().sinusoid || pps?.sta
 
 export function createCreditPlacer(credit, { keptStyle = null } = {}) {
   const inSinusoid = () => inSinusoidView(window.pps);
-  const wrap = credit.offsetParent || credit.parentElement, app = document.getElementById('app');
+  const wrap = readMetric(credit, 'offsetParent') || credit.parentElement, app = document.getElementById('app');
   const blocked = {};   // corner -> when a card last covered it
   let cur = null, curTight = false, pos = null, moving = false, changedAt = 0, lastSig = '', raf = 0, waitT = 0, moveT = 0, size = null, sizeKey = '';
   let worldKey = '', worldAt = 0, camT = 0;   // (the figure's camera: its last transform and when it last changed)
@@ -639,12 +640,12 @@ export function createCreditPlacer(credit, { keptStyle = null } = {}) {
         wrap.append(c);
         // (Its size as drawn: on a phone it is scaled down from its bottom left corner, and its box at that scale had been
         // taken a third too big, so a strip of figure it fits in was passed over and it sat on a vessel: Treatment 2.)
-        const k = c.getBoundingClientRect(), wk = wrap.getBoundingClientRect();
-        size[b] = { w: k.width, h: k.height, ox: k.left - wk.left - wrap.clientLeft, oy: k.top - wk.top - wrap.clientTop };
+        const k = readBox(c), wk = readBox(wrap);
+        size[b] = { w: k.width, h: k.height, ox: k.left - wk.left - readMetric(wrap, 'clientLeft'), oy: k.top - wk.top - readMetric(wrap, 'clientTop') };
         if (b) {
           // The notch's side margins (a phone held sideways) and the home indicator's strip at the bottom, kept clear like a card.
           c.style.padding = '0 env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px)';
-          const cs = getComputedStyle(c);
+          const cs = readStyle(c);
           size.sl = parseFloat(cs.paddingLeft) || 0; size.sr = parseFloat(cs.paddingRight) || 0; size.sb = parseFloat(cs.paddingBottom) || 0;
         }
         c.remove();
@@ -654,11 +655,11 @@ export function createCreditPlacer(credit, { keptStyle = null } = {}) {
   };
   const rectOf = (el, wr) => {
     if (el === credit || credit.contains(el)) return null;
-    const s = getComputedStyle(el);
+    const s = readStyle(el);
     if (s.display === 'none' || s.visibility === 'hidden' || el.classList.contains('pz-hide')) return null;
     // A pane can draw outside its own box (the phone slide's words hang above a zero-height holder): take its children too.
     let l = Infinity, t = Infinity, r = -Infinity, b = -Infinity;
-    for (const q of [el.getBoundingClientRect(), ...[...el.children].map((k) => k.getBoundingClientRect())]) {
+    for (const q of [readBox(el), ...[...el.children].map((k) => readBox(k))]) {
       if (!q.width || !q.height) continue;
       l = Math.min(l, q.left); t = Math.min(t, q.top); r = Math.max(r, q.right); b = Math.max(b, q.bottom);
     }
@@ -677,7 +678,7 @@ export function createCreditPlacer(credit, { keptStyle = null } = {}) {
   };
   function check() {
     raf = 0;
-    if (moving || !credit.isConnected || !wrap.offsetParent || !credit.offsetParent) return;   // (not shown: an iPhone slide carries it in the teaching card)
+    if (moving || !credit.isConnected || !readMetric(wrap, 'offsetParent') || !readMetric(credit, 'offsetParent')) return;   // (not shown: an iPhone slide carries it in the teaching card)
     // A slide change (the presenter's pz-moving): out of sight until the cards are in and the camera has settled; it then
     // appears at once at its final spot.
     // A deck opened by its link still loading: out of sight until it is up (it had settled on the plain figure, then hidden as the
@@ -702,11 +703,11 @@ export function createCreditPlacer(credit, { keptStyle = null } = {}) {
     // until the camera has rested a moment, then looks once.
     // (In the lobule its outline stands for the camera: the lobule pans and zooms on its own.)
     const ring = window.pps?.stage?.lobuleRing?.() || null;
-    const wm = document.getElementById('world')?.getScreenCTM(), wk = (wm ? [wm.a, wm.d, wm.e, wm.f].map((v) => v.toFixed(2)).join(',') : '') + (ring ? '|' + ring.flat().map(Math.round).join(',') : '');
+    const wm = readCTM(document.getElementById('world')), wk = (wm ? [wm.a, wm.d, wm.e, wm.f].map((v) => v.toFixed(2)).join(',') : '') + (ring ? '|' + ring.flat().map(Math.round).join(',') : '');
     if (wk !== worldKey) { worldKey = wk; worldAt = performance.now(); }
     // (The first placement waits for the camera too: a look taken mid-move had put it at the bottom on one load and the top on the next.)
     if (performance.now() - worldAt < 250) { clearTimeout(camT); camT = setTimeout(soon, 260); return; }
-    const wr = wrap.getBoundingClientRect();
+    const wr = readBox(wrap);
     let { w, h } = measure(false);
     const fig = { l: size.sl, t: 0, r: wr.width - size.sr, b: wr.height - Math.max(0, size.sb - Math.max(0, innerHeight - wr.bottom)) };   // (the home indicator's strip, where the figure reaches the screen's bottom)
     // (The catheter's shaft too: on the GPU it is not in the page, so the art test cannot see it, and the credit had stood on it, HVPG 2 on a phone held sideways.)
@@ -719,7 +720,7 @@ export function createCreditPlacer(credit, { keptStyle = null } = {}) {
     const now = performance.now();
     // A card still sliding or fading in is not where it will settle: wait for it (and for its size to stop changing).
     // (The card and its blocks only: a live instrument deep inside eases all the time and kept the credit hidden.)
-    const settling = gpuProbe.time(null, 'credit: card motion', () => els.some((el) => [el, ...el.children].some((c) => c.getAnimations().some((an) => an.playState === 'running' && Number.isFinite(an.effect?.getComputedTiming().endTime)))));
+    const settling = gpuProbe.time(null, 'credit: card motion', () => els.some((el) => [el, ...el.children].some((c) => readAnims(c).some((an) => an.playState === 'running' && Number.isFinite(readTiming(an.effect).endTime)))));
     // (lastSig is empty after a slide change: the first look at the settled cards is taken as it is, with no extra beat.)
     if ((lastSig && sig !== lastSig) || settling) {
       // Something moved: if it now reaches the credit, hide it at once; let it settle before choosing a new spot
@@ -735,7 +736,7 @@ export function createCreditPlacer(credit, { keptStyle = null } = {}) {
     }
     changedAt = 0; lastSig = sig;
     // (One margin with the cards: the credit's edge lines up with the presenter's cards, the screen's margin.)
-    const shade = document.querySelector('.pz-shade'), sr = shade && getComputedStyle(shade).opacity !== '0' ? shade.getBoundingClientRect() : null;
+    const shade = document.querySelector('.pz-shade'), sr = shade && readStyle(shade).opacity !== '0' ? readBox(shade) : null;
     // Nothing it looks at changed since a look that left it in place (the same cards, labels, camera, size and slide layout):
     // that look's answer holds, so the spot search over the art is not run again. (The poll and every transition ended
     // re-ran it, about 7% of a slowed phone's time on a slide sitting still.) The corners it found covered stay covered.

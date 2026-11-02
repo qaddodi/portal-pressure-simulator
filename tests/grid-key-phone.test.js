@@ -6,6 +6,7 @@ import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { unsnap } from './unsnap.js';
 import { causeFit } from '../src/ui/cause-fit.js';
 import { DECKS } from '../src/ui/decks.js';
 import { pillReadings } from '../src/ui/tool-profile.js';
@@ -14,7 +15,7 @@ import { RATE } from '../src/ui/table-marks.js';
 import { deckStates } from './deck-states.js';
 
 const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
-const js = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const js = unsnap(readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8'));
 const prof = readFileSync(new URL('../src/ui/tool-profile.js', import.meta.url), 'utf8');
 const grid = js.match(/function laddersGrid\(s\) \{[\s\S]*?\n {2}\}/)?.[0] ?? '';
 
@@ -34,7 +35,7 @@ test('the first row names the site and the cause, the cause stepping down to fit
   assert.match(readFileSync(new URL('../src/ui/table-marks.js', import.meta.url), 'utf8'), /export const headOf = \(r\) => \(r\.kicker \|\| ''\)\.replace\('Intrahepatic · ', ''\);/, 'the heading as the cell shows it');
   // (The size and the move under the site come from the measured row: the room the site and the gap leave, the cause's own width, the floor 12 px on the screen.)
   // (The room is the row less the site, the pills where they show (a wide screen hides them: no width) and a gap beside each.)
-  assert.match(js, /const gap = parseFloat\(getComputedStyle\(k\)\.columnGap\) \|\| 0, room = k\.clientWidth - tag\.offsetWidth - gap - \(pills\?\.offsetWidth \? pills\.offsetWidth \+ gap : 0\) - 1;/);
+  assert.match(js, /const gap = parseFloat\(getComputedStyle\(k\)\.columnGap\) \|\| 0, room = k\.clientWidth - tag\.offsetWidth - gap - \(pills\??\.offsetWidth \? pills\.offsetWidth \+ gap : 0\) - 1;/);
   assert.match(js, /let fit = causeFit\(fs, t\.offsetWidth, room, 12 \/ z\);/);
   // (Under the site it has the whole row: as large as that holds, never under 12 px.)
   assert.match(js, /if \(fit\.under\) fit = \{ \.\.\.causeFit\(fs, t\.offsetWidth, k\.clientWidth - 1, 12 \/ z\), under: true \};/);

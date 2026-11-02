@@ -3,11 +3,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { unsnap } from './unsnap.js';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const read = (f) => readFileSync(join(root, f), 'utf8');
+const read = (f) => unsnap(readFileSync(join(root, f), 'utf8'));
 
 test('every way a right-hand card opens asks the others to give way when the vessel card would have no strip', () => {
   const main = read('src/ui/main.js');

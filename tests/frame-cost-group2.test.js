@@ -1,11 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { unsnap } from './unsnap.js';
 
 // Codebase review 22 Oct, group 2: per-frame work in the lobule, the sinusoid, the data-card plane and the charts that
 // gave the same pixels every time is done once and kept. Each test pins one item.
 
-const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
+const read = (p) => unsnap(readFileSync(new URL(p, import.meta.url), 'utf8'));
 
 test('item 38: chart and Doppler strip labels are measured once per font and text, forgotten when the fonts arrive', () => {
   const charts = read('../src/ui/charts.js'), dop = read('../src/ui/doppler.js');

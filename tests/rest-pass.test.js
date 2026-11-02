@@ -3,6 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { unsnap } from './unsnap.js';
 
 let rafs = 0;
 globalThis.requestAnimationFrame = () => { rafs++; return rafs; };
@@ -42,7 +43,7 @@ test('a cancelled rest pass never runs; one asked for while passes run waits for
   assert.deepEqual(ran, ['b', 'c']);
 });
 
-const pz = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const pz = unsnap(readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8'));
 test('presenter: the card fits, the zoom\'s return and a wheel gesture\'s action are rest passes', () => {
   assert.match(pz, /fitRaf = restPass\(\(\) => \{ if \(ui && cardMoving\(\)\) return;/);
   assert.match(pz, /paneRaf = restPass\(\(\) => \{ if \(!ui \|\| cardMoving\(\)\) return;/);

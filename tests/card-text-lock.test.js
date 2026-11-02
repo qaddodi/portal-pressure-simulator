@@ -1,8 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { unsnap } from './unsnap.js';
 
-const js = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const js = unsnap(readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8'));
 const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 
 test('the teaching card text sizes settle once per slide and are reused while it is in view', () => {
@@ -79,7 +80,7 @@ test('a sideways phone puts its words in the floating card, level with the data 
   assert.match(js, /ui\.root\.classList\.toggle\('low', low\); ui\.shade\.classList\.toggle\('low', low\);/);
   assert.match(js, /if \(cardOn && !low && t && !off\(dd\)\) \{/, 'never stacked under the words: no height for that');
   assert.match(js, /const lvl = cardOn && low && t \? \(d \? d\.top - wr\.top : Math\.max\(vm, \(H - t\.height - pad - padT\) \/ 2\)\) \+ padT/);
-  assert.match(js, /padT = Math\.max\(pad0, tab\?\.offsetHeight \? \(tab\.offsetHeight \+ 6\) \* k : 0\);/, 'the top padding holds the deck tab clear of the title');
+  assert.match(js, /padT = Math\.max\(pad0, tab\??\.offsetHeight \? \(tab\.offsetHeight \+ 6\) \* k : 0\);/, 'the top padding holds the deck tab clear of the title');
   assert.match(js, /ui\.shade\.style\.height = !p && cardOn && t \? `\$\{\(t\.height \+ pad \+ padT\) \/ k\}px` : '';/);
   assert.match(css, /\.pz\.low \.pz-text, \.pz-shade\.low \{ --pz-cm: 10px; --pz-cp: 14px; --pz-cw: min\(340px, calc\(42vw \+ 28px\)\); \}/);
   assert.match(css, /\.pz-shade\.pz-card\.low \{ left: max\(10px, env\(safe-area-inset-left, 0px\)\); \}/, 'clear of the notch');

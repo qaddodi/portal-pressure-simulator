@@ -1,11 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { unsnap } from './unsnap.js';
 
 // A phone's data card has three states and no Show or Hide (Mohammad, 17 Oct, round 2 A): partly open with its second part on a
 // sheet whose edge shows under the card, fully open with the sheet flush, and closed to its edges at the top.
 const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
-const js = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const js = unsnap(readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8'));
 
 test('a phone instrument card shows the instrument first, its readings on a sheet whose edge carries the handle', () => {
   assert.match(js, /const wide = cardOn && !low;/, 'never a phone on its side');

@@ -93,6 +93,7 @@ import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath,
 import { CellGrid, geomOf } from './cell-grid.js?v=a2147726d7';
 import { restPass } from './rest-pass.js?v=6eb6322f82';
 import { glWords } from './gl-words.js?v=cf690c0b24';
+import { provideStage } from './layout-snap.js?v=10b6ed9eba';
 const nextFrame = frameFor('stage');
 // (1 Nov 2026, "Move everything to GPU": zero layout inside the frame. Boxes the figure's pieces keep clear of (the slide's cards, the
 // key pill, the readings' own sizes, the home look's room) are read first in a frame, before anything is written (frame.js readFrame),
@@ -1716,6 +1717,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   saRead();
   addEventListener('resize', saRead); addEventListener('orientationchange', saRead);
   const saSides = () => saSnap;
+  // (The page's layout snapshot (layout-snap.js) holds these three for the rest of the app: the kept box, the arithmetic matrix, the sides.)
+  provideStage({ box: stageBox, ctm: () => { if (!CTM) refreshCTM(); return CTM; }, sides: saSides });
   let ctmLast = null;
   function refreshCTM() {
     const b = stageBox(), vb = svg.viewBox.baseVal;

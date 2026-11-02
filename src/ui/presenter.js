@@ -65,6 +65,7 @@ import { D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN, EASE_MOVE, RISE_PX, cssCurve 
 import { slideFold } from './fold-slide.js?v=1b10231dcf';
 import { pageOn, followOf, pageIn } from './card-page.js?v=ebb4448222';
 import { throwOut, throwIn, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, INSTANT, throwOutNow, throwPinned, throwRelease, railable, railHold, railIn, railAway, railGhosts, railWaits, railCopies, RAIL_GAP } from './card-throw.js?v=1623c3d603';
+import { readAnims, readBox, readCTM, readMetric, readRects, readStyle, readTiming, scrollInto } from './layout-snap.js?v=10b6ed9eba';
 const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';
@@ -522,7 +523,7 @@ const fitLoop = (c) => {
   for (let n = 0; n < 8; n++) {
     // (Units per css px, before a full card's zoom: the chart's lettering zooms with the rest of its card. A model's box: its viewBox
     // mapped into the box as the picture maps it.)
-    const box = svg.getBoundingClientRect(), m = c.root ? null : svg.getScreenCTM?.();
+    const box = readBox(svg), m = c.root ? null : readCTM(svg);
     const k = c.root ? 1 / (viewMap(c.root.getAttribute('viewBox'), c.root.getAttribute('preserveAspectRatio'), box.width, box.height)[0] || Infinity) : m && m.a ? 1 / m.a : 0;
     if (!k || !box.width) return;
     // (A chart in a data card reads the card's own chart sizes, --ch-<role>, where it sets them: a ladder's words at the tiles' small size.)
@@ -536,8 +537,8 @@ const fitLoop = (c) => {
     // (A phone's site ladders zoom with their card, --pz-fit, as its words do: read through the matrix alone, the fit's own zoom made
     // their lettering larger in the chart's units, the strips taller, and the card stayed zoomed to half for good.)
     const cellGrid = svg.closest(':is(.pz.stack, .pz.low) .pz-cell')?.parentElement;
-    if (cellGrid) wz *= parseFloat(getComputedStyle(cellGrid).zoom) || 1;
-    for (const r of ROLE_NAMES) { pr.style.fontSize = `var(--ch-${r}, var(--s-${r}))`; fs[r] = parseFloat(getComputedStyle(pr).fontSize) * k * wz; }
+    if (cellGrid) wz *= parseFloat(readStyle(cellGrid).zoom) || 1;
+    for (const r of ROLE_NAMES) { pr.style.fontSize = `var(--ch-${r}, var(--s-${r}))`; fs[r] = parseFloat(readStyle(pr).fontSize) * k * wz; }
     pr.remove();
     if (c.fs && ROLE_NAMES.every((r) => Math.abs(c.fs[r] - fs[r]) < 0.01 * fs[r]) && Math.abs(c.w - box.width) + Math.abs(c.h - box.height) < 1) return;
     c.fs = fs; c.w = box.width; c.h = box.height; lay(fs, box);
@@ -570,7 +571,7 @@ function railBlock() {
   const model = sv('svg', { viewBox: '0 0 100 20', preserveAspectRatio: 'none' }, sv('defs', {}, pat), drop);
   const box = glBox('pz-rail-blk', model, { 'aria-hidden': 'true' });
   fitChart(box, () => {
-    const w = box.offsetWidth, ht = box.offsetHeight;
+    const w = readMetric(box, 'offsetWidth'), ht = readMetric(box, 'offsetHeight');
     if (!(w > 0 && ht > 0)) return;
     setA(model, 'viewBox', `0 0 ${w} ${ht}`); setA(drop, 'width', w); setA(drop, 'height', ht);
   });
@@ -601,17 +602,17 @@ function bigTiles() {
       if (p.pic) continue;   // (the endoscopic view's tile: a picture, its number and unit never placed, so nothing to fit; reading them threw)
       const vu = p.v.parentNode;
       p.v.style.fontSize = p.u.style.fontSize = p.v.style.lineHeight = '';
-      const cs = getComputedStyle(p.tile), room = p.tile.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - parseFloat(cs.borderLeftWidth) - parseFloat(cs.borderRightWidth);
+      const cs = readStyle(p.tile), room = readMetric(p.tile, 'clientWidth') - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - parseFloat(cs.borderLeftWidth) - parseFloat(cs.borderRightWidth);
       if (!(room > 0)) continue;
       const cur = vText(p), wide = (p.fin || '').length > cur.length ? p.fin : cur;
       // (Written only when the number it counts to is longer: the same text measured as it stands keeps a roll's digit columns.)
       if (wide !== cur) { if (p.vw) p.vw.now(wide); else p.v.textContent = wide; }
-      const vw = p.v.getBoundingClientRect().width, uw = p.u.hidden ? 0 : p.u.getBoundingClientRect().width;
-      const gap = p.u.hidden ? 0 : parseFloat(getComputedStyle(vu).columnGap) || 0;
+      const vw = readBox(p.v).width, uw = p.u.hidden ? 0 : readBox(p.u).width;
+      const gap = p.u.hidden ? 0 : parseFloat(readStyle(vu).columnGap) || 0;
       if (wide !== cur) { if (p.vw) p.vw.now(cur); else p.v.textContent = cur; }
       const need = vw + gap + uw;
       if (need <= room) continue;
-      const vs = getComputedStyle(p.v), vf = parseFloat(vs.fontSize), uf = parseFloat(getComputedStyle(p.u).fontSize);
+      const vs = readStyle(p.v), vf = parseFloat(vs.fontSize), uf = parseFloat(readStyle(p.u).fontSize);
       let k = (room - 1) / need, ku = k;
       if (uf * ku < 12) { ku = Math.min(1, 12 / uf); k = Math.max(0, (room - 1 - uw * ku) / (vw + gap)); }
       p.v.style.lineHeight = vs.lineHeight;   // (the line keeps its height, so the tile and its card never change size)
@@ -1267,7 +1268,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     await wait(gl);
   }
   // (left: only the entrances with more than this many ms still to run count: 0 is all of them; CARDS_SEEN, the cards in sight.)
-  const cardsEntering = (left = 0) => [ui?.text, ui?.panel, ui?.data].some((el) => el && !el.hidden && el.getAnimations({ subtree: true }).some((a) => { if (a.playState !== 'running') return false; const t = a.effect?.getComputedTiming(); return Number.isFinite(t?.endTime) && t.endTime - (t.localTime || 0) > left; }));
+  const cardsEntering = (left = 0) => [ui?.text, ui?.panel, ui?.data].some((el) => el && !el.hidden && readAnims(el, { subtree: true }).some((a) => { if (a.playState !== 'running') return false; const t = readTiming(a.effect); return Number.isFinite(t?.endTime) && t.endTime - (t.localTime || 0) > left; }));
   // Where the way out of the lobule should land for a slide: its framing, asked for when the rise begins (null: the fit).
   const riseFor = (cam, s) => (cam === 'fit' ? null : { box: () => camBox(cam, s), kMax: s.kMax || 3.2, clear: !!s.clear });
   // What the figure shows for the slide on screen (fig: { i, s }): the slide itself, framed where its time-lapse ends (lapse.cam) once
@@ -1749,10 +1750,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     clearTimeout(caseHideT); caseHideT = 0;   // (the card is shown again: the timer of its last leaving has nothing left to hide)
     c.replaceChildren(h('span', { class: 'pz-site pz-case-tag' }, tag), ...words);
     for (const k of ['transform', 'transition', 'opacity']) c.style.removeProperty(k);   // (a card flung off last time comes back whole)
-    c.hidden = false; void c.offsetWidth;
+    c.hidden = false; void readMetric(c, 'offsetWidth');
     // The words run 2.5x the teaching card's; on a short or narrow screen they ease down just enough to fit the card's room (set before it enters, so nothing resizes on screen).
     c.style.removeProperty('--case-k');
-    for (let k = parseFloat(getComputedStyle(c).getPropertyValue('--case-max')) || 2.5; k > 1.2 && c.scrollHeight > c.clientHeight + 1; k -= 0.1) c.style.setProperty('--case-k', k.toFixed(1));
+    for (let k = parseFloat(readStyle(c).getPropertyValue('--case-max')) || 2.5; k > 1.2 && readMetric(c, 'scrollHeight') > readMetric(c, 'clientHeight') + 1; k -= 0.1) c.style.setProperty('--case-k', k.toFixed(1));
     c.classList.add('on');
     // Lifting works from the moment the card is up: a tap, Next or a swipe anywhere fades it out at once, as a fling does, even
     // while the patient still loads behind it (the slide goes on into this same slide, its cards once loading ends). After
@@ -1881,8 +1882,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // edge, so they never show past the card (Mohammad, 1 Nov, iPhone: 12 px of room on an upright phone). px.
   // (As one page the glass goes with its words, so they have the slide's whole step, and no box is read.)
   const turnRoom = () => {
-    if (CARD_PAGE) return parseFloat(getComputedStyle(ui.root).getPropertyValue('--pz-turn-d')) || 20;
-    const d = parseFloat(getComputedStyle(ui.root).getPropertyValue('--pz-turn-d')) || 20, t = ui.text.getBoundingClientRect(), g = ui.shade.getBoundingClientRect();
+    if (CARD_PAGE) return parseFloat(readStyle(ui.root).getPropertyValue('--pz-turn-d')) || 20;
+    const d = parseFloat(readStyle(ui.root).getPropertyValue('--pz-turn-d')) || 20, t = readBox(ui.text), g = readBox(ui.shade);
     return g.width > 0 && t.width > 0 ? Math.max(4, Math.min(d, t.left - g.left - 2, g.right - t.right - 2)) : d;
   };
   function wordsTurnIn() {
@@ -1890,7 +1891,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!turnIn || !ui) return;
     turnIn = false;
     const t = ui.text, k = t.dataset.turn, thrown = CARD_THROW && !!throwDir && (k === 'next' || k === 'back');
-    const d = thrown ? THROW_IN : parseFloat(getComputedStyle(t).getPropertyValue('--pz-turn-d')) || 20;   // (thrown: from further, and no style read)
+    const d = thrown ? THROW_IN : parseFloat(readStyle(t).getPropertyValue('--pz-turn-d')) || 20;   // (thrown: from further, and no style read)
     const x = k === 'next' ? d : k === 'back' ? -d : 0, from = x ? `translateX(${x}px)` : `translateY(${RISE_PX}px)`;
     if (CARD_PAGE) {
       // (The page: the glass and its words come in as one card, the same keyframes on both, started in the same frame.)
@@ -2018,7 +2019,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const els = [ui.text, keeps ? null : ui.data, ui.panel].filter((el) => el && showing(el));
     if (!els.length) return;
     if (els.includes(ui.text) && !ui.shade.classList.contains('pz-leave') && !ui.shade.classList.contains('pz-turn') && ui.shade.style.opacity !== '0') els.push(ui.shade);
-    const wOf = (el) => (el === ui.panel ? Math.min(el.offsetWidth, innerWidth * 0.5) : el.offsetWidth);
+    const wOf = (el) => (el === ui.panel ? Math.min(readMetric(el, 'offsetWidth'), innerWidth * 0.5) : readMetric(el, 'offsetWidth'));
     throwDir = turn;
     throwD = Math.min(innerWidth, Math.max(120, ...els.filter((el) => el !== ui.shade).map(wOf)) + RAIL_GAP);
     for (const el of els) throwOutNow(el, turn, throwD);
@@ -2069,7 +2070,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // The liver labels' own eases still running (by property or animation name); getAnimations also starts any pending one.
   // (sel: only the eases of what matches it; the label fades are opacities, app.css, so they are told apart by what they move.)
   async function eased(props, cap, sel) {
-    const run = document.getAnimations().filter((a) => a.effect?.target?.closest?.('.lz, .sv') && (!sel || a.effect.target.matches?.(sel)) && (props.includes(a.transitionProperty) || props.includes(a.animationName)));
+    const run = readAnims(document).filter((a) => a.effect?.target?.closest?.('.lz, .sv') && (!sel || a.effect.target.matches?.(sel)) && (props.includes(a.transitionProperty) || props.includes(a.animationName)));
     if (run.length) await Promise.race([Promise.all(run.map((a) => a.finished.catch(() => {}))), wait(cap)]);
   }
   function hush() {
@@ -2550,7 +2551,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // (Instant, card-throw.js INSTANT: every card leaving sets off in this task, the tap's, on one clock and one distance, so the words,
       // their glass, a data card and a panel go together (Mohammad, 2 Nov 2026: "should go together", "it should all be responsive"):
       // a card's width and a gap, so an upright phone's card clears the screen, and the next cards come in from as far.)
-      const wOf = (el) => (el === ui.panel ? Math.min(el.offsetWidth, innerWidth * 0.5) : el.offsetWidth);
+      const wOf = (el) => (el === ui.panel ? Math.min(readMetric(el, 'offsetWidth'), innerWidth * 0.5) : readMetric(el, 'offsetWidth'));
       const sized = goes.filter((el) => el !== ui.shade);
       const dist = INSTANT ? (throwD = Math.min(innerWidth, Math.max(120, ...sized.map(wOf)) + RAIL_GAP)) : throwDist();
       // (One track, card-throw.js RAIL: each card stays, as a copy of itself, until its next is laid out and drawn behind it; then both
@@ -2558,9 +2559,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // picture of the GPU's is thrown as before, the words with their glass. ?rail=0: thrown, as before.)
       const pair = goes.filter((el) => el === ui.text || el === ui.shade);
       const railOK = (el) => (pair.includes(el) ? pair.every(railable) : railable(el));
-      const pairD = pair.length ? Math.max(...pair.map((el) => el.offsetWidth)) + RAIL_GAP : 0;
+      const pairD = pair.length ? Math.max(...pair.map((el) => readMetric(el, 'offsetWidth'))) + RAIL_GAP : 0;
       for (const el of goes) {
-        if (railOK(el)) railHold(el, pair.includes(el) ? pairD : el.offsetWidth + RAIL_GAP, el === ui.text ? 'text' : el === ui.shade ? 'shade' : el === data ? 'data' : 'panel', throwDir);
+        if (railOK(el)) railHold(el, pair.includes(el) ? pairD : readMetric(el, 'offsetWidth') + RAIL_GAP, el === ui.text ? 'text' : el === ui.shade ? 'shade' : el === data ? 'data' : 'panel', throwDir);
         else throwOut(el, throwDir, dist);
       }
     }
@@ -2576,10 +2577,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // (The page: the glass and the words are stopped together where their entrance has got to, and leave from there.)
       for (const [el, an] of [[t, a], [ui.shade, shadeAnim]]) {
         if (!an || an.playState === 'finished' || an.playState === 'idle') continue;
-        const cs = getComputedStyle(el), o = cs.opacity, tf = cs.transform;
+        const cs = readStyle(el), o = cs.opacity, tf = cs.transform;
         an.cancel();
         el.style.transition = 'none'; el.style.opacity = o; el.style.transform = tf;
-        void getComputedStyle(el).opacity;
+        void readStyle(el).opacity;
         el.style.transition = ''; el.style.opacity = ''; el.style.transform = '';
       }
       shadeAnim = null;
@@ -2589,14 +2590,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // (the leave's clip starts from the box's own place, so it closes in step with the move, never cutting the words at once)
       return;
     }
-    const cs = getComputedStyle(t), o = cs.opacity, tf = cs.transform;
+    const cs = readStyle(t), o = cs.opacity, tf = cs.transform;
     a.cancel();
     t.style.transition = 'none'; t.style.opacity = o; t.style.transform = tf;
-    void getComputedStyle(t).opacity;
+    void readStyle(t).opacity;
     t.style.transition = ''; t.style.opacity = ''; t.style.transform = '';
   }
   // What is left, ms, of the longest fade still running on these cards (0 when none).
-  const fadeLeft = (els) => els.reduce((m, el) => el.getAnimations().reduce((n, a) => { const t = a.playState === 'running' && a.effect?.getComputedTiming?.(); return t && Number.isFinite(t.endTime) ? Math.max(n, t.endTime - (t.localTime || 0)) : n; }, m), 0);
+  const fadeLeft = (els) => els.reduce((m, el) => readAnims(el).reduce((n, a) => { const t = a.playState === 'running' && readTiming(a.effect); return t && Number.isFinite(t.endTime) ? Math.max(n, t.endTime - (t.localTime || 0)) : n; }, m), 0);
   // A slide's tiles can say how far each number moved: from the slide before (delta: true) or a named one. A slide that
   // changes the same patient (a drug, an action, days) counts from the slide before unless it says delta: false.
   const deltaOf = (s, i) => s.delta ?? (i > 0 && !s.preset && changes(s) ? true : null);
@@ -2651,12 +2652,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   function monitorFor(s, i) {
     mon ||= createHvpgMonitor();
     // Already up (the slide before measured too): it stays, and glides to its new place under the new words.
-    const stay = mon.el.parentNode === ui.text && !ui.text.hidden, y0 = stay ? mon.el.getBoundingClientRect().top : 0;
+    const stay = mon.el.parentNode === ui.text && !ui.text.hidden, y0 = stay ? readBox(mon.el).top : 0;
     mon.el.classList.toggle('pz-stay', stay);
     // (Where it lands is read once, as the slide's words are placed (a microtask: after this pass has put it under them, before any
     // frame paints it there), never in a frame; the glide itself is a transform.)
     if (stay && !reduce.matches) queueMicrotask(() => {
-      const dy = y0 - mon.el.getBoundingClientRect().top;
+      const dy = y0 - readBox(mon.el).top;
       if (Math.abs(dy) > 1) mon.el.animate([{ transform: `translateY(${dy}px)` }, { transform: 'none' }], { duration: D_SURFACE, easing: EASE_ARRIVE });
     });
     nextFrame(() => mon.set(s.monitor, states[stateOf[i]]?.fp, cath.v.balloon));
@@ -2729,7 +2730,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (s.visual) {
       text.hidden = true; text.replaceChildren(); paintKey(null);
       // A panel that was not there fades in (never pops): unhidden while still faded, then let go.
-      if (panel.hidden) { panel.classList.add('pz-leave'); panel.hidden = false; void panel.offsetWidth; }
+      if (panel.hidden) { panel.classList.add('pz-leave'); panel.hidden = false; void readMetric(panel, 'offsetWidth'); }
       panel.classList.toggle('fill', s.visual === 'ladders');
       panel.dataset.visual = s.visual;
       const tab = s.visual !== 'outline' && deckTab();   // (the outline names the talk in full instead)
@@ -2743,7 +2744,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       text.hidden = false;
       const head = h('h1', { class: 'pz-h' }, ...diseaseNodes(nb(s.title)));
       const line = s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp, !!st?.params?.tips?.on)) : null;
-      if (bare) for (const a of text.getAnimations()) a.finish();   // (the old words' leave is finished before the new words go in: the box never shows them mid-fade)
+      if (bare) for (const a of readAnims(text)) a.finish();   // (the old words' leave is finished before the new words go in: the box never shows them mid-fade)
       text.replaceChildren(...[head, s.eq ? equation(s.eq) : null, s.monitor ? monitorFor(s, i) : null,
           line, s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null, citeEl(s),
           s.compare ? h('div', { class: 'pz-ab', role: 'group', 'aria-label': lensButtons(s) ? 'Color the vessels by' : gateButtons(s) ? 'Sample the stent at' : toolButtons(s) ? 'Change the instrument\'s view' : s.compare.some((o) => o.params && 'fenestrae' in o.params) ? 'Open or close the fenestrae on the live model' : 'Switch treatment on the live model' },
@@ -2759,7 +2760,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       [...text.children].forEach((c, k) => c.style.setProperty('--i', k));
       text.dataset.turn = turnNow || throwDir;   // (the way the new words come in: app.css; '' comes in from the card's edge with the glass, as before)
       turnIn = !!(turnNow || throwDir);   // (its box comes in by wordsTurnIn once the cards come in)
-      text.classList.remove('pz-enter'); void text.offsetWidth; text.classList.add('pz-enter');
+      text.classList.remove('pz-enter'); void readMetric(text, 'offsetWidth'); text.classList.add('pz-enter');
     }
     textOn = textPlan(s);
   }
@@ -2798,7 +2799,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (s.data) ui.tiles.paintTiles(respFp(s, now.fp), tileKeys(s), s.key || [], refOf(s, i), ms, now.params?.tips?.on);
       ui.tools.pin(now.fp);
       clearTimeout(dataHideT); dataHideT = 0;   // (a card shown again is not hidden by the timer of its last leaving, while it fades in or waits to)
-      if (data.hidden) { data.hidden = false; data.classList.add('pz-hide'); void data.offsetWidth; }
+      if (data.hidden) { data.hidden = false; data.classList.add('pz-hide'); void readMetric(data, 'offsetWidth'); }
       if (!ui.root.classList.contains('pz-prep')) cardIn(data, 'pz-hide', THROW_STAGGER);   // (else once fitted: settle)
       else data.dataset.prep = '1';
       delete data.dataset.gone;
@@ -2908,7 +2909,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     for (const k of new Set(rowIdx(s).filter((x) => !states[x]))) {
       stateReady(k).then((st) => {
         if (!st || !ui || !el.isConnected) return;
-        const t = summaryTable(s, k), sc = el.scrollTop;
+        const t = summaryTable(s, k), sc = readMetric(el, 'scrollTop');
         el.replaceWith(t); t.scrollTop = sc;
         // (The new table is fitted as the one it replaces was: its head row set upright where the columns are narrow, the card zoomed to hold it.)
         fitDone.delete(ui.panel);
@@ -2967,14 +2968,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const t = k?.querySelector('.pz-cell-t'), tag = k?.firstElementChild, pills = k?.querySelector('.pz-gpills');
     if (!t || !tag) return;
     t.style.removeProperty('font-size'); k.classList.remove('under');
-    if (!t.offsetWidth) return;
+    if (!readMetric(t, 'offsetWidth')) return;
     // (z: the row's zoom on the screen, so the floor is 12 px there; the room is what the row holds, less 1 px for the three widths' rounding)
-    const z = Math.min(2, Math.max(0.5, k.getBoundingClientRect().width / k.offsetWidth || 1)), fs = parseFloat(getComputedStyle(t).fontSize) || 12;
-    const gap = parseFloat(getComputedStyle(k).columnGap) || 0, room = k.clientWidth - tag.offsetWidth - gap - (pills?.offsetWidth ? pills.offsetWidth + gap : 0) - 1;
-    let fit = causeFit(fs, t.offsetWidth, room, 12 / z);
+    const z = Math.min(2, Math.max(0.5, readBox(k).width / readMetric(k, 'offsetWidth') || 1)), fs = parseFloat(readStyle(t).fontSize) || 12;
+    const gap = parseFloat(readStyle(k).columnGap) || 0, room = readMetric(k, 'clientWidth') - readMetric(tag, 'offsetWidth') - gap - (readMetric(pills, 'offsetWidth') ? readMetric(pills, 'offsetWidth') + gap : 0) - 1;
+    let fit = causeFit(fs, readMetric(t, 'offsetWidth'), room, 12 / z);
     // (Under the site it has the row to itself, as large as that holds, 12 px at least: with the pills at the row's right it is no longer
     // the stepped-down size of a cause squeezed beside them.)
-    if (fit.under) fit = { ...causeFit(fs, t.offsetWidth, k.clientWidth - 1, 12 / z), under: true };
+    if (fit.under) fit = { ...causeFit(fs, readMetric(t, 'offsetWidth'), readMetric(k, 'clientWidth') - 1, 12 / z), under: true };
     if (fit.size !== fs) t.style.fontSize = `${fit.size.toFixed(2)}px`;
     k.classList.toggle('under', fit.under);
   };
@@ -2986,7 +2987,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const fitChart = (cc, P) => {
     const p = cc?.firstElementChild;
     if (!p) return;
-    const s0 = parseFloat(cc.style.getPropertyValue('--lad-s')) || 1, W = cc.clientWidth, w0 = p.offsetWidth, f0 = (parseFloat(getComputedStyle(p).fontSize) || 0) / s0;
+    const s0 = parseFloat(cc.style.getPropertyValue('--lad-s')) || 1, W = readMetric(cc, 'clientWidth'), w0 = readMetric(p, 'offsetWidth'), f0 = (parseFloat(readStyle(p).fontSize) || 0) / s0;
     if (!(W > 0 && w0 > 0 && f0 > 0)) return;
     const { k, s } = chartScale(W, w0, f0), ks = k.toFixed(4), ss = s.toFixed(4);
     if (cc.style.getPropertyValue('--lad-k') !== ks) cc.style.setProperty('--lad-k', ks);
@@ -3250,13 +3251,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const stopWords = () => { for (const a of words.anims) a.cancel(); words.anims = []; };
   const setWords = (w) => { if (Math.abs(w - words.now) > 0.5) stopWords(); words.now = w; setRise('--pz-rise', w); };
   function wordsGlide(ms) {
-    const to = wordsAt(), els = [ui?.text, ui?.shade].filter(Boolean), from = els.map((el) => getComputedStyle(el).translate), moves = Math.abs(to - words.now) > 0.5;
+    const to = wordsAt(), els = [ui?.text, ui?.shade].filter(Boolean), from = els.map((el) => readStyle(el).translate), moves = Math.abs(to - words.now) > 0.5;
     stopWords();
     words.now = to; setRise('--pz-rise', to);
     if (!ms || !moves) return;
     slideTell();
     els.forEach((el, i) => {
-      const a = el.animate?.([{ translate: from[i] }, { translate: getComputedStyle(el).translate }], { duration: ms, easing: EASE_ARRIVE });
+      const a = el.animate?.([{ translate: from[i] }, { translate: readStyle(el).translate }], { duration: ms, easing: EASE_ARRIVE });
       if (!a) return;
       words.anims.push(a);
       a.onfinish = () => { if (words.anims.includes(a)) { words.anims = words.anims.filter((x) => x !== a); if (!words.anims.length) dispatchEvent(new Event('pps:occ')); } };
@@ -3292,9 +3293,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // height, their travel comes out none, --pz-d 0, and their room opens above the header: a big empty card running off the bottom. It is
     // measured again the moment the card is back, zoomSettled.)
     if (zoomOn()) return;
-    const parts = [...d.children].filter((c) => c.matches('.pz-tiles') && getComputedStyle(c).display !== 'none');
-    if (!parts.length || !d.getClientRects().length) return;
-    const kw = wrap.getBoundingClientRect().width / (wrap.clientWidth || 1) || 1, hh = () => d.getBoundingClientRect().height / kw;
+    const parts = [...d.children].filter((c) => c.matches('.pz-tiles') && readStyle(c).display !== 'none');
+    if (!parts.length || !readRects(d).length) return;
+    const kw = readBox(wrap).width / (readMetric(wrap, 'clientWidth') || 1) || 1, hh = () => readBox(d).height / kw;
     // (Without the card's height cap, which is the tucked card's: out, the card is fitted again. The card's own style changes only
     // for the measure, so its watcher is not told: told, it measured again, for ever.)
     const was = parts.map((c) => c.style.cssText), cap = d.style.maxHeight;
@@ -3303,8 +3304,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (A part after the first rides under it with no travel of its own: the bleed clock's row, removed 30 Oct. Measured with the card's --pz-d in its
     // margin, the travel read back changed the travel, every write of --pz-d told the watcher again, and the page froze: Variceal bleed 3 to 4.)
     for (const c of parts.slice(1)) c.style.marginTop = '0px';
-    const h1 = hh(), z = (parseFloat(getComputedStyle(parts[0]).zoom) || 1) * kw;
-    const o = parts[1] ? (parts[1].getBoundingClientRect().top - parts[0].getBoundingClientRect().top) / z : 0;
+    const h1 = hh(), z = (parseFloat(readStyle(parts[0]).zoom) || 1) * kw;
+    const o = parts[1] ? (readBox(parts[1]).top - readBox(parts[0]).top) / z : 0;
     for (const c of parts) c.style.display = 'none';
     const h0 = hh();
     parts.forEach((c, i) => { c.style.cssText = was[i]; });
@@ -3322,16 +3323,16 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (insetRight == null) {
       const p = document.createElement('div');
       p.style.cssText = 'position:absolute;width:0;height:0;visibility:hidden;pointer-events:none;padding-right:env(safe-area-inset-right,0px)';
-      document.body.append(p); insetRight = parseFloat(getComputedStyle(p).paddingRight) || 0; p.remove();
+      document.body.append(p); insetRight = parseFloat(readStyle(p).paddingRight) || 0; p.remove();
     }
     return insetRight;
   };
   const dockVec = () => {
     const d = ui.data;
-    if (phone()) return [0, GRIP - (lipOn(d) ? LIP : 0) - (d.offsetTop + d.offsetHeight)];   // (closed: the sheet's edge and 10 px of the card show)
-    if (d.classList.contains('under') || d.classList.contains('col')) return [GRIP - (d.offsetLeft + d.offsetWidth), 0];
+    if (phone()) return [0, GRIP - (lipOn(d) ? LIP : 0) - (readMetric(d, 'offsetTop') + readMetric(d, 'offsetHeight'))];   // (closed: the sheet's edge and 10 px of the card show)
+    if (d.classList.contains('under') || d.classList.contains('col')) return [GRIP - (readMetric(d, 'offsetLeft') + readMetric(d, 'offsetWidth')), 0];
     // (A phone on its side: the strip that stays on show, and its handle, sit inside the island's or notch's inset, not under it.)
-    return [wrap.clientWidth - GRIP - (ui.root.classList.contains('low') ? insetR() : 0) - d.offsetLeft, 0];
+    return [readMetric(wrap, 'clientWidth') - GRIP - (ui.root.classList.contains('low') ? insetR() : 0) - readMetric(d, 'offsetLeft'), 0];
   };
   // (Where the closed card goes, read at rest: by the layout, as a glide starts and as a finger lands. A glide's or a drag's frames
   // only write transforms from it, never read the page. Its offsets are the card's resting box: its translate never changes them.)
@@ -3389,7 +3390,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (Sliding, at the readings' card's foot to the fraction of a px: the card's own box height is whole px.)
     // (Mac and iPad landscape: over the card's top, in the readings' card's top edge, tucked or out; the rise, --pz-lift, carries it up.)
     const ut = wideSheet(d) ? (sliding ? u : open ? 1 : 0) : 0;
-    l.style.left = px(d.offsetLeft); l.style.width = px(d.offsetWidth); l.style.top = px(wideSheet(d) ? d.offsetTop - LIP * (1 - ut) : d.offsetTop + (sliding && slip.h0 != null ? slip.h0 + u * slip.d : d.offsetHeight));
+    l.style.left = px(readMetric(d, 'offsetLeft')); l.style.width = px(readMetric(d, 'offsetWidth')); l.style.top = px(wideSheet(d) ? readMetric(d, 'offsetTop') - LIP * (1 - ut) : readMetric(d, 'offsetTop') + (sliding && slip.h0 != null ? slip.h0 + u * slip.d : readMetric(d, 'offsetHeight')));
     if (sliding) l.style.setProperty('--pz-u', u.toFixed(4)); else l.style.removeProperty('--pz-u');
     // (Fully open on a phone the edge sits 24 px up, in the card's foot (app.css margin-top, taken at once): the step it makes is eased by a
     // transform from where it stood, on the compositor, never by the margin, a layout each frame.)
@@ -3448,7 +3449,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     let on = false;
     if (tb && t1 && besideNo !== key) {
       const rg = document.createRange(); rg.selectNodeContents(t1);
-      const clear = rg.getBoundingClientRect().right <= tb.getBoundingClientRect().left - 8;
+      const clear = readBox(rg).right <= readBox(tb).left - 8;
       if (clear) { on = true; besideKey = key; } else if (besideKey === key) { besideNo = key; besideKey = ''; }
     }
     pn.classList.toggle('tab-beside', on);
@@ -3460,56 +3461,56 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // once at their size and then, on the next layout, shrank. (So a card is judged by where its contents come to rest.)
   const RAIL = '.pz:not(.stack):not(.low) .pz-data.pz-beside';   // (styles/app.css: the tiles stacked beside the instrument)
   function overflowOf(el) {
-    const cs = getComputedStyle(el), z = el.offsetHeight ? el.getBoundingClientRect().height / el.offsetHeight : 1;
+    const cs = readStyle(el), z = readMetric(el, 'offsetHeight') ? readBox(el).height / readMetric(el, 'offsetHeight') : 1;
     let used = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0), n = 0;
     // (An instrument with its tiles beside it shares one row with them: the row is counted once, at its taller side.)
     // (Only while the tool shows beside the tiles: folded, the tiles stand in their row alone, counted like any part.)
-    const rail = el.matches(RAIL), pair = rail && [...el.querySelectorAll(':scope > .pz-tool')].some((c) => getComputedStyle(c).display !== 'none'), side = pair && el.querySelector(':scope > .pz-tiles');
+    const rail = el.matches(RAIL), pair = rail && [...el.querySelectorAll(':scope > .pz-tool')].some((c) => readStyle(c).display !== 'none'), side = pair && el.querySelector(':scope > .pz-tiles');
     // (A wide screen's summary table clips what is wider than it, so the card's own scrollWidth never sees it: read from the table, in the
     // card's pixels. The fit then zooms the card until every column is in view. A phone's rows are a grid that fits its width by itself.)
     const wideTable = !ui.root.classList.contains('stack');
-    const bigText = parseFloat(getComputedStyle(ui.root).getPropertyValue('--ts')) > 1.001;   // (only a larger text setting can outgrow a phone's columns)
+    const bigText = parseFloat(readStyle(ui.root).getPropertyValue('--ts')) > 1.001;   // (only a larger text setting can outgrow a phone's columns)
     let sideways = 0;
     for (const c of el.children) {
       if (c === side) continue;
-      const s = getComputedStyle(c);
+      const s = readStyle(c);
       if (s.display === 'none' || s.position === 'absolute' || s.position === 'fixed') continue;
       if (s.maxHeight === '0px') continue;   // (a folded part, a phone's closed tool: its hidden contents are not overflow)
       const cz = parseFloat(s.zoom) || 1;
-      if (wideTable && c.classList.contains('pz-table')) sideways = Math.max(sideways, (c.scrollWidth - c.clientWidth) * cz);
+      if (wideTable && c.classList.contains('pz-table')) sideways = Math.max(sideways, (readMetric(c, 'scrollWidth') - readMetric(c, 'clientWidth')) * cz);
       // (A phone's grid rows fit their width at the standard text size; at a large one a reading on the reference row can outgrow its
       // column, which the table's clip hides from the card, so the first row's readings are measured and the fit zooms for them.)
-      else if (bigText && c.classList.contains('pz-table')) for (const td of c.querySelectorAll('tbody tr:first-child td.num')) sideways = Math.max(sideways, (td.scrollWidth - td.clientWidth - 1) * cz);
+      else if (bigText && c.classList.contains('pz-table')) for (const td of c.querySelectorAll('tbody tr:first-child td.num')) sideways = Math.max(sideways, (readMetric(td, 'scrollWidth') - readMetric(td, 'clientWidth') - 1) * cz);
       // (A part with a height cap clips by design, and mid-fold its clipped contents are not overflow either: counting them
       // shrank the card while a phone's tool folded, and the shrunk fit then stuck.)
       // (A line's glyphs or a pinned button reaching a pixel or two past its part is not overflow: counted, it shrank every
       // phone instrument card by the fit loop's full eight steps, its words to 0.86.)
       // (A card's header grows with its words; only its Show chip's tap area reaches past it, and that is no overflow: counted,
       // it shrank a phone's folded data card to half, its chip to 19 px.)
-      const clip = s.maxHeight !== 'none' || c.classList.contains('pz-dh') ? 0 : Math.max(0, c.scrollHeight - c.clientHeight - 3);
+      const clip = s.maxHeight !== 'none' || c.classList.contains('pz-dh') ? 0 : Math.max(0, readMetric(c, 'scrollHeight') - readMetric(c, 'clientHeight') - 3);
       // A protected time chart eases to its allocated height. Fit against its destination, so the old height
       // during that ease cannot shrink the card's words and start another fit/resize cycle.
       const chartH = el.classList.contains('pz-flowfit') && c.matches('.pz-tool[data-kind="flowtime"]') ? parseFloat(el.style.getPropertyValue('--ft-room')) : 0;
-      used += (chartH || Math.max(c.getBoundingClientRect().height, side && c.classList.contains('pz-tool') ? side.getBoundingClientRect().height : 0) / z) + ((parseFloat(s.marginTop) || 0) + (parseFloat(s.marginBottom) || 0) + clip) * cz;
+      used += (chartH || Math.max(readBox(c).height, side && c.classList.contains('pz-tool') ? readBox(side).height : 0) / z) + ((parseFloat(s.marginTop) || 0) + (parseFloat(s.marginBottom) || 0) + clip) * cz;
       n++;
     }
     used += (parseFloat(cs.rowGap) || 0) * Math.max(0, n - 1);
-    return { v: used - el.clientHeight, h: Math.max(el.scrollWidth - el.clientWidth, sideways) };
+    return { v: used - readMetric(el, 'clientHeight'), h: Math.max(readMetric(el, 'scrollWidth') - readMetric(el, 'clientWidth'), sideways) };
   }
   // What a card's fit depends on: its box, its words (digits alike, so a number that eases fits as before) and which parts show.
   // A card whose signature is unchanged keeps its fit without being measured again (measuring forces layouts mid-animation).
   // (A card holding the quick check grows as its answers ease open and shut; it was fitted with every answer open, so its own
   // height is left out (the window's stands in): refitting mid-ease cut the easing short and jolted the words' size.)
-  const fitSig = (el) => `${el.clientWidth}x${el.querySelector('.pz-check') ? `q${innerWidth}x${innerHeight}` : el.clientHeight}|${el.className}|${el.style.maxHeight}|${document.documentElement.style.cssText}|${el.style.getPropertyValue('--pz-reach')},${el.style.getPropertyValue('--pz-fkrow')}|${[...el.children].map((c) => (c.hidden ? 0 : c.className + (getComputedStyle(c).maxHeight !== 'none' ? ':' + c.offsetHeight : ''))).join()}|${(el.querySelector('.pzv') ? wordsOf(el) : el.textContent).replace(/\d/g, '0')}`;
+  const fitSig = (el) => `${readMetric(el, 'clientWidth')}x${el.querySelector('.pz-check') ? `q${innerWidth}x${innerHeight}` : readMetric(el, 'clientHeight')}|${el.className}|${el.style.maxHeight}|${document.documentElement.style.cssText}|${el.style.getPropertyValue('--pz-reach')},${el.style.getPropertyValue('--pz-fkrow')}|${[...el.children].map((c) => (c.hidden ? 0 : c.className + (readStyle(c).maxHeight !== 'none' ? ':' + readMetric(c, 'offsetHeight') : ''))).join()}|${(el.querySelector('.pzv') ? wordsOf(el) : el.textContent).replace(/\d/g, '0')}`;
   const fitDone = new WeakMap(), smOf = new WeakMap();
   // A narrow summary table's column heads are 12 px, never smaller: a row whose columns are too narrow for the words in one line
   // sets them upright (tr.th-up, turned to read from the bottom), one way for the whole row. (The phone and upright-tablet layouts read it.)
   // On an upright iPad a head fits when its word keeps 3 px clear of its column's edges, so two neighbours are never closer than 6 px: an
   // iPad mini's nine columns had WHVP and FHVP, SAAG and PROT., touching. A phone's rule is as it was: the word inside its column.
-  const headFits = (th) => { const b = th.getBoundingClientRect(), g = document.createRange(), m = ui.root.classList.contains('tab') ? 2.5 : -0.5; g.selectNodeContents(th); return [...g.getClientRects()].every((q) => !q.width || (q.left >= b.left + m && q.right <= b.right - m)); };
+  const headFits = (th) => { const b = readBox(th), g = document.createRange(), m = ui.root.classList.contains('tab') ? 2.5 : -0.5; g.selectNodeContents(th); return [...readRects(g)].every((q) => !q.width || (q.left >= b.left + m && q.right <= b.right - m)); };
   function fitHeadRow(tr) {
     const ths = [...tr.querySelectorAll('th.num')];
-    if (!ths.length || !tr.getBoundingClientRect().width) return;
+    if (!ths.length || !readBox(tr).width) return;
     tr.classList.remove('th-up');
     if (!ths.every(headFits)) tr.classList.add('th-up');
   }
@@ -3529,7 +3530,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       box.style.removeProperty('--eq-k');
       let k = 1;
       for (let n = 0; n < 4; n++) {
-        const w = box.clientWidth, over = box.scrollWidth - w;
+        const w = readMetric(box, 'clientWidth'), over = readMetric(box, 'scrollWidth') - w;
         if (!w || over <= 0.5) break;
         k = Math.max(0.4, k * (w / (w + over)) * 0.99);
         box.style.setProperty('--eq-k', k.toFixed(3));
@@ -3546,7 +3547,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // reader asked for it, over the figure. Returns the smallest zoom the fit may take.
   function lowData(el) {
     const pr = h('span', { style: 'position:absolute;visibility:hidden;font-size:var(--s-cap)' }); el.append(pr);
-    const cap = parseFloat(getComputedStyle(pr).fontSize) || 12; pr.remove();
+    const cap = parseFloat(readStyle(pr).fontSize) || 12; pr.remove();
     const floor = cap > 12 ? Math.ceil(12 / cap * 1000) / 1000 : 1;
     const fits = () => { const o = overflowOf(el); return o.v <= 1 && o.h <= 1; };
     const chosen = el.classList.contains('tool-open') && el.dataset.openFor === String(want);
@@ -3586,7 +3587,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   function wordsHeightAt(z) {
     const ts = ui.text.style, sv = [ts.maxHeight, ts.getPropertyValue('--pz-fit'), ts.getPropertyValue('--pz-z')];
     ts.maxHeight = 'none'; ts.removeProperty('--pz-z'); ts.setProperty('--pz-fit', String(z));
-    const v = ui.text.offsetHeight;
+    const v = readMetric(ui.text, 'offsetHeight');
     ts.maxHeight = sv[0]; if (sv[1]) ts.setProperty('--pz-fit', sv[1]); else ts.removeProperty('--pz-fit'); if (sv[2]) ts.setProperty('--pz-z', sv[2]);
     return v;
   }
@@ -3597,12 +3598,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
     for (let n; (n = w.nextNode());) {
       const e = n.parentElement;
-      if (!e || !n.textContent.trim() || !e.getClientRects().length) continue;
-      const fs = parseFloat(getComputedStyle(e).fontSize);
+      if (!e || !n.textContent.trim() || !readRects(e).length) continue;
+      const fs = parseFloat(readStyle(e).fontSize);
       if (!fs) continue;
       let k = 1;
-      if (e instanceof SVGElement) { const m = e.getScreenCTM?.(); if (m) k = Math.hypot(m.a, m.b); }
-      else for (let a = e; a; a = a.parentElement) k *= parseFloat(getComputedStyle(a).zoom) || 1;
+      if (e instanceof SVGElement) { const m = readCTM(e); if (m) k = Math.hypot(m.a, m.b); }
+      else for (let a = e; a; a = a.parentElement) k *= parseFloat(readStyle(a).zoom) || 1;
       min = Math.min(min, fs * k);
     }
     return min;
@@ -3615,20 +3616,20 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const clear = () => { el.style.removeProperty('--ft-room'); el.style.removeProperty('--ft-card'); };
     if (!eligible) { clear(); return; }
     // Measure at full width, without the previous fit. The chart's own height never enters its budget.
-    const cs = getComputedStyle(el), px = (v) => parseFloat(v) || 0;
-    const z = el.offsetWidth ? el.getBoundingClientRect().width / el.offsetWidth : 1;
-    const f = Math.max(px(getComputedStyle(chart).fontSize), 12 / (z || 1));
+    const cs = readStyle(el), px = (v) => parseFloat(v) || 0;
+    const z = readMetric(el, 'offsetWidth') ? readBox(el).width / readMetric(el, 'offsetWidth') : 1;
+    const f = Math.max(px(readStyle(chart).fontSize), 12 / (z || 1));
     let chrome = px(cs.paddingTop) + px(cs.paddingBottom) + px(cs.borderTopWidth) + px(cs.borderBottomWidth), n = 0;
     for (const c of el.children) {
-      const s = getComputedStyle(c);
+      const s = readStyle(c);
       if (s.display === 'none' || s.position === 'absolute' || s.position === 'fixed') continue;
       const cz = parseFloat(s.zoom) || 1;
-      chrome += (c === chart.parentElement ? 0 : c.getBoundingClientRect().height / (z || 1)) + (px(s.marginTop) + px(s.marginBottom)) * cz;
+      chrome += (c === chart.parentElement ? 0 : readBox(c).height / (z || 1)) + (px(s.marginTop) + px(s.marginBottom)) * cz;
       n++;
     }
     chrome += px(cs.rowGap) * Math.max(0, n - 1);
     const room = parseFloat(cs.maxHeight) - chrome - 1;
-    const h = flowTimeHeight(chart.clientWidth, f, room, chart.dataset.lines.split(','), px(getComputedStyle(chart).getPropertyValue('--band-room'))).height;
+    const h = flowTimeHeight(readMetric(chart, 'clientWidth'), f, room, chart.dataset.lines.split(','), px(readStyle(chart).getPropertyValue('--band-room'))).height;
     if (h == null) { el.classList.remove('pz-flowfit'); clear(); }
     else { el.style.setProperty('--ft-room', `${h.toFixed(2)}px`); el.style.setProperty('--ft-card', `${(h + chrome).toFixed(2)}px`); }
   }
@@ -3653,13 +3654,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const stacked = el === ui.data && splitSheet(el);
       if (stacked) el.style.setProperty('--pz-grow', 'var(--pz-d, 0px)');
       // (A tablet's narrow data card: its own grid changes, which a container query on the card cannot do.)
-      if (el.classList.contains('pz-data')) el.classList.toggle('pz-narrow', el.offsetWidth > 0 && el.offsetWidth < 420);
+      if (el.classList.contains('pz-data')) el.classList.toggle('pz-narrow', readMetric(el, 'offsetWidth') > 0 && readMetric(el, 'offsetWidth') < 420);
       // (A tile's name in full when it fits on one line in its tile, else its short form: Liver flow, Protein ...)
       // (All read in one layout, then written: the tiles' columns are equal shares of the row, so one tile's short name never
       // changes another's room. Read and written tile by tile, each read laid the card out again.)
       const names = [...el.querySelectorAll('.pz-tiles .pzt-k[data-s]')];
       for (const k of names) k.classList.remove('short');
-      const shorts = names.filter((k) => { const t = k.parentElement, cs = getComputedStyle(t), room = t.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight); return room > 0 && k.scrollWidth > room + 0.5; });
+      const shorts = names.filter((k) => { const t = k.parentElement, cs = readStyle(t), room = readMetric(t, 'clientWidth') - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight); return room > 0 && readMetric(k, 'scrollWidth') > room + 0.5; });
       for (const k of shorts) k.classList.add('short');
       // (A scale bar's cut-off numbers stay inside the bar, and where two would come within 8 px of each other the bar shows none of
       // them: sweep batch 03, 0.1 and 1.5 sat 6 px apart and read as one, and a lone survivor read as a mystery value (critique D2,
@@ -3668,7 +3669,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // to start there (0) and .hi to end there (−100 %), a shift of half its width, worked out rather than measured again.)
       const bars = [...el.querySelectorAll('.pz-tiles .pzt-bar')].map((bar) => ({ bar, ls: [...bar.querySelectorAll('.pzb-l')] }));
       for (const { ls } of bars) for (const l of ls) l.classList.remove('lo', 'hi', 'off');
-      for (const b of bars) { b.B = b.bar.getBoundingClientRect(); b.rs = b.ls.map((l) => l.getBoundingClientRect()); }
+      for (const b of bars) { b.B = readBox(b.bar); b.rs = b.ls.map((l) => readBox(l)); }
       for (const { B, ls, rs } of bars) {
         let end = -Infinity, clash = false;
         ls.forEach((l, i) => {
@@ -3706,7 +3707,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // (A summary table on a wide screen, too wide or too tall for its card, also zooms only as far as its lettering stays 12 px at first,
       // the compact layout's rule, before it may go past that as a last resort rather than scroll: it never scrolls.)
       const tableFloor = !small && !lowFloor && !shortFloor && el === ui.panel && !ui.root.classList.contains('stack') && el.querySelector(':scope > .pz-table') ? textFloor(el) : 0;
-      const ln = small ? el.querySelector('.pz-line, p') : null, lb = ln ? parseFloat(getComputedStyle(ln).fontSize) : 0;
+      const ln = small ? el.querySelector('.pz-line, p') : null, lb = ln ? parseFloat(readStyle(ln).fontSize) : 0;
       const floor = lb > 12 ? Math.ceil(12 / lb * 1000) / 1000 : 0.5;
       const mins = small ? [...new Set([floor, phone() ? floor : 0.5])] : [lowFloor || floor];
       if (shortFloor > mins[0]) mins.unshift(shortFloor);   // (the compact layout's 12 px first; past it only as a last resort)
@@ -3719,7 +3720,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
           const o = fits();
           if (!o) break;
           over = k;
-          k = Math.max(kMin, k * Math.min(0.97, (el.clientHeight / (el.clientHeight + Math.max(o.v, 0))) ** 0.9, (el.clientWidth / (el.clientWidth + Math.max(o.h, 0))) ** 0.9));
+          k = Math.max(kMin, k * Math.min(0.97, (readMetric(el, 'clientHeight') / (readMetric(el, 'clientHeight') + Math.max(o.v, 0))) ** 0.9, (readMetric(el, 'clientWidth') / (readMetric(el, 'clientWidth') + Math.max(o.h, 0))) ** 0.9));
           el.style.setProperty('--pz-fit', k.toFixed(3));
         }
         if (!fits()) break;
@@ -3746,18 +3747,18 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // (Its small size read with a probe once per look of the card and the screen, not on every fit.)
       const smKey = `${el.className}|${ui.root.className}|${innerWidth}x${innerHeight}|${devicePixelRatio}|${document.documentElement.style.cssText}|${app.style.cssText}|${ui.root.style.cssText}|${el.style.cssText.replace(/--pz-(fit|z):[^;]*;?/g, '')}`;
       let sm = smOf.get(el);
-      if (sm?.k !== smKey) { const pr = h('span', { style: 'position:absolute;visibility:hidden;font-size:var(--pz-sm, 12px)' }); el.append(pr); sm = { k: smKey, v: parseFloat(getComputedStyle(pr).fontSize) || 12 }; pr.remove(); smOf.set(el, sm); }
+      if (sm?.k !== smKey) { const pr = h('span', { style: 'position:absolute;visibility:hidden;font-size:var(--pz-sm, 12px)' }); el.append(pr); sm = { k: smKey, v: parseFloat(readStyle(pr).fontSize) || 12 }; pr.remove(); smOf.set(el, sm); }
       sm = sm.v;
       const zMin = Math.max(0.5, Math.min(1, 11.5 / sm));
       for (let n = 0, z = 1; n < 8 && z > zMin; n++) {
         const o = overflowOf(el);
         if (o.v <= 1 && o.h <= 1) break;
-        z = Math.max(zMin, z * Math.min(0.97, (el.clientHeight / (el.clientHeight + Math.max(o.v, 0))) ** 0.9, (el.clientWidth / (el.clientWidth + Math.max(o.h, 0))) ** 0.9));
+        z = Math.max(zMin, z * Math.min(0.97, (readMetric(el, 'clientHeight') / (readMetric(el, 'clientHeight') + Math.max(o.v, 0))) ** 0.9, (readMetric(el, 'clientWidth') / (readMetric(el, 'clientWidth') + Math.max(o.h, 0))) ** 0.9));
         el.style.setProperty('--pz-z', z.toFixed(3));
       }
       fitEquations(el);
       // (Closed again with no transition, so the answers start hidden and the card rests at its closed height.)
-      if (all) { all.classList.remove('pzc-all'); void all.offsetHeight; all.classList.remove('pzc-still'); }
+      if (all) { all.classList.remove('pzc-all'); void readMetric(all, 'offsetHeight'); all.classList.remove('pzc-still'); }
       if (under) { el.classList.remove('tool-open'); ui.lipMO?.takeRecords(); }
       if (stacked) { el.style.removeProperty('--pz-grow'); ui.lipMO?.takeRecords(); }
       fitDone.set(el, fitSig(el));   // (as it rests once fitted: a folding part's height is part of it)
@@ -3885,7 +3886,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const tabsTight = (k) => {
     const tabEl = ui.shade.querySelector('.pz-tabname'), stab = ui.shade.querySelector('.pz-sitetab:not([hidden])'), was = ui.shade.classList.contains('pz-tabs-tight');
     if (was) ui.shade.classList.remove('pz-tabs-tight');
-    const tight = !!(stab && tabEl && stab.getBoundingClientRect().right + 8 * k > tabEl.getBoundingClientRect().left);
+    const tight = !!(stab && tabEl && readBox(stab).right + 8 * k > readBox(tabEl).left);
     if (was) ui.shade.classList.add('pz-tabs-tight');
     return tight;
   };
@@ -3894,7 +3895,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!tabEl && !stab) return 16;
     const was = ui.shade.classList.contains('pz-tabs-tight');
     if (was) ui.shade.classList.remove('pz-tabs-tight');
-    const tabH = Math.max(tabEl && !tight ? tabEl.offsetHeight : 0, stab?.offsetHeight || 0);
+    const tabH = Math.max(tabEl && !tight ? readMetric(tabEl, 'offsetHeight') : 0, readMetric(stab, 'offsetHeight') || 0);
     if (was) ui.shade.classList.add('pz-tabs-tight');
     return Math.max(16, tabH + 8);
   };
@@ -3903,7 +3904,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (zoomHeld()) return;   // (the zoomed card is not where it rests: it is laid out once it is back, zoomSettled)
     zoomMissed = false;
     // k: screen px per CSS px of the figure's box (1 unless the page is scaled): rects are screen px, inline sizes are the page's own (screen / k).
-    const p = phone(), wr = wrap.getBoundingClientRect(), W = wr.width, H = wr.height, k = wr.width / (wrap.clientWidth || wr.width) || 1;
+    const p = phone(), wr = readBox(wrap), W = wr.width, H = wr.height, k = wr.width / (readMetric(wrap, 'clientWidth') || wr.width) || 1;
     ui.root.classList.toggle('stack', p); ui.shade.classList.toggle('stack', p);
     ui.root.classList.toggle('tab', p && tabUp()); ui.shade.classList.toggle('tab', p && tabUp());
     const low = !p && W > H && H <= 500;   // (a phone held sideways: its instruments fold behind Show)
@@ -3945,7 +3946,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // becomes one, or stops being one, while it is out takes its new state at once, so its glass never shows, fading, between two slides.)
     if (sheet !== dd0.classList.contains('pz-sheet') && (p || wide) && dd0.classList.contains('pz-hide')) {
       const was = dd0.style.transition;
-      dd0.style.transition = 'none'; dd0.classList.toggle('pz-sheet', sheet); void dd0.offsetWidth; dd0.style.transition = was;
+      dd0.style.transition = 'none'; dd0.classList.toggle('pz-sheet', sheet); void readMetric(dd0, 'offsetWidth'); dd0.style.transition = was;
     }
     dd0.classList.toggle('pz-sheet', sheet);
     if (!p) dd0.classList.toggle('pz-beside', !sheet && dd0.hasAttribute('data-beside') && !dd0.classList.contains('pz-folds'));   // (the readings' card holds the tiles: none beside the instrument)
@@ -3966,15 +3967,15 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const vm = LOW_M * k;
     let padT = 0, pad0 = 0;
     if (cardOn && low) {
-      pad0 = (ui.text.offsetLeft - ui.shade.offsetLeft) * k; const tab = ui.shade.querySelector('.pz-tabname') || ui.shade.querySelector('.pz-sitetab:not([hidden])');
-      padT = Math.max(pad0, tab?.offsetHeight ? (tab.offsetHeight + 6) * k : 0);
+      pad0 = (readMetric(ui.text, 'offsetLeft') - readMetric(ui.shade, 'offsetLeft')) * k; const tab = ui.shade.querySelector('.pz-tabname') || ui.shade.querySelector('.pz-sitetab:not([hidden])');
+      padT = Math.max(pad0, readMetric(tab, 'offsetHeight') ? (readMetric(tab, 'offsetHeight') + 6) * k : 0);
       const top = off(ui.data) ? vm : r(ui.data).top - wr.top;
       ui.text.style.maxHeight = `${Math.max(0, (H - top - padT - pad0 - vm) / k).toFixed(1)}px`;
     }
     fitCards(ui.text);
     let t = r(ui.text);
     if (cardOn && low && t && lowKey(t, r(ui.data), padT, pad0, vm, wr, H, k)) { fitDone.delete(ui.text); fitCards(ui.text); t = r(ui.text); }
-    const sl = ui.shade.offsetLeft * k, pad = cardOn && t ? t.left - wr.left - sl : 0, dd = ui.data, ts = ui.text.style;
+    const sl = readMetric(ui.shade, 'offsetLeft') * k, pad = cardOn && t ? t.left - wr.left - sl : 0, dd = ui.data, ts = ui.text.style;
     if (!(cardOn && low)) padT = pad;
     // On a laptop or tablet the data card always stacks under the words' card, at its width, a gap below it (0.6 of the margin),
     // above the controls; what does not fit is made smaller in fixed steps, never moved to the top right. A card in view that
@@ -3993,7 +3994,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         const tl = dd.querySelector(':scope > .pz-tool');
         if (tl) tl.style.transition = 'none';
         dd.classList.toggle('pz-folds', on); dd.classList.toggle('pz-beside', !on && dd.hasAttribute('data-beside'));
-        if (tl) { void tl.offsetHeight; tl.style.transition = ''; }
+        if (tl) { void readMetric(tl, 'offsetHeight'); tl.style.transition = ''; }
       };
       // (A card already folded for this slide at this size stays folded until the slide is shown and its words lock: unfolded
       // and folded again on every pass, the foot row under the words was made anew each time, the words fitted without it, and
@@ -4001,7 +4002,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // Sites 9 on a Mac, 17 Oct.)
       const held = !lock && foldHeld === foldKey && dd.classList.contains('pz-folds');
       if (!lock && !held && dd.classList.contains('pz-folds')) setFolds(false);
-      const q = ui.bar.hidden || !ui.bar.offsetWidth ? null : ui.bar.getBoundingClientRect();
+      const q = ui.bar.hidden || !readMetric(ui.bar, 'offsetWidth') ? null : readBox(ui.bar);
       foot = q && q.left - wr.left < sl + cw ? q.top - wr.top - gap : H - sl;
       let ch = colHeight(cw / k) * k, dk = 1;
       const slack = dd.classList.contains('col') ? 8 : 0;
@@ -4074,7 +4075,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // (Not after its fade (swapNow: it moves now, though a slow frame left it not quite faded; it had stayed stacked under the
       // words for good when an iPad was turned upright), nor on a resize or a turn, where everything moves at once: faded there,
       // it showed over the words' card for a moment while the words had already moved.)
-      else if (!swapNow && !ui.root.classList.contains('pz-turning') && !dd.hidden && !reduce.matches && (dd.classList.contains('pz-sheet') ? !dd.classList.contains('pz-hide') : +getComputedStyle(dd).opacity > 0.05)) {
+      else if (!swapNow && !ui.root.classList.contains('pz-turning') && !dd.hidden && !reduce.matches && (dd.classList.contains('pz-sheet') ? !dd.classList.contains('pz-hide') : +readStyle(dd).opacity > 0.05)) {
         below = isCol;
         if (!dd.classList.contains('pz-hide')) {
           dd.classList.add('pz-hide'); dd.dataset.colswap = '';
@@ -4101,7 +4102,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // its share only while closed: brought back by the reader it may cover the figure, never the words.)
     // (The sheet's edge comes out of the figure's share, not the card's: taken from the card, it shrank the instrument and tiles to
     // 90-99 %, Endoscopy 4 on an iPhone. And 2 px more: the card's border and rounding had left it 99.6 %.)
-    if (p && t) { const cs = getComputedStyle(dd), lip = lipOn(dd) ? LIP : 0, fig = phoneCap != null && !phoneShut && !dd.classList.contains('tool-open') && !('folding' in dd.dataset) ? Math.max(0, phoneFig / k - lip - 2) : 0;
+    if (p && t) { const cs = readStyle(dd), lip = lipOn(dd) ? LIP : 0, fig = phoneCap != null && !phoneShut && !dd.classList.contains('tool-open') && !('folding' in dd.dataset) ? Math.max(0, phoneFig / k - lip - 2) : 0;
       const room = Math.floor((t.top - wr.top) / k - (parseFloat(cs.top) || 0) - glassLift(k) - 8 - lip - fig);
       // (An upright phone's stacked card grows by its readings' card as that slides out or back (--pz-grow, styles/app.css): capped
       // at its tucked height mid-slide, the card's box came out shorter than the instrument, so the instrument card's glass, which ends
@@ -4121,11 +4122,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       } else if (room > 0) dd.style.maxHeight = cs.maxHeight === 'none' ? `${room}px` : `min(${cs.maxHeight}, ${room}px)`; }
     // (A wider screen: a data card at the top right ends 8 px above the colour key standing on the nav pill (a phone held sideways had covered it).)
     if (!p && !below && ui.fk.dataset.empty == null && !ui.bar.hidden) {
-      const f = ui.fk, was = f.hidden; f.hidden = false; const q = f.getBoundingClientRect(); f.hidden = was;
-      const cs = getComputedStyle(dd), room = Math.floor((q.top - wr.top) / k - (parseFloat(cs.top) || 0) - 8 - (lipOn(dd) ? LIP : 0));
+      const f = ui.fk, was = f.hidden; f.hidden = false; const q = readBox(f); f.hidden = was;
+      const cs = readStyle(dd), room = Math.floor((q.top - wr.top) / k - (parseFloat(cs.top) || 0) - 8 - (lipOn(dd) ? LIP : 0));
       if (q.width && room > 0) dd.style.maxHeight = cs.maxHeight === 'none' ? `${room}px` : `min(${cs.maxHeight}, ${room}px)`;
     }
-    if (below !== isCol) { void dd.offsetWidth; dd.style.transition = ''; }
+    if (below !== isCol) { void readMetric(dd, 'offsetWidth'); dd.style.transition = ''; }
     chipRoom(dd);
     const beside = low && tabBeside();
     fitCards(ui.data, ui.panel);
@@ -4161,7 +4162,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const ws = wideSheet(dd);
       if (ws && !dd.classList.contains('pz-sliding')) measureUnder(dd);   // (their travel as fitted now: the last slide's had been left on the card)
       const dpx = ws ? parseFloat(dd.style.getPropertyValue('--pz-d')) || 0 : 0;
-      const tuckH = ws ? dd.offsetHeight - underU(dd) * dpx + LIP : dd.offsetHeight;
+      const tuckH = ws ? readMetric(dd, 'offsetHeight') - underU(dd) * dpx + LIP : readMetric(dd, 'offsetHeight');
       // Centre against the chart's destination too: a chart still growing must not lend its temporary
       // empty space to a downward move that would leave too little room for its final height.
       const cardH = !ws && parseFloat(dd.style.getPropertyValue('--ft-card')) || tuckH;
@@ -4195,7 +4196,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // shadow. The figure frames itself just past that shadow, so nothing it frames is hidden.
     // (On a phone the words sit at the bottom, over the Back/Next bar, and the data card at the top: B is the height
     // from the words' top edge down to the bottom of the figure.)
-    const L = t ? t.right - wr.left : 0, B = t ? H - ui.text.offsetTop * k : 0;
+    const L = t ? t.right - wr.left : 0, B = t ? H - readMetric(ui.text, 'offsetTop') * k : 0;
     // (The words' card: as far past the words on the right as its left edge is before them.)
     const card = cardOn && t ? L + pad - sl : 0;
     const was = { top: parseFloat(ui.shade.style.top), h: parseFloat(ui.shade.style.height) };   // (a glass kept up: its tabs ride its change of size, below)
@@ -4209,7 +4210,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const lift = p && t ? glassLift(k) : 16;
     // (The words' rect carries the stacked pair's rise, --pz-rise, which the glass takes by its own translate: read back without it.)
     const lf = (parseFloat(ui.text.style.getPropertyValue('--pz-rise')) || 0) * k;
-    ui.shade.style.top = p && t ? `${ui.text.offsetTop - lift}px` : cardOn && t ? `${(t.top - wr.top - padT + lf) / k}px` : '';
+    ui.shade.style.top = p && t ? `${readMetric(ui.text, 'offsetTop') - lift}px` : cardOn && t ? `${(t.top - wr.top - padT + lf) / k}px` : '';
     if (ui.shade.style.getPropertyPriority('opacity') !== 'important') ui.shade.style.opacity = t ? '1' : '0';   // (not over a throw's own: card-throw.js writes it important while it moves the glass or holds it out)
     if (ui.shade.hasAttribute('data-gl-morph')) shadeRide(was);
     ui.safe.hidden = !t;
@@ -4219,8 +4220,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     ui.safe.style.height = p ? `${(B + Math.max(34, lift * k + 4)) / k}px` : '';
     const set = (k, v) => { const px = `${Math.max(0, Math.round(v))}px`; if (insetHold) insetPend.set(k, px); else app.style.setProperty(k, px); };
     set('--pz-l', frameL);
-    set('--pz-r', !p && d ? W - (ui.data.offsetLeft + dock.to * dv[0]) * k + 8 : 0);   // (where the card comes to rest: past its entry shift, at its dock)
-    set('--pz-t', p && d ? (ui.data.offsetTop + ui.data.offsetHeight + (lipOn(ui.data) ? LIP : 0) + dv[1] * dock.to) * k + 4 : 0);   // (offsets: a card coming in is still shifted by its entry transform)
+    set('--pz-r', !p && d ? W - (readMetric(ui.data, 'offsetLeft') + dock.to * dv[0]) * k + 8 : 0);   // (where the card comes to rest: past its entry shift, at its dock)
+    set('--pz-t', p && d ? (readMetric(ui.data, 'offsetTop') + readMetric(ui.data, 'offsetHeight') + (lipOn(ui.data) ? LIP : 0) + dv[1] * dock.to) * k + 4 : 0);   // (offsets: a card coming in is still shifted by its entry transform)
     set('--pz-b', p && t ? B + 34 : 0);
     if (!dock.drag) { dockPaint(); placeLip(); }   // (the edge's place, read here at rest: a glide's frames only move it)
     // (The corner icon is offered where the card has room to grow, and only on a wide screen with an instrument: card-zoom.js.)
@@ -4252,19 +4253,19 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const bs = [...row.querySelectorAll('.pz-abb[data-short]')];
       if (!bs.length) continue;
       for (const b of bs) b.textContent = b.dataset.full;
-      const tops = () => new Set([...row.querySelectorAll('.pz-abb')].map((b) => Math.round(b.offsetTop))).size;
-      if (may && (tops() > 1 || row.scrollWidth > row.clientWidth + 1)) for (const b of bs) b.textContent = b.dataset.short;
+      const tops = () => new Set([...row.querySelectorAll('.pz-abb')].map((b) => Math.round(readMetric(b, 'offsetTop')))).size;
+      if (may && (tops() > 1 || readMetric(row, 'scrollWidth') > readMetric(row, 'clientWidth') + 1)) for (const b of bs) b.textContent = b.dataset.short;
     }
     // (A phone on its side: the row of choices at the largest size that holds it on one line, never under 12 px on the screen nor
     // over its own size; the card's fit, which took the four lens buttons to 11 px at 150 %, never sets it.)
     if (!ui.root.classList.contains('low')) return;
     for (const row of root.querySelectorAll(':scope > .pz-ab')) {
       const b = row.querySelector('.pz-abb'), host = row.parentElement;
-      if (!b || !host.clientWidth) continue;
+      if (!b || !readMetric(host, 'clientWidth')) continue;
       row.style.zoom = '1'; row.style.flexWrap = 'nowrap'; row.style.width = 'max-content'; row.style.maxWidth = 'none';
-      const nat = row.getBoundingClientRect().width + 2, cs = getComputedStyle(host), avail = host.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      const nat = readBox(row).width + 2, cs = readStyle(host), avail = readMetric(host, 'clientWidth') - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
       row.style.flexWrap = row.style.width = row.style.maxWidth = '';
-      const fs = parseFloat(getComputedStyle(b).fontSize) || 12;
+      const fs = parseFloat(readStyle(b).fontSize) || 12;
       row.style.zoom = String(Math.max(12 / fs, Math.min(1, avail / nat)).toFixed(3));
     }
   }
@@ -4292,7 +4293,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const sv = [st.maxHeight, st.getPropertyValue('--pz-fit'), st.getPropertyValue('--pz-z')];
       st.maxHeight = 'none'; st.removeProperty('--pz-fit'); st.removeProperty('--pz-z');
       if (fit) st.setProperty('--pz-fit', String(fit));
-      const v = el.offsetHeight * k;
+      const v = readMetric(el, 'offsetHeight') * k;
       st.maxHeight = sv[0]; if (sv[1]) st.setProperty('--pz-fit', sv[1]); else st.removeProperty('--pz-fit'); if (sv[2]) st.setProperty('--pz-z', sv[2]);
       return v;
     };
@@ -4305,17 +4306,17 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (held) { if (dd.classList.contains('tool-open') || dd.classList.contains('pz-sliding') || 'folding' in dd.dataset || natural(dd, ds) + lip <= held.data + 1) { phoneFig = held.fig; return held.cap; } }
     const ts = ui.text.style, was = ts.maxHeight;
     ts.maxHeight = '';
-    const css = getComputedStyle(ui.text), own = parseFloat(css.maxHeight) * (css.maxHeight.endsWith('%') ? H / 100 : 1), foot = (parseFloat(css.bottom) || 0) * k;
+    const css = readStyle(ui.text), own = parseFloat(css.maxHeight) * (css.maxHeight.endsWith('%') ? H / 100 : 1), foot = (parseFloat(css.bottom) || 0) * k;
     ts.maxHeight = was;
     // (The words zoom down to fit (--pz-fit): to Compact (card-type.js), and only where nothing else gives, to 12 px: their body
     // size sets how far.)
-    const line = ui.text.querySelector('.pz-line, p'), body = line ? parseFloat(getComputedStyle(line).fontSize) : 0;
+    const line = ui.text.querySelector('.pz-line, p'), body = line ? parseFloat(readStyle(line).fontSize) : 0;
     // (Measured at that size, not scaled from the full size: zoomed down, the lines take more words each and the card comes
     // out shorter than its full height times the zoom. Scaled, HVPG 5 on a 667 px iPhone asked 263 px for words that take 230.)
     const textAt = (z) => (z < 1 ? (() => {
       const sv = [ts.maxHeight, ts.getPropertyValue('--pz-fit'), ts.getPropertyValue('--pz-z')];
       ts.maxHeight = 'none'; ts.removeProperty('--pz-z'); ts.setProperty('--pz-fit', String(z));
-      const v = ui.text.offsetHeight * k;
+      const v = readMetric(ui.text, 'offsetHeight') * k;
       ts.maxHeight = sv[0]; if (sv[1]) ts.setProperty('--pz-fit', sv[1]); else ts.removeProperty('--pz-fit'); if (sv[2]) ts.setProperty('--pz-z', sv[2]);
       return v;
     })() : natural(ui.text, ts)) + 4;
@@ -4328,9 +4329,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // share, or where it is taller than its own cap (styles/app.css max-height). (Capped at 45 % of the shared room before, its own fit
     // doing the rest: Treatment 2 on a 667 px iPhone came in at half size, and the 8 px of its top left out shrank hvpg 5's card to 78 % on a 844 px one.)
     // (Never folded to its header behind Show any more: Mohammad, 17 Oct, "The data card should not glitch like this on the iPhone".)
-    const dcs = getComputedStyle(dd), dtop = (parseFloat(dcs.top) || 0) * k;
+    const dcs = readStyle(dd), dtop = (parseFloat(dcs.top) || 0) * k;
     // (The cap with the readings tucked: out, it grows by their height, styles/app.css .pz-sheet.has-tool.tool-open.)
-    const dmax = (() => { const sv = ds.maxHeight; ds.maxHeight = ''; const m = getComputedStyle(dd).maxHeight; ds.maxHeight = sv; if (m === 'none') return Infinity; let v = 0; m.replace(/(-?[\d.]+)(%|px)/g, (_, n, u) => { v += u === '%' ? n * H / 100 : n * k; }); return v; })()
+    const dmax = (() => { const sv = ds.maxHeight; ds.maxHeight = ''; const m = readStyle(dd).maxHeight; ds.maxHeight = sv; if (m === 'none') return Infinity; let v = 0; m.replace(/(-?[\d.]+)(%|px)/g, (_, n, u) => { v += u === '%' ? n * H / 100 : n * k; }); return v; })()
       - (splitSheet(dd) && dd.classList.contains('tool-open') && dd.classList.contains('has-tool') ? (parseFloat(ds.getPropertyValue('--pz-d')) || 0) * k : 0);
     const reach = glassLift(k) * k;
     let both = H - foot - reach - 8 - dtop - FIG_MIN(H);
@@ -4341,7 +4342,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (!p) return natural(dd, ds, fit) + lip;
       const tr = p.style.transition; p.style.transition = 'none'; dd.classList.remove('tool-open');
       const v = natural(dd, ds, fit) + LIP * k;
-      dd.classList.add('tool-open'); void p.offsetHeight; p.style.transition = tr;
+      dd.classList.add('tool-open'); void readMetric(p, 'offsetHeight'); p.style.transition = tr;
       return v;
     };
     const full = gone ? 0 : arriving(), sheetLip = dd.classList.contains('pz-sheet') ? LIP * k : 0;
@@ -4392,7 +4393,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   function chipRoom(dd) {
     const f = dd.querySelector('.pz-dh > .pz-fold');
     if (!f) return;
-    const cs = getComputedStyle(f), fs = parseFloat(cs.fontSize) || 0, ls = parseFloat(cs.letterSpacing) || 0;
+    const cs = readStyle(f), fs = parseFloat(cs.fontSize) || 0, ls = parseFloat(cs.letterSpacing) || 0;
     if (!fs) return;
     if (!glyphsReady() && !chipWait) { chipWait = true; loadGlyphs().then(() => restPass(() => { if (ui && !ui.data.hidden) chipRoom(ui.data); })).catch(() => {}); }
     const w = Math.max(...['Show', 'Hide'].map((t) => {
@@ -4410,7 +4411,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // them where the screen is short, slip.lift.)
     const sheet = d.classList.contains('pz-sheet'), parts = sheet ? [...d.children].filter((c) => c.matches('.pz-tiles')) : [], was = parts.map((c) => c.style.display);
     if (sheet) { d.classList.remove('tool-open', 'pz-sliding'); ds.removeProperty('--pz-u'); for (const c of parts) c.style.display = 'none'; }
-    const hh = d.offsetHeight + (sheet ? LIP : 0);
+    const hh = readMetric(d, 'offsetHeight') + (sheet ? LIP : 0);
     parts.forEach((c, i) => { c.style.display = was[i]; });
     d.className = sv[0]; ds.width = sv[1]; ds.maxHeight = sv[2]; if (sv[3]) ds.setProperty('--pz-fit', sv[3]); if (sv[4]) ds.setProperty('--pz-dk', sv[4]); else ds.removeProperty('--pz-dk'); if (sv[5]) ds.setProperty('--pz-z', sv[5]); if (sv[6]) ds.setProperty('--pz-u', sv[6]);
     ui.lipMO?.takeRecords();
@@ -4418,17 +4419,17 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   }
   function freeRects() {
     if (!ui || phone()) return null;
-    const wr = wrap.getBoundingClientRect(), W = wr.width, H = wr.height, k = W / (wrap.clientWidth || W) || 1, G = 12;
+    const wr = readBox(wrap), W = wr.width, H = wr.height, k = W / (readMetric(wrap, 'clientWidth') || W) || 1, G = 12;
     const obs = [], d = ui.data;
     let dk = null, pill = null;
     if (!d.hidden && !('gone' in d.dataset) && !d.classList.contains('under') && !d.classList.contains('col')) {
-      const x = d.offsetLeft + dock.to * dockVec()[0];
-      obs.push(dk = { l: x * k, t: d.offsetTop * k, r: (x + d.offsetWidth) * k, b: (d.offsetTop + d.offsetHeight + (lipOn(d) ? LIP : 0)) * k });   // (and its sheet's edge below it, .pz-lip)
+      const x = readMetric(d, 'offsetLeft') + dock.to * dockVec()[0];
+      obs.push(dk = { l: x * k, t: readMetric(d, 'offsetTop') * k, r: (x + readMetric(d, 'offsetWidth')) * k, b: (readMetric(d, 'offsetTop') + readMetric(d, 'offsetHeight') + (lipOn(d) ? LIP : 0)) * k });   // (and its sheet's edge below it, .pz-lip)
     }
-    if (!ui.bar.hidden && ui.bar.offsetWidth) { const q = ui.bar.getBoundingClientRect(); obs.push(pill = { l: q.left - wr.left, t: q.top - wr.top, r: q.right - wr.left, b: q.bottom - wr.top }); }
+    if (!ui.bar.hidden && readMetric(ui.bar, 'offsetWidth')) { const q = readBox(ui.bar); obs.push(pill = { l: q.left - wr.left, t: q.top - wr.top, r: q.right - wr.left, b: q.bottom - wr.top }); }
     // (The colour key stands on the pill: the two are one obstacle. Measured where it will show, even before it fades in.)
     if (pill && ui.fk.dataset.empty == null) {
-      const f = ui.fk, was = f.hidden; f.hidden = false; const q = f.getBoundingClientRect(); f.hidden = was;
+      const f = ui.fk, was = f.hidden; f.hidden = false; const q = readBox(f); f.hidden = was;
       if (q.width) { pill.t = Math.min(pill.t, q.top - wr.top); pill.l = Math.min(pill.l, q.left - wr.left); }
     }
     // Each obstacle splits a rectangle it overlaps into the open parts left, right, above and below it.
@@ -4449,7 +4450,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const onFonts = () => { if (ui) layout(); };
   // Where the cards stand, rounded: the camera framed this space last; the same space needs no second glide.
   let framedSig = '';
-  const cardSig = () => (ui ? [ui.text, ui.data].map((el) => (el.hidden ? '-' : ((r) => [r.left, r.top, r.width, r.height].map((v) => Math.round(v / 4)).join())(el.getBoundingClientRect()))).join('|') : '');
+  const cardSig = () => (ui ? [ui.text, ui.data].map((el) => (el.hidden ? '-' : ((r) => [r.left, r.top, r.width, r.height].map((v) => Math.round(v / 4)).join())(readBox(el)))).join('|') : '');
   function reframe(ms) {
     const s = figOf(shown.i);
     // (Under the start's cover the framing is set outright: unseen, a glide only kept the reveal waiting, or was caught by it.)
@@ -4532,8 +4533,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (phone()) return;
     // (asSet: a slide just shown is judged with the words' step as it stands, as it always was)
     const tk = asSet ? '' : text.style.getPropertyValue('--pz-tk'); if (tk) text.style.removeProperty('--pz-tk');
-    const lh = parseFloat(getComputedStyle(ttl).lineHeight) || ttl.offsetHeight;
-    if (ttl.offsetHeight > lh * 2.4) ttl.classList.add('long');
+    const lh = parseFloat(readStyle(ttl).lineHeight) || readMetric(ttl, 'offsetHeight');
+    if (readMetric(ttl, 'offsetHeight') > lh * 2.4) ttl.classList.add('long');
     if (tk) text.style.setProperty('--pz-tk', tk);
   }
   // (The cards follow at once; the camera frames once, when the size has held for 250 ms: a turn fires several resizes, and a
@@ -4543,7 +4544,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // after the event. Turned on an iPad, Safari's one resize came while the stage still had its upright height: the pair was centred
   // for that height, the data card pushed below the screen until the slide was reloaded (Stiffness 3, 18 Oct).)
   let sizeSeen = '', wrapRO = null;
-  const sizeNow = () => { const r = wrap.getBoundingClientRect(); return `${innerWidth}x${innerHeight}:${Math.round(r.width)}x${Math.round(r.height)}`; };
+  const sizeNow = () => { const r = readBox(wrap); return `${innerWidth}x${innerHeight}:${Math.round(r.width)}x${Math.round(r.height)}`; };
   const onResize = (e) => {
     if (!ui) return;
     if (e?.type === 'resize' && zoomOn()) { ui.zoom.reset(); paintZoom(); }   // (a new size: the card is put back, laid out and zoomed again by a tap)
@@ -4612,21 +4613,21 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   function restRect(el) {
     let dx = 0, dy = 0, left = 0;
     for (let n = el; n && n !== document.documentElement; n = n.parentElement) {
-      const run = n.getAnimations().filter((a) => a.playState === 'running' && Number.isFinite(a.effect?.getComputedTiming().endTime));
+      const run = readAnims(n).filter((a) => a.playState === 'running' && Number.isFinite(readTiming(a.effect).endTime));
       if (!run.length) continue;
-      for (const a of run) left = Math.max(left, a.effect.getComputedTiming().endTime - (a.currentTime || 0));
-      const t = getComputedStyle(n).transform;
+      for (const a of run) left = Math.max(left, readTiming(a.effect).endTime - (a.currentTime || 0));
+      const t = readStyle(n).transform;
       if (!t || t === 'none') continue;
-      const m = new DOMMatrixReadOnly(t), z = n.offsetHeight ? n.getBoundingClientRect().height / n.offsetHeight : 1;   // (in screen px: through any zoom)
+      const m = new DOMMatrixReadOnly(t), z = readMetric(n, 'offsetHeight') ? readBox(n).height / readMetric(n, 'offsetHeight') : 1;   // (in screen px: through any zoom)
       dx += m.e * z; dy += m.f * z;
     }
-    const r = el.getBoundingClientRect();
+    const r = readBox(el);
     return { top: r.top - dy, right: r.right - dx, height: r.height, width: r.width, left };
   }
   // The pill's width, for the words' last line to keep clear of (--pz-pill-w); then the words keep clear of it (clearPill).
   function placeBar() {
     if (!ui) return;
-    if (phone() && ui.bar.offsetWidth && ui.bar.offsetWidth !== pillW) { pillW = ui.bar.offsetWidth; app.style.setProperty('--pz-pill-w', `${pillW}px`); }
+    if (phone() && readMetric(ui.bar, 'offsetWidth') && readMetric(ui.bar, 'offsetWidth') !== pillW) { pillW = readMetric(ui.bar, 'offsetWidth'); app.style.setProperty('--pz-pill-w', `${pillW}px`); }
     clearPill();
     placeScales();
   }
@@ -4657,9 +4658,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // The inner pill moves and stretches on the compositor (translate and a horizontal scale of a width laid out once), never a width
   // eased by layout: its laid-out width is the first word's it stood under, kept until the pill is built again.
   function pzsThumb(el, on) {
-    const w = on.offsetWidth;
+    const w = readMetric(on, 'offsetWidth');
     if (!el._pzsW0 || el.classList.contains('pzs-new')) { el._pzsW0 = w; el.style.setProperty('--pzs-w0', `${w}px`); }
-    el.style.setProperty('--pzs-x', `${on.offsetLeft}px`);
+    el.style.setProperty('--pzs-x', `${readMetric(on, 'offsetLeft')}px`);
     el.style.setProperty('--pzs-s', (w / el._pzsW0).toFixed(4));
   }
   // The selected word, and the soft inner pill eased under it (as Explore's selection eases from one word to the next).
@@ -4680,12 +4681,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (A phone's pill stands over the figure, above the teaching card: the camera frames above it, as above the card.)
     el.toggleAttribute('data-safe', p); if (p) el.dataset.safe = 'bottom';
     if (p) {
-      const wr = wrap.getBoundingClientRect(), k = wr.width / (wrap.clientWidth || wr.width) || 1, r = restRect(ui.shade);
+      const wr = readBox(wrap), k = wr.width / (readMetric(wrap, 'clientWidth') || wr.width) || 1, r = restRect(ui.shade);
       if (r.width) {
         el.style.setProperty('--pzs-b', `${Math.max(0, (wr.bottom - r.top) / k + 8).toFixed(1)}px`);
         el.style.setProperty('--pzs-cx', `${((r.left + r.width / 2 - wr.left) / k).toFixed(1)}px`);
       }
-    } else if (ui.bar.offsetWidth) el.style.setProperty('--pzs-r', `${ui.bar.offsetWidth}px`);
+    } else if (readMetric(ui.bar, 'offsetWidth')) el.style.setProperty('--pzs-r', `${readMetric(ui.bar, 'offsetWidth')}px`);
     const on = el.querySelector('[aria-pressed="true"]');
     if (on) pzsThumb(el, on);
   }
@@ -4765,15 +4766,15 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const text = ui.text, gap = text.querySelector('.pz-pillgap'), was = text.querySelector('.pz-pillclr');
     let end = null, box = null;
     if (phone() && !text.hidden) {
-      const shown = (c) => c.getBoundingClientRect().height > 0, last = [...text.children].filter(shown).at(-1);   // (an svg has no offsetHeight)
+      const shown = (c) => readBox(c).height > 0, last = [...text.children].filter(shown).at(-1);   // (an svg has no offsetHeight)
       const tail = last;
       // (A colour key docked at the words' bottom-left (figure-key.js) takes a row of its own beside the pill: the words end above it.)
       if (tail?.matches('p, h1, li, .pz-stk') && ui.fk.dataset.empty != null) end = tail; else box = last || null;
       // (Read from the layout boxes where both rest, never from the screen: a card still easing in or out (pz-leave's 18 px
       // slide) read 18 px more reach, and the words were fitted smaller for it, then grew once the card settled.)
-      const wr = restRect(ui.root), k = wr.width / (ui.root.clientWidth || wr.width) || 1, bar = ui.bar;
-      const reach = bar.offsetParent && bar.offsetParent === text.offsetParent ? text.offsetTop + text.offsetHeight - bar.offsetTop
-        : (restRect(text).top + text.offsetHeight * k - bar.getBoundingClientRect().top) / k;
+      const wr = restRect(ui.root), k = wr.width / (readMetric(ui.root, 'clientWidth') || wr.width) || 1, bar = ui.bar;
+      const reach = readMetric(bar, 'offsetParent') && readMetric(bar, 'offsetParent') === readMetric(text, 'offsetParent') ? readMetric(text, 'offsetTop') + readMetric(text, 'offsetHeight') - readMetric(bar, 'offsetTop')
+        : (restRect(text).top + readMetric(text, 'offsetHeight') * k - readBox(bar).top) / k;
       text.style.setProperty('--pz-reach', `${Math.max(0, Math.ceil(reach) + 3)}px`);
       // A box ends 8 px above the pill on a tablet, measured to the fraction (offsetTop rounds; the rounded reach had left it at 5,
       // sweep 03 #23). A phone's
@@ -4790,12 +4791,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // A key that wraps is balanced: the narrowest width that keeps its number of lines, so no line is left with one word ("Systemic"
   // alone under the other origins, "Reversed" under "Usual": 17 Oct design review). Its lines and height stay as they were.
   function balanceKey(fk, maxW) {
-    const h0 = fk.offsetHeight;
+    const h0 = readMetric(fk, 'offsetHeight');
     let lo = Math.floor(maxW / 2), hi = Math.floor(maxW);
     while (hi - lo > 2) {
       const mid = (lo + hi) >> 1;
       fk.style.setProperty('--pz-fk-room', `${mid}px`);
-      if (fk.offsetHeight > h0 + 1) lo = mid; else hi = mid;
+      if (readMetric(fk, 'offsetHeight') > h0 + 1) lo = mid; else hi = mid;
     }
     fk.style.setProperty('--pz-fk-room', `${hi}px`);
   }
@@ -4807,36 +4808,36 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const on = phone() && !ui.text.hidden && fk.dataset.empty == null;
     if (!on) { set(false, false); return; }
     const was = fk.hidden; fk.hidden = false; set(false, false);
-    const wr = restRect(root), k = wr.width / (root.clientWidth || wr.width) || 1;
-    const w = fk.offsetWidth, l = parseFloat(getComputedStyle(fk).left) || 21;
-    const bar = ui.bar.getBoundingClientRect(), barH = bar.height / k;
-    const room = (bar.left - wr.left) / k - l - 8, full = root.clientWidth - 2 * l;
+    const wr = restRect(root), k = wr.width / (readMetric(root, 'clientWidth') || wr.width) || 1;
+    const w = readMetric(fk, 'offsetWidth'), l = parseFloat(readStyle(fk).left) || 21;
+    const bar = readBox(ui.bar), barH = bar.height / k;
+    const room = (bar.left - wr.left) / k - l - 8, full = readMetric(root, 'clientWidth') - 2 * l;
     let row;
     // (Beside the pill on one line, a key taller than the pill's row (a larger text size: its name over its scale) reaches above
     // it: the words end 8 px above the key, not 3 px above the pill (Circulation 3 at 150 %: the buttons sat on the key).)
-    if (w <= room) row = Math.max(0, Math.ceil((bar.top - fk.getBoundingClientRect().top) / k + 5));
+    if (w <= room) row = Math.max(0, Math.ceil((bar.top - readBox(fk).top) / k + 5));
     else if (root.classList.contains('tab')) {
       // (An upright iPad has the width for the key on its own row above the pill, one line across the card, rather than two lines
       // squeezed beside it: 17 Oct design review. Wrapped, and balanced, only if even the card's width is too narrow.)
       if (w > full) fk.style.setProperty('--pz-fk-room', `${Math.floor(full)}px`);
       set(false, true, w > full);
       if (w > full) balanceKey(fk, full);
-      row = Math.ceil(fk.offsetHeight) + 12;
+      row = Math.ceil(readMetric(fk, 'offsetHeight')) + 12;
     } else {
       // (Two lines inside the pill's own height, the two read as one row: its name over its swatches; else name and swatches flowing
       // over both lines; else the same with the swatches' short names (SV, HA, Sys). Only then a row of its own above the pill, which
       // took a whole line from the words and left the room beside the pill empty: Mohammad, 20 Oct, TIPS Doppler 3 on an iPhone,
       // "The legend of the lens could be on two lines ... Can use abbreviations".)
       const sh = !!fk.querySelector('.pz-lk-s');
-      const two = (flow, short) => { set(true, false, false, flow, short); fk.style.setProperty('--pz-fk-room', `${Math.floor(room)}px`); return fk.scrollWidth <= room + .5 && fk.offsetHeight <= barH + 1.5; };
+      const two = (flow, short) => { set(true, false, false, flow, short); fk.style.setProperty('--pz-fk-room', `${Math.floor(room)}px`); return readMetric(fk, 'scrollWidth') <= room + .5 && readMetric(fk, 'offsetHeight') <= barH + 1.5; };
       if (two(false, false) || two(true, false) || (sh && (two(false, true) || two(true, true)))) {
-        balanceKey(fk, room); row = Math.max(0, fk.offsetHeight - barH) + 2; }
+        balanceKey(fk, room); row = Math.max(0, readMetric(fk, 'offsetHeight') - barH) + 2; }
       else {
         // (Wider than the card too: wrapped to its width, at its own size; it had been scaled down, its words under 12 px.)
         if (w > full) fk.style.setProperty('--pz-fk-room', `${Math.floor(full)}px`);
         set(false, true, w > full);
         if (w > full) balanceKey(fk, full);
-        row = Math.ceil(fk.offsetHeight) + 12;
+        row = Math.ceil(readMetric(fk, 'offsetHeight')) + 12;
       }
     }
     fk.hidden = was;
@@ -4853,15 +4854,15 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const was = fk.hidden; fk.hidden = false;
     const card = { left: t.left - pad0, right: t.right + pad0, top: t.top - padT, bottom: t.bottom + pad0 };
     const hits = (q, a, g) => !!a && Math.min(q.right, a.right) - Math.max(q.left, a.left) > -g && Math.min(q.bottom, a.bottom) - Math.max(q.top, a.top) > -g;
-    let q = fk.getBoundingClientRect(), cut = false;
+    let q = readBox(fk), cut = false;
     if (hits(q, card, 6)) {
       const room = Math.floor((q.right - card.right - 8) / k);
       root.classList.add('fk-side'); fk.style.setProperty('--pz-fk-room', `${room}px`);
-      q = fk.getBoundingClientRect();
-      const lines = new Set([...fk.querySelectorAll(':scope > b, .pz-lens-k')].map((e) => Math.round(e.getBoundingClientRect().top))).size;
-      if (room > 0 && lines <= 2 && fk.scrollWidth <= fk.clientWidth + .5 && !hits(q, card, 6) && !hits(q, d, 4)) balanceKey(fk, room);
+      q = readBox(fk);
+      const lines = new Set([...fk.querySelectorAll(':scope > b, .pz-lens-k')].map((e) => Math.round(readBox(e).top))).size;
+      if (room > 0 && lines <= 2 && readMetric(fk, 'scrollWidth') <= readMetric(fk, 'clientWidth') + .5 && !hits(q, card, 6) && !hits(q, d, 4)) balanceKey(fk, room);
       else {
-        plain(); q = fk.getBoundingClientRect();
+        plain(); q = readBox(fk);
         // (The words end 4 px above the key, wherever the card stands: level with the data card, or centred top to bottom. The key
         // may stand on the card's glass below them, as an upright phone's stands inside its card.)
         const foot = q.top - wr.top - 4, top = d ? d.top - wr.top + padT : vm + padT;
@@ -4994,9 +4995,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       h('div', { class: 'pzj-list' }, groups.map((g) => h('section', {}, g.k ? h('h3', {}, g.k) : null,
         h('ol', {}, g.items.map((i) => h('li', {}, h('button', { type: 'button', 'aria-current': i === want ? 'true' : null, onclick: () => { toggleJump(false); go(i); } },
           h('span', { class: 'n' }, String(i + 1)), h('span', { class: 't' }, nb(slides[i].title))))))))));
-    j.classList.add('pz-leave'); j.hidden = false; void j.offsetWidth; j.classList.remove('pz-leave');
+    j.classList.add('pz-leave'); j.hidden = false; void readMetric(j, 'offsetWidth'); j.classList.remove('pz-leave');
     const curBtn = j.querySelector('[aria-current]');
-    curBtn?.focus({ preventScroll: true }); curBtn?.scrollIntoView({ block: 'center' });
+    curBtn?.focus({ preventScroll: true }); scrollInto(curBtn, { block: 'center' });
     paintChrome();
   }
   function jumpKey(e) {
@@ -5039,7 +5040,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!deck || e.touches.length !== 1 || !caseOn(e)) return;
     const t = e.touches[0];
     cd = { card: caseCard, x: t.clientX, y: t.clientY, on: false, pts: [[t.clientX, performance.now()]] };
-    cd.w = caseCard.c.offsetWidth || 1;   // (its width, read once as the finger lands: the drag reads nothing)
+    cd.w = readMetric(caseCard.c, 'offsetWidth') || 1;   // (its width, read once as the finger lands: the drag reads nothing)
   }, { passive: true, capture: true });
   wrap.addEventListener('touchmove', (e) => {
     if (!cd) return;
@@ -5266,7 +5267,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!deck || !ui || leaving) return;
     const card = caseCard && !caseCard.flown ? caseCard : null;
     if (a.axis === 'x') {
-      if (card) caseFly(card, a.dir, 1.2, card.c.offsetWidth);   // (fingers right: off to the right)
+      if (card) caseFly(card, a.dir, 1.2, readMetric(card.c, 'offsetWidth'));   // (fingers right: off to the right)
       else if (a.dir < 0) next();   // (on the last slide a fresh swipe ends the talk, as the touch swipe does; the glide that reached it is spent and never also closes)
       else prev();
     } else stackFold(a.dir < 0);   // (fingers up: the readings come out, as a swipe up does)
@@ -5333,7 +5334,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     on('touchstart', (e) => {
       if (e.touches.length > 1) abort();   // (a second finger: a drag under way lands first)
       if (e.touches.length !== 1 || !deck || ui?.root.classList.contains('pz-wide')) { reset(); return; }   // (Mac and iPad landscape: the card never closes to the side, Mohammad, 22 Oct)
-      const t = e.touches[0], vec = dockRest(), k = wrap.getBoundingClientRect().width / (wrap.clientWidth || 1) || 1;
+      const t = e.touches[0], vec = dockRest(), k = readBox(wrap).width / (readMetric(wrap, 'clientWidth') || 1) || 1;
       g = { x: t.clientX, y: t.clientY, t: performance.now(), lvl0: dock.lvl, vec, k, on: false, last: 0 };
     }, { passive: true });
     on('touchmove', (e) => {
@@ -5393,7 +5394,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // is taken up where it stands.)
     const grab = (x, y, open) => {
       const p = part(), split = splitSheet(el);
-      return { x, y, p, open, shown: open, split, u0: split ? underU(el) : open ? 1 : 0, full: split ? slip.d || p.scrollHeight : Math.min(p.scrollHeight, innerHeight * 0.4), on: false, pts: [] };   // (open: its part shown, the tiles under a lead instrument or the instrument over its tiles)
+      return { x, y, p, open, shown: open, split, u0: split ? underU(el) : open ? 1 : 0, full: split ? slip.d || readMetric(p, 'scrollHeight') : Math.min(readMetric(p, 'scrollHeight'), innerHeight * 0.4), on: false, pts: [] };   // (open: its part shown, the tiles under a lead instrument or the instrument over its tiles)
     };
     // (A card that folds in place, not a sheet (an iPad upright, a short screen): the part takes its full height once as the finger
     // starts, as a tap on Show gives the card its new size at once, and follows the finger by opacity and a short slide only, its
@@ -5413,7 +5414,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (gg.xf) { gg.xf = false; gg.p.classList.remove('pz-follow'); gg.p.style.translate = ''; }   // (its height back to its state's, once; the opacity eases on from where the finger left it)
       if (show !== gg.open) { if (gg.split && !show) dock.down = want; setFold(show); return; }
       if (gg.split) { slideUnder(gg.u ?? gg.u0, gg.open ? 1 : 0); hold(false); return; }
-      gg.p.getBoundingClientRect(); gg.p.style.transition = '';
+      readBox(gg.p); gg.p.style.transition = '';
       gg.p.style.maxHeight = ''; gg.p.style.opacity = '';
       hold(false);
     };
@@ -5424,7 +5425,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       g = null;
       const sheet = el.classList.contains('pz-sheet'), open = el.classList.contains('tool-open');
       const split = splitSheet(el);
-      if (e.touches.length !== 1 || (!btn.offsetWidth && !sheet) || (sheet && open && !split) || dock.lvl > 0 || btn.contains(e.target) || (zoomOn() && !zoomFolds())) return;
+      if (e.touches.length !== 1 || (!readMetric(btn, 'offsetWidth') && !sheet) || (sheet && open && !split) || dock.lvl > 0 || btn.contains(e.target) || (zoomOn() && !zoomFolds())) return;
       const t = e.touches[0];
       g = grab(t.clientX, t.clientY, open);
       g.zk = zoomOn() ? ui.zoom.scale : 1;   // (a zoomed card's readings travel that much further on the screen: the finger is followed by that much less)
@@ -5489,7 +5490,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         clearTimeout(foldT); foldT = setTimeout(foldStill, reduce.matches ? 0 : 450);
         return;
       }
-      const p = partOf(), cs = getComputedStyle(p), from = ['maxHeight', 'opacity', 'marginTop', 'marginBottom'].map((n) => [n, cs[n]]);
+      const p = partOf(), cs = readStyle(p), from = ['maxHeight', 'opacity', 'marginTop', 'marginBottom'].map((n) => [n, cs[n]]);
       p.style.transition = 'none'; for (const [n] of from) p.style[n] = '';
       data.classList.toggle('tool-open', open); fold.setAttribute('aria-expanded', String(open)); fold.textContent = open ? 'Hide' : 'Show';
       data.dataset.openFor = String(want);   // (the slide it was tapped on: kept open there, layout and phoneTextCap)
@@ -5497,7 +5498,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // (Then back to where the part stood, from which it eases to its rest.)
       data.dataset.folding = '';
       for (const [n, v] of from) p.style[n] = v;
-      p.getBoundingClientRect(); p.style.transition = ''; for (const [n] of from) p.style[n] = '';
+      readBox(p); p.style.transition = ''; for (const [n] of from) p.style[n] = '';
       clearTimeout(foldT); foldT = setTimeout(foldStill, reduce.matches ? 0 : 450);
     };
     // The camera starts for the room the cards will leave as the readings' card starts to move, in step with it (Mohammad, 30 Oct, iPhone:
@@ -5516,7 +5517,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const foldStill = () => {
       clearTimeout(foldT);
       if (!('folding' in data.dataset)) return;
-      if (data.classList.contains('pz-sliding') || partOf().getAnimations?.().some((a) => a.playState === 'running')) { foldT = setTimeout(foldStill, 100); return; }   // (still easing: a slow frame)
+      if (data.classList.contains('pz-sliding') || readAnims(partOf()).some((a) => a.playState === 'running')) { foldT = setTimeout(foldStill, 100); return; }   // (still easing: a slow frame)
       stage.followEnd?.();   // (at rest: the view stands at the framing for where it rests, and the refit below finds it there)
       delete data.dataset.folding; fitDone.delete(data); onResize();
     };
@@ -5553,7 +5554,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const enter = was && !lip.hidden && !data.classList.contains('pz-hide');
       if (enter) lip.classList.add('pz-lip-in');
       placeLip();
-      if (enter) { void lip.offsetWidth; lip.classList.remove('pz-lip-in'); }
+      if (enter) { void readMetric(lip, 'offsetWidth'); lip.classList.remove('pz-lip-in'); }
     };
     const lipMO = new MutationObserver(lipSync);
     lipMO.observe(data, { attributes: true, attributeFilter: ['class', 'hidden', 'style'] });
@@ -5590,8 +5591,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (A cell of the six ladders zoomed to the middle (cellOpen): the page behind the panel is dimmed by this veil, the panel's own by the one in its grid.
     // The scale is read at the element: a cell sits in the panel's fit zoom, which the card does not.)
     const pscrim = h('div', { class: 'pz-pscrim', 'aria-hidden': 'true', onclick: () => zoom.close().then(paintZoom) });
-    const zoom = createCardZoom({ card: data, along: [lip], scrim: zscrim, app, area: () => wrap.getBoundingClientRect(),
-      scale: (el) => (el && el !== data && el.offsetWidth ? el.getBoundingClientRect().width / el.offsetWidth : wrap.getBoundingClientRect().width / (wrap.clientWidth || 1)) || 1,
+    const zoom = createCardZoom({ card: data, along: [lip], scrim: zscrim, app, area: () => readBox(wrap),
+      scale: (el) => (el && el !== data && readMetric(el, 'offsetWidth') ? readBox(el).width / readMetric(el, 'offsetWidth') : readBox(wrap).width / (readMetric(wrap, 'clientWidth') || 1)) || 1,
       reduce: () => reduce.matches, boost: setCanvasBoost, hold: zoomCredit, settled: zoomSettled, behind: zoomBehind });
     tapTracker(data, { ok: () => zoomReady() || zoom.up, onTap: () => zoomToggle() });
     tapTracker(panel, { ok: () => cellReady() || zoom.up, onTap: cellTap });
@@ -5623,7 +5624,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   function coverUp() {
     booting = true;
     clearTimeout(coverT); coverT = setTimeout(() => coverDown(true), 12000);   // (never left up)
-    if (!cover) { cover = h('div', { class: 'pz-cover', 'aria-hidden': 'true' }, h('i')); document.body.append(cover); void cover.offsetWidth; }
+    if (!cover) { cover = h('div', { class: 'pz-cover', 'aria-hidden': 'true' }, h('i')); document.body.append(cover); void readMetric(cover, 'offsetWidth'); }
     cover.classList.add('on');
     return wait(reduce.matches ? 0 : 300);
   }
@@ -5644,7 +5645,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const settle = () => { if (!ui || !shown) return; if (sizeNow() !== sizeSeen) onResize({ type: 'resize' }); else if (cardSig() !== framedSig) reframe(0); };
       let a = T(), same = 0;
       for (let i = 0; i < 40 && same < 5; i++) { await wait(60); settle(); const c = T(); same = c === a ? same + 1 : 0; a = c; }
-      const runs = ui ? [...ui.root.getAnimations({ subtree: true }), ...ui.shade.getAnimations()].filter((x) => x.effect?.getComputedTiming().iterations !== Infinity) : [];
+      const runs = ui ? [...readAnims(ui.root, { subtree: true }), ...readAnims(ui.shade)].filter((x) => readTiming(x.effect).iterations !== Infinity) : [];
       await Promise.race([Promise.all(runs.map((x) => x.finished.catch(() => {}))), wait(1200)]);
       // (Once more as the entrances end: the slide's own framing, set outright for the cards where they now rest.)
       if (ui && shown && booting) { settle(); clearTimeout(reframeT); reframeT = 0; reframe(0); }
@@ -5726,7 +5727,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   }
   function chromeIn() {
     for (const el of app.querySelectorAll('.topbar, .vdock, .stage-bar, #zoomPill, .toolbar')) {
-      if (el.getClientRects().length) el.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE });
+      if (readRects(el).length) el.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE });
     }
   }
   function stopNow(restore = true) {

@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { unsnap } from './unsnap.js';
 await import('./dom-shim.js');   // (the chart draws on the GPU, svg-gl.js, which loads only with a page)
 const { flowTimeHeight, LINE, MEAL_LINES } = await import('../src/ui/flow-time.js');
 
@@ -28,7 +29,7 @@ test('wrapped legends, larger type and treatment bands reserve their actual spac
 });
 
 test('all wide chart-only cards share the protection while mixed and phone cards keep their layout', () => {
-  const js = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  const js = unsnap(readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8'));
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
   assert.match(js, /const eligible = chart && el\.classList\.contains\('tool-only'\) && ui\.root\.classList\.contains\('pz-wide'\) && !ui\.root\.classList\.contains\('stack'\) && !ui\.root\.classList\.contains\('low'\)/);
   assert.match(js, /c === chart\.parentElement \? 0 : c\.getBoundingClientRect\(\)\.height/);

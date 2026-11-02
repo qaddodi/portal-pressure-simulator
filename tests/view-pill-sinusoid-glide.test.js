@@ -6,10 +6,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { unsnap } from './unsnap.js';
 import { easeIO3, EASE_IO3 } from '../src/ui/pill-motion.js';
 import { easeMove, EASE_MOVE } from '../src/ui/ease.js';
 
-const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
+const read = (p) => unsnap(readFileSync(new URL(p, import.meta.url), 'utf8'));
 const main = read('../src/ui/main.js');
 const lz = read('../src/ui/lobule-zoom.js');
 const stage = read('../src/ui/stage.js');

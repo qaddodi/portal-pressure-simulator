@@ -3,10 +3,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { unsnap } from './unsnap.js';
 import { throwAt, THROW_IN } from '../src/ui/card-throw.js';
 
 const src = readFileSync(new URL('../src/ui/card-throw.js', import.meta.url), 'utf8');
-const presenter = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const presenter = unsnap(readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8'));
 
 test('out: gathers pace and fades; in: from the side, no overshoot, whole by 60 %', () => {
   const from = { x: 0, o: 1 }, to = { x: -200, o: 0 };

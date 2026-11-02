@@ -1,12 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { unsnap } from './unsnap.js';
 import { SCALE, bandsOf } from '../src/ui/table-marks.js';
 
 // Titles, labels and data cards from the design critique Mohammad answered on 17 Oct.
 const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 const tokens = readFileSync(new URL('../styles/tokens.css', import.meta.url), 'utf8');
-const js = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const js = unsnap(readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8'));
 
 test('slide titles: weight 540, no rule under them, the rule\'s room kept as space (T5, T6)', () => {
   assert.match(css, /\n\.pz-h \{ margin: 0; font: 540 /);
@@ -66,7 +67,7 @@ test('what-if: a label naming the unit shows the bare number, on the label\'s ro
 test('the level tab and the deck tab share the glass\'s top edge; the deck\'s gives way where they would meet (P1)', () => {
   assert.match(js, /const tight = !!\(stab && tabEl && stab\.getBoundingClientRect\(\)\.right \+ 8 \* k > tabEl\.getBoundingClientRect\(\)\.left\);/);
   assert.match(js, /if \(t && tabsTight\(k\)\) ui\.shade\.classList\.add\('pz-tabs-tight'\);/);
-  assert.match(js, /const tabH = Math\.max\(tabEl && !tight \? tabEl\.offsetHeight : 0, stab\?\.offsetHeight \|\| 0\);/);
+  assert.match(js, /const tabH = Math\.max\(tabEl && !tight \? tabEl\.offsetHeight : 0, stab\??\.offsetHeight \|\| 0\);/);
   assert.match(js, /return Math\.max\(16, tabH \+ 8\);/);
   assert.match(css, /\.pz-sitetab\[hidden\], \.pz-shade\.pz-tabs-tight \.pz-tabname \{ display: none; \}/);
 });
