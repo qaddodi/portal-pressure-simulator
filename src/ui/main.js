@@ -6,7 +6,7 @@ import { budget as gpuBudget } from './gpu-budget.js?v=6537238017';   // (the re
 import './gl-state.js?v=ca10f41a87';   // (early: every WebGL2 context is recorded from its creation, R09/R06)
 import { startHost, host } from './host.js?v=b2e74450ff';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=afc4d7c743';
-import { createStage } from './stage.js?v=8f91f50ef0';
+import { createStage } from './stage.js?v=2d3e4add74';
 import { createCreditPlacer } from './credit.js?v=78e5006814';
 import { whenQuiet, booting, holdCover } from './quiet.js?v=388052eba8';
 import { sinusoidSupported } from './gl-support.js?v=41d56de280';
@@ -212,7 +212,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=831d0f7c26'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=62158ca9a5'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
