@@ -4008,6 +4008,7 @@ button.finding { cursor: pointer; }
 .um-pv.pv-resizing { background: transparent; box-shadow: none; overflow: visible; isolation: isolate; }
 .sheet-plate { display: none; }
 /* A plate gliding to a new size by transform (plate-glide.js): the box's own glass steps aside for the nine pieces, which carry it. */
+:not(.pg-on) > .pg-piece { display: none; }   /* (kept between glides, plate-glide.js platePieces) */
 .pg-on { background: transparent !important; box-shadow: none !important; overflow: visible !important; isolation: isolate; }
 .pg-piece { position: absolute; left: 0; top: 0; z-index: -1; box-sizing: border-box; transform-origin: 0 0; pointer-events: none; will-change: transform;
   background: var(--pg-bg, var(--glass)); border: var(--pg-border, 1px solid var(--hairline)); box-shadow: var(--pg-shadow, calc(1px * var(--light-slant)) 1px 2px rgb(var(--shadow-rgb) / .08)); }

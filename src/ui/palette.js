@@ -169,7 +169,7 @@ export function createPalette({ ctx }) {
         h('span', { class: 'pal-g' }, c.group), h('span', { class: 'pal-t' }, c.title, num != null ? h('b', {}, ` → ${num} ${c.num}`) : null), c.hint && num == null ? h('span', { class: 'pal-h' }, c.hint) : null);
       b.addEventListener('click', () => run(i));
       b.addEventListener('pointermove', (e) => {
-        if (!GLIDE) { if (sel !== i) { sel = i; renderList(); } return; }
+        if (!GLIDE) { if (sel !== i) { sel = i; mark(); syncActive(); } return; }   // (the same rows: only the current one changes, nothing built in a move)
         // (A list that scrolls under a still pointer sends a move at the same spot: the keyboard keeps the highlight then.)
         if (e.clientX === ptX && e.clientY === ptY) return;
         ptX = e.clientX; ptY = e.clientY;
@@ -194,7 +194,7 @@ export function createPalette({ ctx }) {
   function onInView() { list.querySelector('.on')?.scrollIntoView({ block: 'nearest' }); }
   function selInView() { rows[sel]?.scrollIntoView({ block: 'nearest', behavior: scrollBehavior() }); }
   function move(i, scroll) {
-    if (!GLIDE) { sel = i; renderList(); return; }
+    if (!GLIDE) { sel = i; mark(); syncActive(); restPass(onInView); return; }   // (?palglide=0: the same rows, the current one marked, nothing rebuilt)
     if (i === sel || !items.length) return;
     sel = i; mark(); syncActive(); place(true);
     if (scroll) restPass(selInView);

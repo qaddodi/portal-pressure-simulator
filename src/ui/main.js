@@ -11,7 +11,7 @@ import { sinusoidSupported } from './gl-support.js?v=38189f60f5';
 import { createInspector } from './inspector.js?v=aee69b6a2c';
 import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=e22adce945';
 import { setHvpgStage } from './hvpg-proc.js?v=bc5625cd00';
-import { createWhy } from './why.js?v=39c578a0ad';
+import { createWhy } from './why.js?v=4c826453d3';
 import { createTimeline, LAPSES } from './timeline.js?v=43d25b58a4';
 import { createCompare } from './compare.js?v=74ebd9aa6a';
 import { createCard } from './card.js?v=d906e4742d';
@@ -26,8 +26,8 @@ import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=97920ddf3f';
 import { controlOwnsKey } from './key-owner.js?v=60ed93db32';
 import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, swapFade, scrollBehavior, reconcile } from './util.js?v=81aaed6aef';
-import { glidePlate, glideOnResize } from './plate-glide.js?v=12c1380331';
-import { sheetParts, sheetOffset, setSheetOffset, stopSheet, glideSheet } from './sheet-move.js?v=2385027d01';
+import { glidePlateOn, platePieces, glideOnResize } from './plate-glide.js?v=b608fe722c';
+import { sheetParts, sheetOffset, setSheetOffset, stopSheet, glideSheet } from './sheet-move.js?v=09fc291f37';
 import { releaseSpeed, isFlick, flickAim, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=7513a88c68';
 import { morphKey, crossfadeText } from './legend-morph.js?v=1b3907ae0e';
 import './seg-glide.js?v=af9cd3de1a';
@@ -216,7 +216,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
-  paletteL = lazy(() => import('./palette.js?v=46d54f7c94'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=67abd13712'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -1430,6 +1430,7 @@ function wireFloating() {
   // The zoom pill grows and folds by transform when a button comes or goes (the circuit's turn upright): plate-glide.js glideOnResize.
   { const zp = document.getElementById('zoomPill'); if (zp) glideOnResize(zp, { R: parseFloat(getComputedStyle(zp).borderTopLeftRadius) || 16 }); }
   const vdockEl = $('#vdock');
+  const vdockPlate = vdockEl ? platePieces(vdockEl) : null;   // (its glass's pieces, put in once here: a fold that starts in a frame adds nothing to the page)
   let foldTok = 0, foldAnims = [], foldGoal = false, foldEnd = null;
   watchSize(vdockEl, () => {});   // (keeps sizeOf(vdockEl) current)
   const foldDone = (tok) => { if (tok !== foldTok) return; foldAnims = []; soon(); };
@@ -1469,7 +1470,7 @@ function wireFloating() {
     foldAnims.forEach((a) => a.cancel());
     // (Bottom left corner still: in the new box the old one stood from its left edge, its foot on the new one's.)
     if (s1 && (Math.abs(s1.w - from.w) > 0.5 || Math.abs(s1.h - from.h) > 0.5)) {
-      foldEnd = glidePlate(vdockEl, { x: 0, y: s1.h - from.h, w: from.w, h: from.h }, { x: 0, y: 0, w: s1.w, h: s1.h }, { R: 16, done: () => { foldEnd = null; } });
+      foldEnd = glidePlateOn(vdockEl, vdockPlate, { x: 0, y: s1.h - from.h, w: from.w, h: from.h }, { x: 0, y: 0, w: s1.w, h: s1.h }, { R: 16, done: () => { foldEnd = null; } });
     }
     // (The new words come in as the glass is nearly there, so they never show past it.)
     foldAnims = kids.map((k) => k.animate([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, delay: D_FLIP, easing: EASE_ARRIVE, fill: 'backwards' }));

@@ -14,13 +14,32 @@ const PIECES = [
   ['l', [0, 0, 0, 1]], ['c', [0, 0, 0, 0]], ['r', [0, 1, 0, 0]],
   ['bl', [0, 0, 1, 1]], ['b', [0, 0, 1, 0]], ['br', [0, 1, 1, 0]],
 ];
+const CUTS = Object.fromEntries(PIECES);
+
+/** The nine pieces of host's glass, made and put in once and kept between glides, hidden (app.css: a piece shows only while its host
+ *  is .pg-on), so a glide puts nothing into the page (2 Nov 2026, "Move everything to GPU"). Made again only if the host lost them. */
+export function platePieces(host) {
+  const had = host._pgPieces;
+  if (had && had.every(([p]) => p.parentElement === host)) return had;
+  const ps = PIECES.map(([name]) => {
+    const p = document.createElement('i');
+    p.className = `pg-piece pg-${name}`; p.setAttribute('aria-hidden', 'true');
+    return [p, name];
+  });
+  host.append(...ps.map(([p]) => p));
+  host._pgPieces = ps;
+  return ps;
+}
 
 /** Glides host's glass from box `from` to box `to` ({ x, y, w, h } in the host's own new box, px), corner radius R.
  *  Returns a function that ends it at once. done() runs as it lands or is ended. */
-export function glidePlate(host, from, to, { R = 16, duration = D_SURFACE, easing = EASE_ARRIVE, done } = {}) {
+export function glidePlate(host, from, to, opts) { return glidePlateOn(host, platePieces(host), from, to, opts); }
+
+/** glidePlate on pieces made beforehand (platePieces, called as the host is set up), for a glide that starts in a frame. */
+export function glidePlateOn(host, made, from, to, { R = 16, duration = D_SURFACE, easing = EASE_ARRIVE, done } = {}) {
   R = Math.max(0, Math.min(R, from.w / 2, from.h / 2, to.w / 2, to.h / 2));
   const bw = Math.max(1, to.w - 2 * R), bh = Math.max(1, to.h - 2 * R);   // (the stretching pieces' laid-out length: the new box's)
-  const pieces = [];
+  const pieces = made;
   // Where each piece stands, and how far it is stretched, for a box b.
   const at = (name, b) => {
     const iw = Math.max(0, b.w - 2 * R), ih = Math.max(0, b.h - 2 * R);
@@ -30,9 +49,8 @@ export function glidePlate(host, from, to, { R = 16, duration = D_SURFACE, easin
     const sx = col === 1 ? iw / bw : 1, sy = row === 1 ? ih / bh : 1;
     return `translate(${x.toFixed(2)}px, ${y.toFixed(2)}px) scale(${sx.toFixed(4)}, ${sy.toFixed(4)})`;
   };
-  for (const [name, cut] of PIECES) {
-    const p = document.createElement('i');
-    p.className = `pg-piece pg-${name}`; p.setAttribute('aria-hidden', 'true');
+  for (const [p, name] of pieces) {
+    const cut = CUTS[name];
     const col = name.includes('l') ? 0 : name.includes('r') ? 2 : 1, row = name.startsWith('t') ? 0 : name.startsWith('b') ? 2 : 1;
     // (the stretching pieces reach half a pixel under their neighbours, so no seam opens between them)
     const w = col === 1 ? bw + 1 : R, h = row === 1 ? bh + 1 : R;
@@ -45,8 +63,6 @@ export function glidePlate(host, from, to, { R = 16, duration = D_SURFACE, easin
       borderBottomRightRadius: b && r ? `${R}px` : '0', borderBottomLeftRadius: b && l ? `${R}px` : '0',
       clipPath: `inset(${t ? -O : 0}px ${r ? -O : 0}px ${b ? -O : 0}px ${l ? -O : 0}px)`,
     });
-    host.append(p);
-    pieces.push([p, name]);
   }
   host.classList.add('pg-on');
   const anims = pieces.map(([p, name]) => p.animate([{ transform: at(name, from) }, { transform: at(name, to) }], { duration, easing, fill: 'forwards' }));
@@ -54,8 +70,7 @@ export function glidePlate(host, from, to, { R = 16, duration = D_SURFACE, easin
   const end = () => {
     if (over) return; over = true;
     for (const a of anims) a.cancel();
-    for (const [p] of pieces) p.remove();
-    host.classList.remove('pg-on');
+    host.classList.remove('pg-on');   // (the pieces stay, hidden, for the next glide)
     done?.();
   };
   anims[0].onfinish = end;

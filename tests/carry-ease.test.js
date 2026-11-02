@@ -109,7 +109,7 @@ test('the camera, the lobule, the sheets and the paging take it', () => {
   // The bottom bar's fold reversed mid-glide stands at the size it is drawn at while its words fade, then glides on from there (no snap to the glide's end).
   // (Now by transform: the box takes its new size at once and its glass glides there in pieces from the size it is drawn at.)
   assert.match(main, /foldEnd\?\.\(\);\n {4}const from = sizeOf\(vdockEl\) \|\| s0;/);
-  assert.match(main, /foldEnd = glidePlate\(vdockEl, \{ x: 0, y: s1\.h - from\.h, w: from\.w, h: from\.h \}, \{ x: 0, y: 0, w: s1\.w, h: s1\.h \}/);
+  assert.match(main, /foldEnd = glidePlateOn\(vdockEl, vdockPlate, \{ x: 0, y: s1\.h - from\.h, w: from\.w, h: from\.h \}, \{ x: 0, y: 0, w: s1\.w, h: s1\.h \}/);
   assert.doesNotMatch(main, /vdockEl\.animate\(/, 'the bar\'s box never animates its size');
   assert.match(main, /closed: \(\) => \{ stopSheet\(el\); setSheetOffset\(el, 0\); el\.style\.translate = '';/);
   assert.match(menu, /sw\.carry0 = resting && settle \? shiftX\(resting\) : 0;/, 'read at the touch');

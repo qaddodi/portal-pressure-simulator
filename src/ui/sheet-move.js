@@ -45,7 +45,7 @@ export function setSheetOffset(el, y) {
   stopSheet(el);
   el._sheetOff = y;
   const v = y ? `0px ${y}px` : '';
-  for (const c of sheetParts(el)) c.style.translate = v;
+  for (const c of el.children) c.style.translate = v;   // (its plate put in as the sheet was set up: sheetParts)
 }
 
 export function stopSheet(el) {
@@ -59,7 +59,7 @@ export function stopSheet(el) {
 export function glideSheet(el, y, { easing = EASE_ARRIVE, duration = D_SMALL, done } = {}) {
   const from = sheetOffset(el);
   stopSheet(el);
-  const parts = sheetParts(el);
+  const parts = [...el.children];   // (the plate first, put in as the sheet was set up: sheetParts)
   el._sheetOff = y;
   const v = y ? `0px ${y}px` : '';
   for (const c of parts) c.style.translate = v;
