@@ -16,7 +16,6 @@ const ALLOWED = [
   /\.info-i/,                                                           // the (i) button
   /\.pzb-(now|was)/, /\.pzk-/, /\.tl-dot/, /\.sl-start/,              // a value's place on a scale or timeline (sl-start: a what-if's starting value)
   /\.instr-tab\[data-slot/,                                             // the numbered 1 / 2 slot badge
-  /\.ac-ldot/,                                                          // the action card leader's anchor ring at the structure it points to (an SVG circle until 1 Nov 2026)
   /\.pz-nm/,                                                            // the table's "none" ring (○)
   /\.ac-leader \.ac-ldot/,                                               // the action card's leader anchor: where its line meets the figure (an SVG circle until 03413346, now a ringed box)
   /\.pz-crit[^{]*\.pzc-c::before/,                                      // the criteria card's row marks (his pick 26 Oct, "C with D's key words"): a ring per rule, filled on the row that applies to the case; numerals when ordered
