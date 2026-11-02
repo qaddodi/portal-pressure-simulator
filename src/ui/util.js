@@ -1,7 +1,7 @@
 // DOM & formatting helpers.
 import { saver, frame, cancelFrame, easeNow, readFrame } from './frame.js?v=8c8f2f530e';
 import { restPass } from './rest-pass.js?v=e877681653';
-import { glWords } from './gl-words.js?v=f8244e748b';
+import { glWords } from './gl-words.js?v=9e96eca5e8';
 import { slideFold } from './fold-slide.js?v=1b10231dcf';
 import { releaseSpeed, isFlick, carryCurve, settleSlope, settleAt, easeMove, D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js?v=7513a88c68';
 import { leaveFromHere } from './menu-leave.js?v=e885166f40';
@@ -258,7 +258,8 @@ export function tooltipFor(el, text, side = 'right') {
       if (x + tr.width > innerWidth - 8) { x = r.left - tr.width - 10; at = 'left'; }
     }
     tip.dataset.side = at;
-    tip.style.left = clamp(x, 8, innerWidth - tr.width - 8) + 'px'; tip.style.top = clamp(y, 8, innerHeight - tr.height - 8) + 'px';
+    // (Its place is a translate from the window's corner, the compositor's: no left/top is written, so no layout. The tip rests at 0,0 and is measured there.)
+    tip.style.translate = `${clamp(x, 8, innerWidth - tr.width - 8)}px ${clamp(y, 8, innerHeight - tr.height - 8)}px`;
     tip.classList.add('show');
   };
   const hide = () => tip.classList.remove('show');

@@ -982,7 +982,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 
 /* ── Popovers, menus, modals, toasts ────────────── */
 .tooltip {
-  position: fixed; z-index: var(--z-toast); pointer-events: none; background: var(--text); color: var(--stage-bg); padding: 6px 10px 7px; border-radius: var(--r-control);
+  position: fixed; left: 0; top: 0; /* (placed by translate from JS) */ z-index: var(--z-toast); pointer-events: none; background: var(--text); color: var(--stage-bg); padding: 6px 10px 7px; border-radius: var(--r-control);
   font-size: var(--fs-12); font-weight: 500; max-width: min(300px, calc(100vw - 16px)); line-height: 1.45; letter-spacing: .005em; box-shadow: var(--shadow-2);
   /* It eases in a few pixels from its button's side (--tip-x/-y) and leaves at once in place, so a pointer moving along a row never trails tips. */
   --tip-x: -4px; --tip-y: 0px; opacity: 0; transform: translate(var(--tip-x), var(--tip-y)) scale(.98);
@@ -4036,7 +4036,7 @@ html.label-fill-both :is(#labels .lb.scan, .app.presenting #labels .lb) { animat
 .um-esc { margin-left: auto; padding-right: 8px; font-size: var(--fs-12); color: var(--text-3); }
 .um-g li.um-new > .um-row { background: var(--accent-soft); }
 /* The preview beside the panel (mouse) and under a row (touch). */
-.um-pv { position: fixed; z-index: var(--z-popover); width: 360px; max-width: calc(100vw - 16px); background: var(--surface); border-radius: var(--r-card); box-shadow: var(--shadow-menu), 0 0 0 1px var(--hairline); overflow: hidden; opacity: 0; transition: opacity var(--d-flip) var(--ease), translate var(--d-flip) var(--ease); }
+.um-pv { position: fixed; left: 0; top: 0; z-index: var(--z-popover); width: 360px; max-width: calc(100vw - 16px); background: var(--surface); border-radius: var(--r-card); box-shadow: var(--shadow-menu), 0 0 0 1px var(--hairline); overflow: hidden; opacity: 0; transition: opacity var(--d-flip) var(--ease), translate var(--d-flip) var(--ease); }
 .um-pv.on { opacity: 1; translate: none; }
 /* (The preview's change of size and place runs on transforms, menu.js pvResize: no height or top transition.) */
 .um-pv.pv-resizing { background: transparent; box-shadow: none; overflow: visible; isolation: isolate; }

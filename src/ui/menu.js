@@ -5,11 +5,11 @@
 // the panel; on touch, the ⓘ at a presentation's end opens the same preview under its row.
 
 import { store } from './store.js?v=afc4d7c743';
-import { createTraceGL, fitPen } from './trace-gl.js?v=367dbfafa3';
-import { h, icon, svgIcon, cssVar, clamp, settleFrom, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ, fmt, shownOf } from './util.js?v=b7ab8223ab';
+import { createTraceGL, fitPen } from './trace-gl.js?v=b9da7d7959';
+import { h, icon, svgIcon, cssVar, clamp, settleFrom, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ, fmt, shownOf } from './util.js?v=16e26fcf19';
 import { SNAPSHOTS } from './snapshots.js?v=4ca084eda3';
 import { HVPG_CUTS, PPG_CUTS, sevOfCuts } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { pressureColor } from './colormap.js?v=00375d4fcd';
+import { pressureColor } from './colormap.js?v=4bd106b924';
 import { ownsSideways, pageGo } from './swipe.js?v=2e519aab2f';
 import { frameFor } from './frame.js?v=8c8f2f530e';
 import { restPass } from './rest-pass.js?v=e877681653';
@@ -228,16 +228,19 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     if (x + w > innerWidth - 8) x = Math.max(8, innerWidth - w - 8);   // (no room beside the panel: over its right edge)
     const y = clamp(rr.top - 40, 8, visibleBottom() - ph - 8);
     {
-      // (A card already on show glides by transform from where it is drawn now to its new place; its top is written once.)
+      // (A card already on show glides by transform from where it is drawn now to its new place; its place is a transform.)
       const was = pv.classList.contains('on') ? pv._y : null;
+      let from = null;
       if (was != null && Math.abs(was - y) >= 1 && !reduce.matches && pv.animate) {
-        const cur = pv._move?.effect ? (new DOMMatrixReadOnly(getComputedStyle(pv).transform).m42 || 0) : 0;
+        // (Where it is drawn now: the running glide's place, else where it stood.)
+        from = pv._move?.effect ? (new DOMMatrixReadOnly(getComputedStyle(pv).transform).m42 || was) : was;
         pv._move?.cancel();
-        pv._move = pv.animate([{ transform: `translateY(${was + cur - y}px)` }, { transform: 'none' }], { duration: D_FLIP, easing: EASE_ARRIVE });
       }
       pv._y = y;
+      // (left and top are never written, so nothing is laid out.)
+      pv.style.transform = `translate(${x}px, ${y}px)`;
+      if (from != null) pv._move = pv.animate([{ transform: `translate(${x}px, ${from}px)` }, { transform: `translate(${x}px, ${y}px)` }], { duration: D_FLIP, easing: EASE_ARRIVE });
     }
-    pv.style.left = x + 'px'; pv.style.top = y + 'px';
     classSoon(pv, 'on', true);
   }
   // The card is laid out once at the taller height H for the change. Its glass moves onto three plates that ride
