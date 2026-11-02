@@ -13,7 +13,7 @@
 // It reads only the scheduler's own numbers and writes its words once a second, between frames (rest-pass.js), never in a frame. It
 // adds no frame loop of its own: an idle page stays idle (the panel then says so).
 import { watchFrames, perf, refreshHz, refreshMaxHz, frameBudget, targetHz, watchdogStats, mayStats } from './frame.js?v=1d147c7c9a';
-import { restPass } from './rest-pass.js?v=bb619a1659';
+import { restPass } from './rest-pass.js?v=3164fa18ba';
 import { sharedStats } from './trace-gl.js?v=0dcd67d32a';
 import { caught } from './caught.js?v=b96b17594a';
 
