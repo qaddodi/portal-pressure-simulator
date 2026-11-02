@@ -357,10 +357,11 @@ function gradientOf(ctx, g, el) {
   for (const st of g.children) {
     if (st.localName !== 'stop') continue;
     const S = looks.get(st), off = st.getAttribute('offset') || '0', o = /%$/.test(off) ? parseFloat(off) / 100 : parseFloat(off) || 0;
-    const sc = S?.stopAttr ? st.getAttribute('stop-color') : S?.stop;
+    // (A stop with no look read yet, a chart built in this frame, takes the colour it is written with: the line never draws empty.)
+    const sc = S?.stopAttr || (!S && OWN_URL) ? st.getAttribute('stop-color') : S?.stop;
     if (!sc) continue;
     const [r, gg, bb, a] = cssColor(sc);
-    gr.addColorStop(Math.max(0, Math.min(1, o)), `rgba(${Math.round(r * 255)}, ${Math.round(gg * 255)}, ${Math.round(bb * 255)}, ${a * S.stopOp})`);
+    gr.addColorStop(Math.max(0, Math.min(1, o)), `rgba(${Math.round(r * 255)}, ${Math.round(gg * 255)}, ${Math.round(bb * 255)}, ${a * (S ? S.stopOp : 1)})`);
   }
   return gr;
 }
