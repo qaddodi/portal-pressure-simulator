@@ -19,21 +19,36 @@
 import { gpuProbe } from './gpu-probe.js?v=625c2c9315';
 import { createFrameRecorder } from './frame-stats.js?v=5cd07c7e9b';
 import { createInputLatency, describeTarget } from './input-latency.js?v=3c0129b426';
-let queue = new Map();   // id -> [tag, cb], in request order
+// A batch of asked-for callbacks, in request order (plan "Holding 120 Hz, always" rev 2 §2.8: zero allocation on the frame path). Three
+// parallel arrays that keep their length from frame to frame, so an ask writes three slots and allocates nothing, and running a batch
+// walks it by index (the Map of [tag, cb] pairs it replaces made one array per ask and one entry array per callback run). A cancelled
+// or run slot is emptied (cb null) and skipped; clear() empties the batch for its next use as a spare.
+class Batch {
+  constructor() { this.ids = new Array(64).fill(0); this.tags = new Array(64).fill(null); this.cbs = new Array(64).fill(null); this.n = 0; this.size = 0; }
+  add(id, tag, cb) { const i = this.n++; this.ids[i] = id; this.tags[i] = tag; this.cbs[i] = cb; this.size++; }
+  delete(id) {
+    for (let i = this.n - 1; i >= 0; i--) if (this.ids[i] === id) { if (!this.cbs[i]) return false; this.cbs[i] = null; this.tags[i] = null; this.size--; return true; }
+    return false;
+  }
+  clear() { for (let i = 0; i < this.n; i++) { this.cbs[i] = null; this.tags[i] = null; } this.n = 0; this.size = 0; }
+  /** The tags of the callbacks still waiting (perf().waiting; not on the frame path). */
+  waitingTags(into) { for (let i = 0; i < this.n; i++) if (this.cbs[i]) into.add(this.tags[i]); return into; }
+}
+let queue = new Batch();   // in request order
 let current = null;      // the batch running now
 // Asked for with lateFrame: run after every other callback of the frame (one asked for while that frame's callbacks run still
 // runs in it), so a surface that draws what the others set up (the figure's one render pass) draws their final state, once.
-let late = new Map(), lateNow = null;
+let late = new Batch(), lateNow = null;
 // Asked for with finalFrame: run after the late ones (the glass over the figure: every writer of the frame, the figure's own pass
 // included, has run by then, so it is drawn once, over their final state).
-let fin = new Map(), finalNow = null;
+let fin = new Batch(), finalNow = null;
 // Asked for with readFrame: run first in the next frame, before every other callback (1 Nov 2026, "Move everything to GPU": zero layout
 // inside the frame). The page's layout is still the one the browser computed for the last frame, so a box read there costs nothing,
 // where the same read after the frame's first writes forced a layout of the page. Read only: a callback asked for from one runs in the
 // same frame (its early phase), after every read.
-let reads = new Map(), readsNow = null;
+let reads = new Batch(), readsNow = null;
 let next = 1, pending = 0;
-let spareQ = new Map(), spareL = new Map(), spareF = new Map(), spareR = new Map();
+let spareQ = new Batch(), spareL = new Batch(), spareF = new Batch(), spareR = new Batch();
 const counts = new Map(), rates = new Map(), draws = new Map(), drawRates = new Map(), totals = { asks: {}, drawn: {}, ms: {} };
 let windowAt = 0, frames = 0, fps = 0, allFrames = 0;
 // Frame watchers (watchFrames). `parts` is the running frame's callbacks (surface, phase, ms), kept only while someone watches.
@@ -66,22 +81,23 @@ function flush(now) {
   frameT0 = performance.now();
   const watching = watchers.size > 0, t0 = watching ? performance.now() : 0;
   parts = watching ? outsideParts.splice(0) : null;
-  // (Each queue swaps with its spare, emptied as it ran: no new Map a frame (plan "Holding 120 Hz" §3.1). A batch is emptied as it runs,
+  timeFrame = watching || TIME_ALL || allFrames % TIME_EVERY === 0;
+  // (Each queue swaps with its spare, emptied as it ran: no new batch a frame (plan "Holding 120 Hz" §3.1). A batch is emptied as it runs,
   // and one cut short by a throw is cleared before it becomes the spare.)
   if (reads.size) {
     readsNow = reads;
-    reads = spareR.size ? new Map() : spareR;   // (asked for while they run: the next frame)
+    reads = spareR.size ? new Batch() : spareR;   // (asked for while they run: the next frame)
     try { run(readsNow, now, 'read'); } finally { readsNow.clear(); spareR = readsNow; readsNow = null; }
   }
   current = queue;
-  queue = spareQ.size ? new Map() : spareQ;   // asked for while running: the next frame, as with requestAnimationFrame
+  queue = spareQ.size ? new Batch() : spareQ;   // asked for while running: the next frame, as with requestAnimationFrame
   try {
     run(current, now, 'early');
     lateNow = late;
-    late = spareL.size ? new Map() : spareL;   // asked for while the late ones run: the next frame
+    late = spareL.size ? new Batch() : spareL;   // asked for while the late ones run: the next frame
     run(lateNow, now, 'late');
     finalNow = fin;
-    fin = spareF.size ? new Map() : spareF;    // (likewise)
+    fin = spareF.size ? new Batch() : spareF;    // (likewise)
     run(finalNow, now, 'final');
     runMay(now);
   } finally {
@@ -115,16 +131,30 @@ function flush(now) {
   chained = !!pending;
 }
 
+// (Rev 2 §2.8: each callback's own time is read only where something uses it: every callback while frames are watched (?perf, the
+// gates, perf().frames) or under ?fps= and ?perf; otherwise one frame in TIME_EVERY, its times counted TIME_EVERY times over in
+// totals.ms (an estimate of the same sum), plus the deferrable surfaces, whose predicted cost the watchdog judges by. The other frames
+// make no performance.now() pair per callback.)
+export const TIME_EVERY = 30;
+const TIME_ALL = typeof location !== 'undefined' && /[?&](perf|fps)(?=[=&#]|$)/.test(location.search || '');
+let timeFrame = false;
+/** Whether this frame's callbacks are each timed (every frame while watched or under ?perf/?fps, else one in TIME_EVERY). */
+export const framesTimed = () => timeFrame;
 function run(batch, now, phase) {
-  for (const [id, [tag, cb]] of batch) {
-    batch.delete(id);
-    if (phase === 'early' && shedding(tag)) { queue.set(id, [tag, cb]); continue; }   // (carried to the next frame: see the watchdog)
+  for (let i = 0; i < batch.n; i++) {
+    const cb = batch.cbs[i];
+    if (!cb) continue;
+    const tag = batch.tags[i];
+    batch.cbs[i] = null; batch.tags[i] = null; batch.size--;
+    if (phase === 'early' && shedding(tag)) { queue.add(batch.ids[i], tag, cb); continue; }   // (carried to the next frame: see the watchdog)
     counts.set(tag, (counts.get(tag) || 0) + 1); totals.asks[tag] = (totals.asks[tag] || 0) + 1;
-    const t0 = performance.now();
+    const learn = phase === 'early' && DEFERRABLE.has(tag), timed = timeFrame || learn;
+    const t0 = timed ? performance.now() : 0;
     try { if (gpuProbe.on) gpuProbe.time(null, `${tag} (script)`, () => cb(now)); else cb(now); } catch (e) { setTimeout(() => { throw e; }); }   // one surface's error never stops the others
+    if (!timed) continue;
     const ms = performance.now() - t0;
-    if (phase === 'early') learnCost(tag, ms);
-    totals.ms[tag] = (totals.ms[tag] || 0) + ms;
+    if (learn) learnCost(tag, ms);
+    if (timeFrame) totals.ms[tag] = (totals.ms[tag] || 0) + (parts || TIME_ALL ? ms : ms * TIME_EVERY);
     parts?.push([tag, phase, ms]);
   }
 }
@@ -153,9 +183,21 @@ export function refreshFrom(dts) {
 }
 const gapRing = new Float32Array(240);
 let gapN = 0, gapAt = 0, hzNow = 0, hzMax = 0, hzAt = 0;
+// (Rev 2 §2.8: the same rule as refreshFrom, on a scratch array kept for it, so the check every 30 frames allocates nothing.)
+const gapSort = new Float32Array(240);
+function refreshFromRing() {
+  let k = 0;
+  for (let i = 0; i < gapN; i++) { const d = gapRing[i]; if (d > 2 && d < 100) gapSort[k++] = d; }
+  if (k < 20) return 0;
+  gapSort.fill(Infinity, k); gapSort.sort();
+  const hz = 1000 / gapSort[Math.floor(k / 4)];
+  let best = REFRESH_RATES[0];
+  for (let i = 1; i < REFRESH_RATES.length; i++) if (Math.abs(REFRESH_RATES[i] - hz) < Math.abs(best - hz)) best = REFRESH_RATES[i];
+  return best;
+}
 function noteGap(dt) {
   gapRing[gapAt] = dt; gapAt = (gapAt + 1) % gapRing.length; if (gapN < gapRing.length) gapN++;
-  if (++hzAt >= 30) { hzAt = 0; hzNow = refreshFrom(Array.from(gapRing.subarray(0, gapN))); if (gapN >= 120) hzMax = Math.max(hzMax, hzNow); }
+  if (++hzAt >= 30) { hzAt = 0; hzNow = refreshFromRing(); if (gapN >= 120) hzMax = Math.max(hzMax, hzNow); }
 }
 /** The cadence the page's frames are observed at now (Hz; 0 until enough frames have run). A diagnostic: never the budget. */
 export const refreshHz = () => hzNow;
@@ -276,14 +318,14 @@ function shedding(tag) {
 // next frame whatever the budget, as with frameFor.
 export const MAY_ON = !(typeof location !== 'undefined' && /[?&]maytasks=0\b/.test(location.search || ''));
 export const MAY_SHARE = 0.42, MAY_WAIT = 4;
-const mays = new Map();   // tag -> { fn, waited, notBefore, maxWait }
+const mays = new Map();   // tag -> { tag, fn, waited, notBefore, maxWait }
 const mayCost = new Map(), mayBatch = [];
 const mayStat = { ran: 0, waited: 0, aged: 0 };
 let mayT = 0, mayTAt = 0;
 export function mayTask(tag, fn, { notBefore = 0, maxWait = MAY_WAIT } = {}) {
   const was = mays.get(tag);
   if (was) { was.fn = fn; was.notBefore = notBefore; was.maxWait = maxWait; }
-  else mays.set(tag, { fn, waited: 0, notBefore, maxWait });
+  else mays.set(tag, { tag, fn, waited: 0, notBefore, maxWait });
   if (!notBefore || notBefore <= performance.now()) { if (!pending && !current && !readsNow) pending = requestAnimationFrame(flush); }
   else if (!pending) mayTimer();
   return () => cancelMay(tag);
@@ -314,8 +356,9 @@ function runMay(now) {
   const limit = MAY_SHARE * frameBudget();
   // (The tasks due as the pass starts, once each: one asked again while the pass runs, or going on (more), waits for the next frame.)
   mayBatch.length = 0;
-  for (const e of mays) mayBatch.push(e);
-  for (const [tag, m] of mayBatch) {
+  for (const m of mays.values()) mayBatch.push(m);
+  for (let i = 0; i < mayBatch.length; i++) {
+    const m = mayBatch[i], tag = m.tag;
     if (mays.get(tag) !== m) continue;
     const t = performance.now();
     if (m.notBefore && m.notBefore > t) continue;
@@ -330,8 +373,9 @@ function runMay(now) {
     mayCost.set(tag, c == null ? ms : c * 0.7 + ms * 0.3);
     totals.ms[tag] = (totals.ms[tag] || 0) + ms;
     parts?.push([tag, 'may', ms]);
-    if (more && !mays.has(tag)) mays.set(tag, { fn: m.fn, waited: 0, notBefore: 0, maxWait: m.maxWait });
+    if (more && !mays.has(tag)) { m.waited = 0; m.notBefore = 0; mays.set(tag, m); }   // (the same record goes on: nothing new a slice)
   }
+  mayBatch.length = 0;
 }
 
 // ── ?fps=120 (recs, quick win 1): frames asked for every refresh while the page shows, and every overrun logged ──
@@ -367,7 +411,7 @@ function roll(now) {
 
 export function frame(cb, tag = 'other') {
   const id = next++;
-  queue.set(id, [tag, cb]);
+  queue.add(id, tag, cb);
   if (!pending && !current && !readsNow) pending = requestAnimationFrame(flush);
   return id;
 }
@@ -375,7 +419,7 @@ export function frame(cb, tag = 'other') {
 /** As frame(), but run before every other callback of the next frame, while the layout is still the last frame's (see `reads`). */
 export function readFrame(cb, tag = 'other') {
   const id = next++;
-  reads.set(id, [tag, cb]);
+  reads.add(id, tag, cb);
   if (!pending && !current && !readsNow) pending = requestAnimationFrame(flush);
   return id;
 }
@@ -383,7 +427,7 @@ export function readFrame(cb, tag = 'other') {
 /** As frame(), but run after every other callback of its frame (see `late`). */
 export function lateFrame(cb, tag = 'other') {
   const id = next++;
-  late.set(id, [tag, cb]);
+  late.add(id, tag, cb);
   if (!pending && !current && !readsNow) pending = requestAnimationFrame(flush);
   return id;
 }
@@ -391,7 +435,7 @@ export function lateFrame(cb, tag = 'other') {
 /** As lateFrame(), but run after the late ones too (see `fin`). */
 export function finalFrame(cb, tag = 'other') {
   const id = next++;
-  fin.set(id, [tag, cb]);
+  fin.add(id, tag, cb);
   if (!pending && !current && !readsNow) pending = requestAnimationFrame(flush);
   return id;
 }
@@ -416,7 +460,8 @@ export const PACED = !(typeof location !== 'undefined' && /[?&]paced=0\b/.test(l
 // their own speed, and only its sudden long frames are smoothed over.)
 export const PACE_MAX = 1000;   // (a software renderer's frames, a second apart, run at their own speed)
 let paceReal = 0, paceBase = 0, paceCap = PACE_CAP;
-const paceGaps = [];
+const paceGaps = new Float64Array(9), paceSort = new Float64Array(9);
+let paceAt = 0, paceN = 0;
 const wall = () => performance.now();
 // ── One honest clock (recs_cgpt R20, 2 Nov 2026) ── easeNow() is the wall clock, one time per frame (every surface of a frame reads
 // the same), never held back: a long frame shows the ease where the wall clock puts it, so a transition ends when its own duration
@@ -434,19 +479,17 @@ function paceStep() {
     clockStats.frames++;
     if (gap > paceCap) { clockStats.long++; clockStats.lostMs += gap - paceCap; clockStats.worstMs = Math.max(clockStats.worstMs, gap); }
     paceBase = paceReal = t;
-    if (chained) {
-      paceGaps.push(gap); if (paceGaps.length > 9) paceGaps.shift();
-      const m = [...paceGaps].sort((a, b) => a - b)[paceGaps.length >> 1];
-      paceCap = Math.min(PACE_MAX, Math.max(PACE_CAP, 2 * m));
-    }
+    if (chained) paceNote(gap);
     return;
   }
   paceBase += Math.min(gap, paceCap); paceReal = t;
-  if (chained) {
-    paceGaps.push(gap); if (paceGaps.length > 9) paceGaps.shift();
-    const m = [...paceGaps].sort((a, b) => a - b)[paceGaps.length >> 1];
-    paceCap = Math.min(PACE_MAX, Math.max(PACE_CAP, 2 * m));
-  }
+  if (chained) paceNote(gap);
+}
+// (The median of the last 9 intervals, kept in a ring and sorted in a scratch array: no array made a frame, rev 2 §2.8.)
+function paceNote(gap) {
+  paceGaps[paceAt] = gap; paceAt = (paceAt + 1) % 9; if (paceN < 9) paceN++;
+  paceSort.set(paceGaps); paceSort.fill(Infinity, paceN); paceSort.sort();
+  paceCap = Math.min(PACE_MAX, Math.max(PACE_CAP, 2 * paceSort[paceN >> 1]));
 }
 /** The eases' clock (ms): performance.now() while frames come promptly, held to PACE_CAP ms of progress from frame to frame. */
 export function easeNow() {
@@ -502,7 +545,7 @@ export function noteDraw(tag) { draws.set(tag, (draws.get(tag) || 0) + 1); total
 // totals.ms: the main-thread time each surface's callbacks took, in ms: CPU time issuing work, not the GPU's own time).
 export function perf() {
   roll(performance.now());
-  return { fps, surfaces: Object.fromEntries(rates), drawn: Object.fromEntries(drawRates), totals: { asks: { ...totals.asks }, drawn: { ...totals.drawn }, ms: { ...totals.ms }, frames: allFrames }, waiting: [...new Set([...queue.values(), ...late.values(), ...fin.values()].map(([t]) => t))],
+  return { fps, surfaces: Object.fromEntries(rates), drawn: Object.fromEntries(drawRates), totals: { asks: { ...totals.asks }, drawn: { ...totals.drawn }, ms: { ...totals.ms }, frames: allFrames }, waiting: [...fin.waitingTags(late.waitingTags(queue.waitingTags(new Set())))],
     get inputToPaint() { return inputMeasure(); }, frames: frameRecording };
 }
 

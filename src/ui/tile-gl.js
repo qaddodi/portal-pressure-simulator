@@ -14,7 +14,7 @@
 
 import { glGet, glOn, fbComplete } from './gl-state.js?v=900a43dce7';
 import { prestart, prestarted, linkProgram, publishWhenDone, stillCompiling } from './gl-compile.js?v=0ca233872f';
-import { isGpuPicture, paintGL } from './paint-gl.js?v=ff54f53c4c';
+import { isGpuPicture, paintGL } from './paint-gl.js?v=52011066cc';
 
 /** A copy of tile canvas src made on the GPU. look: { blur (Gaussian sigma, tile px; 0 for none), sat (the grey blend's share),
  *  tone ([r, g, b] 0–1, the colour laid over it), toneA (its opacity), flat (a second layer of the same colour, 0 for none) }.

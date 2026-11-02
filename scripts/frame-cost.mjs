@@ -40,6 +40,8 @@ try {
   await page.goto(server.url + '?preset=cirr-decomp');
   await page.waitForFunction(() => document.querySelector('#scenarioName')?.textContent.includes('Decompensated') && window.pps?.store.get().frame, null, { timeout: 60000 });
   await page.evaluate(() => window.pps.host.send({ type: 'run', running: true }));
+  // (Frames watched, so every callback is timed: unwatched, frame.js times one frame in 30 and counts it 30 times over.)
+  await page.evaluate(() => window.pps.perf.frames.start());
   await page.waitForTimeout(2500);
 
   await moment('Anatomy, Tests dock open', async () => {

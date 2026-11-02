@@ -12,7 +12,7 @@
 // Read it: ?perf (the readout's Surfaces block ends with the budget), or pps.budget() in the console. ?gpubudget=0: off (nothing counted).
 
 import { onGLCall, glRec, GL_STATE } from './gl-state.js?v=900a43dce7';
-import { onFrameEnd } from './frame.js?v=c67ad74ad8';
+import { onFrameEnd } from './frame.js?v=897b4f8e7e';
 
 const SEARCH = typeof location !== 'undefined' ? location.search || '' : '';
 export const GPU_BUDGET = GL_STATE && !/[?&]gpubudget=0\b/.test(SEARCH);

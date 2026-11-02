@@ -9,12 +9,12 @@
 // transparency, a browser without backdrop blur (whose solid card stays), or a copy the browser refuses.
 
 import { GLASS_SHARE, shareFor, sharePrep, sharePlan, shareTurn, shareUse, shareRelease, shareBytes } from './blur-share.js?v=00eb65ddf2';
-import { hold } from './gpu-budget.js?v=47759d6d7b';
+import { hold } from './gpu-budget.js?v=82c7c5c48f';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
-import { finalFrameFor, readFrameFor, framePhase, cancelFrame, noteDraw } from './frame.js?v=c67ad74ad8';
+import { finalFrameFor, readFrameFor, framePhase, cancelFrame, noteDraw } from './frame.js?v=897b4f8e7e';
 import { startProgram, checkProgram, compileDone, exerciseDraw, SHADER_WARM } from './gl-compile.js?v=0ca233872f';
-import { shiftOf, translateOf, movesOnly, clockOf, clockAt, fillsAfter, affineOf, affMul, aboutOrigin, mapBox, unmapBox, motionAffAt, layoutWidth } from './glass-motion.js?v=ef36fb5a2a';
-import { readOwnBox, readStyle, readMetric } from './layout-snap.js?v=8d28b1c421';
+import { shiftOf, translateOf, movesOnly, clockOf, clockAt, fillsAfter, affineOf, affMul, aboutOrigin, mapBox, unmapBox, motionAffAt, layoutWidth } from './glass-motion.js?v=23dbae7819';
+import { readOwnBox, readStyle, readMetric } from './layout-snap.js?v=860dd00c66';
 import { pathPolys, fanTriangles } from './path-poly.js?v=07f30beea9';
 import { easeArrive, D_SURFACE } from './ease.js?v=7513a88c68';
 

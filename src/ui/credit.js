@@ -1,13 +1,13 @@
 // The corner credit finds a free spot on the figure: never on or touching a card, a sheet, a bar or a menu.
 // It keeps its corner while that corner stays free and is never animated (no glide, no fade): any move hides it at once,
 // holds it hidden only until the cards have settled (a slide change lifts its hold 120 ms after the camera move; a move off a spot a card now covers is hidden for 80 ms), then shows it at once at the new spot; with no figure left anywhere it stays hidden.
-import { readFrameFor, figLab } from './frame.js?v=c67ad74ad8';
+import { readFrameFor, figLab } from './frame.js?v=897b4f8e7e';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
-import { restPass } from './rest-pass.js?v=6eb6322f82';
+import { restPass } from './rest-pass.js?v=442dee98c9';
 import { CELL, cellFor, regionFor, contains, touches, artTest, boxThrough, multiply, invert } from './credit-art.js?v=77b95dafe8';
 import { CellGrid, geomOf } from './cell-grid.js?v=52b9227071';
 import { layoutWatch, PLACED, GESTURE_LOOK } from './idle-keys.js?v=81fbedda6b';
-import { readAnims, readBox, readCTM, readMetric, readStyle, readTiming } from './layout-snap.js?v=8d28b1c421';
+import { readAnims, readBox, readCTM, readMetric, readStyle, readTiming } from './layout-snap.js?v=860dd00c66';
 // (The art's walk looks at the camera once a frame: in the frame's first, read-only phase (2 Nov 2026), where the layout is the one the
 // browser last drew, never after the frame's writes.)
 const nextFrame = readFrameFor('credit');

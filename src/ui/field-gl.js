@@ -12,7 +12,7 @@
 // field is drawn on the 2D canvas as before.
 
 import { startProgram, checkProgram, exerciseDraw, publishWhenDone, compileDone, SHADER_WARM } from './gl-compile.js?v=0ca233872f';
-import { isTileCopy, createTileCopier } from './tile-gl.js?v=4e2e9a2b46';
+import { isTileCopy, createTileCopier } from './tile-gl.js?v=b33d43457d';
 
 const VS = `#version 300 es
 in vec2 p;

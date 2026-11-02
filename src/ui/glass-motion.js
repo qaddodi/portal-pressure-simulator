@@ -4,7 +4,7 @@
 // opacity written inline on the glass or on anything holding it, or a running animation of either (a CSS transition, a CSS keyframe
 // animation, a script's animate()), worked out from its keyframes and its timing, with no read of layout or style.
 
-import { readMetric } from './layout-snap.js?v=8d28b1c421';
+import { readMetric } from './layout-snap.js?v=860dd00c66';
 
 const NUM = (v) => parseFloat(v) || 0;
 const PX = /^(-?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)(px)?$/i;

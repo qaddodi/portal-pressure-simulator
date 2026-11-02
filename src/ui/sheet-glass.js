@@ -4,8 +4,8 @@
 // readings' card first, as that same shape (its rounded box with the instrument card's cut out, a mask path), then the instrument's
 // card over it, each with its own corners, tint and fade.
 import { rgbaOf } from './lz-pills.js?v=78a9c7ce60';
-import { readOwnBox } from './layout-snap.js?v=8d28b1c421';
-import { layoutWidth } from './glass-motion.js?v=ef36fb5a2a';
+import { readOwnBox } from './layout-snap.js?v=860dd00c66';
+import { layoutWidth } from './glass-motion.js?v=23dbae7819';
 
 const NUM = (v) => parseFloat(v) || 0;
 const radii = (s, w, h) => [s.borderTopLeftRadius, s.borderTopRightRadius, s.borderBottomRightRadius, s.borderBottomLeftRadius].map((v) => Math.max(0, Math.min(NUM(v), w / 2, h / 2)));
