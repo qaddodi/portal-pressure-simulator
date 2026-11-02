@@ -55,9 +55,42 @@ const sevOf = hvpgSev;
 const wordOf = (v) => (v < HVPG_CUTS.amber ? 'Normal' : v < HVPG_CUTS.red ? 'Mild' : v < HVPG_CUTS.bleed ? 'CSPH' : 'CSPH · bleed risk');
 const nice = (span, n = 4) => { const raw = Math.max(1e-6, span / n); const p = Math.pow(10, Math.floor(Math.log10(raw))); const r = raw / p; return (r < 1.5 ? 1 : r < 3.5 ? 2 : r < 7.5 ? 5 : 10) * p; };
 
-// (The web fonts finishing changes how every word on the chart is set: the still picture is drawn again then.)
-let fontEpoch = 0;
-globalThis.document?.fonts?.addEventListener?.('loadingdone', () => { fontEpoch++; });
+// Kept once, for every frame (nothing below is made in a frame: gpu-practices.md, "no allocation in a frame"). Dashes are handed to the pen,
+// which copies them; the words are tables made here, at load, so a frame reads a string instead of building one.
+const DASH_NONE = [], DASH_PORTAL = [6, 4], DASH_BEFORE = [0.1, 4.5], DASH_LIMIT = [3, 4], DASH_MARK = [2, 3], DASH_SWATCH = [4, 3];
+const TICK_CHOICES = [5, 10, 20, 25, 50];
+const HVPG_KEYS = ['hvpg'];
+const RANGE_SPAN = Object.fromEntries(RANGES.map((r) => [r[0], r[2]]));   // (seconds on screen; null: the days)
+const BEAT_TOP_KEYS = ['whvp', 'CONF'];
+const SEV_VAR = { ok: '--ok', caution: '--caution', danger: '--danger' };   // (hvpgSev's three words, as colour tokens)
+const AX_BEATS = [], AX_MIN = [], STR5 = [];   // (the time axis' names by seconds back, "−4 s", "−2 min"; the scale's numbers by fives)
+for (let s = 0; s <= 240; s++) { AX_BEATS[s] = `−${s} s`; AX_MIN[s] = s % 60 === 0 ? `−${s / 60} min` : `−${s} s`; }
+for (let i = 0; i <= 600; i++) STR5[i] = String(i * 5);
+const TRACE_OF = Object.fromEntries(TRACES.map((t) => [t.id, t]));
+const IMAGING_HIDDEN = new Set(['pv', 'trueHVPG', 'ra']), NONE_HIDDEN = new Set();
+const mkSlot = () => ({ x: [], mid: [], lo: null, hi: null, loB: [], hiB: [] });   // (a series written in place: x, mid, and lo / hi on the two minutes)
+const mkJoin = () => ({ a: null, sep: null, b: null, s: '' });
+/** `a + sep + b`, built again only when a part is not what this place last built it from (one slot to a place in the drawing). */
+function joined(slot, a, sep, b) {
+  if (slot.a !== a || slot.sep !== sep || slot.b !== b) { slot.s = a + sep + b; slot.a = a; slot.sep = sep; slot.b = b; }   // alloc-rare: a part changed (a new reading, label or day); the same words are read back otherwise
+  return slot.s;
+}
+// A digit-for-0 copy of a string, for setting figures in a column; the same string comes round every frame, so it is made once per string.
+const zeros = new Map();
+function zeroed(t) {
+  let z = zeros.get(t);
+  if (z === undefined) { if (zeros.size > 400) zeros.clear(); z = t.replace(/\d/g, '0'); zeros.set(t, z); }   // alloc-rare: first sight of this string
+  return z;
+}
+const sevVars = new Map();
+function sevVar(sev) {
+  const v = SEV_VAR[sev];
+  if (v !== undefined) return v;
+  let t = sevVars.get(sev);
+  if (t === undefined) { t = `--${sev}`; sevVars.set(sev, t); }   // alloc-rare: first sight of this marker severity
+  return t;
+}
+const byY = (a, b) => a.y - b.y;
 
 export function createPressureTime({ marks = () => [], stillLayer = true } = {}) {
   // ── DOM ───────────────────────────────────────────
@@ -70,8 +103,8 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
   const rangeSeg = h('div', { class: 'seg pt-range', role: 'group', 'aria-label': 'Time range' }, RANGES.map(([id, label]) =>
     h('button', { 'data-range': id, 'aria-pressed': String(id === range), onclick: () => { userRange = id; setRange(id); } }, label)));
   const cv = h('canvas', { role: 'img', 'aria-label': 'Pressure over time' });
-  // The chart's still parts (laptop-heat recs H3): its panel, grid, thresholds and, on a slide's card, the column of readings, drawn once
-  // while their key holds (still-layer.js), laid down whole each frame; the traces, ends, markers, axis and crosshair are drawn over it.
+  // The chart's still parts (laptop-heat recs H3): its panel, grid, thresholds and, on a slide's card, the column of readings, drawn
+  // first each frame between a save and a restore (still-layer.js: it takes no key now, the GPU's pen draws them again at no copy); the traces, ends, markers, axis and crosshair are drawn over it.
   const still = createStill(cv, { on: stillLayer });
   const box = h('div', { class: 'chart-box pt-box' }, cv);
   // The chart drawn by the GPU (trace-gl.js; Mohammad, 1 Nov: "Move everything to GPU"): every part of it, the panel, grid and words as
@@ -212,37 +245,50 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
   }
 
   // ── Series for the current range ──────────────────
-  // Each series: { x: [...], mid: [...], lo?: [...], hi?: [...] } in the range's x units.
-  function series(key, x0, x1 = Infinity) {
-    if (!smooth || range === 'days') return rawSeries(key, x0, x1);
+  // Each series: { x: [...], mid: [...], lo?: [...], hi?: [...] } in the range's x units. It is written in place into the slot it is given
+  // (kept for the chart's life, mkSlot) and the slot is returned; what a frame holds on to, `slots`, has one for each trace and the HVPG.
+  const slots = {}, tmpSlot = mkSlot(), smRaw = mkSlot(), smA = [], smB = [];
+  for (const k of KEYS) slots[k] = mkSlot();
+  function series(key, x0, x1 = Infinity, out) {
+    if (!smooth || range === 'days') return rawSeries(key, x0, x1, out);
     // Average over the whole retained history (so the left edge is not a short window), twice,
     // then cut to the view: one pass leaves a ripple of the breathing rhythm at the newest end.
-    const all = smoothed(smoothed(rawSeries(key, -Infinity, x1), SMOOTH_S), SMOOTH_S / 2);
+    const raw = rawSeries(key, -Infinity, x1, smRaw);
+    smoothed(raw.x, raw.mid, smA, SMOOTH_S);
+    smoothed(raw.x, smA, smB, SMOOTH_S / 2);
     // Where the oldest samples lack a full window the average is lopsided: draw only from where it is complete.
-    const from = Math.max(x0 - 0.05, (all.x[0] ?? 0) + SMOOTH_S * 1.5);
-    let i = 0; while (i < all.x.length && all.x[i] < from) i++;
-    return { x: all.x.slice(i), mid: all.mid.slice(i) };
-  }
-  // Trailing mean over w seconds, without the trough-to-peak band.
-  function smoothed(s, w) {
-    const out = { x: s.x, mid: new Array(s.x.length) };
-    let j = 0, sum = 0, n = 0;
-    for (let i = 0; i < s.x.length; i++) {
-      const v = s.mid[i];
-      if (!Number.isNaN(v)) { sum += v; n++; }
-      while (s.x[j] < s.x[i] - w) { if (!Number.isNaN(s.mid[j])) { sum -= s.mid[j]; n--; } j++; }
-      out.mid[i] = n ? sum / n : NaN;
-    }
+    const from = Math.max(x0 - 0.05, (raw.x[0] ?? 0) + SMOOTH_S * 1.5);
+    let i = 0; while (i < raw.x.length && raw.x[i] < from) i++;
+    let n = 0;
+    for (; i < raw.x.length; i++, n++) { out.x[n] = raw.x[i]; out.mid[n] = smB[i]; }
+    out.x.length = n; out.mid.length = n; out.lo = out.hi = null;
     return out;
   }
-  function rawSeries(key, x0, x1) {
+  // Trailing mean over w seconds, without the trough-to-peak band: the mean of mid (at xs) into out.
+  function smoothed(xs, mid, out, w) {
+    const len = xs.length;
+    out.length = len;
+    let j = 0, sum = 0, n = 0;
+    for (let i = 0; i < len; i++) {
+      const v = mid[i];
+      if (!Number.isNaN(v)) { sum += v; n++; }
+      while (xs[j] < xs[i] - w) { if (!Number.isNaN(mid[j])) { sum -= mid[j]; n--; } j++; }
+      out[i] = n ? sum / n : NaN;
+    }
+  }
+  function rawSeries(key, x0, x1, out) {
+    out.lo = out.hi = null;
     if (range === 'beats') {
       // (The samples are in time order: the window is one run of them, found by bisection and copied whole.)
-      const i0 = firstAtOrAbove(fine.t, x0 - 0.05), i1 = firstAbove(fine.t, x1);
-      return i1 > i0 ? { x: fine.t.slice(i0, i1), mid: fine[key].slice(i0, i1) } : { x: [], mid: [] };
+      const i0 = firstAtOrAbove(fine.t, x0 - 0.05), i1 = firstAbove(fine.t, x1), v = fine[key], t = fine.t;
+      const n = i1 > i0 ? i1 - i0 : 0;
+      for (let i = 0; i < n; i++) { out.x[i] = t[i0 + i]; out.mid[i] = v[i0 + i]; }
+      out.x.length = n; out.mid.length = n;
+      return out;
     }
     if (range === 'minutes') {
-      const out = { x: [], mid: [], lo: [], hi: [] };
+      out.lo = out.loB; out.hi = out.hiB;
+      out.x.length = out.mid.length = out.lo.length = out.hi.length = 0;
       const all = coarse; // the bin still filling has few samples and would wiggle at the tail
       for (const b of all) {
         const s = b.v[key];
@@ -251,7 +297,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
       }
       return out;
     }
-    const out = { x: [], mid: [] };
+    out.x.length = out.mid.length = 0;
     for (const d of days) if (d.v[key] != null && d.day >= x0) { out.x.push(d.day); out.mid.push(d.v[key]); }
     return out;
   }
@@ -279,16 +325,17 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
   // The axis drawn glides to that range (τ 0.15 s) instead of rescaling in one frame; while it glides, a paused chart draws
   // itself again next frame (round 2 review, Over time y-axis).
   const ys = { pressure: null, hvpg: null }, ysAt = { pressure: 0, hvpg: 0 };
+  const yrBuf = { pressure: [0, 0], hvpg: [0, 0] }, ysBuf = { pressure: [0, 0], hvpg: [0, 0] };   // (the two ranges, written in place)
   let gliding = false, glideReq = false;
   function ease(key, lo, hi) {
     const r = yr[key];
     if (!r || lo < r[0] || hi > r[1] || hi - lo < (r[1] - r[0]) * 0.55) {
-      const m = (hi - lo) * 0.08;
-      yr[key] = [lo - m, hi + m];
+      const m = (hi - lo) * 0.08, b = yrBuf[key];
+      b[0] = lo - m; b[1] = hi + m; yr[key] = b;
     }
     const t = yr[key], now = performance.now();
     let sh = ys[key];
-    if (!sh) sh = ys[key] = [t[0], t[1]];
+    if (!sh) { sh = ys[key] = ysBuf[key]; sh[0] = t[0]; sh[1] = t[1]; }
     else {
       const k = -Math.expm1(-Math.min(0.1, (now - ysAt[key]) / 1000) / 0.15), snap = (t[1] - t[0]) * 0.002;
       for (let i = 0; i < 2; i++) sh[i] = Math.abs(t[i] - sh[i]) <= snap ? t[i] : sh[i] + (t[i] - sh[i]) * k;
@@ -300,8 +347,8 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
 
   function hiddenSet() {
     const st = store.get();
-    if (st.imaging) return new Set(['pv', 'trueHVPG', 'ra']);
-    return hiddenNow(st) || new Set();
+    if (st.imaging) return IMAGING_HIDDEN;
+    return hiddenNow(st) || NONE_HIDDEN;
   }
 
   // Frames arrive ~10×/s in bursts; the right edge advances with the wall clock in between
@@ -338,8 +385,9 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
   function draw() {
     gliding = false;
     drawNow();
-    if (gliding && !glideReq && !(ticking && live())) { glideReq = true; nextFrame(() => { glideReq = false; draw(); }); }
+    if (gliding && !glideReq && !(ticking && live())) { glideReq = true; nextFrame(glideAgain); }
   }
+  const glideAgain = () => { glideReq = false; draw(); };
   // ── The slide's card (beat-card.js) ───────────────
   // The paper's squares are 1 mmHg high, and as wide, so the EKG strip runs on into the pressures below it on one sheet. The wedged and free
   // hepatic pressures with the HVPG shaded between them in its status colour; the portal pressure dashed over the wedged (they read nearly
@@ -348,53 +396,73 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
   // the lines' ends. Every number is the slide's own (pinned), as the tiles show it.
   const MMHG = 'mmHg';
   const HR_CUT = VITALS.find((v) => v.id === 'hr')?.cut ?? 110;
-  // The slide card's still parts, drawn on `g` from `S` alone (their key is S's JSON): the panel, the scale's numbers, and the readings, in
+  // What a frame of the card works on, made here once and written in place each frame (nothing in the drawing below makes an array, an object or
+  // a closure): F, the card's frame (what X and the Y of each part read), the three key rows, the scale's numbers, the spans the "before" plate keeps clear of.
+  const F = { L: 0, x0: 0, x1: 1, plotW: 0, bot: 0, sq: 1, et: 0, eb: 0 };
+  const X = (x) => F.L + ((x - F.x0) / Math.max(1e-9, F.x1 - F.x0)) * F.plotW;   // (a time to the card's x)
+  const YB = (v) => F.bot - v * F.sq;   // (mmHg to y, a square to the mmHg)
+  const YEb = (v) => F.eb - 2 - ((v + 0.25) / 1.25) * (F.eb - F.et - 4);   // (lead II with its waves in seconds: the card's strip)
+  const YEg = (v) => F.eb - 3 - ((v + 0.3) / 1.3) * (F.eb - F.et - 6);   // (the S wave's dip to the R peak fill the lane: the chart's strip)
+  const beatFont = (wt, px) => FONT0(wt, px * 13 / 12);   // (a slide's card: the larger lettering)
+  const keyRows = [
+    { c: '', name: 'Portal vein', v: NaN, dashed: true, txt: '', label: 'PV', y: 0 },
+    { c: '', name: 'Wedged', v: NaN, dashed: false, txt: '', label: 'WHVP', y: 0 },
+    { c: '', name: 'Free', v: NaN, dashed: false, txt: '', label: 'FHVP', y: 0 },
+  ];
+  const keyRowList = [], endsBeat = [], topVals = [0, 0, 0, 0], ylTxt = [], ylY = [];
+  const spanPool = [[0, 0], [0, 0], [0, 0]], spansBuf = [], wasBox = [0, 0, 0, 0];
+  const hvpgLabelJoin = mkJoin();
+  const SB = { w: 0, hh: 0, panel: '', faint: '', muted: '', text: '', hair: '', danger: '', ok: '', cap: 'butt', join: 'miter', L: 0, hrT: '', hvT: '', word: '', sevC: '', hrC: '', ylN: 0, ylTxt, ylY, col: null };
+  const SBcol = { x: 0, plan: null, hrSince: '', hvSince: '', rows: keyRowList };
+  const sevColor = (hv) => cssVar(SEV_VAR[sevOf(hv)]);
+  // Canvas text has no tabular figures, and these readings follow the trace's ends as they settle after an event: each digit is set in
+  // a 0's width, as the tiles' HTML numbers are (tabular-nums), so a digit that changes never moves the others, the unit or the line.
+  const zw = (g, t) => g.measureText(zeroed(t)).width;
+  function tab(g, t, x, y) {
+    const w0 = g.measureText('0').width, al = g.textAlign; let cx = x; g.textAlign = 'center';
+    for (const ch of t) { const cw = ch >= '0' && ch <= '9' ? w0 : g.measureText(ch).width; g.fillText(ch, cx + cw / 2, y); cx += cw; }
+    g.textAlign = al; return cx - x;
+  }
+  function stillRule(g, S, x, cw, y) { g.strokeStyle = S.hair; g.lineWidth = 1; g.beginPath(); g.moveTo(x, Math.round(y) + 0.5); g.lineTo(x + cw, Math.round(y) + 0.5); g.stroke(); }
+  function stillBig(g, S, x, y, v, unit, px, colour) {
+    g.font = beatFont(650, px); g.fillStyle = colour; const vw = tab(g, v, x, y);   // (tabular digits: see tab)
+    g.font = beatFont(500, 12); g.fillStyle = S.faint; g.fillText(unit, x + vw + 6, y);
+  }
+  // (a change upward is the bad way for both: red; downward green)
+  function stillSince(g, S, x, y, t) { if (!t) return; g.font = beatFont(600, 12); g.fillStyle = t.startsWith('▲') ? S.danger : S.ok; g.fillText(t, x, y); }
+  // The slide card's still parts, drawn on `g` from `S` alone: the panel, the scale's numbers, and the readings, in
   // the column beside the plot or, on a narrow card, as the line on top. What moves is drawn over them.
   function drawBeatStill(g, S) {
     const { w, hh, panel, faint, muted, text, L, hrT, hvT, hrC, sevC } = S;
-    const FONT = (wt, px) => FONT0(wt, px * 13 / 12);   // (a slide's card: the larger lettering)
-    g.globalAlpha = 1; g.setLineDash([]);
-    // Canvas text has no tabular figures, and these readings follow the trace's ends as they settle after an event: each digit is set in
-    // a 0's width, as the tiles' HTML numbers are (tabular-nums), so a digit that changes never moves the others, the unit or the line.
-    const zw = (t) => g.measureText(t.replace(/\d/g, '0')).width;
-    const tab = (t, x, y) => {
-      const w0 = g.measureText('0').width, al = g.textAlign; let cx = x; g.textAlign = 'center';
-      for (const ch of t) { const cw = ch >= '0' && ch <= '9' ? w0 : g.measureText(ch).width; g.fillText(ch, cx + cw / 2, y); cx += cw; }
-      g.textAlign = al; return cx - x;
-    };
+    const FONT = beatFont;
+    g.globalAlpha = 1; g.setLineDash(DASH_NONE);
     plotFill(g, 0, 0, w, hh, panel);
     g.font = FONT(500, 12); g.fillStyle = faint; g.textAlign = 'right'; g.textBaseline = 'middle';
-    for (const [t, y] of S.yl) g.fillText(t, L - 6, y);
+    for (let i = 0; i < S.ylN; i++) g.fillText(S.ylTxt[i], L - 6, S.ylY[i]);
     g.textBaseline = 'alphabetic'; g.textAlign = 'left';
     if (S.col) {
       // the column: heart rate, the HVPG and its status, then the three lines named, the quick check's way (hairlines between, no fills)
       const { x, plan, hrSince, hvSince, rows } = S.col, k = plan.k, cw = w - x - 14;
       g.lineCap = S.cap; g.lineJoin = S.join;   // (the first two hairlines take the ends the context had; the ones among the rows follow the swatch's last, butt)
-      const rule = (y) => { g.strokeStyle = S.hair; g.lineWidth = 1; g.beginPath(); g.moveTo(x, Math.round(y) + 0.5); g.lineTo(x + cw, Math.round(y) + 0.5); g.stroke(); };
-      const big = (y, v, unit, px, colour) => {
-        g.font = FONT(650, px); g.fillStyle = colour; const vw = tab(v, x, y);   // (tabular digits: see tab)
-        g.font = FONT(500, 12); g.fillStyle = faint; g.fillText(unit, x + vw + 6, y);
-      };
-      // (a change upward is the bad way for both: red; downward green)
-      const since = (y, t) => { if (!t) return; g.font = FONT(600, 12); g.fillStyle = t.startsWith('▲') ? S.danger : S.ok; g.fillText(t, x, y); };
       let y = 26;
       g.font = FONT(600, 12); g.fillStyle = muted; g.fillText('HEART RATE', x, y);
-      y += 32 * k; big(y, hrT, '/min', Math.max(20, 28 * k), hrC);
-      if (plan.deltas) { y += 20 * k; since(y, hrSince); }
-      y += 14 * k; rule(y);
+      y += 32 * k; stillBig(g, S, x, y, hrT, '/min', Math.max(20, 28 * k), hrC);
+      if (plan.deltas) { y += 20 * k; stillSince(g, S, x, y, hrSince); }
+      y += 14 * k; stillRule(g, S, x, cw, y);
       y += 24 * k; g.font = FONT(600, 12); g.fillStyle = muted; g.fillText('HVPG', x, y);
-      y += 36 * k; big(y, hvT, 'mmHg', Math.max(22, 32 * k), text);
+      y += 36 * k; stillBig(g, S, x, y, hvT, 'mmHg', Math.max(22, 32 * k), text);
       y += 21 * k; g.font = FONT(600, 12); g.fillStyle = sevC; g.fillText(S.word, x, y);
-      if (plan.deltas) { y += 18 * k; since(y, hvSince); }
+      if (plan.deltas) { y += 18 * k; stillSince(g, S, x, y, hvSince); }
       if (plan.rows) {
-        y += 14 * k; rule(y);
-        for (const [colour, name, vT, dashed] of rows) {
+        y += 14 * k; stillRule(g, S, x, cw, y);
+        for (let i = 0; i < rows.length; i++) {
+          const r = rows[i];
           y += 26 * k;
-          g.strokeStyle = colour; g.lineWidth = 3; g.lineCap = 'round'; g.setLineDash(dashed ? [4, 3] : []);
-          g.beginPath(); g.moveTo(x + 1, y - 4); g.lineTo(x + 12, y - 4); g.stroke(); g.setLineDash([]); g.lineCap = 'butt';
-          g.font = FONT(500, 12); g.fillStyle = muted; g.fillText(name, x + 18, y);
-          g.font = FONT(650, 12.5); g.fillStyle = text; g.textAlign = 'right'; g.fillText(vT, x + cw, y); g.textAlign = 'left';
-          y += 10 * k; rule(y);
+          g.strokeStyle = r.c; g.lineWidth = 3; g.lineCap = 'round'; g.setLineDash(r.dashed ? DASH_SWATCH : DASH_NONE);
+          g.beginPath(); g.moveTo(x + 1, y - 4); g.lineTo(x + 12, y - 4); g.stroke(); g.setLineDash(DASH_NONE); g.lineCap = 'butt';
+          g.font = FONT(500, 12); g.fillStyle = muted; g.fillText(r.name, x + 18, y);
+          g.font = FONT(650, 12.5); g.fillStyle = text; g.textAlign = 'right'; g.fillText(r.txt, x + cw, y); g.textAlign = 'left';
+          y += 10 * k; stillRule(g, S, x, cw, y);
         }
       }
     } else {
@@ -402,43 +470,62 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
       const y = 24;
       g.font = FONT(600, 12); g.fillStyle = muted; g.fillText('HVPG', 8, y);
       let x = 8 + g.measureText('HVPG').width + 6;
-      g.font = FONT(650, 17); g.fillStyle = text; x += tab(hvT, x, y) + 4;
+      g.font = FONT(650, 17); g.fillStyle = text; x += tab(g, hvT, x, y) + 4;
       g.font = FONT(500, 12); g.fillStyle = faint; g.fillText(MMHG, x, y); x += g.measureText(MMHG).width + 8;
       g.font = FONT(600, 12); g.fillStyle = sevC; g.fillText(S.word, x, y);
-      g.font = FONT(650, 13); g.fillStyle = hrC; const hw = zw(hrT); tab(hrT, w - 8 - hw, y);
+      g.font = FONT(650, 13); g.fillStyle = hrC; const hw = zw(g, hrT); tab(g, hrT, w - 8 - hw, y);
       g.textAlign = 'right'; g.font = FONT(600, 12); g.fillStyle = muted; g.fillText('HR', w - 12 - hw, y); g.textAlign = 'left';
     }
   }
-  function drawBeatCard(ctx, w, hh, x0, x1, xNow, FONT, noPv, { text, muted, faint, panel }) {
-    const col = (v) => cssVar(v);
+  const beatStillFn = (c) => drawBeatStill(c, SB);
+  // The "before" plate's room: a line's extent over the label's width, kept as a span if it has any sample there.
+  function addSpan(s, lx, rx) {
+    let a = Infinity, b = -Infinity;
+    for (let i = 0; i < s.x.length; i++) { const x = X(s.x[i]); if (x < lx - 2 || x > rx + 2) continue; const y = YB(s.mid[i]); if (y < a) a = y; if (y > b) b = y; }
+    if (a <= b) { const sp = spanPool[spansBuf.length]; sp[0] = a - 2; sp[1] = b + 2; spansBuf.push(sp); }
+  }
+  function dotted(ctx, v, c, L, R) { ctx.strokeStyle = c; ctx.globalAlpha = 0.7; ctx.beginPath(); ctx.moveTo(L + 1, YB(v)); ctx.lineTo(R, YB(v)); ctx.stroke(); }
+  function drawBeatCard(ctx, w, hh, x0, x1, xNow, FONT, noPv, text, muted, faint, panel) {
     const lay = beatLayout(w, hh, cfg.ekg), { L, R, top, bot } = lay, plotW = R - L;
-    const X = (x) => L + ((x - x0) / Math.max(1e-9, x1 - x0)) * plotW;
+    F.L = L; F.x0 = x0; F.x1 = x1; F.plotW = plotW; F.bot = bot;
     const wNow = endOf('whvp'), fNow = endOf('RHV'), pvNow = endOf('CONF'), hv = steadyHvpg();
     const hr = Number.isFinite(pinned?.hr) ? pinned.hr : frame.metrics.hr;
     const was = before?.fp, wWas = was?.whvp, fWas = was?.fhvp;
     const showWas = Number.isFinite(wWas) && Number.isFinite(fWas) && (Math.abs(wWas - wNow) >= 0.3 || Math.abs(fWas - fNow) >= 0.3);
-    const data = { whvp: series('whvp', x0, x1), RHV: series('RHV', x0, x1), CONF: series('CONF', x0, x1) };
+    const sw = series('whvp', x0, x1, slots.whvp), sf = series('RHV', x0, x1, slots.RHV), sp = series('CONF', x0, x1, slots.CONF);
     let mx = -Infinity;
-    for (const k of ['whvp', 'CONF']) { if (k === 'CONF' && noPv) continue; for (const v of data[k].mid) if (v > mx) mx = v; }
-    const hi = beatTop([mx, wNow, noPv ? NaN : pvNow, showWas ? wWas : NaN]);
-    const sq = (bot - top) / hi, Y = (v) => bot - v * sq;
-    const wc = col('--tr-wedge'), fc = col('--tr-hv'), pc = col('--tr-pv');
+    for (const k of BEAT_TOP_KEYS) { if (k === 'CONF' && noPv) continue; const mid = slots[k].mid; for (let i = 0; i < mid.length; i++) if (mid[i] > mx) mx = mid[i]; }
+    topVals[0] = mx; topVals[1] = wNow; topVals[2] = noPv ? NaN : pvNow; topVals[3] = showWas ? wWas : NaN;
+    const hi = beatTop(topVals);
+    const sq = (bot - top) / hi;
+    F.sq = sq;
+    const wc = cssVar('--tr-wedge'), fc = cssVar('--tr-hv'), pc = cssVar('--tr-pv');
 
     // The still parts of the card (laptop-heat recs H3): the panel, the scale's numbers, and the readings (the column beside the plot, or
-    // the line on top of a narrow card), drawn into a picture of their own while the words and colours they are drawn from hold, and laid
-    // down whole. They stand clear of everything that moves (the plot's box, the strip, the caliper at R + 12 and the time axis all end
+    // the line on top of a narrow card), drawn first. They stand clear of everything that moves (the plot's box, the strip, the caliper at R + 12 and the time axis all end
     // at R; the column starts at R + 30; the narrow card's line is above its strip), so drawn first they set the pixels they set before.
-    const sevC = col(`--${sevOf(hv)}`), hrC = hr >= HR_CUT ? col('--danger') : text;
+    const sevC = sevColor(hv), hrC = hr >= HR_CUT ? cssVar('--danger') : text;
     const hvWas = showWas ? tenthGap(wWas, fWas, was.hvpg) : was?.hvpg;
-    const keyRows = [[pc, 'Portal vein', pvNow, true], [wc, 'Wedged', wNow, false], [fc, 'Free', fNow, false]].filter((r) => !(noPv && r[1] === 'Portal vein'));
+    keyRows[0].c = pc; keyRows[0].v = pvNow; keyRows[1].c = wc; keyRows[1].v = wNow; keyRows[2].c = fc; keyRows[2].v = fNow;
+    keyRowList.length = 0;
+    for (let i = noPv ? 1 : 0; i < 3; i++) keyRowList.push(keyRows[i]);
     const hrT = Number.isFinite(hr) ? fmt(hr, 0) : '—', hvT = Number.isFinite(hv) ? fmt(hv, 1) : '—';
-    const SB = { w, hh, W: cv.width, H: cv.height, dpr: ctx.getTransform?.().a || 1, panel, faint, muted, text, hair: cssAlpha('--text', 0.12), danger: col('--danger'), ok: col('--ok'), fonts: fontEpoch,
-      cap: typeof ctx.lineCap === 'string' ? ctx.lineCap : 'butt', join: typeof ctx.lineJoin === 'string' ? ctx.lineJoin : 'miter',
-      L, wide: lay.wide, hrT, hvT, word: wordOf(hv), sevC, hrC,
-      yl: Array.from({ length: Math.floor(hi / 5) + 1 }, (_, i) => [String(i * 5), Y(i * 5)]).filter(([, y]) => !(top - 10 > (lay.ekg ? lay.ekg.bot : 0) && y < top + 9)),   // (the top number gives way to the unit written over it, which it touched)
-      col: lay.wide ? { x: lay.colX, plan: colPlan(hh, !!(sinceText(hr, was?.hr, 0) || sinceText(hv, hvWas, 1))), hrSince: sinceText(hr, was?.hr, 0), hvSince: sinceText(hv, hvWas, 1),
-        rows: keyRows.map(([c, name, v, dashed]) => [c, name, Number.isFinite(v) ? fmt(v, 1) : '—', dashed]) } : null };
-    still.lay(ctx, JSON.stringify(SB), (c) => drawBeatStill(c, SB));
+    // (the top number gives way to the unit written over it, which it touched)
+    const gate = top - 10 > (lay.ekg ? lay.ekg.bot : 0);
+    const nyl = Math.floor(hi / 5) + 1;
+    let ylN = 0;
+    for (let i = 0; i < nyl; i++) { const y = YB(i * 5); if (gate && y < top + 9) continue; ylTxt[ylN] = STR5[i]; ylY[ylN] = y; ylN++; }
+    SB.w = w; SB.hh = hh; SB.panel = panel; SB.faint = faint; SB.muted = muted; SB.text = text; SB.hair = cssAlpha('--text', 0.12);
+    SB.danger = cssVar('--danger'); SB.ok = cssVar('--ok');
+    SB.cap = typeof ctx.lineCap === 'string' ? ctx.lineCap : 'butt'; SB.join = typeof ctx.lineJoin === 'string' ? ctx.lineJoin : 'miter';
+    SB.L = L; SB.hrT = hrT; SB.hvT = hvT; SB.word = wordOf(hv); SB.sevC = sevC; SB.hrC = hrC; SB.ylN = ylN;
+    if (lay.wide) {
+      const hrSince = sinceText(hr, was?.hr, 0), hvSince = sinceText(hv, hvWas, 1);
+      for (const r of keyRowList) r.txt = Number.isFinite(r.v) ? fmt(r.v, 1) : '—';
+      SBcol.x = lay.colX; SBcol.plan = colPlan(hh, !!(hrSince || hvSince)); SBcol.hrSince = hrSince; SBcol.hvSince = hvSince;
+      SB.col = SBcol;
+    } else SB.col = null;
+    still.lay(ctx, null, beatStillFn);
 
     // the paper, from the plot's bottom left corner up through the strip: a heavy line every 5 squares
     const paperTop = lay.ekg ? lay.ekg.top : top;
@@ -446,7 +533,8 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
     // (Its upright lines are laid on time, not on the card: the paper scrolls left with the traces, as a strip runs out of a monitor, Mohammad 29 Oct.)
     const pxS = plotW / Math.max(1e-9, x1 - x0), X0 = L - x0 * pxS, i0 = Math.floor((L - X0) / sq);
     ctx.lineWidth = 1;
-    for (const heavy of [false, true]) {
+    for (let pass = 0; pass < 2; pass++) {
+      const heavy = pass === 1;
       if (!heavy && !paperFine(sq)) continue;
       ctx.strokeStyle = cssAlpha('--danger', heavy ? 0.26 : 0.11); ctx.beginPath();
       for (let i = i0; X0 + i * sq <= R + 0.5; i++) { if ((((i % 5) + 5) % 5 === 0) !== heavy) continue; const x = Math.round(X0 + i * sq) + 0.5; if (x < L) continue; ctx.moveTo(x, paperTop - 2); ctx.lineTo(x, bot); }
@@ -461,13 +549,13 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
     // the EKG strip, in the text colour, over the model's own beats
     if (lay.ekg && fine.t.length > 1) {
       const { top: et, bot: eb } = lay.ekg;
+      F.et = et; F.eb = eb;
       // (lead II with its waves in seconds, not stretched to the beat: a narrow QRS, a rounded P and T; it ends at "now", with the pressures)
       const e = leadIISeries(beatClock.times, Math.max(x0, fine.t[0]), Math.min(x1, fine.t[fine.t.length - 1]), 60 / (hr > 20 ? hr : 70));
-      const Ye = (v) => eb - 2 - ((v + 0.25) / 1.25) * (eb - et - 4);
       if (e.x.length > 1) {
         ctx.save(); ctx.beginPath(); ctx.rect(L, et - 2, plotW, eb - et + 4); ctx.clip();
         ctx.strokeStyle = text; ctx.lineWidth = 1.6; ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.beginPath();
-        for (let i = 0; i < e.x.length; i++) ctx[i ? 'lineTo' : 'moveTo'](X(e.x[i]), Ye(e.v[i]));
+        for (let i = 0; i < e.x.length; i++) ctx[i ? 'lineTo' : 'moveTo'](X(e.x[i]), YEb(e.v[i]));
         ctx.stroke(); ctx.restore();
       }
     }
@@ -475,38 +563,33 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
     ctx.save(); ctx.beginPath(); ctx.rect(L, top - 6, plotW, bot - top + 8); ctx.clip();
     // before: the old gap faint grey, its edges dotted in the lines' own colours
     if (showWas) {
-      ctx.fillStyle = cssAlpha('--text-3', 0.08); ctx.fillRect(L, Y(wWas), plotW, Y(fWas) - Y(wWas));
-      ctx.lineWidth = 1.4; ctx.lineCap = 'round'; ctx.setLineDash([0.1, 4.5]);
-      for (const [v, c] of [[wWas, wc], [fWas, fc]]) { ctx.strokeStyle = c; ctx.globalAlpha = 0.7; ctx.beginPath(); ctx.moveTo(L + 1, Y(v)); ctx.lineTo(R, Y(v)); ctx.stroke(); }
-      ctx.setLineDash([]); ctx.globalAlpha = 1;
+      ctx.fillStyle = cssAlpha('--text-3', 0.08); ctx.fillRect(L, YB(wWas), plotW, YB(fWas) - YB(wWas));
+      ctx.lineWidth = 1.4; ctx.lineCap = 'round'; ctx.setLineDash(DASH_BEFORE);
+      dotted(ctx, wWas, wc, L, R); dotted(ctx, fWas, fc, L, R);
+      ctx.setLineDash(DASH_NONE); ctx.globalAlpha = 1;
     }
     // the HVPG, shaded between wedged and free in the colour of its status
-    const sw = data.whvp, sf = data.RHV;
     if (sw.x.length > 1 && sw.x.length === sf.x.length) {
-      ctx.globalAlpha = 0.12; ctx.fillStyle = col(`--${sevOf(hv)}`); ctx.beginPath();
-      for (let i = 0; i < sw.x.length; i++) ctx[i ? 'lineTo' : 'moveTo'](X(sw.x[i]), Y(sw.mid[i]));
-      for (let i = sf.x.length - 1; i >= 0; i--) ctx.lineTo(X(sf.x[i]), Y(sf.mid[i]));
+      ctx.globalAlpha = 0.12; ctx.fillStyle = sevColor(hv); ctx.beginPath();
+      for (let i = 0; i < sw.x.length; i++) ctx[i ? 'lineTo' : 'moveTo'](X(sw.x[i]), YB(sw.mid[i]));
+      for (let i = sf.x.length - 1; i >= 0; i--) ctx.lineTo(X(sf.x[i]), YB(sf.mid[i]));
       ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1;
     }
-    if (!noPv) { ctx.setLineDash([6, 4]); line(ctx, data.CONF, X, Y, pc, 2, plotW); ctx.setLineDash([]); }
-    line(ctx, sw, X, Y, wc, 2, plotW);
-    line(ctx, sf, X, Y, fc, 2, plotW);
+    if (!noPv) { ctx.setLineDash(DASH_PORTAL); line(ctx, sp, X, YB, pc, 2, plotW); ctx.setLineDash(DASH_NONE); }
+    line(ctx, sw, X, YB, wc, 2, plotW);
+    line(ctx, sf, X, YB, fc, 2, plotW);
     ctx.restore();
 
     // the old gap named once, on a plate, where no line passes under the words
-    let wasBox = null;   // (the "before the bleed" plate, so the HVPG's own keeps clear of it)
+    let hasWasBox = false;   // (the "before the bleed" plate, so the HVPG's own keeps clear of it: wasBox)
     if (showWas && before.label) {
       ctx.font = FONT(500, 12);
       const tw = ctx.measureText(before.label).width, lx = L + 6, rx = lx + tw + 12;
-      const spans = [];
-      for (const s of noPv ? [sw, sf] : [sw, sf, data.CONF]) {
-        let a = Infinity, b = -Infinity;
-        for (let i = 0; i < s.x.length; i++) { const x = X(s.x[i]); if (x < lx - 2 || x > rx + 2) continue; const y = Y(s.mid[i]); if (y < a) a = y; if (y > b) b = y; }
-        if (a <= b) spans.push([a - 2, b + 2]);
-      }
-      const ly = beforeLabelY(Y(wWas), Y(fWas), spans, top, bot);
+      spansBuf.length = 0;
+      addSpan(sw, lx, rx); addSpan(sf, lx, rx); if (!noPv) addSpan(sp, lx, rx);
+      const ly = beforeLabelY(YB(wWas), YB(fWas), spansBuf, top, bot);
       if (ly != null) {
-        wasBox = [lx, ly, lx + tw + 12, ly + 18];
+        hasWasBox = true; wasBox[0] = lx; wasBox[1] = ly; wasBox[2] = lx + tw + 12; wasBox[3] = ly + 18;
         ctx.fillStyle = panel; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(lx, ly, tw + 12, 18, 5) : ctx.rect(lx, ly, tw + 12, 18); ctx.fill();
         ctx.fillStyle = faint; ctx.textBaseline = 'middle'; ctx.fillText(before.label, lx + 6, ly + 9.5); ctx.textBaseline = 'alphabetic';
       }
@@ -514,38 +597,43 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
 
     // the caliper at "now", from the wedged to the free pressure
     if (Number.isFinite(wNow) && Number.isFinite(fNow)) {
-      const cx = Math.round(R + 12) + 0.5, ya = Y(wNow), yb = Y(fNow);
+      const cx = Math.round(R + 12) + 0.5, ya = YB(wNow), yb = YB(fNow);
       ctx.strokeStyle = text; ctx.lineWidth = 1.4; ctx.beginPath();
       ctx.moveTo(cx - 5, ya); ctx.lineTo(cx + 5, ya); ctx.moveTo(cx, ya); ctx.lineTo(cx, yb); ctx.moveTo(cx - 5, yb); ctx.lineTo(cx + 5, yb); ctx.stroke();
     }
     // the HVPG named in its gap, beside the caliper's end, so the chart reads without the column (Mohammad 29 Oct); left out where the gap is too low
     if (Number.isFinite(hv) && Number.isFinite(wNow) && Number.isFinite(fNow)) {
-      const label = `HVPG ${fmt(hv, 1)}`, ym = (Y(wNow) + Y(fNow)) / 2;
+      const label = joined(hvpgLabelJoin, 'HVPG', ' ', fmt(hv, 1)), ym = (YB(wNow) + YB(fNow)) / 2;
       ctx.font = FONT(700, 13); const lw = ctx.measureText(label).width + 12;
-      const lx = R - 8 - lw, clear = !wasBox || wasBox[2] + 6 < lx || wasBox[3] + 4 < ym - 10 || wasBox[1] - 4 > ym + 10;
-      if (Y(fNow) - Y(wNow) >= 26 && R - L >= lw + 40 && clear) {
+      const lx = R - 8 - lw, clear = !hasWasBox || wasBox[2] + 6 < lx || wasBox[3] + 4 < ym - 10 || wasBox[1] - 4 > ym + 10;
+      if (YB(fNow) - YB(wNow) >= 26 && R - L >= lw + 40 && clear) {
         ctx.fillStyle = panel; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(lx, ym - 10, lw, 20, 6) : ctx.rect(lx, ym - 10, lw, 20); ctx.fill();
-        ctx.fillStyle = col(`--${sevOf(hv)}`); ctx.textBaseline = 'middle'; ctx.fillText(label, lx + 6, ym + 0.5); ctx.textBaseline = 'alphabetic';
+        ctx.fillStyle = sevColor(hv); ctx.textBaseline = 'middle'; ctx.fillText(label, lx + 6, ym + 0.5); ctx.textBaseline = 'alphabetic';
       }
     }
 
     // time: every 2 s back from now
     ctx.font = FONT(500, 12); ctx.fillStyle = faint; ctx.textAlign = 'center';
-    for (let s = 2; xNow - s > x0 + 1e-9; s += 2) { const xx = X(xNow - s); if (xx < L + 12) break; ctx.fillText(`−${s} s`, xx, hh - 8); }
+    for (let s = 2; xNow - s > x0 + 1e-9; s += 2) { const xx = X(xNow - s); if (xx < L + 12) break; ctx.fillText(AX_BEATS[s], xx, hh - 8); }
     const nowX = X(xNow);
     ctx.textAlign = nowX > R - 14 ? 'right' : 'center'; ctx.fillStyle = muted; ctx.fillText('now', Math.min(nowX, R), hh - 8);
     ctx.textAlign = 'left';
 
     if (!lay.wide) {
       // a narrow card: each line's value at its end (the line of readings on top, the HVPG and the heart rate, is in the still picture)
-      const es = keyRows.map(([c, name, v]) => ({ c, v, y: Y(v), label: name === 'Portal vein' ? 'PV' : name === 'Wedged' ? 'WHVP' : 'FHVP' })).filter((e) => Number.isFinite(e.v)).sort((a, b) => a.y - b.y);
+      endsBeat.length = 0;
+      for (const r of keyRowList) { r.y = YB(r.v); if (Number.isFinite(r.v)) endsBeat.push(r); }
+      endsBeat.sort(byY);
+      const es = endsBeat;
       for (let i = 1; i < es.length; i++) es[i].y = Math.max(es[i].y, es[i - 1].y + 16);
       const over = es.length ? es[es.length - 1].y - bot : 0;
-      if (over > 0) for (const e of es) e.y -= over;
+      if (over > 0) for (let i = 0; i < es.length; i++) es[i].y -= over;
       ctx.textBaseline = 'middle';
       ctx.font = FONT(650, 12.5);
-      const colW = Math.max(0, ...es.map((e) => ctx.measureText(fmt(e.v, 1).replace(/\d/g, '0')).width));   // (one right-aligned column, as the lanes' readings)
-      for (const e of es) {
+      let colW = 0;   // (one right-aligned column, as the lanes' readings)
+      for (let i = 0; i < es.length; i++) colW = Math.max(colW, ctx.measureText(zeroed(fmt(es[i].v, 1))).width);
+      for (let i = 0; i < es.length; i++) {
+        const e = es[i];
         ctx.fillStyle = e.c; ctx.fillRect(R + 22, e.y - 1.5, 9, 3);
         const vt = fmt(e.v, 1); ctx.font = FONT(650, 12.5); ctx.fillStyle = text; ctx.textAlign = 'right'; ctx.fillText(vt, R + 35 + colW, e.y); ctx.textAlign = 'left';
         ctx.font = FONT(600, 12); ctx.fillStyle = e.c; ctx.fillText(e.label, R + 39 + colW, e.y);
@@ -556,17 +644,32 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
     if (SB.col?.plan.rows) ctx.lineCap = 'butt';
   }
 
-  // The chart's still parts, drawn on `c` from `S` alone (their key is S's JSON): the panel, each lane's grid and, in the HVPG lane, its
+  // What a frame of the chart works on, made here once and written in place each frame: the lanes (each with its own Y, which reads the lane's
+  // own box and range), the traces on show, the series of each (slots), the values written at the lines' ends, the crosshair's rows.
+  const mkLane = (key) => { const l = { key, top: 0, bot: 0, lo: 0, hi: 1, tick: 1, keys: null, Y: null }; l.Y = (v) => l.bot - ((v - l.lo) / Math.max(1e-6, l.hi - l.lo)) * (l.bot - l.top); return l; };
+  const ekgLaneO = mkLane('ekg'), presLaneO = mkLane('pressure'), hvpgLaneO = mkLane('hvpg');
+  const lanes = [], allLanes = [], tracesBuf = [], presKeys = [], data = {};
+  const fixedO = { pressure: [0, 0], hvpg: [0, 0] };
+  const wantN = { pressure: false, hvpg: false, gap: 0, egap: 0, two: 0 }, wantE = { ekg: true, pressure: false, hvpg: false, gap: 0, egap: 0, two: 0 };
+  const endPool = [], esBuf = [], crossPool = [], daySlots = [], dayEndJoin = mkJoin(), whenDay = mkJoin(), whenAgo = mkJoin();
+  for (let i = 0; i < 12; i++) endPool.push({ y: 0, v: 0, dec: undefined, label: '', c: '', lane: null });
+  for (let i = 0; i < 10; i++) crossPool.push({ label: '', v: 0, c: '', y: 0, j: mkJoin() });
+  for (let i = 0; i < 16; i++) daySlots.push(mkJoin());
+  let endN = 0, crossN = 0;
+  const SC = { w: 0, hh: 0, panel: '', faint: '', gridOn: '', danger: '', caution: '', slide: false, narrow: false, L: 0, plotW: 0, cap: 'butt', join: 'miter', lanes };
+  const prevLab = { x1: 0, y: 0 }, labsTxt = [], labsY = [];
+
+  // The chart's still parts, drawn on `c` from `S` alone: the panel, each lane's grid and, in the HVPG lane, its
   // threshold lines and their names. Drawn before anything that moves. Each lane's are clear of what moves in the lane above (the lanes
   // stand 16 px or more apart, and what moves is clipped to its own lane's box, 2 px out), so drawing the lanes' still parts together,
   // first, sets every pixel as drawing them lane by lane among the moving parts did.
   function drawChartStill(c, S) {
     const { w, hh, panel, faint, gridOn, slide, narrow, L, plotW } = S;
-    const FONT = (wt, px) => FONT0(wt, slide ? px * 13 / 12 : px);
-    c.globalAlpha = 1; c.setLineDash([]); c.lineCap = S.cap; c.lineJoin = S.join;
+    const FONT = slide ? beatFont : FONT0;
+    c.globalAlpha = 1; c.setLineDash(DASH_NONE); c.lineCap = S.cap; c.lineJoin = S.join;
     plotFill(c, 0, 0, w, hh, panel);
-    for (const [key, top, bot, lo, hi, tick] of S.lanes) {
-      const Y = (v) => bot - ((v - lo) / Math.max(1e-6, hi - lo)) * (bot - top);
+    for (let li = 0; li < S.lanes.length; li++) {
+      const lane = S.lanes[li], key = lane.key, top = lane.top, bot = lane.bot, lo = lane.lo, hi = lane.hi, tick = lane.tick, Y = lane.Y;
       // grid
       c.lineWidth = 1; c.font = FONT(500, 12); c.textAlign = 'right'; c.textBaseline = 'middle';
       for (let v = Math.ceil(lo / tick) * tick; v <= hi + 1e-9; v += tick) {
@@ -580,48 +683,84 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
       // clinical thresholds
       const roomy = bot - top > 90;
       // (Every dashed line first, then the labels on their plates, so no later line crosses an earlier label.)
-      const labs = [];
-      for (const [v, label] of LIMITS) {
+      let nl = 0;
+      for (let q = 0; q < LIMITS.length; q++) {
+        const v = LIMITS[q][0], label = LIMITS[q][1];
         if (v > hi || (v === HVPG_CUTS.amber && !roomy && !slide)) continue;   // (a slide keeps all three faint lines, 5, 10 and 12, as the talk trace's lane does)
         const yy = Math.round(Y(v)) + 0.5;
         c.strokeStyle = (v >= HVPG_CUTS.red ? S.danger : S.caution); c.globalAlpha = v >= HVPG_CUTS.red ? 0.5 : 0.35;
-        c.setLineDash([3, 4]); c.beginPath(); c.moveTo(L, yy); c.lineTo(L + plotW, yy); c.stroke(); c.setLineDash([]);
+        c.setLineDash(DASH_LIMIT); c.beginPath(); c.moveTo(L, yy); c.lineTo(L + plotW, yy); c.stroke(); c.setLineDash(DASH_NONE);
         c.globalAlpha = 1;
-        if (label && !narrow && (slide ? roomy || v === HVPG_CUTS.bleed : roomy || v === HVPG_CUTS.red)) labs.push([label, yy]);   // (a slide's short lane names the cut-offs once, at 12)
+        if (label && !narrow && (slide ? roomy || v === HVPG_CUTS.bleed : roomy || v === HVPG_CUTS.red)) { labsTxt[nl] = label; labsY[nl] = yy; nl++; }   // (a slide's short lane names the cut-offs once, at 12)
       }
-      let prevLab = null;   // (the label drawn last: one that would sit on it moves along its own line, past its right end)
-      for (const [label, yy] of labs) {
+      let hasPrev = false;   // (the label drawn last: one that would sit on it moves along its own line, past its right end: prevLab)
+      for (let q = 0; q < nl; q++) {
+        const label = labsTxt[q], yy = labsY[q];
         c.font = FONT(600, 12); const tw = c.measureText(label).width;
-        const lx = labelX(prevLab, yy, L + 6);
+        const lx = labelX(hasPrev ? prevLab : null, yy, L + 6);
         c.fillStyle = panel; c.fillRect(lx, yy - 6, tw + 8, 12);
         c.fillStyle = S.danger; c.textAlign = 'left'; c.textBaseline = 'middle';
         c.fillText(label, lx + 4, yy); c.textBaseline = 'alphabetic';
-        prevLab = { x1: lx + tw + 8, y: yy };
+        prevLab.x1 = lx + tw + 8; prevLab.y = yy; hasPrev = true;
       }
       c.restore();
     }
   }
+  const chartStillFn = (c) => drawChartStill(c, SC);
 
   function drawNow() {
     const p = fitPen(cv, gpu);
     pen = p.ctx;
     try { drawWith(p); } finally { p.ctx.end?.(); pen = null; }
   }
+  const panelNow = (ctx, w, hh, panel) => plotFill(ctx, 0, 0, w, hh, panel);   // (the panel is the first thing in the still picture; a card that draws no picture lays it down itself)
+  // The first reading of a series in the window: after a restart, or a stall that dropped samples, the window starts there.
+  function firstIn(q) { for (let i = 0; i < q.x.length; i++) if (Number.isFinite(q.mid[i])) return q.x[i]; return Infinity; }
+  // (On a slide both lanes start at zero and end on a round number above every reading, with a tick at the top.)
+  function topOf(key, x1) {
+    let mx = -Infinity;
+    const nk = key === 'pressure' ? tracesBuf.length : 1;
+    for (let j = 0; j < nk; j++) {
+      const q = series(key === 'pressure' ? tracesBuf[j].id : 'hvpg', -Infinity, x1, tmpSlot);
+      for (let i = 0; i < q.x.length; i++) mx = Math.max(mx, q.hi ? q.hi[i] : q.mid[i]);
+    }
+    // (and the numbers written at the ends: a reading never sits above its lane)
+    if (key === 'pressure') { for (let j = 0; j < nk; j++) { const e = endOf(tracesBuf[j].id); if (Number.isFinite(e)) mx = Math.max(mx, e); } }
+    else { const e = steadyHvpg(); if (Number.isFinite(e)) mx = Math.max(mx, e); }
+    return key === 'hvpg' ? Math.max(15, Math.ceil(((Number.isFinite(mx) ? mx : 0) + 3) / 5) * 5) : Math.max(10, Math.ceil(((Number.isFinite(mx) ? mx : 10) * 1.1) / 5) * 5);
+  }
+  function recent(s) { // mean over the last second (the last day on the disease clock)
+    const n = s.x.length; if (range === 'days') return s.mid[n - 1];
+    const from = s.x[n - 1] - 1; let sum = 0, k = 0;
+    for (let i = n - 1; i >= 0 && s.x[i] >= from; i--) if (!Number.isNaN(s.mid[i])) { sum += s.mid[i]; k++; }
+    return k ? sum / k : s.mid[n - 1];
+  }
+  function at(s, x, span) { // value of a series at x (nearest sample)
+    if (!s.x.length) return null;
+    let lo = 0, hi = s.x.length - 1;
+    while (hi - lo > 1) { const m = (lo + hi) >> 1; if (s.x[m] < x) lo = m; else hi = m; }
+    const i = Math.abs(s.x[lo] - x) < Math.abs(s.x[hi] - x) ? lo : hi;
+    return Math.abs(s.x[i] - x) > span * 0.03 ? null : s.mid[i];
+  }
+  function pushEnd(y, v, dec, label, c, lane) { const e = endPool[endN++]; e.y = y; e.v = v; e.dec = dec; e.label = label; e.c = c; e.lane = lane; }
   function drawWith({ ctx, w, h: hh }) {
     ctx.clearRect(0, 0, w, hh);
     if (w < 10 || hh < 10 || !frame) return;
-    const col = (v) => cssVar(v);
     // (The plot is one rounded panel the chart's full width, his G2 look, plot-look.js, in the app's tile tone: what must hide a line or ring a dot
     // there, a label's plate, a dot's ring, a marker's halo, takes the panel's tone so no patch shows; the readout card keeps the surface tone.)
-    const text = col('--text'), muted = col('--text-2'), faint = col('--text-3'), grid = col('--grid'), surface = col('--surface'), panel = col('--surface-2'), gridOn = col('--border-strong');
-    // (The panel is the first thing in the still picture, drawn once there; a card that draws no picture lays it down itself.)
-    const panelNow = () => plotFill(ctx, 0, 0, w, hh, panel);
+    const text = cssVar('--text'), muted = cssVar('--text-2'), faint = cssVar('--text-3'), grid = cssVar('--grid'), surface = cssVar('--surface'), panel = cssVar('--surface-2'), gridOn = cssVar('--border-strong');
+    // (The panel is the first thing in the still picture, drawn once there; a card that draws no picture lays it down itself: panelNow.)
     const hidden = hiddenSet();
     const showHvpg = !hidden.has('trueHVPG');
     const slide = onSlide();   // (a slide's card: its own window, one scale, steady readings and larger lettering, below)
     // (A slide's pressure lane holds the portal pressure alone: the wedged and free lines go, since the HVPG lane under it is their difference.)
-    const traces = TRACES.filter((t) => chosen.has(t.id) && !hidden.has(t.hide) && (range !== 'days' || t.day) && (!slide || t.id === 'CONF'));
-    const FONT = (wt, px) => FONT0(wt, slide ? px * 13 / 12 : px);
+    tracesBuf.length = 0; presKeys.length = 0;
+    for (let i = 0; i < TRACES.length; i++) {
+      const t = TRACES[i];
+      if (chosen.has(t.id) && !hidden.has(t.hide) && (range !== 'days' || t.day) && (!slide || t.id === 'CONF')) { tracesBuf.push(t); presKeys.push(t.id); }
+    }
+    const traces = tracesBuf;
+    const FONT = slide ? beatFont : FONT0;
     const narrow = w < 460, tiny = !slide && w < 300 && (hh - 52) * 0.55 >= traces.length * 27;   // (tiny: a tablet's card with its tiles beside; each end's name goes under its value, where the lane has room to stack them)
     // (The numbers stand inside the panel's edge, 8 px in, and the readings at the right end keep 8 px or more of it: so L = 36, R a few px wider than before, B 2 more for the times' own room.)
     const L = 36, R = tiny ? 62 : narrow ? (slide ? 100 : 94) : 104, B = 24, GAP = slide ? 30 : 16;   // (a slide's lanes stand apart, the lower one named)
@@ -632,7 +771,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
     let x0, x1, xNow;
     if (range === 'days') {
       if (days.length < 2) {
-        panelNow();
+        panelNow(ctx, w, hh, panel);
         ctx.fillStyle = faint; ctx.font = FONT(500, 13); ctx.textAlign = 'center';
         ctx.fillText('Advance the disease clock (+1 wk, +1 mo, +6 mo)', w / 2, hh / 2 - 8);
         ctx.fillText('to follow pressure over days and months.', w / 2, hh / 2 + 12);
@@ -645,78 +784,69 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
     } else {
       // (A slide's beat-by-beat card shows the last 5 s, Mohammad 29 Oct: 10 s was too much; the Patients chart keeps its 10 s.)
       const beatCard = slide && range === 'beats' && showHvpg;
-      const span = beatCard ? BEAT_CARD_S : RANGES.find((r) => r[0] === range)[2];
+      const span = beatCard ? BEAT_CARD_S : RANGE_SPAN[range];
       xNow = headX();
       x1 = xNow; x0 = x1 - span;
       // (On a slide the window starts where its record does: a slide just arrived has no empty left part. Not the beat-by-beat card: like a
       // monitor its readings come in at "now" on the right and run left from the first frame, Mohammad 29 Oct.)
       if (slide && !beatCard) {
-        const firstIn = (q) => { for (let i = 0; i < q.x.length; i++) if (Number.isFinite(q.mid[i])) return q.x[i]; return Infinity; };   // (its first reading in the window: after a restart, or a stall that dropped samples, the window starts there)
-        const first = Math.min(...[...traces.map((t) => t.id), 'hvpg'].map((k) => firstIn(series(k, x0, x1))));
+        let first = Infinity;   // (its first reading in the window, over the traces and the HVPG: firstIn)
+        for (let j = 0; j <= traces.length; j++) first = Math.min(first, firstIn(series(j < traces.length ? traces[j].id : 'hvpg', x0, x1, tmpSlot)));
         // (The scale stays fixed: recording starts at the left edge and fills to the right, then scrolls left.)
         if (Number.isFinite(first) && first > x0) { x0 = first; x1 = first + span; }
       }
     }
-    const X = (x) => L + ((x - x0) / Math.max(1e-9, x1 - x0)) * plotW;
+    F.L = L; F.x0 = x0; F.x1 = x1; F.plotW = plotW;   // (X, a time to x)
     // (A slide's card, with the HVPG measured: the wedged and free pressures on EKG paper, beat-card.js. Any other card, as before.)
-    if (slide && range === 'beats' && showHvpg) { drawBeatCard(ctx, w, hh, x0, x1, xNow, FONT, hidden.has('pv'), { text, muted, faint, panel }); return; }
+    if (slide && range === 'beats' && showHvpg) { drawBeatCard(ctx, w, hh, x0, x1, xNow, FONT, hidden.has('pv'), text, muted, faint, panel); return; }
 
     if (!traces.length && !showHvpg) {
-      panelNow();
+      panelNow(ctx, w, hh, panel);
       ctx.fillStyle = faint; ctx.font = FONT(500, 13); ctx.textAlign = 'center';
       ctx.fillText(store.get().imaging ? 'Pressures are not measured in this case.' : 'Choose a trace below.', w / 2, hh / 2);
       return;
     }
 
     // Marker labels stack in up to three rows, so each stays readable; the plot starts below them.
-    const markLayout = layoutMarkers(markers(x0, x1), X, w - 8);
-    const T0 = Math.max(T, 30 + markLayout.rows * ROW);
+    markers(x0, x1);
+    const mRows = layoutMarkers(w - 8);
+    const T0 = Math.max(T, 30 + mRows * ROW);
     // lanes: the EKG strip (the last beats only) over the pressures over the HVPG lane; where the room is short the strip goes first, then the lane
     // (trace-lanes.js). The strip stands at the very top when no marker labels need the space there, so it never sits under them.
     const EGAP = slide ? 22 : 16;
     const wantLane = showHvpg && (slide ? cfg.lane : showLane || !traces.length);
     const wantEkg = range === 'beats' && (slide ? cfg.ekg : showEkg);
-    const want = { pressure: traces.length > 0, hvpg: wantLane, gap: GAP, egap: EGAP, two: slide ? 0.66 : 0.64 };   // (two lanes: a slide's pressure lane holds the portal vein alone but keeps two thirds, as the dock's keeps 0.64)
-    let plan = wantEkg ? laneRoom(hh - (markLayout.rows ? T0 : 10) - B, { ...want, ekg: true }) : null;
-    if (plan?.ekg) T = markLayout.rows ? T0 : 10; else { T = T0; plan = laneRoom(hh - T - B, want); }
-    const lanes = [];
+    // (two lanes: a slide's pressure lane holds the portal vein alone but keeps two thirds, as the dock's keeps 0.64)
+    wantN.pressure = wantE.pressure = traces.length > 0; wantN.hvpg = wantE.hvpg = wantLane; wantN.gap = wantE.gap = GAP; wantN.egap = wantE.egap = EGAP; wantN.two = wantE.two = slide ? 0.66 : 0.64;
+    let plan = wantEkg ? laneRoom(hh - (mRows ? T0 : 10) - B, wantE) : null;
+    if (plan?.ekg) T = mRows ? T0 : 10; else { T = T0; plan = laneRoom(hh - T - B, wantN); }
+    lanes.length = 0; allLanes.length = 0;
     let ey = T;
-    const ekgLane = plan.ekg ? { key: 'ekg', top: ey, bot: (ey += plan.ekg) } : null;
+    let ekgLane = null;
+    if (plan.ekg) { ekgLane = ekgLaneO; ekgLane.top = ey; ekgLane.bot = (ey += plan.ekg); allLanes.push(ekgLane); }
     if (ekgLane) ey += EGAP;
-    if (plan.pressure) { lanes.push({ key: 'pressure', top: ey, bot: ey + plan.pressure }); ey += plan.pressure + GAP; }
-    if (plan.hvpg) lanes.push({ key: 'hvpg', top: ey, bot: ey + plan.hvpg });
-    // (On a slide both lanes start at zero and end on a round number above every reading, with a tick at the top.)
-    const top0 = (key) => { let mx = -Infinity; for (const k of key === 'pressure' ? traces.map((t) => t.id) : ['hvpg']) { const q = series(k, -Infinity, x1); for (let i = 0; i < q.x.length; i++) mx = Math.max(mx, q.hi ? q.hi[i] : q.mid[i]); }
-      mx = Math.max(mx, ...(key === 'pressure' ? traces.map((t) => endOf(t.id)) : [steadyHvpg()]).filter(Number.isFinite));   // (and the numbers written at the ends: a reading never sits above its lane)
-      return key === 'hvpg' ? Math.max(15, Math.ceil(((Number.isFinite(mx) ? mx : 0) + 3) / 5) * 5) : Math.max(10, Math.ceil(((Number.isFinite(mx) ? mx : 10) * 1.1) / 5) * 5); };
-    const fixed = slide ? { pressure: [0, top0('pressure')], hvpg: [0, top0('hvpg')] } : null;
+    if (plan.pressure) { presLaneO.top = ey; presLaneO.bot = ey + plan.pressure; lanes.push(presLaneO); ey += plan.pressure + GAP; }
+    if (plan.hvpg) { hvpgLaneO.top = ey; hvpgLaneO.bot = ey + plan.hvpg; lanes.push(hvpgLaneO); }
+    for (let i = 0; i < lanes.length; i++) allLanes.push(lanes[i]);
+    let fixed = null;
+    if (slide) { fixedO.pressure[0] = 0; fixedO.pressure[1] = topOf('pressure', x1); fixedO.hvpg[0] = 0; fixedO.hvpg[1] = topOf('hvpg', x1); fixed = fixedO; }
 
-    const data = Object.fromEntries([...traces.map((t) => t.id), 'hvpg'].map((k) => [k, series(k, x0, x1)]));
+    for (let j = 0; j < KEYS.length; j++) data[KEYS[j]] = undefined;
+    for (let j = 0; j < traces.length; j++) { const k = traces[j].id; data[k] = series(k, x0, x1, slots[k]); }
+    data.hvpg = series('hvpg', x0, x1, slots.hvpg);
     const hv = Math.max(0, shownOr('hvpg', frame.metrics.hvpg));
-    const sevCol = col(`--${sevOf(hv) === 'ok' ? 'ok' : sevOf(hv)}`);
-    const ends = [];
-    const crossRows = [];
+    const sevCol = sevColor(hv);
+    endN = 0; crossN = 0;
     const cx = cross != null && cross >= L && cross <= L + plotW ? cross : null;
     const xAtCross = cx != null ? x0 + ((cx - L) / plotW) * (x1 - x0) : null;
-    const recent = (s) => { // mean over the last second (the last day on the disease clock)
-      const n = s.x.length; if (range === 'days') return s.mid[n - 1];
-      const from = s.x[n - 1] - 1; let sum = 0, k = 0;
-      for (let i = n - 1; i >= 0 && s.x[i] >= from; i--) if (!Number.isNaN(s.mid[i])) { sum += s.mid[i]; k++; }
-      return k ? sum / k : s.mid[n - 1];
-    };
-    const at = (s, x) => { // value of a series at x (nearest sample)
-      if (!s.x.length) return null;
-      let lo = 0, hi = s.x.length - 1;
-      while (hi - lo > 1) { const m = (lo + hi) >> 1; if (s.x[m] < x) lo = m; else hi = m; }
-      const i = Math.abs(s.x[lo] - x) < Math.abs(s.x[hi] - x) ? lo : hi;
-      return Math.abs(s.x[i] - x) > (x1 - x0) * 0.03 ? null : s.mid[i];
-    };
 
-    for (const lane of lanes) {
+    for (let li = 0; li < lanes.length; li++) {
+      const lane = lanes[li];
       const { top, bot } = lane;
-      const keys = lane.key === 'pressure' ? traces.map((t) => t.id) : ['hvpg'];
+      const keys = lane.key === 'pressure' ? presKeys : HVPG_KEYS;
       let mn = Infinity, mx = -Infinity;
-      for (const k of keys) {
+      for (let kj = 0; kj < keys.length; kj++) {
+        const k = keys[kj];
         // (The whole record up to the right edge, read in place: building it as a series on every frame cost more than drawing.)
         if (range === 'beats' && !smooth) {
           const v = fine[k], n = firstAbove(fine.t, x1);
@@ -731,7 +861,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
           }
           continue;
         }
-        const s = range === 'days' ? data[k] : series(k, -Infinity, x1);
+        const s = range === 'days' ? data[k] : series(k, -Infinity, x1, tmpSlot);
         for (let i = 0; i < s.x.length; i++) {
           const a = s.lo ? s.lo[i] : s.mid[i], b = s.hi ? s.hi[i] : s.mid[i];
           if (a < mn) mn = a; if (b > mx) mx = b;
@@ -744,21 +874,24 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
         const pad = Math.max(1.5, (mx - mn) * 0.1);
         lo = Math.max(lane.key === 'pressure' && mn >= 0 ? 0 : -Infinity, mn - pad); hi = mx + pad;
       }
-      [lo, hi] = fixed ? fixed[lane.key] : ease(lane.key, lo, hi);
-      const tick = fixed ? [5, 10, 20, 25, 50].find((t) => hi % t === 0 && (bot - top) * t / hi >= 15) ?? hi : nice(hi - lo, (bot - top) > 120 ? 4 : 2);   // (a slide's ticks end on its top line, never closer than 15 px)
-      const Y = (v) => bot - ((v - lo) / Math.max(1e-6, hi - lo)) * (bot - top);
-      lane.Y = Y; lane.lo = lo; lane.hi = hi; lane.tick = tick; lane.keys = keys;
+      const rg = fixed ? fixed[lane.key] : ease(lane.key, lo, hi);
+      lo = rg[0]; hi = rg[1];
+      let tick = hi;   // (a slide's ticks end on its top line, never closer than 15 px)
+      if (fixed) { for (let q = 0; q < TICK_CHOICES.length; q++) { const t = TICK_CHOICES[q]; if (hi % t === 0 && (bot - top) * t / hi >= 15) { tick = t; break; } } }
+      else tick = nice(hi - lo, (bot - top) > 120 ? 4 : 2);
+      lane.lo = lo; lane.hi = hi; lane.tick = tick; lane.keys = keys;
     }
 
-    // The still parts (laptop-heat recs H3): drawn into a picture of their own when their key changes, and laid down whole.
-    const S = { w, hh, W: cv.width, H: cv.height, dpr: ctx.getTransform?.().a || 1, panel, faint, gridOn, danger: col('--danger'), caution: col('--caution'), slide, narrow, L, plotW,
-      cap: typeof ctx.lineCap === 'string' ? ctx.lineCap : 'butt', join: typeof ctx.lineJoin === 'string' ? ctx.lineJoin : 'miter', fonts: fontEpoch,
-      lanes: lanes.map((l) => [l.key, l.top, l.bot, l.lo, l.hi, l.tick]) };
-    still.lay(ctx, JSON.stringify(S), (c) => drawChartStill(c, S));
+    // The still parts (laptop-heat recs H3): drawn first, straight onto the chart, between a save and a restore.
+    SC.w = w; SC.hh = hh; SC.panel = panel; SC.faint = faint; SC.gridOn = gridOn; SC.danger = cssVar('--danger'); SC.caution = cssVar('--caution');
+    SC.slide = slide; SC.narrow = narrow; SC.L = L; SC.plotW = plotW;
+    SC.cap = typeof ctx.lineCap === 'string' ? ctx.lineCap : 'butt'; SC.join = typeof ctx.lineJoin === 'string' ? ctx.lineJoin : 'miter';
+    still.lay(ctx, null, chartStillFn);
     // (What the grid used to leave on the context, which the parts drawn after it read without setting: the baseline, the weight, the colours.)
     if (lanes.length) { ctx.globalAlpha = 1; ctx.lineWidth = 1; ctx.font = FONT(500, 12); ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic'; ctx.strokeStyle = gridOn; ctx.fillStyle = faint; }
 
-    for (const lane of lanes) {
+    for (let li = 0; li < lanes.length; li++) {
+      const lane = lanes[li];
       const { top, bot, Y, keys } = lane;
       ctx.save(); ctx.beginPath(); ctx.rect(L, top - 2, plotW, bot - top + 4); ctx.clip();
       if (lane.key === 'hvpg') {
@@ -773,7 +906,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
           ctx.lineTo(X(s.x[s.x.length - 1]), Y(0)); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1;
           if (s.lo) band(ctx, s, X, Y, text, 0.1);
           line(ctx, s, X, Y, text, 1.75, plotW);
-          const e = range === 'days' ? recent(s) : slide ? steadyHvpg() : hv; ends.push({ y: Y(e), v: e, label: 'HVPG', c: text, lane });   // (the header's own reading)
+          const e = range === 'days' ? recent(s) : slide ? steadyHvpg() : hv; pushEnd(Y(e), e, undefined, 'HVPG', text, lane);   // (the header's own reading)
         }
       } else {
         // the HVPG itself, shaded between wedged and free hepatic pressure
@@ -784,22 +917,25 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
           for (let i = sf.x.length - 1; i >= 0; i--) ctx.lineTo(X(sf.x[i]), Y(sf.mid[i]));
           ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1;
         }
-        for (const t of traces) {
+        for (let tj = 0; tj < traces.length; tj++) {
+          const t = traces[tj];
           const s = data[t.id];
           if (s.x.length < 1) continue;
-          const c = col(t.c);
+          const c = cssVar(t.c);
           if (s.lo) band(ctx, s, X, Y, c, 0.16);
           line(ctx, s, X, Y, c, t.id === 'CONF' ? 2 : 1.75, plotW);
           if (range === 'days' && s.x.length < 60) dots(ctx, s, X, Y, c, panel);
-          const e = range === 'days' ? recent(s) : (slide && Number.isFinite(endOf(t.id)) ? endOf(t.id) : liveEnd(t, frame.metrics)) ?? recent(s); ends.push({ y: Y(range !== 'days' && slide && Number.isFinite(recent(s)) ? recent(s) : e), v: e, label: t.abbr, c, lane });   // (on a slide, written at the line's end, its steady number; the live readings, so wedged − free is the header's HVPG)
+          const e = range === 'days' ? recent(s) : (slide && Number.isFinite(endOf(t.id)) ? endOf(t.id) : liveEnd(t, frame.metrics)) ?? recent(s); pushEnd(Y(range !== 'days' && slide && Number.isFinite(recent(s)) ? recent(s) : e), e, undefined, t.abbr, c, lane);   // (on a slide, written at the line's end, its steady number; the live readings, so wedged − free is the header's HVPG)
         }
       }
       ctx.restore();
-      if (xAtCross != null) for (const k of keys) {
-        const v = at(data[k], xAtCross);
+      if (xAtCross != null) for (let kj = 0; kj < keys.length; kj++) {
+        const k = keys[kj];
+        const v = at(data[k], xAtCross, x1 - x0);
         if (v == null) continue;
-        const t = TRACES.find((x) => x.id === k);
-        crossRows.push({ label: t ? t.short : 'HVPG', v, c: t ? col(t.c) : text, y: Y(v) });
+        const t = TRACE_OF[k];
+        const r = crossPool[crossN++];
+        r.label = t ? t.short : 'HVPG'; r.v = v; r.c = t ? cssVar(t.c) : text; r.y = Y(v);
       }
     }
 
@@ -807,35 +943,40 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
     // (a slide's, the tile's own number).
     if (ekgLane && fine.t.length > 1) {
       const { top, bot } = ekgLane, mid = Math.round((top + bot) / 2);
+      F.et = top; F.eb = bot;
       const hr = slide && Number.isFinite(pinned?.hr) ? pinned.hr : frame.metrics.hr;
       const e = ekgSeries(beatClock.times, Math.max(x0, fine.t[0]), x1, 60 / (hr > 20 ? hr : 70));
-      const Ye = (v) => bot - 3 - ((v + 0.3) / 1.3) * (bot - top - 6);   // (the S wave's dip to the R peak fill the lane)
       if (e.x.length > 1) {
         ctx.save(); ctx.beginPath(); ctx.rect(L, top - 2, plotW, bot - top + 4); ctx.clip();
         ctx.strokeStyle = text; ctx.lineWidth = 1.5; ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.beginPath();
-        for (let i = 0; i < e.x.length; i++) ctx[i ? 'lineTo' : 'moveTo'](X(e.x[i]), Ye(e.v[i]));
+        for (let i = 0; i < e.x.length; i++) ctx[i ? 'lineTo' : 'moveTo'](X(e.x[i]), YEg(e.v[i]));
         ctx.stroke(); ctx.restore();
       }
       ctx.font = FONT(500, 12); ctx.fillStyle = faint; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText('EKG', 8, mid); ctx.textBaseline = 'alphabetic';
-      if (Number.isFinite(hr)) ends.push({ y: mid, v: hr, dec: 0, label: 'HR', c: text, lane: ekgLane });
+      if (Number.isFinite(hr)) pushEnd(mid, hr, 0, 'HR', text, ekgLane);
     }
     ctx.font = FONT(500, 12); ctx.fillStyle = faint; ctx.textAlign = 'left'; ctx.fillText('mmHg', 8, (lanes[0] ? lanes[0].top : T) - (ekgLane ? 8 : 12));
     if (slide && lanes.length > 1) ctx.fillText('HVPG, mmHg', 8, lanes[1].top - 10);
 
     // markers: learner changes and events, where they happened
-    const allBot = drawMarkers(markLayout, ekgLane ? [ekgLane, ...lanes] : lanes);
+    const allBot = drawMarkers(allLanes);
 
     // live values at the right edge, nudged apart where they would collide (per lane)
-    for (const lane of ekgLane ? [ekgLane, ...lanes] : lanes) {
-      const es = ends.filter((e) => e.lane === lane).sort((a, b) => a.y - b.y);
+    for (let li = 0; li < allLanes.length; li++) {
+      const lane = allLanes[li];
+      esBuf.length = 0;
+      for (let j = 0; j < endN; j++) if (endPool[j].lane === lane) esBuf.push(endPool[j]);
+      const es = esBuf.sort(byY);
       for (let i = 1; i < es.length; i++) es[i].y = Math.max(es[i].y, es[i - 1].y + (tiny ? 27 : slide ? 18 : 15));
       const over = es.length ? Math.min(es[es.length - 1].y - lane.bot, es[0].y - (lane.top + 4)) : 0;   // (lifted only as far as the top allows: a short lane lets its last label hang below rather than pile the readings on each other)
-      if (over > 0) for (const e of es) e.y -= over;
+      if (over > 0) for (let i = 0; i < es.length; i++) es[i].y -= over;
       // The readings stand in one column, right-aligned (canvas text has no tabular figures): a value's width as if every digit were
       // a 0, the widest in the lane, so the decimal points line up down the column and a name never shifts as a digit changes.
       ctx.font = FONT(650, 12.5);
-      const colW = tiny ? 0 : Math.max(0, ...es.map((e) => ctx.measureText(fmt(e.v, e.dec ?? 1).replace(/\d/g, '0')).width));
-      for (const e of es) {
+      let colW = 0;
+      if (!tiny) for (let i = 0; i < es.length; i++) colW = Math.max(colW, ctx.measureText(zeroed(fmt(es[i].v, es[i].dec ?? 1))).width);
+      for (let i = 0; i < es.length; i++) {
+        const e = es[i];
         const yy = Math.max(lane.top + 4, e.y);
         ctx.fillStyle = e.c; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(L + plotW + 4, yy - 1.5, 10, 3, 1.5) : ctx.rect(L + plotW + 4, yy - 1.5, 10, 3); ctx.fill();   // (a short stroke in the trace's colour, not a dot)
         ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
@@ -855,29 +996,33 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
     const span = x1 - x0;
     if (range === 'days') {
       const step = nice(span, narrow ? 3 : 5);
-      for (let d = Math.ceil(x0 / step) * step; d <= x1 + 1e-9; d += step) { const xx = X(d); if (xx > L + 20 && xx < L + plotW - 30) ctx.fillText(`Day ${Math.round(d)}`, xx, hh - 8); }
-      ctx.textAlign = 'right'; ctx.fillStyle = muted; ctx.fillText(`Day ${Math.round(x1)}`, L + plotW, hh - 8);
+      let di = 0;
+      for (let d = Math.ceil(x0 / step) * step; d <= x1 + 1e-9; d += step) { const xx = X(d); if (xx > L + 20 && xx < L + plotW - 30) { ctx.fillText(joined(daySlots[di < 15 ? di : 15], 'Day', ' ', Math.round(d)), xx, hh - 8); di++; } }
+      ctx.textAlign = 'right'; ctx.fillStyle = muted; ctx.fillText(joined(dayEndJoin, 'Day', ' ', Math.round(x1)), L + plotW, hh - 8);
     } else {
       const step = range === 'beats' ? (narrow ? 5 : 2) : (narrow ? 60 : 30);
+      const names = range === 'beats' ? AX_BEATS : AX_MIN;
       for (let s = step; xNow - s > x0 + 1e-9; s += step) {
         const xx = X(xNow - s);
         if (xx < L + 12) break;
-        ctx.fillText(range === 'beats' ? `−${s} s` : s % 60 === 0 ? `−${s / 60} min` : `−${s} s`, xx, hh - 8);
+        ctx.fillText(names[s], xx, hh - 8);
       }
       const nowX = X(xNow);
       ctx.textAlign = nowX > L + plotW - 14 ? 'right' : 'center'; ctx.fillStyle = muted; ctx.fillText('now', Math.min(nowX, L + plotW), hh - 8);
     }
 
     // crosshair and its readout card
-    if (cx != null && crossRows.length) {
+    if (cx != null && crossN) {
       ctx.strokeStyle = text; ctx.globalAlpha = 0.3; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(Math.round(cx) + 0.5, (ekgLane || lanes[0]).top); ctx.lineTo(Math.round(cx) + 0.5, allBot); ctx.stroke(); ctx.globalAlpha = 1;
-      for (const r of crossRows) { ctx.fillStyle = panel; ctx.beginPath(); ctx.arc(cx, r.y, 4.5, 0, 7); ctx.fill(); ctx.fillStyle = r.c; ctx.beginPath(); ctx.arc(cx, r.y, 3, 0, 7); ctx.fill(); }
-      const when = range === 'days' ? `Day ${Math.round(xAtCross)}` : Math.abs(xNow - xAtCross) < 0.05 ? 'now' : `${fmt(xNow - xAtCross, range === 'beats' ? 1 : 0)} s ago`;
+      for (let j = 0; j < crossN; j++) { const r = crossPool[j]; ctx.fillStyle = panel; ctx.beginPath(); ctx.arc(cx, r.y, 4.5, 0, 7); ctx.fill(); ctx.fillStyle = r.c; ctx.beginPath(); ctx.arc(cx, r.y, 3, 0, 7); ctx.fill(); }
+      const when = range === 'days' ? joined(whenDay, 'Day', ' ', Math.round(xAtCross)) : Math.abs(xNow - xAtCross) < 0.05 ? 'now' : joined(whenAgo, fmt(xNow - xAtCross, range === 'beats' ? 1 : 0), ' ', 's ago');
       ctx.font = FONT(600, 12);
       const rowH = 18, padX = 10;
-      const cw = Math.max(ctx.measureText(when).width, ...crossRows.map((r) => { ctx.font = FONT(500, 12); return ctx.measureText(`${r.label}  ${fmt(r.v, 1)}`).width + 14; })) + padX * 2;
-      const ch = 12 + rowH * (crossRows.length + 1);
+      let cw = ctx.measureText(when).width;
+      for (let j = 0; j < crossN; j++) { const r = crossPool[j]; ctx.font = FONT(500, 12); cw = Math.max(cw, ctx.measureText(joined(r.j, r.label, '  ', fmt(r.v, 1))).width + 14); }
+      cw += padX * 2;
+      const ch = 12 + rowH * (crossN + 1);
       let bx = cx + 14; if (bx + cw > L + plotW) bx = cx - 14 - cw;
       const by = clamp(lanes[0].top, 4, hh - ch - 4);
       drawShadow(ctx, bx, by, cw, ch);
@@ -885,12 +1030,13 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
       ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx, by, cw, ch, 10) : ctx.rect(bx, by, cw, ch); ctx.fill();
       ctx.strokeStyle = grid; ctx.stroke();
       ctx.textAlign = 'left'; ctx.fillStyle = muted; ctx.font = FONT(600, 12); ctx.fillText(when, bx + padX, by + 18);
-      crossRows.forEach((r, i) => {
+      for (let i = 0; i < crossN; i++) {
+        const r = crossPool[i];
         const yy = by + 18 + rowH * (i + 1);
         ctx.fillStyle = r.c; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx + padX - 1, yy - 5.5, 9, 3, 1.5) : ctx.rect(bx + padX - 1, yy - 5.5, 9, 3); ctx.fill();
         ctx.fillStyle = muted; ctx.font = FONT(500, 12); ctx.fillText(r.label, bx + padX + 12, yy);
         ctx.fillStyle = text; ctx.font = FONT(650, 12); ctx.textAlign = 'right'; ctx.fillText(fmt(r.v, 1), bx + cw - padX, yy); ctx.textAlign = 'left';
-      });
+      }
     }
   }
 
@@ -905,80 +1051,94 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
   // Each label takes the highest row where it clears the labels already placed, right of its dot or
   // else left of it. Labels are drawn on a halo, so the dotted lines of other markers pass behind
   // them. With no row free the marker keeps its line and a dot at the top of the plot, unlabelled.
+  // The markers in the window (mk…), the groups they make (g…) and the labels' spans (sp…) are lists written in place, one column to a field.
   const ROW = 13, MAX_ROWS = 4;
+  const mkX = [], mkLabel = [], mkSev = [];
+  const gXX = [], gLabel = [], gSev = [], gN = [], gRow = [], gText = [], gToRight = [];
+  const spX0 = [], spX1 = [], spRow = [], groupJoin = [];
+  let mkN = 0, gCount = 0;
+  for (let i = 0; i < 32; i++) groupJoin.push(mkJoin());
   // (wrapLabel: a long label wraps between words onto the rows below, never cut with an ellipsis.) Cached per label and room.
   const wrapped = new Map();
-  function wrapOf(ctx, lab, maxW) {
-    const key = `${lab}|${maxW}`;
-    if (!wrapped.has(key)) { if (wrapped.size > 200) wrapped.clear(); wrapped.set(key, wrapLabel(lab, maxW, (t) => ctx.measureText(t).width)); }
-    return wrapped.get(key);
+  const measureW = (t) => pen.measureText(t).width;
+  function wrapOf(lab, maxW) {
+    let byW = wrapped.get(lab);
+    if (byW === undefined) { if (wrapped.size > 200) wrapped.clear(); byW = new Map(); wrapped.set(lab, byW); }   // alloc-rare: first sight of this label (or the cache restarting); the room is mostly one width
+    if (!byW.has(maxW)) byW.set(maxW, wrapLabel(lab, maxW, measureW));   // (first sight of this label at this room)
+    return byW.get(maxW);
   }
-  function layoutMarkers(ms, X, right) {
-    if (!ms.length) return { groups: [], rows: 0 };   // (no markers in the window, the common case and every slide's: the font below cost each frame a font lookup for nothing)
+  // Lays the markers of mk… out in groups (g…) and returns how many rows of labels they need.
+  function layoutMarkers(right) {
+    gCount = 0;
+    if (!mkN) return 0;   // (no markers in the window, the common case and every slide's: the font below cost each frame a font lookup for nothing)
     const ctx = pen;
     ctx.font = FONT(600, 12);
-    const groups = [];
-    for (const mk of ms) {
-      const xx = Math.round(X(mk.x)) + 0.5, g = groups[groups.length - 1];
-      if (g && xx - g.xx < 6) { g.n++; if (!g.sev && mk.sev) g.sev = mk.sev; continue; }
-      groups.push({ xx, label: mk.label, sev: mk.sev, n: 1, row: -1, text: null });
+    for (let m = 0; m < mkN; m++) {
+      const xx = Math.round(X(mkX[m])) + 0.5, last = gCount - 1;
+      if (last >= 0 && xx - gXX[last] < 6) { gN[last]++; if (!gSev[last] && mkSev[m]) gSev[last] = mkSev[m]; continue; }
+      gXX[gCount] = xx; gLabel[gCount] = mkLabel[m]; gSev[gCount] = mkSev[m]; gN[gCount] = 1; gRow[gCount] = -1; gText[gCount] = null; gToRight[gCount] = false;
+      gCount++;
     }
-    const spans = [];   // placed labels: { x0, x1, row }
+    let spN = 0;   // placed labels: spX0, spX1, spRow
     const maxW = Math.min(170, (right - 40) * 0.6);
-    for (const g of groups) {
-      const lab = g.label ? g.label + (g.n > 1 ? ` +${g.n - 1}` : '') : g.n > 1 ? `${g.n} changes` : '';
-      const fit = lab && wrapOf(ctx, lab, maxW);
+    for (let gi = 0; gi < gCount; gi++) {
+      const n1 = gN[gi], slot = groupJoin[gi < 32 ? gi : 31];
+      const lab = gLabel[gi] ? (n1 > 1 ? joined(slot, gLabel[gi], ' +', n1 - 1) : gLabel[gi]) : n1 > 1 ? joined(slot, n1, ' ', 'changes') : '';
+      const fit = lab && wrapOf(lab, maxW);
       if (!fit) continue;
-      const tw = fit.w, n = fit.lines.length;
-      place: for (let r = 0; r + n <= MAX_ROWS; r++) for (const toRight of [true, false]) {
-        const x0 = toRight ? g.xx - 4 : g.xx - 11 - tw, x1 = toRight ? g.xx + 7 + tw : g.xx + 4;
+      const tw = fit.w, n = fit.lines.length, gxx = gXX[gi];
+      place: for (let r = 0; r + n <= MAX_ROWS; r++) for (let side = 0; side < 2; side++) {
+        const toRight = side === 0;
+        const x0 = toRight ? gxx - 4 : gxx - 11 - tw, x1 = toRight ? gxx + 7 + tw : gxx + 4;
         if (x1 > right || x0 < 8) continue;
-        if (spans.some((sp) => sp.row >= r && sp.row < r + n && x0 < sp.x1 + 8 && x1 > sp.x0 - 8)) continue;
-        g.row = r; g.text = fit.lines; g.toRight = toRight;
-        for (let i = 0; i < n; i++) spans.push({ x0, x1, row: r + i });
+        let busy = false;
+        for (let q = 0; q < spN; q++) if (spRow[q] >= r && spRow[q] < r + n && x0 < spX1[q] + 8 && x1 > spX0[q] - 8) { busy = true; break; }
+        if (busy) continue;
+        gRow[gi] = r; gText[gi] = fit.lines; gToRight[gi] = toRight;
+        for (let i = 0; i < n; i++) { spX0[spN] = x0; spX1[spN] = x1; spRow[spN] = r + i; spN++; }
         break place;
       }
     }
-    const rows = Math.max(groups.length ? 1 : 0, ...groups.map((g) => g.row + (g.text ? g.text.length : 1)));
-    return { groups, rows };
+    let rows = gCount ? 1 : 0;
+    for (let gi = 0; gi < gCount; gi++) rows = Math.max(rows, gRow[gi] + (gText[gi] ? gText[gi].length : 1));
+    return rows;
   }
-  function drawMarkers({ groups }, lanes) {
+  function drawMarkers(lanes) {
     const ctx = pen;
     const top = lanes[0].top, allBot = lanes[lanes.length - 1].bot;
     const muted = cssVar('--text-2'), halo = cssVar('--surface-2');
-    const colOf = (g) => cssVar(g.sev ? `--${g.sev}` : '--accent');
-    const yOf = (g) => (g.row >= 0 ? 14 + g.row * ROW : top - 8);
-    for (const g of groups) {
-      ctx.strokeStyle = colOf(g); ctx.globalAlpha = 0.55; ctx.lineWidth = 1; ctx.setLineDash([2, 3]);
-      ctx.beginPath(); ctx.moveTo(g.xx, yOf(g) + 4); ctx.lineTo(g.xx, allBot); ctx.stroke();
+    for (let gi = 0; gi < gCount; gi++) {
+      ctx.strokeStyle = cssVar(gSev[gi] ? sevVar(gSev[gi]) : '--accent'); ctx.globalAlpha = 0.55; ctx.lineWidth = 1; ctx.setLineDash(DASH_MARK);
+      ctx.beginPath(); ctx.moveTo(gXX[gi], (gRow[gi] >= 0 ? 14 + gRow[gi] * ROW : top - 8) + 4); ctx.lineTo(gXX[gi], allBot); ctx.stroke();
     }
-    ctx.setLineDash([]); ctx.globalAlpha = 1;
+    ctx.setLineDash(DASH_NONE); ctx.globalAlpha = 1;
     ctx.font = FONT(600, 12); ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
-    for (const g of groups) {
-      const y = yOf(g);
-      ctx.fillStyle = colOf(g); ctx.beginPath(); ctx.arc(g.xx, y, 3, 0, 7); ctx.fill();
-      if (!g.text) continue;
-      ctx.textAlign = g.toRight ? 'left' : 'right';
-      const tx = g.toRight ? g.xx + 7 : g.xx - 7;
-      g.text.forEach((line, i) => {
-        ctx.strokeStyle = halo; ctx.lineWidth = 4; ctx.strokeText(line, tx, y + i * ROW + 0.5);
-        ctx.fillStyle = muted; ctx.fillText(line, tx, y + i * ROW + 0.5);
-      });
+    for (let gi = 0; gi < gCount; gi++) {
+      const y = gRow[gi] >= 0 ? 14 + gRow[gi] * ROW : top - 8;
+      ctx.fillStyle = cssVar(gSev[gi] ? sevVar(gSev[gi]) : '--accent'); ctx.beginPath(); ctx.arc(gXX[gi], y, 3, 0, 7); ctx.fill();
+      const lines = gText[gi];
+      if (!lines) continue;
+      ctx.textAlign = gToRight[gi] ? 'left' : 'right';
+      const tx = gToRight[gi] ? gXX[gi] + 7 : gXX[gi] - 7;
+      for (let i = 0; i < lines.length; i++) {
+        ctx.strokeStyle = halo; ctx.lineWidth = 4; ctx.strokeText(lines[i], tx, y + i * ROW + 0.5);
+        ctx.fillStyle = muted; ctx.fillText(lines[i], tx, y + i * ROW + 0.5);
+      }
     }
     ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left'; ctx.lineWidth = 1;
     return allBot;
   }
+  // The markers in the window x0 … x1 into mk….
   function markers(x0, x1) {
-    const out = [];
+    mkN = 0;
     for (const e of marks()) {
       if (e.kind === 'start') continue;
       let x;
       if (range === 'days') x = e.day + (e.t || 0) / 86400;
       else { if (e.day !== dayNow) continue; x = e.t; }
       if (x == null || x < x0 || x > x1) continue;
-      out.push({ x, label: e.label || '', sev: e.kind === 'event' ? (e.sev === 'info' ? null : e.sev) : null });
+      mkX[mkN] = x; mkLabel[mkN] = e.label || ''; mkSev[mkN] = e.kind === 'event' ? (e.sev === 'info' ? null : e.sev) : null; mkN++;
     }
-    return out;
   }
 
   // ── Header readout ────────────────────────────────

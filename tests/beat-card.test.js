@@ -67,12 +67,12 @@ test('the change since before: one decimal for a pressure, whole beats for the h
 test('the slide card draws the new layout; the Patients chart and an unmeasured HVPG keep theirs', () => {
   assert.match(pt, /if \(slide && range === 'beats' && showHvpg\) \{ drawBeatCard\(/);
   assert.match(pt, /before = ctx\?\.ref \? \{ fp: ctx\.ref, label: t\?\.deltaLabel \|\| 'before' \} : null;/);
-  assert.match(pt, /setLineDash\(\[6, 4\]\); line\(ctx, data\.CONF/, 'the portal pressure dashed');
+  assert.match(pt, /setLineDash\(DASH_PORTAL\); line\(ctx, sp, X, YB/, 'the portal pressure dashed');
   assert.match(pt, /ctx\.strokeStyle = text; ctx\.lineWidth = 1\.6;/, 'the EKG in the text colour');
-  assert.match(pt, /fillStyle = cssAlpha\('--text-3', 0\.08\); ctx\.fillRect\(L, Y\(wWas\)/, 'the old gap faint grey');
+  assert.match(pt, /fillStyle = cssAlpha\('--text-3', 0\.08\); ctx\.fillRect\(L, YB\(wWas\)/, 'the old gap faint grey');
   assert.ok(css.includes('.pz-tool[data-kind="beats"] .pt-head { display: none !important; }'), 'the header leaves the slide card');
   assert.match(pt, /X0 = L - x0 \* pxS/, 'the paper\'s upright lines ride on time, so the grid scrolls with the traces');
-  assert.match(pt, /const label = `HVPG \$\{fmt\(hv, 1\)\}`/, 'the HVPG named on the chart, in its gap');
+  assert.match(pt, /const label = joined\(hvpgLabelJoin, 'HVPG', ' ', fmt\(hv, 1\)\)/, 'the HVPG named on the chart, in its gap');
   assert.ok(css.includes('height: calc(56cqi * var(--pz-fit, 1))'), 'a compact card');
   assert.match(pt, /const BEAT_CARD_S = 5;/, 'the slide card shows the last 5 s');
   assert.match(pt, /const beatCard = slide && range === 'beats' && showHvpg;\s+const span = beatCard \? BEAT_CARD_S :/);

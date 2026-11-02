@@ -68,7 +68,7 @@ test('the beat card on a phone keeps "17.1 WHVP" inside its edge, and its top nu
   const l = beatLayout(340, 300);
   assert.ok(340 - l.R >= 116, 'room for a value and WHVP at the line ends');
   const pt = readFileSync(new URL('../src/ui/pressure-time.js', import.meta.url), 'utf8');
-  assert.match(pt, /\.filter\(\(\[, y\]\) => !\(top - 10 > \(lay\.ekg \? lay\.ekg\.bot : 0\) && y < top \+ 9\)\)/);
+  assert.match(pt, /const gate = top - 10 > \(lay\.ekg \? lay\.ekg\.bot : 0\);[\s\S]*?if \(gate && y < top \+ 9\) continue;/);
 });
 
 test('a line name with no clear place sits on lines before it sits on a word', () => {

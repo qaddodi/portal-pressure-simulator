@@ -116,7 +116,7 @@ test('a slide\'s card keeps the HVPG lane and shows the portal pressure alone; P
   const strip = pt.slice(pt.indexOf('// The EKG strip'), pt.indexOf("ctx.fillText('mmHg'"));
   assert.match(strip, /ctx\.strokeStyle = text;/);
   assert.doesNotMatch(strip, /shadowBlur|createLinearGradient/);
-  assert.match(strip, /dec: 0, label: 'HR'/);
+  assert.match(strip, /pushEnd\(mid, hr, 0, 'HR'/);
   // A phone's card is tall enough for the HVPG lane.
   const phone = +css.match(/\.pz\.stack \.pz-tool\[data-kind="beats"\] \.pt-box \{ height: (\d+)px;/)[1];
   assert.ok(laneRoom(phone - 30 - 22, { gap: 30, two: 0.66 }).hvpg > 0, `a ${phone} px phone card keeps the HVPG lane`);

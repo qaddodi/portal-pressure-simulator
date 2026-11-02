@@ -184,7 +184,7 @@ test('the Explore dock\'s canvas charts lay the same rounded panel: plotFill is 
   }
   assert.match(charts, /plotFill\(ctx, 0, 0, w, hh, c\.surface2\);/, 'the profile\'s panel is its whole box in the tile tone');
   assert.match(pt, /plotFill\(ctx, 0, 0, w, hh, panel\);/, 'so is Over time\'s');
-  assert.match(pt, /panel = col\('--surface-2'\)/, 'the tile tone, --surface-2, as the SVG charts\' pz-plotbg');
+  assert.match(pt, /panel = cssVar\('--surface-2'\)/, 'the tile tone, --surface-2, as the SVG charts\' pz-plotbg');
   assert.doesNotMatch(charts, /c\.axis; ctx\.beginPath\(\); ctx\.moveTo\(L, Math\.round\(y\(0\)\)/, 'no axis line under the profile: the panel\'s edge is the axis');
   // (Where a label must hide a line, or a dot is ringed, the panel's tone is used, not the card's, so no patch shows on the panel.)
   assert.match(pt, /c\.fillStyle = panel; c\.fillRect\(lx, yy - 6, tw \+ 8, 12\)/, 'the cut-off names\' plates (drawn in the still picture, H3)');
