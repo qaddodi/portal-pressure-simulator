@@ -7885,7 +7885,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // (A card folding its instrument away takes the monitor with it; a stacked card tucking or bringing out its readings does not:
       // the monitor stays where it is, and the probe with it, Mohammad, 22 Oct.)
       if (cv.closest('[data-folding]:not(.pz-sheet)')) continue;
-      if (cv.checkVisibility && !cv.checkVisibility({ opacityProperty: true, visibilityProperty: true })) continue;
+      // (Asked of the monitor, not the canvas: a chart drawn on the GPU leaves its own 2D canvas at opacity 0 under the GPU's picture
+      // (trace-gl.js end()), so the canvas itself never reads as visible and the probe never showed, 2 Nov.)
+      const monEl = cv.parentElement || cv;
+      if (monEl.checkVisibility && !monEl.checkVisibility({ opacityProperty: true, visibilityProperty: true })) continue;
       const q = cv.getBoundingClientRect();
       if (q.width < 20 || q.height < 20 || q.right <= 0 || q.bottom <= 0 || q.left >= W || q.top >= H) continue;
       const x = Math.min(W - 1, Math.max(0, (q.left + q.right) / 2)), y = Math.min(H - 1, Math.max(0, (q.top + q.bottom) / 2));
