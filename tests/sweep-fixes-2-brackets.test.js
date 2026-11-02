@@ -22,7 +22,7 @@ test('a bracket\'s bar breaks round its own label, never running through "HVPG"'
   assert.match(prof, /const ws = Math\.max\(tw\(name, 600\), tw\(s, 700\)\);/);
   assert.match(prof, /const lw = z \* tw\(`\$\{name\} \$\{s\}`, 700\);/);
   assert.match(prof, /const wide = \(x1 - x0 - lw\) \/ 2 - LABEL_PAD >= BAR_MIN;/);
-  assert.match(prof, /if \(!\(hi - lo >= x1 - x0 - 0\.5\)\) \{   \/\/ \(the bar, broken round the label\)/);
+  assert.match(prof, /if \(!\(hi - lo >= x1 - x0 - 0\.5\)\) \{ {3}\/\/ \(the bar, broken round the label\)/);
 });
 
 test('the red block marks each fall over 4 mmHg from the portal vein on, or the heart; a healthy chart shows none', async () => {
