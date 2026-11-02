@@ -9027,12 +9027,28 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (2 Nov 2026: a transition or animation anywhere in the page no longer keeps the cache off for 0.6 s, nor is getAnimations() asked
   // on every call. Only the elements read below are listened to, with capture so their children count too; a start, end or cancel marks
   // the cache dirty, and the next frostOver call reads once and keeps the answer again.)
-  const frostTouch = () => { frostDirty++; };
+  // (Each part between keeps its own count, so a part that moved reads alone: the catheter's labels following a glide read
+  // themselves, not the overlays, the labels picture and the shade too. The overlays' group following the camera (worldOver's
+  // transform, every frame of a glide) reads nothing: their boxes, read once, are carried by the figure's transform (frostCarry).
+  // ?glassreads=0 reads it all on every call, as before.)
+  const frostPart = { over: 0, pane: 0, labels: 0, shade: 0, marks: 0 };
+  const frostAll = () => { for (const k in frostPart) frostPart[k]++; };
+  const frostPartOf = (t) => (!t?.nodeType ? '' : svgOver?.contains(t) ? 'over' : glass?.contains(t) ? 'pane' : labelSvg?.contains(t) || (labelGL && t === labelGL.canvas) ? 'labels'
+    : cath.labels?.contains(t) || sites.el?.contains(t) ? 'marks' : t.closest?.('.pz-shade, .stage-credit') ? 'shade' : '');
+  const frostTouch = (e) => { frostDirty++; const p = frostPartOf(e?.target); if (p) frostPart[p]++; else frostAll(); };
+  function frostRecords(list) {
+    frostDirty++;
+    for (const m of list) {
+      if (m.target === worldOver && m.type === 'attributes' && m.attributeName === 'transform') continue;
+      const p = frostPartOf(m.target);
+      if (p) frostPart[p]++; else frostAll();
+    }
+  }
   const FROST_EVS = ['transitionrun', 'transitionend', 'transitioncancel', 'animationstart', 'animationend', 'animationcancel'];
   const frostListen = (el) => { for (const t of FROST_EVS) el.addEventListener(t, frostTouch, true); };
   function frostWatch() {
     if (!frostMo) {
-      frostMo = new MutationObserver(frostTouch);
+      frostMo = new MutationObserver(frostRecords);
       const all = { attributes: true, childList: true, subtree: true, characterData: true };
       for (const el of [svgOver, labelSvg, glass, cath.labels, sites.el]) if (el) frostMo.observe(el, all);
       frostMo.observe(wrap, { attributes: true });
@@ -9053,33 +9069,74 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     frostKept.set(level, { key, boxes: labelGL?.boxes ?? null, out });
     return out;
   }
+  // (One part's boxes, kept while its count, the mode and the labels' picture stand.)
+  const frostParts = new Map();
+  function frostPartRead(p, read) {
+    const key = `${frostPart[p]}|${appEl?.classList.contains('presenting') ? 1 : 0}|${labelGL?.lost ? 'lost' : ''}|${p === 'over' ? svg.style.transform : ''}`;
+    const k = frostParts.get(p), boxes = labelGL?.boxes ?? null;
+    if (FROST_KEEP && k && k.key === key && k.boxes === boxes) return k;
+    if (p === 'over' && !CTM) refreshCTM();
+    const v = { key, boxes, ctm: p === 'over' ? CTM : null, out: read() };
+    frostParts.set(p, v);
+    return v;
+  }
+  // (Boxes read at one view of the figure, where they are at another: each box's corners through the change of transform, and the box
+  // that holds them. By arithmetic, no read.)
+  function frostCarry(v) {
+    if (!CTM) refreshCTM();
+    const a = v.ctm, b = CTM;
+    if (!a || !b || a === b || !v.out.length) return v.out;
+    const det = a.a * a.d - a.b * a.c;
+    if (!det) return v.out;
+    const ia = a.d / det, ib = -a.b / det, ic = -a.c / det, id = a.a / det, ie = (a.c * a.f - a.d * a.e) / det, jf = (a.b * a.e - a.a * a.f) / det;
+    const m = [b.a * ia + b.c * ib, b.b * ia + b.d * ib, b.a * ic + b.c * id, b.b * ic + b.d * id, b.a * ie + b.c * jf + b.e, b.b * ie + b.d * jf + b.f];
+    return v.out.map((r) => {
+      const xs = [], ys = [];
+      for (const [x, y] of [[r.left, r.top], [r.right, r.top], [r.left, r.bottom], [r.right, r.bottom]]) { xs.push(m[0] * x + m[2] * y + m[4]); ys.push(m[1] * x + m[3] * y + m[5]); }
+      return { left: Math.min(...xs), top: Math.min(...ys), right: Math.max(...xs), bottom: Math.max(...ys) };
+    });
+  }
   function frostOverRead(level) {
-    const out = [];
-    if (svgOver && !svgOver.classList.contains(OVER_ALL) && visible(svgOver)) {
-      for (const u of overUnits(worldOver, gOver)) if (!u.classList.contains(OVER_CLASS) && visible(u)) out.push(u.getBoundingClientRect());
-    }
+    const out = [...frostCarry(frostPartRead('over', () => {
+      const o = [];
+      if (svgOver && !svgOver.classList.contains(OVER_ALL) && visible(svgOver)) {
+        for (const u of overUnits(worldOver, gOver)) if (!u.classList.contains(OVER_CLASS) && visible(u)) o.push(u.getBoundingClientRect());
+      }
+      return o;
+    }))];
     if (level === 'pane') return out;
-    if (!glass.hidden && !paneGL?.hosted) out.push(glass.getBoundingClientRect());
-    const lc = labelGL && !labelGL.lost ? labelGL.canvas : labelSvg;
-    if (visible(lc) && visible(labelSvg)) {
-      if (labelGL && !labelGL.lost) {
-        // (The labels the GPU draws leave every glass drawn in the figure's canvas out (setHoles): they never send a glass back to the
-        // browser's blur. Only those the SVG still draws itself lie over it.)
-        if (!labelGL.holes) {
-          const r = lc.getBoundingClientRect();
-          for (const b of labelGL.boxes) out.push({ left: r.left + b[0] - 1, top: r.top + b[1] - 1, right: r.left + b[2] + 1, bottom: r.top + b[3] + 1 });
-        }
-        for (const el of labelGL.svgLeft()) out.push(el.getBoundingClientRect());
-      } else for (const el of labelSvg.querySelectorAll('.lb, .leader, .leader-dot')) out.push(el.getBoundingClientRect());
-    }
+    out.push(...frostPartRead('pane', () => (!glass.hidden && !paneGL?.hosted ? [glass.getBoundingClientRect()] : [])).out);
+    out.push(...frostPartRead('labels', () => {
+      const o = [], lc = labelGL && !labelGL.lost ? labelGL.canvas : labelSvg;
+      if (visible(lc) && visible(labelSvg)) {
+        if (labelGL && !labelGL.lost) {
+          // (The labels the GPU draws leave every glass drawn in the figure's canvas out (setHoles): they never send a glass back to the
+          // browser's blur. Only those the SVG still draws itself lie over it.)
+          if (!labelGL.holes) {
+            const r = lc.getBoundingClientRect();
+            for (const b of labelGL.boxes) o.push({ left: r.left + b[0] - 1, top: r.top + b[1] - 1, right: r.left + b[2] + 1, bottom: r.top + b[3] + 1 });
+          }
+          for (const el of labelGL.svgLeft()) o.push(el.getBoundingClientRect());
+        } else for (const el of labelSvg.querySelectorAll('.lb, .leader, .leader-dot')) o.push(el.getBoundingClientRect());
+      }
+      return o;
+    }).out);
     if (level === 'low') return out;
     if (level === 'callouts') {
-      for (const el of document.querySelectorAll('.pz-shade')) if (visible(el)) out.push(el.getBoundingClientRect());
-      const cr = document.querySelector('.stage-credit');
-      if (cr && !appEl?.classList.contains('presenting') && visible(cr)) out.push(cr.getBoundingClientRect());
+      out.push(...frostPartRead('shade', () => {
+        const o = [];
+        for (const el of document.querySelectorAll('.pz-shade')) if (visible(el)) o.push(el.getBoundingClientRect());
+        const cr = document.querySelector('.stage-credit');
+        if (cr && !appEl?.classList.contains('presenting') && visible(cr)) o.push(cr.getBoundingClientRect());
+        return o;
+      }).out);
       return out;
     }
-    for (const l of [cath.labels, sites.el]) for (const el of l.children) if (visible(el)) out.push(el.getBoundingClientRect());
+    out.push(...frostPartRead('marks', () => {
+      const o = [];
+      for (const l of [cath.labels, sites.el]) for (const el of l.children) if (visible(el)) o.push(el.getBoundingClientRect());
+      return o;
+    }).out);
     return out;
   }
   if (!GLASS_COPY) {
