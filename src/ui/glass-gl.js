@@ -8,14 +8,15 @@
 // Off (the browser's glass, as before): no WebGL2, a software renderer, ?gpulabels=0, Settings' blur effect off, reduced
 // transparency, a browser without backdrop blur (whose solid card stays), or a copy the browser refuses.
 
-import { GLASS_SHARE, shareFor, sharePrep, sharePlan, shareTurn, shareUse, shareRelease, shareBytes } from './blur-share.js?v=00eb65ddf2';
-import { hold } from './gpu-budget.js?v=0cf9fbf280';
+import { GLASS_SHARE, shareFor, sharePrep, sharePlan, shareTurn, shareUse, shareRelease, shareBytes } from './blur-share.js?v=754bc3eabd';
+import { hold } from './gpu-budget.js?v=a460c5bd2e';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
-import { finalFrameFor, readFrameFor, framePhase, frameCount, cancelFrame, noteDraw } from './frame.js?v=26e2e46fff';
-import { startProgram, checkProgram, compileDone, exerciseDraw, SHADER_WARM } from './gl-compile.js?v=6270bdf1ba';
+import { finalFrameFor, readFrameFor, framePhase, frameCount, cancelFrame, noteDraw } from './frame.js?v=d641eeefa1';
+import { startProgram, checkProgram, compileDone, exerciseDraw, SHADER_WARM } from './gl-compile.js?v=b20e777952';
 import { shiftOf, translateOf, motionAt, movesOnly, clockOf, clockAt, fillsAfter } from './glass-motion.js?v=2b98554adc';
 import { pathPolys, fanTriangles } from './path-poly.js?v=07f30beea9';
 import { easeArrive, D_SURFACE } from './ease.js?v=7513a88c68';
+import { caught } from './caught.js?v=b96b17594a';
 
 /** The CSS glass this draws (app.css .cl-glass: blur(16px) saturate(1.15) over 58 % of --surface). */
 export const GLASS = { blur: 16, sat: 1.15, tint: 0.58 };
@@ -476,7 +477,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
           if (!probe.style.color) probe.style.color = k;
           v = parseColour(getComputedStyle(probe).color);
         }
-      } catch { /* (no CSS to ask: as parsed) */ }
+      } catch (e) { caught('glass-gl:479', e); /* (no CSS to ask: as parsed) */ }
     }
     if (colours.size > 256) colours.clear();
     colours.set(k, v);
@@ -1230,7 +1231,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       an.addEventListener?.('cancel', stop(false));
       an.addEventListener?.('remove', stop(false));
       if (c.s == null) an.ready?.then?.(() => { const s = an.startTime; if (Number.isFinite(s) && c.rate !== 0) c.s = s; wake(); }, () => {});
-    } catch { /* (a stand-in with no events: its timing alone) */ }
+    } catch (e) { caught('glass-gl:1233', e); /* (a stand-in with no events: its timing alone) */ }
     return rec;
   }
   // (Where an animation that has just finished left its element, until the page is read again: { t, o } of its last keyframe. Mohammad,

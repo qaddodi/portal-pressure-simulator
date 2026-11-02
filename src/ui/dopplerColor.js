@@ -10,7 +10,7 @@
 //   s  velocity variance from 0 (laminar) to 1 (turbulent)
 // and returns [r, g, b, a] (a of 0: black, nothing to draw). The Spectrum mode has no colour.
 
-import { cssRGB } from './util.js?v=141c5a0172';
+import { cssRGB } from './util.js?v=24e63445fb';
 import { PROBE } from './dop-probe.js?v=3950fb1e3a';
 
 export const THETA = PROBE.ANGLE;                      // beam-to-flow angle in degrees (the spectral header's θ, the figure probe's angle)

@@ -18,11 +18,12 @@
 // The words fall back to a write between frames (never in a frame) where the GPU cannot set them: no outlines yet, a character the
 // cut glyphs do not have, an element with no box. ?glwords=0: every change is written into the page between frames, with no picture.
 
-import { createSvgGL, svgModel } from './svg-gl.js?v=8b9463392d';
-import { textPolys, textWidth, textBox, loadGlyphs, glyphsReady, textCovers, glyphRun } from './text-gl.js?v=d9c4b5088e';
-import { restPass, cancelRest } from './rest-pass.js?v=f6a3355959';
-import { readMetric } from './layout-snap.js?v=f87939cccb';
+import { createSvgGL, svgModel } from './svg-gl.js?v=6edf5b439f';
+import { textPolys, textWidth, textBox, loadGlyphs, glyphsReady, textCovers, glyphRun } from './text-gl.js?v=25a4727676';
+import { restPass, cancelRest } from './rest-pass.js?v=0173e424ce';
+import { readMetric } from './layout-snap.js?v=ed9aff412d';
 import { cssColor } from './css-color.js?v=e56f0c77ae';
+import { caught } from './caught.js?v=b96b17594a';
 
 /** How long the words hold still (ms) before the page's own words take them. */
 export const QUIET = 260;
@@ -79,7 +80,7 @@ function sleep(S) {
   clearTimeout(S.landT); S.landT = 0;
   if (S.on) { S.on = false; S.el.classList.remove('glw-on'); }
   S.pend = false;
-  if (S.gl) { try { S.gl.dispose?.(); } catch { /* a lost context: nothing left to free */ } S.gl.cv?.remove(); S.gl = null; S.host.classList.remove('glw'); }
+  if (S.gl) { try { S.gl.dispose?.(); } catch (e) { caught('gl-words:82', e); /* a lost context: nothing left to free */ } S.gl.cv?.remove(); S.gl = null; S.host.classList.remove('glw'); }
   S.vPath = S.uPath = null; S.vSlots = S.uSlots = null; S.at = null;
 }
 function wake(S) {
@@ -272,7 +273,7 @@ export function glWords(el, { unitClass = '', after = false, host = el, onLand =
     if (wasOn || gl) restPass(() => {
       const again = [...live].some((o) => o.el === elx || o.host === host);   // (made over again for the same element since: leave its flags)
       if (wasOn && !again) elx.classList.remove('glw-on');
-      if (gl) { try { gl.dispose?.(); } catch { /* a lost context: nothing left to free */ } gl.cv?.remove(); if (!again) host.classList.remove('glw'); }
+      if (gl) { try { gl.dispose?.(); } catch (e) { caught('gl-words:274', e); /* a lost context: nothing left to free */ } gl.cv?.remove(); if (!again) host.classList.remove('glw'); }
     });
     S.vPath = S.uPath = null; S.vSlots = S.uSlots = null;
   };

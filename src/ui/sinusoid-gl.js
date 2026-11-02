@@ -521,9 +521,10 @@ uniform sampler2D uOld;
 in vec2 vT;
 out vec4 o;
 void main() { o = texture(uOld, vT); }`;
-import { startProgram, checkProgram, exerciseDraw, publishWhenDone, stillCompiling, SHADER_READY } from './gl-compile.js?v=6270bdf1ba';
+import { startProgram, checkProgram, exerciseDraw, publishWhenDone, stillCompiling, SHADER_READY } from './gl-compile.js?v=b20e777952';
 import { whenQuiet, booting, holdCover } from './quiet.js?v=388052eba8';
-import { glOkAfter, glOkBefore } from './gl-state.js?v=d8ce472a0d';
+import { glOkAfter, glOkBefore } from './gl-state.js?v=1cacfbbc3f';
+import { caught } from './caught.js?v=b96b17594a';
 
 export function createSinusoidGL(canvas, { warm = false, onReady = null } = {}) {
   let gl = null;
@@ -651,7 +652,7 @@ export function createSinusoidGL(canvas, { warm = false, onReady = null } = {}) 
     // (A warm-up of what is drawn over it: run once its programs say they are compiled, between frames.)
     warmIn(t) {
       if (!t) return;
-      const go = () => { if (gl.isContextLost()) return; if (t.done && !t.done()) { setTimeout(go, 50); return; } try { t.run(); } catch { /* (a warm-up that fails changes nothing drawn) */ } };
+      const go = () => { if (gl.isContextLost()) return; if (t.done && !t.done()) { setTimeout(go, 50); return; } try { t.run(); } catch (e) { caught('sinusoid-gl:654', e); /* (a warm-up that fails changes nothing drawn) */ } };
       setTimeout(go, 0);
     },
     get presents() { return presents; },

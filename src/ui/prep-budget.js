@@ -20,7 +20,8 @@
 //   prepLeft() → ms left in this interval        prepSpend(ms) charges work done elsewhere (a rest pass)
 //
 // ?prepbudget=0: no shared ledger (rest passes keep their own 6 ms slice; jobs run each step at once, as before).
-import { frameBudget, inMotion, watchdogStats, WATCH_SHARE } from './frame.js?v=26e2e46fff';
+import { frameBudget, inMotion, watchdogStats, WATCH_SHARE } from './frame.js?v=d641eeefa1';
+import { caught } from './caught.js?v=b96b17594a';
 
 /** The target frame interval (ms), for the rest passes' slice (rest-pass.js reads it here: its one import). */
 export const frameMs = () => frameBudget();
@@ -113,7 +114,7 @@ export function prepJob(tag, steps, { alive = () => true } = {}) {
   if (!PREP_BUDGET) {
     // (As before: every step at once, in order, waiting only on its promises.)
     (async () => {
-      for (const f of it) { if (!j.alive()) { res(false); return; } try { await (typeof f === 'function' ? f() : f); } catch { /* next step */ } }
+      for (const f of it) { if (!j.alive()) { res(false); return; } try { await (typeof f === 'function' ? f() : f); } catch (e) { caught('prep-budget:116', e); /* next step */ } }
       res(j.alive());
     })();
     return { cancel: () => { dead = true; }, done };

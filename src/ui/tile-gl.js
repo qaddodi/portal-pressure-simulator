@@ -12,9 +12,10 @@
 // as for a canvas. The tile itself is a picture recorded for the GPU (lobule-zoom.js drawTile, paint-gl.js), painted into the copier's
 // texture: no 2D canvas anywhere (1 Nov 2026). (No 2D copies since then.)
 
-import { glGet, glOn, fbComplete } from './gl-state.js?v=d8ce472a0d';
-import { prestart, prestarted, linkProgram, publishWhenDone, stillCompiling } from './gl-compile.js?v=6270bdf1ba';
-import { isGpuPicture, paintGL } from './paint-gl.js?v=b7d795a4f6';
+import { glGet, glOn, fbComplete } from './gl-state.js?v=1cacfbbc3f';
+import { prestart, prestarted, linkProgram, publishWhenDone, stillCompiling } from './gl-compile.js?v=b20e777952';
+import { isGpuPicture, paintGL } from './paint-gl.js?v=57516e11f1';
+import { caught } from './caught.js?v=b96b17594a';
 
 /** A copy of tile canvas src made on the GPU. look: { blur (Gaussian sigma, tile px; 0 for none), sat (the grey blend's share),
  *  tone ([r, g, b] 0–1, the colour laid over it), toneA (its opacity), flat (a second layer of the same colour, 0 for none) }.
@@ -72,7 +73,7 @@ export function createTileCopier(gl) {
   // (Started with its context, and published by the idle poller once the driver is done (review pass 2, item 2): the first copy finds
   // its program, vertex array and uniforms ready, with no status read that waits inside a frame.)
   let early = null;
-  try { early = prestart(gl, VS, copyFS, [['p', 0]]); } catch { /* (compiled at the first copy, as before) */ }
+  try { early = prestart(gl, VS, copyFS, [['p', 0]]); } catch (e) { caught('tile-gl:75', e); /* (compiled at the first copy, as before) */ }
   let prog = null, U = null, vao = null, raw = null, failed = false;
   gl.canvas?.addEventListener?.('webglcontextlost', () => { prog = null; U = null; vao = null; raw = null; });
   function ready() {
@@ -97,7 +98,7 @@ export function createTileCopier(gl) {
       return true;
     } catch (err) { failed = true; console.warn('The lobule field\'s copies are made on the main thread.', err); return false; }
   }
-  if (early) publishWhenDone(gl, [early], () => { try { ready(); } catch { /* (read at the first copy) */ } });
+  if (early) publishWhenDone(gl, [early], () => { try { ready(); } catch (e) { caught('tile-gl:100', e); /* (read at the first copy) */ } });
   const texture = (w, h, filter) => {
     const t = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, t);

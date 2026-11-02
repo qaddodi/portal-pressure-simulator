@@ -13,6 +13,7 @@
 
 // The renderer test, the same as veins-gl.js's (tests/sw-yield.test.js holds the two together): only a software rasterizer
 // named by the WebGL renderer string. A masked or generic name (Safari's "Apple GPU", ANGLE Metal, Mali, Adreno, Intel) is a GPU.
+import { caught } from './caught.js?v=b96b17594a';
 const SOFTWARE = /SwiftShader|llvmpipe|softpipe|Software|Basic Render/i;
 /** Whether this WebGL context is drawn on the CPU. */
 export function softwareGL(gl) {
@@ -63,7 +64,7 @@ export function softwareYield(software, gl = null) {
     if (!fence) return true;
     let done;
     try { done = gl.isContextLost() || gl.getSyncParameter(fence, gl.SYNC_STATUS) === gl.SIGNALED; } catch { done = true; }
-    if (done) { try { gl.deleteSync(fence); } catch { /* context lost */ } fence = null; }
+    if (done) { try { gl.deleteSync(fence); } catch (e) { caught('sw-yield:66', e); /* context lost */ } fence = null; }
     return done;
   };
   return {

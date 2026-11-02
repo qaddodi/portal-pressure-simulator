@@ -17,12 +17,12 @@
 // part is always 100 less the slide's Shunted tile (table-marks.js portalSplit). The cavernoma returns blood to the liver,
 // so it counts as liver.
 
-import { frame, cancelFrame } from './frame.js?v=26e2e46fff';
-import { restPass, cancelRest } from './rest-pass.js?v=f6a3355959';
+import { frame, cancelFrame } from './frame.js?v=d641eeefa1';
+import { restPass, cancelRest } from './rest-pass.js?v=0173e424ce';
 import { EDGES, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from '../engine/topology.js?v=4044766e96';
 import { portalSplit } from './table-marks.js?v=ff3ed0cc47';
-import { measure } from './glyph-measure.js?v=752ae0a7bb';
-import { createSvgGL, svgModel } from './svg-gl.js?v=8b9463392d';
+import { measure } from './glyph-measure.js?v=5d9263708d';
+import { createSvgGL, svgModel } from './svg-gl.js?v=6edf5b439f';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const STENTS = new Set(['TIPS', 'DIPS']);

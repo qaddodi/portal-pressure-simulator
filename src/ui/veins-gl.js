@@ -31,27 +31,28 @@
 //
 // createVeinsGL(canvas) returns null only when WebGL2 is unavailable altogether.
 
-import { glGet, glCap, glOkBefore, glOkAfter } from './gl-state.js?v=d8ce472a0d';
+import { glGet, glCap, glOkBefore, glOkAfter } from './gl-state.js?v=1cacfbbc3f';
 import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { EDGE_GLSL } from './edge.js?v=8321a8017f';
 import { SLOT, DYE_BINS, PERIOD, DRIFT_PERIOD } from './blood.js?v=a70439097a';
-import { cssRGB } from './util.js?v=141c5a0172';
+import { cssRGB } from './util.js?v=24e63445fb';
 import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js?v=d72157dbac';
 import { CELL, ENT_W, binVeins, splitRows, simpleCells, splitCells, cellsOfJoinEntries } from './veins-bin.js?v=6e462a9e6c';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { changedRows } from './flow-rows.js?v=6cd335f84b';
 import { leftAlone } from './quiet.js?v=388052eba8';
 import { uniformCache } from './uniform-cache.js?v=b914b447dd';
-import { PUBLISH_QUIET_MS, SHADER_WARM, exerciseDraw } from './gl-compile.js?v=6270bdf1ba';
-import { createShapeGL, flattenPath, ellipsePoly, polyMesh } from './shape-gl.js?v=fde1af982c';
-import { createOrganStack, prestartOrganStack, prestartLayer } from './organs-gl.js?v=2d527c43aa';
-import { warmFade } from './res-fade-gl.js?v=37eeefeccf';
+import { PUBLISH_QUIET_MS, SHADER_WARM, exerciseDraw } from './gl-compile.js?v=b20e777952';
+import { createShapeGL, flattenPath, ellipsePoly, polyMesh } from './shape-gl.js?v=7655fc8ec5';
+import { createOrganStack, prestartOrganStack, prestartLayer } from './organs-gl.js?v=b6bc5cb2ca';
+import { warmFade } from './res-fade-gl.js?v=f4783817a7';
 import { fusedVS, fusedFS } from './veins-fuse.js?v=b34d325734';
 import { NOISE_W, NOISE_H, NOISE_PER_ROW, OCTAVES, noiseBlock, blockAt, tableSize } from './blood-noise.js?v=bc65994b25';
-import { createNoiseFiller } from './noise-gl.js?v=94722cb69d';
-import { softwareGL } from './sw-yield.js?v=1ec3c87eab';
-import { frameCount, framePhase } from './frame.js?v=26e2e46fff';
+import { createNoiseFiller } from './noise-gl.js?v=0d2377b466';
+import { softwareGL } from './sw-yield.js?v=0b6a0f94e9';
+import { frameCount, framePhase } from './frame.js?v=d641eeefa1';
+import { caught } from './caught.js?v=b96b17594a';
 
 export { binVeins };
 
@@ -1915,7 +1916,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // ?shaderwarm=0: each compiled where it is first made or drawn, as before): the organs' stack, painter and shapes (taken up just below,
   // their compiles run while these finish), and the variants of the canvas's own presents (the overlays' laying, Sharper upscaling,
   // pinch reuse: aux below, each published by prepare() once the driver has it, with one small draw, never compiled in a gesture's frame).
-  if (SHADER_WARM) try { prestartOrganStack(gl); } catch { /* (only a head start: each is compiled where it is made, as before) */ }
+  if (SHADER_WARM) try { prestartOrganStack(gl); } catch (e) { caught('veins-gl:1918', e); /* (only a head start: each is compiled where it is made, as before) */ }
   // (Shaders are freed with the programs that hold them, once no program is still to be finished: see prepare.)
   const freeShaders = () => { for (const x of new Set(Object.values(started).filter(Boolean).flatMap((st) => st.sh))) gl.deleteShader(x); };
   // The optional builds (the one-vessel vessel program, the plain composite) are not needed to draw: every cell and every
@@ -1967,12 +1968,12 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // this canvas (warmIn: the resolution fade's program, the glass's) are published in the same free moments.
   const aux = {}, freeTasks = [];
   const AUX_FS = { lay: LAY_FS, up: UP_FS, reuse: REUSE_FS };
-  const auxStart = (k) => { if (!SHADER_WARM || aux[k] || lost || (k === 'lay' ? layP : k === 'up' ? upP : rz.P) !== null) return; try { aux[k] = startProgram(gl, REUSE_VS, AUX_FS[k]); } catch { /* (compiled at its first use, as before) */ }
+  const auxStart = (k) => { if (!SHADER_WARM || aux[k] || lost || (k === 'lay' ? layP : k === 'up' ? upP : rz.P) !== null) return; try { aux[k] = startProgram(gl, REUSE_VS, AUX_FS[k]); } catch (e) { caught('veins-gl:1970', e); /* (compiled at its first use, as before) */ }
     // (Where the driver cannot say when it is done, it is finished now, where the switch is set, as the optional builds are: never in a frame.)
     if (!pcx && aux[k]) publishAux(k, false);
   };
   let over = null, layP = null, overShown = false;
-  if (overOK && SHADER_WARM) { try { prestartLayer(gl); } catch { /* (a head start only) */ } }
+  if (overOK && SHADER_WARM) { try { prestartLayer(gl); } catch (e) { caught('veins-gl:1975', e); /* (a head start only) */ } }
   let cathP = null;
   try { cathP = finishProgram(gl, started.cath); } catch (e) { console.warn('Veins renderer: catheter shader failed.', e); }
   const cathBuf = gl.createBuffer(), cathVAO = gl.createVertexArray();
@@ -3061,7 +3062,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     for (const k of Object.keys(aux)) publishAux(k);
     for (const t of freeTasks.slice()) {
       let done = true;
-      try { done = t.done(); } catch { /* (dropped) */ }
+      try { done = t.done(); } catch (e) { caught('veins-gl:3064', e); /* (dropped) */ }
       if (!done) continue;
       freeTasks.splice(freeTasks.indexOf(t), 1);
       try { t.run(); } catch (e) { console.warn('Veins renderer: a warm-up drawn over the figure failed.', e); }
@@ -4096,7 +4097,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     const f = api[k];
     api[k] = function (...a) {
       if (!gpuProbe.on) return f.apply(this, a);
-      if (kbOf[k]) { let kb = 0; try { kb = kbOf[k](...a); } catch { /* a count only */ } gpuProbe.note(`uploaded: ${k}`, kb); }
+      if (kbOf[k]) { let kb = 0; try { kb = kbOf[k](...a); } catch (e) { caught('veins-gl:4099', e); /* a count only */ } gpuProbe.note(`uploaded: ${k}`, kb); }
       return gpuProbe.time(gl, name, () => f.apply(this, a));
     };
   }

@@ -15,7 +15,8 @@
 //     colour or 1 px off their control the focus colour and the 2 px of the rest.
 //   - ?focusring=0: this file does nothing and the page is today's.
 import { D_SMALL } from './ease.js?v=7513a88c68';
-import { restPass } from './rest-pass.js?v=f6a3355959';
+import { restPass } from './rest-pass.js?v=0173e424ce';
+import { caught } from './caught.js?v=b96b17594a';
 
 
 /** ?focusring=0 in a page's search string: this file does nothing. */
@@ -111,7 +112,7 @@ export function startFocusRing(root = typeof document !== 'undefined' ? document
   document.documentElement.classList.add('fr');   // (the stylesheet's ring colours and offsets alike, app.css next to :focus-visible)
   let by = 'kb';   // what last reached for the page: 'ptr' (mouse, pen, finger) or 'kb'
   let held = null;   // { el, anims }: the effects on the control that has the ring
-  const drop = () => { if (!held) return; for (const a of held.anims) { try { a.cancel(); } catch { /* gone */ } } held = null; };
+  const drop = () => { if (!held) return; for (const a of held.anims) { try { a.cancel(); } catch (e) { caught('focus-ring:114', e); /* gone */ } } held = null; };
 
   // The ring measured again after the control's own scroll: a rest pass, so the reads sit between two frames.
   function recheck() {
@@ -119,7 +120,7 @@ export function startFocusRing(root = typeof document !== 'undefined' ? document
     if (!el || !el.isConnected) return;
     try {
       if (ringClipped(el.getBoundingClientRect(), clipBoxes(el), held.off + held.w)) held.anims.push(holdStyle(el, 'outline-offset', `${-held.w}px`));
-    } catch { /* leave the ring as it is */ }
+    } catch (e) { caught('focus-ring:122', e); /* leave the ring as it is */ }
   }
 
   function lit(el) {
@@ -135,7 +136,7 @@ export function startFocusRing(root = typeof document !== 'undefined' ? document
     } else {
       // Cut off? The ring reaches off + w beyond the control's box.
       let inset = false;
-      try { inset = ringClipped(el.getBoundingClientRect(), clipBoxes(el), off + w); } catch { /* measure again below */ }
+      try { inset = ringClipped(el.getBoundingClientRect(), clipBoxes(el), off + w); } catch (e) { caught('focus-ring:138', e); /* measure again below */ }
       if (inset) anims.push(holdStyle(el, 'outline-offset', `${-w}px`));
       const ease = () => getComputedStyle(document.documentElement).getPropertyValue('--ease-arrive').trim() || 'ease-out';
       if (!mq('(prefers-reduced-motion: reduce)') && cs.outlineColor && RING_GPU) fadeCopy(el, cs, w, inset ? -w : off, ease(), anims);   // (faded on its own layer; where no copy can be made the ring shows at once)

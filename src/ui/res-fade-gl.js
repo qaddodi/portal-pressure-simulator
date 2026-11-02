@@ -8,8 +8,9 @@
 // The canvas keeps no picture between frames, so the old one is laid on the blank canvas at once after its resize (seed), and from
 // then on only by a present (which first puts the whole current picture back): a frame that draws nothing shows the last one.
 
-import { prestart, prestarted, linkProgram, compileDone, exerciseDraw, SHADER_WARM } from './gl-compile.js?v=6270bdf1ba';
-import { glOkBefore, glOkAfter } from './gl-state.js?v=d8ce472a0d';
+import { prestart, prestarted, linkProgram, compileDone, exerciseDraw, SHADER_WARM } from './gl-compile.js?v=b20e777952';
+import { glOkBefore, glOkAfter } from './gl-state.js?v=1cacfbbc3f';
+import { caught } from './caught.js?v=b96b17594a';
 
 const VS = `#version 300 es
 in vec2 c;
@@ -79,7 +80,7 @@ export function warmFade(gl) {
     done: () => kits.has(gl) || compileDone(gl, h),
     run() {
       if (kits.has(gl) || gl.isContextLost?.()) return;
-      try { const k = kit(gl); exerciseDraw(gl, () => lay(gl, k, 0.5, null, 1, 1)); } catch { /* (failed: the first fade tries again, or mixes in 2D) */ }
+      try { const k = kit(gl); exerciseDraw(gl, () => lay(gl, k, 0.5, null, 1, 1)); } catch (e) { caught('res-fade-gl:82', e); /* (failed: the first fade tries again, or mixes in 2D) */ }
     },
   };
 }

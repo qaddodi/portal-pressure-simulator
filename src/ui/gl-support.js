@@ -1,6 +1,7 @@
 // Whether this browser can draw the sinusoid view (it needs WebGL2). Kept apart from sinusoid-view.js so the app's start-up and the
 // presenter can ask without loading the view (the sinusoid view loads after the first paint, with the lobule).
-import { heldGL } from './gl-state.js?v=d8ce472a0d';
+import { heldGL } from './gl-state.js?v=1cacfbbc3f';
+import { caught } from './caught.js?v=b96b17594a';
 
 let support = null;
 
@@ -15,7 +16,7 @@ function hostHolds() {
     // (#veins is made by the stage with a webgl2 context already; a canvas holding another kind of context answers null, makes nothing.)
     const cv = typeof document !== 'undefined' && document.getElementById('veins');
     if (cv && cv.width > 0 && cv.getContext('webgl2')) return true;
-  } catch { /* (fall through to the record) */ }
+  } catch (e) { caught('gl-support:18', e); /* (fall through to the record) */ }
   return !!heldGL();
 }
 

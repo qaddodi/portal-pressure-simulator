@@ -16,13 +16,14 @@
 // chart is not drawn until the GPU can draw it (fitCanvas's pen draws nothing; no 2D canvas is drawn on), and it draws again the moment
 // the GPU can (publish). ?tracegl=0 keeps every chart undrawn.
 
-import { startProgram, checkProgram, exerciseDraw, publishWhenDone, stillCompiling } from './gl-compile.js?v=6270bdf1ba';
-import { canvasSize, fitCanvas, onCanvasSized } from './util.js?v=b21dea14e4';
-import { sdfAtlas } from './text-gl.js?v=d9c4b5088e';   // (the app's one door to GPU text: its SDF atlas, for text that changes every frame)
-import { notePass, hold } from './gpu-budget.js?v=0cf9fbf280';
-import { fontOf, measure } from './glyph-measure.js?v=752ae0a7bb';
-import { fbComplete } from './gl-state.js?v=d8ce472a0d';
+import { startProgram, checkProgram, exerciseDraw, publishWhenDone, stillCompiling } from './gl-compile.js?v=b20e777952';
+import { canvasSize, fitCanvas, onCanvasSized } from './util.js?v=2262fd345c';
+import { sdfAtlas } from './text-gl.js?v=25a4727676';   // (the app's one door to GPU text: its SDF atlas, for text that changes every frame)
+import { notePass, hold } from './gpu-budget.js?v=a460c5bd2e';
+import { fontOf, measure } from './glyph-measure.js?v=5d9263708d';
+import { fbComplete } from './gl-state.js?v=1cacfbbc3f';
 import { ucOf } from './uniform-cache.js?v=b914b447dd';
+import { caught } from './caught.js?v=b96b17594a';
 export { measure };
 const { GLYPHS, KERN, BASELINES, BASE, RADIUS, CUTOFF, ATLAS_W, ATLAS_H, ATLAS_PNG } = sdfAtlas;
 
@@ -499,7 +500,7 @@ export function createTraceGL(host, { redraw = null, under = null } = {}) {
       layers.clear();
       layerHold?.drop(); layerHold = null;
       if (ownCov) { gl.deleteTexture(ownCov.tex); gl.deleteFramebuffer(ownCov.fb); ownCov = null; }
-    } catch { /* a lost context holds nothing */ }
+    } catch (e) { caught('trace-gl:501', e); /* a lost context holds nothing */ }
   }
   // (Review pass item 6: to a pool at this chart's size, so two charts of different sizes stop resizing one buffer every frame.)
   function moveTo(p) {
@@ -540,7 +541,7 @@ export function createTraceGL(host, { redraw = null, under = null } = {}) {
   const layerBytes = () => { let b = 0; for (const e of layers.values()) b += e.w * e.h * 5; return b; };
   const dropLayers = () => { for (const e of layers.values()) dropLayer(e); layers.clear(); };
   const holdLayers = () => { if (layerHold?.held) layerHold.touch(); else layerHold = hold({ owner: 'chart layers', kind: 'retained', gl, bytes: layerBytes, release: () => { layerHold = null; if (inFrame) dropAfter = true; else dropLayers(); } }); };
-  const dropLayer = (e) => { try { gl.deleteTexture(e.tex); gl.deleteFramebuffer(e.fb); gl.deleteRenderbuffer(e.rb); } catch { /* lost */ } };
+  const dropLayer = (e) => { try { gl.deleteTexture(e.tex); gl.deleteFramebuffer(e.fb); gl.deleteRenderbuffer(e.rb); } catch (e) { caught('trace-gl:542', e); /* lost */ } };
   let segData = new Float32Array(6144), fillData = new Float32Array(4096);
   let textData = new Float32Array(18 * 32), textN = 0, boxData = new Float32Array(560), boxN = 0;
   const grow = (a, n) => { if (a.length >= n) return a; let m = a.length; while (m < n) m *= 2; const b = new Float32Array(m); b.set(a); return b; };
@@ -1041,7 +1042,7 @@ export function createTraceGL(host, { redraw = null, under = null } = {}) {
       try {
         if (!shown) gl.deleteTexture(atlasTex);
         if (P && !shown) for (const k of Object.keys(P)) gl.deleteProgram(P[k].p);   // (shared: the programs and the field stay for the others)
-      } catch { /* a lost context holds nothing */ }
+      } catch (e) { caught('trace-gl:1029', e); /* a lost context holds nothing */ }
       if (shown && shared.sizedBy === api) shared.sizedBy = null;
       if (shown && shared.active === api) shared.active = null;
       if (shown) shared.users = Math.max(0, shared.users - 1);

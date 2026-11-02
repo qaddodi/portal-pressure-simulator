@@ -12,6 +12,7 @@
 //   as the context itself would.
 // The wrappers also hand each allocation to the resource registry (gpu-budget.js, R06): see onGLCall.
 
+import { caught } from './caught.js?v=b96b17594a';
 const W2 = typeof WebGL2RenderingContext !== 'undefined' ? WebGL2RenderingContext : null;
 
 const recs = new WeakMap();
@@ -243,7 +244,7 @@ if (W2) {
     if (!get || get.__ppsGL) continue;
     const mine = function getContext(type, opts) {
       const ctx = get.call(this, type, opts);
-      if (ctx && (type === 'webgl2')) { try { trackGL(ctx); } catch { /* the record is a help, never a failure */ } }
+      if (ctx && (type === 'webgl2')) { try { trackGL(ctx); } catch (e) { caught('gl-state:249', e); /* the record is a help, never a failure */ } }
       return ctx;
     };
     mine.__ppsGL = true;

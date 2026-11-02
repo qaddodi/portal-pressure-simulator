@@ -2,40 +2,40 @@
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
 import { motionBudget } from './motion-budget.js?v=89246e0c5f';   // (first: counts from the start when ?perf or ?budget=1 asks)
-import { budget as gpuBudget } from './gpu-budget.js?v=0cf9fbf280';   // (the render graph's registry and pass counts, R06: before any context is made)
-import './gl-state.js?v=d8ce472a0d';   // (early: every WebGL2 context is recorded from its creation, R09/R06)
+import { budget as gpuBudget } from './gpu-budget.js?v=a460c5bd2e';   // (the render graph's registry and pass counts, R06: before any context is made)
+import './gl-state.js?v=1cacfbbc3f';   // (early: every WebGL2 context is recorded from its creation, R09/R06)
 import { startHost, host, hostFailed, restartHost } from './host.js?v=8d640e9c36';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=afc4d7c743';
-import { createStage } from './stage.js?v=20fbbb8a88';
-import { createCreditPlacer } from './credit.js?v=cfcb30f07e';
+import { createStage } from './stage.js?v=64aefd21e3';
+import { createCreditPlacer } from './credit.js?v=d44c5779d2';
 import { whenQuiet, booting, holdCover } from './quiet.js?v=388052eba8';
-import { sinusoidSupported } from './gl-support.js?v=52a4c9c036';
-import { createInspector } from './inspector.js?v=aa7f2b52af';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=cb24946f62';
-import { setHvpgStage } from './hvpg-proc.js?v=9a9080a607';
-import { createWhy } from './why.js?v=075eaf29c4';
-import { createTimeline, LAPSES } from './timeline.js?v=d740657bea';
-import { createCompare } from './compare.js?v=957b9d3e49';
-import { createCard } from './card.js?v=7003b4a350';
-import { createChart } from './chart.js?v=6d3812b71b';
-import { createMenu } from './menu.js?v=d68fb40246';
-import { caption } from './a11y.js?v=9b9613c70e';
-import { startLMS } from './lms.js?v=284ef81e94';
+import { sinusoidSupported } from './gl-support.js?v=d5f71321aa';
+import { createInspector } from './inspector.js?v=7c4d071779';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=008b2cba62';
+import { setHvpgStage } from './hvpg-proc.js?v=d4f9a8f371';
+import { createWhy } from './why.js?v=9622531f32';
+import { createTimeline, LAPSES } from './timeline.js?v=cbfbd45f7a';
+import { createCompare } from './compare.js?v=7504be86d7';
+import { createCard } from './card.js?v=12d72c4f42';
+import { createChart } from './chart.js?v=2507282975';
+import { createMenu } from './menu.js?v=88eccab82f';
+import { caption } from './a11y.js?v=4fb43d6749';
+import { startLMS } from './lms.js?v=4506ad4622';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=a9debc0de8';
-import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=0fd0a3dbdc';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=c442f8f208';
+import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=c7887b31f8';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=a2335c4afc';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=97920ddf3f';
 import { controlOwnsKey } from './key-owner.js?v=60ed93db32';
-import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, swapFade, scrollBehavior, reconcile } from './util.js?v=141c5a0172';
+import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, swapFade, scrollBehavior, reconcile } from './util.js?v=24e63445fb';
 import { glidePlateOn, platePieces, glideOnResize } from './plate-glide.js?v=b608fe722c';
 import { sheetParts, sheetOffset, setSheetOffset, stopSheet, glideSheet } from './sheet-move.js?v=09fc291f37';
 import { releaseSpeed, isFlick, flickAim, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=7513a88c68';
-import { morphKey, crossfadeText } from './legend-morph.js?v=d6c3ad57c0';
-import { glideNow } from './seg-glide.js?v=fa0a2d52ec';
-import './focus-ring.js?v=c0726ed056';
+import { morphKey, crossfadeText } from './legend-morph.js?v=3edafbf168';
+import { glideNow } from './seg-glide.js?v=d22d0a6351';
+import './focus-ring.js?v=ff0cd5307f';
 import { knownLook, currentLook, isDarkLook, lastDarkLook, applyLookAttrs } from './looks.js?v=2d098211a4';
-import { lookChooser } from './look-chooser.js?v=b7945d2f8a';
+import { lookChooser } from './look-chooser.js?v=feab96cc6d';
 import { TEXT_STEPS } from './type-scale.js?v=d7cca3fb73';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -48,23 +48,24 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
-import { initDebug } from './debug.js?v=802e443d94';
-import { initTopbarMotion } from './topbar-motion.js?v=7989590bce';
+import { initDebug } from './debug.js?v=aab7e3a65e';
+import { initTopbarMotion } from './topbar-motion.js?v=675c40c1db';
 import { ORIGINS } from './blood.js?v=a70439097a';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=0762d1b820';
 import { createPaintGate } from './paint-gate.js?v=880ebfff88';
-import { frameFor, cancelFrame, perf as framePerf, framePart, inMotion, afterMotion, mayTask } from './frame.js?v=26e2e46fff';
-import { restPass } from './rest-pass.js?v=f6a3355959';
-import { classSoon, runSoon } from './class-soon.js?v=6ad82f25a8';
+import { frameFor, cancelFrame, perf as framePerf, framePart, inMotion, afterMotion, mayTask } from './frame.js?v=d641eeefa1';
+import { restPass } from './rest-pass.js?v=0173e424ce';
+import { classSoon, runSoon } from './class-soon.js?v=ba07f06e7e';
 import { sizeOf, watchSize, rectsSoon, restTask } from './geom.js?v=254133713c';
-import { feedbackDiagnostics } from './feedback-diag.js?v=a6fd7380e0';
+import { feedbackDiagnostics } from './feedback-diag.js?v=75097a9d74';
 import { noteJump } from './display-state.js?v=8d062d39dc';
 import { createIdleRest } from './idle-rest.js?v=4d23822371';
-import { pillState, foldPill, stopFold } from './pill-motion.js?v=967d04762e';
+import { pillState, foldPill, stopFold } from './pill-motion.js?v=45bfbe7b36';
 import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=81fbedda6b';
-import { readAnims, readBox, readElAt, readMetric, readStyle, scrollInto } from './layout-snap.js?v=f87939cccb';
-import './scroll-edges.js?v=7b2f9f3835';   // (soft fades at the ends of lists that scroll, only where there is more; ?edges=0 off)
+import { readAnims, readBox, readElAt, readMetric, readStyle, scrollInto } from './layout-snap.js?v=ed9aff412d';
+import './scroll-edges.js?v=a9dc5f4f2a';   // (soft fades at the ends of lists that scroll, only where there is more; ?edges=0 off)
+import { caught } from './caught.js?v=b96b17594a';
 const nextFrame = frameFor('main');
 
 // Color lenses: [title, what it shows, legend swatch].
@@ -119,14 +120,14 @@ async function main() {
   applyTheme(knownLook(savedTheme));   // an unknown saved theme falls back to the device's
   startLMS();
   // The Student role was removed (to come back later): an old saved role is dropped, everyone gets the full app.
-  try { localStorage.removeItem('pps.role'); } catch { /* storage unavailable */ }
+  try { localStorage.removeItem('pps.role'); } catch (e) { caught('main:122', e); /* storage unavailable */ }
   // Language selection was removed too (English only, to come back later): drop an old saved choice.
-  try { localStorage.removeItem('pps.lang'); } catch { /* storage unavailable */ }
+  try { localStorage.removeItem('pps.lang'); } catch (e) { caught('main:124', e); /* storage unavailable */ }
   // The Doppler and the FibroScan load after the first paint (a tab for one that has not come waits for it, dock.js). One left open when the
   // app was last used is asked for now and waited for with the model's first answers, so its pane is whole with the dock.
   const probeTo = (id) => { host.send({ type: 'probe', id }); logAction('probe', id); };
-  dopplerL = lazy(() => import('./doppler.js?v=606bbfdc6e'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
-  fibroL = lazy(() => import('./fibroscan.js?v=be376b3248'), ({ createFibroScan }) => createFibroScan());
+  dopplerL = lazy(() => import('./doppler.js?v=365b839311'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
+  fibroL = lazy(() => import('./fibroscan.js?v=e72a708650'), ({ createFibroScan }) => createFibroScan());
   const wasOpen = savedInstruments().open;
   const openAtStart = [];
   if (Array.isArray(wasOpen)) for (const [id, l] of [['doppler', dopplerL], ['fibroscan', fibroL]]) if (wasOpen.includes(id)) openAtStart.push(l.get().catch(() => {}));
@@ -213,7 +214,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=544eb3d693'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=d090bbcc00'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -221,7 +222,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
-  paletteL = lazy(() => import('./palette.js?v=5c292ad69f'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=526a7be085'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -624,7 +625,7 @@ function resetEverything() {
     h('p', {}, 'This clears the timeline, comparisons and every change, and reloads the simulator with a healthy patient. Your preferences are kept.'),
     h('div', { class: 'btn-row end' },
       h('button', { class: 'btn', onclick: () => closeModal() }, 'Cancel'),
-      h('button', { class: 'btn danger-fill', onclick: () => { try { sessionStorage.clear(); } catch { /* storage unavailable */ } location.replace(location.pathname); } }, 'Reset and reload'))), { sub: null, compact: true });
+      h('button', { class: 'btn danger-fill', onclick: () => { try { sessionStorage.clear(); } catch (e) { caught('main:618', e); /* storage unavailable */ } location.replace(location.pathname); } }, 'Reset and reload'))), { sub: null, compact: true });
 }
 
 // ── Actions ─────────────────────────────────────────
@@ -690,13 +691,13 @@ function buildHud() {
   // Moving blood: chevrons are remembered per device.
   let saved = null;
   // (pps.blood2: chevrons became the default, so a choice saved under the old default starts over.)
-  try { saved = JSON.parse(localStorage.getItem('pps.blood2') || 'null'); } catch { /* storage unavailable */ }
+  try { saved = JSON.parse(localStorage.getItem('pps.blood2') || 'null'); } catch (e) { caught('main:684', e); /* storage unavailable */ }
   const blood = { look: 'shimmer', phasic: false, chevrons: true, ...(saved && typeof saved === 'object' ? saved : {}) };
   delete blood.origin;   // now the Blood origin lens
   blood.look = 'shimmer'; blood.phasic = false;   // the Blood menu offers streaks and chevrons only
   store.set({ blood });
   store.on('blood', (v) => {
-    try { localStorage.setItem('pps.blood2', JSON.stringify(v)); } catch { /* storage unavailable */ }
+    try { localStorage.setItem('pps.blood2', JSON.stringify(v)); } catch (e) { caught('main:690', e); /* storage unavailable */ }
     sendBeat(); syncBloodBtn();
     redraw();
   });
@@ -863,7 +864,7 @@ function labelLevelSeg() {
     const b = h('button', { 'aria-pressed': String(cur === v), 'data-labels': v, title: { key: 'Portal vein, the HVPG pair and what is abnormal; every station once zoomed in', all: 'Every station at every zoom', none: 'No station labels' }[v] }, l);
     b.addEventListener('click', () => {
       store.set({ labelLevel: v });
-      try { localStorage.setItem('pps.labels', v); } catch { /* storage unavailable */ }
+      try { localStorage.setItem('pps.labels', v); } catch (e) { caught('main:857', e); /* storage unavailable */ }
       b.parentElement.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
     });
     return b;
@@ -1004,12 +1005,12 @@ function wireTopbar() {
   initDebug(() => stage.zoomLevel());
   // ?perf in the address: the readout of what blocks frames after a pan or pinch (perf-readout.js). Without it, never loaded.
   // (And the frame-time overlay beside it, frame-hud.js: fps, 1% low, interval and script percentiles, surfaces, throttle. ?hud=0 off.)
-  if (new URLSearchParams(location.search).has('perf')) import('./frame-hud.js?v=4a71956445').then(({ startFrameHud }) => startFrameHud()).catch(() => { /* a measuring aid only */ });
+  if (new URLSearchParams(location.search).has('perf')) import('./frame-hud.js?v=77ae15d2af').then(({ startFrameHud }) => startFrameHud()).catch(() => { /* a measuring aid only */ });
   // High Refresh (high-refresh.js): on a touch screen the first tap goes full screen, past the browser's 60 Hz hold for pages.
-  import('./high-refresh.js?v=c4ddc053d5').then(({ startHighRefresh }) => startHighRefresh()).catch(() => { /* full screen is a bonus */ });
-  if (new URLSearchParams(location.search).has('perf')) import('./perf-readout.js?v=39b3ca82b7').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
+  import('./high-refresh.js?v=d51eb37228').then(({ startHighRefresh }) => startHighRefresh()).catch(() => { /* full screen is a bonus */ });
+  if (new URLSearchParams(location.search).has('perf')) import('./perf-readout.js?v=6cdc97e279').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
   // ?offgpu=1 in the address: the live count of work off the GPU, flashing red when it happens during motion (offgpu-overlay.js). Without it, never loaded.
-  if (/[?&]offgpu=1\b/.test(location.search)) import('./offgpu-overlay.js?v=66a29f327d').then(({ startOffGpuOverlay }) => startOffGpuOverlay()).catch(() => { /* a measuring aid only */ });
+  if (/[?&]offgpu=1\b/.test(location.search)) import('./offgpu-overlay.js?v=26c8c7646a').then(({ startOffGpuOverlay }) => startOffGpuOverlay()).catch(() => { /* a measuring aid only */ });
   $('#btnMenu').addEventListener('click', () => mainMenu.toggle());
   $('#btnSettings').addEventListener('click', (e) => openSettings(e.currentTarget));
   $('#btnPalette').addEventListener('click', () => palette.open());
@@ -1044,7 +1045,7 @@ function openSettings(anchor, withSearch = false) {
     // (Blur effect is one setting for the app and the talks: the same switch and the same stored value in both.)
     h('div', { class: 'menu-title' }, 'Accessibility'),
     menuToggle(!document.documentElement.hasAttribute('data-noglass'), 'layers', 'Blur effect', 'Frosted glass on cards and labels. Off runs cooler', (on) => {
-      try { localStorage.setItem('pps.noGlass', on ? '0' : '1'); } catch { /* storage unavailable */ }
+      try { localStorage.setItem('pps.noGlass', on ? '0' : '1'); } catch (e) { caught('main:1038', e); /* storage unavailable */ }
       document.documentElement.toggleAttribute('data-noglass', !on);
       document.documentElement.removeAttribute('data-noglass-auto');   // (chosen now: no longer the software renderer's own choice, blur-guard.js)
     }),
@@ -1053,7 +1054,7 @@ function openSettings(anchor, withSearch = false) {
     ...(talk ? [] : [
       h('div', { class: 'menu-title' }, 'Model'),
       menuToggle(store.get().showHvpg, 'gauge', 'Always show HVPG', 'Show HVPG without measuring it first', (on) => {
-        try { localStorage.setItem('pps.showHvpg', on ? '1' : '0'); } catch { /* storage unavailable */ }
+        try { localStorage.setItem('pps.showHvpg', on ? '1' : '0'); } catch (e) { caught('main:1047', e); /* storage unavailable */ }
         document.body.classList.remove('hvpg-swap'); void readMetric(document.body, 'offsetWidth'); document.body.classList.add('hvpg-swap');
         setTimeout(() => classSoon(document.body, 'hvpg-swap', false), 600);
         store.set({ showHvpg: on });
@@ -1126,7 +1127,7 @@ function openHelpMenu(anchor, at = { align: 'start', cls: 'app-menu' }) {
 // (the build from the preview pill, the device, the screen and a link back to this exact view). The app itself sends
 // nothing, so the Privacy page stays true.
 function sendFeedback() {
-  try { localStorage.setItem(ASK_KEY, 'done'); } catch { /* storage unavailable */ }   // (sent once: the timed ask never comes)
+  try { localStorage.setItem(ASK_KEY, 'done'); } catch (e) { caught('main:1120', e); /* storage unavailable */ }   // (sent once: the timed ask never comes)
   const build = document.getElementById('preview-badge')?.textContent.trim() || 'Live site';
   const theme = currentLook() || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
   const body = ['What happened, and what did you expect to happen?', '', '', '',
@@ -1174,7 +1175,7 @@ addEventListener('pointerdown', (e) => {
 }, true);
 function applyTheme(t, clear) {
   applyLookAttrs(document.documentElement, t);   // (data-theme, and data-palette for Navy and Black: looks.js)
-  try { if (t) localStorage.setItem('pps.theme', t); else if (clear) localStorage.removeItem('pps.theme'); } catch { /* storage unavailable */ }
+  try { if (t) localStorage.setItem('pps.theme', t); else if (clear) localStorage.removeItem('pps.theme'); } catch (e) { caught('main:1168', e); /* storage unavailable */ }
   const f = store.get().frame; if (f) { stage?.update(viewFrame(f)); dock?.update(f); }
   syncStatusBar();
 }
@@ -2173,7 +2174,7 @@ function clearRow(keys) {
   const row = h('div', { class: 'btn-row' });
   const ask = () => {
     const msg = h('p', { class: 'clear-q', role: 'alert' }, 'Delete everything this simulator has stored on this device?');
-    const go = h('button', { class: 'btn danger-fill', onclick: () => { for (const k of keys) { try { localStorage.removeItem(k); } catch { /* storage unavailable */ } } closeModal(); toast('Your data on this device has been cleared.'); } }, 'Delete it');
+    const go = h('button', { class: 'btn danger-fill', onclick: () => { for (const k of keys) { try { localStorage.removeItem(k); } catch (e) { caught('main:2167', e); /* storage unavailable */ } } closeModal(); toast('Your data on this device has been cleared.'); } }, 'Delete it');
     const no = h('button', { class: 'btn', onclick: () => { row.replaceChildren(start); start.focus({ preventScroll: true }); } }, 'Keep it');
     row.replaceChildren(msg, h('div', { class: 'btn-row' }, no, go));
     no.focus({ preventScroll: true });
@@ -2194,13 +2195,13 @@ const HINT_KEY = 'pps.hint';
 function showFirstHint() {
   if (navigator.webdriver) return;
   let seen = true;
-  try { seen = !!localStorage.getItem(HINT_KEY); } catch { /* storage unavailable: no hint */ }
+  try { seen = !!localStorage.getItem(HINT_KEY); } catch (e) { caught('main:2188', e); /* storage unavailable: no hint */ }
   if (seen) return;
   const show = () => {
     if (store.get().selection || presenter.active()) return;
     const verb = matchMedia('(hover: hover) and (pointer: fine)').matches ? 'Click' : 'Tap';
     let off = null, offTalk = null;
-    const done = (why) => { off?.(); off = null; offTalk?.(); offTalk = null; if (why === 'talk') return; try { localStorage.setItem(HINT_KEY, '1'); } catch { /* storage unavailable */ } };
+    const done = (why) => { off?.(); off = null; offTalk?.(); offTalk = null; if (why === 'talk') return; try { localStorage.setItem(HINT_KEY, '1'); } catch (e) { caught('main:2194', e); /* storage unavailable */ } };
     const close = toast(`${verb} a vessel or the liver to change it.`, '', { sticky: true, onClose: done });
     off = store.on('selection', (sel) => { if (sel) close(); });
     // A talk beginning takes the hint away with the Explore screen it spoke of (it stayed over the slides, sticky). It is not counted as
@@ -2236,12 +2237,12 @@ function armFeedbackAsk() {
     if (now - lastInput > 5000) down = 0;   // (a lift the page never heard, outside the window, does not hold the ask forever)
     if (active < FEEDBACK_ASK_MIN * 60000 || down || presenter.active() || projector || app.classList.contains('dock-open') || panelShown() || treatOpen() || historyOpen() || popoverOpen() || document.getElementById('modalBack')?.classList.contains('show')) return;
     clearInterval(timer);
-    const answer = (v) => { try { localStorage.setItem(ASK_KEY, v); } catch { /* storage unavailable */ } };
+    const answer = (v) => { try { localStorage.setItem(ASK_KEY, v); } catch (e) { caught('main:2230', e); /* storage unavailable */ } };
     toast('Anything look wrong or confusing so far? A short email helps the author fix it.', '', { sticky: true,
       actions: [['Send feedback', () => sendFeedback()], ['Not now', () => {}]],
       onClose: (why) => {
         if (why === 'pushed') { active = 0; last = performance.now(); timer = setInterval(tick, TICK); return; }   // (not an answer)
-        try { if (localStorage.getItem(ASK_KEY) !== 'done') answer(was === 'later' ? 'done' : 'later'); } catch { /* storage unavailable */ }
+        try { if (localStorage.getItem(ASK_KEY) !== 'done') answer(was === 'later' ? 'done' : 'later'); } catch (e) { caught('main:2235', e); /* storage unavailable */ }
       } });
   };
   timer = setInterval(tick, TICK);

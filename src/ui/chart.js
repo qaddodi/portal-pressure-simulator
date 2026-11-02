@@ -6,12 +6,13 @@
 //   Advanced physiology                  side panel, from Settings
 
 import { store, updateParams } from './store.js?v=afc4d7c743';
-import { h, icon, svgIcon, toast, reconcile } from './util.js?v=141c5a0172';
+import { h, icon, svgIcon, toast, reconcile } from './util.js?v=24e63445fb';
 import { fold } from './fold.js?v=98b5a988ce';
 import { DRUGS } from '../engine/scenario.js?v=0762d1b820';
-import { activeInterventions } from './inspector.js?v=aa7f2b52af';
-import { DRUG_NOTE } from './actions.js?v=0fd0a3dbdc';
+import { activeInterventions } from './inspector.js?v=7c4d071779';
+import { DRUG_NOTE } from './actions.js?v=c7887b31f8';
 import { factTarget } from './fact-target.js?v=50935889f6';
+import { caught } from './caught.js?v=b96b17594a';
 
 
 export function createChart({ onWhy, flash, onScenarios, action, startShunt, select, reveal = select, timeline, pinned }) {
@@ -22,7 +23,7 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
   let live = [];
 
   function safeGet(k) { try { return localStorage.getItem(k); } catch { return null; } }
-  function remember() { try { localStorage.setItem('pps.chartOpen3', JSON.stringify([...open])); } catch { /* storage unavailable */ } }
+  function remember() { try { localStorage.setItem('pps.chartOpen3', JSON.stringify([...open])); } catch (e) { caught('chart:25', e); /* storage unavailable */ } }
 
   function section(id, title, ic, badge, ...kids) {
     const d = h('details', { class: 'section chart-sec', 'data-id': id },

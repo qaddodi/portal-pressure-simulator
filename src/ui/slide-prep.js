@@ -11,8 +11,9 @@
 // so deck B's slide 0 never inherits deck A's; a shader step that still waits resumes when a program is published (whenShadersMove),
 // up to SHADER_TRIES times, instead of leaving the slide unready for good; a step that fails marks the manifest failed, never ready;
 // cancel() is the presenter's teardown and drops every manifest. States: unprepared, preparing, ready, failed.)
-import { prepJob, prepLeft } from './prep-budget.js?v=822f7c6843';
-import { whenShadersMove } from './gl-compile.js?v=6270bdf1ba';
+import { prepJob, prepLeft } from './prep-budget.js?v=208a89eca1';
+import { whenShadersMove } from './gl-compile.js?v=b20e777952';
+import { caught } from './caught.js?v=b96b17594a';
 export const SLIDE_PREP = !(typeof location !== 'undefined' && /[?&]slideprep=0\b/.test(location.search || ''));
 
 // (Review pass 2, priorities 1 and 3: each slide's preparation is a job of the shared preparation budget, prep-budget.js, one step at a
@@ -73,7 +74,7 @@ export function createSlidePrep({ count, steps = {}, keep = 3, identity = () => 
     trim(i);
     const ok = () => g === gen && alive();
     // (The slide going in first, now: its shaders published in the press's own task, before its first frame, within the budget.)
-    try { steps.shaders?.(shaderMs()); } catch { /* next time */ }
+    try { steps.shaders?.(shaderMs()); } catch (e) { caught('slide-prep:70', e); /* next time */ }
     const order = (dir === 'back' ? [i, i - 1, i + 1] : [i, i + 1, i - 1]).filter((k) => k >= 0 && k < count());
     const mOf = (at) => { let m = made.get(at); if (!m || m.failed) made.set(at, (m = { state: false, tool: false, glyphs: false, shaders: false, done: false, failed: false, id: idNow, sf0: steps.shadersFailed?.() ?? 0 })); return m; };
     // (One job, the slide going in first, then the one ahead, then the one behind: each a list of small steps.)

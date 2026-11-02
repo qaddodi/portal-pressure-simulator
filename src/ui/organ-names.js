@@ -8,7 +8,7 @@
 // it, the atrium's and the esophagus's at their side) stays within NEAR units of it. The spots are the centres of the caption's box
 // on a grid, nearest the anchor first, so the label rests where it always did whenever nothing is in the way.
 import { ORGANS, ORGAN_LABELS } from './anatomy.js?v=fe0f3d1f0e';
-import { pathCmds, flattenCmds } from './shape-gl.js?v=fde1af982c';
+import { pathCmds, flattenCmds } from './shape-gl.js?v=7655fc8ec5';
 
 /** The organ outline each caption belongs to (anatomy.js ORGANS ids; a band shape such as the colon takes its ring). */
 export const NAME_ORGAN = { Liver: 'liver', Stomach: 'stomach', Spleen: 'spleen', Colon: 'colon', Kidney: 'kidney-l', 'Small bowel': 'bowel', Esophagus: 'esophagus', 'Right atrium': 'heart' };

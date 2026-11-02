@@ -19,24 +19,25 @@
 // the sinusoid exactly over the lobule's one at every step: first the vessel itself, then the tissue
 // around it.
 
-import { h, fmt, clamp, lerp } from './util.js?v=141c5a0172';
-import { createCaptionGL, lookOf, ringOf, shadowOf, rgbaOf } from './caption-gl.js?v=9cfb86a0a3';
-import { measure } from './glyph-measure.js?v=752ae0a7bb';
-import { readStyle } from './layout-snap.js?v=f87939cccb';
-import { pressureColor } from './colormap.js?v=c442f8f208';
+import { h, fmt, clamp, lerp } from './util.js?v=24e63445fb';
+import { createCaptionGL, lookOf, ringOf, shadowOf, rgbaOf } from './caption-gl.js?v=e16eaeedd4';
+import { measure } from './glyph-measure.js?v=5d9263708d';
+import { readStyle } from './layout-snap.js?v=ed9aff412d';
+import { pressureColor } from './colormap.js?v=a2335c4afc';
+import { createSvgGL, svgModel, setGeo, geoOf } from './svg-gl.js?v=6edf5b439f';
 import { isPaused } from './clock.js?v=d6c06e7017';
 import { store } from './store.js?v=afc4d7c743';
 import { STEP_MAX } from './glide-clock.js?v=220d7f875c';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
-import { createSinusoidGL, poreAt, poreOpenness, calloutPore, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=ed7aac1c5c';
-import { placeFenDisse } from './fen-place.js?v=e755ab0d0d';
-import { frameFor, noteDraw, saver, paceMs, renderScale, onRenderScale, easeNow } from './frame.js?v=26e2e46fff';
-import { softwareGL, softwareYield } from './sw-yield.js?v=1ec3c87eab';
-import { noteSinusoidSupport, sinusoidSupported, CTX_LAZY } from './gl-support.js?v=52a4c9c036';
-import { FADE_MS, fadeAlpha } from './res-fade.js?v=697067d495';
+import { createSinusoidGL, poreAt, poreOpenness, calloutPore, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=a16cc27ec5';
+import { placeFenDisse } from './fen-place.js?v=aeb652ec66';
+import { frameFor, noteDraw, saver, paceMs, renderScale, onRenderScale, easeNow } from './frame.js?v=d641eeefa1';
+import { softwareGL, softwareYield } from './sw-yield.js?v=0b6a0f94e9';
+import { noteSinusoidSupport, sinusoidSupported, CTX_LAZY } from './gl-support.js?v=d5f71321aa';
+import { FADE_MS, fadeAlpha } from './res-fade.js?v=ab42abc365';
 import { cssColor8 } from './css-color.js?v=e56f0c77ae';
 import { surface } from './gpu-surfaces.js?v=2af17044e7';
-import { restPass, restClass, restAttr } from './rest-pass.js?v=f6a3355959';
+import { restPass, restClass, restAttr } from './rest-pass.js?v=0173e424ce';
 // ?willchange=0 in the address: the layer keeps will-change always, as before.
 const SV_LAYER = !(typeof location !== 'undefined' && /[?&]willchange=0\b/.test(location.search));
 const nextFrame = frameFor('sinusoid-view');
@@ -44,7 +45,7 @@ const nextFrame = frameFor('sinusoid-view');
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 function rng(seed) { let q = seed >>> 0; return () => { q = (q * 1664525 + 1013904223) >>> 0; return q / 4294967296; }; }
 
-export { sinusoidSupported } from './gl-support.js?v=52a4c9c036';
+export { sinusoidSupported } from './gl-support.js?v=d5f71321aa';
 
 /** `before`: a node of `host` to sit ahead of (the lobule layer, built late, takes the place it would have had). */
 export function createSinusoidView({ host, before = null }) {

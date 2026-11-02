@@ -107,9 +107,9 @@ export function marginView(m, cw, ch) {
   return mul([k, 0, 0, k, cx * (1 - k), cy * (1 - k)], m);
 }
 
-import { createShapeGL } from './shape-gl.js?v=fde1af982c';
-import { createOrganPaint, mul, inv, prestartOrganPaint } from './organ-paint.js?v=175a9fe471';
-import { prestart, linkProgram, exerciseDraw } from './gl-compile.js?v=6270bdf1ba';
+import { createShapeGL } from './shape-gl.js?v=7655fc8ec5';
+import { createOrganPaint, mul, inv, prestartOrganPaint } from './organ-paint.js?v=a886eb94c5';
+import { prestart, linkProgram, exerciseDraw } from './gl-compile.js?v=b20e777952';
 import { netChanged } from './idle-keys.js?v=81fbedda6b';
 import { uniformCache } from './uniform-cache.js?v=b914b447dd';
 import { easeMove, D_SURFACE } from './ease.js?v=7513a88c68';

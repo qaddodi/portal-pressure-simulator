@@ -12,18 +12,19 @@
 // know, a keyboard focus ring) stays drawn by the SVG, label by label. Without WebGL2, on a software renderer, with ?gpulabels=0, or
 // once the context is lost, the SVG draws them all, as it always has.
 
-import { glGet, glCap } from './gl-state.js?v=d8ce472a0d';
-import { frameFor, cancelFrame } from './frame.js?v=26e2e46fff';
+import { glGet, glCap } from './gl-state.js?v=1cacfbbc3f';
+import { frameFor, cancelFrame } from './frame.js?v=d641eeefa1';
 import { ucOf } from './uniform-cache.js?v=b914b447dd';
 import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=81fbedda6b';
-import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js?v=6270bdf1ba';
+import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js?v=b20e777952';
 import { createAtlasPacker, batchRuns } from './atlas-pack.js?v=43b8bc019d';
 import { easeMove, D_SURFACE } from './ease.js?v=7513a88c68';
-import { createShapeGL, flattenPath, polyMesh, ellipsePoly } from './shape-gl.js?v=fde1af982c';
-import { createOrganPaint, parseColor, mul } from './organ-paint.js?v=175a9fe471';
-import { textPolys, textWidth, loadGlyphs, glyphsReady, textCovers } from './text-gl.js?v=d9c4b5088e';
+import { createShapeGL, flattenPath, polyMesh, ellipsePoly } from './shape-gl.js?v=7655fc8ec5';
+import { createOrganPaint, parseColor, mul } from './organ-paint.js?v=a886eb94c5';
+import { textPolys, textWidth, loadGlyphs, glyphsReady, textCovers } from './text-gl.js?v=25a4727676';
 import { watchSize, sizeOf, rectSoon } from './geom.js?v=254133713c';
 import { trackOf, trackAt, mixColour, timingOf, progressAt, keysOf } from './label-track.js?v=814746f511';
+import { caught } from './caught.js?v=b96b17594a';
 // (The colour a clear writes, one array for every clear: none made per call, plan rev 2 §2.8.)
 const CLEAR0 = new Float32Array(4);
 
@@ -578,7 +579,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       k += `|${e.tagName}`;
       if (e === svg) { k += `.${e.getAttribute('class') || ''}`; break; }
       for (const a of e.attributes) if (!VOLATILE.has(a.name)) k += ` ${a.name}=${a.value}`;
-      if (e.classList?.contains('lb')) { try { k += `:${e.matches(':hover') ? 'h' : ''}${e.matches(':focus-visible') ? 'f' : ''}`; } catch { /* no state */ } }
+      if (e.classList?.contains('lb')) { try { k += `:${e.matches(':hover') ? 'h' : ''}${e.matches(':focus-visible') ? 'f' : ''}`; } catch (e) { caught('label-gl:581', e); /* no state */ } }
     }
     return k;
   }
@@ -1028,7 +1029,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     if (!moving && !pageTex[1] && packer.maxPages > 1 && packer.used > packer.size * packer.size * 0.5) reserve();
     let key = '';
     for (const b of boxes) key += `${Math.floor(b[0])},${Math.floor(b[1])},${Math.ceil(b[2])},${Math.ceil(b[3])};`;
-    if (key !== boxKey) { boxKey = key; try { onBoxes?.(); } catch { /* (a listener's failure is not the labels') */ } }
+    if (key !== boxKey) { boxKey = key; try { onBoxes?.(); } catch (e) { caught('label-gl:1031', e); /* (a listener's failure is not the labels') */ } }
     // (Nothing drawn at all (every label, mark and probe has a box): the canvas is hidden, so the compositor does not blend a full-stage layer of
     // nothing over the figure on every frame the blood moves. It shows again in the task that draws the first thing back. app.css [data-blank].)
     if (!host) { const empty = boxes.length === 0; if (empty !== blank) { blank = empty; canvas.toggleAttribute('data-blank', empty); } }

@@ -8,8 +8,8 @@
 // is where it rests, so a measure of how far the readings travel would read none.
 
 import { EASE_ARRIVE, easeArrive } from './ease.js?v=7513a88c68';
-import { frameFor } from './frame.js?v=26e2e46fff';
-import { readBox, readStyle } from './layout-snap.js?v=f87939cccb';
+import { frameFor } from './frame.js?v=d641eeefa1';
+import { readBox, readStyle } from './layout-snap.js?v=ed9aff412d';
 export const ZOOM_MAX = 2.2;    // the most the card grows
 export const ZOOM_MIN = 1.2;    // under this the card is large enough; no zoom is offered
 export const ZOOM_MS = 520;     // in

@@ -6,7 +6,8 @@
 // A panel's map is drawn inside its chart drawer's own context (elastogramUnder, under the words); elastogramGL's own small
 // context is kept for the checks and for a panel drawn without the chart drawer (?tracegl=0).
 
-import { startProgram, checkProgram, exerciseDraw, publishWhenDone, stillCompiling } from './gl-compile.js?v=6270bdf1ba';
+import { startProgram, checkProgram, exerciseDraw, publishWhenDone, stillCompiling } from './gl-compile.js?v=b20e777952';
+import { caught } from './caught.js?v=b96b17594a';
 
 const VS = `#version 300 es
 in vec2 p;
@@ -139,7 +140,7 @@ export function createElastogramGL(F, { onReady = null, className = '' } = {}) {
     /** Lets the context go (the panel is off screen): a page holds only so many WebGL contexts, and past that the browser drops the oldest, the figure's. */
     dispose() { stopAll(s); } };
 }
-function stopAll(s) { try { s.gl.getExtension('WEBGL_lose_context')?.loseContext(); } catch { /* already gone */ } s.canvas.width = s.canvas.height = 0; s.canvas.remove(); }
+function stopAll(s) { try { s.gl.getExtension('WEBGL_lose_context')?.loseContext(); } catch (e) { caught('fibroscan-gl:142', e); /* already gone */ } s.canvas.width = s.canvas.height = 0; s.canvas.remove(); }
 function drawMap(s, F, NB, t0, N, c, t) {
   if (s.lost) return null;
   // (Never published inside a frame while the driver still compiles: no map this frame (the panel hides it), the poller publishes the

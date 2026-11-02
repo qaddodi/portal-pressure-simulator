@@ -9,11 +9,11 @@
 // day 0 to its last, drawn as it plays (Ascites builds: ascites over sinusoidal pressure; varices: varix over HVPG).
 // A line the model does not compute (weight lost, which the model has no body for) is given by the slide (tool.given: { wt: 12 }):
 // it climbs from 0 to that number in step with the time-lapse's ramp, and every other line is still the model's own.
-import { frameFor, cancelFrame } from './frame.js?v=26e2e46fff';
-import { classSoon } from './class-soon.js?v=6ad82f25a8';
+import { frameFor, cancelFrame } from './frame.js?v=d641eeefa1';
+import { classSoon } from './class-soon.js?v=ba07f06e7e';
 import { plotPanel } from './plot-look.js?v=5037697da7';
 import { RX, bandKeys } from './rx-bands.js?v=51e83c7c59';
-import { createSvgGL, svgModel, setWords } from './svg-gl.js?v=8b9463392d';
+import { createSvgGL, svgModel, setWords } from './svg-gl.js?v=6edf5b439f';
 import { D_SURFACE, EASE_ARRIVE } from './ease.js?v=7513a88c68';
 const nextFrame = frameFor('flow-time');
 

@@ -4,9 +4,10 @@
 // (optional) gives the old picture's transform each frame ([a, b, c, d, e, f], CSS px), so it moves with a view that moves meanwhile
 // (stage.js). A second change while one still fades starts from the mix as it shows, so neither picture jumps. Since 1 Nov the mix is
 // made only on the GPU, inside the canvas's own presents (res-fade-gl.js); the canvas stays shown, so its opacity is never touched.
-import { finalFrameFor, noteDraw } from './frame.js?v=26e2e46fff';
+import { finalFrameFor, noteDraw } from './frame.js?v=d641eeefa1';
 import { D_SURFACE } from './ease.js?v=7513a88c68';
-import { keepOnGpu } from './res-fade-gl.js?v=37eeefeccf';
+import { keepOnGpu } from './res-fade-gl.js?v=f4783817a7';
+import { caught } from './caught.js?v=b96b17594a';
 
 export const FADE_MS = D_SURFACE;
 /** The old picture's weight u of the way through the fade: 1 to 0, smoothstep (no step at either end). */
@@ -31,7 +32,7 @@ let asked = false;
 
 function endGpu(canvas, f) {
   f.gpu.release(); fades.delete(canvas);
-  try { if (canvas.isConnected) f.capture?.(); } catch { /* (a lost context: nothing to lay) */ }   // (the picture alone, at once)
+  try { if (canvas.isConnected) f.capture?.(); } catch (e) { caught('res-fade:34', e); /* (a lost context: nothing to lay) */ }   // (the picture alone, at once)
 }
 
 function step() {
@@ -68,7 +69,7 @@ export function fadeOver(canvas, follow = null, capture = null, host = null, box
   // (The caller resizes the canvas next, which clears it: the picture before is laid on it at once, before the page shows it blank.)
   queueMicrotask(() => {
     if (fades.get(canvas) !== f || (canvas.width === keep.w && canvas.height === keep.h)) return;
-    try { keep.draw(1, oldPlace(null, f.at, translateOf(canvas.style.translate)), w, h, true); } catch { /* (a lost context) */ }
+    try { keep.draw(1, oldPlace(null, f.at, translateOf(canvas.style.translate)), w, h, true); } catch (e) { caught('res-fade:71', e); /* (a lost context) */ }
   });
   if (!asked) { asked = true; late(step); }
 }

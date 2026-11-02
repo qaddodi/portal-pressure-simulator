@@ -19,40 +19,41 @@
 // tapped (triad, inlet venule, sinusoid, arteriole, central vein, septum, hepatocytes).
 // Without WebGL2 the vessels are drawn flat on the tissue canvas.
 
-import { runFlick, FLICK } from './flick.js?v=b95e57b921';
+import { runFlick, FLICK } from './flick.js?v=e1e57193c0';
 import { store } from './store.js?v=afc4d7c743';
 import { glideClock } from './glide-clock.js?v=220d7f875c';
 import { radiiChanged, canvasPx, fxMoves, DIVE_RIM } from './lobule-render-cache.js?v=84bf4c2222';
-import { softwareYield } from './sw-yield.js?v=1ec3c87eab';
-import { lobuleState, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-model.js?v=063eb9e12c';
+import { softwareYield } from './sw-yield.js?v=0b6a0f94e9';
+import { lobuleState, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-model.js?v=1b605e20e5';
 import { SIN_NARROW, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend, fieldDof, surroundGrade, greyStep } from './lobule-look.js?v=cf14995b07';
 import { isGreyLens } from './organ-dim.js?v=9e19f2fc30';
-import { createFieldGL, TILE_OVER } from './field-gl.js?v=99594b9a93';
-import { createTissueGL } from './tissue-gl.js?v=06281919ab';
-import { tileCopy } from './tile-gl.js?v=e2e6931973';
-import { FX_GPU, createFxGL } from './fx-gl.js?v=88bc1f8dd5';
-import { WIDE_GL, createWideGL } from './wide-gl.js?v=c57843d131';
+import { createFieldGL, TILE_OVER } from './field-gl.js?v=5edaaa66d6';
+import { createTissueGL } from './tissue-gl.js?v=bb20ee5c08';
+import { tileCopy } from './tile-gl.js?v=db7401093a';
+import { FX_GPU, createFxGL } from './fx-gl.js?v=ba5dd6055f';
+import { WIDE_GL, createWideGL } from './wide-gl.js?v=54edfaefaf';
 import { buildLive, buildDyn, buildItems, liveFibre, liveEligible, liveZoomShare, liveColours, liveEase, liveShareOf } from './lobule-live.js?v=b585d4fb63';
-import { recordPaint, gpuPicture } from './paint-gl.js?v=b7d795a4f6';
+import { recordPaint, gpuPicture } from './paint-gl.js?v=57516e11f1';
 import { cssColor8 } from './css-color.js?v=e56f0c77ae';
 import { fibrousBand, fibrousTract, fibrousCuff, scarGrowth, paintWorldInto, useTokens } from './lobule-paint.js?v=ccb5ac5fe2';
-import { h, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=141c5a0172';
-import { createSvgGL, svgModel, setGeo, geoOf } from './svg-gl.js?v=8b9463392d';
-import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=c442f8f208';
+import { h, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=24e63445fb';
+import { createSvgGL, svgModel, setGeo, geoOf } from './svg-gl.js?v=6edf5b439f';
+import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=a2335c4afc';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
-import { createVeinsGL, LZ_ONE, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=508bfa7870';
+import { createVeinsGL, LZ_ONE, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=a506c3f646';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=a70439097a';
-import { createSinusoidView } from './sinusoid-view.js?v=fcf3fa870e';
-import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, framePart, easeNow, inMotion, PACED } from './frame.js?v=26e2e46fff';
+import { createSinusoidView } from './sinusoid-view.js?v=84d420c885';
+import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, framePart, easeNow, inMotion, PACED } from './frame.js?v=d641eeefa1';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
-import { FADE_MS, fadeAlpha, viewFollow } from './res-fade.js?v=697067d495';
-import { createResCover, coverFollow } from './res-cover-gl.js?v=75337d5b59';
+import { FADE_MS, fadeAlpha, viewFollow } from './res-fade.js?v=ab42abc365';
+import { createResCover, coverFollow } from './res-cover-gl.js?v=84aa123ce7';
 import { leaderEnd, runInside } from './leader-end.js?v=8e884700ab';
 import { LIGHT } from './light.js?v=f0c4eefb81';
-import { restPass, cancelRest, restAttr, restRemove, flushRestAttrs } from './rest-pass.js?v=f6a3355959';
-import { classSoon, classHas } from './class-soon.js?v=6ad82f25a8';
+import { restPass, cancelRest, restAttr, restRemove, flushRestAttrs } from './rest-pass.js?v=0173e424ce';
+import { classSoon, classHas } from './class-soon.js?v=ba07f06e7e';
 import { easeMove, carryRate, carried, cubicBezier, D_SMALL, D_SURFACE } from './ease.js?v=7513a88c68';
 import { surface } from './gpu-surfaces.js?v=2af17044e7';
+import { caught } from './caught.js?v=b96b17594a';
 // ?willchange=0 in the address: the lobule and sinusoid layers keep will-change always, as before.
 const LZ_LAYER = !(typeof location !== 'undefined' && /[?&]willchange=0\b/.test(location.search));
 const CAM_M2 = !(typeof location !== 'undefined' && /[?&]camease=0\b/.test(location.search));
@@ -524,7 +525,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     touches.set(ev.pointerId, local(ev));
     cancelFrame(glide); gliding = false;
     // Captured, so a drag keeps going over the labels, the card or past the edge.
-    try { el.setPointerCapture(ev.pointerId); } catch { /* gone */ }
+    try { el.setPointerCapture(ev.pointerId); } catch (e) { caught('lobule-zoom:527', e); /* gone */ }
     if (touches.size === 2) {
       const [a, b] = pts2();
       pinch = { d: Math.hypot(a[0] - b[0], a[1] - b[1]) || 1, k: V.k, m: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] };

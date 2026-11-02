@@ -1,8 +1,9 @@
 // Debug overlay: FPS and frame time, zoom, pixel ratio and build. Off by default; choices persist.
 import { gpuProbe } from './gpu-probe.js?v=625c2c9315';
 
-import { propSoon } from './class-soon.js?v=6ad82f25a8';
-import { finalFrameFor, cancelFrame } from './frame.js?v=26e2e46fff';
+import { propSoon } from './class-soon.js?v=ba07f06e7e';
+import { finalFrameFor, cancelFrame } from './frame.js?v=d641eeefa1';
+import { caught } from './caught.js?v=b96b17594a';
 // (The overlay's loop goes through the app's one frame scheduler, last in each frame, never a requestAnimationFrame of its own.)
 const nextFrame = finalFrameFor('debug');
 const KEY = 'pps.debug';
@@ -25,7 +26,7 @@ export const debugOn = (k) => !!st[k];
 export function initDebug(zoomFn) { getZoom = zoomFn; sync(); }
 export function setDebug(k, on) {
   st = { ...st, [k]: !!on };
-  try { localStorage.setItem(KEY, JSON.stringify(st)); } catch { /* private mode */ }
+  try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) { caught('debug:28', e); /* private mode */ }
   sync();
 }
 function sync() {
@@ -74,7 +75,7 @@ function tick(t) {
   hist.push(fps); if (hist.length > GRAPH_N) hist.shift();
   const L = [];
   if (st.fps) L.push(`${fps.toFixed(0)} fps · ${ms.toFixed(1)} ms`);
-  if (st.zoom) { let z = ''; try { z = getZoom ? Number(getZoom()).toFixed(2) : ''; } catch { /* no stage yet */ } L.push(`zoom ${z}×`); }
+  if (st.zoom) { let z = ''; try { z = getZoom ? Number(getZoom()).toFixed(2) : ''; } catch (e) { caught('debug:77', e); /* no stage yet */ } L.push(`zoom ${z}×`); }
   if (st.gpu && frames.length) {
     const now = frames[frames.length - 1], worst = frames.reduce((a, b) => (b.dt > a.dt ? b : a));
     L.push(`frame ${now.dt.toFixed(0)} ms: ${stepsText(now)}`);

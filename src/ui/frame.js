@@ -19,6 +19,7 @@
 import { gpuProbe } from './gpu-probe.js?v=625c2c9315';
 import { createFrameRecorder } from './frame-stats.js?v=5cd07c7e9b';
 import { createInputLatency, describeTarget } from './input-latency.js?v=3c0129b426';
+import { caught } from './caught.js?v=b96b17594a';
 // A batch of asked-for callbacks, in request order (plan "Holding 120 Hz, always" rev 2 §2.8: zero allocation on the frame path). Three
 // parallel arrays that keep their length from frame to frame, so an ask writes three slots and allocates nothing, and running a batch
 // walks it by index (the Map of [tag, cb] pairs it replaces made one array per ask and one entry array per callback run). A cancelled
@@ -561,7 +562,7 @@ const frameRecording = {
 // sweep or speckle) is drawn on every frame the screen offers, 60, 120 or more a second. Motion follows elapsed time,
 // never the number of frames, so a faster screen shows the same speeds in more steps.
 // (No longer a Setting, 20 Oct: always off. A value an older build stored is dropped.)
-try { localStorage.removeItem('pps.saver'); } catch { /* storage unavailable */ }
+try { localStorage.removeItem('pps.saver'); } catch (e) { caught('frame:564', e); /* storage unavailable */ }
 let saverOn = false;
 export const saver = () => saverOn;
 export function setSaver(on) { saverOn = !!on; }
@@ -574,7 +575,7 @@ export const SAVER_MS = 1000 / 15 - 4;
 // sinusoid stay at Full.
 export const RENDER_SCALES = ['auto', 1, 0.75, 0.5, 0.25];
 let renderK = 1;
-try { const t = localStorage.getItem('pps.renderScale'), v = t === 'auto' ? t : +t; if (RENDER_SCALES.includes(v)) renderK = v; } catch { /* storage unavailable */ }
+try { const t = localStorage.getItem('pps.renderScale'), v = t === 'auto' ? t : +t; if (RENDER_SCALES.includes(v)) renderK = v; } catch (e) { caught('frame:577', e); /* storage unavailable */ }
 const renderSubs = new Set();
 /** The chosen setting: 'auto' or a fixed share. */
 export const renderSetting = () => renderK;
@@ -583,7 +584,7 @@ export const renderScale = () => (renderK === 'auto' ? 1 : renderK);
 export function setRenderScale(k) {
   if (!RENDER_SCALES.includes(k) || k === renderK) return;
   renderK = k;
-  try { if (k === 1) localStorage.removeItem('pps.renderScale'); else localStorage.setItem('pps.renderScale', String(k)); } catch { /* storage unavailable */ }
+  try { if (k === 1) localStorage.removeItem('pps.renderScale'); else localStorage.setItem('pps.renderScale', String(k)); } catch (e) { caught('frame:586', e); /* storage unavailable */ }
   for (const f of renderSubs) f(k);
 }
 /** Called with the new scale each time Settings changes it (and each time one of the options below changes). */
@@ -599,13 +600,13 @@ export function onRenderScale(f) { renderSubs.add(f); return () => renderSubs.de
 export const FIG_OPTS = { move: [1, 0.75, 0.5, 0.25], glow: [1, 0.5, 0.25], cap: [8, 0, 4, 2], adapt: [false, true], floor: [0.1, 0.25, 0.5] };
 const figOpts = { move: 1, glow: 1, cap: 8, adapt: false, floor: 0.1 };
 for (const k of Object.keys(figOpts)) {
-  try { const t = localStorage.getItem(`pps.fig.${k}`), v = t === 'true' ? true : +t; if (t != null && FIG_OPTS[k].includes(v)) figOpts[k] = v; } catch { /* storage unavailable */ }
+  try { const t = localStorage.getItem(`pps.fig.${k}`), v = t === 'true' ? true : +t; if (t != null && FIG_OPTS[k].includes(v)) figOpts[k] = v; } catch (e) { caught('frame:602', e); /* storage unavailable */ }
 }
 export const figOpt = (k) => figOpts[k];
 export function setFigOpt(k, v) {
   if (!FIG_OPTS[k]?.includes(v) || figOpts[k] === v) return;
   figOpts[k] = v;
-  try { if (v === FIG_OPTS[k][0]) localStorage.removeItem(`pps.fig.${k}`); else localStorage.setItem(`pps.fig.${k}`, String(v)); } catch { /* storage unavailable */ }
+  try { if (v === FIG_OPTS[k][0]) localStorage.removeItem(`pps.fig.${k}`); else localStorage.setItem(`pps.fig.${k}`, String(v)); } catch (e) { caught('frame:608', e); /* storage unavailable */ }
   for (const f of renderSubs) f(renderK);
 }
 // Figure performance (30 Oct, Round 3 of the review, each off until chosen; Settings › Figure performance). Unlike the options above,
@@ -628,14 +629,14 @@ export function setFigOpt(k, v) {
 export const FIG_LAB = { motion60: [false, true], glassCache: [false, true], creditLean: [true, false], lymphBoxes: [false, true], pinchReuse: [0, 2, 3], upscale: [false, true], lightArt: [false, true], pinchLow: [false, true] };
 const figLabs = Object.fromEntries(Object.entries(FIG_LAB).map(([k, v]) => [k, v[0]]));
 for (const k of Object.keys(figLabs)) {
-  try { const t = localStorage.getItem(`pps.fig.${k}`), v = t === 'true' ? true : t === 'false' ? false : +t; if (t != null && FIG_LAB[k].includes(v)) figLabs[k] = v; } catch { /* storage unavailable */ }
+  try { const t = localStorage.getItem(`pps.fig.${k}`), v = t === 'true' ? true : t === 'false' ? false : +t; if (t != null && FIG_LAB[k].includes(v)) figLabs[k] = v; } catch (e) { caught('frame:631', e); /* storage unavailable */ }
 }
 const labSubs = new Set();
 export const figLab = (k) => figLabs[k];
 export function setFigLab(k, v) {
   if (!FIG_LAB[k]?.includes(v) || figLabs[k] === v) return;
   figLabs[k] = v;
-  try { if (v === FIG_LAB[k][0]) localStorage.removeItem(`pps.fig.${k}`); else localStorage.setItem(`pps.fig.${k}`, String(v)); } catch { /* storage unavailable */ }
+  try { if (v === FIG_LAB[k][0]) localStorage.removeItem(`pps.fig.${k}`); else localStorage.setItem(`pps.fig.${k}`, String(v)); } catch (e) { caught('frame:638', e); /* storage unavailable */ }
   for (const f of labSubs) f(k, v);
 }
 /** Called with (key, value) each time one of the Figure performance switches changes. */

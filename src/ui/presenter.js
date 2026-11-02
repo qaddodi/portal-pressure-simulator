@@ -16,13 +16,13 @@
 import { store, replaceParams } from './store.js?v=afc4d7c743';
 import { download } from './download.js?v=3564e5bf8c';
 import { controlOwnsKey } from './key-owner.js?v=60ed93db32';
-import { glWords } from './gl-words.js?v=b0f0c1f8a8';
-import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, confirmDialog, askText, popoverOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, odoSwap, odoOn, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=141c5a0172';
+import { glWords } from './gl-words.js?v=61d9404408';
+import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, confirmDialog, askText, popoverOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, odoSwap, odoOn, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=24e63445fb';
 import { titleParts } from './title-units.js?v=c8d5ce1f26';
-import { liveText, wordsOf } from './live-text.js?v=81bcc6f9e5';
-import { swipeDir, SWIPE_MIN, SWIPE_RATIO, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight, wheelFinger, wheelGesture, ownsWheel } from './swipe.js?v=02fa68a610';
-import { createSvgGL, svgModel, viewMap, noteLoop } from './svg-gl.js?v=8b9463392d';
-import { sinusoidSupported } from './gl-support.js?v=52a4c9c036';
+import { liveText, wordsOf } from './live-text.js?v=450dde39bc';
+import { swipeDir, SWIPE_MIN, SWIPE_RATIO, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight, wheelFinger, wheelGesture, ownsWheel } from './swipe.js?v=06015b6fb1';
+import { createSvgGL, svgModel, viewMap, noteLoop } from './svg-gl.js?v=6edf5b439f';
+import { sinusoidSupported } from './gl-support.js?v=d5f71321aa';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=072bfa63c1';
 import { isCamOn, unionBox, regionBox, growBox, camNames } from './cam-frame.js?v=3c321f5f7f';
 import { NODE_POS } from './anatomy.js?v=fe0f3d1f0e';
@@ -31,42 +31,43 @@ import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=94784eec41';
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
 import { hvpgSev } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { createHvpgMonitor } from './hvpg-proc.js?v=9a9080a607';
-import { createTools } from './presenter-tools.js?v=5a6d679b2c';
+import { createHvpgMonitor } from './hvpg-proc.js?v=d4f9a8f371';
+import { createTools } from './presenter-tools.js?v=6e4d4398d6';
 import { openHandout } from './handout.js?v=3aaa29b61a';
-import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
-import { parseDeckSource, checkDeck } from './deck-source.js?v=eb70fb8acf';
+import { noteResume, resumeFor } from './resume.js?v=c0f39f9446';
+import { parseDeckSource, checkDeck } from './deck-source.js?v=1eeb480f5f';
 import { cleanEq } from './import-safety.js?v=9db53247a5';
 import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig, sameHead, headOf, cutDp } from './table-marks.js?v=ff3ed0cc47';
-import { frameFor, cancelFrame, holdMotion, PACED } from './frame.js?v=26e2e46fff';
-import { loadGlyphs, glyphsReady, textWidth } from './text-gl.js?v=d9c4b5088e';
-import { restPass, cancelRest } from './rest-pass.js?v=f6a3355959';
-import { createSlidePrep, SLIDE_PREP } from './slide-prep.js?v=f5dddab62e';
-import { createTxns, SLIDE_TXN } from './slide-txn.js?v=1fcea803eb';
-import { prepareShaders, shaderFailures } from './gl-compile.js?v=6270bdf1ba';
-import { createFigureKey } from './figure-key.js?v=9088d5a22d';
+import { frameFor, cancelFrame, holdMotion, PACED } from './frame.js?v=d641eeefa1';
+import { loadGlyphs, glyphsReady, textWidth } from './text-gl.js?v=25a4727676';
+import { restPass, cancelRest } from './rest-pass.js?v=0173e424ce';
+import { createSlidePrep, SLIDE_PREP } from './slide-prep.js?v=a78b729ab7';
+import { createTxns, SLIDE_TXN } from './slide-txn.js?v=aa2d6cb569';
+import { prepareShaders, shaderFailures } from './gl-compile.js?v=b20e777952';
+import { createFigureKey } from './figure-key.js?v=612b9addf9';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
-import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=c442f8f208';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=31dc2472de';
+import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=a2335c4afc';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=8fa9816f4f';
 import { clotWords } from './callout-math.js?v=6ef2901a08';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
-import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=a762cd0df4';
+import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=12df1f8f56';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
-import { anchorsOf, roomFor } from './cam-room.js?v=a80c602a66';
+import { anchorsOf, roomFor } from './cam-room.js?v=77e41212ef';
 import { beatCount, beatView } from './slide-beats.js?v=2aded612c4';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
-import { flowTimeHeight, trailKeys } from './flow-time.js?v=95e6950504';
-import { PROCS, procBlocked, procOffered, playProcedure, stepMark } from './proc-anim.js?v=2bc5f69b17';
+import { flowTimeHeight, trailKeys } from './flow-time.js?v=924a6510b2';
+import { PROCS, procBlocked, procOffered, playProcedure, stepMark } from './proc-anim.js?v=7c00a1446b';
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=982397f8fb';
-import { createCardZoom, tapTracker } from './card-zoom.js?v=053c0d881b';
+import { createCardZoom, tapTracker } from './card-zoom.js?v=57969a9f5f';
 import { sheetPanes } from './sheet-glass.js?v=9bad2768f7';
-import { createScopeTile } from './scope-tile.js?v=71668dbc05';
+import { createScopeTile } from './scope-tile.js?v=245a86fe34';
 import { tileKeys as cardKeys, toolOnly } from './card-tiles.js?v=e547c76c7f';
 import { D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN, EASE_MOVE, RISE_PX, cssCurve } from './ease.js?v=7513a88c68';
 import { slideFold } from './fold-slide.js?v=1b10231dcf';
 import { pageOn, followOf, pageIn } from './card-page.js?v=ebb4448222';
-import { throwOut, throwIn, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, INSTANT, throwOutNow, throwPinned, throwRelease, railable, railHold, railIn, railAway, railGhosts, railWaits, railCopies, RAIL_GAP } from './card-throw.js?v=f4596ef120';
-import { readAnims, readBox, readCTM, readMetric, readRects, readStyle, readTiming, scrollInto } from './layout-snap.js?v=f87939cccb';
+import { throwOut, throwIn, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, INSTANT, throwOutNow, throwPinned, throwRelease, railable, railHold, railIn, railAway, railGhosts, railWaits, railCopies, RAIL_GAP } from './card-throw.js?v=ff94281751';
+import { readAnims, readBox, readCTM, readMetric, readRects, readStyle, readTiming, scrollInto } from './layout-snap.js?v=ed9aff412d';
+import { caught } from './caught.js?v=b96b17594a';
 const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';
@@ -4984,7 +4985,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   }
   function setContrast(on = !hiCon) {
     hiCon = !!on;
-    try { localStorage.setItem(PROJ, hiCon ? '1' : '0'); } catch { /* storage unavailable */ }
+    try { localStorage.setItem(PROJ, hiCon ? '1' : '0'); } catch (e) { caught('presenter:4957', e); /* storage unavailable */ }
     app.classList.toggle('pz-hi', hiCon);
     paintChrome();
   }
@@ -4997,7 +4998,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   function setPanelWidth(w) {
     if (!PW_K[w] || w === pzWidth) return;
     pzWidth = w;
-    try { localStorage.setItem(PW, w); } catch { /* storage unavailable */ }
+    try { localStorage.setItem(PW, w); } catch (e) { caught('presenter:4970', e); /* storage unavailable */ }
     if (!ui) { app.style.setProperty('--pz-wk', String(PW_K[w])); return; }
     const apply = () => { app.style.setProperty('--pz-wk', String(PW_K[pzWidth])); layout(); setLabels(); };
     if (phone() || ui.text.hidden || reduce.matches) { apply(); return; }
@@ -5642,7 +5643,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     wrap.insertBefore(shade, wrap.querySelector('.stage-credit'));
     // The teaching card's glass is the card itself: it leaves and arrives with the words, never resizing in view.
     // (Except while the words turn over on it (pz-turn, glassTurn): then the glass stays and only the words go.)
-    new MutationObserver(() => shade.classList.toggle('pz-leave', text.classList.contains('pz-leave') && !shade.classList.contains('pz-turn'))).observe(text, { attributes: true, attributeFilter: ['class'] });
+    const shadeMO = new MutationObserver(() => shade.classList.toggle('pz-leave', text.classList.contains('pz-leave') && !shade.classList.contains('pz-turn')));
+    shadeMO.observe(text, { attributes: true, attributeFilter: ['class'] });
     wrap.append(root);
     // (It comes in with the teaching card, in the card's own fade, once the card is fitted (pz-prep gone), and leaves with it.)
     const figKey = createFigureKey({ el: fk, app, watch: [text, root], ready: () => !text.hidden && !text.classList.contains('pz-leave') && !root.classList.contains('pz-prep') });
@@ -5656,7 +5658,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // layer of its own throughout, so the swap that lost its picture on an iPhone no longer happens. ?shadegl=0 keeps it solid.)
     const shadeGL = SHADE_GL;
     const glass = stage.cardGlass?.({ find: () => [...(shadeGL ? [shade, data, vcase, bar, scl, fk] : [data, vcase, bar, scl, fk]), ...railGhosts().filter((g) => shadeGL || g.dataset.ghost !== 'shade')].filter(unzoomed), watch: [root, shade], before: shade, low: shade, read: (g) => (g === data || g.dataset?.ghost === 'data' ? sheetPanes(g) : undefined), shift: riseShift }) || null;
-    return { root, shade, safe, load, text, data, lip, lipRO, lipMO, cardTouch, setFold, zoom, zbtn, pscrim, partOf, vcase, fk, figKey, glass, dhT, tiles, tools, veil, panel, prog, scl, bar, black: blackEl, jump, say };
+    return { root, shade, safe, load, text, data, lip, lipRO, lipMO, shadeMO, cardTouch, setFold, zoom, zbtn, pscrim, partOf, vcase, fk, figKey, glass, dhT, tiles, tools, veil, panel, prog, scl, bar, black: blackEl, jump, say };
   }
   // The start's cover (see start). While it is up (booting) the camera cuts instead of gliding.
   let cover = null, booting = false, coverT = 0, noCase = false;   // (noCase: the slide a start lands on, a reload's included, does not play its case card)
@@ -5798,7 +5800,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     cancelFrame(slip.raf); slip.d = null; slip.h0 = null; stage.followEnd?.();
     clearTimeout(idleT); clearTimeout(dock.fit); cancelFrame(dock.raf); dock.lvl = 0; dock.to = 0; dock.drag = false; dock.auto = false; dock.autoKey = '';
     dataOn = textOn = null; keepNow = NO_KEEP; keepSnap = null; keepBad = []; keepArgs = null;
-    pillW = 0; ui?.zoom.reset(); ui?.tools.dispose(); ui?.tiles?.dispose(); ui?.figKey.dispose(); ui?.glass?.dispose(); ui?.lipRO?.disconnect(); ui?.root.remove(); ui?.shade.remove(); ui = null; app.classList.remove('pz-blacked');
+    pillW = 0; ui?.zoom.reset(); ui?.tools.dispose(); ui?.tiles?.dispose(); ui?.figKey.dispose(); ui?.glass?.dispose(); ui?.lipRO?.disconnect(); ui?.lipMO?.disconnect(); ui?.shadeMO?.disconnect(); ui?.root.remove(); ui?.shade.remove(); ui = null; app.classList.remove('pz-blacked');
     view.classList.remove('pz-out');
     for (const k of ['--pz-l', '--pz-r', '--pz-t', '--pz-b']) app.style.removeProperty(k);
     stage.lobuleHold?.(false);   // (a way out of the lobule left unfinished: the lobule follows the free space again)
@@ -5814,7 +5816,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (restore && saved) putHealthy(saved);
     if (restore) { saved = null; if (layersBefore) store.set({ lobuleLayers: layersBefore }); layersBefore = null; }
     // (The talk is over: a reload, or a tab the phone discarded and brings back, must not start it again from the link that opened it.)
-    if (restore) { try { const u = new URL(location.href); if (u.searchParams.has('script')) { u.searchParams.delete('script'); u.searchParams.delete('slide'); history.replaceState(null, '', u.pathname + u.search + u.hash); } } catch { /* no history here */ } }
+    if (restore) { try { const u = new URL(location.href); if (u.searchParams.has('script')) { u.searchParams.delete('script'); u.searchParams.delete('slide'); history.replaceState(null, '', u.pathname + u.search + u.hash); } } catch (e) { caught('presenter:5785', e); /* no history here */ } }
   }
   // When the show ends, the app returns to the healthy patient from the start (not to where the viewer was): healthy preset, anatomy view
   // framed to fit, tools and cards closed, nothing from the last slide left on. The viewer's own settings (theme, label size, the
@@ -5906,7 +5908,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // A script (title, steps) as JSON is kept as before; anything else must be a deck.
   function addText(text) {
     let o = null;
-    try { o = JSON.parse(text); } catch { /* not JSON */ }
+    try { o = JSON.parse(text); } catch (e) { caught('presenter:5877', e); /* not JSON */ }
     if (o?.title && Array.isArray(o.steps)) return addToLibrary(o);
     if (o?.deck) return addToLibrary(o);
     return addToLibrary({ deck: parseDeckSource(text) });

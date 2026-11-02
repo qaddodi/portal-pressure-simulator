@@ -12,8 +12,8 @@
 //
 // Without WebGL2, on a software renderer or once the context is lost, createFxGL returns null / reports lost, and paintFx draws.
 
-import { startProgram, checkProgram } from './gl-compile.js?v=6270bdf1ba';
-import { fbComplete } from './gl-state.js?v=d8ce472a0d';
+import { startProgram, checkProgram } from './gl-compile.js?v=b20e777952';
+import { fbComplete } from './gl-state.js?v=1cacfbbc3f';
 import { uniformCache } from './uniform-cache.js?v=b914b447dd';
 
 export const FX_GPU = true;   // (switch deleted; kept for lobule-zoom.js until its own pass)

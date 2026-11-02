@@ -9,6 +9,7 @@
 //   parseDeckSource(text) → the deck object (plain data), or throws an Error whose message says
 //                           what was wrong and on which line.
 
+import { caught } from './caught.js?v=b96b17594a';
 const BUILTINS = {
   mi: (x) => `<mi>${x}</mi>`, mo: (x) => `<mo>${x}</mo>`, mn: (x) => `<mn>${x}</mn>`,
   sub: (b, i) => `<msub>${b}<mtext>${i}</mtext></msub>`,
@@ -387,7 +388,7 @@ export function parseDeckSource(src) {
   let deck;
   const t = src.trim();
   if (t[0] === '{') {
-    try { deck = JSON.parse(t); } catch { /* not JSON: read it as an object literal below */ }
+    try { deck = JSON.parse(t); } catch (e) { caught('deck-source:390', e); /* not JSON: read it as an object literal below */ }
     if (!deck) deck = plain(evaluator().ev((() => { const p = parser(tokenize(t)); const e = p.expr(); p.end(); return e; })(), { vars: Object.create(null), parent: null }));
   } else {
     const body = parser(tokenize(src)).program();

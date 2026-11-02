@@ -3,27 +3,28 @@
 
 import { store, hiddenNow } from './store.js?v=afc4d7c743';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, fadeIn, glideOnResize, foldHidden, hasBox, putText } from './util.js?v=141c5a0172';
-import { lobuleFlows } from './lobule-model.js?v=063eb9e12c';
-import { createProfile } from './charts.js?v=8ba0f790f4';
-import { createPressureTime } from './pressure-time.js?v=8555a3b068';
-import { createHvpgProcedure } from './hvpg-proc.js?v=9a9080a607';
-import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=b5adeb5f14';
-import { ownsSideways, pageGo } from './swipe.js?v=02fa68a610';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=114cf0ce6f';
-import { createReadoutsPane } from './readouts-pane.js?v=360efaf3b4';
-import { frameFor } from './frame.js?v=26e2e46fff';
-import { glWords } from './gl-words.js?v=b0f0c1f8a8';
-import { restPass } from './rest-pass.js?v=f6a3355959';
-import { classSoon, classHas, classNow } from './class-soon.js?v=6ad82f25a8';
+import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, fadeIn, glideOnResize, foldHidden, hasBox, putText } from './util.js?v=24e63445fb';
+import { lobuleFlows } from './lobule-model.js?v=1b605e20e5';
+import { createProfile } from './charts.js?v=cbfbe731ab';
+import { createPressureTime } from './pressure-time.js?v=c43d6df465';
+import { createHvpgProcedure } from './hvpg-proc.js?v=d4f9a8f371';
+import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=bb84058f04';
+import { ownsSideways, pageGo } from './swipe.js?v=06015b6fb1';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=f28c564086';
+import { createReadoutsPane } from './readouts-pane.js?v=6eeee70850';
+import { frameFor } from './frame.js?v=d641eeefa1';
+import { glWords } from './gl-words.js?v=61d9404408';
+import { restPass } from './rest-pass.js?v=0173e424ce';
+import { classSoon, classHas, classNow } from './class-soon.js?v=ba07f06e7e';
 import { vitalReading, VITALS } from './vital-read.js?v=cbba41a6b7';
-import { setShown, shownState, FILL_SMALL, fillQ } from './shown.js?v=331593cd88';
+import { setShown, shownState, FILL_SMALL, fillQ } from './shown.js?v=c34889b63f';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { HVPG_CUTS, PPG_CUTS, hvpgSev, ppgSev, hvBlocked } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { compareRows } from './idle-keys.js?v=81fbedda6b';
 import { releaseSpeed, carryCurve, cubicBezier, easeArrive, D_FLIP, D_SMALL, EASE_IN, EASE_ARRIVE } from './ease.js?v=7513a88c68';
-import { readAnims, readBox, readMetric, readStyle, scrollInto } from './layout-snap.js?v=f87939cccb';
-import { attrSoon, dataSoon } from './class-soon.js?v=6ad82f25a8';
+import { readAnims, readBox, readMetric, readStyle, scrollInto } from './layout-snap.js?v=ed9aff412d';
+import { attrSoon, dataSoon } from './class-soon.js?v=ba07f06e7e';
+import { caught } from './caught.js?v=b96b17594a';
 const nextFrame = frameFor('dock');
 const DRAG_GUIDE = !/[?&]dockdrag=0\b/.test(typeof location === 'object' ? location.search : '');
 
@@ -431,7 +432,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   let frame = null, state = 'open', resizeFrame = 0, picking = false;
   for (const id of open) byId[id].need?.();   // (an instrument left open comes in at once; the others when the app is idle, or when their tab is first shown)
   let heightRatio = typeof saved.h === 'number' ? saved.h : null, widthPx = typeof saved.w === 'number' ? saved.w : null;
-  const remember = () => { try { localStorage.setItem('pps.instruments', JSON.stringify({ open, h: heightRatio, w: widthPx })); } catch { /* storage unavailable */ } };
+  const remember = () => { try { localStorage.setItem('pps.instruments', JSON.stringify({ open, h: heightRatio, w: widthPx })); } catch (e) { caught('dock:434', e); /* storage unavailable */ } };
   // A phone held sideways (667x375 and up) docks on the right too, like a narrow iPad: the figure keeps the full height.
   const sideMQ = matchMedia(`(min-width: 700px) and (orientation: landscape), ${SIDEWAYS_MQ}`);
   const coarseMQ = matchMedia('(pointer: coarse)');   // (an iPad held sideways: a narrower Tests card leaves a vessel card its strip beside Treat)

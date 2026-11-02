@@ -12,6 +12,7 @@
 // are all the same as the last blur's is not blurred again.
 // ?glassshare=0: each instance blurs on its own, as before. The 50 ms hold (?reblur=1) keeps the old way too (its hold is per instance).
 
+import { caught } from './caught.js?v=b96b17594a';
 const SEARCH = typeof location !== 'undefined' ? location.search || '' : '';
 export const GLASS_SHARE = !/[?&]glassshare=0\b/.test(SEARCH);
 
@@ -64,7 +65,7 @@ export function shareRelease(map, gl, id, free) {
     if (!S.users?.delete(id) || S.users.size) continue;
     byLook.delete(k); n++;
     S.hold?.drop(); S.hold = null;
-    if (S.t) { try { free(S.t); } catch { /* a lost context: nothing to free */ } S.t = null; }
+    if (S.t) { try { free(S.t); } catch (e) { caught('blur-share:67', e); /* a lost context: nothing to free */ } S.t = null; }
     S.key = ''; S.ok = false;
   }
   if (!byLook.size) map.delete(gl);

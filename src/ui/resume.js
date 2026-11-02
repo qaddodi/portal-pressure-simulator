@@ -2,6 +2,7 @@
 // One small record per deck on this device: { at, n } (the slide index, outline included, and the deck's slide count
 // then). A deck whose slide count has changed since, or a position past its end, starts from the beginning again.
 
+import { caught } from './caught.js?v=b96b17594a';
 const KEY = 'pps.resume';
 const MAX = 40;   // (decks remembered; the oldest go first)
 
@@ -12,7 +13,7 @@ function readAll() {
 function writeAll(all) {
   const ids = Object.keys(all);
   for (const id of ids.slice(0, Math.max(0, ids.length - MAX))) delete all[id];
-  try { store()?.setItem(KEY, JSON.stringify(all)); } catch { /* storage unavailable */ }
+  try { store()?.setItem(KEY, JSON.stringify(all)); } catch (e) { caught('resume:15', e); /* storage unavailable */ }
 }
 
 /** Remember slide `at` of the deck (n slides). The first slide, or the last (the talk is over), forgets it. */

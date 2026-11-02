@@ -1,19 +1,19 @@
 // Anatomical stage (blueprint §6): the figure drawn on the GPU (plate, vessels, moving blood),
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
-import { TIERS_ON, TIER_TOP, tierK, onTierWarm } from './adapt-tier.js?v=6122b5408f';
-import { hold as gpuHold } from './gpu-budget.js?v=0cf9fbf280';
+import { TIERS_ON, TIER_TOP, tierK, onTierWarm } from './adapt-tier.js?v=1ced3aadf0';
+import { hold as gpuHold } from './gpu-budget.js?v=a460c5bd2e';
 import { WARM_VIEWS, WARM_MS } from './warm-views.js?v=510b2dee9e';
 import { gastricUp } from '../engine/scenario.js?v=0762d1b820';
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
 import { route as metroRoute, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, CAVITY_LOW, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=fe0f3d1f0e';
-import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=c442f8f208';
+import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=a2335c4afc';
 import { nodeJoins, sideEndScale } from './fork-joins.js?v=4c6eea81e5';
 import { nodeEnds, nodeDrawn, dotRadius, bareDots } from './circuit-nodes.js?v=1040ba0ec4';
 import { STATION_VESSEL, meanVel, velNormal, judgeFlow } from './velNormal.js?v=97920ddf3f';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=afc4d7c743';
 import { fibroReading } from './clock.js?v=d6c06e7017';
-import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, loadFailed, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=141c5a0172';
+import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, loadFailed, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=24e63445fb';
 import { riseCentre } from './rise-path.js?v=c039cb7b49';
 import { lerpVT, camPath, blendPaths, viewsOverlap, driftEase } from './cam-arc.js?v=2e5111e648';
 import { easeMove, easeArrive, camMs, carryRate, carried, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js?v=7513a88c68';
@@ -23,13 +23,13 @@ import { bandsStep } from './band-ease.js?v=7772fb6bbd';
 import { glideClock } from './glide-clock.js?v=220d7f875c';
 import { sinceSource } from './since-ref.js?v=ef1a818c75';
 import { clipBox, mapBox } from './fit-box.js?v=d5d6d4c60f';
-import { runFlick, FLICK } from './flick.js?v=b95e57b921';
+import { runFlick, FLICK } from './flick.js?v=e1e57193c0';
 import { fluidTarget, poolFade, fluidLevel, fluidFloorAt, fluidBase } from './fluid-step.js?v=6cc362ad60';
 import { easeTo, fluidSpring, fluidSpringFor } from './organ-ease.js?v=4ebb648131';
 import { spleenMotion } from './spleen-motion.js?v=4e87db0dbb';
 import { paintBox } from './plate-copy.js?v=20b30d30b0';
 import { segHitsBox, lineIndex, indexHits, segsCross } from './seg-hits.js?v=588177da67';
-import { glassCallout, withGlass } from './callout.js?v=faad3323fd';
+import { glassCallout, withGlass } from './callout.js?v=0b846388c6';
 import { flipFrom, flipAt } from './cath-flip.js?v=6b016952c4';
 import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=d7cca3fb73';
 import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=977185f80a';
@@ -41,24 +41,24 @@ import { warmVisible, ringGrid, inGrid } from './warm-vis.js?v=ccf4f6f71b';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { refine } from './refine.js?v=ea393061c0';
-import { fadeOver, fadeStop, fading } from './res-fade.js?v=697067d495';
+import { fadeOver, fadeStop, fading } from './res-fade.js?v=ab42abc365';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { leftAlone, sinceInput, booting, holdCover } from './quiet.js?v=388052eba8';
-import { cropToGrid } from './organs-gl.js?v=2d527c43aa';
-import { textPolys, loadGlyphs, glyphsReady, textBox } from './text-gl.js?v=d9c4b5088e';
+import { cropToGrid } from './organs-gl.js?v=b6bc5cb2ca';
+import { textPolys, loadGlyphs, glyphsReady, textBox } from './text-gl.js?v=25a4727676';
 import { cssColor8 } from './css-color.js?v=e56f0c77ae';
-import { measure as measureWords } from './glyph-measure.js?v=752ae0a7bb';
-import { readGroup as readGroupNow, readGroupRefs, readFail, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=175a9fe471';
+import { measure as measureWords } from './glyph-measure.js?v=5d9263708d';
+import { readGroup as readGroupNow, readGroupRefs, readFail, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=a886eb94c5';
 import { setLive, getLive, dropLive } from './live-style.js?v=334be862fb';
 import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js?v=fd7e5bc404';
-import { pathCmds, flattenCmds, polyBox, measurePath, elBox, chainMat } from './shape-gl.js?v=fde1af982c';
-import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=50574046ff';
-import { nameSpots, NAME_BREAK } from './organ-names.js?v=dbbec79b2d';
-import { createLabelGL } from './label-gl.js?v=ec16aeb542';
-import { createGlassGL } from './glass-gl.js?v=a59e970ceb';
+import { pathCmds, flattenCmds, polyBox, measurePath, elBox, chainMat } from './shape-gl.js?v=7655fc8ec5';
+import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=5398d3a079';
+import { nameSpots, NAME_BREAK } from './organ-names.js?v=5d3e3418f6';
+import { createLabelGL } from './label-gl.js?v=00033e2097';
+import { createGlassGL } from './glass-gl.js?v=393719519b';
 import { writePoints, writeJoinNow } from './veins-sweep.js?v=c4ad517372';
 import { ENT_W } from './veins-bin.js?v=6e462a9e6c';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=508bfa7870';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=a506c3f646';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=d950c5cd1c';
 import { alongCurve } from './pressure-along.js?v=74c64e4286';
@@ -67,16 +67,16 @@ import { advanceStream, createStreamChain, displaySpeed, createReversalHold, ble
 import { createDyeRemote } from './dye-remote.js?v=b353f4176d';
 import { createSweepClient } from './sweep-client.js?v=8a4d3ec2b6';
 import { retireRows, flowClose } from './flow-rows.js?v=6cd335f84b';
-import { createFlowDash, chevSpacing, inHole } from './flow-dash.js?v=c75a610ea0';
+import { createFlowDash, chevSpacing, inHole } from './flow-dash.js?v=5d0e016a81';
 import { createJunctionWidths } from './junction-widths.js?v=c5726a67f9';
 import { planTaper, taperAt } from './vessel-taper.js?v=38c471f360';
-import { frameFor, lateFrameFor, cancelFrame, mayTask, cancelMay, noteDraw, easeNow, inMotion, afterMotion, PACED, setSaver as setFrameSaver, paceMs, renderScale, renderSetting, onRenderScale, figOpt, figLab, onFigLab, MOTION60_MS, PINCH_LOW_K, readFrameFor } from './frame.js?v=26e2e46fff';
-import { softwareYield } from './sw-yield.js?v=1ec3c87eab';
+import { frameFor, lateFrameFor, cancelFrame, mayTask, cancelMay, noteDraw, easeNow, inMotion, afterMotion, PACED, setSaver as setFrameSaver, paceMs, renderScale, renderSetting, onRenderScale, figOpt, figLab, onFigLab, MOTION60_MS, PINCH_LOW_K, readFrameFor } from './frame.js?v=d641eeefa1';
+import { softwareYield } from './sw-yield.js?v=0b6a0f94e9';
 import { portalSplit } from './table-marks.js?v=ff3ed0cc47';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
 import { leaderEnd as edgeOf, leaderEndRects as edgeOfRects } from './leader-end.js?v=8e884700ab';
 import { balloonShape, esoAt, smoothPath, BALLOON, BALLOON_MS } from './balloon-eso.js?v=a56c97a289';
-import { GAS, gasShape, tubePath, tubeTip, tubeTo, pathAt, sheath, sheathArcs, pullArrow } from './balloon-gas.js?v=d9e2ccf856';
+import { GAS, gasShape, tubePath, tubeTip, tubeTo, pathAt, sheath, sheathArcs, pullArrow } from './balloon-gas.js?v=9c5f139607';
 import { balloonRy, balloonOutline, routeRadii } from './hvpg-balloon.js?v=35d7bb162c';
 import { outlineBox, placeSummary } from './cath-place.js?v=b5835a19ca';
 import { placePills, pillsClear, PILL_GAP } from './cath-pill.js?v=3dccfa6cff';
@@ -92,10 +92,11 @@ import { guardBlur } from './blur-guard.js?v=5228284718';
 import { capDensity } from './pixel-budget.js?v=279a2b54f6';
 import { bandRing, dashRings, liftEnd, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=e2c1816e25';
 import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js?v=6ef2901a08';
-import { CellGrid, geomOf } from './cell-grid.js?v=1ffbbc6c34';
-import { restPass } from './rest-pass.js?v=f6a3355959';
-import { glWords } from './gl-words.js?v=b0f0c1f8a8';
-import { provideStage } from './layout-snap.js?v=f87939cccb';
+import { CellGrid, geomOf } from './cell-grid.js?v=ebac3dc21c';
+import { restPass } from './rest-pass.js?v=0173e424ce';
+import { glWords } from './gl-words.js?v=61d9404408';
+import { provideStage } from './layout-snap.js?v=ed9aff412d';
+import { caught } from './caught.js?v=b96b17594a';
 const nextFrame = frameFor('stage');
 // (1 Nov 2026, "Move everything to GPU": zero layout inside the frame. Boxes the figure's pieces keep clear of (the slide's cards, the
 // key pill, the readings' own sizes, the home look's room) are read first in a frame, before anything is written (frame.js readFrame),
@@ -1987,7 +1988,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let rotWhole = null;
   function setCircuitRotated(on) {
     on = on ? 1 : 0;
-    try { localStorage.setItem('pps.circuitRot', String(on)); } catch { /* storage unavailable */ }
+    try { localStorage.setItem('pps.circuitRot', String(on)); } catch (e) { caught('stage:2120', e); /* storage unavailable */ }
     if (on === rotTarget) return;
     // Mid-glide (Fit, a zoom button), the turn starts from where the glide was going.
     if (vtGliding) { cancelFrame(vtAnim); driftEnd(); vtGliding = false; vt = { ...vtTarget }; applyVT(); CTM = null; }
@@ -2668,7 +2669,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=a91a48efdc').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=5e083c6382').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor, binAway: (tubes, joins) => sweepBin({ kind: 'bin', tubes, joins }) });
@@ -2693,7 +2694,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // stage reads it: read before this line, it threw while the stage was made (31 Oct, d213d755).
   // (Both are read from the context the stage starts with, and again from the one a restore hands back: renderPath.)
   let OVER_ON = OVER_GPU && !!veins?.overlay && (!SOFTWARE || OVER_ASK);
-  try { localStorage.removeItem('pps.quality'); localStorage.removeItem('pps.q'); } catch { /* storage unavailable */ }
+  try { localStorage.removeItem('pps.quality'); localStorage.removeItem('pps.q'); } catch (e) { caught('stage:2826', e); /* storage unavailable */ }
   let quality = SOFTWARE ? Q_SOFTWARE : 0, saverOn = false;   // (saverOn: Settings › Battery saver, for the step a changed renderer returns to)
   // A context handed back by a restore is read again for what the start-up one decided: whether the renderer is software (the browser can
   // lose its GPU and hand back a software one, which then needs the lower step, the yield between frames and the SVG overlays, as a
@@ -2744,7 +2745,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (Glass is glass (Mohammad, 2 Nov 2026: "glass is glass and it doesn't suddenly become solid when there is movement"; his Mac's ?perf
   // showed every card "solid, no blur"): the cards' frost is drawn by the GPU in the figure's own frame, so Battery saver no longer turns it
   // solid, nor does a stored Blur effect off (index.html: only ?noglass=1 does).)
-  const blurGuard = () => { let asked = null; try { asked = localStorage.getItem('pps.noGlass'); } catch { /* storage unavailable */ } guardBlur(document.documentElement, { low: SOFTWARE, asked: asked === '1' ? null : asked }); };
+  const blurGuard = () => { let asked = null; try { asked = localStorage.getItem('pps.noGlass'); } catch (e) { caught('stage:2879', e); /* storage unavailable */ } guardBlur(document.documentElement, { low: SOFTWARE, asked: asked === '1' ? null : asked }); };
   blurGuard();
   let vdpr = 1, vBase = 1, boxW = -1, boxH = -1;   // (vBase: the canvas's pixels per CSS pixel at Full)
   // Figure resolution › Auto: zoomed in past the home framing the canvas is drawn at 1/zoom of its pixels (each part of the figure
@@ -4876,7 +4877,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (!bb || !(bb.width || bb.height)) continue;
         // (Its outline through every transform, the widest stroke on it (the liver's inner shade, 30 wide, clipped inside) and a margin.)
         b = paintBox(bb, chainMat(k, top), 15, 24);
-      } catch { /* not measurable: the whole plate */ }
+      } catch (e) { caught('stage:5226', e); /* not measurable: the whole plate */ }
       const u = by.get(L);
       by.set(L, u ? [Math.min(u[0], b[0]), Math.min(u[1], b[1]), Math.max(u[2], b[2]), Math.max(u[3], b[3])] : b);
     }
@@ -5311,7 +5312,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const vx0 = Math.max(PLATE_RECT[0], ax), vy0 = Math.max(PLATE_RECT[1], ay), vx1 = Math.min(PLATE_RECT[0] + PLATE_RECT[2], bx), vy1 = Math.min(PLATE_RECT[1] + PLATE_RECT[3], by);
       if (plateView && vx0 >= plateView[0] && vy0 >= plateView[1] && vx1 <= plateView[2] && vy1 <= plateView[3] && scale <= plateView[4] * 1.05) return;
       plateViewKey = key;
-      try { if (gpuOrgansOn() && await rasterLayers(1, [x0, y0, x1 - x0, y1 - y0], scale)) { plateView = [x0, y0, x1, y1, scale]; veinsDirty = true; stageWake(); } else if (plateViewKey === key) plateViewKey = ''; } catch { /* the whole-plate raster stays */ }
+      try { if (gpuOrgansOn() && await rasterLayers(1, [x0, y0, x1 - x0, y1 - y0], scale)) { plateView = [x0, y0, x1, y1, scale]; veinsDirty = true; stageWake(); } else if (plateViewKey === key) plateViewKey = ''; } catch (e) { caught('stage:5661', e); /* the whole-plate raster stays */ }
     }, 280);
   }
   function clientToWorldFast(cx, cy) {
@@ -5813,7 +5814,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     return (colonMask = { x0, y0, w, h, bits });
   }
-  (typeof requestIdleCallback === 'function' ? (f) => requestIdleCallback(f, { timeout: 5000 }) : (f) => setTimeout(f, 3000))(() => { try { colonGrid(); if (organG.bowel && warmDs('bowel').length) warmVis('bowel'); } catch { /* each is made when a glow first needs it */ } });   // (made while idle, so a slide's start does not pay for them)
+  (typeof requestIdleCallback === 'function' ? (f) => requestIdleCallback(f, { timeout: 5000 }) : (f) => setTimeout(f, 3000))(() => { try { colonGrid(); if (organG.bowel && warmDs('bowel').length) warmVis('bowel'); } catch (e) { caught('stage:6172', e); /* each is made when a glow first needs it */ } });   // (made while idle, so a slide's start does not pay for them)
   const warmKey = (id) => olKey(id) + '|' + (organG.colon?.getAttribute('transform') || '') + '|' + warmSw(id) + '|' + warmDs(id).map((d) => d.length + d.slice(-30)).join('|');
   const olRingsOf = (o) => (o.kind === 'warm' ? warmRings(o.id) : olRings(o.id));
   function olSet(kind, id) {
@@ -9294,7 +9295,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (HOVER_LINK && labelTarget(key)) {
       g.addEventListener('pointerenter', (e) => { if (e.pointerType !== 'touch') linkHover(key); });
       g.addEventListener('pointerleave', () => linkHover(null, key));
-      g.addEventListener('focus', () => { try { if (g.matches(':focus-visible')) linkFocus(key); } catch { /* an engine without :focus-visible: no link from focus */ } });
+      g.addEventListener('focus', () => { try { if (g.matches(':focus-visible')) linkFocus(key); } catch (e) { caught('stage:9715', e); /* an engine without :focus-visible: no link from focus */ } });
       g.addEventListener('blur', () => linkFocus(null, key));
     }
     late('label', g);
@@ -12838,7 +12839,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     panFit = null;
     userMoved = true;
     cancelFrame(vtAnim); driftEnd(); vtGliding = false; stopGlide(); clearTimeout(settleT);
-    try { svg.setPointerCapture(ev.pointerId); } catch { /* pointer already gone */ }
+    try { svg.setPointerCapture(ev.pointerId); } catch (e) { caught('stage:13253', e); /* pointer already gone */ }
     clearPress();
     if (pointers.size >= 2) {
       if (drag?.type === 'pan') wrap.classList.remove('panning');
@@ -13306,7 +13307,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     setScanProbe,
     setLabelScale(v) {
       labelScale = clamp(Math.round(v * 100) / 100, LABEL_MIN, LABEL_MAX);
-      try { localStorage.setItem('pps.labelScale', String(labelScale)); } catch { /* storage unavailable */ }
+      try { localStorage.setItem('pps.labelScale', String(labelScale)); } catch (e) { caught('stage:13721', e); /* storage unavailable */ }
       if (!projecting) document.documentElement.style.setProperty('--label-k', String(labelScale * deskK())); document.documentElement.style.setProperty('--label-scale', String(labelScale)); document.documentElement.style.setProperty('--ts', String(labelScale));
       dispatchEvent(new Event('pps:labelscale'));
       if (F) updateLabels(F);

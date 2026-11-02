@@ -5,24 +5,24 @@
 // full. It scrolls smoothly, one spectral line at a time, as the machine does.
 
 import { EDGES, dopplerK, stentSegments, stentSite, stentGate, stentCourse } from '../engine/topology.js?v=4044766e96';
-import { glWords, wordsRect } from './gl-words.js?v=b0f0c1f8a8';
-import { h, fmt, canvasSize, clamp, icon, cssVar, cssAlpha, swapText } from './util.js?v=141c5a0172';
-import { FONT, textW } from './charts.js?v=8ba0f790f4';
-import { classSoon } from './class-soon.js?v=6ad82f25a8';
+import { glWords, wordsRect } from './gl-words.js?v=61d9404408';
+import { h, fmt, canvasSize, clamp, icon, cssVar, cssAlpha, swapText } from './util.js?v=24e63445fb';
+import { FONT, textW } from './charts.js?v=cbfbe731ab';
+import { classSoon } from './class-soon.js?v=ba07f06e7e';
 import { logAction, shownVel, store } from './store.js?v=afc4d7c743';
-import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=e354e4ac93';
-import { frameFor, noteDraw, paceMs, cancelFrame } from './frame.js?v=26e2e46fff';
+import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=a11122ee3b';
+import { frameFor, noteDraw, paceMs, cancelFrame } from './frame.js?v=d641eeefa1';
 import { windowIndexFor, scaleFor, fitScale } from './dopplerWindow.js?v=1d34e63b32';
 import { velNormal, dopplerVel, judgeFlow } from './velNormal.js?v=97920ddf3f';
 import { caliperFrame, caliperLevel, caliperX, CAL_FADE, pairOf, pairBand, pairScale, PAIR_GAP } from './doppler-marks.js?v=15fc499dcd';
-import { createDopplerGL } from './doppler-gl.js?v=c361e88547';
+import { createDopplerGL } from './doppler-gl.js?v=5d174976f2';
 import { surface } from './gpu-surfaces.js?v=2af17044e7';
 import { olderThan } from './backfill.js?v=455d888760';
 import { createFollow } from './display-state.js?v=8d062d39dc';
 import { D_SMALL, EASE_ARRIVE } from './ease.js?v=7513a88c68';
-import { restPass } from './rest-pass.js?v=f6a3355959';
-import { createTraceGL, fitPen, keepLayer } from './trace-gl.js?v=9c1fb5ef6a';
-import { attrSoon, dataSoon, propSoon } from './class-soon.js?v=6ad82f25a8';
+import { restPass } from './rest-pass.js?v=0173e424ce';
+import { createTraceGL, fitPen, keepLayer } from './trace-gl.js?v=c8ab3b7db8';
+import { attrSoon, dataSoon, propSoon } from './class-soon.js?v=ba07f06e7e';
 import { dropFront } from './drop-front.js?v=21069ee0e8';
 const nextFrame = frameFor('doppler');
 

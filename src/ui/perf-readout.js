@@ -4,18 +4,19 @@
 // (gpu-probe.js cpuOnly: no waiting for the GPU), every frame that missed the screen's refresh in the window is listed with the
 // steps that ran in it (and every interval counted in a histogram at that refresh, with p50/p95/p99), and so is each long task the browser reports (Chrome; Safari reports none, its frame gaps still show). The panel is
 // written only when a window closes, never during a gesture, and the last five gestures stay listed with a Copy button.
-import { TIERS_ON, TIERS, sceneTier, tierLog } from './adapt-tier.js?v=6122b5408f';
+import { TIERS_ON, TIERS, sceneTier, tierLog } from './adapt-tier.js?v=1ced3aadf0';
 import { gpuProbe, COUNTED, TWICE, WHY, ROWS_REFUSED, BY, TISSUE_WHY } from './gpu-probe.js?v=625c2c9315';
-import { restPass } from './rest-pass.js?v=f6a3355959';
-import { textSoon } from './class-soon.js?v=6ad82f25a8';
-import { perf, watchFrames, finalFrameFor } from './frame.js?v=26e2e46fff';
+import { restPass } from './rest-pass.js?v=0173e424ce';
+import { textSoon } from './class-soon.js?v=ba07f06e7e';
+import { perf, watchFrames, finalFrameFor } from './frame.js?v=d641eeefa1';
 // (The readout's own loop: through the app's one frame scheduler, last in each frame, not a requestAnimationFrame of its own.)
 const nextFrame = finalFrameFor('perf readout');
 import { createFrameRecorder, longFrameLine, LONG_FRAME_MS } from './frame-stats.js?v=5cd07c7e9b';
 import { scanBlurs, blurText } from './blur-gauge.js?v=215cf3d483';
-import { budget as gpuBudget, budgetText as gpuBudgetText } from './gpu-budget.js?v=0cf9fbf280';
+import { budget as gpuBudget, budgetText as gpuBudgetText } from './gpu-budget.js?v=a460c5bd2e';
 import { surfaceRows, surfacesText } from './gpu-surfaces.js?v=2af17044e7';
 import { motionBudget, budgetText } from './motion-budget.js?v=89246e0c5f';
+import { caught } from './caught.js?v=b96b17594a';
 
 const WINDOW = 2000, KEEP = 5, GAP_LINES = 40, LONG_LINES = 15;
 // The display's own refresh, as the browser offers it, from the frame intervals the readout sees (30 Oct, review 6a: a list of gaps
@@ -195,7 +196,7 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
         cur.tasks.push({ at: t.startTime - cur.t0, dt: t.duration, src });
       }
     }).observe({ type: PerformanceObserver.supportedEntryTypes?.includes('long-animation-frame') ? 'long-animation-frame' : 'longtask', buffered: false });
-  } catch { /* not reported by this browser (Safari): the frame gaps still are */ }
+  } catch (e) { caught('perf-readout:198', e); /* not reported by this browser (Safari): the frame gaps still are */ }
 
   // (Timed by the clock when this callback runs, not by the frame's shared timestamp: the steps taken here ran since the last call,
   // so they fall inside the interval they are listed with. With the timestamp, work in other callbacks of a frame was set against

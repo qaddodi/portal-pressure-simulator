@@ -14,8 +14,9 @@
 //   move stops at is always drawn at Full, and labels, text, cards and readings are on their own layers: never lowered.
 // tierLog() keeps the last changes, each with why and the registry's size then. ?perf shows the tier with the budget.
 
-import { onFrameEnd, frameBudget } from './frame.js?v=26e2e46fff';
-import { overBudget as graphOver, budget } from './gpu-budget.js?v=0cf9fbf280';
+import { onFrameEnd, frameBudget } from './frame.js?v=d641eeefa1';
+import { overBudget as graphOver, budget } from './gpu-budget.js?v=a460c5bd2e';
+import { caught } from './caught.js?v=b96b17594a';
 
 const SEARCH = typeof location !== 'undefined' ? location.search || '' : '';
 export const TIERS_ON = !/[?&]tiers=0\b/.test(SEARCH);
@@ -42,7 +43,7 @@ export function onTierWarm(fn) { warmSubs.add(fn); if (warned) fn(); return () =
 function setTier(t, now, why) {
   if (t === tier) return;
   let mb = 0;
-  try { mb = budget().mb; } catch { /* the registry is off */ }
+  try { mb = budget().mb; } catch (e) { caught('adapt-tier:45', e); /* the registry is off */ }
   log.push({ at: Math.round(now), from: tier, to: t, why, mb });
   if (log.length > 20) log.shift();
   tier = t; changedAt = now; calmSince = now;

@@ -13,6 +13,7 @@
 //   txns.current()  txns.stats()
 //
 // ?slidetxn=0: the presenter keeps its own checks only (want and gen), as before.
+import { caught } from './caught.js?v=b96b17594a';
 export const SLIDE_TXN = !(typeof location !== 'undefined' && /[?&]slidetxn=0\b/.test(location.search || ''));
 
 export function createTxns() {
@@ -29,7 +30,7 @@ export function createTxns() {
       id: ++ids, meta, over: false, releases: [], disowned: new Set(),
       signal: ctl?.signal || null,
       live: () => cur === t && !t.over,
-      onRelease(fn) { if (t.over) { try { fn(); } catch { /* given back already */ } return; } t.releases.push(fn); },
+      onRelease(fn) { if (t.over) { try { fn(); } catch (e) { caught('slide-txn:32', e); /* given back already */ } return; } t.releases.push(fn); },
       /** Runs fn only while this is the current transaction; false (and counted stale) otherwise. */
       publish(fn) { if (!t.live()) { st.stale++; return false; } fn?.(); st.published++; return true; },
       /** Takes els' input away (inert) for the change: given back by restore, end, or the next transaction. */

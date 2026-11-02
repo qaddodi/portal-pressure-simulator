@@ -1,12 +1,13 @@
 // DOM & formatting helpers.
-import { saver, frame, cancelFrame, easeNow, readFrame } from './frame.js?v=26e2e46fff';
-import { restPass, restAttr, restRemove } from './rest-pass.js?v=f6a3355959';
-import { glWords } from './gl-words.js?v=b0f0c1f8a8';
+import { saver, frame, cancelFrame, easeNow, readFrame } from './frame.js?v=d641eeefa1';
+import { restPass, restAttr, restRemove } from './rest-pass.js?v=0173e424ce';
+import { glWords } from './gl-words.js?v=61d9404408';
 import { slideFold } from './fold-slide.js?v=1b10231dcf';
 import { releaseSpeed, isFlick, carryCurve, settleSlope, settleAt, easeMove, D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js?v=7513a88c68';
 import { leaveFromHere } from './menu-leave.js?v=0557b9a306';
 import { follow2, jumpCount, SHOWN_TAU } from './display-state.js?v=8d062d39dc';
-import { measure as measureWords } from './glyph-measure.js?v=752ae0a7bb';
+import { measure as measureWords } from './glyph-measure.js?v=5d9263708d';
+import { caught } from './caught.js?v=b96b17594a';
 
 // replaceChildren/append stringify null and arrays: flatten and drop empties instead.
 for (const m of ['replaceChildren', 'append', 'prepend']) {
@@ -1054,7 +1055,7 @@ function collectVarNames(rules) {
   for (const r of rules || []) {
     const st = r.style;
     if (st) for (let i = 0; i < st.length; i++) if (st[i].startsWith('--')) varNames.add(st[i]);
-    let inner = null; try { inner = r.cssRules; } catch { /* (a sheet from another origin: no tokens of ours) */ }
+    let inner = null; try { inner = r.cssRules; } catch (e) { caught('util:1016', e); /* (a sheet from another origin: no tokens of ours) */ }
     if (inner) collectVarNames(inner);
   }
 }
@@ -1062,7 +1063,7 @@ function readVars() {
   varsAsk = 0;
   if (typeof getComputedStyle !== 'function') return;   // (no page: the unit tests' stand-in)
   const root = document.documentElement;
-  for (const sh of document.styleSheets || []) { let rules = null; try { rules = sh.cssRules; } catch { /* (another origin) */ } collectVarNames(rules); }
+  for (const sh of document.styleSheets || []) { let rules = null; try { rules = sh.cssRules; } catch (e) { caught('util:1024', e); /* (another origin) */ } collectVarNames(rules); }
   collectVarNames([root]);   // (the root's own style: --label-k and the like)
   const cs = getComputedStyle(root);
   for (const n of varNames) varCache.set(n, cs.getPropertyValue(n).trim());
@@ -1263,7 +1264,7 @@ export function enhanceRanges(root = document) {
     const th = parseFloat(getComputedStyle(input).getPropertyValue('--tw')) || 18;
     const box = input.getBoundingClientRect();
     setTo(input, fromX(input, e.clientX, th, box));
-    try { input.setPointerCapture(e.pointerId); } catch { /* gone */ }
+    try { input.setPointerCapture(e.pointerId); } catch (e) { caught('util:1225', e); /* gone */ }
     const move = (ev) => { if (ev.pointerId === e.pointerId) setTo(input, fromX(input, ev.clientX, th, box)); };
     const up = (ev) => {
       if (ev.pointerId !== e.pointerId) return;

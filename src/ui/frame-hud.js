@@ -12,9 +12,10 @@
 //     reported; Safari has neither), with the script that took most of it: work outside the scheduler's callbacks shows there too.
 // It reads only the scheduler's own numbers and writes its words once a second, between frames (rest-pass.js), never in a frame. It
 // adds no frame loop of its own: an idle page stays idle (the panel then says so).
-import { watchFrames, perf, refreshHz, refreshMaxHz, frameBudget, targetHz, watchdogStats, mayStats } from './frame.js?v=26e2e46fff';
-import { restPass } from './rest-pass.js?v=f6a3355959';
-import { sharedStats } from './trace-gl.js?v=9c1fb5ef6a';
+import { watchFrames, perf, refreshHz, refreshMaxHz, frameBudget, targetHz, watchdogStats, mayStats } from './frame.js?v=d641eeefa1';
+import { restPass } from './rest-pass.js?v=0173e424ce';
+import { sharedStats } from './trace-gl.js?v=c8ab3b7db8';
+import { caught } from './caught.js?v=b96b17594a';
 
 export const HUD_OFF = (search) => /[?&]hud=0\b/.test(String(search ?? ''));
 const KEEP = 600;
@@ -105,7 +106,7 @@ export function startFrameHud() {
   try {
     const type = PerformanceObserver.supportedEntryTypes?.includes('long-animation-frame') ? 'long-animation-frame' : PerformanceObserver.supportedEntryTypes?.includes('longtask') ? 'longtask' : '';
     if (type) new PerformanceObserver((list) => { for (const e of list.getEntries()) longs.push(e); }).observe({ type, buffered: false });
-  } catch { /* not reported by this browser */ }
+  } catch (e) { caught('frame-hud:108', e); /* not reported by this browser */ }
   const rates = [30, 48, 50, 60, 72, 75, 90, 100, 120, 144, 165, 240];
   workerClock((r) => { workerHz = rates.reduce((a, b) => (Math.abs(b - r) < Math.abs(a - r) ? b : a)); });
   const el = document.createElement('div');

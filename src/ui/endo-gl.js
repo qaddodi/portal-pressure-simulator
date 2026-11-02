@@ -6,9 +6,10 @@
 // the four columns a deflation (0 engorged .. 1 strangulated) and up to four knuckle strengths
 // (0 none .. 1 a cinched band with its dusky knuckle).
 
-import { cssRGB } from './util.js?v=141c5a0172';
+import { cssRGB } from './util.js?v=24e63445fb';
 import { columnConsts } from './endo-columns.js?v=381d1443b7';
-import { startProgram, checkProgram, exerciseDraw, publishWhenDone, stillCompiling } from './gl-compile.js?v=6270bdf1ba';
+import { startProgram, checkProgram, exerciseDraw, publishWhenDone, stillCompiling } from './gl-compile.js?v=b20e777952';
+import { caught } from './caught.js?v=b96b17594a';
 
 const VS = 'attribute vec2 p; void main(){ gl_Position = vec4(p, 0.0, 1.0); }';
 // The colours are tokens (--endo-* in styles/tokens.css), written into the shader when it is built.
@@ -218,7 +219,7 @@ export function createEndoGL({ onBack = null } = {}) {
       u = { size: U('uSize'), grow: U('uGrow'), vis: U('uVis'), red: U('uRed'), c0: U('uC0'), c1: U('uC1'), def: U('uDef'), kn: U('uKn') };
       gl.uniform4fv(u.c0, new Float32Array(c0)); gl.uniform4fv(u.c1, new Float32Array(c1));
       exerciseDraw(gl, () => { gl.uniform1f(u.size, 1); gl.drawArrays(gl.TRIANGLES, 0, 3); });
-      if (lost || wanted) { lost = false; wanted = false; try { onBack?.(); } catch { /* (the owner's redraw: not this drawing's failure) */ } }   // (after a restore, or a frame that found it compiling: the GPU draws again)
+      if (lost || wanted) { lost = false; wanted = false; try { onBack?.(); } catch (e) { caught('endo-gl:221', e); /* (the owner's redraw: not this drawing's failure) */ } }   // (after a restore, or a frame that found it compiling: the GPU draws again)
     } catch { u = null; if (!gl.isContextLost()) failed = true; }   // (lost while it was read: the restore makes it again)
   }
   // What the context holds: the program and the one triangle that covers the field. Made at the start and again after a restore.
