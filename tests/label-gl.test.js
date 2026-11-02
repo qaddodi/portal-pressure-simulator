@@ -125,12 +125,12 @@ test('the leaders\' and the FibroScan callout\'s layers go to the GPU with the l
 });
 
 test('the Doppler probe is drawn on the GPU under the leaders, from a model of plain elements the page never paints', () => {
-  assert.match(STAGE, /labelSvg\.before\(el\); dpr\.el = el;\n\s+labelGL\?\.setProbe\(el\);/);
-  assert.match(STAGE, /dprShape\(\); {3}\/\/ \(and the next frame, while it is still easing\)\n\s+labelGL\?\.redraw\(\);/, 'each frame of its ease drawn in that frame');
+  assert.match(STAGE, /labelSvg\.before\(el\); dpr\.el = el;\n\s+labelGL\?\.setProbe\(el, dpr\.draw\);/);
+  assert.match(STAGE, /dw\.op = probeFade\(dpr\.oP\); dw\.headOp = smooth01\(dpr\.headP\);\n\s+labelGL\?\.redraw\(\);/, 'each frame of its ease drawn in that frame');
   assert.match(CSS, /\.dop-probe > \.dpr-svg \{ position: absolute; left: 0; top: 0; visibility: hidden; \}/);
-  assert.match(LGL, /let moving = drawProbe\(now\);\n\s+moving = drawMarks\(now\) \|\| moving;/, 'the probe under the leaders and labels, as it lay under their SVG');
+  assert.match(LGL, /let moving = drawProbe\(\);\n\s+moving = drawMarks\(now\) \|\| moving;/, 'the probe under the leaders and labels, as it lay under their SVG');
   // Its marks in PROBE_MODEL's order: beam, rim under line, axis, then the bars on top, then the head.
-  const order = ['pseg(BEAM, i * 4, L.rimL, L.op);', 'pseg(BEAM, i * 4, L.line, L.op);', 'pseg(AXIS, i * 4, L.rimL, L.op);', 'pseg(AXIS, i * 4, L.line, L.op);', 'pseg(BARS, i * 4, L.gateRim, L.op);', 'pseg(BARS, i * 4, L.gate, L.op);', "L.headEl.getAttribute('transform')"].map((k) => LGL.indexOf(k));
+  const order = ['pSeg(G.dh, 0, G.bx1, 0, L.rimL, op);', 'pSeg(G.dh, 0, G.bx1, 0, L.line, op);', 'pSeg(-G.axx, -G.axy, G.axx, G.axy, L.rimL, op);', 'pSeg(-G.axx, -G.axy, G.axx, G.axy, L.line, op);', 'pSeg(-G.at, -G.half, -G.at, G.half, L.gateRim, op);', 'pSeg(-G.at, -G.half, -G.at, G.half, L.gate, op);', 'const hop = op * S.headOp;'].map((k) => LGL.indexOf(k));
   assert.ok(order.every((v, i) => v > 0 && (!i || v > order[i - 1])), order.join());
 });
 
@@ -148,7 +148,7 @@ test('the FibroScan probe is drawn on the GPU over the labels, from a model of p
   assert.doesNotMatch(LGL, /headCv|beamCv|sHeadCv/);
   assert.match(LGL, /picture\(headSp, /);
   assert.match(LGL, /picture\(sHeadSp, /);
-  assert.match(LGL, /if \(!pLook\) return false;/);
+  assert.match(LGL, /!S \|\| !S\.live \|\| !pLook\) return false;/);
   assert.match(LGL, /if \(!sLook\) return false;/);
   // (The beam a soft sector drawn by the shader, kind 7: no 2D picture through a CSS blur, so Safari's canvas without filter keeps it on the GPU.)
   assert.match(LGL, /if \(uKind == 7\) \{/);
@@ -226,7 +226,7 @@ test('the labels stay on their own canvas; what they drew is told to the glass d
   // (Every box a picture drew: each label's, each mark's, the probes'; a change tells the stage, which wakes the glasses.)
   assert.match(LGL, /boxAt\(x, y, x \+ st\.w, y \+ st\.h\);/);
   assert.match(LGL, /boxAt\(box\[0\], box\[1\], box\[2\], box\[3\]\);/);
-  assert.match(LGL, /boxAt\(pex0 - bm, pey0 - bm, pex1 \+ bm, pey1 \+ bm\);/);
+  assert.match(LGL, /boxAt\(pEx0 - 4 \* dpr, pEy0 - 4 \* dpr, pEx1 \+ 4 \* dpr, pEy1 \+ 4 \* dpr\);/);
   assert.match(LGL, /boxAt\(\(px - 170\) \* dpr, \(py - 170\) \* dpr, \(px \+ 170\) \* dpr, \(py \+ 170\) \* dpr\);/);
   assert.match(LGL, /if \(settleBoxes\(\)\) \{ try \{ onBoxes\?\.\(\); \}/);
   assert.match(STAGE, /marks: \[gLeaders, gScan\], onBoxes: frostWake \}\);/);

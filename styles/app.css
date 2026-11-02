@@ -3363,9 +3363,7 @@ button.finding { cursor: pointer; }
 @keyframes sp-tap2 { 0% { transform: none; } 20% { transform: translateX(2px); } 45% { transform: translateX(-1.2px); } 70% { transform: translateX(.6px); } 100% { transform: none; } }
 @media (prefers-reduced-motion: reduce) { .scan-probe.tap .sp-tip, .scan-probe.tap2 .sp-tip { animation: none; } }
 /* The Doppler probe (dop-probe.js, stage.js dprobePaint), drawn as a scanner marks it: placed at the sample volume, turned toward the probe; the line of sight, the flow axis, the sample volume's bars and the probe are white-lined on a black rim, so they read on every vessel colour and theme. */
-.dop-probe { position: absolute; left: 0; top: 0; width: 0; height: 0; transition: opacity var(--d-small) var(--ease); pointer-events: none; }
-/* (Going, the probe draws back along its line of sight, PROBE.OUT_MS = 420 ms, stage.js dprShape; it fades only as it leaves (after 180 ms, for the last 240), never in place. Coming, it fades in as it slides in.) */
-.dop-probe.off { opacity: 0; transition: opacity var(--d-small) var(--ease-in) 180ms; }
+.dop-probe { position: absolute; left: 0; top: 0; width: 0; height: 0; visibility: hidden; pointer-events: none; }   /* (a model of styled nodes the labels' GPU layer reads the probe's look from, label-gl.js: never placed, shown or changed; the probe itself is the stage's record of numbers, drawn on the GPU, with its draw back and fades on its own clock, dop-probe.js probeFade) */
 .dop-probe > .dpr-svg { position: absolute; left: 0; top: 0; visibility: hidden; }   /* (a model only: drawn on the labels' GPU layer, label-gl.js; its fades still run here, and are read) */
 .dop-probe .dpr-svg i { display: block; position: absolute; left: 0; top: 0; }   /* (the wedge, the faded ultrasound beam under every mark, takes #dpr-wedge's stops) */
 .dop-probe .dpr-rim-l { fill: none; stroke: var(--dop-rim); stroke-width: 4.4; stroke-linecap: round; stroke-linejoin: round; }
@@ -3376,9 +3374,6 @@ button.finding { cursor: pointer; }
 .dop-probe .dpr-body { fill: var(--surface); stroke: var(--dop-mark); stroke-width: 1.6; stroke-linejoin: round; }
 .dop-probe .dpr-face { fill: none; stroke: var(--dop-mark); stroke-width: 3; }
 .dop-probe .dpr-light { fill: var(--dop-glow); }
-.dop-probe .dpr-head { transition: opacity var(--d-surface) var(--ease); }
-.dop-probe.head-off .dpr-head { opacity: 0; }   /* (only the marks fit clear of the cards: the head fades, as the FibroScan probe's does under a card) */
-@media (prefers-reduced-motion: reduce) { .dop-probe, .dop-probe.off { transition: none; } }
 /* Where portal blood goes: the share that bypasses the liver as the headline, over one bar split into the liver's share
    (portal pink) and the shunts' (plain, amber from the shunt tile's moderate cut, red from its large one), each share
    named under its end. Fixed sizes (the headline reserves room for 100 %), so the callout never resizes; it stays stacked on phones. */

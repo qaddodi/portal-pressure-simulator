@@ -119,5 +119,5 @@ test("the three callouts never give way to the Doppler probe: the column's side,
   assert.match(stage, /!lz\?\.isOpen\(\) && !waitCol\);/);
   assert.match(stage, /ptSide = null; colShown = false; clampD\.clear\(\);/);
   // and it keeps off them: the callouts' boxes are what its place is searched against
-  assert.match(stage, /avoid: dprAvoid\(\)/);
+  assert.match(stage, /O\.avoid = dprAvoid\(\)/);
 });

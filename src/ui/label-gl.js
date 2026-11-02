@@ -25,6 +25,7 @@ import { textPolys, textWidth, loadGlyphs, glyphsReady, textCovers } from './tex
 import { watchSize, sizeOf, rectSoon } from './geom.js?v=ca69a8335e';
 import { trackOf, trackAt, mixColour, timingOf, progressAt, keysOf } from './label-track.js?v=bc7e86266b';
 import { caught } from './caught.js?v=caf293c676';
+import { readStyle } from './layout-snap.js?v=0000000000';
 const HOLE_MESH = { tri: null, seg: null, nTri: 0, nSeg: 0 };   // alloc-rare: made once (a hole's mask is meshed into it and released after its draw)
 // (The colour a clear writes, one array for every clear: none made per call, plan rev 2 §2.8.)
 const CLEAR0 = new Float32Array(4);
@@ -837,9 +838,9 @@ void main() { o = texture(uT, vUV) * uA; }`;
   const all = () => { restyle(); const t = performance.now() + 700; for (const s of last) { dirty.add(s.g); live.set(s.g, t); if (!TRACK) exact.set(s.g, t); } allMarks(); ask(); };
   // (Not for a gesture's own classes, which change no label's look (idle-keys.js GESTURE_LOOK): each one made every label and mark read
   // again on every frame for 0.7 s as a pan or pinch began and as it ended. 30 Oct, review G3.)
-  const outer = new MutationObserver((rs) => { if (rs.some((r) => changed(r) && !classOnly(r, GESTURE_LOOK))) all(); });
+  const outer = new MutationObserver((rs) => { if (rs.some((r) => changed(r) && !classOnly(r, GESTURE_LOOK))) { all(); pReadSoon(); } });   // (the Doppler probe's look follows the theme too)
   for (let el = svg.parentElement; el; el = el.parentElement) outer.observe(el, { attributes: true, attributeOldValue: true, attributeFilter: ['class', 'data-theme', 'data-palette', 'data-noglass', 'data-mode'] });
-  matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', all);
+  matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => { all(); pReadSoon(); });
   addEventListener('pps:labelscale', all);   // (the text size: --label-k on the page)
   // A CSS fade or colour ease, a hover, a focus: that label's eases are followed till they end (its style read once, off the frame: styleOf).
   const hold = (ev, ms = 700) => { const g = labelOf(ev.target); if (g) { keepAnims(g, true); if (ev.type === 'focusin') keepRing(g); dirty.add(g); const t = performance.now() + ms; live.set(g, t); if (!TRACK) exact.set(g, t); ask(); } };
@@ -857,7 +858,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     e.preventDefault(); lost = true;
     for (const s of last) s.g.removeAttribute('data-gl');
     for (const root of marks) for (const el of root.children) el.removeAttribute('data-gl');
-    probe?.removeAttribute('data-gl'); scanEl?.removeAttribute('data-gl');
+    scanEl?.removeAttribute('data-gl');
   });
   // The context given back (iOS Safari returns to the page, or a GPU process restarts): the programs are started again at once and read
   // when the driver has finished them, at an idle moment, not in a frame (the SVG draws every label meanwhile, as in the loss). Then every
@@ -923,7 +924,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   function release() {
     for (const s of last) s.g.removeAttribute('data-gl');
     for (const root of marks) for (const el of root.children) el.removeAttribute('data-gl');
-    probe?.removeAttribute('data-gl'); scanEl?.removeAttribute('data-gl');
+    scanEl?.removeAttribute('data-gl');
     released = true;
   }
   // A label's state, read again when its look may have changed: 'gl' (its picture, drawn again only when its look changed), 'svg'
@@ -1120,7 +1121,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     gl.useProgram(prog); gl.bindVertexArray(vao);
     gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     ucOf(gl).f2(U.uView, W, H); ucOf(gl).i1(U.uT, 0); gl.activeTexture(gl.TEXTURE0);
-    let moving = drawProbe(now);
+    let moving = drawProbe();
     moving = drawMarks(now) || moving;
     // (Every label's box and atlas place, in painter order; drawn below as one batch per run of pictures on a page.)
     ni = 0;
@@ -1592,167 +1593,121 @@ void main() { o = texture(uT, vUV) * uA; }`;
     if (f && f[3] > 0) ops.push({ geom, m, kind: 'fill', paint: { solid: f }, alpha: 1, clip: null });
     if (k && k[3] > 0) ops.push({ geom, m, kind: 'stroke', paint: { solid: k }, alpha: 1, w: sw, cap: 0, clip: null });
   }
-  // ── The Doppler probe (stage.js dprobePaint writes its shapes into its model of plain elements, dop-probe.js PROBE_MODEL; no SVG) ──
+  // ── The Doppler probe (stage.js keeps its numbers in a record, dop-probe.js makeProbeDraw; nothing of it is a page element) ──
   // Its marks are drawn here as shapes (the faded beam a triangle with its gradient, the lines with their round ends, black rim under
   // white line), and its head as a small picture drawn at its angle and size (again only when either changes), under the leaders and
-  // labels as the SVG lay. Its look (colours, widths, fades) is read from its elements while one may be changing.
-  // Its look is read from the page after the frame that changed it (a task of its own, never inside a frame), and while a fade runs its
-  // opacities are followed from the fade's own clock (easeCapture), with no read of the page in the frame.
-  let probe = null, pLook = null, pTracks = [], pReadT = 0, pVer = 0;
+  // labels as the SVG lay. Where it stands, its turn, its draw back and its fades are the record's numbers, written a frame at a time by
+  // the stage's ease: nothing is parsed, read from the page or made in a frame. Only its look (colours, widths, the head's outline) is
+  // read from a model element of plain styled nodes, in a task of its own after the theme or the model changes, never inside a frame.
+  let probe = null, probeSt = null, pLook = null, pLookV = 0, pReadT = 0;
   const pRead = () => {
     pReadT = 0;
     if (!probe?.isConnected) return;
-    wireProbe();
-    const now = performance.now();
-    pLook = probeLookRead(probe);
-    const L = pLook, head = probe.querySelector('.dpr-head');
-    // (What a frame needs of it, found once here: its parts, and its head's shapes as the painter's ops with a matrix of their own, which
-    // a frame writes the angle into to paint the head again, so no ops, shapes or arrays are made in a frame.)
-    L.ver = ++pVer;
-    L.rotEl = probe.querySelector('.dpr-rot'); L.wedgeEl = probe.querySelector('.dpr-wedge'); L.beamEl = probe.querySelector('.dpr-beam');
-    L.axisEl = probe.querySelector('.dpr-axis'); L.barsEl = probe.querySelector('.dpr-bars'); L.headEl = head;
-    L.hm = [1, 0, 0, 1, 0, 0]; L.headOps = [];
-    for (const h of L.head) {
-      const geom = { poly: h.circle ? ellipsePoly(h.circle[0], h.circle[1], h.circle[2], h.circle[2]) : flattenPath(h.d || '', 0.05) };
-      shapeOps(L.headOps, geom, L.hm, h.fill, h.stroke, h.w);
-    }
-    pTracks = easeCapture([[probe, 'opacity', parseFloat, (v) => { L.op = v; }], [head, 'opacity', parseFloat, (v) => { L.headOp = v; }]], now);
+    pLook = probeLookRead(probe); pLookV++;
     ask();
   };
   const pReadSoon = () => { if (!pReadT) pReadT = setTimeout(pRead, 0); };
-  const pmo = new MutationObserver((rs) => { if (rs.some((r) => r.attributeName === 'class' && changed(r))) pReadSoon(); ask(); });
-  const holdProbe = () => { pReadSoon(); ask(); };
-  // (Its observers and listeners are put on it by the read that follows (pRead), not where the stage hands it over.)
-  const NO_TRACKS = [];
-  let probeWired = null;
-  function wireProbe() {
-    if (probeWired === probe) return;
-    probeWired = probe;
-    pmo.observe(probe, { subtree: true, attributes: true, attributeOldValue: true, attributeFilter: ['class', 'style', 'transform', 'd'] });
-    for (const t of ['transitionrun', 'transitionend', 'transitioncancel', 'animationstart', 'animationend']) probe.addEventListener(t, holdProbe, true);
-  }
-  function setProbe(el) {
-    if (probe === el) return;
-    probe = el; pLook = null; pTracks = NO_TRACKS;
-    pmo.disconnect();
+  let headSp = null;
+  function setProbe(el, st) {
+    if (probe === el && probeSt === st) return;
+    probe = el; probeSt = st; pLook = null;
     if (el) pReadSoon();
   }
-  const probeStroke = (el) => { const c = getComputedStyle(el); return { col: none(c.stroke) ? null : rgba(c.stroke), w: NUM(c.strokeWidth), cap: c.strokeLinecap, raw: c.stroke, fill: c.fill, join: c.strokeLinejoin }; };
+  const probeStroke = (el) => { const c = readStyle(el); return { col: none(c.stroke) ? null : rgba(c.stroke), w: NUM(c.strokeWidth), cap: c.strokeLinecap, raw: c.stroke, fill: c.fill, join: c.strokeLinejoin }; };
   function probeLookRead(el) {
     const q = (k) => el.querySelector(k);
     // (A stop's colour times its stop-opacity, premultiplied.)
     const stops = [...el.querySelectorAll('.dpr-stop')].map((st) => {
-      const c = getComputedStyle(st), [r, g, b, k] = rgba(c.stopColor), a = NUM(c.stopOpacity) * k, u = k > 0 ? a / k : 0;
+      const c = readStyle(st), [r, g, b, k] = rgba(c.stopColor), a = NUM(c.stopOpacity) * k, u = k > 0 ? a / k : 0;
       return [NUM(st.getAttribute('offset')), [r * u, g * u, b * u, a]];
     });
-    const head = q('.dpr-head');
     return {
-      op: NUM(getComputedStyle(el).opacity), headOp: head ? NUM(getComputedStyle(head).opacity) : 0, stops,
+      stops,
       rimL: probeStroke(q('.dpr-rim-l')), line: probeStroke(q('.dpr-line')), gateRim: probeStroke(q('.dpr-gate-rim')), gate: probeStroke(q('.dpr-gate')),
-      head: ['.dpr-rim', '.dpr-body', '.dpr-face', '.dpr-light'].map((k) => { const e = q(k), c = getComputedStyle(e); return { d: e.getAttribute('d'), circle: e.hasAttribute('r') ? [NUM(e.getAttribute('cx')), NUM(e.getAttribute('cy')), NUM(e.getAttribute('r'))] : null, fill: none(c.fill) ? '' : c.fill, stroke: none(c.stroke) ? '' : c.stroke, w: NUM(c.strokeWidth), join: c.strokeLinejoin }; }),
+      // (The head's four shapes, each with its outline flattened once here: the picture is laid from them at every angle.)
+      head: ['.dpr-rim', '.dpr-body', '.dpr-face', '.dpr-light'].map((k) => {
+        const e = q(k), c = readStyle(e), circle = e.hasAttribute('r') ? [NUM(e.getAttribute('cx')), NUM(e.getAttribute('cy')), NUM(e.getAttribute('r'))] : null;
+        return { geom: { poly: circle ? ellipsePoly(circle[0], circle[1], circle[2], circle[2]) : flattenPath(e.getAttribute('d') || '', 0.05) }, fill: none(c.fill) ? '' : c.fill, stroke: none(c.stroke) ? '' : c.stroke, w: NUM(c.strokeWidth) };
+      }),
     };
   }
-  // (Its places are read off its elements each frame into these: no array made, no pattern matched.)
-  const BEAM = new Float64Array(64), AXIS = new Float64Array(64), BARS = new Float64Array(64), TRI = new Float64Array(8);
-  const HC = new Float64Array([-5, -14, 50, -14, -5, 14, 50, 14]), PT = new Float64Array(2);
-  let pgx = 0, pgy = 0, pca = 1, psa = 0, pex0 = 0, pey0 = 0, pex1 = 0, pey1 = 0;
-  // A point of the probe's own px (x along its axis) as its stage px × density, in PT, grown into the box of all it draws.
-  function pat(x, y) {
-    const px = (pgx + x * pca - y * psa) * dpr, py = (pgy + x * psa + y * pca) * dpr;
-    pex0 = Math.min(pex0, px); pey0 = Math.min(pey0, py); pex1 = Math.max(pex1, px); pey1 = Math.max(pey1, py);
-    PT[0] = px; PT[1] = py;
-  }
-  function pseg(a, o, st, op) {
+  // The frame's working numbers, kept: the probe's turn and place in pixels, the box its marks cover (for the glass), a segment's ends.
+  let pCa = 1, pSa = 0, pGx = 0, pGy = 0, pEx0 = 0, pEy0 = 0, pEx1 = 0, pEy1 = 0;
+  const pX = (x, y) => (pGx + x * pCa - y * pSa) * dpr, pY = (x, y) => (pGy + x * pSa + y * pCa) * dpr;
+  const pGrow = (X, Y) => { if (X < pEx0) pEx0 = X; if (X > pEx1) pEx1 = X; if (Y < pEy0) pEy0 = Y; if (Y > pEy1) pEy1 = Y; };
+  const pSegOp = (st, op) => {
+    // (One straight piece in the probe's frame: ends in P4, stroked in `st`'s colour and width with round or butt ends, at the probe's opacity.)
     if (!st.col || !(st.w > 0)) return;
-    pat(a[o], a[o + 1]);
-    const x0 = PT[0], y0 = PT[1];
-    pat(a[o + 2], a[o + 3]);
-    const x1 = PT[0], y1 = PT[1], w = st.w * dpr, m = w / 2 + 2;
+    const x0 = pX(P4[0], P4[1]), y0 = pY(P4[0], P4[1]), x1 = pX(P4[2], P4[3]), y1 = pY(P4[2], P4[3]), w = st.w * dpr, m = w / 2 + 2;
+    pGrow(x0, y0); pGrow(x1, y1);
     ucOf(gl).i1(MU.uKind, st.cap === 'round' ? 2 : 0);
     ucOf(gl).f4(MU.uBox, Math.min(x0, x1) - m, Math.min(y0, y1) - m, Math.max(x0, x1) + m, Math.max(y0, y1) + m);
     ucOf(gl).f4(MU.uGeo, x0, y0, x1, y1); ucOf(gl).f1(MU.uW, w); ucOf(gl).f2(MU.uDash, 0, 0);
-    ucOf(gl).f4a(MU.uStroke, st.col); ucOf(gl).f1(MU.uA, Math.min(1, op));
+    ucOf(gl).f4a(MU.uStroke, st.col); ucOf(gl).f1(MU.uA, op);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-  }
-  function drawProbe(now) {
-    if (!probe?.isConnected) return false;
-    if (!pLook) return false;   // (read after this frame: pReadSoon)
-    const live = easeStep(pTracks, now);
-    if (!probe.hasAttribute('data-gl')) probe.setAttribute('data-gl', '');
-    const L = pLook;
-    if (!(L.op > 0.001)) return live;
-    const tf = probe.style.transform || '';
-    let j = tf.indexOf('translate(');
-    if (j < 0) return live;
-    j = numFrom(tf, j + 10, true);
-    if (j < 0) return live;
-    const gx = NUM_V;
-    if (numFrom(tf, j, false) < 0) return live;
-    const gy = NUM_V, rt = L.rotEl ? L.rotEl.getAttribute('transform') : null, ri = rt ? rt.indexOf('rotate(') : -1;
-    const ang = ri >= 0 && numFrom(rt, ri + 7, true) >= 0 ? NUM_V : 0, ca = Math.cos(ang * Math.PI / 180), sa = Math.sin(ang * Math.PI / 180);
+  };
+  const P4 = [0, 0, 0, 0], PT0 = [0, 0], PT1 = [0, 0], PT2 = [0, 0], P_OPS = [], P_M = [1, 0, 0, 1, 0, 0];
+  const pSeg = (x0, y0, x1, y1, st, op) => { P4[0] = x0; P4[1] = y0; P4[2] = x1; P4[3] = y1; pSegOp(st, op); };
+  function drawProbe() {
+    const S = probeSt;
+    if (!probe?.isConnected || !S || !S.live || !pLook) return false;   // (the look is read after this frame: pReadSoon)
+    const L = pLook, op = Math.min(1, S.op);
+    if (!(op > 0.001)) return false;
+    const G = S.g, ang = S.ang, ca = Math.cos(ang * Math.PI / 180), sa = Math.sin(ang * Math.PI / 180);
+    pCa = ca; pSa = sa; pGx = S.x; pGy = S.y;
     // (Its box, for the glass: every point it is drawn through, grown by the head's reach.)
-    pgx = gx; pgy = gy; pca = ca; psa = sa; pex0 = gx * dpr; pey0 = gy * dpr; pex1 = pex0; pey1 = pey0;
+    pEx0 = pEx1 = S.x * dpr; pEy0 = pEy1 = S.y * dpr;
     gl.useProgram(mprog);
     ucOf(gl).f2(MU.uView, W, H);
     // The faded beam: its gradient runs across the wedge's box from its right edge (the probe's face) to its left (past the far wall).
-    if (L.wedgeEl && readNums(L.wedgeEl.getAttribute('d'), 0, TRI) === 6 && L.stops.length === 3) {
-      pat(TRI[0], TRI[1]); const t0x = PT[0], t0y = PT[1];
-      pat(TRI[2], TRI[3]); const t1x = PT[0], t1y = PT[1];
-      pat(TRI[4], TRI[5]); const t2x = PT[0], t2y = PT[1];
-      pat(Math.max(TRI[0], TRI[2], TRI[4]), 0); const g0x = PT[0], g0y = PT[1];
-      pat(Math.min(TRI[0], TRI[2], TRI[4]), 0); const g1x = PT[0], g1y = PT[1];
+    if (L.stops.length === 3) {
+      PT0[0] = pX(G.dh, 0); PT0[1] = pY(G.dh, 0); PT1[0] = pX(G.far, -G.wk); PT1[1] = pY(G.far, -G.wk); PT2[0] = pX(G.far, G.wk); PT2[1] = pY(G.far, G.wk);
+      pGrow(PT0[0], PT0[1]); pGrow(PT1[0], PT1[1]); pGrow(PT2[0], PT2[1]);
       ucOf(gl).i1(MU.uKind, 3);
-      ucOf(gl).f4(MU.uBox, Math.min(t0x, t1x, t2x) - 2, Math.min(t0y, t1y, t2y) - 2, Math.max(t0x, t1x, t2x) + 2, Math.max(t0y, t1y, t2y) + 2);
-      ucOf(gl).f2(MU.uT0, t0x, t0y); ucOf(gl).f2(MU.uT1, t1x, t1y); ucOf(gl).f2(MU.uT2, t2x, t2y);
-      ucOf(gl).f4(MU.uG, g0x, g0y, g1x, g1y);
+      ucOf(gl).f4(MU.uBox, Math.min(PT0[0], PT1[0], PT2[0]) - 2, Math.min(PT0[1], PT1[1], PT2[1]) - 2, Math.max(PT0[0], PT1[0], PT2[0]) + 2, Math.max(PT0[1], PT1[1], PT2[1]) + 2);
+      ucOf(gl).f2a(MU.uT0, PT0); ucOf(gl).f2a(MU.uT1, PT1); ucOf(gl).f2a(MU.uT2, PT2);
+      ucOf(gl).f4(MU.uG, PT0[0], PT0[1], pX(G.far, 0), pY(G.far, 0));
       ucOf(gl).f4a(MU.uS0, L.stops[0][1]); ucOf(gl).f4a(MU.uS1, L.stops[1][1]); ucOf(gl).f4a(MU.uS2, L.stops[2][1]);
       ucOf(gl).f3(MU.uSO, L.stops[0][0], L.stops[1][0], L.stops[2][0]);
-      ucOf(gl).f1(MU.uA, Math.min(1, L.op));
+      ucOf(gl).f1(MU.uA, op);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     }
     // Rim under line, the line of sight, then the flow axis, then the gate's bars on top (dop-probe.js PROBE_MODEL's order).
-    const nBeam = L.beamEl ? segsInto(L.beamEl.getAttribute('d'), BEAM) : 0, nAxis = L.axisEl ? segsInto(L.axisEl.getAttribute('d'), AXIS) : 0, nBars = L.barsEl ? segsInto(L.barsEl.getAttribute('d'), BARS) : 0;
-    for (let i = 0; i < nBeam; i++) pseg(BEAM, i * 4, L.rimL, L.op);
-    for (let i = 0; i < nBeam; i++) pseg(BEAM, i * 4, L.line, L.op);
-    for (let i = 0; i < nAxis; i++) pseg(AXIS, i * 4, L.rimL, L.op);
-    for (let i = 0; i < nAxis; i++) pseg(AXIS, i * 4, L.line, L.op);
-    for (let i = 0; i < nBars; i++) pseg(BARS, i * 4, L.gateRim, L.op);
-    for (let i = 0; i < nBars; i++) pseg(BARS, i * 4, L.gate, L.op);
-    // The head: its picture at its angle and size, painted again only when either (or its look) changes: the ops are kept, the matrix written.
-    const ht = L.headEl ? L.headEl.getAttribute('transform') : null, ta = ht ? ht.indexOf('translate(') : -1, tb = ht ? ht.indexOf('scale(') : -1;
-    let hD = 0, hk = 0, hok = false;
-    if (ta >= 0 && tb >= 0) {
-      const e = numFrom(ht, ta + 10, true);
-      if (e >= 0) { hD = NUM_V; if (numFrom(ht, e, true) >= 0 && numFrom(ht, tb + 6, true) >= 0) { hk = NUM_V; hok = true; } }
+    pSeg(G.dh, 0, G.bx1, 0, L.rimL, op); pSeg(G.dh, 0, G.bx1, 0, L.line, op);
+    if (G.open) {
+      pSeg(-G.axx, -G.axy, G.axx, G.axy, L.rimL, op); pSeg(-G.axx, -G.axy, G.axx, G.axy, L.line, op);
+      pSeg(-G.at, -G.half, -G.at, G.half, L.gateRim, op); pSeg(G.at, -G.half, G.at, G.half, L.gateRim, op);
+      pSeg(-G.at, -G.half, -G.at, G.half, L.gate, op); pSeg(G.at, -G.half, G.at, G.half, L.gate, op);
     }
-    if (hok && L.headOp > 0.001) {
-      const kq = Math.round(ang * 100);
-      if (headSp.ver !== L.ver || headSp.kq !== kq || headSp.k !== hk || headSp.dpr !== dpr) {
+    // The head: its picture at its angle and size, drawn again only when either (or its look) changes.
+    const hop = op * S.headOp;
+    if (hop > 0.001) {
+      const k = G.hs;
+      if (!headSp || Math.abs(headSp.kA - ang) > 0.02 || headSp.kK !== k || headSp.kD !== dpr || headSp.kL !== pLookV) {
         // (Its box: the body's −3 … 48 along it, ±11 across, grown for the rim, turned with it.)
         let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
-        for (let i = 0; i < 8; i += 2) {
-          const u = HC[i], v = HC[i + 1], qx = (u * ca - v * sa) * hk * dpr, qy = (u * sa + v * ca) * hk * dpr;
-          bx0 = Math.min(bx0, qx); by0 = Math.min(by0, qy); bx1 = Math.max(bx1, qx); by1 = Math.max(by1, qy);
+        for (let i = 0; i < 4; i++) {
+          const u = i & 1 ? 50 : -5, v = i & 2 ? 14 : -14, X = (u * ca - v * sa) * k * dpr, Y = (u * sa + v * ca) * k * dpr;
+          if (X < bx0) bx0 = X; if (X > bx1) bx1 = X; if (Y < by0) by0 = Y; if (Y > by1) by1 = Y;
         }
-        const x0 = Math.floor(bx0), y0 = Math.floor(by0), x1 = Math.ceil(bx1), y1 = Math.ceil(by1), m = L.hm;
+        const x0 = Math.floor(bx0), y0 = Math.floor(by0), x1 = Math.ceil(bx1), y1 = Math.ceil(by1);
         // Its shapes filled and stroked on the GPU (the organs' painter, into a texture of its own): no 2D canvas.
-        m[0] = ca * hk * dpr; m[1] = sa * hk * dpr; m[2] = -sa * hk * dpr; m[3] = ca * hk * dpr; m[4] = -x0; m[5] = -y0;
-        picture(headSp, Math.max(1, x1 - x0), Math.max(1, y1 - y0), L.headOps);
-        headSp.ver = L.ver; headSp.kq = kq; headSp.k = hk; headSp.dpr = dpr; headSp.ox = x0; headSp.oy = y0;
+        P_M[0] = ca * k * dpr; P_M[1] = sa * k * dpr; P_M[2] = -sa * k * dpr; P_M[3] = ca * k * dpr; P_M[4] = -x0; P_M[5] = -y0;
+        P_OPS.length = 0;
+        for (let i = 0; i < L.head.length; i++) { const h = L.head[i]; shapeOps(P_OPS, h.geom, P_M, h.fill, h.stroke, h.w); }   // alloc-rare: the head's picture is laid again only when its angle, size or look changes
+        headSp = picture(headSp, Math.max(1, x1 - x0), Math.max(1, y1 - y0), P_OPS);
+        headSp.kA = ang; headSp.kK = k; headSp.kD = dpr; headSp.kL = pLookV; headSp.ox = x0; headSp.oy = y0;
       }
-      pat(hD, 0);
-      const hx = PT[0], hy = PT[1];
+      const hx = pX(G.dh, 0), hy = pY(G.dh, 0);
       gl.useProgram(prog);
       ucOf(gl).f2(U.uView, W, H); ucOf(gl).i1(U.uT, 0);
       gl.bindTexture(gl.TEXTURE_2D, headSp.tex);
-      ucOf(gl).f4(U.uR, Math.round(hx) + headSp.ox, Math.round(hy) + headSp.oy, headSp.w, headSp.h); ucOf(gl).f1(U.uA, Math.min(1, L.op * L.headOp));
+      ucOf(gl).f4(U.uR, Math.round(hx) + headSp.ox, Math.round(hy) + headSp.oy, headSp.w, headSp.h); ucOf(gl).f1(U.uA, Math.min(1, hop));
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-      pex0 = Math.min(pex0, Math.round(hx) + headSp.ox); pey0 = Math.min(pey0, Math.round(hy) + headSp.oy);
-      pex1 = Math.max(pex1, Math.round(hx) + headSp.ox + headSp.w); pey1 = Math.max(pey1, Math.round(hy) + headSp.oy + headSp.h);
+      pGrow(Math.round(hx) + headSp.ox, Math.round(hy) + headSp.oy); pGrow(Math.round(hx) + headSp.ox + headSp.w, Math.round(hy) + headSp.oy + headSp.h);
     }
-    const bm = 4 * dpr;
-    boxAt(pex0 - bm, pey0 - bm, pex1 + bm, pey1 + bm);
-    return live;
+    boxAt(pEx0 - 4 * dpr, pEy0 - 4 * dpr, pEx1 + 4 * dpr, pEy1 + 4 * dpr);
+    return false;
   }
   // ── The FibroScan probe (stage.js scanPaint and scanTick write its SVGs, the model, as before) ──
   // Over the labels, as its layer lay. Its beam (blurred) is a picture drawn once and turned here; its waves are arcs and its cable a

@@ -18,7 +18,7 @@ export const awayFromProbe = (id) => AWAY.has(id);
 // Abu-Yousef, RadioGraphics 2011, Fig 2; Ferraioli's EFSUMB slides; Lechowicz and Elwertowski, J Ultrason 2015, p. 214): 60° was the limit itself.
 // The line of sight always leaves the probe's face square, the body in line with it (Mohammad, 20 Oct: "The axis line of the Doppler
 // should always be perpendicular to the probe"): the probe turns by swinging round the gate (stage.js eases it there).
-export const PROBE = { ANGLE: 50, GAP: 80, SCALE: 1.35, LEN: 84, HALF: 17.5, EDGE: 8, BEAM_DEG: 7, OUT: 110, OUT_MS: 420 };   // (OUT: how far, px at size 1, the probe draws back along its line of sight to clear the view; OUT_MS: that move)
+export const PROBE = { ANGLE: 50, GAP: 80, SCALE: 1.35, LEN: 84, HALF: 17.5, EDGE: 8, BEAM_DEG: 7, SWING: 60, OUT_MS: 420 };   // (SWING: how far, degrees, the probe turns round the gate to clear the view, and back; OUT_MS: that move)
 
 // ── Nothing is made while the probe is placed (2 Nov 2026, scripts/off-gpu-scan.mjs alloc: the search made some forty poses, each with
 // arrays of boxes, closures and spreads, every time a frame reached it). The search below writes into poses, lists and boxes made
@@ -437,29 +437,47 @@ export function createProbeMind() {
   };
 }
 
-/** The marks in the probe's own frame, x running from the gate (0) toward the probe, whose face is at D: the line of sight from
+/** The marks' numbers in the probe's own frame, x running from the gate (0) toward the probe, whose face is at D: the line of sight from
  *  the face straight through the vessel and on past its far wall; the sample volume's two bars across it; the flow axis through
  *  the gate, at phi (±θ) from the line. The angle itself is named only on the monitor (θ in its header): no arc and no θ on the
- *  figure (Mohammad, 20 Oct). The answer is the module's own, written over by the next call: read it where it is asked for. */
-const SHAPES = { wedge: '', beam: '', gate: '', axis: '', head: '' };
-const f1 = (v) => +v.toFixed(1);
-export function probeShapes(D, r, phi = PROBE.ANGLE, size = 1, out = 0) {
-  // (`out`, 0 … 1: the probe draws back out of the view (2 Nov 2026, Mohammad: "rotate out of the way, not disappear in place"). The whole
-  // probe, its face, line of sight and faded beam, slides back along the line of sight itself, so the line keeps its angle to the vessel
-  // and runs through the same point; the sample volume's bars and the flow axis, the target, close up about that point, which stays where
-  // it is. Every x below is on the line of sight and every y is symmetric about it: no mark leaves the line or the point.)
-  const gs = out <= 0 ? 1 : Math.max(0, 1 - out), sh = out <= 0 ? 0 : out * PROBE.OUT * size, at = gateAt(r) * gs, half = gateHalf(r) * gs;
-  const L = Math.min(36, Math.max(16, 1.7 * r)) * gs, p = rad(phi), c = Math.cos(p), s = Math.sin(p), Dh = D + sh;
+ *  figure (Mohammad, 20 Oct). Written into `g` (makeProbeGeom), which it returns: nothing is made. The faded wedge runs from (dh, 0)
+ *  to (far, ±wk), the line of sight from dh to bx1 on the axis, the bars at ±at across ±half, the flow axis through the gate to (±axx, ±axy)
+ *  (the last three only while `open`), the head at dh at size hs. */
+export const makeProbeGeom = () => ({ dh: 0, far: 0, wk: 0, bx1: 0, at: 0, half: 0, open: false, axx: 0, axy: 0, hs: PROBE.SCALE });
+/** What the labels' GPU layer draws of the probe, kept by the stage and written in place a frame at a time: the gate's place (px), the turn
+ *  (degrees), the whole probe's opacity, its head's, and the marks' numbers (makeProbeGeom). `live`: it has been placed at all. */
+export const makeProbeDraw = () => ({ live: false, x: 0, y: 0, ang: 0, op: 0, headOp: 1, g: makeProbeGeom() });
+export function probeGeomInto(g, D, r, phi = PROBE.ANGLE, size = 1, out = 0) {
+  // (The line of sight ends at the near gate bar, and the flow axis reaches a little past both bars: Mohammad, 20 Oct.)
+  // (`out`, 0 … 1: the probe is turning away from the vessel to clear the view (2 Nov 2026, Mohammad: "I want the Doppler probe to rotate";
+  // "the point the Doppler targets cannot move"). The turn itself is the record's angle (probeTurn): the whole probe, face, line of sight and
+  // faded beam, swings round the gate as one piece, so the target stays where it is and the face keeps its distance from it. Here only the
+  // sample volume's bars and the flow axis, the target, close up about that same point as it goes, and open again as it returns. Every x
+  // below is on the line of sight and every y is symmetric about it.)
+  const gs = out <= 0 ? 1 : Math.max(0, 1 - out), at = gateAt(r) * gs;
+  const L = Math.min(36, Math.max(16, 1.7 * r)) * gs, p = rad(phi);
   // (The faded ultrasound beam: a narrow wedge from the probe's face, fading out past the vessel's far wall, under the line of sight.)
-  const far = -(Math.max(0, r) + 10) + sh, k = Math.tan(rad(PROBE.BEAM_DEG)) * (D - far + sh);
-  SHAPES.wedge = `M${f1(Dh)} 0 L${f1(far)} ${f1(-k)} L${f1(far)} ${f1(k)} Z`;
-  SHAPES.beam = `M${f1(Dh)} 0 L${f1(at + sh)} 0`;
+  const far0 = -(Math.max(0, r) + 10);
+  g.dh = D; g.far = far0; g.wk = Math.tan(rad(PROBE.BEAM_DEG)) * (D - far0);
+  g.bx1 = at; g.at = at; g.half = gateHalf(r) * gs;
   // (A bar or the axis closed to nothing draws nothing: a round-ended line of no length is a dot.)
-  const open = gs > 0.04;
-  SHAPES.gate = open ? `M${f1(-at)} ${f1(-half)} L${f1(-at)} ${f1(half)} M${f1(at)} ${f1(-half)} L${f1(at)} ${f1(half)}` : '';
-  SHAPES.axis = open ? `M${f1(-L * c)} ${f1(-L * s)} L${f1(L * c)} ${f1(L * s)}` : '';
-  SHAPES.head = `translate(${f1(Dh)} 0) scale(${size === 1 ? PROBE.SCALE : +(PROBE.SCALE * size).toFixed(3)})`;
-  return SHAPES;
+  g.open = gs > 0.04; g.axx = L * Math.cos(p); g.axy = L * Math.sin(p);
+  g.hs = size === 1 ? PROBE.SCALE : PROBE.SCALE * size;
+  return g;
+}
+/** The turn the probe is drawn at while it swings out of the way: its place's angle plus `sw` degrees (its swing, signed to turn away from
+ *  the vessel's line) times `o`, how far it has gone (0 … 1). At 0 it is its place's angle exactly, whatever it did before. */
+export const probeTurn = (ang, sw, o) => ang + sw * o;
+/** Which way, and how far, the probe at this place turns to clear the view: PROBE.SWING degrees, in the sense that moves its line of sight
+ *  further from the vessel's line without crossing it (a probe standing at 50° from the line turns on toward 110°, one at 130° back toward
+ *  70°), so it never sweeps over the vessel. side: ±1 (the side it stands); toward: whether it stands at θ (50°) rather than 180° − θ. */
+export const probeSwing = (side, toward) => side * (toward ? 1 : -1) * PROBE.SWING;
+
+/** How much of the probe shows while it is drawn back by `oP` (0: at its place, 1: out): all of it until it has begun to leave, then
+ *  fading as it goes (never in place), none once it is mostly out. The same curve out and in, so a probe reversed half way is continuous. */
+export function probeFade(oP) {
+  const t = Math.min(1, Math.max(0, (oP - 0.2) / 0.6));
+  return 1 - t * t * (3 - 2 * t);
 }
 
 // (The gate bars are drawn last, on top of the line of sight and the flow axis: Mohammad, 20 Oct.)
