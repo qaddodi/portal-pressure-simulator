@@ -892,7 +892,7 @@ export function planePlot(pl, { card = false } = {}) {
   // The line: through the stops, then the way the dot went since the slide came up, to the dot where it stands now.
   // (The line is worked out in kept lists: the stops' places in stopXY, the way in `walk` as flat (a, b) pairs of the plane's own units. A frame of the
   // dot's glide makes no point lists; the path's text is the one thing built, as the painter takes it.)
-  let stopXY = new Float64Array(16);
+  let stopXY = new Float64Array(16), pcXY = new Float64Array(16), pcN = -1, pcD = '', walkD = null;
   function paintWalk() {
     if (!walkPath || !inv) return;
     const cur = dotNow(), ns = stops.length, xk = pl.x.key, yk = pl.y.key;
@@ -918,18 +918,24 @@ export function planePlot(pl, { card = false } = {}) {
         }
       }
     }
-    const wc = walk.length >> 1, cnt = ns + wc + (cur ? 1 : 0);
-    let d = '';
-    if (cnt > 1) {
-      for (let i = 0; i < cnt; i++) {
-        let x, y;
-        if (i < ns) { x = stopXY[2 * i]; y = stopXY[2 * i + 1]; }
-        else if (i < ns + wc) { const j = i - ns; x = inv.X(walk[2 * j]); y = inv.Y(walk[2 * j + 1]); }
-        else { x = cur.x; y = cur.y; }
-        d += i ? ' L' : 'M'; d += x.toFixed(1); d += ','; d += y.toFixed(1);
-      }
+    const wc = walk.length >> 1, pc = ns + wc, cnt = pc + (cur ? 1 : 0);
+    // (The text of the points before the dot (the stops and the way) is kept while their places are the same, which they are through
+    // a glide but for the way's growth; a frame then builds only the dot's end.)
+    if (pcXY.length < pc * 2) pcXY = new Float64Array(pc * 4);   // alloc-rare: more points than ever before
+    let same = pc === pcN;
+    for (let i = 0; i < pc; i++) {
+      let x, y;
+      if (i < ns) { x = stopXY[2 * i]; y = stopXY[2 * i + 1]; } else { const j = i - ns; x = inv.X(walk[2 * j]); y = inv.Y(walk[2 * j + 1]); }
+      if (same && (pcXY[2 * i] !== x || pcXY[2 * i + 1] !== y)) same = false;
+      pcXY[2 * i] = x; pcXY[2 * i + 1] = y;
     }
-    walkPath.setAttribute('d', d);
+    if (!same) {
+      pcN = pc; pcD = '';
+      for (let i = 0; i < pc; i++) { pcD += i ? ' L' : 'M'; pcD += pcXY[2 * i].toFixed(1); pcD += ','; pcD += pcXY[2 * i + 1].toFixed(1); }   // alloc-rare: only when a stop or the way moved or grew
+    }
+    let d = '';
+    if (cnt > 1) d = cur ? pcD + (pc ? ' L' : 'M') + cur.x.toFixed(1) + ',' + cur.y.toFixed(1) : pcD;
+    if (d !== walkD) { walkD = d; walkPath.setAttribute('d', d); }
     gl.paint();
   }
   // While the dot glides, the line follows it each frame (the dot's ease, so the line is drawn in behind it, never ahead).

@@ -570,8 +570,10 @@ const TINT = new Set(TINT_FLOATS);
  * whose lumen colours alone changed; `shape`, rows with any other change, or with new radii (`fixed`, a Set), or any
  * row when nothing is known of the drawn layer. A row with nothing changed is in neither. `width`: floats per row.
  */
-export function splitRows(rows, now, drawn, width, fixed = null) {
-  const shape = [], tint = [];
+export function splitRows(rows, now, drawn, width, fixed = null, out = null) {
+  // (`out`: a record the caller keeps, { shape, tint }, its lists emptied and filled again, so a draw makes none; without one, new lists.)
+  const shape = out ? out.shape : [], tint = out ? out.tint : [];   // alloc-rare: the form without a kept record (the unit tests); the figure passes one
+  shape.length = 0; tint.length = 0;
   for (const r of rows) {
     if (!drawn || fixed?.has(r)) { shape.push(r); continue; }
     const o = r * width;
@@ -580,5 +582,5 @@ export function splitRows(rows, now, drawn, width, fixed = null) {
     if (kind === 2) shape.push(r);
     else if (kind === 1) tint.push(r);
   }
-  return { shape, tint };
+  return out || { shape, tint };   // alloc-rare: the form without a kept record
 }

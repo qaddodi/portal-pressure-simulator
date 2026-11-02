@@ -56,9 +56,9 @@ import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=fc722fbb9d'
 import { nameSpots, NAME_BREAK } from './organ-names.js?v=d0c212a21b';
 import { createLabelGL } from './label-gl.js?v=c06dc1d12f';
 import { createGlassGL } from './glass-gl.js?v=9263b7be60';
-import { writePoints, writeJoinNow } from './veins-sweep.js?v=20fb769e58';
-import { ENT_W } from './veins-bin.js?v=d805a40704';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=55aef45ba2';
+import { writePoints, writeJoinNow } from './veins-sweep.js?v=a38b10c598';
+import { ENT_W } from './veins-bin.js?v=49b311283d';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=e06597dc7d';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=d950c5cd1c';
 import { alongCurve } from './pressure-along.js?v=e669103117';
@@ -2667,7 +2667,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=29adb368be').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=8f52b87cf6').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor, binAway: (tubes, joins) => sweepBin({ kind: 'bin', tubes, joins }) });
@@ -4077,7 +4077,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // (The worker's lifecycle, sweep-client.js: a dead or stuck one is dropped and its requests rejected; the next request restarts it,
   // up to a few times in a row, and the callers fall back to the main thread on a rejection.)
-  const sweeper = createSweepClient(() => new Worker(new URL('./sweep-worker.js?v=a21c4cda31', import.meta.url), { type: 'module' }));
+  const sweeper = createSweepClient(() => new Worker(new URL('./sweep-worker.js?v=633bb31cd5', import.meta.url), { type: 'module' }));
   const sweepBin = (msg) => sweeper.request(msg);
   const FAR_ROW = Array.from({ length: N_SAMPLES }, () => [1e9, 1e9]);
   // How far (squared) a join's centre lies from the course of its centres through the stretch.

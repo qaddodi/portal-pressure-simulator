@@ -38,7 +38,7 @@ import { EDGE_GLSL } from './edge.js?v=8321a8017f';
 import { SLOT, DYE_BINS, PERIOD, DRIFT_PERIOD } from './blood.js?v=ca0abd6caa';
 import { cssRGB } from './util.js?v=5f0ea736f1';
 import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js?v=ff6a633152';
-import { CELL, ENT_W, binVeins, splitRows, simpleCells, splitCells, cellsOfJoinEntries } from './veins-bin.js?v=d805a40704';
+import { CELL, ENT_W, binVeins, splitRows, simpleCells, splitCells, cellsOfJoinEntries } from './veins-bin.js?v=49b311283d';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { changedRows } from './flow-rows.js?v=6cd335f84b';
 import { leftAlone } from './quiet.js?v=856a3cdf1e';
@@ -2465,8 +2465,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   let tubeDrawn = null;
   const drawnNow = () => (tubeDrawn ||= new Float32Array(tubeNow.length)).set(tubeNow);
   // The changed rows' cells: drawn again whole (shape), and the others recoloured (tint), with the cells to do each in.
+  const ROW_SPLIT = { shape: [], tint: [] };   // (kept: splitRows fills it again each time)
   function rowParts(rows) {
-    const { shape, tint } = splitRows(rows, tubeNow, tubeDrawn, ROW_W, radRows);
+    const { shape, tint } = splitRows(rows, tubeNow, tubeDrawn, ROW_W, radRows, ROW_SPLIT);
     const part = cellsOfRows(shape);
     if (patchK) for (let c = 0; c < nCells; c++) if (patchMark[c] && !part.mark[c]) { part.mark[c] = 1; part.k++; }
     return { part, tintPart: cellsOfRows(tint, part.mark) };
