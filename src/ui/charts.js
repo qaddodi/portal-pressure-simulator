@@ -1,21 +1,21 @@
 // Dock charts (blueprint §9.2): the pressure profile.
 
 import { NODES } from '../engine/topology.js?v=512e725aea';
-import { PROFILE_PATHS, SHORT } from './anatomy.js?v=8768b1f623';
-import { pressureColor } from './colormap.js?v=725a14b413';
-import { store, hiddenNow } from './store.js?v=160363b508';
-import { h, fmt, canvasSize, cssVar, cssAlpha, clamp, createEaser, axisTop } from './util.js?v=82c337aa75';
-import { frameFor, cancelFrame, paceMs } from './frame.js?v=c99bae2398';
+import { PROFILE_PATHS, SHORT } from './anatomy.js?v=b75990ccb4';
+import { pressureColor } from './colormap.js?v=0b6744e2e8';
+import { store, hiddenNow } from './store.js?v=a51981892d';
+import { h, fmt, canvasSize, cssVar, cssAlpha, clamp, createEaser, axisTop } from './util.js?v=f149f5dc18';
+import { frameFor, cancelFrame, paceMs } from './frame.js?v=ca74a6f22a';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
-import { shownOr } from './shown.js?v=46a1041c44';
+import { shownOr } from './shown.js?v=94c77e5032';
 import { monotoneSegs, curveTester } from './curve-near.js?v=6996ad536a';
 import { glideMoving } from './idle-keys.js?v=1b5b7b8ddd';
 import { plotFill } from './plot-look.js?v=5037697da7';
 import { D_SMALL, EASE_ARRIVE } from './ease.js?v=7d7bfe9a62';
-import { createTraceGL, fitPen } from './trace-gl.js?v=4424366c62';
-import { restPass, cancelRest } from './rest-pass.js?v=de1b500aca';
-import { measure } from './glyph-measure.js?v=9501dc0e53';
-import { glWords } from './gl-words.js?v=912ebe3741';
+import { createTraceGL, fitPen } from './trace-gl.js?v=e7cbc8fef1';
+import { restPass, cancelRest } from './rest-pass.js?v=b1da783ead';
+import { measure } from './glyph-measure.js?v=4aa1a7b6f3';
+import { glWords } from './gl-words.js?v=1264b23ab4';
 const nextFrame = frameFor('charts');
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));

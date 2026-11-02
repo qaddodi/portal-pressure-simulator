@@ -13,14 +13,14 @@
 // round or butt ends, fill and stroke opacity, visibility, display none, vector-effect non-scaling-stroke. A drawing's viewBox is mapped to
 // the box as SVG maps it (preserveAspectRatio none, or meet in the middle). The picture covers the box exactly.
 
-import { createTraceGL, fitPen } from './trace-gl.js?v=4424366c62';
-import { flattenPath, elBox4 } from './shape-gl.js?v=2d7c7316ba';
-import { finalFrameFor, easeNow, cancelFrame } from './frame.js?v=c99bae2398';
-import { restPass, cancelRest } from './rest-pass.js?v=de1b500aca';
+import { createTraceGL, fitPen } from './trace-gl.js?v=e7cbc8fef1';
+import { flattenPath, elBox4 } from './shape-gl.js?v=eca7084bde';
+import { finalFrameFor, easeNow, cancelFrame } from './frame.js?v=ca74a6f22a';
+import { restPass, cancelRest } from './rest-pass.js?v=b1da783ead';
 import { cssCurve, D_SURFACE, EASE_ARRIVE } from './ease.js?v=7d7bfe9a62';
 import { cssColor } from './css-color.js?v=59ed182174';
-import { morphSvg } from './svg-morph.js?v=c7c25f8832';
-import { attrSoon } from './class-soon.js?v=3cee49a7e1';
+import { morphSvg } from './svg-morph.js?v=bcec47f817';
+import { attrSoon } from './class-soon.js?v=d59b314e61';
 
 // (No bleed: a picture reaching past the box counts as overflow, and the card's fit then shrank the whole card to take it in.)
 export const BLEED = 0;

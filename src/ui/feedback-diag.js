@@ -3,7 +3,7 @@
 // say where it comes from: how many frames the page really runs, and which glass fell back to the browser's blur (blur-gauge.js). Nothing
 // is sent by the app; the body is built here, on the page, when the button is pressed.
 import { scanBlurs, blurText } from './blur-gauge.js?v=215cf3d483';
-import { caught } from './caught.js?v=b96b17594a';
+import { caught } from './caught.js?v=caf293c676';
 
 /** "Frames: 60 a second (stage 60, shown 4, dock 2)": the page's scheduled frames a second and its busiest surfaces (frame.js perf()). */
 export function framesLine(p) {

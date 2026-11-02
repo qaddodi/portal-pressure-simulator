@@ -175,7 +175,7 @@ test('a draw that comes before its program is published publishes it first', () 
   assert.match(src('src/ui/tissue-gl.js'), /if \(!ready\) return hold && pictured && tgt\.width === W && tgt\.height === H \? 'held' : false;\n\s+\}\n\s+publish\(\);\n\s+if \(this\.lost\) return false;/);
   assert.match(src('src/ui/field-gl.js'), /if \(ready\) publish\(\);\n\s+else return hold && pictured && canvas\.width === W && canvas\.height === H \? 'held' : false;\n\s+\}\n\s+if \(this\.lost \|\| !prog\) return false;/);
   // (Review pass 2: the Doppler monitor and the endoscopy field publish in a draw only once the driver says it is compiled, too.)
-  assert.match(src('src/ui/doppler-gl.js'), /if \(!prog && started && stillCompiling\(gl, \[started\]\)\) \{ stopPoll\?\.want\?\.\(\); waitingDraw = true; return false; \}\n\s+publish\(\);\n\s+if \(lost \|\| failed/);
+  assert.match(src('src/ui/doppler-gl.js'), /if \(!prog && started && stillCompiling\(gl, startedL\)\) \{ stopPoll\?\.want\?\.\(\); waitingDraw = true; return false; \}\n\s+publish\(\);\n\s+if \(lost \|\| failed/);
   assert.match(src('src/ui/endo-gl.js'), /render\(res, st\) \{\n\s+if \(lost \|\| this\.pending\) return cv;\n\s+publish\(\);/);
   // (Recs B8: a lost context is not ready, so the scope draws on the CPU, as with no WebGL.)
   assert.match(src('src/ui/endo-gl.js'), /cv\.addEventListener\('webglcontextlost', \(e\) => \{ e\.preventDefault\(\); lost = true; \}\);/);

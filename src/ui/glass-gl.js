@@ -8,17 +8,17 @@
 // Off (the browser's glass, as before): no WebGL2, a software renderer, Settings' blur effect off, reduced
 // transparency, a browser without backdrop blur (whose solid card stays), or a copy the browser refuses.
 
-import { shareFor, sharePrep, sharePlan, shareKeep, shareForget, shareTurn, shareUse, shareRelease, shareBytes } from './blur-share.js?v=ea5ed71e09';
-import { glCap, fbComplete } from './gl-state.js?v=f33764e84c';
-import { hold } from './gpu-budget.js?v=f25a08a637';
+import { shareFor, sharePrep, sharePlan, shareKeep, shareForget, shareTurn, shareUse, shareRelease, shareBytes } from './blur-share.js?v=bce3e2c1bd';
+import { glCap, fbComplete } from './gl-state.js?v=ee046876b7';
+import { hold } from './gpu-budget.js?v=a79222bd11';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=294bbe5874';
-import { finalFrameFor, readFrameFor, framePhase, frameCount, cancelFrame, noteDraw } from './frame.js?v=c99bae2398';
-import { startProgram, checkProgram, compileDone, exerciseDraw, SHADER_WARM } from './gl-compile.js?v=6c955f55d8';
+import { finalFrameFor, readFrameFor, framePhase, frameCount, cancelFrame, noteDraw } from './frame.js?v=ca74a6f22a';
+import { startProgram, checkProgram, compileDone, exerciseDraw, SHADER_WARM } from './gl-compile.js?v=255276a5f4';
 import { Inline, inlineShift, inlineTranslate, Motion, compileKeyframes, motionAt, movesOnly, clockOf, clockAt } from './glass-motion.js?v=c45c2a76ac';
 import { pathPolys, fanTriangles } from './path-poly.js?v=01766890c9';
 import { easeArrive, D_SURFACE } from './ease.js?v=7d7bfe9a62';
-import { caught } from './caught.js?v=b96b17594a';
-import { viewSize } from './layout-snap.js?v=80a9b170ba';
+import { caught } from './caught.js?v=caf293c676';
+import { viewSize } from './layout-snap.js?v=890c8333b8';
 import { parseCssColor } from './css-color.js?v=59ed182174';
 
 /** The CSS glass this draws (app.css .cl-glass: blur(16px) saturate(1.15) over 58 % of --surface). */

@@ -31,21 +31,30 @@ export const h01 = (x) => (hsh(x >>> 0) & 0xffffff) / 16777216;
 export const corner = (seed, x, y) => h01((seed ^ Math.imul(x, 73856093) ^ Math.imul(y, 19349663)) >>> 0);
 export const seedOf = (id, o) => (Math.imul(id, o.mul) + o.add) >>> 0;
 
-/** Where vessel row `id`'s block starts in the table: [x, y] texels. */
-export const blockAt = (id) => [(id % NOISE_PER_ROW) * NOISE_W, Math.floor(id / NOISE_PER_ROW) * NOISE_H];
-/** The table's size for `rows` vessel rows: [width, height] texels. */
-export const tableSize = (rows) => [NOISE_PER_ROW * NOISE_W, Math.max(1, Math.ceil(rows / NOISE_PER_ROW)) * NOISE_H];
+// (The two pairs below are kept and written at each call: every caller spreads or unpacks the pair at once and keeps none.)
+const AT = [0, 0], SIZE = [0, 0];
+/** Where vessel row `id`'s block starts in the table: [x, y] texels. The pair is reused by the next call: use it at once. */
+export const blockAt = (id) => { AT[0] = (id % NOISE_PER_ROW) * NOISE_W; AT[1] = Math.floor(id / NOISE_PER_ROW) * NOISE_H; return AT; };
+/** The table's size for `rows` vessel rows: [width, height] texels. The pair is reused by the next call: use it at once. */
+export const tableSize = (rows) => { SIZE[0] = NOISE_PER_ROW * NOISE_W; SIZE[1] = Math.max(1, Math.ceil(rows / NOISE_PER_ROW)) * NOISE_H; return SIZE; };
+
+const BLOCK = new Float32Array(NOISE_W * NOISE_H * 4);
+// (The corners of one octave, worked out in a buffer kept here, sized for the largest octave.)
+let latSize = 0;
+for (const o of OCTAVES) latSize = Math.max(latSize, o.period * (o.rows + 1));
+const LAT = new Float64Array(latSize);
 
 /**
  * Vessel row `id`'s block: NOISE_W × NOISE_H texels of four floats, row by row (the texels no octave uses stay 0). Each corner's
  * value is a 24-bit integer over 2^24, exact in a 32-bit float, so the table holds what the shader's hash gives, to the bit.
+ * Without `out` the block is written into one buffer kept here, which the next such call overwrites: use it at once.
  */
-export function noiseBlock(id, out = new Float32Array(NOISE_W * NOISE_H * 4)) {
+export function noiseBlock(id, out = BLOCK) {
   out.fill(0);
   for (const o of OCTAVES) {
     const seed = seedOf(id, o), P = o.period;
     // (Each corner hashed once: the period's columns by the rows of the octave and one more.)
-    const lat = new Float64Array(P * (o.rows + 1));
+    const lat = LAT;
     for (let r = 0; r <= o.rows; r++) {
       const y = r - o.yo + 4096;
       for (let x = 0; x < P; x++) lat[r * P + x] = corner(seed, x, y);

@@ -12,7 +12,7 @@
 // are all the same as the last blur's is not blurred again.
 // The 50 ms hold (glass-gl.js option reblur) keeps the old way (its hold is per instance).
 
-import { caught } from './caught.js?v=b96b17594a';
+import { caught } from './caught.js?v=caf293c676';
 
 /** The share for one look in one context (made on first use). key: the look's name, `${blur}|${scale}`, made once by the glass that asks. */
 export function shareFor(map, gl, key) {

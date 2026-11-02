@@ -9,7 +9,7 @@
 // through the beats before the next slide, Back the other way; a slide opened any other way (Back from the next one, a jump, a
 // reload) shows its last beat, so it stands with its whole point made.
 
-import { camProblems } from './cam-frame.js?v=04d2df8ec5';
+import { camProblems } from './cam-frame.js?v=ada05be692';
 
 export const BEAT_KEYS = ['cam', 'zoom', 'kMax', 'clear', 'labels', 'terms', 'mark', 'marks', 'sites', 'glow', 'glowSeq', 'steps', 'spot', 'callout'];
 export const MAX_BEATS = 3;   // (the slide and two more)

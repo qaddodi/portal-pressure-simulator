@@ -1,7 +1,7 @@
 // Perceptually uniform pressure colormap interpolated in OKLab (blueprint §5.3).
 // Every ramp's stops are colour tokens (--ramp-* in styles/tokens.css); the tables are built on first use.
 
-import { cssRamp, cssRGB } from './util.js?v=82c337aa75';
+import { cssRamp, cssRGB } from './util.js?v=f149f5dc18';
 import { velPos, velNormal, dopplerVel } from './velNormal.js?v=ad0e95380d';
 // The scale shows absolute mean venous pressure at a vessel. Its ticks are plain numbers: no
 // value on it is a clinical threshold (HVPG and other gradients are separate measurements).
@@ -14,7 +14,7 @@ const hexByte = (h, i) => hexDigit(h.charCodeAt(i)) * 16 + hexDigit(h.charCodeAt
 const lin = (c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
 const delin = (c) => (c <= 0.0031308 ? 12.92 * c : 1.055 * c ** (1 / 2.4) - 0.055);
 const ch255 = (c) => Math.round(Math.min(1, Math.max(0, delin(c))) * 255);
-const rgbStr = (r, g, b) => `rgb(${r},${g},${b})`;
+const rgbStr = (r, g, b) => `rgb(${r},${g},${b})`;   // alloc-rare: a colour's string is made once: a table's on first use, deltaColor's kept by its packed colour (only a channel outside 0-255, which is not kept, is made again)
 const OKL = [0, 0, 0], RGB3 = [0, 0, 0];   // (scratch: an OKLab triple, an sRGB triple in 0–255)
 
 /** sRGB (0–1 each) to OKLab, written into `out` (three slots). */
@@ -39,8 +39,8 @@ export function fromOklab(L, a, b, out) {
   return out;
 }
 // (The two above, as they were: a fresh triple per call, for a caller that keeps it.)
-export const rgb2oklab = ([r, g, b]) => toOklab(r, g, b, [0, 0, 0]);
-export const oklab2rgb = ([L, a, b]) => fromOklab(L, a, b, [0, 0, 0]);
+export const rgb2oklab = ([r, g, b]) => toOklab(r, g, b, [0, 0, 0]);   // alloc-rare: once per lens, mode or reference switch (legend-morph.js builds a key's stops and keeps each triple), never per frame
+export const oklab2rgb = ([L, a, b]) => fromOklab(L, a, b, [0, 0, 0]);   // alloc-rare: once per lens, mode or reference switch (legend-morph.js writes a key's gradient), never per frame
 
 // A ramp token's stops: positions and OKLab triples, in these two lists (RAMP_L three to a stop); returns how many stops.
 const RAMP_P = [], RAMP_L = [];
@@ -80,14 +80,18 @@ export function pressureColor(p) {
   return LUT[Math.round((Math.min(LUT_MAX, Math.max(0, p)) / LUT_MAX) * (LUT_N - 1))];
 }
 
-// A gradient is built once for the direction (and top) it is asked for and kept: the table it reads never changes.
-let gradDir = null, gradMax = NaN, gradCss = '';
+// A gradient is built once for each direction (and top) it is asked for and kept: the table it reads never changes.
+const GRADS = new Map();   // direction -> (top -> css)
 export function gradientCss(dir = 'to top', max = LUT_MAX) {
-  if (gradCss && dir === gradDir && max === gradMax) return gradCss;
-  let css = `linear-gradient(${dir}, `;
-  for (let p = 0; p <= max; p += 2.5) css += `${p ? ', ' : ''}${pressureColor(p)} ${(p / max) * 100}%`;
-  gradDir = dir; gradMax = max;
-  return (gradCss = `${css})`);
+  let byMax = GRADS.get(dir);
+  if (!byMax) GRADS.set(dir, byMax = new Map());   // alloc-rare: the first ask for a direction
+  const kept = byMax.get(max);
+  if (kept !== undefined) return kept;
+  let css = `linear-gradient(${dir}, `;   // alloc-rare: the first ask for this direction and top, kept after
+  for (let p = 0; p <= max; p += 2.5) css += `${p ? ', ' : ''}${pressureColor(p)} ${(p / max) * 100}%`;   // alloc-rare: the first ask for this direction and top, kept after
+  css = `${css})`;   // alloc-rare: the first ask for this direction and top, kept after
+  byMax.set(max, css);
+  return css;
 }
 
 // Diverging (change vs baseline): blue ← grey → red. The three end colours' channels (low, mid, high) in a list; a colour seen before is
@@ -116,18 +120,21 @@ export function deltaColor(d) {
 // Each is a sequential scale interpolated in OKLab, like the pressure map.
 function makeScale(token) {
   const lut = [];
-  let built = false, cssDir = null, cssKept = '';
+  let built = false;
+  const cssKept = new Map();   // direction -> css
   const at = (u) => {
     if (!built) { fillLut(lut, loadRamp(token), 128, 1); built = true; }
     return lut[Math.round(Math.min(1, Math.max(0, u)) * 127)];
   };
-  // (The bar's gradient is built once for the direction asked and kept: the table never changes.)
+  // (The bar's gradient is built once for each direction asked and kept: the table never changes.)
   at.css = (dir = 'to right') => {
-    if (cssKept && dir === cssDir) return cssKept;
-    let css = `linear-gradient(${dir}, `;
-    for (let i = 0; i <= 10; i++) css += `${i ? ', ' : ''}${at(i / 10)} ${i * 10}%`;
-    cssDir = dir;
-    return (cssKept = `${css})`);
+    const kept = cssKept.get(dir);
+    if (kept !== undefined) return kept;
+    let css = `linear-gradient(${dir}, `;   // alloc-rare: the first ask for this direction, kept after
+    for (let i = 0; i <= 10; i++) css += `${i ? ', ' : ''}${at(i / 10)} ${i * 10}%`;   // alloc-rare: the first ask for this direction, kept after
+    css = `${css})`;   // alloc-rare: the first ask for this direction, kept after
+    cssKept.set(dir, css);
+    return css;
   };
   return at;
 }

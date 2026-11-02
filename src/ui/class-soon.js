@@ -14,7 +14,7 @@
 // A write that must land before the next frame paints (a class that holds a transition off while a transform is set) stays where it is.
 
 
-import { frameFor } from './frame.js?v=c99bae2398';
+import { frameFor } from './frame.js?v=ca74a6f22a';
 
 const nextFrame = frameFor('classsoon');
 const classes = new Map();   // element → Map(class → on)
@@ -29,7 +29,7 @@ const jobs = [];   // (whole functions asked for with runSoon)
 // when the asks are written, so a steady stream of asks makes none.
 const mapPool = [];
 for (let i = 0; i < 64; i++) mapPool.push(new Map());
-const takeMap = () => mapPool.pop() || new Map();   // (a new one only while the pool is still filling: more elements asked at once than it holds)
+const takeMap = () => mapPool.pop() || new Map();   // alloc-rare: pool growth, only while more elements are asked at once than the pool holds (a new one only while the pool is still filling)
 const giveBack = (outer) => { for (const m of outer.values()) { m.clear(); mapPool.push(m); } };
 
 function flush() {
@@ -96,7 +96,7 @@ const into = (map, read, el, k, v) => {
   ask();
 };
 // (A string is its own text; any other value's text is made here, which is the one place that makes one.)
-const asText = (v) => (typeof v === 'string' ? v : String(v));
+const asText = (v) => (typeof v === 'string' ? v : String(v));   // alloc-rare: only a value that is not already a string; every caller in the app (attrSoon, dataSoon) passes a string or null, so the text is never made here
 const readAttr = (el, k) => el.getAttribute(k), readData = (el, k) => el.dataset[k] ?? null, readProp = (el, k) => el[k];
 /** Sets the attribute (null: removes it) in the next rest pass; the last ask wins. */
 export function attrSoon(el, name, value) { if (el) into(attrs, readAttr, el, name, value == null ? null : asText(value)); }

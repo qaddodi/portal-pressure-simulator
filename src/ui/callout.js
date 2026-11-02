@@ -3,8 +3,8 @@
 // and tint, clipped to the shape's path); the outline is that same path stroked inside it (4 px, so only the inner 2 px shows; the
 // hairline of cl-hair strokes 2 px, so 1 px shows). The pointer reaches outside the card's box, so the child is the box grown by the pointer's depth.
 
-import { createSvgGL, svgModel, setGeo } from './svg-gl.js?v=58417fc9e4';
-import { restPass } from './rest-pass.js?v=de1b500aca';
+import { createSvgGL, svgModel, setGeo } from './svg-gl.js?v=a6421bfa51';
+import { restPass } from './rest-pass.js?v=b1da783ead';
 
 const PTR = 11;   // how far the pointer reaches past the card's edge, and its half-width at the edge
 const KEEP = 28;  // the pointer stays this far from the card's sides, clear of the rounded corners
@@ -57,13 +57,13 @@ const NO_OPTS = {};
  *  centre) may have changed. It also redraws itself when the card is resized (a reading's text changing). */
 export function glassCallout(el, { pointer = true } = NO_OPTS) {
   const glass = el.firstElementChild, svg = glass.firstElementChild, path = svg.firstElementChild;   // (its glass, cloned with it from a model: withGlass)
-  const S = { glass, svg, gl: null, ask: 0, gone: false };
-  S.ask = restPass(() => lineGL(S));
+  const S = { glass, svg, gl: null, ask: 0, gone: false };   // alloc-rare: made once for each callout, as it is first built (stage.js makes a callout only when it first shows), never per frame
+  S.ask = restPass(() => lineGL(S));   // alloc-rare: made once for each callout, as it is first built (stage.js makes a callout only when it first shows), never per frame
   // size: the card's exact (fractional) border box, and rad its corner radius, both taken when it is observed (its size changes): the
   // update itself, called on the figure's frames, reads no layout or style (1 Nov 2026, "Move everything to GPU").
   let ax = 0, size = null, rad = 14;
   let kw = NaN, kh = NaN, kdir = '', kax = NaN;   // (what the shape was last drawn for: the size to 0.01 px, the pointer's offset to 0.1 px, its side)
-  const update = (a) => {
+  const update = (a) => {   // alloc-rare: made once for each callout, as it is first built (stage.js makes a callout only when it first shows), never per frame
     if (a != null) ax = a;
     if (!size) return;
     const [w, h] = size;
@@ -81,7 +81,7 @@ export function glassCallout(el, { pointer = true } = NO_OPTS) {
     S.gl?.paint();
   };
   // A live observation keeps the observer and the card alive: it ends with dispose(), or when the card leaves the page.
-  const ro = typeof ResizeObserver === 'function' ? new ResizeObserver((es) => {
+  const ro = typeof ResizeObserver === 'function' ? new ResizeObserver((es) => {   // alloc-rare: made once for each callout, as it is first built (stage.js makes a callout only when it first shows), never per frame
     // (A report while the card is off the page, as it is built before it joins the page between frames, is passed over, and the
     // observation kept: ending it there left a summary's readings with no shape at all, so no glass ("the callouts are transparent", 2 Nov
     // 2026). The observation ends with dispose(), which every caller makes as the card goes.)
@@ -90,6 +90,6 @@ export function glassCallout(el, { pointer = true } = NO_OPTS) {
     update();
   }) : null;
   ro?.observe(el);
-  update.dispose = () => { ro?.disconnect(); S.gone = true; S.gl?.dispose(); };
+  update.dispose = () => { ro?.disconnect(); S.gone = true; S.gl?.dispose(); };   // alloc-rare: made once for each callout, as it is first built (stage.js makes a callout only when it first shows), never per frame
   return update;
 }

@@ -11,7 +11,7 @@
 // There is no 2D path any more (the owner, 1 Nov 2026: nothing off the GPU): a monitor with no WebGL2 shows its words over a black trace,
 // and a lost context shows the trace black until the ring is sent again.
 
-import { startProgram, checkProgram, exerciseDraw, publishWhenDone, stillCompiling } from './gl-compile.js?v=6c955f55d8';
+import { startProgram, checkProgram, exerciseDraw, publishWhenDone, stillCompiling } from './gl-compile.js?v=255276a5f4';
 
 const VS = `#version 300 es
 in vec2 p;
@@ -48,7 +48,7 @@ export function createDopplerGL({ onReady = null } = {}) {
   // (lost: the GPU does not draw the monitor, from the loss until the rebuilt program is published.)
   let lost = false, dead = false;
   canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); lost = true; });
-  let started = null, quad = null, vao = null, ringT = null, noiseT = null, stopPoll = null, waitingDraw = false;
+  let started = null, startedL = null, quad = null, vao = null, ringT = null, noiseT = null, stopPoll = null, waitingDraw = false;
   let prog = null, U = null, failed = false;
   let rw = 0, rh = 0, noiseSrc = null;   // (noiseSrc: the noise floor as last sent, to send it again to a context that came back)
   const tex = () => { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); return t; };
@@ -63,6 +63,7 @@ export function createDopplerGL({ onReady = null } = {}) {
   function build() {
     prog = null; U = null; failed = false; rw = rh = 0;
     started = startProgram(gl, VS, FS, [['p', 0]]);
+    startedL = [started];   // (the list each frame's status ask is given while the program is compiling: made here, once for each program)
     quad = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, quad);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
@@ -85,6 +86,7 @@ export function createDopplerGL({ onReady = null } = {}) {
       U.p = gl.getUniformLocation(prog, 'p'); U.nOff = gl.getUniformLocation(prog, 'nOff'); U.noiseA = gl.getUniformLocation(prog, 'noiseA'); U.wall = gl.getUniformLocation(prog, 'wall');
       const d0 = gl.createTexture(), d1 = gl.createTexture();
       oneTexel(d0); oneTexel(d1);
+      // alloc-rare: once for a program, as it is published (a frame comes here only while no program is published; the guard at the top returns after)
       exerciseDraw(gl, () => {
         gl.useProgram(prog);
         gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, d0); gl.uniform1i(U.ring, 0);
@@ -124,7 +126,7 @@ export function createDopplerGL({ onReady = null } = {}) {
   let viewOf = null, viewAs = null;
   const bytes = (d) => {
     if (d instanceof Uint8Array) return d;
-    if (d !== viewOf) { viewOf = d; viewAs = new Uint8Array(d.buffer, d.byteOffset, d.byteLength); }
+    if (d !== viewOf) { viewOf = d; viewAs = new Uint8Array(d.buffer, d.byteOffset, d.byteLength); }   // alloc-rare: once for each ImageData given (the noise floor's, set once, or again for a new one)
     return viewAs;
   };
   return {
@@ -183,7 +185,7 @@ export function createDopplerGL({ onReady = null } = {}) {
       // (Review pass 2, item 2: a frame that comes while the shader is still compiling does not publish it, where reading its status
       // waits for the driver inside the frame. It draws nothing (the trace stays black, as for a lost context), the poller publishes
       // the program the moment the driver is done, and onReady asks the monitor to draw again. ?shaderready=0: published here, as before.)
-      if (!prog && started && stillCompiling(gl, [started])) { stopPoll?.want?.(); waitingDraw = true; return false; }
+      if (!prog && started && stillCompiling(gl, startedL)) { stopPoll?.want?.(); waitingDraw = true; return false; }
       publish();
       if (lost || failed || RW !== rw || RH !== rh || gl.isContextLost()) return false;
       if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }

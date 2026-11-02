@@ -31,7 +31,7 @@ export function unionBox(boxes) {
     const b = boxes[i];
     x0 = Math.min(x0, b[0]); y0 = Math.min(y0, b[1]); x1 = Math.max(x1, b[2]); y1 = Math.max(y1, b[3]);
   }
-  return [x0, y0, x1, y1];
+  return [x0, y0, x1, y1];   // alloc-rare: framing a slide's camera, once per slide arrival, view change or card grab (presenter.js camBox), never per frame
 }
 
 /** The box a region form frames: a region's name, a raw box, or a list of region names (their union). Null where it names nothing
@@ -49,7 +49,7 @@ export function regionBox(cam, regions) {
       else { x0 = Math.min(x0, b[0]); y0 = Math.min(y0, b[1]); x1 = Math.max(x1, b[2]); y1 = Math.max(y1, b[3]); }
       found++;
     }
-    return found === 0 ? null : found === 1 ? first : [x0, y0, x1, y1];
+    return found === 0 ? null : found === 1 ? first : [x0, y0, x1, y1];   // alloc-rare: framing a slide's camera, once per slide arrival, view change or card grab (presenter.js camBox), never per frame
   }
   return null;
 }
@@ -59,8 +59,8 @@ export function regionBox(cam, regions) {
 export function growBox(box, f, floor = 0) {
   if (!f) return box;
   const m = Math.max(0.08 * Math.max(f[2] - f[0], f[3] - f[1]), floor);
-  if (!box) return [f[0] - m, f[1] - m, f[2] + m, f[3] + m];
-  return [Math.min(box[0], f[0] - m), Math.min(box[1], f[1] - m), Math.max(box[2], f[2] + m), Math.max(box[3], f[3] + m)];
+  if (!box) return [f[0] - m, f[1] - m, f[2] + m, f[3] + m];   // alloc-rare: framing a slide's camera, once per slide arrival, view change or card grab (presenter.js camBox), never per frame
+  return [Math.min(box[0], f[0] - m), Math.min(box[1], f[1] - m), Math.max(box[2], f[2] + m), Math.max(box[3], f[3] + m)];   // alloc-rare: framing a slide's camera, once per slide arrival, view change or card grab (presenter.js camBox), never per frame
 }
 
 // (The result is one kept object with its four lists, cleared and refilled by each call: the presenter reads it as it frames, at once.)
@@ -74,7 +74,7 @@ export function camNames(on, ctx) {
   out.organs.length = 0; out.edges.length = 0; out.points.length = 0; out.unknown.length = 0;
   for (const n of on) {
     const t = typeof n === 'string' ? ctx.targets[n] : null;
-    if (typeof n !== 'string') out.unknown.push(String(n));
+    if (typeof n !== 'string') out.unknown.push(String(n));   // alloc-rare: only a name that is not a string, a slide-data error that deck checks report; never per frame
     else if (t && (t.edges?.length || t.organ)) { if (t.edges) for (const e of t.edges) addNew(out.edges, e); if (t.organ) addNew(out.organs, t.organ); }
     else if (ctx.organs.has(n)) addNew(out.organs, n);
     else if (ctx.nodes[n]?.[0]) out.points.push(ctx.nodes[n][0]);

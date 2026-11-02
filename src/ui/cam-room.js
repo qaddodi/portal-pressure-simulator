@@ -11,10 +11,10 @@
 //   lit vessels  a glow entry, or the vessels a term in the line lights (presenter.js slideTargets groups)
 //   probe        the vessel a Doppler probe lies on
 //   reading      a site's pressure pill (a station's reading on the figure)
-import { NODE_POS, EDGE_PATH, LABEL_VESSEL, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN_NODES } from './anatomy.js?v=8768b1f623';
+import { NODE_POS, EDGE_PATH, LABEL_VESSEL, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN_NODES } from './anatomy.js?v=b75990ccb4';
 import { EDGES } from '../engine/topology.js?v=512e725aea';
-import { pathCmds, flattenCmds } from './shape-gl.js?v=2d7c7316ba';
-import { expandIds } from './slide-ext.js?v=860a052fb1';
+import { pathCmds, flattenCmds } from './shape-gl.js?v=eca7084bde';
+import { expandIds } from './slide-ext.js?v=befe4642f3';
 
 /** The room kept round an anchor that the frame grows to hold, in world units (a ring and a label's dot need a little air). */
 export const ROOM = 28;
@@ -163,8 +163,8 @@ function walk(s, tg) {
 }
 // An anchor's name, for the walk that says what is missed (never needed by the camera).
 function nameOf(i) {
-  if (AK[i] === 'mark') return `${AR[i].label || 'mark'} (${AF[i]})`;
-  if (AK[i] === 'lit vessels') return AR[i].filter((e) => !HIDDEN_EDGES.has(e)).join(' ');
+  if (AK[i] === 'mark') return `${AR[i].label || 'mark'} (${AF[i]})`;   // alloc-rare: framing a slide's camera, once per slide arrival, view change or card grab (presenter.js camBox), never per frame
+  if (AK[i] === 'lit vessels') return AR[i].filter((e) => !HIDDEN_EDGES.has(e)).join(' ');   // alloc-rare: framing a slide's camera, once per slide arrival, view change or card grab (presenter.js camBox), never per frame
   return AR[i];
 }
 
@@ -175,11 +175,11 @@ function nameOf(i) {
  */
 export function anchorsOf(s, tg) {
   walk(s, tg);
-  const out = [];
+  const out = [];   // alloc-rare: framing a slide's camera, once per slide arrival, view change or card grab (presenter.js camBox), never per frame
   for (let i = 0; i < AN; i++) {
-    const at = [];
-    for (let q = AO[i]; q < AO[i] + AC[i]; q++) at.push([QX[q], QY[q]]);
-    out.push({ kind: AK[i], name: nameOf(i), at });
+    const at = [];   // alloc-rare: framing a slide's camera, once per slide arrival, view change or card grab (presenter.js camBox), never per frame
+    for (let q = AO[i]; q < AO[i] + AC[i]; q++) at.push([QX[q], QY[q]]);   // alloc-rare: framing a slide's camera, once per slide arrival, view change or card grab (presenter.js camBox), never per frame
+    out.push({ kind: AK[i], name: nameOf(i), at });   // alloc-rare: framing a slide's camera, once per slide arrival, view change or card grab (presenter.js camBox), never per frame
     AR[i] = AF[i] = null;
   }
   return out;
@@ -200,8 +200,8 @@ export function roomFor(box, anchors) {
   let b = box;
   for (const a of anchors) {
     if (!a.at.length) continue;
-    const near = a.at.reduce((p, q) => (shortOf(b, q) < shortOf(b, p) ? q : p));
-    if (shortOf(b, near) > 0) b = [Math.min(b[0], near[0] - ROOM), Math.min(b[1], near[1] - ROOM), Math.max(b[2], near[0] + ROOM), Math.max(b[3], near[1] + ROOM)];
+    const near = a.at.reduce((p, q) => (shortOf(b, q) < shortOf(b, p) ? q : p));   // alloc-rare: framing a slide's camera, once per slide arrival, view change or card grab (presenter.js camBox), never per frame
+    if (shortOf(b, near) > 0) b = [Math.min(b[0], near[0] - ROOM), Math.min(b[1], near[1] - ROOM), Math.max(b[2], near[0] + ROOM), Math.max(b[3], near[1] + ROOM)];   // alloc-rare: framing a slide's camera, once per slide arrival, view change or card grab (presenter.js camBox), never per frame
   }
   return b;
 }

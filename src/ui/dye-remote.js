@@ -8,11 +8,14 @@
 // running (held ones included) start again where they were, and nothing is left running or pending. dispose() ends the worker.
 // An injection shows as active at once (the figure keeps drawing until the first table comes). Where no worker can be made, it is
 // createBolus itself, on the main thread as before.
-import { createBolus, DYE_BINS, DYE_SECONDS, DYE_MAX_HOLD } from './blood.js?v=ca0abd6caa';
+import { createBolus, DYE_BINS, DYE_SECONDS, DYE_MAX_HOLD } from './blood.js?v=4892162325';
 
 export const DYE_WORKER = typeof Worker === 'function';
 
 export const DYE_TIMEOUT_MS = 5000;
+
+// Kept for good, never written: what a failed worker leaves (no table), and the options of a call that gives none.
+const NO_FIELDS = new Float32Array(0), NO_HAS = new Uint8Array(0), NO_OPTS = {};
 
 /** A bolus for `edges`/`nodes`; `makeWorker()` returns the worker (stage.js builds it, so the bundle can point it at its file). */
 export function createDyeRemote(edges, nodes, makeWorker, { now = () => performance.now(), timeout = DYE_TIMEOUT_MS } = {}) {
@@ -36,6 +39,8 @@ export function createDyeRemote(edges, nodes, makeWorker, { now = () => performa
     msg.seq = out; msg.dt = dt;
     w.postMessage(msg);
   };
+  const handBack = { seconds: 0, hold: false };   // (the options of each run handed back to the local bolus, which reads them at once)
+  const injMsg = { t: 'inject', k: 0, at: 0, opts: { seconds: 0, hold: false } };   // (the inject message, written afresh for each send: postMessage copies it)
   const fail = (why) => {
     if (failed) return;
     failed = true;
@@ -43,10 +48,10 @@ export function createDyeRemote(edges, nodes, makeWorker, { now = () => performa
     w = null; out = 0; owed = 0; owedNet = null; pendingInject = 0;
     dead.onmessage = dead.onerror = dead.onmessageerror = null;
     try { dead.terminate(); } catch { /* (already gone) */ }
-    for (const [k, r] of runs) local.inject(k, r.at, { seconds: Math.max(r.left, 1e-3), hold: r.hold });
+    for (const [k, r] of runs) { handBack.seconds = Math.max(r.left, 1e-3); handBack.hold = r.hold; local.inject(k, r.at, handBack); }
     runs.clear();
-    fields = new Float32Array(0); has = new Uint8Array(0);
-    if (typeof console !== 'undefined') console.warn('dye worker failed (' + why + '): the dye in transit is cleared, running injections go on');
+    fields = NO_FIELDS; has = NO_HAS;
+    if (typeof console !== 'undefined') console.warn('dye worker failed (' + why + '): the dye in transit is cleared, running injections go on');   // alloc-rare: the worker's failure, once (failed is then set for good)
   };
   w.onmessage = (e) => {
     const m = e.data;
@@ -61,11 +66,12 @@ export function createDyeRemote(edges, nodes, makeWorker, { now = () => performa
   try { w.postMessage({ t: 'init', edges: edges.map((e) => ({ id: e.id, from: e.from, to: e.to, kind: e.kind })), nodes: nodes.map((n) => ({ id: n.id })) }); } catch { fail('post'); }
   const post = (m) => { try { w.postMessage(m); return true; } catch { fail('post'); return false; } };
   return {
-    inject(k, at = 0, opts = {}) {
+    inject(k, at = 0, opts = NO_OPTS) {
       if (failed) return local.inject(k, at, opts);
       const seconds = opts.seconds ?? DYE_SECONDS, hold = !!opts.hold, r = runs.get(k);
-      if (r) { r.left = Math.max(r.left, seconds); r.hold = r.hold || hold; } else runs.set(k, { at, left: seconds, hold, held: 0 });
-      if (!post({ t: 'inject', k, at, opts: { seconds: opts.seconds, hold } })) return local.inject(k, at, opts);
+      if (r) { r.left = Math.max(r.left, seconds); r.hold = r.hold || hold; } else runs.set(k, { at, left: seconds, hold, held: 0 });   // alloc-rare: one record for each injection started (a learner's action), never per frame
+      injMsg.k = k; injMsg.at = at; injMsg.opts.seconds = opts.seconds; injMsg.opts.hold = hold;
+      if (!post(injMsg)) return local.inject(k, at, opts);
       active = true; injecting = true; pendingInject = 1;
     },
     release() { if (failed) return local.release(); for (const r of runs.values()) r.hold = false; post({ t: 'release' }); },

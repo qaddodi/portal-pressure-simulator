@@ -15,7 +15,7 @@
 // and a dye bolus that travels the network, conserved along each vessel and mixed (flow-weighted)
 // only at junctions.
 
-import { lumenSurface, lumenAt } from './stomach-lumen.js?v=ff6a633152';
+import { lumenSurface, lumenAt } from './stomach-lumen.js?v=aaa0923b58';
 
 // Display speed, world units per second, for a mean velocity in cm/s.
 export const SPEED_K = 9.5;
@@ -356,6 +356,7 @@ export const DYE_BINS = 48;
 export const DYE_SECONDS = 6, DYE_MAX_HOLD = 30;
 const MIN_C = 0.02, HIDDEN_S = 1, WASHOUT_S = 30, MAX_STEP = 0.1;
 
+const NO_INJECT = {};   // (inject's options when none are given: never written)
 export function createBolus(edges, nodes) {
   const NI = new Map(nodes.map((n, i) => [n.id, i]));
   const from = edges.map((e) => NI.get(e.from)), to = edges.map((e) => NI.get(e.to));
@@ -426,10 +427,12 @@ export function createBolus(edges, nodes) {
      * into the same vessel again extends the one running. With `hold` it goes on until release()
      * (and at least `seconds`), up to DYE_MAX_HOLD.
      */
-    inject(k, at = 0, { seconds = DYE_SECONDS, hold = false } = {}) {
-      const em = emitters.find((x) => x.k === k);
-      if (em) { em.left = Math.max(em.left, seconds); em.hold = em.hold || hold; return; }
-      emitters.push({ k, at, left: seconds, hold, held: 0 });
+    inject(k, at = 0, { seconds = DYE_SECONDS, hold = false } = NO_INJECT) {
+      for (let x = 0; x < emitters.length; x++) {
+        const em = emitters[x];
+        if (em.k === k) { em.left = Math.max(em.left, seconds); em.hold = em.hold || hold; return; }
+      }
+      emitters.push({ k, at, left: seconds, hold, held: 0 });   // alloc-rare: one record for each injection started (a learner's action; or, once, the worker's failure handing its runs back), never per frame
     },
     /** Ends a held injection (it still runs out its minimum). */
     release() { for (const em of emitters) em.hold = false; },

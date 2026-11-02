@@ -12,19 +12,19 @@
 // know, a keyboard focus ring) stays drawn by the SVG, label by label. Without WebGL2, on a software renderer, or
 // once the context is lost, the SVG draws them all, as it always has.
 
-import { glGet, glCap } from './gl-state.js?v=f33764e84c';
-import { frameFor, cancelFrame } from './frame.js?v=c99bae2398';
+import { glGet, glCap } from './gl-state.js?v=ee046876b7';
+import { frameFor, cancelFrame } from './frame.js?v=ca74a6f22a';
 import { ucOf } from './uniform-cache.js?v=6488216aa0';
 import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=1b5b7b8ddd';
-import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js?v=6c955f55d8';
+import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js?v=255276a5f4';
 import { createAtlasPacker } from './atlas-pack.js?v=f51c5cf455';
 import { easeMove, D_SURFACE } from './ease.js?v=7d7bfe9a62';
-import { createShapeGL, flattenPath, polyMeshInto, ellipsePoly } from './shape-gl.js?v=2d7c7316ba';
-import { createOrganPaint, parseColor, mul } from './organ-paint.js?v=4bb7f3a808';
-import { textPolys, textWidth, loadGlyphs, glyphsReady, textCovers } from './text-gl.js?v=2411df4df2';
+import { createShapeGL, flattenPath, polyMeshInto, ellipsePoly } from './shape-gl.js?v=eca7084bde';
+import { createOrganPaint, parseColor, mul } from './organ-paint.js?v=d477755fd4';
+import { textPolys, textWidth, loadGlyphs, glyphsReady, textCovers } from './text-gl.js?v=c7ddbab5a6';
 import { watchSize, sizeOf, rectSoon } from './geom.js?v=ca69a8335e';
 import { trackOf, trackAt, mixColour, timingOf, progressAt, keysOf } from './label-track.js?v=bc7e86266b';
-import { caught } from './caught.js?v=b96b17594a';
+import { caught } from './caught.js?v=caf293c676';
 const HOLE_MESH = { tri: null, seg: null, nTri: 0, nSeg: 0 };   // alloc-rare: made once (a hole's mask is meshed into it and released after its draw)
 // (The colour a clear writes, one array for every clear: none made per call, plan rev 2 §2.8.)
 const CLEAR0 = new Float32Array(4);

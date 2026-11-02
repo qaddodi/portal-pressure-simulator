@@ -1,31 +1,31 @@
 // Readout strip (the four key readouts in the vitals dock, and the rest behind its chevron) and the
 // Instruments card (blueprint §9.1, §9.2).
 
-import { store, hiddenNow } from './store.js?v=160363b508';
+import { store, hiddenNow } from './store.js?v=a51981892d';
 import { EDGES } from '../engine/topology.js?v=512e725aea';
-import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, fadeIn, glideOnResize, foldHidden, hasBox, putText } from './util.js?v=82c337aa75';
-import { lobuleFlows } from './lobule-model.js?v=f178c6b6a8';
-import { createProfile } from './charts.js?v=4889618660';
-import { createPressureTime } from './pressure-time.js?v=35690c4104';
-import { createHvpgProcedure } from './hvpg-proc.js?v=2d183a0770';
-import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=2263c91adf';
-import { ownsSideways, pageGo } from './swipe.js?v=dcb9a78ed8';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=17f9d71269';
-import { createReadoutsPane } from './readouts-pane.js?v=249c1a9cd6';
-import { frameFor } from './frame.js?v=c99bae2398';
-import { glWords } from './gl-words.js?v=912ebe3741';
-import { restPass } from './rest-pass.js?v=de1b500aca';
+import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, fadeIn, glideOnResize, foldHidden, hasBox, putText } from './util.js?v=f149f5dc18';
+import { lobuleFlows } from './lobule-model.js?v=f7c073cceb';
+import { createProfile } from './charts.js?v=ef23807323';
+import { createPressureTime } from './pressure-time.js?v=c474d9ca24';
+import { createHvpgProcedure } from './hvpg-proc.js?v=63ce59e0cc';
+import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=e855587a7c';
+import { ownsSideways, pageGo } from './swipe.js?v=1dc3073418';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=a261ba3880';
+import { createReadoutsPane } from './readouts-pane.js?v=7fb3210344';
+import { frameFor } from './frame.js?v=ca74a6f22a';
+import { glWords } from './gl-words.js?v=1264b23ab4';
+import { restPass } from './rest-pass.js?v=b1da783ead';
 import { dropFront } from './drop-front.js?v=21069ee0e8';
-import { classSoon, classHas, classNow } from './class-soon.js?v=3cee49a7e1';
+import { classSoon, classHas, classNow } from './class-soon.js?v=d59b314e61';
 import { vitalReading, VITALS } from './vital-read.js?v=eb683dfbdd';
-import { setShown, shownState, FILL_SMALL, fillQ } from './shown.js?v=46a1041c44';
+import { setShown, shownState, FILL_SMALL, fillQ } from './shown.js?v=94c77e5032';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { HVPG_CUTS, PPG_CUTS, hvpgSev, ppgSev, hvBlocked } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { compareRows } from './idle-keys.js?v=1b5b7b8ddd';
 import { releaseSpeed, carryCurve, cubicBezier, easeArrive, D_FLIP, D_SMALL, EASE_IN, EASE_ARRIVE } from './ease.js?v=7d7bfe9a62';
-import { readAnims, readBox, readMetric, readStyle, scrollInto } from './layout-snap.js?v=80a9b170ba';
-import { attrSoon, dataSoon } from './class-soon.js?v=3cee49a7e1';
-import { caught } from './caught.js?v=b96b17594a';
+import { readAnims, readBox, readMetric, readStyle, scrollInto } from './layout-snap.js?v=890c8333b8';
+import { attrSoon, dataSoon } from './class-soon.js?v=d59b314e61';
+import { caught } from './caught.js?v=caf293c676';
 const nextFrame = frameFor('dock');
 
 // A number that changes rewrites its text node in place (setting textContent replaces the node: a DOM rebuild per paint).

@@ -27,10 +27,10 @@ let gC = new Float32Array(0), from = new Int32Array(0), HF = new Float32Array(1 
 const CELLS = [], CORN = [], ROUTE = [];
 function growStates(NS) {
   if (gC.length >= NS) return;
-  gC = new Float32Array(NS); from = new Int32Array(NS);
+  gC = new Float32Array(NS); from = new Int32Array(NS);   // alloc-rare: pool growth, only when a bigger grid than any before asks for more states
 }
 function growHeap() {
-  const a = new Float32Array(HN * 2), b = new Int32Array(HN * 2);
+  const a = new Float32Array(HN * 2), b = new Int32Array(HN * 2);   // alloc-rare: pool growth, only when the open list is full (it doubles)
   a.set(HF); b.set(HS);
   HF = a; HS = b;
 }
@@ -94,8 +94,8 @@ export class CircuitRouter {
     return this;
   }
   growGrids(NC) {
-    this.near = new Uint8Array(NC); this.on = new Uint8Array(NC); this.wide = new Uint8Array(NC); this.mine = new Uint8Array(NC);
-    this.blocked = new Uint8Array(NC); this.zone = new Uint8Array(NC);
+    this.near = new Uint8Array(NC); this.on = new Uint8Array(NC); this.wide = new Uint8Array(NC); this.mine = new Uint8Array(NC);   // alloc-rare: pool growth, only when the area is bigger than any before (reset)
+    this.blocked = new Uint8Array(NC); this.zone = new Uint8Array(NC);   // alloc-rare: pool growth, only when the area is bigger than any before (reset)
   }
   cx(i) { return this.X0 + (i % this.nx) * this.step; }
   cy(i) { return this.Y0 + Math.floor(i / this.nx) * this.step; }
@@ -145,8 +145,8 @@ export class CircuitRouter {
   route(p, q) {
     const n = this.routeInto(p, q, ROUTE);
     if (n < 0) return null;
-    const pts = [];
-    for (let i = 0; i < n; i++) pts.push([ROUTE[2 * i], ROUTE[2 * i + 1]]);
+    const pts = [];   // alloc-rare: a fresh list the caller keeps, once for each custom shunt routed (stage.js routeCustomShunts routes only the shunts with no route yet)
+    for (let i = 0; i < n; i++) pts.push([ROUTE[2 * i], ROUTE[2 * i + 1]]);   // alloc-rare: as above, once for each custom shunt routed
     return pts;
   }
   search(p, q, relaxed, endR, out) {

@@ -8,20 +8,20 @@
 // readout tile. In Explore the live HVPG readouts stay hidden until this has run for the patient
 // (store.hvpgMeasured, hiddenNow); the tracing's small waves are illustrative.
 
-import { h, fmt, clamp, icon, cssVar, toast, swapText } from './util.js?v=82c337aa75';
-import { glWords } from './gl-words.js?v=912ebe3741';
+import { h, fmt, clamp, icon, cssVar, toast, swapText } from './util.js?v=f149f5dc18';
+import { glWords } from './gl-words.js?v=1264b23ab4';
 import { hvpgSev, hvBlocked } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { FONT } from './charts.js?v=4889618660';
-import { pressureColor } from './colormap.js?v=725a14b413';
-import { store, logAction, hiddenNow, updateParams } from './store.js?v=160363b508';
-import { shownOr } from './shown.js?v=46a1041c44';
-import { classSoon, restartSoon, attrSoon, dataSoon, propSoon } from './class-soon.js?v=3cee49a7e1';
+import { FONT } from './charts.js?v=ef23807323';
+import { pressureColor } from './colormap.js?v=0b6744e2e8';
+import { store, logAction, hiddenNow, updateParams } from './store.js?v=a51981892d';
+import { shownOr } from './shown.js?v=94c77e5032';
+import { classSoon, restartSoon, attrSoon, dataSoon, propSoon } from './class-soon.js?v=d59b314e61';
 import { T, ease, k01, balloonAt, timeOfBalloon, pressureAt as pAt } from './hvpg-clock.js?v=95f13823ce';
-import { frameFor, cancelFrame } from './frame.js?v=c99bae2398';
-import { createTraceGL, fitPen } from './trace-gl.js?v=4424366c62';
+import { frameFor, cancelFrame } from './frame.js?v=ca74a6f22a';
+import { createTraceGL, fitPen } from './trace-gl.js?v=e7cbc8fef1';
 import { traceRoom, TRACE_MIN } from './trace-room.js?v=3d2b1ff680';
 import { rateOf } from './table-marks.js?v=a483b9975e';
-import { PROCS, PROC_KINDS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=7de2109e93';
+import { PROCS, PROC_KINDS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=0bd6bb6764';
 const nextFrame = frameFor('hvpg-proc');
 
 let stageRef = null;

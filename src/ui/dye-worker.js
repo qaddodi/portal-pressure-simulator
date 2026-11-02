@@ -1,7 +1,7 @@
 // The dye bolus off the main thread (recs-2 §3.1; 2 Nov 2026, Mohammad: "how about production quality engine 120+hz"). The slugs'
 // advance through the network (blood.js createBolus: objects per slug, a junction map and sorts each step) runs here; the figure gets
 // back one table of every vessel's dye bins a step (dye-remote.js), which it lays on the GPU as before.
-import { createBolus, DYE_BINS } from './blood.js?v=ca0abd6caa';
+import { createBolus, DYE_BINS } from './blood.js?v=4892162325';
 
 let bolus = null, nE = 0, row = null;
 self.onmessage = (e) => {

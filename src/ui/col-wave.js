@@ -7,10 +7,10 @@
 // occlusive clot) is a flat line on the baseline. Every row shares one scale (waveMax, 50 cm/s unless the slide sets it), so a slow
 // vein stays low and a stent's jet runs to the edge.
 
-import { h, fmt, cssVar } from './util.js?v=82c337aa75';
-import { createTraceGL, fitPen } from './trace-gl.js?v=4424366c62';
+import { h, fmt, cssVar } from './util.js?v=f149f5dc18';
+import { createTraceGL, fitPen } from './trace-gl.js?v=e7cbc8fef1';
 import { cssColor } from './css-color.js?v=59ed182174';
-import { frameFor } from './frame.js?v=c99bae2398';
+import { frameFor } from './frame.js?v=ca74a6f22a';
 
 const AWAY = new Set(['RHV_IVC', 'MHV_IVC', 'LHV_IVC', 'IVCS_RA']);
 const NAME = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L: 'left portal vein', SMV_CONF: 'superior mesenteric vein', SV_CONF: 'splenic vein',
@@ -63,11 +63,11 @@ export function wavePts(w, vessel, max, cw, ch) {
   return w.v.map((v, i) => [(w.t[i] / t1) * cw, ((MID - Math.max(-top, Math.min(top, sign * v * k))) / H) * ch]);
 }
 const live = new Set();   // (the cells drawn now: drawn again on a theme change, let go once off the page)
-const rgba = (c) => { const [r, g, b, a] = cssColor(c); return `rgba(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)}, ${a})`; };
+const rgba = (c) => { const [r, g, b, a] = cssColor(c); return `rgba(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)}, ${a})`; };   // alloc-rare: a pen colour, made only when the tokens it comes from read differently (a theme change; the guards in paintWave), not on a repaint
 const mixChan = (x, y, p, q, al, i) => (al > 0 ? (x[i] * x[3] * p + y[i] * y[3] * q) / al : 0);
 function mixed(a, b, p) {   // (color-mix in srgb: p of a, the rest b)
   const x = cssColor(a), y = cssColor(b), q = 1 - p, al = x[3] * p + y[3] * q;
-  return `rgba(${Math.round(mixChan(x, y, p, q, al, 0) * 255)}, ${Math.round(mixChan(x, y, p, q, al, 1) * 255)}, ${Math.round(mixChan(x, y, p, q, al, 2) * 255)}, ${al})`;
+  return `rgba(${Math.round(mixChan(x, y, p, q, al, 0) * 255)}, ${Math.round(mixChan(x, y, p, q, al, 1) * 255)}, ${Math.round(mixChan(x, y, p, q, al, 2) * 255)}, ${al})`;   // alloc-rare: a pen colour, made only when the tokens it comes from read differently (a theme change; the guards in paintWave), not on a repaint
 }
 // The pen colours, each made again only when the tokens it comes from read differently (a theme change), not on every repaint.
 let tokBase = null, tokToward = null, tokAway = null, tokText = null;   // (null: not made yet, even for a token still reading '')

@@ -3,11 +3,11 @@
 import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=512e725aea';
 import { dopplerVel } from './velNormal.js?v=ad0e95380d';
 import { DRUGS, PREGNANCY_INFO } from '../engine/scenario.js?v=d2669cef9b';
-import { store, updateParams, hiddenNow } from './store.js?v=160363b508';
-import { h, fmt, fmtFlow, fp, ff, clamp, units, tooltipFor, infoButton, icon, svgIcon, paintRange } from './util.js?v=82c337aa75';
+import { store, updateParams, hiddenNow } from './store.js?v=a51981892d';
+import { h, fmt, fmtFlow, fp, ff, clamp, units, tooltipFor, infoButton, icon, svgIcon, paintRange } from './util.js?v=f149f5dc18';
 import { liveBalance } from './balance-hold.js?v=1792704e7a';
-import { frameFor, cancelFrame } from './frame.js?v=c99bae2398';
-import { runSoon, propSoon, attrSoon } from './class-soon.js?v=3cee49a7e1';
+import { frameFor, cancelFrame } from './frame.js?v=ca74a6f22a';
+import { runSoon, propSoon, attrSoon } from './class-soon.js?v=d59b314e61';
 const nextFrame = frameFor('inspector');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));

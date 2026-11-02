@@ -7,29 +7,29 @@
 //
 //   const g = new CellGrid(); g.clearRect(0, 0, cols, rows); g.setTransform(a, b, c, d, e, f); g.fill(shapeGeom(el)); g.readInto(grid);
 
-import { flattenPath } from './shape-gl.js?v=2d7c7316ba';
+import { flattenPath } from './shape-gl.js?v=eca7084bde';
 
 const SUB = 4;   // (scan rows a cell)
 
 /** An element's outline as polylines in its own units: { polys: [{ pts, closed }] }. tol: the chord's reach from a curve. */
 export function geomOf(tag, attr, tol = 0.25) {
-  tag = String(tag).toLowerCase();
-  const n = (k) => parseFloat(attr(k)) || 0;
-  if (tag === 'path') return { polys: flattenPath(attr('d') || '', tol) };
-  if (tag === 'rect') { const x = n('x'), y = n('y'), w = n('width'), h = n('height'); return { polys: w > 0 && h > 0 ? [{ pts: Float32Array.of(x, y, x + w, y, x + w, y + h, x, y + h), closed: true }] : [] }; }
+  tag = String(tag).toLowerCase();   // alloc-rare: an outline is made once for a shape, when first needed (stage.js organCoverGeoms keeps the organ covers' until a band width changes)
+  const n = (k) => parseFloat(attr(k)) || 0;   // alloc-rare: an outline is made once for a shape, when first needed (stage.js organCoverGeoms keeps the organ covers' until a band width changes)
+  if (tag === 'path') return { polys: flattenPath(attr('d') || '', tol) };   // alloc-rare: an outline is made once for a shape, when first needed (stage.js organCoverGeoms keeps the organ covers' until a band width changes)
+  if (tag === 'rect') { const x = n('x'), y = n('y'), w = n('width'), h = n('height'); return { polys: w > 0 && h > 0 ? [{ pts: Float32Array.of(x, y, x + w, y, x + w, y + h, x, y + h), closed: true }] : [] }; }   // alloc-rare: an outline is made once for a shape, when first needed (stage.js organCoverGeoms keeps the organ covers' until a band width changes)
   if (tag === 'circle' || tag === 'ellipse') {
     const cx = n('cx'), cy = n('cy'), rx = tag === 'circle' ? n('r') : n('rx'), ry = tag === 'circle' ? n('r') : n('ry');
-    return { polys: rx > 0 && ry > 0 ? [{ pts: ring(cx, cy, rx, ry, tol), closed: true }] : [] };
+    return { polys: rx > 0 && ry > 0 ? [{ pts: ring(cx, cy, rx, ry, tol), closed: true }] : [] };   // alloc-rare: an outline is made once for a shape, when first needed (stage.js organCoverGeoms keeps the organ covers' until a band width changes)
   }
   if (tag === 'polygon' || tag === 'polyline') {
-    const v = String(attr('points') || '').trim().split(/[\s,]+/).map(Number).filter(Number.isFinite);
-    return { polys: v.length >= 4 ? [{ pts: Float32Array.from(v.slice(0, v.length & ~1)), closed: tag === 'polygon' }] : [] };
+    const v = String(attr('points') || '').trim().split(/[\s,]+/).map(Number).filter(Number.isFinite);   // alloc-rare: an outline is made once for a shape, when first needed (stage.js organCoverGeoms keeps the organ covers' until a band width changes)
+    return { polys: v.length >= 4 ? [{ pts: Float32Array.from(v.slice(0, v.length & ~1)), closed: tag === 'polygon' }] : [] };   // alloc-rare: an outline is made once for a shape, when first needed (stage.js organCoverGeoms keeps the organ covers' until a band width changes)
   }
-  return { polys: [] };
+  return { polys: [] };   // alloc-rare: an outline is made once for a shape, when first needed (stage.js organCoverGeoms keeps the organ covers' until a band width changes)
 }
 function ring(cx, cy, rx, ry, tol) {
   const r = Math.max(rx, ry), k = Math.min(256, Math.max(12, Math.ceil(Math.PI / Math.acos(Math.max(-1, 1 - tol / Math.max(r, tol))))));
-  const pts = new Float32Array(2 * k);
+  const pts = new Float32Array(2 * k);   // alloc-rare: an outline is made once for a shape, when first needed (stage.js organCoverGeoms keeps the organ covers' until a band width changes)
   for (let i = 0; i < k; i++) { const a = (2 * Math.PI * i) / k; pts[2 * i] = cx + rx * Math.cos(a); pts[2 * i + 1] = cy + ry * Math.sin(a); }
   return pts;
 }

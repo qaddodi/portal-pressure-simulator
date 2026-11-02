@@ -11,7 +11,7 @@
 //   const txns = createTxns();
 //   const t = txns.begin({ to, dir });   t.live()  t.signal  t.onRelease(fn)  t.publish(fn) → bool  t.own(els)  t.restore(els)  t.end()
 //   txns.current()  txns.stats()
-import { caught } from './caught.js?v=b96b17594a';
+import { caught } from './caught.js?v=caf293c676';
 
 export function createTxns() {
   let cur = null, ids = 0;

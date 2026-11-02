@@ -8,9 +8,9 @@ const log = new Map();   // tag -> { n, last }
 /** Counts a caught error under `tag` (its file and place). Cheap: no stack, no allocation after the first of a tag. */
 export function caught(tag, e) {
   let r = log.get(tag);
-  if (!r) { r = { n: 0, last: '' }; log.set(tag, r); if (PERF) console.warn(`caught (${tag}):`, e); }
+  if (!r) { r = { n: 0, last: '' }; log.set(tag, r); if (PERF) console.warn(`caught (${tag}):`, e); }   // alloc-rare: the first catch of each tag (a record for it, and under ?perf its one console line)
   r.n++;
-  r.last = e?.message ?? String(e);
+  r.last = e?.message ?? String(e);   // alloc-rare: only for a caught value with no message; String() of a string is that string
 }
 /** What has been caught since the page opened, by tag. */
 export const caughtNow = () => Object.fromEntries([...log].map(([k, v]) => [k, { ...v }]));

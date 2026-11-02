@@ -13,7 +13,7 @@
 //  - the boxes of what the presenter places (cards, callouts, the credit, the zoom pill, the dock's divider): their sizes come from
 //    a ResizeObserver (it reports after the browser's own layout, for free) and their places from whoever put them there (place()).
 // A consumer reads the snapshot first and asks the browser (readBox) only for what the snapshot does not hold.
-import { framePhase } from './frame.js?v=c99bae2398';
+import { framePhase } from './frame.js?v=ca74a6f22a';
 
 // Where the reads happen: by the frame's phase ('read' is the clean one; 'early', 'late' and 'final' come after writes) or 'task'
 // (an event, a timer, an observer). Counted only while ?perf or ?offgpu is watching; window.pps.layoutReads() in the console.

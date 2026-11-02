@@ -72,8 +72,8 @@ export function placePillsInto({ pills, W, top, lim, blockers = NONE }, outs) {
 
 /** placePillsInto with a fresh result: [{ above, dx }] for each pill (a caller that keeps what it gets and has no objects of its own). */
 export function placePills(q) {
-  const res = [];
-  for (let i = 0, n = Math.min(q.pills.length, 2); i < n; i++) res.push({ above: true, dx: 0 });
+  const res = [];   // alloc-rare: only when the readings are placed afresh (stage.js calls placePills only when it is the first time or pillsClear says a reading is no longer clear), not on a steady frame
+  for (let i = 0, n = Math.min(q.pills.length, 2); i < n; i++) res.push({ above: true, dx: 0 });   // alloc-rare: only when the readings are placed afresh (stage.js calls placePills only when it is the first time or pillsClear says a reading is no longer clear), not on a steady frame
   placePillsInto(q, res);
   return res;
 }

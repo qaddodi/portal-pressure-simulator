@@ -14,9 +14,9 @@
 //   move stops at is always drawn at Full, and labels, text, cards and readings are on their own layers: never lowered.
 // tierLog() keeps the last changes, each with why and the registry's size then. ?perf shows the tier with the budget.
 
-import { onFrameEnd, frameBudget } from './frame.js?v=c99bae2398';
-import { overBudget as graphOver, budget } from './gpu-budget.js?v=f25a08a637';
-import { caught } from './caught.js?v=b96b17594a';
+import { onFrameEnd, frameBudget } from './frame.js?v=ca74a6f22a';
+import { overBudget as graphOver, budget } from './gpu-budget.js?v=a79222bd11';
+import { caught } from './caught.js?v=caf293c676';
 
 export const TIERS_ON = true;   // (switch deleted; kept for stage.js until its own pass)
 /** The tiers' share of the vessel layer's width and height on a moving frame (0: Full). 0.71 is half the pixels, 0.5 a quarter. */

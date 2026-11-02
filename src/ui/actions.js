@@ -9,13 +9,13 @@
 
 import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent, isStent, stentSite } from '../engine/topology.js?v=512e725aea';
 import { dopplerVel, flowReversed } from './velNormal.js?v=ad0e95380d';
-import { store, updateParams, hiddenNow } from './store.js?v=160363b508';
-import { fmt, fmtFlow, clamp } from './util.js?v=82c337aa75';
+import { store, updateParams, hiddenNow } from './store.js?v=a51981892d';
+import { fmt, fmtFlow, clamp } from './util.js?v=f149f5dc18';
 import { PREGNANCY_INFO } from '../engine/scenario.js?v=d2669cef9b';
-import { aboutVessel, aboutOrgan } from './about.js?v=4a624cef98';
-import { lobuleState } from './lobule-model.js?v=f178c6b6a8';
-import { oxygenFor } from './blood.js?v=ca0abd6caa';
-import { LABEL_VESSEL, SIN_EDGES } from './anatomy.js?v=8768b1f623';
+import { aboutVessel, aboutOrgan } from './about.js?v=8fd9806bc0';
+import { lobuleState } from './lobule-model.js?v=f7c073cceb';
+import { oxygenFor } from './blood.js?v=4892162325';
+import { LABEL_VESSEL, SIN_EDGES } from './anatomy.js?v=b75990ccb4';
 
 export const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 export const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));

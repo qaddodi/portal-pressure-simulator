@@ -7,8 +7,8 @@
 //
 // This file is the pure part: what a label names, and which labels name a vessel. stage.js does the lighting.
 
-import { normalizeSel } from './actions.js?v=6bf605f6fc';
-import { LABEL_VESSEL } from './anatomy.js?v=8768b1f623';
+import { normalizeSel } from './actions.js?v=29d249b9a6';
+import { LABEL_VESSEL } from './anatomy.js?v=b75990ccb4';
 
 export const HOVER_LINK = true;   // (switch deleted; kept for stage.js until its own pass)
 

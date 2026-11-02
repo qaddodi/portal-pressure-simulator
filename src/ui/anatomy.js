@@ -301,17 +301,17 @@ export const FEEDERS = {
 
 /** Orthogonal / 45° polyline through `pts` with rounded corners of radius `r`. */
 export function route(pts, r = 16) {
-  let d = `M${pts[0][0]} ${pts[0][1]}`;
+  let d = `M${pts[0][0]} ${pts[0][1]}`;   // alloc-rare: a path's text is made once for a route: the fixed lanes at load, and a custom shunt's when it is first opened (stage.js routeCustomShunts routes only the ids with none yet)
   for (let i = 1; i < pts.length - 1; i++) {
     const [px, py] = pts[i - 1], [x, y] = pts[i], [nx, ny] = pts[i + 1];
     const l1 = Math.hypot(x - px, y - py), l2 = Math.hypot(nx - x, ny - y);
     const rr = Math.min(r, l1 / 2, l2 / 2);
     const ax = x - ((x - px) / l1) * rr, ay = y - ((y - py) / l1) * rr;
     const bx = x + ((nx - x) / l2) * rr, by = y + ((ny - y) / l2) * rr;
-    d += ` L ${ax.toFixed(1)} ${ay.toFixed(1)} Q ${x} ${y} ${bx.toFixed(1)} ${by.toFixed(1)}`;
+    d += ` L ${ax.toFixed(1)} ${ay.toFixed(1)} Q ${x} ${y} ${bx.toFixed(1)} ${by.toFixed(1)}`;   // alloc-rare: a path's text is made once for a route: the fixed lanes at load, and a custom shunt's when it is first opened (stage.js routeCustomShunts routes only the ids with none yet)
   }
   const [lx, ly] = pts[pts.length - 1];
-  return d + ` L ${lx} ${ly}`;
+  return d + ` L ${lx} ${ly}`;   // alloc-rare: a path's text is made once for a route: the fixed lanes at load, and a custom shunt's when it is first opened (stage.js routeCustomShunts routes only the ids with none yet)
 }
 
 export const CIRCUIT_PATH = {
@@ -582,7 +582,7 @@ export function cavityHalfWidthsInto(out, b, y0, h) {
 // With no `out` the rows go into one kept array (made at the first call, and again if the row count changes): the array is rewritten by
 // the next call, so a caller that keeps the rows past its next call passes its own `out`.
 export function cavityHalfWidths(b, y0, h, n, out) {
-  if (!out) out = hwOut?.length === n ? hwOut : (hwOut = new Float32Array(n));
+  if (!out) out = hwOut?.length === n ? hwOut : (hwOut = new Float32Array(n));   // alloc-rare: the kept rows are made at the first call, and again only if the row count changes
   return cavityHalfWidthsInto(out, b, y0, h);
 }
 export const ABDOMEN_FLOOR = 950;

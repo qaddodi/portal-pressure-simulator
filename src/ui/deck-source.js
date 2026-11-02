@@ -9,7 +9,7 @@
 //   parseDeckSource(text) → the deck object (plain data), or throws an Error whose message says
 //                           what was wrong and on which line.
 
-import { caught } from './caught.js?v=b96b17594a';
+import { caught } from './caught.js?v=caf293c676';
 const BUILTINS = {
   mi: (x) => `<mi>${x}</mi>`, mo: (x) => `<mo>${x}</mo>`, mn: (x) => `<mn>${x}</mn>`,
   sub: (b, i) => `<msub>${b}<mtext>${i}</mtext></msub>`,

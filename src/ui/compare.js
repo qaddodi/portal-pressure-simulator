@@ -3,10 +3,10 @@
 // and the change, readouts report "vs then", and this section of the panel names both states and
 // tabulates every difference. There is no Compare mode: unpinning ends it.
 
-import { store } from './store.js?v=160363b508';
-import { h, fmt, svgIcon } from './util.js?v=82c337aa75';
+import { store } from './store.js?v=a51981892d';
+import { h, fmt, svgIcon } from './util.js?v=f149f5dc18';
 import { liveBalance } from './balance-hold.js?v=1792704e7a';
-import { activeInterventions } from './inspector.js?v=c735adf810';
+import { activeInterventions } from './inspector.js?v=da2a6cf0c5';
 
 // The rows in the readouts' teaching order, each group named as the readouts name it (pressure, flow, what they lead to, the
 // systemic circulation), so a long table reads as four short ones.
@@ -21,8 +21,8 @@ const ROWS = [
 function describe(labels) {
   if (!labels.length) return 'No changes from the scenario';
   let text = labels[0] ?? '';
-  for (let i = 1; i < labels.length && i < 4; i++) text += ' · ' + (labels[i] ?? '');
-  return labels.length > 4 ? text + ` · +${labels.length - 4} more` : text;
+  for (let i = 1; i < labels.length && i < 4; i++) text += ' · ' + (labels[i] ?? '');   // alloc-rare: the card's text, made as the section is built and when the treatments running or the scenario's name change (the params listener compares them first), never on a steady frame
+  return labels.length > 4 ? text + ` · +${labels.length - 4} more` : text;   // alloc-rare: the card's text, made as the section is built and when the treatments running or the scenario's name change (the params listener compares them first), never on a steady frame
 }
 const scen = () => {
   const st = store.get(), list = st.presetList;

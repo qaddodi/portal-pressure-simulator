@@ -7,13 +7,17 @@
 
 const own = (el) => {
   el._glass?.dispose?.();
-  for (const w of [el._kW, el._bW, el._uW, ...(el._spW || [])]) w?.dispose?.();   // (kept, disposed: a late set on them does nothing)
+  // (Kept, disposed: a late set on them does nothing.)
+  el._kW?.dispose?.(); el._bW?.dispose?.(); el._uW?.dispose?.();
+  const sp = el._spW;
+  if (sp) for (const w of sp) w?.dispose?.();
 };
 
 /** Disposes everything a callout holds, and that of the callouts it is made of. Safe to call again. */
 export function dropLabel(el) {
   if (!el) return;
   own(el);
-  for (const p of el._rows || []) if (p) own(p);
+  const rows = el._rows;
+  if (rows) for (const p of rows) if (p) own(p);
   if (el._calc) own(el._calc);
 }

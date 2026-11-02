@@ -10,8 +10,8 @@
 // returns false and the caller builds the 2D tiles instead. A context lost mid-zoom reports lost; the caller then drops the copy. When
 // the browser gives the context back, the programs are made again in place, and the next copy is built on it (the lost one stays lost).
 
-import { startProgram, checkProgram } from './gl-compile.js?v=6c955f55d8';
-import { fbComplete, glCap, glOkBefore, glOkAfter } from './gl-state.js?v=f33764e84c';
+import { startProgram, checkProgram } from './gl-compile.js?v=255276a5f4';
+import { fbComplete, glCap, glOkBefore, glOkAfter } from './gl-state.js?v=ee046876b7';
 
 export const WIDE_GL = true;   // (switch deleted; kept for lobule-zoom.js until its own pass)
 
