@@ -3214,10 +3214,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // about 10 frames a second on a Mac, Mohammad, 25 Oct: "moving the cards up sliding tucking untucking is very very laggy".)
   // (The glass's view of those rises (glass-gl.js cards.shift): where app.css turns --pz-rise and --pz-lift into a translate, the move they
   // make, from the inline value as written this frame; null where no rule moves the element.)
-  // (?zoomglass=0: a card zoomed up (card-zoom.js data-zoomed) takes the solid card until it is back. By default it keeps its GPU glass,
-  // read again in each frame its zoom moves it (glass-gl.js LIVE_READ), and the words' card steps out from under it (app.css .pz-zoomed).)
-  const ZOOM_GLASS = !/[?&]zoomglass=0\b/.test(location.search);
-  if (!ZOOM_GLASS) document.documentElement.setAttribute('data-zoomsolid', '');
+  // (A card zoomed up (card-zoom.js data-zoomed) leaves the GPU glass for the solid card until it is back: its glass lies in the figure,
+  // under the page's labels and cards, so the stage, its labels and the words showed through it, and its grown box was left drawn where
+  // the card had been (Mohammad, 2 Nov 2026, HVPG 3 and 7 on the Mac). The words, their glass and the stage's labels step out from under it
+  // (app.css .pz-zoomed). ?zoomglass=1: drawn on the GPU (f40c5521).)
+  const ZOOM_GLASS = /[?&]zoomglass=1\b/.test(location.search);
   const unzoomed = (g) => ZOOM_GLASS || !g?.dataset || !('zoomed' in g.dataset);
   const risePx = (el, name) => parseFloat(el.style.getPropertyValue(name)) || 0;
   const riseShift = (el) => {

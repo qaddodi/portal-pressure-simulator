@@ -409,6 +409,10 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   if (HOLD_URL || reblur > 0) fresh = null;
   const look = pane ? PANE : cards ? CARD : GLASS;
   const SCALE = look.scale || SCALE0, MARGIN = look.margin || MARGIN0;
+  // (While the cards' glass is drawn in the figure's canvas (html[data-cardgl]), a card not yet marked as drawn there shows no solid card
+  // (app.css): a card coming in showed the solid fallback for its first frame or two, before its glass's first draw, a flash of solid then
+  // frost (Mohammad, 2 Nov 2026: "the blur flickers when new card opens"). ?cardfallback=1: the solid card until then, as before.)
+  const CARD_MARK = !/[?&]cardfallback=1\b/.test(SEARCH);
   // (cards: { find, watch, before, read? }: the Present cards' glass (recs A2, 31 Oct): find() lists the elements, each its own rounded box, its
   // corners its border radii and its tint the colour its CSS declares in --gl-tint (app.css: the same colour its background was), drawn
   // while its --gl-glass is 1 and no CSS filter lies on it; watch: the roots whose writes may move them; before: where the canvas goes.
@@ -809,6 +813,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   function dropHost(again) {
     if (!hostOn) return;
     hostOn = false; hf = null;
+    if (cards && CARD_MARK) document.documentElement?.removeAttribute?.('data-cardgl');
     if (hk) hk.key = '';
     unmark();
     tellHoles([]);
@@ -875,6 +880,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     if (!hostOn) {
       // (This canvas cleared and out of the page's layers; a copy on its way is not put in, and the next one here is taken afresh.)
       hostOn = true; hf = null; gen++; pending = false; ready = null; takenKey = '';
+      if (cards && CARD_MARK) document.documentElement?.setAttribute?.('data-cardgl', '');
       if (canvas) {
         clear();
         canvas.style.visibility = 'hidden';
@@ -1108,7 +1114,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     G.activeTexture(G.TEXTURE1); G.bindTexture(G.TEXTURE_2D, null); G.activeTexture(G.TEXTURE0); G.bindTexture(G.TEXTURE_2D, null);
     G.pixelStorei(G.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
   }
-  const onHostLost = () => { if (host) { warmed.delete(host.gl); fills.delete(host.gl); shares.delete(host.gl); } hk = null; if (hostOn) { hostOn = false; hf = null; unmark(); tellHoles([]); if (canvas) canvas.style.visibility = ''; ask(); } };
+  const onHostLost = () => { if (host) { warmed.delete(host.gl); fills.delete(host.gl); shares.delete(host.gl); } hk = null; if (hostOn) { hostOn = false; hf = null; if (cards && CARD_MARK) document.documentElement?.removeAttribute?.('data-cardgl'); unmark(); tellHoles([]); if (canvas) canvas.style.visibility = ''; ask(); } };
   const sameList = (a, b) => a.length === b.length && a.every((g, i) => g === b[i]);
   // The page as the glasses need it, read once, outside any frame, and kept (geo), each moving part taken out (glass-motion.js): every
   // glass's box, corners, tint and the fade of everything that is not moving; the canvas's and the figure's boxes; the stage's colour;
@@ -1538,7 +1544,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       hostTops = [];
       unmark();
       tellHoles([]);
-      if (hostOn) { hostOn = false; hf = null; host?.now(); }
+      if (hostOn) { hostOn = false; hf = null; if (cards && CARD_MARK) document.documentElement?.removeAttribute?.('data-cardgl'); host?.now(); }
       hostFree();
       if (gl && !lost) {
         for (const t of [copyTex, pass, blurred, ...maskTex]) gl.deleteTexture(t);

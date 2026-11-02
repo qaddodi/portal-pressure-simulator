@@ -7699,7 +7699,12 @@ body { font-optical-sizing: auto; font-kerning: normal; }
    soft dark spill under and round a frosted card read as smudges on the figure. Their 1 px edge stays. Both the page's box-shadow and the
    GPU's own (--gl-drop) take --pz-glass-drop from --glass-drop, so it is cleared here once. ?carddrop=1: the shadow as before. */
 :root:root:not([data-carddrop]) :is(.pz, .pz-shade) { --glass-drop: transparent; }
-/* A card zoomed up keeps its GPU glass, which lies in the figure under the page's cards: the words' card and its glass step out from under it
-   while it is up, so nothing shows through it (Mohammad, 2 Nov 2026, a chart zoomed on HVPG 3: "wtf is this"). ?zoomglass=0 (presenter.js):
-   the zoomed card goes solid instead and the words stay. */
-:root:not([data-zoomsolid]) .pz-zoomed :is(.pz-text, .pz-shade) { opacity: 0 !important; transition: opacity var(--d-small) var(--ease) !important; }
+/* A card zoomed up is a solid card (presenter.js ZOOM_GLASS): the words' card, its glass and the stage's labels step out from under it while it
+   is up, so nothing shows through it or sits over it (Mohammad, 2 Nov 2026, charts zoomed on HVPG 3 and 7: "wtf is this"). */
+.pz-zoomed :is(.pz-text, .pz-shade, #labelGl, #labels) { opacity: 0 !important; transition: opacity var(--d-small) var(--ease) !important; }
+/* While the cards' glass is drawn in the figure's canvas (html[data-cardgl], glass-gl.js CARD_MARK), a card its glass has not drawn yet (its first
+   frame coming in) shows no solid card: the solid card for a frame, then the frost, read as the blur flickering as each card opened (Mohammad,
+   2 Nov 2026). Where the figure's canvas cannot take the glass at all (a dive, the lobule) the attribute is off and the solid card stands. */
+:root:root[data-cardgl] :is(.pz-shade, .pz-shade.pz-card, .pz-shade.stack, .pz-data.pz-data, .pz-case, .pz-bar, .pz.stack .pz-bar, .pz-scales, .pz-fk, .pz .pz-fk.pz-fk):not([data-gl]):not([data-zoomed]) { background: none; }
+:root:root[data-cardgl] .pz.stack.stack .pz-data.pz-sheet:not([data-gl]):not([data-zoomed])::before, :root:root[data-cardgl] .pz.stack.stack .pz-data.pz-sheet:not([data-gl]):not([data-zoomed])::after,
+:root:root[data-cardgl] .pz.pz-wide.pz-wide .pz-data.pz-sheet:not([data-gl]):not([data-zoomed])::before, :root:root[data-cardgl] .pz.pz-wide.pz-wide .pz-data.pz-sheet:not([data-gl]):not([data-zoomed])::after { background: none; }
