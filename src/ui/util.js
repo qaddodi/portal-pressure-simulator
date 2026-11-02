@@ -1,6 +1,7 @@
 // DOM & formatting helpers.
 import { saver, frame, cancelFrame, easeNow, readFrame } from './frame.js?v=7710f677e2';
 import { restPass } from './rest-pass.js?v=bf0c42ead5';
+import { glWords, GL_WORDS } from './gl-words.js?v=a7882628e8';
 import { slideFold } from './fold-slide.js?v=1b10231dcf';
 import { releaseSpeed, isFlick, carryCurve, settleSlope, settleAt, easeMove, D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js?v=7513a88c68';
 import { leaveFromHere } from './menu-leave.js?v=e885166f40';
@@ -139,8 +140,7 @@ function toastFit(wrap, t, msg, actions) {
 }
 // (Since 2 Nov 2026 the card is built and put on the page as a task between frames (rest-pass.js), never inside the frame that asked
 // for it: toast is reached from the tick, and the build wrote the page there. The returned close works at once: asked before the card
-// exists, it closes the card as soon as it is built. ?toastdefer=0: built at once, as before.)
-const TOAST_DEFER = !(typeof location !== 'undefined' && /[?&]toastdefer=0\b/.test(location.search || ''));
+// exists, it closes the card as soon as it is built. ?restpass=0 runs it on a plain zero timer instead, still never in a frame.)
 const toastBuildRest = (job) => { job.close = toastBuild(job.msg, job.kind, job.opts); if (job.early) job.close(job.early); };
 export function toast(msg, kind = '', { actions = null, sticky = false, onClose = null, present = false } = {}) {
   if (!msg) return () => {};
@@ -148,7 +148,6 @@ export function toast(msg, kind = '', { actions = null, sticky = false, onClose 
   // (present: a link copied, a slide number typed) show.
   if (kind !== 'bad' && !actions?.length && !present && document.getElementById('app')?.classList.contains('presenting')) return () => {};
   const opts = { actions, sticky, onClose };
-  if (!TOAST_DEFER) return toastBuild(msg, kind, opts);
   const job = { msg, kind, opts, close: null, early: null };
   restPass(() => toastBuildRest(job));
   return (why = 'user') => { if (job.close) job.close(why); else job.early ||= why; };
@@ -582,8 +581,8 @@ function foldRun(el, hide) {
  *  that appears doesn't pop either. then: run with the new text in (a class that goes with it). */
 export function swapText(el, txt, then) {
   const job = swaps.get(el);
-  if (job ? job.txt === txt : el.textContent === txt) return;
-  const fill = () => { el.textContent = txt; then?.(); };
+  if (job ? job.txt === txt : textNow(el) === txt) return;
+  const fill = () => { putText(el, txt); then?.(); };   // (drawn on the GPU, gl-words.js, or written between frames: never into the page in a frame)
   if (!job && !el.firstChild && txt && el.animate && el.isConnected && hasBox(el)) {
     fill(); el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE }); return;
   }
@@ -599,7 +598,37 @@ let rollRaf = 0;
 const COUNT_MS = D_SMALL;   // (a roll takes a small step of the motion scale, ease.js)
 // Text that changes rewrites its text node in place: setting textContent replaces the node, which re-checks styles for the
 // element and, through :has() in the phone and iPad layouts, ~85 others a model frame (round 2 review, P7).
-export const putText = (el, t) => { const n = el.firstChild; if (n && n.nodeType === 3 && !n.nextSibling) { if (n.data !== t) n.data = t; } else if (el.textContent !== t) el.textContent = t; };
+// (Since 2 Nov 2026 (Mohammad: "Move everything to GPU") a number's or word's new text is drawn on the GPU (gl-words.js) and taken into the
+// page between frames once it holds still, never written into the page in a frame. An element that cannot be drawn that way (more than
+// its own text in it, a roll under way) is written between frames in the order asked, the latest text only. ?glwords=0: written between
+// frames with no picture.)
+const wordsOfEl = new WeakMap(), putPend = new Map();
+let putAsk = 0;
+const textNow = (el) => (putPend.has(el) ? putPend.get(el) : el.textContent);
+function putFlush() {
+  putAsk = 0;
+  const now = [...putPend]; putPend.clear();
+  for (const [el, t] of now) {
+    const n = el.firstChild;
+    if (n && n.nodeType === 3 && !n.nextSibling) { if (n.data !== t) n.data = t; } else if (el.textContent !== t) el.textContent = t;
+  }
+}
+const putLater = (el, t) => { putPend.set(el, t); if (!putAsk) putAsk = restPass(putFlush); };
+export const putText = (el, t) => {
+  t = String(t ?? '');
+  if (putPend.has(el)) { putPend.set(el, t); return; }
+  let w = wordsOfEl.get(el);
+  if (!w && GL_WORDS && el.isConnected && !odos.has(el)) {
+    const n = el.firstChild;
+    if (!n || (n.nodeType === 3 && !n.nextSibling)) wordsOfEl.set(el, w = glWords(el));
+  }
+  if (w && !odos.has(el) && (!el.firstChild || (el.firstChild.nodeType === 3 && !el.firstChild.nextSibling))) {
+    // (Words written by hand since the last ones put here: the readout is drawn from what the page shows now.)
+    if (w.text !== t || el.textContent !== t) { if (el.textContent !== w.text && el.textContent !== t) putLater(el, t); else w.set(t); }
+    return;
+  }
+  if (el.textContent !== t) putLater(el, t);
+};
 const putNum = putText;
 function rollStep(now) {
   rollRaf = 0;
@@ -632,15 +661,28 @@ export function odoEnd(el) {
   const o = odos.get(el);
   if (!o) return;
   odos.delete(el); clearTimeout(o.timer);
+  restPass(() => odoFinishRest(el, o));
+}
+function odoFinishRest(el, o) {
+  if (putPend.has(el)) return;   // (something else was asked to be written since: that is the newer text)
   if (el.querySelector(':scope > .odo')) el.textContent = o.txt;   // (not putText: the text already reads the same)
+  else if (!o.built) putText(el, o.txt);   // (ended before its strips were built: the new number lands plain)
 }
 /** el's text a → b, each changed digit rolling in its own column (app.css .odo) over ms on easing; up: the value rose. False (nothing
- *  done) when the two are not the same shape: the same length, digits where digits are and every other character the same. */
+ *  done) when the two are not the same shape: the same length, digits where digits are and every other character the same. The strips
+ *  are built between frames (rest-pass.js), the roll itself runs on the compositor. */
 export function odoSwap(el, a, b, up, ms = COUNT_MS, easing = null) {
   odoEnd(el);
   a = String(a); b = String(b);
   const dig = (ch) => ch >= '0' && ch <= '9';
   if (a === b || a.length !== b.length || ![...a].every((ch, i) => dig(ch) === dig(b[i]) && (dig(ch) || ch === b[i]))) return false;
+  const o = { txt: b, timer: 0, built: false };
+  odos.set(el, o);
+  restPass(() => odoBuildRest(el, o, a, b, up, ms, easing));
+  return true;
+}
+function odoBuildRest(el, o, a, b, up, ms, easing) {
+  if (odos.get(el) !== o || putPend.has(el)) return;   // (ended or replaced before it was built)
   const frag = document.createDocumentFragment();
   let run = '';
   for (let i = 0; i < b.length; i++) {
@@ -660,10 +702,8 @@ export function odoSwap(el, a, b, up, ms = COUNT_MS, easing = null) {
   }
   if (run) frag.append(run);
   el.replaceChildren(frag);
-  const o = { txt: b, timer: 0 };
+  o.built = true;
   o.timer = setTimeout(() => { if (odos.get(el) === o) odoEnd(el); }, ms + 40);
-  odos.set(el, o);
-  return true;
 }
 export const odoOn = () => ODO;
 function odoRoll(el, c, from, to) {

@@ -25,14 +25,16 @@ test('P7: live labels, the clock and the stage readouts rewrite their text node 
   assert.match(tl, /putText\(timeLong, t\); putText\(timeShort,/);
 });
 
-test('putText keeps the text node and changes only its data; an element without one gets its text set', () => {
+test('putText keeps the text node and changes only its data; an element without one gets its text set (between frames)', async () => {
   const node = { nodeType: 3, nextSibling: null, data: '12.0' };
   const el = { firstChild: node, set textContent(v) { throw new Error('rebuilt'); }, get textContent() { return node.data; } };
   putText(el, '12.4');
+  await new Promise((r) => setTimeout(r, 30));   // (written in a rest pass between frames, never in the frame that asked)
   assert.equal(node.data, '12.4');
   putText(el, '12.4');
   const empty = { firstChild: null, textContent: '' };
   putText(empty, '7');
+  await new Promise((r) => setTimeout(r, 30));
   assert.equal(empty.textContent, '7');
 });
 

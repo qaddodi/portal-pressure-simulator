@@ -3,15 +3,15 @@
 
 import { store, hiddenNow } from './store.js?v=4ef2a6ffd8';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, fadeIn, glideOnResize, foldHidden, hasBox, putText } from './util.js?v=92b27571e7';
-import { lobuleFlows } from './lobule-model.js?v=e5c5220cb4';
-import { createProfile } from './charts.js?v=ee9686771f';
-import { createPressureTime } from './pressure-time.js?v=6effc078ea';
-import { createHvpgProcedure } from './hvpg-proc.js?v=5279a67c1c';
-import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=3a8fc5d1f5';
+import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, fadeIn, glideOnResize, foldHidden, hasBox, putText } from './util.js?v=6c38c02539';
+import { lobuleFlows } from './lobule-model.js?v=e2cb49cf61';
+import { createProfile } from './charts.js?v=4b82143f56';
+import { createPressureTime } from './pressure-time.js?v=48eb150f3a';
+import { createHvpgProcedure } from './hvpg-proc.js?v=a85a54ce92';
+import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=d5ddcc53b6';
 import { ownsSideways, pageGo } from './swipe.js?v=c1f19a57dd';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=28580ae2a2';
-import { createReadoutsPane } from './readouts-pane.js?v=4d693ae8bb';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=0a4bf7a439';
+import { createReadoutsPane } from './readouts-pane.js?v=5d6b960bf0';
 import { frameFor } from './frame.js?v=7710f677e2';
 import { vitalReading, VITALS } from './vital-read.js?v=cbba41a6b7';
 import { setShown, shownState, FILL_SMALL, fillQ } from './shown.js?v=d456014820';
