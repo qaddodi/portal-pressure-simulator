@@ -13446,15 +13446,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     lobuleGlCheck: () => lz?.glCheck() ?? null, lobuleLabelLayouts: () => lz?.labelLayouts() ?? 0,
     /** The lobule's outline in client px while it fills the view (see lobule-zoom ring), else null. */
     lobuleRing: () => (lobuleOn && diveT >= 1 ? lz?.ring() ?? null : null),
-    /** The vessels lit by a glow that stays (a selection, a slide's or step's vessels, the Doppler's), as [id, band width ×]: the corner
-     *  credit keeps off their glow too. (A hover's or a change's glow comes and goes; the credit does not move for it.) */
     /** The vessels as the corner credit counts them (credit.js), in world units: each course drawn (a vessel's own, and in the anatomy its
      *  strands' and drawn trunks'), its hit width w, its box, and ver (a new ver: the list changed). */
-    vesselShapes,   // (the corner credit reads the hit strokes' paths, held while the GPU draws)
+    vesselShapes,
     /** A vein's drawn width (world units), the lumen a glow hugs (credit.js); null for an artery or an unknown id. */
     lumenWidth: (id) => (E[id] && !E[id].isArt ? E[id].width : null),
+    /** The vessels lit by a glow that stays (a selection, a slide's or step's vessels, the Doppler's), as [id, band width ×]: the corner
+     *  credit keeps off their glow too. (A hover's or a change's glow comes and goes; the credit does not move for it.) */
     steadyGlows: () => ['sel', 'dop', 'slide', 'focus'].flatMap((k) => [...(glow.src.get(k) || new Map()).values()].map((g) => [g.id, g.wide || 1])),
-    /** A talk takes the figure out of the Tab order (its vessels, organ keys and labels); the end of the talk puts it back. */
+    /** A talk takes the figure out of the Tab order (its one stop and its labels); the end of the talk puts it back. */
     setKeyStops: (on) => {
       keyStops = !!on;
       svg.setAttribute('tabindex', keyStops ? '0' : '-1');
