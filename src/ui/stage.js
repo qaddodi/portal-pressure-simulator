@@ -4001,7 +4001,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (ids !== joinBinIds) { joinBinIds = ids; joinBin.clear(); }
     for (const j of J) {
       const k = `${j.members.join('.')}|${j.trunk ?? ''}`, b = joinBin.get(k);
-      if (!b || Math.hypot(j.x - b.x, j.y - b.y) + j.reach > b.r) joinBin.set(k, { x: j.x, y: j.y, r: Math.ceil((j.reach * 1.5) / 2) * 2 + 8 });
+      // (A join that leaves its circle takes one at least half as wide again as the last, so a join easing wider leaves it once or
+      // twice rather than at every few pixels: still 7 whole binnings in a Varices slide change with the circle at the join's own width.)
+      const out = b && Math.hypot(j.x - b.x, j.y - b.y) + j.reach > b.r;
+      if (!b || out) joinBin.set(k, { x: j.x, y: j.y, r: Math.ceil(Math.max(j.reach * 1.5, out ? b.r * 1.5 : 0) / 2) * 2 + 8 });
       const c = joinBin.get(k);
       j.binX = c.x; j.binY = c.y; j.binReach = c.r;
     }
