@@ -1321,28 +1321,29 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const veinsG = s('g', { mask: 'url(#caudMask)', class: 'caud-veins' });
     CAUDATE.veins.forEach(([d, w], i) => {
       const n = d.match(/-?\d+(?:\.\d+)?/g).map(Number), P0 = [n[0], n[1]], C = [n[2], n[3]], P1 = [n[4] + 3, n[5] - 1.5];   // (on into the wall, where it fades)
-      const at = (t) => [0, 1].map((j) => (1 - t) ** 2 * P0[j] + 2 * (1 - t) * t * C[j] + t * t * P1[j]);
+      const bez = (t, j) => (1 - t) ** 2 * P0[j] + 2 * (1 - t) * t * C[j] + t * t * P1[j];   // (the curve's x (j 0) or y (j 1) at t)
       // The outline of a tube that widens from a rounded start inside the lobe and flares a little into the cava.
       const h0 = (pad) => (w / 2) * 0.45 + pad;
       const tube = (pad) => {
         const L = [], R = [];
         for (let k = 0; k <= 20; k++) {
-          const t = k / 20, p = at(t), q = at(Math.min(1, t + 0.01)), r = at(Math.max(0, t - 0.01));
-          let nx = -(q[1] - r[1]), ny = q[0] - r[0]; const l = Math.hypot(nx, ny) || 1; nx /= l; ny /= l;
+          const t = k / 20, tq = Math.min(1, t + 0.01), tr = Math.max(0, t - 0.01);
+          const px = bez(t, 0), py = bez(t, 1), qy = bez(tq, 1), qx = bez(tq, 0), ry = bez(tr, 1), rx = bez(tr, 0);
+          let nx = -(qy - ry), ny = qx - rx; const l = Math.hypot(nx, ny) || 1; nx /= l; ny /= l;
           const h = (w / 2) * (0.45 + 0.55 * Math.min(1, t / 0.75)) * (1 + 0.25 * Math.max(0, (t - 0.75) / 0.25) ** 2) + pad;
-          L.push([p[0] + nx * h, p[1] + ny * h]); R.push([p[0] - nx * h, p[1] - ny * h]);
+          L.push([px + nx * h, py + ny * h]); R.push([px - nx * h, py - ny * h]);
         }
         return 'M' + [...L, ...R.reverse()].map((v) => v[0].toFixed(2) + ' ' + v[1].toFixed(2)).join(' L') + ' Z';
       };
       veinsG.append(s('path', { d: tube(0.45), class: 'caud-wall' }), s('circle', { cx: P0[0], cy: P0[1], r: h0(0.45), class: 'caud-wall' }),
         s('path', { d: tube(0), class: 'caud-lumen' }), s('circle', { cx: P0[0], cy: P0[1], r: h0(0), class: 'caud-lumen' }),
-        s('path', { d: `M${at(0.35).join(' ')} Q ${C.join(' ')} ${P1.join(' ')}`, class: 'caud-sheen', 'stroke-width': (w * 0.22).toFixed(2) }));
+        s('path', { d: `M${bez(0.35, 0)} ${bez(0.35, 1)} Q ${C.join(' ')} ${P1.join(' ')}`, class: 'caud-sheen', 'stroke-width': (w * 0.22).toFixed(2) }));
     });
     g.insertAdjacentHTML('afterbegin', `<defs>${defsHtml}</defs>`);
     const lumens = [...veinsG.querySelectorAll('.caud-lumen')];
     g.append(lobe, veinsG);
     gOver.prepend(g);
-    let cols = '', grow = '', goneT = 0;
+    let cols = '', grow = '', goneT = 0, growKq = NaN;
     return {
       // (Once faded out, hidden, its veins' mask is off (.gone): a hidden group's mask is still built on every repaint.)
       show(on, veins) {
@@ -1353,7 +1354,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // Colored from the pressure they drain at (the IVC's: the lobe keeps its outflow); sized by its share of it.
       sync(c, kq) {
         if (c !== cols) { cols = c; for (const el of lumens) el.setAttribute('fill', c); }
-        const [gx, gy] = CAUDATE.grow, v = `scale(${(1 + gx * kq).toFixed(3)}, ${(1 + gy * kq).toFixed(3)})`;
+        if (kq === growKq) return;   // (the same size gives the same text)
+        growKq = kq;
+        const v = `scale(${(1 + CAUDATE.grow[0] * kq).toFixed(3)}, ${(1 + CAUDATE.grow[1] * kq).toFixed(3)})`;
         if (v !== grow) { grow = v; g.style.transform = v; }
       },
     };
