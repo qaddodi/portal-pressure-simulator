@@ -40,15 +40,9 @@ import { h, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, 
 import { createSvgGL, svgModel, setGeo, geoOf } from './svg-gl.js?v=e5886331c8';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=026724823d';
 import { NODES, EDGES } from '../engine/topology.js?v=512e725aea';
-<<<<<<< Updated upstream
 import { createVeinsGL, LZ_ONE, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=49cbf94c08';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=8aea855ce8';
 import { createSinusoidView } from './sinusoid-view.js?v=7bc1ae854d';
-=======
-import { createVeinsGL, LZ_ONE, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=49cbf94c08';
-import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=8aea855ce8';
-import { createSinusoidView } from './sinusoid-view.js?v=7bc1ae854d';
->>>>>>> Stashed changes
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, framePart, easeNow, inMotion, PACED } from './frame.js?v=1d147c7c9a';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { FADE_MS, fadeAlpha, viewFollow } from './res-fade.js?v=e216f9e4bc';
