@@ -1241,6 +1241,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   const ended = new Map();
   const RISE = !/[?&]glassrise=0\b/.test(SEARCH);
   const LIVE_READ = !/[?&]liveread=0\b/.test(SEARCH);
+  const FRAME_LEAD_MS = 16.7;   // (a frame at 60 Hz: the most a live glide is carried on by)
   const chainOf = (g) => { const c = []; for (let e = g; e && e !== stop && e.nodeType !== 9; e = e.parentElement) c.push(e); return c; };
   function addAnim(e, an) {
     let m = anims.get(e);
@@ -1352,7 +1353,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     const bg = colour(bgs, 'transparent');
     const bgVar = bg[3] > 0 ? '' : ws.getPropertyValue('--stage-bg').trim() || ws.getPropertyValue('--bg').trim();
     resolveColour(bgVar);
-    const prev = geo?.panes || [], tNow = performance.now();
+    const prev = geo?.panes || [], tNow = performance.now(), seenN = new Map();
     const panes = readPanes(list, MOTION).map((p) => {
       resolveColour(p.tint);
       if (p.line) resolveColour(p.line);
@@ -1364,7 +1365,18 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       let aS = p.oa ?? 1;
       for (const e of chain) { if (moveOf(e, flag).o != null) continue; const v = fadeOf(e); if (v < 1) aS *= v; }   // (a missing or odd value is no fade)
       const back = [-mv.t[0], -mv.t[1]];
-      const r0 = shift(p.r, back), er0 = shift(p.er, back);
+      const raw0 = shift(p.r, back), raw1 = shift(p.er, back);
+      let r0 = raw0, er0 = raw1;
+      // (A card that glides by a transform the glass cannot follow (a zoom's scale) is composited at the display's next frame, while a picture
+      // drawn in this frame is shown a frame later: the frost trailed the card by a frame of its motion, a second card outline behind it,
+      // Mohammad, 2 Nov 2026, zooming the instrument card in and out. Its box is carried on by one frame at the speed it had between the last
+      // two reads.)
+      const q0 = geo?.raw && flag.live && tNow - geo.t < 40 && tNow - geo.t > 2 ? prev.find((x) => x.g === p.g && x.rawN === (seenN.get(p.g) || 0)) : null;
+      seenN.set(p.g, (seenN.get(p.g) || 0) + 1);
+      if (q0?.raw0 && q0.live) {
+        const f = Math.min(tNow - geo.t, FRAME_LEAD_MS) / (tNow - geo.t), lead = (a, b) => ({ left: a.left + (a.left - b.left) * f, top: a.top + (a.top - b.top) * f, right: a.right + (a.right - b.right) * f, bottom: a.bottom + (a.bottom - b.bottom) * f, width: a.width + (a.width - b.width) * f, height: a.height + (a.height - b.height) * f });
+        r0 = lead(raw0, q0.raw0); er0 = lead(raw1, q0.raw1);
+      }
       // (A card the page asks to change size in view (data-gl-morph: the teaching card's glass kept up through a slide change) eases from
       // where it is drawn now to its new box on the GPU, its edge and shadows with it; read again mid-way, it carries on from there.)
       let morph = null;
@@ -1377,10 +1389,10 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
         }
       }
       if (morph) liveUntil = Math.max(liveUntil, morph.t0 + morph.ms + 34);
-      return { ...p, chain, r0, er0, aS, morph };
+      return { ...p, chain, r0, er0, aS, morph, raw0, raw1, rawN: seenN.get(p.g) - 1, live: !!flag.live };
     });
     const over = host ? (cards ? { low: host.over?.('low') || [], high: host.over?.('high') || [] } : { all: host.over?.() || [] }) : null;
-    geo = { list, cr0: shift(cr, [-cm.t[0], -cm.t[1]]), tgt, sr: source.getBoundingClientRect(), vw, vh, bgs, bg, bgVar, panes, over, vk: host?.view?.() ?? null };
+    geo = { t: tNow, raw: true, list, cr0: shift(cr, [-cm.t[0], -cm.t[1]]), tgt, sr: source.getBoundingClientRect(), vw, vh, bgs, bg, bgVar, panes, over, vk: host?.view?.() ?? null };
     if (watchRo) { if (tgt) watchRo.observe(tgt); for (const g of list) watchRo.observe(g); }
     wake();
   }
