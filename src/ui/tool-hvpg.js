@@ -10,7 +10,7 @@
 // every frame), and the slide's readings are the ones the catheter's callouts print. The same card stays up from one such slide to the
 // next (card-keep.js), and the trace carries on from where the last slide left it.
 
-import { createHvpgMonitor } from './hvpg-proc.js?v=a95287f206';
+import { createHvpgMonitor } from './hvpg-proc.js?v=332a753e2a';
 import { T, ease, k01 } from './hvpg-clock.js?v=95f13823ce';
 import { frameFor, cancelFrame } from './frame.js?v=6c8b072dce';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
@@ -31,7 +31,9 @@ export function createHvpgCard() {
   let target = null, cur = null, pending = 'result', token = 0, raf = 0, last = 0, done = false;
   let step = null, shown = false;   // (step: the catheter step this card follows, null when it plays on its own clock; shown: the card is on a slide now)
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-  const gone = (my) => my !== token || !el.isConnected;
+  // (A sweep ends when another starts or the card leaves its slide (park), never because the card is off the page a moment: a card zoomed
+  // open, or moved as its slide settles, is put back, and a sweep that gave up there left the tracing stopped at "balloon up" for good.)
+  const gone = (my) => my !== token || !shown;
   // The levels ease to the target on each frame they move; the monitor reads `cur` in place, so a sweep in progress picks them up too.
   // (On the shown state's filter, display-state.js follow2, premium-feel R4: the bar's and the figure's one clock. curW: its first stage.)
   let curW = null;

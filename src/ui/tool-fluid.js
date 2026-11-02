@@ -8,7 +8,7 @@
 
 import { frame } from './frame.js?v=6c8b072dce';
 import { createSvgGL, svgModel } from './svg-gl.js?v=a48171b776';
-import { h, fmt, clamp } from './util.js?v=b1e0231a8c';
+import { h, fmt, clamp } from './util.js?v=5326ad1cb3';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { store } from './store.js?v=4ef2a6ffd8';
 import { measure } from './glyph-measure.js?v=5fc78d0edb';

@@ -8,11 +8,11 @@
 // readout tile. In Explore the live HVPG readouts stay hidden until this has run for the patient
 // (store.hvpgMeasured, hiddenNow); the tracing's small waves are illustrative.
 
-import { h, fmt, clamp, icon, cssVar, toast, swapText } from './util.js?v=b1e0231a8c';
-import { glWords } from './gl-words.js?v=95b9c1652c';
+import { h, fmt, clamp, icon, cssVar, toast, swapText } from './util.js?v=5326ad1cb3';
+import { glWords } from './gl-words.js?v=6e5661afdf';
 import { hvpgSev, hvBlocked } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { FONT } from './charts.js?v=2361c27c7b';
-import { pressureColor } from './colormap.js?v=9787286268';
+import { FONT } from './charts.js?v=6ea2571775';
+import { pressureColor } from './colormap.js?v=77fff869d4';
 import { store, logAction, hiddenNow, updateParams } from './store.js?v=4ef2a6ffd8';
 import { shownOr } from './shown.js?v=c7f73e48fd';
 import { T, ease, k01, balloonAt, timeOfBalloon, pressureAt as pAt } from './hvpg-clock.js?v=95f13823ce';
@@ -304,7 +304,9 @@ export function createHvpgMonitor() {
     else if (rising()) t = bal > 0 ? timeOfBalloon(bal) : Math.min(t + dt, T.inflate);
     else t = Math.min(t1, t + dt);
     draw();
-    raf = el.isConnected && (t < t1 || falling() || rising()) ? nextFrame(step) : 0;
+    // (The sweep runs to its end even while its card is off the page a moment (zoomed open, moved as a slide settles): it is drawn there
+    // once the card is back. Only the balloon's rise and fall wait for the card.)
+    raf = t < t1 || (el.isConnected && (falling() || rising())) ? nextFrame(step) : 0;
   }
   const go = () => { cancelFrame(raf); raf = nextFrame((now) => { last = now; step(now); }); };
   // (instant: the finished tracing at once, a slide jumped to or gone back to; a card with no catheter on the figure.)
