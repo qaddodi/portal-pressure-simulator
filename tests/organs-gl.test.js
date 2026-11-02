@@ -177,7 +177,7 @@ test('the organ layers are painted on the GPU from their shapes, with no SVG pic
   assert.match(paint, /job\.frames\.push\(\{ lay: \[g, k, b, specOpacity\(spec\), !!spec\.mask, fbo\] \}\);/);
   assert.match(paint, /\} else job = \{ frames: \[frameOf\(spec\.ops, m, fbo, \[0, 0, w, h\], 0\)\] \};/);
   // Shapes keep their arrays on the GPU while kept, given back when let go.
-  assert.match(shape, /gl\.bufferData\(gl\.ARRAY_BUFFER, mesh\.tri, gl\.STATIC_DRAW\)/);
+  assert.match(shape, /gl\.bufferData\(gl\.ARRAY_BUFFER, mesh\.tri, gl\.STATIC_DRAW, 0, mesh\.nTri \* 2\)/);
   assert.doesNotMatch(shape, /bufferSubData/);
   assert.match(paint, /for \(const \[k, v\] of meshesOld\) if \(!meshes\.has\(k\) && !kept\.has\(k\)\) shape\.release\(v\.mesh\);/);
 });

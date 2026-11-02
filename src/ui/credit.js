@@ -5,10 +5,11 @@ import { readFrameFor, figLab, mayTask } from './frame.js?v=1d147c7c9a';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { restPass, cancelRest } from './rest-pass.js?v=bb619a1659';
 import { CELL, cellFor, regionFor, contains, touches, artTest, boxThrough, multiply, invert } from './credit-art.js?v=77b95dafe8';
-import { CellGrid, geomOf } from './cell-grid.js?v=b95ffc7129';
-import { elBox, chainMat } from './shape-gl.js?v=0d23af9d17';
+import { CellGrid, geomOf } from './cell-grid.js?v=ec4bd550a1';
+import { elBoxInto, chainMat } from './shape-gl.js?v=af75f69de3';
 import { layoutWatch, PLACED, GESTURE_LOOK } from './idle-keys.js?v=1b5b7b8ddd';
 import { readAnims, readBox, readCTM, readMetric, readStyle, readTiming, worldCTM } from './layout-snap.js?v=a48d65266b';
+const OWN_BOX = { x: 0, y: 0, width: 0, height: 0 };   // alloc-rare: made once (a shape's own box, read at once)
 // (The art's walk looks at the camera once a frame: in the frame's first, read-only phase (2 Nov 2026), where the layout is the one the
 // browser last drew, never after the frame's writes.)
 const nextFrame = readFrameFor('credit');
@@ -372,7 +373,7 @@ function readShapeNow(el, kind, inv) {
   const asDrawn = kind === 'fluid', vessel = kind === 'ves';
   let rel, bb;
   if (gpuDrawn(el)) {
-    const world = document.getElementById('world'), own = world && elBox(el);
+    const world = document.getElementById('world'), own = world && elBoxInto(el, OWN_BOX);
     if (!own || !(own.width || own.height)) return null;
     rel = chainMat(el, world);
     bb = boxThrough(rel, own.x, own.y, own.x + own.width, own.y + own.height);

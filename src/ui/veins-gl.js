@@ -36,7 +36,7 @@ import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { EDGE_GLSL } from './edge.js?v=8321a8017f';
 import { SLOT, DYE_BINS, PERIOD, DRIFT_PERIOD } from './blood.js?v=ca0abd6caa';
-import { cssRGB } from './util.js?v=49ce0f75c3';
+import { cssRGB } from './util.js?v=1926dc32f0';
 import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js?v=ff6a633152';
 import { CELL, ENT_W, binVeins, splitRows, simpleCells, splitCells, cellsOfJoinEntries } from './veins-bin.js?v=49b311283d';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
@@ -44,8 +44,8 @@ import { changedRows } from './flow-rows.js?v=6cd335f84b';
 import { leftAlone } from './quiet.js?v=856a3cdf1e';
 import { uniformCache } from './uniform-cache.js?v=6488216aa0';
 import { PUBLISH_QUIET_MS, SHADER_WARM, exerciseDraw } from './gl-compile.js?v=f9222c848a';
-import { createShapeGL, flattenPath, ellipsePoly, polyMesh } from './shape-gl.js?v=0d23af9d17';
-import { createOrganStack, prestartOrganStack, prestartLayer } from './organs-gl.js?v=d5edf2e9ae';
+import { createShapeGL, flattenPath, ellipsePoly, polyMeshInto } from './shape-gl.js?v=af75f69de3';
+import { createOrganStack, prestartOrganStack, prestartLayer } from './organs-gl.js?v=0a24b692ed';
 import { warmFade } from './res-fade-gl.js?v=e3a9d83762';
 import { fusedVS, fusedFS } from './veins-fuse.js?v=b5cc409146';
 import { NOISE_W, NOISE_H, NOISE_PER_ROW, OCTAVES, noiseBlock, blockAt, tableSize } from './blood-noise.js?v=bc65994b25';
@@ -53,6 +53,7 @@ import { createNoiseFiller } from './noise-gl.js?v=97605acd12';
 import { softwareGL } from './sw-yield.js?v=f7e0bc683b';
 import { frameCount, framePhase } from './frame.js?v=1d147c7c9a';
 import { caught } from './caught.js?v=b96b17594a';
+const ORGAN_MESH = { tri: null, seg: null, nTri: 0, nSeg: 0 };   // alloc-rare: made once (the organ texture's shapes are meshed into it one at a time, each released after its draw)
 
 export { binVeins };
 
@@ -3181,7 +3182,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     paintOrgans(shapes, rect, k) {
       const W = Math.max(1, Math.round(rect[2] * k)), H = Math.max(1, Math.round(rect[3] * k));
       const fb0 = glGet(gl, gl.FRAMEBUFFER_BINDING), vp0 = glGet(gl, gl.VIEWPORT);   // (gl-state.js: the record, not the driver)
-      const shape = createShapeGL(gl), fbo = gl.createFramebuffer(), st = gl.createRenderbuffer(), meshes = [];
+      const shape = createShapeGL(gl), fbo = gl.createFramebuffer(), st = gl.createRenderbuffer(), mesh = ORGAN_MESH;
       try {
         texVer++;
         gl.bindTexture(gl.TEXTURE_2D, organTex);
@@ -3199,13 +3200,13 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         const m = [k, 0, 0, -k, -rect[0] * k, H + rect[1] * k], tol = Math.min(0.5, 0.2 / k), all = [true, true, true, true];
         for (const { d, circle, w } of shapes) {
           const polys = circle ? ellipsePoly(circle[0], circle[1], circle[2], circle[2]) : flattenPath(d, tol);
-          const mesh = polyMesh(polys, w ? 1 : 0);
-          meshes.push(mesh);
+          polyMeshInto(polys, w ? 1 : 0, null, mesh);
           if (w) shape.stroke(mesh, m, [W, H], all, w); else shape.fill(mesh, m, [W, H], all);
+          shape.release(mesh);   // (its buffers go at once: the record is written over for the next shape)
         }
         organRect = rect; fboOK = false;
       } finally {
-        for (const mesh of meshes) shape.release(mesh);
+        shape.release(mesh);
         shape.dispose();
         gl.bindFramebuffer(gl.FRAMEBUFFER, fb0);
         gl.viewport(vp0[0], vp0[1], vp0[2], vp0[3]);

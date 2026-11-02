@@ -22,9 +22,9 @@
 // These are the model's own speeds, not a patient's: a deck line that quotes them needs a source, or none.
 
 import { TILE, RATE } from './table-marks.js?v=a483b9975e';
-import { lineMeta, cutsOf, fmtTick, placeWord } from './tool-curve.js?v=4267f4d9ce';
+import { lineMeta, cutsOf, fmtTick, placeWord } from './tool-curve.js?v=d7c216e2c9';
 import { plotPanel } from './plot-look.js?v=5037697da7';
-import { createSvgGL, svgModel } from './svg-gl.js?v=c795f42584';
+import { createSvgGL, svgModel } from './svg-gl.js?v=bdc1ac8a1f';
 
 const CO_MIN = 12;   // (px on the screen: the smallest the chart's words are drawn)
 const BRANCH_C = ['--tr-pv', '--tr-hv'];

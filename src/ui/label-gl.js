@@ -19,12 +19,13 @@ import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=1b5b7b8ddd';
 import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js?v=f9222c848a';
 import { createAtlasPacker } from './atlas-pack.js?v=f51c5cf455';
 import { easeMove, D_SURFACE } from './ease.js?v=7d7bfe9a62';
-import { createShapeGL, flattenPath, polyMesh, ellipsePoly } from './shape-gl.js?v=0d23af9d17';
-import { createOrganPaint, parseColor, mul } from './organ-paint.js?v=3a876f3513';
-import { textPolys, textWidth, loadGlyphs, glyphsReady, textCovers } from './text-gl.js?v=6ea0901c77';
+import { createShapeGL, flattenPath, polyMeshInto, ellipsePoly } from './shape-gl.js?v=af75f69de3';
+import { createOrganPaint, parseColor, mul } from './organ-paint.js?v=13d604610f';
+import { textPolys, textWidth, loadGlyphs, glyphsReady, textCovers } from './text-gl.js?v=255ad66a41';
 import { watchSize, sizeOf, rectSoon } from './geom.js?v=254133713c';
 import { trackOf, trackAt, mixColour, timingOf, progressAt, keysOf } from './label-track.js?v=23493a0e5d';
 import { caught } from './caught.js?v=b96b17594a';
+const HOLE_MESH = { tri: null, seg: null, nTri: 0, nSeg: 0 };   // alloc-rare: made once (a hole's mask is meshed into it and released after its draw)
 // (The colour a clear writes, one array for every clear: none made per call, plan rev 2 §2.8.)
 const CLEAR0 = new Float32Array(4);
 
@@ -1125,7 +1126,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     gl.disable(gl.BLEND);
     gl.clearBufferfv(gl.COLOR, 0, CLEAR0); gl.clearBufferfi(gl.DEPTH_STENCIL, 0, 1, 0);
     // (Path px → the target's y-down px, turned over so that its first row holds the path's top, as an uploaded canvas's does.)
-    const mesh = polyMesh(flattenPath(h.d, Math.min(0.25, 0.2 / dpr)), 0);
+    const mesh = polyMeshInto(flattenPath(h.d, Math.min(0.25, 0.2 / dpr)), 0, null, HOLE_MESH);
     holeShape.fill(mesh, [dpr, 0, 0, -dpr, 0, mh], [mw, mh], [true, true, true, true]);
     holeShape.release(mesh);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);

@@ -13,7 +13,7 @@
 // luminance). Anything else (a dash, a filter, a nested mask, a focal point) and the organ is not read: null, and the caller
 // keeps the organ's picture.
 
-import { flattenPath, flattenCmds, ellipsePoly, polyBox, polyMesh, prestartShapes } from './shape-gl.js?v=0d23af9d17';
+import { flattenPath, flattenCmds, ellipsePoly, polyBoxInto, polyMeshInto, prestartShapes } from './shape-gl.js?v=af75f69de3';
 import { prestart, linkProgram } from './gl-compile.js?v=f9222c848a';
 import { strHash } from './liver-geo.js?v=67a532bc39';
 import { getLive } from './live-style.js?v=1a585312ec';
@@ -450,7 +450,7 @@ function liveInto(l, op) {
 }
 
 /** The element's paint's box in its own units (an objectBoundingBox gradient's), from its flattened outline. */
-function boxOf(polys) { const b = polyBox(polys); return [b[0], b[1], b[2] - b[0], b[3] - b[1]]; }
+function boxOf(polys, out) { polyBoxInto(polys, out); out[2] -= out[0]; out[3] -= out[1]; return out; }
 
 // ── GL ──
 /**
@@ -637,7 +637,7 @@ export function createOrganPaint(gl, shape) {
       if (!k) {
         if (kept.size >= KEEP_CAP) evict();
         const polys = flatOf(src, geom, d, tol, dash);
-        kept.set(key, (k = { mesh: polyMesh(polys, cap), polys, box: boxOf(polys), tick }));   // alloc-rare: a mesh is made when none is kept for the shape at this detail (an outline that changed, a zoom past a bucket)
+        kept.set(key, (k = { mesh: polyMeshInto(polys, cap, null, { tri: null, seg: null, nTri: 0, nSeg: 0 }), polys, box: boxOf(polys, [0, 0, 0, 0]), tick }));   // alloc-rare: a mesh is made when none is kept for the shape at this detail (an outline that changed, a zoom past a bucket)
       }
       k.tick = tick;
       return k;
@@ -645,7 +645,7 @@ export function createOrganPaint(gl, shape) {
     let r = meshes.get(key) || meshesOld.get(key) || kept.get(key);
     if (!r) {
       const polys = flatOf(src, geom, d, tol, dash);
-      r = { mesh: polyMesh(polys, cap), polys, box: boxOf(polys) };   // alloc-rare: as above, a mesh for a shape that changed
+      r = { mesh: polyMeshInto(polys, cap, null, { tri: null, seg: null, nTri: 0, nSeg: 0 }), polys, box: boxOf(polys, [0, 0, 0, 0]) };   // alloc-rare: as above, a mesh for a shape that changed
     }
     meshes.set(key, r);
     return r;

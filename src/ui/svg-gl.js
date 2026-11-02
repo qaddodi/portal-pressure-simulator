@@ -13,14 +13,15 @@
 // round or butt ends, fill and stroke opacity, visibility, display none, vector-effect non-scaling-stroke. A drawing's viewBox is mapped to
 // the box as SVG maps it (preserveAspectRatio none, or meet in the middle). The picture covers the box exactly.
 
-import { createTraceGL, fitPen } from './trace-gl.js?v=48fdded63b';
-import { flattenPath, elBox } from './shape-gl.js?v=0d23af9d17';
+import { createTraceGL, fitPen } from './trace-gl.js?v=0dcd67d32a';
+import { flattenPath, elBoxInto } from './shape-gl.js?v=af75f69de3';
 import { finalFrameFor, easeNow, cancelFrame } from './frame.js?v=1d147c7c9a';
 import { restPass, cancelRest } from './rest-pass.js?v=bb619a1659';
 import { cssCurve, D_SURFACE, EASE_ARRIVE } from './ease.js?v=7d7bfe9a62';
 import { cssColor } from './css-color.js?v=59ed182174';
 import { morphSvg } from './svg-morph.js?v=790c22da7f';
 import { attrSoon } from './class-soon.js?v=60cf95af4a';
+const GBOX = { x: 0, y: 0, width: 0, height: 0 };   // alloc-rare: made once (an element's box, read at once)
 
 // (No bleed: a picture reaching past the box counts as overflow, and the card's fit then shrank the whole card to take it in.)
 export const BLEED = 0;
@@ -410,7 +411,7 @@ export function ownPaint(el, prop, look) {
   return look;
 }
 function gradientOf(ctx, g, el) {
-  const user = g.getAttribute('gradientUnits') === 'userSpaceOnUse', b = user ? null : elBox(el);
+  const user = g.getAttribute('gradientUnits') === 'userSpaceOnUse', b = user ? null : elBoxInto(el, GBOX);
   if (!user && !(b && b.width > 0 && b.height > 0)) return null;
   const pt = (ax, dflt, w, o) => { const v = g.getAttribute(ax); const n = v == null ? dflt : /%$/.test(v) ? parseFloat(v) / 100 : parseFloat(v); return user ? n : o + n * w; };
   const gr = g.localName === 'radialgradient'
@@ -435,7 +436,7 @@ function fillByRef(ctx, root, el, tag, ref, alpha, k) {
     return;
   }
   if (ref.localName !== 'pattern') return;
-  const tw = at(ref, 'width'), th = at(ref, 'height'), b = elBox(el);
+  const tw = at(ref, 'width'), th = at(ref, 'height'), b = elBoxInto(el, GBOX);
   if (!(tw > 0 && th > 0 && b && b.width > 0 && b.height > 0)) return;
   ctx.save();
   ctx.clip();

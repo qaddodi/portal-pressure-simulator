@@ -200,23 +200,43 @@ export function flattenCmds(cmds, tol = 0.01) {
   return out;
 }
 
-/** An ellipse (cx, cy, rx, ry) as one closed polyline within `tol` of it. */
+/**
+ * An ellipse (cx, cy, rx, ry) as one closed polyline within `tol` of it. The last 32 distinct ellipses asked for are kept and given
+ * again (the same object: callers only read it), so a shape asked for at every rebuild is made once, not once per rebuild.
+ */
+const ELL_N = 32;
+const ELL_KEY = new Float64Array(ELL_N * 5), ELL_VAL = [];
+let ellNext = 0;
 export function ellipsePoly(cx, cy, rx, ry, tol = 0.01) {
+  for (let i = 0; i < ELL_VAL.length; i++) {
+    const o = i * 5;
+    if (ELL_KEY[o] === cx && ELL_KEY[o + 1] === cy && ELL_KEY[o + 2] === rx && ELL_KEY[o + 3] === ry && ELL_KEY[o + 4] === tol) return ELL_VAL[i];
+  }
   const r = Math.max(rx, ry), step = 2 * Math.acos(clamp(1 - tol / Math.max(r, tol), -1, 1)) || 0.1;
-  const n = clamp(Math.ceil((2 * Math.PI) / step), 12, 2048), pts = new Float32Array(n * 2);
+  const n = clamp(Math.ceil((2 * Math.PI) / step), 12, 2048), pts = new Float32Array(n * 2);   // alloc-rare: made once for each distinct ellipse, then kept in ELL_VAL
   for (let k = 0; k < n; k++) { const a = (2 * Math.PI * k) / n; pts[2 * k] = cx + rx * Math.cos(a); pts[2 * k + 1] = cy + ry * Math.sin(a); }
-  return [{ pts, closed: true }];
+  const polys = [{ pts, closed: true }];   // alloc-rare: made once for each distinct ellipse, then kept in ELL_VAL
+  const slot = ELL_VAL.length < ELL_N ? ELL_VAL.length : (ellNext++ % ELL_N), o = slot * 5;
+  ELL_KEY[o] = cx; ELL_KEY[o + 1] = cy; ELL_KEY[o + 2] = rx; ELL_KEY[o + 3] = ry; ELL_KEY[o + 4] = tol;
+  ELL_VAL[slot] = polys;
+  return polys;
 }
 
 /** The bounding box [x0, y0, x1, y1] of polylines. */
-export function polyBox(polys) {
+export function polyBoxInto(polys, out) {
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-  for (const { pts } of polys) for (let k = 0; k < pts.length; k += 2) {
-    const x = pts[k], y = pts[k + 1];
-    if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+  for (let i = 0; i < polys.length; i++) {
+    const pts = polys[i].pts;
+    for (let k = 0; k < pts.length; k += 2) {
+      const x = pts[k], y = pts[k + 1];
+      if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+    }
   }
-  return [x0, y0, x1, y1];
+  out[0] = x0; out[1] = y0; out[2] = x1; out[3] = y1;
+  return out;
 }
+/** The same into a new list, for a caller that keeps the box (one that reads it at once gives polyBoxInto a list of its own). */
+export const polyBox = (polys) => polyBoxInto(polys, [0, 0, 0, 0]);
 
 /**
  * The GPU's form of polylines: a fan of triangles per run (for the stencil's winding), and its segments, SEG floats each: its
@@ -228,40 +248,62 @@ export function polyBox(polys) {
  * of its runs).
  */
 export const SEG = 10;
-export function polyMesh(polys, cap = 0, drop = null) {
+let U = new Float64Array(512);   // the run being worked on, without its repeated points
+/** The run's points without repeats, into U; the number of floats. (A run of one point keeps its first two points as they are.) */
+function dedupInto(pts, closed) {
+  if (pts.length > U.length) U = new Float64Array(pts.length * 2);   // alloc-rare: grows only when an outline longer than any before comes
+  const n = pts.length / 2;
+  let len = 0;
+  for (let k = 0; k < n; k++) { const x = pts[2 * k], y = pts[2 * k + 1]; if (!len || x !== U[len - 2] || y !== U[len - 1]) { U[len++] = x; U[len++] = y; } }
+  if (closed && len > 2 && U[0] === U[len - 2] && U[1] === U[len - 1]) len -= 2;
+  if (len <= 2) { len = Math.min(4, pts.length); for (let i = 0; i < len; i++) U[i] = pts[i]; }
+  return len;
+}
+/**
+ * polyMesh into `out`, a mesh record ({ tri, seg, nTri, nSeg } and the drawer's own `gpu`) kept by the caller: its arrays are written
+ * over and grown only when a bigger mesh than any before comes, so a mesh built again makes none. They may be longer than the
+ * mesh (draw only nTri vertices and nSeg segments; the drawer uploads just those). A caller that reuses `out` gives the drawer's
+ * release(out) between meshes.
+ */
+export function polyMeshInto(polys, cap, drop, out) {
   let nt = 0, ns = 0;
-  const runs = polys.map(({ pts, closed }) => {
+  for (let r = 0; r < polys.length; r++) {
+    const { pts, closed } = polys[r];
     const n = pts.length / 2;
     if (n >= 3) nt += n - 2;
     // (Its points without repeats, for the segments: a segment of no length has no direction to join by.)
-    const q = [];
-    for (let k = 0; k < n; k++) { const x = pts[2 * k], y = pts[2 * k + 1]; if (!q.length || x !== q[q.length - 2] || y !== q[q.length - 1]) q.push(x, y); }
-    if (closed && q.length > 2 && q[0] === q[q.length - 2] && q[1] === q[q.length - 1]) q.length -= 2;
-    const u = q.length > 2 ? q : Array.from(pts.slice(0, 4));
-    const m = closed && u.length > 4 ? u.length / 2 : u.length / 2 - 1;
+    const len = dedupInto(pts, closed);
+    const m = closed && len > 4 ? len / 2 : len / 2 - 1;
     ns += Math.max(m, 0);
-    return { u, m, closed: closed && u.length > 4 };
-  });
-  const tri = new Float32Array(nt * 6), seg = new Float32Array(ns * SEG);
+  }
+  if (!out.tri || out.tri.length < nt * 6) out.tri = new Float32Array(nt * 6);   // alloc-rare: grows only when a bigger mesh than any before comes
+  if (!out.seg || out.seg.length < ns * SEG) out.seg = new Float32Array(ns * SEG);   // alloc-rare: grows only when a bigger mesh than any before comes
+  const tri = out.tri, seg = out.seg;
   let a = 0, b = 0;
-  polys.forEach(({ pts }, r) => {
+  for (let r = 0; r < polys.length; r++) {
+    const { pts, closed: cl } = polys[r];
     const n = pts.length / 2;
     for (let k = 1; k < n - 1; k++) { tri[a++] = pts[0]; tri[a++] = pts[1]; tri[a++] = pts[2 * k]; tri[a++] = pts[2 * k + 1]; tri[a++] = pts[2 * k + 2]; tri[a++] = pts[2 * k + 3]; }
-    const { u, m, closed } = runs[r], nu = u.length / 2;
+    const ulen = dedupInto(pts, cl), nu = ulen / 2, closed = cl && ulen > 4, m = closed ? nu : nu - 1;
     for (let k = 0; k < m; k++) {
-      const j = (k + 1) % nu, ax = u[2 * k], ay = u[2 * k + 1], bx = u[2 * j], by = u[2 * j + 1];
+      const j = (k + 1) % nu, ax = U[2 * k], ay = U[2 * k + 1], bx = U[2 * j], by = U[2 * j + 1];
       if (drop && drop(ax, ay, bx, by)) continue;
       const first = !closed && k === 0, last = !closed && k === m - 1;
       // (The directions of the segments before and after, as numbers: no pair made for each segment of each outline.)
       const kp = (k - 1 + m) % m, kn = (k + 1) % m, jp = (kp + 1) % nu, jn = (kn + 1) % nu;
-      const px = first ? 0 : u[2 * jp] - u[2 * kp], py = first ? 0 : u[2 * jp + 1] - u[2 * kp + 1];
-      const qx = last ? 0 : u[2 * jn] - u[2 * kn], qy = last ? 0 : u[2 * jn + 1] - u[2 * kn + 1];
+      const px = first ? 0 : U[2 * jp] - U[2 * kp], py = first ? 0 : U[2 * jp + 1] - U[2 * kp + 1];
+      const qx = last ? 0 : U[2 * jn] - U[2 * kn], qy = last ? 0 : U[2 * jn + 1] - U[2 * kn + 1];
       seg[b++] = ax; seg[b++] = ay; seg[b++] = bx; seg[b++] = by;
       seg[b++] = first ? cap : 1; seg[b++] = last ? cap : 1;
       seg[b++] = px; seg[b++] = py; seg[b++] = qx; seg[b++] = qy;
     }
-  });
-  return { tri, nTri: nt * 3, seg: b === seg.length ? seg : seg.slice(0, b), nSeg: b / SEG };
+  }
+  out.nTri = nt * 3; out.nSeg = b / SEG;
+  return out;
+}
+/** A mesh of its own, for a caller that keeps it (a kept shape's, and the tests'). */
+export function polyMesh(polys, cap = 0, drop = null) {
+  return polyMeshInto(polys, cap, drop, { tri: null, seg: null, nTri: 0, nSeg: 0 });
 }
 
 /** Whether (x, y) is inside a closed polyline (even-odd, which is non-zero for a simple outline). */
@@ -279,7 +321,7 @@ export function insidePoly(pts, x, y) {
  * are no edge of the union and must not be smoothed (their inner side would thin a pixel inside the shape).
  */
 export function innerEdges(polys) {
-  const boxes = polys.map((p) => polyBox([p]));
+  const boxes = polys.map((p) => polyBox([p]));   // alloc-rare: made once for each fill with overlapping runs, when its mesh is built
   return (ax, ay, bx, by) => {
     const x = (ax + bx) / 2, y = (ay + by) / 2;
     for (let i = 0; i < polys.length; i++) {
@@ -425,7 +467,7 @@ export function createShapeGL(gl) {
     if (mesh.nTri) {
       g.tri = gl.createBuffer(); g.triVAO = gl.createVertexArray();
       gl.bindVertexArray(g.triVAO);
-      gl.bindBuffer(gl.ARRAY_BUFFER, g.tri); gl.bufferData(gl.ARRAY_BUFFER, mesh.tri, gl.STATIC_DRAW);
+      gl.bindBuffer(gl.ARRAY_BUFFER, g.tri); gl.bufferData(gl.ARRAY_BUFFER, mesh.tri, gl.STATIC_DRAW, 0, mesh.nTri * 2);
       gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
     }
     if (mesh.nSeg) {
@@ -433,7 +475,7 @@ export function createShapeGL(gl) {
       gl.bindVertexArray(g.segVAO);
       gl.bindBuffer(gl.ARRAY_BUFFER, corner);
       gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
-      gl.bindBuffer(gl.ARRAY_BUFFER, g.seg); gl.bufferData(gl.ARRAY_BUFFER, mesh.seg, gl.STATIC_DRAW);
+      gl.bindBuffer(gl.ARRAY_BUFFER, g.seg); gl.bufferData(gl.ARRAY_BUFFER, mesh.seg, gl.STATIC_DRAW, 0, mesh.nSeg * SEG);
       gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 4, gl.FLOAT, false, 4 * SEG, 0); gl.vertexAttribDivisor(1, 1);
       gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 2, gl.FLOAT, false, 4 * SEG, 16); gl.vertexAttribDivisor(2, 1);
       gl.enableVertexAttribArray(3); gl.vertexAttribPointer(3, 4, gl.FLOAT, false, 4 * SEG, 24); gl.vertexAttribDivisor(3, 1);
@@ -599,9 +641,16 @@ export function chainMat(el, top) {
   }
   return { a, b, c, d, e, f };
 }
-export function elBox(el, textOf = null) {
+/** An element's box as { x, y, width, height } written into `out` (a record of the caller's, read at once), or null for none. */
+export function elBoxInto(el, out, textOf = null) {
   const b = elBox4(el, textOf);
-  return b ? { x: b[0], y: b[1], width: b[2] - b[0], height: b[3] - b[1] } : null;
+  if (!b) return null;
+  out.x = b[0]; out.y = b[1]; out.width = b[2] - b[0]; out.height = b[3] - b[1];
+  return out;
+}
+/** The same in a new record, for a caller that keeps the box. */
+export function elBox(el, textOf = null) {
+  return elBoxInto(el, { x: 0, y: 0, width: 0, height: 0 }, textOf);
 }
 function hiddenEl(el) {
   return el.hasAttribute?.('hidden') || el.getAttribute?.('display') === 'none' || el.style?.display === 'none';
@@ -623,7 +672,7 @@ function elBox4(el, textOf) {
       let b = BOX_D.get(d);
       if (b === undefined) {
         const polys = flattenCmds(pathCmds(d), 0.002);
-        b = polys.some((p) => p.pts.length) ? polyBox(polys) : null;   // alloc-rare: a path's box is worked out once for each new d (BOX_EL and BOX_D keep it)
+        b = polys.some((p) => p.pts.length) ? polyBoxInto(polys, [0, 0, 0, 0]) : null;   // alloc-rare: a path's box is worked out once for each new d (BOX_EL and BOX_D keep it)
         if (BOX_D.size >= BOX_D_MAX) BOX_D.delete(BOX_D.keys().next().value);   // (the oldest out, never the whole table)
         BOX_D.set(d, b);
       }
@@ -645,7 +694,7 @@ function elBox4(el, textOf) {
         if (TK !== 2 || !Number.isFinite(TV)) continue;
         if (n++ & 1) { if (px < x0) x0 = px; if (px > x1) x1 = px; if (TV < y0) y0 = TV; if (TV > y1) y1 = TV; } else px = TV;
       }
-      return n >= 2 && x1 >= x0 ? [x0, y0, x1, y1] : null;
+      return n >= 2 && x1 >= x0 ? box4(x0, y0, x1, y1) : null;
     }
     case 'g': case 'a': case 'svg': {
       let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
