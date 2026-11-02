@@ -526,6 +526,10 @@ export function createOrganPaint(gl, shape) {
   }
   // (A path's name: its shape source's, else its text's hash.)
   const pathKey = (el) => { const s = srcOf(el); return s ? `n${s.id}` : dKey(el.getAttribute('d') || ''); };
+  // (A clip's name: its path's, or a fixed shape's own number (a rect or a circle read once), so two such clips under one frame are
+  // never taken for one another: both were named '' before.)
+  const polyIds = new WeakMap(); let polyN = 0;
+  const clipKey = (geom) => (geom.d ? pathKey(geom.el) : `p${polyIds.get(geom) ?? (polyIds.set(geom, ++polyN), polyN)}`);
   function meshOf(geom, cap, tol, dash = null) {
     const src = geom.d ? srcOf(geom.el) : null;
     const d = geom.d && !src ? geom.el.getAttribute('d') || '' : null;
@@ -649,10 +653,10 @@ export function createOrganPaint(gl, shape) {
     // The shape's coverage into the scratch's red, its clip's into green (kept while the next op has the same clip).
     gl.bindFramebuffer(gl.FRAMEBUFFER, scratch.fbo);
     gl.viewport(0, 0, W, H);
-    const ck = op.clip ? `${op.clip.geom.d ? pathKey(op.clip.geom.el) : ''}|${cm.join(',')}` : null;
+    const ck = op.clip ? `${clipKey(op.clip.geom)}|${cm.join(',')}` : null;
     const newClip = !!op.clip && ck !== job.ck;
     // (The outer clip of a clip inside a clip, in the blue, kept the same way.)
-    const ck2 = csh2 ? `${op.clip.outer.geom.d ? pathKey(op.clip.outer.geom.el) : ''}|${cm2.join(',')}` : null;
+    const ck2 = csh2 ? `${clipKey(op.clip.outer.geom)}|${cm2.join(',')}` : null;
     const newClip2 = !!csh2 && ck2 !== job.ck2;
     // (A new clip's green is cleared over the clip's own box, with this op's: a later op with the same clip is cut to that box, so
     // it never reads the green outside it. It was the whole canvas, on every clipped group, every frame.)
@@ -711,7 +715,7 @@ export function createOrganPaint(gl, shape) {
   // What an op paints, as a string: what it is painted with (fixed while the spec lives: kept on the op) and where (its outline's
   // `d` and its frame, read now). Two frames with the same string paint the same pixels in the same box.
   const paintKey = (op) => op.pk || (op.pk = JSON.stringify([op.kind, op.w, op.cap, op.paint, op.eo ? 1 : 0, op.dash || 0]));
-  const opSig = (op, m) => { const lv = liveAt(op); return `${paintKey(op)}|${lv.alpha}|${lv.m.join(',')}|${lv.cm ? lv.cm.join(',') : ''}${lv.cm2 ? `|${lv.cm2.join(',')}` : ''}|${m.join(',')}|${op.geom.d ? pathKey(op.geom.el) : ''}|${op.clip ? (op.clip.geom.d ? pathKey(op.clip.geom.el) : '') : ''}${op.clip?.outer?.geom.d ? `|${pathKey(op.clip.outer.geom.el)}` : ''}${op.nss ? `|${cssPx}` : ''}`; };
+  const opSig = (op, m) => { const lv = liveAt(op); return `${paintKey(op)}|${lv.alpha}|${lv.m.join(',')}|${lv.cm ? lv.cm.join(',') : ''}${lv.cm2 ? `|${lv.cm2.join(',')}` : ''}|${m.join(',')}|${op.geom.d ? pathKey(op.geom.el) : ''}|${op.clip ? clipKey(op.clip.geom) : ''}${op.clip?.outer ? `|${clipKey(op.clip.outer.geom)}` : ''}${op.nss ? `|${cssPx}` : ''}`; };
   /**
    * The group under m described for a change check: its own string (opacity, whether masked) and, per op (the mask's after its
    * own), [string, device box]. The meshes it will paint are touched (kept for the frame).
