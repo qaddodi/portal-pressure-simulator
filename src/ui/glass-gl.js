@@ -491,6 +491,10 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   // (Given up only when the glass has had its turns and not drawn the card: WAIT_MS of the clock AND WAIT_PASSES passes that listed it, or
   // WAIT_CAP of the clock whatever. A slow first frame (a shader linking, the first blur copy) is not a refusal: a clock alone gave up in
   // the middle of it and showed the solid card for the frame before the frost, the flash on a card opening. Mohammad, 2 Nov 2026.)
+  // (A card faded right out (opacity 0, its glass not drawn) is held bare too, as it waits for its first frame, so the frame it starts to fade
+  // in is never the solid card for a moment before its frost: it is invisible bare, and is drawn the frame it shows. fadedNow: the cards
+  // the last read found so, set in readPanes. Mohammad, 2 Nov 2026: "a new data card shows as a plain solid card before its frost draws".)
+  let fadedNow = new Set();
   const waiting = new Map(), WAIT_MS = 300, WAIT_PASSES = 3, WAIT_CAP = 2500;
   let waitT = 0;
   function unwait() { for (const g of waiting.keys()) g.removeAttribute('data-gl-wait'); waiting.clear(); gaveUp.clear(); wasDrawn.clear(); clearTimeout(waitT); waitT = 0; }
@@ -500,7 +504,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   function sweepWait() {
     waitT = 0;
     const n = performance.now();
-    for (const [g, w] of waiting) if (n - w.at > WAIT_CAP) { g.removeAttribute('data-gl-wait'); waiting.delete(g); gaveUp.add(g); }
+    for (const [g, w] of waiting) if (!w.faded && n - w.at > WAIT_CAP) { g.removeAttribute('data-gl-wait'); waiting.delete(g); gaveUp.add(g); }
     if (waiting.size) waitT = setTimeout(sweepWait, 200);
   }
   function waitFor(list) {
@@ -510,10 +514,11 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     for (const g of gaveUp) if (!want.has(g)) gaveUp.delete(g);
     if (wasDrawn.size) { const inList = new Set(list.map((p) => p.g)); for (const g of wasDrawn) if (!inList.has(g)) wasDrawn.delete(g); }
     for (const [g, w] of waiting) {
-      if (!want.has(g)) { g.removeAttribute('data-gl-wait'); waiting.delete(g); }
-      else { w.n++; if (waitOver(w, t)) { g.removeAttribute('data-gl-wait'); waiting.delete(g); gaveUp.add(g); } }
+      if (!want.has(g)) { if (w.faded && fadedNow.has(g)) continue; g.removeAttribute('data-gl-wait'); waiting.delete(g); }
+      else { if (w.faded) { w.faded = false; w.at = t; w.n = 0; } w.n++; if (waitOver(w, t)) { g.removeAttribute('data-gl-wait'); waiting.delete(g); gaveUp.add(g); } }
     }
     for (const g of want) if (!waiting.has(g) && !gaveUp.has(g)) { waiting.set(g, { at: t, n: 0 }); g.setAttribute('data-gl-wait', ''); }
+    for (const g of fadedNow) if (!waiting.has(g) && !want.has(g) && g.isConnected) { waiting.set(g, { at: t, n: 0, faded: true }); gaveUp.delete(g); g.setAttribute('data-gl-wait', ''); }
     if (waiting.size && !waitT) waitT = setTimeout(sweepWait, WAIT_CAP + 20);
   }
 
@@ -629,6 +634,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   // Each callout's glass as the page lays it out this frame (its fades, glides and the card's shadow included).
   function readPanes(list, keep0 = false) {
     fadeMemo = new Map();
+    fadedNow = new Set();
     const panes = [];
     const shows = (a) => keep0 || a > 0.001;   // (keep0: a glass faded right out is kept too, its fade put back each frame by the motion)
     for (const g of list) {
@@ -640,7 +646,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       const q = cards?.read ? cards.read(g) : undefined;
       if (q !== undefined) {
         for (const one of [].concat(q || [])) {
-          if (!one || !shows(a * one.a) || !one.r.width || !one.r.height) continue;
+          if (!one || !shows(a * one.a) || !one.r.width || !one.r.height) { if (one && one.r.width && one.r.height) fadedNow.add(g); continue; }
           panes.push({ g, el, oa: one.a, a: a * one.a, r: one.r, d: one.d || null, rad: one.d ? null : one.rad, lw: one.r.width, lh: one.r.height, er: one.r, shadow: null, tint: one.tint, k: 1 });
         }
         continue;
@@ -650,7 +656,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
         // not reach a glass drawn here, so such a card keeps the browser's.)
         if (cs.getPropertyValue('--gl-glass').trim() !== '1' || (cs.filter && cs.filter !== 'none')) continue;
         const r = drawnRect(g);
-        if (!r.width || !r.height || !shows(a)) continue;
+        if (!r.width || !r.height || !shows(a)) { if (r.width && r.height) fadedNow.add(g); continue; }
         const zk = g.drawnScale ? g.drawnScale() : 1;   // (a zoomed card's scale: its corners grow with it)
         // (A card's own edge and drop shadows, drawn here with its glass where its CSS names them (--gl-line, --gl-drop): the page's own
         // are taken off while it is drawn here ([data-gl="edge"]), so the card is one GPU shape that may change size in view.)
