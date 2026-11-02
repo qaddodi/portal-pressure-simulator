@@ -1270,6 +1270,14 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   const fillsOn = (an) => /forwards|both/.test(an.effect?.getTiming?.().fill || '');
   // One element's moving part now: { t: [x, y] (its translation), o (its opacity, or null when not moving) }; bad: something it cannot
   // follow (the page is read again just after this frame); ended: an animation of it has ended (likewise, for its end state).
+  // (Whether an animation ends: from the timing it was given (its clock, or getTiming), never its computed timing, which brings the
+  // page's style up to date when asked in a frame. Its end is finite unless it repeats for ever.)
+  function endsOf(an, rec) {
+    if (rec?.c) return Number.isFinite(rec.c.iters);
+    let t;
+    try { t = an.effect?.getTiming?.() || null; } catch { t = null; }
+    return !!t && t.iterations !== Infinity && !(typeof t.duration === 'number' && !Number.isFinite(t.duration));
+  }
   function moveOf(e, flag) {
     let t = null, o = null;
     const m = anims.get(e);
@@ -1288,7 +1296,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
         // (One that has finished and holds its end, a card zoomed up, is in the box the page was read at: nothing to put back, and its end
         // read the page again already, so it no longer asks for a read in every frame.)
         if (!v && st === 'finished') continue;
-        if (!v) { flag.bad = true; if (st === 'running' && Number.isFinite(an.effect?.getComputedTiming?.().endTime)) flag.live = true; continue; }
+        if (!v) { flag.bad = true; if (st === 'running' && endsOf(an, rec)) flag.live = true; continue; }
         if (v.t) t = v.t;
         if (v.o != null) o = v.o;
       }
