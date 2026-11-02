@@ -19,17 +19,23 @@ import { easeArrive, D_SURFACE } from './ease.js?v=7513a88c68';
 export const GLASS = { blur: 16, sat: 1.15, tint: 0.58 };
 /** The liver label's pane (app.css .lb-glass: blur(9px) saturate(1.2) over --frost, its corners its border radius). */
 export const PANE = { blur: 9, sat: 1.2 };
+/** The Present cards' frost (Mohammad, 2 Nov 2026, on the iPhone: "the blur sucks now it's just transparent"): the callouts' 16 px blur
+ *  left the vessels and organs readable through a card, so a card reads as see-through rather than frosted. A card is blurred at 30 px
+ *  (sigma 30 px), on a grid of 8 CSS px a texel (the blur still 3.75 texels, inside the 12 taps), from 3 sigmas of figure around it;
+ *  its tint, app.css --pz-frost (74 % of the surface, 58 % before), is read from --gl-tint as before. ?cardfrost=soft: as before. */
+const SOFT = typeof location !== 'undefined' && /[?&]cardfrost=soft\b/.test(location.search);
+export const CARD = SOFT ? { ...GLASS } : { blur: 30, sat: 1.1, scale: 8, margin: 90 };
 /** A rounded rectangle's outline (w × h, corner radius r), as an SVG path. */
 export function roundPath(w, h, r) {
   const f = (n) => +n.toFixed(2), q = Math.max(0, Math.min(r, w / 2, h / 2));
   return `M${f(q)} 0H${f(w - q)}A${f(q)} ${f(q)} 0 0 1 ${f(w)} ${f(q)}V${f(h - q)}A${f(q)} ${f(q)} 0 0 1 ${f(w - q)} ${f(h)}H${f(q)}A${f(q)} ${f(q)} 0 0 1 0 ${f(h - q)}V${f(q)}A${f(q)} ${f(q)} 0 0 1 ${f(q)} 0Z`;
 }
-const SCALE = 4;    // CSS px for each texel of the blurred copy
+const SCALE0 = 4;    // CSS px for each texel of the blurred copy
 // The glass's canvas holds at most 2 device px per CSS px (30 Oct, review H3): what it draws is a blur, a flat tint and a soft shadow,
 // whose edge lies under the callout's own 2 px outline (the DOM's, at the screen's full density), so a 3× screen shows the same glass
 // from four ninths of the pixels. The masks are drawn at the same density.
 export const glassDpr = () => Math.min(2, window.devicePixelRatio || 1);
-const MARGIN = 48;  // CSS px of the figure taken around the callouts: three of the blur's sigmas (blur(16px): sigma 16 px)
+const MARGIN0 = 48;  // CSS px of the figure taken around the callouts: three of the blur's sigmas (blur(16px): sigma 16 px)
 /** The longest a glass drawn in the figure's canvas goes between two blurs when only the figure under it has been drawn again (a host that gives view()). */
 export const REBLUR_MS = 50;
 // (Off by default since 1 Nov 2026: on an iPhone the callouts' glass, blurred only every 50 ms while the figure under it moved each frame
@@ -396,7 +402,8 @@ export function dropsOf(v) {
 }
 export function createGlassGL(wrap, source, layers, { software = false, off = false, live = () => true, pane = null, cards = null, version = null, capture = null, onFigure = null, keep = null, due = null, copy = true, reblur = REBLUR_URL ? REBLUR_MS : 0, fresh = null, full = FULL_URL, onHoles = null } = {}) {
   if (HOLD_URL || reblur > 0) fresh = null;
-  const look = pane ? PANE : GLASS;
+  const look = pane ? PANE : cards ? CARD : GLASS;
+  const SCALE = look.scale || SCALE0, MARGIN = look.margin || MARGIN0;
   // (cards: { find, watch, before, read? }: the Present cards' glass (recs A2, 31 Oct): find() lists the elements, each its own rounded box, its
   // corners its border radii and its tint the colour its CSS declares in --gl-tint (app.css: the same colour its background was), drawn
   // while its --gl-glass is 1 and no CSS filter lies on it; watch: the roots whose writes may move them; before: where the canvas goes.

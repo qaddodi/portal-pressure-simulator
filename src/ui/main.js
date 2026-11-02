@@ -4,7 +4,7 @@
 import { motionBudget } from './motion-budget.js?v=f3b73ab0e1';   // (first: counts from the start when ?perf or ?budget=1 asks)
 import { startHost, host } from './host.js?v=9eca545da1';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=4ef2a6ffd8';
-import { createStage } from './stage.js?v=193bb36cfe';
+import { createStage } from './stage.js?v=8b3f694ecd';
 import { createCreditPlacer } from './credit.js?v=98754fab54';
 import { whenQuiet, booting, holdCover } from './quiet.js?v=388052eba8';
 import { sinusoidSupported } from './gl-support.js?v=38189f60f5';
@@ -1145,6 +1145,7 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
 const STATUS_GESTURE_FREE = !/[?&]glidekeys=0\b/.test(location.search);
 // (The slide progress line grows by a GPU scale (app.css .pz-prog i); ?progfx=0 grows it by its width, as before.)
 if (/[?&]progfx=0\b/.test(location.search)) document.documentElement.setAttribute('data-progcpu', '');
+if (/[?&]cardfrost=soft\b/.test(location.search)) document.documentElement.setAttribute('data-cardfrost', 'soft');   // (the cards' lighter frost, as before 2 Nov: glass-gl.js CARD, app.css --pz-frost)
 // (2 Nov 2026: read between frames (rest-pass.js), not in the observer's microtask straight after the page's writes.)
 new MutationObserver((rs) => { if (STATUS_GESTURE_FREE && rs.every((r) => classOnly(r, GESTURE_LOOK))) return; restPass(syncStatusBar); setTimeout(syncStatusBar, 600); }).observe(document.getElementById('app'), { attributes: true, attributeFilter: ['class'], attributeOldValue: true });
 function readLS(k) { try { return localStorage.getItem(k); } catch { return null; } }
