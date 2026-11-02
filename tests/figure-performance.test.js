@@ -107,8 +107,10 @@ test('Callout glass kept (always, since 1 Nov 2026): no frame reads the page; it
   // after it), the page's own signals, a callout's transition ending, a parent's style or class, a size change, a scroll.
   assert.match(g, /const loop = \(\) => \{ raf = 0; if \(changed\(mo\.takeRecords\(\)\)\) measureSoon\(\); settle\(draw\(\)\); \};/);
   assert.match(g, /const mo = new MutationObserver\(\(recs\) => \{ if \(!recs\?\.length \|\| changed\(recs\)\) measureEarly\(\); quiet = 0; ask\(\); \}\);/);
-  assert.match(g, /const again = \(\) => measureGeo\(\);/);
-  assert.match(g, /if \(\/\(end\|cancel\)\$\/\.test\(e\?\.type \|\| ''\)\) \{ measureGeo\(\); return; \}/);
+  assert.match(g, /const again = \(\) => measureEarly\(\);/);
+  assert.match(g, /if \(\/\(end\|cancel\)\$\/\.test\(e\?\.type \|\| ''\)\) \{ measureEarly\(\); return; \}/);
+  // (2 Nov 2026: an observer's or an event's read waits for the next frame's read phase, never in the frame's writes.)
+  assert.match(g, /function measureEarly\(\) \{\n\s+if \(!GEO_EARLY \|\| framePhase\(\) === 'read'\) \{ measureGeo\(\); return; \}\n\s+if \(!earlyAsk\) earlyAsk = readFrame\(measureEarlyNow\);/);
   assert.match(g, /parentsMo\.observe\(e, \{ attributes: true, attributeFilter: \['style', 'class', 'hidden'\] \}\)/);
   assert.match(g, /for \(const e of \[canvas, source, wrap\]\) if \(e\) watchRo\?\.observe\(e\);/);
   assert.match(g, /document\.addEventListener\?\.\('scroll', onScroll, true\);/);
