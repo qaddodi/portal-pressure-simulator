@@ -8,7 +8,7 @@ import { traceLabel, traceLabelRoom } from './trace-labels.js?v=fc916a95c6';
 import { plotPanel } from './plot-look.js?v=5037697da7';
 import { bandKeys, bandRuns, bandSpan, namePlaces } from './rx-bands.js?v=51e83c7c59';
 import { morphSvg } from './svg-morph.js?v=e2c6c2224c';
-import { createSvgGL, svgModel } from './svg-gl.js?v=2f0bbf9cc9';
+import { createSvgGL, svgModel } from './svg-gl.js?v=87e629f16d';
 import { D_SURFACE, EASE_ARRIVE } from './ease.js?v=7513a88c68';
 import { measure } from './glyph-measure.js?v=131d137ce2';
 

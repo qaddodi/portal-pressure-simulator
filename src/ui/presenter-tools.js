@@ -50,7 +50,7 @@ import { createFlowTime } from './flow-time.js?v=621af7a953';
 import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=335ccc2439';
 import { frameFor } from './frame.js?v=7710f677e2';
 import { restPass, cancelRest } from './rest-pass.js?v=bf0c42ead5';
-import { talkTrace } from './talk-trace.js?v=01594d0f4c';
+import { talkTrace } from './talk-trace.js?v=9d109ae966';
 import { EXT, guard, safe } from './slide-ext.js?v=8bdd61c288';
 const nextFrame = frameFor('presenter-tools');
 

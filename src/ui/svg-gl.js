@@ -53,7 +53,8 @@ function fadeOf(el) {
 // it came down from the parent, or at its initial value, gives way to the attribute) and inherited by the children as SVG inherits it.
 const num = (v, d = 0) => { const n = parseFloat(v); return Number.isFinite(n) ? n : d; };
 // [CSS property, attribute, inherited, initial]
-const PROPS = [['fill', 'fill', true, 'rgb(0, 0, 0)'],   // colour-exempt: SVG's initial fill, to tell the stylesheet's from it ['stroke', 'stroke', true, 'none'], ['strokeWidth', 'stroke-width', true, '1px'], ['opacity', 'opacity', false, '1'],
+const PROPS = [['fill', 'fill', true, 'rgb(0, 0, 0)'],   // colour-exempt: SVG's initial fill, to tell the stylesheet's from it
+  ['stroke', 'stroke', true, 'none'], ['strokeWidth', 'stroke-width', true, '1px'], ['opacity', 'opacity', false, '1'],
   ['fillOpacity', 'fill-opacity', true, '1'], ['strokeOpacity', 'stroke-opacity', true, '1'], ['strokeDasharray', 'stroke-dasharray', true, 'none'],
   ['strokeDashoffset', 'stroke-dashoffset', true, '0px'], ['strokeLinecap', 'stroke-linecap', true, 'butt'], ['strokeLinejoin', 'stroke-linejoin', true, 'miter'],
   ['fontSize', 'font-size', true, null], ['fontWeight', 'font-weight', true, '400'], ['textAnchor', 'text-anchor', true, 'start'], ['letterSpacing', 'letter-spacing', true, 'normal'],
@@ -89,6 +90,8 @@ function lookOf(o, size) {
     none: o.display === 'none', fixed: o.vectorEffect === 'non-scaling-stroke', base: o.dominantBaseline,
   };
 }
+/** The properties a model's look reads, by their CSS names (the unit tests keep the list whole). */
+export const LOOK_PROPS = PROPS.map((q) => q[0]);
 const looks = new WeakMap();
 function readLooks(root) {
   const walk = (el, pr, po) => {

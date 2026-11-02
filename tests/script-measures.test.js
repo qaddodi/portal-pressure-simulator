@@ -76,3 +76,10 @@ test('slide charts are models drawn on the GPU (svg-gl.js): transforms and viewB
   assert.doesNotMatch(src, /createElementNS/, 'the talk chart builds no SVG');
   assert.match(src, /const sv = svgModel;/);
 });
+
+test('a GPU chart reads every look a piece can have: strokes, their widths and strengths too (a comment once swallowed them, 2 Nov)', async () => {
+  await import('./dom-shim.js');
+  const { LOOK_PROPS } = await import('../src/ui/svg-gl.js');
+  for (const k of ['fill', 'stroke', 'strokeWidth', 'opacity', 'fillOpacity', 'strokeOpacity', 'strokeDasharray', 'strokeLinecap', 'fontSize', 'fontWeight', 'textAnchor', 'display', 'visibility'])
+    assert.ok(LOOK_PROPS.includes(k), `${k} is read`);
+});
