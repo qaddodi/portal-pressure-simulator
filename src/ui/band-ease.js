@@ -2,7 +2,7 @@
 // over days), and each one thromboses a channel of the varices' plexus (stage.js widthWrites: strand i is live while the count is
 // under i + 1): drawn straight from the count, the strand a band closes vanished in one frame. The count the figure draws follows
 // the model's in a moment, so the strand fades out (or back in, as a band sloughs) over about D_SMALL.
-import { D_SMALL } from './ease.js?v=7513a88c68';
+import { D_SMALL } from './ease.js?v=dc92422977';
 
 /** The time constant of the follow (s): about 95 % of the way in D_SMALL. */
 export const BANDS_TAU = D_SMALL / 3000;

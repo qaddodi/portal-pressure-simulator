@@ -1,6 +1,6 @@
 // Clinical readouts derived from engine state (blueprint §9.1).
 
-import { PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES, EDGES } from './topology.js?v=4044766e96';
+import { PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES, EDGES } from './topology.js?v=512e725aea';
 import { clamp } from './physiology.js?v=6fc3ec393a';
 import { tenthGap } from './gap.js?v=3aabfbb29b';
 

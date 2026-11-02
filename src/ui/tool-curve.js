@@ -72,9 +72,9 @@ import { HVPG_CUTS } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { frameFor } from './frame.js?v=1d147c7c9a';
 import { restPass, restClass } from './rest-pass.js?v=bb619a1659';
 import { plotPanel } from './plot-look.js?v=5037697da7';
-import { createSvgGL, svgModel, setWords, wordsOf, setGeo } from './svg-gl.js?v=3c43a7c8e2';
-import { airRatio } from './endo-size.js?v=e0a58bf20e';
-import { NODES } from '../engine/topology.js?v=4044766e96';
+import { createSvgGL, svgModel, setWords, wordsOf, setGeo } from './svg-gl.js?v=e5886331c8';
+import { airRatio } from './endo-size.js?v=5421ea722d';
+import { NODES } from '../engine/topology.js?v=512e725aea';
 import { safeParamPath, pathOf, getAt, patchOf, mergeOf } from './import-safety.js?v=9db53247a5';
 const nextFrame = frameFor('tool-curve');
 

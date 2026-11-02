@@ -1,6 +1,6 @@
 // Event detectors with hysteresis (blueprint §10.3). Pure functions of engine state.
 
-import { computeMetrics } from './metrics.js?v=8c8ac30685';
+import { computeMetrics } from './metrics.js?v=d909ca0ee4';
 import { FLOW_CUTS } from './flow-cuts.js?v=1c97536e9e';
 import { HVPG_CUTS } from './pressure-cuts.js?v=0cfa0c573a';
 

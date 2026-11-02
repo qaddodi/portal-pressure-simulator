@@ -7,7 +7,7 @@
 // two lobes in parallel, as the circuit view's liver resistor reads it. (PPG ÷ portal flow also counts the collaterals.)
 // The worker builds one for each slide's state (worker-core.js), the presenter one for the live model while a time-lapse plays
 // (presenter.js liveFp): both here, so a tile or chart reads the same keys either way.
-import { NODES, EDGES } from './topology.js?v=4044766e96';
+import { NODES, EDGES } from './topology.js?v=512e725aea';
 import { tenthGap } from './gap.js?v=3aabfbb29b';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));

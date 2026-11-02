@@ -6,7 +6,7 @@
 // the sheet's still clip (app.css, its cut at the resting foot) hides what slides below the tab row's top line; sideways it slides
 // past the screen's edge. A pull, a settle, a sink out and a refit are all this one offset: no height, top or clip animates, and
 // the compositor carries the eases (WAAPI on translate).
-import { D_SMALL, EASE_ARRIVE, cssCurve } from './ease.js?v=7513a88c68';
+import { D_SMALL, EASE_ARRIVE, cssCurve } from './ease.js?v=dc92422977';
 
 /** The sheet's moving parts (its plate first, put in once). */
 export function sheetParts(el) {

@@ -1,21 +1,21 @@
 // Dock charts (blueprint §9.2): the pressure profile.
 
-import { NODES } from '../engine/topology.js?v=4044766e96';
+import { NODES } from '../engine/topology.js?v=512e725aea';
 import { PROFILE_PATHS, SHORT } from './anatomy.js?v=fe0f3d1f0e';
-import { pressureColor } from './colormap.js?v=f0a8aa4986';
+import { pressureColor } from './colormap.js?v=f8fa326224';
 import { store, hiddenNow } from './store.js?v=a21c31dcb5';
-import { h, fmt, canvasSize, cssVar, cssAlpha, clamp, createEaser, axisTop } from './util.js?v=2e2c464087';
+import { h, fmt, canvasSize, cssVar, cssAlpha, clamp, createEaser, axisTop } from './util.js?v=c328c93806';
 import { frameFor, cancelFrame, paceMs } from './frame.js?v=1d147c7c9a';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { shownOr } from './shown.js?v=f7d50db740';
 import { monotoneSegs, curveTester } from './curve-near.js?v=663c98a29c';
 import { glideMoving } from './idle-keys.js?v=6329c6ef1f';
 import { plotFill } from './plot-look.js?v=5037697da7';
-import { D_SMALL, EASE_ARRIVE } from './ease.js?v=7513a88c68';
+import { D_SMALL, EASE_ARRIVE } from './ease.js?v=dc92422977';
 import { createTraceGL, fitPen } from './trace-gl.js?v=2d7b4b37ee';
 import { restPass, cancelRest } from './rest-pass.js?v=bb619a1659';
 import { measure } from './glyph-measure.js?v=1e477bd6b3';
-import { glWords } from './gl-words.js?v=c88abca3a4';
+import { glWords } from './gl-words.js?v=c90803700a';
 const nextFrame = frameFor('charts');
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));

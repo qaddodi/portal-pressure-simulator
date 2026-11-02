@@ -6,17 +6,17 @@
 
 import { store } from './store.js?v=a21c31dcb5';
 import { createTraceGL, fitPen } from './trace-gl.js?v=2d7b4b37ee';
-import { h, icon, svgIcon, cssVar, clamp, settleFrom, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ, fmt, shownOf } from './util.js?v=2e2c464087';
+import { h, icon, svgIcon, cssVar, clamp, settleFrom, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ, fmt, shownOf } from './util.js?v=c328c93806';
 import { SNAPSHOTS } from './snapshots.js?v=4ca084eda3';
 import { HVPG_CUTS, PPG_CUTS, sevOfCuts } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { pressureColor } from './colormap.js?v=f0a8aa4986';
+import { pressureColor } from './colormap.js?v=f8fa326224';
 import { ownsSideways, pageGo } from './swipe.js?v=a61b093400';
 import { frameFor } from './frame.js?v=1d147c7c9a';
 import { restPass } from './rest-pass.js?v=bb619a1659';
 import { classSoon, removeSoon } from './class-soon.js?v=97b9d0e0db';
-import { slideFold } from './fold-slide.js?v=1b10231dcf';
-import { leaveFromHere } from './menu-leave.js?v=e71a0f16fe';
-import { releaseSpeed, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, RISE_PX } from './ease.js?v=7513a88c68';
+import { slideFold } from './fold-slide.js?v=4a28d2036e';
+import { leaveFromHere } from './menu-leave.js?v=8cc3b66748';
+import { releaseSpeed, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, RISE_PX } from './ease.js?v=dc92422977';
 const nextFrame = frameFor('menu');
 const profFrame = frameFor('menu-profile');
 // The hover preview's change of size and place runs without layout per frame: the card is laid out once at the taller of its old

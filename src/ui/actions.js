@@ -3,14 +3,14 @@
 // palette and the presenter all call these same verbs, so each change is made one way and lands
 // in the timeline as one entry.
 
-import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent, isStent, stentSite } from '../engine/topology.js?v=4044766e96';
-import { dopplerVel, flowReversed } from './velNormal.js?v=970c872d42';
+import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent, isStent, stentSite } from '../engine/topology.js?v=512e725aea';
+import { dopplerVel, flowReversed } from './velNormal.js?v=ad0e95380d';
 import { store, updateParams, hiddenNow } from './store.js?v=a21c31dcb5';
-import { fmt, fmtFlow, clamp } from './util.js?v=2e2c464087';
+import { fmt, fmtFlow, clamp } from './util.js?v=c328c93806';
 import { PREGNANCY_INFO } from '../engine/scenario.js?v=d2669cef9b';
-import { aboutVessel, aboutOrgan } from './about.js?v=176cd2356c';
-import { lobuleState } from './lobule-model.js?v=bb9b0d8c48';
-import { oxygenFor } from './blood.js?v=a70439097a';
+import { aboutVessel, aboutOrgan } from './about.js?v=0c5201d516';
+import { lobuleState } from './lobule-model.js?v=91e281aa89';
+import { oxygenFor } from './blood.js?v=8aea855ce8';
 import { LABEL_VESSEL, SIN_EDGES } from './anatomy.js?v=fe0f3d1f0e';
 
 export const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));

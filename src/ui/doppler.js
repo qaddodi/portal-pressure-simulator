@@ -4,22 +4,22 @@
 // and the waveform pattern. The trace keeps recording while the instrument is closed, so it opens
 // full. It scrolls smoothly, one spectral line at a time, as the machine does.
 
-import { EDGES, dopplerK, stentSegments, stentSite, stentGate, stentCourse } from '../engine/topology.js?v=4044766e96';
-import { glWords, wordsRect } from './gl-words.js?v=c88abca3a4';
-import { h, fmt, canvasSize, clamp, icon, cssVar, cssAlpha, swapText } from './util.js?v=2e2c464087';
-import { FONT, textW } from './charts.js?v=5b15a0ea2f';
+import { EDGES, dopplerK, stentSegments, stentSite, stentGate, stentCourse } from '../engine/topology.js?v=512e725aea';
+import { glWords, wordsRect } from './gl-words.js?v=c90803700a';
+import { h, fmt, canvasSize, clamp, icon, cssVar, cssAlpha, swapText } from './util.js?v=c328c93806';
+import { FONT, textW } from './charts.js?v=136ec0fdb6';
 import { classSoon } from './class-soon.js?v=97b9d0e0db';
 import { logAction, shownVel, store } from './store.js?v=a21c31dcb5';
-import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=1144a77aba';
+import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=5dec9052b2';
 import { frameFor, noteDraw, paceMs, cancelFrame } from './frame.js?v=1d147c7c9a';
 import { windowIndexFor, scaleFor, fitScale } from './dopplerWindow.js?v=1d34e63b32';
-import { velNormal, dopplerVel, judgeFlow } from './velNormal.js?v=970c872d42';
+import { velNormal, dopplerVel, judgeFlow } from './velNormal.js?v=ad0e95380d';
 import { caliperFrame, caliperLevel, caliperX, CAL_FADE, pairOf, pairBand, pairScale, PAIR_GAP } from './doppler-marks.js?v=15fc499dcd';
 import { createDopplerGL } from './doppler-gl.js?v=0c2ebabef5';
 import { surface } from './gpu-surfaces.js?v=2af17044e7';
 import { olderThan } from './backfill.js?v=455d888760';
 import { createFollow } from './display-state.js?v=8d062d39dc';
-import { D_SMALL, EASE_ARRIVE } from './ease.js?v=7513a88c68';
+import { D_SMALL, EASE_ARRIVE } from './ease.js?v=dc92422977';
 import { restPass } from './rest-pass.js?v=bb619a1659';
 import { createTraceGL, fitPen, keepLayer } from './trace-gl.js?v=2d7b4b37ee';
 import { attrSoon, dataSoon, propSoon } from './class-soon.js?v=97b9d0e0db';

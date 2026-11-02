@@ -20,7 +20,7 @@
 import { createTraceGL, fitPen } from './trace-gl.js?v=2d7b4b37ee';
 import { finalFrameFor, easeNow } from './frame.js?v=1d147c7c9a';
 import { measure } from './glyph-measure.js?v=1e477bd6b3';
-import { D_SURFACE, easeArrive } from './ease.js?v=7513a88c68';
+import { D_SURFACE, easeArrive } from './ease.js?v=dc92422977';
 import { cssColor } from './css-color.js?v=e56f0c77ae';
 
 const finalFrame = finalFrameFor('caption-gl');

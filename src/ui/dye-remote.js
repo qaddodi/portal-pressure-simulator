@@ -8,7 +8,7 @@
 // running (held ones included) start again where they were, and nothing is left running or pending. dispose() ends the worker.
 // An injection shows as active at once (the figure keeps drawing until the first table comes). Where no worker can be made, it is
 // createBolus itself, on the main thread as before.
-import { createBolus, DYE_BINS, DYE_SECONDS, DYE_MAX_HOLD } from './blood.js?v=a70439097a';
+import { createBolus, DYE_BINS, DYE_SECONDS, DYE_MAX_HOLD } from './blood.js?v=8aea855ce8';
 
 export const DYE_WORKER = typeof Worker === 'function';
 

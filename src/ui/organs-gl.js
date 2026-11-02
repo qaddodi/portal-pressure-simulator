@@ -117,7 +117,7 @@ import { createOrganPaint, mul, mulTo, invTo, prestartOrganPaint } from './organ
 import { prestart, linkProgram, exerciseDraw } from './gl-compile.js?v=79231d7c6b';
 import { netChanged } from './idle-keys.js?v=6329c6ef1f';
 import { uniformCache } from './uniform-cache.js?v=6488216aa0';
-import { easeMove, D_SURFACE } from './ease.js?v=7513a88c68';
+import { easeMove, D_SURFACE } from './ease.js?v=dc92422977';
 // (The colour a clear writes, one array for every clear: none made per call, plan rev 2 §2.8.)
 const CLEAR0 = new Float32Array(4);
 

@@ -14,7 +14,7 @@
 //     row) the piece follows the tab as it grows, on a short step.
 //   - Reduce Motion: the piece does not travel; it fades out where it was and in where it is (--d-flip).
 //   - High contrast keeps today's Highlight on the button and hides the piece (the stylesheet).
-import { D_SMALL } from './ease.js?v=7513a88c68';
+import { D_SMALL } from './ease.js?v=dc92422977';
 import { restPass } from './rest-pass.js?v=bb619a1659';
 import { readBox, readMetric, readStyle } from './layout-snap.js?v=f609965236';
 

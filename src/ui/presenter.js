@@ -16,12 +16,12 @@
 import { store, replaceParams } from './store.js?v=a21c31dcb5';
 import { download } from './download.js?v=3564e5bf8c';
 import { controlOwnsKey } from './key-owner.js?v=60ed93db32';
-import { glWords } from './gl-words.js?v=c88abca3a4';
-import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, confirmDialog, askText, popoverOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, odoSwap, odoOn, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=2e2c464087';
+import { glWords } from './gl-words.js?v=c90803700a';
+import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, confirmDialog, askText, popoverOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, odoSwap, odoOn, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=c328c93806';
 import { titleParts } from './title-units.js?v=c8d5ce1f26';
-import { liveText, wordsOf } from './live-text.js?v=fb9f83eb31';
+import { liveText, wordsOf } from './live-text.js?v=73386a4372';
 import { swipeDir, SWIPE_MIN, SWIPE_RATIO, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight, wheelFinger, wheelGesture, ownsWheel } from './swipe.js?v=a61b093400';
-import { createSvgGL, svgModel, viewMap, noteLoop } from './svg-gl.js?v=3c43a7c8e2';
+import { createSvgGL, svgModel, viewMap, noteLoop } from './svg-gl.js?v=e5886331c8';
 import { sinusoidSupported } from './gl-support.js?v=6219c6f004';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=072bfa63c1';
 import { isCamOn, unionBox, regionBox, growBox, camNames } from './cam-frame.js?v=3c321f5f7f';
@@ -30,10 +30,10 @@ import { NODE_POS } from './anatomy.js?v=fe0f3d1f0e';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=94784eec41';
-import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
+import { fingerprintOf } from '../engine/fingerprint.js?v=eeff27e0ab';
 import { hvpgSev } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { createHvpgMonitor } from './hvpg-proc.js?v=893a0eb0ed';
-import { createTools } from './presenter-tools.js?v=a57c1b83dc';
+import { createHvpgMonitor } from './hvpg-proc.js?v=602c7d0379';
+import { createTools } from './presenter-tools.js?v=3c8bb57241';
 import { openHandout } from './handout.js?v=125a20a734';
 import { noteResume, resumeFor } from './resume.js?v=c0f39f9446';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=1eeb480f5f';
@@ -46,29 +46,29 @@ import { createSlidePrep } from './slide-prep.js?v=09e5326bee';
 import { createTxns } from './slide-txn.js?v=2b33d858d0';
 import { glEpoch, onGLRestored } from './gl-state.js?v=4163c507aa';
 import { prepareShaders, shaderFailures } from './gl-compile.js?v=79231d7c6b';
-import { createFigureKey } from './figure-key.js?v=bcb94613c4';
+import { createFigureKey } from './figure-key.js?v=ae6634ab0f';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
-import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=f0a8aa4986';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=6976138436';
+import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=f8fa326224';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=5f52814e82';
 import { clotWords } from './callout-math.js?v=cb770f4df0';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
-import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=b18810ef0b';
+import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=5ba35b7f00';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
-import { anchorsOf, roomFor } from './cam-room.js?v=8420762b17';
+import { anchorsOf, roomFor } from './cam-room.js?v=2535bd5b8c';
 import { beatCount, beatView } from './slide-beats.js?v=2aded612c4';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
-import { flowTimeHeight, trailKeys } from './flow-time.js?v=8eea327b5b';
+import { flowTimeHeight, trailKeys } from './flow-time.js?v=113d529b4c';
 import { PROCS, procBlocked, procOffered, playProcedure, stepMark } from './proc-anim.js?v=77800f80cd';
 import { createInsetHold } from './inset-hold.js?v=e34b1d5a56';
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=982397f8fb';
-import { createCardZoom, tapTracker } from './card-zoom.js?v=ec8cdd1b1f';
+import { createCardZoom, tapTracker } from './card-zoom.js?v=76e93715e4';
 import { sheetPanes } from './sheet-glass.js?v=9bad2768f7';
-import { createScopeTile } from './scope-tile.js?v=e78886bf68';
+import { createScopeTile } from './scope-tile.js?v=0b360f1b0b';
 import { tileKeys as cardKeys, toolOnly } from './card-tiles.js?v=e547c76c7f';
-import { D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN, EASE_MOVE, RISE_PX, cssCurve } from './ease.js?v=7513a88c68';
-import { slideFold } from './fold-slide.js?v=1b10231dcf';
+import { D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN, EASE_MOVE, RISE_PX, cssCurve } from './ease.js?v=dc92422977';
+import { slideFold } from './fold-slide.js?v=4a28d2036e';
 import { pageOn, followOf, pageIn, swipeHeld } from './card-page.js?v=a63c512291';
-import { throwOut, throwIn, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, INSTANT, throwOutNow, throwPinned, throwRelease, railable, railHold, railIn, railAway, railGhosts, railWaits, railCopies, RAIL_GAP } from './card-throw.js?v=d9437fb4ee';
+import { throwOut, throwIn, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, INSTANT, throwOutNow, throwPinned, throwRelease, railable, railHold, railIn, railAway, railGhosts, railWaits, railCopies, RAIL_GAP } from './card-throw.js?v=d3373f02f7';
 import { readAnims, readBox, readCTM, readMetric, readRects, readStyle, readTiming, scrollInto } from './layout-snap.js?v=f609965236';
 import { caught } from './caught.js?v=b96b17594a';
 const nextFrame = frameFor('presenter');
@@ -1031,7 +1031,7 @@ function makeCalc() {
   const ready = (async () => {
     let w = null;
     try {
-      w = new Worker(new URL('../worker.js?v=d9d78d2320', import.meta.url), { type: 'module' });
+      w = new Worker(new URL('../worker.js?v=92c817831c', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 15000);   // (long: a slow load still gets the worker; host.js)
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -1045,7 +1045,7 @@ function makeCalc() {
     } catch {
       if (w) { w.onmessage = w.onerror = null; w.terminate(); }   // (a worker that never said hello: not left running beside the page's own engine)
       try {
-        const { createCore } = await import('../worker-core.js?v=71fb997a97');
+        const { createCore } = await import('../worker-core.js?v=6942687ca7');
         const core = createCore((m) => setTimeout(() => onMsg(m), 0));
         core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
         post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();
