@@ -8,7 +8,7 @@
 // Off (the browser's glass, as before): no WebGL2, a software renderer, ?gpulabels=0, Settings' blur effect off, reduced
 // transparency, a browser without backdrop blur (whose solid card stays), or a copy the browser refuses.
 
-import { shareFor, sharePrep, sharePlan, shareKeep, shareForget, shareTurn, shareUse, shareRelease, shareBytes } from './blur-share.js?v=a7365909bf';
+import { shareFor, sharePrep, sharePlan, shareKeep, shareForget, shareTurn, shareUse, shareRelease, shareBytes } from './blur-share.js?v=ea5ed71e09';
 import { glCap, fbComplete } from './gl-state.js?v=4163c507aa';
 import { hold } from './gpu-budget.js?v=5a5dcd699f';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
