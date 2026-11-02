@@ -9,7 +9,7 @@ import { createTraceGL, fitPen } from './trace-gl.js?v=a9c90bdcfc';
 import { FONT } from './charts.js?v=5912738ffd';
 import { simTime, isPaused, fibroReading } from './clock.js?v=16aba0e2eb';
 import { store } from './store.js?v=4ef2a6ffd8';
-import { createElastogramGL } from './fibroscan-gl.js?v=f7edf8f653';
+import { createElastogramGL } from './fibroscan-gl.js?v=d314f78f05';
 import { surface } from './gpu-surfaces.js?v=2af17044e7';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs } from './frame.js?v=7710f677e2';
 import { createFollow } from './display-state.js?v=8d062d39dc';
@@ -108,18 +108,18 @@ export function createFibroScan() {
   if (!theme) readTheme();
   watchTheme();
   // (The map's shader is started at the next idle moment and compiles beside the page, not at the first map; a map that comes sooner starts it itself.)
-  // (The panel's map: its own WebGL2 canvas under the words, made at the next idle moment so its shader compiles beside the page;
-  // a map wanted sooner makes it itself. The words, lines and edge are drawn over it by the GPU's chart drawer, trace-gl.js, in a
-  // canvas of its own (?tracegl=0: on the panel's own canvas, still over the map). Nothing is copied from one canvas to another,
-  // and nothing of the map is drawn on the CPU: without WebGL2 it is not drawn.)
+  // (The panel's map: its own WebGL2 canvas under the words, made when the panel comes on screen and let go when it leaves: a page holds
+  // only so many WebGL contexts (about 16), and past that the browser drops the oldest, the figure's. The words, lines and edge are drawn
+  // over it by the GPU's chart drawer, trace-gl.js, in a canvas of its own (?tracegl=0: on the panel's own canvas, still over the map).
+  // Nothing is copied from one canvas to another, and nothing of the map is drawn on the CPU: without WebGL2 it is not drawn.)
   let map, mapCv = null;
   const makeMap = () => {
-    if (map !== undefined || gone) return map;
+    if (map !== undefined || gone || !onScreen()) return map ?? null;
     map = createElastogramGL(fields());
     if (map) { mapCv = map.canvas; mapCv.className = 'fs-map'; mapCv.setAttribute('aria-hidden', 'true'); mapCv.style.visibility = 'hidden'; cv.before(mapCv); }
     return map;
   };
-  (typeof requestIdleCallback === 'function' ? (f) => requestIdleCallback(f, { timeout: 1000 }) : (f) => setTimeout(f, 50))(makeMap);
+  const dropMap = () => { map?.dispose(); map = undefined; mapCv = null; mapGpu = null; };
   const cv = h('canvas', { role: 'img', 'aria-label': 'Simulated FibroScan elastography panel, live' });
   let mapGpu = null;   // (whether the last map came from the GPU: the ?perf surfaces list)
   const box = h('div', { class: 'chart-box fibroscan-box' }, cv);
@@ -139,7 +139,7 @@ export function createFibroScan() {
   // (raf: the loop's one frame asked for, let go with the panel: dispose.)
   let raf = 0, gone = false;
   const start = () => { if (!running && !gone) { running = true; raf = nextFrame(loop); } };
-  const io = typeof IntersectionObserver === 'function' ? new IntersectionObserver((es) => { const was = seen; seen = es[es.length - 1].isIntersecting; if (seen && !was && fed) start(); }) : null;
+  const io = typeof IntersectionObserver === 'function' ? new IntersectionObserver((es) => { const was = seen; seen = es[es.length - 1].isIntersecting; if (seen && !was && fed) start(); if (!seen && was) dropMap(); }) : null;
   io?.observe(cv); boxRO?.observe(cv);
   const onScreen = () => cv.isConnected && (io ? seen : true);   // (no observer, a bare test page: taken as shown)
 
@@ -248,6 +248,6 @@ export function createFibroScan() {
   /** The panel is done with (a presentation's own instruments go with it): its frame, observer and store watch are let go. */
   // (The ?perf surfaces list, gpu-surfaces.js: read by the readout only.)
   const offSurface = surface('FibroScan map', () => (!cv.isConnected || mapGpu === null ? null : mapGpu ? { on: 'gpu', via: words ? 'map WebGL2, words on the GPU chart drawer' : 'map WebGL2, words 2D canvas (?tracegl=0)' } : { on: 'fallback', via: 'none', why: 'no WebGL2 or a lost context: no map' }));
-  function dispose() { gone = true; running = false; cancelFrame(raf); raf = 0; io?.disconnect(); boxRO?.disconnect(); offRun(); words?.dispose(); if (mapCv) { mapCv.width = mapCv.height = 0; mapCv.remove(); } }
+  function dispose() { gone = true; running = false; cancelFrame(raf); raf = 0; io?.disconnect(); boxRO?.disconnect(); offRun(); words?.dispose(); dropMap(); }
   return { id: 'fibroscan', label: 'FibroScan', el, update, pin(fp) { pinned = fp?.lsm ?? null; if (pinned != null) model = pinned; }, dispose() { dispose(); offSurface(); } };
 }

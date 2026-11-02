@@ -124,8 +124,11 @@ export function createElastogramGL(F) {
   let s = null;
   try { s = make(F); } catch (e) { console.warn('FibroScan map: WebGL2 unavailable.', e); s = null; }
   if (!s) return null;
-  return { canvas: s.canvas, draw: (fMap, NB, t0, N, c, t) => !!drawMap(s, fMap, NB, t0, N, c, t), get lost() { return s.lost; } };
+  return { canvas: s.canvas, draw: (fMap, NB, t0, N, c, t) => !!drawMap(s, fMap, NB, t0, N, c, t), get lost() { return s.lost; },
+    /** Lets the context go (the panel is off screen): a page holds only so many WebGL contexts, and past that the browser drops the oldest, the figure's. */
+    dispose() { stopAll(s); } };
 }
+function stopAll(s) { try { s.gl.getExtension('WEBGL_lose_context')?.loseContext(); } catch { /* already gone */ } s.canvas.width = s.canvas.height = 0; s.canvas.remove(); }
 function drawMap(s, F, NB, t0, N, c, t) {
   if (s.lost) return null;
   s.publish();
