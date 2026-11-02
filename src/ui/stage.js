@@ -9346,15 +9346,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (A new leader takes a blank line or dot made ahead, between frames, never one made in the frame (2 Nov 2026, "Move everything to
   // GPU"): when none is left it comes in the next frame, after the spares are made again.)
   const leadSpare = new Map(), LEAD_SPARE = 12;
-  let leadFill = 0;
-  function leadTop() { leadFill = 0; for (const tag of ['path', 'circle']) { const l = leadSpare.get(tag) || []; while (l.length < LEAD_SPARE) l.push(s(tag, {})); leadSpare.set(tag, l); } }
+  let leadFill = 0, leadShort = false;
+  // (A leader that found no blank asks for the labels to be laid out again once the blanks are made: with the figure still, nothing
+  // else would, and the circuit's leaders never came in.)
+  function leadTop() {
+    leadFill = 0;
+    for (const tag of ['path', 'circle']) { const l = leadSpare.get(tag) || []; while (l.length < LEAD_SPARE) l.push(s(tag, {})); leadSpare.set(tag, l); }
+    if (leadShort) { leadShort = false; nextFrame(() => { if (F) updateLabels(F, true); }); }
+  }
   const leadTake = (tag) => { const el = leadSpare.get(tag)?.pop() || null; if (!leadFill && (leadSpare.get(tag)?.length ?? 0) < LEAD_SPARE / 2) leadFill = restPass(leadTop); return el; };
   function paintLeaders(want) {
     const keep = new Set(want.map((w) => w.k)), els = [];
     for (const w of want) {
       let el = leadEls.get(w.k);
       if (el && el.tagName !== w.tag) { el.remove(); leadEls.delete(w.k); el = null; }
-      if (!el) { el = leadTake(w.tag); if (!el) { if (!leadFill) leadFill = restPass(leadTop); continue; } leadEls.set(w.k, el); }
+      if (!el) { el = leadTake(w.tag); if (!el) { leadShort = true; if (!leadFill) leadFill = restPass(leadTop); continue; } leadEls.set(w.k, el); }
       if (el._gone) { clearTimeout(el._gone); el._gone = 0; el.classList.remove('ld-gone'); }
       for (const [a, v] of Object.entries(w.at)) setA(el, a, v);
       els.push(el);
