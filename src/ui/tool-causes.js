@@ -15,10 +15,10 @@
 // steps ease to their new places. These are the model's own shares: a deck line that quotes them needs a source.
 
 import { TILE, RATE, tileShown } from './table-marks.js?v=ff3ed0cc47';
-import { cutsOf } from './tool-curve.js?v=0a5880736e';
+import { cutsOf } from './tool-curve.js?v=5f334fc1e6';
 import { DRUGS } from '../engine/scenario.js?v=0762d1b820';
 import { frameFor } from './frame.js?v=7710f677e2';
-import { createSvgGL, svgModel } from './svg-gl.js?v=43aae69fb6';
+import { createSvgGL, svgModel, setWords } from './svg-gl.js?v=665756452b';
 const nextFrame = frameFor('tool-causes');
 
 const CS_MIN = 12;   // (px on the screen: the smallest the chart's words are drawn)
@@ -240,7 +240,7 @@ export function createCauses({ host } = {}) {
       // else right of it.)
       const settled = r.goal && Math.abs(b - r.goal.b) < 1e-9 && Math.abs(a - r.goal.a) < 1e-9;
       const txt = settled ? shownText({ kind: r.kind, shown: r.goal.shown }, dg) : shownText({ kind: r.kind, shown: r.kind === 'step' ? b - a : b }, dg);
-      if (val.textContent !== txt) val.textContent = txt;
+      setWords(val, txt);
       const vw = cw(txt, f, true), left = r.kind === 'step' && b < a && bl - vgap - vw >= bx0;
       val.setAttribute('x', (left ? bl - vgap : bl + wd + vgap).toFixed(1));
       val.setAttribute('text-anchor', left ? 'end' : 'start');

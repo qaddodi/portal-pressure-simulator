@@ -86,7 +86,7 @@ async function draw(deck, W, H, f) {
     const a = n.attrs;
     if (cls(n).includes('pcv-alt')) out.alt = { hidden };
     if (hidden) return;
-    if (n.tag === 'text' && a.x != null && a.y != null) out.texts.push({ cls: cls(n), x: +a.x + off[0], y: +a.y + off[1], anchor: a['text-anchor'] || 'start', txt: n.textContent, off: n.classSet.has('off') });
+    if (n.tag === 'text' && a.x != null && a.y != null) out.texts.push({ cls: cls(n), x: +a.x + off[0], y: +a.y + off[1], anchor: a['text-anchor'] || 'start', txt: n._t ?? n.textContent, off: n.classSet.has('off') });
     else if (n.tag === 'line') out.lines.push({ cls: cls(n), x1: +a.x1 + off[0], y1: +a.y1 + off[1], x2: +a.x2 + off[0], y2: +a.y2 + off[1] });
     else if (n.tag === 'path') out.paths.push({ cls: cls(n), d: a.d });
   });

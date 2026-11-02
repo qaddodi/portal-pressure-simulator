@@ -19,7 +19,7 @@ import { finalFrameFor, easeNow } from './frame.js?v=7710f677e2';
 import { restPass } from './rest-pass.js?v=bf0c42ead5';
 import { cssCurve, D_SURFACE, EASE_ARRIVE } from './ease.js?v=7513a88c68';
 import { cssColor } from './css-color.js?v=e56f0c77ae';
-import { morphSvg } from './svg-morph.js?v=e2c6c2224c';
+import { morphSvg } from './svg-morph.js?v=9c3c1b10e0';
 
 // (No bleed: a picture reaching past the box counts as overflow, and the card's fit then shrank the whole card to take it in.)
 export const BLEED = 0;
@@ -33,6 +33,13 @@ export function svgModel(tag, attrs = {}, ...kids) {
   if (tag === 'svg') { el.setAttribute('data-svg-model', ''); el.hidden = true; }
   return el;
 }
+
+// A piece's words changed in a frame (a value that counts as a chart glides): kept on the piece, not written into it, so no text node
+// is made, no mutation is seen and nothing is read again for it; the picture draws them from there. (2 Nov 2026, "Move everything to GPU".)
+/** Sets the words a model's text piece shows; a piece given words this way draws them alone, over any children it had. */
+export function setWords(el, t) { t = String(t); if (wordsOf(el) !== t) el._t = t; }
+/** The words a model's text piece shows now. */
+export const wordsOf = (el) => el._t ?? el.textContent;
 
 // The fades svg-morph runs on a model's pieces (their Web Animations), so a frame can draw each piece at the strength it has now from
 // the animation's own clock and keyframes, with nothing asked of the page.
@@ -81,6 +88,7 @@ function resolve(el, parentRaw, parentOut) {
     if (!css && a != null && a !== '') { o[k] = a; if (attr === 'opacity' || attr === 'stop-color') o[`@${attr}`] = true; }
     else if (!css && inh && parentOut) o[k] = parentOut[k];
     else o[k] = v;
+    if (attr === 'text-anchor' && !css) o['@text-anchor'] = true;   // (the stylesheet leaves it to the attribute, which a frame may move)
   }
   // (A drawing's own root is never hidden by the page round it: a card hidden while it slides in hides the picture with it, and its
   // looks, read then, would have kept every piece hidden after.)
@@ -98,7 +106,7 @@ function lookOf(o, size) {
     none: o.display === 'none', fixed: o.vectorEffect === 'non-scaling-stroke', base: o.dominantBaseline,
     stop: rgbaOf(o.stopColor), stopOp: num(o.stopOpacity, 1),
     // (a strength or a stop's colour the chart writes as an attribute, each frame of its glide: read from the piece as it stands)
-    opAttr: !!o['@opacity'], stopAttr: !!o['@stop-color'],
+    opAttr: !!o['@opacity'], stopAttr: !!o['@stop-color'], anchorAttr: !!o['@text-anchor'],
   };
 }
 const looks = new WeakMap();
@@ -117,7 +125,7 @@ function opEase(cs, prop = 'opacity') {
 }
 // (A piece's look by what the stylesheet sees of it, under its parent's: a chart that builds its pieces again (a redraw, a frame of its
 // glide) takes each one's look from the one before with the same classes, attributes and parent, never asking the page in a frame.)
-const URL_ID = /url\(#[^)]*\)/g, LIVE_ATTRS = new Set(['opacity', 'stop-color']);   // (a drawing's own ids, made afresh each time, and what is read live)
+const URL_ID = /url\(#[^)]*\)/g, LIVE_ATTRS = new Set(['opacity', 'stop-color', 'text-anchor']);   // (a drawing's own ids, made afresh each time, and what is read live)
 const STYLE_MOTION = /(^|;)\s*(opacity|transform)\s*:[^;]*/g;
 function keyOf(el, pk) {
   let k = `${pk}>${el.localName}.${el.getAttribute('class') || ''}`;
@@ -338,12 +346,13 @@ function paintShape(ctx, root, el, tag, L, alpha, k) {
 function paintText(ctx, el, L0, alpha, k) {
   const runs = [];
   let x = firstNum(el, 'x') + at(el, 'dx'), y = firstNum(el, 'y') + at(el, 'dy');
-  for (const n of el.childNodes) {
+  if (el._t != null) { if (el._t) runs.push({ t: el._t, L: L0, x: null, y: null }); }
+  else for (const n of el.childNodes) {
     if (n.nodeType === 3) { if (n.data) runs.push({ t: n.data, L: L0, x: null, y: null }); continue; }
     if (n.nodeType !== 1 || n.localName !== 'tspan') continue;
     const L = looks.get(n) || L0;
     if (L.none) continue;
-    runs.push({ t: n.textContent, L, x: n.hasAttribute('x') ? firstNum(n, 'x') : null, y: n.hasAttribute('y') ? firstNum(n, 'y') : null, dx: at(n, 'dx'), dy: at(n, 'dy') });
+    runs.push({ t: wordsOf(n), L, x: n.hasAttribute('x') ? firstNum(n, 'x') : null, y: n.hasAttribute('y') ? firstNum(n, 'y') : null, dx: at(n, 'dx'), dy: at(n, 'dy') });
   }
   if (!runs.length) return;
   const fontOf = (L) => `${L.weight} ${(L.size * k).toFixed(2)}px Inter`;
@@ -355,7 +364,7 @@ function paintText(ctx, el, L0, alpha, k) {
     while (j < runs.length && runs[j].x == null) j++;
     const chunk = runs.slice(i, j);
     if (chunk[0].x != null) x = chunk[0].x;
-    const total = chunk.reduce((s, r) => s + widthOf(r) + (r.dx || 0), 0), anchor = L0.anchor;
+    const total = chunk.reduce((s, r) => s + widthOf(r) + (r.dx || 0), 0), anchor = (L0.anchorAttr && el.getAttribute('text-anchor')) || L0.anchor;
     let cx = anchor === 'end' ? x - total : anchor === 'middle' ? x - total / 2 : x;
     // (dominant-baseline: central sits the words' middle, between Inter's ascent and descent, on y; middle, half the x-height; hanging
     // and text-before-edge, the ascent.)

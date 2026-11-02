@@ -125,7 +125,7 @@ export function describe(svg) {
     }
     const st = styleOf(el); if (st) look.push(`style=${unref(st)}`);
     let words = '';
-    if (tag === 'text') words = el.textContent + '\u0001' + [...el.children].map((c) => `${firstClass(c)}:${styleOf(c)}`).join('\u0002');
+    if (tag === 'text') words = (el._t ?? el.textContent) + '\u0001' + [...el.children].map((c) => `${firstClass(c)}:${styleOf(c)}`).join('\u0002');
     out.push({ el, key: `${path.reverse().join('>')}>${tag}|${look.sort().join(';')}|${words}`, geo, defs, skip });
   }
   return out;

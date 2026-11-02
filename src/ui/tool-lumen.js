@@ -8,7 +8,7 @@ import { h, clamp } from './util.js?v=81aaed6aef';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { store } from './store.js?v=4ef2a6ffd8';
 import { frameFor } from './frame.js?v=7710f677e2';
-import { createSvgGL, svgModel, snapOp } from './svg-gl.js?v=43aae69fb6';
+import { createSvgGL, svgModel, snapOp, setWords } from './svg-gl.js?v=665756452b';
 const nextFrame = frameFor('lumen');
 
 const STENTS = new Set(['TIPS', 'DIPS']);
@@ -130,7 +130,7 @@ export function createLumen() {
   pic.append(wall, tissue, lumen, clot, ring, inName, inNum, inWord);
   const el = h('div', { class: 'gl' }, h('div', { class: 'gl-stage' }, pic));
   const gl = createSvgGL(el.firstChild);   // (its looks are read once it is on the page and sized: fit)
-  const set = (n, t) => { if (n.textContent !== t) n.textContent = t; };
+  const set = setWords;   // (words kept on the piece, drawn by the picture: no text node made in a frame)
   const reduce = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
   // What the picture shows now, easing to the model's state (a compare button or a new slide jumps the params; the picture eases).
   let shown = null, goal = null, raf = 0, at = 0;

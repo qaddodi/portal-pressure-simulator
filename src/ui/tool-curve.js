@@ -72,7 +72,7 @@ import { HVPG_CUTS } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { frameFor } from './frame.js?v=7710f677e2';
 import { restPass } from './rest-pass.js?v=bf0c42ead5';
 import { plotPanel } from './plot-look.js?v=5037697da7';
-import { createSvgGL, svgModel } from './svg-gl.js?v=43aae69fb6';
+import { createSvgGL, svgModel, setWords, wordsOf } from './svg-gl.js?v=665756452b';
 import { airRatio } from './endo-size.js?v=e0a58bf20e';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 const nextFrame = frameFor('tool-curve');
@@ -845,13 +845,13 @@ export function createCurve() {
       p.ring.setAttribute('cx', cx.toFixed(1)); p.ring.setAttribute('cy', cy.toFixed(1));
       p.ring.classList.toggle('off', !on); p.val.classList.toggle('off', !on || gone || G.keyRead);
       // (The value goes into its key, the ring alone on the chart.)
-      if (G.keyRead) { const kt = on ? ` ${fmt(v, p.l.d)} ` : ' '; if (parts.kv[j] && parts.kv[j].textContent !== kt) parts.kv[j].textContent = kt; return; }
+      if (G.keyRead) { const kt = on ? ` ${fmt(v, p.l.d)} ` : ' '; if (parts.kv[j]) setWords(parts.kv[j], kt); return; }
       const pieces = lead ? ringed.map((jj) => ({ c: parts.lines[jj].l.c, t: `${fmt(r.ys[jj], parts.lines[jj].l.d)} ${shortUnit(parts.lines[jj].l.unit)}` })) : null;
       const txt = lead ? pieces.map((q) => q.t).join(' · ') : on && !gone ? (G.ag ? fmt(v, p.l.d) : `${fmt(v, p.l.d)} ${p.l.unit}`) : '';   // (with against the key carries the unit)
       if (p.val.dataset.k !== txt) {
         p.val.dataset.k = txt;
-        if (pieces) p.val.replaceChildren(...pieces.flatMap((q, i) => [i ? sv('tspan', { class: 'pcv-sep' }, ' · ') : null, sv('tspan', { style: `fill: var(${q.c})` }, q.t)]).filter(Boolean));
-        else p.val.textContent = txt;
+        if (pieces) p.val._t = null, p.val.replaceChildren(...pieces.flatMap((q, i) => [i ? sv('tspan', { class: 'pcv-sep' }, ' · ') : null, sv('tspan', { style: `fill: var(${q.c})` }, q.t)]).filter(Boolean));
+        else setWords(p.val, txt);
       }
       if (!on || gone) return;
       const cands = [];
@@ -934,7 +934,7 @@ export function createCurve() {
     });
     // (The zone's name inside it, low and away from the lines: the right corner, else the left.)
     if (ob.zoneLab) {
-      const tw = 1.1 * cw(ob.zoneLab.textContent, f, true), cands = [];
+      const tw = 1.1 * cw(wordsOf(ob.zoneLab), f, true), cands = [];
       for (const dy of [0.7, 1.9, 3.1]) cands.push({ x: G.R - 0.6 * f, y: G.B - dy * f, anchor: 'end' }, { x: G.L + 0.6 * f, y: G.B - dy * f, anchor: 'start' }, { x: (G.L + G.R) / 2, y: G.B - dy * f, anchor: 'middle' });
       const pl = placeWord(cands, tw, f, { ...ob, boxes });
       boxes.push(pl.box);
@@ -949,7 +949,7 @@ export function createCurve() {
       // (A name with no clear spot (a word, a line or the edge in its way) stands as its number where that does better; and once a drawing has made it a
       // number it stays one, as the rings glide, so it never flips between the two.)
       if (c.short && (c.useShort || p.n > 0)) { const q = placeWord([...c.cands, ...near], c.twS, f, obs); if (c.useShort || q.n < p.n) { p = q; short = true; c.useShort = true; } }
-      if (c.el.textContent !== (short ? c.short : c.txt)) c.el.textContent = short ? c.short : c.txt;
+      setWords(c.el, short ? c.short : c.txt);
       boxes.push(p.box);
       c.el.setAttribute('x', p.x.toFixed(1)); c.el.setAttribute('y', p.y.toFixed(1)); c.el.setAttribute('text-anchor', p.anchor);
       c.el.classList.toggle('on', !!p.on);

@@ -12,7 +12,7 @@
 import { frameFor, cancelFrame } from './frame.js?v=7710f677e2';
 import { plotPanel } from './plot-look.js?v=5037697da7';
 import { RX, bandKeys } from './rx-bands.js?v=51e83c7c59';
-import { createSvgGL, svgModel } from './svg-gl.js?v=43aae69fb6';
+import { createSvgGL, svgModel, setWords } from './svg-gl.js?v=665756452b';
 import { D_SURFACE, EASE_ARRIVE } from './ease.js?v=7513a88c68';
 const nextFrame = frameFor('flow-time');
 
@@ -207,7 +207,7 @@ export function createFlowTime() {
       l.dot.setAttribute('cx', hx.toFixed(1)); l.dot.setAttribute('cy', hy.toFixed(1));
       l.val.setAttribute('x', (hx + (left ? -0.6 : 0.6) * G.f).toFixed(1)); l.val.setAttribute('y', (hy - 0.7 * G.f).toFixed(1));
       l.val.setAttribute('text-anchor', left ? 'end' : 'start');
-      if (l.val.textContent !== txt) l.val.textContent = txt;   // (a glide's frames mostly keep the shown value: rewritten, the text was laid out again)
+      setWords(l.val, txt);   // (kept on the piece and drawn by the picture: no text node, no mutation, nothing read again)
       l.val.classList.toggle('off', m - ax().from < 0.36 * (ax().end - ax().from));   // (near the start the first value is already there)
       return v;
     });
