@@ -54,7 +54,7 @@ test('the bowel is a picture at rest gathered under the gut, moved by its float 
   assert.match(stage, /if \(!fluidEasing\(\)\) bowelHeld = organG\.bowel\.getAttribute\('transform'\);\n\s+if \(liveOn\(\)\) return \['live', bowelHeld, /);
   // On the GPU: moved by whole device pixels, drawn under the gut's picture, laid with the gut's opacity.
   assert.match(gl, /const dy = Math\.round\(\(\(u\.dy \|\| 0\) - U0\.at\) \* m\[3\]\), mm = mat\.slice\(\);\n\s+mm\[7\] \+= dy;/);
-  assert.match(gl, /for \(const \[U0, U1, mm\] of under\) drawLayer\(U0, U1, mm, b\); drawLayer\(L0, L1, mat, b\); \}, box, cut\.spec, mul\(m, cut\.m\), w, h, fbo, cut\.opacity \?\? 1, within\);/);
+  assert.match(gl, /for \(const \[U0, U1, mm\] of under\) drawLayer\(U0, U1, mm, b\); drawLayer\(L0, L1, mat, b\); \}, box, cut\.spec, mul\(m, cut\.m\), w, h, target, cut\.opacity \?\? 1, within\);/);
 });
 
 // A live organ's ease changes its own box, not the screen: the stack is drawn again only there (the boxes of the ops whose outline,
@@ -65,13 +65,13 @@ test('a live organ that changed is drawn again within its box, and only its cell
   const paint = readFileSync(new URL('../src/ui/organ-paint.js', import.meta.url), 'utf8');
   const veins = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
   assert.match(gl, /setLive\(organs, masks\) \{ liveOrgans = organs \|\| new Map\(\); cuts = masks \|\| new Map\(\); liveVer\+\+; freeCache\(\); watchLive\(\); \}/, 'a live change moves its own version');
-  assert.match(gl, /stale: \(m, cw, ch\) => drawnKey !== keyOf\(m, cw, ch\) \|\| \(!watch && liveNow\(\)\),/);
+  assert.match(gl, /stale: \(m, cw, ch\) => drawnKey !== keyOf\(m, cw, ch\) \|\| \(!watch && liveNow\(\)\) \|\| \(mvShown && performance\.now\(\) - mvAt >= MOVE_SETTLE_MS\),/);
   assert.match(gl, /const keyOf = \(m, cw, ch\) => \{ pull\(\); return `\$\{ver\}\|\$\{liveVer\}\|\$\{watch \? pageVer : ''\}\|/);
   assert.match(gl, /const at = `\$\{ver\}\|\$\{m\.join\(','\)\}\|\$\{cw\}x\$\{ch\}`, same = at === drawnAt && !!painter;/, 'the same view and layers: only what changed');
   assert.match(gl, /if \(a\[i\]\.ops\[k\]\[0\] !== b\[i\]\.ops\[k\]\[0\]\) \{ add\(a\[i\]\.ops\[k\]\[1\]\); add\(b\[i\]\.ops\[k\]\[1\]\); \}/, "an op's old and new boxes");
-  assert.match(gl, /if \(!whole && !dirty\) \{ endFade\(\); painter\?\.endFrame\(\); return null; \}/, 'nothing changed: nothing drawn');
+  assert.match(gl, /if \(!whole && !dirty\) \{ endFade\(\); painter\?\.endFrame\(\); exactAt = \{ m: m\.slice\(\), ck \}; return null; \}/, 'nothing changed: nothing drawn');
   assert.match(gl, /return whole \? true : dirty;/);
-  assert.match(gl, /painter\.paintGroup\(o\.spec, mul\(m, o\.m\), w, h, fbo, within\)/);
+  assert.match(gl, /painter\.paintGroup\(o\.spec, mul\(m, o\.m\), w, h, target, within\)/);
   assert.match(gl, /cut\.opacity \?\? 1, within\);/);
   // The painter: every op's box is the one it paints within, so a signature's box covers its pixels.
   assert.match(paint, /function paintOps\(spec, m, into, within = null, d = 0\) \{ runJob\(\{ frames: \[frameOf\(spec\.ops, m, into, within, d\)\] \}\); \}/);
@@ -124,7 +124,7 @@ test('the live organs are read once per state; the painter reads the eased value
   assert.match(paint, /if \(!\(o > 0\) && !ownO\(el\)\) return;/, 'a part at nothing by its own setting is kept, to show as it eases');
   // The stack asks the painter only after a write to a live group's elements (or, with no MutationObserver, every frame while
   // groups are live), and draws nothing when nothing changed.
-  assert.match(gl, /if \(key === drawnKey && \(watch \|\| !liveNow\(\)\)\) return null;/);
+  assert.match(gl, /if \(key === drawnKey && \(watch \|\| !liveNow\(\)\) && !settle\) return null;/);
 });
 
 // Review item 3: with live organs the stack no longer describes every op as strings on every blood frame. It watches exactly the
@@ -214,3 +214,38 @@ test('a clip inside a clip is painted with both (the colon), the outer in the sc
   assert.match(paint, /job\.ck = job\.ck2 = null;/);
 });
 
+
+// Zoom (2 Nov 2026, Mohammad: "when I zoom in the fps goes to shit"): while only the camera moves, the stack is not painted again from
+// its shapes. The last exact picture is moved on the GPU by the camera alone (one pass), a wider, softer picture painted once covers a
+// zoom out or a pan past it, a zoom in past 1.42 paints exactly again, and the camera holding still paints exactly.
+test('a camera-only frame moves the last exact picture on the GPU instead of painting the organs again', async () => {
+  const gl = readFileSync(new URL('../src/ui/organs-gl.js', import.meta.url), 'utf8');
+  const veins = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
+  // Only the camera: the content key leaves the view out, and the base must be of the same content.
+  assert.match(gl, /const contentKey = \(cw, ch\) => `\$\{ver\}\|\$\{liveVer\}\|\$\{pageVer\}\|\$\{cw\}x\$\{ch\}`;/);
+  assert.match(gl, /const moveOk = \(ck, cw, ch\) => !!\(moveP && painter && watch && liveNow\(\) && !pending\(\) && w === cw && h === ch && \(base\?\.ck === ck \|\| exactAt\?\.ck === ck\)\);/);
+  assert.match(gl, /if \(key !== drawnKey && moveOk\(ck, cw, ch\)\) \{\n\s+if \(moveFrame\(m, ck, cw, ch\)\) \{ drawnKey = key; return true; \}/);
+  // The moved frame paints no shape: one draw of the move program.
+  const mf = gl.slice(gl.indexOf('function moveFrame('), gl.indexOf('  return {\n    /**\n     * A layer\'s raster'));
+  assert.ok(mf.length > 200);
+  assert.doesNotMatch(mf.replace(/paintStack\(p, null, mvM\.fb, cw, ch, null, null\);/, ''), /paintStack|paintGroup|layMasked/);
+  assert.match(mf, /if \(s > base\.s \* MOVE_ZOOM_IN\) return false;/);
+  assert.match(mf, /exactAt = null; drawnAt = ''; mvShown = true;/, 'the next exact render draws the whole');
+  // The stage draws on until the exact paint; the overlays' stack (a shared painter) never moves.
+  assert.match(gl, /get fading\(\) \{ return fading\(\) \|\| \(mvShown && performance\.now\(\) - mvAt < 4 \* MOVE_SETTLE_MS \+ 500\); \}/);
+  assert.match(gl, /export function createOrganStack\(gl, \{ painter: shared = null, moves = !shared \} = \{\}\) \{/);
+  assert.match(veins, /get fading\(\) \{ return stack\.fading; \}/);
+  // The geometry: inside within a pixel, the margin view centred and MOVE_MARGIN times wider.
+  const { viewInside, marginView, MOVE_MARGIN } = await import('../src/ui/organs-gl.js');
+  const m = [2, 0, 0, 2, -100, -50];
+  assert.equal(viewInside(m, m, 800, 600), true);
+  assert.equal(viewInside(m, [2.4, 0, 0, 2.4, -150, -80], 800, 600), true, 'a zoom in about the middle stays inside');
+  assert.equal(viewInside(m, [1.8, 0, 0, 1.8, -60, -20], 800, 600), false, 'a zoom out leaves it');
+  assert.equal(viewInside(m, [2, 0, 0, 2, -130, -50], 800, 600), false, 'a pan leaves it');
+  const p = marginView(m, 800, 600);
+  assert.equal(viewInside(p, [1.8, 0, 0, 1.8, -60, -20], 800, 600), true, 'the margin holds that zoom out');
+  assert.equal(viewInside(p, [2, 0, 0, 2, -130, -50], 800, 600), true, 'and that pan');
+  assert.ok(Math.abs(Math.sqrt(p[0] * p[3]) * MOVE_MARGIN - 2) < 1e-9);
+  // The centre of the canvas stays where it is.
+  assert.ok(Math.abs(p[0] * ((400 - m[4]) / 2) + p[4] - 400) < 1e-9 && Math.abs(p[3] * ((300 - m[5]) / 2) + p[5] - 300) < 1e-9);
+});

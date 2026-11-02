@@ -58,9 +58,58 @@ void main() {
   }
 }`;
 
+// Camera-only frames (2 Nov 2026, Mohammad: "when I zoom in the fps goes to shit"): while only the camera moves (a pinch, the wheel, a
+// pan, a slide's glide) and nothing in the stack changed, the stack is not painted again from its shapes. The last picture painted
+// exactly (the base) is moved on the GPU by the camera alone, one full-screen pass: each pixel of this frame looks up where it was in
+// the base (toS), and, outside it, in a wider picture of the same stack a little softer (the margin, painted once when a zoom out or a
+// pan first leaves the base, toM). The live organs (the liver, the spleen, the diaphragm) had been painted shape by shape on every
+// frame of a zoom: some 220 passes a frame over large parts of the screen. A zoom in past a step of 1.42 from the base, or a view
+// that leaves both pictures, paints the stack exactly again (that frame's base); once the camera has held still for MOVE_SETTLE_MS
+// the stack is painted exactly, as at rest.
+const MOVE_FS = `#version 300 es
+precision highp float;
+uniform sampler2D tS, tM;
+uniform mat3 toS, toM;   // this frame's device px (y down) → the base's / the margin picture's device px
+uniform vec2 size;
+uniform int hasS, hasM;
+out vec4 o;
+vec2 uvOf(vec2 p) { return vec2(p.x / size.x, 1.0 - p.y / size.y); }
+void main() {
+  vec3 d = vec3(gl_FragCoord.x, size.y - gl_FragCoord.y, 1.0);
+  if (hasS == 1) {
+    vec2 p = (toS * d).xy;
+    if (all(greaterThanEqual(p, vec2(0.0))) && all(lessThanEqual(p, size))) { o = texture(tS, uvOf(p)); return; }
+  }
+  o = hasM == 1 ? texture(tM, uvOf((toM * d).xy)) : vec4(0.0);
+}`;
+const MOVE_VS = `#version 300 es
+layout(location=0) in vec2 corner;
+void main() { gl_Position = vec4(corner * 2.0 - 1.0, 0.0, 1.0); }`;
+/** How long the camera holds still before the stack is painted exactly again (ms). */
+export const MOVE_SETTLE_MS = 90;
+/** The base serves a zoom in up to this factor past the scale it was painted at, and a zoom out down to its half. */
+export const MOVE_ZOOM_IN = 1.42;
+/** The margin picture covers this many times the view across (centred on it), at the canvas's own size. */
+export const MOVE_MARGIN = 1.25;
+const scaleOf = (m) => Math.sqrt(Math.abs(m[0] * m[3] - m[1] * m[2])) || 1;
+/** Whether the device rectangle 0..cw × 0..ch under view m lies inside the picture painted under view p (same size): within a pixel. */
+export function viewInside(p, m, cw, ch) {
+  const q = mul(p, inv(m));
+  for (const [x, y] of [[0, 0], [cw, 0], [0, ch], [cw, ch]]) {
+    const u = q[0] * x + q[2] * y + q[4], v = q[1] * x + q[3] * y + q[5];
+    if (!(u >= -1 && u <= cw + 1 && v >= -1 && v <= ch + 1)) return false;
+  }
+  return true;
+}
+/** The view the margin picture is painted under: m with the canvas's centre kept and everything MOVE_MARGIN times smaller about it. */
+export function marginView(m, cw, ch) {
+  const k = 1 / MOVE_MARGIN, cx = cw / 2, cy = ch / 2;
+  return mul([k, 0, 0, k, cx * (1 - k), cy * (1 - k)], m);
+}
+
 import { createShapeGL } from './shape-gl.js?v=425612f909';
-import { createOrganPaint, mul, prestartOrganPaint } from './organ-paint.js?v=bd4664b79e';
-import { prestart, linkProgram } from './gl-compile.js?v=3e750c4fef';
+import { createOrganPaint, mul, inv, prestartOrganPaint } from './organ-paint.js?v=bd4664b79e';
+import { prestart, linkProgram, exerciseDraw } from './gl-compile.js?v=3e750c4fef';
 import { netChanged } from './idle-keys.js?v=81fbedda6b';
 import { uniformCache } from './uniform-cache.js?v=b914b447dd';
 import { easeMove, D_SURFACE } from './ease.js?v=7513a88c68';
@@ -104,20 +153,26 @@ export function cropToGrid(want, box, scale) {
 // largest size asked, so the two never make them again), which this one then neither makes nor gives back.
 /** Starts the stack's program and its painter's on gl, nothing read (gl-compile.js prestart): createOrganStack takes them up (the
  *  figure's own stack at its setup, the overlays' at their first set). */
-export function prestartOrganStack(gl) { prestartLayer(gl); prestartOrganPaint(gl); }
+export function prestartOrganStack(gl) { prestartLayer(gl); prestart(gl, MOVE_VS, MOVE_FS); prestartOrganPaint(gl); }
 /** The stack's own program alone (a second stack sharing the first one's painter: the overlays). */
 const UNIT_RECT = [0, 0, 1, 1];   // (a layer's rect when it has none)
 export function prestartLayer(gl) { prestart(gl, LAYER_VS, LAYER_FS); }
 
-export function createOrganStack(gl, { painter: shared = null } = {}) {
-  let layerP;
+// `moves`: camera-only frames drawn from its pictures (MOVE_FS). Off for a stack sharing another's painter (the figure's overlays): it is
+// drawn after the figure's, in the present, and a moved frame of it would wait for a present to be painted exactly.
+export function createOrganStack(gl, { painter: shared = null, moves = !shared } = {}) {
+  let layerP, moveP = null;
   try { layerP = program(gl, LAYER_VS, LAYER_FS); } catch (e) { console.warn('Organ stack: shader failed; the organs stay one picture.', e); return null; }
+  // (Without it, every frame is painted exactly, as before: slower under a moving camera, never wrong.)
+  if (moves) try { moveP = program(gl, MOVE_VS, MOVE_FS); } catch (e) { console.warn('Organ stack: the camera-move shader failed; the stack is painted at every view.', e); }
   const quad = gl.createBuffer(), vao = gl.createVertexArray();
   gl.bindBuffer(gl.ARRAY_BUFFER, quad);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]), gl.STATIC_DRAW);
   gl.bindVertexArray(vao);
   gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
   gl.bindVertexArray(null);
+  // (The camera-move program drawn once now, into a throwaway pixel: its first real draw, a pinch's first frame, finds it ready.)
+  if (moveP) exerciseDraw(gl, () => { gl.useProgram(moveP.p); gl.bindVertexArray(vao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); });
   // live[slot]: Map name → { tex, rect }, in the order the layers are drawn; staged[slot]: the set on its way in.
   const live = [new Map(), new Map()], staged = [new Map(), new Map()];
   let order = [];
@@ -186,6 +241,181 @@ export function createOrganStack(gl, { painter: shared = null } = {}) {
   const fading = () => { const t = performance.now(); for (const L of live[1].values()) if (L.from != null && t - L.from < 3 * VIEW_FADE_MS) return true; return false; };
   const mat = new Float32Array(9);
   const UC = uniformCache(gl);   // (the stack program's uniforms are set only through it: a value it already holds is not sent again, uniform-cache.js)
+  // The stack painted exactly under m into `target` (w × h), within a device box (null: all of it). `desc`/`prev`: the live groups' descriptions
+  // now and at the last render, for laying a group that held still from its picture (only within a box).
+  function paintStack(m, within, target, cw, ch, desc, prev) {
+    const clip = () => { if (within) { gl.enable(gl.SCISSOR_TEST); gl.scissor(within[0], ch - within[3], within[2] - within[0], within[3] - within[1]); } else gl.disable(gl.SCISSOR_TEST); };
+    gl.bindFramebuffer(gl.FRAMEBUFFER, target);
+    gl.viewport(0, 0, w, h);
+    clip();
+    gl.clearBufferfv(gl.COLOR, 0, CLEAR0);
+    gl.disable(gl.SCISSOR_TEST);
+    mat.set([m[0], m[1], 0, m[2], m[3], 0, m[4], m[5], 1]);
+    // (A layer's quad within the box being drawn: `b` for one laid under a cut, else the stack's.)
+    const drawLayer = (L0, L1, mm = mat, b = within) => {
+      const U = layerP.u;
+      if (b) { gl.enable(gl.SCISSOR_TEST); gl.scissor(b[0], h - b[3], b[2] - b[0], b[3] - b[1]); } else gl.disable(gl.SCISSOR_TEST);
+      gl.useProgram(layerP.p);
+      UC.m3(U.world, mm);
+      UC.f2(U.size, w, h);
+      UC.i1(U.t0, 0); UC.i1(U.t1, 1);
+      gl.enable(gl.BLEND); gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+      gl.bindVertexArray(vao);
+      UC.f4a(U.rect, L0.rect); UC.f4a(U.r0, L0.rect);
+      UC.f4a(U.r1, L1 ? L1.rect : UNIT_RECT); UC.i1(U.has1, L1 ? 1 : 0);
+      // (Fading in: how far, and the view before where it was drawn as this one is.)
+      const k = L1 && L1.from != null ? L1.k : 1, P = k < 1 && L1.prev && L1.prev.at === L1.at ? L1.prev : null;
+      UC.f1(U.k1, k);
+      UC.i1(U.t2, 2); UC.f4a(U.r2, P ? P.rect : UNIT_RECT); UC.i1(U.has2, P ? 1 : 0);
+      UC.i3(U.flip, L0.flip ? 1 : 0, L1?.flip ? 1 : 0, P?.flip ? 1 : 0);
+      // (Unit 2 first, so the unit left active is the one it was before: 1.)
+      gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, P ? P.tex : L0.tex);
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, L0.tex);
+      gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, L1 ? L1.tex : L0.tex);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      gl.disable(gl.BLEND); gl.disable(gl.SCISSOR_TEST);
+    };
+    const dev = (r) => { const xs = [r[0], r[0] + r[2]].map((x) => m[0] * x + m[4]), ys = [r[1], r[1] + r[3]].map((y) => m[3] * y + m[5]); return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]; };
+    // A live group that is the same as when last drawn, laid from its picture within the box being drawn (made now if it has stood
+    // still since the render before and the budget allows); false for any other, which is painted from its shapes.
+    const layCached = (o, d, was) => {
+      const key = descKey(d), e = cache.get(o.spec);
+      if (e && e.key === key) {
+        if (!(e.box[2] > within[0] && e.box[0] < within[2] && e.box[3] > within[1] && e.box[1] < within[3])) return true;   // (reaches nothing of it)
+        gl.bindFramebuffer(gl.FRAMEBUFFER, target); gl.viewport(0, 0, w, h);
+        drawLayer({ tex: e.tex, rect: [(e.box[0] - m[4]) / m[0], (e.box[1] - m[5]) / m[3], (e.box[2] - e.box[0]) / m[0], (e.box[3] - e.box[1]) / m[3]], flip: true }, null);
+        return true;
+      }
+      if (e) dropEntry(o.spec);   // (it changed: the old picture is no use, and its memory goes at once)
+      if (!sameDesc(d, was)) return false;
+      let box = null;
+      for (const [, b] of d.ops) if (b) box = box ? [Math.min(box[0], b[0]), Math.min(box[1], b[1]), Math.max(box[2], b[2]), Math.max(box[3], b[3])] : b.slice();
+      if (!box) return false;
+      box = [Math.max(0, Math.floor(box[0])), Math.max(0, Math.floor(box[1])), Math.min(cw, Math.ceil(box[2])), Math.min(ch, Math.ceil(box[3]))];
+      const bw = box[2] - box[0], bh = box[3] - box[1];
+      if (!(bw > 0 && bh > 0)) return false;
+      if (!(box[2] > within[0] && box[0] < within[2] && box[3] > within[1] && box[1] < within[3])) return false;
+      const bytes = bw * bh * 4;
+      if (cacheBytes + bytes > cacheBudget(cw, ch)) return false;
+      const tex = gl.createTexture(), fb = gl.createFramebuffer();
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, bw, bh, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+      gl.viewport(0, 0, bw, bh);
+      gl.disable(gl.SCISSOR_TEST);
+      gl.clearBufferfv(gl.COLOR, 0, CLEAR0);
+      // (Its frame moved by whole device pixels, so every shape is cut as it is in place.)
+      painter.paintGroupInto(o.spec, mul([1, 0, 0, 1, -box[0], -box[1]], mul(m, o.m)), bw, bh, fb, cw, ch);
+      cache.set(o.spec, { key, tex, fb, box, bytes }); cacheBytes += bytes;
+      return layCached(o, d, was);
+    };
+    for (const n of order) {
+      const lv = painter && liveOrgans.get(n);
+      if (lv) {
+        const ds = desc?.get(n), ps = prev?.get(n);
+        lv.forEach((o, i) => {
+          if (within && layCached(o, ds[i], ps && ps[i])) return;
+          painter.paintGroup(o.spec, mul(m, o.m), w, h, target, within);
+        });
+        continue;
+      }
+      const L0 = live[0].get(n), L1 = live[1].get(n);
+      if (!L0) continue;
+      const cut = painter && cuts.get(n);
+      if (cut) {
+        // (The layers gathered under it, each moved by whole device pixels: on the view's picture's own pixel grid, as sharp as at rest.)
+        const under = [], box = dev(L0.rect);
+        for (const u of cut.under || []) {
+          const U0 = live[0].get(u.name), U1 = live[1].get(u.name);
+          if (!U0) continue;
+          const dy = Math.round(((u.dy || 0) - U0.at) * m[3]), mm = mat.slice();
+          mm[7] += dy;
+          const b = dev(U0.rect);
+          box[0] = Math.min(box[0], b[0]); box[1] = Math.min(box[1], b[1] + dy); box[2] = Math.max(box[2], b[2]); box[3] = Math.max(box[3], b[3] + dy);
+          under.push([U0, U1 && U1.at === U0.at ? U1 : null, mm]);   // (the view's picture only if drawn where the whole one was)
+        }
+        painter.layMasked((_, b) => { gl.viewport(0, 0, w, h); for (const [U0, U1, mm] of under) drawLayer(U0, U1, mm, b); drawLayer(L0, L1, mat, b); }, box, cut.spec, mul(m, cut.m), w, h, target, cut.opacity ?? 1, within);
+      }
+      else { gl.bindFramebuffer(gl.FRAMEBUFFER, target); gl.viewport(0, 0, w, h); drawLayer(L0, L1); }
+    }
+    painter?.endFrame();
+  }
+  // ── Camera-only frames (MOVE_FS) ──
+  // exactAt: the view and content the stack's texture holds exactly (null once a moved frame is in it). base: the exact picture the moved
+  // frames look up (a copy, mvS), with its view, its scale and its content; marg: the margin picture (mvM), with its view, the camera's
+  // scale it was made at and its content. mvShown: the texture holds a moved frame (painted exactly once the camera holds still).
+  let exactAt = null, base = null, marg = null, mvShown = false, mvAt = 0, mvS = null, mvM = null;
+  const moveStats = { moved: 0, bases: 0, margins: 0, exact: 0 };   // (for the tests and ?organpaths: frames moved, bases copied, margins painted, exact paints)
+  const contentKey = (cw, ch) => `${ver}|${liveVer}|${pageVer}|${cw}x${ch}`;
+  const moveTarget = (t, cw, ch) => {
+    if (t && t.w === cw && t.h === ch) return t;
+    if (!t) {
+      t = { tex: gl.createTexture(), fb: gl.createFramebuffer(), w: 0, h: 0 };
+      gl.bindTexture(gl.TEXTURE_2D, t.tex);
+      for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+    }
+    gl.bindTexture(gl.TEXTURE_2D, t.tex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, cw, ch, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, t.fb);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t.tex, 0);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    t.w = cw; t.h = ch;
+    return t;
+  };
+  const dropTarget = (t) => { if (t) { gl.deleteTexture(t.tex); gl.deleteFramebuffer(t.fb); } return null; };
+  // (Given back once the camera has settled, on trim and on dispose: two canvas-sized textures held only while the camera moves.)
+  function moveDrop() { mvS = dropTarget(mvS); mvM = dropTarget(mvM); base = marg = null; }
+  // (Only with live groups, whose shapes are what a frame paints; a stack of pictures alone lays a quad a layer, cheaper than a copy.
+  // Never while a view's picture fades in (each frame of it is drawn a step further) or without the page watch, which says that nothing
+  // in the live groups was written.)
+  const moveOk = (ck, cw, ch) => !!(moveP && painter && watch && liveNow() && !pending() && w === cw && h === ch && (base?.ck === ck || exactAt?.ck === ck));
+  /** A frame of a moving camera drawn from the pictures (true), or false when it must be painted exactly (its base then dropped). */
+  function moveFrame(m, ck, cw, ch) {
+    if (base?.ck !== ck) {
+      if (exactAt?.ck !== ck) return false;
+      mvS = moveTarget(mvS, cw, ch);
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, fbo); gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, mvS.fb);
+      gl.disable(gl.SCISSOR_TEST);
+      gl.blitFramebuffer(0, 0, cw, ch, 0, 0, cw, ch, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null); gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+      base = { m: exactAt.m, s: scaleOf(exactAt.m), ck }; moveStats.bases++;
+      if (marg?.ck !== ck) marg = null;
+    }
+    const s = scaleOf(m);
+    // (Zoomed in past the step: the base would be drawn blurred; this frame is painted exactly and becomes the next base.)
+    if (s > base.s * MOVE_ZOOM_IN) return false;
+    const inS = s >= base.s * 0.5 && viewInside(base.m, m, cw, ch);
+    const margOk = () => marg?.ck === ck && s <= marg.s * 1.05 && s >= marg.s * 0.5 && viewInside(marg.p, m, cw, ch);
+    if (!inS && !margOk()) {
+      const p = marginView(m, cw, ch);
+      mvM = moveTarget(mvM, cw, ch);
+      paintStack(p, null, mvM.fb, cw, ch, null, null);
+      marg = { p, s, ck }; moveStats.margins++;
+    }
+    const useM = !inS || (marg?.ck === ck && margOk());
+    const U = moveP.u, im = inv(m);
+    const setM = (u, a) => { mat.set([a[0], a[1], 0, a[2], a[3], 0, a[4], a[5], 1]); UC.m3(u, mat); };
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.viewport(0, 0, w, h);
+    gl.disable(gl.SCISSOR_TEST); gl.disable(gl.BLEND);
+    gl.useProgram(moveP.p);
+    setM(U.toS, mul(base.m, im));
+    setM(U.toM, useM ? mul(marg.p, im) : [1, 0, 0, 1, 0, 0]);
+    UC.f2(U.size, w, h);
+    UC.i1(U.hasS, inS ? 1 : 0); UC.i1(U.hasM, useM ? 1 : 0);
+    UC.i1(U.tS, 0); UC.i1(U.tM, 1);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, useM ? mvM.tex : mvS.tex);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, mvS.tex);
+    gl.bindVertexArray(vao);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    gl.bindVertexArray(null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    // (What the texture holds is no exact picture now: the next exact render draws it whole.)
+    exactAt = null; drawnAt = ''; mvShown = true; mvAt = performance.now(); moveStats.moved++;
+    return true;
+  }
   return {
     /**
      * A layer's raster for `slot` (0 whole, 1 view), its texture filled (veins-gl plateJob), over world rect: held until commit.
@@ -255,7 +485,7 @@ export function createOrganStack(gl, { painter: shared = null } = {}) {
     /** Lets go of the shapes the pictures keep on the GPU (bake), when no picture is being made. */
     dropKept() { painter?.dropKept(); },
     /** What the painter holds on the GPU (organ-paint stats), or null without one. */
-    stats: () => (painter ? { ...painter.stats(), cached: cache.size, cacheBytes } : null),
+    stats: () => (painter ? { ...painter.stats(), cached: cache.size, cacheBytes, moves: { ...moveStats, shown: mvShown } } : null),
     /** Shows the staged set for `slot` in place of the one shown, drawn in the order of `names` (back to front). */
     commit(slot, names) {
       if (slot === 1 && VIEW_FADE && live[0].size) {
@@ -300,11 +530,13 @@ export function createOrganStack(gl, { painter: shared = null } = {}) {
     /** Whether a slot holds pictures of its own (not only the live layers that stand in for them). */
     pictured: (slot) => live[slot].size > 0,
     /** Whether the view's picture is still fading in (the stage keeps drawing frames until it is whole). */
-    get fading() { return fading(); },
+    // (And while a moved frame waits to be painted exactly: the stage draws on until the camera has held still for MOVE_SETTLE_MS.)
+    // (For no longer than a few settles whatever is drawn: a stack no longer laid (the plate faded out) is painted exactly at its next render.)
+    get fading() { return fading() || (mvShown && performance.now() - mvAt < 4 * MOVE_SETTLE_MS + 500); },
     /** Whether a render at transform m and this size would draw something new (a pan, a zoom, a new set, a live group written). */
     // (Without the page watch, a render is always asked while groups are live: what they draw is read from the page there, and
     // nothing is drawn when it is as it was.)
-    stale: (m, cw, ch) => drawnKey !== keyOf(m, cw, ch) || (!watch && liveNow()),
+    stale: (m, cw, ch) => drawnKey !== keyOf(m, cw, ch) || (!watch && liveNow()) || (mvShown && performance.now() - mvAt >= MOVE_SETTLE_MS),
     /**
      * The stack drawn for transform m (world → device px) into its texture, the canvas's size. Returns what changed in it: true for
      * the whole (the view or the layers changed), a device box [x0, y0, x1, y1] when only live groups changed (their boxes, old and new),
@@ -312,7 +544,17 @@ export function createOrganStack(gl, { painter: shared = null } = {}) {
      */
     render(m, cw, ch) {
       const key = keyOf(m, cw, ch);
-      if (key === drawnKey && (watch || !liveNow())) return null;
+      const settle = mvShown && performance.now() - mvAt >= MOVE_SETTLE_MS;
+      if (key === drawnKey && (watch || !liveNow()) && !settle) return null;
+      const ck = contentKey(cw, ch);
+      // (Only the camera moved: the last pictures moved on the GPU, nothing painted from shapes.)
+      if (key !== drawnKey && moveOk(ck, cw, ch)) {
+        if (moveFrame(m, ck, cw, ch)) { drawnKey = key; return true; }
+        base = null;
+      }
+      // (Painted exactly from here on. The camera held still, or no move to come: the moves' textures given back.)
+      if (settle || !liveNow()) moveDrop();
+      mvShown = false;
       drawnKey = key;
       const at = `${ver}|${m.join(',')}|${cw}x${ch}`, same = at === drawnAt && !!painter;
       drawnAt = at;
@@ -363,9 +605,8 @@ export function createOrganStack(gl, { painter: shared = null } = {}) {
       }
       // (Whole now: the last step drawn at 1, the view before given up after it.)
       const endFade = () => { for (const L of ended) { L.from = null; L.k = undefined; dropPrev(L); } };
-      if (!whole && !dirty) { endFade(); painter?.endFrame(); return null; }
+      if (!whole && !dirty) { endFade(); painter?.endFrame(); exactAt = { m: m.slice(), ck }; return null; }
       const within = whole ? null : dirty;
-      const clip = () => { if (within) { gl.enable(gl.SCISSOR_TEST); gl.scissor(within[0], ch - within[3], within[2] - within[0], within[3] - within[1]); } else gl.disable(gl.SCISSOR_TEST); };
       if (w !== cw || h !== ch) {
         w = cw; h = ch;
         gl.bindTexture(gl.TEXTURE_2D, stackTex);
@@ -373,102 +614,8 @@ export function createOrganStack(gl, { painter: shared = null } = {}) {
         gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, stackTex, 0);
       }
-      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
-      gl.viewport(0, 0, w, h);
-      clip();
-      gl.clearBufferfv(gl.COLOR, 0, CLEAR0);
-      gl.disable(gl.SCISSOR_TEST);
-      mat.set([m[0], m[1], 0, m[2], m[3], 0, m[4], m[5], 1]);
-      // (A layer's quad within the box being drawn: `b` for one laid under a cut, else the stack's.)
-      const drawLayer = (L0, L1, mm = mat, b = within) => {
-        const U = layerP.u;
-        if (b) { gl.enable(gl.SCISSOR_TEST); gl.scissor(b[0], h - b[3], b[2] - b[0], b[3] - b[1]); } else gl.disable(gl.SCISSOR_TEST);
-        gl.useProgram(layerP.p);
-        UC.m3(U.world, mm);
-        UC.f2(U.size, w, h);
-        UC.i1(U.t0, 0); UC.i1(U.t1, 1);
-        gl.enable(gl.BLEND); gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-        gl.bindVertexArray(vao);
-        UC.f4a(U.rect, L0.rect); UC.f4a(U.r0, L0.rect);
-        UC.f4a(U.r1, L1 ? L1.rect : UNIT_RECT); UC.i1(U.has1, L1 ? 1 : 0);
-        // (Fading in: how far, and the view before where it was drawn as this one is.)
-        const k = L1 && L1.from != null ? L1.k : 1, P = k < 1 && L1.prev && L1.prev.at === L1.at ? L1.prev : null;
-        UC.f1(U.k1, k);
-        UC.i1(U.t2, 2); UC.f4a(U.r2, P ? P.rect : UNIT_RECT); UC.i1(U.has2, P ? 1 : 0);
-        UC.i3(U.flip, L0.flip ? 1 : 0, L1?.flip ? 1 : 0, P?.flip ? 1 : 0);
-        // (Unit 2 first, so the unit left active is the one it was before: 1.)
-        gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, P ? P.tex : L0.tex);
-        gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, L0.tex);
-        gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, L1 ? L1.tex : L0.tex);
-        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-        gl.disable(gl.BLEND); gl.disable(gl.SCISSOR_TEST);
-      };
-      const dev = (r) => { const xs = [r[0], r[0] + r[2]].map((x) => m[0] * x + m[4]), ys = [r[1], r[1] + r[3]].map((y) => m[3] * y + m[5]); return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]; };
-      // A live group that is the same as when last drawn, laid from its picture within the box being drawn (made now if it has stood
-      // still since the render before and the budget allows); false for any other, which is painted from its shapes.
-      const layCached = (o, d, was) => {
-        const key = descKey(d), e = cache.get(o.spec);
-        if (e && e.key === key) {
-          if (!(e.box[2] > within[0] && e.box[0] < within[2] && e.box[3] > within[1] && e.box[1] < within[3])) return true;   // (reaches nothing of it)
-          gl.bindFramebuffer(gl.FRAMEBUFFER, fbo); gl.viewport(0, 0, w, h);
-          drawLayer({ tex: e.tex, rect: [(e.box[0] - m[4]) / m[0], (e.box[1] - m[5]) / m[3], (e.box[2] - e.box[0]) / m[0], (e.box[3] - e.box[1]) / m[3]], flip: true }, null);
-          return true;
-        }
-        if (e) dropEntry(o.spec);   // (it changed: the old picture is no use, and its memory goes at once)
-        if (!sameDesc(d, was)) return false;
-        let box = null;
-        for (const [, b] of d.ops) if (b) box = box ? [Math.min(box[0], b[0]), Math.min(box[1], b[1]), Math.max(box[2], b[2]), Math.max(box[3], b[3])] : b.slice();
-        if (!box) return false;
-        box = [Math.max(0, Math.floor(box[0])), Math.max(0, Math.floor(box[1])), Math.min(cw, Math.ceil(box[2])), Math.min(ch, Math.ceil(box[3]))];
-        const bw = box[2] - box[0], bh = box[3] - box[1];
-        if (!(bw > 0 && bh > 0)) return false;
-        if (!(box[2] > within[0] && box[0] < within[2] && box[3] > within[1] && box[1] < within[3])) return false;
-        const bytes = bw * bh * 4;
-        if (cacheBytes + bytes > cacheBudget(cw, ch)) return false;
-        const tex = gl.createTexture(), fb = gl.createFramebuffer();
-        gl.bindTexture(gl.TEXTURE_2D, tex);
-        for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, bw, bh, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-        gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
-        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
-        gl.viewport(0, 0, bw, bh);
-        gl.disable(gl.SCISSOR_TEST);
-        gl.clearBufferfv(gl.COLOR, 0, CLEAR0);
-        // (Its frame moved by whole device pixels, so every shape is cut as it is in place.)
-        painter.paintGroupInto(o.spec, mul([1, 0, 0, 1, -box[0], -box[1]], mul(m, o.m)), bw, bh, fb, cw, ch);
-        cache.set(o.spec, { key, tex, fb, box, bytes }); cacheBytes += bytes;
-        return layCached(o, d, was);
-      };
-      for (const n of order) {
-        const lv = painter && liveOrgans.get(n);
-        if (lv) {
-          const ds = desc.get(n), ps = prev.get(n);
-          lv.forEach((o, i) => {
-            if (within && layCached(o, ds[i], ps && ps[i])) return;
-            painter.paintGroup(o.spec, mul(m, o.m), w, h, fbo, within);
-          });
-          continue;
-        }
-        const L0 = live[0].get(n), L1 = live[1].get(n);
-        if (!L0) continue;
-        const cut = painter && cuts.get(n);
-        if (cut) {
-          // (The layers gathered under it, each moved by whole device pixels: on the view's picture's own pixel grid, as sharp as at rest.)
-          const under = [], box = dev(L0.rect);
-          for (const u of cut.under || []) {
-            const U0 = live[0].get(u.name), U1 = live[1].get(u.name);
-            if (!U0) continue;
-            const dy = Math.round(((u.dy || 0) - U0.at) * m[3]), mm = mat.slice();
-            mm[7] += dy;
-            const b = dev(U0.rect);
-            box[0] = Math.min(box[0], b[0]); box[1] = Math.min(box[1], b[1] + dy); box[2] = Math.max(box[2], b[2]); box[3] = Math.max(box[3], b[3] + dy);
-            under.push([U0, U1 && U1.at === U0.at ? U1 : null, mm]);   // (the view's picture only if drawn where the whole one was)
-          }
-          painter.layMasked((_, b) => { gl.viewport(0, 0, w, h); for (const [U0, U1, mm] of under) drawLayer(U0, U1, mm, b); drawLayer(L0, L1, mat, b); }, box, cut.spec, mul(m, cut.m), w, h, fbo, cut.opacity ?? 1, within);
-        }
-        else { gl.bindFramebuffer(gl.FRAMEBUFFER, fbo); gl.viewport(0, 0, w, h); drawLayer(L0, L1); }
-      }
-      painter?.endFrame();
+      paintStack(m, within, fbo, cw, ch, desc, prev);
+      exactAt = { m: m.slice(), ck }; moveStats.exact++;
       endFade();
       gl.bindVertexArray(null);
       gl.disable(gl.BLEND); gl.disable(gl.SCISSOR_TEST);
@@ -483,6 +630,7 @@ export function createOrganStack(gl, { painter: shared = null } = {}) {
     /** Gives back the stack's canvas-sized texture while nothing is shown (the next render makes it again). */
     trim() {
       freeCache();
+      moveDrop(); exactAt = null; mvShown = false;
       if (!w) return;
       w = h = 0; drawnKey = ''; drawnAt = ''; drawnDesc = new Map();
       if (!shared) painter?.trim();
@@ -492,6 +640,8 @@ export function createOrganStack(gl, { painter: shared = null } = {}) {
     dispose() {
       for (const s of [0, 1]) { free(live[s]); free(staged[s]); }
       freeCache();
+      moveDrop();
+      if (moveP) gl.deleteProgram(moveP.p);
       if (!shared) painter?.dispose();
       watch?.disconnect();
       gl.deleteTexture(stackTex); gl.deleteFramebuffer(fbo); gl.deleteBuffer(quad); gl.deleteVertexArray(vao); gl.deleteProgram(layerP.p);
