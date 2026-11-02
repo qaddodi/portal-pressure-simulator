@@ -7,7 +7,7 @@ import { restPass } from './rest-pass.js?v=442dee98c9';
 import { CELL, cellFor, regionFor, contains, touches, artTest, boxThrough, multiply, invert } from './credit-art.js?v=77b95dafe8';
 import { CellGrid, geomOf } from './cell-grid.js?v=fb0e451b4d';
 import { layoutWatch, PLACED, GESTURE_LOOK } from './idle-keys.js?v=81fbedda6b';
-import { readAnims, readBox, readCTM, readMetric, readStyle, readTiming } from './layout-snap.js?v=49b358c305';
+import { readAnims, readBox, readCTM, readMetric, readStyle, readTiming, worldCTM } from './layout-snap.js?v=49b358c305';
 // (The art's walk looks at the camera once a frame: in the frame's first, read-only phase (2 Nov 2026), where the layout is the one the
 // browser last drew, never after the frame's writes.)
 const nextFrame = readFrameFor('credit');
@@ -527,7 +527,9 @@ function artStep() {
     const w = document.getElementById('world');
     if (w && w === j.world && artHold(j, w)) { setTimeout(() => { if (artJob === j) nextFrame(artStep); }, HOLD_STILL / 2); return; }
   }
-  const world = document.getElementById('world'), wm = readCTM(world), inv = wm && invert(wm);
+  // (The figure's matrix comes from the stage's own arithmetic, not getScreenCTM: that read, a frame at a time while the figure moved, made
+  // the browser redo style and layout after each of the figure's writes, the trace's 2,294 invalidations under artStep.)
+  const world = document.getElementById('world'), wm = worldCTM() || readCTM(world), inv = wm && invert(wm);
   if (world !== j.world || !inv || !world.closest('.stage-view')?.classList.contains('gl-on')) { artJob = null; artDirty = true; j.done?.(); return; }
   const wk = [wm.a, wm.b, wm.c, wm.d, wm.e, wm.f].join();
   const still = j.wk === null || wk === j.wk;
@@ -544,7 +546,7 @@ function artStep() {
 const artReadJob = () => artRead(artJob);
 function artRead(j) {
   if (!j || artJob !== j) return;
-  const world = document.getElementById('world'), wm = readCTM(world), inv = wm && invert(wm);
+  const world = document.getElementById('world'), wm = worldCTM() || readCTM(world), inv = wm && invert(wm);
   if (world !== j.world || !inv || !world.closest('.stage-view')?.classList.contains('gl-on')) { artJob = null; artDirty = true; j.done?.(); return; }
   gpuProbe.time(null, j.stage === 0 ? 'credit: art read' : 'credit: art grid', () => artSlice(j, inv, performance.now() + ART_SLICE));
   artNext(j);
