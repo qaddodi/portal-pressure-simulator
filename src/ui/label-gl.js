@@ -13,7 +13,7 @@
 // once the context is lost, the SVG draws them all, as it always has.
 
 import { glGet, glCap } from './gl-state.js?v=e355476de1';
-import { frameFor, cancelFrame } from './frame.js?v=3693d2ccc8';
+import { frameFor, cancelFrame } from './frame.js?v=2cc59e19c4';
 import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=81fbedda6b';
 import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js?v=c79638f168';
 import { createAtlasPacker, batchRuns } from './atlas-pack.js?v=43b8bc019d';

@@ -13,7 +13,7 @@
 
 import { glGet, glOn, glCap } from './gl-state.js?v=e355476de1';
 import { cssColor } from './css-color.js?v=e56f0c77ae';
-import { hold } from './gpu-budget.js?v=0ca61f2b11';
+import { hold } from './gpu-budget.js?v=60fb39ce3e';
 import { WARM_VIEWS, WARM_MS, bucket } from './warm-views.js?v=510b2dee9e';
 import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js?v=c79638f168';
 

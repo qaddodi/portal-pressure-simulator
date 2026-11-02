@@ -36,7 +36,7 @@ import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { EDGE_GLSL } from './edge.js?v=8321a8017f';
 import { SLOT, DYE_BINS } from './blood.js?v=f6c91d8676';
-import { cssRGB } from './util.js?v=140a31e829';
+import { cssRGB } from './util.js?v=b3c37e914d';
 import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js?v=d72157dbac';
 import { CELL, ENT_W, binVeins, splitRows, simpleCells, splitCells, cellsOfJoinEntries } from './veins-bin.js?v=6e462a9e6c';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
@@ -50,7 +50,7 @@ import { warmFade } from './res-fade-gl.js?v=97a8ecbbd0';
 import { fusedVS, fusedFS } from './veins-fuse.js?v=892ef12160';
 import { NOISE_W, NOISE_H, NOISE_PER_ROW, OCTAVES, noiseBlock, blockAt, tableSize } from './blood-noise.js?v=bc65994b25';
 import { rendererVerdict } from './sw-yield.js?v=703c656c2b';
-import { frameCount, framePhase } from './frame.js?v=3693d2ccc8';
+import { frameCount, framePhase } from './frame.js?v=2cc59e19c4';
 
 export { binVeins };
 
@@ -2157,6 +2157,33 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       return this.n / 2;
     },
   };
+  // (R05, review pass 2: a dynamic buffer's GPU storage is kept and its used part rewritten with bufferSubData while the data fits;
+  // it is grown, to 1.5 times, only when outgrown, so a fluid ease, a row redraw or a line rebuild allocates no GPU storage. The
+  // capacities are counted (keptStats) for the tests and the ?perf readout. ?prealloc=0: bufferData every time, as before.)
+  const keptStats = { sub: 0, grow: 0, bytes: 0 };
+  function keepBuf(buf, data) {
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    if (!PREALLOC) { gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW); return; }
+    const need = data.byteLength, cap = (cellCap.get(buf) || 0) * 4;   // (cellCap counts floats, as cellList does)
+    if (need > cap) {
+      const c = Math.ceil(Math.max(need + (need >> 1), 1024) / 4) * 4;
+      gl.bufferData(gl.ARRAY_BUFFER, c, gl.DYNAMIC_DRAW); cellCap.set(buf, c / 4); keptStats.grow++; keptStats.bytes += c - cap;
+    } else keptStats.sub++;
+    if (need) gl.bufferSubData(gl.ARRAY_BUFFER, 0, data);
+  }
+  // (The same for a float texture whose height follows the data (the binned entries): kept as tall as it has been, rows written
+  // with texSubImage2D, made taller (by a quarter more) only when outgrown. Its shaders fetch rows by index, never its size.)
+  const texRows = new WeakMap();
+  function keepRows(tex, ifmt, fmt, type, w, rows, data) {
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    if (!PREALLOC) { gl.texImage2D(gl.TEXTURE_2D, 0, ifmt, w, rows, 0, fmt, type, data); return; }
+    const cap = texRows.get(tex) || 0;
+    if (rows > cap) {
+      const c = Math.max(rows + (rows >> 2), 16);
+      gl.texImage2D(gl.TEXTURE_2D, 0, ifmt, w, c, 0, fmt, type, null); texRows.set(tex, c); keptStats.grow++;
+    } else keptStats.sub++;
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, w, rows, fmt, type, data);
+  }
   // The cells (world origins on the CELL grid) that cover a device box under m, into dirtBuf.
   function dirtCells(b, m) {
     const det = m[0] * m[3] - m[1] * m[2] || 1e-9, ia = m[3] / det, ib = -m[1] / det, ic = -m[2] / det, id = m[0] / det;
@@ -2178,6 +2205,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     nDirt = cells.length / 2;
   }
   const fluidTex = dataTex(gl);
+  let fluidRows = null, fluidTexN = 0;   // (R05: setFluidSpans' kept rows, and the width its texture was made at)
   let fluidRect = null, nFluid = 0, fluidN = 0, fluidLiver = null, nPool = 0;
   const compVAO = gl.createVertexArray();
   gl.bindVertexArray(compVAO);
@@ -2185,7 +2213,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
   gl.bindVertexArray(null);
 
-  let entTex = dataTex(gl);
+  let entTex = dataTex(gl), entNone = null;
   const radTex = dataTex(gl), rmaxTex = dataTex(gl), tubeTex = dataTex(gl), organTex = dataTex(gl, gl.LINEAR);
   gl.bindTexture(gl.TEXTURE_2D, radTex);
   // (Per sample: the radius there and at the next sample, and the along curve there and at the next (pressure-along.js; −1
@@ -2487,10 +2515,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // The marked cells' quads, for partVAO (the general program's) and partSVAO (the one-vessel build's).
   function uploadPart({ mark }) {
     const { gen, one, nGen: g, nOne: o } = splitCells(cellsCPU, nCells, simpleOf, mark);
-    gl.bindBuffer(gl.ARRAY_BUFFER, partBuf);
-    gl.bufferData(gl.ARRAY_BUFFER, gen, gl.DYNAMIC_DRAW);
-    gl.bindBuffer(gl.ARRAY_BUFFER, partSBuf);
-    gl.bufferData(gl.ARRAY_BUFFER, one, gl.DYNAMIC_DRAW);
+    keepBuf(partBuf, gen); keepBuf(partSBuf, one);   // (R05: storage kept, rows rewritten)
     partG = g; partS = o;
   }
   // Draws the marked cells again over the layer (written whole: a pixel left empty is written empty).
@@ -2858,13 +2883,18 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // (Pinch frame reuse, when on, takes the zoom frames instead: its kept picture is laid only over a layer left empty.)
   // (Quality tiers, adapt-tier.js (R07): the targets are made once at the top tier's size (lowTop) and every tier draws inside them
   // at its own viewport, so stepping between tiers allocates nothing; prepLow makes them between frames, before the first is needed.)
-  let lowK = 0, lowOn = false, soft = false, lowTop = 0;
+  let lowK = 0, lowOn = false, soft = false, lowTop = 0, lowMade = 0;   // (lowMade: how often the tiers' targets were made, R10)
   const lw = { fbo: null, tex: null, w: 0, h: 0, pw: 0, ph: 0 };
   function lowTargets(w, h) {
     if (!lw.fbo) { lw.fbo = gl.createFramebuffer(); lw.tex = ATTACH.map(() => dataTex(gl)); }
     gl.bindFramebuffer(gl.FRAMEBUFFER, lw.fbo);
-    if (lw.w < w || lw.h < h || lw.pw !== PW() || lw.ph !== PH()) {
-      lw.w = Math.max(w, Math.round(PW() * lowTop)); lw.h = Math.max(h, Math.round(PH() * lowTop)); lw.pw = PW(); lw.ph = PH();
+    // (R10, review pass 2: grown only, never remade because the canvas changed size: a resolution step or Figure resolution's moving
+    // share mid-move had remade every target at its next zoom frame. They are made at the top tier's share of the canvas, rounded up
+    // to 64 px, and kept while the canvas is smaller; each tier draws in its corner (viewport and scissor, lowPass). ?prealloc=0: made
+    // again at every change of the canvas's size, as before.)
+    const needW = Math.max(w, Math.round(PW() * lowTop)), needH = Math.max(h, Math.round(PH() * lowTop));
+    if (PREALLOC ? lw.w < needW || lw.h < needH : lw.w < w || lw.h < h || lw.pw !== PW() || lw.ph !== PH()) {
+      lw.w = PREALLOC ? Math.ceil(needW / 64) * 64 : needW; lw.h = PREALLOC ? Math.ceil(needH / 64) * 64 : needH; lw.pw = PW(); lw.ph = PH(); lowMade++;
       const fmt = layerFmt();
       lw.tex.forEach((t, i) => { gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, fmt[i][0], lw.w, lw.h, 0, fmt[i][1], fmt[i][2], null); gl.framebufferTexture2D(gl.FRAMEBUFFER, ATTACH[i], gl.TEXTURE_2D, t, 0); });
       gl.drawBuffers(ATTACH);
@@ -3097,8 +3127,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     setGeometry(bins) {
       figVer++;
       useMorphSet(null);
-      gl.bindTexture(gl.TEXTURE_2D, entTex);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, ENT_W, bins.rows || 1, 0, gl.RGBA, gl.FLOAT, bins.ent.length ? bins.ent : new Float32Array(ENT_W * 4));
+      // (R05: a rebinning writes its rows into the entries' kept storage; the texture is made taller only when outgrown.)
+      keepRows(entTex, gl.RGBA32F, gl.RGBA, gl.FLOAT, ENT_W, bins.rows || 1, bins.ent.length ? bins.ent : (entNone ||= new Float32Array(ENT_W * 4)));
       cellsCPU = bins.cells; entCPU = bins.ent; nCells = bins.nCells;
       cellBox = boxOfCells(bins.cells, bins.nCells, CELL);
       uploadCells();
@@ -3253,11 +3283,14 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      */
     setFluidSpans(halfWidths, rect) {
       texVer++;
-      const n = halfWidths.length, rows = new Float32Array(n * 2).fill(-1e4);
-      rows.set(halfWidths);
+      const n = halfWidths.length;
+      // (R05: the rows written into one kept array, and into the texture's own storage while its width (the shader reads it) holds.)
+      const rows = PREALLOC && fluidRows?.length === n * 2 ? fluidRows : (fluidRows = new Float32Array(n * 2));
+      rows.fill(-1e4); rows.set(halfWidths);
       if (fluidLiver?.length === n) rows.set(fluidLiver, n);
       gl.bindTexture(gl.TEXTURE_2D, fluidTex);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, n, 2, 0, gl.RED, gl.FLOAT, rows);
+      if (PREALLOC && fluidN === n && fluidTexN === n) { gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, n, 2, gl.RED, gl.FLOAT, rows); keptStats.sub++; }
+      else { gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, n, 2, 0, gl.RED, gl.FLOAT, rows); fluidTexN = n; }
       fluidRect = rect; fluidN = n;
     },
     /** The liver's lower edge (in its own frame, before its scale) at the same number of columns evenly across the cavity's rectangle. */
@@ -3289,11 +3322,12 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       nPool = cells.length / 2;
       return true;
     },
+    /** R05: how often a dynamic upload rewrote kept GPU storage (sub) and how often it had to grow it (grow, bytes added). */
+    keptStats: () => ({ ...keptStats }),
     /** World origins (x, y pairs) of the cells the ascites surface ripples through. */
     setFluidCells(cells) {
       figVer++;
-      gl.bindBuffer(gl.ARRAY_BUFFER, fluidBuf);
-      gl.bufferData(gl.ARRAY_BUFFER, cells, gl.DYNAMIC_DRAW);
+      keepBuf(fluidBuf, cells);   // (R05: every step of a fluid ease rewrote it into new storage)
       nFluid = cells.length / 2;
     },
     dropPlate(slot) { texVer++; if (plates[slot]) { gl.deleteTexture(plates[slot].tex); plates[slot] = null; } stack?.drop(slot); },
@@ -3564,6 +3598,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       lowTargets(Math.round(PW() * top), Math.round(PH() * top));
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     },
+    /** R10: how many times the quality tiers' targets have been made (a tier step makes none). */
+    get lowMade() { return lowMade; },
     /** Whether the last draw drew the layer lower (Vessels lower while pinching): the next one at that view has to draw it whole. */
     get soft() { return soft; },
     /** The last drawRows call's outcome: 'drawn', or why it was refused (gpu-probe.js ROWS_REFUSED); '' before any. */

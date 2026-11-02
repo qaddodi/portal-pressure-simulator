@@ -11,5 +11,8 @@ test('the stent callout is held while the stent grows or the model morphs', asyn
   const fn = stage.slice(stage.indexOf('function stentReady'), stage.indexOf('function labelSig'));
   for (const k of ['x.reveal', 'f.morphing', 'x.width !== x.wT', 'STENT_CALM_MS']) assert.ok(fn.includes(k), k);
   assert.match(stage, /if \(stentReady\(sid, f\) && EI\[sid\] >= 0\)/);
-  assert.match(stage, /edges, \['TIPS', 'DIPS'\]\.map\(\(id\) => \+stentReady\(id, f\)\)/, 'the layout runs again when the callout may show');
+  // (R04: read once per call, and part of the signature's dependencies, so the layout runs again when the callout may show.)
+  assert.match(stage, /const tips = \+stentReady\('TIPS', f\), dips = \+stentReady\('DIPS', f\);/);
+  assert.match(stage, /d\[15\] = tips; d\[16\] = dips;/);
+  assert.match(stage, /edges, `\$\{tips\}\$\{dips\}`/, 'the layout runs again when the callout may show');
 });

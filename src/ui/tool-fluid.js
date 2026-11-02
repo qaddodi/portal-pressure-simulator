@@ -6,11 +6,11 @@
 // (engine.js starling), read from the slide's fingerprint at rest and from the live model while a time-lapse, a what-if or a
 // compare button moves it.
 
-import { frame } from './frame.js?v=3693d2ccc8';
-import { createSvgGL, svgModel } from './svg-gl.js?v=fc08d6baee';
-import { h, fmt, clamp } from './util.js?v=140a31e829';
+import { frame } from './frame.js?v=2cc59e19c4';
+import { createSvgGL, svgModel } from './svg-gl.js?v=642d346c85';
+import { h, fmt, clamp } from './util.js?v=b3c37e914d';
 import { NODES } from '../engine/topology.js?v=4044766e96';
-import { store } from './store.js?v=4ef2a6ffd8';
+import { store } from './store.js?v=bf85512db4';
 import { measure } from './glyph-measure.js?v=c00a2078e8';
 const FLUID_MEASURE = !(typeof location !== 'undefined' && /[?&]fluidmeasure=0\b/.test(location.search || ''));
 

@@ -8,10 +8,10 @@
 // parks it for a moment) the monitor goes on: the strip scrolls on this card's clock and lays beats at the heart rate shown, closing in as the
 // number climbs, then hands over to the live beat where the model's phase resumes, so the strip neither stalls nor jumps (ekg.js walkBeats).
 
-import { h, fmt, fitCanvas, fitBox, clamp, cssVar } from './util.js?v=140a31e829';
+import { h, fmt, fitCanvas, fitBox, clamp, cssVar } from './util.js?v=b3c37e914d';
 import { createVitalsGL, colorOf, textWidth } from './vitals-gl.js?v=9aed81596d';
-import { FONT } from './charts.js?v=97bf675e3b';
-import { frameFor, cancelFrame, paceMs, noteDraw } from './frame.js?v=3693d2ccc8';
+import { FONT } from './charts.js?v=8c31cf9c57';
+import { frameFor, cancelFrame, paceMs, noteDraw, frameAnimating } from './frame.js?v=2cc59e19c4';
 import { VITALS, vitalReading } from './vital-read.js?v=cbba41a6b7';
 import { createBeatClock, ekgSeries, beatWalk, walkBeats, seedBeats } from './ekg.js?v=f27505b539';
 import { olderThan, inFront } from './backfill.js?v=455d888760';
@@ -227,12 +227,13 @@ export function createVitalsMonitor({ stillLayer = true, gpu = VITALS_GL } = {})
   let ticking = false, loopRaf = 0, eased = false, gone = false, loopAt = -Infinity;
   function loop(now) {
     loopRaf = 0;
-    if (gone || !live()) { ticking = false; if (eased && !gone && !raf) raf = nextFrame((t) => { raf = 0; draw(t); }); return; }
+    if (gone || !live()) { ticking = false; frameAnimating('vitals-monitor', false); if (eased && !gone && !raf) raf = nextFrame((t) => { raf = 0; draw(t); }); return; }
     const pace = paceMs();
     if (!pace || now - loopAt >= pace) { loopAt = now; draw(now); noteDraw('vitals-monitor'); }
     loopRaf = nextFrame(loop);
   }
-  function wake() { if (!ticking && !gone && live()) { ticking = true; loopRaf = nextFrame(loop); } }
+  // (R10: while the strip scrolls, Locked never carries its frames over: frame.js frameAnimating.)
+  function wake() { if (!ticking && !gone && live()) { ticking = true; frameAnimating('vitals-monitor', true); loopRaf = nextFrame(loop); } }
   const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(() => { if (!ticking) draw(); }) : null;
   ro?.observe(cv);
 
@@ -321,6 +322,6 @@ export function createVitalsMonitor({ stillLayer = true, gpu = VITALS_GL } = {})
     clear() { clock.reset(); raw.t.length = raw.ph.length = 0; lastT = -Infinity; firstT = Infinity; synth = null; off = 0; synthed = false; xs.clear(); shownV.clear(); if (frame) draw(); },
     backfill, historySecs: () => SPAN_S,
     restart() { this.clear(); },
-    dispose() { gone = true; cancelFrame(raf); raf = 0; cancelFrame(loopRaf); loopRaf = 0; ticking = false; io?.disconnect(); ro?.disconnect(); stillTop.drop(); stillCells.drop(); glr?.dispose(); },
+    dispose() { gone = true; cancelFrame(raf); raf = 0; cancelFrame(loopRaf); loopRaf = 0; if (ticking) frameAnimating('vitals-monitor', false); ticking = false; io?.disconnect(); ro?.disconnect(); stillTop.drop(); stillCells.drop(); glr?.dispose(); },
   };
 }

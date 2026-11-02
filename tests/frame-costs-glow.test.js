@@ -79,7 +79,7 @@ test('the FibroScan packets write an opacity or a path only when its text change
 });
 
 test('under the GPU the hidden SVG tubes are written when they show again; the lumens too, flushed for the credit', () => {
-  assert.match(stage, /if \(!on\) \{ tubesHidden = false; if \(tubesHeld\.size\) flushTubes\(\); if \(geoHeld\.size\) flushGeo\(\); \}/);
+  assert.match(stage, /if \(!on\) \{ tubesHidden = false; if \(tubesHeld\.size\) flushTubes\(\); if \(geoHeld\.size\) flushGeo\(\); ascitesSvg\(\); \}/);
   assert.match(stage, /setL\(x\.lumen, 'stroke-width', w\.toFixed\(1\)\)/);
   assert.match(stage, /const setL = \(el, k, v\) => \(TUBE_ALL \? setT\(el, k, v\) : setA\(el, k, v\)\);/, '?tubeall=0 writes them always');
   assert.match(stage, /for \(const el of \[sd\.lumen, sd\.wall\]\) \{ setS\(el, 'display', vis\); setS\(el, 'opacity', op\); \}/);

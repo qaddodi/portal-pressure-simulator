@@ -1,22 +1,22 @@
 // Readout strip (the four key readouts in the vitals dock, and the rest behind its chevron) and the
 // Instruments card (blueprint §9.1, §9.2).
 
-import { store, hiddenNow } from './store.js?v=4ef2a6ffd8';
+import { store, hiddenNow } from './store.js?v=bf85512db4';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, fadeIn, glideOnResize, foldHidden, hasBox, putText } from './util.js?v=140a31e829';
-import { lobuleFlows } from './lobule-model.js?v=4818d9c8d2';
-import { createProfile } from './charts.js?v=97bf675e3b';
-import { createPressureTime } from './pressure-time.js?v=8824f73cc2';
-import { createHvpgProcedure } from './hvpg-proc.js?v=8a106a0091';
-import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=ab4289a3c2';
-import { ownsSideways, pageGo } from './swipe.js?v=bd84ea7119';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=1d9c778086';
-import { createReadoutsPane } from './readouts-pane.js?v=64b7da12d0';
-import { frameFor } from './frame.js?v=3693d2ccc8';
-import { glWords } from './gl-words.js?v=bdac1380ce';
-import { restPass } from './rest-pass.js?v=45d9ddc06c';
+import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, fadeIn, glideOnResize, foldHidden, hasBox, putText } from './util.js?v=b3c37e914d';
+import { lobuleFlows } from './lobule-model.js?v=ae62ba6018';
+import { createProfile } from './charts.js?v=8c31cf9c57';
+import { createPressureTime } from './pressure-time.js?v=bd8d6d743a';
+import { createHvpgProcedure } from './hvpg-proc.js?v=ffcdb528e2';
+import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=883d14c8e8';
+import { ownsSideways, pageGo } from './swipe.js?v=a7dd3555cc';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=db703ef269';
+import { createReadoutsPane } from './readouts-pane.js?v=f1357cfb28';
+import { frameFor } from './frame.js?v=2cc59e19c4';
+import { glWords } from './gl-words.js?v=74022eac1b';
+import { restPass } from './rest-pass.js?v=ae2ffa59f6';
 import { vitalReading, VITALS } from './vital-read.js?v=cbba41a6b7';
-import { setShown, shownState, FILL_SMALL, fillQ } from './shown.js?v=0cb07340ba';
+import { setShown, shownState, FILL_SMALL, fillQ } from './shown.js?v=6b92eefa0e';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { HVPG_CUTS, PPG_CUTS, hvpgSev, ppgSev, hvBlocked } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { compareRows } from './idle-keys.js?v=81fbedda6b';
