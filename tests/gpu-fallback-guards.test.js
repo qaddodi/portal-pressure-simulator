@@ -95,7 +95,7 @@ test('8 MP pixel budget: the default, the figure canvas and its full-density ove
 
 test('every WebGL2 surface rebuilds after a lost context (or is a probe or a second look at one that does)', () => {
   // (A file that makes a context must listen for its return; one that only reads an existing one, or makes a throwaway probe, is listed.)
-  const READS_ONLY = new Set(['gl-support.js', 'sinusoid-view.js', 'stage.js', 'lobule-zoom.js']);
+  const READS_ONLY = new Set(['gl-support.js', 'sinusoid-view.js', 'stage.js', 'lobule-zoom.js', 'sw-yield.js']);   // (sw-yield.js: a 1x1 probe, given back at once)
   for (const f of readdirSync(new URL('../src/ui/', import.meta.url))) {
     if (!f.endsWith('.js')) continue;
     const s = src(`src/ui/${f}`);

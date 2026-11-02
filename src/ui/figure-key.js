@@ -3,7 +3,7 @@
 // screen (Mac, iPad, a phone held sideways) right on top of the nav pill at the lower right, right-aligned with it (Mohammad,
 // 15 Oct: "put the legend on top of the zoom pill"). It waits for the cards to land and fades in there; it never slides.
 import { frameFor } from './frame.js?v=ae4d297959';
-import { restPass, cancelRest } from './rest-pass.js?v=bf0c42ead5';
+import { restPass, cancelRest } from './rest-pass.js?v=a36f0b90ba';
 const nextFrame = frameFor('figkey');
 
 // el: the key's element (inside the presenter's layer, beside the nav pill); app: the app's root (its pz-moving class marks a slide change).
