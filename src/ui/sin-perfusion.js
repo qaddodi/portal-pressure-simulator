@@ -13,7 +13,7 @@ export const SIN_PERFUSION = { fade: 0.4, taper: 0.25 };
  * farthest out (the same profile as its bow), so it meets the sinusoid at its own caliber with no step.
  */
 export function sinStrandRadius(rk, width, u, span) {
-  const [a, b] = span || [0, 1], v = (u - a) / (b - a || 1);
+  const a = span ? span[0] : 0, b = span ? span[1] : 1, v = (u - a) / (b - a || 1);
   if (!(v > 0 && v < 1)) return rk;
   const rt = Math.min(rk, Math.max(0.4, (SIN_PERFUSION.taper * width) / 2));
   return rk + (rt - rk) * Math.sin(Math.PI * v) ** 1.4;

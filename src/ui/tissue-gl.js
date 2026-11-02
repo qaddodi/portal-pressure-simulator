@@ -35,8 +35,8 @@ const Q = (s) => `over(texture(${s}, uv))`;   // alloc-rare: the shader source i
 // DIVE_RIM.solid of the radius, gone by DIVE_RIM.clear), and only the lobule's own layer (the bitmap, and its live share) is kept whole
 // there, its portal tracts and the corners' triads reaching past the rim. The same picture as the 2D copy (lobule-zoom.js diveCopy):
 // the tissue × the fade, plus the lobule's own layer × the rest, premultiplied. Drawn once as the zoom starts; the compositor scales it.
-// alloc-rare: the shader source is built once, when the program is compiled
-export const tissueFS = (live) => `#version 300 es
+// (The two sources are built once, when this file loads; tissueFS hands back the one asked for.)
+const tissueSource = (live) => `#version 300 es
 precision highp float;
 uniform sampler2D uQA, uQB, uQO, uW, uWO;   // the quiet tiles at the two sizes blended, the last state's tile; the bitmap, the last state's
 uniform float uMix, uQOld;                   // how much of the larger tile; how much of the last state's tile is left
@@ -82,6 +82,8 @@ void main() {
   o = vec4(mix(c, uBg, a), 1.0);
   if (uRim.w > 0.0) { float f = clamp((uRim.w - length(p - uRim.xy)) / max(uRim.w - uRim.z, 1e-6), 0.0, 1.0); o = o * f + own * (1.0 - f); }
 }`;
+const FS_PLAIN = tissueSource(false), FS_LIVE = tissueSource(true);
+export const tissueFS = (live) => (live ? FS_LIVE : FS_PLAIN);
 
 /** opts.onLive(): called once the program that draws the lobule live has been published (liveReady() is true) or has failed (it never
  *  will be); the caller then asks again. */
