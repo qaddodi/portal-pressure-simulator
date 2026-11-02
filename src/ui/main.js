@@ -2195,8 +2195,8 @@ function wireKeyboard() {
     if (e.key === '/') { e.preventDefault(); palette.open(); return; }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); (e.shiftKey ? doRedo : doUndo)(); return; }
     // (A held key is one press: Space does not flicker play and pause, a number does not run its verb twenty times. J has its own rule below.)
-    // (The figure's own stops act on Space themselves; a button the keyboard reached does too, one that was clicked does not. A held Space is still ours: it must not scroll the panel behind.)
-    const spaceIsOurs = e.key === ' ' && !e.altKey && !controlOwnsKey(e.target, ' ') && !e.target.closest?.('.v-hit, .org-key, .lb');
+    // (The figure's item in focus and a label act on Space themselves; a button the keyboard reached does too, one that was clicked does not. A held Space is still ours: it must not scroll the panel behind.)
+    const spaceIsOurs = e.key === ' ' && !e.altKey && !controlOwnsKey(e.target, ' ') && !e.target.closest?.('.lb') && !(e.target.id === 'stage' && stage?.keyItem?.());
     if (e.repeat && !(e.ctrlKey || e.metaKey) && letterOf(e) !== 'j') { if (spaceIsOurs) e.preventDefault(); return; }
     // (The speed keys [ and ] need Option on a German, French or Spanish layout: the character they make is the key, so Option alone is no reason to drop them. On Windows the
     // same layouts make them with AltGr, which reports Ctrl and Alt together; AltGr makes other characters too (a Polish ą), and those are not the letter's key.)

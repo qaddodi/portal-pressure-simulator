@@ -94,6 +94,7 @@ import { capDensity } from './pixel-budget.js?v=279a2b54f6';
 import { bandRing, dashRings, liftEnd, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=58d3b30db1';
 import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js?v=44441dff70';
 import { CellGrid, geomOf } from './cell-grid.js?v=9f6d5402e3';
+import { classSoon } from './class-soon.js?v=0000000000';
 import { restPass, cancelRest } from './rest-pass.js?v=fea7233cda';
 import { createLateQueue } from './late-queue.js?v=d7da770ef7';
 import { dropLabel } from './drop-label.js?v=bb3f310054';
@@ -623,12 +624,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const gAscites = s('g', { id: 'ascites', 'clip-path': 'url(#abdomenClip)' });
   for (const g of [gBackdrop, gOrgans, gAscites]) watch.addGroup(g);   // (the home framing measures these: defaultVT)
   const gBack = s('g', { id: 'backEdges' });
-  // Posterior veins (retrohepatic IVC, iliac, azygos…) pass behind opaque organs; a faint copy
-  // drawn over the organs shows their course, as a hidden line does in an anatomical plate.
-  const gGhost = s('g', { id: 'ghosts' });
-  // The ghosts are faded together, as one layer, so where two meet they do not stack into a darker disc.
-  const gGhostIn = s('g', { class: 'ghost-layer' });
-  gGhost.append(gGhostIn);
+  // (Posterior veins (retrohepatic IVC, iliac, azygos…) pass behind the opaque organs: the GPU draws their faint course over them.)
   // The vessels' hit strokes, in the order the GPU draws the vessels (veins-gl.js: every shadow, then every casing, then every lumen,
   // tier by tier): arteries beneath, then the translucent stacks, the network, and the retroperitoneal veins behind the organs.
   const gArt = s('g', { id: 'arteries' });
@@ -666,7 +662,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const gTop = s('g', { id: 'focusNet' });
   const gTopL = s('g');
   gTop.append(gTopL);
-  world.append(gBackdrop, gGrid, gBack, gOrgans, gGhost, gFocus, gNet, gAscites, gTop, gOver, gNodes, gGuides);
+  world.append(gBackdrop, gGrid, gBack, gOrgans, gFocus, gNet, gAscites, gTop, gOver, gNodes, gGuides);
   // The figure is drawn on the GPU (veins-gl.js): the plate, every vessel in both views and the
   // moving blood. The SVG below keeps the organ artwork (rasterized for the GPU), invisible hit
   // targets and focus for each vessel, and what is drawn above the vessels (lesions, stents,
@@ -834,17 +830,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (lvThin is the liver's own mask, read in the liver's frame: the stomach's copy takes the shrink's inverse.)
     putA(thinCut, 'transform', `translate(560 350) scale(${(1 / shrink).toFixed(5)}) translate(-560 -350)`);
   }
-  // Keyboard stops for the organs a tap opens (the drawn plate is hidden under the GPU copy, and hidden things take no
-  // focus): invisible outlines after the organs, reached by Tab only. They take no pointer, so a click or tap never
-  // focuses one, and their focus shows as the organ's hover outline (focusin below), never as a ring on the figure.
+  // The organs a tap opens, as keyboard items of the figure (figKeys below): their focus shows as the organ's hover outline.
   const ORGAN_KEYS = [['heart', 'Right heart'], ['liver', 'Liver'], ['spleen', 'Spleen']];   // (the names the palette uses)
-  // (keyStops: whether the figure's vessels, organ keys and labels are keyboard stops. A talk turns them off: its figure is read-only and focus never
+  // (keyStops: whether the figure (its vessels and organs, one stop) and its labels are keyboard stops. A talk turns them off: its figure is read-only and focus never
   // shows on it, so Tab would have walked dozens of stops it could not show; setKeyStops.)
   let keyStops = true;
   let sinMoveGen = 0;   // (the newest dive into or out of the sinusoid view: an older one, still waiting on its zoom, stops there rather than finishing over it)
-  const gOrgKeys = s('g', { id: 'organKeys' });
-  for (const [id, label] of ORGAN_KEYS) gOrgKeys.append(s('path', { class: 'org-key', d: ORGANS.find((o) => o.id === id).d, tabindex: keyStops ? 0 : -1, role: 'button', 'aria-label': `${label}. Press Enter for its card.`, 'data-organ': id }));
-  gOrgans.after(gOrgKeys);
+  svg.setAttribute('tabindex', '0');   // (the figure is one Tab stop: figKeys walks its vessels and organs)
   // The liver shows its disease in its form and surface, never as a pressure hue (hue is kept for
   // data). Healthy: a smooth, glossy capsule and a thin, sharp inferior edge. Congested: a
   // swollen, rounder, darker organ with a faint nutmeg mottle. Cirrhotic: a shrunken right lobe,
@@ -1095,25 +1087,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   gBackdrop.append(flank);
 
   // Edge groups: each vessel is a record (its course, widths, colours, fades and flags), drawn by the GPU (veins-gl.js) from those
-  // numbers alone. Only its hit strokes are still elements (picked in script, hitVessel; they go with the pick on the vessel data).
+  // numbers alone. It is picked on the same numbers (hitVessel, vessel-pick.js) and reached by the keyboard through the figure's one stop (figKeys).
   const E = {};
   for (const e of ALL_EDGES) {
     const vcls = 'vg' + (CONTEXT_EDGES.has(e.id) ? ' ctx' : '') + (e.kind === 'collateral' ? ' coll' : '');
     const g = s('g', { class: vcls, 'data-id': e.id });
     const isArt = e.kind === 'arteriole' || e.kind === 'artery' || (e.kind === 'shunt' && e.shunt === 'ap');
-    const hit = s('path', { class: 'v-hit', tabindex: keyStops ? 0 : -1, role: 'button', 'aria-label': e.label || e.id, 'data-id': e.id });
-    // Extra channels of a braided collateral (cavernoma): drawn under the main tube, each with its own hit stroke.
-    const strands = !isArt && STRANDS[e.id] ? STRANDS[e.id].map(([off, ph, k, ua, ub]) => ({ off, ph, k, span: ua != null ? [ua, ub] : null, hit: s('path', { class: 'v-hit', 'data-id': e.id, 'aria-hidden': 'true', style: '--hit-w: 12' }) })) : null;
+    // Extra channels of a braided collateral (cavernoma): drawn under the main tube, each picked as part of its vessel.
+    const strands = !isArt && STRANDS[e.id] ? STRANDS[e.id].map(([off, ph, k, ua, ub]) => ({ off, ph, k, span: ua != null ? [ua, ub] : null })) : null;
     // (fadeMask: a tributary that sinks into a retroperitoneal vein fades into it, FEEDER_FADE_Y, unless its trunk is carried on.)
     const feeders = !isArt && feedGeo[e.id] ? feedGeo[e.id].map(({ pts: cur, k: fk, fan, when, src, out }, i) => ({ cur, fk, fan, when, src, out, len: arcLen(cur), ph: i * 0.37, fadeMask: !!FEEDER_FADE_Y[e.id] })) : null;
-    g.append(hit);
-    if (strands) g.append(...strands.map((sd) => sd.hit));   // (each strand's hit made with it, never on a frame)
-    // A drawn trunk (the azygos) is part of its vessel: it takes hover and clicks, not only the short arch path.
-    if (feeders) for (const fd of feeders) if (!fd.fan) g.append(s('path', { class: 'v-hit', 'data-id': e.id, d: polyD(fd.cur), 'aria-hidden': 'true', style: '--hit-w: 12' }));
     (isArt ? gArt : gEdges).append(g);
     // A vein that ends in the organ it drains fades out over its first stretch (TIP_FADE, drawn by the GPU from `line`): none in the circuit.
     const tipFade = TIP_FADE[e.id] && !isArt ? { frac: TIP_FADE[e.id], line: [0, 0, 1, 0], joined: false } : null;
-    E[e.id] = { e, g, tipFade, groups: [g], hit, strands, feeders, isArt, vis: true, width: 4, wallPx: 1, shadeKey: '' };
+    E[e.id] = { e, g, tipFade, groups: [g], strands, feeders, isArt, vis: true, width: 4, wallPx: 1, shadeKey: '' };
   }
   ALL_EDGES.forEach((e, i) => { E[e.id].row = i; });
   // (Every vessel, in E's order, as one list kept from here on: E is built once above and never gains or loses a key, so the
@@ -1133,10 +1120,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const x = E[id];
     gBackL.append(x.g);
     x.back = true;
-    x.g.id = 'vg-' + id;
-    // The ghost is also how the hidden stretch is picked: it carries the vessel's id.
-    const u = s('use', { href: '#vg-' + id, class: 'ghost ghost-hit', 'data-id': id });
-    gGhostIn.append(u);
   }
 
   // Translucent vessels (the context veins, collaterals) are drawn by the GPU in tiers, one per opacity level (levelTier), beneath the
@@ -1320,7 +1303,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // the vessels (veins-gl.js, tube rows 10 and 11). It follows every move and pulse for free: no blur, no mask, no
   // outline to rebuild. Each source asks for vessels in a colour (null: the vessel's own); a vessel several sources
   // light takes the colour of the last in GLOW_RANK. Each eases in and out on its own, so a change cross-fades.
-  const GLOW_RANK = ['spot', 'sel', 'hover', 'flash', 'delta', 'dop', 'slide', 'focus', 'shunt'];
+  const GLOW_RANK = ['spot', 'sel', 'hover', 'flash', 'delta', 'dop', 'slide', 'focus', 'shunt', 'key'];
   const glow = { src: new Map(), lit: new Map(), raf: 0, t: 0 };
   // The glow and hover eases step at the display's rate, but the vessels are redrawn at the paced rate (animate): an
   // ease only marks the tubes stale, and the paced frame rebuilds and uploads them once.
@@ -1440,6 +1423,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let lz = null;   // the lobule view's layer (built when its code has arrived: lobuleReady)
   let lzCode = null, lzLoad = null, lzWaiting = false, lzSoon = false, aimWait = null;
   let geometryVersion = 0;
+  let pickVer = 0;   // (bumped when a view lands or a vessel's hit width moves a step: vesselShapes, the corner credit's vessels)
   let edgeRev = 0;   // (R04: bumped when a vessel shows or hides, turns to a ghost, or its label width moves a step: labelSig)
   let netBox = null, netBoxFor = -1;
   // (The drawn network's extent in world units, from the vessels' own courses: each vessel shown in front of the organs, its strands and its
@@ -2969,11 +2953,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const full = force || t !== lastMorph;
     if (!full && !only?.length) return;
     geometryVersion++;
+    if ((t === 0 || t === 1) && t !== lastMorph) pickVer++;   // (a view landed: the corner credit counts the vessels where they now lie)
     lastMorph = t;
-    const hold = geoHolding();
-    // (Between the two views, with the GPU drawing the vessels, nothing on screen shows the SVG's paths: the hit paths, the strands' and
-    // the gradients are written once the views have landed (t 0 or 1 is always a whole update), not at every frame of the change. Each
-    // frame had built every vessel's path text twice over and set it on four elements: a fifth of a frame's script on his iPhone, 1 Nov.)
+    // (Between the two views a clot's lit side is worked out once the views have landed (t 0 or 1 is always a whole update), not at every
+    // frame of the change.)
     const lazy = t > 0 && t < 1;
     for (const x of full ? EV : only) {
       const g = geo[x.e.id], v = vesselAt(x, t), { u0 } = v;
@@ -2982,18 +2965,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const sp = strandAt(x, sd, t, v);
         sd.u0 = u0;
         sd.cur = sp; sd.len = arcLen(sp);
-        if (lazy) continue;
-        const d = polyD(sp);
-        // (each strand of a varix is part of its vessel: its hit is made with the strand, as the vessel is built)
-        setG(sd.hit, 'd', d, hold); setG(sd.hit, 'style:display', (sd.live ?? 1) >= 0.5 && morph < 0.5 ? '' : 'none', hold);
       }
       g.cur = pts;
       g.len = arcLen(pts);
       if (x.tipFade) x.tipFade.line = [pts[0][0], pts[0][1], ...pointAt(pts, x.tipFade.frac)];
       x.shadeKey = '';
       if (lazy) continue;
-      const d = t === 1 ? g.dC : polyD(pts);
-      setG(x.hit, 'd', d, hold);
       g.lit = litNormals(pts);   // (a clot's layers follow the tube's lit side: updateOverlays)
     }
     if (!full) return;
@@ -3004,7 +2981,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     setViewBox(t);
     organMorphA = 1 - t; paintOrganAlpha();
-    setG(gGhost, 'style:opacity', String(1 - t));
     setG(gAscites, 'style:opacity', String(1 - t));
     svg.classList.toggle('circuit', t > 0.5);
     svgOver?.classList.toggle('circuit', t > 0.5);
@@ -3211,7 +3187,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function widthWrites(x, w, t, f, k) {
     const e = x.e;
     // The hit stroke is never thinner than the drawn tube (the IVC is wide, behind the liver) and never under ~10 px on screen.
-    { const narrow = CONTEXT_EDGES.has(e.id) || BACK_EDGES.has(e.id), hw = Math.round(Math.max(narrow ? 8 : 20, w + 6, 10 / ((CTM && CTM.sc) || 1))); if (x.hitW !== hw) { x.hitW = hw; x.hit.style.setProperty('--hit-w', hw); } }
+    { const narrow = CONTEXT_EDGES.has(e.id) || BACK_EDGES.has(e.id), hw = Math.round(Math.max(narrow ? 8 : 20, w + 6, 10 / ((CTM && CTM.sc) || 1))); if (x.hitW !== hw) { x.hitW = hw; pickVer++; } }
     if (x.isArt) return;
     if (x.cbr) for (const cb of x.cbr) cb.w = Math.max(1.2, w * cb.k);
     if (x.strands) x.strands.forEach((sd, i) => {
@@ -12309,11 +12285,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let shunt = null; // { src, wx, wy, targets: Map(id → rule), hover }
 
   function edgeFromEvent(ev) {
-    // A pointer is picked on the vessels' data (hitVessel), never by the browser's hit test; an event with no point (a key on a
-    // focused vessel) names the vessel it came from.
+    // A pointer is picked on the vessels' data (hitVessel), never by the browser's hit test; an event with no point (a key on the
+    // figure) names the vessel the keyboard is on (figKeys).
     if (ev.clientX != null) return lobuleOn ? null : hitVessel(ev.clientX, ev.clientY, 0);
-    const el = ev.target?.closest?.('.v-hit, .ghost-hit');
-    return el ? el.getAttribute('data-id') : null;
+    return ev.target === svg && figKeys.cur && !figKeys.cur.startsWith('organ:') ? figKeys.cur : null;
   }
   // Vessel picking on the vessels' own data (vessel-pick.js; plan "Holding 120 Hz" §3.5, and 2 Nov 2026 "everything on GPU"): each
   // vessel's drawn course, its strands' and its drawn trunks', tested as a stroke of its hit width with round caps, in world units
@@ -12335,6 +12310,32 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (x.feeders) for (const fd of x.feeders) if (!fd.fan) visit(id, rank, 6, fd.cur);
     }
   });
+  let shapesMemo = null;
+  function vesselShapes() {
+    const ver = pickVer + '|' + edgeRev;
+    if (shapesMemo?.ver === ver) return shapesMemo;
+    const list = [], anat = morph < 0.5;
+    const add = (id, w, P, main) => {
+      if (!P?.length) return;
+      const pts = new Float32Array(P.length * 2);
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      for (let i = 0; i < P.length; i++) {
+        const x = P[i][0], y = P[i][1];
+        pts[2 * i] = x; pts[2 * i + 1] = y;
+        if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+      }
+      list.push({ id, w, main, path: { polys: [{ pts, closed: false }] }, box: [x0, y0, x1, y1] });
+    };
+    for (const x of EV) {
+      if (!x.vis) continue;
+      const id = x.e.id, narrow = CONTEXT_EDGES.has(id) || BACK_EDGES.has(id);
+      add(id, x.hitW || (narrow ? 8 : 20), geo[id]?.cur, true);
+      if (!anat) continue;
+      if (x.strands) for (const sd of x.strands) if ((sd.live ?? 1) >= 0.5) add(id, 12, sd.cur, false);
+      if (x.feeders) for (const fd of x.feeders) if (!fd.fan) add(id, 12, fd.cur, false);
+    }
+    return (shapesMemo = { ver, list });
+  }
   function hitVessel(cx, cy, slop) {
     if (!CTM) refreshCTM();
     const C = CTM, det = C.a * C.d - C.b * C.c;
@@ -12407,6 +12408,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function setHover(id, also = null) {
     if (id === hoverId && also === vh.also) return;
     hoverId = id;
+    classSoon(wrap, 'over-vessel', !!id && !lobuleOn);   // (the pointer's cursor over a vessel: there is no hit element to carry it)
     const on = id && store.get().tool === 'select' && !shunt ? id : null;
     if (on === vh.id && also === vh.also) return;
     vh.id = on; vh.also = also;
@@ -12484,7 +12486,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (F && !shunt) { const r = wrap.getBoundingClientRect(); onHoverInfo({ id, x: ev.clientX - r.left, y: ev.clientY - r.top }); }
     }
   });
-  svg.addEventListener('pointerout', (ev) => { if (edgeFromEvent(ev)) { setHover(null); onHoverInfo(null); } });
   svg.addEventListener('pointerleave', clearHover);
   svg.addEventListener('pointercancel', clearHover);
   svg.addEventListener('pointerup', (ev) => { if (ev.pointerType === 'touch') clearHover(); });
@@ -12912,12 +12913,66 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
 
 
-  // Keyboard: Tab reaches each vessel, Enter opens its card, arrows walk along the flow.
+  // Keyboard: the figure is one Tab stop (no element per vessel). Inside it Tab and Shift+Tab walk its items (every vessel shown, then,
+  // in the anatomy, the organs a tap opens) and leave it at either end, Enter or Space acts on the item, and the arrows walk along the
+  // flow. The item in focus glows as the GPU draws it (the 'key' glow; an organ takes its hover outline) and is read out through #live.
+  const figKeys = { cur: null, tabAt: -Infinity, back: false };
+  const ORGAN_NAME = new Map(ORGAN_KEYS);
+  function figItems() {
+    const out = [];
+    if (lobuleOn) return out;
+    for (const x of EV) if (x.vis && !x.noHit) out.push(x.e.id);
+    if (morph < 0.5) for (const [id] of ORGAN_KEYS) out.push('organ:' + id);
+    return out;
+  }
+  const figSay = (msg) => { const el = document.getElementById('live'); if (el && msg) el.textContent = msg; };
+  function figWords(item) {
+    if (item.startsWith('organ:')) return `${ORGAN_NAME.get(item.slice(6))}. Press Enter for its card.`;
+    const e = EI[item] != null ? EDGES[EI[item]] : E[item]?.e;
+    if (!e) return '';
+    if (!F || EI[item] == null) return `${e.label || item}. Press Enter for actions.`;
+    const q = F.Q[EI[item]];
+    return `${e.label}: ${fmt(F.P[NI[e.from]], 1)} to ${fmt(F.P[NI[e.to]], 1)} millimeters of mercury, flow ${fmt(q * 0.06, 2)} liters per minute${E[item].rev ? ', reversed' : ''}. Press Enter for actions.`;
+  }
+  function figShow(item, say = true) {
+    const was = figKeys.cur;
+    figKeys.cur = item;
+    if (was?.startsWith('organ:') && was !== item) setOrganHover(null);
+    if (item?.startsWith('organ:')) {
+      const org = item.slice(6), sel = store.get().selection;
+      setGlowSrc('key', []);
+      setOrganHover(sel?.type === 'organ' && sel.id === org ? null : org);
+    } else setGlowSrc('key', item ? [{ id: item, col: 'var(--accent)', amt: 1.8, wide: 1.25, top: true, dur: 160 }] : []);
+    if (item && say) figSay(figWords(item));
+  }
+  // (Which way Tab came in: a Tab pressed anywhere just before the figure took focus.)
+  document.addEventListener('keydown', (ev) => { if (ev.key === 'Tab') { figKeys.tabAt = performance.now(); figKeys.back = ev.shiftKey; } }, true);
+  svg.addEventListener('focus', () => {
+    if (!keyStops) return;
+    const items = figItems();
+    if (performance.now() - figKeys.tabAt < 400) figShow(items.length ? items[figKeys.back ? items.length - 1 : 0] : null);
+    else if (figKeys.cur && items.includes(figKeys.cur) && focusSeen()) figShow(figKeys.cur);   // (focus handed back from the keyboard, a closed card's: the item it was on)
+  });
+  const focusSeen = () => { try { return svg.matches(':focus-visible'); } catch { return true; } };
+  // (A pointer on the figure lets go of the keyboard's item: its glow goes, Space is the app's again, and the next Tab starts afresh.)
+  svg.addEventListener('pointerdown', () => { if (figKeys.cur) figShow(null, false); });
+  svg.addEventListener('blur', () => { if (figKeys.cur) { setGlowSrc('key', []); if (figKeys.cur.startsWith('organ:')) setOrganHover(null); } });
   svg.addEventListener('keydown', (ev) => {
-    const org = ev.target.getAttribute?.('data-organ');
-    if (org && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); if (shunt || morph > 0.5) return; setOrganHover(null); onSelect({ type: 'organ', id: org }, { keyboard: true }); return; }
-    const id = ev.target.getAttribute?.('data-id');
-    if (!id) return;
+    if (ev.target !== svg || ev.altKey || ev.metaKey || ev.ctrlKey) return;
+    const items = figItems(), at = figKeys.cur ? items.indexOf(figKeys.cur) : -1;
+    if (ev.key === 'Tab') {
+      const next = at < 0 ? (ev.shiftKey ? -1 : 0) : at + (ev.shiftKey ? -1 : 1);
+      if (next >= 0 && next < items.length) { ev.preventDefault(); figShow(items[next]); return; }
+      figShow(null);   // (past either end: Tab leaves the figure, as it would leave any other stop)
+      return;
+    }
+    const item = at >= 0 ? items[at] : null;
+    if (!item) return;
+    if (item.startsWith('organ:')) {
+      if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); if (shunt || morph > 0.5) return; setOrganHover(null); onSelect({ type: 'organ', id: item.slice(6) }, { keyboard: true }); }
+      return;
+    }
+    const id = item;
     if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); if (shunt) { shuntDropOn(id); return; } onSelect({ type: 'edge', id }, { keyboard: true }); }
     if ((ev.key === 'ArrowRight' || ev.key === 'ArrowLeft') && F && EI[id] != null) {
       ev.preventDefault();
@@ -12925,17 +12980,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const q = F.Q[EI[id]];
       const node = (ev.key === 'ArrowRight') === (q >= 0) ? e.to : e.from;
       const next = EDGES.find((x) => x.id !== id && E[x.id]?.vis && (x.from === node || x.to === node) && x.kind !== 'wedge');
-      if (next) { E[next.id].hit.focus(); onSelect({ type: 'edge', id: next.id }, { quiet: true }); }
-    }
-  });
-  svg.addEventListener('focusout', (ev) => { if (ev.target.getAttribute?.('data-organ')) setOrganHover(null); });
-  svg.addEventListener('focusin', (ev) => {
-    const org = ev.target.getAttribute?.('data-organ');
-    if (org) { const sel = store.get().selection; setOrganHover(sel?.type === 'organ' && sel.id === org ? null : org); return; }
-    const id = ev.target.getAttribute?.('data-id');
-    if (id && F && EI[id] != null) {
-      const e = EDGES[EI[id]], q = F.Q[EI[id]];
-      ev.target.setAttribute('aria-label', `${e.label}: ${fmt(F.P[NI[e.from]], 1)} to ${fmt(F.P[NI[e.to]], 1)} millimeters of mercury, flow ${fmt(q * 0.06, 2)} liters per minute${E[id].rev ? ', reversed' : ''}. Press Enter for actions.`);
+      if (next) { figShow(next.id); onSelect({ type: 'edge', id: next.id }, { quiet: true }); }
     }
   });
 
@@ -13294,6 +13339,22 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     setFreeArea(fn) { freeArea = fn; },
     /** The free rectangle the last framed box was centred in (for the tests). */
     lastFree: () => lastFree,
+    /** The vessels shown now, by id (for the checks: there is no element per vessel). */
+    shownVessels: () => EV.filter((x) => x.vis).map((x) => x.e.id),
+    /** Half way along a vessel's drawn course, in client px, and the course's length on screen (for the checks), or null. */
+    vesselMid: (id) => {
+      const P = geo[id]?.cur;
+      if (!(P?.length > 1) || !E[id]?.vis) return null;
+      if (!CTM) refreshCTM();
+      const C = CTM, k = Math.hypot(C.a, C.b), L = arcLen(P);
+      let q = P[P.length - 1];
+      for (let i = 1, s0 = 0; i < P.length; i++) {   // (half way by length along the course)
+        const l = Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]);
+        if (s0 + l >= L / 2) { const u = l ? (L / 2 - s0) / l : 0; q = [P[i - 1][0] + (P[i][0] - P[i - 1][0]) * u, P[i - 1][1] + (P[i][1] - P[i - 1][1]) * u]; break; }
+        s0 += l;
+      }
+      return { x: C.a * q[0] + C.c * q[1] + C.e, y: C.b * q[0] + C.d * q[1] + C.f, len: L * k };
+    },
     /** The vessel under a client point (CSS px), or the nearest within slop px past its stroke: hitVessel (for the checks). */
     vesselUnder: (cx, cy, slop = 0) => hitVessel(cx, cy, slop),
     /** The plate box (world units) around organs and vessels as drawn now (an enlarged spleen at its size), or null. */
@@ -13387,14 +13448,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     lobuleRing: () => (lobuleOn && diveT >= 1 ? lz?.ring() ?? null : null),
     /** The vessels lit by a glow that stays (a selection, a slide's or step's vessels, the Doppler's), as [id, band width ×]: the corner
      *  credit keeps off their glow too. (A hover's or a change's glow comes and goes; the credit does not move for it.) */
-    flushHeld: () => { if (geoHeld.size) flushGeo(); },   // (the corner credit reads the hit strokes' paths, held while the GPU draws)
+    /** The vessels as the corner credit counts them (credit.js), in world units: each course drawn (a vessel's own, and in the anatomy its
+     *  strands' and drawn trunks'), its hit width w, its box, and ver (a new ver: the list changed). */
+    vesselShapes,   // (the corner credit reads the hit strokes' paths, held while the GPU draws)
     /** A vein's drawn width (world units), the lumen a glow hugs (credit.js); null for an artery or an unknown id. */
     lumenWidth: (id) => (E[id] && !E[id].isArt ? E[id].width : null),
     steadyGlows: () => ['sel', 'dop', 'slide', 'focus'].flatMap((k) => [...(glow.src.get(k) || new Map()).values()].map((g) => [g.id, g.wide || 1])),
     /** A talk takes the figure out of the Tab order (its vessels, organ keys and labels); the end of the talk puts it back. */
     setKeyStops: (on) => {
       keyStops = !!on;
-      for (const el of wrap.querySelectorAll('.v-hit[tabindex], .org-key[tabindex]')) el.setAttribute('tabindex', keyStops ? '0' : '-1');   // (only the stops: a vessel's extra hit paths are hidden from the keyboard and screen readers)
+      svg.setAttribute('tabindex', keyStops ? '0' : '-1');
+      if (!keyStops) figShow(null, false);   // (only the stops: a vessel's extra hit paths are hidden from the keyboard and screen readers)
       for (const b of pool.values()) if (b.g.hasAttribute('tabindex')) b.g.setAttribute('tabindex', keyStops && !b.hid ? '0' : '-1');
     },
     /** Where a station's callout attaches, in client px (for the checks). */
@@ -13435,7 +13499,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     sinusoidOpen: () => !!lz?.sinusoidOpen(),
     /** On-screen scale, px per world unit (for the tests: turning the circuit keeps it). */
     zoomLevel: () => { refreshCTM(); return CTM.sc; },
-    focusEdge(id) { E[id]?.hit.focus(); },
+    /** The figure's item the keyboard is on (a vessel's id, or 'organ:<id>'), or null. */
+    keyItem: () => figKeys.cur,
+    focusEdge(id) { if (!E[id]) return; figKeys.cur = id; svg.focus({ preventScroll: true }); figShow(id); },
     startShunt, cancelShunt, isShunting: () => !!shunt, anchorFor, organAt,
     /** Briefly glow the given vessels (where a readout is measured). */
     flash(ids) {

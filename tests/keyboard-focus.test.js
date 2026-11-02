@@ -50,7 +50,7 @@ test('a menu: named, focused from the keyboard, focus handed back; a dialog trap
 test('Search closes with Esc from a result too, the Why card with its own Esc only, Space on an organ key does not also play', () => {
   const m = read('src/ui/main.js');
   assert.match(m, /if \(palette\.isOpen\(\)\) \{ if \(e\.key === 'Escape'\) \{ e\.preventDefault\(\); palette\.close\(\); \} return; \}/);
-  assert.match(m, /e\.key === ' ' && !e\.altKey && !controlOwnsKey\(e\.target, ' '\) && !e\.target\.closest\?\.\('\.v-hit, \.org-key, \.lb'\)/);
+  assert.match(m, /e\.key === ' ' && !e\.altKey && !controlOwnsKey\(e\.target, ' '\) && !e\.target\.closest\?\.\('\.lb'\) && !\(e\.target\.id === 'stage' && stage\?\.keyItem\?\.\(\)\)/);
   const w = read('src/ui/why.js');
   assert.match(w, /e\.stopPropagation\(\); close\(\); \} \}, true\);/);
   assert.match(w, /announce\(`\$\{r\.label\}\. \$\{r\.sentence\}`\)/);

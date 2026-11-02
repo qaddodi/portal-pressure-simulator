@@ -117,7 +117,7 @@ test('NP9, NP11, NP12: the Compare badge stands under the desktop top bar; closi
 test('RF4 and NP3: the lens key and its name are watched by the top bar glide; Add shunt targets glow and stand out on the GPU figure', () => {
   const tb = read('src/ui/topbar-motion.js'), stage = read('src/ui/stage.js');
   assert.match(tb, /for \(const id of \['scenarioName', 'legend', 'colorModeLabel'\]\)/);
-  assert.match(stage, /const GLOW_RANK = \[[^\]]*'shunt'\];/);
+  assert.match(stage, /const GLOW_RANK = \[[^\]]*'shunt', 'key'\];/);
   assert.match(stage, /setGlowSrc\('shunt', \[\.\.\.shunt\.targets\.keys\(\)\]\.map\(\(id\) => \(\{ id, col: 'var\(--accent\)'/);
   assert.match(stage, /const out = shunt \? new Set\(\[\.\.\.vh\.sel, shunt\.src, \.\.\.shunt\.targets\.keys\(\)\]/);
   assert.match(stage, /wrap\.classList\.remove\('shunting'\);\n\s*setGlowSrc\('shunt', \[\]\);/);

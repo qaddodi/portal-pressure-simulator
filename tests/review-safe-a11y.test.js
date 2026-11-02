@@ -72,19 +72,17 @@ test('a share link naming an unknown patient opens healthy and says so', () => {
   assert.match(fn, /if \(missing\) toast\(missing, 'bad'\);/);
 });
 
-test('the organs a tap opens are keyboard stops that never take the pointer or show a ring', () => {
+test('the organs a tap opens are keyboard items of the figure that never take the pointer or show a ring', () => {
   const stage = read('src/ui/stage.js');
   assert.match(stage, /const ORGAN_KEYS = \[\['heart', 'Right heart'\], \['liver', 'Liver'\], \['spleen', 'Spleen'\]\];/);
-  assert.match(stage, /s\('path', \{ class: 'org-key', d: [^}]*tabindex: keyStops \? 0 : -1, role: 'button', 'aria-label': `\$\{label\}\. Press Enter for its card\.`, 'data-organ': id \}\)/);
-  assert.match(stage, /gOrgans\.after\(gOrgKeys\);/, 'outside #organs, which is hidden (and so unfocusable) under the GPU plate');
-  assert.match(stage, /if \(org && \(ev\.key === 'Enter' \|\| ev\.key === ' '\)\) \{[^\n]*onSelect\(\{ type: 'organ', id: org \}, \{ keyboard: true \}\)/);
-  assert.match(stage, /if \(org\) \{ const sel = store\.get\(\)\.selection; setOrganHover\(/, 'focus shows as the hover outline');
-  assert.match(stage, /addEventListener\('focusout', \(ev\) => \{ if \(ev\.target\.getAttribute\?\.\('data-organ'\)\) setOrganHover\(null\); \}\)/);
+  const keys = stage.slice(stage.indexOf('  const figKeys = '), stage.indexOf('  // ── Shunts: from a source vessel to a drop target ──'));
+  assert.match(keys, /if \(morph < 0\.5\) for \(const \[id\] of ORGAN_KEYS\) out\.push\('organ:' \+ id\);/, 'no organ items in the circuit view');
+  assert.match(keys, /return `\$\{ORGAN_NAME\.get\(item\.slice\(6\)\)\}\. Press Enter for its card\.`;/);
+  assert.match(keys, /onSelect\(\{ type: 'organ', id: item\.slice\(6\) \}, \{ keyboard: true \}\)/);
+  assert.match(keys, /setOrganHover\(sel\?\.type === 'organ' && sel\.id === org \? null : org\);/, 'focus shows as the hover outline');
   const css = read('styles/app.css');
-  assert.match(css, /#world :is\(g, path, [^)]*\) \{ pointer-events: none; \}/, 'world paths take no pointer, so a click never focuses an organ stop');
-  assert.match(css, /#world \.org-key \{ fill: none; stroke: none; \}/);
-  assert.match(css, /#world \.org-key:focus, #world \.org-key:focus-visible \{ outline: none; \}/);
-  assert.match(css, /#stage\.circuit #organKeys \{ visibility: hidden; \}/, 'no organ stops in the circuit view');
+  assert.match(css, /#world :is\(g, path, [^)]*\) \{ pointer-events: none; \}/, 'world paths take no pointer');
+  assert.match(css, /\.stage-view #stage:focus, \.stage-view #stage:focus-visible \{ outline: none; \}/, 'no ring round the figure');
   // Every keyboard organ is one the pointer can open too.
   for (const id of ['heart', 'liver', 'spleen']) assert.match(stage, new RegExp(`ORGAN_OF = \\{[^}]*\\b${id}: '${id}'`));
 });

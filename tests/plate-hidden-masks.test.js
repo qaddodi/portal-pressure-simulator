@@ -33,8 +33,8 @@ test('the caudate\'s veins build no mask once the lobe has faded out and hidden,
   assert.match(stage, /const veinsG = s\('g', \{ mask: 'url\(#caudMask\)', class: 'caud-veins' \}\);/);
 });
 
-test('the vessels are drawn by the GPU alone: no SVG tube part, halo or vessel mask is left, and the hit strokes stay transparent', () => {
-  assert.match(css, /#world \.v-hit \{ fill: none; stroke: transparent;/);
+test('the vessels are drawn by the GPU alone: no SVG tube part, halo, vessel mask or hit stroke is left', () => {
+  assert.doesNotMatch(css, /\.v-hit\b/, 'no hit stroke left either: vessels are picked on their data');
   assert.doesNotMatch(css, /\.v-(shadow|wallP|lumenP|wall|lumen|shade|sheen|select|artery|halo|strand-wall)\b/);
   assert.doesNotMatch(css, /\.vg:not\(:focus-within\) \{ mask: none; \}/);
   assert.doesNotMatch(stage, /class: 'v-(wall|lumen|halo|shadow|shade|sheen)'/);

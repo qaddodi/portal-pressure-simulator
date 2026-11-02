@@ -79,9 +79,13 @@ const shape = (cls, rect, { w = 0, fill = 'rgb(1, 1, 1)', stroke = 'none', tf = 
 });
 const organA = shape('organ', [100, 100, 200, 150]);
 const fluid = shape('ascites-fill', [500, 100, 100, 100], { fill: 'rgb(1, 1, 1)' });
-const vessel = shape('v-hit', [400, 300, 10, 300], { w: 12, fill: 'none', stroke: 'rgba(0,0,0,0)', id: 'V1' });
-const scene = { organs: [organA], fluid: [fluid], hits: [vessel] };
-const bySelector = (sel) => (sel.startsWith('#world .v-hit[data-id=') ? scene.hits.filter((h) => sel.includes(`"${h.getAttribute('data-id')}"`)) : sel.includes('g.organ') ? scene.organs : sel.includes('#ascites') ? scene.fluid : sel === '#world .v-hit' ? scene.hits : []);
+// The vessel is the stage's numbers, not a page shape (stage.vesselShapes): a course down x = 405 from y 300 to 600, hit width 26,
+// counted at 0.7 of it with round caps. Its truth: the band without its caps (rect, all of it art) and with them (outer).
+const VES_LW = 26 * 0.7;
+const vessel = { rect: [405 - VES_LW / 2, 300, VES_LW, 300], outer: [405 - VES_LW / 2, 300 - VES_LW / 2, VES_LW, 300 + VES_LW], cs: { strokeWidth: 0 } };
+const vesShape = { id: 'V1', w: 26, main: true, path: { polys: [{ pts: Float32Array.of(405, 300, 405, 600), closed: false }] }, box: [405, 300, 405, 600] };
+const scene = { organs: [organA], fluid: [fluid] };
+const bySelector = (sel) => (sel.includes('g.organ') ? scene.organs : sel.includes('#ascites') ? scene.fluid : sel === '#world .v-hit' ? scene.hits : []);
 // (The grid class credit.js imports, at its stamped URL: the same module, so counting its reads counts the credit's.)
 const gridUrl = /from '\.\/(cell-grid\.js[^']*)'/.exec(readFileSync(new URL('../src/ui/credit.js', import.meta.url), 'utf8'))[1];
 const { CellGrid } = await import(`../src/ui/${gridUrl}`);
@@ -100,7 +104,7 @@ globalThis.document = {
   createElement: () => { const cv = { width: 1, height: 1, getContext: () => { throw new Error('the credit draws on no canvas'); } }; canvases.push(cv); return cv; },
 };
 let glows = [];
-window.pps = { stage: { steadyGlows: () => glows, lumenWidth: (id) => (id === 'V1' ? 40 : null) } };   // (the vein's drawn width: the stage's number)
+window.pps = { stage: { steadyGlows: () => glows, lumenWidth: (id) => (id === 'V1' ? 40 : null), vesselShapes: () => ({ ver: 'v1', list: [vesShape] }) } };   // (the vein's drawn width and its courses: the stage's numbers)
 globalThis.MessageChannel = undefined;   // (rest passes on a zero timer, which this test's fake setTimeout takes)
 const { organTest } = await import('../src/ui/credit.js');
 
@@ -112,7 +116,7 @@ const reset = () => { counts.shape = counts.readback = counts.style = 0; };
 test('the first look reads each shape once and the grid back twice (organs, vessels); the art is found where it is', () => {
   reset();
   const art = organTest(wr);
-  assert.equal(counts.shape, 2 * 3, 'matrix and box of each of the organ, the fluid and the vessel');
+  assert.equal(counts.shape, 2 * 2, 'matrix and box of each of the organ and the fluid (the vessel is the stage\'s numbers)');
   assert.equal(counts.readback, 2, 'one read-back for the organs and the fluid, one for the vessels');
   const a = screenOf(organA.rect);
   assert.equal(art({ l: a.l + 20, t: a.t + 20, r: a.l + 120, b: a.t + 40 }, { pad: 0 }), true, 'on the organ');
@@ -154,11 +158,11 @@ test('the answer is the same wherever the camera is: conservative to the pixel g
   for (const c of [{ a: 1, b: 0, c: 0, d: 1, e: 50, f: 30 }, { a: 0.6, b: 0, c: 0, d: 0.6, e: 90, f: 20 }, { a: 2.2, b: 0, c: 0, d: 2.2, e: -300, f: -120 }, { a: 0, b: 1.1, c: -1.1, d: 0, e: 700, f: 20 }, { a: 0, b: 0.8, c: -0.8, d: 0, e: 600, f: 100 }]) {
     cam = c; organTest(wr);
     const art = organTest(wr);
-    const truth = rects.map((s) => { const b = screenOf(s.rect), g = s.cs.strokeWidth * 0.7 / 2 * Math.hypot(c.a, c.b); return s === vessel ? { l: b.l - g, t: b.t - g, r: b.r + g, b: b.b + g } : b; });
+    const truth = rects.map((s) => screenOf(s.rect)), outer = rects.map((s) => screenOf(s.outer || s.rect));
     for (let n = 0; n < 600; n++) {
       const l = rnd() * 760, t = rnd() * 560, box = { l, t, r: l + 20 + rnd() * 160, b: t + 6 + rnd() * 30 }, pad = [0, 4, 8, 18][n % 4];
       const near = truth.some((b) => overlap({ l: box.l - pad, t: box.t - pad, r: box.r + pad, b: box.b + pad }, b));
-      const far = truth.some((b) => overlap({ l: box.l - pad, t: box.t - pad, r: box.r + pad, b: box.b + pad }, b, 2 * CELL + 1));
+      const far = outer.some((b) => overlap({ l: box.l - pad, t: box.t - pad, r: box.r + pad, b: box.b + pad }, b, 2 * CELL + 1));
       const got = art(box, { pad });
       touching += near ? 1 : 0; bare += far ? 0 : 1;
       if (near) assert.equal(got, true, `touching art, missed: ${JSON.stringify(box)} pad ${pad} camera ${JSON.stringify(c)}`);
@@ -188,7 +192,7 @@ test('a change to a shape reads the page again; an overlay group changing does n
   assert.equal(counts.shape, 0, 'read again once, not at every look');
   const now = performance.now;
   try { performance.now = () => now.call(performance) + 16000; organTest(wr); } finally { performance.now = now; }
-  assert.equal(counts.shape, 2 * 3, 'a safety net for any change no watch saw');
+  assert.equal(counts.shape, 2 * 2, 'a safety net for any change no watch saw');
 });
 
 test("a lit vessel's glow counts as the vessel, and a changed glow draws the grid again without reading the page", () => {
@@ -201,7 +205,7 @@ test("a lit vessel's glow counts as the vessel, and a changed glow draws the gri
   assert.equal(art(inside, { pad: 0 }), true, 'inside the glow');
   assert.equal(art(beyond, { pad: 0 }), false, 'beyond it');
   assert.equal(counts.readback, 2, 'the grid drawn again for the new glow');
-  assert.equal(counts.shape, 1, 'only the glowing vessel was read, for its hit stroke (its matrix)');
+  assert.equal(counts.shape, 0, 'no shape read for it: the glowing vessel\'s course is the stage\'s');
   glows = [];
   assert.equal(organTest(wr)(inside, { pad: 0 }), false, 'the glow gone');
 });

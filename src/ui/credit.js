@@ -217,13 +217,17 @@ function labelRectsRead(wr, wrap, kept = null) {
 // On the GPU figure (worldTest below) the grid is in the figure's own coordinates and the shapes are read once: a camera move reads
 // no shape and no pixel, the credit only maps its candidate boxes into the world. Elsewhere (the lobule's outline, the SVG figure
 // of Lite graphics, a grid over the cap) screenTest draws the art on the screen's own grid, 6 px cells, as it always did.
-// Organs and vessels are kept in two grids. On the GPU figure the vessel tubes are not in the page at all (their SVG tubes are
-// display:none), only their transparent hit strokes are, so those stand for the vessels there, at 0.7 of their width (a hit stroke is wider than its tube).
+// Organs and vessels are kept in two grids. The vessels are not in the page at all: the stage hands over each one's courses in world
+// units with its hit width (stage.vesselShapes), counted at 0.7 of that width (a hit width is wider than its tube).
 const ORGANS = 'g.organ :is(path, circle, ellipse, rect, polygon):not(.org-shade)';
-// (The vessels are drawn by the GPU alone: their hit strokes are what counts, as they did while the GPU drew them.)
-const VESSELS = '#world .v-hit';
-// A lit vessel's lumen width (world units), the glow's core: the stage's own number (a vein's drawn width), else its hit stroke's.
-const lumenW = (el) => window.pps?.stage?.lumenWidth?.(el.getAttribute('data-id')) ?? (parseFloat(readStyle(el).strokeWidth) || 0);
+// (The vessels: the stage's numbers, rebuilt there only when one moved (its ver). A lit vessel's lumen width (world units), the glow's
+// core: the stage's own number (a vein's drawn width), else its hit width.)
+const vesselsNow = () => window.pps?.stage?.vesselShapes?.() || { ver: '', list: [] };
+const lumenW = (v) => window.pps?.stage?.lumenWidth?.(v.id) ?? v.w;
+const ID = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
+// One course's facts, in the world's own units (the frame every fact is in, so its matrix is the identity).
+const vesselFact = (v) => { const lw = v.w * 0.7, g = 2 * lw; return { path: v.path, m: ID, l: v.box[0] - g, t: v.box[1] - g, r: v.box[2] + g, b: v.box[3] + g, fill: false, lw, cap: 'round', join: 'round' }; };
+const vesselFacts = () => vesselsNow().list.map(vesselFact);
 // (The ascites fluid and the flanks' outline count as organs' art, as drawn: their fill where they have one, their stroke where
 // they have one. A small phone in Patients had put the credit on the fluid.)
 // (The diaphragm's line across the back wall counts too: the credit had sat on it with the menu open; sweep 02 #11.)
@@ -250,15 +254,14 @@ let organMemo = { key: '', test: null };
 // (the credit had landed on the hepatocytes).
 // The screen's own grid: the art drawn again, from the page, whenever the camera or the lobule's ring moved.
 function screenTest(wr, ring = null) {
-  window.pps?.stage?.flushHeld?.();   // (the hit strokes' paths the stage holds while the GPU draws, written before they are read)
   const glows = ring ? [] : window.pps?.stage?.steadyGlows?.() || [];
-  const world = readCTM(document.getElementById('world')), key = [wr.left, wr.top, wr.width, wr.height, world && [world.a, world.d, world.e, world.f].map((v) => v.toFixed(2)), ring && ring.flat().map((v) => v.toFixed(1)), glows.flat().join()].join('|');
+  const world = readCTM(document.getElementById('world')), key = [wr.left, wr.top, wr.width, wr.height, world && [world.a, world.d, world.e, world.f].map((v) => v.toFixed(2)), ring && ring.flat().map((v) => v.toFixed(1)), glows.flat().join(), vesselsNow().ver].join('|');
   if (organMemo.key === key) return organMemo.test;
   const cols = Math.ceil(wr.width / CELL) + 1, rows = Math.ceil(wr.height / CELL) + 1, grids = { org: new Uint8Array(cols * rows), ves: new Uint8Array(cols * rows) };
   const ctx = new CellGrid();
   ctx.clearRect(0, 0, cols, rows);
   {
-    const paint = (sel, grid, vessel, asDrawn = false) => {
+    const paint = (sel, grid, asDrawn = false) => {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       if (!asDrawn) ctx.clearRect(0, 0, cols, rows);   // (as drawn: added to the organs just painted)
       for (const el of document.querySelectorAll(sel)) {
@@ -275,8 +278,8 @@ function screenTest(wr, ring = null) {
         // One grid entry per cell: cell (i, j) covers wrap px [i * CELL, (i + 1) * CELL).
         ctx.setTransform(m.a / CELL, m.b / CELL, m.c / CELL, m.d / CELL, (m.e - wr.left) / CELL, (m.f - wr.top) / CELL);
         const path = shapePath(el);
-        if (asDrawn ? cs.fill !== 'none' : !vessel || (cs.fill !== 'none' && !el.classList.contains('v-hit'))) ctx.fill(path);
-        if (w > 0 && (asDrawn ? cs.stroke !== 'none' : !vessel || cs.stroke !== 'none' || el.classList.contains('v-hit'))) { ctx.lineWidth = el.classList.contains('v-hit') ? w * 0.7 : w; ctx.lineCap = cs.strokeLinecap || 'butt'; ctx.lineJoin = cs.strokeLinejoin || 'miter'; ctx.stroke(path); }
+        if (!asDrawn || cs.fill !== 'none') ctx.fill(path);
+        if (w > 0 && (!asDrawn || cs.stroke !== 'none')) { ctx.lineWidth = w; ctx.lineCap = cs.strokeLinecap || 'butt'; ctx.lineJoin = cs.strokeLinejoin || 'miter'; ctx.stroke(path); }
       }
       ctx.readInto(grid);
     };
@@ -289,18 +292,25 @@ function screenTest(wr, ring = null) {
       for (const [x, y, rr] of ring.discs || []) { ctx.beginPath(); ctx.arc((x - wr.left) / CELL, (y - wr.top) / CELL, rr / CELL, 0, Math.PI * 2); ctx.fill(); }
       ctx.readInto(grids.org);
     } else {
-      paint(ORGANS, grids.org, false);
-      paint(FLUID, grids.org, false, true);
-      paint(VESSELS, grids.ves, true);
+      paint(ORGANS, grids.org);
+      paint(FLUID, grids.org, true);
+      // The vessels: the stage's courses, drawn through the world's matrix.
+      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cols, rows);
+      const vs = vesselsNow().list;
+      if (world) {
+        ctx.setTransform(world.a / CELL, world.b / CELL, world.c / CELL, world.d / CELL, (world.e - wr.left) / CELL, (world.f - wr.top) / CELL);
+        ctx.lineCap = ctx.lineJoin = 'round';
+        for (const v of vs) { ctx.lineWidth = v.w * 0.7; ctx.stroke(v.path); }
+      }
+      ctx.readInto(grids.ves);
       // A lit vessel's glow, the soft band 12 × its width setting (world units) beyond each wall (veins-gl.js), counts as the vessel
       // (sweep 01 review: an iPad zoomed in had put the credit on a glow).
       if (glows.length) {
-        for (const [id, wide] of glows) for (const el of document.querySelectorAll(`#world .v-hit[data-id="${CSS.escape(id)}"]`)) {
-          const m = readCTM(el);
-          if (!m) continue;
-          ctx.setTransform(m.a / CELL, m.b / CELL, m.c / CELL, m.d / CELL, (m.e - wr.left) / CELL, (m.f - wr.top) / CELL);
-          ctx.lineWidth = lumenW(el) + 2 * 12 * Math.min(1.3, Math.max(0.5, wide));
-          ctx.lineCap = ctx.lineJoin = 'round'; ctx.stroke(shapePath(el));
+        if (world) for (const [id, wide] of glows) for (const v of vs) {
+          if (v.id !== id) continue;
+          ctx.setTransform(world.a / CELL, world.b / CELL, world.c / CELL, world.d / CELL, (world.e - wr.left) / CELL, (world.f - wr.top) / CELL);
+          ctx.lineWidth = lumenW(v) + 2 * 12 * Math.min(1.3, Math.max(0.5, wide));
+          ctx.lineCap = ctx.lineJoin = 'round'; ctx.stroke(v.path);
         }
         ctx.readInto(grids.ves);
       }
@@ -339,7 +349,7 @@ const ART_ATTRS = ['d', 'transform', 'class', 'style', 'hidden', 'cx', 'cy', 'r'
 const ART_QUIET = '#overlays, #nodes, #guides, #focus, #grid';   // (the figure's groups that hold none of the art tested)
 let artFacts = null, artLevel = null, artDirty = true, artMo = null, artCanvas = null;
 
-// One shape's facts (kind: 'organ', 'fluid' as drawn, or 'ves'): the same shapes, fills and strokes the screen grid draws below.
+// One shape's facts (kind: 'organ', or 'fluid' as drawn; the vessels are the stage's numbers, vesselFact): the same shapes, fills and strokes the screen grid draws below.
 function readShapes(sel, kind, inv) {
   const out = [];
   for (const el of document.querySelectorAll(sel)) { const f = readShape(el, kind, inv); if (f) out.push(f); }
@@ -375,7 +385,7 @@ const gpuDrawn = (el) => {
   return !!sv && ((sv.classList.contains('gl-plate') && !!el.closest('#organs, #backdrop')) || (sv.classList.contains('gl-on') && !!el.closest('#ascites, #ghosts')));
 };
 function readShapeNow(el, kind, inv) {
-  const asDrawn = kind === 'fluid', vessel = kind === 'ves';
+  const asDrawn = kind === 'fluid';
   let rel, bb;
   if (gpuDrawn(el)) {
     const world = document.getElementById('world'), own = world && elBoxInto(el, OWN_BOX);
@@ -389,23 +399,18 @@ function readShapeNow(el, kind, inv) {
   }
   const cs = readStyle(el);
   if (cs.display === 'none') return null;
-  const w = parseFloat(cs.strokeWidth) || 0, hit = el.classList.contains('v-hit');
+  const w = parseFloat(cs.strokeWidth) || 0;
   // (The shape's box is the fill's, grown by the most its stroke reaches, a miter at the default limit: twice the stroke width.)
   const g = 2 * w * Math.max(Math.hypot(rel.a, rel.b), Math.hypot(rel.c, rel.d));
-  const fill = asDrawn ? cs.fill !== 'none' : !vessel || (cs.fill !== 'none' && !hit);
-  const stroke = w > 0 && (asDrawn ? cs.stroke !== 'none' : !vessel || cs.stroke !== 'none' || hit);
-  return { path: shapePath(el), m: rel, l: bb.l - g, t: bb.t - g, r: bb.r + g, b: bb.b + g, fill, lw: stroke ? (hit ? w * 0.7 : w) : 0, cap: cs.strokeLinecap || 'butt', join: cs.strokeLinejoin || 'miter' };
+  const fill = !asDrawn || cs.fill !== 'none';
+  const stroke = w > 0 && (!asDrawn || cs.stroke !== 'none');
+  return { path: shapePath(el), m: rel, l: bb.l - g, t: bb.t - g, r: bb.r + g, b: bb.b + g, fill, lw: stroke ? w : 0, cap: cs.strokeLinecap || 'butt', join: cs.strokeLinejoin || 'miter' };
 }
-// A lit vessel's hit strokes, for its glow (read when a glow first asks for the vessel, then kept with the facts).
-function hitsOf(facts, id, inv) {
+// A lit vessel's courses, for its glow (taken when a glow first asks for the vessel, then kept with the facts).
+function hitsOf(facts, id) {
   let out = facts.hits.get(id);
   if (out) return out;
-  out = [];
-  for (const el of document.querySelectorAll(`#world .v-hit[data-id="${CSS.escape(id)}"]`)) {
-    const m = readCTM(el);
-    if (!m) continue;
-    out.push({ path: shapePath(el), m: multiply(inv, m), w: lumenW(el) });
-  }
+  out = vesselsNow().list.filter((v) => v.id === id).map((v) => ({ path: v.path, m: ID, w: lumenW(v) }));
   facts.hits.set(id, out);
   return out;
 }
@@ -418,11 +423,11 @@ function watchArt(world) {
 }
 function worldFacts(world, inv) {
   const now = performance.now();
-  if (artFacts && !artDirty && artFacts.world === world && artFacts.kids === world.childElementCount && now - artFacts.at < ART_MAX_AGE) return artFacts;
+  if (artFacts && !artDirty && artFacts.world === world && artFacts.kids === world.childElementCount && artFacts.vesVer === vesselsNow().ver && now - artFacts.at < ART_MAX_AGE) return artFacts;
   gpuProbe.note(COUNTED.creditRead);
   if (artFacts && now - artFacts.at >= ART_MAX_AGE) staleSalt++;   // (the safety net: every shape measured again)
   newEpoch();
-  const facts = { at: now, world, kids: world.childElementCount, org: [...readShapes(ORGANS, 'organ', inv), ...readShapes(FLUID, 'fluid', inv)], ves: readShapes(VESSELS, 'ves', inv), hits: new Map() };
+  const facts = { at: now, world, kids: world.childElementCount, org: [...readShapes(ORGANS, 'organ', inv), ...readShapes(FLUID, 'fluid', inv)], ves: vesselFacts(), vesVer: vesselsNow().ver, hits: new Map() };
   watchArt(world);
   artDirty = !facts.org.length;   // (a figure with no organ in it is not built yet, or hidden: read again at the next look)
   return (artFacts = facts);
@@ -465,7 +470,7 @@ function gridShapes(ctx, reg, list, from, until) {
 // A lit vessel's glow, the soft band 12 × its width setting (world units) beyond each wall (veins-gl.js), counts as the vessel
 // (sweep 01 review: an iPad zoomed in had put the credit on a glow).
 function gridGlows(ctx, reg, facts, glows, inv) {
-  for (const [id, wide] of glows) for (const h of hitsOf(facts, id, inv)) {
+  for (const [id, wide] of glows) for (const h of hitsOf(facts, id)) {
     gridAt(ctx, reg, h.m);
     ctx.lineWidth = h.w + 2 * 12 * Math.min(1.3, Math.max(0.5, wide));
     ctx.lineCap = ctx.lineJoin = 'round'; ctx.stroke(h.path);
@@ -501,7 +506,7 @@ function worldTest(wr, spread = null) {
 // by a fraction of a pixel) would otherwise make every look wait for another job, and never land.
 export const PENDING = Symbol('art pending');
 const ART_SLICE = 8, ART_TAKE = 400;
-const READS = [[ORGANS, 'organ', 'org'], [FLUID, 'fluid', 'org'], [VESSELS, 'ves', 'ves']];
+const READS = [[ORGANS, 'organ', 'org'], [FLUID, 'fluid', 'org'], [null, 'ves', 'ves']];   // (the vessels: the stage's numbers, taken at once)
 let artJob = null, artMade = null, jobCanvas = null;
 const covers = (lv, sc, gk, view, pad) => lv.gk === gk && lv.reg.c * sc <= CELL + 1e-6 && contains(lv.reg, { l: view.l - pad, t: view.t - pad, r: view.r + pad, b: view.b + pad });
 function spreadTest(world, wm, wr, sc, glows, gk, view, pad, done) {
@@ -510,7 +515,7 @@ function spreadTest(world, wm, wr, sc, glows, gk, view, pad, done) {
   if (artMade && covers(artMade.lv, sc, gk, view, pad)) return artTest(artMade.lv, wm, wr);
   // (A job under way: its look waits for it. Its facts are not in yet, and the ones it replaces only look fresh, as it watches from its start.)
   if (artJob && artJob.world === world) { artJob.done = done; return PENDING; }
-  const fresh = artFacts && !artDirty && artFacts.world === world && artFacts.kids === world.childElementCount && now - artFacts.at < ART_MAX_AGE;
+  const fresh = artFacts && !artDirty && artFacts.world === world && artFacts.kids === world.childElementCount && artFacts.vesVer === vesselsNow().ver && now - artFacts.at < ART_MAX_AGE;
   if (fresh && artLevel?.facts === artFacts && covers(artLevel, sc, gk, view, pad)) { gpuProbe.note(COUNTED.creditKept); return artTest(artLevel, wm, wr); }
   const reg = regionFor(view, cellFor(sc), pad);
   if (!reg) return null;   // (past the cap: the screen grid, as before)
@@ -584,12 +589,13 @@ function artSlice(j, inv, until) {
   while (j.stage === 0) {
     if (!j.list) {
       if (j.ri === READS.length) {
-        j.facts = artFacts = { at: j.at, world: j.world, kids: j.kids, org: j.acc.org, ves: j.acc.ves, hits: new Map() };
+        j.facts = artFacts = { at: j.at, world: j.world, kids: j.kids, org: j.acc.org, ves: j.acc.ves, vesVer: j.vesVer, hits: new Map() };
         if (!j.facts.org.length) artDirty = true;   // (a figure with no organ in it is not built yet, or hidden: read again at the next look)
         j.stage = 1;
         break;
       }
       if (j.ri === 0) newEpoch();
+      if (!READS[j.ri][0]) { const vs = vesselsNow(); j.acc.ves.push(...vs.list.map(vesselFact)); j.vesVer = vs.ver; j.ri++; continue; }
       j.list = document.querySelectorAll(READS[j.ri][0]); j.i = 0;
     }
     const [, kind, into] = READS[j.ri];

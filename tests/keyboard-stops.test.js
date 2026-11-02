@@ -7,14 +7,15 @@ import { readFileSync } from 'node:fs';
 
 const read = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 
-test('the figure\'s vessels, organ keys and labels are Tab stops only while keyStops is on', () => {
+test('the figure (one stop for its vessels and organs) and its labels are Tab stops only while keyStops is on', () => {
   const s = read('src/ui/stage.js');
   assert.match(s, /let keyStops = true;/);
-  assert.match(s, /class: 'v-hit', tabindex: keyStops \? 0 : -1/);
-  assert.match(s, /class: 'org-key'[^\n]*tabindex: keyStops \? 0 : -1/);
+  assert.match(s, /svg\.setAttribute\('tabindex', '0'\);/, 'the figure is one stop');
+  assert.doesNotMatch(s, /class: 'v-hit'|class: 'org-key'/, 'no element per vessel or organ');
   assert.match(s, /g\.setAttribute\('tabindex', keyStops \? '0' : '-1'\)/);
   const set = s.slice(s.indexOf('setKeyStops: (on) =>'), s.indexOf('/** Where a station\'s callout attaches'));
-  assert.match(set, /querySelectorAll\('\.v-hit\[tabindex\], \.org-key\[tabindex\]'\)/, 'every vessel and organ key already drawn that is a stop is switched, and the hidden extra hit paths are left alone');
+  assert.match(set, /svg\.setAttribute\('tabindex', keyStops \? '0' : '-1'\);/, 'the figure\'s stop is switched');
+  assert.match(set, /if \(!keyStops\) figShow\(null, false\);/, 'and the keyboard\'s glow put away');
   assert.match(set, /pool\.values\(\)/, 'and every label already drawn');
   assert.match(set, /keyStops && !b\.hid \? '0' : '-1'/, 'a hidden label stays out when the talk ends');
 });

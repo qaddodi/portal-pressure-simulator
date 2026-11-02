@@ -157,7 +157,7 @@ test('a page opened after a deploy is not offered a reload: the new worker is as
 
 test('a held Space stays the figure\'s and does not scroll the page; AltGr brackets reach the speed keys; a Dvorak ; is not Z', () => {
   const m = read('src/ui/main.js');
-  assert.match(m, /const spaceIsOurs = e\.key === ' ' && !e\.altKey && !controlOwnsKey\(e\.target, ' '\) && !e\.target\.closest\?\.\('\.v-hit, \.org-key, \.lb'\);/);
+  assert.match(m, /const spaceIsOurs = e\.key === ' ' && !e\.altKey && !controlOwnsKey\(e\.target, ' '\) && !e\.target\.closest\?\.\('\.lb'\) && !\(e\.target\.id === 'stage' && stage\?\.keyItem\?\.\(\)\);/);
   assert.match(m, /if \(e\.repeat && !\(e\.ctrlKey \|\| e\.metaKey\) && letterOf\(e\) !== 'j'\) \{ if \(spaceIsOurs\) e\.preventDefault\(\); return; \}/);
   assert.match(m, /if \(spaceIsOurs\) \{ e\.preventDefault\(\); host\.send\(\{ type: 'run', running: !store\.get\(\)\.running \}\); return; \}/);
   assert.match(m, /const altGr = !!e\.getModifierState\?\.\('AltGraph'\);\s*if \(altGr \? e\.key !== '\[' && e\.key !== '\]' : e\.ctrlKey \|\| e\.metaKey \|\| \(e\.altKey && e\.key !== '\[' && e\.key !== '\]'\)\) return;/);

@@ -1047,9 +1047,12 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       const px = parseFloat(cs.fontSize) * (cs.scale === 'none' ? 1 : parseFloat(cs.scale));
       if (px < 12) out.push(`text ${px.toFixed(1)} px`);
       if (cr.classList.contains('covered')) return out;   // (hidden where nothing is bare: allowed)
-      // (the figure's vessels and organs under its drawn box, sampled every 3 px; the GPU figure's vessels are their hit strokes)
+      // (the figure's vessels and organs under its drawn box, sampled every 3 px; a vessel is the stage's own pick, there is no element for it)
       const b = cr.getBoundingClientRect(), on = new Set();
-      for (let x = b.left; x <= b.right; x += 3) for (let y = b.top; y <= b.bottom; y += 3) for (const e of document.elementsFromPoint(x, y)) if (e.matches('.v-hit, g.organ *, #labels .lb *')) on.add(e.matches('#labels .lb *') ? 'a label' : e.matches('g.organ *') ? 'an organ' : 'a vessel');
+      for (let x = b.left; x <= b.right; x += 3) for (let y = b.top; y <= b.bottom; y += 3) {
+        if (window.pps.stage.vesselUnder(x, y, 0)) on.add('a vessel');
+        for (const e of document.elementsFromPoint(x, y)) if (e.matches('g.organ *, #labels .lb *')) on.add(e.matches('#labels .lb *') ? 'a label' : 'an organ');
+      }
       if (on.size) out.push(`sits on ${[...on].join(' and ')} at ${b.left | 0},${b.top | 0}`);
       return out;
     });
@@ -1353,7 +1356,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       await page.setViewportSize({ width: w, height: h });
       await page.evaluate(() => window.pps.stage.fit());
       await page.waitForTimeout(700);
-      const ids = await page.evaluate(() => [...new Set([...document.querySelectorAll('.v-hit[data-id]')].map((e) => e.dataset.id))].filter((id) => window.pps.stage.anchorFor({ type: 'edge', id })));
+      const ids = await page.evaluate(() => window.pps.stage.shownVessels().filter((id) => window.pps.stage.anchorFor({ type: 'edge', id })));
       if (ids.length < 10) throw new Error(`only ${ids.length} vessels to check`);
       for (const id of ids) {
         await page.evaluate((id) => window.pps.store.set({ selection: { type: 'edge', id } }), id);
@@ -4182,10 +4185,9 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
           // The sinusoids' callout hangs from the middle of their bed (half way along the drawn vessel), in both views.
           bad.push(...await page.evaluate(() => ['SIN_R', 'SIN_L'].flatMap((id) => {
             const a = window.pps.stage.labelAnchorOf(id), eid = { SIN_R: 'SIN_RR', SIN_L: 'SIN_LL' }[id];
-            const p = document.querySelector(`.vg[data-id="${eid}"] .v-hit[role="button"]`);
-            if (!a?.mid || !p) return [];
-            const m = p.getPointAtLength(p.getTotalLength() / 2), c = p.getScreenCTM();
-            const d = Math.hypot(c.a * m.x + c.c * m.y + c.e - a.x, c.b * m.x + c.d * m.y + c.f - a.y), len = p.getTotalLength() * Math.hypot(c.a, c.b);
+            const m = window.pps.stage.vesselMid(eid);
+            if (!a?.mid || !m) return [];
+            const d = Math.hypot(m.x - a.x, m.y - a.y), len = m.len;
             return d > Math.max(6, len * 0.08) ? [`${id} anchor ${Math.round(d)}px from the bed's middle`] : [];
           })));
         if (bad.length) throw new Error(`${w}×${hgt} ${id} ${view}: ${bad.join('; ')}`);

@@ -78,16 +78,17 @@ test('the FibroScan packets write an opacity or a path only when its text change
   assert.match(stage, /scan\.el = null; scan\.packs = null;/, 'a new probe looks its packets up again');
 });
 
-test('the vessels are records the GPU draws: no SVG tube, gradient or mask is made for them; the hit paths held while the GPU draws are written for the credit', () => {
+test('the vessels are records the GPU draws: no SVG tube, gradient, mask or hit stroke is made for them; the credit takes their courses from the stage', () => {
   const build = stage.slice(stage.indexOf('  // Edge groups: each vessel is a record'), stage.indexOf('  ALL_EDGES.forEach((e, i) => { E[e.id].row = i; });'));
   assert.ok(build.length > 0, 'the vessel builder is found');
-  for (const c of ['v-wall', 'v-lumen', 'v-shadow', 'v-sheen', 'v-shade', 'v-select', 'v-halo', 'v-strand', 'v-artery', 'linearGradient', 'mask']) assert.ok(!build.includes(c), `no ${c} built for a vessel`);
+  for (const c of ['v-wall', 'v-lumen', 'v-shadow', 'v-sheen', 'v-shade', 'v-select', 'v-halo', 'v-strand', 'v-artery', 'v-hit', 'linearGradient', 'mask']) assert.ok(!build.includes(c), `no ${c} built for a vessel`);
   assert.doesNotMatch(stage, /tubesHidden|tubesHeld|flushTubes|setPaint|svgTaper|updateJoins|REVEAL_PARTS/, 'nothing left that wrote the SVG tubes');
   assert.match(stage, /if \(!on\) \{ if \(geoHeld\.size\) flushGeo\(\); ascitesSvg\(\); \}/);
-  assert.match(stage, /flushHeld: \(\) => \{ if \(geoHeld\.size\) flushGeo\(\); \}/);
+  assert.doesNotMatch(stage, /flushHeld|class: 'v-hit'|ghost-hit/, 'no hit stroke or ghost copy, and nothing held for one');
   const credit = readFileSync(new URL('../src/ui/credit.js', import.meta.url), 'utf8');
-  assert.match(credit, /function screenTest\(wr, ring = null\) \{\n {2}window\.pps\?\.stage\?\.flushHeld\?\.\(\);/, 'the credit reads the hit paths: held values are written first');
-  assert.match(credit, /window\.pps\?\.stage\?\.lumenWidth\?\.\(el\.getAttribute\('data-id'\)\)/, 'a lit vein\'s width is the stage\'s number');
+  assert.match(credit, /const vesselsNow = \(\) => window\.pps\?\.stage\?\.vesselShapes\?\.\(\)/, 'the credit takes the vessels\' courses from the stage');
+  assert.doesNotMatch(credit, /v-hit/, 'and reads no hit stroke');
+  assert.match(credit, /window\.pps\?\.stage\?\.lumenWidth\?\.\(v\.id\) \?\? v\.w/, 'a lit vein\'s width is the stage\'s number');
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
   for (const c of ['.v-wall', '.v-lumen', '.v-artery', '.v-strand', '.v-select', '.v-shadow', '.tier-casing']) assert.ok(!css.includes(c + ' ') && !css.includes(c + ','), `no style left for ${c}`);
 });
