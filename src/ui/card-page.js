@@ -20,9 +20,12 @@ export const swipeHeld = ({ gone, changing, out }) => !!gone && !!changing && !o
 /** The finger follow: the card follows the whole way, never stopping, its move easing toward max px (k of the finger's travel at
  *  first), and fades with the finger's own travel toward fade over fadeAt px. */
 export const FOLLOW = { k: 0.3, max: 40, fade: 0.45, fadeAt: 160 };
+// (The answer is one kept object, rewritten by each call: the pull reads x and o at once, on each move of the finger.)
+const FOLLOWED = { x: 0, o: 1 };
 export function followOf(dx) {
   const x = Math.sign(dx) * FOLLOW.max * (1 - Math.exp(-Math.abs(dx) * FOLLOW.k / FOLLOW.max));
-  return { x: x || 0, o: 1 - (1 - FOLLOW.fade) * Math.min(1, Math.abs(dx) / FOLLOW.fadeAt) };
+  FOLLOWED.x = x || 0; FOLLOWED.o = 1 - (1 - FOLLOW.fade) * Math.min(1, Math.abs(dx) / FOLLOW.fadeAt);
+  return FOLLOWED;
 }
 
 /** Where the new card comes in from (dir: 'next' from the right, 'back' from the left, else a short rise), as one transform: the same

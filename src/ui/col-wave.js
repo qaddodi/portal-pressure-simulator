@@ -64,10 +64,24 @@ export function wavePts(w, vessel, max, cw, ch) {
 }
 const live = new Set();   // (the cells drawn now: drawn again on a theme change, let go once off the page)
 const rgba = (c) => { const [r, g, b, a] = cssColor(c); return `rgba(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)}, ${a})`; };
+const mixChan = (x, y, p, q, al, i) => (al > 0 ? (x[i] * x[3] * p + y[i] * y[3] * q) / al : 0);
 function mixed(a, b, p) {   // (color-mix in srgb: p of a, the rest b)
   const x = cssColor(a), y = cssColor(b), q = 1 - p, al = x[3] * p + y[3] * q;
-  const ch = (i) => (al > 0 ? (x[i] * x[3] * p + y[i] * y[3] * q) / al : 0);
-  return `rgba(${Math.round(ch(0) * 255)}, ${Math.round(ch(1) * 255)}, ${Math.round(ch(2) * 255)}, ${al})`;
+  return `rgba(${Math.round(mixChan(x, y, p, q, al, 0) * 255)}, ${Math.round(mixChan(x, y, p, q, al, 1) * 255)}, ${Math.round(mixChan(x, y, p, q, al, 2) * 255)}, ${al})`;
+}
+// The pen colours, each made again only when the tokens it comes from read differently (a theme change), not on every repaint.
+let tokBase = null, tokToward = null, tokAway = null, tokText = null;   // (null: not made yet, even for a token still reading '')
+let penBase = '', penToward = '', penAway = '';
+// The trace in one colour over the half of the cell from y0 to y1: the points as wavePts gives them, drawn without making the list.
+function strokeHalf(ctx, c, y0, y1, w, hh, col) {
+  const sign = AWAY.has(c.vessel) ? -1 : 1, tv = c.w.t, vv = c.w.v, t1 = tv[tv.length - 1] || 1, top = MID - 1, k = (MID - PAD) / c.max;
+  ctx.save(); ctx.beginPath(); ctx.rect(0, y0, w, y1 - y0); ctx.clip(); ctx.strokeStyle = col;
+  ctx.beginPath();
+  for (let i = 0; i < vv.length; i++) {
+    const x = (tv[i] / t1) * w, y = ((MID - Math.max(-top, Math.min(top, sign * vv[i] * k))) / H) * hh;
+    if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+  }
+  ctx.stroke(); ctx.restore();
 }
 function paintWave(c) {
   if (!c.cv.isConnected) return;
@@ -75,15 +89,16 @@ function paintWave(c) {
   try {
     ctx.clearRect(0, 0, w, hh);
     if (!(w > 0 && hh > 0)) return;
-    const mid = (MID / H) * hh, pts = wavePts(c.w, c.vessel, c.max, w, hh);
-    ctx.lineWidth = 1; ctx.strokeStyle = rgba(cssVar('--text-3'));
+    const mid = (MID / H) * hh;
+    const base = cssVar('--text-3'), toward = cssVar('--dop-toward'), away = cssVar('--dop-away'), text = cssVar('--text');
+    if (base !== tokBase) { tokBase = base; penBase = rgba(base); }
+    if (toward !== tokToward) { tokToward = toward; penToward = rgba(toward); }
+    if (away !== tokAway || text !== tokText) { tokAway = away; tokText = text; penAway = mixed(away, text, 0.6); }   // (the away blue lifted toward the text colour, 60 %, so it reads on a dark card too)
+    ctx.lineWidth = 1; ctx.strokeStyle = penBase;
     ctx.beginPath(); ctx.moveTo(0, mid); ctx.lineTo(w, mid); ctx.stroke();
-    const line = () => { ctx.beginPath(); pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.stroke(); };
     ctx.lineWidth = 2; ctx.lineJoin = 'round';
-    // (the away blue lifted toward the text colour, 60 %, so it reads on a dark card too)
-    for (const [y0, y1, col] of [[0, mid, rgba(cssVar('--dop-toward'))], [mid, hh, mixed(cssVar('--dop-away'), cssVar('--text'), 0.6)]]) {
-      ctx.save(); ctx.beginPath(); ctx.rect(0, y0, w, y1 - y0); ctx.clip(); ctx.strokeStyle = col; line(); ctx.restore();
-    }
+    strokeHalf(ctx, c, 0, mid, w, hh, penToward);
+    strokeHalf(ctx, c, mid, hh, w, hh, penAway);
   } finally { ctx.end?.(); }
 }
 const waveFrame = frameFor('col-wave');

@@ -637,6 +637,10 @@ export function createCreditPlacer(credit, { keptStyle = null } = {}) {
   const wrap = readMetric(credit, 'offsetParent') || credit.parentElement, app = document.getElementById('app');
   const blocked = {};   // corner -> when a card last covered it
   let cur = null, curTight = false, pos = null, moving = false, changedAt = 0, lastSig = '', raf = 0, waitT = 0, moveT = 0, moveR = 0, size = null, sizeKey = '';
+  // The move to a new spot: hidden at once, shown there after a moment. The spot waits in these while the timer and the rest pass run it.
+  let moveC = null, moveP = null, moveTight = false;
+  const moveLand = () => { moving = false; if (app?.classList.contains('pz-moving')) return soon(); place(moveC, moveP, moveTight); soon(); };
+  const moveFire = () => { moveR = restPass(moveLand); };
   let worldKey = '', worldAt = 0, camT = 0;   // (the figure's camera: its last transform and when it last changed)
   // (kept: the last look that left the credit where it was, what it saw, and the corners it found covered; searches: how many
   // looks ran the full spot search, for the checks)
@@ -815,7 +819,8 @@ export function createCreditPlacer(credit, { keptStyle = null } = {}) {
     credit.classList.add('moving');
     moving = true;
     clearTimeout(moveT); cancelRest(moveR);
-    moveT = setTimeout(() => { moveR = restPass(() => { moving = false; if (app?.classList.contains('pz-moving')) return soon(); place(c, p, tight); soon(); }); }, 80);   // (the writes run between frames)
+    moveC = c; moveP = p; moveTight = tight;   // (what the move lands on: kept here, as the timer above is cancelled before any later ask replaces them)
+    moveT = setTimeout(moveFire, 80);   // (the writes run between frames)
   }
   // (A look reads the page's layout (the cards, labels and the figure's box): it runs as a rest pass between frames, never inside one
   // (rest-pass.js; the owner's rule, 1 Nov: no layout reads in a frame).)

@@ -31,7 +31,7 @@ test('the Pressure chart writes its numbers to one decimal at 12 px, and keeps e
   // (Sweep 2 review items 1, 2 and 21: the pills 4 px clear of the curve, the dots, the values and each other, the values 4 px
   // clear of the curve and the dots; no spot left means the strip, never a label on the line.)
   assert.match(charts, /const overlap4 = \(r, o\) => r\.x0 < o\.x1 \+ 4/);
-  assert.match(charts, /taken\.some\(\(o\) => overlap4\(r, o\)\) \|\| claimed\.some\(\(o\) => overlap4\(r, o\)\) \|\| nearCurve\(r, 4\)/);
+  assert.match(charts, /anyOverlap4\(takenPool, takenN, r\) \|\| anyOverlap4\(claimedPool, claimedN, r\) \|\| nearCurve\(r, 4\)/);
   assert.match(charts, /\|\| nearCurve\(q, 4\)/);
   assert.match(charts, /if \(!best\) \{ fail = true;/);
   // (No spot left inside the plot means the band under the names, fixed rows clear of the line, never a label on the line.)
@@ -41,10 +41,10 @@ test('the Pressure chart writes its numbers to one decimal at 12 px, and keeps e
   assert.ok(charts.indexOf('if (fail && !predict?.on && g.band) { toStrip(); return; }') < charts.indexOf('if (fail && !predict?.on) { formLock.band = true;'));
   // (The band is reserved under the names: B grows by a full row per bracket, so the band rows (from hh - dims * BAND_ROW) sit
   // below the plot's foot and the names, and the values, clamped to hh - B, never reach them.)
-  assert.match(charts, /B = \(stagger \? Math\.ceil\(tilt\) \+ 20 : 26\) \+ \(band \? \(path\.dims \|\| \[\]\)\.length \* BAND_ROW \+ 2 : 0\);/);
-  assert.match(charts, /const yy = Math\.max\(T \+ th \/ 2, Math\.min\(hh - B - th \/ 2, cy\)\);/);
+  assert.match(charts, /B = \(stagger \? Math\.ceil\(tilt\) \+ 20 : 26\) \+ \(band \? \(path\.dims \? path\.dims\.length : 0\) \* BAND_ROW \+ 2 : 0\);/);
+  // (The per-segment drop pills, with their clamp above the band, were left out with them: every profile path has its brackets.)
   assert.match(charts, /if \(!g\.band\) \{\s*\n\s*ctx\.strokeStyle = col;/);   // (no leaders from the band across the names)
-  assert.match(charts, /if \(g\.band\) best = \{ yy: hh - \(dimN - k\) \* BAND_ROW \+ BAND_ROW \/ 2, lx: cx \};/);
+  assert.match(charts, /if \(g\.band\) \{ best = bestSpot; best\.yy = hh - \(dimN - k\) \* BAND_ROW \+ BAND_ROW \/ 2; best\.lx = cx; \}/);
   assert.doesNotMatch(charts, /__cf|__why/);
 });
 
@@ -89,5 +89,5 @@ test('a Pressure chart too short for its plot shows the compact strip, and the f
   assert.match(charts, /const stripNow = \(g\) => !predict\?\.on && g\.hh - g\.T - g\.B < \(g\.band \? BAND_PLOT_MIN : PLOT_MIN\);/);
   assert.match(charts, /const band = !predict\?\.on && stripNow\(geometry\(\)\);/);   // (a half sheet starts with the brackets in the band)
   assert.match(charts, /if \(stripNow\(g\) \|\| \(formLock\.strip && !predict\?\.on\)\) \{ toStrip\(\); return; \}/);
-  assert.match(charts, /faceOf\(cv\)\.animate\?\.\(\[\{ opacity: 0 \}, \{ opacity: 1 \}\]/);   // (the GPU picture or the canvas, whichever shows)   // (eased, never a jump)
+  assert.match(charts, /faceOf\(cv\)\.animate\?\.\(FADE_KEYS, FADE_OPTS/);   // (the GPU picture or the canvas, whichever shows)   // (eased, never a jump)
 });

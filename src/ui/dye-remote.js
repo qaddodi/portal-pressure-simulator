@@ -8,7 +8,7 @@
 // running (held ones included) start again where they were, and nothing is left running or pending. dispose() ends the worker.
 // An injection shows as active at once (the figure keeps drawing until the first table comes). Where no worker can be made, it is
 // createBolus itself, on the main thread as before.
-import { createBolus, DYE_BINS, DYE_SECONDS, DYE_MAX_HOLD } from './blood.js?v=8aea855ce8';
+import { createBolus, DYE_BINS, DYE_SECONDS, DYE_MAX_HOLD } from './blood.js?v=ca0abd6caa';
 
 export const DYE_WORKER = typeof Worker === 'function';
 
@@ -26,8 +26,16 @@ export function createDyeRemote(edges, nodes, makeWorker, { now = () => performa
   let active = false, injecting = false, seq = 0, out = 0, sentAt = 0, gotSeq = 0, owed = 0, owedNet = null, pendingInject = 0;
   // The injections still running, as createBolus keeps them (edge -> { at, left, hold, held }): what the local bolus starts again on a failure.
   const runs = new Map();
-  const plain = (a) => Float64Array.from(a);
-  const send = (dt, net) => { out = ++seq; sentAt = now(); w.postMessage({ t: 'step', seq: out, dt, Q: plain(net.Q), vd: plain(net.vd), len: plain(net.len) }); };
+  // The step message and its three arrays are kept and written afresh for each send: postMessage copies what it is given when it is
+  // called (structured clone), so the next send may write them again. Each array has one place per vessel (the net's own arrays do).
+  const msgQ = new Float64Array(nE), msgVd = new Float64Array(nE), msgLen = new Float64Array(nE);
+  const msg = { t: 'step', seq: 0, dt: 0, Q: msgQ, vd: msgVd, len: msgLen };
+  const send = (dt, net) => {
+    out = ++seq; sentAt = now();
+    for (let i = 0; i < nE; i++) { msgQ[i] = net.Q[i]; msgVd[i] = net.vd[i]; msgLen[i] = net.len[i]; }
+    msg.seq = out; msg.dt = dt;
+    w.postMessage(msg);
+  };
   const fail = (why) => {
     if (failed) return;
     failed = true;

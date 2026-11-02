@@ -13,20 +13,44 @@
 // cards leave and no closer than the slide's kMax.
 
 const box4 = (c) => Array.isArray(c) && c.length === 4 && c.every(Number.isFinite);
-const names = (c) => Array.isArray(c) && c.length > 0 && c.every((x) => typeof x === 'string' && x);
+const names = (c) => {
+  if (!Array.isArray(c) || c.length === 0) return false;
+  for (let i = 0; i < c.length; i++) if (!(typeof c[i] === 'string' && c[i])) return false;
+  return true;
+};
 
 /** The by-name form: { on: [names], near?: region }. */
 export const isCamOn = (c) => !!c && typeof c === 'object' && !Array.isArray(c) && Array.isArray(c.on);
 
 /** The smallest box holding all of these boxes (null for none). */
-export const unionBox = (boxes) => boxes.reduce((a, b) => (a ? [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[2], b[2]), Math.max(a[3], b[3])] : b), null);
+export function unionBox(boxes) {
+  if (boxes.length === 0) return null;
+  if (boxes.length === 1) return boxes[0];   // (the one box itself, as it always was)
+  let x0 = boxes[0][0], y0 = boxes[0][1], x1 = boxes[0][2], y1 = boxes[0][3];
+  for (let i = 1; i < boxes.length; i++) {
+    const b = boxes[i];
+    x0 = Math.min(x0, b[0]); y0 = Math.min(y0, b[1]); x1 = Math.max(x1, b[2]); y1 = Math.max(y1, b[3]);
+  }
+  return [x0, y0, x1, y1];
+}
 
 /** The box a region form frames: a region's name, a raw box, or a list of region names (their union). Null where it names nothing
  *  the plate has (the by-name form frames what its names point at, `near` aside: pass `cam.near`). */
 export function regionBox(cam, regions) {
   if (box4(cam)) return cam;
   if (typeof cam === 'string') return regions[cam] || null;
-  if (names(cam)) return unionBox(cam.map((r) => regions[r]).filter(Boolean));
+  if (names(cam)) {
+    // (The union of the regions the plate has, without a list of them made first: none is null, one is that region itself.)
+    let first = null, found = 0, x0 = 0, y0 = 0, x1 = 0, y1 = 0;
+    for (let i = 0; i < cam.length; i++) {
+      const b = regions[cam[i]];
+      if (!b) continue;
+      if (found === 0) { first = b; x0 = b[0]; y0 = b[1]; x1 = b[2]; y1 = b[3]; }
+      else { x0 = Math.min(x0, b[0]); y0 = Math.min(y0, b[1]); x1 = Math.max(x1, b[2]); y1 = Math.max(y1, b[3]); }
+      found++;
+    }
+    return found === 0 ? null : found === 1 ? first : [x0, y0, x1, y1];
+  }
   return null;
 }
 
@@ -35,23 +59,26 @@ export function regionBox(cam, regions) {
 export function growBox(box, f, floor = 0) {
   if (!f) return box;
   const m = Math.max(0.08 * Math.max(f[2] - f[0], f[3] - f[1]), floor);
-  const g = [f[0] - m, f[1] - m, f[2] + m, f[3] + m];
-  return box ? unionBox([box, g]) : g;
+  if (!box) return [f[0] - m, f[1] - m, f[2] + m, f[3] + m];
+  return [Math.min(box[0], f[0] - m), Math.min(box[1], f[1] - m), Math.max(box[2], f[2] + m), Math.max(box[3], f[3] + m)];
 }
 
+// (The result is one kept object with its four lists, cleared and refilled by each call: the presenter reads it as it frames, at once.)
+const NAMES = { organs: [], edges: [], points: [], unknown: [] };
+const addNew = (list, id) => { if (!list.includes(id)) list.push(id); };
 /** What the names of an `on` list point at, as { organs, edges, points, unknown }. A name is tried as a term target (its vessels and
  *  organ, a station's id too), an organ, a station (its place on the plate), else a vessel id. `unknown` holds a name that is none of
  *  them: a vessel is only known when `ctx.edges` (a Set of ids) is given. ctx: { targets, organs (Set), nodes ({ id: [[x, y], …] }), edges? } */
 export function camNames(on, ctx) {
-  const out = { organs: [], edges: [], points: [], unknown: [] };
-  const add = (list, id) => { if (!list.includes(id)) list.push(id); };
+  const out = NAMES;
+  out.organs.length = 0; out.edges.length = 0; out.points.length = 0; out.unknown.length = 0;
   for (const n of on) {
     const t = typeof n === 'string' ? ctx.targets[n] : null;
     if (typeof n !== 'string') out.unknown.push(String(n));
-    else if (t && (t.edges?.length || t.organ)) { for (const e of t.edges || []) add(out.edges, e); if (t.organ) add(out.organs, t.organ); }
-    else if (ctx.organs.has(n)) add(out.organs, n);
+    else if (t && (t.edges?.length || t.organ)) { if (t.edges) for (const e of t.edges) addNew(out.edges, e); if (t.organ) addNew(out.organs, t.organ); }
+    else if (ctx.organs.has(n)) addNew(out.organs, n);
     else if (ctx.nodes[n]?.[0]) out.points.push(ctx.nodes[n][0]);
-    else if (!ctx.edges || ctx.edges.has(n)) add(out.edges, n);
+    else if (!ctx.edges || ctx.edges.has(n)) addNew(out.edges, n);
     else out.unknown.push(n);
   }
   return out;

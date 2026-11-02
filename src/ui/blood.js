@@ -15,7 +15,7 @@
 // and a dye bolus that travels the network, conserved along each vessel and mixed (flow-weighted)
 // only at junctions.
 
-import { lumenSurface, lumenAt } from './stomach-lumen.js?v=ea6dff6f6d';
+import { lumenSurface, lumenAt } from './stomach-lumen.js?v=ff6a633152';
 
 // Display speed, world units per second, for a mean velocity in cm/s.
 export const SPEED_K = 9.5;
@@ -32,6 +32,7 @@ export const PERIOD = 8 * 256 * SLOT * 4;
 // A vein this wide (mm) or wider is "large": slow flow there is abnormal and shown as smoke.
 export const STASIS_MIN_D = 5;
 
+const NO_OPTS = {};   // (advanceStream's options when none are given: read, never written)
 const smoothstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
 /**
@@ -68,7 +69,8 @@ export function occupancy(qMlS, vDisp, n, spacing = SLOT) {
  * Without it the stream turns when its eased mean crosses zero, which for a small reversed flow can be many
  * seconds after the colour.
  */
-export function advanceStream(st, vMean, vNow, dt, { phasic = false, speed = 1, large = true, still = false, rev } = {}) {
+export function advanceStream(st, vMean, vNow, dt, opts = NO_OPTS) {
+  const { phasic = false, speed = 1, large = true, still = false, rev } = opts;
   if (st.vSlow == null) { st.vSlow = vMean; st.vFast = vNow; st.D = (st.seed || 0) * 97 % PERIOD; st.hold = 0; st.settle = 0; }
   const ruled = rev != null, sgR = rev ? -1 : 1;
   // Reduced motion (still): nothing moves or eases; the stream stands where it is and points the way the flow goes now.
@@ -161,10 +163,13 @@ const KEY_CHEV_IDS = new Set(['V_INT', 'V_COL', 'V_IMV', 'V_SPL', 'SV_MID', 'V_S
 // A vein that carries an open collateral's blood on: the ascending lumbar collateral (C9) empties into the azygos
 // arch, so the azygos (AZY_SVC) beside it keeps its chevrons while the collateral is open.
 export const KEY_CHEV_LANES = { AZY_SVC: ['C9'] };
+const NEVER = () => false;
 /** Whether vessel `e` keeps its chevrons under Key chevrons only; `open(id)`: whether collateral `id` is drawn open. */
-export function keyChevron(e, open = () => false) {
-  return KEY_CHEV_IDS.has(e.id) || e.kind === 'liver' || e.kind === 'collateral' || e.kind === 'shunt'
-    || (KEY_CHEV_LANES[e.id] || []).some(open);
+export function keyChevron(e, open = NEVER) {
+  if (KEY_CHEV_IDS.has(e.id) || e.kind === 'liver' || e.kind === 'collateral' || e.kind === 'shunt') return true;
+  const laneIds = KEY_CHEV_LANES[e.id];   // (some(open): open(id, index, list), as the array method calls it)
+  if (laneIds) for (let i = 0; i < laneIds.length; i++) if (open(laneIds[i], i, laneIds)) return true;
+  return false;
 }
 
 // ── Where the blood comes from ─────────────────────
@@ -183,38 +188,84 @@ const SOURCE = { A_SMA: 0, A_LGA: 0, A_IMA: 1, A_SPL: 2, A_HEP: 3 };
 /** Named sources (the rest is systemic): the channels of originFractions. */
 export const ORIGIN_N = 4;
 
+// Scratch the network passes below write over, kept from call to call (2 Nov 2026, scripts/off-gpu-scan.mjs alloc: a Map, arrays and
+// typed arrays made for every model frame). Plain arrays grow by being written past their end, so none is ever sized or remade; a number
+// held as a Float32Array's is rounded with Math.fround where it is stored, the same value the typed array gave.
+const NODE_IX = new Map(), NODE_IDS = [];
+/** The index of each node by its id, kept while the node list is the same ids in the same order. */
+function nodeIndex(nodes) {
+  let same = NODE_IDS.length === nodes.length;
+  for (let i = 0; same && i < nodes.length; i++) if (NODE_IDS[i] !== nodes[i].id) same = false;
+  if (!same) {
+    NODE_IX.clear();
+    NODE_IDS.length = nodes.length;
+    for (let i = 0; i < nodes.length; i++) { NODE_IDS[i] = nodes[i].id; NODE_IX.set(nodes[i].id, i); }
+  }
+  return NODE_IX;
+}
+const EF = [], ET = [], FLOW_TO = [], IN_AT = [], IN_LIST = [], ORDER = [];   // (edge ends, the node each flow enters, the inflow lists: start, edges; the nodes by pressure)
+/** The nodes' indexes from high pressure to low (stable), the order blood flows in. */
+function byPressure(nn, P) {
+  for (let i = 0; i < nn; i++) {
+    const v = i;
+    let j = i - 1;
+    while (j >= 0 && P[ORDER[j]] < P[v]) { ORDER[j + 1] = ORDER[j]; j--; }
+    ORDER[j + 1] = v;
+  }
+}
+/** Each non-wedge edge with flow, listed under the node its flow enters (IN_AT[n] .. IN_AT[n + 1] in IN_LIST, edges in order). */
+function inflowLists(edges, nn, Q) {
+  const ne = edges.length;
+  for (let n = 0; n <= nn + 1; n++) IN_AT[n] = 0;
+  for (let k = 0; k < ne; k++) {
+    if (edges[k].kind === 'wedge' || !Q[k]) { FLOW_TO[k] = -1; continue; }
+    const n = Q[k] > 0 ? ET[k] : EF[k];
+    if (!(n >= 0)) { FLOW_TO[k] = -1; continue; }
+    FLOW_TO[k] = n;
+    IN_AT[n + 1]++;
+  }
+  for (let n = 0; n < nn; n++) IN_AT[n + 1] += IN_AT[n];
+  for (let i = IN_LIST.length; i < IN_AT[nn]; i++) IN_LIST[i] = 0;   // (no holes: the fill below is out of order)
+  for (let k = 0; k < ne; k++) if (FLOW_TO[k] >= 0) IN_LIST[IN_AT[FLOW_TO[k]]++] = k;
+  for (let n = nn; n > 0; n--) IN_AT[n] = IN_AT[n - 1];   // (the fill moved each start to its end: back one)
+  IN_AT[0] = 0;
+}
+const O_NODE = [], O_C = [], O_SUM = [];
+for (let i = 0; i < ORIGIN_N; i++) { O_C.push(0); O_SUM.push(0); }
+/** O_C: the blend of edge k's blood: the named source of a source artery, else its upstream node's. */
+function blendOf(edges, Q, k) {
+  const N = ORIGIN_N, s = SOURCE[edges[k].id];
+  if (s != null) { for (let i = 0; i < N; i++) O_C[i] = i === s ? 1 : 0; return; }
+  const n = Q[k] >= 0 ? EF[k] : ET[k];
+  for (let i = 0; i < N; i++) O_C[i] = O_NODE[n * N + i];
+}
+
 /**
  * Per edge, the fraction of its blood from the SMV, the IMV, the splenic vein and the hepatic
- * artery (the rest is systemic), as a Float32Array of ORIGIN_N × edges. Nodes are visited from high
- * pressure to low, the order blood flows in, so one pass mixes every junction from its already-mixed
- * inflows.
+ * artery (the rest is systemic), written into `out` (a Float32Array of ORIGIN_N × edges, which it returns). Nodes are
+ * visited from high pressure to low, the order blood flows in, so one pass mixes every junction from its already-mixed
+ * inflows. Allocates nothing: a caller that reads it every frame keeps its own `out`.
  */
-export function originFractions(edges, nodes, Q, P) {
-  const N = ORIGIN_N;
-  const NI = new Map(nodes.map((n, i) => [n.id, i]));
-  const from = edges.map((e) => NI.get(e.from)), to = edges.map((e) => NI.get(e.to));
-  const inflow = nodes.map(() => []);
-  edges.forEach((e, k) => {
-    if (e.kind === 'wedge' || !Q[k]) return;
-    inflow[Q[k] > 0 ? to[k] : from[k]].push(k);
-  });
-  const node = new Float32Array(nodes.length * N), edge = new Float32Array(edges.length * N);
-  const order = nodes.map((_, i) => i).sort((a, b) => P[b] - P[a]);
-  const comp = (k, out) => {
-    const s = SOURCE[edges[k].id];
-    if (s != null) { for (let c = 0; c < N; c++) out[c] = c === s ? 1 : 0; return; }
-    const n = Q[k] >= 0 ? from[k] : to[k];
-    for (let c = 0; c < N; c++) out[c] = node[n * N + c];
-  };
-  const c = new Array(N).fill(0), sum = new Array(N);
-  for (const n of order) {
+export function originFractionsInto(edges, nodes, Q, P, out) {
+  const N = ORIGIN_N, NI = nodeIndex(nodes), nn = nodes.length, ne = edges.length;
+  for (let k = 0; k < ne; k++) { EF[k] = NI.get(edges[k].from); ET[k] = NI.get(edges[k].to); }
+  inflowLists(edges, nn, Q);
+  for (let i = 0; i < nn * N; i++) O_NODE[i] = 0;
+  const node = O_NODE, c = O_C, sum = O_SUM;
+  byPressure(nn, P);
+  for (let x = 0; x < nn; x++) {
+    const n = ORDER[x];
     let w = 0;
-    sum.fill(0);
-    for (const k of inflow[n]) { const q = Math.abs(Q[k]); comp(k, c); w += q; for (let i = 0; i < N; i++) sum[i] += q * c[i]; }
-    if (w > 0) for (let i = 0; i < N; i++) node[n * N + i] = sum[i] / w;
+    for (let i = 0; i < N; i++) sum[i] = 0;
+    for (let p = IN_AT[n]; p < IN_AT[n + 1]; p++) { const k = IN_LIST[p], q = Math.abs(Q[k]); blendOf(edges, Q, k); w += q; for (let i = 0; i < N; i++) sum[i] += q * c[i]; }
+    if (w > 0) for (let i = 0; i < N; i++) node[n * N + i] = Math.fround(sum[i] / w);
   }
-  for (let k = 0; k < edges.length; k++) { comp(k, c); edge.set(c, k * N); }
-  return edge;
+  for (let k = 0; k < ne; k++) { blendOf(edges, Q, k); for (let i = 0; i < N; i++) out[k * N + i] = c[i]; }
+  return out;
+}
+/** originFractionsInto into a new Float32Array. */
+export function originFractions(edges, nodes, Q, P) {
+  return originFractionsInto(edges, nodes, Q, P, new Float32Array(edges.length * ORIGIN_N));
 }
 
 // ── Oxygen ─────────────────────────────────────────
@@ -231,51 +282,66 @@ export const LIVER_EXTRACTION = 0.25;
 const consumes = (e) => e.kind === 'liver' && e.zone === 'sin';
 const isArterial = (e) => e.kind === 'artery' || e.kind === 'arteriole';
 
+const BED_HAS = [], BED_SAT = [];
+/** Saturation leaving edge k at its downstream end. */
+const oxOut = (node, edges, k, upNode) => node[upNode] * (consumes(edges[k]) ? 1 - LIVER_EXTRACTION : 1);
 /**
- * Oxygen saturation (0–1) per node, and per edge at its `from` and `to` ends (2 × edges: from, to), as
- * { node, edge }. Beds fed straight from the aorta return their own venous saturation; the hepatic artery's node
- * mixes as any other. Nodes are visited from high pressure to low, as in originFractions.
+ * Oxygen saturation (0–1) per node, and per edge at its `from` and `to` ends (2 × edges: from, to), written into
+ * res = { node, edge } (arrays, or Float32Arrays; the numbers stored are the Float32 ones either way). Beds fed straight from the aorta
+ * return their own venous saturation; the hepatic artery's node mixes as any other. Nodes are visited from high pressure to
+ * low, as in originFractions. Allocates nothing.
  */
-export function oxygenSat(edges, nodes, Q, P) {
-  const NI = new Map(nodes.map((n, i) => [n.id, i]));
-  const from = edges.map((e) => NI.get(e.from)), to = edges.map((e) => NI.get(e.to));
-  const bed = new Map();
-  edges.forEach((e, k) => { if (e.from === 'AO' && e.kind === 'arteriole') bed.set(to[k], e.tone === 'splanchnic' ? SAT.gut : SAT.systemic); });
-  const inflow = nodes.map(() => []);
-  edges.forEach((e, k) => {
-    if (e.kind === 'wedge' || !Q[k]) return;
-    inflow[Q[k] > 0 ? to[k] : from[k]].push(k);
-  });
-  const node = new Float32Array(nodes.length).fill(SAT.systemic), edge = new Float32Array(edges.length * 2);
-  const ao = NI.get('AO');
-  if (ao != null) node[ao] = SAT.artery;
-  const up = (k) => (Q[k] >= 0 ? from[k] : to[k]);
-  // Saturation leaving edge k at its downstream end.
-  const out = (k) => node[up(k)] * (consumes(edges[k]) ? 1 - LIVER_EXTRACTION : 1);
-  const order = nodes.map((_, i) => i).sort((a, b) => P[b] - P[a]);
-  for (const n of order) {
-    if (n === ao) continue;
-    if (bed.has(n)) { node[n] = bed.get(n); continue; }
-    let w = 0, s = 0;
-    for (const k of inflow[n]) { const q = Math.abs(Q[k]); w += q; s += q * out(k); }
-    if (w > 0) node[n] = s / w;
+function oxygenInto(res, edges, nodes, Q, P) {
+  const NI = nodeIndex(nodes), nn = nodes.length, ne = edges.length, node = res.node, edge = res.edge;
+  for (let k = 0; k < ne; k++) { EF[k] = NI.get(edges[k].from); ET[k] = NI.get(edges[k].to); }
+  for (let n = 0; n < nn; n++) BED_HAS[n] = 0;
+  for (let k = 0; k < ne; k++) {
+    const e = edges[k];
+    if (e.from === 'AO' && e.kind === 'arteriole') { BED_HAS[ET[k]] = 1; BED_SAT[ET[k]] = e.tone === 'splanchnic' ? SAT.gut : SAT.systemic; }
   }
-  for (let k = 0; k < edges.length; k++) {
-    const a = node[up(k)], b = out(k);
+  inflowLists(edges, nn, Q);
+  for (let n = 0; n < nn; n++) node[n] = Math.fround(SAT.systemic);
+  const ao = NI.get('AO');
+  if (ao != null) node[ao] = Math.fround(SAT.artery);
+  byPressure(nn, P);
+  for (let x = 0; x < nn; x++) {
+    const n = ORDER[x];
+    if (n === ao) continue;
+    if (BED_HAS[n]) { node[n] = Math.fround(BED_SAT[n]); continue; }
+    let w = 0, s = 0;
+    for (let p = IN_AT[n]; p < IN_AT[n + 1]; p++) { const k = IN_LIST[p], q = Math.abs(Q[k]); w += q; s += q * oxOut(node, edges, k, Q[k] >= 0 ? EF[k] : ET[k]); }
+    if (w > 0) node[n] = Math.fround(s / w);
+  }
+  for (let k = 0; k < ne; k++) {
+    const u = Q[k] >= 0 ? EF[k] : ET[k], a = node[u], b = oxOut(node, edges, k, u);
     // An arteriole into a bed is arterial along its length (the bed's own venous blood starts after it).
     const lo = isArterial(edges[k]) ? a : b;
-    if (Q[k] >= 0) { edge[2 * k] = a; edge[2 * k + 1] = lo; } else { edge[2 * k] = lo; edge[2 * k + 1] = a; }
+    if (Q[k] >= 0) { edge[2 * k] = Math.fround(a); edge[2 * k + 1] = Math.fround(lo); } else { edge[2 * k] = Math.fround(lo); edge[2 * k + 1] = Math.fround(a); }
   }
-  return { node, edge };
+}
+/** { node, edge } as Float32Arrays, new each call (for a caller that keeps it; the figure reads oxygenFor's). */
+export function oxygenSat(edges, nodes, Q, P) {
+  const res = { node: new Float32Array(nodes.length), edge: new Float32Array(edges.length * 2) };
+  oxygenInto(res, edges, nodes, Q, P);
+  return res;
 }
 
-const OXY_MEMO = new WeakMap();
+// oxygenFor's answers: a few slots written over in turn (a flow array stays in its slot while it is among the last OXY_SLOTS read), so a
+// model frame is worked out once, however many read it, and none is made. Read it where it is asked for; a held answer is written over
+// after OXY_SLOTS other flow arrays. The arrays are plain ones (numbers as Float32 holds them), read by index.
+const OXY_SLOTS = 8, OXY_MEMO = [];
+for (let i = 0; i < OXY_SLOTS; i++) OXY_MEMO.push({ Q: null, node: [], edge: [] });
+let oxyAt = 0;
 /** oxygenSat for model frame `f` (its beat-filtered flows), computed once per flow array: the figure, the lobule
  *  and the vessel card all read the same frame. */
 export function oxygenFor(edges, nodes, f) {
   const Q = f.Qf || f.Q;
-  let o = OXY_MEMO.get(Q);
-  if (!o) { o = oxygenSat(edges, nodes, Q, f.Pf || f.P); OXY_MEMO.set(Q, o); }
+  for (let i = 0; i < OXY_SLOTS; i++) if (OXY_MEMO[i].Q === Q) return OXY_MEMO[i];
+  const o = OXY_MEMO[oxyAt];
+  oxyAt = (oxyAt + 1) % OXY_SLOTS;
+  o.Q = null;
+  oxygenInto(o, edges, nodes, Q, f.Pf || f.P);
+  o.Q = Q;
   return o;
 }
 
@@ -295,39 +361,63 @@ export function createBolus(edges, nodes) {
   const from = edges.map((e) => NI.get(e.from)), to = edges.map((e) => NI.get(e.to));
   const touch = nodes.map(() => []);
   edges.forEach((e, k) => { if (e.kind !== 'wedge') { touch[from[k]].push(k); touch[to[k]].push(k); } });
-  // Per edge: slugs {a, b, c} along the flow direction (a < b, in world units from the upstream end),
-  // front first. `dir` is the flow direction they were last laid out for.
-  const st = edges.map(() => ({ dir: 1, s: [] }));
+  // Per edge: slugs {a, b, c} along the flow direction (a < b, in world units from the upstream end), front first, kept as three
+  // parallel lists (SA, SB, SC, SN of them in use), written in place. `SD` is the flow direction they were last laid out for.
+  // (2 Nov 2026: a slug was an object, and a step made lists, a Map and a closure; none now. These lists grow by being written past
+  // their end, never remade.)
+  const E = edges.length;
+  const SA = edges.map(() => []), SB = edges.map(() => []), SC = edges.map(() => []);
+  const SN = new Int32Array(E), SD = new Int8Array(E).fill(1);
   let emitters = [];
+  // Scratch kept from call to call: a paint's slugs before they are ordered, a step's junction tallies (in the order first met) and a
+  // junction's outflows.
+  const TA = [], TB = [], TC = [];
+  const mixV = new Float64Array(nodes.length), mixSeen = new Int32Array(nodes.length), mixList = new Int32Array(nodes.length), outs = new Int32Array(2 * E + 1);
+  let mixStamp = 0;
 
-  const orient = (S, dir, L) => {
-    if (S.dir === dir) return;
-    S.dir = dir;
-    S.s = S.s.map((sl) => ({ a: L - sl.b, b: L - sl.a, c: sl.c })).reverse();
-  };
-  // Join touching slugs of (nearly) the same concentration, conserving the dye in them.
-  const coalesce = (S) => {
-    const out = [];
-    for (const sl of S.s) {
-      const prev = out[out.length - 1];
-      if (prev && Math.abs(prev.a - sl.b) < 1e-6 && Math.abs(prev.c - sl.c) <= 0.03 * Math.max(prev.c, sl.c)) {
-        const l1 = prev.b - prev.a, l2 = sl.b - sl.a;
-        prev.c = (prev.c * l1 + sl.c * l2) / (l1 + l2); prev.a = sl.a;
-      } else out.push(sl);
+  const orient = (k, dir, L) => {
+    if (SD[k] === dir) return;
+    SD[k] = dir;
+    // (Each slug mirrored along the vessel, and the list turned round.)
+    const a = SA[k], b = SB[k], c = SC[k], n = SN[k];
+    for (let i = 0, j = n - 1; i <= j; i++, j--) {
+      const ai = a[i], bi = b[i], ci = c[i], aj = a[j], bj = b[j], cj = c[j];
+      a[i] = L - bj; b[i] = L - aj; c[i] = cj;
+      a[j] = L - bi; b[j] = L - ai; c[j] = ci;
     }
-    S.s = out;
+  };
+  // Join touching slugs of (nearly) the same concentration, conserving the dye in them: the m slugs in TA/TB/TC become edge k's.
+  const coalesce = (k, m) => {
+    const a = SA[k], b = SB[k], c = SC[k];
+    let w = 0;
+    for (let i = 0; i < m; i++) {
+      const sa = TA[i], sb = TB[i], sc = TC[i];
+      if (w > 0 && Math.abs(a[w - 1] - sb) < 1e-6 && Math.abs(c[w - 1] - sc) <= 0.03 * Math.max(c[w - 1], sc)) {
+        const l1 = b[w - 1] - a[w - 1], l2 = sb - sa;
+        c[w - 1] = (c[w - 1] * l1 + sc * l2) / (l1 + l2); a[w - 1] = sa;
+      } else { a[w] = sa; b[w] = sb; c[w] = sc; w++; }
+    }
+    SN[k] = w;
   };
   // Set the blood between a and b to concentration c.
-  const paint = (S, a, b, c) => {
-    const out = [];
-    for (const sl of S.s) {
-      if (sl.b <= a || sl.a >= b) { out.push(sl); continue; }
-      if (sl.a < a) out.push({ a: sl.a, b: a, c: sl.c });
-      if (sl.b > b) out.push({ a: b, b: sl.b, c: sl.c });
+  const paint = (k, a, b, c) => {
+    const ka = SA[k], kb = SB[k], kc = SC[k], n = SN[k];
+    let m = 0;
+    for (let i = 0; i < n; i++) {
+      const sa = ka[i], sb = kb[i], sc = kc[i];
+      if (sb <= a || sa >= b) { TA[m] = sa; TB[m] = sb; TC[m] = sc; m++; continue; }
+      if (sa < a) { TA[m] = sa; TB[m] = a; TC[m] = sc; m++; }
+      if (sb > b) { TA[m] = b; TB[m] = sb; TC[m] = sc; m++; }
     }
-    out.push({ a, b, c });
-    out.sort((x, y) => y.a - x.a);
-    S.s = out; coalesce(S);
+    TA[m] = a; TB[m] = b; TC[m] = c; m++;
+    // (Stable, front first: by a, largest first.)
+    for (let i = 1; i < m; i++) {
+      const va = TA[i], vb = TB[i], vc = TC[i];
+      let j = i - 1;
+      while (j >= 0 && TA[j] < va) { TA[j + 1] = TA[j]; TB[j + 1] = TB[j]; TC[j + 1] = TC[j]; j--; }
+      TA[j + 1] = va; TB[j + 1] = vb; TC[j + 1] = vc;
+    }
+    coalesce(k, m);
   };
 
   return {
@@ -343,11 +433,15 @@ export function createBolus(edges, nodes) {
     },
     /** Ends a held injection (it still runs out its minimum). */
     release() { for (const em of emitters) em.hold = false; },
-    clear() { for (const S of st) S.s = []; emitters = []; },
-    get active() { return emitters.length > 0 || st.some((S) => S.s.length > 0); },
+    clear() { SN.fill(0); emitters = []; },
+    get active() {
+      if (emitters.length > 0) return true;
+      for (let k = 0; k < E; k++) if (SN[k] > 0) return true;
+      return false;
+    },
     /** Whether dye is being injected now. */
     get injecting() { return emitters.length > 0; },
-    get count() { return st.reduce((a, S) => a + S.s.length, 0); },
+    get count() { let n = 0; for (let k = 0; k < E; k++) n += SN[k]; return n; },
     /**
      * Advances by `dt` seconds. `net`: { Q (signed, per edge), vd (display speed, |world/s|),
      * len (world units; hidden vessels get a length of one second's travel) }.
@@ -357,58 +451,68 @@ export function createBolus(edges, nodes) {
       const decay = Math.exp(-dt / WASHOUT_S);
       // 1. Move every slug downstream; what passes the end of a vessel is tallied per junction as
       //    flow × (the mean concentration that passed).
-      const mix = new Map();
-      for (let k = 0; k < edges.length; k++) {
-        const S = st[k], q = net.Q[k];
-        if (!S.s.length || !q) continue;
+      mixStamp++;
+      let mixN = 0;
+      for (let k = 0; k < E; k++) {
+        const q = net.Q[k], n0 = SN[k];
+        if (!n0 || !q) continue;
         const L = net.len[k], d = net.vd[k] * dt;
-        orient(S, q > 0 ? 1 : -1, L);
-        const keep = [];
-        let passed = 0;
-        for (const sl of S.s) {
-          sl.a += d; sl.b += d; sl.c *= decay;
-          if (sl.c < MIN_C) continue;
-          if (sl.a >= L) { passed += sl.c * (sl.b - sl.a); continue; }
-          if (sl.b > L) { passed += sl.c * (sl.b - L); sl.b = L; }
-          keep.push(sl);
+        orient(k, q > 0 ? 1 : -1, L);
+        const a = SA[k], b = SB[k], c = SC[k];
+        let passed = 0, w = 0;
+        for (let i = 0; i < n0; i++) {
+          const sa = a[i] + d;
+          let sb = b[i] + d;
+          const sc = c[i] * decay;
+          if (sc < MIN_C) continue;
+          if (sa >= L) { passed += sc * (sb - sa); continue; }
+          if (sb > L) { passed += sc * (sb - L); sb = L; }
+          a[w] = sa; b[w] = sb; c[w] = sc; w++;
         }
-        S.s = keep;
-        if (passed > 0 && d > 0) { const n = q > 0 ? to[k] : from[k]; mix.set(n, (mix.get(n) || 0) + Math.abs(q) * passed / d); }
+        SN[k] = w;
+        if (passed > 0 && d > 0) {
+          const n = q > 0 ? to[k] : from[k];
+          if (mixSeen[n] !== mixStamp) { mixSeen[n] = mixStamp; mixV[n] = 0; mixList[mixN++] = n; }
+          mixV[n] = (mixV[n] || 0) + Math.abs(q) * passed / d;
+        }
       }
       // 2. At each junction the blood leaving every outflow has the flow-weighted mean concentration
       //    of everything entering (undyed inflow dilutes it); every branch gets the same.
-      for (const [n, num] of mix) {
-        let qin = 0;
-        const outs = [];
-        for (const j of touch[n]) {
-          const qj = net.Q[j];
+      for (let x = 0; x < mixN; x++) {
+        const n = mixList[x], num = mixV[n], tn = touch[n];
+        let qin = 0, no = 0;
+        for (let i = 0; i < tn.length; i++) {
+          const j = tn[i], qj = net.Q[j];
           if (!qj) continue;
-          if ((qj > 0 && to[j] === n) || (qj < 0 && from[j] === n)) qin += Math.abs(qj); else outs.push(j);
+          if ((qj > 0 && to[j] === n) || (qj < 0 && from[j] === n)) qin += Math.abs(qj); else outs[no++] = j;
         }
         const c = qin ? num / qin : 0;
         if (c < MIN_C) continue;
-        for (const j of outs) {
-          const S = st[j], d = net.vd[j] * dt;
+        for (let i = 0; i < no; i++) {
+          const j = outs[i], d = net.vd[j] * dt;
           if (!(d > 0)) continue;
-          orient(S, net.Q[j] > 0 ? 1 : -1, net.len[j]);
-          const last = S.s[S.s.length - 1];
-          if (last && Math.abs(last.a - d) < 1e-6 && Math.abs(last.c - c) <= 0.03 * Math.max(last.c, c)) {
-            const l1 = last.b - last.a;
-            last.c = (last.c * l1 + c * d) / (l1 + d); last.a = 0;
-          } else S.s.push({ a: 0, b: d, c });
+          orient(j, net.Q[j] > 0 ? 1 : -1, net.len[j]);
+          const a = SA[j], b = SB[j], cc = SC[j], last = SN[j] - 1;
+          if (last >= 0 && Math.abs(a[last] - d) < 1e-6 && Math.abs(cc[last] - c) <= 0.03 * Math.max(cc[last], c)) {
+            const l1 = b[last] - a[last];
+            cc[last] = (cc[last] * l1 + c * d) / (l1 + d); a[last] = 0;
+          } else { const m = SN[j]++; a[m] = 0; b[m] = d; cc[m] = c; }
         }
       }
       // 3. The injection: the blood that passes the injection point this step is dyed.
-      for (const em of emitters) {
+      for (let x = 0; x < emitters.length; x++) {
+        const em = emitters[x];
         em.left -= dt; em.held += dt;
         if (em.held >= DYE_MAX_HOLD) em.hold = false;
         const q = net.Q[em.k];
         if (!q) continue;
         const L = net.len[em.k], d = net.vd[em.k] * dt, a = Math.min(em.at * L, Math.max(0, L - d));
-        orient(st[em.k], q > 0 ? 1 : -1, L);
-        paint(st[em.k], a, Math.min(L, a + d), 1);
+        orient(em.k, q > 0 ? 1 : -1, L);
+        paint(em.k, a, Math.min(L, a + d), 1);
       }
-      emitters = emitters.filter((em) => em.left > 0 || em.hold);
+      let kept = 0;
+      for (let x = 0; x < emitters.length; x++) { const em = emitters[x]; if (em.left > 0 || em.hold) emitters[kept++] = em; }
+      emitters.length = kept;
     },
     /**
      * Concentration (0–1) along edge k's drawn course from its `from` end, in DYE_BINS bins: the
@@ -416,19 +520,21 @@ export function createBolus(edges, nodes) {
      */
     field(k, net, out) {
       out.fill(0);
-      const S = st[k];
-      if (!S.s.length) return false;
-      const L = net.len[k], w = L / (DYE_BINS - 1), fwd = S.dir > 0;
-      for (const sl of S.s) {
-        const lo = fwd ? sl.a : L - sl.b, hi = fwd ? sl.b : L - sl.a;
+      const n = SN[k];
+      if (!n) return false;
+      const a = SA[k], b = SB[k], c = SC[k];
+      const L = net.len[k], w = L / (DYE_BINS - 1), fwd = SD[k] > 0;
+      for (let i = 0; i < n; i++) {
+        const sa = a[i], sb = b[i], sc = c[i];
+        const lo = fwd ? sa : L - sb, hi = fwd ? sb : L - sa;
         const b0 = Math.max(0, Math.floor(lo / w - 0.5)), b1 = Math.min(DYE_BINS - 1, Math.ceil(hi / w + 0.5));
-        for (let b = b0; b <= b1; b++) {
-          const x0 = Math.max(0, (b - 0.5) * w), x1 = Math.min(L, (b + 0.5) * w);
+        for (let bin = b0; bin <= b1; bin++) {
+          const x0 = Math.max(0, (bin - 0.5) * w), x1 = Math.min(L, (bin + 0.5) * w);
           const ov = Math.min(hi, x1) - Math.max(lo, x0);
-          if (ov > 0) out[b] += sl.c * ov / (x1 - x0);
+          if (ov > 0) out[bin] += sc * ov / (x1 - x0);
         }
       }
-      for (let b = 0; b < DYE_BINS; b++) out[b] = Math.min(1, out[b]);
+      for (let bin = 0; bin < DYE_BINS; bin++) out[bin] = Math.min(1, out[bin]);
       return true;
     },
   };
@@ -456,6 +562,22 @@ export const fadeBleedShapes = (shapes, a) => {
   const k = a <= 0 ? 0 : a * a * (3 - 2 * a);
   return k ? shapes.map((sh) => { const o = sh.slice(); o[6] *= k; return o; }) : [];
 };
+const NO_SHAPES = [];   // (fadeBleedShapesInto's answer for a bleed faded out: empty, never written)
+/**
+ * fadeBleedShapes with nothing made: the faded shapes are written into `out` (rows as bleedShapes makes them, at least as many as
+ * `shapes`; makeBleedRows), which it returns; a full share returns `shapes` itself, and none returns an empty list.
+ */
+export const fadeBleedShapesInto = (out, shapes, a) => {
+  if (a >= 1) return shapes;
+  const k = a <= 0 ? 0 : a * a * (3 - 2 * a);
+  if (!k) return NO_SHAPES;
+  for (let i = 0; i < shapes.length; i++) {
+    const sh = shapes[i], o = out[i];
+    for (let j = 0; j < sh.length; j++) o[j] = sh[j];
+    o[6] *= k;
+  }
+  return out;
+};
 
 export const BLEED_DROPS = 8;
 const DROP_LIFE = 0.8, GRAV = 150;
@@ -472,7 +594,20 @@ export const POOL_SHARE = 0.8;
 export const poolSurface = (total) => lumenSurface(POOL_SHARE * poolFill(total));
 const hash = (i) => frac(Math.sin(i * 127.1 + 311.7) * 43758.5453);
 
-export function bleedShapes(bleed, rate, t, sites, hr = 80) {
+const JET_DA = [-0.3, 0.3], JET_W = [1, 0.7];   // (each jet's turn from straight into the lumen, and its share of the size)
+const JET_N = Math.min(BLEED_JETS, JET_DA.length);
+/** How many shapes bleedShapes makes: the pool, the jets, the drops, the thread and the welling. */
+export const BLEED_ROWS = 1 + JET_N + BLEED_DROPS + 2;
+/** BLEED_ROWS rows of eight numbers to give bleedShapesInto (and fadeBleedShapesInto) to write over: made once, where the figure is set up. */
+export function makeBleedRows() {
+  const rows = [];
+  for (let i = 0; i < BLEED_ROWS; i++) rows.push([0, 0, 0, 0, 0, 0, 0, 0]);
+  return rows;
+}
+const setRow = (o, x0, y0, x1, y1, r0, r1, al, kind) => { o[0] = x0; o[1] = y0; o[2] = x1; o[3] = y1; o[4] = r0; o[5] = r1; o[6] = al; o[7] = kind; };
+
+/** bleedShapes written into `out` (BLEED_ROWS rows, makeBleedRows), which it returns: the same numbers, nothing made. */
+export function bleedShapesInto(out, bleed, rate, t, sites, hr = 80) {
   const gv = bleed.site === 'GV';
   const tx = gv ? sites.fundus[0] : sites.varix[0] + 8, ty = gv ? sites.fundus[1] - 4 : sites.varix[1] + 12;
   const k = clamp((rate || 50) / 90, 0.7, 1.8);
@@ -481,12 +616,14 @@ export function bleedShapes(bleed, rate, t, sites, hr = 80) {
   // The pool, and the thread that falls into it: it leaves the tear toward the lumen and lands a little way in.
   const surf = poolSurface(bleed.total), [lo, hi] = lumenAt(surf);
   const land = clamp(gv ? tx + 3 : tx + 62, lo + 14, hi - 14), flow = 0.35 + 0.65 * spurt;
-  const out = [[surf, 0.5, land, flow, 4, 0, 0.92, 0]];
+  let at = 0;
+  setRow(out[at++], surf, 0.5, land, flow, 4, 0, 0.92, 0);
   // The jets: short and pulsing, into the lumen (to the right from the esophagus, down from the fundus).
   const into = gv ? Math.PI / 2 : 0.05;
-  for (const [da, w] of [[-0.3, 1], [0.3, 0.7]].slice(0, BLEED_JETS)) {
+  for (let j = 0; j < JET_N; j++) {
+    const da = JET_DA[j], w = JET_W[j];
     const len = (2 + (4 + 16 * p) * spurt) * k * w, a = into + da;
-    out.push([tx, ty, tx + Math.cos(a) * len, ty + Math.sin(a) * len, 1.8 * k * w, 0.5 * k, 0.95 * (0.6 + 0.4 * p), 1]);
+    setRow(out[at++], tx, ty, tx + Math.cos(a) * len, ty + Math.sin(a) * len, 1.8 * k * w, 0.5 * k, 0.95 * (0.6 + 0.4 * p), 1);
   }
   // The drops: each thrown off at its birth, as hard as that moment's surge throws it, and falling; each eases in from
   // nothing and thins to nothing before it is thrown again, so none pops on or off.
@@ -499,12 +636,16 @@ export function bleedShapes(bleed, rate, t, sites, hr = 80) {
     const fall = 1 - smooth(surf - 4, surf, y);
     const al = 0.9 * smooth(0, 0.12, age) * (1 - age / DROP_LIFE) ** 1.2 * (0.15 + 0.85 * spurt) * fall;
     const vy = Math.sin(a) * v + GRAV * age, vx = Math.cos(a) * v, sp = Math.hypot(vx, vy) || 1;
-    out.push([x, y, x - (vx / sp) * r * 1.4, y - (vy / sp) * r * 1.4, r, r * 0.7, al, 1]);
+    setRow(out[at++], x, y, x - (vx / sp) * r * 1.4, y - (vy / sp) * r * 1.4, r, r * 0.7, al, 1);
   }
   // The thread, and the blood welling at the tear, swelling with each beat.
-  out.push([tx, ty + 1, land, surf, 2.9 * Math.sqrt(k) * (0.85 + 0.25 * p), 1 - 0.5 * spurt, 0.95 * (0.8 + 0.2 * p), 2]);
-  out.push([tx, ty, tx, ty, (2.4 + 1.8 * p) * Math.sqrt(k), 0, 0.95, 1]);
+  setRow(out[at++], tx, ty + 1, land, surf, 2.9 * Math.sqrt(k) * (0.85 + 0.25 * p), 1 - 0.5 * spurt, 0.95 * (0.8 + 0.2 * p), 2);
+  setRow(out[at], tx, ty, tx, ty, (2.4 + 1.8 * p) * Math.sqrt(k), 0, 0.95, 1);
   return out;
+}
+/** bleedShapesInto, into new rows (for a caller that keeps what it gets). */
+export function bleedShapes(bleed, rate, t, sites, hr = 80) {
+  return bleedShapesInto(makeBleedRows(), bleed, rate, t, sites, hr);
 }
 
 // ── Parcels carried through junctions (combined plan, B1 and C1) ──
@@ -522,34 +663,45 @@ export function bleedShapes(bleed, rate, t, sites, hr = 80) {
 /** Ends this close (world units) count as one junction; speed ratios beyond these do not chain. */
 export const CHAIN_NEAR = 20, CHAIN_RATIO = 2, CHAIN_B_MAX = 3;
 
-// Lists of item indexes by node, kept from call to call (2 Nov 2026, scripts/frame-alloc.mjs: a Map and an array for each node, made
-// every frame). A list belongs to the call that stamped it; older ones read as empty and their arrays are written over.
-const byDownLists = { m: new Map(), stamp: 0 }, inflowLists = { m: new Map(), stamp: 0 };
-function lists(L) { L.stamp++; return L; }
-function listAdd(L, node, i) {
-  let l = L.m.get(node);
-  if (!l) L.m.set(node, (l = { stamp: 0, len: 0, a: [] }));
-  if (l.stamp !== L.stamp) { l.stamp = L.stamp; l.len = 0; }
-  l.a[l.len++] = i;
+// Items grouped by node, kept from call to call (2 Nov 2026, scripts/frame-alloc.mjs: a Map and an array for each node, made every frame;
+// then an object and an array for each node, kept; now a linked list through the items, nothing made). A group is built under a stamp: a
+// node's head and tail are only read if it carries the stamp of the group being read, so an older group reads as empty.
+const GROUP_AT = new Map(), G_HEAD = [], G_TAIL = [], G_STAMP = [], G_NEXT = [];
+let groupN = 0, groupStamp = 0;
+function groupStart(items) {
+  groupStamp++;
+  if (GROUP_AT.size > 4096) { GROUP_AT.clear(); groupN = 0; }
+  for (let i = G_NEXT.length; i < items; i++) G_NEXT[i] = -1;   // (no holes: items join in an order of their own)
 }
-const listOf = (L, node) => { const l = L.m.get(node); return l && l.stamp === L.stamp ? l : null; };
+/** Item i joins the list of `node`, after the items already there (so lists run in item order). */
+function groupAdd(node, i) {
+  let g = GROUP_AT.get(node);
+  if (g === undefined) { g = groupN++; GROUP_AT.set(node, g); G_STAMP[g] = 0; }
+  G_NEXT[i] = -1;
+  if (G_STAMP[g] !== groupStamp) { G_STAMP[g] = groupStamp; G_HEAD[g] = i; } else G_NEXT[G_TAIL[g]] = i;
+  G_TAIL[g] = i;
+}
+/** The first item of `node`'s list in the group being read (follow it with G_NEXT[i]; -1: the end), -1 when it has none. */
+function groupHead(node) {
+  const g = GROUP_AT.get(node);
+  return g !== undefined && G_STAMP[g] === groupStamp ? G_HEAD[g] : -1;
+}
 
 /**
  * The parent of each candidate: the candidate with the largest |flow| whose blood leaves at the node where this one's enters,
  * with their drawn ends within CHAIN_NEAR. items[i]: { up, down (node ids, by the shown flow), upPt, downPt ([x, y]), q (|flow|),
- * m (the model's mean display speed along the vessel's arc, signed; 0: it cannot chain) }. Returns an Int32Array (−1: none).
+ * m (the model's mean display speed along the vessel's arc, signed; 0: it cannot chain) }. Written into `out` (an Int32Array or
+ * array of at least items.length; −1: none), which it returns. Allocates nothing.
  */
-export function chainParents(items, out = new Int32Array(items.length)) {
-  const byDown = lists(byDownLists);
-  for (let i = 0; i < items.length; i++) if (items[i].m) listAdd(byDown, items[i].down, i);
+export function chainParentsInto(items, out) {
+  groupStart(items.length);
+  for (let i = 0; i < items.length; i++) if (items[i].m) groupAdd(items[i].down, i);
   for (let i = 0; i < items.length; i++) {
     const it = items[i];
     out[i] = -1;
     if (!it.m) continue;
     let best = -1;
-    const l = listOf(byDown, it.up);
-    for (let q = 0; l && q < l.len; q++) {
-      const j = l.a[q];
+    for (let j = groupHead(it.up); j >= 0; j = G_NEXT[j]) {
       if (j === i) continue;
       const p = items[j];
       if (Math.hypot(p.downPt[0] - it.upPt[0], p.downPt[1] - it.upPt[1]) >= CHAIN_NEAR) continue;
@@ -558,6 +710,10 @@ export function chainParents(items, out = new Int32Array(items.length)) {
     out[i] = best;
   }
   return out;
+}
+/** chainParentsInto, into `out` or a new Int32Array. */
+export function chainParents(items, out = new Int32Array(items.length)) {
+  return chainParentsInto(items, out);
 }
 
 /**
@@ -569,16 +725,27 @@ export function chainParents(items, out = new Int32Array(items.length)) {
  * `easing`: whether a weight or a B is still on its way (the figure is kept awake).
  */
 export function createStreamChain() {
-  const S = new Map();
+  // Each key's state lives in slot `SK.get(key)` of these lists (one list a field), written in place; a slot freed when its key goes is
+  // used again by the next key. (Fields: p parent key, r root key, w weight, B, A, sj, s0, pA, pB, fresh, stable.)
+  const SK = new Map(), sKey = [], sLive = [], sP = [], sR = [], sW = [], sB = [], sA = [], sSj = [], sS0 = [], sPA = [], sPB = [], sFresh = [], sStable = [], free = [];
+  let slots = 0;
   const close = (v, to, k, tol) => (Math.abs(to - v) <= tol ? to : v + (to - v) * k);
   const api = { par: [], root: [], A: [], B: [], w: [], ef: [], et: [], easing: false };
-  let parIx = new Int32Array(0), done = new Uint8Array(0);
-  // (Kept from call to call so a step makes no Map, Set, array or closure: the index of each key, the stamp that marks a key for this
-  // call, and the call's items and easing shares.)
+  // (Kept from call to call so a step makes no Map, Set, array or closure: the parent of each item and whether it is done (2: being
+  // visited), the index of each key, the stamp that marks a key for this call, and the call's items and easing shares.)
+  const parIx = [], done = [];
   const atM = new Map(), mark = new Map();
   let stamp = 0, cur = null, kW = 1, kB = 1;
   const atGet = (key) => { const i = atM.get(key); return i != null && i < cur.length && cur[i].key === key ? i : null; };
-  const state = (key) => { let s = S.get(key); if (!s) S.set(key, (s = { p: -1, r: -1, w: 0, B: 1, A: 0, sj: 0, s0: 0, pA: 0, pB: 1, fresh: true, stable: false })); return s; };
+  const slotOf = (key) => {
+    let s = SK.get(key);
+    if (s === undefined) {
+      s = free.length ? free.pop() : slots++;
+      SK.set(key, s);
+      sKey[s] = key; sLive[s] = 1; sP[s] = -1; sR[s] = -1; sW[s] = 0; sB[s] = 1; sA[s] = 0; sSj[s] = 0; sS0[s] = 0; sPA[s] = 0; sPB[s] = 1; sFresh[s] = true; sStable[s] = false;
+    }
+    return s;
+  };
   const put = (i, arc, v) => {
     const k = arc === 0 ? 'ef' : 'et', o = api[k][i];
     if (v > 0) api[k][i] = Math.max(o > 0 ? o : 0, v); else if (!(o > 0)) api[k][i] = Math.min(o, v);
@@ -586,51 +753,50 @@ export function createStreamChain() {
   const go = (i) => {
     if (done[i]) return;
     done[i] = 2;   // (visiting: a parent met again on the way is a loop, and counts as none)
-    const items = cur, it = items[i], s = state(it.key);
+    const items = cur, it = items[i], s = slotOf(it.key);
     let p = parIx[i];
     if (p >= 0 && done[p] === 2) p = -1;
     if (p >= 0) go(p);
     // What this vessel should be drawn through: its parent's own pattern, or (once the parent's link is steady) the parent's root.
     let want = -1, wantR = -1, Bw = 1, peA = 0, peB = 1;
     if (p >= 0) {
-      const pi = items[p], ps = state(pi.key), ratio = Math.abs(pi.m / it.m);
-      const thru = ps.r >= 0 && ps.w === 1 && ps.stable;
-      peA = thru ? ps.A : 0; peB = thru ? ps.B : 1;
+      const pi = items[p], ps = slotOf(pi.key), ratio = Math.abs(pi.m / it.m);
+      const thru = sR[ps] >= 0 && sW[ps] === 1 && sStable[ps];
+      peA = thru ? sA[ps] : 0; peB = thru ? sB[ps] : 1;
       Bw = (peB * pi.m) / it.m;
       if (ratio <= CHAIN_RATIO && ratio >= 1 / CHAIN_RATIO && Math.abs(Bw) <= CHAIN_B_MAX && Math.abs(Bw) >= 1 / CHAIN_B_MAX) {
-        want = pi.key; wantR = thru ? ps.r : pi.key;
+        want = pi.key; wantR = thru ? sR[ps] : pi.key;
       }
     }
-    const same = want === s.p && wantR === s.r;
-    if (s.fresh) {
-      s.fresh = false; s.p = want; s.r = wantR; s.B = Bw; s.w = want >= 0 ? 1 : 0;
+    const same = want === sP[s] && wantR === sR[s];
+    if (sFresh[s]) {
+      sFresh[s] = false; sP[s] = want; sR[s] = wantR; sB[s] = Bw; sW[s] = want >= 0 ? 1 : 0;
     } else if (same && want >= 0) {
-      const w = close(s.w, 1, kW, 0.002), B = close(s.B, Bw, kB, 1e-4);
-      if (w !== s.w || B !== s.B) api.easing = true;
-      s.w = w; s.B = B;
+      const w = close(sW[s], 1, kW, 0.002), B = close(sB[s], Bw, kB, 1e-4);
+      if (w !== sW[s] || B !== sB[s]) api.easing = true;
+      sW[s] = w; sB[s] = B;
     } else if (!same) {
-      if (s.w > 0) { s.w = close(s.w, 0, kW, 0.002); api.easing = true; }
-      if (s.w === 0 && mark.get(it.key) !== stamp) { s.p = want; s.r = wantR; s.B = Bw; if (want >= 0) api.easing = true; }
+      if (sW[s] > 0) { sW[s] = close(sW[s], 0, kW, 0.002); api.easing = true; }
+      if (sW[s] === 0 && mark.get(it.key) !== stamp) { sP[s] = want; sR[s] = wantR; sB[s] = Bw; if (want >= 0) api.easing = true; }
     }
-    s.stable = s.p >= 0 && want === s.p && wantR === s.r;
+    sStable[s] = sP[s] >= 0 && want === sP[s] && wantR === sR[s];
     // The junction, through the current link's parent (as it was when last drawn, if it is no longer a candidate).
-    if (s.p >= 0) {
-      const q = atGet(s.p);
-      if (q != null && s.p === want) { s.sj = items[q].sj; s.pA = peA; s.pB = peB; }
-      else if (q != null) { const qs = state(s.p); const thru = s.r !== s.p; s.sj = items[q].sj; s.pA = thru ? qs.A : 0; s.pB = thru ? qs.B : 1; }
-      s.s0 = it.s0;
-      s.A = s.pA + s.pB * s.sj - s.B * s.s0;
-    } else { s.A = 0; s.B = 1; }
+    if (sP[s] >= 0) {
+      const q = atGet(sP[s]);
+      if (q != null && sP[s] === want) { sSj[s] = items[q].sj; sPA[s] = peA; sPB[s] = peB; }
+      else if (q != null) { const qs = slotOf(sP[s]); const thru = sR[s] !== sP[s]; sSj[s] = items[q].sj; sPA[s] = thru ? sA[qs] : 0; sPB[s] = thru ? sB[qs] : 1; }
+      sS0[s] = it.s0;
+      sA[s] = sPA[s] + sPB[s] * sSj[s] - sB[s] * sS0[s];
+    } else { sA[s] = 0; sB[s] = 1; }
     done[i] = 1;
-    api.par[i] = s.w > 0 ? s.p : -1; api.root[i] = s.w > 0 ? s.r : -1;
-    api.A[i] = s.A; api.B[i] = s.B; api.w[i] = s.w;
+    api.par[i] = sW[s] > 0 ? sP[s] : -1; api.root[i] = sW[s] > 0 ? sR[s] : -1;
+    api.A[i] = sA[s]; api.B[i] = sB[s]; api.w[i] = sW[s];
   };
 
   api.step = (items, shareW = 1, shareB = 1) => {
     const n = items.length;
-    if (parIx.length < n) { parIx = new Int32Array(n); done = new Uint8Array(n); }
-    chainParents(items, parIx);
-    done.fill(0, 0, n);
+    chainParentsInto(items, parIx);
+    for (let i = 0; i < n; i++) done[i] = 0;
     api.par.length = api.root.length = api.A.length = api.B.length = api.w.length = api.ef.length = api.et.length = n;
     api.easing = false;
     // (The index of each key, a Map kept from call to call: written over for this call's keys, and an entry left by a key no longer drawn
@@ -640,14 +806,14 @@ export function createStreamChain() {
     for (let i = 0; i < n; i++) atM.set(items[i].key, i);
     const at = atGet;
     // (A vessel some child is still drawn through, by a root other than this vessel, keeps its link until that child has let go.)
-    for (const s of S.values()) if (s.w > 0 && s.r !== s.p) mark.set(s.p, stamp);
+    for (let q = 0; q < slots; q++) if (sLive[q] && sW[q] > 0 && sR[q] !== sP[q]) mark.set(sP[q], stamp);
     cur = items; kW = shareW; kB = shareB;
     for (let i = 0; i < n; i++) go(i);
     // The ends: a chained vessel's junction end and its parent's end there carry the link's weight; any other inflow at that
     // node is the minor one, carrying minus that weight.
     for (let i = 0; i < n; i++) { api.ef[i] = 0; api.et[i] = 0; }
-    const inflows = lists(inflowLists);
-    for (let j = 0; j < n; j++) if (items[j].m) listAdd(inflows, items[j].down, j);
+    groupStart(n);
+    for (let j = 0; j < n; j++) if (items[j].m) groupAdd(items[j].down, j);
     for (let i = 0; i < n; i++) {
       const w = api.w[i];
       if (!(w > 0)) continue;
@@ -655,16 +821,18 @@ export function createStreamChain() {
       const p = at(api.par[i]);
       if (p == null) continue;
       put(p, items[p].sj, w);
-      const l = listOf(inflows, items[i].up);
-      for (let q = 0; l && q < l.len; q++) { const j = l.a[q]; if (j !== p && j !== i) put(j, items[j].sj, -w); }
+      for (let j = groupHead(items[i].up); j >= 0; j = G_NEXT[j]) if (j !== p && j !== i) put(j, items[j].sj, -w);
     }
     // (The state of a vessel no longer drawn, that nothing is drawn through, goes: drawn again, it starts afresh.)
     stamp++;
-    for (const s of S.values()) if (s.w > 0) { mark.set(s.p, stamp); mark.set(s.r, stamp); }
-    for (const key of S.keys()) if (at(key) == null && mark.get(key) !== stamp) S.delete(key);
+    for (let q = 0; q < slots; q++) if (sLive[q] && sW[q] > 0) { mark.set(sP[q], stamp); mark.set(sR[q], stamp); }
+    for (let q = 0; q < slots; q++) {
+      if (!sLive[q]) continue;
+      const key = sKey[q];
+      if (at(key) == null && mark.get(key) !== stamp) { SK.delete(key); sLive[q] = 0; free.push(q); }
+    }
     cur = null;
     return api;
   };
   return api;
 }
-

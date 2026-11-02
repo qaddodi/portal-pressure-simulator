@@ -52,24 +52,26 @@ function observedSize(el, es) {
   return [b ? [b.inlineSize, b.blockSize] : [el.offsetWidth, el.offsetHeight], parseFloat(getComputedStyle(el).borderTopLeftRadius) || 14];
 }
 
+const NO_OPTS = {};
 /** Gives `el` its glass body and returns `update(ax)`: call it whenever the pointer's offset `ax` (px from the card's
  *  centre) may have changed. It also redraws itself when the card is resized (a reading's text changing). */
-export function glassCallout(el, { pointer = true } = {}) {
+export function glassCallout(el, { pointer = true } = NO_OPTS) {
   const glass = el.firstElementChild, svg = glass.firstElementChild, path = svg.firstElementChild;   // (its glass, cloned with it from a model: withGlass)
   const S = { glass, svg, gl: null, ask: 0, gone: false };
   S.ask = restPass(() => lineGL(S));
   // size: the card's exact (fractional) border box, and rad its corner radius, both taken when it is observed (its size changes): the
   // update itself, called on the figure's frames, reads no layout or style (1 Nov 2026, "Move everything to GPU").
-  let ax = 0, key = '', size = null, rad = 14;
+  let ax = 0, size = null, rad = 14;
+  let kw = NaN, kh = NaN, kdir = '', kax = NaN;   // (what the shape was last drawn for: the size to 0.01 px, the pointer's offset to 0.1 px, its side)
   const update = (a) => {
     if (a != null) ax = a;
     if (!size) return;
     const [w, h] = size;
     if (!w) return;
     const dir = !pointer || el.classList.contains('in-sum') ? 'none' : (el.classList.contains('cath-js') || el.dataset.at === 'ahead') && !el.classList.contains('above') ? 'top' : 'bottom';
-    const k = `${w.toFixed(2)}|${h.toFixed(2)}|${dir}|${ax.toFixed(1)}`;
-    if (k === key) return;
-    key = k;
+    const qw = Math.round(w * 100), qh = Math.round(h * 100), qax = Math.round(ax * 10);
+    if (qw === kw && qh === kh && dir === kdir && qax === kax) return;
+    kw = qw; kh = qh; kdir = dir; kax = qax;
     const r = rad;
     const px = Math.max(KEEP, Math.min(w - KEEP, w / 2 + Math.max(-0.4 * w, Math.min(0.4 * w, ax)))), up = dir === 'top' ? PTR : 0;
     const d = outline(w, h, r, up, px, dir);

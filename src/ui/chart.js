@@ -15,6 +15,8 @@ import { factTarget } from './fact-target.js?v=50935889f6';
 import { caught } from './caught.js?v=b96b17594a';
 
 
+// The interventions treatCount counts, besides any drug.
+const TREATMENT_KEYS = ['anticoag', 'diuretics', 'tips', 'dips', 'balloonEso', 'balloonGas', 'portocaval', 'dsrs', 'mesocaval', 'occ:C5', 'splenicRx'];
 export function createChart({ onWhy, flash, onScenarios, action, startShunt, select, reveal = select, timeline, pinned }) {
   let controls = () => [];
   // Changes starts closed in the Treat card so the card does not grow with every order.
@@ -201,7 +203,10 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
   }
   /** How many treatments are running now (drugs, shunts, balloons, BRTO). */
   function treatCount(p) {
-    return activeInterventions(p).filter((a) => a.key.startsWith('drug:') || ['anticoag', 'diuretics', 'tips', 'dips', 'balloonEso', 'balloonGas', 'portocaval', 'dsrs', 'mesocaval', 'occ:C5', 'splenicRx'].includes(a.key)).length;
+    const list = activeInterventions(p);
+    let n = 0;
+    for (let i = 0; i < list.length; i++) if (list[i].key.startsWith('drug:') || TREATMENT_KEYS.includes(list[i].key)) n++;
+    return n;
   }
 
   // ── Advanced ──────────────────────────────────────

@@ -27,24 +27,40 @@ const DOWN_OF = 6, DOWN_N = 3, DOWN_GAP = 250, UP_CALM = 1500;
 let tier = 0, changedAt = -Infinity, calmSince = 0, warned = false;
 const ring = new Uint8Array(DOWN_OF);
 let ringAt = 0;
+// The change log: LOG_MAX kept entries, written in place as a ring (a step allocates nothing). An entry keeps the numbers of its reason;
+// tierLog() (a read, never a frame) turns them into the text.
+const LOG_MAX = 20;
+const WHY_MISS = 0, WHY_HEAVY = 1, WHY_CALM = 2;
 const log = [];
+for (let i = 0; i < LOG_MAX; i++) log.push({ at: 0, from: 0, to: 0, kind: 0, n: 0, gap: 0, b: 0, script: 0, over: false, mb: 0 });
+let logAt = 0, logN = 0;
 const warmSubs = new Set();
 
 /** The tier now (0: Full). */
 export const sceneTier = () => tier;
 /** The vessel layer's share on a moving frame now (0: Full). */
 export const tierK = () => TIERS[tier];
-/** The last tier changes: { at, from, to, why, mb }. */
-export const tierLog = () => log.slice();
+const whyOf = (e) => (e.kind === WHY_CALM ? `${UP_CALM} ms of frames on time with light script`
+  : `${e.n} of ${DOWN_OF} frames ${e.kind === WHY_MISS ? `missed (${e.gap.toFixed(1)} ms at a ${e.b.toFixed(1)} ms frame)` : `heavy (script ${e.script.toFixed(1)} ms${e.over ? ', render graph over its envelope' : ''})`}`);
+/** The last tier changes, oldest first: { at, from, to, why, mb }. A fresh array of fresh objects (the ring is not handed out). */
+export function tierLog() {
+  const out = [];
+  for (let i = 0; i < logN; i++) {
+    const e = log[(logAt - logN + i + LOG_MAX) % LOG_MAX];
+    out.push({ at: e.at, from: e.from, to: e.to, why: whyOf(e), mb: e.mb });
+  }
+  return out;
+}
 /** fn() at the first sign of pressure (once a page): make the tiers' targets between frames. */
 export function onTierWarm(fn) { warmSubs.add(fn); if (warned) fn(); return () => warmSubs.delete(fn); }
 
-function setTier(t, now, why) {
+function setTier(t, now, kind, n, gap, b, script, over) {
   if (t === tier) return;
   let mb = 0;
   try { mb = budget().mb; } catch (e) { caught('adapt-tier:45', e); /* the registry is off */ }
-  log.push({ at: Math.round(now), from: tier, to: t, why, mb });
-  if (log.length > 20) log.shift();
+  const e = log[logAt];
+  e.at = Math.round(now); e.from = tier; e.to = t; e.kind = kind; e.n = n; e.gap = gap; e.b = b; e.script = script; e.over = over; e.mb = mb;
+  logAt = (logAt + 1) % LOG_MAX; if (logN < LOG_MAX) logN++;
   tier = t; changedAt = now; calmSince = now;
   ring.fill(0);
 }
@@ -60,12 +76,12 @@ export function judgeFrame({ now, gap, script }) {
     if (!warned) { warned = true; for (const f of warmSubs) setTimeout(f, 0); }
     let n = 0; for (let i = 0; i < DOWN_OF; i++) n += ring[i];
     if (n >= DOWN_N && now - changedAt >= DOWN_GAP && tier < TIERS.length - 1) {
-      setTier(tier + 1, now, `${n} of ${DOWN_OF} frames ${miss ? `missed (${gap.toFixed(1)} ms at a ${b.toFixed(1)} ms frame)` : `heavy (script ${script.toFixed(1)} ms${graphOver() ? ', render graph over its envelope' : ''})`}`);
+      setTier(tier + 1, now, miss ? WHY_MISS : WHY_HEAVY, n, gap, b, script, miss ? false : graphOver());
     }
     return;
   }
   if (script > b * 0.45) { calmSince = now; return; }
-  if (tier > 0 && now - calmSince >= UP_CALM && now - changedAt >= UP_CALM) setTier(tier - 1, now, `${UP_CALM} ms of frames on time with light script`);
+  if (tier > 0 && now - calmSince >= UP_CALM && now - changedAt >= UP_CALM) setTier(tier - 1, now, WHY_CALM, 0, 0, 0, 0, false);
 }
 
 onFrameEnd(judgeFrame);   // (the cheap end-of-frame signal: no per-part tracing switched on for it)

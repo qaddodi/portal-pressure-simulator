@@ -525,8 +525,17 @@ export const BACKDROP = {
 // The pelvic floor runs between the two flanks' feet (y 954) through two control points at PELVIC_C, so its lowest point (x 712)
 // is CAVITY_LOW: deep enough that the first pool, which starts under the appendix's tip, still shows as a layer.
 export const PELVIC_C = 1072, CAVITY_LOW = 0.25 * 954 + 0.75 * PELVIC_C;
-export const flankPath = (b = 0) => `M336 470 C ${324 - b} 610 ${330 - b} 780 ${372 - b * 0.4} 954 C 470 ${PELVIC_C} 954 ${PELVIC_C} ${1052 + b * 0.4} 954 C ${1094 + b} 780 ${1100 + b} 610 1088 470`;
-export const abdomenOutline = (b = 0) => `M336 440 L${flankPath(b).slice(1)} L1088 440 Z`;
+// The wall moves only in half-unit steps of the bulge (stage.js drawAscites: bulgeQ = round(raw * 2) / 2, 0 to BULGE_MAX), so the
+// two outlines are written once per step when the module loads and looked up after (a frame builds no string). A value between two
+// steps lands on the nearer one (round half up, as the stage's own step does).
+const BULGE_MAX = 34;
+const flankText = (b) => `M336 470 C ${324 - b} 610 ${330 - b} 780 ${372 - b * 0.4} 954 C 470 ${PELVIC_C} 954 ${PELVIC_C} ${1052 + b * 0.4} 954 C ${1094 + b} 780 ${1100 + b} 610 1088 470`;
+const outlineText = (b) => `M336 440 L${flankText(b).slice(1)} L1088 440 Z`;
+const FLANKS = [], OUTLINES = [];
+for (let i = 0; i <= BULGE_MAX * 2; i++) { FLANKS.push(flankText(i / 2)); OUTLINES.push(outlineText(i / 2)); }
+const stepOf = (b) => { const i = Math.round(b * 2); return i > 0 ? (i < BULGE_MAX * 2 ? i : BULGE_MAX * 2) : 0; };
+export const flankPath = (b = 0) => FLANKS[stepOf(b)];
+export const abdomenOutline = (b = 0) => OUTLINES[stepOf(b)];
 export const ABDOMEN_CLIP = abdomenOutline(0);
 
 /** The most the cavity's half-width may fall per world unit of height below its floor's lowest point (cavityHalfWidths). */
@@ -536,15 +545,19 @@ const FLOOR_SLOPE_CAP = 60;
 // the GPU fills the fluid from these at each bulge step, a few KB, where a raster of the outline was a slow upload in
 // Safari on every step of an ease. Rows above the top edge (y 440) or below the floor's lowest point hold the half-width
 // continued past the edge (negative), so the row between crosses zero where the outline does.
-export function cavityHalfWidths(b, y0, h, n) {
-  const cub = (p0, p1, p2, p3, t) => { const s = 1 - t; return s * s * s * p0 + 3 * s * s * t * p1 + 3 * s * t * t * p2 + t * t * t * p3; };
+const cub = (p0, p1, p2, p3, t) => { const s = 1 - t; return s * s * s * p0 + 3 * s * s * t * p1 + 3 * s * t * t * p2 + t * t * t * p3; };
+const HW_K = 512, HW_M = 2 * HW_K + 1;
+const hwXs = new Float64Array(HW_M), hwYs = new Float64Array(HW_M);   // (the outline's samples, rewritten by each call and read before it returns)
+let hwOut = null;   // (the rows for a call that gives no buffer: kept, so a caller that asks again at the same width gets the same array back)
+/** cavityHalfWidths into `out` (its length is the row count n): nothing is allocated. */
+export function cavityHalfWidthsInto(out, b, y0, h) {
+  const n = out.length;
   // The left half of the outline from the top of the flank down to the floor's lowest point (x 712): its flank cubic, then the
   // first half of the floor's.
-  const xs = [], ys = [], K = 512;
-  for (let i = 0; i <= K; i++) { const t = i / K; xs.push(cub(336, 324 - b, 330 - b, 372 - b * 0.4, t)); ys.push(cub(470, 610, 780, 954, t)); }
-  for (let i = 1; i <= K; i++) { const t = 0.5 * i / K; xs.push(cub(372 - b * 0.4, 470, 954, 1052 + b * 0.4, t)); ys.push(cub(954, PELVIC_C, PELVIC_C, 954, t)); }
-  const yEnd = ys[ys.length - 1];
-  const out = new Float32Array(n);
+  const xs = hwXs, ys = hwYs, K = HW_K;
+  for (let i = 0; i <= K; i++) { const t = i / K; xs[i] = cub(336, 324 - b, 330 - b, 372 - b * 0.4, t); ys[i] = cub(470, 610, 780, 954, t); }
+  for (let i = 1; i <= K; i++) { const t = 0.5 * i / K; xs[K + i] = cub(372 - b * 0.4, 470, 954, 1052 + b * 0.4, t); ys[K + i] = cub(954, PELVIC_C, PELVIC_C, 954, t); }
+  const yEnd = ys[HW_M - 1];
   let j = 0;
   for (let i = 0; i < n; i++) {
     const y = y0 + h * i / (n - 1);
@@ -556,7 +569,7 @@ export function cavityHalfWidths(b, y0, h, n) {
       // to -300 and the shader, dividing a row's reading by the edge's slope, took the whole width of that one row for the edge itself:
       // a hairline across the figure's foot, wider than the pool (Mac, decompensated cirrhosis, 1 Nov). Capped, the drop stays steep
       // enough to close the pool and no steeper than the pool's own edge.)
-      const k = ys.length - 1, sl = Math.min((xs[k] - xs[k - 1]) / (ys[k] - ys[k - 1]), FLOOR_SLOPE_CAP);
+      const k = HW_M - 1, sl = Math.min((xs[k] - xs[k - 1]) / (ys[k] - ys[k - 1]), FLOOR_SLOPE_CAP);
       out[i] = (712 - xs[k]) - sl * (y - ys[k]);
     } else {
       while (ys[j + 1] < y) j++;
@@ -565,6 +578,12 @@ export function cavityHalfWidths(b, y0, h, n) {
     }
   }
   return out;
+}
+// With no `out` the rows go into one kept array (made at the first call, and again if the row count changes): the array is rewritten by
+// the next call, so a caller that keeps the rows past its next call passes its own `out`.
+export function cavityHalfWidths(b, y0, h, n, out) {
+  if (!out) out = hwOut?.length === n ? hwOut : (hwOut = new Float32Array(n));
+  return cavityHalfWidthsInto(out, b, y0, h);
 }
 export const ABDOMEN_FLOOR = 950;
 export const SPLEEN_CENTER = [1040, 362];

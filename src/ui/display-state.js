@@ -24,14 +24,23 @@ export function follow2(v, w, T, dt, tau, eps) {
  * apart: the running model's own steps) is shown at once too, so a model that only drifts costs no easing frames.
  * `moving`: whether any key stepped this round is still on its way (begin() starts a round).
  */
+const makeState = (n) => ({ v: new Float64Array(n), w: new Float64Array(n), out: new Array(n) });   // (a key's state; made only while the pool below is still filling)
 export function createColourFollow({ tau, eps = 0.002, small = 3 / 255, n = 6 } = {}) {
   const S = new Map();
+  // The states of the keys not in use: a key first seen takes one, a key pruned gives its one back, so a stream of keys comes and goes
+  // without making any. (A state's output list is read by the caller at once, as step returns it.)
+  const spare = [];
+  for (let i = 0; i < 96; i++) spare.push(makeState(n));
   const api = {
     moving: false,
     begin() { api.moving = false; },
     step(key, target, dt, snap = false) {
       let s = S.get(key);
-      if (!s) { s = { v: Float64Array.from(target), w: Float64Array.from(target), out: new Array(n) }; S.set(key, s); snap = true; }
+      if (!s) {
+        s = spare.pop() || makeState(n);
+        for (let i = 0; i < n; i++) s.v[i] = s.w[i] = target[i];
+        S.set(key, s); snap = true;
+      }
       // (At rest: both stages together, where the last target was. Moving, a new target is followed on from where it is.)
       let rest = true, big = false;
       for (let i = 0; i < n; i++) {
@@ -49,7 +58,7 @@ export function createColourFollow({ tau, eps = 0.002, small = 3 / 255, n = 6 } 
       return s.out;
     },
     /** Forget keys not stepped in `keep` (a Set): drawn again later, they start where they are told. */
-    prune(keep) { for (const k of S.keys()) if (!keep.has(k)) S.delete(k); },
+    prune(keep) { for (const [k, s] of S) if (!keep.has(k)) { spare.push(s); S.delete(k); } },
   };
   return api;
 }

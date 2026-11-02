@@ -115,7 +115,7 @@ test('the ladder\'s three zones are one rounded band, the corners of the whole',
   assert.match(src, /tx0 = k \? G\.x\(a\) - G\.slot \/ 2 : 0, tx1 = k < sp\.length - 1 \? G\.x\(b\) \+ G\.slot \/ 2 : w;/, 'the first tint reaches the left edge, the last the right');
   assert.match(src, /sv\('rect', \{ x: tx0, width: tx1 - tx0, y: y0, height: G\.B - y0, 'clip-path': band\.url \}\)/, 'each zone\'s tint clipped to the band');
   assert.match(src, /const ln = sv\('line', \{ x1: G\.L, x2: G\.R, y1: 0, y2: 0 \}\), tx = k \? sv\('text', \{ x: G\.L - 6, y: 0, 'text-anchor': 'end' \}, ''\) : null;/, 'the numbers stand in the strip left of the lines, inside the band, and no 0 (it is implied)');
-  assert.match(read('../src/ui/charts.js'), /if \(p && p % lstep === 0\) \{ ctx\.textAlign = 'right'; ctx\.fillText\(String\(p\), L - 6, y\(p\) \+ 4\); \}/, 'the Explore profile prints no 0 either');
+  assert.match(read('../src/ui/charts.js'), /if \(p && p % lstep === 0\) \{ ctx\.textAlign = 'right'; ctx\.fillText\(numText\(p\), L - 6, y\(p\) \+ 4\); \}/, 'the Explore profile prints no 0 either');
   assert.equal(ZONE_TOP, 0.5, 'the zones\' names keep half their size over them, under the band\'s top edge');
 });
 
@@ -192,7 +192,7 @@ test('the Explore dock\'s canvas charts lay the same rounded panel: plotFill is 
   assert.match(pt, /halo = cssVar\('--surface-2'\)/, 'the markers\' halos');
   assert.match(charts, /ctx\.fillStyle = c\.surface2; ctx\.beginPath\(\); ctx\.arc\(d\.cx, d\.cy, 6\.5/, 'the station dots\' rings');
   // (The numbers: 8 px in from the edge, 6 px clear of the lines, in both.)
-  assert.match(charts, /ctx\.fillText\(String\(p\), L - 6, y\(p\) \+ 4\)/);
+  assert.match(charts, /ctx\.fillText\(numText\(p\), L - 6, y\(p\) \+ 4\)/);
   assert.match(pt, /c\.fillText\(fmt\(v, tick < 1 \? 1 : 0\), L - 6, yy\)/);
   assert.match(pt, /const L = 36, R = tiny \? 62 : narrow \? \(slide \? 100 : 94\) : 104, B = 24/);
 });

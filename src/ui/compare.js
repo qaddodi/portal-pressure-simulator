@@ -17,11 +17,25 @@ const ROWS = [
   ['Ascites formation', (m, live) => (live ? liveBalance(m.ascites.ratePerDay) : Math.round(m.ascites.ratePerDay / 100) * 100), 0, 'mL/day'], ['Right atrium', (m) => m.ra, 1, 'mmHg'], ['MAP', (m) => m.map, 0, 'mmHg'], ['Cardiac output', (m) => m.co, 1, 'L/min'],
 ];
 
+// The first four labels, then how many more.
+function describe(labels) {
+  if (!labels.length) return 'No changes from the scenario';
+  let text = labels[0] ?? '';
+  for (let i = 1; i < labels.length && i < 4; i++) text += ' · ' + (labels[i] ?? '');
+  return labels.length > 4 ? text + ` · +${labels.length - 4} more` : text;
+}
+const scen = () => {
+  const st = store.get(), list = st.presetList;
+  if (list) for (let i = 0; i < list.length; i++) if (list[i].id === st.presetId) return list[i].label || 'Custom';
+  return 'Custom';
+};
+
 export function createCompare() {
   let tableEl = null, nowCard = null;
+  // What the card for now shows: the labels of the treatments running and the scenario's name, so the card is written again only when one changes.
+  const shown = [];
+  let shownN = -1, shownScen = null;
   const card = (cls, letter, kicker, name, detail) => h('div', { class: 'cmp-card ' + cls }, h('span', { class: 'ck' }, h('i', {}, letter), kicker), h('span', { class: 'cn' }, name), detail ? h('span', { class: 'cd' }, detail) : null);
-  const describe = (labels) => (labels.length ? labels.slice(0, 4).join(' · ') + (labels.length > 4 ? ` · +${labels.length - 4} more` : '') : 'No changes from the scenario');
-  const scen = () => { const st = store.get(); return st.presetList?.find((p) => p.id === st.presetId)?.label || 'Custom'; };
 
   /** The "Compared with A" section, or null when nothing is pinned. */
   function section() {
@@ -30,6 +44,7 @@ export function createCompare() {
     tableEl = h('div');
     const [nA, nB] = A.names || ['Then', 'Now'];
     nowCard = card('b', 'N', A.names ? nB : 'Now · live', scen(), describe(activeInterventions(store.get().params).map((a) => a.label)));
+    shownN = -1;   // (a new card: the next change of params writes it)
     const unpin = h('button', { class: 'btn sm', onclick: () => store.set({ compareSnap: null, compareView: 'B' }) }, svgIcon('close', 'mi-ic'), 'Stop comparing');
     const el = h('section', { class: 'cmp-section' },
       h('div', { class: 'cmp-top' }, h('span', { class: 'overline' }, `Comparing with ${A.when}`), unpin),
@@ -89,8 +104,15 @@ export function createCompare() {
 
   store.on('params', () => {
     if (!nowCard?.isConnected) return;
-    nowCard.querySelector('.cn').textContent = scen();
-    nowCard.querySelector('.cd').textContent = describe(activeInterventions(store.get().params).map((a) => a.label));
+    const list = activeInterventions(store.get().params), name = scen();
+    let same = shownN === list.length && name === shownScen;
+    for (let i = 0; same && i < list.length; i++) if (shown[i] !== list[i].label) same = false;
+    if (same) return;
+    shownN = list.length; shownScen = name;
+    for (let i = 0; i < list.length; i++) shown[i] = list[i].label;
+    shown.length = list.length;
+    nowCard.querySelector('.cn').textContent = name;
+    nowCard.querySelector('.cd').textContent = describe(shown);
   });
   return { section, update };
 }

@@ -25,17 +25,24 @@ const props = new Map();     // element → Map(property → value)
 const gone = new Set();      // elements to take out
 let pending = false;
 const jobs = [];   // (whole functions asked for with runSoon)
+// The per-element maps (class → on, attribute → value, …) are taken from here when an element is first asked about and given back
+// when the asks are written, so a steady stream of asks makes none.
+const mapPool = [];
+for (let i = 0; i < 64; i++) mapPool.push(new Map());
+const takeMap = () => mapPool.pop() || new Map();   // (a new one only while the pool is still filling: more elements asked at once than it holds)
+const giveBack = (outer) => { for (const m of outer.values()) { m.clear(); mapPool.push(m); } };
 
 function flush() {
   pending = false;
   const c = classes, w = words;
   if (c.size) for (const [el, m] of c) for (const [name, on] of m) el.classList.toggle(name, on);
-  if (w.size) for (const [el, t] of w) if (el.textContent !== t) el.textContent = t;
-  c.clear(); w.clear();
+  if (w.size) for (const [el, t] of w) { const text = String(t); if (el.textContent !== text) el.textContent = text; }   // (the words as asked for: String() of a number is its text)
+  giveBack(c); c.clear(); w.clear();
   for (const [el, m] of attrs) for (const [k, v] of m) { if (v == null) el.removeAttribute(k); else if (el.getAttribute(k) !== String(v)) el.setAttribute(k, v); }
   for (const [el, m] of datas) for (const [k, v] of m) { if (v == null) delete el.dataset[k]; else if (el.dataset[k] !== String(v)) el.dataset[k] = v; }
   for (const [el, m] of props) for (const [k, v] of m) if (el[k] !== v) el[k] = v;
   for (const el of gone) el.remove();
+  giveBack(attrs); giveBack(datas); giveBack(props);
   attrs.clear(); datas.clear(); props.clear(); gone.clear();
   for (const fn of jobs.splice(0)) { try { fn(); } catch (e) { setTimeout(() => { throw e; }); } }
 }
@@ -54,14 +61,14 @@ const ask = () => {
 export function classSoon(el, name, on) {
   if (!el) return;
   let m = classes.get(el);
-  if (!m) classes.set(el, (m = new Map()));
+  if (!m) classes.set(el, (m = takeMap()));
   m.set(name, !!on);
   ask();
 }
 /** Sets the element's words in the next rest pass; the last ask wins. */
 export function textSoon(el, text) {
   if (!el) return;
-  words.set(el, String(text));
+  words.set(el, text);
   ask();
 }
 /** Runs fn in the same task as the queued class and text writes, straight after the current one (asked first, run in order). */
@@ -77,21 +84,24 @@ const restartEls = [], restartNames = [];
 export function restartSoon(el, name) {
   classSoon(el, name, false);
   restartEls.push(el); restartNames.push(name);
-  if (restartEls.length === 1) nextFrame(() => { for (let i = 0; i < restartEls.length; i++) classSoon(restartEls[i], restartNames[i], true); restartEls.length = restartNames.length = 0; });
+  if (restartEls.length === 1) nextFrame(restartOn);
 }
+function restartOn() { for (let i = 0; i < restartEls.length; i++) classSoon(restartEls[i], restartNames[i], true); restartEls.length = restartNames.length = 0; }
 // (An ask that leaves the value as it stands, with none pending, costs one read and no rest pass: a per-frame loop may ask every frame.)
 const into = (map, read, el, k, v) => {
   const m = map.get(el);
   const cur = m && m.has(k) ? m.get(k) : read(el, k);
   if (cur === v) return;
-  if (!m) map.set(el, new Map([[k, v]])); else m.set(k, v);
+  if (m) m.set(k, v); else { const fresh = takeMap(); fresh.set(k, v); map.set(el, fresh); }
   ask();
 };
+// (A string is its own text; any other value's text is made here, which is the one place that makes one.)
+const asText = (v) => (typeof v === 'string' ? v : String(v));
 const readAttr = (el, k) => el.getAttribute(k), readData = (el, k) => el.dataset[k] ?? null, readProp = (el, k) => el[k];
 /** Sets the attribute (null: removes it) in the next rest pass; the last ask wins. */
-export function attrSoon(el, name, value) { if (el) into(attrs, readAttr, el, name, value == null ? null : String(value)); }
+export function attrSoon(el, name, value) { if (el) into(attrs, readAttr, el, name, value == null ? null : asText(value)); }
 /** Sets the data- key (null: deletes it) in the next rest pass; the last ask wins. */
-export function dataSoon(el, key, value) { if (el) into(datas, readData, el, key, value == null ? null : String(value)); }
+export function dataSoon(el, key, value) { if (el) into(datas, readData, el, key, value == null ? null : asText(value)); }
 /** Sets the property (hidden, disabled, nodeValue, value) in the next rest pass; the last ask wins. */
 export function propSoon(el, prop, value) { if (el) into(props, readProp, el, prop, value); }
 /** Takes the element out of the page in the next rest pass. */

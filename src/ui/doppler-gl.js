@@ -51,7 +51,11 @@ export function createDopplerGL({ onReady = null } = {}) {
   let started = null, quad = null, vao = null, ringT = null, noiseT = null, stopPoll = null, waitingDraw = false;
   let prog = null, U = null, failed = false;
   let rw = 0, rh = 0, noiseSrc = null;   // (noiseSrc: the noise floor as last sent, to send it again to a context that came back)
-  const tex = () => { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v); return t; };
+  const tex = () => { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); return t; };
+  // (Kept for the life of the drawer, so publishing the program and drawing make no objects: the uniforms' places, and the 1 × 1 texel of the warm-up draw.)
+  const UNI = { ring: null, noise: null, size: null, org: null, p: null, nOff: null, noiseA: null, wall: null };
+  const DOT = new Uint8Array([0, 0, 0, 255]);
+  const oneTexel = (t) => { gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, DOT); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST); };
   // What the context holds: the program (started now, published once the driver has finished it, gl-compile.js; render() publishes it if
   // it comes first), the quad and the two textures. Made at the start, and again when a lost context comes back (webglcontextrestored):
   // none of it survives a loss. The ring is sent whole by doppler.js on its next GPU frame (it draws the 2D path until then and marks it),
@@ -76,17 +80,19 @@ export function createDopplerGL({ onReady = null } = {}) {
     if (prog || failed || gl.isContextLost()) return;
     try {
       prog = checkProgram(gl, started);
-      U = Object.fromEntries(['ring', 'noise', 'size', 'org', 'p', 'nOff', 'noiseA', 'wall'].map((k) => [k, gl.getUniformLocation(prog, k)]));
-      const dummy = [gl.createTexture(), gl.createTexture()];
-      for (const t of dummy) { gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255])); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST); }
+      U = UNI;
+      U.ring = gl.getUniformLocation(prog, 'ring'); U.noise = gl.getUniformLocation(prog, 'noise'); U.size = gl.getUniformLocation(prog, 'size'); U.org = gl.getUniformLocation(prog, 'org');
+      U.p = gl.getUniformLocation(prog, 'p'); U.nOff = gl.getUniformLocation(prog, 'nOff'); U.noiseA = gl.getUniformLocation(prog, 'noiseA'); U.wall = gl.getUniformLocation(prog, 'wall');
+      const d0 = gl.createTexture(), d1 = gl.createTexture();
+      oneTexel(d0); oneTexel(d1);
       exerciseDraw(gl, () => {
         gl.useProgram(prog);
-        gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, dummy[0]); gl.uniform1i(U.ring, 0);
-        gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, dummy[1]); gl.uniform1i(U.noise, 1);
+        gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, d0); gl.uniform1i(U.ring, 0);
+        gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, d1); gl.uniform1i(U.noise, 1);
         gl.uniform2i(U.size, 1, 1);
         gl.bindVertexArray(vao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); gl.bindVertexArray(null);
       });
-      for (const t of dummy) gl.deleteTexture(t);
+      gl.deleteTexture(d0); gl.deleteTexture(d1);
       lost = false;   // (after a restore: the GPU draws the monitor again from the next frame)
       if (waitingDraw) { waitingDraw = false; try { onReady?.(); } catch (e2) { console.warn('Doppler on the GPU: the redraw failed.', e2); } }
     } catch (e) {
@@ -107,7 +113,20 @@ export function createDopplerGL({ onReady = null } = {}) {
     if (dead) return;
     try { build(); if (noiseSrc) putNoise(noiseSrc); } catch (e) { failed = true; console.warn('Doppler on the GPU: could not be rebuilt; the 2D monitor stays.', e); }
   });
-  const bytes = (d) => (d instanceof Uint8Array ? d : new Uint8Array(d.buffer, d.byteOffset, d.byteLength));
+  // (A blit between two textures through the framebuffers of the stretch under way: rf to read, df to draw.)
+  let rf = null, df = null;
+  const blit = (src, dst, sx0, sx1, dx0, dx1, sh, dh, filter) => {
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, rf); gl.framebufferTexture2D(gl.READ_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, src, 0);
+    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, df); gl.framebufferTexture2D(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, dst, 0);
+    gl.blitFramebuffer(sx0, 0, sx1, sh, dx0, 0, dx1, dh, gl.COLOR_BUFFER_BIT, filter);
+  };
+  // (An ImageData's own array is the same object each time it is asked for: its Uint8Array view is made once for it, not on every send.)
+  let viewOf = null, viewAs = null;
+  const bytes = (d) => {
+    if (d instanceof Uint8Array) return d;
+    if (d !== viewOf) { viewOf = d; viewAs = new Uint8Array(d.buffer, d.byteOffset, d.byteLength); }
+    return viewAs;
+  };
   return {
     get lost() { return lost || failed; },
     canvas,
@@ -129,12 +148,7 @@ export function createDopplerGL({ onReady = null } = {}) {
       const oW = rw, oH = rh, T = tex(), N = tex();
       gl.bindTexture(gl.TEXTURE_2D, T); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, oW, oH, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
       gl.bindTexture(gl.TEXTURE_2D, N); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-      const rf = gl.createFramebuffer(), df = gl.createFramebuffer();
-      const blit = (src, dst, sx0, sx1, dx0, dx1, sh, dh, filter) => {
-        gl.bindFramebuffer(gl.READ_FRAMEBUFFER, rf); gl.framebufferTexture2D(gl.READ_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, src, 0);
-        gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, df); gl.framebufferTexture2D(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, dst, 0);
-        gl.blitFramebuffer(sx0, 0, sx1, sh, dx0, 0, dx1, dh, gl.COLOR_BUFFER_BIT, filter);
-      };
+      rf = gl.createFramebuffer(); df = gl.createFramebuffer();
       gl.disable(gl.SCISSOR_TEST);
       // (turned: old columns po + 1 … end first, then 0 … po)
       if (po + 1 < oW) blit(ringT, T, po + 1, oW, 0, oW - po - 1, oH, oH, gl.NEAREST);
@@ -144,7 +158,7 @@ export function createDopplerGL({ onReady = null } = {}) {
       if (w - sx > 0) blit(T, N, 0, cut, sx, w, oH, h, gl.LINEAR);
       if (sx > 0) blit(T, N, cut, oW, 0, sx, oH, h, gl.LINEAR);
       gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null); gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
-      gl.deleteFramebuffer(rf); gl.deleteFramebuffer(df); gl.deleteTexture(T); gl.deleteTexture(ringT);
+      gl.deleteFramebuffer(rf); gl.deleteFramebuffer(df); rf = df = null; gl.deleteTexture(T); gl.deleteTexture(ringT);
       ringT = N; rw = w; rh = h;
       return true;
     },
