@@ -34,7 +34,10 @@ export function hudStats(gaps, scripts) {
 /** Why the page may be held under the panel's rate, or '' when nothing says it is. */
 export function throttleOf({ hz, maxHz, workerHz, apple, hidden }) {
   if (hidden) return 'hidden tab: no frames';
-  if (workerHz && hz && workerHz > hz * 1.2) return `held at ${hz} Hz (a worker's frames come at ${workerHz} Hz)`;
+  // (Not the app: nothing in it paces the page's frames (no Battery saver, no 60 Hz cap). Safari halves a page's frames in Low Power Mode,
+  // and when the Mac or the phone runs hot; its workers keep the display's rate, which is how the two are told apart.)
+  if (apple && hz && hz <= 30 && (workerHz >= 2 * hz - 5 || maxHz >= 2 * hz - 5)) return `held at ${hz} Hz by Safari: Low Power Mode is on (Mac: System Settings › Battery › Low Power Mode; iPhone: Settings › Battery), or the device is hot. The app does not pace its frames`;
+  if (workerHz && hz && workerHz > hz * 1.2) return `held at ${hz} Hz (a worker's frames come at ${workerHz} Hz: the browser, Low Power Mode or heat; not the app)`;
   if (maxHz && hz && hz < maxHz * 0.9) return `held at ${hz} Hz (${maxHz} Hz seen: Low Power Mode, heat or the browser)`;
   if (apple && hz && hz <= 60) return 'likely Safari\'s 60 Hz cap for pages (Settings › Apps › Safari › Advanced › Feature Flags: turn off "Prefer Page Rendering Updates near 60fps", or use High Refresh)';
   return '';
