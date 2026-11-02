@@ -9,6 +9,7 @@ import { releaseSpeed, isFlick, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './
 import { cardFor, normalizeSel } from './actions.js?v=d9c60e294b';
 import { frameFor, cancelFrame } from './frame.js?v=8c8f2f530e';
 import { restPass, cancelRest } from './rest-pass.js?v=75e0aa565d';
+import { setClass } from './class-batch.js?v=fa5edda987';
 import { placeCard, coverCount, vesselPoints } from './card-place.js?v=4eb9859ce3';
 import { readBox, readMetric } from './layout-snap.js?v=837f2b793c';
 const nextFrame = frameFor('card');
@@ -486,12 +487,12 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     }
     const ex = clamp(ax, x, x + w), ey = clamp(ay, y, y + hh);
     const d = Math.hypot(ex - ax, ey - ay);
-    if (d < (a.outline ? 12 : 30) || isDocked()) { leader.replaceChildren(); leader.classList.remove('on'); return; }
+    if (d < (a.outline ? 12 : 30) || isDocked()) { leader.replaceChildren(); setClass(leader, 'on', false); return; }
     // (The line: a box d long from the card's edge, turned toward the anchor; set once each time the card is placed, never in a frame.)
     lLine.style.width = `${d.toFixed(1)}px`;
     lLine.style.transform = `translate(${ex.toFixed(1)}px, ${ey.toFixed(1)}px) rotate(${Math.atan2(ay - ey, ax - ex).toFixed(4)}rad)`;
     lDot.style.transform = `translate(${ax.toFixed(1)}px, ${ay.toFixed(1)}px)`;
-    if (!lLine.isConnected) { leader.classList.remove('on'); leader.replaceChildren(lLine, lDot); nextFrame(() => leader.classList.add('on')); }
+    if (!lLine.isConnected) { setClass(leader, 'on', false); leader.replaceChildren(lLine, lDot); nextFrame(() => setClass(leader, 'on', true)); }
   }
 
   // The floating pieces moved (a card opened on the right, the dock grew): place the card again.

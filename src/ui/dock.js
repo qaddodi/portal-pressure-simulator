@@ -15,6 +15,7 @@ import { createReadoutsPane } from './readouts-pane.js?v=0200de2b38';
 import { frameFor } from './frame.js?v=8c8f2f530e';
 import { glWords } from './gl-words.js?v=915cb34db5';
 import { restPass } from './rest-pass.js?v=75e0aa565d';
+import { setClass, hasClass, setNow } from './class-batch.js?v=fa5edda987';
 import { vitalReading, VITALS } from './vital-read.js?v=cbba41a6b7';
 import { setShown, shownState, FILL_SMALL, fillQ } from './shown.js?v=32684500e1';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
@@ -190,10 +191,10 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   }
   // The Lobule view swaps the key readouts for the lobule's flows (the group is hidden elsewhere, by CSS).
   // Entering or leaving it, the bar's readings crossfade (swapFade) rather than switch groups in one frame (motion review P12).
-  const applyLobule = () => { const on = !!store.get().lobule, pri = on ? LOBULE_PRIMARY : PRIMARY; strip.classList.toggle('lob', on); for (const x of Object.values(tileEls)) x.el.classList.toggle('primary', pri.has(x.t.id)); };
+  const applyLobule = () => { const on = !!store.get().lobule, pri = on ? LOBULE_PRIMARY : PRIMARY; setClass(strip, 'lob', on); for (const x of Object.values(tileEls)) setClass(x.el, 'primary', pri.has(x.t.id)); };
   // (The play, clock and Compare beside them glide to wherever the new readings' width puts them: RF4.)
   const syncLobule = () => {
-    const same = strip.classList.contains('lob') === !!store.get().lobule, tl = document.getElementById('timeline');
+    const same = hasClass(strip, 'lob') === !!store.get().lobule, tl = document.getElementById('timeline');
     if (!same && tl) glideOnResize(tl, ':scope > *', { also: [strip, document.getElementById('vdock')] });
     swapFade(strip, () => { applyLobule(); resizeSoon(); }, { instant: same });
   };
@@ -281,7 +282,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   shownState.on(() => { if (frame) paintStrip(frame, true); });
   // (The flash restarts by swapping between two names of the same keyframes, flash and flash2: a new animation name starts the
   // animation over without the reflow that removing and adding one class needed, a layout of the page inside a display frame.)
-  const flashTile = (el) => { const two = el.classList.contains('flash'); el.classList.toggle('flash', !two); el.classList.toggle('flash2', two); };
+  const flashTile = (el) => { const two = hasClass(el, 'flash'); setClass(el, 'flash', !two); setClass(el, 'flash2', two); };
   let stripStale = false, stripObs = null;
   function stripSeen() {
     if (!stripStale || stripUnseen() || !frame) return;
@@ -335,7 +336,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
         const fl = fillQ(Math.min(w, o) / 100), fw = fillQ(Math.abs(w - o) / 100);
         if (x.fillL !== fl || x.fillW !== fw) { x.fillL = fl; x.fillW = fw; x.fill.style.setProperty('--fl', fl); x.fill.style.setProperty('--fw', fw); }
       }
-      el.classList.toggle('hidden-val', v == null);
+      setClass(el, 'hidden-val', v == null);
       const trend = v == null || measured ? '' : trendOf(x, v, now);
       if (trend !== x.trend) { x.trend = trend; swapText(x.tr, trend === 'up' ? '▲' : trend === 'down' ? '▼' : ''); }
       // Compare: each tile reports its change from the pinned moment in place of the status word.
@@ -346,7 +347,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
         const ct = same ? 'same as then' : `${d > 0 ? '+' : '−'}${fmt(Math.abs(d), t.d)} vs then`, cc = same ? 'same' : d > 0 ? 'up' : 'down';
         // (The words drawn on the GPU while they change, gl-words.js; a new colour (the change crossing zero) is taken by the page's own words,
         // between frames, and read again for the picture.)
-        if (x.cmpCls !== cc) { if (x.cmpCls) x.cmp.classList.remove(x.cmpCls); x.cmp.classList.add(cc); x.cmpCls = cc; x.cmpW.set(ct); x.cmpW.settle(); }
+        if (x.cmpCls !== cc) { if (x.cmpCls) setClass(x.cmp, x.cmpCls, false); setClass(x.cmp, cc, true); x.cmpCls = cc; x.cmpW.set(ct); x.cmpW.settle(); }
         else x.cmpW.set(ct);
         if (!x.st.hidden) { x.st.hidden = true; fadeIn(x.cmp); }
       } else if (x.cmpW.text) { x.cmpW.set(''); x.st.hidden = false; fadeIn(x.st); }
@@ -361,7 +362,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
           el.dataset.sev = sev; x.sev = sev;
         }
       } else x.sevNext = null;
-      if (sev === x.sev) { const un = v == null; swapText(x.st, s, () => x.st.classList.toggle('unmeas', un)); }
+      if (sev === x.sev) { const un = v == null; swapText(x.st, s, () => setClass(x.st, 'unmeas', un)); }
       const aria = `${t.title || t.k}: ${v == null ? s.toLowerCase() : `${fmt(v, t.d)} ${t.u}${t.ux || ''}, ${s}`}${x.trend ? `, ${x.trend === 'up' ? 'rising' : 'falling'}` : ''}`;
       if (aria !== x.ariaTxt) { x.ariaTxt = aria; el.setAttribute('aria-label', aria); }
     }
@@ -371,7 +372,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       if (follow) x.shown = shownState.or('bar:' + x.v.id, x.shown);
       if (follow) { const fk = `${x.shown}|${hid}|${x.bad}`; if (fk === x.followKey) continue; x.followKey = fk; } else x.followKey = null;
       countTo(x.val, hid ? null : x.shown, x.v.d, { eased: st0.running });
-      x.el.classList.toggle('bad', !hid && x.bad);
+      setClass(x.el, 'bad', !hid && x.bad);
     }
   }
 
@@ -658,7 +659,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     let fits = !!view && !sidewaysMQ.matches && (isSide() || heightRatio == null) && matchMedia('(min-width: 768px)').matches && !document.getElementById('app')?.classList.contains('thumb');
     if (view) view.classList.toggle('nat', fits);   // nat: the view at its natural height, to measure it
     fits = fits && readMetric(view, 'offsetHeight') > 0;
-    const on = workspace.classList.contains('fit');
+    const on = hasClass(workspace, 'fit');
     if (!fits && !on) return;
     clearTimeout(fitTimer);
     if (!readMetric(workspace, 'offsetParent')) return;   // the dock is closed (display: none): nothing to fit
@@ -676,10 +677,10 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       if (need > full + 1 && id !== 'abdomen') { view.classList.remove('nat'); fits = false; }
     }
     const h0 = readMetric(workspace, 'offsetHeight');
-    if (!on) { workspace.style.setProperty('--fit-h', `${h0}px`); workspace.classList.add('fit'); }
+    if (!on) { workspace.style.setProperty('--fit-h', `${h0}px`); setNow(workspace, 'fit', true); }
     if (!fits) {
       setFit(h0, Math.round(full));
-      fitTimer = setTimeout(() => workspace.classList.remove('fit'), 400);
+      fitTimer = setTimeout(() => setClass(workspace, 'fit', false), 400);
       return;
     }
     setFit(h0, Math.round(Math.min(full, Math.max(140, need))));
@@ -758,7 +759,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     const txt = probe || '';
     const l = titleEl.querySelector('.dt-l');
     swapText(l, txt);   // (the probe's vessel name crossfades when the probe moves)
-    titleEl.classList.toggle('dop-on', !!probe);
+    setClass(titleEl, 'dop-on', !!probe);
   }
   function endPick() { picking = false; foldHidden(pickHint, true); workspace.classList.remove('picking'); }
   function toggleSecond() {
@@ -853,7 +854,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       Object.assign(guide.style, side
         ? { left: `${d.left + d.width / 2 - 1}px`, top: `${c.top}px`, width: '2px', height: `${c.height}px`, transform: '' }
         : { left: `${c.left}px`, top: `${d.top + d.height / 2 - 1}px`, width: `${c.width}px`, height: '2px', transform: '' });
-      clearTimeout(guideLayerT); guide.classList.add('dg-live', 'on');
+      clearTimeout(guideLayerT); guide.classList.add('dg-live', 'on'); setNow(guide, 'dg-live', true);
     }
     workspace.classList.add('resizing');
     divider.setPointerCapture(e.pointerId);
@@ -868,7 +869,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   });
   for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) divider.addEventListener(ev, () => {
     if (!drag) return;
-    drag = null; guide.classList.remove('on'); if (GUIDE_LAYER) { clearTimeout(guideLayerT); guideLayerT = setTimeout(() => guide.classList.remove('dg-live'), 700); } workspace.classList.remove('resizing');
+    drag = null; guide.classList.remove('on'); if (GUIDE_LAYER) { clearTimeout(guideLayerT); guideLayerT = setTimeout(() => setClass(guide, 'dg-live', false), 700); } workspace.classList.remove('resizing');
     updateSize(); remember(); dispatchEvent(new Event('resize'));
   });
   divider.addEventListener('keydown', (e) => {
