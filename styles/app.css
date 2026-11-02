@@ -7650,6 +7650,11 @@ body { font-optical-sizing: auto; font-kerning: normal; }
    maximised, and its words and glass must come and go together). Its words are cut away under the zoomed card by card-zoom.js (a clip-path eased with the
    card), so nothing of them shows sharp through the frost; only the stage's labels step out from under it. */
 .pz-zoomed :is(#labelGl, #labels) { opacity: 0 !important; transition: opacity var(--d-small) var(--ease) !important; }
+/* (Likewise what the page itself paints over the figure's canvas, above its glass: the circuit's readings and the catheter's callouts (.cath-labels),
+   and the overlays still in the SVG (#stageOver: the circuit's node dots and resistor zigzags where the GPU has not taken them). The frost is
+   drawn in that canvas, so they showed sharp through a zoomed card and flickered as they slid under it: Mohammad, 2 Nov 2026, the Circuit
+   deck's "Pressure, gut to heart" zoomed on his Mac, "no blur, and the labels are flickering passing through".) */
+.pz-zoomed .stage-view :is(#stageOver, .cath-labels) { opacity: 0 !important; transition: opacity var(--d-small) var(--ease) !important; }
 /* While the cards' glass is drawn in the figure's canvas (html[data-cardgl], glass-gl.js CARD_MARK), a card its glass has not drawn yet (its first
    frame coming in) shows no solid card: the solid card for a frame, then the frost, read as the blur flickering as each card opened (Mohammad,
    2 Nov 2026). Only a card about to be drawn there ([data-gl-wait], for at most 300 ms): one held out of that canvas or not drawn there keeps
