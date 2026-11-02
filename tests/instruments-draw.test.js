@@ -1,6 +1,7 @@
 // The new instruments (deck rebuild plan A3, A4) run against a fake DOM: a real model's frames go in, the real drawing code runs, and a 2D
 // context that records what it was asked to write comes out. No browser: this catches a throw or a missing number, not how it looks.
 import { test } from 'node:test';
+import { CanvasObserver } from './canvas-observer.js';
 import assert from 'node:assert/strict';
 import './dom-shim.js';
 import { createCore } from '../src/worker-core.js';
@@ -76,7 +77,7 @@ globalThis.document.hidden = false;
 globalThis.document.documentElement = new Node('html');
 // (a browser reports an observed box a moment later, never inside observe())
 globalThis.IntersectionObserver = class { constructor(cb) { this.cb = cb; } observe() { queueMicrotask(() => this.cb([{ isIntersecting: true }])); } disconnect() {} };
-globalThis.ResizeObserver = class { observe() {} disconnect() {} };
+globalThis.ResizeObserver = CanvasObserver;   // (canvases report their box as a browser's observer does: tests/canvas-observer.js)
 
 const runFrames = (now = performance.now()) => { const q = frameQueue; frameQueue = []; for (const fn of q) fn(now); };
 const texts = (node) => node.log.texts.map((t) => t.s);

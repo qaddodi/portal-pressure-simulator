@@ -975,14 +975,29 @@ const boxes = new WeakMap();
 // laid out, so they are drawn for the size they are seen at. 1 otherwise.
 let canvasBoost = 1;
 export const setCanvasBoost = (k) => { canvasBoost = Math.max(1, +k || 1); };
-const boxObserver = new ResizeObserver((entries) => { for (const e of entries) boxes.set(e.target, { width: e.contentRect.width, height: e.contentRect.height }); });
+const sizedSubs = new WeakMap();   // (canvas -> functions run when it first has a box, or has one again after none)
+const boxObserver = new ResizeObserver((entries) => {
+  for (const e of entries) {
+    const was = boxes.get(e.target), r = { width: e.contentRect.width, height: e.contentRect.height };
+    boxes.set(e.target, r);
+    if ((!was || was.width < 1 || was.height < 1) && r.width >= 1 && r.height >= 1) for (const f of sizedSubs.get(e.target) || []) f();
+  }
+});
+/** f() each time the canvas comes to have a box (its first, or again after it had none): a draw that waited redraws. */
+export function onCanvasSized(canvas, f) {
+  // (observed before f is kept: f runs on a later report, never inside the call that asks for it, its chart not yet made)
+  if (!boxes.has(canvas)) { boxes.set(canvas, { width: 0, height: 0 }); boxObserver.observe(canvas); }
+  if (!sizedSubs.has(canvas)) sizedSubs.set(canvas, new Set());
+  sizedSubs.get(canvas).add(f);
+  return () => sizedSubs.get(canvas)?.delete(f);
+}
 /** A canvas's size as fitCanvas sizes it, without touching it: w × h CSS px, W × H device px at dpr (the GPU charts, trace-gl.js, draw at it). */
+// (It never measures, in a frame or out of one: a canvas the observer has not reported yet is 0 x 0, which every caller takes as
+// "wait for its measured size", and each chart's pen (createTraceGL's redraw, onCanvasSized) draws it again once it has a box.
+// 1 Nov 2026: no layout read in a frame.)
 export function canvasSize(canvas) {
   let r = boxes.get(canvas);
-  if (!r || r.width < 1 || r.height < 1) {
-    const b = canvas.getBoundingClientRect(); r = { width: b.width, height: b.height };
-    boxes.set(canvas, r); boxObserver.observe(canvas);
-  }
+  if (!r) { boxes.set(canvas, { width: 0, height: 0 }); boxObserver.observe(canvas); r = boxes.get(canvas); }
   // The instruments (Doppler, FibroScan, the HVPG tracing, scope, wall, charts) at the screen's own density, up to 3x: a 3x iPhone drew
   // their words at 2x, slightly soft (#34). Battery saver keeps 2x.
   const dpr = Math.min(saver() ? 2 : 3, (window.devicePixelRatio || 1) * canvasBoost);

@@ -3,6 +3,7 @@
 // must change no pixel: the same drawing calls, in the same order, with the same state, reach the screen with them as without. No browser: a
 // recording context writes every call down with the state it was made in, and the two ways are compared frame by frame.
 import { test } from 'node:test';
+import { CanvasObserver } from './canvas-observer.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import './dom-shim.js';
@@ -101,7 +102,7 @@ globalThis.document.createTextNode = (s) => ({ nodeType: 3, text: String(s) });
 globalThis.document.hidden = false;
 globalThis.document.documentElement = new Node('html');
 globalThis.IntersectionObserver = class { constructor(cb) { this.cb = cb; } observe() { queueMicrotask(() => this.cb([{ isIntersecting: true }])); } disconnect() {} };
-globalThis.ResizeObserver = class { observe() {} disconnect() {} };
+globalThis.ResizeObserver = CanvasObserver;   // (canvases report their box as a browser's observer does: tests/canvas-observer.js)
 
 const runFrames = () => { const q = frameQueue; frameQueue = []; for (const fn of q) fn(T); };
 const find = (n, test) => { if (test(n)) return n; for (const k of n.kids || []) { const r = find(k, test); if (r) return r; } return null; };

@@ -2,11 +2,11 @@
 // at the varix's size now, so a time-lapse shows the varices swelling from small to large behind the chart. The picture is the
 // instrument's own (endo-render.js, endo-size.js), made once for each step of 1/14 of its engorgement and eased in over the one before.
 // It is laid by the GPU's chart drawer (trace-gl.js) as a texture: the new picture fades in over the old one kept on the GPU, no 2D canvas.
-import { h } from './util.js?v=a3710ca94f';
-import { renderEndo } from './endo-render.js?v=af767ba292';
+import { h } from './util.js?v=d03b80f2c6';
+import { renderEndo } from './endo-render.js?v=a221bae4bf';
 import { endoGrow, LARGE_MM } from './endo-size.js?v=e0a58bf20e';
 import { D_SURFACE, easeArrive } from './ease.js?v=fc509dabe4';
-import { createTraceGL, fitPen } from './trace-gl.js?v=9dd5c63dd3';
+import { createTraceGL, fitPen } from './trace-gl.js?v=f4350ef7ef';
 import { frameFor } from './frame.js?v=7710f677e2';
 
 const RES = 168, STEPS = 14, NONE_MM = 2.5;   // (2.5 mm: below it the metrics call it no varix)

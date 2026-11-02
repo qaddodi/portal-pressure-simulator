@@ -16,7 +16,7 @@
 // chart draws on its own 2D canvas, as before (?tracegl=0 keeps that always).
 
 import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=e48e05cdb3';
-import { canvasSize, fitCanvas } from './util.js?v=a3710ca94f';
+import { canvasSize, fitCanvas, onCanvasSized } from './util.js?v=d03b80f2c6';
 import { sdfAtlas } from './text-gl.js?v=ec353838fe';   // (the app's one door to GPU text: its SDF atlas, for text that changes every frame)
 import { fontOf, measure } from './glyph-measure.js?v=0385fe1e8a';
 export { measure };
@@ -287,6 +287,9 @@ const premul = (c, alpha = 1) => { const v = rgba(c), a = v[3] * alpha; return [
 
 /** The GPU drawer for one chart, over `host` (the chart's 2D canvas), or null where it cannot be (the 2D canvas draws the chart). */
 export function createTraceGL(host, { search = globalThis.location?.search, redraw = null } = {}) {
+  // (canvasSize never measures: a chart drawn before the observer reported its box drew nothing, and draws again once it has one,
+  // with or without this drawer)
+  if (redraw && host && typeof ResizeObserver !== 'undefined') onCanvasSized(host, redraw);
   if (typeof document === 'undefined' || traceGLOff(search)) return null;
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = 1;

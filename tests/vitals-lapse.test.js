@@ -2,6 +2,7 @@
 // The strip used to stall and jump there; now it scrolls on its own clock and lays beats at the heart rate shown, landing on the live beat.
 // No browser: a fake page and a fake clock, frames made as the worker makes them, and the strip's polyline read back from a recording 2D context.
 import { test } from 'node:test';
+import { CanvasObserver } from './canvas-observer.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import './dom-shim.js';
@@ -103,7 +104,7 @@ globalThis.document.createTextNode = (s) => ({ nodeType: 3, text: String(s) });
 globalThis.document.hidden = false;
 globalThis.document.documentElement = new Node('html');
 globalThis.IntersectionObserver = class { constructor(cb) { this.cb = cb; } observe() { queueMicrotask(() => this.cb([{ isIntersecting: true }])); } disconnect() {} };
-globalThis.ResizeObserver = class { observe() {} disconnect() {} };
+globalThis.ResizeObserver = CanvasObserver;   // (canvases report their box as a browser's observer does: tests/canvas-observer.js)
 const { createVitalsMonitor } = await import('../src/ui/vitals-monitor.js');
 await Promise.resolve();
 
