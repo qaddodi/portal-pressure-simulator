@@ -98,7 +98,8 @@ test('the glass and the words come in by the same keyframes, transform and opaci
 test('during motion the page changes only transform and opacity: no clip, no layout read, no glass resized; ?cardpage=0 off switch', () => {
   assert.match(presenter, /const CARD_PAGE = CARD_TURN && !\/\[\?&\]cardpage=0\\b\/\.test\(location\.search\);/);
   const pull = body('pullTo').slice(0, body('pullTo').indexOf('// (The words follow'));
-  assert.match(pull, /for \(const el of \[ui\.text, ui\.shade\]\)/, 'the glass and the words follow together');
+  assert.match(pull, /for \(const el of pageEls\(\)\)/, 'the glass and the words follow together');
+  assert.match(presenter, /const pageEls = \(\) => \(glassStays\(\) \? \[ui\.text\] : \[ui\.text, ui\.shade\]\);/, 'or the words alone in a glass that stays up');
   assert.doesNotMatch(pull + body('pullLet'), /clip|getBoundingClientRect|offset(Width|Height|Top|Left)/, 'the follow reads no layout and clips nothing');
   assert.match(presenter, /const turnRoom = \(\) => \{\n\s+if \(CARD_PAGE\) return /, 'no box read at the change');
   const i = css.indexOf('/* The teaching card as one page'), page = css.slice(i, css.indexOf('\n.', css.indexOf('[data-out="jump"]):not(.pz-leave)', i)));

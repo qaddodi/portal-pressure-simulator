@@ -13,6 +13,7 @@ import { finalFrameFor, readFrameFor, framePhase, cancelFrame, noteDraw } from '
 import { startProgram, checkProgram, compileDone, exerciseDraw, SHADER_WARM } from './gl-compile.js?v=e48e05cdb3';
 import { shiftOf, translateOf, motionAt, movesOnly } from './glass-motion.js?v=d367c59900';
 import { pathPolys, fanTriangles } from './path-poly.js?v=07f30beea9';
+import { easeArrive, D_SURFACE } from './ease.js?v=fc509dabe4';
 
 /** The CSS glass this draws (app.css .cl-glass: blur(16px) saturate(1.15) over 58 % of --surface). */
 export const GLASS = { blur: 16, sat: 1.15, tint: 0.58 };
@@ -129,9 +130,10 @@ export function gaussTaps(s, n = 12) {
 const QVS = `#version 300 es
 uniform vec4 uBox;    // left, top, width, height (device px, y down)
 uniform vec2 uView;
+uniform vec4 uGrow;   // how far the quad reaches past the box (left, top, right, bottom; device px): a card's own shadow, drawn here
 const vec2 Q[4] = vec2[4](vec2(0.0, 0.0), vec2(1.0, 0.0), vec2(0.0, 1.0), vec2(1.0, 1.0));
 void main() {
-  vec2 p = uBox.xy + Q[gl_VertexID] * uBox.zw;
+  vec2 p = uBox.xy - uGrow.xy + Q[gl_VertexID] * (uBox.zw + uGrow.xy + uGrow.zw);
   gl_Position = vec4(p.x / uView.x * 2.0 - 1.0, 1.0 - p.y / uView.y * 2.0, 0.0, 1.0);
 }`;
 // One pass of the blur (across, then down), over the small copy; texels outside it are its edge's.
@@ -167,6 +169,11 @@ uniform vec4 uShB;          // the shadow's box (device px, offset)
 uniform float uShS;         // its sigma (device px)
 uniform vec4 uRad;          // a card's corner radii (device px: top left, top right, bottom right, bottom left); its box is its shape (uMode 1)
 uniform int uMode;          // 0: the shape is the mask texture (a callout, the pane); 1: a rounded box, from uBox and uRad
+uniform vec4 uD0C, uD1C;    // a card's own drop shadows (its --gl-drop): colour (straight) and strength; .a 0: none
+uniform vec4 uD0B, uD1B;    // their boxes (device px: left, top, right, bottom; offset and spread)
+uniform vec2 uDS;           // their sigmas (device px)
+uniform vec4 uLine;         // a card's own 1 px edge (its --gl-line), straight; .a 0: none
+uniform float uLW;          // its width (device px)
 out vec4 o;
 // A rounded box's coverage at p (device px from its top left; wh its size): 1 inside, 0 outside, across one pixel at its edge, each
 // corner with its own radius (the signed distance to the box with that corner's radius; the CSS clips a backdrop to the border box).
@@ -183,7 +190,13 @@ float cover(float x, float a, float b, float s) { return 0.5 * (erfa((x - a) / (
 void main() {
   vec2 p = vec2(gl_FragCoord.x, uView.y - gl_FragCoord.y);
   float m = uMode == 1 ? boxCover(p - uBox.xy, uBox.zw, uRad) : texture(uMask, (p - uBox.xy) / uBox.zw * uMS).a;
-  if (m <= 0.0) discard;
+  // (A card's drop shadows, outside its box only, as the CSS draws a box-shadow: so the card's box, its edge and its shadow are one GPU
+  // shape that can change size in view with nothing of the page laid out again.)
+  float d0 = uD0C.a > 0.0 ? uD0C.a * cover(p.x, uD0B.x, uD0B.z, max(uDS.x, 0.5)) * cover(p.y, uD0B.y, uD0B.w, max(uDS.x, 0.5)) : 0.0;
+  float d1 = uD1C.a > 0.0 ? uD1C.a * cover(p.x, uD1B.x, uD1B.z, max(uDS.y, 0.5)) * cover(p.y, uD1B.y, uD1B.w, max(uDS.y, 0.5)) : 0.0;
+  float sa = 1.0 - (1.0 - d0) * (1.0 - d1);
+  vec3 sc = sa > 0.0 ? (uD0C.rgb * d0 * (1.0 - d1) + uD1C.rgb * d1) / sa : vec3(0.0);
+  if (m <= 0.0) { if (sa <= 0.001) discard; o = vec4(sc * sa, sa) * uA; return; }
   vec4 s = texture(uScene, clamp((p - uReg.xy) / uReg.zw, 0.0, 1.0));
   vec3 c = s.rgb + uBg * (1.0 - s.a);
   float k = uSat;
@@ -197,7 +210,11 @@ void main() {
     a = min(a, 0.9);
     c = clamp((c - uShC.rgb * a) / (1.0 - a), 0.0, 1.0);
   }
-  o = vec4(c, 1.0) * m * uA;
+  if (uMode == 1 && uLine.a > 0.0 && uLW > 0.0) {
+    float inner = boxCover(p - uBox.xy - uLW, uBox.zw - 2.0 * uLW, max(uRad - uLW, vec4(0.0)));
+    c = mix(c, uLine.rgb, uLine.a * (1.0 - inner));
+  }
+  o = (vec4(c, 1.0) * m + vec4(sc * sa, sa) * (1.0 - m)) * uA;
 }`;
 
 // The blur's and the glass's programs, linked in a context (the glass's own, or the figure's when it draws there: host).
@@ -215,7 +232,7 @@ function programsOf(gl) {
 function uniformsOf(gl, bprog, pprog) {
   const uni = (p, ks) => Object.fromEntries(ks.map((k) => [k, gl.getUniformLocation(p, k)]));
   const BU = uni(bprog, ['uBox', 'uView', 'uT', 'uDir', 'uW']);
-  const PU = uni(pprog, ['uBox', 'uView', 'uMS', 'uReg', 'uScene', 'uMask', 'uBg', 'uTint', 'uSat', 'uA', 'uBB', 'uShC', 'uShB', 'uShS', 'uRad', 'uMode']);
+  const PU = uni(pprog, ['uBox', 'uView', 'uMS', 'uReg', 'uScene', 'uMask', 'uBg', 'uTint', 'uSat', 'uA', 'uBB', 'uShC', 'uShB', 'uShS', 'uRad', 'uMode', 'uGrow', 'uD0C', 'uD1C', 'uD0B', 'uD1B', 'uDS', 'uLine', 'uLW']);
   return { bprog, pprog, BU, PU };
 }
 // Shader warm-up for the glass drawn in the figure's canvas (GPU practice, MDN "WebGL best practices": compile and link early, read the
@@ -355,6 +372,28 @@ function texOf(gl, filter) {
 // (What the glass reads from the page, read outside any frame and kept, its motion put back each frame from what it is given: measureGeo,
 // glass-motion.js. ?glassmotion=0: any write to a glass or what holds it reads the page again, its motion included.)
 const MOTION = typeof location === 'undefined' || !/[?&]glassmotion=0\b/.test(location.search);
+// (A card's own edge and drop shadows drawn with its glass on the GPU (--gl-line, --gl-drop), and its size eased there when the page asks
+// (data-gl-morph): Mohammad, 2 Nov 2026, "Do it" to review/slide-motion-recs-2nov (the glass stays up through a slide change and
+// changes size in view). ?gpuedge=0: the page draws them, and a glass jumps to a new size, as before.)
+const GPU_EDGE = typeof location === 'undefined' || !/[?&]gpuedge=0\b/.test(location.search);
+/** A --gl-drop value ("x y blur spread colour, ..." as written, var() substituted) as [{ x, y, blur, spread, c }] (CSS px), at most two. */
+export function dropsOf(v) {
+  const out = [];
+  let depth = 0, cur = '';
+  const parts = [];
+  for (const ch of v || '') { if (ch === '(') depth++; else if (ch === ')') depth--; if (ch === ',' && !depth) { parts.push(cur); cur = ''; } else cur += ch; }
+  if (cur.trim()) parts.push(cur);
+  for (const part of parts) {
+    const t = part.trim();
+    if (!t || /\binset\b/.test(t)) continue;
+    const m = /^((?:-?[\d.]+(?:px)?\s+){1,3}-?[\d.]+(?:px)?)\s+(.+)$/.exec(t);
+    if (!m) continue;
+    const n = m[1].trim().split(/\s+/).map(NUM);
+    out.push({ x: n[0] || 0, y: n[1] || 0, blur: n[2] || 0, spread: n[3] || 0, c: m[2].trim() });
+    if (out.length === 2) break;
+  }
+  return out;
+}
 export function createGlassGL(wrap, source, layers, { software = false, off = false, live = () => true, pane = null, cards = null, version = null, capture = null, onFigure = null, keep = null, due = null, copy = true, reblur = REBLUR_URL ? REBLUR_MS : 0, fresh = null, full = FULL_URL, onHoles = null } = {}) {
   if (HOLD_URL || reblur > 0) fresh = null;
   const look = pane ? PANE : GLASS;
@@ -422,6 +461,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     colours.set(k, v);
   }
   const colour = (str, fb) => colours.get((str || '').trim()) || parseColour((str || '').trim() || fb);
+  const markOf = new WeakMap();
   const unmark = () => { for (const g of marked) g.removeAttribute('data-gl'); marked.clear(); };
   const wanted = glassCheck(document, window);
   const glassesOf = () => (cards ? cards.find().filter((g) => g?.isConnected) : pane ? (pane.isConnected ? [pane] : []) : layers.flatMap((l) => [...l.getElementsByClassName('cl-glass')]));
@@ -557,7 +597,10 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
         if (cs.getPropertyValue('--gl-glass').trim() !== '1' || (cs.filter && cs.filter !== 'none')) continue;
         const r = g.getBoundingClientRect();
         if (!r.width || !r.height || !shows(a)) continue;
-        panes.push({ g, el, oa: 1, a, r, d: null, rad: radiiOf(cs), lw: r.width, lh: r.height, er: r, shadow: null, tint: cs.getPropertyValue('--gl-tint'), k: 1 });
+        // (A card's own edge and drop shadows, drawn here with its glass where its CSS names them (--gl-line, --gl-drop): the page's own
+        // are taken off while it is drawn here ([data-gl="edge"]), so the card is one GPU shape that may change size in view.)
+        const drops = GPU_EDGE ? dropsOf(cs.getPropertyValue('--gl-drop')) : [], line = GPU_EDGE ? cs.getPropertyValue('--gl-line').trim() : '';
+        panes.push({ g, el, oa: 1, a, r, d: null, rad: radiiOf(cs), lw: r.width, lh: r.height, er: r, shadow: null, tint: cs.getPropertyValue('--gl-tint'), k: 1, drops, line });
         continue;
       }
       const r = g.getBoundingClientRect(), lw = NUM(g.style.width), lh = NUM(g.style.height);
@@ -663,9 +706,27 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       G.uniform4f(U.uShC, ...(s ? s.c : [0, 0, 0, 0]));
       G.uniform4f(U.uShB, L + (s?.x || 0) * k - sp, T + (s?.y || 0) * k - sp, R + (s?.x || 0) * k + sp, B + (s?.y || 0) * k + sp);
       G.uniform1f(U.uShS, (s?.blur || 0) / 2 * k);
+      // (The card's own edge and drop shadows: --gl-line, --gl-drop. Their colours were read with the page: resolveColour.)
+      const ds = p.drops || [], lc = p.line ? colour(p.line, 'transparent') : [0, 0, 0, 0], edge = !!p.rad && (ds.length > 0 || lc[3] > 0);
+      let gl0 = 0, gt0 = 0, gr0 = 0, gb0 = 0;
+      for (let i = 0; i < 2; i++) {
+        const d = edge ? ds[i] : null, C = i ? U.uD1C : U.uD0C, Bx = i ? U.uD1B : U.uD0B;
+        if (!d) { G.uniform4f(C, 0, 0, 0, 0); continue; }
+        const c = colour(d.c, 'transparent'), sp = d.spread * k, reach = (d.blur * 1.5 + Math.max(0, d.spread)) * k;
+        G.uniform4f(C, c[0], c[1], c[2], c[3]);
+        G.uniform4f(Bx, bx + d.x * k - sp, by + d.y * k - sp, bx + p.r.width * k + d.x * k + sp, by + p.r.height * k + d.y * k + sp);
+        gl0 = Math.max(gl0, reach - d.x * k); gr0 = Math.max(gr0, reach + d.x * k); gt0 = Math.max(gt0, reach - d.y * k); gb0 = Math.max(gb0, reach + d.y * k);
+      }
+      G.uniform2f(U.uDS, (ds[0]?.blur || 0) / 2 * k, (ds[1]?.blur || 0) / 2 * k);
+      G.uniform4f(U.uGrow, gl0, gt0, gr0, gb0);
+      G.uniform4f(U.uLine, lc[0], lc[1], lc[2], edge ? lc[3] : 0);
+      G.uniform1f(U.uLW, k);
       G.drawArrays(G.TRIANGLE_STRIP, 0, 4);
-      // (Marked in the frame its glass is first drawn here: the browser's blur and this one never both show, nor neither.)
-      if (!p.g.hasAttribute('data-gl')) p.g.setAttribute('data-gl', '');
+      G.uniform4f(U.uGrow, 0, 0, 0, 0);
+      // (Marked in the frame its glass is first drawn here: the browser's blur and this one never both show, nor neither. "edge": its own
+      // edge and shadows are drawn here too, and the page's are taken off.)
+      const mk = edge ? 'edge' : '';
+      if (!p.g.hasAttribute('data-gl') || markOf.get(p.g) !== mk) { p.g.setAttribute('data-gl', mk); markOf.set(p.g, mk); }
       now.add(p.g);
     }
     if (final) settleMarks(now);
@@ -1061,6 +1122,17 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     }
     return { t: t || [0, 0], o };
   }
+  const sameRect = (a, b) => Math.abs(a.left - b.left) < 0.5 && Math.abs(a.top - b.top) < 0.5 && Math.abs(a.width - b.width) < 0.5 && Math.abs(a.height - b.height) < 0.5;
+  /** Where a card's box is drawn at time t, before its motion: its eased size (morph) or its box. */
+  function morphAt(q, t) {
+    const M = q.morph;
+    if (!M) return q.r0;
+    const u = Math.min(1, Math.max(0, (t - M.t0) / M.ms));
+    if (u >= 1) return q.r0;
+    const e = easeArrive(u), a = M.from, b = q.r0, L = a.left + (b.left - a.left) * e, T = a.top + (b.top - a.top) * e;
+    const W = a.width + (b.width - a.width) * e, H = a.height + (b.height - a.height) * e;
+    return { left: L, top: T, right: L + W, bottom: T + H, width: W, height: H };
+  }
   const shift = (r, t) => (t[0] || t[1] ? { left: r.left + t[0], top: r.top + t[1], right: r.right + t[0], bottom: r.bottom + t[1], width: r.width, height: r.height } : r);
   function chainMove(chain, flag) {
     let x = 0, y = 0, o = 1;
@@ -1083,8 +1155,11 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     const bg = colour(bgs, 'transparent');
     const bgVar = bg[3] > 0 ? '' : ws.getPropertyValue('--stage-bg').trim() || ws.getPropertyValue('--bg').trim();
     resolveColour(bgVar);
+    const prev = geo?.panes || [], tNow = performance.now();
     const panes = readPanes(list, MOTION).map((p) => {
       resolveColour(p.tint);
+      if (p.line) resolveColour(p.line);
+      for (const d of p.drops || []) resolveColour(d.c);
       const chain = chainOf(p.g);
       for (const e of chain) { const so = e.style?.opacity; if (so !== '' && so != null && ![...(anims.get(e)?.keys() || [])].some((an) => an.playState === 'running') && Math.abs(fadeOf(e) - NUM(so)) > 0.01) inlineLoses.add(e); else inlineLoses.delete(e); }
       const mv = chainMove(chain, flag);
@@ -1092,7 +1167,20 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       let aS = p.oa ?? 1;
       for (const e of chain) { if (moveOf(e, flag).o != null) continue; const v = fadeOf(e); if (v < 1) aS *= v; }   // (a missing or odd value is no fade)
       const back = [-mv.t[0], -mv.t[1]];
-      return { ...p, chain, r0: shift(p.r, back), er0: shift(p.er, back), aS };
+      const r0 = shift(p.r, back), er0 = shift(p.er, back);
+      // (A card the page asks to change size in view (data-gl-morph: the teaching card's glass kept up through a slide change) eases from
+      // where it is drawn now to its new box on the GPU, its edge and shadows with it; read again mid-way, it carries on from there.)
+      let morph = null;
+      if (GPU_EDGE && p.rad && !p.d) {
+        const q = prev.find((x) => x.g === p.g && x.rad && !x.d);
+        if (q) {
+          const cur = morphAt(q, tNow);
+          if (p.g.hasAttribute('data-gl-morph') && !sameRect(cur, r0)) morph = { from: cur, t0: tNow, ms: D_SURFACE };
+          else if (q.morph && tNow - q.morph.t0 < q.morph.ms && sameRect(q.r0, r0)) morph = q.morph;
+        }
+      }
+      if (morph) liveUntil = Math.max(liveUntil, morph.t0 + morph.ms + 34);
+      return { ...p, chain, r0, er0, aS, morph };
     });
     const over = host ? (cards ? { low: host.over?.('low') || [], high: host.over?.('high') || [] } : { all: host.over?.() || [] }) : null;
     geo = { list, cr0: shift(cr, [-cm.t[0], -cm.t[1]]), tgt, sr: source.getBoundingClientRect(), vw, vh, bgs, bg, bgVar, panes, over, vk: host?.view?.() ?? null };
@@ -1138,6 +1226,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       if (!p.g.isConnected) continue;
       const mv = chainMove(p.chain, flag), a = p.aS * mv.o;
       if (!(a > 0.001)) continue;
+      if (p.morph) { const m0 = shift(morphAt(p, performance.now()), mv.t); panes.push({ ...p, r: m0, er: m0, a }); continue; }
       panes.push({ ...p, r: shift(p.r0, mv.t), er: shift(p.er0, mv.t), a });
     }
     if (flag.bad || flag.ended) measureSoon();

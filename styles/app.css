@@ -6599,6 +6599,11 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 :root:root .pz.pz-wide.pz-wide .pz-data.pz-sheet:not([data-gl])::before, :root:root .pz.pz-wide.pz-wide .pz-data.pz-sheet:not([data-gl])::after { background: var(--surface); }
 :root:root :is(.lz-lab, .lz-zone, .sv-region):not([data-gl])::before { background: color-mix(in srgb, var(--term-c, var(--accent)) 18%, var(--surface)) !important; }
 :root:root .pz-shade { will-change: transform; }
+/* The teaching card's own edge and drop shadows, drawn with its glass on the GPU (glass-gl.js --gl-line, --gl-drop; ?gpuedge=0 off): the same
+   as its border and box-shadow above, which are taken off while the GPU draws them ([data-gl="edge"]), so the glass, its edge and its
+   shadow are one shape that can change size in view, kept up through a slide change (Mohammad, 2 Nov 2026: "Do it", the slide motion recs). */
+.pz-shade.stack, .pz-shade.pz-card:not(.stack) { --gl-drop: 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); --gl-line: color-mix(in srgb, var(--text) 22%, transparent); }
+:root:root .pz-shade.pz-shade[data-gl="edge"] { box-shadow: none !important; border-color: transparent !important; }
 /* The figure key: a small pill, its name with the colour scale under it (no "None" or "Large" words; a key of named swatches keeps its names). */
 .pz-fk.grad, .pz-fk.grad.col { flex-direction: column; align-items: center; gap: .2em; padding: .28em 14px .34em; font-size: max(12px, calc(var(--s-cap) * .78)); }   /* (the 12 px floor: a key's words had read 11 px, and 10 here) */
 .pz-fk.grad .pz-lens-bar { width: 4em; height: .5em; }

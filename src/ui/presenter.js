@@ -1795,7 +1795,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // (No delay on the glass's own fade either, so it never runs on after the keyframes end and dips: app.css gives it .12s.)
       if (QUICK_SLIDE && ui.shade.style.transitionDelay !== '0s') ui.shade.style.transitionDelay = '0s';
       turnAnim = t.animate?.(frames, how) || null;
-      shadeAnim = ui.shade.animate?.(frames, how) || null;
+      shadeAnim = stayTurn || ui.shade.classList.contains('pz-turn') ? null : ui.shade.animate?.(frames, how) || null;   // (a glass kept up does not come in again)
       return;
     }
     turnAnim = t.animate?.([{ transform: from, opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: D_SURFACE, delay: 120, easing: EASE_ARRIVE, fill: 'backwards' });
@@ -1816,6 +1816,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   let pageHeld = null;
   // (The teaching card's shade drawn by the cards' GPU glass, as every other card: see createPresenter's cardGlass. ?shadegl=0 keeps it on the browser's blur.)
   const SHADE_GL = !/[?&]shadegl=0\b/.test(location.search);
+  // The glass stays (Mohammad, 2 Nov 2026: "Do it" to review/slide-motion-recs-2nov): on a slide change the teaching card's glass is never
+  // taken down and put up again. Only its words page out and in; the glass changes to the new words' size in view, on the GPU (glass-gl.js
+  // data-gl-morph, its edge and shadows drawn there too), and its tabs ride along by transform. Only where the GPU draws that glass, its
+  // edge and shadow ([data-gl="edge"]); elsewhere the card leaves and comes back whole, as before. ?glassstay=0: as before.
+  const GLASS_STAY = CARD_PAGE && SHADE_GL && !/[?&]glassstay=0\b/.test(location.search);
+  const glassStays = () => GLASS_STAY && !!ui && ui.shade.getAttribute('data-gl') === 'edge';
+  let stayTurn = false;
+  const pageEls = () => (glassStays() ? [ui.text] : [ui.text, ui.shade]);
   let shadeAnim = null, pageForce = false;   // (the glass's entrance; pageForce: a swipe the card followed out, so its words leave even if the next slide's are the same)
   const lastBeat = (i) => beatCount(slides[i]) - 1;
   function go(i) {
@@ -2042,7 +2050,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     ui?.root.classList.add('pz-prep');
     // (A catheter slide comes in at once: its teaching card carries the live tracing, which stays on screen through the
     // measurement while the catheter drives the camera.)
-    bare = !booting && !!ui && !ct;
+    bare = !booting && !!ui && !ct && !(stayTurn && !swap && !caseCard);   // (a glass kept up is never left empty while the camera moves: its new words come in at once)
     wordsIn(s, said, to, swap, lap, st);
     // (Bare, the teaching card and its glass stay out whole until the camera has landed, never an empty card first. Behind a case
     // card they also stay out until it is lifted, a catheter slide's included: its words would otherwise come in under the case.)
@@ -2237,17 +2245,36 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const monKept = !!mon && !!s.monitor && !s.visual && mon.el.parentNode === ui.text;
     const on = CARD_TURN && up && !booting && !reduce.matches && (CARD_PAGE ? pageOn({ up, caseCard: !!caseCard, monKept }) : !s.cath && !s.monitor && !caseCard);
     turnNow = on ? turn : '';
+    stayTurn = on && glassStays();
     if (on) ui.text.style.setProperty('--pz-turn-d', `${turnRoom().toFixed(1)}px`);
     if (!on) turnIn = false;   // (a slide that keeps its words, or leaves whole, never fires a stale entrance)
     clearTimeout(glassT);
     setTurn(on);
   }
+  // A glass kept up through a slide change eases to its new size on the GPU (glass-gl.js data-gl-morph, D_SURFACE, the arrival curve); the
+  // tabs on it (the deck's, the level's) and its credit ride along by transform from where they stood, on the same clock and curve: those
+  // at its top by the change of its top, the credit at its foot by the change of its foot. Nothing is read from the layout: the old and
+  // new places are the glass's own top and height as written.
+  function shadeRide(was) {
+    const nt = parseFloat(ui.shade.style.top), nh = parseFloat(ui.shade.style.height);
+    if (!Number.isFinite(was.top) || !Number.isFinite(nt)) return;
+    const dTop = was.top - nt, dFoot = Number.isFinite(was.h) && Number.isFinite(nh) ? was.top + was.h - (nt + nh) : 0;
+    for (const c of ui.shade.children) {
+      const d = c.classList.contains('pz-cred') ? dFoot : dTop;
+      if (Math.abs(d) > 0.5) c.animate?.([{ transform: `translateY(${d.toFixed(1)}px)` }, { transform: 'translateY(0)' }], { duration: D_SURFACE, easing: EASE_ARRIVE, composite: 'add' });
+    }
+  }
   function setTurn(on) {
     if (!ui) return;
     // (The glass itself always leaves and comes back with the words, never resized in view: easing a blurred glass's size made iPhone
     // Safari redraw its backdrop every frame (the camera's glide ran at a few frames a second) and drop it at once, Mohammad, 1 Nov.)
-    ui.root.classList.toggle('pz-turn', on); ui.shade.classList.remove('pz-turn'); ui.shade.classList.toggle('pz-turnfade', on);
-    ui.shade.classList.toggle('pz-leave', ui.text.classList.contains('pz-leave'));
+    // (The glass kept up, stayTurn: pz-turn on it keeps it out of the words' leave (the class observer, below), and data-gl-morph has the GPU
+    // ease it to the new words' size.)
+    if (!on) stayTurn = false;
+    const stay = on && stayTurn;
+    ui.root.classList.toggle('pz-turn', on); ui.shade.classList.toggle('pz-turn', stay); ui.shade.classList.toggle('pz-turnfade', on && !stay);
+    if (stay) ui.shade.setAttribute('data-gl-morph', ''); else ui.shade.removeAttribute('data-gl-morph');
+    ui.shade.classList.toggle('pz-leave', !stay && ui.text.classList.contains('pz-leave'));
   }
   // (Once a move has landed, the glass's eases are let finish (its size: the camera's step at most) before they are switched off again,
   // so a resize or a turn of the device later moves it at once, as before; switched off mid-ease, a transition would jump to its end.)
@@ -2274,7 +2301,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const leaving = !dataOut && !out.some((el) => !el.hidden && el.childElementCount && !(keep && el === ui.text ? [...el.children].every((c) => c === mon.el || c.classList.contains('pz-leave')) : el.classList.contains('pz-leave')));
     const fading = leaving ? fadeLeft([...out, data, ui.scl, ui.shade]) : 0;
     if (!keepNow.text) ui.text.dataset.out = turnNow;   // (set with the leave, in the same style change, so the words go the right way at once)
-    if (!keepNow.text && CARD_PAGE) {
+    if (!keepNow.text && CARD_PAGE && !stayTurn) {
       // (The glass goes the same way and the same distance as its words, as one card.)
       ui.shade.dataset.out = turnNow;
       const d = ui.text.style.getPropertyValue('--pz-turn-d');
@@ -3903,6 +3930,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const L = t ? t.right - wr.left : 0, B = t ? H - ui.text.offsetTop * k : 0;
     // (The words' card: as far past the words on the right as its left edge is before them.)
     const card = cardOn && t ? L + pad - sl : 0;
+    const was = { top: parseFloat(ui.shade.style.top), h: parseFloat(ui.shade.style.height) };   // (a glass kept up: its tabs ride its change of size, below)
     ui.shade.style.width = !p && t ? `${(card || L + 36) / k}px` : '';
     ui.shade.style.height = !p && cardOn && t ? `${(t.height + pad + padT) / k}px` : '';
     // (A phone's glass reaches 16 px above the words, or the deck's tab and 8 px more: the tab never meets the title.)
@@ -3915,6 +3943,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const lf = (parseFloat(ui.text.style.getPropertyValue('--pz-rise')) || 0) * k;
     ui.shade.style.top = p && t ? `${ui.text.offsetTop - lift}px` : cardOn && t ? `${(t.top - wr.top - padT + lf) / k}px` : '';
     ui.shade.style.opacity = t ? '1' : '0';
+    if (ui.shade.hasAttribute('data-gl-morph')) shadeRide(was);
     ui.safe.hidden = !t;
     ui.safe.dataset.safe = p ? 'bottom' : 'left';
     frameL = !p && t ? (card ? sl + card + 24 : L + 48) : 0;
@@ -4766,7 +4795,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // (The page: the glass and the words follow as one card, transform and opacity only, nothing read from the layout.)
       const f = followOf(dx);
       pull.x = f.x; pull.o = f.o;
-      for (const el of [ui.text, ui.shade]) { el.style.transition = 'none'; el.style.transform = `translateX(${f.x.toFixed(1)}px)`; el.style.opacity = f.o.toFixed(3); }
+      for (const el of pageEls()) { el.style.transition = 'none'; el.style.transform = `translateX(${f.x.toFixed(1)}px)`; el.style.opacity = f.o.toFixed(3); }
       return;
     }
     // (The words follow the finger the whole way, never stopping: their move eases toward the room they have inside the glass (never past
@@ -4787,7 +4816,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // (Let go: the card goes on out from where the finger left it, the glass and words together (their leave starts from the inline
       // values, dropped in the same style change; further than the leave's own way, it carries on from there), or, the swipe given up,
       // both ease back from there.)
-      const els = [ui.text, ui.shade], o = g.o ?? 1, out = gone && ui.text.classList.contains('pz-leave');
+      const els = pageEls(), o = g.o ?? 1, out = gone && ui.text.classList.contains('pz-leave');
       if (SWIPE_HAND && gone && busy && !out) {
         // (The slide is on its way: held here until its leave comes (wordsOut, pageHand); one that never comes eases back.)
         clearTimeout(pageHeld?.t);

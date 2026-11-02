@@ -124,7 +124,8 @@ test('Callout glass kept: the page is read in one place, with each moving part t
   assert.match(m, /const cr = tgt \? tgt\.getBoundingClientRect\(\)/);
   assert.match(m, /const panes = readPanes\(list, MOTION\)/);
   assert.match(m, /const ws = getComputedStyle\(wrap\), bgs = ws\.backgroundColor;\n\s+resolveColour\(bgs\);\n\s+const bg = colour\(bgs, 'transparent'\);/);
-  assert.match(m, /r0: shift\(p\.r, back\), er0: shift\(p\.er, back\)/, 'the boxes kept without their glide');
+  assert.match(m, /const r0 = shift\(p\.r, back\), er0 = shift\(p\.er, back\);/, 'the boxes kept without their glide');
+  assert.match(m, /return \{ \.\.\.p, chain, r0, er0, aS, morph \};/);
   assert.match(m, /sr: source\.getBoundingClientRect\(\)/);
   const d = g.slice(g.indexOf('  function draw() {'));
   assert.match(d, /take\(\{ x: x0, y: y0, w: x1 - x0, h: y1 - y0 \}, cr, N\.sr\);/, 'the figure copy from the kept boxes');

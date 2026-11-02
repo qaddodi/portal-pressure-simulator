@@ -28,7 +28,7 @@ test('the words move no further than the room inside the glass, and nothing is c
 });
 
 test('the glass fades in place on the words’ own curve on a turn', () => {
-  assert.match(body('setTurn'), /ui\.shade\.classList\.toggle\('pz-turnfade', on\)/);
+  assert.match(body('setTurn'), /ui\.shade\.classList\.toggle\('pz-turnfade', on && !stay\)/, 'unless the glass stays up (GLASS_STAY)');
   assert.match(css, /\.pz-turnfade:is\(\.pz-card, \.stack\) \{ transform: none; \}/);
   assert.match(css, /\.pz-turnfade:is\(\.pz-card, \.stack\)\.pz-leave \{ transition-timing-function: var\(--ease-in\)/);
   assert.match(css, /\.pz-turnfade:is\(\.pz-card, \.stack\):not\(\.pz-leave\) \{ transition-timing-function: var\(--ease-arrive\)/);
