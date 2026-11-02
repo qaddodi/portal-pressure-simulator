@@ -127,6 +127,28 @@ test('the packed bands are the bands fibrousBand draws: the same points, widths,
   void fibrousBand; void fibrousCuff; void bands;
 });
 
+test('the items and the texels are written in place: one list and one texel object come back, tissue-gl sends them again by `ver`, a call of the same radii and tissue changes nothing', async () => {
+  const { buildItems, buildDyn } = await import('../src/ui/lobule-live.js');
+  const sh = { ...shape, rt: 14, rcv0: 12, septaPC: [0, 2, 4].map((i) => ({ pts: [corners[i], [cx, cy]] })) };
+  const o = { col: [0.8, 0.7, 0.5], dark: false, cvIn: 9 };
+  const i1 = buildItems(sh, { septU: 0.8, fibPre: 0.8, fibPost: 0.8 }, o), v1 = i1.ver;
+  assert.equal(buildItems(sh, { septU: 0.8, fibPre: 0.8, fibPost: 0.8 }, o), i1);
+  assert.equal(i1.ver, v1, 'the same tissue: nothing made again');
+  const d1 = buildDyn(sh, [1, 2], i1), dv = d1.ver;
+  const i2 = buildItems(sh, { septU: 0.5, fibPre: 0.8, fibPost: 0.8 }, o);
+  assert.equal(i2, i1, 'the same list, written over');
+  assert.ok(i2.ver > v1, 'and its version moved');
+  const d2 = buildDyn(sh, [1, 2], i2);
+  assert.equal(d2, d1, 'the same texel object');
+  assert.ok(d2.ver > dv, 'with a new version');
+  const v2 = d2.ver;
+  assert.equal(d2.nItems, i2.length, 'built from the new list');
+  const d3 = buildDyn(sh, [3, 4], i2), kk = d3.k;
+  assert.equal(d3, d1);
+  assert.equal(d3.k, kk, 'a change of the radii alone writes the same array');
+  assert.ok(d3.ver > v2 && d3.k[0] === 3 && d3.k[1] === 4);
+});
+
 // ── The lobule is drawn live wherever it can be: no setting (Mohammad, 31 Oct: "Lobule always live no switch needed") ──
 const uiSrc = (f) => readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf8');
 

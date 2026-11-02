@@ -217,6 +217,18 @@ export function bandOutline(c, P, N, Wd, k, kEnd = k) {
 /** Half the band's width at point i of n: the pass's factor k in the middle, narrowing to kEnd over the last quarter at each end. */
 function bandHalf(Wd, i, n, k, kEnd) { const t = Math.min(1, Math.min(i, n - i) / n * 4), e = t * t * (3 - 2 * t); return Wd[i] * (kEnd + (k - kEnd) * e) / 2; }
 function bandAng(N, i) { return Math.atan2(N[i][1], N[i][0]); }
+/** bandOutline for a band made by bandGeomInto: P and N are flat (x, y pairs), Wd its widths (one a point). */
+export function bandOutlineFlat(c, P, N, Wd, k, kEnd = k) {
+  const n = Wd.length - 1;
+  c.beginPath();
+  for (let i = 0; i <= n; i++) { const h = bandHalf(Wd, i, n, k, kEnd); c[i ? 'lineTo' : 'moveTo'](P[2 * i] + N[2 * i] * h, P[2 * i + 1] + N[2 * i + 1] * h); }
+  // (From +N round to -N through the tangent's direction: the cap bulges past the end, never back over the band.)
+  c.arc(P[2 * n], P[2 * n + 1], bandHalf(Wd, n, n, k, kEnd), bandAngFlat(N, n), bandAngFlat(N, n) - Math.PI, true);
+  for (let i = n; i >= 0; i--) { const h = bandHalf(Wd, i, n, k, kEnd); c.lineTo(P[2 * i] - N[2 * i] * h, P[2 * i + 1] - N[2 * i + 1] * h); }
+  c.arc(P[0], P[1], bandHalf(Wd, 0, n, k, kEnd), bandAngFlat(N, 0) + Math.PI, bandAngFlat(N, 0), true);
+  c.closePath();
+}
+function bandAngFlat(N, i) { return Math.atan2(N[2 * i + 1], N[2 * i]); }
 
 // A dive aimed at a station draws the lobule's layers over its whole box (lobule-zoom.js, padBox): the box around the lobule's
 // centre (x, y) out to r, past the screen W × H wherever it reaches beyond it, or null when the lobule is on screen already.

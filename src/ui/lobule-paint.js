@@ -3,15 +3,16 @@
 // in it: it draws through a 2D-context API that paint-gl.js records and the GPU paints (1 Nov 2026, nothing off the GPU), from
 // the same plain values (the view's worldInput).
 
-import { cordToneInto, bandOutline } from './lobule-look.js?v=66ed33f179';
+import { cordToneInto, bandOutlineFlat } from './lobule-look.js?v=3667e190ae';
 
 const TAU = Math.PI * 2;
 const TONE = [0, 0, 0];   // (a cell's tone, written anew for each cell and read at once)
 const lerp = (a, b, t) => a + (b - a) * t;
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));   // (as util.js clamp)
-function at(pts, u) {
-  const f = clamp(u, 0, 1) * (pts.length - 1), i = Math.min(pts.length - 2, Math.floor(f)), t = f - i;
-  return [lerp(pts[i][0], pts[i + 1][0], t), lerp(pts[i][1], pts[i + 1][1], t)];
+// A band's centre line along the septum's points o.pts, written into out (the `path` of a band's options: (o, u, out)).
+function septumPath(o, u, out) {
+  const pts = o.pts, f = clamp(u, 0, 1) * (pts.length - 1), i = Math.min(pts.length - 2, Math.floor(f)), t = f - i;
+  out[0] = lerp(pts[i][0], pts[i + 1][0], t); out[1] = lerp(pts[i][1], pts[i + 1][1], t);
 }
 export const css = (a, al = 1) => `rgba(${Math.round(a[0] * 255)},${Math.round(a[1] * 255)},${Math.round(a[2] * 255)},${al})`;
 
@@ -108,28 +109,33 @@ export function bandNucleus(g, seed, k, w) {
   const i = Math.min(n - 1, Math.max(1, Math.round(fibHash(seed * 41 + k) * n))), h = Wd[i] * (fibHash(seed * 43 + k) - 0.5) * 0.7;
   return { x: P[i][0] + N[i][0] * h, y: P[i][1] + N[i][1] * h, rx: Math.max(0.8, w * 0.16), ry: Math.max(0.35, w * 0.045), ang: Math.atan2(N[i][0], -N[i][1]) };
 }
-export function fibrousBand(c, A, B, { w, rgb, a = 1, seed = 0, e0 = 1.5, e1 = 1.5, amp = 0, detail = 1, path = null }) {
-  const g = bandGeom(A, B, { w, seed, e0, e1, amp, path }), { n, P, N, Wd } = g;
+// The band being drawn, kept: its geometry (flat), a fibre and a nucleus, the two passes' fibre colours, and the points of a bundle's ends.
+const GB = { P: new Float64Array(54), N: new Float64Array(54), Wd: new Float64Array(27), n: 26, L0: 1 };
+const FB = { off: 0, fp: 0, wav: 0, iA: 0, iB: 0, lw: 0, deep: false }, NB = { x: 0, y: 0, rx: 0, ry: 0, ang: 0 };
+const LITE = [0, 0, 0], DEEP = [0, 0, 0], DEEP_K = [0.78, 0.74, 0.7], PASS_K = [2.1, 1.45, 1], PASS_A = [0.12, 0.24, 0.5];
+const BA = [0, 0], BB = [0, 0];
+/** o: { w, rgb, a, seed, e0, e1, amp, detail, path } as before, but a `path` is (o, u, out): it writes the centre line's point at u into out. */
+export function fibrousBand(c, A, B, o) {
+  const { w, rgb, a = 1, seed = 0, detail = 1 } = o, g = bandGeomInto(GB, A, B, o, o.path || null), n = g.n, P = g.P, N = g.N, Wd = g.Wd;
   // (Round ends, so bands meeting at a tract blend; the widest, faintest pass narrows to the middle one's width at the
   // ends, so it leaves no outer halo round the tract.)
-  const outline = (k) => bandOutline(c, P, N, Wd, k, Math.min(k, 1.45));
   // Soft edges: the band laid down in three passes, wide and faint to narrow and dense.
   const sb = c.shadowBlur;   // a shade (set by the caller) is cast by the faint outer pass only
-  for (const [k, al] of [[2.1, 0.12], [1.45, 0.24], [1, 0.5]]) { c.fillStyle = css(rgb, al * a); outline(k); c.fill(); c.shadowBlur = 0; }
+  for (let q = 0; q < 3; q++) { const k = PASS_K[q]; c.fillStyle = css(rgb, PASS_A[q] * a); bandOutlineFlat(c, P, N, Wd, k, Math.min(k, 1.45)); c.fill(); c.shadowBlur = 0; }
   c.shadowBlur = sb;
   if (detail <= 0 || w < 1.2) return;
   // Fibres: thin wavy strands along the band, some brighter, some deeper.
-  const lite = rgb.map((x) => x + (1 - x) * 0.45), deep = rgb.map((x, j) => x * [0.78, 0.74, 0.7][j]);
+  for (let j = 0; j < 3; j++) { LITE[j] = rgb[j] + (1 - rgb[j]) * 0.45; DEEP[j] = rgb[j] * DEEP_K[j]; }
   const nf = bandFibreCount(w, detail);
   c.lineCap = 'round'; c.shadowBlur = 0;
   for (let f = 0; f < nf; f++) {
-    const { off, fp, wav, iA, iB, lw, deep: isDeep } = bandFibre(seed, f, w, n);
-    c.strokeStyle = css(isDeep ? deep : lite, (isDeep ? 0.32 : 0.55) * a);
+    const { off, fp, wav, iA, iB, lw, deep: isDeep } = bandFibreInto(FB, seed, f, w, n);
+    c.strokeStyle = css(isDeep ? DEEP : LITE, (isDeep ? 0.32 : 0.55) * a);
     c.lineWidth = lw;
     c.beginPath();
     for (let i = iA; i <= iB; i++) {
       const u = i / n, h = Wd[i] * (off + wav * Math.sin(TAU * 4 * u + fp));
-      c[i === iA ? 'moveTo' : 'lineTo'](P[i][0] + N[i][0] * h, P[i][1] + N[i][1] * h);
+      c[i === iA ? 'moveTo' : 'lineTo'](P[2 * i] + N[2 * i] * h, P[2 * i + 1] + N[2 * i + 1] * h);
     }
     c.stroke();
   }
@@ -138,7 +144,7 @@ export function fibrousBand(c, A, B, { w, rgb, a = 1, seed = 0, e0 = 1.5, e1 = 1
   const nn = bandNucleiCount(g, w, detail);
   c.fillStyle = tk('--lz-shade', 0.32 * a);
   for (let k = 0; k < nn; k++) {
-    const { x, y, rx, ry, ang } = bandNucleus(g, seed, k, w);
+    const { x, y, rx, ry, ang } = bandNucleusInto(NB, g, seed, k, w);
     c.beginPath(); c.ellipse(x, y, rx, ry, ang, 0, TAU); c.fill();
   }
   c.shadowBlur = sb;
@@ -149,6 +155,12 @@ export const scarGrowth = (fibrosis) => clamp(fibrosis, 0, 1) ** 1.1;
 
 // Portal fibrosis has a compact circular footprint with interwoven collagen inside.
 // Cached with the tissue; fixed seeds keep the texture still as pressure changes.
+// A tract's bundle k: its options (kept) and its centre line in the tract's own frame (rx, ry: the tract's radius), written into out.
+const TRACT_O = { w: 0, rgb: null, a: 1, e0: 0.2, e1: 0.25, seed: 0, detail: 1, path: tractPath, a0: 0, span: 0, r0: 0, phase: 0, rx: 0, ry: 0 };
+function tractPath(o, u, out) {
+  const a = o.a0 + o.span * u, r = o.r0 + 0.09 * Math.sin(5 * a + o.phase) + 0.12 * Math.sin(Math.PI * u);
+  out[0] = Math.cos(a) * o.rx * r; out[1] = Math.sin(a) * o.ry * r;
+}
 export function fibrousTract(c, x, y, radius, angle, rgb, fibrosis, seed, detail = 1) {
   c.save(); c.translate(x, y); c.rotate(angle);
   const rx = radius, ry = radius;
@@ -156,46 +168,44 @@ export function fibrousTract(c, x, y, radius, angle, rgb, fibrosis, seed, detail
   c.beginPath(); c.arc(0, 0, radius, 0, TAU);
   c.fillStyle = css(rgb, fibrosis * 0.24); c.fill(); c.clip();
   // Broken curving bundles cross each other instead of forming a circular halo.
-  const count = Math.round(10 * detail);
+  const count = Math.round(10 * detail), o = TRACT_O;
   for (let k = 0; k < count; k++) {
-    const sd = seed + k * 37, a0 = fibHash(sd) * TAU;
-    const span = 1.2 + 2 * fibHash(sd + 1), r0 = 0.25 + 0.65 * fibHash(sd + 2);
-    const path = (u) => {
-      const a = a0 + span * u;
-      const r = r0 + 0.09 * Math.sin(5 * a + phase) + 0.12 * Math.sin(Math.PI * u);
-      return [Math.cos(a) * rx * r, Math.sin(a) * ry * r];
-    };
-    fibrousBand(c, path(0), path(1), {
-      w: radius * (0.08 + 0.085 * fibrosis) * (0.7 + fibHash(sd + 3)),
-      rgb, a: Math.min(1, fibrosis * (0.75 + 0.35 * fibHash(sd + 4))),
-      e0: 0.2, e1: 0.25, seed: sd, path, detail,
-    });
+    const sd = seed + k * 37;
+    o.a0 = fibHash(sd) * TAU; o.span = 1.2 + 2 * fibHash(sd + 1); o.r0 = 0.25 + 0.65 * fibHash(sd + 2); o.phase = phase; o.rx = rx; o.ry = ry;
+    o.w = radius * (0.08 + 0.085 * fibrosis) * (0.7 + fibHash(sd + 3)); o.rgb = rgb; o.a = Math.min(1, fibrosis * (0.75 + 0.35 * fibHash(sd + 4))); o.seed = sd; o.detail = detail;
+    tractPath(o, 0, BA); tractPath(o, 1, BB);
+    fibrousBand(c, BA, BB, o);
   }
   c.restore();
 }
 
 // Perivenular collagen: overlapping curved bundles rather than a smooth, solid disc.
 // Like the bridging bands, this texture is painted only into the cached tissue bitmap.
+// A collar's bundle: its options (kept) and its centre line round (cx, cy), written into out.
+const CUFF_O = { w: 0, rgb: null, a: 1, e0: 0.45, e1: 0.5, seed: 0, path: cuffPath, cx: 0, cy: 0, a0: 0, span: 0, r0: 0, th: 0 };
+function cuffPath(o, u, out) {
+  const a = o.a0 + o.span * u, r = o.r0 + o.th * 0.1 * Math.sin(a * 5 + fibHash(o.seed + 5) * TAU);
+  out[0] = o.cx + Math.cos(a) * r; out[1] = o.cy + Math.sin(a) * r;
+}
+// The collar's wavy outer edge and its inner circle, as one path on c (drawn evenodd).
+function cuffAnnulus(c, cx, cy, inner, outer) {
+  c.beginPath();
+  for (let i = 0; i <= 80; i++) {
+    const a = TAU * i / 80, r = outer * (1 + 0.035 * Math.sin(3 * a) + 0.025 * Math.sin(7 * a + 0.8));
+    c[i ? 'lineTo' : 'moveTo'](cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+  }
+  c.closePath(); c.moveTo(cx + inner, cy); c.arc(cx, cy, inner, 0, TAU); c.closePath();
+}
 export function fibrousCuff(c, cx, cy, inner, outer, rgb, fibrosis) {
-  const annulus = () => {
-    c.beginPath();
-    for (let i = 0; i <= 80; i++) {
-      const a = TAU * i / 80, r = outer * (1 + 0.035 * Math.sin(3 * a) + 0.025 * Math.sin(7 * a + 0.8));
-      c[i ? 'lineTo' : 'moveTo'](cx + Math.cos(a) * r, cy + Math.sin(a) * r);
-    }
-    c.closePath(); c.moveTo(cx + inner, cy); c.arc(cx, cy, inner, 0, TAU); c.closePath();
-  };
   c.save();
-  annulus(); c.fillStyle = css(rgb, 0.4 * fibrosis); c.fill('evenodd'); c.clip('evenodd');
-  const thickness = outer - inner;
+  cuffAnnulus(c, cx, cy, inner, outer); c.fillStyle = css(rgb, 0.4 * fibrosis); c.fill('evenodd'); c.clip('evenodd');
+  const thickness = outer - inner, o = CUFF_O;
   for (let ring = 0; ring < 3; ring++) for (let k = 0; k < 6; k++) {
-    const seed = 211 + ring * 17 + k, a0 = TAU * k / 6 + ring * 0.27;
-    const span = TAU / 6 * (1.2 + 0.5 * fibHash(seed)), r0 = inner + thickness * (0.18 + ring * 0.3);
-    const path = (u) => {
-      const a = a0 + span * u, r = r0 + thickness * 0.1 * Math.sin(a * 5 + fibHash(seed + 5) * TAU);
-      return [cx + Math.cos(a) * r, cy + Math.sin(a) * r];
-    };
-    fibrousBand(c, path(0), path(1), { w: thickness * 0.34, rgb, a: Math.min(1, 1.0 * fibrosis), e0: 0.45, e1: 0.5, seed, path });
+    const seed = 211 + ring * 17 + k;
+    o.cx = cx; o.cy = cy; o.a0 = TAU * k / 6 + ring * 0.27; o.span = TAU / 6 * (1.2 + 0.5 * fibHash(seed)); o.r0 = inner + thickness * (0.18 + ring * 0.3); o.th = thickness;
+    o.w = thickness * 0.34; o.rgb = rgb; o.a = Math.min(1, 1.0 * fibrosis); o.seed = seed;
+    cuffPath(o, 0, BA); cuffPath(o, 1, BB);
+    fibrousBand(c, BA, BB, o);
   }
   c.restore();
 }
@@ -303,7 +313,7 @@ export function paintLobule(c, P) {
     if (su > 0.18) {
       const g = Math.min(1, (su - 0.18) / 0.4);
       G.septaPC.forEach((sp, k) => { const P = sp.pts, q = P.length - 1;
-        fibrousBand(c, P[0], P[q], { w: w * (0.6 + 0.3 * g), rgb: COL, a: 0.45 + 0.5 * g, e1: 0.9, seed: 31 + k, path: (u) => at(P, u) }); });
+        fibrousBand(c, P[0], P[q], { w: w * (0.6 + 0.3 * g), rgb: COL, a: 0.45 + 0.5 * g, e1: 0.9, seed: 31 + k, pts: P, path: septumPath }); });
       if (su > 0.6) [1, 3, 5].forEach((i, k) => { const A = crn[i], t = 0.25 + 0.3 * Math.min(1, (su - 0.6) / 0.3);
         fibrousBand(c, A, [lerp(A[0], cx, t), lerp(A[1], cy, t)], { w: w * 0.55, rgb: COL, a: 0.6, e1: 0.15, amp: R * 0.03, seed: 41 + k }); });
     }
