@@ -27,7 +27,7 @@ import { store } from './store.js?v=afc4d7c743';
 import { STEP_MAX } from './glide-clock.js?v=220d7f875c';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
 import { createSinusoidGL, poreAt, poreOpenness, calloutPore, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=a487257fa5';
-import { placeFenDisse } from './fen-place.js?v=6e17fb8976';
+import { placeFenDisse } from './fen-place.js?v=f4876f7916';
 import { frameFor, noteDraw, saver, paceMs, renderScale, onRenderScale } from './frame.js?v=26e2e46fff';
 import { softwareGL, softwareYield } from './sw-yield.js?v=1ec3c87eab';
 import { noteSinusoidSupport, sinusoidSupported, CTX_LAZY } from './gl-support.js?v=622a3b9520';
@@ -146,9 +146,13 @@ export function createSinusoidView({ host, before = null }) {
     if (key === 'fen') { L.tx = x; const sd = L.sd || 0; y += halfW(x) - halfW(x + sd); x += sd; }
     L.setAttribute('class', `sv-lead sv-lead-${key}`);
     L.setAttribute('data-target', `sinusoid:${SV_TARGET[key] || key}`);
-    const [tx, ty] = toScreen(x, y), sx = R.cx + Math.sign(tx - R.cx) * (R.w / 2 + 3), sy = clamp(ty, R.cy - R.hh / 2 + 4, R.cy + R.hh / 2 - 4);
+    const [tx, ty] = toScreen(x, y);
+    // (A target above or below the name, within its width: the leader runs straight up or down from the name's edge to it, short;
+    // else from the side of the name facing it.)
+    const vert = Math.abs(tx - R.cx) < R.w / 2 - 2 && Math.abs(ty - R.cy) > R.hh / 2 + 6;
+    const sx = vert ? tx : R.cx + Math.sign(tx - R.cx) * (R.w / 2 + 3), sy = vert ? R.cy + Math.sign(ty - R.cy) * (R.hh / 2 + 3) : clamp(ty, R.cy - R.hh / 2 + 4, R.cy + R.hh / 2 - 4);
     const [ln, dot] = L.children;
-    const on = Math.abs(tx - sx) > 6 && Math.sign(tx - R.cx) === Math.sign(tx - sx);   // (none when the name already sits on it)
+    const on = vert ? Math.abs(ty - sy) > 6 : Math.abs(tx - sx) > 6 && Math.sign(tx - R.cx) === Math.sign(tx - sx);   // (none when the name already sits on it)
     L.style.opacity = on ? '' : '0';
     ln.setAttribute('x1', sx.toFixed(1)); ln.setAttribute('y1', sy.toFixed(1)); ln.setAttribute('x2', tx.toFixed(1)); ln.setAttribute('y2', ty.toFixed(1));
     dot.setAttribute('cx', tx.toFixed(1)); dot.setAttribute('cy', ty.toFixed(1)); dot.setAttribute('r', '1.8');
@@ -559,8 +563,8 @@ export function createSinusoidView({ host, before = null }) {
     const xc = away(pick(0.5), g.xk, 30);
     region('sin', 'Sinusoid', num(m.P2, 1, ''), xc, 0, { along: true });
     kupName();
-    // In the plates: the stellate cell named just beyond its body; the fenestrae beside it in the same plate, with a
-    // thin callout down to an open fenestra in the lining, clear of the stellate cell's name, of the Space of Disse's and of
+    // In the plates: the stellate cell named just beyond its body; the fenestrae in the same plate, well clear of it (120 px), with a
+    // short callout straight down to an open fenestra in the lining, clear of the stellate cell's name, of the Space of Disse's and of
     // the callout's own line (fen-place.js). Placed in the view's resting frame and scale (not the one a glide is passing
     // through), so the names keep their places in the figure as the view eases.
     const hs = region('hsc', S.act > 0.5 ? 'Activated stellate cell' : 'Stellate cell', '', g.xs, -(hepIn(g.xs) + 1), { side: -1, along: V });
@@ -569,14 +573,13 @@ export function createSinusoidView({ host, before = null }) {
     const tk = VW.tk, hsHalf = hs.w / 2 / tk;
     const spot = placeFenDisse({
       pores: g.pores[0], nsd: SEED.nucUp, lo: (VW.f.l - VW.tC[0] + 6) / tk, hi: (VW.f.r - VW.tC[0] - 6) / tk,
-      hs: [g.xs - hsHalf, g.xs + hsHalf], fh: fen(0, 0).w / 2 / tk, dh: disse(0).w / 2 / tk, fp: 16 / tk, xs: g.xs,
+      hs: [g.xs - hsHalf, g.xs + hsHalf], fh: fen(0, 0).w / 2 / tk, dh: disse(0).w / 2 / tk, fp: 16 / tk, xs: g.xs, far: 120 / tk,
     });
     let xp, rf, xq = spot ? spot.xq : null;
     if (spot) { xp = spot.xp; rf = fen(xp, spot.xc - xp); }
     else {
       xp = fenAt(pick(0.6)); rf = fen(xp, 0);
-      rf = fen(xp, rf.half + fp * 0.8);
-      if (Math.abs(rf.x - hs.x) - rf.half - hs.half < fp) { xp = fenAt(hs.x + hs.half + fp * 2); rf = fen(xp, rf.half + fp * 0.8); }
+      if (Math.abs(rf.x - hs.x) - rf.half - hs.half < fp * 2) { xp = fenAt(hs.x + hs.half + rf.half + fp * 2); rf = fen(xp, 0); }
     }
     leader('fen', rf, xp, -(halfW(xp) + UM.endo * 0.5));
     // In Disse: its name (on the stellate cell's side on a wide screen, clear of it and of the fenestrae's callout),
@@ -592,10 +595,11 @@ export function createSinusoidView({ host, before = null }) {
         disse(xq);
       }
     }
-    const xd = pick(V ? 0.55 : 0.32), lymph = (x) => region('lymph', 'Lymph', m.hide ? '?' : `${fmt(m.lymph, 1)}~mL/min · Protein ${Math.round(m.lyProt * 100)}%`, x, hepIn(x) + 1.2, { side: 1 });
+    // (Its reading on one line, "0.5 mL/min · Protein 91%": the no-break space before the dot keeps the caption from splitting it.)
+    const xd = pick(V ? 0.55 : 0.2), lymph = (x) => region('lymph', 'Lymph', m.hide ? '?' : `${fmt(m.lymph, 1)}~mL/min\u00a0· Protein ${Math.round(m.lyProt * 100)}%`, x, hepIn(x) + 1.2, { side: 1 });
     let ly = lymph(xd);
     // A hepatocyte named on itself, clear of its nucleus.
-    const xh = pick(V ? 0.88 : 0.08), hc = cellAt(xh, SEED.plateDn), hep1 = (x) => region('hep', 'Hepatocyte', '', x, hepIn(x) + hep * (hc.nv < 0.5 ? 0.78 : 0.22));
+    const xh = pick(V ? 0.88 : 0.6), hc = cellAt(xh, SEED.plateDn), hep1 = (x) => region('hep', 'Hepatocyte', '', x, hepIn(x) + hep * (hc.nv < 0.5 ? 0.78 : 0.22));
     // The cell's name and the lymph's numbers share a plate: on a narrow view (a cell wider than its share of the
     // screen) the name slides back along its cell, then the numbers step on, until the two are clear.
     const gap = (a, b) => Math.abs(a.x - b.x) - a.half - b.half, pad = 16 / VW.k;   // (µm)
@@ -605,8 +609,8 @@ export function createSinusoidView({ host, before = null }) {
       hl = hep1(clamp(ly.x + d * (ly.half + hl.half + pad), hc.x0 + hl.half, hc.x1 - hl.half));
       if (gap(hl, ly) < pad) ly = lymph(hl.x - d * (hl.half + ly.half + pad));
     }
-    // The lymph's numbers are tied by a thin leader to the space of Disse that carries it.
-    { const xt = ly.x + ly.half + 3; leader('lymph', ly, xt, wallIn(xt) + disseW(xt) * 0.5); }
+    // The lymph's numbers are tied by a short leader, straight up, to the space of Disse that carries it.
+    leader('lymph', ly, ly.x, wallIn(ly.x) + disseW(ly.x) * 0.5);
   }
   // A portrait screen: the sinusoid runs top to bottom and every label reads level. The lumen keeps only its own
   // name; the narrow bands (fenestrae, Disse) and the cells are named in the plates beside them, the stellate cell's
@@ -633,7 +637,8 @@ export function createSinusoidView({ host, before = null }) {
     leader('disse', region('disse', 'Space of\nDisse', '', x, mid(x)), x, dis(x));
     x = pick(0.46);
     leader('lymph', region('lymph', 'Lymph', m.hide ? '?' : `${fmt(m.lymph, 1)}~mL/min · Protein ${Math.round(m.lyProt * 100)}%`, x, mid(x)), x + 2, dis(x + 2));
-    kupName();
+    // The Kupffer cell's name in the plate beside it (the lumen is narrower than its name), a short leader across the lining to its body.
+    { const kx = geo.xk, ky = halfW(kx) - 2.5 * clamp(halfW(kx) / 5.2, 0.6, 1); region('kup', 'Kupffer\ncell', '', kx, mid(kx)); regions.kup.cell = [kx, ky]; }
   }
   // The fenestrae's and Disse's names on a wide screen are placed for the view at rest, and the pore the fenestrae's callout ends on by
   // where its name stands, so a card that opens or closes (or a pore picked anew) can move one at once, along the vessel. It is drawn
@@ -653,8 +658,10 @@ export function createSinusoidView({ host, before = null }) {
   function settleJumps() {
     for (const o of slid()) if (o?.sd) { o.sd *= 1 - easeA; if (Math.abs(o.sd) * VW.k < 0.3) o.sd = 0; else layoutBusy = true; }
   }
-  // The Kupffer cell is named inside itself, over its body above the nucleus (its name tinted as the cell).
-  const kupName = () => region('kup', 'Kupffer\ncell', '', geo.xk - 0.3, halfW(geo.xk) - 3.3 * clamp(halfW(geo.xk) / 5.2, 0.6, 1), { along: true });
+  // The Kupffer cell is named on one line just above it, clear of its highest process (sinusoid-gl.js sdKup0 reaches 6.6 µm into the
+  // stream at its scale kupK), in the lumen, never over its body (its name tinted as the cell). (Mohammad, 2 Nov 2026, label mocks.)
+  const kupTop = () => halfW(geo.xk) - 6.6 * clamp(halfW(geo.xk) / 5.2, 0.6, 1);
+  const kupName = () => { const R = region('kup', 'Kupffer cell', '', geo.xk, kupTop() - 0.8, { along: true, side: -1 }); regions.kup.cell = null; return R; };
   const BAND = [0, 0];   // a portrait screen's band for the other names, between the ends' (px down the screen)
   // How much an end's name shows now (0 to 1): its pill's own fades (a presenter slide that is not about it, the names leaving).
   // In the presenter an end's arrow follows it, so no direction arrow shows without its name (Explore keeps both as they are).
@@ -670,7 +677,7 @@ export function createSinusoidView({ host, before = null }) {
     let ch = false;
     for (const key of ['in', 'out']) {
       const e = regions[key]?.el;
-      const v = !e || e.hidden || !e.firstElementChild ? 0 : Math.min(1, (+getComputedStyle(e).opacity || 0) * (+getComputedStyle(e.firstElementChild).opacity || 0) * (+getComputedStyle(labels).opacity || 0) / 0.78);
+      const v = !e || e.hidden || !e.firstElementChild ? 0 : Math.min(1, (+getComputedStyle(e).opacity || 0) * (+getComputedStyle(e.firstElementChild).opacity || 0) * (+getComputedStyle(labels).opacity || 0));
       if (Math.abs((endOp[key] ?? -1) - v) > 0.004) { endOp[key] = v; ch = true; }
     }
     return ch;
@@ -774,10 +781,10 @@ export function createSinusoidView({ host, before = null }) {
       placed.push(at(off[0], off[1], off[2]));
       // The Kupffer cell's name, crowded off its cell, is tied back to it by a thin leader.
       if (k === 'kup') {
-        const [tx, ty] = toScreen(R.at[0], R.at[1]), c = at(off[0], off[1], off[2]);
+        const to = R.cell || R.at, [tx, ty] = toScreen(to[0], to[1]), c = at(off[0], off[1], off[2]);
         if (tx < c.l - 6 || tx > c.r + 6 || ty < c.t - 6 || ty > c.b + 6) {
           // (from the nearest point of the name's box to the cell)
-          leader('kup', { cx: 0, cy: 0, w: 0, hh: 0 }, R.at[0], R.at[1]);
+          leader('kup', { cx: 0, cy: 0, w: 0, hh: 0 }, to[0], to[1]);
           const [kl, kd] = lead.kup.children;
           kl.setAttribute('x1', clamp(tx, c.l, c.r).toFixed(1)); kl.setAttribute('y1', clamp(ty, c.t, c.b).toFixed(1));
           kl.setAttribute('x2', tx.toFixed(1)); kl.setAttribute('y2', ty.toFixed(1));
@@ -818,7 +825,7 @@ export function createSinusoidView({ host, before = null }) {
       // Its arrow (drawn by the shader), outside the label, points toward the vessel off the view: the portal venule's
       // above it on a top-down sinusoid (left of it on a wide one), pointing up (left); the central vein's below it
       // (right of it), pointing down (right).
-      const A = 22 + 10;   // (the arrow and its gaps, px)
+      const A = 22 + 26;   // (the arrow and its gaps, px: the arrow stands in the middle of A, so the name keeps 12 px or more from its head)
       if (g.vert) { x = VW.C[0] - w / 2; y = u ? f.b - hh - A : f.t + A; }
       else { x = u ? f.r - w - 8 - A : f.l + 8 + A; y = VW.C[1] - hh / 2; }
       // (Large text: the portal venule's name drops below the legend rather than run into it.)

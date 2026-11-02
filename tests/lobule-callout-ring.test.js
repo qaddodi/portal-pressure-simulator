@@ -31,7 +31,10 @@ test('the pointer pill prefers spots outside the lobule, falling back inside onl
 
 test('lobule labels are pinned beside what they name and never cover the central vein, a portal tract or their own spot', () => {
   const js = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
-  assert.match(js, /const keep = \[\[g\.cx, g\.cy, g\.rcv0 \* 1\.7\], \.\.\.g\.lobules\[0\]\.corners\.map/, 'the central vein and every portal tract are kept clear');
+  assert.match(js, /const keepDiscs = \(g\) => \[\[g\.cx, g\.cy, g\.rcv0 \* CV_KEEP\], \.\.\.g\.lobules\[0\]\.corners\.map/, 'the central vein and every portal tract are kept clear');
+  assert.match(js, /const keep = keepDiscs\(g\);/, 'the layout keeps them clear');
+  // (Discs as tight as the vessels themselves, so a tract's names sit right beside it on short leaders: Mohammad, 2 Nov 2026.)
+  assert.match(js, /const CV_KEEP = 1\.25, TRACT_KEEP = 1\.3;/);
   assert.match(js, /keep\.reduce\(\(sum, q\) => \{ const d = into\(q, box\); return sum \+ \(d > 0 \? 1e6/, 'covering one costs as much as a clash');
   assert.match(js, /into\(\{ x: a\[0\], y: a\[1\], r: 10 \}, box\) > 0 \? 1e6/, 'a label never covers the spot it names');
   assert.match(js, /lead \* 8/, 'short leaders are preferred');

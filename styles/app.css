@@ -1703,7 +1703,7 @@ button.finding { cursor: pointer; }
 /* Each part named in place, as the organs and the lobule's zones are: spaced small capitals on a halo, the reading beneath. */
 .sv-region { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; align-items: center; gap: 1px; pointer-events: none; white-space: nowrap; line-height: 1.15; text-align: center;
   font: var(--caps-w) calc(var(--t-cap) * var(--label-scale, 1)) var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; color: var(--text-2);
-  --hw: clamp(.8px, calc(1px * var(--label-k, 1)), 1.5px);
+  --hw: clamp(1px, calc(1.35px * var(--label-k, 1)), 2px);   /* (the anatomy's crisp halo, a touch fuller so the names read over the cells and the moving blood) */
   -webkit-text-stroke: calc(var(--hw) * 2) var(--label-halo); paint-order: stroke fill; stroke-linejoin: round; text-shadow: none; }
 .sv-region .v { letter-spacing: 0; text-transform: none; font-weight: 500; font-size: calc(var(--t-cap) * var(--label-scale, 1)); color: var(--text-2); }
 .sv-region .v b { font-weight: 700; font-size: calc(var(--t-lab) * var(--label-scale, 1)); color: var(--text); margin-right: 1px; }
@@ -1718,9 +1718,18 @@ button.finding { cursor: pointer; }
 .sv-region > span:first-child { white-space: pre-line; }
 /* As a journal figure (NEJM) sets its secondary names: the ends' venules are the Sinusoid's caption a size smaller and a
    little faded, and the cells are named small, in a faded tint of their own colour. */
-.sv-region.sv-end { font-size: calc(var(--t-cap) * var(--label-scale, 1)); } .sv-region.sv-end > * { opacity: .78; }
+.sv-region.sv-end { font-size: calc(var(--t-cap) * var(--label-scale, 1)); }
 .sv-region.sv-end .v { font-size: calc(var(--t-cap) * var(--label-scale, 1)); }
-.sv-region.sv-end .v b { font-size: calc(var(--t-lab) * var(--label-scale, 1)); }
+/* The readings (the lumen's and the ends' pressures, the fenestrae's open share, the lymph) are set as the lobule's and the anatomy's:
+   the name in sentence case, the number large beneath it; only the cells' and the bands' names stay in small capitals, as organs are
+   named (Mohammad, 2 Nov 2026, label mocks: "keep the same similar large numbers, but make the text better visible"). */
+.sv-region:is(.sv-region-sin, .sv-region-fen, .sv-region-lymph) { text-transform: none; letter-spacing: 0; font-weight: 500; font-size: calc(var(--t-lab) * var(--label-scale, 1)); gap: 0; }
+.sv-region-sin { color: var(--text-2); }
+.sv-region:is(.sv-region-sin, .sv-region-fen, .sv-region-lymph) > span:first-child { opacity: 1; }
+.sv-region.sv-region-sin .v b { font-size: calc(var(--t-read) * var(--label-scale, 1)); font-weight: 700; line-height: 1.1; margin-right: 0; }
+.sv-region:is(.sv-region-fen, .sv-region-lymph) .v { font-size: calc(var(--t-cap) * var(--label-scale, 1)); font-weight: 500; color: var(--text-3); opacity: 1; }
+.sv-region:is(.sv-region-fen, .sv-region-lymph) .v b { font-size: calc(16px * var(--label-scale, 1)); font-weight: 700; color: var(--text); margin-right: 2px; }
+.sv-region-lymph .v + .v b { font-size: calc(var(--t-cap) * var(--label-scale, 1)); font-weight: 500; color: var(--text-3); margin-right: 0; }   /* (its protein, the second line on a phone: quiet, as the unit) */
 .sv-region-hsc, .sv-region-hep { font-size: calc(var(--t-cap) * var(--label-scale, 1)); } .sv-region-hsc > *, .sv-region-hep > * { opacity: .9; }
 .sv-region-hsc { color: var(--sv-hsc); }
 .sv-region-kup { font-size: calc(var(--t-cap) * var(--label-scale, 1)); color: var(--sv-kupffer); } .sv-region-kup > * { opacity: .85; }
@@ -4305,13 +4314,13 @@ html.chip-open .topbar .sb-right > .chip-btn[aria-expanded="true"], html.chip-op
 .lz-lab { display: grid; gap: 0; padding: 1px 8px; border: 0; border-radius: 0; background: none; box-shadow: none; text-align: left; line-height: 1.2; }
 .lz-lab.left { text-align: right; border-left: 0; padding: 1px 9px 1px 8px; }
 /* The anatomy's halo: a smooth outline around each letter (a stroke painted under the fill), so the labels read over the tissue. */
-.lz-lab .n, .lz-lab .v { --hw: clamp(.8px, calc(1px * var(--label-k, 1)), 1.5px);
+.lz-lab .n, .lz-lab .v { --hw: clamp(1px, calc(1.35px * var(--label-k, 1)), 2px);
   -webkit-text-stroke: calc(var(--hw) * 2) var(--label-halo); paint-order: stroke fill; stroke-linejoin: round; text-shadow: none; }
 /* Floors keep the pill's order at small label sizes: the reading never drops below its unit or name (all 11 px or more). */
 .lz-lab .n { font-size: calc(var(--t-lab) * var(--label-scale, 1)); font-weight: 500; color: var(--text-2); }
-.lz-lab .v { display: flex; align-items: baseline; gap: 2.5px; font-size: calc(var(--t-val) * var(--label-scale, 1)); }
+.lz-lab .v { display: flex; align-items: baseline; gap: 2.5px; font-size: calc(var(--t-read) * var(--label-scale, 1)); line-height: 1.1; }
 .lz-lab.left .v { justify-content: flex-end; }
-.lz-lab .v b { font-weight: 650; color: var(--text); }
+.lz-lab .v b { font-weight: 700; color: var(--text); }
 .lz-lab small { font-size: calc(var(--t-cap) * var(--label-scale, 1)); color: var(--text-3); }
 /* A label whose structure is off screen waits at the edge with a small arrow pointing the way (lobule-zoom.js layoutLabels). */
 .lz-lab.edge .n::before { content: ""; position: absolute; left: 50%; top: 50%; width: 9px; height: 10px; background: var(--text-2); clip-path: polygon(0 0, 100% 50%, 0 100%); transform: translate(-50%, -50%) rotate(var(--edge-a, 0rad)) translateX(var(--edge-r, 40px)); pointer-events: none; }
@@ -4325,9 +4334,10 @@ html.chip-open .topbar .sb-right > .chip-btn[aria-expanded="true"], html.chip-op
 @media (hover: hover) { .lz-lab:hover .n { color: var(--accent-ink); } }
 .lz-lab:focus-visible { border-color: var(--accent); outline: none; }
 @media (hover: hover) { .lz-lab:hover { border-color: var(--accent); outline: none; } }
-/* Phone: one line, as the anatomy's labels there. */
+/* Phone: the short names, the reading large beneath its name as on a Mac (Mohammad, 2 Nov 2026, label mocks). */
 @media (max-width: 720px) {
-  .lz-lab { display: flex; align-items: baseline; gap: 4px; border: 0 !important; padding: 0 2px; }
+  .lz-lab { border: 0 !important; padding: 0 2px; }
+  .lz-lab[data-target="lobule:lymph"] .v { font-size: calc(16px * var(--label-scale, 1)); }   /* (the lymph a second-tier reading, so the tract's pair fits beside its corner) */
   .lz-lab .n-long { display: none; } .lz-lab .n-short { display: inline; }
   .lz-lab small { font-size: calc(var(--t-cap) * var(--label-scale, 1)); }
 }

@@ -31,7 +31,7 @@ test('a lit sinusoid name still takes the pill and its colour', () => {
 
 test('the end arrows follow their names, so the kept names keep their arrows', () => {
   assert.match(VIEW, /const endShown = \(key\) => \{/);
-  assert.match(VIEW, /\(\+getComputedStyle\(e\)\.opacity \|\| 0\) \* \(\+getComputedStyle\(e\.firstElementChild\)\.opacity \|\| 0\) \* \(\+getComputedStyle\(labels\)\.opacity \|\| 0\) \/ 0\.78/);
+  assert.match(VIEW, /\(\+getComputedStyle\(e\)\.opacity \|\| 0\) \* \(\+getComputedStyle\(e\.firstElementChild\)\.opacity \|\| 0\) \* \(\+getComputedStyle\(labels\)\.opacity \|\| 0\)\);/);   // (the ends' names at full ink since 2 Nov 2026: no 0.78 to divide by)
   assert.match(VIEW, /\[\['in', 'Portal venule', val\(m\.P1\), 0\], \['out', 'Central vein', val\(m\.P3\), 1\]\]/);
   assert.match(VIEW, /region\('hep', 'Hepatocyte'/);
   assert.match(VIEW, /region\('lymph', 'Lymph'/);

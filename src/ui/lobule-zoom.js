@@ -42,7 +42,7 @@ import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatCol
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
 import { createVeinsGL, LZ_ONE, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=dd85ea03d2';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=a70439097a';
-import { createSinusoidView } from './sinusoid-view.js?v=f85b4e6213';
+import { createSinusoidView } from './sinusoid-view.js?v=a91bc75f31';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, framePart, easeNow, inMotion, PACED } from './frame.js?v=26e2e46fff';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { FADE_MS, fadeAlpha, viewFollow } from './res-fade.js?v=531c1defc6';
@@ -1265,7 +1265,16 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const hitKind = (key) => (key === 'ha' || key === 'bd' ? { part: key, tri: pick.triad } : key === 'triad' ? { part: 'triad', tri: pick.triad } : key === 'cv' ? { part: 'cv' } : key === 'lymph' ? { part: 'lv', tri: pick.lt ?? pick.triad } : { part: 'sin', tube: sinTube().id });
   // The lesion pointer: a pill near the spot, clear of the labels and cards, with a leader to a ring on it. Eases in and out.
   let callPrev = null, callCost = 0;
+  // What no label may cover, a disc on screen each: the central vein (1.25 of its radius: the vein and the mouths of its sinusoids) and
+  // every portal tract (1.3 of its radius: the venule and the arc of arteriole, ductule and lymphatic beside it). They were 1.7 and
+  // 2.4, which held every label 80 px off a tract on a Mac and forced the long leaders (Mohammad, 2 Nov 2026: "shorter callout lines").
+  const CV_KEEP = 1.25, TRACT_KEEP = 1.3;
+  const cvKeep = (g) => Math.max(14, g.rcv0 * CV_KEEP * V.k);
+  const keepDiscs = (g) => [[g.cx, g.cy, g.rcv0 * CV_KEEP], ...g.lobules[0].corners.map(([x, y]) => [x, y, (g.rt || 6) * TRACT_KEEP])]
+    .map(([x, y, r]) => { const [sx, sy] = toScreen([x, y]); return { x: sx, y: sy, r: Math.max(14, r * V.k) }; });
   const LONG_LEAD = 140;   // px: the longest leader an optional label may take (a vessel label pays steeply past it)
+  const SHORT_LEAD = 45;   // px: a leader longer than this pays for every pixel past it (short callouts: Mohammad, 2 Nov 2026)
+  const DESIGN = ['triad', 'lymph', 'cv', 'sin'];   // the labels with a designed spot (layoutLabels designed)
   const CORE = ['cv', 'sin', 'triad'];   // the vessel labels: never left out for the slide's pill
   // The ring on the spot: its centre and radius on screen (null while the spot is out of view), and how far from the ring's
   // centre everything else keeps (the radius, half its 4 px stroke and a small gap), so no label or pill ever touches it.
@@ -1425,8 +1434,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const shift = (b, a) => { const [x, y] = mv(a), dx = x - a[0], dy = y - a[1]; return { l: b.l + dx, r: b.r + dx, t: b.t + dy, b: b.b + dy }; };
     const inFree = ([x, y]) => x >= fr.l - 4 && x <= fr.r + 4 && y >= fr.t - 4 && y <= fr.b + 4;
     if (R.chips.some((c) => inFree(mv(c.a)))) return false;
-    const keep = [[g.cx, g.cy, g.rcv0 * 1.7], ...g.lobules[0].corners.map(([x, y]) => [x, y, (g.rt || 6) * 2.4])]
-      .map(([x, y, r]) => { const [sx, sy] = toScreen([x, y]); return { x: sx, y: sy, r: Math.max(14, r * V.k) }; });
+    const keep = keepDiscs(g);
     const others = [...R.zones.map((b) => shift(b, [(b.l + b.r) / 2, (b.t + b.b) / 2])), ...R.chips.map((c) => c.box)];
     const boxes = [], leads = [];
     for (const it of R.labs) {
@@ -1581,8 +1589,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (LZSNAP_EVERY && !restT) restT = restPass(readRest);
     // What no label may cover: the central vein, every portal tract (venule, arteriole, ductule and lymphatic) and the
     // spot each label names, each a disc on screen. A label is pinned just beside what it names, on a short leader, clear of them all.
-    const keep = [[g.cx, g.cy, g.rcv0 * 1.7], ...g.lobules[0].corners.map(([x, y]) => [x, y, (g.rt || 6) * 2.4])]
-      .map(([x, y, r]) => { const [sx, sy] = toScreen([x, y]); return { x: sx, y: sy, r: Math.max(14, r * V.k) }; });
+    const keep = keepDiscs(g);
     const ownR = (k, a) => {
       const d = keep.find((q) => Math.hypot(q.x - a[0], q.y - a[1]) < q.r);
       return d ? d.r + Math.hypot(d.x - a[0], d.y - a[1]) : 10;
@@ -1667,6 +1674,42 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // A label no slide names and that is not one of the vessel labels (the lymph, an arteriole, a ductule) costs far less
     // to leave out: it gives way rather than push a vessel label onto a long leader across the lobule.
     const drop = (k) => (named(k) ? 2e7 : CORE.includes(k) ? 1e7 : 3e4);
+    // The designed spots (Mohammad, 2 Nov 2026, label mocks: "shorter callout lines, that are better, and well placed"). The portal
+    // tract's venule and lymphatic are named as a pair just outside their corner, one on each side of the ray from the central vein
+    // through it (above and below on a side corner, left and right on a top or bottom one), so their short leaders splay apart and
+    // never cross; the central vein's name stands right beside the vein, on the side away from the tract, with no leader; the
+    // sinusoids' just below their sinusoid, on a short straight one.
+    const cvS = toScreen([g.cx, g.cy]), triIt = items.find((it) => it.k === 'triad'), lyIt = items.find((it) => it.k === 'lymph');
+    const paired = !!triIt && !!lyIt && !triIt.edge && !lyIt.edge && (pick.lt ?? pick.triad) === pick.triad;
+    // (Outward along the screen's axis nearest the ray: out to the side from a side corner, down or up from a bottom or top one. The
+    // venule's name is split above (side corner) or left (top or bottom corner) of that axis, the lymphatic's below or right.)
+    const tractU = triIt ? (() => { const dx = triIt.a[0] - cvS[0], dy = triIt.a[1] - cvS[1]; return Math.abs(dx) >= Math.abs(dy) ? [Math.sign(dx) || -1, 0] : [0, Math.sign(dy) || 1]; })() : [-1, 0];
+    const tractN = tractU[0] ? [0, -1] : [-1, 0];
+    const tractR = triIt ? (keep.find((q) => Math.hypot(q.x - triIt.a[0], q.y - triIt.a[1]) < 1)?.r ?? 14) : 14;
+    // (The two split about the line midway between the venule and the lymphatic, each box, margins and all, wholly on its side; on a
+    // phone whose corner is near the screen's edge the line moves toward the venule's side until the lymphatic's name fits.)
+    const dotV = (p, v) => p[0] * v[0] + p[1] * v[1];
+    let pairN = paired ? (dotV(triIt.a, tractN) + dotV(lyIt.a, tractN)) / 2 : 0;
+    if (paired) {
+      const pad = 8 + 4 * lk, half = tractN[0] ? lyIt.w / 2 + hx : lyIt.hh / 2 + hy;
+      // (how far the lymphatic's box, its far edge 2 px + its width past the line, reaches past the free space on its side)
+      const far = pairN - 2 - 2 * half, lim = tractN[0] ? (tractN[0] < 0 ? -(fr.r - pad + hx) : fr.l + pad - hx) : (tractN[1] < 0 ? -(fr.b - pad + hy) : fr.t + pad - hy);
+      const over = lim - far;
+      if (over > 0) pairN += over + 1;
+    }
+    function designed(k, a, w, hh) {
+      const [ux, uy] = tractU, ex = Math.abs(ux) * w / 2 + Math.abs(uy) * hh / 2, ey = Math.abs(ux) * hh / 2 + Math.abs(uy) * w / 2;
+      // (Offsets reach past each box's margins (hx, hy): the box's inner corner just clears the tract's disc, or the lymphatic's own spot.)
+      const mx = Math.abs(ux) * hx + Math.abs(uy) * hy, my = Math.abs(ux) * hy + Math.abs(uy) * hx;
+      const at = (cu, cn) => [ux * cu + tractN[0] * cn, uy * cu + tractN[1] * cn];
+      if (k === 'triad' && paired) return at(dotV(a, tractU) + ex + mx + tractR + 2, pairN + ey + my + 2);
+      if (k === 'lymph' && paired) return at(dotV(a, tractU) + ex + mx + 12, pairN - ey - my - 2);
+      if (k === 'triad') return [a[0], a[1] + hh / 2 + 12];
+      if (k === 'lymph') return [a[0], a[1] - hh / 2 - 14];
+      if (k === 'cv') { const sd = triIt && triIt.a[0] > a[0] + 1 ? -1 : 1; return [a[0] + sd * (keep[0].r + hx + 2 + w / 2), a[1]]; }
+      if (k === 'sin') return [a[0], a[1] + hh / 2 + hy + 14];
+      return null;
+    }
     const solve = (order, pl0 = base, ld0 = callLead ? [callLead] : []) => {
       const pl = pl0.slice(), ld = ld0.slice(), res = [];
       let total = 0;
@@ -1685,8 +1728,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
           pl.push(best.box); res.push({ k, ...best }); total += best.cost;
           continue;
         }
-        const preferred = k === 'cv' ? [a[0], a[1] - g.rcv0 * V.k - hh / 2 - 12]
-          : k === 'triad' ? [a[0], a[1] + hh / 2 + 12] : k === 'ha' ? [a[0] - w / 2 - 14, a[1] - hh / 2 - 10] : k === 'bd' ? [a[0] + w / 2 + 14, a[1] - hh / 2 - 10] : k === 'lymph' ? [a[0], a[1] - hh / 2 - 14] : a;
+        const preferred = designed(k, a, w, hh) || (k === 'ha' ? [a[0] - w / 2 - 14, a[1] - hh / 2 - 10] : k === 'bd' ? [a[0] + w / 2 + 14, a[1] - hh / 2 - 10] : a);
+        const pw = DESIGN.includes(k) ? 6 : 0.5;   // (a designed spot holds unless it clashes: its pull beats a shorter leader elsewhere)
         // Steps in proportion to the label, so larger text searches proportionally farther (above, below, beside, diagonally).
         const candidates = [preferred];
         for (const dx of [0, -(w / 2 + 12), w / 2 + 12, -(w + 24), w + 24])
@@ -1719,7 +1762,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
             + (ringDepth(ring, box) > 0 ? 1e6 + ringDepth(ring, box) * 1e3 : 0)
             + keep.reduce((sum, q) => { const d = into(q, box); return sum + (d > 0 ? 1e6 + d * 1e3 : 0); }, 0)
             + (into({ x: a[0], y: a[1], r: 10 }, box) > 0 ? 1e6 : 0)
-            + lead * 8 + Math.max(0, lead - 3 * hh) * 60 + Math.hypot(x - preferred[0], y - preferred[1]) * 0.5
+            + lead * 8 + Math.max(0, lead - 3 * hh) * 60 + Math.max(0, lead - SHORT_LEAD) * 30 + Math.hypot(x - preferred[0], y - preferred[1]) * pw
             // A label no slide names (the lymph, an arteriole, a ductule) is left out sooner than sent far from what it names
             // on a leader across the lobule (a phone once ran the Lymph label's 420 px over it, past every other label).
             + (!CORE.includes(k) && !named(k) && lead > LONG_LEAD ? 1e6 : Math.max(0, lead - LONG_LEAD) * 400);
@@ -1812,8 +1855,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       fadeIn(L.el);
       put(L.el, x - w / 2, y - hh / 2);
       noteAt(L);
-      L.el.classList.remove('left');
+      L.el.classList.toggle('left', !edge && (k === 'triad' || k === 'lymph') && x + w / 2 < a[0] - 4);
       if (edge) { leadOff(L); continue; }
+      // (A name that stands against the central vein's rim names it by standing there: no leader.)
+      if (k === 'cv' && Math.hypot(Math.max(0, Math.abs(a[0] - x) - w / 2), Math.max(0, Math.abs(a[1] - y) - hh / 2)) <= cvKeep(g) + hx + 10) { leadOff(L); L.a = a; continue; }
       leadOn(L);
       L.a = a;
       L.line.setAttribute('x1', a[0]); L.line.setAttribute('y1', a[1]);

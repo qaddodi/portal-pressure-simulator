@@ -180,6 +180,7 @@
   --t-lab: clamp(12px, calc(12px + (100vmin - 390px) * .00392), 14px);   /* names, chips, kickers */
   --t-body: clamp(14px, calc(14px + (100vmin - 390px) * .00392), 16px);  /* slide lines, card text */
   --t-val: clamp(16px, calc(16px + (100vmin - 390px) * .01176), 22px);   /* readings in pills, tiles' small values */
+  --t-read: clamp(20px, calc(16px + (100vmin - 390px) * .01176), 22px);   /* the large readings on the lobule's and the sinusoid's figures */
   --t-big: clamp(20px, calc(20px + (100vmin - 390px) * .02353), 32px);   /* tile values, headline numbers */
   --t-title: clamp(28px, calc(28px + (100vmin - 390px) * .03137), 44px); /* slide headings */
   /* icons: three sizes (16 in lists and chips, 20 on buttons and the top bar, 24 on tiles and tabs),
