@@ -31,9 +31,3 @@ export function hasClass(el, name) {
   const w = want.get(el)?.get(name);
   return w === undefined ? el.classList.contains(name) : w;
 }
-
-/** Writes the class now (a change at a boundary that must show at once) and drops any wanted state waiting for it. */
-export function setNow(el, name, on) {
-  want.get(el)?.delete(name);
-  if (el.classList.contains(name) !== !!on) el.classList.toggle(name, !!on);
-}

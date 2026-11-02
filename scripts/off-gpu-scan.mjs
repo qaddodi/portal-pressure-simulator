@@ -408,6 +408,18 @@ export function scan({ root = ROOT } = {}) {
           }
         }
       }
+      // (A ResizeObserver, IntersectionObserver or PerformanceObserver made with `new` runs its callback during use: the callback and
+      // what it calls are use sites, 2 Nov 2026; before, only a MutationObserver's was, so everything a resize callback reached read as "no caller".)
+      if (n.type === 'NewExpression' && /^(Resize|Intersection|Performance)Observer$/.test(n.callee.name || '')) (mod.newObs ||= []).push({ arg: n.arguments[0], at: enclosing(n) });
+      // (A module read in by import('./x.js'): its exports are its entry points, called by whatever read it in, so they are use seeds below.)
+      if (n.type === 'ImportExpression' && n.source?.type === 'Literal' && typeof n.source.value === 'string' && n.source.value.startsWith('.')) {
+        const from = resolve(dirname(join(root, file)), n.source.value.split('?')[0]);
+        // (Made by a lazy(() => import(…), make) loader it is run when first wanted, during use; read in straight at boot, as ?perf's HUD is,
+        // its entry point runs once, at boot.)
+        let viaLazy = false;
+        for (let a = n.parent; a && !viaLazy; a = a.parent) if (a.type === 'CallExpression' && calleeName(a) === 'lazy') viaLazy = true;
+        (mod.dynImports ||= []).push({ rel: relative(root, from).split('\\').join('/'), viaLazy });
+      }
       if (n.type === 'NewExpression' && n.callee.name === 'XMLSerializer') push('svgRaster', file, n.loc.start.line, label(enclosing(n)), 'new XMLSerializer()');
       if (n.type === 'MemberExpression' && !n.computed && READ_PROPS.has(n.property.name)) {
         const p = n.parent;
@@ -717,7 +729,8 @@ export function scan({ root = ROOT } = {}) {
   // setup: in code that runs once, at module load or from it, and that nothing run during use calls: not during motion, not off the GPU.
   // use: reached from an event handler, timer, promise, observer or store listener: runs while the app is used, flagged with that reason.
   // neither: no caller found (dead code, or a call the scan cannot follow): flagged, never assumed to be setup.
-  function reachFrom(seeds, withDispatch) {
+  const boundOf = (a) => a.type === 'CallExpression' && a.callee.type === 'MemberExpression' && !a.callee.computed && a.callee.property.name === 'bind' && (a.callee.object.type === 'Identifier' || (a.callee.object.type === 'MemberExpression' && !a.callee.object.computed)) ? a.callee.object : null;
+  function reachFrom(seeds, withDispatch, byName = false) {
     const r = new Map(), q = [];
     const put = (m, g, fromK) => { const k = `${m.file}#${g.__key}`; if (!r.has(k)) { r.set(k, fromK); q.push([m, g]); } };
     for (const [m, g] of seeds) put(m, g, null);
@@ -727,7 +740,21 @@ export function scan({ root = ROOT } = {}) {
         const pr = g.parent;
         if ((pr?.type === 'CallExpression' || pr?.type === 'NewExpression') && (pr.callee === g || pr.arguments.includes(g) && !DEFERRED.test(calleeName(pr) || pr.callee?.name || ''))) put(mod, g, fk);
       }
-      for (const call of f.__calls || []) for (const [m, g] of resolveCall(mod, call)) put(m, g, fk);
+      for (const call of f.__calls || []) {
+        for (const [m, g] of resolveCall(mod, call)) put(m, g, fk);
+        // (Last resort, for a site that nothing else reaches: a method called on an object the scan cannot follow (a registry entry's
+        // make(), a handler object's open()) runs any method of that name in the app. Over-reaches, so it is used only to find who might call.)
+        if (byName && call.member) for (const m of mods.values()) for (const g of m.byName?.get(call.name) || []) if (declKind(g) === 'method') put(m, g, fk);
+        // (A function handed by name to a call that runs it, refineStep('read', bakeAll): it runs where that call does. Not for a call that
+        // keeps it to run later: that function is a seed of its own, with its own kind. Triage only, 2 Nov 2026; the frame reach is unchanged.)
+        // (And a bound one, restPass(exitAnims.bind(null, el, go)): the same function, bound.)
+        if (!DEFERRED.test(call.name)) for (const a of call.node.arguments) {
+          const id = a.type === 'Identifier' ? a : boundOf(a);
+          if (id) for (const [m, g] of resolveBare(mod, id.name, call.at)) put(m, g, fk);
+          // (Or kept in an options object handed to the call, createDock({ revealDock, onWhy: openWhy }).)
+          if (a.type === 'ObjectExpression') for (const pr of a.properties) if (pr.type === 'Property' && pr.value.type === 'Identifier') for (const [m, g] of resolveBare(mod, pr.value.name, call.at)) put(m, g, fk);
+        }
+      }
       if (withDispatch) for (const [m, g] of dispatched(mod, f)) put(m, g, fk);
     }
     return r;
@@ -747,21 +774,39 @@ export function scan({ root = ROOT } = {}) {
         else if (!enclosing(g) && !DEFERRED.test(cn)) initSeeds.push([mod, g]);
       } else if (pr?.type === 'CallExpression' && pr.callee === g && !enclosing(g)) initSeeds.push([mod, g]);
       if (pr?.type === 'AssignmentExpression' && /^on[a-z]+$/.test(pr.left.property?.name || '')) addUse(mod, g, 'event handler');
+      // (A closure kept in an array, an object, a returned value or a ternary is run later by whatever holds it, never at module load:
+      // ['frame chrome', (f, now) => paintChrome(f, now)], { onClick: () => sendFeedback() }.)
+      else if (pr?.type === 'ArrayExpression' || (pr?.type === 'Property' && pr.value === g && !pr.method && pr.parent?.type === 'ObjectExpression') || pr?.type === 'ReturnStatement' || pr?.type === 'ConditionalExpression' || pr?.type === 'LogicalExpression') addUse(mod, g, 'stored callback');
     }
     // (A handler or callback handed in by name: addEventListener('click', onTap), setTimeout(tick, 5), p.then(done), store.on(k, fn).)
     for (const call of allCalls(mod)) {
       const cn = call.name, kind = /^(setTimeout|setInterval|requestIdleCallback|idle|afterMotion|whenQuiet|restPass|queueMicrotask|nextFrame)$/.test(cn) ? 'timer or rest pass' : /^(then|catch|finally)$/.test(cn) ? 'promise'
         : /^(addEventListener|on|once|subscribe|listen)$/.test(cn) ? 'event handler' : /^(ResizeObserver|IntersectionObserver|MutationObserver|PerformanceObserver)$/.test(call.node.callee?.name || '') ? 'observer' : null;
-      if (kind) for (const a of call.node.arguments) if (a.type === 'Identifier' || (a.type === 'MemberExpression' && !a.computed)) for (const [m, g] of targetsOf(mod, a, call.at)) addUse(m, g, kind);
+      if (kind) for (const a0 of call.node.arguments) { const a = boundOf(a0) || a0; if (a.type === 'Identifier' || (a.type === 'MemberExpression' && !a.computed)) for (const [m, g] of targetsOf(mod, a, call.at)) addUse(m, g, kind); }
     }
     for (const g of mod.obsSeeds) addUse(mod, g, 'observer');
+    for (const { arg, at } of mod.newObs || []) {
+      if (!arg) continue;
+      if (isFn(arg)) addUse(mod, arg, 'observer');
+      else if (arg.type === 'Identifier' || (arg.type === 'MemberExpression' && !arg.computed)) for (const [m, g] of targetsOf(mod, arg, at)) addUse(m, g, 'observer');
+    }
+    for (const { rel, viaLazy } of mod.dynImports || []) {
+      const m = mods.get(rel);
+      if (m) for (const [name, local] of m.exports) for (const [mm, g] of resolveBare(m, local, null)) {
+        if (viaLazy) addUse(mm, g, `lazy module ${rel.replace(/^src\/ui\//, '')} (made when first wanted), export ${name}`);
+        else initSeeds.push([mm, g]);
+      }
+    }
     for (const call of mod.top) for (const [m, g] of resolveCall(mod, call)) initSeeds.push([m, g]);
   }
   for (const m of mods.values()) for (const g of m.seeds) addUse(m, g, 'motion handler');   // (a hit proper where it reaches)
   for (const [key, set] of regs) { const file = key.slice(0, key.indexOf(':')); for (const [m, g] of set.values()) addUse(m, g, 'store or registry listener'); void file; }
   for (const mod of mods.values()) for (const [v, at] of mod.motionProps) for (const [m, g] of targetsOf(mod, v, at)) addUse(m, g, 'motion handler');
   const useReach = reachFrom(useSeeds, true), initReach = reachFrom(initSeeds, false);
+  const useByName = reachFrom(useSeeds, true, true), initByName = reachFrom(initSeeds, false, true);
   const rootKindOf = (k) => { let guard = 0; while (guard++ < 200 && useReach.get(k)) k = useReach.get(k); return seedKind.get(k) || 'event or timer'; };
+  const chainKey = (R, mod, f) => { for (let p = f; p; p = enclosing(p)) if (R.has(`${mod.file}#${p.__key}`)) return `${mod.file}#${p.__key}`; return null; };
+  const rootKindOf2 = (k) => { let guard = 0; while (guard++ < 200 && useByName.get(k)) k = useByName.get(k); return seedKind.get(k) || 'event or timer'; };
   const setupLines = new Set(), setupList = [];
   const allocAt = new Map();
   const rareList = [];
@@ -801,6 +846,12 @@ export function scan({ root = ROOT } = {}) {
       } else if (!f || initReach.has(`${mod.file}#${f.__key}`)) {
         setupLines.add(`${mod.file}:${n.loc.start.line}`);
         setupList.push({ cat: cat0, file: mod.file, line: n.loc.start.line, fn: label(f), detail: `${detail} — setup: runs once at load or boot, no event, timer or frame calls it`, owner: ownerOf(mod.file, cat0, label(f)) });
+      } else if ((useKey = chainKey(useByName, mod, f))) {
+        push('unreached', mod.file, n.loc.start.line, label(f), `${cat0}: ${detail} — runs during use (a method of this name is called from ${rootKindOf2(useKey)})`);
+        hits[hits.length - 1].why = 'use';
+      } else if (chainKey(initByName, mod, f)) {
+        setupLines.add(`${mod.file}:${n.loc.start.line}`);
+        setupList.push({ cat: cat0, file: mod.file, line: n.loc.start.line, fn: label(f), detail: `${detail} — setup: called by method name from code that runs once at load or boot only`, owner: ownerOf(mod.file, cat0, label(f)) });
       } else {
         push('unreached', mod.file, n.loc.start.line, label(f), `${cat0}: ${detail} — no caller found (dead code, or a call the scan cannot follow)`);
         hits[hits.length - 1].why = 'unresolved';

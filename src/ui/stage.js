@@ -67,7 +67,6 @@ import { advanceStream, createStreamChain, displaySpeed, createReversalHold, ble
 import { createDyeRemote } from './dye-remote.js?v=9b2a2af354';
 import { createSweepClient } from './sweep-client.js?v=82d428b46d';
 import { retireRows, flowClose } from './flow-rows.js?v=6cd335f84b';
-import { createFlowDash, chevSpacing, inHole } from './flow-dash.js?v=09d31de7c2';
 import { createJunctionWidths } from './junction-widths.js?v=24af760f06';
 import { chainsOf, planChainInto, taperAt } from './vessel-taper.js?v=01b79bbfbd';
 import { frameFor, lateFrameFor, cancelFrame, mayTask, cancelMay, noteDraw, easeNow, inMotion, afterMotion, PACED, setSaver as setFrameSaver, paceMs, renderScale, renderSetting, onRenderScale, figOpt, figLab, onFigLab, MOTION60_MS, PINCH_LOW_K, readFrameFor } from './frame.js?v=07b68cf942';
