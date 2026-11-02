@@ -13,13 +13,8 @@
 import { store, updateParams } from './store.js?v=a51981892d';
 import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout, countTo, swapText, transformEndX, afterExit, markGone, releaseWords } from './util.js?v=f149f5dc18';
 import { releaseSpeed, isFlick, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=7d7bfe9a62';
-<<<<<<< HEAD
-import { cardFor, normalizeSel } from './actions.js?v=29d249b9a6';
-import { frameFor, cancelFrame } from './frame.js?v=ca74a6f22a';
-=======
 import { cardFor, normalizeSel } from './actions.js?v=29d249b9a6';
 import { frameFor } from './frame.js?v=ca74a6f22a';
->>>>>>> bb866f8d (Frame allocations out of card, card-place, about, caption-gl, card-zoom, cell-grid, blood-noise, caught, drop-label and the rest of A–D: kept records and buffers, strings rebuilt only on change, and allocations that run only once per pick, per slide arrival or on pool growth tagged alloc-rare with their reason)
 import { restPass, cancelRest } from './rest-pass.js?v=b1da783ead';
 import { classSoon, runSoon, propSoon, attrSoon, textSoon } from './class-soon.js?v=d59b314e61';
 import { placeCard, coverCount, vesselPoints } from './card-place.js?v=4c4267f1e3';
