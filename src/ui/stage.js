@@ -6892,14 +6892,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (The selection's outline and the fluid's are made once, ahead, and reused: a frame that selects an organ makes nothing (2 Nov 2026).)
   const SEL_LINE = s('path', { class: 'org-sel-line' });
   const SEL_FLUID = (() => { const fill = s('path', { class: 'org-sel-fluid' }), line = s('path', { class: 'org-sel-line' }); return { g: s('g', { 'clip-path': 'url(#abdomenClip)' }, fill, line), fill, line }; })();
+  const SEL_ORGAN_IDS = { liver: ['liver'], heart: ['heart'], spleen: ['spleen'] };
   function updateOrganSel(sel, t) {
     const o = sel?.type === 'organ' && t < 0.5 ? sel.id : null;
     const key = o ? o + (sel.lobe || '') : '';
     if (key === selOKey) return;
     selOKey = key;
-    for (const g of Object.values(organG)) g.classList.remove('org-sel');
+    for (const id in organG) organG[id].classList.remove('org-sel');
     const selKids = []; late('kids', gSelO, selKids); selLine = null; selFluid = null;
-    const byOrgan = o && { liver: ['liver'], heart: ['heart'], spleen: ['spleen'] }[o];
+    const byOrgan = o && SEL_ORGAN_IDS[o];
     if (glLines) olSet('sel', byOrgan?.[0] || null);
     if (!o) return;
     if (byOrgan) {
@@ -6919,26 +6920,44 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
 
   // Where the figure asks the viewer to look (store.focus).
-  let focusKey = '';
+  // (The marks as parts, not a string: the ids, kinds and spans of the last glow set, compared in place; and the maps, lists and spans of
+  // a call kept and written over, so a call that finds nothing changed makes nothing.)
+  const focusSig = [], focusNow = [], focusIds = [], focusKind = new Map(), focusLo = new Map(), focusHi = new Map();
+  let focusPresenting = null;
+  const FOCUS_FULL = [0, 1];
+  function focusMark(m) {
+    const ed = m.edges;
+    if (!ed) return;
+    for (let i = 0; i < ed.length; i++) {
+      const id = ed[i];
+      if (!focusKind.has(id)) focusKind.set(id, m.kind || '');
+      const sp = m.seg && isStent(EDGES[EI[id]]) ? STENT_SPANS[stentGate(m.seg, store.get().params, id)] : FOCUS_FULL;
+      if (focusLo.has(id)) { focusLo.set(id, Math.min(focusLo.get(id), sp[0])); focusHi.set(id, Math.max(focusHi.get(id), sp[1])); }
+      else { focusLo.set(id, sp[0]); focusHi.set(id, sp[1]); }
+    }
+  }
+  // The glow (setGlowSrc): the accent; on a slide a block is the danger red, a treatment the accent, and a note
+  // only a pointer (its vessel glows in its station's colour, the slide's glow).
+  const focusCol = (k, presenting) => (!presenting || k === 'treat' ? 'var(--accent)' : k === 'note' ? null : 'var(--danger)');
   function updateFocus() {
     const foc = store.get().focus;
     // A presenter slide can hold several marks, each of a kind (block, treat, note), each in its colour.
     // (A mark's seg on a stent lights only that third of it; several marks on one stent light the stretch that spans them.)
-    const kindOf = new Map(), spanOf = new Map();
-    for (const m of foc ? foc.marks || [foc] : []) for (const id of m.edges || []) {
-      if (!kindOf.has(id)) kindOf.set(id, m.kind || '');
-      const sp = m.seg && isStent(EDGES[EI[id]]) ? STENT_SPANS[stentGate(m.seg, store.get().params, id)] : [0, 1], was = spanOf.get(id);
-      spanOf.set(id, was ? [Math.min(was[0], sp[0]), Math.max(was[1], sp[1])] : sp);
-    }
-    const ids = [...kindOf.keys()].filter((id) => E[id]?.vis);
+    focusKind.clear(); focusLo.clear(); focusHi.clear();
+    if (foc) { const marks = foc.marks; if (marks) for (let i = 0; i < marks.length; i++) focusMark(marks[i]); else focusMark(foc); }
+    focusIds.length = 0;
+    for (const id of focusKind.keys()) if (E[id]?.vis) focusIds.push(id);
     const presenting = !!store.get().presenting;
-    const key = ids.map((id) => id + kindOf.get(id) + spanOf.get(id).join('-')).join(',') + '|' + presenting;
-    if (focusKey === key) return;
-    focusKey = key;
-    // The glow (setGlowSrc): the accent; on a slide a block is the danger red, a treatment the accent, and a note
-    // only a pointer (its vessel glows in its station's colour, the slide's glow).
-    const col = (k) => (!presenting || k === 'treat' ? 'var(--accent)' : k === 'note' ? null : 'var(--danger)');
-    setGlowSrc('focus', ids.filter((id) => col(kindOf.get(id))).map((id) => ({ id, col: col(kindOf.get(id)), amt: 1, wide: 0.75, dur: 600, span: spanOf.get(id)[1] - spanOf.get(id)[0] < 1 ? spanOf.get(id) : null })));
+    const now = focusNow;
+    now.length = 0;
+    for (let i = 0; i < focusIds.length; i++) { const id = focusIds[i]; now.push(id, focusKind.get(id), focusLo.get(id), focusHi.get(id)); }
+    let same = focusPresenting === presenting && now.length === focusSig.length;
+    for (let i = 0; same && i < now.length; i++) if (now[i] !== focusSig[i]) same = false;
+    if (same) return;
+    focusPresenting = presenting;
+    focusSig.length = 0;
+    for (let i = 0; i < now.length; i++) focusSig.push(now[i]);
+    setGlowSrc('focus', focusIds.filter((id) => focusCol(focusKind.get(id), presenting)).map((id) => ({ id, col: focusCol(focusKind.get(id), presenting), amt: 1, wide: 0.75, dur: 600, span: focusHi.get(id) - focusLo.get(id) < 1 ? [focusLo.get(id), focusHi.get(id)] : null })));
   }
 
   // Reversal as shown (the Direction lens, the moving blood, the watched stations): a vessel's flag changes only once its
@@ -6956,8 +6975,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!jump) for (let i = 0; i < P.length; i++) if (Math.abs(P[i] - revP[i]) > JUMP_MMHG) { jump = true; break; }
     revF = f; revH = H; revT = t;
     if (P) { if (!revP || revP.length !== P.length) revP = new Float64Array(P.length); revP.set(P); }
-    if (revHolder.step((k) => (isReversed(EDGES[k], f) ? 1 : 0), t, jump)) revFlip = true;
+    if (revHolder.step(revFlag, t, jump)) revFlip = true;
   }
+  const revFlag = (k) => (isReversed(EDGES[k], revF) ? 1 : 0);   // (revF is the frame being held: holdReversals sets it just before)
   const reversedShown = (e) => revHold[EI[e.id]] === 1;
   function isReversed(e, f) {
     const q = f.Qf[EI[e.id]];
@@ -6973,8 +6993,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const on = nodeVisible(d.id);
       if (d.on !== on) { d.on = on; mapWake = true; }
     }
-    for (const [id, r] of Object.entries(liverR)) {
-      const k = EI[id];
+    for (const id in liverR) {
+      const r = liverR[id], k = EI[id];
       const q = f.Q[k];
       const dp = f.P[NI[EDGES[k].from]] - f.P[NI[EDGES[k].to]];
       r.R = Math.abs(q) > 1e-3 ? dp / (q * 0.06) : Infinity;
@@ -7018,6 +7038,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     return outlineCache.get(d);
   }
+  const diaParts = [null, null, null], DIA_IDS = ['liver', 'spleen'];
   function diaphragmPath(shrink, sc) {
     const at = (P, cx, cy, k) => P.map(([x, y]) => [cx + (x - cx) * k, cy + (y - cy) * k]);
     // (The liver's smooth dome, never its nodular edge: the nodules stand out about 2 at most, inside the gap.)
@@ -7025,7 +7046,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const stomach = outlinePts(diaCut.stomach.getAttribute('d'), diaCut.stomach);
     const spleen = at(outlinePts(diaCut.spleen.getAttribute('d'), diaCut.spleen), SPLEEN_CENTER[0], SPLEEN_CENTER[1], sc);
     // One smooth dome over them (diaphragm.js); the heart rests on it, just under its base.
-    return diaphragmD(diaphragmLine([liver, stomach, spleen], heartFloor));
+    diaParts[0] = liver; diaParts[1] = stomach; diaParts[2] = spleen;
+    return diaphragmD(diaphragmLine(diaParts, heartFloor));
   }
   function liftDiaphragm(shrink, sc) {
     // The spleen in steps of 1% (as the plate key reads it): the running model's slow drift must not
@@ -7034,7 +7056,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const key = `${liverKey}|${shrink.toFixed(3)}|${scQ}`;
     if (key === diaKey) return;
     diaKey = key;
-    for (const id of ['liver', 'spleen']) diaCut[id].setAttribute('transform', organG[id].getAttribute('transform') || '');
+    for (const id of DIA_IDS) diaCut[id].setAttribute('transform', organG[id].getAttribute('transform') || '');
     const d = diaphragmPath(shrink, scQ);
     for (const el of diaEls) el.setAttribute('d', d);
   }
@@ -7059,8 +7081,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (lvC === null || reduceMotion.matches || !figureShown) { lvC = cT; lvG = gT; lvT = tT; }   // under the loading screen nothing is seen easing
     else { lvC = easeTo(lvC, cT, dt); lvG = easeTo(lvG, gT, dt); lvT = easeTo(lvT, tT, dt); }
     lvAt = performance.now();
-    return [cT, gT, tT];
+    lvTargets[0] = cT; lvTargets[1] = gT; lvTargets[2] = tT;
+    return lvTargets;
   }
+  const lvTargets = [0, 0, 0];   // (read at once by its callers)
+  // (What updateOrgans hands the probe's timed calls, kept: the calls are fixed functions that read these, so none is made in a frame.)
+  let orgMoving = false, orgPA2 = null, orgShrink = 1;
+  const orgMorphLiver = () => morphLiver(lvC, lvG, orgMoving);
+  const orgCaudate = () => caud.sync(pressureColor(qP(orgPA2[NI.IVCS] + 0.5)), caudK);
+  const orgMasks = () => syncOrganMasks(orgShrink, organG.spleen.getAttribute('transform'));
+  const QUARTERS = ['0', '0.25', '0.5', '0.75', '1'];   // (String(n / 4) for n 0 … 4)
+  // The congestion's shades stay hidden at no opacity (the glossy one aside), and all hide in the figure view.
+  function lvShade(el, gloss, imaging) { const v = imaging || (el !== gloss && !(+el.style.opacity > 0)) ? 'hidden' : ''; if (el.style.visibility !== v) el.style.visibility = v; }
   function updateOrgans(f, p, t) {
     const k = 1 - t;
     const imaging = isImaging();
@@ -7087,10 +7119,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (lvMoving && !moving) lvStillAt = performance.now();
     lvMoving = moving;
     if (moving) widthEasing = organsEasing = true;
-    gpuProbe.time(null, 'organs: liver', () => morphLiver(lvC, lvG, moving));
+    orgMoving = moving;
+    gpuProbe.time(null, 'organs: liver', orgMorphLiver);
     // (The congestion's shades stay hidden at no opacity, as lvFade leaves them: showing them here undid lvFade on every liver frame, a
     // flip of the SVG's visibility each frame that also read the liver for the GPU again each time (motion budget, 2 Nov).)
-    for (const el of [lv.cong, lv.isl, lv.gloss]) { const v = imaging || (el !== lv.gloss && !(+el.style.opacity > 0)) ? 'hidden' : ''; if (el.style.visibility !== v) el.style.visibility = v; }
+    lvShade(lv.cong, lv.gloss, imaging); lvShade(lv.isl, lv.gloss, imaging); lvShade(lv.gloss, lv.gloss, imaging);
     // A cirrhotic liver shrinks a little; a congested one swells.
     const shrink = liverShrink(lvC, lvG);
     liverScale = shrink;
@@ -7101,7 +7134,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // The caudate lobe grows as its veins carry the liver's outflow: from twice their normal flow, fully at four times.
       const hq = store.get().healthy?.Q?.[EI.CAUD], PA2 = f.Pf || f.P;
       caudK = stepHeld(caudK, hq ? clamp((Math.abs((f.Qf || f.Q)[EI.CAUD] / hq) - 2) / 2, 0, 1) : 0, 0.05);
-      gpuProbe.time(null, 'organs: caudate', () => caud.sync(pressureColor(qP(PA2[NI.IVCS] + 0.5)), caudK));
+      orgPA2 = PA2;
+      gpuProbe.time(null, 'organs: caudate', orgCaudate);
     }
     const c3 = recruitFrac('C3', f);
     abdTo((clamp((c3 - 0.1) / 0.4, 0, 1) * 0.9 * k).toFixed(2));
@@ -7109,7 +7143,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // in the empty abdomen beside the gut (sweep batches 02–04). It fades in as the vein opens, as the caput's veins do, in
     // quarter steps (the organs' raster is drawn again at each step: plateStateKey).
     if (organEls.umbilicus) {
-      const op = String(Math.round(4 * (findingHidden('coll') ? 0 : clamp((c3 - 0.15) / 0.3, 0, 1))) / 4);
+      const op = QUARTERS[Math.round(4 * (findingHidden('coll') ? 0 : clamp((c3 - 0.15) / 0.3, 0, 1)))];
       if (organEls.umbilicus.getAttribute('opacity') !== op) organEls.umbilicus.setAttribute('opacity', op);
     }
     const sc = f.slow.spleen / 11;
@@ -7117,7 +7151,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // Growing, the plate (a picture of the organs at one size) gives way to the live drawing, which follows this size each frame.
     if (spleenMv.see(sc, performance.now()) && veins && !veins.lost && veins.hasPlate(0) && !liveOn()) hidePlate();
     putA(organG.spleen, 'transform', `translate(${SPLEEN_CENTER[0]} ${SPLEEN_CENTER[1]}) scale(${sc.toFixed(3)}) translate(${-SPLEEN_CENTER[0]} ${-SPLEEN_CENTER[1]})`);
-    gpuProbe.time(null, 'organs: masks', () => syncOrganMasks(shrink, organG.spleen.getAttribute('transform')));
+    orgShrink = shrink;
+    gpuProbe.time(null, 'organs: masks', orgMasks);
     if (organG.spleen.style.opacity !== (p.splenicRx === 2 ? '0.14' : '')) organG.spleen.style.opacity = p.splenicRx === 2 ? '0.14' : '';
     liftDiaphragm(shrink, sc);
     syncSelLine();
@@ -7126,9 +7161,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const asc = fluidTarget(ascTarget, f.slow.ascites);
     if (ascTarget === null) ascShown = asc;
     ascTarget = asc;
-    gpuProbe.time(null, 'organs: fluid', () => drawAscites());
+    gpuProbe.time(null, 'organs: fluid', drawAscites);
     syncSelFluid();
-    gpuProbe.time(null, 'organs: plate poke', () => platePoke());
+    gpuProbe.time(null, 'organs: plate poke', platePoke);
   }
 
   // Ascites collects in the flanks and the pelvis first (supine patient, frontal view), so its
@@ -7148,9 +7183,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // jumping to the wall clock's; round 2 review, B11.)
   let fluidPh = 0;
   const fluidPhase = () => fluidPh;   // both ripple terms are periodic over 20π
+  let fluidSurfPh = 0;
+  const fluidSurfKept = (x) => fluidSurfAt(x, fluidSurfPh);   // (the surface at the phase of the last draw: fluidSurf is set anew with each, so it never reads an older one)
   const fluidSurfAt = (x, ph) => fluidBase(x, fluidH) + (Math.sin(x / 38 + ph) * 0.7 + Math.sin(x / 23 - ph * 1.3) * 0.3) * fluidAmp;
   // No pool while the readout grades the belly "None"; past that it fades in as it fills and out as it drains, so it never pops.
   const fluidFade = () => poolFade(ascShown);
+  const fluidCellsBuf = [];
   function drawAscites() {
     const u = clamp(ascShown / 8500, 0, 1);
     // The wall and the bowel move in half-unit steps of the bulge, with some hysteresis: each step re-rasterizes the
@@ -7177,9 +7215,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     fluidSurf = null;
     if (fluidFade() <= 0) { ascStale = false; putA(ascitesPath, 'd', ''); putA(ascitesLine, 'd', ''); }
     else {
-      const ph = reduceMotion.matches || plateOn() ? 0 : fluidPhase();
-      const surf = (x) => fluidSurfAt(x, ph);
-      fluidSurf = surf;
+      fluidSurfPh = reduceMotion.matches || plateOn() ? 0 : fluidPhase();
+      fluidSurf = fluidSurfKept;
       // (R05, review pass 2: while the GPU draws the fluid (gl-on: #ascites hidden, app.css), the surface's SVG text, whose phase moves
       // every frame of the ripple, is not built or written: it is marked stale and written when something reads it (the selection's
       // outline, the hover, the SVG shown again: ascitesSvg). ?asclazy=0: written every frame, as before.)
@@ -7190,10 +7227,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // The cells the rippling surface (and its light band) passes through, redrawn each frame on the GPU.
       if (veins && !veins.lost && Math.abs(fluidH - fluidBandH) > 0.25) {
         fluidBandH = fluidH;
-        const cells = [];
+        const cells = fluidCellsBuf;
+        cells.length = 0;
         for (let x = 288; x < 1136; x += 16) {
-          const base = (z) => fluidBase(z, fluidH);
-          const a = base(x), b = base(x + 16);
+          const a = fluidBase(x, fluidH), b = fluidBase(x + 16, fluidH);
           const y0 = Math.min(a, b) - fluidAmp - 2, y1 = Math.max(a, b) + fluidAmp + 10;
           for (let y = y0; y < y1; y += 16) cells.push(x, y);
         }
@@ -7204,6 +7241,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     platePoke();
   }
   // Per animation frame: ease the shown volume and keep the GPU fluid's look current. True when the level moved.
+  const fluidLv = [1, 0];
   function stepFluid(dt, st, easeDt = dt) {
     if (ascTarget === null) return false;
     let moved = false;
@@ -7223,10 +7261,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (Under a slide's spotlight the fluid eases with the organs' dim: the plate's own value, less a lens's share of it.)
     const spotK = spot.live && plateDim != null ? clamp(plateDim / (flag.dataLayer ? 0.72 : 1), SEL_DIM, 1) : 1;
     const t = easeInOut(morph), k = (1 - t) * (flag.hasSel ? SEL_DIM : spotK);
-    fluidLook.s = [fluidFloorAt(fluidH), fluidH, fluidAmp, run ? fluidPhase() : fluidLook.s[3]];
-    fluidLook.ink = [fluidInkRGBA[0], fluidInkRGBA[1], fluidInkRGBA[2], fluidInkRGBA[3] * k * fluidFade()];
+    const fs = fluidLook.s, fi = fluidLook.ink;   // (written in place: the look is read on the draw)
+    fs[0] = fluidFloorAt(fluidH); fs[1] = fluidH; fs[2] = fluidAmp; if (run) fs[3] = fluidPhase();
+    fi[0] = fluidInkRGBA[0]; fi[1] = fluidInkRGBA[1]; fi[2] = fluidInkRGBA[2]; fi[3] = fluidInkRGBA[3] * k * fluidFade();
     fluidLook.ripple = run && fluidFade() > 0 && k > 0;
-    fluidLook.lv = [liverScale, liverFluidCut];
+    fluidLv[0] = liverScale; fluidLv[1] = liverFluidCut; fluidLook.lv = fluidLv;
     if (vLook) vLook.fluid = fluidLook;
     // (A level that moves under fluid drawn at no opacity changes no pixel (the shader draws none at ink 0): no whole repaint for it,
     // only for the frame it fades to nothing. External review, 21 Oct.)
@@ -7243,18 +7282,25 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return !pool;
   }
   let fluidSeen = false, fluidFrom = null, poolFrames = 0;
+  // (A hex digit's value from its character code, as parseInt(pair, 16) reads a colour's pairs; NaN for anything else.)
+  const hexDigit = (c) => (c >= 48 && c <= 57 ? c - 48 : c >= 97 && c <= 102 ? c - 87 : c >= 65 && c <= 70 ? c - 55 : NaN);
   function readFluidInk(cs) {
     const hex = cs.getPropertyValue('--ascites').trim().replace('#', ''), a = parseFloat(cs.getPropertyValue('--ascites-a')) || 0.4;
-    if (hex.length === 6) fluidInkRGBA = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).concat(a);
+    if (hex.length === 6) {
+      for (let i = 0; i < 3; i++) fluidInkRGBA[i] = (hexDigit(hex.charCodeAt(2 * i)) * 16 + hexDigit(hex.charCodeAt(2 * i + 1))) / 255;
+      fluidInkRGBA[3] = a;
+    }
   }
 
   // Point, unit normal and unit tangent at arc length `d` along a vessel's current centerline.
   function frameAt(id, d) {
     const g = geo[id];
     const [x, y, dx, dy] = pointAt(g.cur, clamp(d / (g.len || 1), 0, 1));
-    const n = Math.hypot(dx, dy) || 1;
-    return { x, y, tx: dx / n, ty: dy / n, nx: -dy / n, ny: dx / n };
+    const n = Math.hypot(dx, dy) || 1, q = frameKept;   // (read at once by its callers)
+    q.x = x; q.y = y; q.tx = dx / n; q.ty = dy / n; q.nx = -dy / n; q.ny = dx / n;
+    return q;
   }
+  const frameKept = { x: 0, y: 0, tx: 0, ty: 0, nx: 0, ny: 0 };
   // A self-expanding metal stent over the lumen (two rails, a diamond lattice of struts, radiopaque markers at both
   // ends), so a shunt or a stented vein reads as a device, not a vessel. It runs from d0 to d1 along the vessel's drawn
   // path (either way round) and is drawn k of the way (0 to 1) from d0, the lattice anchored there, so a growing stent
@@ -7378,17 +7424,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (v.k === 0 && !goal) { if (v.parts) vstDirty = true; vst.delete(id); }
     }
     // (A stent that comes in or goes out is built between frames, never in one: its mesh is new page art, 2 Nov 2026, "Move everything to GPU".)
-    if (vstDirty) { vstDirty = false; if (!vstBuildAsk) vstBuildAsk = restPass(() => { vstBuildAsk = 0; venousDraw(F?.viewParams || store.get().params); }); }
+    if (vstDirty) { vstDirty = false; if (!vstBuildAsk) vstBuildAsk = restPass(venousBuild); }
     if (moving) vstRaf = nextFrame(venousTick); else vstAt = 0;
   }
   let venousAnat = true, vstBuildAsk = 0;
+  const venousBuild = () => { vstBuildAsk = 0; venousDraw(F?.viewParams || store.get().params); };
   // Called from every overlay update: starts the ease when the slide's stented veins (or the view) changed, and redraws on a rebuild.
   function venousSync(p, anat, rebuilt) {
     venousAnat = anat;
     for (const id of store.get().stented || []) if (!vst.has(id) && E[id]) vst.set(id, { k: 0 });
     for (const [id, v] of vst) if (v.k !== vstGoal(id, anat) && !vstRaf) { vstAt = 0; vstRaf = nextFrame(venousTick); break; }
     // (Rebuilt between frames, never in the frame whose geometry changed: 2 Nov 2026, "Move everything to GPU".)
-    if (rebuilt && vst.size) { if (vstRaf) vstDirty = true; else if (!vstBuildAsk) vstBuildAsk = restPass(() => { vstBuildAsk = 0; venousDraw(F?.viewParams || store.get().params); }); }
+    if (rebuilt && vst.size) { if (vstRaf) vstDirty = true; else if (!vstBuildAsk) vstBuildAsk = restPass(venousBuild); }
   }
   // Surgical shunts: a row of sutures across each anastomosis.
   function anastomoses(id) {
@@ -7452,15 +7499,23 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const RES_KEY = '× healthy liver’s resistance';
   // Where the resistors' readings stand (stage-local): centred over the circuit, above it, or below it once it is turned upright.
   function resAt() {
-    const c = [[60, 40], [1360, 40], [60, 640], [1360, 640]].map(([x, y]) => worldToLocal(x, y)), ys = c.map((p) => p[1]);
+    // (the figure's four corners, in stage-local units)
+    let c = worldToLocal(60, 40); const x0 = c[0], y0 = c[1];
+    c = worldToLocal(1360, 40); const x1 = c[0], y1 = c[1];
+    c = worldToLocal(60, 640); const x2 = c[0], y2 = c[1];
+    c = worldToLocal(1360, 640); const x3 = c[0], y3 = c[1];
     const up = rotU > 0.5;
-    return { x: c.reduce((a, p) => a + p[0], 0) / 4, y: up ? Math.max(...ys) : Math.min(...ys), up };
+    return { x: (x0 + x1 + x2 + x3) / 4, y: up ? Math.max(y0, y1, y2, y3) : Math.min(y0, y1, y2, y3), up };
   }
   // Resistance as ΔP / Q: the liver's lobes, each its venules, sinusoids and outflow in series, in parallel with each other.
   const LOBES = [['PRE_R', 'SIN_RR', 'POST_R_RHV'], ['PRE_L', 'SIN_LL', 'POST_L_LHV']];
   const rOf = (P, Q, id) => { const k = EI[id], e = EDGES[k]; return (P[NI[e.from]] - P[NI[e.to]]) / Math.max(1e-6, Math.abs(Q[k])); };
   const GUT_ART = ['A_SMA', 'A_IMA', 'A_SPL', 'A_LGA'];
-  const liverRes = (P, Q) => 1 / LOBES.reduce((g, ids) => g + 1 / Math.max(1e-6, ids.reduce((r, id) => r + rOf(P, Q, id), 0)), 0);
+  function liverRes(P, Q) {
+    let g = 0;
+    for (let i = 0; i < LOBES.length; i++) { const ids = LOBES[i]; let r = 0; for (let j = 0; j < ids.length; j++) r += rOf(P, Q, ids[j]); g += 1 / Math.max(1e-6, r); }
+    return 1 / g;
+  }
   /** The ratio a resistor shows, or null when there is nothing to show (collaterals closed). */
   function resRatio(kind) {
     const hp = store.get().healthy, at = pinned()?.at, P = at?.P || F.Pf || F.P, Q = at?.Q || F.Qf || F.Q;
@@ -7468,7 +7523,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const r0 = liverRes(hp.P, hp.Q);
     // (The live frame breathes a few percent around the settled value, so a liver within 8% of the healthy one reads exactly ×1.0, not ×0.9 and ×1.0 by turns.)
     if (kind === 'liver') { const r = liverRes(P, Q) / r0; return Math.abs(r - 1) < 0.08 ? 1 : r; }
-    if (kind === 'gut') return 1 / GUT_ART.reduce((g, id) => g + 1 / Math.max(1e-6, rOf(P, Q, id)), 0) / r0;
+    if (kind === 'gut') { let g = 0; for (let i = 0; i < GUT_ART.length; i++) g += 1 / Math.max(1e-6, rOf(P, Q, GUT_ART[i])); return 1 / g / r0; }
     let qc = 0;
     for (const e of EDGES) if (e.kind === 'collateral' && edgePresent(e, store.get().params)) qc += Math.max(0, Q[EI[e.id]]);
     if (qc * 0.06 < 0.05) return null;
