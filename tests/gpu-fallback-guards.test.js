@@ -70,7 +70,7 @@ test('a software renderer or Battery saver never turns the browser blur on by it
 
 test('the stage runs the blur guard at start, on a changed renderer and on Battery saver; Settings takes it over', () => {
   const st = src('src/ui/stage.js');
-  assert.match(st, /guardBlur\(document\.documentElement, \{ low: SOFTWARE \|\| saverOn, asked \}\)/);
+  assert.match(st, /guardBlur\(document\.documentElement, \{ low: SOFTWARE \|\| \(!GLASS_ALWAYS && saverOn\), asked: GLASS_ALWAYS && asked === '1' \? null : asked \}\)/);
   assert.match(st, /wrap\.dataset\.renderer = SOFTWARE \? 'software' : 'gpu'; wrap\.dataset\.quality = String\(quality\);\n\s*blurGuard\(\);/);
   assert.match(st, /saverOn = !!on;\n\s*blurGuard\(\);/);
   assert.match(src('src/ui/main.js'), /toggleAttribute\('data-noglass', !on\);\n\s*document\.documentElement\.removeAttribute\('data-noglass-auto'\);/);

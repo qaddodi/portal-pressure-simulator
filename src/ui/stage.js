@@ -53,7 +53,7 @@ import { pathCmds, flattenCmds, polyBox, measurePath, elBox } from './shape-gl.j
 import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=a2e13d9f8b';
 import { nameSpots, NAME_BREAK } from './organ-names.js?v=a901e8b4f3';
 import { createLabelGL } from './label-gl.js?v=42a7b1dad1';
-import { createGlassGL } from './glass-gl.js?v=9885220b13';
+import { createGlassGL } from './glass-gl.js?v=8a957048fe';
 import { writePoints, writeJoinNow } from './veins-sweep.js?v=c4ad517372';
 import { ENT_W } from './veins-bin.js?v=6e462a9e6c';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=3baf73f280';
@@ -2838,7 +2838,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   wrap.dataset.renderer = SOFTWARE ? 'software' : 'gpu';
   // A software renderer or Battery saver never turns the browser's blur on by itself (blur-guard.js): the cards go solid, as with
   // Settings › Blur effect off, unless that switch was turned on.
-  const blurGuard = () => { let asked = null; try { asked = localStorage.getItem('pps.noGlass'); } catch { /* storage unavailable */ } guardBlur(document.documentElement, { low: SOFTWARE || saverOn, asked }); };
+  // (Glass is glass (Mohammad, 2 Nov 2026: "glass is glass and it doesn't suddenly become solid when there is movement"; his Mac's ?perf
+  // showed every card "solid, no blur"): the cards' frost is drawn by the GPU in the figure's own frame, so Battery saver no longer turns it
+  // solid, nor does a stored Blur effect off (index.html: only ?noglass=1 does). ?saverglass=0: Battery saver turns it solid, as before.)
+  const GLASS_ALWAYS = !/[?&]saverglass=0\b/.test(location.search);
+  const blurGuard = () => { let asked = null; try { asked = localStorage.getItem('pps.noGlass'); } catch { /* storage unavailable */ } guardBlur(document.documentElement, { low: SOFTWARE || (!GLASS_ALWAYS && saverOn), asked: GLASS_ALWAYS && asked === '1' ? null : asked }); };
   blurGuard();
   let vdpr = 1, vBase = 1, boxW = -1, boxH = -1;   // (vBase: the canvas's pixels per CSS pixel at Full)
   // Figure resolution › Auto: zoomed in past the home framing the canvas is drawn at 1/zoom of its pixels (each part of the figure

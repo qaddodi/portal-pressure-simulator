@@ -7696,3 +7696,7 @@ body { font-optical-sizing: auto; font-kerning: normal; }
    soft dark spill under and round a frosted card read as smudges on the figure. Their 1 px edge stays. Both the page's box-shadow and the
    GPU's own (--gl-drop) take --pz-glass-drop from --glass-drop, so it is cleared here once. ?carddrop=1: the shadow as before. */
 :root:root:not([data-carddrop]) :is(.pz, .pz-shade) { --glass-drop: transparent; }
+/* A card zoomed up keeps its GPU glass, which lies in the figure under the page's cards: the words' card and its glass step out from under it
+   while it is up, so nothing shows through it (Mohammad, 2 Nov 2026, a chart zoomed on HVPG 3: "wtf is this"). ?zoomglass=0 (presenter.js):
+   the zoomed card goes solid instead and the words stay. */
+:root:not([data-zoomsolid]) .pz-zoomed :is(.pz-text, .pz-shade) { opacity: 0 !important; transition: opacity var(--d-small) var(--ease) !important; }

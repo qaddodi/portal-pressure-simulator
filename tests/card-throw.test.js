@@ -47,7 +47,7 @@ test('presenter: thrown cards go out and come in by card-throw.js; a swipe hands
   assert.match(presenter, /if \(!bare\) \{ const dir = throwDir \|\| 'next'; for \(const el of \[ui\.text, ui\.shade, ui\.data, ui\.panel\]\) if \(throwPinned\(el\)\) \{[^\n]*throwIn\(el, dir, 0, throwD\); else throwRelease\(el\); \} throwDir = ''; railAway\(\); \}/, 'bare words still come in thrown after the camera; copies left over go; a card sent out on the tap and kept by the new slide comes back in');
   assert.match(presenter, /if \(busy\) outNow\(\);\n\s+if \(!busy\) run\(\);/, 'a Next while the last change still runs sends the cards out on the tap');
   assert.match(presenter, /if \(out && throwDir\) return;/, 'a held swipe keeps the finger place for the throw');
-  assert.match(presenter, /for \(const el of pageEls\(\)\) \{ throwStop\(el\);/, 'a finger takes a card from the throw');
+  assert.match(presenter, /for \(const el of \(pull\.els \?\?= swipeEls\(\)\)\) \{ throwStop\(el\);/, 'a finger takes a card from the throw');
 });
 
 test('one track: both cards on one curve with no overshoot, the old whole for its first half, the new whole by 40 %, one spacing', async () => {

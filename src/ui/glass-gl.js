@@ -1121,6 +1121,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   const ENDS = !/[?&]glassend=0\b/.test(SEARCH);
   const ended = new Map();
   const RISE = !/[?&]glassrise=0\b/.test(SEARCH);
+  const LIVE_READ = !/[?&]liveread=0\b/.test(SEARCH);
   const chainOf = (g) => { const c = []; for (let e = g; e && e !== stop && e.nodeType !== 9; e = e.parentElement) c.push(e); return c; };
   function addAnim(e, an) {
     let m = anims.get(e);
@@ -1165,7 +1166,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
         const p = S.p;
         if (p == null) continue;
         const v = motionAt(kf, p);
-        if (!v) { flag.bad = true; continue; }
+        if (!v) { flag.bad = true; if (st === 'running' && Number.isFinite(an.effect?.getComputedTiming?.().endTime)) flag.live = true; continue; }
         if (v.t) t = v.t;
         if (v.o != null) o = v.o;
       }
@@ -1300,7 +1301,10 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       if (p.morph) { const m0 = shift(morphAt(p, performance.now()), mv.t); panes.push({ ...p, r: m0, er: m0, a }); continue; }
       panes.push({ ...p, r: shift(p.r0, mv.t), er: shift(p.er0, mv.t), a });
     }
-    if (flag.bad || flag.ended) measureSoon();
+    // (A move the motion cannot put back by itself (a card zoomed up: a scale, in a glide that ends): read again in the next frame's read phase, so its glass is
+    // drawn where the card is in that frame, never left a frame or more behind at its old box, an empty panel (Mohammad, 2 Nov 2026, a
+    // chart zoomed on HVPG 3). ?liveread=0: just after this frame, as before.)
+    if (flag.live && LIVE_READ) measureEarly(); else if (flag.bad || flag.ended) measureSoon();
     if (due?.()) measureSoon();
     // (The camera moved since the page was read: what lies across the glasses is read again once it has rested 250 ms. While it moves, a
     // glass keeps the way it is drawn; hostDraw changes it only at rest anyway.)

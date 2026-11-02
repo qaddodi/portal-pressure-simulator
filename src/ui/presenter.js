@@ -1900,6 +1900,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const glassStays = () => GLASS_STAY && !!ui && ui.shade.getAttribute('data-gl') === 'edge';
   let stayTurn = false;
   const pageEls = () => (glassStays() ? [ui.text] : [ui.text, ui.shade]);
+  // (A swipe takes every card that shows with the words, the data card and the panel too, on the finger's one move, and lets them go
+  // together (Mohammad, 2 Nov 2026: "the cards are not following the text throwing swiping"). ?swipeall=0: the words and their glass only.)
+  const SWIPE_ALL = !/[?&]swipeall=0\b/.test(location.search);
+  const swipeEls = () => [...pageEls(), ...(SWIPE_ALL ? [ui.data, ui.panel].filter((el) => el && !el.hidden && el.childElementCount && !el.classList.contains('pz-leave') && !el.classList.contains('pz-hide') && !('zoomed' in el.dataset)) : [])];
   let shadeAnim = null, pageForce = false;   // (the glass's entrance; pageForce: a swipe the card followed out, so its words leave even if the next slide's are the same)
   const lastBeat = (i) => beatCount(slides[i]) - 1;
   // (R05: the slide going in and its neighbours prepared as one set ahead of the press; a newer press cancels an older one's jobs.
@@ -3147,6 +3151,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // about 10 frames a second on a Mac, Mohammad, 25 Oct: "moving the cards up sliding tucking untucking is very very laggy".)
   // (The glass's view of those rises (glass-gl.js cards.shift): where app.css turns --pz-rise and --pz-lift into a translate, the move they
   // make, from the inline value as written this frame; null where no rule moves the element.)
+  // (?zoomglass=0: a card zoomed up (card-zoom.js data-zoomed) takes the solid card until it is back. By default it keeps its GPU glass,
+  // read again in each frame its zoom moves it (glass-gl.js LIVE_READ), and the words' card steps out from under it (app.css .pz-zoomed).)
+  const ZOOM_GLASS = !/[?&]zoomglass=0\b/.test(location.search);
+  if (!ZOOM_GLASS) document.documentElement.setAttribute('data-zoomsolid', '');
+  const unzoomed = (g) => ZOOM_GLASS || !g?.dataset || !('zoomed' in g.dataset);
   const risePx = (el, name) => parseFloat(el.style.getPropertyValue(name)) || 0;
   const riseShift = (el) => {
     if (!ui) return null;
@@ -5001,7 +5010,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // (The page: the glass and the words follow as one card, transform and opacity only, nothing read from the layout.)
       const f = followOf(dx);
       pull.x = f.x; pull.o = f.o;
-      for (const el of pageEls()) { throwStop(el); el.style.transition = 'none'; el.style.transform = `translateX(${f.x.toFixed(1)}px)`; el.style.opacity = f.o.toFixed(3); }
+      for (const el of (pull.els ??= swipeEls())) { throwStop(el); el.style.transition = 'none'; el.style.transform = `translateX(${f.x.toFixed(1)}px)`; el.style.opacity = f.o.toFixed(3); }
       return;
     }
     // (The words follow the finger the whole way, never stopping: their move eases toward the room they have inside the glass (never past
@@ -5022,8 +5031,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // (Let go: the card goes on out from where the finger left it, the glass and words together (their leave starts from the inline
       // values, dropped in the same style change; further than the leave's own way, it carries on from there), or, the swipe given up,
       // both ease back from there.)
-      const els = pageEls(), o = g.o ?? 1, out = gone && ui.text.classList.contains('pz-leave');
-      if (out && throwing(ui.text)) return;   // (thrown: already going on out from the finger, card-throw.js)
+      const els = g.els || pageEls(), o = g.o ?? 1, out = gone && ui.text.classList.contains('pz-leave');
+      if (out && throwing(ui.text)) {
+        // (thrown: already going on out from the finger, card-throw.js. A card the swipe took along that the new slide keeps (the same
+        // data card) is not thrown: it eases back from the finger to its place.)
+        for (const el of els) if (!throwing(el) && !throwPinned(el) && el.style.transform) { const o0 = parseFloat(el.style.opacity); el.style.removeProperty('transition'); el.style.removeProperty('opacity'); el.style.removeProperty('transform'); el.animate?.([{ transform: `translateX(${x}px)`, opacity: Number.isFinite(o0) ? o0 : 1 }, { transform: 'none', opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE }); }
+        return;
+      }
       if (SWIPE_HAND && gone && busy && !out) {
         // (The slide is on its way: held here until its leave comes (wordsOut, pageHand); one that never comes eases back.)
         clearTimeout(pageHeld?.t);
@@ -5057,7 +5071,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   }
   function pageCaught() {
     if (pageThrown == null || !ui) return;
-    for (const el of [ui.text, ui.shade]) { el.classList.remove('pz-thrown'); if (pageThrown) el.style.setProperty('--pz-turn-d', pageThrown); else el.style.removeProperty('--pz-turn-d'); }
+    for (const el of [ui.text, ui.shade, ui.data, ui.panel]) { if (!el) continue; el.classList.remove('pz-thrown'); if (pageThrown) el.style.setProperty('--pz-turn-d', pageThrown); else el.style.removeProperty('--pz-turn-d'); }
     pageThrown = null;
   }
   // (The held swipe let go: out, the leave just set carries on from the finger, further than its own way if the finger went further; not
@@ -5531,7 +5545,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (app.css: where the figure's canvas cannot take it, the shade turns solid; no backdrop-filter is declared anywhere) and the shade keeps one
     // layer of its own throughout, so the swap that lost its picture on an iPhone no longer happens. ?shadegl=0 keeps it solid.)
     const shadeGL = SHADE_GL;
-    const glass = stage.cardGlass?.({ find: () => [...(shadeGL ? [shade, data, vcase, bar, scl, fk] : [data, vcase, bar, scl, fk]), ...railGhosts().filter((g) => shadeGL || g.dataset.ghost !== 'shade')], watch: [root, shade], before: shade, low: shade, read: (g) => (g === data || g.dataset?.ghost === 'data' ? sheetPanes(g) : undefined), shift: riseShift }) || null;
+    const glass = stage.cardGlass?.({ find: () => [...(shadeGL ? [shade, data, vcase, bar, scl, fk] : [data, vcase, bar, scl, fk]), ...railGhosts().filter((g) => shadeGL || g.dataset.ghost !== 'shade')].filter(unzoomed), watch: [root, shade], before: shade, low: shade, read: (g) => (g === data || g.dataset?.ghost === 'data' ? sheetPanes(g) : undefined), shift: riseShift }) || null;
     return { root, shade, safe, load, text, data, lip, lipRO, lipMO, cardTouch, setFold, zoom, zbtn, pscrim, partOf, vcase, fk, figKey, glass, dhT, tiles, tools, veil, panel, prog, scl, bar, black: blackEl, jump, say };
   }
   // The start's cover (see start). While it is up (booting) the camera cuts instead of gliding.
