@@ -12,11 +12,10 @@
 // - Tiers are preallocated (veins-gl prepLow: the targets at the top tier's size, made between frames at the first sign of pressure),
 //   so a step allocates nothing. They lower only the vessel layer's moving frames (the zoom frames veins-gl lowPass draws); the view a
 //   move stops at is always drawn at Full, and labels, text, cards and readings are on their own layers: never lowered.
-// - Performance mode Quality (frame.js perfMode) never steps down. ?tiers=0: off (Full always, as before).
 // tierLog() keeps the last changes, each with why and the registry's size then. ?perf shows the tier with the budget.
 
-import { onFrameEnd, frameBudget, perfMode } from './frame.js?v=8c8f2f530e';
-import { overBudget as graphOver, budget } from './gpu-budget.js?v=2808cb3d0b';
+import { onFrameEnd, frameBudget } from './frame.js?v=26e2e46fff';
+import { overBudget as graphOver, budget } from './gpu-budget.js?v=f14ccbb66c';
 
 const SEARCH = typeof location !== 'undefined' ? location.search || '' : '';
 export const TIERS_ON = !/[?&]tiers=0\b/.test(SEARCH);
@@ -52,7 +51,6 @@ function setTier(t, now, why) {
 
 /** Judges one frame (from watchFrames; exported for tests): gap (ms since the last, 0 if the page was still), script (ms). */
 export function judgeFrame({ now, gap, script }) {
-  if (perfMode() === 'quality') { if (tier) setTier(0, now, 'performance mode Quality'); return; }
   if (!(gap > 0)) { calmSince = now; return; }   // (a frame after a still page: not part of a move)
   const b = frameBudget();
   const miss = gap > b * 1.5, heavy = script > b * 0.7 || graphOver();

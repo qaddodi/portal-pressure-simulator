@@ -20,7 +20,7 @@
 //   prepLeft() → ms left in this interval        prepSpend(ms) charges work done elsewhere (a rest pass)
 //
 // ?prepbudget=0: no shared ledger (rest passes keep their own 6 ms slice; jobs run each step at once, as before).
-import { frameBudget, inMotion, watchdogStats, WATCH_SHARE } from './frame.js?v=8c8f2f530e';
+import { frameBudget, inMotion, watchdogStats, WATCH_SHARE } from './frame.js?v=26e2e46fff';
 
 /** The target frame interval (ms), for the rest passes' slice (rest-pass.js reads it here: its one import). */
 export const frameMs = () => frameBudget();

@@ -9,7 +9,7 @@
 // of strangulated tissue with the band as a tight ring at its base. The result is drawn once per
 // state into an offscreen bitmap and cached, so it never flickers.
 
-import { cssRGB } from './util.js?v=ef7ccb2dbe';
+import { cssRGB } from './util.js?v=19c1a3b464';
 const TAU = Math.PI * 2;
 const T = 1.55;          // tan(half field of view)
 const NCOL = 4;

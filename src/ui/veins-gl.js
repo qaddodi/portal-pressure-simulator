@@ -36,7 +36,7 @@ import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { EDGE_GLSL } from './edge.js?v=8321a8017f';
 import { SLOT, DYE_BINS, PERIOD, DRIFT_PERIOD } from './blood.js?v=f6c91d8676';
-import { cssRGB } from './util.js?v=ef7ccb2dbe';
+import { cssRGB } from './util.js?v=19c1a3b464';
 import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js?v=d72157dbac';
 import { CELL, ENT_W, binVeins, splitRows, simpleCells, splitCells, cellsOfJoinEntries } from './veins-bin.js?v=6e462a9e6c';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
@@ -51,7 +51,7 @@ import { fusedVS, fusedFS } from './veins-fuse.js?v=b34d325734';
 import { NOISE_W, NOISE_H, NOISE_PER_ROW, OCTAVES, noiseBlock, blockAt, tableSize } from './blood-noise.js?v=bc65994b25';
 import { createNoiseFiller } from './noise-gl.js?v=d89c52c7e7';
 import { softwareGL } from './sw-yield.js?v=1ec3c87eab';
-import { frameCount, framePhase } from './frame.js?v=8c8f2f530e';
+import { frameCount, framePhase } from './frame.js?v=26e2e46fff';
 
 export { binVeins };
 

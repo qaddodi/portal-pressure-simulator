@@ -125,17 +125,15 @@ test('rest passes draw from the same ledger: what a drain spends is charged, and
 });
 
 test('the watchdog judges a deferrable callback by its predicted cost before it starts', async () => {
+  // (Rev 2 step 6: one rule for every priority above 0: the frame's script so far plus the callback's predicted cost against SCRIPT_SHARE;
+  // a callback that has never run is predicted at CARRY_SEED_MS, so a first heavy run is not let through blind. No modes.)
   const B = 1000 / 120, limit = WATCH_SHARE * B;
-  assert.equal(wouldShed('credit', limit + 0.1, B, 'locked'), true, 'past the share');
-  assert.equal(wouldShed('credit', limit + 0.1, B, 'quality'), false, 'never in Quality');
-  assert.equal(wouldShed('figure', 100, B, 'locked'), false, 'a surface that draws the moving picture is never carried');
-  assert.equal(wouldShed('credit', 1, B, 'locked'), false, 'cheap while its cost is unknown');
+  assert.equal(wouldShed('credit', limit + 0.1, B), true, 'past the share');
+  assert.equal(wouldShed('figure', 100, B), false, 'a surface that draws the moving picture is never carried');
+  assert.equal(wouldShed('credit', limit - 1.5, B), false, 'room for its seed cost while its own is unknown');
   await new Promise((done) => frame(() => { spin(5); done(); }, 'credit'));
   assert.ok(costOf('credit') >= 4.5, `its cost learned (${costOf('credit').toFixed(1)} ms)`);
-  assert.equal(wouldShed('credit', 1, B, 'locked'), true, '1 ms used + 5 ms predicted passes 70 % of 8.3 ms: it waits');
-  // (Balanced against a budget the learned cost fits in: on a loaded runner spin(5) can measure past 7.3 ms, which overruns 8.3 ms in
-  // any mode, so the fixed 120 Hz budget made this flaky in the full run.)
+  assert.equal(wouldShed('credit', 1, B), true, '1 ms used + 5 ms predicted passes the share of 8.3 ms: it waits');
   const c = costOf('credit'), roomy = c + 2;
-  assert.equal(wouldShed('credit', 1, roomy, 'locked'), 1 + c > WATCH_SHARE * roomy, 'Locked keeps to its share of the same budget');
-  assert.equal(wouldShed('credit', 1, roomy, 'balanced'), false, 'Balanced allows the whole budget');
+  assert.equal(wouldShed('credit', 1, roomy), 1 + c > WATCH_SHARE * roomy, 'the same share of any budget');
 });

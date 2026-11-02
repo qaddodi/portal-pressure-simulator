@@ -15,11 +15,11 @@
 // steps ease to their new places. These are the model's own shares: a deck line that quotes them needs a source.
 
 import { TILE, RATE, tileShown } from './table-marks.js?v=ff3ed0cc47';
-import { cutsOf } from './tool-curve.js?v=afe4a2e796';
+import { cutsOf } from './tool-curve.js?v=21a0b5d132';
 import { DRUGS } from '../engine/scenario.js?v=0762d1b820';
-import { restClass } from './rest-pass.js?v=75e0aa565d';
-import { frameFor } from './frame.js?v=8c8f2f530e';
-import { createSvgGL, svgModel, setWords } from './svg-gl.js?v=8699334a26';
+import { restClass } from './rest-pass.js?v=ed71462b47';
+import { frameFor } from './frame.js?v=26e2e46fff';
+import { createSvgGL, svgModel, setWords } from './svg-gl.js?v=2bdf36a0fa';
 const nextFrame = frameFor('tool-causes');
 
 const CS_MIN = 12;   // (px on the screen: the smallest the chart's words are drawn)

@@ -13,7 +13,7 @@
 // once the context is lost, the SVG draws them all, as it always has.
 
 import { glGet, glCap } from './gl-state.js?v=3569b73302';
-import { frameFor, cancelFrame } from './frame.js?v=8c8f2f530e';
+import { frameFor, cancelFrame } from './frame.js?v=26e2e46fff';
 import { ucOf } from './uniform-cache.js?v=b914b447dd';
 import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=81fbedda6b';
 import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js?v=3e750c4fef';

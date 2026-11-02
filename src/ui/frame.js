@@ -107,7 +107,7 @@ function flush(now) {
   }
   const script = watching ? performance.now() - t0 : 0;
   lastScript = performance.now() - frameT0; frameT0 = 0;
-  overLast = lastScript > WATCH_SHARE * frameBudget();
+  overLast = lastScript > SCRIPT_SHARE * frameBudget();
   overStreak = lastScript > frameBudget() ? overStreak + 1 : 0;
   govLevel = govFrameLevel; govFrameLevel = 0;
   if (FPS_LOG) logOverrun(now, lastScript, parts);
@@ -140,15 +140,22 @@ const TIME_ALL = typeof location !== 'undefined' && /[?&](perf|fps)(?=[=&#]|$)/.
 let timeFrame = false;
 /** Whether this frame's callbacks are each timed (every frame while watched or under ?perf/?fps, else one in TIME_EVERY). */
 export const framesTimed = () => timeFrame;
+// (The early batch runs by priority, 0 then 2 then 3, so the one rule judges the lower ones with the higher ones' time already spent.)
+const EARLY_PASSES = [0, 2, 3], ONE_PASS = [-1];
 function run(batch, now, phase) {
+  const passes = phase === 'early' ? EARLY_PASSES : ONE_PASS;
+  for (let p = 0; p < passes.length; p++) runPass(batch, now, phase, passes[p]);
+}
+function runPass(batch, now, phase, prio) {
   for (let i = 0; i < batch.n; i++) {
     const cb = batch.cbs[i];
     if (!cb) continue;
     const tag = batch.tags[i];
+    if (prio >= 0 && priorityOf(tag) !== prio) continue;
     batch.cbs[i] = null; batch.tags[i] = null; batch.size--;
     if (phase === 'early' && shedding(tag)) { queue.add(batch.ids[i], tag, cb); continue; }   // (carried to the next frame: see the watchdog)
     counts.set(tag, (counts.get(tag) || 0) + 1); totals.asks[tag] = (totals.asks[tag] || 0) + 1;
-    const learn = phase === 'early' && DEFERRABLE.has(tag), timed = timeFrame || learn;
+    const learn = phase === 'early' && prio > 0, timed = timeFrame || learn;
     const t0 = timed ? performance.now() : 0;
     try { if (gpuProbe.on) gpuProbe.time(null, `${tag} (script)`, () => cb(now)); else cb(now); } catch (e) { setTimeout(() => { throw e; }); }   // one surface's error never stops the others
     if (!timed) continue;
@@ -214,98 +221,80 @@ export const targetHz = () => TARGET_HZ;
 /** One frame's time at the target (ms): 8.333 at 120 Hz, whatever cadence the page observes. */
 export const frameBudget = () => 1000 / TARGET_HZ;
 
-// ── The frame-time watchdog (recs P3): a frame's main-thread work is held to its budget ──
-// Locked (the default): once the frame's script has used WATCH_SHARE (70 %) of the budget, the surfaces that do not draw the moving
-// picture (the credit's art, the timeline, the dock's strip, edges, the inspector and the like: DEFERRABLE) are carried to the next
-// frame instead of run in this one, up to SHED_MAX frames in a row each, so none starves. surfaces that can drop detail ask
-// overBudget(): true when the last frame went over the share. Balanced: shed only past the whole budget. Quality: never (full detail
-// whatever the frame time). setPerfMode chooses (and is kept).
-export const PERF_MODES = ['locked', 'balanced', 'quality'];
-export const WATCH_SHARE = 0.7;
-const SHED_MAX = 3;
+// ── One policy for what runs in a frame (plan "Holding 120 Hz" rev 2 step 2; Mohammad, 2 Nov 2026) ──
+// Every callback has a priority. 0: the camera, the input's answer, the blood, the vessels, labels, the catheter, card and glass motion
+// (never carried over). 1: the model frame's application (its may tasks, mayTask). 2: the instruments beside the figure (P2). 3: the
+// chrome that does not draw the moving picture (P3). One rule judges priorities 1 to 3, before each callback starts (a running one cannot
+// be stopped): it runs when the frame's script so far plus its predicted cost (the moving average of its own runs; CARRY_SEED_MS until it
+// has run once, so a first heavy run is not let through blind) stays within its share of the budget (SHARE_OF: SCRIPT_SHARE, 3.5 ms of 8.3 at 120 Hz, the
+// main thread's whole share; the instruments 85 %). Otherwise it is carried to the next frame, at most CARRY_MAX frames in a row, then runs, so none starves (and
+// the count of those, `forced`, is a miss to fix by making the work smaller, never a limit to raise). A surface animating on screen
+// (frameAnimating) is never carried: a carried frame of a moving picture is a hitch. The higher priorities are judged first in the frame
+// (the early batch runs priority 0, then 2, then 3; the may tasks after the final phase). This replaces the watchdog's 70 %, the governor's
+// 85 % and 50 %, the may tasks' 42 %, SHED_MAX, SEC_MAX and MAY_WAIT, and the Locked, Balanced and Quality modes: one behaviour, hold the
+// refresh.
+export const SCRIPT_SHARE = 0.42, CARRY_MAX = 2, CARRY_SEED_MS = 1;
+// (The one rule's share by priority. The instruments beside the figure (2) draw moving traces (the Doppler's sweep, the pressure strips, the
+// sinusoid's view) and keep the share they had, 85 %: judged at 42 % they were carried in most frames of a busy phone and their sweep
+// stepped. Everything else (1, 3) keeps to SCRIPT_SHARE.)
+const SHARE_OF = [1, SCRIPT_SHARE, 0.85, SCRIPT_SHARE];
+/** (The prep ledger's share of the frame: the same.) */
+export const WATCH_SHARE = SCRIPT_SHARE;
 export const DEFERRABLE = new Set(['credit', 'timeline', 'scroll-edges', 'inspector', 'dock', 'figkey', 'scale select', 'menu-profile', 'menu', 'vitals-monitor', 'main', 'debug', 'perf readout']);
-// The priority governor (recs-2 §6; 2 Nov 2026): the vessels and blood (stage, veins, labels, the catheter, card and glass motion) are
-// never carried over. The instruments that draw beside the figure (charts, the Doppler sweep, FibroScan, the timelines, tool plots:
-// SECONDARY, priority 2) yield next, after the DEFERRABLE ones (priority 3): when the frame's script has passed 85 % of the budget, or
-// half of it while the last two frames went over, each is carried to the next frame, at most twice in a row (it still draws at least
-// every third frame; its motion is timed by the clock, so it keeps its pace). Glass is not among them: it rides with the card it lies
-// under and would part from it a frame late.
 export const SECONDARY = new Set(['charts', 'doppler', 'fibroscan', 'plane plot', 'pressure-time', 'flow-time', 'tool-curve', 'tool-causes', 'col-wave', 'scope-tile', 'sinusoid-view', 'lumen']);
-const SEC_SHARE = 0.85, SEC_STREAK_SHARE = 0.5, SEC_MAX = 2;
+const PRIO = new Map([...[...SECONDARY].map((t) => [t, 2]), ...[...DEFERRABLE].map((t) => [t, 3])]);
+/** A frame callback's priority by its tag (0, 2 or 3; the may tasks are 1). */
+export const priorityOf = (tag) => PRIO.get(tag) || 0;
 let overStreak = 0, govLevel = 0, govFrameLevel = 0, govShed = 0;
-let perfModeNow = 'locked';
-try {
-  const v = localStorage.getItem('pps.perfMode'); if (PERF_MODES.includes(v)) perfModeNow = v;
-} catch { /* storage unavailable */ }
-/** The performance mode: 'locked' (hold the refresh, shed what can wait), 'balanced' or 'quality'. */
-export const perfMode = () => perfModeNow;
-export function setPerfMode(m) { if (!PERF_MODES.includes(m)) return; perfModeNow = m; try { localStorage.setItem('pps.perfMode', m); } catch { /* storage unavailable */ } }
+/** The one behaviour left ('locked': hold the refresh). Kept for the readouts. */
+export const perfMode = () => 'locked';
 let frameT0 = 0, lastScript = 0, overLast = false;
 const shedRun = new Map(), shedBy = new Map();
-let shedTotal = 0;
-// (R10, review pass 2: Locked never carries a surface over while it is animating on screen (the vitals strip scrolling, a reading
-// easing): a carried frame of a moving picture is a visible hitch, not detail that can wait. A surface says so with
-// frameAnimating(tag, true) while it animates. Whatever is carried is counted per surface (watchdogStats().byTag), so nothing is shed
-// silently.)
+let shedTotal = 0, carryForced = 0;
 const animatingTags = new Map();   // (tag → how many of its surfaces animate now: each on is paired with one off)
-/** A surface animating on screen (on) or still (off): Locked never carries its frames over while it animates. */
+/** A surface animating on screen (on) or still (off): its frames are never carried over while it animates. */
 export function frameAnimating(tag, on) {
   const n = (animatingTags.get(tag) || 0) + (on ? 1 : -1);
   if (n > 0) animatingTags.set(tag, n); else animatingTags.delete(tag);
 }
-/** True when the last frame's script went over 70 % of the budget (Locked and Balanced; never in Quality): drop detail that can wait. */
-export const overBudget = () => perfModeNow !== 'quality' && overLast;
-/** The last frame's main-thread script time (ms), and how many callbacks the watchdog has carried over since the page opened. */
-export const watchdogStats = () => ({ last: lastScript, shed: shedTotal, predicted: shedPredicted, mode: perfModeNow, budget: frameBudget(), task: lastTask, governor: govLevel, streak: overStreak, yielded: govShed });
-/** R10: what the watchdog and the governor carried over, per surface, and the surfaces animating now (never carried over). */
+/** True when the last frame's script went over the share: drop detail that can wait. */
+export const overBudget = () => overLast;
+/** The last frame's main-thread script time (ms), and how many callbacks have been carried over (and forced after CARRY_MAX) since the page opened. */
+export const watchdogStats = () => ({ last: lastScript, shed: shedTotal, predicted: shedPredicted, forced: carryForced, mode: 'locked', budget: frameBudget(), task: lastTask, governor: govLevel, streak: overStreak, yielded: govShed });
+/** What was carried over, per surface, and the surfaces animating now (never carried over). */
 export const shedStats = () => ({ byTag: Object.fromEntries(shedBy), animating: [...animatingTags.keys()] });
-// (Review pass 2, priority 1: a watchdog cannot stop a callback once it has started, so it judges each deferrable one before it starts,
-// by what it is predicted to cost (the moving average of its own last runs, costOf) added to the time the frame has used: one that would
-// carry the frame past its share waits, even when the frame has not reached the share yet. Still at most SHED_MAX frames in a row each,
-// so none starves.)
 const costEma = new Map();
-function learnCost(tag, ms) { if (!DEFERRABLE.has(tag)) return; const c = costEma.get(tag); costEma.set(tag, c == null ? ms : c * 0.7 + ms * 0.3); }
-/** A deferrable surface's predicted cost per callback (ms; 0 until it has run). */
+function learnCost(tag, ms) { const c = costEma.get(tag); costEma.set(tag, c == null ? ms : c * 0.7 + ms * 0.3); }
+/** A surface's predicted cost per callback (ms; 0 until it has run). */
 export const costOf = (tag) => costEma.get(tag) || 0;
+const predicted = (tag) => costEma.get(tag) ?? CARRY_SEED_MS;
 let shedPredicted = 0;
-/** Whether a deferrable callback of `tag` would be carried over with `used` ms of the frame gone (the rule itself, for the tests). */
-export function wouldShed(tag, used, budget = frameBudget(), mode = perfModeNow) {
-  if (mode === 'quality' || !DEFERRABLE.has(tag)) return false;
-  const limit = (mode === 'locked' ? WATCH_SHARE : 1) * budget;
-  return used >= limit || used + costOf(tag) > limit;
+/** Whether a callback of priority `prio` and tag `tag` waits with `used` ms of the frame gone (the one rule, for the tests). */
+export function waits(tag, used, prio = priorityOf(tag), budget = frameBudget()) {
+  return prio > 0 && used + predicted(tag) > SHARE_OF[prio] * budget;
 }
-/** Whether a priority-2 callback of `tag` (SECONDARY) yields with `used` ms of the frame gone after `streak` frames over budget. */
-export function wouldYield(tag, used, budget = frameBudget(), mode = perfModeNow, streak = overStreak) {
-  if (mode === 'quality' || !SECONDARY.has(tag)) return false;
-  return used >= (mode === 'locked' ? SEC_SHARE : 1) * budget || (streak >= 2 && used >= SEC_STREAK_SHARE * budget);
-}
+/** (Kept names for the checks: the rule for a chrome callback, and for an instrument's.) */
+export const wouldShed = (tag, used, budget = frameBudget()) => DEFERRABLE.has(tag) && waits(tag, used, 3, budget);
+export const wouldYield = (tag, used, budget = frameBudget()) => SECONDARY.has(tag) && waits(tag, used, 2, budget);
 function shedding(tag) {
-  if (perfModeNow === 'quality' || !frameT0 || animatingTags.has(tag)) { if (shedRun.size) shedRun.delete(tag); return false; }
-  const sec = SECONDARY.has(tag);
-  if (sec) {
-    const n = shedRun.get(tag) || 0;
-    if (n >= SEC_MAX || !wouldYield(tag, performance.now() - frameT0)) { if (n) shedRun.delete(tag); return false; }
-    shedRun.set(tag, n + 1); shedTotal++; govShed++; govFrameLevel = 2; shedBy.set(tag, (shedBy.get(tag) || 0) + 1);
-    return true;
-  }
-  if (!DEFERRABLE.has(tag)) return false;
+  const prio = priorityOf(tag);
+  if (!prio || !frameT0 || animatingTags.has(tag)) { if (shedRun.size) shedRun.delete(tag); return false; }
   const n = shedRun.get(tag) || 0, used = performance.now() - frameT0;
-  if (n >= SHED_MAX || !wouldShed(tag, used)) { shedRun.delete(tag); return false; }
-  if (used < (perfModeNow === 'locked' ? WATCH_SHARE : 1) * frameBudget()) shedPredicted++;
+  if (!waits(tag, used, prio)) { if (n) shedRun.delete(tag); return false; }
+  if (n >= CARRY_MAX) { shedRun.delete(tag); carryForced++; return false; }
+  if (used < SCRIPT_SHARE * frameBudget()) shedPredicted++;
   shedRun.set(tag, n + 1); shedTotal++; shedBy.set(tag, (shedBy.get(tag) || 0) + 1);
-  if (!govFrameLevel) govFrameLevel = 1;
+  if (prio === 2) { govShed++; govFrameLevel = 2; } else if (!govFrameLevel) govFrameLevel = 1;
   return true;
 }
 
 // ── Must and may (plan "Holding 120 Hz, always" §3.1; Mohammad, 2 Nov 2026) ──
-// Everything asked with frame/lateFrame/finalFrame is MUST: the camera, the input's answer, the blood, the picture laid. Work that
-// can wait a frame or two is MAY: mayTask(tag, fn, { notBefore, maxWait }). A may task runs after the frame's must work, while the
-// frame's script stays under MAY_SHARE of the budget (3.5 ms of 8.3 at 120 Hz), and not when its predicted cost (the moving average of
-// its own runs) would take the frame past that; then it waits for the next frame. One that has waited maxWait frames (4) runs anyway,
-// once, so none starves. fn(leftMs) returns true when it has more to do (a sliced task: it goes on next frame) and anything else when
-// done. One task per tag: asking again before it ran replaces its fn (the newest work only, as a model frame's paint). notBefore (a
-// performance.now() time) makes it a timer that runs in a frame, never in a task of its own between frames.
-export const MAY_SHARE = 0.42, MAY_WAIT = 4;
+// Everything asked with frame/lateFrame/finalFrame is MUST (priority 0, or 2 and 3 by tag, above). Work that can wait a frame or two is
+// MAY, priority 1: mayTask(tag, fn, { notBefore, maxWait }). It runs after the frame's must work under the same one rule (SCRIPT_SHARE with
+// its predicted cost), carried at most maxWait frames (CARRY_MAX) and then run. fn(leftMs) returns true when it has more to do (a sliced
+// task: it goes on next frame) and anything else when done. One task per tag: asking again before it ran replaces its fn (the newest work
+// only, as a model frame's paint). notBefore (a performance.now() time) makes it a timer that runs in a frame, never in a task of its own.
+export const MAY_SHARE = SCRIPT_SHARE, MAY_WAIT = CARRY_MAX;
 const mays = new Map();   // tag -> { tag, fn, waited, notBefore, maxWait }
 const mayCost = new Map(), mayBatch = [];
 const mayStat = { ran: 0, waited: 0, aged: 0 };
@@ -351,7 +340,7 @@ function runMay(now) {
     const t = performance.now();
     if (m.notBefore && m.notBefore > t) continue;
     const used = t - frameT0, aged = m.waited >= m.maxWait;
-    if (!aged && (used >= limit || used + (mayCost.get(tag) || 0) > limit)) { m.waited++; mayStat.waited++; continue; }
+    if (!aged && used + (mayCost.get(tag) ?? CARRY_SEED_MS) > limit) { m.waited++; mayStat.waited++; continue; }
     if (aged) mayStat.aged++;
     mays.delete(tag); mayStat.ran++;
     counts.set(tag, (counts.get(tag) || 0) + 1); totals.asks[tag] = (totals.asks[tag] || 0) + 1;

@@ -16,8 +16,8 @@
 //   - High contrast keeps today's Highlight on the button and hides the piece (the stylesheet).
 //   - ?glide=0: this file does nothing, so the page is today's, class for class.
 import { D_FLIP, D_SMALL } from './ease.js?v=7513a88c68';
-import { restPass } from './rest-pass.js?v=75e0aa565d';
-import { readBox, readMetric, readStyle } from './layout-snap.js?v=837f2b793c';
+import { restPass } from './rest-pass.js?v=ed71462b47';
+import { readBox, readMetric, readStyle } from './layout-snap.js?v=f87939cccb';
 
 const SEL = '.seg, .instr-tabs, .um-tabs, .pressure-switch';
 /** ?glide=0 in a page's search string: this file does nothing and the page is today's. */

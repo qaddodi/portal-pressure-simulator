@@ -5,13 +5,13 @@
 // full. It scrolls smoothly, one spectral line at a time, as the machine does.
 
 import { EDGES, dopplerK, stentSegments, stentSite, stentGate, stentCourse } from '../engine/topology.js?v=4044766e96';
-import { glWords, wordsRect } from './gl-words.js?v=915cb34db5';
-import { h, fmt, canvasSize, clamp, icon, cssVar, cssAlpha, swapText } from './util.js?v=ef7ccb2dbe';
-import { FONT, textW } from './charts.js?v=2446e2c50a';
-import { setClass } from './class-batch.js?v=fe9af18394';
+import { glWords, wordsRect } from './gl-words.js?v=85c423f170';
+import { h, fmt, canvasSize, clamp, icon, cssVar, cssAlpha, swapText } from './util.js?v=19c1a3b464';
+import { FONT, textW } from './charts.js?v=a2edf96f44';
+import { setClass } from './class-batch.js?v=8f8669161e';
 import { logAction, shownVel, store } from './store.js?v=afc4d7c743';
-import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=8f157aea02';
-import { frameFor, noteDraw, paceMs, cancelFrame } from './frame.js?v=8c8f2f530e';
+import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=d75460ea27';
+import { frameFor, noteDraw, paceMs, cancelFrame } from './frame.js?v=26e2e46fff';
 import { windowIndexFor, scaleFor, fitScale } from './dopplerWindow.js?v=1d34e63b32';
 import { velNormal, dopplerVel, judgeFlow } from './velNormal.js?v=97920ddf3f';
 import { caliperFrame, caliperLevel, caliperX, CAL_FADE, pairOf, pairBand, pairScale, PAIR_GAP } from './doppler-marks.js?v=15fc499dcd';
@@ -20,7 +20,7 @@ import { surface } from './gpu-surfaces.js?v=2af17044e7';
 import { olderThan } from './backfill.js?v=455d888760';
 import { createFollow } from './display-state.js?v=8d062d39dc';
 import { D_SMALL, EASE_ARRIVE } from './ease.js?v=7513a88c68';
-import { createTraceGL, fitPen, keepLayer } from './trace-gl.js?v=6dada3bf61';
+import { createTraceGL, fitPen, keepLayer } from './trace-gl.js?v=0eecfda6a8';
 const nextFrame = frameFor('doppler');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
