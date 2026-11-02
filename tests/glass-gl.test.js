@@ -47,8 +47,9 @@ test('the stage lays the GPU glass under both callout layers, off with the other
   // (Drawn in the figure's canvas, its turn between the cards' two.)
   assert.match(STAGE, /hostFrost\(glassGL, \{ order: 2, over: \(\) => frostOver\('callouts'\) \}\);/);
   // (1 Nov 2026: off unless ?glasshost=1 at 759be3e1, the iPhone's callouts and sheet cards flickering; on again by default the same day, its causes
-  // fixed (a sheet's tint lost when marked, a mask bound where the figure's blur was, a swap at the screen's edge), ?glasshost=0 the browser's blur.)
-  assert.match(STAGE, /const FROST_HOST = !\/\[\?&\]glasshost=0\\b\/\.test\(location\.search\);\n {2}function hostFrost\(g, o\) \{ if \(!FROST_HOST \|\| !g/);
+  // fixed (a sheet's tint lost when marked, a mask bound where the figure's blur was, a swap at the screen's edge), and no switch back to the browser's blur.)
+  assert.match(STAGE, /\n {2}function hostFrost\(g, o\) \{ if \(!g \|\| !veins\?\.top\) return;/);
+  assert.doesNotMatch(STAGE, /FROST_HOST|glasshost=/);
   assert.match(CSS, /#glassGl \{ position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 4; \}/);
   assert.match(SRC, /if \(canvas\) \(cards \? cards\.before : pane \|\| layers\[0\]\)\.before\(canvas\);/, 'under the callouts, which share its z-index and come after it');
   // A write to a callout asks for the glass's own frame (its final phase, before that frame shows), so it never trails the outline and is

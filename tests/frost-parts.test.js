@@ -13,7 +13,8 @@ test('each part between is read through its own count; the camera moving the ove
   for (const p of ['over', 'pane', 'labels', 'shade', 'marks']) assert.match(read, new RegExp(`frostPartRead\\('${p}', `), p);
   assert.match(read, /const out = \[\.\.\.frostCarry\(frostPartRead\('over', /, 'the overlays carried by the figure\'s transform');
   assert.match(st, /if \(m\.target === worldOver && m\.type === 'attributes' && m\.attributeName === 'transform'\) continue;/);
-  assert.match(st, /if \(FROST_KEEP && k && k\.key === key && k\.boxes === boxes\) return k;/, '?glassreads=0 reads every part every call');
+  assert.match(st, /if \(k && k\.key === key && k\.boxes === boxes\) return k;/, 'a part kept is used again');
+  assert.doesNotMatch(st, /FROST_KEEP|glassreads=/);
   assert.match(st, /const frostTouch = \(e\) => \{ frostDirty\+\+; const p = frostPartOf\(e\?\.target\); if \(p\) frostPart\[p\]\+\+; else frostAll\(\); \};/);
 });
 

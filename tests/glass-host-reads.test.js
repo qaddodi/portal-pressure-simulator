@@ -89,7 +89,7 @@ const blood = async (k) => { for (let i = 0; i < k; i++) { seq++; for (const f o
 
 const fire = (t) => { for (const f of docListeners.get(t) || []) f({ type: t }); };
 // What the glass drawn in the figure's canvas reads from the page (hostReads, 1 Nov 2026): read again only when something may have moved it,
-// never on a frame where only the figure (the blood) changed; every way a glass can move still reads it. (?glassreads=0: every frame.)
+// never on a frame where only the figure (the blood) changed; every way a glass can move still reads it.
 test('hosted: a still callout over moving blood reads no box after it has settled', async () => {
   G.setHost({ gl: fig.gl, canvas: source, add, order: 2, now: present, active: () => true, over: () => [] });
   await frames(4);
@@ -144,8 +144,8 @@ test('what lies between the figure and a glass (stage.js frostOver) is kept unti
   const { readFileSync } = await import('node:fs');
   const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
   const f = st.slice(st.indexOf('  function frostOver(level) {'), st.indexOf('  function frostOverRead(level) {'));
-  assert.match(st, /const FROST_KEEP = !\/\[\?&\]glassreads=0\\b\/\.test\(location\.search\);/);
-  assert.match(f, /if \(!FROST_KEEP\) return frostOverRead\(level\);/);
+  assert.doesNotMatch(st, /FROST_KEEP|glassreads=/);
+  assert.doesNotMatch(f, /return frostOverRead\(level\);/);
   assert.match(f, /if \(k && k\.key === key && k\.boxes === \(labelGL\?\.boxes \?\? null\)\) return k\.out;/);
   assert.match(f, /veins\?\.viewKey/);
   assert.doesNotMatch(f, /getAnimations|frostUntil/);

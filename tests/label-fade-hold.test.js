@@ -9,10 +9,9 @@ import { readFileSync } from 'node:fs';
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const css = read('styles/app.css'), gl = read('src/ui/label-gl.js'), stage = read('src/ui/stage.js');
 
-test('no label or leader entry fade fills forwards (it would block every later fade); html.label-fill-both, ?labelfill=0, as before', () => {
+test('no label or leader entry fade fills forwards (it would block every later fade)', () => {
   for (const m of css.matchAll(/^([^\n{]*(?:#labels \.lb|\.lb-leaders > \*)[^\n{]*)\{[^}]*animation: crossfade[^;}]*;/gm)) assert.ok(!/ both;/.test(m[0]), `${m[1].trim()} fills forwards`);
-  assert.match(css, /html\.label-fill-both :is\(#labels \.lb, \.lb-leaders > \*\) \{ animation-fill-mode: both; \}/);
-  assert.match(stage, /if \(\/\[\?&\]labelfill=0\\b\/\.test\(location\.search\)\) document\.documentElement\.classList\.add\('label-fill-both'\);/);
+  assert.doesNotMatch(css + stage, /label-fill-both|labelfill=/);
 });
 
 test('GPU labels hold their opacity until a fade is known, and keep following one mid-way', () => {
@@ -26,12 +25,14 @@ test('GPU labels hold their opacity until a fade is known, and keep following on
   assert.match(gl, /\{ const g = labelOf\(el\); if \(g\?\.isConnected && !markOf\(g\)\) \{ keepAnims\(g, true\); live\.set\(g, performance\.now\(\) \+ 700\); dirty\.add\(g\); \} \}/);
 });
 
-test('a card on its way out hides no label (?leaveblock=1 as before)', () => {
-  assert.match(stage, /\(!LEAVE_BLOCK && el\.classList\.contains\('pz-leave'\)\)\) return null;/);
+test('a card on its way out hides no label', () => {
+  assert.match(stage, /\|\| el\.classList\.contains\('pz-leave'\)\) return null;/);
+  assert.doesNotMatch(stage, /LEAVE_BLOCK|leaveblock=/);
 });
 
-test('organ names and crowded labels come back only with room to spare (?labelhyst=0 off)', () => {
-  assert.match(stage, /obstacles\.some\(\(o\) => hits\(LABEL_HYST \? grown : edge, o\)\)/);
-  assert.match(stage, /const p = LABEL_HYST && lapWas\.has\(it\.key\) \? 4 : 0;/);
+test('organ names and crowded labels come back only with room to spare', () => {
+  assert.match(stage, /obstacles\.some\(\(o\) => hits\(grown, o\)\)/);
+  assert.match(stage, /const p = lapWas\.has\(it\.key\) \? 4 : 0;/);
+  assert.doesNotMatch(stage, /LABEL_HYST|labelhyst=/);
   assert.match(stage, /if \(!it\.sel && crowded\(it, r\)\) \{ it\.hide = true; lapHid\.add\(it\.key\); continue; \}/);
 });

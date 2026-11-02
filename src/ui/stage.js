@@ -2830,7 +2830,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // (The picture kept for the fade is the figure without the glasses drawn in its canvas: they go back to their own way first, and
       // come back once the fade has ended, frostOn.)
       frostHold = true;
-      try { glassGL?.release(); paneGL?.release(); if (!RES_FROST) for (const g of cardGLs) g.release(); fadeOver(vCanvas, resFollow, () => veins?.present?.(), veins && !veins.lost ? veins.top : null, { w: boxW, h: boxH }); } finally { frostHold = false; }
+      try { glassGL?.release(); paneGL?.release(); fadeOver(vCanvas, resFollow, () => veins?.present?.(), veins && !veins.lost ? veins.top : null, { w: boxW, h: boxH }); } finally { frostHold = false; }
       fadeM0 = [...glM];
     }
     resizeCanvas();
@@ -8392,8 +8392,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     cathRoomAsk = 0;
     const b = stageBox();
     // (The cards' boxes from the labels' own list, the browser's IntersectionObserver report: a stale list asks for a new one instead of
-    // reading every card's box here, a forced layout of each a quarter second through a catheter slide's change. ?cathio=0: read here.)
-    const io = CATH_IO && BLOCK_IO;
+    // reading every card's box here, a forced layout of each a quarter second through a catheter slide's change. Without IntersectionObserver they are read here.)
+    const io = BLOCK_IO;
     if (io && (!blockerBoxes || blockersStale) && !blockersAsk) { blockersAsk = 1; blockersRead(); }
     cath.room = { t: performance.now(), W: b.width, H: b.height, sp: cardSpaceRead(), blk: io ? blockerBoxes || [] : blockerBoxes && !blockersStale ? blockerBoxes : readBlockersRead((el) => el.getBoundingClientRect(), b) };   // (the labels' own list when it is current)
     cath.lblKey = ''; nextFrame(cathLabelsSoon);
@@ -8947,12 +8947,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // canvas (a resolution's fade, a dive, the lobule), the callouts and the pane go back to their own way (?glasscopy=1: their own canvas,
   // from a copy, as before 31 Oct; by default the browser's glass) and a card to the browser's glass.
   let frostHold = false;
-  const RES_FROST = !/[?&]resfrost=0\b/.test(location.search);
   // (2 Nov 2026, the iPhone trace: the glass asked the figure's canvas for its computed look on every frame it drew, which made the
   // browser restyle the page there and then, mid-frame. The look is read between frames instead: once at the start, after any write to
   // the canvas or what holds it, and when one of its transitions or animations ends; while one runs the canvas counts as easing, so no
-  // glass is taken from it. ?frostcache=0: read in the frame, as before.)
-  const VC_CACHE = !/[?&]frostcache=0\b/.test(location.search) && !/[?&]glassreads=0\b/.test(location.search);
+  // glass is taken from it.)
   const vcLook = () => {
     const vc = getComputedStyle(vCanvas);
     return vc.display !== 'none' && vc.visibility === 'visible' && +vc.opacity >= 0.999 ? '' : 'the figure\'s canvas is hidden or faded';
@@ -8962,26 +8960,25 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // transitions and animations by their start and end events; one start without its end (Safari sends none for a transition replaced
   // or dropped as its element changes, an animation that loops) left it above 0 for good, and every card's glass flat until a reload.
   // Read again between frames, it is now taken from the canvas's own running animations, and a start is looked at again a little after
-  // its longest ease would have ended. ?vcheal=0: as before.)
-  const VC_HEAL = !/[?&]vcheal=0\b/.test(location.search);
-  function readVcLook() { vcPass = 0; vcWhy = vcLook(); if (VC_HEAL) vcEasing = vCanvas.getAnimations?.().filter((a) => a.playState === 'running').length ?? vcEasing; frostWake?.(); }
+  // its longest ease would have ended.)
+  function readVcLook() { vcPass = 0; vcWhy = vcLook(); vcEasing = vCanvas.getAnimations?.().filter((a) => a.playState === 'running').length ?? vcEasing; frostWake?.(); }
   function vcStale() { if (!vcPass) vcPass = restPass(readVcLook); }
-  if (VC_CACHE) {
+  {
     const vcMo = new MutationObserver(vcStale);
     for (let e = vCanvas; e && e.nodeType === 1; e = e.parentElement) vcMo.observe(e, { attributes: true, attributeFilter: ['style', 'class', 'hidden', 'data-theme', 'data-palette'] });
-    const vcIn = (ev) => { if (ev.target === vCanvas) { vcEasing++; if (VC_HEAL) setTimeout(vcStale, 1600); } };
+    const vcIn = (ev) => { if (ev.target === vCanvas) { vcEasing++; setTimeout(vcStale, 1600); } };
     const vcOut = (ev) => { if (ev.target === vCanvas) { vcEasing = Math.max(0, vcEasing - 1); vcStale(); } };
     vCanvas.addEventListener('transitionrun', vcIn); vCanvas.addEventListener('animationstart', vcIn);
     for (const t of ['transitionend', 'transitioncancel', 'animationend', 'animationcancel']) vCanvas.addEventListener(t, vcOut);
     vcWhy = vcLook();
   }
   // (frostWhy: '' while the figure's canvas takes glass, else the first thing that stops it, in words for the ?perf blur gauge.)
-  // (cards: the cards' glass stays drawn through a resolution's fade (RES_FROST), never let go: the picture kept for the fade has the
+  // (cards: the cards' glass stays drawn through a resolution's fade, never let go: the picture kept for the fade has the
   // cards' glass in it where it stands, and the glass drawn over the fade covers it (inside its box the glass is opaque), its blur taken
   // from the new picture (each glass's blur is taken before the fade is laid over it: veins-gl tops, every prep before any draw). Before, every card went flat for the fade's 420 ms, which with Figure resolution on Auto
-  // is every zoom's settle (review/ui-gpu-review-opus-2nov.md: "the card visibly switches from frosted to flat and back"). ?resfrost=0: as before.)
+  // is every zoom's settle (review/ui-gpu-review-opus-2nov.md: "the card visibly switches from frosted to flat and back").)
   const frostWhy = (cards = false) => {
-    if (frostHold && !(cards && RES_FROST)) return 'a change of canvas is under way';
+    if (frostHold && !cards) return 'a change of canvas is under way';
     if (!veins?.top) return 'the figure has no canvas to draw into';
     // (In the liver the glass is drawn into the lobule's or the open sinusoid's own GPU canvas (lobule-zoom.js glassHost), never let go
     // to a flat card: Mohammad, 2 Nov 2026, Circulation 6 on the iPhone, "No blur at all on top, solid card on bottom".)
@@ -8994,12 +8991,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (frostLiver || frostCtx !== veins.top.gl) { rehostSoon(); return 'the glass is moving back to the figure\'s canvas'; }
     if (veins.lost) return 'the GPU context is lost';
     if (diveT > 0) return 'the dive is under way';
-    if (!(cards && RES_FROST) && fading(vCanvas)) return 'the canvas is fading (a resolution change)';
+    if (!cards && fading(vCanvas)) return 'the canvas is fading (a resolution change)';
     const wc = wrap.classList;
     if (!wc.contains('gl-on')) return 'the GPU figure is not showing';
     if (wc.contains('in-lobule')) return 'the lobule is showing';
     if (wc.contains('unframed')) return 'the figure is unframed';
-    if (!VC_CACHE) return vcLook();
     if (vcEasing > 0) return 'the figure\'s canvas is easing';
     if (vcWhy == null) { vcStale(); return 'the figure\'s canvas is being read'; }
     return vcWhy;
@@ -9030,13 +9026,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const blurWhy = (el) => { for (const g of [glassGL, paneGL, ...cardGLs]) { const w = g?.why?.(el); if (w != null) return w; } return null; };
   // (Each glass and what it was set with: set again on a new renderer, after a lost context is restored.)
   const frostHosts = new Map();
-  // (On by default again since 1 Nov 2026 (Mohammad: "Move to GPU"), ?glasshost=0 shows the browser's blur instead. It had been off since
+  // (On since 1 Nov 2026 (Mohammad: "Move to GPU"). It had been off since
   // 759be3e1: on an iPhone the glass flickered as it went between the figure's canvas and the browser's blur and back, at the screen's
   // edge as the sheet untucked and wherever a label crossed it. Now a glass is clipped by the screen, never sent back at its edge; the
   // labels leave every glass drawn here out (sendHoles), so they never send one back; and what still does (an overlay the GPU does not
   // paint, a callout under a card) changes it only after it has rested 400 ms, never while anything moves (glass-gl.js hostDraw).)
-  const FROST_HOST = !/[?&]glasshost=0\b/.test(location.search);
-  function hostFrost(g, o) { if (!FROST_HOST || !g || !veins?.top) return; frostHosts.set(g, o); g.setHost(frostHost(o, frostLiver)); if (!frostLiver) frostCtx = veins.top.gl; }
+  function hostFrost(g, o) { if (!g || !veins?.top) return; frostHosts.set(g, o); g.setHost(frostHost(o, frostLiver)); if (!frostLiver) frostCtx = veins.top.gl; }
   // The ?perf surfaces list (gpu-surfaces.js): the anatomy's own surfaces, each from state this file already keeps. Read by the readout
   // only (twice a second while it is open); without ?perf no getter here is ever called.
   {
@@ -9096,8 +9091,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (What lies between, kept (1 Nov 2026, "Move everything to GPU"): read again only when something there may have moved: a write in the
   // overlays, the labels, the liver pane, the catheter's or the sites' labels or the stage's own class or style, a teaching card's shade
   // written or animating, a new labels picture (labelGL.boxes), the camera (viewKey), a resize, or any CSS transition or animation on the
-  // page and for 0.6 s after it. A frame that only moves the blood reads no box. ?glassreads=0 reads it on every call, as before.)
-  const FROST_KEEP = !/[?&]glassreads=0\b/.test(location.search);
+  // page and for 0.6 s after it. A frame that only moves the blood reads no box.)
   let frostDirty = 0, frostMo = null;
   const frostSeen = new WeakSet(), frostKept = new Map();
   // (2 Nov 2026: a transition or animation anywhere in the page no longer keeps the cache off for 0.6 s, nor is getAnimations() asked
@@ -9105,8 +9099,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // the cache dirty, and the next frostOver call reads once and keeps the answer again.)
   // (Each part between keeps its own count, so a part that moved reads alone: the catheter's labels following a glide read
   // themselves, not the overlays, the labels picture and the shade too. The overlays' group following the camera (worldOver's
-  // transform, every frame of a glide) reads nothing: their boxes, read once, are carried by the figure's transform (frostCarry).
-  // ?glassreads=0 reads it all on every call, as before.)
+  // transform, every frame of a glide) reads nothing: their boxes, read once, are carried by the figure's transform (frostCarry).)
   const frostPart = { over: 0, pane: 0, labels: 0, shade: 0, marks: 0 };
   const frostAll = () => { for (const k in frostPart) frostPart[k]++; };
   const frostPartOf = (t) => (!t?.nodeType ? '' : svgOver?.contains(t) ? 'over' : glass?.contains(t) ? 'pane' : labelSvg?.contains(t) || (labelGL && t === labelGL.canvas) ? 'labels'
@@ -9136,7 +9129,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const el of [lc, ...document.querySelectorAll('.pz-shade'), document.querySelector('.stage-credit')]) if (el && !frostSeen.has(el)) { frostSeen.add(el); frostMo.observe(el, { attributes: true }); frostListen(el); frostTouch(); }
   }
   function frostOver(level) {
-    if (!FROST_KEEP) return frostOverRead(level);
     frostWatch();
     const key = `${frostDirty}|${veins?.viewKey ?? ''}|${labelGL?.lost ? 'lost' : ''}|${appEl?.classList.contains('presenting') ? 1 : 0}`;
     const k = frostKept.get(level);
@@ -9150,7 +9142,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function frostPartRead(p, read) {
     const key = `${frostPart[p]}|${appEl?.classList.contains('presenting') ? 1 : 0}|${labelGL?.lost ? 'lost' : ''}|${p === 'over' ? svg.style.transform : ''}`;
     const k = frostParts.get(p), boxes = labelGL?.boxes ?? null;
-    if (FROST_KEEP && k && k.key === key && k.boxes === boxes) return k;
+    if (k && k.key === key && k.boxes === boxes) return k;
     if (p === 'over' && !CTM) refreshCTM();
     const v = { key, boxes, ctm: p === 'over' ? CTM : null, out: read() };
     frostParts.set(p, v);
@@ -9793,7 +9785,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const ANAT_EXTRA = ['MHV', 'LHV', 'RPV', 'LPV', 'SIN_L', 'IMV', 'LGV'];
 
   let blockerBoxes = null, blockersAt = -1e9, blockersStale = true;
-  const LEAVE_BLOCK = /[?&]leaveblock=1\b/.test(location.search);
   const staleBlockers = () => { blockersStale = true; };
   addEventListener('pps:occ', staleBlockers);
   addEventListener('resize', staleBlockers);
@@ -9816,9 +9807,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let blockersAsk = 0;
   // The boxes come from a fresh IntersectionObserver's first report: the browser hands every box over after its own layout of the
   // frame, so reading them forces no layout (a slide change read them ten times a second, ~385 forced layouts: 2 Nov 2026, "Move
-  // everything to GPU"). ?blockio=0 reads them with getBoundingClientRect, as before.
-  const BLOCK_IO = !/[?&]blockio=0\b/.test(location.search) && typeof IntersectionObserver === 'function';
-  const CATH_IO = !/[?&]cathio=0\b/.test(location.search);
+  // everything to GPU").
+  const BLOCK_IO = typeof IntersectionObserver === 'function';
   function blockersRead() {
     if (!BLOCK_IO) { blockersAsk = 0; blockersGot(readBlockersRead((el) => el.getBoundingClientRect(), stageBox())); return; }
     const els = [wrap, ...blockerEls()];
@@ -9852,8 +9842,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (el.id === 'nbViews' && !el.querySelector('#viewSeg')) return null;
       // A closed card can stay in place, invisible (the patient chart does): it hides nothing. (So does a glass with no words on it.)
       // (Nor does a card on its way out, a panel included: 2 Nov, the organs' names went off for half a second as a slide's panel left,
-      // and came back once it had gone. ?leaveblock=1: a leaving panel hides them, as before.)
-      if (getComputedStyle(el).visibility === 'hidden' || (el.classList.contains('pz-shade') && (el.style.opacity === '0' || el.classList.contains('pz-leave'))) || (!LEAVE_BLOCK && el.classList.contains('pz-leave'))) return null;
+      // and came back once it had gone.)
+      if (getComputedStyle(el).visibility === 'hidden' || (el.classList.contains('pz-shade') && (el.style.opacity === '0' || el.classList.contains('pz-leave'))) || el.classList.contains('pz-leave')) return null;
       if (els && !els.includes(el)) return null;   // (come in since the boxes were asked for: read with the next ask)
       const r = rectOf(el);
       return r.width ? { x0: r.left - wr.left - 4, y0: r.top - wr.top - 4, x1: r.right - wr.left + 4, y1: r.bottom - wr.top + 4 } : null;
@@ -9941,8 +9931,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let solvedFor = null;       // { sig, sc, th } the slots were solved for
   const labelVis = new Map(); // key → shown last frame (hysteresis against blockers)
   let lapHid = new Set();     // keys the last layout's overlap pass hid (its hysteresis)
-  const LABEL_HYST = !/[?&]labelhyst=0\b/.test(location.search);
-  if (/[?&]labelfill=0\b/.test(location.search)) document.documentElement.classList.add('label-fill-both');   // (labels' entry fade fills forwards too, as before: app.css)
   let labelTurned = false;   // labels remember their side; turning the circuit changes which side is right
   // Levels of detail (Blood menu › Labels). Key: at the home framing only the portal vein, the HVPG pair
   // (wedged sinusoids and the free hepatic vein) and the stations the model flags; zoomed in, every
@@ -10055,9 +10043,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // fonts, theme and the presenter's insets. Otherwise the last layout stands, and only the live values
   // are refreshed in place (see refreshValues); a value whose text changes shape lays the labels out again.
   let labelKey = null, labelFonts = 0, labelShown = [], noChevBoxes = [], labelPainted = false;   // labelPainted: the last updateLabels painted the callouts and probes
-  const CATH_HID = !/[?&]cathlabels=1\b/.test(location.search);
   let cathHidAt = 0;
-  const cathHid = () => CATH_HID && !!cath.st && !cath.st.keep && wrap.classList.contains('cath-on') && performance.now() - cathHidAt > 300;
+  const cathHid = () => !!cath.st && !cath.st.keep && wrap.classList.contains('cath-on') && performance.now() - cathHidAt > 300;
   // (What a stent's column of callouts is solved against besides the camera: the cards' insets and boxes. Empty without one.)
   const labelIns = () => (dop.all ? [...['--pz-t', '--pz-l', '--pz-b', '--pz-r'].map((k) => Math.round(pzInset(k) / 8)), ...(blockerBoxes || []).flatMap((o) => [o.x0, o.y0, o.x1, o.y1].map((v) => Math.round(v / 8)))].join() : '');   // (and the cards' boxes, which can arrive a frame after the insets)
   const stats = { layouts: 0, skips: 0, values: 0, ms: 0 };
@@ -10066,7 +10053,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // Laid out once the presenter's camera settles (see camSettle), or at once if its glide was cut short.
     if (camMove) { if (!vtGliding && !morphFade) camSettle(); return; }
     // (Not while the HVPG catheter hides them (cath-on, after its .25 s fade): its view follows the tip every frame, and every frame
-    // of it had laid out, drawn and sent to the GPU labels nobody could see. setCatheter lays them out as it goes. ?cathlabels=1: as before.)
+    // of it had laid out, drawn and sent to the GPU labels nobody could see. setCatheter lays them out as it goes.)
     if (cathHid()) { labelKey = null; return; }
     const t0 = performance.now();
     refreshCTM();
@@ -10102,7 +10089,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (!force && sameView8(labelJob.key, key)) { labelTail(); return; }
       labelJobDrop();
     }
-    if (!force && sameKey(key) && (LABEL_HOLD && inMotion() ? holdValues(f) : refreshValues(f))) { stats.skips++; stats.ms += performance.now() - t0; }
+    if (!force && sameKey(key) && (inMotion() ? holdValues(f) : refreshValues(f))) { stats.skips++; stats.ms += performance.now() - t0; }
     else {
       const sc = CTM.sc, th = Math.atan2(CTM.b, CTM.a);
       const csig = calloutSig();
@@ -10214,8 +10201,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (Cached labels while something moves (recs.md item 6, 2 Nov 2026): during a transition (inMotion: a slide's cards thrown, a
   // dive) a laid-out label is left exactly as it is, its places, widths and collisions kept from its last layout and its live values
   // not rebuilt or written into the page, so a moving frame does no label DOM work at all. The values catch up in the first frame
-  // after the move ends. ?labelhold=0: the values written every frame, as before.)
-  const LABEL_HOLD = !/[?&]labelhold=0\b/.test(location.search);
+  // after the move ends.)
   let heldF = null, heldWait = null;
   function holdValues(f) {
     heldF = f;
@@ -11318,8 +11304,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const edge = it.rot ? rectOf({ ...it, w: it.h, h: it.w }) : rectOf(it), V = viewOf(it);
       // An organ's name is pinned inside its organ: where a card or the stage edge covers it, it hides with the organ, never slides.
       // (Shown, it hides as a card first touches it; hidden, it comes back only once 10 px clear of the card as of the stage's edge, so a card
-      // easing at its edge cannot flick it on and off. ?labelhyst=0: clear of a card by nothing, as before.)
-      if (it.cls === 'organ') { const was = labelVis.get(it.key) !== false, m = was ? 0 : 10, grown = { x0: edge.x0 - m, y0: edge.y0 - m, x1: edge.x1 + m, y1: edge.y1 + m }; it.hide = !within(grown, V) || obstacles.some((o) => hits(LABEL_HYST ? grown : edge, o)); labelVis.set(it.key, !it.hide); continue; }
+      // easing at its edge cannot flick it on and off.)
+      if (it.cls === 'organ') { const was = labelVis.get(it.key) !== false, m = was ? 0 : 10, grown = { x0: edge.x0 - m, y0: edge.y0 - m, x1: edge.x1 + m, y1: edge.y1 + m }; it.hide = !within(grown, V) || obstacles.some((o) => hits(grown, o)); labelVis.set(it.key, !it.hide); continue; }
       const cx = Math.max(V.x0 - edge.x0, Math.min(0, V.x1 - edge.x1)), cy = Math.max(V.y0 - edge.y0, Math.min(0, V.y1 - edge.y1));
       if (cx || cy) { it.x += cx; it.y += cy; if (Math.hypot(cx, cy) > 2) it.leader = true; }
       // (A reading pulled in onto a vessel takes the solid halo there too.)
@@ -11343,8 +11329,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // A caption turned upright takes its box turned too (it cannot shorten, so it hides when crowded).
     const boxOf = (it) => (it.rot ? rectOf({ ...it, w: it.h, h: it.w }) : rectOf(it));
     // (A label this pass hid at the last layout comes back only with 4 px to spare, so two labels sliding past each other in a pan, a zoom
-    // or a glide cannot flick the lesser on and off: 2 Nov. ?labelhyst=0: as before.)
-    const lapWas = lapHid, crowded = (it, r) => { const p = LABEL_HYST && lapWas.has(it.key) ? 4 : 0; return kept.some((k) => hits({ x0: r.x0 - p, y0: r.y0 - p, x1: r.x1 + p, y1: r.y1 + p }, k)); };
+    // or a glide cannot flick the lesser on and off: 2 Nov.)
+    const lapWas = lapHid, crowded = (it, r) => { const p = lapWas.has(it.key) ? 4 : 0; return kept.some((k) => hits({ x0: r.x0 - p, y0: r.y0 - p, x1: r.x1 + p, y1: r.y1 + p }, k)); };
     lapHid = new Set();
     for (const it of out.filter((o) => !o.hide && !o.live).sort((a, b) => rank(b) - rank(a))) {
       let r = boxOf(it);
@@ -12033,8 +12019,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let overWatching = false;
   // Each unit's reading, kept until something in it changes in a way the painter does not read at each paint (needsReread), the
   // overlays' look changes (overKey), or a unit's ease ends: a slide change that rewrote one unit read every unit again, every frame
-  // (2 Nov 2026, the Varices 2 to 3 budget: ~1,400 style reads). ?overkeep=0 reads every unit each time, as before.
-  const OVER_KEEP = !/[?&]overkeep=0\b/.test(location.search);
+  // (2 Nov 2026, the Varices 2 to 3 budget: ~1,400 style reads).
   const overKept = new Map();
   function overDrop(t) {
     if (!worldOver) { overKept.clear(); return; }
@@ -12133,7 +12118,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     let why = null;
     const read = (u) => {
       if (easing.some((el) => u.contains(el))) { why = ['easing', easing.find((el) => u.contains(el))]; return null; }
-      if (OVER_KEEP && overKept.has(u)) return overKept.get(u);
+      if (overKept.has(u)) return overKept.get(u);
       const spec = readGroup(u, { nest: true, strict: true });
       if (!spec) { why = readFail(); return null; }
       const r = spec.ops.length ? spec : 'hidden';
@@ -13204,7 +13189,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const hide = !!st && !st.keep;
       if (hide !== wrap.classList.contains('cath-on')) {
         wrap.classList.toggle('cath-on', hide);
-        if (hide) cathHidAt = performance.now(); else if (F && CATH_HID) { labelKey = null; updateLabels(F); }
+        if (hide) cathHidAt = performance.now(); else if (F) { labelKey = null; updateLabels(F); }
       }
       if (st && (st.route || 'hvpg') !== cath.kind) { cath.kind = st.route || 'hvpg'; cath.route = null; cath.rc = 0; }
       if (!st) { cath.rc = 0; cath.route = null; cath.blk = null; cath.shaft = null; cath.room = null; cath.ins = null; cathVer++; if (cathTint) { cathTint = null; cath.tintKey = ''; syncVeins(easeInOut(morph)); } cath.at = null; cathFadeOut(); return; }

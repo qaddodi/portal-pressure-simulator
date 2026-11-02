@@ -58,5 +58,5 @@ test('the labels leave out every glass drawn in the figure\'s canvas, told in th
   assert.match(STAGE, /onHoles: frostHoles\('callouts'\)/);
   assert.match(STAGE, /onHoles: frostHoles\(key\)/);
   assert.match(STAGE, /if \(!labelGL\.holes\) \{/);
-  assert.match(STAGE, /const FROST_HOST = !\/\[\?&\]glasshost=0\\b\/\.test\(location\.search\);/);
+  assert.match(STAGE, /function hostFrost\(g, o\) \{ if \(!g \|\| !veins\?\.top\) return;/);
 });

@@ -1,5 +1,5 @@
 {
  "note": "Runtime switches still waiting for their deletion pass (Holding 120 Hz §2.9). This list only shrinks: scripts/rules-lint.mjs fails on a switch not here and on a name here the source no longer reads.",
- "left": [ "blockio", "cardfallback", "cardfrost", "cathio", "cathlabels", "flow", "frostcache", "glassclock", "glassearly", "glassend", "glassfull", "glasshold", "glasshost", "glassmotion", "glassobs", "glassreads", "glassrise", "glasswarm", "gpuedge", "gpulabels", "gpuorgans", "hud", "labelfill", "labelhold", "labelhyst", "leaveblock", "liveread", "lzone", "overkeep", "reblur", "resfrost", "stageover", "swblur", "vcheal"
+ "left": [ "cardfallback", "cardfrost", "flow", "glassclock", "glassearly", "glassend", "glassfull", "glasshold", "glassmotion", "glassobs", "glassrise", "glasswarm", "gpuedge", "gpulabels", "gpuorgans", "hud", "liveread", "lzone", "reblur", "stageover", "swblur"
  ]
 }
