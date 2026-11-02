@@ -12,6 +12,7 @@
 
 // (The glide rides the camera's curve, the quintic of ease.js, and its CSS copy is --ease-move: one curve for a move, premium-feel R3.)
 import { easeMove, D_SURFACE, EASE_ARRIVE, EASE_MOVE } from './ease.js?v=7513a88c68';
+import { readStyle } from './layout-snap.js?v=49b358c305';
 import { splitFace } from './face-split.js?v=b907fdba84';
 export const easeIO3 = easeMove;
 export const EASE_IO3 = EASE_MOVE;
@@ -61,21 +62,38 @@ export function foldPlan(before, after, order) {
 export const faceClip = (w, seg) => ({ l: -w / 2 - seg.l, r: seg.r - w / 2 });
 
 /**
- * A coming or going button shown only as the face covers it, by its opacity alone (no clip: a clip-path repaints the row every
- * frame). l, r: its edges at rest (pill px from the centre); dx0 → dx1 its offset; o0 → o1 its own fade; e0 → e1 the face's half
- * width. All of these move linearly in the fold's eased progress, so the keyframes' offsets are taken in it (the effect carries the
- * easing). At each step its opacity is its own fade times the share of it the face covers then, so it shows as the clip showed it,
- * softly instead of cut.
+ * A coming or going button shown only inside the face, by its opacity alone (no clip: a clip-path repaints the row every frame).
+ * l, r: its edges at rest (pill px from the centre); pl, pr: its padding, so a..b is its word; dx0 → dx1 its offset; o0 → o1 its own
+ * fade; e0 → e1 the face's half width; inset: how far the face's rounded end sits in from its half width at the word's height. All of
+ * these move linearly in the fold's eased progress, so the keyframes' offsets are taken in it (the effect carries the easing).
+ *
+ * The word shows only while all of it is inside the face: its opacity is its own fade times its margin to the face's nearer edge over
+ * a short ramp, and zero while any of it is outside. (It used to show by the share the face covered, so a half-covered word was drawn
+ * at half strength past the pill's edge mid-fold, 2 Nov.) Each margin is linear in the progress, so the moment it reaches zero and the
+ * moment it reaches the ramp are keyframes of their own: between two keyframes the word's opacity eases while the margin stays on
+ * one side of zero, and no frame draws any of it outside. The ramp is never longer than the margin the word has at rest, so the last
+ * keyframe (a coming word) or the first (a going one) is the word at rest, at its full fade.
  */
-export function coverFade({ l, r, dx0, dx1, o0, o1, e0, e1 }, steps = 16) {
-  const out = [];
-  for (let i = 0; i <= steps; i++) {
-    const p = i / steps, dx = dx0 + (dx1 - dx0) * p, e = e0 + (e1 - e0) * p;
-    const a = l + dx, b = r + dx, w = Math.max(1e-6, b - a);
-    const cov = Math.max(0, Math.min(b, e) - Math.max(a, -e)) / w;
-    out.push({ offset: p, opacity: +((o0 + (o1 - o0) * p) * Math.min(1, cov)).toFixed(4) });
+export const FADE_RAMP = 8;
+export function coverFade({ l, r, pl = 0, pr = 0, dx0, dx1, o0, o1, e0, e1, inset = 0 }, steps = 16) {
+  const a0 = l + pl, b0 = r - pr;
+  // The two margins (left edge of the face to the word's left, the word's right to the face's right edge), each m + k p.
+  const lin = [
+    { m: (a0 + dx0) + (e0 - inset), k: (dx1 - dx0) + (e1 - e0) },
+    { m: (e0 - inset) - (b0 + dx0), k: (e1 - e0) - (dx1 - dx0) },
+  ];
+  const margin = (p) => Math.min(...lin.map((q) => q.m + q.k * p));
+  const restP = o1 >= o0 ? 1 : 0, ramp = Math.max(1e-3, Math.min(FADE_RAMP, margin(restP)));
+  const at = new Set();
+  for (let i = 0; i <= steps; i++) at.add(i / steps);
+  for (const q of lin) {
+    if (Math.abs(q.k) < 1e-9) continue;
+    for (const v of [0, ramp]) { const p = (v - q.m) / q.k; if (p > 0 && p < 1) at.add(p); }
   }
-  return out;
+  return [...at].sort((x, y) => x - y).map((p) => {
+    const show = Math.max(0, Math.min(1, margin(p) / ramp));
+    return { offset: p, opacity: +((o0 + (o1 - o0) * p) * show).toFixed(4) };
+  });
 }
 
 const running = new Set();
@@ -102,11 +120,14 @@ export function pillState(seg, box) {
   for (const el of seg.querySelectorAll(':scope > button')) {
     const key = el.dataset.ghostOf || el.dataset.view;
     if (!key || !el.getClientRects().length || btns.some((e) => e.key === key)) continue;
-    const q = el.getBoundingClientRect();
-    btns.push({ key, el, l: (q.left - cx) / z, r: (q.right - cx) / z, o: +getComputedStyle(el).opacity });
+    const q = el.getBoundingClientRect(), cs = getComputedStyle(el);
+    btns.push({ key, el, l: (q.left - cx) / z, r: (q.right - cx) / z, pl: parseFloat(cs.paddingLeft) || 0, pr: parseFloat(cs.paddingRight) || 0, o: +cs.opacity, fs: parseFloat(cs.fontSize) || 0 });
   }
-  const S = seg.getBoundingClientRect();
-  return { w: face.getBoundingClientRect().width / z, btns, seg: { l: (S.left - cx) / z, r: (S.right - cx) / z, t: (S.top - B.top) / z, b: (B.bottom - S.bottom) / z } };
+  const S = seg.getBoundingClientRect(), F = face.getBoundingClientRect(), rad = parseFloat(readStyle(face).borderTopLeftRadius) || 0;
+  // (The face's rounded end, at the height of a word: a word's glyphs stand about 0.6 em either side of the pill's middle.)
+  const hy = Math.min(rad, 0.6 * Math.max(0, ...btns.map((e) => e.fs)));
+  const inset = rad > 0 ? rad - Math.sqrt(rad * rad - hy * hy) : 0;
+  return { w: F.width / z, inset, btns, seg: { l: (S.left - cx) / z, r: (S.right - cx) / z, t: (S.top - B.top) / z, b: (B.bottom - S.bottom) / z } };
 }
 
 /**
@@ -135,7 +156,7 @@ export function foldPill(seg, box, before, ms = FOLD_MS) {
       const at = after.btns.find((e) => e.key === k);
       if (p.kind === 'in' && at) {
         keep(real(k).animate([{ transform: `translateX(${p.dx0.toFixed(2)}px)` }, { transform: 'none' }], opt));
-        const fade = coverFade({ l: at.l, r: at.r, dx0: p.dx0, dx1: 0, o0: p.o0, o1: 1, e0: before.w / 2, e1: after.w / 2 });   // (opacity keyframes only)
+        const fade = coverFade({ l: at.l, r: at.r, pl: at.pl, pr: at.pr, inset: after.inset, dx0: p.dx0, dx1: 0, o0: p.o0, o1: 1, e0: before.w / 2, e1: after.w / 2 });   // (opacity keyframes only)
         keep(real(k).animate(fade, opt));
       } else keep(real(k).animate([{ transform: `translateX(${p.dx0.toFixed(2)}px)`, opacity: p.o0 }, { transform: 'none', opacity: 1 }], opt));
       continue;
@@ -148,7 +169,7 @@ export function foldPill(seg, box, before, ms = FOLD_MS) {
     Object.assign(g.style, { position: 'absolute', top: '0', left: `${(was.l - after.seg.l).toFixed(2)}px`, width: `${(was.r - was.l).toFixed(2)}px`, margin: '0', pointerEvents: 'none' });
     seg.append(g); running.add(g);
     g.animate([{ transform: 'none' }, { transform: `translateX(${p.dx1.toFixed(2)}px)` }], { ...opt, fill: 'forwards' });
-    const fade = coverFade({ l: was.l, r: was.r, dx0: 0, dx1: p.dx1, o0: p.o0, o1: 0, e0: before.w / 2, e1: after.w / 2 });   // (opacity keyframes only)
+    const fade = coverFade({ l: was.l, r: was.r, pl: was.pl, pr: was.pr, inset: after.inset, dx0: 0, dx1: p.dx1, o0: p.o0, o1: 0, e0: before.w / 2, e1: after.w / 2 });   // (opacity keyframes only)
     const a = g.animate(fade, { ...opt, fill: 'forwards' });
     a.onfinish = () => { g.remove(); running.delete(g); };
     running.add(a); a.oncancel = () => running.delete(a);

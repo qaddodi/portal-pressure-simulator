@@ -122,3 +122,27 @@ test('a coming button shows only as the face covers it, by opacity (no clip-path
   assert.equal(g[0].opacity, 1); assert.equal(g.at(-1).opacity, 0);
   assert.doesNotMatch(motion.match(/export function foldPill[\s\S]*$/)[0], /clipPath/);
 });
+
+test('a coming or going word is never drawn past the face: wherever its keyframes give it any opacity, all of its word is inside', () => {
+  // (The fold's opacity between two keyframes is linear in the eased progress; the word's edges and the face's are too.)
+  const cases = [
+    // (Sinusoid to Lobule: the two-button pill, half width 87, grows to four, 170; Lobule moves 81 px right, and Circuit and Anatomy with it.)
+    { l: -164, r: -76, pl: 14, pr: 14, dx0: -81, dx1: 0, o0: 0, o1: 1, e0: 87, e1: 170, inset: 1.2 },   // (Circuit coming)
+    { l: -74, r: 2, pl: 14, pr: 14, dx0: -81, dx1: 0, o0: 0, o1: 1, e0: 87, e1: 170, inset: 1.2 },      // (Anatomy coming)
+    { l: -164, r: -76, pl: 14, pr: 14, dx0: 0, dx1: -81, o0: 1, o1: 0, e0: 170, e1: 87, inset: 1.2 },   // (Circuit going, Lobule to Sinusoid)
+    // (Anatomy to Lobule: three buttons, half width 127, to four; Lobule moves 40 px left and Sinusoid comes out with it.)
+    { l: 78, r: 164, pl: 14, pr: 14, dx0: 40, dx1: 0, o0: 0, o1: 1, e0: 127, e1: 170, inset: 1.2 },
+  ];
+  for (const c of cases) {
+    const k = coverFade(c);
+    const opAt = (p) => { let i = 1; while (i < k.length - 1 && k[i].offset < p) i++; const a = k[i - 1], b = k[i]; return a.opacity + (b.opacity - a.opacity) * ((p - a.offset) / Math.max(1e-9, b.offset - a.offset)); };
+    for (let n = 0; n <= 2000; n++) {
+      const p = n / 2000, dx = c.dx0 + (c.dx1 - c.dx0) * p, e = c.e0 + (c.e1 - c.e0) * p - c.inset;
+      const inside = c.l + c.pl + dx >= -e - 1e-6 && c.r - c.pr + dx <= e + 1e-6;
+      if (!inside) assert.ok(opAt(p) < 1e-4, `drawn at ${opAt(p).toFixed(3)} past the face at ${p}`);
+    }
+    // At rest it is the word itself: the coming word ends at its full strength, the going one starts at it.
+    if (c.o1 > c.o0) assert.equal(k.at(-1).opacity, 1); else assert.equal(k[0].opacity, 1);
+    for (let i = 1; i < k.length; i++) assert.ok(k[i].offset > k[i - 1].offset, 'offsets in order');
+  }
+});
