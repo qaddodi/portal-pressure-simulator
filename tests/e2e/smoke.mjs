@@ -98,6 +98,9 @@ async function tapTool(page, sel) {
 }
 // A view by its switch: in the top bar, or on the thumb dock in its line above the tabs (the sinusoid view: a pill at the bottom left).
 async function pickView(page, v) {
+  // (Only once the loading cover is away: start-up work runs under it (8487ae22), and a tap on it is the cover's, not the button's.
+  // On a slow software renderer it stays up for seconds after the first frame, and the view was never picked.)
+  await page.waitForFunction(() => { const b = document.getElementById('boot'); return !b || b.classList.contains('done'); }, null, { timeout: 60000 });
   return page.click(`#viewSeg [data-view="${v}"]`, { force: true });
 }
 // The circuit's turn upright: the button on the figure, or on an upright phone the item in the Layers tab's menu.
@@ -2786,7 +2789,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   await check(device, 'presenter lobule: the zone names and the lesion pill hold steady while the values ease', async (page) => {
     // Congestion slide: the central vein's value eases in, so the labels are laid out again and again. The zone names
     // used to be re-made on each pass (their lit pill flashed); the pill and its leader used to be free to change side.
-    await open(page, '?script=lobule&slide=7');
+    // (Slide 5 since the deck's slides are counted from its opening slide, 1: slide 7 is now the summary table, with no lobule.)
+    await open(page, '?script=lobule&slide=5');
     await page.waitForFunction(() => document.querySelector('.lz-call.on') && document.querySelector('.lz-zone.z3'), null, { timeout: 60000 });
     const rows = await page.evaluate(async () => {
       for (const z of document.querySelectorAll('.lz-zone')) z.dataset.mark = '1';
@@ -2812,7 +2816,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   });
 
   await check(device, 'presenter lobule: the lesion leader stops at the ring\'s edge and no label sits on the ring', async (page) => {
-    for (const slide of [7, 3]) {
+    for (const slide of [5, 4]) {   // (congestion and cirrhosis: the deck's two slides with a lesion pointer)
       await open(page, `?script=lobule&slide=${slide}`);
       await page.waitForFunction(() => document.querySelector('.lz-call.on') && window.pps.stage.lobuleSettled(), null, { timeout: 60000 }).catch(() => null);
       const r = await page.evaluate(() => {

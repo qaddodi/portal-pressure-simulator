@@ -41,7 +41,7 @@ import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatCol
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
 import { createVeinsGL, LZ_ONE, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=18d514fe92';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=f6c91d8676';
-import { createSinusoidView } from './sinusoid-view.js?v=312e390d4b';
+import { createSinusoidView } from './sinusoid-view.js?v=a1c7359d70';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, framePart, easeNow, inMotion, PACED } from './frame.js?v=7710f677e2';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { FADE_MS, fadeAlpha, viewFollow } from './res-fade.js?v=4ffac3ef7f';
@@ -143,7 +143,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // spot: its ring, line and pill never jump there (17 Oct: "resistance and labels and callouts all snap").
   const callSet = (c) => {
     call = c;
-    if (c) { callEl.textContent = c.label; callEl.dataset.kind = callLine.dataset.kind = callRing.dataset.kind = c.kind || 'block'; }
+    if (c) {
+      callEl.textContent = c.label; callEl.dataset.kind = callLine.dataset.kind = callRing.dataset.kind = c.kind || 'block';
+      // (Its size measured between frames for its new words, before it is first placed: placeCall waits for it.)
+      measQ.add(callEl); if (!measT) measT = restPass(measureRun);
+    }
     viewChanged();
   };
   const onCallout = () => {
@@ -1012,7 +1016,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const env = sizeEnv(), els = [...measQ], want = labWant;
     measQ.clear(); labWant = null;
     let moved = false;
-    for (const e of els) { const w = e.offsetWidth, h = e.offsetHeight; if (w !== e._lzSz?.w || h !== e._lzSz?.h) moved = true; e._lzSz = { key: sizeKeyOf(e, env), w, h }; }
+    for (const e of els) { const w = e.offsetWidth, h = e.offsetHeight; if (w !== e._lzSz?.w || h !== e._lzSz?.h) moved = true; e._lzSz = { key: sizeKeyOf(e, env), w, h, txt: e.textContent }; }
     if (want) {
       // (As the layout did in the frame before: unstacked to read the width, stacked where that is too wide, then read; written,
       // then read together. Put back as found, for the next frame to lay out.)
@@ -1246,7 +1250,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   };
   function placeCall(fr, placed, cards, leads, crosses, ring, hex, keep = [], into = () => 0) {
     if (!callEl.isConnected) { labels.append(callEl); leaders.append(callLine, callRing); }
-    const on = !!ring;
+    // (Not shown until its size is known for its words: placed at a guessed size, it slid sideways once measured, seconds in on a slow renderer.)
+    const on = !!ring && callEl._lzSz?.txt === callEl.textContent;
+    if (ring && !on) { measQ.add(callEl); if (!measT) measT = restPass(measureRun); }
     for (const e of [callEl, callLine, callRing]) e.classList.toggle('on', on);
     if (!on) return null;
     const { a, rr } = ring;

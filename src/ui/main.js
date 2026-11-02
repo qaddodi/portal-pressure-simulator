@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=dd95596be7';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=4ef2a6ffd8';
-import { createStage } from './stage.js?v=3d2c4f8b2b';
+import { createStage } from './stage.js?v=149169de2b';
 import { createCreditPlacer } from './credit.js?v=b84ab83512';
 import { whenQuiet, booting, holdCover } from './quiet.js?v=388052eba8';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
@@ -78,7 +78,7 @@ const LENSES = {
 };
 const COLOR_MODES = { pressure: 'Pressure', delta: 'Change', heat: 'Congestion', drop: 'Pressure drop', flow: 'Flow volume', velocity: 'Velocity', direction: 'Flow direction', oxygen: 'Oxygen', origin: 'Blood origin' };
 
-let stage, inspector, dock, why, timeline, compare, card, chart, mainMenu;
+let stage, inspector, dock, why, timeline, compare, card, chart, mainMenu, idleRest;
 
 // Surfaces most sessions never open (the command palette, the presenter) load
 // on first use, so the first paint only waits for the model, the figure and the chart.
@@ -152,7 +152,7 @@ async function main() {
   // Idle rest (idle heat, 1 Nov): left alone 30 s in Explore, the blood eases to a stop, the model holds its numbers (its worker
   // stops stepping, as for a hidden page) and the figure stops drawing; the first input brings it all back from that frame.
   // Never while a talk is open, a time-lapse plays or the patient is still changing.
-  createIdleRest({
+  idleRest = createIdleRest({
     canRest: () => { const st = store.get(), f = st.frame; return st.mode === 'explore' && !presenter.active() && !st.lapse && !!f && !f.lapseDay && !f.morphing && !f.settling && !f.jump; },
     onRest: () => { stage.rest(true); host.send({ type: 'visibility', visible: false }); },
     onWake: () => { host.send({ type: 'visibility', visible: !document.hidden }); stage.rest(false); },
@@ -481,6 +481,9 @@ async function openInExplore(id) {
 let presetGen = 0;
 async function loadPreset(id, opts = {}) {
   const gen = ++presetGen;
+  // (A new patient wakes a resting page, whoever asked for it (a menu, a link, the checks' window.pps): its model must step to
+  // arrive, and a page left resting held the old patient's numbers with the new one's name.)
+  idleRest?.poke();
   store.set({ presetLoading: true });   // the figure frames itself once the patient has arrived (stage.js)
   dock?.clearTraces();   // the Over time and Doppler traces start over with the new (or restarted) patient
   let res;

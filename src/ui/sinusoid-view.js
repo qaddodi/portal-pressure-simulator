@@ -666,7 +666,10 @@ export function createSinusoidView({ host, before = null }) {
   function declutter() {
     // (From the boxes the layout recorded, not the screen: the view may be mid-zoom, scaled by the compositor.)
     const W = geo.W, lk = labelK();
-    const gx = 6 + 2 * lk, gy = 2 + 2 * lk;   // (clear of each other's halo, which grows with the text)
+    // (Clear of each other's halo, which grows with the text, and of each other's pill: app.css .sv-region::before reaches
+    // --pill-x and --pill-y past the name at every side, so two names keep both pills and 3 px between them, lit or not.)
+    const k = lk / 0.9, hw = clamp(k, 0.8, 1.5), pillX = 6 * k + 2 * hw, pillY = 3 * k + 2 * hw;
+    const gx = Math.max(6 + 2 * lk, 2 * pillX + 3), gy = Math.max(2 + 2 * lk, 2 * pillY + 3);
     // (Within the stage, below the top bar and a presenter's words, above a presenter's bar.)
     const T = VW.ins[1], B = VW.ins[2];
     const hit = (a, b) => a.l < b.r + gx && b.l < a.r + gx && a.t < b.b + gy && b.t < a.b + gy;
