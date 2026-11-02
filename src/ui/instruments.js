@@ -4,40 +4,18 @@
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { gastricUp } from '../engine/scenario.js?v=d2669cef9b';
 import { wallRead } from '../engine/wall-read.js?v=09449acd01';
-<<<<<<< HEAD
-import { pressureColor } from './colormap.js?v=d0197850bb';
-import { h, fmt, canvasSize, cssVar, cssAlpha, clamp, icon, swapText, putText, countTo } from './util.js?v=b1acbdf27d';
-import { wordSetter } from './gl-words.js?v=b0b3cb3247';
+import { pressureColor } from './colormap.js?v=f0a8aa4986';
+import { h, fmt, canvasSize, cssVar, cssAlpha, clamp, icon, swapText, putText, countTo } from './util.js?v=2e2c464087';
+import { wordSetter } from './gl-words.js?v=c88abca3a4';
 import { simTime, isPaused } from './clock.js?v=ff76dd8529';
-import { createEndoGL } from './endo-gl.js?v=6200e4aae8';
+import { createEndoGL } from './endo-gl.js?v=dc4685d2e3';
 import { surface } from './gpu-surfaces.js?v=2af17044e7';
-import { renderEndo } from './endo-render.js?v=45668350ff';
+import { renderEndo } from './endo-render.js?v=71266c65eb';
 import { endoGrow, airRatio, airFlat } from './endo-size.js?v=e0a58bf20e';
 import { DEFLATE_MS, BAND_MS, BAND_DELAY_MS, fadeIn, glide, scopeTear } from './endo-motion.js?v=ea7ccb902e';
-import { drawScopeBleed } from './endo-bleed.js?v=26765efbff';
+import { drawScopeBleed } from './endo-bleed.js?v=a67364eeb7';
 import { poolFill } from './blood.js?v=a70439097a';
-import { FONT } from './charts.js?v=c5533efef0';
-import { store, updateParams, varicesPresent } from './store.js?v=a21c31dcb5';
-import { classSoon, attrSoon, dataSoon, propSoon } from './class-soon.js?v=97b9d0e0db';
-import { balanceHold, balanceLine } from './balance-hold.js?v=1792704e7a';
-import { lateFrameFor, cancelFrame, framePhase, easeNow } from './frame.js?v=1d147c7c9a';
-import { restPass } from './rest-pass.js?v=bb619a1659';
-import { createTraceGL, fitPen } from './trace-gl.js?v=2d7b4b37ee';
-import { createSvgGL, svgModel, setWords, wordsOf } from './svg-gl.js?v=3c43a7c8e2';
-import { textWidth } from './text-gl.js?v=3203debbbd';
-=======
-import { pressureColor } from './colormap.js?v=d0197850bb';
-import { h, fmt, canvasSize, cssVar, cssAlpha, clamp, icon, swapText, putText, countTo } from './util.js?v=b1acbdf27d';
-import { wordSetter } from './gl-words.js?v=b0b3cb3247';
-import { simTime, isPaused } from './clock.js?v=ff76dd8529';
-import { createEndoGL } from './endo-gl.js?v=6200e4aae8';
-import { surface } from './gpu-surfaces.js?v=2af17044e7';
-import { renderEndo } from './endo-render.js?v=45668350ff';
-import { endoGrow, airRatio, airFlat } from './endo-size.js?v=e0a58bf20e';
-import { DEFLATE_MS, BAND_MS, BAND_DELAY_MS, fadeIn, glide, scopeTear } from './endo-motion.js?v=ea7ccb902e';
-import { drawScopeBleed } from './endo-bleed.js?v=26765efbff';
-import { poolFill } from './blood.js?v=a70439097a';
-import { FONT } from './charts.js?v=c5533efef0';
+import { FONT } from './charts.js?v=5b15a0ea2f';
 import { store, updateParams, varicesPresent } from './store.js?v=a21c31dcb5';
 import { classSoon, attrSoon, dataSoon, propSoon } from './class-soon.js?v=97b9d0e0db';
 import { balanceHold, balanceLine } from './balance-hold.js?v=1792704e7a';
@@ -46,7 +24,6 @@ import { restPass } from './rest-pass.js?v=bb619a1659';
 import { createTraceGL, fitPen } from './trace-gl.js?v=2d7b4b37ee';
 import { createSvgGL, svgModel, setWords, wordsOf, setGeo } from './svg-gl.js?v=3c43a7c8e2';
 import { textWidth } from './text-gl.js?v=3203debbbd';
->>>>>>> 3207b43b (Chart, dial, callout and glyph-slot models keep their moving numbers on the piece (setGeo); card and inspector control syncs land in a rest pass)
 import { D_SURFACE, easeArrive } from './ease.js?v=7513a88c68';
 import { inkBox } from './glyph-measure.js?v=1e477bd6b3';
 // (The endoscope's field: drawn in the late part of a frame, after the model's frame of it has been taken in, so once a frame.)
