@@ -50,7 +50,7 @@ import { warmFade } from './res-fade-gl.js?v=3cf9d3504d';
 import { fusedVS, fusedFS } from './veins-fuse.js?v=892ef12160';
 import { NOISE_W, NOISE_H, NOISE_PER_ROW, OCTAVES, noiseBlock, blockAt, tableSize } from './blood-noise.js?v=bc65994b25';
 import { rendererVerdict } from './sw-yield.js?v=703c656c2b';
-import { frameCount } from './frame.js?v=43da9d808a';
+import { frameCount, framePhase } from './frame.js?v=43da9d808a';
 
 export { binVeins };
 
@@ -2617,7 +2617,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   let own = ownBuf ? makeOwn() : null;
   const PRESENT_ONCE = !/[?&]presentonce=0\b/.test(globalThis.location?.search || '');
   const DIRECT = !/[?&]direct=0\b/.test(globalThis.location?.search || '');
-  let directNow = false, ownStale = false, noDirect = false, lastComp = null;
+  let directNow = false, ownStale = false, noDirect = false, lastComp = null, directFrame = -1, directKey = '';
   let capturedAt = -1, capturedKey = '';
   // (Sized to the canvas, cleared; true when it was just made, so the next picture is drawn whole.)
   function ownSize() {
@@ -2659,6 +2659,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     // (A whole picture drawn straight onto the canvas in this frame is there already; outside that frame the kept picture is out of
     // date, so a reader then is given the canvas as it is and the next frame draws the picture whole.)
     if (!directNow && ownStale) {
+      // (Asked again in the frame that drew it straight onto the canvas, with nothing drawn since: the canvas holds it whole, the glass
+      // over it included, so there is nothing to lay. 2 Nov, his Mac: a reader in the same frame had the picture drawn whole a second time.)
+      if (framePhase() && frameCount() === directFrame && directKey === `${pictureSeq}:${bloodSeq}`) return;
       // (Asked outside the frame that drew it: the picture is drawn whole again, into the kept picture this time, and laid from there.)
       ownStale = false;
       if (lastComp) { noDirect = true; try { api.composite(lastComp[0], lastComp[1], true); } finally { noDirect = false; } }
@@ -2673,7 +2676,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         for (const t of tops.slice()) { try { t.draw(); } catch (e) { console.warn('Veins renderer: what is drawn over the figure failed.', e); tops.splice(tops.indexOf(t), 1); } }
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       }
-      directNow = false;
+      directNow = false; directKey = `${pictureSeq}:${bloodSeq}`;
       return;
     }
     if (gpuProbe.on) gpuProbe.note(COUNTED.present, own.w * own.h * 4 / 1024);
@@ -3654,7 +3657,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       // canvas", 1.8 GB in a 3 s slide change): drawn into the kept picture and copied whole onto the canvas, every pixel was written twice
       // and read once more. The kept picture is then out of date, so the first frame that draws only part of the picture draws it whole,
       // into the kept picture, first. Not with the upscale or the under picture (they lay the kept picture differently). ?direct=0 off.
-      const direct = DIRECT && !noDirect && !!own && full && !ownStale && !up && !(under && under.on()) && !(replace && replace.on());
+      const direct = DIRECT && who !== 'lobule' && !noDirect && !!own && full && !ownStale && !up && !(under && under.on()) && !(replace && replace.on());
       if (own && ownStale && !full) full = true;
       if (full) dirt = 0;
       const fl = look.fluid && fluidRect ? look.fluid : null;
@@ -3669,6 +3672,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       const ie = -(ia * m[4] + ic * m[5]), iff = -(ib * m[4] + id * m[5]);
       if (own) gl.bindFramebuffer(gl.FRAMEBUFFER, direct ? null : own.fbo);
       directNow = direct; if (own) ownStale = direct;
+      if (direct) { directFrame = frameCount(); directKey = ''; }
       gl.viewport(0, 0, PW(), PH());
       gl.disable(gl.BLEND);
       // (The plain build where the frame has no dye, no origin colours and no bleed: the values its constants hold.)
