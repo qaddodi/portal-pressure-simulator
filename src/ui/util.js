@@ -1,10 +1,10 @@
 // DOM & formatting helpers.
 import { saver, frame, cancelFrame, easeNow, readFrame } from './frame.js?v=26e2e46fff';
 import { restPass } from './rest-pass.js?v=ed71462b47';
-import { glWords } from './gl-words.js?v=34be3a62b0';
+import { glWords } from './gl-words.js?v=4af57a03b3';
 import { slideFold } from './fold-slide.js?v=1b10231dcf';
 import { releaseSpeed, isFlick, carryCurve, settleSlope, settleAt, easeMove, D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js?v=7513a88c68';
-import { leaveFromHere } from './menu-leave.js?v=4a15e9707c';
+import { leaveFromHere } from './menu-leave.js?v=0557b9a306';
 import { follow2, jumpCount, SHOWN_TAU } from './display-state.js?v=8d062d39dc';
 import { measure as measureWords } from './glyph-measure.js?v=7fe8881ad6';
 
@@ -341,18 +341,21 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
     let y = at === 'above' || bar ? top - mr.height - 8 : r.bottom + 8;
     if (y + mr.height > vb - 8) y = Math.max(8, top - mr.height - 8);
     // Clear of the notch and the home indicator: a phone held sideways has 47-59 px of unsafe screen at each side (env() is 0 elsewhere).
-    el.style.left = `clamp(calc(8px + env(safe-area-inset-left, 0px)), ${x}px, calc(100% - ${mr.width}px - 8px - env(safe-area-inset-right, 0px)))`;
-    const left = el.offsetLeft, topPx = clamp(y, 8, vb - mr.height - 8);
-    el.style.top = topPx + 'px';
-    settleFrom(el, r, left, topPx);
+    // (Placed by translate from the window's corner, the compositor's: left and top are never written, so nothing is laid out. The
+    // menu rests at 0,0 and is measured there. --sink is the thumb dock's sink, which a menu from the dock rides, as styles/app.css says.)
+    const topPx = clamp(y, 8, vb - mr.height - 8), cw = document.documentElement.clientWidth || innerWidth;
+    const leftCss = `clamp(calc(8px + env(safe-area-inset-left, 0px)), ${x}px, calc(${cw - mr.width - 8}px - env(safe-area-inset-right, 0px)))`;
+    el.style.translate = `${leftCss} calc(${topPx}px + var(--sink, 0px))`;
+    placedTop = topPx;
+    el.style.transformOrigin = `calc(${(r.left + r.width / 2).toFixed(0)}px - ${leftCss}) ${(r.top + r.height / 2 - topPx).toFixed(0)}px`;
     barAt = barTop;
     clipBar();
   };
   // Ending just above the bar, the menu's shadow stops at the bar's top edge, so the bar itself stays as it was (sweep 01
   // review). Measured from the menu as laid out (its height settles after it opens), again whenever it resizes.
-  let barAt = null;
+  let barAt = null, placedTop = 0;
   const clipBar = () => {
-    const gap = barAt == null ? 0 : barAt - (parseFloat(el.style.top) + el.offsetHeight);
+    const gap = barAt == null ? 0 : barAt - (placedTop + el.offsetHeight);
     // (the clip itself is CSS, `.menu.app-menu`; only the gap it reads is written, as a custom property)
     el.style.setProperty('--bar-clip', barAt == null ? '' : `${(-Math.max(0, gap)).toFixed(2)}px`);   // ('' removes it: the CSS fallback cuts nothing)
   };
@@ -742,7 +745,7 @@ export function countTo(el, v, d = 1, { eased = false } = {}) {
 }
 export const popoverOpen = () => !!openMenu;
 /** Places the open menu again, after something it is anchored to has moved or resized. */
-export function repositionPopover() { if (openMenu) { openMenu.el.style.left = openMenu.el.style.top = '0px'; openMenu.put(); } }
+export function repositionPopover() { if (openMenu) { openMenu.put(); } }
 export function closePopover() {
   if (!openMenu) return;
   // The menu fades out (it is inert at once, so nothing under it waits), then leaves the page.

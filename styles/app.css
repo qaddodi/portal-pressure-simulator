@@ -398,8 +398,8 @@ html.label-fill-both :is(#labels .lb, .lb-leaders > *) { animation-fill-mode: bo
 @keyframes fade-rise-out { to { opacity: 0; transform: translate(var(--rise-x, 0px), var(--rise-y, 6px)); } }
 @keyframes slide-from-edge { from { opacity: var(--edge-o, 1); transform: translate(var(--edge-x, 0px), var(--edge-y, 0px)); } }
 @keyframes slide-to-edge { to { opacity: var(--edge-o, 1); transform: translate(var(--edge-x, 0px), var(--edge-y, 0px)); } }
-@keyframes scale-settle { from { opacity: 0; transform: scale(.98); } }
-@keyframes scale-settle-out { to { opacity: 0; transform: scale(.98); } }
+@keyframes scale-settle { from { opacity: 0; scale: .98; } }   /* (the separate scale property: a thing placed by translate or transform keeps its place while it settles) */
+@keyframes scale-settle-out { to { opacity: 0; scale: .98; } }
 @keyframes crossfade { from { opacity: 0; } }
 @keyframes crossfade-out { to { opacity: 0; } }
 .hover-tip { position: absolute; left: 0; top: 0; pointer-events: none; padding: 10px 12px 9px; font-size: var(--fs-12); min-width: 188px; max-width: min(280px, calc(100% - 16px)); z-index: var(--z-hud); border-radius: var(--r-card); background: var(--surface); box-shadow: var(--shadow-menu, var(--shadow-2)), 0 0 0 1px var(--hairline); opacity: 0; visibility: hidden; transform: translateY(4px) scale(.98); transform-origin: top left; transition: opacity var(--d-flip) var(--ease), transform var(--d-flip) var(--ease), visibility 0s linear var(--d-flip); }
@@ -995,7 +995,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 @media (prefers-reduced-motion: reduce) { .tooltip, .tooltip.show { transform: none; } }
 .tooltip kbd { font: 500 var(--fs-12) var(--font-mono); opacity: .72; margin-left: 8px; padding: 0 5px; border-radius: 4px; box-shadow: inset 0 0 0 1px color-mix(in oklab, currentColor 32%, transparent); }
 .menu {
-  position: fixed; z-index: var(--z-popover); min-width: 180px; max-width: calc(100vw - 16px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)); padding: 8px; border-radius: var(--r-sheet); background: var(--surface); box-shadow: var(--shadow-3), 0 0 0 1px var(--hairline);
+  position: fixed; left: 0; top: 0; /* (placed by translate: util.js popover) */ z-index: var(--z-popover); min-width: 180px; max-width: calc(100vw - 16px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)); padding: 8px; border-radius: var(--r-sheet); background: var(--surface); box-shadow: var(--shadow-3), 0 0 0 1px var(--hairline);
   display: flex; flex-direction: column; gap: 1px; animation: scale-settle var(--d-flip) var(--ease);
 }
 .menu-title { font-size: var(--fs-12); font-weight: 600; color: var(--text-3); padding: 8px 12px 4px; }

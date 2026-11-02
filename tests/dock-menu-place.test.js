@@ -38,18 +38,20 @@ function dock() {
   return btn;
 }
 const sized = (el) => { Object.assign(el, { offsetWidth: 280, offsetHeight: 600, scrollHeight: 600, clientHeight: 600, scrollTop: 0 }); return el; };
+// (The menu's place is its translate: calc(<top>px + var(--sink, 0px)).)
+const topOf = (el) => parseFloat(/calc\(([\d.-]+)px \+ var\(--sink, 0px\)\)$/.exec(el.style.translate)[1]);
 const open = (anchor, opts) => { const orig = document.createElement; document.createElement = (t) => sized(new FakeEl(t)); try { return popover(anchor, [], opts); } finally { document.createElement = orig; } };
 
 test("Settings from the tab row sits 8 px above the tab row's top edge, over the play bar", () => {
   const el = open(dock(), { place: 'above', align: 'end', cls: 'app-menu' });
-  assert.equal(parseFloat(el.style.top) + 600, 1110 - 8, 'foot 8 px above the tab row, not above the whole dock');
+  assert.equal(topOf(el) + 600, 1110 - 8, 'foot 8 px above the tab row, not above the whole dock');
   assert.equal(el.style.maxHeight, 1110 - 16 + 'px', 'never taller than the room above the tab row');
   closePopover();
 });
 
 test('a dock menu opened with the default placement lands on the tab row too, never off the bottom', () => {
   const el = open(dock(), { cls: 'blood-pop' });
-  assert.equal(parseFloat(el.style.top) + 600, 1110 - 8);
+  assert.equal(topOf(el) + 600, 1110 - 8);
   assert.equal(el.style.maxHeight, undefined, "a menu that doesn't scroll keeps its own height");
   closePopover();
 });

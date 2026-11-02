@@ -40,7 +40,7 @@ const f4 = (v) => +v.toFixed(4);
 
 // The look now and the exit's end, for the entrance's eased progress k (0 = its from, 1 = at rest).
 function looks(name, k) {
-  if (name === 'scale-settle') return [{ opacity: f4(k), transform: `scale(${f4(0.98 + 0.02 * k)})` }, { opacity: 0, transform: 'scale(0.98)' }];
+  if (name === 'scale-settle') return [{ opacity: f4(k), scale: f4(0.98 + 0.02 * k) }, { opacity: 0, scale: 0.98 }];   // (the separate scale property, as the keyframes: a menu placed by translate keeps its place)
   if (name === 'crossfade') return [{ opacity: f4(k) }, { opacity: 0 }];
   // slide-from-edge: from (--edge-o, translate(--edge-x, --edge-y)) to rest; the custom properties are the element's own.
   const j = f4(1 - k), o = 'var(--edge-o, 1)';

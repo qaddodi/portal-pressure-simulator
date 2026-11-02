@@ -189,14 +189,14 @@ test('R11: fade-rise rises the one distance, in the sheet of keyframes and in th
   const css = read('styles/app.css'), ease = read('src/ui/ease.js');
   assert.match(css, /@property --rise-y \{ syntax: '<length-percentage>'; inherits: false; initial-value: (\d+)px; \}/);
   assert.equal(Number(/@property --rise-y \{[^}]*initial-value: (\d+)px/.exec(css)[1]), Number(/export const RISE_PX = (\d+);/.exec(ease)[1]));
-  assert.match(css, /@keyframes scale-settle \{ from \{ opacity: 0; transform: scale\(\.98\); \} \}/);
+  assert.match(css, /@keyframes scale-settle \{ from \{ opacity: 0; scale: \.98; \} \}/);
   for (const f of ['util.js']) assert.doesNotMatch(read(`src/ui/${f}`), /translateY\(\d+px\)/, `${f} rises by RISE_PX`);
 });
 
 test('R11: a popover settles from, and leaves toward, the thing that opened it (settleFrom)', () => {
   const util = read('src/ui/util.js'), why = read('src/ui/why.js');
   assert.match(util, /export function settleFrom\(el, anchor, left, top\) \{\s*el\.style\.transformOrigin = /);
-  assert.match(util, /settleFrom\(el, r, left, topPx\);/);
+  assert.match(util, /el\.style\.transformOrigin = `calc\(\$\{\(r\.left \+ r\.width \/ 2\)\.toFixed\(0\)\}px - \$\{leftCss\}\)/);
   assert.match(why, /settleFrom\(pop, r, x, top\);/);
 });
 
