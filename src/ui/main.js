@@ -63,7 +63,7 @@ import { createIdleRest } from './idle-rest.js?v=4d23822371';
 import { easeIO3, glideShift, pillState, foldPill, stopFold } from './pill-motion.js?v=adefe2fd4f';
 import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=81fbedda6b';
 import { readAnims, readBox, readElAt, readMetric, readStyle, scrollInto } from './layout-snap.js?v=c1e0ef7c11';
-import { recordDeviceReport, REPORT_S } from './device-report.js?v=a746a76099';
+import { recordDeviceReport, mailBody, REPORT_S } from './device-report.js?v=a746a76099';
 import './scroll-edges.js?v=d33400a8da';   // (soft fades at the ends of lists that scroll, only where there is more; ?edges=0 off)
 const nextFrame = frameFor('main');
 
