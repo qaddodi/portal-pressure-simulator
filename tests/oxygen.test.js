@@ -92,7 +92,7 @@ test('oxygen: the labels read % O₂ in the Oxygen lens, from the value the lens
   assert.match(runs, /lm !== 'oxygen'/, 'the oxygen lens has its own label runs');
   assert.match(runs, /oxygenFor\(EDGES, NODES, f\)\.node\[NI\[id\]\]/, 'anatomy labels read the station node\'s saturation');
   assert.match(runs, /'% O₂'/);
-  const mv = lz.slice(lz.indexOf('const mv = (key, v, r) =>'), lz.indexOf("setLab('triad'"));
+  const mv = lz.slice(lz.indexOf('function station(m, key, v, r) {'), lz.indexOf("station(m, 'triad'"));
   assert.match(mv, /m\.mode === 'oxygen' && m\.oxy/, 'lobule labels switch to oxygen in the Oxygen lens');
   assert.match(mv, /'% O₂'/);
   assert.match(src('src/ui/lobule-model.js'), /m\.oxy = \[node\[NI\[S\.pv\]\], node\[NI\[S\.sin\]\], node\[NI\[S\.cv\]\]\]/, 'portal venule, sinusoids, central vein in that order');
