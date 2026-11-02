@@ -164,9 +164,12 @@ export function startSegGlide(root = document.body, search = typeof location !==
   function settle(ctl, moved) {
     let st = states.get(ctl);
     if (!ctl.isConnected) { clearTimeout(st?.timer); states.delete(ctl); ro?.unobserve(ctl); return; }
-    if (!st) { st = { btn: null, box: null, org: null, until: 0, timer: 0 }; states.set(ctl, st); ro?.observe(ctl); }
+    if (!st) { st = { btn: null, box: null, org: null, until: 0, timer: 0, fade: false }; states.set(ctl, st); ro?.observe(ctl); }
     for (const b of ctl.children) if (b.localName === 'button') ro?.observe(b);
+    const fade = st.fade && !moved;   // (Reduce Motion: the piece has faded out and its time is up; it is placed and fades in)
+    st.fade = false;
     const btn = chosen(ctl), box = btn ? boxIn(ctl, btn) : null;
+    if (fade && box && st.btn === btn) { st.box = box; put(ctl, box, true); ctl.style.setProperty('--go', '1'); return; }
     if (!box) { clearTimeout(st.timer); st.btn = null; st.box = null; st.org = null; drop(ctl); return; }
     const first = !st.box, now = performance.now(), org = frameOf(ctl);
     const shift = st.org && org ? { x: st.org.x - org.x, y: st.org.y - org.y } : null;
@@ -182,7 +185,7 @@ export function startSegGlide(root = document.body, search = typeof location !==
       if (reduce()) {
         // The piece fades out where it was, then is placed and fades in (--d-flip each; the stylesheet gives opacity its step).
         ctl.style.setProperty('--go', '0');
-        st.timer = setTimeout(() => { if (!ctl.isConnected || states.get(ctl) !== st) return; const b2 = st.btn && boxIn(ctl, st.btn); if (b2) { st.box = b2; put(ctl, b2, true); } ctl.style.setProperty('--go', '1'); }, D_FLIP);
+        st.timer = setTimeout(() => { st.fade = true; queue(ctl, false); }, D_FLIP);   // (the way in is placed in the rest pass that follows: settle)
       } else put(ctl, box, false, shift);
       return;
     }

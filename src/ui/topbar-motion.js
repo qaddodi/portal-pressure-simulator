@@ -8,6 +8,7 @@
 // a glide is still playing is the true layout and an interrupted glide continues from where it was.
 // Nothing moves on a window resize or with reduced motion: the bar just takes its new layout.
 import { D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN, EASE_MOVE } from './ease.js?v=7513a88c68';
+import { restPass } from './rest-pass.js?v=75e0aa565d';
 
 const ITEMS = '.tb-id, .tb-id > *, .sb-left, .sb-right, #viewSeg, #viewSeg > button, .sb-right > :not(.tb-face), .top-right, .top-right > *';
 // Pills that grow reveal their new width from the old one instead of snapping wide.
@@ -242,8 +243,9 @@ export function initTopbarMotion() {
   function runAfterLayout() {
     const once = new ResizeObserver(() => { once.disconnect(); if (pending) run(); });
     once.observe(bar);
-    setTimeout(() => { once.disconnect(); if (pending) run(); }, 250);
+    setTimeout(() => { once.disconnect(); restPass(runPending); }, 250);   // (measured in a rest pass, between frames, not in the timer's own task)
   }
+  function runPending() { if (pending) run(); }
 
   // What counts as a change: a button's hidden flag, a class or fit step on the bar, the sinusoid focus
   // class on the app. Repeated writes of the same value (a class re-added while the figure is dragged) do not.
@@ -278,6 +280,6 @@ export function initTopbarMotion() {
   for (const el of bar.querySelectorAll(ITEMS)) ro.observe(el);
 
   // (The first record once the fonts are in and the bar has been laid out: a task, not a frame, so nothing is measured in a frame.)
-  const start = () => setTimeout(resnap, 50);
+  const start = () => setTimeout(() => restPass(resnap), 50);
   (document.fonts?.ready || Promise.resolve()).then(start, start);
 }

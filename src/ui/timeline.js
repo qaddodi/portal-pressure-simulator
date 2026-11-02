@@ -12,12 +12,12 @@
 
 import { store, replaceParams, onParamChange } from './store.js?v=afc4d7c743';
 import { host } from './host.js?v=5138a6333c';
-import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp, putText, swapText } from './util.js?v=58f652be63';
-import { activeInterventions } from './inspector.js?v=a745ee459b';
+import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp, putText, swapText } from './util.js?v=69859c1b97';
+import { activeInterventions } from './inspector.js?v=c657eb5c58';
 import { removedLabel } from './removed-label.js?v=ea3de67900';
 import { frameFor } from './frame.js?v=8c8f2f530e';
 import { D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=7513a88c68';
-import { createSvgGL, svgModel } from './svg-gl.js?v=374ad51afe';
+import { createSvgGL, svgModel } from './svg-gl.js?v=d112faa47f';
 import { textPolys, textBox, loadGlyphs, glyphsReady } from './text-gl.js?v=e5374005be';
 import { textSoon } from './class-soon.js?v=86393a213e';
 import { restPass } from './rest-pass.js?v=75e0aa565d';
@@ -60,7 +60,7 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
     h('div', { class: 'menu-title' }, 'Time-lapse (averaged, no beat)'),
     ...LAPSES.map(([d, , long]) => { const it = menuBtn(long, () => onSpeed(d, true)); it.setAttribute('aria-pressed', String(store.get().lapse === d)); return it; }),
   ], { place: 'above', align: 'start', cls: 'time-pop' });
-  playBtn.addEventListener('pointerdown', () => { held = false; clearTimeout(holdTimer); holdTimer = setTimeout(() => { held = true; openSpeed(); }, 450); });
+  playBtn.addEventListener('pointerdown', () => { held = false; clearTimeout(holdTimer); holdTimer = setTimeout(() => { held = true; restPass(openSpeed); }, 450); });   // (the menu is placed between frames, in a rest pass)
   for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) playBtn.addEventListener(ev, () => clearTimeout(holdTimer));
   playBtn.addEventListener('contextmenu', (e) => e.preventDefault());
   playBtn.addEventListener('click', () => { if (held) { held = false; return; } onPlay(); });

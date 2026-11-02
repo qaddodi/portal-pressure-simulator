@@ -1,7 +1,7 @@
 // DOM & formatting helpers.
 import { saver, frame, cancelFrame, easeNow, readFrame } from './frame.js?v=8c8f2f530e';
 import { restPass } from './rest-pass.js?v=75e0aa565d';
-import { glWords } from './gl-words.js?v=254f26bf73';
+import { glWords } from './gl-words.js?v=8e3ae656eb';
 import { slideFold } from './fold-slide.js?v=1b10231dcf';
 import { releaseSpeed, isFlick, carryCurve, settleSlope, settleAt, easeMove, D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js?v=7513a88c68';
 import { leaveFromHere } from './menu-leave.js?v=4a15e9707c';
@@ -163,7 +163,8 @@ function toastBuild(msg, kind, { actions, sticky, onClose }) {
   if (mark) mark.setAttribute('class', 'toast-ic');
   const t = h('div', { class: 'toast ' + kind, role: kind === 'bad' ? 'alert' : 'status' }, h('span', { class: 'toast-msg' }, mark, msg));
   let timer = 0, gone = false;
-  const close = (why = 'user') => { if (gone) return; gone = true; clearTimeout(timer); onClose?.(why); t.classList.add('leaving'); setTimeout(() => dropToast(t), 340); };
+  const close = (why = 'user') => { if (gone) return; gone = true; clearTimeout(timer); onClose?.(why); t.classList.add('leaving'); setTimeout(() => restPass(away), 340); };   // (the others' places are read in a rest pass, between frames)
+  const away = () => dropToast(t);
   t._close = close;
   if (actions?.length) {
     t.classList.add('has-acts');
@@ -238,38 +239,38 @@ export function infoButton(text) {
 
 export function tooltipFor(el, text, side = 'right') {
   const tip = document.getElementById('tooltip');
-  const show = () => {
-    const r = el.getBoundingClientRect();
-    const v = typeof text === 'function' ? text() : text;
-    tip.replaceChildren(typeof v === 'object' ? [v.text, v.key ? h('kbd', {}, v.key) : null] : v);
-    // (Measured by its layout size, which the hidden state's scale does not touch; and shown only once its side is set, so it eases in from
-    // this button's side, not from the previous tip's: the transition starts when .show is added.)
-    const tr = { width: tip.offsetWidth, height: tip.offsetHeight };
-    // A side that would run off the window takes the opposite one (a top-bar button's tip had sat on its own button when
-    // 'top' ran off; a timeline tip clipped at a short window's foot), and the tip rises from the side it came from.
-    let x, y, at = side;
-    if (side === 'bottom' || side === 'top') {
-      x = r.left + r.width / 2 - tr.width / 2;
-      if (at === 'top' && r.top - tr.height - 8 < 8) at = 'bottom';
-      else if (at === 'bottom' && r.bottom + 8 + tr.height > innerHeight - 8 && r.top - tr.height - 8 >= 8) at = 'top';
-      y = at === 'top' ? r.top - tr.height - 8 : r.bottom + 8;
-    } else {
-      x = r.right + 10; y = r.top + r.height / 2 - tr.height / 2;
-      if (x + tr.width > innerWidth - 8) { x = r.left - tr.width - 10; at = 'left'; }
-    }
-    tip.dataset.side = at;
-    // (Its place is a translate from the window's corner, the compositor's: no left/top is written, so no layout. The tip rests at 0,0 and is measured there.)
-    tip.style.translate = `${clamp(x, 8, innerWidth - tr.width - 8)}px ${clamp(y, 8, innerHeight - tr.height - 8)}px`;
-    tip.classList.add('show');
-  };
   const hide = () => tip.classList.remove('show');
-  el.addEventListener('pointerenter', (e) => { if (e.pointerType !== 'touch') show(); });
+  // (The tip is placed when the pointer or focus arrives, an event, never in the code that builds the button: tipShow.)
+  el.addEventListener('pointerenter', (e) => { if (e.pointerType !== 'touch') tipShow(el, text, side, tip); });
   el.addEventListener('pointerleave', hide);
-  el.addEventListener('focus', () => { if (el.matches(':focus-visible')) show(); });
+  el.addEventListener('focus', () => { if (el.matches(':focus-visible')) tipShow(el, text, side, tip); });
   el.addEventListener('blur', hide);
   el.addEventListener('click', hide);
 }
-
+function tipShow(el, text, side, tip) {
+  const r = el.getBoundingClientRect();
+  const v = typeof text === 'function' ? text() : text;
+  tip.replaceChildren(typeof v === 'object' ? [v.text, v.key ? h('kbd', {}, v.key) : null] : v);
+  // (Measured by its layout size, which the hidden state's scale does not touch; and shown only once its side is set, so it eases in from
+  // this button's side, not from the previous tip's: the transition starts when .show is added.)
+  const tr = { width: tip.offsetWidth, height: tip.offsetHeight };
+  // A side that would run off the window takes the opposite one (a top-bar button's tip had sat on its own button when
+  // 'top' ran off; a timeline tip clipped at a short window's foot), and the tip rises from the side it came from.
+  let x, y, at = side;
+  if (side === 'bottom' || side === 'top') {
+    x = r.left + r.width / 2 - tr.width / 2;
+    if (at === 'top' && r.top - tr.height - 8 < 8) at = 'bottom';
+    else if (at === 'bottom' && r.bottom + 8 + tr.height > innerHeight - 8 && r.top - tr.height - 8 >= 8) at = 'top';
+    y = at === 'top' ? r.top - tr.height - 8 : r.bottom + 8;
+  } else {
+    x = r.right + 10; y = r.top + r.height / 2 - tr.height / 2;
+    if (x + tr.width > innerWidth - 8) { x = r.left - tr.width - 10; at = 'left'; }
+  }
+  tip.dataset.side = at;
+  // (Its place is a translate from the window's corner, the compositor's: no left/top is written, so no layout. The tip rests at 0,0 and is measured there.)
+  tip.style.translate = `${clamp(x, 8, innerWidth - tr.width - 8)}px ${clamp(y, 8, innerHeight - tr.height - 8)}px`;
+  tip.classList.add('show');
+}
 /** Floating menu/popover anchored to an element. Closes on outside click, Escape or re-open. */
 let openMenu = null;
 let lastMenu = { anchor: null, t: 0 };   // (the menu that just closed: on iOS a tapped button takes no focus, so a dialog it opens returns here)
@@ -286,7 +287,7 @@ export function enterAfterGone(el) { el.style.setProperty('--enter-delay', Math.
 // sheet: on a phone the menu rises as a bottom sheet (full width, its text wraps) instead of a tall
 // popover; pass false for a menu that lays itself out.
 /** The bottom of what is visible: above the on-screen keyboard on iOS, where innerHeight does not shrink. */
-export const visibleBottom = () => { const v = window.visualViewport; return v ? Math.min(innerHeight, v.offsetTop + v.height) : innerHeight; };
+export const visibleBottom = () => { const v = window.visualViewport; if (!v) return innerHeight; const { offsetTop: top, height } = v; return Math.min(innerHeight, top + height); };   // (the visual viewport's own numbers, not an element's layout)
 // A popover or card settles from, and leaves toward, the thing that opened it (premium-feel R11: scale-settle's origin is its
 // anchor): the scale's origin is the anchor's centre, in the piece's own frame, set where the piece is placed.
 export function settleFrom(el, anchor, left, top) {
@@ -380,15 +381,15 @@ export function fadeWhileMore(el) {
   const ask = () => moreAsk(el);
   el.addEventListener('scroll', ask, { passive: true });
   const ro = new ResizeObserver(() => { if (!el.isConnected) ro.disconnect(); else moreSync(el); });
-  ro.observe(el);
-  moreSync(el);
+  ro.observe(el);   // (its first report, after the browser's own layout and before the first paint, is the first check)
   return ask;
 }
-const moreAsks = new WeakMap();
-function moreAsk(el) { if (!moreAsks.has(el)) moreAsks.set(el, restPass(() => moreSync(el))); }
+const moreAsks = new Set();   // (the lists that asked for a check, run together in one rest pass)
+function moreAsk(el) { if (!moreAsks.size) restPass(moreFlush); moreAsks.add(el); }
+function moreFlush() { const lists = [...moreAsks]; moreAsks.clear(); for (const el of lists) moreSync(el); }
 // (--fade-pb: the list's bottom padding, which the fade reaches down through so it ends at the panel's own edge.)
 function moreSync(el) {
-  moreAsks.delete(el);
+  moreAsks.delete(el);   // (a check made now answers one that was waiting)
   el.classList.toggle('more', el.scrollHeight - el.clientHeight - el.scrollTop > 4); el.style.setProperty('--fade-pb', getComputedStyle(el).paddingBottom);
 }
 // Whether an element has a box (neither it nor an ancestor display: none), as getClientRects().length says, without laying
@@ -466,10 +467,15 @@ export function afterExit(el, cls, fn, backstop = 450) {
   let ran = false;
   const go = () => { if (ran || el._exitTok !== tok || !el.classList.contains(cls)) return; ran = true; fn(); };
   const t = setTimeout(go, backstop);
-  const as = el.getAnimations?.({ subtree: true }) || [];
-  if (!as.length) setTimeout(go, 0);
-  else Promise.all(as.map((a) => a.finished.catch(() => {}))).then(go);
+  // (The animations then running are listed in a rest pass, between frames, never in the frame that started the exit; the class that
+  // starts them is on already, and the backstop above holds either way.)
+  restPass(exitAnims.bind(null, el, go));
   return t;
+}
+function exitAnims(el, go) {
+  const as = el.getAnimations?.({ subtree: true }) || [];
+  if (!as.length) go();
+  else Promise.all(as.map((a) => a.finished.catch(() => {}))).then(go);
 }
 /** Brings a shown row up to date from a freshly built one without swapping it out: attributes and text are written where they differ,
  *  elements of the same kind are matched in turn, and a button (it carries its own click for this build) is replaced by the new one.
@@ -789,20 +795,22 @@ function liveShift(panel) {
     return !m || m === 'none' ? 0 : Math.max(0, new DOMMatrixReadOnly(m).m42 || 0);
   } catch { return 0; }
 }
+// The sheet's numbers at the touch (an event, not a frame): where it is drawn, how tall it is, and whether the list under the finger is at its top.
+function sheetGrab(panel, target, t, thumb) {
+  let sc = null;
+  for (let n = target; n && n !== panel.parentElement; n = n.parentElement) if (n.scrollHeight > n.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(n).overflowY)) { sc = n; break; }
+  return { x: t.clientX, y: t.clientY, top: !sc || sc.scrollTop <= 0, on: false, dy: 0, t: 0, trail: [], shift: thumb ? 0 : liveShift(panel), h: panel.offsetHeight };
+}
 export function swipeSheet(panel, onClose) {
   let s = null, easeT = 0;   // easeT: lets go of the transition a release leaves on the panel (one timer: an older release's must not cut a newer one's short)
   // Over the thumb dock the sheet slides down behind the tab row: what passes below its resting bottom edge is clipped.
   const thumbUi = () => document.documentElement.classList.contains('thumb-ui');
-  const scroller = (t) => {
-    for (let n = t; n && n !== panel.parentElement; n = n.parentElement) if (n.scrollHeight > n.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(n).overflowY)) return n;
-    return null;
-  };
   panel.addEventListener('touchstart', (e) => {
     s = null;
     if (e.touches.length !== 1 || e.target.closest('input[type="range"], textarea, [contenteditable]')) return;
-    const t = e.touches[0], sc = scroller(e.target);
-    // (Where the sheet is drawn and how tall it is, read at the touch, never in the moves that follow: liveShift, offsetHeight.)
-    s = { x: t.clientX, y: t.clientY, top: !sc || sc.scrollTop <= 0, on: false, dy: 0, t: 0, trail: [], shift: thumbUi() ? 0 : liveShift(panel), h: panel.offsetHeight };
+    const t = e.touches[0];
+    // (Where the sheet is drawn, how tall it is and whether its list is at the top, read at the touch, never in the moves that follow: sheetGrab.)
+    s = sheetGrab(panel, e.target, t, thumbUi());
   }, { passive: true });
   panel.addEventListener('touchmove', (e) => {
     if (!s) return;
