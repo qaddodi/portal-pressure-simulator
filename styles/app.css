@@ -5854,21 +5854,21 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
    up to its edge and the sheet's (dockVec). A slide whose card does not fit comes in closed, never folded behind Show. */
 .pz-lip { display: none; }
 .pz:is(.stack, .low) .pz-lip:not([hidden]) { display: block; position: absolute; height: 24px; margin: 0; padding: 0; border: 0; background: none; pointer-events: auto; touch-action: none;
-  cursor: pointer; -webkit-tap-highlight-color: transparent; transition: opacity var(--d-small) var(--ease) .42s, transform var(--d-surface) var(--ease) .12s, margin-top var(--d-surface) var(--ease); }
+  cursor: pointer; -webkit-tap-highlight-color: transparent; transition: opacity var(--d-small) var(--ease) .42s, transform var(--d-surface) var(--ease) .12s; }
 .pz:is(.stack, .low) .pz-lip::before { content: ''; position: absolute; inset: 0 14px; border: 1px solid color-mix(in srgb, var(--text) 9%, transparent); border-top: 0; border-radius: 0 0 16px 16px;
   background: color-mix(in srgb, var(--surface-2) 94%, transparent); box-shadow: 0 6px 14px -8px rgb(var(--black-rgb) / .14), 0 1px 2px rgb(var(--black-rgb) / .14);
-  transition: inset var(--d-surface) var(--ease); }
+  transition: opacity var(--d-surface) var(--ease); }
 .pz:is(.stack, .low) .pz-lip::after { content: ''; position: absolute; left: 50%; top: 50%; width: 34px; height: 4px; translate: -50% -50%; border-radius: 2px; background: color-mix(in srgb, var(--text) 32%, transparent); }
 .pz:is(.stack, .low) .pz-data.pz-sheet.tool-open { padding-bottom: 26px; }
 .pz:is(.stack, .low) .pz-data.tool-open + .pz-lip { margin-top: -24px; }
-.pz:is(.stack, .low) .pz-data.tool-open + .pz-lip::before { inset: 0; background-color: transparent; border-color: transparent; box-shadow: none; }
+.pz:is(.stack, .low) .pz-data.tool-open + .pz-lip::before { inset: 0; background-color: transparent; border-color: transparent; box-shadow: none; opacity: 0; }   /* (the step fades; its inset is taken at once, never eased: presenter.js placeLip eases the edge's move) */
 .app.pz-hi .pz:is(.stack, .low) .pz-data:not(.tool-open) + .pz-lip::before { border-color: color-mix(in srgb, var(--text) 32%, transparent); }
 /* (It comes and goes with the card, the same small shift, and its bar never shows ahead of the card: the bar is a crisp mark on glass that is
    nearly clear while it fades, so faded with the glass it read as the first thing to arrive and the last to go (Mohammad, 25 Oct: "the
    handle of the stacked cards appears before the cards"). It fades in once the glass is in (the card's own fade runs .12 s to .62 s, the bar's .42 s
    to .72 s) and out first, in .2 s. A card that has just come to stand with its glass already on (pz-lip-in, presenter.js lipSync) starts
    from this same out look.) */
-.pz .pz-data.pz-hide + .pz-lip:not([hidden]) { opacity: 0; transform: translateX(18px); pointer-events: none; transition: opacity var(--d-flip) var(--ease), transform var(--d-small) var(--ease), margin-top var(--d-small) var(--ease); }
+.pz .pz-data.pz-hide + .pz-lip:not([hidden]) { opacity: 0; transform: translateX(18px); pointer-events: none; transition: opacity var(--d-flip) var(--ease), transform var(--d-small) var(--ease); }
 .pz .pz-lip.pz-lip-in:not([hidden]) { opacity: 0; transition: none !important; }
 .pz.stack .pz-data.pz-hide + .pz-lip { transform: translateY(-18px); }
 .pz.pz-turning .pz-lip, .pz.pz-turning .pz-lip::before { transition: none !important; }

@@ -3093,8 +3093,15 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const ut = wideSheet(d) ? (sliding ? u : open ? 1 : 0) : 0;
     l.style.left = px(d.offsetLeft); l.style.width = px(d.offsetWidth); l.style.top = px(wideSheet(d) ? d.offsetTop - LIP * (1 - ut) : d.offsetTop + (sliding && slip.h0 != null ? slip.h0 + u * slip.d : d.offsetHeight));
     if (sliding) l.style.setProperty('--pz-u', u.toFixed(4)); else l.style.removeProperty('--pz-u');
+    // (Fully open on a phone the edge sits 24 px up, in the card's foot (app.css margin-top, taken at once): the step it makes is eased by a
+    // transform from where it stood, on the compositor, never by the margin, a layout each frame.)
+    const step = open && !wideSheet(d);
+    if (lipStep != null && step !== lipStep && !l.hidden && !d.classList.contains('pz-hide') && !sliding && !reduce.matches)
+      l.animate?.([{ transform: `translateY(${step ? LIP : -LIP}px)` }, { transform: 'translateY(0)' }], { duration: D_SURFACE, easing: EASE_ARRIVE, composite: 'add' });
+    lipStep = step;
     lipPaint();
   }
+  let lipStep = null;
   // (The edge's part of a dock glide's or a drag's frame: it moves with the card's translate and names what a tap on it does. Its
   // place and size are set at rest, placeLip, where nothing moves: nothing is read here.)
   function lipPaint() {
