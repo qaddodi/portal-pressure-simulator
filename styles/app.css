@@ -3403,9 +3403,8 @@ button.finding { cursor: pointer; }
 /* The Doppler probe (dop-probe.js, stage.js dprobePaint), drawn as a scanner marks it: placed at the sample volume, turned toward the probe; the line of sight, the flow axis, the sample volume's bars and the probe are white-lined on a black rim, so they read on every vessel colour and theme. */
 .dop-probe { position: absolute; left: 0; top: 0; width: 0; height: 0; transition: opacity var(--d-surface) var(--ease); pointer-events: none; }
 .dop-probe.off { opacity: 0; }
-.dop-probe[data-gl] .dpr-svg { visibility: hidden; }   /* (drawn on the GPU with the labels, label-gl.js: its fades still run here, and are read) */
-.dop-probe .dpr-svg { position: absolute; left: 0; top: 0; overflow: visible; }
-.dop-probe .dpr-wedge { fill: url(#dpr-wedge); }   /* (the faded ultrasound beam, in the Doppler glow's colour, under every mark) */
+.dop-probe > .dpr-svg { position: absolute; left: 0; top: 0; visibility: hidden; }   /* (a model only: drawn on the labels' GPU layer, label-gl.js; its fades still run here, and are read) */
+.dop-probe .dpr-svg i { display: block; position: absolute; left: 0; top: 0; }   /* (the wedge, the faded ultrasound beam under every mark, takes #dpr-wedge's stops) */
 .dop-probe .dpr-rim-l { fill: none; stroke: var(--dop-rim); stroke-width: 4.4; stroke-linecap: round; stroke-linejoin: round; }
 .dop-probe .dpr-line { fill: none; stroke: var(--dop-mark); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .dop-probe .dpr-gate-rim { fill: none; stroke: var(--dop-rim); stroke-width: 5.6; stroke-linecap: round; }

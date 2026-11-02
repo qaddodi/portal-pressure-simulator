@@ -287,10 +287,12 @@ export function probeShapes(D, r, phi = PROBE.ANGLE, size = 1) {
 // The probe's head: a convex face, a neck and a handle with a light in the glow's colour. Every mark is white-lined on a black
 // rim, so it reads on every vessel colour and theme.
 const BODY = 'M2 -11 Q-3 0 2 11 L10 11 L18 6 L42 6 Q48 6 48 0 Q48 -6 42 -6 L18 -6 L10 -11 Z';
-export const PROBE_SVG = '<svg class="dpr-svg" width="1" height="1" aria-hidden="true"><defs><linearGradient id="dpr-wedge" x1="1" y1="0" x2="0" y2="0">'
-  + '<stop offset="0" stop-color="var(--dop-glow)" stop-opacity=".46"/><stop offset=".8" stop-color="var(--dop-glow)" stop-opacity=".22"/>'
-  + '<stop offset="1" stop-color="var(--dop-glow)" stop-opacity="0"/></linearGradient></defs><g class="dpr-rot"><path class="dpr-wedge"/>'
-  + '<path class="dpr-rim-l dpr-beam"/><path class="dpr-line dpr-beam"/><path class="dpr-rim-l dpr-axis"/><path class="dpr-line dpr-axis"/>'
-  + '<path class="dpr-gate-rim dpr-bars"/><path class="dpr-gate dpr-bars"/>'
-  + `<g class="dpr-head"><path class="dpr-rim" d="${BODY}"/><path class="dpr-body" d="${BODY}"/>`
-  + '<path class="dpr-face" d="M2 -11 Q-3 0 2 11"/><circle class="dpr-light" cx="33" cy="0" r="3"/></g></g></svg>';
+// (A model only, since 1 Nov 2026: plain elements carrying the shapes' numbers and their look from app.css, drawn on the labels' GPU layer
+// (label-gl.js drawProbe) and never painted by the page; no SVG. In the order the marks are drawn: wedge, line of sight, axis, bars, head.)
+export const PROBE_MODEL = '<div class="dpr-svg"><i id="dpr-wedge">'
+  + '<i class="dpr-stop" offset="0" style="stop-color:var(--dop-glow);stop-opacity:.46"></i><i class="dpr-stop" offset=".8" style="stop-color:var(--dop-glow);stop-opacity:.22"></i>'
+  + '<i class="dpr-stop" offset="1" style="stop-color:var(--dop-glow);stop-opacity:0"></i></i><i class="dpr-rot"><i class="dpr-wedge"></i>'
+  + '<i class="dpr-rim-l dpr-beam"></i><i class="dpr-line dpr-beam"></i><i class="dpr-rim-l dpr-axis"></i><i class="dpr-line dpr-axis"></i>'
+  + '<i class="dpr-gate-rim dpr-bars"></i><i class="dpr-gate dpr-bars"></i>'
+  + `<i class="dpr-head"><i class="dpr-rim" d="${BODY}"></i><i class="dpr-body" d="${BODY}"></i>`
+  + '<i class="dpr-face" d="M2 -11 Q-3 0 2 11"></i><i class="dpr-light" cx="33" cy="0" r="3"></i></i></i></div>';

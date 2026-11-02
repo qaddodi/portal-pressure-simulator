@@ -1224,7 +1224,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     if (f && f[3] > 0) ops.push({ geom, m, kind: 'fill', paint: { solid: f }, alpha: 1, clip: null });
     if (k && k[3] > 0) ops.push({ geom, m, kind: 'stroke', paint: { solid: k }, alpha: 1, w: sw, cap: 0, clip: null });
   }
-  // ── The Doppler probe (stage.js dprobePaint draws it into its own SVG, the model, as before; dop-probe.js) ──
+  // ── The Doppler probe (stage.js dprobePaint writes its shapes into its model of plain elements, dop-probe.js PROBE_MODEL; no SVG) ──
   // Its marks are drawn here as shapes (the faded beam a triangle with its gradient, the lines with their round ends, black rim under
   // white line), and its head as a small picture drawn at its angle and size (again only when either changes), under the leaders and
   // labels as the SVG lay. Its look (colours, widths, fades) is read from its elements while one may be changing.
@@ -1257,7 +1257,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   function probeLookRead(el) {
     const q = (k) => el.querySelector(k);
     // (A stop's colour times its stop-opacity, premultiplied.)
-    const stops = [...el.querySelectorAll('stop')].map((st) => {
+    const stops = [...el.querySelectorAll('.dpr-stop')].map((st) => {
       const c = getComputedStyle(st), [r, g, b, k] = rgba(c.stopColor), a = NUM(c.stopOpacity) * k, u = k > 0 ? a / k : 0;
       return [NUM(st.getAttribute('offset')), [r * u, g * u, b * u, a]];
     });
@@ -1265,7 +1265,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     return {
       op: NUM(getComputedStyle(el).opacity), headOp: head ? NUM(getComputedStyle(head).opacity) : 0, stops,
       rimL: probeStroke(q('.dpr-rim-l')), line: probeStroke(q('.dpr-line')), gateRim: probeStroke(q('.dpr-gate-rim')), gate: probeStroke(q('.dpr-gate')),
-      head: ['.dpr-rim', '.dpr-body', '.dpr-face', '.dpr-light'].map((k) => { const e = q(k), c = getComputedStyle(e); return { d: e.getAttribute('d'), circle: e.tagName === 'circle' ? [NUM(e.getAttribute('cx')), NUM(e.getAttribute('cy')), NUM(e.getAttribute('r'))] : null, fill: none(c.fill) ? '' : c.fill, stroke: none(c.stroke) ? '' : c.stroke, w: NUM(c.strokeWidth), join: c.strokeLinejoin }; }),
+      head: ['.dpr-rim', '.dpr-body', '.dpr-face', '.dpr-light'].map((k) => { const e = q(k), c = getComputedStyle(e); return { d: e.getAttribute('d'), circle: e.hasAttribute('r') ? [NUM(e.getAttribute('cx')), NUM(e.getAttribute('cy')), NUM(e.getAttribute('r'))] : null, fill: none(c.fill) ? '' : c.fill, stroke: none(c.stroke) ? '' : c.stroke, w: NUM(c.strokeWidth), join: c.strokeLinejoin }; }),
     };
   }
   // A path of straight pieces ("M x y L x y …") as its segments; a closed three-point one as its triangle.
@@ -1309,7 +1309,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       gl.uniform1f(MU.uA, Math.min(1, L.op));
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     }
-    // Rim under line, the line of sight, then the flow axis, then the gate's bars on top (dop-probe.js PROBE_SVG's order).
+    // Rim under line, the line of sight, then the flow axis, then the gate's bars on top (dop-probe.js PROBE_MODEL's order).
     const beam = segsOf(probe.querySelector('.dpr-beam')?.getAttribute('d')), axis = segsOf(probe.querySelector('.dpr-axis')?.getAttribute('d')), bars = segsOf(probe.querySelector('.dpr-bars')?.getAttribute('d'));
     for (const q of beam) seg(q, L.rimL);
     for (const q of beam) seg(q, L.line);

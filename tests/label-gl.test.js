@@ -123,12 +123,12 @@ test('the leaders\' and the FibroScan callout\'s layers go to the GPU with the l
   assert.match(LGL, /float span\(float x, float a, float b\)/);
 });
 
-test('the Doppler probe is drawn on the GPU under the leaders, its SVG kept as the model and hidden while drawn', () => {
+test('the Doppler probe is drawn on the GPU under the leaders, from a model of plain elements the page never paints', () => {
   assert.match(STAGE, /labelSvg\.before\(el\); dpr\.el = el;\n\s+labelGL\?\.setProbe\(el\);/);
   assert.match(STAGE, /dprShape\(\); {3}\/\/ \(and the next frame, while it is still easing\)\n\s+labelGL\?\.redraw\(\);/, 'each frame of its ease drawn in that frame');
-  assert.match(CSS, /\.dop-probe\[data-gl\] \.dpr-svg \{ visibility: hidden; \}/);
+  assert.match(CSS, /\.dop-probe > \.dpr-svg \{ position: absolute; left: 0; top: 0; visibility: hidden; \}/);
   assert.match(LGL, /let moving = drawProbe\(now\);\n\s+moving = drawMarks\(now\) \|\| moving;/, 'the probe under the leaders and labels, as it lay under their SVG');
-  // Its marks in PROBE_SVG's order: beam, rim under line, axis, then the bars on top, then the head.
+  // Its marks in PROBE_MODEL's order: beam, rim under line, axis, then the bars on top, then the head.
   const order = ['for (const q of beam) seg(q, L.rimL);', 'for (const q of beam) seg(q, L.line);', 'for (const q of axis) seg(q, L.rimL);', 'for (const q of axis) seg(q, L.line);', 'for (const q of bars) seg(q, L.gateRim);', 'for (const q of bars) seg(q, L.gate);', "querySelector('.dpr-head')?.getAttribute('transform')"].map((k) => LGL.indexOf(k));
   assert.ok(order.every((v, i) => v > 0 && (!i || v > order[i - 1])), order.join());
 });

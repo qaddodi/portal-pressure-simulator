@@ -7,7 +7,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { AWAY, probePose, fitPose, SIZES, QUIET, ZOOMED_OUT, probeShapes, probeJumps, JUMP_DEG, JUMP_PX, gateDims, bodyBox, beamBoxes, gateBoxes, wedgeBoxes, PROBE, PROBE_SVG, placeId, createProbeMind, SLACK, NONE_MS, PEND_MS, LEAVES } from '../src/ui/dop-probe.js';
+import { AWAY, probePose, fitPose, SIZES, QUIET, ZOOMED_OUT, probeShapes, probeJumps, JUMP_DEG, JUMP_PX, gateDims, bodyBox, beamBoxes, gateBoxes, wedgeBoxes, PROBE, PROBE_MODEL, placeId, createProbeMind, SLACK, NONE_MS, PEND_MS, LEAVES } from '../src/ui/dop-probe.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const stage = read('src/ui/stage.js'), doppler = read('src/ui/doppler.js'), css = read('styles/app.css'), tokens = read('styles/tokens.css');
@@ -107,7 +107,7 @@ test('every mark and the probe are white-lined on a black rim, with no θ on the
   assert.match(css, /\.dpr-gate-rim \{ fill: none; stroke: var\(--dop-rim\); stroke-width: 5\.6;/);
   assert.match(css, /\.dpr-rim-l \{ fill: none; stroke: var\(--dop-rim\);/);
   assert.match(css, /\.dpr-line \{ fill: none; stroke: var\(--dop-mark\);/);
-  for (const src of [css, stage, PROBE_SVG]) assert.doesNotMatch(src, /dpr-theta|θ<\/text>/);
+  for (const src of [css, stage, PROBE_MODEL]) assert.doesNotMatch(src, /dpr-theta|θ<\/text>/);
   assert.match(css, /\.dpr-gate \{ fill: none; stroke: var\(--dop-mark\); stroke-width: 3;/);
   assert.match(tokens, /--dop-mark: #FFFFFF; --dop-rim: #000000;/);
   assert.match(stage, /setGlowSrc\('dop', id \? \[\{ id, col: 'var\(--dop-glow\)'/);
@@ -166,8 +166,8 @@ test('the line of sight stops at the near gate bar, the flow axis reaches past b
   assert.ok(w('dpr-gate') > w('dpr-line') && w('dpr-gate') <= 2 * w('dpr-line'), 'bars a bit thicker than the axis line');
   assert.ok(w('dpr-gate-rim') > w('dpr-gate'));
   // The bars are drawn on top of the flow axis and the line of sight (Mohammad, 20 Oct), under the probe's head.
-  assert.ok(PROBE_SVG.lastIndexOf('dpr-axis') < PROBE_SVG.indexOf('dpr-gate-rim') && PROBE_SVG.lastIndexOf('dpr-beam') < PROBE_SVG.indexOf('dpr-gate-rim'), 'axis and line of sight first, the bars over them');
-  assert.ok(PROBE_SVG.indexOf('dpr-bars') < PROBE_SVG.indexOf('dpr-head'));
+  assert.ok(PROBE_MODEL.lastIndexOf('dpr-axis') < PROBE_MODEL.indexOf('dpr-gate-rim') && PROBE_MODEL.lastIndexOf('dpr-beam') < PROBE_MODEL.indexOf('dpr-gate-rim'), 'axis and line of sight first, the bars over them');
+  assert.ok(PROBE_MODEL.indexOf('dpr-bars') < PROBE_MODEL.indexOf('dpr-head'));
 });
 
 test('the station dot under the gate fades with the probe: out while it shows on that vessel, back when it goes; the reading and leader stay', () => {
@@ -197,9 +197,9 @@ test('the faded ultrasound beam is back: a narrow wedge from the probe\'s face p
     assert.ok(x1 < 0 && x1 === x2 && y1 === -y2 && y2 > 0, 'ends past the far wall, symmetric about the line of sight');
     assert.ok(Math.atan(y2 / (90 - x1)) * 180 / Math.PI <= PROBE.BEAM_DEG + 0.5, 'narrow');
   }
-  assert.ok(PROBE_SVG.indexOf('dpr-wedge"/>') < PROBE_SVG.indexOf('dpr-rim-l'), 'drawn first, under the marks');
-  assert.match(PROBE_SVG, /<stop offset="1" stop-color="var\(--dop-glow\)" stop-opacity="0"\/>/, 'fades to nothing');
-  assert.match(css, /\.dop-probe \.dpr-wedge \{ fill: url\(#dpr-wedge\); \}/);
+  assert.ok(PROBE_MODEL.indexOf('dpr-wedge"></i>') < PROBE_MODEL.indexOf('dpr-rim-l'), 'drawn first, under the marks');
+  assert.match(PROBE_MODEL, /<i class="dpr-stop" offset="1" style="stop-color:var\(--dop-glow\);stop-opacity:0"><\/i>/, 'fades to nothing');
+  assert.doesNotMatch(PROBE_MODEL, /<svg|<path|<circle|<stop|<g[ >]/, 'a model of plain elements, no SVG (1 Nov 2026)');
   assert.match(stage, /all\('\.dpr-wedge', 'd', p\.wedge\)/);
 });
 

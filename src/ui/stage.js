@@ -50,7 +50,7 @@ import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } fro
 import { pathCmds, flattenCmds, polyBox } from './shape-gl.js?v=f7d920b7d0';
 import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=50ed6d198e';
 import { nameSpots, NAME_BREAK } from './organ-names.js?v=df3c3152ad';
-import { createLabelGL } from './label-gl.js?v=ea06edc82a';
+import { createLabelGL } from './label-gl.js?v=8b38b2f511';
 import { createGlassGL } from './glass-gl.js?v=6a77550d27';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=4a52d1dff7';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
@@ -75,7 +75,7 @@ import { layoutWatch } from './idle-keys.js?v=81fbedda6b';
 import { writeGlowTexels } from './glow-texels.js?v=e578794a92';
 import { SIN_PERFUSION, sinStrandRadius } from './sin-perfusion.js?v=25a8407fdd';
 import { wavePacks, paintWave } from './scan-waves.js?v=8aac338ee0';
-import { fitPose, probeShapes, beamBoxes, gateBoxes, wedgeBoxes, awayFromProbe, createProbeMind, NONE_MS, SLACK, PROBE, PROBE_SVG } from './dop-probe.js?v=25dc819909';
+import { fitPose, probeShapes, beamBoxes, gateBoxes, wedgeBoxes, awayFromProbe, createProbeMind, NONE_MS, SLACK, PROBE, PROBE_MODEL } from './dop-probe.js?v=3950fb1e3a';
 import { pathPieces, piecesLength, pointsAlong } from './path-pieces.js?v=e486672c9b';
 import { organDimMatrix } from './organ-dim.js?v=9e19f2fc30';
 import { parseColor, greyOf, paintRef } from './organ-grey.js?v=02072c578d';
@@ -7239,10 +7239,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     if (!dpr.el) {
       const el = document.createElement('div');
-      el.className = 'dop-probe off'; el.setAttribute('aria-hidden', 'true'); el.innerHTML = PROBE_SVG;
+      el.className = 'dop-probe off'; el.setAttribute('aria-hidden', 'true'); el.innerHTML = PROBE_MODEL;
       // (Beneath the figure's labels and the callouts, above the figure: where no side is clear of them, they read over its marks.)
       labelSvg.before(el); dpr.el = el;
-      labelGL?.setProbe(el);   // (drawn on the GPU with the labels, its SVG the model: label-gl.js)
+      labelGL?.setProbe(el);   // (drawn on the GPU with the labels from its model of plain elements: label-gl.js)
       // (Placed from the next frame: this frame's own style pass sees it hidden, so it fades in with no layout forced for that.)
       nextFrame(dprobePaint);
       return;
