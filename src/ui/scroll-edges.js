@@ -12,8 +12,8 @@
 // Cost: no scroll listener and no read of the page as it scrolls or in a frame: the browser reports the ends (IntersectionObserver), and
 // the box's overflow and padding are read only as it is resized; a list is only watched while it is in the page.
 import { D_SMALL } from './ease.js?v=7513a88c68';
-import { frameFor } from './frame.js?v=7a4c67d3db';
-import { restPass } from './rest-pass.js?v=c07b18f2fd';
+import { frameFor } from './frame.js?v=6c8b072dce';
+import { restPass } from './rest-pass.js?v=ab69733794';
 
 const nextFrame = frameFor('scroll-edges');
 

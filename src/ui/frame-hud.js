@@ -7,12 +7,14 @@
 //   - frames a second now and the 1 % low (the rate of the slowest 1 % of frames);
 //   - frame intervals p50 / p95 / p99 / max, and the main thread's script per frame (p50, p95, max) against the budget;
 //   - each surface's main-thread ms a frame (frame.js totals), largest first;
-//   - the watchdog's mode and the callbacks it carried over.
+//   - the watchdog's mode, the callbacks it carried over and the priority governor's state (what yielded last frame);
+//   - the longest animation frame of the last 10 s the browser reports (Long Animation Frames, or long tasks where only those are
+//     reported; Safari has neither), with the script that took most of it: work outside the scheduler's callbacks shows there too.
 // It reads only the scheduler's own numbers and writes its words once a second, between frames (rest-pass.js), never in a frame. It
 // adds no frame loop of its own: an idle page stays idle (the panel then says so).
-import { watchFrames, perf, refreshHz, refreshMaxHz, frameBudget, watchdogStats } from './frame.js?v=7a4c67d3db';
-import { restPass } from './rest-pass.js?v=c07b18f2fd';
-import { sharedStats } from './trace-gl.js?v=bf55e07598';
+import { watchFrames, perf, refreshHz, refreshMaxHz, frameBudget, watchdogStats } from './frame.js?v=6c8b072dce';
+import { restPass } from './rest-pass.js?v=ab69733794';
+import { sharedStats } from './trace-gl.js?v=0663c898ba';
 
 export const HUD_OFF = (search) => /[?&]hud=0\b/.test(String(search ?? ''));
 const KEEP = 600;
@@ -43,6 +45,15 @@ export function throttleOf({ hz, maxHz, workerHz, apple, hidden }) {
   return '';
 }
 
+/** One long frame's words: its length and the script that took most of it (a PerformanceLongAnimationFrameTiming or a long task). */
+export function loafText(e) {
+  if (!e) return '';
+  const s = e.scripts?.slice().sort((a, b) => b.duration - a.duration)[0];
+  const src = s ? `${s.sourceFunctionName || s.invoker || '?'} in ${(s.sourceURL || '').split('/').pop().split('?')[0] || '?'} ${s.duration.toFixed(0)} ms` : e.attribution?.[0]?.name || '';
+  const block = e.blockingDuration ? `, blocking ${e.blockingDuration.toFixed(0)} ms` : '';
+  return `${e.duration.toFixed(0)} ms${block}${src ? `: ${src}` : ''}`;
+}
+
 /** The panel's words. */
 export function hudText(st, o) {
   const f = (x) => x.toFixed(1);
@@ -53,7 +64,8 @@ export function hudText(st, o) {
     st.n ? `script p50 ${f(st.s50)}  p95 ${f(st.s95)}  max ${f(st.smax)} ms${st.s95 > o.budget ? '  OVER' : ''}` : '',
     o.surfaces.length ? `per frame: ${o.surfaces.map(([k, ms]) => `${k} ${f(ms)}`).join(', ')}` : '',
     o.charts ? `charts: ${o.charts.resizes} buffer resizes, ${o.charts.transfers} pictures handed over (last second)` : '',
-    `watchdog ${o.mode}, carried over ${o.shed}`,
+    `watchdog ${o.mode}, carried over ${o.shed}${o.gov == null || o.gov < 0 ? '' : `; governor ${['all run', 'P3 yielding', 'P2+P3 yielding'][o.gov]}, ${o.yielded} chart frames yielded, over budget ${o.streak} in a row`}`,
+    o.loaf ? `longest frame (10 s): ${o.loaf}` : '',
     o.throttle ? `throttle: ${o.throttle}` : 'throttle: none seen',
   ];
   return lines.filter(Boolean).join('\n');
@@ -80,6 +92,12 @@ export function startFrameHud() {
     if (fr.gap > 0) { gaps.push(fr.gap); if (gaps.length > KEEP) gaps.shift(); }
     scripts.push(fr.script); if (scripts.length > KEEP) scripts.shift();
   });
+  // (Long animation frames, kept 10 s; the observer runs off the frame, and the panel reads the longest once a second.)
+  let longs = [];
+  try {
+    const type = PerformanceObserver.supportedEntryTypes?.includes('long-animation-frame') ? 'long-animation-frame' : PerformanceObserver.supportedEntryTypes?.includes('longtask') ? 'longtask' : '';
+    if (type) new PerformanceObserver((list) => { for (const e of list.getEntries()) longs.push(e); }).observe({ type, buffered: false });
+  } catch { /* not reported by this browser */ }
   const rates = [30, 48, 50, 60, 72, 75, 90, 100, 120, 144, 165, 240];
   workerClock((r) => { workerHz = rates.reduce((a, b) => (Math.abs(b - r) < Math.abs(a - r) ? b : a)); });
   const el = document.createElement('div');
@@ -97,7 +115,10 @@ export function startFrameHud() {
     if (!frames) { if (!idleAt) idleAt = performance.now(); st.n = 0; } else idleAt = 0;
     const surfaces = frames ? Object.keys(now.ms).map((t) => [t, (now.ms[t] - (last.ms[t] || 0)) / frames]).filter(([, ms]) => ms >= 0.05).sort((a, b) => b[1] - a[1]).slice(0, 6) : [];
     const w = watchdogStats(), hz = refreshHz(), maxHz = refreshMaxHz();
-    el.textContent = hudText(st, { hz, maxHz, workerHz, budget: frameBudget(), surfaces, charts: { resizes: sharedStats.resizes - lastCharts.resizes, transfers: sharedStats.transfers - lastCharts.transfers }, mode: w.mode, shed: w.shed, throttle: throttleOf({ hz, maxHz, workerHz, apple, hidden: document.hidden }) });
+    const cut = performance.now() - 10000;
+    longs = longs.filter((e) => e.startTime + e.duration >= cut);
+    const worst = longs.reduce((a, e) => (!a || e.duration > a.duration ? e : a), null);
+    el.textContent = hudText(st, { hz, maxHz, workerHz, budget: frameBudget(), surfaces, gov: w.governor, yielded: w.yielded, streak: w.streak, loaf: loafText(worst), charts: { resizes: sharedStats.resizes - lastCharts.resizes, transfers: sharedStats.transfers - lastCharts.transfers }, mode: w.mode, shed: w.shed, throttle: throttleOf({ hz, maxHz, workerHz, apple, hidden: document.hidden }) });
     last = now; lastFrames = now.frames; lastCharts = { ...sharedStats };
   };
   const tick = () => { if (!document.hidden) restPass(write); setTimeout(tick, 1000); };

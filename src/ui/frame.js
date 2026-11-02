@@ -83,6 +83,8 @@ function flush(now) {
   const script = watching ? performance.now() - t0 : 0;
   lastScript = performance.now() - frameT0; frameT0 = 0;
   overLast = lastScript > WATCH_SHARE * frameBudget();
+  overStreak = lastScript > frameBudget() ? overStreak + 1 : 0;
+  govLevel = govFrameLevel; govFrameLevel = 0;
   if (FPS_LOG) logOverrun(now, lastScript, parts);
   globalThis.__frameProbe?.(now);   // (the tests read the camera here, once every frame has been drawn)
   roll(now);
@@ -152,6 +154,16 @@ const WATCHDOG = !(typeof location !== 'undefined' && /[?&]watchdog=0\b/.test(lo
 export const WATCH_SHARE = 0.7;
 const SHED_MAX = 3;
 export const DEFERRABLE = new Set(['credit', 'timeline', 'scroll-edges', 'inspector', 'dock', 'figkey', 'scale select', 'menu-profile', 'menu', 'vitals-monitor', 'main', 'debug', 'perf readout']);
+// The priority governor (recs-2 §6; 2 Nov 2026): the vessels and blood (stage, veins, labels, the catheter, card and glass motion) are
+// never carried over. The instruments that draw beside the figure (charts, the Doppler sweep, FibroScan, the timelines, tool plots:
+// SECONDARY, priority 2) yield next, after the DEFERRABLE ones (priority 3): when the frame's script has passed 85 % of the budget, or
+// half of it while the last two frames went over, each is carried to the next frame, at most twice in a row (it still draws at least
+// every third frame; its motion is timed by the clock, so it keeps its pace). Glass is not among them: it rides with the card it lies
+// under and would part from it a frame late. ?governor=0 leaves priority 2 alone.
+const GOVERNOR = !(typeof location !== 'undefined' && /[?&]governor=0\b/.test(location.search || ''));
+export const SECONDARY = new Set(['charts', 'doppler', 'fibroscan', 'plane plot', 'pressure-time', 'flow-time', 'tool-curve', 'tool-causes', 'col-wave', 'scope-tile', 'sinusoid-view', 'lumen']);
+const SEC_SHARE = 0.85, SEC_STREAK_SHARE = 0.5, SEC_MAX = 2;
+let overStreak = 0, govLevel = 0, govFrameLevel = 0, govShed = 0;
 let perfModeNow = 'locked';
 try {
   const q = typeof location !== 'undefined' ? /[?&]perfmode=(locked|balanced|quality)\b/.exec(location.search || '')?.[1] : null;
@@ -166,7 +178,7 @@ let shedTotal = 0;
 /** True when the last frame's script went over 70 % of the budget (Locked and Balanced; never in Quality): drop detail that can wait. */
 export const overBudget = () => WATCHDOG && perfModeNow !== 'quality' && overLast;
 /** The last frame's main-thread script time (ms), and how many callbacks the watchdog has carried over since the page opened. */
-export const watchdogStats = () => ({ last: lastScript, shed: shedTotal, predicted: shedPredicted, mode: perfModeNow, budget: frameBudget() });
+export const watchdogStats = () => ({ last: lastScript, shed: shedTotal, predicted: shedPredicted, mode: perfModeNow, budget: frameBudget(), governor: GOVERNOR ? govLevel : -1, streak: overStreak, yielded: govShed });
 // (Review pass 2, priority 1: a watchdog cannot stop a callback once it has started, so it judges each deferrable one before it starts,
 // by what it is predicted to cost (the moving average of its own last runs, costOf) added to the time the frame has used: one that would
 // carry the frame past its share waits, even when the frame has not reached the share yet. Still at most SHED_MAX frames in a row each,
@@ -183,12 +195,26 @@ export function wouldShed(tag, used, budget = frameBudget(), mode = perfModeNow)
   const limit = (mode === 'locked' ? WATCH_SHARE : 1) * budget;
   return used >= limit || (PREDICT && used + costOf(tag) > limit);
 }
+/** Whether a priority-2 callback of `tag` (SECONDARY) yields with `used` ms of the frame gone after `streak` frames over budget. */
+export function wouldYield(tag, used, budget = frameBudget(), mode = perfModeNow, streak = overStreak) {
+  if (!WATCHDOG || !GOVERNOR || mode === 'quality' || !SECONDARY.has(tag)) return false;
+  return used >= (mode === 'locked' ? SEC_SHARE : 1) * budget || (streak >= 2 && used >= SEC_STREAK_SHARE * budget);
+}
 function shedding(tag) {
-  if (!WATCHDOG || perfModeNow === 'quality' || !frameT0 || !DEFERRABLE.has(tag)) { if (shedRun.size) shedRun.delete(tag); return false; }
+  if (!WATCHDOG || perfModeNow === 'quality' || !frameT0) { if (shedRun.size) shedRun.delete(tag); return false; }
+  const sec = GOVERNOR && SECONDARY.has(tag);
+  if (sec) {
+    const n = shedRun.get(tag) || 0;
+    if (n >= SEC_MAX || !wouldYield(tag, performance.now() - frameT0)) { if (n) shedRun.delete(tag); return false; }
+    shedRun.set(tag, n + 1); shedTotal++; govShed++; govFrameLevel = 2;
+    return true;
+  }
+  if (!DEFERRABLE.has(tag)) return false;
   const n = shedRun.get(tag) || 0, used = performance.now() - frameT0;
   if (n >= SHED_MAX || !wouldShed(tag, used)) { shedRun.delete(tag); return false; }
   if (used < (perfModeNow === 'locked' ? WATCH_SHARE : 1) * frameBudget()) shedPredicted++;
   shedRun.set(tag, n + 1); shedTotal++;
+  if (!govFrameLevel) govFrameLevel = 1;
   return true;
 }
 

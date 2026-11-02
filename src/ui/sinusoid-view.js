@@ -19,22 +19,22 @@
 // the sinusoid exactly over the lobule's one at every step: first the vessel itself, then the tissue
 // around it.
 
-import { h, fmt, clamp, lerp } from './util.js?v=bb5eaf3902';
-import { createSvgGL, svgModel } from './svg-gl.js?v=37fc3df740';
-import { pressureColor } from './colormap.js?v=87280274e9';
+import { h, fmt, clamp, lerp } from './util.js?v=b1e0231a8c';
+import { createSvgGL, svgModel } from './svg-gl.js?v=a48171b776';
+import { pressureColor } from './colormap.js?v=9787286268';
 import { isPaused } from './clock.js?v=16aba0e2eb';
 import { store } from './store.js?v=4ef2a6ffd8';
 import { STEP_MAX } from './glide-clock.js?v=220d7f875c';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
 import { createSinusoidGL, poreAt, poreOpenness, calloutPore, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=26766aa4f9';
 import { placeFenDisse } from './fen-place.js?v=d6d7644146';
-import { frameFor, noteDraw, saver, paceMs, renderScale, onRenderScale } from './frame.js?v=7a4c67d3db';
+import { frameFor, noteDraw, saver, paceMs, renderScale, onRenderScale } from './frame.js?v=6c8b072dce';
 import { softwareGL, softwareYield } from './sw-yield.js?v=703c656c2b';
 import { noteSinusoidSupport, sinusoidSupported, CTX_LAZY } from './gl-support.js?v=38189f60f5';
-import { FADE_MS, fadeAlpha } from './res-fade.js?v=031696d803';
+import { FADE_MS, fadeAlpha } from './res-fade.js?v=4d776c5cff';
 import { cssColor8 } from './css-color.js?v=e56f0c77ae';
 import { surface } from './gpu-surfaces.js?v=2af17044e7';
-import { restPass } from './rest-pass.js?v=c07b18f2fd';
+import { restPass } from './rest-pass.js?v=ab69733794';
 // ?willchange=0 in the address: the layer keeps will-change always, as before.
 const SV_LAYER = !(typeof location !== 'undefined' && /[?&]willchange=0\b/.test(location.search));
 const nextFrame = frameFor('sinusoid-view');

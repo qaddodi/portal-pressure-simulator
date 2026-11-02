@@ -12,7 +12,7 @@
 // vessel runs behind an organ or another vessel in front of it, or where a reading sits on the vessel.
 // One speed per element, and no flow through a junction: each runs on its own vessel.
 
-import { frameFor } from './frame.js?v=7a4c67d3db';
+import { frameFor } from './frame.js?v=6c8b072dce';
 import { D_SMALL } from './ease.js?v=7513a88c68';
 
 // ── Geometry (pure: tested in tests/flow-dash.test.js) ───────────────────────

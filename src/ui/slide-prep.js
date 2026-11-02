@@ -6,7 +6,7 @@
 // after it in the direction of travel, then the one behind, in idle time between frames (never in a frame of motion). At most three
 // manifests are kept (the slide and its two neighbours); one further away is dropped.
 // ?slideprep=0: nothing prepared ahead, as before.
-import { prepJob, prepLeft } from './prep-budget.js?v=03b0864e2a';
+import { prepJob, prepLeft } from './prep-budget.js?v=ba310174e2';
 export const SLIDE_PREP = !(typeof location !== 'undefined' && /[?&]slideprep=0\b/.test(location.search || ''));
 
 // (Review pass 2, priorities 1 and 3: each slide's preparation is a job of the shared preparation budget, prep-budget.js, one step at a
