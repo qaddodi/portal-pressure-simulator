@@ -512,6 +512,20 @@ export function scan({ root = ROOT } = {}) {
         if (/(backdrop-filter|transition|filter)\s*:/.test(s)) cssHits(s.replace(/\$\{\}/g, '0'), file, n.loc.start.line, label(f), push);
       }
     });
+    // A receiver taken from a local getter that returns an object an imported factory made (const g = glNow(), where glNow returns gl and
+    // gl = createVeinsGL(…)) is that factory's object too: g.draw(…) reaches its draw, as gl.draw(…) does (2 Nov 2026: moving the creation
+    // out of the frame path had dropped the vessel layer's own per-frame methods, which only the creating function's reach had counted).
+    visit(ast, null, (n) => {
+      if (n.type !== 'VariableDeclarator' || n.id.type !== 'Identifier' || n.init?.type !== 'CallExpression' || n.init.callee.type !== 'Identifier') return;
+      for (const g of mod.byName?.get(n.init.callee.name) || []) {
+        if (g.type !== 'FunctionDeclaration' && g.parent?.type !== 'VariableDeclarator') continue;
+        visit(g.body, g, (r) => {
+          if (r.type !== 'ReturnStatement' || r.argument?.type !== 'Identifier' || enclosing(r) !== g) return;
+          const o = mod.origins.get(r.argument.name);
+          if (o && !mod.origins.has(n.id.name)) mod.origins.set(n.id.name, o);
+        });
+      }
+    });
   }
 
   // ---- Call resolution: by scope and import for a bare call, by method or exposed property for a member call ----

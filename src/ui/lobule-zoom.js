@@ -671,6 +671,15 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (!gl) { restRemove(glCv); return null; }
     return gl;
   }
+  // The GPU context as it is now. A frame never makes it (making it builds and compiles the vessels' programs: a stall inside a frame, 2 Nov
+  // 2026, the scan's longest allocation path): the idle preparation and the warm-up make it ahead (ensureGL), and a frame that finds it not made
+  // yet draws without it, asks for it between frames, and is drawn again once it is.
+  let glAsk = 0;
+  function glNow() {
+    if (glTried) return gl;
+    if (!glAsk) glAsk = restPass(() => { glAsk = 0; ensureGL(); drawVersion++; tissueKey = ''; layoutKey = ''; if (!raf && fade > 0) raf = nextFrame(loop); });
+    return null;
+  }
   // (Registered once: one per ensureGL would add another handler on every restore.)
   glCv.addEventListener('webglcontextrestored', () => { glTried = false; gl?.dispose?.(); gl = null; binKey = ''; radKey = []; radAll = ''; radCal = ''; attrKey = ''; ensureGL(); if (F) update(F); });
   // Closed: the full-screen canvases and the vessels' GPU buffers are given back (they are sized again on the way in).
@@ -2030,7 +2039,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (dt === 0 && idleKey === idleDrawn) return false;
     idleDrawn = dt === 0 ? idleKey : '';
     const cs = styles();   // (the stage's kept copy of its styles, read again when a class, theme or system setting changes)
-    const g = ensureGL();
+    const g = glNow();
     // (On the GPU, always: through the dive, the rise and the zoom into and out of a sinusoid too, the GPU canvas, drawn once, is
     // turned and grown with the lobule by the compositor, its rim drawn by the shader. Nothing is drawn on a 2D canvas.)
     showTissueGL(paintTissue(W, H, dpr, dark, cs, !g, g ? tissueGLOn() : null));
@@ -2082,7 +2091,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   let wideHostFor = null, wideHostOff = null, wideView = null, wideA = 1;
   const wideShow = (a) => { const v = wideView; if (v && wideGL) wideGL.draw(v.W, v.H, v.dpr, v.box, v.k, v.x, v.y, v.tx, v.ty, a); };
   function wideGLOn() {
-    if (LZ_ONE && !glTried) ensureGL();
+    if (LZ_ONE && !glTried) glNow();
     if (LZ_ONE && gl && !gl.lost && gl.top?.replace) {
       if (wideHostFor !== gl) {
         wideHostOff?.(); if (wideHostFor) wideGL?.release();
@@ -2103,7 +2112,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     return wideGL || null;   // (begin says whether it can build: a copy lost with the context stays lost until the next)
   }
   function buildWideGL(W, H, box) {
-    const g = ensureGL();
+    const g = glNow();
     if (!g || g.lost) return null;   // (no vessels on the GPU: no copy)
     // (A copy still fading out, from the last dive, is given back first: its canvas is this one.)
     if (wideFadeT) { clearTimeout(wideFadeT); wideFadeT = 0; const f = wideGone; wideGone = null; f?.(); }
@@ -2994,7 +3003,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   let tisHostFor = null, tisHostOff = null, tisWide = false;
   const tisUnder = () => !!tissueGL && tissueGL.pictured && (wideBuild ? tisWide : tissueG.style.opacity !== '0' && tissueG.style.visibility !== 'hidden');
   function tissueGLOn() {
-    if (LZ_ONE && !glTried) ensureGL();
+    if (LZ_ONE && !glTried) glNow();
     if (LZ_ONE && gl && !gl.lost && gl.top?.under) {
       if (tisHostFor !== gl) {
         tisHostOff?.(); if (tisHostFor) tissueGL?.release?.();
@@ -3206,7 +3215,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // The tissue drawn on the GPU now for the rim as it is (diveRim: the dive's, or none once it lands). True when it is on the GPU.
   function rimOnGPU() {
     if (!geo || !model) return false;
-    const g = ensureGL();
+    const g = glNow();
     if (!g || g.lost) return false;   // (no vessels on the GPU: nothing is drawn)
     const tg = tissueGLOn();
     if (!tg) return false;
