@@ -27,6 +27,17 @@ const OUT = join(ROOT, 'dist');
 const ASSETS = join(OUT, 'assets');
 const sha = (buf) => createHash('sha256').update(buf).digest('hex').slice(0, 10);
 
+// A commit that kept git's conflict markers (3207b43b, 2 Nov) is refused before anything is bundled or deployed, naming each line.
+// (The same check runs as a unit test, tests/no-merge-markers.test.js; the build is what the preview deploy always runs.)
+{
+  const MARK = new RegExp('^(' + '<'.repeat(7) + '( |$)|' + '='.repeat(7) + '\\s*$|' + '>'.repeat(7) + '( |$))');
+  const bad = [];
+  const scan = (d) => { for (const n of readdirSync(d)) { if (n === 'node_modules' || n.startsWith('.')) continue; const f = join(d, n);
+    if (statSync(f).isDirectory()) scan(f); else if (/\.(js|mjs|css|html|json)$/.test(n)) readFileSync(f, 'utf8').split('\n').forEach((l, i) => { if (MARK.test(l)) bad.push(`  ${relative(ROOT, f)}:${i + 1}`); }); } };
+  for (const d of ['src', 'styles', 'scripts']) scan(join(ROOT, d));
+  if (bad.length) throw new Error('Build refused, merge conflict markers are left in:\n' + bad.join('\n'));
+}
+
 rmSync(OUT, { recursive: true, force: true });
 mkdirSync(ASSETS, { recursive: true });
 
