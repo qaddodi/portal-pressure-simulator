@@ -13,14 +13,14 @@
 // round or butt ends, fill and stroke opacity, visibility, display none, vector-effect non-scaling-stroke. A drawing's viewBox is mapped to
 // the box as SVG maps it (preserveAspectRatio none, or meet in the middle). The picture covers the box exactly.
 
-import { createTraceGL, fitPen } from './trace-gl.js?v=ed1079d668';
+import { createTraceGL, fitPen } from './trace-gl.js?v=7d99796e14';
 import { flattenPath, elBox4 } from './shape-gl.js?v=2d7c7316ba';
-import { finalFrameFor, easeNow, cancelFrame } from './frame.js?v=07b68cf942';
-import { restPass, cancelRest } from './rest-pass.js?v=fea7233cda';
+import { finalFrameFor, easeNow, cancelFrame } from './frame.js?v=c99bae2398';
+import { restPass, cancelRest } from './rest-pass.js?v=de1b500aca';
 import { cssCurve, D_SURFACE, EASE_ARRIVE } from './ease.js?v=7d7bfe9a62';
 import { cssColor } from './css-color.js?v=59ed182174';
-import { morphSvg } from './svg-morph.js?v=3d17d323fc';
-import { attrSoon } from './class-soon.js?v=af0dd2b529';
+import { morphSvg } from './svg-morph.js?v=c7c25f8832';
+import { attrSoon } from './class-soon.js?v=3cee49a7e1';
 
 // (No bleed: a picture reaching past the box counts as overflow, and the card's fit then shrank the whole card to take it in.)
 export const BLEED = 0;
@@ -65,6 +65,7 @@ function fadeOf(el) {
 // drawing's units) }, k the turn's place, 0 to 1. A drawing with a loop in it is drawn every frame while it is on the page.
 const LOOPS = new WeakMap();
 /** Keeps `el` moving on a loop in the picture (see above). */
+// alloc-rare: a scene loop is noted once, when its scene is built (the record is kept on the piece)
 export function noteLoop(el, spec) { LOOPS.set(el, { t0: easeNow() + (spec.delay || 0), ...spec }); }
 function loopAt(lp, now) {
   if (now < lp.t0) return 0;
@@ -387,6 +388,7 @@ export function setGeo(el, k, v) {
 /** Sets the points a model path/polygon/polyline piece is drawn from: buf holds x, y pairs, n of them used; returns true (the owner asks the picture to draw). */
 export function setPts(el, buf, n, closed = false) {
   const P = el._pts;
+  // alloc-rare: a piece's first points record, made once (kept on the piece; later calls write it in place)
   if (P) { P.buf = buf; P.n = n; P.closed = closed; } else el._pts = { buf, n, closed };
   return true;
 }
@@ -854,9 +856,11 @@ export function createSvgGL(box) {
   cv.className = 'svg-gl';
   cv.setAttribute('role', 'img');
   box.prepend(cv);
+  // alloc-rare: a picture's kept state, made once for each chart host
   const g = { box, cv, gpu: null, until: 0, ask: 0, lookAsk: 0, ins: new Map(), dead: false, timers: new Set() };
   live.add(g);
   // (A drawing swapped in during a frame waits off the page, pending, and is drawn from there; it joins the box between frames.)
+  // alloc-rare: the picture's drawings list, called by slide changes and rest passes, never by a frame's draw
   const models = () => { const m = [...box.children].filter((c) => c.hasAttribute?.('data-svg-model')); if (g.pending && !g.pending.isConnected) m.push(g.pending); return m; };
   // One drawing of the box, painted (the viewBox mapped to the box, then each piece in turn).
   function drawModel(ctx, root, now, bw, bh) {
@@ -882,6 +886,7 @@ export function createSvgGL(box) {
     if (p && !p.isConnected) { drawModel(ctx, p, now, bw, bh); last = p; }
     return last;
   }
+  // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)
   const connect = () => { g.connAsk = 0; if (g.dead) { g.pending = null; return; } const r = g.pending; g.pending = null; if (r && !r.isConnected) box.append(r); };
   function draw() {
     g.ask = 0;
@@ -901,17 +906,24 @@ export function createSvgGL(box) {
     g.drawn?.(!!pen.gpu && bw > 0 && bh > 0 && handed);   // (whether the GPU drew this frame: gl-words.js shows its picture only then)
     if (now < g.until || g.ins.size || easing) g.ask = finalFrame(draw);
   }
+  // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)
   g.gpu = createTraceGL(cv, { redraw: () => draw() });
   // (Drawn again as its box first gets a size, or a new one: a chart built before its card was on the page drew nothing then.)
   // (A box that changes size may take another type size or scale from the stylesheet: its roots' shared looks are read again.)
+  // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)
   if (typeof ResizeObserver === 'function') { g.ro = new ResizeObserver(() => { if (g.pk) dropRoots(g.pk); g.paint(); }); g.ro.observe(box); }
+  // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)
   g.paint = () => { if (!g.ask) g.ask = finalFrame(draw); };
+  // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)
   g.wake = (ms) => { g.until = Math.max(g.until, easeNow() + ms); g.paint(); };
+  // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)
   g.cache = new Map();
   function lookRead() { g.lookAsk = 0; if (g.dead) return; g.cache.clear(); g.pk = placeKey(box); let ms = 0; for (const root of models()) ms = Math.max(ms, readLooks(root, false, g.cache, g.pk)); if (ms) g.wake(ms + 20); else g.paint(); }
+  // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)
   g.relook = () => { if (!g.lookAsk) g.lookAsk = restPass(lookRead); };
   // (A drawing's look is read as it is placed, once, in the task that builds it (a slide's change, a resize), so its first frame draws it
   // whole: a morph hides the old drawing's pieces in that same task.)
+  // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)
   g.place = (root) => { live.add(g); g.cache.clear(); g.pk = placeKey(box); readLooks(root, true, g.cache, g.pk); g.paint(); };
   // (Pieces built again in a frame (a redraw, a glide): each takes the look of the piece before it like it, read from nothing; a new kind of
   // piece is read between frames, and drawn from then.)
@@ -919,6 +931,7 @@ export function createSvgGL(box) {
   // standing in the same place (the shared looks), with no page read; a chart's own first drawing, built in the task that brings its card,
   // is placed instead (g.show), its looks read there. Its card never comes in empty with the chart popping in a moment later (Mohammad,
   // 2 Nov 2026). ?firstlook=0 off.)
+  // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)
   g.adopt = (root) => {
     if (adoptLooks(root, g.cache, rootKeyOf(g))) { g.paint(); return; }
     if (!g.cache.size) {
@@ -929,19 +942,25 @@ export function createSvgGL(box) {
     g.relook(); g.paint();
   };
   // (A piece fading in, in the picture, from nothing to its own strength, over ms on easing.)
+  // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)
   g.fadeEl = (el, ms, easing = 'ease') => { EASES.set(el, { from: 0, to: 1, t0: easeNow(), ms, ease: cssCurve(easing) }); g.wake(ms + 20); };
   // (A class or a piece changed on a model after it was placed (a value turned on, a word's pieces rebuilt): its looks are read again
   // between frames, and any ease the stylesheet gives the change is run by the picture.)
   if (typeof MutationObserver === 'function') g.mo = new MutationObserver(g.relook);
+  // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)
   g.mo?.observe(box, { subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'data-rate'] });
+  // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)
   g.fadeIn = (root, ms, easing = 'ease') => { g.ins.set(root, { t0: easeNow(), ms, ease: cssCurve(easing) }); g.paint(); };
   g.noteFade = noteFade;
   // A new drawing in place of the old: each piece in both glides to its new place (svg-morph.js); where that cannot be, the new one fades
   // in over the old, which then goes (never a jump); without a fade (a new size) it simply takes over.
+  // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)
   g.show = (root, fade) => {
     if (g.pending) connect();
     const old = models();
+    // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)
     if (!fade) { old.forEach((o) => o.remove()); box.append(root); g.place(root); return; }
+    // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)
     if (old.length && morphSvg(old.at(-1), root)) { old.slice(0, -1).forEach((o) => o.remove()); g.place(root); return; }
     box.append(root);
     g.place(root);
@@ -953,6 +972,7 @@ export function createSvgGL(box) {
   // (A drawing built afresh in a frame, in place of the one before: its pieces take the looks of the ones before them like them.)
   // (Never put on the page in the frame: it is drawn from where it waits, with the looks of the pieces before it, and joins the box in a
   // rest pass, between frames, where a new kind of piece has its look read.)
+  // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)
   g.swap = (root) => {
     // (Every other drawing of the box goes, and the one waiting off the page: walked in place, with no list made.)
     for (let c = box.firstElementChild, nx; c; c = nx) { nx = c.nextElementSibling; if (c !== root && c.hasAttribute('data-svg-model')) c.remove(); }
@@ -962,8 +982,10 @@ export function createSvgGL(box) {
     g.adopt(root);
   };
   /** What the picture holds (the browser checks and ?perf read it): its drawings, those with their looks read, the looks kept. */
+  // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)
   g.stat = () => { const ms = models(); return { models: ms.length, looked: ms.filter((r) => looks.has(r)).length, pieces: ms.reduce((n, r) => n + r.querySelectorAll('*').length, 0), unlooked: ms.reduce((n, r) => n + [...r.querySelectorAll('*')].filter((e) => !looks.has(e)).length, 0), cache: g.cache.size, w: cv.width, h: cv.height }; };
   // (Every drawing of the box goes, and the one waiting off the page: walked in place, with no list made.)
+  // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)
   g.clear = () => {
     for (let c = box.firstElementChild, nx; c; c = nx) { nx = c.nextElementSibling; if (c.hasAttribute('data-svg-model')) c.remove(); }
     if (g.pending && !g.pending.isConnected) g.pending.remove();
@@ -971,6 +993,7 @@ export function createSvgGL(box) {
   };
   // (Disposed once and for good: the frame, the rest passes and the entrance timers are cancelled, the pending drawing and the entrance
   // records let go, and every mutator becomes a no-op, so nothing can attach a model or ask for a frame afterwards.)
+  // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)
   g.dispose = () => {
     if (g.dead) return;
     g.dead = true;
@@ -978,6 +1001,7 @@ export function createSvgGL(box) {
     cancelFrame(g.ask); cancelRest(g.lookAsk); cancelRest(g.connAsk); g.ask = g.lookAsk = g.connAsk = 0;
     for (const t of g.timers) clearTimeout(t);
     g.timers.clear(); g.ins.clear(); g.pending = null; g.cache.clear();
+    // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)
     for (const k of ['paint', 'wake', 'relook', 'place', 'adopt', 'fadeEl', 'fadeIn', 'show', 'swap', 'clear']) g[k] = () => {};
     g.gpu?.dispose();
   };

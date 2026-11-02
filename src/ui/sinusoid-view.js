@@ -19,14 +19,14 @@
 // the sinusoid exactly over the lobule's one at every step: first the vessel itself, then the tissue
 // around it.
 
-import { h, fmt, clamp, lerp } from './util.js?v=506da88dad';
-import { createCaptionGL, lookOf, ringOf, shadowOf, rgbaOf } from './caption-gl.js?v=1263cfcee4';
+import { h, fmt, clamp, lerp } from './util.js?v=ce3c367684';
+import { createCaptionGL, lookOf, ringOf, shadowOf, rgbaOf } from './caption-gl.js?v=e787e61736';
 import { measure } from './glyph-measure.js?v=9501dc0e53';
-import { readStyle } from './layout-snap.js?v=715abea938';
-import { pressureColor } from './colormap.js?v=5db2d15f8d';
-import { createSvgGL, svgModel, setGeo, geoOf } from './svg-gl.js?v=ed4ab38166';
-import { isPaused } from './clock.js?v=7542542ee7';
-import { store } from './store.js?v=0f9c79ec87';
+import { readStyle } from './layout-snap.js?v=80a9b170ba';
+import { pressureColor } from './colormap.js?v=aa4a486fd3';
+import { createSvgGL, svgModel, setGeo, geoOf } from './svg-gl.js?v=077f5b115a';
+import { isPaused } from './clock.js?v=8969e2ae38';
+import { store } from './store.js?v=160363b508';
 import { STEP_MAX } from './glide-clock.js?v=068ac73ef2';
 import { sinusoidTargets } from './sinusoid-model.js?v=b8f1f7baa9';
 import { createSinusoidGL, poreAt, poreOpenness, calloutPore, cellAtInto, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=683399e66a';
@@ -34,7 +34,7 @@ import { placeFenDisse } from './fen-place.js?v=c5830d6ff0';
 import { frameFor, noteDraw, saver, paceMs, renderScale, onRenderScale, easeNow } from './frame.js?v=c99bae2398';
 import { softwareGL, softwareYield } from './sw-yield.js?v=f7e0bc683b';
 import { noteSinusoidSupport, sinusoidSupported } from './gl-support.js?v=12efdaee3a';
-import { FADE_MS, fadeAlpha } from './res-fade.js?v=7f8ca96f1e';
+import { FADE_MS, fadeAlpha } from './res-fade.js?v=4a158681e4';
 import { cssColor8 } from './css-color.js?v=59ed182174';
 import { surface } from './gpu-surfaces.js?v=b62dfcfdd1';
 import { restPass, restClass, restAttr } from './rest-pass.js?v=de1b500aca';
