@@ -34,7 +34,8 @@ test('the end arrows follow their names, so the kept names keep their arrows', (
   assert.match(VIEW, /\(cap\.on \? 1 : \+getComputedStyle\(e\)\.opacity \|\| 0\) \* \(\+getComputedStyle\(e\.firstElementChild\)\.opacity \|\| 0\) \* \(\+getComputedStyle\(labels\)\.opacity \|\| 0\)\);/);
   // (A name drawn by the GPU fades there, caption-gl.js: its arrow takes the GPU's own strength for it.)
   assert.match(VIEW, /return \(endOp\[key\] \?\? 0\) \* \(cap\.on \? cap\.at\(key, easeNow\(\)\)\?\.a \?\? 0 : 1\);/);   // (the ends' names at full ink since 2 Nov 2026: no 0.78 to divide by)
-  assert.match(VIEW, /\[\['in', 'Portal venule', val\(m\.P1\), 0\], \['out', 'Central vein', val\(m\.P3\), 1\]\]/);
+  assert.match(VIEW, /END_NAMES = \['Portal venule', 'Central vein'\]/);
+  assert.match(VIEW, /value = pressTxt\(u, u \? m\.P3 : m\.P1\)/);
   assert.match(VIEW, /region\('hep', 'Hepatocyte'/);
   assert.match(VIEW, /region\('lymph', 'Lymph'/);
 });
@@ -85,5 +86,5 @@ test('both layouts take the pore from the one helper', () => {
   assert.match(VIEW, /const fenAt = \(x\) => calloutPore\(geo\.pores\[0\], x, VW\.fr\[0\] \+ 3, VW\.fr\[1\] - 3, SEED\.nucUp\);/);
   assert.equal(VIEW.split('fenAt(').length - 1, 3, 'three calls (across, beside the stellate cell, down)');
   assert.match(VIEW, /leader\('fen', rf, xp, -\(halfW\(xp\) \+ UM\.endo \* 0\.5\)\)/, 'the callout ends on the pore\'s gap in the lining');
-  assert.match(VIEW, /leader\('fen', region\('fen', 'Fenestrae', fenTxt\(\), x, -mid\(x\)\), xp, -\(halfW\(xp\) \+ UM\.endo \* 0\.5\)\)/);
+  assert.match(VIEW, /leader\('fen', region\('fen', 'Fenestrae', fenTxt\(\), x, -midTall\(x\)\), xp, -\(halfW\(xp\) \+ UM\.endo \* 0\.5\)\)/);
 });
