@@ -19,16 +19,22 @@ const WAVE_T0 = 8; // ms: the shear wave reaches the top of the measurement wind
 // The depth the map shows (mm under the skin) and the M probe's measurement window inside it, 25 to 65 mm (Echosens; the XL probe reads
 // 35 to 75 mm). The fitted line runs the window's 40 mm; fibroscan-gl.js carries the same numbers.
 export const DEPTH0 = 20, DEPTH_SPAN = 50, WIN0 = 25, WIN1 = 65;
-// Colours come from the app's theme tokens (light or dark), re-read about once a second.
-let theme = null, themeAt = 0;
-function colors(now) {
-  if (!theme || now - themeAt > 1000) {
-    const cs = getComputedStyle(document.documentElement), g = (n) => cs.getPropertyValue(n).trim();
-    theme = { panel: g('--inst-panel') || g('--surface-2'), edge: g('--border'), tick: g('--text-3'), text: g('--text-2'), orange: g('--fibroscan') };
-    themeAt = now;
-  }
-  return theme;
+// Colours come from the app's theme tokens (light or dark): read when a panel is made and again just after the theme changes (the root's
+// class, data-theme or style, or the system's scheme), never in a frame.
+let theme = null, themeWatch = false, themeSoon = 0;
+function readTheme() {
+  themeSoon = 0;
+  const cs = getComputedStyle(document.documentElement), g = (n) => cs.getPropertyValue(n).trim();
+  theme = { panel: g('--inst-panel') || g('--surface-2'), edge: g('--border'), tick: g('--text-3'), text: g('--text-2'), orange: g('--fibroscan') };
 }
+function watchTheme() {
+  if (themeWatch) return;
+  themeWatch = true;
+  const soon = () => { if (!themeSoon) themeSoon = setTimeout(readTheme, 0); };
+  if (typeof MutationObserver === 'function') new MutationObserver(soon).observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'data-theme', 'style', 'data-palette'] });
+  if (typeof matchMedia === 'function') matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', soon);
+}
+const colors = () => theme;
 const rnd = (seed) => { let x = seed >>> 0; return () => { x = (x * 1664525 + 1013904223) >>> 0; return x / 4294967296; }; };
 
 /** Shear wave speed (m/s) from stiffness E (kPa): E = 3 ρ c², ρ about 1000 kg/m³. */
@@ -99,6 +105,8 @@ function rrect(ctx, x, y, w, h2, r) {
 }
 
 export function createFibroScan() {
+  if (!theme) readTheme();
+  watchTheme();
   // (The map's shader is started at the next idle moment and compiles beside the page, not at the first map; a map that comes sooner starts it itself.)
   // (The panel's map: its own WebGL2 canvas under the words, made at the next idle moment so its shader compiles beside the page;
   // a map wanted sooner makes it itself. The words, lines and edge are drawn over it by the GPU's chart drawer, trace-gl.js, in a
@@ -121,7 +129,10 @@ export function createFibroScan() {
   const cap = 300;
   let model = 10, running = false, shown = null, last = 0;
   const kShown = createFollow({ small: 0.05, eps: 0.01 });
-  const sized = { w: 0, h: 0, cap: 11, r: 1 };
+  const sized = { cap: 11, r: 1, fs: 11, ow: 0, cw: 0 };
+  // (The box read when it changes size: never in a frame.)
+  const readBox = () => { sized.fs = parseFloat(getComputedStyle(cv).fontSize) || 11; sized.ow = cv.offsetWidth; sized.cw = cv.clientWidth; };
+  const boxRO = typeof ResizeObserver === 'function' ? new ResizeObserver(() => readBox()) : null;
   // Whether the panel is on screen, as the browser reports it when it changes (read every frame, offsetParent laid the page out);
   // coming on screen, it draws again at once. (No observer, as in a bare test page: read as before.)
   let seen = false, fed = false;   // (fed: the model has given it a stiffness to show)
@@ -129,8 +140,8 @@ export function createFibroScan() {
   let raf = 0, gone = false;
   const start = () => { if (!running && !gone) { running = true; raf = nextFrame(loop); } };
   const io = typeof IntersectionObserver === 'function' ? new IntersectionObserver((es) => { const was = seen; seen = es[es.length - 1].isIntersecting; if (seen && !was && fed) start(); }) : null;
-  io?.observe(cv);
-  const onScreen = () => cv.isConnected && (io ? seen : cv.offsetParent !== null);
+  io?.observe(cv); boxRO?.observe(cv);
+  const onScreen = () => cv.isConnected && (io ? seen : true);   // (no observer, a bare test page: taken as shown)
 
   const words = createTraceGL(cv, { redraw: () => { if (!gone) paint(performance.now()); } });
   function paint(now) {
@@ -147,7 +158,7 @@ export function createFibroScan() {
     // Reduce Motion shows the new median at once.)
     shown = kShown.step(model, dt, REDUCED_MQ.matches || isPaused());
     const c = shearSpeed(kNow);
-    const th = colors(now);
+    const th = colors();
     const reading = shown.toFixed(1); if (cv.dataset.reading !== reading) cv.dataset.reading = reading;
     fibroReading.txt = reading; fibroReading.cv = cv; fibroReading.show?.(reading);
     ctx.clearRect(0, 0, w, hh);
@@ -159,7 +170,8 @@ export function createFibroScan() {
     // The panel's words are the size of the card's small words (the canvas's own font size, which a slide sets to the tiles'
     // small size), so the labels never look tiny beside the card: one size for the axes and the units.
     // (The box's ratio to its layout width is read with the size, when it changes: read every frame, it laid the page out mid-frame.)
-    if (w !== sized.w || hh !== sized.h) { sized.w = w; sized.h = hh; const fs = parseFloat(getComputedStyle(cv).fontSize) || 11; sized.cap = clamp(fs * (w / (cv.offsetWidth || w)), FLOOR, 20); sized.r = w / cv.clientWidth || 1; }
+    // (Its font size and layout widths are read by its ResizeObserver, outside the frame, which reports once as it starts: readBox.)
+    sized.cap = clamp(sized.fs * (w / (sized.ow || w)), FLOOR, 20); sized.r = w / (sized.cw || w) || 1;
     const CAP = side ? FLOOR : Math.max(FLOOR, sized.cap), m = Math.round(CAP * 0.7);
     const ex = 0, top = 0, ew = w, ph = hh, bot = hh;
     if (ph < 50 || ew < 60) return;
@@ -236,6 +248,6 @@ export function createFibroScan() {
   /** The panel is done with (a presentation's own instruments go with it): its frame, observer and store watch are let go. */
   // (The ?perf surfaces list, gpu-surfaces.js: read by the readout only.)
   const offSurface = surface('FibroScan map', () => (!cv.isConnected || mapGpu === null ? null : mapGpu ? { on: 'gpu', via: words ? 'map WebGL2, words on the GPU chart drawer' : 'map WebGL2, words 2D canvas (?tracegl=0)' } : { on: 'fallback', via: 'none', why: 'no WebGL2 or a lost context: no map' }));
-  function dispose() { gone = true; running = false; cancelFrame(raf); raf = 0; io?.disconnect(); offRun(); words?.dispose(); if (mapCv) { mapCv.width = mapCv.height = 0; mapCv.remove(); } }
+  function dispose() { gone = true; running = false; cancelFrame(raf); raf = 0; io?.disconnect(); boxRO?.disconnect(); offRun(); words?.dispose(); if (mapCv) { mapCv.width = mapCv.height = 0; mapCv.remove(); } }
   return { id: 'fibroscan', label: 'FibroScan', el, update, pin(fp) { pinned = fp?.lsm ?? null; if (pinned != null) model = pinned; }, dispose() { dispose(); offSurface(); } };
 }

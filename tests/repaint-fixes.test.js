@@ -31,6 +31,7 @@ test('D: Doppler and FibroScan learn whether they are on screen from an observer
   assert.match(dop, /Number\.isFinite\(t\) &&/, 'a strip with no word laid out keeps its height');
   assert.match(dop, /!Number\.isFinite\(H\)/, 'never an image of infinite height');
   assert.doesNotMatch(dop, /\$\{report\.clientWidth\}\|\$\{cv\.clientWidth\}/, 'the strip key reads the observed widths');
-  assert.match(fib, /sized\.r = w \/ cv\.clientWidth \|\| 1;/);
+  assert.match(fib, /const readBox = \(\) => \{ sized\.fs = parseFloat\(getComputedStyle\(cv\)\.fontSize\) \|\| 11; sized\.ow = cv\.offsetWidth; sized\.cw = cv\.clientWidth; \};/, 'its box read by its ResizeObserver');
+  assert.match(fib, /new ResizeObserver\(\(\) => readBox\(\)\)/);
   assert.doesNotMatch(fib, /\(w \/ cv\.clientWidth \|\| 1\)/, 'the ratio is read with the size, not every frame');
 });
