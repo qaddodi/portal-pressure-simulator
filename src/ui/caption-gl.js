@@ -46,6 +46,8 @@ const ASC = 1984 / 2048, DESC = 494 / 2048;
 
 // ── Eases: a value that glides to each new target from where it stands, as a CSS transition does ──
 const easer = (v) => ({ v, from: v, to: v, t0: 0, ms: 0 });
+// A caption: its eases, where it is, the words set for it (its own record, or a page's mirrored one) and the records its calls give back.
+const newItem = (key) => ({ key, a: easer(0), s: easer(1), dx: easer(0), dy: easer(0), x: 0, y: 0, w: 0, h: 0, shown: false, lines: null, lk: null, set: null, own: null, size: [0, 0], zero: [0, 0], pos: { x: 0, y: 0, w: 0, h: 0, a: 0 } });
 function easeTo(e, to, now, ms = D_SURFACE) {
   if (e.to === to) return;
   e.from = easeAt(e, now); e.to = to; e.t0 = now; e.ms = ms;
@@ -236,10 +238,10 @@ export function createCaptionGL(box) {
         }
         // Its words: each run's halo (the page's text stroke, laid first), then its ink, in the page's order.
         ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-        for (let li = 0; li < I.set.n; li++) {
+        for (let li = 0, ln0 = I.set.n ?? I.set.lines.length; li < ln0; li++) {
           const ln = I.set.lines[li];
           const x0 = l + (bw - ln.w * s) / 2, by = t + ln.base * s;
-          for (let ri = 0; ri < ln.m; ri++) {
+          for (let ri = 0, rn = ln.m ?? ln.runs.length; ri < rn; ri++) {
             const { t: txt, r, x } = ln.runs[ri];
             const ra = a * r.op;
             ctx.font = fontOf(r, s); ctx.letterSpacing = spaceOf(r, s);
@@ -286,11 +288,11 @@ export function createCaptionGL(box) {
     measure(key, lines) {
       const lk = looks.get(key);
       let I = items.get(key);
-      if (!I) items.set(key, I = { key, a: easer(0), s: easer(1), dx: easer(0), dy: easer(0), x: 0, y: 0, w: 0, h: 0, shown: false, lines: null, lk: null, set: null, size: [0, 0], zero: [0, 0], pos: { x: 0, y: 0, w: 0, h: 0, a: 0 } });
+      if (!I) items.set(key, I = newItem(key));
       // (The words are a new list when they change, the owner builds them then, so the list itself is their signature.)
       if (lk && (I.lines !== lines || I.lk !== lk)) {
         I.lines = lines; I.lk = lk;
-        I.set = setLines(lk, lines, I.set || (I.set = { lines: [], n: 0, w: 0, h: 0 }));
+        I.set = setLines(lk, lines, I.own || (I.own = { lines: [], n: 0, w: 0, h: 0 }));   // (its own record: a mirrored one, mirror(), is the owner's, never written into)
         I.w = I.set.w; I.h = I.set.h; I.size[0] = I.w; I.size[1] = I.h;
       } else if (!lk) { I.lines = lines; }
       return lk ? I.size : I.zero;
@@ -298,7 +300,7 @@ export function createCaptionGL(box) {
     /** Sets a caption from the page's own as it was set (mirrorOf): its words at their spots, its marks. */
     mirror(key, m) {
       let I = items.get(key);
-      if (!I) items.set(key, I = { key, a: easer(0), s: easer(1), dx: easer(0), dy: easer(0), x: 0, y: 0, w: 0, h: 0, shown: false });
+      if (!I) items.set(key, I = newItem(key));
       if (!looks.has(key)) looks.set(key, MIRROR);
       if (!m) { I.set = null; api.paint(); return; }
       I.set = m; I.w = m.w; I.h = m.h; I.sig = ''; I.lines = null;
