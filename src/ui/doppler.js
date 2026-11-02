@@ -19,7 +19,7 @@ import { surface } from './gpu-surfaces.js?v=2af17044e7';
 import { olderThan } from './backfill.js?v=455d888760';
 import { createFollow } from './display-state.js?v=8d062d39dc';
 import { D_SMALL, EASE_ARRIVE } from './ease.js?v=7513a88c68';
-import { createTraceGL, fitPen } from './trace-gl.js?v=ddb94858b8';
+import { createTraceGL, fitPen, keepLayer } from './trace-gl.js?v=ddb94858b8';
 const nextFrame = frameFor('doppler');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -51,6 +51,9 @@ const PROBES = [
 const SWEEP_SECONDS = [6, 3, 12]; // Start at 6 s; first tap shortens the visible window.
 const PAD_L = 12, PAD_R = 46;        // The trace's side margins (CSS px).
 const KEEP = 16;                 // Retain enough samples for the 12 s sweep and display lag.
+// (R16: the history is a bounded queue: samples past KEEP are dropped in chunks (256, or a quarter of it), not shifted out on every
+// model frame; every reader picks its seconds by time, so the few older ones kept meanwhile change nothing drawn. ?histring=0: as before.)
+const HIST_RING = !(typeof location !== 'undefined' && /[?&]histring=0\b/.test(location.search || ''));
 const MINUS = '−';
 const num = (v, d = 0) => (v < 0 ? MINUS : '') + fmt(Math.abs(v), d);
 
@@ -273,7 +276,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     const tNow = buf[buf.length - 1][0];
     if (f.settling) heldTo = tNow;
     let cut = 0; while (cut < buf.length && buf[cut][0] < tNow - KEEP) cut++;
-    if (cut) buf.splice(0, cut);
+    if (cut && (!HIST_RING || cut >= 256 || cut * 4 >= buf.length)) buf.splice(0, cut);
   }
 
   // ── Reading ───────────────────────────────────────
@@ -991,22 +994,27 @@ export function createDoppler({ onProbe, pickGate = true }) {
     // Baseline
     ctx.fillStyle = cssAlpha('--white', .8); ctx.fillRect(padL, padT + baseY, W, 1);
     // Velocity scale on the right
-    ctx.font = FONT(500, 12); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    // ticks: a labelled tick every 1, 2, 5, 10, 20, 50 ... cm/s (the first that gives at most five a side), a half tick between
-    // (and labels at least 18 px apart, so a short trace keeps a few readable ones rather than a stack)
-    const lab = [1, 2, 5, 10, 20, 50, 100, 200, 500].find((x) => scale / x <= 5 && x * pxPerV >= 18) || 500, minor = lab / 2;
-    for (let k = -Math.ceil(scale / minor); k <= Math.ceil(scale / minor); k++) {
-      const v = k * minor, y = padT + baseY - v * pxPerV;
-      if (y < padT - 1 || y > padT + H + 1) continue;
-      const major = k % 2 === 0;
-      ctx.fillStyle = cssAlpha('--white', .55); ctx.fillRect(padL + W + 3, Math.round(y), major ? 6 : 3, 1);
-      if (major && y > padT + 5 && y < padT + H - 5) { ctx.fillStyle = cssAlpha('--white', .78); ctx.fillText(v === 0 ? '0' : num(v), padL + W + 13, y); }
-    }
-    // The scale's unit: top right, or, when the reading fills the top strip, bottom right under the scale, clear of its words
-    // (the bottom strip's settings stop short of the scale's margin).
-    // (left out where a narrow monitor's bottom label would run into it: the strip's reading already names the unit)
-    ctx.fillStyle = cssAlpha('--white', .5); ctx.textAlign = 'right';
-    if (!ovOn || padL + lw + 8 <= w - 6 - textW(ctx, 'cm/s')) ctx.fillText('cm/s', w - 6, ovOn ? yLab : 13);
+    // (R16: the scale's ticks, numbers and unit kept as one GPU picture, drawn again only when the scale, the layout or the theme's
+    // colours change, not built word by word every frame; ?chartkeep=0 draws them every frame.)
+    const scaleInk = cssAlpha('--white', .55) + cssAlpha('--white', .78) + cssAlpha('--white', .5);
+    keepLayer(ctx, 'scale', `${w}x${hh}|${scale}|${baseY}|${pxPerV}|${padL}|${padT}|${W}|${H}|${ovOn}|${lw}|${yLab}|${scaleInk}`, () => {
+      ctx.font = FONT(500, 12); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      // ticks: a labelled tick every 1, 2, 5, 10, 20, 50 ... cm/s (the first that gives at most five a side), a half tick between
+      // (and labels at least 18 px apart, so a short trace keeps a few readable ones rather than a stack)
+      const lab = [1, 2, 5, 10, 20, 50, 100, 200, 500].find((x) => scale / x <= 5 && x * pxPerV >= 18) || 500, minor = lab / 2;
+      for (let k = -Math.ceil(scale / minor); k <= Math.ceil(scale / minor); k++) {
+        const v = k * minor, y = padT + baseY - v * pxPerV;
+        if (y < padT - 1 || y > padT + H + 1) continue;
+        const major = k % 2 === 0;
+        ctx.fillStyle = cssAlpha('--white', .55); ctx.fillRect(padL + W + 3, Math.round(y), major ? 6 : 3, 1);
+        if (major && y > padT + 5 && y < padT + H - 5) { ctx.fillStyle = cssAlpha('--white', .78); ctx.fillText(v === 0 ? '0' : num(v), padL + W + 13, y); }
+      }
+      // The scale's unit: top right, or, when the reading fills the top strip, bottom right under the scale, clear of its words
+      // (the bottom strip's settings stop short of the scale's margin).
+      // (left out where a narrow monitor's bottom label would run into it: the strip's reading already names the unit)
+      ctx.fillStyle = cssAlpha('--white', .5); ctx.textAlign = 'right';
+      if (!ovOn || padL + lw + 8 <= w - 6 - textW(ctx, 'cm/s')) ctx.fillText('cm/s', w - 6, ovOn ? yLab : 13);
+    });
     if (waves && meta().kind === 'hepatic') {
       // The hepatic vein's waves named at their peaks (a presenter slide asks for it): the a-wave reversal on the
       // atrial side of the baseline, then the S, v and D forward waves of the same beat. One beat is named at a time.
@@ -1219,7 +1227,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     buf = rows.concat(buf);
     const tNow = buf[buf.length - 1][0];
     let cut = 0; while (cut < buf.length && buf[cut][0] < tNow - KEEP) cut++;
-    if (cut) buf.splice(0, cut);
+    if (cut && (!HIST_RING || cut >= 256 || cut * 4 >= buf.length)) buf.splice(0, cut);
     redraw();
     return true;
   }
