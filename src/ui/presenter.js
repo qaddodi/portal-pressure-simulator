@@ -552,7 +552,7 @@ function railBlock() {
  *  tile also says how far it moved from there, green when it went the better way (and plain within normal). */
 function bigTiles() {
   const el = h('div', { class: 'pz-tiles' });
-  let sig = '', parts = [], draw = null, goal = false;
+  let sig = '', parts = [], draw = null, goal = false, tileArgs = null, tileAsk = 0;
   // (R19: a tile's number as shown, and set: through its GPU words while the model ticks, into the page at once (now) while a slide's
   // roll is set up or the fit measures.)
   let sync = false;
@@ -621,8 +621,13 @@ function bigTiles() {
     el.replaceChildren(...parts.map((p) => p.tile));
     el.classList.remove('pzb-nonum');   // (new bars keep their numbers' row until the card's fit has seen them: fitCards)
     el.dataset.n = String(parts.length);
-    draw = tweener((f) => parts.forEach((p) => {
-      if (p.pic) { p.pic.set(f.varix); return; }
+    // (The numbers, ratings and marks are written at a value's end, never counted frame by frame (2 Nov 2026, "Move everything to GPU": a
+    // count wrote each tile's text on every frame); only the endoscopic view, a GPU picture, follows its value through the ease.)
+    const picT = parts.some((p) => p.pic) ? tweener((f) => parts.forEach((p) => { if (p.pic) p.pic.set(f.varix); })) : null;
+    let cur = null;
+    draw = { has: () => !!cur, jump: (to) => { cur = { ...to }; write(cur); }, go: (to, ms) => { draw.jump(to); picT?.(to, ms); } };
+    const write = (f) => parts.forEach((p) => {
+      if (p.pic) return;
       const [cls, word] = ratedShown(p.k, f), none = cls == null && (p.k === 'saag' || p.k === 'tp');
       vSet(p, none ? '—' : tileVal(p.k, f[p.k]));
       p.u.hidden = none || !p.T.u;
@@ -652,7 +657,7 @@ function bigTiles() {
       const x = p.T.x ?? 1, dg = p.T.d ?? 1, rd = (v) => +(v * x).toFixed(dg), same = Math.abs(rd(f[p.k]) - rd(r0)) < 0.5 * 10 ** -dg;
       const t = same ? 'No change' : `from ${fmt(r0 * x, dg)}${p.T.u === '%' ? '%' : ''}`;
       if (p.d.textContent !== t) p.d.textContent = t;
-    }));
+    });
   }
   // (Since 1 Nov 2026 (Mohammad: "Move everything to GPU"; a 120 Hz frame budget) a change of slide no longer redraws the tiles on every
   // frame of their 950 ms count, which wrote each number's text, its rating and the bar's marks' places (a layout of the card a frame)
@@ -691,7 +696,12 @@ function bigTiles() {
   }
   const api = {
     el,
-    paintTiles(f, ks, key = [], ref = null, ms, tips = false, live = false) {
+    // (Painted between frames, never in one: a slide's new tiles are built and their words written in a rest pass, the latest call's
+    // values winning, so a frame writes nothing into the tiles (2 Nov 2026, "Move everything to GPU").)
+    paintTiles(...args) { tileArgs = args; if (!tileAsk) tileAsk = restPass(() => { tileAsk = 0; paintTilesNow(...tileArgs); }); },
+  };
+  function paintTilesNow(f, ks, key = [], ref = null, ms, tips = false, live = false) {
+    {
       // (A live frame while the card moves: kept, the newest only, and painted when the card is still, on the card's own change.)
       if (TILE_FREEZE && live && draw && ks.join() + (ref ? '|ref' : '') === sig) {
         const mc = movingCard();
@@ -713,13 +723,13 @@ function bigTiles() {
       if (ref) for (const k of ks) to['ref_' + k] = ref[k];
       if (ks.includes('hvpgFall')) Object.assign(to, { respFrom: f.respFrom, respAt: f.respAt });
       for (const p of parts) p.fin = tileVal(p.k, to[p.k]);
-      if (!tileGlide(to, ms)) draw(to, ms);
+      if (!tileGlide(to, ms)) draw.go(to, ms);
       // (Fitted again only when a number's shape changed, its final text or the length of the one shown: measuring the tiles forced a
       // layout on every model frame, with the same answer. A tile's own size change still refits through the observer below.)
       const shape = parts.map((p) => `${p.fin}|${vText(p).length}`).join();
       if (shape !== fitShape) { fitShape = shape; fitSoon(); }
-    },
-  };
+    }
+  }
   return api;
 }
 
