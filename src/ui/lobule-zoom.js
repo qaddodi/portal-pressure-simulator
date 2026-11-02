@@ -2520,6 +2520,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // A label gliding to its new spot takes its leader's end with it, frame by frame, so the leader never runs
     // through it or stops short of it on the way.
     if (labels.classList.contains('lz-ease')) { syncLeaders(); glideUntil = performance.now() + 480; if (!glideRaf) glideRaf = frame(glideLeaders, 'lobule-glide'); }
+    mirrorAll();   // (their classes as laid out, a label at the edge or on the left, and the ones now shown: read again between frames)
   }
   // The labels to be measured, asked for (kept, written in place: measureRun takes it and clears it).
   function wantLabels(ns, fw) {
@@ -4668,6 +4669,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       applyChrome();
       el.classList.toggle('on', fade > 0.98);
       if (fade > 0.98 && was <= 0.98) sinOnLanding();
+      if (fade > 0 && was <= 0) cap.paint();   // (the names are placed in the frames they are drawn in: none was while the view was out)
       restAttr(el, 'aria-hidden', String(fade < 0.98));
       // Entering: the lobule is framed.
       // (Its flow marks start faded and ease in once it has landed: left at full from an earlier visit, they made every frame of the
