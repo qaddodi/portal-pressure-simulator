@@ -58,7 +58,7 @@ import { flowTimeHeight, trailKeys } from './flow-time.js?v=a8f43961aa';
 import { PROCS, procBlocked, procOffered, playProcedure, stepMark } from './proc-anim.js?v=1a3301d2ee';
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=982397f8fb';
 import { createCardZoom, tapTracker } from './card-zoom.js?v=1c7a3c485b';
-import { sheetPanes } from './sheet-glass.js?v=fc8b724c05';
+import { sheetPanes } from './sheet-glass.js?v=4827fac81c';
 import { createScopeTile } from './scope-tile.js?v=f33bd84ac7';
 import { tileKeys as cardKeys, toolOnly } from './card-tiles.js?v=e547c76c7f';
 import { D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN, EASE_MOVE, RISE_PX, cssCurve } from './ease.js?v=7513a88c68';
@@ -3221,11 +3221,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // about 10 frames a second on a Mac, Mohammad, 25 Oct: "moving the cards up sliding tucking untucking is very very laggy".)
   // (The glass's view of those rises (glass-gl.js cards.shift): where app.css turns --pz-rise and --pz-lift into a translate, the move they
   // make, from the inline value as written this frame; null where no rule moves the element.)
-  // (A card zoomed up (card-zoom.js data-zoomed) leaves the GPU glass for the solid card until it is back: its glass lies in the figure,
-  // under the page's labels and cards, so the stage, its labels and the words showed through it, and its grown box was left drawn where
-  // the card had been (Mohammad, 2 Nov 2026, HVPG 3 and 7 on the Mac). The words, their glass and the stage's labels step out from under it
-  // (app.css .pz-zoomed). ?zoomglass=1: drawn on the GPU (f40c5521).)
-  const ZOOM_GLASS = /[?&]zoomglass=1\b/.test(location.search);
+  // (Cards are glass (Mohammad, 2 Nov 2026: "CARDS ARE GLASS"): a card zoomed up (card-zoom.js data-zoomed) keeps its GPU frost, its panes read
+  // at the zoom's scale (sheet-glass.js) and again in each frame of its glide (glass-gl.js LIVE_READ); the words, their glass and the stage's
+  // labels step out from under it (app.css .pz-zoomed), so only the frosted figure lies behind it. ?zoomglass=0: the solid card instead.)
+  const ZOOM_GLASS = !/[?&]zoomglass=0\b/.test(location.search);
   const unzoomed = (g) => ZOOM_GLASS || !g?.dataset || !('zoomed' in g.dataset);
   const risePx = (el, name) => parseFloat(el.style.getPropertyValue(name)) || 0;
   const riseShift = (el) => {

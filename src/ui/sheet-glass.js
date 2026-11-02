@@ -16,9 +16,12 @@ export function boxPath(x, y, w, h, [tl, tr, br, bl], back = false) {
 }
 
 // A pseudo-element's box in page CSS px from its element's border box and its resolved insets.
-function boxOf(b, es, ps) {
-  const bl = NUM(es.borderLeftWidth), bt = NUM(es.borderTopWidth), br = NUM(es.borderRightWidth), bb = NUM(es.borderBottomWidth);
-  const left = b.left + bl + NUM(ps.left), top = b.top + bt + NUM(ps.top), right = b.right - br - NUM(ps.right), bottom = b.bottom - bb - NUM(ps.bottom);
+// (k: the card's scale on the screen, its box over its layout size: a card zoomed up (card-zoom.js) is drawn k times larger, its panes' insets,
+// borders and corners with it. Before, they were read at their layout size from the zoomed box's corner: a small pane where the card had
+// been, a ghost, and the rest of the zoomed card bare (Mohammad, 2 Nov 2026, HVPG 3: "CARDS ARE GLASS").)
+function boxOf(b, es, ps, k = 1) {
+  const bl = NUM(es.borderLeftWidth) * k, bt = NUM(es.borderTopWidth) * k, br = NUM(es.borderRightWidth) * k, bb = NUM(es.borderBottomWidth) * k;
+  const left = b.left + bl + NUM(ps.left) * k, top = b.top + bt + NUM(ps.top) * k, right = b.right - br - NUM(ps.right) * k, bottom = b.bottom - bb - NUM(ps.bottom) * k;
   return right > left && bottom > top ? { left, top, right, bottom, width: right - left, height: bottom - top } : null;
 }
 
@@ -34,12 +37,14 @@ export function sheetPanes(el, gcs = getComputedStyle) {
   const es = gcs(el);
   if (es.getPropertyValue('--gl-glass').trim() !== '0') return undefined;   // (a sheet with its own glass after all)
   const b = el.getBoundingClientRect(), bs = gcs(el, '::before'), as = gcs(el, '::after');
+  const k = el.offsetWidth > 0 && b.width > 0 ? b.width / el.offsetWidth : 1;
+  const rk = (r) => (k === 1 ? r : r.map((v) => v * k));
   const shows = (s) => s && s.content !== 'none' && s.display !== 'none' && s.visibility !== 'hidden' && NUM(s.opacity) > 0.001;
-  const front = shows(bs) ? boxOf(b, es, bs) : null, back = shows(as) ? boxOf(b, es, as) : null;
+  const front = shows(bs) ? boxOf(b, es, bs, k) : null, back = shows(as) ? boxOf(b, es, as, k) : null;
   const out = [];
-  const fr = front ? radii(bs, front.width, front.height) : null;
+  const fr = front ? rk(radii(bs, front.width / k, front.height / k)) : null;
   if (back) {
-    const rad = radii(as, back.width, back.height);
+    const rad = rk(radii(as, back.width / k, back.height / k));
     // (Its own box, the instrument card's cut out of it the other way round, in its own coordinates.)
     const d = boxPath(0, 0, back.width, back.height, rad) + (front ? boxPath(front.left - back.left, front.top - back.top, front.width, front.height, fr, true) : '');
     out.push({ r: back, d, a: Math.min(1, NUM(as.opacity)), tint: tintOf(as) });
