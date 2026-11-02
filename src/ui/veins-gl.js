@@ -94,6 +94,7 @@ export function laneSum(R, pxW) {
   return LANE_K[i] + (LANE_K[i + 1] - LANE_K[i]) * (x - i);
 }
 const QUAD = new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]);
+const PREALLOC = !(typeof location !== 'undefined' && /[?&]prealloc=0\b/.test(location.search || ''));
 // ?veins=generic in the address: every cell drawn by the general vessel program (the one-vessel build left off), for an A/B
 // on a device. The picture is the same either way.
 const GENERIC = typeof location !== 'undefined' && /[?&]veins=generic\b/.test(location.search);
@@ -2137,6 +2138,25 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 0, 0); gl.vertexAttribDivisor(1, 1);
   gl.bindVertexArray(null);
   let nDirt = 0;
+  // (Preallocated cell lists, recs.md item 7, 2 Nov 2026: the cells an ease redraws (the organs' changed box, the ascites pool) are
+  // written into one kept Float32Array, grown by doubling only when a list outgrows it, and sent with bufferSubData into a GPU buffer
+  // kept at its largest size, so a moving frame makes no array and reallocates no GPU storage. ?prealloc=0: a new array and a
+  // bufferData every time, as before.)
+  const cellCap = new Map();
+  const cellList = {
+    a: new Float32Array(2048), n: 0,
+    reset() { this.n = 0; },
+    push(x, y) {
+      if (this.n + 2 > this.a.length) { const b = new Float32Array(this.a.length * 2); b.set(this.a); this.a = b; }
+      this.a[this.n++] = x; this.a[this.n++] = y;
+    },
+    send(buf) {
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+      if ((cellCap.get(buf) || 0) < this.n) { const cap = Math.max(this.n, 2 * (cellCap.get(buf) || 0), 512); gl.bufferData(gl.ARRAY_BUFFER, cap * 4, gl.DYNAMIC_DRAW); cellCap.set(buf, cap); }
+      if (this.n) gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.a, 0, this.n);
+      return this.n / 2;
+    },
+  };
   // The cells (world origins on the CELL grid) that cover a device box under m, into dirtBuf.
   function dirtCells(b, m) {
     const det = m[0] * m[3] - m[1] * m[2] || 1e-9, ia = m[3] / det, ib = -m[1] / det, ic = -m[2] / det, id = m[0] / det;
@@ -2144,6 +2164,12 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     for (const [px, py] of [[b[0], b[1]], [b[2], b[1]], [b[0], b[3]], [b[2], b[3]]]) {
       const dx = px - m[4], dy = py - m[5], x = ia * dx + ic * dy, y = ib * dx + id * dy;
       x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y);
+    }
+    if (PREALLOC) {
+      cellList.reset();
+      for (let y = Math.floor(y0 / CELL) * CELL; y < y1; y += CELL) for (let x = Math.floor(x0 / CELL) * CELL; x < x1; x += CELL) cellList.push(x, y);
+      nDirt = cellList.send(dirtBuf);
+      return;
     }
     const cells = [];
     for (let y = Math.floor(y0 / CELL) * CELL; y < y1; y += CELL) for (let x = Math.floor(x0 / CELL) * CELL; x < x1; x += CELL) cells.push(x, y);
@@ -3224,7 +3250,14 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      */
     fluidPool(top) {
       if (!fluidRect) return false;
-      const [x0, y0, w, h] = fluidRect, cells = [];
+      const [x0, y0, w, h] = fluidRect;
+      if (PREALLOC) {
+        cellList.reset();
+        for (let y = Math.max(y0, top) - CELL; y < y0 + h + CELL; y += CELL) for (let x = x0 - CELL; x < x0 + w + CELL; x += CELL) cellList.push(x, y);
+        nPool = cellList.send(poolBuf);
+        return true;
+      }
+      const cells = [];
       for (let y = Math.max(y0, top) - CELL; y < y0 + h + CELL; y += CELL) for (let x = x0 - CELL; x < x0 + w + CELL; x += CELL) cells.push(x, y);
       gl.bindBuffer(gl.ARRAY_BUFFER, poolBuf);
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(cells), gl.DYNAMIC_DRAW);
