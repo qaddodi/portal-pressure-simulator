@@ -54,7 +54,7 @@ import { ORIGINS } from './blood.js?v=f6c91d8676';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=0762d1b820';
 import { createPaintGate } from './paint-gate.js?v=68c692e8a3';
-import { frameFor, cancelFrame, perf as framePerf, framePart } from './frame.js?v=2cc59e19c4';
+import { frameFor, cancelFrame, perf as framePerf, framePart, inMotion } from './frame.js?v=2cc59e19c4';
 import { restPass } from './rest-pass.js?v=ab96e02d7b';
 import { sizeOf, watchSize, rectsSoon, restTask, flushTask } from './geom.js?v=254133713c';
 import { feedbackDiagnostics } from './feedback-diag.js?v=a6fd7380e0';
@@ -452,9 +452,11 @@ function ingestFrame(f) {
 }
 // R17: frames for a hidden consumer are kept, not fanned out to it; it takes the newest one the moment it shows.
 const SEEN_ONLY = !/[?&]seenonly=0\b/.test(location.search);
-let inspStale = null, inspSeen = null;
+let inspStale = null, inspSeen = null, cmpStale = null;
 function inspectorSeen() {
   if (inspStale && panelShown()) { const f = inspStale; inspStale = null; inspector?.update(f); }
+  // (R11, review pass 2: the Compare table sits in the same panel: its rows are not formatted while the panel is shut either.)
+  if (cmpStale && panelShown()) { const f = cmpStale; cmpStale = null; compare?.update(f); }
 }
 function watchInspectorSeen() {
   if (!SEEN_ONLY || inspSeen || typeof MutationObserver !== 'function') return;
@@ -478,14 +480,19 @@ function paintFrame(f) {
   // and painted the moment the panel shows (see inspectorSeen). ?seenonly=0: every frame, as before.)
   if (!SEEN_ONLY || panelShown()) { inspStale = null; framePart('inspector update', () => inspector.update(f)); }
   else inspStale = f;
-  compare.update(f);
+  // (R11: the Compare table (in the side panel) formats its eleven rows and their signature only while the panel shows; else the
+  // newest frame is kept and painted as it opens, with the inspector's.)
+  if (!SEEN_ONLY || panelShown()) { cmpStale = null; compare.update(f); }
+  else if (store.get().compareSnap) cmpStale = f;
   framePart('timeline update', () => timeline.update(f));
   const txt = f.day > 0 ? `Day ${f.day}` : `${fmt(f.t, 0)} s`;
   if (txt !== lastClockTxt) { lastClockTxt = txt; stageClock.textContent = txt; }
   if (tipInfo) hoverInfo(tipInfo);   // the readings popup stays live with the sim
   syncBleeding(f);
   if (projector) updateProjector(f);
-  if (now - lastDesc > 3000) { lastDesc = now; $('#stage').setAttribute('aria-description', caption(f)); }
+  // (R11: the screen reader's description of the figure is kept, at most every 3 s, but never written in a frame of a transition (a
+  // slide's cards moving, a dive): it waits for the first still frame. ?seenonly=0: written whenever 3 s have passed, as before.)
+  if (now - lastDesc > 3000 && !(SEEN_ONLY && inMotion())) { lastDesc = now; $('#stage').setAttribute('aria-description', caption(f)); }
 }
 
 // ── Scenarios & share ───────────────────────────────
