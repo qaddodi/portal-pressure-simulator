@@ -7639,3 +7639,13 @@ body { font-optical-sizing: auto; font-kerning: normal; }
 :root:root[data-cardgl] .has-plate.has-plate > .sheet-plate.sheet-plate.sheet-plate[data-gl-wait]:not([data-gl]) { background: none; }
 :root:root[data-cardgl] .pz.stack.stack .pz-data.pz-sheet[data-gl-wait]:not([data-gl]):not([data-zoomed])::before, :root:root[data-cardgl] .pz.stack.stack .pz-data.pz-sheet[data-gl-wait]:not([data-gl]):not([data-zoomed])::after,
 :root:root[data-cardgl] .pz.pz-wide.pz-wide .pz-data.pz-sheet[data-gl-wait]:not([data-gl]):not([data-zoomed])::before, :root:root[data-cardgl] .pz.pz-wide.pz-wide .pz-data.pz-sheet[data-gl-wait]:not([data-gl]):not([data-zoomed])::after { background: none; }
+
+/* ── Numbers hold still (2 Nov 2026: "make sure the text everywhere and the numbers everywhere aren't jiggly and changing sizes constantly") ──
+   The body sets tabular figures, which every element inherits, and the `font` shorthand sets them back to proportional (and sets
+   font-feature-settings back to normal): a rule that said `font: 600 14px …` and had no font-variant-numeric of its own drew its digits
+   proportionally, so a live number there (the lymph's 7.5, the Doppler stats, a tile's change line, an endoscopy grade …) was a different
+   width at each digit and moved its neighbours as it changed. About a hundred and fifty rules use the shorthand and each would have to
+   remember; one rule here makes it hold for every element, and for any rule written later. Nothing draws proportional digits on purpose
+   (no rule asks for them), so !important changes only the elements the shorthand had caught. The GPU words read this computed value to draw
+   their digits (gl-words.js), so the picture and the page set a number the same width. tests/numbers-tabular.test.js pins it. */
+*, *::before, *::after { font-variant-numeric: tabular-nums lining-nums !important; }   /* (lining too: the rules that asked for lining figures in the serif keep them) */
