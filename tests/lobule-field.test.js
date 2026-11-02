@@ -32,8 +32,8 @@ test('the dive fades the lobules away from the landing one, in and out, rising t
   // At focus 1 the clear circle is the lobule view's resting surround (rd × 1.1), so the landing has no jump.
   assert.match(lz, /Math\.log\(Math\.min\(Math\.hypot\(W, H\) \* dpr \* 0\.45, rd \* 1\.1\)\), f\)\)/);
   // (Drawn by the tissue's shader, the only painter since 1 Nov: tissueOnGPU.)
-  assert.match(lz, /const \[ocx, ocy\] = toScreen\(\[cx, cy\]\), ox = ocx \* dpr, oy = ocy \* dpr, rd = R \* V\.k \* dpr, fIn = rd \* 1\.1;/, 'centred on the lobule, at its radius on screen');
-  assert.match(lz, /ox, oy, rd, fade: \[fIn, fOut\], mid: FADE_MID, bg: tone,/, 'the resting view keeps the faded surround');
+  assert.match(lz, /const ox = \(cx \* V\.k \+ V\.x\) \* dpr, oy = \(cy \* V\.k \+ V\.y\) \* dpr, rd = R \* V\.k \* dpr, fIn = rd \* 1\.1;/, 'centred on the lobule, at its radius on screen');
+  assert.match(lz, /A\.ox = ox; A\.oy = oy; A\.rd = rd; A\.fade\[0\] = fIn; A\.fade\[1\] = fOut; A\.mid = FADE_MID;/, 'the resting view keeps the faded surround');
 });
 
 test('the dive does no full-size redraws or hidden compositing mid-zoom', () => {
@@ -96,7 +96,7 @@ test('the lobule\'s fibrous bands are a deeper tan in light and Soft, the collag
   const tokens = read('../styles/tokens.css');
   assert.match(tokens, /--lz-septum: rgb\(206, 178, 130\);/);
   assert.equal((tokens.match(/--lz-field-sin-pale: #2E1A26; --lz-septum: rgb\(199, 186, 153\);/g) || []).length, 2, 'dark unchanged, both dark blocks');
-  assert.match(lz, /col: rgb01\(v\('--lz-septum'\)\), dis: rgb01\(v\('--collagen'\)\)/);
+  assert.match(lz, /const WR_TOK = \[[^\]]*'--lz-septum', '--collagen'\];/);
   assert.match(lp, /const COL = rgb\.col;/);
   assert.match(lz, /const COLa = cssRGB01\('--lz-septum'\), edges/);
   assert.match(lp, /const DIS = rgb\.dis, col = \(a\) => css\(DIS, a\);/, 'the space of Disse lining is unchanged');

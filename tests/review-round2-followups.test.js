@@ -46,7 +46,7 @@ test('BM9: the shader and the lobule read the same table, with no lane loop left
   assert.match(gl, /const float LANE_K\[7\] = float\[7\]\(\$\{LANE_K/);
   assert.match(gl, /float sumK = mix\(LANE_K\[lk\], LANE_K\[lk \+ 1\], lc - float\(lk\)\);/);
   assert.doesNotMatch(gl, /sumK \+=/);
-  assert.match(lob, /const sumK = \(R\) => laneSum\(R, pxW\);/);
+  assert.match(lob, /\* laneSum\(Rm, pxW\)\) \/ s0;/);
   assert.doesNotMatch(lob, /sk \+= n === 1/);
 });
 

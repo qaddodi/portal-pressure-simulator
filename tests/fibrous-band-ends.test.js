@@ -59,6 +59,6 @@ test('the tissue cross-fade is a true mix, (1 - u) old + u new, so see-through p
   const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8'), tgl = readFileSync(new URL('../src/ui/tissue-gl.js', import.meta.url), 'utf8');
   assert.match(tgl, /vec4 l = textureGrad\(uW, w, gx, gy\) \* uWMix\.x;\n\s+if \(uWMix\.y > 0\.0\) l \+= textureGrad\(uWO, w, gx, gy\) \* uWMix\.y;/);
   assert.match(tgl, /UC\.f2\(U\.uWMix, old \? wMix : 1, old \? 1 - wMix : 0\);/, 'u new + (1 - u) old');
-  assert.match(lz, /wo: crossfading \? worldOld : null, woVer: worldOld\.ver \|\| 0, wMix: crossfading \? xfU\(xfT0, xfNow\(now\)\) : 1,/);
+  assert.match(lz, /A\.wo = crossfading \? worldOld : null; A\.woVer = worldOld\.ver \|\| 0; A\.wMix = crossfading \? xfU\(xfT0, xfNow\(now\)\) : 1;/);
   assert.doesNotMatch(lz, /drawImage\(worldOld/);
 });

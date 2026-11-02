@@ -15,7 +15,7 @@ test('a crossfade that ends gives back the old picture and its texture', () => {
 });
 
 test('the bitmap replaced by the sharper one painted ahead takes its texture with it', () => {
-  assert.match(fn('function paintTissue('), /\[worldCv, spareCv\] = \[spareCv, worldCv\]; free\(spareCv\); tg\.sweep\(\);/);
+  assert.match(fn('function paintTissue('), /const swapped = worldCv; worldCv = spareCv; spareCv = swapped; free\(spareCv\); tg\.sweep\(\);/);
 });
 
 test('a snap to the patient and the trim before a wide dive give back the textures of what they free', () => {

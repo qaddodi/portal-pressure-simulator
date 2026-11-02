@@ -113,7 +113,8 @@ test('the view hands the painting every model value it reads, and records it for
   const shape = fn('function worldShape(G) {');
   for (const k of new Set([...lp.slice(lp.indexOf('export function paintLobule(')).matchAll(/\bk\.([a-z]+)/g)].map((x) => x[1]))) assert.match(shape, new RegExp(`\\b${k}: k\\.${k}\\b`), `cell or stellate cell .${k}`);
   for (const k of ['R', 'cx', 'cy', 'rt', 'rs0', 'rcv0']) assert.match(shape, new RegExp(`\\b${k}: G\\.${k}\\b`), `G.${k}`);
-  assert.match(fn('function paintWorld('), /gpuPicture\(recordPaint\(n, n, \(w\) => paintWorldInto\(w, n, sc, bx, by, P\)\), \+\+texVer\)/);
+  assert.match(lz, /const pwPicture = \(\) => gpuPicture\(recordPaint\(pwN, pwN, pwRecord\), \+\+texVer\);/);
+  assert.match(lz, /const pwRecord = \(w\) => paintWorldInto\(w, pwN, pwSc, pwBx, pwBy, pwP\);/);
   for (const f of ['function paintWorld(', 'function paintTissue(', 'function spareMake(', 'function resSwap(', 'function paintAhead(']) assert.doesNotMatch(fn(f), /getContext|drawImage|getImageData/, `${f} paints on no 2D canvas`);
   assert.doesNotMatch(lz, /tissue-worker|createTissueWorker/);
   assert.match(read('../src/ui/tissue-gl.js'), /if \(isGpuPicture\(cv\)\) \{[\s\S]{0,200}paintGL\(gl\)\.paint\(cv\.rec\)/, 'the shader paints the record into its texture');

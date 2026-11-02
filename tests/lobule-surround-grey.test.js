@@ -67,10 +67,10 @@ test('every place the surround is drawn takes the grade: the field and the tissu
   // (No 2D field since 1 Nov: paintField hands every frame to the GPU.)
   assert.match(fn('function paintField(d) {'), /const drew = g \? paintFieldGL\(g, d, W, H, dpr, cs, dark, bg\) : false;/);
   assert.doesNotMatch(lz, /function fieldGrey\(|fieldGrey\(c,/);
-  assert.match(fn('function tissueOnGPU('), /bg: tone, grey: grey\.k > 0 \? surroundGrade\(grey\.k\) : null,/);
+  assert.match(fn('function tissueOnGPU('), /A\.bg = tone; A\.grey = grey\.k > 0 \? surroundGrade\(grey\.k\) : null;/);
   const pt = fn('function paintTissue(W, H, dpr, dark, cs, flatVessels, tg = null) {');
   assert.match(pt, /gk = greyNow\(now\)/);
-  assert.match(pt, /V\.y\.toFixed\(1\), gk\.toFixed\(3\)\]\.join\('\|'\);\n\s+if \(key === tissueKey\) return gpu && keyGPU;/, 'a changing grey redraws the picture, and nothing else');
+  assert.match(pt, /K\[ki\+\+\] = Math\.round\(gk \* 1000\);[\s\S]*?if \(same\) return gpu && keyGPU;/, 'a changing grey redraws the picture, and nothing else');
   // (The tissue has no 2D drawing since 1 Nov: the dive's and the rise's pictures are the shader's, so they carry the grey.)
   assert.doesNotMatch(pt, /fieldGrey\(|drawImage/);
   assert.doesNotMatch(lz, /function paint2D\(|diveCopy\(/);

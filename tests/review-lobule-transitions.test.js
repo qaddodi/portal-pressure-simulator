@@ -122,15 +122,15 @@ test('a new patient eases into the lobule: the tissue crossfades instead of snap
   // (Not on the GPU while the shader has the whole picture, liveShare 1: the bitmap is then not seen. tests/lobule-live.test.js.)
   assert.match(lz, /if \(worldState && ws !== worldState && !unseen\(\) && !\(liveShare >= 1\) && worldGeo === G && worldCv\.width && !\(xfT0 && xfNow\(now\) - xfT0 < XF_MS\)\) \{ free\(worldOld\); worldOld = worldCv;/,
     'kept, not copied, and a change mid-fade does not restart it');
-  assert.match(lz, /const worldStateOf = \(m, G, dark, cs\) => \[G\.W, G\.H, dark,/);
-  assert.match(lz, /const ws = worldStateOf\(m, G, dark, cs\);[\s\S]*?const wk = sc\.toFixed\(3\) \+ '\|' \+ ws;/, 'only a new state fades, never a new drawing scale');
+  assert.match(lz, /const worldStateOf = \(m, G, dark, cs\) => \{/);
+  assert.match(lz, /const ws = worldStateOf\(m, G, dark, cs\);[\s\S]*?const wk = wkOf\(sc, ws\);/, 'only a new state fades, never a new drawing scale');
   // (Mixed (1 − u)·old + u·new by the shader, both sharp: see tests/fibrous-band-ends.test.js for why not one over the other.)
-  assert.match(lz, /wo: crossfading \? worldOld : null, woVer: worldOld\.ver \|\| 0, wMix: crossfading \? xfU\(xfT0, xfNow\(now\)\) : 1,/, 'the old picture under the new one');
+  assert.match(lz, /A\.wo = crossfading \? worldOld : null; A\.woVer = worldOld\.ver \|\| 0; A\.wMix = crossfading \? xfU\(xfT0, xfNow\(now\)\) : 1;/, 'the old picture under the new one');
   assert.match(lz, /if \(!crossfading && xfT0\) \{ xfT0 = 0; free\(worldOld\); tg\.sweep\(\); \}/, 'the old picture is given back once faded, and its GPU copy');
   // The surround's tiles too, and the frame loop keeps drawing while either fades.
   assert.match(lz, /if \(surNow && ta\.set !== surNow\.set && surNow\.q\.cv\?\.width && !unseen\(\)\) \{ surOld = surNow\.q; surT0 = xfNow\(now\); \}/);
   assert.match(lz, /if \(rzMoving \|\| lensFrom \|\| tissueFading\(now\)\) drawVersion\+\+;/);
-  assert.match(lz, /\[\.\.\.\(gpu && diveRim \? \[diveRim\.x, diveRim\.y, diveRim\.r\] : \[\]\), W, H, dpr, wk, gpu, fading \?/, 'each fading frame draws the tissue again');
+  assert.match(lz, /K\[ki\+\+\] = fading \? Math\.round\(xfU\(xfT0, xfNow\(now\)\) \* 1000\) : -1;/, 'each fading frame draws the tissue again');
   // The sinusoids' dulling follows the eased resistance, as their calibers do.
   assert.match(lz, /const sinFib = \(\) => clamp\(Math\.log\(rzOf\(\)\.sin\) \/ 3\.2, 0, 1\);/);
 });
@@ -160,7 +160,7 @@ test('the lobule\'s tissue is one shader pass a frame, so a slide\'s camera glid
   assert.doesNotMatch(pt, /fillRect|c\.fill\(|c\.clip\(|fieldFade\(/);
   assert.match(pt, /if \(gpu && tissueOnGPU\(tg, tw, th, dpr, dark, cs, bg, now\)\) \{ keyGPU = true;/);
   const on = lz.slice(lz.indexOf('function tissueOnGPU('), lz.indexOf('\n  }\n', lz.indexOf('function tissueOnGPU(')));
-  assert.equal(on.split('tg.draw(').length - 1, 1, 'one draw');
+  assert.equal(on.split("framePart('lz.tissueGL', tisDraw)").length - 1, 1, 'one draw');
   assert.match(on, /fIn = rd \* 1\.1;/); assert.match(on, /const fOut = fadeOuter\(fIn, reach\)/);
   // The lobule's bitmap is opaque inside its own outline (filled first, at 1.015 of the hexagon, full strength).
   assert.match(lp, /const px = l\.x \+ \(x - l\.x\) \* 1\.015, py = l\.y \+ \(y - l\.y\) \* 1\.015;[^\n]*c\.fill\(\); \}/);
@@ -169,8 +169,8 @@ test('the lobule\'s tissue is one shader pass a frame, so a slide\'s camera glid
 test('holding only the ductules, the lobule\'s overlay is not drawn again while nothing in it changes', () => {
   // (The overlay is the GPU's since 1 Nov: fx-gl.js. A still one keyed on what it shows; a moving one drawn each frame.)
   const f = lz.slice(lz.indexOf('function fxOnGPU('), lz.indexOf('\n  }\n', lz.indexOf('function fxOnGPU(')));
-  assert.match(f, /const key = moving \? '' : \[fw, fh, dpr, dark, m\.hide, m\.hide \? '' : fxDuct\(\)\.key, V\.k, V\.x, V\.y, \.\.\.dc\]\.join\('\|'\);/);
-  assert.match(f, /if \(key && key === fxGLKey && fxGLShown && !hosted\) \{ fx2D\(\); return true; \}/);
+  assert.match(f, /K\[ki\+\+\] = fw; K\[ki\+\+\] = fh; K\[ki\+\+\] = dpr; K\[ki\+\+\] = dark; K\[ki\+\+\] = m\.hide; K\[ki\+\+\] = m\.hide \? '' : fxDuct\(\)\.key; K\[ki\+\+\] = V\.k; K\[ki\+\+\] = V\.x; K\[ki\+\+\] = V\.y;/);
+  assert.match(f, /if \(!moving && same && fxGLShown && !hosted\) \{ fx2D\(\); return true; \}/);
   assert.match(lz, /return \{ disc: \[x, y, rout\], num: \[x, y, rin, rout, rm, hw \* 0\.34, tr\.i, 0\] \};/);
 });
 

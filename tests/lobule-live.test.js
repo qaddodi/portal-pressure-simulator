@@ -139,7 +139,7 @@ test('the lobule is drawn live with no setting: nothing reads a switch for it, t
   assert.match(lz, /const liveGoal = \(\) => \(model && liveEligible\(model\) && liveOK\(\) \? 1 : 0\);/, 'the one place the goal is set');
   assert.ok(!/onFigLab/.test(lz), 'and nothing listens for a setting');
   assert.match(lz, /function liveArgs\(dark, cs\) \{\n\s+if \(!\(liveShare > 0\)\) return null;/, 'no share: no shapes built, nothing sent');
-  assert.match(lz, /live: liveArgs\(dark, cs\),/);
+  assert.match(lz, /A\.live = liveArgs\(dark, cs\);/);
   // The two pictures are never mixed unless the share is above 0 and the live program is there (tissue-gl.js): the bitmap path is the one it was.
   assert.match(gl, /const isLive = !!\(live && live\.share > 0 && liveP\), U = isLive \? liveP\.U : U0;/);
   assert.match(gl, /gl\.useProgram\(isLive \? liveP\.prog : prog\);/);
@@ -153,7 +153,7 @@ test('the live program starts compiling as soon as the tissue\'s GPU drawing is 
   assert.match(lz, /function liveCompiled\(\) \{ liveChanged\(\); \}/);
   assert.match(lz, /if \(liveE < 0 \|\| unseen\(\)\) liveE = goal;\n\s+else liveE = liveEase\(liveE, goal, now - liveAt\);/);
   assert.match(lz, /if \(liveMoving\(\)\) drawVersion\+\+;/, 'each frame of the easing is drawn');
-  assert.match(lz, /const key = \[[^\n]*lk > 0 \? lk\.toFixed\(3\)/, 'and the tissue\'s key moves with the share, so it is not skipped as unchanged');
+  assert.match(lz, /K\[ki\+\+\] = lk > 0 \? Math\.round\(lk \* 1000\) : -1;/, 'and the tissue\'s key moves with the share, so it is not skipped as unchanged');
 });
 
 test('the share eases in a 400 ms smoothstep either way, never in a step; a pause does not jump it', async () => {

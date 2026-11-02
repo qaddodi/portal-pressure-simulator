@@ -18,7 +18,7 @@ test('the space that opens as the sinusoid closes re-aims the zoom out, instead 
   assert.match(body, /if \(atFit\) Object\.assign\(V, F0\); else clampV\(\);/, 'the lobule takes its new framing now');
   assert.match(body, /sinDive = diveGeometry\(sinDive\);/, 'the zoom keeps its sinusoid end');
   assert.match(body, /diveDrawn = false; refitLater = false;/, 'drawn once at the new framing, with nothing left to refit on landing');
-  assert.match(lz, /F = keep \? \{ x: keep\.c\[0\], y: keep\.c\[1\], ang: keep\.ang, k: keep\.k, lumen: keep\.lumen \} : sv\.frame\(\)/);
+  assert.match(lz, /if \(keep\) \{ Fx = keep\.c\[0\]; Fy = keep\.c\[1\]; Fang = keep\.ang; Fk = keep\.k; Flumen = keep\.lumen; \}/);
 });
 
 // The zoom is the similarity M (lobule's sinusoid p to the view's centre c, turned by rot, grown by Z), taken g of the way about

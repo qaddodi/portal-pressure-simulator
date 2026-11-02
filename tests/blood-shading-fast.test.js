@@ -73,7 +73,7 @@ test('every build draws the streaks alone, at every zoom: no bead look anywhere,
   assert.equal(mod.lookOf, undefined);
   // The app asks for the streaks (main.js forces them; the lobule defaults to them).
   assert.match(readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8'), /blood\.look = 'shimmer';/);
-  assert.match(readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8'), /look: b\.look \|\| 'shimmer'/);
+  assert.match(readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8'), /blood\.look = b\.look \|\| 'shimmer'/);
 });
 
 test('the composite skips the layers under an opaque vessel pixel, and only those', () => {

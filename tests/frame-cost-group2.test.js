@@ -79,10 +79,12 @@ test("item 31: lobule pan and zoom frames reuse each tube's radii, compare inks 
   const src = read('../src/ui/lobule-zoom.js');
   const gl = src.slice(src.indexOf('function drawGL('), src.indexOf('const num = (cs, n, d)'));
   // (Radii worked out only when the calibers change; the zoom only re-checks them against what was sent.)
-  assert.match(gl, /if \(rkC !== radCal\) \{ radCal = rkC; radNow = \[\]; \}/);
-  assert.match(gl, /const r = radNow\[t\.id\] \|\| \(radNow\[t\.id\] = Array\.from/);
+  // (Kept as numbers, per vessel, written in place: calibersChanged says when they are worked out again, radiiNow does it.)
+  assert.match(gl, /const calCh = calibersChanged\(rzOf\(\), G\);/);
+  assert.match(gl, /const r = radiiNow\(t\);/);
+  assert.match(src, /if \(radNowAt\[t\.id\] !== radStamp\) \{ for \(let i = 0; i < N; i\+\+\) r\[i\] = radiusAt\(t, i\); radNowAt\[t\.id\] = radStamp; \}/);
   assert.doesNotMatch(gl, /flat\(2\)\.map\(\(x\) => x\.toFixed\(3\)\)/);
-  assert.match(gl, /if \(inkMoved \|\| ak !== attrKey\)/);
+  assert.match(gl, /if \(inkMoved \|\| !akSame\)/);
   assert.match(gl, /if \(cs !== lookCs\) \{ lookCs = cs; lookNow = lookOf\(cs\); lookSig = JSON\.stringify\(lookNow\); \}/);
   assert.doesNotMatch(gl, /const lsig = JSON\.stringify\(look\)/);
 });

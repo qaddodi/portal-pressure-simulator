@@ -140,8 +140,8 @@ test('Lymph drawn by the GPU each frame it moves: the drops stepped once a frame
   const fx = lz.slice(lz.indexOf('  function fxOnGPU(W, H, dpr, dark, dt, can) {'), lz.indexOf('\n  }\n', lz.indexOf('  function fxOnGPU(W, H, dpr, dark, dt, can) {')));
   assert.equal(fx.split('lyDrops(G, m, dt, W, H, dpr)').length - 1, 1, 'the drops stepped once a frame');
   assert.equal(lz.split('lyDrops(G, m, dt, W, H, dpr)').length - 1, 2, 'and nowhere else (the other is its own definition)');
-  assert.match(fx, /ringHalf: Math\.max\(0\.5 \/ V\.k, minR \* 0\.22\) \/ 2,/, 'the ring as the drawing stroked it');
-  assert.match(fx, /const key = moving \? '' : /, 'a moving overlay is drawn every frame, a still one only when it changes');
+  assert.match(fx, /lymph\.ringHalf = Math\.max\(0\.5 \/ V\.k, minR \* 0\.22\) \/ 2;/, 'the ring as the drawing stroked it');
+  assert.match(fx, /if \(moving\) fxGLKey = '';/, 'a moving overlay is drawn every frame, a still one only when it changes');
   assert.doesNotMatch(lz, /function paintFx\(|lyTiles|lyKey|fxBoxes/);
 });
 
@@ -181,8 +181,6 @@ test('the lymph keeps its typed arrays (R13): drops, beads and their GPU buffers
   const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
   const fx = readFileSync(new URL('../src/ui/fx-gl.js', import.meta.url), 'utf8');
   assert.doesNotMatch(lz, /LY_KEEP|lykeep/);
-  assert.match(lz, /let drops = lyRaw, nd = 0;/);
-  assert.match(lz, /if \(nd \+ 4 > drops\.length\) \{ const nx = new Float32Array\(Math\.max\(64, drops\.length \* 2\)\); nx\.set\(drops\); drops = lyRaw = nx; \}/);
-  assert.match(lz, /const dI = lyDI\.subarray\(0, nd \* 6\), bI = lyBI\.subarray\(0, nd \* beads \* 6\);/);
+  assert.match(lz, /const dI = fxDI\[fxFlip\]\.subarray\(0, nd \* 6\), bI = fxBI\[fxFlip\]\.subarray\(0, nd \* beads \* 6\);/);
   assert.match(fx, /if \(data\.byteLength <= B\.cap\) gl\.bufferSubData\(gl\.ARRAY_BUFFER, 0, data\);/);
 });

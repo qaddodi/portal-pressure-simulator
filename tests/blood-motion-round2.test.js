@@ -32,7 +32,8 @@ test('atlas picks (18 Oct): smaller chevrons with a tinted dark core and softer 
   assert.match(gl, /float hw = min\(0\.8 \* R, clamp\(0\.5 \* R, 4\.0 \* cssPx \* pxW, 8\.0 \* cssPx \* pxW\)\)/);
   assert.match(gl, /vec3 ink = mix\(chevInk, vc \* 0\.3, 0\.2\);/);
   assert.match(stage, /holes: chevHoles, vdpr, \.\.\.bloodColors\(\)/);
-  assert.match(read('src/ui/lobule-zoom.js'), /bleed: \[\], vdpr: k, \.\.\.bloodColors\(\)/);
+  assert.match(read('src/ui/lobule-zoom.js'), /bleed: \[\], vdpr: 1, originCol: null/);
+  assert.match(read('src/ui/lobule-zoom.js'), /const bc = bloodColors\(\), blood = bloodArg;/);
   // AL3: the chevrons read the radius between its samples.
   assert.match(gl, /float radAt\(int id, float s, float len\)/);
   // A6: softer streak ink.

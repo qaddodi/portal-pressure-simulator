@@ -50,9 +50,9 @@ test('stage() leaves the staged bitmap\'s send to the landing frame, which names
   assert.doesNotMatch(stage, /stageUpload|\.upload\(/, 'no send in stage() (1 Nov: black lobule while zooming in)');
   assert.doesNotMatch(lz, /STAGE_UP|stageup/);
   const onGPU = lz.match(/function tissueOnGPU\([\s\S]*?\n {2}\}\n/)[0];
-  assert.match(onGPU, /framePart\('lz\.texUpload', \(\) => tg\.upload\(worldCv, worldCv\.ver \|\| 0\)\);/);
-  assert.match(onGPU, /wVer: worldCv\.ver \|\| 0/, 'the same version as draw sends, so draw finds it there');
-  assert.match(onGPU, /framePart\('lz\.tissueGL', \(\) => tg\.draw\(\{/);
+  assert.match(onGPU, /tisTg = tg;\n\s+framePart\('lz\.texUpload', tisUpload\);/);
+  assert.match(onGPU, /A\.wVer = worldCv\.ver \|\| 0/, 'the same version as draw sends, so draw finds it there');
+  assert.match(onGPU, /framePart\('lz\.tissueGL', tisDraw\)/);
 });
 
 // (1 Nov 2026: the lobule's tissue went black while zooming in, and on Lobule 5 in a talk, until a pan drew it again. A lost context
