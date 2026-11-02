@@ -138,7 +138,8 @@ test('presenter: the wheel works the slide, the stack and the case card; a wide 
   assert.match(w, /const now = e\.timeStamp > 0 \? e\.timeStamp : performance\.now\(\);/, 'timed by the event\'s own stamp, not when a busy frame got to it');
   assert.match(w, /wheelGesture\(wheelG, fx, fy, now\)/);
   assert.match(w, /wheelFinger\(e\.deltaX, e\.deltaY, e\.deltaMode, e\.webkitDirectionInvertedFromDevice, innerHeight\)/);
-  assert.match(w, /if \(ownsWheel\(e\.target, Math\.abs\(fx\) > Math\.abs\(fy\) \? 'x' : 'y', \{ stop: wrap \}\)\) \{ wheelG = wheelG\?\.spent \? \{ \.\.\.wheelG, t: now \} : null; return; \}/, 'a glide that has acted stays spent');
+  assert.match(w, /const wheelStop = \{ stop: wrap \};/);
+  assert.match(w, /if \(ownsWheel\(e\.target, Math\.abs\(fx\) > Math\.abs\(fy\) \? 'x' : 'y', wheelStop\)\) \{ if \(wheelG\?\.spent\) wheelG\.t = now; else wheelG = null; return; \}/, 'a glide that has acted stays spent');
   assert.match(w, /if \(card\) caseFly\(card, a\.dir, 1\.2, card\.c\.offsetWidth\);/, 'a case card is thrown off the way the fingers go');
   assert.match(w, /else if \(a\.dir < 0\) next\(\);[^\n]*\n\s*else prev\(\);/, 'left goes on, and off the end of the deck it ends the talk, as the touch swipe does');
   assert.doesNotMatch(w, /want < slides\.length - 1/, 'no last-slide guard on the wheel');

@@ -51,6 +51,7 @@ function stepsText(dt) {
     KS[j + 1] = k; VS[j + 1] = v;
   }
   let text = '';
+  // alloc-rare: the overlay's steps line: built at most 10 times a second, only while the GPU-time option is on
   for (let i = 0; i < n; i++) text += `${i ? ' · ' : ''}${KS[i]} ${VS[i].toFixed(1)}`;
   return text || 'none';
 }
@@ -108,25 +109,32 @@ function tick(t) {
   fps = stamps.length > 1 ? ((stamps.length - 1) * 1000) / (t - stamps[0]) : 0; ms = fps ? 1000 / fps : 0;
   hist.push(fps); if (hist.length > GRAPH_N) hist.shift();
   let nl = 0;
+  // alloc-rare: the overlay's text and bar values: built at most 10 times a second (the 100 ms gate above), only while an overlay option is on; never in a default run
   if (st.fps) LINES[nl++] = `${fps.toFixed(0)} fps · ${ms.toFixed(1)} ms`;
+  // alloc-rare: the overlay's text and bar values: built at most 10 times a second (the 100 ms gate above), only while an overlay option is on; never in a default run
   if (st.zoom) { let z = ''; try { z = getZoom ? Number(getZoom()).toFixed(2) : ''; } catch (e) { caught('debug:77', e); /* no stage yet */ } LINES[nl++] = `zoom ${z}×`; }
   if (st.gpu && FT.length) {
     const now = FT.length - 1;
     let worst = 0;
     for (let i = 1; i < FT.length; i++) if (FD[i] > FD[worst]) worst = i;
     loadSteps(FP[now]);
+    // alloc-rare: the overlay's text and bar values: built at most 10 times a second (the 100 ms gate above), only while an overlay option is on; never in a default run
     LINES[nl++] = `frame ${FD[now].toFixed(0)} ms: ${stepsText(FD[now])}`;
     loadSteps(FP[worst]);
+    // alloc-rare: the overlay's text and bar values: built at most 10 times a second (the 100 ms gate above), only while an overlay option is on; never in a default run
     LINES[nl++] = `slowest in 10 s, ${FD[worst].toFixed(0)} ms: ${stepsText(FD[worst])}`;
     // Every slow frame of the 10 s added up, step by step: where a lag that lasts goes, not only its worst moment.
     const slow = loadSlow();
+    // alloc-rare: the overlay's text and bar values: built at most 10 times a second (the 100 ms gate above), only while an overlay option is on; never in a default run
     if (slow) LINES[nl++] = `${slow} slow frames in 10 s, ${SLOW_DT.toFixed(0)} ms: ${stepsText(SLOW_DT)}`;
   }
+  // alloc-rare: the overlay's text and bar values: built at most 10 times a second (the 100 ms gate above), only while an overlay option is on; never in a default run
   if (st.res) LINES[nl++] = `pixel ratio ${devicePixelRatio} · ${Math.round(innerWidth * devicePixelRatio)}×${Math.round(innerHeight * devicePixelRatio)}`;
   if (el) {
     let tn = el.firstChild;
     if (!tn || tn.nodeType !== 3) { tn = document.createTextNode(''); el.prepend(tn); }
     let text = '';
+    // alloc-rare: the overlay's text and bar values: built at most 10 times a second (the 100 ms gate above), only while an overlay option is on; never in a default run
     for (let i = 0; i < nl; i++) text += `${i ? '\n' : ''}${LINES[i]}`;
     propSoon(tn, 'nodeValue', text);   // (between frames: a text write is a style and layout pass)
   }
@@ -138,9 +146,12 @@ function tick(t) {
     for (let i = 0; i < hist.length && !fast; i++) fast = hist[i] > 66;
     const top = fast ? 120 : 60, off = GRAPH_N - hist.length;
     for (let i = 0; i < GRAPH_N; i++) {
+      // alloc-rare: the overlay's text and bar values: built at most 10 times a second (the 100 ms gate above), only while an overlay option is on; never in a default run
       const v = i < off ? 0 : hist[i - off], k = (Math.min(v, top) / top).toFixed(3);
+      // alloc-rare: the overlay's text and bar values: built at most 10 times a second (the 100 ms gate above), only while an overlay option is on; never in a default run
       if (cv.bars[i].k !== k) { cv.bars[i].k = k; cv.bars[i].style.transform = `scaleY(${k})`; }
     }
+    // alloc-rare: the overlay's text and bar values: built at most 10 times a second (the 100 ms gate above), only while an overlay option is on; never in a default run
     for (let i = 0; i < 3; i++) { const f = GRAPH_LINES[i], ln = cv.lines[i], y = `translateY(${(-38 * Math.min(f, top) / top).toFixed(1)}px)`, o = f > top ? '0' : '1'; if (ln.y !== y) { ln.y = y; ln.style.transform = y; } if (ln.o !== o) { ln.o = o; ln.style.opacity = o; } }
   }
 }

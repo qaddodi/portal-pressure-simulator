@@ -505,11 +505,17 @@ const ptPush = (pts, a, b) => { if (pts.length >= PT_MAX) PT_FREE.push(pts.shift
 // R19: a tile's changing number is drawn on the GPU (gl-words.js: Inter's outlines over the tile's own words, which are made clear and
 // take the number back once it holds still), not written into the page on each model frame. A slide's count still rolls its digits
 // on the compositor (tileGlide), written into the page as it starts.
+// (A record's fields set to another's, in place: the keys it lacks are let go, so it ends equal to `src`, as a fresh copy would, with none made.)
+function copyKeys(dst, src) {
+  for (const k in dst) if (!(k in src)) delete dst[k];
+  for (const k in src) dst[k] = src[k];
+  return dst;
+}
 function tweener(draw) {
   let cur = null, raf = 0;
   const run = (to, ms = 950) => {
     cancelFrame(raf);
-    if (!cur || reduce.matches || ms === 0) { cur = { ...to }; draw(cur); return; }
+    if (!cur || reduce.matches || ms === 0) { cur = copyKeys(cur || {}, to); draw(cur); return; }
     const from = { ...cur }, t0 = performance.now();
     const step = (now) => {
       const u = ease(clamp((now - t0) / ms, 0, 1));
@@ -522,7 +528,7 @@ function tweener(draw) {
   run.again = () => { if (cur) draw(cur); };   // (the same frame again, after the geometry moved)
   run.has = () => !!cur;
   run.stop = () => { cancelFrame(raf); raf = 0; };   // (a glide under way ends where it is; nothing is drawn after)
-  run.jump = (to) => { cancelFrame(raf); cur = { ...to }; draw(cur); };   // (straight to the end, its glide left to the compositor: tileGlide)
+  run.jump = (to) => { cancelFrame(raf); cur = copyKeys(cur || {}, to); draw(cur); };   // (straight to the end, its glide left to the compositor: tileGlide)
   return run;
 }
 
@@ -1745,12 +1751,15 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const track = h('div', { class: 'range-wrap', style: { '--s': String(clamp(frac(v0), 0, 1)) } }, h('span', { class: 'sl-start', 'aria-hidden': 'true' }), input);
     const paint = (x) => { paintRange(input, frac(x)); out.set(fmtV(x)); };
     let raf = 0;
+    // (The frame's step and the task after it, made once with the slider: a drag's inputs ask for them and make no closure.)
+    const sliderLive = () => liveSet(s, i, patchOf(+input.value));
+    const sliderFrame = () => { raf = 0; runSoon(sliderLive); };
     input.addEventListener('input', () => {
       handOn = true;   // (before anything else: the instrument's option below leaves liveOff alone)
       paint(+input.value);
       if (w.tool) { ui?.tools.option({ [w.tool]: +input.value }); return; }   // (an instrument's option: the model is left alone)
       // (Paced to the frames, but the model change and what it wakes run in a task of their own straight after the frame: runSoon.)
-      if (!raf) raf = nextFrame(() => { raf = 0; runSoon(() => liveSet(s, i, patchOf(+input.value))); });
+      if (!raf) raf = nextFrame(sliderFrame);
     });
     // (A finished drag hands the arrow keys back to the slides.)
     input.addEventListener('pointerup', () => input.blur());
@@ -5343,6 +5352,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       for (const el of els) if (!throwing(el) && !throwPinned(el) && el.style.transform) { const o0 = parseFloat(el.style.opacity); el.style.removeProperty('transition'); el.style.removeProperty('opacity'); el.style.removeProperty('transform'); el.animate?.([{ transform: `translateX(${x}px)`, opacity: Number.isFinite(o0) ? o0 : 1 }, { transform: 'none', opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE }); }
       return;
     }
+    // alloc-rare: a swipe is let go: once per gesture
     if (swipeHeld({ gone, changing: changing(), out })) {
       // (The slide is on its way: held here until its leave comes (wordsOut, pageHand); one that never comes eases back.)
       clearTimeout(pageHeld?.t);
@@ -5482,11 +5492,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // the finger's are (setFold, caseFly, go); a box that scrolls itself keeps its wheel (ownsWheel), and a pinch (ctrl) stays the
   // figure's. A fresh swipe to the left on the last slide ends the talk, as the touch swipe and Next do. ──
   let wheelG = null;
+  const wheelStop = { stop: wrap };   // (ownsWheel's options, kept: the wheel's events make none)
   wrap.addEventListener('wheel', (e) => {
     if (!deck || !ui || e.ctrlKey || e.metaKey || leaving || !ui.jump.hidden || isModalOpen()) return;
     const now = e.timeStamp > 0 ? e.timeStamp : performance.now();   // (the event's own time: a slow frame must not stretch a gap inside one glide)
     const [fx, fy] = wheelFinger(e.deltaX, e.deltaY, e.deltaMode, e.webkitDirectionInvertedFromDevice, innerHeight);
-    if (ownsWheel(e.target, Math.abs(fx) > Math.abs(fy) ? 'x' : 'y', { stop: wrap })) { wheelG = wheelG?.spent ? { ...wheelG, t: now } : null; return; }   // (a glide that has acted stays spent under whatever the slide's change brings under the pointer)
+    if (ownsWheel(e.target, Math.abs(fx) > Math.abs(fy) ? 'x' : 'y', wheelStop)) { if (wheelG?.spent) wheelG.t = now; else wheelG = null; return; }   // (a glide that has acted stays spent under whatever the slide's change brings under the pointer)
     if (e.cancelable) e.preventDefault();   // (the browser's own back and forward glide, and the page's scroll, stay out of the talk)
     const r = wheelGesture(wheelG, fx, fy, now);
     wheelG = r.g;

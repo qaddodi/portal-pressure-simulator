@@ -143,5 +143,6 @@ test('a what-if slider or compare button never lays the cards out again as the r
   const live = js.match(/async function liveSet\(s, i, patch\) \{[\s\S]*?\n {2}\}/)[0];
   assert.ok(live.indexOf('liveOff = true') < live.indexOf('dataTo('));
   // (Paced to the frames; the model change runs in a task of its own straight after the frame, store setSoon's rule, 2 Nov 2026.)
-  assert.match(js, /if \(!raf\) raf = nextFrame\(\(\) => \{ raf = 0; runSoon\(\(\) => liveSet\(s, i, patchOf\(\+input\.value\)\)\); \}\);/);
+  assert.match(js, /const sliderLive = \(\) => liveSet\(s, i, patchOf\(\+input\.value\)\);\n\s+const sliderFrame = \(\) => \{ raf = 0; runSoon\(sliderLive\); \};/);
+  assert.match(js, /if \(!raf\) raf = nextFrame\(sliderFrame\);/);
 });
