@@ -8,7 +8,7 @@ globalThis.cancelAnimationFrame = () => {};
 performance.now = () => T;
 globalThis.MutationObserver = class { observe() {} disconnect() {} };
 const ct = await import('../src/ui/card-throw.js');
-const mk = () => { const s = new Map(); return { style: { setProperty: (k, v) => s.set(k, v), removeProperty: (k) => s.delete(k), get transform() { return s.get('transform') || ''; }, get opacity() { return s.get('opacity') || ''; } }, classList: { contains: () => false }, isConnected: true, hidden: false }; };
+const mk = () => { const s = new Map(); return { style: { setProperty: (k, v) => s.set(k, v), removeProperty: (k) => s.delete(k), get transform() { return s.get('transform') || ''; }, get opacity() { return s.get('opacity') || ''; } }, classList: { contains: () => false, add() {}, remove() {} }, isConnected: true, hidden: false }; };
 const tick = (ms) => { T += ms; const f = q; q = []; f.forEach((x) => x(T)); };
 
 test('throwIn mid-entrance does not restart the card from opacity 0', () => {
