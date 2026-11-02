@@ -35,12 +35,12 @@ import { glGet, glCap, glOkBefore, glOkAfter } from './gl-state.js?v=900a43dce7'
 import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { EDGE_GLSL } from './edge.js?v=8321a8017f';
-import { SLOT, DYE_BINS } from './blood.js?v=f6c91d8676';
+import { SLOT, DYE_BINS, PERIOD, DRIFT_PERIOD } from './blood.js?v=f6c91d8676';
 import { cssRGB } from './util.js?v=12b3da4f99';
 import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js?v=d72157dbac';
 import { CELL, ENT_W, binVeins, splitRows, simpleCells, splitCells, cellsOfJoinEntries } from './veins-bin.js?v=6e462a9e6c';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
-import { changedRows } from './flow-rows.js?v=59053c0155';
+import { changedRows } from './flow-rows.js?v=6cd335f84b';
 import { leftAlone } from './quiet.js?v=388052eba8';
 import { uniformCache } from './uniform-cache.js?v=d2bd54b612';
 import { PUBLISH_QUIET_MS, SHADER_WARM, exerciseDraw } from './gl-compile.js?v=0ca233872f';
@@ -55,7 +55,7 @@ import { frameCount, framePhase } from './frame.js?v=c67ad74ad8';
 export { binVeins };
 
 export const N_SAMPLES = 64;
-export const FLOW_TEXELS = 6;          // per-vessel blood: see stage.js (stepBlood, chainRows)
+export const FLOW_TEXELS = 7;          // per-vessel blood: see stage.js (stepBlood, chainRows)
 // Where along a vessel its colour stands at arc fraction u (pressure-along.js): the plain u for a row with no waist (its rad
 // texels' b is −1), else the along curve between its samples. In both the vessel shader and the composite.
 const ALONG_GLSL = `
@@ -103,7 +103,6 @@ const GENERIC = typeof location !== 'undefined' && /[?&]veins=generic\b/.test(lo
 // to the canvas each time it is drawn on (see present). The same pixels either way; the browser no longer keeps (and copies) a second
 // buffer for the canvas on every frame. Every reader of the canvas outside the frame that drew it calls capture() or present() first.
 const OWN_BUF = !(typeof location !== 'undefined' && /[?&]vesselbuf=keep\b/.test(location.search));
-const DYE_SPAN = !(typeof location !== 'undefined' && /[?&]dyespan=0\b/.test(location.search));   // (setDye: only the changed rows go up)
 // One GPU context for the lobule (1 Nov, docs/gpu-practices.md, "one WebGL context for the whole figure"): its overlay (the ductules and
 // the lymph, fx-gl.js) drawn in its vessel canvas over the vessels instead of in a canvas and context of its own. ?lzone=0: apart, as before.
 export const LZ_ONE = !(typeof location !== 'undefined' && /[?&]lzone=0\b/.test(location.search));
@@ -1068,6 +1067,7 @@ uniform int dyeOn;
 const int origin = 0, dyeOn = 0;
 #endif
 uniform float clock;                   // seconds (wrapped), for the drift of stagnant blood
+uniform highp float bT;                // the blood's own clock, from the stage's epoch (flowD: the streams advance here, not on the CPU)
 uniform vec3 originCol[5];
 uniform vec3 dyeCol;
 uniform vec3 revCol;                   // the moving blood's color where flow runs backwards
@@ -1183,6 +1183,25 @@ float radAt(int id, float s, float len) {
   int i0 = min(int(ui), ${N_SAMPLES - 2});
   return max(mix(texelFetch(rad, ivec2(i0, id), 0).r, texelFetch(rad, ivec2(i0 + 1, id), 0).r, ui - float(i0)), 0.3);
 }
+// The blood on the GPU (plan "Holding 120 Hz" §3.7): a stream's distance and its stagnant blood's drift as they stand at the blood
+// clock bT, from where the CPU last anchored them (flow texel 6: that clock B0 and the display speed's factor). Between anchors a
+// stream runs at the speed and stasis it was anchored with, so a steady flow sends nothing a frame. A factor of 0 (the lobule) is the CPU's own distance and drift, as before.
+float flowD(int id, float D, float vd) {
+  vec2 a = texelFetch(flow, ivec2(6, id), 0).xy;
+  return a.y == 0.0 ? D : mod(D + vd * a.y * (bT - a.x), ${PERIOD}.0);
+}
+float flowDrift(int id, float dr, float stasis) {
+  vec2 a = texelFetch(flow, ivec2(6, id), 0).xy;
+  return a.y == 0.0 ? dr : mod(dr + stasis * 0.06 * (bT - a.x), ${DRIFT_PERIOD}.0);
+}
+// A chained vessel's root stream (row rid): its distance and drift now, from its own row (ch: the CPU's copy, flow texel 5).
+vec2 rootDD(int rid, vec2 ch) {
+  vec2 a = texelFetch(flow, ivec2(6, rid), 0).xy;
+  if (a.y == 0.0) return ch;
+  vec4 r0 = texelFetch(flow, ivec2(0, rid), 0);
+  return vec2(mod(r0.x + r0.y * a.y * (bT - a.x), ${PERIOD}.0),
+              mod(texelFetch(flow, ivec2(3, rid), 0).z + r0.w * 0.06 * (bT - a.x), ${DRIFT_PERIOD}.0));
+}
 // Moving blood in one lumen at arc length s (world, may run past either end) and across y (−1 … 1):
 // the parcels' color and coverage, to be laid over the lumen color col. Read once in main for it and the arrowheads alike
 // (they were read by each): the vessel's flow texels f0 and f1 (f1.z > 0: main draws neither where it is not), its length,
@@ -1231,7 +1250,7 @@ vec4 bloodAt(int id, float s, float y, vec3 col, vec4 f0, vec4 f1, float len, fl
   // Its scale follows the zoom without steps: the lane width from a continuous lane count, and the
   // cell size cross-fading between the slot scales (1, 2, 4 slots) over a band of zoom, so it never steps.
   float qy = y * R / max(0.55 * 1.6 * R / clamp(1.7 * R / Lg, 1.0, 7.0), 3.2 * pxW);
-  float drift = texelFetch(flow, ivec2(3, id), 0).z;   // (added up per stream on the CPU: blood.js drift)
+  float drift = flowDrift(id, texelFetch(flow, ivec2(3, id), 0).z, stasis);   // (anchored per stream on the CPU: blood.js drift, flowDrift)
   // A stream carried on from another vessel (flow texel 4: the root's row + 1, A, B, its weight cw; texel 5: the root's distance
   // and drift): the root's pattern at s_e = A + B s, mixed with the vessel's own by cw while a link forms or lets go.
   vec4 ch4 = texelFetch(flow, ivec2(4, id), 0);
@@ -1244,8 +1263,8 @@ vec4 bloodAt(int id, float s, float y, vec3 col, vec4 f0, vec4 f1, float len, fl
     if (lf > 0.0) nz = mix(nz, shimN(id, s, qy, D, k0, t, sB, drift, zoomB.y, 1.0), lf);
   }
   if (cw > 0.0) {
-    vec4 ch5 = texelFetch(flow, ivec2(5, id), 0);
     int rid = int(ch4.x + 0.5) - 1;
+    vec2 ch5 = rootDD(rid, texelFetch(flow, ivec2(5, id), 0).xy);
     float se = ch4.y + ch4.z * s, bs = max(abs(ch4.z), 1e-3);
     float nc = shimN(rid, se, qy, ch5.x, k0, t, sA, ch5.y, smoothstep(1.2 * pxW, 2.0 * pxW, 2.56 * sA / bs), bs);
     if (lf > 0.0) nc = mix(nc, shimN(rid, se, qy, ch5.x, k0, t, sB, ch5.y, smoothstep(1.2 * pxW, 2.0 * pxW, 2.56 * sB / bs), bs), lf);
@@ -1263,8 +1282,8 @@ vec4 bloodAt(int id, float s, float y, vec3 col, vec4 f0, vec4 f1, float len, fl
     if (lf > 0.0) nz = mix(nz, shimN(id, s, qy, D, k0, t, sB, drift, 0.0, 1.0), lf);
   }
   if (cw > 0.0) {
-    vec4 ch5 = texelFetch(flow, ivec2(5, id), 0);
     int rid = int(ch4.x + 0.5) - 1;
+    vec2 ch5 = rootDD(rid, texelFetch(flow, ivec2(5, id), 0).xy);
     float se = ch4.y + ch4.z * s, bs = max(abs(ch4.z), 1e-3);
     float nc = shimN(rid, se, qy, ch5.x, k0, t, sA, ch5.y, 0.0, bs);
     if (lf > 0.0) nc = mix(nc, shimN(rid, se, qy, ch5.x, k0, t, sB, ch5.y, 0.0, bs), lf);
@@ -1383,7 +1402,7 @@ vec2 chevAt(int id, float s, float y, vec4 f0, vec4 f1, float len, float Rs) {
   if (cw > 0.0) {
     int rid = int(ch4.x + 0.5) - 1;
     float Rr = max(texelFetch(rad, ivec2(N_LAST / 2, rid), 0).r, 0.3);
-    vec2 cc = chevOne(id, s, y, f0, f1, len, Rs, R, ch4.y + ch4.z * s, ch4.z, ch5.x, Rr, ch5.zw);
+    vec2 cc = chevOne(id, s, y, f0, f1, len, Rs, R, ch4.y + ch4.z * s, ch4.z, rootDD(rid, ch5.xy).x, Rr, ch5.zw);
     c = cw >= 1.0 ? cc : mix(c, cc, cw);
   }
   return c;
@@ -1533,6 +1552,7 @@ void main() {
     vec3 vc1 = vec3(0.0);
     if (blood == 1 || chev == 1) {
       f0 = texelFetch(flow, ivec2(0, id1), 0); f1 = texelFetch(flow, ivec2(1, id1), 0);
+      f0.x = flowD(id1, f0.x, f0.y);   // (the distance now: flowD)
       if (f1.z > 0.0) {
         len1 = max(texelFetch(tube, ivec2(5, id1), 0).z, 1.0);
         R1 = radAt(id1, s1, len1);
@@ -1558,6 +1578,7 @@ void main() {
       mn = max(-min(s1 < 0.5 * lenA ? e1.x : e1.y, 0.0), -min(s2 < 0.5 * len2 ? e2.x : e2.y, 0.0));
       if (rel > 0.0) {
         f0b = texelFetch(flow, ivec2(0, id2), 0); f1b = texelFetch(flow, ivec2(1, id2), 0);
+        f0b.x = flowD(id2, f0b.x, f0b.y);
         if (f1b.z > 0.0) R2 = radAt(id2, s2, len2);
         else rel = 0.0;
       }
@@ -3398,16 +3419,14 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       figVer++;
       dyeAny = !!data;
       if (!data) return;
-      // (Plan "Holding 120 Hz" §3.7: only the span of rows that changed goes up, as the flow table's; the first upload sends them all.
-      // ?dyespan=0: the whole table every frame, as before.)
+      // (Plan "Holding 120 Hz" §3.7: only the span of rows that changed goes up, as the flow table's; the first upload sends them all.)
       let lo = 0, hi = nTubes - 1;
-      if (dyeSent && DYE_SPAN) {
+      if (dyeSent) {
         markRows(data, dyeSent, DYE_BINS);
         const span = changedRows(data, dyeSent, DYE_BINS, nTubes);
         if (!span) return;
         lo = span[0]; hi = span[1];
-      } else if (dyeSent) markRows(data, dyeSent, DYE_BINS);
-      else { dyeSent = new Float32Array(DYE_BINS * nTubes); movedAll = true; }
+      } else { dyeSent = new Float32Array(DYE_BINS * nTubes); movedAll = true; }
       dyeSent.set(data.subarray(0, DYE_BINS * nTubes));
       gl.bindTexture(gl.TEXTURE_2D, dyeTex);
       gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, lo, DYE_BINS, hi - lo + 1, gl.RED, gl.FLOAT, data.subarray(lo * DYE_BINS, (hi + 1) * DYE_BINS));
@@ -3791,6 +3810,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         UC.i1(U.origin, blood.origin ? 1 : 0);
         UC.i1(U.dyeOn, dyeAny && blood.dye !== false ? 1 : 0);
         UC.f1(U.clock, blood.clock || 0);
+        UC.f1(U.bT, blood.bt || 0);
         UC.f1(U.rows, nTubes);
         UC.fv3(U.originCol, originColOf(blood.originCol || ORIGIN_WHITE));
         UC.f3a(U.dyeCol, blood.dyeCol || [0.8, 0.95, 0.2]);
@@ -3812,7 +3832,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         fluidRect || [0, 0, 1, 1], fl?.s || [0, 0, 0, 0], fl ? fl.ink : [0, 0, 0, 0], fl?.lv || [1, 0],
         blood.on, blood.chev, blood.still, blood.alpha ?? 1, blood.streakA ?? 1, blood.chevA ?? 1, blood.originA ?? 1,
         blood.chevInk || [0.08, 0.08, 0.1], blood.chevLight || [1, 0.93, 0.86], blood.vdpr || 1, blood.origin, dyeAny && blood.dye !== false,
-        BLOOD_SAT, blood.streakLen,
+        BLOOD_SAT, blood.streakLen, blood.bt || 0,
         originColOf(blood.originCol || ORIGIN_WHITE), blood.dyeCol || [0.8, 0.95, 0.2], blood.revCol || [1, 0.55, 0.16],
         blood.inkLight || [1, 1, 1], blood.inkDark || [0.1, 0.1, 0.16], ncv, nc.length, hb, hr, ho.length, layer, glow, warm, useStack, bare, texVer);
       let same = !!stillSig && sn === stillN && sn < sigNow.length;

@@ -57,14 +57,14 @@ import { createLabelGL } from './label-gl.js?v=b0461da43a';
 import { createGlassGL } from './glass-gl.js?v=77ac0f070c';
 import { writePoints, writeJoinNow } from './veins-sweep.js?v=c4ad517372';
 import { ENT_W } from './veins-bin.js?v=6e462a9e6c';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=2c49e3553d';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=3b96e5aea7';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=d950c5cd1c';
 import { alongCurve } from './pressure-along.js?v=74c64e4286';
 import { follow2, createColourFollow, SHOWN_TAU } from './display-state.js?v=8d062d39dc';
-import { advanceStream, createStreamChain, displaySpeed, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=f6c91d8676';
+import { advanceStream, createStreamChain, displaySpeed, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS, PERIOD, DRIFT_PERIOD } from './blood.js?v=f6c91d8676';
 import { createDyeRemote } from './dye-remote.js?v=0a8acbcda1';
-import { retireRows, flowClose } from './flow-rows.js?v=59053c0155';
+import { retireRows, flowClose } from './flow-rows.js?v=6cd335f84b';
 import { createFlowDash, chevSpacing, inHole } from './flow-dash.js?v=d64fcc2971';
 import { createJunctionWidths } from './junction-widths.js?v=c5726a67f9';
 import { planTaper, taperAt } from './vessel-taper.js?v=38c471f360';
@@ -143,6 +143,9 @@ const BLOOD_CHAIN = !(typeof location !== 'undefined' && /[?&]bloodchain=0\b/.te
 // A streak's length follows its vessel's display speed (veins-gl.js bloodAt): a fast vessel's streaks run long and a slow one's are short
 // dashes, so a still frame shows speed too. ?streaklen=0 in the address draws every streak as it was before 1 Nov: the same picture exactly.
 const STREAK_LEN = !(typeof location !== 'undefined' && /[?&]streaklen=0\b/.test(location.search));
+// The blood on the GPU (plan "Holding 120 Hz" §3.7): each stream is anchored (its distance, drift, display speed and stasis at a blood
+// clock) and the shader runs it on from there (veins-gl flowD), so a steady flow leaves the table as it was and nothing goes up a frame;
+// a stream is anchored again only when its speed or stasis moves past a hair.
 // Vessels that run on into one another narrow or widen as one continuous taper through the run (vessel-taper.js). ?taper=0 in the
 // address draws each join as it was before 1 Nov (one ease over half of each vessel, counted in samples): the same picture exactly.
 const TAPER = !(typeof location !== 'undefined' && /[?&]taper=0\b/.test(location.search));
@@ -2806,7 +2809,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=c269551df4').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=248e7cc97b').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -11839,6 +11842,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   //   2: fraction of its blood from the SMV, the IMV, the splenic vein and the hepatic artery (rest: systemic)
   //   3: chevron visibility (0–1, eased: Key chevrons only fades the rest); the still chevrons' spacing level (reduced motion,
   //      chevFlowLevel); the stagnant blood's drift (shimmer cells, blood.js drift)
+  //   6: the blood clock the stream was anchored at (from bEpoch) and its display speed's factor (0: not anchored);
+  //      texels 0 and 3 then hold the distance and drift as they stood at that clock (anchorStream, veins-gl flowD)
   const flowData = new Float32Array(GL_ROWS * FLOW_TEXELS * 4);
   // (The rows written this frame and last: stepBlood clears a row once when its vessel stops drawing.)
   const flowNow = new Uint8Array(GL_ROWS), flowWas = new Uint8Array(GL_ROWS);
@@ -11850,6 +11855,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const bolus = createDyeRemote(EDGES, NODES, () => new Worker(new URL('./dye-worker.js?v=22ec1e9ddf', import.meta.url), { type: 'module' }));
   const net = { Q: new Float32Array(EDGES.length), vd: new Float32Array(EDGES.length), len: new Float32Array(EDGES.length) };
   let origins = null, originsF = null, bloodClock = 0, dyeShown = false;
+  // (The blood clock's epoch for the GPU: the shader takes the clock less it, kept under BT_SPAN seconds so its float stays fine; each
+  // time it moves on, every stream is anchored again from its own distance.)
+  const BT_SPAN = 32, VD_HAIR = 0.01, VD_REL = 0.004, STASIS_HAIR = 0.002;
+  let bEpoch = 0;
+  function anchorStream(sm, sp, t, reset) {
+    if (!reset && sm.aB != null && t >= sm.aB) {
+      const dt = t - sm.aB;
+      // (Where the GPU has it now: the stream's own distance and drift follow it, so the two never part.)
+      sm.D = (((sm.aD + sm.aV * sm.aS * dt) % PERIOD) + PERIOD) % PERIOD;
+      sm.drift = (sm.aR + sm.aT * 0.06 * dt) % DRIFT_PERIOD;
+      if (sp === sm.aS && Math.abs(sm.vd - sm.aV) <= VD_HAIR + VD_REL * Math.abs(sm.aV) && Math.abs(sm.stasis - sm.aT) <= STASIS_HAIR) return;
+    }
+    sm.aB = t; sm.aD = sm.D; sm.aV = sm.vd; sm.aT = sm.stasis; sm.aS = sp; sm.aR = sm.drift || 0;
+  }
   // In the imaging view the flow shows once a Doppler has looked at it (still in neutral colours: pressures stay unmeasured).
   const flowSeen = () => !store.get().imaging || !!store.get().found?.has('flow');
   const bloodOn = () => !!F && flowSeen() && store.get().layers.flow !== false;
@@ -11950,7 +11969,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (rs) {
           flowData[o + 15] = c.par[i] + 1;
           flowData[o + 16] = c.root[i] + 1; flowData[o + 17] = c.A[i]; flowData[o + 18] = c.B[i]; flowData[o + 19] = w;
-          flowData[o + 20] = rs.D; flowData[o + 21] = rs.drift || 0;
+          flowData[o + 20] = rs.aD; flowData[o + 21] = rs.aR;   // (the shader reads the root's own row: rootDD)
         }
       }
       flowData[o + 22] = ef; flowData[o + 23] = et;
@@ -11966,6 +11985,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const speed = st.clock === 'hemo' ? clamp(Math.sqrt(st.speed), 0.5, 2) : 0.8;
     const Qf = F.Qf || F.Q;
     if (moving) bloodClock = (bloodClock + dt * restK) % 10000;
+    const bReset = (bloodClock < bEpoch || bloodClock - bEpoch > BT_SPAN);
+    if (bReset) bEpoch = bloodClock;
+    const bT = bloodClock - bEpoch;
     // Reversed flow (against the healthy direction, as the Direction lens has it) eases in and out.
     // (Reduced motion: the streams stand still but follow the flow's direction at once, and nothing eases.)
     const still = st.running && (reduceMotion.matches || dashes);
@@ -11988,6 +12010,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const rt = revHold[k];
       so.large = LARGE[k]; so.rev = !!rt;
       const sm = advanceStream(streams[k], velQf[k], velQ[k], moving ? dt * restK : 0, so);
+      anchorStream(sm, speed, bT, bReset);
       // (The dashes' stream: as the canvas's would run, eased and held through a turn, its distance unused.)
       if (dashes) { so.still = false; advanceStream(dashSt[k], velQf[k], velQ[k], st.running ? dt : 0, so); so.still = still; }
       sm.rev = sm.rev == null ? rt : eased(sm.rev, rt, ease);
@@ -12010,14 +12033,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const put = (row, k, q, f0, f1, strength) => {
       const o = row * FLOW_TEXELS * 4, sm = streams[k];
       flowData.fill(0, o, o + FLOW_TEXELS * 4); flowNow[row] = 1;
-      flowData[o] = sm.D; flowData[o + 1] = sm.vd; flowData[o + 2] = KAPPA * Math.abs(q); flowData[o + 3] = sm.stasis;
+      flowData[o] = sm.aD; flowData[o + 1] = sm.aV; flowData[o + 2] = KAPPA * Math.abs(q); flowData[o + 3] = sm.aT;
+      flowData[o + 24] = sm.aB; flowData[o + 25] = sm.aS;
       flowData[o + 4] = f0 ? 1 : 0; flowData[o + 5] = f1 ? 1 : 0; flowData[o + 6] = strength; flowData[o + 7] = sm.rev;
       if (origins) for (let c = 0; c < ORIGIN_N; c++) flowData[o + 8 + c] = origins[k * ORIGIN_N + c];
       flowData[o + 12] = sm.chevK ?? 1;
       // Reduced motion: the chevrons stand still, so their spacing carries the flow (veins-gl chevAt): a level of 0 (the
       // finest, 28 units) for 0.8 L/min or more, one level coarser for each halving, at most 3.
       flowData[o + 13] = chevFlowLevel(q);
-      flowData[o + 14] = sm.drift || 0;
+      flowData[o + 14] = sm.aR;
     };
     // A vessel drawing on (a TIPS, a new collateral) or retracting carries its blood in step with its stroke, and a strand or a
     // tributary as it comes and goes: a strength that follows them, instead of no blood until the end and then all of it in
@@ -12113,7 +12137,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const st = store.get(), b = st.blood || {};
     // (Each drawn while it shows at all, by its eased share: stepBlood's blendA; its own switch before the first step.)
     const sA = blendA.s ?? (bloodOn() ? 1 : 0), cA = blendA.c ?? (chevOn() && !cath.st ? 1 : 0), oA = blendA.o ?? (originOn() ? 1 : 0);
-    return { on: sA > 0, still: reduceMotion.matches, chev: cA > 0, look: b.look, origin: oA > 0, streakA: sA, chevA: cA, originA: oA, streakLen: STREAK_LEN, clock: bloodClock, dye: !st.imaging, bleed: bleedSpray(), noChev: noChevBoxes, holes: chevHoles, vdpr, ...bloodColors() };
+    return { on: sA > 0, still: reduceMotion.matches, chev: cA > 0, look: b.look, origin: oA > 0, streakA: sA, chevA: cA, originA: oA, streakLen: STREAK_LEN, clock: bloodClock, bt: bloodClock - bEpoch, dye: !st.imaging, bleed: bleedSpray(), noChev: noChevBoxes, holes: chevHoles, vdpr, ...bloodColors() };
   }
 
   // ── ?flow=dashes: the motion as small layers (flow-dash.js) ──────────

@@ -283,7 +283,7 @@ test('the lumen buffer flags a second lumen in its row\'s top bit, and the fast 
 // ── Item 7: lumens whose vessels did not change are left as drawn in the blood's own pass ──
 test('the blood pass leaves a lumen alone only when neither of its vessels\' rows nor any uniform changed', () => {
   const main = body(R.fast, 'void main()');
-  assert.match(main, /if \(bloodOnly == 1 && stillOn == 1 && texelFetch\(flow, ivec2\(6, int\(g\.x\) - 1\), 0\)\.x == 0\.0\n\s*&& \(!two \|\| texelFetch\(flow, ivec2\(6, int\(\(inL \? texelFetch\(gbuf2, lp, 0\) : uvec4\(0u\)\)\.x & 2047u\) - 1\), 0\)\.x == 0\.0\)\) discard;/);
+  assert.match(main, /if \(bloodOnly == 1 && stillOn == 1 && texelFetch\(flow, ivec2\(7, int\(g\.x\) - 1\), 0\)\.x == 0\.0\n\s*&& \(!two \|\| texelFetch\(flow, ivec2\(7, int\(\(inL \? texelFetch\(gbuf2, lp, 0\) : uvec4\(0u\)\)\.x & 2047u\) - 1\), 0\)\.x == 0\.0\)\) discard;/);
   assert.doesNotMatch(R.classic, /stillOn/);
   const comp = glSrc.slice(glSrc.indexOf('    composite(look, blood = {}, full = false, part = 0) {'), glSrc.indexOf('    /** Whether organ outlines can be drawn here'));
   // Never in a whole picture, a bleed (the one uniform left out of the comparison, the clock, moves it), the classic build, or
@@ -296,10 +296,10 @@ test('the blood pass leaves a lumen alone only when neither of its vessels\' row
   for (const x of ['m, PW(), PH()', 'pm', 'plate?.alpha', 'plate?.sat', 'plates[0]?.rect', 'plates[1]?.rect', 'fluidRect', 'fl?.s', 'fl.ink', 'fl?.lv',
     'blood.on', 'blood.chev', 'blood.still', 'blood.alpha', 'blood.streakA', 'blood.chevA', 'blood.originA', 'blood.chevInk', 'blood.chevLight', 'blood.vdpr',
     'blood.origin', 'dyeAny', 'originColOf', 'blood.dyeCol', 'blood.revCol', 'blood.inkLight', 'blood.inkDark', 'ncv', 'nc.length', 'hb', 'hr', 'ho.length',
-    'BLOOD_SAT', 'layer', 'glow', 'warm', 'useStack', 'bare', 'texVer']) assert.ok(sig.includes(x), x);
+    'BLOOD_SAT', 'blood.bt', 'layer', 'glow', 'warm', 'useStack', 'bare', 'texVer']) assert.ok(sig.includes(x), x);
   const uniforms = [...comp.matchAll(/UC\.\w+\(U\.(\w+)/g)].map((m) => m[1]);
   for (const u of uniforms) assert.ok(['world', 'size', 'cell', 'inv', 'H', 'pxW', 'plates', 'plateAlpha', 'plateSat', 'plateRect0', 'plateRect1', 'fluidRect', 'fluidS', 'fluidInk', 'fluidLv',
-    'blood', 'chev', 'still', 'flowA', 'blendA', 'chevInk', 'chevLight', 'cssPx', 'sat', 'origin', 'dyeOn', 'clock', 'rows', 'originCol', 'dyeCol', 'revCol', 'inkLight', 'inkDark',
+    'blood', 'chev', 'still', 'flowA', 'blendA', 'chevInk', 'chevLight', 'cssPx', 'sat', 'origin', 'dyeOn', 'clock', 'bT', 'rows', 'originCol', 'dyeCol', 'revCol', 'inkLight', 'inkDark',
     'bleedE', 'bleedB', 'bleedN', 'noChev', 'noChevN', 'chevHole', 'chevHoleR', 'chevHoleN', 'lenOn', 'bloodOnly', 'stillOn'].includes(u), `uniform ${u} is accounted for`);
   // The rows and this picture's uniforms are taken as the last picture's only once it is drawn.
   assert.ok(comp.indexOf('moved.fill(0); movedAll = false;') > comp.indexOf('UC.i1(U.bloodOnly, 1);'));
@@ -309,7 +309,7 @@ test('the blood pass leaves a lumen alone only when neither of its vessels\' row
   assert.match(api, /setBend\(row, pts\) \{[\s\S]*?if \(same\) return;[\s\S]*?figVer\+\+;\n\s*moved\[row\] = 1;\n\s*gl\.bindTexture\(gl\.TEXTURE_2D, bendTex\);/);
   assert.match(api, /radRows\.add\(row\); moved\[row\] = 1;/);
   assert.match(api, /markRows\(data, flowSent, stride\);\n\s*const span = changedRows/);
-  assert.match(api, /if \(dyeSent\) markRows\(data, dyeSent, DYE_BINS\);/);
+  assert.match(api, /if \(dyeSent\) \{\n\s*markRows\(data, dyeSent, DYE_BINS\);/);
   // (setGeometry, patchGeometry and setMorphFrame: a frame of the change between the views writes every vessel's points, stage.js morphFrame.)
   assert.equal((api.match(/fboOK = false; movedAll = true;/g) || []).length, 3);
   assert.ok(body(api, 'setMorphFrame(data) {').includes('fboOK = false; movedAll = true;'));

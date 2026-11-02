@@ -6,7 +6,7 @@ import { budget as gpuBudget } from './gpu-budget.js?v=47759d6d7b';   // (the re
 import './gl-state.js?v=900a43dce7';   // (early: every WebGL2 context is recorded from its creation, R09/R06)
 import { startHost, host } from './host.js?v=606ab97574';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=bf85512db4';
-import { createStage } from './stage.js?v=d0db881542';
+import { createStage } from './stage.js?v=76d340b03a';
 import { createCreditPlacer } from './credit.js?v=6c911a64c2';
 import { whenQuiet, booting, holdCover } from './quiet.js?v=388052eba8';
 import { sinusoidSupported } from './gl-support.js?v=38189f60f5';
@@ -135,7 +135,7 @@ async function main() {
   app.dataset.engine = kind;
   document.addEventListener('visibilitychange', () => host.send({ type: 'visibility', visible: !document.hidden }));
   host.send({ type: 'visibility', visible: !document.hidden });
-  if (PAINT_ACK) host.send({ type: 'ackPaint', on: true });   // (each painted model frame is told back: paintFrame)
+  host.send({ type: 'ackPaint', on: true });   // (each painted model frame is told back: paintFrame)
   bindParamSender((params, settle) => host.send({ type: 'setParams', params, settle }));
 
   // Both asked at once: one round trip to the engine before any UI, not two.
@@ -465,10 +465,9 @@ function watchInspectorSeen() {
   inspSeen = new MutationObserver(inspectorSeen);
   inspSeen.observe(app, { attributes: true, attributeFilter: ['class'] });
 }
-// (Plan §3.2: the worker builds its next clock frame only once this one is painted (worker-core.js ackPaint). ?paintack=0: off.)
-const PAINT_ACK = !/[?&]paintack=0\b/.test(location.search);
+// (Plan §3.2: the worker builds its next clock frame only once this one is painted (worker-core.js ackPaint).)
 function paintFrame(f) {
-  if (PAINT_ACK) host?.send({ type: 'painted' });
+  host?.send({ type: 'painted' });
   watchInspectorSeen();
   const now = performance.now();
   if (jumpSeen) { jumpSeen = false; noteJump(); }

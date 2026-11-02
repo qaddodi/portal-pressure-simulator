@@ -147,14 +147,14 @@ test('stage: ?bloodchain=0 turns it off; the links are written into the rows put
   assert.match(fn, /it\.m = displaySpeed\(sg \* Math\.max\(0, sg \* velQf\[k\]\)\);/);
   assert.match(fn, /flowData\[o \+ 15\] = c\.par\[i\] \+ 1;/);
   assert.match(fn, /flowData\[o \+ 16\] = c\.root\[i\] \+ 1; flowData\[o \+ 17\] = c\.A\[i\]; flowData\[o \+ 18\] = c\.B\[i\]; flowData\[o \+ 19\] = w;/);
-  assert.match(fn, /flowData\[o \+ 20\] = rs\.D; flowData\[o \+ 21\] = rs\.drift \|\| 0;/);
+  assert.match(fn, /flowData\[o \+ 20\] = rs\.aD; flowData\[o \+ 21\] = rs\.aR;/);
   assert.match(fn, /NO_CHAIN\.has\(x\.e\.id\)/);
   // (After the rows are filled and before they go up.)
   assert.ok(stage.indexOf('if (on && BLOOD_CHAIN) {') > 0 && stage.indexOf('if (on && BLOOD_CHAIN) {') < stage.indexOf('const retired = retireRows(flowData, flowWas, flowNow, FLOW_TEXELS * 4);'));
 });
 
 test('composite: with nothing chained, the streaks, the heads and the join are drawn as before', () => {
-  assert.match(gl, /export const FLOW_TEXELS = 6;/);
+  assert.match(gl, /export const FLOW_TEXELS = 7;/);
   // The own pattern only while the link's weight is below 1, the root's only above 0.
   assert.match(gl, /if \(cw < 1\.0\) \{\n\s*nz = shimN\(id, s, qy, D, k0, t, sA, drift, zoomB\.x, 1\.0\);/);
   assert.match(gl, /if \(cw < 1\.0\) c = chevOne\(id, s, y, f0, f1, len, Rs, R, s, 1\.0, f0\.x, R, ch5\.zw\);/);

@@ -54,5 +54,5 @@ export function flowClose(data, kept, stride, rows, fixed = FLOW_FIXED, rel = 0.
   return true;
 }
 // (The blood table's columns kept to 0.001 by flowClose: 0 the stream's distance, 14 its drift, 17 and 18 a chain's A and B,
-// 20 and 21 the root's distance and drift. stage.js stepBlood lists the columns.)
-export const FLOW_FIXED = (() => { const f = new Uint8Array(64); for (const c of [0, 14, 17, 18, 20, 21]) f[c] = 1; return f; })();
+// 20 and 21 the root's distance and drift, 24 and 25 a stream's anchor (its clock and speed factor). stage.js stepBlood lists the columns.)
+export const FLOW_FIXED = (() => { const f = new Uint8Array(64); for (const c of [0, 14, 17, 18, 20, 21, 24, 25]) f[c] = 1; return f; })();
