@@ -6284,7 +6284,11 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .pzt-bar [hidden] { display: none; }
 /* (The dot, 12 px with its 2 px ring, overhangs the 6 px track by 5 px above and below: the track sits 4 px into the bar and the
    cut-off numbers start under the ring, so the dot never touches the rating over the bar or a number under it. iPad, 16 Oct.) */
-.pzb-track { position: absolute; left: 0; right: 0; top: 4px; height: 6px; }
+.pzb-track { position: absolute; left: 0; right: 0; top: 4px; height: 6px; overflow-x: clip; }
+/* (overflow-x: clip, 2 Nov 2026: the dot, ring and link are boxes as wide as the track moved by translate (bf3e162e), so a dot at 70 %
+   pushed its box 70 % past the track's end. That reached the card's scroll width, the card's fit read it as overflow and drew every
+   phone instrument card at half size: Beat by beat's trace and the scope squat and tiny. Clipped sideways only, the dot still overhangs
+   the track above and below; it is clamped 6 px inside the ends, so only its 2 px halo can meet the clip at the very end of a scale.) */
 /* (A change of slide eases the marks' translate and the link's scale on the compositor over the count's own --tile-ms: presenter.js
    tileGlide. ?tileroll=0 drops .tglide: the marks are written each frame of the count.) */
 .tglide { --tile-ms: 950ms; }
