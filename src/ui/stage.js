@@ -93,7 +93,7 @@ import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath,
 import { CellGrid, geomOf } from './cell-grid.js?v=52b9227071';
 import { restPass } from './rest-pass.js?v=442dee98c9';
 import { glWords } from './gl-words.js?v=136aebd44d';
-import { provideStage } from './layout-snap.js?v=49b358c305';
+import { provideStage } from './layout-snap.js?v=49ac75f2f5';
 const nextFrame = frameFor('stage');
 // (1 Nov 2026, "Move everything to GPU": zero layout inside the frame. Boxes the figure's pieces keep clear of (the slide's cards, the
 // key pill, the readings' own sizes, the home look's room) are read first in a frame, before anything is written (frame.js readFrame),

@@ -16,11 +16,14 @@
 import { framePhase } from './frame.js?v=897b4f8e7e';
 
 // Where the reads happen: by the frame's phase ('read' is the clean one; 'early', 'late' and 'final' come after writes) or 'task'
-// (an event, a timer, an observer). Counted only while ?perf or ?offgpu is watching; window.pps.layoutReads() in the console.
+// (an event, a timer, an observer). Counted only while ?perf or ?offgpu is watching, or a device report records; window.pps.layoutReads() in the console.
 const WATCH = typeof location !== 'undefined' && /[?&](perf|offgpu)\b/.test(location.search || '');
 const counts = { read: 0, early: 0, late: 0, final: 0, task: 0 };
-const note = WATCH ? () => { counts[framePhase() || 'task']++; } : () => {};
+let watching = WATCH;
+const note = () => { if (watching) counts[framePhase() || 'task']++; };
 export const layoutReads = () => ({ ...counts, afterWrites: counts.early + counts.late + counts.final });
+// (The device report (device-report.js) counts them for its minute: on, from zero; off again after, unless ?perf or ?offgpu asked.)
+export function countReads(on) { if (on) for (const k in counts) counts[k] = 0; watching = on || WATCH; }
 
 // ---- The one place the browser is asked. ----
 // (Each takes the element first; a missing element gives undefined, as `el?.method()` did.)

@@ -6,17 +6,17 @@ import { budget as gpuBudget } from './gpu-budget.js?v=82c7c5c48f';   // (the re
 import './gl-state.js?v=900a43dce7';   // (early: every WebGL2 context is recorded from its creation, R09/R06)
 import { startHost, host } from './host.js?v=b2e74450ff';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=103e271dec';
-import { createStage } from './stage.js?v=b0db94928a';
-import { createCreditPlacer } from './credit.js?v=93acc9e4d0';
+import { createStage } from './stage.js?v=d5982823a8';
+import { createCreditPlacer } from './credit.js?v=bb1dabcbd2';
 import { whenQuiet, booting, holdCover } from './quiet.js?v=388052eba8';
 import { sinusoidSupported } from './gl-support.js?v=38189f60f5';
 import { createInspector } from './inspector.js?v=7d5a084e24';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=c898ac80ec';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=859fc3596b';
 import { setHvpgStage } from './hvpg-proc.js?v=3dd06df0ae';
 import { createWhy } from './why.js?v=ff60774266';
 import { createTimeline, LAPSES } from './timeline.js?v=7f3f25cd1e';
 import { createCompare } from './compare.js?v=ccf38c603d';
-import { createCard } from './card.js?v=2efba74d99';
+import { createCard } from './card.js?v=7c0836a7de';
 import { createChart } from './chart.js?v=a39615004d';
 import { createMenu } from './menu.js?v=24d84a68cd';
 import { caption } from './a11y.js?v=2e91fb45b9';
@@ -32,7 +32,7 @@ import { glidePlateOn, platePieces, glideOnResize } from './plate-glide.js?v=b60
 import { sheetParts, sheetOffset, setSheetOffset, stopSheet, glideSheet } from './sheet-move.js?v=09fc291f37';
 import { releaseSpeed, isFlick, flickAim, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=7513a88c68';
 import { morphKey, crossfadeText } from './legend-morph.js?v=17917aefa4';
-import { glideNow } from './seg-glide.js?v=608e337195';
+import { glideNow } from './seg-glide.js?v=a4fba26b67';
 import './focus-ring.js?v=3262cead68';
 import { knownLook, currentLook, isDarkLook, lastDarkLook, applyLookAttrs } from './looks.js?v=2d098211a4';
 import { lookChooser } from './look-chooser.js?v=35ce0db22e';
@@ -62,7 +62,8 @@ import { noteJump } from './display-state.js?v=8d062d39dc';
 import { createIdleRest } from './idle-rest.js?v=4d23822371';
 import { easeIO3, glideShift, pillState, foldPill, stopFold } from './pill-motion.js?v=adefe2fd4f';
 import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=81fbedda6b';
-import { readAnims, readBox, readElAt, readMetric, readStyle, scrollInto } from './layout-snap.js?v=49b358c305';
+import { readAnims, readBox, readElAt, readMetric, readStyle, scrollInto } from './layout-snap.js?v=49ac75f2f5';
+import { recordDeviceReport, REPORT_S } from './device-report.js?v=d580fb31b8';
 import './scroll-edges.js?v=d33400a8da';   // (soft fades at the ends of lists that scroll, only where there is more; ?edges=0 off)
 const nextFrame = frameFor('main');
 
@@ -212,7 +213,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=517490c14c'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=7f923f6bfc'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -332,7 +333,7 @@ async function main() {
   for (const k of ['focus', 'labelLevel', 'selection']) { let was = store.get()[k]; store.on(k, (v) => { if (v === was) return; was = v; redraw(); }); }
 
   // Console handle for educators preparing a class (and for automated screenshots).
-  window.pps = { resumeUrl, loadPreset, store, updateParams, setTool, dock, details: (sel) => { store.set({ details: sel }); openPanel(); }, stage, host, card, timeline, menu: mainMenu, palette, presenter, get perf() { return framePerf(); }, motionBudget, budget: gpuBudget, get credit() { return creditPlacer; } };
+  window.pps = { resumeUrl, loadPreset, store, updateParams, setTool, dock, details: (sel) => { store.set({ details: sel }); openPanel(); }, stage, host, card, timeline, menu: mainMenu, palette, presenter, get perf() { return framePerf(); }, motionBudget, budget: gpuBudget, get credit() { return creditPlacer; }, deviceReport: () => deviceReport() };
   const linked = await presenter.readLink();
   if (linked) mainMenu.open('scripts', { mark: typeof linked === 'string' ? linked : null });
   const shared = readShare(), back = new URLSearchParams(location.search).has('back');
@@ -1121,6 +1122,8 @@ function openHelpMenu(anchor, at = { align: 'start', cls: 'app-menu' }) {
     menuItem('About the model', { icon: 'info', onClick: () => { closePopover(); openAbout(); } }),
     menuItem('References', { icon: 'case', onClick: () => { closePopover(); openAbout('refs'); } }),
     menuItem('Privacy', { icon: 'lock', onClick: () => { closePopover(); openPrivacy(); } }),
+    // (recs.md 2.10: a minute of this device's frames, overruns, tiers, carried work and layout reads, to copy or send.)
+    menuItem(reportStop ? 'Device report: finish now' : 'Device report', { icon: 'activity', onClick: () => { closePopover(); deviceReport(); } }),
     h('div', { class: 'menu-sep' }),
     h('a', { class: 'menu-credit', href: AUTHOR_URL, target: '_blank', rel: 'noopener', onclick: () => closePopover() },
       h('span', {}, 'Created by ', h('b', {}, AUTHOR)), h('span', { class: 'mc-link' }, 'More teaching tools ', icon('chev-right'))),
@@ -1129,6 +1132,24 @@ function openHelpMenu(anchor, at = { align: 'start', cls: 'app-menu' }) {
 // Send feedback: a draft in the viewer's own email app, addressed to the author, with what a bug report needs underneath
 // (the build from the preview pill, the device, the screen and a link back to this exact view). The app itself sends
 // nothing, so the Privacy page stays true.
+// The device report (device-report.js): one tap records a minute while the app is used as usual; a card then offers it to copy or to
+// email. A second tap (or Finish now) ends the minute early with what it has.
+let reportStop = null;
+function deviceReport() {
+  if (reportStop) { reportStop(); return; }
+  const build = document.getElementById('preview-badge')?.textContent.trim() || 'Live site';
+  const header = [`Build: ${build}`, `Device: ${navigator.userAgent}`, `Screen: ${innerWidth} × ${innerHeight} at ${devicePixelRatio}×`, `View: ${resumeUrl()}`];
+  const note = toast(`Recording a device report for ${REPORT_S} s. Use the app as usual.`, '', { sticky: true, actions: [['Finish now', () => reportStop?.()]] });
+  reportStop = recordDeviceReport({
+    header,
+    done: (text) => {
+      reportStop = null; note('done');
+      const copy = () => navigator.clipboard?.writeText(text).then(() => toast('Device report copied.'), () => toast('Could not copy here: use Email it.', 'bad'));
+      toast('Device report ready.', '', { sticky: true, actions: [['Copy report', copy], ...(FEEDBACK_EMAIL ? [['Email it', () => { location.href = `mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent('Portal Pressure Simulator device report')}&body=${encodeURIComponent(text)}`; }]] : []), ['Close', () => {}]] });
+      window.pps && (window.pps.lastDeviceReport = text);
+    },
+  });
+}
 function sendFeedback() {
   try { localStorage.setItem(ASK_KEY, 'done'); } catch { /* storage unavailable */ }   // (sent once: the timed ask never comes)
   const build = document.getElementById('preview-badge')?.textContent.trim() || 'Live site';
