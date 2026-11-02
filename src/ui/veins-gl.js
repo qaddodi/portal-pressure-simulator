@@ -49,6 +49,7 @@ import { createOrganStack, prestartOrganStack, prestartLayer } from './organs-gl
 import { warmFade } from './res-fade-gl.js?v=3cf9d3504d';
 import { fusedVS, fusedFS } from './veins-fuse.js?v=892ef12160';
 import { NOISE_W, NOISE_H, NOISE_PER_ROW, OCTAVES, noiseBlock, blockAt, tableSize } from './blood-noise.js?v=bc65994b25';
+import { rendererVerdict } from './sw-yield.js?v=703c656c2b';
 
 export { binVeins };
 
@@ -2936,6 +2937,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     const ri = gl.getExtension('WEBGL_debug_renderer_info');
     software = /SwiftShader|llvmpipe|softpipe|Software|Basic Render/i.test(String(gl.getParameter(ri ? ri.UNMASKED_RENDERER_WEBGL : gl.RENDERER)));
   } catch { software = false; }
+  software = rendererVerdict(software);   // (never the software path on a real GPU; ?renderer=gpu|software overrides: sw-yield.js)
 
   // For the ?perf readout (gpuProbe on): how much of the canvas the squares a frame repaints cover (cells: 6 floats each, the
   // square's corner first; m: world → device pixels).

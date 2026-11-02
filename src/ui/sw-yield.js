@@ -16,10 +16,39 @@
 const SOFTWARE = /SwiftShader|llvmpipe|softpipe|Software|Basic Render/i;
 /** Whether this WebGL context is drawn on the CPU. */
 export function softwareGL(gl) {
+  let named;
   try {
     const ri = gl.getExtension('WEBGL_debug_renderer_info');
-    return SOFTWARE.test(String(gl.getParameter(ri ? ri.UNMASKED_RENDERER_WEBGL : gl.RENDERER)));
-  } catch { return false; }
+    named = SOFTWARE.test(String(gl.getParameter(ri ? ri.UNMASKED_RENDERER_WEBGL : gl.RENDERER)));
+  } catch { named = false; }
+  return rendererVerdict(named);
+}
+
+// The software path (8 frames a second at half the pixels) must never be taken on a device with a real GPU (120 Hz recs P3, 2 Nov 2026).
+// ?renderer=gpu always takes the GPU path, ?renderer=software always the software one. Otherwise a renderer named as software is asked
+// once more, of the browser itself: a context made with failIfMajorPerformanceCaveat is refused where the browser draws on the CPU, so a
+// context it does give means the drawing is accelerated whatever the name says, and the GPU path is kept. ?swcheck=0: the name alone.
+const SEARCH = typeof location !== 'undefined' ? location.search || '' : '';
+export const RENDERER_FORCE = /[?&]renderer=(gpu|software)\b/.exec(SEARCH)?.[1] || '';
+const SW_CHECK = !/[?&]swcheck=0\b/.test(SEARCH);
+let accel = null;
+/** Whether the browser says WebGL is hardware-accelerated here (a context with failIfMajorPerformanceCaveat given), asked once. */
+export function browserAccelerated() {
+  if (accel !== null) return accel;
+  accel = false;
+  try {
+    const c = typeof OffscreenCanvas === 'function' ? new OffscreenCanvas(1, 1) : document.createElement('canvas');
+    const g = c.getContext('webgl2', { failIfMajorPerformanceCaveat: true }) || c.getContext('webgl', { failIfMajorPerformanceCaveat: true });
+    accel = !!g;
+    g?.getExtension('WEBGL_lose_context')?.loseContext();   // (the probe's context given back at once: no slot of the page's held)
+  } catch { accel = false; }
+  return accel;
+}
+/** The final word on software, from the renderer's name (`named`), the address's override and the browser's own answer. */
+export function rendererVerdict(named) {
+  if (RENDERER_FORCE) return RENDERER_FORCE === 'software';
+  if (!named) return false;
+  return !(SW_CHECK && browserAccelerated());
 }
 
 const MAX_WAIT = 2000;   // (one frame held up by something else, a long layout or a paused tab, never stalls the vessels longer)
