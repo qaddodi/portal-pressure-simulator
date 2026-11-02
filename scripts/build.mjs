@@ -62,8 +62,8 @@ const staticChunks = appOut.imports.filter((i) => i.kind === 'import-statement')
 
 // 3. Styles: fonts, tokens and layout in one file; fonts get hashed names.
 const cssEntry = join(OUT, '_entry.css');
-writeFileSync(cssEntry, ['fonts/fonts.css', 'styles/tokens.css', 'styles/app.css'].map((f) => `@import "${relative(OUT, join(ROOT, f)).split(sep).join('/')}";`).join('\n'));
-const css = await build({ ...common, plugins: [], entryPoints: [cssEntry], outdir: ASSETS, entryNames: 'app-[hash]', assetNames: '[name]-[hash]', loader: { '.woff2': 'file' }, write: true, metafile: true });
+writeFileSync(cssEntry, ['fonts/fonts.css', 'styles/tokens.css', 'styles/icons.css', 'styles/app.css'].map((f) => `@import "${relative(OUT, join(ROOT, f)).split(sep).join('/')}";`).join('\n'));
+const css = await build({ ...common, plugins: [], entryPoints: [cssEntry], outdir: ASSETS, entryNames: 'app-[hash]', assetNames: '[name]-[hash]', loader: { '.woff2': 'file', '.png': 'file' }, write: true, metafile: true });
 rmSync(cssEntry);
 const cssFile = basename(Object.keys(css.metafile.outputs).find((f) => f.endsWith('.css')));
 const fontFiles = Object.keys(css.metafile.outputs).filter((f) => f.endsWith('.woff2')).map((f) => basename(f));

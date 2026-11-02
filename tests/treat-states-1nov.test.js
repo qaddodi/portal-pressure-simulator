@@ -10,8 +10,8 @@ const css = read('styles/app.css').replace(/\/\*[\s\S]*?\*\//g, '');
 
 test('drug rows: an empty box off, the accent edge and a tick drawn in when on', () => {
   assert.match(css, /\.order-chip \.oc-dot \{[^}]*border-radius: 5px; box-shadow: inset 0 0 0 1\.5px var\(--border-strong\)/);
-  assert.match(css, /\.order-chip \.oc-dot svg \{[^}]*stroke-dashoffset: 24;[^}]*opacity: 0; transition: opacity var\(--d-small\) var\(--ease\)/, 'the tick fades in (its drawing on is not eased: a repaint every frame)');
-  assert.match(css, /\.order-chip\[aria-pressed="true"\] \.oc-dot svg \{ opacity: 1; stroke-dashoffset: 0; \}/);
+  assert.match(css, /\.order-chip \.oc-dot :is\(svg, \.ic\) \{[^}]*stroke-dashoffset: 24;[^}]*opacity: 0; transition: opacity var\(--d-small\) var\(--ease\)/, 'the tick fades in (its drawing on is not eased: a repaint every frame)');
+  assert.match(css, /\.order-chip\[aria-pressed="true"\] \.oc-dot :is\(svg, \.ic\) \{ opacity: 1; stroke-dashoffset: 0; \}/);
 });
 
 test('procedures in place: TIPS, DIPS, surgical shunt, BRTO and the balloons say so, the tick in the icon\'s own place', () => {

@@ -8,7 +8,7 @@ import { EASE_ARRIVE } from '../src/ui/ease.js';
 // instrument card to display it bigger when clicking on it directly; however it shouldn't like make the text smaller. the camera should like zoom
 // on the card to display it centered large in middle of the screen". Code only: the controller is run against stand-in elements.
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
-const zoomSrc = read('../src/ui/card-zoom.js'), js = read('../src/ui/presenter.js'), css = read('../styles/app.css'), util = read('../src/ui/util.js'), stage = read('../src/ui/stage.js'), html = read('../index.html');
+const zoomSrc = read('../src/ui/card-zoom.js'), js = read('../src/ui/presenter.js'), css = read('../styles/app.css'), util = read('../src/ui/util.js'), stage = read('../src/ui/stage.js');
 
 test('the card grows to the screen\'s room and goes to its middle, never past the most, and not at all when it is large already', () => {
   const area = { left: 0, top: 0, width: 1440, height: 900 };
@@ -257,8 +257,10 @@ test('the icon is quiet and the app\'s own: the text\'s grey, corner brackets, a
   assert.match(css, /@media \(hover: hover\) \{ \.pz-zbtn:hover \{ color: var\(--text\); background: var\(--hairline\); \} \}/);
   assert.match(rule('.pz-zscrim {'), /background: color-mix\(in srgb, var\(--stage-bg\) 58%, transparent\)/);
   assert.match(rule('.pz-zscrim.on'), /pointer-events: auto/);
-  assert.match(html, /<symbol id="i-shrink" viewBox="0 0 24 24">/);
-  assert.match(html, /<symbol id="i-fullscreen" viewBox="0 0 24 24">/);
+  const art = read('../scripts/icon-art.html');   // (the icon art the atlas is drawn from: scripts/icon-atlas.mjs)
+  assert.match(art, /<symbol id="i-shrink" viewBox="0 0 24 24">/);
+  assert.match(art, /<symbol id="i-fullscreen" viewBox="0 0 24 24">/);
+  assert.match(read('../styles/icons.css'), /\.ic-shrink \{ --ix: \d+; --iy: \d+; \}/);
 });
 
 test('a stacked card zoomed is never measured: the card answers for where it rests, so the readings\' travel would read none and their room open above the header', () => {

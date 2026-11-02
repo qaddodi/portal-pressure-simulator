@@ -58,7 +58,7 @@ test('the cover lifts only once start-up work is done and the page is calm: held
 });
 
 test('the loading screen never swaps typeface in view and its mark does not animate in', () => {
-  assert.match(bootCss, /#boot \.boot-mark \{ width: 64px; height: 64px; overflow: visible; \}/);
+  assert.match(bootCss, /#boot \.boot-mark \{ width: 64px; height: 64px; background-color: #16181D; \}/);
   assert.match(bootCss, /#boot \.boot-name \{[^}]*opacity: 0; \}/);
   assert.match(bootCss, /#boot\.named \.boot-name \{ opacity: 1; animation: fade-rise var\(--d-surface\) var\(--ease\) both; \}/);
   assert.match(html, /document\.fonts\.load\('600 20px "Source Serif 4"'\)\.then\(n,n\)\}catch\(e\)\{n\(\)\}setTimeout\(n,900\)/);

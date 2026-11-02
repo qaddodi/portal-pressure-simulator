@@ -52,12 +52,13 @@ export function s(tag, attrs = {}, ...children) {
   return el;
 }
 
+// An icon is a cell of the icon atlas (brand/icons, drawn once by scripts/icon-atlas.mjs) used as the element's mask and painted in
+// its colour: a bitmap the GPU composites, never an SVG the page draws. Its size, colour and line weight come from styles/app.css.
 export const icon = (id) => {
-  const svg = document.createElementNS(SVGNS, 'svg');
-  const use = document.createElementNS(SVGNS, 'use');
-  use.setAttribute('href', '#i-' + id);
-  svg.append(use);
-  return svg;
+  const el = document.createElement('i');
+  el.className = 'ic ic-' + id;
+  el.setAttribute('aria-hidden', 'true');
+  return el;
 };
 
 export function fmt(v, d = 1) {
@@ -807,7 +808,7 @@ export function menuItem(label, { checked, onClick, kb, icon: ic } = {}) {
   return b;
 }
 export function svgIcon(id, cls = '') {
-  const el = icon(id); if (cls) el.setAttribute('class', cls); return el;
+  const el = icon(id); if (cls) el.classList.add(...cls.split(/\s+/).filter(Boolean)); return el;
 }
 
 let modalReturn = null;

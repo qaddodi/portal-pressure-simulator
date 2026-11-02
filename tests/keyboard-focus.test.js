@@ -64,8 +64,8 @@ test('a toast with buttons stays 9 s and while the pointer or focus is on it; th
   assert.match(read('styles/app.css'), /\.pzj-list button:focus-visible \{[^}]*outline: 2px solid var\(--focus\)/);
 });
 
-test('every symbol id in index.html is defined once', () => {
-  const html = read('index.html');
+test('every icon id in the icon art is defined once', () => {
+  const html = read('scripts/icon-art.html');
   const ids = [...html.matchAll(/<symbol id="([^"]+)"/g)].map((m) => m[1]);
   const dup = ids.filter((id, i) => ids.indexOf(id) !== i);
   assert.deepEqual(dup, []);

@@ -96,7 +96,7 @@ test('the play and pause icon grows in, only when it changes', () => {
   assert.match(timeline, /nu\.animate\(still \? \[\{ opacity: 0 \}, \{ opacity: 1 \}\] : \[\{ opacity: 0, transform: 'scale\(\.6\)' \}/);
   // RF7: the old icon fades out in the same grid cell, so the button is never empty for a frame.
   assert.match(timeline, /playBtn\.append\(nu\);/);
-  assert.match(css, /\.ib\.play > svg \{ grid-area: 1 \/ 1; \}/);
+  assert.match(css, /\.ib\.play > :is\(svg, \.ic\) \{ grid-area: 1 \/ 1; \}/);
 });
 
 test('ending a talk fades its cards out, then the app\'s bars in; a new talk ends the old one at once', () => {
