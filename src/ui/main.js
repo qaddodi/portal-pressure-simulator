@@ -288,6 +288,7 @@ async function main() {
   wirePanel();
 
   host.on('frame', onFrame);
+  // alloc-rare: runs only when the worker reports an error (a toast), never in a frame; the host's dispatch reaches every handler by name
   host.on('error', (m) => { console.error(m.message); toast('The model could not do that. If the figure stops moving, reload the page.', 'bad', { actions: [['Reload', () => location.reload()]] }); });
   // The engine stopped (it threw, or its numbers stopped being numbers): one card that stays until it is used or
   // dismissed, instead of a figure that silently freezes.
@@ -295,7 +296,9 @@ async function main() {
   host.on('crash', (m) => {
     console.error(m.message);
     if (crashCard) return;
+    // alloc-rare: the engine crashed (once, until Reload or Restart patient), never in a frame
     crashCard = toast('The model stopped. Reload, or restart this patient.', 'bad', { sticky: true, onClose: () => { crashCard = null; },
+      // alloc-rare: as above
       actions: [['Restart patient', () => restartPatient()], ['Reload', () => location.reload()]] });
   });
 

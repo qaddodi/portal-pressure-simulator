@@ -161,6 +161,15 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
   const fine = { t: [], ph: [], ...Object.fromEntries(KEYS.map((k) => [k, []])) };
   const beatClock = createBeatClock();   // (when the cardiac phase wrapped: each wrap starts a beat on the EKG strip)
   let coarse = [], bin = null;
+  // (The quarter-second bins go round: a bin that has left the window is taken again for the next, with its four-number records for the
+  // channels kept inside it, so no bin or record is made once the window has filled. A channel the bin has not seen reads null.)
+  const binPool = [];
+  const newBin = (t0) => {
+    const b = binPool.pop() || { t: 0, v: {}, sp: {} };   // alloc-rare: a bin is made only while the pool is empty (the first minutes, up to the window's length); after that they go round
+    b.t = t0;
+    return b;
+  };
+  const freeBin = (b) => { for (const k of KEYS) b.v[k] = null; binPool.push(b); };   // alloc-rare: the pool grows to the window's bins, then stays
   let days = [];
   let clock = 'hemo', dayNow = 0, lastT = -Infinity, frame = null, wallAt = 0;
   // off: the model's time plus off is the trace's (the model's clock was set while the trace went on: a state restored, a time-lapse ended).
@@ -170,7 +179,9 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
 
   function resetBuffers() {
     for (const k of Object.keys(fine)) fine[k].length = 0;
-    coarse = []; bin = null; lastT = -Infinity; beatClock.reset(); off = 0; wheel.stop();
+    for (let i = 0; i < coarse.length; i++) freeBin(coarse[i]);
+    if (bin) freeBin(bin);
+    coarse.length = 0; bin = null; lastT = -Infinity; beatClock.reset(); off = 0; wheel.stop();
   }
   function clearHemo() { resetBuffers(); steadyAt = 0; }
   // On a slide each reading is its steady value, the mean over the last few seconds, so the lines' end labels, the header and
@@ -205,20 +216,21 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
       const b0 = Math.floor(t / BIN) * BIN;
       if (!bin || bin.t !== b0) {
         if (bin) coarse.push(bin);
-        bin = { t: b0, v: {} };
+        bin = newBin(b0);
       }
       for (const k of KEYS) {
         const v = smp[k]?.[i];
         if (v == null || Number.isNaN(v)) continue;
-        const s = bin.v[k] || (bin.v[k] = [v, v, 0, 0]);
+        let s = bin.v[k];
+        if (!s) { s = bin.sp[k] || (bin.sp[k] = [0, 0, 0, 0]); s[0] = v; s[1] = v; s[2] = 0; s[3] = 0; bin.v[k] = s; }   // alloc-rare: a channel's four numbers are made the first time a bin of the pool sees the channel, then kept in the bin
         if (v < s[0]) s[0] = v; if (v > s[1]) s[1] = v; s[2] += v; s[3]++;
       }
     }
     lastT = lt;
     let cut = 0; while (cut < fine.t.length && fine.t[cut] < lastT - FINE_S) cut++;
-    if (cut) { for (const k in fine) dropFront(fine[k], cut); beatClock.trim(fine.t[0]); }
+    if (cut) { for (const k in fine) dropFront(fine[k], cut); beatClock.dropBefore(fine.t[0]); }
     cut = 0; while (cut < coarse.length && coarse[cut].t < lastT - COARSE_S) cut++;
-    if (cut) dropFront(coarse, cut);
+    if (cut) { for (let i = 0; i < cut; i++) freeBin(coarse[i]); dropFront(coarse, cut); }
   }
   // ── The freewheel (freewheel.js) ──
   // While the model's own clock stands still under a running page (a state easing in: frame.parkSecs is a number) it sends no samples, and the

@@ -126,7 +126,7 @@ test('a slide\'s card keeps the HVPG lane and shows the portal pressure alone; P
 test('the phase reaches the chart: its fine buffer, the beat clock and the cleared trace', () => {
   assert.match(pt, /fine\.t\.push\(t\); fine\.ph\.push\(smp\.ph\?\.\[i\] \?\? NaN\); beatClock\.push\(t, smp\.ph\?\.\[i\]\);/);
   assert.match(pt, /beatClock\.reset\(\);/, 'a new patient starts the strip over');
-  assert.match(pt, /beatClock\.trim\(fine\.t\[0\]\)/);
+  assert.match(pt, /beatClock\.dropBefore\(fine\.t\[0\]\)/);
 });
 
 test('breathing is off on the first beat-trace slide of each run, and the Doppler decks keep it', () => {

@@ -15,9 +15,11 @@ export function parseColor(s) {
   return null;
 }
 
+// alloc-rare: only inside greyBuild, once per colour and saturation step
 const greyMix = (l, c, sat) => +(l + (c - l) * sat).toFixed(6);
 const greyBuild = (c, sat) => {   // alloc-rare: built once for a colour and saturation step, then handed back from its table
   const r = c[0], g = c[1], b = c[2], a = c[3], l = LUMA[0] * r + LUMA[1] * g + LUMA[2] * b;
+  // alloc-rare: the string is built once per colour and saturation step, then handed back from the table
   return `color(srgb ${greyMix(l, r, sat)} ${greyMix(l, g, sat)} ${greyMix(l, b, sat)}${a < 1 ? ` / ${+a.toFixed(6)}` : ''})`;
 };
 // (A colour's greys by saturation, each made the first time it is asked for and handed back after: stage.js asks at 1/256 steps, so an

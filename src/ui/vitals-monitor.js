@@ -59,7 +59,6 @@ export function createVitalsMonitor({ gpu = true, makeGL = createVitalsGL } = {}
   const glr = gpu ? makeGL(cv) : null;   // (null where WebGL 2 is not there: nothing is drawn; makeGL: the tests give a recorder)
   const el = h('div', { class: 'chart-box vitals-box' }, cv);
   const clock = createBeatClock();
-  const trimClock = clock.trim.bind(clock);   // (the beat clock's own trim: not a string's)
   const WALK_TO = { ph: NaN, left: NaN };   // (walkBeats reads it as it is called)
   const raw = { t: [], ph: [] };   // (the (time, phase) samples the beat clock was made from: a history goes in front of them and the clock is made again)
   let ids = VITALS_DEFAULT, frame = null, pinned = null, wallAt = 0, lastT = -Infinity, firstT = Infinity;
@@ -258,7 +257,7 @@ export function createVitalsMonitor({ gpu = true, makeGL = createVitalsGL } = {}
     const left = frame.parkSecs == null ? NaN : Math.max(0, frame.parkSecs - (now - wallAt) / 1000);
     WALK_TO.ph = frame.phase; WALK_TO.left = left;
     walkBeats(synth.w, dt, rateNow(), clock.times, WALK_TO);
-    trimClock(synth.w.x - LAG_S - 2 * SPAN_S);
+    clock.dropBefore(synth.w.x - LAG_S - 2 * SPAN_S);
   }
   /** The model's clock runs again: its samples are laid on the strip's clock so that the newest sits where the strip has been laid to, which
    *  keeps what is drawn where it is, and the beat clock starts a new run from them. */
@@ -276,7 +275,7 @@ export function createVitalsMonitor({ gpu = true, makeGL = createVitalsGL } = {}
       raw.t.push(t); raw.ph.push(s.ph[i]); clock.push(t, s.ph[i]); lastT = t; if (t < firstT) firstT = t;
     }
     const keep = lastT - 2 * SPAN_S;
-    clock.trim(keep);
+    clock.dropBefore(keep);
     let cut = 0; while (cut < raw.t.length && raw.t[cut] < keep) cut++;
     if (cut) { dropFront(raw.t, cut); dropFront(raw.ph, cut); }
   }

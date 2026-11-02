@@ -45,7 +45,7 @@ export function createBeatClock() {
     /** The stream was broken (the strip ran on its own for a while): the next sample starts a new run, so no beat is read across the gap. */
     restart() { prev[0] = prev[1] = NaN; },
     /** Forget the beats before t (the buffer's tail), keeping the one that straddles it. */
-    trim(t) { let k = 0; while (k + 1 < times.length && times[k + 1] < t) k++; if (k) dropFront(times, k); },
+    dropBefore(t) { let k = 0; while (k + 1 < times.length && times[k + 1] < t) k++; if (k) dropFront(times, k); },
     reset() { times.length = 0; prev[0] = prev[1] = NaN; },
   };
 }
