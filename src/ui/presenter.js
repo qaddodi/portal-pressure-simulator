@@ -58,14 +58,14 @@ import { flowTimeHeight, trailKeys } from './flow-time.js?v=3af35fba85';
 import { PROCS, procBlocked, procOffered, playProcedure, stepMark } from './proc-anim.js?v=09a1d3421e';
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=982397f8fb';
 import { createCardZoom, tapTracker } from './card-zoom.js?v=1c7a3c485b';
-import { sheetPanes } from './sheet-glass.js?v=2be29ba9a0';
+import { sheetPanes } from './sheet-glass.js?v=4827fac81c';
 import { createScopeTile } from './scope-tile.js?v=fb3632c72e';
 import { tileKeys as cardKeys, toolOnly } from './card-tiles.js?v=e547c76c7f';
 import { D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN, EASE_MOVE, RISE_PX, cssCurve } from './ease.js?v=7513a88c68';
 import { slideFold } from './fold-slide.js?v=1b10231dcf';
 import { pageOn, followOf, pageIn } from './card-page.js?v=ebb4448222';
 import { throwOut, throwIn, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, INSTANT, throwOutNow, throwPinned, throwRelease, railable, railHold, railIn, railAway, railGhosts, railWaits, railCopies, RAIL_GAP } from './card-throw.js?v=e1e7c5fe8a';
-import { readAnims, readBox, readCTM, readMetric, readRects, readStyle, readTiming, scrollInto } from './layout-snap.js?v=860dd00c66';
+import { readAnims, readBox, readCTM, readMetric, readRects, readStyle, readTiming, scrollInto } from './layout-snap.js?v=49b358c305';
 const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';
@@ -3223,12 +3223,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // (The glass's view of those rises (glass-gl.js cards.shift): where app.css turns --pz-rise and --pz-lift into a translate, the move they
   // make, from the inline value as written this frame; null where no rule moves the element.)
   // (Cards are glass (Mohammad, 2 Nov 2026: "CARDS ARE GLASS"): a card zoomed up (card-zoom.js data-zoomed) keeps its GPU frost, its panes read
-  // at rest and carried through each frame of its glide by its transform (glass-gl.js moveOf); the words, their glass and the stage's
+  // at the zoom's scale (sheet-glass.js) and again in each frame of its glide (glass-gl.js LIVE_READ); the words, their glass and the stage's
   // labels step out from under it (app.css .pz-zoomed), so only the frosted figure lies behind it. ?zoomglass=0: the solid card instead.)
   const ZOOM_GLASS = !/[?&]zoomglass=0\b/.test(location.search);
-  // (What the cards' glass puts back each frame from the inline value itself, so a write of it reads nothing from the page: the sheet's
-  // --pz-u (sheet-glass.js), the rises riseShift turns into a translate.)
-  const GLASS_FOLLOWS = ['--pz-u', '--pz-lift', '--pz-rise'];
   const unzoomed = (g) => ZOOM_GLASS || !g?.dataset || !('zoomed' in g.dataset);
   const risePx = (el, name) => parseFloat(el.style.getPropertyValue(name)) || 0;
   const riseShift = (el) => {
@@ -5619,7 +5616,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (app.css: where the figure's canvas cannot take it, the shade turns solid; no backdrop-filter is declared anywhere) and the shade keeps one
     // layer of its own throughout, so the swap that lost its picture on an iPhone no longer happens. ?shadegl=0 keeps it solid.)
     const shadeGL = SHADE_GL;
-    const glass = stage.cardGlass?.({ find: () => [...(shadeGL ? [shade, data, vcase, bar, scl, fk] : [data, vcase, bar, scl, fk]), ...railGhosts().filter((g) => shadeGL || g.dataset.ghost !== 'shade')].filter(unzoomed), watch: [root, shade], before: shade, low: shade, follows: GLASS_FOLLOWS, read: (g) => (g === data || g.dataset?.ghost === 'data' ? sheetPanes(g) : undefined), shift: riseShift }) || null;
+    const glass = stage.cardGlass?.({ find: () => [...(shadeGL ? [shade, data, vcase, bar, scl, fk] : [data, vcase, bar, scl, fk]), ...railGhosts().filter((g) => shadeGL || g.dataset.ghost !== 'shade')].filter(unzoomed), watch: [root, shade], before: shade, low: shade, read: (g) => (g === data || g.dataset?.ghost === 'data' ? sheetPanes(g) : undefined), shift: riseShift }) || null;
     return { root, shade, safe, load, text, data, lip, lipRO, lipMO, cardTouch, setFold, zoom, zbtn, pscrim, partOf, vcase, fk, figKey, glass, dhT, tiles, tools, veil, panel, prog, scl, bar, black: blackEl, jump, say };
   }
   // The start's cover (see start). While it is up (booting) the camera cuts instead of gliding.

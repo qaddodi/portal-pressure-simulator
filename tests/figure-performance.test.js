@@ -108,8 +108,7 @@ test('Callout glass kept (always, since 1 Nov 2026): no frame reads the page; it
   assert.match(g, /const loop = \(\) => \{ raf = 0; if \(changed\(mo\.takeRecords\(\)\)\) measureSoon\(\); settle\(draw\(\)\); \};/);
   assert.match(g, /const mo = new MutationObserver\(\(recs\) => \{ if \(!recs\?\.length \|\| changed\(recs\)\) measureEarly\(\); quiet = 0; ask\(\); \}\);/);
   assert.match(g, /const again = \(\) => measureEarly\(\);/);
-  // (A transition of what only paints, a shadow or a colour, moves no glass: its end reads nothing, 2 Nov 2026.)
-  assert.match(g, /if \(\/\(end\|cancel\)\$\/\.test\(e\?\.type \|\| ''\)\) \{ if \(!paintOnly\(e\)\) measureEarly\(\); return; \}/);
+  assert.match(g, /if \(\/\(end\|cancel\)\$\/\.test\(e\?\.type \|\| ''\)\) \{ measureEarly\(\); return; \}/);
   // (2 Nov 2026: an observer's or an event's read waits for the next frame's read phase, never in the frame's writes.)
   assert.match(g, /const measureAtOnce = GEO_EARLY && OBS_LATER \? null : measureGeo;\n\s+function measureEarly\(\) \{\n\s+if \(measureAtOnce && \(!GEO_EARLY \|\| framePhase\(\) === 'read'\)\) \{ measureAtOnce\(\); return; \}\n\s+if \(!earlyAsk\) earlyAsk = readFrame\(measureEarlyNow\);/);
   assert.match(g, /parentsMo\.observe\(e, \{ attributes: true, attributeFilter: \['style', 'class', 'hidden'\] \}\)/);
@@ -122,12 +121,11 @@ test('Callout glass kept (always, since 1 Nov 2026): no frame reads the page; it
 test('Callout glass kept: the page is read in one place, with each moving part taken out, and the copy taken from those reads', () => {
   const g = src('glass-gl.js');
   const m = g.slice(g.indexOf('  function measureGeo() {'), g.indexOf('  /** The page read again just after this frame'));
-  assert.match(m, /const cr = tgt \? boxOf\(tgt\)/);
+  assert.match(m, /const cr = tgt \? tgt\.getBoundingClientRect\(\)/);
   assert.match(m, /const panes = readPanes\(list, MOTION\)/);
   assert.match(m, /const ws = getComputedStyle\(wrap\), bgs = ws\.backgroundColor;\n\s+resolveColour\(bgs\);\n\s+const bg = colour\(bgs, 'transparent'\);/);
-  // (2 Nov 2026: a glide's scale taken out as well as its translation, glass-motion.js.)
-  assert.match(m, /const A = mv\.a, r0 = unmapBox\(p\.r, A\), er0 = unmapBox\(p\.er, A\)/, 'the boxes kept without their glide');
-  assert.match(m, /return \{ \.\.\.p, chain, r0, er0, aS, morph, rad0, cut0, u0, u: ur\(p\.u\) \};/);
+  assert.match(m, /const r0 = shift\(p\.r, back\), er0 = shift\(p\.er, back\);/, 'the boxes kept without their glide');
+  assert.match(m, /return \{ \.\.\.p, chain, r0, er0, aS, morph \};/);
   assert.match(m, /sr: source\.getBoundingClientRect\(\)/);
   const d = g.slice(g.indexOf('  function draw() {'));
   assert.match(d, /take\(\{ x: x0, y: y0, w: x1 - x0, h: y1 - y0 \}, cr, N\.sr\);/, 'the figure copy from the kept boxes');
