@@ -36,12 +36,13 @@ import { buildLive, buildDyn, buildItems, liveFibre, liveEligible, liveZoomShare
 import { recordPaint, gpuPicture } from './paint-gl.js?v=3fb6599f48';
 import { cssColor8 } from './css-color.js?v=e56f0c77ae';
 import { fibrousBand, fibrousTract, fibrousCuff, scarGrowth, paintWorldInto, useTokens } from './lobule-paint.js?v=ccb5ac5fe2';
-import { h, s, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=6e2a5dd5ee';
+import { h, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=6e2a5dd5ee';
+import { createSvgGL, svgModel } from './svg-gl.js?v=98a5bbc2b7';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=cbabd8c73d';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
 import { createVeinsGL, LZ_ONE, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=edc794780f';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=f6c91d8676';
-import { createSinusoidView } from './sinusoid-view.js?v=851c6c533c';
+import { createSinusoidView } from './sinusoid-view.js?v=f5230e83f7';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, framePart, easeNow, inMotion, PACED } from './frame.js?v=7710f677e2';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { FADE_MS, fadeAlpha, viewFollow } from './res-fade.js?v=c217651b81';
@@ -121,7 +122,17 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const tissue = h('canvas', { class: 'lz-canvas', role: 'img', 'aria-label': 'Liver lobule microcirculation' });
   const glCv = h('canvas', { class: 'lz-canvas lz-gl', 'aria-hidden': 'true' });
   const fx = h('canvas', { class: 'lz-canvas lz-fx', 'aria-hidden': 'true' });
-  const leaders = s('svg', { class: 'lz-leaders', 'aria-hidden': 'true' });
+  // The leaders (lines, dots, the pointer's line and ring) are a model drawn on the GPU (svg-gl), never SVG the page paints (2 Nov 2026,
+  // "Move everything to GPU"): leadersBox is what shows (its fades and its pan's shift are the compositor's), leaders the model in it,
+  // whose numbers the picture draws as they stand; a change to one asks for a frame of the picture.
+  const leadersBox = h('div', { class: 'lz-leaders svg-gl-box', 'aria-hidden': 'true' });
+  const leaders = svgModel('svg', { viewBox: '0 0 1 1', preserveAspectRatio: 'none' });
+  const leadGL = createSvgGL(leadersBox);
+  leadGL.cv.setAttribute('aria-hidden', 'true'); leadGL.cv.removeAttribute('role');
+  leadGL.show(leaders, false);
+  if (typeof MutationObserver === 'function') new MutationObserver(() => leadGL.paint()).observe(leaders, { subtree: true, childList: true, attributes: true, attributeFilter: ['x1', 'y1', 'x2', 'y2', 'cx', 'cy', 'r', 'viewBox', 'style', 'transform'] });
+  // (What a slide lights is a class on the app: the leaders' looks are read again when it changes.)
+  { const app = document.querySelector('.app') || document.getElementById('app'); if (app && typeof MutationObserver === 'function') new MutationObserver(() => leadGL.relook()).observe(app, { attributes: true, attributeFilter: ['data-lit', 'class'] }); }
   const labels = h('div', { class: 'lz-labels' });
 
   // ── What sits on the lobule ──
@@ -138,7 +149,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   };
   store.on('lobuleLayers', () => syncLayers());
   // A presenter slide's pointer at the lesion (D4): { at: 'triad' | 'sin' | 'cv', label, kind: block | treat | note }.
-  const callEl = h('div', { class: 'lz-call', 'aria-hidden': 'true' }), callLine = s('line', { class: 'lz-call-l' }), callRing = s('circle', { class: 'lz-call-r' });
+  const callEl = h('div', { class: 'lz-call', 'aria-hidden': 'true' }), callLine = svgModel('line', { class: 'lz-call-l' }), callRing = svgModel('circle', { class: 'lz-call-r' });
   let call = null, callWant = null, callSwap = 0;
   store.on('presentFp', () => { if (model) panel(); });   // (a slide's settled values arrive: the sinusoid label reads as its tile)
   // A pointer that changes while it shows (another spot, other words) fades out first, then fades in with its new words at its new
@@ -169,7 +180,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const tissueG = h('canvas', { class: 'lz-canvas lz-tissue-gl', 'aria-hidden': 'true', style: { opacity: '0', pointerEvents: 'none' } });
   // (The overlay on the GPU, fx-gl.js: shown in the 2D overlay's place while it draws it, see fxOnGPU.)
   const fxG = h('canvas', { class: 'lz-canvas lz-fx lz-fx-gl', 'aria-hidden': 'true', style: { opacity: '0', pointerEvents: 'none' } });
-  const el = h('div', { class: LZ_LAYER ? 'lz' : 'lz lz-live', 'aria-hidden': 'true' }, tissue, tissueG, glCv, fx, ...(FX_GPU ? [fxG] : []), leaders, labels);
+  const el = h('div', { class: LZ_LAYER ? 'lz' : 'lz lz-live', 'aria-hidden': 'true' }, tissue, tissueG, glCv, fx, ...(FX_GPU ? [fxG] : []), leadersBox, labels);
   // The dive's field (below the view): the liver's lobules, few and large, that the camera falls through (those away from the landing lobule fade as it nears).
   const field = h('canvas', { class: 'lz-canvas lz-field', 'aria-hidden': 'true' });
   // The same field drawn on the GPU (field-gl.js), where it can be: the 2D canvas above is then left empty.
@@ -496,7 +507,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   let pinch = null, down = null, drag = null;
   const pts2 = () => [...touches.values()];
   const labelOf = (ev) => Object.entries(labs).find(([, L]) => L.el.contains(ev.target))?.[0];
-  const onScene = (ev) => !!ev.target.closest?.('.lz-lab') || ev.target === el || ev.target === fx || ev.target === leaders || ev.target === tissue || ev.target === glCv;
+  const onScene = (ev) => !!ev.target.closest?.('.lz-lab') || ev.target === el || ev.target === fx || ev.target === leadersBox || ev.target === tissue || ev.target === glCv;
   el.addEventListener('pointerdown', (ev) => {
     if (!onScene(ev) || systemEdge(ev)) return;
     readBox();
@@ -1130,7 +1141,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // Every label and its leader are made with the view, hidden, in the order the panel names them (so their tab order is the panel's):
   // a frame that first names one finds it made.
   function labMake(key) {
-    const L = labs[key] = { el: h('button', { class: 'lz-lab', type: 'button', 'data-target': `lobule:${LZ_TARGET[key] || key}` }), line: s('line', { class: 'leader', 'data-target': `lobule:${LZ_TARGET[key] || key}` }), dotEl: s('circle', { class: 'leader-dot', r: 3, 'data-target': `lobule:${LZ_TARGET[key] || key}` }) };
+    const L = labs[key] = { el: h('button', { class: 'lz-lab', type: 'button', 'data-target': `lobule:${LZ_TARGET[key] || key}` }), line: svgModel('line', { class: 'leader', 'data-target': `lobule:${LZ_TARGET[key] || key}` }), dotEl: svgModel('circle', { class: 'leader-dot', r: 3, 'data-target': `lobule:${LZ_TARGET[key] || key}` }) };
     L.el.addEventListener('click', (ev) => { if (!geo || ev.detail !== 0) return; const q = anchorOf(key); if (L.el.classList.contains('edge')) centreOn(q); else select(hitKind(key), [q[0], q[1]]); });
     // (Hidden until it is first placed, where it fades in: a label its slide does not name never shows at all.)
     L.el.hidden = true;
@@ -1470,10 +1481,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   }
   // Writes the pan's shift into the labels' and leaders' own positions and drops the shared shift, so they glide on from where they are seen.
   function bakeFollow() {
-    if (bakeRides()) { clearTimeout(followT); labels.style.transform = leaders.style.transform = ''; return true; }
+    if (bakeRides()) { clearTimeout(followT); labels.style.transform = leadersBox.style.transform = ''; return true; }
     clearTimeout(followT);
     const m = /translate3d\(([-\d.e]+)px, ([-\d.e]+)px/.exec(labels.style.transform);
-    labels.style.transform = leaders.style.transform = '';
+    labels.style.transform = leadersBox.style.transform = '';
     if (!m) return false;
     const dx = +m[1], dy = +m[2];
     if (!dx && !dy) return false;
@@ -1514,7 +1525,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // panning lag on a phone. They are placed again, gliding to their new spots, once the hand lets go.
     if (follow && bKey === follow.b && V.k === follow.k && handOn() && !rides) {
       const t = `translate3d(${V.x - follow.x}px, ${V.y - follow.y}px, 0)`;
-      labels.style.transform = leaders.style.transform = t;
+      labels.style.transform = leadersBox.style.transform = t;
       clearTimeout(followT); followT = setTimeout(followEnd, 140);
       return;
     }
@@ -1527,7 +1538,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // (rideHolds); a frame where it would not, they are placed again (gliding there), and once the hand lets go, placed for where it
     // stopped. Placing them in full on every frame of a pinch (measuring, then trying hundreds of spots) is what made zooming lag.
     if (follow?.ride && bKey === follow.b && V.k !== follow.k && handOn() && rideHolds(fr0)) {
-      labels.style.transform = leaders.style.transform = '';   // (a pan's shared shift before it: ride moves each piece from the layout itself)
+      labels.style.transform = leadersBox.style.transform = '';   // (a pan's shared shift before it: ride moves each piece from the layout itself)
       ride(); clearTimeout(followT); followT = setTimeout(followEnd, 140);
       return;
     }
@@ -2077,7 +2088,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (!ok) { wg.release(); return null; }
     if (hosted) { wideA = 1; wideView = null; return { el: h('div'), gl: wg, host: true, tiles: [], box, soft: dpr < dpr0, W, H, dpr: dpr0 * res }; }
     Object.assign(wideCv.style, { visibility: 'hidden', opacity: '', transition: '' });
-    if (wideCv.parentNode !== el) el.insertBefore(wideCv, leaders);
+    if (wideCv.parentNode !== el) el.insertBefore(wideCv, leadersBox);
     return { el: wideCv, gl: wg, tiles: [], box, soft: dpr < dpr0, W, H, dpr: dpr0 };
   }
   function trimFieldStates() {
@@ -3637,7 +3648,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       if (wide) { for (const e of WIDE_HIDE) e.style.visibility = 'hidden'; wide.el.style.visibility = ''; }
       // (A copy in the vessels' own canvas: that canvas shows it, unscaled; the copy is placed on the GPU.)
       if (wide?.host) glCv.style.visibility = '';
-      for (const e of [tissue, tissueG, glCv, fx, fxG, leaders, labels]) {
+      for (const e of [tissue, tissueG, glCv, fx, fxG, leadersBox, labels]) {
         if (k >= 0.9999 || (wide?.host && e === glCv)) { e.style.transform = ''; e.style.transformOrigin = ''; continue; }
         // Scaled about its own centre, which sits where the field's lobule at the dive's focus is (tx, ty), so it morphs out of that one.
         e.style.transformOrigin = `${x.toFixed(1)}px ${y.toFixed(1)}px`;

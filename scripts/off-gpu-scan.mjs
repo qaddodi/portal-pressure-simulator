@@ -309,7 +309,11 @@ export function scan({ root = ROOT } = {}) {
         }
         if (cn === 'drawImage' || cn === 'putImageData' || cn === 'getImageData') push('draw2d', file, n.loc.start.line, label(f), text.slice(n.start, Math.min(n.end, n.start + 120)));
         if (cn === 'requestAnimationFrame' && file !== SCHEDULER) push('rawRaf', file, n.loc.start.line, label(f), text.slice(n.start, Math.min(n.end, n.start + 100)));
-        if (cn === 'createElementNS' && /svg/i.test(text.slice(a0?.start ?? 0, a0?.end ?? 0) + (strOf(a0) || ''))) push('svgDom', file, n.loc.start.line, label(f), text.slice(n.start, Math.min(n.end, n.start + 100)));
+        // (The namespace by a name of the file's own, NS = 'http://www.w3.org/2000/svg', counts as well: 2 Nov 2026, a callout's outline went uncounted.)
+        const nsOf = (q) => (q?.type === 'Identifier' ? (new RegExp(`\\b${q.name}\\s*=\\s*['"\`]([^'"\`]*)`).exec(text)?.[1] || '') : '');
+        if (cn === 'createElementNS' && /svg/i.test(text.slice(a0?.start ?? 0, a0?.end ?? 0) + (strOf(a0) || '') + nsOf(a0))) push('svgDom', file, n.loc.start.line, label(f), text.slice(n.start, Math.min(n.end, n.start + 100)));
+        // (And each SVG element made with util.js s() outside the figure's own model (stage.js, MODEL_SVG): leaders and other page-drawn SVG.)
+        if (cn === 's' && !member && !/(^|\/)(stage|util)\.js$/.test(file) && /import \{[^}]*\bs\b[^}]*\} from '\.\/util\.js/.test(text) && strOf(a0)) push('svgDom', file, n.loc.start.line, label(f), text.slice(n.start, Math.min(n.end, n.start + 100)));
         if ((cn === 'getShaderParameter' || cn === 'getProgramParameter') && /COMPILE_STATUS|LINK_STATUS/.test(text.slice(n.arguments[1]?.start ?? 0, n.arguments[1]?.end ?? 0)) && !/COMPLETION_STATUS/.test(text.slice(n.arguments[1].start, n.arguments[1].end))) {
           // A module that polls COMPLETION_STATUS (KHR_parallel_shader_compile) before it reads the status does not wait on the driver.
           const polled = /COMPLETION_STATUS_KHR\)/.test(text);

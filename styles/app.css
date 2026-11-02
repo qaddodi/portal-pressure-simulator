@@ -3370,7 +3370,7 @@ html.label-fill-both :is(#labels .lb.scan, .app.presenting #labels .lb) { animat
    The fades run on the label's children, not the label: a faded ancestor would stop the glass seeing the figure behind it. */
 .cath-label > * { opacity: var(--lo); transition: opacity var(--d-surface) var(--ease); }
 .cl-glass { position: absolute; z-index: -1; pointer-events: none; background: color-mix(in srgb, var(--surface) 58%, transparent); }
-.cl-glass svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.cl-glass .cl-line { position: absolute; inset: 0; display: block; }   /* (the outline's GPU picture: callout.js withGlass) */
 .cl-glass path { fill: none; stroke: var(--rg); stroke-width: 4; stroke-linejoin: miter; }
 /* The printed tag (callout.js HAIR, off with ?cathtag=0): the path is stroked 2 px and clipped to its inside, so 1 px shows; the border
    colour carries a fifth of the reading's colour, enough to tell a free tag from a wedged one at the edge without a ring. */

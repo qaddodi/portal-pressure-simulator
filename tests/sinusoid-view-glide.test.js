@@ -17,6 +17,15 @@ class El {
   setAttribute(k, v) { this.attrs[k] = String(v); if (k === 'class') this.classSet = new Set(String(v).split(/\s+/).filter(Boolean)); }
   getAttribute(k) { return this.attrs[k] ?? null; }
   append(...k) { for (const c of k) this.children.push(c); }
+  prepend(...k) { this.children.unshift(...k); }   // (the leaders' GPU picture's canvas: svg-gl createSvgGL)
+  removeAttribute(k) { delete this.attrs[k]; }
+  cloneNode(deep) {   // (a leader cloned from its model: sinusoid-view LEAD_TPL)
+    const c = new El(this.tag);
+    for (const [k, v] of Object.entries(this.attrs)) c.setAttribute(k, v);
+    if (deep) for (const k of this.children) c.children.push(k.nodeType === 1 ? k.cloneNode(true) : { ...k });
+    return c;
+  }
+  get attributes() { return Object.entries(this.attrs).map(([name, value]) => ({ name, value })); }
   replaceChildren(...k) { this.children = []; this.append(...k.flat(Infinity).filter((c) => c != null && c !== false)); }
   insertBefore(el) { this.children.push(el); }
   addEventListener() {}
@@ -46,7 +55,7 @@ globalThis.devicePixelRatio = 1;
 // (An observer reports its elements' sizes before the next frame paints, as a browser's does: here, before each frame run by hand.)
 const observers = [];
 globalThis.ResizeObserver = class { constructor(cb) { this.cb = cb; this.fresh = []; observers.push(this); } observe(t) { this.fresh.push(t); } };
-const reportSizes = () => { for (const o of observers) { const ts = o.fresh.splice(0); if (ts.length) o.cb(ts.map((target) => ({ target })), o); } };
+const reportSizes = () => { for (const o of observers) { const ts = o.fresh.splice(0); if (ts.length) o.cb(ts.map((target) => ({ target, contentRect: { width: 0, height: 0 } })), o); } };
 globalThis.MutationObserver = class { observe() {} disconnect() {} };
 globalThis.matchMedia = () => ({ matches: false, addEventListener() {}, addListener() {} });
 globalThis.getComputedStyle = () => ({ getPropertyValue: () => '', opacity: '1' });
@@ -55,7 +64,7 @@ globalThis.dispatchEvent = (ev) => { for (const fn of listeners[ev.type] || []) 
 const app = { style: { getPropertyValue: (k) => appVars[k] ?? '', setProperty: (k, v) => { appVars[k] = String(v); } }, classList: { contains: (c) => appClasses.has(c) } };
 globalThis.document = {
   createElement: (tag) => new El(tag), createElementNS: (ns, tag) => new El(tag), createTextNode: (t) => ({ nodeType: 3, textContent: String(t) }),
-  getElementById: (id) => (id === 'app' ? app : null), querySelectorAll: () => [], addEventListener() {},
+  getElementById: (id) => (id === 'app' ? app : null), querySelector: () => null, querySelectorAll: () => [], addEventListener() {},
   documentElement: { dataset: {}, style: { getPropertyValue: (k) => rootVars[k] ?? '', setProperty: (k, v) => { rootVars[k] = String(v); } } },
 };
 // The frame scheduler's browser frame: held here and run by hand, a frame at a time.

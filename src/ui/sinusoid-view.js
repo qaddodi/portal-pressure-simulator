@@ -19,7 +19,8 @@
 // the sinusoid exactly over the lobule's one at every step: first the vessel itself, then the tissue
 // around it.
 
-import { h, s, fmt, clamp, lerp } from './util.js?v=6e2a5dd5ee';
+import { h, fmt, clamp, lerp } from './util.js?v=6e2a5dd5ee';
+import { createSvgGL, svgModel } from './svg-gl.js?v=98a5bbc2b7';
 import { pressureColor } from './colormap.js?v=cbabd8c73d';
 import { isPaused } from './clock.js?v=16aba0e2eb';
 import { store } from './store.js?v=4ef2a6ffd8';
@@ -125,12 +126,21 @@ export function createSinusoidView({ host, before = null }) {
     h('span', {}, h('i', { class: 'alb' }), 'Protein'));
   sizeRO?.observe(legend);
   // Thin leaders from a name in the plate to the part it names (a portrait screen's narrow bands and cells).
-  const NS = 'http://www.w3.org/2000/svg', leaders = document.createElementNS(NS, 'svg');
-  leaders.setAttribute('class', 'sv-leaders');
-  const lead = {};
+  // (A model drawn on the GPU, svg-gl, never SVG the page paints: leadersBox shows it, its fades the compositor's; a change to a leader asks
+  // for a frame of the picture. 2 Nov 2026, "Move everything to GPU".)
+  const leadersBox = h('div', { class: 'sv-leaders svg-gl-box', 'aria-hidden': 'true' });
+  const leaders = svgModel('svg', { viewBox: '0 0 1 1', preserveAspectRatio: 'none' });
+  const leadGL = createSvgGL(leadersBox);
+  leadGL.cv.setAttribute('aria-hidden', 'true'); leadGL.cv.removeAttribute('role');
+  leadGL.show(leaders, false);
+  if (typeof MutationObserver === 'function') new MutationObserver(() => leadGL.paint()).observe(leaders, { subtree: true, childList: true, attributes: true, attributeFilter: ['x1', 'y1', 'x2', 'y2', 'cx', 'cy', 'r', 'viewBox', 'style', 'transform'] });
+  { const app = document.querySelector('.app') || document.getElementById('app'); if (app && typeof MutationObserver === 'function') new MutationObserver(() => leadGL.relook()).observe(app, { attributes: true, attributeFilter: ['data-lit', 'class'] }); }
+  const lead = {}, LEAD_TPL = svgModel('g', {}, svgModel('line'), svgModel('circle'));
+  let leadVB = '';
   function leader(key, R, x, y) {
     let L = lead[key];
-    if (!L) { L = lead[key] = s('g', {}, s('line'), s('circle')); mount(leaders, L); }
+    { const vb = `0 0 ${geo.W} ${geo.H}`; if (vb !== leadVB) { leadVB = vb; leaders.setAttribute('viewBox', vb); } }
+    if (!L) { L = lead[key] = LEAD_TPL.cloneNode(true); mount(leaders, L); }   // (cloned from its model: a frame builds nothing)
     // (The fenestrae's callout ends on a pore picked by where its name stands, so the pick can pass to another pore: the end slides
     // along the lining to that one, on the lining's own line, and never hops.)
     if (key === 'fen') { L.tx = x; const sd = L.sd || 0; y += halfW(x) - halfW(x + sd); x += sd; }
@@ -143,7 +153,7 @@ export function createSinusoidView({ host, before = null }) {
     ln.setAttribute('x1', sx.toFixed(1)); ln.setAttribute('y1', sy.toFixed(1)); ln.setAttribute('x2', tx.toFixed(1)); ln.setAttribute('y2', ty.toFixed(1));
     dot.setAttribute('cx', tx.toFixed(1)); dot.setAttribute('cy', ty.toFixed(1)); dot.setAttribute('r', '1.8');
   }
-  const el = h('div', { class: SV_LAYER ? 'sv' : 'sv sv-live', 'aria-hidden': 'true' }, canvas, leaders, labels, legend);
+  const el = h('div', { class: SV_LAYER ? 'sv' : 'sv sv-live', 'aria-hidden': 'true' }, canvas, leadersBox, labels, legend);
   host.insertBefore(el, before);
   // The WebGL2 context is made when the view is about to show (setModel at the start of the dive in, place), not with the lobule: a page
   // holds only so many contexts (iOS Safari about 16, dropping the oldest, which is the figure's), and the lobule opens far more often

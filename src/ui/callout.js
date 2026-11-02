@@ -3,7 +3,9 @@
 // and tint, clipped to the shape's path); the outline is that same path stroked inside it (4 px, so only the inner 2 px shows; the
 // hairline of cl-hair strokes 2 px, so 1 px shows). The pointer reaches outside the card's box, so the child is the box grown by the pointer's depth.
 
-const NS = 'http://www.w3.org/2000/svg';
+import { createSvgGL, svgModel } from './svg-gl.js?v=98a5bbc2b7';
+import { restPass } from './rest-pass.js?v=bf0c42ead5';
+
 const PTR = 11;   // how far the pointer reaches past the card's edge, and its half-width at the edge
 const KEEP = 28;  // the pointer stays this far from the card's sides, clear of the rounded corners
 const BORDER = 2; // the card's (transparent) border, which the glass covers
@@ -16,12 +18,23 @@ const HAIR = !/[?&]cathtag=0\b/.test(globalThis.location?.search || '');
 export const withGlass = (el) => {
   const glass = document.createElement('i');
   glass.className = HAIR ? 'cl-glass cl-hair' : 'cl-glass'; glass.setAttribute('aria-hidden', 'true');
-  const svg = document.createElementNS(NS, 'svg');
-  svg.append(document.createElementNS(NS, 'path'));
-  glass.append(svg);
+  // (Its outline is a model drawn on the GPU (svg-gl) in a box of its own, never SVG the page paints: 2 Nov 2026, "Move everything to
+  // GPU". The model is cloned with the callout; its picture is made between frames, after the clone joins the page: glassCallout.)
+  const line = document.createElement('b');
+  line.className = 'cl-line svg-gl-box';
+  line.append(svgModel('svg', { viewBox: '0 0 1 1', preserveAspectRatio: 'none' }, svgModel('path')));
+  glass.append(line);
   el.prepend(glass);
   return el;
 };
+// (A callout's outline picture, made between frames for each callout as it is made: a frame makes no canvas.)
+function lineGL(S) {
+  S.ask = 0;
+  if (S.gl || S.gone) return;
+  S.gl = createSvgGL(S.line);
+  S.gl.cv.setAttribute('aria-hidden', 'true'); S.gl.cv.removeAttribute('role');
+  S.gl.show(S.svg, false);
+}
 
 // The outline: a rounded rectangle (w × h at y = top) with the pointer on its bottom or top edge at x = px.
 const outline = (w, h, r, top, px, dir) => {
@@ -44,7 +57,9 @@ function observedSize(el, es) {
 /** Gives `el` its glass body and returns `update(ax)`: call it whenever the pointer's offset `ax` (px from the card's
  *  centre) may have changed. It also redraws itself when the card is resized (a reading's text changing). */
 export function glassCallout(el, { pointer = true } = {}) {
-  const glass = el.firstElementChild, path = glass.firstChild.firstChild;   // (its glass, cloned with it from a model: withGlass)
+  const glass = el.firstElementChild, line = glass.firstElementChild, svg = line.firstElementChild, path = svg.firstElementChild;   // (its glass, cloned with it from a model: withGlass)
+  const S = { line, svg, gl: null, ask: 0, gone: false };
+  S.ask = restPass(() => lineGL(S));
   // size: the card's exact (fractional) border box, and rad its corner radius, both taken when it is observed (its size changes): the
   // update itself, called on the figure's frames, reads no layout or style (1 Nov 2026, "Move everything to GPU").
   let ax = 0, key = '', size = null, rad = 14;
@@ -62,6 +77,8 @@ export function glassCallout(el, { pointer = true } = {}) {
     const d = outline(w, h, r, up, px, dir);
     glass.style.cssText = `left:${-BORDER}px;top:${-BORDER - up}px;width:${+w.toFixed(2)}px;height:${+(h + (dir === 'none' ? 0 : PTR)).toFixed(2)}px;clip-path:path('${d}')`;
     path.setAttribute('d', d);
+    svg.setAttribute('viewBox', `0 0 ${+w.toFixed(2)} ${+(h + (dir === 'none' ? 0 : PTR)).toFixed(2)}`);
+    S.gl?.paint();
   };
   // A live observation keeps the observer and the card alive: it ends with dispose(), or when the card leaves the page.
   const ro = typeof ResizeObserver === 'function' ? new ResizeObserver((es) => {
@@ -70,6 +87,6 @@ export function glassCallout(el, { pointer = true } = {}) {
     update();
   }) : null;
   ro?.observe(el);
-  update.dispose = () => ro?.disconnect();
+  update.dispose = () => { ro?.disconnect(); S.gone = true; S.gl?.dispose(); };
   return update;
 }

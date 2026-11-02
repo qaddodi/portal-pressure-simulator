@@ -26,7 +26,7 @@ import { easeTo, fluidSpring, fluidSpringFor } from './organ-ease.js?v=4ebb64813
 import { spleenMotion } from './spleen-motion.js?v=4e87db0dbb';
 import { paintBox } from './plate-copy.js?v=20b30d30b0';
 import { gridHits, segHitsBox } from './seg-hits.js?v=e7cde76929';
-import { glassCallout, withGlass } from './callout.js?v=bd49f1733c';
+import { glassCallout, withGlass } from './callout.js?v=2e8fec5e86';
 import { flipFrom, flipAt } from './cath-flip.js?v=6b016952c4';
 import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=d7cca3fb73';
 import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=977185f80a';
@@ -2761,7 +2761,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=0f9fda6cce').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=f51d2d2865').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
