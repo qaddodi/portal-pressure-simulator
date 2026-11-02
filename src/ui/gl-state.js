@@ -79,13 +79,27 @@ function wrap(gl, r) {
   }
   // (Passes: no arguments kept, so a draw allocates nothing. The registry reads the area from the record: the viewport, or the
   // scissor's box while it is on. A blit and a copy hand their own area.)
-  const area = () => { const b = r.caps.get(gl.SCISSOR_TEST) ? r.sci : r.vp; return Math.max(0, b[2]) * Math.max(0, b[3]); };
-  const pass = (name) => { if (hook) hook(gl, name, area()); };
-  own('drawArrays', (f) => (m, a, n) => { f(m, a, n); pass('draw'); });
-  own('drawElements', (f) => (m, n, t, o) => { f(m, n, t, o); pass('draw'); });
-  own('drawArraysInstanced', (f) => (m, a, n, k) => { f(m, a, n, k); pass('draw'); });
-  own('drawElementsInstanced', (f) => (m, n, t, o, k) => { f(m, n, t, o, k); pass('draw'); });
-  own('clear', (f) => (m) => { f(m); pass('clear'); });
+  // (recs-production-120hz §13: an estimate, labelled as one. A draw of no vertices or no instances counts nothing; the scissor counts only
+  // where it meets the viewport (a draw is clipped to both); clearBuffer* is counted as clear() is. It is the area a pass may touch, an
+  // upper bound per pass for a draw that covers its box once, not measured fragment work.)
+  const area = () => {
+    const v = r.vp;
+    if (!r.caps.get(gl.SCISSOR_TEST)) return Math.max(0, v[2]) * Math.max(0, v[3]);
+    const s = r.sci, w = Math.min(v[0] + v[2], s[0] + s[2]) - Math.max(v[0], s[0]), h = Math.min(v[1] + v[3], s[1] + s[3]) - Math.max(v[1], s[1]);
+    return Math.max(0, w) * Math.max(0, h);
+  };
+  // (A clear is clipped by the scissor alone; without one it covers the target, whose size the viewport is taken for: the record does
+  // not know a framebuffer object's size.)
+  const clearArea = () => { const b = r.caps.get(gl.SCISSOR_TEST) ? r.sci : r.vp; return Math.max(0, b[2]) * Math.max(0, b[3]); };
+  const pass = (name, n = 1) => { if (hook && n > 0) hook(gl, name, area()); };
+  own('drawArrays', (f) => (m, a, n) => { f(m, a, n); pass('draw', n); });
+  own('drawElements', (f) => (m, n, t, o) => { f(m, n, t, o); pass('draw', n); });
+  own('drawArraysInstanced', (f) => (m, a, n, k) => { f(m, a, n, k); pass('draw', n * k); });
+  own('drawElementsInstanced', (f) => (m, n, t, o, k) => { f(m, n, t, o, k); pass('draw', n * k); });
+  own('clear', (f) => (m) => { f(m); if (hook) hook(gl, 'clear', clearArea()); });
+  for (const name of ['clearBufferfv', 'clearBufferiv', 'clearBufferuiv', 'clearBufferfi']) {
+    own(name, (f) => (...a) => { f(...a); if (hook) hook(gl, 'clear', clearArea()); });
+  }
   own('blitFramebuffer', (f) => (a, b, c, d, e, g, h, i, m, n) => { f(a, b, c, d, e, g, h, i, m, n); if (hook) hook(gl, 'copy', Math.abs((h - e) * (i - g))); });
   own('copyTexSubImage2D', (f) => (t, l, a, b, x, y, w, h) => { f(t, l, a, b, x, y, w, h); if (hook) hook(gl, 'copy', w * h); });
   const c = gl.canvas;

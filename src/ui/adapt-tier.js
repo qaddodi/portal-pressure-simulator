@@ -15,8 +15,8 @@
 // - Performance mode Quality (frame.js perfMode) never steps down. ?tiers=0: off (Full always, as before).
 // tierLog() keeps the last changes, each with why and the registry's size then. ?perf shows the tier with the budget.
 
-import { watchFrames, frameBudget, perfMode } from './frame.js?v=64dec3a4dd';
-import { overBudget as graphOver, budget } from './gpu-budget.js?v=daaf5ee8a0';
+import { onFrameEnd, frameBudget, perfMode } from './frame.js?v=3693d2ccc8';
+import { overBudget as graphOver, budget } from './gpu-budget.js?v=0ca61f2b11';
 
 const SEARCH = typeof location !== 'undefined' ? location.search || '' : '';
 export const TIERS_ON = !/[?&]tiers=0\b/.test(SEARCH);
@@ -70,4 +70,4 @@ export function judgeFrame({ now, gap, script }) {
   if (tier > 0 && now - calmSince >= UP_CALM && now - changedAt >= UP_CALM) setTier(tier - 1, now, `${UP_CALM} ms of frames on time with light script`);
 }
 
-if (TIERS_ON) watchFrames(judgeFrame);
+if (TIERS_ON) onFrameEnd(judgeFrame);   // (the cheap end-of-frame signal: no per-part tracing switched on for it)

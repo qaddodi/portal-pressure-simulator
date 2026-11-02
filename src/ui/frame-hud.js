@@ -12,9 +12,9 @@
 //     reported; Safari has neither), with the script that took most of it: work outside the scheduler's callbacks shows there too.
 // It reads only the scheduler's own numbers and writes its words once a second, between frames (rest-pass.js), never in a frame. It
 // adds no frame loop of its own: an idle page stays idle (the panel then says so).
-import { watchFrames, perf, refreshHz, refreshMaxHz, frameBudget, targetHz, watchdogStats } from './frame.js?v=64dec3a4dd';
-import { restPass } from './rest-pass.js?v=3b9c8725ed';
-import { sharedStats } from './trace-gl.js?v=737eea363b';
+import { watchFrames, perf, refreshHz, refreshMaxHz, frameBudget, targetHz, watchdogStats } from './frame.js?v=3693d2ccc8';
+import { restPass } from './rest-pass.js?v=45d9ddc06c';
+import { sharedStats } from './trace-gl.js?v=88d75b6853';
 
 export const HUD_OFF = (search) => /[?&]hud=0\b/.test(String(search ?? ''));
 const KEEP = 600;

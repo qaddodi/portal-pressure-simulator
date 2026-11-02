@@ -57,6 +57,7 @@ export function framePart(tag, fn) {
 gpuProbe.part = framePart;
 
 function flush(now) {
+  const taskT0 = performance.now();
   pending = 0;
   paceStep();
   frames++; allFrames++;
@@ -92,6 +93,14 @@ function flush(now) {
     const f = { now, gap: chained ? now - lastNow : 0, script, parts };
     for (const w of watchers) try { w(f); } catch (e) { setTimeout(() => { throw e; }); }
   }
+  // (recs-production-120hz §14: the cheap end-of-frame signal the adaptive tiers and the GPU budget run on. No parts are kept for it, so
+  // ordinary rendering allocates no per-part records; detailed tracing (watchFrames) is opt-in, for ?perf and the gates. One object,
+  // reused. The observers' own time is measured: lastTask is the whole frame task, scheduler bookkeeping and observers included.)
+  if (ends.size) {
+    endF.now = now; endF.gap = chained ? now - lastNow : 0; endF.script = lastScript;
+    for (const w of ends) try { w(endF); } catch (e) { setTimeout(() => { throw e; }); }
+  }
+  lastTask = performance.now() - taskT0;
   parts = null; lastNow = now;
   if ((queue.size || late.size || fin.size || reads.size || FPS_FORCE) && !pending && !(FPS_FORCE && document.hidden)) pending = requestAnimationFrame(flush);
   chained = !!pending;
@@ -111,8 +120,13 @@ function run(batch, now, phase) {
   }
 }
 
-/** Calls fn({ now, gap, script, parts }) after every frame the scheduler runs (frame-stats.js has the shape). Returns the stop. */
+/** Calls fn({ now, gap, script, parts }) after every frame the scheduler runs (frame-stats.js has the shape). Returns the stop.
+ *  Detailed: while anyone watches, every callback's time is kept per part. For ?perf, the gates and tests only. */
 export function watchFrames(fn) { watchers.add(fn); return () => watchers.delete(fn); }
+const ends = new Set(), endF = { now: 0, gap: 0, script: 0 };
+let lastTask = 0;
+/** Calls fn({ now, gap, script }) at the end of every frame, cheaply (no parts; the object is reused, read it in the call). Returns the stop. */
+export function onFrameEnd(fn) { ends.add(fn); return () => ends.delete(fn); }
 /** The frames the scheduler has run since the page opened (a stamp for "once a frame"). */
 export const frameCount = () => allFrames;
 
@@ -189,7 +203,7 @@ let shedTotal = 0;
 /** True when the last frame's script went over 70 % of the budget (Locked and Balanced; never in Quality): drop detail that can wait. */
 export const overBudget = () => WATCHDOG && perfModeNow !== 'quality' && overLast;
 /** The last frame's main-thread script time (ms), and how many callbacks the watchdog has carried over since the page opened. */
-export const watchdogStats = () => ({ last: lastScript, shed: shedTotal, predicted: shedPredicted, mode: perfModeNow, budget: frameBudget(), governor: GOVERNOR ? govLevel : -1, streak: overStreak, yielded: govShed });
+export const watchdogStats = () => ({ last: lastScript, shed: shedTotal, predicted: shedPredicted, mode: perfModeNow, budget: frameBudget(), task: lastTask, governor: GOVERNOR ? govLevel : -1, streak: overStreak, yielded: govShed });
 // (Review pass 2, priority 1: a watchdog cannot stop a callback once it has started, so it judges each deferrable one before it starts,
 // by what it is predicted to cost (the moving average of its own last runs, costOf) added to the time the frame has used: one that would
 // carry the frame past its share waits, even when the frame has not reached the share yet. Still at most SHED_MAX frames in a row each,

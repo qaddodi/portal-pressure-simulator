@@ -11,8 +11,8 @@
 // quality tiers read (adapt-tier.js, R07) to step the scene's resolution down before the motion skips frames.
 // Read it: ?perf (the readout's Surfaces block ends with the budget), or pps.budget() in the console. ?gpubudget=0: off (nothing counted).
 
-import { onGLCall, glRec, GL_STATE } from './gl-state.js?v=554eb75e6c';
-import { watchFrames } from './frame.js?v=64dec3a4dd';
+import { onGLCall, glRec, GL_STATE } from './gl-state.js?v=e355476de1';
+import { onFrameEnd } from './frame.js?v=3693d2ccc8';
 
 const SEARCH = typeof location !== 'undefined' ? location.search || '' : '';
 export const GPU_BUDGET = GL_STATE && !/[?&]gpubudget=0\b/.test(SEARCH);
@@ -206,10 +206,11 @@ export function hold(spec) {
   return handle;
 }
 const nowMs = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+// (recs-production-120hz §12: a release that throws is a failure, kept visible (releaseFails), and its bytes are not counted as reclaimed.)
+let releaseFails = 0, unmet = 0;
 function letGo(h) {
   holders.delete(h);
-  evictions++;
-  try { h.release?.(); } catch (e) { console.warn(`GPU budget: ${h.owner} could not let go of what it held.`, e); }
+  try { h.release?.(); evictions++; return true; } catch (e) { releaseFails++; console.warn(`GPU budget: ${h.owner} could not let go of what it held.`, e); return false; }
 }
 /** Gives back held resources until the warm ones are within their share and count and the registry within its envelope. */
 export function enforce(env = ENVELOPES[deviceClass()]) {
@@ -221,18 +222,20 @@ export function enforce(env = ENVELOPES[deviceClass()]) {
   let warm = lru('warm');
   while (warm.length > WARM_MAX) letGo(warm.shift());
   let warmBytes = warm.reduce((a, h) => a + holderBytes(h), 0);
-  while (warm.length && warmBytes > env.mb * 1e6 * WARM_SHARE) { const h = warm.shift(); warmBytes -= holderBytes(h); letGo(h); }
+  while (warm.length && warmBytes > env.mb * 1e6 * WARM_SHARE) { const h = warm.shift(), b = holderBytes(h); if (letGo(h)) warmBytes -= b; }
   // (the whole: the registry's bytes, or the holders' own where it counts nothing)
   let total = registryBytes(), held = 0;
   for (const h of holders) held += holderBytes(h);
   total = Math.max(total, held);   // (the registry already counts what holders hold; without it (?gpubudget=0), their own estimates)
   const over = () => total > env.mb * 1e6;
-  for (const kind of ['warm', 'retained']) for (const h of lru(kind)) { if (!over()) break; total -= holderBytes(h); letGo(h); }
+  for (const kind of ['warm', 'retained']) for (const h of lru(kind)) { if (!over()) break; const b = holderBytes(h); if (letGo(h)) total -= b; }
+  // (What is left over the envelope once every holder has been asked: pressure no release met, reported, never taken as solved.)
+  unmet = over() ? total - env.mb * 1e6 : 0;
   return evictions - before;
 }
 function registryBytes() { let b = canvasBytes(); for (const e of entries.values()) b += e.bytes; return b; }
 /** The holders now (tests and ?perf). */
-export function holdersNow() { return { evictions, list: [...holders].map((h) => ({ owner: h.owner, kind: h.kind, mb: +(holderBytes(h) / 1e6).toFixed(1) })) }; }
+export function holdersNow() { return { evictions, releaseFails, unmetMB: +(unmet / 1e6).toFixed(1), list: [...holders].map((h) => ({ owner: h.owner, kind: h.kind, mb: +(holderBytes(h) / 1e6).toFixed(1) })) }; }
 
 /** True while the render graph is over its envelope: the last frames ran past the pass envelope, or the registry past memory's. */
 export function overBudget() { return overMem || overFrames >= 2; }
@@ -251,7 +254,7 @@ export function budgetText() {
 if (GPU_BUDGET) {
   onGLCall(onCall);
   // (Each frame the scheduler runs: its passes become the last frame's, and are held against the pass envelope.)
-  watchFrames((f) => {
+  onFrameEnd((f) => {
     const scr = screenPx(), env = ENVELOPES[deviceClass()];
     for (const k of Object.keys(last)) { last[k] = cur[k]; cur[k] = 0; }
     cur.lastFb = undefined;

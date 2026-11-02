@@ -31,12 +31,12 @@
 //
 // createVeinsGL(canvas) returns null only when WebGL2 is unavailable altogether.
 
-import { glGet, glCap } from './gl-state.js?v=554eb75e6c';
+import { glGet, glCap } from './gl-state.js?v=e355476de1';
 import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { EDGE_GLSL } from './edge.js?v=8321a8017f';
 import { SLOT, DYE_BINS } from './blood.js?v=f6c91d8676';
-import { cssRGB } from './util.js?v=2a8781cc80';
+import { cssRGB } from './util.js?v=e9fab8ec87';
 import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js?v=d72157dbac';
 import { CELL, ENT_W, binVeins, splitRows, simpleCells, splitCells, cellsOfJoinEntries } from './veins-bin.js?v=6e462a9e6c';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
@@ -50,7 +50,7 @@ import { warmFade } from './res-fade-gl.js?v=97a8ecbbd0';
 import { fusedVS, fusedFS } from './veins-fuse.js?v=892ef12160';
 import { NOISE_W, NOISE_H, NOISE_PER_ROW, OCTAVES, noiseBlock, blockAt, tableSize } from './blood-noise.js?v=bc65994b25';
 import { rendererVerdict } from './sw-yield.js?v=703c656c2b';
-import { frameCount, framePhase } from './frame.js?v=64dec3a4dd';
+import { frameCount, framePhase } from './frame.js?v=3693d2ccc8';
 
 export { binVeins };
 

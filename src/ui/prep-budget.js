@@ -20,7 +20,7 @@
 //   prepLeft() → ms left in this interval        prepSpend(ms) charges work done elsewhere (a rest pass)
 //
 // ?prepbudget=0: no shared ledger (rest passes keep their own 6 ms slice; jobs run each step at once, as before).
-import { frameBudget, inMotion, watchdogStats, WATCH_SHARE } from './frame.js?v=64dec3a4dd';
+import { frameBudget, inMotion, watchdogStats, WATCH_SHARE } from './frame.js?v=3693d2ccc8';
 
 export const PREP_BUDGET = !(typeof location !== 'undefined' && /[?&]prepbudget=0\b/.test(location.search || ''));
 export const REST_CAP_MS = 6;
