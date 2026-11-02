@@ -108,7 +108,9 @@ test('with one, the next frame draws it into the figure\'s picture, from that pi
   await frames(4);
   assert.equal(copies, c, 'no copy of the canvas at all');
   const first = fig.n.calls.find((c) => c[0] === 'blitFramebuffer');
-  assert.deepEqual(first.slice(1, 5), [Math.round(52 * 2), 1200 - Math.round(228 * 2), Math.round(348 * 2), 1200 - Math.round(52 * 2)], 'the region around the callout, in the canvas\'s own rows');
+  // (Shared blur, blur-share.js: the copy lies on the whole canvas's grid, so the part made is the callout's box and BLUR_KEEP (14) texels
+  // of 4 CSS px around it (56 px), no longer cut at its 48 px margin: 8 CSS px (16 device px) more each side than the old region's.)
+  assert.deepEqual(first.slice(1, 5), [Math.round(52 * 2) - 16, 1200 - Math.round(228 * 2) - 16, Math.round(348 * 2) + 16, 1200 - Math.round(52 * 2) + 16], 'the region around the callout, in the canvas\'s own rows');
   const flip = fig.n.calls.filter((c) => c[0] === 'blitFramebuffer').at(-1);
   assert.ok(flip[6] > flip[8], 'turned over on its last step');
 });

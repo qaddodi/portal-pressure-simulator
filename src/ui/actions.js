@@ -6,10 +6,10 @@
 import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent, isStent, stentSite } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel, flowReversed } from './velNormal.js?v=97920ddf3f';
 import { store, updateParams, hiddenNow } from './store.js?v=4ef2a6ffd8';
-import { fmt, fmtFlow, clamp } from './util.js?v=21b73662d1';
+import { fmt, fmtFlow, clamp } from './util.js?v=1a6db9446e';
 import { PREGNANCY_INFO } from '../engine/scenario.js?v=0762d1b820';
-import { aboutVessel, aboutOrgan } from './about.js?v=b9ac41acb5';
-import { lobuleState } from './lobule-model.js?v=ce552ee378';
+import { aboutVessel, aboutOrgan } from './about.js?v=31955bf24f';
+import { lobuleState } from './lobule-model.js?v=3097558e75';
 import { oxygenFor } from './blood.js?v=f6c91d8676';
 import { LABEL_VESSEL, SIN_EDGES } from './anatomy.js?v=fe0f3d1f0e';
 

@@ -13,7 +13,7 @@
 // round or butt ends, fill and stroke opacity, visibility, display none, vector-effect non-scaling-stroke. A drawing's viewBox is mapped to
 // the box as SVG maps it (preserveAspectRatio none, or meet in the middle). The picture covers the box exactly.
 
-import { createTraceGL, fitPen } from './trace-gl.js?v=ddb94858b8';
+import { createTraceGL, fitPen } from './trace-gl.js?v=fe74d979f4';
 import { flattenPath, elBox } from './shape-gl.js?v=c6a05b4d08';
 import { finalFrameFor, easeNow } from './frame.js?v=43da9d808a';
 import { restPass } from './rest-pass.js?v=a36f0b90ba';

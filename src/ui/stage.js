@@ -1,18 +1,19 @@
 // Anatomical stage (blueprint §6): the figure drawn on the GPU (plate, vessels, moving blood),
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
-import { TIERS_ON, TIER_TOP, tierK, onTierWarm } from './adapt-tier.js?v=6dc7e1c1e4';
+import { TIERS_ON, TIER_TOP, tierK, onTierWarm } from './adapt-tier.js?v=af8ef62c8d';
+import { hold as gpuHold } from './gpu-budget.js?v=80c7eb8114';
 import { WARM_VIEWS, WARM_MS } from './warm-views.js?v=510b2dee9e';
 import { gastricUp } from '../engine/scenario.js?v=0762d1b820';
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
 import { route as metroRoute, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, CAVITY_LOW, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=fe0f3d1f0e';
-import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=cb8b6ac696';
+import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=c50a20974c';
 import { nodeJoins, sideEndScale } from './fork-joins.js?v=4c6eea81e5';
 import { nodeEnds, nodeDrawn, dotRadius, bareDots } from './circuit-nodes.js?v=1040ba0ec4';
 import { STATION_VESSEL, meanVel, velNormal, judgeFlow } from './velNormal.js?v=97920ddf3f';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=4ef2a6ffd8';
 import { fibroReading } from './clock.js?v=16aba0e2eb';
-import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, loadFailed, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=21b73662d1';
+import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, loadFailed, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=1a6db9446e';
 import { riseCentre } from './rise-path.js?v=c039cb7b49';
 import { lerpVT, camPath, blendPaths, viewsOverlap, driftEase } from './cam-arc.js?v=2e5111e648';
 import { easeMove, easeArrive, camMs, carryRate, carried, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js?v=7513a88c68';
@@ -28,7 +29,7 @@ import { easeTo, fluidSpring, fluidSpringFor } from './organ-ease.js?v=4ebb64813
 import { spleenMotion } from './spleen-motion.js?v=4e87db0dbb';
 import { paintBox } from './plate-copy.js?v=20b30d30b0';
 import { gridHits, segHitsBox } from './seg-hits.js?v=e7cde76929';
-import { glassCallout, withGlass } from './callout.js?v=b6b8a6caaa';
+import { glassCallout, withGlass } from './callout.js?v=127b1bb40c';
 import { flipFrom, flipAt } from './cath-flip.js?v=6b016952c4';
 import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=d7cca3fb73';
 import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=977185f80a';
@@ -50,13 +51,13 @@ import { measure as measureWords } from './glyph-measure.js?v=5fc78d0edb';
 import { readGroup as readGroupNow, readGroupRefs, readFail, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=e0eecb7402';
 import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js?v=fd7e5bc404';
 import { pathCmds, flattenCmds, polyBox, measurePath, elBox } from './shape-gl.js?v=c6a05b4d08';
-import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=a2e13d9f8b';
+import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=a6017408a4';
 import { nameSpots, NAME_BREAK } from './organ-names.js?v=a901e8b4f3';
 import { createLabelGL } from './label-gl.js?v=42a7b1dad1';
-import { createGlassGL } from './glass-gl.js?v=8a957048fe';
+import { createGlassGL } from './glass-gl.js?v=42b6a63e4e';
 import { writePoints, writeJoinNow } from './veins-sweep.js?v=c4ad517372';
 import { ENT_W } from './veins-bin.js?v=6e462a9e6c';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=3baf73f280';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=1ba4d33f62';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=d950c5cd1c';
 import { alongCurve } from './pressure-along.js?v=74c64e4286';
@@ -90,7 +91,7 @@ import { bandRing, dashRings, liftEnd, normalShown, rippleList, systemOf, SYSTEM
 import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js?v=6ef2901a08';
 import { CellGrid, geomOf } from './cell-grid.js?v=d639bfecf2';
 import { restPass } from './rest-pass.js?v=a36f0b90ba';
-import { glWords } from './gl-words.js?v=1cfbc177d8';
+import { glWords } from './gl-words.js?v=d4419b13c3';
 const nextFrame = frameFor('stage');
 // (1 Nov 2026, "Move everything to GPU": zero layout inside the frame. Boxes the figure's pieces keep clear of (the slide's cards, the
 // key pill, the readings' own sizes, the home look's room) are read first in a frame, before anything is written (frame.js readFrame),
@@ -2763,7 +2764,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=2fdbdfe0c2').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=6c2a58ef2f').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -12294,6 +12295,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (lz?.isOpen()) { trimVeins(); sleep(); return; }
     veinsTrimmed = false;   // (shown again: the next draw makes what trimVeins gave back)
     hiddenAt = 0;   // (shown: a later hide starts its warm window afresh)
+    if (veinsHold) { veinsHold.drop(); veinsHold = null; }   // (in use again: no longer warm)
     if (lz?.covers()) { askAnimate(); return; }
     forceDraw = false; drawOnce = false;
     const st = store.get();
@@ -12357,12 +12359,22 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The figure is not shown (the page hidden, the home screen, or the lobule fully over it): the vessel framebuffer, the
   // outline layers and the organ stack (about 58 bytes a pixel of GPU memory) are given back; the first draw on the way
   // back makes them again, whole (veins-gl.js trim: ensureFBO and the layer keys). Once per sleep; the plates stay.
-  let veinsTrimmed = false, hiddenAt = 0;
+  let veinsTrimmed = false, hiddenAt = 0, veinsHold = null;
   // (R08, warm-views.js: under the lobule the targets stay WARM_MS, so a quick Lobule → Anatomy makes nothing again; a hidden page
   // gives them back at once. ?warmviews=0: at once, as before.)
   function trimVeins() {
     if (veinsTrimmed || !veins || veins.lost || glowSync) return;
-    if (WARM_VIEWS && !document.hidden) { const t = performance.now(); if (!hiddenAt) hiddenAt = t; if (t - hiddenAt < WARM_MS) return; }
+    if (WARM_VIEWS && !document.hidden) {
+      const t = performance.now();
+      if (!hiddenAt) {
+        hiddenAt = t;
+        // (Review pass item 8: the warm window is held in the global budget too (gpu-budget.js hold): several warm views at once, or memory
+        // over the envelope, give these back before WARM_MS. Its release is this trim, once; showing the figure again drops the hold.)
+        veinsHold = gpuHold({ owner: 'veins (under the lobule)', kind: 'warm', gl: veins.gl, bytes: () => (veinsTrimmed ? 0 : vCanvas.width * vCanvas.height * 58), release: () => { veinsHold = null; if (!veinsTrimmed && veins && !veins.lost && !glowSync) { veins.trim(); veinsTrimmed = true; veinsDirty = true; } } });
+      }
+      if (t - hiddenAt < WARM_MS) return;
+    }
+    veinsHold?.drop(); veinsHold = null;
     veins.trim(); veinsTrimmed = true; veinsDirty = true;
   }
   function sleep() {

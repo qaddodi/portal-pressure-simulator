@@ -19,6 +19,7 @@
 import { startProgram, checkProgram, exerciseDraw, publishWhenDone, stillCompiling } from './gl-compile.js?v=62b8693f78';
 import { canvasSize, fitCanvas, onCanvasSized } from './util.js?v=92114c1315';
 import { sdfAtlas } from './text-gl.js?v=b1a30d90ad';   // (the app's one door to GPU text: its SDF atlas, for text that changes every frame)
+import { notePass, hold } from './gpu-budget.js?v=80c7eb8114';
 import { fontOf, measure } from './glyph-measure.js?v=5fc78d0edb';
 export { measure };
 const { GLYPHS, KERN, BASELINES, BASE, RADIUS, CUTOFF, ATLAS_W, ATLAS_H, ATLAS_PNG } = sdfAtlas;
@@ -51,7 +52,15 @@ export const ctxShareOff = (search) => /[?&]ctxshare=0\b/.test(String(search ?? 
 const POOLS = (() => { const m = /[?&]ctxpools=(\d)\b/.exec(globalThis.location?.search || ''); return m ? Math.max(1, Math.min(4, +m[1])) : 3; })();
 const pools = [];
 /** Size reallocations of the shared buffers and pictures handed over, since the page opened (the ?perf readout, audit R04). */
-export const sharedStats = { resizes: 0, transfers: 0 };
+export const sharedStats = { resizes: 0, transfers: 0, moves: 0, covAllocs: 0, uploads: 0, subUploads: 0 };
+// (Review pass item 6, 2 Nov 2026: a pool whose buffer was sized for another chart less than SIZE_HOLD ms ago and is asked for a
+// different size again is thrashing. The chart asking moves, once per MOVE_GAP ms at most, to a pool already at its size or idle in
+// size, and a pool is prepared in a timer for the next chart if none is (programs and glyph field in, never in a frame). Coverage
+// targets are one per pool, grown in CAP_STEP steps and never shrunk, so charts of different sizes never reallocate them. ?chartmove=0:
+// a chart stays in the pool it was given.)
+const SIZE_HOLD = 1000, MOVE_GAP = 2000, CAP_STEP = 256;
+const CHART_MOVE = !/[?&]chartmove=0\b/.test(globalThis.location?.search || '');
+export const capOf = (n) => Math.ceil(Math.max(1, n) / CAP_STEP) * CAP_STEP;
 function makePool() {
   const pool = { dead: true, users: 0 };
   if (typeof OffscreenCanvas !== 'function') return pool;
@@ -59,8 +68,8 @@ function makePool() {
   const canvas = new OffscreenCanvas(1, 1);
   try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: true, preserveDrawingBuffer: false, powerPreference: 'low-power', failIfMajorPerformanceCaveat: true }); } catch { gl = null; }
   if (!gl || typeof gl.createShader !== 'function' || typeof canvas.transferToImageBitmap !== 'function') return pool;
-  Object.assign(pool, { dead: false, canvas, gl, gen: 0, started: null, atlasTex: null, atlasIn: false, active: null });
-  canvas.addEventListener?.('webglcontextlost', (e) => { e.preventDefault(); pool.started = null; pool.atlasTex = null; pool.atlasIn = false; });
+  Object.assign(pool, { dead: false, canvas, gl, gen: 0, started: null, atlasTex: null, atlasIn: false, active: null, sizedAt: -1e9, sizedBy: null, cov: null });
+  canvas.addEventListener?.('webglcontextlost', (e) => { e.preventDefault(); pool.started = null; pool.atlasTex = null; pool.atlasIn = false; pool.cov = null; });
   canvas.addEventListener?.('webglcontextrestored', () => { pool.gen++; });
   return pool;
 }
@@ -71,6 +80,42 @@ function sharedGL() {
   if (best.users > 0 && pools.length < POOLS) { const p = makePool(); if (!p.dead) { pools.push(p); best = p; } }
   best.users++;
   return best;
+}
+const startPool = (p) => (p.started ||= Object.fromEntries(Object.entries(SRC).map(([k, [vs, fs]]) => [k, startProgram(p.gl, vs, fs)])));
+function atlasInto(p) {
+  const gl = p.gl;
+  if (p.atlasIn || !glyphImage || gl.isContextLost()) return;
+  if (!p.atlasTex) {
+    p.atlasTex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, p.atlasTex);
+    for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+  }
+  gl.bindTexture(gl.TEXTURE_2D, p.atlasTex);
+  gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, ATLAS_W, ATLAS_H, 0, gl.RED, gl.UNSIGNED_BYTE, glyphImage);
+  p.atlasIn = true;
+}
+// (A pool made ready ahead, in a timer: never inside a chart's frame.)
+let prewarmT = 0;
+function prewarmSoon() {
+  if (prewarmT || pools.length >= POOLS) return;
+  prewarmT = setTimeout(() => {
+    prewarmT = 0;
+    if (pools.length >= POOLS) return;
+    const p = makePool();
+    if (p.dead) return;
+    pools.push(p); startPool(p); atlasInto(p);
+  }, 0);
+}
+/** The pool a chart of Wd × Hd should move to from `from`: one at that size, or one no chart has sized for SIZE_HOLD ms, whose
+ *  programs and glyph field are in (nothing compiled or uploaded in the frame that moves). Null: none (one is prepared meanwhile). */
+export function poolFor(list, from, Wd, Hd, now, compiling = () => false) {
+  let idle = null;
+  for (const p of list) {
+    if (p === from || p.dead || !p.started || !p.atlasIn || compiling(p)) continue;
+    if (p.canvas.width === Wd && p.canvas.height === Hd) return p;
+    if (!idle && now - p.sizedAt > SIZE_HOLD) idle = p;
+  }
+  return idle;
 }
 
 // Paint (a colour or a linear gradient of up to sixteen stops: the profile's curve has a stop per station), shared by the fills and the strokes' laying down. Positions in CSS px.
@@ -285,6 +330,7 @@ void main() {
 let glyphImage = null;
 // (A chart that drew on its own canvas while the field was still decoding is drawn again on the GPU once it is in.)
 const waiting = new Set();
+const SRC = { seg: [SEG_VS, SEG_FS], comp: [QUAD_VS, COMP_FS], fill: [FILL_VS, FILL_FS], box: [BOX_VS, BOX_FS], text: [TEXT_VS, TEXT_FS], img: [IMG_VS, IMG_FS] };
 if (typeof Image === 'function') { const im = new Image(); im.decoding = 'async'; im.onload = () => { glyphImage = im; for (const f of [...waiting]) f(); waiting.clear(); }; im.src = ATLAS_PNG; }
 
 // A CSS colour as [r, g, b, a] (0–1, not premultiplied), read by hand (no canvas): #rgb, #rgba, #rrggbb, #rrggbbaa, rgb()/rgba() in either
@@ -345,7 +391,7 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
   canvas.className = 'trace-gl';
   canvas.style.pointerEvents = 'none';
   let gl = null, glCanvas = canvas, shown = null;
-  const shared = !ctxShareOff(search) ? sharedGL() : null;
+  let shared = !ctxShareOff(search) ? sharedGL() : null;
   if (shared) {
     try { shown = canvas.getContext('bitmaprenderer'); } catch { shown = null; }
     if (shown) { gl = shared.gl; glCanvas = shared.canvas; }
@@ -356,19 +402,19 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
   // (A software renderer draws it too: a chart is a few hundred small shapes, well within one.)
 
   let lost = false, dead = false, failed = false, missed = false, parked = false, back = false, gen = 0;   // (missed: a frame asked for the GPU while it could not draw)
-  glCanvas.addEventListener?.('webglcontextlost', (e) => { e.preventDefault(); lost = true; });
+  const onLost = (e) => { e.preventDefault(); lost = true; };
+  glCanvas.addEventListener?.('webglcontextlost', onLost);
   let P = null, started = null, stopPoll = null;
   let quad = null, quadVao = null, segBuf = null, segVao = null, fillBuf = null, fillVao = null, boxBuf = null, boxVao = null, textBuf = null, textVao = null;
-  let covTex = null, fbo = null, covW = 0, covH = 0, atlasTex = null, atlasIn = false, unitBuf = null, unitVao = null;
+  let covTex = null, fbo = null, ownCov = null, movedAt = -1e9, atlasTex = null, atlasIn = false, unitBuf = null, unitVao = null;
   const images = new Map();   // (a picture's key → { tex, ver }: textures kept from frame to frame, a few at most)
-  const SRC = { seg: [SEG_VS, SEG_FS], comp: [QUAD_VS, COMP_FS], fill: [FILL_VS, FILL_FS], box: [BOX_VS, BOX_FS], text: [TEXT_VS, TEXT_FS], img: [IMG_VS, IMG_FS] };
   const PU = ['pc', 'po', 'pl', 'pn', 'ga', 'pr', 'pk', 'pm'];
   const UN = { seg: ['res', 'hw', 'dash', 'cap'], comp: ['cov', 'res', 'k', ...PU], fill: ['res', 'k', ...PU], box: ['res', 'k'], text: ['res', 'asz', 'atlas', 'sdf'], img: ['res', 'k', 'box', 'img', 'ga'] };
 
   function build() {
-    P = null; failed = false; covW = covH = 0; gen++;
+    P = null; failed = false; gen++;
     // (Shared: the programs compiled once for every chart; each chart only finds its uniforms.)
-    if (shown && !shared.started) shared.started = Object.fromEntries(Object.entries(SRC).map(([k, [vs, fs]]) => [k, startProgram(gl, vs, fs)]));
+    if (shown) startPool(shared);
     started = shown ? shared.started : Object.fromEntries(Object.entries(SRC).map(([k, [vs, fs]]) => [k, startProgram(gl, vs, fs)]));
     quad = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, quad);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
@@ -389,7 +435,9 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
     gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
     gl.bindVertexArray(null);
     images.clear();
-    covTex = gl.createTexture(); fbo = gl.createFramebuffer();
+    // (Coverage: the pool's one target when shared, else the chart's own; grown in steps, never shrunk: coverTarget.)
+    ownCov = shown ? null : { tex: gl.createTexture(), fb: gl.createFramebuffer(), w: 0, h: 0 };
+    covTex = fbo = null;
     if (shown && shared.atlasTex) atlasTex = shared.atlasTex;
     else {
       atlasTex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, atlasTex);
@@ -421,10 +469,38 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
     }
   }
   try { build(); } catch (e) { console.warn('Charts on the GPU: could not start; the chart is not drawn.', e); gl.getExtension('WEBGL_lose_context')?.loseContext(); return null; }
-  glCanvas.addEventListener?.('webglcontextrestored', () => {
+  const onRestored = () => {
     if (dead) return;
     try { build(); } catch (e) { failed = true; console.warn('Charts on the GPU: could not be rebuilt; the chart is not drawn.', e); }
-  });
+  };
+  glCanvas.addEventListener?.('webglcontextrestored', onRestored);
+  // The chart's own objects in its context (not the pool's programs, glyph field or coverage): let go on a move or a dispose.
+  function freeOwn() {
+    try {
+      for (const b of [quad, segBuf, fillBuf, boxBuf, textBuf, unitBuf]) gl.deleteBuffer(b);
+      for (const v of [quadVao, segVao, fillVao, boxVao, textVao, unitVao]) gl.deleteVertexArray(v);
+      for (const e of images.values()) gl.deleteTexture(e.tex);
+      images.clear();
+      for (const e of layers.values()) dropLayer(e);
+      layers.clear();
+      layerHold?.drop(); layerHold = null;
+      if (ownCov) { gl.deleteTexture(ownCov.tex); gl.deleteFramebuffer(ownCov.fb); ownCov = null; }
+    } catch { /* a lost context holds nothing */ }
+  }
+  // (Review pass item 6: to a pool at this chart's size, so two charts of different sizes stop resizing one buffer every frame.)
+  function moveTo(p) {
+    stopPoll?.();
+    freeOwn();
+    if (shared.active === api) shared.active = null;
+    shared.users = Math.max(0, shared.users - 1);
+    glCanvas.removeEventListener?.('webglcontextlost', onLost); glCanvas.removeEventListener?.('webglcontextrestored', onRestored);
+    shared = p; p.users++; gl = p.gl; glCanvas = p.canvas;
+    glCanvas.addEventListener?.('webglcontextlost', onLost); glCanvas.addEventListener?.('webglcontextrestored', onRestored);
+    build(); publish();
+    atlasIn = !!p.atlasIn;
+    sharedStats.moves++;
+    return !!P;
+  }
   host.after(canvas);
   // (Parking: the context is given back while the chart is off the screen, display:none included, and taken again as it comes near.)
   let parkT = 0, seen = null;
@@ -445,6 +521,12 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
   let outFb = null;
   const layers = new Map();   // (a kept layer's name → { tex, fb, rb, w, h, gen, sig }: the still parts of a chart, drawn once per sig)
   const KEEP = !chartKeepOff(search);
+  // (Review pass item 8: a chart's kept layers are held in the global budget as 'retained': let go, least recently drawn first, only while the
+  // registry is over its envelope; drawn again at the next frame. Let go inside a frame, they go when it ends.)
+  let layerHold = null, dropAfter = false;
+  const layerBytes = () => { let b = 0; for (const e of layers.values()) b += e.w * e.h * 5; return b; };
+  const dropLayers = () => { for (const e of layers.values()) dropLayer(e); layers.clear(); };
+  const holdLayers = () => { if (layerHold?.held) layerHold.touch(); else layerHold = hold({ owner: 'chart layers', kind: 'retained', gl, bytes: layerBytes, release: () => { layerHold = null; if (inFrame) dropAfter = true; else dropLayers(); } }); };
   const dropLayer = (e) => { try { gl.deleteTexture(e.tex); gl.deleteFramebuffer(e.fb); gl.deleteRenderbuffer(e.rb); } catch { /* lost */ } };
   let segData = new Float32Array(6144), fillData = new Float32Array(4096);
   let textData = new Float32Array(18 * 32), textN = 0, boxData = new Float32Array(560), boxN = 0;
@@ -577,15 +659,21 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
     const pc = new Float32Array(64); pc.set(premul(typeof style === 'string' ? style : 'transparent'));
     gl.uniform4fv(u.pc, pc); gl.uniform1i(u.pn, 1); gl.uniform1f(u.ga, alpha);
   }
+  // (Review pass item 6: one coverage target per pool (the chart's own without one), grown to the largest chart drawn in CAP_STEP steps and
+  // never shrunk: a frame draws into its lower left W x H (texelFetch at the fragment's own pixel), so a chart of another size reallocates
+  // nothing. The rows past W x H are never read: each stroke clears its own scissored box first.)
   function coverTarget() {
-    if (covW !== W || covH !== H) {
-      gl.bindTexture(gl.TEXTURE_2D, covTex);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, W, H, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    const c = shown ? (shared.cov ||= { tex: gl.createTexture(), fb: gl.createFramebuffer(), w: 0, h: 0 }) : ownCov;
+    if (c.w < W || c.h < H) {
+      const nw = Math.max(c.w, capOf(W)), nh = Math.max(c.h, capOf(H));
+      gl.bindTexture(gl.TEXTURE_2D, c.tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, nw, nh, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
       for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
-      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
-      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, covTex, 0);
-      covW = W; covH = H;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, c.fb);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, c.tex, 0);
+      c.w = nw; c.h = nh; sharedStats.covAllocs++;
     }
+    covTex = c.tex; fbo = c.fb;
   }
 
   const api = {
@@ -615,7 +703,18 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
         // (Another chart's frame still open in the shared context is finished first: its picture handed over before this one starts.)
         if (shared.active && shared.active !== api) shared.active.end();
         shared.active = api;
-        if (glCanvas.width !== Wd || glCanvas.height !== Hd) { glCanvas.width = Wd; glCanvas.height = Hd; sharedStats.resizes++; }
+        if (glCanvas.width !== Wd || glCanvas.height !== Hd) {
+          const t = performance.now();
+          if (CHART_MOVE && shared.sizedBy !== api && t - shared.sizedAt < SIZE_HOLD && t - movedAt > MOVE_GAP) {   // (another chart sized it just now; a chart changing its own size stays)
+            const p = poolFor(pools, shared, Wd, Hd, t, (q) => stillCompiling(q.gl, Object.values(q.started)));
+            if (p) {
+              movedAt = t;
+              if (!moveTo(p)) { shared.active = null; missed = true; api.hide(); return false; }
+              shared.active = api;
+            } else prewarmSoon();
+          }
+          if (glCanvas.width !== Wd || glCanvas.height !== Hd) { glCanvas.width = Wd; glCanvas.height = Hd; sharedStats.resizes++; shared.sizedAt = t; shared.sizedBy = api; }
+        }
         gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.bindVertexArray(null); gl.useProgram(null);
         gl.clearStencil(0); gl.stencilMask(0xff);
       }
@@ -640,9 +739,11 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
     end() {
       if (!inFrame) return;
       flush(); gl.bindVertexArray(null); inFrame = false;
+      if (dropAfter) { dropAfter = false; dropLayers(); }
+      else if (layers.size) holdLayers();
       if (shown) {
         if (shared.active === api) shared.active = null;
-        sharedStats.transfers++;
+        sharedStats.transfers++; notePass('transfer', W * H);
         try { shown.transferFromImageBitmap(glCanvas.transferToImageBitmap()); } catch (e) { console.warn('Charts on the GPU: the picture could not be handed over.', e); }
       }
       if (canvas.style.visibility) canvas.style.visibility = '';
@@ -775,8 +876,12 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
         }
         gl.bindTexture(gl.TEXTURE_2D, e.tex);
         gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
+        // (Review pass item 5/6: the same size again is written into the storage there, texSubImage2D, not specified afresh.)
+        const sw = src.width || src.videoWidth || 0, sh = src.height || src.videoHeight || 0;
+        if (e.w === sw && e.h === sh && sw > 0) { gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, src); sharedStats.subUploads++; }
+        else { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src); e.w = sw; e.h = sh; sharedStats.uploads++; }
         gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+        notePass('upload', sw * sh);
         e.ver = ver; e.src = src;
       }
       return e;
@@ -906,16 +1011,12 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
     get parked() { return parked; },
     dispose() {
       dead = true; stopPoll?.(); clearTimeout(parkT); seen?.disconnect();
+      freeOwn();
       try {
-        for (const b of [quad, segBuf, fillBuf, boxBuf, textBuf, unitBuf]) gl.deleteBuffer(b);
-        for (const v of [quadVao, segVao, fillVao, boxVao, textVao, unitVao]) gl.deleteVertexArray(v);
-        for (const e of images.values()) gl.deleteTexture(e.tex);
-        images.clear();
-        for (const e of layers.values()) dropLayer(e);
-        layers.clear();
-        gl.deleteTexture(covTex); if (!shown) gl.deleteTexture(atlasTex); gl.deleteFramebuffer(fbo);
+        if (!shown) gl.deleteTexture(atlasTex);
         if (P && !shown) for (const k of Object.keys(P)) gl.deleteProgram(P[k].p);   // (shared: the programs and the field stay for the others)
       } catch { /* a lost context holds nothing */ }
+      if (shown && shared.sizedBy === api) shared.sizedBy = null;
       if (shown && shared.active === api) shared.active = null;
       if (shown) shared.users = Math.max(0, shared.users - 1);
       canvas.width = canvas.height = 0;

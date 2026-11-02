@@ -82,8 +82,8 @@ function setLevel(e, level, bytes) { e.levels.set(level, bytes); let b = 0; for 
 function drop(obj) { const e = obj && byObj.get(obj); if (e) { entries.delete(e.id); byObj.delete(obj); gone?.unregister?.(obj); } }
 
 // This frame's passes, and the last frames'.
-const cur = { targets: 0, draws: 0, area: 0, copies: 0, copyArea: 0, lastFb: undefined };
-const last = { targets: 0, draws: 0, area: 0, copies: 0, copyArea: 0 };
+const cur = { targets: 0, draws: 0, area: 0, copies: 0, copyArea: 0, transfers: 0, transferArea: 0, uploads: 0, uploadArea: 0, lastFb: undefined };
+const last = { targets: 0, draws: 0, area: 0, copies: 0, copyArea: 0, transfers: 0, transferArea: 0, uploads: 0, uploadArea: 0 };
 let worst = { area: 0, at: 0 }, overFrames = 0, overMem = false, warnedMem = false, memAt = 0;
 
 function onCall(gl, name, x) {
@@ -157,10 +157,82 @@ export function budget() {
     mb: +(bytes / 1e6).toFixed(1), canvasesMb: +(canvases / 1e6).toFixed(1), overMemory: bytes > env.mb * 1e6,
     owners: [...owners.values()].sort((a, b) => b.bytes - a.bytes).map((o) => ({ owner: o.owner, n: o.n, mb: +(o.bytes / 1e6).toFixed(1) })),
     largest: big,
-    frame: { targets: last.targets, draws: last.draws, screens: +(last.area / scr).toFixed(2), copies: last.copies, copyScreens: +(last.copyArea / scr).toFixed(2) },
+    frame: { targets: last.targets, draws: last.draws, screens: +(last.area / scr).toFixed(2), copies: last.copies, copyScreens: +(last.copyArea / scr).toFixed(2), transfers: last.transfers, transferScreens: +(last.transferArea / scr).toFixed(2), uploads: last.uploads, uploadScreens: +(last.uploadArea / scr).toFixed(2) },
+    holders: holdersNow(),
     worstScreens: +(worst.area / scr).toFixed(2), overPassFrames: overFrames,
   };
 }
+
+/** A pass this registry cannot see through gl-state (a picture handed to another canvas: transferToImageBitmap, a texture upload
+ *  from an image): kind 'transfer' or 'upload', area in device px. Counted with the frame's copies (review pass item 6). */
+export function notePass(kind, area) {
+  if (!GPU_BUDGET) return;
+  if (kind === 'transfer') { cur.transfers++; cur.transferArea += area; } else { cur.uploads++; cur.uploadArea += area; }
+  cur.copies++; cur.copyArea += area;
+}
+
+// ── The enforceable part (review pass item 8, 2 Nov 2026) ──
+// Counting is not a budget unless something gives memory back when it runs over. Every resource kept only so that a later frame need
+// not make it again registers here as a holder, with what it holds (bytes(), its own estimate, so this works with ?gpubudget=0 too)
+// and how to let it go (release()). Two kinds:
+//   - 'warm': kept for a view out of sight (the vessel layer under the lobule, the painter's targets after a paint). Held to WARM_SHARE
+//     of the envelope and WARM_MAX holders together, besides each one's own time (warm-views.js WARM_MS): past either, the one used
+//     longest ago is let go first. So rapid navigation never piles up twelve seconds of every view visited.
+//   - 'retained': caches a shown view draws from (a chart's still layers, the shared glass blur). Let go only while the whole registry is
+//     over its envelope, after every warm one, the least recently used first.
+// Ownership: the holder's owner made the resource and is the only one that deletes it; release() is the owner's own disposal, called at
+// most once (the holder leaves the registry first), and the owner makes it again on its next use. A context lost forgets its holders
+// without a call (what they held is gone with it); a restored context's owners make theirs afresh, under fresh generations of their own,
+// and register again. enforce() runs on every hold() and twice a second while frames run. ?gpuevict=0: holders are counted
+// (pps.budget().holders) but never let go by this.
+export const WARM_SHARE = 0.25, WARM_MAX = 6;
+const EVICT = !/[?&]gpuevict=0\b/.test(SEARCH);
+const holders = new Set();
+let evictions = 0;
+const holderBytes = (h) => { try { return Math.max(0, +h.bytes() || 0); } catch { return 0; } };
+/**
+ * A resource kept for later: { owner, kind: 'warm' | 'retained', bytes(), release(), gl? }. Returns { touch() (just used: last to go),
+ * drop() (the owner let it go itself, or uses it again as shown), get held }.
+ */
+export function hold(spec) {
+  const h = { owner: spec.owner || 'gpu', kind: spec.kind === 'retained' ? 'retained' : 'warm', bytes: spec.bytes || (() => 0), release: spec.release, gl: spec.gl || null, at: nowMs() };
+  holders.add(h);
+  const handle = {
+    touch() { if (holders.has(h)) h.at = nowMs(); },   // (cheap: called on every chart frame; enforce() runs on hold() and the tick)
+    drop() { holders.delete(h); },
+    get held() { return holders.has(h); },
+  };
+  enforce();
+  return handle;
+}
+const nowMs = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+function letGo(h) {
+  holders.delete(h);
+  evictions++;
+  try { h.release?.(); } catch (e) { console.warn(`GPU budget: ${h.owner} could not let go of what it held.`, e); }
+}
+/** Gives back held resources until the warm ones are within their share and count and the registry within its envelope. */
+export function enforce(env = ENVELOPES[deviceClass()]) {
+  for (const h of holders) if (h.gl?.isContextLost?.()) holders.delete(h);   // (gone with its context: forgotten, nothing called)
+  if (!EVICT) return 0;
+  const before = evictions;
+  const lru = (kind) => [...holders].filter((h) => h.kind === kind).sort((a, b) => a.at - b.at);
+  // (warm: by count, then by their share of the envelope)
+  let warm = lru('warm');
+  while (warm.length > WARM_MAX) letGo(warm.shift());
+  let warmBytes = warm.reduce((a, h) => a + holderBytes(h), 0);
+  while (warm.length && warmBytes > env.mb * 1e6 * WARM_SHARE) { const h = warm.shift(); warmBytes -= holderBytes(h); letGo(h); }
+  // (the whole: the registry's bytes, or the holders' own where it counts nothing)
+  let total = registryBytes(), held = 0;
+  for (const h of holders) held += holderBytes(h);
+  total = Math.max(total, held);   // (the registry already counts what holders hold; without it (?gpubudget=0), their own estimates)
+  const over = () => total > env.mb * 1e6;
+  for (const kind of ['warm', 'retained']) for (const h of lru(kind)) { if (!over()) break; total -= holderBytes(h); letGo(h); }
+  return evictions - before;
+}
+function registryBytes() { let b = canvasBytes(); for (const e of entries.values()) b += e.bytes; return b; }
+/** The holders now (tests and ?perf). */
+export function holdersNow() { return { evictions, list: [...holders].map((h) => ({ owner: h.owner, kind: h.kind, mb: +(holderBytes(h) / 1e6).toFixed(1) })) }; }
 
 /** True while the render graph is over its envelope: the last frames ran past the pass envelope, or the registry past memory's. */
 export function overBudget() { return overMem || overFrames >= 2; }
@@ -172,6 +244,7 @@ export function budgetText() {
   const lines = [`GPU budget (${b.device}): ${b.mb} of ${b.envelope.mb} MB${b.overMemory ? ' OVER' : ''} (canvases ${b.canvasesMb}); last frame ${b.frame.screens} of ${b.envelope.screens} screens drawn, ${b.frame.targets} target switches, ${b.frame.draws} passes, ${b.frame.copies} copies (${b.frame.copyScreens} screens); worst ${b.worstScreens}`];
   for (const o of b.owners.slice(0, 6)) lines.push(`  ${o.owner}: ${o.mb} MB in ${o.n}`);
   if (b.creators.length) { lines.push('  Biggest creators (owner, kind, line that made them):'); for (const c of b.creators) lines.push(`    ${c.mb} MB in ${c.n}: ${c.site}`); }
+  lines.push(`  pictures handed over ${b.frame.transfers} (${b.frame.transferScreens} screens), uploads ${b.frame.uploads} (${b.frame.uploadScreens}); held ${b.holders.list.length}, let go ${b.holders.evictions}`);
   return lines.join('\n');
 }
 
@@ -180,8 +253,8 @@ if (GPU_BUDGET) {
   // (Each frame the scheduler runs: its passes become the last frame's, and are held against the pass envelope.)
   watchFrames((f) => {
     const scr = screenPx(), env = ENVELOPES[deviceClass()];
-    last.targets = cur.targets; last.draws = cur.draws; last.area = cur.area; last.copies = cur.copies; last.copyArea = cur.copyArea;
-    cur.targets = cur.draws = cur.area = cur.copies = cur.copyArea = 0; cur.lastFb = undefined;
+    for (const k of Object.keys(last)) { last[k] = cur[k]; cur[k] = 0; }
+    cur.lastFb = undefined;
     const area = last.area + last.copyArea;
     if (area > worst.area || f.now - worst.at > 5000) worst = { area, at: f.now };
     overFrames = area > env.screens * scr ? overFrames + 1 : 0;
@@ -193,6 +266,7 @@ if (GPU_BUDGET) {
       overMem = bytes > env.mb * 1e6;
       if (overMem && !warnedMem) { warnedMem = true; const b = budget(); console.warn(`GPU memory over its envelope: ${b.mb} of ${b.envelope.mb} MB`, b.owners.slice(0, 5)); }
       if (!overMem) warnedMem = false;
+      enforce(env);
     }
   });
 }

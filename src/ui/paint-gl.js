@@ -13,6 +13,7 @@
 
 import { glGet, glOn, glCap } from './gl-state.js?v=554eb75e6c';
 import { cssColor } from './css-color.js?v=e56f0c77ae';
+import { hold } from './gpu-budget.js?v=80c7eb8114';
 import { WARM_VIEWS, WARM_MS, bucket } from './warm-views.js?v=510b2dee9e';
 import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js?v=62b8693f78';
 
@@ -381,7 +382,9 @@ export function paintGL(gl) {
 }
 
 export function createPaintGL(gl) {
-  let progs = null, started = null, failed = false, res = null, freeT = 0;
+  let progs = null, started = null, failed = false, res = null, freeT = 0, warmHold = null;
+  // (Review pass item 8: what a paint leaves warm is held in the global budget (gpu-budget.js hold), which may let it go before WARM_MS.)
+  const resBytes = () => { const r = res; if (!r) return 0; const t = TILE * TILE; return t * 8 * Math.max(1, r.samples) + t * 4 + (r.sh ? r.sh.w * r.sh.h * 12 : 0); };
   const begin = () => {
     try {
       started = [startProgram(gl, VS_C, FS_C, [['p', 0], ['c', 1]]), startProgram(gl, VS_P, FS_P, [['p', 0]]), startProgram(gl, VS_Q, FS_B, [['p', 0]])];
@@ -389,7 +392,7 @@ export function createPaintGL(gl) {
     } catch { failed = true; }
   };
   begin();
-  gl.canvas?.addEventListener?.('webglcontextlost', () => { progs = null; res = null; started = null; });
+  gl.canvas?.addEventListener?.('webglcontextlost', () => { progs = null; res = null; started = null; warmHold?.drop(); warmHold = null; });
   gl.canvas?.addEventListener?.('webglcontextrestored', () => { failed = false; begin(); });
   function ready() {
     if (progs) return true;
@@ -462,6 +465,7 @@ export function createPaintGL(gl) {
   }
   function release() {
     clearTimeout(freeT); freeT = 0;
+    warmHold?.drop(); warmHold = null;
     if (!res) return;
     if (!gl.isContextLost()) {
       dropShadow();
@@ -543,6 +547,7 @@ export function createPaintGL(gl) {
       if (out) gl.bindTexture(gl.TEXTURE_2D, out);
     }
     clearTimeout(freeT); freeT = setTimeout(release, WARM_VIEWS ? WARM_MS : 3000);   // (R08: kept warm through the next slide's paints)
+    if (res) { if (warmHold?.held) warmHold.touch(); else warmHold = hold({ owner: 'paint-gl', kind: 'warm', bytes: resBytes, release, gl }); }
     return out;
   }
 
