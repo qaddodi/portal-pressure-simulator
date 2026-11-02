@@ -13,6 +13,7 @@
 
 import { startProgram, checkProgram, exerciseDraw, publishWhenDone, compileDone, SHADER_WARM } from './gl-compile.js?v=63e54c6c92';
 import { isTileCopy, createTileCopier } from './tile-gl.js?v=dd059ddf73';
+import { uniformCache } from './uniform-cache.js?v=3c43b7a297';
 
 const VS = `#version 300 es
 in vec2 p;
@@ -80,6 +81,7 @@ void main() {
 
 export function createFieldGL(canvas) {
   let gl = null;
+  let ucache = null;   // (the uniform cache, made at the first draw)
   try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, failIfMajorPerformanceCaveat: false }); } catch { gl = null; }
   if (!gl) return null;
   // (lost: the GPU does not draw the field, from the loss until the rebuilt program is published.)
@@ -198,13 +200,15 @@ export function createFieldGL(canvas) {
       gl.viewport(0, 0, W, H);
       gl.useProgram(prog);
       tx.forEach((t, unit) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t); });
-      gl.uniform1f(U.uMix, b ? mix : 0); gl.uniform1f(U.uQuiet, quiet);
-      gl.uniform2f(U.uO, ox, oy); gl.uniform1f(U.uRd, rd); gl.uniform1f(U.uH, H);
-      gl.uniform4f(U.uFade, fade ? fade[0] : 0, fade ? fade[1] : 0, fade ? fade[2] : 0, fade ? 1 : 0); gl.uniform1f(U.uMid, mid);
-      gl.uniform3f(U.uBg, bg[0], bg[1], bg[2]);
-      gl.uniform4f(U.uMask, mask ? mask[0] : 0, mask ? mask[1] : 0, mask ? mask[2] : 0, mask ? 1 : 0);
-      gl.uniform4f(U.uDof, dof ? dof[0] : 0, dof ? dof[1] : 0, dof ? dof[2] : 1, dof ? dof[3] : 0);
-      gl.uniform2f(U.uGrey, grey ? grey[0] : 1, grey ? grey[1] : 1);
+      // (Uniforms go through the cache: a value the program already holds is not sent again, uniform-cache.js. Set nowhere else.)
+      const UC = ucache || (ucache = uniformCache(gl));
+      UC.f1(U.uMix, b ? mix : 0); UC.f1(U.uQuiet, quiet);
+      UC.f2(U.uO, ox, oy); UC.f1(U.uRd, rd); UC.f1(U.uH, H);
+      UC.f4(U.uFade, fade ? fade[0] : 0, fade ? fade[1] : 0, fade ? fade[2] : 0, fade ? 1 : 0); UC.f1(U.uMid, mid);
+      UC.f3(U.uBg, bg[0], bg[1], bg[2]);
+      UC.f4(U.uMask, mask ? mask[0] : 0, mask ? mask[1] : 0, mask ? mask[2] : 0, mask ? 1 : 0);
+      UC.f4(U.uDof, dof ? dof[0] : 0, dof ? dof[1] : 0, dof ? dof[2] : 1, dof ? dof[3] : 0);
+      UC.f2(U.uGrey, grey ? grey[0] : 1, grey ? grey[1] : 1);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       pictured = true;
       return true;

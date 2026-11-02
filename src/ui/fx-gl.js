@@ -15,6 +15,7 @@
 
 import { startProgram, checkProgram } from './gl-compile.js?v=63e54c6c92';
 import { fbComplete } from './gl-state.js?v=ca10f41a87';
+import { uniformCache } from './uniform-cache.js?v=3c43b7a297';
 
 const FX_KEEP = !(typeof location !== 'undefined' && /[?&]lykeep=0\b/.test(location.search || ''));
 export const FX_GPU = !(typeof location !== 'undefined' && /[?&]fxgpu=0\b/.test(location.search || ''));
@@ -121,6 +122,8 @@ export const fxShaders = { capVS, capFS, quadVS, compFS };   // (for the shader 
  *  own passes expect to find it. */
 export function createFxGL(canvas, { host = null } = {}) {
   let gl = null;
+  let ucache = null;   // (the uniform cache, made at the first draw; uniforms are set only through it, uniform-cache.js)
+  const D0 = new Float32Array(MAX_DUCTS * 4), D1 = new Float32Array(MAX_DUCTS * 4);   // (the ductules' two uniform arrays, refilled each frame)
   if (host) gl = host.gl;
   else try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, failIfMajorPerformanceCaveat: false }); } catch { gl = null; }
   if (!gl) return null;
@@ -183,7 +186,7 @@ export function createFxGL(canvas, { host = null } = {}) {
     const n = feed(k, data);
     if (!n) return;
     gl.colorMask(...mask);
-    gl.uniform1f(P.CU.uAdd, add); gl.uniform1f(P.CU.uRing, ring);
+    ucache.f1(P.CU.uAdd, add); ucache.f1(P.CU.uRing, ring);
     gl.bindVertexArray(bufs[k].vao);
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, n);
   }
@@ -197,6 +200,7 @@ export function createFxGL(canvas, { host = null } = {}) {
      *  none). False when it could not draw (the 2D canvas draws that frame). */
     draw({ W, H, view, ducts, duct, lymph }) {
       if (this.lost) return false;
+      if (!ucache) ucache = uniformCache(gl);
       // (Hosted: over the whole of the host's canvas, as its owner sized it. The view places the overlay from the canvas's top left,
       // so a canvas larger than asked for (the wide copy's tiles, cropped from it) shows the same overlay there, and more of it.)
       if (host) { W = canvas.width; H = canvas.height; if (!W || !H) return false; }
@@ -209,7 +213,7 @@ export function createFxGL(canvas, { host = null } = {}) {
         gl.viewport(0, 0, W, H);
         gl.colorMask(true, true, true, true); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
         gl.useProgram(P.cap);
-        gl.uniform4f(P.CU.uView, view[0], view[1], view[2], view[3]); gl.uniform2f(P.CU.uSize, W, H);
+        ucache.f4(P.CU.uView, view[0], view[1], view[2], view[3]); ucache.f2(P.CU.uSize, W, H);
         gl.enable(gl.BLEND); gl.blendEquation(gl.MAX); gl.blendFunc(gl.ONE, gl.ONE);
         layer('drops', lymph.drops, [true, false, false, false], 0, 0);
         layer('beads', lymph.beadRings, [false, true, false, false], 0, lymph.ringHalf);
@@ -229,21 +233,21 @@ export function createFxGL(canvas, { host = null } = {}) {
       gl.viewport(0, 0, W, H);
       gl.useProgram(P.comp);
       const U = P.KU;
-      gl.uniform4f(U.uView, view[0], view[1], view[2], view[3]); gl.uniform2f(U.uSize, W, H);
-      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, lymph && cov ? cov.tex : null); gl.uniform1i(U.uCov, 0);
-      gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, lymph?.line && lin ? lin.tex : null); gl.uniform1i(U.uLin, 1);
+      ucache.f4(U.uView, view[0], view[1], view[2], view[3]); ucache.f2(U.uSize, W, H);
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, lymph && cov ? cov.tex : null); ucache.i1(U.uCov, 0);
+      gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, lymph?.line && lin ? lin.tex : null); ucache.i1(U.uLin, 1);
       gl.activeTexture(gl.TEXTURE0);
-      gl.uniform1i(U.uLy, lymph ? 1 : 0); gl.uniform1i(U.uLine, lymph?.line ? 1 : 0);
+      ucache.i1(U.uLy, lymph ? 1 : 0); ucache.i1(U.uLine, lymph?.line ? 1 : 0);
       const C = lymph?.colours;
-      if (C) { gl.uniform4fv(U.uCLy, C.ly); gl.uniform4fv(U.uCRing, C.ring); gl.uniform4fv(U.uCBead, C.bead); gl.uniform4fv(U.uCLine, C.line); }
+      if (C) { ucache.fv4(U.uCLy, C.ly); ucache.fv4(U.uCRing, C.ring); ucache.fv4(U.uCBead, C.bead); ucache.fv4(U.uCLine, C.line); }
       const nd = ducts ? Math.min(MAX_DUCTS, ducts.length / 8) : 0;
-      gl.uniform1i(U.uND, nd);
+      ucache.i1(U.uND, nd);
       if (nd) {
-        const d0 = new Float32Array(MAX_DUCTS * 4), d1 = new Float32Array(MAX_DUCTS * 4);
-        for (let j = 0; j < nd; j++) { d0.set(ducts.subarray(j * 8, j * 8 + 4), j * 4); d1.set(ducts.subarray(j * 8 + 4, j * 8 + 8), j * 4); }
-        gl.uniform4fv(U.uD0, d0); gl.uniform4fv(U.uD1, d1);
-        gl.uniform4fv(U.uCLum, duct.lum); gl.uniform4fv(U.uCCell, duct.cell); gl.uniform4fv(U.uCEdge, duct.edge); gl.uniform4fv(U.uCNuc, duct.nuc);
-        gl.uniform1f(U.uEdge, duct.width); gl.uniform1f(U.uAlpha, duct.alpha);
+        D0.fill(0); D1.fill(0);
+        for (let j = 0; j < nd; j++) { D0.set(ducts.subarray(j * 8, j * 8 + 4), j * 4); D1.set(ducts.subarray(j * 8 + 4, j * 8 + 8), j * 4); }
+        ucache.fv4(U.uD0, D0); ucache.fv4(U.uD1, D1);
+        ucache.fv4(U.uCLum, duct.lum); ucache.fv4(U.uCCell, duct.cell); ucache.fv4(U.uCEdge, duct.edge); ucache.fv4(U.uCNuc, duct.nuc);
+        ucache.f1(U.uEdge, duct.width); ucache.f1(U.uAlpha, duct.alpha);
       }
       // (Hosted: laid over the host's picture, premultiplied. On its own canvas: the canvas is the overlay alone.)
       if (host) { gl.enable(gl.BLEND); gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); }

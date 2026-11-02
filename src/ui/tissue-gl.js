@@ -12,11 +12,12 @@
 // context is back: there is no 2D drawing of it (1 Nov 2026, nothing off the GPU). A software renderer draws it too.
 
 import { startProgram, checkProgram, exerciseDraw, publishWhenDone, compileDone, SHADER_WARM } from './gl-compile.js?v=63e54c6c92';
-import { TILE_OVER, sendCanvas, SEND_RETRY } from './field-gl.js?v=d465f38aad';
+import { TILE_OVER, sendCanvas, SEND_RETRY } from './field-gl.js?v=715aa626a9';
 import { isTileCopy, createTileCopier } from './tile-gl.js?v=dd059ddf73';
 import { isGpuPicture, paintGL } from './paint-gl.js?v=b19320998d';
 import { LIVE_FS, CELLS_PER_ROW, IDX_ROW, SEG_ROW, K_ROW, BIN, panShift, panPlan } from './lobule-live.js?v=b585d4fb63';
 import { fbComplete } from './gl-state.js?v=ca10f41a87';
+import { uniformCache } from './uniform-cache.js?v=3c43b7a297';
 
 const VS = `#version 300 es
 in vec2 p;
@@ -83,6 +84,7 @@ ${rim ? '  vec4 own = vec4(0.0);   // (the lobule\'s own layer, for the rim)\n' 
  *  will be); the caller then asks again. */
 export function createTissueGL(canvas, opts = {}) {
   let gl = null;
+  let ucache = null;   // (the uniform cache, made at the first draw)
   // Hosted (opts.host: { gl, canvas, under }, the lobule's vessel renderer's top, veins-gl.js; LZ_ONE): no context of its own. Each frame is
   // drawn into a picture of its own (hostT) in the host's context, and laid on the host's canvas under the vessels at each of its presents
   // (under). The owner makes it again with the renderer it makes after a lost context.
@@ -391,33 +393,35 @@ export function createTissueGL(canvas, opts = {}) {
       gl.useProgram(isLive ? liveP.prog : prog);
       const bind = (unit, tex) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, tex); };
       tx.forEach((t, unit) => bind(unit, t));
-      gl.uniform1f(U.uMix, qb ? mix : 0); gl.uniform1f(U.uQOld, qo ? qOld : 0);
-      gl.uniform2f(U.uO, ox, oy); gl.uniform1f(U.uRd, rd); gl.uniform1f(U.uH, H);
-      gl.uniform3f(U.uRect, rect[0], rect[1], Math.max(rect[2], 1e-6));
-      gl.uniform2f(U.uWMix, old ? wMix : 1, old ? 1 - wMix : 0);
-      gl.uniform2f(U.uFade, fade[0], fade[1]); gl.uniform1f(U.uMid, mid);
-      gl.uniform3f(U.uBg, bg[0], bg[1], bg[2]);
-      gl.uniform2f(U.uGrey, grey ? grey[0] : 1, grey ? grey[1] : 1);
-      if (DIVE_GPU) { const r = rim || [0, 0, 0, 0]; gl.uniform4f(U.uRim, r[0], r[1], r[2], r[3]); }
+      // (Uniforms go through the cache: a value the program already holds is not sent again, uniform-cache.js. Set nowhere else.)
+      const UC = ucache || (ucache = uniformCache(gl));
+      UC.f1(U.uMix, qb ? mix : 0); UC.f1(U.uQOld, qo ? qOld : 0);
+      UC.f2(U.uO, ox, oy); UC.f1(U.uRd, rd); UC.f1(U.uH, H);
+      UC.f3(U.uRect, rect[0], rect[1], Math.max(rect[2], 1e-6));
+      UC.f2(U.uWMix, old ? wMix : 1, old ? 1 - wMix : 0);
+      UC.f2(U.uFade, fade[0], fade[1]); UC.f1(U.uMid, mid);
+      UC.f3(U.uBg, bg[0], bg[1], bg[2]);
+      UC.f2(U.uGrey, grey ? grey[0] : 1, grey ? grey[1] : 1);
+      if (DIVE_GPU) { const r = rim || [0, 0, 0, 0]; UC.f4(U.uRim, r[0], r[1], r[2], r[3]); }
       if (isLive) {
         const T = liveFor(live.shape, live.data), D = live.data, C = live.col;
         T.t.forEach((t, i) => { gl.activeTexture(gl.TEXTURE0 + LIVE_UNIT + i); gl.bindTexture(gl.TEXTURE_2D, t); });
-        gl.uniform3f(U.uLBox, D.box[0], D.box[1], D.box[2]); gl.uniform2f(U.uLN, D.nb, BIN);
-        gl.uniform3fv(U.uLEdge, D.edges); gl.uniform2f(U.uLCtr, D.ctr[0], D.ctr[1]);
-        gl.uniform4f(U.uLCen, live.cen[0], live.cen[1], live.cen[2], live.dark ? 1 : 0);
-        gl.uniform4f(U.uLSt, live.cu, live.sj, live.zones ? 1 : 0, 0);
-        gl.uniform3fv(U.uLGap, C.gap); gl.uniform3fv(U.uLGap55, C.gap55); gl.uniform3fv(U.uLBase, C.base);
-        gl.uniform3fv(U.uLNut, C.nut); gl.uniform3fv(U.uLZ1, C.z1); gl.uniform3fv(U.uLZ2, C.z2); gl.uniform3fv(U.uLZ3, C.z3);
-        gl.uniform4fv(U.uLPlate, C.plate); gl.uniform4fv(U.uLInk, C.ink); gl.uniform4fv(U.uLZl, C.zl);
+        UC.f3(U.uLBox, D.box[0], D.box[1], D.box[2]); UC.f2(U.uLN, D.nb, BIN);
+        UC.fv3(U.uLEdge, D.edges); UC.f2(U.uLCtr, D.ctr[0], D.ctr[1]);
+        UC.f4(U.uLCen, live.cen[0], live.cen[1], live.cen[2], live.dark ? 1 : 0);
+        UC.f4(U.uLSt, live.cu, live.sj, live.zones ? 1 : 0, 0);
+        UC.fv3(U.uLGap, C.gap); UC.fv3(U.uLGap55, C.gap55); UC.fv3(U.uLBase, C.base);
+        UC.fv3(U.uLNut, C.nut); UC.fv3(U.uLZ1, C.z1); UC.fv3(U.uLZ2, C.z2); UC.fv3(U.uLZ3, C.z3);
+        UC.fv4(U.uLPlate, C.plate); UC.fv4(U.uLInk, C.ink); UC.fv4(U.uLZl, C.zl);
         liveDyn(T, live.dyn);
         const F = live.fib, ac = { fibSin: F.fibSin, act: F.actV };   // (liveFibre: the sinusoid collagen's and the stellate cells' strengths)
-        gl.uniform4f(U.uLSin, C.dis[0], C.dis[1], C.dis[2], 0.75 * ac.fibSin * F.sin); gl.uniform4f(U.uLFib, ac.fibSin, live.dyn.margin, 0, 0);
-        gl.uniform4f(U.uLKB, live.dyn.nItems ? live.dyn.nk : 0, 32, live.dyn.bOff, live.dyn.iOff);
-        gl.uniform4f(U.uLShd, C.shd[0], C.shd[1], C.shd[2], C.shd[3]); gl.uniform4f(U.uLShade, C.shade[0], C.shade[1], C.shade[2], 1);
-        gl.uniform4f(U.uLHs, F.act > 0 ? live.dyn.nH : 0, ac.act, live.rs0, live.dyn.hOff);
-        gl.uniform4f(U.uLHB, C.body[0], C.body[1], C.body[2], (0.22 + 0.3 * ac.act) * F.act);
-        gl.uniform4f(U.uLHN, C.nuc[0], C.nuc[1], C.nuc[2], (0.3 + 0.3 * ac.act) * F.act);
-        gl.uniform1f(U.uLive, live.share);
+        UC.f4(U.uLSin, C.dis[0], C.dis[1], C.dis[2], 0.75 * ac.fibSin * F.sin); UC.f4(U.uLFib, ac.fibSin, live.dyn.margin, 0, 0);
+        UC.f4(U.uLKB, live.dyn.nItems ? live.dyn.nk : 0, 32, live.dyn.bOff, live.dyn.iOff);
+        UC.f4(U.uLShd, C.shd[0], C.shd[1], C.shd[2], C.shd[3]); UC.f4(U.uLShade, C.shade[0], C.shade[1], C.shade[2], 1);
+        UC.f4(U.uLHs, F.act > 0 ? live.dyn.nH : 0, ac.act, live.rs0, live.dyn.hOff);
+        UC.f4(U.uLHB, C.body[0], C.body[1], C.body[2], (0.22 + 0.3 * ac.act) * F.act);
+        UC.f4(U.uLHN, C.nuc[0], C.nuc[1], C.nuc[2], (0.3 + 0.3 * ac.act) * F.act);
+        UC.f1(U.uLive, live.share);
       }
       if (isLive) drawLive(W, H, liveSig(W, H, { rim: DIVE_GPU && rim ? rim : null, qa, qb: qb || null, mix: qb ? mix : 0, qo: qo && qOld > 0 ? qo : null, qOld: qo ? qOld : 0, w: w?.width ? w : null, wVer, wo: old ? wo : null, woVer: old ? woVer : 0, wMix: old ? wMix : 1, rect, rd, fade, mid, bg, grey }, live), [ox, oy, rect[0], rect[1]]);
       else { dropKept(); gl.drawArrays(gl.TRIANGLES, 0, 3); }

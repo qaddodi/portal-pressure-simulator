@@ -10,10 +10,14 @@
 
 // `on: false` (?ucache=0 in the address) sends every uniform as before. reset() forgets what every location holds: call it when the context
 // is lost or restored (the new programs hold their defaults, not the values this cache last sent).
-export function uniformCache(gl, { on = true } = {}) {
+// Every per-frame draw that uses the cache reads the same ?ucache=0 switch (the figure's composite in veins-gl.js has its own copy).
+export const UCACHE_ON = !(typeof location !== 'undefined' && /[?&]ucache=0\b/.test(location.search));
+
+export function uniformCache(gl, { on = UCACHE_ON } = {}) {
   let last = new WeakMap();
   // True when `loc` is not already holding these n numbers (and records them as now held).
   function changed(loc, n, a, b, c, d) {
+    if (typeof loc !== 'object') return true;   // (not a real location: send it)
     let s = last.get(loc);
     if (!s) { s = { n: -1, v: new Float64Array(4) }; last.set(loc, s); }
     const v = s.v;
@@ -27,12 +31,13 @@ export function uniformCache(gl, { on = true } = {}) {
   }
   // The same for an array uniform (uniformNfv / uniformMatrixNfv): held as a copy, compared element by element.
   function changedArr(loc, arr) {
+    if (typeof loc !== 'object') return true;
     let s = last.get(loc);
     if (!s || !s.arr || s.arr.length !== arr.length) { s = { arr: new Float32Array(arr.length), fresh: true }; last.set(loc, s); }
     if (!on) return true;
     const held = s.arr;
     let diff = !!s.fresh;
-    for (let i = 0; i < held.length; i++) if (held[i] !== arr[i]) { diff = true; break; }
+    for (let i = 0; i < held.length; i++) if (held[i] !== Math.fround(arr[i])) { diff = true; break; }
     if (!diff) return false;
     held.set(arr); s.fresh = false;
     return true;
@@ -44,6 +49,7 @@ export function uniformCache(gl, { on = true } = {}) {
     f2: (loc, a, b) => { if (loc && changed(loc, 2, a, b)) gl.uniform2f(loc, a, b); },
     i2: (loc, a, b) => { if (loc && changed(loc, 2, a, b)) gl.uniform2i(loc, a, b); },
     f3: (loc, a, b, c) => { if (loc && changed(loc, 3, a, b, c)) gl.uniform3f(loc, a, b, c); },
+    i3: (loc, a, b, c) => { if (loc && changed(loc, 3, a, b, c)) gl.uniform3i(loc, a, b, c); },
     f4: (loc, a, b, c, d) => { if (loc && changed(loc, 4, a, b, c, d)) gl.uniform4f(loc, a, b, c, d); },
     /** From an array of 2, 3 or 4 numbers (what the callers spread into uniform2f / 3f / 4f). */
     f2a: (loc, v) => { if (loc && changed(loc, 2, v[0], v[1])) gl.uniform2f(loc, v[0], v[1]); },

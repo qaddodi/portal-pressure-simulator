@@ -8,31 +8,36 @@ let clock = 1000;
 globalThis.performance = { now: () => clock };
 const { createOrganStack, VIEW_FADE_MS } = await import('../src/ui/organs-gl.js');
 
-function fakeGL(log) {
+// (The stack's uniforms go through the uniform cache, which skips a location that is not there and a value already held, so the
+// stand-in reports the layer program's uniforms and hands out a location for each; `all` keeps every call across the draws.)
+const LAYER_UNIFORMS = ['world', 'size', 't0', 't1', 't2', 'rect', 'r0', 'r1', 'has1', 'k1', 'r2', 'has2', 'flip'];
+function fakeGL(log, all) {
   let id = 0;
   const gl = new Proxy({ canvas: { width: 400, height: 300 } }, {
     get(t, k) {
       if (k in t) return t[k];
       if (typeof k === 'symbol') return undefined;
       if (/^[A-Z0-9_]+$/.test(k)) return k;
-      if (k === 'getShaderParameter' || k === 'getProgramParameter') return (_, what) => (what === 'ACTIVE_UNIFORMS' ? 0 : true);
+      if (k === 'getShaderParameter' || k === 'getProgramParameter') return (_, what) => (what === 'ACTIVE_UNIFORMS' ? LAYER_UNIFORMS.length : true);
+      if (k === 'getActiveUniform') return (_, i) => ({ name: LAYER_UNIFORMS[i] });
+      if (k === 'getUniformLocation') return (_, name) => ({ name });
       if (/^create/.test(k)) return () => ({ id: ++id });
-      return (...a) => { log.push([k, ...a]); };
+      return (...a) => { log.push([k, ...a]); all.push([k, ...a]); };
     },
   });
   return gl;
 }
 
 function setup() {
-  const log = [];
-  const gl = fakeGL(log);
+  const log = [], all = [];
+  const gl = fakeGL(log, all);
   const watchless = globalThis.MutationObserver;
   globalThis.MutationObserver = undefined;
   const stack = createOrganStack(gl, { painter: null });
   const tex = () => gl.createTexture();
   const deleted = () => log.filter((e) => e[0] === 'deleteTexture').map((e) => e[1]);
   // (k1 and has2 as last set: one layer, so the last draw's.)
-  const last = (name) => { const e = log.filter((x) => x[0] === name).at(-1); return e && e[2]; };
+  const last = (name) => { const e = all.filter((x) => x[0] === name).at(-1); return e && e[2]; };
   const draw = () => { log.length = 0; return stack.render([1, 0, 0, 1, 0, 0], 400, 300); };
   stack.stage(0, 'gut', tex(), [0, 0, 400, 300]); stack.commit(0, ['gut']);
   return { stack, tex, draw, last, deleted, log, done: () => { globalThis.MutationObserver = watchless; } };

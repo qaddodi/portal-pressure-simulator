@@ -42,10 +42,10 @@ import { CELL, ENT_W, binVeins, splitRows, simpleCells, splitCells, cellsOfJoinE
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { changedRows } from './flow-rows.js?v=6cd335f84b';
 import { leftAlone } from './quiet.js?v=388052eba8';
-import { uniformCache } from './uniform-cache.js?v=d2bd54b612';
+import { uniformCache } from './uniform-cache.js?v=3c43b7a297';
 import { PUBLISH_QUIET_MS, SHADER_WARM, exerciseDraw } from './gl-compile.js?v=63e54c6c92';
 import { createShapeGL, flattenPath, ellipsePoly, polyMesh } from './shape-gl.js?v=f64e82c981';
-import { createOrganStack, prestartOrganStack, prestartLayer } from './organs-gl.js?v=d8fcc17793';
+import { createOrganStack, prestartOrganStack, prestartLayer } from './organs-gl.js?v=fb1d18833c';
 import { warmFade } from './res-fade-gl.js?v=95fd7c3c69';
 import { fusedVS, fusedFS } from './veins-fuse.js?v=b34d325734';
 import { NOISE_W, NOISE_H, NOISE_PER_ROW, OCTAVES, noiseBlock, blockAt, tableSize } from './blood-noise.js?v=bc65994b25';

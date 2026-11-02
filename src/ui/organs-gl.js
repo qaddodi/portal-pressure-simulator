@@ -62,6 +62,7 @@ import { createShapeGL } from './shape-gl.js?v=f64e82c981';
 import { createOrganPaint, mul, prestartOrganPaint } from './organ-paint.js?v=de4cbf1d4c';
 import { prestart, linkProgram } from './gl-compile.js?v=63e54c6c92';
 import { netChanged } from './idle-keys.js?v=81fbedda6b';
+import { uniformCache } from './uniform-cache.js?v=3c43b7a297';
 import { easeMove, D_SURFACE } from './ease.js?v=7513a88c68';
 // (The colour a clear writes, one array for every clear: none made per call, plan rev 2 §2.8.)
 const CLEAR0 = new Float32Array(4);
@@ -105,6 +106,7 @@ export function cropToGrid(want, box, scale) {
  *  figure's own stack at its setup, the overlays' at their first set). */
 export function prestartOrganStack(gl) { prestartLayer(gl); prestartOrganPaint(gl); }
 /** The stack's own program alone (a second stack sharing the first one's painter: the overlays). */
+const UNIT_RECT = [0, 0, 1, 1];   // (a layer's rect when it has none)
 export function prestartLayer(gl) { prestart(gl, LAYER_VS, LAYER_FS); }
 
 export function createOrganStack(gl, { painter: shared = null } = {}) {
@@ -183,6 +185,7 @@ export function createOrganStack(gl, { painter: shared = null } = {}) {
   const pending = () => { for (const L of live[1].values()) if (L.from != null) return true; return false; };
   const fading = () => { const t = performance.now(); for (const L of live[1].values()) if (L.from != null && t - L.from < 3 * VIEW_FADE_MS) return true; return false; };
   const mat = new Float32Array(9);
+  const UC = uniformCache(gl);   // (the stack program's uniforms are set only through it: a value it already holds is not sent again, uniform-cache.js)
   return {
     /**
      * A layer's raster for `slot` (0 whole, 1 view), its texture filled (veins-gl plateJob), over world rect: held until commit.
@@ -381,18 +384,18 @@ export function createOrganStack(gl, { painter: shared = null } = {}) {
         const U = layerP.u;
         if (b) { gl.enable(gl.SCISSOR_TEST); gl.scissor(b[0], h - b[3], b[2] - b[0], b[3] - b[1]); } else gl.disable(gl.SCISSOR_TEST);
         gl.useProgram(layerP.p);
-        gl.uniformMatrix3fv(U.world, false, mm);
-        gl.uniform2f(U.size, w, h);
-        gl.uniform1i(U.t0, 0); gl.uniform1i(U.t1, 1);
+        UC.m3(U.world, mm);
+        UC.f2(U.size, w, h);
+        UC.i1(U.t0, 0); UC.i1(U.t1, 1);
         gl.enable(gl.BLEND); gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
         gl.bindVertexArray(vao);
-        gl.uniform4f(U.rect, ...L0.rect); gl.uniform4f(U.r0, ...L0.rect);
-        gl.uniform4f(U.r1, ...(L1 ? L1.rect : [0, 0, 1, 1])); gl.uniform1i(U.has1, L1 ? 1 : 0);
+        UC.f4a(U.rect, L0.rect); UC.f4a(U.r0, L0.rect);
+        UC.f4a(U.r1, L1 ? L1.rect : UNIT_RECT); UC.i1(U.has1, L1 ? 1 : 0);
         // (Fading in: how far, and the view before where it was drawn as this one is.)
         const k = L1 && L1.from != null ? L1.k : 1, P = k < 1 && L1.prev && L1.prev.at === L1.at ? L1.prev : null;
-        gl.uniform1f(U.k1, k);
-        gl.uniform1i(U.t2, 2); gl.uniform4f(U.r2, ...(P ? P.rect : [0, 0, 1, 1])); gl.uniform1i(U.has2, P ? 1 : 0);
-        gl.uniform3i(U.flip, L0.flip ? 1 : 0, L1?.flip ? 1 : 0, P?.flip ? 1 : 0);
+        UC.f1(U.k1, k);
+        UC.i1(U.t2, 2); UC.f4a(U.r2, P ? P.rect : UNIT_RECT); UC.i1(U.has2, P ? 1 : 0);
+        UC.i3(U.flip, L0.flip ? 1 : 0, L1?.flip ? 1 : 0, P?.flip ? 1 : 0);
         // (Unit 2 first, so the unit left active is the one it was before: 1.)
         gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, P ? P.tex : L0.tex);
         gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, L0.tex);

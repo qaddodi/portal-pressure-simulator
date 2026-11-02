@@ -105,3 +105,16 @@ test('veins-gl.js sends no uniform around the cache, and forgets the cache on lo
   assert.match(src, /onLost = \(e\) => \{[^}]*UC\.reset\(\)/);
   assert.match(src, /webglcontextrestored', onRestored/);
 });
+
+test('the lobule, dive field, lymph overlay and organ stack draws set their per-frame uniforms through the cache', async () => {
+  const { readFileSync } = await import('node:fs');
+  for (const f of ['tissue-gl', 'field-gl', 'fx-gl', 'organs-gl']) {
+    const src = readFileSync(new URL(`../src/ui/${f}.js`, import.meta.url), 'utf8');
+    assert.match(src, /import \{ uniformCache \} from '\.\/uniform-cache\.js/, f);
+    assert.match(src, /uniformCache\(gl\)/, f);
+  }
+  const fx = readFileSync(new URL('../src/ui/fx-gl.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(fx, /new Float32Array\(MAX_DUCTS \* 4\), d1/, 'no array made per frame for the ductules');
+  const organs = readFileSync(new URL('../src/ui/organs-gl.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(organs, /gl\.uniform[0-9A-Za-z]*\(U\./, 'the stack layer sets nothing around the cache');
+});
