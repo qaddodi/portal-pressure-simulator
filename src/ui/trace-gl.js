@@ -16,7 +16,7 @@
 // chart draws on its own 2D canvas, as before (?tracegl=0 keeps that always).
 
 import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=e48e05cdb3';
-import { canvasSize, fitCanvas } from './util.js?v=49565b3c73';
+import { canvasSize, fitCanvas } from './util.js?v=cdd8d0f2f7';
 import { sdfAtlas } from './text-gl.js?v=ec353838fe';   // (the app's one door to GPU text: its SDF atlas, for text that changes every frame)
 import { fontOf, measure } from './glyph-measure.js?v=0385fe1e8a';
 export { measure };

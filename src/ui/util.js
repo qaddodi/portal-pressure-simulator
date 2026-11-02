@@ -362,13 +362,20 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
 /** A list that scrolls fades at its bottom edge while there is more below it (class .more), as the docked
  *  cards do, so its last row is never just cut at the edge. Returns the check, to run after the content changes. */
 export function fadeWhileMore(el) {
-  // (--fade-pb: the list's bottom padding, which the fade reaches down through so it ends at the panel's own edge.)
-  const sync = () => { el.classList.toggle('more', el.scrollHeight - el.clientHeight - el.scrollTop > 4); el.style.setProperty('--fade-pb', getComputedStyle(el).paddingBottom); };
-  el.addEventListener('scroll', sync, { passive: true });
-  const ro = new ResizeObserver(() => { if (!el.isConnected) ro.disconnect(); else sync(); });
+  // (A scroll, or the check handed back, measures between frames, never inside the scroll's own frame: moreAsk, a rest pass.)
+  const ask = () => moreAsk(el);
+  el.addEventListener('scroll', ask, { passive: true });
+  const ro = new ResizeObserver(() => { if (!el.isConnected) ro.disconnect(); else moreSync(el); });
   ro.observe(el);
-  sync();
-  return sync;
+  moreSync(el);
+  return ask;
+}
+const moreAsks = new WeakMap();
+function moreAsk(el) { if (!moreAsks.has(el)) moreAsks.set(el, restPass(() => moreSync(el))); }
+// (--fade-pb: the list's bottom padding, which the fade reaches down through so it ends at the panel's own edge.)
+function moreSync(el) {
+  moreAsks.delete(el);
+  el.classList.toggle('more', el.scrollHeight - el.clientHeight - el.scrollTop > 4); el.style.setProperty('--fade-pb', getComputedStyle(el).paddingBottom);
 }
 // Whether an element has a box (neither it nor an ancestor display: none), as getClientRects().length says, without laying
 // the page out: checkVisibility needs only styles. (Each read in the middle of a model frame, after its writes, laid the
@@ -405,8 +412,14 @@ export function swapFade(el, fill, { instant = false, out = D_FLIP, inn = D_SMAL
  * moment later), so every step is caught, each glide carrying on from where the last one had got to. Reduce Motion: no
  * glide (the bar's readings still fade). (The play bar jumped 15-20 px sideways entering the lobule; round 2 review, RF4.)
  */
-export function glideOnResize(root, sel, { ms = 520, dur = D_SMALL, also = [] } = {}) {
+export function glideOnResize(root, sel, opts = {}) {
   if (!root?.animate || reduceMotionMQ.matches || typeof ResizeObserver !== 'function') return;
+  // (The places before the swap are measured between frames, a rest pass, never in the model frame that asked: the swap's own
+  // change lands after its fade out, later still, so nothing it moves is missed.)
+  restPass(() => glideWatch(root, sel, opts));
+}
+function glideWatch(root, sel, { ms = 520, dur = D_SMALL, also = [] }) {
+  if (!root.isConnected) return;
   const pos = (el) => { let x = 0, y = 0; for (let n = el; n && n !== document.body; n = n.offsetParent) { x += n.offsetLeft; y += n.offsetTop; } return [x, y]; };
   const measure = () => new Map([...root.querySelectorAll(sel)].filter((el) => el.offsetParent).map((el) => [el, pos(el)]));
   let prev = measure();
@@ -512,7 +525,17 @@ export function reconcile(list, rows) {
  */
 const folds = new WeakMap();
 const FOLD_PROPS = ['paddingTop', 'paddingBottom', 'marginTop', 'marginBottom'];
+// (The fold is measured and started between frames, a rest pass, never inside the model frame that asked; asked again before
+// then, the last ask wins.)
+const foldWant = new Map();
 export function foldHidden(el, hide) {
+  if (foldWant.has(el)) { foldWant.set(el, hide); return; }
+  const cur = folds.get(el);
+  if (cur ? cur.hide === hide : el.hidden === hide) return;
+  foldWant.set(el, hide);
+  restPass(() => { const want = foldWant.get(el); foldWant.delete(el); foldRun(el, want); });
+}
+function foldRun(el, hide) {
   const cur = folds.get(el);
   if (cur ? cur.hide === hide : el.hidden === hide) return;
   let now = null;   // (turning round mid-way: from what is drawn now)
