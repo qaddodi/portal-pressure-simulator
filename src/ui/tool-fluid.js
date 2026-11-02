@@ -6,9 +6,9 @@
 // (engine.js starling), read from the slide's fingerprint at rest and from the live model while a time-lapse, a what-if or a
 // compare button moves it.
 
-import { frame } from './frame.js?v=028685e44a';
-import { createSvgGL, svgModel } from './svg-gl.js?v=947aa292a2';
-import { h, fmt, clamp } from './util.js?v=5af20ea581';
+import { frame } from './frame.js?v=ae4d297959';
+import { createSvgGL, svgModel } from './svg-gl.js?v=348ffadf66';
+import { h, fmt, clamp } from './util.js?v=a504ea7bfb';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { store } from './store.js?v=4ef2a6ffd8';
 

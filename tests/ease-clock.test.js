@@ -6,6 +6,8 @@ import { readFileSync } from 'node:fs';
 // wall clock leaps over a long frame; on easeNow it moves on by at most PACE_CAP from one frame to the next, so it carries on from
 // where the screen last showed it. And holdMotion keeps the work that can wait out of a slide's cards fading in.
 globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
+// (The paced clock is behind ?honestclock=0 since R20 (2 Nov 2026); these check it as the off switch. tests/honest-clock.test.js checks the default.)
+globalThis.location = { search: '?honestclock=0', href: 'http://x/?honestclock=0', hostname: 'x', pathname: '/' };
 let T = 1000;
 Object.defineProperty(performance, 'now', { value: () => T, configurable: true, writable: true });
 let rafs = [];

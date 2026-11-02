@@ -257,10 +257,29 @@ export const PACE_MAX = 1000;   // (a software renderer's frames, a second apart
 let paceReal = 0, paceBase = 0, paceCap = PACE_CAP;
 const paceGaps = [];
 const wall = () => performance.now();
+// ── One honest clock (recs_cgpt R20, 2 Nov 2026) ── easeNow() is the wall clock, one time per frame (every surface of a frame reads
+// the same), never held back: a long frame shows the ease where the wall clock puts it, so a transition ends when its own duration
+// says and the deferred work's holds (holdMotion, which run on the wall clock) agree with what is on screen. What a paced clock would
+// have hidden is still counted (clockStats: long frames, ms it would have held back), so a jump is reported, not smoothed over.
+// Transitions own their state (beginMotion → end): deferrable work waits for the real end, not a timer's guess, with a bounded
+// recovery (MOTION_MAX_MS) for a transition that never says it ended. ?honestclock=0: the paced clock, as before.
+export const HONEST = !(typeof location !== 'undefined' && /[?&]honestclock=0\b/.test(location.search || ''));
+export const clockStats = { frames: 0, long: 0, lostMs: 0, worstMs: 0, transitions: 0, overdue: 0, lastMs: 0, lastName: '' };
 function paceStep() {
   const t = wall();
   if (!paceReal) { paceReal = paceBase = t; return; }
   const gap = Math.max(0, t - paceReal);
+  if (HONEST) {
+    clockStats.frames++;
+    if (gap > paceCap) { clockStats.long++; clockStats.lostMs += gap - paceCap; clockStats.worstMs = Math.max(clockStats.worstMs, gap); }
+    paceBase = paceReal = t;
+    if (chained) {
+      paceGaps.push(gap); if (paceGaps.length > 9) paceGaps.shift();
+      const m = [...paceGaps].sort((a, b) => a - b)[paceGaps.length >> 1];
+      paceCap = Math.min(PACE_MAX, Math.max(PACE_CAP, 2 * m));
+    }
+    return;
+  }
   paceBase += Math.min(gap, paceCap); paceReal = t;
   if (chained) {
     paceGaps.push(gap); if (paceGaps.length > 9) paceGaps.shift();
@@ -274,6 +293,7 @@ export function easeNow() {
   const t = wall();
   if (!paceReal) { paceReal = paceBase = t; return t; }
   if (current || lateNow || finalNow || readsNow) return paceBase;   // (one time for every surface in a frame, as the frame's timestamp is)
+  if (HONEST) return t;
   return paceBase + Math.min(Math.max(0, t - paceReal), paceCap);
 }
 // A move on screen that a long frame would spoil (the slide's cards fading in, a dive landing): work that can wait (a sharper
@@ -281,8 +301,22 @@ export function easeNow() {
 let holdUntil = 0;
 /** Keeps deferrable work out of the next `ms` (the longest of the holds asked for wins). */
 export function holdMotion(ms) { if (PACED) holdUntil = Math.max(holdUntil, wall() + ms); }
-/** True while a move asked to be left alone (holdMotion). */
-export const inMotion = () => wall() < holdUntil;
+export const MOTION_MAX_MS = 5000;
+const moving = new Map();   // (transition token → { name, t0, until })
+/** A transition begins: deferrable work waits until the returned end() is called (or MOTION_MAX_MS passes, counted as overdue). */
+export function beginMotion(name = 'move', maxMs = MOTION_MAX_MS) {
+  if (!HONEST) return () => {};
+  const tok = {}, t0 = wall();
+  moving.set(tok, { name, t0, until: t0 + maxMs });
+  clockStats.transitions++;
+  return () => { if (!moving.delete(tok)) return; clockStats.lastMs = wall() - t0; clockStats.lastName = name; };
+}
+function anyMoving(t) {
+  for (const [tok, m] of moving) if (t >= m.until) { moving.delete(tok); clockStats.overdue++; }
+  return moving.size > 0;
+}
+/** True while a move asked to be left alone (holdMotion), or a transition begun with beginMotion has not ended. */
+export const inMotion = () => { const t = wall(); return t < holdUntil || (HONEST && moving.size > 0 && anyMoving(t)); };
 /** Calls fn once no move holds the page (polled with timers, never a frame loop); returns a cancel. */
 export function afterMotion(fn, poll = 60) {
   let t = 0, dead = false;

@@ -12,8 +12,8 @@
 //                                                talk-trace.js and flow-time.js themselves
 //   style: 'milestones' on a trace tool ('talk')  the HVPG line alone in its cut-off colours, the slides that set milestone:
 //                                                'Dx' (a short name) named level above their points (talk-trace.js)
-import { createProfileTool } from './tool-profile.js?v=a11ee6978b';
-import { createFlowsTool } from './tool-flows.js?v=35ca810fab';
+import { createProfileTool } from './tool-profile.js?v=8610d3d841';
+import { createFlowsTool } from './tool-flows.js?v=3728285b70';
 
 export default {
   tools: {

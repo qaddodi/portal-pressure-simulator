@@ -6,7 +6,7 @@
 // instead of the compositor's words running on ahead of the main thread's glass. A card already moving is taken from wherever it is
 // (Next pressed mid-entrance, a swipe let go): its next move starts from there, never from a jump.
 
-import { frameFor, cancelFrame, easeNow } from './frame.js?v=028685e44a';
+import { frameFor, cancelFrame, easeNow, beginMotion } from './frame.js?v=ae4d297959';
 import { D_SMALL, D_SURFACE, cubicBezier, easeMove } from './ease.js?v=7513a88c68';
 
 /** How far (px) the new card comes in from, and the stagger (ms) of a second card behind the first. */
@@ -69,9 +69,14 @@ function step() {
     write(el, p.x, p.o);
   }
   if (runs.size) ask = nextFrame(step);
+  settle();
   outCheck();
 }
+// (R20: the throws are one transition the page's deferrable work waits out, from the first card moving to the last one landing.)
+let endMove = null;
+const settle = () => { if (!runs.size && endMove) { endMove(); endMove = null; } };
 function start(el, kind, to, ms, delay, done) {
+  endMove ||= beginMotion('card throw', ms + delay + 2000);
   const from = here(el);
   runs.delete(el); pinned.delete(el);
   el.style.setProperty('transition', 'none', 'important');
@@ -149,7 +154,7 @@ function outCheck() {
 export const throwing = (el) => runs.has(el);
 
 /** Stops el's move where it is (a finger takes it), its inline values kept for whoever takes it next. */
-export function throwStop(el) { runs.delete(el); held.delete(el); pinned.delete(el); if (ghosts.has(el)) railAway(el); railHeld.delete(el); if (!runs.size && ask) { cancelFrame(ask); ask = 0; } outCheck(); }
+export function throwStop(el) { runs.delete(el); held.delete(el); pinned.delete(el); if (ghosts.has(el)) railAway(el); railHeld.delete(el); if (!runs.size && ask) { cancelFrame(ask); ask = 0; } settle(); outCheck(); }
 
 // ── One track (RAIL): the old card stays where it is, whole, as a copy of itself (its ghost), until the new card is laid out and drawn
 // behind it; then both ride the rail together. The copy is the old card's own markup, taken as it stood: words, tiles, glass (data-gl:

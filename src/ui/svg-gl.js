@@ -15,11 +15,11 @@
 
 import { createTraceGL, fitPen } from './trace-gl.js?v=ddb94858b8';
 import { flattenPath, elBox } from './shape-gl.js?v=c6a05b4d08';
-import { finalFrameFor, easeNow } from './frame.js?v=028685e44a';
+import { finalFrameFor, easeNow } from './frame.js?v=ae4d297959';
 import { restPass } from './rest-pass.js?v=bf0c42ead5';
 import { cssCurve, D_SURFACE, EASE_ARRIVE } from './ease.js?v=7513a88c68';
 import { cssColor } from './css-color.js?v=e56f0c77ae';
-import { morphSvg } from './svg-morph.js?v=fbd7ae43b6';
+import { morphSvg } from './svg-morph.js?v=7f55fb0161';
 
 // (No bleed: a picture reaching past the box counts as overflow, and the card's fit then shrank the whole card to take it in.)
 export const BLEED = 0;
