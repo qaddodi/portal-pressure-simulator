@@ -12,6 +12,8 @@
 //
 // ?restpass=0 runs each on a plain zero timer of its own instead (no shared message port), still never inside a frame.
 
+import { PREP_BUDGET, prepLeft, prepSpend, prepWindowLeft, STARVE_MS } from './prep-budget.js?v=03b0864e2a';
+
 export const REST_PASS = !(typeof location !== 'undefined' && /[?&]restpass=0\b/.test(location.search || ''));
 
 let q = new Map(), next = 1, posted = false, port = null;
@@ -25,32 +27,46 @@ const timers = new Map();
 const SLICE_ON = !(typeof location !== 'undefined' && /[?&]restslice=0\b/.test(location.search || ''));
 export const REST_SLICE = 6;
 const asked = new Map();   // (id → when it was asked, for the wait)
-const stats = { drains: 0, sliced: 0, carried: 0, maxWait: 0, maxDrain: 0 };
+const stats = { drains: 0, sliced: 0, carried: 0, maxWait: 0, maxDrain: 0, waited: 0 };
 /** The rest passes' counts since the page opened: drains, drains cut short, passes carried to a later task, the longest wait and drain (ms). */
 export const restStats = () => ({ ...stats });
 let carry = null;   // (passes left from a drain cut short: they go first, before anything asked since)
 const inputWaiting = () => { try { return !!globalThis.navigator?.scheduling?.isInputPending?.(); } catch { return false; } };
+// (Review pass 2, priority 1: the slice is also held to the shared preparation budget, prep-budget.js: rest passes, slide preparation
+// and the other between-frame work together spend at most what one frame interval leaves (less while something moves). A drain that
+// finds the interval spent waits for the next one, unless its oldest pass has waited STARVE_MS: then one pass runs whatever the ledger
+// says, so none starves. What a drain spends is charged to the ledger. ?prepbudget=0: the 6 ms slice alone, as before.)
+const oldestWait = (t) => { let w = 0; for (const a of asked.values()) { w = Math.max(w, t - a); break; } return w; };
 function drain() {
   posted = false;
+  const t0 = performance.now();
+  const shared = SLICE_ON && PREP_BUDGET;
+  let slice = REST_SLICE;
+  if (shared) {
+    const left = prepLeft(t0);
+    if (left <= 0 && oldestWait(t0) < STARVE_MS) { stats.waited = (stats.waited || 0) + 1; posted = true; setTimeout(drain, Math.max(1, prepWindowLeft(t0))); return; }
+    slice = Math.min(REST_SLICE, Math.max(0, left));
+  }
   const now = carry || new Map();
   for (const [id, fn] of q) now.set(id, fn);
   carry = null;
   q = new Map();   // (asked for while these run: the next pass)
-  const t0 = performance.now();
   stats.drains++;
   for (const [id, fn] of now) {
     now.delete(id);
     const at = asked.get(id); asked.delete(id);
     if (at != null) stats.maxWait = Math.max(stats.maxWait, t0 - at);
     try { fn(); } catch (e) { setTimeout(() => { throw e; }); }
-    if (SLICE_ON && now.size && (performance.now() - t0 > REST_SLICE || inputWaiting())) {
+    if (SLICE_ON && now.size && (performance.now() - t0 > slice || inputWaiting())) {
       carry = now; stats.sliced++; stats.carried += now.size;
       setTimeout(drain, 0);
       posted = true;
       break;
     }
   }
-  stats.maxDrain = Math.max(stats.maxDrain, performance.now() - t0);
+  const ms = performance.now() - t0;
+  if (shared) prepSpend(ms);
+  stats.maxDrain = Math.max(stats.maxDrain, ms);
 }
 function post() {
   if (posted) return;

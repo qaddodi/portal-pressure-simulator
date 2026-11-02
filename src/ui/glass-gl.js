@@ -10,7 +10,7 @@
 
 import { GLASS_SHARE, shareFor, sharePrep, sharePlan, shareTurn } from './blur-share.js?v=03dc87b709';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
-import { finalFrameFor, readFrameFor, framePhase, cancelFrame, noteDraw } from './frame.js?v=43da9d808a';
+import { finalFrameFor, readFrameFor, framePhase, cancelFrame, noteDraw } from './frame.js?v=7a4c67d3db';
 import { startProgram, checkProgram, compileDone, exerciseDraw, SHADER_WARM } from './gl-compile.js?v=62b8693f78';
 import { shiftOf, translateOf, motionAt, movesOnly, clockOf, clockAt, fillsAfter } from './glass-motion.js?v=2b98554adc';
 import { pathPolys, fanTriangles } from './path-poly.js?v=07f30beea9';

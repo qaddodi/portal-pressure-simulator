@@ -103,6 +103,7 @@ function run(batch, now, phase) {
     const t0 = performance.now();
     try { if (gpuProbe.on) gpuProbe.time(null, `${tag} (script)`, () => cb(now)); else cb(now); } catch (e) { setTimeout(() => { throw e; }); }   // one surface's error never stops the others
     const ms = performance.now() - t0;
+    if (phase === 'early') learnCost(tag, ms);
     totals.ms[tag] = (totals.ms[tag] || 0) + ms;
     parts?.push([tag, phase, ms]);
   }
@@ -165,12 +166,28 @@ let shedTotal = 0;
 /** True when the last frame's script went over 70 % of the budget (Locked and Balanced; never in Quality): drop detail that can wait. */
 export const overBudget = () => WATCHDOG && perfModeNow !== 'quality' && overLast;
 /** The last frame's main-thread script time (ms), and how many callbacks the watchdog has carried over since the page opened. */
-export const watchdogStats = () => ({ last: lastScript, shed: shedTotal, mode: perfModeNow, budget: frameBudget() });
+export const watchdogStats = () => ({ last: lastScript, shed: shedTotal, predicted: shedPredicted, mode: perfModeNow, budget: frameBudget() });
+// (Review pass 2, priority 1: a watchdog cannot stop a callback once it has started, so it judges each deferrable one before it starts,
+// by what it is predicted to cost (the moving average of its own last runs, costOf) added to the time the frame has used: one that would
+// carry the frame past its share waits, even when the frame has not reached the share yet. Still at most SHED_MAX frames in a row each,
+// so none starves. ?watchpredict=0: judged by the time used only, as before.)
+const PREDICT = !(typeof location !== 'undefined' && /[?&]watchpredict=0\b/.test(location.search || ''));
+const costEma = new Map();
+function learnCost(tag, ms) { if (!DEFERRABLE.has(tag)) return; const c = costEma.get(tag); costEma.set(tag, c == null ? ms : c * 0.7 + ms * 0.3); }
+/** A deferrable surface's predicted cost per callback (ms; 0 until it has run). */
+export const costOf = (tag) => costEma.get(tag) || 0;
+let shedPredicted = 0;
+/** Whether a deferrable callback of `tag` would be carried over with `used` ms of the frame gone (the rule itself, for the tests). */
+export function wouldShed(tag, used, budget = frameBudget(), mode = perfModeNow) {
+  if (!WATCHDOG || mode === 'quality' || !DEFERRABLE.has(tag)) return false;
+  const limit = (mode === 'locked' ? WATCH_SHARE : 1) * budget;
+  return used >= limit || (PREDICT && used + costOf(tag) > limit);
+}
 function shedding(tag) {
   if (!WATCHDOG || perfModeNow === 'quality' || !frameT0 || !DEFERRABLE.has(tag)) { if (shedRun.size) shedRun.delete(tag); return false; }
-  const share = perfModeNow === 'locked' ? WATCH_SHARE : 1;
-  const n = shedRun.get(tag) || 0;
-  if (n >= SHED_MAX || performance.now() - frameT0 < share * frameBudget()) { shedRun.delete(tag); return false; }
+  const n = shedRun.get(tag) || 0, used = performance.now() - frameT0;
+  if (n >= SHED_MAX || !wouldShed(tag, used)) { shedRun.delete(tag); return false; }
+  if (used < (perfModeNow === 'locked' ? WATCH_SHARE : 1) * frameBudget()) shedPredicted++;
   shedRun.set(tag, n + 1); shedTotal++;
   return true;
 }

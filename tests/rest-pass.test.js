@@ -24,7 +24,11 @@ test('a rest pass runs once as a task of its own, never through the frame schedu
 
 test('a rest pass never goes through the frame scheduler, off switch included; the off-GPU scan knows it defers', () => {
   const src = readFileSync(new URL('../src/ui/rest-pass.js', import.meta.url), 'utf8');
-  assert.doesNotMatch(src, /^import|requestAnimationFrame\(|\bframe\(fn/m);
+  assert.doesNotMatch(src, /requestAnimationFrame\(|\bframe\(fn/m);
+  // (Its one import is the shared preparation budget (review pass 2), which reads the frame budget and asks for no frame either.)
+  assert.deepEqual(src.match(/^import[^\n]*/gm), [src.match(/^import \{[^}]*\} from '\.\/prep-budget\.js\?v=[0-9a-f]+';/m)?.[0]]);
+  const budget = readFileSync(new URL('../src/ui/prep-budget.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(budget, /requestAnimationFrame\(|\b(frame|lateFrame|finalFrame|readFrame)\(/);
   const scan = readFileSync(new URL('../scripts/off-gpu-scan.mjs', import.meta.url), 'utf8');
   assert.match(scan, /const DEFERRED = [^\n]*\|restPass\|/);
 });
