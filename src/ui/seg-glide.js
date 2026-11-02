@@ -15,7 +15,7 @@
 //   - Reduce Motion: the piece does not travel; it fades out where it was and in where it is (--d-flip).
 //   - High contrast keeps today's Highlight on the button and hides the piece (the stylesheet).
 //   - ?glide=0: this file does nothing, so the page is today's, class for class.
-import { D_FLIP, D_SMALL } from './ease.js?v=7513a88c68';
+import { D_SMALL } from './ease.js?v=7513a88c68';
 import { restPass } from './rest-pass.js?v=ed71462b47';
 import { readBox, readMetric, readStyle } from './layout-snap.js?v=f87939cccb';
 
@@ -94,7 +94,7 @@ const same = (a, b) => !!a && !!b && Math.abs(a.x - b.x) < .05 && Math.abs(a.y -
 
 export function startSegGlide(root = document.body, search = typeof location !== 'undefined' ? location.search : '') {
   if (glideOff(search) || typeof MutationObserver === 'undefined') return null;
-  const states = new Map();   // control -> { btn, box, until, timer }
+  const states = new Map();   // control -> { btn, box, org, until, token }
   const reduce = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   const GPU = true;
   const ro = typeof ResizeObserver === 'function' ? new ResizeObserver((entries) => {
@@ -163,21 +163,18 @@ export function startSegGlide(root = document.body, search = typeof location !==
    *  piece follows on a short step). */
   function settle(ctl, moved) {
     let st = states.get(ctl);
-    if (!ctl.isConnected) { clearTimeout(st?.timer); states.delete(ctl); ro?.unobserve(ctl); return; }
-    if (!st) { st = { btn: null, box: null, org: null, until: 0, timer: 0, fade: false }; states.set(ctl, st); ro?.observe(ctl); }
+    if (!ctl.isConnected) { states.delete(ctl); ro?.unobserve(ctl); return; }
+    if (!st) { st = { btn: null, box: null, org: null, until: 0, token: null }; states.set(ctl, st); ro?.observe(ctl); }
     for (const b of ctl.children) if (b.localName === 'button') ro?.observe(b);
-    const fade = st.fade && !moved;   // (Reduce Motion: the piece has faded out and its time is up; it is placed and fades in)
-    st.fade = false;
     const btn = chosen(ctl), box = btn ? boxIn(ctl, btn) : null;
-    if (fade && box && st.btn === btn) { st.box = box; put(ctl, box, true); ctl.style.setProperty('--go', '1'); return; }
-    if (!box) { clearTimeout(st.timer); st.btn = null; st.box = null; st.org = null; drop(ctl); return; }
+    if (!box) { st.token = null; st.btn = null; st.box = null; st.org = null; drop(ctl); return; }
     const first = !st.box, now = performance.now(), org = frameOf(ctl);
     const shift = st.org && org ? { x: st.org.x - org.x, y: st.org.y - org.y } : null;
     st.org = org;
     moved = moved && !first && btn !== st.btn;
     if (!moved && st.btn === btn && same(st.box, box)) return;
     st.btn = btn; st.box = box;
-    clearTimeout(st.timer);
+    if (st.token) { st.token = null; ctl.style.setProperty('--go', '1'); }   // (a fade-out cut short by a newer change)
     if (first) { put(ctl, box, true); return; }
     if (moved) {
       st.until = now + D_SMALL + 60;
@@ -185,7 +182,18 @@ export function startSegGlide(root = document.body, search = typeof location !==
       if (reduce()) {
         // The piece fades out where it was, then is placed and fades in (--d-flip each; the stylesheet gives opacity its step).
         ctl.style.setProperty('--go', '0');
-        st.timer = setTimeout(() => { st.fade = true; queue(ctl, false); }, D_FLIP);   // (the way in is placed in the rest pass that follows: settle)
+        // (No timer: the fade-out is a transition of the piece's opacity (app.css, Reduce Motion), and the piece is placed when it ends. A newer change takes over by the token; if the piece is not drawn nothing ends, and the next settle places it.)
+        const token = st.token = {};
+        const place = () => {
+          if (!ctl.isConnected || states.get(ctl) !== st || st.token !== token) return;
+          const b2 = st.btn && boxIn(ctl, st.btn); if (b2) { st.box = b2; put(ctl, b2, true); } ctl.style.setProperty('--go', '1');
+        };
+        const done = (e) => {
+          if (e && (e.target !== ctl || e.pseudoElement !== '::before' || e.propertyName !== 'opacity')) return;
+          ctl.removeEventListener('transitionend', done); ctl.removeEventListener('transitioncancel', done);
+          place();
+        };
+        ctl.addEventListener('transitionend', done); ctl.addEventListener('transitioncancel', done);
       } else put(ctl, box, false, shift);
       return;
     }
@@ -231,7 +239,7 @@ export function startSegGlide(root = document.body, search = typeof location !==
     queued.delete(ctl);
     settle(ctl, choice);
   }
-  return { now, stop() { mo.disconnect(); ro?.disconnect(); for (const [c, s] of states) { clearTimeout(s.timer); drop(c); } states.clear(); } };
+  return { now, stop() { mo.disconnect(); ro?.disconnect(); for (const [c] of states) drop(c); states.clear(); } };
 }
 
 let live = null;

@@ -32,7 +32,7 @@ import { glidePlateOn, platePieces, glideOnResize } from './plate-glide.js?v=b60
 import { sheetParts, sheetOffset, setSheetOffset, stopSheet, glideSheet } from './sheet-move.js?v=09fc291f37';
 import { releaseSpeed, isFlick, flickAim, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=7513a88c68';
 import { morphKey, crossfadeText } from './legend-morph.js?v=8a36e9e6e2';
-import { glideNow } from './seg-glide.js?v=c036787a5f';
+import { glideNow } from './seg-glide.js?v=80eda11b0b';
 import './focus-ring.js?v=9d758347cd';
 import { knownLook, currentLook, isDarkLook, lastDarkLook, applyLookAttrs } from './looks.js?v=2d098211a4';
 import { lookChooser } from './look-chooser.js?v=826d410943';
@@ -49,7 +49,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
 import { initDebug } from './debug.js?v=802e443d94';
-import { initTopbarMotion } from './topbar-motion.js?v=e82006b2f8';
+import { initTopbarMotion } from './topbar-motion.js?v=7989590bce';
 import { ORIGINS } from './blood.js?v=a70439097a';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=0762d1b820';
@@ -64,7 +64,7 @@ import { createIdleRest } from './idle-rest.js?v=4d23822371';
 import { pillState, foldPill, stopFold } from './pill-motion.js?v=967d04762e';
 import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=81fbedda6b';
 import { readAnims, readBox, readElAt, readMetric, readStyle, scrollInto } from './layout-snap.js?v=f87939cccb';
-import './scroll-edges.js?v=ab214bf082';   // (soft fades at the ends of lists that scroll, only where there is more; ?edges=0 off)
+import './scroll-edges.js?v=e2ecb09612';   // (soft fades at the ends of lists that scroll, only where there is more; ?edges=0 off)
 const nextFrame = frameFor('main');
 
 // Color lenses: [title, what it shows, legend swatch].

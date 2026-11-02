@@ -7658,7 +7658,7 @@ body { font-optical-sizing: auto; font-kerning: normal; }
 /* A menu's scroll-edge veils on the compositor (scroll-edges.js, ?edgesgpu=0: the variables ease, as above): the variables step and the
    veil's own opacity eases over the same --d-small on --ease-move. */
 :root.se-gpu .menu.se { transition: none; }
-:root.se-gpu .menu.se::before, :root.se-gpu .menu.se::after { transition: opacity var(--d-small) var(--ease-move); }
+:root.se-gpu .menu.se::before, :root.se-gpu .menu.se::after { transition: opacity var(--d-small) var(--ease-move); animation: crossfade var(--d-small) var(--ease-move) backwards; }
 
 /* A number rolling to its next value (util.js countTo, ?odo=0 off): each digit that changes is a column whose own glyph is kept for
    its width and hidden, and over it a strip of the digits between the old one and the new one (its data-s, one a line) is moved by a

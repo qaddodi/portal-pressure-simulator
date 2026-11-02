@@ -11,11 +11,7 @@
 //
 // Cost: no scroll listener and no read of the page as it scrolls or in a frame: the browser reports the ends (IntersectionObserver), and
 // the box's overflow and padding are read only as it is resized; a list is only watched while it is in the page.
-import { D_SMALL } from './ease.js?v=7513a88c68';
-import { frameFor } from './frame.js?v=26e2e46fff';
 import { restPass } from './rest-pass.js?v=ed71462b47';
-
-const nextFrame = frameFor('scroll-edges');
 
 const LISTS = '.um-col, .um-cols, .tc-body, .ac-scroll, .menu:not(.tl-history), .instrument-workspace .dock-pane';
 const SLOP = 1;   // (px: a fraction of a pixel of scroll, from zoom or rounding, is not "more")
@@ -35,7 +31,7 @@ export const edgesGpuOff = (search = typeof location !== 'undefined' ? location.
 export function initScrollEdges(root = document.body) {
   if (!root || edgesOff()) return null;
   if (!edgesGpuOff()) document.documentElement.classList.add('se-gpu');
-  const lists = new WeakMap();   // list -> { el, raf, drop, scrolls, pt, pb, kids, view, moreT, moreB }
+  const lists = new WeakMap();   // list -> { el, drop, scrolls, pt, pb, kids, view, moreT, moreB }
   const owner = new WeakMap();   // (a child watched for the list it sits in -> that list's record)
   // What the page lays out is read only here, as a box is resized or its children change (never in a frame, never as it scrolls):
   // whether the box scrolls at all (a box whose overflow is visible or clipped, as the menu's column holder is on a desktop, does not,
@@ -81,9 +77,12 @@ export function initScrollEdges(root = document.body) {
     if (last && last.bottom > l.view.bottom + SLOP) l.moreB = true;
   }
 
-  function schedule(l) { if (!l.raf) l.raf = nextFrame(() => { l.raf = 0; apply(l); }); }
-
-  // Writes only: the list's class and its two variables, from what was read above.
+  // Writes only: the list's class and its two variables, from what was read above. No frame, no timer: a menu's veils fade in by
+  // their own entrance (a crossfade keyframe in app.css, from the first style they have) and out by their opacity transition, and the
+  // class goes when that transition ends; a list's mask takes its ends at once, so its class goes at once.
+  const menuOf = (el) => el.classList.contains('menu');
+  const still = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const gone = (l) => { l.drop = 0; l.el.classList.remove('se'); };
   function apply(l) {
     const { el } = l;
     if (!el.isConnected) return;
@@ -91,18 +90,18 @@ export function initScrollEdges(root = document.body) {
     if (!st) {
       // Nothing to scroll (any more): the fades ease out and then the class goes, so a list that just fit does not snap.
       if (el.classList.contains('se') && !l.drop) {
+        const was = el.style.getPropertyValue('--sedge-t') === '1' || el.style.getPropertyValue('--sedge-b') === '1';
         el.style.setProperty('--sedge-t', '0'); el.style.setProperty('--sedge-b', '0');
-        l.drop = setTimeout(() => { l.drop = 0; el.classList.remove('se'); }, D_SMALL + 40);
+        if (was && menuOf(el) && !still()) l.drop = 1;   // (transitionend / transitioncancel, in watch, takes the class off)
+        else gone(l);
       }
       return;
     }
-    if (l.drop) { clearTimeout(l.drop); l.drop = 0; }
+    l.drop = 0;
     if (!el.classList.contains('se')) {
       el.style.setProperty('--fade-pt', l.pt || '0px'); el.style.setProperty('--fade-pb', l.pb || '0px');
-      el.style.setProperty('--sedge-t', '0'); el.style.setProperty('--sedge-b', '0');
+      el.style.setProperty('--sedge-t', String(st[0])); el.style.setProperty('--sedge-b', String(st[1]));
       el.classList.add('se');
-      // The class and the first values land in separate frames, so the fade eases in from nothing rather than appearing.
-      schedule(l);
       return;
     }
     const [t, b] = st;
@@ -112,8 +111,10 @@ export function initScrollEdges(root = document.body) {
 
   function watch(el) {
     if (lists.has(el) || !io) return;
-    const l = { el, raf: 0, drop: 0, scrolls: false, pt: '', pb: '', kids: new Map(), view: null, moreT: false, moreB: false };
+    const l = { el, drop: 0, scrolls: false, pt: '', pb: '', kids: new Map(), view: null, moreT: false, moreB: false };
     lists.set(el, l);
+    el.addEventListener('transitionend', (e) => { if (l.drop && e.target === el && e.pseudoElement && e.propertyName === 'opacity') gone(l); });
+    el.addEventListener('transitioncancel', (e) => { if (l.drop && e.target === el && e.pseudoElement) gone(l); });
     look(l);
     ro.observe(el);
     // Content that changes inside a list the size of the list (a filter hiding rows) changes how far it scrolls, not its box:

@@ -25,6 +25,7 @@ function el(name, { cls = [], attrs = {}, box = { left: 0, top: 0, width: 0, hei
     closest: (s) => { for (let n = e; n; n = n.parentElement) if (n.matches(s)) return n; return null; },
     getBoundingClientRect: () => ({ ...e._box, right: e._box.left + e._box.width, bottom: e._box.top + e._box.height }),
     querySelectorAll: () => [],
+    _on: {}, addEventListener(t, f) { (e._on[t] ||= new Set()).add(f); }, removeEventListener(t, f) { e._on[t]?.delete(f); },
     offsetWidth: box.width, clientLeft: 0, clientTop: 0,
   };
   made.push(e);
@@ -132,6 +133,11 @@ test('Reduce Motion: the piece is faded out first (--go 0), not travelled', asyn
     observer.cb([{ type: 'attributes', target: b, attributeName: 'aria-pressed' }]); await rest();
     assert.equal(ctl._style.get('--go'), '0');
     assert.equal(ctl._style.get('--gx'), '2px', 'still at the old place while it fades');
+    // (No timer: the piece is placed when its fade-out transition ends.)
+    for (const f of [...ctl._on.transitionend]) f({ target: ctl, pseudoElement: '::before', propertyName: 'opacity' });
+    await Promise.resolve();
+    assert.equal(ctl._style.get('--go'), '1', 'faded back in once placed');
+    assert.equal(ctl._style.get('--gx'), '62px', 'placed at the new button');
     h.stop();
   } finally { reduced = false; }
 });

@@ -8,7 +8,6 @@
 // a glide is still playing is the true layout and an interrupted glide continues from where it was.
 // Nothing moves on a window resize or with reduced motion: the bar just takes its new layout.
 import { D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN, EASE_MOVE } from './ease.js?v=7513a88c68';
-import { restPass } from './rest-pass.js?v=ed71462b47';
 import { removeSoon } from './class-soon.js?v=6ad82f25a8';
 
 const ITEMS = '.tb-id, .tb-id > *, .sb-left, .sb-right, #viewSeg, #viewSeg > button, .sb-right > :not(.tb-face), .top-right, .top-right > *';
@@ -240,13 +239,16 @@ export function initTopbarMotion() {
   // The bar is measured after the browser's own layout of the change and before its paint: a fresh ResizeObserver's first report
   // comes at that point of the next frame, so the glide starts on the very frame the change shows (no pop) and nothing here forces a
   // layout (the mutation callback, a microtask straight after the writes, reads nothing: 2 Nov 2026, "Move everything to GPU").
-  // A bar that is not drawn sends no first report: a task measures it instead.
-  function runAfterLayout() {
-    const once = new ResizeObserver(() => { once.disconnect(); if (pending) run(); });
-    once.observe(bar);
-    setTimeout(() => { once.disconnect(); restPass(runPending); }, 250);   // (measured in a rest pass, between frames, not in the timer's own task)
+  // A bar that is not drawn sends no first resize report, but an intersection observer always makes its first report, in the same
+  // place of the frame (after layout, before paint): whichever comes first measures, once. No timer.
+  // (kind 0: the change's glide; kind 1: the first record.)
+  function afterLayout(kind) {
+    let done = false;
+    const go = () => { if (done) return; done = true; ro1.disconnect(); io1?.disconnect(); if (kind === 0) { if (pending) run(); } else if (!pending) resnap(); };
+    const ro1 = new ResizeObserver(() => go()), io1 = typeof IntersectionObserver === 'function' ? new IntersectionObserver(() => go()) : null;
+    ro1.observe(bar); io1?.observe(bar);
   }
-  function runPending() { if (pending) run(); }
+  function runAfterLayout() { afterLayout(0); }
 
   // What counts as a change: a button's hidden flag, a class or fit step on the bar, the sinusoid focus
   // class on the app. Repeated writes of the same value (a class re-added while the figure is dragged) do not.
@@ -280,7 +282,7 @@ export function initTopbarMotion() {
   ro.observe(bar);
   for (const el of bar.querySelectorAll(ITEMS)) ro.observe(el);
 
-  // (The first record once the fonts are in and the bar has been laid out: a task, not a frame, so nothing is measured in a frame.)
-  const start = () => setTimeout(() => restPass(resnap), 50);
+  // (The first record once the fonts are in and the bar has been laid out: after layout, not in a frame.)
+  const start = () => afterLayout(1);
   (document.fonts?.ready || Promise.resolve()).then(start, start);
 }
