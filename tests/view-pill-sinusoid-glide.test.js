@@ -40,6 +40,6 @@ test('on a phone, Treat, Tests and Layers go back out to the lobule first, and o
 // (A regression from the pill's earlier fix: a card dragged aside on a wide screen is moved by translate, and closing it must clear that.)
 test('a card dragged aside returns to its place when it closes', () => {
   assert.match(main, /closed: \(\) => \{ stopSheet\(el\); setSheetOffset\(el, 0\); el\.style\.translate = '';/);
-  assert.match(main, /if \(!start\.phone\) \{ el\.style\.translate = `\$\{start\.tx \+ dx\}px \$\{start\.ty \+ dy\}px`; return; \}/);
+  assert.match(main, /if \(!start\.phone\) \{[^\n]*\n\s*const tx = start\.tx \+ dx, ty = start\.ty \+ dy;\n\s*if \(tx !== start\.wx \|\| ty !== start\.wy\) \{ start\.wx = tx; start\.wy = ty; el\.style\.translate = `\$\{tx\}px \$\{ty\}px`; \}\n\s*return;/);   // (the same write, skipped only when the numbers are what the drag last wrote)
   assert.doesNotMatch(main, /else el\.style\.translate = `\$\{start\.tx \+ dx\}px \$\{start\.ty \+ dy\}px`;/);
 });
