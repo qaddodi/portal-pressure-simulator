@@ -67,6 +67,11 @@ export const PROCS = {
   },
 };
 export const PROC_KINDS = Object.keys(PROCS);
+// (No params at all: the checks below only read, so one empty record stands in, not a new one each call.)
+const NO_PARAMS = Object.freeze({});
+// (A callout names no stations: one empty list, never written to.)
+const NO_NAMES = [];
+const TRACT = [0.62, 0.86];
 // Fundal varices large enough to grade (the Fundal varices card's own "none" below 2.4 mm): BRTO and BATO treat them, so
 // without them neither is offered. m: the live frame's metrics (no frame yet: the params alone decide).
 export const GV_MIN_MM = 2.4;
@@ -81,13 +86,13 @@ function oblitHad(p) { return !!p.occluded?.C5; }
 function oblitUndo(p) { p.occluded = { ...p.occluded, C5: false }; return p; }
 
 /** Why a procedure cannot run on these params ('' when it can). m: the live frame's metrics (BRTO and BATO need fundal varices). */
-export const procBlocked = (kind, p, m = null) => (PROCS[kind] ? PROCS[kind].can(p || {}, m) : 'Unknown procedure.');
+export const procBlocked = (kind, p, m = null) => (PROCS[kind] ? PROCS[kind].can(p || NO_PARAMS, m) : 'Unknown procedure.');
 /** Whether a procedure is offered at all for this patient: BRTO and BATO only while there are gastric varices (or the
  *  procedure has already closed them, so it can be watched again). TIPS always is (dimmed when it cannot run). */
-export const procOffered = (kind, p, m = null) => !!PROCS[kind] && (kind === 'tips' || PROCS[kind].had(p || {}) || (p?.spontaneous?.C5 !== false && hasGastricVarices(m)));
+export const procOffered = (kind, p, m = null) => !!PROCS[kind] && (kind === 'tips' || PROCS[kind].had(p || NO_PARAMS) || (p?.spontaneous?.C5 !== false && hasGastricVarices(m)));
 
 /** The step a time falls in (pure): each runs up to and including its stop, so a procedure held at a stop still shows that step. */
-export const stepAt = (kind, t) => { const S = PROCS[kind].stops, i = S.findIndex((x) => t <= x); return i < 0 ? S.length - 1 : i; };
+export const stepAt = (kind, t) => { const S = PROCS[kind].stops; for (let i = 0; i < S.length; i++) if (t <= S[i]) return i; return S.length - 1; };
 // (The step's number on its callout, as a filled circle: the same number as its step in the teaching card.)
 export const STEP_NUM = ['\u278A', '\u278B', '\u278C', '\u278D', '\u278E', '\u278F'];
 /** When a step's callout comes (pure, ms): once the step has played, at its stop; the last step's once the stent is in or the
@@ -103,22 +108,27 @@ export const stepMark = (kind, i) => {
 /**
  * The procedure at t ms (pure): { u (0..1 of the way in), balloon, column (the sclerosant, 0..1), opacity, step (index into
  * steps, -1 once it has gone), shot ('way' | 'tip', '' once it has gone) }. stops: the route's stretches as u (stage.cathStops),
- * for the TIPS its tract ({ tract: [u0, u1] }); without them the tract sits where it usually does.
+ * for the TIPS its tract ({ tract: [u0, u1] }); without them the tract sits where it usually does. into: a record to write it in (a
+ * playing procedure keeps one for its frames), else a new one.
  */
-export function procFrame(kind, t, stops = null) {
+export function procFrame(kind, t, stops = null, into = null) {
   const P = PROCS[kind], T = P.T, back = ease(k01(t, T.back, T.end - 400));
   const opacity = 1 - k01(t, T.end - 800, T.end);
   const step = t >= T.end ? -1 : stepAt(kind, t), shot = step >= 0 ? P.steps[step][4] : '';
   if (kind === 'tips') {
-    const [a, b] = stops?.tract || [0.62, 0.86];
+    const tr = stops?.tract || TRACT, a = tr[0], b = tr[1];
     const u = (t < T.needle0 ? a * ease(k01(t, T.travel0, T.travel1)) : t < T.needle1 ? a + (b - a) * ease(k01(t, T.needle0, T.needle1)) : b + (1 - b) * ease(k01(t, T.needle1, T.wire1))) * (1 - back);
     const balloon = ease(k01(t, T.inflate0, T.inflate1)) * (1 - ease(k01(t, T.deflate0, T.deflate1)));
-    return { u, balloon, column: 0, opacity, step, shot };
+    const f = into || {};
+    f.u = u; f.balloon = balloon; f.column = 0; f.opacity = opacity; f.step = step; f.shot = shot;
+    return f;
   }
   const u = ease(k01(t, T.travel0, T.travel1)) * (1 - back);
   const balloon = ease(k01(t, T.inflate0, T.inflate1)) * (1 - ease(k01(t, T.deflate, T.back)));
   const column = ease(k01(t, T.fill0, T.fill1)) * (1 - ease(k01(t, T.fillOut, T.deflate)));
-  return { u, balloon, column, opacity, step, shot };
+  const f = into || {};
+  f.u = u; f.balloon = balloon; f.column = column; f.opacity = opacity; f.step = step; f.shot = shot;
+  return f;
 }
 
 // Going back through a step runs it backwards (the balloon goes down, the sclerosant drains, the catheter backs out), a little
@@ -136,20 +146,25 @@ const BACK_SPEED = 1.6, AUTO_HOLD = 1600, LAND_MS = 160;
 export function playProcedure(stage, kind, { stepped = false, to = 0, apply = null, unapply = null, onFrame = null, onStep = null, onMark = null, onEnd = null } = {}) {
   const P = PROCS[kind], T = P.T, n = P.stops.length;
   let at = stepped ? Math.max(0, Math.min(n - 1, to | 0)) : 0, goal = P.stops[at];
+  // (One record for the frame and one for the catheter, kept for the whole run and written in place: the stage reads the catheter's as it
+  // is given, and holds it only to read it again, so the last frame's values are what it keeps.)
+  const fr = { u: 0, balloon: 0, column: 0, opacity: 0, step: 0, shot: '' };
+  const cat = { route: kind, u: 0, balloon: 0, balloonSpan: P.balloonSpan, column: 0, columnColor: 'var(--tr-scler)', ring: null, clock: 0, opacity: 0, labels: [], keep: true, follow: false };
   let t = 0, raf = 0, last = performance.now(), shot = '', landT = 0, holdT = 0, applied = false, stops = null, over = false, step = -2, shownMark = -3;
   function wake() { if (!over && !raf) { last = performance.now(); raf = nextFrame(tick); } }
   function tick() {
     raf = 0;
     const now = performance.now(), dt = Math.min(64, now - last); last = now;
-    const f = procFrame(kind, t, stops);
+    const f = procFrame(kind, t, stops, fr);
     if (f.step !== step && f.step >= 0) { step = f.step; onStep?.(step); }
     // (The callout: a step's word once its step has happened (his ask, 29 Oct: "the callout should show up AFTER the step happens"),
     // none while it plays.)
     const mk = f.step < 0 ? -2 : t >= markAt(kind, f.step) ? f.step : -1;
-    if (mk !== shownMark && mk > -2) { shownMark = mk; onMark?.(mk >= 0 ? stepMark(kind, mk) : false, P.steps[f.step][6] || []); }
+    if (mk !== shownMark && mk > -2) { shownMark = mk; onMark?.(mk >= 0 ? stepMark(kind, mk) : false, P.steps[f.step][6] || NO_NAMES); }
     // (The view follows the tip in on the first step, once its shot has landed.)
-    stage.setCatheter({ route: kind, u: f.u, balloon: f.balloon, balloonSpan: P.balloonSpan, column: f.column, columnColor: 'var(--tr-scler)',
-      ring: null, clock: t, opacity: f.opacity, labels: [], keep: true, follow: f.shot === 'way' && shot === 'way' && !stage.gliding?.() });
+    cat.u = f.u; cat.balloon = f.balloon; cat.column = f.column; cat.clock = t; cat.opacity = f.opacity;
+    cat.follow = f.shot === 'way' && shot === 'way' && !stage.gliding?.();
+    stage.setCatheter(cat);
     stops ||= stage.cathStops?.() || null;
     // The step's shot, glided to once (a slide's own glide, arcing on a long move). Until it lands nothing moves: no step starts
     // with the camera on its way. (A switch from the circuit takes a moment: cathFocus says no until the route is drawn.)

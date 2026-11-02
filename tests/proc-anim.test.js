@@ -177,7 +177,7 @@ function rig() {
   globalThis.cancelAnimationFrame = () => {};
   const moves = [], cats = [];
   const stage = {
-    setCatheter: (st) => cats.push(st), cathStops: () => null, gliding: () => now < gl,
+    setCatheter: (st) => cats.push(st && { ...st }),   // (the run writes one record in place each frame: a copy keeps this frame's) cathStops: () => null, gliding: () => now < gl,
     cathFocus: (mode, ms) => { moves.push({ mode, at: now, ms }); gl = now + ms; return true; },
   };
   const run = (ms, step = 16) => { for (let t = 0; t < ms; t += step) { now += step; const f = q.splice(0); for (const fn of f) fn(now); } };
