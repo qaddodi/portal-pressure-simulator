@@ -50,3 +50,15 @@ test('a sheet\'s offset mid-ease is worked out from its clock and curve, not rea
   const src = (await import('node:fs')).readFileSync(new URL('../src/ui/sheet-move.js', import.meta.url), 'utf8');
   assert.doesNotMatch(src, /\.getComputedTiming\b/);
 });
+
+test('the summary table\'s Doppler traces are drawn on the GPU, at the SVG\'s own points', async () => {
+  await import('./dom-shim.js');
+  const { wavePts, wavePath } = await import('../src/ui/col-wave.js');
+  const w = { t: [0, 0.5, 1], v: [10, -20, 30] };
+  const pts = wavePts(w, 'PV_TRUNK', 50, 120, 36), d = wavePath(w, 'PV_TRUNK', 50).d;
+  const fromD = [...d.matchAll(/[ML]([\d.-]+) ([\d.-]+)/g)].map((m) => [+m[1], +m[2]]);
+  pts.forEach(([x, y], i) => { near(x, fromD[i][0], 0.06, 'x'); near(y, fromD[i][1], 0.06, 'y'); });
+  const src = (await import('node:fs')).readFileSync(new URL('../src/ui/col-wave.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(src, /createElementNS/, 'no SVG built');
+  assert.match(src, /createTraceGL\(cv, \{ redraw: \(\) => paintWave\(c\) \}\)/);
+});

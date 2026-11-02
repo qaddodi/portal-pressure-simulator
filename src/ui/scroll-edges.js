@@ -13,6 +13,7 @@
 // the box's overflow and padding are read only as it is resized; a list is only watched while it is in the page.
 import { D_SMALL } from './ease.js?v=fc509dabe4';
 import { frameFor } from './frame.js?v=7710f677e2';
+import { restPass } from './rest-pass.js?v=bf0c42ead5';
 
 const nextFrame = frameFor('scroll-edges');
 
@@ -129,7 +130,11 @@ export function initScrollEdges(root = document.body) {
   }
 
   scan(root);
-  new MutationObserver((records) => { for (const r of records) for (const n of r.addedNodes) scan(n); }).observe(root, { childList: true, subtree: true });
+  // (2 Nov 2026: new lists are looked at between frames (rest-pass.js), not in the observer's microtask: look reads their styles.)
+  const added = [];
+  let addAsk = 0;
+  function scanAdded() { addAsk = 0; for (const n of added.splice(0)) if (n.isConnected) scan(n); }
+  new MutationObserver((records) => { for (const r of records) for (const n of r.addedNodes) added.push(n); if (added.length && !addAsk) addAsk = restPass(scanAdded); }).observe(root, { childList: true, subtree: true });
   return true;
 }
 

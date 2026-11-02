@@ -1,5 +1,5 @@
 // DOM & formatting helpers.
-import { saver, frame, cancelFrame, easeNow } from './frame.js?v=7710f677e2';
+import { saver, frame, cancelFrame, easeNow, readFrame } from './frame.js?v=7710f677e2';
 import { restPass } from './rest-pass.js?v=bf0c42ead5';
 import { slideFold } from './fold-slide.js?v=f0b2c624d3';
 import { releaseSpeed, isFlick, carryCurve, settleSlope, settleAt, easeMove, D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js?v=fc509dabe4';
@@ -962,7 +962,11 @@ function readVars() {
 const varsSoon = () => { if (!varsAsk) varsAsk = restPass(readVars); };
 // (A theme change is read in the observer's own task, before the frame that draws in it; the root's style, which a frame's work may set
 // (--label-k through a zoom), in a rest pass after it.)
-new MutationObserver((rs) => { if (rs.some((r) => r.attributeName !== 'style')) readVars(); else varsSoon(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-palette', 'style', 'class'] });
+// (2 Nov 2026: a theme change is read first thing in the next frame (frame.js readFrame), before anything draws in it, not in the
+// observer's microtask straight after the page's writes.)
+let varsEarly = 0;
+const varsFirst = () => { varsEarly = 0; readVars(); };
+new MutationObserver((rs) => { if (rs.some((r) => r.attributeName !== 'style')) { if (!varsEarly) varsEarly = readFrame(varsFirst); } else varsSoon(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-palette', 'style', 'class'] });
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readVars);
 readVars();   // (at load, before any frame: the stylesheets are in, a module runs after them)
 export function cssVar(name) {

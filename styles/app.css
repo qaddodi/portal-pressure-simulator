@@ -7315,10 +7315,8 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pz-table.pz-table td.pze-wcell { padding-right: max(.75em, 10px); }   /* (the trace ends clear of the table's edge, as far in as the row names start on the left, on every size) */
 .pze-wbox { display: block; width: 6.5em; max-width: 100%; min-width: min(4em, 100%); height: 1.8em; margin-inline: auto; }
 .pze-wbox.pze-in { animation: crossfade var(--d-surface) var(--ease) both; }
-.pze-wave { display: block; width: 100%; height: 100%; overflow: visible; }
-.pze-wb { stroke: var(--text-3); stroke-width: 1; vector-effect: non-scaling-stroke; }
-.pze-wt, .pze-wa { fill: none; stroke-width: 2; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
-.pze-wt { stroke: var(--dop-toward); } .pze-wa { stroke: color-mix(in srgb, var(--dop-away) 60%, var(--text)); }   /* (the away blue, lifted toward the text colour so it reads on a dark card too) */
+.pze-wbox:has(> .pze-wave) { position: relative; }
+.pze-wave, .pze-wave + .trace-gl { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }   /* (the trace's box and the GPU's picture over it, col-wave.js) */
 .pze-wn { display: block; text-align: center; color: var(--text-3); }
 
 /* ── Package E: end ── */

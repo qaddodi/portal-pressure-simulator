@@ -4,36 +4,36 @@
 import { motionBudget } from './motion-budget.js?v=7c8fbb8f19';   // (first: counts from the start when ?perf or ?budget=1 asks)
 import { startHost, host } from './host.js?v=9eca545da1';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=4ef2a6ffd8';
-import { createStage } from './stage.js?v=43e6257337';
+import { createStage } from './stage.js?v=d5da9c7e72';
 import { createCreditPlacer } from './credit.js?v=79aef9e754';
 import { whenQuiet, booting, holdCover } from './quiet.js?v=388052eba8';
 import { sinusoidSupported } from './gl-support.js?v=38189f60f5';
-import { createInspector } from './inspector.js?v=4fdce68ded';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=e4bd2cbe1a';
-import { setHvpgStage } from './hvpg-proc.js?v=b7f54f9017';
-import { createWhy } from './why.js?v=f4bdcde4d1';
-import { createTimeline, LAPSES } from './timeline.js?v=df7c1f9da7';
-import { createCompare } from './compare.js?v=15bd6d7300';
-import { createCard } from './card.js?v=11af9fd744';
-import { createChart } from './chart.js?v=18c3c68326';
-import { createMenu } from './menu.js?v=aa628c5ccc';
-import { caption } from './a11y.js?v=e08c6c9065';
+import { createInspector } from './inspector.js?v=ec3d1cebe1';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=166df97e14';
+import { setHvpgStage } from './hvpg-proc.js?v=228156e472';
+import { createWhy } from './why.js?v=ab56b625b3';
+import { createTimeline, LAPSES } from './timeline.js?v=7245b1c3d9';
+import { createCompare } from './compare.js?v=87ebc4afb8';
+import { createCard } from './card.js?v=664e8bea4c';
+import { createChart } from './chart.js?v=8115d99df7';
+import { createMenu } from './menu.js?v=25adfa6558';
+import { caption } from './a11y.js?v=ea4fe88205';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=a9debc0de8';
-import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=40831e6624';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=f081cbf0e8';
+import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=d08a6019e4';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=11c58ca8e4';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=97920ddf3f';
 import { controlOwnsKey } from './key-owner.js?v=60ed93db32';
-import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, swapFade, scrollBehavior, reconcile } from './util.js?v=daeaa9eb04';
+import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, swapFade, scrollBehavior, reconcile } from './util.js?v=69f76a614e';
 import { glidePlate, glideOnResize } from './plate-glide.js?v=a890da4324';
 import { sheetParts, sheetOffset, setSheetOffset, stopSheet, glideSheet } from './sheet-move.js?v=d321fb543d';
 import { releaseSpeed, isFlick, flickAim, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=fc509dabe4';
-import { morphKey, crossfadeText } from './legend-morph.js?v=8e499c3863';
+import { morphKey, crossfadeText } from './legend-morph.js?v=a081c05c54';
 import './seg-glide.js?v=a77f474138';
 import './focus-ring.js?v=b6a5d745b3';
 import { knownLook, currentLook, isDarkLook, lastDarkLook, applyLookAttrs } from './looks.js?v=2d098211a4';
-import { lookChooser } from './look-chooser.js?v=6034751e60';
+import { lookChooser } from './look-chooser.js?v=a030b684c5';
 import { TEXT_STEPS } from './type-scale.js?v=d7cca3fb73';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -60,7 +60,7 @@ import { noteJump } from './display-state.js?v=8d062d39dc';
 import { createIdleRest } from './idle-rest.js?v=4d23822371';
 import { easeIO3, glideShift, pillState, foldPill, stopFold } from './pill-motion.js?v=d19b52fb7e';
 import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=81fbedda6b';
-import './scroll-edges.js?v=a577c6fa99';   // (soft fades at the ends of lists that scroll, only where there is more; ?edges=0 off)
+import './scroll-edges.js?v=8fac409de3';   // (soft fades at the ends of lists that scroll, only where there is more; ?edges=0 off)
 const nextFrame = frameFor('main');
 
 // Color lenses: [title, what it shows, legend swatch].
@@ -121,8 +121,8 @@ async function main() {
   // The Doppler and the FibroScan load after the first paint (a tab for one that has not come waits for it, dock.js). One left open when the
   // app was last used is asked for now and waited for with the model's first answers, so its pane is whole with the dock.
   const probeTo = (id) => { host.send({ type: 'probe', id }); logAction('probe', id); };
-  dopplerL = lazy(() => import('./doppler.js?v=1d5486baa4'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
-  fibroL = lazy(() => import('./fibroscan.js?v=3691fe64e3'), ({ createFibroScan }) => createFibroScan());
+  dopplerL = lazy(() => import('./doppler.js?v=5926e0d87f'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
+  fibroL = lazy(() => import('./fibroscan.js?v=72b34d85bd'), ({ createFibroScan }) => createFibroScan());
   const wasOpen = savedInstruments().open;
   const openAtStart = [];
   if (Array.isArray(wasOpen)) for (const [id, l] of [['doppler', dopplerL], ['fibroscan', fibroL]]) if (wasOpen.includes(id)) openAtStart.push(l.get().catch(() => {}));
@@ -208,7 +208,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=681e16b3fa'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=05df020010'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -216,7 +216,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
-  paletteL = lazy(() => import('./palette.js?v=41dd1341c8'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=c53ef83356'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -1145,7 +1145,8 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
 const STATUS_GESTURE_FREE = !/[?&]glidekeys=0\b/.test(location.search);
 // (The slide progress line grows by a GPU scale (app.css .pz-prog i); ?progfx=0 grows it by its width, as before.)
 if (/[?&]progfx=0\b/.test(location.search)) document.documentElement.setAttribute('data-progcpu', '');
-new MutationObserver((rs) => { if (STATUS_GESTURE_FREE && rs.every((r) => classOnly(r, GESTURE_LOOK))) return; syncStatusBar(); setTimeout(syncStatusBar, 600); }).observe(document.getElementById('app'), { attributes: true, attributeFilter: ['class'], attributeOldValue: true });
+// (2 Nov 2026: read between frames (rest-pass.js), not in the observer's microtask straight after the page's writes.)
+new MutationObserver((rs) => { if (STATUS_GESTURE_FREE && rs.every((r) => classOnly(r, GESTURE_LOOK))) return; restPass(syncStatusBar); setTimeout(syncStatusBar, 600); }).observe(document.getElementById('app'), { attributes: true, attributeFilter: ['class'], attributeOldValue: true });
 function readLS(k) { try { return localStorage.getItem(k); } catch { return null; } }
 // ── Patient chart, Treat card and instrument workspace ─
 // The chart is a card floating over the right of the figure (a bottom sheet on a phone), opened
@@ -1917,7 +1918,10 @@ function openHistory() {
     h('button', { class: 'ib card-close', 'aria-label': 'Close History', title: 'Close (Esc)', onclick: () => closeHistory({ focus: true }) }, icon('close'))), body);
   paint();
   // (A change or an event adds a row; the count beside the button moves with every entry, including a finished snapshot.)
-  const mo = new MutationObserver(() => { if (historyOpen()) paint(); });
+  // (2 Nov 2026: painted between frames (rest-pass.js), not in the observer's microtask: reconcile reads the rows' boxes.)
+  let paintAsk = 0;
+  const paintRest = () => { paintAsk = 0; if (historyOpen()) paint(); };
+  const mo = new MutationObserver(() => { if (!paintAsk) paintAsk = restPass(paintRest); });
   mo.observe($('#timeline .tl-hc'), { characterData: true, childList: true, subtree: true });
   if (!historyPaint) timeline.onChange(() => historyPaint?.());   // (registered once; it paints whichever card is open)
   historyPaint = paint;
