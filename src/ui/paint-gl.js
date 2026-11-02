@@ -208,7 +208,7 @@ export class PaintRecorder {
   // (Pixel calls a 2D painter might make are not recorded: a GPU picture has no pixels on the CPU.)
   drawImage() { throw new Error('paint-gl: drawImage is not recorded'); }
   /** The record, its arrays packed. */
-  done() { this._end(); return { width: this.width, height: this.height, ops: this.ops, cv: new Float32Array(this.cv), pv: new Float32Array(this.pv) }; }
+  done() { this._end(); return { width: this.width, height: this.height, ops: this.ops, cv: new Float32Array(this.cv), pv: new Float32Array(this.pv) }; }   // alloc-rare: once per recorded picture, whose packed record is what it keeps
 }
 function invPt(m, [x, y]) {
   const det = m[0] * m[3] - m[1] * m[2] || 1, dx = x - m[4], dy = y - m[5];
@@ -307,7 +307,7 @@ export function recordPaint(width, height, draw) {
 
 /** A GPU picture: a record that stands where a canvas did (width, height; free() sets them to 0). ver: the caller's count of paints. */
 export function gpuPicture(rec, ver = 0) {
-  return { width: rec.width, height: rec.height, rec, ver, gpuPicture: true };
+  return { width: rec.width, height: rec.height, rec, ver, gpuPicture: true };   // alloc-rare: once per picture, the stand-in for a canvas that the picture keeps
 }
 export const isGpuPicture = (cv) => !!cv && cv.gpuPicture === true;
 
@@ -375,6 +375,8 @@ void main() {
 export const paintShaders = { VS_C, FS_C, VS_P, FS_P, VS_Q, FS_B };
 
 const TILE = 1024;
+const NO_OPTS = {};   // (paint's options when none are given: read, never written)
+const EMPTY_CV = new Float32Array(6), EMPTY_PV = new Float32Array(2), FS_TRI = new Float32Array([-1, -1, 3, -1, -1, 3]);
 const painters = new WeakMap();
 /** The painter for one GPU context (made once per context; its programs start compiling at once). */
 export function paintGL(gl) {
@@ -385,17 +387,21 @@ export function paintGL(gl) {
 
 export function createPaintGL(gl) {
   let progs = null, started = null, failed = false, res = null, freeT = 0, warmHold = null;
+  const SAVED = { fbR: null, fbD: null, vp: null, prog: null, vao: null, buf: null, rb: null, unit: 0, tex: null, blend: false, stencil: false, scissor: false, depth: false, cull: false,   // alloc-rare: once per GL context (made at its first picture), not per frame: the host's state, saved and put back at each paint
+    bf: [0, 0, 0, 0], be: [0, 0], cm: null, cc: null, sm: 0, sbm: 0, sci: null };   // alloc-rare: once per GL context (made at its first picture), not per frame
+  const VIEW = [0, 0, 0, 0], FULL = [0, 0, 0, 0], BOX4 = [0, 0, 0, 0], SV = [0, 0, 0, 0], QUAD = new Float32Array(12), GS = new Float32Array(32), GT = new Float32Array(8);   // alloc-rare: once per GL context (made at its first picture), not per frame: scratch the tile and its shadow write in place
+  const D = { r: null, tx: 0, ty: 0, tw: 0, th: 0, clipOn: null };   // alloc-rare: once per GL context (made at its first picture), not per frame: the tile being drawn
   // (Review pass item 8: what a paint leaves warm is held in the global budget (gpu-budget.js hold), which may let it go before WARM_MS.)
-  const resBytes = () => { const r = res; if (!r) return 0; const t = TILE * TILE; return t * 8 * Math.max(1, r.samples) + t * 4 + (r.sh ? r.sh.w * r.sh.h * 12 : 0); };
-  const begin = () => {
+  const resBytes = () => { const r = res; if (!r) return 0; const t = TILE * TILE; return t * 8 * Math.max(1, r.samples) + t * 4 + (r.sh ? r.sh.w * r.sh.h * 12 : 0); };   // alloc-rare: once per GL context (made at its first picture), not per frame
+  const begin = () => {   // alloc-rare: once per GL context (made at its first picture), not per frame
     try {
-      started = [startProgram(gl, VS_C, FS_C, [['p', 0], ['c', 1]]), startProgram(gl, VS_P, FS_P, [['p', 0]]), startProgram(gl, VS_Q, FS_B, [['p', 0]])];
-      publishWhenDone(gl, started, () => { try { ready(); } catch (e) { caught('paint-gl:392', e); /* read at the first paint */ } });
+      started = [startProgram(gl, VS_C, FS_C, [['p', 0], ['c', 1]]), startProgram(gl, VS_P, FS_P, [['p', 0]]), startProgram(gl, VS_Q, FS_B, [['p', 0]])];   // alloc-rare: once per GL context (made at its first picture), not per frame
+      publishWhenDone(gl, started, () => { try { ready(); } catch (e) { caught('paint-gl:392', e); /* read at the first paint */ } });   // alloc-rare: once per GL context (made at its first picture), not per frame
     } catch { failed = true; }
   };
   begin();
-  gl.canvas?.addEventListener?.('webglcontextlost', () => { progs = null; res = null; started = null; warmHold?.drop(); warmHold = null; });
-  gl.canvas?.addEventListener?.('webglcontextrestored', () => { failed = false; begin(); });
+  gl.canvas?.addEventListener?.('webglcontextlost', () => { progs = null; res = null; started = null; warmHold?.drop(); warmHold = null; });   // alloc-rare: once per GL context (made at its first picture), not per frame
+  gl.canvas?.addEventListener?.('webglcontextrestored', () => { failed = false; begin(); });   // alloc-rare: once per GL context (made at its first picture), not per frame
   function ready() {
     if (progs) return true;
     if (failed || gl.isContextLost()) return false;
@@ -404,9 +410,9 @@ export function createPaintGL(gl) {
     // yet (null: the tissue keeps its last frame and asks again shortly), and the poller publishes the programs once they are done.)
     if (started && stillCompiling(gl, started)) return false;
     try {
-      const [c, p, b] = started.map((h) => checkProgram(gl, h));
-      const loc = (pr, ns) => Object.fromEntries(ns.map((n) => [n, gl.getUniformLocation(pr, n)]));
-      progs = { c: { p: c, U: loc(c, ['uV']) }, p: { p, U: loc(p, ['uV', 'uC', 'uN', 'uG', 'uO', 'uS', 'uT']) }, b: { p: b, U: loc(b, ['uS', 'uDir', 'uD', 'uSigma', 'uN']) } };
+      const [c, p, b] = started.map((h) => checkProgram(gl, h));   // alloc-rare: once per GL context (made at its first picture), not per frame
+      const loc = (pr, ns) => Object.fromEntries(ns.map((n) => [n, gl.getUniformLocation(pr, n)]));   // alloc-rare: once per GL context (made at its first picture), not per frame
+      progs = { c: { p: c, U: loc(c, ['uV']) }, p: { p, U: loc(p, ['uV', 'uC', 'uN', 'uG', 'uO', 'uS', 'uT']) }, b: { p: b, U: loc(b, ['uS', 'uDir', 'uD', 'uSigma', 'uN']) } };   // alloc-rare: once per GL context (made at its first picture), not per frame
       return true;
     } catch (err) { failed = true; console.warn('GPU pictures cannot be painted here.', err); return false; }
   }
@@ -433,17 +439,18 @@ export function createPaintGL(gl) {
     gl.bindVertexArray(vaoP); gl.bindBuffer(gl.ARRAY_BUFFER, bufP);
     gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 8, 0);
     gl.bindVertexArray(vaoQ); gl.bindBuffer(gl.ARRAY_BUFFER, bufQ);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, FS_TRI, gl.STATIC_DRAW);
     gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 8, 0);
     gl.bindVertexArray(null);
-    res = { samples, ms, msC, msS, rs, rsT, vaoC, vaoP, bufC, bufP, vaoQ, bufQ, sh: null };
+    res = { samples, ms, msC, msS, rs, rsT, vaoC, vaoP, bufC, bufP, vaoQ, bufQ, sh: null };   // alloc-rare: once per warm period of the painter's targets (they are freed a few seconds after the last picture)
     return res;
   }
   function tex(w, h) {
     const t = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, t);
     gl.texStorage2D(gl.TEXTURE_2D, 1, gl.RGBA8, w, h);
-    for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     return t;
   }
   // (The shadow's scratch: a texture with a stencil for the shape, and a second texture for the first blur pass.)
@@ -462,7 +469,7 @@ export function createPaintGL(gl) {
     gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_STENCIL_ATTACHMENT, gl.RENDERBUFFER, aS);
     gl.bindFramebuffer(gl.FRAMEBUFFER, b);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, bT, 0);
-    r.sh = { a, aT, aS, b, bT, w: W, h: H };
+    r.sh = { a, aT, aS, b, bT, w: W, h: H };   // alloc-rare: only when the shadow's scratch is made or has to grow (a bigger shadow than any before)
     return r.sh;
   }
   function dropShadow() {
@@ -487,21 +494,23 @@ export function createPaintGL(gl) {
   // The host's state, put back as it was after a paint (it may be drawing a frame around it).
   function saveState() {
     // (From the renderer's own record of the context (gl-state.js, R09): no query reaches the driver. ?glstate=0: asked, as before.)
-    const g = (k) => glGet(gl, k);
-    return {
-      fbR: g(gl.READ_FRAMEBUFFER_BINDING), fbD: g(gl.DRAW_FRAMEBUFFER_BINDING), vp: g(gl.VIEWPORT), prog: g(gl.CURRENT_PROGRAM), vao: g(gl.VERTEX_ARRAY_BINDING),
-      buf: g(gl.ARRAY_BUFFER_BINDING), rb: g(gl.RENDERBUFFER_BINDING), unit: g(gl.ACTIVE_TEXTURE), tex: g(gl.TEXTURE_BINDING_2D),
-      blend: glOn(gl, gl.BLEND), stencil: glOn(gl, gl.STENCIL_TEST), scissor: glOn(gl, gl.SCISSOR_TEST), depth: glOn(gl, gl.DEPTH_TEST), cull: glOn(gl, gl.CULL_FACE),
-      bf: [g(gl.BLEND_SRC_RGB), g(gl.BLEND_DST_RGB), g(gl.BLEND_SRC_ALPHA), g(gl.BLEND_DST_ALPHA)], be: [g(gl.BLEND_EQUATION_RGB), g(gl.BLEND_EQUATION_ALPHA)],
-      cm: g(gl.COLOR_WRITEMASK), cc: g(gl.COLOR_CLEAR_VALUE), sm: g(gl.STENCIL_WRITEMASK), sbm: g(gl.STENCIL_BACK_WRITEMASK), sci: g(gl.SCISSOR_BOX),
-    };
+    // (One record for the painter, written in place at each paint: a paint saves the host's state, draws, and puts it back before the next.)
+    const S = SAVED;
+    S.fbR = glGet(gl, gl.READ_FRAMEBUFFER_BINDING); S.fbD = glGet(gl, gl.DRAW_FRAMEBUFFER_BINDING); S.vp = glGet(gl, gl.VIEWPORT); S.prog = glGet(gl, gl.CURRENT_PROGRAM); S.vao = glGet(gl, gl.VERTEX_ARRAY_BINDING);
+    S.buf = glGet(gl, gl.ARRAY_BUFFER_BINDING); S.rb = glGet(gl, gl.RENDERBUFFER_BINDING); S.unit = glGet(gl, gl.ACTIVE_TEXTURE); S.tex = glGet(gl, gl.TEXTURE_BINDING_2D);
+    S.blend = glOn(gl, gl.BLEND); S.stencil = glOn(gl, gl.STENCIL_TEST); S.scissor = glOn(gl, gl.SCISSOR_TEST); S.depth = glOn(gl, gl.DEPTH_TEST); S.cull = glOn(gl, gl.CULL_FACE);
+    S.bf[0] = glGet(gl, gl.BLEND_SRC_RGB); S.bf[1] = glGet(gl, gl.BLEND_DST_RGB); S.bf[2] = glGet(gl, gl.BLEND_SRC_ALPHA); S.bf[3] = glGet(gl, gl.BLEND_DST_ALPHA);
+    S.be[0] = glGet(gl, gl.BLEND_EQUATION_RGB); S.be[1] = glGet(gl, gl.BLEND_EQUATION_ALPHA);
+    S.cm = glGet(gl, gl.COLOR_WRITEMASK); S.cc = glGet(gl, gl.COLOR_CLEAR_VALUE); S.sm = glGet(gl, gl.STENCIL_WRITEMASK); S.sbm = glGet(gl, gl.STENCIL_BACK_WRITEMASK); S.sci = glGet(gl, gl.SCISSOR_BOX);
+    return S;
   }
+  const setCap = (cap, on) => { if (on) gl.enable(cap); else gl.disable(cap); };   // alloc-rare: once per GL context (made at its first picture), not per frame
   function putState(s) {
     gl.bindFramebuffer(gl.READ_FRAMEBUFFER, s.fbR); gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, s.fbD);
     gl.viewport(s.vp[0], s.vp[1], s.vp[2], s.vp[3]);
     gl.useProgram(s.prog); gl.bindVertexArray(s.vao); gl.bindBuffer(gl.ARRAY_BUFFER, s.buf); gl.bindRenderbuffer(gl.RENDERBUFFER, s.rb);
     gl.activeTexture(s.unit); gl.bindTexture(gl.TEXTURE_2D, s.tex);
-    for (const [cap, on] of [[gl.BLEND, s.blend], [gl.STENCIL_TEST, s.stencil], [gl.SCISSOR_TEST, s.scissor], [gl.DEPTH_TEST, s.depth], [gl.CULL_FACE, s.cull]]) { if (on) gl.enable(cap); else gl.disable(cap); }
+    setCap(gl.BLEND, s.blend); setCap(gl.STENCIL_TEST, s.stencil); setCap(gl.SCISSOR_TEST, s.scissor); setCap(gl.DEPTH_TEST, s.depth); setCap(gl.CULL_FACE, s.cull);
     gl.blendFuncSeparate(s.bf[0], s.bf[1], s.bf[2], s.bf[3]); gl.blendEquationSeparate(s.be[0], s.be[1]);
     gl.colorMask(s.cm[0], s.cm[1], s.cm[2], s.cm[3]); gl.clearColor(s.cc[0], s.cc[1], s.cc[2], s.cc[3]);
     gl.stencilMaskSeparate(gl.FRONT, s.sm); gl.stencilMaskSeparate(gl.BACK, s.sbm);
@@ -511,7 +520,7 @@ export function createPaintGL(gl) {
   /** Paints record rec into a new texture (RGBA8, premultiplied, mipmapped unless mip is false, row 0 at the picture's top, as a
    *  canvas's texture is sent); null where it cannot (no programs, a lost context, a picture past the GPU's texture size). The host's
    *  bindings and switches are as they were afterwards, except that the new texture is bound on the active unit. */
-  function paint(rec, { mip = true, wrap = null } = {}) {
+  function paint(rec, { mip = true, wrap = null } = NO_OPTS) {
     if (!rec || !(rec.width > 0) || !(rec.height > 0) || gl.isContextLost() || !ready()) return null;
     const W = Math.ceil(rec.width), H = Math.ceil(rec.height);
     const MAX = glCap(gl, gl.MAX_TEXTURE_SIZE);
@@ -524,8 +533,8 @@ export function createPaintGL(gl) {
       gl.bindTexture(gl.TEXTURE_2D, out);
       const levels = mip ? Math.floor(Math.log2(Math.max(W, H))) + 1 : 1;
       gl.texStorage2D(gl.TEXTURE_2D, levels, gl.RGBA8, W, H);
-      gl.bindBuffer(gl.ARRAY_BUFFER, r.bufC); gl.bufferData(gl.ARRAY_BUFFER, rec.cv.length ? rec.cv : new Float32Array(6), gl.STATIC_DRAW);
-      gl.bindBuffer(gl.ARRAY_BUFFER, r.bufP); gl.bufferData(gl.ARRAY_BUFFER, rec.pv.length ? rec.pv : new Float32Array(2), gl.STATIC_DRAW);
+      gl.bindBuffer(gl.ARRAY_BUFFER, r.bufC); gl.bufferData(gl.ARRAY_BUFFER, rec.cv.length ? rec.cv : EMPTY_CV, gl.STATIC_DRAW);
+      gl.bindBuffer(gl.ARRAY_BUFFER, r.bufP); gl.bufferData(gl.ARRAY_BUFFER, rec.pv.length ? rec.pv : EMPTY_PV, gl.STATIC_DRAW);
       gl.disable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE); gl.enable(gl.SCISSOR_TEST);
       gl.blendEquationSeparate(gl.FUNC_ADD, gl.FUNC_ADD);
       for (let ty = 0; ty < H; ty += TILE) for (let tx = 0; tx < W; tx += TILE) {
@@ -555,7 +564,7 @@ export function createPaintGL(gl) {
       if (out) gl.bindTexture(gl.TEXTURE_2D, out);
     }
     clearTimeout(freeT); freeT = setTimeout(release, WARM_MS);   // (R08: kept warm through the next slide's paints)
-    if (res) { if (warmHold?.held) warmHold.touch(); else warmHold = hold({ owner: 'paint-gl', kind: 'warm', bytes: resBytes, release, gl }); }
+    if (res) { if (warmHold?.held) warmHold.touch(); else warmHold = hold({ owner: 'paint-gl', kind: 'warm', bytes: resBytes, release, gl }); }   // alloc-rare: only on the first picture of a warm period, when the painter's targets are first held
     return out;
   }
 
@@ -564,12 +573,59 @@ export function createPaintGL(gl) {
     const x0 = b[0] - 1, y0 = b[1] - 1, x1 = b[2] + 1, y1 = b[3] + 1;
     gl.bindVertexArray(r.vaoP);
     gl.bindBuffer(gl.ARRAY_BUFFER, r.bufQ2 || (r.bufQ2 = gl.createBuffer()));
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([x0, y0, x1, y0, x1, y1, x0, y0, x1, y1, x0, y1]), gl.STREAM_DRAW);
+    const q = QUAD;
+    q[0] = x0; q[1] = y0; q[2] = x1; q[3] = y0; q[4] = x1; q[5] = y1; q[6] = x0; q[7] = y0; q[8] = x1; q[9] = y1; q[10] = x0; q[11] = y1;
+    gl.bufferData(gl.ARRAY_BUFFER, q, gl.STREAM_DRAW);
     gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 8, 0);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
     gl.bindBuffer(gl.ARRAY_BUFFER, r.bufP); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 8, 0);
   }
   // One tile: cleared, every op that reaches it drawn in order, its clip kept in the stencil's top bit.
+  // (Its helpers are made once for the painter and read the tile being drawn from D, so a tile makes no function and no list.)
+  const tileHits = (x0, y0, x1, y1) => x1 >= D.tx - 1 && x0 <= D.tx + D.tw + 1 && y1 >= D.ty - 1 && y0 <= D.ty + D.th + 1;   // alloc-rare: once per GL context (made at its first picture), not per frame
+  const plain = (from, count) => { gl.bindVertexArray(D.r.vaoP); gl.drawArrays(gl.TRIANGLES, from, count); };   // alloc-rare: once per GL context (made at its first picture), not per frame
+  const useP = () => { gl.useProgram(progs.p.p); ucOf(gl).fv4(progs.p.U.uV, VIEW); };   // alloc-rare: once per GL context (made at its first picture), not per frame
+  const winding = (from, count, rule, stroke) => {   // alloc-rare: once per GL context (made at its first picture), not per frame
+    gl.colorMask(false, false, false, false);
+    gl.stencilFunc(gl.ALWAYS, 1, 0xff);
+    if (stroke) { gl.stencilMask(0x01); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE); }
+    else if (rule === 'evenodd') { gl.stencilMask(0x01); gl.stencilOp(gl.KEEP, gl.KEEP, gl.INVERT); }
+    else { gl.stencilMask(0x7f); gl.stencilOpSeparate(gl.FRONT, gl.KEEP, gl.KEEP, gl.INCR_WRAP); gl.stencilOpSeparate(gl.BACK, gl.KEEP, gl.KEEP, gl.DECR_WRAP); }
+    plain(from, count);
+    gl.colorMask(true, true, true, true);
+  };
+  const setClip = (list) => {   // alloc-rare: once per GL context (made at its first picture), not per frame
+    if (list === D.clipOn) return;
+    useP();
+    gl.enable(gl.STENCIL_TEST);
+    gl.stencilMask(0xff); gl.clear(gl.STENCIL_BUFFER_BIT);
+    if (list) for (let i = 0; i < list.length; i++) {
+      const c = list[i];
+      winding(c.from, c.count, c.rule, false);
+      gl.colorMask(false, false, false, false);
+      gl.stencilMask(0xff);
+      if (i === 0) { gl.stencilFunc(gl.NOTEQUAL, 0x80, 0x7f); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE); coverBox(D.r, c.box); }
+      else { gl.stencilFunc(gl.LESS, 0x80, 0xff); gl.stencilOp(gl.ZERO, gl.ZERO, gl.REPLACE); coverBox(D.r, FULL); }
+      gl.colorMask(true, true, true, true);
+    }
+    D.clipOn = list;
+  };
+  const setPaint = (paint) => {   // alloc-rare: once per GL context (made at its first picture), not per frame
+    useP();
+    const U = progs.p.U;
+    if (paint.rgba) { ucOf(gl).i1(U.uN, 0); ucOf(gl).fv4(U.uC, paint.rgba); return; }
+    const g = paint.grad, stops = g.stops, n = stops.length, S = GS, T = GT;
+    S.fill(0); T.fill(0);   // (a fresh pair was all zeros: the stops past n stay zero)
+    for (let i = 0; i < n; i++) { const st = stops[i]; S[i * 4] = st[1]; S[i * 4 + 1] = st[2]; S[i * 4 + 2] = st[3]; S[i * 4 + 3] = st[4]; T[i] = st[0]; }
+    ucOf(gl).i1(U.uN, n); ucOf(gl).f4(U.uG, g.cx, g.cy, g.r0, g.r1); ucOf(gl).f2(U.uO, D.tx, D.ty);
+    ucOf(gl).fv4(U.uS, S); ucOf(gl).fv1(U.uT, T);
+  };
+  const cover = (box, clip) => {   // alloc-rare: once per GL context (made at its first picture), not per frame
+    gl.stencilMask(0x7f);
+    if (clip) gl.stencilFunc(gl.LESS, 0x80, 0xff); else gl.stencilFunc(gl.NOTEQUAL, 0, 0x7f);
+    gl.stencilOp(gl.ZERO, gl.ZERO, gl.ZERO);
+    coverBox(D.r, box);
+  };
   function drawTile(rec, r, tx, ty, tw, th) {
     gl.bindFramebuffer(gl.FRAMEBUFFER, r.ms);
     gl.viewport(0, 0, tw, th); gl.scissor(0, 0, tw, th);
@@ -577,61 +633,18 @@ export function createPaintGL(gl) {
     gl.clearColor(0, 0, 0, 0); gl.clearStencil(0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.STENCIL_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-    const view = [tx, ty, 2 / tw, 2 / th];
-    let clipOn = null;
-    const hits = (b) => b[2] >= tx - 1 && b[0] <= tx + tw + 1 && b[3] >= ty - 1 && b[1] <= ty + th + 1;
-    const plain = (from, count) => { gl.bindVertexArray(r.vaoP); gl.drawArrays(gl.TRIANGLES, from, count); };
-    const useP = () => { gl.useProgram(progs.p.p); ucOf(gl).fv4(progs.p.U.uV, view); };
-    const quad = (b) => coverBox(r, b);
-    const full = [tx - 2, ty - 2, tx + tw + 2, ty + th + 2];
-    const winding = (from, count, rule, stroke) => {
-      gl.colorMask(false, false, false, false);
-      gl.stencilFunc(gl.ALWAYS, 1, 0xff);
-      if (stroke) { gl.stencilMask(0x01); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE); }
-      else if (rule === 'evenodd') { gl.stencilMask(0x01); gl.stencilOp(gl.KEEP, gl.KEEP, gl.INVERT); }
-      else { gl.stencilMask(0x7f); gl.stencilOpSeparate(gl.FRONT, gl.KEEP, gl.KEEP, gl.INCR_WRAP); gl.stencilOpSeparate(gl.BACK, gl.KEEP, gl.KEEP, gl.DECR_WRAP); }
-      plain(from, count);
-      gl.colorMask(true, true, true, true);
-    };
-    const setClip = (list) => {
-      if (list === clipOn) return;
-      useP();
-      gl.enable(gl.STENCIL_TEST);
-      gl.stencilMask(0xff); gl.clear(gl.STENCIL_BUFFER_BIT);
-      (list || []).forEach((c, i) => {
-        winding(c.from, c.count, c.rule, false);
-        gl.colorMask(false, false, false, false);
-        gl.stencilMask(0xff);
-        if (i === 0) { gl.stencilFunc(gl.NOTEQUAL, 0x80, 0x7f); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE); quad(c.box); }
-        else { gl.stencilFunc(gl.LESS, 0x80, 0xff); gl.stencilOp(gl.ZERO, gl.ZERO, gl.REPLACE); quad(full); }
-        gl.colorMask(true, true, true, true);
-      });
-      clipOn = list;
-    };
-    const setPaint = (paint) => {
-      useP();
-      const U = progs.p.U;
-      if (paint.rgba) { ucOf(gl).i1(U.uN, 0); ucOf(gl).fv4(U.uC, paint.rgba); return; }
-      const g = paint.grad, n = g.stops.length, S = new Float32Array(32), T = new Float32Array(8);
-      g.stops.forEach(([t, r0, g0, b0, a0], i) => { S.set([r0, g0, b0, a0], i * 4); T[i] = t; });
-      ucOf(gl).i1(U.uN, n); ucOf(gl).f4(U.uG, g.cx, g.cy, g.r0, g.r1); ucOf(gl).f2(U.uO, tx, ty);
-      ucOf(gl).fv4(U.uS, S); ucOf(gl).fv1(U.uT, T);
-    };
-    const cover = (box, clip) => {
-      gl.stencilMask(0x7f);
-      if (clip) gl.stencilFunc(gl.LESS, 0x80, 0xff); else gl.stencilFunc(gl.NOTEQUAL, 0, 0x7f);
-      gl.stencilOp(gl.ZERO, gl.ZERO, gl.ZERO);
-      quad(box);
-    };
+    D.r = r; D.tx = tx; D.ty = ty; D.tw = tw; D.th = th; D.clipOn = null;
+    VIEW[0] = tx; VIEW[1] = ty; VIEW[2] = 2 / tw; VIEW[3] = 2 / th;
+    FULL[0] = tx - 2; FULL[1] = ty - 2; FULL[2] = tx + tw + 2; FULL[3] = ty + th + 2;
     for (const op of rec.ops) {
       if (op.k === 'direct') {
         if (op.clip) { setClip(op.clip); gl.enable(gl.STENCIL_TEST); gl.stencilMask(0); gl.stencilFunc(gl.EQUAL, 0x80, 0x80); } else gl.disable(gl.STENCIL_TEST);
-        gl.useProgram(progs.c.p); ucOf(gl).fv4(progs.c.U.uV, view);
+        gl.useProgram(progs.c.p); ucOf(gl).fv4(progs.c.U.uV, VIEW);
         gl.bindVertexArray(r.vaoC); gl.drawArrays(gl.TRIANGLES, op.from, op.count);
         continue;
       }
       const reach = op.shadow ? Math.ceil(op.shadow.sigma * 3) + 2 : 0, b = op.box;
-      if (!hits([b[0] - reach, b[1] - reach, b[2] + reach, b[3] + reach])) continue;
+      if (!tileHits(b[0] - reach, b[1] - reach, b[2] + reach, b[3] + reach)) continue;
       setClip(op.clip);
       gl.enable(gl.STENCIL_TEST);
       if (op.k === 'clear') {
@@ -642,7 +655,7 @@ export function createPaintGL(gl) {
         gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
         continue;
       }
-      if (op.shadow) shadow(rec, r, op, tx, ty, tw, th, reach, view);
+      if (op.shadow) shadow(rec, r, op, tx, ty, tw, th, reach, VIEW);
       useP();
       winding(op.from, op.count, op.rule, op.k === 'stroke');
       setPaint(op.paint);
@@ -650,6 +663,7 @@ export function createPaintGL(gl) {
     }
     gl.disable(gl.STENCIL_TEST);
     gl.bindVertexArray(null);
+    D.r = null; D.clipOn = null;
   }
   // A shape's shadow on this tile: its coverage in the shadow's colour, on a scratch reaching `reach` px past the tile, blurred across,
   // then down onto the tile under the shape (inside the clip), as the canvas lays a shadow before its shape.
@@ -661,7 +675,8 @@ export function createPaintGL(gl) {
     gl.colorMask(true, true, true, true); gl.stencilMask(0xff); gl.clearColor(0, 0, 0, 0); gl.clearStencil(0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.STENCIL_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.useProgram(progs.p.p);
-    const sv = [tx - M, ty - M, 2 / sw, 2 / shh];
+    const sv = SV;
+    sv[0] = tx - M; sv[1] = ty - M; sv[2] = 2 / sw; sv[3] = 2 / shh;
     ucOf(gl).fv4(progs.p.U.uV, sv);
     gl.colorMask(false, false, false, false);
     gl.stencilFunc(gl.ALWAYS, 1, 0xff);
@@ -673,7 +688,8 @@ export function createPaintGL(gl) {
     ucOf(gl).i1(progs.p.U.uN, 0); ucOf(gl).fv4(progs.p.U.uC, op.shadow.rgba);
     gl.stencilMask(0x7f); gl.stencilFunc(gl.NOTEQUAL, 0, 0x7f); gl.stencilOp(gl.ZERO, gl.ZERO, gl.ZERO);
     gl.disable(gl.BLEND);
-    coverBox(r, [tx - M, ty - M, tx + tw + M, ty + th + M]);
+    BOX4[0] = tx - M; BOX4[1] = ty - M; BOX4[2] = tx + tw + M; BOX4[3] = ty + th + M;
+    coverBox(r, BOX4);
     gl.bindVertexArray(r.vaoQ);
     // 2. Across, into the second scratch.
     gl.disable(gl.STENCIL_TEST);
@@ -696,9 +712,9 @@ export function createPaintGL(gl) {
     gl.enable(gl.STENCIL_TEST);
     void view;
   }
-  return {
+  return {   // alloc-rare: once per GL context (made at its first picture), not per frame
     paint,
     release,
-    get ready() { return !!progs; },
+    get ready() { return !!progs; },   // alloc-rare: once per GL context (made at its first picture), not per frame
   };
 }
