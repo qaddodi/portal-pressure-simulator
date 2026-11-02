@@ -11865,6 +11865,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       flowData[o + 22] = ef; flowData[o + 23] = et;
     }
   }
+  // (One empty list for every vessel with no strands, feeders or branches, and for no spray: none made each frame. Never written.)
+  const NONE = Object.freeze([]);
   function stepBlood(dt) {
     const st = store.get(), b = st.blood || {};
     // (?flow=dashes: the canvas's streams stand still, as with Reduce Motion; the dashes' own streams carry the motion, dashFlow.)
@@ -11942,9 +11944,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       put(x.row, k, q / area, x.freeFrom, x.freeTo, rs);
       if (strands) for (const sd of strands) if ((sd.live ?? 1) > 0) put(sd.row, k, q * sd.k * sd.k / area, true, true, rs * (sd.live ?? 1));
       // Tributaries drawn into a trunk: a share of its flow by caliber.
-      if (morph < 0.5) for (const fd of x.feeders || []) if ((fd.live ?? 1) > 0 && fd.w) put(fd.row, k, q * 0.5 * (fd.w / Math.max(1, x.width)) ** 2, true, false, rs * (fd.live ?? 1));
+      if (morph < 0.5) for (const fd of x.feeders || NONE) if ((fd.live ?? 1) > 0 && fd.w) put(fd.row, k, q * 0.5 * (fd.w / Math.max(1, x.width)) ** 2, true, false, rs * (fd.live ?? 1));
       // The liver's branches in the circuit: a share of the vessel's flow by caliber.
-      if (morph >= 0.5) for (const cb of x.cbr || []) if (cb.w) put(cb.row, k, q * 0.5 * (cb.w / Math.max(1, x.width)) ** 2, true, true, rs);
+      if (morph >= 0.5) for (const cb of x.cbr || NONE) if (cb.w) put(cb.row, k, q * 0.5 * (cb.w / Math.max(1, x.width)) ** 2, true, true, rs);
     }
     if (on && BLOOD_CHAIN) {
       // (At idle rest the junctions' blends hold where the blood stopped: rewritten as they stand, no step taken, and a blend that was
@@ -11976,7 +11978,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (!x.vis || x.isArt) continue;
         if (!bolus.field(EI[x.e.id], net, dyeRow)) continue;
         dyeData.set(dyeRow, x.row * DYE_BINS);
-        for (const sd of x.strands || []) dyeData.set(dyeRow, sd.row * DYE_BINS);
+        for (const sd of x.strands || NONE) dyeData.set(dyeRow, sd.row * DYE_BINS);
       }
       veins.setDye(dyeData); dyeShown = true;
     } else if (dyeShown) { veins.setDye(null); dyeShown = false; }
@@ -12011,7 +12013,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (sprayA <= 0) sprayLast = null;
   }
   function bleedSpray() {
-    if (sprayA <= 0 || !sprayLast) return [];
+    if (sprayA <= 0 || !sprayLast) return NONE;
     // (On the blood's own clock, which stands still while paused, so the jets hold where they are and carry on from there;
     // the wall clock made them jump on pause and play. Reduce Motion keeps the still four stages: B11.)
     return fadeBleedShapes(bleedShapes(sprayLast.bleed, sprayLast.rate, reduceMotion.matches ? 0 : bloodClock, SITES, sprayLast.hr), sprayA);
