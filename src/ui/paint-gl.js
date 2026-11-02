@@ -13,6 +13,7 @@
 
 import { glGet, glOn, glCap } from './gl-state.js?v=7962476b4a';
 import { cssColor } from './css-color.js?v=e56f0c77ae';
+import { WARM_VIEWS, WARM_MS, bucket } from './warm-views.js?v=510b2dee9e';
 import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js?v=62b8693f78';
 
 const TAU = Math.PI * 2;
@@ -442,7 +443,7 @@ export function createPaintGL(gl) {
     const r = res;
     if (r.sh && r.sh.w >= w && r.sh.h >= h) return r.sh;
     dropShadow();
-    const W = Math.max(w, r.sh?.w || 0), H = Math.max(h, r.sh?.h || 0);
+    const W = bucket(Math.max(w, r.sh?.w || 0)), H = bucket(Math.max(h, r.sh?.h || 0));   // (R08: in buckets, warm-views.js)
     const a = gl.createFramebuffer(), aT = tex(W, H), aS = gl.createRenderbuffer(), b = gl.createFramebuffer(), bT = tex(W, H);
     gl.bindRenderbuffer(gl.RENDERBUFFER, aS); gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH24_STENCIL8, W, H);
     gl.bindFramebuffer(gl.FRAMEBUFFER, a);
@@ -541,7 +542,7 @@ export function createPaintGL(gl) {
       putState(st);
       if (out) gl.bindTexture(gl.TEXTURE_2D, out);
     }
-    clearTimeout(freeT); freeT = setTimeout(release, 3000);
+    clearTimeout(freeT); freeT = setTimeout(release, WARM_VIEWS ? WARM_MS : 3000);   // (R08: kept warm through the next slide's paints)
     return out;
   }
 
