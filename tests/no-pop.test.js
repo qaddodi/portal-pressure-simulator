@@ -57,7 +57,7 @@ test('the zoom pill glides aside with a side card, by a transform (round 2 revie
 });
 
 test('a Tests pane swiped into place does not play its entrance again', () => {
-  assert.match(dock, /if \(go\) s\.nb\?\.classList\.add\('landed'\);\n\s*clearSwipe\(\[s\.cur, s\.nb\]\);/);
+  assert.match(dock, /if \(go\) s\.nb\?\.classList\.add\('landed'\);\n\s*clearSwipe\(s\.cur, s\.nb\);/);
   assert.match(css, /\.instrument-workspace \.dock-pane\.active\.landed \{ animation: none; \}/);
   assert.match(dock, /querySelectorAll\('\.dock-pane\.landed:not\(\.active\)'\)/);
 });
@@ -84,9 +84,9 @@ test('a new lens crossfades the key and the lens name; nothing else writes the n
 
 test('entering or leaving the lobule crossfades the bar\'s readings', () => {
   assert.match(dock, /const same = classHas\(strip, 'lob'\) === !!store\.get\(\)\.lobule/);
-  assert.match(dock, /swapFade\(strip, \(\) => \{ applyLobule\(\); resizeSoon\(\); \}, \{ instant: same \}\);/);
+  assert.match(dock, /const lobuleSwap = \(\) => \{ applyLobule\(\); resizeSoon\(\); \};[\s\S]*?LOBULE_SWAP\.instant = same;\s+swapFade\(strip, lobuleSwap, LOBULE_SWAP\);/);
   // RF4: the play, clock and Compare glide to where each resize puts them, every step of it.
-  assert.match(dock, /if \(!same && tl\) glideOnResize\(tl, ':scope > \*', \{ also: \[strip, document\.getElementById\('vdock'\)\] \}\);/);
+  assert.match(dock, /if \(!same && tl\) \{ GLIDE_ALSO\.also\[1\] = document\.getElementById\('vdock'\); glideOnResize\(tl, ':scope > \*', GLIDE_ALSO\); \}/);
 });
 
 test('a label under the open menu fades rather than blinking', () => {

@@ -670,7 +670,8 @@ export function createPaintGL(gl) {
     const U = progs.p.U;
     if (paint.rgba) { ucOf(gl).i1(U.uN, 0); ucOf(gl).fv4(U.uC, paint.rgba); return; }
     const g = paint.grad, stops = g.stops, n = stops.length, S = GS, T = GT;
-    S.fill(0); T.fill(0);   // (a fresh pair was all zeros: the stops past n stay zero)
+    for (let i = 0; i < S.length; i++) S[i] = 0;   // (a fresh pair was all zeros: the stops past n stay zero)
+    for (let i = 0; i < T.length; i++) T[i] = 0;
     for (let i = 0; i < n; i++) { const st = stops[i]; S[i * 4] = st[1]; S[i * 4 + 1] = st[2]; S[i * 4 + 2] = st[3]; S[i * 4 + 3] = st[4]; T[i] = st[0]; }
     ucOf(gl).i1(U.uN, n); ucOf(gl).f4(U.uG, g.cx, g.cy, g.r0, g.r1); ucOf(gl).f2(U.uO, D.tx, D.ty);
     ucOf(gl).fv4(U.uS, S); ucOf(gl).fv1(U.uT, T);

@@ -79,36 +79,53 @@ export function ringOf(s) {
   if (!m) return null;
   return { w: +m[5], colour: rgbaOf((m[1] || m[6] || '').trim()) };
 }
-const fontOf = (r, s) => `${r.weight} ${(r.size * s).toFixed(2)}px Inter`;
+// (A run's font and letter spacing as the pen reads them, made again only when its scale changes: a caption that holds its size draws
+// every frame with the strings it drew with the frame before, as it held them.)
+const fontOf = (r, s) => {
+  if (r.fontS !== s) { r.fontS = s; r.fontStr = `${r.weight} ${(r.size * s).toFixed(2)}px Inter`; }
+  return r.fontStr;
+};
+const spaceOf = (r, s) => {
+  if (r.spaceS !== s) { r.spaceS = s; r.spaceStr = `${r.ls * s}px`; }
+  return r.spaceStr;
+};
 const upper = (r, t) => (r.upper ? t.toUpperCase() : t);
+// (The characters of a word as the browser counts them for letter spacing: its code points, a surrogate pair as one.)
+const points = (u) => { let c = 0; for (let i = 0; i < u.length; i++) { const k = u.charCodeAt(i); if (k < 0xdc00 || k > 0xdfff) c++; } return c; };
+const newLine = () => ({ runs: [], m: 0, w: 0, y: 0, base: 0 });
+const newRun = () => ({ t: '', r: null, x: 0 });
 
 /**
- * A caption's lines set in a look: { lines: [{ runs: [{ t, r (its look), x }], w, y, base }], w, h }. `lines`: per line, its runs as
- * [text, kind] (kind: one of the look's runs, as 'name', 'fig', 'unit'); a run of a kind the look does not have is left out.
+ * A caption's lines set in a look, written into `set` (kept by the caption, its lines and runs reused): { lines: [{ runs: [{ t, r (its look), x }],
+ * m (how many runs), w, y, base }], n (how many lines), w, h }. `lines`: per line, its runs as [text, kind] (text a string; kind: one of the
+ * look's runs, as 'name', 'fig', 'unit'); a run of a kind the look does not have is left out.
  */
-export function setLines(look, lines) {
-  let w = 0, h = 0;
-  const out = [];
-  for (const spec of lines) {
-    let x = 0, top = 0;
-    const runs = [];
-    for (const [t, kind] of spec) {
-      const r = look.runs[kind];
-      if (!r || t == null || t === '') continue;
-      const u = upper(r, String(t));
-      runs.push({ t: u, r, x });
-      x += measure(u, fontOf(r, 1)) + r.ls * [...u].length + r.mr;
+export function setLines(look, lines, set) {
+  let w = 0, h = 0, n = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const spec = lines[i];
+    let x = 0, top = 0, m = 0, last = null;
+    const ln = set.lines[n] || (set.lines[n] = newLine());
+    for (let j = 0; j < spec.length; j++) {
+      const t = spec[j][0], r = look.runs[spec[j][1]];
+      if (!r || typeof t !== 'string' || t === '') continue;
+      const u = upper(r, t);
+      const run = ln.runs[m] || (ln.runs[m] = newRun());
+      run.t = u; run.r = r; run.x = x; m++; last = r;
+      x += measure(u, fontOf(r, 1)) + r.ls * points(u) + r.mr;
       top = Math.max(top, r.size);
     }
-    if (!runs.length) continue;
-    const lw = x - runs.at(-1).r.mr, lh = look.lh * top;
-    if (out.length) h += look.gap;
+    if (!m) continue;
+    const lw = x - last.mr, lh = look.lh * top;
+    if (n) h += look.gap;
     // (Each run on the line's one baseline, set as the browser sets a line of mixed sizes: the half leading of its largest type.)
-    out.push({ runs, w: lw, y: h, base: h + (lh - (ASC + DESC) * top) / 2 + ASC * top });
+    ln.m = m; ln.w = lw; ln.y = h; ln.base = h + (lh - (ASC + DESC) * top) / 2 + ASC * top;
+    n++;
     w = Math.max(w, lw);
     h += lh;
   }
-  return { lines: out, w, h };
+  set.n = n; set.w = w; set.h = h;
+  return set;
 }
 
 /**
@@ -219,11 +236,13 @@ export function createCaptionGL(box) {
         }
         // Its words: each run's halo (the page's text stroke, laid first), then its ink, in the page's order.
         ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-        for (const ln of I.set.lines) {
+        for (let li = 0; li < I.set.n; li++) {
+          const ln = I.set.lines[li];
           const x0 = l + (bw - ln.w * s) / 2, by = t + ln.base * s;
-          for (const { t: txt, r, x } of ln.runs) {
+          for (let ri = 0; ri < ln.m; ri++) {
+            const { t: txt, r, x } = ln.runs[ri];
             const ra = a * r.op;
-            ctx.font = fontOf(r, s); ctx.letterSpacing = `${r.ls * s}px`;
+            ctx.font = fontOf(r, s); ctx.letterSpacing = spaceOf(r, s);
             const hw = r.halo ?? lk.halo, hc = r.haloC ?? lk.haloC;
             if (hw > 0 && hc) { ctx.globalAlpha = ra; ctx.strokeStyle = hc; ctx.lineWidth = hw * s; ctx.strokeText(txt, x0 + x * s, by); }
             ctx.globalAlpha = ra; ctx.fillStyle = r.fill; ctx.fillText(txt, x0 + x * s, by);
@@ -267,11 +286,14 @@ export function createCaptionGL(box) {
     measure(key, lines) {
       const lk = looks.get(key);
       let I = items.get(key);
-      if (!I) items.set(key, I = { key, a: easer(0), s: easer(1), dx: easer(0), dy: easer(0), x: 0, y: 0, w: 0, h: 0, shown: false });
-      const sig = JSON.stringify(lines);
-      if (lk && (I.sig !== sig || I.lk !== lk)) { I.sig = sig; I.lk = lk; I.lines = lines; I.set = setLines(lk, lines); I.w = I.set.w; I.h = I.set.h; }
-      else if (!lk) { I.lines = lines; I.sig = ''; }
-      return lk ? [I.w, I.h] : [0, 0];
+      if (!I) items.set(key, I = { key, a: easer(0), s: easer(1), dx: easer(0), dy: easer(0), x: 0, y: 0, w: 0, h: 0, shown: false, lines: null, lk: null, set: null, size: [0, 0], zero: [0, 0], pos: { x: 0, y: 0, w: 0, h: 0, a: 0 } });
+      // (The words are a new list when they change, the owner builds them then, so the list itself is their signature.)
+      if (lk && (I.lines !== lines || I.lk !== lk)) {
+        I.lines = lines; I.lk = lk;
+        I.set = setLines(lk, lines, I.set || (I.set = { lines: [], n: 0, w: 0, h: 0 }));
+        I.w = I.set.w; I.h = I.set.h; I.size[0] = I.w; I.size[1] = I.h;
+      } else if (!lk) { I.lines = lines; }
+      return lk ? I.size : I.zero;
     },
     /** Sets a caption from the page's own as it was set (mirrorOf): its words at their spots, its marks. */
     mirror(key, m) {
@@ -328,8 +350,9 @@ export function createCaptionGL(box) {
     at(key, now = lastT || easeNow()) {
       const I = items.get(key);
       if (!I) return null;
-      const s = easeAt(I.s, now);
-      return { x: I.x + easeAt(I.dx, now), y: I.y + easeAt(I.dy, now), w: I.w * s, h: I.h * s, a: easeAt(I.a, now) };
+      const s = easeAt(I.s, now), P = I.pos;   // (the caption's own record, written in place: read it before the next call)
+      P.x = I.x + easeAt(I.dx, now); P.y = I.y + easeAt(I.dy, now); P.w = I.w * s; P.h = I.h * s; P.a = easeAt(I.a, now);
+      return P;
     },
     /** Whether a caption or a leader is still easing. */
     moving(now = easeNow()) {

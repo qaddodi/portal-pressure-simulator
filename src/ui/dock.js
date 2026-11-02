@@ -37,14 +37,32 @@ const nextFrame = frameFor('dock');
 // clinical threshold, dark red past the highest one where a readout has one. `scale` and `ticks`
 // draw the bar under each value: where the value sits between the cut-offs.
 const vel = (m) => m.pvVelMean ?? m.pvVel;
+const EDGE_LABEL = new Map(EDGES.map((e) => [e.id, e.label]));   // (a vessel's name by its id, for the Doppler's title)
+// Whether two status lines read the same once each run of digits and points is taken as one (what the lines "Day 41" and "Day 42" share).
+const isNum = (c) => (c >= 48 && c <= 57) || c === 46;
+function sameShape(a, b) {
+  let i = 0, j = 0;
+  while (i < a.length && j < b.length) {
+    const ca = a.charCodeAt(i), cb = b.charCodeAt(j), na = isNum(ca), nb = isNum(cb);
+    if (na || nb) {
+      if (!(na && nb)) return false;
+      while (i < a.length && isNum(a.charCodeAt(i))) i++;
+      while (j < b.length && isNum(b.charCodeAt(j))) j++;
+    } else { if (ca !== cb) return false; i++; j++; }
+  }
+  return i === a.length && j === b.length;
+}
+// (The status words of the readouts, in tables made once: a tile names its state every model frame.)
+const HVPG_WORDS = { ok: 'Normal', caution: 'Mild', danger: 'CSPH' }, PPG_WORDS = { ok: 'Normal', caution: 'High', danger: 'Bleed risk' };
+const ASCITES_WORDS = ['None', 'Grade 1', 'Grade 2', 'Grade 3'];
 export const TILES = [
   { id: 'hvpg', group: 'pressure', k: 'HVPG', title: 'Hepatic venous pressure gradient: wedged − free hepatic venous pressure. Estimates the sinusoidal gradient; normal < 5, clinically significant ≥ 10 mmHg.', why: 'hvpg', v: (m) => m.hvpg, d: 1, u: 'mmHg', hideKey: 'trueHVPG', measured: () => store.get().lastHVPG,
     scale: [0, 25], ticks: [HVPG_CUTS.amber, HVPG_CUTS.red],
     st: hvpgSev,
-    s: (v) => ({ ok: 'Normal', caution: 'Mild', danger: 'CSPH' })[hvpgSev(v)] },
+    s: (v) => HVPG_WORDS[hvpgSev(v)] },
   { id: 'ppg', group: 'pressure', k: 'PPG', title: 'Portal pressure gradient: portal confluence − suprahepatic inferior vena cava, directly from the model network. Unlike HVPG it also includes resistance before the liver (presinusoidal or prehepatic). Normal < 6, high ≥ 12 mmHg.', why: 'ppg', hideKey: 'pv', v: (m) => m.ppg, d: 1, u: 'mmHg',
     scale: [0, 25], ticks: [PPG_CUTS.amber, PPG_CUTS.red],
-    st: ppgSev, s: (v) => ({ ok: 'Normal', caution: 'High', danger: 'Bleed risk' })[ppgSev(v)] },
+    st: ppgSev, s: (v) => PPG_WORDS[ppgSev(v)] },
   { id: 'pv', group: 'pressure', k: 'Portal pressure', ks: 'Portal P', title: 'Portal vein pressure at the portal confluence, absolute (model value). Normal ≤ 10 mmHg.', why: 'pv', v: (m) => m.pv, d: 1, u: 'mmHg', hideKey: 'pv',
     scale: [0, 35], ticks: [10, 15],
     st: (v) => (v <= 10 ? 'ok' : v < 15 ? 'caution' : 'danger'), s: (v) => (v <= 10 ? 'Normal' : v < 15 ? 'High' : 'Severe') },
@@ -67,7 +85,7 @@ export const TILES = [
     ss: (v, m) => (!m.varix.present ? 'None' : m.varix.redWale ? 'Red wale' : m.varix.grade.label) },
   { id: 'ascites', group: 'effects', pane: 'abdomen', k: 'Ascites', title: 'Free fluid in the abdomen. Grade 1 is seen on ultrasound only, grade 2 is moderate, grade 3 tense.', why: 'ascites', v: (m) => m.ascites.volume / 1000, d: 1, u: 'L',
     scale: [0, 8], ticks: [0.15, 1.5, 5],
-    st: (v, m) => (m.ascites.grade === 0 ? 'ok' : m.ascites.grade === 1 ? 'caution' : 'danger'), s: (v, m) => (m.ascites.grade === 0 ? 'None' : `Grade ${m.ascites.grade}`) },
+    st: (v, m) => (m.ascites.grade === 0 ? 'ok' : m.ascites.grade === 1 ? 'caution' : 'danger'), s: (v, m) => ASCITES_WORDS[m.ascites.grade] },
   { id: 'spleen', group: 'effects', k: 'Spleen', title: 'Spleen length. Splenomegaly > 13 cm; the enlarged spleen traps platelets.', why: 'spleen', v: (m) => m.spleen.length, d: 1, u: 'cm',
     scale: [8, 22], ticks: [13],
     st: (v) => (v <= 13 ? 'ok' : v <= 16 ? 'caution' : 'danger'), s: (v) => (v <= 13 ? 'Normal' : 'Large') },
@@ -75,18 +93,18 @@ export const TILES = [
 // On the Lobule view the strip reads the lobule's own flows instead (what the card beside the lobule used to
 // list): through the sinusoids, in from the portal vein and the hepatic artery, and the lymph the liver
 // makes. They are not findings, so they stay out of TILES. `v` reads the frame and the store, as the lobule does.
-const lobuleVal = (key) => (f, st) => lobuleFlows(f, st.healthy)[key];
+const lobuleVal = (key, f, st) => lobuleFlows(f, st.healthy)[key];
 export const LOBULE_TILES = [
-  { id: 'lz-sin', group: 'lobule', k: 'Sinusoidal flow', ks: 'Sinusoids', title: 'Blood through the sinusoids, % of normal (portal + hepatic artery).', why: 'sinFlow', v: (f, st) => lobuleVal('flow')(f, st) * 100, d: 0, u: '%',
+  { id: 'lz-sin', group: 'lobule', k: 'Sinusoidal flow', ks: 'Sinusoids', title: 'Blood through the sinusoids, % of normal (portal + hepatic artery).', why: 'sinFlow', v: (f, st) => lobuleVal('flow', f, st) * 100, d: 0, u: '%',
     scale: [0, 150], ticks: [55, 75],
     st: (v) => (v > 75 ? 'ok' : v > 55 ? 'caution' : 'danger'), s: (v) => (v > 75 ? 'Normal' : v > 55 ? 'Low' : 'Severe') },
-  { id: 'lz-pv', group: 'lobule', k: 'Portal inflow', ks: 'Portal in', title: 'Blood entering the lobule from the portal venule, % of normal (negative = flowing out of the liver).', why: 'portalIn', v: (f, st) => lobuleVal('portal')(f, st) * 100, d: 0, u: '%',
+  { id: 'lz-pv', group: 'lobule', k: 'Portal inflow', ks: 'Portal in', title: 'Blood entering the lobule from the portal venule, % of normal (negative = flowing out of the liver).', why: 'portalIn', v: (f, st) => lobuleVal('portal', f, st) * 100, d: 0, u: '%',
     scale: [-60, 150], ticks: [0, 50],
     st: (v) => (v < -2 ? 'critical' : v < 50 ? 'danger' : v < 75 ? 'caution' : 'ok'), s: (v) => (v < -2 ? 'Reversed' : v < 50 ? 'Severe' : v < 75 ? 'Low' : 'Normal') },
-  { id: 'lz-art', group: 'lobule', k: 'Arterial inflow', ks: 'Artery in', title: 'Blood entering the lobule from the hepatic arteriole, % of normal. It rises when the portal inflow falls (the arterial buffer response).', why: 'artIn', v: (f, st) => lobuleVal('art')(f, st) * 100, d: 0, u: '%',
+  { id: 'lz-art', group: 'lobule', k: 'Arterial inflow', ks: 'Artery in', title: 'Blood entering the lobule from the hepatic arteriole, % of normal. It rises when the portal inflow falls (the arterial buffer response).', why: 'artIn', v: (f, st) => lobuleVal('art', f, st) * 100, d: 0, u: '%',
     scale: [0, 200], ticks: [60, 130],
     st: (v) => (v < 60 ? 'danger' : v > 130 ? 'caution' : 'ok'), s: (v) => (v < 60 ? 'Low' : v > 130 ? 'Compensating' : 'Normal'), ss: (v) => (v < 60 ? 'Low' : v > 130 ? 'High' : 'Normal') },
-  { id: 'lz-ly', group: 'lobule', k: 'Hepatic lymph', ks: 'Lymph', title: 'Lymph the liver forms in the space of Disse and drains to the portal tract. Normal is about 0.8 mL/min; past about three times that it overflows into the abdomen (ascites).', why: 'hepLymph', v: (f, st) => lobuleVal('lymph')(f, st), d: 1, u: 'mL/min',
+  { id: 'lz-ly', group: 'lobule', k: 'Hepatic lymph', ks: 'Lymph', title: 'Lymph the liver forms in the space of Disse and drains to the portal tract. Normal is about 0.8 mL/min; past about three times that it overflows into the abdomen (ascites).', why: 'hepLymph', v: (f, st) => lobuleVal('lymph', f, st), d: 1, u: 'mL/min',
     scale: [0, 5], ticks: [1.2, 2.4],
     st: (v, f, st) => { const r = v / lobuleFlows(f, st.healthy).lymph0; return r >= 3 ? 'danger' : r >= 1.5 ? 'caution' : 'ok'; },
     s: (v, f, st) => { const r = v / lobuleFlows(f, st.healthy).lymph0; return r >= 3 ? 'Overflow' : r >= 1.5 ? 'High' : 'Normal'; } },
@@ -162,7 +180,9 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   // One app-wide relayout for a burst of changes (a mode change also changes the lobule): every resize
   // listener (the figure, the timeline, the presenter) runs once, not once per key.
   let rzT = 0;
-  const resizeSoon = () => { clearTimeout(rzT); rzT = setTimeout(() => dispatchEvent(new Event('resize')), 30); };
+  const CLASS_ONLY = { attributes: true, attributeFilter: ['class'] };
+  const fireResize = () => dispatchEvent(new Event('resize'));
+  const resizeSoon = () => { clearTimeout(rzT); rzT = setTimeout(fireResize, 30); };
   // ── Readout strip ─────────────────────────────────
   const ends = { pv: {}, ivc: {}, whvp: {}, fhvp: {} };   // (the gradients' readings, each with the tiles' running mean)
   const GAP_ENDS = { hvpg: ['whvp', 'fhvp'], ppg: ['pv', 'ivc'] };   // (the bar's two gradients, each the difference of its two readings as shown)
@@ -214,10 +234,13 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   // Entering or leaving it, the bar's readings crossfade (swapFade) rather than switch groups in one frame (motion review P12).
   const applyLobule = () => { const on = !!store.get().lobule, pri = on ? LOBULE_PRIMARY : PRIMARY; classSoon(strip, 'lob', on); for (let i = 0; i < tileList.length; i++) classSoon(tileList[i].el, 'primary', pri.has(tileList[i].t.id)); };
   // (The play, clock and Compare beside them glide to wherever the new readings' width puts them: RF4.)
+  const GLIDE_ALSO = { also: [strip, null] }, LOBULE_SWAP = { instant: false };   // (their records are kept, the calls copy what they need)
+  const lobuleSwap = () => { applyLobule(); resizeSoon(); };
   const syncLobule = () => {
     const same = classHas(strip, 'lob') === !!store.get().lobule, tl = document.getElementById('timeline');
-    if (!same && tl) glideOnResize(tl, ':scope > *', { also: [strip, document.getElementById('vdock')] });
-    swapFade(strip, () => { applyLobule(); resizeSoon(); }, { instant: same });
+    if (!same && tl) { GLIDE_ALSO.also[1] = document.getElementById('vdock'); glideOnResize(tl, ':scope > *', GLIDE_ALSO); }
+    LOBULE_SWAP.instant = same;
+    swapFade(strip, lobuleSwap, LOBULE_SWAP);
   };
   // A paused model sends no frames: fill the tiles from the last one at once (no dashes).
   for (const k of ['lobule', 'mode']) store.on(k, () => { syncLobule(); if (frame) updateStrip(frame); resizeSoon(); });
@@ -321,8 +344,8 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       // (one record per class change of the app or the dock, no layout read: the strip is painted as it shows again)
       stripObs = new MutationObserver(stripSeen);
       const app = document.getElementById('app'), vd = document.getElementById('vdock');
-      if (app) stripObs.observe(app, { attributes: true, attributeFilter: ['class'] });
-      if (vd) stripObs.observe(vd, { attributes: true, attributeFilter: ['class'] });
+      if (app) stripObs.observe(app, CLASS_ONLY);
+      if (vd) stripObs.observe(vd, CLASS_ONLY);
     }
     if (unseen) stripStale = true;
     const m = f.metrics;
@@ -530,12 +553,18 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   // (The body's width, kept by an observer: read when a sideways drag began, it laid the page out in the touch's frame.)
   let bodyW = 0;
   new ResizeObserver(() => { bodyW = readMetric(body, 'clientWidth'); }).observe(body);
-  const paneFor = (id) => (panes.find((p) => p.id === id) || panes.find((p) => tabOf(p.id) === id))?.el;
-  const clearSwipe = (els) => { for (const e of els) if (e) { e.style.transform = ''; e.style.transition = ''; classSoon(e, 'swipe-peer', false); } };   // (the class lands in a task of its own before the next frame: class-soon.js)
+  const paneFor = (id) => {
+    for (let i = 0; i < panes.length; i++) if (panes[i].id === id) return panes[i].el;
+    for (let i = 0; i < panes.length; i++) if (tabOf(panes[i].id) === id) return panes[i].el;
+    return undefined;
+  };
+  const trailPool = () => { const a = []; for (let i = 0; i < 8; i++) a.push([0, 0]); return a; };   // (the finger's last eight places, made on the touch and written over by its moves)
+  const clearSwipe1 = (e) => { if (e) { e.style.transform = ''; e.style.transition = ''; classSoon(e, 'swipe-peer', false); } };
+  const clearSwipe = (a, b) => { clearSwipe1(a); clearSwipe1(b); };   // (the class lands in a task of its own before the next frame: class-soon.js)
   body.addEventListener('touchstart', (e) => {
     // A second swipe before the first has settled finishes the first once it moves (review #21), not on the touch: a tap leaves the panes easing.
     sw = e.touches.length === 1 && app.classList.contains('thumb') && open.length === 1 && !ownsSideways(e.target, { stop: body })
-      ? { x: e.touches[0].clientX, y: e.touches[0].clientY, t: performance.now(), on: false, dx: 0 } : null;
+      ? { x: e.touches[0].clientX, y: e.touches[0].clientY, t: performance.now(), on: false, dx: 0, trail: [], pool: trailPool() } : null;
   }, { passive: true });
   body.addEventListener('touchmove', (e) => {
     if (!sw) return;
@@ -552,9 +581,11 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     if (e.cancelable) e.preventDefault();
     const tdx = dx + sw.carry, d = tdx < 0 ? 1 : -1, j = sw.i + d;
     const nb = j >= 0 && j < TABS.length && !byId[TABS[j]].need?.() ? paneFor(TABS[j]) : null;   // (an instrument still on its way is not slid in empty)
-    if (nb !== sw.nb) { clearSwipe([sw.nb]); sw.nb = nb; sw.j = j; if (nb) classSoon(nb, 'swipe-peer', true); }
+    if (nb !== sw.nb) { clearSwipe(sw.nb); sw.nb = nb; sw.j = j; if (nb) classSoon(nb, 'swipe-peer', true); }
     sw.dx = nb ? tdx : tdx / 3;   // (past the first or last tab it gives a little and springs back)
-    (sw.trail ||= []).push([performance.now(), t.clientX]); if (sw.trail.length > 8) sw.trail.shift();
+    const tp = sw.trail.length >= 8 ? sw.trail.shift() : sw.pool.pop();
+    tp[0] = performance.now(); tp[1] = t.clientX;
+    sw.trail.push(tp);
     sw.cur.style.transform = `translateX(${sw.dx}px)`;
     if (nb) nb.style.transform = `translateX(${sw.dx + d * sw.w}px)`;
   }, { passive: false });
@@ -571,7 +602,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       clearTimeout(timer); settle = null; easing = null;
       // (The pane that slid in is already in place: it must not play its entrance again once the drag's classes go, a blink.)
       if (go) s.nb?.classList.add('landed');
-      clearSwipe([s.cur, s.nb]);
+      clearSwipe(s.cur, s.nb);
       if (go) { pick(TABS[s.j]); scrollInto(tabEls[TABS[s.j]].b, { block: 'nearest', inline: 'nearest', behavior: scrollBehavior() }); }
     };
     const timer = setTimeout(done, 250);
@@ -786,7 +817,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   }
   // Beside the name: the vessel the Doppler reads (its glow on the figure shows where).
   function paintTitle() {
-    const probe = open.length === 1 && open[0] === 'doppler' && frame?.probe ? EDGES.find((e) => e.id === frame.probe)?.label : null;
+    const probe = open.length === 1 && open[0] === 'doppler' && frame?.probe ? EDGE_LABEL.get(frame.probe) : null;
     const txt = probe || '';
     const l = titleEl.querySelector('.dt-l');
     swapText(l, txt);   // (the probe's vessel name crossfades when the probe moves)
@@ -928,7 +959,8 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   sizeObserver.observe(stageWrap); sizeObserver.observe(body);
   sideMQ.addEventListener('change', () => { updateSize(); layout(); });
   store.on('compareSnap', () => updateHeader());
-  let cmpRows = [], cmpNums = [], cmpWhen = '', cmpAsk = 0;
+  let cmpRows = [], cmpNums = [], cmpWhen = null, cmpAsk = 0;
+  const cmpKeys = [];   // (the names of the rows the line was built for, with its moment: it is built again when either changes)
   function buildComparison() {
     cmpAsk = 0;
     const bs = cmpRows.map(([, txt]) => h('b', {}, txt));
@@ -946,24 +978,26 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       const rows = compareRows(a, b, !hiddenNow(st)?.has('trueHVPG'), !st.hiddenReadouts?.has('model'), fmt);
       // (Frames arrive ten times a second. The line is built between frames, when its moment or its names change; its numbers are drawn on
       // the GPU as they change (gl-words.js), so no frame writes into it.)
-      const key = st.compareSnap.when + '|' + rows.map((r) => r[0]).join('|');
+      let same = cmpWhen === st.compareSnap.when && cmpKeys.length === rows.length;
+      for (let i = 0; same && i < rows.length; i++) if (cmpKeys[i] !== rows[i][0]) same = false;
       cmpRows = rows;
-      if (comparison._key !== key) { comparison._key = key; cmpWhen = st.compareSnap.when; cmpAsk ||= restPass(buildComparison); }
-      else if (!cmpAsk) rows.forEach(([, txt], i) => cmpNums[i]?.set(txt));
+      if (!same) { cmpWhen = st.compareSnap.when; cmpKeys.length = rows.length; for (let i = 0; i < rows.length; i++) cmpKeys[i] = rows[i][0]; cmpAsk ||= restPass(buildComparison); }
+      else if (!cmpAsk) for (let i = 0; i < rows.length; i++) cmpNums[i]?.set(rows[i][1]);
     }
     paintTitle();
     const txt = !frame ? '' : state === 'peek' && !st.imaging ? INFO[open[0]][1](frame)
       : frame.clock === 'disease' ? (st.running ? `Day ${frame.day}` : `Paused · Day ${frame.day}`) : st.running ? '' : 'Paused';
     const ls = state === 'peek' ? 'summary' : st.running ? 'live' : 'paused';
     // A new kind of status (Paused, a day count, an instrument's summary) crossfades in; the numbers inside one kind just count on.
-    const kind = ls + '|' + txt.replace(/[\d.]+/g, '#');
-    if (live._kind !== kind) { live._kind = kind; swapText(live, txt); } else putText(live, txt);
+    const sameKind = live._ls === ls && live._txt != null && sameShape(live._txt, txt);
+    live._ls = ls; live._txt = txt;
+    if (!sameKind) swapText(live, txt); else putText(live, txt);
     dataSoon(live, 'state', ls);
   }
   // The heartbeat (the model's pulsatile mode) runs while a waveform instrument is on screen.
   let beat = null;
   function syncBeat() {
-    const on = isVisible() && state !== 'peek' && open.some((id) => id === 'scope' || id === 'doppler');
+    const on = isVisible() && state !== 'peek' && (open.includes('scope') || open.includes('doppler'));
     if (on !== beat) { beat = on; onBeat?.(on); }
   }
   let preloaded = false;

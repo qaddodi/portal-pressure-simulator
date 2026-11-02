@@ -28,8 +28,8 @@ test('the comparison line shows the same deltas and is rebuilt only when one cha
   assert.deepEqual(compareRows(a, b, false, true, fmt).map((r) => r[0]), ['Liver flow', 'Shunting']);
   assert.deepEqual(compareRows(a, b, true, false, fmt).map((r) => r[0]), ['HVPG']);
   // (2 Nov 2026: rebuilt between frames only when its moment or names change; its numbers drawn on the GPU, gl-words.js, as they change.)
-  assert.match(src('dock.js'), /if \(comparison\._key !== key\) \{ comparison\._key = key; cmpWhen = st\.compareSnap\.when; cmpAsk \|\|= restPass\(buildComparison\); \}/);
-  assert.match(src('dock.js'), /rows\.forEach\(\(\[, txt\], i\) => cmpNums\[i\]\?\.set\(txt\)\)/);
+  assert.match(src('dock.js'), /if \(!same\) \{ cmpWhen = st\.compareSnap\.when;[^\n]*cmpAsk \|\|= restPass\(buildComparison\); \}/);
+  assert.match(src('dock.js'), /for \(let i = 0; i < rows\.length; i\+\+\) cmpNums\[i\]\?\.set\(rows\[i\]\[1\]\)/);
 });
 
 // A record as a MutationObserver gives it, over a fake element.
