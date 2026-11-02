@@ -44,7 +44,8 @@ export function setup(el, cv) {
   if (!g.getProgramParameter(p, g.LINK_STATUS)) throw 0;
   return w;
 }
-function step() { place(); measure(); }
+function step() { place(); measure(); document.body.textContent = 'x'; document.body.style.boxShadow = 'none'; }
+new MutationObserver(() => document.body.offsetHeight);
 function place() { document.body.getAnimations(); svgEl.getBBox(); return document.body.getBoundingClientRect(); }
 `);
   writeFileSync(join(root, 'src/ui/n.js'), 'export function measure() { return getComputedStyle(document.body); }\nexport function idle() { return document.body.clientWidth; }\n');
@@ -65,6 +66,9 @@ function place() { document.body.getAnimations(); svgEl.getBBox(); return docume
   assert.equal(hits.filter((h) => h.cat === 'layoutAnim' && h.file === 'src/ui/m.js').length, 1, 'animate() of height counts, of opacity/transform does not');
   assert.ok(has('svgDom', 'src/ui/m.js', /createElementNS/) && has('svgRaster', 'src/ui/m.js', /svg\+xml/));
   assert.ok(has('svgDom', 'src/ui/m.js', /createElementNS\(SVGNS/), 'the namespace passed as SVGNS counts too');
+  assert.ok(has('domWrite', 'src/ui/m.js', /textContent/), 'text written in a frame');
+  assert.ok(has('paintWrite', 'src/ui/m.js', /boxShadow/), 'a shadow written in a frame');
+  assert.ok(has('observerRead', 'src/ui/m.js', /offsetHeight/), 'a read in a mutation observer');
   assert.equal(hits.filter((h) => h.cat === 'rawRaf').length, 1, 'only the one outside the scheduler');
   assert.ok(has('syncStatus', 'src/ui/m.js', /LINK_STATUS/));
   assert.ok(has('layoutWrite', 'src/ui/m.js', /style\.left/), 'a write in a pointermove handler');

@@ -23,6 +23,10 @@
 //                motion callback
 //   rawRaf       requestAnimationFrame anywhere but the one scheduler (src/ui/frame.js)
 //   syncStatus   getShaderParameter(COMPILE_STATUS) / getProgramParameter(LINK_STATUS) not behind a COMPLETION_STATUS poll
+//   domWrite     textContent/innerHTML/innerText/outerHTML written, or nodes added (append, insertBefore, replaceChildren…), in a frame
+//                or motion callback (2 Nov 2026 review)
+//   paintWrite   a repainting style (colour, fill, stroke, shadow, filter, mask…) written in a frame or motion callback
+//   observerRead a layout read in a MutationObserver callback, or anything it calls: a microtask straight after the writes
 //
 // "Frame or motion callback": a function handed to requestAnimationFrame or the scheduler (frame, lateFrame, finalFrame,
 // frameFor's raf) or to setInterval (a poll that lays out the page on a timer stalls whichever frame it lands in), a pointermove/touchmove/mousemove/scroll/wheel/gesture handler, a function named tick/loop/animate/…Frame,
@@ -48,6 +52,9 @@ export const CATS = {
   layoutRead: 'Layout read in a frame or motion callback',
   rawRaf: 'Raw requestAnimationFrame (outside the scheduler)',
   syncStatus: 'Synchronous shader compile/link status read',
+  domWrite: 'DOM content written in a frame or motion callback (text, markup, nodes: the page laid out and painted again)',
+  paintWrite: 'Repainting style written in a frame or motion callback (colour, fill, stroke, shadow, filter, mask…)',
+  observerRead: 'Layout read in a mutation observer callback (a microtask straight after the writes)',
 };
 
 // The figure's two SVG trees in index.html are its model, not a drawing: stage.js lays the figure and its labels out there and the GPU
@@ -69,7 +76,7 @@ const READ_PROPS = new Set(['offsetWidth', 'offsetHeight', 'offsetTop', 'offsetL
 // (2 Nov 2026, from an iPhone trace of a slide change: these bring the page's style or layout up to date when called too, and were
 // not counted: an element's animations, its visibility check, an SVG box, matrix or outline length, a point test on a stroke or fill,
 // and a scroll into view.)
-const READ_CALLS = new Set(['getBoundingClientRect', 'getClientRects', 'getComputedStyle', 'elementFromPoint', 'elementsFromPoint',
+const READ_CALLS = new Set(['getComputedTiming', 'getBoundingClientRect', 'getClientRects', 'getComputedStyle', 'elementFromPoint', 'elementsFromPoint',
   'getAnimations', 'checkVisibility', 'getBBox', 'getScreenCTM', 'getCTM', 'getTotalLength', 'getPointAtLength', 'isPointInStroke', 'isPointInFill', 'scrollIntoView']);
 const MOTION_EVENTS = new Set(['pointermove', 'touchmove', 'mousemove', 'scroll', 'wheel', 'gesturechange', 'drag', 'dragover', 'pointerrawupdate']);
 // An argument that names a motion event, also as one choice of several (isTouch ? 'touchmove' : 'pointermove').
@@ -222,7 +229,7 @@ export function scan({ root = ROOT } = {}) {
     }
     if (!file.endsWith('.js')) continue;
     const ast = parseJs(file, text);
-    const mod = { file, text, motionProps: [], fns: new Map(), origins: new Map(), calls: new Map(), imports: new Map(), exports: new Map(), seeds: new Set(), late: [] };
+    const mod = { file, text, motionProps: [], fns: new Map(), origins: new Map(), calls: new Map(), imports: new Map(), exports: new Map(), seeds: new Set(), obsSeeds: new Set(), late: [] };
     mods.set(file, mod);
     const frameCallers = new Set(['requestAnimationFrame', 'frame', 'lateFrame', 'finalFrame']);
     // (raf = frameFor('x'), and imported scheduler names under any local alias)
@@ -260,6 +267,8 @@ export function scan({ root = ROOT } = {}) {
           if (cn === 'addEventListener' && MOTION_EVENTS.has(strOf(p.arguments[0]))) mod.seeds.add(n);
         }
         if (p?.type === 'AssignmentExpression' && /^on(pointermove|touchmove|mousemove|scroll|wheel)$/.test(p.left.property?.name || '')) mod.seeds.add(n);
+        // (A mutation observer's callback runs as a microtask straight after the script that wrote: a read there lays the page out then.)
+        if (p?.type === 'NewExpression' && p.callee.name === 'MutationObserver' && p.arguments[0] === n) mod.obsSeeds.add(n);
       }
       if (n.type === 'ExportNamedDeclaration') {
         const d = n.declaration;
@@ -315,6 +324,8 @@ export function scan({ root = ROOT } = {}) {
         }
         if (cn === 'setProperty' && LAYOUT_PROPS.has(strOf(a0))) mod.late.push(['layoutWrite', n, f, `setProperty('${strOf(a0)}')`]);
         if (READ_CALLS.has(cn)) mod.late.push(['layoutRead', n, f, `${cn}()`]);
+        if (member && /^(insertAdjacentHTML|insertAdjacentText|replaceChildren|appendChild|insertBefore|replaceChild|replaceWith|prepend|append)$/.test(cn || '') && !(recv && mod.containers.has(recv) && recv !== 'document')) mod.late.push(['domWrite', n, f, `${cn}()`]);
+        if (cn === 'setProperty' && /^(stroke|fill|color|background|border|outline|box-shadow|text-shadow|filter|mask|clip-path)/.test(strOf(a0) || '')) mod.late.push(['paintWrite', n, f, `setProperty('${strOf(a0)}')`]);
         if (cn === 'XMLSerializer') push('svgRaster', file, n.loc.start.line, label(f), 'XMLSerializer');
       }
       if (n.type === 'NewExpression' && n.callee.name === 'XMLSerializer') push('svgRaster', file, n.loc.start.line, label(enclosing(n)), 'new XMLSerializer()');
@@ -328,6 +339,8 @@ export function scan({ root = ROOT } = {}) {
         const onStyle = obj.type === 'MemberExpression' && !obj.computed && obj.property.name === 'style';
         if (onStyle && /^(transition|filter|backdropFilter|webkitBackdropFilter)$/.test(prop) || prop === 'filter') look(prop, file, n.loc.start.line);
         if (onStyle && LAYOUT_JS.has(prop)) mod.late.push(['layoutWrite', n, enclosing(n), `style.${prop} =`]);
+        if (onStyle && PAINT_JS.test(prop) && prop !== 'transition') mod.late.push(['paintWrite', n, enclosing(n), `style.${prop} =`]);
+        if (/^(textContent|innerHTML|innerText|outerHTML)$/.test(prop)) mod.late.push(['domWrite', n, enclosing(n), `.${prop} =`]);
         if (onStyle && /^(webkitB|b)ackdropFilter$/.test(prop) && !/^['"`]none['"`]$/.test(text.slice(n.right.start, n.right.end))) push('backdrop', file, n.loc.start.line, label(enclosing(n)), text.slice(n.start, Math.min(n.end, n.start + 100)));
         if (prop === 'filter' && !onStyle && /blur\(/.test(text.slice(n.right.start, n.right.end))) push('cpuBlur', file, n.loc.start.line, label(enclosing(n)), `canvas filter: ${text.slice(n.right.start, Math.min(n.right.end, n.right.start + 80))}`);
         if (onStyle && prop === 'filter' && /blur\(/.test(text.slice(n.right.start, n.right.end))) push('cpuBlur', file, n.loc.start.line, label(enclosing(n)), text.slice(n.start, Math.min(n.end, n.start + 100)));
@@ -445,15 +458,43 @@ export function scan({ root = ROOT } = {}) {
     }
     for (const call of f.__calls || []) for (const [m, g] of resolveCall(mod, call)) add(m, g);
   }
-  for (const mod of mods.values()) for (const [cat, n, f, detail] of mod.late) {
+  // Observer reach: from the mutation observers' callbacks the same way, for the layout reads only (2 Nov 2026 review: a read there runs
+  // in the microtask straight after the writes, and lays the page out then, as a read in a frame does).
+  const obsReach = new Map();
+  {
+    const frameReach = new Map(reach);
+    reach.clear();
+    from = null;
+    for (const mod of mods.values()) for (const f of mod.obsSeeds) add(mod, f);
+    while (queue.length) {
+      const [mod, f] = queue.shift();
+      from = `${mod.file}#${f.__key}`;
+      for (const g of mod.kids?.get(f) || []) {
+        const p = g.parent;
+        const inline = (p?.type === 'CallExpression' || p?.type === 'NewExpression') && (p.callee === g || p.arguments.includes(g) && !DEFERRED.test(calleeName(p) || p.callee?.name || ''));
+        if (inline) add(mod, g);
+      }
+      for (const call of f.__calls || []) for (const [m, g] of resolveCall(mod, call)) add(m, g);
+    }
+    for (const [k, v] of reach) obsReach.set(k, v);
+    reach.clear();
+    for (const [k, v] of frameReach) reach.set(k, v);
+  }
+  for (const mod of mods.values()) for (const [cat0, n, f, detail] of mod.late) {
+    let cat = cat0;
     look(cat, mod.file, n.loc.start.line);
     let hit = null;
     for (let p = f; p && !hit; p = enclosing(p)) if (reach.has(`${mod.file}#${p.__key}`)) hit = `${mod.file}#${p.__key}`;
+    if (!hit && cat === 'layoutRead') {
+      for (let p = f; p && !hit; p = enclosing(p)) if (obsReach.has(`${mod.file}#${p.__key}`)) hit = `${mod.file}#${p.__key}`;
+      if (hit) cat = 'observerRead';
+    }
     if (!hit) continue;
+    const R = cat === 'observerRead' ? obsReach : reach;
     // How a frame reaches it: the chain of calls back to the frame callback or motion listener (shortened).
     const chain = [];
-    for (let k = hit; k && chain.length < 8; k = reach.get(k)) chain.push(k.split('#')[0] === mod.file ? k.split('#')[1] : k.replace(/^src\/ui\//, ''));
-    push(cat, mod.file, n.loc.start.line, label(f), `${detail} — frame path: ${chain.reverse().join(' → ')}`);
+    for (let k = hit; k && chain.length < 8; k = R.get(k)) chain.push(k.split('#')[0] === mod.file ? k.split('#')[1] : k.replace(/^src\/ui\//, ''));
+    push(cat, mod.file, n.loc.start.line, label(f), `${detail} — ${cat === 'observerRead' ? 'observer' : 'frame'} path: ${chain.reverse().join(' → ')}`);
   }
   // One hit per place: a line can match twice (a string scanned as CSS and as a declaration).
   const seen = new Set();
