@@ -62,7 +62,8 @@ import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=d950c5cd1c';
 import { alongCurve } from './pressure-along.js?v=74c64e4286';
 import { follow2, createColourFollow, SHOWN_TAU } from './display-state.js?v=8d062d39dc';
-import { advanceStream, createStreamChain, displaySpeed, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=f6c91d8676';
+import { advanceStream, createStreamChain, displaySpeed, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=f6c91d8676';
+import { createDyeRemote } from './dye-remote.js?v=0a8acbcda1';
 import { retireRows, flowClose } from './flow-rows.js?v=59053c0155';
 import { createFlowDash, chevSpacing, inHole } from './flow-dash.js?v=3f6b99673f';
 import { createJunctionWidths } from './junction-widths.js?v=c5726a67f9';
@@ -11754,7 +11755,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const dyeData = new Float32Array(GL_ROWS * DYE_BINS), dyeRow = new Float32Array(DYE_BINS);
   const streams = EDGES.map((e, k) => ({ seed: k + 1 }));
   const LARGE = EDGES.map((e) => (e.kind === 'vein' || e.kind === 'diode') && (e.d || 0) >= STASIS_MIN_D);
-  const bolus = createBolus(EDGES, NODES);
+  // (The slugs step in a worker, dye-remote.js; ?dyeworker=0 keeps them here.)
+  const bolus = createDyeRemote(EDGES, NODES, () => new Worker(new URL('./dye-worker.js?v=22ec1e9ddf', import.meta.url), { type: 'module' }));
   const net = { Q: new Float32Array(EDGES.length), vd: new Float32Array(EDGES.length), len: new Float32Array(EDGES.length) };
   let origins = null, originsF = null, bloodClock = 0, dyeShown = false;
   // In the imaging view the flow shows once a Doppler has looked at it (still in neutral colours: pressures stay unmeasured).
@@ -11968,7 +11970,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         net.vd[k] = Math.max(3, Math.abs(streams[k].vd)) * speed;
         net.len[k] = x?.vis && geo[x.e.id]?.len ? geo[x.e.id].len : Math.max(20, net.vd[k] * HIDDEN_SECONDS);
       }
-      if (moving) bolus.step(dt, net);
+      if (moving) bolus.step(dt, net); else if (bolus.remote) bolus.step(0, net);   // (paused: the worker's table binned again for the lengths now)
       dyeData.fill(0);
       for (const x of EV) {
         if (!x.vis || x.isArt) continue;

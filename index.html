@@ -26,7 +26,7 @@
   <script>/* Can this browser run the app? ES5 on purpose so even Internet Explorer gets the message. Hard needs stop it with a plain note; soft ones only warn. */(function(){var w=window,why=[];try{if(!('noModule' in document.createElement('script')))why.push('modules');try{new Function('var a={};a.b??=1;return a?.b')}catch(e){if(!(e instanceof EvalError))throw e}if(typeof w.ResizeObserver!=='function')why.push('ResizeObserver');if(typeof w.structuredClone!=='function')why.push('structuredClone');if(!Array.prototype.at)why.push('Array.at')}catch(e){why.push('syntax')}w.ppsUnsupported=why.length?why:null;var soft=[];try{if(!CSS.supports('selector(:has(a))'))soft.push(':has');if(!CSS.supports('container-type','inline-size'))soft.push('container queries');if(!CSS.supports('color','color-mix(in srgb, red, blue)'))soft.push('color-mix')}catch(e){}w.ppsOldBrowser=soft.length?soft:null;w.ppsBootErrors=[];function note(m){if(w.ppsFigureReady)return;w.ppsBootErrors.push(String(m||'Unknown error').slice(0,300));if(w.ppsBootFail&&/SyntaxError/.test(m))w.ppsBootFail()}w.addEventListener('error',function(e){if(e&&e.message&&!/ResizeObserver loop/.test(e.message))note((e.error&&e.error.name?e.error.name+': ':'')+e.message+(e.filename?' ('+String(e.filename).split('/').pop().split('?')[0]+':'+e.lineno+')':''))});w.addEventListener('error',function(e){var t=e&&e.target;if(t&&t.tagName==='SCRIPT'){note('Could not load '+String(t.src).split('/').pop().split('?')[0]);if(w.ppsBootFail&&!w.ppsFigureReady)w.ppsBootFail()}},true);w.addEventListener('unhandledrejection',function(e){var r=e&&e.reason;note('Unhandled: '+(r&&r.message?r.message:r))})})();</script>
   <link rel="stylesheet" href="styles/tokens.css?v=eef7124a48" />
   <link rel="stylesheet" href="styles/icons.css?v=9152f9ba31" />
-  <link rel="stylesheet" href="styles/app.css?v=fe437d6d1a" />
+  <link rel="stylesheet" href="styles/app.css?v=d18f07ff53" />
   <style>
     #boot { position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; height: 100vh; height: 100lvh; z-index: 2147483647; display: grid; place-items: center; overflow-y: auto; background: var(--bg, #FBFAF7); transition: opacity var(--d-surface) var(--ease), visibility var(--d-surface); animation: boot-failsafe .01s 20s forwards; }
     /* The last word, in CSS so it needs no script: if nothing has lifted the cover after 20 s (a script that never ran, a page whose
@@ -169,7 +169,7 @@ var lifting=false;function lift(){if(lifting||w.ppsUnsupported)return;failed=fal
   <div class="toast-wrap" id="toasts"></div>
   <div class="sr-only" aria-live="polite" id="live"></div>
 
-  <link rel="modulepreload" href="src/ui/stage.js?v=7ec7c08540" />
+  <link rel="modulepreload" href="src/ui/stage.js?v=84cf5006d9" />
   <link rel="modulepreload" href="src/ui/anatomy.js?v=fe0f3d1f0e" />
   <link rel="modulepreload" href="src/ui/util.js?v=2a8781cc80" />
   <link rel="modulepreload" href="src/ui/store.js?v=4ef2a6ffd8" />
@@ -180,6 +180,6 @@ var lifting=false;function lift(){if(lifting||w.ppsUnsupported)return;failed=fal
   <link rel="modulepreload" href="src/ui/instruments.js?v=b9b44026fd" />
   <link rel="modulepreload" href="src/ui/timeline.js?v=ac4cd244d6" />
   <link rel="modulepreload" href="src/engine/topology.js?v=4044766e96" />
-  <script type="module" src="src/ui/main.js?v=0379346cd1"></script>
+  <script type="module" src="src/ui/main.js?v=3ab1a6c23e"></script>
 </body>
 </html>

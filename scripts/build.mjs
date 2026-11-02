@@ -45,6 +45,9 @@ const workerFile = basename(Object.keys(worker.metafile.outputs).find((f) => f.e
 // 1b. The stage's binning worker (sweep-worker.js: the change between the views), the same way.
 const sweep = await build({ ...common, entryPoints: [join(ROOT, 'src/ui/sweep-worker.js')], outdir: ASSETS, entryNames: 'sweep-[hash]', write: true, metafile: true });
 const sweepFile = basename(Object.keys(sweep.metafile.outputs).find((f) => f.endsWith('.js')));
+// 1c. The dye bolus's worker (dye-worker.js: the slugs' advance), the same way.
+const dye = await build({ ...common, entryPoints: [join(ROOT, 'src/ui/dye-worker.js')], outdir: ASSETS, entryNames: 'dye-[hash]', write: true, metafile: true });
+const dyeFile = basename(Object.keys(dye.metafile.outputs).find((f) => f.endsWith('.js')));
 
 // 2. The app. host.js and presenter.js (each starts an engine worker) point the Worker at the bundled worker file, and stage.js at the
 // bundled binning worker.
@@ -56,7 +59,7 @@ const workerUrl = {
       loader: 'js',
     }));
     b.onLoad({ filter: /[\\/]src[\\/]ui[\\/]stage\.js$/ }, (args) => ({
-      contents: readFileSync(args.path, 'utf8').replace(/new URL\('\.\/sweep-worker\.js(\?v=[0-9a-f]+)?', import\.meta\.url\)/, `new URL('./${sweepFile}', import.meta.url)`),
+      contents: readFileSync(args.path, 'utf8').replace(/new URL\('\.\/sweep-worker\.js(\?v=[0-9a-f]+)?', import\.meta\.url\)/, `new URL('./${sweepFile}', import.meta.url)`).replace(/new URL\('\.\/dye-worker\.js(\?v=[0-9a-f]+)?', import\.meta\.url\)/, `new URL('./${dyeFile}', import.meta.url)`),
       loader: 'js',
     }));
   },
