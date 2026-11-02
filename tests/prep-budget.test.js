@@ -133,5 +133,9 @@ test('the watchdog judges a deferrable callback by its predicted cost before it 
   await new Promise((done) => frame(() => { spin(5); done(); }, 'credit'));
   assert.ok(costOf('credit') >= 4.5, `its cost learned (${costOf('credit').toFixed(1)} ms)`);
   assert.equal(wouldShed('credit', 1, B, 'locked'), true, '1 ms used + 5 ms predicted passes 70 % of 8.3 ms: it waits');
-  assert.equal(wouldShed('credit', 1, B, 'balanced'), false, 'Balanced allows the whole budget');
+  // (Balanced against a budget the learned cost fits in: on a loaded runner spin(5) can measure past 7.3 ms, which overruns 8.3 ms in
+  // any mode, so the fixed 120 Hz budget made this flaky in the full run.)
+  const c = costOf('credit'), roomy = c + 2;
+  assert.equal(wouldShed('credit', 1, roomy, 'locked'), 1 + c > WATCH_SHARE * roomy, 'Locked keeps to its share of the same budget');
+  assert.equal(wouldShed('credit', 1, roomy, 'balanced'), false, 'Balanced allows the whole budget');
 });
