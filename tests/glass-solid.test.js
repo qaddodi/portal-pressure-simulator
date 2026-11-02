@@ -26,7 +26,7 @@ test('every glass the GPU is not drawing is solid, never the GPU-drawn one', () 
 
 test('the teaching card\'s shade is on the cards\' GPU glass, with ?shadegl=0 as the way out', () => {
   assert.match(pres, /const SHADE_GL = !\/\[\?&\]shadegl=0\\b\/\.test\(location\.search\);/);
-  assert.match(pres, /find: \(\) => \(shadeGL \? \[shade, data, vcase, bar, scl, fk\] : \[data, vcase, bar, scl, fk\]\)/);
+  assert.match(pres, /find: \(\) => \[\.\.\.\(shadeGL \? \[shade, data, vcase, bar, scl, fk\] : \[data, vcase, bar, scl, fk\]\), \.\.\.railGhosts\(\)\.filter\(\(g\) => shadeGL \|\| g\.dataset\.ghost !== 'shade'\)\]/, 'and the copies riding out on the rail, card-throw.js');
   assert.match(css, /:root:root \.pz-shade \{ will-change: transform; \}/);
 });
 

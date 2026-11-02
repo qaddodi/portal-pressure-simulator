@@ -59,7 +59,7 @@ import { tileKeys as cardKeys, toolOnly } from './card-tiles.js?v=e547c76c7f';
 import { D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN, EASE_MOVE, RISE_PX } from './ease.js?v=7513a88c68';
 import { slideFold } from './fold-slide.js?v=1b10231dcf';
 import { pageOn, followOf, pageIn } from './card-page.js?v=ebb4448222';
-import { throwOut, throwIn, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER } from './card-throw.js?v=93ddda4127';
+import { throwOut, throwIn, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, railable, railHold, railIn, railAway, railGhosts, RAIL_GAP } from './card-throw.js?v=336b6d4abe';
 const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';
@@ -1797,9 +1797,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         // (Thrown: the words and their glass come in on card-throw.js's clock, together, from the side the talk comes from.)
         // (Only a card that shows: a visual slide hides the words, and its glass stays out.)
         if (!t.hidden && t.childElementCount) {
-          throwIn(t, k);
-          if (!stayTurn && !ui.shade.classList.contains('pz-turn')) throwIn(ui.shade, k);
-        }
+          if (!railIn(t, k)) throwIn(t, k);
+          if (!stayTurn && !ui.shade.classList.contains('pz-turn')) { if (!railIn(ui.shade, k)) throwIn(ui.shade, k); } else railAway(ui.shade);
+        } else { railAway(t); railAway(ui.shade); }
         turnAnim = null; shadeAnim = null;
         return;
       }
@@ -2216,12 +2216,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // at is the size they keep: keyed only once the slide was shown, the passes while the cards eased in measured afresh, and on a
   // tight iPad a reading settling or a chart lettered stepped the title or folded the ladder, so the card came in and then snapped.)
   // (While they fade in, the work that can wait does: frame.js holdMotion, the delay and the fade, app.css .pz-text.pz-enter.)
-  function cardsIn(at) { if (ui) { if (!reduce.matches) holdMotion(D_SURFACE + 220); if (at) { entering = at; layout(); } reFit(); if (!bare) { ui.text.classList.remove('pz-leave'); wordsTurnIn(); ui.scl.classList.remove('pz-leave'); delete ui.root.dataset.bare; } ui.root.classList.remove('pz-prep'); cardIn(ui.panel, 'pz-leave'); if (ui.data.dataset.prep && !('hold' in ui.data.dataset)) { delete ui.data.dataset.prep; cardIn(ui.data, 'pz-hide', THROW_STAGGER); } if (!bare) throwDir = ''; } }   // (bare: the words come in later, thrown too)
+  function cardsIn(at) { if (ui) { if (!reduce.matches) holdMotion(D_SURFACE + 220); if (at) { entering = at; layout(); } reFit(); if (!bare) { ui.text.classList.remove('pz-leave'); wordsTurnIn(); ui.scl.classList.remove('pz-leave'); delete ui.root.dataset.bare; } ui.root.classList.remove('pz-prep'); cardIn(ui.panel, 'pz-leave'); if (ui.data.dataset.prep && !('hold' in ui.data.dataset)) { delete ui.data.dataset.prep; cardIn(ui.data, 'pz-hide', THROW_STAGGER); } if (!bare) { throwDir = ''; railAway(); } } }   // (bare: the words come in later, thrown too)
   // (A data card or panel coming in: thrown in from the side the talk goes when the old cards were thrown (CARD_THROW), else as before.
   // Its way out is forgotten in the same style change, so the leave's place never runs back across the screen under the way in.)
   function cardIn(el, cls, delay = 0) {
     if (!el.classList.contains(cls)) return;
-    if (throwDir && !el.hidden && el.childElementCount) throwIn(el, throwDir, delay);
+    if (throwDir && !el.hidden && el.childElementCount) { if (!railIn(el, throwDir, delay)) throwIn(el, throwDir, delay); } else railAway(el);
     delete el.dataset.out;
     el.classList.remove(cls);
   }
@@ -2322,6 +2322,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (The way the talk goes, by the key or swipe, whether or not the glass turns as a page: glassTurn leaves it off for a catheter or
     // monitor slide, a reading card and the like, and those cards are thrown too.)
     throwDir = CARD_THROW && !reduce.matches && (turn === 'next' || turn === 'back') ? turn : '';
+    railAway();   // (a copy left from a change cut short goes now, before this change's copies are made: card-throw.js)
     const up = (el) => !el.hidden && !!el.childElementCount && !el.classList.contains('pz-leave');
     const textUp = !keepNow.text && up(ui.text), panelUp = up(ui.panel);
     // The data card leaves with the words on every slide change, whole (the same ease and pace), and comes back in with the new cards:
@@ -2367,7 +2368,16 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (dataOut) goes.push(data);
       if (panelUp) goes.push(ui.panel);
       const dist = throwDist();
-      for (const el of goes) throwOut(el, throwDir, dist);
+      // (One track, card-throw.js RAIL: each card stays, as a copy of itself, until its next is laid out and drawn behind it; then both
+      // ride the rail, a card's width and a gap apart. The words and their glass keep one spacing, so they never part. A card holding a
+      // picture of the GPU's is thrown as before, the words with their glass. ?rail=0: thrown, as before.)
+      const pair = goes.filter((el) => el === ui.text || el === ui.shade);
+      const railOK = (el) => (pair.includes(el) ? pair.every(railable) : railable(el));
+      const pairD = pair.length ? Math.max(...pair.map((el) => el.offsetWidth)) + RAIL_GAP : 0;
+      for (const el of goes) {
+        if (railOK(el)) railHold(el, pair.includes(el) ? pairD : el.offsetWidth + RAIL_GAP, el === ui.text ? 'text' : el === ui.shade ? 'shade' : el === data ? 'data' : 'panel', throwDir);
+        else throwOut(el, throwDir, dist);
+      }
     }
     if (leaving) return fading ? fading + 20 : 0;
     return D_SMALL + 20;   // (the words leave at the data card's pace, one small step; with reduced motion they still fade, without sliding: app.css)
@@ -5382,7 +5392,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (app.css: where the figure's canvas cannot take it, the shade turns solid; no backdrop-filter is declared anywhere) and the shade keeps one
     // layer of its own throughout, so the swap that lost its picture on an iPhone no longer happens. ?shadegl=0 keeps it solid.)
     const shadeGL = SHADE_GL;
-    const glass = stage.cardGlass?.({ find: () => (shadeGL ? [shade, data, vcase, bar, scl, fk] : [data, vcase, bar, scl, fk]), watch: [root, shade], before: shade, low: shade, read: (g) => (g === data ? sheetPanes(g) : undefined) }) || null;
+    const glass = stage.cardGlass?.({ find: () => [...(shadeGL ? [shade, data, vcase, bar, scl, fk] : [data, vcase, bar, scl, fk]), ...railGhosts().filter((g) => shadeGL || g.dataset.ghost !== 'shade')], watch: [root, shade], before: shade, low: shade, read: (g) => (g === data || g.dataset?.ghost === 'data' ? sheetPanes(g) : undefined) }) || null;
     return { root, shade, safe, load, text, data, lip, lipRO, lipMO, cardTouch, setFold, zoom, zbtn, pscrim, partOf, vcase, fk, figKey, glass, dhT, tiles, tools, veil, panel, prog, scl, bar, black: blackEl, jump, say };
   }
   // The start's cover (see start). While it is up (booting) the camera cuts instead of gliding.

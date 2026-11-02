@@ -13,11 +13,22 @@ import { D_SMALL, D_SURFACE, cubicBezier, easeMove } from './ease.js?v=7513a88c6
 export const THROW_IN = 56, THROW_STAGGER = 40;
 const easeIn = cubicBezier(0.4, 0, 1, 1);   // (EASE_IN: the card gathers pace as it goes, as a flung one does)
 const nextFrame = frameFor('card-throw');
+// (Look 1, "One track", Mohammad, 2 Nov 2026: "do what he recommends". The old card and the new ride one rail, a card's width and a gap
+// apart, as iOS pages: 560 ms on a calm curve that starts quick and settles long, no overshoot (its y never passes 1).)
+export const RAIL = typeof location === 'undefined' || !/[?&]rail=0\b/.test(location.search || '');
+export const RAIL_MS = 560, RAIL_GAP = 24;
+const easeRail = cubicBezier(0.32, 0.72, 0, 1);
 
 /** Where a card is at k (0 to 1) of its move: out, it gathers pace and fades evenly; in, it speeds up and slows to rest evenly, with
  *  no overshoot, and is whole by 60 % of the way. */
 export function throwAt(kind, k, from, to) {
   k = k <= 0 ? 0 : k >= 1 ? 1 : k;
+  if (kind === 'rail-out' || kind === 'rail-in') {
+    // (One track: both cards on the one curve, side by side; the old one fades only over the last half of its way, the new one is whole
+    // by 40 % of its way, so the screen never holds an empty glass.)
+    const e = easeRail(k), f = kind === 'rail-out' ? Math.max(0, (e - 0.5) / 0.5) : Math.min(1, e / 0.4);
+    return { x: from.x + (to.x - from.x) * e, o: from.o + (to.o - from.o) * f };
+  }
   const e = kind === 'out' ? easeIn(k) : easeMove(k);
   const f = kind === 'out' ? k : Math.min(1, k / 0.6);
   return { x: from.x + (to.x - from.x) * e, o: from.o + (to.o - from.o) * (kind === 'out' ? f : easeMove(f)) };
@@ -45,7 +56,7 @@ function step() {
     if (k < 0) continue;   // (a staggered card waits where it starts)
     const p = throwAt(r.kind, k, r.from, r.to);
     r.x = p.x; r.o = p.o;
-    if (k >= 1) { runs.delete(el); if (r.kind === 'in') rest(el); else write(el, p.x, p.o); r.done?.(); continue; }
+    if (k >= 1) { runs.delete(el); if (r.kind === 'in' || r.kind === 'rail-in') rest(el); else write(el, p.x, p.o); r.done?.(); continue; }
     write(el, p.x, p.o);
   }
   if (runs.size) ask = nextFrame(step);
@@ -125,4 +136,76 @@ function outCheck() {
 export const throwing = (el) => runs.has(el);
 
 /** Stops el's move where it is (a finger takes it), its inline values kept for whoever takes it next. */
-export function throwStop(el) { runs.delete(el); held.delete(el); if (!runs.size && ask) { cancelFrame(ask); ask = 0; } outCheck(); }
+export function throwStop(el) { runs.delete(el); held.delete(el); if (ghosts.has(el)) railAway(el); railHeld.delete(el); if (!runs.size && ask) { cancelFrame(ask); ask = 0; } outCheck(); }
+
+// ── One track (RAIL): the old card stays where it is, whole, as a copy of itself (its ghost), until the new card is laid out and drawn
+// behind it; then both ride the rail together. The copy is the old card's own markup, taken as it stood: words, tiles, glass (data-gl:
+// the cards' GPU glass draws it, glass-gl.js, through the presenter's list of glasses) and edge, so nothing of it goes missing. A card
+// holding a picture the GPU drew (a chart's or an instrument's canvas) is not copied, as a canvas copies empty: it is thrown as before.
+const ghosts = new Map();   // (card → { g: its copy, d: the rail's spacing (px), t: its timer })
+const ghostEls = new Set();
+const railHeld = new Set();
+const GHOST_MAX = 15000;   // (a copy never outstays this, whatever happens to the slide change: a slow machine's change takes seconds)
+const stripped = ['pz-leave', 'pz-hide', 'pz-enter', 'glw-on'];
+/** Whether el can ride the rail: on the page, with no picture of the GPU's in it (a readout's own, gl-words.js, is empty at rest). */
+export function railable(el) {
+  if (!RAIL || !el || el.hidden || !el.isConnected) return false;
+  for (const c of el.getElementsByTagName('canvas')) if (!c.classList.contains('glw-cv')) return false;
+  return true;
+}
+/** The copies on the page now (for the cards' GPU glass to draw). */
+export const railGhosts = () => [...ghostEls].filter((g) => g.isConnected);
+/** Leaves a copy of el in its place, whole, and takes el out of sight (an inline 0) while its next words are set: d is the rail's spacing. */
+export function railHold(el, d, tag, dir) {
+  if (ghosts.has(el)) railAway(el);
+  runs.delete(el); held.delete(el);
+  const g = el.cloneNode(true);
+  g.removeAttribute('id');
+  for (const n of g.querySelectorAll('[id]')) n.removeAttribute('id');
+  for (const n of g.querySelectorAll('.glw-on')) n.classList.remove('glw-on');
+  g.classList.remove(...stripped);
+  g.classList.add('pz-railcopy');
+  g.dataset.ghost = tag;
+  g.setAttribute('aria-hidden', 'true');
+  g.inert = true;
+  g.style.setProperty('pointer-events', 'none', 'important');
+  g.style.setProperty('transition', 'none', 'important');
+  const at = here(el);
+  write(g, at.x, Math.max(at.o, 0));
+  // (At the end of the card's layer, so no rule that reads a card's neighbour (the data card's edge, .pz-data + .pz-lip) sees it; the
+  // teaching card's glass just after itself, under the cards' layer as it is.)
+  if (tag === 'shade') el.after(g); else el.parentNode.append(g);
+  ghostEls.add(g);
+  // (In the same task: no frame shows the card and its copy both, or neither.)
+  el.style.setProperty('transition', 'none', 'important');
+  el.style.removeProperty('transform');
+  el.style.setProperty('opacity', '0', 'important');
+  railHeld.add(el);
+  ghosts.set(el, { g, d, dir, t: setTimeout(() => railAway(el), GHOST_MAX) });
+}
+function drop(g) { ghostEls.delete(g); g.remove(); }
+/** Rides el in on the rail from where its copy stands beside it, and its copy out, on one clock (delay ms after now). False when el has no copy. */
+export function railIn(el, dir, delay = 0) {
+  const gh = ghosts.get(el);
+  if (!gh) return false;
+  ghosts.delete(el); clearTimeout(gh.t); railHeld.delete(el); held.delete(el);
+  const s = dir === 'back' ? -1 : 1;
+  runs.delete(el);
+  el.style.setProperty('transition', 'none', 'important');
+  write(el, s * gh.d, 0);
+  start(el, 'rail-in', { x: 0, o: 1 }, RAIL_MS, delay);
+  start(gh.g, 'rail-out', { x: -s * gh.d, o: 0 }, RAIL_MS, delay, () => drop(gh.g));
+  return true;
+}
+/** Sends el's copy (every copy, with no el) out on the rail alone, its card left to its classes: no new card took its place. */
+export function railAway(el) {
+  for (const [e, gh] of [...ghosts]) {
+    if (el && e !== el) continue;
+    ghosts.delete(e); clearTimeout(gh.t);
+    const s = gh.dir === 'back' ? -1 : 1;
+    start(gh.g, 'rail-out', { x: -s * gh.d, o: 0 }, RAIL_MS, 0, () => drop(gh.g));
+    if (railHeld.delete(e)) hold(e);
+  }
+}
+/** Whether el waits behind its copy for its next words. */
+export const railWaits = (el) => ghosts.has(el);
