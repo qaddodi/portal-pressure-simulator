@@ -36,6 +36,7 @@ export function setup(el, cv) {
   el.animate([{ height: '0px' }, { height: '9px' }], 200);
   el.animate([{ opacity: 0, transform: 'scale(.9)' }, { opacity: 1 }], 200);
   document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  const SVGNS = 'http://www.w3.org/2000/svg'; document.createElementNS(SVGNS, 'g');   // (a constant's name in capitals: 2 Nov 2026 review)
   URL.createObjectURL(new Blob(['<svg/>'], { type: 'image/svg+xml' }));
   requestAnimationFrame(() => {});
   raf(step);
@@ -63,6 +64,7 @@ function place() { document.body.getAnimations(); svgEl.getBBox(); return docume
   assert.ok(has('layoutAnim', 'index.html', /height/) && has('svgDom', 'index.html', /<svg/));
   assert.equal(hits.filter((h) => h.cat === 'layoutAnim' && h.file === 'src/ui/m.js').length, 1, 'animate() of height counts, of opacity/transform does not');
   assert.ok(has('svgDom', 'src/ui/m.js', /createElementNS/) && has('svgRaster', 'src/ui/m.js', /svg\+xml/));
+  assert.ok(has('svgDom', 'src/ui/m.js', /createElementNS\(SVGNS/), 'the namespace passed as SVGNS counts too');
   assert.equal(hits.filter((h) => h.cat === 'rawRaf').length, 1, 'only the one outside the scheduler');
   assert.ok(has('syncStatus', 'src/ui/m.js', /LINK_STATUS/));
   assert.ok(has('layoutWrite', 'src/ui/m.js', /style\.left/), 'a write in a pointermove handler');
