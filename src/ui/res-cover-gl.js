@@ -124,6 +124,21 @@ export function createResCover(make = () => document.createElement('canvas')) { 
       gl.bindVertexArray(null);
       return true;
     },
+    /**
+     * Draws the kept picture on the cover's canvas at weight a and carried by m (a 3 × 3 column-major over [0,1]², null for none): the fade and
+     * the view's follow are made here, in the GPU's own draw, so the page's style (the canvas's opacity and transform) is never written in
+     * a frame. False when nothing is kept, the programs are not ready or the context is lost (the caller then ends the cover).
+     */
+    show(a, m) {
+      if (lost || !kept || gl.isContextLost() || !K) return false;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.viewport(0, 0, cv.width, cv.height);
+      gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.disable(gl.BLEND);
+      quad(kept.tex, a, m, true);
+      gl.bindVertexArray(null);
+      return true;
+    },
     /** Lets the kept picture go (the canvas is taken out of the page by the caller). */
     drop() { if (!lost && kept) free(kept); kept = null; },
   };
@@ -133,4 +148,11 @@ export function createResCover(make = () => document.createElement('canvas')) { 
 export function coverFollow(v0, v, W, H) {
   const r = v.k / v0.k;
   return [r, 0, 0, 0, r, 0, (v.x - v0.x * r) / W, (v.y - v0.y * r) / H, 1];   // alloc-rare: once per resolution change (lobule-zoom resSwap), the place the kept picture starts from
+}
+
+/** coverFollow written into out (a kept 9-array): the same matrix, with no new array. */
+export function coverFollowInto(out, v0, v, W, H) {
+  const r = v.k / v0.k;
+  out[0] = r; out[1] = 0; out[2] = 0; out[3] = 0; out[4] = r; out[5] = 0; out[6] = (v.x - v0.x * r) / W; out[7] = (v.y - v0.y * r) / H; out[8] = 1;
+  return out;
 }

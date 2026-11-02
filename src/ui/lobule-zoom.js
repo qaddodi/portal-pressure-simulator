@@ -45,8 +45,8 @@ import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.j
 import { createSinusoidView } from './sinusoid-view.js?v=d966efaaec';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, framePart, easeNow, inMotion, PACED } from './frame.js?v=07b68cf942';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=94a4db0dc6';
-import { FADE_MS, fadeAlpha, viewFollow } from './res-fade.js?v=2990d71cce';
-import { createResCover, coverFollow } from './res-cover-gl.js?v=5e2a58bd8c';
+import { FADE_MS, fadeAlpha } from './res-fade.js?v=2990d71cce';
+import { createResCover, coverFollow, coverFollowInto } from './res-cover-gl.js?v=4b4b8edc24';
 import { leaderEnd, runInside } from './leader-end.js?v=56bb38b34d';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { restPass, cancelRest, restAttr, restRemove, flushRestAttrs } from './rest-pass.js?v=fea7233cda';
@@ -2593,14 +2593,15 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // ones can be read), stacked into one opaque picture laid over them (resCover, under the labels), and the loop then draws them at
   // the new share under it while it fades out over FADE_MS, the same smoothstep as the anatomy's (res-fade.js). The layers
   // themselves never change opacity or visibility for it, and the tissue fills every pixel, so the cover at opacity a shows exactly
-  // old × a + new × (1 − a). It follows a pan or a zoom (viewFollow). A dive or a rise starting meanwhile (they scale the layers
+  // old × a + new × (1 − a). It follows a pan or a zoom (coverFollowInto, drawn by the cover's own context). A dive or a rise starting meanwhile (they scale the layers
   // one by one, under a copy of their own) takes the cover away; the lobule leaving gives it back (setFade, release).
   // (On the GPU, 1 Nov, "Move everything to GPU": the stack is made in the cover's own WebGL context (res-cover-gl.js), each layer taken
   // into a texture once at the change and the picture kept there; no 2D canvas, no drawImage. Where that context cannot be had or its
   // program is not ready yet, the new share is taken at once.)
-  let resCover = null, resT0 = 0, resV0 = null, resGL;
+  let resCover = null, resT0 = 0, resV0 = null, resGL, resA = 1, resW = 1, resH = 1, resShownA = -1;
+  const resM = [1, 0, 0, 0, 1, 0, 0, 0, 1], resShownM = [0, 0, 0, 0, 0, 0, 0, 0, 0];   // (the cover's weight and place, kept and written in place; what was last drawn, so a frame that changed neither draws nothing)
   // (Its canvas is made with the view, its context only at the first change: a frame makes no element for it. 2 Nov 2026.)
-  const resCv = h('canvas', { class: 'lz-canvas lz-res', 'aria-hidden': 'true', style: { transformOrigin: '0 0' } });
+  const resCv = h('canvas', { class: 'lz-canvas lz-res', 'aria-hidden': 'true' });
   const resCvOf = () => resCv;
   const coverGL = () => (resGL === undefined ? (resGL = createResCover(resCvOf)) : resGL);
   const resSteady = () => fade > 0.98 && !diveScaled && sinU === 0 && !sinTo && !wide && !staging && !!geo && !!model;
@@ -2613,13 +2614,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (g?.ready && draw(0)) {
       // (A change while one still fades starts from the mix as it shows: the cover before, laid over at its weight and place.)
       const [W, H] = snap.hostWH || [g.cv.width || 1, g.cv.height || 1];   // alloc-rare: only on a change of the Figure's resolution (lzWant), never a frame's own
-      const prev = resCover ? { a: +resCover.style.opacity, m: coverFollow(resV0, V, W, H) } : null;   // alloc-rare: only on a change of the Figure's resolution (lzWant), never a frame's own
+      const prev = resCover ? { a: resA, m: coverFollow(resV0, V, W, H) } : null;   // alloc-rare: only on a change of the Figure's resolution (lzWant), never a frame's own
       if (g.build([tissue, tissueG, glCv, fx], prev)) {   // alloc-rare: only on a change of the Figure's resolution (lzWant), never a frame's own
         const cv = g.cv;
         if (!cv.isConnected) fx.after(cv);
-        cv.style.transform = '';
-        cv.style.opacity = '1';
-        resCover = cv; resT0 = performance.now(); resV0 = { ...V };   // alloc-rare: only on a change of the Figure's resolution (lzWant), never a frame's own
+        resCover = cv; resT0 = performance.now(); resV0 = { ...V }; resA = 1; resW = W; resH = H; resShownA = -1;   // (build drew it whole, at weight 1 and no move)   // alloc-rare: only on a change of the Figure's resolution (lzWant), never a frame's own
       } else resCoverEnd();
     } else resCoverEnd();
     lzK = k;
@@ -2630,9 +2629,15 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   function resCoverStep(now) {
     const u = (now - resT0) / FADE_MS;
     if (u >= 1 || diveScaled || wide || fade <= 0) { resCoverEnd(); return; }
-    resCover.style.opacity = Math.round(fadeAlpha(u) * 1e4) / 1e4;   // (a number: the page writes it as text, to four places)
-    const t = viewFollow(resV0, V);
-    if (resCover.style.transform !== t) resCover.style.transform = t;
+    // (The fade and the follow are drawn by the cover's own context, the picture it kept laid at this weight and place: nothing is written
+    // to the canvas's style. Drawn again only when the weight (to four places) or the place changed.)
+    const a = Math.round(fadeAlpha(u) * 1e4) / 1e4, hw = snap.hostWH, m = coverFollowInto(resM, resV0, V, hw ? hw[0] : resW, hw ? hw[1] : resH);
+    let same = a === resShownA;
+    for (let i = 0; same && i < 9; i++) if (m[i] !== resShownM[i]) same = false;
+    if (same) return;
+    if (!resGL?.show(a, m)) { resCoverEnd(); return; }
+    resA = a; resShownA = a;
+    for (let i = 0; i < 9; i++) resShownM[i] = m[i];
   }
   function resCoverEnd() {
     if (!resCover) return;

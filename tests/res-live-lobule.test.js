@@ -87,3 +87,28 @@ test('sinusoid-view.js: the change waits for the open view and is mixed on the G
   assert.match(gl, /gl\.blendColor\(0, 0, 0, Math\.min\(1, a\)\); gl\.blendFunc\(gl\.CONSTANT_ALPHA, gl\.ONE_MINUS_CONSTANT_ALPHA\);/);
   assert.match(gl, /gl\.copyTexImage2D\(gl\.TEXTURE_2D, 0, gl\.RGBA, 0, 0, canvas\.width, canvas\.height, 0\);/, 'copied inside the GPU, no read back');
 });
+
+test('the cover fades and follows the view in its own GPU draw: the canvas style is never written in a frame', async () => {
+  const { coverFollowInto } = await import('../src/ui/res-cover-gl.js');
+  const v0 = { k: 2, x: 10, y: 20 }, v = { k: 3, x: -5, y: 40 }, out = new Array(9);
+  assert.equal(coverFollowInto(out, v0, v, 400, 300), out, 'written in place');
+  assert.deepEqual(out, coverFollow(v0, v, 400, 300));
+  const lz = src('lobule-zoom.js'), step = lz.slice(lz.indexOf('function resCoverStep('), lz.indexOf('function resCoverEnd('));
+  assert.ok(!/\.style\b/.test(step), 'no style write in the cover step');
+  assert.match(step, /resGL\?\.show\(a, m\)/);
+  assert.match(step, /if \(same\) return;/, 'a frame that changed neither the weight nor the place draws nothing');
+  const swap = lz.slice(lz.indexOf('function resSwap()'), lz.indexOf('function resCoverStep('));
+  assert.ok(!/cv\.style\./.test(swap), 'the cover is shown whole by build(), with no style written');
+  assert.match(src('res-cover-gl.js'), /show\(a, m\) \{/);
+});
+
+test('res-cover-gl show(): the kept picture is cleared and drawn at the weight and place given, or the cover ends', async () => {
+  const calls = [];
+  const gl = new Proxy({}, { get: (_, k) => (k === 'isContextLost' ? () => false : (...a) => { calls.push([k, ...a]); return k === 'getUniformLocation' ? k : {}; }) });
+  const { createResCover } = await import('../src/ui/res-cover-gl.js');
+  const cv = { width: 8, height: 6, addEventListener() {}, getContext: () => gl };
+  globalThis.WebGL2RenderingContext = function () {};
+  const g = createResCover(() => cv);
+  assert.equal(g.show(1, null), false, 'nothing kept yet');
+  assert.equal(calls.length, 0, 'and no GL call made');
+});
