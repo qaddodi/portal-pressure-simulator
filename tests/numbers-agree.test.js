@@ -48,7 +48,7 @@ test('a vessel reads one velocity: Details, the tip, the labels and colours read
 test('Details reads the smoothed pressures and flows, as the vessel card does', () => {
   const ins = src('inspector.js');
   assert.doesNotMatch(ins, /fp\(f\.P\[/);
-  assert.match(ins, /const P = \(f\) => f\.Pf \|\| f\.P, Q = \(f\) => f\.Qf \|\| f\.Q;/);
+  assert.match(ins, /const Pof = \(f\) => f\.Pf \|\| f\.P, Qof = \(f\) => f\.Qf \|\| f\.Q;/);
 });
 
 test('an event fires once as it starts, not again with every breath', () => {

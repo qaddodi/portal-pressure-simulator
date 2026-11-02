@@ -13,7 +13,7 @@
 import { store, replaceParams, onParamChange } from './store.js?v=0f9c79ec87';
 import { host } from './host.js?v=654877cff9';
 import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp, putText, swapText } from './util.js?v=506da88dad';
-import { activeInterventions } from './inspector.js?v=3f404e24d5';
+import { activeInterventions } from './inspector.js?v=a8cb6de8be';
 import { removedLabel } from './removed-label.js?v=ea3de67900';
 import { frameFor } from './frame.js?v=07b68cf942';
 import { D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=7d7bfe9a62';
