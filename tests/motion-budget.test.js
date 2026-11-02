@@ -34,3 +34,19 @@ test('off by default: nothing is installed in a page that did not ask, and a win
   const w = motionBudget.start('x'), r = motionBudget.stop(w);
   assert.equal(r.reads + r.writes + r.made + r.upload, 0);
 });
+
+test('every measured motion has a ceiling, and the checks run one as a warning on a runner they already use', async () => {
+  const { readFileSync } = await import('node:fs');
+  const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
+  const caps = JSON.parse(read('tests/motion-budget.json'));
+  const runner = read('scripts/motion-budget.mjs');
+  const names = [...runner.matchAll(/\{ name: '([^']+)', query:/g)].map((m) => m[1]);
+  assert.ok(names.length >= 4);
+  for (const n of names) {
+    const c = caps.iphone[n];
+    assert.ok(c, `${n}: a ceiling`);
+    for (const k of ['reads', 'writes', 'made']) assert.ok(Number.isInteger(c[k]) && c[k] >= 0, `${n} ${k}`);
+  }
+  const checks = read('.github/workflows/checks.yml');
+  assert.match(checks, /- name: Motion budget \(Anatomy to Circuit, phone\)\n\s+if: success\(\) \|\| failure\(\)\n\s+continue-on-error: true\n\s+timeout-minutes: 20\n\s+run: node scripts\/motion-budget\.mjs --only "anatomy to circuit" --check/);
+});

@@ -39,6 +39,9 @@ async function measure(m) {
     await app.freeze();
     if (m.press) await landed(app.page); else await app.page.waitForTimeout(15000);
     const plate = await plated(app.page);
+    // (And their pictures in: the switch from the organs painted live to their pictures reads every organ once, and a window that caught
+    // it counted 556 reads for the view switch where one that did not counted 60. Not every deck gives the quiet frames they need.)
+    await app.page.waitForFunction(() => window.pps.stage.organsPictured?.(), null, { timeout: 600000, polling: 1000 }).catch(() => {});
     await app.page.waitForTimeout(3000);   // (the slide's own settle: anything still easing finishes before the window opens)
     await app.page.evaluate(() => { window.__mb = window.pps.motionBudget.start('motion'); });
     if (m.press) { await app.page.keyboard.press(m.press); await app.page.waitForTimeout(2000); await landed(app.page); }

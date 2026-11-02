@@ -164,6 +164,15 @@ jobs:
           SMOKE_DEVICE: desktop
           SMOKE_WORKERS: 1
         run: npm run smoke:dist
+      # The motion budget (merged GPU plan, item 1): what the Anatomy to Circuit switch asks of the main thread (style and layout reads,
+      # DOM writes, WebGL contexts made), against its ceiling in tests/motion-budget.json. A warning, never a block: the ceilings only go
+      # down. Headless counts vary a lot between runs (what is still settling in the window: the credit placing itself, organ pictures landing), so
+      # each ceiling is the highest count seen with a margin; lower it when the meter says. The deck slide changes (the same file) take minutes each on software GL, so they are run by hand: node scripts/motion-budget.mjs --check.
+      - name: Motion budget (Anatomy to Circuit, phone)
+        if: success() || failure()
+        continue-on-error: true
+        timeout-minutes: 20
+        run: node scripts/motion-budget.mjs --only "anatomy to circuit" --check
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

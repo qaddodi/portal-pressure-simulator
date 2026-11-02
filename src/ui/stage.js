@@ -13022,7 +13022,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     canDrift: () => liveOn(),
     setCamera(to, ms = 900) { if (lobuleOn || !to || sameView(to, vtGliding ? vtTarget : vt)) return; fitted = false; animateVT({ ...to }, ms, { scale: true }); },
     cameraKey: () => `${vt.k.toFixed(3)}|${vt.x.toFixed(1)}|${vt.y.toFixed(1)}`,
-    zoomLobule, zoomLiver, lobuleOpen: () => !!lz?.isOpen(), lobuleViewKey: () => lz?.viewKey(), lobuleCapture: () => lz?.capture?.() ?? null,
+    zoomLobule, zoomLiver, lobuleOpen: () => !!lz?.isOpen(), organsPictured: () => !!veins?.organs?.pictured?.(0), lobuleViewKey: () => lz?.viewKey(), lobuleCapture: () => lz?.capture?.() ?? null,
     labelClearance: () => clearanceReport(),   // (the browser check's: see clearanceReport)
     lobuleSpot: () => lz?.spot() ?? null, lobuleLensFade: () => lz?.lensFade() ?? null, lobuleMem: (detail) => lz?.memBytes(detail) ?? 0, diveProgress: () => diveT, plateRasters: () => plateSeq,
     // (What the station labels' boxes follow: their layouts and the camera. The corner credit's poll looks again only when it changed.)
