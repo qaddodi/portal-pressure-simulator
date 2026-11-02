@@ -110,7 +110,9 @@ test('Callout glass kept (always, since 1 Nov 2026): no frame reads the page; it
   assert.match(g, /const again = \(\) => measureEarly\(\);/);
   assert.match(g, /if \(\/\(end\|cancel\)\$\/\.test\(e\?\.type \|\| ''\)\) \{ measureEarly\(\); return; \}/);
   // (2 Nov 2026: an observer's or an event's read waits for the next frame's read phase, never in the frame's writes.)
-  assert.match(g, /const measureAtOnce = GEO_EARLY && OBS_LATER \? null : measureGeo;\n\s+function measureEarly\(\) \{\n\s+if \(measureAtOnce && \(!GEO_EARLY \|\| framePhase\(\) === 'read'\)\) \{ measureAtOnce\(\); return; \}\n\s+if \(!earlyAsk\) earlyAsk = readFrame\(measureEarlyNow\);/);
+  assert.match(g, /function measureEarly\(\) \{\n\s+if \(!earlyAsk\) earlyAsk = readFrame\(measureEarlyNow\);\n\s+\}/);
+  assert.match(g, /if \(framePhase\(\) === 'read'\) \{ track\(e\); return; \}\n\s+trackQ\.add\(e\);/);
+  assert.doesNotMatch(g, /glassearly|glassobs|GEO_EARLY|OBS_LATER|measureAtOnce/, 'the switches are gone: the default path only');
   assert.match(g, /parentsMo\.observe\(e, \{ attributes: true, attributeFilter: \['style', 'class', 'hidden'\] \}\)/);
   assert.match(g, /for \(const e of \[canvas, source, wrap\]\) if \(e\) watchRo\?\.observe\(e\);/);
   assert.match(g, /document\.addEventListener\?\.\('scroll', onScroll, true\);/);
@@ -122,7 +124,8 @@ test('Callout glass kept: the page is read in one place, with each moving part t
   const g = src('glass-gl.js');
   const m = g.slice(g.indexOf('  function measureGeo() {'), g.indexOf('  /** The page read again just after this frame'));
   assert.match(m, /const cr = tgt \? tgt\.getBoundingClientRect\(\)/);
-  assert.match(m, /const panes = readPanes\(list, MOTION\)/);
+  assert.match(m, /const panes = readPanes\(list, true\)/);
+  assert.doesNotMatch(g, /glassmotion|\bMOTION\b/, 'the switch is gone: the default path only');
   assert.match(m, /const ws = getComputedStyle\(wrap\), bgs = ws\.backgroundColor;\n\s+resolveColour\(bgs\);\n\s+const bg = colour\(bgs, 'transparent'\);/);
   assert.match(m, /const r0 = rest\(shift\(p\.r, back\)\), er0 = rest\(shift\(p\.er, back\)\);/, 'the boxes kept without their glide (a zoomed card taken back to where it rests)');
   assert.match(m, /return \{ \.\.\.p, chain, r0, er0, aS, morph, zoomed: !!za, rad0: za && p\.rad \? p\.rad\.map\(\(v\) => v \/ za\.s\) : p\.rad \};/);

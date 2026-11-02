@@ -8,7 +8,7 @@
 // Off (the browser's glass, as before): no WebGL2, a software renderer, ?gpulabels=0, Settings' blur effect off, reduced
 // transparency, a browser without backdrop blur (whose solid card stays), or a copy the browser refuses.
 
-import { GLASS_SHARE, shareFor, sharePrep, sharePlan, shareTurn, shareUse, shareRelease, shareBytes } from './blur-share.js?v=810f5774b8';
+import { shareFor, sharePrep, sharePlan, shareTurn, shareUse, shareRelease, shareBytes } from './blur-share.js?v=a7365909bf';
 import { glCap, fbComplete } from './gl-state.js?v=4163c507aa';
 import { hold } from './gpu-budget.js?v=5a5dcd699f';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
@@ -28,9 +28,8 @@ export const PANE = { blur: 9, sat: 1.2 };
 /** The Present cards' frost (Mohammad, 2 Nov 2026, on the iPhone: "the blur sucks now it's just transparent"): the callouts' 16 px blur
  *  left the vessels and organs readable through a card; 30 px under a 74 % tint (70ca81f6) read muddy, "not clean". A card is blurred at 22 px
  *  (sigma 22 px), on a grid of 8 CSS px a texel (2.75 texels, inside the 12 taps), from 3 sigmas of figure around it;
- *  its tint, app.css --pz-frost (66 % of the surface, 58 % before), is read from --gl-tint as before. ?cardfrost=soft: as before. */
-const SOFT = typeof location !== 'undefined' && /[?&]cardfrost=soft\b/.test(location.search);
-export const CARD = SOFT ? { ...GLASS } : { blur: 22, sat: 1.15, scale: 8, margin: 66 };
+ *  its tint, app.css --pz-frost (66 % of the surface, 58 % before), is read from --gl-tint as before. */
+export const CARD = { blur: 22, sat: 1.15, scale: 8, margin: 66 };
 /** A rounded rectangle's outline (w × h, corner radius r), as an SVG path. */
 export function roundPath(w, h, r) {
   const f = (n) => +n.toFixed(2), q = Math.max(0, Math.min(r, w / 2, h / 2));
@@ -46,15 +45,12 @@ const MARGIN0 = 48;  // CSS px of the figure taken around the callouts: three of
 export const REBLUR_MS = 50;
 // (Off by default since 1 Nov 2026: on an iPhone the callouts' glass, blurred only every 50 ms while the figure under it moved each frame
 // (a catheter's pulse, eased colours), stepped between a fresh blur and a stale one and read as a hard flicker (FHVP on HVPG 3, IVC on
-// HVPG 7). ?reblur=1, or the option reblur: REBLUR_MS, brings the 50 ms hold back.)
-const REBLUR_URL = typeof location !== 'undefined' && /[?&]reblur=1\b/.test(location.search || '');
+// HVPG 7). The option reblur: REBLUR_MS (tests) brings the 50 ms hold back.)
 // (Since 1 Nov 2026 (Mohammad: "is there a way to keep it and make it faster", and the sheet's cards flickering on his iPhone) the glass drawn in
 // the figure's canvas is blurred again on every picture laid, the moving blood's frames too (option fresh: the figure's count of them), so
 // the frost never holds an old blood picture and then jumps to a new one. Each blur reads only the texels some glass samples (blurBoxes):
-// the same texels from the same pixels as a blur of the whole region, so the same glass, from a fraction of the figure. ?glasshold=1 keeps
-// the blur through the blood's frames again, ?glassfull=1 blurs the whole region again, as before.)
-const SEARCH = typeof location !== 'undefined' ? location.search || '' : '';
-const HOLD_URL = /[?&]glasshold=1\b/.test(SEARCH), FULL_URL = /[?&]glassfull=1\b/.test(SEARCH);
+// the same texels from the same pixels as a blur of the whole region, so the same glass, from a fraction of the figure. The option full
+// (tests) blurs the whole region, as before.)
 /** Texels of the small copy kept around each glass when only part of it is blurred: the blur's 12 taps, one for the glass's smooth
  *  sampling between two texels, and one spare. */
 export const BLUR_KEEP = 14;
@@ -318,9 +314,7 @@ function uniformsOf(gl, bprog, pprog) {
 // status later, KHR_parallel_shader_compile where there is one). The blur's and the glass's programs are started the moment the figure's
 // context is handed over (setHost), long before the first card shows, and only their link status is read, at the first glass, by when the
 // driver has long finished: that frame no longer compiles and links two programs and waits on them. One set
-// per context, shared by every glass drawn there (cards, panes, callouts compiled the same two programs each before). ?glasswarm=0 in the
-// address: each glass compiles its own at its first frame, as before.
-const GLASS_WARM = !(typeof location !== 'undefined' && /[?&]glasswarm=0\b/.test(location.search));
+// per context, shared by every glass drawn there (cards, panes, callouts compiled the same two programs each before).
 const warmed = new WeakMap();
 // (One blur per look per picture, shared by every glass of that look drawn in a context: blur-share.js. Forgotten with the context.)
 const shares = new WeakMap();
@@ -453,12 +447,10 @@ function texOf(gl, filter) {
  * canvas of its own. Otherwise, and for the frame of each change, it is drawn here as before.
  */
 // (What the glass reads from the page, read outside any frame and kept, its motion put back each frame from what it is given: measureGeo,
-// glass-motion.js. ?glassmotion=0: any write to a glass or what holds it reads the page again, its motion included.)
-const MOTION = typeof location === 'undefined' || !/[?&]glassmotion=0\b/.test(location.search);
+// glass-motion.js.)
 // (A card's own edge and drop shadows drawn with its glass on the GPU (--gl-line, --gl-drop), and its size eased there when the page asks
 // (data-gl-morph): Mohammad, 2 Nov 2026, "Do it" to review/slide-motion-recs-2nov (the glass stays up through a slide change and
-// changes size in view). ?gpuedge=0: the page draws them, and a glass jumps to a new size, as before.)
-const GPU_EDGE = typeof location === 'undefined' || !/[?&]gpuedge=0\b/.test(location.search);
+// changes size in view).)
 /** A --gl-drop value ("x y blur spread colour, ..." as written, var() substituted) as [{ x, y, blur, spread, c }] (CSS px), at most two. */
 export function dropsOf(v) {
   const out = [];
@@ -477,14 +469,13 @@ export function dropsOf(v) {
   }
   return out;
 }
-export function createGlassGL(wrap, source, layers, { software = false, off = false, live = () => true, pane = null, cards = null, version = null, capture = null, onFigure = null, keep = null, due = null, copy = true, reblur = REBLUR_URL ? REBLUR_MS : 0, fresh = null, full = FULL_URL, onHoles = null } = {}) {
-  if (HOLD_URL || reblur > 0) fresh = null;
+export function createGlassGL(wrap, source, layers, { software = false, off = false, live = () => true, pane = null, cards = null, version = null, capture = null, onFigure = null, keep = null, due = null, copy = true, reblur = 0, fresh = null, full = false, onHoles = null } = {}) {
+  if (reblur > 0) fresh = null;
   const look = pane ? PANE : cards ? CARD : GLASS;
   const SCALE = look.scale || SCALE0, MARGIN = look.margin || MARGIN0;
   // (While the cards' glass is drawn in the figure's canvas (html[data-cardgl]), a card not yet marked as drawn there shows no solid card
   // (app.css): a card coming in showed the solid fallback for its first frame or two, before its glass's first draw, a flash of solid then
-  // frost (Mohammad, 2 Nov 2026: "the blur flickers when new card opens"). ?cardfallback=1: the solid card until then, as before.)
-  const CARD_MARK = !/[?&]cardfallback=1\b/.test(SEARCH);
+  // frost (Mohammad, 2 Nov 2026: "the blur flickers when new card opens").)
   // (cards: { find, watch, before, read? }: the Present cards' glass (recs A2, 31 Oct): find() lists the elements, each its own rounded box, its
   // corners its border radii and its tint the colour its CSS declares in --gl-tint (app.css: the same colour its background was), drawn
   // while its --gl-glass is 1 and no CSS filter lies on it; watch: the roots whose writes may move them; before: where the canvas goes.
@@ -574,7 +565,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   }
   const wantSet = new Set(), inListSet = new Set();   // (kept, cleared at each use)
   function waitFor(list) {
-    if (!cards || !CARD_MARK) return;
+    if (!cards) return;
     const t = performance.now(), want = wantSet;
     want.clear();
     for (const p of list) if (!marked.has(p.g) && !wasDrawn.has(p.g)) want.add(p.g);   // (a card drawn here before and not now: solid at once)
@@ -740,7 +731,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
         const zk = g.drawnScale ? g.drawnScale() : 1;   // (a zoomed card's scale: its corners grow with it)
         // (A card's own edge and drop shadows, drawn here with its glass where its CSS names them (--gl-line, --gl-drop): the page's own
         // are taken off while it is drawn here ([data-gl="edge"]), so the card is one GPU shape that may change size in view.)
-        const drops = GPU_EDGE ? dropsOf(cs.getPropertyValue('--gl-drop')) : [], line = GPU_EDGE ? cs.getPropertyValue('--gl-line').trim() : '';
+        const drops = dropsOf(cs.getPropertyValue('--gl-drop')), line = cs.getPropertyValue('--gl-line').trim();
         // (cut: the still box a glass that slides is cut off at (a phone sheet's paper sliding below its resting foot, which the sheet's
         // own clip hides on the page): { bottom } in client px, from cards.cut(g), kept where it is while the glass moves.)
         const cut = cards.cut ? cards.cut(g) || null : null;
@@ -949,9 +940,9 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     return false;
   };
   function hostKit() {
-    const G = host.gl, P = GLASS_WARM ? warmPrograms(G, true) : programsOf(G);
+    const G = host.gl, P = warmPrograms(G, true);
     if (!P) return null;
-    const K = { G, ...P, shared: GLASS_WARM,   // alloc-rare: the kit is made once per figure context (setHost), never per frame
+    const K = { G, ...P,   // alloc-rare: the kit is made once per figure context (setHost), never per frame
       vao: G.createVertexArray(), copy: texOf(G, G.LINEAR), pass: texOf(G, G.LINEAR), blurred: texOf(G, G.LINEAR),
       fbCopy: G.createFramebuffer(), fbPass: G.createFramebuffer(), fbOut: G.createFramebuffer(), steps: [], size: '', key: '', reg: null, k: 1,   // alloc-rare: once per figure context
       masks: new WeakMap(), maskTex: new Set(), maskFb: new Set() };   // alloc-rare: once per figure context
@@ -968,7 +959,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     shareRelease(shares, G, shareId, freeShare(G));
     for (const t of [K.copy, K.pass, K.blurred, ...K.steps.map((st) => st.t), ...K.maskTex]) G.deleteTexture(t);
     for (const fb of [K.fbCopy, K.fbPass, K.fbOut, ...K.steps.map((st) => st.fb), ...K.maskFb]) G.deleteFramebuffer(fb);
-    if (!K.shared) { G.deleteProgram(K.bprog); G.deleteProgram(K.pprog); }   // (the warmed set stays with its context, for the others)
+    // (The warmed programs stay with their context, for the others.)
     G.deleteVertexArray(K.vao);
   }
   // Back to this canvas: the browser's glass shows until its first copy is in (marks given back), and the figure's picture is laid again
@@ -976,7 +967,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   function dropHost(again) {
     if (!hostOn) return;
     hostOn = false; hf = null;
-    if (cards && CARD_MARK) document.documentElement?.removeAttribute?.('data-cardgl');
+    if (cards) document.documentElement?.removeAttribute?.('data-cardgl');
     if (hk) hk.key = '';
     unmark();
     tellHoles(NONE);
@@ -1053,7 +1044,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     if (!hostOn) {
       // (This canvas cleared and out of the page's layers; a copy on its way is not put in, and the next one here is taken afresh.)
       hostOn = true; hf = null; gen++; pending = false; ready = null; takenKey = '';
-      if (cards && CARD_MARK) document.documentElement?.setAttribute?.('data-cardgl', '');
+      if (cards) document.documentElement?.setAttribute?.('data-cardgl', '');
       if (canvas) {
         clear();
         canvas.style.visibility = 'hidden';
@@ -1195,7 +1186,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   // blur and one set of marks, given back after the last turn (settleMarks).
   const frameMarks = new Set(), passPanes = [];
   let blurOK = false;
-  const SHARED = GLASS_SHARE && !(reblur > 0);
+  const SHARED = !(reblur > 0);
   function prepInto() {
     frameMarks.clear(); blurOK = false;
     if (hk) hk.share = null;
@@ -1223,7 +1214,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     if (!grid) return;
     const reg = { x: grid.x, y: grid.y, w: grid.w, h: grid.h };
     G.disable(G.SCISSOR_TEST); G.disable(G.STENCIL_TEST);
-    // (The parts of the copy the glasses read, unless the whole of it is blurred (?glassfull=1). Glasses that move change them, so they are
+    // (The parts of the copy the glasses read, unless the whole of it is blurred (option full). Glasses that move change them, so they are
     // part of the key: the same picture with a card moved is blurred again where the card now is; a blur is never kept for other parts.)
     const bw = (grid.X1 - grid.X0) / grid.T, bh = (grid.Y1 - grid.Y0) / grid.T;
     let parts = full ? null : blurBoxes(panes.map((p) => ({ x: p.r.left - cr.left, y: p.r.top - cr.top, w: p.r.width, h: p.r.height })), grid.x, grid.y, grid.T / k, bw, bh);
@@ -1335,7 +1326,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     G.activeTexture(G.TEXTURE1); G.bindTexture(G.TEXTURE_2D, null); G.activeTexture(G.TEXTURE0); G.bindTexture(G.TEXTURE_2D, null);
     G.pixelStorei(G.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
   }
-  const onHostLost = () => { if (host) { warmed.delete(host.gl); fills.delete(host.gl); shares.delete(host.gl); } hk = null; if (hostOn) { hostOn = false; hf = null; if (cards && CARD_MARK) document.documentElement?.removeAttribute?.('data-cardgl'); unmark(); tellHoles(NONE); if (canvas) canvas.style.visibility = ''; ask(); } };
+  const onHostLost = () => { if (host) { warmed.delete(host.gl); fills.delete(host.gl); shares.delete(host.gl); } hk = null; if (hostOn) { hostOn = false; hf = null; if (cards) document.documentElement?.removeAttribute?.('data-cardgl'); unmark(); tellHoles(NONE); if (canvas) canvas.style.visibility = ''; ask(); } };
   const sameList = (a, b) => {
     if (a.length !== b.length) return false;
     for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
@@ -1353,9 +1344,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   // (2 Nov 2026, Mohammad: "MOVE. EVERYTHING. TO. GPU". Where each animation is in a frame comes from its clock (glass-motion.js clockOf,
   // clockAt): its timing taken once when it is first seen, its start time once it has started, and the frame's time. A frame asked each
   // one for its playState, pending and getComputedTiming(), and each of those brings a CSS animation's styles up to date, every frame of
-  // a slide change. Its end comes from its timing, or its finish, cancel or remove event (a cancel() sends one). ?glassclock=0: read
-  // from the animation every frame, as before (that path is picked here, once, and runs only with the switch).)
-  const CLOCK = !/[?&]glassclock=0\b/.test(SEARCH);
+  // a slide change. Its end comes from its timing, or its finish, cancel or remove event (a cancel() sends one).)
   const tlNow = () => { const t = document.timeline?.currentTime; return Number.isFinite(t) ? t : performance.now(); };
   // (stateOf answers in one kept record, read before the next call: nothing is made for each animation in a frame.)
   const ST = { st: '', p: null, end: 0, fills: false, bad: false, live: undefined };
@@ -1366,16 +1355,10 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     ST.st = r.st; ST.p = r.p; ST.end = r.end; ST.fills = fillsAfter(rec.c); ST.bad = rec.c.bad;
     return ST;
   }
-  function readState(an) {
-    const ct = an.effect?.getComputedTiming?.();
-    ST.st = an.playState; ST.p = ct?.progress; ST.end = ct?.endTime; ST.fills = fillsOn(an); ST.bad = false; ST.live = an.playState === 'running' || an.pending;
-    return ST;
-  }
-  const stateOf = CLOCK ? clockState : readState;
+  const stateOf = clockState;
   function timeAnim(an) {
     const rec = { kf: null, c: null };   // alloc-rare: an animation is timed once, the first time it is seen (trackSoon/measureGeo), never per frame
     try { rec.kf = an.effect?.getKeyframes?.() || null; } catch { rec.kf = null; }
-    if (!CLOCK) return rec;
     const c = rec.c = clockOf(an, tlNow());
     if (!c) return rec;
     const stop = (done) => () => { if (done) c.done = true; else c.idle = true; wake(); measureSoon(); };   // alloc-rare: an animation is timed once, the first time it is seen (trackSoon/measureGeo), never per frame
@@ -1390,11 +1373,8 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   // (Where an animation that has just finished left its element, until the page is read again: { t, o } of its last keyframe. Mohammad,
   // 2 Nov 2026, the iPhone: "the glass appears alone, a solid flash". A card's fade carried by its transition (the data card's pz-hide)
   // was dropped as it finished, and until the read after it the card's glass was drawn at the fade it had been read with, whole, over a
-  // card at 0. ?glassend=0: as before.)
-  const ENDS = !/[?&]glassend=0\b/.test(SEARCH);
+  // card at 0.)
   const ended = new Map();
-  const RISE = !/[?&]glassrise=0\b/.test(SEARCH);
-  const LIVE_READ = !/[?&]liveread=0\b/.test(SEARCH);
   const chainOf = (g) => { const c = []; for (let e = g; e && e !== stop && e.nodeType !== 9; e = e.parentElement) c.push(e); return c; };
   function addAnim(e, an) {
     let m = anims.get(e);
@@ -1406,7 +1386,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     const list = e.getAnimations();
     for (const an of list) addAnim(e, an);
     // (One the page no longer lists has gone (cancelled, or ended with no fill): let go here, read outside any frame.)
-    const m = CLOCK && anims.get(e);
+    const m = anims.get(e);
     if (m) { for (const an of m.keys()) if (!list.includes(an)) m.delete(an); if (!m.size) anims.delete(e); }
   }
   // (A script's animate() on a glass or on what holds it is followed from its first frame: no event announces one.)
@@ -1421,7 +1401,6 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     const own = e.animate;
     e.animate = function (...args) { const an = own.apply(this, args); if (an) { addAnim(this, an); wake(); } return an; };   // alloc-rare: an element's animate() is hooked once, the first time it is seen
   }
-  const fillsOn = (an) => /forwards|both/.test(an.effect?.getTiming?.().fill || '');
   // One element's moving part now: { t: [x, y] (its translation), o (its opacity, or null when not moving) }; bad: something it cannot
   // follow (the page is read again just after this frame); ended: an animation of it has ended (likewise, for its end state).
   // (Whether an animation ends: from the timing it was given (its clock, or getTiming), never its computed timing, which brings the
@@ -1441,7 +1420,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
         const kf = rec.kf, S = stateOf(an, rec), st = S.st;
         if (st === 'idle' || (st === 'finished' && !S.fills)) {
           m.delete(an); flag.ended = true;
-          if (ENDS && st === 'finished') { const v = kf && motionAt(kf, 1); if (v) { const was = ended.get(e) || {}; ended.set(e, { t: v.t || was.t || null, o: v.o ?? was.o ?? null }); } }   // alloc-rare: an animation has just finished (once per animation), not per frame
+          if (st === 'finished') { const v = kf && motionAt(kf, 1); if (v) { const was = ended.get(e) || {}; ended.set(e, { t: v.t || was.t || null, o: v.o ?? was.o ?? null }); } }   // alloc-rare: an animation has just finished (once per animation), not per frame
           continue;
         }
         if (S.bad) { flag.bad = true; continue; }
@@ -1457,7 +1436,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       }
       if (!m.size) anims.delete(e);
     }
-    const end = ENDS && ended.get(e);
+    const end = ended.get(e);
     if (end) { if (!hasT && end.t && !e.style?.transform) { tx = end.t[0]; ty = end.t[1]; hasT = true; } if (o == null && end.o != null) o = end.o; }
     const s = e.style;
     if (s) {
@@ -1468,8 +1447,8 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       // (A card the page moves by a custom property its stylesheet turns into a translate (the words' card's --pz-rise as the readings are
       // pulled out, the data card's --pz-lift): cards.shift(e) gives that move, read from the inline value each frame, so the glass rises
       // with its words. Before, it waited for the next read of the page and the words outran their card (Mohammad, 2 Nov 2026, untucking
-      // on the iPhone). ?glassrise=0: as before.)
-      if (RISE && cards?.shift && !s.translate && !anims.get(e)?.size) { const sh = cards.shift(e); if (sh) { tx += sh[0]; ty += sh[1]; } }
+      // on the iPhone).)
+      if (cards?.shift && !s.translate && !anims.get(e)?.size) { const sh = cards.shift(e); if (sh) { tx += sh[0]; ty += sh[1]; } }
     }
     MV.x = tx; MV.y = ty; MV.o = o;
     return MV;
@@ -1512,7 +1491,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     const bgVar = bg[3] > 0 ? '' : ws.getPropertyValue('--stage-bg').trim() || ws.getPropertyValue('--bg').trim();
     resolveColour(bgVar);
     const prev = geo?.panes || [], tNow = performance.now();
-    const panes = readPanes(list, MOTION).map((p) => {
+    const panes = readPanes(list, true).map((p) => {
       p.tint = p.tint.trim();   // (a frame looks the colour up by this string)
       resolveColour(p.tint);
       if (p.line) resolveColour(p.line);
@@ -1532,7 +1511,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       // (A card the page asks to change size in view (data-gl-morph: the teaching card's glass kept up through a slide change) eases from
       // where it is drawn now to its new box on the GPU, its edge and shadows with it; read again mid-way, it carries on from there.)
       let morph = null;
-      if (GPU_EDGE && p.rad && !p.d) {
+      if (p.rad && !p.d) {
         const q = prev.find((x) => x.g === p.g && x.rad && !x.d);
         if (q) {
           const cur = morphAt(q, tNow);
@@ -1558,8 +1537,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   // observer's task (a microtask straight after a frame's callbacks, or an event's), where the page's styles were not up to date: the
   // animations and boxes read there made the browser restyle and lay out the page then, up to 14 ms on a slide change. Those reads wait
   // for the first, read-only phase of the next frame (frame.js readFrame), where the page is as the browser last laid it, and the glass
-  // drawn in that frame's final phase still has them. ?glassearly=0: read at once, as before.)
-  const GEO_EARLY = !/[?&]glassearly=0\b/.test(SEARCH);
+  // drawn in that frame's final phase still has them.)
   const readFrame = readFrameFor(cards ? 'glass-cards' : pane ? 'glass-pane' : 'glass');
   let earlyAsk = 0;
   function measureEarlyNow() { earlyAsk = 0; if (trackQ.size) trackNow(); measureGeo(); }
@@ -1570,17 +1548,13 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   function trackNow() { trackAsk = 0; for (const e of trackQ) track(e); trackQ.clear(); }
   function trackSoon(e) {
     if (!e) return;
-    if (!GEO_EARLY || framePhase() === 'read') { track(e); return; }
+    if (framePhase() === 'read') { track(e); return; }
     trackQ.add(e);
     if (!trackAsk) trackAsk = readFrame(trackNow);
   }
   // (2 Nov 2026: an observer that fires in the read phase fired after a write made there, so a read in it laid the page out in that
-  // microtask: it is read in the next frame's read phase too. ?glassobs=0: read at once there, as before; ?glassearly=0: always at once.
-  // Picked once, here.)
-  const OBS_LATER = !/[?&]glassobs=0\b/.test(SEARCH);
-  const measureAtOnce = GEO_EARLY && OBS_LATER ? null : measureGeo;
+  // microtask: it is read in the next frame's read phase too.)
   function measureEarly() {
-    if (measureAtOnce && (!GEO_EARLY || framePhase() === 'read')) { measureAtOnce(); return; }
     if (!earlyAsk) earlyAsk = readFrame(measureEarlyNow);
   }
   /** The page read again just after this frame (or now, outside a frame), once however often asked. */
@@ -1621,8 +1595,8 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     }
     // (A move the motion cannot put back by itself (a card zoomed up: a scale, in a glide that ends): read again in the next frame's read phase, so its glass is
     // drawn where the card is in that frame, never left a frame or more behind at its old box, an empty panel (Mohammad, 2 Nov 2026, a
-    // chart zoomed on HVPG 3). ?liveread=0: just after this frame, as before.)
-    if (flag.live && LIVE_READ) measureEarly(); else if (flag.bad || flag.ended) measureSoon();
+    // chart zoomed on HVPG 3).)
+    if (flag.live) measureEarly(); else if (flag.bad || flag.ended) measureSoon();
     if (due?.()) measureSoon();
     // (The camera moved since the page was read: what lies across the glasses is read again once it has rested 250 ms. While it moves, a
     // glass keeps the way it is drawn; hostDraw changes it only at rest anyway.)
@@ -1655,7 +1629,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       let keep = false;
       for (const [an, rec] of m) {
         const S = stateOf(an, rec);
-        if ((S.live ?? S.st === 'running') && Number.isFinite(S.end)) return true;   // (one that never ends does not hold it awake)
+        if (S.st === 'running' && Number.isFinite(S.end)) return true;   // (one that never ends does not hold it awake)
         if (S.st !== 'idle' && (S.st !== 'finished' || S.fills)) keep = true;
       }
       if (!keep) anims.delete(e);
@@ -1676,10 +1650,10 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     if (glassesNow().length) poll = setTimeout(pollFn, 1000);
   }
   // (Whether these writes change more than the motion puts back: anything but a style that changed only in a translation or an opacity
-  // already written there (glass-motion.js movesOnly) on an element inside the glasses' layers. ?glassmotion=0: every write does.)
+  // already written there (glass-motion.js movesOnly) on an element inside the glasses' layers.)
   function changed(recs) {
     for (const r of recs) {
-      if (!MOTION || r.type !== 'attributes' || r.attributeName !== 'style') return true;
+      if (r.type !== 'attributes' || r.attributeName !== 'style') return true;
       const e = r.target;
       if (e.contains?.(stop) || !movesOnly(r.oldValue || '', e.getAttribute('style') || '')) return true;
     }
@@ -1769,7 +1743,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
         hostFree();
       }
       host = h;
-      if (GLASS_WARM) { warmPrograms(h.gl, false); if (SHADER_WARM) h.warmIn?.(warmTask(h.gl)); }   // (started now, published when done: see warmPrograms, warmTask)
+      warmPrograms(h.gl, false); if (SHADER_WARM) h.warmIn?.(warmTask(h.gl));   // (started now, published when done: see warmPrograms, warmTask)
       host.canvas.addEventListener('webglcontextlost', onHostLost);
       hostTops = cards
         ? [host.add({ order: h.order?.low ?? 1, prep: prepInto, draw: () => drawInto('low') }), host.add({ order: h.order?.high ?? 3, draw: () => drawInto('high') })]
@@ -1828,7 +1802,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       hostTops = [];
       unmark();
       tellHoles(NONE);
-      if (hostOn) { hostOn = false; hf = null; if (cards && CARD_MARK) document.documentElement?.removeAttribute?.('data-cardgl'); host?.now(); }
+      if (hostOn) { hostOn = false; hf = null; if (cards) document.documentElement?.removeAttribute?.('data-cardgl'); host?.now(); }
       hostFree();
       if (gl && !lost) {
         for (const t of [copyTex, pass, blurred, ...maskTex]) gl.deleteTexture(t);

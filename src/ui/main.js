@@ -6,7 +6,7 @@ import { budget as gpuBudget } from './gpu-budget.js?v=5a5dcd699f';   // (the re
 import './gl-state.js?v=4163c507aa';   // (early: every WebGL2 context is recorded from its creation, R09/R06)
 import { startHost, host, hostFailed, restartHost } from './host.js?v=00e68113c8';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=2e6b562412';
-import { createStage } from './stage.js?v=d2de79ab8f';
+import { createStage } from './stage.js?v=59020ff3e7';
 import { createCreditPlacer } from './credit.js?v=6cabdae435';
 import { whenQuiet, booting, holdCover } from './quiet.js?v=856a3cdf1e';
 import { sinusoidSupported } from './gl-support.js?v=6219c6f004';
@@ -1164,8 +1164,8 @@ function renderBanner() {
 function wireTopbar() {
   initDebug(() => stage.zoomLevel());
   // ?perf in the address: the readout of what blocks frames after a pan or pinch (perf-readout.js). Without it, never loaded.
-  // (And the frame-time overlay beside it, frame-hud.js: fps, 1% low, interval and script percentiles, surfaces, throttle. ?hud=0 off.)
-  if (new URLSearchParams(location.search).has('perf')) import('./frame-hud.js?v=1dec6bb463').then(({ startFrameHud }) => startFrameHud()).catch(() => { /* a measuring aid only */ });
+  // (And the frame-time overlay beside it, frame-hud.js: fps, 1% low, interval and script percentiles, surfaces, throttle.)
+  if (new URLSearchParams(location.search).has('perf')) import('./frame-hud.js?v=ad85a2e0ad').then(({ startFrameHud }) => startFrameHud()).catch(() => { /* a measuring aid only */ });
   // High Refresh (high-refresh.js): on a touch screen the first tap goes full screen, past the browser's 60 Hz hold for pages.
   import('./high-refresh.js?v=d51eb37228').then(({ startHighRefresh }) => startHighRefresh()).catch(() => { /* full screen is a bonus */ });
   if (new URLSearchParams(location.search).has('perf')) import('./perf-readout.js?v=8521ed196d').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });

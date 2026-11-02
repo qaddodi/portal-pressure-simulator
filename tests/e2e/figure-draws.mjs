@@ -73,45 +73,6 @@ try {
   if (errors.length) fail(`page errors: ${[...new Set(errors)].slice(0, 3).join(' | ')}`);
   await ctx.close();
 
-  // ?flow=dashes (flow-dash.js): with the model running and nothing else changing, the canvas stands still (the streaks are a still
-  // picture, the model's own frames draw nothing new) while the dashes and heads move by themselves as small layers: a handful of
-  // figure frames in 3 s at most (today's moving streaks draw about 180), and dashes on screen whose animations run.
-  {
-    const ctx2 = await browser.newContext({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1, serviceWorkers: 'block' });
-    const pg = await ctx2.newPage();
-    pg.setDefaultTimeout(120000);
-    const errs = [];
-    pg.on('pageerror', (e) => errs.push(e.message));
-    await pg.addInitScript(() => {
-      for (const C of [window.WebGLRenderingContext, window.WebGL2RenderingContext]) {
-        if (!C) continue;
-        const gp = C.prototype.getParameter;
-        C.prototype.getParameter = function (p) { return p === 0x9246 || p === 0x1F01 ? 'Apple M2 GPU' : gp.call(this, p); };
-      }
-    });
-    await pg.goto(server.url + '?preset=cirr-decomp&flow=dashes');
-    await pg.waitForFunction(() => window.pps?.store?.get().frame, null, { timeout: 120000 });
-    await pg.evaluate(() => window.pps.store.set({ running: true }));
-    await pg.waitForTimeout(8000);   // landed, the dashes built, every ease settled
-    const dn = () => pg.evaluate(() => window.pps.perf.totals.drawn.stage || 0);
-    await pg.evaluate(() => { window.__frames = 0; window.pps.store.on('frame', () => window.__frames++); });
-    const model = () => pg.evaluate(() => window.__frames);
-    const d0 = await dn(), t0 = await model();
-    await pg.waitForTimeout(3000);
-    const d1 = await dn(), t1 = await model();
-    const dash = await pg.evaluate(() => {
-      const els = [...document.querySelectorAll('.flow-dash .fd-m')];
-      const run = els.filter((e) => e.getAnimations().some((a) => a.playState === 'running' && a.playbackRate !== 0)).length;
-      return { n: els.length, run, on: !!document.querySelector('.flow-dash.on') };
-    });
-    console.log(`dashes       ${d1 - d0} figure frames in 3 s with the model running (${t1 - t0} model frames); ${dash.n} dash and head elements, ${dash.run} moving, layer ${dash.on ? 'shown' : 'hidden'}`);
-    if (t1 === t0) fail('dashes: the model did not run');
-    if (d1 - d0 > 12) fail(`dashes: the canvas kept drawing at rest with the model running: ${d1 - d0} frames in 3 s`);
-    if (!dash.on || dash.n < 10) fail(`dashes: the layer shows ${dash.n} elements (${dash.on ? 'shown' : 'hidden'})`);
-    if (dash.run < dash.n / 3) fail(`dashes: only ${dash.run} of ${dash.n} elements move`);
-    if (errs.length) fail(`dashes: page errors: ${[...new Set(errs)].slice(0, 3).join(' | ')}`);
-    await ctx2.close();
-  }
 } finally {
   await browser.close();
   server.close?.();

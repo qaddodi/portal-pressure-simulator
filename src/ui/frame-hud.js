@@ -1,5 +1,5 @@
 // The frame-time overlay (120 Hz recs, P0; 2 Nov 2026, Mohammad: "need to make this game engine 120hz"). Loaded only with ?perf in
-// the address (main.js), beside the lag readout; ?hud=0 leaves it out. A small panel at the top right that shows, for the last 2 s of
+// the address (main.js), beside the lag readout. A small panel at the top right that shows, for the last 2 s of
 // frames the app ran:
 //   - the fixed target (120 Hz, 8.333 ms) and, apart from it, the cadence the page's callbacks are observed at, the highest seen and a
 //     worker's own frame clock where the browser has one. A difference is reported as an observation, cause unclassified: these inputs
@@ -17,7 +17,6 @@ import { restPass } from './rest-pass.js?v=bb619a1659';
 import { sharedStats } from './trace-gl.js?v=48fdded63b';
 import { caught } from './caught.js?v=b96b17594a';
 
-export const HUD_OFF = (search) => /[?&]hud=0\b/.test(String(search ?? ''));
 const KEEP = 600;
 
 /** Sorted copy's value at share q (0..1). */
@@ -88,7 +87,6 @@ function workerClock(onHz) {
 }
 
 export function startFrameHud() {
-  if (HUD_OFF(location.search)) return null;
   const gaps = [], scripts = [];
   let last = perf().totals, lastFrames = last.frames, workerHz = 0, idleAt = 0, lastCharts = { ...sharedStats };
   // (A visibility change is marked as it happens: the one interval that spans it is left out, by that published rule and no other;

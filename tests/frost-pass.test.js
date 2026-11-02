@@ -70,7 +70,7 @@ const { createGlassGL } = await import('../src/ui/glass-gl.js');
 const flush = async () => { await new Promise((r) => setImmediate(r)); };
 const frames = async (k) => { for (let i = 0; i < k; i++) { clock += 16; for (const cb of rafs.splice(0)) cb(clock); await flush(); } };
 
-// (The whole region blurred in one go (full, ?glassfull=1): the counts below are its two passes. By default each part of it a glass reads is
+// (The whole region blurred in one go (the option full): the counts below are its two passes. By default each part of it a glass reads is
 // blurred alone, two passes a part, to the same texels: tests/glass-parts.test.js.)
 const G = createGlassGL(wrap, source, [], { cards: { find: () => [shade, data], watch: [root], before: { parentNode: null } }, version: () => seq, copy: false, full: true });
 

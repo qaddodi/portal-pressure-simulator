@@ -150,11 +150,11 @@ test('let go: the waiting blur is cancelled', async () => {
 
 // (1 Nov 2026: the 50 ms hold is off unless asked for. On an iPhone the callouts' glass stepped between a fresh blur and a stale one
 // under a figure that moved each frame (the catheter's pulse) and read as a hard flicker (FHVP on HVPG 3, IVC on HVPG 7).)
-test('the hold is off by default: only ?reblur=1 or the reblur option holds a blur', async () => {
+test('the hold is off by default: only the reblur option holds a blur (?reblur deleted)', async () => {
   const { readFileSync } = await import('node:fs');
   const src = readFileSync(new URL('../src/ui/glass-gl.js', import.meta.url), 'utf8');
-  assert.match(src, /reblur = REBLUR_URL \? REBLUR_MS : 0, fresh = null, full = FULL_URL, onHoles = null \} = \{\}\)/);
-  assert.match(src, /if \(HOLD_URL \|\| reblur > 0\) fresh = null;/, 'the hold, when asked for, is the old one: the blood\'s frames keep the blur');
-  assert.match(src, /REBLUR_URL = typeof location !== 'undefined' && \/\[\?&\]reblur=1\\b\//);
+  assert.match(src, /reblur = 0, fresh = null, full = false, onHoles = null \} = \{\}\)/);
+  assert.match(src, /if \(reblur > 0\) fresh = null;/, 'the hold, when asked for, is the old one: the blood\'s frames keep the blur');
+  assert.doesNotMatch(src, /REBLUR_URL|reblur=1/, 'the switch is gone: the default path only');
   assert.match(src, /if \(reblur > 0 && view !== null/);
 });

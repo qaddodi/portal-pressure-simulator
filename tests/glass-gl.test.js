@@ -82,7 +82,7 @@ test('the glass takes a new copy of the figure only when the figure, the region 
   assert.match(SRC, /ready = \{ \.\.\.got \};\n\s+takenKey = key;/);
   assert.ok(SRC.indexOf('const key = version') < SRC.indexOf('createImageBitmap(source'), 'the key is read before the snapshot');
   // Without a version the old rule stands: a copy whenever the last has arrived.
-  assert.match(SRC, /version = null, capture = null, onFigure = null, keep = null, due = null, copy = true, reblur = REBLUR_URL \? REBLUR_MS : 0, fresh = null, full = FULL_URL, onHoles = null \} = \{\}\) \{/);
+  assert.match(SRC, /version = null, capture = null, onFigure = null, keep = null, due = null, copy = true, reblur = 0, fresh = null, full = false, onHoles = null \} = \{\}\) \{/);
   // The figure counts every time its canvas is drawn on: a composite that drew something, and a clear; and the stage hands that on.
   // (But for a frame of the moving blood alone, whose streaks the glass's blur evens out: review H4, 30 Oct.)
   assert.match(VEINS, /pictured\(!full && !part && !dirt && !pool && !\(fl\?\.ripple && nFluid\) && !cath && bare && same && !figNew\);/);
@@ -96,4 +96,25 @@ test('the glass is drawn on the shared final phase, once a frame, after the figu
   assert.match(SRC, /const loop = \(\) => \{ raf = 0; if \(changed\(mo\.takeRecords\(\)\)\) measureSoon\(\); settle\(draw\(\)\); \};/, 'the writes made before it in its frame are drawn by it (a glide or fade put back now; anything else read just after the frame), not again after');
   assert.match(SRC, /function ask\(\) \{ if \(!raf && !lost && !dead\) raf = later\(loop\); \}/);
   assert.doesNotMatch(SRC, /requestAnimationFrame/, 'no frame of its own');
+});
+
+// (Holding 120 Hz §2.9: the glass's runtime switches deleted, each to the way it ran with no switch in the address.)
+test('glass-gl.js and blur-share.js keep only the default path of their deleted switches', () => {
+  const SHARE = readFileSync(new URL('../src/ui/blur-share.js', import.meta.url), 'utf8');
+  for (const s of ['cardfallback', 'cardfrost', 'glassclock', 'glassearly', 'glassend', 'glassfull', 'glasshold', 'glassmotion', 'glassobs', 'glasswarm', 'gpuedge', 'liveread', 'reblur=', 'glassshare']) {
+    assert.doesNotMatch(SRC, new RegExp(`[?&]${s.replace('=', '')}\\b|/\\[\\?&\\]${s.replace('=', '')}`), `?${s} is gone from glass-gl.js`);
+    assert.doesNotMatch(SHARE, new RegExp(`\\?${s.replace('=', '')}\\b`), `?${s} is gone from blur-share.js`);
+  }
+  assert.doesNotMatch(SRC + SHARE, /GLASS_SHARE|CARD_MARK|GPU_EDGE|GLASS_WARM|LIVE_READ|\bSOFT\b|\bCLOCK\b|readState|fillsOn/);
+  assert.match(SRC, /export const CARD = \{ blur: 22, sat: 1\.15, scale: 8, margin: 66 \};/, 'the cards\' 22 px frost');
+  assert.match(SRC, /function waitFor\(list\) \{\n\s+if \(!cards\) return;/, 'a card not yet drawn shows no solid card');
+  assert.match(SRC, /if \(cards\) document\.documentElement\?\.setAttribute\?\.\('data-cardgl', ''\);/);
+  assert.match(SRC, /const drops = dropsOf\(cs\.getPropertyValue\('--gl-drop'\)\), line = cs\.getPropertyValue\('--gl-line'\)\.trim\(\);/, 'the card\'s edge and shadows on the GPU');
+  assert.match(SRC, /if \(p\.rad && !p\.d\) \{\n\s+const q = prev\.find/, 'its size eased on the GPU');
+  assert.match(SRC, /const G = host\.gl, P = warmPrograms\(G, true\);/, 'the warmed programs, shared per context');
+  assert.match(SRC, /warmPrograms\(h\.gl, false\); if \(SHADER_WARM\) h\.warmIn\?\.\(warmTask\(h\.gl\)\);/);
+  assert.match(SRC, /const SHARED = !\(reblur > 0\);/, 'one blur per look per picture unless the hold is asked for');
+  assert.match(SRC, /const stateOf = clockState;/, 'an animation\'s place from its clock');
+  assert.match(SRC, /if \(flag\.live\) measureEarly\(\); else if \(flag\.bad \|\| flag\.ended\) measureSoon\(\);/);
+  assert.match(SRC, /if \(r\.type !== 'attributes' \|\| r\.attributeName !== 'style'\) return true;/, 'a glide or fade is put back by the motion');
 });
