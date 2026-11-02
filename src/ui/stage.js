@@ -2761,11 +2761,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-<<<<<<< HEAD
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=00e7b9811f').catch((err) => { lzCode = null; throw err; }));
-=======
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=00e7b9811f').catch((err) => { lzCode = null; throw err; }));
->>>>>>> abaa360f (Callouts, lobule labels and zones, sinusoid captions, timeline count, Doppler band and the top bar's glides build and read nothing in a frame or a mutation callback)
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=55541a0ba7').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
