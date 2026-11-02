@@ -7365,13 +7365,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // on every figure frame and made the decks laggier than the browser's own blur. Where the figure's canvas cannot take a card's glass,
   // and with ?glasscopy=1, that card keeps the browser's glass, as before.)
   const cardGLs = new Set();
+  // (A card is never kept out of its GPU glass by what lies between the figure's canvas and it: kept out, it showed no glass at all, the
+  // figure sharp through it (Mohammad, 2 Nov 2026, HVPG 6 in the lobule: "CARDS ARE GLASS"), as the anatomy's overlay boxes, kept from
+  // before the lobule covered it, still crossed it there. The labels the GPU draws already leave every card's glass out (setHoles); the
+  // card's own words lie over whatever else does. ?cardcross=1: kept out, as before.)
+  const CARD_CROSS = /[?&]cardcross=1\b/.test(location.search);
   const cardGlass = (cards) => {
     if (!veins?.top || GLASS_COPY || CARD_FROST_OFF) return null;
     const shade = cards.low;
     const key = {};
     const g = createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, off: /[?&]gpulabels=0\b/.test(location.search), cards, live: () => !!frostLiver || (wrap.classList.contains('gl-on') && !anatCovered() && !(diveT > 0)), version: frostSeq, fresh: frostFresh, onFigure: (f) => veins.onPicture(f), copy: false, onHoles: frostHoles(key) });
     if (!g) return null;
-    hostFrost(g, { order: { low: 1, high: 3 }, active: () => !frostWhy(true), why: () => frostWhy(true), over: (level) => frostOver(level === 'low' ? 'low' : 'cards'), low: (el) => el === shade || el?.dataset?.ghost === 'shade' });
+    hostFrost(g, { order: { low: 1, high: 3 }, active: () => !frostWhy(true), why: () => frostWhy(true), over: (level) => (CARD_CROSS ? frostOver(level === 'low' ? 'low' : 'cards') : []), low: (el) => el === shade || el?.dataset?.ghost === 'shade' });
     cardGLs.add(g);
     const dispose = g.dispose;
     g.dispose = () => { cardGLs.delete(g); frostHosts.delete(g); dispose(); if (holeSets.delete(key)) sendHoles(); };
