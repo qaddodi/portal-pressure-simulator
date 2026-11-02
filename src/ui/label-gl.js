@@ -573,15 +573,23 @@ void main() { o = texture(uT, vUV) * uA; }`;
   const VOLATILE = new Set(['x', 'y', 'dx', 'dy', 'width', 'height', 'rx', 'ry', 'cx', 'cy', 'r', 'd', 'transform', 'data-gl', 'aria-label', 'tabindex', 'role']);
   let epoch = 0, fillT = 0;
   const snaps = new Map(), easing = new WeakMap(), unread = new Set(), waiting = new Set();
+  // The key of an element's style is a number worked out from the same things the text key was made of (the epoch, each ancestor's tag,
+  // its attributes but the volatile ones, its hover and focus), mixed into two 32-bit hashes kept in a 53-bit integer, so a label
+  // looked at in a frame makes no string (2 Nov 2026, scripts/frame-alloc.mjs). A field ends in a separator, so "ab" + "c" is not "a" + "bc".
+  let kh1 = 0, kh2 = 0;
+  const mixC = (c) => { kh1 = Math.imul(kh1 ^ c, 0x01000193); kh2 = (Math.imul(kh2 + c + 1, 0x85ebca6b) ^ (kh2 >>> 13)) | 0; };
+  const mixS = (str) => { for (let i = 0; i < str.length; i++) mixC(str.charCodeAt(i)); mixC(1); };
   function styleKey(el) {
-    let k = String(epoch);
+    kh1 = 0x811c9dc5 | 0; kh2 = 0x9e3779b9 | 0;
+    mixC(epoch & 0xffff); mixC((epoch >>> 16) & 0xffff); mixC(2);
     for (let e = el; e; e = e.parentElement) {
-      k += `|${e.tagName}`;
-      if (e === svg) { k += `.${e.getAttribute('class') || ''}`; break; }
-      for (const a of e.attributes) if (!VOLATILE.has(a.name)) k += ` ${a.name}=${a.value}`;
-      if (e.classList?.contains('lb')) { try { k += `:${e.matches(':hover') ? 'h' : ''}${e.matches(':focus-visible') ? 'f' : ''}`; } catch (e) { caught('label-gl:581', e); /* no state */ } }
+      mixS(e.tagName);
+      if (e === svg) { mixC(3); mixS(e.getAttribute('class') || ''); break; }
+      const at = e.attributes;
+      for (let i = 0; i < at.length; i++) { const a = at[i]; if (!VOLATILE.has(a.name)) { mixC(4); mixS(a.name); mixC(5); mixS(a.value); } }
+      if (e.classList?.contains('lb')) { try { mixC(e.matches(':hover') ? 6 : 7); mixC(e.matches(':focus-visible') ? 8 : 9); } catch (err) { caught('label-gl:581', err); /* no state */ } }
     }
-    return k;
+    return (kh1 >>> 0) * 2097152 + ((kh2 >>> 0) & 0x1fffff);
   }
   function styleOf(el) {
     const k = styleKey(el), e = easing.get(el);

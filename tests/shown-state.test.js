@@ -80,9 +80,9 @@ test('one follower: snaps when told, on a jump, and when not finite', () => {
 
 test('the bar, the Readouts tab, the charts and the instruments read the one shown state', () => {
   const dock = read('../src/ui/dock.js'), pane = read('../src/ui/readouts-pane.js'), main = read('../src/ui/main.js'), worker = read('../src/worker-core.js');
-  assert.match(dock, /shownState\.set\('bar:' \+ t\.id, v, followOpts\(t\.d, !eased\)\)/);
+  assert.match(dock, /shownState\.set\(x\.kBar, v, followOpts\(t\.d, !eased\)\)/);
   assert.match(dock, /shownState\.on\(\(\) => \{ if \(frame\) paintStrip\(frame, true\); \}\)/);
-  assert.match(dock, /const gap = \{ hvpg: tenthGap\(sm\.whvp, sm\.fhvp, null\), ppg: tenthGap\(sm\.pv, sm\.ivc, null\) \}/);
+  assert.match(dock, /gap\.hvpg = tenthGap\(sm\.whvp, sm\.fhvp, null\); gap\.ppg = tenthGap\(sm\.pv, sm\.ivc, null\);/);
   assert.match(pane, /shownState\.set\('rp:' \+ t\.id, v, followOpts\(t\.d, !eased\)\)/);
   assert.match(read('../styles/app.css'), /\.rb-fill \{[^}]*transition: opacity var\(--d-small\) var\(--ease\);/, 'it fades; its colour is taken at once (1 Nov 2026, move everything to GPU: a colour, shadow or edge eased repaints every frame, so it is taken at once)');
   assert.match(main, /if \(jumpSeen\) \{ jumpSeen = false; noteJump\(\); \}/);

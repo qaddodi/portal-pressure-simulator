@@ -210,7 +210,13 @@ const OC = new WeakMap();
 const originColOf = (src) => { let a = OC.get(src); if (!a) OC.set(src, a = new Float32Array(src.flat())); return a; };
 const SCR = { world: new Float32Array(9), inv: new Float32Array(9), be: new Float32Array(96), bb: new Float32Array(96), ncv: new Float32Array(48), hb: new Float32Array(64), hr: new Float32Array(16) };
 const ORIGIN_WHITE = [[1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1]];
-const put = (dst, src) => { dst.set(src); return dst; };
+// The composite's defaults and scratch, made once (it made an array for each default it fell back on, a rest list for its
+// signature and a list of passes, in every frame: 2 Nov 2026, scripts/frame-alloc.mjs). None is written to by a reader.
+const NONE = [], NOBLOOD = {}, INV1 = [0];
+const R_UNIT = [0, 0, 1, 1], V4_ZERO = [0, 0, 0, 0], LV_DEF = [1, 0], CHEV_INK = [0.08, 0.08, 0.1], CHEV_LIGHT = [1, 0.93, 0.86];
+const DYE_COL = [0.8, 0.95, 0.2], REV_COL = [1, 0.55, 0.16], INK_LIGHT = [1, 1, 1], INK_DARK = [0.1, 0.1, 0.16];
+/** A 2D transform [a b c d e f] written as the 3×3 the shaders take, into dst, in place. */
+const m3put = (dst, a, b, c, d, e, f) => { dst[0] = a; dst[1] = b; dst[2] = 0; dst[3] = c; dst[4] = d; dst[5] = 0; dst[6] = e; dst[7] = f; dst[8] = 1; return dst; };
 
 // Flags (tube texel 2, z).
 // Stream flags (tube texel 5, w): the stream runs on at the upstream / downstream end; reversed flow.
@@ -2002,12 +2008,19 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // fluid's cells. A composite after any of them is counted as the figure drawn again, whatever it repaints.)
   let bloodSeq = 0, figVer = 0, figAt = 0;
   const pictured = (blood = false) => { if (blood) { bloodSeq++; return; } pictureSeq++; for (const f of onPicture) f(); };
-  let lines = null, linesWas = false, lineKey = '', glowKey = '', warmKey = '', lastMk = '';
+  let lines = null, linesWas = false, lastPW = -1, lastPH = -1, viewId = 0;
+  // (What each layer was last drawn for: its version and the view's number, which turns over when the matrix or the canvas size
+  // changes. -1: none. Numbers, where a string of the matrix and the size was built in each frame.)
+  let lineKV = -1, lineKI = -1, glowKV = -1, glowKI = -1, warmKV = -1, warmKI = -1;
+  const lastM = new Float64Array(6).fill(NaN), passes = [];
   // The outlines are drawn into a layer of their own when they change, and the composite lays it over the picture: the
   // cells-only pass then keeps them, so an open organ card no longer repaints the whole picture every frame. Glows
   // (draws marked soft) have a layer too, which the composite lays under the organs.
   const makeLayer = () => { const tex = dataTex(gl); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); return { tex, fbo: gl.createFramebuffer(), w: 0, h: 0 }; };
   const lineLayer = makeLayer(), glowLayer = makeLayer(), warmLayer = makeLayer();
+  // (The layers' draws as steps the probe can time, each made once: they are asked for with the view's matrix, baseM, whichever it is then.)
+  const cathT = () => drawCath(baseM), linesT = () => drawLines(baseM, false);
+  const lineLayerT = () => renderLayer(lineLayer, baseM, false), glowLayerT = () => renderLayer(glowLayer, baseM, true), warmLayerT = () => renderLayer(warmLayer, baseM, true, true);
   // Figure resolution › Glows (setLayerScale): under 1, a glow layer's lines are drawn into a smaller target (lo) and stretched into the
   // layer by a filtered blit, so the composite reads the layer exactly as ever (its shader is the live site's). At 1 none of it runs.
   let layerK = 1;
@@ -2067,7 +2080,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   function drawLines(m, soft, warm = false) {
     const U = lineP.u;
     gl.useProgram(lineP.p);
-    UC.m3(U.world, put(SCR.world, [m[0], m[1], 0, m[2], m[3], 0, m[4], m[5], 1]));
+    UC.m3(U.world, m3put(SCR.world, m[0], m[1], m[2], m[3], m[4], m[5]));
     UC.f2(U.size, PW(), PH());
     UC.f1(U.soft, soft ? 1 : 0);
     UC.f1(U.pack, warm ? 1 : 0);
@@ -2349,11 +2362,10 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   const moved = new Uint8Array(nTubes), movedUp = new Float32Array(nTubes * 4).fill(-1);
   let movedAll = true, stillSig = null, sigNow = new Float64Array(256), texVer = 0, dyeSent = null;
   let sn = 0, stillN = 0;
-  const sg = (...vs) => {
-    for (const v of vs) {
-      if (v && typeof v === 'object') for (let i = 0; i < v.length && sn < sigNow.length; i++) sigNow[sn++] = +v[i] || 0;
-      else if (sn < sigNow.length) sigNow[sn++] = +v || 0;
-    }
+  // (One value at a time, taken in the order they were listed: a rest list made an array for each call.)
+  const sg = (v) => {
+    if (v && typeof v === 'object') { for (let i = 0; i < v.length && sn < sigNow.length; i++) sigNow[sn++] = +v[i] || 0; }
+    else if (sn < sigNow.length) sigNow[sn++] = +v || 0;
   };
   // (Marks the rows of `data` that differ from `last`, `w` floats a row: before `last` takes them.)
   const markRows = (data, last, w) => {
@@ -2435,7 +2447,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   function drawCath(m) {
     const U = cathP.u;
     gl.useProgram(cathP.p);
-    UC.m3(U.world, put(SCR.world, [m[0], m[1], 0, m[2], m[3], 0, m[4], m[5], 1]));
+    UC.m3(U.world, m3put(SCR.world, m[0], m[1], m[2], m[3], m[4], m[5]));
     UC.f2(U.size, PW(), PH());
     UC.f2a(U.light, (cath.light || LIGHT));
     gl.enable(gl.BLEND);
@@ -2646,7 +2658,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   }
   // The vessel pass's program, uniforms and textures (vesselDraw; and the vessel half of a one-pass build, fuseBind).
   function vesselSet({ p, u }, m, look, redraw, tint, size = null) {
-    const M = put(SCR.world, [m[0], m[1], 0, m[2], m[3], 0, m[4], m[5], 1]);
+    const M = m3put(SCR.world, m[0], m[1], m[2], m[3], m[4], m[5]);
     const [SW, SH] = size || [fboW, fboH];   // (the layer's; a one-pass build draws onto the picture: fuseBind)
     gl.useProgram(p);
     UC.m3(u.world, M);
@@ -2700,7 +2712,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   let own = ownBuf ? makeOwn() : null;
   const PRESENT_ONCE = !/[?&]presentonce=0\b/.test(globalThis.location?.search || '');
   const DIRECT = !/[?&]direct=0\b/.test(globalThis.location?.search || '');
-  let directNow = false, ownStale = false, noDirect = false, lastComp = null, directFrame = -1, directKey = '';
+  let directNow = false, ownStale = false, noDirect = false, compLook = null, compBlood = null, directFrame = -1, directKey = '';
   let capturedAt = -1, capturedKey = '';
   // (Sized to the canvas, cleared; true when it was just made, so the next picture is drawn whole.)
   function ownSize() {
@@ -2751,7 +2763,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       if (framePhase() && frameCount() === directFrame && directKey === `${pictureSeq}:${bloodSeq}` && !(again && top && tops.length)) return;
       // (Asked outside the frame that drew it: the picture is drawn whole again, into the kept picture this time, and laid from there.)
       ownStale = false;
-      if (lastComp) { noDirect = true; try { api.composite(lastComp[0], lastComp[1], true); } finally { noDirect = false; } }
+      if (compLook) { noDirect = true; try { api.composite(compLook, compBlood, true); } finally { noDirect = false; } }
       return;
     }
     if (directNow) {
@@ -2928,7 +2940,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.useProgram(rz.P.p);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, rz.tex); UC.i1(rz.P.u.uT, 0);
     UC.f2(rz.P.u.uSize, PW(), PH());
-    UC.m3(rz.P.u.uMap, put(SCR.world, [k[0], k[1], 0, k[2], k[3], 0, k[4], k[5], 1]));
+    UC.m3(rz.P.u.uMap, m3put(SCR.world, k[0], k[1], k[2], k[3], k[4], k[5]));
     gl.bindVertexArray(compVAO);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     gl.bindVertexArray(null);
@@ -3686,8 +3698,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      * every other pixel of a vessel cell comes out as the last frame left it. `part`: that many cells of partVAO first, whole: the
      * cells drawRows drew again (the vessel layer changed under them).
      */
-    composite(look, blood = {}, full = false, part = 0) {
-      lastComp = [look, blood];
+    composite(look, blood = NOBLOOD, full = false, part = 0) {
+      compLook = look; compBlood = blood;
       if (!baseM || fboPW !== PW() || fboPH !== PH()) return;
       // (After one-pass frames the layer is empty: this picture has it drawn whole first, and is drawn whole on it. `fused`: the
       // one-pass frame itself, from draw.)
@@ -3704,12 +3716,14 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       if (bleeding || wasBleeding) full = true;
       // The organ outlines (over the vessels) are a layer redrawn when they or the view change, with one whole repaint
       // then and once after they go. Under the catheter's passes they are drawn last, as before, over it.
-      const m = baseM, mk = m.join(',');
+      const m = baseM;
       // While the view moves (a pan, a zoom, a slide's camera glide) every frame is a whole repaint anyway, so the outlines are drawn
       // straight onto it, as under the catheter, instead of into their layer first: that was one more full-screen pass a frame. The
       // layer is made again on the first frame the view holds still, and that frame is a whole repaint too.
-      const moving = mk !== lastMk;
-      lastMk = mk;
+      const moving = m[0] !== lastM[0] || m[1] !== lastM[1] || m[2] !== lastM[2] || m[3] !== lastM[3] || m[4] !== lastM[4] || m[5] !== lastM[5];
+      if (moving || PW() !== lastPW || PH() !== lastPH) viewId++;
+      for (let i = 0; i < 6; i++) lastM[i] = m[i];
+      lastPW = PW(); lastPH = PH();
       // The catheter reaches past the vessel cells. While the view holds still, only the box it lies in now and the one it was last drawn in
       // are painted again as a whole picture would paint them (the picture with no outline layer, the catheter over it, the outlines over
       // that: cathPass), the rest as the frame would be without it, the outlines from their layer (30 Oct, review H6: its pulse had made
@@ -3724,20 +3738,19 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       cathWas = !!cath;
       const hard = hasHard(), glow = hasSoft(), layer = hard && (!cath || !!cathRect) && !moving;
       // (Each layer has its own version: an outline's change redraws the outline layer alone, a glow's the glow's. External review, 21 Oct.)
-      const at = `|${mk}|${PW()}x${PH()}`, vk = lineVers[0] + at;
       if (layer) {
-        if (vk !== lineKey) { gpuProbe.time(gl, 'outline layer', () => renderLayer(lineLayer, m, false)); lineKey = vk; full = true; }
-      } else if (!hard) { freeLayer(lineLayer); lineKey = ''; }
-      else if (moving) { lineKey = ''; full = true; }
+        if (lineVers[0] !== lineKV || viewId !== lineKI) { gpuProbe.time(gl, 'outline layer', lineLayerT); lineKV = lineVers[0]; lineKI = viewId; full = true; }
+      } else if (!hard) { freeLayer(lineLayer); lineKV = -1; }
+      else if (moving) { lineKV = -1; full = true; }
       // (The glow lies behind the organs, so the catheter never draws over it: its layer holds whatever the catheter does.)
       if (glow) {
-        if (lineVers[1] + at !== glowKey) { gpuProbe.time(gl, 'glow layer', () => renderLayer(glowLayer, m, true)); glowKey = lineVers[1] + at; full = true; }
-      } else { freeLayer(glowLayer); glowKey = ''; }
+        if (lineVers[1] !== glowKV || viewId !== glowKI) { gpuProbe.time(gl, 'glow layer', glowLayerT); glowKV = lineVers[1]; glowKI = viewId; full = true; }
+      } else { freeLayer(glowLayer); glowKV = -1; }
       // (The warm glow lies on the organs: no catheter draws under it either.)
       const warm = hasWarm();
       if (warm) {
-        if (lineVers[2] + at !== warmKey) { gpuProbe.time(gl, 'warm layer', () => renderLayer(warmLayer, m, true, true)); warmKey = lineVers[2] + at; full = true; }
-      } else { freeLayer(warmLayer); warmKey = ''; }
+        if (lineVers[2] !== warmKV || viewId !== warmKI) { gpuProbe.time(gl, 'warm layer', warmLayerT); warmKV = lineVers[2]; warmKI = viewId; full = true; }
+      } else { freeLayer(warmLayer); warmKV = -1; }
       if (linesWas && !lines) full = true;
       linesWas = !!lines;
       wasBleeding = bleeding;
@@ -3789,47 +3802,51 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       // (cathPass: the whole picture's build, for the catheter's box.)
       const cathPass = cathRect ? (bare ? plain : comp) : null;
       if (gpuProbe.on) gpuProbe.gauge('composite build', bare ? 'plain' : 'full');
-      const bl = blood.bleed || [];
+      const bl = blood.bleed || NONE;
       const be = SCR.be.fill(0), bb = SCR.bb.fill(0);
       for (let i = 0; i < Math.min(24, bl.length); i++) for (let j = 0; j < 4; j++) { be[i * 4 + j] = bl[i][j]; bb[i * 4 + j] = bl[i][4 + j]; }
-      const nc = (blood.noChev || []).slice(0, 12), ncv = SCR.ncv.fill(0);
-      nc.forEach((b, i) => ncv.set(b, i * 4));
-      const ho = (blood.holes || []).slice(0, 16), hb = SCR.hb.fill(0), hr = SCR.hr.fill(0);
-      ho.forEach((x, i) => { hb.set(x.slice(0, 4), i * 4); hr[i] = x[4] || 0; });
+      const ncl = blood.noChev || NONE, ncN = Math.min(12, ncl.length), ncv = SCR.ncv.fill(0);
+      for (let i = 0; i < ncN; i++) ncv.set(ncl[i], i * 4);
+      const hol = blood.holes || NONE, hoN = Math.min(16, hol.length), hb = SCR.hb.fill(0), hr = SCR.hr.fill(0);
+      for (let i = 0; i < hoN; i++) { const x = hol[i]; for (let j = 0; j < 4; j++) hb[i * 4 + j] = x[j] ?? 0; hr[i] = x[4] || 0; }
       const pm = (plate && !useStack ? (plates[0] ? 1 : 0) | (plates[1] ? 2 : 0) : 0);
       // (The same uniforms for the one-pass builds, on a one-pass frame: their composite half reads them as the picture's own does.)
-      const fuseP = fused ? [fuseGen, ...(nSimple ? [fuseOne] : [])] : [];
-      // (The catheter box's build among them, before the picture's own: the uniforms set after this loop go to the program bound last.)
-      const sides = cathPass && cathPass !== prg ? [cathPass] : [];
-      for (const P of [...fuseP, ...sides, prg]) {
+      // (The passes, in the list kept for them: the one-pass builds, the catheter box's among them before the picture's own, so the
+      // uniforms set after this loop go to the program bound last.)
+      passes.length = 0;
+      if (fused) { passes.push(fuseGen); if (nSimple) passes.push(fuseOne); }
+      if (cathPass && cathPass !== prg) passes.push(cathPass);
+      passes.push(prg);
+      for (let qi = 0; qi < passes.length; qi++) {
+        const P = passes[qi];
         gl.useProgram(P.p);
         const U = P.u;
         if (!full) {
-          UC.m3(U.world, put(SCR.world, [m[0], m[1], 0, m[2], m[3], 0, m[4], m[5], 1]));
+          UC.m3(U.world, m3put(SCR.world, m[0], m[1], m[2], m[3], m[4], m[5]));
           UC.f2(U.size, PW(), PH());
           UC.f1(U.cell, CELL);
         }
-        UC.m3(U.inv, put(SCR.inv, [ia, ib, 0, ic, id, 0, ie, iff, 1]));
+        UC.m3(U.inv, m3put(SCR.inv, ia, ib, ic, id, ie, iff));
         UC.f1(U.H, PH());
         UC.f1(U.pxW, 1 / Math.max(1e-6, Math.hypot(m[0], m[1])));
         UC.i1(U.plates, pm);
         UC.f1(U.plateAlpha, plate?.alpha ?? 0);
         UC.f1(U.plateSat, plate?.sat ?? 1);
-        UC.f4a(U.plateRect0, plates[0]?.rect || [0, 0, 1, 1]);
-        UC.f4a(U.plateRect1, plates[1]?.rect || [0, 0, 1, 1]);
-        UC.f4a(U.fluidRect, fluidRect || [0, 0, 1, 1]);
-        UC.f4a(U.fluidS, fl?.s || [0, 0, 0, 0]);
+        UC.f4a(U.plateRect0, plates[0]?.rect || R_UNIT);
+        UC.f4a(U.plateRect1, plates[1]?.rect || R_UNIT);
+        UC.f4a(U.fluidRect, fluidRect || R_UNIT);
+        UC.f4a(U.fluidS, fl?.s || V4_ZERO);
         // (The fluid is drawn here with the plate off too, the live organs showing under the canvas: one look while the plate is
         // down for a slow fill and after it lands, where the page's SVG copy had a brighter surface line; Ascites slide 5, 17 Oct.)
-        UC.f4a(U.fluidInk, fl ? fl.ink : [0, 0, 0, 0]);
-        UC.f2a(U.fluidLv, fl?.lv || [1, 0]);
+        UC.f4a(U.fluidInk, fl ? fl.ink : V4_ZERO);
+        UC.f2a(U.fluidLv, fl?.lv || LV_DEF);
         UC.i1(U.blood, blood.on ? 1 : 0);
         UC.i1(U.chev, blood.chev ? 1 : 0);
         UC.i1(U.still, blood.still ? 1 : 0);
         UC.f1(U.flowA, blood.alpha ?? 1);
         UC.f3(U.blendA, blood.streakA ?? 1, blood.chevA ?? 1, blood.originA ?? 1);
-        UC.f3a(U.chevInk, blood.chevInk || [0.08, 0.08, 0.1]);
-        UC.f3a(U.chevLight, blood.chevLight || [1, 0.93, 0.86]);
+        UC.f3a(U.chevInk, blood.chevInk || CHEV_INK);
+        UC.f3a(U.chevLight, blood.chevLight || CHEV_LIGHT);
         UC.f1(U.cssPx, blood.vdpr || 1);
         UC.i1(U.sat, BLOOD_SAT ? 1 : 0);
         UC.i1(U.lenOn, blood.streakLen ? 1 : 0);
@@ -3839,28 +3856,28 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         UC.f1(U.bT, blood.bt || 0);
         UC.f1(U.rows, nTubes);
         UC.fv3(U.originCol, originColOf(blood.originCol || ORIGIN_WHITE));
-        UC.f3a(U.dyeCol, blood.dyeCol || [0.8, 0.95, 0.2]);
-        UC.f3a(U.revCol, blood.revCol || [1, 0.55, 0.16]);
-        UC.f3a(U.inkLight, blood.inkLight || [1, 1, 1]);
-        UC.f3a(U.inkDark, blood.inkDark || [0.1, 0.1, 0.16]);
+        UC.f3a(U.dyeCol, blood.dyeCol || DYE_COL);
+        UC.f3a(U.revCol, blood.revCol || REV_COL);
+        UC.f3a(U.inkLight, blood.inkLight || INK_LIGHT);
+        UC.f3a(U.inkDark, blood.inkDark || INK_DARK);
         UC.fv4(U.bleedE, be);
         UC.fv4(U.bleedB, bb);
         UC.i1(U.bleedN, Math.min(24, bl.length));
         UC.fv4(U.noChev, ncv);
-        UC.i1(U.noChevN, nc.length);
-        UC.fv4(U.chevHole, hb); UC.fv1(U.chevHoleR, hr); UC.i1(U.chevHoleN, ho.length);
+        UC.i1(U.noChevN, ncN);
+        UC.fv4(U.chevHole, hb); UC.fv1(U.chevHoleR, hr); UC.i1(U.chevHoleN, hoN);
       }
       const U = prg.u;
       // The still lumens (see moved): only in the blood's own pass of the fast build, with no bleed (whose spray and pool move with
       // the clock, the one uniform left out here), when every uniform above and every texture under a lumen is the last picture's.
       sn = 0;
-      sg(m, PW(), PH(), pm, plate?.alpha ?? 0, plate?.sat ?? 1, plates[0]?.rect || [0, 0, 1, 1], plates[1]?.rect || [0, 0, 1, 1],
-        fluidRect || [0, 0, 1, 1], fl?.s || [0, 0, 0, 0], fl ? fl.ink : [0, 0, 0, 0], fl?.lv || [1, 0],
-        blood.on, blood.chev, blood.still, blood.alpha ?? 1, blood.streakA ?? 1, blood.chevA ?? 1, blood.originA ?? 1,
-        blood.chevInk || [0.08, 0.08, 0.1], blood.chevLight || [1, 0.93, 0.86], blood.vdpr || 1, blood.origin, dyeAny && blood.dye !== false,
-        BLOOD_SAT, blood.streakLen, blood.bt || 0,
-        originColOf(blood.originCol || ORIGIN_WHITE), blood.dyeCol || [0.8, 0.95, 0.2], blood.revCol || [1, 0.55, 0.16],
-        blood.inkLight || [1, 1, 1], blood.inkDark || [0.1, 0.1, 0.16], ncv, nc.length, hb, hr, ho.length, layer, glow, warm, useStack, bare, texVer);
+      sg(m); sg(PW()); sg(PH()); sg(pm); sg(plate?.alpha ?? 0); sg(plate?.sat ?? 1); sg(plates[0]?.rect || R_UNIT); sg(plates[1]?.rect || R_UNIT);
+      sg(fluidRect || R_UNIT); sg(fl?.s || V4_ZERO); sg(fl ? fl.ink : V4_ZERO); sg(fl?.lv || LV_DEF);
+      sg(blood.on); sg(blood.chev); sg(blood.still); sg(blood.alpha ?? 1); sg(blood.streakA ?? 1); sg(blood.chevA ?? 1); sg(blood.originA ?? 1);
+      sg(blood.chevInk || CHEV_INK); sg(blood.chevLight || CHEV_LIGHT); sg(blood.vdpr || 1); sg(blood.origin); sg(dyeAny && blood.dye !== false);
+      sg(BLOOD_SAT); sg(blood.streakLen); sg(blood.bt || 0);
+      sg(originColOf(blood.originCol || ORIGIN_WHITE)); sg(blood.dyeCol || DYE_COL); sg(blood.revCol || REV_COL);
+      sg(blood.inkLight || INK_LIGHT); sg(blood.inkDark || INK_DARK); sg(ncv); sg(ncN); sg(hb); sg(hr); sg(hoN); sg(layer); sg(glow); sg(warm); sg(useStack); sg(bare); sg(texVer);
       let same = !!stillSig && sn === stillN && sn < sigNow.length;
       for (let i = 0; same && i < sn; i++) if (sigNow[i] !== stillSig[i]) same = false;
       const still = !CLASSIC && !full && !movedAll && !bl.length && same;
@@ -3893,12 +3910,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         gl.enable(gl.STENCIL_TEST);
         gl.stencilMask(0xff); gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT);
         gl.stencilFunc(gl.ALWAYS, 1, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
-        for (const [P, va, n] of [[fuseGen, vao, nGen], [fuseOne, oneVAO, nSimple]]) {
-          if (!n) continue;
-          fuseBind(P, m, look, layer, glow, warm, useStack);
-          gl.bindVertexArray(va);
-          gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, n);
-        }
+        // (The general cells, then the one-vessel build's: a call for each, where a list of lists was made.)
+        if (nGen) { fuseBind(fuseGen, m, look, layer, glow, warm, useStack); gl.bindVertexArray(vao); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, nGen); }
+        if (nSimple) { fuseBind(fuseOne, m, look, layer, glow, warm, useStack); gl.bindVertexArray(oneVAO); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, nSimple); }
         gl.stencilFunc(gl.EQUAL, 0, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
         gl.useProgram(prg.p);
         compBind(U, layer, glow, warm, useStack);
@@ -3910,7 +3924,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         // the pass; the next one-pass frame clears it before reading it. See INVALIDATE.)
         // (The enum follows the buffer bound, not whether a kept picture exists: the canvas's own takes STENCIL, a framebuffer object
         // STENCIL_ATTACHMENT.)
-        if (INVALIDATE) gl.invalidateFramebuffer(gl.FRAMEBUFFER, [own && !direct ? gl.STENCIL_ATTACHMENT : gl.STENCIL]);
+        if (INVALIDATE) { INV1[0] = own && !direct ? gl.STENCIL_ATTACHMENT : gl.STENCIL; gl.invalidateFramebuffer(gl.FRAMEBUFFER, INV1); }
       } else if (full) {
         UC.i1(U.bloodOnly, 0);
         if (gpuProbe.on) gpuProbe.gauge('blood squares on screen', 'whole picture');
@@ -3947,13 +3961,13 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         gl.bindVertexArray(compVAO);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
         gl.bindVertexArray(null);
-        gpuProbe.time(gl, 'catheter', () => drawCath(m));
-        if (hard) gpuProbe.time(gl, 'outlines', () => drawLines(m, false));
+        gpuProbe.time(gl, 'catheter', cathT);
+        if (hard) gpuProbe.time(gl, 'outlines', linesT);
         gl.disable(gl.SCISSOR_TEST);
-      } else if (cath) gpuProbe.time(gl, 'catheter', () => drawCath(m));
+      } else if (cath) gpuProbe.time(gl, 'catheter', cathT);
       // (Where it was drawn: what the next frame's box takes in, so no trace of it is left behind.)
       cathAt = cath ? cathBox(m) : null;
-      if (hard && !layer) gpuProbe.time(gl, 'outlines', () => drawLines(m, false));
+      if (hard && !layer) gpuProbe.time(gl, 'outlines', linesT);
       if (own) present();
     },
     /** Whether organ outlines can be drawn here (else stage.js keeps its SVG ones). */
@@ -3979,7 +3993,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     /** Figure resolution › Glows: the glow layers drawn at this share of the canvas's pixels (1: every pixel, read unfiltered). */
     setLayerScale(k) {
       k = Math.min(1, Math.max(0.1, +k || 1)); if (k === layerK) return;
-      layerK = k; glowKey = warmKey = '';
+      layerK = k; glowKV = warmKV = -1;
       if (k === 1 && lo.tex && !lost) { lo.w = lo.h = 0; gl.bindTexture(gl.TEXTURE_2D, lo.tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); }
     },
     /** Whether the catheter can be drawn here (else stage.js keeps its SVG one). */
@@ -4045,7 +4059,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         else gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16UI, 1, 1, 0, gl.RGBA_INTEGER, gl.UNSIGNED_SHORT, null);
       }
       fboW = fboH = 0; baseM = null; fboOK = false; wrapNone(); lowLive = null;
-      freeLayer(lineLayer); freeLayer(glowLayer); freeLayer(warmLayer); lineKey = glowKey = warmKey = '';
+      freeLayer(lineLayer); freeLayer(glowLayer); freeLayer(warmLayer); lineKV = glowKV = warmKV = -1;
       stack?.trim(); over?.trim();
       if (own?.w) { own.w = own.h = 0; gl.bindTexture(gl.TEXTURE_2D, own.tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); }
     },

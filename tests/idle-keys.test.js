@@ -158,7 +158,7 @@ test('the framing, the labels\' card boxes and the credit\'s poll go by the watc
 });
 
 test('the composite allocates no uniform arrays per frame', () => {
-  const gl = src('veins-gl.js'), body = gl.slice(gl.indexOf('    composite(look, blood = {}, full = false, part = 0) {'), gl.indexOf('    /** Whether organ outlines can be drawn here'));
+  const gl = src('veins-gl.js'), body = gl.slice(gl.indexOf('    composite(look, blood = NOBLOOD, full = false, part = 0) {'), gl.indexOf('    /** Whether organ outlines can be drawn here'));
   assert.ok(body.length > 1000);
   assert.ok(!/new Float32Array\(\[/.test(body) && !/new Float32Array\(\d+\)/.test(body), 'a fresh Float32Array in the composite');
   assert.match(body, /SCR\.be\.fill\(0\)/);
@@ -169,8 +169,8 @@ test('an outline change redraws the outline layer alone, a glow change its glow 
   // (External review, 21 Oct: one outline's opacity redrew all three layers.)
   assert.match(gl, /for \(const d of lines\.draws\) sigs\[d\.warm \? 2 : d\.soft \? 1 : 0\]\.push\(/);
   assert.match(gl, /if \(fresh \|\| sig !== lineSigs\[i\]\) \{ lineSigs\[i\] = sig; lineVers\[i\]\+\+; \}/);
-  assert.match(gl, /vk = lineVers\[0\] \+ at;/);
-  assert.match(gl, /if \(lineVers\[1\] \+ at !== glowKey\)/);
-  assert.match(gl, /if \(lineVers\[2\] \+ at !== warmKey\)/);
+  assert.match(gl, /lineVers\[0\] !== lineKV \|\| viewId !== lineKI/);
+  assert.match(gl, /if \(lineVers\[1\] !== glowKV \|\| viewId !== glowKI\)/);
+  assert.match(gl, /if \(lineVers\[2\] !== warmKV \|\| viewId !== warmKI\)/);
   assert.doesNotMatch(gl, /lineVer\b/);
 });

@@ -14,7 +14,62 @@ import { EDGE_GLSL } from './edge.js?v=8321a8017f';
 import { prestart, linkProgram } from './gl-compile.js?v=79231d7c6b';
 
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
-const NUM = /[MmLlHhVvCcSsQqTtAaZz]|[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?/g;
+
+// The path text is read with a character scanner over module state, not a regular expression's match array: a path parsed on a cache
+// miss (a shape the frame has not seen) makes only its result, none of the strings, token arrays, closures and spreads the first
+// reading made (2 Nov 2026, scripts/frame-alloc.mjs). A number is its digits read as an integer and scaled by one power of ten, which is
+// the correctly rounded value Number() gives for up to 15 digits and ten to the 22nd, as every path number is; any other form falls back to Number().
+const POW10 = [1, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11, 1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21, 1e22];
+let PS = '', PI = 0, PN = 0, SP = -1;   // (the text, the read position, its length, the position last scanned from)
+let TK = 0, TC = 0, TV = 0, TE = 0;     // (the token scanned: 0 none, 1 a command letter (its code), 2 a number (its value); where it ends)
+const isCmd = (c) => c === 77 || c === 109 || c === 76 || c === 108 || c === 72 || c === 104 || c === 86 || c === 118 || c === 67 || c === 99 || c === 83 || c === 115 ||
+  c === 81 || c === 113 || c === 84 || c === 116 || c === 65 || c === 97 || c === 90 || c === 122;
+/** Scans the next token from PI (without moving PI): a command letter, a number as the regular expression read it (sign, digits with an optional point or a leading point, an exponent), or none. */
+function scan() {
+  if (SP === PI) return;
+  SP = PI;
+  let p = PI;
+  while (p < PN) {
+    const c = PS.charCodeAt(p);
+    if (isCmd(c)) { TK = 1; TC = c; TE = p + 1; PI = p; SP = p; return; }
+    if (c === 45 || c === 43 || c === 46 || (c >= 48 && c <= 57)) {
+      const s = p;
+      let q = p, neg = false;
+      if (c === 45 || c === 43) { neg = c === 45; q++; }
+      let m = 0, nd = 0, fd = 0, ok = false, ch = q < PN ? PS.charCodeAt(q) : 0;
+      if (ch >= 48 && ch <= 57) {
+        ok = true;
+        while (q < PN && (ch = PS.charCodeAt(q)) >= 48 && ch <= 57) { m = m * 10 + (ch - 48); nd++; q++; }
+        if (q < PN && PS.charCodeAt(q) === 46) { q++; while (q < PN && (ch = PS.charCodeAt(q)) >= 48 && ch <= 57) { m = m * 10 + (ch - 48); nd++; fd++; q++; } }
+      } else if (ch === 46 && q + 1 < PN && (ch = PS.charCodeAt(q + 1)) >= 48 && ch <= 57) {
+        ok = true; q++;
+        while (q < PN && (ch = PS.charCodeAt(q)) >= 48 && ch <= 57) { m = m * 10 + (ch - 48); nd++; fd++; q++; }
+      }
+      if (ok) {
+        let ex = 0, wide = nd > 15;
+        if (q < PN && (PS.charCodeAt(q) | 32) === 101) {
+          let r = q + 1, en = false;
+          if (r < PN && (PS.charCodeAt(r) === 45 || PS.charCodeAt(r) === 43)) { en = PS.charCodeAt(r) === 45; r++; }
+          if (r < PN && (ch = PS.charCodeAt(r)) >= 48 && ch <= 57) {
+            while (r < PN && (ch = PS.charCodeAt(r)) >= 48 && ch <= 57) { ex = ex * 10 + (ch - 48); r++; }
+            if (en) ex = -ex;
+            q = r;
+          }
+        }
+        const k = ex - fd;
+        let v;
+        if (!wide && k >= -22 && k <= 22) v = k < 0 ? m / POW10[-k] : m * POW10[k];
+        else v = Number(PS.substring(neg || c === 43 ? s + 1 : s, q));
+        TK = 2; TV = neg ? -v : v; TE = q; PI = s; SP = s;
+        return;
+      }
+    }
+    p++;
+  }
+  TK = 0; TE = PN; PI = PN; SP = PN;
+}
+/** The next number, taken (NaN when the next token is not one, as the first reading's +letter was). */
+function pnum() { scan(); if (TK !== 2) return NaN; PI = TE; return TV; }
 
 /**
  * An SVG path's `d` as its commands, every one absolute and in one of six forms: ['M', x, y], ['L', x, y], ['C', x1, y1, x2, y2,
@@ -23,34 +78,39 @@ const NUM = /[MmLlHhVvCcSsQqTtAaZz]|[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?/g;
  * painter in this form as it is made, so its `d` is never parsed again there (organ-paint.js shapeSource).
  */
 export function pathCmds(d) {
-  const t = String(d || '').match(NUM) || [];
+  PS = d ? (typeof d === 'string' ? d : String(d)) : ''; PI = 0; PN = PS.length; SP = -1;
   const out = [];
-  let cx = 0, cy = 0, sx = 0, sy = 0, cmd = '', i = 0, lc = null, lq = null;
-  const num = () => +t[i++];
-  while (i < t.length) {
-    if (/[A-Za-z]/.test(t[i])) cmd = t[i++];
-    else if (!cmd) { i++; continue; }
-    const rel = cmd === cmd.toLowerCase(), C = cmd.toUpperCase(), ox = rel ? cx : 0, oy = rel ? cy : 0;
-    let nc = null, nq = null;
-    if (C === 'Z') { out.push(['Z']); cx = sx; cy = sy; lc = lq = null; cmd = ''; continue; }   // (numbers after a Z, never written: skipped)
-    if (i >= t.length || /[A-Za-z]/.test(t[i])) { cmd = ''; continue; }
-    if (C === 'M') { cx = ox + num(); cy = oy + num(); sx = cx; sy = cy; out.push(['M', cx, cy]); cmd = rel ? 'l' : 'L'; }
-    else if (C === 'L') { const x = ox + num(), y = oy + num(); out.push(['L', x, y]); cx = x; cy = y; }
-    else if (C === 'H') { const x = ox + num(); out.push(['L', x, cy]); cx = x; }
-    else if (C === 'V') { const y = (rel ? cy : 0) + num(); out.push(['L', cx, y]); cy = y; }
-    else if (C === 'C') { const a = [ox + num(), oy + num(), ox + num(), oy + num(), ox + num(), oy + num()]; out.push(['C', ...a]); nc = [a[2], a[3]]; cx = a[4]; cy = a[5]; }
-    else if (C === 'S') {
-      const x1 = lc ? 2 * cx - lc[0] : cx, y1 = lc ? 2 * cy - lc[1] : cy, a = [ox + num(), oy + num(), ox + num(), oy + num()];
-      out.push(['C', x1, y1, ...a]); nc = [a[0], a[1]]; cx = a[2]; cy = a[3];
-    } else if (C === 'Q') { const a = [ox + num(), oy + num(), ox + num(), oy + num()]; out.push(['Q', ...a]); nq = [a[0], a[1]]; cx = a[2]; cy = a[3]; }
-    else if (C === 'T') {
-      const x1 = lq ? 2 * cx - lq[0] : cx, y1 = lq ? 2 * cy - lq[1] : cy, x = ox + num(), y = oy + num();
-      out.push(['Q', x1, y1, x, y]); nq = [x1, y1]; cx = x; cy = y;
-    } else if (C === 'A') {
-      const rx = num(), ry = num(), ph = num(), la = num(), sw = num(), x = ox + num(), y = oy + num();
+  let cx = 0, cy = 0, sx = 0, sy = 0, cmd = 0, hasC = false, lcx = 0, lcy = 0, hasQ = false, lqx = 0, lqy = 0;
+  for (;;) {
+    scan();
+    if (TK === 0) break;
+    if (TK === 1) { cmd = TC; PI = TE; } else if (!cmd) { PI = TE; continue; }
+    const C = cmd & 0xDF, rel = cmd >= 97, ox = rel ? cx : 0, oy = rel ? cy : 0;
+    let nc = false, nq = false;
+    if (C === 90) { out.push(['Z']); cx = sx; cy = sy; hasC = hasQ = false; cmd = 0; continue; }   // (numbers after a Z, never written: skipped)
+    scan();
+    if (TK !== 2) { cmd = 0; continue; }
+    if (C === 77) { cx = ox + pnum(); cy = oy + pnum(); sx = cx; sy = cy; out.push(['M', cx, cy]); cmd = rel ? 108 : 76; }
+    else if (C === 76) { const x = ox + pnum(), y = oy + pnum(); out.push(['L', x, y]); cx = x; cy = y; }
+    else if (C === 72) { const x = ox + pnum(); out.push(['L', x, cy]); cx = x; }
+    else if (C === 86) { const y = (rel ? cy : 0) + pnum(); out.push(['L', cx, y]); cy = y; }
+    else if (C === 67) {
+      const a0 = ox + pnum(), a1 = oy + pnum(), a2 = ox + pnum(), a3 = oy + pnum(), a4 = ox + pnum(), a5 = oy + pnum();
+      out.push(['C', a0, a1, a2, a3, a4, a5]); nc = true; lcx = a2; lcy = a3; cx = a4; cy = a5;
+    } else if (C === 83) {
+      const x1 = hasC ? 2 * cx - lcx : cx, y1 = hasC ? 2 * cy - lcy : cy, a0 = ox + pnum(), a1 = oy + pnum(), a2 = ox + pnum(), a3 = oy + pnum();
+      out.push(['C', x1, y1, a0, a1, a2, a3]); nc = true; lcx = a0; lcy = a1; cx = a2; cy = a3;
+    } else if (C === 81) {
+      const a0 = ox + pnum(), a1 = oy + pnum(), a2 = ox + pnum(), a3 = oy + pnum();
+      out.push(['Q', a0, a1, a2, a3]); nq = true; lqx = a0; lqy = a1; cx = a2; cy = a3;
+    } else if (C === 84) {
+      const x1 = hasQ ? 2 * cx - lqx : cx, y1 = hasQ ? 2 * cy - lqy : cy, x = ox + pnum(), y = oy + pnum();
+      out.push(['Q', x1, y1, x, y]); nq = true; lqx = x1; lqy = y1; cx = x; cy = y;
+    } else if (C === 65) {
+      const rx = pnum(), ry = pnum(), ph = pnum(), la = pnum(), sw = pnum(), x = ox + pnum(), y = oy + pnum();
       out.push(['A', rx, ry, ph, la ? 1 : 0, sw ? 1 : 0, x, y]); cx = x; cy = y;
-    } else { i++; continue; }
-    lc = nc; lq = nq;
+    } else { PI = TE; continue; }
+    hasC = nc; hasQ = nq;
   }
   return out;
 }
@@ -61,68 +121,83 @@ export function pathCmds(d) {
  */
 export const flattenPath = (d, tol = 0.01) => flattenCmds(pathCmds(d), tol);
 
+// A path is cut with one scratch run of points (doubles, grown when a run is longer than any before) and module state, so the
+// cutting makes only its result: each run's Float32Array and its record, none of the plain arrays, closures and slices it made before.
+let FB = new Float64Array(4096), FN = 0, FHAS = false, FOUT = null, fcx = 0, fcy = 0, fsx = 0, fsy = 0, FTOL = 0.01;
+function fpush(x, y) {
+  if (FN + 2 > FB.length) { const g = new Float64Array(FB.length * 2); g.set(FB); FB = g; }
+  FB[FN++] = x; FB[FN++] = y;
+}
+// (A run of at least two points is a result; a closed run whose last point repeats its first drops the repeat, the closing edge joins them.)
+function fflush(closed) {
+  if (FHAS && FN > 2) {
+    let n = FN;
+    if (closed && n >= 4 && Math.abs(FB[n - 2] - FB[0]) < 1e-9 && Math.abs(FB[n - 1] - FB[1]) < 1e-9) n -= 2;
+    const pts = new Float32Array(n);
+    for (let k = 0; k < n; k++) pts[k] = FB[k];
+    FOUT.push({ pts, closed });
+  }
+}
+function fstart(x, y) { fflush(false); FHAS = true; FN = 0; fpush(x, y); fsx = x; fsy = y; }
+function fline(x, y) { if (!FHAS) { FHAS = true; FN = 0; fpush(fcx, fcy); } fpush(x, y); }
+function fcubic(x1, y1, x2, y2, x, y) {
+  const dd = Math.max(Math.hypot(fcx - 2 * x1 + x2, fcy - 2 * y1 + y2), Math.hypot(x1 - 2 * x2 + x, y1 - 2 * y2 + y));
+  const n = clamp(Math.ceil(Math.sqrt((0.75 * dd) / FTOL)), 1, 512);
+  for (let k = 1; k <= n; k++) {
+    const u = k / n, v = 1 - u, a = v * v * v, b = 3 * v * v * u, c = 3 * v * u * u, e = u * u * u;
+    fline(a * fcx + b * x1 + c * x2 + e * x, a * fcy + b * y1 + c * y2 + e * y);
+  }
+}
+function fquad(x1, y1, x, y) {
+  const dd = Math.hypot(fcx - 2 * x1 + x, fcy - 2 * y1 + y);
+  const n = clamp(Math.ceil(Math.sqrt((0.25 * dd) / FTOL)), 1, 512);
+  for (let k = 1; k <= n; k++) {
+    const u = k / n, v = 1 - u;
+    fline(v * v * fcx + 2 * v * u * x1 + u * u * x, v * v * fcy + 2 * v * u * y1 + u * u * y);
+  }
+}
+const fang = (ux, uy, vx, vy) => Math.atan2(ux * vy - uy * vx, ux * vx + uy * vy);
+function farc(rx, ry, phi, large, sweep, x, y) {
+  // (SVG's endpoint arc as its centre form, then cut like a curve: chord error r(1 - cos(dθ/2)) within tol.)
+  if (!rx || !ry) { fline(x, y); return; }
+  rx = Math.abs(rx); ry = Math.abs(ry);
+  const p = (phi * Math.PI) / 180, cp = Math.cos(p), sp = Math.sin(p);
+  const dx = (fcx - x) / 2, dy = (fcy - y) / 2, x1 = cp * dx + sp * dy, y1 = -sp * dx + cp * dy;
+  const l = (x1 * x1) / (rx * rx) + (y1 * y1) / (ry * ry);
+  if (l > 1) { rx *= Math.sqrt(l); ry *= Math.sqrt(l); }
+  const num2 = rx * rx * ry * ry - rx * rx * y1 * y1 - ry * ry * x1 * x1, den = rx * rx * y1 * y1 + ry * ry * x1 * x1;
+  const k = (large === sweep ? -1 : 1) * Math.sqrt(Math.max(0, num2 / (den || 1)));
+  const ccx = k * ((rx * y1) / ry), ccy = k * (-(ry * x1) / rx);
+  const mx = cp * ccx - sp * ccy + (fcx + x) / 2, my = sp * ccx + cp * ccy + (fcy + y) / 2;
+  const t1 = fang(1, 0, (x1 - ccx) / rx, (y1 - ccy) / ry);
+  let dt = fang((x1 - ccx) / rx, (y1 - ccy) / ry, (-x1 - ccx) / rx, (-y1 - ccy) / ry);
+  if (!sweep && dt > 0) dt -= 2 * Math.PI; else if (sweep && dt < 0) dt += 2 * Math.PI;
+  const r = Math.max(rx, ry), step = 2 * Math.acos(clamp(1 - FTOL / r, -1, 1)) || 0.1;
+  const n = clamp(Math.ceil(Math.abs(dt) / step), 1, 512);
+  for (let j = 1; j <= n; j++) {
+    const a = t1 + (dt * j) / n, ex = rx * Math.cos(a), ey = ry * Math.sin(a);
+    fline(j === n ? x : cp * ex - sp * ey + mx, j === n ? y : sp * ex + cp * ey + my);
+  }
+}
+
 /** A path's commands (pathCmds) as polylines, as flattenPath gives its `d`. */
 export function flattenCmds(cmds, tol = 0.01) {
   const out = [];
-  let cur = null, cx = 0, cy = 0, sx = 0, sy = 0;
-  const start = (x, y) => { if (cur && cur.length > 2) out.push({ pts: cur, closed: false }); cur = [x, y]; sx = x; sy = y; };
-  const line = (x, y) => { if (!cur) cur = [cx, cy]; cur.push(x, y); };
-  const cubic = (x1, y1, x2, y2, x, y) => {
-    const dd = Math.max(Math.hypot(cx - 2 * x1 + x2, cy - 2 * y1 + y2), Math.hypot(x1 - 2 * x2 + x, y1 - 2 * y2 + y));
-    const n = clamp(Math.ceil(Math.sqrt((0.75 * dd) / tol)), 1, 512);
-    for (let k = 1; k <= n; k++) {
-      const u = k / n, v = 1 - u, a = v * v * v, b = 3 * v * v * u, c = 3 * v * u * u, e = u * u * u;
-      line(a * cx + b * x1 + c * x2 + e * x, a * cy + b * y1 + c * y2 + e * y);
-    }
-  };
-  const quad = (x1, y1, x, y) => {
-    const dd = Math.hypot(cx - 2 * x1 + x, cy - 2 * y1 + y);
-    const n = clamp(Math.ceil(Math.sqrt((0.25 * dd) / tol)), 1, 512);
-    for (let k = 1; k <= n; k++) {
-      const u = k / n, v = 1 - u;
-      line(v * v * cx + 2 * v * u * x1 + u * u * x, v * v * cy + 2 * v * u * y1 + u * u * y);
-    }
-  };
-  const arc = (rx, ry, phi, large, sweep, x, y) => {
-    // (SVG's endpoint arc as its centre form, then cut like a curve: chord error r(1 - cos(dθ/2)) within tol.)
-    if (!rx || !ry) { line(x, y); return; }
-    rx = Math.abs(rx); ry = Math.abs(ry);
-    const p = (phi * Math.PI) / 180, cp = Math.cos(p), sp = Math.sin(p);
-    const dx = (cx - x) / 2, dy = (cy - y) / 2, x1 = cp * dx + sp * dy, y1 = -sp * dx + cp * dy;
-    const l = (x1 * x1) / (rx * rx) + (y1 * y1) / (ry * ry);
-    if (l > 1) { rx *= Math.sqrt(l); ry *= Math.sqrt(l); }
-    const num2 = rx * rx * ry * ry - rx * rx * y1 * y1 - ry * ry * x1 * x1, den = rx * rx * y1 * y1 + ry * ry * x1 * x1;
-    const k = (large === sweep ? -1 : 1) * Math.sqrt(Math.max(0, num2 / (den || 1)));
-    const ccx = k * ((rx * y1) / ry), ccy = k * (-(ry * x1) / rx);
-    const mx = cp * ccx - sp * ccy + (cx + x) / 2, my = sp * ccx + cp * ccy + (cy + y) / 2;
-    const ang = (ux, uy, vx, vy) => { const a = Math.atan2(ux * vy - uy * vx, ux * vx + uy * vy); return a; };
-    const t1 = ang(1, 0, (x1 - ccx) / rx, (y1 - ccy) / ry);
-    let dt = ang((x1 - ccx) / rx, (y1 - ccy) / ry, (-x1 - ccx) / rx, (-y1 - ccy) / ry);
-    if (!sweep && dt > 0) dt -= 2 * Math.PI; else if (sweep && dt < 0) dt += 2 * Math.PI;
-    const r = Math.max(rx, ry), step = 2 * Math.acos(clamp(1 - tol / r, -1, 1)) || 0.1;
-    const n = clamp(Math.ceil(Math.abs(dt) / step), 1, 512);
-    for (let j = 1; j <= n; j++) {
-      const a = t1 + (dt * j) / n, ex = rx * Math.cos(a), ey = ry * Math.sin(a);
-      line(j === n ? x : cp * ex - sp * ey + mx, j === n ? y : sp * ex + cp * ey + my);
-    }
-  };
-  for (const c of cmds) {
+  FOUT = out; FTOL = tol; FN = 0; FHAS = false; fcx = fcy = fsx = fsy = 0;
+  for (let i = 0; i < cmds.length; i++) {
+    const c = cmds[i];
     switch (c[0]) {
-      case 'Z': if (cur && cur.length > 2) out.push({ pts: cur, closed: true }); cur = null; cx = sx; cy = sy; break;
-      case 'M': cx = c[1]; cy = c[2]; start(cx, cy); break;
-      case 'L': line(c[1], c[2]); cx = c[1]; cy = c[2]; break;
-      case 'C': cubic(c[1], c[2], c[3], c[4], c[5], c[6]); cx = c[5]; cy = c[6]; break;
-      case 'Q': quad(c[1], c[2], c[3], c[4]); cx = c[3]; cy = c[4]; break;
-      case 'A': arc(c[1], c[2], c[3], c[4], c[5], c[6], c[7]); cx = c[6]; cy = c[7]; break;
+      case 'Z': fflush(true); FHAS = false; fcx = fsx; fcy = fsy; break;
+      case 'M': fcx = c[1]; fcy = c[2]; fstart(fcx, fcy); break;
+      case 'L': fline(c[1], c[2]); fcx = c[1]; fcy = c[2]; break;
+      case 'C': fcubic(c[1], c[2], c[3], c[4], c[5], c[6]); fcx = c[5]; fcy = c[6]; break;
+      case 'Q': fquad(c[1], c[2], c[3], c[4]); fcx = c[3]; fcy = c[4]; break;
+      case 'A': farc(c[1], c[2], c[3], c[4], c[5], c[6], c[7]); fcx = c[6]; fcy = c[7]; break;
     }
   }
-  if (cur && cur.length > 2) out.push({ pts: cur, closed: false });
-  // (A closed run whose last point repeats its first: the repeat is dropped, the closing edge joins them.)
-  return out.map(({ pts, closed }) => {
-    let n = pts.length;
-    if (closed && n >= 4 && Math.abs(pts[n - 2] - pts[0]) < 1e-9 && Math.abs(pts[n - 1] - pts[1]) < 1e-9) n -= 2;
-    return { pts: Float32Array.from(pts.slice(0, n)), closed };
-  });
+  fflush(false);
+  FOUT = null;
+  return out;
 }
 
 /** An ellipse (cx, cy, rx, ry) as one closed polyline within `tol` of it. */
@@ -560,13 +635,23 @@ function elBox4(el, textOf) {
     case 'ellipse': { const cx = num(el, 'cx'), cy = num(el, 'cy'), rx = num(el, 'rx'), ry = num(el, 'ry'); return box4(cx - rx, cy - ry, cx + rx, cy + ry); }
     case 'line': { const a = num(el, 'x1'), b = num(el, 'y1'), c = num(el, 'x2'), d = num(el, 'y2'); return box4(Math.min(a, c), Math.min(b, d), Math.max(a, c), Math.max(b, d)); }
     case 'polygon': case 'polyline': {
-      const v = (el.getAttribute('points') || '').trim().split(/[\s,]+/).map(Number).filter(Number.isFinite);
-      return v.length >= 2 ? polyBox([{ pts: v }]) : null;
+      // (The points read by the path scanner, numbers only, as pairs: no split, map or filter arrays.)
+      PS = el.getAttribute('points') || ''; PI = 0; PN = PS.length; SP = -1;
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, n = 0, px = 0;
+      for (;;) {
+        scan();
+        if (TK === 0) break;
+        PI = TE;
+        if (TK !== 2 || !Number.isFinite(TV)) continue;
+        if (n++ & 1) { if (px < x0) x0 = px; if (px > x1) x1 = px; if (TV < y0) y0 = TV; if (TV > y1) y1 = TV; } else px = TV;
+      }
+      return n >= 2 && x1 >= x0 ? [x0, y0, x1, y1] : null;
     }
     case 'g': case 'a': case 'svg': {
       let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-      for (const c of el.children) {
-        const b = elBox4(c, textOf);
+      const kids = el.children;
+      for (let i = 0; i < kids.length; i++) {
+        const c = kids[i], b = elBox4(c, textOf);
         if (!b) continue;
         const m = c.transform?.baseVal?.numberOfItems ? c.transform.baseVal.consolidate()?.matrix : null;
         // (The box's corners, each through the child's transform when it has one, folded in as they come: no list of corners made.)

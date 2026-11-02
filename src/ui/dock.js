@@ -122,6 +122,12 @@ const BAR_INERT = PRIMARY;
 // A trend arrow marks a sustained change (over TREND_S seconds, larger than TREND_FRAC of the
 // bar's range), so the heartbeat and breathing never make it flicker.
 const TREND_S = 5, TREND_FRAC = 0.03;
+// (Kept for the strip's display-frame paint, which makes no objects, arrays or strings of its own: the shown state's options, the bar's
+// four ends, the severity ranks, and each key written once. 2 Nov 2026, scripts/frame-alloc.mjs.)
+const END_KEYS = ['pv', 'ivc', 'whvp', 'fhvp'];
+const END_STATE = { pv: 'end:pv', ivc: 'end:ivc', whvp: 'end:whvp', fhvp: 'end:fhvp' };
+const RANKS = { none: -1, ok: 0, caution: 1, danger: 2, critical: 3 };
+const FOLLOW = { snap: false, small: 0, eps: 0 }, FILL = { small: 0, eps: 0, across: true }, COUNT = { eased: false }, SM = { pv: 0, ivc: 0, whvp: 0, fhvp: 0 }, GAP = { hvpg: null, ppg: null };
 
 /** The value a readout shows, or null when it is hidden and has not been measured. */
 export function readoutValue(t, m, hidden) {
@@ -182,7 +188,19 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     else if (t.pane) el.addEventListener('click', () => show(t.pane, { reveal: true }));
     // HVPG not yet measured (Explore): the tile opens the catheter procedure instead.
     else if (t.why) el.addEventListener('click', () => (t.id === 'hvpg' && readoutValue(t, {}, hiddenNow()) == null ? show('hvpg', { reveal: true }) : onWhy(t.why, el)));
-    tileEls[t.id] = { el, t, val, tr, st, cmp, cmpW: glWords(cmp), cmpCls: '', fill, hist: [], sev: null, trend: '', ariaTxt: '' };
+    tileEls[t.id] = { el, t, val, tr, st, cmp, cmpW: glWords(cmp), cmpCls: '', fill, histT: [], histV: [], sev: null, trend: '', ariaTxt: '', kBar: 'bar:' + t.id, kFill: 'fill:' + t.id,
+      fkOn: false, fkV: null, fkF: null, vsV: NaN, vsD: 0, vsOut: NaN,
+      stS: null, stUn: null, ariaK: NaN, ariaS: null, ariaT: null, ariaV: null, ariaAsk: false };
+    const x = tileEls[t.id];
+    // (Made once here, so a frame makes none: the closure for the status word's class, and the pass that words the spoken label.)
+    const unmeasThen = [() => classSoon(x.st, 'unmeas', false), () => classSoon(x.st, 'unmeas', true)];
+    x.unmeasThen = (un) => unmeasThen[un ? 1 : 0];
+    x.ariaPass = () => {
+      x.ariaAsk = false;
+      const v = x.ariaV, s = x.ariaS;
+      const aria = `${t.title || t.k}: ${v == null ? s.toLowerCase() : `${fmt(v, t.d)} ${t.u}${t.ux || ''}, ${s}`}${x.ariaT ? `, ${x.ariaT === 'up' ? 'rising' : 'falling'}` : ''}`;
+      if (aria !== x.ariaTxt) { x.ariaTxt = aria; attrSoon(el, 'aria-label', aria); }
+    };
     return el;
   }
   for (const [g, label] of [['lobule', 'Lobule, % of normal'], ...GROUPS]) {
@@ -190,9 +208,10 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     row.append(h('div', { class: 'ro-group', 'data-group': g, role: 'group', 'aria-label': label },
       h('span', { class: 'ro-cap', 'aria-hidden': 'true' }, label), h('div', { class: 'ro-tiles' }, ts.map((t) => tile(t, false)))));
   }
+  const tileList = Object.values(tileEls);   // (the tiles in a list kept for the strip's passes: Object.values made a new array in each)
   // The Lobule view swaps the key readouts for the lobule's flows (the group is hidden elsewhere, by CSS).
   // Entering or leaving it, the bar's readings crossfade (swapFade) rather than switch groups in one frame (motion review P12).
-  const applyLobule = () => { const on = !!store.get().lobule, pri = on ? LOBULE_PRIMARY : PRIMARY; classSoon(strip, 'lob', on); for (const x of Object.values(tileEls)) classSoon(x.el, 'primary', pri.has(x.t.id)); };
+  const applyLobule = () => { const on = !!store.get().lobule, pri = on ? LOBULE_PRIMARY : PRIMARY; classSoon(strip, 'lob', on); for (let i = 0; i < tileList.length; i++) classSoon(tileList[i].el, 'primary', pri.has(tileList[i].t.id)); };
   // (The play, clock and Compare beside them glide to wherever the new readings' width puts them: RF4.)
   const syncLobule = () => {
     const same = classHas(strip, 'lob') === !!store.get().lobule, tl = document.getElementById('timeline');
@@ -209,7 +228,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     const val = h('b', {}, '—');
     const el = h(v.why ? 'button' : 'div', { class: 'vital', title: `${v.title} (${v.u})${v.why ? '\nClick for what is driving it.' : ''}` }, h('span', {}, v.k), val);
     if (v.why) el.addEventListener('click', () => onWhy(v.why, el));
-    return { v, el, val };
+    return { v, el, val, kBar: 'bar:' + v.id, fkOn: false, fkS: NaN, fkH: false, fkB: false };
   });
   row.append(h('div', { class: 'ro-group ro-systemic', 'data-group': 'systemic', role: 'group', 'aria-label': 'Systemic' },
     h('span', { class: 'ro-cap', 'aria-hidden': 'true' }, 'Systemic'), h('div', { class: 'vb-grid' }, vitEls.map((x) => x.el))));
@@ -217,10 +236,15 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   // strip no longer opens.
 
   function trendOf(x, v, now) {
-    const hs = x.hist;
-    if (!hs.length || now - hs[hs.length - 1][0] > 500) { hs.push([now, v]); while (hs.length && now - hs[0][0] > TREND_S * 1000 + 600) hs.shift(); }
-    if (now - hs[0][0] < TREND_S * 1000 * 0.8) return '';
-    const d = v - hs[0][1], thr = TREND_FRAC * (x.t.scale[1] - x.t.scale[0]);
+    const ht = x.histT, hv = x.histV;
+    if (!ht.length || now - ht[ht.length - 1] > 500) {
+      ht.push(now); hv.push(v);
+      let k = 0;
+      while (k < ht.length && now - ht[k] > TREND_S * 1000 + 600) k++;
+      if (k) { dropFront(ht, k); dropFront(hv, k); }
+    }
+    if (now - ht[0] < TREND_S * 1000 * 0.8) return '';
+    const d = v - hv[0], thr = TREND_FRAC * (x.t.scale[1] - x.t.scale[0]);
     return d > thr ? 'up' : d < -thr ? 'down' : '';
   }
 
@@ -230,11 +254,12 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   // paused edit, a treatment, a new patient) is taken at once: its number rolls (P17) and its bar glides by its own transition.
   // (small: one step of the last digit printed. A number prints only whole steps of its last digit, so a move of one step or less shows
     // the same whether it glides or lands at once, and a running model's wobble, which is about that size, costs no display frames.)
-    const followOpts = (d, snap) => ({ snap, small: Math.pow(10, -d), eps: 0.05 * Math.pow(10, -d) });
+    const followOpts = (d, snap) => { FOLLOW.snap = snap; FOLLOW.small = Math.pow(10, -d); FOLLOW.eps = 0.05 * FOLLOW.small; return FOLLOW; };   // (one options object, written in place: the shown state reads it at once)
   // (A bar's length glides on the same filter, across a jump too: it always glided, by a CSS transition that restarted with each model
   // frame. Shown again after "Not measured", it grows from its origin.)
   const fillTo = (key, t, v, seen) => {
-    const r = Math.abs(t.scale[1] - t.scale[0]), o = { small: FILL_SMALL * r, eps: 0.0005 * r, across: true };
+    const r = Math.abs(t.scale[1] - t.scale[0]), o = FILL;
+    o.small = FILL_SMALL * r; o.eps = 0.0005 * r;
     if (v != null && !seen && shownState.get(key) === undefined) shownState.set(key, clamp(0, t.scale[0], t.scale[1]), o);
     return shownState.set(key, v, o);
   };
@@ -247,15 +272,15 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     // The gradients' two readings each get the tiles' running mean, and the gradient is their difference as shown (one
     // decimal): the Pressure chart writes the same two readings at its brackets' ends, so its labels, the bar and the
     // readings add up (sweep 2 review item 13: PPG 17.8 beside 22.9 and 5.5).
-    for (const k of ['pv', 'ivc', 'whvp', 'fhvp']) {
-      const raw = m?.[k], e = ends[k];
+    for (let i = 0; i < END_KEYS.length; i++) {
+      const k = END_KEYS[i], raw = m?.[k], e = ends[k];
       let v = raw, eased = false;
       if (Number.isFinite(raw) && Number.isFinite(e.sm) && st0.running && Math.abs(raw - e.sm) < 2) { v = e.sm + (raw - e.sm) * Math.min(1, (now - e.smT) / 1200); eased = true; }
       e.sm = v; e.smT = now;
-      e.v = shownState.set('end:' + k, v, followOpts(1, !eased));
+      e.v = shownState.set(END_STATE[k], v, followOpts(1, !eased));
     }
-    for (const x of Object.values(tileEls)) {
-      const { t } = x;
+    for (let ti = 0; ti < tileList.length; ti++) {
+      const x = tileList[ti], { t } = x;
       const lz = t.group === 'lobule';
       if (lz && !st0.lobule) continue;
       const raw = lz ? (st0.imaging ? null : t.v(f, st0)) : readoutValue(t, m, hidden);
@@ -263,19 +288,18 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       // number stays steady; a real step (beyond a tenth of the scale) or a paused model shows at once.
       let v = raw, eased = false;
       x.live = !lz && t.id in GAP_ENDS && raw != null && raw === t.v(m);   // (a live gradient, not a measured one: the difference of its two ends as shown)
-      const near = (a) => a != null && x.sm != null && st0.running && t.scale && Math.abs(a - x.sm) < 0.1 * Math.abs(t.scale[1] - t.scale[0]);
-      if (near(raw)) { v = x.sm + (raw - x.sm) * Math.min(1, (now - x.smT) / 1200); eased = true; }
+      if (raw != null && x.sm != null && st0.running && t.scale && Math.abs(raw - x.sm) < 0.1 * Math.abs(t.scale[1] - t.scale[0])) { v = x.sm + (raw - x.sm) * Math.min(1, (now - x.smT) / 1200); eased = true; }
       x.sm = v; x.smT = now;
       x.eased = eased;
       x.target = v;
-      x.shown = v == null ? null : shownState.set('bar:' + t.id, v, followOpts(t.d, !eased));
+      x.shown = v == null ? null : shownState.set(x.kBar, v, followOpts(t.d, !eased));
       const g = GAP_ENDS[t.id], gT = x.live && g ? tenthGap(ends[g[0]].sm, ends[g[1]].sm, null) : null;
-      fillTo('fill:' + t.id, t, gT ?? v, x.fillSeen); x.fillSeen = v != null;
+      fillTo(x.kFill, t, gT ?? v, x.fillSeen); x.fillSeen = v != null;
     }
     for (const x of vitEls) {
       const r = vitalReading(x, m, st0.running, now);
       x.bad = r.bad;
-      x.shown = shownState.set('bar:' + x.v.id, r.v, followOpts(x.v.d, !st0.running));
+      x.shown = shownState.set(x.kBar, r.v, followOpts(x.v.d, !st0.running));
     }
     paintStrip(f);
   }
@@ -305,21 +329,22 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     const hidden = hiddenNow(st0);
     const A = st0.compareSnap?.metrics || null;
     const now = performance.now();
-    const sm = {};
-    for (const k of ['pv', 'ivc', 'whvp', 'fhvp']) { const e = ends[k]; sm[k] = follow ? shownState.or('end:' + k, e.v) : e.v; setShown(k, sm[k]); }
-    const gap = { hvpg: tenthGap(sm.whvp, sm.fhvp, null), ppg: tenthGap(sm.pv, sm.ivc, null) };
-    for (const x of Object.values(tileEls)) {
-      const { el, t } = x;
+    const sm = SM;
+    for (let i = 0; i < END_KEYS.length; i++) { const k = END_KEYS[i], e = ends[k]; sm[k] = follow ? shownState.or(END_STATE[k], e.v) : e.v; setShown(k, sm[k]); }
+    const gap = GAP;
+    gap.hvpg = tenthGap(sm.whvp, sm.fhvp, null); gap.ppg = tenthGap(sm.pv, sm.ivc, null);
+    for (let ti = 0; ti < tileList.length; ti++) {
+      const x = tileList[ti], { el, t } = x;
       const lz = t.group === 'lobule';
       if (lz && !st0.lobule) continue;
-      if (follow && x.target != null) x.shown = shownState.or('bar:' + t.id, x.target);
+      if (follow && x.target != null) x.shown = shownState.or(x.kBar, x.target);
       let v = x.shown ?? null, eased = follow || x.eased;
       if (x.live && gap[t.id] != null) v = gap[t.id];
       // (A display frame between model frames repaints only the tiles whose shown number or bar moved since they were last painted: with
       // a running model a tile or two always wobbles, and the rest need not be worked out again on every frame. A model frame paints all.)
-      if (follow) { const fk = `${v}|${shownState.or('fill:' + t.id, '')}`; if (fk === x.followKey) continue; x.followKey = fk; } else x.followKey = null;
+      if (follow) { const fv = shownState.or(x.kFill, null); if (x.fkOn && x.fkV === v && x.fkF === fv) continue; x.fkOn = true; x.fkV = v; x.fkF = fv; } else x.fkOn = false;
       if (!lz) setShown(t.id, v);
-      if (unseen) { x.followKey = null; continue; }   // (R11: the number is shared; the tile itself waits until it shows)
+      if (unseen) { x.fkOn = false; continue; }   // (R11: the number is shared; the tile itself waits until it shows)
       const measured = !lz && v != null && hidden?.has(t.hideKey);
       let sev, s;
       if (v == null) {
@@ -329,11 +354,13 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
         x.hist.length = 0;
       } else {
         // (A step the running mean doesn't ease, a paused edit or a treatment, rolls to the new number: P17.)
-        countTo(x.val, v, t.d, { eased });
-        const a = lz ? [f, st0] : [m], vs = shownOf(v, t.d);   // (the word judges the number shown: "5.0 L" is Grade 3)
-        s = measured ? 'Measured' : (t.ss && narrow.matches ? t.ss : t.s)(vs, ...a);
-        sev = t.st(vs, ...a);
-        const w = pos(t, shownState.or('fill:' + t.id, v)), o = pos(t, clamp(0, t.scale[0], t.scale[1]));
+        COUNT.eased = eased; countTo(x.val, v, t.d, COUNT);
+        // (The number the word judges, the one shown ("5.0 L" is Grade 3), worked out again only when the reading moved.)
+        if (x.vsV !== v || x.vsD !== t.d) { x.vsV = v; x.vsD = t.d; x.vsOut = shownOf(v, t.d); }
+        const vs = x.vsOut, sf = t.ss && narrow.matches ? t.ss : t.s;
+        s = measured ? 'Measured' : lz ? sf(vs, f, st0) : sf(vs, m);
+        sev = lz ? t.st(vs, f, st0) : t.st(vs, m);
+        const w = pos(t, shownState.or(x.kFill, v)), o = pos(t, clamp(0, t.scale[0], t.scale[1]));
         const fl = fillQ(Math.min(w, o) / 100), fw = fillQ(Math.abs(w - o) / 100);
         if (x.fillL !== fl || x.fillW !== fw) { x.fillL = fl; x.fillW = fw; x.fill.style.setProperty('--fl', fl); x.fill.style.setProperty('--fw', fw); }
       }
@@ -358,21 +385,23 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
         if (x.sevNext !== sev) { x.sevNext = sev; x.sevSince = now; }
         if (!x.sev || sev === 'none' || !st0.running || now - x.sevSince > 1500) {
           // A value crossing into a worse band flashes once, so a change is noticed without every number on screen.
-          const RANKS = { none: -1, ok: 0, caution: 1, danger: 2, critical: 3 };
           if (x.sev && RANKS[sev] > RANKS[x.sev]) flashTile(el);
           dataSoon(el, 'sev', sev); x.sev = sev;
         }
       } else x.sevNext = null;
-      if (sev === x.sev) { const un = v == null; swapText(x.st, s, () => classSoon(x.st, 'unmeas', un)); }
-      const aria = `${t.title || t.k}: ${v == null ? s.toLowerCase() : `${fmt(v, t.d)} ${t.u}${t.ux || ''}, ${s}`}${x.trend ? `, ${x.trend === 'up' ? 'rising' : 'falling'}` : ''}`;
-      if (aria !== x.ariaTxt) { x.ariaTxt = aria; attrSoon(el, 'aria-label', aria); }
+      // (The status word is handed on only when it or its class changed since it was last handed on: swapText returns at once for the same
+      // word, but the call made a closure each frame to find that out.)
+      if (sev === x.sev) { const un = v == null; if (s !== x.stS || un !== x.stUn) { x.stS = s; x.stUn = un; swapText(x.st, s, x.unmeasThen(un)); } }
+      // (The spoken label is worded between frames, and only when what it says changed: the number as shown, the word, the trend.)
+      const ak = v == null ? 1e308 : x.vsOut;
+      if (ak !== x.ariaK || s !== x.ariaS || x.trend !== x.ariaT) { x.ariaK = ak; x.ariaS = s; x.ariaT = x.trend; x.ariaV = v; if (!x.ariaAsk) { x.ariaAsk = true; restPass(x.ariaPass); } }
     }
     for (const x of vitEls) {
-      if (unseen) { x.followKey = null; continue; }
-      const hid = hidden?.has(x.v.hideKey);
-      if (follow) x.shown = shownState.or('bar:' + x.v.id, x.shown);
-      if (follow) { const fk = `${x.shown}|${hid}|${x.bad}`; if (fk === x.followKey) continue; x.followKey = fk; } else x.followKey = null;
-      countTo(x.val, hid ? null : x.shown, x.v.d, { eased: st0.running });
+      if (unseen) { x.fkOn = false; continue; }
+      const hid = !!hidden?.has(x.v.hideKey);
+      if (follow) x.shown = shownState.or(x.kBar, x.shown);
+      if (follow) { if (x.fkOn && x.fkS === x.shown && x.fkH === hid && x.fkB === !!x.bad) continue; x.fkOn = true; x.fkS = x.shown; x.fkH = hid; x.fkB = !!x.bad; } else x.fkOn = false;
+      COUNT.eased = st0.running; countTo(x.val, hid ? null : x.shown, x.v.d, COUNT);
       classSoon(x.el, 'bad', !hid && x.bad);
     }
   }

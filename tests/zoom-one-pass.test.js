@@ -145,10 +145,10 @@ test('veins-gl: on by default (?zoompass=two goes back), a zoom or turn only, pl
   assert.match(fuse[1], /clearLayer\(\); stale = true;/, 'the layer is cleared once, for the pixels outside the cells');
   assert.match(fuse[1], /fusing = true;\s*this\.composite\(look, blood, true\);\s*if \(reuseEvery && reuseOn\) \{ reuseKeep\(m\); reuseN = 1; \} else rz\.m = null;\s*return;/, '(Pinch frame reuse: the picture kept only while that is on and a hand zooms)');
   assert.match(draw, /fboOK = true; stale = false;/, 'a whole draw makes the layer current again');
-  const comp = body(src, '    composite(look, blood = {}, full = false, part = 0) {');
+  const comp = body(src, '    composite(look, blood = NOBLOOD, full = false, part = 0) {');
   assert.match(comp, /const fused = fusing;\s*fusing = false;\s*if \(stale && !fused\) \{ this\.draw\(baseM, look, blood\); return; \}/, 'any other picture draws the layer whole first');
-  assert.match(comp, /gl\.stencilFunc\(gl\.ALWAYS, 1, 0xff\); gl\.stencilOp\(gl\.KEEP, gl\.KEEP, gl\.REPLACE\);[\s\S]*fuseBind\(P, m, look, layer, glow, warm, useStack\);[\s\S]*gl\.stencilFunc\(gl\.EQUAL, 0, 0xff\);[\s\S]*gl\.drawArrays\(gl\.TRIANGLE_STRIP, 0, 4\);\s*gl\.disable\(gl\.STENCIL_TEST\);/);
-  assert.match(comp, /for \(const P of \[\.\.\.fuseP, \.\.\.sides, prg\]\) \{/, 'the one-pass builds get the picture\'s uniforms, the picture\'s own build last');
+  assert.match(comp, /gl\.stencilFunc\(gl\.ALWAYS, 1, 0xff\); gl\.stencilOp\(gl\.KEEP, gl\.KEEP, gl\.REPLACE\);[\s\S]*fuseBind\(fuseGen, m, look, layer, glow, warm, useStack\);[\s\S]*gl\.stencilFunc\(gl\.EQUAL, 0, 0xff\);[\s\S]*gl\.drawArrays\(gl\.TRIANGLE_STRIP, 0, 4\);\s*gl\.disable\(gl\.STENCIL_TEST\);/);
+  assert.match(comp, /passes\.push\(prg\);\s*for \(let qi = 0; qi < passes\.length; qi\+\+\) \{/, 'the one-pass builds get the picture\'s uniforms, the picture\'s own build last');
   assert.match(src, /const fuseReady = \(\) => !!fuseGen && !!plain && \(!nSimple \|\| !!fuseOne\)/);
   // (Torn down with the rest.)
   assert.match(src, /plain, plainCell, fuseGen, fuseOne, cathP, lineP\]\) if \(x\) gl\.deleteProgram/);

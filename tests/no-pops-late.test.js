@@ -25,7 +25,7 @@ test('a tapped Tests tab crossfades; a swiped one does not replay (P13)', () => 
 
 test('a paused edit rolls the readouts to the new number, always ending on it (P17)', () => {
   assert.match(util, /c\.shown = u >= 1 \? c\.to : c\.from \+ \(c\.to - c\.from\) \* k;/);
-  assert.match(dock, /countTo\(x\.val, v, t\.d, \{ eased \}\)/);
+  assert.match(dock, /COUNT\.eased = eased; countTo\(x\.val, v, t\.d, COUNT\);/);
   assert.match(read('src/ui/readouts-pane.js'), /countTo\(x\.val, v, t\.d, \{ eased \}\)/);
   // (Its colour is taken at once: an eased colour repaints the readout every frame, 1 Nov 2026, move everything to GPU.)
   assert.match(css, /\.metric \.val, \.metric \.status \{ transition: none; \}/);

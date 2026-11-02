@@ -133,14 +133,14 @@ test('H4b: the glass observer asks for the glass\'s frame; it never draws in a m
 
 test('H6: a still catheter repaints only its box (now and as last drawn), whole there; else, or past half the picture, the whole picture', () => {
   const v = src('veins-gl.js');
-  const comp = v.slice(v.indexOf('    composite(look, blood = {}, full = false, part = 0) {'), v.indexOf('    /** Whether organ outlines can be drawn here'));
+  const comp = v.slice(v.indexOf('    composite(look, blood = NOBLOOD, full = false, part = 0) {'), v.indexOf('    /** Whether organ outlines can be drawn here'));
   assert.match(comp, /if \(cath && !moving && cathAt\) \{/);
   assert.match(comp, /u = b && \[Math\.min\(b\[0\], cathAt\[0\]\), Math\.min\(b\[1\], cathAt\[1\]\), Math\.max\(b\[2\], cathAt\[2\]\), Math\.max\(b\[3\], cathAt\[3\]\)\];/);
   assert.match(comp, /if \(u && \(u\[2\] - u\[0\]\) \* \(u\[3\] - u\[1\]\) <= PW\(\) \* PH\(\) \/ 2\) cathRect = u;/);
   assert.match(comp, /if \(\(cath && !cathRect\) \|\| cathWas && !cath\) full = true;/, 'a moving view, the first frame and the frame after it is gone: whole');
   // In the box: the whole build with no outline layer, the catheter, then the outlines: exactly the whole picture's order there.
   const box = comp.slice(comp.indexOf('      if (cathRect) {'), comp.indexOf('      } else if (cath) gpuProbe'));
-  const order = ['gl.scissor(cathRect[0], PH() - cathRect[3]', 'compBind(cathPass.u, false, glow, warm, useStack);', 'UC.i1(cathPass.u.stillOn, 0);', 'UC.i1(cathPass.u.bloodOnly, 0);', 'gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);', 'drawCath(m)', 'if (hard) gpuProbe.time(gl, \'outlines\', () => drawLines(m, false));', 'gl.disable(gl.SCISSOR_TEST);'];
+  const order = ['gl.scissor(cathRect[0], PH() - cathRect[3]', 'compBind(cathPass.u, false, glow, warm, useStack);', 'UC.i1(cathPass.u.stillOn, 0);', 'UC.i1(cathPass.u.bloodOnly, 0);', 'gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);', 'gpuProbe.time(gl, \'catheter\', cathT)', 'if (hard) gpuProbe.time(gl, \'outlines\', linesT);', 'gl.disable(gl.SCISSOR_TEST);'];
   let at = -1;
   for (const k of order) { const i = box.indexOf(k); assert.ok(i > at, k); at = i; }
   assert.match(comp, /const cathPass = cathRect \? \(bare \? plain : comp\) : null;/, 'the whole picture\'s own build');

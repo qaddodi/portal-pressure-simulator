@@ -285,7 +285,7 @@ test('the blood pass leaves a lumen alone only when neither of its vessels\' row
   const main = body(R.fast, 'void main()');
   assert.match(main, /if \(bloodOnly == 1 && stillOn == 1 && texelFetch\(flow, ivec2\(7, int\(g\.x\) - 1\), 0\)\.x == 0\.0\n\s*&& \(!two \|\| texelFetch\(flow, ivec2\(7, int\(\(inL \? texelFetch\(gbuf2, lp, 0\) : uvec4\(0u\)\)\.x & 2047u\) - 1\), 0\)\.x == 0\.0\)\) discard;/);
   assert.doesNotMatch(R.classic, /stillOn/);
-  const comp = glSrc.slice(glSrc.indexOf('    composite(look, blood = {}, full = false, part = 0) {'), glSrc.indexOf('    /** Whether organ outlines can be drawn here'));
+  const comp = glSrc.slice(glSrc.indexOf('    composite(look, blood = NOBLOOD, full = false, part = 0) {'), glSrc.indexOf('    /** Whether organ outlines can be drawn here'));
   // Never in a whole picture, a bleed (the one uniform left out of the comparison, the clock, moves it), the classic build, or
   // before every row has been seen.
   assert.match(comp, /let same = !!stillSig && sn === stillN && sn < sigNow\.length;/);
@@ -293,9 +293,9 @@ test('the blood pass leaves a lumen alone only when neither of its vessels\' row
   assert.match(comp, /const still = !CLASSIC && !full && !movedAll && !bl\.length && same;/);
   // The comparison takes every uniform the composite sets but the clock (and the bleed's, which it refuses), and the textures' version.
   const sig = comp.slice(comp.indexOf('sn = 0;'), comp.indexOf('let same'));
-  for (const x of ['m, PW(), PH()', 'pm', 'plate?.alpha', 'plate?.sat', 'plates[0]?.rect', 'plates[1]?.rect', 'fluidRect', 'fl?.s', 'fl.ink', 'fl?.lv',
+  for (const x of ['sg(m)', 'pm', 'plate?.alpha', 'plate?.sat', 'plates[0]?.rect', 'plates[1]?.rect', 'fluidRect', 'fl?.s', 'fl.ink', 'fl?.lv',
     'blood.on', 'blood.chev', 'blood.still', 'blood.alpha', 'blood.streakA', 'blood.chevA', 'blood.originA', 'blood.chevInk', 'blood.chevLight', 'blood.vdpr',
-    'blood.origin', 'dyeAny', 'originColOf', 'blood.dyeCol', 'blood.revCol', 'blood.inkLight', 'blood.inkDark', 'ncv', 'nc.length', 'hb', 'hr', 'ho.length',
+    'blood.origin', 'dyeAny', 'originColOf', 'blood.dyeCol', 'blood.revCol', 'blood.inkLight', 'blood.inkDark', 'ncv', 'ncN', 'hb', 'hr', 'hoN',
     'BLOOD_SAT', 'blood.bt', 'layer', 'glow', 'warm', 'useStack', 'bare', 'texVer']) assert.ok(sig.includes(x), x);
   const uniforms = [...comp.matchAll(/UC\.\w+\(U\.(\w+)/g)].map((m) => m[1]);
   for (const u of uniforms) assert.ok(['world', 'size', 'cell', 'inv', 'H', 'pxW', 'plates', 'plateAlpha', 'plateSat', 'plateRect0', 'plateRect1', 'fluidRect', 'fluidS', 'fluidInk', 'fluidLv',

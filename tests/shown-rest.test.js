@@ -120,10 +120,11 @@ test('under a steady running model the Pressure chart rests, though the arterial
 test('the bar and the Readouts pane land, quantise their writes, and repaint only the tiles that moved', () => {
   const dock = read('../src/ui/dock.js'), pane = read('../src/ui/readouts-pane.js'), charts = read('../src/ui/charts.js');
   for (const [name, src] of [['dock.js', dock], ['readouts-pane.js', pane]]) {
-    assert.match(src, /const followOpts = \(d, snap\) => \(\{ snap, small: Math\.pow\(10, -d\), eps: 0\.05 \* Math\.pow\(10, -d\) \}\);/, `${name}: a number lands within one step of its last digit`);
-    assert.match(src, /small: FILL_SMALL \* r, eps: 0\.0005 \* r, across: true/, `${name}: a bar lands within what the screen cannot show`);
+    // (The bar writes its options into one kept object, the pane makes its own: either way the number lands within one step of its last digit.)
+    assert.match(src, name === 'dock.js' ? /const followOpts = \(d, snap\) => \{ FOLLOW\.snap = snap; FOLLOW\.small = Math\.pow\(10, -d\); FOLLOW\.eps = 0\.05 \* FOLLOW\.small; return FOLLOW; \};/ : /const followOpts = \(d, snap\) => \(\{ snap, small: Math\.pow\(10, -d\), eps: 0\.05 \* Math\.pow\(10, -d\) \}\);/, `${name}: a number lands within one step of its last digit`);
+    assert.match(src, name === 'dock.js' ? /o\.small = FILL_SMALL \* r; o\.eps = 0\.0005 \* r;/ : /small: FILL_SMALL \* r, eps: 0\.0005 \* r, across: true/, `${name}: a bar lands within what the screen cannot show`);
     assert.match(src, /fl = fillQ\(Math\.min\(w, o\) \/ 100\), fw = fillQ\(Math\.abs\(w - o\) \/ 100\)/, `${name}: the fill's writes are quantised`);
-    assert.match(src, /if \(follow\) \{ const fk = `\$\{[^`]*`; if \(fk === x\.followKey\) continue; x\.followKey = fk; \} else x\.followKey = null;/, `${name}: a display frame skips a tile whose shown values have not moved`);
+    assert.match(src, name === 'dock.js' ? /if \(follow\) \{ const fv = shownState\.or\(x\.kFill, null\); if \(x\.fkOn && x\.fkV === v && x\.fkF === fv\) continue; x\.fkOn = true; x\.fkV = v; x\.fkF = fv; \} else x\.fkOn = false;/ : /if \(follow\) \{ const fk = `\$\{[^`]*`; if \(fk === x\.followKey\) continue; x\.followKey = fk; \} else x\.followKey = null;/, `${name}: a display frame skips a tile whose shown values have not moved`);
   }
   assert.match(charts, /easeP\.step\(src, drawnMask\(curPath\(\)\)\)/, 'the chart watches the stations it draws');
   assert.match(charts, /for \(const n of \[\.\.\.path\.nodes, \.\.\.STRIP\]\) if \(!ARTERIAL\.has\(n\)/, 'and never an arterial one');

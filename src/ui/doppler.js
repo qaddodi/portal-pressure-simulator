@@ -209,6 +209,24 @@ export function createDoppler({ onProbe, pickGate = true }) {
 
   // ── Samples ───────────────────────────────────────
   let buf = [];
+  // (Each sample is a [t, v, paired v] triple. A sample leaving the record is kept to be written over by the next one, so a steady trace
+  // makes no triple per sample: 2 Nov 2026. The pool holds more than the record ever does (16 s at 50 samples a second and a chunk);
+  // with it empty the oldest sample is taken over, never a new array made.)
+  const spare = [];
+  for (let k = 0; k < 1536; k++) spare.push([0, 0, 0]);
+  const POOL_MAX = 4096;
+  function sample(t, v, p) {
+    let a = spare.pop();
+    if (!a) a = buf.shift();
+    a[0] = t; a[1] = v; a[2] = p;
+    return a;
+  }
+  // The samples dropped from the front of the record, kept for reuse (a template holds its own copies, so none is shared).
+  function dropSamples(n) {
+    for (let i = 0; i < n && spare.length < POOL_MAX; i++) spare.push(buf[i]);
+    dropFront(buf, n);
+  }
+  function clearBuf() { dropSamples(buf.length); }
   let probe = null, frame = null, gateNow = '';
   // Time lapse (the disease clock) has no bedside samples: the model jumps a day at a time. The
   // trace keeps scrolling at bedside speed by replaying the last recorded beats (the template),
@@ -219,7 +237,8 @@ export function createDoppler({ onProbe, pickGate = true }) {
   function startSynth() {
     const tEnd = buf[buf.length - 1][0];
     let i = buf.length - 1; while (i > 0 && buf[i - 1][0] >= tEnd - 3) i--;
-    const pts = buf.slice(i);
+    const pts = [];   // (the template's own copies: the record's triples are written over as they leave it)
+    for (let j = i; j < buf.length; j++) pts.push([buf[j][0], buf[j][1], buf[j][2]]);
     const L = pts[pts.length - 1][0] - pts[0][0];
     if (pts.length < 8 || L < 1) return null;
     const mean = pts.reduce((a, p) => a + p[1], 0) / pts.length;
@@ -251,15 +270,15 @@ export function createDoppler({ onProbe, pickGate = true }) {
       // (The template was recorded with breathing; a lapse run without respiration eases its swings out.)
       synth.amp = clamp(synth.amp + (synth.still ? -1.5 : 1.5) * (dt / n), 0, 1);
       const v = m0 + (tplAt(synth.t) - m0) * synth.amp;
-      buf.push([synth.t, ratio ? v * synth.mean / m0 : v - m0 + synth.mean, tpl.hasPair ? tpl.pm + (tplAt(synth.t, 2) - tpl.pm) * synth.amp : NaN]);
+      buf.push(sample(synth.t, ratio ? v * synth.mean / m0 : v - m0 + synth.mean, tpl.hasPair ? tpl.pm + (tplAt(synth.t, 2) - tpl.pm) * synth.amp : NaN));
     }
   }
   function ingest(f) {
     frame = f;
-    if (f.probe !== probe) { buf = []; wl = null; tOff = 0; synth = null; scale = null; heldTo = null; steady.probe = null; probe = f.probe; if (probeSel.value !== probe) probeSel.value = probe; }
+    if (f.probe !== probe) { clearBuf(); wl = null; tOff = 0; synth = null; scale = null; heldTo = null; steady.probe = null; probe = f.probe; if (probeSel.value !== probe) probeSel.value = probe; }
     // A new spot along a stent is a new recording, as a new vessel is: the trace starts over and finds its own scale.
     const g = isStentProbe() ? gateOf() : '';
-    if (g !== gateNow) { gateNow = g; buf = []; wl = null; synth = null; scale = null; heldTo = null; steady.probe = null; }
+    if (g !== gateNow) { gateNow = g; clearBuf(); wl = null; synth = null; scale = null; heldTo = null; steady.probe = null; }
     const s = f.samples;
     if (f.clock === 'disease') {
       if (!synth && buf.length) synth = startSynth();
@@ -267,7 +286,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
       if (s?.vel?.length) synth.target = s.vel[s.vel.length - 1];
       synth.still = f.resp === false;
       // A lapse without respiration shows none from its first frame: the replay and the trace already drawn go flat at once.
-      if (synth.still && !synth.flat) { synth.flat = true; synth.amp = 0; for (const p of buf) { p[1] = synth.mean; if (tpl.hasPair) p[2] = tpl.pm; } }
+      if (synth.still && !synth.flat) { synth.flat = true; synth.amp = 0; for (const p of buf) { p[1] = synth.mean; if (tpl.hasPair) p[2] = tpl.pm; } for (const p of tpl.pts) { p[1] = synth.mean; if (tpl.hasPair) p[2] = tpl.pm; } }
       if (f.running) runSynth();
     } else {
       if (synth && s?.t.length) { tOff = synth.t + 0.02 - s.t[0]; synth = null; }
@@ -278,13 +297,13 @@ export function createDoppler({ onProbe, pickGate = true }) {
       // (Each sample keeps the paired vessel's velocity beside it, for a slide's paired trace: the worker samples the main portal
       // vein and the right hepatic vein at every step, whatever the probe.)
       const ps = s[pairOf(meta().kind) === 'PV_TRUNK' ? 'pvVel' : 'hvVel'];
-      for (let i = 0; i < s.t.length; i++) { const t = s.t[i] + tOff; if (!buf.length || t > buf[buf.length - 1][0]) buf.push([t, s.vel[i], ps?.[i] ?? NaN]); }
+      for (let i = 0; i < s.t.length; i++) { const t = s.t[i] + tOff; if (!buf.length || t > buf[buf.length - 1][0]) buf.push(sample(t, s.vel[i], ps?.[i] ?? NaN)); }
     }
     if (!buf.length) return;
     const tNow = buf[buf.length - 1][0];
     if (f.settling) heldTo = tNow;
     let cut = 0; while (cut < buf.length && buf[cut][0] < tNow - KEEP) cut++;
-    if (cut && (cut >= 256 || cut * 4 >= buf.length)) dropFront(buf, cut);
+    if (cut && (cut >= 256 || cut * 4 >= buf.length)) dropSamples(cut);
   }
 
   // ── Reading ───────────────────────────────────────
@@ -1235,13 +1254,13 @@ export function createDoppler({ onProbe, pickGate = true }) {
     buf = rows.concat(buf);
     const tNow = buf[buf.length - 1][0];
     let cut = 0; while (cut < buf.length && buf[cut][0] < tNow - KEEP) cut++;
-    if (cut && (cut >= 256 || cut * 4 >= buf.length)) dropFront(buf, cut);
+    if (cut && (cut >= 256 || cut * 4 >= buf.length)) dropSamples(cut);
     redraw();
     return true;
   }
-  function clear() { buf = []; wl = null; redraw(); }
+  function clear() { clearBuf(); wl = null; redraw(); }
   // (A new recording of the same vessel: as a new probe, the trace, its scale and its reading start over.)
-  function restart() { buf = []; wl = null; tOff = 0; synth = null; scale = null; heldTo = null; steady.probe = null; redraw(); }
+  function restart() { clearBuf(); wl = null; tOff = 0; synth = null; scale = null; heldTo = null; steady.probe = null; redraw(); }
   /** A slide is showing this monitor: choose its window again from the width it is drawn at. (The trace already drawn
    *  stays: only a change of window redraws it, so a slide that keeps the window enters without a full repaint.) */
   function autoWindow() { manualSweep = false; pickNext = true; redraw(); }

@@ -15,10 +15,10 @@ test('A: the new cards waiting unseen for the camera take their numbers at once,
 test('E: while the view moves the outlines are drawn straight onto the whole repaint, and their layer is made again once still', () => {
   const js = read('../src/ui/veins-gl.js');
   const body = js.slice(js.indexOf('    composite(look'), js.indexOf('get canLines()'));
-  assert.match(body, /const moving = mk !== lastMk;/);
+  assert.match(body, /const moving = m\[0\] !== lastM\[0\] \|\| /);
   assert.match(body, /layer = hard && \(!cath \|\| !!cathRect\) && !moving/);
-  assert.match(body, /else if \(moving\) \{ lineKey = ''; full = true; \}/, 'a moving frame is a whole repaint, and the layer is rebuilt when still');
-  assert.match(body, /if \(hard && !layer\) gpuProbe\.time\(gl, 'outlines', \(\) => drawLines\(m, false\)\);/, 'drawn last, over the picture');
+  assert.match(body, /else if \(moving\) \{ lineKV = -1; full = true; \}/, 'a moving frame is a whole repaint, and the layer is rebuilt when still');
+  assert.match(body, /if \(hard && !layer\) gpuProbe\.time\(gl, 'outlines', linesT\);/, 'drawn last, over the picture');
 });
 
 test('D: Doppler and FibroScan learn whether they are on screen from an observer, and a hidden Doppler never draws', () => {

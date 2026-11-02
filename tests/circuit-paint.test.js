@@ -30,7 +30,7 @@ test('a zone band with no tint, and the lit zone when off, are not painted', () 
 });
 
 test('a plate faded out whole (the circuit) is neither drawn nor read', () => {
-  const comp = veins.slice(veins.indexOf('composite(look, blood = {}, full = false, part = 0) {'));
+  const comp = veins.slice(veins.indexOf('composite(look, blood = NOBLOOD, full = false, part = 0) {'));
   assert.match(comp, /const plate = look\.plate && look\.plate\.alpha > 0 \? look\.plate : null;/);
   assert.match(comp, /const useStack = !!\(plate\?\.stack && stack\?\.has\(0\)\);/, 'no organ layers drawn for a plate at alpha 0');
   assert.match(comp, /const pm = \(plate && !useStack/, 'no plate texture read');

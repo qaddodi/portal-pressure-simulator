@@ -180,7 +180,7 @@ test('Glows: under Full the glow lines go to a smaller target and are stretched 
   assert.match(gl, /UC\.i1\(U\.warmOn, warm \? 1 : 0\);/);
   assert.match(gl, /if \(layerK < 1 && L !== lineLayer\) \{ renderLayerLow\(L, m, soft, warm\); return; \}/, 'at Full the layer is drawn as before');
   assert.match(gl, /gl\.blitFramebuffer\(0, 0, w, h, 0, 0, L\.w, L\.h, gl\.COLOR_BUFFER_BIT, gl\.LINEAR\);/);
-  assert.match(gl, /setLayerScale\(k\) \{[\s\S]*?glowKey = warmKey = '';/);
+  assert.match(gl, /setLayerScale\(k\) \{[\s\S]*?glowKV = warmKV = -1;/);
   assert.ok(!/TEXTURE_MIN_FILTER, gl\.LINEAR\); gl\.texParameteri\(gl\.TEXTURE_2D, gl\.TEXTURE_MAG_FILTER, gl\.LINEAR\); \}/.test(gl), 'no filter change on the layers');
 });
 
