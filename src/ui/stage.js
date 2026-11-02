@@ -7,13 +7,13 @@ import { WARM_VIEWS, WARM_MS } from './warm-views.js?v=510b2dee9e';
 import { gastricUp } from '../engine/scenario.js?v=0762d1b820';
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
 import { route as metroRoute, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, CAVITY_LOW, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=fe0f3d1f0e';
-import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=2599153cff';
+import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=8e9abfe28b';
 import { nodeJoins, sideEndScale } from './fork-joins.js?v=4c6eea81e5';
 import { nodeEnds, nodeDrawn, dotRadius, bareDots } from './circuit-nodes.js?v=1040ba0ec4';
 import { STATION_VESSEL, meanVel, velNormal, judgeFlow } from './velNormal.js?v=97920ddf3f';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=bf85512db4';
 import { fibroReading } from './clock.js?v=b2a395ebe7';
-import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, loadFailed, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=b3c37e914d';
+import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, loadFailed, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=275558a385';
 import { riseCentre } from './rise-path.js?v=c039cb7b49';
 import { lerpVT, camPath, blendPaths, viewsOverlap, driftEase } from './cam-arc.js?v=2e5111e648';
 import { easeMove, easeArrive, camMs, carryRate, carried, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js?v=7513a88c68';
@@ -29,7 +29,7 @@ import { easeTo, fluidSpring, fluidSpringFor } from './organ-ease.js?v=4ebb64813
 import { spleenMotion } from './spleen-motion.js?v=4e87db0dbb';
 import { paintBox } from './plate-copy.js?v=20b30d30b0';
 import { gridHits, segHitsBox } from './seg-hits.js?v=e7cde76929';
-import { glassCallout, withGlass } from './callout.js?v=97de7cb51b';
+import { glassCallout, withGlass } from './callout.js?v=2f2d49baac';
 import { flipFrom, flipAt } from './cath-flip.js?v=6b016952c4';
 import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=d7cca3fb73';
 import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=977185f80a';
@@ -40,24 +40,24 @@ import { COLON_ART, BOWEL_ART, DUO_CLIPS, DUO_A, DUO_B } from './organ-art.js?v=
 import { warmVisible, ringGrid, inGrid } from './warm-vis.js?v=ccf4f6f71b';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
-import { refine } from './refine.js?v=a699933f3c';
+import { refine } from './refine.js?v=6ad85d6687';
 import { fadeOver, fadeStop, fading } from './res-fade.js?v=f8b45ffce5';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { leftAlone, sinceInput, booting, holdCover } from './quiet.js?v=388052eba8';
-import { cropToGrid } from './organs-gl.js?v=ef399d184f';
+import { cropToGrid } from './organs-gl.js?v=a4761842c3';
 import { textPolys, loadGlyphs, glyphsReady, textBox } from './text-gl.js?v=19dfe922f8';
 import { cssColor8 } from './css-color.js?v=e56f0c77ae';
 import { measure as measureWords } from './glyph-measure.js?v=c00a2078e8';
-import { readGroup as readGroupNow, readGroupRefs, readFail, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=38f26a5836';
+import { readGroup as readGroupNow, readGroupRefs, readFail, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=ac4580c053';
 import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js?v=fd7e5bc404';
 import { pathCmds, flattenCmds, polyBox, measurePath, elBox } from './shape-gl.js?v=662f61f3d8';
-import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=2c1df9024a';
+import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=97e6aa6e84';
 import { nameSpots, NAME_BREAK } from './organ-names.js?v=582f206781';
-import { createLabelGL } from './label-gl.js?v=d07e5b389d';
+import { createLabelGL } from './label-gl.js?v=55343dd6b8';
 import { createGlassGL } from './glass-gl.js?v=29fcf677e4';
 import { writePoints, writeJoinNow } from './veins-sweep.js?v=c4ad517372';
 import { ENT_W } from './veins-bin.js?v=6e462a9e6c';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=e172a6a7c4';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=1d7cb6520e';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=d950c5cd1c';
 import { alongCurve } from './pressure-along.js?v=74c64e4286';
@@ -91,8 +91,8 @@ import { capDensity } from './pixel-budget.js?v=279a2b54f6';
 import { bandRing, dashRings, liftEnd, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=e2c1816e25';
 import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js?v=6ef2901a08';
 import { CellGrid, geomOf } from './cell-grid.js?v=c9ea140f9a';
-import { restPass } from './rest-pass.js?v=ae2ffa59f6';
-import { glWords } from './gl-words.js?v=74022eac1b';
+import { restPass } from './rest-pass.js?v=ab96e02d7b';
+import { glWords } from './gl-words.js?v=ae22cd79d0';
 const nextFrame = frameFor('stage');
 // (1 Nov 2026, "Move everything to GPU": zero layout inside the frame. Boxes the figure's pieces keep clear of (the slide's cards, the
 // key pill, the readings' own sizes, the home look's room) are read first in a frame, before anything is written (frame.js readFrame),
@@ -2792,7 +2792,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=9973481e7f').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=116a5efdf1').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });

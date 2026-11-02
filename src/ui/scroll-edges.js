@@ -13,7 +13,7 @@
 // the box's overflow and padding are read only as it is resized; a list is only watched while it is in the page.
 import { D_SMALL } from './ease.js?v=7513a88c68';
 import { frameFor } from './frame.js?v=2cc59e19c4';
-import { restPass } from './rest-pass.js?v=ae2ffa59f6';
+import { restPass } from './rest-pass.js?v=ab96e02d7b';
 
 const nextFrame = frameFor('scroll-edges');
 

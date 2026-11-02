@@ -6,36 +6,36 @@ import { budget as gpuBudget } from './gpu-budget.js?v=60fb39ce3e';   // (the re
 import './gl-state.js?v=e355476de1';   // (early: every WebGL2 context is recorded from its creation, R09/R06)
 import { startHost, host } from './host.js?v=9eca545da1';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=bf85512db4';
-import { createStage } from './stage.js?v=cb982aeb5a';
-import { createCreditPlacer } from './credit.js?v=b5bae69735';
+import { createStage } from './stage.js?v=eb33ffab4d';
+import { createCreditPlacer } from './credit.js?v=2244c90308';
 import { whenQuiet, booting, holdCover } from './quiet.js?v=388052eba8';
 import { sinusoidSupported } from './gl-support.js?v=38189f60f5';
-import { createInspector } from './inspector.js?v=2f3f5920f2';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=506388d5df';
-import { setHvpgStage } from './hvpg-proc.js?v=ffcdb528e2';
-import { createWhy } from './why.js?v=a07230b319';
-import { createTimeline, LAPSES } from './timeline.js?v=53738a6da0';
-import { createCompare } from './compare.js?v=c0d02af82d';
-import { createCard } from './card.js?v=923b85cec8';
-import { createChart } from './chart.js?v=19ac9796a8';
-import { createMenu } from './menu.js?v=9383f5258d';
-import { caption } from './a11y.js?v=a6c8cf23ba';
+import { createInspector } from './inspector.js?v=737dfe567e';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=0a83cae07b';
+import { setHvpgStage } from './hvpg-proc.js?v=da50732742';
+import { createWhy } from './why.js?v=0df97676ef';
+import { createTimeline, LAPSES } from './timeline.js?v=d06188c4f8';
+import { createCompare } from './compare.js?v=b3bdd2dd0b';
+import { createCard } from './card.js?v=87483c396c';
+import { createChart } from './chart.js?v=4cdf53540a';
+import { createMenu } from './menu.js?v=8de4b6b827';
+import { caption } from './a11y.js?v=0b05c26106';
 import { startLMS } from './lms.js?v=284ef81e94';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=a9debc0de8';
-import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=f4dfcc4d40';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=2599153cff';
+import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=34aca708b5';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=8e9abfe28b';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=97920ddf3f';
 import { controlOwnsKey } from './key-owner.js?v=60ed93db32';
-import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, swapFade, scrollBehavior, reconcile } from './util.js?v=b3c37e914d';
+import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, swapFade, scrollBehavior, reconcile } from './util.js?v=275558a385';
 import { glidePlateOn, platePieces, glideOnResize } from './plate-glide.js?v=b608fe722c';
 import { sheetParts, sheetOffset, setSheetOffset, stopSheet, glideSheet } from './sheet-move.js?v=09fc291f37';
 import { releaseSpeed, isFlick, flickAim, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=7513a88c68';
-import { morphKey, crossfadeText } from './legend-morph.js?v=816c8d4992';
-import './seg-glide.js?v=7f133a6663';
+import { morphKey, crossfadeText } from './legend-morph.js?v=7be228c90d';
+import './seg-glide.js?v=55a4d38e04';
 import './focus-ring.js?v=5287153522';
 import { knownLook, currentLook, isDarkLook, lastDarkLook, applyLookAttrs } from './looks.js?v=2d098211a4';
-import { lookChooser } from './look-chooser.js?v=1a3190297d';
+import { lookChooser } from './look-chooser.js?v=cad8bd823c';
 import { TEXT_STEPS } from './type-scale.js?v=d7cca3fb73';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -55,14 +55,14 @@ import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=0762d1b820';
 import { createPaintGate } from './paint-gate.js?v=68c692e8a3';
 import { frameFor, cancelFrame, perf as framePerf, framePart } from './frame.js?v=2cc59e19c4';
-import { restPass } from './rest-pass.js?v=ae2ffa59f6';
+import { restPass } from './rest-pass.js?v=ab96e02d7b';
 import { sizeOf, watchSize, rectsSoon, restTask, flushTask } from './geom.js?v=254133713c';
 import { feedbackDiagnostics } from './feedback-diag.js?v=a6fd7380e0';
 import { noteJump } from './display-state.js?v=8d062d39dc';
 import { createIdleRest } from './idle-rest.js?v=4d23822371';
 import { easeIO3, glideShift, pillState, foldPill, stopFold } from './pill-motion.js?v=8b7a9002b0';
 import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=81fbedda6b';
-import './scroll-edges.js?v=8d3ac5c465';   // (soft fades at the ends of lists that scroll, only where there is more; ?edges=0 off)
+import './scroll-edges.js?v=49173be221';   // (soft fades at the ends of lists that scroll, only where there is more; ?edges=0 off)
 const nextFrame = frameFor('main');
 
 // Color lenses: [title, what it shows, legend swatch].
@@ -123,8 +123,8 @@ async function main() {
   // The Doppler and the FibroScan load after the first paint (a tab for one that has not come waits for it, dock.js). One left open when the
   // app was last used is asked for now and waited for with the model's first answers, so its pane is whole with the dock.
   const probeTo = (id) => { host.send({ type: 'probe', id }); logAction('probe', id); };
-  dopplerL = lazy(() => import('./doppler.js?v=beec8cdeef'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
-  fibroL = lazy(() => import('./fibroscan.js?v=efe00e27ed'), ({ createFibroScan }) => createFibroScan());
+  dopplerL = lazy(() => import('./doppler.js?v=d256464e7e'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
+  fibroL = lazy(() => import('./fibroscan.js?v=3637f9ba04'), ({ createFibroScan }) => createFibroScan());
   const wasOpen = savedInstruments().open;
   const openAtStart = [];
   if (Array.isArray(wasOpen)) for (const [id, l] of [['doppler', dopplerL], ['fibroscan', fibroL]]) if (wasOpen.includes(id)) openAtStart.push(l.get().catch(() => {}));
@@ -210,7 +210,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=b46d8f805b'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=556087f7b3'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -218,7 +218,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
-  paletteL = lazy(() => import('./palette.js?v=a2081a22bf'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=39f204fda4'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -964,12 +964,12 @@ function wireTopbar() {
   initDebug(() => stage.zoomLevel());
   // ?perf in the address: the readout of what blocks frames after a pan or pinch (perf-readout.js). Without it, never loaded.
   // (And the frame-time overlay beside it, frame-hud.js: fps, 1% low, interval and script percentiles, surfaces, throttle. ?hud=0 off.)
-  if (new URLSearchParams(location.search).has('perf')) import('./frame-hud.js?v=e8c1afeb48').then(({ startFrameHud }) => startFrameHud()).catch(() => { /* a measuring aid only */ });
+  if (new URLSearchParams(location.search).has('perf')) import('./frame-hud.js?v=11ee76d970').then(({ startFrameHud }) => startFrameHud()).catch(() => { /* a measuring aid only */ });
   // High Refresh (high-refresh.js): on a touch screen the first tap goes full screen, past the browser's 60 Hz hold for pages. ?highrefresh=0 off.
   import('./high-refresh.js?v=a5fd03fdf7').then(({ startHighRefresh }) => startHighRefresh()).catch(() => { /* full screen is a bonus */ });
-  if (new URLSearchParams(location.search).has('perf')) import('./perf-readout.js?v=a6e55da990').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
+  if (new URLSearchParams(location.search).has('perf')) import('./perf-readout.js?v=4e607bef24').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
   // ?offgpu=1 in the address: the live count of work off the GPU, flashing red when it happens during motion (offgpu-overlay.js). Without it, never loaded.
-  if (/[?&]offgpu=1\b/.test(location.search)) import('./offgpu-overlay.js?v=24f42b1711').then(({ startOffGpuOverlay }) => startOffGpuOverlay()).catch(() => { /* a measuring aid only */ });
+  if (/[?&]offgpu=1\b/.test(location.search)) import('./offgpu-overlay.js?v=5b7e05843e').then(({ startOffGpuOverlay }) => startOffGpuOverlay()).catch(() => { /* a measuring aid only */ });
   $('#btnMenu').addEventListener('click', () => mainMenu.toggle());
   $('#btnSettings').addEventListener('click', (e) => openSettings(e.currentTarget));
   $('#btnPalette').addEventListener('click', () => palette.open());

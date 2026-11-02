@@ -5,11 +5,11 @@
 // full. It scrolls smoothly, one spectral line at a time, as the machine does.
 
 import { EDGES, dopplerK, stentSegments, stentSite, stentGate, stentCourse } from '../engine/topology.js?v=4044766e96';
-import { glWords, wordsRect } from './gl-words.js?v=74022eac1b';
-import { h, fmt, canvasSize, clamp, icon, cssVar, cssAlpha, swapText } from './util.js?v=b3c37e914d';
-import { FONT, textW } from './charts.js?v=8c31cf9c57';
+import { glWords, wordsRect } from './gl-words.js?v=ae22cd79d0';
+import { h, fmt, canvasSize, clamp, icon, cssVar, cssAlpha, swapText } from './util.js?v=275558a385';
+import { FONT, textW } from './charts.js?v=cb76140fa8';
 import { logAction, shownVel, store } from './store.js?v=bf85512db4';
-import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=db984d7f5c';
+import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=35ed51afe0';
 import { frameFor, noteDraw, paceMs, cancelFrame } from './frame.js?v=2cc59e19c4';
 import { windowIndexFor, scaleFor, fitScale } from './dopplerWindow.js?v=1d34e63b32';
 import { velNormal, dopplerVel, judgeFlow } from './velNormal.js?v=97920ddf3f';

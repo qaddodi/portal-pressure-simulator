@@ -620,21 +620,29 @@ export function createOrganPaint(gl, shape) {
   // run past its deadline, not after it; a step also hands the GPU at most REFINE_OPS shapes, so a cheap CPU step cannot flood it.
   // The first op of a step always runs (progress). ?refbound=0: the old rule, stop only once past the deadline.)
   const opCost = new WeakMap();
-  let opMean = 0.05;
+  let opMean = 0.05, layMean = 0.05;
   function runJob(job, until = Infinity) {
     let n = 0;
     job.ck = job.ck2 = null;
     const bound = REFBOUND && until !== Infinity;
     while (job.frames.length) {
       const f = job.frames[job.frames.length - 1];
-      if (f.lay) { job.frames.pop(); layOver(...f.lay); job.ck = job.ck2 = null; continue; }
-      if (f.i >= f.ops.length) { job.frames.pop(); continue; }
+      if (!f.lay && f.i >= f.ops.length) { job.frames.pop(); continue; }
+      // (recs-production-120hz §15: a layer's composite is a unit of its own, counted and held to the deadline like a shape, never run
+      // ahead of the check; a group's setup (its targets cleared) is counted as an op below.)
       if (bound && n > 0) {
         if (n >= REFINE_OPS) return false;
-        const guess = opCost.get(f.ops[f.i]) ?? opMean;
+        const guess = f.lay ? layMean : opCost.get(f.ops[f.i]) ?? opMean;
         if (performance.now() + guess > until) return false;
       }
       if (n > 0 && performance.now() > until) return false;
+      if (f.lay) {
+        job.frames.pop(); n++;
+        const t0 = bound ? performance.now() : 0;
+        layOver(...f.lay); job.ck = job.ck2 = null;
+        if (bound) layMean += (performance.now() - t0 - layMean) * 0.2;
+        continue;
+      }
       const op = f.ops[f.i++];
       n++;
       if (op.kind === 'group') {

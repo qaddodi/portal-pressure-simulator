@@ -20,12 +20,14 @@ import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { createHistogram } from './frame-stats.js?v=5cd07c7e9b';
 
 export const REFINE_MS = 1;
-// A real bound (recs_cgpt R18, 2 Nov 2026): a step that ran past its allowance leaves the overrun as debt, paid back by the frames
-// after it (each gives its allowance to the debt, not to a step), so refinement averages at most REFINE_MS a frame however long one
-// indivisible piece takes; the debt is capped at MAX_DEBT_FRAMES frames' worth, so one huge piece cannot stall refinement for long.
-// Every overrun is counted (count, total ms, worst) next to a histogram of step times, for ?perf and the gate. ?refbound=0: as before.
+// A cooperative bound, not a hard one (recs_cgpt R18; recs-production-120hz §15, 2 Nov 2026): a step that ran past its allowance leaves the
+// whole overrun as debt, paid back by the frames after it (each gives its allowance to the debt, not to a step), so refinement averages
+// at most REFINE_MS a frame over time however long one indivisible piece takes. The debt is no longer capped (a cap of 30 frames let a
+// recurring 100 ms step average 3.2 ms a frame). It cannot undo the frame the overrun was in: pieces are kept small for that (organ-paint
+// counts composites and group setups as units). Every overrun is counted (count, total ms, worst) next to a histogram of step times,
+// for ?perf and the gate. ?refbound=0: as before.
 export const REFBOUND = !(typeof location !== 'undefined' && /[?&]refbound=0\b/.test(location.search || ''));
-export const MAX_DEBT_FRAMES = 30;
+export const MAX_DEBT_FRAMES = Infinity;   // (no cap: see above)
 
 /** The allowance in ms: ?refinems=, between a quarter of a millisecond and 16, or REFINE_MS. */
 export function refineMsFrom(search, fallback = REFINE_MS) {
@@ -64,7 +66,7 @@ export function createRefine({ ms = REFINE_MS, probe = gpuProbe, bound = REFBOUN
       stats.hist.add(took);
       if (took > ms) {
         stats.overruns++; stats.overrunMs += took - ms;
-        if (bound) debt = Math.min(MAX_DEBT_FRAMES * ms, debt + (took - ms));
+        if (bound) debt += took - ms;
       }
       // (The longest one a step took: the work that did not fit its allowance, and which piece of the picture it was.)
       if (took > longest.ms) { longest.ms = took; longest.name = name; }

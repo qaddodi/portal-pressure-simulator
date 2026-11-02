@@ -13,6 +13,7 @@
 // ?restpass=0 runs each on a plain zero timer of its own instead (no shared message port), still never inside a frame.
 
 import { PREP_BUDGET, prepLeft, prepSpend, prepWindowLeft, STARVE_MS } from './prep-budget.js?v=d133846f6a';
+import { frameBudget } from './frame.js?v=2cc59e19c4';
 
 export const REST_PASS = !(typeof location !== 'undefined' && /[?&]restpass=0\b/.test(location.search || ''));
 
@@ -30,7 +31,7 @@ const asked = new Map();   // (id → when it was asked, for the wait)
 const stats = { drains: 0, sliced: 0, carried: 0, maxWait: 0, maxDrain: 0, waited: 0 };
 /** The rest passes' counts since the page opened: drains, drains cut short, passes carried to a later task, the longest wait and drain (ms). */
 export const restStats = () => ({ ...stats });
-let carry = null;   // (passes left from a drain cut short: they go first, before anything asked since)
+let carry = null, passMean = 0;   // (passes left from a drain cut short: they go first, before anything asked since)
 const inputWaiting = () => { try { return !!globalThis.navigator?.scheduling?.isInputPending?.(); } catch { return false; } };
 // (Review pass 2, priority 1: the slice is also held to the shared preparation budget, prep-budget.js: rest passes, slide preparation
 // and the other between-frame work together spend at most what one frame interval leaves (less while something moves). A drain that
@@ -41,7 +42,9 @@ function drain() {
   posted = false;
   const t0 = performance.now();
   const shared = SLICE_ON && PREP_BUDGET;
-  let slice = REST_SLICE;
+  // (recs-production-120hz §15: the slice is at most half the target frame (4.2 ms at 120 Hz), and a pass is not started when the
+  // passes' mean cost would carry the drain past it: a callback cannot be stopped once it runs, so it is judged before.)
+  let slice = Math.min(REST_SLICE, frameBudget() / 2);
   if (shared) {
     const left = prepLeft(t0);
     if (left <= 0 && oldestWait(t0) < STARVE_MS) { stats.waited = (stats.waited || 0) + 1; posted = true; setTimeout(drain, Math.max(1, prepWindowLeft(t0))); return; }
@@ -56,8 +59,11 @@ function drain() {
     now.delete(id);
     const at = asked.get(id); asked.delete(id);
     if (at != null) stats.maxWait = Math.max(stats.maxWait, t0 - at);
+    const p0 = performance.now();
     try { fn(); } catch (e) { setTimeout(() => { throw e; }); }
-    if (SLICE_ON && now.size && (performance.now() - t0 > slice || inputWaiting())) {
+    const t1 = performance.now();
+    passMean += (t1 - p0 - passMean) * 0.1;
+    if (SLICE_ON && now.size && (t1 - t0 > slice || t1 - t0 + passMean > slice || inputWaiting())) {
       carry = now; stats.sliced++; stats.carried += now.size;
       setTimeout(drain, 0);
       posted = true;
