@@ -41,7 +41,7 @@ import { warmVisible, ringGrid, inGrid } from './warm-vis.js?v=5f4fb81b66';
 import { createRouter } from './circuit-router.js?v=41ec7faa4b';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=94a4db0dc6';
 import { refine } from './refine.js?v=aa60c97717';
-import { fadeOver, fadeStop, fading } from './res-fade.js?v=2990d71cce';
+import { fadeOver, fadeStop, fading } from './res-fade.js?v=7f8ca96f1e';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { leftAlone, sinceInput, booting, holdCover } from './quiet.js?v=856a3cdf1e';
 import { cropToGrid } from './organs-gl.js?v=21d17ebb6a';
@@ -2639,7 +2639,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=cb2295e392').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=014d812b6e').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor, binAway: (tubes, joins) => sweepBin({ kind: 'bin', tubes, joins }) });

@@ -6,7 +6,7 @@ import { budget as gpuBudget } from './gpu-budget.js?v=00c61687bd';   // (the re
 import './gl-state.js?v=f33764e84c';   // (early: every WebGL2 context is recorded from its creation, R09/R06)
 import { startHost, host, hostFailed, restartHost } from './host.js?v=654877cff9';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=0f9c79ec87';
-import { createStage } from './stage.js?v=2013624d44';
+import { createStage } from './stage.js?v=3c5c9085d8';
 import { createCreditPlacer } from './credit.js?v=c88c3b4154';
 import { whenQuiet, booting, holdCover } from './quiet.js?v=856a3cdf1e';
 import { sinusoidSupported } from './gl-support.js?v=12efdaee3a';
@@ -18,7 +18,7 @@ import { createTimeline, LAPSES } from './timeline.js?v=a39b5295c9';
 import { createCompare } from './compare.js?v=3fc5eabb7b';
 import { createCard } from './card.js?v=c9d252ea0a';
 import { createChart } from './chart.js?v=c6b0c2b2c2';
-import { createMenu } from './menu.js?v=d0bd91ce4b';
+import { createMenu } from './menu.js?v=e8a0ef1a2c';
 import { caption } from './a11y.js?v=713f4532b0';
 import { startLMS } from './lms.js?v=4506ad4622';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=a9debc0de8';
@@ -255,7 +255,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
-  paletteL = lazy(() => import('./palette.js?v=ca390c0b6a'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=01b21829e7'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
