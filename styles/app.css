@@ -257,10 +257,13 @@ html.chip-open :is(.chip-btn, .lens-btn)[aria-expanded="true"] { background: var
 
 /* SVG label layer (screen space) */
 /* Labels fade in where they come, fade out where they go (stage.js renderBlock, layoutLabels), and glide when moved (labelGlide);
-   their leader lines and dots fade with them (paintLeaders). */
-#labels .lb { transition: opacity var(--d-small) var(--ease); animation: crossfade var(--d-small) var(--ease) both; }
+   their leader lines and dots fade with them (paintLeaders). The entry fade fills backwards only: one filling forwards stays on the
+   label's opacity after it ends, and the browser then starts no transition of it, so every later hide or show (lb-off, ld-gone) snapped
+   off and on at once (2 Nov, "labels turn on and off randomly"). html.label-fill-both (?labelfill=0): as before. */
+#labels .lb { transition: opacity var(--d-small) var(--ease); animation: crossfade var(--d-small) var(--ease) backwards; }
 #labels .lb.lb-off { opacity: 0; pointer-events: none; }
-.lb-leaders > * { transition: opacity var(--d-small) var(--ease); animation: crossfade var(--d-small) var(--ease) both; }
+.lb-leaders > * { transition: opacity var(--d-small) var(--ease); animation: crossfade var(--d-small) var(--ease) backwards; }
+html.label-fill-both :is(#labels .lb, .lb-leaders > *) { animation-fill-mode: both; }
 .lb-leaders > .ld-gone { opacity: 0; }
 .lb-leaders > .dpr-hid { opacity: 0; transition-duration: var(--d-surface); }   /* (the station dot under the Doppler's gate fades with the probe, stage.js dprDots) */
 @media (prefers-reduced-motion: reduce) { #labels .lb, .lb-leaders > * { transition: none; animation: none; } }
@@ -307,7 +310,7 @@ html.chip-open :is(.chip-btn, .lens-btn)[aria-expanded="true"] { background: var
 .leader-dot-halo { fill: var(--stage-bg); }
 /* The FibroScan probe's callout: a pill in the waves' orange (--fibroscan, the colour of the card's readout) with a leader to the waves. It eases in
    and out with the probe; its own layer (.lb-scan) carries the leader, so neither ever pops. */
-#labels .lb.scan { transition: opacity var(--d-surface) var(--ease); animation: crossfade var(--d-surface) var(--ease) both; }
+#labels .lb.scan { transition: opacity var(--d-surface) var(--ease); animation: crossfade var(--d-surface) var(--ease) backwards; }
 #labels .lb.scan text { stroke: none; }
 #labels .lb.scan .lb-bg { fill: var(--fibroscan); stroke: none; filter: drop-shadow(0 1px 2px color-mix(in srgb, black 25%, transparent)); }
 #labels .lb-scan-val { fill: color-mix(in srgb, var(--fibroscan) 12%, black); } #labels .lb-scan-unit { fill: color-mix(in srgb, var(--fibroscan) 30%, black); }
@@ -1823,7 +1826,8 @@ button.finding { cursor: pointer; }
 #labels .lb .lb-name, #labels .lb .lb-val, #labels .lb .lb-delta { transition: none; }
 #labels .lb.term .lb-name, #labels .lb.term .lb-val, #labels .lb.term .lb-unit, #labels .lb.term .lb-delta { fill: var(--term); }
 #labels .lb.term .lb-name { font-weight: 700; }
-.app.presenting #labels .lb { animation: crossfade var(--d-surface) var(--ease) both; }
+.app.presenting #labels .lb { animation: crossfade var(--d-surface) var(--ease) backwards; }
+html.label-fill-both :is(#labels .lb.scan, .app.presenting #labels .lb) { animation-fill-mode: both; }
 .app.presenting #stageView { touch-action: none; }   /* no browser pan or pinch on the figure; the slide swipe reads touch events */
 .app.presenting .stage-credit { z-index: calc(var(--z-hud) + 1); }   /* over the slide's veil (outline slides); src/ui/credit.js keeps it clear of the cards */
 .app.presenting.pz-blacked .stage-credit { opacity: 0; }   /* (set with the black screen's own .on, presenter.js toggleBlack) */

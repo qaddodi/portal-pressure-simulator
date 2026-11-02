@@ -50,7 +50,7 @@ import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } fro
 import { pathCmds, flattenCmds, polyBox, measurePath, elBox } from './shape-gl.js?v=1e2bc57a21';
 import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=f4a2fdada3';
 import { nameSpots, NAME_BREAK } from './organ-names.js?v=37d9fdf180';
-import { createLabelGL } from './label-gl.js?v=83b929f67e';
+import { createLabelGL } from './label-gl.js?v=ffa2050bce';
 import { createGlassGL } from './glass-gl.js?v=f464c7557d';
 import { writePoints, writeJoinNow } from './veins-sweep.js?v=c4ad517372';
 import { ENT_W } from './veins-bin.js?v=6e462a9e6c';
@@ -9945,6 +9945,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const ANAT_EXTRA = ['MHV', 'LHV', 'RPV', 'LPV', 'SIN_L', 'IMV', 'LGV'];
 
   let blockerBoxes = null, blockersAt = -1e9, blockersStale = true;
+  const LEAVE_BLOCK = /[?&]leaveblock=1\b/.test(location.search);
   const staleBlockers = () => { blockersStale = true; };
   addEventListener('pps:occ', staleBlockers);
   addEventListener('resize', staleBlockers);
@@ -10001,7 +10002,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return [...document.querySelectorAll('.stage-blocker:not([hidden]), .pz-shade, #nbViews, .stage-clock')].map((el) => {
       if (el.id === 'nbViews' && !el.querySelector('#viewSeg')) return null;
       // A closed card can stay in place, invisible (the patient chart does): it hides nothing. (So does a glass with no words on it.)
-      if (getComputedStyle(el).visibility === 'hidden' || (el.classList.contains('pz-shade') && (el.style.opacity === '0' || el.classList.contains('pz-leave')))) return null;
+      // (Nor does a card on its way out, a panel included: 2 Nov, the organs' names went off for half a second as a slide's panel left,
+      // and came back once it had gone. ?leaveblock=1: a leaving panel hides them, as before.)
+      if (getComputedStyle(el).visibility === 'hidden' || (el.classList.contains('pz-shade') && (el.style.opacity === '0' || el.classList.contains('pz-leave'))) || (!LEAVE_BLOCK && el.classList.contains('pz-leave'))) return null;
       if (els && !els.includes(el)) return null;   // (come in since the boxes were asked for: read with the next ask)
       const r = rectOf(el);
       return r.width ? { x0: r.left - wr.left - 4, y0: r.top - wr.top - 4, x1: r.right - wr.left + 4, y1: r.bottom - wr.top + 4 } : null;
@@ -10088,6 +10091,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let labelSol = new Map();   // key → solved slot { wx, wy, dx, dy, dir, pi, w, h, leader, lead } or { drop }
   let solvedFor = null;       // { sig, sc, th } the slots were solved for
   const labelVis = new Map(); // key → shown last frame (hysteresis against blockers)
+  let lapHid = new Set();     // keys the last layout's overlap pass hid (its hysteresis)
+  const LABEL_HYST = !/[?&]labelhyst=0\b/.test(location.search);
+  if (/[?&]labelfill=0\b/.test(location.search)) document.documentElement.classList.add('label-fill-both');   // (labels' entry fade fills forwards too, as before: app.css)
   let labelTurned = false;   // labels remember their side; turning the circuit changes which side is right
   // Levels of detail (Blood menu › Labels). Key: at the home framing only the portal vein, the HVPG pair
   // (wedged sinusoids and the free hepatic vein) and the stations the model flags; zoomed in, every
@@ -11347,7 +11353,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // (A caption turned upright takes its box turned too: pulled in by its unturned box, one beside the right edge slid left across the lanes.)
       const edge = it.rot ? rectOf({ ...it, w: it.h, h: it.w }) : rectOf(it), V = viewOf(it);
       // An organ's name is pinned inside its organ: where a card or the stage edge covers it, it hides with the organ, never slides.
-      if (it.cls === 'organ') { const was = labelVis.get(it.key) !== false, m = was ? 0 : 10; it.hide = !within({ x0: edge.x0 - m, y0: edge.y0 - m, x1: edge.x1 + m, y1: edge.y1 + m }, V) || obstacles.some((o) => hits(edge, o)); labelVis.set(it.key, !it.hide); continue; }
+      // (Shown, it hides as a card first touches it; hidden, it comes back only once 10 px clear of the card as of the stage's edge, so a card
+      // easing at its edge cannot flick it on and off. ?labelhyst=0: clear of a card by nothing, as before.)
+      if (it.cls === 'organ') { const was = labelVis.get(it.key) !== false, m = was ? 0 : 10, grown = { x0: edge.x0 - m, y0: edge.y0 - m, x1: edge.x1 + m, y1: edge.y1 + m }; it.hide = !within(grown, V) || obstacles.some((o) => hits(LABEL_HYST ? grown : edge, o)); labelVis.set(it.key, !it.hide); continue; }
       const cx = Math.max(V.x0 - edge.x0, Math.min(0, V.x1 - edge.x1)), cy = Math.max(V.y0 - edge.y0, Math.min(0, V.y1 - edge.y1));
       if (cx || cy) { it.x += cx; it.y += cy; if (Math.hypot(cx, cy) > 2) it.leader = true; }
       // (A reading pulled in onto a vessel takes the solid halo there too.)
@@ -11370,17 +11378,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const kept = [];
     // A caption turned upright takes its box turned too (it cannot shorten, so it hides when crowded).
     const boxOf = (it) => (it.rot ? rectOf({ ...it, w: it.h, h: it.w }) : rectOf(it));
+    // (A label this pass hid at the last layout comes back only with 4 px to spare, so two labels sliding past each other in a pan, a zoom
+    // or a glide cannot flick the lesser on and off: 2 Nov. ?labelhyst=0: as before.)
+    const lapWas = lapHid, crowded = (it, r) => { const p = LABEL_HYST && lapWas.has(it.key) ? 4 : 0; return kept.some((k) => hits({ x0: r.x0 - p, y0: r.y0 - p, x1: r.x1 + p, y1: r.y1 + p }, k)); };
+    lapHid = new Set();
     for (const it of out.filter((o) => !o.hide && !o.live).sort((a, b) => rank(b) - rank(a))) {
       let r = boxOf(it);
-      if (it.rot) { if (!it.sel && kept.some((k) => hits(r, k))) { it.hide = true; continue; } kept.push(r); continue; }
-      if (kept.some((k) => hits(r, k))) {
+      if (it.rot) { if (!it.sel && crowded(it, r)) { it.hide = true; lapHid.add(it.key); continue; } kept.push(r); continue; }
+      if (crowded(it, r)) {
         const d = it.dir || '';
         for (let w0 = it.w, h0 = it.h; it.canShort && kept.some((k) => hits(r, k)) && shortenItem(it); w0 = it.w, h0 = it.h) {
           it.x += d.includes('W') ? w0 - it.w : d.includes('E') ? 0 : (w0 - it.w) / 2;
           it.y += d.includes('N') ? h0 - it.h : d.includes('S') ? 0 : (h0 - it.h) / 2;
           r = rectOf(it);
         }
-        if (!it.sel && kept.some((k) => hits(r, k))) { it.hide = true; continue; }
+        if (!it.sel && crowded(it, r)) { it.hide = true; lapHid.add(it.key); continue; }
         // (Shortened where it stands, a reading may come to sit on a vessel: it takes the solid halo there.)
         if (solve && useLines && it.key.startsWith('n:') && !it.onVessel && lineHits(r, 2)) { it.onVessel = true; const sol = nextSol.get(it.key); if (sol) sol.onv = true; }
       }

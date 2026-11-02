@@ -27,6 +27,14 @@ import { trackOf, trackAt, mixColour, timingOf, progressAt, keysOf } from './lab
 // and its second page made only when a picture first needs it, as before.
 const SEARCH = typeof location !== 'undefined' ? location.search || '' : '';
 const TRACK = true, ATLAS_IDLE = !/[?&]atlasidle=0\b/.test(SEARCH);
+// (2 Nov 2026, "labels turn on and off randomly", iPhone. A label's opacity on the GPU is never taken from a kept at-rest style while its
+// CSS fade toward it may be starting: the kept style of a class (lb-off, or a new label's) is its end state, and drawn at once it made a
+// fade-out a snap off, a new label pop in at full before its fade, a step's number show before its turn. Such a label holds the opacity
+// it was drawn at (a new one 0, where its fade starts) and is followed from the next frame, when its fades are known. And mid-fade, a
+// frame whose animations are not taken yet keeps following the fade it had, instead of a reading of the fade's first frame (0), which
+// blinked the label out for one to three frames. ?fadehold=0: as before.)
+const FADE_HOLD = !/[?&]fadehold=0\b/.test(SEARCH);
+const REDUCE = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
 
 const nextFrame = frameFor('labels-gl');
 const VS = `#version 300 es
@@ -595,7 +603,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   const animsKept = new WeakMap(), animsWant = new Map();
   let animsT = 0;
   function keepAnims(el, sub) {
-    if (!el) return;
+    if (!el || (FADE_HOLD && !el.isConnected)) return;   // (not on the page yet: none of its animations runs; taken once it is)
     let a;
     try { a = sub ? el.getAnimations({ subtree: true }) : el.getAnimations(); } catch { a = []; }
     animsKept.set(el, { a, sub, at: performance.now() });
@@ -645,6 +653,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
       try { anims = el.getAnimations().filter((a) => a.playState !== 'finished' && a.playState !== 'idle'); } catch { anims = []; }
       if (!anims.length) { snaps.set(k, s); continue; }
       easing.set(el, { key: k, s });
+      // (Read mid-ease, this style is that moment's: the label's fades are followed from the next frame instead (FADE_HOLD).)
+      if (FADE_HOLD) { const g = labelOf(el); if (g?.isConnected && !markOf(g)) { keepAnims(g, true); live.set(g, performance.now() + 700); dirty.add(g); } }
       Promise.allSettled(anims.map((a) => a.finished)).then(() => { if (easing.get(el)?.key === k) easing.delete(el); unread.add(el); if (!fillT) fillT = setTimeout(fillStyles, 0); });
     }
     if (snaps.size > 2000) snaps.clear();
@@ -808,7 +818,18 @@ void main() { o = texture(uT, vUV) * uA; }`;
   function capture(g, rot, now) {
     let list;
     try { list = takeAnims(g, true); } catch { list = []; }
-    if (!list) { const st0 = refresh(g, rot); st0.trk = null; return st0; }   // (its animations taken just after this frame: followed from the next)
+    if (!list) {   // (its animations taken just after this frame: followed from the next)
+      const prev = sprites.get(g), was = prev?.held, old = prev?.trk;
+      const st0 = refresh(g, rot);
+      st0.trk = null;
+      if (FADE_HOLD && st0.mode === 'gl' && !REDUCE?.matches) {
+        // (Its opacity held where it was: on the fade it had, while that runs, else as it was last drawn, a new label at 0.)
+        if (old && !old.ended && old.ops?.length) st0.trk = { ops: old.ops, under: old.under, paint: null, end: old.end, carry: true };
+        else if (was === null) st0.mode = 'svg';   // (the SVG drew it last frame, at an opacity not known here: it keeps it till then)
+        else st0.opacity = was ?? 0;
+      }
+      return st0;
+    }
     let m;
     try { m = trackOf(list, g, paintOk(g), now); } catch { m = null; }
     let st;
@@ -916,11 +937,18 @@ void main() { o = texture(uT, vUV) * uA; }`;
       let st = sprites.get(g);
       if (st?.trk && !st.trk.ended && now >= st.trk.end) { st.trk.ended = true; dirty.add(g); }   // (its animations over: read once more)
       const isLive = live.has(g);
-      if (!st || dirty.has(g) || st.rot !== rot || (isLive && (exact.has(g) || !st.trk))) {
+      if (!st || dirty.has(g) || st.rot !== rot || (isLive && (exact.has(g) || !st.trk || st.trk.carry))) {
         const tracked = TRACK && isLive && !exact.has(g) && (!st || st.trk !== false || dirty.has(g) || st.rot !== rot);
+        const was = st ? st.held : undefined;
         st = tracked ? capture(g, rot, now) : refresh(g, rot);
         if (!tracked) st.trk = isLive && st.trk === false ? false : null;
         st.rot = rot;
+        // (Read at rest with a new opacity: its fade may only now be starting. Held where it was drawn, and followed from the next frame.)
+        if (FADE_HOLD && !tracked && !isLive && st.mode === 'gl' && was !== null && !REDUCE?.matches && Math.abs((was ?? 0) - st.opacity) > 0.01) {
+          st.opacity = was ?? 0;
+          live.set(g, now + 700);
+          moving = true;
+        }
       }
       if (st.trk) {
         // (Followed: this frame's colours and opacity from the track, nothing read; a colour ease's picture drawn again only as it changes.)
@@ -929,8 +957,10 @@ void main() { o = texture(uT, vUV) * uA; }`;
         if (v.op != null) st.opacity = v.op;
         if (st.trk.ended && !exact.has(g)) live.delete(g);
       }
+      st.held = st.opacity;   // (the opacity it is drawn at this frame, its own: FADE_HOLD)
       if (live.has(g)) moving = true;
       // (Marked in the same frame as the picture is drawn, so neither the SVG's copy and the picture both show, nor neither.)
+      if (st.mode !== 'gl') st.held = st.mode === 'none' ? 0 : null;   // (nothing shown, or the SVG's own opacity, not known here: not held)
       if (st.mode !== 'gl') { if (g.hasAttribute('data-gl')) g.removeAttribute('data-gl'); if (st.mode === 'svg') svgLeft.add(g); continue; }
       if (!g.hasAttribute('data-gl')) g.setAttribute('data-gl', '');
       if (!(st.opacity > 0.001)) continue;
