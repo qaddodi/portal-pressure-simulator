@@ -39,7 +39,7 @@ import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS
 import { frameFor, cancelFrame, holdMotion, PACED } from './frame.js?v=43da9d808a';
 import { loadGlyphs, glyphsReady, textWidth } from './text-gl.js?v=b1a30d90ad';
 import { restPass, cancelRest } from './rest-pass.js?v=a36f0b90ba';
-import { createSlidePrep } from './slide-prep.js?v=897174de34';
+import { createSlidePrep, SLIDE_PREP } from './slide-prep.js?v=897174de34';
 import { prepareShaders } from './gl-compile.js?v=62b8693f78';
 import { createFigureKey } from './figure-key.js?v=a4e08c221e';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
@@ -1911,8 +1911,22 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     paintChrome();
     // (A zoomed card glides back first: the slide is laid out, and its cards kept or changed, with the card where it rests.)
     if (zoomOn()) { ui.zoom.close().then(() => { paintZoom(); zoomMissed = false; if (deck && !busy) run(); }); return; }   // (the slide lays everything out afresh)
-    if (busy) outNow();
-    if (!busy) run();
+    const goOn = () => {
+      if (busy) outNow();
+      if (!busy) run();
+    };
+    if (PREP_HOLD && !slidePrep.ready(want)) prepHold(want, goOn); else goOn();
+  }
+  // (R05: the cards that show stay where they are until the slide going in is prepared (slide-prep.js ready: its state, glyphs, data card
+  // and shaders), so the new card never comes in empty; at most PREP_MS, so a Next is still answered at once. A newer press takes over.
+  // ?prephold=0: the cards leave on the press whatever is ready, as before.)
+  const PREP_HOLD = SLIDE_PREP && !/[?&]prephold=0\b/.test(location.search || ''), PREP_MS = 160;
+  let prepT = 0;
+  function prepHold(i, then) {
+    clearTimeout(prepT);
+    const t0 = performance.now();
+    const look = () => { prepT = 0; if (!deck || want !== i) return; if (slidePrep.ready(i) || performance.now() - t0 >= PREP_MS) then(); else prepT = setTimeout(look, 16); };
+    prepT = setTimeout(look, 16);
   }
   // (Mohammad, 2 Nov 2026: "when i hit next it takes time to move out of the way. it should all be responsive". A Next while the last
   // change still runs (its landing and after-steps: busy) went to it only once that had finished. The cards that show leave now, on the

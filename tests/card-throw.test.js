@@ -103,3 +103,9 @@ test('glass: a card raised by --pz-rise or --pz-lift (untucking) has its glass r
   assert.match(presenter, /shift: riseShift \}\)/);
   assert.match(presenter, /el === ui\.data \? \(wide && el\.classList\.contains\('col'\) \? risePx\(el, '--pz-lift'\) : 0\)/);
 });
+
+test('R05: the cards that show wait for the slide going in to be prepared, at most PREP_MS, then leave (?prephold=0 off)', () => {
+  assert.match(presenter, /if \(PREP_HOLD && !slidePrep\.ready\(want\)\) prepHold\(want, goOn\); else goOn\(\);/);
+  assert.match(presenter, /const PREP_HOLD = SLIDE_PREP && !\/\[\?&\]prephold=0\\b\/\.test\(location\.search \|\| ''\), PREP_MS = 160;/);
+  assert.match(presenter, /if \(!deck \|\| want !== i\) return;/, 'a newer press takes over');
+});
