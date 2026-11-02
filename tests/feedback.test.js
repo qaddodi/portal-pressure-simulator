@@ -37,7 +37,7 @@ test('the timed ask counts active, visible time, waits out drags, talks and proj
 
 test('only the person\'s own answer counts: a feedback card pushed out by newer messages asks again later', () => {
   const util = readFileSync(new URL('../src/ui/util.js', import.meta.url), 'utf8');
-  const toast = util.slice(util.indexOf('export function toast('), util.indexOf('return close;', util.indexOf('export function toast(')));
+  const toast = util.slice(util.indexOf('function toastBuild('), util.indexOf('return close;', util.indexOf('function toastBuild(')));
   // Pushed out, either through the two-message limit or removed from the card stack, the card says so.
   assert.match(util, /while \(stay\.length >= 2\) \{ const o = stay\.shift\(\); if \(o\._close\) o\._close\('pushed'\);/);
   assert.match(toast, /if \(!gone\) \{ gone = true; clearTimeout\(timer\); onClose\?\.\('pushed'\); \}/);

@@ -137,11 +137,23 @@ function toastFit(wrap, t, msg, actions) {
   }
   t.style.visibility = '';
 }
+// (Since 2 Nov 2026 the card is built and put on the page as a task between frames (rest-pass.js), never inside the frame that asked
+// for it: toast is reached from the tick, and the build wrote the page there. The returned close works at once: asked before the card
+// exists, it closes the card as soon as it is built. ?toastdefer=0: built at once, as before.)
+const TOAST_DEFER = !(typeof location !== 'undefined' && /[?&]toastdefer=0\b/.test(location.search || ''));
+const toastBuildRest = (job) => { job.close = toastBuild(job.msg, job.kind, job.opts); if (job.early) job.close(job.early); };
 export function toast(msg, kind = '', { actions = null, sticky = false, onClose = null, present = false } = {}) {
   if (!msg) return () => {};
   // While presenting, the projected figure stays clear: only errors, cards with buttons and what the presenter asked for
   // (present: a link copied, a slide number typed) show.
   if (kind !== 'bad' && !actions?.length && !present && document.getElementById('app')?.classList.contains('presenting')) return () => {};
+  const opts = { actions, sticky, onClose };
+  if (!TOAST_DEFER) return toastBuild(msg, kind, opts);
+  const job = { msg, kind, opts, close: null, early: null };
+  restPass(() => toastBuildRest(job));
+  return (why = 'user') => { if (job.close) job.close(why); else job.early ||= why; };
+}
+function toastBuild(msg, kind, { actions, sticky, onClose }) {
   const wrap = document.getElementById('toasts');
   // One message at a time reads calmer than a growing stack. (The oldest leaves through its own close, so it fades out
   // and the one left glides into its place, rather than vanishing mid-exit: P19.)
