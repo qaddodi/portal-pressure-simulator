@@ -4148,6 +4148,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     return cavaAsOne(items, (id, P) => geo[id].len || arcLen(P));
   }
+  const cavaMemo = { P: null, Q: null, La: 0, Lb: 0, pts: null };   // (the cava's resample and the two courses it was made from)
   function cavaAsOne(items, lenOf) {
     // The cava is drawn as one vessel: its two stretches (below and above the hepatic veins) are two
     // edges of the model, but one tube on screen, with one course, one shading and one chevron track.
@@ -4156,16 +4157,23 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (a && b && a.pts.length > 1 && b.pts.length > 1) {
       const P = a.pts, Q = b.pts, q = P[P.length - 1], La = lenOf('IVC_IS', P), Lb = lenOf('IVCS_RA', Q);
       // Re-sampled evenly by arc length to the usual count of samples (a sample's index is its place along the vessel).
-      const C = P.concat(Math.hypot(Q[0][0] - q[0], Q[0][1] - q[1]) < 0.5 ? Q.slice(1) : Q), cum = [0];
-      for (let i = 1; i < C.length; i++) cum.push(cum[i - 1] + Math.hypot(C[i][0] - C[i - 1][0], C[i][1] - C[i - 1][1]));
-      const L = cum[cum.length - 1] || 1;
-      a.pts = Array.from({ length: N_SAMPLES }, (_, i) => {
-        const d = (L * i) / (N_SAMPLES - 1);
-        let j = 1;
-        while (j < C.length - 1 && cum[j] < d) j++;
-        const t = cum[j] > cum[j - 1] ? clamp((d - cum[j - 1]) / (cum[j] - cum[j - 1]), 0, 1) : 0;
-        return [C[j - 1][0] + (C[j][0] - C[j - 1][0]) * t, C[j - 1][1] + (C[j][1] - C[j - 1][1]) * t];
-      });
+      // (Kept while its two stretches are the same courses: a vessel's course is a new array whenever it moves (updateGeometry) and
+      // is never written in place, so the same two arrays give the same resample. It was made again on every sync, 2 Nov 2026.)
+      const cm = cavaMemo;
+      if (cm.P === P && cm.Q === Q && cm.La === La && cm.Lb === Lb) a.pts = cm.pts;
+      else {
+        const C = P.concat(Math.hypot(Q[0][0] - q[0], Q[0][1] - q[1]) < 0.5 ? Q.slice(1) : Q), cum = [0];   // alloc-rare: only when the cava's course moved
+        for (let i = 1; i < C.length; i++) cum.push(cum[i - 1] + Math.hypot(C[i][0] - C[i - 1][0], C[i][1] - C[i - 1][1]));
+        const L = cum[cum.length - 1] || 1;
+        a.pts = Array.from({ length: N_SAMPLES }, (_, i) => {   // alloc-rare: only when the cava's course moved
+          const d = (L * i) / (N_SAMPLES - 1);
+          let j = 1;
+          while (j < C.length - 1 && cum[j] < d) j++;
+          const t = cum[j] > cum[j - 1] ? clamp((d - cum[j - 1]) / (cum[j] - cum[j - 1]), 0, 1) : 0;
+          return [C[j - 1][0] + (C[j][0] - C[j - 1][0]) * t, C[j - 1][1] + (C[j][1] - C[j - 1][1]) * t];   // alloc-rare: only when the cava's course moved
+        });
+        cm.P = P; cm.Q = Q; cm.La = La; cm.Lb = Lb; cm.pts = a.pts;
+      }
       a.ra = b.x; a.f = La / (La + Lb); a.len = La + Lb; a.endNode = b.x.e.to;
       items.splice(items.indexOf(b), 1);
     }
@@ -4392,7 +4400,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const tapLinks = [], tapPrev = [], tapPlan = new Map(), tapS = [], tapY = [], tapD = [], tapH = [], tapK = [];
   const tapBodyOf = (row) => rowIt[row].obj.tapBody, tapLenOf = (row) => rowIt[row].obj.tapLen;   // (kept on the vessel: no Map of boxed numbers)
   const tapPlanOf = (row) => { let p = tapPlan.get(row); if (!p) tapPlan.set(row, (p = { y0: 0, y1: 0, d0: 0, d1: 0, j0: false, j1: false })); return p; };
-  const easeBuf = (O) => { if (O.glEs === easeGen) return O.glE; if (!O.glE || O.glE.length !== O.glR0.length) O.glE = new Float64Array(O.glR0.length); O.glE.set(O.glR0); O.glEs = easeGen; return O.glE; };
+  const easeBuf = (O) => { if (O.glEs === easeGen) return O.glE; if (!O.glE || O.glE.length !== O.glR0.length) O.glE = new Float64Array(O.glR0.length); O.glE.set(O.glR0); O.glEs = easeGen; return O.glE; };   // alloc-rare: a vessel's eased buffer, made the first time it is eased (then refilled in place)
   const SMOOTH = (u) => u * u * (3 - 2 * u);
   const plainRow = (row) => { const it = rowIt[row]; return !!it && it.kind !== 's' && !it.ra && !!it.obj.glR0; };
   // Where a stenosed vessel's colour stands along it (pressure-along.js; combined plan V1): by the resistance its narrowing adds,
@@ -4415,7 +4423,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (!radFresh(it)) continue;
       const o = it.obj;
       glRadDirty = true;
-      if (!o.glR0 || o.glR0.length !== N_SAMPLES) o.glR0 = new Float64Array(N_SAMPLES);
+      if (!o.glR0 || o.glR0.length !== N_SAMPLES) o.glR0 = new Float64Array(N_SAMPLES);   // alloc-rare: a vessel's radii buffer, made once (then refilled in place)
       radFill(it, o.glR0);
       o.glR0v = (o.glR0v || 0) + 1;
     }
@@ -4454,11 +4462,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (n) {
         if (!linksSame) {
           tapLinks.length = 0;
-          for (let q = 0; q < n; q++) { const L = tapPrev[q]; tapLinks.push({ a: L.a, ea: L.ia, b: L.b, eb: L.ib }); }
-          tapIds = new Set();
+          for (let q = 0; q < n; q++) { const L = tapPrev[q]; tapLinks.push({ a: L.a, ea: L.ia, b: L.b, eb: L.ib }); }   // alloc-rare: the taper's links, made again only when the joins that make them change
+          tapIds = new Set();   // alloc-rare: only when the joins change
           for (const { a, b } of tapLinks) { tapIds.add(a); tapIds.add(b); }
-          tapChains = chainsOf(tapIds, tapLinks).filter((c) => c.length >= 2);
-          tapRows = [...tapIds];
+          tapChains = chainsOf(tapIds, tapLinks).filter((c) => c.length >= 2);   // alloc-rare: only when the joins change (chainsOf)
+          tapRows = [...tapIds];   // alloc-rare: only when the joins change
         }
         for (let q = 0; q < tapRows.length; q++) {
           const it = rowIt[tapRows[q]], O = it.obj, R = O.glR0;
@@ -4474,7 +4482,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
             // (Its own radii scaled by the plan over its own caliber: a stenosis's waist and a narrowed end ride on the taper, and where
             // the plan is its own caliber the scale is exactly 1.)
             if (!(body > 0)) continue;
-            if (!O.glE || O.glE.length !== O.glR0.length) O.glE = new Float64Array(O.glR0.length);
+            if (!O.glE || O.glE.length !== O.glR0.length) O.glE = new Float64Array(O.glR0.length);   // alloc-rare: a vessel's eased buffer, made the first time it is tapered (then refilled in place)
             const R0 = O.glR0, E = O.glE;
             for (let i = 0; i < R0.length; i++) E[i] = R0[i] * (taperAt(p, len, i / (N_SAMPLES - 1)) / body);
             O.glEs = easeGen;
@@ -4667,6 +4675,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
   }
   function syncVeins(t) { return gpuProbe.time(null, 'vessel sync (script)', () => syncVeinsNow(t)); }
+  // The binning's key (the layout's version and the rows drawn, in order), built again only when one of them changed: it was a
+  // string joined from every row on every sync (2 Nov 2026). The same string as before, so every reset to '' still re-bins.
+  let binKeyRows = new Int32Array(64), binKeyN = -1, binKeyGeo = -1, binKeyStr = '';
+  function binKeyOf(items) {
+    let same = binKeyGeo === geometryVersion && binKeyN === items.length;
+    if (same) for (let q = 0; q < items.length; q++) if (binKeyRows[q] !== items[q].row) { same = false; break; }
+    if (same) return binKeyStr;
+    if (binKeyRows.length < items.length) binKeyRows = new Int32Array(items.length * 2);   // alloc-rare: more vessels than ever drawn
+    for (let q = 0; q < items.length; q++) binKeyRows[q] = items[q].row;
+    binKeyN = items.length; binKeyGeo = geometryVersion;
+    binKeyStr = `${geometryVersion}|` + items.map((it) => it.row).join(',');   // alloc-rare: only when the layout or the rows changed
+    return binKeyStr;
+  }
   function syncVeinsNow(t) {
     if (!veins || veins.lost) { colEasing = false; return; }
     glowSync = false;
@@ -4699,8 +4720,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     shownCol = nextShown();
     gpuProbe.time(null, 'vessel sync: radii', () => sendRadii(items));
     // Geometry: re-binned when the layout, the set of vessels or a vessel's reach grows.
-    const key = `${geometryVersion}|` + items.map((it) => it.row).join(',');
-    const grew = key === vBinKey && items.some((it) => reachOf(it) > (vBinReach.get(it.row) || 0));
+    const key = binKeyOf(items);
+    let grew = false;
+    if (key === vBinKey) for (let q = 0; q < items.length; q++) if (reachOf(items[q]) > (vBinReach.get(items[q].row) || 0)) { grew = true; break; }
     // (Between the views, a binning made ahead for this stretch of the change, the frame's points sent up in a few rows: morphFrame.)
     if ((key !== vBinKey || grew) && gpuProbe.time(null, 'vessel sync: morph frame', () => morphFrame(items))) vBinKey = key;
     else if (key !== vBinKey || grew) gpuProbe.time(null, 'vessel sync: binning', () => {
