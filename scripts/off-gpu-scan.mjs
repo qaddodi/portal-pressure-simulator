@@ -49,6 +49,11 @@ export const CATS = {
   syncStatus: 'Synchronous shader compile/link status read',
 };
 
+// The figure's two SVG trees in index.html are its model, not a drawing: stage.js lays the figure and its labels out there and the GPU
+// layers (veins-gl, organs-gl, label-gl) read them; with the GPU on (.gl-plate) the browser paints none of their elements (measured
+// 1 Nov 2026, cirr-decomp). The owner approved not counting them (1 Nov 2026, 7:36 PM ET, "Sure go with its pick"). This list may not grow.
+export const MODEL_SVG = ['stage', 'labels'];
+
 const LAYOUT_PROPS = new Set(['width', 'height', 'top', 'left', 'right', 'bottom', 'inset', 'margin', 'margin-top', 'margin-bottom', 'margin-left',
   'margin-right', 'margin-block', 'margin-inline', 'padding', 'padding-top', 'padding-bottom', 'padding-left', 'padding-right', 'padding-block',
   'padding-inline', 'max-height', 'min-height', 'max-width', 'min-width', 'block-size', 'inline-size', 'grid-template-rows', 'grid-template-columns',
@@ -207,7 +212,7 @@ export function scan({ root = ROOT } = {}) {
     if (file.endsWith('.html')) {
       const re = /<style[^>]*>([\s\S]*?)<\/style>/g; let m;
       while ((m = re.exec(text))) cssHits(m[1], file, text.slice(0, m.index).split('\n').length, '<style>', push);
-      text.split('\n').forEach((l, i) => { if (/<svg[\s>]/.test(l)) push('svgDom', file, i + 1, '(markup)', l.trim()); });
+      text.split('\n').forEach((l, i) => { if (/<svg[\s>]/.test(l) && !MODEL_SVG.some((id) => l.includes(`<svg id="${id}"`))) push('svgDom', file, i + 1, '(markup)', l.trim()); });
       continue;
     }
     if (!file.endsWith('.js')) continue;

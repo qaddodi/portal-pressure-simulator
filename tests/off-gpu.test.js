@@ -118,3 +118,8 @@ test(`at least ${GATE_PCT}% of the app is on the GPU (the deploy gate; the goal 
   const shown = hits.slice(0, 40).map((h) => `  ${h.file}:${h.line} ${h.cat} ${h.fn}: ${h.detail.slice(0, 100)}`).join('\n');
   assert.ok(passes(hits), `${score(hits)}, below the ${GATE_PCT}% gate. ${hits.length} off the GPU (${Object.entries(byCat).map(([c, n]) => `${c} ${n}`).join(', ')}):\n${shown}${hits.length > 40 ? `\n  … and ${hits.length - 40} more: node scripts/off-gpu-scan.mjs` : ''}`);
 });
+
+test('only the figure\'s two model trees are left out of the SVG count, and the list does not grow', async () => {
+  const { MODEL_SVG } = await import('../scripts/off-gpu-scan.mjs');
+  assert.deepEqual(MODEL_SVG, ['stage', 'labels']);
+});
