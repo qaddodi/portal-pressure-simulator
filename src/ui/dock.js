@@ -414,16 +414,16 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   head.append(titleEl, live, closeBtn);
   // A tab for an instrument that has not arrived (lazy-pane.js) waits for it: the pane it leaves stays up, so a pane never shows empty.
   const afterLoad = holdUntilLoaded((id) => byId[id]);
-  // The tabs: one per instrument, with its live reading.
+  // The tabs: one per instrument. (Each once carried its live reading in a small line the stylesheet never showed, written every model
+  // frame: gone, 2 Nov 2026.)
   const tabEls = {};
   const tabs = h('div', { class: 'instr-tabs ws-tabs', role: 'tablist', 'aria-label': 'Tests' }, TABS.map((id) => {
-    const val = h('small', { class: 'it-v' });
     const b = h('button', { class: 'instr-tab', role: 'tab', 'data-instrument': id, 'aria-selected': 'false', 'aria-controls': 'pane-' + id },
-      svgIcon(INFO[id][0]), h('span', { class: 'it-t' }, h('b', {}, h('span', { class: 'it-full' }, SHORT[id] || byId[id].label), h('span', { class: 'it-short' }, TINY[id] || SHORT[id] || byId[id].label)), val));
+      svgIcon(INFO[id][0]), h('span', { class: 'it-t' }, h('b', {}, h('span', { class: 'it-full' }, SHORT[id] || byId[id].label), h('span', { class: 'it-short' }, TINY[id] || SHORT[id] || byId[id].label))));
     b.title = byId[id].label;
     b.addEventListener('click', () => pick(id));
     for (const ev of ['pointerenter', 'pointerdown', 'focus']) b.addEventListener(ev, () => byId[id].need?.());   // (asked for as a finger or the pointer arrives)
-    tabEls[id] = { b, val };
+    tabEls[id] = { b };
     return b;
   }));
   tabs.addEventListener('keydown', (e) => {
@@ -894,11 +894,6 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     const kind = ls + '|' + txt.replace(/[\d.]+/g, '#');
     if (live._kind !== kind) { live._kind = kind; swapText(live, txt); } else putText(live, txt);
     if (live.dataset.state !== ls) live.dataset.state = ls;
-    // Each tab carries its instrument's reading (not where the numbers are hidden).
-    if (frame && isVisible()) for (const id of TABS) {
-      const v = st.imaging ? '' : INFO[id][1](frame);
-      if (tabEls[id].val.textContent !== v) tabEls[id].val.textContent = v;
-    }
   }
   // The heartbeat (the model's pulsatile mode) runs while a waveform instrument is on screen.
   let beat = null;

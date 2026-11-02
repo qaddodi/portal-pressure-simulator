@@ -4342,7 +4342,6 @@ html.chip-open .topbar .sb-right > .chip-btn[aria-expanded="true"], html.chip-op
 .instr-tab > :is(svg, .ic) { width: var(--ic-s); height: var(--ic-s); flex: none; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; } .instr-tab > .ic { -webkit-mask-image: url("../brand/icons/icons-r.png"); mask-image: url("../brand/icons/icons-r.png"); background-color: currentColor; }
 .it-t { display: flex; min-width: 0; }
 .it-t b { font-weight: inherit; overflow: hidden; text-overflow: ellipsis; }
-.it-v { display: none; }
 .instr-tab[aria-selected="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgb(var(--night-rgb) / .12), 0 0 0 .5px var(--hairline); }
 .instr-tab[aria-selected="true"] > :is(svg, .ic) { stroke: var(--accent); } .instr-tab[aria-selected="true"] > .ic { background-color: var(--accent); }
 .instr-tabs.seg-glide::before { border-radius: 7px; box-shadow: 0 1px 2px rgb(var(--night-rgb) / .12), 0 0 0 .5px var(--hairline); }
