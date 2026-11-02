@@ -64,7 +64,7 @@ import { tileKeys as cardKeys, toolOnly } from './card-tiles.js?v=e547c76c7f';
 import { D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN, EASE_MOVE, RISE_PX, cssCurve } from './ease.js?v=7513a88c68';
 import { slideFold } from './fold-slide.js?v=1b10231dcf';
 import { pageOn, followOf, pageIn } from './card-page.js?v=ebb4448222';
-import { throwOut, throwIn, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, INSTANT, throwOutNow, throwPinned, throwRelease, railable, railHold, railIn, railAway, railGhosts, railWaits, railCopies, RAIL_GAP } from './card-throw.js?v=f9f06accfb';
+import { throwOut, throwIn, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, INSTANT, throwOutNow, throwPinned, throwRelease, railable, railHold, railIn, railAway, railGhosts, railWaits, railCopies, RAIL_GAP } from './card-throw.js?v=0cff42b3f2';
 import { readAnims, readBox, readCTM, readMetric, readRects, readStyle, readTiming, scrollInto } from './layout-snap.js?v=f87939cccb';
 const nextFrame = frameFor('presenter');
 
