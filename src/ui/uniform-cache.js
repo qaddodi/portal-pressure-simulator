@@ -63,3 +63,11 @@ export function uniformCache(gl, { on = UCACHE_ON } = {}) {
     m3: (loc, arr) => { if (loc && changedArr(loc, arr)) gl.uniformMatrix3fv(loc, false, arr); },
   };
 }
+
+// One cache per context, shared by every file that draws on it (a program's uniforms are set only through it).
+const PER_CONTEXT = new WeakMap();
+export function ucOf(gl) {
+  let c = PER_CONTEXT.get(gl);
+  if (!c) { c = uniformCache(gl); PER_CONTEXT.set(gl, c); }
+  return c;
+}

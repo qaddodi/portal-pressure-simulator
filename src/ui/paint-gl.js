@@ -12,6 +12,7 @@
 // No 2D context, no drawImage and no pixel read anywhere (the owner, 1 Nov 2026: "block everything until everything is on GPU").
 
 import { glGet, glOn, glCap } from './gl-state.js?v=3569b73302';
+import { ucOf } from './uniform-cache.js?v=b914b447dd';
 import { cssColor } from './css-color.js?v=e56f0c77ae';
 import { hold } from './gpu-budget.js?v=2808cb3d0b';
 import { WARM_VIEWS, WARM_MS, bucket } from './warm-views.js?v=510b2dee9e';
@@ -579,7 +580,7 @@ export function createPaintGL(gl) {
     let clipOn = null;
     const hits = (b) => b[2] >= tx - 1 && b[0] <= tx + tw + 1 && b[3] >= ty - 1 && b[1] <= ty + th + 1;
     const plain = (from, count) => { gl.bindVertexArray(r.vaoP); gl.drawArrays(gl.TRIANGLES, from, count); };
-    const useP = () => { gl.useProgram(progs.p.p); gl.uniform4fv(progs.p.U.uV, view); };
+    const useP = () => { gl.useProgram(progs.p.p); ucOf(gl).fv4(progs.p.U.uV, view); };
     const quad = (b) => coverBox(r, b);
     const full = [tx - 2, ty - 2, tx + tw + 2, ty + th + 2];
     const winding = (from, count, rule, stroke) => {
@@ -609,11 +610,11 @@ export function createPaintGL(gl) {
     const setPaint = (paint) => {
       useP();
       const U = progs.p.U;
-      if (paint.rgba) { gl.uniform1i(U.uN, 0); gl.uniform4fv(U.uC, paint.rgba); return; }
+      if (paint.rgba) { ucOf(gl).i1(U.uN, 0); ucOf(gl).fv4(U.uC, paint.rgba); return; }
       const g = paint.grad, n = g.stops.length, S = new Float32Array(32), T = new Float32Array(8);
       g.stops.forEach(([t, r0, g0, b0, a0], i) => { S.set([r0, g0, b0, a0], i * 4); T[i] = t; });
-      gl.uniform1i(U.uN, n); gl.uniform4f(U.uG, g.cx, g.cy, g.r0, g.r1); gl.uniform2f(U.uO, tx, ty);
-      gl.uniform4fv(U.uS, S); gl.uniform1fv(U.uT, T);
+      ucOf(gl).i1(U.uN, n); ucOf(gl).f4(U.uG, g.cx, g.cy, g.r0, g.r1); ucOf(gl).f2(U.uO, tx, ty);
+      ucOf(gl).fv4(U.uS, S); ucOf(gl).fv1(U.uT, T);
     };
     const cover = (box, clip) => {
       gl.stencilMask(0x7f);
@@ -624,7 +625,7 @@ export function createPaintGL(gl) {
     for (const op of rec.ops) {
       if (op.k === 'direct') {
         if (op.clip) { setClip(op.clip); gl.enable(gl.STENCIL_TEST); gl.stencilMask(0); gl.stencilFunc(gl.EQUAL, 0x80, 0x80); } else gl.disable(gl.STENCIL_TEST);
-        gl.useProgram(progs.c.p); gl.uniform4fv(progs.c.U.uV, view);
+        gl.useProgram(progs.c.p); ucOf(gl).fv4(progs.c.U.uV, view);
         gl.bindVertexArray(r.vaoC); gl.drawArrays(gl.TRIANGLES, op.from, op.count);
         continue;
       }
@@ -633,7 +634,7 @@ export function createPaintGL(gl) {
       setClip(op.clip);
       gl.enable(gl.STENCIL_TEST);
       if (op.k === 'clear') {
-        useP(); gl.uniform1i(progs.p.U.uN, 0); gl.uniform4f(progs.p.U.uC, 0, 0, 0, 0);
+        useP(); ucOf(gl).i1(progs.p.U.uN, 0); ucOf(gl).f4(progs.p.U.uC, 0, 0, 0, 0);
         gl.blendFunc(gl.ZERO, gl.ZERO);
         gl.stencilMask(0); if (op.clip) gl.stencilFunc(gl.EQUAL, 0x80, 0x80); else gl.stencilFunc(gl.ALWAYS, 0, 0);
         plain(op.from, op.count);
@@ -660,7 +661,7 @@ export function createPaintGL(gl) {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.STENCIL_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.useProgram(progs.p.p);
     const sv = [tx - M, ty - M, 2 / sw, 2 / shh];
-    gl.uniform4fv(progs.p.U.uV, sv);
+    ucOf(gl).fv4(progs.p.U.uV, sv);
     gl.colorMask(false, false, false, false);
     gl.stencilFunc(gl.ALWAYS, 1, 0xff);
     if (op.k === 'stroke') { gl.stencilMask(0x01); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE); }
@@ -668,7 +669,7 @@ export function createPaintGL(gl) {
     else { gl.stencilMask(0x7f); gl.stencilOpSeparate(gl.FRONT, gl.KEEP, gl.KEEP, gl.INCR_WRAP); gl.stencilOpSeparate(gl.BACK, gl.KEEP, gl.KEEP, gl.DECR_WRAP); }
     gl.bindVertexArray(r.vaoP); gl.drawArrays(gl.TRIANGLES, op.from, op.count);
     gl.colorMask(true, true, true, true);
-    gl.uniform1i(progs.p.U.uN, 0); gl.uniform4fv(progs.p.U.uC, op.shadow.rgba);
+    ucOf(gl).i1(progs.p.U.uN, 0); ucOf(gl).fv4(progs.p.U.uC, op.shadow.rgba);
     gl.stencilMask(0x7f); gl.stencilFunc(gl.NOTEQUAL, 0, 0x7f); gl.stencilOp(gl.ZERO, gl.ZERO, gl.ZERO);
     gl.disable(gl.BLEND);
     coverBox(r, [tx - M, ty - M, tx + tw + M, ty + th + M]);
@@ -678,15 +679,15 @@ export function createPaintGL(gl) {
     gl.bindFramebuffer(gl.FRAMEBUFFER, s.b);
     gl.useProgram(progs.b.p);
     const U = progs.b.U;
-    gl.uniform1i(U.uS, 0); gl.uniform1f(U.uSigma, sig); gl.uniform1i(U.uN, n);
+    ucOf(gl).i1(U.uS, 0); ucOf(gl).f1(U.uSigma, sig); ucOf(gl).i1(U.uN, n);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, s.aT);
-    gl.uniform2i(U.uDir, 1, 0); gl.uniform2i(U.uD, 0, 0);
+    ucOf(gl).i2(U.uDir, 1, 0); ucOf(gl).i2(U.uD, 0, 0);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     // 3. Down, onto the tile (inside its clip).
     gl.bindFramebuffer(gl.FRAMEBUFFER, r.ms);
     gl.viewport(0, 0, tw, th); gl.scissor(0, 0, tw, th);
     gl.bindTexture(gl.TEXTURE_2D, s.bT);
-    gl.uniform2i(U.uDir, 0, 1); gl.uniform2i(U.uD, M, M);
+    ucOf(gl).i2(U.uDir, 0, 1); ucOf(gl).i2(U.uD, M, M);
     gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     if (op.clip) { gl.enable(gl.STENCIL_TEST); gl.stencilMask(0); gl.stencilFunc(gl.EQUAL, 0x80, 0x80); }
     gl.drawArrays(gl.TRIANGLES, 0, 3);

@@ -9,6 +9,7 @@
 // ones 0.5 less theirs, the share of a pixel a straight edge leaves, as the browser's own edges are drawn. A shape is sharp at
 // any zoom: it is drawn again from its outline at the screen's resolution.
 
+import { ucOf } from './uniform-cache.js?v=b914b447dd';
 import { EDGE_GLSL } from './edge.js?v=8321a8017f';
 import { prestart, linkProgram } from './gl-compile.js?v=3e750c4fef';
 
@@ -374,16 +375,16 @@ export function createShapeGL(gl) {
     mesh.gpu = null; own.delete(mesh);
   }
   const mat = new Float32Array(9);
-  const setWorld = (U, m) => { mat.set([m[0], m[1], 0, m[2], m[3], 0, m[4], m[5], 1]); gl.uniformMatrix3fv(U.world, false, mat); };
+  const setWorld = (U, m) => { mat.set([m[0], m[1], 0, m[2], m[3], 0, m[4], m[5], 1]); ucOf(gl).m3(U.world, mat); };
   const scaleOf = (m) => Math.sqrt(Math.abs(m[0] * m[3] - m[1] * m[2]));
   function segs(mesh, m, size, ch, mode, hw, ext) {
     if (!mesh.nSeg) return;
     gl.useProgram(segP.p);
     setWorld(segP.u, m);
-    gl.uniform2f(segP.u.size, size[0], size[1]);
-    gl.uniform1f(segP.u.hw, hw);
-    gl.uniform1f(segP.u.ext, ext);
-    gl.uniform1i(segP.u.mode, mode);
+    ucOf(gl).f2(segP.u.size, size[0], size[1]);
+    ucOf(gl).f1(segP.u.hw, hw);
+    ucOf(gl).f1(segP.u.ext, ext);
+    ucOf(gl).i1(segP.u.mode, mode);
     gl.colorMask(...ch);
     useSeg(mesh);
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, mesh.nSeg);
@@ -402,7 +403,7 @@ export function createShapeGL(gl) {
       if (!mesh.nTri) return;
       gl.useProgram(posP.p);
       setWorld(posP.u, m);
-      gl.uniform2f(posP.u.size, size[0], size[1]);
+      ucOf(gl).f2(posP.u.size, size[0], size[1]);
       useTri(mesh);
       gl.enable(gl.STENCIL_TEST);
       gl.colorMask(false, false, false, false);

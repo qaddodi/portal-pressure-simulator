@@ -12,8 +12,8 @@
 // field is drawn on the 2D canvas as before.
 
 import { startProgram, checkProgram, exerciseDraw, publishWhenDone, compileDone, SHADER_WARM } from './gl-compile.js?v=3e750c4fef';
-import { isTileCopy, createTileCopier } from './tile-gl.js?v=78dc4a20e4';
-import { uniformCache } from './uniform-cache.js?v=3c43b7a297';
+import { isTileCopy, createTileCopier } from './tile-gl.js?v=15a92521da';
+import { uniformCache } from './uniform-cache.js?v=b914b447dd';
 
 const VS = `#version 300 es
 in vec2 p;

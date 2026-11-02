@@ -18,10 +18,11 @@
 
 import { startProgram, checkProgram, exerciseDraw, publishWhenDone, stillCompiling } from './gl-compile.js?v=3e750c4fef';
 import { canvasSize, fitCanvas, onCanvasSized } from './util.js?v=a7bf7bcfb7';
-import { sdfAtlas } from './text-gl.js?v=d1a9976923';   // (the app's one door to GPU text: its SDF atlas, for text that changes every frame)
+import { sdfAtlas } from './text-gl.js?v=e5374005be';   // (the app's one door to GPU text: its SDF atlas, for text that changes every frame)
 import { notePass, hold } from './gpu-budget.js?v=2808cb3d0b';
-import { fontOf, measure } from './glyph-measure.js?v=415f89f38e';
+import { fontOf, measure } from './glyph-measure.js?v=7fe8881ad6';
 import { fbComplete } from './gl-state.js?v=3569b73302';
+import { ucOf } from './uniform-cache.js?v=b914b447dd';
 export { measure };
 const { GLYPHS, KERN, BASELINES, BASE, RADIUS, CUTOFF, ATLAS_W, ATLAS_H, ATLAS_PNG } = sdfAtlas;
 
@@ -582,7 +583,7 @@ export function createTraceGL(host, { redraw = null, under = null } = {}) {
     gl.disable(gl.SCISSOR_TEST);
     gl.stencilMask(0xff); gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT);
     gl.enable(gl.STENCIL_TEST); gl.colorMask(false, false, false, false);
-    gl.useProgram(P.fill.p); gl.uniform2f(P.fill.u.res, W, H); gl.uniform1f(P.fill.u.k, K);
+    gl.useProgram(P.fill.p); ucOf(gl).f2(P.fill.u.res, W, H); ucOf(gl).f1(P.fill.u.k, K);
     gl.bindVertexArray(fillVao); gl.bindBuffer(gl.ARRAY_BUFFER, fillBuf);
     stack.forEach((pieces, i) => {
       const m = fanData(pieces);
@@ -613,26 +614,26 @@ export function createTraceGL(host, { redraw = null, under = null } = {}) {
     gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
     gl.blendEquation(gl.MAX); gl.blendFunc(gl.ONE, gl.ONE);
     gl.useProgram(P.text.p);
-    gl.uniform2f(P.text.u.res, W, H); gl.uniform2f(P.text.u.asz, ATLAS_W, ATLAS_H); gl.uniform2f(P.text.u.sdf, RADIUS, CUTOFF);
-    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, atlasTex); gl.uniform1i(P.text.u.atlas, 0);
+    ucOf(gl).f2(P.text.u.res, W, H); ucOf(gl).f2(P.text.u.asz, ATLAS_W, ATLAS_H); ucOf(gl).f2(P.text.u.sdf, RADIUS, CUTOFF);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, atlasTex); ucOf(gl).i1(P.text.u.atlas, 0);
     gl.bindVertexArray(textVao); gl.bindBuffer(gl.ARRAY_BUFFER, textBuf);
     gl.bufferData(gl.ARRAY_BUFFER, textData.subarray(0, n * TS), gl.STREAM_DRAW);
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, n);
     gl.bindFramebuffer(gl.FRAMEBUFFER, outFb);
     gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.useProgram(P.comp.p);
-    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, covTex); gl.uniform1i(P.comp.u.cov, 0);
-    gl.uniform2f(P.comp.u.res, W, H); gl.uniform1f(P.comp.u.k, K);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, covTex); ucOf(gl).i1(P.comp.u.cov, 0);
+    ucOf(gl).f2(P.comp.u.res, W, H); ucOf(gl).f1(P.comp.u.k, K);
     outPC.set(tint);
-    gl.uniform4fv(P.comp.u.pc, outPC); gl.uniform1i(P.comp.u.pn, 1); gl.uniform1f(P.comp.u.ga, 1);
+    ucOf(gl).fv4(P.comp.u.pc, outPC); ucOf(gl).i1(P.comp.u.pn, 1); ucOf(gl).f1(P.comp.u.ga, 1);
     gl.bindVertexArray(quadVao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
   function flush() {
     if (textN) {
       if (scissor(clipR)) {
         gl.useProgram(P.text.p);
-        gl.uniform2f(P.text.u.res, W, H); gl.uniform2f(P.text.u.asz, ATLAS_W, ATLAS_H); gl.uniform2f(P.text.u.sdf, RADIUS, CUTOFF);
-        gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, atlasTex); gl.uniform1i(P.text.u.atlas, 0);
+        ucOf(gl).f2(P.text.u.res, W, H); ucOf(gl).f2(P.text.u.asz, ATLAS_W, ATLAS_H); ucOf(gl).f2(P.text.u.sdf, RADIUS, CUTOFF);
+        gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, atlasTex); ucOf(gl).i1(P.text.u.atlas, 0);
         gl.bindVertexArray(textVao); gl.bindBuffer(gl.ARRAY_BUFFER, textBuf);
         gl.bufferData(gl.ARRAY_BUFFER, textData.subarray(0, textN * TS), gl.STREAM_DRAW);
         gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, textN);
@@ -642,7 +643,7 @@ export function createTraceGL(host, { redraw = null, under = null } = {}) {
     if (boxN) {
       if (scissor(clipR)) {
         gl.useProgram(P.box.p);
-        gl.uniform2f(P.box.u.res, W, H); gl.uniform1f(P.box.u.k, K);
+        ucOf(gl).f2(P.box.u.res, W, H); ucOf(gl).f1(P.box.u.k, K);
         gl.bindVertexArray(boxVao); gl.bindBuffer(gl.ARRAY_BUFFER, boxBuf);
         gl.bufferData(gl.ARRAY_BUFFER, boxData.subarray(0, boxN * 14), gl.STREAM_DRAW);
         gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, boxN);
@@ -652,23 +653,24 @@ export function createTraceGL(host, { redraw = null, under = null } = {}) {
   }
   // Paint uniforms: a colour string, or a gradient from the context ({ grad: [x0, y0, x1, y1], stops: [[offset, colour], …] }).
   const ID3 = new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]);
+  const PM = new Float32Array(9);   // (the path's matrix, refilled for each draw)
   function setPaint(u, style, alpha) {
     if (style && (style.grad || style.rad)) {
       const st = style.stops.slice().sort((a, b) => a[0] - b[0]).slice(0, 16);
       if (st.length) {
         const pc = new Float32Array(64), po = new Float32Array(16);
         st.forEach(([o, c], i) => { pc.set(premul(c), i * 4); po[i] = o; });
-        gl.uniform4fv(u.pc, pc); gl.uniform1fv(u.po, po); gl.uniform1i(u.pn, st.length); gl.uniform1f(u.ga, alpha);
-        if (style.rad) { const r = style.rad; gl.uniform4f(u.pl, r[0], r[1], r[3], r[4]); gl.uniform2f(u.pr, r[2], r[5]); gl.uniform1i(u.pk, 1); }
-        else { gl.uniform4fv(u.pl, style.grad); gl.uniform1i(u.pk, 0); }
+        ucOf(gl).fv4(u.pc, pc); ucOf(gl).fv1(u.po, po); ucOf(gl).i1(u.pn, st.length); ucOf(gl).f1(u.ga, alpha);
+        if (style.rad) { const r = style.rad; ucOf(gl).f4(u.pl, r[0], r[1], r[3], r[4]); ucOf(gl).f2(u.pr, r[2], r[5]); ucOf(gl).i1(u.pk, 1); }
+        else { ucOf(gl).fv4(u.pl, style.grad); ucOf(gl).i1(u.pk, 0); }
         // (the gradient lies in the space it was filled under: inv maps the page's px back to it)
         const m = style.inv;
-        gl.uniformMatrix3fv(u.pm, false, m ? new Float32Array([m[0], m[1], 0, m[2], m[3], 0, m[4], m[5], 1]) : ID3);
+        if (m) { PM.set([m[0], m[1], 0, m[2], m[3], 0, m[4], m[5], 1]); ucOf(gl).m3(u.pm, PM); } else ucOf(gl).m3(u.pm, ID3);
         return;
       }
     }
     const pc = new Float32Array(64); pc.set(premul(typeof style === 'string' ? style : 'transparent'));
-    gl.uniform4fv(u.pc, pc); gl.uniform1i(u.pn, 1); gl.uniform1f(u.ga, alpha);
+    ucOf(gl).fv4(u.pc, pc); ucOf(gl).i1(u.pn, 1); ucOf(gl).f1(u.ga, alpha);
   }
   // (Review pass item 6: one coverage target per pool (the chart's own without one), grown to the largest chart drawn in CAP_STEP steps and
   // never shrunk: a frame draws into its lower left W x H (texelFetch at the fragment's own pixel), so a chart of another size reallocates
@@ -800,18 +802,18 @@ export function createTraceGL(host, { redraw = null, under = null } = {}) {
       gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
       gl.blendEquation(gl.MAX); gl.blendFunc(gl.ONE, gl.ONE);
       gl.useProgram(P.seg.p);
-      gl.uniform2f(P.seg.u.res, W, H); gl.uniform1f(P.seg.u.hw, hw);
+      ucOf(gl).f2(P.seg.u.res, W, H); ucOf(gl).f1(P.seg.u.hw, hw);
       const dash = o.dash && o.dash.length >= 2 && o.dash[0] + o.dash[1] > 0 ? o.dash : null;
-      gl.uniform3f(P.seg.u.dash, dash ? Math.max(1e-3, dash[0]) * K : 0, dash ? dash[1] * K : 0, (o.offset || 0) * K);
-      gl.uniform1i(P.seg.u.cap, o.round === false ? 0 : 1);
+      ucOf(gl).f3(P.seg.u.dash, dash ? Math.max(1e-3, dash[0]) * K : 0, dash ? dash[1] * K : 0, (o.offset || 0) * K);
+      ucOf(gl).i1(P.seg.u.cap, o.round === false ? 0 : 1);
       gl.bindVertexArray(segVao); gl.bindBuffer(gl.ARRAY_BUFFER, segBuf);
       gl.bufferData(gl.ARRAY_BUFFER, segData.subarray(0, m), gl.STREAM_DRAW);
       gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, count);
       gl.bindFramebuffer(gl.FRAMEBUFFER, outFb);
       gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
       gl.useProgram(P.comp.p);
-      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, covTex); gl.uniform1i(P.comp.u.cov, 0);
-      gl.uniform2f(P.comp.u.res, W, H); gl.uniform1f(P.comp.u.k, K);
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, covTex); ucOf(gl).i1(P.comp.u.cov, 0);
+      ucOf(gl).f2(P.comp.u.res, W, H); ucOf(gl).f1(P.comp.u.k, K);
       setPaint(P.comp.u, style, o.alpha ?? 1);
       gl.bindVertexArray(quadVao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     },
@@ -831,7 +833,7 @@ export function createTraceGL(host, { redraw = null, under = null } = {}) {
       const r = inter([bx0 - 1, by0 - 1, bx1 - bx0 + 2, by1 - by0 + 2]);
       if (!r || !scissor(r)) return;
       gl.useProgram(P.fill.p);
-      gl.uniform2f(P.fill.u.res, W, H); gl.uniform1f(P.fill.u.k, K);
+      ucOf(gl).f2(P.fill.u.res, W, H); ucOf(gl).f1(P.fill.u.k, K);
       gl.bindVertexArray(fillVao); gl.bindBuffer(gl.ARRAY_BUFFER, fillBuf);
       // (A convex piece alone, three corners or a fan that never folds, needs no stencil: most fills in the charts are one.)
       // (the windings in the stencil's low bits, counted only inside the clip when there is one; its top bit is the clip's)
@@ -866,8 +868,8 @@ export function createTraceGL(host, { redraw = null, under = null } = {}) {
       const e = src ? api.upload(src, key, ver) : images.get(key);
       if (!e || !scissor(clipR)) return;
       gl.useProgram(P.img.p);
-      gl.uniform2f(P.img.u.res, W, H); gl.uniform1f(P.img.u.k, K); gl.uniform4f(P.img.u.box, x, y, w, h); gl.uniform1f(P.img.u.ga, alpha);
-      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, e.tex); gl.uniform1i(P.img.u.img, 0);
+      ucOf(gl).f2(P.img.u.res, W, H); ucOf(gl).f1(P.img.u.k, K); ucOf(gl).f4(P.img.u.box, x, y, w, h); ucOf(gl).f1(P.img.u.ga, alpha);
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, e.tex); ucOf(gl).i1(P.img.u.img, 0);
       gl.bindVertexArray(unitVao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); gl.bindVertexArray(null);
     },
     /** A picture taken up as the texture kept under key, unless it holds this ver already (a canvas from another context: copied on the GPU).
@@ -1010,8 +1012,8 @@ export function createTraceGL(host, { redraw = null, under = null } = {}) {
       // (laid texel for texel, premultiplied over what is drawn so far, as its draws would have been; the texture's first row is the foot)
       gl.disable(gl.SCISSOR_TEST);
       gl.useProgram(P.img.p);
-      gl.uniform2f(P.img.u.res, W, H); gl.uniform1f(P.img.u.k, K); gl.uniform4f(P.img.u.box, 0, H / K, W / K, -H / K); gl.uniform1f(P.img.u.ga, 1);
-      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, e.tex); gl.uniform1i(P.img.u.img, 0);
+      ucOf(gl).f2(P.img.u.res, W, H); ucOf(gl).f1(P.img.u.k, K); ucOf(gl).f4(P.img.u.box, 0, H / K, W / K, -H / K); ucOf(gl).f1(P.img.u.ga, 1);
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, e.tex); ucOf(gl).i1(P.img.u.img, 0);
       gl.bindVertexArray(unitVao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); gl.bindVertexArray(null);
       return true;
     },

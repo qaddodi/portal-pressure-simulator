@@ -58,11 +58,11 @@ void main() {
   }
 }`;
 
-import { createShapeGL } from './shape-gl.js?v=8a9a6cee94';
-import { createOrganPaint, mul, prestartOrganPaint } from './organ-paint.js?v=9f3f5d0519';
+import { createShapeGL } from './shape-gl.js?v=d13987be06';
+import { createOrganPaint, mul, prestartOrganPaint } from './organ-paint.js?v=8a2a3d6ec5';
 import { prestart, linkProgram } from './gl-compile.js?v=3e750c4fef';
 import { netChanged } from './idle-keys.js?v=81fbedda6b';
-import { uniformCache } from './uniform-cache.js?v=3c43b7a297';
+import { uniformCache } from './uniform-cache.js?v=b914b447dd';
 import { easeMove, D_SURFACE } from './ease.js?v=7513a88c68';
 // (The colour a clear writes, one array for every clear: none made per call, plan rev 2 §2.8.)
 const CLEAR0 = new Float32Array(4);

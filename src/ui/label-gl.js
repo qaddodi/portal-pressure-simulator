@@ -14,13 +14,14 @@
 
 import { glGet, glCap } from './gl-state.js?v=3569b73302';
 import { frameFor, cancelFrame } from './frame.js?v=8c8f2f530e';
+import { ucOf } from './uniform-cache.js?v=b914b447dd';
 import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=81fbedda6b';
 import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js?v=3e750c4fef';
 import { createAtlasPacker, batchRuns } from './atlas-pack.js?v=43b8bc019d';
 import { easeMove, D_SURFACE } from './ease.js?v=7513a88c68';
-import { createShapeGL, flattenPath, polyMesh, ellipsePoly } from './shape-gl.js?v=8a9a6cee94';
-import { createOrganPaint, parseColor, mul } from './organ-paint.js?v=9f3f5d0519';
-import { textPolys, textWidth, loadGlyphs, glyphsReady, textCovers } from './text-gl.js?v=d1a9976923';
+import { createShapeGL, flattenPath, polyMesh, ellipsePoly } from './shape-gl.js?v=d13987be06';
+import { createOrganPaint, parseColor, mul } from './organ-paint.js?v=8a2a3d6ec5';
+import { textPolys, textWidth, loadGlyphs, glyphsReady, textCovers } from './text-gl.js?v=e5374005be';
 import { watchSize, sizeOf, rectSoon } from './geom.js?v=254133713c';
 import { trackOf, trackAt, mixColour, timingOf, progressAt, keysOf } from './label-track.js?v=814746f511';
 // (The colour a clear writes, one array for every clear: none made per call, plan rev 2 §2.8.)
@@ -885,8 +886,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
     const m = sh.sig * 3 + 1, box = [x - sh.hw - m, y - sh.hh - m, x + sh.hw + m, y + sh.hh + m];
     if (box[0] > W || box[1] > H || box[2] < 0 || box[3] < 0) return;
     boxAt(...box);
-    gl.uniform4f(MU.uBox, ...box); gl.uniform4f(MU.uGeo, x, y, sh.hw, sh.hh); gl.uniform1f(MU.uW, sh.r);
-    gl.uniform2f(MU.uDash, sh.sig, 0); gl.uniform4f(MU.uFill, ...sh.col); gl.uniform1f(MU.uA, Math.min(1, a));
+    ucOf(gl).f4a(MU.uBox, box); ucOf(gl).f4(MU.uGeo, x, y, sh.hw, sh.hh); ucOf(gl).f1(MU.uW, sh.r);
+    ucOf(gl).f2(MU.uDash, sh.sig, 0); ucOf(gl).f4a(MU.uFill, sh.col); ucOf(gl).f1(MU.uA, Math.min(1, a));
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
   // A keyboard focus's ring (kind 9) over the label's picture at (x, y) device px.
@@ -894,8 +895,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
     const m = r.w / 2 + 1, box = [x + r.x0 - m, y + r.y0 - m, x + r.x1 + m, y + r.y1 + m];
     if (box[0] > W || box[1] > H || box[2] < 0 || box[3] < 0) return;
     boxAt(...box);
-    gl.uniform4f(MU.uBox, ...box); gl.uniform4f(MU.uGeo, x + r.x0, y + r.y0, x + r.x1, y + r.y1); gl.uniform1f(MU.uW, r.w);
-    gl.uniform4f(MU.uStroke, ...r.col); gl.uniform1f(MU.uA, Math.min(1, a));
+    ucOf(gl).f4a(MU.uBox, box); ucOf(gl).f4(MU.uGeo, x + r.x0, y + r.y0, x + r.x1, y + r.y1); ucOf(gl).f1(MU.uW, r.w);
+    ucOf(gl).f4a(MU.uStroke, r.col); ucOf(gl).f1(MU.uA, Math.min(1, a));
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
   function draw() {
@@ -914,7 +915,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     if (!host) { gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); }
     gl.useProgram(prog); gl.bindVertexArray(vao);
     gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-    gl.uniform2f(U.uView, W, H); gl.uniform1i(U.uT, 0); gl.activeTexture(gl.TEXTURE0);
+    ucOf(gl).f2(U.uView, W, H); ucOf(gl).i1(U.uT, 0); gl.activeTexture(gl.TEXTURE0);
     let moving = drawProbe(now);
     moving = drawMarks(now) || moving;
     // (Every label's box and atlas place, in painter order; drawn below as one batch per run of pictures on a page.)
@@ -990,14 +991,14 @@ void main() { o = texture(uT, vUV) * uA; }`;
     }
     // (Under the pictures, their rects' drop shadows; over them, a keyboard focus's ring: shapes the GPU draws, not pixels in the pictures.)
     if (items.some((it) => it.st?.shadows?.length)) {
-      gl.useProgram(mprog); gl.uniform2f(MU.uView, W, H); gl.uniform1i(MU.uKind, 8);
+      gl.useProgram(mprog); ucOf(gl).f2(MU.uView, W, H); ucOf(gl).i1(MU.uKind, 8);
       for (const it of items) for (const sh of it.st?.shadows || []) shadowBox(it.x + sh.cx, it.y + sh.cy, sh, it.a);
     }
     if (items.length) {
       if (inst.length < items.length * 8) inst = new Float32Array(Math.max(items.length * 8, inst.length * 2));
       items.forEach((it, i) => inst.set([it.x, it.y, it.w, it.h, it.ax, it.ay, it.a, 0], i * 8));
       gl.useProgram(aprog); gl.bindVertexArray(avao);
-      gl.uniform2f(AU.uView, W, H); gl.uniform1i(AU.uT, 0);
+      ucOf(gl).f2(AU.uView, W, H); ucOf(gl).i1(AU.uT, 0);
       gl.bindBuffer(gl.ARRAY_BUFFER, abuf);
       gl.bufferData(gl.ARRAY_BUFFER, inst.subarray(0, items.length * 8), gl.DYNAMIC_DRAW);
       for (const run of batchRuns(items)) {
@@ -1009,7 +1010,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       gl.bindVertexArray(vao);
     }
     if (items.some((it) => it.st?.ring)) {
-      gl.useProgram(mprog); gl.uniform2f(MU.uView, W, H); gl.uniform1i(MU.uKind, 9);
+      gl.useProgram(mprog); ucOf(gl).f2(MU.uView, W, H); ucOf(gl).i1(MU.uKind, 9);
       for (const it of items) if (it.st?.ring) ringDraw(it.x, it.y, it.st.ring, it.a);
     }
     dirty.clear();
@@ -1099,19 +1100,19 @@ void main() { o = texture(uT, vUV) * uA; }`;
       if (h.d) {
         const m = holeMask(h);
         gl.useProgram(rprog); gl.bindVertexArray(vao);
-        gl.uniform2f(RU.uView, W, H); gl.uniform2f(RU.uP, x, y); gl.uniform2f(RU.uS, w / m.sw, hh / m.sh); gl.uniform2f(RU.uO, 0, 0);
-        gl.uniform1f(RU.uAng, 0); gl.uniform1i(RU.uT, 0); gl.uniform1f(RU.uA, h.a);
+        ucOf(gl).f2(RU.uView, W, H); ucOf(gl).f2(RU.uP, x, y); ucOf(gl).f2(RU.uS, w / m.sw, hh / m.sh); ucOf(gl).f2(RU.uO, 0, 0);
+        ucOf(gl).f1(RU.uAng, 0); ucOf(gl).i1(RU.uT, 0); ucOf(gl).f1(RU.uA, h.a);
         gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, m.tex);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       } else {
         gl.useProgram(mprog); gl.bindVertexArray(vao);
-        gl.uniform2f(MU.uView, W, H);
-        gl.uniform4f(MU.uBox, x - 1, y - 1, x + w + 1, y + hh + 1);
-        gl.uniform1i(MU.uKind, 6);
-        gl.uniform4f(MU.uGeo, x, y, w, hh);
-        gl.uniform4f(MU.uR4, ...h.rad.map((r) => r * dpr));
-        gl.uniform4f(MU.uFill, 1, 1, 1, 1);
-        gl.uniform1f(MU.uA, h.a);
+        ucOf(gl).f2(MU.uView, W, H);
+        ucOf(gl).f4(MU.uBox, x - 1, y - 1, x + w + 1, y + hh + 1);
+        ucOf(gl).i1(MU.uKind, 6);
+        ucOf(gl).f4(MU.uGeo, x, y, w, hh);
+        ucOf(gl).f4a(MU.uR4, h.rad.map((r) => r * dpr));
+        ucOf(gl).f4(MU.uFill, 1, 1, 1, 1);
+        ucOf(gl).f1(MU.uA, h.a);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       }
     }
@@ -1171,7 +1172,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     let moving = false;
     if (!marks.length) return false;
     gl.useProgram(mprog);
-    gl.uniform2f(MU.uView, W, H);
+    ucOf(gl).f2(MU.uView, W, H);
     for (const root of marks) {
       const ro = lookOf(root, now);
       if (markLive.has(root)) moving = true;
@@ -1201,14 +1202,14 @@ void main() { o = texture(uT, vUV) * uA; }`;
             boxAt(Math.min(ax, bx) - m, Math.min(ay, by) - m, Math.max(ax, bx) + m, Math.max(ay, by) + m);
           }
         } else boxAt(...box);
-        gl.uniform4f(MU.uBox, ...box);
-        gl.uniform1i(MU.uKind, el.tagName === 'path' ? 0 : 1);
-        gl.uniform4f(MU.uGeo, ...geo);
-        gl.uniform1f(MU.uW, w);
-        gl.uniform2f(MU.uDash, st.dash[0] * dpr, st.dash[1] * dpr);
-        gl.uniform4f(MU.uStroke, ...(st.stroke || [0, 0, 0, 0]));
-        gl.uniform4f(MU.uFill, ...(st.fill || [0, 0, 0, 0]));
-        gl.uniform1f(MU.uA, Math.min(1, a));
+        ucOf(gl).f4a(MU.uBox, box);
+        ucOf(gl).i1(MU.uKind, el.tagName === 'path' ? 0 : 1);
+        ucOf(gl).f4a(MU.uGeo, geo);
+        ucOf(gl).f1(MU.uW, w);
+        ucOf(gl).f2(MU.uDash, st.dash[0] * dpr, st.dash[1] * dpr);
+        ucOf(gl).f4a(MU.uStroke, (st.stroke || [0, 0, 0, 0]));
+        ucOf(gl).f4a(MU.uFill, (st.fill || [0, 0, 0, 0]));
+        ucOf(gl).f1(MU.uA, Math.min(1, a));
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       }
     }
@@ -1380,25 +1381,25 @@ void main() { o = texture(uT, vUV) * uA; }`;
     const seg = (q, st) => {
       if (!st.col || !(st.w > 0)) return;
       const [x0, y0] = at(q[0], q[1]), [x1, y1] = at(q[2], q[3]), w = st.w * dpr, m = w / 2 + 2;
-      gl.uniform1i(MU.uKind, st.cap === 'round' ? 2 : 0);
-      gl.uniform4f(MU.uBox, Math.min(x0, x1) - m, Math.min(y0, y1) - m, Math.max(x0, x1) + m, Math.max(y0, y1) + m);
-      gl.uniform4f(MU.uGeo, x0, y0, x1, y1); gl.uniform1f(MU.uW, w); gl.uniform2f(MU.uDash, 0, 0);
-      gl.uniform4f(MU.uStroke, ...st.col); gl.uniform1f(MU.uA, Math.min(1, L.op));
+      ucOf(gl).i1(MU.uKind, st.cap === 'round' ? 2 : 0);
+      ucOf(gl).f4(MU.uBox, Math.min(x0, x1) - m, Math.min(y0, y1) - m, Math.max(x0, x1) + m, Math.max(y0, y1) + m);
+      ucOf(gl).f4(MU.uGeo, x0, y0, x1, y1); ucOf(gl).f1(MU.uW, w); ucOf(gl).f2(MU.uDash, 0, 0);
+      ucOf(gl).f4a(MU.uStroke, st.col); ucOf(gl).f1(MU.uA, Math.min(1, L.op));
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     };
     gl.useProgram(mprog);
-    gl.uniform2f(MU.uView, W, H);
+    ucOf(gl).f2(MU.uView, W, H);
     // The faded beam: its gradient runs across the wedge's box from its right edge (the probe's face) to its left (past the far wall).
     const tri = triOf(probe.querySelector('.dpr-wedge')?.getAttribute('d'));
     if (tri && L.stops.length === 3) {
       const xs = tri.map((p) => p[0]), T = tri.map((p) => at(p[0], p[1])), g0 = at(Math.max(...xs), 0), g1 = at(Math.min(...xs), 0);
-      gl.uniform1i(MU.uKind, 3);
-      gl.uniform4f(MU.uBox, Math.min(...T.map((p) => p[0])) - 2, Math.min(...T.map((p) => p[1])) - 2, Math.max(...T.map((p) => p[0])) + 2, Math.max(...T.map((p) => p[1])) + 2);
-      gl.uniform2f(MU.uT0, ...T[0]); gl.uniform2f(MU.uT1, ...T[1]); gl.uniform2f(MU.uT2, ...T[2]);
-      gl.uniform4f(MU.uG, ...g0, ...g1);
-      gl.uniform4f(MU.uS0, ...L.stops[0][1]); gl.uniform4f(MU.uS1, ...L.stops[1][1]); gl.uniform4f(MU.uS2, ...L.stops[2][1]);
-      gl.uniform3f(MU.uSO, L.stops[0][0], L.stops[1][0], L.stops[2][0]);
-      gl.uniform1f(MU.uA, Math.min(1, L.op));
+      ucOf(gl).i1(MU.uKind, 3);
+      ucOf(gl).f4(MU.uBox, Math.min(...T.map((p) => p[0])) - 2, Math.min(...T.map((p) => p[1])) - 2, Math.max(...T.map((p) => p[0])) + 2, Math.max(...T.map((p) => p[1])) + 2);
+      ucOf(gl).f2a(MU.uT0, T[0]); ucOf(gl).f2a(MU.uT1, T[1]); ucOf(gl).f2a(MU.uT2, T[2]);
+      ucOf(gl).f4(MU.uG, g0[0], g0[1], g1[0], g1[1]);
+      ucOf(gl).f4a(MU.uS0, L.stops[0][1]); ucOf(gl).f4a(MU.uS1, L.stops[1][1]); ucOf(gl).f4a(MU.uS2, L.stops[2][1]);
+      ucOf(gl).f3(MU.uSO, L.stops[0][0], L.stops[1][0], L.stops[2][0]);
+      ucOf(gl).f1(MU.uA, Math.min(1, L.op));
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     }
     // Rim under line, the line of sight, then the flow axis, then the gate's bars on top (dop-probe.js PROBE_MODEL's order).
@@ -1428,9 +1429,9 @@ void main() { o = texture(uT, vUV) * uA; }`;
       }
       const [hx, hy] = at(D, 0);
       gl.useProgram(prog);
-      gl.uniform2f(U.uView, W, H); gl.uniform1i(U.uT, 0);
+      ucOf(gl).f2(U.uView, W, H); ucOf(gl).i1(U.uT, 0);
       gl.bindTexture(gl.TEXTURE_2D, headSp.tex);
-      gl.uniform4f(U.uR, Math.round(hx) + headSp.ox, Math.round(hy) + headSp.oy, headSp.w, headSp.h); gl.uniform1f(U.uA, Math.min(1, L.op * L.headOp));
+      ucOf(gl).f4(U.uR, Math.round(hx) + headSp.ox, Math.round(hy) + headSp.oy, headSp.w, headSp.h); ucOf(gl).f1(U.uA, Math.min(1, L.op * L.headOp));
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       ex0 = Math.min(ex0, Math.round(hx) + headSp.ox); ey0 = Math.min(ey0, Math.round(hy) + headSp.oy);
       ex1 = Math.max(ex1, Math.round(hx) + headSp.ox + headSp.w); ey1 = Math.max(ey1, Math.round(hy) + headSp.oy + headSp.h);
@@ -1513,19 +1514,19 @@ void main() { o = texture(uT, vUV) * uA; }`;
       const [ax, ay] = at(bsec.apex[0], bsec.apex[1]), [gx, gy] = at(L.beam.grad[0], L.beam.grad[1]), R = bsec.r * dpr, sg = bsec.blur * dpr, m = R + 4 * sg + 2;
       const st = L.beam.stops.map(([o, col, a]) => [o, rgba(col).map((v) => v * a)]);   // (rgba: premultiplied; times the stop's opacity)
       gl.useProgram(mprog);
-      gl.uniform2f(MU.uView, W, H);
-      gl.uniform1i(MU.uKind, 7);
-      gl.uniform4f(MU.uBox, ax - m, ay - m, ax + m, ay + m);
-      gl.uniform4f(MU.uGeo, ax, ay, R, L.beam.grad[2] * dpr);
-      gl.uniform4f(MU.uR4, bsec.dir + L.ang, bsec.half, gx, gy);
-      gl.uniform1f(MU.uW, sg);
-      gl.uniform4f(MU.uS0, ...st[0][1]); gl.uniform4f(MU.uS1, ...st[1][1]); gl.uniform3f(MU.uSO, st[0][0], st[1][0], 1);
-      gl.uniform1f(MU.uA, Math.min(1, L.op));
+      ucOf(gl).f2(MU.uView, W, H);
+      ucOf(gl).i1(MU.uKind, 7);
+      ucOf(gl).f4(MU.uBox, ax - m, ay - m, ax + m, ay + m);
+      ucOf(gl).f4(MU.uGeo, ax, ay, R, L.beam.grad[2] * dpr);
+      ucOf(gl).f4(MU.uR4, bsec.dir + L.ang, bsec.half, gx, gy);
+      ucOf(gl).f1(MU.uW, sg);
+      ucOf(gl).f4a(MU.uS0, st[0][1]); ucOf(gl).f4a(MU.uS1, st[1][1]); ucOf(gl).f3(MU.uSO, st[0][0], st[1][0], 1);
+      ucOf(gl).f1(MU.uA, Math.min(1, L.op));
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     }
     // The waves: each packet's arcs (read off the probe's model every frame, where scanTick writes them), at the packet's opacity.
     gl.useProgram(mprog);
-    gl.uniform2f(MU.uView, W, H);
+    ucOf(gl).f2(MU.uView, W, H);
     for (const pk of scanEl.querySelectorAll('.sp-waves > .sp-pk')) {
       const po = NUM(pk.style.opacity === '' ? '1' : pk.style.opacity);
       if (!(po > 0.001)) continue;
@@ -1535,10 +1536,10 @@ void main() { o = texture(uT, vUV) * uA; }`;
         const st = path.classList.contains('sp-front') ? L.front : L.rip;
         if (!st) continue;
         const r = n[2], a0 = Math.atan2(n[1] - PIV[1], n[0] - PIV[0]) + L.ang, a1 = Math.atan2(n[8] - PIV[1], n[7] - PIV[0]) + L.ang, [cx, cy] = at(PIV[0], PIV[1]), R = r * dpr, w = st.w * dpr;
-        gl.uniform1i(MU.uKind, 4);
-        gl.uniform4f(MU.uBox, cx - R - w - 2, cy - R - w - 2, cx + R + w + 2, cy + R + w + 2);
-        gl.uniform4f(MU.uGeo, cx, cy, R, 0); gl.uniform4f(MU.uR4, a0, a1 < a0 ? a1 + Math.PI * 2 : a1, 0, 0); gl.uniform1f(MU.uW, w);
-        gl.uniform4f(MU.uStroke, ...st.col.map((v) => v * st.so)); gl.uniform1f(MU.uA, Math.min(1, L.op * po));
+        ucOf(gl).i1(MU.uKind, 4);
+        ucOf(gl).f4(MU.uBox, cx - R - w - 2, cy - R - w - 2, cx + R + w + 2, cy + R + w + 2);
+        ucOf(gl).f4(MU.uGeo, cx, cy, R, 0); ucOf(gl).f4(MU.uR4, a0, a1 < a0 ? a1 + Math.PI * 2 : a1, 0, 0); ucOf(gl).f1(MU.uW, w);
+        ucOf(gl).f4a(MU.uStroke, st.col.map((v) => v * st.so)); ucOf(gl).f1(MU.uA, Math.min(1, L.op * po));
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       }
     }
@@ -1546,10 +1547,10 @@ void main() { o = texture(uT, vUV) * uA; }`;
     const cn = (L.cable.d || '').match(/-?[\d.]+/g)?.map(Number);
     if (cn?.length >= 4 && L.cable.col && L.cableOp > 0.001) {
       const [x0, y0] = at(cn[0], cn[1]), [x1, y1] = at(cn[cn.length - 2], cn[cn.length - 1]), w = L.cable.w * dpr, m = w / 2 + 2;
-      gl.uniform1i(MU.uKind, L.cable.cap === 'round' ? 2 : 0);
-      gl.uniform4f(MU.uBox, Math.min(x0, x1) - m, Math.min(y0, y1) - m, Math.max(x0, x1) + m, Math.max(y0, y1) + m);
-      gl.uniform4f(MU.uGeo, x0, y0, x1, y1); gl.uniform1f(MU.uW, w); gl.uniform2f(MU.uDash, 0, 0);
-      gl.uniform4f(MU.uStroke, ...L.cable.col); gl.uniform1f(MU.uA, Math.min(1, L.op * L.cableOp));
+      ucOf(gl).i1(MU.uKind, L.cable.cap === 'round' ? 2 : 0);
+      ucOf(gl).f4(MU.uBox, Math.min(x0, x1) - m, Math.min(y0, y1) - m, Math.max(x0, x1) + m, Math.max(y0, y1) + m);
+      ucOf(gl).f4(MU.uGeo, x0, y0, x1, y1); ucOf(gl).f1(MU.uW, w); ucOf(gl).f2(MU.uDash, 0, 0);
+      ucOf(gl).f4a(MU.uStroke, L.cable.col); ucOf(gl).f1(MU.uA, Math.min(1, L.op * L.cableOp));
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     }
     if (L.headOp > 0.001 && glyphsReady()) {
@@ -1575,21 +1576,21 @@ void main() { o = texture(uT, vUV) * uA; }`;
         Object.assign(sHeadSp, { key: hkey, ox: x0, oy: y0 });
       }
       gl.useProgram(prog);
-      gl.uniform2f(U.uView, W, H); gl.uniform1i(U.uT, 0);
+      ucOf(gl).f2(U.uView, W, H); ucOf(gl).i1(U.uT, 0);
       gl.bindTexture(gl.TEXTURE_2D, sHeadSp.tex);
-      gl.uniform4f(U.uR, Math.round(px * dpr) + sHeadSp.ox, Math.round(py * dpr) + sHeadSp.oy, sHeadSp.w, sHeadSp.h); gl.uniform1f(U.uA, Math.min(1, L.op * L.headOp));
+      ucOf(gl).f4(U.uR, Math.round(px * dpr) + sHeadSp.ox, Math.round(py * dpr) + sHeadSp.oy, sHeadSp.w, sHeadSp.h); ucOf(gl).f1(U.uA, Math.min(1, L.op * L.headOp));
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       // The tip, over the body, at its tap's place along the probe.
       const t = L.tip;
       if (t.fill) {
         const [cx, cy] = at(t.x + t.w / 2 + L.tipX, t.y + t.h / 2);
         gl.useProgram(mprog);
-        gl.uniform2f(MU.uView, W, H);
-        gl.uniform1i(MU.uKind, 5);
+        ucOf(gl).f2(MU.uView, W, H);
+        ucOf(gl).i1(MU.uKind, 5);
         const R = Math.hypot(t.w, t.h) / 2 * dpr + 2;
-        gl.uniform4f(MU.uBox, cx - R, cy - R, cx + R, cy + R);
-        gl.uniform4f(MU.uGeo, cx, cy, t.w / 2 * dpr, t.h / 2 * dpr); gl.uniform1f(MU.uW, Math.min(t.rx, t.w / 2, t.h / 2) * dpr); gl.uniform4f(MU.uR4, L.ang, 0, 0, 0);
-        gl.uniform4f(MU.uFill, ...rgba(t.fill)); gl.uniform1f(MU.uA, Math.min(1, L.op * L.headOp));
+        ucOf(gl).f4(MU.uBox, cx - R, cy - R, cx + R, cy + R);
+        ucOf(gl).f4(MU.uGeo, cx, cy, t.w / 2 * dpr, t.h / 2 * dpr); ucOf(gl).f1(MU.uW, Math.min(t.rx, t.w / 2, t.h / 2) * dpr); ucOf(gl).f4(MU.uR4, L.ang, 0, 0, 0);
+        ucOf(gl).f4a(MU.uFill, rgba(t.fill)); ucOf(gl).f1(MU.uA, Math.min(1, L.op * L.headOp));
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       }
     }
