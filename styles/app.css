@@ -3718,7 +3718,7 @@ html.label-fill-both :is(#labels .lb.scan, .app.presenting #labels .lb) { animat
 .dop-dir[data-sev="danger"], .dop-dir[data-sev="critical"] { color: var(--danger-ink); }
 .dop-velrow { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; margin-top: 6px; }
 .dop-vel { display: inline-flex; align-items: baseline; gap: 6px; }
-.dop-vel b { font-size: var(--fs-28); font-weight: 600; letter-spacing: -.02em; line-height: 1; font-variant-numeric: tabular-nums; }
+.dop-vel b { font-size: var(--fs-28); font-weight: 600; letter-spacing: -.02em; line-height: 1; font-variant-numeric: tabular-nums; min-width: 3.4ch; }   /* (room for a minus and two digits: the unit beside it stays put as a reading crosses -10 or -100) */
 .dop-vel small { font-size: var(--fs-12); color: var(--text-3); }
 .dop-range { font-size: var(--fs-12); color: var(--text-3); }
 .dop-pattern { margin-top: 6px; font-size: var(--fs-14); font-weight: 600; color: var(--text); }

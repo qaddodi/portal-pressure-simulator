@@ -21,6 +21,7 @@
 import { createSvgGL, svgModel } from './svg-gl.js?v=bbe4d0d65d';
 import { textPolys, textWidth, textBox, loadGlyphs, glyphsReady, textCovers, glyphRun } from './text-gl.js?v=978a757555';
 import { restPass, cancelRest } from './rest-pass.js?v=ed71462b47';
+import { readMetric } from './layout-snap.js?v=f87939cccb';
 import { cssColor } from './css-color.js?v=e56f0c77ae';
 
 /** How long the words hold still (ms) before the page's own words take them. */
@@ -73,10 +74,16 @@ function measurePass() {
 }
 function measureRead(S) {
   const { el, host, after } = S;
-  if (S.on || S.dead) return;
+  if (S.dead) return;
+  // (Words drawn or being drawn: the picture is not replaced under them, which left the page's words clear over an empty picture: a number that
+  // vanished as its width changed. It is measured again once they have landed.)
+  if (S.on || S.pend) { S.stale = true; return; }
   if (!el.isConnected || !glyphsReady() || !S.txt?.data || S.txt.parentNode !== el) { S.at = null; return; }
   const box = host.getBoundingClientRect();
   if (!(box.width > 0 && box.height > 0)) { S.at = null; return; }
+  // (A card still easing in, or shrunk by a transform, reads its boxes scaled: every length taken from a box is put back to layout px, the
+  // units the picture's canvas and the type are in, or the words were drawn stretched, wide and blocky, as the card came in. 2 Nov 2026.)
+  const lw = readMetric(host, 'offsetWidth'), kk = lw > 0 ? box.width / lw : 1, sx = Math.abs(kk - 1) < 0.01 ? 1 : kk;
   // (SVG words, a dial's number: their type is in the drawing's units, scaled to the screen by its transform; their anchor and fill are SVG's.)
   const svgT = typeof SVGElement !== 'undefined' && el instanceof SVGElement, sc = svgT ? Math.abs(el.getScreenCTM?.()?.a || 1) : 1;
   const r = document.createRange();
@@ -93,8 +100,8 @@ function measureRead(S) {
   const align = ta === 'center' ? 'middle' : /right/.test(ta) || (ta === 'end' && !rtl) || (ta === 'start' && rtl) ? 'end' : 'start';
   const k = devicePixelRatio || 1, asc = -textBox('0', 0, 0, { weight: L.weight, size: L.size, k }).y;
   const sAsc = small ? -textBox('0', 0, 0, { weight: U.weight, size: U.size, k }).y : 0;
-  const at = { sm: !!small && !small.hidden, L, U, align, w: box.width, h: box.height, y: tr.top - box.top + asc, uy: small ? small.getBoundingClientRect().top - box.top + sAsc : 0,
-    x0: all.left - box.left, x1: all.right - box.left };
+  const at = { sm: !!small && !small.hidden, L, U, align, w: box.width / sx, h: box.height / sx, y: (tr.top - box.top) / sx + asc, uy: small ? (small.getBoundingClientRect().top - box.top) / sx + sAsc : 0,
+    x0: (all.left - box.left) / sx, x1: (all.right - box.left) / sx };
   // (Room past the box on every side, so a longer number than the one laid out is drawn whole, never cut at the box's edge; but never
   // past an ancestor that clips or scrolls, where the picture would count as overflow and a card's fit would shrink the card for it.)
   const most = Math.ceil(L.size * 3);
@@ -110,7 +117,7 @@ function measureRead(S) {
     cl = Math.max(cl, ab.left); ct = Math.max(ct, ab.top); cr = Math.min(cr, ab.right); cb = Math.min(cb, ab.bottom);
   }
   const room = (v) => Math.max(0, Math.min(most, Math.floor(v)));
-  const pad = { l: room(box.left - cl), t: room(box.top - ct), r: room(cr - box.right), b: room(cb - box.bottom) };
+  const pad = { l: room((box.left - cl) / sx), t: room((box.top - ct) / sx), r: room((cr - box.right) / sx), b: room((cb - box.bottom) / sx) };
   return { at, pad, L, U };
 }
 function measureWrite(S, { at, pad, L, U }) {
@@ -206,7 +213,7 @@ function land(S) {
   S.onLand?.();
   S.pend = false;
   if (S.on) { S.on = false; el.classList.remove('glw-on'); S.vPath.setAttribute('d', ''); S.uPath.setAttribute('d', ''); clearSlots(S); S.gl.paint(); }
-  if (!S.at || S.at.sm !== (!!S.small && !S.small.hidden)) askMeasure(S);   // (a unit that came or went moves the words: measured again)
+  if (!S.at || S.stale || S.at.sm !== (!!S.small && !S.small.hidden)) { S.stale = false; askMeasure(S); }   // (a unit that came or went moves the words: measured again)
 }
 const askLand = (S) => { clearTimeout(S.landT); S.landT = 0; if (S.dead) return; if (!S.landAsk) S.landAsk = restPass(() => land(S)); };
 
