@@ -8526,7 +8526,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // browser restyle the page there and then, mid-frame. The look is read between frames instead: once at the start, after any write to
   // the canvas or what holds it, and when one of its transitions or animations ends; while one runs the canvas counts as easing, so no
   // glass is taken from it. ?frostcache=0: read in the frame, as before.)
-  const VC_CACHE = !/[?&]frostcache=0\b/.test(location.search);
+  const VC_CACHE = !/[?&]frostcache=0\b/.test(location.search) && !/[?&]glassreads=0\b/.test(location.search);
   const vcLook = () => {
     const vc = getComputedStyle(vCanvas);
     return vc.display !== 'none' && vc.visibility === 'visible' && +vc.opacity >= 0.999 ? '' : 'the figure\'s canvas is hidden or faded';
@@ -8634,9 +8634,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // written or animating, a new labels picture (labelGL.boxes), the camera (viewKey), a resize, or any CSS transition or animation on the
   // page and for 0.6 s after it. A frame that only moves the blood reads no box. ?glassreads=0 reads it on every call, as before.)
   const FROST_KEEP = !/[?&]glassreads=0\b/.test(location.search);
-  let frostDirty = 0, frostUntil = 0, frostMo = null;
+  let frostDirty = 0, frostMo = null;
   const frostSeen = new WeakSet(), frostKept = new Map();
-  const frostTouch = () => { frostDirty++; frostUntil = performance.now() + 600; };
+  // (2 Nov 2026: a transition or animation anywhere in the page no longer keeps the cache off for 0.6 s, nor is getAnimations() asked
+  // on every call. Only the elements read below are listened to, with capture so their children count too; a start, end or cancel marks
+  // the cache dirty, and the next frostOver call reads once and keeps the answer again.)
+  const frostTouch = () => { frostDirty++; };
+  const FROST_EVS = ['transitionrun', 'transitionend', 'transitioncancel', 'animationstart', 'animationend', 'animationcancel'];
+  const frostListen = (el) => { for (const t of FROST_EVS) el.addEventListener(t, frostTouch, true); };
   function frostWatch() {
     if (!frostMo) {
       frostMo = new MutationObserver(frostTouch);
@@ -8645,19 +8650,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       frostMo.observe(wrap, { attributes: true });
       frostMo.observe(document.documentElement, { attributes: true });
       addEventListener('resize', frostTouch);
-      for (const t of ['transitionrun', 'transitionend', 'transitioncancel', 'animationstart', 'animationend', 'animationcancel']) document.addEventListener(t, frostTouch, true);
+      for (const el of [svgOver, labelSvg, glass, cath.labels, sites.el]) if (el) frostListen(el);
     }
     const lc = labelGL && !labelGL.lost ? labelGL.canvas : null;
-    for (const el of [lc, ...document.querySelectorAll('.pz-shade'), document.querySelector('.stage-credit')]) if (el && !frostSeen.has(el)) { frostSeen.add(el); frostMo.observe(el, { attributes: true }); frostTouch(); }
+    for (const el of [lc, ...document.querySelectorAll('.pz-shade'), document.querySelector('.stage-credit')]) if (el && !frostSeen.has(el)) { frostSeen.add(el); frostMo.observe(el, { attributes: true }); frostListen(el); frostTouch(); }
   }
   function frostOver(level) {
     if (!FROST_KEEP) return frostOverRead(level);
     frostWatch();
-    const shades = [...document.querySelectorAll('.pz-shade')];
-    const moving = performance.now() < frostUntil || shades.some((el) => el.getAnimations?.().some((an) => an.playState === 'running'));
     const key = `${frostDirty}|${veins?.viewKey ?? ''}|${labelGL?.lost ? 'lost' : ''}|${appEl?.classList.contains('presenting') ? 1 : 0}`;
     const k = frostKept.get(level);
-    if (!moving && k && k.key === key && k.boxes === (labelGL?.boxes ?? null)) return k.out;
+    if (k && k.key === key && k.boxes === (labelGL?.boxes ?? null)) return k.out;
     const out = frostOverRead(level);
     frostKept.set(level, { key, boxes: labelGL?.boxes ?? null, out });
     return out;
