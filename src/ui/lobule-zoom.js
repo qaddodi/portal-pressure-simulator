@@ -2823,7 +2823,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (handOn() || gliding || inMotion()) { spareSoon(); return; }   // (inMotion: not while a slide's cards come in, frame.js holdMotion)
     // (Twice the zoom's own sharpness, stepped as paintTissue steps it, within the bitmap's largest size.)
     const dpr = Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * lzScale(), cap = worldCap(G, dpr);
-    const dark = isDark(), cs = styles(), ws = worldStateOf(m, G, dark, cs), sc = Math.min(2 ** (Math.ceil(Math.log2(Math.max(0.05, dpr * V.k)) * 2) / 2) * 2, cap);
+    const dark = isDark(), cs = styles(), ws = worldStateOf(m, G, dark, cs), sc = Math.min(2 ** (Math.ceil(Math.log2(Math.max(0.05, dpr * V.k)) * 2) / 2) * 2, cap, seenCap(G));
     if (bitmapUnseen()) {
       // (The shader has the whole picture, so no bitmap is seen at the zooms this one is for: none is painted, and one made earlier is given back.)
       if (spare || spareCv.width) { free(spareCv); spare = null; }
@@ -2913,6 +2913,14 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // share falls below 1 again: it is not painted ahead (spareMake), not held at the sharpness of a gesture's every step (paintTissue),
   // and a new state does not crossfade into it.
   const bitmapUnseen = () => liveShare >= 1 && tissueOnGL;
+  // The sharpest the bitmap is ever seen (2 Nov 2026, Mohammad: "Why is zooming in in lobule view laggy"): once the shader is fully
+  // eased in, it has the whole picture from a cell of 6 px up (liveZoomShare), so the bitmap shows only at zooms below that, and a bitmap
+  // painted for a closer zoom is never seen. Zooming in by hand, with + or a presenter's glide, the bitmap was still painted again at the
+  // landed zoom's sharpness once it stopped: up to 3600 px square, its shapes recorded on the main thread and rastered into the GPU's
+  // tiles in one go (0.2 to 0.5 s headless, a visible hitch as each zoom-in settled), for a picture mixed out entirely. It is now painted
+  // at most at the step that covers the shader's threshold, and one already sharper is kept. ?seencap=0: painted at every zoom, as before.
+  const SEEN_CAP = !/[?&]seencap=0\b/.test(location.search);
+  const seenCap = (G) => (SEEN_CAP && liveE >= 1 && liveGoal() === 1 && tissueOnGL ? 2 ** (Math.ceil(Math.log2(6 / (0.052 * G.R)) * 2) / 2) : Infinity);
   function tissueLost() { showTissueGL(false); wake(); }
   // (The context given back after a loss (tissue-gl.js asks for it): everything on it was lost with it, so the tissue's GPU drawing is
   // made again on the same canvas the next time it is asked for.)
@@ -2983,6 +2991,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // redrawing it at each √2 step (up to 3600 px square) stalled the glide. It is drawn sharp once the glide lands.
     let sc = Math.min(2 ** (Math.ceil(Math.log2(Math.max(0.05, dpr * V.k)) * 2) / 2), worldCap(G, dpr));
     const ws = worldStateOf(m, G, dark, cs);
+    const seen = seenCap(G);
+    if (sc > seen) { sc = seen; if (worldSc > sc && worldCv.width && worldGeo === G && ws === worldState) sc = worldSc; }   // (never sharper than it is seen; a sharper one kept)
     // (A hand's pinch, flick or trackpad scroll holds it the same way, and it is drawn sharp once the hand lets go: holdEnd.)
     // (On the GPU it is held only while it is at least as sharp as the zoom wants, and past that the one painted ahead takes over:
     // spareMake. The 2D canvas cannot show a closer bitmap smaller without shimmer, so there it is held at its scale, as before.)

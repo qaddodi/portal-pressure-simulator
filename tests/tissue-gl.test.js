@@ -49,7 +49,7 @@ test('never softer than the zoom wants: the bitmap is held only while at least a
   assert.match(pt, /if \(!held && gpu && kept && ws === worldState && sc <= worldSc && worldSc <= sc \* 2\.01\) sc = worldSc;/, 'no repaint once a gesture ends');
   const sm = fn('function spareMake() {');
   assert.match(sm, /if \(handOn\(\) \|\| gliding \|\| inMotion\(\)\) \{ spareSoon\(\); return; \}/, 'painted between gestures, never in one');
-  assert.match(sm, /\* 2, cap\);/);
+  assert.match(sm, /\* 2, cap, seenCap\(G\)\);/);   // (and never sharper than the bitmap is seen: tests/lobule-seen-cap.test.js)
   assert.match(sm, /g\.upload\(spareCv, spareCv\.ver\);/);
   assert.match(sm, /g\.upload\(quietCopy\(t, tone\)\.cv, 0, true\);/, 'and the surround\'s tiles for that zoom');
 });
