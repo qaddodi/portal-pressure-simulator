@@ -78,12 +78,12 @@ export const PLANES = {
     edges: true,
   },
   'hvpg-ppg': {
-    // (Illustrative, Mohammad 29 Oct: "we shouldn't have the labels of the x and y axis ... don't stretch the x axis all the way to like 40".
-    // No axis names, only the four cut-offs' numbers. PPG runs past the highest point on any slide (26.8); HVPG to 24 (the farthest is 16.5),
-    // so that on a narrow phone plot the Sinusoidal obstruction point leaves room right of it for 'Bleed risk ≥12' on its level line.)
-    x: { key: 'hvpg', min: 0, max: 24, ticks: [HVPG_CUTS.amber, HVPG_CUTS.red], name: 'HVPG, mmHg', short: 'HVPG' },
-    y: { key: 'ppg', min: 0, max: 28, ticks: [PPG_CUTS.amber, PPG_CUTS.red], name: 'PPG, mmHg', short: 'PPG' },
-    axisNames: false,
+    // (Mohammad 29 Oct: "don't stretch the x axis all the way to like 40"; PPG runs past the highest point on any slide (26.8); HVPG to 24
+    // (the farthest is 16.5), so that on a narrow phone plot the Sinusoidal obstruction point leaves room right of it for 'Bleed risk ≥12'
+    // on its level line. 29 Oct also took the axes' names off; 2 Nov, slide 11 of Sites: "the axes are not labeled ... tough to know HVPG
+    // PPG", so both axes are named again, with their unit, beside the cut-off numbers.)
+    x: { key: 'hvpg', min: 0, max: 24, ticks: [HVPG_CUTS.amber, HVPG_CUTS.red], name: 'HVPG (wedged − free), mmHg', fullFrom: 700, short: 'HVPG, mmHg', abbr: 'HVPG' },
+    y: { key: 'ppg', min: 0, max: 28, ticks: [PPG_CUTS.amber, PPG_CUTS.red], name: 'PPG (portal − IVC), mmHg', fullFrom: 700, short: 'PPG, mmHg', abbr: 'PPG' },
     zones: [
       { when: [['hvpg', '<', HVPG_CUTS.amber], ['ppg', '<', PPG_CUTS.amber]], t: 'Both normal', short: 'Both normal', tone: 'ok', note: `HVPG <${HVPG_CUTS.amber}, PPG <${PPG_CUTS.amber} mmHg` },
       { when: [['hvpg', '<', HVPG_CUTS.amber]], t: 'PPG raised, HVPG normal', short: 'PPG only', tone: 'ppg', note: 'The wedge misses the resistance' },
@@ -178,7 +178,7 @@ export function plotNumbers(pl, fr, X, Y, fs, keepOff = [], part = 'all') {
   if (part !== 'names') for (const [, text, x, y, anchor] of marks) put(text, x, y, anchor, 'pze-t on');
   // (A name in the longest form that touches nothing standing; the shortest where every form does.)
   const name = (a, x, y, anchor, room) => {
-    const forms = [...new Set([a.name, a.short, a.abbr, a.key].filter(Boolean))].filter((t) => est(t, fs, 0.62) <= room);
+    const forms = [...new Set([a.fullFrom > W ? null : a.name, a.short, a.abbr, a.key].filter(Boolean))].filter((t) => est(t, fs, 0.62) <= room);   // (fullFrom: the full name only on a plot this wide)
     const ok = forms.find((t) => !taken.some((o) => hit(boxOf(t, x, y, anchor), o)));
     put(ok ?? forms.at(-1) ?? a.key, x, y, anchor, 'pze-ax', true);
   };

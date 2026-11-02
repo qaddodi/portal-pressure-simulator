@@ -78,11 +78,16 @@ test('a number never sits on a point: a box kept off takes the number out, the a
   assert.ok(!some.some((n) => n.text === '100' && n.anchor === 'start'), 'the y 100 beside it is left out');
   assert.equal(some.filter((n) => n.cls === 'pze-ax').length, 2, 'the names stay');
   assert.ok(some.some((n) => n.text === '150' && n.anchor === 'start'), 'the y 150, clear of it, stays');
-  // (The same on the HVPG against PPG plane: no names, and a point by the 12 takes only that number out.)
+  // (The same on the HVPG against PPG plane: both axes named (2 Nov: "tough to know HVPG PPG"), and a point by the 12 takes only that number out.)
   const hp = planeOf('hvpg-ppg'), hf = frame(800, 450), h = scaler(hp, hf), hk = [[h.X(0.4) - 12, h.Y(12.3) - 12, h.X(0.4) + 12, h.Y(12.3) + 12]];
   const hs = plotNumbers(hp, hf, h.X, h.Y, fs, hk);
-  assert.equal(hs.filter((n) => n.cls === 'pze-ax').length, 0, 'no axis named');
-  assert.deepEqual(hs.map((n) => n.text).sort(), ['10', '5', '6'], 'the y 12 beside the point is left out, the other cut-offs stay');
+  assert.deepEqual(hs.filter((n) => n.cls === 'pze-ax').map((n) => n.text).sort(), ['HVPG (wedged − free), mmHg', 'PPG (portal − IVC), mmHg'], 'each axis named in full, with what it is and its unit');
+  assert.deepEqual(hs.filter((n) => n.cls !== 'pze-ax').map((n) => n.text).sort(), ['10', '5', '6'], 'the y 12 beside the point is left out, the other cut-offs stay');
+  // (A narrow plot, a phone's, names them with the unit alone; the definition (wedged − free, portal − IVC) is for a plot 700 px or wider.)
+  for (const [W, H, fs] of [[345, 300, 16], [390, 340, 16], [620, 260, 14]]) {
+    const f = frame(W, H), sc = scaler(hp, f), t = plotNumbers(hp, f, sc.X, sc.Y, fs).filter((n) => n.cls === 'pze-ax').map((n) => n.text).sort();
+    assert.deepEqual(t, ['HVPG, mmHg', 'PPG, mmHg'], `${W} px: both axes named with their unit`);
+  }
 });
 
 test('the charts all put their plot on a rounded panel, the planes draw their zones out to the edge, and only a plane with no zones keeps axis lines', () => {
