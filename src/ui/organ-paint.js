@@ -30,23 +30,14 @@ const same6 = (a, b) => a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] 
 // the inner one's coverage in the scratch's green and the outer one's in its blue, so the colon is painted on the GPU and not kept as
 // a picture rasterized from the SVG copy.
 const REFINE_OPS = 64;   // (shapes a refinement step hands the GPU at most: R18)
-/** A computed dash pattern → { a: lengths (user units, even count), off }, or null (a percentage, or nothing to draw). */
-// (Kept by the pattern's text and its offset's, found through two Maps with no key string built: a pattern met again, by any element or at
-// any later reading of a group, is the record already made, so a group read again allocates none for its dashes.)
-const DASH_KEPT = new Map();
+// (A computed dash pattern is read once per text: the same pattern and offset text give the very same object, which callers only read.
+// A few at most; past that, started over.)
+const DASHES = new Map();
 const DASH_N = new Float64Array(16);   // (the numbers of the pattern being read)
-function readDash(cs) {
-  const ds = cs.strokeDasharray, offs = cs.strokeDashoffset;
-  let byOff = DASH_KEPT.get(ds);
-  if (byOff === undefined) { if (DASH_KEPT.size >= 64) DASH_KEPT.clear(); DASH_KEPT.set(ds, (byOff = new Map())); }
-  let r = byOff.get(offs);
-  if (r === undefined) { if (byOff.size >= 64) byOff.clear(); r = parseDash(ds, offs); byOff.set(offs, r); }
-  return r;
-}
 // The numbers of "6px, 4px", "6 4", "3.5, 2" read in place (digits, a point, an optional "px", split by spaces and commas). Any other form (a
 // percentage, an exponent, another unit) is not read: null, which the caller takes as a pattern the painter does not draw (the picture is kept).
 const sepAt = (c) => c === 32 || c === 44 || c === 9 || c === 10;
-export function parseDash(ds, offs) {
+export function parseDash(ds, offs) {   // alloc-rare: the pattern text is parsed the first time it is seen, then kept in DASHES
   const L = ds.length;
   let n = 0, sum = 0, anyPos = false;
   for (let i = 0; i < L;) {
@@ -64,11 +55,21 @@ export function parseDash(ds, offs) {
     DASH_N[n++] = v; sum += v; if (v > 0) anyPos = true;
   }
   if (!n || !anyPos) return null;
-  const m = n % 2 ? 2 * n : n, a = new Array(m);
+  const m = n % 2 ? 2 * n : n, a = new Array(m);   // alloc-rare: as above
   for (let k = 0; k < m; k++) a[k] = DASH_N[k % n];
   if (m === 2 * n && n % 2) sum *= 2;
   if (sum <= 1e-6) return null;
-  return { a, off: parseFloat(offs) || 0 };
+  return { a, off: parseFloat(offs) || 0 };   // alloc-rare: as above
+}
+const dashOf = parseDash;
+/** A computed dash pattern → { a: lengths (user units, even count), off }, or null (a percentage, or nothing to draw). */
+function readDash(cs) {
+  const text = cs.strokeDasharray, offText = cs.strokeDashoffset;
+  let m = DASHES.get(text);
+  if (m === undefined) { if (DASHES.size >= 256) DASHES.clear(); DASHES.set(text, (m = new Map())); }   // alloc-rare: as above
+  let d = m.get(offText);
+  if (d === undefined) { if (m.size >= 64) m.clear(); d = dashOf(text, offText); m.set(offText, d); }
+  return d;
 }
 /** Polylines cut into their dashes (SVG's rule: the pattern runs on along each subpath from its start, shifted by the offset). */
 export function dashPolys(polys, { a, off }) {
@@ -109,21 +110,35 @@ const SRC = new WeakMap();
 // (A fixed shape's dashed meshes' names, by shape and pattern: objects, as a fixed shape's own name is the shape.)
 const DASHED = new WeakMap();
 let srcId = 0;
+// (A source nothing is bound to any more is handed out again by the next shapeSource, with a new name: a liver easing makes one a
+// frame, and each frame's is let go by the paths of the next. A source is its maker's to bind at once; once every element has moved
+// on from it, it is no more to be used. Nothing keeps one by identity: the painter's keys carry its id.)
+const FREE_SRC = [];
 /** A shape made by the app: its `d` and its commands, under a name of its own. */
-export const shapeSource = (d, cmds) => ({ d, cmds, id: ++srcId });
-/** Makes `src` (a record kept by the caller, made once by shapeSource) the shape { d, cmds } under a new name: no record is made for it. */
-export function reshape(src, d, cmds) { src.d = d; src.cmds = cmds; src.id = ++srcId; return src; }
+export const shapeSource = (d, cmds) => {
+  const s = FREE_SRC.pop();
+  if (s) { s.d = d; s.cmds = cmds; s.id = ++srcId; s.key = undefined; return s; }
+  return { d, cmds, id: ++srcId, key: undefined, n: 0 };   // alloc-rare: only while none is free to hand out again (the first frames of an easing), then they go round
+};
 /** The element `el` now draws the shape `src` (its `d` written with src.d). */
-export function bindShape(el, src) { if (el) SRC.set(el, src); }
+export function bindShape(el, src) {
+  if (!el) return;
+  const was = SRC.get(el);
+  if (was === src) return;
+  SRC.set(el, src);
+  if (src) src.n++;
+  if (was && --was.n <= 0) FREE_SRC.push(was);   // alloc-rare: the free list grows only to the few sources in the air at once
+}
 /** The shape source of a path element whose `d` is still its text, or null. */
 function srcOf(el) { const s = SRC.get(el); return s && el.getAttribute('d') === s.d ? s : null; }
+/** Makes `src` (a record kept by the caller, made once by shapeSource) the shape { d, cmds } under a new name: no record is made for it. */
+export function reshape(src, d, cmds) { src.d = d; src.cmds = cmds; src.id = ++srcId; src.key = undefined; return src; }
 /** a ∘ b: b applied first (SVG matrices [a, b, c, d, e, f]). */
 export const mul = (a, b) => [a[0] * b[0] + a[2] * b[1], a[1] * b[0] + a[3] * b[1], a[0] * b[2] + a[2] * b[3], a[1] * b[2] + a[3] * b[3], a[0] * b[4] + a[2] * b[5] + a[4], a[1] * b[4] + a[3] * b[5] + a[5]];
 // The flattening tolerance (world units) for a shape drawn at `sc` device px per unit: a fifth of a pixel or finer, in powers of
 // two, so a pinch keeps the same meshes until the zoom doubles. One rule for fills, strokes and clips alike: a clip given the
 // exact 0.2 / scale cut its outline again, and built and uploaded a new mesh, at every step of a zoom (T02, 26 Oct).
 export const detailTol = (sc) => Math.min(0.5, 2 ** Math.floor(Math.log2(0.2 / sc)));
-/** The inverse of m (a new array: invTo writes into one). */
 export const inv = (m) => { const d = m[0] * m[3] - m[1] * m[2] || 1e-12; return [m[3] / d, -m[1] / d, -m[2] / d, m[0] / d, (m[2] * m[5] - m[3] * m[4]) / d, (m[1] * m[4] - m[0] * m[5]) / d]; };
 /** a ∘ b written into `o` (which may be a or b): mul without the new array. Returns o. */
 export function mulTo(o, a, b) {
@@ -163,111 +178,184 @@ function parseColorText(s) {
   return null;
 }
 
-const matAttr = (el) => { const t = el.transform?.baseVal; if (!t || !t.numberOfItems) return ID; const k = t.consolidate().matrix; return [k.a, k.b, k.c, k.d, k.e, k.f]; };
+const matAttr = (el) => { const t = el.transform?.baseVal; if (!t || !t.numberOfItems) return ID; const k = t.consolidate().matrix; return [k.a, k.b, k.c, k.d, k.e, k.f]; };   // (for chainM and the tests; the reading below writes into kept frames)
 // An element's own transform as the page lays it, where a strict reading found a CSS one (its transform, translate, rotate or scale,
 // about its transform-origin): read from the browser's own frames (cssLocal), kept until the element is read again. The page's
 // styles that set one also ease it, and while they do the group is not read (stage.js syncOver), so it stands between two readings.
 const CSS_M = new WeakMap();
 let cssAny = false;   // (none taken yet: the organs' paints never look)
 const matOf = (el) => (cssAny && CSS_M.get(el)) || matAttr(el);
+// (An element's frame for the page's getter, one array per element rewritten at each ask: the painter reads it at once, never keeps it.)
+const EM = new WeakMap();
+/** An element's own frame, its CSS transform included where a strict reading took one. Kept per element, rewritten at the next ask. */
 /** An element's own transform attribute written into `o` (or the identity, shared, where it has none): matAttr with no new array. Returns the matrix to read. */
 export function matAttrTo(o, el) { const t = el.transform?.baseVal; if (!t || !t.numberOfItems) return ID; const k = t.consolidate().matrix; o[0] = k.a; o[1] = k.b; o[2] = k.c; o[3] = k.d; o[4] = k.e; o[5] = k.f; return o; }
 /** elMat with no new array: the frame of `el` (its CSS one where a strict reading took one), written into `o` when it is its attribute's. Returns the matrix to read; not to be kept. */
 export const elMatTo = (o, el) => (cssAny && CSS_M.get(el)) || matAttrTo(o, el);
-/** An element's own frame, its CSS transform included where a strict reading took one. */
-export const elMat = (el) => matOf(el);
-/** An element's own transform as the browser lays it: its frame (getCTM) undone by its parent's, or null where either is not known.
- *  `into`: the record this element had (the one cssLocal made for it before), written again in place. */
-const CL_A = [1, 0, 0, 1, 0, 0], CL_B = [1, 0, 0, 1, 0, 0];   // (scratch: the two frames, one record each for every call)
-export function cssLocal(el, into = null) {
+export const elMat = (el) => {
+  let o = EM.get(el);
+  if (!o) EM.set(el, (o = [1, 0, 0, 1, 0, 0]));   // alloc-rare: one frame per element, made the first time the element is asked
+  return matOfTo(o, el);
+};
+const CL_B = [1, 0, 0, 1, 0, 0], CL_I = [1, 0, 0, 1, 0, 0], CL_A = [1, 0, 0, 1, 0, 0], CL_M = [1, 0, 0, 1, 0, 0];
+/** An element's own transform as the browser lays it (its frame (getCTM) undone by its parent's) written into `o`, or null where either is not known (o is then unchanged). */
+function cssLocalTo(o, el) {
   const a = el.getCTM?.(), b = el.parentNode?.getCTM?.();
   if (!a || !b) return null;
   CL_B[0] = b.a; CL_B[1] = b.b; CL_B[2] = b.c; CL_B[3] = b.d; CL_B[4] = b.e; CL_B[5] = b.f;
   CL_A[0] = a.a; CL_A[1] = a.b; CL_A[2] = a.c; CL_A[3] = a.d; CL_A[4] = a.e; CL_A[5] = a.f;
-  invTo(CL_B, CL_B);
-  const m = mulTo(into || [0, 0, 0, 0, 0, 0], CL_B, CL_A);
-  return m.every(Number.isFinite) ? m : null;
+  mulTo(CL_M, invTo(CL_I, CL_B), CL_A);
+  for (let i = 0; i < 6; i++) if (!Number.isFinite(CL_M[i])) return null;
+  return copy6(o, CL_M);
 }
-// (An id by the paint value it is read from, kept: the same "url(#g)" gives the same id with nothing made.)
-const URL_IDS = new Map();
+/** An element's own transform as the browser lays it: its frame (getCTM) undone by its parent's, or null where either is not known. */
+/** `into`: the record this element had (the one cssLocal made for it before), written again in place. */
+export function cssLocal(el, into = null) { return cssLocalTo(into || [1, 0, 0, 1, 0, 0], el); }   // alloc-rare: a caller with no record to write into gets one
+// (A url(#id) text and its id, read once per text.)
+const URLIDS = new Map();
+const urlIdText = (v) => String(v || '').match(/url\(\s*["']?#([^)"']+)["']?\s*\)/)?.[1] || null;   // alloc-rare: a text is matched the first time it is seen, then kept in URLIDS
 const urlId = (v) => {
-  if (typeof v !== 'string') return null;
-  let r = URL_IDS.get(v);
-  if (r === undefined) { if (URL_IDS.size >= 512) URL_IDS.clear(); r = v.match(/url\(\s*["']?#([^)"']+)["']?\s*\)/)?.[1] || null; URL_IDS.set(v, r); }
+  if (!v) return null;
+  let r = URLIDS.get(v);
+  if (r === undefined) { if (URLIDS.size >= 512) URLIDS.clear(); r = urlIdText(v); URLIDS.set(v, r); }   // alloc-rare: as above
   return r;
 };
-// (A trailing percentage: the last character that is not a space.)
-const pct = (v) => { for (let i = v.length - 1; i >= 0; i--) { const c = v.charCodeAt(i); if (c > 32) return c === 37; } return false; };
-const num = (el, a, dflt) => { const v = el.getAttribute(a); if (v == null || v === '') return dflt; const n = parseFloat(v); return pct(v) ? n / 100 : n; };
+// (String.trim's white space, read from the end: whether a number's text ends in a percent sign, with no string made.)
+const isWs = (c) => c === 32 || (c >= 9 && c <= 13) || c === 0xa0 || c === 0x1680 || (c >= 0x2000 && c <= 0x200a) || c === 0x2028 || c === 0x2029 || c === 0x202f || c === 0x205f || c === 0x3000 || c === 0xfeff;
+const endsPct = (v) => { let i = v.length - 1; while (i >= 0 && isWs(v.charCodeAt(i))) i--; return i >= 0 && v.charCodeAt(i) === 37; };
+const num = (el, a, dflt) => { const v = el.getAttribute(a); if (v == null || v === '') return dflt; const n = parseFloat(v); return endsPct(v) ? n / 100 : n; };
 
-/** A gradient by id → { kind: 1 linear | 2 radial, box (objectBoundingBox units), gt (gradientTransform), p (x1 y1 x2 y2 | cx cy r), stops: [[offset, r, g, b, a]] }, or null. */
+// What the reading keeps of each element (read again at each reading, compared with what the element gives now, so the reading
+// hands back the very same objects while nothing they were made from has changed and a new one only where something did): its
+// chain of elements, its shape, its clip, the ops it gave and, for a group read as a root, its spec. Nothing handed out is ever
+// written again; a change makes a new object and leaves the old one as it was, for whoever still holds it.
+const ER = new WeakMap();
+const newRec = () => ({ pch: null, ch: null, rch: null, path: null, pk: 0, p0: 0, p1: 0, p2: 0, p3: 0, pg: null, cl: null, fill: null, stroke: null, grp: null, spec: null, refs: null, rr: null, cssm: null });   // alloc-rare: one record per element, made the first time it is read
+function rec(el) {
+  let e = ER.get(el);
+  if (!e) ER.set(el, (e = newRec()));   // alloc-rare: as above
+  return e;
+}
+const sameN = (a, b) => a === b || (a !== a && b !== b);
+const dup6 = (a) => [a[0], a[1], a[2], a[3], a[4], a[5]];   // alloc-rare: the copy an op or a clip keeps of a frame that changed (or is new), never one it already has
+
+/** A gradient by id → { kind: 1 linear | 2 radial, box (objectBoundingBox units), gt (gradientTransform), p (x1 y1 x2 y2 | cx cy r), stops: [[offset, r, g, b, a]] }, or null. The same object while the gradient reads the same. */
 let refsOut = null;
+const GR = new WeakMap(), GRAD_RE = /^(linear|radial)Gradient$/;
+const GGT = [1, 0, 0, 1, 0, 0], GP = new Float64Array(4), GS = new Float64Array(40);
+/** A transform list written into o as one frame (the identity for none). */
+function trTo(o, tr) {
+  const t = tr?.baseVal;
+  if (!t || !t.numberOfItems) return copy6(o, ID);
+  const k = t.consolidate().matrix;
+  o[0] = k.a; o[1] = k.b; o[2] = k.c; o[3] = k.d; o[4] = k.e; o[5] = k.f;
+  return o;
+}
 function readGradient(doc, id) {
   refsOut?.add(id);
   const g = doc.getElementById(id);
-  if (!g || !/^(linear|radial)Gradient$/.test(g.localName)) return null;
+  if (!g || !GRAD_RE.test(g.localName)) return null;
   if (g.getAttribute('href') || g.getAttribute('xlink:href')) return null;
   const sm = g.getAttribute('spreadMethod');
   if (sm && sm !== 'pad') return null;
   const box = (g.getAttribute('gradientUnits') || 'objectBoundingBox') === 'objectBoundingBox';
-  const gt = matOf(g.gradientTransform ? { transform: g.gradientTransform } : g);
-  let p;
-  if (g.localName === 'linearGradient') p = [num(g, 'x1', 0), num(g, 'y1', 0), num(g, 'x2', 1), num(g, 'y2', 0)];
+  if (g.gradientTransform) trTo(GGT, g.gradientTransform); else matOfTo(GGT, g);
+  const linear = g.localName === 'linearGradient', np = linear ? 4 : 3;
+  if (linear) { GP[0] = num(g, 'x1', 0); GP[1] = num(g, 'y1', 0); GP[2] = num(g, 'x2', 1); GP[3] = num(g, 'y2', 0); }
   else {
-    p = [num(g, 'cx', 0.5), num(g, 'cy', 0.5), num(g, 'r', 0.5)];
+    GP[0] = num(g, 'cx', 0.5); GP[1] = num(g, 'cy', 0.5); GP[2] = num(g, 'r', 0.5);
     const fx = g.getAttribute('fx'), fy = g.getAttribute('fy');
-    if ((fx != null && num(g, 'fx', 0) !== p[0]) || (fy != null && num(g, 'fy', 0) !== p[1])) return null;
+    if ((fx != null && num(g, 'fx', 0) !== GP[0]) || (fy != null && num(g, 'fy', 0) !== GP[1])) return null;
   }
-  const stops = [];
-  let last = 0;
-  for (const s of g.querySelectorAll(':scope > stop')) {
+  let n = 0, last = 0;
+  const kids = g.children;
+  for (let i = 0; i < kids.length; i++) {
+    const s = kids[i];
+    if (s.localName !== 'stop') continue;
     const cs = getComputedStyle(s), c = parseColor(cs.stopColor || cs.getPropertyValue('stop-color'));
     if (!c) return null;
     const o = Math.min(1, Math.max(last, num(s, 'offset', 0)));
     last = o;
-    stops.push([o, c[0], c[1], c[2], c[3] * (parseFloat(cs.stopOpacity || cs.getPropertyValue('stop-opacity')) || 0)]);
+    if (n < 8) { const j = n * 5; GS[j] = o; GS[j + 1] = c[0]; GS[j + 2] = c[1]; GS[j + 3] = c[2]; GS[j + 4] = c[3] * (parseFloat(cs.stopOpacity || cs.getPropertyValue('stop-opacity')) || 0); }
+    n++;
   }
-  if (!stops.length || stops.length > 8) return null;
-  return { kind: g.localName === 'linearGradient' ? 1 : 2, box, gt, p, stops };
+  if (!n || n > 8) return null;
+  const kind = linear ? 1 : 2, R = GR.get(g);
+  if (R && R.kind === kind && R.box === box && R.stops.length === n && R.p.length === np) {
+    let same = same6(R.gt, GGT);
+    for (let i = 0; same && i < np; i++) same = R.p[i] === GP[i];
+    for (let i = 0; same && i < n; i++) { const s = R.stops[i], j = i * 5; same = s[0] === GS[j] && s[1] === GS[j + 1] && s[2] === GS[j + 2] && s[3] === GS[j + 3] && s[4] === GS[j + 4]; }
+    if (same) return R;
+  }
+  // (A gradient made when it first reads, or when its stops, colours or box have changed: a theme, a gradient easing its stops.)
+  const p = linear ? [GP[0], GP[1], GP[2], GP[3]] : [GP[0], GP[1], GP[2]], stops = [];   // alloc-rare: a gradient read the first time or changed, as above
+  for (let i = 0; i < n; i++) { const j = i * 5; stops.push([GS[j], GS[j + 1], GS[j + 2], GS[j + 3], GS[j + 4]]); }   // alloc-rare: as above
+  const out = { kind, box, gt: dup6(GGT), p, stops };   // alloc-rare: as above
+  GR.set(g, out);
+  return out;
 }
 
+// (A paint text read once: null for none, false for what is not readable, a { solid } for a colour, or the id of the gradient it names.
+// A colour's paint object is one per colour array; a gradient's is one per gradient reading.)
+const PAINT_TXT = new Map(), PSOL = new WeakMap(), GPAINT = new WeakMap();
+function paintText(v) {   // alloc-rare: a text is read the first time it is seen, then kept in PAINT_TXT
+  v = String(v || '').trim();   // alloc-rare: the text is read the first time it is seen, then kept in PAINT_TXT
+  if (!v || v === 'none') return null;
+  const id = urlId(v);
+  if (id) return id;
+  const c = parseColor(v);
+  if (!c) return false;
+  let p = PSOL.get(c);
+  if (!p) PSOL.set(c, (p = { solid: c }));   // alloc-rare: one paint for each colour
+  return p;
+}
 /** A paint (computed fill or stroke) → { solid: [r, g, b, a] } | { grad }, or null for none; false: not readable. */
 function readPaintValue(doc, v) {
-  if (typeof v !== 'string' || !v || v === 'none') return null;   // (a computed paint: a string with no spaces round it)
-  const id = urlId(v);
-  if (id) { const grad = readGradient(doc, id); return grad ? { grad } : false; }
-  const c = parseColor(v);
-  return c ? { solid: c } : false;
+  let x = PAINT_TXT.get(v);
+  if (x === undefined) { if (PAINT_TXT.size >= 512) PAINT_TXT.clear(); x = paintText(v); PAINT_TXT.set(v, x); }   // alloc-rare: as above
+  if (typeof x !== 'string') return x;
+  const grad = readGradient(doc, x);
+  if (!grad) return false;
+  let p = GPAINT.get(grad);
+  if (!p) GPAINT.set(grad, (p = { grad }));   // alloc-rare: one paint for each gradient reading (the same while the gradient reads the same)
+  return p;
 }
 
-/** The shape an element draws, in its own units: { el, d } (a path, read again at each paint), or { poly } (fixed), or null. */
-// (One record for each element while its numbers stay the same: a group read again finds the record it had, and the painter, which names a
-// fixed shape by its record, finds its mesh instead of cutting and uploading it again.)
-const GEOMS = new WeakMap();
-function readGeom(el) {
-  let g = GEOMS.get(el), a, b, c, d;
+/** The shape an element draws, in its own units: { el, d } (a path, read again at each paint), or { poly } (fixed), or null. One object per element while its numbers stand. */
+function polyOf(E, kind, a, b, c, d) {
+  if (E.pk === kind && sameN(E.p0, a) && sameN(E.p1, b) && sameN(E.p2, c) && sameN(E.p3, d)) return E.pg;
+  E.pk = kind; E.p0 = a; E.p1 = b; E.p2 = c; E.p3 = d;
+  // (Made when the element is first read, or its numbers change.)
+  return (E.pg = { poly: kind === 3 ? [{ pts: new Float32Array([a, b, a + c, b, a + c, b + d, a, b + d]), closed: true }] : ellipsePoly(a, b, c, d) });   // alloc-rare: a fixed shape made the first time, or when its numbers change
+}
+function readGeom(el, E) {
   switch (el.localName) {
-    case 'path': if (!g) GEOMS.set(el, (g = { el, d: true })); return g;
-    case 'ellipse': a = num(el, 'cx', 0); b = num(el, 'cy', 0); c = num(el, 'rx', 0); d = num(el, 'ry', 0); break;
-    case 'circle': a = num(el, 'cx', 0); b = num(el, 'cy', 0); c = d = num(el, 'r', 0); break;
-    case 'rect': if (el.getAttribute('rx') || el.getAttribute('ry')) return false; a = num(el, 'x', 0); b = num(el, 'y', 0); c = num(el, 'width', 0); d = num(el, 'height', 0); break;
+    case 'path': return E.path || (E.path = { el, d: true });   // alloc-rare: one per path element, the first time it is read
+    case 'ellipse': return polyOf(E, 1, num(el, 'cx', 0), num(el, 'cy', 0), num(el, 'rx', 0), num(el, 'ry', 0));
+    case 'circle': { const r = num(el, 'r', 0); return polyOf(E, 2, num(el, 'cx', 0), num(el, 'cy', 0), r, r); }
+    case 'rect': {
+      if (el.getAttribute('rx') || el.getAttribute('ry')) return false;
+      return polyOf(E, 3, num(el, 'x', 0), num(el, 'y', 0), num(el, 'width', 0), num(el, 'height', 0));
+    }
     default: return false;
   }
-  if (g && g.k0 === a && g.k1 === b && g.k2 === c && g.k3 === d) return g;
-  const poly = el.localName === 'rect' ? [{ pts: new Float32Array([a, b, a + c, b, a + c, b + d, a, b + d]), closed: true }] : ellipsePoly(a, b, c, d);
-  GEOMS.set(el, (g = { poly, k0: a, k1: b, k2: c, k3: d }));
-  return g;
 }
 
-/** A clip-path by id, in the user space `m` (to the group's frame) of the element it clips: { geom, m }, or false. */
-function readClip(doc, id, m) {
+const KM = [1, 0, 0, 1, 0, 0], CMM = [1, 0, 0, 1, 0, 0], MT = [1, 0, 0, 1, 0, 0];
+/** A clip-path by id, in the user space `me` (to the group's frame) of the element `E` it clips: { geom, m, km, chain, outer? }, or false. The same object while it reads the same. */
+function readClip(doc, id, me, E, ch, outer) {
   const c = doc.getElementById(id);
   if (!c || c.localName !== 'clipPath' || (c.getAttribute('clipPathUnits') || 'userSpaceOnUse') !== 'userSpaceOnUse') return false;
   const kids = c.children;
   if (kids.length !== 1 || c.getAttribute('clip-path')) return false;
-  const geom = readGeom(kids[0]);
+  const k = kids[0], geom = readGeom(k, rec(k));
   if (!geom) return false;
-  return { geom, m: mul(m, matOf(kids[0])), km: matOf(kids[0]) };
+  matOfTo(KM, k); mulTo(CMM, me, KM);
+  const was = E.cl;
+  if (was && was.geom === geom && was.chain === ch && was.outer === (outer || undefined) && same6(was.m, CMM) && same6(was.km, KM)) return was;
+  const cl = { geom, m: dup6(CMM), km: dup6(KM), chain: ch };   // alloc-rare: a clip made the first time, or when its shape, frame or chain changed
+  if (outer) cl.outer = outer;
+  return (E.cl = cl);
 }
 
 /**
@@ -279,6 +367,8 @@ function readClip(doc, id, m) {
  * ops, mask, chain, a0 } painted in a layer of its own and laid with its opacity and mask, as the browser lays it (without it such
  * a group's opacity is carried to its shapes, and a mask inside is not read). (The organs drawn as pictures, organs-gl bake: the
  * gut's see-through shades, the stomach's and duodenum's fades, each a group of overlapping shapes.)
+ * Each element's reading is kept with what it was made from: read again, a group whose elements give the same gives the very same
+ * spec (and ops, shapes, paints, clips), and only what changed is new.
  */
 // (Why the last reading that came back null stopped: [reason, element], for the overlays' readout and tests.)
 let lastFail = null;
@@ -288,149 +378,243 @@ export const readFail = () => lastFail;
 // stays in the SVG rather than painted otherwise than the browser paints it: a CSS animation, a marker, a vector effect other than a
 // non-scaling stroke (painted at its width in the page's px: the painter's cssPx), a paint order, crisp edges, or a stroke whose joins are not round on an outline with corners (the painter joins every stroke
 // round). A CSS transform (the caudate's growth, about its origin) is taken as the browser lays it (cssLocal).
-/** readGroup, and the ids of every gradient it read (a change to one of them changes what it reads). */
+const REFS_TMP = new Set();
+/** readGroup, and the ids of every gradient it read (a change to one of them changes what it reads). The same pair while spec and ids are the same. */
 export function readGroupRefs(root, opt) {
-  refsOut = new Set();
-  try { return { spec: readGroup(root, opt), refs: refsOut }; } finally { refsOut = null; }
+  REFS_TMP.clear();
+  refsOut = REFS_TMP;
+  let spec;
+  try { spec = readGroup(root, opt); } finally { refsOut = null; }
+  const E = rec(root);
+  let refs = E.refs;
+  if (!refs || refs.size !== REFS_TMP.size) refs = null;
+  else for (const id of REFS_TMP) if (!refs.has(id)) { refs = null; break; }
+  if (!refs) E.refs = refs = new Set(REFS_TMP);   // alloc-rare: the ids a group read are kept once, and again only when the set of gradients it reads changed
+  const rr = E.rr;
+  if (rr && rr.spec === spec && rr.refs === refs) return rr;
+  return (E.rr = { spec, refs });   // alloc-rare: made the first time, or when the spec or its gradients changed
 }
 
-export function readGroup(root, { withMask = true, nest = false, strict = false } = {}) {
-  const doc = root.ownerDocument, ops = [];
-  let ok = true;
-  const no = (r, el) => { ok = false; lastFail = [r, el]; };
+// (One context for each reading in progress: a group's mask is read inside its walk.)
+const CTX = [];
+const newCtx = () => ({ root: null, doc: null, ok: true, withMask: true, nest: false, strict: false });   // alloc-rare: the contexts of the nesting depth first reached (a handful, kept)
+const LISTS = [];   // (the op lists being filled, one for each reading in progress and each nested group in progress)
+const ME = [];      // (the frame of the element being walked, one for each depth of the walk)
+let rd = 0, ld = 0, dp = 0;
+const ownList = () => LISTS[ld++] || (LISTS[ld - 1] = []);   // alloc-rare: a list of the depth first reached, kept
+const DEFS_RE = /^(defs|clipPath|mask|pattern|linearGradient|radialGradient|symbol|marker|style|title|desc|metadata)$/, META_RE = /^(title|desc|metadata)$/;
+const CAPS = { butt: 0, round: 1, square: 2 };
+const CSS_OK = { cssTransforms: true };
+const MITER_RE = /[LlHhVvZz]/;
+function fail(c, r, el) { c.ok = false; lastFail = [r, el]; }   // alloc-rare: a refusal ends the reading and the caller gives that group up (the picture or the SVG stays); it is read again only when a change is seen, never in a frame
+/** The ops of a list, as the array they were last handed out in where they are the same ones. */
+function settle(prev, list) {
+  const n = list.length;
+  if (prev && prev.length === n) { let i = 0; while (i < n && prev[i] === list[i]) i++; if (i === n) return prev; }
+  const out = [];   // alloc-rare: a list made the first time, or when one of its ops changed
+  for (let i = 0; i < n; i++) out.push(list[i]);
+  return out;
+}
+const anyOwnO = (ch) => { for (let i = 0; i < ch.length; i++) if (ownO(ch[i])) return true; return false; };
+function fillOp(E, el, geom, me, paint, alpha, cl, ch, a0, eo) {
+  const p = E.fill;
+  if (p && p.geom === geom && p.paint === paint && p.alpha === alpha && p.clip === cl && p.chain === ch && p.a0 === a0 && (p.eo === true) === eo && same6(p.m, me)) return p;
+  const op = { geom, m: dup6(me), kind: 'fill', paint, alpha, clip: cl, el, chain: ch, a0 };   // alloc-rare: an op made the first time, or when something it was made from changed
+  if (eo) op.eo = true;
+  return (E.fill = op);
+}
+function strokeOp(E, el, geom, me, paint, alpha, w, cap, cl, ch, a0, dash, nss) {
+  const p = E.stroke;
+  if (p && p.geom === geom && p.paint === paint && p.alpha === alpha && p.w === w && p.cap === cap && p.clip === cl && p.chain === ch && p.a0 === a0 && (p.dash || null) === dash && (p.nss === true) === !!nss && same6(p.m, me)) return p;
+  const op = { geom, m: dup6(me), kind: 'stroke', paint, alpha, w, cap, clip: cl, el, chain: ch, a0 };   // alloc-rare: as above
+  if (dash) op.dash = dash;
+  if (nss) op.nss = true;
+  return (E.stroke = op);
+}
+
+export function readGroup(root, opt) {
+  const r0 = rd, d0 = dp, l0 = ld;
+  const c = CTX[rd] || (CTX[rd] = newCtx());   // alloc-rare: as above
+  rd++;
+  c.root = root; c.doc = root.ownerDocument; c.ok = true;
+  c.withMask = opt === undefined || opt.withMask === undefined ? true : opt.withMask;
+  c.nest = opt === undefined || opt.nest === undefined ? false : opt.nest;
+  c.strict = opt === undefined || opt.strict === undefined ? false : opt.strict;
+  try { return readRoot(c, root); } finally { rd = r0; dp = d0; ld = l0; }
+}
+function readRoot(c, root) {
+  const doc = c.doc, E = rec(root), list = ownList();
+  list.length = 0;
   // (Visibility as the picture's copy takes it, svg-inline.js inlineStyles: the element's own setting, else its parent's. The
   // computed one is hidden under the whole figure while the GPU draws it (.gl-plate); the liver's congestion, islands and gloss
   // are hidden with their own style in the imaging view, whatever their opacity.)
   // What eases on the page is written inline (an element's style or its own attribute: the liver parts' opacity, the cuts'
   // fill-opacity, the organs' transforms), so an op keeps its chain of elements down from the root and the painter reads those
   // from the chain at each paint (liveOf); what the page's styles give (read here, computed) stands until the group is read again.
-  // (out: the list the ops go to, the root's or a nested group's; a0: where in the chain the ops' opacities start, past a nested
-  // group's own, which is laid with its layer.)
-  const walk = (el, m, alpha, clip, vis = 'visible', chain = [], out = ops, a0 = 0) => {
-    if (!ok) return;
-    // (Definitions kept inside an organ's own art (the colon's and the bowel's clips) paint nothing where they are.)
-    if (el !== root && /^(defs|clipPath|mask|pattern|linearGradient|radialGradient|symbol|marker|style|title|desc|metadata)$/.test(el.localName)) return;
-    const cs = getComputedStyle(el);
-    if (cs.display === 'none') return;
-    if (strict) {
-      vis = cs.visibility === 'collapse' ? 'hidden' : cs.visibility || 'visible';
-      { const r = strictRefused(el, cs, { cssTransforms: true }); if (r) { no(r, el); return; } }
-      const was = CSS_M.get(el);
-      CSS_M.delete(el);
-      if (cssTransformed(el, cs)) {
-        const lm = cssLocal(el, was);
-        if (!lm) { no('css transform', el); return; }
-        CSS_M.set(el, lm); cssAny = true;
-      }
-    } else {
-      const own = el.style?.visibility || el.getAttribute('visibility');
-      if (own && own !== 'inherit') vis = own;
-    }
-    const o = parseFloat(cs.opacity);
-    if (!(o > 0) && !ownO(el)) return;   // (at nothing by the page's styles: never shown; by its own setting: shown as it eases)
-    if (cs.filter && cs.filter !== 'none') { no('filter', el); return; }
-    if (cs.mixBlendMode && cs.mixBlendMode !== 'normal') { no('blend mode', el); return; }
-    const masked = el !== root && ((cs.mask && cs.mask !== 'none') || !!el.getAttribute('mask'));
-    const own2 = nest && el !== root && el.localName === 'g' && (masked || o < 1);
-    if (masked && !own2) { no('mask', el); return; }
-    const me = el === root ? ID : mul(m, matOf(el)), a = el === root ? 1 : alpha * o;
-    const ch = el === root ? chain : [...chain, el];
-    CS_O.set(el, o);
-    let cl = clip;
-    const cid = el === root ? null : urlId(cs.clipPath && cs.clipPath !== 'none' ? cs.clipPath : el.getAttribute('clip-path'));
-    if (cid) {
-      // (Two clips, one inside the other: both painted (NEST_CLIP), never three.)
-      if (clip && clip.outer) { no('nested clip', el); return; }
-      cl = readClip(doc, cid, me);
-      if (!cl) { no('clip', el); return; }
-      cl.chain = ch;
-      if (clip) cl.outer = clip;
-    }
-    if (own2) {
-      // A group of its own: its shapes at their own opacities (from below it in the chain), its mask in its own frame.
-      const sub = [];
-      for (const k of el.children) walk(k, me, 1, cl, vis, ch, sub, ch.length);
-      if (!ok) return;
-      let mk = null;
-      if (masked) {
-        const mel = doc.getElementById(urlId(cs.mask && cs.mask !== 'none' ? cs.mask : el.getAttribute('mask')));
-        if (!mel || mel.localName !== 'mask' || (mel.getAttribute('maskContentUnits') || 'userSpaceOnUse') !== 'userSpaceOnUse') { no('mask units', el); return; }
-        mk = readGroup(mel);
-        if (!mk) { no(`mask content: ${lastFail?.[0]}`, el); return; }
-      }
-      if (sub.length) out.push({ kind: 'group', ops: sub, mask: mk, m: me, alpha: a, el, chain: ch, a0 });
-      return;
-    }
-    if (el.localName === 'g' || el === root) { for (const k of el.children) walk(k, me, a, cl, vis, ch, out, a0); return; }
-    if (/^(title|desc|metadata)$/.test(el.localName) || vis !== 'visible') return;
-    const geom = readGeom(el);
-    if (!geom) { no(`element ${el.localName}`, el); return; }
-    if (geom.d && !el.getAttribute('d')) return;
-    let dash = null;
-    if (cs.strokeDasharray && cs.strokeDasharray !== 'none') {
-      dash = readDash(cs);
-      if (!dash) { no('dash', el); return; }
-    }
-    if (strict && geom.d && cs.stroke && cs.stroke !== 'none' && (cs.strokeLinejoin || 'miter') !== 'round' && /[LlHhVvZz]/.test(el.getAttribute('d'))) { no('miter join', el); return; }
-    const eo = (cs.fillRule || 'nonzero') === 'evenodd';
-    const fill = readPaintValue(doc, cs.fill), stroke = readPaintValue(doc, cs.stroke);
-    if (fill === false || stroke === false) { no(`paint ${fill === false ? cs.fill : cs.stroke}`, el); return; }
-    if (fill) {
-      const fo = parseFloat(cs.fillOpacity) || 0;
-      CS_FO.set(el, fo);
-      if (a * fo > 0 || ownFO(el) || ch.some(ownO)) out.push({ geom, m: me, kind: 'fill', paint: fill, alpha: a * fo, clip: cl, el, chain: ch, a0, ...(eo ? { eo: true } : {}) });
-    }
-    if (stroke) {
-      const so = parseFloat(cs.strokeOpacity) || 0, w = parseFloat(cs.strokeWidth) || 0;
-      CS_SO.set(el, so);
-      if ((a * so > 0 || ownSO(el) || ch.some(ownO)) && w > 0) {
-        const op = { geom, m: me, kind: 'stroke', paint: stroke, alpha: a * so, w, cap: { butt: 0, round: 1, square: 2 }[cs.strokeLinecap] ?? 0, clip: cl, el, chain: ch, a0 };
-        if (dash) op.dash = dash;
-        // (A non-scaling stroke (a slide's calipers): its width in the page's px, read only strictly.)
-        if (strict && cs.vectorEffect === 'non-scaling-stroke') op.nss = true;
-        out.push(op);
-      }
-    }
-  };
-  walk(root, ID, 1, null);
-  if (!ok) return null;
+  walk(c, root, ID, 1, null, 'visible', E.rch || (E.rch = []), list, 0);   // alloc-rare: a root's (empty) chain, the first time it is read
+  if (!c.ok) return null;
   const rcs = getComputedStyle(root);
-  CS_O.set(root, parseFloat(rcs.opacity) || 0);
+  const opacity = parseFloat(rcs.opacity) || 0;
+  CS_O.set(root, opacity);
   let mask = null;
   const mid = urlId(rcs.mask && rcs.mask !== 'none' ? rcs.mask : root.getAttribute('mask'));
-  if (mid && withMask) {
+  if (mid && c.withMask) {
     const mel = doc.getElementById(mid);
-    if (!mel || mel.localName !== 'mask' || (mel.getAttribute('maskContentUnits') || 'userSpaceOnUse') !== 'userSpaceOnUse') { lastFail = ['mask units', root]; return null; }
+    if (!mel || mel.localName !== 'mask' || (mel.getAttribute('maskContentUnits') || 'userSpaceOnUse') !== 'userSpaceOnUse') { lastFail = ['mask units', root]; return null; }   // alloc-rare: a refusal, as fail
     mask = readGroup(mel);
     if (!mask) return null;
   } else if (mid) mask = undefined;
   const clipId = urlId(rcs.clipPath && rcs.clipPath !== 'none' ? rcs.clipPath : null);
-  if (clipId) { lastFail = ['clip on the group', root]; return null; }
-  return { ops, opacity: parseFloat(rcs.opacity) || 0, mask, root };
+  if (clipId) { lastFail = ['clip on the group', root]; return null; }   // alloc-rare: a refusal, as fail
+  const s = E.spec, ops = settle(s && s.ops, list);
+  if (s && s.ops === ops && s.opacity === opacity && s.mask === mask) return s;
+  return (E.spec = { ops, opacity, mask, root });   // alloc-rare: a spec made the first time, or when its ops, opacity or mask changed
+}
+// (`out`: the list the ops go to, the root's or a nested group's; `a0`: where in the chain the ops' opacities start, past a nested
+// group's own, which is laid with its layer. The walk's frames are the depth's own, written in place.)
+function walk(c, el, m, alpha, clip, vis, chain, out, a0) {
+  if (!c.ok) return;
+  dp++;
+  walkEl(c, el, m, alpha, clip, vis, chain, out, a0);
+  dp--;
+}
+function walkEl(c, el, m, alpha, clip, vis, chain, out, a0) {
+  const root = c.root, doc = c.doc;
+  // (Definitions kept inside an organ's own art (the colon's and the bowel's clips) paint nothing where they are.)
+  if (el !== root && DEFS_RE.test(el.localName)) return;
+  const cs = getComputedStyle(el);
+  if (cs.display === 'none') return;
+  const E = rec(el);
+  if (c.strict) {
+    vis = cs.visibility === 'collapse' ? 'hidden' : cs.visibility || 'visible';
+    { const r = strictRefused(el, cs, CSS_OK); if (r) { fail(c, r, el); return; } }
+    CSS_M.delete(el);
+    if (cssTransformed(el, cs)) {
+      const lm = cssLocalTo(E.cssm || (E.cssm = [1, 0, 0, 1, 0, 0]), el);   // alloc-rare: one frame for each element that has a CSS transform, the first time
+      if (!lm) { fail(c, 'css transform', el); return; }
+      CSS_M.set(el, lm); cssAny = true;
+    }
+  } else {
+    const own = el.style?.visibility || el.getAttribute('visibility');
+    if (own && own !== 'inherit') vis = own;
+  }
+  const o = parseFloat(cs.opacity);
+  if (!(o > 0) && !ownO(el)) return;   // (at nothing by the page's styles: never shown; by its own setting: shown as it eases)
+  if (cs.filter && cs.filter !== 'none') { fail(c, 'filter', el); return; }
+  if (cs.mixBlendMode && cs.mixBlendMode !== 'normal') { fail(c, 'blend mode', el); return; }
+  const masked = el !== root && ((cs.mask && cs.mask !== 'none') || !!el.getAttribute('mask'));
+  const own2 = c.nest && el !== root && el.localName === 'g' && (masked || o < 1);
+  if (masked && !own2) { fail(c, 'mask', el); return; }
+  const me = ME[dp] || (ME[dp] = [1, 0, 0, 1, 0, 0]);   // alloc-rare: the frame of a depth of the walk, made when the walk first goes that deep, kept
+  if (el === root) copy6(me, ID); else mulTo(me, m, matOfTo(MT, el));
+  const a = el === root ? 1 : alpha * o;
+  const ch = el === root ? chain : chainOf(E, chain, el);
+  CS_O.set(el, o);
+  let cl = clip;
+  const cid = el === root ? null : urlId(cs.clipPath && cs.clipPath !== 'none' ? cs.clipPath : el.getAttribute('clip-path'));
+  if (cid) {
+    // (Two clips, one inside the other: both painted (NEST_CLIP), never three.)
+    if (clip && clip.outer) { fail(c, 'nested clip', el); return; }
+    cl = readClip(doc, cid, me, E, ch, clip);
+    if (!cl) { fail(c, 'clip', el); return; }
+  }
+  const kids = el.children;
+  if (own2) {
+    // A group of its own: its shapes at their own opacities (from below it in the chain), its mask in its own frame.
+    const l0 = ld, sub = ownList();
+    sub.length = 0;
+    for (let i = 0; i < kids.length; i++) walk(c, kids[i], me, 1, cl, vis, ch, sub, ch.length);
+    if (!c.ok) { ld = l0; return; }
+    let mk = null;
+    if (masked) {
+      const mel = doc.getElementById(urlId(cs.mask && cs.mask !== 'none' ? cs.mask : el.getAttribute('mask')));
+      if (!mel || mel.localName !== 'mask' || (mel.getAttribute('maskContentUnits') || 'userSpaceOnUse') !== 'userSpaceOnUse') { fail(c, 'mask units', el); ld = l0; return; }
+      mk = readGroup(mel);
+      if (!mk) { fail(c, `mask content: ${lastFail?.[0]}`, el); ld = l0; return; }   // alloc-rare: a refusal, as fail
+    }
+    if (sub.length) out.push(groupOp(E, el, sub, mk, me, a, ch, a0));
+    ld = l0;
+    return;
+  }
+  if (el.localName === 'g' || el === root) { for (let i = 0; i < kids.length; i++) walk(c, kids[i], me, a, cl, vis, ch, out, a0); return; }
+  if (META_RE.test(el.localName) || vis !== 'visible') return;
+  const geom = readGeom(el, E);
+  if (!geom) { fail(c, `element ${el.localName}`, el); return; }   // alloc-rare: a refusal, as fail
+  if (geom.d && !el.getAttribute('d')) return;
+  let dash = null;
+  if (cs.strokeDasharray && cs.strokeDasharray !== 'none') {
+    dash = readDash(cs);
+    if (!dash) { fail(c, 'dash', el); return; }
+  }
+  if (c.strict && geom.d && cs.stroke && cs.stroke !== 'none' && (cs.strokeLinejoin || 'miter') !== 'round' && MITER_RE.test(el.getAttribute('d'))) { fail(c, 'miter join', el); return; }
+  const eo = (cs.fillRule || 'nonzero') === 'evenodd';
+  const fill = readPaintValue(doc, cs.fill), stroke = readPaintValue(doc, cs.stroke);
+  if (fill === false || stroke === false) { fail(c, `paint ${fill === false ? cs.fill : cs.stroke}`, el); return; }   // alloc-rare: a refusal, as fail
+  if (fill) {
+    const fo = parseFloat(cs.fillOpacity) || 0;
+    CS_FO.set(el, fo);
+    if (a * fo > 0 || ownFO(el) || anyOwnO(ch)) out.push(fillOp(E, el, geom, me, fill, a * fo, cl, ch, a0, eo));
+  }
+  if (stroke) {
+    const so = parseFloat(cs.strokeOpacity) || 0, w = parseFloat(cs.strokeWidth) || 0;
+    CS_SO.set(el, so);
+    if ((a * so > 0 || ownSO(el) || anyOwnO(ch)) && w > 0) {
+      // (A non-scaling stroke (a slide's calipers): its width in the page's px, read only strictly.)
+      out.push(strokeOp(E, el, geom, me, stroke, a * so, w, CAPS[cs.strokeLinecap] ?? 0, cl, ch, a0, dash, c.strict && cs.vectorEffect === 'non-scaling-stroke'));
+    }
+  }
+}
+/** The chain of elements down to `el` (its parent's chain and itself): the same array while the parent's chain is. */
+function chainOf(E, chain, el) {
+  if (E.ch && E.pch === chain) return E.ch;
+  E.pch = chain;
+  return (E.ch = [...chain, el]);   // alloc-rare: an element's chain, made the first time it is read or when its parent's chain is a new one (the tree changed)
+}
+function groupOp(E, el, ops, mask, me, alpha, ch, a0) {
+  const p = E.grp, list = settle(p && p.ops, ops);
+  if (p && p.ops === list && p.mask === mask && p.alpha === alpha && p.chain === ch && p.a0 === a0 && same6(p.m, me)) return p;
+  return (E.grp = { kind: 'group', ops: list, mask, m: dup6(me), alpha, el, chain: ch, a0 });   // alloc-rare: a nested group made the first time, or when something it was made from changed
 }
 
 // What a strict reading refuses in an element's computed style (readGroup `strict`).
 const MATRIX = /^matrix\(\s*([-\d.e]+)[\s,]+([-\d.e]+)[\s,]+([-\d.e]+)[\s,]+([-\d.e]+)[\s,]+([-\d.e]+)[\s,]+([-\d.e]+)\s*\)$/;
+const TR_KEYS = ['translate', 'rotate', 'scale'], MARKER_KEYS = ['markerStart', 'markerMid', 'markerEnd'];
+// (A computed matrix text and its six numbers, read once per text; null for any other form.)
+const MATRICES = new Map();
+function matrixText(t) {
+  let r = MATRICES.get(t);
+  if (r === undefined) {
+    if (MATRICES.size >= 256) MATRICES.clear();
+    const k = t.match(MATRIX);   // alloc-rare: a transform text is read the first time it is seen, then kept in MATRICES
+    r = null;
+    if (k) { r = new Float64Array(6); for (let i = 0; i < 6; i++) r[i] = +k[i + 1]; }   // alloc-rare: as above
+    MATRICES.set(t, r);
+  }
+  return r;
+}
 // (`cssTransforms`: a CSS transform is not refused, readGroup takes it as the browser lays it, cssLocal.)
-export function strictRefused(el, cs, { cssTransforms = false } = {}) {
+export function strictRefused(el, cs, opt) {
   if (cs.animationName && cs.animationName !== 'none') return 'animation';
   const t = cssTransformed(el, cs);
-  if (t && !cssTransforms) return t;
+  if (t && !(opt && opt.cssTransforms)) return t;
   if (cs.vectorEffect && !/^(none|non-scaling-stroke)$/.test(cs.vectorEffect)) return 'vector-effect';
-  for (const k of ['markerStart', 'markerMid', 'markerEnd']) if (cs[k] && cs[k] !== 'none') return 'marker';
+  for (let i = 0; i < 3; i++) { const k = MARKER_KEYS[i]; if (cs[k] && cs[k] !== 'none') return 'marker'; }
   if (cs.paintOrder && cs.paintOrder !== 'normal') return 'paint-order';
   if (cs.shapeRendering && !/^(auto|geometricPrecision)$/.test(cs.shapeRendering)) return 'shape-rendering';
   return '';
 }
+const AT = [1, 0, 0, 1, 0, 0];
 /** Which CSS transform the page gives an element beyond its transform attribute ('transform', 'translate', 'rotate', 'scale'), or ''. */
 export function cssTransformed(el, cs) {
-  for (const k of ['translate', 'rotate', 'scale']) if (cs[k] && cs[k] !== 'none') return k;
+  for (let i = 0; i < 3; i++) { const k = TR_KEYS[i]; if (cs[k] && cs[k] !== 'none') return k; }
   const t = cs.transform;
   if (t && t !== 'none') {
     // (The page's computed transform of an SVG element holds its transform attribute: the same matrix is the attribute's alone.)
-    const k = t.match(MATRIX), a = matAttr(el);
-    if (!k || k.slice(1).some((v, i) => Math.abs(+v - a[i]) > 1e-6 * Math.max(1, Math.abs(a[i])))) return 'transform';
-  } else if (matAttr(el) !== ID) return 'transform';
+    const k = matrixText(t);
+    if (!k) return 'transform';
+    trTo(AT, el.transform);
+    for (let i = 0; i < 6; i++) if (Math.abs(k[i] - AT[i]) > 1e-6 * Math.max(1, Math.abs(AT[i]))) return 'transform';
+  } else { const b = el.transform?.baseVal; if (b && b.numberOfItems) return 'transform'; }
   return '';
 }
 
@@ -669,13 +853,13 @@ export function createOrganPaint(gl, shape) {
   const meshKeys = new WeakMap();   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
   function meshKey(geom, src, d, cap, tol, dash) {
     let r = meshKeys.get(geom);
-    if (r && r.src === src && r.d === d && r.tol === tol && r.cap === cap && r.dash === dash) return r.key;
+    if (r && r.src === src && r.sid === (src ? src.id : 0) && r.d === d && r.tol === tol && r.cap === cap && r.dash === dash) return r.key;
     // (A dashed stroke's mesh is its dashes: named by its pattern too. A fixed shape dashed is named by the pattern on the shape.)
     const dk = dash ? `|${dash.a.join(',')}@${dash.off}` : '';   // alloc-rare: built when the shape, its cap, tolerance or dash changed, not in a frame that kept them
     let key = geom.d ? `${tol}|${cap}|${src ? `n${src.id}` : dKey(d)}${dk}` : geom;   // alloc-rare: as above
     if (dash && !geom.d) { let m = DASHED.get(geom); if (!m) DASHED.set(geom, (m = new Map())); const k2 = `${cap}${dk}`; if (!m.has(k2)) m.set(k2, { k2 }); key = m.get(k2); }   // alloc-rare: a dashed fixed shape, named once per cap and pattern
-    if (!r) meshKeys.set(geom, (r = { src: null, d: null, tol: 0, cap: 0, dash: null, key: null }));   // alloc-rare: one record per shape, the first time its mesh is asked
-    r.src = src; r.d = d; r.tol = tol; r.cap = cap; r.dash = dash; r.key = key;
+    if (!r) meshKeys.set(geom, (r = { src: null, sid: 0, d: null, tol: 0, cap: 0, dash: null, key: null }));   // alloc-rare: one record per shape, the first time its mesh is asked
+    r.src = src; r.sid = src ? src.id : 0; r.d = d; r.tol = tol; r.cap = cap; r.dash = dash; r.key = key;
     return key;
   }
   // The mesh's outline cut at tolerance tol (dashed into its dashes where it has a pattern): only where no mesh is kept for the key.

@@ -13,7 +13,7 @@ test('a reading is kept with its group and the gradients it read', () => {
     'only what the watch sees is kept: the overlays (the tamponade tube, rebuilt each frame it moves) are read afresh, or the GPU shows their first reading for good');
   assert.match(stage, /ok = opt \? `\$\{!!opt\.withMask\}\|\$\{!!opt\.nest\}\|\$\{!!opt\.strict\}`/, 'a strict reading is never handed out for a loose one');
   assert.match(paint, /function readGradient\(doc, id\) \{\n\s+refsOut\?\.add\(id\);/, 'every gradient read is named');
-  assert.match(paint, /export function readGroupRefs\(root, opt\) \{\n\s+refsOut = new Set\(\);\n\s+try \{ return \{ spec: readGroup\(root, opt\), refs: refsOut \}; \} finally \{ refsOut = null; \}/);
+  assert.match(paint, /export function readGroupRefs\(root, opt\) \{\n\s+REFS_TMP\.clear\(\);\n\s+refsOut = REFS_TMP;\n\s+let spec;\n\s+try \{ spec = readGroup\(root, opt\); \} finally \{ refsOut = null; \}/);
   assert.match(stage, /m\.set\(ok, \{ look: readLook\(\), spec, refs \}\)/);
 });
 

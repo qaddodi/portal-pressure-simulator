@@ -169,7 +169,7 @@ test('the organ layers are painted on the GPU from their shapes, with no SVG pic
   assert.match(bake, /staged\[slot\]\.set\(name, \{ tex, rect, at, flip: true \}\);/);
   assert.match(gl, /o = texture\(t1, flip\.y == 1 \? vec2\(u1\.x, 1\.0 - u1\.y\) : u1\)/, 'its rows turned back where it is laid');
   // Nested groups laid in layers of their own, with their opacity and mask, as the browser lays them.
-  assert.match(paint, /const own2 = nest && el !== root && el\.localName === 'g' && \(masked \|\| o < 1\);/);
+  assert.match(paint, /const own2 = c\.nest && el !== root && el\.localName === 'g' && \(masked \|\| o < 1\);/);
   // (Last in, first painted: the nested group's shapes into its layer, its mask into the mask layer, then the layer laid over.)
   assert.match(paint, /job\.frames\.push\(\{ lay: \[g, k, b, at\.alpha, !!op\.mask, f\.into\] \}\);[^\n]*\n\s+if \(op\.mask\) job\.frames\.push\(frameOf\(op\.mask\.ops, at\.mm\.slice\(\), k\.fbo, b, f\.d \+ 1\)\);[^\n]*\n\s+job\.frames\.push\(frameOf\(op\.ops, f\.m, g\.fbo, b, f\.d \+ 1\)\);/);
   // A group painted straight onto the picture only when that is the same picture (no opacity or mask of its own); otherwise in
@@ -209,8 +209,8 @@ test("a picture's painting stops at its time limit at any depth of nested groups
 
 test('a clip inside a clip is painted with both (the colon), the outer in the scratch blue', () => {
   const paint = readFileSync(new URL('../src/ui/organ-paint.js', import.meta.url), 'utf8');
-  assert.match(paint, /if \(clip && clip\.outer\) \{ no\('nested clip', el\); return; \}/);
-  assert.match(paint, /if \(clip\) cl\.outer = clip;/);
+  assert.match(paint, /if \(clip && clip\.outer\) \{ fail\(c, 'nested clip', el\); return; \}/);
+  assert.match(paint, /if \(outer\) cl\.outer = outer;/);
   assert.match(paint, /float c = cv\.r \* \(useClip >= 1 \? cv\.g : 1\.0\) \* \(useClip == 2 \? cv\.b : 1\.0\);/);
   assert.match(paint, /if \(newClip2\) \{ shape\.fill\(csh2\.mesh, cm2, SZ, CH_B\); job\.ck2 = ck2; copy6\(cv2, cm2\); \}/);
   assert.match(paint, /const CH_R = \[true, false, false, false\], CH_G = \[false, true, false, false\], CH_B = \[false, false, true, false\];/);

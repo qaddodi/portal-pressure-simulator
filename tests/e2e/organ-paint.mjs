@@ -105,10 +105,10 @@ async function compare(state) {
 
 try {
   await page.goto(server.url);
-  await page.waitForFunction(() => window.pps?.store.get().frame && document.querySelector('#organs'), null, { timeout: 120000 });
+  await page.waitForFunction(() => window.pps?.store?.get().frame && document.querySelector('#organs'), null, { timeout: 120000 });
   await compare('healthy');
   await page.goto(server.url + '?preset=cirr-decomp');
-  await page.waitForFunction(() => window.pps?.store.get().frame && document.querySelector('#organs'), null, { timeout: 120000 });
+  await page.waitForFunction(() => window.pps?.store?.get().frame && document.querySelector('#organs'), null, { timeout: 120000 });
   await page.waitForTimeout(6000);
   await compare('cirrhosis');
   await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'));
