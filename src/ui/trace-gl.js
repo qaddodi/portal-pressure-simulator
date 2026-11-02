@@ -44,19 +44,33 @@ export function keepLayer(ctx, name, sig, draw) {
   return false;
 }
 export const ctxShareOff = (search) => /[?&]ctxshare=0\b/.test(String(search ?? ''));
-let pool = null;
-function sharedGL() {
-  if (pool) return pool.dead ? null : pool;
-  pool = { dead: true };
-  if (typeof OffscreenCanvas !== 'function') return null;
+// (2 Nov 2026, audit R04: each chart sets the shared drawing buffer to its own size as its frame begins, so two charts of different sizes
+// drawn in one frame reallocated it twice a frame, and a full-screen picture (the page's words) beside a small chart, every frame. The
+// charts are spread over a few shared contexts (POOLS, least used first), so charts that draw in the same frame mostly keep their
+// own buffer's size. Each pool compiles the programs and holds the glyph field once. ?ctxpools=1: one context for all, as before.)
+const POOLS = (() => { const m = /[?&]ctxpools=(\d)\b/.exec(globalThis.location?.search || ''); return m ? Math.max(1, Math.min(4, +m[1])) : 3; })();
+const pools = [];
+/** Size reallocations of the shared buffers and pictures handed over, since the page opened (the ?perf readout, audit R04). */
+export const sharedStats = { resizes: 0, transfers: 0 };
+function makePool() {
+  const pool = { dead: true, users: 0 };
+  if (typeof OffscreenCanvas !== 'function') return pool;
   let gl;
   const canvas = new OffscreenCanvas(1, 1);
   try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: true, preserveDrawingBuffer: false, powerPreference: 'low-power', failIfMajorPerformanceCaveat: true }); } catch { gl = null; }
-  if (!gl || typeof gl.createShader !== 'function' || typeof canvas.transferToImageBitmap !== 'function') return null;
-  pool = { dead: false, canvas, gl, gen: 0, started: null, atlasTex: null, atlasIn: false, active: null };
+  if (!gl || typeof gl.createShader !== 'function' || typeof canvas.transferToImageBitmap !== 'function') return pool;
+  Object.assign(pool, { dead: false, canvas, gl, gen: 0, started: null, atlasTex: null, atlasIn: false, active: null });
   canvas.addEventListener?.('webglcontextlost', (e) => { e.preventDefault(); pool.started = null; pool.atlasTex = null; pool.atlasIn = false; });
   canvas.addEventListener?.('webglcontextrestored', () => { pool.gen++; });
   return pool;
+}
+function sharedGL() {
+  if (!pools.length) { const first = makePool(); pools.push(first); if (first.dead) return null; }
+  if (pools[0].dead) return null;
+  let best = pools.reduce((a, b) => (b.users < a.users ? b : a));
+  if (best.users > 0 && pools.length < POOLS) { const p = makePool(); if (!p.dead) { pools.push(p); best = p; } }
+  best.users++;
+  return best;
 }
 
 // Paint (a colour or a linear gradient of up to sixteen stops: the profile's curve has a stop per station), shared by the fills and the strokes' laying down. Positions in CSS px.
@@ -601,7 +615,7 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
         // (Another chart's frame still open in the shared context is finished first: its picture handed over before this one starts.)
         if (shared.active && shared.active !== api) shared.active.end();
         shared.active = api;
-        if (glCanvas.width !== Wd || glCanvas.height !== Hd) { glCanvas.width = Wd; glCanvas.height = Hd; }
+        if (glCanvas.width !== Wd || glCanvas.height !== Hd) { glCanvas.width = Wd; glCanvas.height = Hd; sharedStats.resizes++; }
         gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.bindVertexArray(null); gl.useProgram(null);
         gl.clearStencil(0); gl.stencilMask(0xff);
       }
@@ -628,6 +642,7 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
       flush(); gl.bindVertexArray(null); inFrame = false;
       if (shown) {
         if (shared.active === api) shared.active = null;
+        sharedStats.transfers++;
         try { shown.transferFromImageBitmap(glCanvas.transferToImageBitmap()); } catch (e) { console.warn('Charts on the GPU: the picture could not be handed over.', e); }
       }
       if (canvas.style.visibility) canvas.style.visibility = '';
@@ -902,6 +917,7 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
         if (P && !shown) for (const k of Object.keys(P)) gl.deleteProgram(P[k].p);   // (shared: the programs and the field stay for the others)
       } catch { /* a lost context holds nothing */ }
       if (shown && shared.active === api) shared.active = null;
+      if (shown) shared.users = Math.max(0, shared.users - 1);
       canvas.width = canvas.height = 0;
       if (!gl.isContextLost()) loser?.loseContext();
       canvas.remove();

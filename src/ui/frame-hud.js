@@ -12,6 +12,7 @@
 // adds no frame loop of its own: an idle page stays idle (the panel then says so).
 import { watchFrames, perf, refreshHz, refreshMaxHz, frameBudget, watchdogStats } from './frame.js?v=31edc44488';
 import { restPass } from './rest-pass.js?v=bf0c42ead5';
+import { sharedStats } from './trace-gl.js?v=ddb94858b8';
 
 export const HUD_OFF = (search) => /[?&]hud=0\b/.test(String(search ?? ''));
 const KEEP = 600;
@@ -48,6 +49,7 @@ export function hudText(st, o) {
     st.n ? `interval p50 ${f(st.p50)}  p95 ${f(st.p95)}  p99 ${f(st.p99)}  max ${f(st.max)} ms` : '',
     st.n ? `script p50 ${f(st.s50)}  p95 ${f(st.s95)}  max ${f(st.smax)} ms${st.s95 > o.budget ? '  OVER' : ''}` : '',
     o.surfaces.length ? `per frame: ${o.surfaces.map(([k, ms]) => `${k} ${f(ms)}`).join(', ')}` : '',
+    o.charts ? `charts: ${o.charts.resizes} buffer resizes, ${o.charts.transfers} pictures handed over (last second)` : '',
     `watchdog ${o.mode}, carried over ${o.shed}`,
     o.throttle ? `throttle: ${o.throttle}` : 'throttle: none seen',
   ];
@@ -70,7 +72,7 @@ function workerClock(onHz) {
 export function startFrameHud() {
   if (HUD_OFF(location.search)) return null;
   const gaps = [], scripts = [];
-  let last = perf().totals, lastFrames = last.frames, workerHz = 0, idleAt = 0;
+  let last = perf().totals, lastFrames = last.frames, workerHz = 0, idleAt = 0, lastCharts = { ...sharedStats };
   watchFrames((fr) => {
     if (fr.gap > 0) { gaps.push(fr.gap); if (gaps.length > KEEP) gaps.shift(); }
     scripts.push(fr.script); if (scripts.length > KEEP) scripts.shift();
@@ -92,8 +94,8 @@ export function startFrameHud() {
     if (!frames) { if (!idleAt) idleAt = performance.now(); st.n = 0; } else idleAt = 0;
     const surfaces = frames ? Object.keys(now.ms).map((t) => [t, (now.ms[t] - (last.ms[t] || 0)) / frames]).filter(([, ms]) => ms >= 0.05).sort((a, b) => b[1] - a[1]).slice(0, 6) : [];
     const w = watchdogStats(), hz = refreshHz(), maxHz = refreshMaxHz();
-    el.textContent = hudText(st, { hz, maxHz, workerHz, budget: frameBudget(), surfaces, mode: w.mode, shed: w.shed, throttle: throttleOf({ hz, maxHz, workerHz, apple, hidden: document.hidden }) });
-    last = now; lastFrames = now.frames;
+    el.textContent = hudText(st, { hz, maxHz, workerHz, budget: frameBudget(), surfaces, charts: { resizes: sharedStats.resizes - lastCharts.resizes, transfers: sharedStats.transfers - lastCharts.transfers }, mode: w.mode, shed: w.shed, throttle: throttleOf({ hz, maxHz, workerHz, apple, hidden: document.hidden }) });
+    last = now; lastFrames = now.frames; lastCharts = { ...sharedStats };
   };
   const tick = () => { if (!document.hidden) restPass(write); setTimeout(tick, 1000); };
   setTimeout(tick, 1000);
