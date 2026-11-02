@@ -16,6 +16,13 @@ import { watchFrames } from './frame.js?v=43da9d808a';
 
 const SEARCH = typeof location !== 'undefined' ? location.search || '' : '';
 export const GPU_BUDGET = GL_STATE && !/[?&]gpubudget=0\b/.test(SEARCH);
+// (With ?perf, each entry keeps the line of code that made it, so the readout names the biggest creators: a leak names itself.)
+const SITES = /[?&]perf\b/.test(SEARCH);
+const siteOf = () => {
+  const lines = String(new Error().stack || '').split('\n');
+  for (const l of lines) if (/\.js/.test(l) && !/gpu-budget\.js|gl-state\.js/.test(l)) return l.trim().replace(/^at\s+/, '').replace(/\?v=[0-9a-f]+/g, '').replace(/^.*\/src\/ui\//, '').replace(/^.*\/(assets|dist)\//, '');
+  return '?';
+};
 
 // Envelopes per device class (estimated bytes; pass area in screens per frame). A phone's GPU shares about 6 GB with everything; a
 // page that holds past a few hundred MB is the first Safari reclaims. Eight screens a frame is about what a 120 Hz phone GPU fills
@@ -65,7 +72,7 @@ function entryFor(gl, obj, kind) {
   if (!obj) return null;
   let e = byObj.get(obj);
   if (!e) {
-    e = { id: nextId++, owner: ownerOf(gl), kind, fmt: '', w: 0, h: 0, d: 1, samples: 0, levels: new Map(), bytes: 0 };
+    e = { id: nextId++, owner: ownerOf(gl), kind, fmt: '', w: 0, h: 0, d: 1, samples: 0, levels: new Map(), bytes: 0, site: SITES ? siteOf() : '' };
     byObj.set(obj, e); entries.set(e.id, e); gone?.register(obj, e.id);
   }
   return e;
@@ -93,8 +100,8 @@ function onCall(gl, name, x) {
   const r = glRec(gl);
   if (!r) return;
   const a = x;
-  if (name === 'texStorage2D' || name === 'texStorage3D') {
-    if (a[0] !== gl.TEXTURE_2D && name === 'texStorage2D') return;
+  if (name === 'texStorage2D') {
+    if (a[0] !== gl.TEXTURE_2D) return;   // (only the 2D binding is in the record: a 3D or array texture is left out, never credited to it)
     const tex = r.tex.get(r.unit), e = entryFor(gl, tex, 'texture'); if (!e) return;
     const [, levels, ifmt, w, h, d = 1] = a, bpp = bppOf(gl, ifmt);
     e.fmt = FMT_NAME(gl, ifmt); e.w = w; e.h = h; e.d = d; e.levels.clear(); e.gl = ctxRef(gl);
@@ -140,8 +147,12 @@ export function budget() {
   const canvases = canvasBytes();
   bytes += canvases;
   const big = [...entries.values()].sort((a, b) => b.bytes - a.bytes).slice(0, 8).map((e) => ({ owner: e.owner, kind: e.kind, fmt: e.fmt, w: e.w, h: e.h, samples: e.samples, levels: e.nLevels || e.levels.size, mb: +(e.bytes / 1e6).toFixed(1) }));
+  const sites = new Map();
+  if (SITES) for (const e of entries.values()) { const k = `${e.owner} ${e.kind} ${e.site}`; const o = sites.get(k) || { site: k, n: 0, bytes: 0 }; o.n++; o.bytes += e.bytes; sites.set(k, o); }
+  const creators = [...sites.values()].sort((a, b) => b.bytes - a.bytes).slice(0, 8).map((o) => ({ site: o.site, n: o.n, mb: +(o.bytes / 1e6).toFixed(1) }));
   const scr = screenPx();
   return {
+    creators,
     device: deviceClass(), envelope: env,
     mb: +(bytes / 1e6).toFixed(1), canvasesMb: +(canvases / 1e6).toFixed(1), overMemory: bytes > env.mb * 1e6,
     owners: [...owners.values()].sort((a, b) => b.bytes - a.bytes).map((o) => ({ owner: o.owner, n: o.n, mb: +(o.bytes / 1e6).toFixed(1) })),
@@ -160,6 +171,7 @@ export function budgetText() {
   const b = budget();
   const lines = [`GPU budget (${b.device}): ${b.mb} of ${b.envelope.mb} MB${b.overMemory ? ' OVER' : ''} (canvases ${b.canvasesMb}); last frame ${b.frame.screens} of ${b.envelope.screens} screens drawn, ${b.frame.targets} target switches, ${b.frame.draws} passes, ${b.frame.copies} copies (${b.frame.copyScreens} screens); worst ${b.worstScreens}`];
   for (const o of b.owners.slice(0, 6)) lines.push(`  ${o.owner}: ${o.mb} MB in ${o.n}`);
+  if (b.creators.length) { lines.push('  Biggest creators (owner, kind, line that made them):'); for (const c of b.creators) lines.push(`    ${c.mb} MB in ${c.n}: ${c.site}`); }
   return lines.join('\n');
 }
 

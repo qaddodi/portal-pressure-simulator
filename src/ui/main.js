@@ -2,11 +2,11 @@
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
 import { motionBudget } from './motion-budget.js?v=ff13b79f5b';   // (first: counts from the start when ?perf or ?budget=1 asks)
-import { budget as gpuBudget } from './gpu-budget.js?v=eb9188fbae';   // (the render graph's registry and pass counts, R06: before any context is made)
+import { budget as gpuBudget } from './gpu-budget.js?v=5a4095e6db';   // (the render graph's registry and pass counts, R06: before any context is made)
 import './gl-state.js?v=554eb75e6c';   // (early: every WebGL2 context is recorded from its creation, R09/R06)
 import { startHost, host } from './host.js?v=9eca545da1';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=4ef2a6ffd8';
-import { createStage } from './stage.js?v=b90914d649';
+import { createStage } from './stage.js?v=065ec08554';
 import { createCreditPlacer } from './credit.js?v=c6b31468e0';
 import { whenQuiet, booting, holdCover } from './quiet.js?v=388052eba8';
 import { sinusoidSupported } from './gl-support.js?v=38189f60f5';
@@ -967,7 +967,7 @@ function wireTopbar() {
   if (new URLSearchParams(location.search).has('perf')) import('./frame-hud.js?v=8465699428').then(({ startFrameHud }) => startFrameHud()).catch(() => { /* a measuring aid only */ });
   // High Refresh (high-refresh.js): on a touch screen the first tap goes full screen, past the browser's 60 Hz hold for pages. ?highrefresh=0 off.
   import('./high-refresh.js?v=a5fd03fdf7').then(({ startHighRefresh }) => startHighRefresh()).catch(() => { /* full screen is a bonus */ });
-  if (new URLSearchParams(location.search).has('perf')) import('./perf-readout.js?v=75e5c644c8').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
+  if (new URLSearchParams(location.search).has('perf')) import('./perf-readout.js?v=8968e13872').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
   // ?offgpu=1 in the address: the live count of work off the GPU, flashing red when it happens during motion (offgpu-overlay.js). Without it, never loaded.
   if (/[?&]offgpu=1\b/.test(location.search)) import('./offgpu-overlay.js?v=8fa2fb3257').then(({ startOffGpuOverlay }) => startOffGpuOverlay()).catch(() => { /* a measuring aid only */ });
   $('#btnMenu').addEventListener('click', () => mainMenu.toggle());
