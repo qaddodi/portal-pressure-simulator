@@ -1,7 +1,7 @@
 // DOM & formatting helpers.
 import { saver, frame, cancelFrame, easeNow, readFrame } from './frame.js?v=1d147c7c9a';
 import { restPass, restAttr, restRemove } from './rest-pass.js?v=d13e397f0b';
-import { glWords } from './gl-words.js?v=7d02dbc1d5';
+import { glWords } from './gl-words.js?v=178edb3e7e';
 import { slideFold } from './fold-slide.js?v=1b10231dcf';
 import { releaseSpeed, isFlick, carryCurve, settleSlope, settleAt, easeMove, D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js?v=7513a88c68';
 import { leaveFromHere } from './menu-leave.js?v=e71a0f16fe';
@@ -403,8 +403,10 @@ function moreSync(el) {
 // Whether a fade on el is worth starting: in the page and under no hidden piece. No layout read (1 Nov 2026, "zero layout inside the
 // frame": the number and text swaps ask it from frames); one hidden only by a style still takes its fade, which nobody sees and which
 // ends on its own clock as any other. isDrawn is the exact answer, for an input's handler.
-export const hasBox = (el) => el.isConnected && !el.closest?.('[hidden]');
-export const isDrawn = (el) => (el.checkVisibility ? el.checkVisibility() : el.getClientRects().length > 0);
+// (A box to fade from: in the page, not under [hidden], and drawn (not display: none, or under it). Before, a hidden element passed, and a
+// fade ghost cloned from it stood at a zero box, at the screen's top left: the phone's top bar hides the lens name, 2 Nov 2026.)
+export const hasBox = (el) => el.isConnected && !el.closest?.('[hidden]') && isDrawn(el);
+export const isDrawn = (el) => (el.checkVisibility ? el.checkVisibility() : !el.getClientRects || el.getClientRects().length > 0);
 // One swap at a time per element: its newest content goes in when the old has faded.
 const fadeIns = new WeakMap();   // (swapFade: each element's fade-in, cancelled when the next swap lands)
 const swaps = new WeakMap();

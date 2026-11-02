@@ -10,8 +10,8 @@
 // All of it is opacity and translate/scale on the compositor, but the bar's colour, which is repainted by CSS for the
 // 420 ms (one small bar, once per switch). A key switched again before it has landed finishes at once, the bar carrying
 // its colour on from where it had got to. Reduce Motion keeps the plain fade out and in (swapFade).
-import { rgb2oklab, oklab2rgb } from './colormap.js?v=1daa0c198c';
-import { cssRGB, swapFade, hasBox } from './util.js?v=32eb592c68';
+import { rgb2oklab, oklab2rgb } from './colormap.js?v=687b52d514';
+import { cssRGB, swapFade, hasBox } from './util.js?v=5c99534b1f';
 import { D_SURFACE, EASE_MOVE } from './ease.js?v=7513a88c68';
 
 export const MORPH_STOPS = 24;
@@ -206,6 +206,7 @@ export function crossfadeText(el, txt, { instant = false } = {}) {
   prev?.finish();
   if (el.textContent === txt) return;
   const b = btn.getBoundingClientRect(), r = el.getBoundingClientRect();
+  if (!r.width && !r.height) { el.textContent = txt; return; }   // (a box of no size has nothing to fade from)
   const ghost = el.cloneNode(false);
   ghost.removeAttribute('id'); ghost.setAttribute('aria-hidden', 'true');
   ghost.textContent = old;

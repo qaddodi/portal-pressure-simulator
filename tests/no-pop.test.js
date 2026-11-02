@@ -69,7 +69,7 @@ test('swapFade fades the old content out, fills, and fades the new in; a hidden 
   assert.match(f, /if \(job\) \{ job\.fill = fill; return; \}/);
   assert.match(f, /if \(instant \|\| !el\.animate \|\| !el\.isConnected \|\| !el\.firstChild \|\| !hasBox\(el\)\) \{ fill\(\); return; \}/);
   // A hidden one (out of the page, or under a hidden piece) fills at once, told with no layout read (1 Nov: none inside a frame).
-  assert.match(util, /export const hasBox = \(el\) => el\.isConnected && !el\.closest\?\.\('\[hidden\]'\);/);
+  assert.match(util, /export const hasBox = \(el\) => el\.isConnected && !el\.closest\?\.\('\[hidden\]'\) && isDrawn\(el\);/);
   assert.match(f, /easing: EASE_IN, fill: 'forwards'/);
   assert.match(f, /a\.finished\.then\(done, done\);/);
 });

@@ -195,6 +195,30 @@ test('the lens name crossfades where it stood; a name that is the same does noth
   assert.equal(lab.textContent, 'Flow volume');
 });
 
+test('a key or a name the bar does not draw (the phone hides the lens name) makes no ghost at the top left', () => {
+  const btn = new FakeNode('lens-btn'); btn.rect = { left: 300, top: 20, width: 300, height: 42 };
+  const lab = new FakeNode('lens-name', 'Flow direction'); lab.rect = { left: 0, top: 0, width: 0, height: 0 }; lab.hidden = true;   // (display: none: no rects)
+  btn.append(lab);
+  M.crossfadeText(lab, 'Congestion');
+  assert.equal(lab.textContent, 'Congestion');
+  assert.equal(btn.children.length, 1, 'no ghost');
+  const zero = new FakeNode('lens-name', 'Flow direction'); zero.rect = { left: 0, top: 0, width: 0, height: 0 };   // (drawn, but no size)
+  const btn2 = new FakeNode('lens-btn'); btn2.rect = { left: 300, top: 20, width: 300, height: 42 }; btn2.append(zero);
+  M.crossfadeText(zero, 'Congestion');
+  assert.equal(zero.textContent, 'Congestion');
+  assert.equal(btn2.children.length, 1, 'no ghost from a box of no size');
+  const key = new FakeNode('legend', ''); key.rect = { left: 0, top: 0, width: 0, height: 0 }; key.hidden = true; key.append(new FakeNode('lg-title', 'old'));
+  const btn3 = new FakeNode('lens-btn'); btn3.append(key);
+  M.morphKey(key, [new FakeNode('lg-title', 'new')]);
+  assert.equal(btn3.children.length, 1, 'no ghost of a key that is not drawn');
+  assert.equal(key.children[0].textContent, 'new');
+});
+
+test('hasBox, the guard every fade and ghost helper shares, asks that the element is drawn, not only in the page', () => {
+  const util = readFileSync(new URL('../src/ui/util.js', import.meta.url), 'utf8');
+  assert.match(util, /export const hasBox = \(el\) => el\.isConnected && !el\.closest\?\.\('\[hidden\]'\) && isDrawn\(el\);/);
+});
+
 test('Reduce Motion keeps the plain fade out and in: no ghost, no slide, no mixing', () => {
   reduced = true;
   try {

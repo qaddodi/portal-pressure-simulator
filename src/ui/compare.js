@@ -4,9 +4,9 @@
 // tabulates every difference. There is no Compare mode: unpinning ends it.
 
 import { store } from './store.js?v=2ac7b3a9d2';
-import { h, fmt, svgIcon } from './util.js?v=32eb592c68';
+import { h, fmt, svgIcon } from './util.js?v=5c99534b1f';
 import { liveBalance } from './balance-hold.js?v=1792704e7a';
-import { activeInterventions } from './inspector.js?v=3c4e4ae3d4';
+import { activeInterventions } from './inspector.js?v=098ec69049';
 
 // The rows in the readouts' teaching order, each group named as the readouts name it (pressure, flow, what they lead to, the
 // systemic circulation), so a long table reads as four short ones.
