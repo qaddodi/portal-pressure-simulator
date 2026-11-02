@@ -14,7 +14,7 @@
 //   - Alike: the one class it puts on <html>, fr, switches on a short block in app.css that gives the rings that were the accent
 //     colour or 1 px off their control the focus colour and the 2 px of the rest.
 //   - ?focusring=0: this file does nothing and the page is today's.
-import { D_SMALL } from './ease.js?v=fc509dabe4';
+import { D_SMALL } from './ease.js?v=7513a88c68';
 
 
 /** ?focusring=0 in a page's search string: this file does nothing. */

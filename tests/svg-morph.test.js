@@ -202,6 +202,7 @@ test('?chartmorph=0 turns it off; the charts that morph keep their crossfade for
   const src = (f) => readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf8');
   for (const f of ['talk-trace.js', 'tool-curve.js', 'tool-course.js']) {
     assert.match(src(f), /morphSvg\(/, `${f} morphs`);
-    assert.match(src(f), /classList\.add\('in'\)/, `${f} still has its crossfade for when it cannot`);
+    // (a chart drawn on the GPU, svg-gl.js, crossfades in its picture: fadeIn)
+    assert.match(src(f), /classList\.add\('in'\)|gl\.fadeIn\(/, `${f} still has its crossfade for when it cannot`);
   }
 });

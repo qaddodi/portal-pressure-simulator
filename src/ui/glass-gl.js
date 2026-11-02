@@ -13,7 +13,7 @@ import { finalFrameFor, readFrameFor, framePhase, cancelFrame, noteDraw } from '
 import { startProgram, checkProgram, compileDone, exerciseDraw, SHADER_WARM } from './gl-compile.js?v=e48e05cdb3';
 import { shiftOf, translateOf, motionAt, movesOnly } from './glass-motion.js?v=d367c59900';
 import { pathPolys, fanTriangles } from './path-poly.js?v=07f30beea9';
-import { easeArrive, D_SURFACE } from './ease.js?v=fc509dabe4';
+import { easeArrive, D_SURFACE } from './ease.js?v=7513a88c68';
 
 /** The CSS glass this draws (app.css .cl-glass: blur(16px) saturate(1.15) over 58 % of --surface). */
 export const GLASS = { blur: 16, sat: 1.15, tint: 0.58 };

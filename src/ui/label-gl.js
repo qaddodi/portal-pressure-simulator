@@ -16,11 +16,11 @@ import { frameFor, cancelFrame } from './frame.js?v=7710f677e2';
 import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=81fbedda6b';
 import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js?v=e48e05cdb3';
 import { createAtlasPacker, batchRuns } from './atlas-pack.js?v=43b8bc019d';
-import { easeMove, D_SURFACE } from './ease.js?v=fc509dabe4';
+import { easeMove, D_SURFACE } from './ease.js?v=7513a88c68';
 import { createShapeGL, flattenPath, polyMesh, ellipsePoly } from './shape-gl.js?v=1e2bc57a21';
 import { createOrganPaint, parseColor, mul } from './organ-paint.js?v=106afca6f6';
 import { textPolys, textWidth, loadGlyphs, glyphsReady, textCovers } from './text-gl.js?v=8db702aacd';
-import { trackOf, trackAt, mixColour, timingOf, progressAt, keysOf } from './label-track.js?v=56dc51edb3';
+import { trackOf, trackAt, mixColour, timingOf, progressAt, keysOf } from './label-track.js?v=814746f511';
 
 // (1 Nov 2026, the GPU motion review.) A label's or a leader's fade or colour ease is followed from its animations (label-track.js), and its
 // style read off the frame (styleOf): nothing on the page is read in a frame. ?atlasidle=0: a full atlas is packed again at once, mid-move,

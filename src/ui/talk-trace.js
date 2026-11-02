@@ -2,24 +2,19 @@
 // every state up to the slide, one point each, and the HVPG in its own lane with its cut-offs. (Moved here unchanged from
 // presenter-tools.js, so the deck visuals' chart package can extend it without touching the instruments' file.)
 
-import { h, fmt, clamp } from './util.js?v=69f76a614e';
+import { h, fmt, clamp } from './util.js?v=81aaed6aef';
 import { hvpgRate } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { traceLabel, traceLabelRoom } from './trace-labels.js?v=fc916a95c6';
-import { frameFor } from './frame.js?v=7710f677e2';
 import { plotPanel } from './plot-look.js?v=5037697da7';
 import { bandKeys, bandRuns, bandSpan, namePlaces } from './rx-bands.js?v=51e83c7c59';
-import { morphSvg } from './svg-morph.js?v=97871b107c';
+import { morphSvg } from './svg-morph.js?v=e2c6c2224c';
+import { createSvgGL, svgModel } from './svg-gl.js?v=2f0bbf9cc9';
+import { D_SURFACE, EASE_ARRIVE } from './ease.js?v=7513a88c68';
 import { measure } from './glyph-measure.js?v=131d137ce2';
-const nextFrame = frameFor('presenter-tools');
 
 // ── The talk so far: PV, WHVP and FHVP at each state, the HVPG in its own lane with its cut-offs ──
-const SVGNS = 'http://www.w3.org/2000/svg';
-const sv = (tag, attrs = {}, ...kids) => {
-  const el = document.createElementNS(SVGNS, tag);
-  for (const [k, v] of Object.entries(attrs)) if (v != null) el.setAttribute(k, v);
-  el.append(...kids.flat().filter((k) => k != null));
-  return el;
-};
+// (2 Nov 2026: the chart is a model drawn on the GPU, svg-gl.js: the same tree, of plain elements, never painted by the browser.)
+const sv = svgModel;
 const LINES = [['pv', 'PV', '--tr-pv'], ['whvp', 'WHVP', '--tr-wedge'], ['fhvp', 'FHVP', '--tr-hv']];
 const sev = hvpgRate;
 // (a word's width as Inter sets it, from the GPU atlas's own metrics: no canvas)
@@ -42,6 +37,7 @@ export function talkTrace() {
   // Drawn at the card's own pixels (one unit a CSS pixel) and its one small size, so the words never scale with the card:
   // the card's fit sets the chart's height (styles/app.css .pz-talk) and only the plot gets shorter.
   const el = h('div', { class: 'pz-talk' });
+  const gl = createSvgGL(el);
   let chain0 = null, size = '', bands = [], miles = false;   // (bands: the treatments the slide shades, rx-bands.js; none on a built-in deck)
   const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => { if (chain0 && `${el.clientWidth}x${el.clientHeight}` !== size) draw(chain0, false); }) : null;
   ro?.observe(el);
@@ -164,14 +160,16 @@ export function talkTrace() {
   // The new chart takes over the old one: each line, point, gridline and word in both glides to its new place, the rest fades (svg-morph.js).
   // Where that cannot be (?chartmorph=0, Reduce Motion, another size) the new chart fades in over the old one, which then goes (never a
   // jump); a new size just redraws.
+  // (On the GPU: the old and new models stand in the box, hidden, and the picture draws them; the fade in is the picture's, on the
+  // stylesheet's old ease, --d-surface on --ease.)
   function show(svg, fade) {
-    const old = [...el.children];
-    if (!fade) { el.replaceChildren(svg); return; }
-    if (old.length && morphSvg(old.at(-1), svg)) { old.slice(0, -1).forEach((o) => o.remove()); return; }
-    svg.classList.add('in');
+    const old = [...el.children].filter((c) => c.hasAttribute('data-svg-model'));
+    if (!fade) { old.forEach((o) => o.remove()); el.append(svg); gl.place(svg); return; }
+    if (old.length && morphSvg(old.at(-1), svg)) { old.slice(0, -1).forEach((o) => o.remove()); gl.place(svg); return; }
     el.append(svg);
-    nextFrame(() => nextFrame(() => svg.classList.remove('in')));
-    setTimeout(() => old.forEach((o) => o.remove()), 480);
+    gl.place(svg);
+    gl.fadeIn(svg, D_SURFACE, EASE_ARRIVE);
+    setTimeout(() => { old.forEach((o) => o.remove()); gl.paint(); }, 480);
   }
-  return { el, set, configure, update() {}, clear() {}, dispose() { ro?.disconnect(); } };
+  return { el, set, configure, update() {}, clear() {}, dispose() { ro?.disconnect(); gl.dispose(); } };
 }

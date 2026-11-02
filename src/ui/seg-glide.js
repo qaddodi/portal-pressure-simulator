@@ -15,7 +15,7 @@
 //   - Reduce Motion: the piece does not travel; it fades out where it was and in where it is (--d-flip).
 //   - High contrast keeps today's Highlight on the button and hides the piece (the stylesheet).
 //   - ?glide=0: this file does nothing, so the page is today's, class for class.
-import { D_FLIP, D_SMALL } from './ease.js?v=fc509dabe4';
+import { D_FLIP, D_SMALL } from './ease.js?v=7513a88c68';
 import { restPass } from './rest-pass.js?v=bf0c42ead5';
 
 const SEL = '.seg, .instr-tabs, .um-tabs, .pressure-switch';

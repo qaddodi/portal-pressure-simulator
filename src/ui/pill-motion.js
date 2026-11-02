@@ -11,7 +11,7 @@
 // and one fold taking over from another starts from wherever the buttons and the face are drawn at that moment.
 
 // (The glide rides the camera's curve, the quintic of ease.js, and its CSS copy is --ease-move: one curve for a move, premium-feel R3.)
-import { easeMove, D_SURFACE, EASE_ARRIVE, EASE_MOVE } from './ease.js?v=fc509dabe4';
+import { easeMove, D_SURFACE, EASE_ARRIVE, EASE_MOVE } from './ease.js?v=7513a88c68';
 import { splitFace } from './face-split.js?v=b907fdba84';
 export const easeIO3 = easeMove;
 export const EASE_IO3 = EASE_MOVE;

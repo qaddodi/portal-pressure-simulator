@@ -27,7 +27,7 @@
 // The clock is the eases' (frame.js easeNow: no leap after a long frame) and the writes come in the frame's late phase, after the
 // chart's own paints, so a frame shows the glide and nothing else.
 import { lateFrameFor, cancelFrame, easeNow } from './frame.js?v=7710f677e2';
-import { D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, easeMove } from './ease.js?v=fc509dabe4';
+import { D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, easeMove } from './ease.js?v=7513a88c68';
 
 const nextLate = lateFrameFor('svg-morph');
 
@@ -204,10 +204,12 @@ class Morph {
       for (const [attr, tw] of tweens) { const v = tweenAt(tw, 0); b.el.setAttribute(attr, v); tw.last = v; }
       a.el.style.visibility = 'hidden';
     }
-    const to = (el, from, o, delay, ms, ease) => { el.getAnimations?.().forEach((x) => x.cancel()); this.fades.push(el.animate([{ opacity: from }, { opacity: o }], { duration: ms, delay, easing: ease, fill: 'both' })); };
+    // (A chart drawn on the GPU (svg-gl.js) draws each fade from its animation's own clock: noteFade.)
+    const to = (el, from, o, delay, ms, ease) => { el.getAnimations?.().forEach((x) => x.cancel()); const an = el.animate([{ opacity: from }, { opacity: o }], { duration: ms, delay, easing: ease, fill: 'both' }); this.fades.push(an); host._svgGL?.noteFade(el, an, from, o, delay, ms, ease); };
     plan.oldOnly.forEach((a, i) => { const p = gone[i]; if (p && (p.flying || p.o >= FULL)) to(a.el, p.o, 0, 0, D_SMALL, EASE_MOVE); });
     plan.newOnly.forEach((b, i) => { const p = came[i]; if (p && p.o >= FULL) to(b.el, 0, 1, D_FLIP, D_SMALL, EASE_ARRIVE); });
     plan.pairs.forEach(({ b }, i) => { const k = kept[i]; if (k && k.to >= FULL) to(b.el, k.from, 1, 0, D_SMALL, EASE_ARRIVE); });
+    host._svgGL?.wake(D_SURFACE + D_FLIP + D_SMALL + 80);   // (its GPU picture drawn every frame of the glide and the fades)
     this.raf = nextLate(() => this.tick());
   }
   /** Another morph takes this card over: this one stops moving the new drawing (it is that morph's old one now); its leaving words finish. */

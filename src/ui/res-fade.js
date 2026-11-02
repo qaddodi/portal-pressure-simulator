@@ -5,7 +5,7 @@
 // (stage.js). A second change while one still fades starts from the mix as it shows, so neither picture jumps. Since 1 Nov the mix is
 // made only on the GPU, inside the canvas's own presents (res-fade-gl.js); the canvas stays shown, so its opacity is never touched.
 import { finalFrameFor, noteDraw } from './frame.js?v=7710f677e2';
-import { D_SURFACE } from './ease.js?v=fc509dabe4';
+import { D_SURFACE } from './ease.js?v=7513a88c68';
 import { keepOnGpu } from './res-fade-gl.js?v=37c4818df3';
 
 export const FADE_MS = D_SURFACE;

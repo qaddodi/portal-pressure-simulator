@@ -3,22 +3,22 @@
 
 import { store, hiddenNow } from './store.js?v=4ef2a6ffd8';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, fadeIn, glideOnResize, foldHidden, hasBox, putText } from './util.js?v=69f76a614e';
-import { lobuleFlows } from './lobule-model.js?v=1990393239';
-import { createProfile } from './charts.js?v=33f2864b73';
-import { createPressureTime } from './pressure-time.js?v=c174c85490';
-import { createHvpgProcedure } from './hvpg-proc.js?v=228156e472';
-import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=1ebfdd1f1c';
+import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, fadeIn, glideOnResize, foldHidden, hasBox, putText } from './util.js?v=81aaed6aef';
+import { lobuleFlows } from './lobule-model.js?v=ec3b292019';
+import { createProfile } from './charts.js?v=19d270763f';
+import { createPressureTime } from './pressure-time.js?v=ec60a89fed';
+import { createHvpgProcedure } from './hvpg-proc.js?v=bc5625cd00';
+import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=5a5630e85e';
 import { ownsSideways, pageGo } from './swipe.js?v=c1f19a57dd';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=abd6fb143e';
-import { createReadoutsPane } from './readouts-pane.js?v=7740415306';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=335ccc2439';
+import { createReadoutsPane } from './readouts-pane.js?v=048c4133cc';
 import { frameFor } from './frame.js?v=7710f677e2';
 import { vitalReading, VITALS } from './vital-read.js?v=cbba41a6b7';
 import { setShown, shownState, FILL_SMALL, fillQ } from './shown.js?v=d456014820';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { HVPG_CUTS, PPG_CUTS, hvpgSev, ppgSev, hvBlocked } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { compareRows } from './idle-keys.js?v=81fbedda6b';
-import { releaseSpeed, carryCurve, cubicBezier, easeArrive, D_FLIP, D_SMALL, EASE_IN, EASE_ARRIVE } from './ease.js?v=fc509dabe4';
+import { releaseSpeed, carryCurve, cubicBezier, easeArrive, D_FLIP, D_SMALL, EASE_IN, EASE_ARRIVE } from './ease.js?v=7513a88c68';
 const nextFrame = frameFor('dock');
 const DRAG_GUIDE = !/[?&]dockdrag=0\b/.test(typeof location === 'object' ? location.search : '');
 

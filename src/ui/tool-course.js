@@ -22,10 +22,10 @@
 // These are the model's own speeds, not a patient's: a deck line that quotes them needs a source, or none.
 
 import { TILE, RATE } from './table-marks.js?v=ff3ed0cc47';
-import { lineMeta, cutsOf, fmtTick, placeWord } from './tool-curve.js?v=85d23dbf5a';
+import { lineMeta, cutsOf, fmtTick, placeWord } from './tool-curve.js?v=c235d752cd';
 import { plotPanel } from './plot-look.js?v=5037697da7';
 import { frameFor } from './frame.js?v=7710f677e2';
-import { morphSvg } from './svg-morph.js?v=97871b107c';
+import { morphSvg } from './svg-morph.js?v=e2c6c2224c';
 const nextFrame = frameFor('tool-course');
 
 const CO_MIN = 12;   // (px on the screen: the smallest the chart's words are drawn)

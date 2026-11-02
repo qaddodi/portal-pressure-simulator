@@ -14,7 +14,7 @@
 //
 // Reduced motion, or no Web Animations: set at once, as before with no ease.
 
-import { EASE_ARRIVE } from './ease.js?v=fc509dabe4';
+import { EASE_ARRIVE } from './ease.js?v=7513a88c68';
 
 const runs = new WeakMap();
 const reduced = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;

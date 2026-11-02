@@ -62,3 +62,17 @@ test('the summary table\'s Doppler traces are drawn on the GPU, at the SVG\'s ow
   assert.doesNotMatch(src, /createElementNS/, 'no SVG built');
   assert.match(src, /createTraceGL\(cv, \{ redraw: \(\) => paintWave\(c\) \}\)/);
 });
+
+test('slide charts are models drawn on the GPU (svg-gl.js): transforms and viewBoxes as SVG takes them', async () => {
+  await import('./dom-shim.js');
+  const { transformOf, viewMap } = await import('../src/ui/svg-gl.js');
+  const r = transformOf('rotate(-45 10 20)');
+  near(r[0] * 10 + r[2] * 20 + r[4], 10, 1e-9, 'the turn keeps its centre (x)'); near(r[1] * 10 + r[3] * 20 + r[5], 20, 1e-9, 'the turn keeps its centre (y)');
+  assert.deepEqual(transformOf('translate(5 6) scale(2)'), [2, 0, 0, 2, 5, 6]);
+  assert.deepEqual(viewMap('0 0 100 50', 'none', 200, 200), [2, 4, 0, 0]);
+  assert.deepEqual(viewMap('0 0 100 50', null, 200, 200), [2, 2, 0, 50], 'meet, in the middle');
+  const fs = await import('node:fs');
+  const src = fs.readFileSync(new URL('../src/ui/talk-trace.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(src, /createElementNS/, 'the talk chart builds no SVG');
+  assert.match(src, /const sv = svgModel;/);
+});

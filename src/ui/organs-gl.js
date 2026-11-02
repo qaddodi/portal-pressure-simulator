@@ -62,7 +62,7 @@ import { createShapeGL } from './shape-gl.js?v=1e2bc57a21';
 import { createOrganPaint, mul, prestartOrganPaint } from './organ-paint.js?v=106afca6f6';
 import { prestart, linkProgram } from './gl-compile.js?v=e48e05cdb3';
 import { netChanged } from './idle-keys.js?v=81fbedda6b';
-import { easeMove, D_SURFACE } from './ease.js?v=fc509dabe4';
+import { easeMove, D_SURFACE } from './ease.js?v=7513a88c68';
 
 /** The pixels (bytes) of live groups' pictures kept at a time on a canvas cw × ch: most of a screen, never more than 12 MB (an iPhone's budget is a few MB). */
 export const cacheBudget = (cw, ch) => Math.min(cw * ch * 4 * 0.75, 12e6);

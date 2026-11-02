@@ -43,6 +43,20 @@ export function cubicBezier(x1, y1, x2, y2) {
   };
 }
 export const easeArrive = cubicBezier(0.2, 0.8, 0.2, 1);
+// (A CSS easing as a function of 0..1: cubic-bezier(...) as given, the named curves by their CSS values, else linear. 2 Nov 2026: an
+// ease the page runs, worked out in script where the drawing follows it on the GPU.)
+const NAMED = { ease: [0.25, 0.1, 0.25, 1], 'ease-in': [0.42, 0, 1, 1], 'ease-out': [0, 0, 0.58, 1], 'ease-in-out': [0.42, 0, 0.58, 1] };
+const curves = new Map();
+export function cssCurve(easing) {
+  let f = curves.get(easing);
+  if (!f) {
+    const m = /^cubic-bezier\(([^)]*)\)$/.exec(String(easing).trim()), v = m ? m[1].split(',').map(Number) : NAMED[easing];
+    f = v?.length === 4 && v.every(Number.isFinite) ? cubicBezier(...v) : (t) => t;
+    if (curves.size > 32) curves.clear();
+    curves.set(easing, f);
+  }
+  return f;
+}
 
 export const CAM_MS_MIN = 480, CAM_MS_MAX = 900;
 /**
