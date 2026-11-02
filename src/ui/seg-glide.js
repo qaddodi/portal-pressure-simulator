@@ -16,6 +16,7 @@
 //   - High contrast keeps today's Highlight on the button and hides the piece (the stylesheet).
 //   - ?glide=0: this file does nothing, so the page is today's, class for class.
 import { D_FLIP, D_SMALL } from './ease.js?v=fc509dabe4';
+import { restPass } from './rest-pass.js?v=bf0c42ead5';
 
 const SEL = '.seg, .instr-tabs, .um-tabs, .pressure-switch';
 /** ?glide=0 in a page's search string: this file does nothing and the page is today's. */
@@ -29,34 +30,46 @@ const PICKED = '[aria-pressed="true"], [aria-selected="true"]';
 export function chosen(ctl) {
   let one = null;
   for (const b of ctl.children) {
-    if (b.localName !== 'button' || b.hidden || !b.matches(PICKED)) continue;
+    if (b.localName !== 'button' || b.hidden || b.dataset?.ghost != null || !b.matches(PICKED)) continue;   // (a fold's ghost is a picture, not a choice)
     if (one) return null;
     one = b;
   }
   return one;
 }
 
-/** The translation a button is drawn at now by its own transform or translate (px, its own), [0, 0] when none. */
-function shiftNow(btn) {
-  if (typeof getComputedStyle !== 'function' || typeof DOMMatrix !== 'function') return [0, 0];
+/** The translation a button is drawn at now by its own transform or translate (px, its own), [0, 0] when none. Only a pure move
+ *  counts (the view pill's fold slides its buttons by translateX); a transform that scales or turns is left in. */
+export function shiftNow(btn) {
+  if (typeof getComputedStyle !== 'function') return [0, 0];
   const cs = getComputedStyle(btn);
   let x = 0, y = 0;
-  if (cs.transform && cs.transform !== 'none') { try { const m = new DOMMatrix(cs.transform); x += m.e; y += m.f; } catch { /* an odd value: none */ } }
-  if (cs.translate && cs.translate !== 'none') { const [tx = 0, ty = 0] = cs.translate.split(/\s+/).map((v) => parseFloat(v) || 0); x += tx; y += ty; }
+  const m = /^matrix(3d)?\(([^)]*)\)$/.exec(String(cs?.transform ?? '').trim()), v = m ? m[2].split(',').map(Number) : null;
+  if (v && !m[1] && v.length === 6 && v[0] === 1 && v[1] === 0 && v[2] === 0 && v[3] === 1) { x += v[4]; y += v[5]; }
+  else if (v && m[1] && v.length === 16 && v.every((n, i) => n === ([0, 5, 10, 15].includes(i) ? 1 : i >= 12 && i <= 14 ? n : 0))) { x += v[12]; y += v[13]; }
+  if (cs?.translate && cs.translate !== 'none') { const [tx = 0, ty = 0] = String(cs.translate).split(/\s+/).map((t) => parseFloat(t) || 0); x += tx; y += ty; }
   return [x, y];
 }
 
-/** The button's box in the control's own pixels (from its padding edge), whatever scale an ancestor is drawn at; null while
- *  either has no box (hidden, or its card not yet open). */
+/** The control's border-box width unrounded (offsetWidth rounds to whole px, and a scale taken from it put the piece a third of a
+ *  px off a wide pill's last button); 0 when the style gives none, and the caller falls back to offsetWidth. */
+export function borderW(cs) {
+  const n = (t) => parseFloat(t) || 0, w = n(cs?.width);
+  if (!w) return 0;
+  return cs.boxSizing === 'border-box' ? w : w + n(cs.paddingLeft) + n(cs.paddingRight) + n(cs.borderLeftWidth) + n(cs.borderRightWidth);
+}
+
+/** The button's box in the control's own pixels (from its padding edge, in its scrolled content, where the piece is placed),
+ *  whatever scale an ancestor is drawn at, where the button rests; null while either has no box (hidden, or its card not yet open). */
 export function boxIn(ctl, btn) {
-  const c = ctl.getBoundingClientRect(), b = btn.getBoundingClientRect(), w = ctl.offsetWidth;
+  const c = ctl.getBoundingClientRect(), b = btn.getBoundingClientRect();
+  const w = (typeof getComputedStyle === 'function' && borderW(getComputedStyle(ctl))) || ctl.offsetWidth;
   if (!c.width || !b.width || !w) return null;
   const k = c.width / w;
   // (Where the button rests, not where a slide of its own draws it now: the view pill's buttons fold in and out by a translate
   // (pill-motion.js), and a box read mid-fold left the piece off its button once the fold ended, as no resize follows a transform:
   // the Lobule pill sat 13 px right of its word on iPhone, 2 Nov 2026.)
   const [dx, dy] = shiftNow(btn);
-  return { x: (b.left - c.left) / k - ctl.clientLeft - dx, y: (b.top - c.top) / k - ctl.clientTop - dy, w: b.width / k, h: b.height / k };
+  return { x: (b.left - c.left) / k - ctl.clientLeft - dx + (ctl.scrollLeft || 0), y: (b.top - c.top) / k - ctl.clientTop - dy + (ctl.scrollTop || 0), w: b.width / k, h: b.height / k };
 }
 
 const same = (a, b) => !!a && !!b && Math.abs(a.x - b.x) < .05 && Math.abs(a.y - b.y) < .05 && Math.abs(a.w - b.w) < .05 && Math.abs(a.h - b.h) < .05;
@@ -70,9 +83,22 @@ export function startSegGlide(root = document.body, search = typeof location !==
     const seen = new Set();
     for (const e of entries) {
       const ctl = e.target.closest?.(SEL);
-      if (ctl && states.has(ctl) && !seen.has(ctl)) { seen.add(ctl); settle(ctl, false); }
+      if (ctl && states.has(ctl) && !seen.has(ctl)) { seen.add(ctl); queue(ctl, false); }
     }
   }) : null;
+  // (The observers only note which controls to place; the measuring runs in a rest pass, between frames and after the task that
+  // changed the buttons, so a fold started in that task is already on them and taken off (boxIn): S4, 2 Nov.)
+  let queued = new Map(), restId = 0;
+  function queue(ctl, choice) {
+    queued.set(ctl, queued.get(ctl) || choice);
+    if (!restId) restId = restPass(settleQueued);
+  }
+  function settleQueued() {
+    restId = 0;
+    const now = queued;
+    queued = new Map();
+    for (const [ctl, choice] of now) settle(ctl, choice);
+  }
 
   // The piece at a box. `still`: with no transition, and flushed, so the next style pass finds nothing to animate.
   // The piece as drawn now (its own px in the control): where it is and how large, its transition included.
@@ -164,7 +190,7 @@ export function startSegGlide(root = document.body, search = typeof location !==
         for (const c of found) hit.set(c, hit.get(c) || false);
       }
     }
-    for (const [ctl, choice] of hit) settle(ctl, choice);
+    for (const [ctl, choice] of hit) queue(ctl, choice);
   });
 
   const all = new Set(); gather(root, all);
