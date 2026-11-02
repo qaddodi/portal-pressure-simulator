@@ -216,7 +216,7 @@ test('the labels stay on their own canvas; what they drew is told to the glass d
   assert.doesNotMatch(STAGE, /createLabelGL\([^)]*host:/);
   // (At the end of each picture laid, the glasses' turns: every blur first, then every glass, lowest turn first; a snapshot is the
   // figure alone, then laid again whole as it shows.)
-  assert.match(VG, /function present\(top = true\) \{/);
+  assert.match(VG, /function present\(top = true, again = false\) \{/);
   assert.match(VG, /if \(top && tops\.length\) \{\n\s+for \(const t of tops\.slice\(\)\) \{ try \{ t\.prep\?\.\(\); t\.fails = 0; \}[^\n]*\n\s+for \(const t of tops\.slice\(\)\) \{ try \{ t\.draw\(\); t\.fails = 0; \}/);
   assert.match(VG, /add\(t\) \{ tops\.push\(t\); tops\.sort\(\(a, b\) => \(a\.order \|\| 0\) - \(b\.order \|\| 0\)\);/);
   assert.match(VG, /snapshot\(\) \{ present\(false\); const url = canvas\.toDataURL\('image\/png'\); if \(tops\.length\) present\(\); return url; \}/);
