@@ -494,6 +494,7 @@ function tweener(draw) {
   };
   run.again = () => { if (cur) draw(cur); };   // (the same frame again, after the geometry moved)
   run.has = () => !!cur;
+  run.stop = () => { cancelFrame(raf); raf = 0; };   // (a glide under way ends where it is; nothing is drawn after)
   run.jump = (to) => { cancelFrame(raf); cur = { ...to }; draw(cur); };   // (straight to the end, its glide left to the compositor: tileGlide)
   return run;
 }
@@ -583,7 +584,7 @@ function railBlock() {
  *  tile also says how far it moved from there, green when it went the better way (and plain within normal). */
 function bigTiles() {
   const el = h('div', { class: 'pz-tiles' });
-  let sig = '', parts = [], draw = null, goal = false, tileArgs = null, tileAsk = 0;
+  let sig = '', parts = [], draw = null, goal = false, tileArgs = null, tileAsk = 0, picT = null, tileRO = null, dead = false;
   // (R19: a tile's number as shown, and set: through its GPU words while the model ticks, into the page at once (now) while a slide's
   // roll is set up or the fit measures.)
   let sync = false;
@@ -623,12 +624,14 @@ function bigTiles() {
     }
   }
   let fitRaf = 0, fitShape = '';
-  const fitSoon = () => { cancelRest(fitRaf); fitRaf = restPass(fit); };   // (measured between frames, never in one: rest-pass.js)
-  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(fitSoon).observe(el);
+  const fitSoon = () => { if (dead) return; cancelRest(fitRaf); fitRaf = restPass(fit); };   // (measured between frames, never in one: rest-pass.js)
+  if (typeof ResizeObserver !== 'undefined') (tileRO = new ResizeObserver(fitSoon)).observe(el);
   el.classList.toggle('tglide', TILE_GLIDE && odoOn());   // (the bar's marks glide on the compositor: tileGlide)
   document.fonts?.ready?.then(fitSoon);
   function buildTiles(ks, withRef) {
-    for (const p of parts || []) p.vw?.dispose();   // (recs §8: the tiles they wrote are replaced; their GPU words go with them)
+    if (dead) return;
+    picT?.stop(); picT = null;
+    for (const p of parts || []) { p.vw?.dispose(); p.pic?.dispose(); }   // (recs §8: the tiles they wrote are replaced; their GPU words and scope picture go with them)
     parts = ks.map((k) => {
       const T = tileOf(k) || { t: k, s: '', u: '' };
       const v = h('span', { class: 'pzt-v' }), u = h('small', {}, T.u), r = h('span', { class: 'pzt-r' });
@@ -655,7 +658,7 @@ function bigTiles() {
     el.dataset.n = String(parts.length);
     // (The numbers, ratings and marks are written at a value's end, never counted frame by frame (2 Nov 2026, "Move everything to GPU": a
     // count wrote each tile's text on every frame); only the endoscopic view, a GPU picture, follows its value through the ease.)
-    const picT = parts.some((p) => p.pic) ? tweener((f) => parts.forEach((p) => { if (p.pic) p.pic.set(f.varix); })) : null;
+    picT = parts.some((p) => p.pic) ? tweener((f) => parts.forEach((p) => { if (p.pic) p.pic.set(f.varix); })) : null;
     let cur = null;
     draw = { has: () => !!cur, jump: (to) => { cur = { ...to }; write(cur); }, go: (to, ms) => { draw.jump(to); picT?.(to, ms); } };
     const write = (f) => parts.forEach((p) => {
@@ -730,7 +733,17 @@ function bigTiles() {
     el,
     // (Painted between frames, never in one: a slide's new tiles are built and their words written in a rest pass, the latest call's
     // values winning, so a frame writes nothing into the tiles (2 Nov 2026, "Move everything to GPU").)
-    paintTiles(...args) { tileArgs = args; if (!tileAsk) tileAsk = restPass(() => { tileAsk = 0; paintTilesNow(...tileArgs); }); },
+    /** Lets go of everything the tiles own: their GPU words, the scope picture, its glide, the fit and the held frame. Idempotent. */
+    dispose() {
+      if (dead) return;
+      dead = true;
+      cancelRest(tileAsk); tileAsk = 0; cancelRest(fitRaf); fitRaf = 0; tileArgs = null; held = null;
+      tileRO?.disconnect(); tileRO = null; heldObs?.disconnect(); heldObs = null;
+      picT?.stop(); picT = null;
+      for (const p of parts) { p.vw?.dispose(); p.pic?.dispose(); }
+      parts = []; draw = null;
+    },
+    paintTiles(...args) { if (dead) return; tileArgs = args; if (!tileAsk) tileAsk = restPass(() => { tileAsk = 0; paintTilesNow(...tileArgs); }); },
   };
   function paintTilesNow(f, ks, key = [], ref = null, ms, tips = false, live = false) {
     {
@@ -5785,7 +5798,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     cancelFrame(slip.raf); slip.d = null; slip.h0 = null; stage.followEnd?.();
     clearTimeout(idleT); clearTimeout(dock.fit); cancelFrame(dock.raf); dock.lvl = 0; dock.to = 0; dock.drag = false; dock.auto = false; dock.autoKey = '';
     dataOn = textOn = null; keepNow = NO_KEEP; keepSnap = null; keepBad = []; keepArgs = null;
-    pillW = 0; ui?.zoom.reset(); ui?.tools.dispose(); ui?.figKey.dispose(); ui?.glass?.dispose(); ui?.lipRO?.disconnect(); ui?.root.remove(); ui?.shade.remove(); ui = null; app.classList.remove('pz-blacked');
+    pillW = 0; ui?.zoom.reset(); ui?.tools.dispose(); ui?.tiles?.dispose(); ui?.figKey.dispose(); ui?.glass?.dispose(); ui?.lipRO?.disconnect(); ui?.root.remove(); ui?.shade.remove(); ui = null; app.classList.remove('pz-blacked');
     view.classList.remove('pz-out');
     for (const k of ['--pz-l', '--pz-r', '--pz-t', '--pz-b']) app.style.removeProperty(k);
     stage.lobuleHold?.(false);   // (a way out of the lobule left unfinished: the lobule follows the free space again)

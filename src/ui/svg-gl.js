@@ -15,8 +15,8 @@
 
 import { createTraceGL, fitPen } from './trace-gl.js?v=03ce64b02b';
 import { flattenPath, elBox } from './shape-gl.js?v=fde1af982c';
-import { finalFrameFor, easeNow } from './frame.js?v=26e2e46fff';
-import { restPass } from './rest-pass.js?v=f6a3355959';
+import { finalFrameFor, easeNow, cancelFrame } from './frame.js?v=26e2e46fff';
+import { restPass, cancelRest } from './rest-pass.js?v=f6a3355959';
 import { cssCurve, D_SURFACE, EASE_ARRIVE } from './ease.js?v=7513a88c68';
 import { cssColor } from './css-color.js?v=e56f0c77ae';
 import { morphSvg } from './svg-morph.js?v=979224c12c';
@@ -595,14 +595,14 @@ export function createSvgGL(box) {
   cv.className = 'svg-gl';
   cv.setAttribute('role', 'img');
   box.prepend(cv);
-  const g = { box, cv, gpu: null, until: 0, ask: 0, lookAsk: 0, ins: new Map() };
+  const g = { box, cv, gpu: null, until: 0, ask: 0, lookAsk: 0, ins: new Map(), dead: false, timers: new Set() };
   live.add(g);
   // (A drawing swapped in during a frame waits off the page, pending, and is drawn from there; it joins the box between frames.)
   const models = () => { const m = [...box.children].filter((c) => c.hasAttribute?.('data-svg-model')); if (g.pending && !g.pending.isConnected) m.push(g.pending); return m; };
-  const connect = () => { g.connAsk = 0; const r = g.pending; g.pending = null; if (r && !r.isConnected) box.append(r); };
+  const connect = () => { g.connAsk = 0; if (g.dead) { g.pending = null; return; } const r = g.pending; g.pending = null; if (r && !r.isConnected) box.append(r); };
   function draw() {
     g.ask = 0;
-    if (!cv.isConnected) return;
+    if (g.dead || !cv.isConnected) return;
     const pen = fitPen(cv, g.gpu), { ctx, w, h } = pen;
     const now = easeNow();
     easing = false;
@@ -635,7 +635,7 @@ export function createSvgGL(box) {
   g.paint = () => { if (!g.ask) g.ask = finalFrame(draw); };
   g.wake = (ms) => { g.until = Math.max(g.until, easeNow() + ms); g.paint(); };
   g.cache = new Map();
-  function lookRead() { g.lookAsk = 0; g.cache.clear(); g.pk = placeKey(box); let ms = 0; for (const root of models()) ms = Math.max(ms, readLooks(root, false, g.cache, g.pk)); if (ms) g.wake(ms + 20); else g.paint(); }
+  function lookRead() { g.lookAsk = 0; if (g.dead) return; g.cache.clear(); g.pk = placeKey(box); let ms = 0; for (const root of models()) ms = Math.max(ms, readLooks(root, false, g.cache, g.pk)); if (ms) g.wake(ms + 20); else g.paint(); }
   g.relook = () => { if (!g.lookAsk) g.lookAsk = restPass(lookRead); };
   // (A drawing's look is read as it is placed, once, in the task that builds it (a slide's change, a resize), so its first frame draws it
   // whole: a morph hides the old drawing's pieces in that same task.)
@@ -672,7 +672,8 @@ export function createSvgGL(box) {
     box.append(root);
     g.place(root);
     g.fadeIn(root, D_SURFACE, EASE_ARRIVE);
-    setTimeout(() => restPass(() => { old.forEach((o) => o.remove()); g.paint(); }), 480);
+    const t = setTimeout(() => { g.timers.delete(t); if (!g.dead) restPass(() => { if (g.dead) return; old.forEach((o) => o.remove()); g.paint(); }); }, 480);
+    g.timers.add(t);
   };
   // (A drawing built afresh in a frame, in place of the one before: its pieces take the looks of the ones before them like them.)
   // (Never put on the page in the frame: it is drawn from where it waits, with the looks of the pieces before it, and joins the box in a
@@ -686,7 +687,18 @@ export function createSvgGL(box) {
   /** What the picture holds (the browser checks and ?perf read it): its drawings, those with their looks read, the looks kept. */
   g.stat = () => { const ms = models(); return { models: ms.length, looked: ms.filter((r) => looks.has(r)).length, pieces: ms.reduce((n, r) => n + r.querySelectorAll('*').length, 0), unlooked: ms.reduce((n, r) => n + [...r.querySelectorAll('*')].filter((e) => !looks.has(e)).length, 0), cache: g.cache.size, w: cv.width, h: cv.height }; };
   g.clear = () => { for (const o of models()) o.remove(); g.pending = null; g.paint(); };
-  g.dispose = () => { live.delete(g); g.mo?.disconnect?.(); g.ro?.disconnect?.(); g.gpu?.dispose(); };
+  // (Disposed once and for good: the frame, the rest passes and the entrance timers are cancelled, the pending drawing and the entrance
+  // records let go, and every mutator becomes a no-op, so nothing can attach a model or ask for a frame afterwards.)
+  g.dispose = () => {
+    if (g.dead) return;
+    g.dead = true;
+    live.delete(g); g.mo?.disconnect?.(); g.ro?.disconnect?.();
+    cancelFrame(g.ask); cancelRest(g.lookAsk); cancelRest(g.connAsk); g.ask = g.lookAsk = g.connAsk = 0;
+    for (const t of g.timers) clearTimeout(t);
+    g.timers.clear(); g.ins.clear(); g.pending = null; g.cache.clear();
+    for (const k of ['paint', 'wake', 'relook', 'place', 'adopt', 'fadeEl', 'fadeIn', 'show', 'swap', 'clear']) g[k] = () => {};
+    g.gpu?.dispose();
+  };
   box._svgGL = g;
   return g;
 }

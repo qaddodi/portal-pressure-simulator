@@ -99,7 +99,8 @@ export function createVitalsGL(cv) {
   let gl = null;
   try { gl = cv.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, preserveDrawingBuffer: false }); } catch { gl = null; }
   if (!gl) return null;
-  let R = null, lost = false;
+  let R = null, lost = false, dead = false, cancelPub = null;
+  const mine = new Set();   // (this monitor's redraw asks in the shared waiting set: removed on dispose)
   let atlasIn = false;   // (the atlas's image is in this context's texture)
 
   function init() {
@@ -131,9 +132,10 @@ export function createVitalsGL(cv) {
       glyph: mk([[1, 4, 52, 0], [2, 4, 52, 16], [3, 4, 52, 32], [4, 1, 52, 48]]),
     };
     atlasIn = false;
-    if (ATLAS_IDLE) publishWhenDone(gl, Object.values(progs), () => { if (R && !lost && publish()) atlasReady(); });
+    if (cancelPub) { try { cancelPub(); } catch { /* already done */ } cancelPub = null; }
+    if (ATLAS_IDLE) cancelPub = publishWhenDone(gl, Object.values(progs), () => { cancelPub = null; if (!dead && R && !lost && publish()) atlasReady(); });
   }
-  const taker = () => { if (R && !lost && !gl.isContextLost()) atlasReady(); };
+  const taker = () => { if (!dead && R && !lost && !gl.isContextLost()) atlasReady(); };
   if (ATLAS_IDLE && !atlasImage) atlasTakers.add(taker);
   function publish() {
     if (R.ready) return true;
@@ -151,14 +153,16 @@ export function createVitalsGL(cv) {
     } catch (e) { R.failed = String(e?.message || e); return false; }
     return true;
   }
-  cv.addEventListener('webglcontextlost', (e) => { e.preventDefault(); lost = true; R = null; });
-  cv.addEventListener('webglcontextrestored', () => { lost = false; init(); });
+  const onLost = (e) => { e.preventDefault(); lost = true; R = null; };
+  const onRestored = () => { if (dead) return; lost = false; init(); };
+  cv.addEventListener('webglcontextlost', onLost);
+  cv.addEventListener('webglcontextrestored', onRestored);
   init();
 
   /** Puts the atlas's image in the texture once it is decoded (an upload of the image, once per context). False until then. */
   function atlasReady(redraw) {
     if (atlasIn) return true;
-    if (!atlasImage) { if (redraw) waiting.add(redraw); return false; }
+    if (!atlasImage) { if (redraw && !dead) { waiting.add(redraw); mine.add(redraw); } return false; }
     gl.bindTexture(gl.TEXTURE_2D, R.tex);
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, atlasImage);
@@ -188,7 +192,7 @@ export function createVitalsGL(cv) {
   }
 
   return {
-    get ready() { return !!R && !lost && publish(); },
+    get ready() { return !dead && !!R && !lost && publish(); },
     get lost() { return lost || gl.isContextLost(); },
     get failed() { return R?.failed || null; },
     /**
@@ -197,7 +201,7 @@ export function createVitalsGL(cv) {
      * redraw: called once the atlas is in if it was not yet }. False when nothing could be drawn (no program yet, a lost context).
      */
     draw(s) {
-      if (!R || lost || gl.isContextLost() || !publish()) return false;
+      if (dead || !R || lost || gl.isContextLost() || !publish()) return false;
       const { W, H, dpr } = s;
       gl.viewport(0, 0, W, H);
       gl.disable(gl.SCISSOR_TEST);
@@ -235,6 +239,13 @@ export function createVitalsGL(cv) {
       gl.bindVertexArray(null);
       return true;
     },
-    dispose() { atlasTakers.delete(taker); gl.getExtension('WEBGL_lose_context')?.loseContext(); R = null; lost = true; },
+    dispose() {
+      if (dead) return;
+      dead = true;
+      if (cancelPub) { try { cancelPub(); } catch { /* already done */ } cancelPub = null; }
+      cv.removeEventListener('webglcontextlost', onLost); cv.removeEventListener('webglcontextrestored', onRestored);
+      atlasTakers.delete(taker); for (const f of mine) waiting.delete(f); mine.clear();
+      gl.getExtension('WEBGL_lose_context')?.loseContext(); R = null; lost = true;
+    },
   };
 }

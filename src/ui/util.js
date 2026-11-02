@@ -628,13 +628,47 @@ function putFlush() {
   }
 }
 const putLater = (el, t) => { putPend.set(el, t); if (!putAsk) putAsk = restPass(putFlush); };
+// (The implicit wrappers made here are kept in a registry of their own, so a view's teardown can let them go: the WeakMap above does not,
+// as glWords' own registry and its themed set hold each wrapper, its element and its observers until dispose(). releaseWords(root) is that
+// release, called where transient content leaves the page; a sweep in a rest pass also frees those whose element has left the page, so
+// a view that forgot to call it does not grow the registry without bound. A released readout is made again by putText if it is
+// put back on the page.)
+const implicitW = new Set();
+let sweepAt = 48, sweepAsk = 0;
+function dropWords(el) {
+  implicitW.delete(el);
+  const w = wordsOfEl.get(el);
+  wordsOfEl.delete(el);
+  if (!w) return 0;
+  if (putPend.has(el)) { const t = putPend.get(el); putPend.delete(el); if (el.textContent !== t) el.textContent = t; }
+  w.dispose();
+  return 1;
+}
+function sweepWords() {
+  sweepAsk = 0;
+  for (const el of [...implicitW]) if (!el.isConnected) dropWords(el);
+  sweepAt = Math.max(48, implicitW.size * 2);
+}
+/** Lets go of the GPU words put on `root` and everything inside it (putText made them for its readouts): their observers, registry
+ *  places and drawings. Call it before removing or replacing transient content. Returns how many were released. */
+export function releaseWords(root) {
+  if (!root) return 0;
+  let n = 0;
+  for (const el of [...implicitW]) if (el === root || root.contains?.(el)) n += dropWords(el);
+  return n;
+}
+/** How many implicit wrappers putText holds (the teardown checks read it). */
+export const implicitWordsLive = () => implicitW.size;
 export const putText = (el, t) => {
   t = String(t ?? '');
   if (putPend.has(el)) { putPend.set(el, t); return; }
   let w = wordsOfEl.get(el);
   if (!w && el.isConnected && !odos.has(el)) {
     const n = el.firstChild;
-    if (!n || (n.nodeType === 3 && !n.nextSibling)) wordsOfEl.set(el, w = glWords(el));
+    if (!n || (n.nodeType === 3 && !n.nextSibling)) {
+      wordsOfEl.set(el, w = glWords(el)); implicitW.add(el);
+      if (implicitW.size >= sweepAt && !sweepAsk) sweepAsk = restPass(sweepWords);
+    }
   }
   if (w?.disposed) { wordsOfEl.delete(el); w = null; }
   if (w && !odos.has(el)) {
@@ -762,7 +796,7 @@ export function closePopover() {
   // (A menu already out of the page has nothing to fade or remove. With Reduce Motion it still fades: app.css turns popOut into a fade.)
   // A sheet swiped away is already sliding down; it leaves when it is out of sight.
   // (Over the thumb dock it sinks behind the tab row, as the cards do, in the same step: a leave is one flip, app.css thumbOut.)
-  if (el.isConnected) { const ms = D_FLIP; const leave = () => el.classList.add('leaving'); if (el.dataset.swiped) leave(); else leaveFromHere(el, leave); el.inert = true; markGone(el.dataset.swiped ? 0 : ms); setTimeout(() => restRemove(el), el.dataset.swiped ? D_SMALL : ms + 10); }
+  if (el.isConnected) { const ms = D_FLIP; const leave = () => el.classList.add('leaving'); if (el.dataset.swiped) leave(); else leaveFromHere(el, leave); el.inert = true; markGone(el.dataset.swiped ? 0 : ms); setTimeout(() => { releaseWords(el); restRemove(el); }, el.dataset.swiped ? D_SMALL : ms + 10); }
   restAttr(openMenu.anchor, 'aria-expanded', 'false'); openMenu.cleanup();
   lastMenu = { anchor: openMenu.anchor, t: performance.now() };
   openMenu = null;

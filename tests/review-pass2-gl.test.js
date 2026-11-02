@@ -195,8 +195,8 @@ test('no glyph atlas is sent and no program published inside the frame that firs
   assert.match(trace, /if \(!atlasIn\) \{\n(?:\s+\/\/[^\n]*\n)*\s+sendAtlasSoon\(\); return false;\n\s+\}/, 'charts: the atlas goes up at an idle moment, the chart drawn then');
   assert.match(trace, /P = out; lost = false;\n\s+sendAtlas\(\);/, 'charts: the atlas goes up with the programs');
   const vitals = src('vitals-gl.js');
-  assert.match(vitals, /if \(ATLAS_IDLE\) publishWhenDone\(gl, Object\.values\(progs\), \(\) => \{ if \(R && !lost && publish\(\)\) atlasReady\(\); \}\);/);
-  assert.match(vitals, /dispose\(\) \{ atlasTakers\.delete\(taker\);/, 'a disposed monitor is let go of');
+  assert.match(vitals, /if \(ATLAS_IDLE\) cancelPub = publishWhenDone\(gl, Object\.values\(progs\), \(\) => \{ cancelPub = null; if \(!dead && R && !lost && publish\(\)\) atlasReady\(\); \}\);/);
+  assert.match(vitals, /atlasTakers\.delete\(taker\);/, 'a disposed monitor is let go of');
   assert.match(src('doppler-gl.js'), /if \(waitingDraw\) \{ waitingDraw = false; try \{ onReady\?\.\(\); \}/, 'the monitor is drawn again once published');
   assert.match(src('endo-gl.js'), /if \(lost \|\| wanted\) \{ lost = false; wanted = false; try \{ onBack\?\.\(\); \}/, 'the field is drawn again once published');
   assert.match(src('instruments.js'), /if \(gk !== glKey && !gl\.pending\) \{/, 'no field is shaded while its program compiles');

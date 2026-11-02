@@ -377,7 +377,8 @@ const premul = (c, alpha = 1) => { const v = rgba(c), a = v[3] * alpha; return [
 export function createTraceGL(host, { redraw = null, under = null } = {}) {
   // (canvasSize never measures: a chart drawn before the observer reported its box drew nothing, and draws again once it has one,
   // with or without this drawer)
-  if (redraw && host && typeof ResizeObserver !== 'undefined') onCanvasSized(host, redraw);
+  let unsized = null;   // (the size subscription's release, called by dispose)
+  if (redraw && host && typeof ResizeObserver !== 'undefined') unsized = onCanvasSized(host, redraw);
   if (typeof document === 'undefined') return null;
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = 1;
@@ -1030,7 +1031,11 @@ export function createTraceGL(host, { redraw = null, under = null } = {}) {
     /** True while the chart is off the screen and its context given back (drawn again by redraw when it returns). */
     get parked() { return parked; },
     dispose() {
+      if (dead) return;   // (idempotent: the listeners, the size subscription and the atlas wait are let go once)
       dead = true; stopPoll?.(); clearTimeout(parkT); seen?.disconnect();
+      unsized?.(); unsized = null;
+      if (redraw) waiting.delete(redraw);
+      glCanvas.removeEventListener?.('webglcontextlost', onLost); glCanvas.removeEventListener?.('webglcontextrestored', onRestored);
       freeOwn();
       try {
         if (!shown) gl.deleteTexture(atlasTex);

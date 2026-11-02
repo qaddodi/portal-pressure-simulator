@@ -8,7 +8,7 @@ import { renderEndo } from './endo-render.js?v=e696f67da4';
 import { endoGrow, LARGE_MM } from './endo-size.js?v=e0a58bf20e';
 import { D_SURFACE, easeArrive } from './ease.js?v=7513a88c68';
 import { createTraceGL, fitPen } from './trace-gl.js?v=03ce64b02b';
-import { frameFor } from './frame.js?v=26e2e46fff';
+import { frameFor, cancelFrame } from './frame.js?v=26e2e46fff';
 
 const RES = 168, STEPS = 14, NONE_MM = 2.5;   // (2.5 mm: below it the metrics call it no varix)
 export const scopeKey = (d) => (Number.isFinite(d) && d >= NONE_MM ? Math.round(endoGrow(d) * STEPS) : -1);
@@ -22,11 +22,12 @@ export function createScopeTile() {
   const el = h('div', { class: 'pzs-pic' }, disc, word);
   const wordW = glWords(word);
   const reduce = matchMedia('(prefers-reduced-motion: reduce)');
-  let key = null, timer = 0, img = null, ver = 0, swap = false, fadeT0 = -1, asked = 0;
+  let key = null, timer = 0, img = null, ver = 0, swap = false, fadeT0 = -1, asked = 0, dead = false;
   const pen = createTraceGL(top, { redraw: () => paint() });
   // (one frame of the picture: the old one under the new while it fades in)
   function paint() {
     asked = 0;
+    if (dead) return;
     const p = fitPen(top, pen), ctx = p.ctx, G = ctx.onGPU === true ? ctx.gpu : null;
     try {
       if (!G || !img) return;
@@ -38,6 +39,7 @@ export function createScopeTile() {
     } finally { ctx.end?.(); }
   }
   function show(k) {
+    if (dead) return;
     const was = img;
     img = renderEndo(RES, { grow: Math.max(0, k) / STEPS, bands: 0, vis: k < 0 ? 0 : 1, red: 0 });
     img.glVer = ++ver;
@@ -49,11 +51,22 @@ export function createScopeTile() {
     el,
     /** d: the varix diameter now, in mm. */
     set(d) {
+      if (dead) return;
       const k = scopeKey(d), w = scopeWord(d);
       wordW.set(w);   // (drawn on the GPU while it changes, gl-words.js)
       if (k === key) return;
       clearTimeout(timer);
       timer = setTimeout(() => show(k), key === null ? 0 : 30);   // (out of the model frame's own work)
+    },
+    /** Lets go of the picture's GPU drawer, its words, its pending frame and its timer. Idempotent; set() does nothing after. */
+    dispose() {
+      if (dead) return;
+      dead = true;
+      clearTimeout(timer); timer = 0;
+      cancelFrame(asked); asked = 0;
+      wordW.dispose();
+      pen?.dispose();
+      img = null; el.remove();
     },
   };
 }

@@ -4,7 +4,7 @@
 // entry in the timeline; nothing stays "armed".
 
 import { store, updateParams } from './store.js?v=afc4d7c743';
-import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout, countTo, swapText, transformEndX, afterExit, markGone } from './util.js?v=c0a2baa85c';
+import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout, countTo, swapText, transformEndX, afterExit, markGone, releaseWords } from './util.js?v=c0a2baa85c';
 import { releaseSpeed, isFlick, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=7513a88c68';
 import { cardFor, normalizeSel } from './actions.js?v=a6cf0cae4b';
 import { frameFor, cancelFrame } from './frame.js?v=26e2e46fff';
@@ -92,7 +92,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
       // (With Reduce Motion both only fade: app.css turns the keyframes into fades.)
       el.classList.add('ac-leaving');
       if (isDocked()) markGone(180);   // (a phone's card sinks like a sheet: whatever opens next waits for it, as it does for a sheet)
-      closeTimer = afterExit(el, 'ac-leaving', () => { el.hidden = true; el.classList.remove('ac-leaving'); });
+      closeTimer = afterExit(el, 'ac-leaving', () => { el.hidden = true; el.classList.remove('ac-leaving'); releaseWords(el); });
     }
     model = null; live = []; syncs = []; actionable = [];
     leader.replaceChildren(); placedFor = '';
@@ -122,7 +122,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     live.push(() => {
       const f = store.get().frame;
       if (!f) return;
-      if (lens() === 'neutral' && model.why !== 'spleen' && model.why !== 'ascites') { if (valEl._sig !== 'n') { valEl._sig = 'n'; numEl.replaceChildren(h('span', { class: 'ac-unmeasured' }, 'Pressure unmeasured')); } }
+      if (lens() === 'neutral' && model.why !== 'spleen' && model.why !== 'ascites') { if (valEl._sig !== 'n') { valEl._sig = 'n'; releaseWords(numEl); numEl.replaceChildren(h('span', { class: 'ac-unmeasured' }, 'Pressure unmeasured')); } }
       else {
         const v = m.value(f, lens(), refP());
         const sig = `${v.v}|${v.u}|${v.d || ''}|${v.up ? 1 : 0}`;
@@ -135,6 +135,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
             const dl = numEl.querySelector('.ac-delta');
             if (dl) { dl.textContent = v.d; dl.className = 'ac-delta ' + (v.up ? 'up' : 'down'); }
           } else {
+            releaseWords(numEl);
             numEl.replaceChildren(h('b', {}, v.v), h('span', { class: 'unit' }, v.u), v.d ? h('span', { class: 'ac-delta ' + (v.up ? 'up' : 'down') }, v.d) : null);
             if (a) countTo(numEl.firstChild, a.n, a.d);   // (its starting point for the next roll)
           }
@@ -182,6 +183,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     const swap = !el.hidden && !same && !!el.animate;
     const was = swap ? [...el.children].filter((c) => !c.classList.contains('ac-ghost')) : [];
     el.querySelector(':scope > .ac-ghost')?.remove();
+    releaseWords(el);   // (the readouts of the content being replaced)
     el.replaceChildren(top, scroller, foot);
     // Another vessel picked while the card is open: its contents fade in, rather than the words changing in one frame, and
     // the old ones fade out over them from a layer on top that takes no taps, instead of vanishing first (round 2 review, RF7).
