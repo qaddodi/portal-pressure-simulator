@@ -21,7 +21,7 @@ import { frameFor, cancelFrame } from './frame.js?v=1d147c7c9a';
 import { createTraceGL, fitPen } from './trace-gl.js?v=2d7b4b37ee';
 import { traceRoom, TRACE_MIN } from './trace-room.js?v=b4c0aaa97f';
 import { rateOf } from './table-marks.js?v=a483b9975e';
-import { PROCS, PROC_KINDS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=462dba6050';
+import { PROCS, PROC_KINDS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=77800f80cd';
 const nextFrame = frameFor('hvpg-proc');
 
 let stageRef = null;

@@ -15,7 +15,7 @@ import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { finalFrameFor, readFrameFor, framePhase, frameCount, cancelFrame, noteDraw } from './frame.js?v=1d147c7c9a';
 import { startProgram, checkProgram, compileDone, exerciseDraw, SHADER_WARM } from './gl-compile.js?v=79231d7c6b';
 import { shiftOf, translateOf, motionAt, movesOnly, clockOf, clockAt, fillsAfter } from './glass-motion.js?v=2b98554adc';
-import { pathPolys, fanTriangles } from './path-poly.js?v=07f30beea9';
+import { pathPolys, fanTriangles } from './path-poly.js?v=01766890c9';
 import { easeArrive, D_SURFACE } from './ease.js?v=7513a88c68';
 import { caught } from './caught.js?v=b96b17594a';
 

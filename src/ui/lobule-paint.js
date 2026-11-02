@@ -3,7 +3,7 @@
 // in it: it draws through a 2D-context API that paint-gl.js records and the GPU paints (1 Nov 2026, nothing off the GPU), from
 // the same plain values (the view's worldInput).
 
-import { cordTone, bandOutline } from './lobule-look.js?v=cf14995b07';
+import { cordTone, bandOutline } from './lobule-look.js?v=6f03da8f1b';
 
 const TAU = Math.PI * 2;
 const lerp = (a, b, t) => a + (b - a) * t;

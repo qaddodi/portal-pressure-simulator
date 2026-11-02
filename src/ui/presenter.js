@@ -32,8 +32,8 @@ import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=94784eec41';
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
 import { hvpgSev } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { createHvpgMonitor } from './hvpg-proc.js?v=4338f5e170';
-import { createTools } from './presenter-tools.js?v=3b33691aa5';
+import { createHvpgMonitor } from './hvpg-proc.js?v=893a0eb0ed';
+import { createTools } from './presenter-tools.js?v=a57c1b83dc';
 import { openHandout } from './handout.js?v=125a20a734';
 import { noteResume, resumeFor } from './resume.js?v=c0f39f9446';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=1eeb480f5f';
@@ -58,7 +58,7 @@ import { anchorsOf, roomFor } from './cam-room.js?v=8420762b17';
 import { beatCount, beatView } from './slide-beats.js?v=2aded612c4';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight, trailKeys } from './flow-time.js?v=8eea327b5b';
-import { PROCS, procBlocked, procOffered, playProcedure, stepMark } from './proc-anim.js?v=462dba6050';
+import { PROCS, procBlocked, procOffered, playProcedure, stepMark } from './proc-anim.js?v=77800f80cd';
 import { createInsetHold } from './inset-hold.js?v=e34b1d5a56';
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=982397f8fb';
 import { createCardZoom, tapTracker } from './card-zoom.js?v=ec8cdd1b1f';
@@ -996,7 +996,7 @@ function makeCalc() {
   const ready = (async () => {
     let w = null;
     try {
-      w = new Worker(new URL('../worker.js?v=9ea8f6048f', import.meta.url), { type: 'module' });
+      w = new Worker(new URL('../worker.js?v=d9d78d2320', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 15000);   // (long: a slow load still gets the worker; host.js)
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -1010,7 +1010,7 @@ function makeCalc() {
     } catch {
       if (w) { w.onmessage = w.onerror = null; w.terminate(); }   // (a worker that never said hello: not left running beside the page's own engine)
       try {
-        const { createCore } = await import('../worker-core.js?v=60e8598629');
+        const { createCore } = await import('../worker-core.js?v=71fb997a97');
         const core = createCore((m) => setTimeout(() => onMsg(m), 0));
         core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
         post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();

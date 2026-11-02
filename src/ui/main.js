@@ -4,17 +4,17 @@
 import { motionBudget } from './motion-budget.js?v=89246e0c5f';   // (first: counts from the start when ?perf or ?budget=1 asks)
 import { budget as gpuBudget } from './gpu-budget.js?v=5a5dcd699f';   // (the render graph's registry and pass counts, R06: before any context is made)
 import './gl-state.js?v=4163c507aa';   // (early: every WebGL2 context is recorded from its creation, R09/R06)
-import { startHost, host, hostFailed, restartHost } from './host.js?v=ea2e49890b';
+import { startHost, host, hostFailed, restartHost } from './host.js?v=b516d4de3e';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=a21c31dcb5';
-import { createStage } from './stage.js?v=4195ad3117';
+import { createStage } from './stage.js?v=28c4c91f8a';
 import { createCreditPlacer } from './credit.js?v=11cd116265';
 import { whenQuiet, booting, holdCover } from './quiet.js?v=388052eba8';
 import { sinusoidSupported } from './gl-support.js?v=6219c6f004';
 import { createInspector } from './inspector.js?v=4f1d4b5823';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=66d0913543';
-import { setHvpgStage } from './hvpg-proc.js?v=4338f5e170';
-import { createWhy } from './why.js?v=4392dd72dc';
-import { createTimeline, LAPSES } from './timeline.js?v=e4a4df4fce';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=808254612b';
+import { setHvpgStage } from './hvpg-proc.js?v=893a0eb0ed';
+import { createWhy } from './why.js?v=7686e520bc';
+import { createTimeline, LAPSES } from './timeline.js?v=d26a4b204e';
 import { createCompare } from './compare.js?v=19fbfe9934';
 import { createCard } from './card.js?v=4aecaeabbb';
 import { createChart } from './chart.js?v=b996889a82';
@@ -61,7 +61,7 @@ import { sizeOf, watchSize, rectsSoon, restTask } from './geom.js?v=254133713c';
 import { feedbackDiagnostics } from './feedback-diag.js?v=75097a9d74';
 import { noteJump } from './display-state.js?v=8d062d39dc';
 import { createIdleRest } from './idle-rest.js?v=4d23822371';
-import { pillState, foldPill, stopFold } from './pill-motion.js?v=ec251ccf2c';
+import { pillState, foldPill, stopFold } from './pill-motion.js?v=8285fcf7eb';
 import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=6329c6ef1f';
 import { readAnims, readBox, readElAt, readMetric, readStyle, scrollInto } from './layout-snap.js?v=f609965236';
 import './scroll-edges.js?v=2e0bd0ab5e';   // (soft fades at the ends of lists that scroll, only where there is more; ?edges=0 off)
@@ -214,7 +214,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=dc4efc42be'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=c653f508a4'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({

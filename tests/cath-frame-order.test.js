@@ -53,7 +53,7 @@ test('the catheter\'s step moves the camera before its readings are laid out, in
   assert.equal((hv.match(/labels, follow,/g) || []).length, 2);
   // (a treatment follows its tip in only on its first step, once that shot has landed: proc-anim.js, his ask 29 Oct)
   assert.match(pa, /ring: null, clock: 0, opacity: 0, labels: \[\], keep: true, follow: false \};/);
-  assert.match(pa, /cat\.follow = f\.shot === 'way' && shot === 'way' && !stage\.gliding\?\.\(\);\n    stage\.setCatheter\(cat\);/);
+  assert.match(pa, /cat\.follow = f\.shot === 'way' && shot === 'way' && !stage\.gliding\?\.\(\);\n {4}stage\.setCatheter\(cat\);/);
   for (const src of [hv, pa, read('src/ui/presenter.js')]) assert.doesNotMatch(src, /cathFollow/);
 });
 
