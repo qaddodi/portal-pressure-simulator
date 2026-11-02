@@ -16,6 +16,7 @@
 import { flattenPath, flattenCmds, ellipsePoly, polyBox, polyMesh, prestartShapes } from './shape-gl.js?v=d13987be06';
 import { prestart, linkProgram } from './gl-compile.js?v=3e750c4fef';
 import { strHash } from './liver-geo.js?v=977185f80a';
+import { getLive } from './live-style.js?v=334be862fb';
 // (The colour a clear writes, one array for every clear: none made per call, plan rev 2 §2.8.)
 const CLEAR0 = new Float32Array(4);
 
@@ -352,7 +353,7 @@ export function cssTransformed(el, cs) {
 
 // The computed opacities read with a group (by element), for the chain elements whose own setting is not inline.
 const CS_O = new WeakMap(), CS_FO = new WeakMap(), CS_SO = new WeakMap();
-const ownV = (el, prop, attr) => { const v = el.style?.[prop]; if (v != null && v !== '') return v; const a = el.getAttribute(attr); return a != null && a !== '' ? a : null; };
+const ownV = (el, prop, attr) => { const h = getLive(el, prop); if (h != null && h !== '') return h; const v = el.style?.[prop]; if (v != null && v !== '') return v; const a = el.getAttribute(attr); return a != null && a !== '' ? a : null; };
 const ownO = (el) => ownV(el, 'opacity', 'opacity') != null;
 const ownFO = (el) => ownV(el, 'fillOpacity', 'fill-opacity') != null;
 const ownSO = (el) => ownV(el, 'strokeOpacity', 'stroke-opacity') != null;

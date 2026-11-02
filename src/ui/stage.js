@@ -237,6 +237,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // cards' boxes read ten times a second through the slide; a card that grows with a new reading is seen by its own size watch.)
   store.on('*', (keys) => { if (keys.some((k) => k !== 'frame' && k !== 'params')) watch.touch(); }, { frames: false });
   svg.setAttribute('viewBox', `0 0 ${VIEW.w} ${VIEW.h}`);
+  const vbBox = { x: 0, y: 0, width: VIEW.w, height: VIEW.h };   // (the view box as set: read from here, never back from the attribute, see setViewBox)
   svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
 
   // ── Geometry sampling ──────────────────────────────
@@ -1336,6 +1337,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       let m = geoHeld.get(el);
       if (!m) geoHeld.set(el, (m = {}));
       m[k] = v;
+      if (k.startsWith('style:')) setLive(el, k.slice(6), v);   // (the painters read it from here, live-style.js)
       if (geoT) clearTimeout(geoT);
       geoT = setTimeout(geoQuiet, GEO_QUIET);
       return;
@@ -1345,7 +1347,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     putG(el, k, v);
   }
   function putG(el, k, v) {
-    if (k.startsWith('style:')) { const p = k.slice(6); if (el.style[p] !== v) el.style[p] = v; } else if (v == null) el.removeAttribute(k); else el.setAttribute(k, v);
+    if (k.startsWith('style:')) { const p = k.slice(6); dropLive(el, p); if (el.style[p] !== v) el.style[p] = v; } else if (v == null) el.removeAttribute(k); else el.setAttribute(k, v);
   }
   // (A vessel's own gradient colours on the hidden SVG: nothing reads them while the GPU draws (the vessels' colours go to it as their
   // rows), so they wait until the SVG shows again (gl-off), not only for the shapes to hold still: a slide change wrote 1,200 of them at
@@ -1708,7 +1710,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   provideStage({ box: stageBox, ctm: () => { if (!CTM) refreshCTM(); return CTM; }, sides: saSides });
   let ctmLast = null;
   function refreshCTM() {
-    const b = stageBox(), vb = svg.viewBox.baseVal;
+    const b = stageBox(), vb = vbBox;
     const s = Math.min(b.sw / vb.width, b.sh / vb.height);
     const ox = b.left + b.sx + (b.sw - vb.width * s) / 2 - vb.x * s, oy = b.top + b.sy + (b.sh - vb.height * s) / 2 - vb.y * s;
     // world → view box: translate(vt) · scale(k) · rotate(θ about the circuit's centre); then the view box → screen.
@@ -1734,11 +1736,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return [CTM.a * x + CTM.c * y + CTM.e - wrapRect.left, CTM.b * x + CTM.d * y + CTM.f - wrapRect.top];
   }
   function clientToWorld(cx, cy) {
-    flushVT();
+    flushVT(); if (geoHeld.size) flushGeo();
     const m = world.getScreenCTM().inverse();
     return [m.a * cx + m.c * cy + m.e, m.b * cx + m.d * cy + m.f];
   }
   function clientToVB(cx, cy) {
+    if (geoHeld.size) flushGeo();
     const m = svg.getScreenCTM().inverse();
     return [m.a * cx + m.c * cy + m.e, m.b * cx + m.d * cy + m.f];
   }
@@ -2102,7 +2105,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // free space, which stays where it is on screen.
   let rotHold = null;
   function holdView(hd) {
-    const b = stageBox(), vb = svg.viewBox.baseVal, s0 = Math.min(b.sw / vb.width, b.sh / vb.height);
+    const b = stageBox(), vb = vbBox, s0 = Math.min(b.sw / vb.width, b.sh / vb.height);
     const ox = b.left + b.sx + (b.sw - vb.width * s0) / 2 - vb.x * s0, oy = b.top + b.sy + (b.sh - vb.height * s0) / 2 - vb.y * s0;
     const k = hd.sc / s0, th = (rotDeg() * Math.PI) / 180, co = Math.cos(th), si = Math.sin(th);
     const dx = hd.w[0] - CIRC_C[0], dy = hd.w[1] - CIRC_C[1];
@@ -2442,7 +2445,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!liverBB && organEls.liver) { const b = elBox(organEls.liver); if (b?.width) liverBB = { x: b.x, y: b.y, w: b.width, h: b.height }; }   // (in script: elBox)
     return liverBB;
   }
-  function vbCenter() { const b = svg.viewBox.baseVal; return [b.x + b.width / 2, b.y + b.height / 2]; }
+  function vbCenter() { const b = vbBox; return [b.x + b.width / 2, b.y + b.height / 2]; }
   function syncSemantic() {
     if (!lz) return;
     // Turning to the circuit closes the lobule view.
@@ -2760,7 +2763,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (store.get().lobule) store.set({ lobule: false });
     const lb = liverBox(); if (!lb) return;
     fitted = false;
-    const b = svg.viewBox.baseVal;
+    const b = vbBox;
     animateVT(vtFor(lb.x + lb.w / 2, lb.y + lb.h / 2, clamp(Math.min(b.width / lb.w, b.height / lb.h) * 0.92, 2, 3)));
   }
   // The lobule is a view of its own (Anatomy · Circuit · Lobule): it opens over the figure and closes
@@ -3070,10 +3073,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
 
   // The view box morphs from the anatomy's to the circuit's, wide or (turned) tall.
+  // (The box itself is kept here, not read back from the attribute: while the GPU draws, the attribute is written once the figure rests
+  // (setG; flushGeo before anything asks the browser for the figure's matrix), as nothing on the page shows the SVG model then.)
   function setViewBox(t) {
-    const rr = rotEase(rotU), vb = VB_ANAT.map((a, i) => lerp(a, lerp(VB_CIRC[i], VB_CIRC_R[i], rr), t));
-    svg.setAttribute('viewBox', vb.map((v) => v.toFixed(1)).join(' '));
-    svgOver?.setAttribute('viewBox', svg.getAttribute('viewBox'));
+    const rr = rotEase(rotU), vb = VB_ANAT.map((a, i) => lerp(a, lerp(VB_CIRC[i], VB_CIRC_R[i], rr), t)), txt = vb.map((v) => v.toFixed(1)).join(' ');
+    vbBox.x = +vb[0].toFixed(1); vbBox.y = +vb[1].toFixed(1); vbBox.width = +vb[2].toFixed(1); vbBox.height = +vb[3].toFixed(1);
+    setG(svg, 'viewBox', txt);
+    // (The overlays' SVG shows what the painter leaves to it, unless the GPU paints all of it: its box is written at once then.)
+    if (svgOver) setG(svgOver, 'viewBox', txt, svgOver.classList.contains(OVER_ALL) ? undefined : false);
     applyVT();
   }
 
@@ -3157,15 +3164,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     setViewBox(t);
     organMorphA = 1 - t; paintOrganAlpha();
-    gGhost.style.opacity = String(1 - t);
-    gAscites.style.opacity = String(1 - t);
+    setG(gGhost, 'style:opacity', String(1 - t));
+    setG(gAscites, 'style:opacity', String(1 - t));
     svg.classList.toggle('circuit', t > 0.5);
     svgOver?.classList.toggle('circuit', t > 0.5);
     // The circuit is a dark hemodynamic map; the anatomy an atlas plate on paper.
     stageWrap.classList.toggle('cmap', t > 0.5);
-    gGrid.style.opacity = String(t);
-    gNodes.style.opacity = String(t);
-    gFxC.style.opacity = String(t);
+    setG(gGrid, 'style:opacity', String(t));
+    setG(gNodes, 'style:opacity', String(t));
+    setG(gFxC, 'style:opacity', String(t));
     // (Faded out whole, the circuit's grid and dots are hidden too (app.css, once their fade has run): at opacity 0 Safari still
     // painted the grid's patterned frames under the anatomy on every frame the figure moved.)
     gGrid.classList.toggle('gone', t === 0); gNodes.classList.toggle('gone', t === 0);
@@ -5688,8 +5695,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function paintOrganAlpha() {
     const a = String(organMorphA * organDimA), tr = organDimA !== 1 ? 'none' : '';
     for (const g of [gOrgans, gBackdrop]) {
-      if (g.style.transition !== tr) g.style.transition = tr;
-      if (g.style.opacity !== a) g.style.opacity = a;
+      if ((getLive(g, 'transition') ?? g.style.transition) !== tr) setG(g, 'style:transition', tr);
+      if ((getLive(g, 'opacity') ?? g.style.opacity) !== a) setG(g, 'style:opacity', a);
     }
   }
   // Every colour the organs paint with (shapes, their gradients' stops and patterns' contents), as computed with no grey on.
@@ -13079,7 +13086,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const K_MIN = 0.6, K_MAX = 6;
   const softK = (k) => (k > K_MAX ? K_MAX * Math.pow(k / K_MAX, 0.3) : k < K_MIN ? K_MIN * Math.pow(k / K_MIN, 0.3) : k);
   function visibleVB() {
-    const b = stageBox(), vb = svg.viewBox.baseVal, s = Math.min(b.sw / vb.width, b.sh / vb.height);
+    const b = stageBox(), vb = vbBox, s = Math.min(b.sw / vb.width, b.sh / vb.height);
     return { x: vb.x - (b.sw - vb.width * s) / 2 / s, y: vb.y - (b.sh - vb.height * s) / 2 / s, w: b.sw / s, h: b.sh / s };
   }
   // Panning past the figure meets rising resistance, the lobule view's rubber band: a tanh band easing toward
@@ -13161,9 +13168,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // figure under their midpoint stays under it. Lifting one finger hands over to a pan.
   // A double click zooms in about the point, Shift zooms out; a long press on a vessel shows its readings
   // without opening its card.
-  const vbScale = () => { const b = stageBox(), vb = svg.viewBox.baseVal; return Math.min(b.sw / vb.width, b.sh / vb.height); };
+  const vbScale = () => { const b = stageBox(), vb = vbBox; return Math.min(b.sw / vb.width, b.sh / vb.height); };
   function clientToVBFast(cx, cy) {
-    const b = stageBox(), vb = svg.viewBox.baseVal, s = Math.min(b.sw / vb.width, b.sh / vb.height);
+    const b = stageBox(), vb = vbBox, s = Math.min(b.sw / vb.width, b.sh / vb.height);
     return [(cx - b.left - b.sx - (b.sw - vb.width * s) / 2) / s + vb.x, (cy - b.top - b.sy - (b.sh - vb.height * s) / 2) / s + vb.y];
   }
   const startPan = (x, y, id, moved = false) => ({ type: 'pan', x, y, vx: vt.x, vy: vt.y, s0: vbScale(), moved, id, trail: [[performance.now(), x, y]] });
