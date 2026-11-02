@@ -15,6 +15,7 @@ import { LOOKS } from './looks.js?v=2d098211a4';
 
 // One highlight under the list that glides to the active row; the arrow keys and the pointer only move it (and aria-selected on two rows),
 // and the list is rebuilt only when the results change.
+const FOCUS_NO_SCROLL = Object.freeze({ preventScroll: true });
 const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9+ ]/g, ' ');
 
 export function createPalette({ ctx }) {
@@ -236,12 +237,13 @@ export function createPalette({ ctx }) {
   }
   // It fades out as it faded in (it vanished in one frame: P20), then hides; opened again meanwhile, it simply stays.
   let leaveT = 0;
+  const leaveDone = () => { back.hidden = true; back.classList.remove('leaving'); back.style.removeProperty('--pal-room'); };
   function close() {
     if (back.hidden || back.classList.contains('leaving')) return;
     back.classList.add('leaving'); clearTimeout(leaveT);
     vv?.removeEventListener('resize', fitSoon); vv?.removeEventListener('scroll', fitSoon);
-    leaveT = afterExit(back, 'leaving', () => { back.hidden = true; back.classList.remove('leaving'); back.style.removeProperty('--pal-room'); });
-    ret?.focus?.({ preventScroll: true });
+    leaveT = afterExit(back, 'leaving', leaveDone);
+    ret?.focus?.(FOCUS_NO_SCROLL);
   }
   input.addEventListener('input', () => { sel = 0; renderList(); });
   input.addEventListener('keydown', (e) => {
