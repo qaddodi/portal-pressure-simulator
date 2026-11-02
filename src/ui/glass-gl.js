@@ -1252,15 +1252,15 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     if (!(x1 > x0 && y1 > y0)) return;
     const grid = hostGrid(x0, y0, x1 - x0, y1 - y0, k, W2, H2);
     if (!grid) return;
-    const reg = { x: grid.x, y: grid.y, w: grid.w, h: grid.h };   // alloc-rare: ?reblur=1 only (the 50 ms hold, off by default): the shared blur is how every glass blurs otherwise
+    const reg = { x: grid.x, y: grid.y, w: grid.w, h: grid.h };   // alloc-rare: the reblur option only (the 50 ms hold, off by default): the shared blur is how every glass blurs otherwise
     G.disable(G.SCISSOR_TEST); G.disable(G.STENCIL_TEST);
     // (The parts of the copy the glasses read, unless the whole of it is blurred (option full). Glasses that move change them, so they are
     // part of the key: the same picture with a card moved is blurred again where the card now is; a blur is never kept for other parts.)
     const bw = (grid.X1 - grid.X0) / grid.T, bh = (grid.Y1 - grid.Y0) / grid.T;
-    let parts = full ? null : blurBoxes(panes.map((p) => ({ x: p.r.left - cr.left, y: p.r.top - cr.top, w: p.r.width, h: p.r.height })), grid.x, grid.y, grid.T / k, bw, bh);   // alloc-rare: ?reblur=1 only (the 50 ms hold, off by default): the shared blur is how every glass blurs otherwise
+    let parts = full ? null : blurBoxes(panes.map((p) => ({ x: p.r.left - cr.left, y: p.r.top - cr.top, w: p.r.width, h: p.r.height })), grid.x, grid.y, grid.T / k, bw, bh);   // alloc-rare: the reblur option only (the 50 ms hold, off by default): the shared blur is how every glass blurs otherwise
     if (parts && (!parts.length || (parts.length === 1 && !parts[0][0] && !parts[0][1] && parts[0][2] === bw && parts[0][3] === bh))) parts = null;
-    const rest = `${grid.X0}|${grid.Y0}|${grid.X1}|${grid.Y1}|${W2}x${H2}${parts ? `|${parts.join(';')}` : ''}`;   // alloc-rare: ?reblur=1 only (the 50 ms hold, off by default): the shared blur is how every glass blurs otherwise
-    const key = `${version ? version() : performance.now()}|${fresh ? fresh() : ''}|${rest}`;   // alloc-rare: ?reblur=1 only (the 50 ms hold, off by default): the shared blur is how every glass blurs otherwise
+    const rest = `${grid.X0}|${grid.Y0}|${grid.X1}|${grid.Y1}|${W2}x${H2}${parts ? `|${parts.join(';')}` : ''}`;   // alloc-rare: the reblur option only (the 50 ms hold, off by default): the shared blur is how every glass blurs otherwise
+    const key = `${version ? version() : performance.now()}|${fresh ? fresh() : ''}|${rest}`;   // alloc-rare: the reblur option only (the 50 ms hold, off by default): the shared blur is how every glass blurs otherwise
     if (key !== hk.key) {
       // (Only the figure under the glass drawn again, its view and the region taken the same as the last blur's: blurred again at most
       // every REBLUR_MS, the glass drawn meanwhile from the blur it has. Those are the frames that are not plain blood (the ascites
@@ -1270,7 +1270,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       if (reblur > 0 && view !== null && hk.rest === rest && hk.view === view && hk.reg && t - hk.at < reblur) {
         if (!hk.trail) {
           const K = hk;
-          K.trail = setTimeout(() => { K.trail = 0; if (hk === K && hostOn) { K.key = ''; host.now(); } }, reblur - (t - K.at) + 1);   // alloc-rare: ?reblur=1 only (the 50 ms hold, off by default): the shared blur is how every glass blurs otherwise
+          K.trail = setTimeout(() => { K.trail = 0; if (hk === K && hostOn) { K.key = ''; host.now(); } }, reblur - (t - K.at) + 1);   // alloc-rare: the reblur option only (the 50 ms hold, off by default): the shared blur is how every glass blurs otherwise
         }
         hk.k = k;
         blurOK = true;
