@@ -8,7 +8,7 @@
 // blood lost. The spot and the stain are radial gradients in circles of their own.
 import { bleedPulse } from './blood.js?v=8aea855ce8';
 import { scopeDrops, scopePool, inScopePool } from './endo-motion.js?v=9b904b70c4';
-import { cssVar, cssAlpha } from './util.js?v=ac15d08582';
+import { cssVar, cssAlpha } from './util.js?v=7e36984879';
 
 const frac = (x) => ((x % 1) + 1) % 1;
 const smooth = (e0, e1, x) => { const u = Math.min(1, Math.max(0, (x - e0) / (e1 - e0))); return u * u * (3 - 2 * u); };
