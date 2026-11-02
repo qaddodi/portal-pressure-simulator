@@ -56,9 +56,9 @@ test('the glow texels are written exactly as the whole vessel sync wrote them, o
 test('a glow ease runs the glow-only sync, which falls back to the whole sync unless nothing else changed', () => {
   assert.match(stage, /if \(glowSync && !syncGlowOnly\(easeInOut\(morph\)\)\) syncVeins\(easeInOut\(morph\)\);/);
   assert.match(stage, /writeGlowTexels\(tubeData, o, kind, id, ra\?\.e\.id, obj\.len, glow\.lit, vh\.amt, rgbCs, easeInOut\);/, 'the whole sync writes them with the same helper');
-  assert.match(stage, /glowMemo = \{ items, t, netA, cs, mode, origin: originMode, cath: cathTint, F, geo: geometryVersion, plate: veins\.hasPlate\(0\), cls: gestureFree\(wrap\.className\), bits: glowBits\(items\), reach: vLook\.reach \};/);
+  assert.match(stage, /glowMemo = \{ items, t, netA, cs, mode, origin: originMode, cath: cathTint, F, geo: geometryVersion, plate: veins\.hasPlate\(0\), cls: wrapCls\(\), bits: glowBits\(items\), reach: vLook\.reach \};/);
   const ok = stage.slice(stage.indexOf('function glowOnlyOk'), stage.indexOf('function syncGlowOnly'));
-  for (const c of ['tubesNew', 'lensFrom', 'm.t !== t', 'm.F !== F', 'm.geo !== geometryVersion', 'm.netA !== netA', 'm.cs !== wrapCS()', 'm.mode !== layerMode()', 'm.origin !== originOn()', 'm.cath !== cathTint', 'm.plate !== veins.hasPlate(0)', 'm.cls !== gestureFree(wrap.className)', 'm.reach !==', 'b[i] !== m.bits[i]', 'b[i] & 64']) assert.ok(ok.includes(c), `checks ${c}`);
+  for (const c of ['tubesNew', 'lensFrom', 'm.t !== t', 'm.F !== F', 'm.geo !== geometryVersion', 'm.netA !== netA', 'm.cs !== wrapCS()', 'm.mode !== layerMode()', 'm.origin !== originOn()', 'm.cath !== cathTint', 'm.plate !== veins.hasPlate(0)', 'm.cls !== wrapCls()', 'm.reach !==', 'b[i] !== m.bits[i]', 'b[i] & 64']) assert.ok(ok.includes(c), `checks ${c}`);
   for (const c of ["'is-sel'", "'hl'", "'coll-ghost'", 'it.x.lifted', 'it.x.reveal']) assert.ok(stage.slice(stage.indexOf('function glowBits'), stage.indexOf('function glowOnlyOk')).includes(c), `bits hold ${c}`);
 });
 
@@ -124,8 +124,8 @@ test("a pan or pinch's own classes never count as a change of the stage's look",
   assert.match(stage, /const GLIDE_KEYS = !\/\[\?&\]glidekeys=0\\b\/\.test\(location\.search\);/);
   const obs = stage.slice(stage.indexOf('const drop = () => { csSnap = null; };'), stage.indexOf("addEventListener('resize', drop)"));
   assert.match(obs, /if \(r\.attributeName === 'class'\) \{ const c = gestureFree\(r\.target\.getAttribute\('class'\)\); if \(seen\.get\(r\.target\) === c\) continue; seen\.set\(r\.target, c\); \}\n\s+drop\(\); return;/);
-  assert.match(stage, /const marksKey = \(\) => `\$\{mk\.ver\}\|\$\{gestureFree\(wrap\.className\)\}\|/);
-  assert.match(stage, /const greyDeps = \(\) => \{ const r = document\.documentElement; return `\$\{gestureFree\(wrap\.className\)\}\|/);
+  assert.match(stage, /const marksKey = \(\) => `\$\{mk\.ver\}\|\$\{wrapCls\(\)\}\|/);
+  assert.match(stage, /const greyDeps = \(\) => \{ const r = document\.documentElement; return `\$\{wrapCls\(\)\}\|/);
   // Safe only while those classes set no custom property and nothing the figure draws: the cursor, and the floating pieces.
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
   for (const m of css.matchAll(/([^{}]*\.(?:panning|stage-busy|figure-focus|lb-ride)\b[^{}]*)\{([^{}]*)\}/g)) {

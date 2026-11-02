@@ -113,7 +113,7 @@ function ensureEl() {
   quiet++;
   el = document.createElement('div');
   el.setAttribute('aria-hidden', 'true');
-  el.style.cssText = 'position:fixed;right:8px;top:calc(64px + env(safe-area-inset-top));z-index:2147483001;pointer-events:none;padding:5px 9px;border-radius:8px;'
+  el.style.cssText = 'position:fixed;right:8px;top:calc(64px + env(safe-area-inset-top));z-index:var(--z-diag);pointer-events:none;padding:5px 9px;border-radius:8px;'
     + 'background:rgb(var(--night-rgb) / .78);color:var(--white);font:600 12px/1.45 ui-monospace,monospace;white-space:pre-wrap;max-width:min(560px,calc(100vw - 16px));box-sizing:border-box';
   const flash = document.createElement('div');
   flash.style.cssText = 'position:absolute;inset:0;border-radius:8px;background:var(--danger);opacity:0;transition:opacity .25s';

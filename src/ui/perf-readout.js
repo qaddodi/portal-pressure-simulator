@@ -246,7 +246,7 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
   // The panel: top left under the top bar, small, folded to one line by a tap on its title. It takes taps only on itself.
   const el = document.createElement('div');
   el.id = 'perfReadout';
-  el.style.cssText = 'position:fixed;left:max(8px, env(safe-area-inset-left));top:calc(56px + env(safe-area-inset-top));z-index:2147483000;max-width:min(560px, calc(100vw - 16px));max-height:40vh;overflow:auto;padding:6px 8px;border-radius:8px;background:rgb(0 0 0 / .72);color:#fff;font:600 12px/1.4 ui-monospace,Menlo,monospace;white-space:pre-wrap;overflow-wrap:anywhere;-webkit-user-select:text;user-select:text';   // colour-exempt: a measuring panel
+  el.style.cssText = 'position:fixed;left:max(8px, env(safe-area-inset-left));top:calc(56px + env(safe-area-inset-top));z-index:var(--z-diag);max-width:min(560px, calc(100vw - 16px));max-height:40vh;overflow:auto;padding:6px 8px;border-radius:8px;background:rgb(0 0 0 / .72);color:#fff;font:600 12px/1.4 ui-monospace,Menlo,monospace;white-space:pre-wrap;overflow-wrap:anywhere;-webkit-user-select:text;user-select:text';   // colour-exempt: a measuring panel
   const bar = document.createElement('div');
   bar.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;align-items:center';
   const title = document.createElement('button');

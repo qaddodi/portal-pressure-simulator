@@ -192,6 +192,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // 300 style passes on a phone's slide change. ?glidekeys=0: counted, as before.)
   const GLIDE_KEYS = !/[?&]glidekeys=0\b/.test(location.search);
   const gestureFree = (c) => (c || '').replace(GLIDE_KEYS ? /(?:^|\s)(?:panning|stage-busy|figure-focus|lb-ride|cam-move|pinch-hide|off-home)(?=\s|$)/g : /(?:^|\s)(?:panning|stage-busy|figure-focus|lb-ride)(?=\s|$)/g, '');
+  // (bugs-recs 8, 2 Nov 2026: the figure's classes as the still-frame and look keys see them: the gesture and camera classes left out
+  // (they move nothing the picture draws) and the rest sorted, so two toggles in one frame that leave the same set, in another order,
+  // are no change and no redraw. Worked out again only when the class string itself changed.)
+  let wrapClsWas = null, wrapClsKey = '';
+  const wrapCls = () => {
+    const c = wrap.className;
+    if (c !== wrapClsWas) { wrapClsWas = c; wrapClsKey = gestureFree(c).split(/\s+/).filter(Boolean).sort().join(' '); }
+    return wrapClsKey;
+  };
   const MQ = ['(prefers-color-scheme: dark)', '(prefers-reduced-motion: reduce)', '(prefers-reduced-transparency: reduce)', '(hover: hover)', '(pointer: coarse)', 'print'].map((q) => matchMedia(q));
   // (1 Nov 2026, "Move everything to GPU": a dropped snapshot is taken again first in the next frame (readFrame), never between a frame's
   // writes; the frame in between keeps the last one.)
@@ -4711,7 +4720,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const m = glowMemo;
     if (!m || !veins || veins.lost || !vLook || tubesNew || lensFrom || colEasing || !tubesShown || tubesShown.length !== tubeData.length) return false;
     if (m.t !== t || m.F !== F || m.geo !== geometryVersion || m.netA !== netA || m.cs !== wrapCS() || m.mode !== layerMode() || m.origin !== originOn()) return false;
-    if (m.selK !== selAKey() || m.cath !== cathTint || m.plate !== veins.hasPlate(0) || m.cls !== gestureFree(wrap.className) || m.reach !== (glow.lit.size ? 20 : 11)) return false;
+    if (m.selK !== selAKey() || m.cath !== cathTint || m.plate !== veins.hasPlate(0) || m.cls !== wrapCls() || m.reach !== (glow.lit.size ? 20 : 11)) return false;
     const b = glowBits(m.items);
     for (let i = 0; i < b.length; i++) if (b[i] !== m.bits[i] || b[i] & 64) return false;   // (a vessel drawing on changes with the clock: whole syncs)
     return true;
@@ -5038,7 +5047,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
     }
     tubesNew = false;
-    glowMemo = { items, t, netA, cs, mode, origin: originMode, cath: cathTint, F, geo: geometryVersion, plate: veins.hasPlate(0), cls: gestureFree(wrap.className), bits: glowBits(items), reach: vLook.reach };
+    glowMemo = { items, t, netA, cs, mode, origin: originMode, cath: cathTint, F, geo: geometryVersion, plate: veins.hasPlate(0), cls: wrapCls(), bits: glowBits(items), reach: vLook.reach };
     glowMemo.selK = selAKey();   // (the selection's ease sets the vessels' alpha, which the glow-only sync does not write)
     glowMemo.wide = items.map((it) => it.x.width >= 3.4);   // (the sheen's width: syncRadiiOnly)
     // The SVG organs just hid for the GPU plate: draw it now, so no frame shows neither.
@@ -5725,7 +5734,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const g of greyList) g.el.style.setProperty(g.p, greyOf(g.c, sat), 'important');
   }
   // The colours are read again when what they depend on changes (the theme, the stage's classes), before the next paint.
-  const greyDeps = () => { const r = document.documentElement; return `${gestureFree(wrap.className)}|${r.className}|${themeKey()}|${matchMedia('(prefers-color-scheme: dark)').matches}`; };
+  const greyDeps = () => { const r = document.documentElement; return `${wrapCls()}|${r.className}|${themeKey()}|${matchMedia('(prefers-color-scheme: dark)').matches}`; };
   let greyAt = '';
   const greyStale = () => { if (greyList && greyDeps() !== greyAt) { greyClear(); organDimKey = ''; syncOrganDim(); } };
   new MutationObserver(greyStale).observe(wrap, { attributes: true, attributeFilter: ['class'] });
@@ -6469,7 +6478,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // fills; the SVG copy stays, hidden (data-gl), and shows again wherever the GPU cannot draw.
   const mk = { key: '', ver: 0, verts: new Float32Array(0), draws: [], all: null, dirty: false };
   const darkMQ = matchMedia('(prefers-color-scheme: dark)');
-  const marksKey = () => `${mk.ver}|${gestureFree(wrap.className)}|${themeKey()}|${darkMQ.matches}`;
+  const marksKey = () => `${mk.ver}|${wrapCls()}|${themeKey()}|${darkMQ.matches}`;
   // Subpaths of an absolute M/L/H/V/C/Q/Z path as point lists (curves sampled); null for anything else.
   function pathRings(d) {
     const tok = d.match(/[a-zA-Z]|-?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?/g) || [];
@@ -12336,7 +12345,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const overCheck = new Set();   // (elements written since the last reading, their transitions read at the next)
   const overEasing = new Map();   // element → when its ease ends at the latest (performance.now), for a transition that never reports
   // (A pan's, a pinch's or a glide's own classes on the app and the stage change no overlay's look: gestureFree, as the organs' readings.)
-  const overKey = () => `${gestureFree(appEl?.className || '')}|${document.documentElement.className}|${gestureFree(wrap.className)}|${svgOver ? [...svgOver.classList].filter((c) => c !== OVER_ALL).join(' ') : ''}|${themeKey()}|${reduceMotion.matches}`;
+  const overKey = () => `${gestureFree(appEl?.className || '')}|${document.documentElement.className}|${wrapCls()}|${svgOver ? [...svgOver.classList].filter((c) => c !== OVER_ALL).join(' ') : ''}|${themeKey()}|${reduceMotion.matches}`;
   // (Set up once, at start-up where the overlays are on the GPU, or by renderPath if a restore makes them possible.)
   let overWatching = false;
   // Each unit's reading, kept until something in it changes in a way the painter does not read at each paint (needsReread), the
@@ -12520,7 +12529,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // own data (flow, origin streams) and a bleed, while those are shown.
     const fSame = F === lastDrawF || (!lastAnim && !bloodOn() && !chevOn() && !originOn() && !F?.bleed?.active && sprayA <= 0);
     if (still && bloodKeyVer !== storeVer) { bloodKey = JSON.stringify(st.blood); bloodKeyVer = storeVer; }   // (the store sets blood whole: its text changes only with a store write)
-    const key = still ? `${cathVer}|${morph}|${rotU}|${wrap.className}|${st.layers.flow}|${bloodKey}|${vCanvas.width}x${vCanvas.height}|${holesKey}` : null;
+    const key = still ? `${cathVer}|${morph}|${rotU}|${wrapCls()}|${st.layers.flow}|${bloodKey}|${vCanvas.width}x${vCanvas.height}|${holesKey}` : null;
     // A plate raster that lands while the figure is still (paused, or reduced motion) marks the vessel layer dirty: draw it.
     // (So do vessel rows waiting to be drawn again, veinsRows: a coil's last step is drawn as its cells alone, no longer as a dirty layer.)
     syncOver();

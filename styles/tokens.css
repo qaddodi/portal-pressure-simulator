@@ -189,7 +189,7 @@
   /* spacing (4-pt grid) */
   --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-6: 24px; --sp-8: 32px; --sp-12: 48px;
   /* layers: six named z-indices */
-  --z-figure: 1; --z-hud: 5; --z-panel: 10; --z-popover: 60; --z-dialog: 80; --z-toast: 100;
+  --z-figure: 1; --z-hud: 5; --z-panel: 10; --z-popover: 60; --z-dialog: 80; --z-toast: 100; --z-cover: 200; --z-ring: 250; --z-diag: 300;   /* (the boot cover over every layer of the app; the focus ring over every surface it can mark; the measuring panels and a boot error over both. One scale, no 2147483000s; the preview badge is injected at deploy and stays above all) */
   /* ink on filled controls and badges */
   --on-accent: #FFFFFF; --on-status: #FFFFFF; --on-caution: #1B1300;
   /* Amber as text: --caution itself is 2.95:1 on white (a fill and a stroke, not ink); mixed 30 % toward the text colour it is 4.5:1 or more on every surface, in all three themes (tests/token-contrast.test.js). */

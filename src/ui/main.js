@@ -6,8 +6,8 @@ import { budget as gpuBudget } from './gpu-budget.js?v=82c7c5c48f';   // (the re
 import './gl-state.js?v=900a43dce7';   // (early: every WebGL2 context is recorded from its creation, R09/R06)
 import { startHost, host } from './host.js?v=b2e74450ff';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=103e271dec';
-import { createStage } from './stage.js?v=15133fe349';
-import { createCreditPlacer } from './credit.js?v=6dd9840807';
+import { createStage } from './stage.js?v=a39757bf83';
+import { createCreditPlacer } from './credit.js?v=93acc9e4d0';
 import { whenQuiet, booting, holdCover } from './quiet.js?v=388052eba8';
 import { sinusoidSupported } from './gl-support.js?v=38189f60f5';
 import { createInspector } from './inspector.js?v=c72a5f2707';
@@ -33,7 +33,7 @@ import { sheetParts, sheetOffset, setSheetOffset, stopSheet, glideSheet } from '
 import { releaseSpeed, isFlick, flickAim, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=7513a88c68';
 import { morphKey, crossfadeText } from './legend-morph.js?v=25ff961fb2';
 import './seg-glide.js?v=d4f8950764';
-import './focus-ring.js?v=5287153522';
+import './focus-ring.js?v=3262cead68';
 import { knownLook, currentLook, isDarkLook, lastDarkLook, applyLookAttrs } from './looks.js?v=2d098211a4';
 import { lookChooser } from './look-chooser.js?v=713764c036';
 import { TEXT_STEPS } from './type-scale.js?v=d7cca3fb73';
@@ -48,7 +48,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
-import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=b91ea69306';
+import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=abf601563f';
 import { initTopbarMotion } from './topbar-motion.js?v=920d86079f';
 import { ORIGINS } from './blood.js?v=f6c91d8676';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
@@ -1004,12 +1004,12 @@ function wireTopbar() {
   initDebug(() => stage.zoomLevel());
   // ?perf in the address: the readout of what blocks frames after a pan or pinch (perf-readout.js). Without it, never loaded.
   // (And the frame-time overlay beside it, frame-hud.js: fps, 1% low, interval and script percentiles, surfaces, throttle. ?hud=0 off.)
-  if (new URLSearchParams(location.search).has('perf')) import('./frame-hud.js?v=5b1bcb0a14').then(({ startFrameHud }) => startFrameHud()).catch(() => { /* a measuring aid only */ });
+  if (new URLSearchParams(location.search).has('perf')) import('./frame-hud.js?v=76bbdb5bf7').then(({ startFrameHud }) => startFrameHud()).catch(() => { /* a measuring aid only */ });
   // High Refresh (high-refresh.js): on a touch screen the first tap goes full screen, past the browser's 60 Hz hold for pages. ?highrefresh=0 off.
   import('./high-refresh.js?v=a5fd03fdf7').then(({ startHighRefresh }) => startHighRefresh()).catch(() => { /* full screen is a bonus */ });
-  if (new URLSearchParams(location.search).has('perf')) import('./perf-readout.js?v=b04920acf1').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
+  if (new URLSearchParams(location.search).has('perf')) import('./perf-readout.js?v=25b417b204').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
   // ?offgpu=1 in the address: the live count of work off the GPU, flashing red when it happens during motion (offgpu-overlay.js). Without it, never loaded.
-  if (/[?&]offgpu=1\b/.test(location.search)) import('./offgpu-overlay.js?v=236d400422').then(({ startOffGpuOverlay }) => startOffGpuOverlay()).catch(() => { /* a measuring aid only */ });
+  if (/[?&]offgpu=1\b/.test(location.search)) import('./offgpu-overlay.js?v=ef2d585f07').then(({ startOffGpuOverlay }) => startOffGpuOverlay()).catch(() => { /* a measuring aid only */ });
   $('#btnMenu').addEventListener('click', () => mainMenu.toggle());
   $('#btnSettings').addEventListener('click', (e) => openSettings(e.currentTarget));
   $('#btnPalette').addEventListener('click', () => palette.open());
@@ -2336,4 +2336,4 @@ function armFeedbackAsk() {
 main().catch((err) => {
   // (Told to the page's own boot card too, so a failed start shows "couldn't start / Reload" at once, not a pulsing logo for 15 s and then an empty shell.)
   (window.ppsBootErrors ||= []).push(String(err?.message || err).slice(0, 300)); window.ppsBootFail?.();
-  console.error(err); document.body.append(h('pre', { style: { position: 'fixed', bottom: 0, left: 0, background: 'var(--white)', color: 'var(--critical)', padding: '8px', zIndex: 999 } }, String(err.stack || err))); });
+  console.error(err); document.body.append(h('pre', { style: { position: 'fixed', bottom: 0, left: 0, background: 'var(--white)', color: 'var(--critical)', padding: '8px', zIndex: 'var(--z-diag)' } }, String(err.stack || err))); });

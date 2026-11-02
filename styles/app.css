@@ -1277,10 +1277,10 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 }
 .action-card:not(.docked) { left: 0; top: 0; }   /* (placed by translate: card.js moveTo) */
 /* One fixed size per kind of card, whatever text it holds: the header and foot keep their place, the controls scroll inside. */
-.action-card { height: min(600px, calc(100vh - 150px)); max-height: none; }
+.action-card { height: min(600px, calc(100svh - 150px)); max-height: none; }
 /* On a short desktop window the card leaves room above the vitals dock (a 600 px card ran 4 px into it at 1180x820). */
-@media (min-width: 1024px) { .action-card:not(.docked) { height: min(600px, calc(100vh - 260px)); } }
-.action-card[data-card=organ], .action-card[data-card=lobule] { height: min(570px, calc(100vh - 150px)); }
+@media (min-width: 1024px) { .action-card:not(.docked) { height: min(600px, calc(100svh - 260px)); } }
+.action-card[data-card=organ], .action-card[data-card=lobule] { height: min(570px, calc(100svh - 150px)); }
 .action-card.docked { height: min(46%, 400px); max-height: min(46%, 400px); }
 /* The last vessel's contents fading out over the new ones (card.js, RF7): laid out as the card is, taking no taps. */
 .action-card > .ac-ghost { position: absolute; inset: 0; display: flex; flex-direction: column; pointer-events: none; }
@@ -1569,7 +1569,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .pal-top { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--hairline); }
 .pal-ic { width: var(--ic-m); height: var(--ic-m); stroke: var(--text-3); fill: none; stroke-width: 1.7; }
 .pal-input { flex: 1; border: 0; outline: none; background: transparent; font-size: var(--fs-16); color: var(--text); }
-.pal-list { max-height: min(56vh, 440px, var(--pal-room, 100vh)); overflow: auto; padding: 8px; }   /* (--pal-room: the room above the on-screen keyboard, set by palette.js while it is up) */
+.pal-list { max-height: min(56svh, 440px, var(--pal-room, 100svh)); overflow: auto; padding: 8px; }   /* (--pal-room: the room above the on-screen keyboard, set by palette.js while it is up) */
 .pal-item { display: grid; grid-template-columns: 72px 1fr; gap: 2px 12px; width: 100%; padding: 8px 12px; border: 0; border-radius: var(--r-card); background: transparent; text-align: left; cursor: pointer; color: var(--text); }
 .pal-item.on { background: var(--accent-soft); }
 .pal-list.glides { position: relative; }   /* (one highlight under the rows glides to the active one; palette.js, ?palglide=0 keeps the row's own background) */
@@ -2613,7 +2613,7 @@ html.label-fill-both :is(#labels .lb.scan, .app.presenting #labels .lb) { animat
 /* A phone, upright or on its side, always shows the instrument first; its tiles, or its pressure strip, go on the sheet under the
    card (.pz-sheet, below), never behind Show (Mohammad, 17 Oct: "I thought the Doppler will show first with an indication for a
    card under it?"). The scope sits as a compact row there, the view beside its grade and size, so the figure keeps most of the screen. */
-.pz.stack .pz-data:is(.tool-lead, .pz-sheet) > .pz-tiles { max-height: 40vh; overflow: hidden; transition: opacity var(--d-small) var(--ease); }
+.pz.stack .pz-data:is(.tool-lead, .pz-sheet) > .pz-tiles { max-height: 40svh; overflow: hidden; transition: opacity var(--d-small) var(--ease); }
 .pz.stack .pz-data:is(.tool-lead, .pz-sheet):not(.tool-open) > .pz-tiles { max-height: 0; opacity: 0; margin-top: -6px; overflow: hidden; }
 .pz.stack .pz-data:is(.tool-lead, .pz-sheet) .pz-tool[data-kind="scope"] .pz-inst { flex-direction: row; align-items: center; gap: 12px; }
 .pz.stack .pz-data:is(.tool-lead, .pz-sheet) .pz-tool[data-kind="scope"] .endo-stage { flex: none; width: 42%; min-height: 0; }
@@ -3045,7 +3045,7 @@ html.label-fill-both :is(#labels .lb.scan, .app.presenting #labels .lb) { animat
 .pz-bar button.pzb-n[aria-expanded="true"] { background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--text); }
 @media (hover: hover) { .pz-bar button.pzb-n { --hv-bg: color-mix(in srgb, var(--text) 8%, transparent); } .pz-bar button.pzb-n:hover::before { opacity: 1 } .pz-bar button.pzb-n:hover { color: var(--text); } }
 .pz-bar .pzb-next.skipping:not(:disabled) { background: var(--accent-soft); }
-.pz-jump { position: absolute; left: 50%; bottom: max(88px, calc(max(var(--pz-cm, 0px), calc(env(safe-area-inset-bottom, 0px) + 8px)) + 52px)); translate: -50% 0; width: min(560px, calc(100% - 24px)); max-height: min(70vh, calc(100% - 120px)); display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-sheet); box-shadow: var(--shadow-3); pointer-events: auto; overflow: hidden; transition: opacity var(--d-small) var(--ease), transform var(--d-small) var(--ease); }
+.pz-jump { position: absolute; left: 50%; bottom: max(88px, calc(max(var(--pz-cm, 0px), calc(env(safe-area-inset-bottom, 0px) + 8px)) + 52px)); translate: -50% 0; width: min(560px, calc(100% - 24px)); max-height: min(70svh, calc(100% - 120px)); display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-sheet); box-shadow: var(--shadow-3); pointer-events: auto; overflow: hidden; transition: opacity var(--d-small) var(--ease), transform var(--d-small) var(--ease); }
 .pz-jump.pz-leave { opacity: 0; transform: translateY(8px); }
 .pzj-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 10px 8px 18px; border-bottom: 1px solid var(--border); font: 600 var(--fs-14) var(--font-ui); color: var(--text-2); }
 .pzj-list { overflow-y: auto; overscroll-behavior: contain; padding: 6px 8px 12px; }
@@ -4121,7 +4121,7 @@ html.thumb-ui .umenu.sheet { translate: 0 var(--sink, 0px); }
 }
 /* While the phone's menu sheet is up there is no figure left for the corner credit. */
 .app.menu-sheet-open .stage-credit { opacity: 0; }
-.app-menu { max-height: calc(100vh - 80px); overflow-y: auto; }
+.app-menu { max-height: calc(100svh - 80px); overflow-y: auto; }
 
 /* The top row: menu + patient · view · blood and legend · Findings, Treat, Measure, Search. */
 .topbar { gap: 8px; }
@@ -4959,7 +4959,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 }
 
 /* The presenter's start: a calm cover while the projector layout, the first patient and the first slide are set up. */
-.pz-cover { position: fixed; inset: 0; z-index: 2147483000; display: grid; place-items: center; background: var(--stage-bg); opacity: 0; pointer-events: none; transition: opacity var(--d-surface) var(--ease); }
+.pz-cover { position: fixed; inset: 0; z-index: var(--z-cover); display: grid; place-items: center; background: var(--stage-bg); opacity: 0; pointer-events: none; transition: opacity var(--d-surface) var(--ease); }
 .pz-cover.on { opacity: 1; pointer-events: auto; transition-duration: var(--d-small); }
 .pz-cover i { width: 30px; height: 30px; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--text) 12%, transparent); border-top-color: color-mix(in srgb, var(--text) 52%, transparent); animation: pz-spin 1.1s linear infinite, crossfade var(--d-surface) var(--ease) .9s backwards; }
 @media (prefers-reduced-motion: reduce) { .pz-cover, .pz-cover.on { transition: none; } .pz-cover i { animation: crossfade .01s 1.2s backwards; } }
@@ -7515,7 +7515,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pz.stack.stack .pz-flowtime { --ft-h: min(43cqi, 144px); height: var(--ft-h); }
 .pz.stack.stack .pz-flowtime.has-bands { height: calc(var(--ft-h) + var(--band-room, 0em)); }
 /* The ?organpaths readout (stage.js): which organ layers are painted on the GPU and which fall back to a picture. Opt-in only. */
-.organ-paths { position: fixed; left: 8px; top: calc(env(safe-area-inset-top, 0px) + 64px); z-index: 9999; max-width: calc(100vw - 16px); padding: 6px 8px; border-radius: 6px; background: var(--surface); color: var(--text); border: 1px solid var(--border-strong); font: 12px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; pointer-events: none; }
+.organ-paths { position: fixed; left: 8px; top: calc(env(safe-area-inset-top, 0px) + 64px); z-index: var(--z-diag); max-width: calc(100vw - 16px); padding: 6px 8px; border-radius: 6px; background: var(--surface); color: var(--text); border: 1px solid var(--border-strong); font: 12px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; pointer-events: none; }
 /* A question slide's answer held back (slide hold: true; presenter.js holdAnswer): the tiles keep
    their numbers but not their rating words, the Doppler's top strip keeps its trace and reading but not its direction, pattern and note,
    and the figure's "no flow" and "stasis" words stand down. On the answer slide they ease back in, never snap. The Gut to

@@ -53,3 +53,12 @@ test('the status bar\'s colour is not read again for a gesture\'s or a glide\'s 
   const TOKENS = readFileSync(new URL('../styles/tokens.css', import.meta.url), 'utf8');
   for (const l of (CSS + TOKENS).split('\n').filter((x) => /--stage-bg:/.test(x))) assert.doesNotMatch(l, /figure-focus|stage-busy|cam-move|off-home|panning|pinch-hide|lb-ride/);
 });
+
+// bugs-recs 8 (2 Nov 2026): the still-frame and look keys read the figure's classes as a set (wrapCls): the gesture classes left out
+// and the rest sorted, so the same classes in another order are no change and no redraw.
+test('the figure class key ignores gesture classes and class order', () => {
+  assert.match(STAGE, /const key = still \? `\$\{cathVer\}\|\$\{morph\}\|\$\{rotU\}\|\$\{wrapCls\(\)\}\|/);
+  assert.doesNotMatch(STAGE, /\$\{wrap\.className\}/);
+  const body = STAGE.match(/const wrapCls = \(\) => \{([\s\S]*?)\n {2}\};/)[1];
+  assert.match(body, /gestureFree\(c\)\.split\(\/\\s\+\/\)\.filter\(Boolean\)\.sort\(\)\.join\(' '\)/);
+});

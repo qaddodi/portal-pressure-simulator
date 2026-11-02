@@ -1,7 +1,7 @@
 // The corner credit finds a free spot on the figure: never on or touching a card, a sheet, a bar or a menu.
 // It keeps its corner while that corner stays free and is never animated (no glide, no fade): any move hides it at once,
 // holds it hidden only until the cards have settled (a slide change lifts its hold 120 ms after the camera move; a move off a spot a card now covers is hidden for 80 ms), then shows it at once at the new spot; with no figure left anywhere it stays hidden.
-import { readFrameFor, figLab } from './frame.js?v=897b4f8e7e';
+import { readFrameFor, figLab, mayTask } from './frame.js?v=897b4f8e7e';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { restPass } from './rest-pass.js?v=442dee98c9';
 import { CELL, cellFor, regionFor, contains, touches, artTest, boxThrough, multiply, invert } from './credit-art.js?v=77b95dafe8';
@@ -831,8 +831,15 @@ export function createCreditPlacer(credit, { keptStyle = null } = {}) {
   // date then. The window's size is kept from its resize events instead.)
   let winKey = `${innerWidth}x${innerHeight}`;
   addEventListener('resize', () => { winKey = `${innerWidth}x${innerHeight}`; }, { passive: true });
-  const pollKey = () => `${window.pps?.stage?.labelBoxStamp?.() ?? window.pps?.stage?.labelStamp?.() ?? Math.random()}|${document.querySelectorAll('#labels .lb:not(.lb-off), .cath-labels .cath-label').length}|${winKey}`;
-  setInterval(() => {
+  // (bugs-recs 4, 2 Nov 2026: the labels' own boxes are in labelBoxStamp, a shown label with its box and a gone one with none, so the
+  // page is not searched for them each second; only without that stamp are they counted. The catheter's readings are a live list.)
+  const cathLabs = document.getElementsByClassName('cath-label');
+  const pollKey = () => `${window.pps?.stage?.labelBoxStamp?.() ?? window.pps?.stage?.labelStamp?.() ?? Math.random()}|${window.pps?.stage?.labelBoxStamp ? '' : document.querySelectorAll('#labels .lb:not(.lb-off)').length}|${cathLabs.length}|${winKey}`;
+  // (The poll is a may task of the page's one frame, a second apart (notBefore), never a timer task of its own between frames, and it
+  // waits while the tab is hidden: no frame comes then, so nothing runs until the page shows again.)
+  const POLL_MS = 1000;
+  const poll = () => {
+    mayTask('credit-poll', poll, { notBefore: performance.now() + POLL_MS });
     if (document.hidden) return;
     const st = window.pps?.store?.get(), k = pollKey();
     // (Settings › Figure performance › Credit check in talks (frame.js): in Present too, only when one of those may have changed.)
@@ -840,7 +847,8 @@ export function createCreditPlacer(credit, { keptStyle = null } = {}) {
     // labelStamp), so a still lobule or sinusoid measures nothing. ?creditpoll=1 looks every second there again, as before.)
     if (watch.due() || k !== polled || (CREDIT_POLL && (st?.lobule || st?.sinusoid)) || (app?.classList.contains('presenting') && !figLab('creditLean'))) soon();
     polled = k;
-  }, 1000);
+  };
+  mayTask('credit-poll', poll, { notBefore: performance.now() + POLL_MS });
   soon();
   return { refresh: soon, corner: () => cur, searches: () => searches };
 }

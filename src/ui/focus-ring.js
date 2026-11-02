@@ -95,7 +95,7 @@ export function startFocusRing(root = typeof document !== 'undefined' ? document
     ring.className = 'fr-fade';
     ring.setAttribute('aria-hidden', 'true');
     Object.assign(ring.style, { position: 'fixed', left: '0', top: '0', width: `${b.w}px`, height: `${b.h}px`, transform: `translate(${b.x}px, ${b.y}px)`, boxSizing: 'border-box',
-      border: `${b.bw}px ${cs.outlineStyle === 'auto' ? 'solid' : cs.outlineStyle} ${cs.outlineColor}`, borderRadius: `${b.rad}px`, pointerEvents: 'none', zIndex: '2147483646', margin: '0', padding: '0', opacity: '0' });
+      border: `${b.bw}px ${cs.outlineStyle === 'auto' ? 'solid' : cs.outlineStyle} ${cs.outlineColor}`, borderRadius: `${b.rad}px`, pointerEvents: 'none', zIndex: 'var(--z-ring)', margin: '0', padding: '0', opacity: '0' });
     document.body.append(ring);
     const hide = holdStyle(el, 'outline-color', 'transparent');
     const up = ring.animate([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing, fill: 'forwards' });

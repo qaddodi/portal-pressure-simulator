@@ -112,7 +112,7 @@ export function startFrameHud() {
   el.id = 'frameHud';
   el.setAttribute('data-perf-ignore', '');
   el.setAttribute('aria-hidden', 'true');
-  el.style.cssText = 'position:fixed;right:max(8px, env(safe-area-inset-right));top:calc(56px + env(safe-area-inset-top));z-index:2147483001;max-width:min(420px, calc(100vw - 16px));padding:6px 8px;border-radius:8px;background:rgb(0 0 0 / .78);color:#fff;font:600 12px/1.4 ui-monospace,Menlo,monospace;white-space:pre-wrap;pointer-events:none;contain:content';   // colour-exempt: a measuring panel
+  el.style.cssText = 'position:fixed;right:max(8px, env(safe-area-inset-right));top:calc(56px + env(safe-area-inset-top));z-index:var(--z-diag);max-width:min(420px, calc(100vw - 16px));padding:6px 8px;border-radius:8px;background:rgb(0 0 0 / .78);color:#fff;font:600 12px/1.4 ui-monospace,Menlo,monospace;white-space:pre-wrap;pointer-events:none;contain:content';   // colour-exempt: a measuring panel
   document.body.append(el);
   const write = () => {
     const now = perf().totals, frames = now.frames - lastFrames;
