@@ -11,6 +11,7 @@
 // and a context that is handed one in place of a canvas makes its texture from the record (isGpuPicture), the first time it is drawn.
 // No 2D context, no drawImage and no pixel read anywhere (the owner, 1 Nov 2026: "block everything until everything is on GPU").
 
+import { glGet, glOn, glCap } from './gl-state.js?v=7962476b4a';
 import { cssColor } from './css-color.js?v=e56f0c77ae';
 import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js?v=e48e05cdb3';
 
@@ -404,7 +405,7 @@ export function createPaintGL(gl) {
   // few seconds after the last one (they are tens of MB: an iPhone keeps none of it between paints).
   function resources() {
     if (res) return res;
-    const samples = Math.min(4, gl.getParameter(gl.MAX_SAMPLES) || 0);
+    const samples = Math.min(4, glCap(gl, gl.MAX_SAMPLES) || 0);
     const ms = gl.createFramebuffer(), msC = gl.createRenderbuffer(), msS = gl.createRenderbuffer();
     gl.bindRenderbuffer(gl.RENDERBUFFER, msC);
     if (samples > 0) gl.renderbufferStorageMultisample(gl.RENDERBUFFER, samples, gl.RGBA8, TILE, TILE); else gl.renderbufferStorage(gl.RENDERBUFFER, gl.RGBA8, TILE, TILE);
@@ -472,11 +473,12 @@ export function createPaintGL(gl) {
 
   // The host's state, put back as it was after a paint (it may be drawing a frame around it).
   function saveState() {
-    const g = (k) => gl.getParameter(k);
+    // (From the renderer's own record of the context (gl-state.js, R09): no query reaches the driver. ?glstate=0: asked, as before.)
+    const g = (k) => glGet(gl, k);
     return {
       fbR: g(gl.READ_FRAMEBUFFER_BINDING), fbD: g(gl.DRAW_FRAMEBUFFER_BINDING), vp: g(gl.VIEWPORT), prog: g(gl.CURRENT_PROGRAM), vao: g(gl.VERTEX_ARRAY_BINDING),
       buf: g(gl.ARRAY_BUFFER_BINDING), rb: g(gl.RENDERBUFFER_BINDING), unit: g(gl.ACTIVE_TEXTURE), tex: g(gl.TEXTURE_BINDING_2D),
-      blend: gl.isEnabled(gl.BLEND), stencil: gl.isEnabled(gl.STENCIL_TEST), scissor: gl.isEnabled(gl.SCISSOR_TEST), depth: gl.isEnabled(gl.DEPTH_TEST), cull: gl.isEnabled(gl.CULL_FACE),
+      blend: glOn(gl, gl.BLEND), stencil: glOn(gl, gl.STENCIL_TEST), scissor: glOn(gl, gl.SCISSOR_TEST), depth: glOn(gl, gl.DEPTH_TEST), cull: glOn(gl, gl.CULL_FACE),
       bf: [g(gl.BLEND_SRC_RGB), g(gl.BLEND_DST_RGB), g(gl.BLEND_SRC_ALPHA), g(gl.BLEND_DST_ALPHA)], be: [g(gl.BLEND_EQUATION_RGB), g(gl.BLEND_EQUATION_ALPHA)],
       cm: g(gl.COLOR_WRITEMASK), cc: g(gl.COLOR_CLEAR_VALUE), sm: g(gl.STENCIL_WRITEMASK), sbm: g(gl.STENCIL_BACK_WRITEMASK), sci: g(gl.SCISSOR_BOX),
     };
@@ -499,7 +501,8 @@ export function createPaintGL(gl) {
   function paint(rec, { mip = true, wrap = null } = {}) {
     if (!rec || !(rec.width > 0) || !(rec.height > 0) || gl.isContextLost() || !ready()) return null;
     const W = Math.ceil(rec.width), H = Math.ceil(rec.height);
-    if (W > gl.getParameter(gl.MAX_TEXTURE_SIZE) || H > gl.getParameter(gl.MAX_TEXTURE_SIZE)) return null;
+    const MAX = glCap(gl, gl.MAX_TEXTURE_SIZE);
+    if (W > MAX || H > MAX) return null;
     const st = saveState();
     let out = null;
     try {

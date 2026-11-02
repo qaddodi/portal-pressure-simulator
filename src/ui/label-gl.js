@@ -12,6 +12,7 @@
 // know, a keyboard focus ring) stays drawn by the SVG, label by label. Without WebGL2, on a software renderer, with ?gpulabels=0, or
 // once the context is lost, the SVG draws them all, as it always has.
 
+import { glGet, glCap } from './gl-state.js?v=7962476b4a';
 import { frameFor, cancelFrame } from './frame.js?v=31edc44488';
 import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=81fbedda6b';
 import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js?v=e48e05cdb3';
@@ -529,7 +530,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     gl.bindVertexArray(null);
   }
   try { finish(start()); } catch { return null; }
-  const packer = createAtlasPacker({ size: Math.min(2048, gl.getParameter(gl.MAX_TEXTURE_SIZE) || 2048), pad: 2, maxPages: 2 });
+  const packer = createAtlasPacker({ size: Math.min(2048, glCap(gl, gl.MAX_TEXTURE_SIZE) || 2048), pad: 2, maxPages: 2 });
   const pageTex = [];
   let inst = new Float32Array(64 * 8), needRepack = false;
   const pageOf = (n) => {
@@ -871,7 +872,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     reserveT = setTimeout(() => {
       reserveT = 0;
       if (lost || gl.isContextLost() || pageTex[1]) return;
-      const was = gl.getParameter(gl.TEXTURE_BINDING_2D);
+      const was = glGet(gl, gl.TEXTURE_BINDING_2D);   // (gl-state.js: the record, not the driver)
       pageOf(1);
       gl.bindTexture(gl.TEXTURE_2D, was);
     }, 120);

@@ -12,8 +12,9 @@
 // as for a canvas. The tile itself is a picture recorded for the GPU (lobule-zoom.js drawTile, paint-gl.js), painted into the copier's
 // texture: no 2D canvas anywhere (1 Nov 2026). (No 2D copies since then.)
 
+import { glGet, glOn } from './gl-state.js?v=7962476b4a';
 import { prestart, linkProgram } from './gl-compile.js?v=e48e05cdb3';
-import { isGpuPicture, paintGL } from './paint-gl.js?v=3fb6599f48';
+import { isGpuPicture, paintGL } from './paint-gl.js?v=a99fe43a10';
 
 /** A copy of tile canvas src made on the GPU. look: { blur (Gaussian sigma, tile px; 0 for none), sat (the grey blend's share),
  *  tone ([r, g, b] 0–1, the colour laid over it), toneA (its opacity), flat (a second layer of the same colour, 0 for none) }.
@@ -127,9 +128,10 @@ export function createTileCopier(gl) {
     if (!ready() || !copy?.width || (!copy.blank && copy.src?.width !== copy.width)) return null;
     const { width: w, height: h, look } = copy;
     // (Everything the context had set is put back: a copy is made from inside its draws, between their own settings.)
-    const was = { prog: gl.getParameter(gl.CURRENT_PROGRAM), fb: gl.getParameter(gl.FRAMEBUFFER_BINDING), vp: gl.getParameter(gl.VIEWPORT), unit: gl.getParameter(gl.ACTIVE_TEXTURE), blend: gl.isEnabled(gl.BLEND), scissor: gl.isEnabled(gl.SCISSOR_TEST) };
+    // (From the renderer's own record of the context, gl-state.js: no query reaches the driver.)
+    const was = { prog: glGet(gl, gl.CURRENT_PROGRAM), fb: glGet(gl, gl.FRAMEBUFFER_BINDING), vp: glGet(gl, gl.VIEWPORT), unit: glGet(gl, gl.ACTIVE_TEXTURE), blend: glOn(gl, gl.BLEND), scissor: glOn(gl, gl.SCISSOR_TEST) };
     gl.activeTexture(gl.TEXTURE0 + 15);   // (a unit no draw of the lobule uses)
-    const held = gl.getParameter(gl.TEXTURE_BINDING_2D);
+    const held = glGet(gl, gl.TEXTURE_BINDING_2D);
     const out = texture(w, h, gl.LINEAR_MIPMAP_LINEAR);
     let ok = false, mid = null;
     const fbo = gl.createFramebuffer();

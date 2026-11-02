@@ -1,0 +1,188 @@
+// The renderer's own record of each WebGL2 context's state (R09, 2 Nov 2026: "replace GL state queries with renderer-owned state").
+//
+// Every pass that shares a context with another (the GPU painter's saveState, the vessels' organ covers, the labels' reserve page, the
+// lobule tiles' copies) used to discover what was bound by asking the driver: gl.getParameter for a dozen bindings and switches before
+// each paint. Each query is a trip into the driver, and on some implementations a wait for the GPU. Here the context's state is read
+// once per context generation (its first use, and once after a restore), and from then on every call that changes it goes through a
+// thin wrapper that keeps the record. glGet / glOn answer from that record, never from the driver.
+//
+// - Immutable limits (MAX_TEXTURE_SIZE, MAX_SAMPLES, ...) are read once per context generation (glCap).
+// - The wrappers are installed on the context object itself (own properties over the prototype's methods), so every module that holds
+//   the context, whichever made it, routes its state changes through the record. A deleted object that was bound reads back as null,
+//   as the context itself would.
+// - ?glstate=0: off. glGet / glOn / glCap ask the driver, as before; nothing is wrapped.
+// - ?glstate=check: the debug check. Every answer is compared with the driver's, and a difference is logged once per name.
+// The wrappers also hand each allocation to the resource registry (gpu-budget.js, R06): see onGLCall.
+
+const SEARCH = typeof location !== 'undefined' ? location.search || '' : '';
+export const GL_STATE = !/[?&]glstate=0\b/.test(SEARCH);
+const CHECK = /[?&]glstate=check\b/.test(SEARCH);
+const W2 = typeof WebGL2RenderingContext !== 'undefined' ? WebGL2RenderingContext : null;
+
+const recs = new WeakMap();
+// (Listeners for the calls that allocate or free, and for the passes: the registry. Set once, by gpu-budget.js.)
+let hook = null;
+/** For gpu-budget.js: fn(gl, name, x) after each allocating, freeing, binding or drawing call the wrappers see (x: the call's
+ *  arguments for an allocation, its pixel area for 'draw' / 'clear' / 'copy'). */
+export function onGLCall(fn) { hook = fn; }
+
+const isGL2 = (gl) => !!(W2 && gl instanceof W2);
+
+function sweep(gl, r) {
+  const g = (k) => gl.getParameter(k);
+  r.fbR = g(gl.READ_FRAMEBUFFER_BINDING); r.fbD = g(gl.DRAW_FRAMEBUFFER_BINDING);
+  r.vp = Int32Array.from(g(gl.VIEWPORT) || [0, 0, 0, 0]); r.sci = Int32Array.from(g(gl.SCISSOR_BOX) || [0, 0, 0, 0]);
+  r.prog = g(gl.CURRENT_PROGRAM); r.vao = g(gl.VERTEX_ARRAY_BINDING); r.buf = g(gl.ARRAY_BUFFER_BINDING); r.rb = g(gl.RENDERBUFFER_BINDING);
+  r.unit = g(gl.ACTIVE_TEXTURE); r.tex = new Map([[r.unit, g(gl.TEXTURE_BINDING_2D)]]);
+  r.caps = new Map([gl.BLEND, gl.STENCIL_TEST, gl.SCISSOR_TEST, gl.DEPTH_TEST, gl.CULL_FACE].map((c) => [c, gl.isEnabled(c)]));
+  r.bf = [g(gl.BLEND_SRC_RGB), g(gl.BLEND_DST_RGB), g(gl.BLEND_SRC_ALPHA), g(gl.BLEND_DST_ALPHA)];
+  r.be = [g(gl.BLEND_EQUATION_RGB), g(gl.BLEND_EQUATION_ALPHA)];
+  r.cm = Array.from(g(gl.COLOR_WRITEMASK) || [true, true, true, true]); r.cc = Float32Array.from(g(gl.COLOR_CLEAR_VALUE) || [0, 0, 0, 0]);
+  r.sm = g(gl.STENCIL_WRITEMASK); r.sbm = g(gl.STENCIL_BACK_WRITEMASK);
+  r.lim = new Map();
+  r.fresh = !gl.isContextLost();
+}
+
+// The calls that change what the record holds, each wrapped once on the context.
+function wrap(gl, r) {
+  const own = (name, make) => { const f = gl[name]; if (typeof f === 'function') gl[name] = make(f.bind(gl)); };
+  const FB = gl.FRAMEBUFFER, RFB = gl.READ_FRAMEBUFFER, DFB = gl.DRAW_FRAMEBUFFER, AB = gl.ARRAY_BUFFER, T2 = gl.TEXTURE_2D;
+  const tell = (name, a) => { if (hook) hook(gl, name, a); };
+  own('bindFramebuffer', (f) => (t, fb) => { if (t === FB || t === RFB) r.fbR = fb; if (t === FB || t === DFB) r.fbD = fb; f(t, fb); if (hook && t !== RFB) hook(gl, 'target', fb); });
+  own('viewport', (f) => (x, y, w, h) => { const v = r.vp; v[0] = x; v[1] = y; v[2] = w; v[3] = h; f(x, y, w, h); });
+  own('scissor', (f) => (x, y, w, h) => { const v = r.sci; v[0] = x; v[1] = y; v[2] = w; v[3] = h; f(x, y, w, h); });
+  own('useProgram', (f) => (p) => { r.prog = p; f(p); });
+  own('bindVertexArray', (f) => (v) => { r.vao = v; f(v); });
+  own('bindBuffer', (f) => (t, b) => { if (t === AB) r.buf = b; f(t, b); });
+  own('bindRenderbuffer', (f) => (t, b) => { r.rb = b; f(t, b); });
+  own('activeTexture', (f) => (u) => { r.unit = u; f(u); });
+  own('bindTexture', (f) => (t, x) => { if (t === T2) r.tex.set(r.unit, x); f(t, x); });
+  own('enable', (f) => (c) => { r.caps.set(c, true); f(c); });
+  own('disable', (f) => (c) => { r.caps.set(c, false); f(c); });
+  own('blendFunc', (f) => (s, d) => { r.bf[0] = r.bf[2] = s; r.bf[1] = r.bf[3] = d; f(s, d); });
+  own('blendFuncSeparate', (f) => (a, b, c, d) => { const v = r.bf; v[0] = a; v[1] = b; v[2] = c; v[3] = d; f(a, b, c, d); });
+  own('blendEquation', (f) => (m) => { r.be[0] = r.be[1] = m; f(m); });
+  own('blendEquationSeparate', (f) => (a, b) => { r.be[0] = a; r.be[1] = b; f(a, b); });
+  own('colorMask', (f) => (a, b, c, d) => { const v = r.cm; v[0] = a; v[1] = b; v[2] = c; v[3] = d; f(a, b, c, d); });
+  own('clearColor', (f) => (a, b, c, d) => { const v = r.cc; v[0] = a; v[1] = b; v[2] = c; v[3] = d; f(a, b, c, d); });
+  own('stencilMask', (f) => (m) => { r.sm = r.sbm = m; f(m); });
+  own('stencilMaskSeparate', (f) => (face, m) => { if (face !== gl.BACK) r.sm = m; if (face !== gl.FRONT) r.sbm = m; f(face, m); });
+  // (A bound object that is deleted reads back as null, as the context's own query would answer.)
+  own('deleteFramebuffer', (f) => (x) => { if (x && r.fbR === x) r.fbR = null; if (x && r.fbD === x) r.fbD = null; f(x); tell('deleteFramebuffer', [x]); });
+  own('deleteTexture', (f) => (x) => { if (x) for (const [u, t] of r.tex) if (t === x) r.tex.set(u, null); f(x); tell('deleteTexture', [x]); });
+  own('deleteBuffer', (f) => (x) => { if (x && r.buf === x) r.buf = null; f(x); tell('deleteBuffer', [x]); });
+  own('deleteRenderbuffer', (f) => (x) => { if (x && r.rb === x) r.rb = null; f(x); tell('deleteRenderbuffer', [x]); });
+  own('deleteVertexArray', (f) => (x) => { if (x && r.vao === x) r.vao = null; f(x); });
+  // (Allocations, for the registry only: rare calls, their arguments handed on as they came.)
+  for (const name of ['texImage2D', 'texStorage2D', 'texImage3D', 'texStorage3D', 'renderbufferStorage', 'renderbufferStorageMultisample', 'bufferData']) {
+    own(name, (f) => (...a) => { const out = f(...a); if (hook) tell(name, a); return out; });
+  }
+  // (Passes: no arguments kept, so a draw allocates nothing. The registry reads the area from the record: the viewport, or the
+  // scissor's box while it is on. A blit and a copy hand their own area.)
+  const area = () => { const b = r.caps.get(gl.SCISSOR_TEST) ? r.sci : r.vp; return Math.max(0, b[2]) * Math.max(0, b[3]); };
+  const pass = (name) => { if (hook) hook(gl, name, area()); };
+  own('drawArrays', (f) => (m, a, n) => { f(m, a, n); pass('draw'); });
+  own('drawElements', (f) => (m, n, t, o) => { f(m, n, t, o); pass('draw'); });
+  own('drawArraysInstanced', (f) => (m, a, n, k) => { f(m, a, n, k); pass('draw'); });
+  own('drawElementsInstanced', (f) => (m, n, t, o, k) => { f(m, n, t, o, k); pass('draw'); });
+  own('clear', (f) => (m) => { f(m); pass('clear'); });
+  own('blitFramebuffer', (f) => (a, b, c, d, e, g, h, i, m, n) => { f(a, b, c, d, e, g, h, i, m, n); if (hook) hook(gl, 'copy', Math.abs((h - e) * (i - g))); });
+  own('copyTexSubImage2D', (f) => (t, l, a, b, x, y, w, h) => { f(t, l, a, b, x, y, w, h); if (hook) hook(gl, 'copy', w * h); });
+  const c = gl.canvas;
+  c?.addEventListener?.('webglcontextlost', () => { r.fresh = false; });
+  c?.addEventListener?.('webglcontextrestored', () => { r.fresh = false; r.lim = new Map(); if (hook) tell('restored', []); });
+}
+
+function recOf(gl) {
+  let r = recs.get(gl);
+  if (r === undefined) {
+    if (!GL_STATE || !isGL2(gl)) { recs.set(gl, null); return null; }
+    r = { fresh: false };
+    sweep(gl, r);
+    wrap(gl, r);
+    recs.set(gl, r);
+    if (hook) hook(gl, 'context', []);
+  } else if (r && !r.fresh && !gl.isContextLost()) sweep(gl, r);   // (a new context generation: read once again)
+  return r;
+}
+
+/** Starts the record for context gl (from its creation, so the registry sees every allocation). Returns gl. */
+export function trackGL(gl) { if (gl) recOf(gl); return gl; }
+
+const warned = new Set();
+function check(gl, k, mine, real) {
+  const same = mine === real || (mine && real && typeof mine === 'object' && mine.length === real.length && Array.from(mine).every((v, i) => v === real[i]));
+  if (!same && !warned.has(k)) { warned.add(k); console.warn(`GL state record differs from the driver for 0x${Number(k).toString(16)}`, mine, real); }
+}
+
+function fromRec(gl, r, k) {
+  switch (k) {
+    case gl.READ_FRAMEBUFFER_BINDING: return r.fbR;
+    case gl.DRAW_FRAMEBUFFER_BINDING: return r.fbD;   // (FRAMEBUFFER_BINDING is the same name)
+    case gl.VIEWPORT: return Int32Array.from(r.vp);
+    case gl.SCISSOR_BOX: return Int32Array.from(r.sci);
+    case gl.CURRENT_PROGRAM: return r.prog;
+    case gl.VERTEX_ARRAY_BINDING: return r.vao;
+    case gl.ARRAY_BUFFER_BINDING: return r.buf;
+    case gl.RENDERBUFFER_BINDING: return r.rb;
+    case gl.ACTIVE_TEXTURE: return r.unit;
+    case gl.TEXTURE_BINDING_2D: {
+      if (!r.tex.has(r.unit)) r.tex.set(r.unit, gl.getParameter(k));   // (a unit not yet seen: asked once, then kept)
+      return r.tex.get(r.unit);
+    }
+    case gl.BLEND_SRC_RGB: return r.bf[0];
+    case gl.BLEND_DST_RGB: return r.bf[1];
+    case gl.BLEND_SRC_ALPHA: return r.bf[2];
+    case gl.BLEND_DST_ALPHA: return r.bf[3];
+    case gl.BLEND_EQUATION_RGB: return r.be[0];
+    case gl.BLEND_EQUATION_ALPHA: return r.be[1];
+    case gl.COLOR_WRITEMASK: return r.cm.slice();
+    case gl.COLOR_CLEAR_VALUE: return Float32Array.from(r.cc);
+    case gl.STENCIL_WRITEMASK: return r.sm;
+    case gl.STENCIL_BACK_WRITEMASK: return r.sbm;
+    default: return undefined;
+  }
+}
+
+/** gl.getParameter(k), from the record where it keeps k (the driver otherwise, and with ?glstate=0). */
+export function glGet(gl, k) {
+  const r = recOf(gl);
+  if (!r || !r.fresh) return gl.getParameter(k);
+  const v = fromRec(gl, r, k);
+  if (v === undefined) return gl.getParameter(k);
+  if (CHECK) check(gl, k, v, gl.getParameter(k));
+  return v;
+}
+
+/** gl.isEnabled(cap), from the record. */
+export function glOn(gl, cap) {
+  const r = recOf(gl);
+  if (!r || !r.fresh || !r.caps.has(cap)) return gl.isEnabled(cap);
+  const v = r.caps.get(cap);
+  if (CHECK) check(gl, cap, v, gl.isEnabled(cap));
+  return v;
+}
+
+/** A limit of the context that never changes in its generation (MAX_TEXTURE_SIZE, MAX_SAMPLES, ...): asked once, then kept. */
+export function glCap(gl, k) {
+  const r = recOf(gl);
+  if (!r) return gl.getParameter(k);
+  if (!r.lim) r.lim = new Map();
+  if (!r.lim.has(k)) { const v = gl.getParameter(k); if (gl.isContextLost()) return v; r.lim.set(k, v); }
+  return r.lim.get(k);
+}
+
+// Every WebGL2 context the page makes is recorded from its creation (the registry then sees its first allocation too).
+if (GL_STATE && W2) {
+  for (const C of [globalThis.HTMLCanvasElement, globalThis.OffscreenCanvas]) {
+    const P = C?.prototype, get = P?.getContext;
+    if (!get || get.__ppsGL) continue;
+    const mine = function getContext(type, opts) {
+      const ctx = get.call(this, type, opts);
+      if (ctx && (type === 'webgl2')) { try { trackGL(ctx); } catch { /* the record is a help, never a failure */ } }
+      return ctx;
+    };
+    mine.__ppsGL = true;
+    P.getContext = mine;
+  }
+}

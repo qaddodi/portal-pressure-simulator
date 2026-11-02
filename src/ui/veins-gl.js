@@ -31,6 +31,7 @@
 //
 // createVeinsGL(canvas) returns null only when WebGL2 is unavailable altogether.
 
+import { glGet, glCap } from './gl-state.js?v=7962476b4a';
 import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { EDGE_GLSL } from './edge.js?v=8321a8017f';
@@ -2193,7 +2194,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   const growNoise = (rows) => {
     const [W, H] = tableSize(rows);
     while (gl.getError()) { /* (earlier errors are not this one's) */ }
-    if (H <= gl.getParameter(gl.MAX_TEXTURE_SIZE)) {
+    if (H <= glCap(gl, gl.MAX_TEXTURE_SIZE)) {
       gl.bindTexture(gl.TEXTURE_2D, noiseTex);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, W, H, 0, gl.RGBA, gl.FLOAT, null);
       if (!gl.getError()) { noiseRows = Math.min(nTubes, H / NOISE_H * NOISE_PER_ROW); noiseDone.fill(0); return true; }
@@ -3127,7 +3128,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      */
     paintOrgans(shapes, rect, k) {
       const W = Math.max(1, Math.round(rect[2] * k)), H = Math.max(1, Math.round(rect[3] * k));
-      const fb0 = gl.getParameter(gl.FRAMEBUFFER_BINDING), vp0 = gl.getParameter(gl.VIEWPORT);
+      const fb0 = glGet(gl, gl.FRAMEBUFFER_BINDING), vp0 = glGet(gl, gl.VIEWPORT);   // (gl-state.js: the record, not the driver)
       const shape = createShapeGL(gl), fbo = gl.createFramebuffer(), st = gl.createRenderbuffer(), meshes = [];
       try {
         texVer++;
