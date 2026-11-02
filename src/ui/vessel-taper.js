@@ -21,26 +21,26 @@
 //   vessels: Map id → { body (its own caliber, radius), len (its length) }
 //   links:   [{ a, ea, b, eb }]: vessel a's end ea (0 start, 1 end) runs on into vessel b's end eb.
 
-const key = (id, end) => `${id}:${end}`;
+const key = (id, end) => `${id}:${end}`; // alloc-rare: only when a vessel's caliber or the joined set changes (stage.js sendRadii, a model change), never on a steady frame
 
 /** The chains the links make: each an array of { id, enter } (enter: the end the chain comes in by; 0 walks the vessel start to end). */
 export function chainsOf(ids, links) {
-  const next = new Map();
+  const next = new Map(); // alloc-rare: only when a vessel's caliber or the joined set changes (stage.js sendRadii, a model change), never on a steady frame
   for (const { a, ea, b, eb } of links) {
     if (a === b || !ids.has(a) || !ids.has(b)) continue;
     const ka = key(a, ea), kb = key(b, eb);
     // (Each end runs on into one other at most: the first link an end appears in holds.)
     if (next.has(ka) || next.has(kb)) continue;
-    next.set(ka, { id: b, end: eb });
-    next.set(kb, { id: a, end: ea });
+    next.set(ka, { id: b, end: eb }); // alloc-rare: only when a vessel's caliber or the joined set changes (stage.js sendRadii, a model change), never on a steady frame
+    next.set(kb, { id: a, end: ea }); // alloc-rare: only when a vessel's caliber or the joined set changes (stage.js sendRadii, a model change), never on a steady frame
   }
-  const seen = new Set(), chains = [];
-  const walk = (id, enter) => {
-    const chain = [];
-    let cur = { id, end: enter };
+  const seen = new Set(), chains = []; // alloc-rare: only when a vessel's caliber or the joined set changes (stage.js sendRadii, a model change), never on a steady frame
+  const walk = (id, enter) => { // alloc-rare: only when a vessel's caliber or the joined set changes (stage.js sendRadii, a model change), never on a steady frame
+    const chain = []; // alloc-rare: only when a vessel's caliber or the joined set changes (stage.js sendRadii, a model change), never on a steady frame
+    let cur = { id, end: enter }; // alloc-rare: only when a vessel's caliber or the joined set changes (stage.js sendRadii, a model change), never on a steady frame
     while (cur && !seen.has(cur.id)) {
       seen.add(cur.id);
-      chain.push({ id: cur.id, enter: cur.end });
+      chain.push({ id: cur.id, enter: cur.end }); // alloc-rare: only when a vessel's caliber or the joined set changes (stage.js sendRadii, a model change), never on a steady frame
       cur = next.get(key(cur.id, 1 - cur.end));
     }
     return chain;
@@ -56,14 +56,14 @@ export function chainsOf(ids, links) {
     if (seen.has(id) || (!next.has(key(id, 0)) && !next.has(key(id, 1)))) continue;
     chains.push(walk(id, 0));
   }
-  return chains.filter((c) => c.length > 0);
+  return chains.filter((c) => c.length > 0); // alloc-rare: only when a vessel's caliber or the joined set changes (stage.js sendRadii, a model change), never on a steady frame
 }
 
 /** Slopes of a monotone cubic through (s[i], y[i]): zero at both ends and wherever the data turn, else the weighted harmonic mean of the two secants. */
 export function monotoneSlopes(s, y) {
-  const n = s.length, d = new Array(n).fill(0);
+  const n = s.length, d = new Array(n).fill(0); // alloc-rare: only when a vessel's caliber or the joined set changes (stage.js sendRadii, a model change), never on a steady frame
   if (n < 3) return d;
-  const h = [], k = [];
+  const h = [], k = []; // alloc-rare: only when a vessel's caliber or the joined set changes (stage.js sendRadii, a model change), never on a steady frame
   for (let i = 0; i < n - 1; i++) { h.push(Math.max(s[i + 1] - s[i], 1e-9)); k.push((y[i + 1] - y[i]) / h[i]); }
   for (let i = 1; i < n - 1; i++) {
     if (k[i - 1] * k[i] <= 0) { d[i] = 0; continue; }
@@ -74,27 +74,27 @@ export function monotoneSlopes(s, y) {
 }
 
 export function planTaper(vessels, links) {
-  const plan = new Map();
+  const plan = new Map(); // alloc-rare: only when a vessel's caliber or the joined set changes (stage.js sendRadii, a model change), never on a steady frame
   if (!links.length) return plan;
-  const ids = new Set(vessels.keys());
+  const ids = new Set(vessels.keys()); // alloc-rare: only when a vessel's caliber or the joined set changes (stage.js sendRadii, a model change), never on a steady frame
   for (const chain of chainsOf(ids, links)) {
     if (chain.length < 2) continue;
-    const bodies = chain.map((c) => vessels.get(c.id).body);
-    const lens = chain.map((c) => Math.max(vessels.get(c.id).len, 1e-6));
+    const bodies = chain.map((c) => vessels.get(c.id).body); // alloc-rare: only when a vessel's caliber or the joined set changes (stage.js sendRadii, a model change), never on a steady frame
+    const lens = chain.map((c) => Math.max(vessels.get(c.id).len, 1e-6)); // alloc-rare: only when a vessel's caliber or the joined set changes (stage.js sendRadii, a model change), never on a steady frame
     // Stations: the chain's start, each node, the chain's end.
-    const s = [0], y = [bodies[0]];
+    const s = [0], y = [bodies[0]]; // alloc-rare: only when a vessel's caliber or the joined set changes (stage.js sendRadii, a model change), never on a steady frame
     for (let i = 0; i < chain.length; i++) {
       s.push(s[i] + lens[i]);
       y.push(i === chain.length - 1 ? bodies[i] : (bodies[i] + bodies[i + 1]) / 2);
     }
     const d = monotoneSlopes(s, y);
-    chain.forEach((c, i) => {
+    chain.forEach((c, i) => { // alloc-rare: only when a vessel's caliber or the joined set changes (stage.js sendRadii, a model change), never on a steady frame
       // Walked forward the vessel's u runs with the chain's length; walked back it runs against it (its start is the later station).
       // (j0, j1: the vessel runs on into another at that end, so its caliber there is the node's, not its own.)
       const first = i === 0, last = i === chain.length - 1;
       plan.set(c.id, c.enter === 0
-        ? { y0: y[i], y1: y[i + 1], d0: d[i], d1: d[i + 1], j0: !first, j1: !last }
-        : { y0: y[i + 1], y1: y[i], d0: -d[i + 1], d1: -d[i], j0: !last, j1: !first });
+        ? { y0: y[i], y1: y[i + 1], d0: d[i], d1: d[i + 1], j0: !first, j1: !last } // alloc-rare: only when a vessel's caliber or the joined set changes (stage.js sendRadii, a model change), never on a steady frame
+        : { y0: y[i + 1], y1: y[i], d0: -d[i + 1], d1: -d[i], j0: !last, j1: !first }); // alloc-rare: only when a vessel's caliber or the joined set changes (stage.js sendRadii, a model change), never on a steady frame
     });
   }
   return plan;

@@ -18,6 +18,7 @@ import { olderThan, inFront } from './backfill.js?v=455d888760';
 import { dropFront } from './drop-front.js?v=21069ee0e8';
 import { createStill } from './still-layer.js?v=d5a9373a74';
 import { attrSoon } from './class-soon.js?v=97b9d0e0db';
+import { restPass } from './rest-pass.js?v=d13e397f0b';
 const nextFrame = frameFor('vitals-monitor');
 
 export const VITALS_DEFAULT = ['hr', 'map', 'hb'];
@@ -31,14 +32,26 @@ export function vitalsShown(t) {
   return ids.length ? ids : VITALS_DEFAULT;
 }
 /** A slide's fingerprint as the metrics the vitals read (VITALS[].v falls back to the flat keys). */
-export const metricsOfFp = (fp) => ({ map: fp.map, hr: fp.hr, co: fp.co, ra: fp.ra, blood: { hb: fp.hb } });
-/** The cells to print: each vital's short name, value, unit, decimals and whether it is past its cut-off (with the bottom bar's hold and hysteresis). */
+// (The metrics are one kept object written in place, read by the draw that asks: a pinned slide's frame draws many times a second.)
+const FP_METRICS = { map: 0, hr: 0, co: 0, ra: 0, blood: { hb: 0 } };
+export const metricsOfFp = (fp) => { const m = FP_METRICS; m.map = fp.map; m.hr = fp.hr; m.co = fp.co; m.ra = fp.ra; m.blood.hb = fp.hb; return m; };
+/** The cells to print: each vital's short name, value, unit, decimals and whether it is past its cut-off (with the bottom bar's hold and hysteresis).
+ *  The list and its cells are kept per monitor (its `xs`) and written in place: a frame makes none, and a caller reads them as they are returned. */
+const CELL_LISTS = new WeakMap();
+const defOf = (id) => { for (let i = 0; i < VITALS.length; i++) if (VITALS[i].id === id) return VITALS[i]; return undefined; };
 export function vitalCells(m, ids, xs, running, now) {
-  return ids.map((id) => {
-    const def = VITALS.find((v) => v.id === id), x = xs.get(id) || xs.set(id, { v: def }).get(id);
+  let out = CELL_LISTS.get(xs);
+  if (!out) CELL_LISTS.set(xs, (out = []));   // alloc-rare: a monitor's first frame
+  out.length = ids.length;
+  for (let i = 0; i < ids.length; i++) {
+    const id = ids[i], def = defOf(id);
+    let x = xs.get(id);
+    if (!x) xs.set(id, (x = { v: def, cell: null }));   // alloc-rare: a vital's first frame
     const { v, bad } = vitalReading(x, m, running, now);
-    return { id, k: def.k, title: def.title, u: def.u, d: def.d, v, bad };
-  });
+    const c = x.cell || (x.cell = { id, k: def.k, title: def.title, u: def.u, d: def.d, v: NaN, bad: false });   // alloc-rare: a vital's first frame
+    c.v = v; c.bad = bad; out[i] = c;
+  }
+  return out;
 }
 
 // The fonts epoch: the words of the pictures below are drawn again when a font finishes loading (as the Pressure chart's are).
@@ -51,6 +64,8 @@ export function createVitalsMonitor({ stillLayer = true, gpu = true } = {}) {
   const glr = gpu ? createVitalsGL(cv) : null;   // (null where WebGL 2 is not there: the 2D canvas below, as before)
   const el = h('div', { class: 'chart-box vitals-box' }, cv);
   const clock = createBeatClock();
+  const trimClock = clock.trim.bind(clock);   // (the beat clock's own trim: not a string's)
+  const WALK_TO = { ph: NaN, left: NaN };   // (walkBeats reads it as it is called)
   const raw = { t: [], ph: [] };   // (the (time, phase) samples the beat clock was made from: a history goes in front of them and the clock is made again)
   let ids = VITALS_DEFAULT, frame = null, pinned = null, wallAt = 0, lastT = -Infinity, firstT = Infinity;
   // (synth: the strip on its own clock while the model's stands still, { w: the beat walk, at: when it was last moved on }; off: the model's
@@ -144,37 +159,84 @@ export function createVitalsMonitor({ stillLayer = true, gpu = true } = {}) {
     if (label !== lastLabel) { lastLabel = label; attrSoon(cv, 'aria-label', label); }
     // (While the strip scrolls its loop draws every frame, the easing numbers with it: a frame of their own would draw it twice.)
     eased = moving;
-    if (moving && !raf && !ticking) raf = nextFrame((t) => { raf = 0; draw(t); });
+    if (moving && !raf && !ticking) raf = nextFrame(rafDraw);
   }
   // ── The GPU's way (vitals-gl.js): the same layout, the same numbers, colours and eases, sent as rectangles, a line and glyphs. ──
   // (lay: the readings' font sizes, found again only when the size or the cells' words change, from the atlas's own advances (no canvas);
   // pts: the strip's points, kept from frame to frame.)
-  let lay = null, layKey = '', pts = new Float32Array(512);
+  let lay = null, layW = -1, layH = -1, layN = -1, pts = new Float32Array(512);
+  const layK = [], layU = [];   // (the cells' words the layout was found for)
   function layout(w, hh, cells) {
-    const pad = 14, ew = w - 2 * pad, eh = Math.round(clamp(hh * 0.42, 34, 110)), top = pad, bot = pad + eh;
+    let same = lay && w === layW && hh === layH && cells.length === layN;
+    for (let i = 0; same && i < cells.length; i++) if (layK[i] !== cells[i].k || layU[i] !== cells[i].u) same = false;
+    if (same) return lay;
+    const pad = 14, ew = w - 2 * pad, eh = Math.round(clamp(hh * 0.42, 34, 110)), top = pad, bot = pad + eh;   // alloc-rare: only when the size or the cells' words change
     const y0 = bot + 12, rh = hh - pad - y0, cw = ew / cells.length;
-    const key = JSON.stringify([w, hh, cells.map((c) => [c.k, c.u])]);
-    if (key === layKey) return lay;
-    const cl = cells.map((c, i) => {
+    const cl = [];   // alloc-rare: only when the size or the cells' words change
+    for (let i = 0; i < cells.length; i++) {
+      const c = cells[i];
       let big = Math.round(clamp(Math.min(rh - 20, cw * 0.42, 46), 22, 46));
       const uw = textWidth(c.u, 500, 12);
       while (!(textWidth('88.8', 700, big) + uw + 10 <= cw - 6 || big <= 18)) big -= 2;
-      return { x: pad + i * cw, big };
-    });
-    layKey = key;
-    lay = { pad, ew, eh, top, bot, y0, rh, cw, cells: cl };
+      cl.push({ x: pad + i * cw, big });   // alloc-rare: only when the size or the cells' words change
+      layK[i] = c.k; layU[i] = c.u;
+    }
+    layW = w; layH = hh; layN = cells.length;
+    lay = { pad, ew, eh, top, bot, y0, rh, cw, cells: cl };   // alloc-rare: only when the size or the cells' words change
     return lay;
   }
+  // The pictures' lists for the GPU, kept and written in place (vitals-gl.js draw reads them as it is called): a rectangle or a word is one
+  // kept entry [.., col], and a frame sets how many are in use.
+  const RECTS = [], TEXTS = [], LINE = { pts: null, n: 0, half: 0, col: null, clip: [0, 0, 0, 0] }, DRAW = { W: 0, H: 0, dpr: 1, rects: RECTS, line: null, texts: TEXTS, redraw: null };
+  const rectAt = (i, x, y, w, h, r, col) => {
+    const e = RECTS[i] || (RECTS[i] = [0, 0, 0, 0, 0, null]);   // alloc-rare: the first frame that needs this many rectangles
+    e[0] = x; e[1] = y; e[2] = w; e[3] = h; e[4] = r; e[5] = col;
+  };
+  const textAt = (i, str, wt, px, x, y, col) => {
+    const e = TEXTS[i] || (TEXTS[i] = ['', 0, 0, 0, 0, null]);   // alloc-rare: the first frame that needs this many words
+    e[0] = str; e[1] = wt; e[2] = px; e[3] = x; e[4] = y; e[5] = col;
+  };
+  const inkOf = (id, ecg, art, bright) => (id === 'hr' ? ecg : id === 'map' ? art : bright);
+  // The cells with no metrics yet: the names, no numbers (kept, one per id).
+  const BLANK = new Map(), BLANK_LIST = [];
+  function blankCells() {
+    BLANK_LIST.length = ids.length;
+    for (let i = 0; i < ids.length; i++) {
+      const id = ids[i];
+      let c = BLANK.get(id);
+      if (!c) { const def = defOf(id); BLANK.set(id, (c = { id, k: def.k, u: def.u, v: NaN, bad: false, d: def.d, title: def.title })); }   // alloc-rare: the first frame without metrics
+      BLANK_LIST[i] = c;
+    }
+    return BLANK_LIST;
+  }
+  // The reading's words for a screen reader, made between frames and only when a number or a flag changed (the snapshot is taken in the frame).
+  const snapV = [], snapBad = [], snapCells = [], txtQ = [], txtD = [], txtS = [];
+  let snapN = -1, labelAsk = 0;
+  function writeLabel() {
+    labelAsk = 0;
+    const label = `Vital signs: ${snapCells.map((c, i) => `${c.title} ${Number.isFinite(snapV[i]) ? fmt(snapV[i], c.d) : 'not available'} ${c.u}${snapBad[i] ? ', past its limit' : ''}`).join('; ')}.`;
+    if (label !== lastLabel) { lastLabel = label; attrSoon(cv, 'aria-label', label); }
+  }
+  function noteLabel(cells) {
+    let ch = cells.length !== snapN;
+    for (let i = 0; !ch && i < cells.length; i++) if (!Object.is(snapV[i], cells[i].v) || snapBad[i] !== cells[i].bad || snapCells[i] !== cells[i]) ch = true;
+    if (!ch) return;
+    snapN = cells.length;
+    for (let i = 0; i < cells.length; i++) { snapV[i] = cells[i].v; snapBad[i] = cells[i].bad; snapCells[i] = cells[i]; }
+    if (!labelAsk) labelAsk = restPass(writeLabel);
+  }
+  const rafDraw = (t) => { raf = 0; draw(t); };
   function drawGL(now) {
     const { w, h: hh, dpr } = fitBox(cv);
     if (w < 120 || hh < 90) return;
     const m = pinned ? metricsOfFp(pinned) : frame?.metrics;
-    const cells = m ? vitalCells(m, ids, xs, !!frame?.running, now) : ids.map((id) => { const def = VITALS.find((v) => v.id === id); return { id, k: def.k, u: def.u, v: NaN, bad: false, d: def.d, title: def.title }; });
+    const cells = m ? vitalCells(m, ids, xs, !!frame?.running, now) : blankCells();
     const L = layout(w, hh, cells), { pad, ew, eh, top, bot, y0 } = L;
     const bg = colorOf(C('--mon-bg')), text = colorOf(C('--mon-text')), bright = colorOf(C('--mon-bright')), alarm = colorOf(C('--mon-alarm')), grid = colorOf(C('--mon-grid'));
     const ecg = colorOf(C('--mon-ecg') || C('--mon-bright')), art = colorOf(C('--mon-art') || C('--mon-bright'));
-    const inkOf = (id) => (id === 'hr' ? ecg : id === 'map' ? art : bright);
-    const rects = [[0, 0, w, hh, 12, bg], [pad, Math.round(bot - 6), ew, 1, 0, grid]], texts = [['EKG', 600, 12, pad, top + 11, text]];
+    rectAt(0, 0, 0, w, hh, 12, bg); rectAt(1, pad, Math.round(bot - 6), ew, 1, 0, grid);
+    let nr = 2, nt = 0;
+    textAt(nt++, 'EKG', 600, 12, pad, top + 11, text);
     // The strip.
     let line = null;
     const x1 = headX(), x0 = Math.max(x1 - SPAN_S, firstT), hr = synth ? synth.w.bpm : frame?.metrics?.hr;
@@ -182,44 +244,52 @@ export function createVitalsMonitor({ stillLayer = true, gpu = true } = {}) {
       const e = ekgSeries(clock.times, x0, x1, 60 / (hr > 20 ? hr : 70));
       const n = e.x.length;
       if (n > 1) {
-        if (pts.length < n * 2) pts = new Float32Array(n * 4);
+        if (pts.length < n * 2) pts = new Float32Array(n * 4);   // alloc-rare: the strip has more points than ever before
         for (let i = 0; i < n; i++) {
           pts[2 * i] = (pad + ((e.x[i] - (x1 - SPAN_S)) / SPAN_S) * ew) * dpr;
           pts[2 * i + 1] = (bot - 6 - ((e.v[i] + 0.3) / 1.3) * (eh - 22)) * dpr;
         }
-        line = { pts, n, half: 0.8 * dpr, col: ecg, clip: [pad * dpr, top * dpr, ew * dpr, eh * dpr] };
+        LINE.pts = pts; LINE.n = n; LINE.half = 0.8 * dpr; LINE.col = ecg;
+        LINE.clip[0] = pad * dpr; LINE.clip[1] = top * dpr; LINE.clip[2] = ew * dpr; LINE.clip[3] = eh * dpr;
+        line = LINE;
       }
     }
     // The readings, eased to their values as on the 2D canvas.
     let moving = false;
     if (m) {
-      cells.forEach((c, i) => {
+      for (let i = 0; i < cells.length; i++) {
+        const c = cells[i];
         let val = '—';
         if (Number.isFinite(c.v)) {
           let sv = shownV.get(c.id);
           if (sv == null) sv = c.v;
           else if (Math.abs(c.v - sv) < Math.pow(10, -c.d) * 0.05) sv = c.v;
           else { sv += (c.v - sv) * (1 - Math.exp(-clamp((now - last) / 1000, 0, 0.1) / EASE_S)); moving = true; }
-          shownV.set(c.id, sv); val = fmt(sv, c.d);
+          shownV.set(c.id, sv);
+          // (The printed words are made again only when the number printed changes: a few times a second while it eases, not every frame.)
+          const q = Math.round(sv * Math.pow(10, c.d));
+          if (txtQ[i] !== q || txtD[i] !== c.d) { txtQ[i] = q; txtD[i] = c.d; txtS[i] = fmt(sv, c.d); }   // alloc-rare: only when the printed number changes
+          val = txtS[i];
         }
-        const { x, big } = L.cells[i], by = y0 + 12 + 6 + big, nw = textWidth(val, 700, big);
-        texts.push([c.k, 600, 12, x, y0 + 12, c.bad ? alarm : inkOf(c.id) === bright ? text : inkOf(c.id)]);
-        if (c.bad) rects.push([x - 5, by - big * 0.78 - 4, nw + 10, big * 0.78 + 10, 5, alarm]);
-        texts.push([val, 700, big, x, by, c.bad ? bg : inkOf(c.id)]);
-        texts.push([c.u, 500, 12, x + nw + 5, by, c.bad ? alarm : text]);
-      });
+        const { x, big } = L.cells[i], by = y0 + 12 + 6 + big, nw = textWidth(val, 700, big), ink = inkOf(c.id, ecg, art, bright);
+        textAt(nt++, c.k, 600, 12, x, y0 + 12, c.bad ? alarm : ink === bright ? text : ink);
+        if (c.bad) rectAt(nr++, x - 5, by - big * 0.78 - 4, nw + 10, big * 0.78 + 10, 5, alarm);
+        textAt(nt++, val, 700, big, x, by, c.bad ? bg : ink);
+        textAt(nt++, c.u, 500, 12, x + nw + 5, by, c.bad ? alarm : text);
+      }
     }
-    const drawn = glr.draw({ W: cv.width, H: cv.height, dpr, rects, line, texts, redraw: atlasIn });
-    if (!drawn && !glr.lost && !ticking && !raf) raf = nextFrame((t) => { raf = 0; draw(t); });   // (its programs are not ready yet: the next frame)
+    RECTS.length = nr; TEXTS.length = nt;
+    DRAW.W = cv.width; DRAW.H = cv.height; DRAW.dpr = dpr; DRAW.line = line; DRAW.redraw = atlasIn;
+    const drawn = glr.draw(DRAW);
+    if (!drawn && !glr.lost && !ticking && !raf) raf = nextFrame(rafDraw);   // (its programs are not ready yet: the next frame)
     if (!m) return;
     last = now;
-    const label = `Vital signs: ${cells.map((c) => `${c.title} ${Number.isFinite(c.v) ? fmt(c.v, c.d) : 'not available'} ${c.u}${c.bad ? ', past its limit' : ''}`).join('; ')}.`;
-    if (label !== lastLabel) { lastLabel = label; attrSoon(cv, 'aria-label', label); }
+    noteLabel(cells);
     eased = moving;
-    if (moving && !raf && !ticking) raf = nextFrame((t) => { raf = 0; draw(t); });
+    if (moving && !raf && !ticking) raf = nextFrame(rafDraw);
   }
   const atlasIn = () => { if (!gone && !ticking && !raf) draw(); };   // (the glyph atlas came in after a draw: drawn again with its words)
-  cv.addEventListener('webglcontextrestored', () => { layKey = ''; draw(); });
+  cv.addEventListener('webglcontextrestored', () => { lay = null; draw(); });
 
   // While the model runs and the card is on screen the strip scrolls on every frame the screen offers; otherwise it is drawn when something changes.
   // (One frame asked for at a time (loopRaf), let go with the strip: dispose. eased: the numbers were still easing at the last draw.)
@@ -228,7 +298,7 @@ export function createVitalsMonitor({ stillLayer = true, gpu = true } = {}) {
   let ticking = false, loopRaf = 0, eased = false, gone = false, loopAt = -Infinity;
   function loop(now) {
     loopRaf = 0;
-    if (gone || !live()) { ticking = false; frameAnimating('vitals-monitor', false); if (eased && !gone && !raf) raf = nextFrame((t) => { raf = 0; draw(t); }); return; }
+    if (gone || !live()) { ticking = false; frameAnimating('vitals-monitor', false); if (eased && !gone && !raf) raf = nextFrame(rafDraw); return; }
     const pace = paceMs();
     if (!pace || now - loopAt >= pace) { loopAt = now; draw(now); noteDraw('vitals-monitor'); }
     loopRaf = nextFrame(loop);
@@ -263,8 +333,9 @@ export function createVitalsMonitor({ stillLayer = true, gpu = true } = {}) {
     synth.at = Math.max(synth.at, now);
     if (!frame?.running || !(dt > 0)) return;
     const left = frame.parkSecs == null ? NaN : Math.max(0, frame.parkSecs - (now - wallAt) / 1000);
-    walkBeats(synth.w, dt, rateNow(), clock.times, { ph: frame.phase, left });
-    clock.trim(synth.w.x - LAG_S - 2 * SPAN_S);
+    WALK_TO.ph = frame.phase; WALK_TO.left = left;
+    walkBeats(synth.w, dt, rateNow(), clock.times, WALK_TO);
+    trimClock(synth.w.x - LAG_S - 2 * SPAN_S);
   }
   /** The model's clock runs again: its samples are laid on the strip's clock so that the newest sits where the strip has been laid to, which
    *  keeps what is drawn where it is, and the beat clock starts a new run from them. */

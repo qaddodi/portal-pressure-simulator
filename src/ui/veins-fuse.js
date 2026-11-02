@@ -16,44 +16,46 @@ export const U8 = Array.from({ length: 256 }, (_, i) => Math.fround(i / 255));
 const f32 = (v) => { const s = String(v); return /[.e]/.test(s) ? s : `${s}.0`; };
 
 // The vertex shader: the vessel cells' (VS, unchanged), with the composite's per-vertex zoom numbers (ZOOM_VS) added.
+// (The level table's GLSL text, made once with the module.)
+const U8_TEXT = U8.map(f32).join(', ');
 export function fusedVS(VS, ZOOM_VS) {
   const at = VS.lastIndexOf('void main() {'), end = VS.lastIndexOf('}');
   if (at < 0 || end < at) throw new Error('fusedVS: no main');
-  return `${VS.slice(0, at)}${ZOOM_VS}\n${VS.slice(at, end)}  zoomOut();\n${VS.slice(end)}`;
+  return `${VS.slice(0, at)}${ZOOM_VS}\n${VS.slice(at, end)}  zoomOut();\n${VS.slice(end)}`; // alloc-rare: assembles the zoom pass's shader text once when its programs are made (veins-gl.js), never per frame
 }
 
 const EMPTY = '{ vOut = vec4(0.0); outFlow = uvec4(0u); outFlow2 = uvec4(0u); outDep = vec4(0.0); return; /* left empty */ }';
 const one = (src, from, to, what) => {
-  const n = src.split(from).length - 1;
-  if (n !== 1) throw new Error(`fusedFS: ${what} found ${n} times`);
-  return src.replace(from, to);
+  const n = src.split(from).length - 1; // alloc-rare: assembles the zoom pass's shader text once when its programs are made (veins-gl.js), never per frame
+  if (n !== 1) throw new Error(`fusedFS: ${what} found ${n} times`); // alloc-rare: assembles the zoom pass's shader text once when its programs are made (veins-gl.js), never per frame
+  return src.replace(from, to); // alloc-rare: assembles the zoom pass's shader text once when its programs are made (veins-gl.js), never per frame
 };
 
 // The vessel shader's text as a function, vesselMain(), writing globals instead of the layer's targets.
 export function vesselPart(V) {
-  let s = V.replace(/^#version 300 es\n/, '').replace(/^precision highp float;\n/m, '').replace(/^precision highp int;\n/m, '');
+  let s = V.replace(/^#version 300 es\n/, '').replace(/^precision highp float;\n/m, '').replace(/^precision highp int;\n/m, ''); // alloc-rare: assembles the zoom pass's shader text once when its programs are made (veins-gl.js), never per frame
   // (The whole draw's constants: no partial redraw, no colour-only redraw, so the latter's mask is never read.)
   s = one(s, /^uniform int redraw;.*$/m, 'const int redraw = 0;', 'redraw');
   s = one(s, /^uniform int tint;.*$/m, 'const int tint = 0;', 'tint');
   s = one(s, /^uniform sampler2D depL;.*$/m, '#define depL organ', 'depL');
-  s = s.replace(/layout\(location=\d\) out /g, '');
-  s = s.replace(/\boutColor\b/g, 'vOut');
+  s = s.replace(/layout\(location=\d\) out /g, ''); // alloc-rare: assembles the zoom pass's shader text once when its programs are made (veins-gl.js), never per frame
+  s = s.replace(/\boutColor\b/g, 'vOut'); // alloc-rare: assembles the zoom pass's shader text once when its programs are made (veins-gl.js), never per frame
   s = one(s, /\bvoid main\(\)/, 'void vesselMain()', 'main');
-  s = s.replace(/\bdiscard;/g, EMPTY);
+  s = s.replace(/\bdiscard;/g, EMPTY); // alloc-rare: assembles the zoom pass's shader text once when its programs are made (veins-gl.js), never per frame
   return s;
 }
 
 // The composite's text as a function, compMain(), reading the vessel pass's results instead of the layer.
 // `shared`: the declarations the vessel part already makes, identical in both texts, left out here.
 export function compPart(C) {
-  let s = C.replace(/^#version 300 es\n/, '').replace(/^precision highp float;\n/m, '').replace(/^precision highp int;\n/m, '');
-  for (const re of [/^uniform sampler2D base;.*\n/m, /^uniform usampler2D gbuf;.*\n/m, /^uniform usampler2D gbuf2;.*\n/m,
+  let s = C.replace(/^#version 300 es\n/, '').replace(/^precision highp float;\n/m, '').replace(/^precision highp int;\n/m, ''); // alloc-rare: assembles the zoom pass's shader text once when its programs are made (veins-gl.js), never per frame
+  for (const re of [/^uniform sampler2D base;.*\n/m, /^uniform usampler2D gbuf;.*\n/m, /^uniform usampler2D gbuf2;.*\n/m, // alloc-rare: assembles the zoom pass's shader text once when its programs are made (veins-gl.js), never per frame
     /^uniform highp sampler2D rad;.*\n/m, /^uniform highp sampler2D tube;.*\n/m, /^const float S_OFF = .*\n/m,
     /^vec4 over\(vec4 top, vec4 under\) \{ return top \+ under \* \(1\.0 - top\.a\); \}\n/m,
-    /^float alongAt\(int id, float u\) \{\n[\s\S]*?\n\}\n/m]) s = one(s, re, '', String(re));
+    /^float alongAt\(int id, float u\) \{\n[\s\S]*?\n\}\n/m]) s = one(s, re, '', String(re)); // alloc-rare: assembles the zoom pass's shader text once when its programs are made (veins-gl.js), never per frame
   s = one(s, /^uniform int bloodOnly;.*$/m, 'const int bloodOnly = 0;', 'bloodOnly');
   // (The layer's texel for the pixel, if the layer holds it: in a one-pass frame, the vessel pass's results for the pixel itself.)
-  s = s.replace(/\(inL \? texelFetch\(gbuf, lp, 0\) : uvec4\(0u\)\)/g, 'fG').replace(/\(inL \? texelFetch\(gbuf2, lp, 0\) : uvec4\(0u\)\)/g, 'fG2')
+  s = s.replace(/\(inL \? texelFetch\(gbuf, lp, 0\) : uvec4\(0u\)\)/g, 'fG').replace(/\(inL \? texelFetch\(gbuf2, lp, 0\) : uvec4\(0u\)\)/g, 'fG2') // alloc-rare: assembles the zoom pass's shader text once when its programs are made (veins-gl.js), never per frame
     .replace(/\(inL \? texelFetch\(base, lp, 0\) : vec4\(0\.0\)\)/g, 'fV')
     .replace(/texture\(base, lowUV\)/g, 'fVL');   // (a tier frame's read of the small targets (R10): a one-pass frame has the pixel's own, fVL = fV)
   if (/texelFetch\((gbuf|gbuf2|base),|texture\(base,/.test(s)) throw new Error('compPart: a read of the layer left');
@@ -64,6 +66,7 @@ export function compPart(C) {
 // The fragment shader: vessel part, then composite part, then a main that runs one into the other.
 // V: vesselFS(simple); C: COMP_FS(plain); `simple`: V is the one-vessel build (no second lumen: zero, as its layer holds).
 export function fusedFS(V, C, simple) {
+  // alloc-rare: assembles the zoom pass's shader text once when its programs are made (veins-gl.js), never per frame
   return `#version 300 es
 precision highp float;
 precision highp int;
@@ -72,7 +75,7 @@ ${vesselPart(V)}
 uvec4 fG, fG2;
 vec4 fV;
 #define fVL fV
-const float U8[256] = float[256](${U8.map(f32).join(', ')});
+const float U8[256] = float[256](${U8_TEXT});
 vec4 unorm8(vec4 c) {
   ivec4 i = ivec4(roundEven(clamp(c, 0.0, 1.0) * 255.0));
   return vec4(U8[i.x], U8[i.y], U8[i.z], U8[i.w]);

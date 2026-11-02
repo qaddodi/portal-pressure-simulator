@@ -337,12 +337,17 @@ export function createSinusoidView({ host, before = null }) {
   const VW = { k: 0, C: [0, 0], tk: 0, tC: [0, 0], f: null, fe: null, insT: null, ins: null, vel: null, vis: [0, 0], fr: [0, 0] };
   // Where it is drawn this frame: the view's own placement, carried by the zoom from the lobule while that runs.
   const CAM = { C: [0, 0], k: 1, ang: 0, ca: 1, sa: 0 };
+  const LOC = new Float64Array(4);
+  function locAlong(X, Y, cx, cy, ga, gs, kk) { return ((X - cx) * ga + (Y - cy) * gs) / kk; }   // (a screen point, µm along the sinusoid from the view's centre)
   // The view's placement as numbers: its scale, centre, the free space it lays names against, and its insets (the target's, or as it is).
-  const viewTo = () => [VW.tk, VW.tC[0], VW.tC[1], VW.f.l, VW.f.t, VW.f.r, VW.f.b, ...VW.insT];
-  const viewVec = () => [VW.k, VW.C[0], VW.C[1], VW.fe.l, VW.fe.t, VW.fe.r, VW.fe.b, ...VW.ins];
-  const viewPut = (v) => { VW.k = v[0]; VW.C = [v[1], v[2]]; VW.fe.l = v[3]; VW.fe.t = v[4]; VW.fe.r = v[5]; VW.fe.b = v[6]; for (let i = 0; i < VW.ins.length; i++) VW.ins[i] = v[7 + i]; };
+  // (Into kept lists: TO the target's, CUR where it is, VEL how fast each is moving. Ten numbers: the scale, the centre, the free space, three insets.)
+  const VEC_N = 10, TO = new Float64Array(VEC_N), CUR = new Float64Array(VEC_N), VEL = new Float64Array(VEC_N);
+  const viewTo = () => { TO[0] = VW.tk; TO[1] = VW.tC[0]; TO[2] = VW.tC[1]; TO[3] = VW.f.l; TO[4] = VW.f.t; TO[5] = VW.f.r; TO[6] = VW.f.b; for (let i = 0; i < 3; i++) TO[7 + i] = VW.insT[i]; return TO; };
+  const viewVec = () => { CUR[0] = VW.k; CUR[1] = VW.C[0]; CUR[2] = VW.C[1]; CUR[3] = VW.fe.l; CUR[4] = VW.fe.t; CUR[5] = VW.fe.r; CUR[6] = VW.fe.b; for (let i = 0; i < 3; i++) CUR[7 + i] = VW.ins[i]; return CUR; };
+  const viewPut = (v) => { VW.k = v[0]; VW.C[0] = v[1]; VW.C[1] = v[2]; VW.fe.l = v[3]; VW.fe.t = v[4]; VW.fe.r = v[5]; VW.fe.b = v[6]; for (let i = 0; i < VW.ins.length; i++) VW.ins[i] = v[7 + i]; };
   // (The scale counts forty times: its steps are small beside a centre's pixels.)
-  const viewGap = (a, b) => a.reduce((sum, v, i) => sum + Math.abs(v - b[i]) * (i === 0 ? 40 : 1), 0);
+  const viewGap = (a, b) => { let sum = 0; for (let i = 0; i < VEC_N; i++) sum += Math.abs(a[i] - b[i]) * (i === 0 ? 40 : 1); return sum; };
+  const calm = (vel) => { for (let i = 0; i < VEC_N; i++) if (Math.abs(vel[i]) * (i === 0 ? 40 : 1) >= 0.5) return false; return true; };
   // The glide to the room the cards leave runs as a critically damped spring: it sets out from rest, so there is no kick as a card starts to
   // move, it reaches 60% of the way in 0.2 s and 95% in 0.47 s, and a target that moves on (the second layout pass after a tuck) carries it on
   // with no stop. A frame is counted at most STEP_MAX long (glide-clock.js): after a slow one, the layout the change set off, the view has not
@@ -350,8 +355,8 @@ export function createSinusoidView({ host, before = null }) {
   const SPRING = 10;
   function stepView(dt) {
     const to = viewTo(), cur = viewVec();
-    if (!VW.vel) VW.vel = to.map(() => 0);
-    const vel = VW.vel, gap0 = viewGap(cur, to), still = vel.every((v, i) => Math.abs(v) * (i === 0 ? 40 : 1) < 0.5);
+    if (!VW.vel) { VW.vel = VEL; VEL.fill(0); }
+    const vel = VW.vel, gap0 = viewGap(cur, to), still = calm(vel);
     easeA = 0;
     let moving = false;
     if (dive || (gap0 < 0.05 && still)) { viewPut(to); vel.fill(0); }   // (held at its mark while the zoom carries it)
@@ -366,24 +371,27 @@ export function createSinusoidView({ host, before = null }) {
       }
       const gap1 = viewGap(cur, to);
       easeA = gap0 > 1e-6 ? Math.min(1, Math.max(0, 1 - gap1 / gap0)) : 0;   // (the share of the way left that this frame went: what the names' lags decay by)
-      if (gap1 < 0.05 && vel.every((v, i) => Math.abs(v) * (i === 0 ? 40 : 1) < 0.5)) { viewPut(to); vel.fill(0); } else viewPut(cur);
+      if (gap1 < 0.05 && calm(vel)) { viewPut(to); vel.fill(0); } else viewPut(cur);
     }
     // The zoom from the lobule (lobule-zoom.js): a turn and scale about the view's centre c, moved toward the lobule's sinusoid.
-    let C = VW.C, k = VW.k, ang = geo.ang;
+    const C = CAM.C;
+    let k = VW.k, ang = geo.ang;
+    C[0] = VW.C[0]; C[1] = VW.C[1];
     if (dive) {
       // The zoom's similarity a fraction g of the way, about its fixed point q: the view's centre is where the lobule's sinusoid point p is now.
       // Its scale and angle are the ones it set out with, so nothing the layout does meanwhile moves it.
       const { g, p, q, rot, Z } = dive, zg = Z ** g, ct = Math.cos(rot * g), st = Math.sin(rot * g), dx = p[0] - q[0], dy = p[1] - q[1];
-      C = [q[0] + zg * (dx * ct - dy * st), q[1] + zg * (dx * st + dy * ct)];
+      C[0] = q[0] + zg * (dx * ct - dy * st); C[1] = q[1] + zg * (dx * st + dy * ct);
       k = dive.k * zg / Z; ang = dive.ang + rot * (g - 1);
     }
-    Object.assign(CAM, { C, k, ang, ca: Math.cos(ang), sa: Math.sin(ang) });
+    CAM.k = k; CAM.ang = ang; CAM.ca = Math.cos(ang); CAM.sa = Math.sin(ang);
     // The stretch of sinusoid on screen, and in the free space (µm along it).
-    const g = geo, loc = ([X, Y]) => ((X - VW.C[0]) * Math.cos(g.ang) + (Y - VW.C[1]) * Math.sin(g.ang)) / VW.k;
-    const span = (pts) => { const v = pts.map(loc); return [Math.min(...v), Math.max(...v)]; };
-    const [a0, a1] = span([[0, 0], [g.W, 0], [0, g.H], [g.W, g.H]]);
-    VW.vis = [Math.max(g.x0, a0 - 8), Math.min(g.x1, a1 + 8)];
-    VW.fr = span([[VW.fe.l, VW.fe.t], [VW.fe.r, VW.fe.b]]);
+    const g = geo, ga = Math.cos(g.ang), gs = Math.sin(g.ang), cx = VW.C[0], cy = VW.C[1], kk = VW.k;
+    LOC[0] = locAlong(0, 0, cx, cy, ga, gs, kk); LOC[1] = locAlong(g.W, 0, cx, cy, ga, gs, kk); LOC[2] = locAlong(0, g.H, cx, cy, ga, gs, kk); LOC[3] = locAlong(g.W, g.H, cx, cy, ga, gs, kk);
+    const a0 = Math.min(LOC[0], LOC[1], LOC[2], LOC[3]), a1 = Math.max(LOC[0], LOC[1], LOC[2], LOC[3]);
+    VW.vis[0] = Math.max(g.x0, a0 - 8); VW.vis[1] = Math.min(g.x1, a1 + 8);
+    const f0 = locAlong(VW.fe.l, VW.fe.t, cx, cy, ga, gs, kk), f1 = locAlong(VW.fe.r, VW.fe.b, cx, cy, ga, gs, kk);
+    VW.fr[0] = Math.min(f0, f1); VW.fr[1] = Math.max(f0, f1);
     return moving;
   }
   // Local (µm, along/across) → stage px, where the view rests (for the labels).
@@ -414,54 +422,77 @@ export function createSinusoidView({ host, before = null }) {
   function rgb(c) {
     let o = rgbMemo.get(c);
     if (o) return o;
-    o = cssColor8(c || 'black').slice(0, 3);
+    o = cssColor8(c || 'black').slice(0, 3);   // alloc-rare: the first use of a colour string, kept in the memo
     if (rgbMemo.size > 256) rgbMemo.clear();
     rgbMemo.set(c, o);
     return o;
   }
-  const mixv = (a, b, t) => a.map((x, i) => lerp(x, b[i], t));
+  // dst = a mixed toward b by t, in place (dst may be a)
+  function blendRgb(dst, a, b, t) { for (let i = 0; i < 3; i++) dst[i] = lerp(a[i], b[i], t); return dst; }
+  function copyRgb(dst, a) { dst[0] = a[0]; dst[1] = a[1]; dst[2] = a[2]; return dst; }
   const cssVals = new Map();
   // (A value not read yet is asked for: read between frames with the others, and the frame that needed it is not painted.)
   let cssMiss = false;
   function readCss() {
     const cs = getComputedStyle(host);
     for (const n of cssVals.keys()) cssVals.set(n, cs.getPropertyValue(n).trim());
-    cssStale = false;
+    cssStale = false; cssEpoch++;
+  }
+  let cssEpoch = 0;
+  // The colours the shader takes, one kept object: the ones the theme sets are made again only when the theme or the css values
+  // read between frames change (palKey); the lumen's and the lymph's follow the model and are written in place each frame.
+  const rgb3 = () => [0, 0, 0];
+  const PAL = {
+    cBg: rgb3(), cShade: rgb3(), cLumen: rgb3(), cLymph: rgb3(), cCell: rgb3(), cUnder: rgb3(), cNuc: null, cCol: null, cBm: null, aBm: 0,
+    cBile: null, cEndo: null, cEndoS: null, cEndoE: null, cEndoN: null, cHscQ: null, cHscA: null, cHscN: null, cKup: null, cKupN: null, cKupE: null,
+    cRbc: null, cEndF: null, cEndE: null, cAlb: null, cAlbE: null, uShim: 0, uStreak: 0, uDark: 0,
+    // (the camera and the reveal, written in place each frame)
+    uI0: rgb3(), uI1: rgb3(), uF0: rgb3(), uF1: rgb3(), uEnd: [0, 0, 0, 0], uRev: [0, 0, 0, 0], uDet: [0, 0], uEndA: null,
+  };
+  const LY = { lo: null, mid: null, hi: null, bg: null };
+  let palDark = null, palEpoch = -1;
+  function cssv(n, d) {
+    let x = cssVals.get(n);
+    if (x == null) { cssVals.set(n, null); cssMiss = true; x = ''; }
+    return x || d;
   }
   function palette(dark) {
-    const v = (n, d) => {
-      let x = cssVals.get(n);
-      if (x == null) { cssVals.set(n, null); cssMiss = true; x = ''; }
-      return x || d;
-    }, t = (n) => rgb(v(n));
-    const bg = rgb(v('--stage-bg', v('--bg')));
-    // Pressure only: this view has no other lens.
-    const m = model;
-    const lumen = rgb(m.hide ? v('--sv-lumen-hidden') : pressureColor(m.P2));
-    // Lymph: clear and faintly green, deeper with more protein (as the lobule's lymphatics).
-    const p = S.prot ?? 1, lo = t('--sv-gl-lymph-lo'), mid = t('--sv-gl-lymph-mid'), hi = t('--sv-gl-lymph-hi');
-    const ly = p < 0.45 ? mixv(lo, mid, p / 0.45) : mixv(mid, hi, (p - 0.45) / 0.55);
-    const gap = rgb(v('--og-liver-2'));
-    let cell = rgb(v('--og-liver-1'));
-    if (dark) cell = mixv(gap, cell, 0.5);
-    // The hepatocytes keep the lobule's colours; on a light page the clefts between them are drawn deeper, so each cell reads.
-    const under = mixv(bg, gap, dark ? 0.55 : 0.5), cleft = dark ? under : mixv(bg, gap, 0.8);
-    return {
-      cBg: bg, cShade: dark ? bg : mixv(bg, t('--sv-gl-shade'), 0.9), cLumen: lumen, cLymph: dark ? mixv(bg, ly, 0.34) : ly,
-      cCell: mixv(under, cell, dark ? 0.85 : 0.94), cUnder: cleft,
-      cNuc: t('--sv-gl-nucleus'),
-      cCol: t('--collagen'), cBm: t('--sv-gl-basement'), aBm: dark ? 0.6 : 0.8,
-      cBile: t('--sv-gl-bile'),
-      cEndo: t('--sv-gl-endothelium'), cEndoS: t('--sv-gl-endo-sheet'), cEndoE: t('--sv-gl-endo-edge'), cEndoN: t('--sv-gl-endo-nucleus'),
-      cHscQ: t('--sv-gl-hsc-quiet'), cHscA: t('--sv-gl-hsc-active'), cHscN: t('--sv-gl-hsc-nucleus'),
-      cKup: t('--sv-gl-kupffer'), cKupN: t('--sv-gl-kupffer-nucleus'), cKupE: t('--sv-gl-kupffer-edge'),
-      cRbc: t('--sv-gl-rbc'),
+    const m = model, U = PAL;
+    if (palDark !== dark || palEpoch !== cssEpoch) {
+      palDark = dark; palEpoch = cssEpoch;
+      const bg = rgb(cssv('--stage-bg', cssv('--bg')));
+      LY.bg = bg; LY.lo = rgb(cssv('--sv-gl-lymph-lo')); LY.mid = rgb(cssv('--sv-gl-lymph-mid')); LY.hi = rgb(cssv('--sv-gl-lymph-hi'));
+      const gap = rgb(cssv('--og-liver-2'));
+      const cell = copyRgb(TCELL, rgb(cssv('--og-liver-1')));
+      if (dark) blendRgb(cell, gap, cell, 0.5);
+      // The hepatocytes keep the lobule's colours; on a light page the clefts between them are drawn deeper, so each cell reads.
+      const under = blendRgb(TUNDER, bg, gap, dark ? 0.55 : 0.5);
+      copyRgb(U.cBg, bg);
+      if (dark) copyRgb(U.cShade, bg); else blendRgb(U.cShade, bg, rgb(cssv('--sv-gl-shade')), 0.9);
+      blendRgb(U.cCell, under, cell, dark ? 0.85 : 0.94);
+      if (dark) copyRgb(U.cUnder, under); else blendRgb(U.cUnder, bg, gap, 0.8);
+      U.cNuc = rgb(cssv('--sv-gl-nucleus'));
+      U.cCol = rgb(cssv('--collagen')); U.cBm = rgb(cssv('--sv-gl-basement')); U.aBm = dark ? 0.6 : 0.8;
+      U.cBile = rgb(cssv('--sv-gl-bile'));
+      U.cEndo = rgb(cssv('--sv-gl-endothelium')); U.cEndoS = rgb(cssv('--sv-gl-endo-sheet')); U.cEndoE = rgb(cssv('--sv-gl-endo-edge')); U.cEndoN = rgb(cssv('--sv-gl-endo-nucleus'));
+      U.cHscQ = rgb(cssv('--sv-gl-hsc-quiet')); U.cHscA = rgb(cssv('--sv-gl-hsc-active')); U.cHscN = rgb(cssv('--sv-gl-hsc-nucleus'));
+      U.cKup = rgb(cssv('--sv-gl-kupffer')); U.cKupN = rgb(cssv('--sv-gl-kupffer-nucleus')); U.cKupE = rgb(cssv('--sv-gl-kupffer-edge'));
+      U.cRbc = rgb(cssv('--sv-gl-rbc'));
       // The end arrows are inked as their labels: the text's colour inside the labels' halo.
-      cEndF: rgb(v('--text')), cEndE: rgb(v('--label-halo')),
-      cAlb: t('--sv-gl-albumin'), cAlbE: t('--sv-gl-albumin-edge'),
-      uShim: dark ? 0.3 : 0.5, uStreak: dark ? 0.3 : 0.85, uDark: dark ? 1 : 0,
-    };
+      U.cEndF = rgb(cssv('--text')); U.cEndE = rgb(cssv('--label-halo'));
+      U.cAlb = rgb(cssv('--sv-gl-albumin')); U.cAlbE = rgb(cssv('--sv-gl-albumin-edge'));
+      U.uShim = dark ? 0.3 : 0.5; U.uStreak = dark ? 0.3 : 0.85; U.uDark = dark ? 1 : 0;
+      if (cssMiss) palEpoch = -1;   // (a value not read yet: made again once it is)
+    }
+    // Pressure only: this view has no other lens.
+    copyRgb(U.cLumen, rgb(m.hide ? cssv('--sv-lumen-hidden') : pressureColor(m.P2)));
+    // Lymph: clear and faintly green, deeper with more protein (as the lobule's lymphatics).
+    const pr = S.prot ?? 1;
+    if (pr < 0.45) blendRgb(LYMPH, LY.lo, LY.mid, pr / 0.45); else blendRgb(LYMPH, LY.mid, LY.hi, (pr - 0.45) / 0.55);
+    if (dark) blendRgb(U.cLymph, LY.bg, LYMPH, 0.34); else copyRgb(U.cLymph, LYMPH);
+    return U;
   }
+  const LYMPH = [0, 0, 0], TCELL = [0, 0, 0], TUNDER = [0, 0, 0];
 
   // ── What moves ──
   // The blood: the shader's shimmer, at the flow. Albumin rides in it (amber dots), each at
@@ -473,13 +504,15 @@ export function createSinusoidView({ host, before = null }) {
   const rnd = rng(17);
   { const R = rng(23); for (let i = 0; i < 150; i++) albs.push({ u: R(), y: R() * 1.9 - 0.95, ph: R() * Math.PI * 2 }); }
   const poreW = (p) => p.w * poreOpenness(p.th, S.por);
+  const WTS = [];   // (each pore's weight, kept; it grows to the most pores once)
   function pickPore(side, albumin) {
     const pores = geo.pores[side < 0 ? 0 : 1];
     let tot = 0;
-    const wts = [];
-    for (const p of pores) {
+    const wts = WTS;
+    for (let i = 0; i < pores.length; i++) {
+      const p = pores[i];
       const w = p.x > VW.vis[0] && p.x < VW.vis[1] ? poreW(p) : 0, k = albumin ? (w > 0.22 ? w * w : 0) : w > 0.02 ? w + 0.06 : 0;
-      wts.push(k); tot += k;
+      wts[i] = k; tot += k;
     }
     if (tot <= 0) return null;
     let r = rnd() * tot;
@@ -499,31 +532,45 @@ export function createSinusoidView({ host, before = null }) {
       if (rnd() >= pA) continue;   // water: it crosses too, but only the albumin is drawn
       const side = rnd() < 0.5 ? -1 : 1, p = pickPore(side, true);
       if (!p) { bounceAcc += 1; continue; }   // nowhere for it to go: it is turned back
-      movers.push({ kind: 'a', side, x: p.x, t: 0, y: 0.15 + 0.7 * rnd(), ph: rnd() * Math.PI * 2 });
+      addMover('a', side, p.x, 0.15 + 0.7 * rnd(), rnd() * Math.PI * 2);
     }
     // Albumin turned back at a sealed wall: it comes up to the lining and goes back into the stream.
     bounceAcc += 0.1 * span * (1 - S.por) * dt;
     while (bounceAcc >= 1) {
       bounceAcc -= 1;
       if (movers.length > 900) continue;
-      movers.push({ kind: 'b', side: rnd() < 0.5 ? -1 : 1, x: lerp(VW.vis[0] + 4, VW.vis[1] - 4, rnd()), t: 0, y: 0, ph: 0 });
+      addMover('b', rnd() < 0.5 ? -1 : 1, lerp(VW.vis[0] + 4, VW.vis[1] - 4, rnd()), 0, 0);
     }
-    for (let i = movers.length - 1; i >= 0; i--) {
+    // (Each one steps, and those done leave: the others close up in order, the objects go back to the pool.)
+    let w = 0;
+    for (let i = 0; i < movers.length; i++) {
       const q = movers[i];
       q.t += dt;
-      if (q.kind === 'b') { q.x += vB * 0.6 * dt; if (q.t > BT) movers.splice(i, 1); continue; }
-      // Through the wall (0.5 s, carried a little by the blood), then along Disse with the lymph.
-      if (q.t < 0.5) q.x += vB * 0.25 * dt; else q.x += vL * (0.85 + 0.3 * Math.sin(q.ph)) * dt;
-      if (q.x < VW.vis[0] - 4 || q.x > VW.vis[1] + 4) movers.splice(i, 1);
+      let gone;
+      if (q.kind === 'b') { q.x += vB * 0.6 * dt; gone = q.t > BT; }
+      else {
+        // Through the wall (0.5 s, carried a little by the blood), then along Disse with the lymph.
+        if (q.t < 0.5) q.x += vB * 0.25 * dt; else q.x += vL * (0.85 + 0.3 * Math.sin(q.ph)) * dt;
+        gone = q.x < VW.vis[0] - 4 || q.x > VW.vis[1] + 4;
+      }
+      if (gone) movPool.push(q); else movers[w++] = q;
     }
+    movers.length = w;
+  }
+  const movPool = [];
+  function addMover(kind, side, x, y, ph) {
+    const q = movPool.pop() || { kind: 'a', side: 1, x: 0, t: 0, y: 0, ph: 0 };   // alloc-rare: a new one only when more are alive than ever before (900 at most)
+    q.kind = kind; q.side = side; q.x = x; q.t = 0; q.y = y; q.ph = ph;
+    movers.push(q);
   }
   // The sprites for this frame: (x, y, radius, alpha, kind) — 0 albumin, 2 the flash at a sealed wall.
   const pts = new Float32Array(1400 * 5);
   const BT = 1.6;   // how long an albumin turned back at a sealed wall is shown (s)
   let albN = -1, spriteDt = 0;
+  let spN = 0;
+  function put(x, y, r, a, k) { if (spN >= 1400 || a <= 0.01) return; const o = spN * 5; pts[o] = x; pts[o + 1] = y; pts[o + 2] = r; pts[o + 3] = a; pts[o + 4] = k; spN++; }
   function sprites() {
-    let n = 0;
-    const put = (x, y, r, a, k) => { if (n >= 1400 || a <= 0.01) return; const o = n * 5; pts[o] = x; pts[o + 1] = y; pts[o + 2] = r; pts[o + 3] = a; pts[o + 4] = k; n++; };
+    spN = 0;
     const [v0, v1] = VW.vis, span = v1 - v0 + 8;
     // How many ride in the stream follows the stretch shown; the count eases, so a dot fades in or out rather than popping.
     const nT = albs.length * clamp(span / 300, 0.15, 1);
@@ -549,14 +596,16 @@ export function createSinusoidView({ host, before = null }) {
       const al = smooth(-0.15, 0.45, q.t) * clamp((q.x - v0) / 6, 0, 1);   // (out of the stream, fading in: never appearing at once)
       put(q.x, y, 0.38, al, 0);
     }
-    return n;
+    return spN;
   }
 
   // ── Labels ──
   // The fenestrae's open share, read as a value beneath the name, "16% open" up to "100% open" (Mohammad, 20 Oct: the word
   // and the number agree; no "Closing" for a wall at rest). It counts by single percents with S.por, so it eases, never jumps.
-  const fenPct = () => `${Math.round(S.por * 100)}%`;
-  const fenTxt = () => `${fenPct()}~open`;
+  // (Made again only when the whole percent changes.)
+  let fenN = -1, fenS = '', fenT = '';
+  const fenPct = () => { const n = Math.round(S.por * 100); if (n !== fenN) { fenN = n; fenS = `${n}%`; fenT = `${n}%~open`; } return fenS; };   // alloc-rare: when the whole percent changes
+  const fenTxt = () => { fenPct(); return fenT; };
   // Every frame: the share counts with S.por (the caption itself is built once; see caption).
   // (Written between frames, pageRun.)
   function fenTick() {
@@ -922,7 +971,40 @@ export function createSinusoidView({ host, before = null }) {
   }
 
   // ── The frame ──
-  let lastKey = '', descKey = '', gpuKey = '', settled = false;   // settled: paused, nothing easing, the same picture as last frame
+  // The layout is made again when one of these changes (the view's scale and centre to a pixel, the free space, the numbers the names show, the size of the
+  // text, the cards): kept lists, written and compared in place. The two strings are the geometry's and the cards' own keys.
+  const LKN = new Float64Array(32), LKP = new Float64Array(32);
+  let lkGeo = null, lkBlock = null, lkValid = false;
+  function layoutKeyChanged() {
+    const m = model;
+    let n = 0;
+    LKN[n++] = Math.round(VW.k * 1000); LKN[n++] = Math.round(VW.C[0]); LKN[n++] = Math.round(VW.C[1]);
+    LKN[n++] = Math.round(VW.f.l); LKN[n++] = Math.round(VW.f.t); LKN[n++] = Math.round(VW.f.r); LKN[n++] = Math.round(VW.f.b);
+    LKN[n++] = Math.round(VW.fe.l); LKN[n++] = Math.round(VW.fe.t); LKN[n++] = Math.round(VW.fe.r); LKN[n++] = Math.round(VW.fe.b);
+    for (let i = 0; i < VW.ins.length; i++) LKN[n++] = Math.round(VW.ins[i]);
+    LKN[n++] = Math.round(S.lum * 1000); LKN[n++] = S.act > 0.5 ? 1 : 0; LKN[n++] = Math.round(S.por * 20); LKN[n++] = m.hide ? 1 : 0;
+    LKN[n++] = Math.round(m.P2 * 10); LKN[n++] = Math.round(m.lymph * 10); LKN[n++] = Math.round(m.lyProt * 100); LKN[n++] = Math.round(m.P1 * 10); LKN[n++] = Math.round(m.P3 * 10);
+    LKN[n++] = phoneMQ.matches ? 1 : 0; LKN[n++] = Math.round(labelK() * 1000);
+    let same = lkValid && lkGeo === geoKey && lkBlock === blockKey();
+    for (let i = 0; same && i < n; i++) if (LKN[i] !== LKP[i]) same = false;
+    if (same) return false;
+    for (let i = 0; i < n; i++) LKP[i] = LKN[i];
+    lkValid = true; lkGeo = geoKey; lkBlock = blockKey();
+    return true;
+  }
+  let descValid = false;   // the sentence's numbers: kept in DN, compared with DP
+  const DN = new Float64Array(8), DP = new Float64Array(8);
+  function descChanged() {
+    const m = model;
+    DN[0] = Math.round(S.por * 4); DN[1] = S.col > 0.15 ? 1 : 0; DN[2] = S.act > 0.4 ? 1 : 0; DN[3] = m.hide ? 1 : 0; DN[4] = Math.round(m.P2); DN[5] = Math.round(m.lymph * 10); DN[6] = Math.round(m.lyProt * 100);
+    let same = descValid;
+    for (let i = 0; same && i < 7; i++) if (DN[i] !== DP[i]) same = false;
+    if (same) return false;
+    for (let i = 0; i < 7; i++) DP[i] = DN[i];
+    descValid = true;
+    return true;
+  }
+  let lastKey = '', gpuKey = '', settled = false;   // settled: paused, nothing easing, the same picture as last frame
   // dt: the traffic's step (capped, so a long frame never jumps the cells along); ease: the time the eases step by, the
   // real time since the last frame (an exponential ease takes any step, so a slow frame settles as soon as a fast one would).
   function draw(dt, run = true, paint = true, ease = dt) {
@@ -941,11 +1023,11 @@ export function createSinusoidView({ host, before = null }) {
     const dark = document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && darkMQ.matches);
     // The names are laid out where the view will rest, during the zoom too (hidden until it lands), so the end arrows
     // the shader draws are in place from the first frame and nothing moves when the names fade in.
-    const lk = [geoKey, VW.k.toFixed(3), VW.C.map((v) => v.toFixed(0)), [VW.f.l, VW.f.t, VW.f.r, VW.f.b, VW.fe.l, VW.fe.t, VW.fe.r, VW.fe.b, ...VW.ins].map(Math.round), S.lum.toFixed(3), S.act > 0.5, Math.round(S.por * 20), model.hide, model.P2.toFixed(1), model.lymph.toFixed(1), Math.round(model.lyProt * 100), model.P1.toFixed(1), model.P3.toFixed(1), phoneMQ.matches, labelK(), blockKey()].join('|');
+    const lkNew = layoutKeyChanged();
     // (A name still on its way to a place the layout moved it to is laid out again next frame, until it has arrived.)
     askRest();
-    if (lk !== lastKey || layoutBusy || sizedNew) {
-      lastKey = lk; layoutBusy = false; sizedNew = false;
+    if (lkNew || lastKey === '' || layoutBusy || sizedNew) {
+      lastKey = 'laid'; layoutBusy = false; sizedNew = false;
       layoutEnds(); layoutTags();
       if (noteJumps()) layoutTags();   // (laid out again from where the names stood, so the frame they move in shows no step)
       settleJumps();
@@ -956,38 +1038,37 @@ export function createSinusoidView({ host, before = null }) {
     if (gpu) {
       const u = palette(dark);
       if (cssMiss || cssStale) { askRest(); settled = false; return; }   // (its colours read between frames first: this frame is not painted)
-      const endA = [endShown('in'), endShown('out')];
-      const ek = endA.map((v) => v.toFixed(2)).join(' ');
-      const nk = cap.on ? ['in', 'out'].map((q) => (cap.at(q, easeNow())?.a ?? 0).toFixed(2)).join(' ') : '';
-      if (endKey !== ek || nameKey !== nk) { endKey = ek; nameKey = nk; attrSoon(); }   // (for the browser checks: how much each end arrow shows; written between frames)
+      const endA = ENDA;
+      endA[0] = endShown('in'); endA[1] = endShown('out');
+      const e0 = Math.round(endA[0] * 100), e1 = Math.round(endA[1] * 100);
+      const n0 = cap.on ? Math.round((cap.at('in', easeNow())?.a ?? 0) * 100) : -1, n1 = cap.on ? Math.round((cap.at('out', easeNow())?.a ?? 0) * 100) : -1;
+      if (ekA !== e0 || ekB !== e1 || nkA !== n0 || nkB !== n1) { ekA = e0; ekB = e1; nkA = n0; nkB = n1; endKey = endArrowsText(endA); nameKey = cap.on ? namesText(n0, n1) : ''; attrSoon(); }   // (for the browser checks: how much each end arrow shows; written between frames; the text is made when a share changes)
       // Device px ↔ local µm.
       const { C, k, ca, sa } = CAM, K = k * dpr;
-      u.uI0 = [ca / K, sa / K, -(C[0] * ca + C[1] * sa) / k];
-      u.uI1 = [-sa / K, ca / K, (C[0] * sa - C[1] * ca) / k];
-      u.uF0 = [K * ca, -K * sa, dpr * C[0]]; u.uF1 = [K * sa, K * ca, dpr * C[1]];
+      set3(u.uI0, ca / K, sa / K, -(C[0] * ca + C[1] * sa) / k);
+      set3(u.uI1, -sa / K, ca / K, (C[0] * sa - C[1] * ca) / k);
+      set3(u.uF0, K * ca, -K * sa, dpr * C[0]); set3(u.uF1, K * sa, K * ca, dpr * C[1]);
       u.uPx = 1 / K; u.uK = K; u.uKs = Math.min(K, 12 * dpr);   // (the particles no larger than on a phone)
-      Object.assign(u, {
-        uLum: UM.lum * S.lum, uPinch: S.pinch, uXs: geo.xs, uXk: geo.xk, uKy: halfW(geo.xk), uHscA: wallIn(geo.xs) + disseW(geo.xs) * 0.5 + 0.8,
-        uCol: S.col, uBm: S.bm, uMv: S.mv, uAct: S.act, uPor: S.por, uFlow: flowX, uLym: lymX, uLyF: clamp(0.32 * S.filt ** 1.5, 0.06, 1.75), uDir: Math.sign(S.v || 1),
-        uEnd: [END[0], END[1], END[2], 0.95], uEndA: endA,
-      });
+      u.uLum = UM.lum * S.lum; u.uPinch = S.pinch; u.uXs = geo.xs; u.uXk = geo.xk; u.uKy = halfW(geo.xk); u.uHscA = wallIn(geo.xs) + disseW(geo.xs) * 0.5 + 0.8;
+      u.uCol = S.col; u.uBm = S.bm; u.uMv = S.mv; u.uAct = S.act; u.uPor = S.por; u.uFlow = flowX; u.uLym = lymX; u.uLyF = clamp(0.32 * S.filt ** 1.5, 0.06, 1.75); u.uDir = Math.sign(S.v || 1);
+      set4(u.uEnd, END[0], END[1], END[2], 0.95); u.uEndA = endA;
       // The zoom from the lobule: one camera move. The lobule (magnified by the compositor) carries it most of the way;
       // the view, already drawn where the lobule's own sinusoid is, comes in over all of it at once as the zoom lands
       // (no strip that appears and then lengthens), and its detail (fenestrae, microvilli, cells, traffic) resolves last.
       // Both follow the zoom's eased progress, so Back to Lobule plays the same frames in reverse.
       if (dive) {
         const g = dive.g;
-        u.uRev = [0, 0, 0, 0];
+        set4(u.uRev, 0, 0, 0, 0);
         u.uAll = smooth(0.5, 0.88, g);
-        u.uDet = [smooth(0.72, 1, g), 1e5];
+        u.uDet[0] = smooth(0.72, 1, g); u.uDet[1] = 1e5;
         u.uFocus = smooth(0.82, 1, g);   // (the page shows around it only once it has landed, not as a band while it is small)
-      } else { u.uRev = [1, -1e5, 1e5, 1e5]; u.uAll = 1; u.uDet = [1, 1e5]; u.uFocus = 1; }
+      } else { set4(u.uRev, 1, -1e5, 1e5, 1e5); u.uAll = 1; u.uDet[0] = 1; u.uDet[1] = 1e5; u.uFocus = 1; }
       spriteDt = Math.max(0, dt) * go;
       const n = sprites();
       // Paused and settled (nothing eases, no zoom): the same picture as last frame, so the two full-screen passes are skipped.
-      const gk = go === 0 && !dive && !svFade ? canvas.width + 'x' + canvas.height + '|' + gpu.epoch + '|' + n + '|' + JSON.stringify(u) : '';
-      if (!gk || gk !== gpuKey) { gpu.draw(u, pts, n); noteDraw('sinusoid-view'); svYield?.drew(performance.now()); } else settled = true;
-      gpuKey = gk;
+      const sameAsLast = go === 0 && !dive && !svFade && pictureSame(u, n);
+      if (!sameAsLast) { gpu.draw(u, pts, n); noteDraw('sinusoid-view'); svYield?.drew(performance.now()); } else settled = true;
+      gpuKey = go === 0 && !dive && !svFade;
       if (svFade) svFadeStep();
     }
     // (Not settled while the view is still gliding to the space the cards left, or a name to its place: the loop must not go to
@@ -995,8 +1076,7 @@ export function createSinusoidView({ host, before = null }) {
     if (gliding || layoutBusy) settled = false;
     svMoving = gliding || layoutBusy;   // (its names gliding to their places: the corner credit looks again, credit.js)
     if (!svMoving && !cap.moving()) domSoon();   // (the page's model placed between frames once the names rest; nothing written when they did not move)
-    const dk = [Math.round(S.por * 4), S.col > 0.15, S.act > 0.4, model.hide, model.P2.toFixed(0), model.lymph.toFixed(1), Math.round(model.lyProt * 100)].join('|');
-    if (dk !== descKey) { descKey = dk; descWant = describe(); attrSoon(); }
+    if (descChanged()) { descWant = describe(); attrSoon(); }
   }
   // (The canvas's words for screen readers and its end arrows' mark for the browser checks: written between frames, never in one.)
   let endKey = '', nameKey = '', descWant = '', attrAsk = 0;
@@ -1007,6 +1087,31 @@ export function createSinusoidView({ host, before = null }) {
     if (nameKey && canvas.dataset.endNames !== nameKey) canvas.dataset.endNames = nameKey;   // (how much the GPU shows each end's name)
     if (descWant && canvas.getAttribute('aria-label') !== descWant) canvas.setAttribute('aria-label', descWant);
   }
+  // The picture as drawn last: its size, the uniforms and the sprites, in kept lists. Whether this frame's is the same.
+  let SIG = new Float64Array(256), SIGP = new Float64Array(256), sigN = 0, sigOk = false, sigW = 0, sigH = 0, sigEpoch = -1, sigCount = -1;
+  function pictureSame(u, n) {
+    let c = 0;
+    for (const key in u) {
+      const v = u[key];
+      if (typeof v === 'number') { if (c >= SIG.length) growSig(); SIG[c++] = v; } else for (let i = 0; i < v.length; i++) { if (c >= SIG.length) growSig(); SIG[c++] = v[i]; }
+    }
+    let same = gpuKey && sigOk && sigW === canvas.width && sigH === canvas.height && sigEpoch === gpu.epoch && sigCount === n && sigN === c;
+    for (let i = 0; same && i < c; i++) if (SIG[i] !== SIGP[i]) same = false;
+    if (same) return true;
+    const T = SIGP; SIGP = SIG; SIG = T;   // (this frame's becomes the last)
+    sigN = c; sigOk = true; sigW = canvas.width; sigH = canvas.height; sigEpoch = gpu.epoch; sigCount = n;
+    return false;
+  }
+  function growSig() {   // alloc-rare: more uniforms than ever before, once
+    const a = new Float64Array(SIG.length * 2), b = new Float64Array(SIG.length * 2);
+    a.set(SIG); b.set(SIGP); SIG = a; SIGP = b;
+  }
+  const ENDA = [0, 0];
+  let ekA = -1, ekB = -1, nkA = -2, nkB = -2;
+  function namesText(a, b) { return (a / 100).toFixed(2) + ' ' + (b / 100).toFixed(2); }   // alloc-rare: only when a name's share changed
+  function endArrowsText(a) { return a[0].toFixed(2) + ' ' + a[1].toFixed(2); }   // alloc-rare: only when an end arrow's share changed
+  function set3(a, x, y, z) { a[0] = x; a[1] = y; a[2] = z; }
+  function set4(a, x, y, z, w) { a[0] = x; a[1] = y; a[2] = z; a[3] = w; }
   function describe() {
     const m = model;
     const parts = [`A sinusoid, cut along its length${m.hide ? '' : `, at ${fmt(m.P2, 1)} millimeters of mercury`}.`];

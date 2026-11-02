@@ -12,18 +12,28 @@ import { startProgram, compileDone, checkProgram, publishWhenDone } from './gl-c
 
 /** '#rgb', '#rrggbb', 'rgb()' or 'rgba()' as premultiplied [r, g, b, a] in 0–1. */
 export function colorOf(c) {
-  c = String(c || '').trim();
+  const hit = COLORS.get(c);
+  if (hit) return hit;
+  const out = parseColor(c);   // alloc-rare: a colour string not seen before, then kept
+  if (COLORS.size > 64) COLORS.clear();
+  COLORS.set(c, out);
+  return out;
+}
+// (A colour's answer is kept by its string and handed out as the same array: the monitor asks for eight a frame and only reads them.)
+const COLORS = new Map();
+function parseColor(c0) {
+  const c = String(c0 || '').trim(); // alloc-rare: a colour string not seen before, parsed once and kept
   let r, g, b, a = 1;
   if (c[0] === '#') {
-    const x = c.length < 6 ? [...c.slice(1, 4)].map((d) => d + d).join('') : c.slice(1, 7);
-    [r, g, b] = [0, 2, 4].map((k) => parseInt(x.slice(k, k + 2), 16) / 255);
-    if (c.length === 9) a = parseInt(c.slice(7, 9), 16) / 255;
+    const x = c.length < 6 ? [...c.slice(1, 4)].map((d) => d + d).join('') : c.slice(1, 7); // alloc-rare: a colour string not seen before, parsed once and kept
+    [r, g, b] = [0, 2, 4].map((k) => parseInt(x.slice(k, k + 2), 16) / 255); // alloc-rare: a colour string not seen before, parsed once and kept
+    if (c.length === 9) a = parseInt(c.slice(7, 9), 16) / 255; // alloc-rare: a colour string not seen before, parsed once and kept
   } else {
-    const n = c.match(/[\d.]+/g) || [];
-    [r, g, b] = [0, 1, 2].map((k) => (+n[k] || 0) / 255);
+    const n = c.match(/[\d.]+/g) || []; // alloc-rare: a colour string not seen before, parsed once and kept
+    [r, g, b] = [0, 1, 2].map((k) => (+n[k] || 0) / 255); // alloc-rare: a colour string not seen before, parsed once and kept
     if (n.length > 3) a = +n[3];
   }
-  return [r * a, g * a, b * a, a];
+  return [r * a, g * a, b * a, a]; // alloc-rare: a colour string not seen before, parsed once and kept
 }
 
 const VS_HEAD = '#version 300 es\nprecision highp float;\nuniform vec2 uSize;\nvec4 clipOf(vec2 p) { return vec4(p / uSize * vec2(2.0, -2.0) + vec2(-1.0, 1.0), 0.0, 1.0); }\n';
@@ -81,12 +91,17 @@ const waiting = new Set();
 const atlasTakers = new Set();
 if (typeof Image === 'function') { const im = new Image(); im.decoding = 'async'; im.onload = () => { atlasImage = im; for (const f of [...atlasTakers]) f(); atlasTakers.clear(); for (const f of [...waiting]) f(); waiting.clear(); }; im.src = ATLAS_PNG; }
 const WEIGHTS = Object.keys(GLYPHS).map(Number);
-const weightOf = (w) => WEIGHTS.reduce((a, b) => (Math.abs(b - w) < Math.abs(a - w) ? b : a));
+function weightOf(w) {
+  let a = WEIGHTS[0];
+  for (let i = 1; i < WEIGHTS.length; i++) { const b = WEIGHTS[i]; if (Math.abs(b - w) < Math.abs(a - w)) a = b; }
+  return a;
+}
 /** A word's width in CSS px at weight w and size px, from the atlas's advances and kerning (no canvas). */
 export function textWidth(str, w, px) {
   const g = GLYPHS[weightOf(w)], kw = KERN[weightOf(w)];
   let em = 0, prev = '';
-  for (const ch of String(str)) { em += (g[ch] || g['?'])[0] + (prev ? kw[prev + ch] || 0 : 0); prev = ch; }
+  if (typeof str !== 'string') str = String(str);   // alloc-rare: only a caller that passes a number or null, not a word
+  for (const ch of str) { em += (g[ch] || g['?'])[0] + (prev ? kw[prev + ch] || 0 : 0); prev = ch; }
   return em * px;
 }
 

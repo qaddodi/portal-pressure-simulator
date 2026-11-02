@@ -30,7 +30,7 @@ test('a resistor\'s zigzag gives the labels\' segments an id without a vessel', 
   const idExpr = body.match(/lines\.push\(\{[^}]*\bid: ([^}]+?) \}\);/)?.[1];
   assert.ok(idExpr, 'the line carries an id');
   const HITS = readFileSync(new URL('../src/ui/seg-hits.js', import.meta.url), 'utf8');
-  assert.match(HITS, /const sg = \{[^}]*\bid: ln\.id \};/, 'each segment takes its line\'s id');
+  assert.match(HITS, /\bsg\.id = ln\.id;/, 'each segment takes its line\'s id');
   const idOf = new Function('x', `return ${idExpr};`);
   assert.doesNotThrow(() => idOf({ width: 22 }));
   const z = idOf({ width: 22 });

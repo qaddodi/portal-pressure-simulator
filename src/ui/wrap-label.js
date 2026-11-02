@@ -2,17 +2,17 @@
 // the rows below, the lines evened out ("Caudate lobe" over "carries the outflow" rather than a lone last word). width(t)
 // measures a string. Returns the lines and the widest line's width, or null when a single word is wider than maxW.
 export function wrapLabel(lab, maxW, width) {
-  const words = lab.split(' ');
-  if (words.some((wd) => width(wd) > maxW)) return null;
-  const fill = (w) => {
-    const out = [];
+  const words = lab.split(' '); // alloc-rare: only on a label-and-room cache miss in pressure-time.js, never per frame
+  if (words.some((wd) => width(wd) > maxW)) return null; // alloc-rare: only on a label-and-room cache miss in pressure-time.js, never per frame
+  const fill = (w) => { // alloc-rare: only on a label-and-room cache miss in pressure-time.js, never per frame
+    const out = []; // alloc-rare: only on a label-and-room cache miss in pressure-time.js, never per frame
     for (const wd of words) {
-      const tail = out.length ? `${out[out.length - 1]} ${wd}` : '';
+      const tail = out.length ? `${out[out.length - 1]} ${wd}` : ''; // alloc-rare: only on a label-and-room cache miss in pressure-time.js, never per frame
       if (tail && width(tail) <= w) out[out.length - 1] = tail; else out.push(wd);
     }
     return out;
   };
   let lines = fill(maxW);
-  if (lines.length > 1) for (let w = maxW - 4; w > 0; w -= 4) { const ev = fill(w); if (ev.length > lines.length || ev.some((l) => width(l) > w)) break; lines = ev; }
-  return { lines, w: Math.max(...lines.map(width)) };
+  if (lines.length > 1) for (let w = maxW - 4; w > 0; w -= 4) { const ev = fill(w); if (ev.length > lines.length || ev.some((l) => width(l) > w)) break; lines = ev; } // alloc-rare: only on a label-and-room cache miss in pressure-time.js, never per frame
+  return { lines, w: Math.max(...lines.map(width)) }; // alloc-rare: only on a label-and-room cache miss in pressure-time.js, never per frame
 }

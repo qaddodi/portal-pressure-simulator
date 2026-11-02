@@ -20,7 +20,7 @@ export function softwareGL(gl) {
   let name;
   try {
     const ri = gl.getExtension('WEBGL_debug_renderer_info');
-    name = String(gl.getParameter(ri ? ri.UNMASKED_RENDERER_WEBGL : gl.RENDERER));
+    name = String(gl.getParameter(ri ? ri.UNMASKED_RENDERER_WEBGL : gl.RENDERER)); // alloc-rare: once, when a WebGL context is made, never per frame
   } catch { name = ''; }
   return rendererVerdict(SOFTWARE.test(name), name);
 }
@@ -41,7 +41,7 @@ export function browserAccelerated() {
   accel = false;
   try {
     const c = typeof OffscreenCanvas === 'function' ? new OffscreenCanvas(1, 1) : document.createElement('canvas');
-    const g = c.getContext('webgl2', { failIfMajorPerformanceCaveat: true }) || c.getContext('webgl', { failIfMajorPerformanceCaveat: true });
+    const g = c.getContext('webgl2', { failIfMajorPerformanceCaveat: true }) || c.getContext('webgl', { failIfMajorPerformanceCaveat: true }); // alloc-rare: once, when a WebGL context is made, never per frame
     accel = !!g;
     g?.getExtension('WEBGL_lose_context')?.loseContext();   // (the probe's context given back at once: no slot of the page's held)
   } catch { accel = false; }
@@ -50,7 +50,7 @@ export function browserAccelerated() {
 /** The final word on software, from the renderer's name (`named`) and the browser's own answer. */
 export function rendererVerdict(named, name = '') {
   if (!named) return false;
-  if (RASTERIZER.test(String(name))) return true;
+  if (RASTERIZER.test(String(name))) return true; // alloc-rare: once, when a WebGL context is made, never per frame
   return !browserAccelerated();
 }
 
@@ -60,14 +60,14 @@ const MAX_WAIT = 2000;   // (one frame held up by something else, a long layout 
 export function softwareYield(software, gl = null) {
   if (!software) return null;
   let drawn = null, free = 0, fence = null;   // (drawn: when the last vessel frame was drawn, until the next frame starts)
-  const finished = () => {
+  const finished = () => { // alloc-rare: once, when a WebGL context is made, never per frame
     if (!fence) return true;
     let done;
     try { done = gl.isContextLost() || gl.getSyncParameter(fence, gl.SYNC_STATUS) === gl.SIGNALED; } catch { done = true; }
     if (done) { try { gl.deleteSync(fence); } catch (e) { caught('sw-yield:66', e); /* context lost */ } fence = null; }
     return done;
   };
-  return {
+  return { // alloc-rare: once, when a WebGL context is made, never per frame
     /** Whether a vessel frame may be drawn at `now` (false: the page's turn); `force`: a view change, resize or forced draw, drawn at once. */
     ready(now, force = false) {
       if (drawn !== null) { free = now + Math.min(MAX_WAIT, Math.max(0, now - drawn)); drawn = null; }

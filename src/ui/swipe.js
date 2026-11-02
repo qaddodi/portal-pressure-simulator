@@ -110,35 +110,45 @@ export const WHEEL_QUIET = 250;   // ms without a wheel event ends a gesture (a 
 
 /** The fingers' own movement, positive to the right and down, from a wheel event's deltas. A trackpad on Mac reports the page's movement,
  *  the opposite of the fingers' when natural scrolling is on (webkitDirectionInvertedFromDevice; assumed on where a browser does not say). */
+// (Answered in one kept pair, read by its caller as it is returned: a wheel's events come dozens a second.)
+const FINGER = [0, 0];
 export function wheelFinger(dx, dy, mode = 0, inverted = true, page = 800) {
   const m = mode === 1 ? 16 : mode === 2 ? page : 1, sg = inverted === false ? 1 : -1;
-  return [sg * dx * m, sg * dy * m];
+  FINGER[0] = sg * dx * m; FINGER[1] = sg * dy * m;
+  return FINGER;
 }
 
 /** Takes one wheel event's finger movement (fx, fy) at time `now` (the event's own time stamp, so a busy frame does not stretch a gap);
  *  gives the gesture so far and what it did: act is null while undecided or spent, else { axis: 'x' | 'y', dir: +1 | -1 } with dir the
  *  fingers' direction (right / down positive). */
+// (What a gesture does, as four fixed answers: the act handed to a rest pass is never written over by the next wheel event. The result is one kept
+// { g, act }, read by its caller as it is returned; the gesture `g` is written in place event after event, and a new one is made only when a gesture begins.)
+const ACT = { xp: Object.freeze({ axis: 'x', dir: 1 }), xn: Object.freeze({ axis: 'x', dir: -1 }), yp: Object.freeze({ axis: 'y', dir: 1 }), yn: Object.freeze({ axis: 'y', dir: -1 }) };
+const actOf = (axis, dir) => (axis === 'x' ? (dir > 0 ? ACT.xp : ACT.xn) : dir > 0 ? ACT.yp : ACT.yn);
+const WHEEL_OUT = { g: null, act: null };
+const out = (g, act) => { WHEEL_OUT.g = g; WHEEL_OUT.act = act; return WHEEL_OUT; };
 export function wheelGesture(g, fx, fy, now) {
-  const fresh = () => ({ x: 0, y: 0, lock: '', spent: false, dir: 0, back: 0, t: now });
-  let s = g && now - g.t <= WHEEL_QUIET ? { ...g, t: Math.max(g.t, now) } : fresh();   // (a stamp a hair out of order is not a gap)
-  if (!Number.isFinite(fx) || !Number.isFinite(fy)) return { g: s, act: null };
+  let s;
+  if (g && now - g.t <= WHEEL_QUIET) { s = g; s.t = Math.max(g.t, now); }   // (a stamp a hair out of order is not a gap)
+  else s = { x: 0, y: 0, lock: '', spent: false, dir: 0, back: 0, t: now };   // alloc-rare: once per gesture, a run of wheel events, not per event
+  if (!Number.isFinite(fx) || !Number.isFinite(fy)) return out(s, null);
   if (s.spent) {
     // (The glide after an action never acts again, however it jitters: a momentum tail does not turn back, so only an unbroken run of
     // movement the other way, as far as a fresh gesture needs, is the fingers' own.)
     const along = s.lock === 'x' ? fx : fy;
     if (along !== 0) s.back = Math.sign(along) === -s.dir ? s.back + Math.abs(along) : 0;
-    if (s.back < (s.lock === 'x' ? WHEEL_X : WHEEL_Y)) return { g: s, act: null };
+    if (s.back < (s.lock === 'x' ? WHEEL_X : WHEEL_Y)) return out(s, null);
     s.dir = -s.dir; s.back = 0;
-    return { g: s, act: { axis: s.lock, dir: s.dir } };
+    return out(s, actOf(s.lock, s.dir));
   }
   s.x += fx; s.y += fy;
   const ax = Math.abs(s.x), ay = Math.abs(s.y);
   if (!s.lock) {
     if (ax + ay >= 10) s.lock = ax > 1.5 * ay ? 'x' : ay > 1.5 * ax ? 'y' : ax + ay >= 80 ? (ax >= ay ? 'x' : 'y') : '';
   }
-  if (s.lock === 'x' && ax >= WHEEL_X) { s.spent = true; s.dir = Math.sign(s.x); return { g: s, act: { axis: 'x', dir: s.dir } }; }
-  if (s.lock === 'y' && ay >= WHEEL_Y) { s.spent = true; s.dir = Math.sign(s.y); return { g: s, act: { axis: 'y', dir: s.dir } }; }
-  return { g: s, act: null };
+  if (s.lock === 'x' && ax >= WHEEL_X) { s.spent = true; s.dir = Math.sign(s.x); return out(s, actOf('x', s.dir)); }
+  if (s.lock === 'y' && ay >= WHEEL_Y) { s.spent = true; s.dir = Math.sign(s.y); return out(s, actOf('y', s.dir)); }
+  return out(s, null);
 }
 
 /** Which ways the boxes under `el` scroll themselves (up to `stop`): { x, y }, true for an axis a box there keeps its wheel on (the slide
@@ -159,15 +169,28 @@ export function wheelScrollers(el, { stop = null } = {}) {
 // WHEEL_FRESH ms) and when the wheel finds a box not yet read. The wheel's events, dozens a second, read only this.
 const WHEEL_FRESH = 250;
 let owned = null, ownAsk = 0, ownWatch = null;
+let ownEl = null, ownStop = null;
+const OWNED = { el: null, stop: null, at: 0, x: false, y: false };
+// (Read between frames, as a kept function: the wheel's events ask for it with no closure made. The answer is written into one kept object.)
+function ownRun() {
+  ownAsk = 0;
+  const w = wheelScrollers(ownEl, { stop: ownStop });
+  OWNED.el = ownEl; OWNED.stop = ownStop; OWNED.at = performance.now(); OWNED.x = w.x; OWNED.y = w.y;
+  owned = OWNED;
+}
 function readOwners(el, stop) {
   if (ownAsk) return;
-  ownAsk = restPass(() => { ownAsk = 0; owned = { el, stop, at: performance.now(), ...wheelScrollers(el, { stop }) }; });
+  ownEl = el; ownStop = stop;
+  ownAsk = restPass(ownRun);
 }
+const onOwnerOver = (e) => { if (e.target?.nodeType === 1) { cancelRest(ownAsk); ownAsk = 0; readOwners(e.target, owned?.stop ?? ownDefaultStop); } };
+let ownDefaultStop = null;
+const OWN_OPTS = { passive: true, capture: true };
 /** True when a wheel over `el` belongs to a box that scrolls that way itself (wheelScrollers, as last read between frames). A box not yet
  *  read answers by what it is (the slide list or a field) until its read comes in, right after this event. */
-export function ownsWheel(el, axis, { stop = null } = {}) {
-  const doc = el?.ownerDocument;
-  if (doc?.addEventListener && ownWatch !== doc) { ownWatch = doc; doc.addEventListener('pointerover', (e) => { if (e.target?.nodeType === 1) { cancelRest(ownAsk); ownAsk = 0; readOwners(e.target, owned?.stop ?? stop); } }, { passive: true, capture: true }); }
+export function ownsWheel(el, axis, opts = null) {
+  const stop = opts ? opts.stop ?? null : null, doc = el?.ownerDocument;
+  if (doc?.addEventListener && ownWatch !== doc) { ownWatch = doc; ownDefaultStop = stop; doc.addEventListener('pointerover', onOwnerOver, OWN_OPTS); }
   if (owned?.el === el && owned.stop === stop) {
     if (performance.now() - owned.at > WHEEL_FRESH) readOwners(el, stop);
     return owned[axis === 'y' ? 'y' : 'x'];

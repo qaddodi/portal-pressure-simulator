@@ -31,10 +31,10 @@ const JUMPS = [[7, '+1 wk', '1 week'], [30, '+1 mo', '1 month'], [180, '+6 mo', 
 
 /** A frozen, self-contained copy of a frame (for pinning A and for markers). */
 export function captureFrame(f, params) {
-  return {
-    P: Array.from(f.P), metrics: structuredClone(f.metrics), params: structuredClone(params),
-    frame: { ...f, P: Array.from(f.P), Pf: f.Pf ? Array.from(f.Pf) : undefined, Q: Array.from(f.Q), Qf: f.Qf ? Array.from(f.Qf) : undefined, D: Array.from(f.D),
-      ext: Array.from(f.ext), slow: structuredClone(f.slow), metrics: structuredClone(f.metrics), bleed: structuredClone(f.bleed), events: [], samples: null, params: undefined, viewParams: structuredClone(params) },
+  return { // alloc-rare: once per pin or marker (a learner action), never per frame
+    P: Array.from(f.P), metrics: structuredClone(f.metrics), params: structuredClone(params), // alloc-rare: once per pin or marker (a learner action), never per frame
+    frame: { ...f, P: Array.from(f.P), Pf: f.Pf ? Array.from(f.Pf) : undefined, Q: Array.from(f.Q), Qf: f.Qf ? Array.from(f.Qf) : undefined, D: Array.from(f.D), // alloc-rare: once per pin or marker (a learner action), never per frame
+      ext: Array.from(f.ext), slow: structuredClone(f.slow), metrics: structuredClone(f.metrics), bleed: structuredClone(f.bleed), events: [], samples: null, params: undefined, viewParams: structuredClone(params) }, // alloc-rare: once per pin or marker (a learner action), never per frame
   };
 }
 export const fmtClock = (t, day) => {
@@ -47,6 +47,7 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
   let entries = [], cursor = -1, seq = 0, baseline = null, pending = null, lastEv = {}, jumping = false, jumpSeq = 0;
   const listeners = [];
   const absT = (e) => e.day * 86400 + e.t;
+  const byTime = (a, b) => absT(a) - absT(b) || a.id - b.id;
   const frameNow = () => store.get().frame;
   const labelsOf = (p) => new Map(activeInterventions(p).map((a) => [a.key, a.label]));
 
@@ -79,10 +80,10 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
   loadGlyphs();
   let dayGL = null, dayPath = null, dayAt = null;
   const dayD = (t) => {
-    const { size, weight, x, y, align } = dayAt, w = textBox(t, 0, 0, { weight, size, tnum: true }).width;
+    const { size, weight, x, y, align } = dayAt, w = textBox(t, 0, 0, { weight, size, tnum: true }).width; // alloc-rare: once per distinct day shown during a jump, not per frame
     const x0 = align === 'end' ? x - w : align === 'middle' ? x - w / 2 : x;
-    return textPolys(t, x0, y, { weight, size, tnum: true }).polys
-      .map(({ pts, closed }) => { let d = ''; for (let i = 0; i < pts.length; i += 2) d += `${i ? 'L' : 'M'}${pts[i].toFixed(2)} ${pts[i + 1].toFixed(2)}`; return closed ? d + 'Z' : d; }).join('');
+    return textPolys(t, x0, y, { weight, size, tnum: true }).polys // alloc-rare: once per distinct day shown during a jump, not per frame
+      .map(({ pts, closed }) => { let d = ''; for (let i = 0; i < pts.length; i += 2) d += `${i ? 'L' : 'M'}${pts[i].toFixed(2)} ${pts[i + 1].toFixed(2)}`; return closed ? d + 'Z' : d; }).join(''); // alloc-rare: once per distinct day shown during a jump, not per frame
   };
   // (The count landed: the clock's own words take its last day between frames, and the picture goes.)
   function dayLand() { if (dayEnd !== dayTok) return;   // (a newer jump's count is under way: it lands itself)
@@ -134,8 +135,8 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
   // Entries stay in true time order (events that happen during a jump sit inside it).
   function sortEntries() {
     const curId = cursor >= 0 ? entries[cursor]?.id : null;
-    entries.sort((a, b) => absT(a) - absT(b) || a.id - b.id);
-    if (curId != null) cursor = entries.findIndex((e) => e.id === curId);
+    entries.sort(byTime);
+    if (curId != null) { cursor = -1; for (let i = 0; i < entries.length; i++) if (entries[i].id === curId) { cursor = i; break; } }
   }
   async function snapInto(e) {
     const { snap } = await host.request('snapshot');
@@ -170,9 +171,12 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
     snapInto(e);
   }
   /** A change made by the learner (debounced so a slider drag is one marker). */
+  const PENDING = { label: '', timer: 0 };
   function noteParamChange(label) {
-    clearTimeout(pending?.timer);
-    pending = { label: pending?.label || label, timer: setTimeout(flushParams, 650) };
+    // (One kept record, written in place: a slider drag asks for this on every step.)
+    if (pending) clearTimeout(pending.timer); else { pending = PENDING; PENDING.label = ''; }
+    pending.label = pending.label || label;
+    pending.timer = setTimeout(flushParams, 650);
   }
   function flushParams() {
     if (!pending) return;
@@ -211,7 +215,9 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
     jumping = true;
     const mine = ++jumpSeq;   // (a newer jump takes the count over: this one's frames stop, so two counts never draw over each other)
     const t0 = performance.now();
-    const dayOf = (u) => `Day ${Math.round(d0 + days * (1 - (1 - u) ** 3))}`;
+    const dayNum = (u) => Math.round(d0 + days * (1 - (1 - u) ** 3));
+    const dayOf = (u) => `Day ${dayNum(u)}`;   // alloc-rare: at a jump's start and end and when the counted day changes, not each frame
+    let shownN = dayNum(0);
     const gpu = days !== 'event' && dayStart(shownDay = dayOf(0), dayOf(1));
     // (Where the count cannot be drawn on the GPU, its glyphs not loaded yet, the clock takes its last day here, in the task that
     // starts the jump: no frame writes its words. 2 Nov 2026, "Move everything to GPU".)
@@ -221,8 +227,8 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
       if (mine !== jumpSeq) return;
       const u = clamp((now - t0) / 900, 0, 1);
       // (Drawn again only when the day shown changes: most frames of the count keep it.)
-      const t = dayOf(u);
-      if (gpu && t !== shownDay) { shownDay = t; dayPath.setAttribute('d', dayD(t)); dayGL.paint(); }
+      const dn = dayNum(u);
+      if (gpu && dn !== shownN) { shownN = dn; const t = dayOf(u); shownDay = t; dayPath.setAttribute('d', dayD(t)); dayGL.paint(); }
       if (u < 1) nextFrame(tick);
       else if (gpu) { dayEnd = dayTok; restPass(dayLand); }
       else jumping = false;
@@ -289,14 +295,14 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
 
   // ── Rendering ─────────────────────────────────────
   // The History count follows the entries, so a light check runs at most once a second.
-  let lastRenderKey = '', lastRenderAt = 0;
+  let lastRenderLen = -1, lastRenderCur = -2, lastRenderAt = 0;
   function render(force) {
-    const key = `${entries.length}|${cursor}`;
     const t = performance.now();
-    if (!force && key === lastRenderKey && t - lastRenderAt < 1000) return;
-    lastRenderKey = key; lastRenderAt = t;
-    const n = entries.filter((x) => x.kind !== 'start').length;
-    textSoon(histCount, n ? String(n) : '');
+    if (!force && entries.length === lastRenderLen && cursor === lastRenderCur && t - lastRenderAt < 1000) return;
+    lastRenderLen = entries.length; lastRenderCur = cursor; lastRenderAt = t;
+    let n = 0;
+    for (let i = 0; i < entries.length; i++) if (entries[i].kind !== 'start') n++;
+    textSoon(histCount, n ? String(n) : '');   // alloc-rare: at most once a second and when the history changes
   }
   // The history rows, shared by the phone sheet and the History card on larger screens.
   function historyRows() {
@@ -361,7 +367,7 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
     render();
   }
   store.on('compareSnap', (s) => {
-    pinBtn.setAttribute('aria-pressed', String(!!s));
+    pinBtn.setAttribute('aria-pressed', s ? 'true' : 'false');
     swapText(pinBtn.querySelector('span'), s ? 'Stop' : 'Compare');   // (the word crossfades; it popped)
     pinBtn.setAttribute('aria-label', s ? 'Stop comparing' : 'Compare from here');
   });
@@ -372,7 +378,7 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
     entries: () => entries, cursor: () => cursor,
     onChange: (fn) => listeners.push(fn),
     save: () => ({ entries: entries.slice(), cursor, baseline: structuredClone(baseline) }),
-    load: (s) => { entries = s.entries; cursor = s.cursor; baseline = s.baseline; lastRenderKey = ''; render(true); for (const fn of listeners) fn(); },
+    load: (s) => { entries = s.entries; cursor = s.cursor; baseline = s.baseline; lastRenderLen = -1; render(true); for (const fn of listeners) fn(); },
     flush: flushParams,
   };
 }

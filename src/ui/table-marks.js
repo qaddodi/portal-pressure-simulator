@@ -6,57 +6,103 @@ import { FLOW_CUTS } from '../engine/flow-cuts.js?v=1c97536e9e';
 import { PPG_CUTS, hvpgRate, ppgRate } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 
 export const NO_ASC = 150;   // mL: below it there is no ascites to tap (ultrasound grade 1 starts here)
-export const vSize = (v) => (v < 2.5 ? ['ok', 'None'] : v < 5 ? ['mid', 'Small'] : ['hi', 'Large']);
+// (The ratings are fixed pairs [colour class, word], made once and handed out as the same frozen arrays: a tile's rating is asked for on every
+// frame it is drawn, and a caller only reads it.)
+const tup = (a, b) => Object.freeze([a, b]);
+const T_ok_None = tup('ok', 'None');
+const T_mid_Small = tup('mid', 'Small');
+const T_hi_Large = tup('hi', 'Large');
+const T_hi_Severe = tup('hi', 'Severe');
+const T_mid_High = tup('mid', 'High');
+const T_ok_Normal = tup('ok', 'Normal');
+const T_hi_High = tup('hi', 'High');
+const T_null_No_ascites = tup(null, 'No ascites');
+const T_hi_Portal_HTN = tup('hi', 'Portal HTN');
+const T_ok_Not_portal = tup('ok', 'Not portal');
+const T_info_High = tup('info', 'High');
+const T_mid_SBP_risk = tup('mid', 'SBP risk');
+const T_info_Low = tup('info', 'Low');
+const T_mid_Grade_1 = tup('mid', 'Grade 1');
+const T_hi_Grade_2 = tup('hi', 'Grade 2');
+const T_hi_Grade_3 = tup('hi', 'Grade 3');
+const T_mid_Large = tup('mid', 'Large');
+const T_mid_Low = tup('mid', 'Low');
+const T_hi_Hepatofugal = tup('hi', 'Hepatofugal');
+const T_hi_No_flow = tup('hi', 'No flow');
+const T_null_Hepatopetal = tup(null, 'Hepatopetal');
+const T_hi_Reversed = tup('hi', 'Reversed');
+const T_hi_Stasis = tup('hi', 'Stasis');
+const T_mid_Slow = tup('mid', 'Slow');
+const T_mid_Moderate = tup('mid', 'Moderate');
+const T_ok_Small = tup('ok', 'Small');
+const T_hi_Low = tup('hi', 'Low');
+const T_hi_CSPH = tup('hi', 'CSPH');
+const T_mid_Borderline = tup('mid', 'Borderline');
+const T_mid_cACLD = tup('mid', 'cACLD');
+const T_info_Slow = tup('info', 'Slow');
+const T_hi_Fast = tup('hi', 'Fast');
+const T_hi_Complete = tup('hi', 'Complete');
+const T_hi_Partial = tup('hi', 'Partial');
+const T_mid_Minimal = tup('mid', 'Minimal');
+const T_ok_Low = tup('ok', 'Low');
+const T_ok_20 = tup('ok', '≥20%');
+const T_ok_12_mmHg = tup('ok', '≤12 mmHg');
+const T_mid_10 = tup('mid', '≥10%');
+const T_hi_10 = tup('hi', '<10%');
+const HVPG_T = { hi: tup('hi', 'CSPH'), mid: tup('mid', 'Mild'), ok: tup('ok', 'Normal') };
+const PPG_T = { hi: tup('hi', 'Bleed risk'), mid: tup('mid', 'High'), ok: tup('ok', 'Normal') };
+const NO_RATE = tup(null, '');
+export const vSize = (v) => (v < 2.5 ? T_ok_None : v < 5 ? T_mid_Small : T_hi_Large);
 
 export const RATE = {
-  hvpg: (v) => { const r = hvpgRate(v); return [r, { hi: 'CSPH', mid: 'Mild', ok: 'Normal' }[r]]; },
-  ppg: (v) => { const r = ppgRate(v); return [r, { hi: 'Bleed risk', mid: 'High', ok: 'Normal' }[r]]; },
-  pv: (v) => (v >= 15 ? ['hi', 'Severe'] : v > 10 ? ['mid', 'High'] : ['ok', 'Normal']),
+  hvpg: (v) => HVPG_T[hvpgRate(v)],
+  ppg: (v) => PPG_T[ppgRate(v)],
+  pv: (v) => (v >= 15 ? T_hi_Severe : v > 10 ? T_mid_High : T_ok_Normal),
   // The wedged and free pressures have no cut-offs of their own in the guidelines, so each reads as the pressure it stands for: the wedged
   // (sinusoidal, in a healthy liver about the portal) pressure as the portal vein's, the free one as the IVC's, which AASLD 2024 (Box 2) says it
   // should match within 2 mmHg. (Their summary-table arrows use the same numbers: RAW.)
-  whvp: (v) => (v >= 15 ? ['hi', 'Severe'] : v > 10 ? ['mid', 'High'] : ['ok', 'Normal']),
-  fhvp: (v) => (v > 8 ? ['hi', 'High'] : ['ok', 'Normal']),
-  sin: (v) => (v >= 12 ? ['hi', 'Severe'] : v >= 9 ? ['mid', 'High'] : ['ok', 'Normal']),
-  saag: (v, f) => (f.asc < NO_ASC ? [null, 'No ascites'] : v >= 1.1 ? ['hi', 'Portal HTN'] : ['ok', 'Not portal']),
+  whvp: (v) => (v >= 15 ? T_hi_Severe : v > 10 ? T_mid_High : T_ok_Normal),
+  fhvp: (v) => (v > 8 ? T_hi_High : T_ok_Normal),
+  sin: (v) => (v >= 12 ? T_hi_Severe : v >= 9 ? T_mid_High : T_ok_Normal),
+  saag: (v, f) => (f.asc < NO_ASC ? T_null_No_ascites : v >= 1.1 ? T_hi_Portal_HTN : T_ok_Not_portal),
   // (Protein is neither good nor bad, except that below 1.5 g/dL it no longer guards against infection.)
-  tp: (v, f) => (f.asc < NO_ASC ? [null, 'No ascites'] : v >= 2.5 ? ['info', 'High'] : v < 1.5 ? ['mid', 'SBP risk'] : ['info', 'Low']),
-  asc: (v) => (v < NO_ASC ? ['ok', 'None'] : v < 1500 ? ['mid', 'Grade 1'] : v < 5000 ? ['hi', 'Grade 2'] : ['hi', 'Grade 3']),
+  tp: (v, f) => (f.asc < NO_ASC ? T_null_No_ascites : v >= 2.5 ? T_info_High : v < 1.5 ? T_mid_SBP_risk : T_info_Low),
+  asc: (v) => (v < NO_ASC ? T_ok_None : v < 1500 ? T_mid_Grade_1 : v < 5000 ? T_hi_Grade_2 : T_hi_Grade_3),
   varix: vSize, gv: vSize,
-  spleen: (v) => (v > 16 ? ['hi', 'Large'] : v > 13 ? ['mid', 'Large'] : ['ok', 'Normal']),
-  plt: (v) => (v < 100 ? ['hi', 'Severe'] : v < 150 ? ['mid', 'Low'] : ['ok', 'Normal']),
+  spleen: (v) => (v > 16 ? T_hi_Large : v > 13 ? T_mid_Large : T_ok_Normal),
+  plt: (v) => (v < 100 ? T_hi_Severe : v < 150 ? T_mid_Low : T_ok_Normal),
   // (A flow that reads 0.0 is no flow, as with a clotted portal vein: it has no direction.)
-  pvFlow: (v) => (v < 0 ? ['hi', 'Hepatofugal'] : v === 0 ? ['hi', 'No flow'] : [null, 'Hepatopetal']),
+  pvFlow: (v) => (v < 0 ? T_hi_Hepatofugal : v === 0 ? T_hi_No_flow : T_null_Hepatopetal),
   // Main portal vein velocity on Doppler: 15 cm/s or more normal, slower is slow, under 9 stasis, below zero reversed.
-  pvVel: (v) => (v < 0 ? ['hi', 'Reversed'] : v < FLOW_CUTS.stasis ? ['hi', 'Stasis'] : v < 15 ? ['mid', 'Slow'] : ['ok', 'Normal']),
-  liver: (v) => (v <= 55 ? ['hi', 'Severe'] : v <= 75 ? ['mid', 'Low'] : ['ok', 'Normal']),
-  shunt: (v) => (v >= 0.3 ? ['hi', 'Large'] : v >= 0.1 ? ['mid', 'Moderate'] : ['ok', 'Small']),
-  map: (v) => (v < 65 ? ['hi', 'Low'] : ['ok', 'Normal']),
+  pvVel: (v) => (v < 0 ? T_hi_Reversed : v < FLOW_CUTS.stasis ? T_hi_Stasis : v < 15 ? T_mid_Slow : T_ok_Normal),
+  liver: (v) => (v <= 55 ? T_hi_Severe : v <= 75 ? T_mid_Low : T_ok_Normal),
+  shunt: (v) => (v >= 0.3 ? T_hi_Large : v >= 0.1 ? T_mid_Moderate : T_ok_Small),
+  map: (v) => (v < 65 ? T_hi_Low : T_ok_Normal),
   // Liver stiffness (Baveno VIII): under 10 kPa normal, 10 to 15 suggests cACLD, 15 to 25 borderline (the gray zone), 25 or more
   // CSPH (all suggestive, not proof: the slides' words say "likely").
-  lsm: (v) => (v >= 25 ? ['hi', 'CSPH'] : v >= 15 ? ['mid', 'Borderline'] : v >= 10 ? ['mid', 'cACLD'] : ['ok', 'Normal']),
-  ra: (v) => (v > 8 ? ['hi', 'High'] : ['ok', 'Normal']),
-  salb: (v) => (v < 3.5 ? ['mid', 'Low'] : ['ok', 'Normal']),
+  lsm: (v) => (v >= 25 ? T_hi_CSPH : v >= 15 ? T_mid_Borderline : v >= 10 ? T_mid_cACLD : T_ok_Normal),
+  ra: (v) => (v > 8 ? T_hi_High : T_ok_Normal),
+  salb: (v) => (v < 3.5 ? T_mid_Low : T_ok_Normal),
   // (A slow rate is no warning on its own: beta-blocked patients aim for 55 to 60, so its band is plain gray.)
-  hr: (v) => (v < 60 ? ['info', 'Slow'] : v > 100 ? ['hi', 'Fast'] : ['ok', 'Normal']),
-  ivc: (v) => (v > 8 ? ['hi', 'High'] : ['ok', 'Normal']),
+  hr: (v) => (v < 60 ? T_info_Slow : v > 100 ? T_hi_Fast : T_ok_Normal),
+  ivc: (v) => (v > 8 ? T_hi_High : T_ok_Normal),
   // Portal vein clot, the share of the lumen it fills, in EASL 2025's grades (Table 4): minimal up to half, partial past it, complete.
-  clot: (v) => (v >= 0.995 ? ['hi', 'Complete'] : v > 0.5 ? ['hi', 'Partial'] : v >= 0.05 ? ['mid', 'Minimal'] : ['ok', 'None']),
-  hb: (v) => (v < 7 ? ['hi', 'Severe'] : v < 12 ? ['mid', 'Low'] : ['ok', 'Normal']),
+  clot: (v) => (v >= 0.995 ? T_hi_Complete : v > 0.5 ? T_hi_Partial : v >= 0.05 ? T_mid_Minimal : T_ok_None),
+  hb: (v) => (v < 7 ? T_hi_Severe : v < 12 ? T_mid_Low : T_ok_Normal),
   // Cardiac output and blood volume (22 Oct, Mohammad: any tile should show its normal where it can). The guideline files give no numbers for
   // either, so these are the standard physiology ranges: a resting adult's cardiac output is 4 to 8 L/min (cardiac index 2.5 to 4 L/min/m²), and
   // the blood volume is about 70 mL/kg, 4.5 to 5.5 L for the model's 70 kg adult (±10% of its 5.0 L). Low is the warning (red). High is only
   // information (gray, like a slow heart rate): pregnancy, fever or cirrhosis's hyperdynamic circulation raise both without anything being wrong
   // with the tile's reading itself, so it never reads as a fault.
-  co: (v) => (v < 4 ? ['hi', 'Low'] : v > 8 ? ['info', 'High'] : ['ok', 'Normal']),
-  bv: (v) => (v < 4500 ? ['hi', 'Low'] : v > 5500 ? ['info', 'High'] : ['ok', 'Normal']),
+  co: (v) => (v < 4 ? T_hi_Low : v > 8 ? T_info_High : T_ok_Normal),
+  bv: (v) => (v < 4500 ? T_hi_Low : v > 5500 ? T_info_High : T_ok_Normal),
   // The model's encephalopathy risk index (metrics.heRisk: the shunted share of the portal blood scaled by cirrhosis, 0 to about 1): Low under 0.2,
   // Moderate under 0.45, High from there. It is the model's own index, not a clinical score, and its tile says so.
-  he: (v) => (v < 0.2 ? ['ok', 'Low'] : v < 0.45 ? ['mid', 'Moderate'] : ['hi', 'High']),
+  he: (v) => (v < 0.2 ? T_ok_Low : v < 0.45 ? T_mid_Moderate : T_hi_High),
   // The HVPG response (slide field hvpgResp): the fall from a named slide's HVPG, in percent. A fall of 10% or more marks a response
   // before any bleed, 20% or more, or to 12 mmHg or less, after one (AASLD 2024; the Baveno meetings).
   // (respAt: the HVPG now, as its tile prints it; the bar's bands read the fall alone.)
-  hvpgFall: (v, f) => (v >= 20 ? ['ok', '≥20%'] : f?.respAt != null && f.respAt <= 12 ? ['ok', '≤12 mmHg'] : v >= 10 ? ['mid', '≥10%'] : ['hi', '<10%']),
+  hvpgFall: (v, f) => (v >= 20 ? T_ok_20 : f?.respAt != null && f.respAt <= 12 ? T_ok_12_mmHg : v >= 10 ? T_mid_10 : T_hi_10),
 };
 // Each tile: its name (n: a short one for a narrow tile, three in a row on a tablet or phone), what it is, the unit, the decimals (1 unless d), a scale (x) and which way is better
 // (−1 lower, 1 higher) for the colour of a change.
@@ -97,13 +143,18 @@ export const tileOf = (k) => TILE[k] ?? DERIVED_TILE[k];
 // After TIPS the PPG is read against its target (below 12 mmHg): its tile, and the pill that prints it, never say "High" under a
 // line that says the target is reached.
 export const tipsGoal = (v) => (v < PPG_CUTS.red ? ['ok', 'Target met'] : ['hi', 'Above target']);
-export const rateOf = (k, f) => (RATE[k] && f && f[k] != null ? RATE[k](f[k], f) : [null, '']);
+export const rateOf = (k, f) => (RATE[k] && f && f[k] != null ? RATE[k](f[k], f) : NO_RATE);
 // A value as its tile prints it (the tile's scale and decimals), back in the model's units: a tile's word judges the number it
 // shows, so "5.0 L" is Grade 3 and "2.5 mm" Small, never the unrounded 4.98 L or 2.49 mm behind them.
+// (Each tile's last answer is kept with the number it was made from: a frame that asks again for the same reading makes nothing.)
+const shownIn = new Map(), shownOut = new Map();
 export const tileShown = (k, v) => {
   if (v == null || !Number.isFinite(v)) return v;
+  if (shownIn.get(k) === v) return shownOut.get(k);
   const x = tileOf(k)?.x ?? 1;
-  return +(+(v * x).toFixed(tileOf(k)?.d ?? 1) / x).toPrecision(12) || 0;   // (−0 reads as 0: no flow has no direction)
+  const out = +(+(v * x).toFixed(tileOf(k)?.d ?? 1) / x).toPrecision(12) || 0;   // alloc-rare: only when the tile's reading changes (−0 reads as 0: no flow has no direction)
+  shownIn.set(k, v); shownOut.set(k, out);
+  return out;
 };
 export const rateShown = (k, f) => (f && f[k] != null ? rateOf(k, { ...f, [k]: tileShown(k, f[k]) }) : rateOf(k, f));
 // Each tile's scale bar, in the units the tile shows: [from, to, the cut-offs between its coloured bands]. The bands take their
@@ -131,7 +182,9 @@ export const bandsOf = (k) => {
 };
 // The figure's "Portal blood" callout: whole-percent shares to the shunts and the liver that always add to 100, and the
 // shunt's rating, the same as its data card tile's (ok, mid: amber, hi: red).
-export const portalSplit = (sh) => { const v = Math.min(1, Math.max(0, +sh || 0)), s = Math.round(v * 100); return { shunt: s, liver: 100 - s, rate: RATE.shunt(v)[0] }; };
+// (One kept answer, written in place and read by its caller as it is returned.)
+const SPLIT = { shunt: 0, liver: 100, rate: 'ok' };
+export const portalSplit = (sh) => { const v = Math.min(1, Math.max(0, +sh || 0)), s = Math.round(v * 100); SPLIT.shunt = s; SPLIT.liver = 100 - s; SPLIT.rate = RATE.shunt(v)[0]; return SPLIT; };
 
 // The table's columns: the raw pressures shade above normal, the rest by their tile's rating.
 // Headers match the pressure chart's axis (PV, WHVP, FHVP, IVC, RA). res: the resistance inside the liver, as the model has it (rih). (PPG ÷ portal flow would also count the collaterals,
@@ -186,7 +239,7 @@ export const effOf = (k, d) => (d === 0 || k === 'pvFlow' ? null : (UP_GOOD.has(
 export const LIVE_MIN = 7000, LIVE_STEADY = 2000, LIVE_MAX = 60000;
 export const liveSettled = (elapsed, steady) => elapsed >= LIVE_MAX || (elapsed >= LIVE_MIN && steady >= LIVE_STEADY);
 // The readings as a what-if's card prints them (its tiles, and the ladder's stations), so a drift too small to show counts as still.
-export const shownSig = (f, keys) => keys.map((k) => (f[k] == null ? '—' : (f[k] * (TILE[k]?.x ?? 1)).toFixed(TILE[k]?.d ?? 1))).join('|');
+export const shownSig = (f, keys) => keys.map((k) => (f[k] == null ? '—' : (f[k] * (TILE[k]?.x ?? 1)).toFixed(TILE[k]?.d ?? 1))).join('|'); // alloc-rare: polled every 150 ms while a slide settles, never per frame
 /** The heading a summary row shows over its name (a site's "Intrahepatic · " is left off: its colour says it). */
 export const headOf = (r) => (r.kicker || '').replace('Intrahepatic · ', '');
 /** A row's heading is a repeat when the row above shows the same words in the same site's colour: the table draws it once, over the first (presenter.js summaryTable). */

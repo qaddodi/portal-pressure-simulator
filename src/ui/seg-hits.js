@@ -48,32 +48,49 @@ export function gridHits(grid, cell, r, margin, stamp, any = false) {
 
 /** The vessels' lines as the labels' solver sees them: each line { pts: [[x, y]...] in world units, R: radii along it or null,
  *  flat: the radius when R is null, wall: px added to it, id } cut into segments in stage px (toLocal(x, y) → [x, y], sc: px per
- *  world unit), each in every `cell`-px bucket its box, grown by its half width, reaches. Returns { segs, grid, cell, stamp }. */
+ *  world unit), each in every `cell`-px bucket its box, grown by its half width, reaches. Returns { segs, grid, cell, stamp }.
+ *  The index is built in one of two kept buffers (segments, buckets and their lists reused, written in place: a rebuild allocates only
+ *  when the picture has more segments or buckets than ever before), so the one a caller holds stays whole while the next is built in the
+ *  other; an index older than the one before it has been written over. */
+const newIdx = () => ({ segs: [], grid: new Map(), cell: 64, stamp: 0, pool: [] });
+const BUFS = [newIdx(), newIdx()];
+let bufAt = 0, CUM = new Float64Array(512);
+const radAt = (R, flat, u) => (R ? R[Math.round(Math.min(1, Math.max(0, u)) * (R.length - 1))] : flat);
 export function lineIndex(lines, toLocal, sc, cell = 64) {
-  const segs = [], grid = new Map();
-  for (const ln of lines) {
-    const pts = ln.pts;
+  const idx = BUFS[bufAt]; bufAt ^= 1;
+  const { segs, grid, pool } = idx;
+  idx.cell = cell; idx.stamp = 0;
+  for (const c of grid.values()) c.length = 0;   // (the buckets keep their lists)
+  if (grid.size > 20000) grid.clear();   // (buckets of places the picture has left, never visited again)
+  let n = 0;
+  for (let li = 0; li < lines.length; li++) {
+    const ln = lines[li], pts = ln.pts;
     if (!pts || pts.length < 2) continue;
     const R = ln.R, flat = ln.flat, wall = ln.wall || 0;
-    const cum = [0];
-    for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
-    const L = cum[cum.length - 1] || 1, rAt = (u) => (R ? R[Math.round(Math.min(1, Math.max(0, u)) * (R.length - 1))] : flat);
+    if (pts.length > CUM.length) CUM = new Float64Array(pts.length * 2);   // alloc-rare: grows only when a line has more points than any before
+    CUM[0] = 0;
+    for (let i = 1; i < pts.length; i++) CUM[i] = CUM[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+    const L = CUM[pts.length - 1] || 1;
     let prev = toLocal(pts[0][0], pts[0][1]);
     for (let i = 1; i < pts.length; i++) {
       const cur = toLocal(pts[i][0], pts[i][1]);
-      const hw = (Math.max(rAt(cum[i - 1] / L), rAt(cum[i] / L)) + wall) * sc;
-      const sg = { x0: prev[0], y0: prev[1], x1: cur[0], y1: cur[1], hw, stamp: 0, id: ln.id };
-      segs.push(sg);
+      const hw = (Math.max(radAt(R, flat, CUM[i - 1] / L), radAt(R, flat, CUM[i] / L)) + wall) * sc;
+      const sg = pool[n] || (pool[n] = { x0: 0, y0: 0, x1: 0, y1: 0, hw: 0, stamp: 0, id: null });   // alloc-rare: a new segment object only when the picture has more segments than ever before
+      sg.x0 = prev[0]; sg.y0 = prev[1]; sg.x1 = cur[0]; sg.y1 = cur[1]; sg.hw = hw; sg.stamp = 0; sg.id = ln.id;
+      segs[n++] = sg;
       for (let gx = Math.floor((Math.min(sg.x0, sg.x1) - hw) / cell); gx <= Math.floor((Math.max(sg.x0, sg.x1) + hw) / cell); gx++) {
         for (let gy = Math.floor((Math.min(sg.y0, sg.y1) - hw) / cell); gy <= Math.floor((Math.max(sg.y0, sg.y1) + hw) / cell); gy++) {
           const k = gx * 4096 + gy;
-          (grid.get(k) || grid.set(k, []).get(k)).push(sg);
+          let c = grid.get(k);
+          if (!c) grid.set(k, (c = []));   // alloc-rare: a bucket for a place the picture has not reached before
+          c.push(sg);
         }
       }
       prev = cur;
     }
   }
-  return { segs, grid, cell, stamp: 0 };
+  segs.length = n;
+  return idx;
 }
 
 /** How many of the index's segments the box touches, each one's own half width and `margin` px of air included. `skip`: true asks
@@ -97,10 +114,10 @@ export function indexHits(idx, r, margin, skip = false) {
   return n;
 }
 
+const o = (px, py, qx, qy, rx, ry) => Math.sign((qx - px) * (ry - py) - (qy - py) * (rx - px));
 /** Do two segments cross (or touch)? Each is [x0, y0, x1, y1] or { x0, y0, x1, y1 }. */
 export function segsCross(a, b) {
   const a0 = a.x0 ?? a[0], a1 = a.y0 ?? a[1], a2 = a.x1 ?? a[2], a3 = a.y1 ?? a[3];
   const b0 = b.x0 ?? b[0], b1 = b.y0 ?? b[1], b2 = b.x1 ?? b[2], b3 = b.y1 ?? b[3];
-  const o = (px, py, qx, qy, rx, ry) => Math.sign((qx - px) * (ry - py) - (qy - py) * (rx - px));
   return o(a0, a1, a2, a3, b0, b1) !== o(a0, a1, a2, a3, b2, b3) && o(b0, b1, b2, b3, a0, a1) !== o(b0, b1, b2, b3, a2, a3);
 }

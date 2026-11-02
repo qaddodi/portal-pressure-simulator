@@ -57,7 +57,7 @@ test('GL: a restored sinusoid context draws a paused picture again; the lobule g
   const gl = read('src/ui/sinusoid-gl.js');
   assert.match(gl, /addEventListener\('webglcontextrestored', \(\) => \{ epoch\+\+; sent\.clear\(\); ok = null; skipped = true; startLater\(\); \}\)/);
   assert.match(gl, /get epoch\(\) \{ return epoch; \}/);
-  assert.match(read('src/ui/sinusoid-view.js'), /canvas\.width \+ 'x' \+ canvas\.height \+ '\|' \+ gpu\.epoch \+ '\|'/);
+  assert.match(read('src/ui/sinusoid-view.js'), /sigW === canvas\.width && sigH === canvas\.height && sigEpoch === gpu\.epoch/);
   assert.match(read('src/ui/lobule-zoom.js'), /glTried = false; gl\?\.dispose\?\.\(\); gl = null;/);
   const d = read('src/ui/doppler-gl.js');
   assert.equal((d.match(/getExtension\('WEBGL_lose_context'\)\?\.loseContext\(\); return null;/g) || []).length, 1);   // (a shader that will not build: the only way out now a software renderer draws too)

@@ -43,9 +43,14 @@ export function splitNums(str) {
   glue.push(String(str).slice(last));
   return { glue, nums };
 }
-const fmt = (v) => { const s = (Math.round(v * 100) / 100).toFixed(2); return s.replace(/\.?0+$/, '') || '0'; };
+// (Rounded to two decimals; the shortest form of that number is the one with no trailing zeros: 1.5, 12, 0.07.)
+const fmt = (v) => String(Math.round(v * 100) / 100);
 /** The numbers put back into their glue. */
-export const joinNums = (glue, nums) => glue.reduce((s, g, i) => s + g + (i < nums.length ? fmt(nums[i]) : ''), '');
+export function joinNums(glue, nums) {
+  let s = '';
+  for (let i = 0; i < glue.length; i++) { s += glue[i]; if (i < nums.length) s += fmt(nums[i]); }
+  return s;
+}
 const sameGlue = (a, b) => a.length === b.length && a.every((g, i) => g === b[i]);
 
 /** The points of a path that is one 'M x y' and then 'L x y's (how the charts draw a polyline), else null. */
@@ -57,7 +62,11 @@ export function polyPoints(d) {
   const pts = []; for (let i = 0; i < nums.length; i += 2) pts.push([nums[i], nums[i + 1]]);
   return pts;
 }
-export const polyD = (pts) => pts.map(([x, y], i) => `${i ? 'L' : 'M'}${fmt(x)} ${fmt(y)}`).join('');
+export function polyD(pts) {
+  let s = '';
+  for (let i = 0; i < pts.length; i++) { s += i ? 'L' : 'M'; s += fmt(pts[i][0]); s += ' '; s += fmt(pts[i][1]); }
+  return s;
+}
 
 /** How a geometry attribute glides from `a` to `b`: { glue, from, to } over numbers in one pattern, { poly: true, from, to } for polylines
  *  of different lengths (the shorter one's last point repeated, so a new stretch grows out of the end and a lost one folds into it),
@@ -77,8 +86,19 @@ export function tweenOf(attr, a, b) {
 }
 /** The glide's string at k (0 → a, 1 → b). */
 export function tweenAt(tw, k) {
-  if (tw.poly) return polyD(tw.from.map(([x, y], i) => [x + (tw.to[i][0] - x) * k, y + (tw.to[i][1] - y) * k]));
-  return joinNums(tw.glue, tw.from.map((v, i) => v + (tw.to[i] - v) * k));
+  // (Written straight into the string, a frame of the glide builds no point lists: the same text polyD and joinNums make of the tween's points.)
+  let s = '';
+  if (tw.poly) {
+    const { from, to } = tw;
+    for (let i = 0; i < from.length; i++) {
+      const x = from[i][0], y = from[i][1];
+      s += i ? 'L' : 'M'; s += fmt(x + (to[i][0] - x) * k); s += ' '; s += fmt(y + (to[i][1] - y) * k);
+    }
+    return s;
+  }
+  const { glue, from, to } = tw;
+  for (let i = 0; i < glue.length; i++) { s += glue[i]; if (i < from.length) s += fmt(from[i] + (to[i] - from[i]) * k); }
+  return s;
 }
 
 // ── Describing a drawing ────────────────────────────────────────────────────────────────────────────────────────────
@@ -183,6 +203,7 @@ export function morphSvg(prev, next) {
 
 class Morph {
   constructor(host, prev, next, plan) {
+    this.tickFn = () => this.tick();   // (made once: a frame of the glide asks for the next with it, no new closure)
     this.host = host; this.prev = prev; this.next = next; this.plan = plan;
     this.live = true; this.t0 = null; this.raf = 0; this.fades = [];
   }
@@ -206,7 +227,7 @@ class Morph {
     plan.newOnly.forEach((b, i) => { const p = came[i]; if (p && p.o >= FULL) to(b.el, 0, 1, D_FLIP, D_SMALL, EASE_ARRIVE); });
     plan.pairs.forEach(({ b }, i) => { const k = kept[i]; if (k && k.to >= FULL) to(b.el, k.from, 1, 0, D_SMALL, EASE_ARRIVE); });
     host._svgGL?.wake(D_SURFACE + D_FLIP + D_SMALL + 80);   // (its GPU picture drawn every frame of the glide and the fades)
-    this.raf = nextLate(() => this.tick());
+    this.raf = nextLate(this.tickFn);
   }
   /** Another morph takes this card over: this one stops moving the new drawing (it is that morph's old one now); its leaving words finish. */
   release() { this.live = false; }
@@ -225,7 +246,7 @@ class Morph {
       }
     }
     if (gone || t >= D_SURFACE) { this.finish(); return; }
-    this.raf = nextLate(() => this.tick());
+    this.raf = nextLate(this.tickFn);
   }
   finish() {
     const { plan } = this;

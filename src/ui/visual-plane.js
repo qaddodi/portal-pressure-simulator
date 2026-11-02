@@ -25,7 +25,7 @@
 
 import { h, fmt, clamp } from './util.js?v=3b6762a3d2';
 import { HVPG_CUTS, PPG_CUTS } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { TILE, tileShown } from './table-marks.js?v=ff3ed0cc47';
+import { TILE, tileShown } from './table-marks.js?v=a483b9975e';
 import { plotPanel } from './plot-look.js?v=5037697da7';
 import { frameFor } from './frame.js?v=1d147c7c9a';
 import { easeArrive, D_SURFACE, EASE_ARRIVE } from './ease.js?v=7513a88c68';
@@ -113,12 +113,19 @@ export function planeOf(p) {
 /** The zone the values in f fall in (the first whose conditions hold), or null. */
 export const zoneOf = (pl, f) => pl.zones.find((z) => holds(z.when, f)) || null;
 /** The keys a plane reads off a reading: its two axes and whatever its zones and boxes test. */
-export const readKeys = (pl) => [...new Set([pl.x.key, pl.y.key, ...[...pl.zones, ...(pl.boxes || [])].flatMap((z) => (Array.isArray(z.when) ? z.when.map((c) => c?.[0]) : []))])];
+const KEYS_OF = new WeakMap();   // (a plane's keys, listed once for the plane: it is asked for on every reading it is given)
+export const readKeys = (pl) => {
+  let ks = KEYS_OF.get(pl);
+  if (!ks) KEYS_OF.set(pl, (ks = [...new Set([pl.x.key, pl.y.key, ...[...pl.zones, ...(pl.boxes || [])].flatMap((z) => (Array.isArray(z.when) ? z.when.map((c) => c?.[0]) : []))])]));   // alloc-rare: once per plane, then kept
+  return ks;
+};
+// One reading's value as the tiles print it (shownReading's rule for one key, with no copy of the reading).
+const shownVal = (f, k) => { const v = f[k]; return Number.isFinite(v) ? tileShown(k, v) : v; };
 /** A reading as the tiles print it (table-marks tileShown: each tile's own decimals): the data card's dot, its zone and the words
  *  under the plot all read these, so the chart never puts the case anywhere but the numbers the tiles show. */
 export function shownReading(pl, f) {
   if (!f) return f;
-  const out = { ...f };
+  const out = { ...f };   // alloc-rare: a reading pinned (150 ms at the most) or a plot drawn, never per frame
   for (const k of readKeys(pl)) if (Number.isFinite(f[k])) out[k] = tileShown(k, f[k]);
   return out;
 }
@@ -715,10 +722,12 @@ export function planePlot(pl, { card = false } = {}) {
   // (The drawing redraws in base; the card's zone words and its dot stay the same elements, so they ease from where they were.)
   const halo = sv('circle', { class: 'pze-halo' }), dot = sv('circle', { class: 'pze-dot' });
   let dotGo = null;   // (the dot's glide: from fx, fy to tx, ty, started at t0)
+  const DOT_AT = { x: 0, y: 0 };   // (the dot's place now, one kept pair written in place; a caller reads it as it is returned)
   const dotEased = (t = performance.now()) => {
     if (!dotGo) return null;
     const k = reduceDot.matches ? 1 : easeArrive(Math.min(1, Math.max(0, (t - dotGo.t0) / D_SURFACE)));
-    return { x: dotGo.fx + (dotGo.tx - dotGo.fx) * k, y: dotGo.fy + (dotGo.ty - dotGo.fy) * k };
+    DOT_AT.x = dotGo.fx + (dotGo.tx - dotGo.fx) * k; DOT_AT.y = dotGo.fy + (dotGo.ty - dotGo.fy) * k;
+    return DOT_AT;
   };
   const base = sv('g'), wordsG = sv('g', { class: 'pze-cwords' }), ringG = sv('g', { class: 'pze-ring' }, halo, dot);
   svg.append(base, wordsG, ringG);
@@ -881,24 +890,46 @@ export function planePlot(pl, { card = false } = {}) {
   // transition runs (.pze-ring: --d-surface, --ease), not read back from the page, so a glide's frame reads no style.
   const dotNow = () => (ringG.style.opacity === '0' ? null : dotEased());
   // The line: through the stops, then the way the dot went since the slide came up, to the dot where it stands now.
+  // (The line is worked out in kept lists: the stops' places in stopXY, the way in `walk` as flat (a, b) pairs of the plane's own units. A frame of the
+  // dot's glide makes no point lists; the path's text is the one thing built, as the painter takes it.)
+  let stopXY = new Float64Array(16);
   function paintWalk() {
     if (!walkPath || !inv) return;
-    const cur = dotNow();
-    const stopPx = stops.map((s) => { const f = shownReading(pl, s.f); return [inv.X(f[pl.x.key]), inv.Y(f[pl.y.key])]; });
-    const end = stopPx[stopPx.length - 1];
+    const cur = dotNow(), ns = stops.length, xk = pl.x.key, yk = pl.y.key;
+    if (stopXY.length < ns * 2) stopXY = new Float64Array(ns * 4);   // alloc-rare: more stops than ever before
+    for (let i = 0; i < ns; i++) { const f = stops[i].f; stopXY[2 * i] = inv.X(shownVal(f, xk)); stopXY[2 * i + 1] = inv.Y(shownVal(f, yk)); }
     // (The way is kept from the moment the dot stands on the last stop, where this slide's time-lapse starts; before that (gliding
     // back from where another slide left it) the line runs straight from the last stop to the dot.)
-    if (cur && end && Math.hypot(end[0] - cur.x, end[1] - cur.y) < 3) { armed = true; walk = []; }
+    if (cur && ns && Math.hypot(stopXY[2 * ns - 2] - cur.x, stopXY[2 * ns - 1] - cur.y) < 3) { armed = true; walk.length = 0; }
     if (cur && armed) {
       // (Where the dot goes back over its way (the time-lapse played again or scrubbed back), the way ends there again.)
-      const px = walk.map(([a, b]) => [inv.X(a), inv.Y(b)]), back = px.findIndex(([x, y], i) => i < px.length - 2 && Math.hypot(x - cur.x, y - cur.y) < 3);
-      if (back >= 0) walk.length = back + 1;
-      const last = walk.length ? [inv.X(walk[walk.length - 1][0]), inv.Y(walk[walk.length - 1][1])] : null;
-      if (!last || Math.hypot(last[0] - cur.x, last[1] - cur.y) >= 2) { walk.push([inv.x(cur.x), inv.y(cur.y)]); if (walk.length > 600) walk = walk.filter((_, i) => i % 2 === 0 || i === walk.length - 1); }
+      const n = walk.length >> 1;
+      let back = -1;
+      for (let i = 0; i < n - 2; i++) if (Math.hypot(inv.X(walk[2 * i]) - cur.x, inv.Y(walk[2 * i + 1]) - cur.y) < 3) { back = i; break; }
+      if (back >= 0) walk.length = 2 * (back + 1);
+      const m = walk.length >> 1;
+      if (!m || Math.hypot(inv.X(walk[2 * m - 2]) - cur.x, inv.Y(walk[2 * m - 1]) - cur.y) >= 2) {
+        walk.push(inv.x(cur.x), inv.y(cur.y));
+        if (walk.length > 1200) {   // (thinned to every other point and the last)
+          const cnt = walk.length >> 1;
+          let w = 0;
+          for (let i = 0; i < cnt; i++) if (i % 2 === 0 || i === cnt - 1) { walk[2 * w] = walk[2 * i]; walk[2 * w + 1] = walk[2 * i + 1]; w++; }
+          walk.length = 2 * w;
+        }
+      }
     }
-    const pts = [...stopPx, ...walk.map(([a, b]) => [inv.X(a), inv.Y(b)])];
-    if (cur) pts.push([cur.x, cur.y]);
-    walkPath.setAttribute('d', pts.length > 1 ? 'M' + pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' L') : '');
+    const wc = walk.length >> 1, cnt = ns + wc + (cur ? 1 : 0);
+    let d = '';
+    if (cnt > 1) {
+      for (let i = 0; i < cnt; i++) {
+        let x, y;
+        if (i < ns) { x = stopXY[2 * i]; y = stopXY[2 * i + 1]; }
+        else if (i < ns + wc) { const j = i - ns; x = inv.X(walk[2 * j]); y = inv.Y(walk[2 * j + 1]); }
+        else { x = cur.x; y = cur.y; }
+        d += i ? ' L' : 'M'; d += x.toFixed(1); d += ','; d += y.toFixed(1);
+      }
+    }
+    walkPath.setAttribute('d', d);
     gl.paint();
   }
   // While the dot glides, the line follows it each frame (the dot's ease, so the line is drawn in behind it, never ahead).

@@ -85,7 +85,7 @@ test('tables that cannot be measured or have no organ say so', async () => {
 test('every tile rating is a word or two, short enough for one line in a phone tile', async () => {
   const { readFileSync } = await import('node:fs');
   const src = readFileSync(new URL('../src/ui/table-marks.js', import.meta.url), 'utf8') + readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8').match(/const rated = .*$/m)[0];
-  const words = [...src.matchAll(/\[(?:'\w+'|null), '([^']+)'\]/g)].map((m) => m[1]);
+  const words = [...src.matchAll(/(?:\[|tup\()(?:'\w+'|null), '([^']+)'[\])]/g)].map((m) => m[1]);   // (a rating is [class, word], made once as tup(class, word))
   assert.ok(words.length > 10);
   const long = words.filter((w) => w.length > 12 || w.split(' ').length > 2);
   assert.deepEqual(long, []);

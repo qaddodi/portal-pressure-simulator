@@ -6,18 +6,18 @@
 
 // A grid of the area inside rings (even-odd, filled by scanlines), and its look-up.
 export function ringGrid(rings, cell = 3) {
-  const all = rings.flat();
+  const all = rings.flat(); // alloc-rare: worked out once per drawing (stage.js warmSeen keeps the result), never per frame
   if (!all.length) return null;
-  const x0 = Math.min(...all.map((q) => q[0])), y0 = Math.min(...all.map((q) => q[1]));
-  const w = Math.ceil((Math.max(...all.map((q) => q[0])) - x0) / cell) + 1, h = Math.ceil((Math.max(...all.map((q) => q[1])) - y0) / cell) + 1;
-  const bits = new Uint8Array(w * h);
+  const x0 = Math.min(...all.map((q) => q[0])), y0 = Math.min(...all.map((q) => q[1])); // alloc-rare: worked out once per drawing (stage.js warmSeen keeps the result), never per frame
+  const w = Math.ceil((Math.max(...all.map((q) => q[0])) - x0) / cell) + 1, h = Math.ceil((Math.max(...all.map((q) => q[1])) - y0) / cell) + 1; // alloc-rare: worked out once per drawing (stage.js warmSeen keeps the result), never per frame
+  const bits = new Uint8Array(w * h); // alloc-rare: worked out once per drawing (stage.js warmSeen keeps the result), never per frame
   for (let j = 0; j < h; j++) {
-    const y = y0 + (j + 0.5) * cell, xs = [];
+    const y = y0 + (j + 0.5) * cell, xs = []; // alloc-rare: worked out once per drawing (stage.js warmSeen keeps the result), never per frame
     for (const r of rings) for (let i = 0, k = r.length - 1; i < r.length; k = i++) if ((r[i][1] > y) !== (r[k][1] > y)) xs.push(r[i][0] + (y - r[i][1]) * (r[k][0] - r[i][0]) / (r[k][1] - r[i][1]));
-    xs.sort((u, v) => u - v);
+    xs.sort((u, v) => u - v); // alloc-rare: worked out once per drawing (stage.js warmSeen keeps the result), never per frame
     for (let m = 0; m + 1 < xs.length; m += 2) for (let i = Math.max(0, Math.ceil((xs[m] - x0) / cell - 0.5)); i <= Math.min(w - 1, Math.floor((xs[m + 1] - x0) / cell - 0.5)); i++) bits[j * w + i] = 1;
   }
-  return { x0, y0, w, h, cell, bits };
+  return { x0, y0, w, h, cell, bits }; // alloc-rare: worked out once per drawing (stage.js warmSeen keeps the result), never per frame
 }
 export const inGrid = (g, x, y) => {
   const i = Math.floor((x - g.x0) / g.cell), j = Math.floor((y - g.y0) / g.cell);
@@ -29,17 +29,17 @@ export const inGrid = (g, x, y) => {
 // as stage.js lays the edge: the centre moved rad along the normal (-ty, tx) times the side), 1 where that edge can be seen.
 // A piece of the same tube within `near` of the point along it is not counted as lying over it: on a bend the tube's own
 // next stretch would otherwise swallow its inner edge, which the glow's own bend rule handles.
-export function warmVisible(tubes, rad, { piece = 36, inside = null, near = 3 } = {}) {
-  const C = Math.max(4, rad), cells = new Map(), key = (i, j) => (i + 4096) * 16384 + (j + 4096);
-  const arc = tubes.map((r) => { const s = [0]; for (let k = 1; k < r.length; k++) s.push(s[k - 1] + Math.hypot(r[k][0] - r[k - 1][0], r[k][1] - r[k - 1][1])); return s; });
-  const order = (t, k) => t * 1e6 + Math.floor(arc[t][k] / piece);
-  tubes.forEach((r, t) => r.forEach((p, k) => {
+export function warmVisible(tubes, rad, { piece = 36, inside = null, near = 3 } = {}) { // alloc-rare: worked out once per drawing (stage.js warmSeen keeps the result), never per frame
+  const C = Math.max(4, rad), cells = new Map(), key = (i, j) => (i + 4096) * 16384 + (j + 4096); // alloc-rare: worked out once per drawing (stage.js warmSeen keeps the result), never per frame
+  const arc = tubes.map((r) => { const s = [0]; for (let k = 1; k < r.length; k++) s.push(s[k - 1] + Math.hypot(r[k][0] - r[k - 1][0], r[k][1] - r[k - 1][1])); return s; }); // alloc-rare: worked out once per drawing (stage.js warmSeen keeps the result), never per frame
+  const order = (t, k) => t * 1e6 + Math.floor(arc[t][k] / piece); // alloc-rare: worked out once per drawing (stage.js warmSeen keeps the result), never per frame
+  tubes.forEach((r, t) => r.forEach((p, k) => { // alloc-rare: worked out once per drawing (stage.js warmSeen keeps the result), never per frame
     const c = key(Math.floor(p[0] / C), Math.floor(p[1] / C));
-    let l = cells.get(c); if (!l) cells.set(c, (l = [])); l.push(t, k);
+    let l = cells.get(c); if (!l) cells.set(c, (l = [])); l.push(t, k); // alloc-rare: worked out once per drawing (stage.js warmSeen keeps the result), never per frame
   }));
   const cover = rad * 0.95, cover2 = cover * cover, nearL = near * rad;
-  return tubes.map((r, t) => {
-    const n = r.length, vis = new Uint8Array(n * 2);
+  return tubes.map((r, t) => { // alloc-rare: worked out once per drawing (stage.js warmSeen keeps the result), never per frame
+    const n = r.length, vis = new Uint8Array(n * 2); // alloc-rare: worked out once per drawing (stage.js warmSeen keeps the result), never per frame
     for (let k = 0; k < n; k++) {
       const pa = r[Math.max(0, k - 1)], pb = r[Math.min(n - 1, k + 1)];
       let tx = pb[0] - pa[0], ty = pb[1] - pa[1]; const l = Math.hypot(tx, ty) || 1; tx /= l; ty /= l;

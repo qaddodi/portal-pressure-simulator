@@ -210,10 +210,10 @@ test('turned from upright to sideways, and closed and opened again: the names st
 
 test('the view lays its names against the eased room, not the room where it comes to rest (source)', () => {
   const src = readFileSync(new URL('../src/ui/sinusoid-view.js', import.meta.url), 'utf8');
-  assert.match(src, /const viewVec = \(\) => \[VW\.k, VW\.C\[0\], VW\.C\[1\], VW\.fe\.l, VW\.fe\.t, VW\.fe\.r, VW\.fe\.b, \.\.\.VW\.ins\];/, 'the room eases with the centre and scale, in one spring');
+  assert.match(src, /const viewVec = \(\) => \{ CUR\[0\] = VW\.k; CUR\[1\] = VW\.C\[0\]; CUR\[2\] = VW\.C\[1\]; CUR\[3\] = VW\.fe\.l; CUR\[4\] = VW\.fe\.t; CUR\[5\] = VW\.fe\.r; CUR\[6\] = VW\.fe\.b; for \(let i = 0; i < 3; i\+\+\) CUR\[7 \+ i\] = VW\.ins\[i\];/, 'the room eases with the centre and scale, in one spring');
   assert.match(src, /const g = geo, f = VW\.fe;/, 'the end names and the legend take the eased room');
   assert.match(src, /const lx = f\.l \+ 2, ly = VW\.ins\[0\] \+ 12;/);
-  assert.match(src, /VW\.fr = span\(\[\[VW\.fe\.l, VW\.fe\.t\], \[VW\.fe\.r, VW\.fe\.b\]\]\);/, 'the band for the other names is the eased room too');
+  assert.match(src, /const f0 = locAlong\(VW\.fe\.l, VW\.fe\.t, cx, cy, ga, gs, kk\), f1 = locAlong\(VW\.fe\.r, VW\.fe\.b, cx, cy, ga, gs, kk\);\s*\n\s*VW\.fr\[0\] = Math\.min\(f0, f1\); VW\.fr\[1\] = Math\.max\(f0, f1\);/, 'the band for the other names is the eased room too');
   assert.match(src, /if \(gliding \|\| layoutBusy\) settled = false;/, 'the loop never sleeps with a glide half done');
   assert.match(src, /addEventListener\('pps:occ', wake\);/, 'a change of room wakes a sleeping view');
 });

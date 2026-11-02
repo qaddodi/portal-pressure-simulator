@@ -37,7 +37,7 @@ test('the system dark theme carries the same endothelium as the chosen dark them
 });
 
 test('an open fenestra is a real gap in the sheet, and the whole cell has a border', () => {
-  assert.match(view, /cEndoS: t\('--sv-gl-endo-sheet'\), cEndoE: t\('--sv-gl-endo-edge'\)/);
+  assert.match(view, /U\.cEndoS = rgb\(cssv\('--sv-gl-endo-sheet'\)\); U\.cEndoE = rgb\(cssv\('--sv-gl-endo-edge'\)\)/);
   assert.match(gl, /uniform vec3 [^;]*\bcEndoS, cEndoE\b/);
   assert.ok(!/cFen|--sv-gl-fenestra/.test(gl + view + tokens), 'no window fill left');
   assert.ok(gl.includes('if (w > 0.02) d = smax(d, -(abs(x - px) - 0.5 * w), th);'), 'each open pore cuts through the sheet');
