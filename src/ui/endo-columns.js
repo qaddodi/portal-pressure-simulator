@@ -7,9 +7,12 @@ export const FIELD_T = 1.55;
 export const depthAt = (rho) => 1 / (Math.max(rho, 0.01) * FIELD_T);
 
 // Per-column constants, in the same order the CPU renderer draws them from its seeded generator.
+// (Made once when the module loads and once for each GL context the scope opens, never in a frame.)
 export function columnConsts() {
   let x = 7 >>> 0;
+  // alloc-rare: the table is made at load and at each GL context's creation (endo-gl.js createEndoGL), never per frame
   const r = () => { x = (x * 1664525 + 1013904223) >>> 0; return x / 4294967296; };
+  // alloc-rare: same, once per table
   const c0 = [], c1 = [];
   for (let c = 0; c < NCOL; c++) {
     const a0 = (c / NCOL) * TAU + 0.5 + (r() - 0.5) * 0.5;
@@ -17,13 +20,14 @@ export function columnConsts() {
     const f1 = 1.15 + r() * 0.5, f2 = 2.6 + r() * 0.8, wj = (r() - 0.5) * 0.015;
     c0.push(a0, ph, ph2, ph3); c1.push(f1, f2, wj, 0);
   }
+  // alloc-rare: same, once per table
   return { c0, c1 };
 }
 const K = columnConsts();
 
 /** Column c's angle at depth z, for an engorgement grow (0..1) and a deflation df (0 engorged .. 1 strangulated). */
 export function columnAngle(c, z, grow, df = 0) {
-  const k0 = K.c0.slice(c * 4, c * 4 + 4), k1 = K.c1.slice(c * 4, c * 4 + 4);
+  const k0 = K.c0, k1 = K.c1, o = c * 4;
   const A1 = (0.025 + 0.3 * grow) * (1 - 0.55 * df), A2 = A1 * 0.45;
-  return k0[0] + A1 * Math.sin(k1[0] * z + k0[1]) + A2 * Math.sin(k1[1] * z + k0[2]);
+  return k0[o] + A1 * Math.sin(k1[o] * z + k0[o + 1]) + A2 * Math.sin(k1[o + 1] * z + k0[o + 2]);
 }

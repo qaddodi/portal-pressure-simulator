@@ -30,9 +30,12 @@ export function splitPlan(span, r) {
   if (c == null) return null;
   const { a0, b0, a1, b1 } = span, aMin = Math.min(a0, a1), bMax = Math.max(b0, b1), w = bMax - aMin;
   const lx = aMin - PAD, rx = c;
+  // alloc-rare: runs once per fold of the view pill (a change of view, from the store), which builds the two halves and their animations; no frame calls it
   return {
     c, w,
+    // alloc-rare: runs once per fold of the view pill (a change of view, from the store), which builds the two halves and their animations; no frame calls it
     left: { x: lx, w: c - lx, tx0: a0 - lx, tx1: a1 - lx },
+    // alloc-rare: runs once per fold of the view pill (a change of view, from the store), which builds the two halves and their animations; no frame calls it
     right: { x: rx, w: bMax + PAD - rx, tx0: b0 - w - rx, tx1: b1 - w - rx },
   };
 }
@@ -47,34 +50,47 @@ export function splitFace(face, span, opt) {
   live.get(face)?.cancel();
   if (!FACE_SPLIT || !par || !face.animate) return null;
   const cs = getComputedStyle(face), h = face.offsetHeight, top = face.offsetTop;
+  // alloc-rare: runs once per fold of the view pill (a change of view, from the store), which builds the two halves and their animations; no frame calls it
   const r = Math.max(...['borderTopLeftRadius', 'borderTopRightRadius', 'borderBottomRightRadius', 'borderBottomLeftRadius'].map((k) => parseFloat(cs[k]) || 0));
   const plan = h > 0 ? splitPlan(span, Math.min(r, h / 2)) : null;
   if (!plan) return null;
+  // alloc-rare: runs once per fold of the view pill (a change of view, from the store), which builds the two halves and their animations; no frame calls it
   const look = {};
   for (const k of LOOK) look[k] = cs[k];
+  // alloc-rare: runs once per fold of the view pill (a change of view, from the store), which builds the two halves and their animations; no frame calls it
   const boxes = [], moves = [];
+  // alloc-rare: runs once per fold of the view pill (a change of view, from the store), which builds the two halves and their animations; no frame calls it
   for (const side of [plan.left, plan.right]) {
     const box = document.createElement('span');
     box.className = 'face-half';
     box.setAttribute('aria-hidden', 'true');
     box.dataset.ghost = '';   // (the top bar's glide never measures it, topbar-motion.js)
+    // alloc-rare: runs once per fold of the view pill (a change of view, from the store), which builds the two halves and their animations; no frame calls it
     Object.assign(box.style, { position: 'absolute', zIndex: cs.zIndex, left: `${side.x}px`, top: `${top - PAD}px`, width: `${side.w}px`, height: `${h + 2 * PAD}px`, overflow: 'hidden', pointerEvents: 'none', margin: '0', padding: '0' });
     const copy = document.createElement('span');
+    // alloc-rare: runs once per fold of the view pill (a change of view, from the store), which builds the two halves and their animations; no frame calls it
     Object.assign(copy.style, look, { position: 'absolute', left: '0', top: `${PAD}px`, width: `${plan.w}px`, height: `${h}px`, margin: '0', padding: '0', display: 'block', transform: `translateX(${side.tx0}px)` });
     box.append(copy);
     boxes.push(box);
+    // alloc-rare: runs once per fold of the view pill (a change of view, from the store), which builds the two halves and their animations; no frame calls it
     moves.push([copy, side]);
   }
+  // alloc-rare: runs once per fold of the view pill (a change of view, from the store), which builds the two halves and their animations; no frame calls it
   face.after(...boxes);
+  // alloc-rare: runs once per fold of the view pill (a change of view, from the store), which builds the two halves and their animations; no frame calls it
   for (const [copy, side] of moves) copy.animate([{ transform: `translateX(${side.tx0}px)` }, { transform: `translateX(${side.tx1}px)` }], { ...opt, fill: 'forwards' });
+  // alloc-rare: runs once per fold of the view pill (a change of view, from the store), which builds the two halves and their animations; no frame calls it
   const hide = face.animate([{ opacity: 0 }, { opacity: 0 }], { ...opt, fill: 'forwards' });
   let done = false;
+  // alloc-rare: runs once per fold of the view pill (a change of view, from the store), which builds the two halves and their animations; no frame calls it
   const end = () => { if (done) return; done = true; for (const b of boxes) b.remove(); hide.cancel(); };
   // (Listeners, not onfinish: the caller may set its own.)
   hide.addEventListener('finish', end);
   hide.addEventListener('cancel', end);
   live.set(face, hide);
+  // alloc-rare: runs once per fold of the view pill (a change of view, from the store), which builds the two halves and their animations; no frame calls it
   hide.addEventListener('cancel', () => { if (live.get(face) === hide) live.delete(face); });
+  // alloc-rare: runs once per fold of the view pill (a change of view, from the store), which builds the two halves and their animations; no frame calls it
   hide.addEventListener('finish', () => { if (live.get(face) === hide) live.delete(face); });
   return hide;
 }

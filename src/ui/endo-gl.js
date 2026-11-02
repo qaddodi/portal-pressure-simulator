@@ -13,7 +13,9 @@ import { caught } from './caught.js?v=b96b17594a';
 
 const VS = 'attribute vec2 p; void main(){ gl_Position = vec4(p, 0.0, 1.0); }';
 // The colours are tokens (--endo-* in styles/tokens.css), written into the shader when it is built.
+// alloc-rare: the shader's text is built when the shader is made (build: once per context, again after a context restore), never in a frame
 const G = (n) => cssRGB(n).map((v) => v.toFixed(1)).join(', '), G01 = (n) => cssRGB(n).map((v) => (v / 255).toFixed(4)).join(', ');
+// alloc-rare: the shader's text is built when the shader is made (build: once per context, again after a context restore), never in a frame
 const FS = () => `
 precision highp float;
 uniform float uSize, uGrow, uVis, uRed;
@@ -196,8 +198,10 @@ void main() {
 
 // The drawing buffer is not preserved: every render() draws the whole field and the one reader (instruments.js) copies it with
 // drawImage in the same task, before the browser presents and clears it.
+// alloc-rare: made once with the scope's GL surface (createEndoGL runs lazily at the scope's first need), not per frame
 export function createEndoGL({ onBack = null } = {}) {
   const cv = document.createElement('canvas');
+  // alloc-rare: made once with the scope's GL surface (createEndoGL runs lazily at the scope's first need), not per frame
   const gl = cv.getContext('webgl', { antialias: false, alpha: true, premultipliedAlpha: true, preserveDrawingBuffer: false });
   if (!gl) return null;
   // A context the browser takes back (iOS Safari in the background or under memory pressure; recs B8): not ready from then on, so the
@@ -205,19 +209,26 @@ export function createEndoGL({ onBack = null } = {}) {
   // back (webglcontextrestored) the shader is made again and the GPU draws the field from the next state on.
   // (lost: the GPU does not draw the field, from the loss until the rebuilt shader is published.)
   let lost = false, dead = false;
+  // alloc-rare: made once with the scope's GL surface (createEndoGL runs lazily at the scope's first need), not per frame
   cv.addEventListener('webglcontextlost', (e) => { e.preventDefault(); lost = true; });
   // Started now, published when the driver has finished it (gl-compile.js; this shader is the longest in the app); ready() publishes it
   // at once if a render comes first, and says false if it failed (the CPU renderer then draws the field, as with no WebGL).
   let started = null, buf = null, stopPoll = null, u = null, failed = false, wanted = false;
   const { c0, c1 } = columnConsts();
+  // alloc-rare: made once with the scope's GL surface (createEndoGL runs lazily at the scope's first need), not per frame
+  const defBuf = new Float32Array(4), knBuf = new Float32Array(16), pend = [null];   // (the deflations and knuckles of each render, written in place)
   function publish() {
     if (u || failed || gl.isContextLost()) return;
     try {
       const pr = checkProgram(gl, started);
       gl.useProgram(pr);
+      // alloc-rare: publish and build run once per context (publish returns at once when published; build at the start and after a restore), not per frame
       const U = (n) => gl.getUniformLocation(pr, n);
+      // alloc-rare: publish and build run once per context (publish returns at once when published; build at the start and after a restore), not per frame
       u = { size: U('uSize'), grow: U('uGrow'), vis: U('uVis'), red: U('uRed'), c0: U('uC0'), c1: U('uC1'), def: U('uDef'), kn: U('uKn') };
+      // alloc-rare: publish and build run once per context (publish returns at once when published; build at the start and after a restore), not per frame
       gl.uniform4fv(u.c0, new Float32Array(c0)); gl.uniform4fv(u.c1, new Float32Array(c1));
+      // alloc-rare: publish and build run once per context (publish returns at once when published; build at the start and after a restore), not per frame
       exerciseDraw(gl, () => { gl.uniform1f(u.size, 1); gl.drawArrays(gl.TRIANGLES, 0, 3); });
       if (lost || wanted) { lost = false; wanted = false; try { onBack?.(); } catch (e) { caught('endo-gl:221', e); /* (the owner's redraw: not this drawing's failure) */ } }   // (after a restore, or a frame that found it compiling: the GPU draws again)
     } catch { u = null; if (!gl.isContextLost()) failed = true; }   // (lost while it was read: the restore makes it again)
@@ -225,19 +236,24 @@ export function createEndoGL({ onBack = null } = {}) {
   // What the context holds: the program and the one triangle that covers the field. Made at the start and again after a restore.
   function build() {
     u = null; failed = false;
-    started = startProgram(gl, VS, FS(), [['p', 0]]);
+    // alloc-rare: publish and build run once per context (publish returns at once when published; build at the start and after a restore), not per frame
+    started = startProgram(gl, VS, FS(), [['p', 0]]); pend[0] = started;
     buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    // alloc-rare: publish and build run once per context (publish returns at once when published; build at the start and after a restore), not per frame
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
     gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    // alloc-rare: publish and build run once per context (publish returns at once when published; build at the start and after a restore), not per frame
     stopPoll?.(); stopPoll = publishWhenDone(gl, [started], publish);
   }
   try { build(); } catch { return null; }
   // (The shader is published at an idle moment, as at the start, not in a frame: lost holds until then, the field stays the CPU's, and
   // onBack asks the scope to draw it once the GPU can.)
+  // alloc-rare: made once with the scope's GL surface (createEndoGL runs lazily at the scope's first need), not per frame
   cv.addEventListener('webglcontextrestored', () => {
     if (dead) return;
     try { build(); } catch { failed = true; }   // (failed: lost says false and ready() false, and the scope lets the GPU go for the CPU renderer)
   });
+  // alloc-rare: made once with the scope's GL surface (createEndoGL runs lazily at the scope's first need), not per frame
   return {
     canvas: cv,
     /** True once the shader is published (waiting for it if it is not yet); false if it failed. */
@@ -245,16 +261,19 @@ export function createEndoGL({ onBack = null } = {}) {
     /** True while the shader is still compiling (asked without waiting): not a failure. The owner draws no new field meanwhile (it keeps
      *  what it shows), the poller publishes the program once the driver is done, and onBack asks for the frame then (review pass 2,
      *  item 2: never a status read that waits inside a frame). False with ?shaderready=0. */
+    // alloc-rare: made once with the scope's GL surface (createEndoGL runs lazily at the scope's first need), not per frame
     get pending() {
-      if (u || failed || lost || !started || !stillCompiling(gl, [started])) return false;
+      if (u || failed || lost || !started || !stillCompiling(gl, pend)) return false;
       wanted = true; stopPoll?.want?.();
       return true;
     },
     /** True from the loss of the context until it is built again: not a failure, the scope draws the CPU field meanwhile and keeps this. */
+    // alloc-rare: made once with the scope's GL surface (createEndoGL runs lazily at the scope's first need), not per frame
     get lost() { return lost && !failed; },
     /** Free the GL context now (a presenter copy that is done), rather than whenever the browser gets to it. */
     dispose() { dead = true; stopPoll?.(); gl.getExtension('WEBGL_lose_context')?.loseContext(); cv.width = cv.height = 0; },
     // Raw RGBA of the last frame (for tests).
+    // alloc-rare: pixels() is a test hook: nothing in a frame calls it
     pixels() { const n = cv.width, a = new Uint8Array(n * n * 4); gl.readPixels(0, 0, n, n, gl.RGBA, gl.UNSIGNED_BYTE, a); return a; },
     // st: { grow, vis, red (0..1 red-sign strength), def: [4], kn: [16] }; draws into the shared canvas at res x res.
     render(res, st) {
@@ -263,7 +282,10 @@ export function createEndoGL({ onBack = null } = {}) {
       if (cv.width !== res) { cv.width = cv.height = res; }
       gl.viewport(0, 0, res, res);
       gl.uniform1f(u.size, res); gl.uniform1f(u.grow, st.grow); gl.uniform1f(u.vis, st.vis); gl.uniform1f(u.red, +st.red || 0);
-      gl.uniform1fv(u.def, new Float32Array(st.def)); gl.uniform1fv(u.kn, new Float32Array(st.kn));
+      const nd = st.def.length, nk = st.kn.length;
+      for (let i = 0; i < 4; i++) defBuf[i] = i < nd ? st.def[i] : 0;
+      for (let i = 0; i < 16; i++) knBuf[i] = i < nk ? st.kn[i] : 0;
+      gl.uniform1fv(u.def, defBuf); gl.uniform1fv(u.kn, knBuf);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       return cv;
     },

@@ -23,9 +23,11 @@ export const poolFade = (v) => Math.min(1, Math.max(0, (v - POOL_MIN) / 150));
 export const FLUID_TOP = 485, FLUID_POW = 1.1, POOL_GAP = 12;
 export const POOL_START = APPENDIX_TIP + POOL_GAP;
 export const fluidFloorAt = (h) => POOL_START + (ABDOMEN_FLOOR + 5 - POOL_START) * Math.min(1, h / FLUID_TOP);
+const LEVEL = { h: 0, amp: 0, floor: 0 };   // (one record, written in place and handed back: valid until the next call; the figure reads it at once)
 export function fluidLevel(v) {
   const u = Math.min(1, Math.max(0, v / 8500)), uv = Math.pow(u, 0.6), h = FLUID_TOP * Math.pow(u, FLUID_POW);
-  return { h, amp: 2 * Math.min(1, uv * 4), floor: fluidFloorAt(h) };
+  LEVEL.h = h; LEVEL.amp = 2 * Math.min(1, uv * 4); LEVEL.floor = fluidFloorAt(h);
+  return LEVEL;
 }
 /** The surface's resting height at world x for a pool `h` high: a meniscus that deepens as it fills (no ripple). */
 export const fluidBase = (x, h) => { const c = (x - 712) / 400; return fluidFloorAt(h) - h * (0.8 + 0.2 * c * c * Math.min(1, h / FLUID_TOP)); };

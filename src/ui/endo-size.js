@@ -4,8 +4,11 @@
 // the slide calls large is drawn plainly large and bulging, not as the thin column a third of the way up the scale.
 export const LARGE_MM = 5;
 const LARGE_GROW = 0.5;
+// (A diameter reads as LARGE_MM once it rounds to it at a tenth: 4.95 up. The double 4.95 is the first at or above the real 4.95, so a
+// plain comparison says what rounding it through toFixed(1) said, with no string made.)
+const LARGE_FROM = 4.95;
 export function endoGrow(d) {
-  if (!(Math.round(+(+d).toFixed(1) * 10) / 10 >= LARGE_MM)) return Math.min(1, Math.max(0, (d - 2) / 10));
+  if (!(+d >= LARGE_FROM)) return Math.min(1, Math.max(0, (d - 2) / 10));
   return Math.min(1, LARGE_GROW + (1 - LARGE_GROW) * Math.max(0, d - LARGE_MM) / (12 - LARGE_MM));
 }
 

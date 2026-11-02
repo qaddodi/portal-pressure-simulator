@@ -108,7 +108,7 @@ test('a view too narrow for the three still places the pill clear of the stellat
 test('the pick is by place only: the same whatever the wall\'s open share', () => {
   // (nothing in it reads the open share; the pill's width reserved is its own, a digit more or less never moves it)
   assert.equal(placeFenDisse.length, 1);
-  const a = view(SIZES[0]).r, b = view({ ...SIZES[0], fenPx: 140 }).r;
+  const a = { ...view(SIZES[0]).r }, b = { ...view({ ...SIZES[0], fenPx: 140 }).r };   // (copies: placeFenDisse hands back one record it writes again on the next call)
   assert.equal(a.xp, b.xp, 'a wider reading (100 % open) keeps the same pore');
   const src = readFileSync(new URL('../src/ui/fen-place.js', import.meta.url), 'utf8');
   assert.doesNotMatch(src.replace(/\/\/.*$/gm, ''), /\bpor\b/, 'it never reads S.por');
