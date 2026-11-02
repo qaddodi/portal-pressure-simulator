@@ -74,6 +74,7 @@ import { frameFor, lateFrameFor, cancelFrame, mayTask, cancelMay, noteDraw, ease
 import { softwareYield } from './sw-yield.js?v=f7e0bc683b';
 import { portalSplit } from './table-marks.js?v=a483b9975e';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
+import { createVesselPick } from './vessel-pick.js?v=e72f880350';
 import { leaderEnd as edgeOf, leaderEndRects as edgeOfRects } from './leader-end.js?v=8e884700ab';
 import { balloonShape, esoAt, smoothPath, BALLOON, BALLOON_MS } from './balloon-eso.js?v=a56c97a289';
 import { GAS, gasShape, tubePath, tubeTip, tubeTo, pathAt, sheath, sheathArcs, pullArrow } from './balloon-gas.js?v=1d1feab3d4';
@@ -3386,7 +3387,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       x.wMode = mode;
       // The liver's own small vessels (portal venules, central veins) are the liver to the pointer in the anatomy:
       // no hover, no tap on them; it falls through to the organ. The sinusoids are a vessel of their own.
-      cls(x, 'no-hit', LIVER_EDGES.has(e.id) && !SIN_EDGES.has(e.id) && t < 0.5);
+      x.noHit = LIVER_EDGES.has(e.id) && !SIN_EDGES.has(e.id) && t < 0.5;
+      cls(x, 'no-hit', x.noHit);
       if (!x.isArt) {
         const baseD = IVC_EDGES.has(e.id) ? E.IVC_IS.e.d : e.d || (e.dMax ? dMinOf(e) : 3);   // one wall thickness along the whole cava
         // The circuit is a map: a slightly wider border (drawn by the GPU, as one shape with filleted
@@ -12347,79 +12349,39 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let shunt = null; // { src, wx, wy, targets: Map(id → rule), hover }
 
   function edgeFromEvent(ev) {
-    // While the pointer is captured, events retarget to the <svg>: the real point is tested in script (hitVessel).
-    if (ev.target === svg && ev.clientX != null) return lobuleOn ? null : hitVessel(ev.clientX, ev.clientY, 0);
+    // A pointer is picked on the vessels' data (hitVessel), never by the browser's hit test; an event with no point (a key on a
+    // focused vessel) names the vessel it came from.
+    if (ev.clientX != null) return lobuleOn ? null : hitVessel(ev.clientX, ev.clientY, 0);
     const el = ev.target?.closest?.('.v-hit, .ghost-hit');
-    return el ? el.getAttribute('data-id') : geomEdge(ev);
+    return el ? el.getAttribute('data-id') : null;
   }
-  // Safari does not always report a transparent-stroke vessel as the element under the pointer (it works in Chrome),
-  // so when the browser's own hit test finds no vessel, the pointer is tested against each vessel's hit stroke in script.
-  function geomEdge(ev) {
-    if (ev.clientX == null || ev.pointerType === 'touch' || lobuleOn) return null;
-    return hitVessel(ev.clientX, ev.clientY, 0);
-  }
-  // Vessel picking in script (plan "Holding 120 Hz" §3.5): every hit stroke (.v-hit: a vessel's own, its strands' and its feeders')
-  // tested against its own outline's numbers, through its frame (chainMat) and the camera's (CTM), never by the browser's hit test
-  // (elementFromPoint, isPointInStroke, getScreenCTM), which laid the page out in the pointer's move and, for a near miss, did so 36
-  // times. The rules are the page's: the stroke's width (--hit-w, else 8 in the context and back layers, else 20) with round caps; none
-  // in a vessel group marked no-hit or hidden (display none, held or set); the one drawn last wins. slop (CSS px): the nearest within
-  // that much past its stroke, for a near miss (nearbyEdge). The paths the GPU's frames hold back (geoHeld) are read as they stand.
-  const hitEls = svg.getElementsByClassName('v-hit');
-  const hitShapes = new Map();
-  const heldOr = (el, k, v) => { const m = geoHeld.get(el); return m && k in m ? m[k] : v; };
-  function hitShape(d) {
-    let h = hitShapes.get(d);
-    if (!h) {
-      const polys = flattenCmds(pathCmds(d), 0.25);
-      h = { polys, box: polys.some((q) => q.pts.length) ? polyBox(polys) : null };
-      if (hitShapes.size > 768) hitShapes.clear();
-      hitShapes.set(d, h);
+  // Vessel picking on the vessels' own data (vessel-pick.js; plan "Holding 120 Hz" §3.5, and 2 Nov 2026 "everything on GPU"): each
+  // vessel's drawn course, its strands' and its drawn trunks', tested as a stroke of its hit width with round caps, in world units
+  // through the camera's matrix (CTM), never through an element (no path text parsed, no style or ancestor read). The rules are the
+  // ones its hit stroke had: the width x.hitW (else 8 in the context and back layers, else 20), 12 for a strand or a trunk; none for a
+  // vessel not shown (x.vis) or the liver's own small vessels in the anatomy (x.noHit); a strand only while it is live, strands and
+  // trunks only in the anatomy. On a stroke, the one the GPU draws on top wins (its tier, then its row); near one, the nearest within
+  // slop CSS px past its edge (nearbyEdge).
+  const pickTier = (x) => (x.lifted && !x.back ? (x.front ? TIER_LIFT_FRONT : TIER_LIFT) : x.isArt ? TIER_ART : levelTier(x));
+  const vesselPick = createVesselPick((visit) => {
+    const anat = morph < 0.5;
+    for (const x of EV) {
+      if (!x.vis || x.noHit) continue;
+      const id = x.e.id, rank = pickTier(x) * GL_ROWS + x.row;
+      const narrow = CONTEXT_EDGES.has(id) || BACK_EDGES.has(id);
+      visit(id, rank, (x.hitW || (narrow ? 8 : 20)) / 2, geo[id]?.cur);
+      if (!anat) continue;
+      if (x.strands) for (const sd of x.strands) if ((sd.live ?? 1) >= 0.5) visit(id, rank, 6, sd.cur);
+      if (x.feeders) for (const fd of x.feeders) if (!fd.fan) visit(id, rank, 6, fd.cur);
     }
-    return h;
-  }
-  function hitOff(h) {
-    if (!h.isConnected) return true;
-    for (let n = h; n && n !== world; n = n.parentNode) {
-      if (!n.getAttribute) return true;
-      if (n.hasAttribute('hidden') || n.getAttribute('display') === 'none' || (heldOr(n, 'style:display', n.style.display) || '') === 'none') return true;
-      if (n !== h && n.classList.contains('vg') && n.classList.contains('no-hit')) return true;
-    }
-    return false;
-  }
-  const hitWidth = (h) => { const v = parseFloat(h.style.getPropertyValue('--hit-w')); return v > 0 ? v : h.closest('.vg.ctx, #backEdges') ? 8 : 20; };
+  });
   function hitVessel(cx, cy, slop) {
     if (!CTM) refreshCTM();
-    let best = null, bestGap = Infinity, on = false;
-    for (let i = 0; i < hitEls.length; i++) {
-      const h = hitEls[i], id = h.getAttribute('data-id'), d = heldOr(h, 'd', h.getAttribute('d'));
-      if (!id || !d || hitOff(h)) continue;
-      const sh = hitShape(d);
-      if (!sh.box) continue;
-      // The pointer in the stroke's own units: the camera's frame (world → screen) after the stroke's (its units → world), undone.
-      const m = chainMat(h, world), C = CTM;
-      const a = C.a * m.a + C.c * m.b, b = C.b * m.a + C.d * m.b, c = C.a * m.c + C.c * m.d, dd = C.b * m.c + C.d * m.d;
-      const e = C.a * m.e + C.c * m.f + C.e, f = C.b * m.e + C.d * m.f + C.f, det = a * dd - b * c;
-      if (!det) continue;
-      const qx = cx - e, qy = cy - f, x = (dd * qx - c * qy) / det, y = (-b * qx + a * qy) / det, k = Math.sqrt(Math.abs(det));
-      const r = hitWidth(h) / 2, reach = r + slop / k, [x0, y0, x1, y1] = sh.box;
-      if (x < x0 - reach || x > x1 + reach || y < y0 - reach || y > y1 + reach) continue;
-      let d2 = Infinity;
-      for (const { pts, closed } of sh.polys) {
-        const n = pts.length / 2;
-        if (n === 1) { const ex = pts[0] - x, ey = pts[1] - y; d2 = Math.min(d2, ex * ex + ey * ey); continue; }
-        for (let j = 0; j < (closed ? n : n - 1); j++) {
-          const ax = pts[2 * j], ay = pts[2 * j + 1], o = ((j + 1) % n) * 2, bx = pts[o], by = pts[o + 1];
-          const dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy, t = l2 ? Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / l2)) : 0;
-          const ex = ax + t * dx - x, ey = ay + t * dy - y, q = ex * ex + ey * ey;
-          if (q < d2) d2 = q;
-        }
-      }
-      const gap = (Math.sqrt(d2) - r) * k;   // (CSS px past the stroke's edge; at most 0 on it)
-      if (gap > slop) continue;
-      // (On a stroke, the one drawn last wins, as the browser's hit test has it; near one, the nearest.)
-      if (gap <= 0) { best = id; on = true; } else if (!on && gap < bestGap) { best = id; bestGap = gap; }
-    }
-    return best;
+    const C = CTM, det = C.a * C.d - C.b * C.c;
+    if (!det) return null;
+    // (The client point in world units: the camera's matrix, undone.)
+    const qx = cx - C.e, qy = cy - C.f;
+    return vesselPick.pick((C.d * qx - C.c * qy) / det, (-C.b * qx + C.a * qy) / det, Math.sqrt(Math.abs(det)), slop);
   }
 
   // Organs under a point (anatomy only). The varices and fundus are small sites. The abdomen is
