@@ -321,7 +321,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     if (v.type === 'button') {
       const lbl = h('span', { class: 'ac-bl' }, v.label);
       const b = h('button', { class: 'ac-btn' + (v.danger ? ' danger' : '') }, v.icon ? svgIcon(v.icon, 'ac-ic') : null, lbl);
-      b.addEventListener('click', () => { v.run(); setTimeout(() => render({ keepFocus: true }), 30); });
+      b.addEventListener('click', () => { v.run(); setTimeout(() => restPass(() => render({ keepFocus: true })), 30); });   // (the card rebuilds between frames, never as a timer task inside one)
       const wrap = h('div', { class: 'ac-btn-wrap' + (v.label.length > 15 ? ' wide' : '') }, b);   // a long name takes the whole row on a phone
       if (v.note || v.on || v.labelFor) {
         const note = h('div', { class: 'ac-note' });

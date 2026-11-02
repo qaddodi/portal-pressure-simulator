@@ -3,7 +3,7 @@
 // holds it hidden only until the cards have settled (a slide change lifts its hold 120 ms after the camera move; a move off a spot a card now covers is hidden for 80 ms), then shows it at once at the new spot; with no figure left anywhere it stays hidden.
 import { readFrameFor, figLab, mayTask } from './frame.js?v=8c8f2f530e';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
-import { restPass } from './rest-pass.js?v=e877681653';
+import { restPass, cancelRest } from './rest-pass.js?v=e877681653';
 import { CELL, cellFor, regionFor, contains, touches, artTest, boxThrough, multiply, invert } from './credit-art.js?v=77b95dafe8';
 import { CellGrid, geomOf } from './cell-grid.js?v=02745b16ff';
 import { layoutWatch, PLACED, GESTURE_LOOK } from './idle-keys.js?v=81fbedda6b';
@@ -616,7 +616,7 @@ export function createCreditPlacer(credit, { keptStyle = null } = {}) {
   const inSinusoid = () => inSinusoidView(window.pps);
   const wrap = readMetric(credit, 'offsetParent') || credit.parentElement, app = document.getElementById('app');
   const blocked = {};   // corner -> when a card last covered it
-  let cur = null, curTight = false, pos = null, moving = false, changedAt = 0, lastSig = '', raf = 0, waitT = 0, moveT = 0, size = null, sizeKey = '';
+  let cur = null, curTight = false, pos = null, moving = false, changedAt = 0, lastSig = '', raf = 0, waitT = 0, moveT = 0, moveR = 0, size = null, sizeKey = '';
   let worldKey = '', worldAt = 0, camT = 0;   // (the figure's camera: its last transform and when it last changed)
   // (kept: the last look that left the credit where it was, what it saw, and the corners it found covered; searches: how many
   // looks ran the full spot search, for the checks)
@@ -794,8 +794,8 @@ export function createCreditPlacer(credit, { keptStyle = null } = {}) {
     // A new spot: hide at once, hold hidden a moment, show at once there (never a slide across the figure, never a fade).
     credit.classList.add('moving');
     moving = true;
-    clearTimeout(moveT);
-    moveT = setTimeout(() => { moving = false; if (app?.classList.contains('pz-moving')) return soon(); place(c, p, tight); soon(); }, 80);
+    clearTimeout(moveT); cancelRest(moveR);
+    moveT = setTimeout(() => { moveR = restPass(() => { moving = false; if (app?.classList.contains('pz-moving')) return soon(); place(c, p, tight); soon(); }); }, 80);   // (the writes run between frames)
   }
   // (A look reads the page's layout (the cards, labels and the figure's box): it runs as a rest pass between frames, never inside one
   // (rest-pass.js; the owner's rule, 1 Nov: no layout reads in a frame).)
