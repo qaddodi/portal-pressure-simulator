@@ -103,6 +103,7 @@ const GENERIC = typeof location !== 'undefined' && /[?&]veins=generic\b/.test(lo
 // to the canvas each time it is drawn on (see present). The same pixels either way; the browser no longer keeps (and copies) a second
 // buffer for the canvas on every frame. Every reader of the canvas outside the frame that drew it calls capture() or present() first.
 const OWN_BUF = !(typeof location !== 'undefined' && /[?&]vesselbuf=keep\b/.test(location.search));
+const DYE_SPAN = !(typeof location !== 'undefined' && /[?&]dyespan=0\b/.test(location.search));   // (setDye: only the changed rows go up)
 // One GPU context for the lobule (1 Nov, docs/gpu-practices.md, "one WebGL context for the whole figure"): its overlay (the ductules and
 // the lymph, fx-gl.js) drawn in its vessel canvas over the vessels instead of in a canvas and context of its own. ?lzone=0: apart, as before.
 export const LZ_ONE = !(typeof location !== 'undefined' && /[?&]lzone=0\b/.test(location.search));
@@ -3381,10 +3382,19 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       figVer++;
       dyeAny = !!data;
       if (!data) return;
-      if (dyeSent) markRows(data, dyeSent, DYE_BINS); else { dyeSent = new Float32Array(DYE_BINS * nTubes); movedAll = true; }
+      // (Plan "Holding 120 Hz" §3.7: only the span of rows that changed goes up, as the flow table's; the first upload sends them all.
+      // ?dyespan=0: the whole table every frame, as before.)
+      let lo = 0, hi = nTubes - 1;
+      if (dyeSent && DYE_SPAN) {
+        markRows(data, dyeSent, DYE_BINS);
+        const span = changedRows(data, dyeSent, DYE_BINS, nTubes);
+        if (!span) return;
+        lo = span[0]; hi = span[1];
+      } else if (dyeSent) markRows(data, dyeSent, DYE_BINS);
+      else { dyeSent = new Float32Array(DYE_BINS * nTubes); movedAll = true; }
       dyeSent.set(data.subarray(0, DYE_BINS * nTubes));
       gl.bindTexture(gl.TEXTURE_2D, dyeTex);
-      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, DYE_BINS, nTubes, gl.RED, gl.FLOAT, data);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, lo, DYE_BINS, hi - lo + 1, gl.RED, gl.FLOAT, data.subarray(lo * DYE_BINS, (hi + 1) * DYE_BINS));
     },
     /**
      * Renders the vessel layer (offscreen) and then the picture. `m`: world → device-pixel
