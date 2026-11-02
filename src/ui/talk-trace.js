@@ -7,9 +7,7 @@ import { hvpgRate } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { traceLabel, traceLabelRoom } from './trace-labels.js?v=fc916a95c6';
 import { plotPanel } from './plot-look.js?v=5037697da7';
 import { bandKeys, bandRuns, bandSpan, namePlaces } from './rx-bands.js?v=51e83c7c59';
-import { morphSvg } from './svg-morph.js?v=e2c6c2224c';
-import { createSvgGL, svgModel } from './svg-gl.js?v=87e629f16d';
-import { D_SURFACE, EASE_ARRIVE } from './ease.js?v=7513a88c68';
+import { createSvgGL, svgModel } from './svg-gl.js?v=43aae69fb6';
 import { measure } from './glyph-measure.js?v=131d137ce2';
 
 // ── The talk so far: PV, WHVP and FHVP at each state, the HVPG in its own lane with its cut-offs ──
@@ -162,14 +160,6 @@ export function talkTrace() {
   // jump); a new size just redraws.
   // (On the GPU: the old and new models stand in the box, hidden, and the picture draws them; the fade in is the picture's, on the
   // stylesheet's old ease, --d-surface on --ease.)
-  function show(svg, fade) {
-    const old = [...el.children].filter((c) => c.hasAttribute('data-svg-model'));
-    if (!fade) { old.forEach((o) => o.remove()); el.append(svg); gl.place(svg); return; }
-    if (old.length && morphSvg(old.at(-1), svg)) { old.slice(0, -1).forEach((o) => o.remove()); gl.place(svg); return; }
-    el.append(svg);
-    gl.place(svg);
-    gl.fadeIn(svg, D_SURFACE, EASE_ARRIVE);
-    setTimeout(() => { old.forEach((o) => o.remove()); gl.paint(); }, 480);
-  }
+  function show(svg, fade) { gl.show(svg, fade); }
   return { el, set, configure, update() {}, clear() {}, dispose() { ro?.disconnect(); gl.dispose(); } };
 }

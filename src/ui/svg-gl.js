@@ -14,11 +14,12 @@
 // the box as SVG maps it (preserveAspectRatio none, or meet in the middle). The picture covers the box exactly.
 
 import { createTraceGL, fitPen } from './trace-gl.js?v=275432c81b';
-import { flattenPath } from './shape-gl.js?v=1e2bc57a21';
+import { flattenPath, elBox } from './shape-gl.js?v=1e2bc57a21';
 import { finalFrameFor, easeNow } from './frame.js?v=7710f677e2';
 import { restPass } from './rest-pass.js?v=bf0c42ead5';
-import { cssCurve } from './ease.js?v=7513a88c68';
+import { cssCurve, D_SURFACE, EASE_ARRIVE } from './ease.js?v=7513a88c68';
 import { cssColor } from './css-color.js?v=e56f0c77ae';
+import { morphSvg } from './svg-morph.js?v=e2c6c2224c';
 
 // (No bleed: a picture reaching past the box counts as overflow, and the card's fit then shrank the whole card to take it in.)
 export const BLEED = 0;
@@ -59,7 +60,11 @@ const PROPS = [['fill', 'fill', true, 'rgb(0, 0, 0)'],   // colour-exempt: SVG's
   ['strokeDashoffset', 'stroke-dashoffset', true, '0px'], ['strokeLinecap', 'stroke-linecap', true, 'butt'], ['strokeLinejoin', 'stroke-linejoin', true, 'miter'],
   ['fontSize', 'font-size', true, null], ['fontWeight', 'font-weight', true, '400'], ['textAnchor', 'text-anchor', true, 'start'], ['letterSpacing', 'letter-spacing', true, 'normal'],
   ['textTransform', 'text-transform', true, 'none'], ['paintOrder', 'paint-order', true, 'normal'], ['visibility', 'visibility', true, 'visible'], ['display', 'display', false, null],
-  ['vectorEffect', 'vector-effect', false, 'none'], ['dominantBaseline', 'dominant-baseline', true, 'auto']];
+  ['vectorEffect', 'vector-effect', false, 'none'], ['dominantBaseline', 'dominant-baseline', true, 'auto'],
+  ['stopColor', 'stop-color', false, 'rgb(0, 0, 0)'], ['stopOpacity', 'stop-opacity', false, '1']];   // colour-exempt: a gradient stop's initial colour
+/** The properties a model's look reads, by their CSS names (the unit tests keep the list whole). */
+export const LOOK_PROPS = PROPS.map((q) => q[0]);
+const ATTRS = new Set(PROPS.map((q) => q[1]).concat(['font-size']));
 // (A colour as the GPU's words and lines take it: rgba(), whatever form the page computed it in: oklab() from a color-mix, color(srgb …).)
 const rgbaOf = (c) => {
   if (!c || c === 'none' || /^url\(/.test(c)) return c;
@@ -73,11 +78,14 @@ function resolve(el, parentRaw, parentOut) {
     raw[k] = v;
     const css = parentRaw ? (inh ? v !== parentRaw[k] : v !== init) : true;   // (the stylesheet set it on this element)
     const a = el.getAttribute(attr);
-    if (!css && a != null && a !== '') o[k] = a;
+    if (!css && a != null && a !== '') { o[k] = a; if (attr === 'opacity' || attr === 'stop-color') o[`@${attr}`] = true; }
     else if (!css && inh && parentOut) o[k] = parentOut[k];
     else o[k] = v;
   }
-  return { raw, o };
+  // (A drawing's own root is never hidden by the page round it: a card hidden while it slides in hides the picture with it, and its
+  // looks, read then, would have kept every piece hidden after.)
+  if (!parentRaw) o.visibility = 'visible';
+  return { raw, o, cs };
 }
 function lookOf(o, size) {
   const fs = /em$/.test(String(o.fontSize)) ? num(o.fontSize) * size : num(o.fontSize, size || 12);
@@ -88,19 +96,119 @@ function lookOf(o, size) {
     size: fs, weight: num(o.fontWeight, 400) || (o.fontWeight === 'bold' ? 700 : 400), anchor: o.textAnchor, ls: o.letterSpacing === 'normal' ? 0 : /em$/.test(String(o.letterSpacing)) ? num(o.letterSpacing) * fs : num(o.letterSpacing),
     upper: o.textTransform === 'uppercase', strokeFirst: /^stroke/.test(o.paintOrder || ''), hidden: o.visibility === 'hidden' || o.visibility === 'collapse',
     none: o.display === 'none', fixed: o.vectorEffect === 'non-scaling-stroke', base: o.dominantBaseline,
+    stop: rgbaOf(o.stopColor), stopOp: num(o.stopOpacity, 1),
+    // (a strength or a stop's colour the chart writes as an attribute, each frame of its glide: read from the piece as it stands)
+    opAttr: !!o['@opacity'], stopAttr: !!o['@stop-color'],
   };
 }
-/** The properties a model's look reads, by their CSS names (the unit tests keep the list whole). */
-export const LOOK_PROPS = PROPS.map((q) => q[0]);
 const looks = new WeakMap();
-function readLooks(root) {
-  const walk = (el, pr, po) => {
-    const { raw, o } = resolve(el, pr, po);
-    looks.set(el, lookOf(o, num(raw.fontSize, 12)));
-    for (const c of el.children) walk(c, raw, o);
-  };
-  walk(root, null, null);
+// A piece whose strength the stylesheet changes (a class on or off: a ring, a value, a name) and eases (its transition on opacity): the
+// picture runs that ease itself, from the strength it drew to the new one, on the stylesheet's duration and curve, since a model is never
+// styled by the page and its own transition would not run. [from, to, t0, ms, ease]
+const EASES = new WeakMap();
+const easeAt = (e, now) => { const k = e.ms > 0 ? Math.max(0, Math.min(1, (now - e.t0) / e.ms)) : 1; return { v: e.from + (e.to - e.from) * e.ease(k), done: k >= 1 }; };
+const secs = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? (/ms$/.test(String(v).trim()) ? n : n * 1000) : 0; };
+function opEase(cs, prop = 'opacity') {
+  const ps = String(cs.transitionProperty || '').split(','), i = ps.findIndex((q) => q.trim() === prop || q.trim() === 'all');
+  if (i < 0) return null;
+  const pick = (v) => { const l = String(v || '').split(/,(?![^(]*\))/); return l[i % l.length]; };
+  const ms = secs(pick(cs.transitionDuration));
+  return ms > 0 ? { ms, delay: secs(pick(cs.transitionDelay)), ease: cssCurve(pick(cs.transitionTimingFunction)?.trim() || 'ease') } : null;
 }
+// (A piece's look by what the stylesheet sees of it, under its parent's: a chart that builds its pieces again (a redraw, a frame of its
+// glide) takes each one's look from the one before with the same classes, attributes and parent, never asking the page in a frame.)
+const URL_ID = /url\(#[^)]*\)/g, LIVE_ATTRS = new Set(['opacity', 'stop-color']);   // (a drawing's own ids, made afresh each time, and what is read live)
+const STYLE_MOTION = /(^|;)\s*(opacity|transform)\s*:[^;]*/g;
+function keyOf(el, pk) {
+  let k = `${pk}>${el.localName}.${el.getAttribute('class') || ''}`;
+  for (const a of el.attributes) {
+    const n = a.name;
+    if (n === 'style') k += `|s:${a.value.replace(STYLE_MOTION, '').replace(URL_ID, 'url(#)')}`;
+    else if (n.startsWith('data-') ? n !== 'data-points' && n !== 'data-of' && n !== 'data-ring' && n !== 'data-bars' && n !== 'data-pos' && n !== 'data-body' : ATTRS.has(n) && !LIVE_ATTRS.has(n)) k += `|${n}=${a.value.replace(URL_ID, 'url(#)')}`;
+  }
+  return k;
+}
+/** Reads the looks of a model's pieces; returns the longest ease it started (ms), 0 for none. Fresh: as a new drawing, nothing eased. */
+function readLooks(root, fresh = false, cache = null) {
+  const now = easeNow();
+  let longest = 0;
+  const walk = (el, pr, po, pk) => {
+    const { raw, o, cs } = resolve(el, pr, po);
+    const key = cache ? keyOf(el, pk) : '';
+    const L = lookOf(o, num(raw.fontSize, 12)), was = looks.get(el), tr = opEase(cs);
+    L.tr = tr; L.trT = opEase(cs, 'transform');
+    if (fresh) { EASES.delete(el); INLINE.delete(el); MOVES.delete(el); }
+    else if (was && was.op !== L.op && !el.style.opacity) {
+      const e = EASES.get(el), shown = e ? easeAt(e, now).v : was.op;
+      if (tr && shown !== L.op) { EASES.set(el, { from: shown, to: L.op, t0: now + tr.delay, ms: tr.ms, ease: tr.ease }); longest = Math.max(longest, tr.delay + tr.ms); }
+      else EASES.delete(el);
+    }
+    looks.set(el, L);
+    if (cache) cache.set(key, { raw, o, L });
+    for (const c of el.children) walk(c, raw, o, key);
+  };
+  walk(root, null, null, 'root');
+  return longest;
+}
+/** A model's pieces given the looks of the pieces before them with the same key (cache), with no page read; false if one has none yet. */
+function adoptLooks(root, cache) {
+  let all = true;
+  const walk = (el, pk) => {
+    const key = keyOf(el, pk), hit = cache.get(key);
+    if (hit) { const was = looks.get(el); if (was !== hit.L) looks.set(el, hit.L); } else all = false;
+    for (const c of el.children) walk(c, key);
+  };
+  walk(root, 'root');
+  return all;
+}
+// (A strength the chart sets on a piece inline (style.opacity, each frame of its own glide or once, as a stent's ring comes): read as it
+// stands, and eased as the page would ease it when the piece's stylesheet has a transition on opacity.)
+const INLINE = new WeakMap();
+let easing = false;   // (a piece is still easing: the picture draws the next frame too)
+function opNow(el, L0, now) {
+  const L = L0.opAttr ? { ...L0, op: num(el.getAttribute('opacity'), 1) } : L0;
+  const so = el.style.opacity;
+  if (so) {
+    const v = num(so, 1), was = INLINE.get(el);
+    INLINE.set(el, v);
+    if (was != null && was !== v && L.tr) {
+      const e = EASES.get(el), shown = e ? easeAt(e, now).v : was;
+      EASES.set(el, { from: shown, to: v, t0: now + L.tr.delay, ms: L.tr.ms, ease: L.tr.ease });
+    } else if (was == null || !L.tr) EASES.delete(el);
+    if (!EASES.has(el)) return v;
+  } else if (INLINE.has(el)) {   // (an inline strength taken off: back to the stylesheet's, eased the same way)
+    const was = INLINE.get(el), e0 = EASES.get(el), shown = e0 ? easeAt(e0, now).v : was;
+    INLINE.delete(el);
+    if (L.tr && shown !== L.op) EASES.set(el, { from: shown, to: L.op, t0: now + L.tr.delay, ms: L.tr.ms, ease: L.tr.ease }); else EASES.delete(el);
+  }
+  const e = EASES.get(el);
+  if (!e) return L.op;
+  const r = easeAt(e, now);
+  if (r.done) EASES.delete(el); else easing = true;
+  return now < e.t0 ? e.from : r.v;
+}
+/** A piece shown at its strength now, with no ease from the one before (a new vessel drawn at once, its stent's ring with it). */
+export function snapOp(el) { EASES.delete(el); INLINE.delete(el); }
+// (A piece the chart moves inline (style.transform, translate in px: a case's dot, a zone's words): drawn there, and glided there on the
+// piece's transition on transform, as the page would, from where it stood.) [x, y] of the translate; a move { from, to, t0, ms, ease }.
+const MOVES = new WeakMap();
+const trXY = (t) => { const m = /translate\(\s*(-?[\d.]+)(?:px)?\s*,?\s*(-?[\d.]+)?(?:px)?\s*\)/.exec(t || ''); return m ? [+m[1], +(m[2] ?? 0)] : null; };
+function moveNow(el, L, now) {
+  const xy = trXY(el.style.transform);
+  if (!xy) { MOVES.delete(el); return null; }
+  const r = MOVES.get(el);
+  if (!r) { MOVES.set(el, { to: xy }); return xy; }
+  if (r.to[0] !== xy[0] || r.to[1] !== xy[1]) {
+    const from = r.ms ? at2(r, now) : r.to;
+    MOVES.set(el, L.trT ? { from, to: xy, t0: now + L.trT.delay, ms: L.trT.ms, ease: L.trT.ease } : { to: xy });
+  }
+  const q = MOVES.get(el);
+  if (!q.ms) return q.to;
+  const v = at2(q, now);
+  if (now - q.t0 >= q.ms) MOVES.set(el, { to: q.to }); else easing = true;
+  return v;
+}
+function at2(q, now) { const k = q.ease(Math.max(0, Math.min(1, (now - q.t0) / q.ms))); return [q.from[0] + (q.to[0] - q.from[0]) * k, q.from[1] + (q.to[1] - q.from[1]) * k]; }
 
 // ── Transforms ──
 const mulM = (m, n) => [m[0] * n[0] + m[2] * n[1], m[1] * n[0] + m[3] * n[1], m[0] * n[2] + m[2] * n[3], m[1] * n[2] + m[3] * n[3], m[0] * n[4] + m[2] * n[5] + m[4], m[1] * n[4] + m[3] * n[5] + m[5]];
@@ -166,12 +274,60 @@ function shapePath(ctx, el, tag, k) {
   }
   return false;
 }
-function paintShape(ctx, el, tag, L, alpha, k) {
+// A fill or stroke by url(#id): a linear or radial gradient, as the GPU's own gradient, or a pattern, its tile drawn over the shape.
+const refOf = (root, p) => { const id = /^url\(\s*["']?#([^"')]+)["']?\s*\)/.exec(p || '')?.[1]; return id ? root.querySelector(`[id="${id}"]`) : null; };
+function gradientOf(ctx, g, el) {
+  const user = g.getAttribute('gradientUnits') === 'userSpaceOnUse', b = user ? null : elBox(el);
+  if (!user && !(b && b.width > 0 && b.height > 0)) return null;
+  const pt = (ax, dflt, w, o) => { const v = g.getAttribute(ax); const n = v == null ? dflt : /%$/.test(v) ? parseFloat(v) / 100 : parseFloat(v); return user ? n : o + n * w; };
+  const gr = g.localName === 'radialgradient'
+    ? (() => { const cx = pt('cx', 0.5, b?.width, b?.x), cy = pt('cy', 0.5, b?.height, b?.y), r = user ? at(g, 'r') : (g.hasAttribute('r') ? parseFloat(g.getAttribute('r')) / (/%$/.test(g.getAttribute('r')) ? 100 : 1) : 0.5) * Math.max(b.width, b.height);
+      return ctx.createRadialGradient(cx, cy, 0, cx, cy, r); })()
+    : ctx.createLinearGradient(pt('x1', 0, b?.width, b?.x), pt('y1', 0, b?.height, b?.y), pt('x2', 1, b?.width, b?.x), pt('y2', 0, b?.height, b?.y));
+  for (const st of g.children) {
+    if (st.localName !== 'stop') continue;
+    const S = looks.get(st), off = st.getAttribute('offset') || '0', o = /%$/.test(off) ? parseFloat(off) / 100 : parseFloat(off) || 0;
+    const sc = S?.stopAttr ? st.getAttribute('stop-color') : S?.stop;
+    if (!sc) continue;
+    const [r, gg, bb, a] = cssColor(sc);
+    gr.addColorStop(Math.max(0, Math.min(1, o)), `rgba(${Math.round(r * 255)}, ${Math.round(gg * 255)}, ${Math.round(bb * 255)}, ${a * S.stopOp})`);
+  }
+  return gr;
+}
+function fillByRef(ctx, root, el, tag, ref, alpha, k) {
+  if (ref.localName === 'lineargradient' || ref.localName === 'radialgradient') {
+    const gr = gradientOf(ctx, ref, el);
+    if (gr) { ctx.globalAlpha = alpha; ctx.fillStyle = gr; ctx.fill(); }
+    return;
+  }
+  if (ref.localName !== 'pattern') return;
+  const tw = at(ref, 'width'), th = at(ref, 'height'), b = elBox(el);
+  if (!(tw > 0 && th > 0 && b && b.width > 0 && b.height > 0)) return;
+  ctx.save();
+  ctx.clip();
+  const m = transformOf(ref.getAttribute('patternTransform'));
+  if (m) ctx.transform(...m);
+  // (The shape's box in the pattern's own space, the tiles laid over it.)
+  const inv = m ? (() => { const d = m[0] * m[3] - m[1] * m[2]; return [m[3] / d, -m[1] / d, -m[2] / d, m[0] / d, (m[2] * m[5] - m[3] * m[4]) / d, (m[1] * m[4] - m[0] * m[5]) / d]; })() : [1, 0, 0, 1, 0, 0];
+  const cs = [[b.x, b.y], [b.x + b.width, b.y], [b.x, b.y + b.height], [b.x + b.width, b.y + b.height]].map(([x, y]) => [inv[0] * x + inv[2] * y + inv[4], inv[1] * x + inv[3] * y + inv[5]]);
+  const x0 = Math.floor(Math.min(...cs.map((c) => c[0])) / tw), x1 = Math.ceil(Math.max(...cs.map((c) => c[0])) / tw);
+  const y0 = Math.floor(Math.min(...cs.map((c) => c[1])) / th), y1 = Math.ceil(Math.max(...cs.map((c) => c[1])) / th);
+  if ((x1 - x0) * (y1 - y0) <= 20000) for (let i = x0; i < x1; i++) for (let j = y0; j < y1; j++) {
+    ctx.save(); ctx.translate(i * tw, j * th);
+    for (const c of ref.children) paintEl(ctx, root, c, alpha, k);
+    ctx.restore();
+  }
+  ctx.restore();
+}
+function paintShape(ctx, root, el, tag, L, alpha, k) {
   if (!shapePath(ctx, el, tag, k)) return;
   if (paintOn(L.fill) && tag !== 'line') { ctx.globalAlpha = alpha * L.fo; ctx.fillStyle = L.fill; ctx.fill(); }
-  if (paintOn(L.stroke) && L.sw > 0) {
+  else if (tag !== 'line' && /^url\(/.test(L.fill || '')) { const ref = refOf(root, L.fill); if (ref) { fillByRef(ctx, root, el, tag, ref, alpha * L.fo, k); if (ref.localName === 'pattern') shapePath(ctx, el, tag, k); } }
+  const sRef = !paintOn(L.stroke) && /^url\(/.test(L.stroke || '') ? refOf(root, L.stroke) : null;
+  const sGr = sRef && (sRef.localName === 'lineargradient' || sRef.localName === 'radialgradient') ? gradientOf(ctx, sRef, el) : null;
+  if ((paintOn(L.stroke) || sGr) && L.sw > 0) {
     const s = L.fixed ? 1 / k : 1;
-    ctx.globalAlpha = alpha * L.so; ctx.strokeStyle = L.stroke; ctx.lineWidth = L.sw * s;
+    ctx.globalAlpha = alpha * L.so; ctx.strokeStyle = sGr || L.stroke; ctx.lineWidth = L.sw * s;
     ctx.lineCap = L.cap === 'round' ? 'round' : 'butt'; ctx.lineJoin = L.join || 'miter';
     ctx.setLineDash(L.dash ? L.dash.map((v) => v * s) : []); ctx.lineDashOffset = L.dashOff * s;
     ctx.stroke();
@@ -236,21 +392,54 @@ function clipTo(ctx, root, el, k) {
   }
   ctx.clip();
 }
+// A mask of rectangles, a white one over the drawing with black ones cut out of it (a chart's line stopping short of its numbers): the
+// clip is the white one less the black ones, the black ones first made into strips that never overlap, so the clip's winding rule cuts
+// each out once. Any other mask is not drawn (the piece shows whole).
+function holesOf(rs) {
+  const xs = [...new Set(rs.flatMap((r) => [r[0], r[2]]))].sort((a, b) => a - b), out = [];
+  for (let i = 0; i + 1 < xs.length; i++) {
+    const xa = xs[i], xb = xs[i + 1], ys = rs.filter((r) => r[0] <= xa && r[2] >= xb).map((r) => [r[1], r[3]]).sort((a, b) => a[0] - b[0]);
+    let cur = null;
+    for (const [a, b] of ys) { if (cur && a <= cur[1]) cur[1] = Math.max(cur[1], b); else { if (cur) out.push([xa, cur[0], xb, cur[1]]); cur = [a, b]; } }
+    if (cur) out.push([xa, cur[0], xb, cur[1]]);
+  }
+  return out;
+}
+function maskTo(ctx, root, el) {
+  const ref = refOf(root, el.getAttribute('mask'));
+  if (!ref || ref.localName !== 'mask') return;
+  const kids = [...ref.children];
+  if (!kids.length || kids.some((c) => c.localName !== 'rect')) return;
+  const lum = (c) => { const [r, g, b] = cssColor(looks.get(c)?.fill || c.getAttribute('fill') || '#000'); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };   // colour-exempt: a mask's black
+  const box = (c) => [at(c, 'x'), at(c, 'y'), at(c, 'x') + at(c, 'width'), at(c, 'y') + at(c, 'height')];
+  const white = kids.filter((c) => lum(c) > 0.5);
+  if (white.length !== 1 || kids.indexOf(white[0]) !== 0) return;
+  const [x0, y0, x1, y1] = box(white[0]);
+  ctx.beginPath();
+  ctx.moveTo(x0, y0); ctx.lineTo(x1, y0); ctx.lineTo(x1, y1); ctx.lineTo(x0, y1); ctx.closePath();
+  for (const [a, b, c, d] of holesOf(kids.slice(1).map(box).filter((r) => r[2] > r[0] && r[3] > r[1]))) { ctx.moveTo(a, b); ctx.lineTo(a, d); ctx.lineTo(c, d); ctx.lineTo(c, b); ctx.closePath(); }
+  ctx.clip();
+}
+export { holesOf };
 function paintEl(ctx, root, el, alpha, k) {
   const tag = el.localName;
-  if (tag === 'defs' || tag === 'clippath' || tag === 'x-title' || tag === 'lineargradient' || tag === 'radialgradient' || tag === 'mask' || tag === 'marker') return;
+  if (tag === 'defs' || tag === 'clippath' || tag === 'x-title' || tag === 'lineargradient' || tag === 'radialgradient' || tag === 'mask' || tag === 'marker' || tag === 'pattern') return;
   const L = looks.get(el);
   if (!L || L.none) return;
-  const f = fadeOf(el), a = alpha * (f ?? L.op);
+  if (el.style.display === 'none') return;   // (a piece the chart hides inline)
+  const f = fadeOf(el), a = alpha * (f ?? opNow(el, L, easeNow()));
   if (a <= 0.002) return;
   const own = el.style.visibility === 'hidden' || (L.hidden && el.style.visibility !== 'visible');
-  const m = transformOf(el.getAttribute('transform')), clip = el.hasAttribute('clip-path');
-  if (m || clip) { ctx.save(); if (m) ctx.transform(...m); if (clip) clipTo(ctx, root, el, k); }
+  let m = transformOf(el.getAttribute('transform'));
+  const mv = el.style.transform ? moveNow(el, L, easeNow()) : null, clip = el.hasAttribute('clip-path');
+  if (mv) m = m ? mulM([1, 0, 0, 1, mv[0], mv[1]], m) : [1, 0, 0, 1, mv[0], mv[1]];
+  const mask = el.hasAttribute('mask');
+  if (m || clip || mask) { ctx.save(); if (m) ctx.transform(...m); if (clip) clipTo(ctx, root, el, k); if (mask) maskTo(ctx, root, el); }
   const kk = m ? k * Math.sqrt(Math.abs(m[0] * m[3] - m[1] * m[2])) : k;
   if (tag === 'text') { if (!own) paintText(ctx, el, L, a, kk); }
-  else if (LEAVES.has(tag)) { if (!own) paintShape(ctx, el, tag, L, a, kk); }
+  else if (LEAVES.has(tag)) { if (!own) paintShape(ctx, root, el, tag, L, a, kk); }
   else for (const c of el.children) paintEl(ctx, root, c, a, kk);
-  if (m || clip) ctx.restore();
+  if (m || clip || mask) ctx.restore();
 }
 /** The viewBox's units mapped into a box w × h: [sx, sy, tx, ty]. */
 export function viewMap(vb, par, w, h) {
@@ -285,12 +474,14 @@ export function createSvgGL(box) {
   cv.setAttribute('role', 'img');
   box.prepend(cv);
   const g = { box, cv, gpu: null, until: 0, ask: 0, lookAsk: 0, ins: new Map() };
+  live.add(g);
   const models = () => [...box.children].filter((c) => c.hasAttribute?.('data-svg-model'));
   function draw() {
     g.ask = 0;
     if (!cv.isConnected) return;
     const pen = fitPen(cv, g.gpu), { ctx, w, h } = pen;
     const now = easeNow();
+    easing = false;
     try {
       ctx.clearRect(0, 0, w, h);
       const bw = w - 2 * BLEED, bh = h - 2 * BLEED;
@@ -309,19 +500,47 @@ export function createSvgGL(box) {
       const label = models().at(-1)?.getAttribute('aria-label');
       if (label && cv.getAttribute('aria-label') !== label) cv.setAttribute('aria-label', label);
     } finally { ctx.end?.(); }
-    if (now < g.until || g.ins.size) g.ask = finalFrame(draw);
+    if (now < g.until || g.ins.size || easing) g.ask = finalFrame(draw);
   }
   g.gpu = createTraceGL(cv, { redraw: () => draw() });
+  // (Drawn again as its box first gets a size, or a new one: a chart built before its card was on the page drew nothing then.)
+  if (typeof ResizeObserver === 'function') { g.ro = new ResizeObserver(() => g.paint()); g.ro.observe(box); }
   g.paint = () => { if (!g.ask) g.ask = finalFrame(draw); };
   g.wake = (ms) => { g.until = Math.max(g.until, easeNow() + ms); g.paint(); };
-  function lookRead() { g.lookAsk = 0; for (const root of models()) readLooks(root); g.paint(); }
+  g.cache = new Map();
+  function lookRead() { g.lookAsk = 0; g.cache.clear(); let ms = 0; for (const root of models()) ms = Math.max(ms, readLooks(root, false, g.cache)); if (ms) g.wake(ms + 20); else g.paint(); }
   g.relook = () => { if (!g.lookAsk) g.lookAsk = restPass(lookRead); };
   // (A drawing's look is read as it is placed, once, in the task that builds it (a slide's change, a resize), so its first frame draws it
   // whole: a morph hides the old drawing's pieces in that same task.)
-  g.place = (root) => { live.add(g); readLooks(root); g.paint(); };
+  g.place = (root) => { live.add(g); g.cache.clear(); readLooks(root, true, g.cache); g.paint(); };
+  // (Pieces built again in a frame (a redraw, a glide): each takes the look of the piece before it like it, read from nothing; a new kind of
+  // piece is read between frames, and drawn from then.)
+  g.adopt = (root) => { if (!adoptLooks(root, g.cache)) g.relook(); g.paint(); };
+  // (A piece fading in, in the picture, from nothing to its own strength, over ms on easing.)
+  g.fadeEl = (el, ms, easing = 'ease') => { EASES.set(el, { from: 0, to: 1, t0: easeNow(), ms, ease: cssCurve(easing) }); g.wake(ms + 20); };
+  // (A class or a piece changed on a model after it was placed (a value turned on, a word's pieces rebuilt): its looks are read again
+  // between frames, and any ease the stylesheet gives the change is run by the picture.)
+  if (typeof MutationObserver === 'function') g.mo = new MutationObserver(g.relook);
+  g.mo?.observe(box, { subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'data-rate'] });
   g.fadeIn = (root, ms, easing = 'ease') => { g.ins.set(root, { t0: easeNow(), ms, ease: cssCurve(easing) }); g.paint(); };
   g.noteFade = noteFade;
-  g.dispose = () => { live.delete(g); g.gpu?.dispose(); };
+  // A new drawing in place of the old: each piece in both glides to its new place (svg-morph.js); where that cannot be, the new one fades
+  // in over the old, which then goes (never a jump); without a fade (a new size) it simply takes over.
+  g.show = (root, fade) => {
+    const old = models();
+    if (!fade) { old.forEach((o) => o.remove()); box.append(root); g.place(root); return; }
+    if (old.length && morphSvg(old.at(-1), root)) { old.slice(0, -1).forEach((o) => o.remove()); g.place(root); return; }
+    box.append(root);
+    g.place(root);
+    g.fadeIn(root, D_SURFACE, EASE_ARRIVE);
+    setTimeout(() => { old.forEach((o) => o.remove()); g.paint(); }, 480);
+  };
+  // (A drawing built afresh in a frame, in place of the one before: its pieces take the looks of the ones before them like them.)
+  g.swap = (root) => { for (const o of models()) o.remove(); box.append(root); g.adopt(root); };
+  /** What the picture holds (the browser checks and ?perf read it): its drawings, those with their looks read, the looks kept. */
+  g.stat = () => { const ms = models(); return { models: ms.length, looked: ms.filter((r) => looks.has(r)).length, pieces: ms.reduce((n, r) => n + r.querySelectorAll('*').length, 0), unlooked: ms.reduce((n, r) => n + [...r.querySelectorAll('*')].filter((e) => !looks.has(e)).length, 0), cache: g.cache.size, w: cv.width, h: cv.height }; };
+  g.clear = () => { for (const o of models()) o.remove(); g.paint(); };
+  g.dispose = () => { live.delete(g); g.mo?.disconnect?.(); g.ro?.disconnect?.(); g.gpu?.dispose(); };
   box._svgGL = g;
   return g;
 }

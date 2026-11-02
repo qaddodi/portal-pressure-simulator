@@ -79,7 +79,19 @@ test('slide charts are models drawn on the GPU (svg-gl.js): transforms and viewB
 
 test('a GPU chart reads every look a piece can have: strokes, their widths and strengths too (a comment once swallowed them, 2 Nov)', async () => {
   await import('./dom-shim.js');
-  const { LOOK_PROPS } = await import('../src/ui/svg-gl.js');
-  for (const k of ['fill', 'stroke', 'strokeWidth', 'opacity', 'fillOpacity', 'strokeOpacity', 'strokeDasharray', 'strokeLinecap', 'fontSize', 'fontWeight', 'textAnchor', 'display', 'visibility'])
+  const { LOOK_PROPS, holesOf } = await import('../src/ui/svg-gl.js');
+  for (const k of ['fill', 'stroke', 'strokeWidth', 'opacity', 'fillOpacity', 'strokeOpacity', 'strokeDasharray', 'strokeLinecap', 'fontSize', 'fontWeight', 'textAnchor', 'display', 'visibility', 'stopColor'])
     assert.ok(LOOK_PROPS.includes(k), `${k} is read`);
+  // (a mask's black boxes, made into strips that never overlap, so each is cut out once)
+  const strips = holesOf([[0, 0, 10, 10], [5, 5, 15, 15]]);
+  const area = strips.reduce((s, [a, b, c, d]) => s + (c - a) * (d - b), 0);
+  assert.equal(area, 175, 'the two boxes less their overlap');
+  for (let i = 0; i < strips.length; i++) for (let j = i + 1; j < strips.length; j++) {
+    const [a, b, c, d] = strips[i], [e, f, g, h] = strips[j];
+    assert.ok(Math.min(c, g) <= Math.max(a, e) || Math.min(d, h) <= Math.max(b, f), 'no two strips overlap');
+  }
+  // (every slide chart is a model now: none builds SVG for the page to paint)
+  const fs = await import('node:fs');
+  for (const f of ['talk-trace', 'tool-course', 'tool-curve', 'tool-causes', 'flow-time', 'tool-lumen', 'tool-fluid', 'tool-criteria', 'visual-plane', 'tool-flows', 'tool-profile'])
+    assert.doesNotMatch(fs.readFileSync(new URL(`../src/ui/${f}.js`, import.meta.url), 'utf8'), /createElementNS/, `${f}.js builds no SVG`);
 });

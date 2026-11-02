@@ -19,6 +19,7 @@ import { monotoneSegs } from './curve-near.js?v=663c98a29c';
 import { plotPanel } from './plot-look.js?v=5037697da7';
 import { pressureColor } from './colormap.js?v=3d33c1ecd4';
 import { measure } from './glyph-measure.js?v=131d137ce2';
+import { createSvgGL, svgModel } from './svg-gl.js?v=43aae69fb6';
 
 const PATH = PROFILE_PATHS[0];
 export const STATIONS = PATH.nodes;
@@ -404,13 +405,8 @@ export function braceD(xa, xb, y0, d) {
   return `M${p(xa, y0)}Q${p(xa, y1)} ${p(xa + r, y1)}L${p(m - r, y1)}Q${p(m, y1)} ${p(m, y0 + d)}Q${p(m, y1)} ${p(m + r, y1)}L${p(xb - r, y1)}Q${p(xb, y1)} ${p(xb, y0)}`;
 }
 
-const SVGNS = 'http://www.w3.org/2000/svg';
-const sv = (tag, attrs = {}, ...kids) => {
-  const el = document.createElementNS(SVGNS, tag);
-  for (const [k, v] of Object.entries(attrs)) if (v != null) el.setAttribute(k, v);
-  el.append(...kids.flat().filter((k) => k != null));
-  return el;
-};
+// (2 Nov 2026: the chart and the strips are models drawn on the GPU, svg-gl.js: the same tree, of plain elements, never painted by the browser.)
+const sv = svgModel;
 // The block's hatching: bold diagonal red stripes over a faint red tint (styles/app.css .pz-hb, .pz-hs), as the old ladder's.
 const hatchDef = (id, s) => sv('pattern', { id, width: s, height: s, patternUnits: 'userSpaceOnUse', patternTransform: 'rotate(45)' },
   sv('rect', { class: 'pz-hb', width: s, height: s }), sv('rect', { class: 'pz-hs', width: s / 2, height: s }));
@@ -605,6 +601,7 @@ const FADE_MS = 420;
 export function createProfileTool() {
   const el = document.createElement('div');
   el.className = 'pz-prof';
+  const gl = createSvgGL(el);
   const reduceMQ = matchMedia('(prefers-reduced-motion: reduce)');
   let goal = null, shown = null, ref = null, cfg = { from: null }, ctx0 = null, raf = 0, plan = null, stale = false, size = '', wantMin = null;
   let fSeen = 0;   // (the type size it was drawn at, x100: a zoom the box's own size does not show)
@@ -654,7 +651,7 @@ export function createProfileTool() {
   const size0 = () => sz0;
   const setMin = () => { el.style.minHeight = wantMin; };   // (a rest pass's, between frames)
   function draw() {
-    if (!shown) { el.replaceChildren(); return; }
+    if (!shown) { gl.clear(); return; }
     const sz = size0();
     if (!sz) return;
     const [w, hh, f] = sz, tw = (t, wt) => textW(t, f, wt);
@@ -797,7 +794,7 @@ export function createProfileTool() {
       }));
     for (const [i, b] of blk) if (!b.a && t - b.t0 >= FADE_MS) blk.delete(i);
     fading = rows.some((row) => row?.from != null) || Object.values(nameAt).some((a) => t - a.t0 < FADE_MS) || pillAt.some((a) => a && t - a.t0 < FADE_MS) || t - pillK.t0 < FADE_MS || t - heldK.t0 < FADE_MS || [...blk.values()].some((b) => t - b.t0 < FADE_MS);
-    el.replaceChildren(svg);
+    gl.swap(svg);   // (drawn afresh each frame of a glide: its pieces take the looks of the ones before them)
   }
   const glideAt = (a, now) => { const e = 0.5 - 0.5 * Math.cos(Math.PI * Math.min(1, Math.max(0, (now - a.t0) / FADE_MS))); return [lerp(a.fx, a.x, e), lerp(a.fy, a.y, e)]; };
   const fadeK = (row, now) => (row.from == null ? 1 : 0.5 - 0.5 * Math.cos(Math.PI * Math.min(1, Math.max(0, (now - row.t0) / FADE_MS))));
@@ -866,7 +863,7 @@ export function createProfileTool() {
     /** Drawn again at once for a type size that changed in a box that did not (the six ladders' scaled copies, presenter.js fitChart). */
     redraw() { if (shown && el.isConnected) { measure0(); plan = null; draw(); } },
     clear() {},
-    dispose() { if (raf) cancelFrame(raf); raf = 0; cancelRest(measuring); measuring = 0; },
+    dispose() { if (raf) cancelFrame(raf); raf = 0; cancelRest(measuring); measuring = 0; gl.dispose(); },
   };
 }
 
@@ -878,6 +875,7 @@ export function createProfileTool() {
 export function createProfileStrip(namesOnly = false) {
   const el = document.createElement('div');
   el.className = namesOnly ? 'pz-pstrip names' : 'pz-pstrip';
+  const gl = createSvgGL(el);
   let fp = null, hlOf = null, size = '';
   const xOf = (w) => { const slot = (w - 10) / STATIONS.length; return { slot, x: (i) => slot * (i + 0.5) }; };
   function drawStrip() {
@@ -891,20 +889,20 @@ export function createProfileStrip(namesOnly = false) {
       // intra, post should have the curly bracket that says sinusoidal on top of it").)
       const fit = nameFit(slot, tw), ends = 1.85 * f, base = ends + 1.05 * f, hh = Math.ceil(base + (fit.rows - 1) * 1.25 * f + 0.3 * f);
       el.style.height = `${hh}px`;
-      el.replaceChildren(sv('svg', { viewBox: `0 0 ${w} ${hh}`, width: w, height: hh, style: `font-size: ${f.toFixed(2)}px` },
+      gl.swap(sv('svg', { viewBox: `0 0 ${w} ${hh}`, width: w, height: hh, style: `font-size: ${f.toFixed(2)}px` },
         i0 >= 0 ? sv('g', { class: 'ppf-brace' }, sv('path', { d: braceD(x(i0) - 0.42 * slot, x(i1) + 0.42 * slot, 0, 0.55 * f), transform: `translate(0 ${ends.toFixed(2)}) scale(1 -1)` }),
           sv('text', { x: (x(i0) + x(i1)) / 2, y: 0.95 * f, 'text-anchor': 'middle' }, BRACE_NAME)) : null,
         STATIONS.map((n, i) => sv('text', { class: n in LIVER_NAMES ? 'ppf-name liv' : 'ppf-name', x: x(i) + fit.dx[i], y: base + (fit.low[i] ? 1.25 * f : 0), 'text-anchor': 'middle' }, fit.names[i]))));
       return;
     }
     const p = profileOf(fp);
-    if (!p) { el.replaceChildren(); return; }
+    if (!p) { gl.clear(); return; }
     const hl = profileOf(typeof hlOf === 'function' ? hlOf() : hlOf), n = p.v.length - 1;
     const hh = Math.ceil(1.9 * f), cy = hh / 2, labels = p.v.map(whole), hw = labels.map((t) => tw(t, 700) / 2), pad = NUM_PAD;
     el.style.height = `${hh}px`;
     const gid = `pzps-${Math.random().toString(36).slice(2, 8)}`;
     const box = (i) => blockSpan(x(i), slot, tw);   // (each block on its station's column, as the chart's)
-    el.replaceChildren(sv('svg', { viewBox: `0 0 ${w} ${hh}`, width: w, height: hh, role: 'img', style: `font-size: ${f.toFixed(2)}px`,
+    gl.swap(sv('svg', { viewBox: `0 0 ${w} ${hh}`, width: w, height: hh, role: 'img', style: `font-size: ${f.toFixed(2)}px`,
       'aria-label': `Pressure from gut to heart: ${STATIONS.map((s, i) => `${SPOKEN[s]} ${labels[i]}`).join(', ')} mmHg.` },
       sv('defs', {}, hatchDef(`${gid}-h`, 7), sv('linearGradient', { id: gid, gradientUnits: 'userSpaceOnUse', x1: x(0), x2: x(n), y1: 0, y2: 0 },
         p.v.map((v, i) => sv('stop', { offset: (i / n).toFixed(3), 'stop-color': pressureColor(v) })))),

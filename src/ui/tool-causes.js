@@ -15,9 +15,10 @@
 // steps ease to their new places. These are the model's own shares: a deck line that quotes them needs a source.
 
 import { TILE, RATE, tileShown } from './table-marks.js?v=ff3ed0cc47';
-import { cutsOf } from './tool-curve.js?v=c235d752cd';
+import { cutsOf } from './tool-curve.js?v=0a5880736e';
 import { DRUGS } from '../engine/scenario.js?v=0762d1b820';
 import { frameFor } from './frame.js?v=7710f677e2';
+import { createSvgGL, svgModel } from './svg-gl.js?v=43aae69fb6';
 const nextFrame = frameFor('tool-causes');
 
 const CS_MIN = 12;   // (px on the screen: the smallest the chart's words are drawn)
@@ -166,19 +167,15 @@ export function fitBars(r, w, h, f, metric = 'ppg') {
   return causeBars(r, 0);
 }
 
-const SVGNS = 'http://www.w3.org/2000/svg';
-const sv = (tag, attrs = {}, ...kids) => {
-  const el = document.createElementNS(SVGNS, tag);
-  for (const [k, v] of Object.entries(attrs)) if (v != null) el.setAttribute(k, v);
-  el.append(...kids.flat(2).filter((k) => k != null));
-  return el;
-};
+// (2 Nov 2026: the chart is a model drawn on the GPU, svg-gl.js: the same tree, of plain elements, never painted by the browser.)
+const sv = svgModel;
 const colourOf = (g) => (GROUPS.find(([k]) => k === g)?.[2] ? `var(${GROUPS.find(([k]) => k === g)[2]})` : 'var(--text-3)');
 
 export function createCauses({ host } = {}) {
   const reduceMQ = matchMedia('(prefers-reduced-motion: reduce)');
   const el = document.createElement('div');
   el.className = 'pz-cbars';
+  const gl = createSvgGL(el);
   let t = null, ctx = null, G = null, parts = null, lastSz = '', raf = 0, raw = null, data = null, list = [], gen = 0, busy = false, again = null, mode = 'own';
   const rows = new Map();   // key → { els, cur: { a, b, y, o }, goal, label, group, kind }
   let dom = null, domGoal = { lo: 0, hi: 1 };   // (the scale, easing after its goal)
@@ -238,7 +235,7 @@ export function createCauses({ host } = {}) {
       const bl = r.kind === 'step' && b < a ? x1 - wd : x0;
       bar.setAttribute('x', bl.toFixed(1)); bar.setAttribute('width', wd.toFixed(1));
       bar.setAttribute('y', (y - bh / 2).toFixed(1)); bar.setAttribute('height', bh.toFixed(1));
-      if (r.rate !== undefined) g.dataset.rate = r.rate || '';
+      if (r.rate !== undefined && g.dataset.rate !== (r.rate || '')) g.dataset.rate = r.rate || '';   // (only when it changes: a change is read again for its colour)
       // (The number at the step's end: right of a rise or a total, left of a fall when it has room there (clear of the words),
       // else right of it.)
       const settled = r.goal && Math.abs(b - r.goal.b) < 1e-9 && Math.abs(a - r.goal.a) < 1e-9;
@@ -274,6 +271,7 @@ export function createCauses({ host } = {}) {
       if (g.o === 0 && n.o === 0) { r.els?.g.remove(); rows.delete(key); }
     }
     paint();
+    gl.paint();   // (the picture draws the moved bars in this same frame)
     if (moving) raf = nextFrame(tick);
   }
   // The rows' goals from data, each in its place; a new row grows out of the running total it starts from, and rows no longer
@@ -305,10 +303,11 @@ export function createCauses({ host } = {}) {
     list = steps(data, k);
     G = layout(w, hh, f, list);
     parts = build();
-    el.replaceChildren(parts.svg);
+    gl.show(parts.svg, false);
     for (const r of rows.values()) makeRow(r);
     if (!dom) dom = list.length ? domainOf(list, k) : { lo: 0, hi: 1 };
     paint(); aim();
+    gl.place(parts.svg);   // (its looks as this paint left them)
   }
   if (typeof ResizeObserver === 'function') new ResizeObserver(() => {
     if (!t || !parts || !el.isConnected) return;
@@ -355,6 +354,6 @@ export function createCauses({ host } = {}) {
       if (mode === 'own') own(ctx, gen); else live(ctx, gen);
     },
     update() {}, clear() {},
-    dispose() { t = null; ctx = null; parts = null; rows.clear(); el.replaceChildren(); },
+    dispose() { t = null; ctx = null; parts = null; rows.clear(); gl.dispose(); el.replaceChildren(); },
   };
 }

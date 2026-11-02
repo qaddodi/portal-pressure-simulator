@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createCore } from '../src/worker-core.js';
-import { flowTimeSeries, MINUTES, LINE, headLeft, modelLines, trailKeys, withUnit } from '../src/ui/flow-time.js';
+await import('./dom-shim.js');   // (the chart draws on the GPU, svg-gl.js, which loads only with a page)
+const { flowTimeSeries, MINUTES, LINE, headLeft, modelLines, trailKeys, withUnit } = await import('../src/ui/flow-time.js');
 
 // The meal time-lapse the Circulation deck's meal slide used to carry (the deck rebuild moved the meal to Circuit, which has no chart), run off
 // screen as the presenter does: its trail is the model's pressure and flow each day. The chart's own settings stay tested here.

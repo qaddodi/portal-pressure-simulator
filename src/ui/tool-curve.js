@@ -72,7 +72,7 @@ import { HVPG_CUTS } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { frameFor } from './frame.js?v=7710f677e2';
 import { restPass } from './rest-pass.js?v=bf0c42ead5';
 import { plotPanel } from './plot-look.js?v=5037697da7';
-import { morphSvg } from './svg-morph.js?v=e2c6c2224c';
+import { createSvgGL, svgModel } from './svg-gl.js?v=43aae69fb6';
 import { airRatio } from './endo-size.js?v=e0a58bf20e';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 const nextFrame = frameFor('tool-curve');
@@ -530,13 +530,8 @@ export function walksOf(t) {
 /** The steps that work out the dots made from a preset, each from a fresh model. */
 export const dotSteps = (t) => dotsOf(t).filter((d) => !d.slide).map((d) => ({ preset: d.preset, params: d.params, presetDays: d.presetDays, days: d.days, restart: true }));
 
-const SVGNS = 'http://www.w3.org/2000/svg';
-const sv = (tag, attrs = {}, ...kids) => {
-  const el = document.createElementNS(SVGNS, tag);
-  for (const [k, v] of Object.entries(attrs)) if (v != null) el.setAttribute(k, v);
-  el.append(...kids.flat(2).filter((k) => k != null));
-  return el;
-};
+// (2 Nov 2026: the chart is a model drawn on the GPU, svg-gl.js: the same tree, of plain elements, never painted by the browser.)
+const sv = svgModel;
 
 // Each deck's curves, kept once worked out (by deck, then slide and tool).
 const kept = new WeakMap();
@@ -584,6 +579,7 @@ export function createCurve() {
   const reduceMQ = matchMedia('(prefers-reduced-motion: reduce)');
   const el = document.createElement('div');
   el.className = 'pz-curve';
+  const gl = createSvgGL(el);
   let t = null, ctx = null, ser = null, dots = [], parts = null, G = null, key = '', lastSz = '', raf = 0;
   let ring = null, goal = null;   // ({ x, ys } in shown units: where the rings are drawn, and where they glide to)
   let altNow = false;   // (with against: the lines' key stands in, with rows of its own, because their names did not fit on the drawing)
@@ -985,6 +981,7 @@ export function createCurve() {
     const near = Math.abs((ring.x ?? 0) - (goal.x ?? 0)) < 1e-3 * Math.abs((G?.x1 ?? 1) - (G?.x0 ?? 0)) && ring.ys.every((y, j) => !Number.isFinite(y) || Math.abs(y - goal.ys[j]) < 0.005);
     if (near) ring = goal;
     paint(ring);
+    gl.paint();   // (the picture draws the moved rings and words in this same frame)
     // (Drawn again with the key as a rest pass, between frames: a new chart is measured and laid out, never inside a glide's frame.)
     if (G?.ag && !altNow && parts?.fits === false) { altNow = true; restPass(() => redraw(false)); return; }
     if (ring !== goal) raf = nextFrame(tick);
@@ -1005,13 +1002,9 @@ export function createCurve() {
     if (G.ag && !altNow && parts.fits === false) { altNow = true; G = geo(w, hh, f, !!G.stepKey, true); parts = build(); }
     // (A new chart takes over the old one's lines, gridlines and numbers, each gliding to its new place (svg-morph.js; the words the chart places on every
     // paint and its rings are data-nomorph and fade); where that cannot be, it fades in over the old one.)
-    if (fade && old && morphSvg(old, parts.svg)) { /* the morph appended it */ }
-    else if (fade && old) {
-      parts.svg.classList.add('in'); el.append(parts.svg);
-      nextFrame(() => nextFrame(() => parts?.svg.classList.remove('in')));
-      setTimeout(() => old.remove(), 480);
-    } else { el.replaceChildren(parts.svg); }
+    gl.show(parts.svg, !!(fade && old));
     paint(ring || goal);
+    gl.place(parts.svg);   // (its looks as this paint left them, as the page would first style it: nothing eased in)
   }
   const remake = () => {
     if (!t || !parts || !el.isConnected) return;
@@ -1070,6 +1063,6 @@ export function createCurve() {
     update() {}, clear() {},
     /** The card has fitted: drawn again if its zoom, and so the chart's type, is not what it was drawn at (the observer does not see a zoom). */
     refit: remake,
-    dispose() { t = null; ctx = null; parts = null; el.replaceChildren(); },
+    dispose() { t = null; ctx = null; parts = null; gl.dispose(); el.replaceChildren(); },
   };
 }

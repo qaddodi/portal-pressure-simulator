@@ -7,16 +7,22 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
+// (a word in a chart: what the GPU picture's look reader needs of it, svg-gl.js)
+const Txt = (text) => ({ text, children: [], attributes: [], getAttribute: () => null });
 class El {
   constructor(tag) { this.tag = tag; this.attrs = {}; this.children = []; this.classSet = new Set(); this.dataset = {}; this.style = {}; this.isConnected = true; this.clientWidth = 0; this.clientHeight = 0; }
   setAttribute(k, v) { this.attrs[k] = String(v); if (k === 'class') this.classSet = new Set(String(v).split(/\s+/).filter(Boolean)); }
   getAttribute(k) { return this.attrs[k]; }
-  append(...k) { for (const c of k) this.children.push(typeof c === 'string' ? { text: c } : c); }
+  append(...k) { for (const c of k) this.children.push(typeof c === 'string' ? Txt(c) : c); }
+  prepend(...k) { this.children.unshift(...k); }
+  hasAttribute(k) { return k in this.attrs; }
+  get attributes() { return Object.entries(this.attrs).map(([name, value]) => ({ name, value })); }
+  get localName() { return this.tag; }
   replaceChildren(...k) { this.children = []; this.append(...k); }
   remove() {}
   get classList() { const s = this; return { add: (c) => s.classSet.add(c), remove: (c) => s.classSet.delete(c), toggle: (c, f) => { if (f === undefined) f = !s.classSet.has(c); f ? s.classSet.add(c) : s.classSet.delete(c); }, contains: (c) => s.classSet.has(c) }; }
   set className(v) { this.classSet = new Set(String(v).split(/\s+/).filter(Boolean)); }
-  set textContent(v) { this.children = [{ text: String(v) }]; }
+  set textContent(v) { this.children = [Txt(String(v))]; }
   get textContent() { return this.children.map((c) => c.text ?? c.textContent).join(''); }
   getBoundingClientRect() { return { width: this.clientWidth }; }
 }

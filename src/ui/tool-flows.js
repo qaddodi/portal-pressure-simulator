@@ -22,6 +22,7 @@ import { restPass, cancelRest } from './rest-pass.js?v=bf0c42ead5';
 import { EDGES, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from '../engine/topology.js?v=4044766e96';
 import { portalSplit } from './table-marks.js?v=ff3ed0cc47';
 import { measure } from './glyph-measure.js?v=131d137ce2';
+import { createSvgGL, svgModel } from './svg-gl.js?v=43aae69fb6';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const STENTS = new Set(['TIPS', 'DIPS']);
@@ -249,13 +250,8 @@ function routeOnce(parts, w, hh, f, measure, hParts) {
   return { geo, spans, tiers, pills, rows, ok: rows <= routeRows(hh, geo), mark: routeMarker(hParts, w, f, measure), top: Math.max(0, (hh - routeHeight(rows, geo)) / 2) };
 }
 
-const SVGNS = 'http://www.w3.org/2000/svg';
-const sv = (tag, attrs = {}, ...kids) => {
-  const el = document.createElementNS(SVGNS, tag);
-  for (const [k, v] of Object.entries(attrs)) if (v != null) el.setAttribute(k, v);
-  el.append(...kids.flat().filter((k) => k != null));
-  return el;
-};
+// (2 Nov 2026: the bar is a model drawn on the GPU, svg-gl.js: the same tree, of plain elements, never painted by the browser.)
+const sv = svgModel;
 // (a word's width as Inter sets it, from the GPU atlas's own metrics: no canvas)
 const textW = (t, f, wt = 600) => measure(t, `${wt} ${f}px Inter`);
 // Every part the bar can show.
@@ -265,6 +261,7 @@ let uid = 0;
 export function createFlowsTool() {
   const el = document.createElement('div');
   el.className = 'pz-flows';
+  const gl = createSvgGL(el);
   const reduceMQ = matchMedia('(prefers-reduced-motion: reduce)');
   const clip = `pfl-clip-${++uid}`;
   let of = 'portal', params = null, goal = null, hGoal = null, ctx0 = null, shown = null, raf = 0, size = '', memo = null, wait = 0;
@@ -388,11 +385,11 @@ export function createFlowsTool() {
   function finish(kids) {
     const { w, hh, f } = memo, say = (ps) => barOrder(ps, of).map((p) => `${p.name} ${p.pct}%`).join(', ');
     const br = flowView(goal, of).bracket;
-    el.replaceChildren(sv('svg', { viewBox: `0 0 ${w} ${hh}`, width: w, height: hh, role: 'img', style: `font-size: ${f.toFixed(2)}px`,
+    gl.swap(sv('svg', { viewBox: `0 0 ${w} ${hh}`, width: w, height: hh, role: 'img', style: `font-size: ${f.toFixed(2)}px`,
       'aria-label': `${of === 'inflow' ? 'The liver\'s inflow' : 'Where the portal blood goes'}, ${memo.hide ? `healthy, and now the same: ${say(goal)}` : `now: ${say(goal)}${br ? `; ${br[0]} ${br[1]}%` : ''}${hGoal ? `; healthy: ${say(hGoal)}` : ''}`}` }, kids));
   }
   function draw() {
-    if (!goal || !shown || !memo) { el.replaceChildren(); return; }
+    if (!goal || !shown || !memo) { gl.clear(); return; }
     if (of === 'inflow') drawInflow(); else drawRoutes();
   }
   function tick() {
@@ -459,6 +456,6 @@ export function createFlowsTool() {
     },
     pin(fp) { if (el.isConnected && fp) aim(fp); },
     clear() {},
-    dispose() { if (raf) cancelFrame(raf); raf = 0; cancelRest(measuring); measuring = 0; clearTimeout(wait); wait = 0; },
+    dispose() { if (raf) cancelFrame(raf); raf = 0; cancelRest(measuring); measuring = 0; clearTimeout(wait); wait = 0; gl.dispose(); },
   };
 }

@@ -7,6 +7,7 @@
 // compare button moves it.
 
 import { frame } from './frame.js?v=7710f677e2';
+import { createSvgGL, svgModel } from './svg-gl.js?v=43aae69fb6';
 import { h, fmt, clamp } from './util.js?v=81aaed6aef';
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { store } from './store.js?v=4ef2a6ffd8';
@@ -176,8 +177,8 @@ export function fluidFlows(f, W, H = FLOW_H) {
   return { xL, xR, NW, left, right, bands, W, H };
 }
 
-const SVG = 'http://www.w3.org/2000/svg';
-const sv = (tag, a = {}) => { const e = document.createElementNS(SVG, tag); for (const [k, v] of Object.entries(a)) e.setAttribute(k, v); return e; };
+// (2 Nov 2026: the flow picture is a model drawn on the GPU, svg-gl.js: the same tree, of plain elements, never painted by the browser.)
+const sv = (tag, a = {}) => svgModel(tag, a);
 const band = (x0, y0, x1, y1, t) => { const m = (x0 + x1) / 2; return `M${x0},${y0}C${m},${y0} ${m},${y1} ${x1},${y1}L${x1},${y1 + t}C${m},${y1 + t} ${m},${y0 + t} ${x0},${y0 + t}Z`; };
 const NAMES = { liver: 'Liver', gut: 'Gut', carried: 'Lymphatics', back: 'Taken back', build: 'Ascites' };
 const FILL = { liver: 'gf-liver', gut: 'gf-gut', carried: 'gf-carried', back: 'gf-back', build: 'gf-build' };
@@ -217,6 +218,8 @@ export function createFluid() {
   const flow = sv('svg', { class: 'gf-flow', height: FLOW_H, 'aria-hidden': 'true' });
   const gBands = sv('g'), gNodes = sv('g'), gText = sv('g');
   flow.append(gBands, gNodes, gText);
+  // (its box, FLOW_H tall at the card's width, which the GPU's picture fills)
+  const flowBox = h('div', { class: 'gf-flowbox', style: `height: ${FLOW_H}px` }, flow), gl = createSvgGL(flowBox);
   const bandEls = {}, nodeEls = {}, roomEl = sv('rect', { class: 'gf-room', rx: 2 }), textEls = {};
   gNodes.append(roomEl);
   for (const id of Object.keys(NAMES)) {
@@ -255,7 +258,7 @@ export function createFluid() {
   const segPush = span('gs-seg gs-push', tPush, [0.4, 0.7]), segPull = span('gs-seg gs-pull', tPull, [0.7, 0.4]), wall = h('i', { class: 'gs-wall' });
   const tug = h('div', { class: 'gs-trk gs-tug' }, segPush, segPull, wall);
   const forces = h('div', { class: 'gs-forces' }, h('div', { class: 'gs-fcap' }, h('span', {}, 'Across the sinusoid wall · mmHg'), h('span', {}, 'net ', fNet)), tug);
-  const el = h('div', { class: 'gf', role: 'img' }, win, flow, unit, words, forces, caveat);
+  const el = h('div', { class: 'gf', role: 'img' }, win, flowBox, unit, words, forces, caveat);
   const set = (n, t) => { if (n.textContent === t) return false; n.textContent = t; return true; };
   const px = (v) => `${v.toFixed(2)}px`;
   // (A part goes where its pieces are slid: span() below; the wall is a line, slid.)
@@ -291,6 +294,7 @@ export function createFluid() {
     }
   }
   function draw() {
+    gl.paint();   // (the picture draws what this frame writes, in this same frame)
     if (opts.window) {
       const tw = TW;   // (the widths as the observer last read them: a glide's frame reads no layout)
       if (shown && tw > 0 && 'dCar' in shown) {
@@ -335,8 +339,8 @@ export function createFluid() {
   }
   const kick = () => { if (!raf && typeof requestAnimationFrame === 'function') raf = frame(tick, 'tool-fluid'); };
   if (typeof ResizeObserver === 'function') {
-    const ro = new ResizeObserver(() => { W = flow.getBoundingClientRect().width; TW = trk.clientWidth; FW = tug.clientWidth; labSig = ''; labels(); draw(); });
-    ro.observe(el); ro.observe(trk); ro.observe(tug);
+    const ro = new ResizeObserver(() => { W = flowBox.getBoundingClientRect().width; gl.relook(); TW = trk.clientWidth; FW = tug.clientWidth; labSig = ''; labels(); draw(); });
+    ro.observe(el); ro.observe(trk); ro.observe(tug); ro.observe(flowBox);
   }
   document.fonts?.ready.then(() => { labSig = ''; labels(); });
   let opts = {}, pinned = null;
@@ -403,7 +407,7 @@ export function createFluid() {
       // Mohammad removed it, 20 Oct)
       const wo = !!opts.window;
       el.classList.toggle('gf-window', wo);
-      win.hidden = !wo; flow.style.display = wo ? 'none' : '';
+      win.hidden = !wo; flowBox.hidden = wo;
       unit.hidden = words.hidden = wo;
       caveat.hidden = wo || !cav;
       labSig = '';

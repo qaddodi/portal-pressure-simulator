@@ -28,7 +28,8 @@ import { HVPG_CUTS, PPG_CUTS } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { TILE, tileShown } from './table-marks.js?v=ff3ed0cc47';
 import { plotPanel } from './plot-look.js?v=5037697da7';
 import { frameFor } from './frame.js?v=7710f677e2';
-import { easeArrive, D_SURFACE } from './ease.js?v=7513a88c68';
+import { easeArrive, D_SURFACE, EASE_ARRIVE } from './ease.js?v=7513a88c68';
+import { createSvgGL, svgModel } from './svg-gl.js?v=43aae69fb6';
 const reduceDot = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : { matches: false };
 
 const nextFrame = frameFor('plane');
@@ -698,12 +699,11 @@ export function placeStopNames(stops, fr, fs, avoid = []) {
 }
 
 // ── Drawing ──
-const SVGNS = 'http://www.w3.org/2000/svg';
+// (2 Nov 2026: the plot is a model drawn on the GPU, svg-gl.js: the same tree, of plain elements, never painted by the browser.)
 const sv = (tag, attrs = {}, ...kids) => {
-  const el = document.createElementNS(SVGNS, tag);
-  for (const [k, v] of Object.entries(attrs)) if (v != null) el.setAttribute(k, typeof v === 'number' ? +v.toFixed(1) : v);
-  el.append(...kids.flat().filter((k) => k != null));
-  return el;
+  const a = {};
+  for (const [k, v] of Object.entries(attrs)) if (v != null) a[k] = typeof v === 'number' ? +v.toFixed(1) : v;
+  return svgModel(tag, a, ...kids);
 };
 const valOf = (k, v) => (v == null || !Number.isFinite(v) ? '—' : fmt(v * (TILE[k]?.x ?? 1), TILE[k]?.d ?? 1));
 const unitOf = (k) => TILE[k]?.u || '';
@@ -725,6 +725,7 @@ export function planePlot(pl, { card = false } = {}) {
   const base = sv('g'), wordsG = sv('g', { class: 'pze-cwords' }), ringG = sv('g', { class: 'pze-ring' }, halo, dot);
   svg.append(base, wordsG, ringG);
   el.append(svg);
+  const gl = createSvgGL(el);
   const cardWords = new Map();   // (zone → its text element in the card)
   let pts = [], ring = null, size = '', was = null, sizeWas = '', ptsVer = 0, drawn = '', lastSize = [0, 0];
   // The patient's trail (card only, set by trail()): the stops' readings and names, the dot's way since the slide came up (in the
@@ -848,6 +849,7 @@ export function planePlot(pl, { card = false } = {}) {
     }
     was = now; sizeWas = size;
     base.replaceChildren(...kids);
+    gl.adopt(svg);   // (the redrawn pieces take their looks from the ones before them like them: no page read in a frame)
     el.setAttribute('aria-label', `${pl.y.name} against ${pl.x.name}` + (at.length ? ': ' + at.map((p) => `${p.name}, ${valOf(pl.x.key, p.f[pl.x.key])} and ${valOf(pl.y.key, p.f[pl.y.key])}, ${zoneOf(pl, p.f)?.t || ''}`).join('; ') : '')
       + (rg ? `; this patient ${valOf(pl.x.key, rg[pl.x.key])} ${unitOf(pl.x.key)} and ${valOf(pl.y.key, rg[pl.y.key])} ${unitOf(pl.y.key)}, ${zoneOf(pl, rg)?.t || ''}` : ''));
   };
@@ -872,7 +874,7 @@ export function planePlot(pl, { card = false } = {}) {
       stopsG.replaceChildren(...at.flatMap((p, i) => [sv('circle', { class: 'pze-stop', cx: p.x.toFixed(1), cy: p.y.toFixed(1), r: 5 }),
         names[i] ? sv('text', { class: 'pze-sn', x: names[i].x.toFixed(1), y: names[i].y.toFixed(1), 'text-anchor': names[i].anchor, style: `font-size:${fs}px` }, p.name) : null]));
       // (They ease in the first time, with the line, never pop.)
-      if (first) { trailG.classList.add('pze-tin'); nextFrame(() => nextFrame(() => trailG?.classList.remove('pze-tin'))); }
+      if (first) gl.fadeEl(trailG, D_SURFACE, EASE_ARRIVE);   // (in the picture, on the trail's old ease, --d-surface on --ease)
     }
     paintWalk();
     return [...boxes, ...names.filter(Boolean).map((n) => n.box)];
@@ -899,6 +901,7 @@ export function planePlot(pl, { card = false } = {}) {
     const pts = [...stopPx, ...walk.map(([a, b]) => [inv.X(a), inv.Y(b)])];
     if (cur) pts.push([cur.x, cur.y]);
     walkPath.setAttribute('d', pts.length > 1 ? 'M' + pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' L') : '');
+    gl.paint();
   }
   // While the dot glides, the line follows it each frame (the dot's ease, so the line is drawn in behind it, never ahead).
   const followDot = () => {

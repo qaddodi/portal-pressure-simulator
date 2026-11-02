@@ -72,7 +72,7 @@ test('Stiffness, the first visit: a graph of distinct zones, the EGD area hatche
   assert.ok(keys.some((k) => /ANTICIPATE ≥75% or SSM >55 kPa = CSPH/.test(k.plain)), 'what the gray zone tests mean: CSPH');
   assert.ok(keys.some((k) => /BMI ≥30/.test(k.plain)), 'the BMI exception to the 25 kPa rule');
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
-  const blk = css.slice(css.indexOf('/* A zones card'), css.indexOf('.pzz-swl'));
+  const blk = css.slice(css.indexOf('/* A zones card'), css.indexOf('.pzc-sw {'));   // (to the hatch's swatch, now a plain block: tool-criteria.js)
   assert.doesNotMatch(blk, /border-(left|right)|box-shadow|ellipsis/, 'no stripe, glow or ellipsis');
   assert.match(blk, /\.pzc-key \{[^}]*align-items: center;[^}]*text-align: center;[^}]*font: 500 max\(12px,/, 'the key centred, 12 px or more');
 });

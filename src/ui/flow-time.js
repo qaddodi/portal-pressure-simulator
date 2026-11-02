@@ -12,6 +12,8 @@
 import { frameFor, cancelFrame } from './frame.js?v=7710f677e2';
 import { plotPanel } from './plot-look.js?v=5037697da7';
 import { RX, bandKeys } from './rx-bands.js?v=51e83c7c59';
+import { createSvgGL, svgModel } from './svg-gl.js?v=43aae69fb6';
+import { D_SURFACE, EASE_ARRIVE } from './ease.js?v=7513a88c68';
 const nextFrame = frameFor('flow-time');
 
 // (No imports: the series and scales load in Node for the unit tests. Every value here is positive.)
@@ -77,13 +79,8 @@ export function flowTimeSeries(trail, clock = 'meal', lines = MEAL_LINES, given 
   return { min, pv, flow, pScale: pressureScale(pv, opt(lines[0]).parts), fScale: flowScale(flow, opt(lines[1]).pad), ax };
 }
 
-const SVGNS = 'http://www.w3.org/2000/svg';
-const sv = (tag, attrs = {}, ...kids) => {
-  const el = document.createElementNS(SVGNS, tag);
-  for (const [k, v] of Object.entries(attrs)) if (v != null) el.setAttribute(k, v);
-  el.append(...kids.flat().filter((k) => k != null));
-  return el;
-};
+// (2 Nov 2026: the chart is a model drawn on the GPU, svg-gl.js: the same tree, of plain elements, never painted by the browser.)
+const sv = svgModel;
 // The plot, drawn at the chart's own size in pixels with the card's small type (f): the upper line's band at the top, the
 // lower's under it, the clock under both. Each band's numbers sit on its own side, in its line's colour; the legend names
 // the two lines (with their units) over the plot, on one row when it fits, else two.
@@ -111,6 +108,7 @@ export function createFlowTime() {
   const reduceMQ = matchMedia('(prefers-reduced-motion: reduce)');   // (one query, read each frame: a new one was made every frame)
   const el = document.createElement('div');
   el.className = 'pz-flowtime';
+  const gl = createSvgGL(el);
   el.dataset.lines = MEAL_LINES.join(',');
   let ser = null, parts = null, shown = 0, goal = 0, raf = 0, sig = '', clock = 'meal', keys = MEAL_LINES, given = null, LINES = linesOf(keys);
   let rx = [];   // (the treatments on through the slide's time-lapse that its tool shades, rx-bands.js; none on a built-in deck)
@@ -227,6 +225,7 @@ export function createFlowTime() {
     shown += (goal - shown) * (reduceMQ.matches ? 1 : 0.16);
     if (Math.abs(goal - shown) < 0.001 * (ax().end - ax().from)) shown = goal;
     paint(shown);
+    gl.paint();   // (the picture draws the moved heads in this same frame)
     if (shown !== goal) raf = nextFrame(tick);
   }
   // The chart's size: the box the card gives it (its height is set in CSS, shorter as the card fits), in its small type.
@@ -245,7 +244,7 @@ export function createFlowTime() {
   const remake = () => {
     if (!ser || !parts || !el.isConnected) return;
     const sz = size().map((x) => Math.round(x)).join('x'); if (sz === lastSz) return;
-    const prev = parts.svg; parts = make(); prev.replaceWith(parts.svg); paint(shown);
+    const prev = parts.svg; parts = make(); prev.replaceWith(parts.svg); paint(shown); gl.place(parts.svg);
   };
   const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(remake) : null;
   ro?.observe(el);
@@ -254,7 +253,7 @@ export function createFlowTime() {
   return {
     el,
     /** The chart is done with (a presentation's own instruments go with it): its glide and its size observer are let go. */
-    dispose() { cancelFrame(raf); raf = 0; ro?.disconnect(); },
+    dispose() { cancelFrame(raf); raf = 0; ro?.disconnect(); gl.dispose(); },
     /** trail: the time-lapse's [[day, ...the model's lines]] (null: not computed yet; undefined: keep the one drawn);
      *  k: how far along it to draw (0 to 1); spec: { clock: 'meal' | 'days', lines: [lower, upper], given? } (undefined: keep
      *  the one drawn). A new trail fades in over the old chart. */
@@ -263,14 +262,12 @@ export function createFlowTime() {
       const s2 = trail === undefined ? sig : trail ? JSON.stringify([clock, keys, given, trail[0], trail.at(-1), ...(rx.length ? [rx] : [])]) : '';
       if (s2 !== sig) {
         sig = s2; LINES = linesOf(keys); ser = flowTimeSeries(trail, clock, keys, given);
-        const old = [...el.children];
+        const old = [...el.children].filter((c) => c.hasAttribute('data-svg-model'));
         parts = ser ? make() : null;
-        if (parts) {
-          parts.svg.classList.add('in'); el.append(parts.svg);
-          nextFrame(() => nextFrame(() => parts?.svg.classList.remove('in')));
-        }
-        setTimeout(() => old.forEach((o) => o.remove()), 480);
-        shown = goal = minuteOf(k); paint(shown);
+        shown = goal = minuteOf(k);
+        // (The new chart fades in over the old, in the GPU's picture, on the stylesheet's old ease, --d-surface on --ease.)
+        if (parts) { el.append(parts.svg); paint(shown); gl.place(parts.svg); gl.fadeIn(parts.svg, D_SURFACE, EASE_ARRIVE); }
+        setTimeout(() => { old.forEach((o) => o.remove()); gl.paint(); }, 480);
         return;
       }
       goal = minuteOf(k);

@@ -8,6 +8,7 @@ import { h, clamp } from './util.js?v=81aaed6aef';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
 import { store } from './store.js?v=4ef2a6ffd8';
 import { frameFor } from './frame.js?v=7710f677e2';
+import { createSvgGL, svgModel, snapOp } from './svg-gl.js?v=43aae69fb6';
 const nextFrame = frameFor('lumen');
 
 const STENTS = new Set(['TIPS', 'DIPS']);
@@ -103,8 +104,8 @@ export function lumenBlock(occlusion) {
   return { nameY: 50 + (LUMEN_NAME_Y - 50) * smooth(0, 0.5, m), numOpacity: smooth(0.5, 1, m) };
 }
 
-const SVGNS = 'http://www.w3.org/2000/svg';
-const sv = (tag, attrs = {}) => { const el = document.createElementNS(SVGNS, tag); for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v); return el; };
+// (2 Nov 2026: the picture is a model drawn on the GPU, svg-gl.js: the same tree, of plain elements, never painted by the browser.)
+const sv = (tag, attrs = {}) => svgModel(tag, attrs);
 
 export function createLumen() {
   let id = 'PV_TRUNK', tool = null;
@@ -128,6 +129,7 @@ export function createLumen() {
   const tissue = sv('circle', { class: 'gl-clot gl-tissue', cx: 50, cy: 50, r: LUMEN_R - LUMEN_WALL });
   pic.append(wall, tissue, lumen, clot, ring, inName, inNum, inWord);
   const el = h('div', { class: 'gl' }, h('div', { class: 'gl-stage' }, pic));
+  const gl = createSvgGL(el.firstChild);   // (its looks are read once it is on the page and sized: fit)
   const set = (n, t) => { if (n.textContent !== t) n.textContent = t; };
   const reduce = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
   // What the picture shows now, easing to the model's state (a compare button or a new slide jumps the params; the picture eases).
@@ -149,6 +151,7 @@ export function createLumen() {
     inWord.style.opacity = inNum.style.opacity = b.numOpacity.toFixed(3);
     inName.setAttribute('y', b.nameY.toFixed(2));
     pic.setAttribute('aria-label', `${lumenName(id)} in cross-section${stent ? ' with a stent' : ''}: ${pct(L.occlusion)}% of the lumen filled, clot ${pct(x.thrombus)}%, narrowing ${pct(x.stenosis)}%`);
+    gl.paint();   // (the picture draws it in this same frame)
   }
   function tick(now) {
     raf = 0;
@@ -179,14 +182,13 @@ export function createLumen() {
     el.dataset.vessel = SYSTEMIC.has(id) ? 'systemic' : id.startsWith('A_') ? 'artery' : 'portal';
     tool = t || null;
     if (fresh) {   // (a new vessel is drawn at once, its ring with it: no fade from the vessel before)
-      ring.style.transition = 'none'; ring.style.opacity = hasStent(id, store.get().stented) ? '1' : '0';
-      void ring.getBoundingClientRect(); ring.style.transition = '';
+      ring.style.opacity = hasStent(id, store.get().stented) ? '1' : '0'; snapOp(ring);
     }
     update();
   }
   // The word is never under 12 px on screen: the picture scales with its card, so tell the style how many px one unit is.
   const stage = el.firstChild;
-  const fit = () => { const w = stage.offsetWidth; if (w > 0) el.style.setProperty('--gl-u', (w / 100).toFixed(3)); };
+  const fit = () => { const w = stage.offsetWidth; if (w > 0) { el.style.setProperty('--gl-u', (w / 100).toFixed(3)); gl.relook(); } };   // (the words' size read again)
   if (typeof ResizeObserver === 'function') new ResizeObserver(fit).observe(stage);
   return { el, update, configure };
 }

@@ -7281,7 +7281,6 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 /* (The patient's trail on the card, a tool's trail: Mohammad, 1 Nov, mock B. Hollow rings where he stood on the slides before, their
    short names beside them, and a thin line through them that is drawn on behind the dot as it glides. It eases in once.) */
 .pze-trail { transition: opacity var(--d-surface) var(--ease); }
-.pze-trail.pze-tin { opacity: 0; }
 .pze-walk { fill: none; stroke: var(--text); stroke-opacity: .7; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .pze-stop { fill: none; stroke: var(--text); stroke-width: 1.6; }
 .pze-sn { fill: var(--text); font-weight: 600; paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
@@ -7346,6 +7345,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pz-tool[data-kind="lumen"] .gl { display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
 .pz-tool[data-kind="lumen"] .gl-stage { flex: none; width: min(62%, max(100px, calc(22 * var(--pzh, 8px)))); }   /* (100px: the words in it stay 12px on a phone held sideways) */
 .gl-pic { display: block; width: 100%; height: auto; aspect-ratio: 1; overflow: visible; }
+.gl-stage { aspect-ratio: 1; }   /* (the picture is drawn on the GPU, svg-gl.js, over a square box: its model takes no room) */
 .gl { --gl-v: var(--vein-portal); }
 .gl[data-vessel="systemic"] { --gl-v: var(--vein-systemic); }
 .gl[data-vessel="artery"] { --gl-v: var(--artery); }
@@ -7533,9 +7533,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pzc-key { display: flex; flex-direction: column; align-items: center; gap: .3em; margin-top: .7em; text-align: center; font: 500 max(12px, .86em)/1.3 var(--font-ui); color: var(--text-2); }
 .pzc-kl { margin: 0; display: inline-flex; align-items: center; gap: .5em; }
 .pzc-kl b { font-weight: 600; color: var(--text); }
-.pzc-sw { display: block; flex: none; }
-.pzz-swb { fill: var(--surface-3); }
-.pzz-swl { stroke: color-mix(in srgb, var(--text) 42%, transparent); stroke-width: 2; }
+.pzc-sw { display: block; flex: none; width: 22px; height: 14px; border-radius: 4px; background: repeating-linear-gradient(-45deg, color-mix(in srgb, var(--text) 42%, var(--surface-3)) 0 2px, var(--surface-3) 0 4.95px); }
 /* The rounded plot (his G2 look, 27 Oct; plot-look.js): the panel behind a chart's lines, the app's own tile tone, its corners the plot's. */
 .pz-plotbg { fill: var(--surface-2); }
 :is(.pz-curve, .pz-flowtime, .pz-talk) { --surface: var(--surface-2); }   /* (inside these charts the halos round words and the rings' fill are the panel's own tone, so none shows as a patch on it) */
@@ -7627,5 +7625,5 @@ body { font-optical-sizing: auto; font-kerning: normal; }
 @keyframes odo-down { from { transform: translateY(calc(var(--odo-n) * -1.2em)); } to { transform: translateY(0); } }
 /* Slide charts drawn on the GPU (svg-gl.js): the picture exactly over the chart's box (nothing past it: overflow would shrink the card's
    fit), and the model it is drawn from hidden. */
-.svg-gl-box { position: relative; }
+:where(.svg-gl-box) { position: relative; }   /* (no weight: a box the stylesheet places absolutely, the ladder's chart, stays so, and holds the picture all the same) */
 .svg-gl, .svg-gl + .trace-gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }

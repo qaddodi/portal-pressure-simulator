@@ -15,11 +15,20 @@ const size = { w: 330, h: 72, f: 12 };   // (the inflow card is six em tall, the
 const node = (tag) => ({
   tag, attrs: {}, kids: [], style: {}, dataset: {}, isConnected: true, clientWidth: size.w, clientHeight: size.h,
   setAttribute(k, v) { this.attrs[k] = v; },
-  append(...k) { this.kids.push(...k); },
+  append(...k) { for (const c of k) { if (c && typeof c === 'object') c.parent = this; this.kids.push(c); } },
   replaceChildren(...k) { this.kids = k; },
   getBoundingClientRect() { return { width: size.w, height: size.h }; },
+  // (what the GPU picture of a model reads of its pieces, svg-gl.js)
+  prepend(...k) { this.kids.unshift(...k); },
+  remove() { const p = this.parent; if (p) p.kids = p.kids.filter((c) => c !== this); },
+  classList: { add() {}, remove() {}, toggle() {}, contains: () => false },
+  get children() { return this.kids.filter((c) => c && typeof c === 'object'); },
+  get localName() { return this.tag; },
+  get attributes() { return Object.entries(this.attrs).map(([name, value]) => ({ name, value: String(value) })); },
+  getAttribute(k) { return k in this.attrs ? String(this.attrs[k]) : null; },
+  hasAttribute(k) { return k in this.attrs; },
 });
-globalThis.document.createElement = (tag) => (tag === 'canvas' ? { getContext: () => null } : node(tag));
+globalThis.document.createElement = (tag) => (tag === 'canvas' ? { getContext: () => null, setAttribute() {}, style: {} } : node(tag));
 globalThis.document.createElementNS = (ns, tag) => node(tag);
 globalThis.getComputedStyle = () => ({ fontSize: `${size.f}px`, getPropertyValue: () => '' });
 let frames = [];
@@ -36,6 +45,7 @@ const fp = (pv, ha, shunt = 0, via = {}) => {
   return { at: { Q }, shunt };
 };
 const healthy = fp(73, 27);
+const chart = (card) => card.el.kids.find((k) => k.tag === 'svg');   // (the bar's model, beside its GPU picture)
 const walk = (n, out = []) => { out.push(n); for (const k of n.kids || []) if (k && typeof k === 'object') walk(k, out); return out; };
 const words = (n) => n.kids.filter((k) => typeof k === 'string').join('');
 const drain = () => { let n = 0; while (frames.length && n++ < 300) frames.shift()(); return n; };
@@ -96,7 +106,7 @@ test('at the opening slide\'s width every name is whole where it fits and short 
 test('the card draws one bar the full width, centred top to bottom, with the Healthy line and no second bar', () => {
   for (const now of [healthy, fp(20, 80), fp(0, 100)]) {
     const card = drawCard('inflow', now);
-    const all = walk(card.el.kids[0]), segs = all.filter((n) => n.attrs.class === 'pfl-seg');
+    const all = walk(chart(card)), segs = all.filter((n) => n.attrs.class === 'pfl-seg');
     assert.ok(segs.length >= 1 && segs.length <= 2);
     assert.ok(Math.abs(Math.min(...segs.map((s) => +s.attrs.x))) < 1e-6, 'the bar starts at the card\'s left edge');
     assert.ok(Math.abs(Math.max(...segs.map((s) => +s.attrs.x + +s.attrs.width)) - size.w) < 1e-6, 'and runs to its right edge');
@@ -120,7 +130,7 @@ test('the card is as tall as its drawing: the group fits the six em it is given'
 
 test('a name that changes wording fades out and back in, never two wordings at once, and the card settles', () => {
   const card = drawCard('inflow', healthy);
-  const say = () => walk(card.el.kids[0]).filter((n) => n.attrs.class === 'pfl-lab' && n.attrs['data-part'] === 'portal').map((g) => g.kids.map(words).join('|'));
+  const say = () => walk(chart(card)).filter((n) => n.attrs.class === 'pfl-lab' && n.attrs['data-part'] === 'portal').map((g) => g.kids.map(words).join('|'));
   assert.deepEqual(say(), ['Portal vein|73%']);
   frames = [];
   card.configure({ kind: 'flows', of: 'inflow' }, { fp: fp(20, 80), healthy: () => healthy });
@@ -133,8 +143,8 @@ test('a name that changes wording fades out and back in, never two wordings at o
   card.dispose();
 });
 
-const bar = (card) => walk(card.el.kids[0]).filter((n) => n.attrs.class === 'pfl-seg');
-const pills = (card) => walk(card.el.kids[0]).filter((n) => /\bpfl-pill\b/.test(n.attrs.class || ''));
+const bar = (card) => walk(chart(card)).filter((n) => n.attrs.class === 'pfl-seg');
+const pills = (card) => walk(chart(card)).filter((n) => /\bpfl-pill\b/.test(n.attrs.class || ''));
 const rectOf = (n) => n.kids.find((k) => k.tag === 'rect').attrs;
 const portal = (liver, ...routes) => [{ id: 'liver', name: 'Liver', pct: liver }, ...routes.map(([id, name, pct]) => ({ id, name, pct }))];
 const H = 10 * 12;   // (the portal blood card is ten em tall)
@@ -206,7 +216,7 @@ test('the Healthy bracket spans the share its liver takes of the bar, its words 
 test('the portal blood card draws one bar the full width, the bracket over it and the pills under it, centred top to bottom and left to right', () => {
   const now = fp(73, 27, 0.5, { C1b: 6, C5: 4, C3: 2, C6: 2.5, C4: 0.5 });   // (liver 50%; four routes, the smaller ones too narrow for their names)
   for (const [w, h] of [[330, H], [420, H], [260, H]]) {
-    const card = drawCard('portal', now, w, h, 12), all = walk(card.el.kids[0]), segs = bar(card);
+    const card = drawCard('portal', now, w, h, 12), all = walk(chart(card)), segs = bar(card);
     assert.ok(segs.length >= 2, 'the liver and its routes');
     assert.ok(Math.abs(Math.min(...segs.map((s) => +s.attrs.x))) < 1e-6 && Math.abs(Math.max(...segs.map((s) => +s.attrs.x + +s.attrs.width)) - w) < 1e-6, `${w}: the bar runs from edge to edge`);
     assert.equal(new Set(segs.map((s) => s.attrs.y)).size, 1, 'one bar: every segment on one row');
@@ -228,7 +238,7 @@ test('the portal blood card draws one bar the full width, the bracket over it an
 
 test('a card with no pills (the liver alone) centres the bar and the bracket', () => {
   const card = drawCard('portal', fp(73, 27, 0), 330, H, 12), geo = routeGeo(12);
-  const all = walk(card.el.kids[0]), label = all.find((n) => n.attrs.class === 'pfl-mk').kids.find((k) => k.tag === 'text');
+  const all = walk(chart(card)), label = all.find((n) => n.attrs.class === 'pfl-mk').kids.find((k) => k.tag === 'text');
   const seg = bar(card)[0], above = +label.attrs.y - geo.base, below = H - (+seg.attrs.y + +seg.attrs.height);
   assert.equal(pills(card).length, 0);
   assert.ok(Math.abs(above - below) < 0.01, `${above.toFixed(1)} above, ${below.toFixed(1)} below`);
@@ -237,7 +247,7 @@ test('a card with no pills (the liver alone) centres the bar and the bracket', (
 
 test('a name that moves between the bar and a pill fades out and in: one wording at a time, and the card settles', () => {
   const card = drawCard('portal', fp(73, 27, 0.4, { C1b: 8 }), 330, H, 12);   // (Varices is the whole 40% bypassing the liver: named on its segment)
-  const wording = () => walk(card.el.kids[0]).filter((n) => n.attrs['data-part'] === 'var' && /\b(pfl-lab|pfl-pill)\b/.test(n.attrs.class || '')).map((n) => n.attrs.class.replace('ppf-pill ', ''));
+  const wording = () => walk(chart(card)).filter((n) => n.attrs['data-part'] === 'var' && /\b(pfl-lab|pfl-pill)\b/.test(n.attrs.class || '')).map((n) => n.attrs.class.replace('ppf-pill ', ''));
   assert.deepEqual(wording(), ['pfl-lab'], 'named on its segment');
   frames = [];
   card.configure({ kind: 'flows', of: 'portal' }, { fp: fp(73, 27, 0.4, { C1b: 0.6, C5: 7, C6: 0.3, C3: 0.2 }), healthy: () => healthy });   // (now 7% of the bypass: a few pixels)

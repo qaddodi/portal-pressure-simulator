@@ -22,11 +22,9 @@
 // These are the model's own speeds, not a patient's: a deck line that quotes them needs a source, or none.
 
 import { TILE, RATE } from './table-marks.js?v=ff3ed0cc47';
-import { lineMeta, cutsOf, fmtTick, placeWord } from './tool-curve.js?v=c235d752cd';
+import { lineMeta, cutsOf, fmtTick, placeWord } from './tool-curve.js?v=0a5880736e';
 import { plotPanel } from './plot-look.js?v=5037697da7';
-import { frameFor } from './frame.js?v=7710f677e2';
-import { morphSvg } from './svg-morph.js?v=e2c6c2224c';
-const nextFrame = frameFor('tool-course');
+import { createSvgGL, svgModel } from './svg-gl.js?v=43aae69fb6';
 
 const CO_MIN = 12;   // (px on the screen: the smallest the chart's words are drawn)
 const BRANCH_C = ['--tr-pv', '--tr-hv'];
@@ -195,13 +193,8 @@ export function compose(w, h, f, c, ser) {
   return { G, labels, zoneNames };
 }
 
-const SVGNS = 'http://www.w3.org/2000/svg';
-const sv = (tag, attrs = {}, ...kids) => {
-  const el = document.createElementNS(SVGNS, tag);
-  for (const [k, v] of Object.entries(attrs)) if (v != null) el.setAttribute(k, v);
-  el.append(...kids.flat(2).filter((k) => k != null));
-  return el;
-};
+// (2 Nov 2026: the chart is a model drawn on the GPU, svg-gl.js: the same tree, of plain elements, never painted by the browser.)
+const sv = svgModel;
 
 // Each deck's courses, kept once worked out (by deck, then slide and tool).
 const kept = new WeakMap();
@@ -231,6 +224,7 @@ export function warmCourse(t, c) { if (t && c) courseWork(t, c)?.catch(() => nul
 export function createCourse() {
   const el = document.createElement('div');
   el.className = 'pz-curve pz-course';   // (the curve's card: its height, type and number styles)
+  const gl = createSvgGL(el);
   let t = null, c = null, ctx = null, ser = null, parts = null, G = null, labels = null, zoneNames = [], key = '', lastSz = '';
 
   const size = () => {
@@ -286,12 +280,7 @@ export function createCourse() {
     parts = build();
     // (The new course takes over the old chart's zones, numbers and lines, each gliding to its new place; the lines of a course that has just
     // arrived fade in over the axes already there (svg-morph.js). Where that cannot be, the new chart fades in over the old one.)
-    if (fade && old && morphSvg(old, parts.svg)) { /* the morph appended it */ }
-    else if (fade && old) {
-      parts.svg.classList.add('in'); el.append(parts.svg);
-      nextFrame(() => nextFrame(() => parts?.svg.classList.remove('in')));
-      setTimeout(() => old.remove(), 480);
-    } else el.replaceChildren(parts.svg);
+    gl.show(parts.svg, !!(fade && old));
   }
   if (typeof ResizeObserver === 'function') new ResizeObserver(() => {
     if (!t || !parts || !el.isConnected) return;
@@ -320,6 +309,6 @@ export function createCourse() {
       } else if (!ser && ctx) fetchCourse(key, ctx);
     },
     pin() {}, update() {}, clear() {},
-    dispose() { t = null; ctx = null; parts = null; el.replaceChildren(); },
+    dispose() { t = null; ctx = null; parts = null; gl.dispose(); el.replaceChildren(); },
   };
 }

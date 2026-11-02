@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { flowTimeHeight, LINE, MEAL_LINES } from '../src/ui/flow-time.js';
+await import('./dom-shim.js');   // (the chart draws on the GPU, svg-gl.js, which loads only with a page)
+const { flowTimeHeight, LINE, MEAL_LINES } = await import('../src/ui/flow-time.js');
 
 test('wide meal charts shorten to their room without sacrificing the two plots', () => {
   const full = flowTimeHeight(420, 12, 500);
