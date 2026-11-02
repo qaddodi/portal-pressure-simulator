@@ -105,7 +105,7 @@ function wrap(gl, r) {
   own('copyTexSubImage2D', (f) => (t, l, a, b, x, y, w, h) => { f(t, l, a, b, x, y, w, h); if (hook) hook(gl, 'copy', w * h); });
   const c = gl.canvas;
   // (A loss ends the generation at once: nothing kept from it (limits, framebuffer verdicts, bindings) answers for the next one.)
-  const end = () => { r.fresh = false; r.lim = new Map(); r.fbOk = new Set(); r.gen++; };
+  const end = () => { r.fresh = false; r.lim = new Map(); r.fbOk = new Set(); r.errOk = new Set(); r.gen++; };
   c?.addEventListener?.('webglcontextlost', end);
   c?.addEventListener?.('webglcontextrestored', () => { end(); if (hook) tell('restored', []); });
 }
@@ -114,7 +114,7 @@ function recOf(gl) {
   let r = recs.get(gl);
   if (r === undefined) {
     if (!GL_STATE || !isGL2(gl)) { recs.set(gl, null); return null; }
-    r = { fresh: false, gen: 1, fbOk: new Set() };
+    r = { fresh: false, gen: 1, fbOk: new Set(), errOk: new Set() };
     sweep(gl, r);
     wrap(gl, r);
     recs.set(gl, r);
@@ -222,6 +222,30 @@ export function fbComplete(gl, target, key, w, h) {
 }
 /** For tests and ?perf: how many layouts this context's generation holds a complete verdict for. */
 export const fbVerdicts = (gl) => recs.get(gl)?.fbOk?.size ?? 0;
+
+// Error checks once per layout and context generation (review pass 2, item 9). A copy or allocation that can only fail for want of
+// support (a float table) or of memory (the wide copy's tiles, the resolution fade's copy, the sinusoid's kept picture) used to ask
+// gl.getError after every call: a synchronous trip to the GPU process, often inside a frame. Now the first of each layout in a context
+// generation is asked (any earlier error drained first), and once it went through the next ones are taken as going through: a context
+// that runs out of memory is lost, and a loss starts a new generation, asked afresh. ?errcache=0: asked every time, as before.
+// (field-gl.js sendCanvas keeps its own check on every send: it is what keeps a texture the GPU had no room for from being sampled
+// as opaque black, the iPhone black flash of 1 Nov.)
+const ERR_CACHE = !/[?&]errcache=0\b/.test(SEARCH);
+/** Clears the errors before a call of layout `key` that is to be checked (nothing, once that layout went through in this generation). */
+export function glOkBefore(gl, key) {
+  const r = recOf(gl);
+  if (ERR_CACHE && r?.fresh && r.errOk?.has(key)) return;
+  for (let i = 0; i < 8 && gl.getError() !== gl.NO_ERROR && !gl.isContextLost(); i++);
+}
+/** Whether the calls since glOkBefore(gl, key) went through: asked of the driver the first time per layout and generation only. */
+export function glOkAfter(gl, key) {
+  if (gl.isContextLost()) return false;
+  const r = recOf(gl);
+  if (ERR_CACHE && r?.fresh && r.errOk?.has(key)) return true;
+  const ok = gl.getError() === gl.NO_ERROR;
+  if (ok && r && !gl.isContextLost()) (r.errOk ||= new Set()).add(key);
+  return ok;
+}
 
 // Every WebGL2 context the page makes is recorded from its creation (the registry then sees its first allocation too).
 if (GL_STATE && W2) {

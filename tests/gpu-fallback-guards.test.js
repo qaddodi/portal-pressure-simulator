@@ -115,7 +115,7 @@ test('every WebGL2 surface rebuilds after a lost context (or is a probe or a sec
   assert.match(lz, /function tissueRestored\(\) \{ if \(tissueGL\?\.lost\) \{ tissueGL = undefined; wake\(\); \} \}/);
   assert.match(lz, /function tissueLost\(\) \{ showTissueGL\(false\); wake\(\); \}/);
   assert.match(src('src/ui/field-gl.js'), /addEventListener\('webglcontextrestored', \(\) => \{\n\s*if \(dead\) return;\n\s*texs\.clear\(\);\n\s*try \{ build\(\); \}/);
-  assert.match(src('src/ui/sinusoid-gl.js'), /addEventListener\('webglcontextrestored', \(\) => \{ epoch\+\+; sent\.clear\(\); ok = init\(\); \}\);/);
+  assert.match(src('src/ui/sinusoid-gl.js'), /addEventListener\('webglcontextrestored', \(\) => \{ epoch\+\+; sent\.clear\(\); ok = null; skipped = true; startLater\(\); \}\);/);
   assert.match(src('src/ui/sinusoid-view.js'), /gpu\.epoch/);
   // (Glass and labels: in place.)
   assert.match(src('src/ui/glass-gl.js'), /canvas\?\.addEventListener\('webglcontextrestored', onBack\);/);

@@ -12,15 +12,15 @@
 // know, a keyboard focus ring) stays drawn by the SVG, label by label. Without WebGL2, on a software renderer, with ?gpulabels=0, or
 // once the context is lost, the SVG draws them all, as it always has.
 
-import { glGet, glCap } from './gl-state.js?v=fb0dea79ba';
+import { glGet, glCap } from './gl-state.js?v=900a43dce7';
 import { frameFor, cancelFrame } from './frame.js?v=c67ad74ad8';
 import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=81fbedda6b';
-import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js?v=5096509185';
+import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js?v=0ca233872f';
 import { createAtlasPacker, batchRuns } from './atlas-pack.js?v=43b8bc019d';
 import { easeMove, D_SURFACE } from './ease.js?v=7513a88c68';
-import { createShapeGL, flattenPath, polyMesh, ellipsePoly } from './shape-gl.js?v=d8f75afcd5';
-import { createOrganPaint, parseColor, mul } from './organ-paint.js?v=b41b3ec9b3';
-import { textPolys, textWidth, loadGlyphs, glyphsReady, textCovers } from './text-gl.js?v=f983c94e6f';
+import { createShapeGL, flattenPath, polyMesh, ellipsePoly } from './shape-gl.js?v=6041ddca5c';
+import { createOrganPaint, parseColor, mul } from './organ-paint.js?v=06283df8d4';
+import { textPolys, textWidth, loadGlyphs, glyphsReady, textCovers } from './text-gl.js?v=6be25e020a';
 import { trackOf, trackAt, mixColour, timingOf, progressAt, keysOf } from './label-track.js?v=814746f511';
 
 // (1 Nov 2026, the GPU motion review.) A label's or a leader's fade or colour ease is followed from its animations (label-track.js), and its

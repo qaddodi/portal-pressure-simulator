@@ -19,19 +19,19 @@
 // the sinusoid exactly over the lobule's one at every step: first the vessel itself, then the tissue
 // around it.
 
-import { h, fmt, clamp, lerp } from './util.js?v=598aaeb2a1';
-import { createSvgGL, svgModel } from './svg-gl.js?v=04c7b267a2';
-import { pressureColor } from './colormap.js?v=ffe8bc4e35';
+import { h, fmt, clamp, lerp } from './util.js?v=6dd9ffb490';
+import { createSvgGL, svgModel } from './svg-gl.js?v=5a3e75df7a';
+import { pressureColor } from './colormap.js?v=1f957035b7';
 import { isPaused } from './clock.js?v=b2a395ebe7';
 import { store } from './store.js?v=bf85512db4';
 import { STEP_MAX } from './glide-clock.js?v=220d7f875c';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
-import { createSinusoidGL, poreAt, poreOpenness, calloutPore, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=c85238f938';
-import { placeFenDisse } from './fen-place.js?v=eeda951a6d';
+import { createSinusoidGL, poreAt, poreOpenness, calloutPore, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=7c4101adad';
+import { placeFenDisse } from './fen-place.js?v=cfe8cebd80';
 import { frameFor, noteDraw, saver, paceMs, renderScale, onRenderScale } from './frame.js?v=c67ad74ad8';
 import { softwareGL, softwareYield } from './sw-yield.js?v=18a3b54a4d';
 import { noteSinusoidSupport, sinusoidSupported, CTX_LAZY } from './gl-support.js?v=38189f60f5';
-import { FADE_MS, fadeAlpha } from './res-fade.js?v=66146b8e6f';
+import { FADE_MS, fadeAlpha } from './res-fade.js?v=6b7cfd68e6';
 import { cssColor8 } from './css-color.js?v=e56f0c77ae';
 import { surface } from './gpu-surfaces.js?v=2af17044e7';
 import { restPass } from './rest-pass.js?v=0553dca9cc';
@@ -163,7 +163,7 @@ export function createSinusoidView({ host, before = null }) {
   function ensureGpu() {
     if (gpu || gpuTried) return;
     gpuTried = true;
-    gpu = createSinusoidGL(canvas, { warm: CTX_LAZY });
+    gpu = createSinusoidGL(canvas, { warm: CTX_LAZY, onReady: () => { gpuKey = ''; wake(); } });   // (published after a draw found it compiling: drawn now)
     noteSinusoidSupport(!!gpu);
     // (A software renderer only: a frame of the view waits for the last to finish on the GPU and gives the page as long again,
     // as the anatomy's vessels do; see sw-yield.js. On a GPU there is no yield.)

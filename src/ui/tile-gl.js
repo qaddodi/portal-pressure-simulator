@@ -12,9 +12,9 @@
 // as for a canvas. The tile itself is a picture recorded for the GPU (lobule-zoom.js drawTile, paint-gl.js), painted into the copier's
 // texture: no 2D canvas anywhere (1 Nov 2026). (No 2D copies since then.)
 
-import { glGet, glOn, fbComplete } from './gl-state.js?v=fb0dea79ba';
-import { prestart, linkProgram } from './gl-compile.js?v=5096509185';
-import { isGpuPicture, paintGL } from './paint-gl.js?v=c0559ab80b';
+import { glGet, glOn, fbComplete } from './gl-state.js?v=900a43dce7';
+import { prestart, prestarted, linkProgram, publishWhenDone, stillCompiling } from './gl-compile.js?v=0ca233872f';
+import { isGpuPicture, paintGL } from './paint-gl.js?v=ff54f53c4c';
 
 /** A copy of tile canvas src made on the GPU. look: { blur (Gaussian sigma, tile px; 0 for none), sat (the grey blend's share),
  *  tone ([r, g, b] 0–1, the colour laid over it), toneA (its opacity), flat (a second layer of the same colour, 0 for none) }.
@@ -66,15 +66,21 @@ void main() {
 }`;
 
 /** The copier for one GPU context: make(copy) returns a new texture holding the copy (repeating, mipmapped), or null if the GPU could
- *  not take it (the caller draws that frame on the 2D canvas, as for a canvas whose send failed). The tile itself is kept on the GPU
+ *  not take it yet (the caller keeps its last frame and asks again shortly, as for a canvas whose send failed; there is no 2D path). The tile itself is kept on the GPU
  *  only between copies made from it (one at a time: the large tiles are 12 MB each), and the program is made on first use. */
 export function createTileCopier(gl) {
-  try { prestart(gl, VS, copyFS, [['p', 0]]); } catch { /* (compiled at the first copy, as before) */ }
+  // (Started with its context, and published by the idle poller once the driver is done (review pass 2, item 2): the first copy finds
+  // its program, vertex array and uniforms ready, with no status read that waits inside a frame.)
+  let early = null;
+  try { early = prestart(gl, VS, copyFS, [['p', 0]]); } catch { /* (compiled at the first copy, as before) */ }
   let prog = null, U = null, vao = null, raw = null, failed = false;
   gl.canvas?.addEventListener?.('webglcontextlost', () => { prog = null; U = null; vao = null; raw = null; });
   function ready() {
     if (prog) return true;
     if (failed || gl.isContextLost()) return false;
+    // (Still compiling: no copy this frame (null: the tile keeps its last frame and is asked again shortly), never a wait for the driver.)
+    const waiting = prestarted(gl, VS, copyFS);
+    if (waiting && stillCompiling(gl, [waiting])) return false;
     try {
       // (Started with its context by createTileCopier, gl-compile.js prestart, and taken up here, its compile long done.)
       const p = linkProgram(gl, VS, copyFS, [['p', 0]]);
@@ -91,6 +97,7 @@ export function createTileCopier(gl) {
       return true;
     } catch (err) { failed = true; console.warn('The lobule field\'s copies are made on the main thread.', err); return false; }
   }
+  if (early) publishWhenDone(gl, [early], () => { try { ready(); } catch { /* (read at the first copy) */ } });
   const texture = (w, h, filter) => {
     const t = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, t);

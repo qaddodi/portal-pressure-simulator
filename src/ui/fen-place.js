@@ -5,7 +5,7 @@
 // threshold, so it is still an open pore in a cirrhotic wall) from those the nuclei's swells leave showing, by place only, so
 // the choice never moves as the pores open and close.
 
-import { underNucleus } from './sinusoid-gl.js?v=c85238f938';
+import { underNucleus } from './sinusoid-gl.js?v=7c4101adad';
 
 // The stretches of [lo, hi] the intervals in `avoid` leave, each at least w wide.
 function room(lo, hi, avoid, w) {

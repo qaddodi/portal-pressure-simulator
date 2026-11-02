@@ -8,7 +8,8 @@
 // The canvas keeps no picture between frames, so the old one is laid on the blank canvas at once after its resize (seed), and from
 // then on only by a present (which first puts the whole current picture back): a frame that draws nothing shows the last one.
 
-import { prestart, prestarted, linkProgram, compileDone, exerciseDraw, SHADER_WARM } from './gl-compile.js?v=5096509185';
+import { prestart, prestarted, linkProgram, compileDone, exerciseDraw, SHADER_WARM } from './gl-compile.js?v=0ca233872f';
+import { glOkBefore, glOkAfter } from './gl-state.js?v=900a43dce7';
 
 const VS = `#version 300 es
 in vec2 c;
@@ -107,6 +108,7 @@ export function keepOnGpu(host) {
   let k, tex;
   try {
     k = kit(gl);
+    glOkBefore(gl, 'res-fade');
     tex = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, tex);
     gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
@@ -115,7 +117,7 @@ export function keepOnGpu(host) {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.bindTexture(gl.TEXTURE_2D, null);
-    if (gl.getError() !== gl.NO_ERROR) throw new Error('copy');
+    if (!glOkAfter(gl, 'res-fade')) throw new Error('copy');   // (asked once per context generation: gl-state.js)
   } catch { if (tex) gl.deleteTexture(tex); return null; }
   const g = { w: W, h: H, a: 1, m: null, cw: 0, ch: 0, off: null };
   function draw(a, m, w, h, clear = false) {

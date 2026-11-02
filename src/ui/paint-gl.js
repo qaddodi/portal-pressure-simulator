@@ -11,11 +11,11 @@
 // and a context that is handed one in place of a canvas makes its texture from the record (isGpuPicture), the first time it is drawn.
 // No 2D context, no drawImage and no pixel read anywhere (the owner, 1 Nov 2026: "block everything until everything is on GPU").
 
-import { glGet, glOn, glCap } from './gl-state.js?v=fb0dea79ba';
+import { glGet, glOn, glCap } from './gl-state.js?v=900a43dce7';
 import { cssColor } from './css-color.js?v=e56f0c77ae';
-import { hold } from './gpu-budget.js?v=5999267cfa';
+import { hold } from './gpu-budget.js?v=47759d6d7b';
 import { WARM_VIEWS, WARM_MS, bucket } from './warm-views.js?v=510b2dee9e';
-import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js?v=5096509185';
+import { startProgram, checkProgram, publishWhenDone, stillCompiling } from './gl-compile.js?v=0ca233872f';
 
 const TAU = Math.PI * 2;
 const TOL = 0.2;   // (curves flattened to within 0.2 device px)
@@ -398,6 +398,9 @@ export function createPaintGL(gl) {
     if (progs) return true;
     if (failed || gl.isContextLost()) return false;
     if (!started) begin();
+    // (Review pass 2, item 2: never a status read that waits for the driver at the first paint. Still compiling, there is no picture
+    // yet (null: the tissue keeps its last frame and asks again shortly), and the poller publishes the programs once they are done.)
+    if (started && stillCompiling(gl, started)) return false;
     try {
       const [c, p, b] = started.map((h) => checkProgram(gl, h));
       const loc = (pr, ns) => Object.fromEntries(ns.map((n) => [n, gl.getUniformLocation(pr, n)]));

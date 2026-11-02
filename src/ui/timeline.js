@@ -12,13 +12,13 @@
 
 import { store, replaceParams, onParamChange } from './store.js?v=bf85512db4';
 import { host } from './host.js?v=606ab97574';
-import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp, putText, swapText } from './util.js?v=598aaeb2a1';
-import { activeInterventions } from './inspector.js?v=ac8ae82825';
+import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp, putText, swapText } from './util.js?v=6dd9ffb490';
+import { activeInterventions } from './inspector.js?v=f5e201584d';
 import { removedLabel } from './removed-label.js?v=ea3de67900';
 import { frameFor } from './frame.js?v=c67ad74ad8';
 import { D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=7513a88c68';
-import { createSvgGL, svgModel } from './svg-gl.js?v=04c7b267a2';
-import { textPolys, textBox, loadGlyphs, glyphsReady } from './text-gl.js?v=f983c94e6f';
+import { createSvgGL, svgModel } from './svg-gl.js?v=5a3e75df7a';
+import { textPolys, textBox, loadGlyphs, glyphsReady } from './text-gl.js?v=6be25e020a';
 import { restPass } from './rest-pass.js?v=0553dca9cc';
 const nextFrame = frameFor('timeline');
 

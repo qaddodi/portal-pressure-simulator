@@ -6,7 +6,7 @@
 // A panel's map is drawn inside its chart drawer's own context (elastogramUnder, under the words); elastogramGL's own small
 // context is kept for the checks and for a panel drawn without the chart drawer (?tracegl=0).
 
-import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=5096509185';
+import { startProgram, checkProgram, exerciseDraw, publishWhenDone, stillCompiling } from './gl-compile.js?v=0ca233872f';
 
 const VS = `#version 300 es
 in vec2 p;
@@ -70,7 +70,7 @@ function make(F) {
   // (lost: the GPU does not draw the map, from the loss until the rebuilt program is published.)
   let lost = false, started = null, stopPoll = null;
   const U = {};
-  const s = { canvas, gl, U, failed: false, published: false, get lost() { return lost || s.failed; } };
+  const s = { canvas, gl, U, failed: false, published: false, wanted: false, onReady: null, started: () => started, want: () => stopPoll?.want?.(), get lost() { return lost || s.failed; } };
   // The finished program read, its samplers set and one draw made into a throwaway 1 × 1 target, so the first map has no driver work left.
   s.publish = () => {
     if (s.published || s.failed || gl.isContextLost()) return;
@@ -81,6 +81,7 @@ function make(F) {
       ['a1', 'a2', 'b1', 'b2', 'p1', 'p2'].forEach((k, i) => gl.uniform1i(U[`u${k.toUpperCase()}`], i));
       exerciseDraw(gl, () => { gl.uniform1f(U.uN, 1); gl.uniform1f(U.uNB, 1); gl.uniform1f(U.uC, 1); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); });
       s.published = true; lost = false;   // (after a restore: the GPU draws the maps again)
+      if (s.wanted) { s.wanted = false; try { s.onReady?.(); } catch (e2) { console.warn('FibroScan map: the redraw failed.', e2); } }
     } catch (e) {
       if (gl.isContextLost()) return;   // (lost while it was read: the restore makes it again)
       s.failed = true; console.warn('FibroScan map: WebGL2 shader failed, drawn on the CPU.', e);
@@ -128,10 +129,11 @@ export function elastogramGL(F, NB, t0, N, c, t) {
  * A panel's own map drawer, its canvas to put in the page (under the panel's words): { canvas, draw(F, NB, t0, N, c, t) → whether it
  * drew, lost }, or null without WebGL2. Each panel has its own, so two panels on screen never share one canvas.
  */
-export function createElastogramGL(F) {
+export function createElastogramGL(F, { onReady = null } = {}) {
   let s = null;
   try { s = make(F); } catch (e) { console.warn('FibroScan map: WebGL2 unavailable.', e); s = null; }
   if (!s) return null;
+  s.onReady = onReady;
   return { canvas: s.canvas, draw: (fMap, NB, t0, N, c, t) => !!drawMap(s, fMap, NB, t0, N, c, t), get lost() { return s.lost; },
     /** Lets the context go (the panel is off screen): a page holds only so many WebGL contexts, and past that the browser drops the oldest, the figure's. */
     dispose() { stopAll(s); } };
@@ -139,6 +141,9 @@ export function createElastogramGL(F) {
 function stopAll(s) { try { s.gl.getExtension('WEBGL_lose_context')?.loseContext(); } catch { /* already gone */ } s.canvas.width = s.canvas.height = 0; s.canvas.remove(); }
 function drawMap(s, F, NB, t0, N, c, t) {
   if (s.lost) return null;
+  // (Never published inside a frame while the driver still compiles: no map this frame (the panel hides it), the poller publishes the
+  // program once it is done and onReady draws the panel again. Review pass 2, item 2.)
+  if (!s.published && s.started?.() && stillCompiling(s.gl, [s.started()])) { s.wanted = true; s.want?.(); return null; }
   s.publish();
   if (s.lost || !s.published) return null;
   const { gl, U, canvas } = s;

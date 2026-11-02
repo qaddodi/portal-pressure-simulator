@@ -10,8 +10,8 @@
 // returns false and the caller builds the 2D tiles instead. A context lost mid-zoom reports lost; the caller then drops the copy. When
 // the browser gives the context back, the programs are made again in place, and the next copy is built on it (the lost one stays lost).
 
-import { startProgram, checkProgram } from './gl-compile.js?v=5096509185';
-import { fbComplete, glCap } from './gl-state.js?v=fb0dea79ba';
+import { startProgram, checkProgram } from './gl-compile.js?v=0ca233872f';
+import { fbComplete, glCap, glOkBefore, glOkAfter } from './gl-state.js?v=900a43dce7';
 
 export const WIDE_GL = !(typeof location !== 'undefined' && /[?&]widegl=0\b/.test(location.search || ''));
 
@@ -92,13 +92,14 @@ export function createWideGL(canvas, { host = null } = {}) {
   }
   try { init(); } catch (err) { console.warn('The wide copy falls back to the 2D canvas.', err); hostDone(); return null; }
   let tiles = [];   // { tex, x, y, w, h (CSS px in the box, its own part), pw, ph (texels), uw, uh (its own part, 0 … 1) }
-  const ok = () => !lost && !gl.isContextLost() && gl.getError() === gl.NO_ERROR;
+  // (Its calls' errors asked once per context generation, gl-state.js glOkAfter: not after every layer and tile of every copy.)
+  const ok = () => !lost && !gl.isContextLost() && glOkAfter(gl, 'wide');
   function clear() { if (!lost && !gl.isContextLost()) for (const t of tiles) gl.deleteTexture(t.tex); tiles = []; }
   return {
     get lost() { return lost || stale || gl.isContextLost(); },
     get count() { return tiles.length; },
     /** Starts a copy (the last one's tiles given back). */
-    begin() { clear(); if (!lost && !gl.isContextLost()) stale = false; while (gl.getError() !== gl.NO_ERROR && !gl.isContextLost()); return !this.lost; },
+    begin() { clear(); if (!lost && !gl.isContextLost()) stale = false; glOkBefore(gl, 'wide'); return !this.lost; },
     /** One tile: t { x, y, w, h } its own part in the box (CSS px), pw × ph its texture (device px, with the overlap), dpr; layers:
      *  the canvases to lay, bottom first, each drawn for this tile from its top left (larger ones cropped), or 'host' (hosted): the host's
      *  canvas, every layer laid there for this tile, copied from its top left inside the context. False if the GPU refused. */

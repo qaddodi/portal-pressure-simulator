@@ -11,12 +11,12 @@
 // Without WebGL2 (or once the context is lost) createTissueGL returns null / reports lost, and the tissue is not drawn until the
 // context is back: there is no 2D drawing of it (1 Nov 2026, nothing off the GPU). A software renderer draws it too.
 
-import { startProgram, checkProgram, exerciseDraw, publishWhenDone, compileDone, SHADER_WARM } from './gl-compile.js?v=5096509185';
-import { TILE_OVER, sendCanvas, SEND_RETRY } from './field-gl.js?v=349ddf01b0';
-import { isTileCopy, createTileCopier } from './tile-gl.js?v=2e5a3dbcd4';
-import { isGpuPicture, paintGL } from './paint-gl.js?v=c0559ab80b';
+import { startProgram, checkProgram, exerciseDraw, publishWhenDone, compileDone, SHADER_WARM } from './gl-compile.js?v=0ca233872f';
+import { TILE_OVER, sendCanvas, SEND_RETRY } from './field-gl.js?v=222aac4635';
+import { isTileCopy, createTileCopier } from './tile-gl.js?v=4e2e9a2b46';
+import { isGpuPicture, paintGL } from './paint-gl.js?v=ff54f53c4c';
 import { LIVE_FS, CELLS_PER_ROW, IDX_ROW, SEG_ROW, K_ROW, BIN, panShift, panPlan } from './lobule-live.js?v=b585d4fb63';
-import { fbComplete } from './gl-state.js?v=fb0dea79ba';
+import { fbComplete } from './gl-state.js?v=900a43dce7';
 
 const VS = `#version 300 es
 in vec2 p;

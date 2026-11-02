@@ -16,7 +16,7 @@
 // tierLog() keeps the last changes, each with why and the registry's size then. ?perf shows the tier with the budget.
 
 import { onFrameEnd, frameBudget, perfMode } from './frame.js?v=c67ad74ad8';
-import { overBudget as graphOver, budget } from './gpu-budget.js?v=5999267cfa';
+import { overBudget as graphOver, budget } from './gpu-budget.js?v=47759d6d7b';
 
 const SEARCH = typeof location !== 'undefined' ? location.search || '' : '';
 export const TIERS_ON = !/[?&]tiers=0\b/.test(SEARCH);

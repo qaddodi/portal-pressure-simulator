@@ -2,9 +2,9 @@
 
 import { NODES } from '../engine/topology.js?v=4044766e96';
 import { PROFILE_PATHS, SHORT } from './anatomy.js?v=fe0f3d1f0e';
-import { pressureColor } from './colormap.js?v=ffe8bc4e35';
+import { pressureColor } from './colormap.js?v=1f957035b7';
 import { store, hiddenNow } from './store.js?v=bf85512db4';
-import { h, fmt, canvasSize, cssVar, cssAlpha, clamp, createEaser, axisTop } from './util.js?v=598aaeb2a1';
+import { h, fmt, canvasSize, cssVar, cssAlpha, clamp, createEaser, axisTop } from './util.js?v=6dd9ffb490';
 import { frameFor, cancelFrame, paceMs } from './frame.js?v=c67ad74ad8';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { shownOr } from './shown.js?v=5fbb8070af';
@@ -12,10 +12,10 @@ import { monotoneSegs, curveTester } from './curve-near.js?v=663c98a29c';
 import { glideMoving } from './idle-keys.js?v=81fbedda6b';
 import { plotFill } from './plot-look.js?v=5037697da7';
 import { D_SMALL, EASE_ARRIVE } from './ease.js?v=7513a88c68';
-import { createTraceGL, fitPen } from './trace-gl.js?v=955d5c2585';
+import { createTraceGL, fitPen } from './trace-gl.js?v=a3efa5e0e4';
 import { restPass, cancelRest } from './rest-pass.js?v=0553dca9cc';
-import { measure } from './glyph-measure.js?v=d5602f13b1';
-import { glWords } from './gl-words.js?v=8a1a4a1c85';
+import { measure } from './glyph-measure.js?v=d02d2bd1bd';
+import { glWords } from './gl-words.js?v=8a52550e2f';
 const nextFrame = frameFor('charts');
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));

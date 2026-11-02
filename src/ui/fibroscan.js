@@ -4,12 +4,12 @@
 // are left out. The map is a continuously evolving reading: coherent speckle that morphs smoothly, one
 // dominant dark shear-wave band, and a slope that drifts gently around the model's value.
 
-import { h, clamp, cssAlpha, canvasSize } from './util.js?v=598aaeb2a1';
-import { createTraceGL, fitPen } from './trace-gl.js?v=955d5c2585';
-import { FONT } from './charts.js?v=85c0a2d6d0';
+import { h, clamp, cssAlpha, canvasSize } from './util.js?v=6dd9ffb490';
+import { createTraceGL, fitPen } from './trace-gl.js?v=a3efa5e0e4';
+import { FONT } from './charts.js?v=1636346584';
 import { simTime, isPaused, fibroReading } from './clock.js?v=b2a395ebe7';
 import { store } from './store.js?v=bf85512db4';
-import { createElastogramGL, elastogramUnder } from './fibroscan-gl.js?v=2368cae563';
+import { createElastogramGL, elastogramUnder } from './fibroscan-gl.js?v=2991b67874';
 import { surface } from './gpu-surfaces.js?v=2af17044e7';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs } from './frame.js?v=c67ad74ad8';
 import { createFollow } from './display-state.js?v=8d062d39dc';
@@ -115,7 +115,7 @@ export function createFibroScan() {
   let map, mapCv = null;
   const makeMap = () => {
     if (map !== undefined || gone || !onScreen()) return map ?? null;
-    map = createElastogramGL(fields());
+    map = createElastogramGL(fields(), { onReady: () => { if (!gone) paint(performance.now()); } });
     if (map) { mapCv = map.canvas; mapCv.className = 'fs-map'; mapCv.setAttribute('aria-hidden', 'true'); mapCv.style.visibility = 'hidden'; cv.before(mapCv); }
     return map;
   };

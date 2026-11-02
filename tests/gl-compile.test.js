@@ -165,7 +165,7 @@ test('the lobule tissue, lobule field, sinusoid and the instruments start their 
     assert.doesNotMatch(s, /gl\.linkProgram/, `${f} links through gl-compile.js`);
   }
   const sin = src('src/ui/sinusoid-gl.js');
-  assert.match(sin, /publishWhenDone\(gl, begin\(\), ready\)/);
+  assert.match(sin, /stopPoll = publishWhenDone\(gl, begin\(\), publish\)/);
   assert.doesNotMatch(sin, /gl\.compileShader/);
 });
 

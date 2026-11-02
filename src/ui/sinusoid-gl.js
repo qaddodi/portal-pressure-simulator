@@ -521,10 +521,11 @@ uniform sampler2D uOld;
 in vec2 vT;
 out vec4 o;
 void main() { o = texture(uOld, vT); }`;
-import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=5096509185';
+import { startProgram, checkProgram, exerciseDraw, publishWhenDone, stillCompiling, SHADER_READY } from './gl-compile.js?v=0ca233872f';
 import { whenQuiet, booting, holdCover } from './quiet.js?v=388052eba8';
+import { glOkAfter, glOkBefore } from './gl-state.js?v=900a43dce7';
 
-export function createSinusoidGL(canvas, { warm = false } = {}) {
+export function createSinusoidGL(canvas, { warm = false, onReady = null } = {}) {
   let gl = null;
   try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false }); } catch { gl = null; }
   if (!gl) return null;
@@ -563,9 +564,23 @@ export function createSinusoidGL(canvas, { warm = false } = {}) {
   // The shaders are started at the first idle moment after start-up, not during it (nothing shows the sinusoid that early), and
   // published when the driver has finished them (polled from idle moments, never waited on); or at the first draw if that comes
   // sooner, which waits for them as it always did.
-  let ok = null;
-  const ready = () => (ok === null ? (ok = init()) : ok);
-  const startLater = () => { if (ok === null) publishWhenDone(gl, begin(), ready); };
+  // (Review pass 2, item 2: a draw that comes before the programs are published no longer publishes them itself while the driver is
+  // still compiling, where reading their status waits inside the frame. It draws nothing, the compile is started if it was not yet, the
+  // poller publishes it the moment the driver is done, and onReady asks the view to draw again. ?shaderready=0: published here, as before.)
+  let ok = null, skipped = false, stopPoll = null;
+  const publish = () => {
+    if (ok === null) { ok = init(); if (ok && skipped) { skipped = false; try { onReady?.(); } catch (e) { console.warn('sinusoid redraw:', e); } } }
+    return ok;
+  };
+  const startLater = () => { if (ok === null && !stopPoll) stopPoll = publishWhenDone(gl, begin(), publish); };
+  const ready = () => {
+    if (ok !== null) return ok;
+    if (SHADER_READY && !gl.isContextLost()) {
+      if (!pend) { startLater(); skipped = true; stopPoll?.want?.(); return false; }
+      if (stillCompiling(gl, pend)) { skipped = true; stopPoll?.want?.(); return false; }
+    }
+    return publish();
+  };
   // (And only once the page has been left alone: a program started in a pan or a first touch had its compile in that frame, P3.)
   // (warm: made by the view just as it is about to show (ctxlazy): the compile starts now, not at some later idle moment.)
   if (warm) startLater();
@@ -573,11 +588,12 @@ export function createSinusoidGL(canvas, { warm = false } = {}) {
   // While the loading cover is still up nobody can touch the page, so the compile is done there and then, under it, and the cover
   // waits for it: on a phone without requestIdleCallback (Safari) it otherwise came 3 to 4 s after the cover lifted, in the first
   // seconds of use, and its status read blocks until the driver is done.
-  if (!warm && booting()) holdCover(new Promise((done) => setTimeout(() => { try { ready(); } finally { done(); } }, 0)));
-  canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); ok = false; pend = null; });
+  if (!warm && booting()) holdCover(new Promise((done) => setTimeout(() => { try { publish(); } finally { done(); } }, 0)));   // (under the cover: no frame to keep)
+  canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); ok = false; pend = null; stopPoll?.(); stopPoll = null; });
   // (epoch: counts the restores, so a paused view whose picture is "the same as last frame" knows the context is new and draws it again.)
   let epoch = 0;
-  canvas.addEventListener('webglcontextrestored', () => { epoch++; sent.clear(); ok = init(); });
+  // (Restored: compiled again beside the page and published by the poller, never read back in the restore's own task; onReady draws.)
+  canvas.addEventListener('webglcontextrestored', () => { epoch++; sent.clear(); ok = null; skipped = true; startLater(); });
   // A uniform keeps its value in its program, so one is sent only when it changes (most colours never do).
   const sent = new Map();
   const same = (a, b) => (typeof a === 'number' ? a === b : b != null && typeof b !== 'number' && a.length === b.length && Array.prototype.every.call(a, (x, i) => x === b[i]));
@@ -663,13 +679,14 @@ export function createSinusoidGL(canvas, { warm = false } = {}) {
     /** Copies the picture drawn in this task into the mix's texture; false where it cannot (no context, no program). */
     keep() {
       if (!ok || gl.isContextLost() || !canvas.width || !canvas.height || !mixReady()) return false;
+      glOkBefore(gl, 'sv-keep');
       mTex ||= gl.createTexture();
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, mTex);
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       gl.copyTexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 0, 0, canvas.width, canvas.height, 0);
       for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
-      return gl.getError() === gl.NO_ERROR;
+      return glOkAfter(gl, 'sv-keep');   // (asked once per context generation: gl-state.js)
     },
     /** Lays the kept picture over the one just drawn, at weight a (1: the old picture alone, 0: the new). */
     mix(a) {

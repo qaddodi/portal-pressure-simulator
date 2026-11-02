@@ -31,22 +31,22 @@
 //
 // createVeinsGL(canvas) returns null only when WebGL2 is unavailable altogether.
 
-import { glGet, glCap } from './gl-state.js?v=fb0dea79ba';
+import { glGet, glCap, glOkBefore, glOkAfter } from './gl-state.js?v=900a43dce7';
 import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { EDGE_GLSL } from './edge.js?v=8321a8017f';
 import { SLOT, DYE_BINS } from './blood.js?v=f6c91d8676';
-import { cssRGB } from './util.js?v=598aaeb2a1';
+import { cssRGB } from './util.js?v=6dd9ffb490';
 import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js?v=d72157dbac';
 import { CELL, ENT_W, binVeins, splitRows, simpleCells, splitCells, cellsOfJoinEntries } from './veins-bin.js?v=6e462a9e6c';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { changedRows } from './flow-rows.js?v=59053c0155';
 import { leftAlone } from './quiet.js?v=388052eba8';
 import { uniformCache } from './uniform-cache.js?v=d2bd54b612';
-import { PUBLISH_QUIET_MS, SHADER_WARM, exerciseDraw } from './gl-compile.js?v=5096509185';
-import { createShapeGL, flattenPath, ellipsePoly, polyMesh } from './shape-gl.js?v=d8f75afcd5';
-import { createOrganStack, prestartOrganStack, prestartLayer } from './organs-gl.js?v=91065724c7';
-import { warmFade } from './res-fade-gl.js?v=be9f0e74b9';
+import { PUBLISH_QUIET_MS, SHADER_WARM, exerciseDraw } from './gl-compile.js?v=0ca233872f';
+import { createShapeGL, flattenPath, ellipsePoly, polyMesh } from './shape-gl.js?v=6041ddca5c';
+import { createOrganStack, prestartOrganStack, prestartLayer } from './organs-gl.js?v=e083c246d0';
+import { warmFade } from './res-fade-gl.js?v=b47ccc0622';
 import { fusedVS, fusedFS } from './veins-fuse.js?v=892ef12160';
 import { NOISE_W, NOISE_H, NOISE_PER_ROW, OCTAVES, noiseBlock, blockAt, tableSize } from './blood-noise.js?v=bc65994b25';
 import { softwareGL } from './sw-yield.js?v=18a3b54a4d';
@@ -2254,11 +2254,12 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   const noiseDone = new Uint8Array(nTubes);
   const growNoise = (rows) => {
     const [W, H] = tableSize(rows);
-    while (gl.getError()) { /* (earlier errors are not this one's) */ }
+    // (Its errors asked once per context generation, gl-state.js glOkBefore / glOkAfter: a float table the context takes once it takes again.)
+    glOkBefore(gl, 'noise-rgba32f');
     if (H <= glCap(gl, gl.MAX_TEXTURE_SIZE)) {
       gl.bindTexture(gl.TEXTURE_2D, noiseTex);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, W, H, 0, gl.RGBA, gl.FLOAT, null);
-      if (!gl.getError()) { noiseRows = Math.min(nTubes, H / NOISE_H * NOISE_PER_ROW); noiseDone.fill(0); return true; }
+      if (glOkAfter(gl, 'noise-rgba32f')) { noiseRows = Math.min(nTubes, H / NOISE_H * NOISE_PER_ROW); noiseDone.fill(0); return true; }
     }
     console.warn('Veins renderer: no room for the streak noise table; the shader hashes it instead.');
     gl.deleteTexture(noiseTex); noiseTex = null;

@@ -10,7 +10,7 @@
 // any zoom: it is drawn again from its outline at the screen's resolution.
 
 import { EDGE_GLSL } from './edge.js?v=8321a8017f';
-import { prestart, linkProgram } from './gl-compile.js?v=5096509185';
+import { prestart, linkProgram } from './gl-compile.js?v=0ca233872f';
 
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const NUM = /[MmLlHhVvCcSsQqTtAaZz]|[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?/g;
