@@ -4,7 +4,7 @@
 import { NODES } from '../engine/topology.js?v=512e725aea';
 import { gastricUp } from '../engine/scenario.js?v=d2669cef9b';
 import { wallRead } from '../engine/wall-read.js?v=09449acd01';
-import { pressureColor } from './colormap.js?v=f8fa326224';
+import { pressureColor } from './colormap.js?v=026724823d';
 import { h, fmt, canvasSize, cssVar, cssAlpha, clamp, icon, swapText, putText, countTo } from './util.js?v=c328c93806';
 import { wordSetter } from './gl-words.js?v=c90803700a';
 import { simTime, isPaused } from './clock.js?v=ff76dd8529';
@@ -15,7 +15,7 @@ import { endoGrow, airRatio, airFlat } from './endo-size.js?v=5421ea722d';
 import { DEFLATE_MS, BAND_MS, BAND_DELAY_MS, fadeIn, glide, scopeTear } from './endo-motion.js?v=9b904b70c4';
 import { drawScopeBleed } from './endo-bleed.js?v=455e3152bc';
 import { poolFill } from './blood.js?v=8aea855ce8';
-import { FONT } from './charts.js?v=136ec0fdb6';
+import { FONT } from './charts.js?v=e3e7a85d7a';
 import { store, updateParams, varicesPresent } from './store.js?v=a21c31dcb5';
 import { classSoon, attrSoon, dataSoon, propSoon } from './class-soon.js?v=97b9d0e0db';
 import { balanceHold, balanceLine } from './balance-hold.js?v=1792704e7a';

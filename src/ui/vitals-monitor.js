@@ -10,7 +10,7 @@
 
 import { h, fmt, fitCanvas, fitBox, clamp, cssVar } from './util.js?v=c328c93806';
 import { createVitalsGL, colorOf, textWidth } from './vitals-gl.js?v=1b024e8e79';
-import { FONT } from './charts.js?v=136ec0fdb6';
+import { FONT } from './charts.js?v=e3e7a85d7a';
 import { frameFor, cancelFrame, paceMs, noteDraw, frameAnimating } from './frame.js?v=1d147c7c9a';
 import { VITALS, vitalReading } from './vital-read.js?v=eb683dfbdd';
 import { createBeatClock, ekgSeries, beatWalk, walkBeats, seedBeats } from './ekg.js?v=ee939fbe92';

@@ -7,7 +7,7 @@
 import { EDGES, dopplerK, stentSegments, stentSite, stentGate, stentCourse } from '../engine/topology.js?v=512e725aea';
 import { glWords, wordsRect } from './gl-words.js?v=c90803700a';
 import { h, fmt, canvasSize, clamp, icon, cssVar, cssAlpha, swapText } from './util.js?v=c328c93806';
-import { FONT, textW } from './charts.js?v=136ec0fdb6';
+import { FONT, textW } from './charts.js?v=e3e7a85d7a';
 import { classSoon } from './class-soon.js?v=97b9d0e0db';
 import { logAction, shownVel, store } from './store.js?v=a21c31dcb5';
 import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=5dec9052b2';

@@ -6,7 +6,7 @@
 
 import { h, clamp, cssAlpha, canvasSize } from './util.js?v=c328c93806';
 import { createTraceGL, fitPen } from './trace-gl.js?v=2d7b4b37ee';
-import { FONT } from './charts.js?v=136ec0fdb6';
+import { FONT } from './charts.js?v=e3e7a85d7a';
 import { simTime, isPaused, fibroReading } from './clock.js?v=ff76dd8529';
 import { store } from './store.js?v=a21c31dcb5';
 import { createElastogramGL, elastogramUnder } from './fibroscan-gl.js?v=e3585e7f6a';

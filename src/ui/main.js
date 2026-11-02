@@ -6,24 +6,24 @@ import { budget as gpuBudget } from './gpu-budget.js?v=5a5dcd699f';   // (the re
 import './gl-state.js?v=4163c507aa';   // (early: every WebGL2 context is recorded from its creation, R09/R06)
 import { startHost, host, hostFailed, restartHost } from './host.js?v=00e68113c8';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=a21c31dcb5';
-import { createStage } from './stage.js?v=1658fca748';
+import { createStage } from './stage.js?v=1aa3f3032a';
 import { createCreditPlacer } from './credit.js?v=11cd116265';
 import { whenQuiet, booting, holdCover } from './quiet.js?v=388052eba8';
 import { sinusoidSupported } from './gl-support.js?v=6219c6f004';
 import { createInspector } from './inspector.js?v=6a0debabf8';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=2bf53b620d';
-import { setHvpgStage } from './hvpg-proc.js?v=602c7d0379';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=458947c307';
+import { setHvpgStage } from './hvpg-proc.js?v=fce2fb4a10';
 import { createWhy } from './why.js?v=d567a61540';
 import { createTimeline, LAPSES } from './timeline.js?v=a89c06936d';
 import { createCompare } from './compare.js?v=18ed4e2285';
-import { createCard } from './card.js?v=532f9afe19';
-import { createChart } from './chart.js?v=e35b592169';
-import { createMenu } from './menu.js?v=0ba688043f';
+import { createCard } from './card.js?v=a314d0e789';
+import { createChart } from './chart.js?v=aaa0cc6fd4';
+import { createMenu } from './menu.js?v=4d7dc187a1';
 import { caption } from './a11y.js?v=610f5d0cda';
 import { startLMS } from './lms.js?v=4506ad4622';
 import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=a9debc0de8';
-import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=6f7d50eb2d';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=f8fa326224';
+import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=53da3833b8';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=026724823d';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=512e725aea';
 import { dopplerVel } from './velNormal.js?v=ad0e95380d';
 import { controlOwnsKey } from './key-owner.js?v=60ed93db32';
@@ -31,7 +31,7 @@ import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, loadFailed, tooltipFor,
 import { glidePlateOn, platePieces, glideOnResize } from './plate-glide.js?v=91d7308bf0';
 import { sheetParts, sheetOffset, setSheetOffset, stopSheet, glideSheet } from './sheet-move.js?v=5e8d025d89';
 import { releaseSpeed, isFlick, flickAim, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=dc92422977';
-import { morphKey, crossfadeText } from './legend-morph.js?v=f60ba24012';
+import { morphKey, crossfadeText } from './legend-morph.js?v=bf8d739a76';
 import { glideNow } from './seg-glide.js?v=64822c9b30';
 import './focus-ring.js?v=21407321a0';
 import { knownLook, currentLook, isDarkLook, lastDarkLook, applyLookAttrs } from './looks.js?v=2d098211a4';
@@ -48,7 +48,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
-import { initDebug } from './debug.js?v=0471491289';
+import { initDebug } from './debug.js?v=1a04f4e26c';
 import { initTopbarMotion } from './topbar-motion.js?v=76f3f015a3';
 import { ORIGINS } from './blood.js?v=8aea855ce8';
 import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
@@ -126,8 +126,8 @@ async function main() {
   // The Doppler and the FibroScan load after the first paint (a tab for one that has not come waits for it, dock.js). One left open when the
   // app was last used is asked for now and waited for with the model's first answers, so its pane is whole with the dock.
   const probeTo = (id) => { host.send({ type: 'probe', id }); logAction('probe', id); };
-  dopplerL = lazy(() => import('./doppler.js?v=e40ea56697'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
-  fibroL = lazy(() => import('./fibroscan.js?v=a998662a59'), ({ createFibroScan }) => createFibroScan());
+  dopplerL = lazy(() => import('./doppler.js?v=620850ce80'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
+  fibroL = lazy(() => import('./fibroscan.js?v=fd284261df'), ({ createFibroScan }) => createFibroScan());
   const wasOpen = savedInstruments().open;
   const openAtStart = [];
   if (Array.isArray(wasOpen)) for (const [id, l] of [['doppler', dopplerL], ['fibroscan', fibroL]]) if (wasOpen.includes(id)) openAtStart.push(l.get().catch(() => {}));
@@ -214,7 +214,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=f3898df00d'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=058bacb0c8'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
