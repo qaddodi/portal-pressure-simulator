@@ -3243,6 +3243,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       has: (slot) => stack.has(slot),
       /** Whether a slot holds pictures of its own, not only the whole set painted live (organs-gl setLive full). */
       pictured: (slot) => stack.pictured(slot),
+      get full() { return stack.full; },
       /** Whether the view's sharper picture is still fading in (organs-gl): the stage draws on until it is whole. */
       get fading() { return stack.fading; },
       /** Organs painted live in the stack, and layers' live masks (organs-gl setLive); the names it lays, in order. */

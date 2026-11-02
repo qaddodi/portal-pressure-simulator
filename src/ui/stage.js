@@ -54,7 +54,7 @@ import { createLabelGL } from './label-gl.js?v=020cf28e39';
 import { createGlassGL } from './glass-gl.js?v=f464c7557d';
 import { writePoints, writeJoinNow } from './veins-sweep.js?v=c4d04207e0';
 import { ENT_W } from './veins-bin.js?v=7eb5e277a6';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=e425f912b0';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=2673b37b18';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=d950c5cd1c';
 import { alongCurve } from './pressure-along.js?v=74c64e4286';
@@ -2707,7 +2707,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=75e6939a9c').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=174c154762').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -8921,7 +8921,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     surface('organs', () => {
       if (!anatOn()) return null;
       if (!veins || veins.lost || !wrap.classList.contains('gl-on')) return { on: 'fallback', via: 'SVG', why: notGPU() };
-      if (wrap.classList.contains('gl-plate')) return { on: SOFTWARE ? 'fallback' : 'gpu', via: glOrgans ? 'GPU picture and live layers' : 'GPU picture', why: SOFTWARE ? notGPU() : '' };
+      if (wrap.classList.contains('gl-plate')) return { on: SOFTWARE ? 'fallback' : 'gpu', via: veins?.organs?.full ? 'every layer painted live on the GPU (its pictures not in yet)' : glOrgans ? 'GPU picture and live layers' : 'GPU picture', why: SOFTWARE ? notGPU() : '' };
       return { on: 'fallback', via: 'SVG', why: 'the organs\' picture is down (a theme change, or stale after the lobule)' };
     });
     surface('overlays (stents, balloons, catheter, guides)', () => {
