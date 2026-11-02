@@ -35,7 +35,12 @@ let ask = 0;
 // (Written important: a card's leave class holds its opacity at 0 with !important (app.css .pz-shade.stack.pz-leave), which put the glass
 // out at once while its words were still going.)
 const write = (el, x, o) => { el.style.setProperty('transform', `translateX(${x.toFixed(2)}px)`, 'important'); el.style.setProperty('opacity', o.toFixed(3), 'important'); };
-const rest = (el) => { el.style.removeProperty('transform'); el.style.removeProperty('opacity'); el.style.removeProperty('transition'); };
+// (data-thrown: the card is moved here, from its first frame out until it is let go at rest (or out of sight, held, until its class lets it go).
+// Mohammad, 2 Nov 2026: "the teaching card moves away, the data card just pops out disappears, and they don't go away same time". The data
+// card on the Mac, iPad and phone is a readings sheet whose leave class (.pz-sheet.pz-hide) faded its parts and its two glass pieces on a CSS
+// clock of their own (--d-small) and hid it after that, while the card itself rode 560 ms with the words: its glass and its readings were
+// gone in a third of the move. While thrown, its parts stand whole and only the card's inline opacity, on this clock, fades it: app.css.)
+const rest = (el) => { el.style.removeProperty('transform'); el.style.removeProperty('opacity'); el.style.removeProperty('transition'); el.removeAttribute?.('data-thrown'); };
 // (Where a card stands now: its inline translateX and opacity, as a swipe's finger or an earlier move left them, else at rest.)
 function here(el) {
   const r = runs.get(el);
@@ -66,6 +71,7 @@ function start(el, kind, to, ms, delay, done) {
   endMove ||= beginMotion('card throw', ms + delay + 2000);
   const from = here(el);
   runs.delete(el); pinned.delete(el);
+  el.setAttribute?.('data-thrown', '');
   el.style.setProperty('transition', 'none', 'important');
   write(el, from.x, from.o);   // (at once, in the task that starts it: no frame shows the class's own place in between)
   runs.set(el, { kind, from, to, x: from.x, o: from.o, t0: easeNow() + delay, ms, done });
@@ -139,7 +145,7 @@ function outCheck() {
 export const throwing = (el) => runs.has(el);
 
 /** Stops el's move where it is (a finger takes it), its inline values kept for whoever takes it next. */
-export function throwStop(el) { runs.delete(el); held.delete(el); pinned.delete(el); if (!runs.size && ask) { cancelFrame(ask); ask = 0; } settle(); outCheck(); }
+export function throwStop(el) { el?.removeAttribute?.('data-thrown'); runs.delete(el); held.delete(el); pinned.delete(el); if (!runs.size && ask) { cancelFrame(ask); ask = 0; } settle(); outCheck(); }
 
 // (The copies that held the old card on one track until the new one was ready (railHold) are gone: every leaving card sets off on the
 // frame of the tap. These are kept, as what they did with no copy, for presenter.js until its own pass.)

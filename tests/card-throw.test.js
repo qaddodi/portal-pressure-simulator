@@ -100,3 +100,14 @@ test('R05: the cards that show wait for the slide going in to be prepared, at mo
   assert.match(presenter, /const PREP_HOLD = SLIDE_PREP && !\/\[\?&\]prephold=0\\b\/\.test\(location\.search \|\| ''\), PREP_MS = 160;/);
   assert.match(presenter, /if \(!deck \|\| want !== i \|\| !txnLive\(tx\)\) return;/, 'a newer press takes over (its transaction superseded too)');
 });
+
+test('a thrown readings sheet keeps its parts and glass whole: only the throw fades it (no CSS clock of its own)', () => {
+  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  assert.match(src, /el\.setAttribute\?\.\('data-thrown', ''\);\n\s+el\.style\.setProperty\('transition', 'none', 'important'\);/, 'marked in the task that starts the move');
+  assert.match(src, /const rest = \(el\) => \{[^\n]*removeAttribute\?\.\('data-thrown'\)/, 'let go at rest');
+  for (const pre of ['.pz.stack.stack', '.pz.pz-wide.pz-wide']) {
+    assert.ok(css.includes(`${pre} .pz-data.pz-sheet.pz-hide[data-thrown] { visibility: visible; pointer-events: none; }`), `${pre}: not hidden on its own timer`);
+    assert.ok(css.includes(`${pre} .pz-data.pz-sheet[data-thrown]::before, ${pre} .pz-data.pz-sheet[data-thrown]::after, ${pre} .pz-data.pz-sheet[data-thrown] > :is(.pz-dh, .pz-tool, .pz-tiles) { opacity: 1; transition: none; }`), `${pre}: parts and glass pieces whole`);
+    assert.ok(css.indexOf(`${pre} .pz-data.pz-sheet[data-thrown]::before`) > css.indexOf(`${pre} .pz-data.pz-sheet.pz-hide::before`), `${pre}: after the leave rule it overrides`);
+  }
+});
