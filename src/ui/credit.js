@@ -806,7 +806,7 @@ export function createCreditPlacer(credit, { keptStyle = null } = {}) {
   // date then. The window's size is kept from its resize events instead.)
   let winKey = `${innerWidth}x${innerHeight}`;
   addEventListener('resize', () => { winKey = `${innerWidth}x${innerHeight}`; }, { passive: true });
-  const pollKey = () => `${window.pps?.stage?.labelStamp?.() ?? Math.random()}|${document.querySelectorAll('#labels .lb:not(.lb-off), .cath-labels .cath-label').length}|${winKey}`;
+  const pollKey = () => `${window.pps?.stage?.labelBoxStamp?.() ?? window.pps?.stage?.labelStamp?.() ?? Math.random()}|${document.querySelectorAll('#labels .lb:not(.lb-off), .cath-labels .cath-label').length}|${winKey}`;
   setInterval(() => {
     if (document.hidden) return;
     const st = window.pps?.store?.get(), k = pollKey();

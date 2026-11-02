@@ -9491,6 +9491,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     setA(b.g, 'transform', it.rot ? `translate(${it.x.toFixed(1)} ${(it.y + it.w).toFixed(1)}) rotate(-90)` : `translate(${it.x.toFixed(1)} ${it.y.toFixed(1)})`);
     // (Where the GPU lays its picture: the same origin, label-gl.js.)
     b.pos = { g: b.g, x: +it.x.toFixed(1), y: +(it.rot ? it.y + it.w : it.y).toFixed(1), rot: !!it.rot };
+    // (Its box on an 8 px grid, for the corner credit's look (labelBoxStamp): a number ticking inside it moves nothing the credit avoids.)
+    b.box = `${Math.floor((it.x - it.padX) / 8)},${Math.floor((it.y - it.padY) / 8)},${Math.ceil((it.x + (it.rot ? it.h : it.w) + it.padX) / 8)},${Math.ceil((it.y + (it.rot ? it.w : it.h) + it.padY) / 8)}${it.hide ? 'h' : ''}`;
     b.gone = null;
     b.g.style.display = '';
   }
@@ -11362,6 +11364,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const [k, b] of pool) {
       if (b.seen === frameNo || (k === 'scan' && (scan.leaving || scan.on))) continue;
       b.at = null; b.gl = null;
+      b.box = '';   // (gone from the labels the credit avoids: labelBoxStamp)
       if (b.gone || b.g.style.display === 'none') continue;
       if (reduceMotion.matches || camMove) { b.g.style.display = 'none'; continue; }
       b.g.classList.add('lb-off'); labelStop(b, true);
@@ -13171,6 +13174,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (What the station labels' boxes follow: their layouts and the camera. The corner credit's poll looks again only when it changed.)
     // (And the lobule's view and state when it is open, and a fresh value each look while the sinusoid's names glide: the corner credit
     // looks again only when one of them changed, never every second in the lobule or the sinusoid as before, credit.js.)
+    // (What the credit looks at of the labels: where their boxes lie on an 8 px grid, the camera and the views, not how many times they
+    // were laid out: their numbers change with the running model and each had the credit measure every card, label and shape again,
+    // about 560 reads in 15 s on a phone at rest (motion budget, 2 Nov).)
+    labelBoxStamp: () => { let k = ''; for (const b of pool.values()) if (b.box) k += b.box + ';'; return `${k}|${vt.k},${vt.x},${vt.y}|${morph}|${rotU}|${lz?.isOpen?.() ? lz.viewKey() : ''}|${lz?.sinusoidMoving?.() ? performance.now() : ''}`; },
     labelStamp: () => `${stats.layouts}|${vt.k},${vt.x},${vt.y}|${morph}|${rotU}|${lz?.isOpen?.() ? lz.viewKey() : ''}|${lz?.sinusoidMoving?.() ? performance.now() : ''}`,
     /** The stage's kept copy of its computed style, for the stage's own element (null for any other): read it instead of a live read. */
     keptStyle: (el) => (el === wrap ? wrapCS() : null),
