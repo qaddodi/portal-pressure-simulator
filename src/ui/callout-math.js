@@ -150,7 +150,7 @@ export function stepPlan(glow, seq, isVessel, isOrgan) {
 const NONE = [];
 const GROUP_OUT = [];
 const GROUP_POOL = [];
-const newGroup = () => ({ n: 0, at: 0, ids: [], organ: null, group: false });   // (a pool's growth: only while it is still filling)
+const newGroup = () => ({ n: 0, at: 0, ids: [], organ: null, group: false });   // (a pool's growth: only while it is still filling)   // alloc-rare: a pool's growth, only while it is still filling
 for (let i = 0; i < 16; i++) GROUP_POOL.push(newGroup());
 // Does the glow light `id` at `at` ms (an entry's `at` read as +at || 0, and one with no id left out)?
 const litAt = (glow, at, id) => {

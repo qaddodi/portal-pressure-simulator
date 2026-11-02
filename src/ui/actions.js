@@ -10,10 +10,10 @@
 import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent, isStent, stentSite } from '../engine/topology.js?v=512e725aea';
 import { dopplerVel, flowReversed } from './velNormal.js?v=ad0e95380d';
 import { store, updateParams, hiddenNow } from './store.js?v=a51981892d';
-import { fmt, fmtFlow, clamp } from './util.js?v=f149f5dc18';
+import { fmt, fmtFlow, clamp } from './util.js?v=3021104d7d';
 import { PREGNANCY_INFO } from '../engine/scenario.js?v=d2669cef9b';
-import { aboutVessel, aboutOrgan } from './about.js?v=8fd9806bc0';
-import { lobuleState } from './lobule-model.js?v=f7c073cceb';
+import { aboutVessel, aboutOrgan } from './about.js?v=ea29dc48e3';
+import { lobuleState } from './lobule-model.js?v=191b10b3ef';
 import { oxygenFor } from './blood.js?v=4892162325';
 import { LABEL_VESSEL, SIN_EDGES } from './anatomy.js?v=b75990ccb4';
 
@@ -157,13 +157,13 @@ function buildEdgeCard(e) {
     kicker = 'Shunt'; why = 'shunt';
     if (id === 'TIPS' || id === 'DIPS') {
       const k = id.toLowerCase();   // the stent's params key: tips or dips
-      verbs.push({ type: 'slider', id: 'diameter', key: k, label: 'Stent diameter', min: 6, max: 12, step: 0.5, def: 8, format: (v) => `${v.toFixed(1)} mm`,
+      verbs.push({ type: 'slider', id: 'diameter', key: k, label: 'Stent diameter', min: 6, max: 12, step: 0.5, def: 8, format: (v) => `${v.toFixed(1)} mm`,   // alloc-rare: the slider's number label, made on the slider's own input event (a drag moves it at pointer rate, not a frame's work)
         get: (p) => p[k].d, set: (p, v) => { p[k].d = v; }, hist: `${id} diameter`, info: 'Resistance ∝ 1/d⁴: an 8 mm stent has well under half the conductance of a 10 mm one.' });
-      verbs.push({ type: 'button', id: 'remove', key: k, label: `Remove ${id}`, icon: 'close', danger: true, run: () => { updateParams({ [k]: { on: false } }, { label: `Remove ${id}` }); CTX.select(null); } });
+      verbs.push({ type: 'button', id: 'remove', key: k, label: `Remove ${id}`, icon: 'close', danger: true, run: () => { updateParams({ [k]: { on: false } }, { label: `Remove ${id}` }); CTX.select(null); } });   // alloc-rare: a click handler (a verb of the open card): runs once per tap, never in a frame; the scan reaches it only through the conservative callback dispatch of the halo step
     } else if (e.shunt === 'custom') {
-      verbs.push({ type: 'slider', id: 'diameter', key: 'customShunts', label: 'Shunt diameter', min: 4, max: 16, step: 0.5, def: 10, format: (v) => `${v.toFixed(1)} mm`,
-        get: (p) => p.customShunts?.[id] || 10, set: (p, v) => { p.customShunts = { ...(p.customShunts || {}), [id]: v }; }, hist: `${e.label} diameter` });
-      verbs.push({ type: 'button', id: 'remove', key: 'customShunts', label: 'Take down shunt', icon: 'close', danger: true, run: () => { updateParams((p) => { const c = { ...(p.customShunts || {}) }; delete c[id]; p.customShunts = c; return p; }, { label: `Remove ${e.label}` }); CTX.select(null); } });
+      verbs.push({ type: 'slider', id: 'diameter', key: 'customShunts', label: 'Shunt diameter', min: 4, max: 16, step: 0.5, def: 10, format: (v) => `${v.toFixed(1)} mm`,   // alloc-rare: the slider's number label, made on the slider's own input event (a drag moves it at pointer rate, not a frame's work)
+        get: (p) => p.customShunts?.[id] || 10, set: (p, v) => { p.customShunts = { ...(p.customShunts || {}), [id]: v }; }, hist: `${e.label} diameter` });   // alloc-rare: the slider's setter, run on the slider's own input event, once per pointer move, never in a frame
+      verbs.push({ type: 'button', id: 'remove', key: 'customShunts', label: 'Take down shunt', icon: 'close', danger: true, run: () => { updateParams((p) => { const c = { ...(p.customShunts || {}) }; delete c[id]; p.customShunts = c; return p; }, { label: `Remove ${e.label}` }); CTX.select(null); } });   // alloc-rare: a click handler (a verb of the open card): runs once per tap, never in a frame; the scan reaches it only through the conservative callback dispatch of the halo step
     }
     // A stent narrows at a short pinch in one of the segments Doppler samples: proximal (portal end), mid or distal.
     if (isStent(e)) {
@@ -174,7 +174,7 @@ function buildEdgeCard(e) {
     }
     if (['S_PC', 'S_DSR', 'S_MC'].includes(id)) {
       const key = { S_PC: 'portocaval', S_DSR: 'dsrs', S_MC: 'mesocaval' }[id];
-      verbs.push({ type: 'button', id: 'remove', key, label: 'Take down shunt', icon: 'close', danger: true, run: () => { updateParams({ [key]: false }, { label: `Remove ${e.label}` }); CTX.select(null); } });
+      verbs.push({ type: 'button', id: 'remove', key, label: 'Take down shunt', icon: 'close', danger: true, run: () => { updateParams({ [key]: false }, { label: `Remove ${e.label}` }); CTX.select(null); } });   // alloc-rare: a click handler (a verb of the open card): runs once per tap, never in a frame; the scan reaches it only through the conservative callback dispatch of the halo step
     }
     verbs.push(doppler);
   } else if (SIN_EDGES.has(id)) {
@@ -191,7 +191,7 @@ function buildEdgeCard(e) {
     verbs.push(narrow, clot);
     verbs.push(doppler);
     verbs.push(shunt);
-    if (id === 'SV_CONF' || id === 'SV_MID' || id === 'V_SPL') verbs.push({ type: 'link', label: 'Spleen', run: () => CTX.select({ type: 'organ', id: 'spleen' }) });
+    if (id === 'SV_CONF' || id === 'SV_MID' || id === 'V_SPL') verbs.push({ type: 'link', label: 'Spleen', run: () => CTX.select({ type: 'organ', id: 'spleen' }) });   // alloc-rare: a click handler (a verb of the open card): runs once per tap, never in a frame; the scan reaches it only through the conservative callback dispatch of the halo step
   }
   // Dye into this vessel, beside Doppler: a few seconds a press, or as long as it is held.
   if (!SIN_EDGES.has(id)) {
@@ -277,7 +277,7 @@ function buildVarixVerbs(site) {
   const eso = site === 'eso';
   const out = [];
   const bandsCell = newCell();
-  if (eso) out.push({ type: 'button', id: 'band', label: 'Band', icon: 'band', run: () => { CTX.action({ kind: 'band' }); }, note: (f) => (f.bands ? memoKey(bandsCell, Math.round(f.bands), f.bands, BANDS_NOTE) : null) });
+  if (eso) out.push({ type: 'button', id: 'band', label: 'Band', icon: 'band', run: () => { CTX.action({ kind: 'band' }); }, note: (f) => (f.bands ? memoKey(bandsCell, Math.round(f.bands), f.bands, BANDS_NOTE) : null) });   // alloc-rare: a click handler (a verb of the open card): runs once per tap, never in a frame; the scan reaches it only through the conservative callback dispatch of the halo step
   out.push({ type: 'button', id: 'endoscope', label: 'Endoscope', icon: 'endoscope', run: () => { CTX.paneApi('endoscopy')?.setView?.('eso'); CTX.showPane('endoscopy'); } });
   // The tamponade tube. Its gastric balloon is the first step: filled in the stomach, the tube drawn up so it seats against the cardia.
   // The esophageal balloon is the second, filled only if that does not hold, and only on a tube whose gastric balloon is up: switching it on
@@ -338,8 +338,8 @@ function buildOrganCard(id) {
       if (c.x !== k || c.y !== v.grade.label) { c.x = k; c.y = v.grade.label; c.s = `${v.grade.label} · ${fmt(v.d, 1)} mm`; }
       return c.s;
     }));
-    if (eso) verbs.push({ type: 'link', label: 'Coronary vein', run: () => CTX.select({ type: 'edge', id: 'LGV_CONF' }) });
-    else verbs.push({ type: 'link', label: 'Short gastric veins', run: () => CTX.select({ type: 'edge', id: 'C2' }) });
+    if (eso) verbs.push({ type: 'link', label: 'Coronary vein', run: () => CTX.select({ type: 'edge', id: 'LGV_CONF' }) });   // alloc-rare: a click handler (a verb of the open card): runs once per tap, never in a frame; the scan reaches it only through the conservative callback dispatch of the halo step
+    else verbs.push({ type: 'link', label: 'Short gastric veins', run: () => CTX.select({ type: 'edge', id: 'C2' }) });   // alloc-rare: a click handler (a verb of the open card): runs once per tap, never in a frame; the scan reaches it only through the conservative callback dispatch of the halo step
     const n = NI[eso ? 'VAR' : 'GV'];
     return {
       key: 'o:' + id, sel, kicker: 'Collateral bed', title: eso ? 'Esophageal varices' : 'Fundal varices', why: 'varix', verbs,

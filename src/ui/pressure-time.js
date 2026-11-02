@@ -6,8 +6,8 @@
 // a crosshair (hover, or drag on a touch screen) reads every trace at one moment.
 
 import { store, hiddenNow } from './store.js?v=a51981892d';
-import { h, fmt, cssVar, cssAlpha, clamp } from './util.js?v=f149f5dc18';
-import { FONT as FONT0, FONT } from './charts.js?v=ef23807323';
+import { h, fmt, cssVar, cssAlpha, clamp } from './util.js?v=3021104d7d';
+import { FONT as FONT0, FONT } from './charts.js?v=b3cfb4b500';
 import { frameFor, cancelFrame, paceMs, noteDraw } from './frame.js?v=ca74a6f22a';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { HVPG_CUTS, hvpgSev } from '../engine/pressure-cuts.js?v=0cfa0c573a';
@@ -24,7 +24,7 @@ import { createStill } from './still-layer.js?v=d5a9373a74';
 import { beatTop, beatLayout, colPlan, paperFine, beforeLabelY, sinceText } from './beat-card.js?v=5681d06da2';
 import { VITALS } from './vital-read.js?v=eb683dfbdd';
 import { restPass, cancelRest } from './rest-pass.js?v=b1da783ead';
-import { shownOr } from './shown.js?v=94c77e5032';
+import { shownOr } from './shown.js?v=c469d53cf4';
 import { dropFront } from './drop-front.js?v=21069ee0e8';
 const nextFrame = frameFor('pressure-time');
 

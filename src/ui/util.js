@@ -5,7 +5,7 @@ import { glWords } from './gl-words.js?v=1264b23ab4';
 import { slideFold } from './fold-slide.js?v=64e11227a9';
 import { releaseSpeed, isFlick, carryCurve, settleSlope, settleAt, easeMove, D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js?v=7d7bfe9a62';
 import { leaveFromHere } from './menu-leave.js?v=a70cd0ac6e';
-import { follow2, jumpCount, SHOWN_TAU } from './display-state.js?v=3783649ed7';
+import { follow2, jumpCount, SHOWN_TAU } from './display-state.js?v=e70ae1a877';
 import { measure as measureWords } from './glyph-measure.js?v=4aa1a7b6f3';
 import { caught } from './caught.js?v=caf293c676';
 

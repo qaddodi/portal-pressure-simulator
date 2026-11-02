@@ -48,7 +48,7 @@ export function dotBoxInto(out, x, y, kind, scale, minX = 0, minY = 0) {
 // bareDots' answer: one kept list of kept { id, x, y, box } records, rewritten by each call (the stage copies each box into its own list
 // as it walks them). The records are made as the list first grows.
 const BARE = [], BARE_POOL = [];
-const newBare = () => ({ id: '', x: 0, y: 0, box: { x0: 0, y0: 0, x1: 0, y1: 0 } });   // (the pool's growth: only while it is still filling)
+const newBare = () => ({ id: '', x: 0, y: 0, box: { x0: 0, y0: 0, x1: 0, y1: 0 } });   // (the pool's growth: only while it is still filling)   // alloc-rare: a pool's growth, only while it is still filling
 for (let i = 0; i < 48; i++) BARE_POOL.push(newBare());
 
 /**

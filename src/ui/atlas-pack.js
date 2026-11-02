@@ -11,7 +11,7 @@
 // sorted, and the slots handed out are recycled objects: free() takes one back, alloc() hands the same object out again. So a slot is
 // valid from alloc() to free() or reset() only; the owner drops its reference when it frees (it does: label-gl sets slot = null),
 // and a freed slot (shelf null) is ignored by a second free().
-const newSlot = () => ({ page: 0, x: 0, y: 0, w: 0, h: 0, pw: 0, ph: 0, shelf: null, sx: 0 });   // (a pool's growth: only while the pool is still filling)
+const newSlot = () => ({ page: 0, x: 0, y: 0, w: 0, h: 0, pw: 0, ph: 0, shelf: null, sx: 0 });   // (a pool's growth: only while the pool is still filling)   // alloc-rare: a pool's growth, only while the pool is still filling
 const SLOTS_AT_START = 128;
 
 export function createAtlasPacker({ size = 2048, pad = 2, maxPages = 2 } = {}) {

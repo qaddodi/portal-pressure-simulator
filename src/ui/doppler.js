@@ -6,10 +6,10 @@
 
 import { EDGES, dopplerK, stentSegments, stentSite, stentGate, stentCourse } from '../engine/topology.js?v=512e725aea';
 import { glWords, wordsRect } from './gl-words.js?v=1264b23ab4';
-import { h, fmt, canvasSize, clamp, icon, cssVar, cssAlpha, swapText } from './util.js?v=f149f5dc18';
-import { FONT, textW } from './charts.js?v=ef23807323';
+import { h, fmt, canvasSize, clamp, icon, cssVar, cssAlpha, swapText } from './util.js?v=3021104d7d';
+import { FONT, textW } from './charts.js?v=b3cfb4b500';
 import { logAction, shownVel, store } from './store.js?v=a51981892d';
-import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=6a01b59b39';
+import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=6b1f6822b4';
 import { frameFor, noteDraw, paceMs, cancelFrame } from './frame.js?v=ca74a6f22a';
 import { windowIndexFor, scaleFor, fitScale } from './dopplerWindow.js?v=87d77987c4';
 import { velNormal, dopplerVel, judgeFlow } from './velNormal.js?v=ad0e95380d';
@@ -17,7 +17,7 @@ import { caliperFrame, caliperLevel, caliperX, CAL_FADE, pairOf, pairBand, pairS
 import { createDopplerGL } from './doppler-gl.js?v=a4cb924d45';
 import { surface } from './gpu-surfaces.js?v=b62dfcfdd1';
 import { olderThan } from './backfill.js?v=455d888760';
-import { createFollow } from './display-state.js?v=3783649ed7';
+import { createFollow } from './display-state.js?v=e70ae1a877';
 import { D_SMALL, EASE_ARRIVE } from './ease.js?v=7d7bfe9a62';
 import { restPass } from './rest-pass.js?v=b1da783ead';
 import { createTraceGL, fitPen, keepLayer } from './trace-gl.js?v=e7cbc8fef1';
