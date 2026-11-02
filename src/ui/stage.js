@@ -56,9 +56,15 @@ import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=ba385658af'
 import { nameSpots, NAME_BREAK } from './organ-names.js?v=4b9f97e8af';
 import { createLabelGL } from './label-gl.js?v=99f7adadea';
 import { createGlassGL } from './glass-gl.js?v=e760b28169';
-import { writePoints, writeJoinNow } from './veins-sweep.js?v=b6f17b648f';
-import { ENT_W } from './veins-bin.js?v=fc0fc1fc58';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=a513e331f8';
+<<<<<<< Updated upstream
+import { writePoints, writeJoinNow } from './veins-sweep.js?v=20fb769e58';
+import { ENT_W } from './veins-bin.js?v=d805a40704';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=49cbf94c08';
+=======
+import { writePoints, writeJoinNow } from './veins-sweep.js?v=20fb769e58';
+import { ENT_W } from './veins-bin.js?v=d805a40704';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=49cbf94c08';
+>>>>>>> Stashed changes
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=d950c5cd1c';
 import { alongCurve } from './pressure-along.js?v=e669103117';
@@ -2667,7 +2673,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=e0138a6d1f').catch((err) => { lzCode = null; throw err; }));
+<<<<<<< Updated upstream
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=95a6f6e204').catch((err) => { lzCode = null; throw err; }));
+=======
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=95a6f6e204').catch((err) => { lzCode = null; throw err; }));
+>>>>>>> Stashed changes
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor, binAway: (tubes, joins) => sweepBin({ kind: 'bin', tubes, joins }) });
@@ -4077,7 +4087,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // (The worker's lifecycle, sweep-client.js: a dead or stuck one is dropped and its requests rejected; the next request restarts it,
   // up to a few times in a row, and the callers fall back to the main thread on a rejection.)
-  const sweeper = createSweepClient(() => new Worker(new URL('./sweep-worker.js?v=8f1e4c58b1', import.meta.url), { type: 'module' }));
+  const sweeper = createSweepClient(() => new Worker(new URL('./sweep-worker.js?v=a21c4cda31', import.meta.url), { type: 'module' }));
   const sweepBin = (msg) => sweeper.request(msg);
   const FAR_ROW = Array.from({ length: N_SAMPLES }, () => [1e9, 1e9]);
   // How far (squared) a join's centre lies from the course of its centres through the stretch.

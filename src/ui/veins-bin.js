@@ -328,7 +328,7 @@ export function binVeins(tubes, joins, memo = null) {
  * and how many are marked. A join's entries lie in the join part of a cell's list (first join, count), and those parts follow
  * one another in the cells' order.
  */
-export function cellsOfJoinEntries(cells, nCells, ents, mark = new Uint8Array(nCells)) {
+export function cellsOfJoinEntries(cells, nCells, ents, mark = new Uint8Array(nCells)) { // alloc-rare: geometry upload: runs once per binning (a new patient, layout or reach change), sized by the cells, never on a steady frame
   let k = 0;
   for (const e of ents) {
     let lo = 0, hi = nCells - 1, c = -1;
@@ -337,7 +337,7 @@ export function cellsOfJoinEntries(cells, nCells, ents, mark = new Uint8Array(nC
     // one holding e starts at or before e.)
     if (c >= 0 && e < cells[c * 6 + 4] + cells[c * 6 + 5] && !mark[c]) { mark[c] = 1; k++; }
   }
-  return { mark, k };
+  return { mark, k }; // alloc-rare: geometry upload: runs once per binning (a new patient, layout or reach change), sized by the cells, never on a steady frame
 }
 
 // ── Cells the simple vessel program can draw ──
@@ -348,7 +348,7 @@ export function cellsOfJoinEntries(cells, nCells, ents, mark = new Uint8Array(nC
 // segment wins in its one slot, as in the general program), and any join, even one whose members are elsewhere, keeps
 // the cell general. `cells`: binVeins' cells (6 floats each: origin, first entry, count, first join, count).
 export function simpleCells(cells, nCells, ent) {
-  const out = new Uint8Array(nCells);
+  const out = new Uint8Array(nCells); // alloc-rare: geometry upload: runs once per binning (a new patient, layout or reach change), sized by the cells, never on a steady frame
   for (let c = 0; c < nCells; c++) {
     const s0 = cells[c * 6 + 2], n = cells[c * 6 + 3];
     if (cells[c * 6 + 5] !== 0 || n < 2) continue;
@@ -367,13 +367,13 @@ export function simpleCells(cells, nCells, ent) {
 export function splitCells(cells, nCells, simple, mark = null) {
   let g = 0, o = 0;
   for (let c = 0; c < nCells; c++) if (!mark || mark[c]) { if (simple?.[c]) o++; else g++; }
-  const gen = new Float32Array(g * 6), one = new Float32Array(o * 6);
+  const gen = new Float32Array(g * 6), one = new Float32Array(o * 6); // alloc-rare: geometry upload: runs once per binning (a new patient, layout or reach change), sized by the cells, never on a steady frame
   for (let c = 0, i = 0, j = 0; c < nCells; c++) {
     if (mark && !mark[c]) continue;
     const at = cells.subarray(c * 6, c * 6 + 6);
     if (simple?.[c]) { one.set(at, j); j += 6; } else { gen.set(at, i); i += 6; }
   }
-  return { gen, one, nGen: g, nOne: o };
+  return { gen, one, nGen: g, nOne: o }; // alloc-rare: geometry upload: runs once per binning (a new patient, layout or reach change), sized by the cells, never on a steady frame
 }
 
 function writeJoin(ent, e, j) {
