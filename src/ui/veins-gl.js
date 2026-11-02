@@ -153,8 +153,10 @@ void main() {
 }`;
 // The figure's overlays (organ-paint's ops, organs-gl's stack over the canvas: see `overlay`) laid over the canvas, pixel for pixel,
 // premultiplied (the stack's texture is the canvas's size, its rows as the canvas's).
+// (Plan "Holding 120 Hz" §3.6: colour-only work in half precision, which Apple's GPUs run at twice the rate. LAY_FS reads by whole pixel;
+// UP_FS keeps its positions highp and does its weights and colour in mediump.)
 const LAY_FS = `#version 300 es
-precision highp float;
+precision mediump float;
 uniform sampler2D uT;
 out vec4 o;
 void main() { o = texelFetch(uT, ivec2(gl_FragCoord.xy), 0); }`;
@@ -162,15 +164,17 @@ void main() { o = texelFetch(uT, ivec2(gl_FragCoord.xy), 0); }`;
 // filtered reads (the corner taps left out, their weights folded away), then held within the four picture pixels nearest it so an
 // edge never rings. Premultiplied in and out. (Both framebuffers run y up, so no flip.)
 const UP_FS = `#version 300 es
-precision highp float;
+precision mediump float;
 uniform sampler2D uT;
-uniform vec2 uSrc, uDst;
+uniform highp vec2 uSrc, uDst;
 out vec4 o;
 void main() {
-  vec2 p = gl_FragCoord.xy * uSrc / uDst, tc = p - 0.5, f = fract(tc), b = floor(tc) + 0.5;
+  highp vec2 p = gl_FragCoord.xy * uSrc / uDst, tc = p - 0.5, b = floor(tc) + 0.5;
+  vec2 f = fract(tc);
   vec2 w0 = f * (-0.5 + f * (1.0 - 0.5 * f)), w1 = 1.0 + f * f * (-2.5 + 1.5 * f);
   vec2 w2 = f * (0.5 + f * (2.0 - 1.5 * f)), w3 = f * f * (-0.5 + 0.5 * f);
-  vec2 w12 = w1 + w2, t0 = (b - 1.0) / uSrc, t3 = (b + 2.0) / uSrc, t12 = (b + w2 / w12) / uSrc;
+  vec2 w12 = w1 + w2;
+  highp vec2 t0 = (b - 1.0) / uSrc, t3 = (b + 2.0) / uSrc, t12 = (b + w2 / w12) / uSrc;
   float a = w12.x * w0.y, bb = w0.x * w12.y, c = w12.x * w12.y, d = w3.x * w12.y, e = w12.x * w3.y;
   vec4 col = texture(uT, vec2(t12.x, t0.y)) * a + texture(uT, vec2(t0.x, t12.y)) * bb + texture(uT, t12) * c
            + texture(uT, vec2(t3.x, t12.y)) * d + texture(uT, vec2(t12.x, t3.y)) * e;
