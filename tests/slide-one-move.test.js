@@ -130,5 +130,5 @@ test('the case card\'s retreat ends with its glide', () => {
 test('a slide\'s halos leave in one small step, and only the slide\'s own', () => {
   assert.match(stage, /for \(const \[id, l\] of glow\.lit\) if \(!want\.has\(id\)\) \{ l\.to = 0; if \(src === 'slide'\) l\.dur = Math\.min\(l\.dur, D_SMALL \/ 1000\); \}/);
   // (the way in is unchanged: a slide's glow still eases in over its own 500 ms)
-  assert.match(stage, /setGlowSrc\('slide', \(list \|\| \[\]\)\.map\(\(g\) => \(\{[^\n]*dur: 500 \}\)\)\);/);
+  assert.match(stage, /o\.at = g\.at; o\.dur = 500;\n\s+slideGlowOut\.push\(o\);[\s\S]*?setGlowSrc\('slide', slideGlowOut\);/);
 });

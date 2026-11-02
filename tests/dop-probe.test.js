@@ -118,7 +118,7 @@ test('every mark and the probe are white-lined on a black rim, with no θ on the
   for (const src of [css, stage, PROBE_MODEL]) assert.doesNotMatch(src, /dpr-theta|θ<\/text>/);
   assert.match(css, /\.dpr-gate \{ fill: none; stroke: var\(--dop-mark\); stroke-width: 3;/);
   assert.match(tokens, /--dop-mark: #FFFFFF; --dop-rim: #000000;/);
-  assert.match(stage, /setGlowSrc\('dop', id \? \[\{ id, col: 'var\(--dop-glow\)'/);
+  assert.match(stage, /dopGlow = \{ id: null, col: 'var\(--dop-glow\)'/);   // (the Doppler's glow object, written in place: setGlowSrc('dop', id ? dopGlowList : noGlows))
   assert.match(read('src/ui/presenter.js'), /glow\.set\(v, '--dop-glow'\)/);
   // White on both dark blocks (the system's dark and the chosen dark), ink on the light themes.
   assert.equal((tokens.match(/--doppler: #3EE0A5; --dop-glow: #F4F6FF;/g) || []).length, 2);

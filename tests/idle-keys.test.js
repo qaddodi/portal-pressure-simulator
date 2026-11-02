@@ -139,7 +139,7 @@ test('a transition that moves no box leaves the watch settled; one that moves a 
   listeners.animationstart({ target: fill }); assert.equal(w.due(), true, 'an animation: its properties are unknown');
   assert.ok(PAINT_ONLY.has('color') && INNER_FREE.has('transform'));
   // (and the model's parameters, set several times a second by a slide's time-lapse, wake the stage's watch no more than its frames do)
-  assert.match(src('stage.js'), /keys\.some\(\(k\) => k !== 'frame' && k !== 'params'\)\) watch\.touch\(\)/);
+  assert.match(src('stage.js'), /for \(let i = 0; i < keys\.length; i\+\+\) if \(keys\[i\] !== 'frame' && keys\[i\] !== 'params'\) \{ watch\.touch\(\); break; \}/);
 });
 
 test('the framing, the labels\' card boxes and the credit\'s poll go by the watch', () => {
