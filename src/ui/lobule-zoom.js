@@ -28,7 +28,7 @@ import { lobuleStateInto, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-
 import { SIN_NARROW, dullSinusoidInto, NEIGHBOUR_FLAT, neighbourBlur, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend, fieldDof, surroundGrade, greyStep } from './lobule-look.js?v=66ed33f179';
 import { isGreyLens } from './organ-dim.js?v=485d50a599';
 import { createFieldGL } from './field-gl.js?v=bbdf495571';
-import { createTissueGL } from './tissue-gl.js?v=8493f00b25';
+import { createTissueGL } from './tissue-gl.js?v=b548301501';
 import { tileCopy } from './tile-gl.js?v=d378fc65d3';
 import { FX_GPU, createFxGL } from './fx-gl.js?v=306ea68896';
 import { WIDE_GL, createWideGL } from './wide-gl.js?v=c35de4f4a0';
