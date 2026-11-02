@@ -3,11 +3,7 @@
 
 import { startHost, host } from './host.js?v=dd95596be7';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=4ef2a6ffd8';
-<<<<<<< HEAD
 import { createStage } from './stage.js?v=90685b9e3d';
-=======
-import { createStage } from './stage.js?v=90685b9e3d';
->>>>>>> 897732a3 (FibroScan probe without SVG: its model is plain elements label-gl.js reads and draws on the GPU)
 import { createCreditPlacer } from './credit.js?v=b84ab83512';
 import { whenQuiet, booting, holdCover } from './quiet.js?v=388052eba8';
 import { sinusoidSupported } from './gl-support.js?v=94ad2a7ff1';
