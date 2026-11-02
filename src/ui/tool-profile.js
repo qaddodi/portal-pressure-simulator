@@ -17,11 +17,11 @@ import { NODES } from '../engine/topology.js?v=512e725aea';
 import { RATE } from './table-marks.js?v=a483b9975e';
 import { monotoneSegs } from './curve-near.js?v=6996ad536a';
 import { plotPanel } from './plot-look.js?v=5037697da7';
-import { pressureColor } from './colormap.js?v=8d1aaf123c';
-import { measure } from './glyph-measure.js?v=c361dfb5b2';
+import { pressureColor } from './colormap.js?v=0ce4c0df18';
+import { measure } from './glyph-measure.js?v=83f9b4c037';
 import { hvpgRate, ppgRate } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { numWords } from './num-words.js?v=cf53d490d9';
-import { createSvgGL, svgModel, setWords, setGeo, setPts } from './svg-gl.js?v=60139ce17a';
+import { createSvgGL, svgModel, setWords, setGeo, setPts } from './svg-gl.js?v=e3bd682eee';
 
 const PATH = PROFILE_PATHS[0];
 export const STATIONS = PATH.nodes;

@@ -555,13 +555,13 @@ export function measurePath(d, tol = 0.002) {
     }
   }
   const at = (u) => {   // alloc-rare: a path is measured once when it first appears
-    if (!xs.length) return [0, 0];
+    if (!xs.length) return [0, 0];   // alloc-rare: each point is kept by the caller as data; a path is sampled once when its outline first appears or changes (outlineCache, LIVER_GEO)
     const t = Math.max(0, Math.min(L, u));
     let lo = 0, hi = cum.length - 1;
     while (lo < hi) { const m = (lo + hi) >> 1; if (cum[m] < t) lo = m + 1; else hi = m; }
-    if (lo === 0) return [xs[0], ys[0]];
+    if (lo === 0) return [xs[0], ys[0]];   // alloc-rare: each point is kept by the caller as data; a path is sampled once when its outline first appears or changes (outlineCache, LIVER_GEO)
     const a = cum[lo - 1], b = cum[lo], f = b > a ? (t - a) / (b - a) : 0;
-    return [xs[lo - 1] + (xs[lo] - xs[lo - 1]) * f, ys[lo - 1] + (ys[lo] - ys[lo - 1]) * f];
+    return [xs[lo - 1] + (xs[lo] - xs[lo - 1]) * f, ys[lo - 1] + (ys[lo] - ys[lo - 1]) * f];   // alloc-rare: each point is kept by the caller as data; a path is sampled once when its outline first appears or changes (outlineCache, LIVER_GEO)
   };
   return { L, at };   // alloc-rare: a path is measured once when it first appears
 }
