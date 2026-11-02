@@ -58,8 +58,8 @@ void main() {
   }
 }`;
 
-import { createShapeGL } from './shape-gl.js?v=b6b160b28e';
-import { createOrganPaint, mul, prestartOrganPaint } from './organ-paint.js?v=8114d8757a';
+import { createShapeGL } from './shape-gl.js?v=82bbadf453';
+import { createOrganPaint, mul, prestartOrganPaint } from './organ-paint.js?v=49e4d12df9';
 import { prestart, linkProgram } from './gl-compile.js?v=c4010cf467';
 import { netChanged } from './idle-keys.js?v=81fbedda6b';
 import { easeMove, D_SURFACE } from './ease.js?v=7513a88c68';

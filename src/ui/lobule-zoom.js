@@ -24,7 +24,7 @@ import { store } from './store.js?v=103e271dec';
 import { glideClock } from './glide-clock.js?v=220d7f875c';
 import { radiiChanged, canvasPx, fxMoves, DIVE_RIM } from './lobule-render-cache.js?v=84bf4c2222';
 import { softwareYield } from './sw-yield.js?v=18a3b54a4d';
-import { lobuleState, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-model.js?v=c5ed778cb5';
+import { lobuleState, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-model.js?v=61738485c6';
 import { SIN_NARROW, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend, fieldDof, surroundGrade, greyStep } from './lobule-look.js?v=cf14995b07';
 import { isGreyLens } from './organ-dim.js?v=9e19f2fc30';
 import { createFieldGL, TILE_OVER } from './field-gl.js?v=c62360aee3';
@@ -36,13 +36,13 @@ import { buildLive, buildDyn, buildItems, liveFibre, liveEligible, liveZoomShare
 import { recordPaint, gpuPicture } from './paint-gl.js?v=2cbe8caea0';
 import { cssColor8 } from './css-color.js?v=e56f0c77ae';
 import { fibrousBand, fibrousTract, fibrousCuff, scarGrowth, paintWorldInto, useTokens } from './lobule-paint.js?v=ccb5ac5fe2';
-import { h, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=3e77c85fed';
-import { createSvgGL, svgModel } from './svg-gl.js?v=f5941eb53c';
-import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=d079c7e98c';
+import { h, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js?v=ce140d1aa3';
+import { createSvgGL, svgModel } from './svg-gl.js?v=49ba121492';
+import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=d486fea61e';
 import { NODES, EDGES } from '../engine/topology.js?v=4044766e96';
-import { createVeinsGL, LZ_ONE, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=af1c5e8d49';
+import { createVeinsGL, LZ_ONE, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=65ea35d045';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=f6c91d8676';
-import { createSinusoidView } from './sinusoid-view.js?v=ad863ce5e9';
+import { createSinusoidView } from './sinusoid-view.js?v=ea52f47ee2';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, framePart, easeNow, inMotion, PACED } from './frame.js?v=897b4f8e7e';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { FADE_MS, fadeAlpha, viewFollow } from './res-fade.js?v=767a6b64b8';
@@ -124,7 +124,7 @@ const css = (a, al = 1) => `rgba(${Math.round(a[0] * 255)},${Math.round(a[1] * 2
 // over them.
 export const LZ_UNDER_GLASS = -10;
 
-export function createLobuleZoom({ host, styles = () => getComputedStyle(host), before = null }) {
+export function createLobuleZoom({ host, styles = () => getComputedStyle(host), before = null, binAway = null }) {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)');
   const tissue = h('canvas', { class: 'lz-canvas', role: 'img', 'aria-label': 'Liver lobule microcirculation' });
   const glCv = h('canvas', { class: 'lz-canvas lz-gl', 'aria-hidden': 'true' });
@@ -2493,8 +2493,34 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     }, () => {
       const dpr = Math.min(2, devicePixelRatio || 1), tg = gl && !gl.lost ? tissueGLOn() : null;
       if (tg) paintTissue(W, H, dpr, dark, cs, false, tg);
-    }, () => { if (fade <= 0) { draw(0); release(); prepKey = key; } });
+    }, () => prebin());
+    // (The first frame waits, a piece at a time, for the binning the piece before sent to the worker.)
+    const first = () => { if (binning) { q.unshift(first); return; } if (fade <= 0) { draw(0); release(); prepKey = key; } };
+    q.push(first);
     return q;
+  }
+  // The landed lobule's vessels binned ahead of its first full frame, exactly as that frame's pass would bin them (drawGL), in the
+  // stage's binning worker (sweep-worker.js) when there is one: their radii, reach and bins kept where it looks for them (radNow,
+  // binReach, binCache), so it finds them made. (Start-up profile, 2 Nov 2026: that first frame, binning included, was the
+  // preparation's longest task, about half a second headless; the binning alone a quarter of a second.) A binning that fails in the
+  // worker is left to the frame, as before.
+  let binning = null;
+  function prebin() {
+    if (fade > 0 || !model || !gl || gl.lost) return;
+    const [W, H] = hostSize();
+    ensureGeo(W, H);
+    const G = geo, live = lymphOn ? G.tubes : G.bloodTubes, bk = lymphOn ? 'lymph' : 'blood';
+    if (binCache.has(bk)) return;
+    const rkC = Object.values(rzOf()).map((x) => x.toFixed(4)).join('|') + '|' + G.W + 'x' + G.H + '|' + lymphOn;
+    if (rkC !== radCal) { radCal = rkC; radNow = []; }
+    for (const t of live) {
+      const r = radNow[t.id] || (radNow[t.id] = Array.from({ length: N }, (_, i) => radiusAt(t, i)));
+      t.maxR = Math.max(...r);
+      binReach[t.id] = Math.max(binReach[t.id] || 0, Math.ceil((t.maxR * 1.6 + (WALL[t.kind] || 0) + 10) / 2) * 2);
+    }
+    const ids = new Set(live.map((t) => t.id)), tubes = live.map((t) => ({ id: t.id, pts: t.pts, reach: binReach[t.id] })), joins = G.joins.filter((j) => j.members.every((id) => ids.has(id)));
+    if (!binAway) { binCache.set(bk, binVeins(tubes, joins)); return; }
+    const was = geo, job = binning = Promise.resolve().then(() => binAway(tubes, joins)).then((b) => { if (geo === was && b && !binCache.has(bk)) binCache.set(bk, b); }, () => {}).finally(() => { if (binning === job) binning = null; });
   }
   // Runs the pieces in order; a null is a placeholder that a piece fills in.
   function prepareRun(q) { while (q.length) { const f = q.shift(); if (f) { f(); return q.length > 0; } } return false; }

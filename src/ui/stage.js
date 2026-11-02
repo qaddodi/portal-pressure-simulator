@@ -7,13 +7,13 @@ import { WARM_VIEWS, WARM_MS } from './warm-views.js?v=510b2dee9e';
 import { gastricUp } from '../engine/scenario.js?v=0762d1b820';
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
 import { route as metroRoute, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, CAVITY_LOW, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=fe0f3d1f0e';
-import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=d079c7e98c';
+import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=d486fea61e';
 import { nodeJoins, sideEndScale } from './fork-joins.js?v=4c6eea81e5';
 import { nodeEnds, nodeDrawn, dotRadius, bareDots } from './circuit-nodes.js?v=1040ba0ec4';
 import { STATION_VESSEL, meanVel, velNormal, judgeFlow } from './velNormal.js?v=97920ddf3f';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=103e271dec';
 import { fibroReading } from './clock.js?v=5094398a49';
-import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, loadFailed, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=3e77c85fed';
+import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, loadFailed, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=ce140d1aa3';
 import { riseCentre } from './rise-path.js?v=c039cb7b49';
 import { lerpVT, camPath, blendPaths, viewsOverlap, driftEase } from './cam-arc.js?v=2e5111e648';
 import { easeMove, easeArrive, camMs, carryRate, carried, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js?v=7513a88c68';
@@ -29,7 +29,7 @@ import { easeTo, fluidSpring, fluidSpringFor } from './organ-ease.js?v=4ebb64813
 import { spleenMotion } from './spleen-motion.js?v=4e87db0dbb';
 import { paintBox } from './plate-copy.js?v=20b30d30b0';
 import { gridHits, segHitsBox } from './seg-hits.js?v=e7cde76929';
-import { glassCallout, withGlass } from './callout.js?v=c6aa9b2d4c';
+import { glassCallout, withGlass } from './callout.js?v=c9126db1cc';
 import { flipFrom, flipAt } from './cath-flip.js?v=6b016952c4';
 import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=d7cca3fb73';
 import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=977185f80a';
@@ -44,20 +44,20 @@ import { refine } from './refine.js?v=6ad85d6687';
 import { fadeOver, fadeStop, fading } from './res-fade.js?v=767a6b64b8';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { leftAlone, sinceInput, booting, holdCover } from './quiet.js?v=388052eba8';
-import { cropToGrid } from './organs-gl.js?v=1f89bbebf3';
-import { textPolys, loadGlyphs, glyphsReady, textBox } from './text-gl.js?v=a0d95272f2';
+import { cropToGrid } from './organs-gl.js?v=f419e0f9ec';
+import { textPolys, loadGlyphs, glyphsReady, textBox } from './text-gl.js?v=aa4c52e0f7';
 import { cssColor8 } from './css-color.js?v=e56f0c77ae';
-import { measure as measureWords } from './glyph-measure.js?v=7b68f20cb5';
-import { readGroup as readGroupNow, readGroupRefs, readFail, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=8114d8757a';
+import { measure as measureWords } from './glyph-measure.js?v=d0727f1045';
+import { readGroup as readGroupNow, readGroupRefs, readFail, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=49e4d12df9';
 import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js?v=fd7e5bc404';
-import { pathCmds, flattenCmds, polyBox, measurePath, elBox, chainMat } from './shape-gl.js?v=b6b160b28e';
-import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=ee1c65a8f9';
-import { nameSpots, NAME_BREAK } from './organ-names.js?v=691b8ad55a';
-import { createLabelGL } from './label-gl.js?v=a9bcc447d1';
+import { pathCmds, flattenCmds, polyBox, measurePath, elBox, chainMat } from './shape-gl.js?v=82bbadf453';
+import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=efa693f60b';
+import { nameSpots, NAME_BREAK } from './organ-names.js?v=22f463ec66';
+import { createLabelGL } from './label-gl.js?v=a6654cde88';
 import { createGlassGL } from './glass-gl.js?v=13d65ad56c';
 import { writePoints, writeJoinNow } from './veins-sweep.js?v=c4ad517372';
 import { ENT_W } from './veins-bin.js?v=6e462a9e6c';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=af1c5e8d49';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=65ea35d045';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=d950c5cd1c';
 import { alongCurve } from './pressure-along.js?v=74c64e4286';
@@ -74,7 +74,7 @@ import { portalSplit } from './table-marks.js?v=ff3ed0cc47';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
 import { leaderEnd as edgeOf, leaderEndRects as edgeOfRects } from './leader-end.js?v=8e884700ab';
 import { balloonShape, esoAt, smoothPath, BALLOON, BALLOON_MS } from './balloon-eso.js?v=a56c97a289';
-import { GAS, gasShape, tubePath, tubeTip, tubeTo, pathAt, sheath, sheathArcs, pullArrow } from './balloon-gas.js?v=96c936bbb2';
+import { GAS, gasShape, tubePath, tubeTip, tubeTo, pathAt, sheath, sheathArcs, pullArrow } from './balloon-gas.js?v=44b8f90e62';
 import { balloonRy, balloonOutline, routeRadii } from './hvpg-balloon.js?v=35d7bb162c';
 import { outlineBox, placeSummary } from './cath-place.js?v=b5835a19ca';
 import { placePills, pillsClear, PILL_GAP } from './cath-pill.js?v=3dccfa6cff';
@@ -90,9 +90,9 @@ import { guardBlur } from './blur-guard.js?v=5228284718';
 import { capDensity } from './pixel-budget.js?v=279a2b54f6';
 import { bandRing, dashRings, liftEnd, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=e2c1816e25';
 import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js?v=6ef2901a08';
-import { CellGrid, geomOf } from './cell-grid.js?v=0863144013';
+import { CellGrid, geomOf } from './cell-grid.js?v=898ba372d4';
 import { restPass } from './rest-pass.js?v=442dee98c9';
-import { glWords } from './gl-words.js?v=d071487913';
+import { glWords } from './gl-words.js?v=d2cd99e78d';
 import { provideStage } from './layout-snap.js?v=49b358c305';
 const nextFrame = frameFor('stage');
 // (1 Nov 2026, "Move everything to GPU": zero layout inside the frame. Boxes the figure's pieces keep clear of (the slide's cards, the
@@ -2805,10 +2805,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=2566d63e2e').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=3dd9c67dd2').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
-      lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
+      lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor, binAway: (tubes, joins) => sweepBin({ kind: 'bin', tubes, joins }) });
       if (aimWait) { lz.aim(...aimWait); aimWait = null; }
       if (F) lz.update(F);
       return lz;
@@ -3897,6 +3897,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     return best;
   }
+  // Whether q lies within `lim` of a drawn course: distTo(pts, q) < lim, the same answer, in squared lengths and stopping at the
+  // first segment near enough (start-up profile, 2 Nov 2026: the joins' distTo, with Math.hypot on every segment of every vessel
+  // near every end, was 1.4 s of the first 20 s of a cold load, headless).
+  function nearCourse(pts, q, lim) {
+    if (!(lim > 0)) return false;
+    const qx = q[0], qy = q[1], L2 = lim * lim;
+    for (let i = 1; i < pts.length; i++) {
+      const a = pts[i - 1], b = pts[i], ax = a[0], ay = a[1], dx = b[0] - ax, dy = b[1] - ay;
+      const u = clamp(((qx - ax) * dx + (qy - ay) * dy) / (dx * dx + dy * dy || 1), 0, 1), ex = ax + dx * u - qx, ey = ay + dy * u - qy;
+      if (ex * ex + ey * ey < L2) return true;
+    }
+    return false;
+  }
   // For each vein end, the other veins whose course passes within reach of it, with the distance.
   // Built from the anatomy's courses (joins are drawn only there).
   let near = null, nearVersion = -1;
@@ -4208,19 +4221,23 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const next = () => {
       if (gen !== mt.gen || k >= pieces.length) return;
       // (Not while the figure moves at rest, for a while: a moment is a pass over every vessel.)
-      if (inMotion() && morph === morphTarget && held++ < 12) { setTimeout(next, 120); return; }
+      if ((inMotion() || sinceInput() < 700) && morph === morphTarget && held++ < 12) { setTimeout(next, 120); return; }
       const pc = pieces[k];
       const ts = Array.from({ length: MORPH_STEPS + 1 }, (_, i) => pc.t0 + (pc.t1 - pc.t0) * i / MORPH_STEPS);
       if (pc.t1 === 0.5) ts[MORPH_STEPS] = 0.5 - 1e-6;   // (the anatomy's side ends just short of the half, where the circuit's vessels take over)
-      // (One moment a task: each is a pass over every vessel and its joins.)
+      // (One pass over the joins a task: each is a pass over every vessel and its joins. A moment's passes in one task were a long
+      // task each, start-up profile 2 Nov 2026.)
       pc.snaps ||= [];
       // (The joins of the side's own vessels too: a vessel binned for the other side changes the joins it takes part in.)
       if (pc.snaps.length < ts.length) {
-        const t = ts[pc.snaps.length], items = itemsAt(t, pc.anat), own = itemsAt(t, pc.anat, false), o = joinsOf(own);
-        const sn = { t, items, ...joinsOf(items), J2: o.J, own: new Map(own.map((it) => [it.row, o.smooth.get(it.row) || it.pts])) };
+        const t = ts[pc.snaps.length], w = pc.work ||= { items: itemsAt(t, pc.anat), own: itemsAt(t, pc.anat, false), o: null, all: null, q: 1, J2: [] };
+        if (!w.o) { w.o = joinsOf(w.own); setTimeout(next, 0); return; }
+        if (!w.all) { w.all = joinsOf(w.items); setTimeout(next, 0); return; }
         // (The joins at moments between too: one can be there for less than a step, as two ends pass each other.)
-        if (pc.snaps.length) for (let q = 1; q < MORPH_JSUB; q++) { const u = lerp(pc.snaps[pc.snaps.length - 1].t, t, q / MORPH_JSUB); sn.J2 = sn.J2.concat(joinsOf(itemsAt(u, pc.anat, false)).J); }
-        pc.snaps.push(sn);
+        if (pc.snaps.length && w.q < MORPH_JSUB) { const u = lerp(pc.snaps[pc.snaps.length - 1].t, t, w.q / MORPH_JSUB); w.J2.push(...joinsOf(itemsAt(u, pc.anat, false)).J); w.q++; setTimeout(next, 0); return; }
+        pc.work = null;
+        const { items, own, o } = w;
+        pc.snaps.push({ t, items, ...w.all, J2: o.J.concat(w.J2), own: new Map(own.map((it) => [it.row, o.smooth.get(it.row) || it.pts])) });
         setTimeout(next, 0); return;
       }
       const snaps = pc.snaps;
@@ -4322,13 +4339,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const gen = ++et.gen, snaps = [], pc = { set: null }, shown = new Set(glItems().map((it) => it.row));
     et.stats.builds++;
     // (One moment a task, as the change's stretches are made: each is a pass over every vessel and its joins.)
+    // (Each pass over the joins is a task of its own, and none starts while the page is touched or moving: three passes a moment in
+    // one task were 150 to 270 ms each, headless, a dozen of them through the first seconds after a load, start-up profile 2 Nov 2026.)
+    let part = null;
     const next = () => {
       if (gen !== et.gen || !veins || veins.lost) return;
-      if (inMotion() && snaps.length < 2 * ENV_AT.length) { setTimeout(next, 200); return; }
+      if ((inMotion() || sinceInput() < 700) && snaps.length < 2 * ENV_AT.length) { setTimeout(next, 200); return; }
       if (snaps.length < 2 * ENV_AT.length) {
-        const m = snaps.length >> 1, [w, sp] = ENV_AT[m], items = envItemsAt(w, sp), o = joinsOf(items);
+        const m = snaps.length >> 1, [w, sp] = ENV_AT[m];
+        if (!part) { const items = envItemsAt(w, sp); part = { items, o: joinsOf(items), J2: null }; setTimeout(next, 0); return; }
         // (The joins half way from the moment before too: an end's join can move across the step.)
-        const P = m && ENV_AT[m - 1], J2 = P ? joinsOf(envItemsAt((P[0] + w) / 2, (P[1] + sp) / 2)).J : [];
+        const P = m && ENV_AT[m - 1];
+        if (!part.J2) { part.J2 = P ? joinsOf(envItemsAt((P[0] + w) / 2, (P[1] + sp) / 2)).J : []; setTimeout(next, 0); return; }
+        const { items, o, J2 } = part;
+        part = null;
         // (Each moment twice: with only the vessels shown now, and with every one. Which vessels are there changes how their runs are
         // smoothed where they meet (smoothRunOn): a vein running on into a hidden collateral was 6.4 off its course with every one.)
         const own = joinsOf(items.filter((it) => shown.has(it.row)));
@@ -4380,7 +4404,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function sweepBin(msg) {
     if (!mt.worker) {
       try {
-        mt.worker = new Worker(new URL('./sweep-worker.js?v=82f80d173a', import.meta.url), { type: 'module' });
+        mt.worker = new Worker(new URL('./sweep-worker.js?v=95b43eb486', import.meta.url), { type: 'module' });
         mt.worker.onmessage = (e) => { const w = mt.wait.get(e.data.id); mt.wait.delete(e.data.id); if (w) (e.data.error ? w.no(e.data.error) : w.ok(e.data.b)); };
         mt.worker.onerror = () => { for (const w of mt.wait.values()) w.no('worker'); mt.wait.clear(); };
       } catch { return Promise.reject(new Error('no worker')); }
@@ -4662,19 +4686,26 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         add(near, c);
       }
     }
-    const box = new Map(items.map((it) => {
-      const P = it.pts, m = it.obj.glMaxR + 4;
+    // (Every end against every course's box, in flat arrays: the same tests in the same order as with a Map of boxes, which with
+    // ~300 items made this loop most of a joins pass, start-up profile 2 Nov 2026.)
+    const n = items.length, bx = new Float64Array(4 * n), art = new Uint8Array(n);
+    for (let k = 0; k < n; k++) {
+      const it = items[k], P = it.pts, m = it.obj.glMaxR + 4;
       let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
       for (const q of P) { x0 = Math.min(x0, q[0]); y0 = Math.min(y0, q[1]); x1 = Math.max(x1, q[0]); y1 = Math.max(y1, q[1]); }
-      return [it, [x0 - m, y0 - m, x1 + m, y1 + m]];
-    }));
-    for (const it of items) for (const i of [0, 1]) {
-      const q = endOf(it, i), rq = rEnd(it, i);
-      for (const y of items) {
-        const b = box.get(y);
-        if (y === it || !!y.x.isArt !== !!it.x.isArt || q[0] < b[0] || q[0] > b[2] || q[1] < b[1] || q[1] > b[3]) continue;
-        if (pairs.has(pairKey(it, y))) continue;
-        if (distTo(y.pts, q) < y.obj.glMaxR + 0.5 * rq + 2) add([[it, i], [y, null]], q, y.x.e.id === it.x.e.id ? undefined : y.row);   // (the trunk, unless it is another stretch of the same vessel: the azygos arch's bend)
+      bx[4 * k] = x0 - m; bx[4 * k + 1] = y0 - m; bx[4 * k + 2] = x1 + m; bx[4 * k + 3] = y1 + m;
+      art[k] = it.x.isArt ? 1 : 0;
+    }
+    for (let a = 0; a < n; a++) {
+      const it = items[a];
+      for (let i = 0; i < 2; i++) {
+        const q = endOf(it, i), qx = q[0], qy = q[1], rq = rEnd(it, i);
+        for (let k = 0; k < n; k++) {
+          if (k === a || art[k] !== art[a] || qx < bx[4 * k] || qx > bx[4 * k + 2] || qy < bx[4 * k + 1] || qy > bx[4 * k + 3]) continue;
+          const y = items[k];
+          if (y === it || pairs.has(pairKey(it, y))) continue;
+          if (nearCourse(y.pts, q, y.obj.glMaxR + 0.5 * rq + 2)) add([[it, i], [y, null]], q, y.x.e.id === it.x.e.id ? undefined : y.row);   // (the trunk, unless it is another stretch of the same vessel: the azygos arch's bend)
+        }
       }
     }
     return joins;

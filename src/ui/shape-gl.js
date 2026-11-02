@@ -493,7 +493,12 @@ export function measurePath(d, tol = 0.002) {
  * browser leaves them out. Text is measured by `textOf(el)` (its box, or null), when given. Returns null for an element with nothing
  * to measure (an empty group). Paths are cached by d.
  */
-const BOX_D = new Map();
+const BOX_D = new Map(), BOX_D_MAX = 4096;
+// Each path's own last box, by its element: a path whose `d` has not changed is never looked up or parsed again, while one that
+// eases (the liver's outline as it settles after a load) parses only itself. (Start-up profile, 2 Nov 2026: with the shared table
+// cleared whole once it held 512 shapes, the home framing's boxes (defaultVT) parsed every organ path again, 25 to 50 ms a look,
+// twice a second through the first 15 s.)
+const BOX_EL = new WeakMap();
 /**
  * The frame from an element's own units to `top`'s (the element's transform attribute, then each parent's up to and not including
  * `top`), as getCTM() of the element undone by top's gives it, worked out from the attributes in script ({a..f}; plan "Holding
@@ -529,13 +534,16 @@ function elBox4(el, textOf) {
     case 'path': {
       const d = el.getAttribute('d');
       if (!d) return null;
+      const kept = BOX_EL.get(el);
+      if (kept && kept.d === d) return kept.b;
       let b = BOX_D.get(d);
       if (b === undefined) {
         const polys = flattenCmds(pathCmds(d), 0.002);
         b = polys.some((p) => p.pts.length) ? polyBox(polys) : null;
-        if (BOX_D.size > 512) BOX_D.clear();
+        if (BOX_D.size >= BOX_D_MAX) BOX_D.delete(BOX_D.keys().next().value);   // (the oldest out, never the whole table)
         BOX_D.set(d, b);
       }
+      if (kept) { kept.d = d; kept.b = b; } else BOX_EL.set(el, { d, b });
       return b;
     }
     case 'rect': { const x = num(el, 'x'), y = num(el, 'y'); return [x, y, x + num(el, 'width'), y + num(el, 'height')]; }

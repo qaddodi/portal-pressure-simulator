@@ -18,9 +18,9 @@ import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=81fbedda6b';
 import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js?v=c4010cf467';
 import { createAtlasPacker, batchRuns } from './atlas-pack.js?v=43b8bc019d';
 import { easeMove, D_SURFACE } from './ease.js?v=7513a88c68';
-import { createShapeGL, flattenPath, polyMesh, ellipsePoly } from './shape-gl.js?v=b6b160b28e';
-import { createOrganPaint, parseColor, mul } from './organ-paint.js?v=8114d8757a';
-import { textPolys, textWidth, loadGlyphs, glyphsReady, textCovers } from './text-gl.js?v=a0d95272f2';
+import { createShapeGL, flattenPath, polyMesh, ellipsePoly } from './shape-gl.js?v=82bbadf453';
+import { createOrganPaint, parseColor, mul } from './organ-paint.js?v=49e4d12df9';
+import { textPolys, textWidth, loadGlyphs, glyphsReady, textCovers } from './text-gl.js?v=aa4c52e0f7';
 import { trackOf, trackAt, mixColour, timingOf, progressAt, keysOf } from './label-track.js?v=814746f511';
 // (The colour a clear writes, one array for every clear: none made per call, plan rev 2 §2.8.)
 const CLEAR0 = new Float32Array(4);

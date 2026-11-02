@@ -36,7 +36,7 @@ import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { EDGE_GLSL } from './edge.js?v=8321a8017f';
 import { SLOT, DYE_BINS, PERIOD, DRIFT_PERIOD } from './blood.js?v=f6c91d8676';
-import { cssRGB } from './util.js?v=3e77c85fed';
+import { cssRGB } from './util.js?v=ce140d1aa3';
 import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js?v=d72157dbac';
 import { CELL, ENT_W, binVeins, splitRows, simpleCells, splitCells, cellsOfJoinEntries } from './veins-bin.js?v=6e462a9e6c';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
@@ -44,11 +44,12 @@ import { changedRows } from './flow-rows.js?v=6cd335f84b';
 import { leftAlone } from './quiet.js?v=388052eba8';
 import { uniformCache } from './uniform-cache.js?v=d2bd54b612';
 import { PUBLISH_QUIET_MS, SHADER_WARM, exerciseDraw } from './gl-compile.js?v=c4010cf467';
-import { createShapeGL, flattenPath, ellipsePoly, polyMesh } from './shape-gl.js?v=b6b160b28e';
-import { createOrganStack, prestartOrganStack, prestartLayer } from './organs-gl.js?v=1f89bbebf3';
+import { createShapeGL, flattenPath, ellipsePoly, polyMesh } from './shape-gl.js?v=82bbadf453';
+import { createOrganStack, prestartOrganStack, prestartLayer } from './organs-gl.js?v=f419e0f9ec';
 import { warmFade } from './res-fade-gl.js?v=3dafde1674';
 import { fusedVS, fusedFS } from './veins-fuse.js?v=b34d325734';
 import { NOISE_W, NOISE_H, NOISE_PER_ROW, OCTAVES, noiseBlock, blockAt, tableSize } from './blood-noise.js?v=bc65994b25';
+import { createNoiseFiller } from './noise-gl.js?v=8535815de2';
 import { softwareGL } from './sw-yield.js?v=18a3b54a4d';
 import { frameCount, framePhase } from './frame.js?v=897b4f8e7e';
 
@@ -2279,7 +2280,11 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // About 67 KB a vessel row, sized to the rows the streaks have drawn in so far (a line of 13 blocks at a time) and made again
   // larger when a row past it needs its block. A table the GPU cannot hold is given up, and the shader hashes the noise as
   // before (noiseOn 0); ?blood=classic hashes it and makes none.
-  let noiseTex = CLASSIC ? null : dataTex(gl), noiseRows = 0, noiseBuf = null;
+  // (Filled on the GPU where the context can (noise-gl.js): the whole table in one draw when it is made, so no row's block is hashed in
+  // script, a frame of up to 70 ms headless as the blood began to stream after a load. In script, row by row, as before, while the fill's
+  // program is still compiling or where the context has no float target.)
+  let noiseTex = CLASSIC ? null : dataTex(gl), noiseRows = 0, noiseBuf = null, noiseW = 0, noiseH = 0, noiseAll = false;
+  const noiseGPU = noiseTex ? createNoiseFiller(gl) : null;
   const noiseDone = new Uint8Array(nTubes);
   const growNoise = (rows) => {
     const [W, H] = tableSize(rows);
@@ -2288,7 +2293,12 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     if (H <= glCap(gl, gl.MAX_TEXTURE_SIZE)) {
       gl.bindTexture(gl.TEXTURE_2D, noiseTex);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, W, H, 0, gl.RGBA, gl.FLOAT, null);
-      if (glOkAfter(gl, 'noise-rgba32f')) { noiseRows = Math.min(nTubes, H / NOISE_H * NOISE_PER_ROW); noiseDone.fill(0); return true; }
+      if (glOkAfter(gl, 'noise-rgba32f')) {
+        noiseRows = Math.min(nTubes, H / NOISE_H * NOISE_PER_ROW); noiseW = W; noiseH = H;
+        noiseAll = !!noiseGPU?.fill(noiseTex, W, H);
+        noiseDone.fill(noiseAll ? 1 : 0);
+        return true;
+      }
     }
     console.warn('Veins renderer: no room for the streak noise table; the shader hashes it instead.');
     gl.deleteTexture(noiseTex); noiseTex = null;
@@ -2309,8 +2319,11 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     let top = -1;
     for (let r = nTubes - 1; r >= noiseRows && top < 0; r--) if (needs(r)) top = r;
     if (top >= 0 && !growNoise(top + 1)) return;
+    let tried = false;
     for (let r = 0; r < noiseRows; r++) {
       if (noiseDone[r] || !needs(r)) continue;
+      // (A row to fill: the whole table on the GPU, if its program is ready by now.)
+      if (!tried && !noiseAll && noiseGPU) { tried = true; if (noiseGPU.fill(noiseTex, noiseW, noiseH)) { noiseAll = true; noiseDone.fill(1); break; } }
       noiseBuf = noiseBlock(r, noiseBuf || undefined);
       gl.bindTexture(gl.TEXTURE_2D, noiseTex);
       gl.texSubImage2D(gl.TEXTURE_2D, 0, ...blockAt(r), NOISE_W, NOISE_H, gl.RGBA, gl.FLOAT, noiseBuf);
@@ -4039,7 +4052,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         for (const b of [quad, cellBuf, simpleBuf, bloodBuf, partBuf, partSBuf, fluidBuf, poolBuf, dirtBuf, cathBuf, lineBuf]) gl.deleteBuffer(b);
         for (const v of [vao, oneVAO, bloodVAO, partVAO, partSVAO, fluidVAO, poolVAO, dirtVAO, compVAO, cathVAO, lineVAO]) gl.deleteVertexArray(v);
         for (const x of [prog, simpleP, comp, compCell, plain, plainCell, fuseGen, fuseOne, cathP, lineP]) if (x) gl.deleteProgram(x.p);
-        over?.dispose(); stack?.dispose();
+        over?.dispose(); stack?.dispose(); noiseGPU?.dispose();
         gl.deleteFramebuffer(fbo); gl.deleteFramebuffer(tintFbo); gl.deleteFramebuffer(lineLayer.fbo); gl.deleteFramebuffer(glowLayer.fbo); gl.deleteFramebuffer(warmLayer.fbo);
         if (own) { gl.deleteTexture(own.tex); gl.deleteFramebuffer(own.fbo); if (own.rb) gl.deleteRenderbuffer(own.rb); }
         if (rz.tex) { gl.deleteTexture(rz.tex); gl.deleteFramebuffer(rz.fbo); }
