@@ -10,7 +10,7 @@ test('the Doppler monitor sends only its new lines to the GPU and draws none of 
   const src = readFileSync(new URL('../src/ui/doppler.js', import.meta.url), 'utf8');
   assert.match(src, /if \(x0 \+ n <= RW\) gpu\.ringCols\(img, x0, n\);\n\s+else \{ gpu\.ringCols\(img, x0, RW - x0\); gpu\.ringCols\(img, 0, x0 \+ n - RW\); \}/);
   assert.match(src, /if \(full\) \{ glFrom = 'img'; imgWhole = true; \}/, 'a whole redraw sends the ring whole');
-  assert.match(src, /traceBox = \[dx, dy, RW, RH\];/);
+  assert.match(src, /TB\[0\] = dx; TB\[1\] = dy; TB\[2\] = RW; TB\[3\] = RH; traceBox = TB;/);
   assert.doesNotMatch(src, /getContext\('2d'\)|putImageData|drawImage|OffscreenCanvas/, 'no canvas 2D: the trace is the GPU\'s alone');
 });
 
@@ -25,7 +25,7 @@ test('the Doppler trace and its words are drawn on the GPU', () => {
   assert.match(src, /const pen = fitPen\(cv, words\);\n\s+try \{ drawWith\(pen, now\); \} finally \{ pen\.ctx\.end\?\.\(\); \}/);
   assert.match(src, /const onGpu = !!gpu && !gpu\.lost;/);
   assert.match(src, /if \(glFrom === 'img'\) gpu\.ringAll\(img, RW, RH\);/);
-  assert.match(src, /drawn = gpu\.render\(\{ W: CW, H: CH, dx, dy, RW, RH, p, nx, ny, noiseA: mode === 'spectrum' \? 1 : 0\.3, base: g\.rBase, wf: wfPx \}\);/);
+  assert.match(src, /R\.W = CW; R\.H = CH; R\.dx = dx; R\.dy = dy; R\.RW = RW; R\.RH = RH; R\.p = p; R\.nx = nx; R\.ny = ny; R\.noiseA = mode === 'spectrum' \? 1 : 0\.3; R\.base = g\.rBase; R\.wf = wfPx;\s+drawn = gpu\.render\(R\);/);
   assert.match(src, /gpu\.stretch\(RW, RH, /, 'a new size stretches the ring on the GPU');
   assert.match(src, /gpu\?\.noise\(fi\);/);
   assert.doesNotMatch(gl, /SwiftShader\|llvmpipe/, 'a software renderer draws it too: there is no 2D path to keep');

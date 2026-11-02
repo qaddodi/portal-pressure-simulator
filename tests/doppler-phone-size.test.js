@@ -33,5 +33,5 @@ test('a slide\'s Doppler strip reads signed as drawn and as a steady running mea
   assert.match(src, /let mean = ovOn \? steadyMean\(r\.mean\) : r\.mean;/);
   assert.match(src, /const drawn = ovOn \? mean \* pol\(\) : mean;/);
   assert.match(src, /pinnedVel\(\)/);   // (and the slide's own velocity while it agrees)
-  assert.match(src, /shownVel\.set\(probe, \{ v: Math\.abs\(mean\)/);
+  assert.match(src, /sv\.v = Math\.abs\(mean\);[^\n]*\n\s+shownVel\.set\(probe, sv\);/);
 });

@@ -42,6 +42,7 @@ test('every direction and pattern interpret() can write is among the words the s
     for (const p of patLits) assert.ok(pats.includes(p), `${kind}: pattern "${p}" missing`);
   }
   // (the hepatic artery's pattern carries a number: sized for two decimals)
-  assert.match(it, /pattern = `Resistive index \$\{fmt\(ri, 2\)\}`/);
+  assert.match(it, /pattern = RI_TEXT\[Math\.max\(0, Math\.min\(100, Math\.round\(ri \* 100\)\)\)\];/);   // (the words for each hundredth, made once: RI_TEXT)
+  assert.match(readFileSync(new URL('../src/ui/doppler.js', import.meta.url), 'utf8'), /RI_TEXT\.push\(`Resistive index \$\{fmt\(i \/ 100, 2\)\}`\)/);
   assert.ok(kinds.artery[1].includes('Resistive index 0.00'));
 });

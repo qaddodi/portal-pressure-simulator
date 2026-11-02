@@ -154,7 +154,7 @@ test('V21: the calipers read the window\'s extremes, on their own samples, with 
   assert.match(CAL, /x1 = padL \+ W/);
   // Always visible over the trace and the baseline: drawn after both, each line on a dark edge wider than itself.
   assert.ok(DOP.indexOf('drawCalipers(ctx,') > DOP.indexOf('// Baseline') && DOP.indexOf('drawCalipers(ctx,') > DOP.indexOf('ring(ctx, off, dx, dy)'), 'drawn over the trace');
-  assert.equal((CAL.match(/'--black', 0\.85\); ctx\.lineWidth = 3\.5; ctx\.stroke\(\)/g) || []).length, 2, 'levels and upright on a dark edge'); assert.match(CAL, /ctx\.moveTo\(xc, y\); ctx\.lineTo\(x1, y\)/);
+  assert.equal((CAL.match(/'--black', 0\.85\); ctx\.lineWidth = 3\.5; ctx\.stroke\(\)/g) || []).length, 2, 'levels and upright on a dark edge'); assert.match(CAL, /ctx\.moveTo\(xc, lvHi\); ctx\.lineTo\(x1, lvHi\); ctx\.moveTo\(xc, lvLo\); ctx\.lineTo\(x1, lvLo\)/);
   // The reading's own formula (doppler.js interpret), read from its source.
   assert.match(DOP, /const pi = big > 0\.5 \? swing \/ big : 0;/);
 });

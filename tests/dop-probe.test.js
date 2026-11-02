@@ -119,7 +119,7 @@ test('every mark and the probe are white-lined on a black rim, with no θ on the
 
 test('the monitor names the probe\'s angle and gate', () => {
   assert.match(read('src/ui/dopplerColor.js'), /export const THETA = PROBE\.ANGLE;/);
-  assert.match(doppler, /`θ \$\{THETA\}°`, `SV \$\{svMm\(\)\} mm`/);
+  assert.match(doppler, /`θ \$\{THETA\}°`, `SV \$\{mm\} mm`/);   // (the strip's settings, joined once for each size of gate and window: SETTINGS)
   assert.match(doppler, /return clamp\(Math\.round\(d \/ 2\), 2, 15\);/);
 });
 

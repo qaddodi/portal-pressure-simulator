@@ -63,7 +63,7 @@ test('#15: a stent sampled at a 90% narrowing reads its jet, judged there, not "
   const src = read('../src/ui/doppler.js');
   assert.match(src, /function interpret\(r0, g = 1\)/);
   assert.match(src, /const it = interpret\(r, gateFactor\(\)\);/);
-  assert.match(src, /mean: r0\.mean \* g, vmax: r0\.vmax \* g, vmin: r0\.vmin \* g, vmaxMean: r0\.vmaxMean \* g, vminMean: r0\.vminMean \* g/);
+  assert.match(src, /r\.mean = r0\.mean \* g; r\.vmax = r0\.vmax \* g; r\.vmin = r0\.vmin \* g; r\.vmaxMean = r0\.vmaxMean \* g; r\.vminMean = r0\.vminMean \* g/);
 });
 
 test('#16: "Why?" for PPG and HVPG shows its own formula, adding up to the number above it', () => {

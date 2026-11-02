@@ -85,8 +85,8 @@ test("the column's side is chosen from the stent and the screen, never the pick,
 });
 
 test("each point reads the Doppler tile's number: the open stent's velocity times that point's factor, the sampled one the monitor's own", () => {
-  assert.match(doppler, /shownVel\.set\(probe, \{ v: Math\.abs\(mean\), t: performance\.now\(\), seg: isStentProbe\(\) \? gateOf\(\) : null, open \}\);/);
-  assert.match(doppler, /stentReads\(open\)\.forEach/);   // (the tiles read from the same open velocity)
+  assert.match(doppler, /sv\.v = Math\.abs\(mean\); sv\.t = performance\.now\(\); sv\.seg = isStentProbe\(\) \? gateOf\(\) : null; sv\.open = open;\s+shownVel\.set\(probe, sv\);/);
+  assert.match(doppler, /reads = stentReads\(open\)/);   // (the tiles read from the same open velocity)
   assert.match(stage, /const vel = fresh && pt === gated \? dop\.v : \(fresh && Number\.isFinite\(dop\.open\) \? dop\.open : live\) \* factor;/);
 });
 

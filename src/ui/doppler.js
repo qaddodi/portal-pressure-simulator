@@ -8,7 +8,6 @@ import { EDGES, dopplerK, stentSegments, stentSite, stentGate, stentCourse } fro
 import { glWords, wordsRect } from './gl-words.js?v=31ab8b6509';
 import { h, fmt, canvasSize, clamp, icon, cssVar, cssAlpha, swapText } from './util.js?v=aef9bbf227';
 import { FONT, textW } from './charts.js?v=9e0b59f9ff';
-import { classSoon } from './class-soon.js?v=af0dd2b529';
 import { logAction, shownVel, store } from './store.js?v=0f9c79ec87';
 import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=2b1a0ced89';
 import { frameFor, noteDraw, paceMs, cancelFrame } from './frame.js?v=07b68cf942';
@@ -22,14 +21,14 @@ import { createFollow } from './display-state.js?v=3783649ed7';
 import { D_SMALL, EASE_ARRIVE } from './ease.js?v=7d7bfe9a62';
 import { restPass } from './rest-pass.js?v=fea7233cda';
 import { createTraceGL, fitPen, keepLayer } from './trace-gl.js?v=3047e389f0';
-import { attrSoon, dataSoon, propSoon } from './class-soon.js?v=af0dd2b529';
+import { attrSoon, classSoon, dataSoon, propSoon, runSoon } from './class-soon.js?v=af0dd2b529';
 import { dropFront } from './drop-front.js?v=21069ee0e8';
 const nextFrame = frameFor('doppler');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 // What the Doppler calls a vessel: a stent also names its course ("TIPS RPV → RHV"), read from where the model connects it.
 const STENT_OUT = [0, 0, 0];   // alloc-rare: made once (stentSegments writes into it; each reader uses it before the next call)
-const probeName = (p) => (p.kind === 'tips' ? `${p.short} ${stentCourse(EDGES[EI[p.id]])}` : p.short);
+const probeName = (p, gate = '') => (gate ? p.byGate[gate] : p.name);   // (made once for each probe, below PROBES; a stent's name with its gate)
 // kind decides the words for direction and pattern; normal is the usual mean velocity (cm/s).
 // Positive velocity is the vessel's physiological direction (for a collateral: portal → systemic).
 // The trace is drawn as the scanner shows it, relative to the transducer: flow toward the probe
@@ -53,7 +52,40 @@ const PROBES = [
   { id: 'C1b', short: 'Varix C1', kind: 'collateral', normal: null },
   { id: 'C3', short: 'Paraumb. C3', kind: 'collateral', normal: null },
 ];
-const SWEEP_SECONDS = [6, 3, 12]; // Start at 6 s; first tap shortens the visible window.
+for (const p of PROBES) p.name = p.kind === 'tips' ? `${p.short} ${stentCourse(EDGES[EI[p.id]])}` : p.short;
+// The fade a row takes when it comes in, and the two answers of the ?perf surfaces list: made once (animate() reads its keyframes and timing as it is called).
+const FADE_KEYS = [{ opacity: 0 }, { opacity: 1 }], FADE_OPTS = { duration: D_SMALL, easing: EASE_ARRIVE };
+const SURF_GPU = { on: 'gpu', via: 'trace and words WebGL2' }, SURF_MIXED = { on: 'mixed', via: 'trace WebGL2, words 2D canvas (?tracegl=0)' };
+const SURF_LOST = { on: 'fallback', via: 'none', why: 'context lost' }, SURF_NONE = { on: 'fallback', via: 'none', why: 'no WebGL2' };
+// The sentences that name a stent, made once for each of the two (the stent is 'TIPS' or 'DIPS'), and the resistive index's words for each hundredth.
+const NOTE_BACK = {}, NOTE_SLOW = {}, NOTE_NOT_EXPECTED = {};
+for (const st of ['TIPS', 'DIPS']) {
+  NOTE_BACK[st] = `Expected with a ${st}: flow runs back toward the stent.`;
+  NOTE_SLOW[st] = `Slower than expected with a ${st}: it suggests the stent is narrowing.`;
+  NOTE_NOT_EXPECTED[st] = `With a ${st}, flow toward the liver here is not expected: it suggests the stent is narrowing.`;
+}
+const RI_TEXT = [];
+for (let i = 0; i <= 100; i++) RI_TEXT.push(`Resistive index ${fmt(i / 100, 2)}`);
+// A stent's name with the gate it samples at, for each gate (the label in the strip), and the strip's settings words for each window.
+const GATE_NAME = { proximal: 'Proximal', mid: 'Mid', distal: 'Distal' };
+for (const p of PROBES) if (p.kind === 'tips') { p.byGate = {}; for (const g in GATE_NAME) p.byGate[g] = `${p.name} · ${GATE_NAME[g]}`; }
+const PROBES_BY_ID = new Map(PROBES.map((p) => [p.id, p]));
+const PI_TEXT = [];   // (the calipers' index in words, for each hundredth up to 3)
+for (let i = 0; i <= 300; i++) PI_TEXT.push(`PI ${fmt(i / 100, 2)}`);
+const SWEEP_SECONDS = [6, 3, 12];
+// SETTINGS[spectrum ? 0 : 1][sample volume in mm][window index]: the settings that fit in 1, 2, 3 or 4 parts, joined (a narrow strip drops them from the end).
+const SETTINGS = [];
+for (let c = 0; c < 2; c++) {
+  SETTINGS.push([]);
+  for (let mm = 0; mm <= 15; mm++) {
+    SETTINGS[c].push([]);
+    for (const sec of SWEEP_SECONDS) {
+      const all = [c === 0 ? 'PW' : 'PW + CD', `θ ${THETA}°`, `SV ${mm} mm`, `${sec} s`], out = [];
+      for (let n = 1; n <= all.length; n++) out.push(all.slice(0, n).join('  ·  '));
+      SETTINGS[c][mm].push(out);
+    }
+  }
+} // Start at 6 s; first tap shortens the visible window.
 const PAD_L = 12, PAD_R = 46;        // The trace's side margins (CSS px).
 const KEEP = 16;                 // Retain enough samples for the 12 s sweep and display lag.
 // (R16: the history is a bounded queue: samples past KEEP are dropped in chunks (256, or a quarter of it), not shifted out on every
@@ -112,7 +144,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     swapText(sweepBtn.lastChild, `${sweepSeconds} s`);
     sweepBtn.title = `Sweep window: ${sweepSeconds} seconds. Tap to cycle.`;
     sweepBtn.setAttribute('aria-label', `Doppler sweep duration: ${sweepSeconds} seconds. Activate to cycle.`);
-    ringKey = '';
+    RK.ok = false;
   }
   sweepBtn.addEventListener('click', () => {
     manualSweep = true;
@@ -139,7 +171,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   if (gpu) { gpu.canvas.setAttribute('aria-hidden', 'true'); cv.before(gpu.canvas); }
   const words = createTraceGL(cv, { redraw: () => redraw() });
   // (The ?perf surfaces list, gpu-surfaces.js: read by the readout only.)
-  const offSurface = surface('Doppler trace', () => (!cv.isConnected ? null : gpu && !gpu.lost ? { on: cv.style.opacity === '0' ? 'gpu' : 'mixed', via: cv.style.opacity === '0' ? 'trace and words WebGL2' : 'trace WebGL2, words 2D canvas (?tracegl=0)' } : { on: 'fallback', via: 'none', why: gpu ? 'context lost' : 'no WebGL2' }));
+  const offSurface = surface('Doppler trace', () => (!cv.isConnected ? null : gpu && !gpu.lost ? (cv.style.opacity === '0' ? SURF_GPU : SURF_MIXED) : gpu ? SURF_LOST : SURF_NONE));
 
   // The report
   const dirEl = h('b', { class: 'dop-dir' }, '—');
@@ -155,21 +187,27 @@ export function createDoppler({ onProbe, pickGate = true }) {
   const gLo = h('span', { class: 'dop-g-lo' }); const gHi = h('span', { class: 'dop-g-hi', 'data-u': 'cm/s' }); const gZero = h('span', { class: 'dop-g-zero' }, '0');
   const trackEl = h('div', { class: 'dop-track' }, bandEl, markEl);
   // (The track's width, for the band's middle: read as the browser reports a new one, never in a frame.)
-  if (typeof ResizeObserver === 'function') new ResizeObserver((es) => { const w = es[0]?.contentRect?.width || 0; if (w && Math.abs(w - trackW) > 0.5) { trackW = w; if (lastGauge) updateGauge(...lastGauge); } }).observe(trackEl);
+  if (typeof ResizeObserver === 'function') new ResizeObserver((es) => { const w = es[0]?.contentRect?.width || 0; if (w && Math.abs(w - trackW) > 0.5) { trackW = w; if (gaugeP) updateGauge(gaugeP, gaugeMean, gaugeExpected); } }).observe(trackEl);
   const rangeEl = h('div', { class: 'dop-range', hidden: true }, trackEl, h('div', { class: 'dop-ticks' }, gZero, gLo, gHi));
   const patternEl = h('div', { class: 'dop-pattern' });
   const noteEl = h('p', { class: 'dop-note' });
   const statEls = {};
+  // (What the figure reads of the shown velocity (store shownVel), one record for each probe, written in place.)
+  const SHOWN = new Map();
+  for (const pr of PROBES) SHOWN.set(pr.id, { v: 0, t: 0, seg: null, open: 0 });
   // A row that comes with the new vessel (the congestion index, a stent's three segments) fades in rather than popping (P23).
+  // (Between frames: a hidden flip is a style pass. A flip back before it lands cancels it. Each row has its own flip, made once with it,
+  // that reads the row's last ask: a flip asked for and then taken back finds nothing to do.)
   const showStat = (wrap, on) => {
     if ((wrap._on ?? !wrap.hidden) === on) return;
     wrap._on = on;
-    // (Between frames: a hidden flip is a style pass. A flip back before it lands cancels it.)
-    restPass(() => {
-      if (wrap._on !== on || wrap.hidden === !on) return;
-      wrap.hidden = !on;
-      if (on && wrap.isConnected && shown()) wrap.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE });
-    });
+    restPass(wrap._flip);
+  };
+  const flipStat = (wrap) => {
+    const on = wrap._on;
+    if (wrap.hidden === !on) return;
+    propSoon(wrap, 'hidden', !on);
+    if (on && wrap.isConnected && shown()) runSoon(wrap._fade);   // (after the hidden flip lands: the fade starts from the row shown)
   };
   const stats = h('dl', { class: 'dop-stats' }, ['Peak', 'Trough', 'Pulsatility', 'CI', 'Proximal', 'Mid', 'Distal'].map((k) => {
     const dd = h('dd', {}, '—');
@@ -177,8 +215,11 @@ export function createDoppler({ onProbe, pickGate = true }) {
     // A stent segment's tile is a button (the name inside the term; its ::after covers the whole tile, so a tap anywhere on it samples there).
     const btn = seg && pickGate ? h('button', { type: 'button', class: 'dop-seg', 'aria-pressed': 'false', title: `Sample the stent at its ${k.toLowerCase()} end` }, k) : null;
     btn?.addEventListener('click', () => pickSeg(seg));
+    if (btn) btn._label = () => attrSoon(btn, 'aria-label', `${k}, ${num(btn._v)} centimeters per second${btn._here ? ', sampling here' : ''}. Activate to sample here.`);
     // (the Peak tile is named Max: the highest point of the last 3 s, beside the big reading, which is the spectrum's peak averaged over time)
-    const wrap = h('div', k === 'Peak' ? { title: 'Highest velocity in the last 3 s' } : {}, h('dt', {}, btn || (k === 'Peak' ? 'Max' : k)), dd); statEls[k] = { dd, wrap, btn }; return wrap;
+    const wrap = h('div', k === 'Peak' ? { title: 'Highest velocity in the last 3 s' } : {}, h('dt', {}, btn || (k === 'Peak' ? 'Max' : k)), dd); statEls[k] = { dd, wrap, btn };
+    wrap._flip = () => flipStat(wrap); wrap._fade = () => wrap.animate?.(FADE_KEYS, FADE_OPTS);
+    return wrap;
   }));
   // The report's words that change while the trace runs are drawn on the GPU while they change (gl-words.js, ?glwords=0 writes them
   // into the page as before); the strip's fit, between frames, writes them in at once (now) to measure them.
@@ -310,6 +351,10 @@ export function createDoppler({ onProbe, pickGate = true }) {
   // ── Reading ───────────────────────────────────────
   // (Nothing until 1.5 s of this vessel is recorded: a pattern judged from part of a beat is a wrong one, a red "To-and-fro" for a moment.)
   const SETTLE = 1.5;
+  // (The reading, and the same scaled to a stent's gate, are two kept records written in place: a caller uses one at once and does not keep it.)
+  const READ = { mean: 0, vmax: 0, vmin: 0, vmaxMean: 0, vminMean: 0 }, GATED = { mean: 0, vmax: 0, vmin: 0, vmaxMean: 0, vminMean: 0 };
+  // (What interpret() answers, written in place, and the options it hands judgeFlow.)
+  const IT = { dir: '', sev: '', pattern: '', note: '', pi: 0, expected: false }, OPT_SWINGS = { swings: false }, OPT_STENT = { stent: true };
   function reading() {
     if (buf.length < 4) return null;
     const tNow = buf[buf.length - 1][0];
@@ -323,9 +368,16 @@ export function createDoppler({ onProbe, pickGate = true }) {
     }
     // The record is the mean across the lumen; the scanner reads the peak of the spectrum (dopplerK)
     const k = dopplerK(EDGES[EI[probe]]);
-    return { mean: k * sum / n, vmax: vmax * k, vmin: vmin * k, vmaxMean: vmax, vminMean: vmin };
+    const r = READ;
+    r.mean = k * sum / n; r.vmax = vmax * k; r.vmin = vmin * k; r.vmaxMean = vmax; r.vminMean = vmin;
+    return r;
   }
-  const meta = () => PROBES.find((p) => p.id === probe) || PROBES[0];
+  // (The probe's row, found again only when the probe changes.)
+  let metaFor = null, metaRow = PROBES[0];
+  const meta = () => {
+    if (metaFor !== probe) { metaFor = probe; metaRow = PROBES[0]; for (let i = 0; i < PROBES.length; i++) if (PROBES[i].id === probe) { metaRow = PROBES[i]; break; } }
+    return metaRow;
+  };
   // The sample volume's length (mm): half the vessel's width, in its middle, as the figure's gate is drawn (dop-probe.js gateDims; the
   // Polish Ultrasound Society's setting, J Ultrason 2015, p. 214), within the 2–15 mm a scanner offers (Meola et al., J Vasc Access
   // 2021, p. 22). From the vessel's usual width (the trunk the probe sees for a lumped bundle), so it holds still while the vessel
@@ -343,7 +395,8 @@ export function createDoppler({ onProbe, pickGate = true }) {
   const isStentProbe = () => meta().kind === 'tips';
   const gateOf = () => stentGate(store.get().dopGate, store.get().params, probe);
   let gf = 1;
-  const gateFactor = () => (isStentProbe() ? stentReads(1)[SEGS.findIndex(([v]) => v === gateOf())] || 1 : 1);
+  const gateIndex = () => { const g = gateOf(); for (let i = 0; i < SEGS.length; i++) if (SEGS[i][0] === g) return i; return -1; };
+  const gateFactor = () => (isStentProbe() ? stentReads(1)[gateIndex()] || 1 : 1);
   // +1 when the vessel's forward flow is drawn above the baseline, −1 when below
   const effInvert = () => invert;
   const pol = () => (!meta().away !== !effInvert() ? -1 : 1);
@@ -354,14 +407,16 @@ export function createDoppler({ onProbe, pickGate = true }) {
   // although the open stent around it barely moves (g, the gate's factor; open, the open stent's mean for its segment tiles).
   function interpret(r0, g = 1) {
     const p = meta(), normal = normalOf(p), open = Math.abs(r0.mean);
-    const r = g === 1 ? r0 : { mean: r0.mean * g, vmax: r0.vmax * g, vmin: r0.vmin * g, vmaxMean: r0.vmaxMean * g, vminMean: r0.vminMean * g };
+    let r = r0;
+    if (g !== 1) { r = GATED; r.mean = r0.mean * g; r.vmax = r0.vmax * g; r.vmin = r0.vmin * g; r.vmaxMean = r0.vmaxMean * g; r.vminMean = r0.vminMean * g; }
     const a = Math.abs(r.mean);
     const swing = r.vmaxMean - r.vminMean;
     const big = Math.max(Math.abs(r.vmaxMean), Math.abs(r.vminMean));
     const pi = big > 0.5 ? swing / big : 0;
     const reverses = r.vminMean < -1.5 && r.vmaxMean > 1.5;
     // (The cut-offs for no flow, stasis and slow flow are velNormal.js's judgeFlow, read the same here as in the figure's labels, the Details sentences and the summary tables.)
-    const j = judgeFlow(r.mean, null, normal, { swings: reverses }), js = p.kind === 'tips' ? judgeFlow(r.mean, null, normal, { stent: true }) : j;
+    OPT_SWINGS.swings = reverses;
+    const j = judgeFlow(r.mean, null, normal, OPT_SWINGS), js = p.kind === 'tips' ? judgeFlow(r.mean, null, normal, OPT_STENT) : j;
     let dir, sev, pattern, note;
     if (j.none && big < 2 && p.kind !== 'collateral') {
       dir = 'No flow'; sev = 'critical'; pattern = 'No signal';
@@ -376,8 +431,8 @@ export function createDoppler({ onProbe, pickGate = true }) {
       if (branch && (toStent < 0 ? r.mean < -2 : r.mean > 2)) {
         dir = toStent < 0 ? 'Hepatofugal' : 'Hepatopetal'; sev = 'ok';
         pattern = pi > 0.5 ? 'Pulsatile' : pi > 0.15 ? 'Phasic' : 'Monophasic';
-        note = toStent < 0 ? `Expected with a ${stent}: flow runs back toward the stent.` : 'Expected with a TIPS: the segment before the stent flows hepatopetal into it; beyond the stent the right branches are hepatofugal.';
-        return { dir, sev, pattern, note, pi, expected: true };
+        note = toStent < 0 ? NOTE_BACK[stent] : 'Expected with a TIPS: the segment before the stent flows hepatopetal into it; beyond the stent the right branches are hepatofugal.';
+        return say(dir, sev, pattern, note, pi, true);
       }
       if (!reverses && (j.none || j.stasis)) { dir = 'Stasis'; sev = 'danger'; }
       else if (reverses && Math.abs(r.mean) < swing * 0.35) { dir = 'To-and-fro'; sev = 'danger'; }
@@ -388,11 +443,11 @@ export function createDoppler({ onProbe, pickGate = true }) {
         : dir === 'To-and-fro' ? 'Flow swings both ways each cycle, on the way to reversal.'
         : dir === 'Stasis' ? 'Almost no net flow: a setting for portal vein thrombosis.'
         : pattern === 'Pulsatile' ? 'A pulsatile portal vein suggests right-heart pressure transmitted back (heart failure, tricuspid regurgitation) or an arterioportal shunt.'
-        : j.slow ? (stent ? `Slower than expected with a ${stent}: it suggests the stent is narrowing.` : 'Toward the liver but slow: typical of portal hypertension.')
+        : j.slow ? (stent ? NOTE_SLOW[stent] : 'Toward the liver but slow: typical of portal hypertension.')
         : pattern === 'Monophasic' ? 'Normal: toward the liver, steady.'
         : 'Normal: toward the liver with gentle phasicity.';
       // Flow toward the liver in a branch that a working stent would reverse: the stent no longer draws it, as when it narrows.
-      if (branch && dir === 'Hepatopetal') { sev = 'caution'; note = `With a ${stent}, flow toward the liver here is not expected: it suggests the stent is narrowing.`; }
+      if (branch && dir === 'Hepatopetal') { sev = 'caution'; note = NOTE_NOT_EXPECTED[stent]; }
     } else if (p.kind === 'hepatic') {
       dir = r.mean < 0 ? 'Reversed' : 'Toward the heart'; sev = r.mean < 0 ? 'danger' : 'ok';
       // A reversal over 15 cm/s and 0.4 of the forward peak is more than the a-wave: tricuspid regurgitation or a high atrium.
@@ -407,7 +462,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     } else if (p.kind === 'artery') {
       dir = r.mean < 0 ? 'Reversed' : 'Antegrade'; sev = r.mean < 0 ? 'danger' : 'ok';
       const ri = r.vmax > 0.5 ? (r.vmax - Math.max(0, r.vmin)) / r.vmax : 0;
-      pattern = `Resistive index ${fmt(ri, 2)}`;
+      pattern = RI_TEXT[Math.max(0, Math.min(100, Math.round(ri * 100)))];
       note = 'The hepatic artery buffers falling portal inflow by dilating (the hepatic arterial buffer response).';
     } else if (p.kind === 'tips') {
       dir = js.none ? 'No flow' : r.mean < 0 ? 'Reversed' : p.id === 'DIPS' ? 'Portal → IVC' : 'Portal → hepatic vein'; sev = js.none || r.mean < 0 ? 'critical' : js.slow || js.fast ? 'caution' : 'ok';
@@ -424,54 +479,65 @@ export function createDoppler({ onProbe, pickGate = true }) {
       pattern = j.none ? 'Closed' : 'Open collateral';
       note = j.none ? 'This collateral carries no flow.' : 'Portal blood is bypassing the liver through this collateral.';
     }
-    return { dir, sev, pattern, note, pi };
+    return say(dir, sev, pattern, note, pi, false);
   }
+  const say = (dir, sev, pattern, note, pi, expected) => { const o = IT; o.dir = dir; o.sev = sev; o.pattern = pattern; o.note = note; o.pi = pi; o.expected = expected; return o; };
 
   // A tile value: the number, with its unit small beside it.
   function setStat(dd, v, unit = '') {
-    const key = `${v}|${unit}`;
-    if (dd._key === key) return;
-    dd._key = key; wSet(dd, v, unit);
+    if (dd._v === v && dd._u === unit) return;
+    dd._v = v; dd._u = unit; wSet(dd, v, unit);
   }
 
   // Place the normal band and the current mean on one scale: 0 to ~1.7x the top of the usual range, widened
   // when the mean falls outside (reversed flow reaches below zero). The marker eases there with CSS.
   // (expected: a reading the stent explains, as a branch running back toward a TIPS, is not flagged out of range.)
-  let lastGauge = null;
+  // (The last reading of the gauge, kept as three values for the track's resize to draw it again; its scale's ends, for pos.)
+  let gaugeP = null, gaugeMean = 0, gaugeExpected = false, gaugeLo = 0, gaugeHi = 1;
+  const pos = (v) => Math.max(0, Math.min(100, (v - gaugeLo) / (gaugeHi - gaugeLo) * 100));
   function updateGauge(p, mean, expected = false) {
-    lastGauge = [p, mean, expected];
+    gaugeP = p; gaugeMean = mean; gaugeExpected = expected;
     const normal = normalOf(p);
     if (!normal) { propSoon(rangeEl, 'hidden', true); dataSoon(velEl, 'out', 'false'); return; }
     // (A range with no ceiling, the portal vein with a stent in, runs its band to the gauge's end and names only its floor.)
-    const [n0, n1] = normal, open = !Number.isFinite(n1);
-    const hi = Math.max(Math.round((open ? 2 * n0 : n1) * 1.7), Math.ceil(mean * 1.1));
-    const lo = Math.min(0, Math.floor(mean * 1.1));
-    const pos = (v) => Math.max(0, Math.min(100, (v - lo) / (hi - lo) * 100));
+    const n0 = normal[0], n1 = normal[1], open = !Number.isFinite(n1);
+    gaugeHi = Math.max(Math.round((open ? 2 * n0 : n1) * 1.7), Math.ceil(mean * 1.1));
+    gaugeLo = Math.min(0, Math.floor(mean * 1.1));
     propSoon(rangeEl, 'hidden', false);
     const outNow = !expected && (mean < n0 || mean > n1) ? 'true' : 'false';
     dataSoon(rangeEl, 'out', outNow); dataSoon(velEl, 'out', outNow);
+    // (The gauge's numbers are kept, and its transforms, words and title written from them in a task of their own straight after the
+    // frame, once however many readings came: no style or string made inside a frame.)
+    gaugeN0 = n0; gaugeN1 = n1; gaugeOpen = open; gaugeP0 = pos(n0); gaugeP1 = pos(n1); gaugePm = pos(mean); gaugePz = pos(0);
+    propSoon(gHi, 'hidden', open);
+    dataSoon(gLo, 'u', open ? 'cm/s' : '');
+    if (!gaugeDue) { gaugeDue = true; runSoon(gaugeWrite); }
+  }
+  let gaugeN0 = 0, gaugeN1 = 0, gaugeOpen = false, gaugeP0 = 0, gaugeP1 = 0, gaugePm = 0, gaugePz = 0, gaugeDue = false;
+  function gaugeWrite() {
+    gaugeDue = false;
     // (by transform: the track and ticks are containers, so 1cqw is a hundredth of their width; the browser eases them on the compositor)
-    const sw = Math.max(0.001, (pos(n1) - pos(n0)) / 100);
+    const sw = Math.max(0.001, (gaugeP1 - gaugeP0) / 100);
     // (the middle runs between the ends' centres, 4 px in from each: its share of the track less the two half ends)
     const kMid = trackW > 8 ? Math.max(0, (sw * trackW - 8) / (trackW - 8)) : sw;
-    bandMid.style.translate = `${pos(n0)}cqw 0`; bandMid.style.scale = `${kMid.toFixed(4)} 1`;
-    bandL.style.translate = `${pos(n0)}cqw 0`; bandR.style.translate = `calc(${pos(n1)}cqw - 8px) 0`;
-    markEl.style.translate = `${pos(mean)}cqw 0`;
-    gZero.style.translate = `${pos(0)}cqw 0`; gLo.style.translate = `${pos(n0)}cqw 0`; gHi.style.translate = `${pos(n1)}cqw 0`;
-    propSoon(gHi, 'hidden', open);
+    bandMid.style.translate = `${gaugeP0}cqw 0`; bandMid.style.scale = `${kMid.toFixed(4)} 1`;
+    bandL.style.translate = `${gaugeP0}cqw 0`; bandR.style.translate = `calc(${gaugeP1}cqw - 8px) 0`;
+    markEl.style.translate = `${gaugePm}cqw 0`;
+    gZero.style.translate = `${gaugePz}cqw 0`; gLo.style.translate = `${gaugeP0}cqw 0`; gHi.style.translate = `${gaugeP1}cqw 0`;
     // (Each tick's number is centred on its point and the unit hangs after it: "40 cm/s" pulled left to fit put its 40 about
     // 5 cm/s short of the band's end.)
-    set2(gLo, String(n0)); set2(gHi, open ? '' : String(n1));
-    dataSoon(gLo, 'u', open ? 'cm/s' : '');
-    rangeEl.title = open ? `Usual ≥${n0} cm/s` : `Usual ${n0}–${n1} cm/s`;
+    set2(gLo, String(gaugeN0)); set2(gHi, gaugeOpen ? '' : String(gaugeN1));
+    rangeEl.title = gaugeOpen ? `Usual ≥${gaugeN0} cm/s` : `Usual ${gaugeN0}–${gaugeN1} cm/s`;
   }
   // A slide's own state (its fingerprint's network, presenter dataTo → tools.pin): the probed vessel's velocity as the scanner reads it.
   let pinAt = null;
+  const PIN_IN = { Q: null, D: null };   // (the slide's flows and widths, handed to dopplerVel as a frame is)
   function pin(fp) { pinAt = fp?.at || null; }
   function pinnedVel() {
     const k = EI[probe];
     if (!pinAt || k == null) return NaN;
-    return Math.abs(dopplerVel({ Q: pinAt.Q, D: pinAt.D }, k));
+    PIN_IN.Q = pinAt.Q; PIN_IN.D = pinAt.D;
+    return Math.abs(dopplerVel(PIN_IN, k));
   }
   const set2 = (e, t) => wSet(e, t, e.dataset.u || '');
 
@@ -496,7 +562,8 @@ export function createDoppler({ onProbe, pickGate = true }) {
     if (!r) {
       setDir(frame?.clock === 'disease' ? 'Not available during time lapse' : 'Acquiring…'); dataSoon(dirEl, 'sev', '');
       propSoon(rangeEl, 'hidden', true); dataSoon(velEl, 'out', 'false'); propSoon(velEl, 'hidden', false);
-      for (const e of [velEl.firstChild, patternEl]) if (wText(e)) wSet(e, e === velEl.firstChild ? '—' : '');
+      if (wText(velEl.firstChild)) wSet(velEl.firstChild, '—');
+      if (wText(patternEl)) wSet(patternEl, '');
       swapText(noteEl, '');
       for (const k in statEls) setStat(statEls[k].dd, '—');
       return;
@@ -526,11 +593,13 @@ export function createDoppler({ onProbe, pickGate = true }) {
     const none = it.dir === 'No flow';
     propSoon(velEl, 'hidden', none);
     // (open: the open stent's velocity, from which the figure's callouts at a stent's three points read what its tiles read.)
-    shownVel.set(probe, { v: Math.abs(mean), t: performance.now(), seg: isStentProbe() ? gateOf() : null, open });
+    const sv = SHOWN.get(probe) || SHOWN.get(PROBES[0].id);
+    sv.v = Math.abs(mean); sv.t = performance.now(); sv.seg = isStentProbe() ? gateOf() : null; sv.open = open;
+    shownVel.set(probe, sv);
     updateGauge(p, mean, it.expected);   // (the headline's own number: the marker read 23.5 under a headline of 22, sweep batch 04, shot 12)
     patFull = it.pattern || ''; set(patternEl, STEPS[stripStep][2] ? shortPat(patFull) : patFull);
     // peak: the extreme farthest from zero, whichever the direction
-    const [pk, tr] = Math.abs(r.vmax) >= Math.abs(r.vmin) ? [r.vmax, r.vmin] : [r.vmin, r.vmax];
+    const big = Math.abs(r.vmax) >= Math.abs(r.vmin), pk = big ? r.vmax : r.vmin, tr = big ? r.vmin : r.vmax;
     setStat(statEls.Peak.dd, num(pk * gf), 'cm/s');   // (a stent's peak at its gate)
     setStat(statEls.Trough.dd, num(tr * gf), 'cm/s');
     setStat(statEls.Pulsatility.dd, fmt(it.pi, 2));
@@ -545,25 +614,33 @@ export function createDoppler({ onProbe, pickGate = true }) {
     // A stent: velocity at its portal end, middle and hepatic vein end, in place of trough and pulsatility.
     const isStent = p.kind === 'tips';
     showStat(statEls.Trough.wrap, !isStent); showStat(statEls.Pulsatility.wrap, !isStent);
-    for (const k of ['Proximal', 'Mid', 'Distal']) showStat(statEls[k].wrap, isStent);
+    for (let i = 0; i < SEGS.length; i++) showStat(statEls[SEGS[i][1]].wrap, isStent);
     if (isStent) {
       // Each segment against the usual 90–190 cm/s, the gated one marked.
-      const at = gateOf();
-      stentReads(open).forEach((v, i) => {
-        const [seg, name] = SEGS[i], w = statEls[name].wrap, out = String(v < p.normal[0] || v > p.normal[1]);
+      const at = gateOf(), reads = stentReads(open);
+      for (let i = 0; i < SEGS.length; i++) {
+        const seg = SEGS[i][0], name = SEGS[i][1], v = reads[i], w = statEls[name].wrap, here = seg === at;
         setStat(statEls[name].dd, num(v), 'cm/s');
-        dataSoon(w, 'out', out);
-        classSoon(w, 'on', seg === at);
+        dataSoon(w, 'out', v < p.normal[0] || v > p.normal[1]);
+        classSoon(w, 'on', here);
         const b = statEls[name].btn;
         if (b) {
-          const on = String(seg === at), label = `${name}, ${num(v)} centimeters per second${seg === at ? ', sampling here' : ''}. Activate to sample here.`;
-          attrSoon(b, 'aria-pressed', on); attrSoon(b, 'aria-label', label);
+          // (its words are made between frames, when the tile's reading changes: segLabel reads the tile's kept number)
+          b._v = v; b._here = here;
+          attrSoon(b, 'aria-pressed', here);
+          if (b._ariaV !== v || b._ariaHere !== here) { b._ariaV = v; b._ariaHere = here; runSoon(b._label); }
         }
-      });
+      }
     }
     swapText(noteEl, it.note);   // (the vessel's note crossfades when the reading's story changes)
-    const aria = `Spectral Doppler, ${EDGES[EI[probe]].label}, ${sweepSeconds}-second sweep: ${it.dir}, ${num(r.mean, 0)} centimeters per second, ${it.pattern}.`;
-    attrSoon(cv, 'aria-label', aria);
+    ariaDir = it.dir; ariaMean = r.mean; ariaPattern = it.pattern;
+    if (!ariaDue) { ariaDue = true; runSoon(ariaWrite); }
+  }
+  // (The canvas's spoken summary is made between frames from the last reading's kept values, once however many readings came.)
+  let ariaDir = '', ariaMean = 0, ariaPattern = '', ariaDue = false;
+  function ariaWrite() {
+    ariaDue = false;
+    attrSoon(cv, 'aria-label', `Spectral Doppler, ${EDGES[EI[probe]].label}, ${sweepSeconds}-second sweep: ${ariaDir}, ${num(ariaMean, 0)} centimeters per second, ${ariaPattern}.`);
   }
 
   // ── Display ───────────────────────────────────────
@@ -591,10 +668,21 @@ export function createDoppler({ onProbe, pickGate = true }) {
   let wallLast = 0;
   let ovLast = '', ovAt = 0, ovOn = false, ovTop = 26;   // the report in the top strip (see draw)
   let img = null;
+  const floorRec = { width: 0, height: 0, dpr: 0 }, noiseBins = new Float32Array(16384);
+  const TB = [0, 0, 0, 0];
+  const GEO = { RW: 0, RH: 0, rBase: 0, rPxPerV: 0, cps: 0, binPx: 0, spkPx: 0, spkMix: 0, pol: 0, k: 0, venous: false, span: 0, topV: 0, botV: 0 };   // (the spectrum's geometry for a frame, written in place)
+  const RENDER = { W: 0, H: 0, dx: 0, dy: 0, RW: 0, RH: 0, p: 0, nx: 0, ny: 0, noiseA: 0, base: 0, wf: 0 };
+  const FS_ST = { scale: null, baseF: null, settleAt: 0, refit: false }, FS_IN = { fixed: null, holding: false, fits: false, target: 0, tbF: 0, tNow: 0 };   // (fitScale's state and input, written in place)
   let floor = null, noiseAt = 0, nx = 0, ny = 0, traceBox = null;   // (floor: the noise texture's size and density, { width, height, dpr })
   let glFrom = null;    // 'img': the GPU's ring texture needs the whole ImageData, else only new columns
   let imgWhole = false;  // (whether the ImageData holds the whole ring: not after a stretch on the GPU, which leaves it the new lines alone)
-  let ringKey = '', lastCol = null, jit = 0, lineGain = 0, spk = null;
+  // (What the ring was written for: its size, and the scale, baseline, vessel, sign, window and mode behind it; ok false forgets it.)
+  const RK = { ok: false, RW: 0, RH: 0, scale: null, baseF: null, probe: null, sgn: 0, sweep: 0, mode: '' };
+  const restSame = (sgn) => RK.scale === scale && RK.baseF === baseF && RK.probe === probe && RK.sgn === sgn && RK.sweep === sweepSeconds && RK.mode === mode;
+  const ringSet = (RW, RH, sgn) => { RK.ok = true; RK.RW = RW; RK.RH = RH; RK.scale = scale; RK.baseF = baseF; RK.probe = probe; RK.sgn = sgn; RK.sweep = sweepSeconds; RK.mode = mode; };
+  let lastCol = null, jit = 0, lineGain = 0;
+  const spk = new Float32Array(256);   // (this line's speckle, one draw per frequency bin: at most about 112 bins; spkN of them are in use)
+  let spkN = 0;
   const cc = [0, 0, 0, 0], sc = [0, 0, 0];   // scratch: one pixel's colour
   const A_SIG = 10 ** 2.8;          // signal power over the noise floor (≈ 28 dB)
   const FLOOR_DB = 4.5, RANGE_DB = 30;  // log compression: the grey map spans 4.5–34.5 dB
@@ -637,7 +725,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     const TW = Math.ceil((RW + PAD) / 128) * 128, TH = Math.ceil((RH + PAD) / 128) * 128;
     const fi = new ImageData(TW, TH), F = fi.data;
     const nb = Math.ceil(TH / binPx) + 2;
-    const nf = new Float32Array(nb);
+    const nf = noiseBins;   // (kept: nb is at most about 11,000, the longest side of a canvas over the smallest bin)
     let nextLine = 0;
     for (let x = 0; x < TW; x++) {
       // a new spectral line every 1 to cw columns (at random, so there is no regular grid)
@@ -651,10 +739,29 @@ export function createDoppler({ onProbe, pickGate = true }) {
         F[q] = 236 * I; F[q + 1] = 240 * I; F[q + 2] = 250 * I; F[q + 3] = 255;
       }
     }
-    floor = { width: TW, height: TH, dpr: cw };
+    floorRec.width = TW; floorRec.height = TH; floorRec.dpr = cw; floor = floorRec;
     gpu?.noise(fi);
   }
 
+  // The line being written, for power(): its top, its low edge, the widths of the soft ends, the fade, and whether the vessel is a vein.
+  let wP = 0, wL = 0, wSigHi = 0, wSigLo = 0, wFade = 0, wVenous = false;
+  const CIN = { u: 0, s: 0 };   // (the colour map's input, written in place)
+  const rn = () => Math.random() + Math.random() + Math.random() - 1.5;
+  // The signal's power at velocity u along the flow direction.
+  const power = (u) => {
+    const P = wP, L = wL;
+    if (u > P) { const z = (u - P) / wSigHi; return 0.03 * Math.exp(-z * z); }
+    if (u >= L) {
+      const f = (u - L) / Math.max(1e-6, P - L);
+      // brightest just under the outline, where most of the blood moves (blunt flow), and
+      // greyer toward the baseline; a vein keeps a dimmer fill all the way down
+      const S = wVenous ? Math.min(1, 0.05 + 0.1 * f + 0.9 * Math.exp(-(((0.88 - f) / 0.16) ** 2))) : 0.16 + 0.84 * Math.pow(f, 1.3);
+      if (u > P - wFade) { const z = (u - P + wFade) / wFade; return S * (1 - 0.985 * Math.sqrt(z)); }
+      return S;
+    }
+    if (u > 0) { const z = (L - u) / wSigLo; return 0.16 * Math.exp(-z * z); }
+    return 0;
+  };
   // Synthesise spectral line c into the ring. Geometry in device pixels.
   function writeLine(c, g) {
     const { RW, RH, rBase, rPxPerV } = g;
@@ -669,7 +776,6 @@ export function createDoppler({ onProbe, pickGate = true }) {
     // each spectral line is its own estimate: its top reaches a little further or less far, and
     // the whole line is a little brighter or dimmer, so the outline is jagged and the band shimmers
     // in time (held in the ring, so this scrolls with the trace)
-    const rn = () => Math.random() + Math.random() + Math.random() - 1.5;
     jit = 0.45 * jit + rn(); lineGain = 0.5 * lineGain + rn();
     const P = av * g.k * (1 + 0.035 * jit);
     const gain = 10 ** (0.12 * lineGain);
@@ -681,7 +787,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     // this line's speckle: one exponential draw per frequency bin, half shared with the last line
     // (more at high pixel density, so a grain is about a CSS pixel wide whatever the screen)
     const nb = Math.ceil(RH / g.spkPx) + 2;
-    if (!spk || spk.length !== nb) spk = Float32Array.from({ length: nb }, expo);
+    if (spkN !== nb) { spkN = nb; for (let b = 0; b < nb; b++) spk[b] = expo(); }
     for (let b = 0; b < nb; b++) spk[b] = g.spkMix * spk[b] + (1 - g.spkMix) * expo();
     // Colour modes: this line's variance (how fast the velocity is changing, plus turbulence at high
     // velocity); each pixel adds spectral broadening, more toward the slow edge of the band.
@@ -698,20 +804,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
       for (let ry = 0, q = x * 4; ry < RH; ry++, q += RW * 4) { D[q] = 0; D[q + 1] = 0; D[q + 2] = 0; D[q + 3] = 255; }
       return;
     }
-    // The signal's power at velocity u along the flow direction.
-    const power = (u) => {
-      if (u > P) { const z = (u - P) / sigHi; return 0.03 * Math.exp(-z * z); }
-      if (u >= L) {
-        const f = (u - L) / Math.max(1e-6, P - L);
-        // brightest just under the outline, where most of the blood moves (blunt flow), and
-        // greyer toward the baseline; a vein keeps a dimmer fill all the way down
-        const S = g.venous ? Math.min(1, 0.05 + 0.1 * f + 0.9 * Math.exp(-(((0.88 - f) / 0.16) ** 2))) : 0.16 + 0.84 * Math.pow(f, 1.3);
-        if (u > P - fadeV) { const z = (u - P + fadeV) / fadeV; return S * (1 - 0.985 * Math.sqrt(z)); }
-        return S;
-      }
-      if (u > 0) { const z = (L - u) / sigLo; return 0.16 * Math.exp(-z * z); }
-      return 0;
-    };
+    wP = P; wL = L; wSigHi = sigHi; wSigLo = sigLo; wFade = fadeV; wVenous = g.venous;
     // A slide's fixed scale (aliasing): velocities past the scale's end wrap round to the other side, as a pulsed scanner samples
     // them, so each row also shows the velocities one whole scale span (twice the Nyquist limit) above and below it. Only while
     // the band reaches past an end; otherwise the line is drawn as before.
@@ -734,7 +827,8 @@ export function createDoppler({ onProbe, pickGate = true }) {
         // below the baseline, Variance also by the variance; the sign above or below the
         // baseline decides toward or away (Invert has already flipped the trace, and with it the colors)
         const ff = P > L ? clamp((vel * s - L) / (P - L), 0, 1) : 1;
-        dopplerColor(mode, { u: clamp(vel * uK, -1, 1), s: clamp(lineS + 0.45 * (1 - ff) * (1 - ff), 0, 1) }, false, cc);
+        CIN.u = clamp(vel * uK, -1, 1); CIN.s = clamp(lineS + 0.45 * (1 - ff) * (1 - ff), 0, 1);
+        dopplerColor(mode, CIN, false, cc);
         const t = Math.min(1, I * GAIN), cover = cc[3] * clamp((I - 0.02) / 0.2, 0, 1);
         shadeColor(cc, t, cover, sc);
         r = sc[0]; gg = sc[1]; bl = sc[2];
@@ -771,7 +865,8 @@ export function createDoppler({ onProbe, pickGate = true }) {
     wSet(dirEl, s);
   }
   // (the pattern's short form; a resistive index keeps its own number)
-  const shortPat = (t) => SHORT_PAT[t] || (/^Resistive index /.test(t) ? t.replace('Resistive index', 'RI') : t);
+  for (let i = 0; i <= 100; i++) SHORT_PAT[RI_TEXT[i]] = RI_TEXT[i].replace('Resistive index', 'RI');   // (each resistive index keeps its own number)
+  const shortPat = (t) => SHORT_PAT[t] || t;
   function stripStepSet(i) {
     const [k, short, tight] = STEPS[i];
     stripStep = i;
@@ -861,7 +956,8 @@ export function createDoppler({ onProbe, pickGate = true }) {
 
   // The strip laid out from the page as it stands just after a frame (see drawWith): its type, its fit, its height; the trace's window
   // picked on its showing. A change asks for a frame, which draws with it.
-  let layoutSoon = 0, layoutSig = '', layW = 0, layH = 0;
+  let layoutSoon = 0, layW = 0, layH = 0;
+  const LS = { w: 0, h: 0, vel: '', dir: null, pat: null, pick: false };   // (what the strip's layout was last asked for)
   function stripLayout() {
     layoutSoon = 0;
     if (!frame) return;
@@ -889,6 +985,31 @@ export function createDoppler({ onProbe, pickGate = true }) {
     const pen = fitPen(cv, words);
     try { drawWith(pen, now); } finally { pen.ctx.end?.(); }
   }
+  // The velocity scale's ticks, numbers and unit, drawn from SL by the kept layer (see drawWith).
+  const SL = { ver: 0, w: 0, hh: 0, scale: 0, baseY: 0, pxPerV: 0, padL: 0, padT: 0, W: 0, H: 0, ovOn: false, lw: 0, yLab: 0, i1: '', i2: '', i3: '' };
+  const LAB_STEPS = [1, 2, 5, 10, 20, 50, 100, 200, 500];
+  let scaleCtx = null;
+  function drawScaleLayer() {
+    const ctx = scaleCtx, { w, scale, baseY, pxPerV, padL, padT, W, H, ovOn, lw, yLab } = SL;
+    ctx.font = FONT(500, 12); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    // ticks: a labelled tick every 1, 2, 5, 10, 20, 50 ... cm/s (the first that gives at most five a side), a half tick between
+    // (and labels at least 18 px apart, so a short trace keeps a few readable ones rather than a stack)
+    let lab = 500;
+    for (let i = 0; i < LAB_STEPS.length; i++) if (scale / LAB_STEPS[i] <= 5 && LAB_STEPS[i] * pxPerV >= 18) { lab = LAB_STEPS[i]; break; }
+    const minor = lab / 2;
+    for (let k = -Math.ceil(scale / minor); k <= Math.ceil(scale / minor); k++) {
+      const v = k * minor, y = padT + baseY - v * pxPerV;
+      if (y < padT - 1 || y > padT + H + 1) continue;
+      const major = k % 2 === 0;
+      ctx.fillStyle = SL.i1; ctx.fillRect(padL + W + 3, Math.round(y), major ? 6 : 3, 1);
+      if (major && y > padT + 5 && y < padT + H - 5) { ctx.fillStyle = SL.i2; ctx.fillText(v === 0 ? '0' : num(v), padL + W + 13, y); }
+    }
+    // The scale's unit: top right, or, when the reading fills the top strip, bottom right under the scale, clear of its words
+    // (the bottom strip's settings stop short of the scale's margin).
+    // (left out where a narrow monitor's bottom label would run into it: the strip's reading already names the unit)
+    ctx.fillStyle = SL.i3; ctx.textAlign = 'right';
+    if (!ovOn || padL + lw + 8 <= w - 6 - textW(ctx, 'cm/s')) ctx.fillText('cm/s', w - 6, ovOn ? yLab : 13);
+  }
   function drawWith({ ctx, w, h: hh }, now) {
     labBusy = false;
     const z = canvasSize(cv), CW = z.W, CH = z.H, dpr = CW / Math.max(1, w), onPen = ctx.onGPU === true;
@@ -899,7 +1020,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     if (!onPen) {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       if (traceBox && traceBox[2] > 0 && traceBox[3] > 0 && traceBox[0] >= 0 && traceBox[1] >= 0 && traceBox[0] + traceBox[2] <= CW && traceBox[1] + traceBox[3] <= CH) {
-        const [bx, by, bw, bh] = traceBox;
+        const bx = traceBox[0], by = traceBox[1], bw = traceBox[2], bh = traceBox[3];
         ctx.fillRect(0, 0, CW, by); ctx.fillRect(0, by + bh, CW, CH - by - bh);
         ctx.fillRect(0, by, bx, bh); ctx.fillRect(bx + bw, by, CW - bx - bw, bh);
         ctx.clearRect(bx, by, bw, bh);
@@ -912,13 +1033,16 @@ export function createDoppler({ onProbe, pickGate = true }) {
     // (Its height is read only when the strip was refitted or the size changed, and it gives back room only by more than 4 px.)
     // (The strip's fit, the words' type and the strip's height are worked out just after the frame, stripLayout, never inside it:
     // here only asked for, when the size, the words or half a second has moved on. The frame draws with the last fit.)
-    const ovKey = `${w}x${hh}`, sig = `${ovKey}|${wText(velEl.firstChild)}|${dirFull}|${patFull}|${pickNext}`;
-    if (sig !== layoutSig || performance.now() - ovAt > 500) { layoutSig = sig; layW = w; layH = hh; if (!layoutSoon) layoutSoon = setTimeout(stripLayout, 0); }
+    const velNow = wText(velEl.firstChild);
+    if (w !== LS.w || hh !== LS.h || velNow !== LS.vel || dirFull !== LS.dir || patFull !== LS.pat || pickNext !== LS.pick || performance.now() - ovAt > 500) {
+      LS.w = w; LS.h = hh; LS.vel = velNow; LS.dir = dirFull; LS.pat = patFull; LS.pick = pickNext; layW = w; layH = hh;
+      if (!layoutSoon) layoutSoon = setTimeout(stripLayout, 0);
+    }
     const padL = PAD_L, padR = PAD_R, padT = ovTop, padB = ovOn ? 34 : 20, yLab = ovOn ? hh - 11 : 13;
     // (A slide's paired trace takes a band at the foot of the trace area: the main trace is shorter by it, the card the same size.)
     const W = Math.max(1, Math.round(w - padL - padR)), Hall = Math.max(1, Math.round(hh - padT - padB)), PB = pair ? pairBand(Hall) : 0, H = PB ? Hall - PB - PAIR_GAP : Hall;
     if (w < 60 || hh < 60 || !Number.isFinite(H) || !Number.isFinite(W)) return;
-    const label = probe ? probeName(meta()) + (isStentProbe() ? ` · ${SEGS.find(([v]) => v === gateOf())[1]}` : '') : '';
+    const label = probe ? probeName(meta(), isStentProbe() ? gateOf() : '') : '';
     ctx.font = FONT(600, 12); ctx.fillStyle = cssAlpha('--white', .86); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     ctx.fillText(label, padL, yLab);
     const lw = textW(ctx, label);
@@ -933,9 +1057,10 @@ export function createDoppler({ onProbe, pickGate = true }) {
       ctx.font = FONT(700, 12); ctx.fillStyle = cssAlpha('--doppler', 1); ctx.fillText(pi, x0, yLab);
       x0 += textW(ctx, pi) + 12; ctx.font = FONT(500, 12); ctx.fillStyle = cssAlpha('--white', .5);
     }
-    const parts = [mode === 'spectrum' ? 'PW' : 'PW + CD', `θ ${THETA}°`, `SV ${svMm()} mm`, `${sweepSeconds} s`], room = w - padR - x0 - 6;
-    while (parts.length > 1 && textW(ctx, parts.join('  ·  ')) > room) parts.pop();
-    if (textW(ctx, parts.join('  ·  ')) <= room) ctx.fillText(parts.join('  ·  '), x0, yLab);
+    const room = w - padR - x0 - 6, settings = SETTINGS[mode === 'spectrum' ? 0 : 1][svMm()][sweepIndex];
+    let np = settings.length;
+    while (np > 1 && textW(ctx, settings[np - 1]) > room) np--;
+    if (textW(ctx, settings[np - 1]) <= room) ctx.fillText(settings[np - 1], x0, yLab);
     if (buf.length < 2) {
       tDisp = null;
       ctx.textAlign = 'center'; ctx.fillStyle = cssAlpha('--white', .55);
@@ -957,7 +1082,11 @@ export function createDoppler({ onProbe, pickGate = true }) {
     // (The scale always holds the peak the reading beside it reports, so a −31 cm/s report never sits on a ±5 scale while new
     // samples are still reaching the window; the reading spans the last 3 s of the record, inside every sweep.)
     const rd = reading();
-    if (rd) for (const v of [rd.vmax * gf * sgn, rd.vmin * gf * sgn]) { if (v > pos) pos = v; if (-v > neg) neg = -v; }
+    if (rd) {
+      const hi = rd.vmax * gf * sgn, lo = rd.vmin * gf * sgn;
+      if (hi > pos) pos = hi; if (-hi > neg) neg = -hi;
+      if (lo > pos) pos = lo; if (-lo > neg) neg = -lo;
+    }
     const need = Math.max(pos, neg, 8) / 0.85;
     const target = scaleFor(Math.max(pos, neg));
     const tbRaw = pos + neg < 1 ? 0.5 : pos > 0 && neg < pos * 0.08 ? 0.88 : neg > 0 && pos < neg * 0.08 ? 0.12 : clamp(0.1 + 0.8 * (pos / (pos + neg)), 0.12, 0.88);
@@ -965,28 +1094,32 @@ export function createDoppler({ onProbe, pickGate = true }) {
     const fits = scale != null && need <= scale && (pos >= neg) === (baseF >= 0.5 || baseF == null);
     // (A slide's fixed scale holds still whatever the signal: the Nyquist limit either side of a centred baseline, or the slide's
     // baseline with the same span, 2 × the limit, shared out; scale is the dominant side's reach, so pxPerV is span / H.)
-    ({ scale, baseF, settleAt, refit } = fitScale({ scale, baseF, settleAt, refit }, { fixed, holding, fits, target, tbF, tNow }));
+    FS_ST.scale = scale; FS_ST.baseF = baseF; FS_ST.settleAt = settleAt; FS_ST.refit = refit;
+    FS_IN.fixed = fixed; FS_IN.holding = holding; FS_IN.fits = fits; FS_IN.target = target; FS_IN.tbF = tbF; FS_IN.tNow = tNow;
+    fitScale(FS_ST, FS_IN);
+    scale = FS_ST.scale; baseF = FS_ST.baseF; settleAt = FS_ST.settleAt; refit = FS_ST.refit;
     const baseY = Math.round(H * baseF);
     // the scale belongs to the dominant side; the other side shows what fits
     const pxPerV = (baseF >= 0.5 ? baseY : H - baseY) / scale;
 
     // Spectrum, at device resolution, newest line at the right edge.
     const RW = Math.max(1, Math.round(W * dpr)), RH = Math.max(1, Math.round(H * dpr));
-    const g = { RW, RH, rBase: baseY * dpr, rPxPerV: pxPerV * dpr, cps: RW / sweepSeconds, binPx: Math.max(1.5, RH / 200), spkPx: Math.max(2, RH / 110), spkMix: clamp(1 - 1 / dpr, 0.3, 0.65), pol: sgn, k, venous: meta().kind !== 'artery' && meta().kind !== 'tips',
-      // (a fixed scale's span, and how far the display reaches above and below the baseline, cm/s: where the spectrum wraps)
-      span: fixed ? H / pxPerV : 0, topV: baseY / pxPerV, botV: (H - baseY) / pxPerV };
+    const g = GEO;
+    g.RW = RW; g.RH = RH; g.rBase = baseY * dpr; g.rPxPerV = pxPerV * dpr; g.cps = RW / sweepSeconds; g.binPx = Math.max(1.5, RH / 200); g.spkPx = Math.max(2, RH / 110);
+    g.spkMix = clamp(1 - 1 / dpr, 0.3, 0.65); g.pol = sgn; g.k = k; g.venous = meta().kind !== 'artery' && meta().kind !== 'tips';
+    // (a fixed scale's span, and how far the display reaches above and below the baseline, cm/s: where the spectrum wraps)
+    g.span = fixed ? H / pxPerV : 0; g.topV = baseY / pxPerV; g.botV = (H - baseY) / pxPerV;
     const cNow = Math.floor(tNow * g.cps);
-    const rest = `${scale}|${baseF}|${probe}|${sgn}|${sweepSeconds}|${mode}`, key = `${RW}x${RH}|${rest}`;
     if (!img || img.width !== RW || img.height !== RH) {
       const oRW = img?.width, oRH = img?.height;
       img = new ImageData(RW, RH);
       // Only the size changed (a card settling as it enters, the top strip refitted): the trace already drawn is stretched to the new
       // size on the GPU (doppler-gl stretch) instead of being synthesised again line by line, and new lines scroll in sharp.
-      const lc = lastCol != null && ringKey === `${oRW}x${oRH}|${rest}` ? Math.floor(lastCol * RW / oRW) : null;
-      if (lc != null && cNow >= lc && cNow - lc < RW && onGpu && !glFrom && gpu.stretch(RW, RH, ((lastCol % oRW) + oRW) % oRW, (lc + 1) % RW)) { ringKey = key; lastCol = lc; imgWhole = false; }
+      const lc = lastCol != null && RK.ok && RK.RW === oRW && RK.RH === oRH && restSame(sgn) ? Math.floor(lastCol * RW / oRW) : null;
+      if (lc != null && cNow >= lc && cNow - lc < RW && onGpu && !glFrom && gpu.stretch(RW, RH, ((lastCol % oRW) + oRW) % oRW, (lc + 1) % RW)) { ringSet(RW, RH, sgn); lastCol = lc; imgWhole = false; }
     }
     // redraw every line after a change of scale, size or colour, or when time runs backwards
-    const full = key !== ringKey || lastCol == null || cNow < lastCol || cNow - lastCol >= RW;
+    const full = !RK.ok || RK.RW !== RW || RK.RH !== RH || !restSame(sgn) || lastCol == null || cNow < lastCol || cNow - lastCol >= RW;
     const from = full ? cNow - RW + 1 : lastCol + 1;
     for (let c = from; c <= cNow; c++) writeLine(c, g);
     if (full) { glFrom = 'img'; imgWhole = true; }
@@ -996,7 +1129,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
       if (x0 + n <= RW) gpu.ringCols(img, x0, n);
       else { gpu.ringCols(img, x0, RW - x0); gpu.ringCols(img, 0, x0 + n - RW); }
     }
-    ringKey = key; lastCol = cNow;
+    ringSet(RW, RH, sgn); lastCol = cNow;
     // copy the ring out, oldest line on the left, pixel for pixel
     const p = ((cNow % RW) + RW) % RW;
     const dx = Math.round(padL * dpr), dy = Math.round(padT * dpr);
@@ -1005,17 +1138,19 @@ export function createDoppler({ onProbe, pickGate = true }) {
     if (now - noiseAt > 100) { noiseAt = now; nx = (Math.random() * (floor.width - RW)) | 0; ny = (Math.random() * (floor.height - RH)) | 0; }
     // the wall filter removes the noise near the baseline as well as the slow signal
     const wfPx = Math.max(1.2, 0.025 * scale) * g.rPxPerV * 1.6;
-    traceBox = [dx, dy, RW, RH];   // (drawn whole: the next frame clears round it)
+    TB[0] = dx; TB[1] = dy; TB[2] = RW; TB[3] = RH; traceBox = TB;   // (drawn whole: the next frame clears round it)
     let drawn = false;
     if (onGpu) {
       // the whole ring after a redraw (from the ImageData), else the new columns went up above
       if (glFrom === 'img') gpu.ringAll(img, RW, RH);
       glFrom = null;
-      drawn = gpu.render({ W: CW, H: CH, dx, dy, RW, RH, p, nx, ny, noiseA: mode === 'spectrum' ? 1 : 0.3, base: g.rBase, wf: wfPx });
+      const R = RENDER;
+      R.W = CW; R.H = CH; R.dx = dx; R.dy = dy; R.RW = RW; R.RH = RH; R.p = p; R.nx = nx; R.ny = ny; R.noiseA = mode === 'spectrum' ? 1 : 0.3; R.base = g.rBase; R.wf = wfPx;
+      drawn = gpu.render(R);
     }
     if (!drawn) {
       // (no GPU picture this frame, a lost context: the trace black, its ring synthesised whole when the GPU draws again)
-      if (gpu) { glFrom = 'img'; if (!imgWhole) ringKey = ''; }
+      if (gpu) { glFrom = 'img'; if (!imgWhole) RK.ok = false; }
       ctx.fillStyle = cssVar('--black'); ctx.fillRect(padL, padT, RW / dpr, RH / dpr);
     }
 
@@ -1024,25 +1159,15 @@ export function createDoppler({ onProbe, pickGate = true }) {
     // Velocity scale on the right
     // (R16: the scale's ticks, numbers and unit kept as one GPU picture, drawn again only when the scale, the layout or the theme's
     // colours change, not built word by word every frame; ?chartkeep=0 draws them every frame.)
-    const scaleInk = cssAlpha('--white', .55) + cssAlpha('--white', .78) + cssAlpha('--white', .5);
-    keepLayer(ctx, 'scale', `${w}x${hh}|${scale}|${baseY}|${pxPerV}|${padL}|${padT}|${W}|${H}|${ovOn}|${lw}|${yLab}|${scaleInk}`, () => {
-      ctx.font = FONT(500, 12); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-      // ticks: a labelled tick every 1, 2, 5, 10, 20, 50 ... cm/s (the first that gives at most five a side), a half tick between
-      // (and labels at least 18 px apart, so a short trace keeps a few readable ones rather than a stack)
-      const lab = [1, 2, 5, 10, 20, 50, 100, 200, 500].find((x) => scale / x <= 5 && x * pxPerV >= 18) || 500, minor = lab / 2;
-      for (let k = -Math.ceil(scale / minor); k <= Math.ceil(scale / minor); k++) {
-        const v = k * minor, y = padT + baseY - v * pxPerV;
-        if (y < padT - 1 || y > padT + H + 1) continue;
-        const major = k % 2 === 0;
-        ctx.fillStyle = cssAlpha('--white', .55); ctx.fillRect(padL + W + 3, Math.round(y), major ? 6 : 3, 1);
-        if (major && y > padT + 5 && y < padT + H - 5) { ctx.fillStyle = cssAlpha('--white', .78); ctx.fillText(v === 0 ? '0' : num(v), padL + W + 13, y); }
-      }
-      // The scale's unit: top right, or, when the reading fills the top strip, bottom right under the scale, clear of its words
-      // (the bottom strip's settings stop short of the scale's margin).
-      // (left out where a narrow monitor's bottom label would run into it: the strip's reading already names the unit)
-      ctx.fillStyle = cssAlpha('--white', .5); ctx.textAlign = 'right';
-      if (!ovOn || padL + lw + 8 <= w - 6 - textW(ctx, 'cm/s')) ctx.fillText('cm/s', w - 6, ovOn ? yLab : 13);
-    });
+    // (What the layer is drawn from is kept in SL, and its signature is a counter that moves when any of it does: nothing is built to compare.)
+    const ink1 = cssAlpha('--white', .55), ink2 = cssAlpha('--white', .78), ink3 = cssAlpha('--white', .5);
+    if (SL.w !== w || SL.hh !== hh || SL.scale !== scale || SL.baseY !== baseY || SL.pxPerV !== pxPerV || SL.padL !== padL || SL.padT !== padT || SL.W !== W || SL.H !== H
+      || SL.ovOn !== ovOn || SL.lw !== lw || SL.yLab !== yLab || SL.i1 !== ink1 || SL.i2 !== ink2 || SL.i3 !== ink3) {
+      SL.w = w; SL.hh = hh; SL.scale = scale; SL.baseY = baseY; SL.pxPerV = pxPerV; SL.padL = padL; SL.padT = padT; SL.W = W; SL.H = H;
+      SL.ovOn = ovOn; SL.lw = lw; SL.yLab = yLab; SL.i1 = ink1; SL.i2 = ink2; SL.i3 = ink3; SL.ver++;
+    }
+    scaleCtx = ctx;
+    keepLayer(ctx, 'scale', SL.ver, drawScaleLayer);
     if (waves && meta().kind === 'hepatic') {
       // The hepatic vein's waves named at their peaks (a presenter slide asks for it): the a-wave reversal on the
       // atrial side of the baseline, then the S, v and D forward waves of the same beat. One beat is named at a time.
@@ -1053,18 +1178,20 @@ export function createDoppler({ onProbe, pickGate = true }) {
       if (wl && (wl.sgn !== sgn || wl.pts[0][0] < edge)) wl.out = true;
       if (!wl || (wl.out && wl.alpha <= 0)) {
         wl = null;
-        const pts = hvWaves(tNow - sweepSeconds, tNow, sgn);
-        if (pts.length && pts[0][0] >= edge) wl = { pts, sgn, alpha: 0, out: false };
+        if (hvWaves(tNow - sweepSeconds, tNow, sgn) && WAVE_NEW[0][0] >= edge) {
+          for (let i = 0; i < 4; i++) { WL.pts[i][0] = WAVE_NEW[i][0]; WL.pts[i][1] = WAVE_NEW[i][1]; WL.pts[i][2] = WAVE_NEW[i][2]; }
+          WL.sgn = sgn; WL.alpha = 0; WL.out = false; wl = WL;
+        }
       }
       if (wl) {
         wl.alpha = clamp(wl.alpha + (wl.out ? -1 : 1) * dtL / 0.4, 0, 1);
         labBusy = wl.out ? wl.alpha > 0 : wl.alpha < 1;
         const A = wl.alpha * wl.alpha * (3 - 2 * wl.alpha);
         ctx.font = FONT(700, WAVE_PX); ctx.textAlign = 'center'; ctx.lineJoin = 'round';
-        const at = (t, v) => [padL + (RW - 1 - (cNow - Math.floor(t * g.cps))) / dpr, padT + baseY - v * k * pxPerV];
-        for (const [t, v, name] of wl.pts) {
+        for (let i = 0; i < 4; i++) {
+          const pt = wl.pts[i], t = pt[0], name = pt[2];
           // (The a-wave's letter sits just past the baseline on its side, clear of the spectrum, even when it barely crosses.)
-          const up = name === 'a', [x, y0] = at(t, v), y = up ? Math.min(y0, padT + baseY) : y0;
+          const up = name === 'a', x = padL + (RW - 1 - (cNow - Math.floor(t * g.cps))) / dpr, y0 = padT + baseY - pt[1] * k * pxPerV, y = up ? Math.min(y0, padT + baseY) : y0;
           if (x < padL + 2 || x > padL + W - 2) continue;
           const ty = clamp(y + (up ? -5 : 5), padT + (up ? WAVE_PX + 1 : 0), padT + H - (up ? 0 : WAVE_PX + 1));
           ctx.textBaseline = up ? 'bottom' : 'top';
@@ -1073,9 +1200,9 @@ export function createDoppler({ onProbe, pickGate = true }) {
         }
       }
     } else { wl = null; }
-    const xAt = (t) => padL + (RW - 1 - (cNow - Math.floor(t * g.cps))) / dpr;
-    drawCalipers(ctx, { now, sgn, k, pxPerV, baseY, padT, padL, W, H });
-    if (PB) drawPair(ctx, { tNow, y0: padT + H + PAIR_GAP, PB, padL, W, xAt });
+    xPadL = padL; xRW = RW; xC = cNow; xCps = g.cps; xDpr = dpr;
+    drawCalipers(ctx, now, sgn, k, pxPerV, baseY, padT, padL, W, H);
+    if (PB) drawPair(ctx, tNow, padT + H + PAIR_GAP, PB, padL, W);
     // One tick a second along the bottom, scrolling with the trace
     ctx.fillStyle = cssAlpha('--white', .4);
     for (let sec = Math.ceil(tNow - sweepSeconds); sec <= tNow; sec++) {
@@ -1090,73 +1217,88 @@ export function createDoppler({ onProbe, pickGate = true }) {
   // number the pattern is named from. Each frame takes one pick (caliperFrame) for the lines and the index alike. Nothing
   // jumps (Mohammad, 19 Oct): the upright stays at the left end, and when a new extreme arrives or the old one leaves the
   // window, its line and the upright's end tick ease to the new level (CAL_FADE). The index changes at once. ──
-  let calip = false, cal = null, calMk = {};
+  let calip = false, cal = null;
+  // (Each caliper level's easing, kept for the two levels: where it began, where it is going, when; on false = none yet.)
+  const calMk = { hi: { on: false, from: 0, to: 0, at: 0 }, lo: { on: false, from: 0, to: 0, at: 0 } };
+  const calReset = () => { calMk.hi.on = false; calMk.lo.on = false; };
   const CAL_W = 2, CAL_TICK = 4;
+  const DASH_CAL = [4, 3], DASH_NONE = [];
+  // (The calipers' two levels and the frame's numbers for placing them, kept.)
+  let lvHi = 0, lvLo = 0, cSgn = 0, cK = 0, cPx = 0, cBase = 0, cPadT = 0, cH = 0;
+  const calY = (v) => clamp(cPadT + cBase - cSgn * v * cK * cal.gf * cPx, cPadT + 2, cPadT + cH - 2);
+  // (Where a moment lies on the trace: set by each frame before the calipers and the pair are drawn.)
+  let xPadL = 0, xRW = 0, xC = 0, xCps = 1, xDpr = 1;
+  const xAt = (t) => xPadL + (xRW - 1 - (xC - Math.floor(t * xCps))) / xDpr;
   function calNow(tNow, W) {
     cal = calip && tNow != null && probe ? caliperFrame(buf, tNow, sweepSeconds, W, CAL_W) : null;
-    if (cal) cal.gf = gateFactor(); else calMk = {};
+    if (cal) cal.gf = gateFactor(); else calReset();
   }
-  function drawCalipers(ctx, { now, sgn, k, pxPerV, baseY, padT, padL, W, H }) {
+  // One level's easing, moved on to the pick's level (the pick is the monitor's own record of that mark: [time, level]).
+  function calLevel(m, v, now) {
+    if (!m.on) { m.on = true; m.from = v; m.to = v; m.at = now; }
+    else if (m.to !== v) { m.from = caliperLevel(m.from, m.to, (now - m.at) / 1000); m.to = v; m.at = now; }
+    if ((now - m.at) / 1000 < CAL_FADE) labBusy = true;
+    return Math.round(calY(caliperLevel(m.from, m.to, (now - m.at) / 1000))) + 0.5;
+  }
+  function drawCalipers(ctx, now, sgn, k, pxPerV, baseY, padT, padL, W, H) {
     if (!cal) return;
     // (each level on the spectrum's outline, where the reading's peak is read: the mean across the lumen times dopplerK; kept
     // 2 px inside the trace so its dark edge is never cut off)
-    const yOf = (v) => clamp(padT + baseY - sgn * v * k * cal.gf * pxPerV, padT + 2, padT + H - 2);
-    const xc = caliperX(padL, CAL_TICK), x1 = padL + W, secs = (t) => (now - t) / 1000, lv = {};
-    for (const w of ['hi', 'lo']) {
-      const v = cal[w][1], m = calMk[w];
-      if (!m) calMk[w] = { from: v, to: v, at: now };
-      else if (m.to !== v) calMk[w] = { from: caliperLevel(m.from, m.to, secs(m.at)), to: v, at: now };
-      const c = calMk[w];
-      if (secs(c.at) < CAL_FADE) labBusy = true;
-      lv[w] = Math.round(yOf(caliperLevel(c.from, c.to, secs(c.at)))) + 0.5;
-    }
+    cSgn = sgn; cK = k; cPx = pxPerV; cBase = baseY; cPadT = padT; cH = H;
+    const xc = caliperX(padL, CAL_TICK), x1 = padL + W;
+    lvHi = calLevel(calMk.hi, cal.hi[1], now); lvLo = calLevel(calMk.lo, cal.lo[1], now);
     ctx.save();
     // What the index measures is the gap in speed between the two levels: each runs dashed across the trace, and the upright
     // with end ticks spans the two.
     // (all drawn over the trace and its baseline, each dash and the upright on a dark edge of its own, so a level on the bright
     // spectrum or on the baseline, as a trough near 0 is, still shows; the dark sits only under the dashes, never as a band)
     ctx.beginPath();
-    for (const y of [lv.hi, lv.lo]) { ctx.moveTo(xc, y); ctx.lineTo(x1, y); }
-    ctx.setLineDash([4, 3]);
+    ctx.moveTo(xc, lvHi); ctx.lineTo(x1, lvHi); ctx.moveTo(xc, lvLo); ctx.lineTo(x1, lvLo);
+    ctx.setLineDash(DASH_CAL);
     ctx.strokeStyle = cssAlpha('--black', 0.85); ctx.lineWidth = 3.5; ctx.stroke();
     ctx.strokeStyle = cssAlpha('--doppler', 0.95); ctx.lineWidth = 1.5; ctx.stroke();
-    ctx.setLineDash([]);
+    ctx.setLineDash(DASH_NONE);
     const T = CAL_TICK;
-    ctx.beginPath(); ctx.moveTo(xc, lv.hi); ctx.lineTo(xc, lv.lo); ctx.moveTo(xc - T, lv.hi); ctx.lineTo(xc + T, lv.hi); ctx.moveTo(xc - T, lv.lo); ctx.lineTo(xc + T, lv.lo);
+    ctx.beginPath(); ctx.moveTo(xc, lvHi); ctx.lineTo(xc, lvLo); ctx.moveTo(xc - T, lvHi); ctx.lineTo(xc + T, lvHi); ctx.moveTo(xc - T, lvLo); ctx.lineTo(xc + T, lvLo);
     ctx.strokeStyle = cssAlpha('--black', 0.85); ctx.lineWidth = 3.5; ctx.stroke();
     ctx.strokeStyle = cssAlpha('--doppler', 1); ctx.lineWidth = 1.5; ctx.stroke();
     ctx.restore();
   }
-  // (The index is read in the bottom strip, first after the probe's name, in the marks' colour: off the spectrum, always whole.)
-  const calText = () => (cal ? `PI ${fmt(cal.pi, 2)}` : '');
+  // (The index is read in the bottom strip, first after the probe's name, in the marks' colour: off the spectrum, always whole.
+  // Its words come from a table of the hundredths, the index being at most 2.)
+  const calText = () => (cal ? PI_TEXT[Math.max(0, Math.min(PI_TEXT.length - 1, Math.round(cal.pi * 100)))] : '');
 
   // ── A slide's paired trace (V29): the paired vessel's velocity over the same seconds as the main trace, beat for beat, as
   // the scanner would draw it (a hepatic vein's forward flow below its baseline), slim, in a band of its own under the main
   // trace with its own scale, named on its left. ──
   let pair = false, pairSc = null;
-  function drawPair(ctx, { tNow, y0, PB, padL, W, xAt }) {
-    const id = pairOf(meta().kind), pm = PROBES.find((p) => p.id === id), kp = dopplerK(EDGES[EI[id]]);
+  const PS = { id: '', scale: 0, base: 0, at: 0 };   // (the pair's scale, kept)
+  const setPairScale = (id, want, at) => { PS.id = id; PS.scale = want.scale; PS.base = want.base; PS.at = at; pairSc = PS; };
+  function drawPair(ctx, tNow, y0, PB, padL, W) {
+    const id = pairOf(meta().kind), pm = PROBES_BY_ID.get(id), kp = dopplerK(EDGES[EI[id]]);
     const s = (pm.away ? -1 : 1) * (invert ? -1 : 1) * kp;
-    const pts = [];
     let pos = 0, neg = 0;
-    for (const p of buf) {
+    for (let i = 0; i < buf.length; i++) {
+      const p = buf[i];
       if (p[0] < tNow - sweepSeconds || p[0] > tNow || !Number.isFinite(p[2])) continue;
-      const v = s * p[2]; pts.push([p[0], v]); if (v > pos) pos = v; if (-v > neg) neg = -v;
+      const v = s * p[2]; if (v > pos) pos = v; if (-v > neg) neg = -v;
     }
     // (its scale holds still as the main one does: it grows at once when the trace would clip, and shrinks only after 3 s)
     const want = pairScale(pos, neg), need = Math.max(pos, neg, 8) / 0.85;
-    if (!pairSc || pairSc.id !== id || need > pairSc.scale || (want.base >= 0.5) !== (pairSc.base >= 0.5)) pairSc = { id, ...want, at: tNow };
-    else if (want.scale < pairSc.scale || Math.abs(want.base - pairSc.base) > 0.15) { if (tNow - pairSc.at > 3) pairSc = { id, ...want, at: tNow }; }
+    if (!pairSc || pairSc.id !== id || need > pairSc.scale || (want.base >= 0.5) !== (pairSc.base >= 0.5)) setPairScale(id, want, tNow);
+    else if (want.scale < pairSc.scale || Math.abs(want.base - pairSc.base) > 0.15) { if (tNow - pairSc.at > 3) setPairScale(id, want, tNow); }
     else pairSc.at = tNow;
     const by = y0 + Math.round(PB * pairSc.base), ppv = (pairSc.base >= 0.5 ? by - y0 : y0 + PB - by) / pairSc.scale;
     ctx.save();
     ctx.fillStyle = cssAlpha('--white', 0.06); ctx.fillRect(padL, y0, W, PB);
     ctx.fillStyle = cssAlpha('--white', 0.5); ctx.fillRect(padL, by, W, 1);
-    if (pts.length > 1) {
-      ctx.beginPath();
-      for (let i = 0; i < pts.length; i++) { const x = xAt(pts[i][0]), y = clamp(by - pts[i][1] * ppv, y0, y0 + PB); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); }
-      ctx.strokeStyle = cssAlpha('--white', 0.9); ctx.lineWidth = 1.5; ctx.lineJoin = 'round'; ctx.stroke();
+    let drawn = 0;
+    for (let i = 0; i < buf.length; i++) {
+      const p = buf[i];
+      if (p[0] < tNow - sweepSeconds || p[0] > tNow || !Number.isFinite(p[2])) continue;
+      if (!drawn++) { ctx.beginPath(); ctx.moveTo(xAt(p[0]), clamp(by - s * p[2] * ppv, y0, y0 + PB)); } else ctx.lineTo(xAt(p[0]), clamp(by - s * p[2] * ppv, y0, y0 + PB));
     }
+    if (drawn > 1) { ctx.strokeStyle = cssAlpha('--white', 0.9); ctx.lineWidth = 1.5; ctx.lineJoin = 'round'; ctx.stroke(); }
     // Its name above its band on the left, and its scale's end on the right margin, as the main trace's are.
     ctx.font = FONT(600, 12); ctx.textBaseline = 'top'; ctx.textAlign = 'left'; ctx.lineJoin = 'round';
     ctx.fillStyle = cssAlpha('--white', 0.86); ctx.fillText(pm.short, padL, y0 - PAIR_GAP + 1);   // (in the gap above its band, clear of both traces)
@@ -1172,7 +1314,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   function configure(t = {}) {
     const m = MODE_OF[t?.mode] || 'spectrum';
     if (m !== mode) { mode = m; sync(); }
-    calip = !!t?.calipers; cal = null; calMk = {};   // (a new slide's calipers pick from its own trace)
+    calip = !!t?.calipers; cal = null; calReset();   // (a new slide's calipers pick from its own trace)
     if (pair !== !!t?.pair) { pair = !!t?.pair; pairSc = null; }
     // (scale: the velocity scale fixed at ± that many cm/s, the Nyquist limit, so faster flow aliases; baseline: where the
     // baseline sits, 0 at the top of the trace to 1 at the bottom, 0.5 when not given. Without scale the display fits itself.)
@@ -1190,35 +1332,62 @@ export function createDoppler({ onProbe, pickGate = true }) {
   // is not triphasic (no clear reversal, or a single forward wave).
   let waves = false;
   let wl = null, labAt = 0, labBusy = false;   // the beat whose waves are named: {pts, sgn, alpha, out}
+  const WAVE_NEW = [[0, 0, 'a'], [0, 0, 'S'], [0, 0, 'v'], [0, 0, 'D']];   // (the beat just found: [time, level, letter] for a, S, v and D)
+  const WL = { pts: [[0, 0, 'a'], [0, 0, 'S'], [0, 0, 'v'], [0, 0, 'D']], sgn: 0, alpha: 0, out: false };   // (the beat named, kept and rewritten for each new one)
+  // (The scratch hvWaves works in: the record's samples in the window, their smoothed levels, the a-waves, the troughs and the dips; kept, sized for the longest record.)
+  const HW_CAP = 4096;
+  const hwY = new Float64Array(HW_CAP), hwA = new Int32Array(HW_CAP), hwLow = new Int32Array(HW_CAP), hwDip = new Int32Array(HW_CAP);
+  let hwI0 = 0, hwN = 0;
+  const hwExt = (i, sgn2) => sgn2 * hwY[i] >= sgn2 * hwY[i - 1] && sgn2 * hwY[i] >= sgn2 * hwY[i + 1];
+  // An a-wave: the highest point within 0.3 s either side, at or near the baseline.
+  const hwCrest = (i) => {
+    const ti = buf[hwI0 + i][0];
+    for (let j = i - 1; j >= 0 && ti - buf[hwI0 + j][0] < 0.3; j--) if (hwY[j] > hwY[i]) return false;
+    for (let j = i + 1; j < hwN && buf[hwI0 + j][0] - ti < 0.3; j++) if (hwY[j] > hwY[i]) return false;
+    return true;
+  };
   function hvWaves(t0, t1, sgn) {
-    const p = buf.filter(([t]) => t >= t0 && t <= t1);
-    if (p.length < 12) return [];
-    const y = p.map((_, i) => { let s = 0, n = 0; for (let j = Math.max(0, i - 2); j <= Math.min(p.length - 1, i + 2); j++) { s += sgn * p[j][1]; n++; } return s / n; });
-    const top = Math.max(...y), bot = Math.min(...y);   // (top: the biggest reversal, which has to exist)
-    if (top < 0.5 || bot > -5) return [];
-    const ext = (i, s) => s * y[i] >= s * y[i - 1] && s * y[i] >= s * y[i + 1];
-    // An a-wave: the highest point within 0.3 s either side, at or near the baseline.
-    const crest = (i) => { for (let j = i - 1; j >= 0 && p[i][0] - p[j][0] < 0.3; j--) if (y[j] > y[i]) return false; for (let j = i + 1; j < y.length && p[j][0] - p[i][0] < 0.3; j++) if (y[j] > y[i]) return false; return true; };
-    const aI = [];
-    for (let i = 1; i < y.length - 1; i++) if (y[i] > bot * 0.15 && ext(i, 1) && crest(i) && (!aI.length || p[i][0] - p[aI.at(-1)][0] > 0.35)) aI.push(i);
+    // (The samples between t0 and t1, in place in the record: the first one in the window and how many there are.)
+    let i0 = 0; while (i0 < buf.length && buf[i0][0] < t0) i0++;
+    let n = 0; while (i0 + n < buf.length && buf[i0 + n][0] <= t1) n++;
+    if (n < 12 || n > HW_CAP) return false;
+    hwI0 = i0; hwN = n;
+    const y = hwY;
+    for (let i = 0; i < n; i++) { let s = 0, m = 0; for (let j = Math.max(0, i - 2); j <= Math.min(n - 1, i + 2); j++) { s += sgn * buf[i0 + j][1]; m++; } y[i] = s / m; }
+    let top = -Infinity, bot = Infinity;   // (top: the biggest reversal, which has to exist)
+    for (let i = 0; i < n; i++) { if (y[i] > top) top = y[i]; if (y[i] < bot) bot = y[i]; }
+    if (top < 0.5 || bot > -5) return false;
+    let aN = 0;
+    for (let i = 1; i < n - 1; i++) if (y[i] > bot * 0.15 && hwExt(i, 1) && hwCrest(i) && (!aN || buf[i0 + i][0] - buf[i0 + hwA[aN - 1]][0] > 0.35)) hwA[aN++] = i;
     // Only the newest settled whole beat is named, as a textbook marks one cycle: every beat at once crowds the trace.
     // A beat is named once its closing a-wave has settled (the last 0.35 s of the record can still change), so the letters never shift afterwards.
-    const tEnd = p[p.length - 1][0] - 0.35;
-    for (let b = aI.length - 2; b >= 0; b--) {
-      if (p[aI[b + 1]][0] > tEnd) continue;
-      const lows = [];
-      for (let i = aI[b] + 1; i < aI[b + 1]; i++) if (y[i] < bot * 0.25 && ext(i, -1)) lows.push(i);
+    const tEnd = buf[i0 + n - 1][0] - 0.35;
+    for (let b = aN - 2; b >= 0; b--) {
+      if (buf[i0 + hwA[b + 1]][0] > tEnd) continue;
+      let lowN = 0;
+      for (let i = hwA[b] + 1; i < hwA[b + 1]; i++) if (y[i] < bot * 0.25 && hwExt(i, -1)) hwLow[lowN++] = i;
       // Keep the deepest trough of each dip (troughs closer than 0.12 s are one wave), then the two deepest dips.
-      const dips = [];
-      for (const i of lows) { const d = dips.at(-1); if (d && p[i][0] - p[d][0] < 0.12) { if (y[i] < y[d]) dips[dips.length - 1] = i; } else dips.push(i); }
-      if (dips.length < 2) continue;
-      const two = [...dips].sort((m, n) => y[m] - y[n]).slice(0, 2).sort((m, n) => m - n);
+      let dipN = 0;
+      for (let q = 0; q < lowN; q++) {
+        const i = hwLow[q];
+        if (dipN && buf[i0 + i][0] - buf[i0 + hwDip[dipN - 1]][0] < 0.12) { if (y[i] < y[hwDip[dipN - 1]]) hwDip[dipN - 1] = i; } else hwDip[dipN++] = i;
+      }
+      if (dipN < 2) continue;
+      // (the two deepest, the earlier of equal ones first, in the order they come)
+      let m1 = -1, m2 = -1;
+      for (let q = 0; q < dipN; q++) { if (m1 < 0 || y[hwDip[q]] < y[hwDip[m1]]) { m2 = m1; m1 = q; } else if (m2 < 0 || y[hwDip[q]] < y[hwDip[m2]]) m2 = q; }
+      const two0 = Math.min(hwDip[m1], hwDip[m2]), two1 = Math.max(hwDip[m1], hwDip[m2]);
       // v: the turn toward the baseline between S and D (the highest point between their troughs).
-      let v = two[0] + 1;
-      for (let i = two[0] + 1; i < two[1]; i++) if (y[i] > y[v]) v = i;
-      return [[p[aI[b]][0], y[aI[b]], 'a'], [p[two[0]][0], y[two[0]], 'S'], [p[v][0], y[v], 'v'], [p[two[1]][0], y[two[1]], 'D']];
+      let v = two0 + 1;
+      for (let i = two0 + 1; i < two1; i++) if (y[i] > y[v]) v = i;
+      const W4 = WAVE_NEW;
+      W4[0][0] = buf[i0 + hwA[b]][0]; W4[0][1] = y[hwA[b]];
+      W4[1][0] = buf[i0 + two0][0]; W4[1][1] = y[two0];
+      W4[2][0] = buf[i0 + v][0]; W4[2][1] = y[v];
+      W4[3][0] = buf[i0 + two1][0]; W4[3][1] = y[two1];
+      return true;
     }
-    return [];
+    return false;
   }
   let raf = 0, askedAt = 0, paintAt = 0, reportDue = false;
   function loop(now) {

@@ -14,13 +14,13 @@ test('a fixed scale holds the Nyquist limit either side of the baseline, the spa
   // (the scale's choice is fitScale, dopplerWindow.js, given the slide's fixed scale on every frame)
   const win = readFileSync(new URL('../src/ui/dopplerWindow.js', import.meta.url), 'utf8');
   assert.match(win, /if \(fixed\) \{ st\.baseF = fixed\.base; st\.scale = 2 \* fixed\.nyq \* Math\.max\(st\.baseF, 1 - st\.baseF\); st\.settleAt = tNow; \}/);
-  assert.match(doppler, /\(\{ scale, baseF, settleAt, refit \} = fitScale\(\{ scale, baseF, settleAt, refit \}, \{ fixed, holding, fits, target, tbF, tNow \}\)\);/);
+  assert.match(doppler, /FS_IN\.fixed = fixed; FS_IN\.holding = holding; FS_IN\.fits = fits; FS_IN\.target = target; FS_IN\.tbF = tbF; FS_IN\.tNow = tNow;\s+fitScale\(FS_ST, FS_IN\);/);   // (fitScale's state and input are kept records, written in place: nothing built in a frame)
   for (const base of [0.5, 0.15, 0.85]) {
     const nyq = 80, H = 300, scale = 2 * nyq * Math.max(base, 1 - base), baseY = H * base;
     const pxPerV = (base >= 0.5 ? baseY : H - baseY) / scale;
     assert.ok(Math.abs(H / pxPerV - 2 * nyq) < 1e-9, `baseline ${base}: span ${H / pxPerV}`);
   }
-  assert.match(doppler, /span: fixed \? H \/ pxPerV : 0, topV: baseY \/ pxPerV, botV: \(H - baseY\) \/ pxPerV/);
+  assert.match(doppler, /g\.span = fixed \? H \/ pxPerV : 0; g\.topV = baseY \/ pxPerV; g\.botV = \(H - baseY\) \/ pxPerV/);
 });
 
 test('past the scale\'s end the spectrum also shows one span above and below; otherwise each line is drawn as before', () => {

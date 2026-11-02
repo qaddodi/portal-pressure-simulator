@@ -14,6 +14,6 @@ test('the drawer keeps a still layer by its signature, drawn into its own textur
 });
 
 test('the Doppler keeps its velocity scale as a layer and trims its history in chunks', () => {
-  assert.match(dp, /keepLayer\(ctx, 'scale', `\$\{w\}x\$\{hh\}\|\$\{scale\}\|\$\{baseY\}/);
+  assert.match(dp, /keepLayer\(ctx, 'scale', SL\.ver, drawScaleLayer\)/);
   assert.equal(dp.split('if (cut && (cut >= 256 || cut * 4 >= buf.length)) dropSamples(cut);').length - 1, 2);
 });

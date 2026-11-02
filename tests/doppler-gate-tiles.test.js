@@ -17,8 +17,8 @@ test('each segment tile holds a real button that sets the gate and says which on
   assert.match(src, /h\('button', \{ type: 'button', class: 'dop-seg', 'aria-pressed': 'false'/);
   assert.match(src, /btn\?\.addEventListener\('click', \(\) => pickSeg\(seg\)\)/);
   assert.match(src, /store\.set\(\{ dopGate: seg \}\)/);
-  assert.match(src, /attrSoon\(b, 'aria-pressed', on\)/);
-  assert.match(src, /classSoon\(w, 'on', seg === at\)/);   // (the highlight, a thicker edge, follows the gate as before)
+  assert.match(src, /attrSoon\(b, 'aria-pressed', here\)/);
+  assert.match(src, /classSoon\(w, 'on', here\)/);   // (the highlight, a thicker edge, follows the gate as before)
 });
 
 test('the button covers its whole tile and is keyboard focusable', () => {
@@ -33,9 +33,9 @@ test("Present's Doppler keeps plain tiles; its slide buttons own the gate", () =
 });
 
 test('the tiles show only on a stent', () => {
-  assert.match(src, /for \(const k of \['Proximal', 'Mid', 'Distal'\]\) showStat\(statEls\[k\]\.wrap, isStent\);/);
+  assert.match(src, /for \(let i = 0; i < SEGS\.length; i\+\+\) showStat\(statEls\[SEGS\[i\]\[1\]\]\.wrap, isStent\);/);   // (the three segment tiles)
   assert.match(src, /showStat\(statEls\.Trough\.wrap, !isStent\); showStat\(statEls\.Pulsatility\.wrap, !isStent\);/);
-  assert.match(src, /const showStat = \(wrap, on\) => \{\s*if \(\(wrap\._on \?\? !wrap\.hidden\) === on\) return;\s*wrap\._on = on;[^]*?wrap\.hidden = !on;/);
+  assert.match(src, /const showStat = \(wrap, on\) => \{\s*if \(\(wrap\._on \?\? !wrap\.hidden\) === on\) return;\s*wrap\._on = on;\s*restPass\(wrap\._flip\);[^]*?propSoon\(wrap, 'hidden', !on\);/);
 });
 
 test("a card's bottom edge is tappable: the play bar's empty row takes no touches while a card is open", () => {
