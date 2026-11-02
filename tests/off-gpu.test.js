@@ -277,3 +277,11 @@ frame(() => {});
   assert.match(score(hits), /during use \d+, no caller found \d+; \d+ setup sites left out/);
   assert.match(inventory(hits), /## Setup sites \(\d+\)/);
 });
+
+test('an imported Map or Set is the built-in\'s, not a method of its module (store.js shownVel.set vs store.set)', () => {
+  const hits = fixture({
+    'src/ui/st.js': `export const seen = new Map();\nexport const store = { set(p) { document.body.textContent = p; } };\n`,
+    'src/ui/c.js': `import { frame } from './frame.js';\nimport { seen, store } from './st.js';\nframe(() => { seen.set(1, 2); });\nexport function later() { store.set('x'); }\n`,
+  });
+  assert.ok(!hits.some((h) => h.cat === 'domWrite' && h.file === 'src/ui/st.js' && / path: /.test(h.detail)), 'a frame calling seen.set does not reach store.set');
+});

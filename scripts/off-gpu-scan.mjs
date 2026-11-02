@@ -528,7 +528,8 @@ export function scan({ root = ROOT } = {}) {
     // createStage. That module's methods of the name are followed too.)
     // (Or an object imported by name, store.on(…) with store from './store.js': that module's methods of the name, 2 Nov 2026.)
     const imp = call.recv && mod.imports.get(call.recv);
-    if (imp && mods.get(imp[0])) {
+    // (Not when the binding is a built-in container there, export const shownVel = new Map(): its .set is the Map's, not a method of the module.)
+    if (imp && mods.get(imp[0]) && !mods.get(imp[0]).containers.has(mods.get(imp[0]).exports.get(imp[1]) ?? imp[1])) {
       const m = mods.get(imp[0]);
       for (const g of m.byName?.get(call.name) || []) if (declKind(g) === 'method') out.push([m, g]);
     }
