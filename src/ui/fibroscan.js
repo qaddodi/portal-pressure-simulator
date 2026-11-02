@@ -4,12 +4,12 @@
 // are left out. The map is a continuously evolving reading: coherent speckle that morphs smoothly, one
 // dominant dark shear-wave band, and a slope that drifts gently around the model's value.
 
-import { h, clamp, cssAlpha } from './util.js?v=7889f271cd';
+import { h, clamp, cssAlpha, canvasSize } from './util.js?v=7889f271cd';
 import { createTraceGL, fitPen } from './trace-gl.js?v=3978e30586';
 import { FONT } from './charts.js?v=58f4b1a995';
 import { simTime, isPaused, fibroReading } from './clock.js?v=16aba0e2eb';
 import { store } from './store.js?v=4ef2a6ffd8';
-import { createElastogramGL } from './fibroscan-gl.js?v=d314f78f05';
+import { createElastogramGL, elastogramUnder } from './fibroscan-gl.js?v=5d5f4630c3';
 import { surface } from './gpu-surfaces.js?v=2af17044e7';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs } from './frame.js?v=7710f677e2';
 import { createFollow } from './display-state.js?v=8d062d39dc';
@@ -143,13 +143,17 @@ export function createFibroScan() {
   io?.observe(cv); boxRO?.observe(cv);
   const onScreen = () => cv.isConnected && (io ? seen : true);   // (no observer, a bare test page: taken as shown)
 
-  const words = createTraceGL(cv, { redraw: () => { if (!gone) paint(performance.now()); } });
+  // (The map drawn in the chart drawer's own context, under its words: no WebGL context of the panel's own while the drawer draws.
+  // Its program and grids are made the first time it draws, and again when the drawer's context is made again.)
+  let mapU = null;
+  const under = (gl, W, H, gen) => {
+    if (!mapU) { mapU = elastogramUnder(fields()); mapU.onReady = () => { if (!gone) paint(performance.now()); }; mapU.set(fr.map); }
+    mapU(gl, W, H, gen);
+  };
+  const words = createTraceGL(cv, { redraw: () => { if (!gone) paint(performance.now()); }, under });
+  let fr = { t: 0, c: 1 };
   function paint(now) {
-    const pen = fitPen(cv, words);
-    try { paintWith(pen, now); } finally { pen.ctx.end?.(); }
-  }
-  function paintWith({ ctx, w, h: hh }, now) {
-    if (w < 80 || hh < 80) return;
+    // (The moment, worked out before the frame starts: the map under the words is drawn as the frame begins.)
     const st = simTime(now), t = REDUCED_MQ.matches ? 3 : st, dt = clamp(st - last, 0, 0.2); last = st;
     // The wave front drifts gently around the model's median; the readout is the median itself (eased when it changes),
     // so it reads the same number as the slide's tile and words.
@@ -157,7 +161,16 @@ export function createFibroScan() {
     // (On the shown state's filter, display-state.js, premium-feel R4: the bar's and the figure's clock; a jump of the model, a pause or
     // Reduce Motion shows the new median at once.)
     shown = kShown.step(model, dt, REDUCED_MQ.matches || isPaused());
-    const c = shearSpeed(kNow);
+    fr = { t, c: shearSpeed(kNow), map: null };
+    const z = canvasSize(cv), want = clamp(Math.round(Math.max(z.w, z.h) * sized.r * (saver() ? 0.5 : 0.75)), saver() ? 100 : 140, saver() ? Math.min(cap, 200) : cap);
+    fr.map = { NB, t0: WAVE_T0, N: want, c: fr.c, t, rad: 12 * (z.W / Math.max(1, z.w)) };   // (its corners as the panel's, 12 px)
+    mapU?.set(fr.map);
+    const pen = fitPen(cv, words);
+    try { paintWith(pen); } finally { pen.ctx.end?.(); }
+  }
+  function paintWith({ ctx, w, h: hh }) {
+    if (w < 80 || hh < 80) return;
+    const { t, c } = fr;
     const th = colors();
     const reading = shown.toFixed(1); if (cv.dataset.reading !== reading) cv.dataset.reading = reading;
     fibroReading.txt = reading; fibroReading.cv = cv; fibroReading.show?.(reading);
@@ -181,8 +194,16 @@ export function createFibroScan() {
     const want = clamp(Math.round(Math.max(ew, ph) * sized.r * (lo ? 0.5 : 0.75)), lo ? 100 : 140, lo ? Math.min(cap, 200) : cap);
     N = want;
     // The map: drawn by the GPU into its own canvas, under these words (the same formula and noise, a fraction of a millisecond).
-    const m0 = makeMap(), drawn = !!m0 && m0.draw(fields(), NB, WAVE_T0, N, c, t);
-    mapGpu = m0 ? drawn : false;
+    // (On the chart drawer the map was drawn as its frame began; else in the panel's own map canvas, under this one.)
+    let drawn;
+    if (ctx.onGPU === true) {
+      if (map !== undefined) dropMap();
+      drawn = !!mapU?.drew();
+    } else {
+      const m0 = makeMap();
+      drawn = !!m0 && m0.draw(fields(), NB, WAVE_T0, N, c, t);
+    }
+    mapGpu = drawn;
     if (mapCv) { const v = drawn ? '' : 'hidden'; if (mapCv.style.visibility !== v) mapCv.style.visibility = v; }
     ctx.strokeStyle = cssAlpha('--white', 0.5); ctx.setLineDash([2, 4]); ctx.lineWidth = 1;
     for (const d of [WIN0, WIN1]) { const y = top + ((d - DEPTH0) / DEPTH_SPAN) * ph; ctx.beginPath(); ctx.moveTo(ex, y); ctx.lineTo(ex + ew, y); ctx.stroke(); }

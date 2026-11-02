@@ -3,8 +3,8 @@
 // side), too long for a frame at 120 a second; here it costs a fraction of a millisecond. Where WebGL2 is missing or the
 // context is lost there is no map (fibroscan.js keeps the CPU's map only as the checks' reference).
 //
-// One small context serves every FibroScan panel: a map is drawn into it (resized to the map's size) and copied out
-// (drawImage) in the same task.
+// A panel's map is drawn inside its chart drawer's own context (elastogramUnder, under the words); elastogramGL's own small
+// context is kept for the checks and for a panel drawn without the chart drawer (?tracegl=0).
 
 import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=e48e05cdb3';
 
@@ -23,6 +23,8 @@ uniform vec4 uOffA;        // a1, a2: x offset, y offset (twice: the two fields 
 uniform vec4 uOffB;
 uniform vec4 uOffP;
 uniform float uN, uNB, uC, uT0;
+uniform vec2 uRes;          // the target's size in device px (the map's N × N, or a chart's whole canvas, stretched as the map was)
+uniform float uRad;         // its corners' radius in device px (0: square)
 uniform vec3 uCos, uSin;   // cos and sin of the three mixing phases
 out vec4 o;
 float field(sampler2D g, float cell, float x, float y) {
@@ -36,7 +38,12 @@ float field(sampler2D g, float cell, float x, float y) {
   return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy;
 }
 void main() {
-  float x = floor(gl_FragCoord.x), y = uN - 1.0 - floor(gl_FragCoord.y);   // (the map's first row is the top)
+  if (uRad > 0.0) {   // (a chart's rounded box: nothing drawn past its corners)
+    vec2 q = abs(gl_FragCoord.xy - uRes * 0.5) - (uRes * 0.5 - uRad);
+    if (length(max(q, 0.0)) > uRad) discard;
+  }
+  // (Map px at this fragment: on an N × N target the pixel's own index; on a chart's canvas the same map stretched to it.)
+  float x = (gl_FragCoord.x - 0.5) * uN / uRes.x, y = uN - 1.0 - (gl_FragCoord.y - 0.5) * uN / uRes.y;   // (the map's first row is the top)
   float tMs = (x / uN) * 80.0, depth = 20.0 + (y / uN) * 50.0;   // (fibroscan.js DEPTH0, DEPTH_SPAN)
   float s = tMs - uT0 - (depth - 25.0) / uC;   // (WIN0: the wave reaches the top of the M probe's window at uT0)
   float across = (s / 80.0) * uNB * 1.6 + uNB * 1.7, along = y * (uNB / uN) * 0.65 + uNB * 0.6;
@@ -52,6 +59,7 @@ void main() {
   o = vec4((20.0 + 220.0 * k) / 255.0, (10.0 + 126.0 * k) / 255.0, (8.0 + 64.0 * k) / 255.0, 1.0);
 }`;
 
+const UNIS = ['uA1', 'uA2', 'uB1', 'uB2', 'uP1', 'uP2', 'uCell', 'uOffA', 'uOffB', 'uOffP', 'uN', 'uNB', 'uC', 'uT0', 'uCos', 'uSin', 'uRes', 'uRad'];
 let st = null;   // { canvas, gl, U, publish, lost } once made; false when WebGL2 is unavailable
 
 function make(F) {
@@ -69,7 +77,7 @@ function make(F) {
     try {
       const prog = checkProgram(gl, started);
       gl.useProgram(prog);
-      for (const n of ['uA1', 'uA2', 'uB1', 'uB2', 'uP1', 'uP2', 'uCell', 'uOffA', 'uOffB', 'uOffP', 'uN', 'uNB', 'uC', 'uT0', 'uCos', 'uSin']) U[n] = gl.getUniformLocation(prog, n);
+      for (const n of UNIS) U[n] = gl.getUniformLocation(prog, n);
       ['a1', 'a2', 'b1', 'b2', 'p1', 'p2'].forEach((k, i) => gl.uniform1i(U[`u${k.toUpperCase()}`], i));
       exerciseDraw(gl, () => { gl.uniform1f(U.uN, 1); gl.uniform1f(U.uNB, 1); gl.uniform1f(U.uC, 1); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); });
       s.published = true; lost = false;   // (after a restore: the GPU draws the maps again)
@@ -136,6 +144,12 @@ function drawMap(s, F, NB, t0, N, c, t) {
   const { gl, U, canvas } = s;
   if (canvas.width !== N || canvas.height !== N) { canvas.width = canvas.height = N; }
   gl.viewport(0, 0, N, N);
+  gl.uniform2f(U.uRes, N, N); gl.uniform1f(U.uRad, 0);
+  setMap(gl, U, F, NB, t0, N, c, t);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  return canvas;
+}
+function setMap(gl, U, F, NB, t0, N, c, t) {
   const th1 = t * 1.3, th2 = t * 1.9 + 1, th3 = t * 2.3 + 2, flowY = t * 22, flowX = t * 9;
   // Each field's offset, reduced by the field's own period (exact in double precision).
   const per = (v, P) => ((v % P) + P) % P, off = (f, mx) => [per(flowX * mx, f.gw * f.cell), per(flowY, f.gh * f.cell)];
@@ -146,8 +160,60 @@ function drawMap(s, F, NB, t0, N, c, t) {
   gl.uniform1f(U.uN, N); gl.uniform1f(U.uNB, NB); gl.uniform1f(U.uC, c); gl.uniform1f(U.uT0, t0);
   gl.uniform3f(U.uCos, Math.cos(th1), Math.cos(th2), Math.cos(th3));
   gl.uniform3f(U.uSin, Math.sin(th1), Math.sin(th2), Math.sin(th3));
-  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-  return canvas;
+}
+
+/**
+ * The map drawn inside another context: a chart drawer's own (trace-gl.js createTraceGL's `under`), so a FibroScan panel needs no
+ * WebGL context of its own (a page holds only so many; past that the browser drops the oldest, the figure's). Returns
+ * under(gl, W, H, gen): draws the map set by .set({ NB, t0, N, c, t, rad }) over the whole W × H target, its corners cut at rad device
+ * px; its program and grids made in that context, again whenever gen changes (the context made again), compiled beside the page
+ * (nothing drawn until then: .ready()).
+ */
+export function elastogramUnder(F) {
+  let gen = -1, G = null, args = null, drew = false;
+  function build(gl) {
+    const started = startProgram(gl, VS, FS, [['p', 0]]);
+    const vao = gl.createVertexArray(); gl.bindVertexArray(vao);
+    const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    gl.bindVertexArray(null);
+    const tex = ['a1', 'a2', 'b1', 'b2', 'p1', 'p2'].map((k) => {
+      const f = F[k], t = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, t);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, f.gw, f.gh, 0, gl.RED, gl.FLOAT, Float32Array.from(f.grid));
+      return t;
+    });
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    const g = { vao, tex, prog: null, U: {}, failed: false };
+    // (Published once the driver says it is compiled: never a wait in a frame.)
+    publishWhenDone(gl, [started], () => {
+      if (G !== g || gl.isContextLost()) return;
+      try { g.prog = checkProgram(gl, started); for (const n of UNIS) g.U[n] = gl.getUniformLocation(g.prog, n); } catch (e) { g.failed = true; console.warn('FibroScan map: shader failed.', e); }
+      under.onReady?.();   // (the first map can be drawn now: the panel draws again, also while paused)
+    });
+    return g;
+  }
+  const under = (gl, W, H, g) => {
+    drew = false;
+    if (g !== gen || !G) { gen = g; G = build(gl); }
+    if (!G.prog || !args) return;
+    gl.useProgram(G.prog);
+    G.tex.forEach((t, i) => { gl.activeTexture(gl.TEXTURE0 + i); gl.bindTexture(gl.TEXTURE_2D, t); gl.uniform1i(G.U[UNIS[i]], i); });
+    gl.uniform2f(G.U.uRes, W, H); gl.uniform1f(G.U.uRad, args.rad || 0);
+    setMap(gl, G.U, F, args.NB, args.t0, args.N, args.c, args.t);
+    gl.disable(gl.BLEND);
+    gl.bindVertexArray(G.vao);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    for (let i = 0; i < G.tex.length; i++) { gl.activeTexture(gl.TEXTURE0 + i); gl.bindTexture(gl.TEXTURE_2D, null); }
+    drew = true;
+  };
+  under.set = (a) => { args = a; };
+  /** Whether the last frame drew the map. */
+  under.drew = () => drew;
+  return under;
 }
 
 /**
