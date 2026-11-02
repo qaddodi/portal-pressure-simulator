@@ -18,12 +18,10 @@ const HAIR = !/[?&]cathtag=0\b/.test(globalThis.location?.search || '');
 export const withGlass = (el) => {
   const glass = document.createElement('i');
   glass.className = HAIR ? 'cl-glass cl-hair' : 'cl-glass'; glass.setAttribute('aria-hidden', 'true');
-  // (Its outline is a model drawn on the GPU (svg-gl) in a box of its own, never SVG the page paints: 2 Nov 2026, "Move everything to
+  // (Its outline is a model drawn on the GPU (svg-gl) over the glass, never SVG the page paints: 2 Nov 2026, "Move everything to
   // GPU". The model is cloned with the callout; its picture is made between frames, after the clone joins the page: glassCallout.)
-  const line = document.createElement('b');
-  line.className = 'cl-line svg-gl-box';
-  line.append(svgModel('svg', { viewBox: '0 0 1 1', preserveAspectRatio: 'none' }, svgModel('path')));
-  glass.append(line);
+  // (The model is the glass's first child and its path the model's: the figure's GPU glass reads the shape there, glass-gl.js readPanes.)
+  glass.append(svgModel('svg', { viewBox: '0 0 1 1', preserveAspectRatio: 'none' }, svgModel('path')));
   el.prepend(glass);
   return el;
 };
@@ -31,9 +29,10 @@ export const withGlass = (el) => {
 function lineGL(S) {
   S.ask = 0;
   if (S.gl || S.gone) return;
-  S.gl = createSvgGL(S.line);
+  S.gl = createSvgGL(S.glass);
   S.gl.cv.setAttribute('aria-hidden', 'true'); S.gl.cv.removeAttribute('role');
   S.gl.show(S.svg, false);
+  S.glass.append(S.gl.cv);   // (after the model: the model stays the glass's first child, as the GPU glass reads it)
 }
 
 // The outline: a rounded rectangle (w × h at y = top) with the pointer on its bottom or top edge at x = px.
@@ -57,8 +56,8 @@ function observedSize(el, es) {
 /** Gives `el` its glass body and returns `update(ax)`: call it whenever the pointer's offset `ax` (px from the card's
  *  centre) may have changed. It also redraws itself when the card is resized (a reading's text changing). */
 export function glassCallout(el, { pointer = true } = {}) {
-  const glass = el.firstElementChild, line = glass.firstElementChild, svg = line.firstElementChild, path = svg.firstElementChild;   // (its glass, cloned with it from a model: withGlass)
-  const S = { line, svg, gl: null, ask: 0, gone: false };
+  const glass = el.firstElementChild, svg = glass.firstElementChild, path = svg.firstElementChild;   // (its glass, cloned with it from a model: withGlass)
+  const S = { glass, svg, gl: null, ask: 0, gone: false };
   S.ask = restPass(() => lineGL(S));
   // size: the card's exact (fractional) border box, and rad its corner radius, both taken when it is observed (its size changes): the
   // update itself, called on the figure's frames, reads no layout or style (1 Nov 2026, "Move everything to GPU").
