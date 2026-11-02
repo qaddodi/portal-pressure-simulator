@@ -5835,6 +5835,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   const REVEAL_PARTS = ['shadow', 'wall', 'lumen', 'shade', 'sheen'];
   function stepReveals(now) {
+    if (!revealN) return;   // (nothing draws on or off: no walk over the vessels, rev 2 §2.8)
     let finished = false;
     for (const x of EV) {
       if (!x.reveal) continue;
@@ -11963,24 +11964,29 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // 3 w the parent's row + 1; texel 4 the root's row + 1, A, B, w; texel 5 the root's distance and drift, and the ends' weights.
   const chain = createStreamChain(), chainIt = [], chainK = new Map();   // (chainK: row → edge, kept: a root fading out may no longer be drawn)
   const NO_CHAIN = new Set(['IVC_IS', 'IVCS_RA']);
+  // (Rev 2 §2.8: the links are worked out again (chain.step, which builds its maps and lists) only when a candidate changed or a link
+  // was still easing at the last step; otherwise the last step's answer, unchanged, is written into the rows again. Each candidate's
+  // record is kept per slot, so a change is told by comparing each field as it is written, and a steady frame allocates nothing.)
+  let chainLast = null;
   function chainRows(kW, kB) {
-    let n = 0;
-    for (const x of EV) {
+    let n = 0, changed = !chainLast || chainLast.easing;
+    const Qn = F.Qf || F.Q;
+    for (let ix = 0; ix < EV.length; ix++) {
+      const x = EV[ix];
       if (!x.vis || x.isArt || x.g.classList.contains('coll-ghost') || NO_CHAIN.has(x.e.id) || !flowNow[x.row]) continue;
       const g = geo[x.e.id], P = g?.cur, len = g?.len;
       if (!P || P.length < 2 || !(len > 0)) continue;
       const k = EI[x.e.id], sm = streams[k], sg = sm.sgn || 1, fwd = sg > 0;
-      const it = chainIt[n] || (chainIt[n] = {});
-      it.key = x.row; it.k = k;
-      it.up = fwd ? x.e.from : x.e.to; it.down = fwd ? x.e.to : x.e.from;
-      it.upPt = fwd ? P[0] : P[P.length - 1]; it.downPt = fwd ? P[P.length - 1] : P[0];
-      it.s0 = fwd ? 0 : len; it.sj = fwd ? len : 0;
-      it.q = Math.abs((F.Qf || F.Q)[k]);
-      it.m = displaySpeed(sg * Math.max(0, sg * velQf[k]));
+      let it = chainIt[n];
+      if (!it) { it = chainIt[n] = {}; changed = true; }
+      const up = fwd ? x.e.from : x.e.to, down = fwd ? x.e.to : x.e.from, upPt = fwd ? P[0] : P[P.length - 1], downPt = fwd ? P[P.length - 1] : P[0];
+      const s0 = fwd ? 0 : len, sj = fwd ? len : 0, q = Math.abs(Qn[k]), m = displaySpeed(sg * Math.max(0, sg * velQf[k]));
+      if (it.key !== x.row || it.k !== k || it.up !== up || it.down !== down || it.upPt !== upPt || it.downPt !== downPt || it.s0 !== s0 || it.sj !== sj || it.q !== q || it.m !== m) changed = true;
+      it.key = x.row; it.k = k; it.up = up; it.down = down; it.upPt = upPt; it.downPt = downPt; it.s0 = s0; it.sj = sj; it.q = q; it.m = m;
       n++;
     }
-    chainIt.length = n;
-    const c = chain.step(chainIt, kW, kB);
+    if (chainIt.length !== n) { chainIt.length = n; changed = true; }
+    const c = changed ? (chainLast = chain.step(chainIt, kW, kB)) : chainLast;
     if (c.easing) bloodEasing = true;
     for (let i = 0; i < n; i++) chainK.set(chainIt[i].key, chainIt[i].k);
     for (let i = 0; i < n; i++) {

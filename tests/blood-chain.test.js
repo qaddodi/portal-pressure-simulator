@@ -143,7 +143,10 @@ const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8
 test('stage: the links are written into the rows put() filled, by the model\'s mean speeds', () => {
   assert.match(stage, /if \(on\) \{[\s\S]{0,400}?else chainRows\(/);
   const fn = stage.slice(stage.indexOf('function chainRows('), stage.indexOf('function stepBlood('));
-  assert.match(fn, /it\.m = displaySpeed\(sg \* Math\.max\(0, sg \* velQf\[k\]\)\);/);
+  assert.match(fn, /m = displaySpeed\(sg \* Math\.max\(0, sg \* velQf\[k\]\)\);/);
+  assert.match(fn, /it\.q = q; it\.m = m;/);
+  // (Rev 2 §2.8: worked out again only when a candidate changed or a link was easing; else the last answer is written again.)
+  assert.match(fn, /const c = changed \? \(chainLast = chain\.step\(chainIt, kW, kB\)\) : chainLast;/);
   assert.match(fn, /flowData\[o \+ 15\] = c\.par\[i\] \+ 1;/);
   assert.match(fn, /flowData\[o \+ 16\] = c\.root\[i\] \+ 1; flowData\[o \+ 17\] = c\.A\[i\]; flowData\[o \+ 18\] = c\.B\[i\]; flowData\[o \+ 19\] = w;/);
   assert.match(fn, /flowData\[o \+ 20\] = rs\.aD; flowData\[o \+ 21\] = rs\.aR;/);

@@ -32,13 +32,18 @@ try {
   const { profile } = await cdp.send('HeapProfiler.stopSampling');
   const at = (cf) => `${cf.functionName || '(anonymous)'} ${(cf.url || '').replace(/^.*\/(src|scripts)\//, '$1/').replace(/\?v=\w+/, '')}:${cf.lineNumber + 1}`;
   const must = new Map(), other = new Map();
-  let mustBytes = 0, mustN = 0, allBytes = 0;
+  let mustBytes = 0, mustN = 0, allBytes = 0, modelBytes = 0;
+  // (Of the must path, what runs because the model's frame or an ease changed the figure (the figure's update, the vessel sync, the
+  // organ pictures, the labels' layout), told apart from what every display frame runs: on a device the model's frames come 30 times a
+  // second, on this machine's software GL nearly every drawn frame has one.)
+  const MODEL_FNS = new Set(['update', 'updateInner', 'syncVeinsNow', 'syncVeins', 'updateGeometry', 'updateLabels', 'stepWidths', 'stepOrgans', 'groupBox', 'opAt', 'layGroup', 'paintFrame']);
   // (Each node is one call stack; selfSize is what it allocated itself. Walk down, keeping whether the stack is inside a frame.)
-  const walk = (n, inFrame, outOfMust, top) => {
+  const walk = (n, inFrame, outOfMust, top, model) => {
     const fn = n.callFrame.functionName, url = n.callFrame.url || '';
     const isFrameJs = /\/frame\.js/.test(url);
     const inF = inFrame || (isFrameJs && fn === 'flush');
     const out = outOfMust || (isFrameJs && (fn === 'runMay' || fn === 'logOverrun')) || (inF && isFrameJs && /^(w|roll)$/.test(fn));
+    const mod = model || MODEL_FNS.has(fn);
     const self = n.selfSize || 0;
     if (self) {
       allBytes += self;
@@ -46,15 +51,20 @@ try {
       const m = inF && !out ? must : other;
       const e = m.get(path) || { bytes: 0, n: 0 };
       e.bytes += self; e.n++; m.set(path, e);
-      if (inF && !out) { mustBytes += self; mustN++; }
+      if (inF && !out) { mustBytes += self; mustN++; if (mod) modelBytes += self; else { const e2 = every.get(path) || { bytes: 0, n: 0 }; e2.bytes += self; e2.n++; every.set(path, e2); } }
     }
-    for (const c of n.children || []) walk(c, inF, out, self || !n.callFrame.url ? top : at(n.callFrame));
+    for (const c of n.children || []) walk(c, inF, out, self || !n.callFrame.url ? top : at(n.callFrame), mod);
   };
   // (`top`: the nearest caller with source, so a builtin's allocation names who called it.)
-  const walk0 = (n) => walk(n, false, false, '');
+  const every = new Map();
+  const walk0 = (n) => walk(n, false, false, '', false);
   walk0(profile.head);
   const frames = f1 - f0;
   console.log(`${DEVICE}, steady anatomy, ${SECS} s, ${frames} frames: ${(allBytes / 1024).toFixed(0)} KB sampled in all; must path ${(mustBytes / 1024).toFixed(1)} KB in ${mustN} sampled allocations (${(mustBytes / Math.max(1, frames)).toFixed(0)} B a frame)`);
+  console.log(`  of which the model frame and eases (update, vessel sync, organ pictures, labels): ${(modelBytes / 1024).toFixed(1)} KB; every display frame: ${((mustBytes - modelBytes) / 1024).toFixed(1)} KB`);
+  console.log('every display frame:');
+  for (const [k, e] of [...every].sort((a, b) => b[1].bytes - a[1].bytes).slice(0, TOP)) console.log(`  ${(e.bytes / 1024).toFixed(1).padStart(7)} KB  ${k}`);
+  console.log('the whole must path:');
   const list = [...must].sort((a, b) => b[1].bytes - a[1].bytes).slice(0, TOP);
   for (const [k, e] of list) console.log(`  ${(e.bytes / 1024).toFixed(1).padStart(7)} KB  ${k}`);
   if (process.argv.includes('--other')) {
