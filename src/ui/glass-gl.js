@@ -1082,6 +1082,12 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   // it, and each running animation of either, from its keyframes and timing. No layout or style is read in a frame.
   let geo = null, geoT = 0, restT = 0;
   const anims = new Map();   // (element → Map(animation → its keyframes))
+  // (Where an animation that has just finished left its element, until the page is read again: { t, o } of its last keyframe. Mohammad,
+  // 2 Nov 2026, the iPhone: "the glass appears alone, a solid flash". A card's fade carried by its transition (the data card's pz-hide)
+  // was dropped as it finished, and until the read after it the card's glass was drawn at the fade it had been read with, whole, over a
+  // card at 0. ?glassend=0: as before.)
+  const ENDS = !/[?&]glassend=0\b/.test(SEARCH);
+  const ended = new Map();
   const chainOf = (g) => { const c = []; for (let e = g; e && e !== stop && e.nodeType !== 9; e = e.parentElement) c.push(e); return c; };
   function addAnim(e, an) {
     let m = anims.get(e);
@@ -1110,7 +1116,11 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     if (m) {
       for (const [an, kf] of m) {
         const st = an.playState;
-        if (st === 'idle' || (st === 'finished' && !fillsOn(an))) { m.delete(an); flag.ended = true; continue; }
+        if (st === 'idle' || (st === 'finished' && !fillsOn(an))) {
+          m.delete(an); flag.ended = true;
+          if (ENDS && st === 'finished') { const v = kf && motionAt(kf, 1); if (v) { const was = ended.get(e) || {}; ended.set(e, { t: v.t || was.t || null, o: v.o ?? was.o ?? null }); } }
+          continue;
+        }
         const p = an.effect?.getComputedTiming?.().progress;
         if (p == null) continue;
         const v = motionAt(kf, p);
@@ -1120,6 +1130,8 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       }
       if (!m.size) anims.delete(e);
     }
+    const end = ENDS && ended.get(e);
+    if (end) { if (!t && end.t && !e.style?.transform) t = end.t; if (o == null && end.o != null) o = end.o; }
     const s = e.style;
     if (s) {
       if (!t) { const a = shiftOf(s.transform); if (!a) flag.bad = true; else t = a; }
@@ -1149,6 +1161,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   function measureGeo() {
     clearTimeout(geoT); geoT = 0;
     if (dead || lost) return;
+    ended.clear();
     const list = glassesOf();
     const tgt = host?.canvas || canvas;
     for (const g of list) for (const e of chainOf(g)) { track(e); hook(e); }

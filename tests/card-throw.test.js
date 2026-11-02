@@ -81,3 +81,11 @@ test('instant: every leaving card sets off in the tap\'s task, on one distance, 
   assert.match(presenter, /if \(INSTANT && bare && throwDir && !el\.hidden && el\.childElementCount && !ui\.text\.hidden && ui\.text\.childElementCount && ui\.text\.classList\.contains\('pz-leave'\)\) return false;/, 'in together with the words');
   assert.match(src, /if \(k >= 1 \|\| \(INSTANT && r\.kind === 'out' && p\.o <= 0\.001\)\) \{ runs\.delete\(el\);/, 'out of sight ends the way out, so the next words go in at once');
 });
+
+test('glass: a card\'s fade carried by a transition that has just finished stays at its end until the page is read again (?glassend=0 off)', () => {
+  const glass = readFileSync(new URL('../src/ui/glass-gl.js', import.meta.url), 'utf8');
+  assert.match(glass, /const ENDS = !\/\[\?&\]glassend=0\\b\/\.test\(SEARCH\);/);
+  assert.match(glass, /if \(ENDS && st === 'finished'\) \{ const v = kf && motionAt\(kf, 1\);/, 'the last keyframe is kept as the element\'s place and fade');
+  assert.match(glass, /if \(end\) \{ if \(!t && end\.t && !e\.style\?\.transform\) t = end\.t; if \(o == null && end\.o != null\) o = end\.o; \}/);
+  assert.match(glass, /if \(dead \|\| lost\) return;\n\s+ended\.clear\(\);/, 'dropped at the next read, which sees the page as it is');
+});
