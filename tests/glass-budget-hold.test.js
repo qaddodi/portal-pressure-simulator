@@ -12,7 +12,7 @@ test('a shared blur in use this frame is never freed by the budget under it', ()
   const using = run.indexOf('S.usedIn = frameCount();');
   assert.ok(using > 0, 'marked in use for the frame');
   assert.ok(using < run.indexOf('S.hold = hold('), 'marked before hold() can look at the budget');
-  assert.ok(using < run.indexOf('if (plan.key === S.key && S.t)'), 'marked on the kept path too');
+  assert.ok(using < run.indexOf('if (plan.same && S.t)'), 'marked on the kept path too');
   assert.match(run, /S\.hold = null;\n\s*if \(S\.usedIn === frameCount\(\)\) return;\n\s*freeShare\(G\)\(mine\);/);
 });
 

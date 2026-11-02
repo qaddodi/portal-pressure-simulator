@@ -14,33 +14,68 @@
 
 import { caught } from './caught.js?v=b96b17594a';
 
-/** The share for one look in one context (made on first use). */
-export function shareFor(map, gl, look, scale) {
+/** The share for one look in one context (made on first use). key: the look's name, `${blur}|${scale}`, made once by the glass that asks. */
+export function shareFor(map, gl, key) {
   let byLook = map.get(gl);
-  if (!byLook) { byLook = new Map(); map.set(gl, byLook); }
-  const k = `${look.blur}|${scale}`;
-  let S = byLook.get(k);
-  if (!S) { S = { look: k, reqs: [], phase: 'draw', key: '', ok: false, reg: null, t: null, blurs: 0, skips: 0, allocs: 0 }; byLook.set(k, S); }
+  let S = byLook?.get(key);
+  if (S) return S;
+  // alloc-rare: a context's first glass of this look makes its share (once per look and context), never per frame
+  if (!byLook) { byLook = new Map(); map.set(gl, byLook); }   // alloc-rare: once per context
+  // alloc-rare: once per look and context
+  S = { look: key, reqs: [], phase: 'draw', ok: false, reg: null, t: null, blurs: 0, skips: 0, allocs: 0, boxBuf: [], partsOut: [], partsPool: [], snapOk: false, snap: newSnap(), cand: newSnap(), plan: { parts: null, same: false } };
+  byLook.set(key, S);
   return S;
 }
 
-/** An instance's needs for the picture just laid: req { id, boxes (CSS px from the canvas's corner), key }. A second request from the
- *  same instance, or one after a draw, starts the next picture's set. */
+// A plan's key is kept as numbers in kept arrays and compared in place (no key string is made for each picture): the requests' picture keys
+// (v, f; in any order), the grid, and the parts of the copy to blur.
+const newSnap = () => ({ n: 0, v: [], f: [], g: [0, 0, 0, 0, 0], np: -1, p: [], full: false });   // alloc-rare: a share's two snapshots are made with the share, once
+const sameNum = (a, b) => a === b || (a !== a && b !== b);
+
+/** An instance's needs for the picture just laid: req { id, boxes (CSS px from the canvas's corner), v, f (the keys of the picture under
+ *  them) }. A second request from the same instance, or one after a draw, starts the next picture's set. */
 export function sharePrep(S, req) {
-  if (S.phase !== 'prep' || S.reqs.some((r) => r.id === req.id)) { S.reqs = []; S.phase = 'prep'; }
+  let again = S.phase !== 'prep';
+  for (let i = 0; i < S.reqs.length && !again; i++) if (S.reqs[i].id === req.id) again = true;
+  if (again) { S.reqs.length = 0; S.phase = 'prep'; }
   S.reqs.push(req);
 }
 
-/** What the first draw on this picture blurs: the parts of the copy every request needs (null: all of it) and the key it is made from. */
-export function sharePlan(S, grid, t, bw, bh, full, blurBoxes) {
-  const boxes = [];
+/** What the first draw on this picture blurs: the parts of the copy every request needs (null: all of it), and whether that, the grid and
+ *  every request's picture are the same as the last blur kept (shareKeep): { parts, same } (a record kept in the share, read before the
+ *  next call). blurInto(out, pool, boxes, ox, oy, t, bw, bh): glass-gl's blurBoxesInto. */
+export function sharePlan(S, grid, t, bw, bh, full, blurInto) {
+  const boxes = S.boxBuf;
+  boxes.length = 0;
   for (const r of S.reqs) for (const b of r.boxes) boxes.push(b);
-  let parts = full ? null : blurBoxes(boxes, grid.x, grid.y, t, bw, bh);
+  let parts = full ? null : blurInto(S.partsOut, S.partsPool, boxes, grid.x, grid.y, t, bw, bh);
   if (parts && (!parts.length || (parts.length === 1 && !parts[0][0] && !parts[0][1] && parts[0][2] === bw && parts[0][3] === bh))) parts = null;
-  const keys = S.reqs.map((r) => r.key).sort().join(',');
-  const key = `${keys}|${grid.X0}|${grid.Y0}|${grid.X1}|${grid.Y1}|${grid.T}${parts ? `|${parts.join(';')}` : ''}`;
-  return { parts, key };
+  const C = S.cand, n = S.reqs.length;
+  for (let i = 0; i < n; i++) { C.v[i] = S.reqs[i].v; C.f[i] = S.reqs[i].f; }
+  C.n = n;
+  C.g[0] = grid.X0; C.g[1] = grid.Y0; C.g[2] = grid.X1; C.g[3] = grid.Y1; C.g[4] = grid.T;
+  C.np = parts ? parts.length : -1;
+  if (parts) { let k = 0; for (const r of parts) { C.p[k++] = r[0]; C.p[k++] = r[1]; C.p[k++] = r[2]; C.p[k++] = r[3]; } }
+  S.plan.parts = parts;
+  S.plan.same = S.snapOk && sameSnap(C, S.snap);
+  return S.plan;
 }
+function sameSnap(a, b) {
+  if (a.n !== b.n || a.np !== b.np) return false;
+  for (let i = 0; i < 5; i++) if (!sameNum(a.g[i], b.g[i])) return false;
+  for (let i = 0; i < a.np * 4; i++) if (!sameNum(a.p[i], b.p[i])) return false;
+  let used = 0;   // (the requests in any order: each matches one of the other's, once)
+  for (let i = 0; i < a.n; i++) {
+    let hit = false;
+    for (let j = 0; j < b.n; j++) if (!(used & (1 << j)) && a.v[i] === b.v[j] && a.f[i] === b.f[j]) { used |= 1 << j; hit = true; break; }
+    if (!hit) return false;
+  }
+  return true;
+}
+/** The blur just made from the plan is the one kept: the next plan that is the same needs none. */
+export function shareKeep(S) { const t = S.snap; S.snap = S.cand; S.cand = t; S.snapOk = true; }
+/** Nothing kept: the next picture blurs. */
+export function shareForget(S) { S.snapOk = false; }
 
 /** The draw phase begins: true when this call is the picture's first (the one that blurs). */
 export function shareTurn(S) {
@@ -53,7 +88,7 @@ export function shareTurn(S) {
 // (its host freed, the instance disposed) frees the targets and the share itself, and the budget may reclaim them as a retained
 // holder in between (they are made again by the next blur). A lost context takes the whole map, as before.)
 /** Marks `id` a user of share S. */
-export function shareUse(S, id) { (S.users ||= new Set()).add(id); }
+export function shareUse(S, id) { (S.users ||= new Set()).add(id); }   // alloc-rare: the set is made at a share's first user, once
 /** `id` lets go of every share of this context; a share left with no user is freed (free(S.t)) and forgotten. Returns how many. */
 export function shareRelease(map, gl, id, free) {
   const byLook = map.get(gl);
@@ -64,7 +99,7 @@ export function shareRelease(map, gl, id, free) {
     byLook.delete(k); n++;
     S.hold?.drop(); S.hold = null;
     if (S.t) { try { free(S.t); } catch (e) { caught('blur-share:67', e); /* a lost context: nothing to free */ } S.t = null; }
-    S.key = ''; S.ok = false;
+    shareForget(S); S.ok = false;
   }
   if (!byLook.size) map.delete(gl);
   return n;

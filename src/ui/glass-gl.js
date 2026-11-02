@@ -8,7 +8,7 @@
 // Off (the browser's glass, as before): no WebGL2, a software renderer, ?gpulabels=0, Settings' blur effect off, reduced
 // transparency, a browser without backdrop blur (whose solid card stays), or a copy the browser refuses.
 
-import { shareFor, sharePrep, sharePlan, shareTurn, shareUse, shareRelease, shareBytes } from './blur-share.js?v=a7365909bf';
+import { shareFor, sharePrep, sharePlan, shareKeep, shareForget, shareTurn, shareUse, shareRelease, shareBytes } from './blur-share.js?v=a7365909bf';
 import { glCap, fbComplete } from './gl-state.js?v=4163c507aa';
 import { hold } from './gpu-budget.js?v=5a5dcd699f';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
@@ -61,27 +61,44 @@ export const BLUR_KEEP = 14;
  * glass reads lies within `keep` - 1 texels of its box: the blur's taps across and down, and the glass's sampling between two texels.
  */
 export function blurBoxes(boxes, ox, oy, t, bw, bh, keep = BLUR_KEEP) {
-  let out = [];
+  return blurBoxesInto([], [], boxes, ox, oy, t, bw, bh, keep).map((r) => r.slice());   // alloc-rare: the pure form, for tests; a frame calls blurBoxesInto
+}
+/** blurBoxes into kept arrays: `out` (a kept list, set to the parts) and `pool` (the parts' kept [x0, y0, x1, y1] arrays, grown only when a
+ *  picture has more parts than any before it). Returns out. The parts are the pool's arrays, valid until the next call with the same ones. */
+export function blurBoxesInto(out, pool, boxes, ox, oy, t, bw, bh, keep = BLUR_KEEP) {
+  let n = 0;
   for (const b of boxes) {
-    const r = [Math.max(0, Math.floor((b.x - ox) / t) - keep), Math.max(0, Math.floor((b.y - oy) / t) - keep),
-      Math.min(bw, Math.ceil((b.x + b.w - ox) / t) + keep), Math.min(bh, Math.ceil((b.y + b.h - oy) / t) + keep)];
-    if (r[2] > r[0] && r[3] > r[1]) out.push(r);
+    const x0 = Math.max(0, Math.floor((b.x - ox) / t) - keep), y0 = Math.max(0, Math.floor((b.y - oy) / t) - keep);
+    const x1 = Math.min(bw, Math.ceil((b.x + b.w - ox) / t) + keep), y1 = Math.min(bh, Math.ceil((b.y + b.h - oy) / t) + keep);
+    if (x1 > x0 && y1 > y0) {
+      const r = pool[n] || (pool[n] = [0, 0, 0, 0]);   // alloc-rare: the pool grows to the most parts a picture has had
+      r[0] = x0; r[1] = y0; r[2] = x1; r[3] = y1;
+      out[n++] = r;
+    }
   }
   for (let again = true; again;) {
     again = false;
-    for (let i = 0; i < out.length && !again; i++) {
-      for (let j = i + 1; j < out.length; j++) {
+    for (let i = 0; i < n && !again; i++) {
+      for (let j = i + 1; j < n; j++) {
         const a = out[i], c = out[j];
         if (a[0] < c[2] && c[0] < a[2] && a[1] < c[3] && c[1] < a[3]) {
-          out[i] = [Math.min(a[0], c[0]), Math.min(a[1], c[1]), Math.max(a[2], c[2]), Math.max(a[3], c[3])];
-          out.splice(j, 1); again = true; break;
+          a[0] = Math.min(a[0], c[0]); a[1] = Math.min(a[1], c[1]); a[2] = Math.max(a[2], c[2]); a[3] = Math.max(a[3], c[3]);
+          for (let k = j; k < n - 1; k++) out[k] = out[k + 1];   // (c leaves the list; its array stays in the pool)
+          n--; again = true; break;
         }
       }
     }
   }
+  out.length = n;
   // (Parts that together cover most of the copy: the whole of it, in one go.)
-  const sum = out.reduce((a, r) => a + (r[2] - r[0]) * (r[3] - r[1]), 0);
-  return sum >= 0.85 * bw * bh ? [[0, 0, bw, bh]] : out;
+  let sum = 0;
+  for (let i = 0; i < n; i++) sum += (out[i][2] - out[i][0]) * (out[i][3] - out[i][1]);
+  if (sum >= 0.85 * bw * bh) {
+    const r = pool[0] || (pool[0] = [0, 0, 0, 0]);   // alloc-rare: the pool grows to the most parts a picture has had
+    r[0] = 0; r[1] = 0; r[2] = bw; r[3] = bh;
+    out[0] = r; out.length = 1;
+  }
+  return out;
 }
 
 const NUM = (v) => parseFloat(v) || 0;
@@ -197,9 +214,20 @@ function glassCheck(doc, win) {
 }
 /** Gaussian weights for a blur of sigma `s` texels, taps 0..n (one side; the shader mirrors them), summing to 1 over both sides. */
 export function gaussTaps(s, n = 12) {
-  const w = Array.from({ length: n + 1 }, (_, i) => Math.exp(-(i * i) / (2 * s * s)));
-  const sum = w[0] + 2 * w.slice(1).reduce((a, b) => a + b, 0);
-  return w.map((v) => v / sum);
+  const w = Array.from({ length: n + 1 }, (_, i) => Math.exp(-(i * i) / (2 * s * s)));   // alloc-rare: a sigma's weights are made once and kept (tapsFor), never per frame
+  const sum = w[0] + 2 * w.slice(1).reduce((a, b) => a + b, 0);   // alloc-rare: a sigma's weights are made once and kept (tapsFor), never per frame
+  return w.map((v) => v / sum);   // alloc-rare: a sigma's weights are made once and kept (tapsFor), never per frame
+}
+// (The weights for a sigma, made the first time it is asked for and kept: a blur in a frame looks them up.)
+const tapsKept = new Map();
+export function tapsFor(s) {
+  let w = tapsKept.get(s);
+  if (!w) {
+    if (tapsKept.size > 32) tapsKept.clear();   // alloc-rare: a new sigma (a new screen density or look), once
+    w = gaussTaps(s);   // alloc-rare: a new sigma, once
+    tapsKept.set(s, w);
+  }
+  return w;
 }
 
 const QVS = `#version 300 es
@@ -1075,14 +1103,14 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   function step(i, w, h, B = hk) {
     const G = B.G;
     let st = B.steps[i];
-    if (!st) { st = { t: texOf(G, G.LINEAR), fb: G.createFramebuffer(), w: 0, h: 0 }; B.steps[i] = st; B.allocs = (B.allocs || 0) + 1; }
+    if (!st) { st = { t: texOf(G, G.LINEAR), fb: G.createFramebuffer(), w: 0, h: 0 }; B.steps[i] = st; B.allocs = (B.allocs || 0) + 1; }   // alloc-rare: a halving step's targets are made once per blur kit
     if (w > st.w || h > st.h) {
       st.w = Math.max(w, st.w); st.h = Math.max(h, st.h); B.allocs = (B.allocs || 0) + 1;
       G.bindTexture(G.TEXTURE_2D, st.t);
       G.texImage2D(G.TEXTURE_2D, 0, G.RGBA, st.w, st.h, 0, G.RGBA, G.UNSIGNED_BYTE, null);
       G.bindFramebuffer(G.FRAMEBUFFER, st.fb);
       G.framebufferTexture2D(G.FRAMEBUFFER, G.COLOR_ATTACHMENT0, G.TEXTURE_2D, st.t, 0);
-      st.ok = fits(G, st.w, st.h) && complete(G, `glass-step${i}`, st.w, st.h);
+      st.ok = fits(G, st.w, st.h) && complete(G, `glass-step${i}`, st.w, st.h);   // alloc-rare: a step's target is grown (a larger canvas), and checked once for that size
       if (!st.ok) { st.w = 0; st.h = 0; }   // (made again at the next ask)
     }
     return st;
@@ -1092,48 +1120,50 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   // every halving is an exact 2 × 2 average and a texel always covers the same pixels of the figure. Fitted to the glasses' boxes as
   // they were, the region's size and start changed with every frame of a card sliding (the readings' card tucking or coming out), so
   // the halvings sampled the figure a different way each frame and the whole of every card's frost flickered (Mohammad, 31 Oct).)
-  function hostGrid(reg, k, W2, H2) {
+  const GRID = { T: 1, k: 1, X0: 0, X1: 0, Y0: 0, Y1: 0, x: 0, y: 0, w: 0, h: 0 };   // (hostGrid's answer, a kept record, read before the next call)
+  function hostGrid(rx, ry, rw, rh, k, W2, H2) {
     const T = 2 ** Math.max(0, Math.ceil(Math.log2(SCALE * k) - 1e-9));
-    const X0 = Math.max(0, Math.floor(reg.x * k / T) * T), X1 = Math.min(Math.floor(W2 / T) * T, Math.ceil((reg.x + reg.w) * k / T) * T);
-    const Y0 = Math.max(0, Math.floor((H2 - (reg.y + reg.h) * k) / T) * T), Y1 = Math.min(Math.floor(H2 / T) * T, Math.ceil((H2 - reg.y * k) / T) * T);
+    const X0 = Math.max(0, Math.floor(rx * k / T) * T), X1 = Math.min(Math.floor(W2 / T) * T, Math.ceil((rx + rw) * k / T) * T);
+    const Y0 = Math.max(0, Math.floor((H2 - (ry + rh) * k) / T) * T), Y1 = Math.min(Math.floor(H2 / T) * T, Math.ceil((H2 - ry * k) / T) * T);
     if (!(X1 > X0 && Y1 > Y0)) return null;
-    return { T, k, X0, X1, Y0, Y1, x: X0 / k, y: (H2 - Y1) / k, w: (X1 - X0) / k, h: (Y1 - Y0) / k };
+    const G = GRID;
+    G.T = T; G.k = k; G.X0 = X0; G.X1 = X1; G.Y0 = Y0; G.Y1 = Y1; G.x = X0 / k; G.y = (H2 - Y1) / k; G.w = (X1 - X0) / k; G.h = (Y1 - Y0) / k;
+    return G;
   }
   // hostBlur for some parts of the copy only (blurBoxes): each halving and the turn into the copy blit each part's pixels alone, from the
   // same pixels to the same texels as the blit of the whole region (each part starts and ends on the grid of every step, so each step
   // is still an exact 2 × 2 average), and the two passes are cut to the parts (scissor). Texels outside the parts keep whatever they
   // held; no glass reads them (blurBoxes).
+  function partPass(G, B, fb, tex, dx, dy, parts) {
+    G.bindFramebuffer(G.FRAMEBUFFER, fb); G.bindTexture(G.TEXTURE_2D, tex); G.uniform2f(B.BU.uDir, dx, dy);
+    for (const r of parts) { G.scissor(r[0], r[1], r[2] - r[0], r[3] - r[1]); G.drawArrays(G.TRIANGLE_STRIP, 0, 4); }
+  }
   function partBlur(g, parts, bw, bh, B = hk) {
     const G = B.G;
     let t = g.T, ox = g.X0, oy = g.Y0, src = null;
     // (A part's pixels at t device px to a texel, from (ox, oy), y up: the copy's top row is the region's top.)
-    const px = (r, t, ox, oy) => [ox + r[0] * t, oy + (bh - r[3]) * t, ox + r[2] * t, oy + (bh - r[1]) * t];
     for (let i = 0; t > 2; i++) {
       const nt = t / 2, st = step(i, bw * nt, bh * nt, B);
       if (!st.ok) { G.bindFramebuffer(G.READ_FRAMEBUFFER, null); G.bindFramebuffer(G.DRAW_FRAMEBUFFER, null); return false; }
       G.bindFramebuffer(G.READ_FRAMEBUFFER, src); G.bindFramebuffer(G.DRAW_FRAMEBUFFER, st.fb);
       for (const r of parts) {
-        const a = px(r, t, ox, oy), b = px(r, nt, 0, 0);
-        G.blitFramebuffer(a[0], a[1], a[2], a[3], b[0], b[1], b[2], b[3], G.COLOR_BUFFER_BIT, G.LINEAR);
+        G.blitFramebuffer(ox + r[0] * t, oy + (bh - r[3]) * t, ox + r[2] * t, oy + (bh - r[1]) * t, r[0] * nt, (bh - r[3]) * nt, r[2] * nt, (bh - r[1]) * nt, G.COLOR_BUFFER_BIT, G.LINEAR);
       }
       src = st.fb; ox = 0; oy = 0; t = nt;
     }
     G.bindFramebuffer(G.READ_FRAMEBUFFER, src); G.bindFramebuffer(G.DRAW_FRAMEBUFFER, B.fbCopy);
     for (const r of parts) {
-      const a = px(r, t, ox, oy);
-      G.blitFramebuffer(a[0], a[1], a[2], a[3], r[0], r[3], r[2], r[1], G.COLOR_BUFFER_BIT, G.LINEAR);
+      G.blitFramebuffer(ox + r[0] * t, oy + (bh - r[3]) * t, ox + r[2] * t, oy + (bh - r[1]) * t, r[0], r[3], r[2], r[1], G.COLOR_BUFFER_BIT, G.LINEAR);
     }
     G.bindFramebuffer(G.READ_FRAMEBUFFER, null); G.bindFramebuffer(G.DRAW_FRAMEBUFFER, null);
     G.useProgram(B.bprog); G.bindVertexArray(B.vao); G.disable(G.BLEND);
     G.viewport(0, 0, bw, bh);
     G.uniform4f(B.BU.uBox, 0, 0, bw, bh); G.uniform2f(B.BU.uView, bw, bh); G.uniform1i(B.BU.uT, 0);
-    G.uniform1fv(B.BU.uW, gaussTaps(look.blur * g.k / g.T));
+    G.uniform1fv(B.BU.uW, tapsFor(look.blur * g.k / g.T));
     G.activeTexture(G.TEXTURE0);
     G.enable(G.SCISSOR_TEST);
-    for (const [fb, tex, dx, dy] of [[B.fbPass, B.copy, 1, 0], [B.fbOut, B.pass, 0, 1]]) {
-      G.bindFramebuffer(G.FRAMEBUFFER, fb); G.bindTexture(G.TEXTURE_2D, tex); G.uniform2f(B.BU.uDir, dx, dy);
-      for (const r of parts) { G.scissor(r[0], r[1], r[2] - r[0], r[3] - r[1]); G.drawArrays(G.TRIANGLE_STRIP, 0, 4); }
-    }
+    partPass(G, B, B.fbPass, B.copy, 1, 0, parts);
+    partPass(G, B, B.fbOut, B.pass, 0, 1, parts);
     G.disable(G.SCISSOR_TEST);
     G.bindFramebuffer(G.FRAMEBUFFER, null);
     return true;
@@ -1143,11 +1173,11 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     const G = B.G, { T, k } = g;
     let x0 = g.X0, y0 = g.Y0, w = g.X1 - g.X0, h = g.Y1 - g.Y0;
     const bw = w / T, bh = h / T;
-    if (B.size !== `${bw}x${bh}`) {
+    if (B.sw !== bw || B.sh !== bh || !B.size) {
       if (!fits(G, bw, bh)) { B.size = ''; return false; }
-      B.size = `${bw}x${bh}`; B.allocs = (B.allocs || 0) + 1;
+      B.size = `${bw}x${bh}`; B.sw = bw; B.sh = bh; B.allocs = (B.allocs || 0) + 1;   // alloc-rare: the blur's targets are made again only when the canvas's size changed
       let ok = true;
-      for (const [t, fb] of [[B.copy, B.fbCopy], [B.pass, B.fbPass], [B.blurred, B.fbOut]]) {
+      for (const [t, fb] of [[B.copy, B.fbCopy], [B.pass, B.fbPass], [B.blurred, B.fbOut]]) {   // alloc-rare: only when the targets are made again (a size change)
         G.bindTexture(G.TEXTURE_2D, t);
         G.texImage2D(G.TEXTURE_2D, 0, G.RGBA, bw, bh, 0, G.RGBA, G.UNSIGNED_BYTE, null);
         G.bindFramebuffer(G.FRAMEBUFFER, fb);
@@ -1173,7 +1203,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     G.useProgram(B.bprog); G.bindVertexArray(B.vao); G.disable(G.BLEND);
     G.viewport(0, 0, bw, bh);
     G.uniform4f(B.BU.uBox, 0, 0, bw, bh); G.uniform2f(B.BU.uView, bw, bh); G.uniform1i(B.BU.uT, 0);
-    G.uniform1fv(B.BU.uW, gaussTaps(look.blur * k / T));
+    G.uniform1fv(B.BU.uW, tapsFor(look.blur * k / T));
     G.activeTexture(G.TEXTURE0);
     G.bindFramebuffer(G.FRAMEBUFFER, B.fbPass); G.bindTexture(G.TEXTURE_2D, B.copy); G.uniform2f(B.BU.uDir, 1, 0); G.drawArrays(G.TRIANGLE_STRIP, 0, 4);
     G.bindFramebuffer(G.FRAMEBUFFER, B.fbOut); G.bindTexture(G.TEXTURE_2D, B.pass); G.uniform2f(B.BU.uDir, 0, 1); G.drawArrays(G.TRIANGLE_STRIP, 0, 4);
@@ -1187,6 +1217,8 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   const frameMarks = new Set(), passPanes = [];
   let blurOK = false;
   const SHARED = !(reblur > 0);
+  const SKEY = `${look.blur}|${SCALE}`;   // (this look's name among the context's shared blurs)
+  const shareReq = { id: shareId, boxes: [], v: 0, f: '' }, boxPool = [];   // (this glass's request for the picture, kept and written each time)
   function prepInto() {
     frameMarks.clear(); blurOK = false;
     if (hk) hk.share = null;
@@ -1199,8 +1231,16 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     if (!(k > 0) || !H2) return;
     if (SHARED) {
       // (blur-share.js: what this glass needs is entered; the first glass drawn on this picture blurs once for every glass of its look.)
-      const S = shareFor(shares, G, look, SCALE);
-      sharePrep(S, { id: shareId, boxes: panes.map((p) => ({ x: p.r.left - cr.left, y: p.r.top - cr.top, w: p.r.width, h: p.r.height })), key: `${version ? version() : performance.now()}|${fresh ? fresh() : ''}` });
+      const S = shareFor(shares, G, SKEY);
+      const bx = shareReq.boxes;
+      bx.length = panes.length;
+      for (let i = 0; i < panes.length; i++) {
+        const p = panes[i], b = boxPool[i] || (boxPool[i] = { x: 0, y: 0, w: 0, h: 0 });   // alloc-rare: the pool grows to the most glasses a picture has had
+        b.x = p.r.left - cr.left; b.y = p.r.top - cr.top; b.w = p.r.width; b.h = p.r.height;
+        bx[i] = b;
+      }
+      shareReq.v = version ? version() : performance.now(); shareReq.f = fresh ? fresh() : '';
+      sharePrep(S, shareReq);
       shareUse(S, shareId);
       hk.share = S; hk.k = k; blurOK = true;
       return;
@@ -1210,17 +1250,17 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     x0 = Math.max(0, x0 - cr.left - MARGIN); y0 = Math.max(0, y0 - cr.top - MARGIN);
     x1 = Math.min(cr.width, x1 - cr.left + MARGIN); y1 = Math.min(cr.height, y1 - cr.top + MARGIN);
     if (!(x1 > x0 && y1 > y0)) return;
-    const grid = hostGrid({ x: x0, y: y0, w: x1 - x0, h: y1 - y0 }, k, W2, H2);
+    const grid = hostGrid(x0, y0, x1 - x0, y1 - y0, k, W2, H2);
     if (!grid) return;
-    const reg = { x: grid.x, y: grid.y, w: grid.w, h: grid.h };
+    const reg = { x: grid.x, y: grid.y, w: grid.w, h: grid.h };   // alloc-rare: ?reblur=1 only (the 50 ms hold, off by default): the shared blur is how every glass blurs otherwise
     G.disable(G.SCISSOR_TEST); G.disable(G.STENCIL_TEST);
     // (The parts of the copy the glasses read, unless the whole of it is blurred (option full). Glasses that move change them, so they are
     // part of the key: the same picture with a card moved is blurred again where the card now is; a blur is never kept for other parts.)
     const bw = (grid.X1 - grid.X0) / grid.T, bh = (grid.Y1 - grid.Y0) / grid.T;
-    let parts = full ? null : blurBoxes(panes.map((p) => ({ x: p.r.left - cr.left, y: p.r.top - cr.top, w: p.r.width, h: p.r.height })), grid.x, grid.y, grid.T / k, bw, bh);
+    let parts = full ? null : blurBoxes(panes.map((p) => ({ x: p.r.left - cr.left, y: p.r.top - cr.top, w: p.r.width, h: p.r.height })), grid.x, grid.y, grid.T / k, bw, bh);   // alloc-rare: ?reblur=1 only (the 50 ms hold, off by default): the shared blur is how every glass blurs otherwise
     if (parts && (!parts.length || (parts.length === 1 && !parts[0][0] && !parts[0][1] && parts[0][2] === bw && parts[0][3] === bh))) parts = null;
-    const rest = `${grid.X0}|${grid.Y0}|${grid.X1}|${grid.Y1}|${W2}x${H2}${parts ? `|${parts.join(';')}` : ''}`;
-    const key = `${version ? version() : performance.now()}|${fresh ? fresh() : ''}|${rest}`;
+    const rest = `${grid.X0}|${grid.Y0}|${grid.X1}|${grid.Y1}|${W2}x${H2}${parts ? `|${parts.join(';')}` : ''}`;   // alloc-rare: ?reblur=1 only (the 50 ms hold, off by default): the shared blur is how every glass blurs otherwise
+    const key = `${version ? version() : performance.now()}|${fresh ? fresh() : ''}|${rest}`;   // alloc-rare: ?reblur=1 only (the 50 ms hold, off by default): the shared blur is how every glass blurs otherwise
     if (key !== hk.key) {
       // (Only the figure under the glass drawn again, its view and the region taken the same as the last blur's: blurred again at most
       // every REBLUR_MS, the glass drawn meanwhile from the blur it has. Those are the frames that are not plain blood (the ascites
@@ -1230,7 +1270,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       if (reblur > 0 && view !== null && hk.rest === rest && hk.view === view && hk.reg && t - hk.at < reblur) {
         if (!hk.trail) {
           const K = hk;
-          K.trail = setTimeout(() => { K.trail = 0; if (hk === K && hostOn) { K.key = ''; host.now(); } }, reblur - (t - K.at) + 1);
+          K.trail = setTimeout(() => { K.trail = 0; if (hk === K && hostOn) { K.key = ''; host.now(); } }, reblur - (t - K.at) + 1);   // alloc-rare: ?reblur=1 only (the 50 ms hold, off by default): the shared blur is how every glass blurs otherwise
         }
         hk.k = k;
         blurOK = true;
@@ -1254,16 +1294,17 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     if (!shareTurn(S)) return S.ok;
     const G = hk.G, W2 = host.canvas.width, H2 = host.canvas.height, k = hk.k;
     S.ok = false;
-    const grid = hostGrid({ x: 0, y: 0, w: cr.width, h: cr.height }, k, W2, H2);
-    if (!grid) { S.key = ''; return false; }
+    const grid = hostGrid(0, 0, cr.width, cr.height, k, W2, H2);
+    if (!grid) { shareForget(S); return false; }
     const bw = (grid.X1 - grid.X0) / grid.T, bh = (grid.Y1 - grid.Y0) / grid.T;
-    const plan = sharePlan(S, grid, grid.T / k, bw, bh, full, blurBoxes);
-    S.reg = { x: grid.x, y: grid.y, w: grid.w, h: grid.h };
+    const plan = sharePlan(S, grid, grid.T / k, bw, bh, full, blurBoxesInto);
+    const sr = S.reg || (S.reg = { x: 0, y: 0, w: 0, h: 0 });   // alloc-rare: the share's region record is made at its first blur
+    sr.x = grid.x; sr.y = grid.y; sr.w = grid.w; sr.h = grid.h;
     // (In use in this frame, kept or made again: see the release below.)
     S.usedIn = frameCount();
-    if (plan.key === S.key && S.t) { S.ok = true; S.skips++; if (gpuProbe.on) gpuProbe.note(COUNTED.glassSkip); return true; }
+    if (plan.same && S.t) { S.ok = true; S.skips++; if (gpuProbe.on) gpuProbe.note(COUNTED.glassSkip); return true; }
     if (!S.t) {
-      S.t = { copy: texOf(G, G.LINEAR), pass: texOf(G, G.LINEAR), blurred: texOf(G, G.LINEAR), fbCopy: G.createFramebuffer(), fbPass: G.createFramebuffer(), fbOut: G.createFramebuffer(), steps: [], size: '', allocs: 0 };
+      S.t = { copy: texOf(G, G.LINEAR), pass: texOf(G, G.LINEAR), blurred: texOf(G, G.LINEAR), fbCopy: G.createFramebuffer(), fbPass: G.createFramebuffer(), fbOut: G.createFramebuffer(), steps: [], size: '', allocs: 0 };   // alloc-rare: a shared blur's targets are made at its first blur (once per look and context)
       // (A retained holder of the budget: under pressure it is freed between frames and made again by the next blur that needs it.)
       S.hold?.drop();
       const mine = S.t;
@@ -1272,20 +1313,22 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       // rest of the session and every card stayed solid. A blur asked for in this frame (S.usedIn) is the glass on screen, not one kept for
       // later: a release then only takes it out of the budget's keeping (it is freed with its kit, hostFree), never out from under the
       // cards, and never freed and made again frame after frame. Between frames, unused, it is let go as before.)
-      S.hold = hold({ owner: `shared glass blur ${S.look}`, kind: 'retained', gl: G, bytes: () => shareBytes(S), release: () => {
+      S.hold = hold({ owner: `shared glass blur ${S.look}`, kind: 'retained', gl: G, bytes: () => shareBytes(S), release: () => {   // alloc-rare: the share's budget holder is made with its targets (once per look and context)
         if (S.t !== mine) return;
         S.hold = null;
         if (S.usedIn === frameCount()) return;
-        freeShare(G)(mine); S.t = null; S.key = ''; S.ok = false;
+        freeShare(G)(mine); S.t = null; shareForget(S); S.ok = false;
       } });
     }
     S.hold?.touch();
-    const B = Object.assign(S.t, { G, bprog: hk.bprog, BU: hk.BU, vao: hk.vao });
+    const B = S.t;
+    B.G = G; B.bprog = hk.bprog; B.BU = hk.BU; B.vao = hk.vao;
     G.disable(G.SCISSOR_TEST); G.disable(G.STENCIL_TEST);
     const ok = hostBlur(grid, plan.parts, B);
     G.bindFramebuffer(G.FRAMEBUFFER, null); G.viewport(0, 0, W2, H2);
     G.bindTexture(G.TEXTURE_2D, null); G.useProgram(null); G.bindVertexArray(null);
-    S.key = ok ? plan.key : ''; S.ok = !!ok;
+    if (ok) shareKeep(S); else shareForget(S);
+    S.ok = !!ok;
     if (ok) S.blurs++;
     return S.ok;
   }
