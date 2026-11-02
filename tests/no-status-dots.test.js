@@ -17,6 +17,7 @@ const ALLOWED = [
   /\.pzb-(now|was)/, /\.pzk-/, /\.tl-dot/, /\.sl-start/,              // a value's place on a scale or timeline (sl-start: a what-if's starting value)
   /\.instr-tab\[data-slot/,                                             // the numbered 1 / 2 slot badge
   /\.pz-nm/,                                                            // the table's "none" ring (○)
+  /\.ac-leader \.ac-ldot/,                                               // the action card's leader anchor: where its line meets the figure (an SVG circle until 03413346, now a ringed box)
   /\.pz-crit[^{]*\.pzc-c::before/,                                      // the criteria card's row marks (his pick 26 Oct, "C with D's key words"): a ring per rule, filled on the row that applies to the case; numerals when ordered
 ];
 const small = (v) => !!v && (/px/.test(v) ? parseFloat(v) <= 16 : /em/.test(v) ? parseFloat(v) <= 1 : false);
