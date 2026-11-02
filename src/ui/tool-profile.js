@@ -14,12 +14,12 @@ import { restPass, cancelRest } from './rest-pass.js?v=bb619a1659';
 import { PROFILE_PATHS } from './anatomy.js?v=fe0f3d1f0e';
 import { follow2, SHOWN_TAU } from './display-state.js?v=8d062d39dc';
 import { NODES } from '../engine/topology.js?v=4044766e96';
-import { RATE } from './table-marks.js?v=ff3ed0cc47';
+import { RATE } from './table-marks.js?v=a483b9975e';
 import { monotoneSegs } from './curve-near.js?v=663c98a29c';
 import { plotPanel } from './plot-look.js?v=5037697da7';
-import { pressureColor } from './colormap.js?v=95edc9ec7f';
+import { pressureColor } from './colormap.js?v=b90c94f961';
 import { measure } from './glyph-measure.js?v=1e477bd6b3';
-import { createSvgGL, svgModel, FIRST_LOOK } from './svg-gl.js?v=d4e1cdea46';
+import { createSvgGL, svgModel, FIRST_LOOK } from './svg-gl.js?v=949ac7fd0e';
 
 const PATH = PROFILE_PATHS[0];
 export const STATIONS = PATH.nodes;

@@ -1,8 +1,8 @@
 // Bins the stretches of the change between the views off the main thread (veins-sweep.js binSwept; stage.js morphTrack): a stretch's
 // binning takes as long as a whole binning of the figure, and is made while the figure rests, ahead of the change.
 // kind 'bin': a plain binning (veins-bin.js binVeins), the lobule's network made ahead of its first frame (lobule-zoom.js prebin).
-import { binSwept } from './veins-sweep.js?v=c4ad517372';
-import { binVeins } from './veins-bin.js?v=6e462a9e6c';
+import { binSwept } from './veins-sweep.js?v=b6f17b648f';
+import { binVeins } from './veins-bin.js?v=fc0fc1fc58';
 
 self.onmessage = (e) => {
   const { id, kind, tubes, joins, opts } = e.data;

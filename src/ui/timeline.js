@@ -10,14 +10,14 @@
 // from here" freezes the current moment as A for comparison. It replaces play/speed, the Seconds/Months
 // switch, undo/redo/reset, the Findings list, the Log instrument and Compare mode.
 
-import { store, replaceParams, onParamChange } from './store.js?v=5174ae465b';
+import { store, replaceParams, onParamChange } from './store.js?v=a21c31dcb5';
 import { host } from './host.js?v=ea2e49890b';
-import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp, putText, swapText } from './util.js?v=3b6762a3d2';
-import { activeInterventions } from './inspector.js?v=346a5360f3';
+import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp, putText, swapText } from './util.js?v=ad6469643b';
+import { activeInterventions } from './inspector.js?v=be2133368e';
 import { removedLabel } from './removed-label.js?v=ea3de67900';
 import { frameFor } from './frame.js?v=1d147c7c9a';
 import { D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=7513a88c68';
-import { createSvgGL, svgModel } from './svg-gl.js?v=d4e1cdea46';
+import { createSvgGL, svgModel } from './svg-gl.js?v=949ac7fd0e';
 import { textPolys, textBox, loadGlyphs, glyphsReady } from './text-gl.js?v=3203debbbd';
 import { textSoon } from './class-soon.js?v=97b9d0e0db';
 import { restPass } from './rest-pass.js?v=bb619a1659';

@@ -1,10 +1,10 @@
 // Controls panel (blueprint §4.1, §8.4): global parameters in three tabs, or the selected vessel.
 
 import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=4044766e96';
-import { dopplerVel } from './velNormal.js?v=97920ddf3f';
+import { dopplerVel } from './velNormal.js?v=970c872d42';
 import { DRUGS, PREGNANCY_INFO } from '../engine/scenario.js?v=d2669cef9b';
-import { store, updateParams, hiddenNow } from './store.js?v=5174ae465b';
-import { h, fmt, fmtFlow, fp, ff, clamp, tooltipFor, infoButton, icon, svgIcon, paintRange } from './util.js?v=3b6762a3d2';
+import { store, updateParams, hiddenNow } from './store.js?v=a21c31dcb5';
+import { h, fmt, fmtFlow, fp, ff, clamp, tooltipFor, infoButton, icon, svgIcon, paintRange } from './util.js?v=ad6469643b';
 import { liveBalance } from './balance-hold.js?v=1792704e7a';
 import { frameFor, cancelFrame } from './frame.js?v=1d147c7c9a';
 import { runSoon } from './class-soon.js?v=97b9d0e0db';
