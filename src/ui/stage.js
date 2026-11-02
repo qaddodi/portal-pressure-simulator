@@ -12633,32 +12633,79 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let shunt = null; // { src, wx, wy, targets: Map(id → rule), hover }
 
   function edgeFromEvent(ev) {
-    // While the pointer is captured, events retarget to the <svg>: hit-test the real point instead.
-    const t = ev.target === svg && ev.clientX != null ? document.elementFromPoint(ev.clientX, ev.clientY) : ev.target;
-    const el = t?.closest?.('.v-hit, .ghost-hit');
+    // While the pointer is captured, events retarget to the <svg>: the real point is tested in script (hitVessel).
+    if (ev.target === svg && ev.clientX != null) return lobuleOn ? null : hitVessel(ev.clientX, ev.clientY, 0);
+    const el = ev.target?.closest?.('.v-hit, .ghost-hit');
     return el ? el.getAttribute('data-id') : geomEdge(ev);
   }
   // Safari does not always report a transparent-stroke vessel as the element under the pointer (it works in Chrome),
-  // so when the browser's own hit test finds no vessel, test the pointer against each vessel's hit stroke ourselves.
+  // so when the browser's own hit test finds no vessel, the pointer is tested against each vessel's hit stroke in script.
   function geomEdge(ev) {
     if (ev.clientX == null || ev.pointerType === 'touch' || lobuleOn) return null;
-    let best = null;
-    if (geoHeld.size) flushGeo();   // (the hit paths the stage holds while the GPU draws: written before they are tested)
-    const inv = new Map();   // the pointer in each parent group's space: vessels share a few groups, so one getScreenCTM each
-    for (const id of Object.keys(E)) {
-      const h = E[id]?.hit;
-      if (!h || !h.isConnected || h.getAttribute('aria-hidden') === 'true' || !h.hasAttribute('d') || h.parentNode?.classList?.contains('no-hit')) continue;
-      if (best && !(best.compareDocumentPosition(h) & Node.DOCUMENT_POSITION_FOLLOWING)) continue;   // only a vessel drawn above the best so far can beat it
-      try {
-        const g = h.transform.baseVal.length ? h : h.parentNode;
-        let pt = inv.get(g);
-        if (pt === undefined) { const m = h.getScreenCTM(); pt = m ? new DOMPoint(ev.clientX, ev.clientY).matrixTransform(m.inverse()) : null; inv.set(g, pt); }
-        if (!pt) continue;
-        if (h.isPointInStroke(pt) && getComputedStyle(h.parentNode).display !== 'none' && getComputedStyle(h).pointerEvents !== 'none') best = h;
-      } catch { /* not rendered */ }
+    return hitVessel(ev.clientX, ev.clientY, 0);
+  }
+  // Vessel picking in script (plan "Holding 120 Hz" §3.5): every hit stroke (.v-hit: a vessel's own, its strands' and its feeders')
+  // tested against its own outline's numbers, through its frame (chainMat) and the camera's (CTM), never by the browser's hit test
+  // (elementFromPoint, isPointInStroke, getScreenCTM), which laid the page out in the pointer's move and, for a near miss, did so 36
+  // times. The rules are the page's: the stroke's width (--hit-w, else 8 in the context and back layers, else 20) with round caps; none
+  // in a vessel group marked no-hit or hidden (display none, held or set); the one drawn last wins. slop (CSS px): the nearest within
+  // that much past its stroke, for a near miss (nearbyEdge). The paths the GPU's frames hold back (geoHeld) are read as they stand.
+  const hitEls = svg.getElementsByClassName('v-hit');
+  const hitShapes = new Map();
+  const heldOr = (el, k, v) => { const m = geoHeld.get(el); return m && k in m ? m[k] : v; };
+  function hitShape(d) {
+    let h = hitShapes.get(d);
+    if (!h) {
+      const polys = flattenCmds(pathCmds(d), 0.25);
+      h = { polys, box: polys.some((q) => q.pts.length) ? polyBox(polys) : null };
+      if (hitShapes.size > 768) hitShapes.clear();
+      hitShapes.set(d, h);
     }
-    if (best) return best.getAttribute('data-id');
-    return null;
+    return h;
+  }
+  function hitOff(h) {
+    if (!h.isConnected) return true;
+    for (let n = h; n && n !== world; n = n.parentNode) {
+      if (!n.getAttribute) return true;
+      if (n.hasAttribute('hidden') || n.getAttribute('display') === 'none' || (heldOr(n, 'style:display', n.style.display) || '') === 'none') return true;
+      if (n !== h && n.classList.contains('vg') && n.classList.contains('no-hit')) return true;
+    }
+    return false;
+  }
+  const hitWidth = (h) => { const v = parseFloat(h.style.getPropertyValue('--hit-w')); return v > 0 ? v : h.closest('.vg.ctx, #backEdges') ? 8 : 20; };
+  function hitVessel(cx, cy, slop) {
+    if (!CTM) refreshCTM();
+    let best = null, bestGap = Infinity, on = false;
+    for (let i = 0; i < hitEls.length; i++) {
+      const h = hitEls[i], id = h.getAttribute('data-id'), d = heldOr(h, 'd', h.getAttribute('d'));
+      if (!id || !d || hitOff(h)) continue;
+      const sh = hitShape(d);
+      if (!sh.box) continue;
+      // The pointer in the stroke's own units: the camera's frame (world → screen) after the stroke's (its units → world), undone.
+      const m = chainMat(h, world), C = CTM;
+      const a = C.a * m.a + C.c * m.b, b = C.b * m.a + C.d * m.b, c = C.a * m.c + C.c * m.d, dd = C.b * m.c + C.d * m.d;
+      const e = C.a * m.e + C.c * m.f + C.e, f = C.b * m.e + C.d * m.f + C.f, det = a * dd - b * c;
+      if (!det) continue;
+      const qx = cx - e, qy = cy - f, x = (dd * qx - c * qy) / det, y = (-b * qx + a * qy) / det, k = Math.sqrt(Math.abs(det));
+      const r = hitWidth(h) / 2, reach = r + slop / k, [x0, y0, x1, y1] = sh.box;
+      if (x < x0 - reach || x > x1 + reach || y < y0 - reach || y > y1 + reach) continue;
+      let d2 = Infinity;
+      for (const { pts, closed } of sh.polys) {
+        const n = pts.length / 2;
+        if (n === 1) { const ex = pts[0] - x, ey = pts[1] - y; d2 = Math.min(d2, ex * ex + ey * ey); continue; }
+        for (let j = 0; j < (closed ? n : n - 1); j++) {
+          const ax = pts[2 * j], ay = pts[2 * j + 1], o = ((j + 1) % n) * 2, bx = pts[o], by = pts[o + 1];
+          const dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy, t = l2 ? Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / l2)) : 0;
+          const ex = ax + t * dx - x, ey = ay + t * dy - y, q = ex * ex + ey * ey;
+          if (q < d2) d2 = q;
+        }
+      }
+      const gap = (Math.sqrt(d2) - r) * k;   // (CSS px past the stroke's edge; at most 0 on it)
+      if (gap > slop) continue;
+      // (On a stroke, the one drawn last wins, as the browser's hit test has it; near one, the nearest.)
+      if (gap <= 0) { best = id; on = true; } else if (!on && gap < bestGap) { best = id; bestGap = gap; }
+    }
+    return best;
   }
 
   // Organs under a point (anatomy only). The varices and fundus are small sites. The abdomen is
@@ -13207,17 +13254,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // A tap that just misses a thin vessel still picks it: look around the point (out to ~14 px,
   // more on touch) for a vessel before falling back to the organ or the abdomen under it.
   function nearbyEdge(ev) {
-    if (ev.clientX == null) return null;
-    const R = ev.pointerType === 'touch' ? 18 : 12;
-    for (const r of [R / 3, (2 * R) / 3, R]) {
-      for (let i = 0; i < 12; i++) {
-        const a = (i / 12) * Math.PI * 2;
-        const el = document.elementFromPoint(ev.clientX + Math.cos(a) * r, ev.clientY + Math.sin(a) * r)?.closest?.('.v-hit, .ghost-hit');
-        const id = el?.getAttribute('data-id');
-        if (id && EI[id] != null) return id;
-      }
-    }
-    return null;
+    if (ev.clientX == null || lobuleOn) return null;
+    // (The nearest vessel within 12 CSS px of the pointer, 18 for a finger: in script, hitVessel, where 36 hit tests of the page ringed it.)
+    const id = hitVessel(ev.clientX, ev.clientY, ev.pointerType === 'touch' ? 18 : 12);
+    return id && EI[id] != null ? id : null;
   }
   function pick(id, ev) {
     if (!(id && EI[id] != null)) id = nearbyEdge(ev);
@@ -13609,6 +13649,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     setFreeArea(fn) { freeArea = fn; },
     /** The free rectangle the last framed box was centred in (for the tests). */
     lastFree: () => lastFree,
+    /** The vessel under a client point (CSS px), or the nearest within slop px past its stroke: hitVessel (for the checks). */
+    vesselUnder: (cx, cy, slop = 0) => hitVessel(cx, cy, slop),
     /** The plate box (world units) around organs and vessels as drawn now (an enlarged spleen at its size), or null. */
     focusBox({ organs = [], edges = [] } = {}) {
       let b = null;
