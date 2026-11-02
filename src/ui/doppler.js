@@ -6,7 +6,7 @@
 
 import { EDGES, dopplerK, stentSegments, stentSite, stentGate, stentCourse } from '../engine/topology.js?v=4044766e96';
 import { h, fmt, canvasSize, clamp, icon, cssVar, cssAlpha, swapText } from './util.js?v=7889f271cd';
-import { FONT, textW } from './charts.js?v=5912738ffd';
+import { FONT, textW } from './charts.js?v=58f4b1a995';
 import { logAction, shownVel, store } from './store.js?v=4ef2a6ffd8';
 import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=07e9f5917e';
 import { frameFor, noteDraw, paceMs, cancelFrame } from './frame.js?v=7710f677e2';
@@ -18,7 +18,7 @@ import { surface } from './gpu-surfaces.js?v=2af17044e7';
 import { olderThan } from './backfill.js?v=455d888760';
 import { createFollow } from './display-state.js?v=8d062d39dc';
 import { D_SMALL, EASE_ARRIVE } from './ease.js?v=fc509dabe4';
-import { createTraceGL, fitPen } from './trace-gl.js?v=a9c90bdcfc';
+import { createTraceGL, fitPen } from './trace-gl.js?v=3978e30586';
 const nextFrame = frameFor('doppler');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));

@@ -25,6 +25,11 @@ const { GLYPHS, KERN, BASELINES, BASE, RADIUS, CUTOFF, ATLAS_W, ATLAS_H, ATLAS_P
 
 /** ?tracegl=0 in a page's search string: every chart and monitor draws on its 2D canvas, as before. */
 export const traceGLOff = (search) => /[?&]tracegl=0\b/.test(String(search ?? ''));
+// A chart off the screen for PARK_MS gives back its WebGL context (WEBGL_lose_context), and takes it again as it nears the screen:
+// a browser keeps 16 or so contexts a page and drops the oldest past that, which was the figure's (a FibroScan slide held about 20).
+// ?ctxpark=0 keeps every chart's context.
+export const ctxParkOff = (search) => /[?&]ctxpark=0\b/.test(String(search ?? ''));
+const PARK_MS = 4000;
 
 // Paint (a colour or a linear gradient of up to sixteen stops: the profile's curve has a stop per station), shared by the fills and the strokes' laying down. Positions in CSS px.
 const PAINT = `
@@ -287,7 +292,7 @@ const rgba = parseColour;
 const premul = (c, alpha = 1) => { const v = rgba(c), a = v[3] * alpha; return [v[0] * a, v[1] * a, v[2] * a, a]; };
 
 /** The GPU drawer for one chart, over `host` (the chart's 2D canvas), or null where it cannot be (the 2D canvas draws the chart). */
-export function createTraceGL(host, { search = globalThis.location?.search, redraw = null } = {}) {
+export function createTraceGL(host, { search = globalThis.location?.search, redraw = null, under = null } = {}) {
   // (canvasSize never measures: a chart drawn before the observer reported its box drew nothing, and draws again once it has one,
   // with or without this drawer)
   if (redraw && host && typeof ResizeObserver !== 'undefined') onCanvasSized(host, redraw);
@@ -300,9 +305,10 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
   let gl = null;
   try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: true, preserveDrawingBuffer: false, powerPreference: 'low-power', failIfMajorPerformanceCaveat: true }); } catch { gl = null; }
   if (!gl || typeof gl.createShader !== 'function' || typeof host?.after !== 'function') return null;
+  const loser = gl.getExtension('WEBGL_lose_context');   // (kept now: a lost context gives no extensions)
   // (A software renderer draws it too: a chart is a few hundred small shapes, well within one.)
 
-  let lost = false, dead = false, failed = false, missed = false;   // (missed: a frame asked for the GPU while it could not draw)
+  let lost = false, dead = false, failed = false, missed = false, parked = false, back = false, gen = 0;   // (missed: a frame asked for the GPU while it could not draw)
   canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); lost = true; });
   let P = null, started = null, stopPoll = null;
   let quad = null, quadVao = null, segBuf = null, segVao = null, fillBuf = null, fillVao = null, boxBuf = null, boxVao = null, textBuf = null, textVao = null;
@@ -313,7 +319,7 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
   const UN = { seg: ['res', 'hw', 'dash', 'cap'], comp: ['cov', 'res', 'k', ...PU], fill: ['res', 'k', ...PU], box: ['res', 'k'], text: ['res', 'asz', 'atlas', 'sdf'], img: ['res', 'k', 'box', 'img', 'ga'] };
 
   function build() {
-    P = null; failed = false; covW = covH = 0;
+    P = null; failed = false; covW = covH = 0; gen++;
     started = Object.fromEntries(Object.entries(SRC).map(([k, [vs, fs]]) => [k, startProgram(gl, vs, fs)]));
     quad = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, quad);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
@@ -352,9 +358,10 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
         gl.bindVertexArray(null);
       });
       P = out; lost = false;
-      // (A frame that came while the GPU could not draw (still compiling, or the context lost and now built again) drew nothing: the chart
-      // draws again now, at once, rather than at its next change.)
-      if (missed && redraw && !dead) { missed = false; try { redraw(); } catch (e2) { console.warn('Charts on the GPU: the redraw failed.', e2); } }
+      // (A frame that came while the GPU could not draw (still compiling, or the context lost or parked and now built again) drew nothing:
+      // the chart draws again now, at once, rather than at its next change.)
+      if ((missed || back) && redraw && !dead) { missed = back = false; try { redraw(); } catch (e2) { console.warn('Charts on the GPU: the redraw failed.', e2); } }
+      back = false;
     } catch (e) {
       if (gl.isContextLost()) { P = null; return; }
       failed = true; console.warn('Charts on the GPU: shader failed; the chart is not drawn.', e);
@@ -366,6 +373,18 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
     try { build(); } catch (e) { failed = true; console.warn('Charts on the GPU: could not be rebuilt; the chart is not drawn.', e); }
   });
   host.after(canvas);
+  // (Parking: the context is given back while the chart is off the screen, display:none included, and taken again as it comes near.)
+  let parkT = 0, seen = null;
+  if (loser && !ctxParkOff(search) && typeof IntersectionObserver === 'function') {
+    seen = new IntersectionObserver((es) => {
+      if (dead) return;
+      const on = es[es.length - 1].isIntersecting;
+      clearTimeout(parkT); parkT = 0;
+      if (on) { if (parked) { parked = false; back = true; loser.restoreContext(); } }
+      else if (!parked) parkT = setTimeout(() => { parkT = 0; if (dead || parked) return; parked = true; stopPoll?.(); loser.loseContext(); }, PARK_MS);
+    }, { rootMargin: '50%' });
+    seen.observe(host);
+  }
 
   // ── A frame ──
   let W = 1, H = 1, K = 1, clipR = null, inFrame = false;
@@ -507,6 +526,14 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
       gl.viewport(0, 0, W, H);
       gl.disable(gl.SCISSOR_TEST); gl.disable(gl.STENCIL_TEST);
       gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+      if (under) {
+        // (A picture of the chart's own drawn first in this context, under the words: gen changes when the context is made again,
+        // so its programs and textures are made again.)
+        try { under(gl, W, H, gen); } catch (e) { console.warn('Charts on the GPU: the picture under the chart failed.', e); }
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.bindVertexArray(null); gl.useProgram(null); gl.activeTexture(gl.TEXTURE0);
+        gl.viewport(0, 0, W, H); gl.disable(gl.SCISSOR_TEST); gl.disable(gl.STENCIL_TEST); gl.disable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+      }
       gl.enable(gl.BLEND); gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
       clipR = null; clipOn = false; inFrame = true; textN = boxN = 0;
       return true;
@@ -714,9 +741,11 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
       if (!api.begin(w, h, Wd, Hd)) { missed = true; return null; }
       return shim.reset(K);
     },
-    get lost() { return lost || failed; },
+    get lost() { return (lost && !parked && !back) || failed; },   // (a parked chart is not lost: it draws again on its return)
+    /** True while the chart is off the screen and its context given back (drawn again by redraw when it returns). */
+    get parked() { return parked; },
     dispose() {
-      dead = true; stopPoll?.();
+      dead = true; stopPoll?.(); clearTimeout(parkT); seen?.disconnect();
       try {
         for (const b of [quad, segBuf, fillBuf, boxBuf, textBuf, unitBuf]) gl.deleteBuffer(b);
         for (const v of [quadVao, segVao, fillVao, boxVao, textVao, unitVao]) gl.deleteVertexArray(v);
@@ -726,7 +755,7 @@ export function createTraceGL(host, { search = globalThis.location?.search, redr
         if (P) for (const k of Object.keys(P)) gl.deleteProgram(P[k].p);
       } catch { /* a lost context holds nothing */ }
       canvas.width = canvas.height = 0;
-      gl.getExtension('WEBGL_lose_context')?.loseContext();
+      if (!gl.isContextLost()) loser?.loseContext();
       canvas.remove();
       host.style.opacity = '';
     },
