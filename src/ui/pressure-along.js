@@ -21,13 +21,17 @@ export function alongCurve(k, out) {
   let any = false;
   for (let i = 0; i < n; i++) if (k[i] < 1) { any = true; break; }
   if (!any) return null;
-  out = out && out.length === n ? out : new Float32Array(n);
-  const w = (i) => 1 / Math.max(ALONG_K_MIN, Math.min(1, k[i])) ** 4;
-  const cum = new Float64Array(n);
-  let c = 0, wp = w(0);
-  for (let i = 1; i < n; i++) { const wi = w(i); cum[i] = c += 0.5 * (wp + wi); wp = wi; }
+  out = out && out.length === n ? out : new Float32Array(n);   // alloc-rare: only a caller that brings no buffer of the right size (the stage always does); a frame's call writes into its own
+  // (The running sum is walked twice, the total first and then again for each sample, in the same order and with the same additions, so each
+  // value is what a kept array of the sums would hold; nothing is made for it.)
+  let c = 0, wp = alongW(k[0]);
+  for (let i = 1; i < n; i++) { const wi = alongW(k[i]); c += 0.5 * (wp + wi); wp = wi; }
   out[0] = 0;
-  for (let i = 1; i < n - 1; i++) out[i] = cum[i] / c;
+  let run = 0;
+  wp = alongW(k[0]);
+  for (let i = 1; i < n - 1; i++) { const wi = alongW(k[i]); run += 0.5 * (wp + wi); wp = wi; out[i] = run / c; }
   out[n - 1] = 1;
   return out;
 }
+// One sample's weight, (1 / k)⁴ with k held to ALONG_K_MIN … 1.
+const alongW = (kv) => 1 / Math.max(ALONG_K_MIN, Math.min(1, kv)) ** 4;
