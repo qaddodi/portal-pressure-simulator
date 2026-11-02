@@ -63,12 +63,12 @@ export function createSinusoidView({ host, before = null }) {
     for (const e of es) {
       const b = e.borderBoxSize?.[0], n = e.target, w = Math.round(b ? b.inlineSize : n.offsetWidth), hh = Math.round(b ? b.blockSize : n.offsetHeight), o = SZ.get(n);
       if (!o || o[0] !== w || o[1] !== hh) { SZ.set(n, [w, hh]); ch = true; }
-      if (n.style?.visibility === 'hidden' && n.dataset?.svSize != null) { delete n.dataset.svSize; n.style.visibility = ''; }
+      if (n.dataset?.svSize != null) delete n.dataset.svSize;   // (shown: app.css [data-sv-size] hides a caption until its first size is known)
     }
     if (ch) { sizedNew = true; onSized?.(); }
   }) : null;
   const szOf = (n) => SZ.get(n) || [0, 0];
-  const sized = (n) => { if (sizeRO) { n.dataset.svSize = ''; n.style.visibility = 'hidden'; sizeRO.observe(n); } };
+  const sized = (n) => { if (sizeRO) { n.dataset.svSize = ''; sizeRO.observe(n); } };
   const SV_TARGET = { fen: 'fenestrae', hsc: 'stellate', kup: 'kupffer', hep: 'hepatocyte', sin: 'lumen', in: 'in', out: 'out' };
   // Page writes asked for inside a frame (a caption's words, a node put into the page, the fenestrae's share) land between frames
   // (rest-pass.js), in the order asked, so a frame does no DOM work (2 Nov 2026, "Move everything to GPU"). A caption's new size
@@ -299,7 +299,6 @@ export function createSinusoidView({ host, before = null }) {
     // (And what the names keep clear of, as the space the cards leave: under the top bar and a card, and the stage's span for the names to stay in.)
     VW.insT = [cssN('--top-safe') + cssN('--cmp-h') + cssN('--pz-t'), cssN('--top-safe') + cssN('--pz-t') + 2, H - cssN('--pz-b') - 2];
     // Its names are the lobule's size on every device (only the app's label-size setting scales them).
-    { const lk = String(labelK()); if (el.style.getPropertyValue('--label-k') !== lk) el.style.setProperty('--label-k', lk); }   // (written only when it changes: a write each frame restyled the page)
     VW.tC = [(f.l + f.r) / 2, (f.t + f.b) / 2];
     if (!VW.k || !VW.fe) { VW.k = VW.tk; VW.C = [...VW.tC]; VW.fe = { ...f }; VW.ins = [...VW.insT]; VW.vel = null; }
     return geo;
@@ -307,6 +306,10 @@ export function createSinusoidView({ host, before = null }) {
   // The lobule's own label size (--label-k: the label setting, the desktop's baseline, a presentation's projector size),
   // a touch smaller since these capitals are bolder and spaced.
   const labelK = () => (parseFloat(document.documentElement.style.getPropertyValue('--label-k')) || 1) * 0.9;
+  // Its names are the lobule's size on every device (only the app's label-size setting scales them): the page's --label-k (times .9) is copied onto the
+  // view when the size changes (pps:labelscale, an event) and once as it is made, never in a frame (the .sv rule would give the scale instead).
+  const copyLabelK = () => { const lk = String(labelK()); if (el.style.getPropertyValue('--label-k') !== lk) el.style.setProperty('--label-k', lk); };
+  copyLabelK(); addEventListener('pps:labelscale', copyLabelK);
   // f: the free space where it rests (tk, tC: the scale and centre that fit it); fe, ins: the same space and insets as the view has
   // glided to so far, which every name, arrow and the legend is laid against, so they go with the view and never ahead of it.
   // vel: how fast each of those is moving (viewVec's order), so a glide begins from rest and a new target carries it on.
