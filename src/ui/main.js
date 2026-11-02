@@ -311,7 +311,13 @@ async function main() {
   };
   store.on('presetId', syncScenarioName);
   store.on('mode', syncScenarioName);
-  for (const k of ['compareSnap', 'compareView', 'imaging', 'found', 'sinusoid', 'lobule']) store.on(k, () => { renderLegend(); renderBanner(); redraw(); });
+  for (const k of ['compareSnap', 'compareView']) store.on(k, () => { renderLegend(); renderBanner(); redraw(); });
+  // (The views (Imaging, a finding, the lobule and its sinusoid) change only which key the legend shows, never the Compare banner, and the lobule's
+  // and the sinusoid's are set inside the dive's own frames: the key is built again between frames (rest-pass.js), and only when it is another
+  // key; the banner is left alone. Before, each set rebuilt the legend and the banner in the frame the zoom landed in.)
+  let legendAsk = 0;
+  const legendLater = () => { legendAsk = 0; if (legendKeyOf(legendModel()) !== legendKey) renderLegend(); };
+  for (const k of ['imaging', 'found', 'sinusoid', 'lobule']) store.on(k, () => { legendAsk ||= restPass(legendLater); redraw(); });
   // A lens switch: the key and the lens name move in the key press's own frame, and the figure's full update follows one frame later
   // (it set off with them on the same clock, D_SURFACE, so they still finish together within a frame) rather than holding that first
   // frame (lens key 250 to 270 ms to the first change on CI's profiles). A model frame in between draws it anyway.
@@ -729,11 +735,12 @@ function legendModel() {
 // (motion review P11, premium-feel R12): the name crossfades, a bar mixes its colours in OKLab and slides its numbers, legend-morph.js.
 // The same key built again simply replaces itself.
 let legendKey = null;
+const legendKeyOf = ({ m, ref }) => (m === 'heat' || m === 'delta' ? `${m}|${ref}` : m);
 function renderLegend() {
   const { m, ref } = legendModel();
   // (The key names only what the legend shows: the reference appears in the Congestion and Change keys alone, so turning
   // Compare on or off no longer fades an unchanged key out and in; round 2 review, NP8.)
-  const el = $('#legend'), key = m === 'heat' || m === 'delta' ? `${m}|${ref}` : m, same = key === legendKey;
+  const el = $('#legend'), key = legendKeyOf({ m, ref }), same = key === legendKey;
   legendKey = key;
   const put = (...kids) => morphKey(el, kids, { instant: same });
   // (Every number is centred on its tick; the scale stands in from its neighbours by half its end numbers' width (ch: a digit,
