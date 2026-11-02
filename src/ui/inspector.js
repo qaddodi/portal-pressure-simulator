@@ -3,10 +3,11 @@
 import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel } from './velNormal.js?v=97920ddf3f';
 import { DRUGS, PREGNANCY_INFO } from '../engine/scenario.js?v=d2669cef9b';
-import { store, updateParams, hiddenNow } from './store.js?v=2ac7b3a9d2';
+import { store, updateParams, hiddenNow } from './store.js?v=5174ae465b';
 import { h, fmt, fmtFlow, fp, ff, clamp, tooltipFor, infoButton, icon, svgIcon, paintRange } from './util.js?v=5c99534b1f';
 import { liveBalance } from './balance-hold.js?v=1792704e7a';
 import { frameFor, cancelFrame } from './frame.js?v=1d147c7c9a';
+import { runSoon } from './class-soon.js?v=97b9d0e0db';
 const nextFrame = frameFor('inspector');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -100,9 +101,11 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
     let fresh = true;
     input.addEventListener('pointerdown', () => { fresh = true; });
     input.addEventListener('keydown', () => { fresh = true; });
-    // The thumb and its number follow the pointer at once; the model gets the newest value once per frame.
+    // The thumb and its number follow the pointer at once; the model gets the newest value once per frame, in a task of its own
+    // straight after that frame (class-soon runSoon): what the change wakes is built between frames, never inside one.
     let pend = null, raf = 0;
-    const flush = () => { cancelFrame(raf); raf = 0; const p = pend; pend = null; if (p) updateParams((pp) => { set(pp, p.v); return pp; }, { history: p.history, label }); };
+    const send = () => { const p = pend; pend = null; if (p) updateParams((pp) => { set(pp, p.v); return pp; }, { history: p.history, label }); };
+    const flush = () => { cancelFrame(raf); raf = 0; if (pend) runSoon(send); };
     input.addEventListener('input', () => {
       const v = parseFloat(input.value);
       paint(v);

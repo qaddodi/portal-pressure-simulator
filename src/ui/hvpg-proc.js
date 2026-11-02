@@ -11,9 +11,9 @@
 import { h, fmt, clamp, icon, cssVar, toast, swapText } from './util.js?v=5c99534b1f';
 import { glWords } from './gl-words.js?v=178edb3e7e';
 import { hvpgSev, hvBlocked } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { FONT } from './charts.js?v=b0b27d779d';
+import { FONT } from './charts.js?v=664329fce4';
 import { pressureColor } from './colormap.js?v=687b52d514';
-import { store, logAction, hiddenNow, updateParams } from './store.js?v=2ac7b3a9d2';
+import { store, logAction, hiddenNow, updateParams } from './store.js?v=5174ae465b';
 import { shownOr } from './shown.js?v=f7d50db740';
 import { classSoon, restartSoon, attrSoon, dataSoon, propSoon } from './class-soon.js?v=97b9d0e0db';
 import { T, ease, k01, balloonAt, timeOfBalloon, pressureAt as pAt } from './hvpg-clock.js?v=95f13823ce';
@@ -137,7 +137,7 @@ export function createHvpgProcedure() {
     const f = now(), m = f?.metrics;
     if (!m) return;
     result = { ...(snap || { fhvp: m.fhvp, whvp: m.whvp, hvpg: m.hvpg }), t: f.t, day: f.day };
-    store.set({ lastHVPG: result, hvpgMeasured: true });
+    store.setSoon({ lastHVPG: result, hvpgMeasured: true });   // (from the procedure's frame: the dock and charts hear it after it)
   }
 
   // ── The figure: the catheter, its labels and the camera ──

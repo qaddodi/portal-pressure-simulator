@@ -5,7 +5,7 @@
 
 import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent, isStent, stentSite } from '../engine/topology.js?v=4044766e96';
 import { dopplerVel, flowReversed } from './velNormal.js?v=97920ddf3f';
-import { store, updateParams, hiddenNow } from './store.js?v=2ac7b3a9d2';
+import { store, updateParams, hiddenNow } from './store.js?v=5174ae465b';
 import { fmt, fmtFlow, clamp } from './util.js?v=5c99534b1f';
 import { PREGNANCY_INFO } from '../engine/scenario.js?v=d2669cef9b';
 import { aboutVessel, aboutOrgan } from './about.js?v=dc2c5d6f59';

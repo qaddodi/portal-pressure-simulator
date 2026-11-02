@@ -1,6 +1,7 @@
 // Tiny observable store + parameter history (undo/redo, blueprint §3).
 
 import { defaultParams, deepMerge } from '../engine/scenario.js?v=d2669cef9b';
+import { runSoon } from './class-soon.js?v=97b9d0e0db';
 
 const listeners = new Map();
 const state = {
@@ -51,19 +52,43 @@ export const shownVel = new Map();
 let rev = 0;
 const FRAME_KEYS = Object.freeze(['frame']);
 const REST = Symbol('rest');   // ('*' listeners that a model frame alone does not wake)
+// The listeners of a change: those of each key, then '*', then the rest-of-the-state ones when something besides the frame changed.
+function wake(keys) {
+  if (!keys.length) return;
+  for (const k of keys) { const l = listeners.get(k); if (l) for (let i = 0; i < l.length; i++) l[i](state[k], state); }
+  const any = listeners.get('*');
+  if (any) for (let i = 0; i < any.length; i++) any[i](keys, state);
+  if (keys.some((k) => k !== 'frame')) { const r = listeners.get(REST); if (r) for (let i = 0; i < r.length; i++) r[i](keys, state); }
+}
+const soonKeys = new Set();   // (keys set from a frame with setSoon, their listeners still to run)
+let soonAsked = false;
+function wakeSoon() {
+  soonAsked = false;
+  const keys = [...soonKeys];
+  soonKeys.clear();
+  wake(keys);
+}
 export const store = {
   get: () => state,
   /** Bumped by every set() that changes something besides `frame` (a camera move never sets the store). */
   get rev() { return rev; },
   set(patch) {
     const keys = Object.keys(patch);
-    const rest = keys.some((k) => k !== 'frame');
-    if (rest) rev++;
+    if (keys.some((k) => k !== 'frame')) rev++;
     Object.assign(state, patch);
-    for (const k of keys) { const l = listeners.get(k); if (l) for (let i = 0; i < l.length; i++) l[i](state[k], state); }
-    const any = listeners.get('*');
-    if (any) for (let i = 0; i < any.length; i++) any[i](keys, state);
-    if (rest && keys.some((k) => k !== 'frame')) { const r = listeners.get(REST); if (r) for (let i = 0; i < r.length; i++) r[i](keys, state); }
+    if (soonKeys.size) for (const k of keys) soonKeys.delete(k);   // (heard now, with the newest value: not again after the frame)
+    wake(keys);
+  },
+  /** set() for a frame callback or a motion handler: the state changes at once (store.get() and rev see it), but the listeners,
+   *  which build cards, legends, pills and text in the page, run in a task of their own straight after the frame (class-soon runSoon),
+   *  never inside it (docs/gpu-practices.md: no DOM work in a frame). The keys asked in one frame are heard once each, in the order
+   *  first asked, with the newest value; a plain set() of a key before then hears it at once and takes it off the wait. */
+  setSoon(patch) {
+    const keys = Object.keys(patch);
+    if (keys.some((k) => k !== 'frame')) rev++;
+    Object.assign(state, patch);
+    for (const k of keys) soonKeys.add(k);
+    if (!soonAsked) { soonAsked = true; runSoon(wakeSoon); }
   },
   /** A model frame alone (the common set, several a second): the same as set({ frame: f }) without a patch, a key list or a
    *  closure made for it (plan "Holding 120 Hz" rev 2 step 3). The '*' listeners get one frozen ['frame']. */
@@ -111,10 +136,11 @@ export const varixGrowth = (f, site = 'VAR', mean) => {
   return Math.min(1, Math.max(0.2, (d - 2.5) / 3));
 };
 
-/** Learner actions (probe, invert, endoscopy view, focus…), newest last, so a do-step can test a target and value. */
+/** Learner actions (probe, invert, endoscopy view, focus…), newest last, so a do-step can test a target and value. The log is
+ *  there at once; its listeners hear it straight after (setSoon), since a frame (a procedure's last step) logs too. */
 export function logAction(type, target, value) {
   const log = (state.actionLog || []).concat({ type, target, value, t: Date.now() }).slice(-60);
-  store.set({ actionLog: log });
+  store.setSoon({ actionLog: log });
 }
 
 // Parameter history

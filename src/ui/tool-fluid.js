@@ -10,7 +10,7 @@ import { frame, cancelFrame } from './frame.js?v=1d147c7c9a';
 import { createSvgGL, svgModel } from './svg-gl.js?v=c37cd9a50a';
 import { h, fmt, clamp } from './util.js?v=5c99534b1f';
 import { NODES } from '../engine/topology.js?v=4044766e96';
-import { store } from './store.js?v=2ac7b3a9d2';
+import { store } from './store.js?v=5174ae465b';
 import { measure } from './glyph-measure.js?v=d1e89aeb28';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));

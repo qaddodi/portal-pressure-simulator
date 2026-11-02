@@ -13,7 +13,7 @@
 // Enter jumps, G the slide list, Home End, B or . black screen, F full screen, ? the Guide, Esc. (The Guide lists them: PRESENT_KEYS in
 // main.js.) On a touch screen a sideways swipe anywhere on the slide goes on or back.
 
-import { store, replaceParams } from './store.js?v=2ac7b3a9d2';
+import { store, replaceParams } from './store.js?v=5174ae465b';
 import { download } from './download.js?v=3564e5bf8c';
 import { controlOwnsKey } from './key-owner.js?v=60ed93db32';
 import { glWords } from './gl-words.js?v=178edb3e7e';
@@ -25,14 +25,15 @@ import { createSvgGL, svgModel, viewMap, noteLoop } from './svg-gl.js?v=c37cd9a5
 import { sinusoidSupported } from './gl-support.js?v=6219c6f004';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=072bfa63c1';
 import { isCamOn, unionBox, regionBox, growBox, camNames } from './cam-frame.js?v=3c321f5f7f';
+import { runSoon } from './class-soon.js?v=97b9d0e0db';
 import { NODE_POS } from './anatomy.js?v=fe0f3d1f0e';
 import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
 import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=94784eec41';
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
 import { hvpgSev } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { createHvpgMonitor } from './hvpg-proc.js?v=dd06054dbe';
-import { createTools } from './presenter-tools.js?v=574ea75571';
+import { createHvpgMonitor } from './hvpg-proc.js?v=388664e885';
+import { createTools } from './presenter-tools.js?v=44ff37deb9';
 import { openHandout } from './handout.js?v=3aaa29b61a';
 import { noteResume, resumeFor } from './resume.js?v=c0f39f9446';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=1eeb480f5f';
@@ -48,12 +49,12 @@ import { prepareShaders, shaderFailures } from './gl-compile.js?v=79231d7c6b';
 import { createFigureKey } from './figure-key.js?v=691383fd82';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=687b52d514';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=257251e210';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=225fc7fa74';
 import { clotWords } from './callout-math.js?v=6ef2901a08';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
 import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=6d435971c5';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
-import { anchorsOf, roomFor } from './cam-room.js?v=8face11108';
+import { anchorsOf, roomFor } from './cam-room.js?v=def4cc91e8';
 import { beatCount, beatView } from './slide-beats.js?v=2aded612c4';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight, trailKeys } from './flow-time.js?v=3c7cf94ff1';
@@ -1672,7 +1673,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       handOn = true;   // (before anything else: the instrument's option below leaves liveOff alone)
       paint(+input.value);
       if (w.tool) { ui?.tools.option({ [w.tool]: +input.value }); return; }   // (an instrument's option: the model is left alone)
-      if (!raf) raf = nextFrame(() => { raf = 0; liveSet(s, i, patchOf(+input.value)); });
+      // (Paced to the frames, but the model change and what it wakes run in a task of their own straight after the frame: runSoon.)
+      if (!raf) raf = nextFrame(() => { raf = 0; runSoon(() => liveSet(s, i, patchOf(+input.value))); });
     });
     // (A finished drag hands the arrow keys back to the slides.)
     input.addEventListener('pointerup', () => input.blur());

@@ -3,13 +3,13 @@
 // sliders that used to live in the side panel. Every verb takes effect at once and becomes one
 // entry in the timeline; nothing stays "armed".
 
-import { store, updateParams } from './store.js?v=2ac7b3a9d2';
+import { store, updateParams } from './store.js?v=5174ae465b';
 import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout, countTo, swapText, transformEndX, afterExit, markGone, releaseWords } from './util.js?v=5c99534b1f';
 import { releaseSpeed, isFlick, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=7513a88c68';
-import { cardFor, normalizeSel } from './actions.js?v=e2e2948913';
+import { cardFor, normalizeSel } from './actions.js?v=3f98af43f1';
 import { frameFor, cancelFrame } from './frame.js?v=1d147c7c9a';
 import { restPass, cancelRest } from './rest-pass.js?v=d13e397f0b';
-import { classSoon } from './class-soon.js?v=97b9d0e0db';
+import { classSoon, runSoon } from './class-soon.js?v=97b9d0e0db';
 import { placeCard, coverCount, vesselPoints } from './card-place.js?v=4eb9859ce3';
 import { readBox, readMetric } from './layout-snap.js?v=f609965236';
 const nextFrame = frameFor('card');
@@ -292,9 +292,12 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
       let fresh = true;
       input.addEventListener('pointerdown', () => { fresh = true; });
       input.addEventListener('keydown', () => { fresh = true; });
-      // The thumb and its number follow the pointer at once; the model gets the newest value once per frame.
+      // The thumb and its number follow the pointer at once; the model gets the newest value once per frame, in a task of its own
+      // straight after that frame (class-soon runSoon), so the cards, legend and readouts the change wakes are built between frames,
+      // never inside one.
       let pend = null, raf = 0;
-      const flush = () => { cancelFrame(raf); raf = 0; const p = pend; pend = null; if (p) updateParams((pp) => { v.set(pp, p.x); return pp; }, { history: p.history, label: v.hist || lab }); };
+      const send = () => { const p = pend; pend = null; if (p) updateParams((pp) => { v.set(pp, p.x); return pp; }, { history: p.history, label: v.hist || lab }); };
+      const flush = () => { cancelFrame(raf); raf = 0; if (pend) runSoon(send); };
       input.addEventListener('input', () => {
         const x = parseFloat(input.value);
         paint(x);
