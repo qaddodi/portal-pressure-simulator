@@ -575,12 +575,13 @@ function fillByRef(ctx, root, el, tag, ref, alpha, k) {
   if (ref.localName !== 'pattern') return;
   const tw = at(ref, 'width'), th = at(ref, 'height'), b = elBox4(el);
   if (!(tw > 0 && th > 0 && b && b[2] - b[0] > 0 && b[3] - b[1] > 0)) return;
+  const bx = b[0], by = b[1], bw = b[2] - b[0], bh = b[3] - b[1];   // (the box's array may be the one the next call writes: read at once)
   ctx.save();
   ctx.clip();
   const m = transformOf(ref.getAttribute('patternTransform'));
   if (m) ctx.transform(m[0], m[1], m[2], m[3], m[4], m[5]);
   // (The shape's box in the pattern's own space, the tiles laid over it.)
-  tileSpan(b[0], b[1], b[2] - b[0], b[3] - b[1], m, tw, th);
+  tileSpan(bx, by, bw, bh, m, tw, th);
   const x0 = TILES[0], x1 = TILES[1], y0 = TILES[2], y1 = TILES[3];
   if ((x1 - x0) * (y1 - y0) <= 20000) for (let i = x0; i < x1; i++) for (let j = y0; j < y1; j++) {
     ctx.save(); ctx.translate(i * tw, j * th);
