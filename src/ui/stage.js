@@ -68,7 +68,7 @@ import { retireRows, flowClose } from './flow-rows.js?v=6cd335f84b';
 import { createFlowDash, chevSpacing, inHole } from './flow-dash.js?v=a47075ffa6';
 import { createJunctionWidths } from './junction-widths.js?v=c5726a67f9';
 import { planTaper, taperAt } from './vessel-taper.js?v=38c471f360';
-import { frameFor, lateFrameFor, cancelFrame, mayTask, noteDraw, easeNow, inMotion, afterMotion, PACED, setSaver as setFrameSaver, paceMs, renderScale, renderSetting, onRenderScale, figOpt, figLab, onFigLab, MOTION60_MS, PINCH_LOW_K, readFrameFor } from './frame.js?v=897b4f8e7e';
+import { frameFor, lateFrameFor, cancelFrame, mayTask, cancelMay, noteDraw, easeNow, inMotion, afterMotion, PACED, setSaver as setFrameSaver, paceMs, renderScale, renderSetting, onRenderScale, figOpt, figLab, onFigLab, MOTION60_MS, PINCH_LOW_K, readFrameFor } from './frame.js?v=897b4f8e7e';
 import { softwareYield } from './sw-yield.js?v=18a3b54a4d';
 import { portalSplit } from './table-marks.js?v=ff3ed0cc47';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
@@ -105,6 +105,10 @@ const readFrame = readFrameFor('stage-read');
 // The page's look as one string for the caches below that are drawn in its colours: data-theme, and data-palette too (Navy and Black keep
 // data-theme="dark" and differ from Dark only by the palette: looks.js).
 // (R04: two dependency lists the same, element by element, by identity: no string is built to compare them.)
+// (recs.md 2.1: a solve of the figure's labels runs in slices of LABEL_SLICE_MS, yielding between labels, the rest in the next frames'
+// spare time (frame.js mayTask), the labels standing as they were meanwhile; a solve that fits its first slice lands in the same frame, as
+// before. A camera that moves under it drops it, and the labels carry as they always did.)
+const LABEL_SLICE_MS = 2;
 function sameDeps(a, b) { for (let i = 0; i < b.length; i++) if (a[i] !== b[i]) return false; return true; }
 const themeKey = () => { const d = document.documentElement.dataset; return d.palette ? `${d.theme || ''}/${d.palette}` : (d.theme || ''); };
 const easeFrame = frameFor('stage-ease');   // (the scheduler's, named so that no local `frame` can stand in for it: the grid's path helper once did, and every ease asked through it never ran)
@@ -3262,8 +3266,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // The first framing waits for the patient (the first frames are drawn before it has loaded, without its
     // ascites or spleen), and the figure stays hidden until it is framed, so it appears once, in place.
     firstFrame();
-    prepLobule();
-    followHome();
+    if (catchUp || document.hidden) homeMay(); else mayTask('stage-home', homeMay);
   }
   // While the view is at home, home follows what is drawn and the space the cards leave: checked on the model's frames
   // (at most every 500 ms) and once a resize or a turn of the device has settled, which needs no model frame (paused, a
@@ -3644,8 +3647,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // so a model frame never puts the label solver in the frame that draws the figure. A newer frame before it runs takes its place.)
     labelF = f;
     mayTask('stage-labels', labelsMay);
-    gpuProbe.time(null, 'update: organs', () => updateOrgans(f, p, t));
-    gpuProbe.time(null, 'update: slide marks', () => fxSync(f, t));
+    // (Step 1 too: the organs' eases and the slide's marks read the model's frame but draw nothing the blood or the vessels' upload
+    // needs, so they are a may task of their own, from the newest frame; a catch-up (the way back from the lobule) or a hidden page
+    // takes them at once, as it takes the whole update.)
+    orgAsk = { f, p, t, at: fxAt };
+    if (catchUp || document.hidden) organsMay(); else mayTask('stage-organs', organsMay);
     widthF = f; widthVer = storeVer; widthCTM = CTM;
   }
 
@@ -3659,6 +3665,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const f = labelF; labelF = null;
     if (f && !(diveT > 0 && diveT < 1)) gpuProbe.time(null, 'update: labels', () => updateLabels(f));
   }
+  let orgAsk = null;
+  function organsMay() {
+    const a = orgAsk; orgAsk = null;
+    if (!a || (anatCovered() && !catchUp && !risePrep)) return;
+    const was = inUpdate, wasAt = fxAt;
+    inUpdate = true; fxAt = a.at;
+    try {
+      gpuProbe.time(null, 'update: organs', () => updateOrgans(a.f, a.p, a.t));
+      gpuProbe.time(null, 'update: slide marks', () => fxSync(a.f, a.t));
+    } finally { inUpdate = was; fxAt = wasAt; }
+    if (!was && plateRedraw) { plateRedraw = false; drawVeins(false, 'plate hidden'); }
+  }
+  // (The home look and the lobule's preparation: a may task of the model frame, as the labels are.)
+  function homeMay() { prepLobule(); followHome(); }
   function followWidth(x, dt) {
     if (x.w1 == null) x.w1 = x.width;
     if (x.wT == null || x.width == null) return false;   // (no target yet: the caller sets the first one after this)
@@ -10484,6 +10504,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (R04: the key is a list of numbers and identities compared one by one, not a string joined on every camera frame: the camera's
     // part (the transform in hundredths, the stage box, the morph and turn) and the revisions of the rest.)
     const key = labelKeyNow(st, sig, b);
+    // (A solve still running in slices for this same view: the labels stand as they are until it lands, and what changed meanwhile (a
+    // value, a callout) is taken up after it, as after any solve. A camera that moved (the key's first eight: the transform, the stage
+    // box, the morph and the turn) drops it, and the labels carry as they always did.)
+    if (labelJob) {
+      if (!force && sameView8(labelJob.key, key)) { labelTail(); return; }
+      labelJobDrop();
+    }
     if (!force && sameKey(key) && (LABEL_HOLD && inMotion() ? holdValues(f) : refreshValues(f))) { stats.skips++; stats.ms += performance.now() - t0; }
     else {
       const sc = CTM.sc, th = Math.atan2(CTM.b, CTM.a);
@@ -10501,17 +10528,60 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (ride && !land && dz > SOLVE_ZOOM) carryClear = true;   // (carried, but never onto each other)
       const solved = solve || layoutLabels(f, false) === false;
       carryReslot = false;
-      if (solved) { carryClear = false; layoutLabels(f, true); solvedFor = { sig, sc, th, csig, ins }; }
+      if (solved) {
+        carryClear = false;
+        const sf = { sig, sc, th, csig, ins };
+        const g = layoutLabelsGen(f, true);
+        if (!labelSliceRun(g, LABEL_SLICE_MS)) {
+          labelJob = { g, key: key.slice(), solvedFor: sf };
+          mayTask('label solve', labelJobStep);
+          stats.ms += performance.now() - t0;
+          labelTail();
+          return;
+        }
+        solvedFor = sf;
+      }
       else if (hand || reslotted) labelSettleSoon();
       if (gpuProbe.on) gpuProbe.note(solved ? COUNTED.labelSolve : COUNTED.labelCarry);
       carryClear = false;
       labelKey = key.slice(); stats.layouts++; stats.ms += performance.now() - t0;
     }
+    labelTail();
+  }
+  // (What every layout of the labels ends with, a carried, a skipped or a sliced one too: the callouts and probes painted, then the GPU's copy.)
+  function labelTail() {
     if (sites.list) sitesPaint();
     if (scan.on) scanPaint();
     dprobePaint();
     labelPainted = true;
     labelGlSync();   // (last: the probe's place, just written, is drawn in this frame too)
+  }
+  // The solve running in slices (LABEL_SLICE_MS): its generator, the view's key it was started for and what it was solved for.
+  let labelJob = null, sliceEnd = Infinity;
+  const sliceOver = () => performance.now() > sliceEnd;
+  // (Runs the solve for up to ms; true once it has landed.)
+  function labelSliceRun(g, ms) {
+    sliceEnd = performance.now() + ms;
+    let r;
+    try { r = g.next(); } finally { sliceEnd = Infinity; }
+    return r.done;
+  }
+  const sameView8 = (a, b) => { for (let i = 0; i < 8; i++) if (a[i] !== b[i]) return false; return true; };
+  function labelJobDrop() { if (!labelJob) return; const g = labelJob.g; labelJob = null; cancelMay('label solve'); g.return(); }
+  // (A slice in a frame's spare time: true while there is more to do.)
+  function labelJobStep(left) {
+    const j = labelJob;
+    if (!j) return false;
+    if (camMove || cathHid() || lz?.isOpen()) { labelJobDrop(); labelKey = null; return false; }
+    let done;
+    try { done = labelSliceRun(j.g, Math.max(1, Math.min(LABEL_SLICE_MS, left || LABEL_SLICE_MS))); } catch (e) { labelJob = null; labelKey = null; throw e; }
+    if (!done) return true;
+    labelJob = null;
+    solvedFor = j.solvedFor;
+    if (gpuProbe.on) gpuProbe.note(COUNTED.labelSolve);
+    labelKey = j.key; stats.layouts++;
+    labelTail();
+    return false;
   }
   // (R04: the labels' key as numbers and identities, written into one kept list. The callouts' boxes fold into one number.)
   const keyBuf = [];
@@ -10664,7 +10734,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // `solve`: search (stickily) and record the slots; otherwise carry the recorded slots. Returns false
   // when a label turned up that has no slot or no longer fits its slot: the caller then solves.
   // (dry: a solve that only finds the slots (labelSol) and draws nothing: solveLanding, for a framing the camera has not reached yet.)
+  // (All at once: a carry, a dry solve, a solve with slicing off. Any solve still in slices gives way to it.)
   function layoutLabels(f, solve, dry = false) {
+    if (labelJob) labelJobDrop();
+    const g = layoutLabelsGen(f, solve, dry);
+    let r;
+    do r = g.next(); while (!r.done);
+    return r.value;
+  }
+  // (The layout itself, a generator: a solve yields between labels once its slice is spent (sliceOver); run whole, it never yields.)
+  function* layoutLabelsGen(f, solve, dry = false) {
     frameNo++;
     const st = store.get();
     const t = easeInOut(morph);
@@ -11182,6 +11261,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         buildLines();
         for (const it of items) placed.push({ x0: it.ax - 4, y0: it.ay - 4, x1: it.ax + 4, y1: it.ay + 4 });
         for (const it of items.sort((a, b) => b.pri - a.pri)) {
+          if (solve && sliceOver()) yield;
           it.align = 'start';
           if (it.later) { later.push(it); continue; }
           // (A stent's point: in its column, level with its dot (Review 15 Oct), a little farther out first (16 px at most) to clear its
@@ -11207,6 +11287,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // that no vessel touches (organ-names.js), and only with none left stays where it was; the vessels never move.
       if (st.layers.labels && t < 0.3) {
         for (const [txt, x, y] of ORGAN_LABELS) {
+          if (solve && sliceOver()) yield;
           const [ax, ay] = worldToLocal(x, y);
           const up = txt.toUpperCase();
           // (RIGHT ATRIUM stands on two lines: on one it is wider than the heart's room between the cava that runs up its left side and the
@@ -11312,6 +11393,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       rings = plan.map(({ it }) => it);
       // As they were (v2): each beside its station, shortened, or given up, where there is no room.
       for (const { it, dirs, passes, half } of plan) {
+        if (solve && sliceOver()) yield;
         it._full = { lines: it.lines, w: it.w, h: it.h, short: it.short, abbr: it.abbr };   // (its whole form, for the rescue below)
         if (!placeMulti(it, dirs, passes, 0, 3) && it.sel) place(it, dirs, 40 + half, true);
       }
@@ -11327,6 +11409,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // (Each keeps its old spot reserved until it finds a new one, so one that finds none keeps it.)
       for (const { it } of onVessel) { it._keep = { x: it.x, y: it.y, dir: it.dir, leader: it.leader, sol: nextSol.get(it.key) }; it._r.old = true; out.splice(out.indexOf(it), 1); }
       for (const { it, dirs, passes } of onVessel) {
+        if (solve && sliceOver()) yield;
         const r0 = it._r;
         placed.splice(placed.indexOf(r0), 1);
         if (placeMulti(it, dirs, passes, 3, passes.length, false)) continue;
@@ -11358,6 +11441,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         rescueOf.push({ e, was, shown, early });
       }
       for (const { e: { it, dirs, passes, half }, was, shown, early } of rescueOf) {
+        if (solve && sliceOver()) yield;
         if (shown && !early) { out.splice(out.indexOf(it), 1); placed.splice(placed.indexOf(it._r), 1); }
         // (Then further out still, on rings 90 to 118 px round: a station at the edge of the free space, RA under a phone's data card,
         // has no clear spot nearer.)
@@ -11408,6 +11492,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
       // Collateral and shunt lanes, captioned along their run.
       for (const [id, cap] of Object.entries(LANE_CAPTIONS)) {
+        if (solve && sliceOver()) yield;
         const x = E[id];
         if (!x?.vis || x.g.classList.contains('coll-ghost') || labelHidden(id)) continue;
         const it = { key: 'lane:' + id, cls: 'lane', lines: [[{ t: cap, size: 10, weight: 550, cls: 'lb-lane' }]], align: 'middle', padX: 2, padY: 1, ax: 0, ay: 0 };
@@ -11449,9 +11534,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     };
     // Focus callout
     const foc = st.focus;
-    (foc ? foc.marks || [foc] : []).forEach((m, i) => {
+    for (const [i, m] of (foc ? foc.marks || [foc] : []).entries()) {
+      if (solve && sliceOver()) yield;
       // (ghost: a procedure's step may name a vessel it has not opened yet, the tract before the stent; f: where along it.)
-      if (!m.edges?.length || !E[m.edges[0]] || !(E[m.edges[0]].vis || (m.ghost && geo[m.edges[0]]?.cur?.length)) || (i && !m.label)) return;
+      if (!m.edges?.length || !E[m.edges[0]] || !(E[m.edges[0]].vis || (m.ghost && geo[m.edges[0]]?.cur?.length)) || (i && !m.label)) continue;
       // (A mark on one third of a stent points at that third.)
       const segAt = m.f ?? (m.seg && isStent(EDGES[EI[m.edges[0]]]) ? STENT_SITES[stentGate(m.seg, f.viewParams || st.params, m.edges[0])] : 0.5);
       const [x, y] = pointAt(geo[m.edges[0]].cur, segAt);
@@ -11514,7 +11600,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (sol?.ring) it.cls += ' ring';
       if (marked && !m.free) it.focusLeader = true;
       it.free = !!m.free;
-    });
+    }
     // Deck visuals, package F (ext-callouts.js): the slide's marks on organs, its calipers' readings and its steps' numbers on the
     // anatomy, its brackets' readings on the circuit. Each keeps off the vessels where it can, as the stations' readings do.
     if (fx) {
@@ -11600,12 +11686,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // A stent's other two points, where they fit around the sampled point's callout and the slide's mark: off the vessels if they can.
     later.sort((a, b) => (b.pri - a.pri) || (b.jet - a.jet));
     for (const it of later) {
+      if (solve && sliceOver()) yield;
       const near = 8 + it.vw / 2, far = 24 + it.vw / 2;
       placeMulti(it, ['NE', 'E', 'SE', 'NW', 'W', 'SW', 'N', 'S'], [{ gap: near, leader: false, clear: true }, { gap: far, leader: true, clear: true }, { gap: near, leader: false }, { gap: far, leader: true }])
         || placeMulti(it, FAR_DIRS, [{ gap: far + 12, leader: true, uncrossed: true }, { gap: far + 48, leader: true, uncrossed: true }])
         || placeMulti(it, FAR_DIRS, SLID(far));
     }
     if (stale) return false;
+    if (solve && sliceOver()) yield;   // (the page's part below runs whole, in a slice of its own)
     if (solve) labelSol = nextSol;
     if (dry) return true;
     // (The stations' rings, and the readings given up for want of room with where their stations are, for the browser checks:
@@ -13654,6 +13742,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     dyeInjecting: () => bolus.injecting,
     svg,
     worldToLocal: (x, y) => { refreshCTM(); return worldToLocal(x, y); },
+    labelSolving: () => !!labelJob,   // (a label solve still running in slices)
     anchorPos(anchor) {
       const t = easeInOut(morph);
       if (NODE_POS[anchor]) return nodePos(anchor, t);
