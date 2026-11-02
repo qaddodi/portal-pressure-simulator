@@ -49,3 +49,33 @@ export function shareTurn(S) {
   S.phase = 'draw';
   return true;
 }
+
+// (recs-production-120hz §18: the shared targets have owners. Each instance that enters a request is a user; the last user to let go
+// (its host freed, the instance disposed) frees the targets and the share itself, and the budget may reclaim them as a retained
+// holder in between (they are made again by the next blur). A lost context takes the whole map, as before.)
+/** Marks `id` a user of share S. */
+export function shareUse(S, id) { (S.users ||= new Set()).add(id); }
+/** `id` lets go of every share of this context; a share left with no user is freed (free(S.t)) and forgotten. Returns how many. */
+export function shareRelease(map, gl, id, free) {
+  const byLook = map.get(gl);
+  if (!byLook) return 0;
+  let n = 0;
+  for (const [k, S] of [...byLook]) {
+    if (!S.users?.delete(id) || S.users.size) continue;
+    byLook.delete(k); n++;
+    S.hold?.drop(); S.hold = null;
+    if (S.t) { try { free(S.t); } catch { /* a lost context: nothing to free */ } S.t = null; }
+    S.key = ''; S.ok = false;
+  }
+  if (!byLook.size) map.delete(gl);
+  return n;
+}
+/** The GPU bytes a share's targets hold now (the copy, the pass and the blurred picture at their size, and its halvings). */
+export function shareBytes(S) {
+  const t = S?.t;
+  if (!t) return 0;
+  const [w, h] = String(t.size || '0x0').split('x').map(Number);
+  let b = (w * h || 0) * 4 * 3;
+  for (const st of t.steps || []) b += (st.w * st.h || 0) * 4;
+  return b;
+}

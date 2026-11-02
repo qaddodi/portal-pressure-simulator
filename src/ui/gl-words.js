@@ -11,6 +11,9 @@
 //   const w = glWords(el);   // el: an element whose words are set only through w from now on
 //   w.set('18.2', 'cm/s');   // the words (and a unit, set small beside them, as <small>)
 //   w.text                   // the words it shows now
+//   w.dispose()              // (recs-production-120hz §8) lets go of everything it holds: its observer, its place in the theme
+//                            // list and the measure queue, its timers and rest passes, and its GPU picture; idempotent, and a
+//                            // callback captured before it does nothing after. Its words stay in the page as they last landed.
 //
 // The words fall back to a write between frames (never in a frame) where the GPU cannot set them: no outlines yet, a character the
 // cut glyphs do not have, an element with no box. ?glwords=0: every change is written into the page between frames, with no picture.
@@ -60,6 +63,9 @@ if (GL_WORDS && typeof MutationObserver === 'function' && typeof document !== 'u
 // The slide cards whose fit reads their scroll sizes (presenter.js): a picture never reaches past them or their parts (measureRead).
 const SLIDE_CARD = '.pz-text, .pz-data, .pz-panel';
 const measureQ = new Set();
+const live = new Set();   // (every glWords not yet disposed: glWordsLive() counts them, so a view's teardown can be seen to free them)
+/** How many GPU word wrappers are alive (not disposed): registry, observers and queued work all follow it back to baseline. */
+export const glWordsLive = () => ({ live: live.size, themed: ALL.size, queued: measureQ.size });
 let measureAll = 0;
 function measurePass() {
   measureAll = 0;
@@ -69,7 +75,7 @@ function measurePass() {
 }
 function measureRead(S) {
   const { el, host, after } = S;
-  if (!GL_WORDS || S.on) return;
+  if (!GL_WORDS || S.on || S.dead) return;
   if (!el.isConnected || !glyphsReady() || !S.txt?.data || S.txt.parentNode !== el) { S.at = null; return; }
   const box = host.getBoundingClientRect();
   if (!(box.width > 0 && box.height > 0)) { S.at = null; return; }
@@ -111,6 +117,7 @@ function measureRead(S) {
 }
 function measureWrite(S, { at, pad, L, U }) {
   const { host } = S;
+  if (S.dead) return;
   if (!S.gl) {
     S.gl = createSvgGL(host);
     S.gl.cv.setAttribute('aria-hidden', 'true'); S.gl.cv.removeAttribute('role');
@@ -128,7 +135,7 @@ function measureWrite(S, { at, pad, L, U }) {
   S.at = at;
   S.gl.paint();   // (a first, empty, drawing: the picture's canvas is sized now, between frames, so the first new words are drawn whole)
 }
-const askMeasure = (S) => { measureQ.add(S); S.measureAsk = 1; if (!measureAll) measureAll = restPass(measurePass); };
+const askMeasure = (S) => { if (S.dead) return; measureQ.add(S); S.measureAsk = 1; if (!measureAll) measureAll = restPass(measurePass); };
 
 // ── A frame: the new words drawn, nothing written into the page ──
 function draw(S, t, u) {
@@ -148,6 +155,7 @@ function draw(S, t, u) {
 // now go clear only in the frame the GPU has drawn the new ones; a frame it cannot draw shows the page's words again, and they are
 // written into the page between frames.)
 function drawn(S, ok) {
+  if (S.dead) return;
   if (ok) { if (S.pend && !S.on) { S.on = true; S.el.classList.add('glw-on'); } S.pend = false; return; }
   if (!S.pend && !S.on) return;
   S.pend = false;
@@ -158,6 +166,7 @@ function drawn(S, ok) {
 // ── Between frames: the page's own words take what the picture shows, and the picture goes ──
 function land(S) {
   S.landAsk = 0;
+  if (S.dead) return;
   const { el, want, shown } = S;
   // (Words written into the element by someone else, or none yet: its content is taken over here, between frames, as its words and unit.)
   if (!S.txt || S.txt.parentNode !== el) {
@@ -177,27 +186,41 @@ function land(S) {
   if (S.on) { S.on = false; el.classList.remove('glw-on'); S.vPath.setAttribute('d', ''); S.uPath.setAttribute('d', ''); S.gl.paint(); }
   if (!LAND_KEEP || !S.at || S.at.sm !== (!!S.small && !S.small.hidden)) askMeasure(S);   // (a unit that came or went moves the words: measured again)
 }
-const askLand = (S) => { clearTimeout(S.landT); S.landT = 0; if (!S.landAsk) S.landAsk = restPass(() => land(S)); };
+const askLand = (S) => { clearTimeout(S.landT); S.landT = 0; if (S.dead) return; if (!S.landAsk) S.landAsk = restPass(() => land(S)); };
 
 /** Words set through the GPU while they change (see above). `el`'s content is taken over: its words, then a <small> unit if any. */
 export function glWords(el, { unitClass = '', after = false, host = el, onLand = null } = {}) {
   // (Its own text node, when it has one alone; otherwise one is made between frames, as the first words land: nothing is written here.)
   const only = el.firstChild?.nodeType === 3 && !el.firstChild.nextSibling ? el.firstChild : null, t0 = el.textContent || '';
   const S = { el, host, after, unitClass, onLand, txt: only, small: null, want: { t: t0, u: '' }, shown: { t: t0, u: '' },
-    at: null, gl: null, vPath: null, uPath: null, on: false, pend: false, landT: 0, measureAsk: 0, landAsk: 0 };
+    at: null, gl: null, vPath: null, uPath: null, on: false, pend: false, landT: 0, measureAsk: 0, landAsk: 0, dead: false, ro: null };
   if (!only && t0) askLand(S);
   const ask = () => askMeasure(S);
-  if (typeof ResizeObserver === 'function') new ResizeObserver(ask).observe(el);
+  if (typeof ResizeObserver === 'function') (S.ro = new ResizeObserver(ask)).observe(el);
   else ask();
   ALL.add(ask);
+  live.add(S);
+  const dispose = () => {
+    if (S.dead) return;
+    S.dead = true;
+    S.ro?.disconnect(); S.ro = null;
+    ALL.delete(ask); measureQ.delete(S); live.delete(S);
+    clearTimeout(S.landT); S.landT = 0;
+    if (S.landAsk) { cancelRest(S.landAsk); S.landAsk = 0; }
+    if (S.on) { S.on = false; S.el.classList.remove('glw-on'); }
+    if (S.gl) { try { S.gl.dispose?.(); } catch { /* a lost context: nothing left to free */ } S.gl.cv?.remove(); S.gl = null; S.host.classList.remove('glw'); }
+    S.vPath = S.uPath = null;
+  };
   return {
     el,
+    dispose,
+    get disposed() { return S.dead; },
     get text() { return S.want.t; },
     get unit() { return S.want.u; },
     /** Sets the words (and a unit): drawn on the GPU now, written into the page once they hold still. */
     set(t, u = '') {
       t = String(t ?? ''); u = String(u ?? '');
-      if (t === S.want.t && u === S.want.u) return;
+      if (S.dead || (t === S.want.t && u === S.want.u)) return;
       S.want.t = t; S.want.u = u;
       // (?glwords=0, no look read yet, no outlines, a character not cut, words gone or a unit that has no place yet: written between frames.)
       if (!GL_WORDS || !S.at || !glyphsReady() || !t || !textCovers(t + u) || (u && !S.small && !after)) { askLand(S); return; }
@@ -209,6 +232,7 @@ export function glWords(el, { unitClass = '', after = false, host = el, onLand =
     settle: () => askLand(S),
     /** Writes the words into the page at once: for a caller between frames that measures them (a fit trying its widest words). */
     now(t, u = '') {
+      if (S.dead) return;
       S.want.t = String(t ?? ''); S.want.u = String(u ?? '');
       clearTimeout(S.landT); S.landT = 0; cancelRest(S.landAsk);
       land(S);
@@ -235,12 +259,16 @@ export function wordsRect(el, rng = document.createRange()) {
  *  is written between frames, never in one. */
 export function wordSetter(nodes, opts) {
   const m = new Map(nodes.filter(Boolean).map((n) => [n, glWords(n, opts)])), late = new Map();
-  let ask = 0;
-  const flush = () => { ask = 0; for (const [n, t] of late) if (n.textContent !== t) n.textContent = t; late.clear(); };
-  return (n, t, u) => {
+  let ask = 0, dead = false;
+  const flush = () => { ask = 0; if (dead) return; for (const [n, t] of late) if (n.textContent !== t) n.textContent = t; late.clear(); };
+  const set = (n, t, u) => {
+    if (dead) return;
     const w = m.get(n);
     if (w) { w.set(t, u); return; }
     late.set(n, String(t ?? ''));
     if (!ask) ask = restPass(flush);
   };
+  /** Lets go of every readout's glWords and the pending write (recs §8). */
+  set.dispose = () => { if (dead) return; dead = true; for (const w of m.values()) w.dispose(); m.clear(); late.clear(); if (ask) { cancelRest(ask); ask = 0; } };
+  return set;
 }

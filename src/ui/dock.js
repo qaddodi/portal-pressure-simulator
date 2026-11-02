@@ -3,17 +3,17 @@
 
 import { store, hiddenNow } from './store.js?v=4ef2a6ffd8';
 import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, fadeIn, glideOnResize, foldHidden, hasBox, putText } from './util.js?v=271a1dc8c0';
-import { lobuleFlows } from './lobule-model.js?v=75d0f4c1ae';
-import { createProfile } from './charts.js?v=fa869a41f6';
-import { createPressureTime } from './pressure-time.js?v=83fa92ad6f';
-import { createHvpgProcedure } from './hvpg-proc.js?v=066c30b39a';
-import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=885e5192f6';
+import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, fadeIn, glideOnResize, foldHidden, hasBox, putText } from './util.js?v=2a8781cc80';
+import { lobuleFlows } from './lobule-model.js?v=cf82d107a9';
+import { createProfile } from './charts.js?v=dc6789c774';
+import { createPressureTime } from './pressure-time.js?v=e6e825c1be';
+import { createHvpgProcedure } from './hvpg-proc.js?v=e7f11e8659';
+import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=34ed2afd2e';
 import { ownsSideways, pageGo } from './swipe.js?v=e0562f8b0a';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=a4c3db9853';
-import { createReadoutsPane } from './readouts-pane.js?v=b35810057f';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=b9b44026fd';
+import { createReadoutsPane } from './readouts-pane.js?v=e33e093812';
 import { frameFor } from './frame.js?v=64dec3a4dd';
-import { glWords } from './gl-words.js?v=7e7d1edc47';
+import { glWords } from './gl-words.js?v=128403ce39';
 import { restPass } from './rest-pass.js?v=3b9c8725ed';
 import { vitalReading, VITALS } from './vital-read.js?v=cbba41a6b7';
 import { setShown, shownState, FILL_SMALL, fillQ } from './shown.js?v=04c602b618';
@@ -881,6 +881,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     const bs = cmpRows.map(([, txt]) => h('b', {}, txt));
     comparison.replaceChildren(h('span', { class: 'comparison-label' }, `Since ${cmpWhen}`),   // (the moment by its time, as the figure header names it: "baseline" was a third word for "then")
       ...cmpRows.map(([label], i) => h('span', {}, label, bs[i])));
+    for (const w of cmpNums) w.dispose();   // (recs §8: the rows they wrote are replaced)
     cmpNums = bs.map((b) => glWords(b));
   }
   function updateHeader() {

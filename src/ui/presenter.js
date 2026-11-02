@@ -16,10 +16,10 @@
 import { store, replaceParams } from './store.js?v=4ef2a6ffd8';
 import { download } from './download.js?v=3564e5bf8c';
 import { controlOwnsKey } from './key-owner.js?v=60ed93db32';
-import { glWords } from './gl-words.js?v=7e7d1edc47';
-import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, confirmDialog, askText, popoverOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, odoSwap, odoOn, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=271a1dc8c0';
+import { glWords } from './gl-words.js?v=128403ce39';
+import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, confirmDialog, askText, popoverOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, odoSwap, odoOn, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=2a8781cc80';
 import { titleParts } from './title-units.js?v=c8d5ce1f26';
-import { liveText, wordsOf } from './live-text.js?v=b0d265665d';
+import { liveText, wordsOf } from './live-text.js?v=62c3bea2f0';
 import { swipeDir, SWIPE_MIN, SWIPE_RATIO, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight, wheelFinger, wheelGesture, ownsWheel } from './swipe.js?v=e0562f8b0a';
 import { createSvgGL, svgModel, viewMap, noteLoop } from './svg-gl.js?v=a9eafadbc8';
 import { sinusoidSupported } from './gl-support.js?v=38189f60f5';
@@ -31,8 +31,8 @@ import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
 import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=94784eec41';
 import { fingerprintOf } from '../engine/fingerprint.js?v=ca81723393';
 import { hvpgSev } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { createHvpgMonitor } from './hvpg-proc.js?v=066c30b39a';
-import { createTools } from './presenter-tools.js?v=91eed20ebf';
+import { createHvpgMonitor } from './hvpg-proc.js?v=e7f11e8659';
+import { createTools } from './presenter-tools.js?v=eb45b86385';
 import { openHandout } from './handout.js?v=be99975ab1';
 import { noteResume, resumeFor } from './resume.js?v=f086f80ee8';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
@@ -45,13 +45,13 @@ import { createTxns, SLIDE_TXN } from './slide-txn.js?v=1fcea803eb';
 import { prepareShaders } from './gl-compile.js?v=c79638f168';
 import { createFigureKey } from './figure-key.js?v=faff083ee1';
 import { traceWhen } from './trace-labels.js?v=fc916a95c6';
-import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=5d6edb7a1b';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=de58cad72d';
+import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=3cc2f3d247';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=ff2fe2a30f';
 import { clotWords } from './callout-math.js?v=6ef2901a08';
 import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
-import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=064ce89578';
+import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=79f9e2e641';
 import { causeFit } from './cause-fit.js?v=830a6835a5';
-import { anchorsOf, roomFor } from './cam-room.js?v=81bbc018b6';
+import { anchorsOf, roomFor } from './cam-room.js?v=f725b524b4';
 import { beatCount, beatView } from './slide-beats.js?v=2aded612c4';
 import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
 import { flowTimeHeight, trailKeys } from './flow-time.js?v=9259c00230';
@@ -59,7 +59,7 @@ import { PROCS, procBlocked, procOffered, playProcedure, stepMark } from './proc
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=982397f8fb';
 import { createCardZoom, tapTracker } from './card-zoom.js?v=1c7a3c485b';
 import { sheetPanes } from './sheet-glass.js?v=fc8b724c05';
-import { createScopeTile } from './scope-tile.js?v=977adb0da3';
+import { createScopeTile } from './scope-tile.js?v=8e6a885d77';
 import { tileKeys as cardKeys, toolOnly } from './card-tiles.js?v=e547c76c7f';
 import { D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN, EASE_MOVE, RISE_PX, cssCurve } from './ease.js?v=7513a88c68';
 import { slideFold } from './fold-slide.js?v=1b10231dcf';
@@ -625,6 +625,7 @@ function bigTiles() {
   el.classList.toggle('tglide', TILE_GLIDE && odoOn());   // (the bar's marks glide on the compositor: tileGlide)
   document.fonts?.ready?.then(fitSoon);
   function buildTiles(ks, withRef) {
+    for (const p of parts || []) p.vw?.dispose();   // (recs §8: the tiles they wrote are replaced; their GPU words go with them)
     parts = ks.map((k) => {
       const T = tileOf(k) || { t: k, s: '', u: '' };
       const v = h('span', { class: 'pzt-v' }), u = h('small', {}, T.u), r = h('span', { class: 'pzt-r' });

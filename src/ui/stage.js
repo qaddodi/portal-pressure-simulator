@@ -7,13 +7,13 @@ import { WARM_VIEWS, WARM_MS } from './warm-views.js?v=510b2dee9e';
 import { gastricUp } from '../engine/scenario.js?v=0762d1b820';
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=4044766e96';
 import { route as metroRoute, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, CAVITY_LOW, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=fe0f3d1f0e';
-import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=5d6edb7a1b';
+import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=3cc2f3d247';
 import { nodeJoins, sideEndScale } from './fork-joins.js?v=4c6eea81e5';
 import { nodeEnds, nodeDrawn, dotRadius, bareDots } from './circuit-nodes.js?v=1040ba0ec4';
 import { STATION_VESSEL, meanVel, velNormal, judgeFlow } from './velNormal.js?v=97920ddf3f';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=4ef2a6ffd8';
 import { fibroReading } from './clock.js?v=16aba0e2eb';
-import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, loadFailed, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=271a1dc8c0';
+import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, loadFailed, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=2a8781cc80';
 import { riseCentre } from './rise-path.js?v=c039cb7b49';
 import { lerpVT, camPath, blendPaths, viewsOverlap, driftEase } from './cam-arc.js?v=2e5111e648';
 import { easeMove, easeArrive, camMs, carryRate, carried, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js?v=7513a88c68';
@@ -51,13 +51,13 @@ import { measure as measureWords } from './glyph-measure.js?v=550f86c98c';
 import { readGroup as readGroupNow, readGroupRefs, readFail, shapeSource, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=38f26a5836';
 import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js?v=fd7e5bc404';
 import { pathCmds, flattenCmds, polyBox, measurePath, elBox } from './shape-gl.js?v=662f61f3d8';
-import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=9199fc2b33';
+import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=6ffcd3793c';
 import { nameSpots, NAME_BREAK } from './organ-names.js?v=582f206781';
 import { createLabelGL } from './label-gl.js?v=e9cbc5b065';
-import { createGlassGL } from './glass-gl.js?v=930739ce94';
+import { createGlassGL } from './glass-gl.js?v=ce13d5db30';
 import { writePoints, writeJoinNow } from './veins-sweep.js?v=c4ad517372';
 import { ENT_W } from './veins-bin.js?v=6e462a9e6c';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=ac59395e34';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=bd6e171df6';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=d950c5cd1c';
 import { alongCurve } from './pressure-along.js?v=74c64e4286';
@@ -91,7 +91,7 @@ import { bandRing, dashRings, liftEnd, normalShown, rippleList, systemOf, SYSTEM
 import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js?v=6ef2901a08';
 import { CellGrid, geomOf } from './cell-grid.js?v=c9ea140f9a';
 import { restPass } from './rest-pass.js?v=3b9c8725ed';
-import { glWords } from './gl-words.js?v=7e7d1edc47';
+import { glWords } from './gl-words.js?v=128403ce39';
 const nextFrame = frameFor('stage');
 // (1 Nov 2026, "Move everything to GPU": zero layout inside the frame. Boxes the figure's pieces keep clear of (the slide's cards, the
 // key pill, the readings' own sizes, the home look's room) are read first in a frame, before anything is written (frame.js readFrame),
@@ -162,6 +162,12 @@ function luminance(c) {
   if (!m) return 0;
   const [r, g, b] = [m[1], m[2], m[3]].map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; });
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+// (recs-production-120hz §8: a callout that goes lets go of its glass and its GPU words, their observers, timers and pictures.)
+function dropLabel(el) {
+  el._glass?.dispose();
+  for (const w of [el._kW, el._bW, el._uW, ...(el._spW || [])]) w?.dispose?.();   // (kept, disposed: a late set on them does nothing)
 }
 
 export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, onViewChange }) {
@@ -2767,7 +2773,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=94e231535d').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=2e3274f338').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -7397,7 +7403,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function siteLeave(k, el) {
     if (sites.made.get(k) === el) sites.made.delete(k);
     el.classList.add('cath-leave');
-    setTimeout(() => { el._glass?.dispose(); el.remove(); }, reduceMotion.matches ? 0 : 700);
+    setTimeout(() => { dropLabel(el); el.remove(); }, reduceMotion.matches ? 0 : 700);
   }
   // A reading's number counts to a new value over 950 ms, eased, as the data card's tiles count (presenter.js tweener), so a slide's
   // or a patient's change never swaps it at once; within tol of the number shown (the live model breathing, a slider being dragged)
@@ -7778,7 +7784,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     setTimeout(() => { if (scan.on) return; scan.leaving = false; const b = pool.get('scan'); if (b) b.g.style.display = 'none'; }, 700);
     const el = scan.el; scan.el = null; scan.packs = null; scan.fronts = []; scan.v = 0; scan.next = 0; scan.nextTap = 0;
     if (scan.raf) { cancelFrame(scan.raf); scan.raf = 0; }
-    if (el) { el.classList.add('cath-pre'); setTimeout(() => { el._glass?.dispose(); el.remove(); if (!scan.el) labelGL?.setScan(null); }, 500); }
+    if (el) { el.classList.add('cath-pre'); setTimeout(() => { dropLabel(el); el.remove(); if (!scan.el) labelGL?.setScan(null); }, 500); }
   }
   // ── The Doppler probe (dop-probe.js) ──
   // While the Doppler reads a vessel, a small probe stands off it, its line of sight runs straight through the vessel, and the sample
@@ -8466,7 +8472,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       cathFade = null; cancelFrame(me.raf); clearTimeout(me.timer);
       catheterGone();
       cath.labels.hidden = true;
-      for (const el of cath.made?.values() || []) el._glass?.dispose();
+      for (const el of cath.made?.values() || []) dropLabel(el);
       late('kids', cath.labels, []); cath.made?.clear();
     };
     const step = (now) => {
@@ -8527,7 +8533,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function cathLeadKids(svg) { svg._kAsk = 0; svg._k = Array.from({ length: svg._kN }, () => [s('path', {}), s('circle', { r: 4.5 })]).flat(); svg.replaceChildren(...svg._k); cathLabelsSoon(); }
   function cathLabels() {
     const st = cath.st, at = cath.at;
-    if (!st || !at) { for (const el of [...(cath.made?.values() || []), ...(cath.leaving?.keys() || [])]) el._glass?.dispose(); late('kids', cath.labels, []); cath.made?.clear(); cath.leaving?.clear(); cath.lblKey = ''; return; }
+    if (!st || !at) { for (const el of [...(cath.made?.values() || []), ...(cath.leaving?.keys() || [])]) dropLabel(el); late('kids', cath.labels, []); cath.made?.clear(); cath.leaving?.clear(); cath.lblKey = ''; return; }
     // Laid out once per change of the camera or the catheter (a glide and the procedure's step both ask in one frame).
     const lk = `${viewVersion}|${cathVer}`;
     if (lk === cath.lblKey) return;
@@ -8543,10 +8549,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const [k, el] of made) if (!want.has(k)) {
       made.delete(k);
       // (Where it stood, from its own last placing (stage px), not read off the page.)
-      if (travel && (k === 'f' || k === 'w')) { if (el._box) from[k === 'f' ? 'tip' : 'ahead'] = { left: el._box.x0, top: el._box.y0 }; el._glass?.dispose(); el.remove(); continue; }
+      if (travel && (k === 'f' || k === 'w')) { if (el._box) from[k === 'f' ? 'tip' : 'ahead'] = { left: el._box.x0, top: el._box.y0 }; dropLabel(el); el.remove(); continue; }
       // It fades out where it is on the figure (following the camera, never stuck on the screen), then goes.
       el.classList.add('cath-pre', 'cath-out'); leaving.set(el, el._l);
-      setTimeout(() => { el._glass?.dispose(); el.remove(); leaving.delete(el); }, 450);
+      setTimeout(() => { dropLabel(el); el.remove(); leaving.delete(el); }, 450);
     }
     // (A reading is cloned from a model made ahead; its words are drawn by glWords, never written in a frame: gl-words.js.)
     const pill = (l, cls = '') => {
@@ -8554,7 +8560,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       el.className = `cath-label ${l.cls || ''} ${cls || 'cath-js'}`; el.dataset.at = l.at || '';
       const [, k, b, u] = el.children;   // (the first is its glass)
       el._kW = glWords(k); el._bW = glWords(b); el._kW.set(l.kicker || ''); el._bW.set(l.text);
-      if (u) glWords(u).set(l.unit);
+      if (u) (el._uW = glWords(u)).set(l.unit);
       el._glass = glassCallout(el);
       return el;
     };

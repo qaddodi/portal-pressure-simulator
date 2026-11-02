@@ -445,8 +445,11 @@ export function createPaintGL(gl) {
   function shadowScratch(w, h) {
     const r = res;
     if (r.sh && r.sh.w >= w && r.sh.h >= h) return r.sh;
+    // (The old size read before it is let go (recs-production-120hz §18: dropShadow clears r.sh, so reading it after kept nothing, and a
+    // wide shadow then a tall one made the scratch again each time). It grows to hold both, in buckets.)
+    const ow = r.sh?.w || 0, oh = r.sh?.h || 0;
     dropShadow();
-    const W = bucket(Math.max(w, r.sh?.w || 0)), H = bucket(Math.max(h, r.sh?.h || 0));   // (R08: in buckets, warm-views.js)
+    const W = bucket(Math.max(w, ow)), H = bucket(Math.max(h, oh));   // (R08: in buckets, warm-views.js)
     const a = gl.createFramebuffer(), aT = tex(W, H), aS = gl.createRenderbuffer(), b = gl.createFramebuffer(), bT = tex(W, H);
     gl.bindRenderbuffer(gl.RENDERBUFFER, aS); gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH24_STENCIL8, W, H);
     gl.bindFramebuffer(gl.FRAMEBUFFER, a);

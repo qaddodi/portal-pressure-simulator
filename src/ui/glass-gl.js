@@ -8,7 +8,8 @@
 // Off (the browser's glass, as before): no WebGL2, a software renderer, ?gpulabels=0, Settings' blur effect off, reduced
 // transparency, a browser without backdrop blur (whose solid card stays), or a copy the browser refuses.
 
-import { GLASS_SHARE, shareFor, sharePrep, sharePlan, shareTurn } from './blur-share.js?v=03dc87b709';
+import { GLASS_SHARE, shareFor, sharePrep, sharePlan, shareTurn, shareUse, shareRelease, shareBytes } from './blur-share.js?v=00eb65ddf2';
+import { hold } from './gpu-budget.js?v=daaf5ee8a0';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=625c2c9315';
 import { finalFrameFor, readFrameFor, framePhase, cancelFrame, noteDraw } from './frame.js?v=64dec3a4dd';
 import { startProgram, checkProgram, compileDone, exerciseDraw, SHADER_WARM } from './gl-compile.js?v=c79638f168';
@@ -784,6 +785,12 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   const whyEl = new Map();
   let whyAll = '', heldWake = 0;
   let host = null, hk = null, hostOn = false, hf = null, hostTops = [], hostMo = null;
+  const shareId = {};   // (this instance, as a user of its context's shared blurs: blur-share.js)
+  const freeShare = (G) => (t) => {
+    if (G.isContextLost()) return;
+    for (const x of [t.copy, t.pass, t.blurred, ...(t.steps || []).map((st) => st.t)]) if (x) G.deleteTexture(x);
+    for (const fb of [t.fbCopy, t.fbPass, t.fbOut, ...(t.steps || []).map((st) => st.fb)]) if (fb) G.deleteFramebuffer(fb);
+  };
   const crosses = (panes, rs) => {
     if (!rs?.length || !panes.length) return false;
     return panes.some((p) => rs.some((r) => r.right > r.left && r.bottom > r.top && p.r.left < r.right && r.left < p.r.right && p.r.top < r.bottom && r.top < p.r.bottom));
@@ -803,6 +810,8 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     if (K?.trail) { clearTimeout(K.trail); K.trail = 0; }
     if (!K || K.G.isContextLost()) return;
     const G = K.G;
+    // (Its place among the shared blur's users given back; the last one out frees the shared targets.)
+    shareRelease(shares, G, shareId, freeShare(G));
     for (const t of [K.copy, K.pass, K.blurred, ...K.steps.map((st) => st.t), ...K.maskTex]) G.deleteTexture(t);
     for (const fb of [K.fbCopy, K.fbPass, K.fbOut, ...K.steps.map((st) => st.fb), ...K.maskFb]) G.deleteFramebuffer(fb);
     if (!K.shared) { G.deleteProgram(K.bprog); G.deleteProgram(K.pprog); }   // (the warmed set stays with its context, for the others)
@@ -999,7 +1008,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
   // pane under the labels, the teaching card's shade ('low'), the callouts, the other cards ('high'). The cards' two turns share one
   // blur and one set of marks, given back after the last turn (settleMarks).
   let frameMarks = new Set(), blurOK = false;
-  const SHARED = GLASS_SHARE && !(reblur > 0), shareId = {};
+  const SHARED = GLASS_SHARE && !(reblur > 0);
   function prepInto() {
     frameMarks = new Set(); blurOK = false;
     if (hk) hk.share = null;
@@ -1014,6 +1023,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
       // (blur-share.js: what this glass needs is entered; the first glass drawn on this picture blurs once for every glass of its look.)
       const S = shareFor(shares, G, look, SCALE);
       sharePrep(S, { id: shareId, boxes: panes.map((p) => ({ x: p.r.left - cr.left, y: p.r.top - cr.top, w: p.r.width, h: p.r.height })), key: `${version ? version() : performance.now()}|${fresh ? fresh() : ''}` });
+      shareUse(S, shareId);
       hk.share = S; hk.k = k; blurOK = true;
       return;
     }
@@ -1072,7 +1082,14 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     const plan = sharePlan(S, grid, grid.T / k, bw, bh, full, blurBoxes);
     S.reg = { x: grid.x, y: grid.y, w: grid.w, h: grid.h };
     if (plan.key === S.key && S.t) { S.ok = true; S.skips++; if (gpuProbe.on) gpuProbe.note(COUNTED.glassSkip); return true; }
-    if (!S.t) S.t = { copy: texOf(G, G.LINEAR), pass: texOf(G, G.LINEAR), blurred: texOf(G, G.LINEAR), fbCopy: G.createFramebuffer(), fbPass: G.createFramebuffer(), fbOut: G.createFramebuffer(), steps: [], size: '', allocs: 0 };
+    if (!S.t) {
+      S.t = { copy: texOf(G, G.LINEAR), pass: texOf(G, G.LINEAR), blurred: texOf(G, G.LINEAR), fbCopy: G.createFramebuffer(), fbPass: G.createFramebuffer(), fbOut: G.createFramebuffer(), steps: [], size: '', allocs: 0 };
+      // (A retained holder of the budget: under pressure it is freed between frames and made again by the next blur that needs it.)
+      S.hold?.drop();
+      const mine = S.t;
+      S.hold = hold({ owner: `shared glass blur ${S.look}`, kind: 'retained', gl: G, bytes: () => shareBytes(S), release: () => { if (S.t !== mine) return; freeShare(G)(mine); S.t = null; S.key = ''; S.ok = false; S.hold = null; } });
+    }
+    S.hold?.touch();
     const B = Object.assign(S.t, { G, bprog: hk.bprog, BU: hk.BU, vao: hk.vao });
     G.disable(G.SCISSOR_TEST); G.disable(G.STENCIL_TEST);
     const ok = hostBlur(grid, plan.parts, B);
@@ -1091,7 +1108,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
     if (!host.active()) { dropHost(false); return; }
     const final = pass !== 'low';
     const { cr } = hf;
-    if (blurOK && hk.share && !runShare(hk.share, cr)) blurOK = false;
+    if (blurOK && hk.share && (!runShare(hk.share, cr) || !hk.share.t)) blurOK = false;
     const panes = !blurOK ? [] : pass === 'all' ? hf.panes : hf.panes.filter((p) => !!host.low?.(p.g) === (pass === 'low'));
     if (!panes.length) { if (final) settleMarks(frameMarks); return; }
     const W2 = host.canvas.width, H2 = host.canvas.height, k = hk.k;
