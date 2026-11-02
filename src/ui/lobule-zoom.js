@@ -734,7 +734,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   let glAsk = 0;
   function glNow() {
     if (glTried) return gl;
-    if (!glAsk) glAsk = restPass(() => { glAsk = 0; ensureGL(); drawVersion++; tissueKey = ''; layoutKey = ''; if (!raf && fade > 0) raf = nextFrame(loop); });
+    if (!glAsk) glAsk = restPass(() => { glAsk = 0; ensureGL(); drawVersion++; tissueKey = ''; layoutKey = ''; if (!raf && fade > 0) raf = nextFrame(loop); });   // alloc-rare: only the first frame that finds the GPU context not made yet (glAsk holds the one ask until ensureGL has run)
     return null;
   }
   // (Registered once: one per ensureGL would add another handler on every restore.)
