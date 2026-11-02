@@ -44,7 +44,7 @@ import { leftAlone } from './quiet.js?v=388052eba8';
 import { uniformCache } from './uniform-cache.js?v=d2bd54b612';
 import { PUBLISH_QUIET_MS, SHADER_WARM, exerciseDraw } from './gl-compile.js?v=e48e05cdb3';
 import { createShapeGL, flattenPath, ellipsePoly, polyMesh } from './shape-gl.js?v=1e2bc57a21';
-import { createOrganStack, prestartOrganStack, prestartLayer } from './organs-gl.js?v=e24ee38428';
+import { createOrganStack, prestartOrganStack, prestartLayer } from './organs-gl.js?v=eb2f705aa2';
 import { warmFade } from './res-fade-gl.js?v=37c4818df3';
 import { fusedVS, fusedFS } from './veins-fuse.js?v=892ef12160';
 import { NOISE_W, NOISE_H, NOISE_PER_ROW, OCTAVES, noiseBlock, blockAt, tableSize } from './blood-noise.js?v=bc65994b25';
@@ -3241,11 +3241,14 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       },
       dropStaged: (slot) => stack.dropStaged(slot),
       has: (slot) => stack.has(slot),
+      /** Whether a slot holds pictures of its own, not only the whole set painted live (organs-gl setLive full). */
+      pictured: (slot) => stack.pictured(slot),
       /** Whether the view's sharper picture is still fading in (organs-gl): the stage draws on until it is whole. */
       get fading() { return stack.fading; },
       /** Organs painted live in the stack, and layers' live masks (organs-gl setLive); the names it lays, in order. */
       get canLive() { return stack.canLive; },
       setLive: (organs, masks) => { texVer++; return stack.setLive(organs, masks); },
+      setLiveAll: (organs) => { texVer++; return stack.setLiveAll(organs); },
       setOrder: (names) => { texVer++; return stack.setOrder(names); },
       /** A layer gathered under a live mask now at dy world units down (the bowel's float on the ascites). */
       shift: (name, dy) => { texVer++; return stack.shift(name, dy); },

@@ -29,7 +29,9 @@ export function callerOf(stack) {
   return '?';
 }
 const bump = (map, k, n = 1) => map.set(k, (map.get(k) || 0) + n);
-const read = () => { tot.reads++; bump(READS, callerOf(new Error().stack)); };
+// (The caller is named only while a window is open: a stack per read at every other time slowed the page it measures.)
+let open = 0;
+const read = () => { tot.reads++; if (open) bump(READS, callerOf(new Error().stack)); };
 
 /** Bytes in an upload call's data argument, or from width × height × 4 for a texture given by size or by image. */
 export function bytesOf(args, tex) {
@@ -96,10 +98,11 @@ export function installMotionBudget({ root = document, skip = () => false } = {}
 }
 
 /** A window: the totals now, to subtract at its end. */
-function start(kind = 'window') { return { kind, t0: performance.now(), tot: { ...tot }, reads: new Map(READS), writes: new Map(WRITES), live }; }
+function start(kind = 'window') { open++; return { kind, t0: performance.now(), tot: { ...tot }, reads: new Map(READS), writes: new Map(WRITES), live }; }
 const diff = (now, was, n) => [...now].map(([k, v]) => [k, v - (was.get(k) || 0)]).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, n);
 /** The window's counts, with the top `n` readers and written element/attribute pairs. */
 function stop(w, n = 8) {
+  if (!w.done) { w.done = true; open = Math.max(0, open - 1); }
   const d = {};
   for (const k in tot) d[k] = tot[k] - w.tot[k];
   return { kind: w.kind, ms: performance.now() - w.t0, ...d, live, liveAtStart: w.live, readers: diff(READS, w.reads, n), written: diff(WRITES, w.writes, n) };

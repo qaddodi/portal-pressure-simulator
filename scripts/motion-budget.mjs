@@ -24,6 +24,9 @@ export const MOTIONS = [
   { name: 'anatomy to circuit', query: '?preset=cirr-decomp', view: 'circuit' },
 ];
 
+// (Before the press the organs' GPU picture must be up (gl-plate): until it lands the page shows its SVG organs, and a slide change then
+// counts the SVG's greying and the organs' reading as if they were the change's own. On software GL the picture takes minutes.)
+const plated = (page, max = 1200) => page.waitForFunction(() => document.querySelector('#stageView')?.classList.contains('gl-plate'), null, { timeout: max * 1000, polling: 1000 }).then(() => true, () => false);
 const landed = async (page, max = 300) => {
   for (let ok = 0, t0 = Date.now(); Date.now() - t0 < max * 1000; await page.waitForTimeout(1000)) if ((ok = (await page.evaluate(CARDS_LANDED)) ? ok + 1 : 0) >= 2) return true;
   return false;
@@ -35,13 +38,14 @@ async function measure(m) {
   try {
     await app.freeze();
     if (m.press) await landed(app.page); else await app.page.waitForTimeout(15000);
+    const plate = await plated(app.page);
     await app.page.waitForTimeout(3000);   // (the slide's own settle: anything still easing finishes before the window opens)
     await app.page.evaluate(() => { window.__mb = window.pps.motionBudget.start('motion'); });
     if (m.press) { await app.page.keyboard.press(m.press); await app.page.waitForTimeout(2000); await landed(app.page); }
     else { await app.page.evaluate((v) => window.pps.store.set({ view: v }), m.view); await app.page.waitForTimeout(20000); }
     await app.page.waitForTimeout(1500);
     const r = await app.page.evaluate(() => window.pps.motionBudget.stop(window.__mb, 12));
-    return { name: m.name, device, ...r };
+    return { name: m.name, device, plate, ...r };
   } finally { await app.close(); }
 }
 
@@ -50,7 +54,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   for (const m of MOTIONS.filter((x) => !only || x.name === only)) {
     const r = await measure(m);
     rows.push(r);
-    console.log(`${r.name} (${device}): ${r.reads} reads, ${r.writes} writes, ${r.made} contexts made (${r.lost} lost), ${(r.upload / 1024).toFixed(0)} KB in ${r.uploads} uploads`);
+    console.log(`${r.name} (${device}${r.plate ? '' : ', organs still on SVG at the press'}): ${r.reads} reads, ${r.writes} writes, ${r.made} contexts made (${r.lost} lost), ${(r.upload / 1024).toFixed(0)} KB in ${r.uploads} uploads`);
     console.log(`  readers: ${r.readers.map(([k, v]) => `${k} ${v}`).join(', ')}`);
     console.log(`  written: ${r.written.map(([k, v]) => `${k} ${v}`).join(', ')}`);
   }

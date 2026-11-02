@@ -41,7 +41,7 @@ import { refine } from './refine.js?v=e6e17cc013';
 import { fadeOver, fadeStop, fading } from './res-fade.js?v=c217651b81';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { leftAlone, sinceInput, booting, holdCover } from './quiet.js?v=388052eba8';
-import { cropToGrid } from './organs-gl.js?v=e24ee38428';
+import { cropToGrid } from './organs-gl.js?v=eb2f705aa2';
 import { textPolys, loadGlyphs, glyphsReady, textBox } from './text-gl.js?v=8db702aacd';
 import { cssColor8 } from './css-color.js?v=e56f0c77ae';
 import { measure as measureWords } from './glyph-measure.js?v=131d137ce2';
@@ -54,7 +54,7 @@ import { createLabelGL } from './label-gl.js?v=020cf28e39';
 import { createGlassGL } from './glass-gl.js?v=f464c7557d';
 import { writePoints, writeJoinNow } from './veins-sweep.js?v=c4d04207e0';
 import { ENT_W } from './veins-bin.js?v=7eb5e277a6';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=4e4d653323';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=e425f912b0';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=d950c5cd1c';
 import { alongCurve } from './pressure-along.js?v=74c64e4286';
@@ -2707,7 +2707,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=81df6fbc26').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=75e6939a9c').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor });
@@ -4821,8 +4821,25 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // task (after the model update in progress), so no frame shows the SVG organs over the old GPU
   // plate: the two, and the ascites, would add up to a bright flash.
   let plateRedraw = false, plateDrops = 0;
+  // Every layer painted live on the GPU while the organs' pictures are down (at start, and after a theme change drops them), instead of
+  // the page's SVG organs: the stack shows the whole figure from the organs' own shapes until the new pictures land, then goes back to
+  // painting only the changing organs live (2 Nov 2026: no SVG fallback; the SVG organs showed for seconds in a deck, the pictures
+  // waiting for a quiet frame). A layer the painter cannot read keeps the old way. ?fulllive=0: as before.
+  const FULL_LIVE = !/[?&]fulllive=0\b/.test(location.search);
+  let fullSwap = false, fullFailed = false;
+  const fullOk = () => FULL_LIVE && !fullFailed && liveOn() && !!veins?.organs?.pictured;
+  function keepForWhole() {
+    if (!fullOk() || veins.lost) return false;
+    fullSwap = true;
+    veins.dropPlate(1); plateView = null; plateViewKey = ''; dropViewKeep();
+    veinsDirty = true; syncLiveOrgans(true);
+    return true;
+  }
   function hidePlate() {
     plateDrops++;   // (a raster still on its way in is of the state before: rasterPlate gives it up)
+    // (With every layer able to be painted live, the old pictures stay until the live layers take over in the next frames: no frame shows
+    // the SVG organs, nor neither. liveApply drops them as it hands the stack the whole set.)
+    if (keepForWhole()) return;
     veins.dropPlate(0); veins.dropPlate(1); plateView = null; plateViewKey = ''; dropViewKeep();
     wrap.classList.remove('gl-plate'); veinsDirty = true; syncPlateLook();
     if (inUpdate) plateRedraw = true; else drawVeins(false, 'plate hidden');
@@ -4993,10 +5010,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (organ-paint liveOf): the specs are read again only when what is in them changes: a part hidden or shown, the liver's mask,
   // the ghost line, a lens, the theme and its colours. They were read again on every frame of an ease: about fifty computed
   // styles, with the step's writes pending.)
+  const fullWanted = () => fullOk() && (fullSwap || !veins.organs.pictured(0));
   function liveKey() {
     const cs = wrapCS();
     return [organG.liver.getAttribute('mask'), ghost.style.display, lv.sep.style.visibility, lv.nod.style.visibility, lv.cong.style.visibility, lv.isl.style.visibility,
-      cs.getPropertyValue('--stage-bg'), cs.getPropertyValue('--organ-liver'), wrap.classList.contains('imaging'), themeKey()].join('|');
+      cs.getPropertyValue('--stage-bg'), cs.getPropertyValue('--organ-liver'), wrap.classList.contains('imaging'), themeKey(), fullWanted()].join('|');
   }
   function syncLiveOrgans(force = false) {
     const v = veins;
@@ -5004,8 +5022,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!liveOn()) { if (liveSet) { v.organs.setLive(null, null); liveSet = false; liveKeyWas = ''; } return; }
     const key = liveKey();
     if (!force && key === liveKeyWas) return;
-    // (The organs' own colours: a lens's grey on the live SVG (only while the plate is off) would be read as theirs.)
-    if (greyList) return;
+    // (fullWanted: the whole set, while no picture is in; its change asks for a new reading too, through the key.)
+    // (The organs' own colours: a lens's grey on the live SVG (only while the plate is off) would be read as theirs. The whole set
+    // takes it off for its read, liveRead.)
+    if (greyList && !fullWanted()) return;
     liveKeyWas = key;
     // (The specs are read first in the next frame, while the layout is still the last frame's (readFrame), and handed to the stack in
     // that frame's own phase after: never read among a frame's writes.)
@@ -5015,17 +5035,28 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function liveRead() {
     liveAsk = 0;
     const v = veins;
-    if (!v || v.lost || !v.organs || !liveOn() || greyList) { liveKeyWas = ''; return; }
+    if (!v || v.lost || !v.organs || !liveOn() || (greyList && !fullWanted())) { liveKeyWas = ''; return; }
     const organs = new Map(), masks = new Map();
     let ok = true;
     liveFailWhy = '';
-    const add = (L, el) => {
+    const add = (L, el, opt) => {
       if (getComputedStyle(el).display === 'none') return;
-      const spec = readGroup(el);
+      const spec = readGroup(el, opt);
       if (!spec) { ok = false; liveFailWhy ||= `${elName(el)} not readable`; console.warn('Organs on the GPU: not readable for painting, the organs stay pictures:', el); return; }
       if (!organs.has(L)) organs.set(L, []);
       organs.get(L).push({ spec, get m() { return matOfEl(el); } });   // (the group's own frame, as it is at each paint)
     };
+    const full = fullWanted();
+    // (The whole set: every layer's groups painted live, each with its own mask, as the browser lays them; no cuts over pictures. Read
+    // in the organs' own colours: a lens's grey on the SVG is taken off for the read and put back, as for the pictures, bakeAll.)
+    if (full) {
+      const greyed = !!greyList;
+      if (greyed) { greyClear(); organDimKey = ''; }
+      // (Read as the pictures' groups are, bakeAll: the gut's see-through shades and the stomach's fades are groups of their own.)
+      try { add('back', gBackdrop); for (const [k, L] of organLayers()) if (L !== 'back') add(L, k, LIVE_LAYERS.has(L) ? undefined : { nest: true }); } finally { if (greyed) syncOrganDim(); }
+      nextFrame(() => liveApply(ok, organs, new Map(), true));
+      return;
+    }
     add('back', gBackdrop);
     for (const [k, L] of organLayers()) if (LIVE_LAYERS.has(L)) add(L, k);
     for (const [L, sel] of Object.entries(MASK_OF)) {
@@ -5038,9 +5069,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     nextFrame(() => liveApply(ok, organs, masks));
   }
-  function liveApply(ok, organs, masks) {
+  function liveApply(ok, organs, masks, full = false) {
     const v = veins;
     if (!v || v.lost || !v.organs || !liveOn()) return;
+    if (full) {
+      // (A layer the painter cannot read: the whole set is given up for good, and the pictures are dropped the old way, the SVG
+      // showing until they are made again. The changing organs stay live.)
+      if (!ok || !fullWanted()) { if (!ok) fullFailed = true; const swap = fullSwap; fullSwap = false; liveKeyWas = ''; if (swap) hidePlate(); syncLiveOrgans(true); return; }
+      fullSwap = false;
+      if (v.organs.pictured(0)) v.dropPlate(0);   // (the old pictures, of the state before, go as the whole set comes in)
+      v.organs.setLiveAll(organs); liveSet = true;
+      v.organs.setOrder(ORGAN_LAYERS);
+      veinsDirty = true; platePoke(); stageWake();
+      return;
+    }
     if (!ok) { liveFailed = true; v.organs.setLive(null, null); liveSet = false; hidePlate(); platePoke(); return; }
     // (The next composite renders the stack again for it (its version moved): the vessels themselves need no redraw.)
     v.organs.setLive(organs, masks); liveSet = true;

@@ -127,7 +127,7 @@ export function createOrganStack(gl, { painter: shared = null } = {}) {
   // the whole screen). `liveVer` moves with setLive; `ver` with anything that needs the whole stack drawn again.
   let liveVer = 0, drawnAt = '', drawnDesc = new Map();
   // The live organs (name → [{ spec (organ-paint readGroup), m (its frame → world) }]) and the layers' live masks (name → { spec, m }).
-  let liveOrgans = new Map(), cuts = new Map(), painter = null;
+  let liveOrgans = new Map(), cuts = new Map(), painter = null, full = false;
   if (shared) painter = shared;
   else try { painter = createOrganPaint(gl, createShapeGL(gl)); } catch (e) { console.warn('Organ stack: the live painter failed; the organs stay pictures.', e); }
   // What the painter reads from the page at each paint (organ-paint liveOf, describe) is the live groups' elements' own attributes
@@ -151,6 +151,7 @@ export function createOrganStack(gl, { painter: shared = null } = {}) {
     elsOf(spec.mask, out);
   };
   function watchLive() {
+    full = false;   // (called by every setLive: a new set is not the whole set unless setLiveAll says so, after it)
     if (!watch) return;
     pull(); watch.disconnect();
     const els = new Set();
@@ -276,7 +277,13 @@ export function createOrganStack(gl, { painter: shared = null } = {}) {
      * The organs painted live, by layer name (each a list of { spec, m }), and the layers' live masks (name → { spec, m }), in
      * place of what was set before; null for none. Drawn at the next render.
      */
+    // (setLiveAll, `full`: every layer is painted live, none from a picture: the stack shows the whole figure while its pictures are made, so the
+    // page's SVG organs never show (2 Nov 2026, "no SVG fallback"). has(0) then holds as if the pictures were in.)
     setLive(organs, masks) { liveOrgans = organs || new Map(); cuts = masks || new Map(); liveVer++; freeCache(); watchLive(); },
+    /** Every layer painted live (the whole set, no cuts): setLive, then has(0) holds while no picture is in. Any setLive after ends it. */
+    setLiveAll(organs) { this.setLive(organs, null); full = liveOrgans.size > 0; },
+    /** Whether the stack shows every layer live (setLive full). */
+    get full() { return full; },
     /** A layer gathered under a cut (its `under`) now at dy world units down (drawn at its `at`), as of the next render. */
     shift(name, dy) {
       for (const c of cuts.values()) for (const u of c.under || []) if (u.name === name && u.dy !== dy) { u.dy = dy; liveVer++; }
@@ -284,7 +291,9 @@ export function createOrganStack(gl, { painter: shared = null } = {}) {
     /** The names the stack lays, back to front (the layers' and the live organs'). */
     setOrder(names) { order = names.slice(); ver++; },
     drop(slot) { if (live[slot].size) { free(live[slot]); ver++; } free(staged[slot]); },
-    has: (slot) => live[slot].size > 0,
+    has: (slot) => live[slot].size > 0 || (slot === 0 && full),
+    /** Whether a slot holds pictures of its own (not only the live layers that stand in for them). */
+    pictured: (slot) => live[slot].size > 0,
     /** Whether the view's picture is still fading in (the stage keeps drawing frames until it is whole). */
     get fading() { return fading(); },
     /** Whether a render at transform m and this size would draw something new (a pan, a zoom, a new set, a live group written). */
