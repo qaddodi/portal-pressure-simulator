@@ -3899,7 +3899,26 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     });
     return ends;
   }
+  const joinWant = new Set();
+  let joinAsk = 0;
+  function joinBuild() {
+    joinAsk = 0;
+    for (const x of joinWant) {
+      if (x.join) continue;
+      const id = x.e.id;
+      x.join = [0, 1].map((i) => ({ gr: s('linearGradient', { id: `jg-${id}-${i}`, gradientUnits: 'userSpaceOnUse' },
+        s('stop', { offset: '0', 'stop-color': '#fff' }), s('stop', { offset: '1', 'stop-color': '#000' })),   // colour-exempt: a mask
+        box: s('path', { fill: `url(#jg-${id}-${i})` }) }));
+      const m = s('mask', { id: `jm-${id}`, maskUnits: 'userSpaceOnUse', x: 0, y: 0, width: VIEW.w, height: VIEW.h },
+        s('rect', { x: 0, y: 0, width: VIEW.w, height: VIEW.h, fill: '#fff' }), x.join[0].box, x.join[1].box);   // colour-exempt: a mask
+      late('defs', [x.join[0].gr, x.join[1].gr, m]);
+    }
+    joinWant.clear();
+    updateJoins(joinT);   // (set now, between frames, as the frame would have)
+  }
+  let joinT = 0;
   function updateJoins(t) {
+    joinT = t;
     if (t === 0 && nearVersion !== geometryVersion) { buildNear(); nearVersion = geometryVersion; }
     for (const x of EV) {
       const ends = joinEnds(x, t);
@@ -3908,15 +3927,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (key === (x.joinKey || '')) continue;
       x.joinKey = key;
       if (!key) { for (const g of x.groups) g.removeAttribute('mask'); continue; }
-      if (!x.join) {
-        const id = x.e.id;
-        x.join = [0, 1].map((i) => ({ gr: s('linearGradient', { id: `jg-${id}-${i}`, gradientUnits: 'userSpaceOnUse' },
-          s('stop', { offset: '0', 'stop-color': '#fff' }), s('stop', { offset: '1', 'stop-color': '#000' })),   // colour-exempt: a mask
-          box: s('path', { fill: `url(#jg-${id}-${i})` }) }));
-        const m = s('mask', { id: `jm-${id}`, maskUnits: 'userSpaceOnUse', x: 0, y: 0, width: VIEW.w, height: VIEW.h },
-          s('rect', { x: 0, y: 0, width: VIEW.w, height: VIEW.h, fill: '#fff' }), x.join[0].box, x.join[1].box);   // colour-exempt: a mask
-        late('defs', [x.join[0].gr, x.join[1].gr, m]);
-      }
+      // (A vein's join mask is made between frames, never in the frame that first wants it (2 Nov 2026, "Move everything to GPU"): it is
+      // set as it is made.)
+      if (!x.join) { x.joinKey = ''; joinWant.add(x); if (!joinAsk) joinAsk = restPass(joinBuild); continue; }
       for (const i of [0, 1]) {
         const { gr, box } = x.join[i];
         if (!ends.includes(i)) { box.removeAttribute('d'); continue; }
@@ -6163,10 +6176,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // The calipers' and brackets' lines, each frame (the spleen grows through a time-lapse, a vessel's width eases): a line that
   // comes eases in, one that goes eases out (app.css, Package F).
+  // (A new line takes one made ahead, between frames: a frame makes none (2 Nov 2026, "Move everything to GPU"). With none left, it comes
+  // in the frame after the spares are made again.)
+  const fxSpare = [], FX_SPARE = 6;
+  let fxFill = 0;
+  function fxTop() { fxFill = 0; while (fxSpare.length < FX_SPARE) fxSpare.push(s('g', {}, s('path', { class: 'fx-halo' }), s('path', { class: 'fx-ink' }))); }
+  fxTop();
   function fxLine(key, parent, d, cls) {
     let el = fxEls.get(key);
     if (!el) {
-      el = s('g', { class: cls }, s('path', { class: 'fx-halo' }), s('path', { class: 'fx-ink' }));
+      el = fxSpare.pop();
+      if (fxSpare.length < FX_SPARE / 2 && !fxFill) fxFill = restPass(fxTop);
+      if (!el) return;
+      el.setAttribute('class', cls);
       late('add', parent, el); fxEls.set(key, el);
       if (!reduceMotion.matches) nextFrame(() => nextFrame(() => el.classList.add('on'))); else el.classList.add('on');
     }
@@ -6570,6 +6592,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (selLine.el.getAttribute('d') !== d) selLine.el.setAttribute('d', d);
     if (tr) selLine.el.setAttribute('transform', tr); else selLine.el.removeAttribute('transform');
   }
+  // (The selection's outline and the fluid's are made once, ahead, and reused: a frame that selects an organ makes nothing (2 Nov 2026).)
+  const SEL_LINE = s('path', { class: 'org-sel-line' });
+  const SEL_FLUID = (() => { const fill = s('path', { class: 'org-sel-fluid' }), line = s('path', { class: 'org-sel-line' }); return { g: s('g', { 'clip-path': 'url(#abdomenClip)' }, fill, line), fill, line }; })();
   function updateOrganSel(sel, t) {
     const o = sel?.type === 'organ' && t < 0.5 ? sel.id : null;
     const key = o ? o + (sel.lobe || '') : '';
@@ -6585,13 +6610,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (glLines) return;
       // The outline follows the organ as drawn now (a cirrhotic liver's reshaped contour, an
       // enlarged spleen), not its healthy outline.
-      if (organEls[byOrgan[0]]?.getAttribute('d')) { selLine = { id: byOrgan[0], el: s('path', { class: 'org-sel-line', style: `stroke: rgb(${orgTone(byOrgan[0]).map((x) => Math.round(x * 255))})` }) }; syncSelLine(); selKids.push(selLine.el); }
+      if (organEls[byOrgan[0]]?.getAttribute('d')) { selLine = { id: byOrgan[0], el: SEL_LINE }; SEL_LINE.setAttribute('style', `stroke: rgb(${orgTone(byOrgan[0]).map((x) => Math.round(x * 255))})`); syncSelLine(); selKids.push(selLine.el); }
       return;
     }
     if (o === 'abdomen') {   // the fluid as drawn; it follows the volume (see syncSelFluid)
-      const fill = s('path', { class: 'org-sel-fluid' }), line = s('path', { class: 'org-sel-line' }), cg = s('g', { 'clip-path': 'url(#abdomenClip)' }, fill, line);
-      selFluid = { g: cg, fill, line };
-      selKids.push(cg); syncSelFluid();
+      selFluid = SEL_FLUID;
+      selKids.push(SEL_FLUID.g); syncSelFluid();
       return;
     }
     
@@ -6617,8 +6641,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const key = vis.map((x) => x.e.id + ':' + x.width.toFixed(0)).join(',');
     if (key === bridgeKey) return;
     bridgeKey = key;
-    const bridgeKids = []; late('kids', gBridges, bridgeKids);
-    if (!vis.length) return;
+    // (Found and made between frames, never in the frame that moved a line (2 Nov 2026, "Move everything to GPU"); the newest wins.)
+    bridgeVis = vis;
+    if (!bridgeAsk) bridgeAsk = restPass(bridgeBuild);
+  }
+  let bridgeVis = [], bridgeAsk = 0;
+  function bridgeBuild() {
+    bridgeAsk = 0;
+    const vis = bridgeVis.filter((x) => geo[x.e.id]?.cur);
+    if (!vis.length) { gBridges.replaceChildren(); return; }
     const order = new Map([...gNet.querySelectorAll('.vg[data-id]'), ...gTopL.querySelectorAll('.vg[data-id]')].map((g, i) => [g, i]));
     const box = (pts) => pts.reduce((b, p) => [Math.min(b[0], p[0]), Math.min(b[1], p[1]), Math.max(b[2], p[0]), Math.max(b[3], p[1])], [Infinity, Infinity, -Infinity, -Infinity]);
     const boxes = vis.map((x) => box(geo[x.e.id].cur));
@@ -6649,7 +6680,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           s('path', { class: 'v-lumen bridge-lumen', d, stroke: `url(#gr-${up.e.id})`, 'stroke-width': up.width.toFixed(1) }));
       }
     }
-    bridgeKids.push(...out);
+    gBridges.replaceChildren(...out);
   }
 
   // Where the figure asks the viewer to look (store.focus).
@@ -7122,7 +7153,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     venousAnat = anat;
     for (const id of store.get().stented || []) if (!vst.has(id) && E[id]) vst.set(id, { k: 0 });
     for (const [id, v] of vst) if (v.k !== vstGoal(id, anat) && !vstRaf) { vstAt = 0; vstRaf = nextFrame(venousTick); break; }
-    if (rebuilt && vst.size) { if (vstRaf) vstDirty = true; else venousDraw(p); }
+    // (Rebuilt between frames, never in the frame whose geometry changed: 2 Nov 2026, "Move everything to GPU".)
+    if (rebuilt && vst.size) { if (vstRaf) vstDirty = true; else if (!vstBuildAsk) vstBuildAsk = restPass(() => { vstBuildAsk = 0; venousDraw(F?.viewParams || store.get().params); }); }
   }
   // Surgical shunts: a row of sutures across each anastomosis.
   function anastomoses(id) {
@@ -8488,6 +8520,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   const PILL_TPL = [0, 1].map((u) => { const e = document.createElement('div'); e.innerHTML = '<small></small><b></b>' + (u ? '<span></span>' : ''); return withGlass(e); });   // (its glass built in: callout.js withGlass)
   const SUM_TPL = (() => { const e = document.createElement('div'), box = document.createElement('div'), col = document.createElement('div'); e.className = 'cath-sum'; box.className = 'cath-sum-box'; col.className = 'cath-sum-col'; box.append(col, s('svg', { class: 'cath-brace', width: 22 }, s('path', {}))); e.append(s('svg', { class: 'cath-leads' }), box); return e; })();
+  // (A reading's leader and dot, made between frames: cathLabels.)
+  function cathLeadKids(svg) { svg._kAsk = 0; svg._k = Array.from({ length: svg._kN }, () => [s('path', {}), s('circle', { r: 4.5 })]).flat(); svg.replaceChildren(...svg._k); cathLabelsSoon(); }
   function cathLabels() {
     const st = cath.st, at = cath.at;
     if (!st || !at) { for (const el of [...(cath.made?.values() || []), ...(cath.leaving?.keys() || [])]) el._glass?.dispose(); late('kids', cath.labels, []); cath.made?.clear(); cath.leaving?.clear(); cath.lblKey = ''; return; }
@@ -8621,8 +8655,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const below = (A.tip[1] + A.ahead[1]) / 2 > y + bh / 2, near = below ? rows.length - 1 : 0;
       const c0 = R[0], c1 = R[R.length - 1], colTop = y + c0[1], colBot = y + c1[1] + c1[3];
       // Updated in place (a path and a dot per reading), rebuilt only when the readings change.
-      if (svg._k?.length !== rows.length * 2) { svg._k = rows.flatMap(() => [s('path', {}), s('circle', { r: 4.5 })]); late('kids', svg, svg._k); }
-      rows.forEach((r, j) => {
+      // (Made between frames, never in the frame that finds the readings changed (2 Nov 2026, "Move everything to GPU"): the leaders are
+      // drawn from the next frame, which the build asks for.)
+      if (svg._k?.length !== rows.length * 2) {
+        svg._kN = rows.length;
+        if (!svg._kAsk) svg._kAsk = restPass(() => cathLeadKids(svg));
+      }
+      if (svg._k?.length === rows.length * 2) rows.forEach((r, j) => {
         const [px, py] = A[l.rows[j].at];
         const rx0 = x + R[j][0], ry0 = y + R[j][1], rx1 = rx0 + R[j][2], ry1 = ry0 + R[j][3];
         let d;
