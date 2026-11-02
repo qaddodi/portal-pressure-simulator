@@ -36,7 +36,7 @@ export function sheetPanes(el, gcs = getComputedStyle) {
   if (!el.classList.contains('pz-sheet') || !el.closest?.('.pz.stack, .pz.pz-wide')) return undefined;
   const es = gcs(el);
   if (es.getPropertyValue('--gl-glass').trim() !== '0') return undefined;   // (a sheet with its own glass after all)
-  const b = typeof Element !== 'undefined' && el instanceof Element ? Element.prototype.getBoundingClientRect.call(el) : el.getBoundingClientRect(), bs = gcs(el, '::before'), as = gcs(el, '::after');
+  const b = el.drawnBox ? el.drawnBox() : el.getBoundingClientRect(), bs = gcs(el, '::before'), as = gcs(el, '::after');
   const k = el.offsetWidth > 0 && b.width > 0 ? b.width / el.offsetWidth : 1;
   const rk = (r) => (k === 1 ? r : r.map((v) => v * k));
   const shows = (s) => s && s.content !== 'none' && s.display !== 'none' && s.visibility !== 'hidden' && NUM(s.opacity) > 0.001;

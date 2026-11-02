@@ -88,9 +88,12 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
   const pin = (r) => {
     const { left, top, width, height } = r.rest;
     r.own = Object.hasOwn(r.el, 'getBoundingClientRect') ? r.el.getBoundingClientRect : null;
+    const real = r.own || r.el.getBoundingClientRect;
     r.el.getBoundingClientRect = () => ({ x: left, y: top, left, top, width, height, right: left + width, bottom: top + height });
+    r.el.drawnBox = () => real.call(r.el);
+    r.el.drawnScale = () => (width > 0 ? real.call(r.el).width / width : 1);   // (the glass reads the card where it is drawn, not where it rests: glass-gl drawnRect, sheet-glass)
   };
-  const unpin = (r) => { if (r.own) r.el.getBoundingClientRect = r.own; else delete r.el.getBoundingClientRect; };
+  const unpin = (r) => { if (r.own) r.el.getBoundingClientRect = r.own; else delete r.el.getBoundingClientRect; delete r.el.drawnBox; delete r.el.drawnScale; };
   // From where the property stands now (a glide caught half way is taken up there) to `to`.
   const glide = (el, prop, to, ms, prev) => {
     const from = globalThis.getComputedStyle(el)[prop];

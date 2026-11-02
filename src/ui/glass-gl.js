@@ -88,7 +88,7 @@ const NUM = (v) => parseFloat(v) || 0;
 /** An element's box as the browser has it drawn, whatever the page has put in place of its getBoundingClientRect: a zoomed card (card-zoom.js
  *  pin) answers with the box it rests in, so its glass, read from that, stayed a small frosted patch at the card's old place while the card
  *  itself grew over the bare figure (Mohammad, 2 Nov 2026, the data card zoomed: "everything behind the glass glitches"). */
-export const drawnRect = (e) => (typeof Element !== 'undefined' && e instanceof Element ? Element.prototype.getBoundingClientRect.call(e) : e.getBoundingClientRect());
+export const drawnRect = (e) => (e.drawnBox ? e.drawnBox() : e.getBoundingClientRect());
 /**
  * A colour as the canvas gives it back (#rrggbb, rgb(), rgba(), or color(srgb r g b / a), which Chrome and Safari give for a colour mixed
  * by color-mix(), the cards' --gl-tint), as straight [r, g, b, a] (0–1); [0, 0, 0, 0] when it is none of those.
@@ -651,7 +651,7 @@ export function createGlassGL(wrap, source, layers, { software = false, off = fa
         if (cs.getPropertyValue('--gl-glass').trim() !== '1' || (cs.filter && cs.filter !== 'none')) continue;
         const r = drawnRect(g);
         if (!r.width || !r.height || !shows(a)) continue;
-        const zk = g.offsetWidth > 0 ? r.width / g.offsetWidth : 1;   // (a zoomed card's scale: its corners and edge grow with it)
+        const zk = g.drawnScale ? g.drawnScale() : 1;   // (a zoomed card's scale: its corners grow with it)
         // (A card's own edge and drop shadows, drawn here with its glass where its CSS names them (--gl-line, --gl-drop): the page's own
         // are taken off while it is drawn here ([data-gl="edge"]), so the card is one GPU shape that may change size in view.)
         const drops = GPU_EDGE ? dropsOf(cs.getPropertyValue('--gl-drop')) : [], line = GPU_EDGE ? cs.getPropertyValue('--gl-line').trim() : '';

@@ -8,7 +8,7 @@
     "src/ui/menu.js": 20,
     "src/ui/focus-ring.js": 19,
     "src/ui/topbar-motion.js": 16,
-    "src/ui/glass-gl.js": 17,
+    "src/ui/glass-gl.js": 15,
     "src/ui/label-gl.js": 13,
     "src/ui/doppler.js": 13,
     "src/ui/legend-morph.js": 12,
