@@ -58,9 +58,9 @@ void main() {
   }
 }`;
 
-import { createShapeGL } from './shape-gl.js?v=82bbadf453';
-import { createOrganPaint, mul, prestartOrganPaint } from './organ-paint.js?v=49e4d12df9';
-import { prestart, linkProgram } from './gl-compile.js?v=c4010cf467';
+import { createShapeGL } from './shape-gl.js?v=f64e82c981';
+import { createOrganPaint, mul, prestartOrganPaint } from './organ-paint.js?v=de4cbf1d4c';
+import { prestart, linkProgram } from './gl-compile.js?v=63e54c6c92';
 import { netChanged } from './idle-keys.js?v=81fbedda6b';
 import { easeMove, D_SURFACE } from './ease.js?v=7513a88c68';
 // (The colour a clear writes, one array for every clear: none made per call, plan rev 2 §2.8.)

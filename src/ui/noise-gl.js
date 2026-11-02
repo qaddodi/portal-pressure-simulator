@@ -7,8 +7,8 @@
 // Needs a float colour target (EXT_color_buffer_float); without one, or while its program is still compiling, the caller fills the
 // table in script as before. The program is started when the filler is made and taken up only once the driver says it is done
 // (KHR_parallel_shader_compile), so no frame waits on its compile.
-import { startProgram, compileDone, checkProgram } from './gl-compile.js?v=c4010cf467';
-import { glGet, glOn, fbComplete } from './gl-state.js?v=ce1b6f1204';
+import { startProgram, compileDone, checkProgram } from './gl-compile.js?v=63e54c6c92';
+import { glGet, glOn, fbComplete } from './gl-state.js?v=ca10f41a87';
 import { NOISE_W, NOISE_H, NOISE_PER_ROW, OCTAVES } from './blood-noise.js?v=bc65994b25';
 
 export const NOISE_VS = `#version 300 es

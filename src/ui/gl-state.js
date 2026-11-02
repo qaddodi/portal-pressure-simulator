@@ -20,6 +20,17 @@ const CHECK = /[?&]glstate=check\b/.test(SEARCH);
 const W2 = typeof WebGL2RenderingContext !== 'undefined' ? WebGL2RenderingContext : null;
 
 const recs = new WeakMap();
+// (The tracked WebGL2 contexts, weakly, so anything can ask whether the page already holds one: gl-support.js, the dev context assert.)
+const held = [];
+/** A WebGL2 context the page already holds and that is not lost, if any (null: none). Asking makes nothing. */
+export function heldGL() {
+  for (let i = held.length - 1; i >= 0; i--) {
+    const gl = held[i].deref();
+    if (!gl) { held.splice(i, 1); continue; }
+    if (!gl.isContextLost()) return gl;
+  }
+  return null;
+}
 // (Listeners for the calls that allocate or free, and for the passes: the registry. Set once, by gpu-budget.js.)
 let hook = null;
 /** For gpu-budget.js: fn(gl, name, x) after each allocating, freeing, binding or drawing call the wrappers see (x: the call's
@@ -118,6 +129,7 @@ function recOf(gl) {
     sweep(gl, r);
     wrap(gl, r);
     recs.set(gl, r);
+    if (typeof WeakRef !== 'undefined') held.push(new WeakRef(gl));
     if (hook) hook(gl, 'context', []);
   } else if (r && !r.fresh && !gl.isContextLost()) sweep(gl, r);   // (a new context generation: read once again)
   return r;

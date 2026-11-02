@@ -16,12 +16,12 @@
 // chart is not drawn until the GPU can draw it (fitCanvas's pen draws nothing; no 2D canvas is drawn on), and it draws again the moment
 // the GPU can (publish). ?tracegl=0 keeps every chart undrawn.
 
-import { startProgram, checkProgram, exerciseDraw, publishWhenDone, stillCompiling } from './gl-compile.js?v=c4010cf467';
+import { startProgram, checkProgram, exerciseDraw, publishWhenDone, stillCompiling } from './gl-compile.js?v=63e54c6c92';
 import { canvasSize, fitCanvas, onCanvasSized } from './util.js?v=92114c1315';
-import { sdfAtlas } from './text-gl.js?v=aa4c52e0f7';   // (the app's one door to GPU text: its SDF atlas, for text that changes every frame)
-import { notePass, hold } from './gpu-budget.js?v=5ded18da52';
-import { fontOf, measure } from './glyph-measure.js?v=d0727f1045';
-import { fbComplete } from './gl-state.js?v=ce1b6f1204';
+import { sdfAtlas } from './text-gl.js?v=d5f609cd4f';   // (the app's one door to GPU text: its SDF atlas, for text that changes every frame)
+import { notePass, hold } from './gpu-budget.js?v=6537238017';
+import { fontOf, measure } from './glyph-measure.js?v=e05ea36d6e';
+import { fbComplete } from './gl-state.js?v=ca10f41a87';
 export { measure };
 const { GLYPHS, KERN, BASELINES, BASE, RADIUS, CUTOFF, ATLAS_W, ATLAS_H, ATLAS_PNG } = sdfAtlas;
 
@@ -77,8 +77,9 @@ function makePool() {
 function sharedGL() {
   if (!pools.length) { const first = makePool(); pools.push(first); if (first.dead) return null; }
   if (pools[0].dead) return null;
-  let best = pools.reduce((a, b) => (b.users < a.users ? b : a));
-  if (best.users > 0 && pools.length < POOLS) { const p = makePool(); if (!p.dead) { pools.push(p); best = p; } }
+  // (One context at the start; the others are made, ahead and in a timer, only when charts of different sizes meet in one: prewarmSoon.
+  // A page holds only so many contexts, and the dock's charts are made at the start but drawn only when shown.)
+  const best = pools.reduce((a, b) => (b.users < a.users ? b : a));
   best.users++;
   return best;
 }

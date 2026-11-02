@@ -33,3 +33,23 @@ test('the support question asks the figure\'s context first and gives a probe ba
   assert.match(g, /getElementById\('veins'\)/);
   assert.match(g, /loseContext\(\)/);
 });
+
+test('the support question asks the host (the figure, then any context the state record holds) before it would make one', () => {
+  const g = src('gl-support.js');
+  assert.match(g, /heldGL\(\)/);
+  assert.match(g, /if \(CTX_LAZY && hostHolds\(\)\) support = true;/);
+  assert.match(src('gl-state.js'), /export function heldGL\(\)/);
+});
+
+test('charts share one context at the start; more are made only when charts of different sizes meet (prewarmSoon)', () => {
+  const t = src('trace-gl.js');
+  assert.doesNotMatch(t, /best\.users > 0 && pools\.length < POOLS/);
+  assert.match(t, /\} else prewarmSoon\(\);/);
+});
+
+test('a dev assert allows at most 2 of the page\'s own live contexts plus the charts\'', () => {
+  const b = src('gpu-budget.js');
+  assert.match(b, /export const CTX_MAX = 2;/);
+  assert.match(b, /if \(CTX_ASSERT\) checkContexts\(\);/);
+  assert.match(b, /WebGL contexts over budget/);
+});

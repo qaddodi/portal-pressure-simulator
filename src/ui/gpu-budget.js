@@ -11,7 +11,7 @@
 // quality tiers read (adapt-tier.js, R07) to step the scene's resolution down before the motion skips frames.
 // Read it: ?perf (the readout's Surfaces block ends with the budget), or pps.budget() in the console. ?gpubudget=0: off (nothing counted).
 
-import { onGLCall, glRec, GL_STATE } from './gl-state.js?v=ce1b6f1204';
+import { onGLCall, glRec, GL_STATE } from './gl-state.js?v=ca10f41a87';
 import { onFrameEnd } from './frame.js?v=897b4f8e7e';
 
 const SEARCH = typeof location !== 'undefined' ? location.search || '' : '';
@@ -132,6 +132,33 @@ function onCall(gl, name, x) {
     e.w = n; e.h = 1; e.fmt = 'bytes'; e.gl = ctxRef(gl);
     setLevel(e, 0, n);
   }
+}
+
+// The context budget (plan item 5, 2 Nov 2026): at most CTX_MAX live contexts of the page's own plus the charts' (the offscreen pool
+// contexts that trace-gl.js hands to whichever charts show). A page holds only so many (iOS Safari about 16, dropping the oldest, which is
+// the figure's). Dev only (?perf, ?ctxassert, or a local host): a count above it is logged once per new high, with the owners. Walks the
+// weak list in place and allocates nothing unless it speaks.
+export const CTX_MAX = 2;
+const CTX_ASSERT = GPU_BUDGET && (SITES || /[?&]ctxassert\b/.test(SEARCH) || (typeof location !== 'undefined' && /^(localhost|127\.0\.0\.1)$/.test(location.hostname || '')));
+let ctxWarned = 0;
+/** Live contexts now: { own, charts } (charts: the offscreen pool contexts). */
+export function contextCount() {
+  let own = 0, charts = 0;
+  for (let i = ctxRefs.length - 1; i >= 0; i--) {
+    const gl = ctxRefs[i].deref();
+    if (!gl) { ctxRefs.splice(i, 1); continue; }
+    if (gl.isContextLost?.()) continue;
+    if (ownerOf(gl) === 'offscreen') charts++; else own++;
+  }
+  return { own, charts };
+}
+function checkContexts() {
+  const c = contextCount();
+  if (c.own <= CTX_MAX) { ctxWarned = Math.min(ctxWarned, c.own); return; }
+  if (c.own <= ctxWarned) return;
+  ctxWarned = c.own;
+  const names = []; for (let i = 0; i < ctxRefs.length; i++) { const gl = ctxRefs[i].deref(); if (gl && !gl.isContextLost?.() && ownerOf(gl) !== 'offscreen') names.push(ownerOf(gl)); }
+  console.warn(`WebGL contexts over budget: ${c.own} of the page's own live (at most ${CTX_MAX}, plus ${c.charts} for charts)`, names);
 }
 
 // The canvases' own buffers: colour, and depth/stencil, at their backing size, twice (the one shown and the one drawn).
@@ -285,6 +312,7 @@ if (GPU_BUDGET) {
       if (overMem && !warnedMem) { warnedMem = true; const b = budget(); console.warn(`GPU memory over its envelope: ${b.mb} of ${b.envelope.mb} MB`, b.owners.slice(0, 5)); }
       if (!overMem) warnedMem = false;
       enforce(env);
+      if (CTX_ASSERT) checkContexts();
     }
   });
 }
