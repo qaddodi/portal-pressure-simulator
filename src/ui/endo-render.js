@@ -93,7 +93,7 @@ function field(th, z, cols, grow, beaded, o) {
   return hh;
 }
 
-// Renders the view to an offscreen canvas of res x res. p: { grow, bands, vis, red (0..1) }.
+// Renders the view into pixels, res x res (an ImageData: the GPU's drawer takes it up as a texture; no canvas). p: { grow, bands, vis, red (0..1) }.
 export function renderEndo(res, p) {
   const grow = Math.min(1, Math.max(0, p.grow));
   const bands = Math.max(0, Math.round(p.bands || 0));
@@ -103,8 +103,7 @@ export function renderEndo(res, p) {
   const vis = Math.min(1, Math.max(0, p.vis ?? (present ? 1 : 0))); // 0 = no varix, grows smoothly into view
   for (const c of cols) c.amp *= vis;
   const red = Math.min(1, Math.max(0, +p.red || 0));
-  const cv = document.createElement('canvas'); cv.width = cv.height = res;
-  const ctx = cv.getContext('2d'), img = ctx.createImageData(res, res), D = img.data;
+  const img = new ImageData(res, res), D = img.data;
   const half = res / 2, o = {};
   const ALB = cssRGB('--endo-mucosa'), DEEP = cssRGB('--endo-mucosa-deep');
   const eth = 0.008;
@@ -219,6 +218,5 @@ export function renderEndo(res, p) {
       D[i + 3] = 255;
     }
   }
-  ctx.putImageData(img, 0, 0);
-  return cv;
+  return img;
 }

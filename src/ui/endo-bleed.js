@@ -5,7 +5,7 @@
 // blood that settles lies flat, so the pool is the wedge between the two lines where its surface meets the wall, running toward
 // the dark centre, its far end fading into the dark, its edges uneven and thin and see-through, widening as it fills, with the
 // scope's light as a soft patch on its surface and ripples running out from where the rivulet joins it. A red haze thickens with the
-// blood lost. Few gradients and fills a frame: the spot and the stain are two small reused sprites.
+// blood lost. The spot and the stain are radial gradients in circles of their own.
 import { bleedPulse } from './blood.js?v=f6c91d8676';
 import { scopeDrops, scopePool, inScopePool } from './endo-motion.js?v=1dc4743d1e';
 import { cssVar, cssAlpha } from './util.js?v=49565b3c73';
@@ -13,28 +13,22 @@ import { cssVar, cssAlpha } from './util.js?v=49565b3c73';
 const frac = (x) => ((x % 1) + 1) % 1;
 const smooth = (e0, e1, x) => { const u = Math.min(1, Math.max(0, (x - e0) / (e1 - e0))); return u * u * (3 - 2 * u); };
 
-let sprite = null, soft = null, spriteKey = '';
-function sprites() {
-  const key = cssVar('--scope-blood-fresh') + cssVar('--scope-blood-jet') + cssVar('--scope-blood-pool-edge');
-  if (sprite && key === spriteKey) return { sprite, soft };
-  // The wet spot at the tear: crimson with a darker rim and the scope light caught on it.
-  const S = 48, c = document.createElement('canvas'), x = c.getContext('2d');
-  c.width = c.height = S;
-  const g = x.createRadialGradient(S * 0.45, S * 0.42, 0, S / 2, S / 2, S / 2);
+// The wet spot at the tear (crimson with a darker rim and the scope light caught on it) and the stain (a soft blot that fades out to
+// nothing, stamped along a rivulet and round the tear): each a radial gradient filled in its own circle, on the GPU's drawer as
+// on a canvas (no picture is made of them: nothing is drawn on a 2D canvas to be copied).
+function stain(ctx, x, y, r) {
+  const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+  g.addColorStop(0, cssAlpha('--scope-blood-jet', 0.6)); g.addColorStop(0.5, cssAlpha('--scope-blood-jet', 0.3)); g.addColorStop(1, cssAlpha('--scope-blood-jet', 0));
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+}
+function spot(ctx, x, y, r) {
+  const g = ctx.createRadialGradient(x - 0.1 * r, y - 0.16 * r, 0, x, y, r);
   g.addColorStop(0, cssVar('--scope-blood-fresh')); g.addColorStop(0.6, cssVar('--scope-blood-jet'));
   g.addColorStop(0.86, cssAlpha('--scope-blood-pool-edge', 0.85)); g.addColorStop(1, cssAlpha('--scope-blood-pool-edge', 0));
-  x.fillStyle = g; x.fillRect(0, 0, S, S);
-  const hl = x.createRadialGradient(S * 0.38, S * 0.36, 0, S * 0.38, S * 0.36, S * 0.1);
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+  const hx = x - 0.24 * r, hy = y - 0.28 * r, hr = 0.2 * r, hl = ctx.createRadialGradient(hx, hy, 0, hx, hy, hr);
   hl.addColorStop(0, cssAlpha('--white', 0.4)); hl.addColorStop(1, cssAlpha('--white', 0));
-  x.fillStyle = hl; x.fillRect(0, 0, S, S);
-  // The stain: a soft blot that fades out to nothing, stamped along a rivulet and round the tear.
-  const T = 64, c2 = document.createElement('canvas'), y = c2.getContext('2d');
-  c2.width = c2.height = T;
-  const g2 = y.createRadialGradient(T / 2, T / 2, 0, T / 2, T / 2, T / 2);
-  g2.addColorStop(0, cssAlpha('--scope-blood-jet', 0.6)); g2.addColorStop(0.5, cssAlpha('--scope-blood-jet', 0.3)); g2.addColorStop(1, cssAlpha('--scope-blood-jet', 0));
-  y.fillStyle = g2; y.fillRect(0, 0, T, T);
-  sprite = c; soft = c2; spriteKey = key;
-  return { sprite, soft };
+  ctx.fillStyle = hl; ctx.beginPath(); ctx.arc(hx, hy, hr, 0, Math.PI * 2); ctx.fill();
 }
 
 // A ribbon along points (pts: [[x, y]]), wd(i) wide at each, as one filled shape (a tapered or swelling stream with no seams).
@@ -55,7 +49,7 @@ function ribbon(ctx, pts, wd) {
 // easing in or out), rate (mL/min), fill (the pool's eased fill, 0..1), hr }. Drawn inside the lumen's clip.
 export function drawScopeBleed(ctx, o) {
   const { cx, cy, R, jx, jy, t, a, rate, fill, hr } = o;
-  const spurt = smooth(25, 70, rate || 50), p = bleedPulse(t, hr), { sprite: dot, soft } = sprites();
+  const spurt = smooth(25, 70, rate || 50), p = bleedPulse(t, hr);
   const { phi } = scopePool(fill);
   const tx = (jx - cx) / R, ty = (jy - cy) / R, th0 = Math.atan2(ty, tx), rho0 = Math.hypot(tx, ty);
   const at = (ang, rho) => [cx + Math.cos(ang) * rho * R, cy + Math.sin(ang) * rho * R];
@@ -82,7 +76,7 @@ export function drawScopeBleed(ctx, o) {
     const main = run(0, 0, 1, 20);
     const flow = 0.7 + 0.3 * spurt;
     // (the wet stain under it, denser and wider as it goes)
-    for (let i = 0; i <= 20; i++) { const q = main[i], r = R * (0.08 + 0.07 * (i / 20)); ctx.globalAlpha = a * 0.55; ctx.drawImage(soft, q[0] - r, q[1] - r, 2 * r, 2 * r); }
+    for (let i = 0; i <= 20; i++) { const q = main[i], r = R * (0.08 + 0.07 * (i / 20)); ctx.globalAlpha = a * 0.55; stain(ctx, q[0], q[1], r); }
     ctx.globalAlpha = a;
     const wMain = (i) => R * (0.032 + 0.05 * (i / 20)) * flow * (1 + 0.16 * Math.sin(i * 1.3 + t * 2.1));
     ribbon(ctx, main, (i) => wMain(i) * 1.7); ctx.fillStyle = cssAlpha('--scope-blood-jet', 0.35); ctx.fill();
@@ -179,9 +173,9 @@ export function drawScopeBleed(ctx, o) {
   }
   // The tear: the mucosa stained round it, and the wet spot itself, swelling on each beat.
   const sr = R * (0.07 + 0.02 * p);
-  ctx.globalAlpha = a * 0.8; ctx.drawImage(soft, jx - sr, jy - sr, 2 * sr, 2 * sr);
+  ctx.globalAlpha = a * 0.8; stain(ctx, jx, jy, sr);
   ctx.globalAlpha = a;
   const wr = R * (0.021 + 0.007 * p);
-  ctx.drawImage(dot, jx - wr, jy - wr, 2 * wr, 2 * wr);
+  spot(ctx, jx, jy, wr);
   ctx.restore();
 }

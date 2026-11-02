@@ -13,7 +13,7 @@
 // No other module imports glyphs-inter.js or its PNG (tests/text-gl.test.js).
 
 import { flattenPath } from './shape-gl.js?v=f7d920b7d0';
-import { GLYPHS as SDF_GLYPHS, KERN as SDF_KERN, BASELINES as SDF_BASELINES, BASE as SDF_BASE, RADIUS as SDF_RADIUS, CUTOFF as SDF_CUTOFF, ATLAS_W as SDF_W, ATLAS_H as SDF_H } from './glyphs-inter.js?v=12425892ef';
+import { GLYPHS as SDF_GLYPHS, KERN as SDF_KERN, BASELINES as SDF_BASELINES, BASE as SDF_BASE, RADIUS as SDF_RADIUS, CUTOFF as SDF_CUTOFF, ATLAS_W as SDF_W, ATLAS_H as SDF_H } from './glyphs-inter.js?v=d7a58fccac';
 import { ATLAS_PNG as SDF_PNG } from './glyphs-inter-png.js?v=2e096d3c99';
 
 /** The SDF atlas for text that changes every frame: metrics (em), kerning, baselines, its size and its PNG (a data URL). */

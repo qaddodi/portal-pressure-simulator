@@ -12,9 +12,9 @@ import { monotoneSegs, curveTester } from './curve-near.js?v=663c98a29c';
 import { glideMoving } from './idle-keys.js?v=81fbedda6b';
 import { plotFill } from './plot-look.js?v=5037697da7';
 import { D_SMALL, EASE_ARRIVE } from './ease.js?v=fc509dabe4';
-import { createTraceGL, fitPen } from './trace-gl.js?v=324698648b';
+import { createTraceGL, fitPen } from './trace-gl.js?v=1168ed8917';
 import { restPass, cancelRest } from './rest-pass.js?v=bf0c42ead5';
-import { measure } from './glyph-measure.js?v=9f91f3677d';
+import { measure } from './glyph-measure.js?v=0385fe1e8a';
 const nextFrame = frameFor('charts');
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));

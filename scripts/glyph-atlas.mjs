@@ -88,7 +88,7 @@ const out = await page.evaluate(async ({ png, cells, RADIUS, CUTOFF, PAD, CELL }
     for (let yy = 0; yy < h; yy++) edt1d(data, yy * w, 1, w, f, v, z);
   }
   const alpha = (px, py) => all[(py * IW + px) * 4 + 3] / 255;
-  const glyphs = [];
+  const glyphs = [], B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
   for (const c of cells) {
     // (the glyph's ink in its cell)
     let l = CELL, r = -1, t = CELL, b = -1;
@@ -106,7 +106,15 @@ const out = await page.evaluate(async ({ png, cells, RADIUS, CUTOFF, PAD, CELL }
     edt(outer, gw, gh); edt(inner, gw, gh);
     const sdf = new Array(N);
     for (let i = 0; i < N; i++) { const dist = Math.sqrt(outer[i]) - Math.sqrt(inner[i]); sdf[i] = Math.max(0, Math.min(255, Math.round(255 - 255 * (dist / RADIUS + CUTOFF)))); }
-    glyphs.push({ w: c.w, ch: c.ch, adv: c.adv, ox: Math.round((c.penX - (l - PAD)) * 100) / 100, oy: Math.round((c.penY - (t - PAD)) * 100) / 100, gw, gh, sdf });
+    // (its ink in bands two atlas px tall from its top: each band's first and last inked column from its left, + 1, as two characters of
+    // B64; '' for a band with none: what a name's placement reads as its shape, glyph-measure.js inkBox)
+    let ink = '';
+    if (r >= 0) for (let y0 = t; y0 <= b; y0 += 2) {
+      let bl = -1, br = -1;
+      for (let yy = y0; yy < Math.min(y0 + 2, b + 1); yy++) for (let xx = l; xx <= r; xx++) if (alpha(c.cx + xx, c.cy + yy) > 0.03) { if (bl < 0 || xx < bl) bl = xx; if (xx > br) br = xx; }
+      ink += bl < 0 ? B64[0] + B64[0] : B64[Math.min(63, bl - l + 1)] + B64[Math.min(63, br - l + 1)];
+    }
+    glyphs.push({ ink, w: c.w, ch: c.ch, adv: c.adv, ox: Math.round((c.penX - (l - PAD)) * 100) / 100, oy: Math.round((c.penY - (t - PAD)) * 100) / 100, gw, gh, sdf });
   }
   return { glyphs };
 }, { png: shot.toString('base64'), cells: set.cells, RADIUS, CUTOFF, PAD, CELL });
@@ -136,9 +144,9 @@ for (let yy = 0; yy < H; yy++) { raw[yy * (W + 1)] = 0; Buffer.from(atlas.buffer
 const png = Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ihdr), chunk('IDAT', deflateSync(raw, { level: 9 })), chunk('IEND', Buffer.alloc(0))]);
 
 const glyphs = {};
-for (const g of out.glyphs) (glyphs[g.w] ||= {})[g.ch] = [Math.round(g.adv * 1e4) / 1e4, g.x, g.y, g.gw, g.gh, g.ox, g.oy];
+for (const g of out.glyphs) (glyphs[g.w] ||= {})[g.ch] = [Math.round(g.adv * 1e4) / 1e4, g.x, g.y, g.gw, g.gh, g.ox, g.oy, g.ink];
 const head = `// Made by scripts/glyph-atlas.mjs (do not edit): Inter's SDF atlas metrics for the GPU's words (trace-gl.js).\n`;
-writeFileSync(join(ROOT, 'src/ui/glyphs-inter.js'), `${head}// glyph: [advance (em), atlas x, y, w, h, pen x, pen y (px in the atlas, at BASE px)]; kern: pair → em; base: baseline → em offset of the alphabetic one.\n`
+writeFileSync(join(ROOT, 'src/ui/glyphs-inter.js'), `${head}// glyph: [advance (em), atlas x, y, w, h, pen x, pen y (px in the atlas, at BASE px), ink (bands 2 px tall: first, last column + 1, B64)]; kern: pair → em; base: baseline → em offset of the alphabetic one.\n`
   + `export const BASE = ${BASE}, RADIUS = ${RADIUS}, CUTOFF = ${CUTOFF}, ATLAS_W = ${W}, ATLAS_H = ${H};\n`
   + `export const GLYPHS = ${JSON.stringify(glyphs)};\nexport const KERN = ${JSON.stringify(out.kern)};\nexport const BASELINES = ${JSON.stringify(out.base)};\n`);
 writeFileSync(join(ROOT, 'src/ui/glyphs-inter-png.js'), `${head}export const ATLAS_PNG = 'data:image/png;base64,${png.toString('base64')}';\n`);

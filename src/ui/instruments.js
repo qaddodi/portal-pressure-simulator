@@ -5,20 +5,22 @@ import { NODES } from '../engine/topology.js?v=4044766e96';
 import { gastricUp } from '../engine/scenario.js?v=0762d1b820';
 import { wallRead } from '../engine/wall-read.js?v=09449acd01';
 import { pressureColor } from './colormap.js?v=7fd848fa1e';
-import { h, fmt, fitCanvas, cssVar, cssAlpha, clamp, icon, swapText, putText, countTo } from './util.js?v=49565b3c73';
+import { h, fmt, canvasSize, cssVar, cssAlpha, clamp, icon, swapText, putText, countTo } from './util.js?v=49565b3c73';
 import { simTime, isPaused } from './clock.js?v=16aba0e2eb';
 import { createEndoGL } from './endo-gl.js?v=6877742c34';
 import { surface } from './gpu-surfaces.js?v=2af17044e7';
-import { renderEndo } from './endo-render.js?v=12042a57aa';
+import { renderEndo } from './endo-render.js?v=192e7e863d';
 import { endoGrow, airRatio, airFlat } from './endo-size.js?v=e0a58bf20e';
 import { DEFLATE_MS, BAND_MS, BAND_DELAY_MS, fadeIn, glide, scopeTear } from './endo-motion.js?v=1dc4743d1e';
-import { drawScopeBleed } from './endo-bleed.js?v=806fa24ed9';
+import { drawScopeBleed } from './endo-bleed.js?v=016839863f';
 import { poolFill } from './blood.js?v=f6c91d8676';
-import { FONT } from './charts.js?v=1b6e4f0bba';
+import { FONT } from './charts.js?v=54d04bdf68';
 import { store, updateParams, varicesPresent } from './store.js?v=4ef2a6ffd8';
 import { balanceHold, balanceLine } from './balance-hold.js?v=1792704e7a';
 import { lateFrameFor, cancelFrame, framePhase } from './frame.js?v=7710f677e2';
 import { restPass } from './rest-pass.js?v=bf0c42ead5';
+import { createTraceGL, fitPen } from './trace-gl.js?v=1168ed8917';
+import { inkBox } from './glyph-measure.js?v=0385fe1e8a';
 // (The endoscope's field: drawn in the late part of a frame, after the model's frame of it has been taken in, so once a frame.)
 const drawFrame = lateFrameFor('instruments');
 
@@ -84,29 +86,27 @@ export function createEndoscopy({ onAction }) {
   // winding varices, drawn once per state into a cached bitmap, so it is perfectly steady. Balloon,
   // bleeding and the scope mask are drawn on top.
   let gl = createEndoGL({ onBack: () => { if (!raf) raf = drawFrame(() => { raf = 0; if (last) draw(last.f, last.vx); }); } }), wasGl = !!gl;   // (wasGl: which renderer drew the field last, so a change between them fades)
-  const glOut = document.createElement('canvas');
-  // (The ?perf surfaces list, gpu-surfaces.js: read by the readout only. The field is shaded on the GPU once per state and kept as a bitmap.)
-  const offSurface = surface('endoscopy field', () => (!cv.isConnected ? null : gl && !gl.lost ? { on: 'mixed', via: 'shaded WebGL2 once per state, drawn from a 2D bitmap' } : { on: 'fallback', via: 'CPU shading, 2D canvas', why: gl ? 'context lost' : 'no WebGL2, or its shader failed' }));
+  // The scope's picture is laid by the GPU's chart drawer over this canvas (trace-gl.js): the field as a texture (taken from the shader's
+  // canvas, GPU to GPU, once per state), the old one under it while the new fades in, the balloon, the bleed and the rim, clipped to the
+  // lumen. Nothing is drawn on a 2D canvas (1 Nov: nothing off the GPU); ?tracegl=0 draws the overlays on this canvas and leaves the field out.
+  const pen = createTraceGL(cv, { redraw: () => { painted = ''; if (last) draw(last.f, last.vx); } });
+  let glVer = 0, swap = false;   // (glVer: the shader canvas's content, counted; swap: the field shown is kept as the old one before the new goes up)
+  // (The ?perf surfaces list, gpu-surfaces.js: read by the readout only.)
+  const offSurface = surface('endoscopy field', () => (!cv.isConnected ? null : gl && !gl.lost ? { on: cv.style.opacity === '0' ? 'gpu' : 'mixed', via: 'shaded WebGL2 once per state, laid by the GPU drawer' } : { on: 'fallback', via: 'CPU shading, laid by the GPU drawer', why: gl ? 'context lost' : 'no WebGL2, or its shader failed' }));
   let peak = 0, peakRed = 0, an = null, lastT = 0, last = null, raf = 0, bleedLast = null, poolA = 0, cache = { key: '', img: null }, glKey = '', painted = '', mv = null, held = null, pinned = null;
   // A slide's options for this scope (configure, below): air, the air's pressure in the lumen in mmHg (the varix is drawn and measured as it is seen
   // at that pressure; the grade, the pressure inside it and the model are not touched); red, true or false (the red wale marks shown or hidden whatever
   // the wall stress; absent: the model's rule); readings, three more rows (the pressure in the varix, in the lumen and across the wall).
   const opt = { air: 0, red: null, readings: false };
   const dark = matchMedia('(prefers-color-scheme: dark)'), still = matchMedia('(prefers-reduced-motion: reduce)');
-  // The field as it showed before its bitmap last changed (fadeCv), the new one fading in over it from fadeT0
+  // The field as it showed before it last changed (the drawer's texture 'old'), the new one fading in over it from fadeT0
   // (endo-motion.js); the balloon's and the jet's strength (0..1) easing toward on or off. On the display clock, so a
   // paused model still finishes a fade.
-  const fadeCv = document.createElement('canvas');
   let fadeT0 = -1, shown = null, fadeA = 1, balA = 0, shutA = 0, jetA = 0, uiT = 0;
-  // Before the field's bitmap changes: keep what is on screen now (the old field, with any fade still under way).
-  function keep(img, res) {
-    const t = performance.now();
+  // Before the field changes: the one on screen is kept as the old one (its texture moved, on the GPU) and the new fades in over it.
+  function keep() {
     if (!shown || still.matches) { fadeT0 = -1; return; }   // (the first field: drawn as it is)
-    if (fadeCv.width !== res) { fadeCv.width = fadeCv.height = res; fadeT0 = -1; }   // (a new size starts its copy afresh)
-    const c = fadeCv.getContext('2d'), a = fadeT0 < 0 ? 1 : fadeIn(t - fadeT0);
-    if (fadeT0 < 0) c.clearRect(0, 0, res, res);
-    c.globalAlpha = a; c.drawImage(img, 0, 0, res, res); c.globalAlpha = 1;
-    fadeT0 = t;
+    swap = true; fadeT0 = performance.now();
   }
   // An eased tween toward a target value: cur follows from -> to over dur ms after a delay.
   const tw = (v) => ({ v, from: v, to: v, t0: 0, dur: 1, delay: 0, cur: v });
@@ -120,7 +120,7 @@ export function createEndoscopy({ onAction }) {
   }
   const offRun = store.on('running', () => { if (last && !isPaused()) draw(last.f, last.vx); });
   function draw(f, vx) {
-    const { ctx, w, h: hh } = fitCanvas(cv);
+    const { w, h: hh, W: cvW, H: cvH } = canvasSize(cv);
     if (w < 32 || hh < 32) return; // hidden/reflowing canvas: wait for its measured size
     // The field fills the box.
     const cx = w / 2, cy = hh / 2, R = Math.min(w, hh) / 2 - 4;
@@ -178,7 +178,7 @@ export function createEndoscopy({ onAction }) {
     // (A lost context is not a failure: the CPU renderer draws the field while it is gone, and the GPU takes over again, with the new
     // field fading in over the old, when the browser gives it back and builds the shader afresh: endo-gl.js.)
     const onGl = !!gl && !gl.lost;
-    if (onGl !== wasGl) { if (shown && gl) keep(shown, res); wasGl = onGl; }
+    if (onGl !== wasGl) { if (shown && gl) keep(); wasGl = onGl; }
     if (onGl) {
       // Drawn once per state and kept as a 2D bitmap: a steady field costs no shader pass or GPU readback.
       // (Size, presence and stigmata redraw once they have moved a step and a half of 32 from the field shown, so a slow drift
@@ -186,20 +186,22 @@ export function createEndoscopy({ onAction }) {
       held = [an.g, an.v, an.r].map((x, i) => (held && Math.abs(x * 32 - held[i]) < 1.5 ? held[i] : Math.round(x * 32)));
       const gk = [res, ...held, ...[...an.def.map((t) => t.cur), ...an.kn.map((t) => t.cur)].map((x) => Math.round(x * 32))].join('|');
       if (gk !== glKey) {
-        if (glKey) keep(glOut, res); else fadeT0 = -1;
+        if (glKey) keep(); else fadeT0 = -1;
         glKey = gk;
         gl.render(res, { grow: an.g, vis: an.v, red: an.r, def: an.def.map((t) => t.cur), kn: an.kn.map((t) => t.cur) });
-        if (glOut.width !== res) glOut.width = glOut.height = res;
-        glOut.getContext('2d').drawImage(gl.canvas, 0, 0);
+        gl.canvas.glVer = ++glVer;
+        // (taken up by the drawer as a texture at once, while the shader's picture is there: GPU to GPU; the one shown kept as the old one
+        // first. A drawer not ready yet has the field shaded again when it is.)
+        if (pen?.ready) { if (swap) { pen.keepImage('field', 'old'); swap = false; } pen.upload(gl.canvas, 'field', glVer); } else glKey = '';
         cv.dataset.renders = String(+(cv.dataset.renders || 0) + 1);   // (read by the browser checks: a steady field is not redrawn)
       }
-      img = glOut;
+      img = gl.canvas;
     } else {
       // No WebGL: the CPU renderer draws the target state without transitions.
       const r2 = Math.min(res, 300), gq = Math.round(tg * 14) / 14;
       const key = [r2, gq, bands, Math.round(tv * 10), Math.round(tr * 8)].join('|');
-      if (cache.key !== key) { if (cache.img) keep(cache.img, res); }
-      if (cache.key !== key) cache = { key, img: renderEndo(r2, { grow: gq, bands, vis: tv, red: Math.round(tr * 8) / 8 }) };
+      if (cache.key !== key) { if (cache.img) keep(); }
+      if (cache.key !== key) { cache = { key, img: renderEndo(r2, { grow: gq, bands, vis: tv, red: Math.round(tr * 8) / 8 }) }; cache.img.glVer = ++glVer; }
       img = cache.img;
     }
     // Nothing on the field changed since the last paint (the same bitmap, size, balloon and theme, no bleeding): it is left
@@ -224,15 +226,19 @@ export function createEndoscopy({ onAction }) {
     const moving = fadeT0 >= 0 || balA !== +balloon || shutA !== +shut || jetA !== +bleeding;
     if (moving && !raf) raf = drawFrame(() => { raf = 0; if (last) draw(last.f, last.vx); });
     if (!moving) uiT = 0;   // (the next ease starts from its first frame, not from the last one painted)
-    const sig = [cv.width, cv.height, w, hh, onGl ? glKey : cache.key, balloon, shut, root.getAttribute('data-theme'), root.getAttribute('data-palette'), root.className, dark.matches].join('|');
+    const sig = [cvW, cvH, w, hh, onGl ? glKey : cache.key, balloon, shut, root.getAttribute('data-theme'), root.getAttribute('data-palette'), root.className, dark.matches].join('|');
     if (!bleeding && !moving && sig === painted) return;
     painted = bleeding || moving ? '' : sig;
+    const p = fitPen(cv, pen), ctx = p.ctx, G = ctx.onGPU === true ? ctx.gpu : null;
+    try {
+    if (!G) painted = '';   // (no drawer: drawn again when it comes)
     ctx.clearRect(0, 0, w, hh);
     ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.clip();
-    ctx.imageSmoothingQuality = 'high';
-    if (fadeA < 1) { ctx.drawImage(fadeCv, cx - R, cy - R, 2 * R, 2 * R); ctx.globalAlpha = fadeA; }
-    ctx.drawImage(img, cx - R, cy - R, 2 * R, 2 * R);
-    ctx.globalAlpha = 1;
+    if (G) {
+      if (swap) { G.keepImage('field', 'old'); swap = false; }   // (the CPU-shaded field: its pixels stay, so it goes up as it is drawn)
+      if (fadeA < 1 && G.hasImage('old')) G.image(null, cx - R, cy - R, 2 * R, 2 * R, 1, 'old');
+      G.image(onGl ? null : img, cx - R, cy - R, 2 * R, 2 * R, fadeA < 1 && G.hasImage('old') ? fadeA : 1, 'field', img.glVer || 0);
+    }
     if (balA > 0) {
       const g = ctx.createRadialGradient(cx - R * 0.2, cy - R * 0.2, R * 0.1, cx, cy, R * 0.85);
       g.addColorStop(0, cssVar('--scope-balloon-hi')); g.addColorStop(1, cssVar('--scope-balloon-lo'));
@@ -251,6 +257,7 @@ export function createEndoscopy({ onAction }) {
     if (jetA <= 0 && !bleeding) { bleedLast = null; poolA = 0; }
     ctx.restore();
     ctx.strokeStyle = cssVar('--scope-rim'); ctx.lineWidth = 7; ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
+    } finally { ctx.end?.(); }
   }
   /** This slide's options (presenter-tools show and option): { air, red, readings } as described at opt above. Eased, never snapped: the drawing
    *  follows the new air through the same 0.2 s ease as any change of size, the red marks through theirs. */
@@ -268,37 +275,16 @@ export function createEndoscopy({ onAction }) {
     pinned = fp && Number.isFinite(fp.varix) ? { d: fp.varix, ptm: P ? P[NI.VAR] : NaN } : null;
     if (last) update(last.f);
   }
-  return { id: 'endoscopy', label: 'Endoscopy', el, update, configure, pin, setView() {}, dispose() { offRun(); cancelFrame(raf); raf = 0; gl?.dispose(); last = null; offSurface(); } };
+  return { id: 'endoscopy', label: 'Endoscopy', el, update, configure, pin, setView() {}, dispose() { offRun(); cancelFrame(raf); raf = 0; gl?.dispose(); pen?.dispose(); last = null; offSurface(); } };
 }
 
 // ── Varix wall cross-section (L3) ───────────────────
 // Scope's Wall mechanics tab: a cross-section of the esophagus with the varix in its wall, and Laplace's
 // law as readings in the same tiles and meter as the scope view.
 const WALL_SEV = { ok: 'Low', caution: 'High', danger: 'Near tear', critical: 'Rupture risk' };
-// A name's ink as drawn (centred, baseline middle), one span per quarter-pixel row: [top, bottom, left, right] round its
-// anchor. A name's box has empty corners ("muscle" curves away from a ring's edge under its round letters), so names are
-// placed by the ink itself.
-const inkCache = new Map();
-function inkRows(font, t) {
-  const k = font + '|' + t;
-  let rows = inkCache.get(k);
-  if (rows) return rows;
-  const S = 4, c = document.createElement('canvas'), x = c.getContext('2d', { willReadFrequently: true });
-  x.font = font;
-  const m = x.measureText(t), W = Math.ceil(m.width + 8) * S, H = Math.ceil((m.actualBoundingBoxAscent + m.actualBoundingBoxDescent) * 2 + 8) * S;
-  c.width = W; c.height = H;
-  x.scale(S, S); x.font = font; x.textAlign = 'center'; x.textBaseline = 'middle';   // (the default ink is opaque, all that is read)
-  x.fillText(t, W / S / 2, H / S / 2);
-  const d = x.getImageData(0, 0, W, H).data;
-  rows = [];
-  for (let y = 0; y < H; y++) {
-    let l = -1, r = -1;
-    for (let i = 0; i < W; i++) if (d[(y * W + i) * 4 + 3] > 8) { if (l < 0) l = i; r = i; }
-    if (l >= 0) rows.push([y / S - H / S / 2, (y + 1) / S - H / S / 2, l / S - W / S / 2, (r + 1) / S - W / S / 2]);
-  }
-  inkCache.set(k, rows);
-  return rows;
-}
+// A name's ink as drawn (centred, baseline middle): the box round its glyphs' own ink, from the GPU atlas (glyph-measure.js inkBox: no
+// canvas is drawn and read back). Names are placed by the ink itself, not their line box.
+const inkRows = (font, t) => inkBox(t, font);
 // How far a name's ink at (x, y) keeps from things round it, in px: inside a circle (its edge), outside one, from a box.
 const inkIn = (rows, x, y, ox, oy, r) => Math.min(...rows.map(([t, b, l, rt]) => r - Math.hypot(Math.max(Math.abs(x + l - ox), Math.abs(x + rt - ox)), Math.max(Math.abs(y + t - oy), Math.abs(y + b - oy)))));
 const inkOut = (rows, x, y, ox, oy, r) => Math.min(...rows.map(([t, b, l, rt]) => Math.hypot(Math.max(0, x + l - ox, ox - x - rt), Math.max(0, y + t - oy, oy - y - b)) - r));
@@ -312,6 +298,9 @@ export function createVarixWall() {
   const box = h('div', { class: 'chart-box square' });
   const cv = h('canvas', { role: 'img', 'aria-label': 'Varix cross-section: transmural pressure stretches the varix wall' });
   box.append(cv);
+  // (the cross-section drawn by the GPU's chart drawer over this canvas: trace-gl.js, ?tracegl=0 on the canvas)
+  const wallGL = createTraceGL(cv, { redraw: () => { if (lastF) update(lastF); } });
+  let lastF = null;
   const stage = h('div', { class: 'endo-stage' }, box, h('span', { class: 'endo-pos' }, h('span', { class: 'wall-cap' }, 'Laplace’s law: '), 'σ = ΔP · r / w'));
   const dd = (cls) => h('dd', { class: cls });
   const item = (cls, ...kids) => h('div', { class: cls }, ...kids);
@@ -342,7 +331,6 @@ export function createVarixWall() {
     wPin = !Number.isFinite(x) ? NaN : Number.isFinite(wPin) && now - wPinT < 1000 ? wPin + (x - wPin) * 0.35 : x;
     wPinT = now;
   }
-  let lastF = null;
   // (The card's type size for the picture's labels: read between frames, never in one; a new size draws again.)
   const readFs = () => { cv._fsAsk = 0; if (!cv.isConnected) return; cv._fsKey = cv._fsWant; const was = cv._fs; cv._fs = parseFloat(getComputedStyle(cv).fontSize) || 12; if (cv._fs !== was && lastF) update(lastF); };
   function update(f) {
@@ -365,7 +353,10 @@ export function createVarixWall() {
     if (wSev.dataset.sev !== ms) wSev.dataset.sev = wBig.dataset.sev = ms;
     const wPctW = `${Math.round(clamp(v.ratioShown, 0, 1) * 1000) / 10 - 100}% 0px`;   // (slid in from the left inside its track: app.css .endo-bar i)
     if (stressFill.style.translate !== wPctW) stressFill.style.translate = wPctW;
-    const { ctx, w, h: hh } = fitCanvas(cv);
+    const pen = fitPen(cv, wallGL), ctx = pen.ctx;
+    try { drawWall(ctx, pen.w, pen.h, v, f); } finally { ctx.end?.(); }
+  }
+  function drawWall(ctx, w, hh, v, f) {
     if (w < 32 || hh < 32) return;
     ctx.clearRect(0, 0, w, hh);
     // (On a slide the labels take the card's small size, so they never fall under 12 px; 12 px is the floor in the Tests card too.)

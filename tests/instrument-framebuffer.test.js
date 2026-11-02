@@ -16,7 +16,9 @@ test('the Endoscopy, Doppler and FibroScan canvases do not preserve their drawin
 
 test('the one read of the Endoscopy canvas follows its draw in the same call', () => {
   const s = src('src/ui/instruments.js');
-  assert.match(s, /gl\.render\(res, \{[^\n]*\}\);\n\s+if \(glOut\.width !== res\) glOut\.width = glOut\.height = res;\n\s+glOut\.getContext\('2d'\)\.drawImage\(gl\.canvas, 0, 0\);/);
+  // (taken up as the GPU drawer's texture in the same call as its draw, GPU to GPU: no 2D copy)
+  assert.match(s, /gl\.render\(res, \{[^\n]*\}\);\n\s+gl\.canvas\.glVer = \+\+glVer;\n(\s+\/\/[^\n]*\n)+\s+if \(pen\?\.ready\) \{ if \(swap\) \{ pen\.keepImage\('field', 'old'\); swap = false; \} pen\.upload\(gl\.canvas, 'field', glVer\); \} else glKey = '';/);
+  assert.doesNotMatch(s, /getContext\('2d'\)|drawImage\(/, 'no 2D canvas in the scope');
 });
 
 test('the FibroScan map is shown from its own canvas (never copied out), and the Doppler trace is cleared and drawn whole', () => {

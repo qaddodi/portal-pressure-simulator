@@ -1,29 +1,47 @@
 // The endoscopic view as a tile of the readings card (slide field `scopeTile: true`): a small round picture of the distal esophagus
 // at the varix's size now, so a time-lapse shows the varices swelling from small to large behind the chart. The picture is the
-// instrument's own (endo-render.js, endo-size.js), drawn once for each step of 1/14 of its engorgement and eased from the one before.
+// instrument's own (endo-render.js, endo-size.js), made once for each step of 1/14 of its engorgement and eased in over the one before.
+// It is laid by the GPU's chart drawer (trace-gl.js) as a texture: the new picture fades in over the old one kept on the GPU, no 2D canvas.
 import { h } from './util.js?v=49565b3c73';
-import { renderEndo } from './endo-render.js?v=12042a57aa';
+import { renderEndo } from './endo-render.js?v=192e7e863d';
 import { endoGrow, LARGE_MM } from './endo-size.js?v=e0a58bf20e';
-import { D_SURFACE, EASE_ARRIVE } from './ease.js?v=fc509dabe4';
+import { D_SURFACE, easeArrive } from './ease.js?v=fc509dabe4';
+import { createTraceGL, fitPen } from './trace-gl.js?v=1168ed8917';
+import { frameFor } from './frame.js?v=7710f677e2';
 
 const RES = 168, STEPS = 14, NONE_MM = 2.5;   // (2.5 mm: below it the metrics call it no varix)
 export const scopeKey = (d) => (Number.isFinite(d) && d >= NONE_MM ? Math.round(endoGrow(d) * STEPS) : -1);
 export const scopeWord = (d) => (!Number.isFinite(d) ? '' : d < NONE_MM ? 'No varices' : d >= LARGE_MM ? 'Large varices' : 'Small varices');
+const nextFrame = frameFor('scope-tile');
 
 export function createScopeTile() {
-  const under = h('canvas', { class: 'pzs-under', width: RES, height: RES, 'aria-hidden': 'true' });
   const top = h('canvas', { class: 'pzs-top', width: RES, height: RES, role: 'img', 'aria-label': 'Endoscopic view of the esophagus' });
   const word = h('span', { class: 'pzs-word' });
-  const el = h('div', { class: 'pzs-pic' }, h('span', { class: 'pzs-disc' }, under, top), word);
+  const disc = h('span', { class: 'pzs-disc' }, top);
+  const el = h('div', { class: 'pzs-pic' }, disc, word);
   const reduce = matchMedia('(prefers-reduced-motion: reduce)');
-  let key = null, timer = 0;
-  function paint(k) {
-    const img = renderEndo(RES, { grow: Math.max(0, k) / STEPS, bands: 0, vis: k < 0 ? 0 : 1, red: 0 });
-    under.getContext('2d').drawImage(top, 0, 0);
-    const c = top.getContext('2d');
-    c.clearRect(0, 0, RES, RES); c.drawImage(img, 0, 0);
-    if (!reduce.matches && key !== null) top.animate([{ opacity: 0 }, { opacity: 1 }], { duration: D_SURFACE, easing: EASE_ARRIVE });
+  let key = null, timer = 0, img = null, ver = 0, swap = false, fadeT0 = -1, asked = 0;
+  const pen = createTraceGL(top, { redraw: () => paint() });
+  // (one frame of the picture: the old one under the new while it fades in)
+  function paint() {
+    asked = 0;
+    const p = fitPen(top, pen), ctx = p.ctx, G = ctx.onGPU === true ? ctx.gpu : null;
+    try {
+      if (!G || !img) return;
+      if (swap) { G.keepImage('pic', 'old'); swap = false; }
+      const a = fadeT0 < 0 ? 1 : easeArrive(Math.min(1, (performance.now() - fadeT0) / D_SURFACE));
+      if (a < 1 && G.hasImage('old')) G.image(null, 0, 0, p.w, p.h, 1, 'old');
+      G.image(img, 0, 0, p.w, p.h, a, 'pic', img.glVer);
+      if (a < 1) { if (!asked) asked = nextFrame(paint) || 1; } else fadeT0 = -1;
+    } finally { ctx.end?.(); }
+  }
+  function show(k) {
+    const was = img;
+    img = renderEndo(RES, { grow: Math.max(0, k) / STEPS, bands: 0, vis: k < 0 ? 0 : 1, red: 0 });
+    img.glVer = ++ver;
+    if (was && !reduce.matches && key !== null) { swap = true; fadeT0 = performance.now(); } else fadeT0 = -1;
     key = k;
+    paint();
   }
   return {
     el,
@@ -33,7 +51,7 @@ export function createScopeTile() {
       if (word.textContent !== w) word.textContent = w;
       if (k === key) return;
       clearTimeout(timer);
-      timer = setTimeout(() => paint(k), key === null ? 0 : 30);   // (out of the model frame's own work)
+      timer = setTimeout(() => show(k), key === null ? 0 : 30);   // (out of the model frame's own work)
     },
   };
 }
