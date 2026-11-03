@@ -56,3 +56,7 @@ test('a leader\'s label end follows its label\'s landing glide, and a pan (carri
   assert.match(lg, /geo\[2\] \+= \(gl0\.fx - \(Math\.round\(ls\.x \* dpr\) \+ lst\.ox\)\) \* \(1 - u\);/);
   assert.match(lg, /labelByKey\.clear\(\);/);
 });
+
+test('a pinch landing solves again a label that rode out of the stage margins (it was carried half off the screen)', () => {
+  assert.match(st, /if \(handRide\?\.settle\) \{ const vw = viewOf\(it\); if \(box\.x0 < vw\.x0 - 4/);
+});

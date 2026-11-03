@@ -12242,6 +12242,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           // (Carried past the usual 5 % by a hand's zoom: a label that would come onto another, or onto a slide's callout, is solved again.)
           const box = it.rot ? rectOf({ ...it, w: it.h, h: it.w }) : rectOf(it);   // (a turned caption's box is turned too, as when it was solved)
           if (carryClear && (placed.some((p) => !p.dot && hits(box, p)) || callouts.some((b) => hits(box, b)))) { stale = true; return false; }
+          // (At a pinch landing a label that rode past the stage's margins (the view the solve keeps every label inside) is solved again, which
+          // puts it back inside with its leader: carried only, it stood half off the screen with its leader coming in from beyond it.)
+          if (handRide?.settle) { const vw = viewOf(it); if (box.x0 < vw.x0 - 4 || box.y0 < vw.y0 - 4 || box.x1 > vw.x1 + 4 || box.y1 > vw.y1 + 4) { stale = true; return false; } }
           // At a pinch landing, keep a clear reading where it rode. A newly intersecting vessel needs a fresh placement.
           if (handRide?.settle && circuit && it.key.startsWith('n:') && !prev.onv) {
             if (!useLines) { useLines = true; buildSegs(); }
