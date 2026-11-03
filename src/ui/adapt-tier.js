@@ -20,8 +20,10 @@ import { caught } from './caught.js';
 
 export const TIERS_ON = true;   // (switch deleted; kept for stage.js until its own pass)
 /** The tiers' share of the vessel layer's width and height on a moving frame (0: Full). 0.71 is half the pixels, 0.5 a quarter. */
-export const TIERS = [0, 0.85, 0.71, 0.5];
-export const TIER_TOP = 0.85;
+// (No 0.85 step: its targets, made up front at the top tier's size, held 98 MB at 8 MP to save 28 % of the pixels; the top step is now 0.71, whose
+// targets hold 69 MB. The render graph reads over its memory envelope with them, and that reads as pressure that steps the tier down.)
+export const TIERS = [0, 0.71, 0.5];
+export const TIER_TOP = 0.71;
 const DOWN_OF = 6, DOWN_N = 3, DOWN_GAP = 250, UP_CALM = 1500;
 
 let tier = 0, changedAt = -Infinity, calmSince = 0, warned = false;
