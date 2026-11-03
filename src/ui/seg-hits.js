@@ -121,3 +121,55 @@ export function segsCross(a, b) {
   const b0 = b.x0 ?? b[0], b1 = b.y0 ?? b[1], b2 = b.x1 ?? b[2], b3 = b.y1 ?? b[3];
   return o(a0, a1, a2, a3, b0, b1) !== o(a0, a1, a2, a3, b2, b3) && o(b0, b1, b2, b3, a0, a1) !== o(b0, b1, b2, b3, a2, a3);
 }
+
+// ---- A leader against the vessels (the Circuit's readings: a leader never runs through a vessel it does not start on). ----
+
+const ptSegDist = (px, py, x0, y0, x1, y1) => {
+  const dx = x1 - x0, dy = y1 - y0, L2 = dx * dx + dy * dy;
+  const t = L2 ? Math.max(0, Math.min(1, ((px - x0) * dx + (py - y0) * dy) / L2)) : 0;
+  return Math.hypot(px - x0 - dx * t, py - y0 - dy * t);
+};
+const side = (px, py, qx, qy, rx, ry) => Math.sign((qx - px) * (ry - py) - (qy - py) * (rx - px));
+/** The least distance between segment a (a0 → a1) and segment b (b0 → b1): 0 when they cross. */
+export function segSegDist(ax0, ay0, ax1, ay1, bx0, by0, bx1, by1) {
+  if (side(ax0, ay0, ax1, ay1, bx0, by0) !== side(ax0, ay0, ax1, ay1, bx1, by1) && side(bx0, by0, bx1, by1, ax0, ay0) !== side(bx0, by0, bx1, by1, ax1, ay1)) return 0;
+  return Math.min(ptSegDist(ax0, ay0, bx0, by0, bx1, by1), ptSegDist(ax1, ay1, bx0, by0, bx1, by1), ptSegDist(bx0, by0, ax0, ay0, ax1, ay1), ptSegDist(bx1, by1, ax0, ay0, ax1, ay1));
+}
+
+/**
+ * How many of the index's vessels the leader (ax, ay) → (ex, ey) runs through. A vessel the leader starts on (its anchor within the
+ * vessel's half width and 3 px of it) is left alone where the leader leaves it at an angle (over 20°), and for its first half width
+ * and 4 px where it runs along it, so a leader climbs off its own vessel but does not ride on it; every other vessel counts when the leader comes within its half width and `air` px of it. `any`: stops at the first.
+ * Allocates nothing (it runs for every spot a label tries).
+ */
+export function leaderVesselHits(idx, ax, ay, ex, ey, air = 1, any = false) {
+  const segs = idx.segs, dx = ex - ax, dy = ey - ay, L = Math.hypot(dx, dy);
+  if (L < 1e-6) return 0;
+  // The vessels the leader starts on (up to three, by id: a vessel's other segments are its own too), and whether it leaves each at
+  // an angle (over 20° to the run it starts on). Leaving at an angle, it may brush the rest of a bent vessel; along it, only its first
+  // half width and 4 px are its own.
+  let o1 = null, o2 = null, o3 = null, a1 = false, a2 = false, a3 = false;
+  for (let i = 0; i < segs.length; i++) {
+    const sg = segs[i];
+    if (ptSegDist(ax, ay, sg.x0, sg.y0, sg.x1, sg.y1) > sg.hw + 3) continue;
+    const gx = sg.x1 - sg.x0, gy = sg.y1 - sg.y0, angled = Math.abs(dx * gy - dy * gx) / (L * (Math.hypot(gx, gy) || 1)) > 0.34;
+    if (sg.id === o1) a1 = a1 || angled; else if (sg.id === o2) a2 = a2 || angled; else if (sg.id === o3) a3 = a3 || angled;
+    else if (o1 === null) { o1 = sg.id; a1 = angled; } else if (o2 === null) { o2 = sg.id; a2 = angled; } else if (o3 === null) { o3 = sg.id; a3 = angled; }
+  }
+  const lx0 = Math.min(ax, ex), lx1 = Math.max(ax, ex), ly0 = Math.min(ay, ey), ly1 = Math.max(ay, ey);
+  let n = 0;
+  for (let i = 0; i < segs.length; i++) {
+    const sg = segs[i], m = sg.hw + air;
+    if (lx1 < Math.min(sg.x0, sg.x1) - m || lx0 > Math.max(sg.x0, sg.x1) + m || ly1 < Math.min(sg.y0, sg.y1) - m || ly0 > Math.max(sg.y0, sg.y1) + m) continue;
+    let sx = ax, sy = ay;
+    const own = sg.id === o1 ? 1 : sg.id === o2 ? 2 : sg.id === o3 ? 3 : 0;
+    if (own) {
+      if (own === 1 ? a1 : own === 2 ? a2 : a3) continue;
+      const off = sg.hw + 4;
+      if (L <= off) continue;
+      sx = ax + (dx / L) * off; sy = ay + (dy / L) * off;
+    }
+    if (segSegDist(sx, sy, ex, ey, sg.x0, sg.y0, sg.x1, sg.y1) < m) { n++; if (any) return n; }
+  }
+  return n;
+}

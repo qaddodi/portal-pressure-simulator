@@ -31,7 +31,7 @@ import { fluidTarget, poolFade, fluidLevel, fluidFloorAt, fluidBase } from './fl
 import { easeTo, fluidSpring, fluidSpringFor } from './organ-ease.js';
 import { spleenMotion } from './spleen-motion.js';
 import { paintBox } from './plate-copy.js';
-import { segHitsBox, lineIndex, indexHits, segsCross } from './seg-hits.js';
+import { segHitsBox, lineIndex, indexHits, segsCross, leaderVesselHits } from './seg-hits.js';
 import { glassCallout, withGlass } from './callout.js';
 import { flipFrom, flipAt } from './cath-flip.js';
 import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js';
@@ -11251,6 +11251,25 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (t >= 1) { LEAD_XY.x = ax; LEAD_XY.y = ay; } else { LEAD_XY.x = cx + dx * t; LEAD_XY.y = cy + dy * t; }
     return LEAD_XY;
   }
+  // The words a Circuit reading's leader reaches, when the reading's text stands at (x, y): the nearer of its lines' runs (a name, a
+  // number, a unit), each as wide as its words, to the anchor (ax, ay). The drawn leader and the tidy's trial ones both end on it.
+  function leadRectOf(it, x, y, ax, ay) {
+    let yy = y, best = null;
+    for (const line of it.lines) {
+      const lh = LINE_H(line), lw = lineW(line), base = yy + lh * 0.78, lx = it.align === 'end' ? x + it.w - lw : it.align === 'middle' ? x + (it.w - lw) / 2 : x;
+      let xx = lx;
+      line.forEach((run, i) => {
+        if (i) xx += (run.gap ?? 3) * labelK;
+        const fp = fontPx(run.size), rw = textW(run.t, fp, run.weight, run.track || 0);
+        const lb = { x0: xx, y0: base - 0.72 * fp, x1: xx + rw, y1: base + 0.04 * fp };
+        xx += rw;
+        const d = Math.hypot(Math.max(lb.y0 - ay, 0, ay - lb.y1), Math.max(lb.x0 - ax, 0, ax - lb.x1));
+        if (!best || d < best.d) best = { d, lb };
+      });
+      yy += lh;
+    }
+    return best.lb;
+  }
   // Where a drawn leader stops: on the edge of what is seen of its label (the pill, or the letters' own box), never short
   // of it and never in under the letters, at any zoom (leader-end.js). (leaderEnd above still decides whether one shows.)
   // A haloed label is seen as its letters: each run of text (a name, a number, a unit) from its tallest figures' tops
@@ -12544,6 +12563,67 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           if (sol && !sol.drop) sol.short = 1;
         }
       }
+      // Tidy (3 Nov 2026, "leaders crossing vessels"): a reading whose leader runs through a vessel, whose leader is long, or whose words
+      // sit on a vessel moves to the best spot within 120 px that has none of those faults: the least leader first, clear of every
+      // other reading, ring, card and leader, its own leader through no reading, no leader and no vessel but the one it starts on.
+      // A reading hung from the middle of its vessel may also slide its dot along the vessel (a fifth or so each way, a few px of cost
+      // for each step), so its words can stand in the room beside another stretch of it. A reading with no better spot stays where it is.
+      // (Solved once and recorded, like the rescue above, so a carry holds it.)
+      if (solve && useLines) {
+        const TIDY_LONG = 60, TIDY_GAPS = [7, 12, 18, 25, 33, 42, 52, 64, 78, 94, 112], TIDY_R = [24, 33, 42, 52, 64, 78, 94, 112], SLIDE = [0.5, 0.42, 0.58, 0.34, 0.66, 0.26, 0.74, 0.18, 0.82, 0.1, 0.9];   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
+        const boxAt = (it, x, y) => ({ x0: x - it.padX, y0: y - it.padY, x1: x + it.w + it.padX, y1: y + it.h + it.padY });   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
+        // (How many readings' words and other leaders a reading's leader, from (ax, ay) to its words in `r`, runs through; `lines`: the others' leaders.)
+        const runsThrough = (it, le, ax, ay, lines, r) => {   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
+          let n = 0;
+          for (const p of placed) if (!p.dot && p !== it._r && !(ax >= p.x0 - 8 && ax <= p.x1 + 8 && ay >= p.y0 - 8 && ay <= p.y1 + 8) && crosses(ax, ay, le.x, le.y, p)) n++;
+          for (const sg of lines) if (Math.hypot(sg[0] - ax, sg[1] - ay) > 4 && segsCross(sg, [ax, ay, le.x, le.y])) n++;   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
+          for (const sg of lines) if (segHitsBox({ x0: sg[0], y0: sg[1], x1: sg[2], y1: sg[3] }, r, 1)) n++;   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
+          return n;
+        };
+        const faults = (it, r, pass, ax, ay, lines) => {   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
+          const le = leaderEnd(leadRectOf(it, r.x0 + it.padX, r.y0 + it.padY, ax, ay), ax, ay, 2), len = Math.hypot(le.x - ax, le.y - ay), drawn = len > 10;
+          const vh = drawn ? leaderVesselHits(segIdx, ax, ay, le.x, le.y, 1) : 0, onv = lineHits(r, 2) > 0, xr = drawn ? runsThrough(it, le, ax, ay, lines, r) : 0;
+          return { len, drawn, vh, onv, xr, le, cost: (drawn ? len : 0) + Math.min(vh, 3) * 600 + xr * 1500 + (onv ? 300 : 0) + pass };   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
+        };
+        const othersLeaders = (it) => out.filter((o) => o !== it && o.key.startsWith('n:') && !o.live && !o.hide).map((o) => { const e = leaderEnd(leadRectOf(o, o.x, o.y, o.ax, o.ay), o.ax, o.ay, 2); return Math.hypot(e.x - o.ax, e.y - o.ay) > 10 ? [o.ax, o.ay, e.x, e.y] : null; }).filter(Boolean);   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
+        for (const { it, dirs } of [...plan, ...plan]) {   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
+          if (!out.includes(it) || !it._r) continue;
+          if (solve && sliceOver()) yield;
+          const lines = othersLeaders(it), now = faults(it, it._r, 0, it.ax, it.ay, lines);
+          if (!now.vh && !now.onv && !now.xr && now.len <= TIDY_LONG) continue;
+          const old = it._r, was = { ax: it.ax, ay: it.ay, sol: nextSol.get(it.key) };   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
+          placed.splice(placed.indexOf(old), 1);
+          const dotAt = it.mid ? placed.find((p) => p.dot && p.x0 === it.ax - 4 && p.y1 === it.ay + 4 && p.x1 === it.ax + 4) : null;   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
+          if (dotAt) placed.splice(placed.indexOf(dotAt), 1);
+          const eid = it.mid ? LABEL_VESSEL[it.node] : null, P = eid && geo[eid]?.cur;
+          const anchors = P?.length > 1 ? SLIDE.map((u) => { if (u === 0.5) return [it.ax, it.ay, 0]; const m = arcMid(P, u), [x, y] = worldToLocal(m[0], m[1]); return [x, y, Math.abs(u - 0.5) * 50]; }) : [[it.ax, it.ay, 0]];   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
+          let best = null;
+          for (const [ax, ay, slide] of anchors) {
+            const dot = it.mid ? { x0: ax - 4, y0: ay - 4, x1: ax + 4, y1: ay + 4 } : null;   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
+            let rank = 0;
+            const tryAt = (dir, gap, pass) => {   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
+              const [dx, dy] = offset(dir, it, gap), r = boxAt(it, ax + dx, ay + dy);
+              if (!within(r, view)) return;
+              const f = faults(it, r, pass + slide, ax, ay, lines);
+              if (f.cost >= now.cost - 1 || (best && f.cost >= best.f.cost)) return;
+              if (dot && hits(r, dot)) return;
+              if (placed.some((p) => (p.dot ? hits(r, p) : hits(r, { x0: p.x0 - 3, y0: p.y0 - 3, x1: p.x1 + 3, y1: p.y1 + 3 })))) return;   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
+              if (obstacles.some((o) => !o.zone && hits(r, { x0: o.x0 - 10, y0: o.y0 - 10, x1: o.x1 + 10, y1: o.y1 + 10 }))) return;   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
+              if (lines.some((sg) => segHitsBox({ x0: sg[0], y0: sg[1], x1: sg[2], y1: sg[3] }, r, 3))) return;   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
+              best = { f, dx, dy, dir, r, ax, ay, dot };   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
+            };
+            for (const gap of TIDY_GAPS) for (const dir of ['N', 'S', 'E', 'W', 'NE', 'NW', 'SE', 'SW']) tryAt(dir, gap + it.vw / 2, (rank++ % 8) * 0.01 + dirs.indexOf(dir) * 2);   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
+            for (const gap of TIDY_R) for (const dir of RING_DIRS) tryAt(dir, gap + it.vw / 2, 8 + (rank++ % 16) * 0.01);
+          }
+          if (!best) { placed.push(old); if (dotAt) placed.push(dotAt); continue; }
+          it.ax = best.ax; it.ay = best.ay;
+          it.x = it.ax + best.dx; it.y = it.ay + best.dy; it.dir = best.dir; it.leader = best.f.drawn; it.onVessel = best.f.onv; it._r = best.r;
+          placed.push(best.r);
+          if (best.dot) placed.push({ ...best.dot, dot: true });   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
+          const sol = was.sol;
+          if (sol) { const [wx, wy] = localToWorld(it.ax, it.ay); nextSol.set(it.key, { ...sol, wx, wy, dx: best.dx, dy: best.dy, dir: best.dir, pi: -1, w: it.w, h: it.h, leader: best.f.drawn, lead: best.f.drawn, onv: best.f.onv, dot: false }); }   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
+        }
+      }
       // Collateral and shunt lanes, captioned along their run.
       for (const [id, cap] of Object.entries(LANE_CAPTIONS)) {
         if (solve && sliceOver()) yield;
@@ -12893,26 +12973,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         continue;
       }
       // (A Circuit reading's leader reaches its text: the nearer of its lines, as wide as that line's words, not the block's box.)
-      if (circuit && it.key.startsWith('n:')) {
-        let y = it.y, best = null;
-        for (const line of it.lines) {
-          // (The words' own height, not the line's: from the cap height down to the baseline, as the glyphs stand (renderBlock's
-          // baseline at 0.78 of the line).)
-          const lh = LINE_H(line), lw = lineW(line), base = y + lh * 0.78, lx = it.align === 'end' ? it.x + it.w - lw : it.align === 'middle' ? it.x + (it.w - lw) / 2 : it.x;
-          // (Word by word: a value's unit is smaller and sits lower than its number.)
-          let x = lx;
-          line.forEach((run, i) => {
-            if (i) x += (run.gap ?? 3) * labelK;
-            const fp = fontPx(run.size), rw = textW(run.t, fp, run.weight, run.track || 0);
-            const lb = { x0: x, y0: base - 0.72 * fp, x1: x + rw, y1: base + 0.04 * fp };
-            x += rw;
-            const d = Math.hypot(Math.max(lb.y0 - it.ay, 0, it.ay - lb.y1), Math.max(lb.x0 - it.ax, 0, it.ax - lb.x1));
-            if (!best || d < best.d) best = { d, lb };
-          });
-          y += lh;
-        }
-        r = best.lb;
-      }
+      if (circuit && it.key.startsWith('n:')) r = leadRectOf(it, it.x, it.y, it.ax, it.ay);
       // (Elsewhere the leader stops on the edge of the letters it meets first, run by run: seenEnd.)
       const le0 = leaderEnd(r, it.ax, it.ay, circuit ? 2 : 6), le = circuit ? le0 : seenEnd(it);
       const far = Math.hypot(le0.x - it.ax, le0.y - it.ay) > 5;
@@ -14909,6 +14970,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (layCTM) { const n = stagePxInto(stagePxNow, CTM); for (let i = 0; i < 6; i++) if (Math.abs(n[i] - layCTM[i]) > (i < 4 ? 1e-4 : 0.5)) moved = true; }
       return { hidden, riding, job: !!labelJob, laid: !!solvedFor && !labelJob && labelKey != null && morph === morphTarget, stale: !hidden && !riding && !labelJob && moved };
     },
+    /** For the browser check of the Circuit's leaders (tests/e2e/circuit-leaders.mjs): the vessels as the labels' solver sees them (stage px, half width, id)
+     *  and the stage's corner in client px, so the labels' boxes and leaders can be read against them. */
+    labelVessels: () => { buildSegs(); refreshCTM(); return { left: wrapRect.left, top: wrapRect.top, segs: segs.map((q) => [q.x0, q.y0, q.x1, q.y1, q.hw, q.id]) }; },
     labelDrawn: () => labelGL?.boxes ?? null,   // (what the GPU labels' last picture drew, as boxes in px from their canvas's corner: the browser check of the labels' lag)
     labelDrawnBy: () => { const r = stageBox(), o = labelGL?.drawnLabels?.() ?? []; for (const d of o) { d.x += r.left; d.y += r.top; } return o; },   // (each GPU label's last picture, keyed, client px: the browser check's lag test)
     lobuleSpot: () => lz?.spot() ?? null, lobuleLensFade: () => lz?.lensFade() ?? null, lobuleMem: (detail) => lz?.memBytes(detail) ?? 0, diveProgress: () => diveT, plateRasters: () => plateSeq,

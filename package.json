@@ -30,6 +30,8 @@
     "smoke:card": "node tests/e2e/text-card.mjs",
     "smoke:words": "node tests/e2e/gl-words-keep.mjs",
     "smoke:classes": "node tests/e2e/gl-classes.mjs",
+    "smoke:leaders": "node tests/e2e/circuit-leaders.mjs",
+    "smoke:cards-labels": "node tests/e2e/labels-off-cards.mjs",
     "smoke:quick": "node tests/e2e/quick.mjs",
     "gate": "node scripts/gate.mjs",
     "gate:full": "node scripts/gate.mjs --full",
