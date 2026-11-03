@@ -118,6 +118,7 @@ const MOTION_RE = /['"`](pointermove|touchmove|mousemove|scroll|wheel|gesturecha
 // Calls that keep a function to run later, not now (its own frame or event, if any, makes it a seed).
 const DEFERRED = /^(setTimeout|setInterval|requestIdleCallback|queueMicrotask|addEventListener|removeEventListener|then|catch|finally|Promise|ResizeObserver|IntersectionObserver|MutationObserver|PerformanceObserver|afterMotion|whenQuiet|restPass|runSoon|idle|onRenderScale|onFigLab|watchFrames|observe|subscribe|on|once|frame|lateFrame|finalFrame|requestAnimationFrame|nextFrame|easeFrame|drawFrame)$/;
 // Receivers whose methods are the browser's own (a Map's set, a class list's add): a call on one never runs an app function.
+const FN = Symbol('fn');   // (a name declared as a function: a call of it is a call of that function, not through a registry)
 const BUILTIN_NEW = /^(Map|Set|WeakMap|WeakSet|Array|Float32Array|Float64Array|Int8Array|Int16Array|Int32Array|Uint8Array|Uint8ClampedArray|Uint16Array|Uint32Array|Image|URLSearchParams|FormData|Date|RegExp|Path2D|DOMMatrix|ResizeObserver|IntersectionObserver|MutationObserver|AbortController|Worker|BroadcastChannel|Blob|URL|TextEncoder|TextDecoder)$/;
 const BUILTIN_RECV = new Set(['classList', 'style', 'dataset', 'console', 'Math', 'JSON', 'Object', 'Array', 'Promise', 'Number', 'String', 'Reflect',
   'performance', 'document', 'window', 'globalThis', 'location', 'localStorage', 'sessionStorage', 'navigator', 'history', 'URL', 'Atomics', 'crypto']);
@@ -277,7 +278,7 @@ export function scan({ root = ROOT } = {}) {
     }
     if (!file.endsWith('.js')) continue;
     const ast = parseJs(file, text);
-    const mod = { file, text, motionProps: [], fns: new Map(), origins: new Map(), calls: new Map(), imports: new Map(), exports: new Map(), seeds: new Set(), obsSeeds: new Set(), softSeeds: new Set(), late: [], regs: [], alias: new Map() };
+    const mod = { file, text, motionProps: [], fns: new Map(), origins: new Map(), calls: new Map(), imports: new Map(), exports: new Map(), seeds: new Set(), obsSeeds: new Set(), softSeeds: new Set(), late: [], regs: [], alias: new Map(), decls: new Map(), shapes: new Map() };
     mods.set(file, mod);
     const frameCallers = new Set(['requestAnimationFrame', 'frame', 'lateFrame', 'finalFrame']);
     // (raf = frameFor('x'), and imported scheduler names under any local alias)
@@ -299,8 +300,10 @@ export function scan({ root = ROOT } = {}) {
     let uid = 0;
     const keyOf = (f) => f.__key || (f.__key = `${fnName(f) || 'anon'}@${f.loc.start.line}${++uid > 0 && mod.fns.has(`${fnName(f) || 'anon'}@${f.loc.start.line}`) ? `.${uid}` : ''}`);
     mod.top = []; mod.containers = new Set(BUILTIN_RECV); mod.exposed = new Map(); mod.frameCallers = frameCallers;
+    // (Not null: let veins = null is a place kept for an object made later, veins = createVeinsGL(…), whose methods are the file's to follow; with null counted
+    // as a built-in value every call on veins was dropped and the scan never reached the vessel renderer, 2 Nov 2026.)
     const builtinValue = (v) => v && (v.type === 'NewExpression' && BUILTIN_NEW.test(v.callee.name || '') || v.type === 'ArrayExpression'
-      || v.type === 'Literal' || v.type === 'TemplateLiteral' || v.type === 'CallExpression' && ARRAY_OUT.test(calleeName(v) || ''));
+      || v.type === 'Literal' && v.value !== null || v.type === 'TemplateLiteral' || v.type === 'CallExpression' && ARRAY_OUT.test(calleeName(v) || ''));
     visit(ast, null, (n) => {
       if (isFn(n)) {
         const name = fnName(n);
@@ -327,6 +330,23 @@ export function scan({ root = ROOT } = {}) {
       }
       // Containers (receivers whose methods are built in) and functions exposed under a property name ({ draw } or { draw: paint }).
       if (n.type === 'VariableDeclarator' && n.id.type === 'Identifier' && builtinValue(n.init)) mod.containers.add(n.id.name);
+      // Every declaration of a name with the function it is made in and what it was given (true: a built-in value; a name: another variable,
+      // a built-in when that one is; false: anything else, a parameter included), so that a call on it is told from a call on an object of the
+      // file's own: S.fill(0) on a Float32Array is not the recorder's fill method (paint-gl.js, 2 Nov 2026).
+      const declare = (nm, scope, kind) => { if (!mod.decls.has(nm)) mod.decls.set(nm, []); mod.decls.get(nm).push({ scope, kind }); };
+      const patNames = (p) => !p ? [] : p.type === 'Identifier' ? [p.name] : p.type === 'AssignmentPattern' ? patNames(p.left) : p.type === 'RestElement' ? patNames(p.argument)
+        : p.type === 'ArrayPattern' ? p.elements.flatMap(patNames) : p.type === 'ObjectPattern' ? p.properties.flatMap((q) => patNames(q.type === 'Property' ? q.value : q)) : [];
+      if (n.type === 'VariableDeclarator') for (const nm of patNames(n.id)) declare(nm, enclosing(n), n.id.type === 'Identifier' && n.init ? (isFn(n.init) ? FN : builtinValue(n.init) ? true : n.init.type === 'Identifier' ? n.init.name : false) : false);
+      if (isFn(n)) for (const pm of n.params) for (const nm of patNames(pm)) declare(nm, n, false);
+      if (n.type === 'FunctionDeclaration' && n.id) declare(n.id.name, enclosing(n), FN);
+      // What each name holds, to tell a plain object (o.data = …, R.value = …) from an element: the shape of what each declaration and each
+      // assignment gives it ('obj': an object literal; 'elem': an item of some table; a name: whatever that one is; 'other': anything else).
+      const shapeOf = (v) => !v ? 'other' : v.type === 'ObjectExpression' ? 'obj' : v.type === 'AssignmentExpression' && v.operator === '=' ? shapeOf(v.right)
+        : v.type === 'Identifier' ? v.name : v.type === 'MemberExpression' && v.computed ? 'elem' : 'other';
+      const shape = (nm, scope, k, assigned) => { if (!mod.shapes.has(nm)) mod.shapes.set(nm, []); mod.shapes.get(nm).push({ scope, k, assigned }); };
+      if (n.type === 'VariableDeclarator') for (const nm of patNames(n.id)) shape(nm, enclosing(n), n.id.type === 'Identifier' ? shapeOf(n.init) : 'other', false);
+      if (isFn(n)) for (const pm of n.params) for (const nm of patNames(pm)) shape(nm, n, 'other', false);
+      if (n.type === 'AssignmentExpression' && n.operator === '=' && n.left.type === 'Identifier') shape(n.left.name, enclosing(n), shapeOf(n.right), true);
       // Receivers made by an imported factory: R = createX(…), { R: createX(…) }, this.R = createX(…).
       const madeBy = (v) => v?.type === 'CallExpression' && v.callee.type === 'Identifier' && mod.imports.get(v.callee.name)?.[0];
       if (n.type === 'VariableDeclarator' && n.id.type === 'Identifier' && madeBy(n.init)) mod.origins.set(n.id.name, madeBy(n.init));
@@ -565,6 +585,27 @@ export function scan({ root = ROOT } = {}) {
     return null;
   };
   const chainOf = (f) => { const c = []; for (let p = f; p; p = enclosing(p)) c.push(p); return c; };
+  // A name that holds a plain object where it is used: every declaration of it in the nearest function that declares it, and every assignment
+  // to it made inside that function, gives an object literal or an item of a table (R = regions[key] = { … }), and at least one an object literal.
+  const isPlainObject = (mod, name, at, depth = 0) => {
+    const ds = mod.shapes.get(name);
+    if (!ds || depth > 4) return false;
+    const chain = [...chainOf(at), null];
+    let scope, found = false;
+    for (const sc of chain) if (ds.some((d) => !d.assigned && d.scope === sc)) { scope = sc; found = true; break; }
+    if (!found) return false;
+    const inside = (d) => d.scope === scope || scope === null || chainOf(d.scope).includes(scope);
+    const mine = ds.filter((d) => (d.assigned ? inside(d) : d.scope === scope));
+    let obj = false;
+    for (const d of mine) {
+      if (d.k === 'obj') obj = true;
+      else if (d.k === 'elem') continue;
+      else if (d.k === 'other' || d.k === name) return false;
+      else if (isPlainObject(mod, d.k, d.scope, depth + 1)) obj = true;
+      else return false;
+    }
+    return obj;
+  };
   // The function a bare name means at a call inside `at`: the innermost binding in scope, else the import of that name.
   function resolveBare(mod, name, at) {
     const binds = (mod.byName?.get(name) || []).filter((g) => declKind(g) === 'binding');
@@ -586,14 +627,24 @@ export function scan({ root = ROOT } = {}) {
     }
     // (Not a binding in scope nor an import: a parameter or a variable holding some function. Every function of that name in the
     // file is followed, so a callback handed in under its own name, opts.onClose as onClose, is never missed.)
-    return (mod.byName?.get(name) || []).map((g) => [mod, g]);
+    // (Not the function bindings of that name: a name bound to a function that is not in scope here is another variable of the same name, a
+    // panel or an el handed to a function, not a call of that function, 2 Nov 2026: presenter's cardIn(panel, …) is not wallsVisual's panel arrow.)
+    return (mod.byName?.get(name) || []).filter((g) => declKind(g) !== 'binding').map((g) => [mod, g]);
   }
   // A member call: the file's methods of that name and the functions it exposes under that name; none on a built-in receiver.
   // (Conservative: an unknown receiver may be any of them, so every one is followed.)
   function resolveCall(mod, call) {
     if (!call.member) return resolveBare(mod, call.name, call.at);
     if (call.recv && call.recv !== 'this' && mod.containers.has(call.recv)) return [];
-    const out = (mod.byName?.get(call.name) || []).filter((g) => declKind(g) === 'method').map((g) => [mod, g]);
+    // (A receiver that is a built-in value where the call is made: the innermost function around it that declares the name decides.)
+    if (call.recv && call.recv !== 'this' && mod.decls.has(call.recv)) {
+      const ds = mod.decls.get(call.recv);
+      for (const sc of [...chainOf(call.at), null]) {
+        const here = ds.filter((d) => d.scope === sc);
+        if (here.length) { if (here.every((d) => d.kind === true || (typeof d.kind === 'string' && mod.containers.has(d.kind)))) return []; break; }
+      }
+    }
+    const out =(mod.byName?.get(call.name) || []).filter((g) => declKind(g) === 'method').map((g) => [mod, g]);
     for (const nm of mod.exposed.get(call.name) || []) for (const g of mod.byName?.get(nm) || []) if (declKind(g) === 'binding') out.push([mod, g]);
     // (The receiver may be an object an imported module made: ui.zoom = createCardZoom(…), or named for the factory, stage for
     // createStage. That module's methods of the name are followed too.)
@@ -655,7 +706,16 @@ export function scan({ root = ROOT } = {}) {
   const dispatched = (mod, f) => {
     const out = [];
     const aliasOf = (name) => { const out = new Set(); for (let p = f; ; p = enclosing(p)) { const k = `${p ? scopeId(p) : 0}|${name}`; for (const R of mod.alias.get(k) || []) out.add(R); if (!p || mod.declared?.has(k)) break; } return out; };
-    for (const R0 of f.__disp || []) for (const R of [R0, ...aliasOf(R0)]) for (const key of [`${mod.file}:${R}`, `*:${R}`]) for (const t of regs.get(key)?.values() || []) out.push(t);
+    // (A bare call of a name that is a function declared in f or around it is a call of that function: the scan follows it by name, and it is
+    // not a call through a registry of that name, which every function stored in any registry of that name would be taken to run: stage.js
+    // clampTextBox's a(k), a small arrow, reached every function other files stored under a.)
+    const isFnHere = (name) => {
+      const ds = mod.decls.get(name);
+      if (!ds) return false;
+      for (const sc of [...chainOf(f), null]) { const here = ds.filter((d) => d.scope === sc); if (here.length) return here.every((d) => d.kind === FN); }
+      return false;
+    };
+    for (const R0 of f.__disp || []) if (!isFnHere(R0)) for (const R of [R0, ...aliasOf(R0)]) for (const key of [`${mod.file}:${R}`, `*:${R}`]) for (const t of regs.get(key)?.values() || []) out.push(t);
     for (const R0 of f.__dispM || []) for (const R of aliasOf(R0)) for (const key of [`${mod.file}:${R}`, `*:${R}`]) for (const t of regs.get(key)?.values() || []) out.push(t);
     return out;
   };
@@ -832,6 +892,8 @@ export function scan({ root = ROOT } = {}) {
     return /^\s*\/\//.test(above) ? RARE.exec(above)?.[1] || '' : '';
   };
   for (const mod of mods.values()) for (const [cat0, n, f, detail] of mod.late) {
+    // (A property named like an element's (data, value, src, hidden…) set on a plain object is not a write to the page, 2 Nov 2026: lobule-zoom's o.data = …, sinusoid-view's R.value = ….)
+    if (cat0 === 'attrWrite' && /^\.(nodeValue|data|hidden|disabled|value|checked|src|href) =$/.test(detail) && n.type === 'AssignmentExpression' && n.left.object?.type === 'Identifier' && isPlainObject(mod, n.left.object.name, f)) continue;
     let cat = cat0;
     if (cat !== 'alloc') look(cat, mod.file, n.loc.start.line);   // (an allocation is a site only where a frame reaches it)
     let hit = null, wide = /^(classList\.|\.className)/.test(detail);
@@ -946,7 +1008,20 @@ export function readRatchet(found = directReads(), allowed = readAllowance()) {
 export const TARGET_PCT = 100;
 export const honestPct = (hits) => (hits.sites ? Math.floor(100 * hits.onGpu / hits.sites) : 100);
 export const split = (hits) => { const u = (w) => hits.filter((h) => h.why === w).length; return { frame: hits.filter((h) => h.cat !== 'unreached').length, use: u('use'), unresolved: u('unresolved'), setup: hits.setup?.length || 0 }; };
-export const score = (hits) => { const x = split(hits); return `${hits.onGpu}/${hits.sites} on GPU (${honestPct(hits)}% honest, counting ${hits.wide || 0} class-write and timer/observer sites; target ${TARGET_PCT}%), ${hits.length} off: frame path ${x.frame}, during use ${x.use}, no caller found ${x.unresolved}; ${x.setup} setup sites left out of the count and listed; ${hits.rare?.length || 0} tagged run-once/rare allocations (// alloc-rare: reason) also left out, listed with their reasons`; };
+// Sites reached only from an event, timer, rest pass, promise, observer or store listener (never from a frame or a motion handler), told apart
+// from the honest total, which counts them all and is what the gate and the goal use: shown as their own line so the per-frame work stands out
+// (2 Nov 2026). Nothing is left out of the honest figure; a site a frame or motion path reaches is never in this line.
+export const eventOnly = (hits) => {
+  const kinds = {};
+  let n = 0;
+  for (const h of hits) if (h.cat === 'unreached' && h.why === 'use') { n++; const k = /\(([^)]*)\)$/.exec(h.detail)?.[1] || 'event or timer'; kinds[k] = (kinds[k] || 0) + 1; }
+  return { n, kinds };
+};
+const eventLine = (hits) => {
+  const { n, kinds } = eventOnly(hits), per = hits.sites - n;
+  return `; per-frame view (event-only sites set aside): ${hits.onGpu}/${per} on GPU (${per ? Math.floor(100 * hits.onGpu / per) : 100}%), ${n} event-only sites listed apart (${Object.entries(kinds).sort((x, y) => y[1] - x[1]).map(([k, c]) => `${k} ${c}`).join(', ') || 'none'})`;
+};
+export const score = (hits) => { const x = split(hits); return `${hits.onGpu}/${hits.sites} on GPU (${honestPct(hits)}% honest, counting ${hits.wide || 0} class-write and timer/observer sites; target ${TARGET_PCT}%), ${hits.length} off: frame path ${x.frame}, during use ${x.use}, no caller found ${x.unresolved}; ${x.setup} setup sites left out of the count and listed; ${hits.rare?.length || 0} tagged run-once/rare allocations (// alloc-rare: reason) also left out, listed with their reasons${eventLine(hits)}`; };
 
 const esc = (s) => String(s).replace(/\|/g, '\\|').replace(/`/g, "'").replace(/\n/g, ' ');
 export function inventory(hits, { commit = '' } = {}) {
