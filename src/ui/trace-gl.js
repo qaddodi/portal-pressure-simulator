@@ -1216,11 +1216,18 @@ export function createShim(G) {
     const k = textScaled ? sc() : 1;
     G.text(t, px, py, k === 1 ? st.font : scaledFont(st.font, k), colour, align(), st.textBaseline, st.globalAlpha, sw * k, ang ? TURN : null, st.ls * k);
   };
-  let textScaled = false, sfFrom = '', sfK = 0, sfTo = '';   // alloc-rare: made once with the shim (the policy, and the last scaled font text: a layer draws at one scale for a frame)
+  let textScaled = false, sfK = 0;   // alloc-rare: made once with the shim (the policy, and the scale the scaled font texts below were made for)
+  const sfMap = new Map();   // alloc-rare: made once with the shim (font text → its scaled text at sfK: a frame of mixed-size runs makes each once)
   // alloc-rare: made once with the shim, which is made once with its chart, never in a frame
   const scaledFont = (font, k) => {
-    if (font !== sfFrom || k !== sfK) { sfFrom = font; sfK = k; sfTo = font.replace(/([\d.]+)px/, `${(fontOf(font).px * k).toFixed(3)}px`); }   // alloc-rare: only when the font or the scale changes
-    return sfTo;
+    if (k !== sfK) { sfK = k; sfMap.clear(); }
+    let f = sfMap.get(font);
+    if (f === undefined) {
+      if (sfMap.size > 32) sfMap.clear();
+      f = font.replace(/([\d.]+)px/, `${(fontOf(font).px * k).toFixed(3)}px`);   // alloc-rare: only when a font text is first met at this scale
+      sfMap.set(font, f);
+    }
+    return f;
   };
   const TURN = new Float64Array(3);   // alloc-rare: made once with the shim (a turned word's centre and angle)
   // alloc-rare: made once with the shim, which is made once with its chart, never in a frame
