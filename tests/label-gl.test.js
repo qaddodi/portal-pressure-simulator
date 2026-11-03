@@ -278,10 +278,11 @@ test('the leaders and dots stand for the stage\'s ride: their layer\'s kept styl
   assert.match(LGL, /classList\?\.contains\('lb-leaders'\)\) mixC\(rideLook \? 10 : 11\)/, 'the layer\'s style key follows the ride');
   assert.match(LGL, /const rideSeen = \(\) => \{[\s\S]*?const on = !!svg\.parentElement\?\.closest\?\.\('\.lb-ride'\);[\s\S]*?allMarks\(\); ask\(\);/, 'a ride coming or going reads the marks again');
   assert.match(LGL, /const outer = new MutationObserver\(\(rs\) => \{\s*rideSeen\(\);/, 'the stage\'s class changes are watched for it');
-  // Any other rule a gesture class makes about something inside the labels' SVG would need the same: none but the leaders' layer exists.
+  assert.match(LGL, /classList\?\.contains\('lb'\) && rideLook && !e\.hasAttribute\('data-gl'\)\) mixC\(12\)/, 'a label the SVG still draws is faded in the ride: keyed apart');
+  // Any other rule a gesture class makes about something inside the labels' SVG would need the same: the leaders' layer and the labels the SVG still draws (keyed by data-gl).
   const inside = [];
   for (const m of CSS.matchAll(/([^{}]*\.(?:panning|stage-busy|figure-focus|pinch-hide|cam-move|lb-ride|off-home)\b[^{}]*)\{/g)) {
     for (const sel of m[1].split(',')) if (/\.(?:panning|stage-busy|figure-focus|pinch-hide|cam-move|lb-ride|off-home)\b[^,]*\s(?:[^,]*\s)?(?:\.lb\b|\.lb-[a-z]+|#labels\s+\S)/.test(sel) && !/#labelGl|> #labels|\.lb-glass/.test(sel)) inside.push(sel.trim());
   }
-  assert.deepEqual(inside, ['.stage-view.lb-ride .lb-leaders'], 'a gesture class that restyles anything under the labels must be in the style key');
+  assert.deepEqual(inside, ['.stage-view.lb-ride .lb-leaders', '.stage-view.lb-ride .lb:not([data-gl])'], 'a gesture class that restyles anything under the labels must be in the style key');
 });

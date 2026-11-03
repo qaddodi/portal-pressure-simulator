@@ -723,6 +723,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       const at = e.attributes;
       for (let i = 0; i < at.length; i++) { const a = at[i]; if (!VOLATILE.has(a.name)) { mixC(4); mixS(a.name); mixC(5); mixS(a.value); } }
       if (e.classList?.contains('lb')) { try { mixC(e.matches(':hover') ? 6 : 7); mixC(e.matches(':focus-visible') ? 8 : 9); } catch (err) { caught('label-gl:581', err); /* no state */ } }
+      if (e.classList?.contains('lb') && rideLook && !e.hasAttribute('data-gl')) mixC(12);   // (a label the SVG still draws is faded under lb-ride, app.css: read apart from its look at rest)
       if (e.classList?.contains('lb-leaders')) mixC(rideLook ? 10 : 11);   // (the stage's lb-ride fades this layer on the page: the leaders and dots stand for it, see outer)
     }
     return (kh1 >>> 0) * 2097152 + ((kh2 >>> 0) & 0x1fffff);
