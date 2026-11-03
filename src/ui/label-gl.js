@@ -668,7 +668,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // offset, its dot on the point and its leader from the point to the label, all moved by the same step in the same frame. No ride, carry
   // or follow moves a pinned label: a pan, a pinch or a view change moves its point, and the label goes with it, rigid. Only a new layout
   // changes the offset, and the label then eases from the offset it was drawn at to the new one (pinGlides), its point and dot not moving.
-  let pinAt = null;
+  let pinAt = null, pinHeldFn = null, pinWasHeld = false;
+  const pinHeldNow = () => !!pinHeldFn?.();
   const PIN = [0, 0];
   const pinGlides = new Map();   // group -> { fx, fy (the offset it was drawn at, CSS px), t0 }
   const pinOf = (s) => (pinAt && s && s.pid != null && pinAt(s.pid, PIN, s.pmid, s.pau) ? s : null);
@@ -678,7 +679,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   function pinOff(s, now) {
     let ox = s.x - s.pax, oy = s.y - s.pay, u = 1;
     const pg = pinGlides.get(s.g);
-    if (pg) { u = easeMove(Math.min(1, (now - pg.t0) / RIDE_MS)); ox = pg.fx + (ox - pg.fx) * u; oy = pg.fy + (oy - pg.fy) * u; }
+    if (pg) { u = pg.t0 === Infinity ? 0 : easeMove(Math.max(0, Math.min(1, (now - pg.t0) / RIDE_MS))); ox = pg.fx + (ox - pg.fx) * u; oy = pg.fy + (oy - pg.fy) * u; }
     OFF[0] = ox; OFF[1] = oy;
     return u;
   }
@@ -1249,6 +1250,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
     nb = 0;
     frameSeq++;
     const now = performance.now();
+    // (The hand let go: the offsets held through it ease to their layout's now.)
+    if (pinAt) { const h = pinHeldNow(); if (pinWasHeld && !h) for (const pg of pinGlides.values()) if (pg.t0 === Infinity) pg.t0 = now; pinWasHeld = h; }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, W, H);
     if (!host) { gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); }
@@ -1374,6 +1377,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
       }
       gl.bindVertexArray(vao);
     }
+    // (The pinned labels' dots and leaders, after the pictures: each label's opacity and place are this frame's by now.)
+    if (pinAt) { gl.useProgram(mprog); ucOf(gl).f2(MU.uView, W, H); drawPins(now); gl.bindVertexArray(vao); }
     if (anyRing) {
       gl.useProgram(mprog); ucOf(gl).f2(MU.uView, W, H); ucOf(gl).i1(MU.uKind, 9);
       for (let i = 0; i < ni; i++) { const it = ITEMS[i]; if (it.st?.ring) ringDraw(it.x, it.y, it.st.ring, it.a); }
@@ -1736,7 +1741,6 @@ void main() { o = texture(uT, vUV) * uA; }`;
         if (mgD) { mgD.seq = frameSeq; mgD.a = Math.min(1, a); for (let i = 0; i < 4; i++) mgD.d[i] = geo[i]; }   // (what this frame drew, for the browser check's snapshot: no read, four numbers)
       }
     }
-    if (pinAt) moving = drawPins(now) || moving;
     markDirty.clear();
     return moving;
   }
@@ -2332,7 +2336,10 @@ void main() { o = texture(uT, vUV) * uA; }`;
           if (!st.pin) { if (!pinOf(s)) continue; fx = (st.dx - st.ox) / dpr - PIN[0]; fy = (st.dy - st.oy) / dpr - PIN[1]; }
           const nx = s.x - s.pax, ny = s.y - s.pay, pg = pinGlides.get(s.g);
           if (Math.hypot(nx - fx, ny - fy) <= 0.75) { if (pg) pinGlides.delete(s.g); continue; }
-          if (pg) { pg.fx = fx; pg.fy = fy; pg.t0 = t0; } else pinGlides.set(s.g, { fx, fy, t0 });   // alloc-rare: one record per label that moves at a layout
+          // (While a hand moves the figure (pinHeld) a new layout's offset waits: the label stays rigid on its point, and eases to its new
+          // place once the hand lets go. An edge pull or a reslot in the middle of a pan was a label sliding against its point.)
+          const tg = pinHeldNow() ? Infinity : t0;
+          if (pg) { if (pg.t0 !== Infinity || tg === Infinity) { pg.fx = fx; pg.fy = fy; } pg.t0 = tg; } else pinGlides.set(s.g, { fx, fy, t0: tg });   // alloc-rare: one record per label that moves at a layout
         }
       }
       last = list; gen++; stuck = false;
@@ -2391,7 +2398,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     },
     get riding() { return !!rideM; },
     /** Pins the station labels to the figure: f(id, out) writes where the figure has station id's point now (stage px) and returns true. */
-    pinTo(f) { pinAt = f; ask(); },
+    pinTo(f, held = null) { pinAt = f; pinHeldFn = held; ask(); },
     /** The figure moved (its camera or its morph): the pinned labels drawn with it, in this frame. */
     pinDraw() { if (lost || !pinAt) return; if (raf) { cancelFrame(raf); raf = 0; } draw(); },
     /** A view change begins: the labels now laid out are carried by their stations (followPut), the rest faded (followDraw). */

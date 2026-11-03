@@ -10282,7 +10282,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const t = easeInOut(morph), a = labelAnchor(id, t);
     if (mid || !a.mid) { out[0] = a.ax; out[1] = a.ay; } else { const p = nodePos(id, t); worldToLocalInto(PIN_P, p[0], p[1]); out[0] = PIN_P[0]; out[1] = PIN_P[1]; }
     return Number.isFinite(out[0]) && Number.isFinite(out[1]);
-  });
+  }, () => gestureOn());
   wrap.dataset.labels = labelGL ? 'gpu' : 'svg';
   labelRider = labelGL;
   labelHoles = labelGL?.setHoles ? labelGL : null;
