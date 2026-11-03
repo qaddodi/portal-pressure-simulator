@@ -69,3 +69,13 @@ test('the toast is drawn on the GPU: the page lays it out in script, reads nothi
   const css = src('styles/app.css');
   assert.match(css, /\.toast\.wgl-on/);
 });
+
+test('the toast wears the cards\' frosted glass: listed to the glass, its tint declared in CSS, and its picture draws the card whole only where no glass comes', () => {
+  const u = src('src/ui/util.js'), m = src('src/ui/main.js'), css = src('styles/app.css'), t = src('src/ui/toast-gl.js');
+  assert.match(u, /export const TOASTS = \[\]/); assert.match(u, /TOASTS\.push\(t\)/); assert.match(u, /TOASTS\.splice/);
+  assert.match(m, /cardGlass\?\.\(\{ find: \(\) => TOASTS/);
+  assert.match(css, /\.toast \{ --gl-glass: 1; --gl-tint:/); assert.match(css, /\.toast-wrap \.toast\[data-gl\]/);
+  assert.match(css, /prefers-reduced-transparency: reduce\) \{ \.toast \{ --gl-glass: 0/);
+  assert.match(u, /data-gl-wait/);
+  assert.match(t, /if \(!glass\) \{/);
+});
