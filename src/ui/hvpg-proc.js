@@ -21,6 +21,7 @@ import { frameFor, cancelFrame } from './frame.js';
 import { createTraceGL, fitPen } from './trace-gl.js';
 import { traceRoom, TRACE_MIN } from './trace-room.js';
 import { rateOf } from './table-marks.js';
+import { drawCallout, dropK, sideFor, calloutCell, calloutText } from './trace-callouts.js';
 import { PROCS, PROC_KINDS, procBlocked, procOffered, playProcedure } from './proc-anim.js';
 const nextFrame = frameFor('hvpg-proc');
 
@@ -59,6 +60,7 @@ function fm1(c, v) {
   if (!Object.is(c.v, v)) { c.v = v; c.s = fmt(v, 1); }   // alloc-rare: only when the number differs from the one its text was built from
   return c.s;
 }
+const mkF = calloutCell(), mkW = calloutCell();   // (the two trace markers' words)
 const cF = cell(), cW = cell(), cH = cell(), cHT = cell(), cLvF = cell(), cLvW = cell();
 // The tracing's axes, set by traceOn for the frame it draws (the draw is synchronous and does not call itself).
 let axTop = 0, axBot = 0, axMax = 15, axL = 0, axR = 0;
@@ -484,6 +486,17 @@ function traceOn({ ctx, w, h: hh }, { ph, t, v, blocked, running }) {
       ctx.fillStyle = col2; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(txt, lx + 6, ly + 0.5);
       ctx.restore();
     }
+  }
+  // (N6, trace callouts: a marker drops onto the trace where each reading is taken, the free as the free sweep ends, the wedge once the
+  // plateau has held, which is when the figure's callout prints it. Both stand on the trace itself, so they move with it.)
+  const tFree = T.inflate - 80;
+  if (ph !== 'abort' && t >= tFree) {
+    const yp = Y(pAt(tFree, v));
+    drawCallout(ctx, calloutText(mkF, 'Free', v.fhvp), X(tFree), yp, sideFor(yp, 1, top, bot), C.free, C.bg, dropK(t - tFree), 1, L, R, top, bot);
+  }
+  if (ph !== 'abort' && t >= T.callout) {
+    const yp = Y(pAt(T.callout, v));
+    drawCallout(ctx, calloutText(mkW, 'Wedge', v.whvp), X(T.callout), yp, sideFor(yp, -1, top, bot), C.wedge, C.bg, dropK(t - T.callout), 1, L, R, top, bot);
   }
   ctx.fillStyle = C.text; ctx.font = FONT(500, 12); ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
   ctx.fillText('balloon up', X(T.inflate), bot + 15);

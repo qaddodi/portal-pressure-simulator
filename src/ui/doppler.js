@@ -13,6 +13,7 @@ import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from '
 import { frameFor, noteDraw, paceMs, cancelFrame, frameAnimating } from './frame.js';
 import { windowIndexFor, scaleFor, fitScale } from './dopplerWindow.js';
 import { velNormal, dopplerVel, judgeFlow } from './velNormal.js';
+import { drawCallout, dropK, edgeFade, sideFor, calloutCell, calloutText, DROP_MS } from './trace-callouts.js';
 import { caliperFrame, caliperLevel, caliperX, CAL_FADE, pairOf, pairBand, pairScale, PAIR_GAP } from './doppler-marks.js';
 import { createDopplerGL } from './doppler-gl.js';
 import { surface } from './gpu-surfaces.js';
@@ -1242,7 +1243,9 @@ export function createDoppler({ onProbe, pickGate = true }) {
   let calip = false, cal = null;
   // (Each caliper level's easing, kept for the two levels: where it began, where it is going, when; on false = none yet.)
   const calMk = { hi: { on: false, from: 0, to: 0, at: 0 }, lo: { on: false, from: 0, to: 0, at: 0 } };
-  const calReset = () => { calMk.hi.on = false; calMk.lo.on = false; };
+  // (N6: the marker on each pick, where its sample is drawn: the sample's time, when it was first picked, its words.)
+  const calPk = { hi: { t: -1, at: 0, c: calloutCell() }, lo: { t: -1, at: 0, c: calloutCell() } };
+  const calReset = () => { calMk.hi.on = false; calMk.lo.on = false; calPk.hi.t = -1; calPk.lo.t = -1; };
   const CAL_W = 2, CAL_TICK = 4;
   const DASH_CAL = [4, 3], DASH_NONE = [];
   // (The calipers' two levels and the frame's numbers for placing them, kept.)
@@ -1285,6 +1288,20 @@ export function createDoppler({ onProbe, pickGate = true }) {
     ctx.strokeStyle = cssAlpha('--black', 0.85); ctx.lineWidth = 3.5; ctx.stroke();
     ctx.strokeStyle = cssAlpha('--doppler', 1); ctx.lineWidth = 1.5; ctx.stroke();
     ctx.restore();
+    // N6, trace callouts: "Peak" and "Trough" with their speeds, on the trace's own samples. A marker drops when its sample is picked,
+    // scrolls with the trace (xAt) and fades as the sample nears the trace's left end. The higher of the two on the page is the peak.
+    const yH = calY(cal.hi[1]), yL = calY(cal.lo[1]), hiTop = yH <= yL;
+    calCallout(ctx, now, calPk.hi, cal.hi, yH, hiTop ? 'Peak' : 'Trough', hiTop ? -1 : 1, padL, W, padT, H);
+    calCallout(ctx, now, calPk.lo, cal.lo, yL, hiTop ? 'Trough' : 'Peak', hiTop ? 1 : -1, padL, W, padT, H);
+  }
+  function calCallout(ctx, now, m, pick, y, name, want, padL, W, padT, H) {
+    if (m.t !== pick[0]) { m.t = pick[0]; m.at = now; }
+    const since = now - m.at;
+    if (since < DROP_MS) labBusy = true;
+    const x = xAt(pick[0]), a = edgeFade(x - padL);
+    if (a <= 0.01) return;
+    const txt = calloutText(m.c, name, Math.round(cSgn * pick[1] * cK * cal.gf), 0);
+    drawCallout(ctx, txt, x, y, sideFor(y, want, padT, padT + H), cssAlpha('--doppler', 1), cssAlpha('--black', 0.85), dropK(since), a, padL, padL + W, padT, padT + H);
   }
   // (The index is read in the bottom strip, first after the probe's name, in the marks' colour: off the spectrum, always whole.
   // Its words come from a table of the hundredths, the index being at most 2.)
