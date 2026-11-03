@@ -1,0 +1,70 @@
+name: Pre-push gate
+
+# The gate every thread runs before it pushes (npm run gate, scripts/gate.mjs), run again here on every push to the integration branch and on pull
+# requests into it, so a regression that got past a thread still shows up red within minutes, with the stage and the slide or view named.
+#   static   conflict markers in any tracked file; the app and the worker bundle (missing export, missing file, syntax error)
+#   boot     the page starts with and without WebGL, with no page error, console error or failed request
+#   slides   a sample of every deck's slides (first three, middle, last) stepped to their end state on a paused fake clock
+#   views    Anatomy / Circuit / Lobule switches stepped to their end; the diaphragm drawn; labels follow a pan and a zoom
+#   pixels   the six rest views against tests/visual (desktop)
+# The full sweep (every slide of every deck, desktop and phone) runs when the commit message contains [gate-full] or on dispatch, split over
+# six runners. It never blocks a deploy (pages.yml does not wait for it). One gate run per branch holds a runner; a newer push replaces the waiting one.
+
+on:
+  push:
+    branches: [claude/settings-topbar-icon-flvft1]
+  pull_request:
+    branches: [claude/settings-topbar-icon-flvft1]
+  workflow_dispatch:
+    inputs:
+      full:
+        description: 'Run the full sweep as well'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gate-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    name: gate (fast)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-browser
+      - name: Gate
+        run: node scripts/gate.mjs --jobs 3
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gate-report
+          path: test-results/gate/
+          if-no-files-found: ignore
+          retention-days: 3
+
+  gate-full:
+    name: gate full ${{ matrix.shard }}
+    if: github.event.inputs.full == 'true' || contains(github.event.head_commit.message, '[gate-full]')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ['1/6', '2/6', '3/6', '4/6', '5/6', '6/6']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-browser
+      - name: Every slide, desktop and phone
+        run: node scripts/gate.mjs --full --only slides --shard ${{ matrix.shard }} --jobs 3
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gate-full-report-${{ strategy.job-index }}
+          path: test-results/gate/
+          if-no-files-found: ignore
+          retention-days: 3

@@ -24,7 +24,12 @@ Work happens in the cloud; previews are published to GitHub Pages.
   coding agent; do not add `codex/` branches without changing both deployment rules.
 
 Loop for every change (fast previews first, full tests before merge):
-1. Make the change and run only `npm run lint && npm test` (seconds). Do not run the browser
+1. Make the change and run `npm run lint && npm test` (seconds), then `npm run gate` (the pre-push gate, `scripts/gate.mjs`, a few
+   minutes): it fails on a conflict marker, an import that does not resolve, a page that does not boot, a deck slide change that does
+   not end whole (card frozen mid-fade, glass never arriving, camera still gliding), a Circuit/Anatomy/Lobule switch that does not
+   settle, a missing diaphragm, labels that do not follow a pan or zoom, and a rest view that drifts from `tests/visual/`. A thread pushes only
+   when it passes (`--only static,slides` for a quick run on a deck change; `--decks hvpg` narrows it). CI runs it on every push
+   (`gate.yml`; `[gate-full]` in a commit message runs every slide on desktop and phone). Details: header of `scripts/gate.mjs`. Do not run the browser
    checks (`npm run smoke`) or `npm run check` locally at this stage. For any UI change, also
    take screenshots of the intended behaviour in the running app before pushing: phone
    (390x844, deviceScaleFactor 3), iPad and desktop where the change applies. Check them

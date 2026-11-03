@@ -73,21 +73,40 @@ export function labelBoxes() {
   return out;
 }
 
-/** The diaphragm: drawn (SVG path with a real outline) and, on a GPU page, painted live. [issue text]. */
-export function diaphragmIssues({ gpu }) {
+/** The diaphragm: its outline is a real path and, when the organs are GPU layers, painted live (then the SVG path is hidden by design); otherwise the SVG path shows. [issue text]. */
+export function diaphragmIssues() {
   const out = [];
+  const o = window.pps.stage.organPaths(), gpu = o.mode === 'GPU layers';
   const p = document.querySelector('path.org-diaphragm');
   if (!p) return ['no diaphragm path in the figure'];
   const d = p.getAttribute('d') || '';
   if (d.length < 100) out.push(`the diaphragm outline is ${d.length} characters long`);
   const cs = getComputedStyle(p);
-  if (+cs.opacity < 0.05 || cs.display === 'none' || cs.visibility === 'hidden') out.push(`the diaphragm is hidden (opacity ${cs.opacity}, display ${cs.display})`);
+  // (painted live on the GPU, the SVG path is kept hidden by design: it only feeds the painting; the GPU checks below judge that)
+  if (!gpu && (+cs.opacity < 0.05 || cs.display === 'none' || cs.visibility === 'hidden')) out.push(`the diaphragm is hidden (opacity ${cs.opacity}, display ${cs.display}, visibility ${cs.visibility})`);
   try { const b = p.getBBox(); if (b.width < 200 || b.height < 20) out.push(`the diaphragm is ${Math.round(b.width)}x${Math.round(b.height)} in the figure`); } catch { /* not rendered: the opacity check above says so */ }
-  if (gpu) {
-    const o = window.pps.stage.organPaths();
-    if (o.mode !== 'GPU layers') out.push(`the organs are not drawn as GPU layers (${o.mode})`);
-    else if (!/diaphragm/.test(o.live)) out.push(`the diaphragm is not painted live (${o.live})`);
-    else if (!(o.gpu?.meshes > 0)) out.push('the organ layer has no meshes');
+  {
+    if (/^SVG \(no GPU figure\)/.test(o.mode)) out.push(`the organs fell back to the SVG drawing (${o.mode})`);
+    else if (o.mode === 'GPU layers' && !/diaphragm/.test(o.live)) out.push(`the diaphragm is not painted live (${o.live})`);
+    else if (o.mode === 'GPU layers' && !(o.gpu?.meshes > 0)) out.push('the organ layer has no meshes');
   }
   return out;
+}
+
+/** Every label the figure shows, wherever it is drawn: the GPU labels' boxes (labelDrawn, from their canvas's corner) and the DOM ones.
+ *  { pts: [[x, y]] centres on screen, anchors: [[x, y]] of the labels the solver has placed }. */
+export function labelState() {
+  const st = window.pps.stage, pts = [];
+  const cv = document.querySelector('#labels canvas, canvas.labels-gl, canvas[data-labels]');
+  const o = cv ? cv.getBoundingClientRect() : { left: 0, top: 0 };
+  for (const b of st.labelDrawn?.() || []) pts.push([(b[0] + b[2]) / 2 + o.left, (b[1] + b[3]) / 2 + o.top]);
+  for (const g of document.querySelectorAll('#labels .lb:not(.lb-off)')) {
+    const cs = getComputedStyle(g);
+    if (+cs.opacity < 0.5 || cs.display === 'none' || cs.visibility === 'hidden') continue;
+    const r = (g.querySelector('text') || g).getBoundingClientRect();
+    if (r.width > 2 && r.height > 2) pts.push([r.left + r.width / 2, r.top + r.height / 2]);
+  }
+  const anchors = [];
+  for (const k of Object.keys(st.labelSlots?.() || {})) { try { const a = st.labelAnchorOf(k); if (a && a.x > 0 && a.y > 0 && a.x < innerWidth && a.y < innerHeight) anchors.push([a.x, a.y]); } catch { /* (a label without an anchor) */ } }
+  return { pts, anchors };
 }

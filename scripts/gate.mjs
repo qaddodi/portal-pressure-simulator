@@ -13,7 +13,7 @@
 //            in 100 ms runs: no real time decides anything), and the change must END: the presenter idle, the cards whole (no
 //            card frozen part way through a fade or leave, no card still waiting for glass, none empty or off screen), the title on
 //            the words, the camera at rest, no label left part way. Then one Back.
-//   views    Anatomy, Circuit, Lobule and back, each switch stepped to its end on the GPU path: organs settled, the diaphragm
+//   views    Anatomy, Circuit, Lobule and back, each switch waited out to its end on the GPU path (real time: the clock cannot drive software WebGL): organs settled, the diaphragm
 //            drawn and painted live, then labels follow a pan and a zoom (they move with the camera and match a fresh layout)
 //   pixels   the six rest views against tests/visual (tests/e2e/visual.mjs, the CI references)
 //
@@ -21,17 +21,16 @@
 // --jobs at a time, default the CPU count up to 4). Exit code 1 on any finding; the report is also written to
 // test-results/gate/report.json and, in CI, to the job summary. Each finding names the stage, the deck/slide or view, and what is wrong.
 
-import { chromium } from 'playwright';
 import { spawn } from 'node:child_process';
-import { existsSync, mkdirSync, writeFileSync, appendFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync, appendFileSync } from 'node:fs';
 import { cpus } from 'node:os';
 import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { serve } from './serve.mjs';
 import { findMarkers, checkBundle } from './gate-static.mjs';
-import { slideFinal, labelBoxes, diaphragmIssues } from './gate-page.mjs';
-import { instantMotion } from '../tests/e2e/fast.mjs';
-import { assertGpuPath, readPath, CHROMIUM_ARGS } from './shoot.mjs';
+import { slideFinal, labelState, diaphragmIssues } from './gate-page.mjs';
+import { assertGpuPath, readPath } from './shoot.mjs';
+import { EXE, launch, openPage, figureUp, stepUntil, stepFor, watchUntil, watchFor, ask, landed, pool as poolOf, gpuName } from './gate-clock.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const argv = process.argv.slice(2);
@@ -45,71 +44,14 @@ const DIR = opt('dir', '.');
 const JOBS = Math.max(1, +opt('jobs', Math.min(4, cpus().length)));
 const OUT = resolve(opt('out', join(ROOT, 'test-results/gate')));
 const [SHARD, SHARDS] = opt('shard', '1/1').split('/').map(Number);
-const SIZES = {
-  desktop: { viewport: { width: 1440, height: 900 } },
-  phone: { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
-  ipad: { viewport: { width: 820, height: 1180 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
-};
 const SIZE_NAMES = opt('sizes', FULL ? 'desktop,phone' : 'desktop').split(',');
-const EXE = process.env.CHROMIUM || (existsSync('/opt/pw-browsers/chromium') ? '/opt/pw-browsers/chromium' : '');
-const launch = (gl) => chromium.launch({ args: gl ? CHROMIUM_ARGS : ['--no-sandbox', '--disable-3d-apis'], ...(EXE ? { executablePath: EXE } : {}) });
 
 const findings = [];   // { stage, where, text }
 const timings = {};
 const log = (...a) => console.log(...a);
 const fail = (stage, where, text) => { findings.push({ stage, where, text }); log(`  FAIL ${stage} ${where}: ${text}`); };
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// ---- the fake clock -------------------------------------------------------------------------------------------------------
-// Playwright's clock fakes Date, performance.now, requestAnimationFrame, setTimeout/Interval and requestIdleCallback in the page. It
-// is installed before the page's scripts run, so every timestamp the page takes is on it; once the page is up time moves only
-// when this file runs it (runFor), in steps of STEP ms, so the order and the moment of every timer and frame is the same on every run.
-const STEP = 100;
-// The page's Workers (the engine, the sweep that works out every slide's state) run on real time, and the page has timeouts on them (the
-// sweep client drops a worker silent for 20 s). Run flat out, the fake clock passes those 20 s in milliseconds while the worker is still
-// working, and a slide that should land never does (seen: hvpg 2, one run in two). So after every step the gate waits PACE real ms: the
-// clock never runs faster than PACE_RATIO = STEP / PACE times real time, and the timeouts keep their margin. (GATE_PACE=ms to change.)
-const PACE = +(process.env.GATE_PACE ?? 40);
-
-/** Runs the page's clock on in STEP ms runs until `ready` (a function run in the page, given `arg`) is true, at most `maxFake` ms.
- *  Returns the fake ms it took, or -1 when it never became true. The check is made every `every` ms of fake time. */
-async function stepUntil(page, ready, arg, { maxFake = 20000, every = 300 } = {}) {
-  for (let t = 0; t <= maxFake; t += STEP) {
-    if (t % every === 0 && await page.evaluate(ready, arg)) return t;
-    await page.clock.runFor(STEP);
-    if (PACE) await sleep(PACE);
-  }
-  return -1;
-}
-/** In the page: has the presenter landed on slide `w`? A case card (a vignette the talk waits on) is tapped away as a person would. */
-const landed = (w) => { document.querySelector('.pz-case.on')?.click(); return !window.pps.presenter.busy() && Number(document.querySelector('.pzb-n')?.textContent.split('/')[0]) === w; };
-const stepFor = async (page, ms) => { for (let t = 0; t < ms; t += STEP) { await page.clock.runFor(STEP); if (PACE) await sleep(PACE); } };
-
-/** A page on `url` with its errors collected: page errors, console errors, failed requests and bad responses. */
-async function openPage(browser, url, { size = 'desktop', clock = true, instant = true, scheme = 'light', motion = 'reduce', init } = {}) {
-  const ctx = await browser.newContext({ ...SIZES[size], colorScheme: scheme, serviceWorkers: 'block', reducedMotion: motion });
-  if (instant) await ctx.addInitScript(instantMotion);
-  if (init) await ctx.addInitScript(init);
-  const page = await ctx.newPage();
-  page.setDefaultTimeout(120000);
-  const errors = [];
-  page.on('pageerror', (e) => errors.push(`page error: ${e.message.split('\n')[0]}`));
-  page.on('console', (m) => { if (m.type() === 'error') errors.push(`console error: ${m.text().split('\n')[0].slice(0, 200)}`); });
-  page.on('requestfailed', (r) => { if (!/favicon/.test(r.url())) errors.push(`request failed: ${r.url().split('/').slice(-2).join('/')} ${r.failure()?.errorText || ''}`); });
-  page.on('response', (r) => { if (r.status() >= 400 && !/favicon/.test(r.url())) errors.push(`HTTP ${r.status()}: ${r.url().split('/').slice(-2).join('/')}`); });
-  if (clock) await page.clock.install();
-  await page.goto(url);
-  // From here time moves only when the gate runs the clock: the page is paused one second on (its scripts load on real time, their timers on this one).
-  if (clock) await page.clock.pauseAt(Date.now() + 1000);
-  return { page, ctx, errors, close: () => ctx.close() };
-}
-const figureUp = (page) => page.waitForFunction(() => window.pps?.store?.get().frame && !document.documentElement.dataset.boot, null, { timeout: 120000 });
-
-/** Runs `tasks` (async functions) `JOBS` at a time. */
-async function pool(tasks, jobs = JOBS) {
-  const q = [...tasks.entries()];
-  await Promise.all(Array.from({ length: Math.min(jobs, q.length) }, async () => { for (let it = q.shift(); it; it = q.shift()) await it[1](); }));
-}
+const pool = (tasks, jobs = JOBS) => poolOf(tasks, jobs);
 
 async function timed(stage, fn) {
   const t0 = Date.now();
@@ -128,9 +70,7 @@ async function stageStatic() {
 
 // ---- boot -----------------------------------------------------------------------------------------------------------------
 async function bootCheck(browser, url, name, { gl }) {
-  const app = await openPage(browser, url + '?preset=cirr-decomp', { clock: false, instant: false, init: gl ? () => {
-    for (const C of [window.WebGLRenderingContext, window.WebGL2RenderingContext]) { if (!C) continue; const gp = C.prototype.getParameter; C.prototype.getParameter = function (p) { return p === 0x9246 || p === 0x1F01 ? 'Apple M2 GPU' : gp.call(this, p); }; }
-  } : undefined });
+  const app = await openPage(browser, url + '?preset=cirr-decomp', { clock: false, instant: false, init: gl ? gpuName : undefined });
   try {
     await figureUp(app.page);
     await app.page.waitForTimeout(1500);
@@ -229,7 +169,95 @@ async function stageSlides() {
 }
 
 // ---- views / pixels -------------------------------------------------------------------------------------------------------
-async function stageViews() { log('  (views stage: not yet)'); }
+// The views: every switch is waited out to its end on the GPU path (real time: the clock cannot drive software WebGL), then the figure is judged. In the page.
+const viewDone = (v) => {
+  const st = window.pps.stage, on = document.querySelector('#viewSeg [aria-pressed="true"]')?.dataset.view;
+  if (on !== v) return false;
+  if (v === 'lobule') return st.lobuleOpen() && st.lobuleSettled();
+  return !st.lobuleOpen() && !st.gliding() && !st.drifting() && st.organsSettled();   // (viewNow() is null for good on the circuit: its morph never returns to 0)
+};
+const solved = () => !window.pps.stage.labelSolving();
+const camera = () => { const m = document.getElementById('world')?.getScreenCTM(); return m ? { k: Math.hypot(m.a, m.b), e: m.e, f: m.f } : null; };
+const near = (pts, [x, y], r) => pts.some((p) => Math.hypot(p[0] - x, p[1] - y) <= r);
+const nearest = (pts, [x, y]) => pts.reduce((m, p) => Math.min(m, Math.hypot(p[0] - x, p[1] - y)), Infinity);
+
+// (real time, not the fake clock: see gate-clock.mjs watchUntil)
+async function stageViews() {
+  const server = await serve(resolve(ROOT, DIR));
+  const browser = await launch(true);
+  const app = await openPage(browser, server.url + '?preset=cirr-decomp', { size: 'small', clock: false, instant: false, motion: 'no-preference' });
+  const { page } = app;
+  const seen = new Set();
+  const errs = (where) => { for (const e of app.errors) if (!seen.has(e)) { seen.add(e); fail('views', where, e); } };
+  try {
+    const t0 = Date.now(), say = (m) => log(`  views ${((Date.now() - t0) / 1000).toFixed(0)} s: ${m}`);
+    const up = await watchUntil(page, () => !!window.pps?.store?.get().frame && !document.documentElement.dataset.boot, null, { maxFake: 90000, every: 500 });
+    if (up < 0) return fail('views', 'boot', 'the figure never came up');
+    say(`figure up after ${up} ms of clock`);
+    // (The page takes the path a GPU-less machine takes: a page that names itself a GPU queues software draws at 120 Hz and never catches up; this one steps itself down to a few frames a second, as CI's runners do. The figure must still be the WebGL one.)
+    const path = await readPath(page);
+    if (path.veins !== 'webgl2' || !path.glOn || path.lost) return fail('views', 'boot', `the figure is not drawn with WebGL (${JSON.stringify(path)})`);
+    await page.evaluate(() => window.pps.host.send({ type: 'run', running: false }));   // (the model paused: readings still, as visual.mjs does)
+    await watchFor(page, 1500);
+    const judge = async (v, step) => {
+      const where = `${v} (${step})`;
+      const took = await watchUntil(page, viewDone, v, { maxFake: step === 'start' ? 120000 : 60000 });
+      say(`${where}: ended after ${took} ms of clock`);
+      if (took < 0) return fail('views', where, `the switch never ended in 60 s  (${await page.evaluate(() => JSON.stringify({ view: document.querySelector('#viewSeg [aria-pressed="true"]')?.dataset.view, gliding: window.pps.stage.gliding(), drifting: window.pps.stage.drifting(), organs: window.pps.stage.organsSettled(), solving: window.pps.stage.labelSolving(), lobule: window.pps.stage.lobuleOpen() }))})`);
+      await watchFor(page, 800); say(`${where}: settled, judging`);
+      for (const t of await ask(page, diaphragmIssues)) if (v === 'anatomic' || v === 'circuit') fail('views', where, t);
+      if (v === 'anatomic' && await watchUntil(page, () => document.querySelectorAll('#labels .lb:not(.lb-off)').length > 0 || (window.pps.stage.labelDrawn?.() || []).length > 0, null, { maxFake: 20000 }) < 0) fail('views', where, 'no label is drawn on the anatomy view (waited 20 s)');
+      if (v !== 'lobule' && await watchUntil(page, solved, null, { maxFake: 45000 }) < 0) fail('views', where, 'the labels are still solving 45 s after the view settled (stuck)');
+      errs(where);
+    };
+    await judge('anatomic', 'start');
+    for (const [v, n] of [['circuit', 1], ['anatomic', 2], ['lobule', 1], ['anatomic', 3]]) {
+      await page.evaluate((x) => document.querySelector(`#viewSeg [data-view="${x}"]`).click(), v);
+      await judge(v, `switch ${n}`);
+    }
+    // labels follow a pan and a zoom (anatomy): they move with the camera, and none is left behind
+    const box = await page.locator('.stage-view').boundingBox();
+    const cx = box.x + box.width * 0.5, cy = box.y + box.height * 0.5;
+    const settle = async () => { await watchUntil(page, () => !window.pps.stage.gliding() && !window.pps.stage.drifting(), null, { maxFake: 20000 }); await watchUntil(page, solved, null, { maxFake: 30000 }); await watchFor(page, 600); };
+    const b0 = await ask(page, labelState), m0 = await ask(page, camera);
+    await page.mouse.move(cx, cy); await page.mouse.down();
+    for (let i = 1; i <= 8; i++) { await page.mouse.move(cx - i * 12, cy + i * 6); await watchFor(page, 120); }
+    await page.mouse.up(); await settle();
+    const b1 = await ask(page, labelState), m1 = await ask(page, camera);
+    const pan = [m1.e - m0.e, m1.f - m0.f];
+    say(`pan: figure moved ${pan[0].toFixed(0)}, ${pan[1].toFixed(0)}; ${b0.pts.length} label(s) before, ${b1.pts.length} after, ${b1.anchors.length} anchored`);
+    if (Math.hypot(...pan) < 20) fail('views', 'pan', `the drag did not move the figure (${pan[0].toFixed(0)}, ${pan[1].toFixed(0)})`);
+    else if (b0.pts.length >= 3) {
+      if (!b1.pts.length) fail('views', 'pan', 'every label vanished after a pan');
+      else {
+        const stayed = b0.pts.filter((p) => near(b1.pts, [p[0] + pan[0], p[1] + pan[1]], 16)).length;
+        if (stayed < Math.ceil(b0.pts.length * 0.5)) fail('views', 'pan', `labels did not follow the pan: ${stayed} of ${b0.pts.length} are where the figure moved to (it moved ${pan[0].toFixed(0)}, ${pan[1].toFixed(0)})`);
+      }
+    }
+    // zoom in about the centre (a trackpad pinch is Ctrl + wheel)
+    await page.mouse.move(cx, cy);
+    await page.keyboard.down('Control');
+    for (let i = 0; i < 10; i++) { await page.mouse.wheel(0, -14); await watchFor(page, 120); }
+    await page.keyboard.up('Control'); await settle();
+    const b2 = await ask(page, labelState), m2 = await ask(page, camera);
+    const k = m2.k / m1.k;
+    say(`zoom: x${k.toFixed(2)}; ${b2.pts.length} label(s) after`);
+    if (k < 1.1) fail('views', 'zoom', `the pinch did not zoom the figure (scale x${k.toFixed(2)})`);
+    else if (b1.pts.length >= 3) {
+      if (!b2.pts.length) fail('views', 'zoom', 'every label vanished after a zoom');
+      else {
+        const out = b1.pts.filter((p) => Math.hypot(p[0] - cx, p[1] - cy) > 120);
+        const moved = out.filter((p) => !near(b2.pts, p, 3)).length;
+        if (out.length >= 3 && moved < Math.ceil(out.length * 0.5)) fail('views', 'zoom', `labels did not follow the zoom (x${k.toFixed(2)}): ${out.length - moved} of ${out.length} labels far from the pinch stayed where they were`);
+        const lost = b2.anchors.filter((a) => nearest(b2.pts, a) > 260).length;
+        if (b2.anchors.length >= 3 && lost > b2.anchors.length * 0.4) fail('views', 'zoom', `${lost} of ${b2.anchors.length} labels are detached from the vessel they name (more than 260 px away)`);
+      }
+    }
+    const lostPan = b1.anchors.filter((a) => nearest(b1.pts, a) > 260).length;
+    if (b1.anchors.length >= 3 && lostPan > b1.anchors.length * 0.4) fail('views', 'pan', `${lostPan} of ${b1.anchors.length} labels are detached from the vessel they name (more than 260 px away)`);
+    errs('pan and zoom');
+  } finally { await app.close(); await browser.close(); server.close(); }
+}
 
 async function stagePixels() {
   const devices = FULL ? ['desktop', 'phone'] : ['desktop'];
