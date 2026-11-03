@@ -191,7 +191,7 @@ export function createCaptionGL(box) {
   cv.setAttribute('aria-hidden', 'true');
   box.prepend(cv);
   const items = new Map(), leads = new Map(), extras = new Map(), looks = new Map();
-  let ask = 0, gpu = null, drewOnce = false, onDrawn = null, onRest = null, onFrame = null, wasMoving = false, lastT = 0, drawing = false;
+  let vk = 1, ve = 0, vf = 0, ask = 0, gpu = null, drewOnce = false, onDrawn = null, onRest = null, onFrame = null, wasMoving = false, lastT = 0, drawing = false;
   function draw() {
     ask = 0;
     if (!cv.isConnected) return;
@@ -205,6 +205,9 @@ export function createCaptionGL(box) {
       if (onFrame?.(now)) more = true;
       ctx.clearRect(0, 0, w, h);
       if (!(w > 0 && h > 0)) return;
+      // (The whole layer carried by the owner's view, view(): a point p is drawn at k p + (e, f). A pan, or the lobule's dive about a point.)
+      const moved = vk !== 1 || ve !== 0 || vf !== 0;
+      if (moved) { ctx.save(); ctx.translate(ve, vf); ctx.scale(vk, vk); }
       // Leaders under the names, as their layer was.
       for (const L of leads.values()) {
         const a = easeAt(L.a, now) * (L.of ? itemA(L.of, now) : 1);
@@ -263,6 +266,7 @@ export function createCaptionGL(box) {
       }
       ctx.globalAlpha = 1;
       for (const f of extras.values()) if (f(ctx, now)) more = true;
+      if (moved) ctx.restore();
     } finally { drawing = false; ctx.end?.(); }
     if (pen.gpu && !drewOnce) { drewOnce = true; onDrawn?.(); }
     if (more) ask = finalFrame(draw);
@@ -362,6 +366,8 @@ export function createCaptionGL(box) {
       for (const L of leads.values()) if (easing(L.a, now)) return true;
       return false;
     },
+    /** The whole layer moved as one: a point p is drawn at k p + (e, f) (px). A pan is k 1; the lobule's dive is a scale about a point. */
+    view(k, e, f) { if (vk === k && ve === e && vf === f) return; vk = k; ve = e; vf = f; api.paint(); },
     paint() { if (!ask && !drawing) ask = finalFrame(draw); },
     /** Draws now, in this frame (the owner's frame moved the figure: its names move with it). */
     drawNow() { if (ask) return; draw(); },

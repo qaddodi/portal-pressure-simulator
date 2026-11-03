@@ -35,7 +35,7 @@ test('a hand\'s zoom carries the lobule\'s labels while every layout rule still 
   const ll = body(lobule, 'function layoutLabels(');
   assert.match(ll, /if \(sameB && follow\.ride && V\.k !== follow\.k && handOn\(\) && rideHolds\(fr0\)\) \{/);
   assert.match(ll, /R\.nl = nl; R\.nc = nc; R\.nz = zoneBoxes\.length;[^\n]*\n\s*follow\.ride = R;/);
-  assert.match(lobule, /if \(labels\.style\.transform \|\| rough \|\| rides\) \{ rough = false;/);
+  assert.match(lobule, /if \(panOn \|\| rough \|\| rides\) \{ rough = false;/);
   const rh = body(lobule, 'function rideHolds(');
   // (No label on another, on a zone's name or chip, on another's leader, on a structure or a card; leaders uncrossed; inside the free space.)
   for (const re of [/\(j > i && overlap\(bi, bj\) > 0\)/, /crosses\(pi, qi, bj\)/, /\(j > i && cut\(pi, qi, rhLead\[j\]\[0\], rhLead\[j\]\[1\]\)\)/,

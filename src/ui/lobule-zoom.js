@@ -1729,7 +1729,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // full there, and redrew the lobule's bitmap at each √2 step, which is what made zooming the lobule on a Mac lag.)
   const handOn = () => touches.size > 0 || !!cancelFlick || (!!wheelKind && performance.now() - wheelAt < 250);
   // The hand let go (or paused): place the labels again for where the view now is.
-  function followEnd() { if (handOn()) { followT = setTimeout(followEnd, 140); return; } if (labels.style.transform || rough || rides) { rough = false; layoutKey = ''; viewChanged(); } }
+  function followEnd() { if (handOn()) { followT = setTimeout(followEnd, 140); return; } if (panOn || rough || rides) { rough = false; layoutKey = ''; viewChanged(); } }
   // Boxes and leader ends the ride's check works in, kept and written in place (a pool grows by index, once, to the most labels there are).
   const rhBox = [], rhLead = [], rhOth = [];
   const poolBox = (pool, i) => pool[i] || (pool[i] = { l: 0, r: 0, t: 0, b: 0 });   // alloc-once: a pool grows the first time a larger count is asked for, then it is reused
@@ -1878,9 +1878,18 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const rideList = [];
   let rides = null, rideN = 0;
   function rideAdd(ax, ay) {
-    const r = rideList[rideN] || (rideList[rideN] = { a: [0, 0], d: [0, 0], els: [null, null, null], ne: 0 });   // alloc-once: a piece is made the first time a ride needs that many, then reused
+    const r = rideList[rideN] || (rideList[rideN] = { a: [0, 0], d: [0, 0], els: [null, null, null], ne: 0, b: new Float64Array(18) });   // alloc-once: a piece is made the first time a ride needs that many, then reused
     rideN++; r.a[0] = ax; r.a[1] = ay; r.ne = 0;
     return r;
+  }
+  // A leader's, dot's or ring's geometry as the ride began (x1, x2, cx, y1, y2, cy; NaN where the piece has none): each frame of the ride draws it
+  // carried by the piece's own shift, the way its label is, and the bake lands there.
+  const RIDE_ATT = ['x1', 'x2', 'cx', 'y1', 'y2', 'cy'];
+  function rideBase(r) {
+    for (let j = 0; j < r.ne; j++) {
+      const e = r.els[j], own = spot.get(e);
+      for (let k = 0; k < 6; k++) { const o = own ? null : geoOf(e, RIDE_ATT[k]); r.b[j * 6 + k] = o != null && o !== '' ? +o : NaN; }
+    }
   }
   function ride() {
     const f = follow;
@@ -1897,16 +1906,21 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         if (s) { const r = rideAdd(s[0], s[1]); r.els[0] = z; r.ne = 1; }
       }
       if (classHas(callRing, 'on')) { const r = rideAdd(+geoOf(callRing, 'cx'), +geoOf(callRing, 'cy')); r.els[0] = callEl; r.els[1] = callLine; r.els[2] = callRing; r.ne = 3; }
+      for (let i = 0; i < rideN; i++) rideBase(rideList[i]);
     }
     for (let i = 0; i < rideN; i++) {
       const r = rideList[i], a0 = r.a[0], a1 = r.a[1], d0 = (a0 - f.x) / f.k * V.k + V.x - a0, d1 = (a1 - f.y) / f.k * V.k + V.y - a1;
       r.d[0] = d0; r.d[1] = d1;
       for (let j = 0; j < r.ne; j++) {
         const e = r.els[j], p = spot.get(e);
-        // (A leader, its dot or the ring has no spot: the GPU draws it from its geometry, which takes the shift when the ride is baked.)
         if (p) tr(e, p[0] + d0, p[1] + d1);
+        else {
+          // (A leader, its dot or the ring has no spot: the GPU draws it from its geometry, set to where the ride began plus the shift.)
+          for (let k = 0; k < 6; k++) { const b = r.b[j * 6 + k]; if (b === b) setGeo(e, RIDE_ATT[k], b + (k < 3 ? d0 : d1)); }
+        }
       }
     }
+    leadGL.paint();
   }
   // A model piece's ends and centre carried by the pan's shift (held on the piece, never written as attributes).
   const shiftAttr = (e, a, v) => { const o = geoOf(e, a); if (o != null && o !== '') setGeo(e, a, +o + v); };
@@ -1925,8 +1939,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       if (dx || dy) moved = true;
       for (let j = 0; j < r.ne; j++) {
         const e = r.els[j], p = spot.get(e);
-        if (p) put(e, p[0] + dx, p[1] + dy);
-        shiftGeo(e, dx, dy);
+        if (p) put(e, p[0] + dx, p[1] + dy);   // (a leader's geometry is where the ride drew it: nothing to carry)
       }
     }
     rides = null;
@@ -1934,15 +1947,16 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     unglide();
     return moved;
   }
-  // The pan's shift as last written to the labels and leaders (a string made only when it changed), and its numbers.
-  let panStr = null, panDX = 0, panDY = 0;
+  // The pan's shift of the labels and leaders (the GPU draws both carried by it: cap.view, leadGL.view; nothing is written to the page), and its numbers.
+  let panOn = false, panDX = 0, panDY = 0;
+  const unpan = () => { panOn = false; cap.view(1, 0, 0); leadGL.view(1, 0, 0); };
   // Writes the pan's shift into the labels' and leaders' own positions and drops the shared shift, so they glide on from where they are seen.
   function bakeFollow() {
-    if (bakeRides()) { clearTimeout(followT); labels.style.transform = leadersBox.style.transform = ''; return true; }
+    if (bakeRides()) { clearTimeout(followT); unpan(); return true; }
     clearTimeout(followT);
-    // (Only this function's own shift is a translate3d: the dive's is a translate and a scale.)
-    const mine = labels.style.transform.startsWith('translate3d(');
-    labels.style.transform = leadersBox.style.transform = '';
+    // (Only this function's own shift is a pan: the dive's is a scale about a point.)
+    const mine = panOn;
+    unpan();
     if (!mine) return false;
     const dx = panDX, dy = panDY;
     if (!dx && !dy) return false;
@@ -2264,21 +2278,21 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // panning lag on a phone. They are placed again, gliding to their new spots, once the hand lets go.
     if (sameB && V.k === follow.k && handOn() && !rides) {
       const dx = V.x - follow.x, dy = V.y - follow.y;
-      if (panStr === null || dx !== panDX || dy !== panDY) { panDX = dx; panDY = dy; panStr = `translate3d(${dx}px, ${dy}px, 0)`; }
-      labels.style.transform = leadersBox.style.transform = panStr;
+      panDX = dx; panDY = dy; panOn = true;
+      cap.view(1, dx, dy); leadGL.view(1, dx, dy);
       clearTimeout(followT); followT = setTimeout(followEnd, 140);
       return;
     }
     // A short glide (+, −, Fit, a space that holds still) carries each label, leader and zone name with the spot it names, at
     // its own size, and lays them out once where the glide lands (they glide there from where they are seen). Solving the
     // layout on every frame of the glide (measuring the cards, trying hundreds of spots and orders) stalled it on a phone.
-    if (sameB && gliding && !camMove && !handOn() && !labels.style.transform) { ride(); return; }
+    if (sameB && gliding && !camMove && !handOn() && !panOn) { ride(); return; }
     // A hand's zoom (a pinch, the wheel, a trackpad's pinch) carries them the same way, each with its own spot at its own size, for as
     // long as that leaves every label clear of the others, of their leaders, of the structures, of the cards and inside the free space
     // (rideHolds); a frame where it would not, they are placed again (gliding there), and once the hand lets go, placed for where it
     // stopped. Placing them in full on every frame of a pinch (measuring, then trying hundreds of spots) is what made zooming lag.
     if (sameB && follow.ride && V.k !== follow.k && handOn() && rideHolds(fr0)) {
-      labels.style.transform = leadersBox.style.transform = '';   // (a pan's shared shift before it: ride moves each piece from the layout itself)
+      unpan();   // (a pan's shared shift before it: ride moves each piece from the layout itself)
       ride(); clearTimeout(followT); followT = setTimeout(followEnd, 140);
       return;
     }
@@ -4757,7 +4771,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       if (wide) { for (const e of WIDE_HIDE) e.style.visibility = 'hidden'; wide.el.style.visibility = ''; }
       // (A copy in the vessels' own canvas: that canvas shows it, unscaled; the copy is placed on the GPU.)
       if (wide?.host) glCv.style.visibility = '';
-      for (const e of [tissue, tissueG, glCv, fx, fxG, leadersBox, labels]) {
+      // (The labels and the leaders are drawn by the GPU carried by the same scale about the same point: view(k, e, f) puts a point p at k p + (e, f).)
+      if (k >= 0.9999) { cap.view(1, 0, 0); leadGL.view(1, 0, 0); } else { cap.view(k, tx - k * x, ty - k * y); leadGL.view(k, tx - k * x, ty - k * y); }
+      for (const e of [tissue, tissueG, glCv, fx, fxG]) {
         if (k >= 0.9999 || (wide?.host && e === glCv)) { e.style.transform = ''; e.style.transformOrigin = ''; continue; }
         // Scaled about its own centre, which sits where the field's lobule at the dive's focus is (tx, ty), so it morphs out of that one.
         e.style.transformOrigin = `${x.toFixed(1)}px ${y.toFixed(1)}px`;

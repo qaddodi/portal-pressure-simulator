@@ -93,7 +93,7 @@ test('item 6: a short lobule glide carries the labels with their spots and lays 
   const src = read('../src/ui/lobule-zoom.js');
   const lay = src.slice(src.indexOf('function layoutLabels()'), src.indexOf('if (bakeFollow())'));
   // (Not a presenter's camera move, which hides the labels on the way, nor a hand's pan, which carries the whole layer.)
-  assert.match(lay, /if \(sameB && gliding && !camMove && !handOn\(\) && !labels\.style\.transform\) \{ ride\(\); return; \}/);
+  assert.match(lay, /if \(sameB && gliding && !camMove && !handOn\(\) && !panOn\) \{ ride\(\); return; \}/);
   assert.match(lay, /sameB && V\.k === follow\.k && handOn\(\) && !rides\)/);
   const rd = src.slice(src.indexOf('function ride()'), src.indexOf('function bakeFollow()'));
   // Each piece moves by its own spot's move at its own size (a translate), and is written into its place at landing.
