@@ -346,7 +346,7 @@ function screenTest(wr, ring = null) {
 // So a camera move reads no shape and no pixel; the credit maps each box it asks about into the world (credit-art.js artTest).
 const ART_MAX_AGE = 15000;
 const ART_ATTRS = ['d', 'transform', 'class', 'style', 'hidden', 'cx', 'cy', 'r', 'rx', 'ry', 'x', 'y', 'width', 'height', 'points'];
-const ART_QUIET = '#overlays, #nodes, #guides, #focus, #grid';   // (the figure's groups that hold none of the art tested)
+const ART_QUIET = '#overlays, #guides, #focus';   // (the figure's groups that hold none of the art tested)
 let artFacts = null, artLevel = null, artDirty = true, artMo = null, artCanvas = null;
 
 // One shape's facts (kind: 'organ', or 'fluid' as drawn; the vessels are the stage's numbers, vesselFact): the same shapes, fills and strokes the screen grid draws below.

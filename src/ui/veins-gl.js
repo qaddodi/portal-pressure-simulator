@@ -1023,6 +1023,13 @@ uniform vec2 fluidLv;                  // the liver's scale about 560 350, and h
 uniform mat3 inv;                      // device pixels → world
 uniform float H;                       // canvas height, device pixels
 uniform float pxW;                     // world units per device pixel
+// The circuit's map, under everything (2 Nov 2026, the figure's SVG model as data): the dot grid running on past the figure and fading
+// out in steps, the two tinted pressure zones and a slide's lit zone (mapAt). mapA: its opacity (the morph's t; 0 draws and reads none).
+uniform float mapA;
+uniform vec4 mapDot, mapZone, mapFx;   // straight rgb and alpha: the grid's dots, a tinted zone, the lit zone (its fade in the alpha)
+uniform vec4 mapAlt;                   // the two tinted zones' x spans (world)
+uniform vec2 mapFxX;                   // the lit zone's x span
+uniform vec4 mapRot;                   // cos, sin of the map's turn from the vessels' (it turns upright at once, never with the morph), its centre
 uniform int blood;                     // 1: draw the blood
 uniform int chev;                      // 1: flow chevrons on top (dark; orange where flow is reversed, cream on an orange vessel)
 uniform int still;                     // 1: reduced motion (the chevrons stand still, spaced by flow)
@@ -1084,6 +1091,28 @@ const vec2 STO[${STO_N}] = vec2[${STO_N}](${LUMEN.map(([l, r]) => `vec2(${l.toFi
 uint hsh(uint x) { x ^= x >> 16; x *= 0x7feb352du; x ^= x >> 15; x *= 0x846ca68bu; x ^= x >> 16; return x; }
 float h01(uint x) { return float(hsh(x) & 0xffffffu) / 16777216.0; }
 vec4 over(vec4 top, vec4 under) { return top + under * (1.0 - top.a); }
+// The circuit's map at world point w, premultiplied (see mapA). The grid: a dot of radius 0.9 every 20 units (at 10, 10 in each square),
+// its alpha by the frame it lies in (MAP_STEPS: how far outside the figure's frame, the larger of the two axes); under a pixel's size a dot
+// keeps its area (wider, fainter), as the browser's antialiasing had it. Then the tinted zones and the lit zone over it, edges a pixel soft.
+vec4 mapAt(vec2 w) {
+  w = vec2(mapRot.x * (w.x - mapRot.z) - mapRot.y * (w.y - mapRot.w), mapRot.y * (w.x - mapRot.z) + mapRot.x * (w.y - mapRot.w)) + mapRot.zw;
+  float e = max(max(30.0 - w.x, w.x - 1370.0), max(30.0 - w.y, w.y - 730.0));
+  float op = e <= 0.0 ? 0.9 : e <= 200.0 ? 0.7 : e <= 450.0 ? 0.5 : e <= 750.0 ? 0.3 : e <= 1100.0 ? 0.15 : e <= 1500.0 ? 0.06 : 0.0;
+  vec4 c = vec4(0.0);
+  if (op > 0.0) {
+    float d = length(w - (floor(w / 20.0) * 20.0 + 10.0)), rr = max(0.9, 0.7 * pxW);
+    float a = mapDot.a * op * clamp((rr - d) / pxW + 0.5, 0.0, 1.0) * min(1.0, 0.81 / (rr * rr));
+    c = vec4(mapDot.rgb * a, a);
+  }
+  float iy = clamp(min(w.y - 40.0, 730.0 - w.y) / pxW + 0.5, 0.0, 1.0);
+  if (iy > 0.0) {
+    float z = max(clamp(min(w.x - mapAlt.x, mapAlt.y - w.x) / pxW + 0.5, 0.0, 1.0), clamp(min(w.x - mapAlt.z, mapAlt.w - w.x) / pxW + 0.5, 0.0, 1.0)) * iy * mapZone.a;
+    c = over(vec4(mapZone.rgb * z, z), c);
+    float f = clamp(min(w.x - mapFxX.x, mapFxX.y - w.x) / pxW + 0.5, 0.0, 1.0) * iy * mapFx.a;
+    c = over(vec4(mapFx.rgb * f, f), c);
+  }
+  return c * mapA;
+}
 // Value noise along a periodic lattice (period cells), smooth across, for the streaks: its cell's four corners read from the vessel's
 // block of noiseT (o: the octave's first texel there; yo, ny: the lattice row of the block's row 0, negated, and the block's rows):
 // the corner hashes to the bit (blood-noise.js builds them with the shader's hash). Outside the block, hashed here.
@@ -1392,6 +1421,8 @@ void main() {
     }
     if (pl.a > 0.0) { float l = dot(pl.rgb / pl.a, vec3(0.299, 0.587, 0.114)); pl = vec4(mix(vec3(l) * pl.a, pl.rgb, plateSat), pl.a) * plateAlpha; }
     // A glow lies behind the organs: the liver and the vessels pass over it.
+    // The circuit's map lies under it all, the organs and their glows over it (as the SVG grid lay under the organs).
+    if (mapA > 0.0) pl = over(pl, mapAt(w));
     if (glowOn == 1) pl = over(pl, texelFetch(glowL, ip, 0));
     // A warm glow lies on the organs, under the vessels: added after the plate's dimming, so it keeps one strength whatever the lens
     // greys the organs to, and with or without the plate (the page's own organs show under it then).
@@ -2270,7 +2301,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // as drawn, as a pixel with no lumen is. `moved`: the rows changed since the last picture drawn (every setter marks the rows it
   // changes; movedAll: assume all did); stillSig: that picture's uniforms (sigOf).
   const moved = new Uint8Array(nTubes), movedUp = new Float32Array(nTubes * 4).fill(-1);
-  let movedAll = true, stillSig = null, sigNow = new Float64Array(256), texVer = 0, dyeSent = null;
+  let movedAll = true, stillSig = null, sigNow = new Float64Array(320), texVer = 0, dyeSent = null;
   let sn = 0, stillN = 0;
   // (One value at a time, taken in the order they were listed: a rest list made an array for each call.)
   const sg = (v) => {
@@ -3836,6 +3867,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       const hol = blood.holes || NONE, hoN = Math.min(16, hol.length), hb = SCR.hb.fill(0), hr = SCR.hr.fill(0);
       for (let i = 0; i < hoN; i++) { const x = hol[i]; for (let j = 0; j < 4; j++) hb[i * 4 + j] = x[j] ?? 0; hr[i] = x[4] || 0; }
       const pm = (plate && !useStack ? (plates[0] ? 1 : 0) | (plates[1] ? 2 : 0) : 0);
+      // (The circuit's map: drawn and read only while it shows.)
+      const map = look.map && look.map.a > 0 ? look.map : null;
       // (The same uniforms for the one-pass builds, on a one-pass frame: their composite half reads them as the picture's own does.)
       // (The passes, in the list kept for them: the one-pass builds, the catheter box's among them before the picture's own, so the
       // uniforms set after this loop go to the program bound last.)
@@ -3891,6 +3924,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         UC.fv4(U.noChev, ncv);
         UC.i1(U.noChevN, ncN);
         UC.fv4(U.chevHole, hb); UC.fv1(U.chevHoleR, hr); UC.i1(U.chevHoleN, hoN);
+        UC.f1(U.mapA, map ? map.a : 0);
+        if (map) { UC.f4a(U.mapDot, map.dot); UC.f4a(U.mapZone, map.zone); UC.f4a(U.mapFx, map.fx); UC.f4a(U.mapAlt, map.alt); UC.f2a(U.mapFxX, map.fxX); UC.f4a(U.mapRot, map.rot); }
       }
       const U = prg.u;
       // The still lumens (see moved): only in the blood's own pass, with no bleed (whose spray and pool move with
@@ -3903,6 +3938,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       sigNow[sn++] = +(blood.streakLen) || 0; sigNow[sn++] = +(blood.bt || 0) || 0;
       sg(originColOf(blood.originCol || ORIGIN_WHITE)); sg(blood.dyeCol || DYE_COL); sg(blood.revCol || REV_COL);
       sg(blood.inkLight || INK_LIGHT); sg(blood.inkDark || INK_DARK); sg(ncv); sigNow[sn++] = +(ncN) || 0; sg(hb); sg(hr); sigNow[sn++] = +(hoN) || 0; sigNow[sn++] = +(layer) || 0; sigNow[sn++] = +(glow) || 0; sigNow[sn++] = +(warm) || 0; sigNow[sn++] = +(useStack) || 0; sigNow[sn++] = +(bare) || 0; sigNow[sn++] = +(texVer) || 0;
+      sigNow[sn++] = map ? map.a : 0; if (map) { sg(map.dot); sg(map.zone); sg(map.fx); sg(map.alt); sg(map.fxX); sg(map.rot); }
       let same = !!stillSig && sn === stillN && sn < sigNow.length;
       for (let i = 0; same && i < sn; i++) if (sigNow[i] !== stillSig[i]) same = false;
       const still = !full && !movedAll && !bl.length && same;
@@ -4005,7 +4041,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      * Alphas may change without new verts.
      */
     setLines(spec) {
-      const fresh = spec && spec.verts !== lines?.verts;
+      // (rev: the same array written again in place, the circuit's station dots following the morph: sent again, nothing allocated.)
+      const fresh = spec && (spec.verts !== lines?.verts || spec.rev !== lines?.rev);
       lines = lineP && spec?.draws?.length ? spec : null;
       if (!lines) return;
       // (Per layer: the outlines (0), the glow behind the organs (1) and the warm glow on them (2), as drawLines sorts the draws.)

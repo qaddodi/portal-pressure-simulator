@@ -46,7 +46,7 @@ test('lists update in place, toasts leave through their own exit (P18, P19)', ()
 test('popovers and figure pieces fade out instead of vanishing (P20, P21, P23)', () => {
   assert.match(css, /\.pal-back\.leaving \{[^}]*animation: crossfade-out/);
   assert.match(css, /\.why-pop\.leaving \{ display: block;[^}]*animation: scale-settle-out/);
-  assert.match(css, /\.node-dot\.off \{ opacity: 0;/);
+  assert.match(read('src/ui/stage.js'), /if \(d\.u !== to\) \{ d\.u = to > d\.u \? Math\.min\(1, d\.u \+ k\) : Math\.max\(0, d\.u - k\); nd\.dirty = true; \}/, 'a station dot eases out on the GPU (stepMap)');
   assert.match(read('src/ui/stage.js'), /cath\.at = null; cathFadeOut\(\); return;/);
   assert.match(css, /\.mon\.bad \.mv \{ animation: monAlarm 1\.2s var\(--ease-move\) infinite; \}/);
 });

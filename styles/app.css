@@ -691,7 +691,7 @@ html.press-fx :is(.modes button, .um-tab, .instr-tab, .ps-btn, .pz-scales > butt
 .flank { fill: none; stroke: var(--organ-body-line); stroke-width: 1.4; stroke-opacity: .8; stroke-linecap: round; }
 .thrombus-edge { fill: none; stroke: var(--thrombus-edge); stroke-opacity: .5; stroke-width: .6; stroke-linecap: round; stroke-linejoin: round; }
 .stent-rail-glint { fill: none; stroke: var(--light-ink); stroke-opacity: var(--stent-glint, .5); stroke-width: .5; stroke-linejoin: round; transform: translate(-.4px, -.4px); }
-#organs, #ascites, #grid, #overlays, #nodes, #guides, #focus { pointer-events: none; }
+#organs, #ascites, #overlays, #guides, #focus { pointer-events: none; }
 .stage-view.gl-on #overlays [data-gl] { visibility: hidden; }   /* drawn on the GPU with the vessels (stage.js marksBuild) */
 #organs { transition: opacity var(--d-surface) var(--ease); }
 /* Nothing in the figure takes the pointer: vessels and organs are picked in script on their own numbers (stage.js hitVessel,
@@ -701,7 +701,6 @@ html.press-fx :is(.modes button, .um-tab, .instr-tab, .ps-btn, .pz-scales > butt
 .organ-heart-ra { color: color-mix(in srgb, var(--organ-heart) 80%, var(--shade-ink)); }
 /* Data layers and a selection step the anatomy back (#organs, #backdrop) with the GPU's values, eased on its clock: stage.js
    syncOrganDim, an SVG filter, since WebKit draws no CSS filter functions on SVG elements. */
-.map-dot { fill: var(--map-accent); }
 /* Background plane: the diaphragm (no body-cavity shading). */
 #backdrop { pointer-events: none; transition: opacity var(--d-surface) var(--ease); }
 .tex { fill: none; stroke: currentColor; stroke-width: .8; }
@@ -710,10 +709,8 @@ html.press-fx :is(.modes button, .um-tab, .instr-tab, .ps-btn, .pz-scales > butt
 .lit-hi { stop-color: var(--light-ink); stop-opacity: var(--lit-hi); }
 .lit-mid { stop-color: var(--light-ink); stop-opacity: 0; }
 .lit-lo { stop-color: var(--lit-lo-ink); stop-opacity: var(--lit-lo); }
-/* (A band with no tint has no fill at all: a fill at opacity 0 was still painted over its whole band, the whole screen when zoomed,
-   on every pan or zoom frame in the circuit. The same pixels.) */
-.zone { fill: none; }
-.zone.alt { fill: var(--text); fill-opacity: .028; }
+/* (The circuit's map (its dot grid in --map-dot, its tinted zones in --text at .028, a slide's lit zone in --accent at .09) and its station
+   dots (--stage-bg under a 1.6 ring in --text) are drawn by the GPU from the tokens: stage.js MAP, syncMapInk; veins-gl.js mapAt.) */
 .stent-rail { fill: none; stroke: var(--stent-metal); stroke-width: var(--stent-rail-w, 1.4); stroke-linecap: round; stroke-linejoin: round; stroke-opacity: var(--stent-alpha, 1); }
 .stent-strut { fill: none; stroke: var(--stent-metal); stroke-width: var(--stent-strut-w, 1); stroke-linejoin: round; stroke-opacity: var(--stent-alpha, .95); }
 .stent-mark { fill: none; stroke: var(--stent-marker); stroke-width: 2.8; stroke-linecap: round; stroke-linejoin: round; stroke-opacity: var(--stent-alpha, 1); }
@@ -727,12 +724,8 @@ html.press-fx :is(.modes button, .um-tab, .instr-tab, .ps-btn, .pz-scales > butt
 .thrombus-halo { fill: var(--thrombus); fill-opacity: .4; }
 .thrombus { fill: var(--thrombus); fill-opacity: .55; }
 .thrombus-core { fill: var(--thrombus); fill-opacity: .6; }
-.node-dot { fill: var(--stage-bg); stroke: var(--text); stroke-width: 1.6; transition: opacity var(--d-surface) var(--ease-move); }
-.node-dot.off { opacity: 0; pointer-events: none; }
 .circuit-only { opacity: 0; transition: opacity var(--d-surface) var(--ease); }
-:is(#grid, #nodes).gone { visibility: hidden; transition: opacity var(--d-surface) var(--ease), visibility 0s var(--d-surface); }   /* (at opacity 0, after the fade: stage.js setViewBox) */
 .circuit .circuit-only { opacity: 1; }
-.circuit .node-dot.off { opacity: 0; pointer-events: none; }   /* (one class more than the line above: a station with no vessel drawn at it shows no dot in the circuit either, faded as the vessels are) */
 .band-ring { fill: none; stroke: var(--text); stroke-width: 2.4; stroke-linejoin: round; }
 /* The tamponade tube's balloons (the gastric one in the stomach, drawn up against the cardia; the esophageal one on it) look like the HVPG wedge balloon (veins-gl.js mode 5): cream latex, clear in the middle, denser at the rim */
 .balloon-latex { fill: var(--latex); fill-opacity: .34; stroke: none; }
@@ -7320,11 +7313,8 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .fx-cal-line path, .fx-span-line path { fill: none; vector-effect: non-scaling-stroke; stroke-linecap: round; stroke-linejoin: round; }
 .fx-cal-line .fx-halo, .fx-span-line .fx-halo { stroke: var(--label-halo); stroke-width: 4.5px; }
 .fx-cal-line .fx-ink { stroke: var(--text); stroke-width: 1.6px; }
-/* V25, the circuit's bracket under a span of stations, and a zone band lit softly (stage.js fxZone). */
+/* V25, the circuit's bracket under a span of stations (a zone band lit softly is drawn by the GPU: stage.js MAP.fx). */
 .fx-span-line .fx-ink { stroke: var(--text-2); stroke-width: 1.6px; }
-/* (Off, hidden once its fade has run: at opacity 0 it was still painted over its band on every pan or zoom frame.) */
-.fx-zone { fill: var(--accent); fill-opacity: .09; opacity: 0; visibility: hidden; transition: opacity var(--d-surface) var(--ease), visibility 0s var(--d-surface); pointer-events: none; }
-.fx-zone.on { opacity: 1; visibility: visible; transition: opacity var(--d-surface) var(--ease); }
 /* The readings (calipers, brackets) and the step numbers (V10): plain pills in the label's own glass, the words in ink. */
 #labels .lb:is(.fx-cal, .fx-span, .fx-step) text { fill: var(--text); stroke: none; }
 #labels .lb.fx-step .lb-bg { fill: var(--text); stroke: none; }

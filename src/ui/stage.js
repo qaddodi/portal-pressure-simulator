@@ -9,7 +9,7 @@ import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOcclud
 import { route as metroRoute, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, CAVITY_LOW, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=b75990ccb4';
 import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=8a73b5b0e8';
 import { nodeJoins, sideEndScale } from './fork-joins.js?v=13643dbace';
-import { nodeEnds, nodeDrawn, dotRadius, bareDots } from './circuit-nodes.js?v=94a9372b68';
+import { nodeEnds, nodeDrawn, dotRadius, bareDots } from './circuit-nodes.js?v=b585b39ba4';
 import { STATION_VESSEL, meanVel, velNormal, judgeFlow } from './velNormal.js?v=ad0e95380d';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=a51981892d';
 import { fibroReading } from './clock.js?v=e507b54cba';
@@ -613,7 +613,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   svg.append(defs);
   const world = s('g', { id: 'world' });
   svg.append(world);
-  const gGrid = s('g', { id: 'grid', class: 'circuit-only' });
   // Background plane (anatomy): the diaphragm, behind everything else (no body-cavity shading: the abdomen sits on the
   // plain stage background).
   const gBackdrop = s('g', { id: 'backdrop', mask: 'url(#diaMask)' });
@@ -625,7 +624,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // the keyboard on the same numbers (hitVessel, figKeys). Posterior veins (retrohepatic IVC, iliac, azygos…) pass behind the opaque
   // organs: the GPU draws their faint course over them.)
   const gOver = s('g', { id: 'overlays' });
-  const gNodes = s('g', { id: 'nodes', class: 'circuit-only' });
   const gFocus = s('g', { id: 'focus' });
   const gGuides = s('g', { id: 'guides' });
   // Overlay and label structure (nodes added or swapped) is written in a rest pass between two frames, never inside one
@@ -646,7 +644,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     else if (op === 'hover') gHovO.replaceChildren(...a);
     else if (op === 'guide') { if (shunt) for (const el of a) if (el.parentNode !== gGuides) gGuides.append(el); }   // (a drag that has ended since leaves none)
   }
-  world.append(gBackdrop, gGrid, gOrgans, gFocus, gAscites, gOver, gNodes, gGuides);
+  world.append(gBackdrop, gOrgans, gFocus, gAscites, gOver, gGuides);
   // The figure is drawn on the GPU (veins-gl.js): the plate, every vessel in both views and the
   // moving blood. The SVG below keeps the organ artwork (rasterized for the GPU), invisible hit
   // targets and focus for each vessel, and what is drawn above the vessels (lesions, stents,
@@ -664,7 +662,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     worldOver = s('g');
     svgOver.append(worldOver);
     vCanvas.after(svgOver);
-    worldOver.append(gFocus, gOver, gNodes, gGuides);
+    worldOver.append(gFocus, gOver, gGuides);
     wrap.classList.add('veins-gl');
   } else {
     // No WebGL2 context (the start-up check in index.html turns away a browser without WebGL2 at all; this is one whose GPU refused
@@ -674,27 +672,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   wrap.dataset.veins = veins ? 'webgl2' : 'none';
 
-  // Circuit view: quiet bands for each pressure zone (captioned by the label layer).
-  // The dots run on past the figure in every direction and fade out in steps: concentric frames of
-  // the pattern at falling opacity (no mask, so nothing repaints on pan or zoom).
-  // (Each frame's opacity is its own pattern's dot alpha (fill-opacity), not the path's opacity: a path with an opacity is drawn
-  // through a layer of its own, the size of its box, and every frame's box holds the whole map, so each pan or zoom frame in the
-  // circuit drew six screen-sized layers on the CPU, most of them empty (Mohammad, 26 Oct: "Circuit view in particular is slow
-  // when zoomed"). The dots never overlap, so the same pixels.)
-  const GRID_STEPS = [[0, 0.9], [200, 0.7], [450, 0.5], [750, 0.3], [1100, 0.15], [1500, 0.06]];
-  const gridPath = (e) => `M${30 - e} ${30 - e}h${1340 + 2 * e}v${700 + 2 * e}h${-1340 - 2 * e}z`;
-  GRID_STEPS.forEach(([e, op], i) => {
-    const pat = s('pattern', { id: `mapGrid${i}`, width: 20, height: 20, patternUnits: 'userSpaceOnUse' });
-    pat.append(s('circle', { class: 'map-dot', cx: 10, cy: 10, r: 0.9, 'fill-opacity': op }));
-    defs.append(pat);
-    gGrid.append(s('path', { d: i ? gridPath(e) + gridPath(GRID_STEPS[i - 1][0]) : gridPath(e), 'fill-rule': 'evenodd', fill: `url(#mapGrid${i})`, class: 'map-grid' }));
-  });
-  CIRCUIT_ZONES.forEach(([, x0, x1], i) => {
-    gGrid.append(s('rect', { x: x0, y: 40, width: x1 - x0, height: 690, class: 'zone' + (i % 2 ? ' alt' : '') }));
-  });
-  // A slide's lit zone (deck visuals V25, ext-callouts.js: zone): one band of the five, lit softly (fxSync).
-  const fxZone = s('rect', { x: 0, y: 40, width: 0, height: 690, class: 'fx-zone' });
-  gGrid.append(fxZone);
+  // Circuit view: quiet bands for each pressure zone (captioned by the label layer), over a grid of dots that runs on past the figure in
+  // every direction and fades out in steps, and a slide's lit zone (deck visuals V25, ext-callouts.js: zone), lit softly. All drawn by the
+  // GPU from these numbers (veins-gl.js mapAt, under the organs; 2 Nov 2026, the figure's SVG model as data): no element, pattern or
+  // layer. a: the morph's t (the grid fades with it); the colours from the theme (syncMapInk: --map-dot, --text at .028 for the two
+  // tinted zones, --accent at .09 for the lit one); rot: its turn from the vessels' (mapTurn); fx: the lit zone's fade (stepMap).
+  const MAP = { a: 0, dot: [0, 0, 0, 0], zone: [0, 0, 0, 0], fx: [0, 0, 0, 0], alt: [0, 0, 0, 0], fxX: [0, 0], rot: [1, 0, 0, 0], fxOn: false, fxU: 0, fxCol: [0, 0, 0] };
+  CIRCUIT_ZONES.filter((z, i) => i % 2).forEach(([, x0, x1], j) => { MAP.alt[2 * j] = x0; MAP.alt[2 * j + 1] = x1; });
 
   // Each organ is drawn as a medical plate draws it, lit from the upper left:
   //   ambient occlusion where it meets the body wall (a soft dark edge outside it),
@@ -1175,15 +1159,63 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return a[i];
   };
 
-  // Nodes (circuit view)
-  // (Each dot starts off, and comes in with the first vessel drawn at its station (updateNodesCircuit): none shows on the
-  // first frame before the model says which vessels are drawn.)
-  const nodeEls = {};
-  for (const n of NODES) {
-    if (n.kind === 'wedge' || HIDDEN_NODES.has(n.id)) continue;
-    const c = s('circle', { r: dotRadius(n.kind), class: 'node-dot circuit-only off' });
-    gNodes.append(c);
-    nodeEls[n.id] = { c, off: true };
+  // Nodes (circuit view): each station's dot, a disc in the stage's colour under a ring in the text's (1.6 wide, as the SVG's stroke was),
+  // drawn by the GPU over the vessels with the outlines (olStep; 2 Nov 2026, no element). on: a vessel is drawn at it (updateNodesCircuit),
+  // u: its fade toward that (stepMap, a surface step), as the vessels' views fade: it popped (P21).
+  // (Each dot starts off, and comes in with the first vessel drawn at its station: none shows on the first frame before the model says
+  // which vessels are drawn.)
+  const ND_SEG = 32, ND_PER = 3 * ND_SEG + 2 * (ND_SEG + 1);   // (a disc's triangles, then its ring's strip)
+  const nodeDots = NODES.filter((n) => n.kind !== 'wedge' && !HIDDEN_NODES.has(n.id)).map((n) => ({ id: n.id, r: dotRadius(n.kind), on: false, u: 0 }));
+  const hasDot = new Set(nodeDots.map((d) => d.id));
+  const nd = { verts: new Float32Array(nodeDots.length * ND_PER * 6), rev: 0, at: -1, dirty: false, fill: [0, 0, 0], ring: [0, 0, 0] };
+  const ND_COS = Float32Array.from({ length: ND_SEG + 1 }, (_, k) => Math.cos((2 * Math.PI * k) / ND_SEG)), ND_SIN = Float32Array.from({ length: ND_SEG + 1 }, (_, k) => Math.sin((2 * Math.PI * k) / ND_SEG));
+  // The dots' vertices where the morph has the stations at t, written in place (one array, sent again by its rev: nothing allocated).
+  function nodeVerts(t) {
+    const V = nd.verts;
+    let o = 0;
+    for (const d of nodeDots) {
+      const [x, y] = nodePos(d.id, t), rf = d.r - 0.4, rr = d.r;
+      for (let k = 0; k < ND_SEG; k++) {
+        V[o++] = x; V[o++] = y; V[o++] = 1; V[o++] = 0; V[o++] = 0; V[o++] = 1e4;
+        V[o++] = x + rf * ND_COS[k]; V[o++] = y + rf * ND_SIN[k]; V[o++] = 1; V[o++] = 0; V[o++] = 0; V[o++] = 1e4;
+        V[o++] = x + rf * ND_COS[k + 1]; V[o++] = y + rf * ND_SIN[k + 1]; V[o++] = 1; V[o++] = 0; V[o++] = 0; V[o++] = 1e4;
+      }
+      for (let k = 0; k <= ND_SEG; k++) {
+        const c = ND_COS[k], sn = ND_SIN[k], px = x + rr * c, py = y + rr * sn;
+        V[o++] = px; V[o++] = py; V[o++] = c; V[o++] = sn; V[o++] = 1; V[o++] = 0.8;
+        V[o++] = px; V[o++] = py; V[o++] = c; V[o++] = sn; V[o++] = -1; V[o++] = 0.8;
+      }
+    }
+    nd.at = t; nd.rev++; nd.dirty = true;
+  }
+  // The map's and the dots' colours from the theme (with the vessels' look: syncVeins), each read once per sync.
+  let mapWake = false;
+  function syncMapInk(cs) {
+    const d = cssColor8(cs.getPropertyValue('--map-dot').trim() || 'transparent');
+    for (let i = 0; i < 4; i++) MAP.dot[i] = d[i];
+    const tx = toRGB('var(--text)', cs), ac = toRGB('var(--accent)', cs), bg = toRGB('var(--stage-bg)', cs);
+    for (let i = 0; i < 3; i++) { MAP.zone[i] = tx[i]; MAP.fx[i] = ac[i]; }
+    MAP.zone[3] = 0.028; MAP.fx[3] = 0.09 * easeArrive(MAP.fxU);
+    for (let i = 0; i < 3; i++) if (nd.fill[i] !== bg[i] || nd.ring[i] !== tx[i]) { nd.fill[i] = bg[i]; nd.ring[i] = tx[i]; nd.dirty = true; }
+  }
+  // The lit zone's fade (in on the arrive ease, out the same way) and each dot's (the move ease), a surface step each, on the frame's time.
+  function stepMap(dt) {
+    mapWake = false;
+    const k = reduceMotion.matches ? 1 : (dt * 1000) / D_SURFACE, fxT = MAP.fxOn ? 1 : 0;
+    if (MAP.fxU !== fxT) {
+      MAP.fxU = fxT > MAP.fxU ? Math.min(1, MAP.fxU + k) : Math.max(0, MAP.fxU - k);
+      MAP.fx[3] = 0.09 * easeArrive(MAP.fxU);
+      veinsDirty = true;
+    }
+    for (let i = 0; i < nodeDots.length; i++) {
+      const d = nodeDots[i], to = d.on ? 1 : 0;
+      if (d.u !== to) { d.u = to > d.u ? Math.min(1, d.u + k) : Math.max(0, d.u - k); nd.dirty = true; }
+    }
+  }
+  function mapEasing() {
+    if (mapWake || nd.dirty || MAP.fxU !== (MAP.fxOn ? 1 : 0)) return true;
+    for (let i = 0; i < nodeDots.length; i++) if (nodeDots[i].u !== (nodeDots[i].on ? 1 : 0)) return true;
+    return false;
   }
   // Resistance of each liver compartment, per lobe (read out in the circuit's liver header).
   const liverR = {};
@@ -1378,6 +1410,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const VB_CIRC_R = [CIRC_C[0] - VB_CIRC[3] / 2, CIRC_C[1] - VB_CIRC[2] / 2, VB_CIRC[3], VB_CIRC[2]];
   // Degrees the world is turned by right now (blended in with the view morph).
   const rotDeg = () => -90 * rotEase(rotU) * Math.max(0, lastMorph);
+  // The circuit's map turns upright with the turn alone, never with the morph (it only fades in): its turn from the world's, which the GPU
+  // undoes about the same centre (veins-gl.js mapAt). (Turned with the vessels, the grid and its bands swung through 90 degrees on every
+  // switch between the views on an upright circuit.)
+  function mapTurn(deg) {
+    const a = ((deg + 90 * rotEase(rotU)) * Math.PI) / 180, R = MAP.rot;
+    R[0] = Math.cos(a); R[1] = Math.sin(a); R[2] = CIRC_C[0]; R[3] = CIRC_C[1];
+  }
   let lz = null;   // the lobule view's layer (built when its code has arrived: lobuleReady)
   let lzCode = null, lzLoad = null, lzWaiting = false, lzSoon = false, aimWait = null;
   let geometryVersion = 0;
@@ -1426,6 +1465,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!vtDirty) return;
     vtDirty = false;
     const deg = rotDeg(), tr = `translate(${vt.x} ${vt.y}) scale(${vt.k})${deg ? ` rotate(${deg.toFixed(3)} ${CIRC_C[0]} ${CIRC_C[1]})` : ''}`;
+    mapTurn(deg);
     world.setAttribute('transform', tr);
     worldOver?.setAttribute('transform', tr);
   };
@@ -2933,11 +2973,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       g.lit = litNormals(pts);   // (a clot's layers follow the tube's lit side: updateOverlays)
     }
     if (!full) return;
-    for (const n of NODES) {
-      if (!nodeEls[n.id]) continue;
-      const [x, y] = nodePos(n.id, t);
-      nodeEls[n.id].c.setAttribute('cx', x); nodeEls[n.id].c.setAttribute('cy', y);
-    }
+    if (t > 0 && t !== nd.at) nodeVerts(t);   // (the dots show only with the circuit: at 0 they are not drawn, and kept where they were)
     setViewBox(t);
     organMorphA = 1 - t; paintOrganAlpha();
     setG(gAscites, 'style:opacity', String(1 - t));
@@ -2945,12 +2981,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     svgOver?.classList.toggle('circuit', t > 0.5);
     // The circuit is a dark hemodynamic map; the anatomy an atlas plate on paper.
     stageWrap.classList.toggle('cmap', t > 0.5);
-    setG(gGrid, 'style:opacity', String(t));
-    setG(gNodes, 'style:opacity', String(t));
     setG(gFxC, 'style:opacity', String(t));
-    // (Faded out whole, the circuit's grid and dots are hidden too (app.css, once their fade has run): at opacity 0 Safari still
-    // painted the grid's patterned frames under the anatomy on every frame the figure moved.)
-    gGrid.classList.toggle('gone', t === 0); gNodes.classList.toggle('gone', t === 0);
+    // (The map and the dots fade with t on the GPU: at 0 neither is drawn nor read.)
+    if (MAP.a !== t) { MAP.a = t; nd.dirty = true; }
     CTM = null;
   }
   const easeInOut = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
@@ -4792,7 +4825,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       netAlpha: netA,
       fx: true,
       tierAlpha: TIER_ALPHA, tierGroup: TIER_GROUP, fluid: fluidLook,
+      map: MAP,
     };
+    syncMapInk(cs);
     syncPlateLook();
     // The vessel layer is drawn again only when what it is drawn from changed: a running model sends a frame about ten
     // times a second, and in a steady state most of them leave every vessel's colour, width and fade exactly as they were.
@@ -5976,8 +6011,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!sp || sig !== fxSig) { fxWide.clear(); for (const [k, b] of pool) if (k.startsWith('fxs:')) b.fxIn = false; }
     fx = sp ? { live: {}, organs: [], calipers: [], steps: null, spans: [], zone: -1, ...sp } : null; fxSig = sig;
     const band = fx && zoneBand(fx.zone);
-    if (band) { fxZone.setAttribute('x', band[0]); fxZone.setAttribute('width', band[1] - band[0]); }
-    fxZone.classList.toggle('on', !!band);
+    if (band) { MAP.fxX[0] = band[0]; MAP.fxX[1] = band[1]; }
+    if (MAP.fxOn !== !!band) { MAP.fxOn = !!band; mapWake = true; }
     stageWake();
   }
   // A callout's pill (a mark, a caliper's or a bracket's reading): its words as runs, a value in its rating colour where the pill
@@ -6080,7 +6115,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     markLast = now;
     marksSync();
-    if (!glLines || (!olDirty && !olList.length && !mk.dirty && !clampMoved)) return false;
+    if (!glLines || (!olDirty && !olList.length && !mk.dirty && !clampMoved && !nd.dirty)) return false;
     const dt = now - olLast;
     olLast = now;
     let moving = false;
@@ -6200,14 +6235,25 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     if (V) olVerts = new Float32Array(V);
     // The vessel marks first (they sit under an organ's outline, as in the SVG), then the outlines.
+    // (The circuit's station dots last, over everything: their vertices written into the tail of the same array as they move.)
     if (V || mk.dirty || !mk.all) {
-      const n = mk.verts.length, all = new Float32Array(n + (olVerts?.length || 0));
+      const n = mk.verts.length, o = n + (olVerts?.length || 0), all = new Float32Array(o + nd.verts.length);
       all.set(mk.verts); if (olVerts) all.set(olVerts, n);
-      mk.all = all; mk.dirty = false;
-    }
+      all.set(nd.verts, o);
+      mk.all = all; mk.ndAt = o; mk.ndRev = nd.rev; mk.dirty = false;
+    } else if (mk.ndRev !== nd.rev) { mk.all.set(nd.verts, mk.ndAt); mk.ndRev = nd.rev; }
     const off = mk.verts.length / 6;
     const list = [...mk.draws.map((d) => (d.fade ? { ...d, alpha: d.alpha * fadeEase(d.fade) } : d)), ...draws.map((d) => ({ ...d, first: d.first + off }))];
-    veins.setLines(list.length ? { verts: mk.all, draws: list } : null);
+    if (MAP.a > 0) {
+      const n0 = mk.ndAt / 6;
+      for (let i = 0; i < nodeDots.length; i++) {
+        const a = MAP.a * easeMove(nodeDots[i].u), f = n0 + i * ND_PER;
+        if (a <= 0) continue;
+        list.push({ first: f, count: 3 * ND_SEG, col: nd.fill, alpha: a, tri: true }, { first: f + 3 * ND_SEG, count: 2 * (ND_SEG + 1), col: nd.ring, alpha: a });
+      }
+    }
+    nd.dirty = false;
+    veins.setLines(list.length ? { verts: mk.all, draws: list, rev: mk.ndRev } : null);
     olDirty = false;
     return moving || !!V;
   }
@@ -6217,7 +6263,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // a browser may show it a frame ahead of the vessels (Safari), so during a pan or pinch the marks slid along their
   // vessels. Each shape (not text) is read as the SVG draws it now, styles included, into world-space strokes and
   // fills; the SVG copy stays, hidden (data-gl), and shows again wherever the GPU cannot draw.
-  const mk = { key: '', ver: 0, verts: new Float32Array(0), draws: [], all: null, dirty: false };
+  const mk = { key: '', ver: 0, verts: new Float32Array(0), draws: [], all: null, dirty: false, ndAt: 0, ndRev: -1 };
   const darkMQ = matchMedia('(prefers-color-scheme: dark)');
     const marksKey = () => `${mk.ver}|${wrapCls()}|${themeKey()}|${darkMQ.matches}`;
   // (Rev 2 §2.8: whether the marks' key moved, told from its parts as they were at the last build (mk.dep), field by field: no string
@@ -6499,11 +6545,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
 
   function updateNodesCircuit(f) {
     if (morph < 0.02) return;
-    for (const n of NODES) {
-      if (!nodeEls[n.id]) continue;
+    for (const d of nodeDots) {
       // (A junction dot fades with the vessels that come and go through it, as the figure's views fade: it popped. P21)
-      const ne = nodeEls[n.id], off = !nodeVisible(n.id);
-      if (ne.off !== off) { ne.off = off; ne.c.classList.toggle('off', off); }
+      const on = nodeVisible(d.id);
+      if (d.on !== on) { d.on = on; mapWake = true; }
     }
     for (const [id, r] of Object.entries(liverR)) {
       const k = EI[id];
@@ -11037,7 +11082,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const open = liverExpanded();
       const nodes = [], flagC = flagged(f);
       for (const n of NODES) {
-        if (!nodeEls[n.id] || !CIRCUIT_LABELS[n.id]) continue;
+        if (!hasDot.has(n.id) || !CIRCUIT_LABELS[n.id]) continue;
         if (!nodeVisible(n.id) || labelHidden(n.id)) continue;
         if ((n.id === 'VAR' || n.id === 'GV') && !hasVarices(n.id, f)) continue;
         if (!open && LIVER_INNER.has(n.id) && !(st.selection?.type === 'node' && st.selection.id === n.id)) continue;
@@ -11056,7 +11101,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // (Every other dot keeps clear of the readings too: a station whose reading is left out at this level of detail, or has none, still
       // has its dot, and a reading had sat on it: the colon bed's, under the spleen's.)
       const labelled = new Set(nodes.map((it) => it.node));
-      for (const d of bareDots(NODES.filter((n) => nodeEls[n.id]), { labelled, shown: nodeVisible, at: (id) => worldToLocal(...nodePos(id, t)), scale: CTM.sc, minX: ringRX, minY: ringR })) {
+      for (const d of bareDots(NODES.filter((n) => hasDot.has(n.id)), { labelled, shown: nodeVisible, at: (id) => worldToLocal(...nodePos(id, t)), scale: CTM.sc, minX: ringRX, minY: ringR })) {
         placed.push({ ...d.box, dot: true }); ringXY.push([d.x, d.y, ringRX]);
       }
       // Stations by priority, each beside its station: level with it first (beside a vertical run, over a horizontal one).
@@ -12179,8 +12224,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (The overlays changed with the figure still: the picture laid again with them, nothing else drawn.)
     if (OVER_ON && veins?.overlay?.stale && !veins.lost) veins.present();
     const rowsWait = veinsRows.size > 0 && !!veins && !veins.lost && !!vLook && !!F;
-    if (still && !veinsDirty && !rowsWait && !glowSync && !(glLines && olDirty) && (!glLines || !marksStale()) && !(glLines && olFading()) && !clampFading() && !markA.moving() && !widthEasing && !bloodEasing && !plateEasing() && !sprayFading() && !veins?.organs?.fading && !lensFrom && !colEasing && ascShown === ascTarget && morph === morphTarget && rotU === rotTarget && keyDrawn.on && sameStill(keyNow, keyDrawn) && fSame && CTM === lastDrawCTM && !anyReveal()) { sleep(); return; }
+    if (still && !veinsDirty && !rowsWait && !glowSync && !(glLines && olDirty) && (!glLines || !marksStale()) && !(glLines && olFading()) && !mapEasing() && !clampFading() && !markA.moving() && !widthEasing && !bloodEasing && !plateEasing() && !sprayFading() && !veins?.organs?.fading && !lensFrom && !colEasing && ascShown === ascTarget && morph === morphTarget && rotU === rotTarget && keyDrawn.on && sameStill(keyNow, keyDrawn) && fSame && CTM === lastDrawCTM && !anyReveal()) { sleep(); return; }
     stepPlateEase();
+    stepMap(dt);
     if (morph !== morphTarget) {
       morph = clamp(morph + Math.sign(morphTarget - morph) * dt / 0.6, 0, 1);
       if (F) update(F); else updateGeometry(true);

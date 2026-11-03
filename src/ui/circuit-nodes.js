@@ -26,7 +26,7 @@ export function nodeDrawn(ends) {
 }
 
 // The dots themselves, and the room readings keep from them. A dot's radius is in the map's units (it scales with the map); its
-// outline is styles/app.css .node-dot (stroke-width 1.6, half of it outside the radius).
+// outline is the ring stage.js draws on the GPU (nodeVerts: 1.6 wide, half of it outside the radius).
 export const dotRadius = (kind) => (kind === 'heart' ? 7 : kind === 'bed' ? 5.5 : 4.5);
 const DOT_HALF_STROKE = 0.8;
 
