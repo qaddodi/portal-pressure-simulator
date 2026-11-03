@@ -60,7 +60,8 @@ import { COMPACT, WIDE } from './card-type.js';
 import { flowTimeHeight, trailKeys } from './flow-time.js';
 import { PROCS, procBlocked, procOffered, playProcedure, stepMark } from './proc-anim.js';
 import { createInsetHold } from './inset-hold.js';
-import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js';
+import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChangedWhy, cardBack } from './card-keep.js';
+import { gpuProbe } from './gpu-probe.js';
 import { createCardZoom, tapTracker } from './card-zoom.js';
 import { sheetPanes } from './sheet-glass.js';
 import { createScopeTile } from './scope-tile.js';
@@ -2957,7 +2958,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!ui || !keepSnap) return;
     for (const k of ['data', 'text']) {
       const sn = keepNow[k] && keepSnap[k];
-      if (!sn || !cardChanged(sn, k === 'data')) continue;
+      const why = sn ? cardChangedWhy(sn, k === 'data') : '';
+      if (!why) continue;
+      gpuProbe.note(`kept ${k} card let go: ${why}`);   // (so a ?perf copy says what changed)
       cardBack(sn);
       if (k === 'data') { clearTimeout(colT); colT = 0; }
       if (!keepBad.includes(k)) keepBad.push(k);
