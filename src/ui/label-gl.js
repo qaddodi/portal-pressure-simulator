@@ -25,7 +25,7 @@ import { textPolys, textWidth, loadGlyphs, glyphsReady, textCovers } from './tex
 import { watchSize, sizeOf, rectSoon } from './geom.js?v=ca69a8335e';
 import { trackOf, trackAt, mixColour, timingOf, progressAt, keysOf } from './label-track.js?v=bc7e86266b';
 import { caught } from './caught.js?v=caf293c676';
-import { readStyle } from './layout-snap.js?v=0000000000';
+import { readStyle } from './layout-snap.js?v=e1329a7c70';
 const HOLE_MESH = { tri: null, seg: null, nTri: 0, nSeg: 0 };   // alloc-rare: made once (a hole's mask is meshed into it and released after its draw)
 // (The colour a clear writes, one array for every clear: none made per call, plan rev 2 §2.8.)
 const CLEAR0 = new Float32Array(4);
