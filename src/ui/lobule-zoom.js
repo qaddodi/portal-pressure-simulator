@@ -1491,6 +1491,17 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     }
   }
   const hitKind = (key) => (key === 'ha' || key === 'bd' ? { part: key, tri: pick.triad } : key === 'triad' ? { part: 'triad', tri: pick.triad } : key === 'cv' ? { part: 'cv' } : key === 'lymph' ? { part: 'lv', tri: pick.lt ?? pick.triad } : { part: 'sin', tube: sinTube().id });
+  // A label whose part is the store's selection reads as Anatomy's selected name does (app.css .lz-lab.sel): the class is set between frames, and the GPU mirror reads it again.
+  const labSel = () => {
+    const sl = store.get().selection, on = sl?.type === 'lobule' && !!geo;
+    for (const k in labs) {
+      const L = labs[k]; if (!L.el) continue;
+      let want = false;
+      if (on) { try { const hv = hitKind(k); want = hv.part === sl.part && (hv.part === 'cv' || (hv.part === 'sin' ? hv.tube === sl.tube : hv.tri === sl.tri)); } catch (e) { caught('lobule-zoom:labSel', e); } }
+      if (classHas(L.el, 'sel') !== want) { classSoon(L.el, 'sel', want); mirrorSoon(L.el); }
+    }
+  };
+  store.on('selection', labSel);
   // The lesion pointer: a pill near the spot, clear of the labels and cards, with a leader to a ring on it. Eases in and out.
   let cpOn = false, cpAt = null, cpDx = 0, cpDy = 0, callCost = 0;   // (where the pill sat last time, relative to its spot, and what it cost)
   // What no label may cover, a disc on screen each: the central vein (1.25 of its radius: the vein and the mouths of its sinusoids) and
