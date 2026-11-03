@@ -17,18 +17,20 @@ class UniformCache {
   constructor(gl) {
     this.gl = gl;
     this.last = new WeakMap();   // alloc-rare: made once per GL context (ucOf keeps the cache)
+    this.t = new Float64Array(4);   // alloc-rare: made once per GL context: the numbers of the call being checked, see changed
   }
-  // True when `loc` is not already holding these n numbers (and records them as now held).
-  changed(loc, n, a, b, c, d) {
+  // True when `loc` is not already holding the n numbers in T (and records them as now held). The numbers come in the kept T, not as
+  // arguments: a double passed to a call that is not inlined is boxed in a new heap number, once for each of the fifty uniforms a frame.
+  changed(loc, n) {
     if (typeof loc !== 'object') return true;   // (not a real location: send it)
     let s = this.last.get(loc);
     if (!s) { s = { n: -1, v: new Float64Array(4) }; this.last.set(loc, s); }   // alloc-rare: once per uniform location, the first time it is set
-    const v = s.v;
-    if (s.n === n && v[0] === a && (n < 2 || v[1] === b) && (n < 3 || v[2] === c) && (n < 4 || v[3] === d)) return false;
-    s.n = n; v[0] = a;
-    if (n > 1) v[1] = b;
-    if (n > 2) v[2] = c;
-    if (n > 3) v[3] = d;
+    const v = s.v, t = this.t;
+    if (s.n === n && v[0] === t[0] && (n < 2 || v[1] === t[1]) && (n < 3 || v[2] === t[2]) && (n < 4 || v[3] === t[3])) return false;
+    s.n = n; v[0] = t[0];
+    if (n > 1) v[1] = t[1];
+    if (n > 2) v[2] = t[2];
+    if (n > 3) v[3] = t[3];
     return true;
   }
   // The same for an array uniform (uniformNfv / uniformMatrixNfv): held as a copy, compared element by element.
@@ -44,17 +46,17 @@ class UniformCache {
     return true;
   }
   reset() { this.last = new WeakMap(); }   // alloc-rare: only when a GL context is lost or restored
-  f1(loc, a) { if (loc && this.changed(loc, 1, a)) this.gl.uniform1f(loc, a); }
-  i1(loc, a) { if (loc && this.changed(loc, 1, a)) this.gl.uniform1i(loc, a); }
-  f2(loc, a, b) { if (loc && this.changed(loc, 2, a, b)) this.gl.uniform2f(loc, a, b); }
-  i2(loc, a, b) { if (loc && this.changed(loc, 2, a, b)) this.gl.uniform2i(loc, a, b); }
-  f3(loc, a, b, c) { if (loc && this.changed(loc, 3, a, b, c)) this.gl.uniform3f(loc, a, b, c); }
-  i3(loc, a, b, c) { if (loc && this.changed(loc, 3, a, b, c)) this.gl.uniform3i(loc, a, b, c); }
-  f4(loc, a, b, c, d) { if (loc && this.changed(loc, 4, a, b, c, d)) this.gl.uniform4f(loc, a, b, c, d); }
+  f1(loc, a) { if (loc) { this.t[0] = a; if (this.changed(loc, 1)) this.gl.uniform1f(loc, a); } }
+  i1(loc, a) { if (loc) { this.t[0] = a; if (this.changed(loc, 1)) this.gl.uniform1i(loc, a); } }
+  f2(loc, a, b) { if (loc) { const t = this.t; t[0] = a; t[1] = b; if (this.changed(loc, 2)) this.gl.uniform2f(loc, a, b); } }
+  i2(loc, a, b) { if (loc) { const t = this.t; t[0] = a; t[1] = b; if (this.changed(loc, 2)) this.gl.uniform2i(loc, a, b); } }
+  f3(loc, a, b, c) { if (loc) { const t = this.t; t[0] = a; t[1] = b; t[2] = c; if (this.changed(loc, 3)) this.gl.uniform3f(loc, a, b, c); } }
+  i3(loc, a, b, c) { if (loc) { const t = this.t; t[0] = a; t[1] = b; t[2] = c; if (this.changed(loc, 3)) this.gl.uniform3i(loc, a, b, c); } }
+  f4(loc, a, b, c, d) { if (loc) { const t = this.t; t[0] = a; t[1] = b; t[2] = c; t[3] = d; if (this.changed(loc, 4)) this.gl.uniform4f(loc, a, b, c, d); } }
   /** From an array of 2, 3 or 4 numbers (what the callers spread into uniform2f / 3f / 4f). */
-  f2a(loc, v) { if (loc && this.changed(loc, 2, v[0], v[1])) this.gl.uniform2f(loc, v[0], v[1]); }
-  f3a(loc, v) { if (loc && this.changed(loc, 3, v[0], v[1], v[2])) this.gl.uniform3f(loc, v[0], v[1], v[2]); }
-  f4a(loc, v) { if (loc && this.changed(loc, 4, v[0], v[1], v[2], v[3])) this.gl.uniform4f(loc, v[0], v[1], v[2], v[3]); }
+  f2a(loc, v) { if (loc) { const t = this.t; t[0] = v[0]; t[1] = v[1]; if (this.changed(loc, 2)) this.gl.uniform2f(loc, v[0], v[1]); } }
+  f3a(loc, v) { if (loc) { const t = this.t; t[0] = v[0]; t[1] = v[1]; t[2] = v[2]; if (this.changed(loc, 3)) this.gl.uniform3f(loc, v[0], v[1], v[2]); } }
+  f4a(loc, v) { if (loc) { const t = this.t; t[0] = v[0]; t[1] = v[1]; t[2] = v[2]; t[3] = v[3]; if (this.changed(loc, 4)) this.gl.uniform4f(loc, v[0], v[1], v[2], v[3]); } }
   /** Arrays: Float32Arrays (a plain array of doubles would never compare equal to its float copy and be sent each time). */
   fv1(loc, arr) { if (loc && this.changedArr(loc, arr)) this.gl.uniform1fv(loc, arr); }
   iv1(loc, arr) { if (loc && this.changedArr(loc, arr)) this.gl.uniform1iv(loc, arr); }

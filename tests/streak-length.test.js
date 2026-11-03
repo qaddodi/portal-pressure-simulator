@@ -60,7 +60,7 @@ test('the figure alone asks for it (the lobule draws as before)', () => {
   assert.match(gl, /uniform int lenOn;/);
   assert.match(gl, /UC\.i1\(U\.lenOn, blood\.streakLen \? 1 : 0\);/);
   // (Changing it draws the picture again: it is in the still-lumen signature with the other blood switches.)
-  assert.match(gl, /\n\s+sg\(blood\.streakLen\); sg\(blood\.bt \|\| 0\);/);
+  assert.match(gl, /\n\s+sigNow\[sn\+\+\] = \+\(blood\.streakLen\) \|\| 0; sigNow\[sn\+\+\] = \+\(blood\.bt \|\| 0\) \|\| 0;/);
   // The lobule's own composite never sets it, so it stays at 0 there: the lobule's streaks are as they were.
   assert.doesNotMatch(lobule, /streakLen/);
 });

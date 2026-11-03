@@ -14,14 +14,14 @@
 
 import { glGet, glCap } from './gl-state.js?v=ee046876b7';
 import { frameFor, cancelFrame } from './frame.js?v=ca74a6f22a';
-import { ucOf } from './uniform-cache.js?v=6488216aa0';
+import { ucOf } from './uniform-cache.js?v=323665bf20';
 import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=1b5b7b8ddd';
 import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js?v=255276a5f4';
 import { createAtlasPacker } from './atlas-pack.js?v=c4bb67fd56';
 import { easeMove, D_SURFACE } from './ease.js?v=7d7bfe9a62';
-import { createShapeGL, flattenPath, polyMeshInto, ellipsePoly } from './shape-gl.js?v=80dcc62e2f';
-import { createOrganPaint, parseColor, mul } from './organ-paint.js?v=c9944b2f38';
-import { textPolys, textWidth, loadGlyphs, glyphsReady, textCovers } from './text-gl.js?v=b1c57e1e7b';
+import { createShapeGL, flattenPath, polyMeshInto, ellipsePoly } from './shape-gl.js?v=9e5dd356a7';
+import { createOrganPaint, parseColor, mul } from './organ-paint.js?v=48519d48c2';
+import { textPolys, textWidth, loadGlyphs, glyphsReady, textCovers } from './text-gl.js?v=7b87ad71e9';
 import { watchSize, sizeOf, rectSoon } from './geom.js?v=ca69a8335e';
 import { trackOf, trackAt, mixColour, timingOf, progressAt, keysOf } from './label-track.js?v=bc7e86266b';
 import { caught } from './caught.js?v=caf293c676';

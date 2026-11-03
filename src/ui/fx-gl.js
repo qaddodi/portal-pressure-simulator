@@ -14,7 +14,7 @@
 
 import { startProgram, checkProgram } from './gl-compile.js?v=255276a5f4';
 import { fbComplete } from './gl-state.js?v=ee046876b7';
-import { uniformCache } from './uniform-cache.js?v=6488216aa0';
+import { uniformCache } from './uniform-cache.js?v=323665bf20';
 
 export const FX_GPU = true;   // (switch deleted; kept for lobule-zoom.js until its own pass)
 export const MAX_DUCTS = 8;

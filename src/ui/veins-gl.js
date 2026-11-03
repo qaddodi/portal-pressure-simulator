@@ -36,16 +36,16 @@ import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { EDGE_GLSL } from './edge.js?v=8321a8017f';
 import { SLOT, DYE_BINS, PERIOD, DRIFT_PERIOD } from './blood.js?v=4892162325';
-import { cssRGB } from './util.js?v=44da4c1464';
+import { cssRGB } from './util.js?v=737f5fa51a';
 import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js?v=aaa0923b58';
 import { CELL, ENT_W, binVeins, splitRows, simpleCells, splitCells, cellsOfJoinEntries } from './veins-bin.js?v=212e62b33a';
 import { gpuProbe, COUNTED } from './gpu-probe.js?v=294bbe5874';
 import { changedRows } from './flow-rows.js?v=1b98c3bdba';
 import { leftAlone } from './quiet.js?v=856a3cdf1e';
-import { uniformCache } from './uniform-cache.js?v=6488216aa0';
+import { uniformCache } from './uniform-cache.js?v=323665bf20';
 import { PUBLISH_QUIET_MS, SHADER_WARM, exerciseDraw } from './gl-compile.js?v=255276a5f4';
-import { createShapeGL, flattenPath, ellipsePoly, polyMeshInto } from './shape-gl.js?v=80dcc62e2f';
-import { createOrganStack, prestartOrganStack, prestartLayer } from './organs-gl.js?v=91ed99c7e8';
+import { createShapeGL, flattenPath, ellipsePoly, polyMeshInto } from './shape-gl.js?v=9e5dd356a7';
+import { createOrganStack, prestartOrganStack, prestartLayer } from './organs-gl.js?v=4c7a9085dd';
 import { warmFade } from './res-fade-gl.js?v=f253f13b3f';
 import { fusedVS, fusedFS } from './veins-fuse.js?v=b5cc409146';
 import { NOISE_W, NOISE_H, NOISE_PER_ROW, OCTAVES, noiseBlock, blockAt, tableSize } from './blood-noise.js?v=d78e4a3425';
@@ -2419,6 +2419,12 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     LKN[n++] = -7.25;   // (the end of a list)
     nLKN = n;
   };
+  const lkPut = (v) => {
+    if (typeof v === 'number') LKN[nLKN++] = v;
+    else if (v === true) LKN[nLKN++] = 1;
+    else if (v === false || v == null) LKN[nLKN++] = 0;
+    else lkNest(v);
+  };
   const lookNow = (k) => {
     if (LKN.length < 512) { LKN = new Float64Array(512); LKD = new Float64Array(512); nLKD = -1; }   // alloc-rare: once, the first look
     nLKN = 0;
@@ -3895,13 +3901,13 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       // The still lumens (see moved): only in the blood's own pass, with no bleed (whose spray and pool move with
       // the clock, the one uniform left out here), when every uniform above and every texture under a lumen is the last picture's.
       sn = 0;
-      sg(m); sg(PW()); sg(PH()); sg(pm); sg(plate?.alpha ?? 0); sg(plate?.sat ?? 1); sg(plates[0]?.rect || R_UNIT); sg(plates[1]?.rect || R_UNIT);
+      sg(m); sigNow[sn++] = +(PW()) || 0; sigNow[sn++] = +(PH()) || 0; sigNow[sn++] = +(pm) || 0; sigNow[sn++] = +(plate?.alpha ?? 0) || 0; sigNow[sn++] = +(plate?.sat ?? 1) || 0; sg(plates[0]?.rect || R_UNIT); sg(plates[1]?.rect || R_UNIT);
       sg(fluidRect || R_UNIT); sg(fl?.s || V4_ZERO); sg(fl ? fl.ink : V4_ZERO); sg(fl?.lv || LV_DEF);
-      sg(blood.on); sg(blood.chev); sg(blood.still); sg(blood.alpha ?? 1); sg(blood.streakA ?? 1); sg(blood.chevA ?? 1); sg(blood.originA ?? 1);
-      sg(blood.chevInk || CHEV_INK); sg(blood.chevLight || CHEV_LIGHT); sg(blood.vdpr || 1); sg(blood.origin); sg(dyeAny && blood.dye !== false);
-      sg(blood.streakLen); sg(blood.bt || 0);
+      sigNow[sn++] = +(blood.on) || 0; sigNow[sn++] = +(blood.chev) || 0; sigNow[sn++] = +(blood.still) || 0; sigNow[sn++] = +(blood.alpha ?? 1) || 0; sigNow[sn++] = +(blood.streakA ?? 1) || 0; sigNow[sn++] = +(blood.chevA ?? 1) || 0; sigNow[sn++] = +(blood.originA ?? 1) || 0;
+      sg(blood.chevInk || CHEV_INK); sg(blood.chevLight || CHEV_LIGHT); sigNow[sn++] = +(blood.vdpr || 1) || 0; sigNow[sn++] = +(blood.origin) || 0; sigNow[sn++] = +(dyeAny && blood.dye !== false) || 0;
+      sigNow[sn++] = +(blood.streakLen) || 0; sigNow[sn++] = +(blood.bt || 0) || 0;
       sg(originColOf(blood.originCol || ORIGIN_WHITE)); sg(blood.dyeCol || DYE_COL); sg(blood.revCol || REV_COL);
-      sg(blood.inkLight || INK_LIGHT); sg(blood.inkDark || INK_DARK); sg(ncv); sg(ncN); sg(hb); sg(hr); sg(hoN); sg(layer); sg(glow); sg(warm); sg(useStack); sg(bare); sg(texVer);
+      sg(blood.inkLight || INK_LIGHT); sg(blood.inkDark || INK_DARK); sg(ncv); sigNow[sn++] = +(ncN) || 0; sg(hb); sg(hr); sigNow[sn++] = +(hoN) || 0; sigNow[sn++] = +(layer) || 0; sigNow[sn++] = +(glow) || 0; sigNow[sn++] = +(warm) || 0; sigNow[sn++] = +(useStack) || 0; sigNow[sn++] = +(bare) || 0; sigNow[sn++] = +(texVer) || 0;
       let same = !!stillSig && sn === stillN && sn < sigNow.length;
       for (let i = 0; same && i < sn; i++) if (sigNow[i] !== stillSig[i]) same = false;
       const still = !full && !movedAll && !bl.length && same;

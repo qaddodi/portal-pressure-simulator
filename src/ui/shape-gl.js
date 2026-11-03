@@ -9,7 +9,7 @@
 // ones 0.5 less theirs, the share of a pixel a straight edge leaves, as the browser's own edges are drawn. A shape is sharp at
 // any zoom: it is drawn again from its outline at the screen's resolution.
 
-import { ucOf } from './uniform-cache.js?v=6488216aa0';
+import { ucOf } from './uniform-cache.js?v=323665bf20';
 import { EDGE_GLSL } from './edge.js?v=8321a8017f';
 import { prestart, linkProgram } from './gl-compile.js?v=255276a5f4';
 
