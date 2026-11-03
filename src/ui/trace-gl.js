@@ -395,7 +395,7 @@ const premulInto = (out, o, c, alpha = 1) => { const v = rgba(c), a = v[3] * alp
 
 /** The GPU drawer for one chart, over `host` (the chart's 2D canvas), or null where it cannot be (the 2D canvas draws the chart). */
 // alloc-rare: made once with the chart (createTraceGL runs once for a chart), never in a frame
-export function createTraceGL(host, { redraw = null, under = null } = {}) {
+export function createTraceGL(host, { redraw = null, under = null, lose = null } = {}) {
   // (canvasSize never measures: a chart drawn before the observer reported its box drew nothing, and draws again once it has one,
   // with or without this drawer)
   let unsized = null;   // (the size subscription's release, called by dispose)
@@ -420,7 +420,9 @@ export function createTraceGL(host, { redraw = null, under = null } = {}) {
 
   let lost = false, dead = false, failed = false, missed = false, parked = false, back = false, gen = 0;   // (missed: a frame asked for the GPU while it could not draw)
   // alloc-rare: made once with the chart (createTraceGL runs once for a chart), never in a frame
-  const onLost = (e) => { e.preventDefault(); lost = true; };
+  // (lose: told when the context is lost, so a surface that was showing this picture can show its fallback again; the redraw asked for
+  // when the context is built again is the one that shows it again.)
+  const onLost = (e) => { e.preventDefault(); lost = true; if (redraw) missed = true; if (lose) { try { lose(); } catch (e2) { caught('trace-gl:lose', e2); } } };
   glCanvas.addEventListener?.('webglcontextlost', onLost);
   let P = null, started = null, stopPoll = null;
   let quad = null, quadVao = null, segBuf = null, segVao = null, fillBuf = null, fillVao = null, boxBuf = null, boxVao = null, textBuf = null, textVao = null;

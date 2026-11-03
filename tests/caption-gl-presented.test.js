@@ -1,0 +1,106 @@
+// A figure's names drawn by the GPU hide the page's own only once the GPU's picture is on the screen (caption-gl.js presented): a frame
+// at nonzero size whose end() did not return false. A failed hand-over, a lost context or a size of nothing show the page's names again.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { JSDOM } from 'jsdom';
+
+const dom = new JSDOM('<!doctype html><body></body>');
+globalThis.window = dom.window; globalThis.document = dom.window.document;
+for (const k of ['Element', 'HTMLElement', 'Node', 'NodeFilter', 'MutationObserver', 'getComputedStyle', 'matchMedia', 'addEventListener']) globalThis[k] ??= dom.window[k]?.bind ? dom.window[k].bind(dom.window) : dom.window[k];
+globalThis.matchMedia ??= () => ({ matches: false, addEventListener() {}, addListener() {} });
+globalThis.Element = dom.window.Element;
+globalThis.ResizeObserver ??= class { observe() {} disconnect() {} };
+globalThis.requestAnimationFrame ||= (f) => setTimeout(() => f(performance.now()), 0);
+globalThis.cancelAnimationFrame ||= (id) => clearTimeout(id);
+const { createCaptionGL } = await import('../src/ui/caption-gl.js');
+
+// (A drawer and a pen the test drives: the pen's record is what fitPen gives, ctx.end() answers as the test says.)
+function rig() {
+  const R = { w: 100, h: 50, ok: true, gpuLost: false, ends: 0, redraw: null, lose: null, pg: true };
+  const noop = () => {};
+  const ctx = new Proxy({ end() { R.ends++; return R.ok; } }, { get: (t, k) => (k in t ? t[k] : noop), set: () => true });
+  R.pen = { ctx, w: 0, h: 0, gpu: true };
+  const make = (cv, o) => { R.redraw = o.redraw; R.lose = o.lose; return { get lost() { return R.gpuLost; }, dispose() { R.disposed = (R.disposed || 0) + 1; } }; };
+  const pen = () => { R.pen.w = R.w; R.pen.h = R.h; R.pen.gpu = R.pg; return R.pen; };
+  const box = document.createElement('div');
+  document.body.append(box);
+  R.cap = createCaptionGL(box, { make, pen });
+  R.ev = [];
+  R.cap.onPresented = () => R.ev.push('presented');
+  R.cap.onLost = () => R.ev.push('lost');
+  R.drawn = 0; R.cap.onDrawn = () => R.drawn++;
+  R.frame = () => { R.cap.drawNow(); };
+  return R;
+}
+
+test('a failed first hand-over is not presented (the page names stay), and fires no onDrawn', () => {
+  const R = rig();
+  R.ok = false;
+  R.frame();
+  assert.equal(R.ends, 1);
+  assert.equal(R.cap.presented, false);
+  assert.equal(R.drawn, 0);
+  assert.deepEqual(R.ev, []);
+});
+
+test('a first frame at no size is not presented; a later one that succeeds is', () => {
+  const R = rig();
+  R.w = 0; R.h = 0;
+  R.frame();
+  assert.equal(R.cap.presented, false);
+  assert.equal(R.drawn, 0);
+  R.w = 100; R.h = 50;
+  R.frame();
+  assert.equal(R.cap.presented, true);
+  assert.equal(R.drawn, 1);
+  assert.deepEqual(R.ev, ['presented']);
+  R.frame();
+  assert.deepEqual(R.ev, ['presented'], 'fires on the transition only');
+  assert.equal(R.drawn, 1, 'onDrawn once');
+});
+
+test('a hand-over that fails after presenting keeps the picture, and draws again until it lands', async () => {
+  const R = rig();
+  R.frame();
+  R.ok = false; R.frame();
+  assert.equal(R.cap.presented, true, 'the last picture stays; the page\'s names do not come back');
+  const ends = R.ends;
+  await new Promise((r) => setTimeout(r, 120));
+  assert.ok(R.ends > ends, 'drawn again on the GPU');
+  R.ok = true;
+  await new Promise((r) => setTimeout(r, 120));
+  assert.deepEqual(R.ev, ['presented'], 'never lost');
+});
+
+test('a lost context keeps the class and asks for a frame; the drawer going for good loses it', async () => {
+  const R = rig();
+  R.frame();
+  R.gpuLost = true;
+  R.lose();
+  assert.equal(R.cap.presented, true);
+  const ends = R.ends;
+  await new Promise((r) => setTimeout(r, 120));
+  R.gpuLost = false;
+  await new Promise((r) => setTimeout(r, 120));
+  assert.ok(R.ends > ends, 'the frame it asked for, drawn once the context is back');
+  assert.deepEqual(R.ev, ['presented']);
+  R.cap.dispose();
+  assert.equal(R.cap.presented, false);
+  assert.deepEqual(R.ev, ['presented', 'lost']);
+});
+
+test('new words do not take presentation back before the next frame (no flash), but count a generation', () => {
+  const R = rig();
+  R.frame();
+  const g = R.cap.gen;
+  R.cap.look('a', { lh: 1, gap: 0, halo: 0, haloC: '', runs: { name: { size: 12, weight: 400, ls: 0, fill: '', op: 1, upper: false, mr: 0 } } });
+  assert.equal(R.cap.presented, true);
+  assert.ok(R.cap.gen > g);
+});
+
+test('a late onPresented hears of a presentation already made', () => {
+  const R = rig();
+  R.frame();
+  let n = 0; R.cap.onPresented = () => n++;
+  assert.equal(n, 1);
+});

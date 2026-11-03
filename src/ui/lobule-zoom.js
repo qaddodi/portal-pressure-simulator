@@ -164,7 +164,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // frames) and moved in the frame that moves the lobule; the page's own are a clear model for clicks and screen readers, placed between
   // frames (2 Nov 2026, "Move everything to GPU").
   const cap = createCaptionGL(labels);
-  if (cap.on) labels.classList.add('cap-gl-on');
+  // (The page's own names are made clear only once the GPU's picture of them is on the screen, and shown again if it is lost: caption-gl.js presented.)
+  cap.onPresented = () => classSoon(labels, 'cap-gl-on', true);
+  cap.onLost = () => classSoon(labels, 'cap-gl-on', false);
 
   // ── What sits on the lobule ──
   // Zones and Lymph are layers (the toolbar's Layers menu keeps them in the store). Nothing floats in a card.
