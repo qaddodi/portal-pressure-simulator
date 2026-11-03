@@ -103,7 +103,7 @@ test('every WebGL2 surface rebuilds after a lost context (or is a probe or a sec
     assert.match(s, /webglcontextlost/, `${f}: no lost-context handler`);
     // (The tissue's restore is its owner's: lobule-zoom.js makes it again on the same canvas, tissueRestored.)
     // (The vessels' are their owners' too: the anatomy (stage.js) and the lobule each make a new renderer on the canvas, checked below.)
-    const OWNER = { 'tissue-gl.js': ['lobule-zoom.js', /tissueG\.addEventListener\('webglcontextrestored', tissueRestored\)/], 'veins-gl.js': ['stage.js', /veins = createVeinsGL\(vCanvas, \{ tubes: GL_ROWS, force: true \}\);/] };
+    const OWNER = { 'tissue-gl.js': ['lobule-zoom.js', /tissueG\.addEventListener\('webglcontextrestored', tissueRestored\)/], 'veins-gl.js': ['stage.js', /veins = createVeinsGL\(vCanvas, \{ tubes: GL_ROWS, force: true, onPlate: \(\) => \{ plateDirty = true; \} \}\);/] };
     if (OWNER[f]) assert.match(src(`src/ui/${OWNER[f][0]}`), OWNER[f][1], `${f}: no restore by its owner`);
     else assert.match(s, /webglcontextrestored/, `${f}: no restore`);
   }

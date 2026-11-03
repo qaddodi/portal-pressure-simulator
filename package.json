@@ -25,6 +25,7 @@
     "smoke:frame": "node tests/e2e/frame-centre.mjs",
     "smoke:card": "node tests/e2e/text-card.mjs",
     "smoke:words": "node tests/e2e/gl-words-keep.mjs",
+    "smoke:classes": "node tests/e2e/gl-classes.mjs",
     "smoke:quick": "node tests/e2e/quick.mjs",
     "perf": "node scripts/perf.mjs",
     "perf:frames": "node scripts/frame-cost.mjs",

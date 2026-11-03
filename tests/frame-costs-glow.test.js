@@ -83,7 +83,6 @@ test('the vessels are records the GPU draws: no SVG tube, gradient, mask or hit 
   assert.ok(build.length > 0, 'the vessel builder is found');
   for (const c of ['v-wall', 'v-lumen', 'v-shadow', 'v-sheen', 'v-shade', 'v-select', 'v-halo', 'v-strand', 'v-artery', 'v-hit', 'linearGradient', 'mask']) assert.ok(!build.includes(c), `no ${c} built for a vessel`);
   assert.doesNotMatch(stage, /tubesHidden|tubesHeld|flushTubes|setPaint|svgTaper|updateJoins|REVEAL_PARTS/, 'nothing left that wrote the SVG tubes');
-  assert.match(stage, /if \(!on\) \{ if \(geoHeld\.size\) flushGeo\(\); ascitesSvg\(\); \}/);
   assert.doesNotMatch(stage, /flushHeld|class: 'v-hit'|ghost-hit/, 'no hit stroke or ghost copy, and nothing held for one');
   const credit = readFileSync(new URL('../src/ui/credit.js', import.meta.url), 'utf8');
   assert.match(credit, /const vesselsNow = \(\) => window\.pps\?\.stage\?\.vesselShapes\?\.\(\)/, 'the credit takes the vessels\' courses from the stage');

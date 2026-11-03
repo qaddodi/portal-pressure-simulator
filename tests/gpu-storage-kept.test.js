@@ -69,5 +69,4 @@ test('the ascites surface\'s hidden SVG copy is not rewritten for the ripple\'s 
   // Every reader brings it up to date first: the selection's outline, the hover, the SVG shown again.
   assert.match(slice(stage, '  function syncSelFluid() {', '  function syncSelLine'), /ascitesSvg\(\);/);
   assert.match(stage, /ascitesSvg\(\);\n\s+const fd = ascitesPath\.getAttribute\('d'\);/);
-  assert.match(stage, /if \(geoHeld\.size\) flushGeo\(\); ascitesSvg\(\); \}/);
 });

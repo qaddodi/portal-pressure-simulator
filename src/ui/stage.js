@@ -697,13 +697,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // halos, guides), which moves to a second SVG above the GPU layer, with the same view box.
   const GL_ROWS = ALL_EDGES.length + ALL_EDGES.reduce((n, e) => n + (STRANDS[e.id]?.length || 0) + (feedGeo[e.id]?.length || 0) + (treeGeo[e.id]?.length || 0), 0);
   let veins = null, svgOver = null, worldOver = null;
+  let plateDirty = true;   // (the GPU said the whole plate came or went, or the class was set by hand: syncVeinsNow sets `gl-plate` to what the GPU holds, once)
   let olList = [], olCol = [0.2, 0.45, 0.9], olDirty = false, olLast = 0, olVerts = null;   // the organ outlines on the GPU (see olStep)
   const vCanvas = document.createElement('canvas');
   vCanvas.id = 'veins'; vCanvas.setAttribute('aria-hidden', 'true');
   svg.after(vCanvas);
   // Lite graphics (main.js) keeps the SVG tubes: a software renderer copied every WebGL frame back to the CPU.
-  veins = createVeinsGL(vCanvas, { tubes: GL_ROWS, force: true });
+  veins = createVeinsGL(vCanvas, { tubes: GL_ROWS, force: true, onPlate: () => { plateDirty = true; } });
   if (veins) {
+    wrap.classList.add('gl-on');   // (the GPU draws the vessels from here until its context is lost: the class goes then, comes back when it is restored)
     svgOver = s('svg', { id: 'stageOver', 'aria-hidden': 'true', viewBox: `0 0 ${VIEW.w} ${VIEW.h}`, preserveAspectRatio: 'xMidYMid meet' });
     worldOver = s('g');
     svgOver.append(worldOver);
@@ -2903,6 +2905,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     wrap.classList.remove('gl-on');
     overClear();   // (the overlays' SVG copies back with the vessels': their GPU picture is gone)
     if (wrap.classList.contains('gl-plate')) { wrap.classList.remove('gl-plate'); syncPlateLook(); }
+    plateDirty = true;
     plateView = null; plateViewKey = ''; plateKey = ''; dropViewKeep();
     if (geoHeld.size) flushGeo();
     syncOrganDim();
@@ -2911,10 +2914,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   });
   vCanvas.addEventListener('webglcontextrestored', () => {
     veins?.dispose();   // the lost instance's listener goes with it (one per restore otherwise)
-    veins = createVeinsGL(vCanvas, { tubes: GL_ROWS, force: true });
+    veins = createVeinsGL(vCanvas, { tubes: GL_ROWS, force: true, onPlate: () => { plateDirty = true; } });
     veins?.setLayerScale?.(figOpt('glow'));
     if (picNow) veins?.setPicture?.(picNow, picLin);   // (Sharper upscaling, or the overlays' plain upscale: the new context draws the picture at the same share)
     if (!veins) { wrap.classList.remove('gl-on', 'gl-plate'); syncPlateLook(); return; }   // (no context this time: the SVG stays)
+    wrap.classList.add('gl-on'); plateDirty = true;
     renderPath();
     vBinKey = ''; binShown = null; bendShown = null; glOrgans = false; plateKey = ''; tubesShown = null;   // (a new context holds no vessels yet)
     liverKey = '';   // (nor the liver's lower edge the ascites stops at: morphLiver sends it again)
@@ -5052,13 +5056,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function syncVeinsNow(t) {
     if (!veins || veins.lost) { colEasing = false; return; }
     glowSync = false;
-    const on = glWanted(t);
-    wrap.classList.toggle('gl-on', on);
-    if (!on) { if (geoHeld.size) flushGeo(); ascitesSvg(); }
+    // (Here the GPU holds its context: the guard above. `gl-on` is the class of that: set when the GPU was made or its context came back, taken off
+    // when it was lost (webglcontextlost). `gl-plate` follows what the GPU holds of the plate, looked at when it said that changed.)
     const plateWas = plateOn();
-    wrap.classList.toggle('gl-plate', on && veins.hasPlate(0));
+    if (plateDirty) { plateDirty = false; wrap.classList.toggle('gl-plate', veins.hasPlate(0)); }
     syncOrganDim();
-    if (!on) { colEasing = false; if (vLook) { veins.clear(); vLook = null; vBinKey = ''; binShown = null; bendShown = null; } return; }
     if (!glOrgans) {
       // The organ covers, painted once on the GPU into their world-space texture (1.5 texels per unit): tiers behind them fade.
       // (They were drawn on a 2D canvas and uploaded.)
@@ -5281,7 +5283,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // the SVG organs, nor neither. liveApply drops them as it hands the stack the whole set.)
     if (keepForWhole()) return;
     veins.dropPlate(0); veins.dropPlate(1); plateView = null; plateViewKey = ''; dropViewKeep();
-    wrap.classList.remove('gl-plate'); veinsDirty = true; syncPlateLook();
+    wrap.classList.remove('gl-plate'); plateDirty = true; veinsDirty = true; syncPlateLook();
     if (inUpdate) plateRedraw = true; else drawVeins(false, 'plate hidden');
   }
   // The organs' groups by the layer they are drawn in (organs-gl.js), back to front: the five pictures of the plan, with the two
@@ -5697,7 +5699,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
             // hide the SVG organs only together with a GPU draw that shows the plate, or a frame
             // would show neither (a flash of the dark stage through the organs).
             wrap.classList.add('gl-plate'); syncPlateLook();
-            if (!drawVeins(false, 'plate landed')) { wrap.classList.remove('gl-plate'); syncPlateLook(); }
+            if (!drawVeins(false, 'plate landed')) { wrap.classList.remove('gl-plate'); plateDirty = true; syncPlateLook(); }
           } else syncPlateLook();
           plateMiss = plateOn() ? 0 : Math.min(3, plateMiss + 1);
           if (!plateOn()) plateKey = '';   // not shown (the liver moved meanwhile): raster again once it settles
@@ -14138,6 +14140,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     markAmounts: () => markA.amounts(),
     /** The layer the GPU's picture lies under (lesions, stents, halos), when the GPU draws. */
     overLayer: () => (veins && wrap.classList.contains('gl-on') ? svgOver : null),
+    /** The classes the GPU's state sets and what that state is (for tests): `gl-on` with the GPU holding its context, `gl-plate` with it holding the whole plate. */
+    glClasses: () => ({ on: wrap.classList.contains('gl-on'), plate: wrap.classList.contains('gl-plate'), gpu: !!veins && !veins.lost, held: !!veins && !veins.lost && veins.hasPlate(0) }),
     /** The overlays on the GPU now (for tests and the readout): on, whole (everything they show painted there), how many groups,
      *  and where a run stopped (the unit, why, the element). */
     overState: () => ({ on: OVER_ON && !!veins?.overlay && !veins.lost && wrap.classList.contains('gl-on'), whole: !!svgOver?.classList.contains(OVER_ALL), groups: overPainted.length, stop: overStop && { unit: overName(overStop.unit), why: overStop.why, el: overName(overStop.el) } }),

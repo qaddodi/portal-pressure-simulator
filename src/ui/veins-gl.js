@@ -1791,7 +1791,7 @@ export function boxOfCells(cells, n, cell) {
   return [x0, y0, x1 + cell, y1 + cell];
 }
 
-export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'stage' }) {
+export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'stage', onPlate = null }) {
   // (A row is written in ROW2_BITS bits in the second lumen target: many more rows than the figure has, about two hundred.)
   if (nTubes + 1 > ROW2_MASK) { console.warn(`Veins renderer: ${nTubes} vessel rows do not fit the second lumen target.`); return null; }
   // (For the ?perf readout: who asked for a whole draw or a target sized again, gpu-probe.js BY.)
@@ -1898,6 +1898,10 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   };
   if (started.fuseGen && !later.includes('fused')) finishFuse();
   const plates = [null, null];   // [whole plate, sharp view] : { tex, rect }
+  // (Whether the whole plate is held (a raster, or the organs' layers: hasPlate(0)) as the owner last heard: it is told, by onPlate, in the call
+  // that changes it, and not otherwise: the figure's `gl-plate` class is looked at only when it has been told.)
+  let plateSeen = false;
+  const notePlate = () => { const h = !!plates[0] || !!stack?.has(0); if (h !== plateSeen) { plateSeen = h; onPlate?.(h); } };
   // The organs as layers instead of one picture (the ?perf switch "GPU organs", stage.js): null where it cannot be made.
   const stack = createOrganStack(gl);
   // The figure's overlays (stage.js: the lowest groups of #stageOver it can read), painted by the organs' painter at the canvas's
@@ -3404,6 +3408,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       plates[slot] = { tex: job.tex, rect };
       texVer++;
       stack?.drop(slot);
+      notePlate();
     },
     /** A plate raster given up on its way in. */
     dropJob(job) { gl.deleteTexture(job.tex); },
@@ -3452,7 +3457,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       keepBuf(fluidBuf, cells);   // (R05: every step of a fluid ease rewrote it into new storage)
       nFluid = cells.length / 2;
     },
-    dropPlate(slot) { texVer++; if (plates[slot]) { gl.deleteTexture(plates[slot].tex); plates[slot] = null; } stack?.drop(slot); },
+    dropPlate(slot) { texVer++; if (plates[slot]) { gl.deleteTexture(plates[slot].tex); plates[slot] = null; } stack?.drop(slot); notePlate(); },
     hasPlate: (slot) => !!plates[slot] || !!stack?.has(slot),
     /** The organs' layers (organs-gl.js), or null: a filled raster job (plateJob) is staged for a slot and the set committed whole. */
     organs: stack && {
@@ -3467,6 +3472,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         // (One kind of picture at a time: the layers replace the flattened plate of the same slot.)
         if (plates[slot]) { gl.deleteTexture(plates[slot].tex); plates[slot] = null; }
         stack.commit(slot, names);
+        notePlate();
       },
       dropStaged: (slot) => stack.dropStaged(slot),
       has: (slot) => stack.has(slot),
@@ -3477,8 +3483,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       get fading() { return stack.fading; },
       /** Organs painted live in the stack, and layers' live masks (organs-gl setLive); the names it lays, in order. */
       get canLive() { return stack.canLive; },
-      setLive: (organs, masks) => { texVer++; return stack.setLive(organs, masks); },
-      setLiveAll: (organs) => { texVer++; return stack.setLiveAll(organs); },
+      setLive(organs, masks) { texVer++; const r = stack.setLive(organs, masks); notePlate(); return r; },
+      setLiveAll(organs) { texVer++; const r = stack.setLiveAll(organs); notePlate(); return r; },
       setOrder: (names) => { texVer++; return stack.setOrder(names); },
       /** A layer gathered under a live mask now at dy world units down (the bowel's float on the ascites). */
       shift: (name, dy) => { texVer++; return stack.shift(name, dy); },

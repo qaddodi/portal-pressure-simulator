@@ -13,7 +13,7 @@ test('the stack shows the whole set painted live as if its pictures were in, unt
   assert.match(gl, /pictured: \(slot\) => live\[slot\]\.size > 0,/);
   assert.match(gl, /setLiveAll\(organs\) \{ this\.setLive\(organs, null\); full = liveOrgans\.size > 0; \}/);
   assert.match(gl, /function watchLive\(\) \{\n\s+full = false;/, 'every setLive ends the whole set');
-  assert.match(veins, /setLiveAll: \(organs\) => \{ texVer\+\+; return stack\.setLiveAll\(organs\); \}/);
+  assert.match(veins, /setLiveAll\(organs\) \{ texVer\+\+; const r = stack\.setLiveAll\(organs\); notePlate\(\); return r; \}/);
   assert.match(veins, /pictured: \(slot\) => stack\.pictured\(slot\),/);
 });
 
