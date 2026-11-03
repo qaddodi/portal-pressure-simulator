@@ -2419,12 +2419,6 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     LKN[n++] = -7.25;   // (the end of a list)
     nLKN = n;
   };
-  const lkPut = (v) => {
-    if (typeof v === 'number') LKN[nLKN++] = v;
-    else if (v === true) LKN[nLKN++] = 1;
-    else if (v === false || v == null) LKN[nLKN++] = 0;
-    else lkNest(v);
-  };
   const lookNow = (k) => {
     if (LKN.length < 512) { LKN = new Float64Array(512); LKD = new Float64Array(512); nLKD = -1; }   // alloc-rare: once, the first look
     nLKN = 0;
