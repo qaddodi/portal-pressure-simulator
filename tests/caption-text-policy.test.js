@@ -107,3 +107,9 @@ test('snapshot: the names the last landed frame drew, view included; a failed fr
   cap.dispose();
   assert.deepEqual(cap.snapshot().items, []);
 });
+
+test('scaled font texts are kept in a small map, cleared when the scale changes', () => {
+  assert.match(tr, /const sfMap = new Map\(\);/);
+  assert.match(tr, /if \(k !== sfK\) \{ sfK = k; sfMap\.clear\(\); \}/);
+  assert.match(tr, /if \(sfMap\.size > 32\) sfMap\.clear\(\);/);
+});
