@@ -1773,6 +1773,8 @@ button.finding { cursor: pointer; }
 #labels .lb .lb-name, #labels .lb .lb-val, #labels .lb .lb-delta { transition: none; }
 #labels .lb.term .lb-name, #labels .lb.term .lb-val, #labels .lb.term .lb-unit, #labels .lb.term .lb-delta { fill: var(--term); }
 #labels .lb.term .lb-name { font-weight: 700; }
+/* A slide that lights terms: the stations it does not light, and their leaders, dim to 35 % and keep their places (V-LIT-3). */
+.app.presenting #labels .lb.unlit, .app.presenting #labels .lb-leaders > .unlit { opacity: .35; }
 .app.presenting #labels .lb { animation: crossfade var(--d-surface) var(--ease) backwards; }
 .app.presenting #stageView { touch-action: none; }   /* no browser pan or pinch on the figure; the slide swipe reads touch events */
 .app.presenting .stage-credit { z-index: calc(var(--z-hud) + 1); }   /* over the slide's veil (outline slides); src/ui/credit.js keeps it clear of the cards */

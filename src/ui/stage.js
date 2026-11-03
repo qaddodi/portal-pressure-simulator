@@ -673,11 +673,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (the owner's rule, 2 Nov 2026: no DOM writes in a frame). A frame builds the nodes and queues them with late(op, a, b); the
   // pass applies them in the order asked, so the last ask wins. (?restpass=0, rest-pass.js, runs that pass on a plain zero timer.)
   const lateQueue = createLateQueue((op, a, b) => lateRun(op, a, b), restPass, cancelRest);
+  const unlitKeys = new Set();   // (the stations a lit slide dims, by key: a leader made later is dimmed too, V-LIT-3)
   function late(op, a, b) { lateQueue.push(op, a, b); }
   function lateRun(op, a, b) {
     if (op === 'kids') a.replaceChildren(...b);   // (a label's pieces)
     else if (op === 'label') { if (!a.isConnected) gLabels.append(a); }   // (a new label)
-    else if (op === 'lead') { for (let i = a.length - 1, next = null; i >= 0; i--) { if (!a[i].isConnected) gLeaders.insertBefore(a[i], next); next = a[i]; } }   // (a new leader goes in just before the next one wanted that is already in)
+    else if (op === 'lead') { for (let i = a.length - 1, next = null; i >= 0; i--) { if (!a[i].isConnected) { gLeaders.insertBefore(a[i], next); if (unlitKeys.size && unlitKeys.has(a[i].dataset.k)) a[i].classList.add('unlit'); } next = a[i]; } }   // (a new leader goes in just before the next one wanted that is already in)
     else if (op === 'add') { if (a !== b.parentNode) a.append(b); }   // (a node new to its parent)
     else if (op === 'append') a.append(...b);
     else if (op === 'text') a.textContent = b;   // (words a node is made with)
@@ -10758,6 +10759,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       el._gone = setTimeout(leadGoneFire, 360, k, el);
     }
   }
+  const termsLit = () => { const st = store.get(); const t = st.presenting && st.presentTerms; if (!t) return false; for (const k in t) return true; return false; };   // (a slide that lights some term)
   const termTone =(id) => { const st = store.get(); return (st.presenting && st.presentTerms?.[id]) || null; };
   // A label new to the figure, or one whose pieces change (another line, another run), is built between frames (a rest pass), never in
   // the frame that asks for it: a frame makes no element (2 Nov 2026, "Move everything to GPU"). Until then it stands as it was (a new
@@ -10796,6 +10798,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // A presenter slide's term (presentTerms): the station's label takes the term's colour, eased (.lb.term).
     const tone = it.node ? termTone(it.node) : null;
     if (tone !== (b.tone || null)) { b.tone = tone; b.g.classList.toggle('term', !!tone); if (tone) b.g.style.setProperty('--term', toneCol(tone)); }   // (a tone may name its own token, '--tour-sys' for the right atrium: as var(--tr---tour-sys) it was unset and the label fell back to black, dark on dark in the dark theme)
+    // A slide that lights terms (presentTerms) dims every station it does not light to 35 %, its leader too, and it keeps its place (V-LIT-3, Mohammad's pick 14.3 B): .unlit, app.css.
+    const unlit = !tone && termsLit() && !/\bfocus\b/.test(it.cls);
+    if (unlit !== !!b.unlit) { b.unlit = unlit; if (unlit) unlitKeys.add(it.key); else unlitKeys.delete(it.key); b.g.classList.toggle('unlit', unlit); for (const el of gLeaders.querySelectorAll(`[data-k="${it.key}"]`)) el.classList.toggle('unlit', unlit); }
     if (!!it.onVessel !== !!b.onVessel) { b.onVessel = !!it.onVessel; b.g.classList.toggle('on-vessel', b.onVessel); }
     let i = 0;
     for (const line of it.lines) for (const r of line) {
