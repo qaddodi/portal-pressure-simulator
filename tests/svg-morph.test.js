@@ -31,7 +31,7 @@ globalThis.cancelAnimationFrame = (id) => clearTimeout(id);
 globalThis.matchMedia = () => ({ matches: false, addEventListener() {} });
 globalThis.getComputedStyle = (el) => ({ opacity: el.css });
 const M = await import('../src/ui/svg-morph.js');
-const { splitNums, joinNums, polyPoints, polyD, tweenOf, tweenAt, describe, planMorph, morphSvg } = M;
+const { splitNums, joinNums, polyPoints, polyD, tweenOf, tweenAt, describe, planMorph, morphSvg, holdTween } = M;
 
 const svgOf = (...kids) => new El('svg', { viewBox: '0 0 100 50' }, ...kids);
 const line = (x1, y1, x2, y2, extra = {}) => new El('line', { x1, y1, x2, y2, ...extra });
@@ -231,6 +231,28 @@ test('a polyline glides as held points (no text in a frame), a single number as 
   assert.equal(p._pts, undefined, 'the points are let go at the landing');
   assert.equal(p.getAttribute('d'), 'M0 0L20 40');
   assert.equal(host.children.length, 1);
+});
+
+test('a curve glides as held commands and a transform as a held matrix, equal to the text they stand for', () => {
+  const near = (got, want) => got.forEach((v, i) => assert.ok(Math.abs(v - want[i]) < 1e-9, `${[...got]} vs ${want}`));
+  const c = tweenOf('d', 'M0 0C0 10 10 10 10 0', 'M0 0C0 20 20 20 20 0');
+  assert.ok(c.cmds && !c.flat, 'a curve of the same commands');
+  const el = {};
+  holdTween(el, 'd', c, 0.5);
+  near(el._cmds.v, [0, 0, 0, 15, 15, 15, 15, 0]);
+  assert.deepEqual([...el._cmds.op.slice(0, el._cmds.n)], [1, 3]);
+  assert.equal(tweenOf('d', 'M0 0C0 10 10 10 10 0', 'M0 0L5 5'), null, 'other commands cannot be put side by side');
+  assert.equal(tweenOf('d', 'M0 0A5 5 0 0 1 10 0', 'M0 0A5 5 0 1 1 10 0'), null, 'an arc whose flag changes does not glide');
+  const t = tweenOf('transform', 'translate(0 0) rotate(0 5 5)', 'translate(10 20) rotate(90 5 5)');
+  assert.ok(t.mat);
+  holdTween(el, 'transform', t, 1);
+  near(el._mat, [0, 1, -1, 0, 20, 20]);
+  holdTween(el, 'transform', t, 0);
+  near(el._mat, [1, 0, 0, 1, 0, 0]);
+  const s = tweenOf('transform', 'scale(2)', 'scale(4)');
+  holdTween(el, 'transform', s, 1);
+  near(el._mat, [4, 0, 0, 4, 0, 0]);
+  assert.equal(tweenOf('transform', 'foo(1)', 'foo(2)'), null, 'a function the matrix does not know is not paired');
 });
 
 test('the charts that morph keep their crossfade for when they cannot', () => {

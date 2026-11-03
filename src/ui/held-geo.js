@@ -30,3 +30,12 @@ export function holdPts(el, buf, n, closed) {
 }
 /** Lets go of the held points: the piece is drawn from its own `d` or `points` again. */
 export function dropPts(el) { el._pts = undefined; }
+/** A model piece's path held as commands (shape-gl's pathCmds form: op bytes and a number list the owner writes in place): the picture cuts it into
+ *  polylines itself at the zoom it draws at. For a glide of a curve. */
+export function holdCmds(el, cmds) { el._cmds = cmds; }
+/** Lets go of the held commands. */
+export function dropCmds(el) { el._cmds = undefined; }
+/** A model piece's transform held as a matrix [a, b, c, d, e, f] (a typed array the owner writes in place). For a glide of a transform. */
+export function holdMat(el, m) { el._mat = m; }
+/** Lets go of the held matrix. */
+export function dropMat(el) { el._mat = undefined; }

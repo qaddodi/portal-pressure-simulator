@@ -7,7 +7,8 @@ const tl = read('timeline.js'), gl = read('svg-gl.js');
 
 test('the jump count sets outlines on its piece; the picture draws them in place of a d', () => {
   assert.match(gl, /export function setPolys\(el, polys\) \{ el\._polys = polys; \}/);
-  assert.match(gl, /const d = el\.getAttribute\('d'\), kept = el\._polys;\n\s+if \(!d && !kept\) return false;\n\s+for \(const \{ pts, closed \} of kept \|\| flatOf\(d,/);
+  assert.match(gl, /const cm = el\._cmds, d = cm \? null : el\.getAttribute\('d'\), kept = el\._polys;\n\s+if \(!d && !kept && !cm\) return false;/);
+  assert.match(gl, /of cm \? flattenCmdsInto\(cm, [^\n]*\) : kept \|\| flatOf\(d,/);
   assert.match(tl, /setPolys\(dayPath, dayPolys\(t\)\); dayGL\.paint\(\);/);
   assert.doesNotMatch(tl.slice(tl.indexOf('const tick = (now) =>'), tl.indexOf('nextFrame(tick);')), /setAttribute\('d'/);
 });

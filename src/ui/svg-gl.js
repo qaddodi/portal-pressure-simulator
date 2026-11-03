@@ -14,7 +14,7 @@
 // the box as SVG maps it (preserveAspectRatio none, or meet in the middle). The picture covers the box exactly.
 
 import { createTraceGL, fitPen } from './trace-gl.js';
-import { flattenPath, elBox4 } from './shape-gl.js';
+import { flattenPath, flattenCmdsInto, newFlat, elBox4 } from './shape-gl.js';
 import { finalFrameFor, easeNow, cancelFrame } from './frame.js';
 import { restPass, cancelRest } from './rest-pass.js';
 import { cssCurve, D_SURFACE, EASE_ARRIVE } from './ease.js';
@@ -449,9 +449,10 @@ function shapePath(ctx, el, tag, k) {
     return true;
   }
   if (tag === 'path') {
-    const d = el.getAttribute('d'), kept = el._polys;
-    if (!d && !kept) return false;
-    for (const { pts, closed } of kept || flatOf(d, 0.25 / Math.max(k, 0.05))) {
+    const cm = el._cmds, d = cm ? null : el.getAttribute('d'), kept = el._polys;
+    if (!d && !kept && !cm) return false;
+    // (A curve mid-glide is held as commands (svg-morph.js) and cut here at the zoom it is drawn at, into a store kept on the piece.)
+    for (const { pts, closed } of cm ? flattenCmdsInto(cm, 0.25 / Math.max(k, 0.05), el._cflat || (el._cflat = newFlat())) : kept || flatOf(d, 0.25 / Math.max(k, 0.05))) {   // alloc-rare: a piece's first store, kept on it
       if (pts.length < 2) continue;
       ctx.moveTo(pts[0], pts[1]);
       for (let i = 2; i < pts.length; i += 2) ctx.lineTo(pts[i], pts[i + 1]);
@@ -776,7 +777,7 @@ function paintEl(ctx, root, el, alpha, k) {
   let a = alpha * (f ?? opNow(el, L, easeNow()));
   if (a <= 0.002) return;
   const own = el.style.visibility === 'hidden' || (L.hidden && el.style.visibility !== 'visible');
-  let m = transformOf(el.getAttribute('transform'));
+  let m = el._mat || transformOf(el.getAttribute('transform'));   // (a glide of a transform is held as a matrix, written in place)
   const mv = el.style.transform ? moveNow(el, L, easeNow()) : null, clip = el.hasAttribute('clip-path');
   if (mv) m = shiftM(m, mv[0], mv[1]);
   const lp = LOOPS.get(el);

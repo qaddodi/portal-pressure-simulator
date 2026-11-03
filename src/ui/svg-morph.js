@@ -29,7 +29,8 @@
 import { lateFrameFor, cancelFrame, easeNow } from './frame.js';
 import { D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, easeMove } from './ease.js';
 import { removeSoon } from './class-soon.js';
-import { setGeo, rawGeo, holdPts, dropPts } from './held-geo.js';
+import { setGeo, rawGeo, holdPts, dropPts, holdCmds, dropCmds, holdMat, dropMat } from './held-geo.js';
+import { pathCmds, newCmds } from './shape-gl.js';
 
 const nextLate = lateFrameFor('svg-morph');
 
@@ -79,9 +80,14 @@ export function tweenOf(attr, a, b) {
   if (sameGlue(A.glue, B.glue) && A.nums.length === B.nums.length) {
     const tw = { glue: B.glue, from: A.nums, to: B.nums };
     // (A single number glides as a number, a polyline's points as a typed array: the frame writes no text. Anything else is text.)
-    if (A.nums.length === 1 && B.glue[0] === '' && B.glue[1] === '') tw.one = true;
+    if (A.nums.length === 1 && attr !== 'transform' && attr !== 'd' && attr !== 'points') tw.one = true;
     else if (attr === 'points' ? A.nums.length >= 4 && A.nums.length % 2 === 0 : attr === 'd' && polyPoints(a) && polyPoints(b)) tw.flat = flatOf(A.nums, B.nums);
-    return tw;
+    else if (attr === 'd') tw.cmds = cmdsOf(a, b);   // (a curve: its commands, when the two have the same ones)
+    else if (attr === 'transform') tw.mat = matOf(b, A.nums, B.nums);
+    if (!tw.cmds) delete tw.cmds;
+    if (!tw.mat) delete tw.mat;
+    // (Anything that glides is held as numbers; a pattern none of those holds is not paired, its pieces fade.)
+    return tw.one || tw.flat || tw.cmds || tw.mat ? tw : null;
   }
   if (attr === 'd') {
     const p = polyPoints(a), q = polyPoints(b);
@@ -93,20 +99,77 @@ export function tweenOf(attr, a, b) {
   }
   return null;
 }
+// (A curve's glide: both ends parsed into commands; they glide as numbers when they are the same commands (an arc's flags too). Else null.)
+function cmdsOf(a, b) {
+  const A = pathCmds(a, newCmds()), B = pathCmds(b, newCmds());
+  if (!A.n || A.n !== B.n || A.nv !== B.nv) return null;
+  for (let i = 0; i < A.n; i++) if (A.op[i] !== B.op[i]) return null;
+  if (A.op.subarray(0, A.n).includes(5)) {   // (an arc: its two flags cannot glide, they must be the same)
+    for (let i = 0, k = 0; i < A.n; i++) {
+      const o = A.op[i];
+      if (o === 5) { if (A.v[k + 3] !== B.v[k + 3] || A.v[k + 4] !== B.v[k + 4]) return null; k += 7; } else k += o === 1 || o === 2 ? 2 : o === 3 ? 6 : o === 4 ? 4 : 0;
+    }
+  }
+  return { from: A.v.slice(0, A.nv), to: B.v.slice(0, B.nv), cm: { op: B.op.slice(0, B.n), v: new Float64Array(B.nv), n: B.n, nv: B.nv } };
+}
+// A transform's glide as a matrix: the functions (translate, scale, rotate, skewX, skewY, matrix) with their number counts, so a frame works the
+// matrix out from the glided numbers in place, as svg-gl.js's transformOf does from the text. Null for any other function.
+const FN_CODE = { translate: 1, scale: 2, rotate: 3, skewX: 4, skewY: 5, matrix: 6 };
+function matOf(b, fromNums, toNums) {
+  const fns = [], cnt = [];
+  for (const m of b.matchAll(/(\w+)\s*\(([^)]*)\)/g)) {
+    const code = FN_CODE[m[1]], n = m[2].split(/[\s,]+/).filter(Boolean).length;
+    if (!code || (code === 6 && n !== 6)) return null;
+    fns.push(code); cnt.push(n);
+  }
+  if (!fns.length || cnt.reduce((x, y) => x + y, 0) !== toNums.length) return null;
+  return { fns: Uint8Array.from(fns), cnt: Uint8Array.from(cnt), from: Float64Array.from(fromNums), to: Float64Array.from(toNums), buf: new Float64Array(toNums.length), m: new Float64Array(6) };
+}
+/** The matrix of the glide's numbers (mat.buf), written into mat.m: each function laid on the right of the ones before, as transformOf does. */
+function composeMat(mat) {
+  const { fns, cnt, buf, m } = mat;
+  let a = 1, b = 0, c = 0, d = 1, e = 0, f = 0;
+  for (let i = 0, k = 0; i < fns.length; k += cnt[i++]) {
+    let na, nb, nc, nd, ne, nf;
+    const x = cnt[i] > 0 ? buf[k] : 0, y = cnt[i] > 1 ? buf[k + 1] : 0;
+    switch (fns[i]) {
+      case 1: na = 1; nb = 0; nc = 0; nd = 1; ne = x || 0; nf = y || 0; break;
+      case 2: na = cnt[i] > 0 ? x : 1; nb = 0; nc = 0; nd = cnt[i] > 1 ? y : na; ne = 0; nf = 0; break;
+      case 3: {
+        const r = ((x || 0) * Math.PI) / 180, co = Math.cos(r), si = Math.sin(r), cx = (cnt[i] > 1 ? buf[k + 1] : 0) || 0, cy = (cnt[i] > 2 ? buf[k + 2] : 0) || 0;
+        na = co; nb = si; nc = -si; nd = co; ne = cx - co * cx + si * cy; nf = cy - si * cx - co * cy; break;
+      }
+      case 4: na = 1; nb = 0; nc = Math.tan(((x || 0) * Math.PI) / 180); nd = 1; ne = 0; nf = 0; break;
+      case 5: na = 1; nb = Math.tan(((x || 0) * Math.PI) / 180); nc = 0; nd = 1; ne = 0; nf = 0; break;
+      default: na = buf[k]; nb = buf[k + 1]; nc = buf[k + 2]; nd = buf[k + 3]; ne = buf[k + 4]; nf = buf[k + 5];
+    }
+    const ra = a * na + c * nb, rb = b * na + d * nb, rc = a * nc + c * nd, rd = b * nc + d * nd, re = a * ne + c * nf + e, rf = b * ne + d * nf + f;
+    a = ra; b = rb; c = rc; d = rd; e = re; f = rf;
+  }
+  m[0] = a; m[1] = b; m[2] = c; m[3] = d; m[4] = e; m[5] = f;
+  return m;
+}
 // (Both ends of a polyline's glide as typed arrays, and the one the frame writes in place.)
 const flatOf = (from, to) => ({ from: Float64Array.from(from), to: Float64Array.from(to), buf: new Float64Array(from.length) });
 /** Puts the glide at k on the piece: held as a number or as points, or (a curve, a transform) as its text. */
-function holdTween(el, attr, tw, k) {
-  const f = tw.flat;
+export function holdTween(el, attr, tw, k) {
+  const f = tw.flat, c = tw.cmds, t = tw.mat;
   if (f) {
     const { from, to, buf } = f;
     for (let i = 0; i < buf.length; i++) buf[i] = from[i] + (to[i] - from[i]) * k;
     holdPts(el, buf, buf.length >> 1, attr === 'points' && (el.localName || el.tagName) === 'polygon');
-  } else if (tw.one) setGeo(el, attr, tw.from[0] + (tw.to[0] - tw.from[0]) * k);
-  else setGeo(el, attr, tweenAt(tw, k));
+  } else if (c) {
+    const { from, to, cm } = c, v = cm.v;
+    for (let i = 0; i < v.length; i++) v[i] = from[i] + (to[i] - from[i]) * k;
+    holdCmds(el, cm);
+  } else if (t) {
+    const { from, to, buf } = t;
+    for (let i = 0; i < buf.length; i++) buf[i] = from[i] + (to[i] - from[i]) * k;
+    holdMat(el, composeMat(t));
+  } else setGeo(el, attr, tw.from[0] + (tw.to[0] - tw.from[0]) * k);   // (a single number)
 }
 /** Lets go of what holdTween put on the piece: it shows the chart's own number again. */
-function letGo(el, attr, tw) { if (tw.flat) dropPts(el); setGeo(el, attr, undefined); }
+function letGo(el, attr, tw) { if (tw.flat) dropPts(el); else if (tw.cmds) dropCmds(el); else if (tw.mat) dropMat(el); setGeo(el, attr, undefined); }
 
 /** The glide's string at k (0 → a, 1 → b). */
 export function tweenAt(tw, k) {
@@ -243,7 +306,8 @@ class Morph {
     if (fade) for (const { a } of plan.pairs) a.el.getAnimations?.().forEach((x) => x.cancel());
     // (The new drawing starts exactly as the old one stood: its pieces at the old pieces' places, the old ones put out of sight under them.)
     for (const { a, b, tweens } of plan.pairs) {
-      for (const [attr, tw] of tweens) { if (tw.flat && b.el._pts) tw.flat = null; holdTween(b.el, attr, tw, 0); tw.base = rawGeo(b.el, attr); }   // (held on the piece, no attribute written: the chart's own number stays under it)
+      for (const [attr, tw] of tweens) { if (b.defs || (tw.flat && b.el._pts) || (tw.cmds && b.el._cmds) || (tw.mat && b.el._mat)) { tw.flat = tw.cmds = tw.mat = null; }   // (a clip path in <defs> is read as text; a piece the chart holds itself keeps to text)
+      holdTween(b.el, attr, tw, 0); tw.base = rawGeo(b.el, attr); }   // (held on the piece, no attribute written: the chart's own number stays under it)
       a.el.style.visibility = 'hidden';
     }
     // (A chart drawn on the GPU (svg-gl.js) draws each fade from its animation's own clock: noteFade.)
@@ -259,7 +323,7 @@ class Morph {
   /** The points of a glide still going written out as text on their pieces, so a drawing read mid-glide (by the next morph) shows the numbers it shows now. */
   snapshot() {
     if (!this.live) return;
-    for (const { b, tweens } of this.plan.pairs) for (const [attr, tw] of tweens) if (tw.flat && !tw.dead) setGeo(b.el, attr, tweenAt(tw, this.k));
+    for (const { b, tweens } of this.plan.pairs) for (const [attr, tw] of tweens) if ((tw.flat || tw.cmds || tw.mat) && !tw.dead) setGeo(b.el, attr, tweenAt(tw, this.k));
   }
   tick() {
     this.raf = 0;

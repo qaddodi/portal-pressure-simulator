@@ -93,6 +93,8 @@ const SCENARIOS = {
   // zoom is a tap on the stacked data card (Mac / iPad landscape); "zoom-out" taps it again
   'zoom-in': { click: '.pz-data' },
   'zoom-out': { click: '.pz-data', pre: { click: '.pz-data', ms: 900 } },
+  // the timeline's jump (Fast-forward menu, third row): the day count runs up on the GPU
+  'day-jump': { click: '.time-pop .menu-item:nth-child(3)', pre: { click: '.tl-ff', ms: 400 } },
 };
 
 /** Rules over the series of frames: [{ frame, rule, detail }]. */
