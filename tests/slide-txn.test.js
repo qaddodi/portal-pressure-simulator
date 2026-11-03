@@ -61,7 +61,7 @@ test('slide preparation belongs to its change: a newer aim, or a superseded tran
   const calls = [];
   let resolve;
   const prep = createSlidePrep({ count: () => 10, steps: {
-    state: (i) => { calls.push(`state${i}`); return new Promise((r) => { resolve = r; }); },
+    state: (i) => { calls.push(`state${i}`); return new Promise((r) => { resolve = () => r({}); }); },
     glyphs: () => Promise.resolve(), tool: (i) => calls.push(`tool${i}`), shaders: () => 0,
   } });
   const txns = createTxns();
@@ -83,7 +83,7 @@ test('slide preparation belongs to its change: a newer aim, or a superseded tran
 });
 
 test('slide preparation finishes a manifest when nothing supersedes it, and keeps at most three', async () => {
-  const prep = createSlidePrep({ count: () => 10, steps: { state: () => Promise.resolve(), glyphs: () => Promise.resolve(), tool: () => {}, shaders: () => 0 } });
+  const prep = createSlidePrep({ count: () => 10, steps: { state: () => Promise.resolve({}), glyphs: () => Promise.resolve({}), tool: () => {}, shaders: () => 0 } });
   for (const i of [1, 2, 3, 7]) prep.aim(i, 'next');
   await until(() => prep.ready(7));
   assert.equal(prep.ready(7), true);

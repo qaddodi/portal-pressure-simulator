@@ -14,14 +14,14 @@ const { createSlidePrep } = await import(prepUrl.href);
 const spec = /from '(\.\/prep-budget\.js[^']*)'/.exec(readFileSync(prepUrl, 'utf8'))[1];
 const { prepJob, prepReset, prepStats } = await import(new URL(spec, prepUrl).href);
 const PZ = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-const ok = { state: () => Promise.resolve(), glyphs: () => Promise.resolve(), tool: () => {}, shaders: () => 0 };
+const ok = { state: () => Promise.resolve({}), glyphs: () => Promise.resolve({}), tool: () => {}, shaders: () => 0 };
 
 // ── B17 ──
 test('B17: a slide ready in one GL context generation is not ready in the next, and is prepared afresh', async () => {
   prepReset();
   let epoch = 1;
   const calls = [];
-  const prep = createSlidePrep({ count: () => 6, identity: () => `deck|${epoch}`, steps: { ...ok, state: (i) => { calls.push(i); return Promise.resolve(); } } });
+  const prep = createSlidePrep({ count: () => 6, identity: () => `deck|${epoch}`, steps: { ...ok, state: (i) => { calls.push(i); return Promise.resolve({}); } } });
   prep.aim(2, 'next');
   await until(() => prep.ready(2) && prep.ready(3));
   assert.equal(prep.ready(2), true);
@@ -38,7 +38,7 @@ test('B17: a slide ready in one GL context generation is not ready in the next, 
 test('B17: a job running when the generation moves stops, and refresh() leaves nothing prepared against the old one', async () => {
   prepReset();
   let epoch = 1, release;
-  const prep = createSlidePrep({ count: () => 6, identity: () => `d|${epoch}`, steps: { ...ok, state: () => new Promise((r) => { release = r; }) } });
+  const prep = createSlidePrep({ count: () => 6, identity: () => `d|${epoch}`, steps: { ...ok, state: () => new Promise((r) => { release = () => r({}); }) } });
   prep.aim(1, 'next');
   await until(() => !!release);
   epoch = 2;
@@ -62,7 +62,7 @@ test('B18: the change landing (its alive turning false) does not cancel the neig
   const log = [];
   let landed = false, release;
   const gate = new Promise((r) => { release = r; });
-  const prep = createSlidePrep({ count: () => 8, steps: { ...ok, state: (i) => { log.push(i); return i === 4 ? gate : Promise.resolve(); } } });
+  const prep = createSlidePrep({ count: () => 8, steps: { ...ok, state: (i) => { log.push(i); return i === 4 ? gate.then(() => ({})) : Promise.resolve({}); } } });
   prep.aim(3, 'next', () => !landed);
   await until(() => prep.ready(3));
   await until(() => log.includes(4));
@@ -78,7 +78,7 @@ test('B18: a newer aim still stops the older neighbours', async () => {
   prepReset();
   const log = [];
   let release;
-  const prep = createSlidePrep({ count: () => 12, steps: { ...ok, state: (i) => { log.push(i); return i === 4 ? new Promise((r) => { release = r; }) : Promise.resolve(); } } });
+  const prep = createSlidePrep({ count: () => 12, steps: { ...ok, state: (i) => { log.push(i); return i === 4 ? new Promise((r) => { release = () => r({}); }) : Promise.resolve({}); } } });
   prep.aim(3, 'next');
   await until(() => log.includes(4));
   prep.aim(9, 'jump');
@@ -127,7 +127,7 @@ test('B19: a shader step that never publishes ends failed after its tries, and t
 
 test('B19: a failing slide does not stop the next slide\'s preparation', async () => {
   prepReset();
-  const prep = createSlidePrep({ count: () => 6, steps: { ...ok, state: (i) => { if (i === 2) throw new Error('boom'); return Promise.resolve(); } } });
+  const prep = createSlidePrep({ count: () => 6, steps: { ...ok, state: (i) => { if (i === 2) throw new Error('boom'); return Promise.resolve({}); } } });
   prep.aim(2, 'next');
   await until(() => prep.ready(3));
   assert.equal(prep.state(2), 'failed');
