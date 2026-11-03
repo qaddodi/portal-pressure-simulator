@@ -44,8 +44,8 @@ import { changedRows } from './flow-rows.js?v=1b98c3bdba';
 import { leftAlone } from './quiet.js?v=856a3cdf1e';
 import { uniformCache } from './uniform-cache.js?v=6488216aa0';
 import { PUBLISH_QUIET_MS, SHADER_WARM, exerciseDraw } from './gl-compile.js?v=255276a5f4';
-import { createShapeGL, flattenPath, ellipsePoly, polyMeshInto } from './shape-gl.js?v=3efd12785d';
-import { createOrganStack, prestartOrganStack, prestartLayer } from './organs-gl.js?v=91a14a7686';
+import { createShapeGL, flattenPath, ellipsePoly, polyMeshInto } from './shape-gl.js?v=6177e5f6ae';
+import { createOrganStack, prestartOrganStack, prestartLayer } from './organs-gl.js?v=11923aadec';
 import { warmFade } from './res-fade-gl.js?v=f253f13b3f';
 import { fusedVS, fusedFS } from './veins-fuse.js?v=b5cc409146';
 import { NOISE_W, NOISE_H, NOISE_PER_ROW, OCTAVES, noiseBlock, blockAt, tableSize } from './blood-noise.js?v=d78e4a3425';
@@ -2411,23 +2411,27 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // What the vessel pass reads from the look (anything else in it only matters to the composite): its numbers written into LKN, and
   // compared with the look the layer was drawn from (LKD), no string made.
   let LKN = new Float64Array(64), LKD = new Float64Array(64), nLKN = 0, nLKD = -1;
-  const lkPut = (v) => {
-    if (typeof v === 'number') { LKN[nLKN++] = v; return; }
-    if (v === true) { LKN[nLKN++] = 1; return; }
-    if (v === false || v == null) { LKN[nLKN++] = 0; return; }
-    for (let i = 0; i < v.length; i++) lkPut(v[i]);
-    LKN[nLKN++] = -7.25;   // (the end of a list)
+  // (A list's numbers are copied by a loop that reads each into the array in the same breath: passed one by one across a call they were
+  // boxed, 500 bytes a frame, measured warmed in node with --expose-gc.)
+  const lkArr = (a) => {
+    let n = nLKN;
+    for (let i = 0; i < a.length; i++) LKN[n++] = a[i];
+    LKN[n++] = -7.25;   // (the end of a list)
+    nLKN = n;
   };
   const lookNow = (k) => {
     if (LKN.length < 512) { LKN = new Float64Array(512); LKD = new Float64Array(512); nLKD = -1; }   // alloc-rare: once, the first look
     nLKN = 0;
-    lkPut(k.reach); lkPut(k.shOff); lkPut(k.casing); lkPut(k.shadow); lkPut(k.sheen); lkPut(k.shade); lkPut(k.ring); lkPut(k.light);
-    lkPut(k.netAlpha); lkPut(k.fx); lkPut(k.tierAlpha); lkPut(k.tierGroup); lkPut(k.organs);
+    LKN[nLKN++] = k.reach;
+    lkArr(k.shOff); lkArr(k.casing); lkArr(k.shadow); lkArr(k.sheen); lkArr(k.shade); lkArr(k.ring); lkArr(k.light);
+    LKN[nLKN++] = k.netAlpha; LKN[nLKN++] = k.fx ? 1 : 0;
+    lkArr(k.tierAlpha); lkArr(k.tierGroup);
+    LKN[nLKN++] = k.organs;
     if (nLKN !== nLKD) return false;
     for (let i = 0; i < nLKN; i++) if (LKN[i] !== LKD[i]) return false;
     return true;
   };
-  const keepLook = () => { LKD.set(LKN.subarray(0, nLKN)); nLKD = nLKN; };
+  const keepLook = () => { for (let i = 0; i < nLKN; i++) LKD[i] = LKN[i]; nLKD = nLKN; };
   let tubesNew = true;
   // After a one-pass frame (one-pass zoom frames) the layer is left empty (cleared once, as the picture outside the vessel cells reads it)
   // and not current: any picture but the next one-pass frame draws it whole first (see composite).
