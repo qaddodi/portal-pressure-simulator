@@ -15,13 +15,18 @@
 //                            // list and the measure queue, its timers and rest passes, and its GPU picture; idempotent, and a
 //                            // callback captured before it does nothing after. Its words stay in the page as they last landed.
 //
+// Words that do not change (a control's label, a pill, a step): glWords(el, { keep: true }). The words are drawn once, over their box, and
+// the picture stays: the page's own words are written into the element too (the screen reader, the layout and the hit target are the
+// element's own) and stay clear under it, with no hand-over to the page after QUIET. A new size, theme or look measures it again and draws
+// it again where it stands; a frame the GPU cannot draw, a character not cut or no outlines leave the page's own words showing. Off
+// unless asked for: nothing in the app passes it yet.
 // The words fall back to a write between frames (never in a frame) where the GPU cannot set them: no outlines yet, a character the
 // cut glyphs do not have, an element with no box. ?glwords=0: every change is written into the page between frames, with no picture.
 
 import { createSvgGL, svgModel, setGeo, geoOf } from './svg-gl.js';
 import { textPolys, textWidth, textBox, loadGlyphs, glyphsReady, textCovers, glyphRun } from './text-gl.js';
 import { restPass, cancelRest } from './rest-pass.js';
-import { readMetric } from './layout-snap.js';
+import { readMetric, readStyle } from './layout-snap.js';
 import { cssColor } from './css-color.js';
 import { caught } from './caught.js';
 
@@ -100,7 +105,23 @@ function measurePass() {
   const reads = qs.map((S) => { S.measureAsk = 0; return measureRead(S); });
   qs.forEach((S, i) => { if (reads[i]) measureWrite(S, reads[i]); });
 }
+// (Kept words are measured again while they show, the page's own words clear: their colour reads as clear then. The clear is taken off for
+// the read, with the element's transitions off so no colour eases in or out, and put back at once, as the same task goes on: no frame
+// between sees either.)
 function measureRead(S) {
+  if (!(S.keep && S.on && !S.pend)) return measureReadNow(S);
+  const el = S.el, st = el.style, was = st.getPropertyValue('transition'), pri = st.getPropertyPriority('transition');
+  st.setProperty('transition', 'none', 'important');
+  el.classList.remove('glw-on');
+  S.on = false;   // (the picture is down for the length of the read, as far as the read can tell: it measures and writes in this task)
+  try { return measureReadNow(S); } finally {
+    S.on = true;
+    el.classList.add('glw-on');
+    readStyle(el).color;   // (settled with transitions still off: the words go clear at once, no fade)
+    if (was) st.setProperty('transition', was, pri); else st.removeProperty('transition');
+  }
+}
+function measureReadNow(S) {
   const { el, host, after } = S;
   if (S.dead) return;
   // (Words drawn or being drawn: the picture is not replaced under them, which left the page's words clear over an empty picture: a number that
@@ -170,6 +191,9 @@ function measureWrite(S, { at, pad, L, U }) {
   S.vSlots = slotsOf(V_CAP, L.fill); S.uSlots = slotsOf(U_CAP, U.fill);
   S.gl.show(svgModel('svg', { viewBox: `${-pad.l} ${-pad.t} ${at.w + pad.l + pad.r} ${at.h + pad.t + pad.b}`, preserveAspectRatio: 'none' }, S.vPath, S.uPath, S.vSlots.map((q) => q.el), S.uSlots.map((q) => q.el)), false);
   S.at = at; S.stale = false;
+  // (Kept words are drawn again here, in the same pass, where they stand: the page's own words stay clear, the picture is never empty
+  // between the new place and the words.)
+  if (S.keep && S.want.t && glyphsReady() && textCovers(S.want.t + S.want.u) && !(S.want.u && !S.small && !S.after)) { draw(S, S.want.t, S.want.u); return; }
   S.gl.paint();   // (a first, empty, drawing: the picture's canvas is sized now, between frames, so the first new words are drawn whole)
 }
 // (2 Nov 2026, "the HVPG and PPG numbers disappear now and then": the picture's two canvases join the box once, as the picture is made.
@@ -241,11 +265,17 @@ function drawn(S, ok) {
   // (The hand-over: the picture was asked to clear as the page's words landed (land). Its words stay clear until that frame, so the page's
   // words and the cleared picture appear in the same frame: never both (a number a pixel or two wider, then narrower), never neither.)
   if (S.handOver) { handOff(S); return; }
-  if (ok) { if (S.pend && !S.on) { S.on = true; S.el.classList.add('glw-on'); } S.pend = false; return; }
+  if (ok) {
+    if (S.pend && !S.on) { S.on = true; S.el.classList.add('glw-on'); }
+    S.pend = false; S.retries = 0;
+    if (S.keep && S.stale) askMeasure(S);   // (a size or a look that changed while the words were being drawn: kept words are drawn again)
+    return;
+  }
   if (!S.pend && !S.on) return;
   S.pend = false;
   if (S.on) { S.on = false; S.el.classList.remove('glw-on'); }
   askLand(S);
+  if (S.keep && S.retries++ < 3) askMeasure(S);   // (kept words try the GPU again, a few times, then stay the page's own)
 }
 
 // ── Between frames: the page's own words take what the picture shows, and the picture goes ──
@@ -257,6 +287,12 @@ function handOff(S) {
 // (Where a frame never comes to clear the picture (its canvas out of the page, the page hidden), the words are handed over after a moment:
 // the page's own words never stay clear.)
 const HAND_MAX = 120;
+// (The words are in the page now, still made clear: the picture is asked to clear, and they show in the frame it does (drawn → handOff).)
+function release(S) {
+  S.vPath.setAttribute('d', ''); S.uPath.setAttribute('d', ''); clearSlots(S);
+  S.handOver = true; clearTimeout(S.handT); S.handT = setTimeout(() => { S.handT = 0; if (S.handOver && !S.dead) handOff(S); }, HAND_MAX);   // alloc-rare: once a readout is handed back to the page, between frames
+  S.gl.paint();
+}
 function land(S) {
   S.landAsk = 0;
   if (S.dead) return;
@@ -277,12 +313,7 @@ function land(S) {
   shown.t = want.t; shown.u = want.u;
   S.onLand?.();
   S.pend = false;
-  if (S.on) {
-    // (The words are in the page now, still made clear: the picture is asked to clear, and they show in the frame it does (drawn → handOff).)
-    S.vPath.setAttribute('d', ''); S.uPath.setAttribute('d', ''); clearSlots(S);
-    S.handOver = true; clearTimeout(S.handT); S.handT = setTimeout(() => { S.handT = 0; if (S.handOver && !S.dead) handOff(S); }, HAND_MAX);
-    S.gl.paint();
-  }
+  if (S.on && !S.keep) release(S);
   if (!S.at || S.stale || S.at.sm !== (!!S.small && !S.small.hidden)) askMeasure(S);   // (a unit that came or went moves the words: measured again)
 }
 const askLand = (S) => { clearTimeout(S.landT); S.landT = 0; if (S.dead) return; if (!S.landAsk) S.landAsk = restPass(S.landFn); };
@@ -291,10 +322,10 @@ const askLand = (S) => { clearTimeout(S.landT); S.landT = 0; if (S.dead) return;
 const textOf = (v) => (typeof v === 'string' ? v : String(v ?? ''));   // alloc-rare: only when a caller hands a number or the like, once per change of the words
 
 /** Words set through the GPU while they change (see above). `el`'s content is taken over: its words, then a <small> unit if any. */
-export function glWords(el, { unitClass = '', after = false, host = el, onLand = null } = {}) { // alloc-rare: once per readout, when it is made (glWords is called as a view is built, and its result kept); not per frame
+export function glWords(el, { unitClass = '', after = false, host = el, onLand = null, keep = false } = {}) { // alloc-rare: once per readout, when it is made (glWords is called as a view is built, and its result kept); not per frame
   // (Its own text node, when it has one alone; otherwise one is made between frames, as the first words land: nothing is written here.)
   const only = el.firstChild?.nodeType === 3 && !el.firstChild.nextSibling ? el.firstChild : null, t0 = el.textContent || '';
-  const S = { el, host, after, unitClass, onLand, txt: only, small: null, want: { t: t0, u: '' }, shown: { t: t0, u: '' }, // alloc-rare: once per readout, when it is made (glWords is called as a view is built, and its result kept); not per frame
+  const S = { el, host, after, unitClass, onLand, keep, retries: 0, txt: only, small: null, want: { t: t0, u: '' }, shown: { t: t0, u: '' }, // alloc-rare: once per readout, when it is made (glWords is called as a view is built, and its result kept); not per frame
     at: null, gl: null, vPath: null, uPath: null, on: false, pend: false, handOver: false, handT: 0, stale: false, landT: 0, measureAsk: 0, landAsk: 0, dead: false, ro: null };
   // (The two functions a change hands to a timer or a rest pass, made once with the readout: asking makes no closure.)
   S.landFn = () => land(S); S.quietFn = () => askLand(S); // alloc-rare: once per readout, when it is made (glWords is called as a view is built, and its result kept); not per frame
@@ -338,11 +369,16 @@ export function glWords(el, { unitClass = '', after = false, host = el, onLand =
       wake(S);
       S.want.t = t; S.want.u = u;
       // (?glwords=0, no look read yet, no outlines, a character not cut, words gone or a unit that has no place yet: written between frames.)
+      // (Kept words that cannot be drawn now: the picture's old words go, the page's own show; drawn again once measured.)
+      if (S.keep && S.on && !(S.at && !S.stale && glyphsReady() && t && textCovers(t + u) && !(u && !S.small && !after) && attached(S))) release(S);
       if (!S.at || S.stale || !glyphsReady() || !t || !textCovers(t + u) || (u && !S.small && !after) || !attached(S)) { askLand(S); return; }
       draw(S, t, u);
       clearTimeout(S.landT);
+      if (S.keep) { askLand(S); return; }   // (kept words: the page's own are written between frames and stay clear under the picture)
       S.landT = setTimeout(S.quietFn, QUIET);
     },
+    /** Kept words: measure the look again (colour, size, place) and draw them again, for a state that changes their colour (hover, pressed). */
+    look() { if (S.dead || !S.keep) return; wake(S); askMeasure(S); },
     /** Takes the words into the page between frames, where a caller needs them laid out soon. */
     settle: () => { wake(S); askLand(S); }, // alloc-rare: once per readout, when it is made (glWords is called as a view is built, and its result kept); not per frame
     /** Writes the words into the page at once: for a caller between frames that measures them (a fit trying its widest words). */
