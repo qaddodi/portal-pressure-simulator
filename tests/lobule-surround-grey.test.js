@@ -20,8 +20,8 @@ const fn = (head) => { const i = lz.indexOf(head); assert.ok(i >= 0, head); retu
 test('the surround takes the two numbers the organs are greyed with, in the same lenses', () => {
   // stage.js holds the numbers as literals (it is edited by many hands): this keeps the two places equal.
   assert.match(stage, new RegExp(`dataLayer \\? ${LENS_GREY.dim} : 1\\), dataLayer \\? ${LENS_GREY.sat} : 1,`), 'plateTargets: [dim, sat, …]');
-  assert.match(stage, new RegExp(`wrap\\.classList\\.contains\\('data-layer'\\) \\? ${LENS_GREY.dim} : 1`), 'the fluid\'s share of the dim');
-  assert.match(stage, /wrap\.classList\.toggle\('data-layer', !\['pressure', 'neutral'\]\.includes\(mode\)\);/, 'the lenses that grey the organs');
+  assert.match(stage, new RegExp(`flag\\.dataLayer \\? ${LENS_GREY.dim} : 1`), 'the fluid\'s share of the dim');
+  assert.match(stage, /flag\.dataLayer = mode !== 'pressure' && mode !== 'neutral';/, 'the lenses that grey the organs');
   for (const m of ['pressure', 'neutral']) assert.equal(isGreyLens(m), false, m);
   for (const m of ['origin', 'oxygen', 'delta', 'since', 'flow', 'velocity', 'drop']) assert.equal(isGreyLens(m), true, m);
   assert.deepEqual(surroundGrade(0), [1, 1], 'the pressure lens: the tiles as drawn');

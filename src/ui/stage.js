@@ -1604,6 +1604,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     insMemo.set(key, v);
     return v;
   }
+  const flag = { imaging: false, dataLayer: false, hasSel: false };   // (what update last found: read by the paints after it)
   let cardsSnap = [], pillsSnap = { zoom: null, nav: null }, snapDirty = true, snapAsk = 0, snapSettle = 0;
   function cardsRead() {
     const out = [];
@@ -3220,10 +3221,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const circBoost = clamp(10 / (15 * (CTM?.sc || 1)), 1, 1.75);
     const imaging = isImaging();
     const mode = layerMode();
-    wrap.classList.toggle('imaging', imaging);
+    // (Three flags of the figure that no style sheet reads, kept as values rather than classes: nothing is written to the page for them.)
+    flag.imaging = imaging;
     // Data layers other than pressure quiet the anatomy so the network carries the reading.
-    wrap.classList.toggle('data-layer', !['pressure', 'neutral'].includes(mode));
-    if (wrap.dataset.layer !== mode) wrap.dataset.layer = mode;   // unchanged writes still queue a mutation and restyle [data-layer]
+    flag.dataLayer = mode !== 'pressure' && mode !== 'neutral';
     // Colored by oxygen: each vessel's saturation at its two ends (the sinusoids darken toward the central vein).
     const oxy = mode === 'oxygen' ? oxygenFor(EDGES, NODES, f).edge : null;
 
@@ -3379,7 +3380,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     stepReveals(performance.now());
     gpuProbe.time(null, 'update: tubes', () => { for (const x of EV) if (x.vis && !x.isArt) renderTube(x, p, t, J); });
     // A selected vessel stays bright while the rest of the network recedes.
-    wrap.classList.toggle('has-sel', st.selection?.type === 'edge' && !!E[st.selection.id]?.vis);
+    flag.hasSel = st.selection?.type === 'edge' && !!E[st.selection.id]?.vis;
     syncLift();
     syncVeins(t);
     updateOrganSel(st.selection, t);
@@ -5071,7 +5072,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return organCls;
   }
   const organKey = (el) => { const c = organClasses(); return c ? [...el.classList].filter((k) => c.has(k)).sort().join(' ') : el.className; };
-  const readLook = () => { const cs = wrapCS(); return `${readEpoch}|${themeKey()}|${organKey(wrap)}|${organKey(document.documentElement)}|${cs.getPropertyValue('--stage-bg')}|${cs.getPropertyValue('--organ-liver')}|${wrap.classList.contains('imaging')}`; };
+  const readLook = () => { const cs = wrapCS(); return `${readEpoch}|${themeKey()}|${organKey(wrap)}|${organKey(document.documentElement)}|${cs.getPropertyValue('--stage-bg')}|${cs.getPropertyValue('--organ-liver')}|${flag.imaging}`; };
   /** organ-paint's readGroup(el, opt), or the last reading of it with the same options while nothing it was read from has changed. */
   function readGroup(el, opt) {
     // (Only what the watch below sees is kept: the organs, the backdrop and the defs. The overlays (#stageOver: the tamponade tube, the
@@ -5147,7 +5148,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function liveKey() {
     const cs = wrapCS();
     return [organG.liver.getAttribute('mask'), ghost.style.display, lv.sep.style.visibility, lv.nod.style.visibility, lv.cong.style.visibility, lv.isl.style.visibility,
-      cs.getPropertyValue('--stage-bg'), cs.getPropertyValue('--organ-liver'), wrap.classList.contains('imaging'), themeKey(), fullWanted()].join('|');
+      cs.getPropertyValue('--stage-bg'), cs.getPropertyValue('--organ-liver'), flag.imaging, themeKey(), fullWanted()].join('|');
   }
   function syncLiveOrgans(force = false) {
     const v = veins;
@@ -5235,11 +5236,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (With the changing organs painted live, the pictures hold none of them: only the rest is the pictures' state.)
     // (The bowel's float only once the fluid has settled: while it eases, the bowel's picture is moved on the GPU, organs-gl.js shift.)
     if (!fluidEasing()) bowelHeld = organG.bowel.getAttribute('transform');
-    if (liveOn()) return ['live', bowelHeld, cs.getPropertyValue('--stage-bg'), cs.getPropertyValue('--organ-liver'), wrap.classList.contains('imaging')].join('|');
+    if (liveOn()) return ['live', bowelHeld, cs.getPropertyValue('--stage-bg'), cs.getPropertyValue('--organ-liver'), flag.imaging].join('|');
     return [liverKey, organG.liver.getAttribute('transform')?.replace(/(\d\.\d\d\d)\d*/g, '$1'), organG.spleen.getAttribute('transform')?.replace(/(\d\.\d\d)\d*/g, '$1'), diaKey,
       tintQ,
       organG.bowel.getAttribute('transform'), (flank.getAttribute('d') || '').slice(0, 24), organEls.umbilicus?.getAttribute('opacity'),
-      cs.getPropertyValue('--stage-bg'), cs.getPropertyValue('--organ-liver'), wrap.classList.contains('imaging')].join('|');
+      cs.getPropertyValue('--stage-bg'), cs.getPropertyValue('--organ-liver'), flag.imaging].join('|');
   }
   // Hidden (the home page over the app), every organ would rasterize invisible: wait until the figure shows.
   const figureHidden = () => wrapCS().getPropertyValue('visibility') === 'hidden';
@@ -5407,7 +5408,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The plate's dim and grey (a lens or a selection) and the network's dim ease toward their targets
   // (stepPlateEase, each frame), so a lens switch or a selection never changes the figure in one frame.
   const plateTargets = () => {
-    const dataLayer = wrap.classList.contains('data-layer'), own = wrap.classList.contains('has-sel') || wrap.classList.contains('shunting'), sel = own || spotOn();
+    const dataLayer = flag.dataLayer, own = flag.hasSel || wrap.classList.contains('shunting'), sel = own || spotOn();
     // (A slide's spotlight steps the rest of the network further back than a selection, SPOT_NET: its vessels are a set, and a pale
     // one, as the paraumbilical vein in Pressure colours, must still stand out of it.)
     return [(sel ? SEL_DIM : 1) * (dataLayer ? 0.72 : 1), dataLayer ? 0.12 : 1, own ? 0.42 : sel ? SPOT_NET : 1];
@@ -6749,8 +6750,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const run = st.running && !reduceMotion.matches;
     if (run) fluidPh = (fluidPh + dt / 1.1) % (20 * Math.PI);
     // (Under a slide's spotlight the fluid eases with the organs' dim: the plate's own value, less a lens's share of it.)
-    const spotK = spot.live && plateDim != null ? clamp(plateDim / (wrap.classList.contains('data-layer') ? 0.72 : 1), SEL_DIM, 1) : 1;
-    const t = easeInOut(morph), k = (1 - t) * (wrap.classList.contains('has-sel') ? SEL_DIM : spotK);
+    const spotK = spot.live && plateDim != null ? clamp(plateDim / (flag.dataLayer ? 0.72 : 1), SEL_DIM, 1) : 1;
+    const t = easeInOut(morph), k = (1 - t) * (flag.hasSel ? SEL_DIM : spotK);
     fluidLook.s = [fluidFloorAt(fluidH), fluidH, fluidAmp, run ? fluidPhase() : fluidLook.s[3]];
     fluidLook.ink = [fluidInkRGBA[0], fluidInkRGBA[1], fluidInkRGBA[2], fluidInkRGBA[3] * k * fluidFade()];
     fluidLook.ripple = run && fluidFade() > 0 && k > 0;
