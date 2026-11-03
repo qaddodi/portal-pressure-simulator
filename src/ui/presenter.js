@@ -6286,7 +6286,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // Where the show is (for the preview pill's reload): the deck and the slide on screen, or the one it is moving to.
     position: () => (deck ? { id: deck.id, at: shown?.i ?? want } : null),
     // For the browser checks: straight to slide i (0-based) of the deck shown, as the arrow keys move.
-    go: (i) => go(i), busy: () => busy, skipLapse: () => skipLapse(),   // (a time-lapse sped to its end, as Next does)
+    go: (i) => go(i), busy: () => busy, glass: () => ui?.glass ?? null, skipLapse: () => skipLapse(),   // (a time-lapse sped to its end, as Next does)
     // What Settings shows while presenting.
     settings: () => ({ width: pzWidth, setWidth: setPanelWidth, contrast: hiCon, setContrast, stacked: phone() }),
     // For the browser checks: the time-lapse slides, and the card's tiles as the slide shown should read them at its start and end.
