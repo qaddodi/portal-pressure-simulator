@@ -283,7 +283,7 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
   let presented = false, onPresented = null, onLost = null, gen = 0, retries = 0, dead = false;
   // The names the last frame drew, for the browser checks (R17, snapshot()): two record lists, the one being drawn and the one last handed over,
   // their records reused; nothing is made in a frame once they have grown to the most names a frame draws.
-  let drawn = [], shown = [], drawnV = [1, 0, 0], shownV = [1, 0, 0], drawnN = 0, shownN = 0, seq = 0, shownGen = 0, drawnGen = 0, shownW = 0, shownH = 0;
+  let drawn = [], shown = [], drawnV = [1, 0, 0], shownV = [1, 0, 0], drawnN = 0, shownN = 0, drawnLN = 0, shownLN = 0, drawnL = [], shownL = [], seq = 0, shownGen = 0, drawnGen = 0, shownW = 0, shownH = 0;
   const record = (key, x, y, w, h, a, cw, ch, I, l, t, sc) => {
     const r = drawn[drawnN++] || (drawn[drawnN - 1] = { key: '', x: 0, y: 0, w: 0, h: 0, a: 0, clipped: false, I: null, l: 0, t: 0, s: 1 });   // alloc-rare: only until a frame has drawn as many names as any frame will
     r.key = key; r.x = x; r.y = y; r.w = w; r.h = h; r.a = a; r.I = I; r.l = l; r.t = t; r.s = sc;
@@ -301,7 +301,7 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
     const now = easeNow();
     lastT = now;
     let more = false, failed = false;
-    drawing = true; drawnN = 0; drawnGen = gen; drawnV[0] = vk; drawnV[1] = ve; drawnV[2] = vf;
+    drawing = true; drawnN = 0; drawnLN = 0; drawnGen = gen; drawnV[0] = vk; drawnV[1] = ve; drawnV[2] = vf;
     try {
       // (The owner's places for this frame, set as it is drawn: a glide its page eased, a pan's ride.)
       if (onFrame?.(now)) more = true;
@@ -312,7 +312,7 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
       // Anatomy and Circuit labels do (Mohammad, 3 Nov 2026), so nothing here is scaled by it.)
       const moved = vk !== 1 || ve !== 0 || vf !== 0;
       // Leaders under the names, as their layer was.
-      for (const L of leads.values()) {
+      for (const [key, L] of leads) {
         const a = easeAt(L.a, now) * (L.of ? itemA(L.of, now) : 1);
         more ||= easing(L.a, now);
         if (a <= 0.002 || !L.colour) continue;
@@ -324,6 +324,7 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
         const x2 = vk * L.x2 + ve, y2 = vk * L.y2 + vf;
         let sx = vk * x1 + ve, sy = vk * y1 + vf;
         if (I && vk !== 1) { sx = vk * I.x + ve + (x1 - I.x); sy = vk * I.y + vf + (y1 - I.y); }
+        { const q = drawnL[drawnLN++] || (drawnL[drawnLN - 1] = { key: '', x0: 0, y0: 0, x1: 0, y1: 0, a: 0 }); q.key = key; q.x0 = x2; q.y0 = y2; q.x1 = sx; q.y1 = sy; q.a = a; }   // (what this frame drew, for snapshot(): the figure's point and the name's end, view applied; alloc-rare, only until a frame has drawn as many leaders as any frame will)
         // The leader and its dot as the Anatomy and Circuit labels draw them (app.css .leader, .leader-dot): a 1px line in the leader ink, the dot on
         // its point with the stage's paper round it and the text ink's ring.
         const lk = leadLook;
@@ -398,7 +399,7 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
       // (In the finally: a frame at no size returns above.) A frame that could not be handed over, or came while the context was gone,
       // leaves the last picture in the canvas and the class on: it is drawn again (a few tries, then at the next paint or restore).
       if (pen.gpu) {
-        if (w > 0 && h > 0 && handed) { retries = 0; seq++; const t = shown; shown = drawn; drawn = t; shownN = drawnN; shownGen = drawnGen; { const v = shownV; shownV = drawnV; drawnV = v; } shownW = w; shownH = h; present(true); if (!drewOnce) { drewOnce = true; onDrawn?.(); } }
+        if (w > 0 && h > 0 && handed) { retries = 0; seq++; const t = shown; shown = drawn; drawn = t; shownN = drawnN; shownLN = drawnLN; { const t2 = shownL; shownL = drawnL; drawnL = t2; } shownGen = drawnGen; { const v = shownV; shownV = drawnV; drawnV = v; } shownW = w; shownH = h; present(true); if (!drewOnce) { drewOnce = true; onDrawn?.(); } }
         else if (w > 0 && h > 0 && handed === false) failed = true;
       } else if (gpu?.lost) failed = true;
     }
@@ -446,7 +447,10 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
         if (set) for (let li = 0, n = set.n ?? set.lines.length; li < n && !halo; li++) { const ln = set.lines[li]; for (let ri = 0, m = ln.m ?? ln.runs.length; ri < m && !halo; ri++) { const q = ln.runs[ri].r; if ((q.halo ?? looks.get(r.key)?.halo) > 0) halo = q.haloC ?? looks.get(r.key)?.haloC ?? ''; } }
         items.push({ key: r.key, x: r.x, y: r.y, w: r.w, h: r.h, a: r.a, clipped: r.clipped, rows, halo });
       }
-      return { seq, gen: shownGen, w: shownW, h: shownH, items };
+      // (The leaders this frame drew: the figure's point (x0, y0) and the name's end (x1, y1), in the layer's px with the view already applied.)
+      const leadsOut = [];
+      for (let i = 0; i < shownLN; i++) { const q = shownL[i]; leadsOut.push({ key: q.key, x0: q.x0, y0: q.y0, x1: q.x1, y1: q.y1, a: q.a }); }
+      return { seq, gen: shownGen, w: shownW, h: shownH, items, leads: leadsOut };
     },
     /** The glasses over this layer (glass-gl.js tellHoles: client px boxes, fades, shapes), [] for none: the names are left out under them, in the frame that draws them. */
     holes(list) { if (dead || list === holes) return; holes = list || NONE; api.paint(); },
@@ -561,7 +565,7 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
       const was = presented, lost = onLost;
       onFrame = onRest = onDrawn = onPresented = onLost = null;
       gpu?.dispose?.(); gpu = null;
-      items.clear(); leads.clear(); extras.clear(); looks.clear(); drawn = []; shown = []; drawnN = shownN = 0;
+      items.clear(); leads.clear(); extras.clear(); looks.clear(); drawn = []; shown = []; drawnL = []; shownL = []; drawnN = shownN = drawnLN = shownLN = 0;
       cv.remove();
       presented = false;
       if (was) lost?.();

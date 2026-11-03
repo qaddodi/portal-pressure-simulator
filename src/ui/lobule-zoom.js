@@ -4803,14 +4803,17 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     sinZoom: () => sinZ,
     /** What the GPU's names drew in the last frame that landed ({ seq, gen, w, h, items }, caption-gl.js snapshot: CSS px from the names' canvas corner), for the browser checks. */
     captions: () => cap.snapshot(),
-    /** Where each shown leader ends, in the same px as captions() (the layer's view included), for the browser checks: [{ key, x, y }]. */
+    /** The sinusoid view's names, the same (its own names layer), for the browser checks. */
+    sinusoidCaptions: () => sv.captions?.() ?? null,
+    /** Where each shown leader ends, in the same px as captions() (the layer's view included), for the browser checks: [{ key, x, y (the name's end), px, py (the end on the figure's point) }]. */
     leaderEnds() {
       const out = [];   // alloc-rare: asked only by the browser check
       for (const k of Object.keys(labs)) {
         const L = labs[k];
         if (!L.a || isHid(L.el) || classHas(L.el, 'edge') || classHas(L.line, 'ld-gone') || classHas(L.line, 'lz-hid')) continue;
         const x = +geoOf(L.line, 'x2'), y = +geoOf(L.line, 'y2');
-        if (Number.isFinite(x) && Number.isFinite(y)) out.push({ key: `lab:${k}`, x: VIEW[0] * x + VIEW[1], y: VIEW[0] * y + VIEW[2] });
+        const x1 = +geoOf(L.line, 'x1'), y1 = +geoOf(L.line, 'y1');   // (the end on the figure's point, drawn by the leaders' own layer)
+        if (Number.isFinite(x) && Number.isFinite(y)) out.push({ key: `lab:${k}`, x: VIEW[0] * x + VIEW[1], y: VIEW[0] * y + VIEW[2], px: VIEW[0] * x1 + VIEW[1], py: VIEW[0] * y1 + VIEW[2] });
       }
       return out;
     },

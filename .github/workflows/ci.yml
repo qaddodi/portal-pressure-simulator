@@ -235,7 +235,7 @@ jobs:
   webkit:
     runs-on: ubuntu-24.04
     needs: quick
-    timeout-minutes: 10
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -247,6 +247,9 @@ jobs:
         run: timeout 300 npx playwright install --with-deps webkit
       - name: Presenter words keep one size (iPhone, WebKit)
         run: npm run smoke:webkit
+      - name: Labels stand on the figure through every motion (iPhone, WebKit)
+        continue-on-error: true   # (the gate lands before the fixes it measures; drop this line when the labels pass it)
+        run: npm run smoke:gate-labels:webkit
 
   # Left alone for two minutes, the anatomy and the lobule do not pile up memory, page nodes or listeners.
   idle:
