@@ -36,13 +36,13 @@ const f4 = (v) => +v.toFixed(4);   // alloc-rare: a menu put away while its entr
 
 // The look now and the exit's end, for the entrance's eased progress k (0 = its from, 1 = at rest).
 // (Each kind's two keyframes are kept and written in place: animate() takes a copy of them, and each kind always sets the same properties.)
-const KF_SCALE = [{ opacity: 0, scale: 0.98 }, { opacity: 0, scale: 0.98 }];
+const KF_SCALE = [{ opacity: 0 }, { opacity: 0 }];   // (a settle is a fade: app.css scale-settle has no scale since 2 Nov 2026)
 const KF_FADE = [{ opacity: 0 }, { opacity: 0 }];
 const O_EDGE = 'var(--edge-o, 1)';
 const KF_EDGE = [{ opacity: '', transform: '' }, { opacity: O_EDGE, transform: 'translate(var(--edge-x, 0px), var(--edge-y, 0px))' }];
 const ANIM = { duration: 0, easing: EASE_IN, fill: 'forwards' };
 function looks(name, k) {
-  if (name === 'scale-settle') { KF_SCALE[0].opacity = f4(k); KF_SCALE[0].scale = f4(0.98 + 0.02 * k); return KF_SCALE; }   // (the separate scale property, as the keyframes: a menu placed by translate keeps its place)
+  if (name === 'scale-settle') { KF_SCALE[0].opacity = f4(k); return KF_SCALE; }
   if (name === 'crossfade') { KF_FADE[0].opacity = f4(k); return KF_FADE; }
   // slide-from-edge: from (--edge-o, translate(--edge-x, --edge-y)) to rest; the custom properties are the element's own.
   const j = f4(1 - k);

@@ -31,7 +31,7 @@ test('mid entrance: the exit runs from the look worked out from the entrance\'s 
   assert.equal(leaveFromHere(el, () => { left++; }), true);
   assert.equal(left, 1, 'the leaving class is set exactly once');
   const k = +easeArrive(0.5).toFixed(4);
-  assert.deepEqual(calls[0].kf, [{ opacity: k, scale: +(0.98 + 0.02 * k).toFixed(4) }, { opacity: 0, scale: 0.98 }]);
+  assert.deepEqual(calls[0].kf, [{ opacity: k }, { opacity: 0 }]);
   assert.deepEqual(calls[0].o, { duration: D_FLIP, easing: EASE_IN, fill: 'forwards' });
 });
 
@@ -56,7 +56,7 @@ test('the scrim fades from its look; the dock menu\'s entrance waits out --enter
   const dock = fake('menu', 'from-dock'); dock.style.getPropertyValue = () => '100ms'; begin(dock, 'scale-settle', 4000);
   clock = 4050;   // still inside the delay: it is not yet visible
   assert.equal(leaveFromHere(dock, () => {}), true);
-  assert.deepEqual(calls[0].kf[0], { opacity: 0, scale: 0.98 });
+  assert.deepEqual(calls[0].kf[0], { opacity: 0 });
 });
 
 test('an entrance that had finished, or one never seen: the leave is today\'s, nothing is played', () => {

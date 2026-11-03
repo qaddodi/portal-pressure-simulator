@@ -189,7 +189,7 @@ test('R11: fade-rise rises the one distance, in the sheet of keyframes and in th
   const css = read('styles/app.css'), ease = read('src/ui/ease.js');
   assert.match(css, /@property --rise-y \{ syntax: '<length-percentage>'; inherits: false; initial-value: (\d+)px; \}/);
   assert.equal(Number(/@property --rise-y \{[^}]*initial-value: (\d+)px/.exec(css)[1]), Number(/export const RISE_PX = (\d+);/.exec(ease)[1]));
-  assert.match(css, /@keyframes scale-settle \{ from \{ opacity: 0; scale: \.98; \} \}/);
+  assert.match(css, /@keyframes scale-settle \{ from \{ opacity: 0; \} \}/);
   for (const f of ['util.js']) assert.doesNotMatch(read(`src/ui/${f}`), /translateY\(\d+px\)/, `${f} rises by RISE_PX`);
 });
 

@@ -43,3 +43,30 @@ test('a stenosis\'s "60 %" is measured in the tabular figures it is drawn in, so
   const w = (t) => textBox(t, 0, 0, { weight: 600, size: 12, tnum: true, k: 2 }).width;
   for (const t of ['10', '25', '60', '88', '99']) assert.equal(w(`${t} %`), w('00 %'), `${t} %`);
 });
+
+test('the vitals monitor: the unit and the alarm patch stand in one place whatever the number is (99 to 100, any digit)', async () => {
+  const mon = readFileSync(new URL('../src/ui/vitals-monitor.js', import.meta.url), 'utf8');
+  assert.match(mon, /rw = textWidth\(c\.d \? '88\.8' : '888', 700, big\)/);
+  assert.match(mon, /textAt\(nt\+\+, val, 700, big, x \+ rw - nw, by,/, 'the number flush to the right of its box');
+  assert.match(mon, /textAt\(nt\+\+, c\.u, 500, 12, x \+ rw \+ 5, by,/, 'the unit after the box, not after the number');
+  assert.match(mon, /rectAt\(nr\+\+, x - 5, by - big \* 0\.78 - 4, rw \+ 10,/, 'the alarm patch the box wide');
+  const { textWidth } = await import('../src/ui/vitals-gl.js');
+  for (const big of [22, 34, 46]) {
+    const rw = textWidth('888', 700, big);
+    for (const v of ['0', '9', '72', '99', '100', '188', '111']) assert.ok(textWidth(v, 700, big) <= rw + 1e-9, `${v} fits its box at ${big}`);
+    const rw1 = textWidth('88.8', 700, big);
+    for (const v of ['0.0', '9.9', '12.3', '88.8', '−3.1']) assert.ok(textWidth(v, 700, big) <= rw1 + 1e-9, `${v} fits its box at ${big}`);
+  }
+});
+
+test('a card or popover settles by its opacity alone: no scale on text as it arrives or leaves (a scaled layer draws its words soft, then sharp)', () => {
+  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  assert.match(css, /@keyframes scale-settle \{ from \{ opacity: 0; \} \}/);
+  assert.match(css, /@keyframes scale-settle-out \{ to \{ opacity: 0; \} \}/);
+  assert.doesNotMatch(css, /@keyframes scale-settle[^{]*\{[^}]*scale:/, 'no scale in the settle keyframes');
+  // (the hover tip and the tooltip ease in by translation and opacity)
+  assert.match(css, /\.hover-tip \{[^}]*transform: translateY\(4px\);/);
+  assert.match(css, /--tip-x: -4px; --tip-y: 0px; opacity: 0; transform: translate\(var\(--tip-x\), var\(--tip-y\)\);/);
+  const ml = readFileSync(new URL('../src/ui/menu-leave.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(ml.replace(/\/\/.*$/gm, ''), /scale:\s*0\.98|0\.98 \+ 0\.02/);
+});

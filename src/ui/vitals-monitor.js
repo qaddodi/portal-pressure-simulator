@@ -193,11 +193,14 @@ export function createVitalsMonitor({ gpu = true, makeGL = createVitalsGL } = {}
           if (txtQ[i] !== q || txtD[i] !== c.d) { txtQ[i] = q; txtD[i] = c.d; txtS[i] = fmt(sv, c.d); }   // alloc-rare: only when the printed number changes
           val = txtS[i];
         }
-        const { x, big } = L.cells[i], by = y0 + 12 + 6 + big, nw = textWidth(val, 700, big), ink = inkOf(c.id, ecg, art, bright);
+        // (2 Nov 2026, "stop numbers jiggling": the number stands in a box of the widest it can be (three figures, or two and a decimal; the
+        // figures are tabular), flush to its right edge, so the unit and the alarm patch never move as a reading goes from 99 to 100 or a
+        // digit changes. The cell's size was already found for the "88.8" box.)
+        const { x, big } = L.cells[i], by = y0 + 12 + 6 + big, nw = textWidth(val, 700, big), rw = textWidth(c.d ? '88.8' : '888', 700, big), ink = inkOf(c.id, ecg, art, bright);
         textAt(nt++, c.k, 600, 12, x, y0 + 12, c.bad ? alarm : ink === bright ? text : ink);
-        if (c.bad) rectAt(nr++, x - 5, by - big * 0.78 - 4, nw + 10, big * 0.78 + 10, 5, alarm);
-        textAt(nt++, val, 700, big, x, by, c.bad ? bg : ink);
-        textAt(nt++, c.u, 500, 12, x + nw + 5, by, c.bad ? alarm : text);
+        if (c.bad) rectAt(nr++, x - 5, by - big * 0.78 - 4, rw + 10, big * 0.78 + 10, 5, alarm);
+        textAt(nt++, val, 700, big, x + rw - nw, by, c.bad ? bg : ink);
+        textAt(nt++, c.u, 500, 12, x + rw + 5, by, c.bad ? alarm : text);
       }
     }
     RECTS.length = nr; TEXTS.length = nt;

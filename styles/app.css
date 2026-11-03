@@ -382,11 +382,15 @@ html.chip-open :is(.chip-btn, .lens-btn)[aria-expanded="true"] { background: var
 @keyframes fade-rise-out { to { opacity: 0; transform: translate(var(--rise-x, 0px), var(--rise-y, 6px)); } }
 @keyframes slide-from-edge { from { opacity: var(--edge-o, 1); transform: translate(var(--edge-x, 0px), var(--edge-y, 0px)); } }
 @keyframes slide-to-edge { to { opacity: var(--edge-o, 1); transform: translate(var(--edge-x, 0px), var(--edge-y, 0px)); } }
-@keyframes scale-settle { from { opacity: 0; scale: .98; } }   /* (the separate scale property: a thing placed by translate or transform keeps its place while it settles) */
-@keyframes scale-settle-out { to { opacity: 0; scale: .98; } }
+/* (2 Nov 2026, "stop text jiggling": a card or popover settles by its opacity alone. Its text was scaled from .98 to 1 as it came in, and a
+   browser draws text in a scaled layer a little soft, then sharp at the end of the entrance (WebKit rasterises it at the scale it has, then again at
+   rest): the words popped as they arrived. Opacity runs on the compositor with no re-raster, and the name and the origin of the keyframes are kept
+   for everything that reads them (menu-leave.js, settleFrom).) */
+@keyframes scale-settle { from { opacity: 0; } }
+@keyframes scale-settle-out { to { opacity: 0; } }
 @keyframes crossfade { from { opacity: 0; } }
 @keyframes crossfade-out { to { opacity: 0; } }
-.hover-tip { position: absolute; left: 0; top: 0; pointer-events: none; padding: 10px 12px 9px; font-size: var(--fs-12); min-width: 188px; max-width: min(280px, calc(100% - 16px)); z-index: var(--z-hud); border-radius: var(--r-card); background: var(--surface); box-shadow: var(--shadow-menu, var(--shadow-2)), 0 0 0 1px var(--hairline); opacity: 0; visibility: hidden; transform: translateY(4px) scale(.98); transform-origin: top left; transition: opacity var(--d-flip) var(--ease), transform var(--d-flip) var(--ease), visibility 0s linear var(--d-flip); }
+.hover-tip { position: absolute; left: 0; top: 0; pointer-events: none; padding: 10px 12px 9px; font-size: var(--fs-12); min-width: 188px; max-width: min(280px, calc(100% - 16px)); z-index: var(--z-hud); border-radius: var(--r-card); background: var(--surface); box-shadow: var(--shadow-menu, var(--shadow-2)), 0 0 0 1px var(--hairline); opacity: 0; visibility: hidden; transform: translateY(4px); transform-origin: top left; transition: opacity var(--d-flip) var(--ease), transform var(--d-flip) var(--ease), visibility 0s linear var(--d-flip); }
 .hover-tip.on { opacity: 1; visibility: visible; transform: none; transition: opacity var(--d-flip) var(--ease), transform var(--d-flip) var(--ease), visibility 0s; }
 .hover-tip .t { display: flex; align-items: center; gap: 7px; font-weight: 600; font-size: var(--fs-13, 13px); line-height: 1.3; color: var(--text); padding-bottom: 7px; margin-bottom: 6px; border-bottom: 1px solid var(--hairline); }
 .hover-tip .r { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; color: var(--text-2); line-height: 1.7; }
@@ -917,7 +921,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
   position: fixed; left: 0; top: 0; /* (placed by translate from JS) */ z-index: var(--z-toast); pointer-events: none; background: var(--text); color: var(--stage-bg); padding: 6px 10px 7px; border-radius: var(--r-control);
   font-size: var(--fs-12); font-weight: 500; max-width: min(300px, calc(100vw - 16px)); line-height: 1.45; letter-spacing: .005em; box-shadow: var(--shadow-2);
   /* It eases in a few pixels from its button's side (--tip-x/-y) and leaves at once in place, so a pointer moving along a row never trails tips. */
-  --tip-x: -4px; --tip-y: 0px; opacity: 0; transform: translate(var(--tip-x), var(--tip-y)) scale(.98);
+  --tip-x: -4px; --tip-y: 0px; opacity: 0; transform: translate(var(--tip-x), var(--tip-y));
   transition: opacity var(--d-flip) var(--ease-in), transform 0s linear var(--d-flip);
 }
 .tooltip[data-side="left"] { --tip-x: 4px; }
