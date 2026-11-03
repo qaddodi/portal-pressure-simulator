@@ -14,7 +14,7 @@ import { surface } from './gpu-surfaces.js';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs } from './frame.js';
 import { createFollow } from './display-state.js';
 import { fix1 } from './fix-text.js';
-import { attrSoon, dataSoon } from './class-soon.js';
+import { attrSoon, classSoon, dataSoon } from './class-soon.js';
 const nextFrame = frameFor('fibroscan');
 
 const WAVE_T0 = 8; // ms: the shear wave reaches the top of the measurement window about 8 ms after the push
@@ -130,7 +130,7 @@ export function createFibroScan() {
     if (map !== undefined || gone || !onScreen()) return map ?? null;
     // alloc-rare: only when the panel comes on screen and has no map yet (makeMap returns at once while it has one)
     map = createElastogramGL(fields(), { className: 'fs-map', onReady: () => { if (!gone) paint(performance.now()); } });
-    if (map) { mapCv = map.canvas; attrSoon(mapCv, 'aria-hidden', 'true'); mapCv.style.visibility = 'hidden'; cv.before(mapCv); }
+    if (map) { mapCv = map.canvas; attrSoon(mapCv, 'aria-hidden', 'true'); mapCv.classList.add('fs-map-off'); cv.before(mapCv); }
     return map;
   };
   const dropMap = () => { map?.dispose(); map = undefined; mapCv = null; mapGpu = null; };
@@ -220,7 +220,7 @@ export function createFibroScan() {
       drawn = !!m0 && m0.draw(fields(), NB, WAVE_T0, N, c, t);
     }
     mapGpu = drawn;
-    if (mapCv) { const v = drawn ? '' : 'hidden'; if (mapCv.style.visibility !== v) mapCv.style.visibility = v; }
+    if (mapCv) classSoon(mapCv, 'fs-map-off', !drawn);   // (the map shows only while it drew this frame: its class is set between frames)
     ctx.strokeStyle = cssAlpha('--white', 0.5); ctx.setLineDash(DASH); ctx.lineWidth = 1;
     for (let i = 0; i < 2; i++) { const d = WINDOW[i]; const y = top + ((d - DEPTH0) / DEPTH_SPAN) * ph; ctx.beginPath(); ctx.moveTo(ex, y); ctx.lineTo(ex + ew, y); ctx.stroke(); }
     ctx.setLineDash(NO_DASH);
