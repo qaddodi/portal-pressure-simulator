@@ -45,6 +45,10 @@ export const fmtClock = (t, day) => {
 
 export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scenarioLabel }) {
   let entries = [], cursor = -1, seq = 0, baseline = null, pending = null, lastEv = {}, jumping = false, jumpSeq = 0;
+  // EXT-HIS-1: a timer belongs to the edit (or the history) that made it. `editSeq` names the edit being typed in, `tlGen` the history since the
+  // last reset: a timer that fires for an older one does nothing, and a flush or a reset cancels the timer it owns.
+  let editSeq = 0, tlGen = 0;
+  const later = (fn, ms) => { const g = tlGen; return setTimeout(() => { if (g === tlGen) fn(); }, ms); };
   const listeners = [];
   const absT = (e) => e.day * 86400 + e.t;
   const byTime = (a, b) => absT(a) - absT(b) || a.id - b.id;
@@ -144,9 +148,11 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
     if (curId != null) { cursor = -1; for (let i = 0; i < entries.length; i++) if (entries[i].id === curId) { cursor = i; break; } }
   }
   async function snapInto(e) {
+    const g = tlGen;
     let snap;
     // B4: an engine that is slow or stopped leaves the entry without a snapshot; it says so ("can't go back here") instead of being skipped by Undo unseen.
     try { ({ snap } = await host.request('snapshot')); } catch { snap = null; }
+    if (g !== tlGen) return;   // (a reset came meanwhile: this entry is not in the history any more)
     if (!snap) { e.snapFailed = true; render(true); for (const fn of listeners) fn(); return; }
     e.snapFailed = false;
     e.snap = snap; e.t = snap.t; e.day = snap.day;
@@ -174,6 +180,8 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
     return e;
   }
   function reset(label) {
+    if (pending) clearTimeout(pending.timer);
+    tlGen++;
     entries = []; cursor = -1; pending = null; lastEv = {};
     const e = push({ kind: 'start', label: label || scenarioLabel() });
     baseline = structuredClone(store.get().params);
@@ -185,11 +193,13 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
     // (One kept record, written in place: a slider drag asks for this on every step.)
     if (pending) clearTimeout(pending.timer); else { pending = PENDING; PENDING.label = ''; }
     pending.label = pending.label || label;
-    pending.timer = setTimeout(flushParams, 650);
+    const mine = ++editSeq;
+    pending.timer = setTimeout(() => { if (pending && mine === editSeq) flushParams(); }, 650);
   }
   function flushParams() {
     if (!pending) return;
     const fallback = pending.label;
+    clearTimeout(pending.timer);
     pending = null;
     const p = store.get().params;
     const before = labelsOf(baseline || p), after = labelsOf(p);
@@ -204,7 +214,7 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
   function recordAction(label) {
     flushParams();
     const e = push({ kind: 'change', label, action: true });
-    setTimeout(() => snapInto(e), 80);
+    later(() => snapInto(e), 80);
   }
   function addEvents(evs) {
     for (const ev of evs) {
@@ -244,7 +254,7 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
     };
     nextFrame(tick);
     const e = push({ kind: 'jump', label: days === 'event' ? 'Ran until the next event' : `+${long}` });
-    setTimeout(() => snapInto(e), 120);
+    later(() => snapInto(e), 120);
   }
 
   // ── Revert / redo ─────────────────────────────────
