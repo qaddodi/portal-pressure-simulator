@@ -144,5 +144,5 @@ test('the readings\' travel is set on every new card, and a turn lays the cards 
   assert.match(js, /new ResizeObserver\(\(\) => \{ if \(ui && sizeNow\(\) !== sizeSeen\) onResize\(\{ type: 'resize' \}\); \}\)/);
   assert.match(js, /wrapRO\?\.observe\(wrap\);/);
   assert.match(js, /wrapRO\?\.disconnect\(\);/);
-  assert.match(js, /phone\(\) !== ui\.root\.classList\.contains\('stack'\) && dock\.to === 1 && !dock\.auto\) \{ cancelFrame\(dock\.raf\); dock\.to = 0; dock\.lvl = 0;/);
+  assert.match(js, /phone\(\) !== ui\.root\.classList\.contains\('stack'\) && dock\.to === 1 && !dock\.auto\) \{ dockHalt\(\); dock\.to = 0; dock\.lvl = 0;/);
 });

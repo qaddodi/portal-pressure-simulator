@@ -57,8 +57,9 @@ test('presenter: a dock glide\'s and a drag\'s frames write from what was read a
   assert.doesNotMatch(paint, /dockVec\(\)|placeLip\(\)|offset[A-Z]|getBoundingClientRect/, 'nothing read in a glide frame');
   const lip = pz.slice(pz.indexOf('function lipPaint() {'), pz.indexOf('function dockTo('));
   assert.doesNotMatch(lip, /offset[A-Z]|getBoundingClientRect|getComputedStyle|measureUnder/);
-  assert.match(pz, /dockRest\(\);\n(?:\s*\/\/[^\n]*\n)*\s*const step = \(now\) => \{/, 'a glide reads where it goes before its first frame');
-  assert.match(pz, /else dock\.rest = restPass\(\(\) => ui && placeLip\(\)\);/, 'landed: the edge measured between frames');
+  assert.match(pz, /dockRest\(\);\n\s*cancelRest\(dock\.rest\);\n\s*if \(ms && from !== to && ui && !ui\.data\.hidden && ui\.data\.animate && !wideSheet\(ui\.data\)\) \{\n\s*dockGlide\(from, to, ms\);/, 'a glide reads where it goes before its first frame');
+  assert.match(pz, /const glideDone = \(\) => \{ if \(!glide\) return; glideEnd\(\); dock\.rest = restPass\(lipSoon\); \};/, 'landed, the glide: the edge measured between frames');
+  assert.match(pz, /else dock\.rest = restPass\(lipSoon\);/, 'landed: the edge measured between frames');
 });
 
 test('presenter: a finger\'s moves read nothing; the card\'s width is read as it lands', () => {

@@ -3247,7 +3247,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // A card the reader closed stays closed from slide to slide; one the layout closed opens again on the next slide that fits.)
   // (down: on an upright phone or tablet, the slide whose readings' card was just tucked away by a tap on the handle, so the next tap closes
   // the instrument card; cleared when the card opens again and by a new slide.)
-  const dock = { lvl: 0, to: 0, raf: 0, auto: false, autoKey: '', down: -1 };
+  // (lvl: how far out the card is docked, 0 open, 1 closed. During a glide the browser plays it (an animation of the card's translate, on the
+  // compositor, dockGlide), and lvl is read from that animation's clock, so no script runs per frame; a finger, a resize or a new glide
+  // takes it from there (dockHalt).)
+  let lvlSet = 0, glide = null;
+  const dock = { get lvl() { return glide ? glideLvl() : lvlSet; }, set lvl(v) { if (glide) dockHalt(); lvlSet = v; }, to: 0, raf: 0, auto: false, autoKey: '', down: -1 };
   let sheetPull = null;   // (the readings' own pull, foldTouch: the closed card's pull carried on brings them out after it)
   // A phone's instrument card with readings shows the instrument first and keeps its tiles (or pressure strip) on a sheet tucked
   // under it: the sheet's edge (LIP px, .pz-lip) shows below the card and carries the handle (Mohammad, 17 Oct: "round 2 A"; "I thought
@@ -3425,12 +3429,18 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const dockRest = () => (dock.vec = ui && !ui.data.hidden ? dockVec() : [0, 0]);
   const DOCK_ZERO = [0, 0];
   let rtEl = null, rtX = NaN, rtY = NaN, rtTo = NaN;   // (dockPaint: the rest place last written, and on which card)
+  // (A wide screen's stacked pair keeps its rise, --pz-lift, while the card docks: styles/app.css.)
+  const dockPos = (lv) => {
+    const vec = dock.vec || DOCK_ZERO, x = vec[0], y = vec[1];
+    const ly = wideSheet(ui.data) ? ' - var(--pz-lift, 0px)' : '';
+    // alloc-rare: a place for the card is written at rest, as a glide starts or lands or a finger moves it, never per frame of a glide
+    return lv ? `${(x * lv).toFixed(1)}px ${ly ? `calc(${(y * lv).toFixed(1)}px${ly})` : `${(y * lv).toFixed(1)}px`}` : '';
+  };
   const dockPaint = () => {
     if (!ui) return;
     const vec = dock.vec || DOCK_ZERO, x = vec[0], y = vec[1];
-    // (A wide screen's stacked pair keeps its rise, --pz-lift, while the card docks: styles/app.css.)
-    const ly = wideSheet(ui.data) ? ' - var(--pz-lift, 0px)' : '';
-    ui.data.style.translate = dock.lvl ? `${(x * dock.lvl).toFixed(1)}px ${ly ? `calc(${(y * dock.lvl).toFixed(1)}px${ly})` : `${(y * dock.lvl).toFixed(1)}px`}` : '';
+    // (During a glide the card's own place is where the glide ends: the animation carries it from where it was.)
+    ui.data.style.translate = dockPos(glide ? glide.to : dock.lvl);
     // (Where the glide ends: the camera frames for the card there, util.js translateRest, never where it stands this frame.)
     // (Where it ends is written when the card, its place or its target changes, not on each frame of a glide or a drag.)
     if (rtEl !== ui.data || rtX !== x || rtY !== y || rtTo !== dock.to) {
@@ -3511,8 +3521,52 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const say = dock.to === 1 ? 'Open the card' : wideSheet(d) ? (open ? 'Hide the readings' : 'Show the readings') : open ? (split ? 'Hide the readings' : 'Close the card') : split && dock.down === want ? 'Close the card' : 'Show the rest of the card';
     if (l.getAttribute('aria-label') !== say) l.setAttribute('aria-label', say);
   }
+  // The dock glide: the card's translate (and its handle's) as one animation each over the glide's whole way, the eased levels sampled at
+  // DOCK_KEYS + 1 keyframes (linear between them, within 0.2 px of the exact ease on any card), so the browser plays it with no script per
+  // frame and the glass follows its clock (glass-motion.js). The keyframes are kept, their text written at the glide's start.
+  const DOCK_KEYS = 40;
+  // alloc-rare: made once, with the presenter
+  const dockKeys = Array.from({ length: DOCK_KEYS + 1 }, (_, i) => ({ offset: i / DOCK_KEYS, translate: '' }));
+  const dockEase = new Float64Array(DOCK_KEYS + 1);
+  for (let i = 0; i <= DOCK_KEYS; i++) dockEase[i] = ease(i / DOCK_KEYS);
+  const dockTiming = { duration: 0, fill: 'none' };   // (linear, the animation's default: the ease is in the keyframes)
+  function glideLvl() {
+    const g = glide, ct = g.a.currentTime;
+    if (g.a.playState === 'idle') { glideEnd(); return lvlSet; }   // (cancelled from outside: it ended where it was going)
+    const u = ct > 0 ? Math.min(1, ct / g.ms) : 0;
+    return g.from + (g.to - g.from) * ease(u);
+  }
+  // The glide over, where it was going.
+  function glideEnd() {
+    const g = glide;
+    if (!g) return;
+    glide = null; lvlSet = g.to;
+    g.a.onfinish = null; g.a.cancel(); g.b?.cancel();
+  }
+  const lipSoon = () => ui && placeLip();   // (kept: a glide's landing makes no closure)
+  const glideDone = () => { if (!glide) return; glideEnd(); dock.rest = restPass(lipSoon); };   // (landed: the edge measured where the card now rests, between frames)
+  /** Whatever glide is under way ends here, the card where it now stands (a finger, a resize or a new glide takes it from there). */
+  function dockHalt() {
+    cancelFrame(dock.raf); dock.raf = 0;
+    const g = glide;
+    if (!g) return;
+    const v = glideLvl();
+    if (!glide) return;
+    glide = null; lvlSet = v;
+    g.a.onfinish = null; g.a.cancel(); g.b?.cancel();
+    if (ui) { ui.data.style.translate = dockPos(v); lipPaint(); }
+  }
+  function dockGlide(from, to, ms) {
+    const vec = dock.vec || DOCK_ZERO, x = vec[0], y = vec[1], d = ui.data, l = ui.lip;
+    // alloc-rare: a dock glide begins: once per glide, not per frame
+    for (let i = 0; i <= DOCK_KEYS; i++) { const lv = from + (to - from) * dockEase[i]; dockKeys[i].translate = `${(x * lv).toFixed(1)}px ${(y * lv).toFixed(1)}px`; }
+    dockTiming.duration = ms;
+    // alloc-rare: a dock glide begins: once per glide, not per frame
+    glide = { from, to, ms, a: d.animate(dockKeys, dockTiming), b: l && d.classList.contains('pz-sheet') ? l.animate(dockKeys, dockTiming) : null };
+    glide.a.onfinish = glideDone;
+  }
   function dockTo(to, ms = 380) {
-    cancelFrame(dock.raf);
+    dockHalt();
     dock.to = to;
     if (!to) dock.down = -1;
     // (Closed from either open state; it opens again on its first step, the sheet tucked under it.)
@@ -3520,17 +3574,23 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (reduce.matches) ms = 0;
     const from = dock.lvl, t0 = performance.now();
     dockRest();
-    // alloc-rare: a dock glide begins or lands: once per glide, not per step
-    const step = (now) => {
-      const u = ms ? clamp((now - t0) / ms, 0, 1) : 1;
-      dock.lvl = from + (to - from) * ease(u);
-      dockPaint();
-      if (u < 1) dock.raf = nextFrame(step);
-      // alloc-rare: a dock glide begins or lands: once per glide, not per step
-      else dock.rest = restPass(() => ui && placeLip());   // (landed: the edge measured where the card now rests, between frames)
-    };
     cancelRest(dock.rest);
-    dock.raf = nextFrame(step);
+    if (ms && from !== to && ui && !ui.data.hidden && ui.data.animate && !wideSheet(ui.data)) {
+      dockGlide(from, to, ms);
+      dockPaint();
+    } else {
+      // (No glide to play, a reduced-motion jump or a wide screen's, which keeps its rise in the translate: stepped by the frames as before.)
+      // alloc-rare: a dock glide begins or lands: once per glide, not per step
+      const step = (now) => {
+        const u = ms ? clamp((now - t0) / ms, 0, 1) : 1;
+        lvlSet = from + (to - from) * ease(u);
+        dockPaint();
+        if (u < 1) dock.raf = nextFrame(step);
+        // alloc-rare: a dock glide begins or lands: once per glide, not per step
+        else dock.rest = restPass(lipSoon);   // (landed: the edge measured where the card now rests, between frames)
+      };
+      dock.raf = nextFrame(step);
+    }
     layout();   // (the figure frames itself for where the card is going)
     // alloc-rare: a dock glide begins or lands: once per glide, not per step
     clearTimeout(dock.fit); dock.fit = setTimeout(() => restPass(fitRest), 60);
@@ -4773,7 +4833,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (e?.type === 'resize') sizeSeen = sizeNow();
     // (Turned between upright (a phone's or tablet's stacked cards) and a wider layout: a data card closed in the one comes in open in
     // the other, at once with everything else. Kept closed, an iPad's card turned on its side stood off the screen's left edge.)
-    if (e?.type === 'resize' && phone() !== ui.root.classList.contains('stack') && dock.to === 1 && !dock.auto) { cancelFrame(dock.raf); dock.to = 0; dock.lvl = 0; dock.down = -1; dockRest(); dockPaint(); placeLip(); }
+    if (e?.type === 'resize' && phone() !== ui.root.classList.contains('stack') && dock.to === 1 && !dock.auto) { dockHalt(); dock.to = 0; dock.lvl = 0; dock.down = -1; dockRest(); dockPaint(); placeLip(); }
     clearTimeout(refitT); refitT = setTimeout(reFit, 250);
     if (ui.data.hasAttribute('data-sin-tiles')) ui.data.classList.toggle('under', !shortSide.matches && phone());   // (turned on or off its side)
     // (For 0.8 s after a resize or a turn the data card takes each new place at once, with no fade or glide: the words' card
@@ -5591,7 +5651,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const along = vert ? dy : dx, across = vert ? dx : dy, comp = vert ? g.vec[1] : g.vec[0];
       if (!g.on) {
         if (Math.abs(along) < 8 || Math.abs(across) > Math.abs(along) * 1.2) return;   // (not yet, or a cross-wise move: leave it)
-        g.on = true; dock.drag = true; cancelFrame(dock.raf);
+        g.on = true; dock.drag = true; dockHalt();
       }
       if (e.cancelable) e.preventDefault();
       g.dl = along / g.k / comp;
@@ -6026,7 +6086,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     hushed = false; lastCam = null; clearTimeout(hushInT); app.classList.remove('pz-hush', 'pz-hush-in', 'pz-held'); heldNow = false; holdEase = false;
     cancelFrame(slip.raf); slip.d = null; slip.h0 = null; stage.followEnd?.();
     clearTimeout(dataHideT); dataHideT = 0; clearTimeout(widthT); widthT = 0; widthOwn = false;   // (a panel width asked in the talk's last 240 ms: never applied after it, setPanelWidth)
-    clearTimeout(idleT); clearTimeout(dock.fit); cancelFrame(dock.raf); dock.lvl = 0; dock.to = 0; dock.drag = false; dock.auto = false; dock.autoKey = '';
+    clearTimeout(idleT); clearTimeout(dock.fit); dockHalt(); dock.lvl = 0; dock.to = 0; dock.drag = false; dock.auto = false; dock.autoKey = '';
     // (The throws let go of with the cards: a card out of sight, held or pinned at an inline 0, was kept by card-throw.js's sets after its talk,
     // with the readings' pictures it carried; a talk that began meanwhile saw its move still running on a card that was gone.)
     if (ui) for (const el of [ui.text, ui.shade, ui.data, ui.panel]) throwStop(el);
