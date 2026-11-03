@@ -1402,14 +1402,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // sinusoid just below the middle of the left side; as the view is zoomed or panned, the label stays
   // on its vessel while that is comfortably in view, and otherwise moves to the one in view nearest
   // the middle of the free space (so it does not jump about).
-  // A presenter slide that lights lobule terms fades every other label and zone name out (app.css, --lit-o: 0): those take no room.
+  // A presenter slide that lights lobule terms dims every other label and zone name to 35 % (app.css, dimmed): they keep their places and their room.
   const LIT_OK = ['triad', 'arteriole', 'ductule', 'sinusoid', 'central', 'lymph', 'zone1', 'zone3'].map((t) => `lobule:${t}`);
   const LIT_RE = /(^| )(lobule|sinusoid):/;
-  const faded = (target) => {
-    const lit = litOf() && litRaw;   // (litOf keeps the page's app node and its lit terms current)
-    if (!appEl?.classList.contains('presenting') || !lit || !LIT_RE.test(lit)) return false;
-    return !(LIT_OK.includes(target) && litSet.has(target));
-  };
   // (The lit terms split once each time they change, not a query and a split for every candidate spot of a layout.)
   let appEl = null, litRaw = null, litSet = new Set();
   const litOf = () => {
@@ -1732,8 +1727,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       if (at < 0) { fadeOut(z); continue; }
       fadeIn(z);
       put(z, zTx[at], zTy[at]);
-      // (A zone the slide's words leave unlit fades out: its spot is free for the labels.)
-      if (!faded(ZONE_LIT[i])) { const zb = zoneBoxPool[i]; zb.l = zTx[at] - w / 2 - hx; zb.r = zTx[at] + w / 2 + hx; zb.t = zTy[at] - hh / 2 - hy; zb.b = zTy[at] + hh / 2 + hy; boxes.push(zb); }   // (the layout keeps these boxes, one a zone, written again each layout: placed holds them only until the next layout)
+      { const zb = zoneBoxPool[i]; zb.l = zTx[at] - w / 2 - hx; zb.r = zTx[at] + w / 2 + hx; zb.t = zTy[at] - hh / 2 - hy; zb.b = zTy[at] + hh / 2 + hy; boxes.push(zb); }   // (the layout keeps these boxes, one a zone, written again each layout: placed holds them only until the next layout)
     }
     return boxes;
   }
@@ -1836,6 +1830,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     cap.paint();
   }
   // A label a slide's words leave unlit fades out (app.css, the presenting app's data-lit): the same test, on the lit terms kept.
+  const DIM_A = 0.35;   // (an unlit name's alpha on a slide that lights terms: Mohammad's pick 14.3 B)
   const dimmed = (t) => {
     const lit = litOf();
     if (!litRaw || !/(^| )(lobule|sinusoid):/.test(litRaw) || !appEl?.classList.contains('presenting')) return false;
@@ -1854,8 +1849,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       let x = p[0], y = p[1];
       if (L && labGliding(L, now)) { const g = L.gl, k = easeLab(g, now); x = g.x0 + (g.x1 - g.x0) * k; y = g.y0 + (g.y1 - g.y0) * k; moving = true; }
       const call = e === callEl, zone = !L && !call;
-      const off = !e.isConnected || gone(e) || (call ? !classHas(callEl, 'on') : dimmed(e.dataset.target));
-      cap.place(key, zone ? x : x + m.w / 2, zone ? y : y + m.h / 2, off ? 0 : 1, off && gone(e) ? D_SMALL : D_SURFACE, call ? (off ? 0.94 : 1) : -1, t);
+      const off = !e.isConnected || gone(e) || (call && !classHas(callEl, 'on'));
+      cap.place(key, zone ? x : x + m.w / 2, zone ? y : y + m.h / 2, off ? 0 : !call && dimmed(e.dataset.target) ? DIM_A : 1, off && gone(e) ? D_SMALL : D_SURFACE, call ? (off ? 0.94 : 1) : -1, t);
       if (L) {
         const ink = L.arrowC || m.at['.n']?.colour || '';
         cap.arrow(key, L.edgeA != null && classHas(L.el, 'edge') ? (L.arrow?.ang === L.edgeA && L.arrow.r === L.edgeR && L.arrow.w === m.w && L.arrow.colour === ink ? L.arrow
@@ -2385,7 +2380,6 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       const k = LAY_ORDER[ki], L = labs[k];
       if (!L) continue;
       if ((k === 'lymph' && !lymphOn) || ((k === 'ha' || k === 'bd') && !named(k))) { fadeOut(L.el); leadOff(L); continue; }
-      if (faded(LAB_TARGET[k])) { fadeOut(L.el); leadOff(L); continue; }
       // (Shown to be measured; one that was hidden and stays out is hidden again before anything is drawn.)
       L.peek = isHid(L.el); setHid(L.el, false);
       shK[ns] = k; shL[ns] = L; ns++;

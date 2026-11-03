@@ -1007,6 +1007,14 @@ export function createSinusoidView({ host, before = null }) {
   // The leaders and dots as the Anatomy and Circuit labels have them (app.css .leader, .leader-dot, .leader-dot-halo): the leader ink, the stage's paper
   // under the dot and round it, the text ink's ring. Read through the token cache, so a theme change shows at once.
   const LEAD_LOOK = { line: '', lw: 1, r: 2.4, fill: '', ring: '', rw: 1.3, halo: '', haloR: 5 };
+  // A slide that lights terms dims every name it does not light to 35 % and keeps its place (Mohammad's pick 14.3 B, 3 Nov): the page's lit terms, split when they change.
+  let litRaw = null, litSet = new Set();
+  const dimA = (R) => {
+    const app = document.getElementById('app'), raw = app?.dataset.lit || '';
+    if (raw !== litRaw) { litRaw = raw; litSet = new Set(raw ? raw.split(' ') : []); }   // alloc-rare: only when the slide's lit terms change
+    if (!raw || !app.classList.contains('presenting') || !/(^| )(lobule|sinusoid):/.test(raw)) return 1;
+    return litSet.has(`sinusoid:${SV_TARGET[R.key] || R.key}`) ? 1 : 0.35;
+  };
   function putCaps() {
     const now = easeNow();
     LEAD_LOOK.line = inkOf('--leader'); LEAD_LOOK.fill = inkOf('--stage-bg'); LEAD_LOOK.halo = LEAD_LOOK.fill; LEAD_LOOK.ring = inkOf('--text-2');
@@ -1015,13 +1023,13 @@ export function createSinusoidView({ host, before = null }) {
       const R = regions[key];
       if (R.cx == null || !cap.hasLook(R.key)) continue;
       cap.measure(R.key, R.lines);
-      PUT.x = R.cx; PUT.y = R.cy; PUT.off = R.off || NO_OFF; PUT.show = R.covered ? 0 : 1; PUT.now = now;
+      PUT.x = R.cx; PUT.y = R.cy; PUT.off = R.off || NO_OFF; PUT.show = R.covered ? 0 : dimA(R); PUT.now = now;
       cap.put(R.key, PUT);
     }
     for (const key in lead) {
       const L = lead[key];
       if (L.x1 == null) continue;
-      LEADO.x1 = L.x1; LEADO.y1 = L.y1; LEADO.x2 = L.x2; LEADO.y2 = L.y2; LEADO.show = L.hide ? 0 : L.show; LEADO.cut = !!L.hide; LEADO.of = regions[L.key] ? L.key : null;
+      LEADO.x1 = L.x1; LEADO.y1 = L.y1; LEADO.x2 = L.x2; LEADO.y2 = L.y2; LEADO.show = L.hide ? 0 : L.show * (regions[L.key] ? dimA(regions[L.key]) : 1); LEADO.cut = !!L.hide; LEADO.of = regions[L.key] ? L.key : null;
       LEADO.follow = !!L.follow; LEADO.sg = L.sg || 0; LEADO.colour = LEAD_LOOK.line;
       cap.lead(L.key, LEADO);
     }
