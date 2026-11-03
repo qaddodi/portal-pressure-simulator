@@ -2552,14 +2552,28 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // opacity, as a ride does it (rideStart): a class on the stage or the pane has a glass read the page again, 70 to 110 ms in the
   // first frames of the change, headless; an opacity alone it takes as a motion.)
   let morphFade = false;
+  // A view change carries each label by how far its own station moves in the figure, in the figure's own frame (followStep): the
+  // layout's labels keyed to the station each names and where that station stood in it (stage px). followNext is the layout being made.
+  let followTab = new Map(), followNext = new Map(), followOn = false, followM0 = 0;
   const morphFadeBuf = [];   // (the two label layers, in one kept list written in place; the callers loop over it at once)
   const morphFadeEls = () => { const b = morphFadeBuf, gl = wrap.querySelector('#labelGl'); b.length = 0; if (labelSvg) b.push(labelSvg); if (gl) b.push(gl); return b; };
   // (The labels come back only once their layout for the new view is down: a solve still in slices would show the old view's labels,
   // their leaders and dots over the new one. A failsafe after 1.5 s brings them back whatever.)
   const morphFadeDrop = (force) => { if (!morphFade && (force === true || !labelJob)) { const els = morphFadeEls(); for (let i = 0; i < els.length; i++) els[i].classList.remove('morph-fade'); glass.style.opacity = ''; } };
+  function followStep() {
+    if (!labelGL?.following) return;
+    refreshCTM();
+    const t = easeInOut(morph);
+    for (const [key, e] of followTab) {
+      const a = labelAnchor(e.id, t);
+      labelGL.followPut(key, a.ax - e.ax, a.ay - e.ay);
+    }
+    labelGL.followDraw(Math.max(0, 1 - 2 * Math.abs(morph - followM0)));   // (a label of no station that moves: faded out within the first half of the change)
+  }
   function morphFadeEnd() {
     if (!morphFade) return;
     morphFade = false;
+    if (followOn) { followOn = false; labelGL?.followEnd(); }
     labelKey = null;
     camSettle();
     nextFrame(morphFadeDrop);
@@ -11659,6 +11673,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function labelTail() {
     pinchLiftNow(false);   // (the labels hidden for a zoom that rode no further come back once their layout is down)
     if (handRide?.settle && !labelJob) handRideEnd();   // (the layout for where the hand stopped has landed: the ride ends as it is drawn)
+    if (!labelJob) { const t = followTab; followTab = followNext; followNext = t; }   // (a layout that has landed: its stations are what a view change carries)
     if (sites.list) sitesPaint();
     if (scan.on) scanPaint();
     dprobePaint();
@@ -13056,6 +13071,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (solve && useLines && lineHits(rectOf(it), 2)) { it.onVessel = true; const sol = nextSol.get(it.key); if (sol) sol.onv = true; }   // (on a vessel: the solid halo)
       }
     }
+    followNext.clear();
     for (const it of out) {
       // (How far the stage's edge pulled this label in from its slot: the glide eases the slot, never this, which is fixed to the screen.)
       const rp = ringPull.get(it);
@@ -13083,6 +13099,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // (nothing of the column hides: Review 16 Oct); at most every quarter second, so a card still easing cannot keep it searching.)
       if (it.hide && !solve && dop.all && (it.point || /^focus/.test(it.key)) && performance.now() - colResolve > 250) { colResolve = performance.now(); return false; }
       labelVis.set(it.key, !it.hide);
+      if (!it.hide && it.key.startsWith('n:')) followNext.set(it.key, { id: it.key.slice(2), ax: it.ax, ay: it.ay });   // (the station it names: a view change carries the label by its move, followStep)
     }
     // Last pass: no two labels showing may overlap. A pan can pull a label in from the stage edge onto
     // another, and carried slots are not searched again. The more important label keeps its place; the
@@ -13171,8 +13188,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (dl) leaders.push({ k: 'l:' + it.key, tag: 'path', at: { class: it.focusLeader ? `leader focus${it.mk ? ` k-${it.mk}` : ''}` : `leader${it.sel ? ' hl' : ''}`, 'data-k': it.key, d: dl } });
       if (it.focusLeader || it.free) continue;
       const cx = it.ax.toFixed(1), cy = it.ay.toFixed(1);
-      if (it.point) dots.push({ k: 'h:' + it.key, tag: 'circle', at: { class: 'leader-dot-halo', cx, cy, r: String(DISC) } });
-      if (!circuit || it.mid) dots.push({ k: 'd:' + it.key, tag: 'circle', at: { class: 'leader-dot', cx, cy, r: '2.4' } });
+      if (it.point) dots.push({ k: 'h:' + it.key, tag: 'circle', at: { class: 'leader-dot-halo', 'data-k': it.key, cx, cy, r: String(DISC) } });
+      if (!circuit || it.mid) dots.push({ k: 'd:' + it.key, tag: 'circle', at: { class: 'leader-dot', 'data-k': it.key, cx, cy, r: '2.4' } });
     }
     // (A "60 %" that stands off from its clamp, moved off the probe or put where the stent's column of callouts leaves room, is
     // joined to the clamp's nearer outer tip by a leader, fading with it; one at its usual spot has none. Read from the label as it
@@ -13857,6 +13874,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (morph !== morphTarget) {
       morph = clamp(morph + Math.sign(morphTarget - morph) * dt / 0.6, 0, 1);
       if (F) update(F); else updateGeometry(true);
+      if (followOn) followStep();
       // (Landed: the labels laid out once, in a task of their own after the landing frame's (it writes every path), then faded in.)
       if (morph === morphTarget && morphFade) setTimeout(() => { if (morph === morphTarget) morphFadeEnd(); }, 0);
     } else if (widthEasing && F && !stepOrgans() && !stepWidths()) update(F);   // a width still easing to its target: one step a frame (stepWidths: the widths alone, when nothing else changed)
@@ -14882,7 +14900,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (d.k !== vt.k || d.x !== vt.x || d.y !== vt.y) animateVT(d, 600);
       if (F && !reduceMotion.matches && !(cath.st && !cath.st.keep) && !lobuleOn && !lz?.isOpen()) {
         rideStop(); morphFade = true; camMove = true; dpr.carry = false;
-        for (const e of morphFadeEls()) e.classList.add('morph-fade');
+        // (The GPU labels are carried by their stations through the change; the SVG's own are faded out as before.)
+        if (labelGL && labelGL.canRide() && followTab.size && !labelJob) { if (!followOn) { followOn = true; followM0 = morph; labelGL.followStart(); } if (labelSvg) labelSvg.classList.add('morph-fade'); }
+        else for (const e of morphFadeEls()) e.classList.add('morph-fade');
         glass.style.opacity = '0';
       }
     },

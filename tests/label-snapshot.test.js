@@ -51,7 +51,7 @@ test('a camera ride carries the leaders and dots with the labels (they were left
 });
 
 test('a leader\'s label end follows its label\'s landing glide, and a pan (carried by layout each frame, no ride) needs no more', () => {
-  assert.match(lg, /mg\.k = isPath \? el\.getAttribute\('data-k'\) : null;/);
+  assert.match(lg, /mg\.k = el\.getAttribute\('data-k'\);/);
   assert.match(lg, /const ls = labelByKey\.get\(mg\.k\), gl0 = ls && glides\.get\(ls\.g\)/);
   assert.match(lg, /geo\[2\] \+= \(gl0\.fx - \(Math\.round\(ls\.x \* dpr\) \+ lst\.ox\)\) \* \(1 - u\);/);
   assert.match(lg, /labelByKey\.clear\(\);/);
@@ -71,4 +71,19 @@ test('after a view switch the labels come back only once their layout has landed
   assert.match(st, /const morphFadeDrop = \(force\) => \{ if \(!morphFade && \(force === true \|\| !labelJob\)\)/);
   assert.match(st, /setTimeout\(morphFadeDrop, 1500, true\);/);
   assert.equal((st.match(/labelTail\(\);\n\s+nextFrame\(morphFadeDrop\);/g) || []).length, 2, 'both landings of a sliced solve');
+});
+
+test('a view change carries each label, leader and dot by its own station\'s move, in the figure\'s frame (labels are part of the figure)', () => {
+  // (label-gl: offsets per key, applied to the picture and to its leader and dot; labels of no station fade; held till the new layout is in.)
+  assert.match(lg, /const fol = \{ on: false, end: false, m: new Map\(\), fade: 1 \};/);
+  assert.match(lg, /if \(f\) \{ x \+= Math\.round\(f\.dx \* dpr\); y \+= Math\.round\(f\.dy \* dpr\); \} else a \*= fol\.fade;/);
+  assert.match(lg, /geo\[i \* 2\] \+= f\.dx \* dpr; geo\[i \* 2 \+ 1\] \+= f\.dy \* dpr;/);
+  assert.match(lg, /if \(rideM \|\| \(fol\.on && !fol\.end\)\) \{ ask\(\); return; \}/);
+  assert.match(lg, /followEnd\(\) \{/);
+  // (stage: the table of stations from the landed layout, the step in the morph's frame, the end handing the places on.)
+  assert.match(st, /if \(followOn\) followStep\(\);/);
+  assert.match(st, /labelGL\.followPut\(key, a\.ax - e\.ax, a\.ay - e\.ay\);/);
+  assert.match(st, /if \(followOn\) \{ followOn = false; labelGL\?\.followEnd\(\); \}/);
+  assert.match(st, /followNext\.set\(it\.key, \{ id: it\.key\.slice\(2\), ax: it\.ax, ay: it\.ay \}\)/);
+  assert.match(st, /class: 'leader-dot', 'data-k': it\.key/);
 });
