@@ -1,0 +1,337 @@
+# Visual, animation and lag glitch audit (code only)
+
+3 Nov 2026, read against `claude/settings-topbar-icon-flvft1` at `48afde1`. I found these by reading the code. I ran no browser,
+took no screenshot and did no device test. Each item names the file and line, what a person would see, why it happens, and a fix that stays on
+the GPU (owner rule: nothing new off the GPU; on a failed or late GPU frame keep the last GPU picture and retry).
+
+**Severity.** P1: shows up in normal use, in one of the areas Mohammad flagged (labels and leaders following the figure, Doppler and
+FibroScan lag, numbers jumping). P2: a visible hitch or wrong frame that comes up often. P3: an edge case, a small artifact, or a risk.
+**Effort.** S: under half a day. M: one or two days. L: several days.
+**Confidence.** *Confirmed*: the code path reads that way. *Plausible*: the code allows it, but it depends on timing or layout that I could
+not check without a browser.
+**Overlap.** Other threads are fixing labels (C), captions (D), presenter (A), cards and glass (B), sliders, blur, and the Doppler and FibroScan
+renderers. Where an item touches their files, it says so. Treat it as input for that thread, not a second fix. The R01–R18 items in the
+project ledger are left out.
+
+## Top 10
+
+| # | Area | What you see | Sev | Effort |
+|---|---|---|---|---|
+| 1 | Doppler | Trace freezes for a moment on every scale, size, window, mode, invert or vessel change (CPU synthesis of every pixel) | P1 | L |
+| 2 | Doppler, FibroScan, pressure strips | Sweeps step or judder when the frame is busy (the scheduler can hold their frames back) | P1 | S |
+| 3 | Numbers | Big readings change shape and shift a pixel or two each time they settle (GPU outlines at opsz 14, page text at its own optical size) | P1 | M |
+| 4 | Action card | Its leader and dot lag the figure during pan, zoom and glides, and do not move at all while the model is paused | P1 | M |
+| 5 | Charts | A chart's words and lines blink out for any frame the GPU cannot draw (non-widget charts are hidden, not kept) | P1 | S |
+| 6 | FibroScan | Every word, halo and the reading's font fit are drawn again on every frame | P2 | S |
+| 7 | Doppler | Noise floor rebuilt on the CPU on every size or density change (card entrance, rotation) | P2 | M |
+| 8 | Captions | For the first frame (or more) the lobule and sinusoid captions show twice, page and GPU, with a doubled halo | P2 | S |
+| 9 | Glass | Card drop shadows have square corners under rounded cards | P2 | S |
+| 10 | Doppler | A failed GPU frame paints the trace black instead of keeping the last picture | P2 | S |
+
+---
+
+## 1. Doppler monitor (`src/ui/doppler.js`, `src/ui/doppler-gl.js`). Overlap: Doppler/FibroScan thread
+
+### D1. The spectrum is synthesised on the CPU, pixel by pixel (P1, L, Confirmed)
+- **Where:** `doppler.js:766-838` (`writeLine`), called from `doppler.js:1122-1124`. `doppler-gl.js:136-176` only uploads the result.
+- **What you see:** the trace stops for a moment (a dropped frame or several) whenever the whole ring is redrawn. That happens on a new
+  scale (the signal grows or the baseline moves, `fitScale`), a new size (a card settling, a rotation, the top strip refitting), a new
+  sweep window, a display mode change, Invert, a new vessel or gate, and the first frame after a lost context. Between those, each frame
+  still runs the per-pixel loop for the new columns. That loop costs a `Math.log`, a `Math.pow`, three speckle lookups and up to three
+  `power()` calls per pixel. In colour modes it adds `dopplerColor` and `shadeColor` too.
+- **Why:** a full redraw is `RW × RH` device pixels. At a 600 × 300 CSS trace on an iPhone that is 1800 × 900 = 1.6 M pixels, all on the main
+  thread, in the frame (`full ? cNow - RW + 1 : …`).
+- **Fix (GPU):** move the synthesis into the fragment shader. Keep a small texture of mean velocity per spectral line (RW × 1, R32F or RG16F,
+  one texel per column, written by `texSubImage2D` as lines arrive). Hash the speckle from (column index, frequency bin), so a line's grain
+  stays fixed as it scrolls, like the ring does now. Then compute `power()`, the wall filter, the log compression and the colour map per
+  fragment. A full redraw becomes a change of uniforms (scale, baseline, invert, mode), and no CPU pixel work is left. The ring texture of
+  RGBA pixels and the `ImageData` go away.
+
+### D2. Doppler, FibroScan and the pressure strips can be held back by the scheduler (P1, S, Confirmed)
+- **Where:** `frame.js:255` puts `doppler`, `fibroscan`, `pressure-time`, `charts`, `sinusoid-view` and others in `SECONDARY` (priority 2).
+  `frame.js:290-300` (`shedding`) carries them to a later frame, up to `CARRY_MAX` (2) frames, unless `frameAnimating(tag, true)` is set.
+  Only `vitals-monitor.js:226,232` ever calls `frameAnimating`.
+- **What you see:** on a busy frame (a pinch, a slide change, a model frame landing) the Doppler sweep, the FibroScan wave and the pressure
+  strip skip one or two frames and then jump. This is the "laggy Doppler/FibroScan" feel even when each draw is cheap.
+- **Fix:** call `frameAnimating('doppler', true)` while the trace scrolls (`doppler.js:1393-1405`, on when `live()` and shown, off when the
+  loop stops). Do the same in `fibroscan.js:270-277` and in `pressure-time.js:438-446`. The frame-time gate then measures the real cost
+  instead of hiding it as carried frames.
+
+### D3. The noise floor is built on the CPU at every size or density change (P2, M, Confirmed)
+- **Where:** `doppler.js:723-744` (`makeNoise`), called from `doppler.js:1137`.
+- **What you see:** a hitch as the Doppler card comes in, on rotation, and when the trace gets taller than the last texture. The texture is
+  at least (RW + 96) × (RH + 96) rounded up to 128, about 2 M pixels on a phone, with a `Math.log` and a `Math.pow` per pixel and a 1 MB+
+  upload.
+- **Fix (GPU):** make the noise a hash in the same fragment shader (D1), with `nOff` as a uniform seed. No texture, no CPU.
+
+### D4. A failed GPU frame paints the trace black (P2, S, Confirmed)
+- **Where:** `doppler.js:1151-1155`.
+- **What you see:** when `gpu.render` returns false (shader still compiling after a restore, a lost context, a ring size mismatch for a frame),
+  the words layer fills the trace rectangle black. The trace blinks black.
+- **Why:** this predates the owner's "keep the last GPU picture" rule. The GPU canvas under it still shows its last frame; the black fill on
+  the words layer covers it.
+- **Fix:** when `gpu` exists, skip the black `fillRect` and keep `glFrom = 'img'` so the ring goes up whole on the next good frame. Keep the
+  black only for the no-WebGL2 case.
+
+### D5. A size change allocates a new ImageData and new textures each time (P3, S, Confirmed)
+- **Where:** `doppler.js:1113-1120` (`new ImageData(RW, RH)`), `doppler-gl.js:148-166` (`stretch` makes two textures and two framebuffers
+  per call).
+- **What you see:** while a card eases in and its layout width settles over several frames, each frame allocates a 2–6 MB ImageData plus GPU
+  textures. That means GC pauses and stutter during the entrance.
+- **Fix:** with D1 this goes away. Until then, keep the stretch textures and framebuffers in a pair that is reused, and only grow the
+  ImageData (round up to 64 px).
+
+### D6. The top strip's fit measures the page many times (P3, M, Confirmed)
+- **Where:** `doppler.js:898-943` (`fitStrip`), `doppler.js:961-983` (`stripLayout`, from `setTimeout(…, 0)` at `doppler.js:1039`).
+- **What you see:** a short hitch the first time a vessel shows on a slide, on a new width, and when a time-lapse notice appears. Each of the
+  7 steps writes words into the page (`wNow`) and measures them with ranges (`wordsRect`). A `getComputedStyle(cv)` also runs every 500 ms
+  while the trace runs (`doppler.js:966-967`).
+- **Fix:** measure the strip's words with the GPU type metrics already in `text-gl.js` (`textWidth` at the strip's size and weight, with the
+  optical-size tables of `glyph-metrics.js`). That needs no page writes or reads. Read `--dop-ov` and the type tokens when the theme or text
+  size changes (the `cssVar` cache already does this), not every 500 ms.
+
+---
+
+## 2. FibroScan panel (`src/ui/fibroscan.js`). Overlap: Doppler/FibroScan thread
+
+### F1. Every word and halo is drawn again on every frame (P2, S, Confirmed)
+- **Where:** `fibroscan.js:224-265` (`paintWith`).
+- **What you see:** the panel costs more than it needs on every frame of the wave, which matters most on a phone with the Doppler also on
+  screen. The depth labels, the time labels, the window lines, the edge and "kPa" are the same on every frame, but each is drawn again, most
+  twice (a halo `strokeText`, then `fillText`).
+- **Fix:** put the still parts in `keepLayer(ctx, 'fs-axes', sig, …)` as the Doppler scale does (`doppler.js:1170`). The signature is the
+  size, CAP, theme and `side`. Each frame then draws only the fitted line and the reading.
+
+### F2. The reading's font is fitted on every frame (P3, S, Confirmed)
+- **Where:** `fibroscan.js:254-261` (a loop of `measureText('88.8')` that steps the size down 2 px at a time).
+- **Fix:** the result depends only on the size, CAP and theme. Work it out once with F1's signature and keep it.
+
+### F3. DOM work in a frame (P3, S, Confirmed)
+- **Where:** `fibroscan.js:191` (`dataSoon(cv, 'reading', …)` and `fibroReading.show` each frame), `fibroscan.js:197`
+  (`cv.closest('.pz-tool')` each frame).
+- **Fix:** work out `side` with the box (`readBox`, which runs from the ResizeObserver). Write the reading only when `fix1(shown)` changes.
+
+### F4. Soft map on large or retina cards (P3, S, Confirmed)
+- **Where:** `fibroscan.js:143` (`cap = 300`), `fibroscan.js:180,210`.
+- **What you see:** on an iPad or Mac slide the elastogram is sampled at most 300 × 300 and stretched, so it looks soft next to the sharp
+  words.
+- **Fix:** the map is a shader, so raise the cap with the device pixel ratio (for example `300 * min(2, dpr)`). Keep the saver's limit.
+
+---
+
+## 3. Numbers and clocks (`src/ui/gl-words.js`, `src/ui/text-gl.js`). Overlap: whoever owns "numbers jumping"
+
+### N1. GPU numbers use opsz-14 outlines while the page sets big text at its own optical size (P1, M, Confirmed)
+- **Where:** `scripts/glyphs.py:27` (outlines and advances cut at `opsz 14` only); `styles/app.css:7556` (`body { font-optical-sizing: auto }`);
+  `gl-words.js:150-153` (measure), `gl-words.js:236-247` (draw with `textWidth`/`glyphRun` from those outlines), `gl-words.js:301-327`
+  (`land` hands over to the page after `QUIET`, `gl-words.js:30`).
+- **What you see:** a big number that changes (the Doppler velocity at 28 px, `app.css:3636`; the HVPG/PPG catheter readings at 26 px,
+  `app.css:3338`; the pressure-time header at 28 px, `app.css:3575`; the monitor's 24 px values, `app.css:1746`) is drawn by the GPU at the
+  opsz-14 shapes and widths. When it holds still for 260 ms, the page's own text takes over. The browser sets that text at opsz ≈ the font
+  size, which is Inter's display cut: tighter spacing and slightly different shapes. So the number changes shape, and its width shifts by
+  a pixel or two, every time it settles. With end alignment the left edge moves; with start alignment the unit after it moves. This is very
+  likely part of "numbers jumping". The digits are tabular in both, so it is not proportional digits.
+- **Fix (GPU, no new CPU):** cut the outlines at a few optical sizes (14, 20, 24, 32; `glyphs.py` already instantiates the variable font) and
+  pick or interpolate the nearest stop for `L.size` in `textWidth`, `glyphRun` and `textPolys`. `text-gl.js:191-230` already does this for
+  advances in paragraph layout. A smaller interim fix: set `font-variation-settings: 'opsz' 14` on `.glw` hosts, so the page sets the same
+  cut the GPU draws. That is one CSS line, but it changes the look of big numbers slightly.
+
+### N2. Shimmer at the hand-over to the page's own text (P2, M, Plausible)
+- **Where:** `gl-words.js:290-298` (`release`), `gl-words.js:268-284` (`drawn` → `handOff`).
+- **What you see:** even with N1 fixed, the GPU fill of flattened outlines (svg-gl) and the browser's hinted text differ in weight and
+  edge. A settled number can look like it "breathes" once.
+- **Fix:** for readouts that change often (dock tiles, Doppler tiles, catheter readings), use the `keep: true` mode that already exists
+  (`gl-words.js:17-23`). The GPU picture then stays, and the page's words stay clear under it as the hit and screen-reader text. No
+  hand-over, so no shimmer.
+
+### N3. `.glw-on` does not clear text strokes (P3, S, Confirmed latent)
+- **Where:** `styles/app.css:7634` clears `color`, `-webkit-text-fill-color`, `fill` and `text-shadow`, but not `-webkit-text-stroke` or SVG
+  `stroke`. Halo rules exist on HTML and SVG text: `app.css:262, 726, 1610, 1637, 1729, 2915-2916, 4241, 7052-7146`.
+- **What you see:** if a glWords readout is ever placed on one of those (for example an SVG dial number, which `gl-words.js:134` supports),
+  the page's old halo stays under the GPU's new number: a doubled, ghosted caption.
+- **Fix:** add `-webkit-text-stroke-color: transparent !important; stroke: transparent !important;` to the `.glw-on` rule.
+
+### N4. Dock and panel numbers land up to four frames after the figure (P3, S, Confirmed)
+- **Where:** `main.js:546-552`. The card, dock and inspector updates are `mayTask`s that are allowed to wait up to 4 frames.
+- **What you see:** during a busy moment the dock's readings change a few frames after the figure's colours. That is small, but it adds to
+  "numbers jump" when they then catch up.
+- **Fix:** keep it as a may task, but run it within the same frame when the frame has room.
+
+---
+
+## 4. Labels, leaders and the action card. Overlap: thread C (labels)
+
+### L1. The action card's leader and dot do not follow the figure during pan, zoom or glides (P1, M, Confirmed)
+- **Where:** `card.js:712-765` (`position`), `card.js:771-788` (`drawLeader`). It is called only from `card.update` (`card.js:675-679`),
+  which runs as a may task on model frames (`main.js:552`), and from resize and `pps:occ` events.
+- **What you see:** with a vessel's action card open, a pan or pinch moves the figure while the leader line and its dot stay where the
+  vessel was. They catch up in steps at the model's frame rate, up to four frames late. While the model is paused they do not move at all
+  until something else calls `position()`. This is Mohammad's top priority: leaders must move 100% with the figure.
+- **Why:** the leader is two DOM `<i>` elements whose `width` and `transform` are written from `stage.anchorFor(...)`. Nothing ties them to
+  the camera's frame.
+- **Fix (GPU):** draw this leader in label-gl's leader layer like the figure labels' leaders, which already ride the camera matrix
+  (`label-gl.js:1555-1600`). Its anchor goes in in world coordinates, and its card end stays fixed in screen space. While no GPU leader layer
+  exists (no WebGL2), at least call `position()` from the stage's camera step (`stage.js:2805-2825`, next to `sitesPaint()`).
+
+### L2. Labels snap to whole device pixels while they ride (P3, S, Confirmed)
+- **Where:** `label-gl.js:1287` (`Math.round(s.x * dpr)`), the ride (`rideAt`, `label-gl.js:1563`) and the glide (`label-gl.js:1297`).
+- **What you see:** in a slow pan or pinch the figure moves smoothly below a pixel, but the labels step one device pixel at a time. On a 1×
+  display (an external monitor on the Mac) that is a visible 1 px jitter against the vessels.
+- **Fix:** while `rideM` or a glide is active, place the pictures at sub-pixel positions with linear filtering, and snap again at rest
+  (crisp text when still, true tracking while moving).
+
+### L3. Labels keep gliding after the figure has stopped (P3, S, Confirmed by design)
+- **Where:** `label-gl.js:2201-2210` (`rideEnd` keeps where each label rode), then the next `sync` glides each label over `RIDE_MS`
+  (`label-gl.js:1294-1300`).
+- **What you see:** when a camera glide or pinch lands, the figure stops and the labels then slide to their new places. That reads as the
+  labels lagging. It is a design choice, so I am noting it for thread C rather than as a bug.
+- **Fix:** start the label solve for the landing before the camera lands (the code does this for presenter glides, `stage.js:2803`
+  `solveLanding`). Shorten the glide to a few frames when the shift is under a few pixels.
+
+### L4. Status of what Mohammad reported (for reference, nothing new)
+Leaders stretching (fixed 099ec8f, dfa15ef), labels off screen during a pinch (c9fa7f23), stale labels after a view switch (0009–0011 in
+`c-out/`), and pointer hits at stale places (R09) are in thread C's ledger. I found no new stale-label path in `label-gl.js` or the
+stage's camera step beyond L1–L3: `ride()` draws in the same callback as the camera step (`label-gl.js:2187-2198`), so the labels and
+the figure are in the same frame.
+
+---
+
+## 5. Lobule and sinusoid captions (`src/ui/caption-gl.js`). Overlap: thread D
+
+### C1. One or more frames with the captions shown twice (P2, S, Confirmed)
+- **Where:** `lobule-zoom.js:168` (`cap.onPresented = () => classSoon(labels, 'cap-gl-on', true)`), `sinusoid-view.js:196`
+  (`restClass(...)`). The CSS that hides the page's captions is `app.css:1676-1679`.
+- **What you see:** on opening the lobule or sinusoid, the GPU captions appear in a frame, but the class that hides the page's captions lands
+  between frames, one or more frames later. In those frames both show, slightly out of register, and the halos (`-webkit-text-stroke`,
+  `app.css:1637,1729,4241`) look doubled and thick. Mohammad's "double-drawn or haloed captions" may include this.
+- **Fix:** keep the GPU caption canvas at `opacity: 0` (a compositor property) until `onPresented`, then show the canvas and add
+  `cap-gl-on` in the same rest pass. Both change in one style pass, so they never overlap. The reverse order applies for `onLost`.
+
+### C2. Caption halos change thickness with the dive's scale (P3, S, Plausible)
+- **Where:** `caption-gl.js` text policy (R07, ledger: "glyph size, letter spacing and halo scale with the layer" while view k ≠ 1).
+- **What you see:** during the dive into the lobule, the halo widens with the glyphs, and then snaps back to the CSS `--hw` clamp
+  (`app.css:1636`) when the page's captions take over at rest.
+- **Fix:** clamp the GPU halo width to the same `clamp(1px, …, 2px)` range in screen pixels, scaling only the glyphs.
+
+---
+
+## 6. Charts drawn by the GPU chart drawer (`src/ui/trace-gl.js`). Overlap: instruments/charts thread
+
+### T1. A chart blinks out for any frame the GPU cannot draw (P1, S, Confirmed)
+- **Where:** `trace-gl.js:793-795` (`begin` → `api.hide()` when `!api.ready`), `trace-gl.js:807` (a failed pool move hides too),
+  `trace-gl.js:857-861` (`hide` sets the GPU canvas `visibility: hidden`; only `keep` widgets are exempt).
+- **What you see:** the Doppler's words and scale, the FibroScan labels, the pressure strip and every other chart vanish for a frame (or
+  longer while a pool's programs compile after a move, or after a context restore) and then come back. The page canvas under them is blank
+  by design. This is the same failure mode as the "sliders disappearing" bug, which round 3 fixed only for widgets (`keep: true`).
+- **Fix:** apply the widget rule to every chart: on a frame the GPU cannot draw, leave the last transferred bitmap visible (do not hide),
+  set `missed`, and redraw on publish. Pass `keep: true` from `createTraceGL` for the charts too, or make it the default and opt out only
+  where a stale picture would be wrong.
+
+### T2. Shared drawing buffer size churn when many small pictures change in one frame (P2, M, Plausible)
+- **Where:** `trace-gl.js:799-811`. Every glWords readout draws through `svg-gl.js:913` → `createTraceGL`, so each changing number is its own
+  chart with its own size.
+- **What you see:** on a slide where many readings change at once (eight Doppler tiles, the velocity, the gauge numbers, the dock), each
+  frame sizes the shared OffscreenCanvas once per distinct picture size and transfers each one. That costs GPU memory churn and frame time
+  just when the numbers move. `sharedStats.resizes` in `?perf` shows it.
+- **Fix:** round the drawing size up to a bucket (for example 64 px steps) so pictures share sizes, draw each in its own viewport of the bucket,
+  and size the display canvas to the bucket with the extra clipped by its box. Or give small readouts one shared atlas canvas.
+
+---
+
+## 7. Sliders (`src/ui/slider-gl.js`, `src/ui/widget-gl.js`). Overlap: slider thread
+
+### S1. Many sliders gliding at once each do a full GPU frame and transfer (P2, M, Plausible)
+- **Where:** `slider-gl.js:199` (`ask` → `frame(S.tickFn, 'numbers')` per slider), `slider-gl.js:245-261` (`tick` → `S.w.paint()` each
+  frame), `widget-gl.js:52-60`.
+- **What you see:** a preset or patient change glides a dozen sliders together. Each frame does a dozen begin, draw and
+  `transferToImageBitmap` passes in the shared context, at different sizes (see T2), and the glide can stutter on a phone.
+- **Fix:** tick all live sliders in one frame callback and keep the pool sized once (sliders in a panel share a size), or draw a panel's
+  sliders into one widget canvas.
+
+### S2. A slider's native look stays hidden if the GPU picture is lost (P3, S, Plausible)
+- **Where:** `widget-gl.js:58` adds `.wgl-on` once and removes it only in `dispose` (`widget-gl.js:68`); `app.css:849-854` clears the native
+  track and thumb under it. `slider-gl.js:203` writes `--p` (the native fill) only until the widget is live.
+- **What you see:** if the shared context is lost and the bitmaprenderer canvas is cleared by the browser (iOS after backgrounding can do
+  this), the slider is invisible until something repaints it. If it repaints with a stale `--p`, the native fill is at an old value.
+- **Fix:** on the pool's `webglcontextlost`, mark widgets `missed` and repaint them right after restore (`trace-gl.js:425` sets `missed` only
+  when `redraw` is given, so check that the widget path passes it). Keep `--p` written so the native fallback is never stale.
+
+---
+
+## 8. Glass, blur and card shadows (`src/ui/glass-gl.js`). Overlap: blur thread, thread B
+
+### G1. Drop shadows have square corners (P2, S, Confirmed)
+- **Where:** `glass-gl.js:291-299`. The drop shadow is `cover(x) * cover(y)`, a separable erf, which is a blurred *rectangle*.
+- **What you see:** under a card with large rounded corners and a small blur, the shadow shows dark wedges past each rounded corner.
+- **Fix (GPU):** use the closed-form rounded-rectangle Gaussian shadow (integrate the erf along x for each y with the corner's radius, the
+  well-known "fast rounded rectangle shadows" approach) in the same fragment shader, with the card's radius.
+
+### G2. Corner radii are read and clamped differently from CSS (P3, S, Confirmed)
+- **Where:** `glass-gl.js:626` (`radiiOf` takes the first number of each radius, so `50%` reads as 50 px and an elliptical `a / b` takes `a`);
+  `glass-gl.js:287` clamps each corner to half the short side on its own.
+- **What you see:** on a card whose radius is a percentage, elliptical, or larger than half its side, the frost's corner and the card's
+  corner do not match. A sliver of frost shows outside the corner, or a sliver of unfrosted figure inside it. That can read as "blur not
+  covering the full rounded rect".
+- **Fix:** resolve percentages against the box (`r.width`, `r.height`), carry both radii of each corner, and scale all four radii by CSS's
+  rule (`f = min(1, side / (r1 + r2))` over all four sides) before upload.
+
+### G3. Frost stops at the figure canvas's edge (P2, M, Plausible)
+- **Where:** `glass-gl.js:795-800`. The region is clamped to the canvas (`x0 = max(0, …)`, `x1 = min(cr.width, …)`), while `[data-gl]` cards
+  have their own background removed (`app.css:3319-3329`).
+- **What you see:** any part of a GPU-glass card that overhangs the figure's canvas (a phone sheet, a card near the top bar or the dock) has
+  no frost and no fill there: a hard edge where the blur stops inside the card.
+- **Fix:** for panes that overhang, either draw the overhang with the tint alone (no blur source, so a solid tint that matches) on the
+  same GPU pass, or drop `[data-gl]` for that pane so it keeps its solid `--surface` fallback. Prefer the first; it stays on the GPU.
+
+### G4. A card's glass reads the page when its list changes, one frame late (P3, M, Plausible)
+- **Where:** `glass-gl.js:1613-1625` (`nowGeo` → `measureSoon()` on a new list, a `setTimeout`).
+- **What you see:** on the frame a new card or callout appears, its glass is missing, and it comes in the next frame (a one-frame bare
+  card). The read-phase path (`measureEarly`) exists, but a changed list takes the timer path.
+- **Fix:** use `measureEarly()` (the next frame's read phase) for a changed list too.
+
+---
+
+## 9. Figure and overlays (`src/ui/stage.js`). Overlap: organ, figure and overlay threads
+
+### O1. Disease easing rewrites the liver's SVG paths on the CPU (P2, M, Confirmed)
+- **Where:** `stage.js:1040-1090` (`morphLiver`): it builds the outline string and the nodule string (`liverNodules`, a path per cell) and
+  `setAttribute('d')` on live SVG paths, plus mask and fill-opacity attributes, on every eased step (40 or 200 steps).
+- **What you see:** a time-lapse of cirrhosis or congestion stutters while the liver changes shape, most on a phone.
+- **Fix (GPU):** the GPU painter already takes the command lists (`bindShape(el, src)`). Feed it only the commands, keep the DOM paths
+  for the no-WebGL2 path alone, and let the shader morph between two outlines with one uniform instead of a new path for each step.
+
+### O2. Overlay marks read computed styles in the figure's frame (P2, M, Confirmed)
+- **Where:** `stage.js:7135-7180` (`marksBuild`, run from the frame loop through `marksSync`): `getComputedStyle` per shape and per
+  ancestor, a regex parse of `transform`, and earcut, all in the frame.
+- **What you see:** when stents, band rings, clamps or clots change (a slide change, a treatment), that frame is long. The comment notes
+  about 36 style passes on a phone.
+- **Fix:** derive the marks' paint and transform from the overlay's own data (the code that builds the SVG knows the fill, stroke, opacity
+  and transform it writes) and triangulate once, between frames (rest pass), not in the frame.
+
+### O3. Figure resolution Auto: low-res while pinching out, then a sharpness jump at rest (P2, M, Confirmed by design)
+- **Where:** `stage.js:3024-3086` (`autoScale`, `settleRes` and `resSettled` change the canvas share only after the view settles).
+- **What you see:** zoomed in, the canvas is drawn at as little as 10%. Pinch out and the whole figure is very soft for the length of the
+  gesture, then snaps sharp (with a fade, `easeRes`) 200 ms after release.
+- **Fix:** when a gesture starts while Auto is below 1, raise the share right away to the share for the widest view the gesture can reach
+  (home), or at least one step per 1.5× of zoom-out during the gesture, which makes one realloc, not one per frame. The sharp picture is
+  GPU-drawn either way.
+
+### O4. Endoscopy tile is drawn on the CPU even with WebGL2 (P2, M, Confirmed)
+- **Where:** `scope-tile.js:57-60` (`renderEndo(RES, …)` on every grade step), `endo-render.js:100-140` (a per-pixel loop with `atan2`,
+  `hypot` and three `field()` calls per pixel).
+- **What you see:** a short hitch at each varix grade step during a time-lapse, and a 168 px picture stretched on retina (soft). It also
+  breaks the GPU rule, while `instruments.js:247-258` already renders the same field on the GPU (`endo-gl`).
+- **Fix:** render the tile with `endo-gl` like the instrument does, and fade by `keepImage`. Keep `renderEndo` only for the no-WebGL2 path.
+
+---
+
+## 10. Cross-cutting checks worth adding (no code change to the app)
+- A frame-gate measure that fails when `shedStats().byTag` shows `doppler`, `fibroscan` or `pressure-time` carried during a scroll (catches D2).
+- A gl-words test that compares `textWidth` at 28 px with the page's measured width of the same digits (catches N1).
+- A label-follow case with the action card open during a pan, judged on the leader's dot against its anchor (catches L1).
+- A chart test that forces `ready === false` for one frame and checks that the GPU canvas stays visible (catches T1).
+
+## What I did not cover
+`presenter.js` (6.3k lines) and `card-throw.js` are thread A's and B's (R01–R05, R14, R15). `veins-gl.js` (4.2k) and `lobule-zoom.js`
+(4.9k) I only skimmed: I found nothing beyond the items above, but a full read of their per-frame paths is still to do. All results come
+from reading the code. Every P1 here should be confirmed on Mohammad's Mac and iPhone after its fix.
