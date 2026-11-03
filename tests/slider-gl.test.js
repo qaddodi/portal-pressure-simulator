@@ -99,5 +99,5 @@ test('a frame the GPU could not draw never takes a widget\'s picture down (its p
   const widget = readFileSync(new URL('../src/ui/widget-gl.js', import.meta.url), 'utf8');
   const trace = readFileSync(new URL('../src/ui/trace-gl.js', import.meta.url), 'utf8');
   assert.match(widget, /createTraceGL\(host, \{ redraw: \(\) => api\.paint\(\), keep: true \}\)/);
-  assert.match(trace, /hide\(\) \{\n\s+if \(keep && host\.style\.opacity === '0'\) return;/);
+  assert.match(trace, /hide\(\) \{(?:\n\s+\/\/[^\n]*)*\n\s+if \(\(keep \|\| \(!failed && !dead\)\) && host\.style\.opacity === '0'\) return;/);
 });

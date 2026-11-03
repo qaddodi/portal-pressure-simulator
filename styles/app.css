@@ -7631,7 +7631,7 @@ body { font-optical-sizing: auto; font-kerning: normal; }
 /* Words that change while they show, drawn on the GPU over their own box (gl-words.js): the page's own words are made clear while the
    picture shows the new ones, and take them back once they hold still. The picture reaches a little past the box (never past a clipping
    ancestor), set inline as it is measured. */
-.glw-on, .glw-on * { color: transparent !important; -webkit-text-fill-color: transparent !important; fill: transparent !important; text-shadow: none !important; }
+.glw-on, .glw-on * { color: transparent !important; -webkit-text-fill-color: transparent !important; fill: transparent !important; text-shadow: none !important; -webkit-text-stroke-color: transparent !important; stroke: transparent !important; }
 .glw > .glw-cv, .glw > .glw-cv + .trace-gl { z-index: 1; inset: auto; left: var(--glw-l, 0px); top: var(--glw-t, 0px);
   width: calc(100% + var(--glw-w, 0px)); height: calc(100% + var(--glw-h, 0px)); }
 /* No drop shadow round the Present cards (Mohammad, 2 Nov 2026, the teaching card: "the background still has those shadow bleeds"): the

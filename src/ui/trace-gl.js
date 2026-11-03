@@ -855,7 +855,10 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
     },
     /** The 2D canvas draws the chart (shown again); the GPU's picture is hidden. */
     hide() {
-      if (keep && host.style.opacity === '0') return;   // (a widget's last completed GPU picture stays: its page look is out of the way, so a hidden picture would leave a hole)
+      // (A completed GPU picture stays through a frame the GPU cannot draw (a program still compiling, a pool move, a restore): its page look is out of
+      // the way, so a hidden picture would leave a hole, and the retry (missed/redraw) draws it again. A widget always keeps it; any other chart keeps it
+      // while the GPU can still come back. Only a chart whose GPU is gone for good (failed or dead) shows the page's own drawing.)
+      if ((keep || (!failed && !dead)) && host.style.opacity === '0') return;
       if (canvas.style.visibility !== 'hidden') canvas.style.visibility = 'hidden';
       if (host.style.opacity) host.style.opacity = '';
     },
