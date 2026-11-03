@@ -51,7 +51,7 @@ export function foldPlan(before, after, order) {
   };
   const plan = new Map();   // alloc-rare: plans the pill's fold once per change of its buttons (a tap), not per frame; the plan and keyframes are handed to the Web Animations API, which runs them on the compositor
   for (const k of order) {
-    if (b.has(k) && a.has(k)) plan.set(k, { kind: 'stay', dx0: shift(k), dx1: 0, o0: b.get(k).o, o1: 1 });
+    if (b.has(k) && a.has(k)) plan.set(k, { kind: 'stay', dx0: shift(k), dx1: 0, o0: b.get(k).o, o1: 1 });   // alloc-rare: plans the pill's fold once per change of its buttons (a tap), not per frame; the plan and keyframes are handed to the Web Animations API, which runs them on the compositor
     else if (a.has(k)) plan.set(k, { kind: 'in', dx0: near(k), dx1: 0, o0: 0, o1: 1 });   // alloc-rare: plans the pill's fold once per change of its buttons (a tap), not per frame; the plan and keyframes are handed to the Web Animations API, which runs them on the compositor
     else if (b.has(k)) plan.set(k, { kind: 'out', dx0: 0, dx1: -near(k), o0: b.get(k).o, o1: 0 });   // alloc-rare: plans the pill's fold once per change of its buttons (a tap), not per frame; the plan and keyframes are handed to the Web Animations API, which runs them on the compositor
   }
@@ -92,7 +92,7 @@ export function coverFade({ l, r, pl = 0, pr = 0, dx0, dx1, o0, o1, e0, e1, inse
   }
   return [...at].sort((x, y) => x - y).map((p) => {   // alloc-rare: plans the pill's fold once per change of its buttons (a tap), not per frame; the plan and keyframes are handed to the Web Animations API, which runs them on the compositor
     const show = Math.max(0, Math.min(1, margin(p) / ramp));
-    return { offset: p, opacity: +((o0 + (o1 - o0) * p) * show).toFixed(4) };
+    return { offset: p, opacity: +((o0 + (o1 - o0) * p) * show).toFixed(4) };   // alloc-rare: plans the pill's fold once per change of its buttons (a tap), not per frame; the plan and keyframes are handed to the Web Animations API, which runs them on the compositor
   });
 }
 
@@ -116,18 +116,18 @@ export function pillState(seg, box) {
   const B = box.getBoundingClientRect(), z = box.offsetHeight ? B.height / box.offsetHeight : 1, cx = B.left + B.width / 2;
   const face = box.querySelector(':scope > .vp-face');
   if (!B.width || !face) return null;
-  const btns = [];
-  for (const el of seg.querySelectorAll(':scope > button')) {
+  const btns = [];   // alloc-rare: once per change of the view pill's buttons (a tap), not per frame: reads the pill, builds the fold's animations and the ghost of a going button
+  for (const el of seg.querySelectorAll(':scope > button')) {   // alloc-rare: once per change of the view pill's buttons (a tap), not per frame: reads the pill, builds the fold's animations and the ghost of a going button
     const key = el.dataset.ghostOf || el.dataset.view;
     if (!key || !el.getClientRects().length || btns.some((e) => e.key === key)) continue;   // alloc-rare: once per change of the view pill's buttons (a tap), not per frame: reads the pill, builds the fold's animations and the ghost of a going button
     const q = el.getBoundingClientRect(), cs = getComputedStyle(el);
-    btns.push({ key, el, l: (q.left - cx) / z, r: (q.right - cx) / z, pl: parseFloat(cs.paddingLeft) || 0, pr: parseFloat(cs.paddingRight) || 0, o: +cs.opacity, fs: parseFloat(cs.fontSize) || 0 });
+    btns.push({ key, el, l: (q.left - cx) / z, r: (q.right - cx) / z, pl: parseFloat(cs.paddingLeft) || 0, pr: parseFloat(cs.paddingRight) || 0, o: +cs.opacity, fs: parseFloat(cs.fontSize) || 0 });   // alloc-rare: once per change of the view pill's buttons (a tap), not per frame: reads the pill, builds the fold's animations and the ghost of a going button
   }
   const S = seg.getBoundingClientRect(), F = face.getBoundingClientRect(), rad = parseFloat(readStyle(face).borderTopLeftRadius) || 0;
   // (The face's rounded end, at the height of a word: a word's glyphs stand about 0.6 em either side of the pill's middle.)
   const hy = Math.min(rad, 0.6 * Math.max(0, ...btns.map((e) => e.fs)));   // alloc-rare: once per change of the view pill's buttons (a tap), not per frame: reads the pill, builds the fold's animations and the ghost of a going button
   const inset = rad > 0 ? rad - Math.sqrt(rad * rad - hy * hy) : 0;
-  return { w: F.width / z, inset, btns, seg: { l: (S.left - cx) / z, r: (S.right - cx) / z, t: (S.top - B.top) / z, b: (B.bottom - S.bottom) / z } };
+  return { w: F.width / z, inset, btns, seg: { l: (S.left - cx) / z, r: (S.right - cx) / z, t: (S.top - B.top) / z, b: (B.bottom - S.bottom) / z } };   // alloc-rare: once per change of the view pill's buttons (a tap), not per frame: reads the pill, builds the fold's animations and the ghost of a going button
 }
 
 /**
@@ -153,12 +153,12 @@ export function foldPill(seg, box, before, ms = FOLD_MS) {
   const real = (k) => seg.querySelector(`:scope > button[data-view="${k}"]`);   // alloc-rare: once per change of the view pill's buttons (a tap), not per frame: reads the pill, builds the fold's animations and the ghost of a going button
   for (const [k, p] of plan) {
     if (p.kind !== 'out') {
-      const at = after.btns.find((e) => e.key === k);
+      const at = after.btns.find((e) => e.key === k);   // alloc-rare: once per change of the view pill's buttons (a tap), not per frame: reads the pill, builds the fold's animations and the ghost of a going button
       if (p.kind === 'in' && at) {
         keep(real(k).animate([{ transform: `translateX(${p.dx0.toFixed(2)}px)` }, { transform: 'none' }], opt));   // alloc-rare: once per change of the view pill's buttons (a tap), not per frame: reads the pill, builds the fold's animations and the ghost of a going button
         const fade = coverFade({ l: at.l, r: at.r, pl: at.pl, pr: at.pr, inset: after.inset, dx0: p.dx0, dx1: 0, o0: p.o0, o1: 1, e0: before.w / 2, e1: after.w / 2 });   // (opacity keyframes only)   // alloc-rare: once per change of the view pill's buttons (a tap), not per frame: reads the pill, builds the fold's animations and the ghost of a going button
         keep(real(k).animate(fade, opt));
-      } else keep(real(k).animate([{ transform: `translateX(${p.dx0.toFixed(2)}px)`, opacity: p.o0 }, { transform: 'none', opacity: 1 }], opt));
+      } else keep(real(k).animate([{ transform: `translateX(${p.dx0.toFixed(2)}px)`, opacity: p.o0 }, { transform: 'none', opacity: 1 }], opt));   // alloc-rare: once per change of the view pill's buttons (a tap), not per frame: reads the pill, builds the fold's animations and the ghost of a going button
       continue;
     }
     // A button going away: a copy of it stays in the row (out of its layout) where it was drawn and travels with its

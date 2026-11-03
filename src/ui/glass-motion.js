@@ -195,10 +195,10 @@ const EB = new Float64Array(4);
 const LINEAR = 0, CUBIC = 1, UNKNOWN = 2;
 /** A CSS easing as a kind: LINEAR, CUBIC (its four numbers left in EB) or UNKNOWN (steps(), linear() with stops, anything it cannot follow). */
 function easingKind(e) {
-  const s = (e || 'linear').trim();
+  const s = (e || 'linear').trim();   // alloc-rare: an easing is read once, when its animation is first seen, never in a frame
   if (s === 'linear') return LINEAR;
-  const k = Object.hasOwn(NAMED, s) ? NAMED[s] : (/^cubic-bezier\(([^)]*)\)$/.exec(s)?.[1].split(',').map(Number));
-  if (!k || k.length !== 4 || k.some((v) => !Number.isFinite(v))) return UNKNOWN;
+  const k = Object.hasOwn(NAMED, s) ? NAMED[s] : (/^cubic-bezier\(([^)]*)\)$/.exec(s)?.[1].split(',').map(Number));   // alloc-rare: an easing is read once, when its animation is first seen, never in a frame
+  if (!k || k.length !== 4 || k.some((v) => !Number.isFinite(v))) return UNKNOWN;   // alloc-rare: an easing is read once, when its animation is first seen, never in a frame
   EB[0] = k[0]; EB[1] = k[1]; EB[2] = k[2]; EB[3] = k[3];
   return CUBIC;
 }
@@ -375,8 +375,9 @@ export function clockOf(an, now) {
   const st = an.playState;
   const rate = st === 'paused' ? 0 : Number.isFinite(an.playbackRate) ? an.playbackRate : 1;
   const fill = t.fill || 'auto';
-  const c = {
+  const c = {   // alloc-rare: an animation's clock is read once, when it is first seen (and the page is read again), never in a frame
     delay: +t.delay || 0, endDelay: +t.endDelay || 0, dur, iters, iterStart: +t.iterationStart || 0, dir: t.direction || 'normal',
+    // alloc-rare: an animation's easing numbers are copied once, when it is first seen
     fill, back: FILLS_BACK.test(fill), fwd: FILLS_FWD.test(fill), ek, eb: new Float64Array(EB),
     bad: ek === UNKNOWN, rate, s: null, c0: 0, w0: now, idle: st === 'idle', done: false,
   };
