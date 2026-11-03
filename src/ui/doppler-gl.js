@@ -112,6 +112,8 @@ export function createDopplerGL({ onReady = null } = {}) {
       const p = checkProgram(gl, startedS);
       for (const n of SYNTH_UNIS) SU[n] = gl.getUniformLocation(p, n);
       progS = p;
+      // (One 1 × 1 draw, so the browser builds the shader's GPU pipeline now, beside the page, not in the first frame that draws lines.)
+      exerciseDraw(gl, () => { gl.useProgram(p); gl.bindVertexArray(vao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); gl.bindVertexArray(null); });
     } catch (e) { if (gl.isContextLost()) return; synthFailed = true; console.warn('Doppler on the GPU: the spectrum shader failed; the lines are made on the CPU.', e); }
   }
   function publish() {

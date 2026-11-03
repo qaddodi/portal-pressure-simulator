@@ -246,6 +246,13 @@ export function elastogramUnder(F) {
       try {
         g.prog = checkProgram(gl, started); for (const n of UNIS) g.U[n] = gl.getUniformLocation(g.prog, n);
         g.show = checkProgram(gl, started2); for (const n of ['uMap', 'uRes', 'uRad']) g.S[n] = gl.getUniformLocation(g.show, n);
+        // (One 1 × 1 draw of each, so the browser builds their GPU pipelines now, beside the page, not in the panel's first frame: Safari's was 37 ms.)
+        exerciseDraw(gl, () => {
+          gl.bindVertexArray(vao);
+          gl.useProgram(g.prog); gl.uniform1f(g.U.uN, 1); gl.uniform1f(g.U.uNB, 1); gl.uniform1f(g.U.uC, 1); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+          gl.useProgram(g.show); gl.uniform2f(g.S.uRes, 1, 1); gl.uniform1f(g.S.uRad, 0); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+          gl.bindVertexArray(null);
+        });
       } catch (e) { g.failed = true; g.prog = g.show = null; console.warn('FibroScan map: shader failed.', e); }
       under.onReady?.();   // (the first map can be drawn now: the panel draws again, also while paused)
     });
