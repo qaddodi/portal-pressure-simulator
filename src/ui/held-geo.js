@@ -21,3 +21,12 @@ export function setGeo(el, k, v) {
 }
 /** The attribute itself, whatever number is held over it: how the glide sees that the chart wrote one of its numbers. */
 export const rawGeo = (el, k) => (el._raw || el.getAttribute).call(el, k);
+
+/** A model path/polygon/polyline piece's outline held on the piece as points (x, y pairs in a typed array the owner writes in place, n pairs
+ *  used): the same record svg-gl.js's setPts keeps, set here so the glide can use it without loading the picture. */
+export function holdPts(el, buf, n, closed) {
+  const P = el._pts;
+  if (P) { P.buf = buf; P.n = n; P.closed = closed; } else el._pts = { buf, n, closed };   // alloc-rare: a piece's first points record, made once (kept on the piece)
+}
+/** Lets go of the held points: the piece is drawn from its own `d` or `points` again. */
+export function dropPts(el) { el._pts = undefined; }

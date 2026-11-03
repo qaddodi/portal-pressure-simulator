@@ -211,6 +211,28 @@ test('a morph begun mid-glide takes the drawing as it stands: no piece jumps, th
   assert.equal(b.children[0].getAttribute('x2'), String(mid), 'the released drawing was not written again');
 });
 
+test('a polyline glides as held points (no text in a frame), a single number as a number; both let go at the landing', async () => {
+  const path = (d) => new El('path', { d, class: 'p' });
+  assert.ok(tweenOf('d', 'M0 0L10 10', 'M0 0L5 5L20 20').flat, 'a polyline of other length glides as points');
+  assert.ok(tweenOf('d', 'M0 0L10 10', 'M0 0L20 40').flat, 'so does one of the same length');
+  assert.equal(tweenOf('d', 'M0 0C1 1 2 2 3 3', 'M0 0C1 1 2 2 6 6').flat, undefined, 'a curve stays text');
+  assert.equal(tweenOf('x', '10', '20').one, true);
+  const [host, a] = mount(path('M0 0L10 10'), line(0, 0, 10, 0));
+  const b = svgOf(path('M0 0L20 40'), line(0, 0, 30, 0));
+  assert.equal(morphSvg(a, b), true);
+  const [p] = b.children;
+  assert.ok(p._pts, 'the path is held as points from the first frame');
+  assert.deepEqual([...p._pts.buf.slice(0, 4)], [0, 0, 10, 10], 'it starts where the old one stood');
+  await new Promise((r) => setTimeout(r, 160));
+  const x = p._pts.buf[2];
+  assert.ok(x > 10 && x < 20, `part way (${x})`);
+  assert.equal(p.attrs.get('d'), 'M0 0L20 40', 'no attribute is written in a frame');
+  await new Promise((r) => setTimeout(r, 560));
+  assert.equal(p._pts, undefined, 'the points are let go at the landing');
+  assert.equal(p.getAttribute('d'), 'M0 0L20 40');
+  assert.equal(host.children.length, 1);
+});
+
 test('the charts that morph keep their crossfade for when they cannot', () => {
   const src = (f) => readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf8');
   for (const f of ['talk-trace.js', 'tool-curve.js', 'tool-course.js']) {
