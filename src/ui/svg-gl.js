@@ -380,6 +380,12 @@ export function setPts(el, buf, n, closed = false) {
   if (P) { P.buf = buf; P.n = n; P.closed = closed; } else el._pts = { buf, n, closed };
   return true;
 }
+/** Hides or shows a model piece, held on the piece (no style written: a frame makes none); the picture skips a hidden piece. Returns true when it changed. */
+export function setHidden(el, on) {
+  if (!!el._hide === on) return false;
+  el._hide = on;
+  return true;
+}
 /** A model piece's held value for k, else its attribute (null when it has neither). */
 export const geoOf = (el, k) => { const v = el._g?.[k]; return v !== undefined ? v : el.getAttribute?.(k) ?? null; };
 const at = (el, k) => { const v = el._g?.[k]; return v !== undefined ? +v || 0 : num(el.getAttribute(k)); };
@@ -771,7 +777,7 @@ function paintEl(ctx, root, el, alpha, k) {
   if (tag === 'defs' || tag === 'clippath' || tag === 'x-title' || tag === 'lineargradient' || tag === 'radialgradient' || tag === 'mask' || tag === 'marker' || tag === 'pattern') return;
   const L = looks.get(el);
   if (!L || L.none) return;
-  if (el.style.display === 'none') return;   // (a piece the chart hides inline)
+  if (el._hide || el.style.display === 'none') return;   // (a piece the chart hides: held on the piece, or inline)
   const f = fadeOf(el);
   let a = alpha * (f ?? opNow(el, L, easeNow()));
   if (a <= 0.002) return;

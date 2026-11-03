@@ -7378,26 +7378,18 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .gs-brkrow { position: relative; height: 1.6em; }
 .gs-brkrow > span { position: absolute; right: 0; top: 0; white-space: nowrap; }
 .gs-trk { position: relative; height: var(--gs-bar); border-radius: .4em; background: var(--gs-slot); }
-/* (Each part is laid out as wide as its track and drawn by three pieces that slide and stretch: tool-fluid.js span(). An end is
-   as wide as its corner (or its arrow's point); the middle is shown between the ends by two sliding clips.) */
-.gs-span { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; pointer-events: none; }
-.gs-span .gp-win, .gs-span .gp-win-in { position: absolute; inset: 0; }
-.gs-span .gp-win { overflow: hidden; }
-.gs-span .gp { position: absolute; left: 0; top: 0; bottom: 0; box-sizing: border-box; background: var(--gs-c, none); transform-origin: 0 50%; }
-.gs-span .gp-m { width: 100%; }
-.gs-span .gp-l { width: .4em; border-radius: .4em 0 0 .4em; } .gs-span .gp-r { width: .4em; border-radius: 0 .4em .4em 0; }
-/* (the dashed outline is the room the lymphatics have left; its opacity follows its width, set in tool-fluid.js, so it fades, never pops) */
-.gs-ghost { --gs-line: 1.5px dashed var(--gs-dash); opacity: 0; }
-.gs-ghost .gp-m { border-top: var(--gs-line); border-bottom: var(--gs-line); }
-.gs-ghost .gp-l { border: var(--gs-line); border-right: 0; } .gs-ghost .gp-r { border: var(--gs-line); border-left: 0; }
+/* (The plate holds the bracket's row and the track; the parts, the bracket and the words in them are a model the GPU draws over it:
+   tool-fluid.js span(). The track here is only its slot and its size. The dashed outline is the room the lymphatics have left, its
+   strength set by its width, so it fades, never pops.) */
+.gs-plate { position: relative; display: flex; flex-direction: column; gap: .3em; }
+.gs-svg { display: none; }
+.gs-seg { fill: var(--gs-c, none); }
+.gs-ghost { fill: none; stroke: var(--gs-dash); stroke-width: 1.5; stroke-dasharray: 3 2.5; }
 .gs-car { --gs-c: var(--gs-carried); } .gs-blue { --gs-c: var(--gs-back); } .gs-shrink { --gs-c: var(--ok); } .gs-build { --gs-c: var(--gs-build); }
 .gs-push { --gs-c: var(--gs-push); } .gs-pull { --gs-c: var(--gs-pull); }
 /* (the Leaked bracket: a line over what leaked with a short tick down at each end) */
-.gs-span.gs-brk { top: auto; height: .3em; opacity: 0; --gs-line: 1.5px solid color-mix(in srgb, var(--text) 45%, transparent); }
-.gs-brk .gp-m { border-top: var(--gs-line); }
-.gs-span.gs-brk .gp-l { width: .3em; border-radius: 0; border-top: var(--gs-line); border-left: var(--gs-line); }
-.gs-span.gs-brk .gp-r { width: .3em; border-radius: 0; border-top: var(--gs-line); border-right: var(--gs-line); }
-.gs-in { position: absolute; left: .55em; top: 0; bottom: 0; display: flex; align-items: center; white-space: nowrap; color: var(--text); font-weight: 600; pointer-events: none; transition: opacity var(--d-small) var(--ease); }
+.gs-brk { fill: none; stroke: color-mix(in srgb, var(--text) 45%, transparent); stroke-width: 1.5; stroke-linejoin: miter; }
+.gs-in { fill: var(--text); font-weight: 600; dominant-baseline: central; }
 .gs-lab { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: .1em .8em; }
 .gs-lab > span { white-space: nowrap; }
 .gs-gap { margin-left: 1em; }
@@ -7406,11 +7398,8 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .gs-sw.none { background: none; border: 1.5px dashed var(--gs-dash); }
 .gs-forces { display: flex; flex-direction: column; gap: .3em; margin-top: .1em; color: var(--text-3); font: 500 var(--gs-fs)/1.25 var(--font-ui); font-variant-numeric: tabular-nums; }
 .gs-fcap { border-top: 1px solid var(--border); padding-top: .3em; }
-/* (the push and the pull are arrows meeting at the wall: a notch cut into the pull, a point on the push) */
-.gs-tug .gs-push .gp-r { width: .7em; border-radius: 0; clip-path: polygon(0 0, 100% 50%, 0 100%); }
-.gs-tug .gs-pull .gp-l { width: .7em; border-radius: 0; clip-path: polygon(100% 0, 100% 100%, 0 50%); }
-.gs-tug .gs-push .gs-in { left: .6em; } .gs-tug .gs-pull .gs-in { left: 1.1em; }
-.gs-wall { position: absolute; left: 0; top: 0; bottom: 0; width: 0; border-left: 1.5px dashed color-mix(in srgb, var(--text) 60%, transparent); pointer-events: none; }
+/* (the push and the pull are arrows meeting at the wall: a point on each, drawn in the tug's model) */
+.gs-wall { fill: none; stroke: color-mix(in srgb, var(--text) 60%, transparent); stroke-width: 1.5; stroke-dasharray: 3 2.5; }
 
 /* ── Package G: end ── */
 
