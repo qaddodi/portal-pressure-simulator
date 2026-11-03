@@ -7,5 +7,5 @@ import { readFileSync } from 'node:fs';
 test('a pan rebases its start point the moment it first counts as moved', () => {
   const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
   assert.match(st, /\(ev\.pointerType === 'touch' \? 8 : 4\)\) \{ if \(!drag\.moved\) \{ drag\.moved = true; drag\.x = ev\.clientX; drag\.y = ev\.clientY; \} clearPress\(\); \}/);
-  assert.match(st, /x: drag\.vx \+ \(ev\.clientX - drag\.x\) \/ drag\.s0, y: drag\.vy \+ \(ev\.clientY - drag\.y\) \/ drag\.s0/);
+  assert.match(st, /PAN_IN\.x = drag\.vx \+ \(ev\.clientX - drag\.x\) \/ drag\.s0; PAN_IN\.y = drag\.vy \+ \(ev\.clientY - drag\.y\) \/ drag\.s0;/);
 });

@@ -31,7 +31,7 @@ test('atlas picks (18 Oct): smaller chevrons with a tinted dark core and softer 
   // A1: 4–8 CSS px half-width, never over 0.8 of the lumen; the stage and the lobule both say how many canvas px a CSS px is.
   assert.match(gl, /float hw = min\(0\.8 \* R, clamp\(0\.5 \* R, 4\.0 \* cssPx \* pxW, 8\.0 \* cssPx \* pxW\)\)/);
   assert.match(gl, /vec3 ink = mix\(chevInk, vc \* 0\.3, 0\.2\);/);
-  assert.match(stage, /holes: chevHoles, vdpr, \.\.\.bloodColors\(\)/);
+  assert.match(stage, /L\.holes = chevHoles; L\.vdpr = vdpr;\n\s+L\.originCol = bc\.originCol; L\.dyeCol = bc\.dyeCol;/);
   assert.match(read('src/ui/lobule-zoom.js'), /bleed: \[\], vdpr: 1, originCol: null/);
   assert.match(read('src/ui/lobule-zoom.js'), /const bc = bloodColors\(\), blood = bloodArg;/);
   // AL3: the chevrons read the radius between its samples.
@@ -68,7 +68,8 @@ test('B4: the streaks, chevrons and origin colours fade when switched, and a ves
   assert.doesNotMatch(blood, /live \?\? 1\) >= 0\.5/);
   assert.match(blood, /put\(x\.row, k, q \/ area, x\.freeFrom, x\.freeTo, rs\);/);
   const look = fn(stage, '  function bloodLook() {');
-  assert.match(look, /on: sA > 0, still: reduceMotion\.matches, chev: cA > 0, look: b\.look, origin: oA > 0, streakA: sA, chevA: cA, originA: oA,/);
+  // (Written in place into one kept record, field for field what the literal held.)
+  assert.match(look, /L\.on = sA > 0; L\.still = reduceMotion\.matches; L\.chev = cA > 0; L\.look = b\.look; L\.origin = oA > 0; L\.streakA = sA; L\.chevA = cA; L\.originA = oA;/);
 });
 
 test('B6: a jump in the model recolours the vessels through the lens crossfade, not in one frame', () => {

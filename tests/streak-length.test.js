@@ -56,7 +56,8 @@ const shares = (kk) => {
 const factor = (vd, stasis = 0) => { const k = Math.min(1.6, Math.max(0.6, Math.sqrt(Math.abs(vd) / 36))); return k + (1 - k) * stasis; };
 
 test('the figure alone asks for it (the lobule draws as before)', () => {
-  assert.match(stage, /originA: oA, streakLen: true, clock: bloodClock,/);
+  assert.match(stage, /originA: 0, streakLen: true, clock: 0,/);
+  assert.match(stage, /L\.clock = bloodClock;/);
   assert.match(gl, /uniform int lenOn;/);
   assert.match(gl, /UC\.i1\(U\.lenOn, blood\.streakLen \? 1 : 0\);/);
   // (Changing it draws the picture again: it is in the still-lumen signature with the other blood switches.)

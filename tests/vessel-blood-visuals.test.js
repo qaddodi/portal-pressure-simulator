@@ -160,7 +160,7 @@ test('G17: with reduced motion the chevrons stand still, spaced by flow', () => 
   assert.ok(Math.abs(chevFlowLevel(-CHEV_Q_FULL / 4) - 2) < 1e-9, 'either way');
   assert.equal(chevFlowLevel(0.01), 3);
   assert.match(STAGE, /flowData\[o \+ 13\] = chevFlowLevel\(q\);/);
-  assert.match(STAGE, /still: reduceMotion\.matches, chev:/);
+  assert.match(STAGE, /L\.still = reduceMotion\.matches; L\.chev = cA > 0;/);
   assert.match(GL, /if \(still == 1\) lv = max\(lv, texelFetch\(flow, ivec2\(3, id\), 0\)\.y\);/);
 });
 

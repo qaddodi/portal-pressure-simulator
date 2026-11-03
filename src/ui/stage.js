@@ -7941,11 +7941,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function scanHead() {
     const tip = scan.el && scanTipLocal();
     if (!tip) return;
-    const a = scan.deg * Math.PI / 180, c = Math.cos(a), sn = Math.sin(a), ax = tip.tx, ay = tip.y;
-    const xs = [], ys = [];
-    for (const [u, v] of [[-92, -13], [-92, 13], [-2, -13], [-2, 13]]) { xs.push(ax + u * c - v * sn); ys.push(ay + u * sn + v * c); }
-    const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
-    scan.el.classList.toggle('head-off', scanLook('head').some((r) => r.x0 < x1 && r.x1 > x0 && r.y0 < y1 && r.y1 > y0));
+    const q = scanBody(tip.tx, tip.y, scan.deg);   // (the same four corners: 92 px back along the axis, 13 px either side)
+    let hit = false;
+    for (const r of scanLook('head')) if (r.x0 < q.x1 && r.x1 > q.x0 && r.y0 < q.y1 && r.y1 > q.y0) { hit = true; break; }
+    scan.el.classList.toggle('head-off', hit);
   }
   function scanTick(now) {
     scan.raf = 0;
@@ -7991,6 +7990,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // probe showed.)
   let scanLvD = '', scanLvBox = null;
   const SCAN_FLAT = newFlat();   // (the liver's outline cut for the scan tip's box: kept, written again when the outline changes)
+  const SCAN_AT = { tx: 0, y: 0 };
   function scanTipLocal() {
     const lv = organEls.liver;
     if (!scan.on || !lv || morph > 0.5) return null;
@@ -7998,13 +7998,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!d) return null;
     if (d !== scanLvD) { scanLvD = d; polyBoxInto(flattenPathInto(d, 0.05, SCAN_FLAT), SCAN_BOX); scanLvBox = SCAN_BOX[2] >= SCAN_BOX[0] ? SCAN_BOX : null; }
     if (!scanLvBox) return null;
-    const m = gMatrix(organG.liver), [bx0, by0, bx1, by1] = scanLvBox, xs = [], ys = [];
-    for (const [qx, qy] of [[bx0, by0], [bx1, by0], [bx0, by1], [bx1, by1]]) {
-      const [p, q] = worldToLocal(m ? m.a * qx + m.c * qy + m.e : qx, m ? m.b * qx + m.d * qy + m.f : qy);
-      xs.push(p); ys.push(q);
+    // (The box's four corners go through the liver's transform and the camera one by one; the box that holds them is the answer, in one kept record.)
+    const m = gMatrix(organG.liver), bx0 = scanLvBox[0], by0 = scanLvBox[1], bx1 = scanLvBox[2], by1 = scanLvBox[3];
+    if (!CTM) refreshCTM();
+    let l = Infinity, t = Infinity, r = -Infinity, b = -Infinity;
+    for (let i = 0; i < 4; i++) {
+      const qx = i & 1 ? bx1 : bx0, qy = i & 2 ? by1 : by0, wx = m ? m.a * qx + m.c * qy + m.e : qx, wy = m ? m.b * qx + m.d * qy + m.f : qy;
+      const p = CTM.a * wx + CTM.c * wy + CTM.e - wrapRect.left, q = CTM.b * wx + CTM.d * wy + CTM.f - wrapRect.top;
+      if (p < l) l = p; if (p > r) r = p; if (q < t) t = q; if (q > b) b = q;
     }
-    const l = Math.min(...xs), t = Math.min(...ys);
-    return { tx: l + (Math.max(...xs) - l) * 0.13, y: t + (Math.max(...ys) - t) * 0.09 };
+    SCAN_AT.tx = l + (r - l) * 0.13; SCAN_AT.y = t + (b - t) * 0.09;
+    return SCAN_AT;
   }
   // The probe's reading is the FibroScan card's own number (fibroscan.js writes it in its frame, with its rounding) while a card
   // is on screen; without one it falls back to the model's eased value.
@@ -8021,30 +8025,50 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // so the corners bound the rounded body: near the screen's top edge, a phone on its side, the probe lies flatter, down to 10°, so the whole
   // body stays 4 px or more below the top edge; the left edge wins where both press.)
   // The probe's body (its four corners, 92 px back along it and 13 px either side of the tip's line) turned to deg, stage-local.
+  // (Written into one kept record, which its callers use at once.)
+  const SCAN_Q = { x0: 0, y0: 0, x1: 0, y1: 0 };
   function scanBody(tx, y, deg) {
-    const a = deg * Math.PI / 180, c = Math.cos(a), sn = Math.sin(a), xs = [], ys = [];
-    for (const [u, v] of [[-92, -13], [-92, 13], [-2, -13], [-2, 13]]) { xs.push(tx + u * c - v * sn); ys.push(y + u * sn + v * c); }
-    return { x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) };
+    const a = deg * Math.PI / 180, c = Math.cos(a), sn = Math.sin(a);
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (let i = 0; i < 4; i++) {
+      const u = i & 1 ? -2 : -92, v = i & 2 ? 13 : -13, px = tx + u * c - v * sn, py = y + u * sn + v * c;
+      if (px < x0) x0 = px; if (px > x1) x1 = px; if (py < y0) y0 = py; if (py > y1) y1 = py;
+    }
+    SCAN_Q.x0 = x0; SCAN_Q.y0 = y0; SCAN_Q.x1 = x1; SCAN_Q.y1 = y1;
+    return SCAN_Q;
   }
   // The slide's cards the probe keeps clear of, one margin out (read at most four times a second).
 
   const scanCards = () => (store.get().presenting ? scanLook('cards') : []);
   // (The same, read now: the Doppler probe's own read of the cards, in the frame's read phase.)
   const scanCardsRead = () => (store.get().presenting ? scanLookRead('cards') : []);
+  // (The turn's tests are plain functions of an angle, made once; none is a closure made on each ask.)
+  const scanLeftOk = (tx, d) => tx - 92 * Math.cos(d * Math.PI / 180) - 13 * Math.sin(d * Math.PI / 180) >= SCAN_EDGE;
+  const scanTopOk = (y, d) => y - 76 * Math.sin(d * Math.PI / 180) - 13.8 * Math.cos(d * Math.PI / 180) >= 4;
+  const scanBodyLeftOk = (tx, d) => tx - 76 * Math.cos(d * Math.PI / 180) - 13.8 * Math.sin(d * Math.PI / 180) >= 4;   // (only the body must stay on screen; the cable is a short stub)
+  function scanClear(cards, tx, y, d) {
+    if (!cards.length) return true;
+    const q = scanBody(tx, y, d);
+    for (const b of cards) if (b.x0 < q.x1 && b.x1 > q.x0 && b.y0 < q.y1 && b.y1 > q.y0) return false;
+    return true;
+  }
   function scanTurn(tx, y = Infinity) {
-    const r = (d) => d * Math.PI / 180, left = (d) => tx - 92 * Math.cos(r(d)) - 13 * Math.sin(r(d)) >= SCAN_EDGE, top = (d) => y - 76 * Math.sin(r(d)) - 13.8 * Math.cos(r(d)) >= 4;
-    const bodyLeft = (d) => tx - 76 * Math.cos(r(d)) - 13.8 * Math.sin(r(d)) >= 4;   // (only the body must stay on screen; the cable is a short stub)
     let deg = 45;
-    while (deg < 80 && !left(deg)) deg += 5;
-    if (left(deg)) while (deg > 10 && !top(deg) && bodyLeft(deg - 5)) deg -= 5;
+    while (deg < 80 && !scanLeftOk(tx, deg)) deg += 5;
+    if (scanLeftOk(tx, deg)) while (deg > 10 && !scanTopOk(y, deg) && scanBodyLeftOk(tx, deg - 5)) deg -= 5;
     // (Where a slide's card (its glass, the deck tab included) comes within one margin of the probe's body, the probe turns, nearest
     // first, to an angle that keeps its body and reading clear of every card and on screen; with none, it stays and its head fades
     // under the card (scanHead): 17 Oct design review, the probe lay on the teaching card's tab.)
-    const cards = scanCards(), clear = (d) => !cards.length || !cards.some((b) => { const q = scanBody(tx, y, d); return b.x0 < q.x1 && b.x1 > q.x0 && b.y0 < q.y1 && b.y1 > q.y0; });
-    if (!clear(deg)) {
-      const alt = [];
-      for (let d = 10; d <= 80; d += 5) if (d !== deg && bodyLeft(d) && y - 76 * Math.sin(r(d)) - 13.8 * Math.cos(r(d)) >= 4 && clear(d)) alt.push(d);
-      if (alt.length) deg = alt.sort((a, b) => Math.abs(a - deg) - Math.abs(b - deg) || b - a)[0];
+    const cards = scanCards();
+    if (!scanClear(cards, tx, y, deg)) {
+      // (The nearest angle that is clear, the larger one of two as far away; found by comparing, no list made.)
+      let best = -1, bestD = Infinity;
+      for (let d = 10; d <= 80; d += 5) {
+        if (d === deg || !scanBodyLeftOk(tx, d) || !scanTopOk(y, d) || !scanClear(cards, tx, y, d)) continue;
+        const gap = Math.abs(d - deg);
+        if (gap < bestD || (gap === bestD && d > best)) { bestD = gap; best = d; }
+      }
+      if (best >= 0) deg = best;
     }
     if (deg !== scan.deg) { scan.deg = deg; scan.el.style.setProperty('--sp-turn', `${deg}deg`); }
     // (The cable stays a short stub behind the body at every angle: laid flatter it used to run on to the screen's edge, a long
@@ -8909,17 +8933,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // jumps: its jump is kept as an offset that eases to nothing, while it still follows its point on the figure as the camera moves.
   // (x, y: where it should be now; ax, ay: its point. Returns where it shows. A glide still running asks for the next frame.)
   const CATH_GLIDE = 600;
+  // (The glide's answer goes in one kept pair, which its two callers read at once; the glide's record is the label's own, written in place.)
+  const GLIDE_XY = [0, 0], cathGlideTick = () => { cath.glideRaf = 0; cath.lblKey = ''; cathLabelsSoon(); };
   function cathGlide(el, x, y, ax, ay) {
-    const now = performance.now(), g = el._gl;
-    const left = (q) => { const u = Math.min(1, (now - q.t0) / CATH_GLIDE), e = 1 - (1 - u) ** 3; return [q.ox * (1 - e), q.oy * (1 - e), u < 1]; };
-    let [ox, oy] = g ? left(g) : [0, 0];
+    const now = performance.now();
+    let g = el._gl, ox = 0, oy = 0;
     if (g) {
+      const u = Math.min(1, (now - g.t0) / CATH_GLIDE), e = 1 - (1 - u) ** 3;
+      ox = g.ox * (1 - e); oy = g.oy * (1 - e);
       const jx = x - g.x - (ax - g.ax), jy = y - g.y - (ay - g.ay);
-      if (Math.hypot(jx, jy) > 4 && !matchMedia('(prefers-reduced-motion: reduce)').matches) { el._gl = { x, y, ax, ay, ox: ox - jx, oy: oy - jy, t0: now }; ox -= jx; oy -= jy; }
-      else el._gl = { ...g, x, y, ax, ay };
-    } else el._gl = { x, y, ax, ay, ox: 0, oy: 0, t0: now };
-    if (left(el._gl)[2] && !cath.glideRaf) cath.glideRaf = nextFrame(() => { cath.glideRaf = 0; cath.lblKey = ''; cathLabelsSoon(); });
-    return [x + ox, y + oy];
+      if (Math.hypot(jx, jy) > 4 && !reduceMotion.matches) { ox -= jx; oy -= jy; g.ox = ox; g.oy = oy; g.t0 = now; }
+      g.x = x; g.y = y; g.ax = ax; g.ay = ay;
+    } else g = el._gl = { x, y, ax, ay, ox: 0, oy: 0, t0: now };
+    if (Math.min(1, (now - g.t0) / CATH_GLIDE) < 1 && !cath.glideRaf) cath.glideRaf = nextFrame(cathGlideTick);
+    GLIDE_XY[0] = x + ox; GLIDE_XY[1] = y + oy;
+    return GLIDE_XY;
   }
   const PILL_TPL = [0, 1].map((u) => { const e = document.createElement('div'); e.innerHTML = '<small></small><b></b>' + (u ? '<span></span>' : ''); return withGlass(e); });   // (its glass built in: callout.js withGlass)
   const SUM_TPL = (() => { const e = document.createElement('div'), box = document.createElement('div'), col = document.createElement('div'); e.className = 'cath-sum'; box.className = 'cath-sum-box'; col.className = 'cath-sum-col'; box.append(col, s('svg', { class: 'cath-brace', width: 22 }, s('path', {}))); e.append(s('svg', { class: 'cath-leads' }), box); return e; })();
@@ -9015,7 +9043,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // Kept inside the stage: the box moves in and its pointer stays on the point.
       const bx = clamp(x + side.dx, Math.min(half + 8, W / 2), Math.max(W - half - 8, W / 2)), by = side.above ? y - PILL_GAP - h : y + PILL_GAP;
       let cx = bx, cy = by;
-      if (ready) [cx, cy] = cathGlide(el, bx, by, x, y); else el._gl = null;
+      if (ready) { const q = cathGlide(el, bx, by, x, y); cx = q[0]; cy = q[1]; } else el._gl = null;
       // Placed: it comes in there, from the frame after (the fade and small rise of cath-pre, never a slide from a first guess).
       if (el._side && !el._shown && !el.classList.contains('cath-out')) { el._shown = true; nextFrame(() => { el.classList.remove('cath-pre'); }); }
       // The pointer is on the side facing its point: it turns as the gliding pill passes the point, not before.
@@ -9044,7 +9072,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         keep.push({ x0: Math.min(...cs.map((c) => c[0])), y0: Math.min(...cs.map((c) => c[1])), x1: Math.max(...cs.map((c) => c[0])), y1: Math.max(...cs.map((c) => c[1])) });
       }
       let { x, y } = placeSummary({ A, bw, bh, W, top, lim, gap, blockers: room.blk, keep });
-      [x, y] = cathGlide(box, x, y, (A.tip[0] + A.ahead[0]) / 2, (A.tip[1] + A.ahead[1]) / 2);
+      { const q = cathGlide(box, x, y, (A.tip[0] + A.ahead[0]) / 2, (A.tip[1] + A.ahead[1]) / 2); x = q[0]; y = q[1]; }
       box.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
       el._box = { x0: x, y0: y, x1: x + bw, y1: y + bh };
       // The bracket, from the middle of one reading to the middle of the other.
@@ -9855,26 +9883,37 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   function frostOver(level) {
     frostWatch();
-    const key = `${frostDirty}|${veins?.viewKey ?? ''}|${labelGL?.lost ? 'lost' : ''}|${appEl?.classList.contains('presenting') ? 1 : 0}`;
-    const k = frostKept.get(level);
-    if (k && k.key === key && k.boxes === (labelGL?.boxes ?? null)) return k.out;
+    // (Kept with the parts it was read for, compared one by one: no key text is built on an ask that finds the same answer.)
+    const vk = veins?.viewKey ?? '', lost = !!labelGL?.lost, pres = !!appEl?.classList.contains('presenting'), boxes = labelGL?.boxes ?? null;
+    let k = frostKept.get(level);
+    if (k && k.dirty === frostDirty && k.vk === vk && k.lost === lost && k.pres === pres && k.boxes === boxes) return k.out;
     const out = frostOverRead(level);
-    frostKept.set(level, { key, boxes: labelGL?.boxes ?? null, out });
+    if (!k) frostKept.set(level, (k = { dirty: 0, vk: '', lost: false, pres: false, boxes: null, out }));
+    k.dirty = frostDirty; k.vk = vk; k.lost = lost; k.pres = pres; k.boxes = boxes; k.out = out;
     return out;
   }
   // (One part's boxes, kept while its count, the mode and the labels' picture stand.)
   const frostParts = new Map();
   function frostPartRead(p, read) {
-    const key = `${frostPart[p]}|${appEl?.classList.contains('presenting') ? 1 : 0}|${labelGL?.lost ? 'lost' : ''}|${p === 'over' ? svg.style.transform : ''}`;
+    const n = frostPart[p], pres = !!appEl?.classList.contains('presenting'), lost = !!labelGL?.lost, tr = p === 'over' ? svg.style.transform : '';
     const k = frostParts.get(p), boxes = labelGL?.boxes ?? null;
-    if (k && k.key === key && k.boxes === boxes) return k;
+    if (k && k.n === n && k.pres === pres && k.lost === lost && k.tr === tr && k.boxes === boxes) return k;
     if (p === 'over' && !CTM) refreshCTM();
-    const v = { key, boxes, ctm: p === 'over' ? CTM : null, out: read() };
+    const v = k || { n: 0, pres: false, lost: false, tr: '', boxes: null, ctm: null, out: null };
+    v.n = n; v.pres = pres; v.lost = lost; v.tr = tr; v.boxes = boxes; v.ctm = p === 'over' ? CTM : null; v.out = read();
     frostParts.set(p, v);
     return v;
   }
   // (Boxes read at one view of the figure, where they are at another: each box's corners through the change of transform, and the box
   // that holds them. By arithmetic, no read.)
+  // (The change of transform sits in one kept array; a box's four corners go through it one by one, and the box that holds them is the answer.)
+  const CARRY_M = [1, 0, 0, 1, 0, 0];
+  function carryRect(r) {
+    const m = CARRY_M, l = r.left, t = r.top, rt = r.right, bt = r.bottom;
+    const xa = m[0] * l + m[2] * t + m[4], xb = m[0] * rt + m[2] * t + m[4], xc = m[0] * l + m[2] * bt + m[4], xd = m[0] * rt + m[2] * bt + m[4];
+    const ya = m[1] * l + m[3] * t + m[5], yb = m[1] * rt + m[3] * t + m[5], yc = m[1] * l + m[3] * bt + m[5], yd = m[1] * rt + m[3] * bt + m[5];
+    return { left: Math.min(xa, xb, xc, xd), top: Math.min(ya, yb, yc, yd), right: Math.max(xa, xb, xc, xd), bottom: Math.max(ya, yb, yc, yd) };
+  }
   function frostCarry(v) {
     if (!CTM) refreshCTM();
     const a = v.ctm, b = CTM;
@@ -9882,12 +9921,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const det = a.a * a.d - a.b * a.c;
     if (!det) return v.out;
     const ia = a.d / det, ib = -a.b / det, ic = -a.c / det, id = a.a / det, ie = (a.c * a.f - a.d * a.e) / det, jf = (a.b * a.e - a.a * a.f) / det;
-    const m = [b.a * ia + b.c * ib, b.b * ia + b.d * ib, b.a * ic + b.c * id, b.b * ic + b.d * id, b.a * ie + b.c * jf + b.e, b.b * ie + b.d * jf + b.f];
-    return v.out.map((r) => {
-      const xs = [], ys = [];
-      for (const [x, y] of [[r.left, r.top], [r.right, r.top], [r.left, r.bottom], [r.right, r.bottom]]) { xs.push(m[0] * x + m[2] * y + m[4]); ys.push(m[1] * x + m[3] * y + m[5]); }
-      return { left: Math.min(...xs), top: Math.min(...ys), right: Math.max(...xs), bottom: Math.max(...ys) };
-    });
+    CARRY_M[0] = b.a * ia + b.c * ib; CARRY_M[1] = b.b * ia + b.d * ib; CARRY_M[2] = b.a * ic + b.c * id; CARRY_M[3] = b.b * ic + b.d * id;
+    CARRY_M[4] = b.a * ie + b.c * jf + b.e; CARRY_M[5] = b.b * ie + b.d * jf + b.f;
+    return v.out.map(carryRect);
   }
   function frostOverRead(level) {
     const out = [...frostCarry(frostPartRead('over', () => {
@@ -10227,25 +10263,28 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const PULL_GRID = [];
   for (let x = -120; x <= 120; x += 4) for (let y = -120; y <= 120; y += 4) if ((x || y) && Math.hypot(x, y) <= 120) PULL_GRID.push([x, y]);
   PULL_GRID.sort((a, b) => Math.hypot(...a) - Math.hypot(...b));
+  // (The offset goes into one kept pair, which its one caller reads at once.)
+  const OFF_XY = [0, 0];
   function offset(dir, it, gap) {
-    const { w, h: hh } = it;
-    const d = gap * 0.72;
+    const w = it.w, hh = it.h, d = gap * 0.72;
+    let x = -w / 2, y = -hh / 2;   // 'C': centered on the anchor
     switch (dir) {
-      case 'N': return [-w / 2, -gap - hh];
-      case 'S': return [-w / 2, gap];
-      case 'E': return [gap, -hh / 2];
-      case 'W': return [-gap - w, -hh / 2];
-      case 'EL': return [gap, -hh * 0.2];   // (beside it, a little low: a one-line reading at the top edge of the free space)
-      case 'WL': return [-gap - w, -hh * 0.2];
-      case 'NE': return [d, -d - hh];
-      case 'NW': return [-d - w, -d - hh];
-      case 'SE': return [d, d];
-      case 'SW': return [-d - w, d];
+      case 'N': x = -w / 2; y = -gap - hh; break;
+      case 'S': x = -w / 2; y = gap; break;
+      case 'E': x = gap; y = -hh / 2; break;
+      case 'W': x = -gap - w; y = -hh / 2; break;
+      case 'EL': x = gap; y = -hh * 0.2; break;   // (beside it, a little low: a one-line reading at the top edge of the free space)
+      case 'WL': x = -gap - w; y = -hh * 0.2; break;
+      case 'NE': x = d; y = -d - hh; break;
+      case 'NW': x = -d - w; y = -d - hh; break;
+      case 'SE': x = d; y = d; break;
+      case 'SW': x = -d - w; y = d; break;
       default:
         // 'R<k>': centred on a ring of radius gap around the anchor, k sixteenths of a turn from due east (RING_DIRS)
-        if (dir[0] === 'R') { const a = (+dir.slice(1) * Math.PI) / 8; return [gap * Math.cos(a) - w / 2, gap * Math.sin(a) - hh / 2]; }
-        return [-w / 2, -hh / 2]; // 'C': centered on the anchor
+        if (dir[0] === 'R') { const a = (+dir.slice(1) * Math.PI) / 8; x = gap * Math.cos(a) - w / 2; y = gap * Math.sin(a) - hh / 2; }
     }
+    OFF_XY[0] = x; OFF_XY[1] = y;
+    return OFF_XY;
   }
 
   const REF = () => {
@@ -11299,7 +11338,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         // (A spot on the grid around the station is tried once, not per direction, and only until one is free: the grid runs nearest
         // first. The spot the label held is still tried, so it can hold it.)
         if (ps.skip || (ps.at && (i || (best && !(prev && prev.pi === pi))))) return;
-        let [dx, dy] = ps.at ? [ps.at[0] - probe.w / 2, ps.at[1] - probe.h / 2] : offset(dir, probe, ps.gap);
+        let dx, dy;
+        if (ps.at) { dx = ps.at[0] - probe.w / 2; dy = ps.at[1] - probe.h / 2; } else { const o = offset(dir, probe, ps.gap); dx = o[0]; dy = o[1]; }
         if (ps.shift) { dx += ps.shift[0]; dy += ps.shift[1]; }   // (a slot slid up or down from its compass spot)
         let r = rectOf({ ...probe, x: it.ax + dx, y: it.ay + dy });
         // (A stent's point past the stage's edge, or the slide's mark beside it, is tried where the last pass would pull it back to, so it
@@ -12294,10 +12334,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // A drawn end is free when no other drawn vessel ends there: parcels fade in or out at it.
   // (Versioned: the geometry, the morph to two places and which vessels count, compared in place instead of a list and a
   // joined key built every frame; round 2 review, P8.)
-  let endsIn = null, endsGeo = -1, endsMorph = '';
+  let endsIn = null, endsGeo = -1, endsMorph = -1;
+  // Another drawn vessel ends at `node` within 20 units of (px, py)? (Each drawn vessel's two ends are looked at; no list of them is kept.)
+  function endJoined(x, node, px, py) {
+    for (let j = 0; j < EV.length; j++) {
+      const y = EV[j];
+      if (!endsIn[j] || y === x) continue;
+      const P = geo[y.e.id].cur;
+      if (y.e.from === node && Math.hypot(P[0][0] - px, P[0][1] - py) < 20) return true;
+      if (y.e.to === node && Math.hypot(P[P.length - 1][0] - px, P[P.length - 1][1] - py) < 20) return true;
+    }
+    return false;
+  }
   function syncEnds() {
     if (!endsIn || endsIn.length !== EV.length) { endsIn = new Uint8Array(EV.length); endsGeo = -1; }
-    const mk = morph.toFixed(2);
+    const mk = Math.round(morph * 100);
     let same = endsGeo === geometryVersion && endsMorph === mk;
     for (let i = 0; i < EV.length; i++) {
       const x = EV[i], v = x.vis && !x.isArt && !x.ghost ? 1 : 0;
@@ -12305,20 +12356,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     if (same) return;
     endsGeo = geometryVersion; endsMorph = mk;
-    const list = EV.filter((x, i) => endsIn[i]);
-    const ends = new Map();
-    for (const x of list) {
-      const P = geo[x.e.id].cur;
-      for (const [node, point] of [[x.e.from, P[0]], [x.e.to, P[P.length - 1]]]) {
-        if (!ends.has(node)) ends.set(node, []);
-        ends.get(node).push({ x, point });
-      }
-    }
-    const joined = (x, node, point) => ends.get(node).some((o) => o.x !== x && Math.hypot(o.point[0] - point[0], o.point[1] - point[1]) < 20);
-    for (const x of list) {
-      const P = geo[x.e.id].cur;
-      x.freeFrom = !joined(x, x.e.from, P[0]) && !x.feeders?.length;
-      x.freeTo = !joined(x, x.e.to, P[P.length - 1]);
+    for (let i = 0; i < EV.length; i++) {
+      if (!endsIn[i]) continue;
+      const x = EV[i], P = geo[x.e.id].cur, a = P[0], b = P[P.length - 1];
+      x.freeFrom = !endJoined(x, x.e.from, a[0], a[1]) && !x.feeders?.length;
+      x.freeTo = !endJoined(x, x.e.to, b[0], b[1]);
     }
   }
   const streamOpts = { phasic: false, speed: 1, large: true, still: false, rev: false };
@@ -12387,9 +12429,23 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
   }
   // (One empty list for every vessel with no strands, feeders or branches, and for no spray: none made each frame. Never written.)
-  const NONE = Object.freeze([]);
+  const NONE = Object.freeze([]), NO_OBJ = Object.freeze({});
+  // (One flow row written whole; a function made once, not a closure made on each step.)
+  function put(row, k, q, f0, f1, strength) {
+    const o = row * FLOW_TEXELS * 4, sm = streams[k];
+    flowData.fill(0, o, o + FLOW_TEXELS * 4); flowNow[row] = 1;
+    flowData[o] = sm.aD; flowData[o + 1] = sm.aV; flowData[o + 2] = KAPPA * Math.abs(q); flowData[o + 3] = sm.aT;
+    flowData[o + 24] = sm.aB; flowData[o + 25] = sm.aS;
+    flowData[o + 4] = f0 ? 1 : 0; flowData[o + 5] = f1 ? 1 : 0; flowData[o + 6] = strength; flowData[o + 7] = sm.rev;
+    if (origins) for (let c = 0; c < ORIGIN_N; c++) flowData[o + 8 + c] = origins[k * ORIGIN_N + c];
+    flowData[o + 12] = sm.chevK ?? 1;
+    // Reduced motion: the chevrons stand still, so their spacing carries the flow (veins-gl chevAt): a level of 0 (the
+    // finest, 28 units) for 0.8 L/min or more, one level coarser for each halving, at most 3.
+    flowData[o + 13] = chevFlowLevel(q);
+    flowData[o + 14] = sm.aR;
+  }
   function stepBlood(dt) {
-    const st = store.get(), b = st.blood || {};
+    const st = store.get(), b = st.blood || NO_OBJ;
     const moving = st.running && !reduceMotion.matches;
     const speed = st.clock === 'hemo' ? clamp(Math.sqrt(st.speed), 0.5, 2) : 0.8;
     const Qf = F.Qf || F.Q;
@@ -12437,19 +12493,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     syncEnds();
     // (Each row drawn is written whole and a row no longer drawn is cleared once after the loop (flow-rows.js retireRows): the
     // table ends as a clear of all of it before the writes left it, without clearing and refilling every row each frame.)
-    const put = (row, k, q, f0, f1, strength) => {
-      const o = row * FLOW_TEXELS * 4, sm = streams[k];
-      flowData.fill(0, o, o + FLOW_TEXELS * 4); flowNow[row] = 1;
-      flowData[o] = sm.aD; flowData[o + 1] = sm.aV; flowData[o + 2] = KAPPA * Math.abs(q); flowData[o + 3] = sm.aT;
-      flowData[o + 24] = sm.aB; flowData[o + 25] = sm.aS;
-      flowData[o + 4] = f0 ? 1 : 0; flowData[o + 5] = f1 ? 1 : 0; flowData[o + 6] = strength; flowData[o + 7] = sm.rev;
-      if (origins) for (let c = 0; c < ORIGIN_N; c++) flowData[o + 8 + c] = origins[k * ORIGIN_N + c];
-      flowData[o + 12] = sm.chevK ?? 1;
-      // Reduced motion: the chevrons stand still, so their spacing carries the flow (veins-gl chevAt): a level of 0 (the
-      // finest, 28 units) for 0.8 L/min or more, one level coarser for each halving, at most 3.
-      flowData[o + 13] = chevFlowLevel(q);
-      flowData[o + 14] = sm.aR;
-    };
     // A vessel drawing on (a TIPS, a new collateral) or retracting carries its blood in step with its stroke, and a strand or a
     // tributary as it comes and goes: a strength that follows them, instead of no blood until the end and then all of it in
     // one frame (round 2 review, B4).
@@ -12539,11 +12582,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // the wall clock made them jump on pause and play. Reduce Motion keeps the still four stages: B11.)
     return fadeBleedShapes(bleedShapes(sprayLast.bleed, sprayLast.rate, reduceMotion.matches ? 0 : bloodClock, SITES, sprayLast.hr), sprayA);
   }
+  // (The look handed to the vessel layer is one kept record, written in place on each ask: the layer reads it at once; the colours are
+  // the cached set bloodColors gives.)
+  const BLOOD_LOOK = { on: false, still: false, chev: false, look: undefined, origin: false, streakA: 0, chevA: 0, originA: 0, streakLen: true, clock: 0, bt: 0, dye: true, bleed: NONE, noChev: undefined, holes: undefined, vdpr: 1,
+    originCol: null, dyeCol: null, inkLight: null, inkDark: null, revCol: null, chevInk: null, chevLight: null };
   function bloodLook() {
-    const st = store.get(), b = st.blood || {};
+    const st = store.get(), b = st.blood || NO_OBJ, L = BLOOD_LOOK, bc = bloodColors();
     // (Each drawn while it shows at all, by its eased share: stepBlood's blendA; its own switch before the first step.)
     const sA = blendA.s ?? (bloodOn() ? 1 : 0), cA = blendA.c ?? (chevOn() && !cath.st ? 1 : 0), oA = blendA.o ?? (originOn() ? 1 : 0);
-    return { on: sA > 0, still: reduceMotion.matches, chev: cA > 0, look: b.look, origin: oA > 0, streakA: sA, chevA: cA, originA: oA, streakLen: true, clock: bloodClock, bt: bloodClock - bEpoch, dye: !st.imaging, bleed: bleedSpray(), noChev: noChevBoxes, holes: chevHoles, vdpr, ...bloodColors() };
+    L.on = sA > 0; L.still = reduceMotion.matches; L.chev = cA > 0; L.look = b.look; L.origin = oA > 0; L.streakA = sA; L.chevA = cA; L.originA = oA;
+    L.clock = bloodClock; L.bt = bloodClock - bEpoch; L.dye = !st.imaging; L.bleed = bleedSpray(); L.noChev = noChevBoxes; L.holes = chevHoles; L.vdpr = vdpr;
+    L.originCol = bc.originCol; L.dyeCol = bc.dyeCol; L.inkLight = bc.inkLight; L.inkDark = bc.inkDark; L.revCol = bc.revCol; L.chevInk = bc.chevInk; L.chevLight = bc.chevLight;
+    return L;
   }
 
   let lastT = performance.now(), lastDrawF = null, lastDrawCTM = null, lastAnim = true;
@@ -12573,7 +12623,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // the painter does not read at each paint (needsReread), when the page's state around them changes (overKey), and while a CSS
   // transition runs in a group (overEasing: the browser eases it, so that group and those above stay in the SVG until it ends).
   // (OVER_ON is set just after SOFTWARE, near the top: the labels' host below the vessel canvas reads it while the stage is made.)
-  let overDirty = true, overKeyWas = '', overPainted = [], overFor = null, overStop = null, overKeptFor = null;
+  let overDirty = true, overKeyWas = -1, overPainted = [], overFor = null, overStop = null, overKeptFor = null;
   let overNow = { units: 0, painted: 0, whole: false };   // (the last sync's overlay groups, for the ?perf surfaces list)
   // (How long an element's CSS transitions run, ms, read once a reading: a value the painter reads at each paint, eased by them.)
   let overTrans = new WeakMap();
@@ -12589,7 +12639,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const overCheck = new Set();   // (elements written since the last reading, their transitions read at the next)
   const overEasing = new Map();   // element → when its ease ends at the latest (performance.now), for a transition that never reports
   // (A pan's, a pinch's or a glide's own classes on the app and the stage change no overlay's look: gestureFree, as the organs' readings.)
-  const overKey = () => `${gestureFree(appEl?.className || '')}|${document.documentElement.className}|${wrapCls()}|${svgOver ? [...svgOver.classList].filter((c) => c !== OVER_ALL).join(' ') : ''}|${themeKey()}|${reduceMotion.matches}`;
+  // (Asked on each paint: a version number, stepped when a part of the key differs from the last ask's: the app's classes without a
+  // gesture's own, the page's, the stage's, the overlays' without OVER_ALL, the theme and palette, reduced motion. No joined string is
+  // built; a class text is worked on only when its raw text has changed.)
+  let okAppRaw = null, okApp = '', okDoc = null, okWrap = null, okOverRaw = null, okOver = '', okTheme = null, okPal = null, okRM = null, okVer = 0;
+  const overKey = () => {
+    let changed = false;
+    const a = appEl?.className || '', d = document.documentElement.className, w = wrapCls(), o = svgOver ? svgOver.getAttribute('class') || '' : '';
+    if (a !== okAppRaw) { okAppRaw = a; const f = gestureFree(a); if (f !== okApp) { okApp = f; changed = true; } }
+    if (o !== okOverRaw) { okOverRaw = o; const f = svgOver ? [...svgOver.classList].filter((c) => c !== OVER_ALL).join(' ') : ''; if (f !== okOver) { okOver = f; changed = true; } }
+    const ds = document.documentElement.dataset, th = ds.theme, pal = ds.palette, rm = reduceMotion.matches;
+    if (d !== okDoc || w !== okWrap || th !== okTheme || pal !== okPal || rm !== okRM) { okDoc = d; okWrap = w; okTheme = th; okPal = pal; okRM = rm; changed = true; }
+    return changed ? ++okVer : okVer;
+  };
   // (Set up once, at start-up where the overlays are on the GPU, or by renderPath if a restore makes them possible.)
   let overWatching = false;
   // Each unit's reading, kept until something in it changes in a way the painter does not read at each paint (needsReread), the
@@ -13034,9 +13096,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!vh.raf) { vh.t = performance.now(); vh.raf = nextFrame(vhStep); }
     if (HOVER_LINK) linkSync();   // (its reading lifts as it lights, lets go as it dims)
   }
+  // (The sets a step works in are kept and cleared, not made anew in each step; vhAdd puts in them what vhEdges would list.)
+  const vhWant = new Set(), vhOut = new Set(), vhLift = new Set();
+  function vhAdd(set, id) {
+    if (IVC_EDGES.has(id)) { for (const e of IVC_EDGES) if (E[e]?.vis) set.add(e); return; }
+    if (E[id]?.vis) set.add(id);
+    const also = id === vh.id && vh.also;
+    if (also) for (const e of also) if (E[e]?.vis) set.add(e);
+  }
   function vhStep(now) {
     const dt = Math.min(0.1, (now - vh.t) / 1000); vh.t = now;
-    const want = new Set([...(vh.id ? vhEdges(vh.id) : []), ...vh.sel]);
+    const want = vhWant; want.clear();
+    if (vh.id) vhAdd(want, vh.id);
+    for (const id of vh.sel) want.add(id);
     if (spotOn()) for (const id of spot.ids) want.add(id);   // (a slide's spotlit vessels brighten as a selected one: V2)
     for (const id of want) if (!vh.amt.has(id)) vh.amt.set(id, 0);
     let moving = false;
@@ -13046,9 +13118,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (nv !== to) moving = true;
     }
     // (While a shunt is being made, its source and every vessel it can join stand out of the dimmed network too: NP3.)
-    const out = shunt ? new Set([...vh.sel, shunt.src, ...shunt.targets.keys()].filter((id) => E[id]?.vis)) : vh.sel;
+    let out = vh.sel;
+    if (shunt) {
+      out = vhOut; out.clear();
+      for (const id of vh.sel) if (E[id]?.vis) out.add(id);
+      if (E[shunt.src]?.vis) out.add(shunt.src);
+      for (const id of shunt.targets.keys()) if (E[id]?.vis) out.add(id);
+    }
     // (A slide's spotlit vessels stand out the same way: deck visuals V2.)
-    const lift = spotOn() && spot.ids.size ? new Set([...out, ...spot.ids]) : out;
+    let lift = out;
+    if (spotOn() && spot.ids.size) { lift = vhLift; lift.clear(); for (const id of out) lift.add(id); for (const id of spot.ids) lift.add(id); }
     for (const id of lift) if (!vh.selA.has(id)) vh.selA.set(id, 0);
     for (const [id, v] of vh.selA) {
       const to = lift.has(id) ? 1 : 0, k = reduceMotion.matches ? 1 : dt / SEL_FADE, nv = to > v ? Math.min(1, v + k) : Math.max(0, v - k);
@@ -13247,8 +13326,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     wheelAt = now;
     if (wheelKind === 'wheel' || lobuleOn) { zoomAt(ev.clientX, ev.clientY, Math.exp(-clamp(dy, -120, 120) * 0.0015)); if (!lobuleOn) settleSoon(); return; }   // (out past the whole figure, it springs back once the wheel stops, as a pinch does)
     const s = vbScale();
-    const u0 = unsoftPan(vt);
-    vt = softPan({ k: vt.k, x: u0.x - dx / s, y: u0.y - dy / s });
+    const u0 = unsoftPan(vt, PAN_RAW);
+    PAN_IN.k = vt.k; PAN_IN.x = u0.x - dx / s; PAN_IN.y = u0.y - dy / s;
+    vt = softPan(PAN_IN, VT_BUF);
     applyVT(); CTM = null; settleSoon();
   };
   svg.addEventListener('wheel', onWheel, { passive: false });
@@ -13279,9 +13359,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // view, it springs back once the gesture ends. During a pinch the limits stretch a little.
   const K_MIN = 0.6, K_MAX = 6;
   const softK = (k) => (k > K_MAX ? K_MAX * Math.pow(k / K_MAX, 0.3) : k < K_MIN ? K_MIN * Math.pow(k / K_MIN, 0.3) : k);
+  // (The visible view box, written into one kept box: its callers use it at once and keep nothing. The pan maths below write into kept
+  // boxes too, so a drag, a wheel step or a flick makes no object per event: VT_BUF is the view while one of them moves it, PAN_RAW and
+  // PAN_IN are the maths' own scratch, and the flick's hard() answers in the one array HARD_XY.)
+  const VIS_BOX = { x: 0, y: 0, w: 0, h: 0 }, VT_BUF = { k: 1, x: 0, y: 0 }, PAN_RAW = { k: 1, x: 0, y: 0 }, PAN_IN = { k: 1, x: 0, y: 0 }, PAN_HARD = { k: 1, x: 0, y: 0 }, HARD_XY = [0, 0];
   function visibleVB() {
     const b = stageBox(), vb = vbBox, s = Math.min(b.sw / vb.width, b.sh / vb.height);
-    return { x: vb.x - (b.sw - vb.width * s) / 2 / s, y: vb.y - (b.sh - vb.height * s) / 2 / s, w: b.sw / s, h: b.sh / s };
+    VIS_BOX.x = vb.x - (b.sw - vb.width * s) / 2 / s; VIS_BOX.y = vb.y - (b.sh - vb.height * s) / 2 / s; VIS_BOX.w = b.sw / s; VIS_BOX.h = b.sh / s;
+    return VIS_BOX;
   }
   // Panning past the figure meets rising resistance, the lobule view's rubber band: a tanh band easing toward
   // 40% of the view, measured from where the middle of the view meets the figure's edge (at the fit zoom, from the fit framing).
@@ -13298,20 +13383,24 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   addEventListener('pps:occ', () => { panFit = null; cath.lblKey = ''; cathRoom(); });
   addEventListener('resize', () => { panFit = null; cath.lblKey = ''; cathRoom(); });
-  function hardPan(v) {
+  // (hardPan, bandPan, softPan and unsoftPan write their answer into `out` and give it back; the default is a fresh object for a caller
+  // that keeps it. `out` may be `v` itself.)
+  function hardPan(v, out = {}) {
     const d = fitForPan();
-    if (v.k <= d.k * 1.001) return { k: v.k, x: d.x, y: d.y };   // at the fit zoom the bounds are the fit position itself, as the lobule at its framing
+    if (v.k <= d.k * 1.001) { out.k = v.k; out.x = d.x; out.y = d.y; return out; }   // at the fit zoom the bounds are the fit position itself, as the lobule at its framing
     const c = morphTarget === 1 ? circVB() : VB_ANAT, vis = visibleVB();
     const x0 = c[0] * v.k + v.x, x1 = (c[0] + c[2]) * v.k + v.x, y0 = c[1] * v.k + v.y, y1 = (c[1] + c[3]) * v.k + v.y;
     const vx = vis.x + vis.w / 2, vy = vis.y + vis.h / 2;
-    return { k: v.k, x: v.x + (vx < x0 ? vx - x0 : vx > x1 ? vx - x1 : 0), y: v.y + (vy < y0 ? vy - y0 : vy > y1 ? vy - y1 : 0) };
+    out.k = v.k; out.x = v.x + (vx < x0 ? vx - x0 : vx > x1 ? vx - x1 : 0); out.y = v.y + (vy < y0 ? vy - y0 : vy > y1 ? vy - y1 : 0);
+    return out;
   }
-  function bandPan(v, inv) {
-    const h = hardPan(v), vis = visibleVB(), Lx = 0.4 * vis.w, Ly = 0.4 * vis.h;
-    const f = (o, L) => (inv ? Math.atanh(clamp(o / L, -0.999, 0.999)) * L : L * Math.tanh(o / L));
-    return { k: v.k, x: h.x + f(v.x - h.x, Lx), y: h.y + f(v.y - h.y, Ly) };
+  const bandOff = (o, L, inv) => (inv ? Math.atanh(clamp(o / L, -0.999, 0.999)) * L : L * Math.tanh(o / L));
+  function bandPan(v, inv, out = {}) {
+    const h = hardPan(v, PAN_HARD), vis = visibleVB(), Lx = 0.4 * vis.w, Ly = 0.4 * vis.h, k = v.k, vx = v.x, vy = v.y, hx = h.x, hy = h.y;
+    out.k = k; out.x = hx + bandOff(vx - hx, Lx, inv); out.y = hy + bandOff(vy - hy, Ly, inv);
+    return out;
   }
-  const softPan = (v) => bandPan(v, false), unsoftPan = (v) => bandPan(v, true);
+  const softPan = (v, out) => bandPan(v, false, out), unsoftPan = (v, out) => bandPan(v, true, out);
   // (Measured first in the next frame (readFrame), while the layout is still the last frame's: a flick's last frame or a lifted finger
   // no longer measures the cards among the frame's writes.)
   let springAsk = 0;
@@ -13343,15 +13432,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let cancelFlick = null;
   function fling(vx, vy) {
     if (reduceMotion.matches || Math.hypot(vx, vy) < FLICK.minSpeed) { springBack(); return; }
-    const s0 = vbScale(), k = vt.k, h0 = hardPan(vt);
+    const s0 = vbScale(), k = vt.k, h0 = hardPan(vt, PAN_RAW);
     // Let go past the bounds (always so at the fit zoom, where the drag rides the wide band): nothing to carry, so it eases home from
     // exactly where it is, as the lobule does at its framing. A flick would restart the stretch from a narrower band and jump.
     if (Math.abs(vt.x - h0.x) * s0 > 0.5 || Math.abs(vt.y - h0.y) * s0 > 0.5) { springBack(); return; }
     glide = 1;
     cancelFlick = runFlick({   // the lobule's flick, in screen pixels, bounded by the figure
       x: vt.x * s0, y: vt.y * s0, vx: vx, vy: vy,
-      hard: (x, y) => { const h = hardPan({ k, x: x / s0, y: y / s0 }); return [h.x * s0, h.y * s0]; },
-      apply: (x, y) => { vt = { k, x: x / s0, y: y / s0 }; applyVT(); CTM = null; },
+      hard: (x, y) => { PAN_IN.k = k; PAN_IN.x = x / s0; PAN_IN.y = y / s0; const h = hardPan(PAN_IN, PAN_HARD); HARD_XY[0] = h.x * s0; HARD_XY[1] = h.y * s0; return HARD_XY; },
+      apply: (x, y) => { VT_BUF.k = k; VT_BUF.x = x / s0; VT_BUF.y = y / s0; vt = VT_BUF; applyVT(); CTM = null; },
       done: () => { glide = 0; cancelFlick = null; springBack(); },
     });
   }
@@ -13367,11 +13456,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const b = stageBox(), vb = vbBox, s = Math.min(b.sw / vb.width, b.sh / vb.height);
     return [(cx - b.left - b.sx - (b.sw - vb.width * s) / 2) / s + vb.x, (cy - b.top - b.sy - (b.sh - vb.height * s) / 2) / s + vb.y];
   }
-  const startPan = (x, y, id, moved = false) => ({ type: 'pan', x, y, vx: vt.x, vy: vt.y, s0: vbScale(), moved, id, trail: [[performance.now(), x, y]] });
+  // (The pan's trail is flat: t, x, y of each move, the oldest at `th`. Dropping the oldest moves `th` on, and the array is packed in place
+  // when it has run on: a move makes no array.)
+  const startPan = (x, y, id, moved = false) => ({ type: 'pan', x, y, vx: vt.x, vy: vt.y, s0: vbScale(), moved, id, trail: [performance.now(), x, y], th: 0 });
   function startPinch() {
     const [a, b] = [...pointers.values()];
     const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2, [vx, vy] = clientToVBFast(mx, my);
-    return { type: 'pinchzoom', d0: Math.max(1, Math.hypot(a[0] - b[0], a[1] - b[1])), k0: vt.k, wx: (vx - vt.x) / vt.k, wy: (vy - vt.y) / vt.k, mx, my, t0: performance.now(), moved: false };
+    return { type: 'pinchzoom', pa: a, pb: b, d0: Math.max(1, Math.hypot(a[0] - b[0], a[1] - b[1])), k0: vt.k, wx: (vx - vt.x) / vt.k, wy: (vy - vt.y) / vt.k, mx, my, t0: performance.now(), moved: false };
   }
   let pressT = 0, lastTap = null;
   const clearPress = () => { clearTimeout(pressT); pressT = 0; };
@@ -13425,17 +13516,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   svg.addEventListener('pointermove', (ev) => {
     if (!pointers.has(ev.pointerId)) return;
-    pointers.set(ev.pointerId, [ev.clientX, ev.clientY]);
+    const pt = pointers.get(ev.pointerId); pt[0] = ev.clientX; pt[1] = ev.clientY;   // (this finger's own pair, written in place; a pinch holds the two pairs)
     if (!drag || drag.type === 'ignore') return;
     if (drag.type === 'pinchzoom') {
       if (pointers.size !== 2) return;
-      const [a, b] = [...pointers.values()];
+      const a = drag.pa, b = drag.pb;
       const d = Math.hypot(a[0] - b[0], a[1] - b[1]), mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
       if (Math.abs(d - drag.d0) > 10 || Math.hypot(mx - drag.mx, my - drag.my) > 10) drag.moved = true;
       if (lobuleOn) return;
       const k = softK(drag.k0 * d / drag.d0);
       const [vx, vy] = clientToVBFast(mx, my);
-      vt = { k, x: vx - drag.wx * k, y: vy - drag.wy * k }; fitted = false;
+      VT_BUF.k = k; VT_BUF.x = vx - drag.wx * k; VT_BUF.y = vy - drag.wy * k; vt = VT_BUF; fitted = false;
       applyVT(); CTM = null;
       return;
     }
@@ -13448,11 +13539,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         return;
       }
       if (drag.moved) {
-        vt = softPan({ k: vt.k, x: drag.vx + (ev.clientX - drag.x) / drag.s0, y: drag.vy + (ev.clientY - drag.y) / drag.s0 }); fitted = false;
+        PAN_IN.k = vt.k; PAN_IN.x = drag.vx + (ev.clientX - drag.x) / drag.s0; PAN_IN.y = drag.vy + (ev.clientY - drag.y) / drag.s0;
+        vt = softPan(PAN_IN, VT_BUF); fitted = false;
         applyVT(); CTM = null;
-        const now = performance.now();
-        drag.trail.push([now, ev.clientX, ev.clientY]);
-        while (drag.trail.length > 2 && now - drag.trail[0][0] > 90) drag.trail.shift();
+        const now = performance.now(), tr = drag.trail;
+        tr.push(now, ev.clientX, ev.clientY);
+        while (tr.length - drag.th > 6 && now - tr[drag.th] > 90) drag.th += 3;
+        if (drag.th >= 30) { tr.copyWithin(0, drag.th); tr.length -= drag.th; drag.th = 0; }
       }
       return;
     }
@@ -13494,9 +13587,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
       // A real flick only: enough of a trail to measure, still moving at release, and capped, so a lift that
       // jitters never throws the figure.
-      const tr = d.trail, a = tr[0], b = tr[tr.length - 1], dt = b[0] - a[0];
-      if (!d.noFling && tr.length >= 3 && dt >= 30 && performance.now() - b[0] < 50) {
-        const vx = (b[1] - a[1]) / dt, vy = (b[2] - a[2]) / dt, sp = Math.hypot(vx, vy), cap = Math.min(1, 2 / (sp || 1));
+      const tr = d.trail, ta = d.th, tb = tr.length - 3, dt = tr[tb] - tr[ta];
+      if (!d.noFling && tb - ta >= 6 && dt >= 30 && performance.now() - tr[tb] < 50) {   // (three moves or more)
+        const vx = (tr[tb + 1] - tr[ta + 1]) / dt, vy = (tr[tb + 2] - tr[ta + 2]) / dt, sp = Math.hypot(vx, vy), cap = Math.min(1, 2 / (sp || 1));
         fling(vx * cap, vy * cap);
       } else springBack();
       return;

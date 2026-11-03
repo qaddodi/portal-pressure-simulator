@@ -146,7 +146,7 @@ test('what lies between the figure and a glass (stage.js frostOver) is kept unti
   const f = st.slice(st.indexOf('  function frostOver(level) {'), st.indexOf('  function frostOverRead(level) {'));
   assert.doesNotMatch(st, /FROST_KEEP|glassreads=/);
   assert.doesNotMatch(f, /return frostOverRead\(level\);/);
-  assert.match(f, /if \(k && k\.key === key && k\.boxes === \(labelGL\?\.boxes \?\? null\)\) return k\.out;/);
+  assert.match(f, /if \(k && k\.dirty === frostDirty && k\.vk === vk && k\.lost === lost && k\.pres === pres && k\.boxes === boxes\) return k\.out;/);
   assert.match(f, /veins\?\.viewKey/);
   assert.doesNotMatch(f, /getAnimations|frostUntil/);
   assert.doesNotMatch(st, /document\.addEventListener\(t, frostTouch/);

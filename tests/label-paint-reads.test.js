@@ -12,7 +12,7 @@ test('the FibroScan probe never asks the browser for the liver\'s box', () => {
   assert.doesNotMatch(fn, /getBoundingClientRect|getBBox|getScreenCTM/);
   assert.match(fn, /polyBoxInto\(flattenPathInto\(d, 0\.05, SCAN_FLAT\)/);
   assert.match(fn, /gMatrix\(organG\.liver\)/);
-  assert.match(fn, /worldToLocal\(/);
+  assert.match(fn, /CTM\.a \* wx \+ CTM\.c \* wy \+ CTM\.e - wrapRect\.left/);   // (the camera's matrix, as worldToLocal applies it)
 });
 
 test('a view change paints the callouts and probes once: again only when updateLabels held back', () => {
