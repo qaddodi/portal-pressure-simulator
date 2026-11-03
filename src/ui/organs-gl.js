@@ -113,7 +113,7 @@ export function marginViewTo(o, m, cw, ch) {
 }
 
 import { createShapeGL } from './shape-gl.js?v=9e5dd356a7';
-import { createOrganPaint, mul, mulTo, invTo, prestartOrganPaint } from './organ-paint.js?v=48519d48c2';
+import { createOrganPaint, mul, mulTo, invTo, prestartOrganPaint } from './organ-paint.js?v=a2ebc3b50d';
 import { prestart, linkProgram, exerciseDraw } from './gl-compile.js?v=255276a5f4';
 import { netChanged } from './idle-keys.js?v=1b5b7b8ddd';
 import { uniformCache } from './uniform-cache.js?v=323665bf20';
@@ -635,6 +635,8 @@ export function createOrganStack(gl, { painter: shared = null, moves = !shared }
     dropKept() { painter?.dropKept(); },
     /** What the painter holds on the GPU (organ-paint stats), or null without one. */
     stats: () => (painter ? { ...painter.stats(), cached: cache.size, cacheBytes, moves: { ...moveStats, shown: mvShown } } : null),   // alloc-rare: diagnostic counts for the ?perf and ?organpaths readouts, not read in a frame
+    /** The names of the layers painted live now, and how many shapes each holds (a diagnostic: the checks ask whether the diaphragm's layer ('back') is there). */
+    liveLayers: () => Object.fromEntries([...liveOrgans].map(([n, gs]) => [n, gs.reduce((k, g) => k + (g.spec?.ops?.length || 0), 0)])),   // alloc-rare: diagnostic for the checks, not read in a frame
     /** Shows the staged set for `slot` in place of the one shown, drawn in the order of `names` (back to front). */
     commit(slot, names) {
       if (slot === 1 && live[0].size) {

@@ -212,6 +212,9 @@ jobs:
       - name: The organs painted on the GPU match the browser's drawing of their SVG
         if: success() || failure()   # (each check runs even when the one before it failed, so one red run tells them all)
         run: npm run smoke:paint
+      - name: The diaphragm is drawn on the Anatomy view (after a reload and a patient change too)
+        if: success() || failure()
+        run: npm run smoke:diaphragm
       - name: The figure's browser checks, organs on the GPU
         if: success() || failure()   # (each check runs even when the one before it failed, so one red run tells them all)
         env:

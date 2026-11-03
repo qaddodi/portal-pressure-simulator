@@ -37,7 +37,8 @@
     "smoke:layers": "node tests/e2e/plate-layers.mjs",
     "smoke:shapes": "node tests/e2e/shape-cover.mjs",
     "smoke:pool": "node tests/e2e/fluid-pool.mjs",
-    "smoke:paint": "node tests/e2e/organ-paint.mjs"
+    "smoke:paint": "node tests/e2e/organ-paint.mjs",
+    "smoke:diaphragm": "node tests/e2e/diaphragm.mjs"
   },
   "license": "UNLICENSED",
   "devDependencies": {

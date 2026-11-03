@@ -45,7 +45,7 @@ import { leftAlone } from './quiet.js?v=856a3cdf1e';
 import { uniformCache } from './uniform-cache.js?v=323665bf20';
 import { PUBLISH_QUIET_MS, SHADER_WARM, exerciseDraw } from './gl-compile.js?v=255276a5f4';
 import { createShapeGL, flattenPath, ellipsePoly, polyMeshInto } from './shape-gl.js?v=9e5dd356a7';
-import { createOrganStack, prestartOrganStack, prestartLayer } from './organs-gl.js?v=4c7a9085dd';
+import { createOrganStack, prestartOrganStack, prestartLayer } from './organs-gl.js?v=406807fd5d';
 import { warmFade } from './res-fade-gl.js?v=f253f13b3f';
 import { fusedVS, fusedFS } from './veins-fuse.js?v=b5cc409146';
 import { NOISE_W, NOISE_H, NOISE_PER_ROW, OCTAVES, noiseBlock, blockAt, tableSize } from './blood-noise.js?v=d78e4a3425';
@@ -3436,6 +3436,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       bake: (slot, name, groups, rect, scale, at = 0) => stack.bake(slot, name, groups, rect, scale, at),
       dropKept: () => stack.dropKept(),
       stats: () => stack.stats(),
+      liveLayers: () => stack.liveLayers(),
       commit(slot, names) {
         texVer++;
         // (One kind of picture at a time: the layers replace the flattened plate of the same slot.)

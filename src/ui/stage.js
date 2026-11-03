@@ -44,21 +44,21 @@ import { refine } from './refine.js?v=fb64519cbd';
 import { fadeOver, fadeStop, fading } from './res-fade.js?v=bb282583bc';
 import { LIGHT } from './light.js?v=f0c4eefb81';
 import { leftAlone, sinceInput, booting, holdCover } from './quiet.js?v=856a3cdf1e';
-import { cropToGrid } from './organs-gl.js?v=4c7a9085dd';
+import { cropToGrid } from './organs-gl.js?v=406807fd5d';
 import { textPolys, loadGlyphs, glyphsReady, textBox } from './text-gl.js?v=7b87ad71e9';
 import { cssColor8 } from './css-color.js?v=59ed182174';
 import { measure as measureWords } from './glyph-measure.js?v=5be332e845';
-import { readGroup as readGroupNow, readGroupRefs, readFail, shapeSource, reshape, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=48519d48c2';
+import { readGroup as readGroupNow, readGroupRefs, readFail, shapeSource, reshape, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=a2ebc3b50d';
 import { setLive, getLive, dropLive } from './live-style.js?v=1a585312ec';
 import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js?v=92f2104661';
 import { pathCmds, flattenPath, flattenPathInto, newFlat, newCmds, cmdsReset, cmdM, cmdL, cmdQ, cmdZ, polyBoxInto, measurePath, elBoxInto, chainMat } from './shape-gl.js?v=9e5dd356a7';
 import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=3719bd84df';
 import { nameSpots, NAME_BREAK } from './organ-names.js?v=709ccdf593';
-import { createLabelGL } from './label-gl.js?v=d24dcf3ff9';
+import { createLabelGL } from './label-gl.js?v=5081d91576';
 import { createGlassGL } from './glass-gl.js?v=9797a3144c';
 import { writePoints, writeJoinNow } from './veins-sweep.js?v=3347bb42f7';
 import { ENT_W } from './veins-bin.js?v=212e62b33a';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=76d078b062';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=4dc34984db';
 import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=d950c5cd1c';
 import { alongCurve } from './pressure-along.js?v=e669103117';
@@ -2598,7 +2598,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=c3a7fc8ace').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=bf4f595b85').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor, binAway: (tubes, joins) => sweepBin({ kind: 'bin', tubes, joins }) });
@@ -4986,7 +4986,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   /** The organs' drawing paths now: { mode, live, layers: [[name, path]], gpu } (window.pps, and the checks). */
   function organPathsNow() {
     const mode = !veins || veins.lost ? 'SVG (no GPU figure)' : !plateOn() ? 'SVG (live drawing, no picture shown)' : gpuOrgansOn() ? 'GPU layers' : 'one picture (GPU organs off)';
-    return { mode, live: liveOn() ? 'liver, spleen, diaphragm, falciform: painted live' : liveWhy(), layers: gpuOrgansOn() ? [...organPaths] : [], gpu: veins?.organs?.stats?.() || null, renderer: SOFTWARE ? 'software' : 'gpu' };
+    return { mode, live: liveOn() ? 'liver, spleen, diaphragm, falciform: painted live' : liveWhy(), layers: gpuOrgansOn() ? [...organPaths] : [], gpu: veins?.organs?.stats?.() || null, liveLayers: veins?.organs?.liveLayers?.() || null, renderer: SOFTWARE ? 'software' : 'gpu' };
   }
   async function rasterLayers(slot, rect, scale) {
     // (Its turn first: reading every organ's box and shape is a step of its own, tens of ms on a phone, begun from a timer.)
@@ -5084,7 +5084,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       for (const root of [gOrgans, gBackdrop, defs]) readMo.observe(root, { subtree: true, childList: true, attributes: true, attributeOldValue: true, attributeFilter: READ_ATTRS });
     }
     readSeen(readMo.takeRecords());
-    const look = readLook(), ok = opt ? `${!!opt.withMask}|${!!opt.nest}|${!!opt.strict}` : '';
+    const look = readLook(), ok = opt ? `${!!opt.withMask}|${!!opt.nest}|${!!opt.strict}|${!!opt.shown}` : '';
     let m = readKept.get(el);
     const k = m?.get(ok);
     if (k && k.look === look) return k.spec;
@@ -5166,6 +5166,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     liveAsk ||= readFrame(liveRead);
   }
   let liveAsk = 0;
+  // (The backdrop (the diaphragm) is out of the page's layout, display: none, while the GPU draws the plate (app.css): read as shown, or its dome was
+  // left out of every reading made then, and the figure drew without it: 2 Nov 2026, e6d08386.)
+  const BACKDROP_READ = { shown: true };
   function liveRead() {
     liveAsk = 0;
     const v = veins;
@@ -5174,7 +5177,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     let ok = true;
     liveFailWhy = '';
     const add = (L, el, opt) => {
-      if (getComputedStyle(el).display === 'none') return;
+      if (getComputedStyle(el).display === 'none' && !opt?.shown) return;
       const spec = readGroup(el, opt);
       if (!spec) { ok = false; liveFailWhy ||= `${elName(el)} not readable`; console.warn('Organs on the GPU: not readable for painting, the organs stay pictures:', el); return; }
       if (!organs.has(L)) organs.set(L, []);
@@ -5187,11 +5190,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const greyed = !!greyList;
       if (greyed) { greyClear(); organDimKey = ''; }
       // (Read as the pictures' groups are, bakeAll: the gut's see-through shades and the stomach's fades are groups of their own.)
-      try { add('back', gBackdrop); for (const [k, L] of organLayers()) if (L !== 'back') add(L, k, LIVE_LAYERS.has(L) ? undefined : { nest: true }); } finally { if (greyed) syncOrganDim(); }
+      try { add('back', gBackdrop, BACKDROP_READ); for (const [k, L] of organLayers()) if (L !== 'back') add(L, k, LIVE_LAYERS.has(L) ? undefined : { nest: true }); } finally { if (greyed) syncOrganDim(); }
       nextFrame(() => liveApply(ok, organs, new Map(), true));
       return;
     }
-    add('back', gBackdrop);
+    add('back', gBackdrop, BACKDROP_READ);
     for (const [k, L] of organLayers()) if (LIVE_LAYERS.has(L)) add(L, k);
     for (const [L, sel] of Object.entries(MASK_OF)) {
       const el = defs.querySelector(sel), g = L === 'gut' ? gGut : organG.stomach;

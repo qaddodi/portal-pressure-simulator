@@ -397,7 +397,7 @@ export function readGroupRefs(root, opt) {
 
 // (One context for each reading in progress: a group's mask is read inside its walk.)
 const CTX = [];
-const newCtx = () => ({ root: null, doc: null, ok: true, withMask: true, nest: false, strict: false });   // alloc-rare: the contexts of the nesting depth first reached (a handful, kept)
+const newCtx = () => ({ root: null, doc: null, ok: true, withMask: true, nest: false, strict: false, shown: false });   // alloc-rare: the contexts of the nesting depth first reached (a handful, kept)
 const LISTS = [];   // (the op lists being filled, one for each reading in progress and each nested group in progress)
 const ME = [];      // (the frame of the element being walked, one for each depth of the walk)
 let rd = 0, ld = 0, dp = 0;
@@ -440,6 +440,7 @@ export function readGroup(root, opt) {
   c.withMask = opt === undefined || opt.withMask === undefined ? true : opt.withMask;
   c.nest = opt === undefined || opt.nest === undefined ? false : opt.nest;
   c.strict = opt === undefined || opt.strict === undefined ? false : opt.strict;
+  c.shown = opt === undefined || opt.shown === undefined ? false : opt.shown;   // (the root's own display: none is the plate's, not a hiding: the backdrop, stage.js BACKDROP_READ)
   try { return readRoot(c, root); } finally { rd = r0; dp = d0; ld = l0; }
 }
 function readRoot(c, root) {
@@ -483,7 +484,7 @@ function walkEl(c, el, m, alpha, clip, vis, chain, out, a0) {
   // (Definitions kept inside an organ's own art (the colon's and the bowel's clips) paint nothing where they are.)
   if (el !== root && DEFS_RE.test(el.localName)) return;
   const cs = getComputedStyle(el);
-  if (cs.display === 'none') return;
+  if (cs.display === 'none' && !(c.shown && el === root)) return;
   const E = rec(el);
   if (c.strict) {
     vis = cs.visibility === 'collapse' ? 'hidden' : cs.visibility || 'visible';
