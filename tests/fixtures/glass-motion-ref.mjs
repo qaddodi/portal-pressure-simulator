@@ -162,7 +162,7 @@ export function clockAt(c, now) {
   const active = c.dur === 0 || c.iters === 0 ? 0 : c.dur * c.iters;
   const end = Math.max(c.delay + active + c.endDelay, 0);
   if (c.idle) return { st: 'idle', p: null, end };
-  const local = c.s != null ? (now - c.s) * c.rate : c.c0 + (now - c.w0) * c.rate;
+  const local = c.s != null ? (now - c.s) * c.rate : c.c0;   // (3 Nov 2026: a pending animation is held at its current time until its start is known)
   const st = c.done || (c.rate > 0 && local >= end) || (c.rate < 0 && local <= 0) ? 'finished' : 'running';
   const beforeEnd = Math.min(c.delay, end), activeEnd = Math.min(c.delay + active, end);
   const phase = local < beforeEnd || (c.rate < 0 && local === beforeEnd) ? 'before' : local > activeEnd || (c.rate >= 0 && local === activeEnd) ? 'after' : 'active';
