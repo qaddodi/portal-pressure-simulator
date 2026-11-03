@@ -1398,6 +1398,23 @@ export function createShim(G) {
       return GT;
     },
     beginPath() { pc = pcB; pn = pnB; shn = shB; curOn = false; only = true; },
+    /** Pieces made earlier (a word's outlines, cached by the caller) added to the open path in one go: `pts` x, y pairs from `starts[q]` to the
+     *  next piece's start (the last ends at `n`), `np` pieces, drawn at (ox, oy) and scaled by `k`, through the transform. No call for a point. */
+    addPolys(pts, starts, np, n, ox, oy, k = 1) {
+      only = false;
+      needPts(pn + n); needPieces(pc + np);
+      const m = st.m;
+      for (let q = 0; q < np; q++) {
+        ps[pc++] = pn;
+        const e = q + 1 < np ? starts[q + 1] : n;
+        for (let i = starts[q]; i < e; i += 2) {
+          const x = ox + pts[i] * k, y = oy + pts[i + 1] * k;
+          pb[pn++] = m ? m[0] * x + m[2] * y + m[4] : x;
+          pb[pn++] = m ? m[1] * x + m[3] * y + m[5] : y;
+        }
+      }
+      curOn = false;
+    },
     moveTo(x, y) { only = false; startPiece(x, y); },
     lineTo(x, y) { only = false; add(x, y); },
     closePath() { if (curOn && pieceLen() >= 4) { const a = ps[pc - 1], x = pb[a], y = pb[a + 1]; putPt(x, y); openPiece(); putPt(x, y); } },

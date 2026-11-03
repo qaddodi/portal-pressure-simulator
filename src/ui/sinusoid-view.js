@@ -175,7 +175,6 @@ export function createSinusoidView({ host, before = null }) {
   // Thin leaders from a name in the plate to the part it names (a portrait screen's narrow bands and cells): drawn by the GPU with the
   // names (caption-gl.js), in the colour of what they name. A lit term, a theme or a class on the app reads the names' looks again.
   { const app = document.querySelector('.app') || document.getElementById('app'); if (app && typeof MutationObserver === 'function') new MutationObserver(() => askLooks()).observe(app, { attributes: true, attributeFilter: ['data-lit', 'class'] }); }
-  const LEAD_INK = { disse: '--sv-disse', lymph: '--sv-disse', hsc: '--sv-hsc', fen: '--sv-fenestra' };
   const tok = (n) => { let x = cssVals.get(n); if (x == null) { cssVals.set(n, null); cssMiss = true; x = ''; } return x; };
   const lead = {};
   function leader(key, R, x, y) {
@@ -1005,8 +1004,13 @@ export function createSinusoidView({ host, before = null }) {
   const PUT = { x: 0, y: 0, off: null, show: 1, now: 0 }, NO_OFF = [0, 0, 1];
   const LEADO = { x1: 0, y1: 0, x2: 0, y2: 0, show: 1, cut: false, of: null, follow: false, sg: 0, colour: null };
   // (Each caption where the layout put it, its step aside, and whether a card covers it; each leader with its ink and its name.)
+  // The leaders and dots as the Anatomy and Circuit labels have them (app.css .leader, .leader-dot, .leader-dot-halo): the leader ink, the stage's paper
+  // under the dot and round it, the text ink's ring. Read through the token cache, so a theme change shows at once.
+  const LEAD_LOOK = { line: '', lw: 1, r: 2.4, fill: '', ring: '', rw: 1.3, halo: '', haloR: 5 };
   function putCaps() {
     const now = easeNow();
+    LEAD_LOOK.line = inkOf('--leader'); LEAD_LOOK.fill = inkOf('--stage-bg'); LEAD_LOOK.halo = LEAD_LOOK.fill; LEAD_LOOK.ring = inkOf('--text-2');
+    cap.leadLook(LEAD_LOOK);
     for (const key in regions) {
       const R = regions[key];
       if (R.cx == null || !cap.hasLook(R.key)) continue;
@@ -1018,7 +1022,7 @@ export function createSinusoidView({ host, before = null }) {
       const L = lead[key];
       if (L.x1 == null) continue;
       LEADO.x1 = L.x1; LEADO.y1 = L.y1; LEADO.x2 = L.x2; LEADO.y2 = L.y2; LEADO.show = L.hide ? 0 : L.show; LEADO.cut = !!L.hide; LEADO.of = regions[L.key] ? L.key : null;
-      LEADO.follow = !!L.follow; LEADO.sg = L.sg || 0; LEADO.colour = inkOf(LEAD_INK[L.key] || '--text-2');
+      LEADO.follow = !!L.follow; LEADO.sg = L.sg || 0; LEADO.colour = LEAD_LOOK.line;
       cap.lead(L.key, LEADO);
     }
     cap.extra('legend', drawLegend);

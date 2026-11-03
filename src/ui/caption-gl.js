@@ -20,6 +20,7 @@
 import { createTraceGL, fitPen } from './trace-gl.js';
 import { finalFrameFor, easeNow, cancelFrame } from './frame.js';
 import { measure } from './glyph-measure.js';
+import { textPolys, textWidth, glyphsReady, textCovers, loadGlyphs } from './text-gl.js';
 import { D_SURFACE, easeArrive } from './ease.js';
 import { cssColor } from './css-color.js';
 import { readBox, readRects, readStyle } from './layout-snap.js';
@@ -37,12 +38,13 @@ export function rgbaOf(c) {
   return a > 0 ? `rgba(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)}, ${+a.toFixed(4)})` : '';
 }
 /**
- * A caption's halo colour for the GPU's pen. The page's names set their outline from the theme's token (app.css: -webkit-text-stroke: … var(--cap-outline), white in every theme),
+ * A caption's halo colour for the GPU's pen. The page's names set their outline from the theme's token (--label-halo, the Anatomy and Circuit labels' halo),
  * so the token is read first, as the theme gives it for this element, and the browser's computed stroke colour only where there is none: a browser
  * that reports that property differently (a current colour, or the colour a theme had before) must not set the halo the GPU draws with.
  */
 export function haloOf(cs) {
-  const t = cs.getPropertyValue?.('--cap-outline');
+  // (One halo for every label: the theme's --label-halo, as the Anatomy and Circuit labels have it. --cap-outline, white in every theme, was the lobule's own.)
+  const t = cs.getPropertyValue?.('--label-halo');
   return (t && t.trim() && rgbaOf(t.trim())) || rgbaOf(cs.webkitTextStrokeColor);
 }
 /** An outer box shadow as computed ("<colour> 0px 1px 6px 0px"): { colour, dy, blur }, or null. */
@@ -112,7 +114,28 @@ const spaceOf = (r, s) => {
   if (r.spaceS !== s) { r.spaceS = s; r.spaceStr = `${r.ls * s}px`; }
   return r.spaceStr;
 };
+const NBSP = /\u00a0/g;
 const upper = (r, t) => (r.upper ? t.toUpperCase() : t);
+// (A run's width: Inter's own outlines and kerning, as the Anatomy labels are set (label-gl.js layBlock), once the outlines are here; the SDF atlas's before.)
+const outlined = (t) => glyphsReady() && textCovers(t);
+const widthOf = (t, r) => (outlined(t) ? textWidth(t, { weight: r.weight, size: r.size, tnum: true }) : measure(t, fontOf(r, 1)));
+// A run's outlines as the Anatomy pen draws them (the same textPolys label-gl's blockOps fills), made once per word and kept as numbers: pieces (closed),
+// their starts in pts, and the counts. A reading that changes is made once, the frame it first shows; the table starts over past 400 words.
+const OUTL = new Map();
+function outlineOf(t, r) {
+  const key = `${r.weight}|${r.size}|${r.ls}|${t}`;
+  let o = OUTL.get(key);
+  if (o) return o;
+  const polys = textPolys(t, 0, 0, { weight: r.weight, size: r.size, tnum: true, ls: r.ls }).polys;
+  let n = 0;
+  for (const p of polys) n += p.pts.length + 2;
+  const pts = new Float32Array(n), starts = new Int32Array(polys.length);
+  let w = 0;
+  polys.forEach((p, i) => { starts[i] = w; pts.set(p.pts, w); w += p.pts.length; pts[w++] = p.pts[0]; pts[w++] = p.pts[1]; });   // (closed: the first point again, for the halo's stroke)
+  if (OUTL.size > 400) OUTL.clear();
+  OUTL.set(key, o = { pts, starts, np: polys.length, n });
+  return o;
+}
 // (The characters of a word as the browser counts them for letter spacing: its code points, a surrogate pair as one.)
 const points = (u) => { let c = 0; for (let i = 0; i < u.length; i++) { const k = u.charCodeAt(i); if (k < 0xdc00 || k > 0xdfff) c++; } return c; };
 const newLine = () => ({ runs: [], m: 0, w: 0, y: 0, base: 0 });
@@ -132,10 +155,10 @@ export function setLines(look, lines, set) {
     for (let j = 0; j < spec.length; j++) {
       const t = spec[j][0], r = look.runs[spec[j][1]];
       if (!r || typeof t !== 'string' || t === '') continue;
-      const u = upper(r, t);
+      const u = upper(r, t).replace(NBSP, ' ');   // (the outlines have no no-break space: a plain one, as wide)
       const run = ln.runs[m] || (ln.runs[m] = newRun());
       run.t = u; run.r = r; run.x = x; m++; last = r;
-      x += measure(u, fontOf(r, 1)) + r.ls * points(u) + r.mr;
+      x += widthOf(u, r) + r.ls * points(u) + r.mr;
       top = Math.max(top, r.size);
     }
     if (!m) continue;
@@ -253,6 +276,8 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
   cv.setAttribute('aria-hidden', 'true');
   box.prepend(cv);
   const items = new Map(), leads = new Map(), extras = new Map(), looks = new Map();
+  // (The leaders' and dots' look, the Anatomy's: the owner reads it from the page's tokens between frames, leadLook(); these are its defaults.)
+  const leadLook = { line: '', lw: 1, r: 2.4, fill: '', ring: '', rw: 1.3, halo: '', haloR: 5 };
   let vk = 1, ve = 0, vf = 0, ask = 0, gpu = null, drewOnce = false, onDrawn = null, onRest = null, onFrame = null, wasMoving = false, lastT = 0, drawing = false;
   let presented = false, onPresented = null, onLost = null, gen = 0, retries = 0, dead = false;
   // The names the last frame drew, for the browser checks (R17, snapshot()): two record lists, the one being drawn and the one last handed over,
@@ -281,12 +306,10 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
       if (onFrame?.(now)) more = true;
       ctx.clearRect(0, 0, w, h);
       if (!(w > 0 && h > 0)) return;
-      // (The whole layer carried by the owner's view, view(): a point p is drawn at k p + (e, f). A pan, or the lobule's dive about a point.)
+      // (The whole layer carried by the owner's view, view(): a point p is at k p + (e, f). A pan, or the lobule's dive about a point. Only the
+      // places go through it: the words, their halo, the leaders' width and the dots keep their size on the screen at any zoom, as the
+      // Anatomy and Circuit labels do (Mohammad, 3 Nov 2026), so nothing here is scaled by it.)
       const moved = vk !== 1 || ve !== 0 || vf !== 0;
-      // (Layer-scaled words, R07: the whole layer's scale carries the glyphs, their spacing and halo as it carries the anchors and the leaders'
-      // width; a caption's own scale s is set in its font above, and this one is the layer's, never both on the same size.)
-      ctx.textScale = vk !== 1;
-      if (moved) { ctx.save(); ctx.translate(ve, vf); ctx.scale(vk, vk); }
       // Leaders under the names, as their layer was.
       for (const L of leads.values()) {
         const a = easeAt(L.a, now) * (L.of ? itemA(L.of, now) : 1);
@@ -295,11 +318,20 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
         let { x1, y1 } = L;
         const I = L.of && items.get(L.of);
         // (Its near end follows its name's step aside, as eased, to the edge of the smaller box when the name was set smaller.)
-        if (I && L.follow) { const s = easeAt(I.s, now); x1 += easeAt(I.dx, now) - L.sg * (I.w / 2) * (1 - s); y1 += easeAt(I.dy, now); }
-        ctx.globalAlpha = a * 0.6; ctx.strokeStyle = L.colour; ctx.lineWidth = 0.9; ctx.lineCap = 'round';
-        ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(L.x2, L.y2); ctx.stroke();
-        ctx.globalAlpha = a * 0.8; ctx.fillStyle = L.colour;
-        ctx.beginPath(); ctx.arc(L.x2, L.y2, L.r ?? 1.8, 0, Math.PI * 2); ctx.fill();
+        if (I && L.follow) { x1 += easeAt(I.dx, now) - L.sg * (I.w / 2) * (1 - easeAt(I.s, now)); y1 += easeAt(I.dy, now); }
+        // (Both ends where the figure now has them; the near end keeps its distance from its name's middle, which does not scale.)
+        const x2 = vk * L.x2 + ve, y2 = vk * L.y2 + vf;
+        let sx = vk * x1 + ve, sy = vk * y1 + vf;
+        if (I && vk !== 1) { sx = vk * I.x + ve + (x1 - I.x); sy = vk * I.y + vf + (y1 - I.y); }
+        // The leader and its dot as the Anatomy and Circuit labels draw them (app.css .leader, .leader-dot): a 1px line in the leader ink, the dot on
+        // its point with the stage's paper round it and the text ink's ring.
+        const lk = leadLook;
+        ctx.globalAlpha = a; ctx.strokeStyle = lk.line || L.colour; ctx.lineWidth = lk.lw; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(x2, y2); ctx.stroke();
+        const r = L.r ?? lk.r;
+        if (lk.halo) { ctx.fillStyle = lk.halo; ctx.beginPath(); ctx.arc(x2, y2, lk.haloR, 0, Math.PI * 2); ctx.fill(); }
+        ctx.fillStyle = lk.fill || L.colour; ctx.beginPath(); ctx.arc(x2, y2, r, 0, Math.PI * 2); ctx.fill();
+        if (lk.ring) { ctx.strokeStyle = lk.ring; ctx.lineWidth = lk.rw; ctx.beginPath(); ctx.arc(x2, y2, r, 0, Math.PI * 2); ctx.stroke(); }
       }
       for (const I of items.values()) {
         const lk = looks.get(I.key);
@@ -307,9 +339,9 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
         const a = easeAt(I.a, now), s = easeAt(I.s, now), dx = easeAt(I.dx, now), dy = easeAt(I.dy, now);
         more ||= easing(I.a, now) || easing(I.s, now) || easing(I.dx, now) || easing(I.dy, now);
         if (a <= 0.002) continue;
-        const cx = I.x + dx, cy = I.y + dy, bw = I.w * s, bh = I.h * s, l = cx - bw / 2, t = cy - bh / 2;
-        // (Where the names stand on the screen, the layer's view included: k p + (e, f).)
-        record(I.key, vk * l + ve, vk * t + vf, vk * bw, vk * bh, a, w, h, I, l, t, s);
+        // (Where the box's middle stands on the screen, the layer's view included: k p + (e, f); its size is its own, never the view's.)
+        const bw = I.w * s, bh = I.h * s, l = vk * (I.x + dx) + ve - bw / 2, t = vk * (I.y + dy) + vf - bh / 2;
+        record(I.key, l, t, bw, bh, a, w, h, I, l, t, s);
         // A lit term (a slide's) shows in its colour on the name and figure alone, as the page's look reads it: no pill or chip behind
         // a figure's label (owner, 2 Nov: anatomy-style halo text, no pills).
         // Its marks under its words (a call's pill: its shadow, fill and border, as the page drew it).
@@ -320,7 +352,7 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
           ctx.globalAlpha = a; ctx.fillStyle = M.fill; ctx.beginPath(); ctx.roundRect(l, t, bw, bh, rr); ctx.fill();
           if (M.border?.colour) { const bwd = M.border.w * s; ctx.strokeStyle = M.border.colour; ctx.lineWidth = bwd; ctx.beginPath(); ctx.roundRect(l + bwd / 2, t + bwd / 2, bw - bwd, bh - bwd, Math.max(0, rr - bwd / 2)); ctx.stroke(); }
         }
-        // Its words: each run's halo (the page's text stroke, laid first), then its ink, in the page's order.
+        // Its words: each run's halo (a round-joined stroke of Inter's outlines, the Anatomy pen), then its ink, in the page's order.
         ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
         for (let li = 0, ln0 = I.set.n ?? I.set.lines.length; li < ln0; li++) {
           const ln = I.set.lines[li];
@@ -328,8 +360,16 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
           for (let ri = 0, rn = ln.m ?? ln.runs.length; ri < rn; ri++) {
             const { t: txt, r, x } = ln.runs[ri];
             const ra = a * r.op;
-            ctx.font = fontOf(r, s); ctx.letterSpacing = spaceOf(r, s);
             const hw = r.halo ?? lk.halo, hc = r.haloC ?? lk.haloC;
+            if (outlined(txt)) {
+              const o = outlineOf(txt, r);
+              ctx.beginPath(); ctx.addPolys(o.pts, o.starts, o.np, o.n, x0 + x * s, by, s);
+              if (hw > 0 && hc) { ctx.globalAlpha = ra; ctx.strokeStyle = hc; ctx.lineWidth = hw * s; ctx.lineCap = 'round'; ctx.stroke(); }
+              ctx.globalAlpha = ra; ctx.fillStyle = r.fill; ctx.fill();
+              continue;
+            }
+            // (Till the outlines are here: the atlas's words, as before.)
+            ctx.font = fontOf(r, s); ctx.letterSpacing = spaceOf(r, s);
             if (hw > 0 && hc) { ctx.globalAlpha = ra; ctx.strokeStyle = hc; ctx.lineWidth = hw * s; ctx.strokeText(txt, x0 + x * s, by); }
             ctx.globalAlpha = ra; ctx.fillStyle = r.fill; ctx.fillText(txt, x0 + x * s, by);
           }
@@ -346,9 +386,10 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
         }
       }
       ctx.globalAlpha = 1;
+      // (The owner's own drawing, the legend: placed in the layer's space, so it rides the view as a whole.)
+      if (moved) { ctx.save(); ctx.translate(ve, vf); ctx.scale(vk, vk); }
       for (const f of extras.values()) if (f(ctx, now)) more = true;
       if (moved) ctx.restore();
-      ctx.textScale = false;
     } finally {
       drawing = false;
       const handed = ctx.end?.() !== false;   // (false: the picture could not be handed over, trace-gl.js end)
@@ -366,6 +407,8 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
   }
   function itemA(key, now) { const I = items.get(key); return I ? easeAt(I.a, now) : 1; }
   gpu = make(cv, { redraw: () => api.paint(), lose: () => api.paint() });
+  // (Inter's outlines, the Anatomy pen's: till they are here the names are drawn from the atlas, and set again, then drawn from the outlines.)
+  if (!glyphsReady()) loadGlyphs().then(() => { if (!dead) { gen++; api.paint(); } }, () => {});
   const api = {
     cv,
     /** Whether the GPU draws the names (WebGL2 and the charts' drawer are here); false: the page's own names must show. */
@@ -387,15 +430,15 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
       const items = [];
       for (let i = 0; i < shownN; i++) {
         const r = shown[i], rows = [];   // (rows: each line's own box as the GPU drew it, from the words' runs as they stand: a line as wide as its letters)
-        const set = r.I?.set, vk = shownV[0], ve = shownV[1], vf = shownV[2], bw = r.w / (vk || 1);
+        const set = r.I?.set, bw = r.w;   // (screen px: the view is in the places already, the words keep their size)
         if (set) for (let li = 0, n = set.n ?? set.lines.length; li < n; li++) {
           const ln = set.lines[li], m = ln.m ?? ln.runs.length;
           if (!m) continue;
           const x0 = r.l + (bw - ln.w * r.s) / 2;
           let lo = Infinity, hi = -Infinity, top = 0;
-          for (let ri = 0; ri < m; ri++) { const q = ln.runs[ri]; lo = Math.min(lo, q.x); hi = Math.max(hi, q.x + measure(q.t, q.r.weight + ' ' + q.r.size + 'px Inter') + q.r.ls * points(q.t)); top = Math.max(top, q.r.size); }
+          for (let ri = 0; ri < m; ri++) { const q = ln.runs[ri]; lo = Math.min(lo, q.x); hi = Math.max(hi, q.x + widthOf(q.t, q.r) + q.r.ls * points(q.t)); top = Math.max(top, q.r.size); }
           const by = r.t + ln.base * r.s;
-          rows.push({ x: vk * (x0 + lo * r.s) + ve, y: vk * (by - ASC * top * r.s) + vf, w: vk * (hi - lo) * r.s, h: vk * (ASC + DESC) * top * r.s });
+          rows.push({ x: x0 + lo * r.s, y: by - ASC * top * r.s, w: (hi - lo) * r.s, h: (ASC + DESC) * top * r.s });
         }
         let halo = '';   // (the halo colour of the first run that has one, as the pen was given it)
         if (set) for (let li = 0, n = set.n ?? set.lines.length; li < n && !halo; li++) { const ln = set.lines[li]; for (let ri = 0, m = ln.m ?? ln.runs.length; ri < m && !halo; ri++) { const q = ln.runs[ri].r; if ((q.halo ?? looks.get(r.key)?.halo) > 0) halo = q.haloC ?? looks.get(r.key)?.haloC ?? ''; } }
@@ -418,8 +461,8 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
       let I = items.get(key);
       if (!I) items.set(key, I = newItem(key));
       // (The words are a new list when they change, the owner builds them then, so the list itself is their signature.)
-      if (lk && (I.lines !== lines || I.lk !== lk)) {
-        I.lines = lines; I.lk = lk;
+      if (lk && (I.lines !== lines || I.lk !== lk || I.gr !== glyphsReady())) {
+        I.lines = lines; I.lk = lk; I.gr = glyphsReady();
         I.set = setLines(lk, lines, I.own || (I.own = { lines: [], n: 0, w: 0, h: 0 }));   // (its own record: a mirrored one, mirror(), is the owner's, never written into)
         I.w = I.set.w; I.h = I.set.h; I.size[0] = I.w; I.size[1] = I.h; gen++;
       } else if (!lk) { I.lines = lines; }
@@ -475,6 +518,12 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
       api.paint();
     },
     leadOf: (key) => leads.get(key),
+    /** The leaders' and dots' look, as label-gl draws the Anatomy's (app.css .leader, .leader-dot, .leader-dot-halo): { line, lw, r, fill, ring, rw, halo, haloR }; colours as rgba(). */
+    leadLook(lk) {
+      let ch = false;
+      for (const k in lk) if (lk[k] !== undefined && leadLook[k] !== lk[k]) { leadLook[k] = lk[k]; ch = true; }
+      if (ch) { gen++; api.paint(); }
+    },
     extra(key, f) { if (f) extras.set(key, f); else extras.delete(key); api.paint(); },
     /** Where a caption is drawn (its box's centre, step aside included) and how much it shows: { x, y, w, h, a }, or null; by default as
      *  of the frame that last placed or drew the names. */

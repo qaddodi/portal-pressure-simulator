@@ -22,7 +22,7 @@ const svg = readFileSync(new URL('../src/ui/svg-gl.js', import.meta.url), 'utf8'
 function rig() {
   const log = [];
   const state = { textScale: undefined };
-  const ctx = new Proxy({ end() { return true; }, fillText(t) { log.push(['fill', t, state.textScale, state.scale]); }, strokeText(t) { log.push(['stroke', t, state.textScale, state.scale]); }, scale(k) { state.scale = k; }, restore() { state.scale = 1; } }, {
+  const ctx = new Proxy({ end() { return true; }, fillText(t) { log.push(['fill', t, state.textScale, state.scale]); }, strokeText(t) { log.push(['stroke', t, state.textScale, state.scale]); }, scale(k) { state.scale = k; }, addPolys() { log.push(['polys', 'Hepatic', state.textScale, state.scale]); }, restore() { state.scale = 1; } }, {
     get: (t, k) => (k in t ? t[k] : k === 'textScale' ? state.textScale : () => {}),
     set: (t, k, v) => { if (k === 'textScale') state.textScale = v; return true; },
   });
@@ -37,24 +37,16 @@ function rig() {
   return { cap, log, state };
 }
 
-test('while the layer is scaled, the words are drawn layer-scaled; at rest and for a pan they are not', async () => {
+test('while the layer is scaled, the words keep their size on the screen: nothing is layer-scaled, whatever the view', async () => {
   const R = rig();
   await new Promise((r) => setTimeout(r, 60));   // (the frame the setup asked for)
-  R.log.length = 0;
-  R.cap.view(0.5, 20, 20);
-  await new Promise((r) => setTimeout(r, 60));
-  const scaled = R.log.filter((l) => l[1] === 'Hepatic');
-  assert.ok(scaled.length >= 2, 'halo and ink drawn');
-  assert.ok(scaled.every((l) => l[2] === true && l[3] === 0.5), 'the policy is on while the 0.5 scale is');
-  assert.equal(R.state.textScale, false, 'off again after the frame');
-  R.log.length = 0;
-  R.cap.view(1, 30, 30);   // (a pan: k is 1, nothing to scale)
-  await new Promise((r) => setTimeout(r, 60));
-  assert.ok(R.log.length && R.log.every((l) => l[2] === false));
-  R.log.length = 0;
-  R.cap.view(1, 0, 0);
-  await new Promise((r) => setTimeout(r, 60));
-  assert.ok(R.log.length && R.log.every((l) => l[2] === false));
+  for (const v of [[0.5, 20, 20], [1, 30, 30], [1, 0, 0]]) {
+    R.log.length = 0;
+    R.cap.view(...v);
+    await new Promise((r) => setTimeout(r, 60));
+    assert.ok(R.log.length, 'the words are drawn');
+    assert.ok(R.log.every((l) => l[2] !== true && (l[3] === undefined || l[3] === 1)), 'neither the policy nor a scale on the words');
+  }
 });
 
 test('the drawer scales size, letter spacing and halo by the transform only when asked, and svg-gl is never asked', () => {
@@ -91,7 +83,8 @@ test('snapshot: the names the last landed frame drew, view included; a failed fr
   await new Promise((r) => setTimeout(r, 80));
   const s2 = cap.snapshot(), a2 = s2.items.find((i) => i.key === 'a');
   assert.ok(s2.seq > s1.seq);
-  assert.ok(Math.abs(a2.x - (0.5 * (50 - size[0] / 2) + 20)) < 1e-6 && Math.abs(a2.w - 0.5 * size[0]) < 1e-6);
+  // (the places go through the view, the words keep their size)
+  assert.ok(Math.abs(a2.x - (0.5 * 50 + 20 - size[0] / 2)) < 1e-6 && Math.abs(a2.w - size[0]) < 1e-6);
   // a frame that fails to land leaves the last snapshot as it was
   log.ok = false;
   const before = JSON.stringify(cap.snapshot());

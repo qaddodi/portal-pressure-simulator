@@ -14,7 +14,7 @@ globalThis.requestAnimationFrame ||= (f) => setTimeout(() => f(performance.now()
 globalThis.cancelAnimationFrame ||= (id) => clearTimeout(id);
 const { haloOf, lookOf } = await import('../src/ui/caption-gl.js');
 
-const style = (token, stroke) => ({ getPropertyValue: (n) => (n === '--cap-outline' ? token : ''), webkitTextStrokeColor: stroke });
+const style = (token, stroke) => ({ getPropertyValue: (n) => (n === '--label-halo' ? token : ''), webkitTextStrokeColor: stroke });
 
 test('the token wins over a stroke colour the browser reports differently', () => {
   assert.equal(haloOf(style('rgba(26, 25, 23, .9)', 'rgb(255, 255, 255)')), 'rgba(26, 25, 23, 0.9)');
