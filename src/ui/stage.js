@@ -8029,6 +8029,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     el.classList.add('cath-leave');
     setTimeout(siteGone, reduceMotion.matches ? 0 : 700, el);
   }
+  const sitePreQ = [], sitePreRun = () => { for (let i = 0; i < sitePreQ.length; i++) sitePreQ[i].classList.remove('cath-pre'); sitePreQ.length = 0; sitesAgain(); };   // (the readings just made, shown from the frame after)
   const siteGone = (el) => { dropLabel(el); el.remove(); };
   // A reading's number counts to a new value over 950 ms, eased, as the data card's tiles count (presenter.js tweener), so a slide's
   // or a patient's change never swaps it at once; within tol of the number shown (the live model breathing, a slider being dragged)
@@ -8129,7 +8130,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (d.res) late('text', kk, RES_KEY);
         late('add', sites.el, el); made.set(k, el);
         // (Its first look at cath-pre is the frame's own style pass: it comes in from there next frame, with no layout forced for it.)
-        nextFrame(() => { el.classList.remove('cath-pre'); sitesAgain(); });
+        { sitePreQ.push(el); nextFrame(sitePreRun); }
       }
       // Live readings, like the data card: the slide's numbers (fp) only while the model still agrees with them, so a
       // what-if slider moves the callouts as it moves the tiles.
@@ -8168,14 +8169,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (!d.res) { el._kh = el._h || 0; el._kt = el.dataset.at === 'ahead' && !el.classList.contains('above') ? 18 : -18 - el._kh; }
       else if (el._kw !== wk + el.dataset.at) { el._kw = wk + el.dataset.at; siteSize(el, d, wk); }
       if (ko && !el.classList.contains('off')) {
-        const r = { l: cx - half, r: cx + half, t: y + el._kt, b: y + el._kt + el._kh };
-        if (r.r > ko.l - 8 && r.l < ko.r + 8 && r.b > ko.t - 8 && r.t < ko.b + 8) {
-          const dx = r.r - (ko.l - 8), dy = r.b - (ko.t - 8);
-          if (r.l - dx >= x0 && Math.abs(x - (cx - dx)) < half - 16) {
+        const rl = cx - half, rr = cx + half, rt = y + el._kt, rb = y + el._kt + el._kh;   // (its box: left, right, top, bottom)
+        if (rr > ko.l - 8 && rl < ko.r + 8 && rb > ko.t - 8 && rt < ko.b + 8) {
+          const dx = rr - (ko.l - 8), dy = rb - (ko.t - 8);
+          if (rl - dx >= x0 && Math.abs(x - (cx - dx)) < half - 16) {
             el.style.setProperty('--ax', `${(x - cx + dx).toFixed(1)}px`); el._glass?.(x - cx + dx);
             el.style.transform = `translate(${(cx - dx).toFixed(1)}px, ${y.toFixed(1)}px)`;
             if (el._box) { el._box.x0 -= dx; el._box.x1 -= dx; }   // (the box calloutBox just made for this paint: no other holds it yet)
-          } else if (!el._below && r.t - dy >= y0 - 8) { el.style.transform = `translate(${cx.toFixed(1)}px, ${(y - dy).toFixed(1)}px)`; if (el._box) { el._box.y0 -= dy; el._box.y1 -= dy; } }
+          } else if (!el._below && rt - dy >= y0 - 8) { el.style.transform = `translate(${cx.toFixed(1)}px, ${(y - dy).toFixed(1)}px)`; if (el._box) { el._box.y0 -= dy; el._box.y1 -= dy; } }
           // (One below its point, as the portal blood's share is, with no room to the left: it turns to stand above its point when
           // that is clear, once (Shunts 2 on a phone held sideways, its foot on the key).)
           else if (el._below && !el._turned && y - 18 - el._kh >= y0) { el._turned = true; el._below = false; el.dataset.at = ''; }
@@ -8977,7 +8978,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       } },
   };
   // A leg's lumen radius: a vessel's drawn caliber there, or a fixed one ('=r', a tract through the liver).
-  const procRadOf = (id, f) => (id[0] === '=' ? +id.slice(1) : cathRadOf(id, f));
+  const PROC_FIXED = new Map();   // ('=r' → r, each fixed radius a route was built with, set when the leg is laid)
+  const procRadOf = (id, f) => (id[0] === '=' ? PROC_FIXED.get(id) : cathRadOf(id, f));
   function procRoute(kind) {
     const spec = PROC_ROUTES[kind];
     if (!spec || morph > 0.01 || spec.ids.some((id) => !geo[id]?.cur?.length || !E[id])) return null;
@@ -8997,7 +8999,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         marks.push(pts.length); parts.push({ id, name, fa: own(a), fb: own(b) });
         for (let i = a === 0 && pts.length ? 1 : 0, run = a * n; i < seg.length; i++) {
           if (i) run += Math.hypot(seg[i][0] - seg[i - 1][0], seg[i][1] - seg[i - 1][1]);
-          pts.push(seg[i]); rad.push(r ? at('=' + r.toFixed(3), 0) : at(id, own(run / n)));
+          if (r) { const rs = r.toFixed(3), fid = '=' + rs; PROC_FIXED.set(fid, +rs); pts.push(seg[i]); rad.push(at(fid, 0)); } else { pts.push(seg[i]); rad.push(at(id, own(run / n))); }
         }
       },
     };
@@ -9221,7 +9223,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let cathFade = null;
   function cathFadeOut() {
     const gs = veins?.canCath ? cathLast : null, anims = [];
-    for (const el of cath.made?.values() || []) el.classList.add('cath-pre', 'cath-out');
+    if (cath.made) for (const el of cath.made.values()) el.classList.add('cath-pre', 'cath-out');
     if (cath.g.style.display !== 'none' && cath.g.animate) anims.push(cath.g.animate([{ opacity: 1 }, { opacity: 0 }], { duration: CATH_OUT_MS, easing: EASE_IN, fill: 'forwards' }));
     const me = { raf: 0, done: null, cleared: false }, t0 = performance.now();
     // The catheter itself: gone once its fade has run.
@@ -9239,8 +9241,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       cathFade = null; cancelFrame(me.raf); clearTimeout(me.timer);
       catheterGone();
       cath.labels.hidden = true;
-      for (const el of cath.made?.values() || []) dropLabel(el);
-      late('kids', cath.labels, []); cath.made?.clear();
+      if (cath.made) for (const el of cath.made.values()) dropLabel(el);
+      late('kids', cath.labels, NO_LIST); cath.made?.clear();
     };
     const step = (now) => {
       const el = Math.max(0, now - t0), k = Math.min(1, el / CATH_OUT_MS);   // (the frame's clock can be a few ms before t0: 0, not a negative k that would draw the catheter brighter than it was)
@@ -9303,7 +9305,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (A reading's leader and dot, made between frames: cathLabels.)
   function cathLeadKids(svg) { svg._kAsk = 0; svg._k = Array.from({ length: svg._kN }, () => [s('path', {}), s('circle', { r: 4.5 })]).flat(); svg.replaceChildren(...svg._k); cathLabelsSoon(); }
   // (What cathLabels works in, kept between its calls: each is filled again at the start of a call and read within it; none is held after.)
-  const cathWantL = new Map(), cathLiveEl = [], cathLiveL = [], cathPillEl = [], cathPillL = [], cathCurEl = [], cathSideOut = [], cathPillRecs = [], cathPillQ = { W: 0, top: 0, lim: 0, blockers: NO_LIST, pills: [] };
+  const cathMade = new Map(), cathLeave = new Map(), cathLeadQ = [], cathWantL = new Map(), cathLiveEl = [], cathLiveL = [], cathPillEl = [], cathPillL = [], cathCurEl = [], cathSideOut = [], cathPillRecs = [], cathPillQ = { W: 0, top: 0, lim: 0, blockers: NO_LIST, pills: [] };
   const cathPreQ = [], cathTravelQ = [], cathPt = [0, 0], cathSideDef = { above: true, dx: 0 }, cathFrom = { tip: null, ahead: null };
   const CATH_FROM_TIP = { left: 0, top: 0 }, CATH_FROM_AHEAD = { left: 0, top: 0 };
   const cathA = { tip: [0, 0], ahead: [0, 0] }, cathKeep = [], cathKeepRecs = [{ x0: 0, y0: 0, x1: 0, y1: 0 }, { x0: 0, y0: 0, x1: 0, y1: 0 }, { x0: 0, y0: 0, x1: 0, y1: 0 }];
@@ -9333,6 +9335,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (A reading's point on the stage, for the side it names, written into `out`.)
   const cathPtOf = (at, el, out) => { const p = el.dataset.at === 'ahead' ? at.ahead : at.tip; return worldToLocalInto(out, p[0], p[1]); };
   // (The readings that fade out are taken away after their fade; those that come in start from their hidden look and are shown from the next frame.)
+  const cathLeadRun = () => { for (let i = 0; i < cathLeadQ.length; i++) cathLeadKids(cathLeadQ[i]); cathLeadQ.length = 0; };
   const cathGone = (el) => { dropLabel(el); el.remove(); cath.leaving.delete(el); };
   const cathPreRun = () => { for (let i = 0; i < cathPreQ.length; i++) cathPreQ[i].classList.remove('cath-pre'); cathPreQ.length = 0; };
   const cathTravelRun = () => { for (let i = 0; i < cathTravelQ.length; i++) cathTravelQ[i].classList.remove('cath-travel'); cathTravelQ.length = 0; };
@@ -9344,12 +9347,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     cath.lblKey = 'laid'; cath.lblVV = viewVersion; cath.lblCV = cathVer;
     // Each label keeps its element while its key is shown (numbers update in place). A new key fades in
     // (opacity and a small rise, eased); one that goes fades out before it is removed.
-    const made = cath.made || (cath.made = new Map());
+    const made = cath.made || (cath.made = cathMade);
     const want = cathWantL, labels = st.labels || NO_LIST;
     want.clear();
     for (let i = 0; i < labels.length; i++) want.set(labels[i].key, labels[i]);
     // When the summary arrives, the two readings travel from where they were into it (their old pills go at once).
-    const leaving = cath.leaving || (cath.leaving = new Map());
+    const leaving = cath.leaving || (cath.leaving = cathLeave);
     const travel = want.has('s') && !made.has('s') && !reduceMotion.matches;
     const from = cathFrom;
     from.tip = from.ahead = null;
@@ -9485,7 +9488,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // drawn from the next frame, which the build asks for.)
       if (svg._k?.length !== rows.length * 2) {
         svg._kN = rows.length;
-        if (!svg._kAsk) svg._kAsk = restPass(() => cathLeadKids(svg));
+        if (!svg._kAsk) { cathLeadQ.push(svg); svg._kAsk = restPass(cathLeadRun); }
       }
       if (svg._k?.length === rows.length * 2) for (let j = 0; j < rows.length; j++) {
         const pxy = A[l.rows[j].at], px = pxy[0], py = pxy[1];

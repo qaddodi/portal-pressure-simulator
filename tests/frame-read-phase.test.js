@@ -36,6 +36,7 @@ test('stage: the figure\'s boxes are read in the read phase at a change, never b
   assert.match(st, /function springBack\(\) \{ springAsk \|\|= readFrame\(springRead\); \}/, 'the spring back');
   assert.match(st, /watch\.onTouch\(snapAgain\);/, 'the cards\' and pills\' snapshot, at a change');
   assert.match(st, /function snapFresh\(\) \{ if \(snapDirty\) snapRead\(\); \}/);
-  assert.match(st, /nextFrame\(\(\) => \{ el\.classList\.remove\('cath-pre'\); sitesAgain\(\); \}\);/, 'no forced layout to start a reading\'s fade');
+  assert.match(st, /\{ sitePreQ\.push\(el\); nextFrame\(sitePreRun\); \}/, 'no forced layout to start a reading\'s fade');
+  assert.match(st, /sitePreRun = \(\) => \{ for \(let i = 0; i < sitePreQ\.length; i\+\+\) sitePreQ\[i\]\.classList\.remove\('cath-pre'\); sitePreQ\.length = 0; sitesAgain\(\); \}/);
   assert.match(st, /function safeInsets\(exact = false, skip = null\) \{\n\s+return \{ \.\.\.insKept\(/, 'the cards\' room kept while nothing laid out moved');
 });

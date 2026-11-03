@@ -138,7 +138,7 @@ test('the catheter\'s readings leave through their own fade, not a fade of the w
   const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
   const fn = stage.slice(stage.indexOf('function cathFadeOut()'), stage.indexOf('// the catheter\'s vertices, reused frame to frame'));
   assert.ok(fn.length > 200, 'found');
-  assert.match(fn, /for \(const el of cath\.made\?\.values\(\) \|\| \[\]\) el\.classList\.add\('cath-pre', 'cath-out'\);/);
+  assert.match(fn, /if \(cath\.made\) for \(const el of cath\.made\.values\(\)\) el\.classList\.add\('cath-pre', 'cath-out'\);/);
   assert.doesNotMatch(fn, /cath\.labels, cath\.g/, 'the layer is not animated as a whole');
   assert.doesNotMatch(fn, /cath\.labels\.animate/);
   // The readings are removed only once faded: the CSS fade (one small step, 240 ms, app.css .cath-out) is shorter than the time they are kept.

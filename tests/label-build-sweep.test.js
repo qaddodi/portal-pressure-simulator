@@ -104,5 +104,5 @@ test('dropping a plain reading, or nothing, or one with no words, does not throw
 test('stage.js drops callouts through the one helper', () => {
   assert.match(STAGE, /import \{ dropLabel \} from '\.\/drop-label\.js';/);
   assert.doesNotMatch(STAGE, /function dropLabel\(/);
-  assert.match(STAGE, /for \(const el of cath\.made\?\.values\(\) \|\| \[\]\) dropLabel\(el\)/);
+  assert.match(STAGE, /if \(cath\.made\) for \(const el of cath\.made\.values\(\)\) dropLabel\(el\)/);
 });
