@@ -73,7 +73,7 @@ export function createDopplerGL({ onReady = null } = {}) {
   let prog = null, U = null, failed = false;
   // (The spectrum's lines worked out on the GPU, doppler-synth.js: its program, the two textures of each line's numbers by ring column, the arrays
   // they are sent from, and the framebuffer that draws into the ring. synthFailed: the shader did not build, and the CPU writes the lines.)
-  let startedS = null, stopPollS = null, progS = null, synthFailed = false, colAT = null, colBT = null, colAArr = null, colBArr = null, cw = 0, synthFb = null;
+  let startedLS = null, startedS = null, stopPollS = null, progS = null, synthFailed = false, colAT = null, colBT = null, colAArr = null, colBArr = null, cw = 0, synthFb = null;
   const SU = {}, SEED = (Math.random() * 4294967296) >>> 0;
   let rw = 0, rh = 0;
   const tex = () => { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); return t; };
@@ -88,7 +88,7 @@ export function createDopplerGL({ onReady = null } = {}) {
   function build() {
     prog = null; U = null; failed = false; rw = rh = 0;
     started = startProgram(gl, VS, FS, [['p', 0]]);
-    startedS = startProgram(gl, SYNTH_VS, SYNTH_FS, [['p', 0]]);
+    startedS = startProgram(gl, SYNTH_VS, SYNTH_FS, [['p', 0]]); startedLS = null;
     progS = null; synthFailed = false; cw = 0; colAArr = colBArr = null;
     startedL = [started];   // (the list each frame's status ask is given while the program is compiling: made here, once for each program)
     quad = gl.createBuffer();
@@ -105,6 +105,7 @@ export function createDopplerGL({ onReady = null } = {}) {
   // The finished program read, and one draw of it into a throwaway 1 × 1 target: the browser builds the shader's GPU pipeline at its
   // first draw (Safari's Metal does it then, not at the link), which fell on the monitor's first frame as it opened. The ring's and the
   // noise's textures are not touched (they may already hold the monitor's data); render() binds both again.
+  const startedL2 = () => (startedLS ||= [startedS]);   // (the list the status ask is given: made once for each program)
   function publishSynth() {
     if (progS || synthFailed || gl.isContextLost()) return;
     try {
@@ -206,7 +207,13 @@ export function createDopplerGL({ onReady = null } = {}) {
       gl.pixelStorei(gl.UNPACK_SKIP_PIXELS, 0);
     },
     /** Whether the GPU writes the spectrum's lines (its program is published, the context is whole). */
-    canSynth() { return !!progS && !lost && !failed && !synthFailed && !gl.isContextLost(); },
+    canSynth() {
+      if (lost || failed || synthFailed || gl.isContextLost()) return false;
+      // (Its poll waits for the page to be left alone, which a busy phone may not be for long: once the driver is done compiling it, the
+      // program is published here, as the monitor's own is in render(), never waiting for the driver inside a frame.)
+      if (!progS && startedS) { if (stillCompiling(gl, startedL2())) { stopPollS?.want?.(); return false; } publishSynth(); }
+      return !!progS;
+    },
     /** The ring at this size (an empty texture of it where it is another size): the lines are then drawn into it by synth(). */
     ringSize(w, h) {
       if (rw === w && rh === h) return;
