@@ -814,7 +814,7 @@ export function createOrganPaint(gl, shape) {
   gl.bindVertexArray(null);
   // Canvas-sized targets: the coverage scratch (with the stencil the fills need), and a group and a mask layer for each depth.
   const tex = () => { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); return t; };   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
-  const target = () => ({ tex: tex(), fbo: gl.createFramebuffer() });   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
+  const target = () => ({ tex: tex(), fbo: gl.createFramebuffer(), on: false });   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
   // (depths[d]: the group and mask layers of a group nested d deep, depths[0] the root's; made as a nesting first needs them.)
   const scratch = target(), stencil = gl.createRenderbuffer(), depths = [[target(), target()]], layers = depths[0];   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
   // W × H: the target painted now (the canvas, or a picture's texture: organs-gl bake), drawn from the targets' bottom-left
@@ -826,6 +826,7 @@ export function createOrganPaint(gl, shape) {
   const allocOne = (t) => {   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
     gl.bindTexture(gl.TEXTURE_2D, t.tex);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, AW, AH, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    t.on = true;
     gl.bindFramebuffer(gl.FRAMEBUFFER, t.fbo);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t.tex, 0);
   };
@@ -841,14 +842,15 @@ export function createOrganPaint(gl, shape) {
     if (gw * gh <= targetRoom(BW, BH)) { AW = gw; AH = gh; } else { AW = Math.max(w, BW); AH = Math.max(h, BH); }
     allocVer++;   // (every target made again, what they held lost: a picture's job half done starts over)
     allocOne(scratch);
-    for (let d = 0; d < depths.length; d++) { allocOne(depths[d][0]); allocOne(depths[d][1]); }
+    // (Only the layers already made are made again: a mask layer is made when a masked group first needs it, see clearOne.)
+    for (let d = 0; d < depths.length; d++) { if (depths[d][0].on || d === 0) allocOne(depths[d][0]); if (depths[d][1].on) allocOne(depths[d][1]); }
     gl.bindRenderbuffer(gl.RENDERBUFFER, stencil);
     gl.renderbufferStorage(gl.RENDERBUFFER, gl.STENCIL_INDEX8, AW, AH);
     gl.bindFramebuffer(gl.FRAMEBUFFER, scratch.fbo);
     gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.STENCIL_ATTACHMENT, gl.RENDERBUFFER, stencil);
     gl.clearBufferfi(gl.DEPTH_STENCIL, 0, 1, 0);
   }
-  const depth = (d) => { while (depths.length <= d) { const pair = [target(), target()]; depths.push(pair); if (AW) { allocOne(pair[0]); allocOne(pair[1]); } } return depths[d]; };   // alloc-rare: a nesting depth's pair of layers is made the first time a picture needs that depth (never in a frame of the live painting)
+  const depth = (d) => { while (depths.length <= d) { const pair = [target(), target()]; depths.push(pair); } return depths[d]; };   // alloc-rare: a nesting depth's pair of layers is made the first time a picture needs that depth (never in a frame of the live painting)
   // Meshes by shape and tolerance: an outline written to several paths (the liver's fill, its shades, its clip) is cut once a frame.
   let meshes = new Map(), meshesOld = new Map();   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
   // (The pictures' meshes (bake): kept across frames, so a picture made again at the same detail cuts no outline again. Each mesh's
@@ -1213,6 +1215,7 @@ export function createOrganPaint(gl, shape) {
     if (t2) clearOne(b, t2);
   }
   function clearOne(b, t) {
+    if (!t.on) allocOne(t);   // (a layer is given its room when first cleared for a group: the mask layers and the deeper pairs of a painter that never needs them stay one texel)
     gl.bindFramebuffer(gl.FRAMEBUFFER, t.fbo);
     gl.viewport(0, 0, W, H);
     scissor(b); gl.clearBufferfv(gl.COLOR, 0, CLEAR0); gl.disable(gl.SCISSOR_TEST);
@@ -1236,7 +1239,7 @@ export function createOrganPaint(gl, shape) {
     gl.activeTexture(gl.TEXTURE0);
     gl.bindVertexArray(null);
   }
-  const trimOne = (t) => { gl.bindTexture(gl.TEXTURE_2D, t.tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); };   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
+  const trimOne = (t) => { t.on = false; gl.bindTexture(gl.TEXTURE_2D, t.tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); };   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
   const dropOne = (t) => { gl.deleteTexture(t.tex); gl.deleteFramebuffer(t.fbo); };   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
   // The group's ops laid over fbo (the painter sized to w × h), within a device box if given.
   function layGroup(spec, m, w, h, fbo, within) {
@@ -1343,6 +1346,10 @@ export function createOrganPaint(gl, shape) {
       for (const [k, v] of meshesOld) if (!meshes.has(k) && !kept.has(k)) shape.release(v.mesh);
       const spent = meshesOld; meshesOld = meshes; meshes = spent; meshes.clear(); dKeys.clear(); forgetLives();
     },
+    /** The bytes held by the layers a live frame does not need: the mask layer and every nested depth (made when a masked or nested group first needs them). */
+    deepBytes() { let n = 0; for (let d = 0; d < depths.length; d++) for (let j = 0; j < 2; j++) if ((d > 0 || j === 1) && depths[d][j].on) n++; return n * AW * AH * 4; },
+    /** Gives those layers back (not while a picture's job is painting with them); a group that needs one again makes it at its first clear. */
+    trimDeep() { if (holder) return false; for (let d = 0; d < depths.length; d++) for (let j = 0; j < 2; j++) if ((d > 0 || j === 1) && depths[d][j].on) trimOne(depths[d][j]); return true; },
     trim() { this.dropKept(); if (!AW) return; W = H = AW = AH = BW = BH = 0; trimOne(scratch); for (let d = 0; d < depths.length; d++) { trimOne(depths[d][0]); trimOne(depths[d][1]); } gl.bindRenderbuffer(gl.RENDERBUFFER, stencil); gl.renderbufferStorage(gl.RENDERBUFFER, gl.STENCIL_INDEX8, 1, 1); },
     dispose() {
       // (Every mesh's arrays given back with the shape drawer: those kept for pictures, the live frame's and the last frame's.)

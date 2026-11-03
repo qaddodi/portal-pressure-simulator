@@ -34,6 +34,7 @@ import { FX_GPU, createFxGL } from './fx-gl.js';
 import { WIDE_GL, createWideGL } from './wide-gl.js';
 import { buildLive, buildDyn, buildItems, liveFibreInto, liveEligible, liveZoomShare, liveColours, liveEase, liveShareOf } from './lobule-live.js';
 import { recordPaint, gpuPicture, releasePicture } from './paint-gl.js';
+import { hold, ownerBytes } from './gpu-budget.js';
 import { cssColor8 } from './css-color.js';
 import { fibrousBand, fibrousTract, fibrousCuff, scarGrowth, paintWorldInto, useTokens } from './lobule-paint.js';
 import { h, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js';
@@ -771,6 +772,22 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     staged = ''; relLater = false;
     trimCaches();
     tissueGL?.sweep();   // (the textures of the canvases given back)
+    keptHold();
+  }
+  // What a closed visit keeps for the next dive (the world bitmap, the field's tiles: 100 MB and more in the contexts of the lz canvases) is
+  // held in the render graph's budget (gpu-budget.js): while the graph is over its memory envelope it is given back whole, and the next
+  // dive builds it again, as its first ever did. Never while the lobule is open.
+  let keptH = null;
+  function keptHold() {   // alloc-rare: once per close of the lobule
+    if (keptH?.held) { keptH.touch(); return; }
+    keptH = hold({ owner: 'lobule kept', kind: 'retained', bytes: () => ownerBytes('lz-canvas'), release: () => {
+      keptH = null;
+      if (fade > 0 || !geo) return;
+      free(worldCv); free(worldOld); worldKey = ''; prepKey = ''; xfT0 = 0; surNow = null; surOld = null; surT0 = 0;
+      for (const tiles of tileSets.values()) for (const q of tiles) { if (q.cv) free(q.cv); q.cv = null; freeCopies(q); }
+      tileSets.clear();
+      fieldGL?.sweep(); tissueGL?.sweep();
+    } });
   }
   // What a visit zoomed in left behind, beyond what the next dive needs (#26: 46-77 MB kept in the anatomy): the world bitmap drawn
   // for a close zoom (up to 3600 px square) and the field tiles above the landing's size (the 384 px set is 12 MB a copy, three copies).

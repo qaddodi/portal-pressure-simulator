@@ -15,7 +15,7 @@
 
 import { createTraceGL, fitPen } from './trace-gl.js';
 import { flattenPath, flattenCmdsInto, newFlat, elBox4 } from './shape-gl.js';
-import { finalFrameFor, easeNow, cancelFrame } from './frame.js';
+import { finalFrameFor, easeNow, cancelFrame, framePart } from './frame.js';
 import { restPass, cancelRest } from './rest-pass.js';
 import { cssCurve, D_SURFACE, EASE_ARRIVE } from './ease.js';
 import { cssColor } from './css-color.js';
@@ -840,6 +840,7 @@ function rootKeyOf(g) {
  * svg-gl-box, position relative), drawn by the charts' shared context. place(root) after a model is put in the box (its look read
  * then, once; again between frames on a theme change); fadeIn(root, ms) fades a new model in; wake(ms) draws every frame for ms (a glide); paint() once.
  */
+const endPen = (ctx) => ctx.end?.() !== false;
 export function createSvgGL(box) {
   box.classList.add('svg-gl-box');
   const cv = document.createElement('canvas');
@@ -890,7 +891,7 @@ export function createSvgGL(box) {
     g.ask = 0;
     if (g.dead || !cv.isConnected) return;
     if (g.blank && !g.ins.size && !hasInk()) return;
-    const pen = fitPen(cv, g.gpu), { ctx, w, h } = pen;
+    const pen = framePart('svg-gl: begin (size, context)', fitPen, cv, g.gpu), { ctx, w, h } = pen;   // (named, so a long frame says whether the drawing's time went in the shared canvas's size, the pieces or the hand-over)
     const now = easeNow();
     easing = false;
     const bw = w - 2 * BLEED, bh = h - 2 * BLEED;
@@ -906,7 +907,7 @@ export function createSvgGL(box) {
       g.blank = !hasInk();
       const label = last?.getAttribute('aria-label');
       if (label) attrSoon(cv, 'aria-label', label);
-    } finally { handed = ctx.end?.() !== false; }   // (false: the picture could not be handed over, trace-gl.js end)
+    } finally { handed = framePart('svg-gl: hand over', endPen, ctx); }   // (false: the picture could not be handed over, trace-gl.js end)
     g.drawn?.(!!pen.gpu && bw > 0 && bh > 0 && handed);   // (whether the GPU drew this frame: gl-words.js shows its picture only then)
     if (now < g.until || g.ins.size || easing) g.ask = finalFrame(draw);
   }

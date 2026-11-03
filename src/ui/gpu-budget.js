@@ -198,6 +198,9 @@ const screenPx = () => {
   return (scrPx = Math.max(1, (globalThis.innerWidth || 1) * (globalThis.innerHeight || 1) * d * d));
 };
 
+/** The bytes the registry holds for the contexts named owner (a holder's own count of what its context keeps; walks the entries, no list made). */
+export function ownerBytes(owner) { let b = 0; for (const e of entries.values()) if (e.owner === owner) b += e.bytes; return b; }
+
 /** The registry and the passes now: bytes against the memory envelope, the last frame's area against the pass envelope. */
 export function budget() {
   const env = ENVELOPES[deviceClass()];
