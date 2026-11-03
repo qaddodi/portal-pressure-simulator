@@ -23,6 +23,9 @@ const DRIVEN_ANIMS = new WeakSet();
 export const isDrivenAnimation = (a) => DRIVEN_ANIMS.has(a);
 const wakers = [];
 
+/** Wake glass after motion writes, while the scheduler can still draw it in this frame. */
+export function signalMove() { for (let i = 0; i < wakers.length; i++) wakers[i](); }
+
 /** Calls fn() whenever a glass mover's number changes; returns the function that stops it. */
 export function onMove(fn) {
   wakers.push(fn);
@@ -59,7 +62,7 @@ export class Mover {
     DRIVEN.set(this.el, d);
     if (this.ax) DRIVEN_ANIMS.add(this.ax);
     if (this.ay) DRIVEN_ANIMS.add(this.ay);
-    if (this.on) for (let i = 0; i < wakers.length; i++) wakers[i]();
+    if (this.on) signalMove();
   }
 
   /** Arms the animations around (x, y): a first write, or a value out of the window. The x one first, so the y one adds to it. */
@@ -94,15 +97,16 @@ export class Mover {
     if (m & AY) this.ay.currentTime = y - this.ly;
     this.x = x; this.y = y;
     const d = this.d;
-    if (d) { d.x = x; d.y = y; for (let i = 0; i < wakers.length; i++) wakers[i](); }
+    if (d) { d.x = x; d.y = y; signalMove(); }
   }
 
   /** Lets go: the animations are cancelled, nothing is left composited. The caller writes the resting style in the same task. */
   cancel() {
+    const wasOn = this.on;
     if (this.ax) { this.ax.cancel(); this.ax = null; }
     if (this.ay) { this.ay.cancel(); this.ay = null; }
     this.on = false;
-    if (this.d) this.d.on = false;
+    if (this.d) { this.d.on = false; if (wasOn) signalMove(); }
   }
 }
 

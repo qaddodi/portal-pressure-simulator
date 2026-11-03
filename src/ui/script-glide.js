@@ -13,6 +13,7 @@
 // A second glide on the same property of an element takes over from where the first stands, never from a jump.
 
 import { frameFor, cancelFrame, easeNow } from './frame.js';
+import { signalMove } from './num-move.js';
 
 const nextFrame = frameFor('script-glide');
 const runs = new Map();   // element → { t: its translate run | null, o: its opacity run | null, c: its called run | null }
@@ -47,6 +48,8 @@ function step() {
     }
     if (!r.t && !r.o && !r.c) runs.delete(el);
   }
+  // One wake for the frame, after every card part has been written. Glass draws in the scheduler's final phase.
+  signalMove();
   if (runs.size) ask = nextFrame(step);
 }
 const runOf = (el) => { let r = runs.get(el); if (!r) runs.set(el, (r = { t: null, o: null, c: null })); return r; };   // alloc-rare: a card's first glide
@@ -57,13 +60,14 @@ export function glideTranslate(el, x0, y0, x1, y1, ms, ease, done) {
   if (was) { x0 = was.x; y0 = was.y; }   // (taken over from where it stands)
   r.t = { x0, y0, x1, y1, x: x0, y: y0, ms, ease, t0: easeNow(), done };   // alloc-rare: one record a glide, not a frame
   el.style.translate = `${x0.toFixed(2)}px ${y0.toFixed(2)}px`;
+  signalMove();
   go();
 }
 
 export function glideOpacity(el, o0, o1, ms, ease) {
   const r = runOf(el), was = r.o;
   if (was) { o0 = was.v; was.res(); }
-  return new Promise((res) => { r.o = { v0: o0, v1: o1, v: o0, ms, ease, t0: easeNow(), res }; el.style.opacity = opacityText(o0); go(); });   // alloc-rare: one record and promise a fade, not a frame
+  return new Promise((res) => { r.o = { v0: o0, v1: o1, v: o0, ms, ease, t0: easeNow(), res }; el.style.opacity = opacityText(o0); signalMove(); go(); });   // alloc-rare: one record and promise a fade, not a frame
 }
 
 /** Where el's translate glide has it now, px down (NaN when none is under way): the value last written, no style read. */
@@ -74,6 +78,7 @@ export function glideCall(el, ms, ease, write, done) {
   const r = runOf(el);
   r.c = { ms, ease, write, done, t0: easeNow() };   // alloc-rare: one record a glide, not a frame
   write(0);
+  signalMove();
   go();
 }
 

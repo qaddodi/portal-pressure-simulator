@@ -1485,7 +1485,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
       if (!m.size) anims.delete(e);
     }
     const end = ended.get(e);
-    if (end) { if (!hasT && end.t && !e.style?.transform) { tx = end.t[0]; ty = end.t[1]; hasT = true; } if (o == null && end.o != null) o = end.o; }
+    if (end) { if (!hasT && dn?.prop !== 'transform' && end.t && !e.style?.transform) { tx = end.t[0]; ty = end.t[1]; hasT = true; } if (o == null && end.o != null) o = end.o; }
     const s = e.style;
     if (s) {
       let im = inlines.get(e);
