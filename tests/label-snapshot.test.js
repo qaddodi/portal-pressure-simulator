@@ -49,3 +49,10 @@ test('a camera ride carries the leaders and dots with the labels (they were left
   assert.match(lg, /if \(geo && rideM\) \{\n\s+const M = rideM, n = isPath \? 2 : 1;/);
   assert.match(lg, /geo\[i \* 2\] = \(M\[0\] \* cx \+ M\[2\] \* cy \+ M\[4\]\) \* dpr;/);
 });
+
+test('a leader\'s label end follows its label\'s landing glide, and a pan (carried by layout each frame, no ride) needs no more', () => {
+  assert.match(lg, /mg\.k = isPath \? el\.getAttribute\('data-k'\) : null;/);
+  assert.match(lg, /const ls = labelByKey\.get\(mg\.k\), gl0 = ls && glides\.get\(ls\.g\)/);
+  assert.match(lg, /geo\[2\] \+= \(gl0\.fx - \(Math\.round\(ls\.x \* dpr\) \+ lst\.ox\)\) \* \(1 - u\);/);
+  assert.match(lg, /labelByKey\.clear\(\);/);
+});

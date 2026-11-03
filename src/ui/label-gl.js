@@ -1547,6 +1547,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     return true;
   }
   let markDrawn = 0;   // (the marks, leaders and dots, drawn in the last frame that drew any: for the checks, which look at what the GPU shows)
+  const labelByKey = new Map();   // (key → the layout's entry for that label, written at each layout: a leader finds its label's glide by it)
   const markGeo = new WeakMap(), MGEO = new Float64Array(4), MBOX = new Float64Array(4), CLEAR = new Float64Array(4);
   function drawMarks(now) {
     let moving = false;
@@ -1569,6 +1570,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
           if (mg) {
             if (mg.a0 !== a0 || mg.a1 !== a1 || mg.a2 !== a2) {
               mg.a0 = a0; mg.a1 = a1; mg.a2 = a2;
+              mg.k = isPath ? el.getAttribute('data-k') : null;   // (the label a leader belongs to, its line's far end being that label's)
               if (isPath) mg.ok = lineInto(a0, mg.v);
               else { mg.v[0] = NUM(a0); mg.v[1] = NUM(a1); mg.v[2] = NUM(a2); mg.v[3] = 0; mg.ok = true; }
             }
@@ -1576,6 +1578,15 @@ void main() { o = texture(uT, vUV) * uA; }`;
             // (A camera ride carries the leaders and dots as it carries the labels: each point where the figure's matching point now is, the
             // lines keeping their width and the dots their size. Left where they were laid out, they stretched from their points to the
             // labels that rode on, and spread over the figure, for as long as the ride lasted.)
+            // (After a ride's landing each label glides from where it rode to its slot, and its leader's label end goes with it, not to the
+            // slot at once: the line was longer than the distance to the label for as long as the glide ran.)
+            if (geo && !rideM && isPath && mg.k && glides.size) {
+              const ls = labelByKey.get(mg.k), gl0 = ls && glides.get(ls.g), lst = gl0 && !gl0.fadeIn && sprites.get(ls.g);
+              if (lst && lst.mode === 'gl') {
+                const u = easeMove(Math.min(1, (now - gl0.t0) / RIDE_MS));
+                if (u < 1) { geo[2] += (gl0.fx - (Math.round(ls.x * dpr) + lst.ox)) * (1 - u); geo[3] += (gl0.fy - (Math.round(ls.y * dpr) + lst.oy)) * (1 - u); }
+              }
+            }
             if (geo && rideM) {
               const M = rideM, n = isPath ? 2 : 1;
               for (let i = 0; i < n; i++) {
@@ -2129,6 +2140,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
         from.clear();
       }
       last = list; gen++; stuck = false;
+      labelByKey.clear();
+      for (const s of list) { const k = s.g.dataset?.key; if (k) labelByKey.set(k, s); }
       for (const s of list) WAS.delete(s.g);
       for (const g of WAS) { g.removeAttribute('data-gl'); todo.delete(g); dropGlide(g); const st = sprites.get(g); if (st) { packer.free(st.slot); sprites.delete(g); } live.delete(g); }
       if (host) { ask(); return; }
