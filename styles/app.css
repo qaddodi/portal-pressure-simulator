@@ -313,6 +313,9 @@ html.chip-open :is(.chip-btn, .lens-btn)[aria-expanded="true"] { background: var
 .chips-off .lb-val { display: none; }
 .lb.module { pointer-events: auto; cursor: pointer; outline: none; }
 .lb.zonecap.link { pointer-events: auto; cursor: pointer; outline: none; }
+/* (R09: while a camera ride or a landing glide has the GPU pictures off their DOM labels, label-gl.js sets #labels.lb-displaced: a click or a
+   hover would land where the label was, so the labels' pointer events wait. Keyboard and focus are untouched.) */
+#labels.lb-displaced .lb.node, #labels.lb-displaced .lb.module, #labels.lb-displaced .lb.zonecap.link { pointer-events: none; }
 .lb-hit { fill: transparent; }
 .lb.zonecap.link.sel .lb-zone { fill: var(--accent-ink); }
 @media (hover: hover) { .lb.zonecap.link:hover .lb-zone { fill: var(--accent-ink); } }
