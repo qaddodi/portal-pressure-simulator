@@ -11,7 +11,7 @@ const carrySrc = st.slice(st.indexOf('  const CARRY_M = '), st.indexOf('  functi
 
 test('each part between is read through its own count; the camera moving the overlays reads none of them', () => {
   for (const p of ['over', 'pane', 'labels', 'shade', 'marks']) assert.match(read, new RegExp(`frostPartRead\\('${p}', `), p);
-  assert.match(read, /const out = \[\.\.\.frostCarry\(frostPartRead\('over', /, 'the overlays carried by the figure\'s transform');
+  assert.match(read, /frostCarry\(frostPartRead\('over', frostReadOver\), out\)/, 'the overlays carried by the figure\'s transform');
   assert.match(st, /if \(m\.target === worldOver && m\.type === 'attributes' && m\.attributeName === 'transform'\) continue;/);
   assert.match(st, /if \(k && k\.n === n && k\.pres === pres && k\.lost === lost && k\.tr === tr && k\.boxes === boxes\) return k;/, 'a part kept is used again');
   assert.doesNotMatch(st, /FROST_KEEP|glassreads=/);
@@ -26,12 +26,12 @@ test('boxes read at one view are carried to another by the change of transform',
   const f = make(v1, () => {});
   // A world box (1..4, 2..6) read at v1: client (12..18, 24..32).
   const v = { ctm: v1, out: [{ left: 12, top: 24, right: 18, bottom: 32 }] };
-  assert.deepEqual(f.frostCarry(v), v.out, 'the same view: the same boxes');
+  assert.deepEqual(f.frostCarry(v, []), v.out, 'the same view: the same boxes');
   f.set(v2);
-  assert.deepEqual(f.frostCarry(v), [{ left: -2, top: 10, right: 7, bottom: 22 }]);
+  assert.deepEqual(f.frostCarry(v, []), [{ left: -2, top: 10, right: 7, bottom: 22 }]);
   // A turn: the box that holds the turned corners.
   const th = Math.PI / 2, r = { a: Math.cos(th), b: Math.sin(th), c: -Math.sin(th), d: Math.cos(th), e: 0, f: 0 };
   const g = make(at(1, 0, 0), () => {}); g.set(r);
-  const [b] = g.frostCarry({ ctm: at(1, 0, 0), out: [{ left: 1, top: 2, right: 3, bottom: 5 }] });
+  const [b] = g.frostCarry({ ctm: at(1, 0, 0), out: [{ left: 1, top: 2, right: 3, bottom: 5 }] }, []);
   assert.ok(Math.abs(b.left + 5) < 1e-9 && Math.abs(b.right + 2) < 1e-9 && Math.abs(b.top - 1) < 1e-9 && Math.abs(b.bottom - 3) < 1e-9);
 });

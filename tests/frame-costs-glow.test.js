@@ -94,7 +94,8 @@ test('the vessels are records the GPU draws: no SVG tube, gradient, mask or hit 
 });
 
 test('label widths are kept by their digit-normalised text, and the narrowings\' text by object', () => {
-  assert.match(stage, /const z = t\.replace\(\/\\d\/g, '0'\), k = `\$\{weight\}\|\$\{size\}\|\$\{track\}\|\$\{z\}`;/);
+  assert.match(stage, /z = t\.replace\(\/\\d\/g, '0'\); if \(widthZ\.size > 3000\) widthZ\.clear\(\); widthZ\.set\(t, z\);/);   // (a text and its digits-as-zeros form, made once for each text seen)
+  assert.match(stage, /let e = widths\.get\(z\);\n\s+if \(e\) for \(let i = 0; i < e\.length; i \+= 4\) if \(e\[i\] === weight && e\[i \+ 1\] === size && e\[i \+ 2\] === track\) return e\[i \+ 3\];/);
   assert.match(stage, /paramJSON\(\(f\.viewParams \|\| st\.params\)\.stenosis\), paramJSON\(\(f\.viewParams \|\| st\.params\)\.stenosisSite\)/);
 });
 

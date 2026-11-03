@@ -78,7 +78,8 @@ test('the readings\' sizes and the cards\' room are kept until they change', () 
   assert.doesNotMatch(L, /wrap\.clientWidth|cardSpace\(\)|readBlockers\(\)|\[el\.offsetWidth, el\.offsetHeight\]\]\)/);
   assert.match(L, /const room = cathRoomNow\(\)/);
   assert.match(L, /blockers = room\.blk/);
-  assert.match(fn(stage, 'cathSize'), /text\.replace\(\/\\d\/g, '0'\)/);
+  assert.match(fn(stage, 'cathSize'), /sameShape\(el\._szT, text\)/);   // (digits count as one, compared in place: no copy of the text made)
+  assert.match(fn(stage, 'sameShape'), /x >= 48 && x <= 57 && y >= 48 && y <= 57/);
   assert.match(stage, /addEventListener\('pps:occ', \(\) => \{ panFit = null; cath\.lblKey = ''; cathRoom\(\); \}\);/);
   assert.match(stage, /addEventListener\('resize', \(\) => \{ panFit = null; cath\.lblKey = ''; cathRoom\(\); \}\);/);
 });

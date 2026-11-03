@@ -9504,6 +9504,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       el.style.transform = `translate(${cx.toFixed(1)}px, ${cy.toFixed(1)}px)`;
       el._box = above ? { x0: cx - half, y0: cy, x1: cx + half, y1: Math.max(y, cy + h) } : { x0: cx - half, y0: Math.min(y, cy), x1: cx + half, y1: cy + h };
     }
+    cathSumN = 0;
     for (let li = 0; li < cathLiveEl.length; li++) {
       const el = cathLiveEl[li], l = cathLiveL[li];
       if (!l || l.at !== 'sum') continue;
@@ -9513,9 +9514,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const A = cathA;
       worldToLocalInto(A.tip, at.tip[0], at.tip[1]); worldToLocalInto(A.ahead, at.ahead[0], at.ahead[1]);
       // (read before any write below; kept while the readings' texts and classes stay as they are)
-      let ck = '';
-      for (let j = 0; j <= l.rows.length; j++) { const q = j < l.rows.length ? l.rows[j] : l.calc; ck += (j ? '/' : '') + `${q.kicker}|${q.text}|${q.unit}|${q.cls}`; }
-      const [bw, bh, R] = cathSize(box, ck, rows);
+      const sz = cathSize(box, cathSumKey(l), rows), bw = sz[0], bh = sz[1], R = sz[2];
       const top = Math.max(70, sp.t + 6), gap = lim < 440 ? 40 : 64;
       // Above the readings, centred between them; below them when there is no room above. Either way it sits in the
       // free figure, clear of the cards, the slide's panel and its controls, and never over what it names: the tip,
@@ -9535,16 +9534,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       ps.bw = bw; ps.bh = bh; ps.W = W; ps.top = top; ps.lim = lim; ps.gap = gap; ps.blockers = room.blk;
       let { x, y } = placeSummary(ps);
       { const q = cathGlide(box, x, y, (A.tip[0] + A.ahead[0]) / 2, (A.tip[1] + A.ahead[1]) / 2); x = q[0]; y = q[1]; }
-      box.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
-      el._box = { x0: x, y0: y, x1: x + bw, y1: y + bh };
+      // (Written only when the place moved; the same text is no change.)
+      if (box._tx !== x || box._ty !== y) { box._tx = x; box._ty = y; box.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`; }
+      const sb = cathSumBoxes[cathSumN++ & 3];
+      sb.x0 = x; sb.y0 = y; sb.x1 = x + bw; sb.y1 = y + bh; el._box = sb;
       // The bracket, from the middle of one reading to the middle of the other.
-      const ys0 = R[0][1] + R[0][3] / 2, ys1 = R[1][1] + R[1][3] / 2, path = box.querySelector('.cath-brace path');
-      box.querySelector('.cath-brace').setAttribute('height', bh);
-      path.setAttribute('d', `M2 ${ys0} H9 V${ys1} H2 M9 ${(ys0 + ys1) / 2} H20`);
+      const brace = box.querySelector('.cath-brace'), path = box.querySelector('.cath-brace path');
+      const ys0 = R[0][1] + R[0][3] / 2, ys1 = R[1][1] + R[1][3] / 2;
+      if (brace._h !== bh) { brace._h = bh; brace.setAttribute('height', bh); }   // (written only when its numbers moved)
+      if (path._y0 !== ys0 || path._y1 !== ys1) { path._y0 = ys0; path._y1 = ys1; path.setAttribute('d', `M2 ${ys0} H9 V${ys1} H2 M9 ${(ys0 + ys1) / 2} H20`); }
       // Leaders: from each reading to its point on the vein. The reading nearer the points runs straight
       // from its edge; the other leaves from its outer side and runs down (or up) beside the stack.
       const svg = el.querySelector('.cath-leads');
-      svg.setAttribute('width', W); svg.setAttribute('height', H);
+      if (svg._w !== W) { svg._w = W; svg.setAttribute('width', W); }
+      if (svg._hh !== H) { svg._hh = H; svg.setAttribute('height', H); }
       const below = (A.tip[1] + A.ahead[1]) / 2 > y + bh / 2, near = below ? rows.length - 1 : 0;
       const c0 = R[0], c1 = R[R.length - 1], colTop = y + c0[1], colBot = y + c1[1] + c1[3];
       // Updated in place (a path and a dot per reading), rebuilt only when the readings change.
@@ -9561,8 +9564,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (j === near) d = `M${clamp(px, rx0 + 12, rx1 - 12).toFixed(1)} ${(below ? ry1 : ry0).toFixed(1)} L${px.toFixed(1)} ${py.toFixed(1)}`;
         else { const ex = rx0 - 12, ey = below ? colBot + 14 : colTop - 14; d = `M${rx0.toFixed(1)} ${((ry0 + ry1) / 2).toFixed(1)} H${ex.toFixed(1)} V${ey.toFixed(1)} L${px.toFixed(1)} ${py.toFixed(1)}`; }
         const lead = svg._k[j * 2], dot = svg._k[j * 2 + 1], cls = l.rows[j].cls || '';
-        if (lead.getAttribute('class') !== 'lead ' + cls) { lead.setAttribute('class', 'lead ' + cls); dot.setAttribute('class', 'lead-dot ' + cls); }
-        lead.setAttribute('d', d); dot.setAttribute('cx', px.toFixed(1)); dot.setAttribute('cy', py.toFixed(1));
+        if (lead._cls !== cls) { lead._cls = cls; lead.setAttribute('class', 'lead ' + cls); dot.setAttribute('class', 'lead-dot ' + cls); }
+        lead.setAttribute('d', d);
+        if (dot._px !== px || dot._py !== py) { dot._px = px; dot._py = py; dot.setAttribute('cx', px.toFixed(1)); dot.setAttribute('cy', py.toFixed(1)); }
       }
       if (el._from) {
         // FLIP: each reading starts where its pill was and eases into its row; the bracket, leaders and
@@ -9598,6 +9602,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const cathWant = new Set(), cathRoomNone = { t: 0, W: 0, H: 0, sp: { t: 0, b: 0 }, blk: [] };
   const CS_ZERO2 = [0, 0], CS_ZERO3 = [];   // (a reading not measured yet: no size, and for the summary a zero row for each reading)
   for (let n = 0; n <= 8; n++) { const rs = []; for (let i = 0; i < n; i++) rs.push([0, 0, 0, 0]); CS_ZERO3.push([0, 0, rs]); }
+  // (The summary's boxes it publishes as el._box, taken in turn; and its readings' words as one key, made again only when one changed.)
+  const cathSumBoxes = [0, 1, 2, 3].map(() => ({ x0: 0, y0: 0, x1: 0, y1: 0 })), cathSumSrc = [], NO_BLK = [], cathRoomObj = { t: 0, W: 0, H: 0, sp: null, blk: NO_BLK };
+  let cathSumN = 0, cathSumKeyStr = '';
+  function cathSumKey(l) {
+    const rs = l.rows, n = rs.length + 1;
+    let same = cathSumSrc.length === n * 4;
+    for (let i = 0; same && i < n; i++) { const q = i < n - 1 ? rs[i] : l.calc, o = i * 4; same = cathSumSrc[o] === q.kicker && cathSumSrc[o + 1] === q.text && cathSumSrc[o + 2] === q.unit && cathSumSrc[o + 3] === q.cls; }
+    if (same) return cathSumKeyStr;
+    cathSumSrc.length = 0; cathSumKeyStr = '';
+    for (let i = 0; i < n; i++) { const q = i < n - 1 ? rs[i] : l.calc; cathSumSrc.push(q.kicker, q.text, q.unit, q.cls); cathSumKeyStr += (i ? '/' : '') + q.kicker + '|' + q.text + '|' + q.unit + '|' + q.cls; }
+    return cathSumKeyStr;
+  }
+  const cathRectOf = (el) => el.getBoundingClientRect();
   function cathRoomNow() {
     const now = performance.now();
     if (!cath.room || now - cath.room.t > 250) cathRoomAsk ||= readFrame(cathRoomRead);
@@ -9611,22 +9628,48 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // reading every card's box here, a forced layout of each a quarter second through a catheter slide's change. Without IntersectionObserver they are read here.)
     const io = BLOCK_IO;
     if (io && (!blockerBoxes || blockersStale) && !blockersAsk) { blockersAsk = 1; blockersRead(); }
-    cath.room = { t: performance.now(), W: b.width, H: b.height, sp: cardSpaceRead(), blk: io ? blockerBoxes || [] : blockerBoxes && !blockersStale ? blockerBoxes : readBlockersRead((el) => el.getBoundingClientRect(), b) };   // (the labels' own list when it is current)
+    const room = cathRoomObj;   // (rewritten in place; the readings' layout holds it only within one run)
+    room.t = performance.now(); room.W = b.width; room.H = b.height; room.sp = cardSpaceRead();
+    room.blk = io ? blockerBoxes || NO_BLK : blockerBoxes && !blockersStale ? blockerBoxes : readBlockersRead(cathRectOf, b);   // (the labels' own list when it is current)
+    cath.room = room;
     cath.lblKey = ''; nextFrame(cathLabelsSoon);
   }
+  // Two texts are one key when they differ only in their digits (tabular, so a value counting up does not measure again).
+  function sameShape(a, b) {
+    if (a === b) return true;
+    if (typeof a !== 'string' || a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) { const x = a.charCodeAt(i), y = b.charCodeAt(i); if (x !== y && !(x >= 48 && x <= 57 && y >= 48 && y <= 57)) return false; }
+    return true;
+  }
+  const NO_CLS = /(?:^|\s)cath-pre(?=\s|$)/;
   function cathSize(el, text, rows = null) {
     const rs = document.documentElement.style;   // (the label sizes, as set inline: read without a layout)
-    const key = `${cathEpoch}|${rs.getPropertyValue('--label-k')}|${rs.getPropertyValue('--label-scale')}|${appEl?.classList.contains('presenting')}|${el.className.replace(/(?:^|\s)cath-pre(?=\s|$)/, '')}|${el.dataset.at || ''}|${text.replace(/\d/g, '0')}`;
-    if (el._sz?.key !== key) { el._szKey = key; el._szRows = rows; cathWant.add(el); cathSizeAsk ||= readFrame(cathSizeRead); }
-    return el._sz?.v || (rows ? CS_ZERO3[Math.min(rows.length, 8)] : CS_ZERO2);
+    const kk = rs.getPropertyValue('--label-k'), ks = rs.getPropertyValue('--label-scale'), pres = appEl?.classList.contains('presenting'), at = el.dataset.at || '', cn = el.className;
+    // (The key is these parts, compared one by one; the class name without cath-pre is worked out only when the name changed.)
+    let same = el._sz === 1 && el._szE === cathEpoch && el._szK === kk && el._szS === ks && el._szP === pres && el._szA === at && sameShape(el._szT, text);
+    if (same && el._szC !== cn) same = el._szC.replace(NO_CLS, '') === cn.replace(NO_CLS, '');
+    if (!same) {
+      el._qE = cathEpoch; el._qK = kk; el._qS = ks; el._qP = pres; el._qA = at; el._qT = text; el._qC = cn;
+      el._szRows = rows; cathWant.add(el); cathSizeAsk ||= readFrame(cathSizeRead);
+    }
+    return el._szm || (rows ? CS_ZERO3[Math.min(rows.length, 8)] : CS_ZERO2);
+  }
+  function cathSizeOne(el) {
+    if (!el.isConnected) return;
+    const rows = el._szRows;
+    el._szE = el._qE; el._szK = el._qK; el._szS = el._qS; el._szP = el._qP; el._szA = el._qA; el._szT = el._qT; el._szC = el._qC; el._sz = 1;
+    let v = el._szm;
+    if (!v) v = el._szm = rows ? [0, 0, []] : [0, 0];
+    v[0] = el.offsetWidth; v[1] = el.offsetHeight;
+    if (rows) {
+      const R = v[2];
+      for (let i = 0; i < rows.length; i++) { const q = R[i] || (R[i] = [0, 0, 0, 0]), r = rows[i]; q[0] = r.offsetLeft; q[1] = r.offsetTop; q[2] = r.offsetWidth; q[3] = r.offsetHeight; }
+      R.length = rows.length;
+    }
   }
   function cathSizeRead() {
     cathSizeAsk = 0;
-    for (const el of cathWant) {
-      if (!el.isConnected) continue;
-      const key = el._szKey, rows = el._szRows;
-      el._sz = { key, v: rows ? [el.offsetWidth, el.offsetHeight, rows.map((r) => [r.offsetLeft, r.offsetTop, r.offsetWidth, r.offsetHeight])] : [el.offsetWidth, el.offsetHeight] };
-    }
+    cathWant.forEach(cathSizeOne);
     cathWant.clear();
     cath.lblKey = ''; nextFrame(cathLabelsSoon);
   }
@@ -9778,7 +9821,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const clampFontAt = (el) => {
     const px = fontPx(11.5);
     if (Math.abs(px - clampBase) > 0.01) { clampBase = px; applyClampFs(); }
-    el.style.fontSize = CTM.sc > 0 && CTM.sc < 1 ? `${(clampBase / CTM.sc).toFixed(2)}px` : '';
+    const fs = CTM.sc > 0 && CTM.sc < 1 ? clampBase / CTM.sc : 0;   // (written only when it moved: the same size is no change)
+    if (el._fs !== fs) { el._fs = fs; el.style.fontSize = fs ? `${fs.toFixed(2)}px` : ''; }
   };
   // Moves a "60 %" to `want` ({ d, t } or null: back where it belongs): it fades out where it stands, then in at the new place.
   const clampFades = new WeakMap();
@@ -9807,20 +9851,27 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const q = clampLabelPos(el);
     if (!q) return;
     const { x, y, left, gap, deg } = q;
-    el.setAttribute('x', x.toFixed(2)); el.setAttribute('y', y.toFixed(2));
-    el.setAttribute('dx', (left ? -gap : gap).toFixed(2)); el.setAttribute('dy', gap.toFixed(2));
-    if (left) el.setAttribute('text-anchor', 'end'); else el.removeAttribute('text-anchor');
-    if (deg) el.setAttribute('transform', `rotate(${(-deg).toFixed(2)} ${x.toFixed(2)} ${y.toFixed(2)})`); else el.removeAttribute('transform');
+    // (Each attribute is written only when its numbers moved: the same numbers make the same text.)
+    if (el._ax !== x || el._ay !== y) { el._ax = x; el._ay = y; el.setAttribute('x', x.toFixed(2)); el.setAttribute('y', y.toFixed(2)); }
+    if (el._ag !== gap || el._al !== left) { el._ag = gap; el.setAttribute('dx', (left ? -gap : gap).toFixed(2)); el.setAttribute('dy', gap.toFixed(2)); }
+    if (el._al !== left) { el._al = left; if (left) el.setAttribute('text-anchor', 'end'); else el.removeAttribute('text-anchor'); }
+    if (el._ad !== deg || el._atx !== x || el._aty !== y) { el._ad = deg; el._atx = x; el._aty = y; if (deg) el.setAttribute('transform', `rotate(${(-deg).toFixed(2)} ${x.toFixed(2)} ${y.toFixed(2)})`); else el.removeAttribute('transform'); }
   }
   // (2 Nov 2026: a "60 %"'s box worked out in script, from its own attributes and Inter's advances and metrics (textBox), as getBBox
   // gives it, so the labels' search lays nothing out. Its size: its own, else the clamps' --clamp-fs. The outlines come in once, and
   // the labels are laid again then.)
   let clampGlyphAsk = false;
+  const clampTbOpts = { anchor: 'start', weight: 600, size: 12, tnum: true, k: 1 };
+  const attrNum = (el, k) => parseFloat(el.getAttribute(k)) || 0;
+  const clampTmp = [0, 0], clampXs = [0, 0], clampPos = { x: 0, y: 0, left: false, gap: 0, deg: 0 };
+  const clampGlyphsIn = () => { if (F) updateLabels(F); };
   function clampTextBox(el) {
-    if (!glyphsReady()) { if (!clampGlyphAsk) { clampGlyphAsk = true; loadGlyphs().then(() => { if (F) updateLabels(F); }); } return null; }
-    const a = (k) => parseFloat(el.getAttribute(k)) || 0, cls = el.getAttribute('class') || '';
+    if (!glyphsReady()) { if (!clampGlyphAsk) { clampGlyphAsk = true; loadGlyphs().then(clampGlyphsIn); } return null; }
+    const cls = el.getAttribute('class') || '';
     const size = parseFloat(el.style.fontSize) || (/clamp-label/.test(cls) && parseFloat(clampFs)) || 12;
-    return textBox(el.textContent, a('x') + a('dx'), a('y') + a('dy'), { anchor: el.getAttribute('text-anchor') || 'start', weight: 600, size, tnum: true, k: CTM?.sc > 0 ? CTM.sc : 1 });   // (tnum: the "60 %" is drawn in tabular figures (#labels text), so its box is one width whatever its digits are)
+    const o = clampTbOpts;   // (kept, rewritten: textBox reads it and holds nothing)
+    o.anchor = el.getAttribute('text-anchor') || 'start'; o.size = size; o.k = CTM?.sc > 0 ? CTM.sc : 1;
+    return textBox(el.textContent, attrNum(el, 'x') + attrNum(el, 'dx'), attrNum(el, 'y') + attrNum(el, 'dy'), o);   // (tnum: the "60 %" is drawn in tabular figures (#labels text), so its box is one width whatever its digits are)
   }
   // Where clampLabelAt puts a clamp's percentage (its spot, which side its text runs and its offset), without writing it.
   function clampLabelPos(el) {
@@ -9829,11 +9880,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const away = c.id === clampFor ? clampAway : null;
     const kept = c.id === clampFor ? clampD.get(c.id) : null, mv = c.id !== clampFor ? clampMv.get(c.id)?.cur : null;
     const d = c.off + (el._d ?? mv?.d ?? kept?.d ?? 16), t = el._d != null ? el._t ?? 0 : mv?.t ?? kept?.t ?? 0;
-    const pos = [1, -1].map((sg) => [c.x + c.nx * sg * d - c.ny * t, c.y + c.ny * sg * d + c.nx * t]);   // (t: slid along the vessel)
-    const xs = pos.map((q) => worldToLocal(...q)[0]);
-    const k = away && (away === 'W') !== (xs[0] < xs[1]) ? 1 : 0, left = xs[k] < xs[1 - k] - 0.5, [x, y] = pos[k];
+    // (The two spots, one each side of the vessel, d out and t slid along it.)
+    const p0x = c.x + c.nx * 1 * d - c.ny * t, p0y = c.y + c.ny * 1 * d + c.nx * t, p1x = c.x + c.nx * -1 * d - c.ny * t, p1y = c.y + c.ny * -1 * d + c.nx * t;
+    const xs = clampXs;
+    xs[0] = worldToLocalInto(clampTmp, p0x, p0y)[0]; xs[1] = worldToLocalInto(clampTmp, p1x, p1y)[0];
+    const k = away && (away === 'W') !== (xs[0] < xs[1]) ? 1 : 0, left = xs[k] < xs[1 - k] - 0.5;
+    const q = clampPos;   // (kept, rewritten: every caller reads it at once)
+    q.x = k ? p1x : p0x; q.y = k ? p1y : p0y; q.left = left;
     const gap = (6 * clampBase) / 12 / Math.max(CTM?.sc || 1, 1e-3), deg = rotDeg();   // (6 px on screen at 12 px text, the text's own offset from its spot, in step with the text's size)
-    return { x, y, left, gap, deg };
+    q.gap = gap; q.deg = deg;
+    return q;
   }
   // A quantized value that only moves once the input has clearly left its step (so a varix whose
   // diameter pulses across a rounding boundary is not rebuilt on every beat).
@@ -9870,14 +9926,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     bal.last = now;
     const wantEso = !!p.balloonEso && anat, wantGas = gastricUp(p) && anat;
     if (wantGas !== bal.wantGas || wantEso !== bal.wantEso) { bal.wantGas = wantGas; bal.wantEso = wantEso; bal.dirty = true; }
-    const was = [bal.adv, bal.gas, bal.eso], out = dt / 0.6;   // (out quicker than in)
+    const was0 = bal.adv, was1 = bal.gas, was2 = bal.eso, out = dt / 0.6;   // (out quicker than in)
     if (wantEso) { if (bal.gas >= 1) bal.eso = Math.min(1, bal.eso + dt / BAL_ESO_MS); }
     else bal.eso = Math.max(0, bal.eso - out / BAL_ESO_MS * 1.5);
     if (wantGas) { if (bal.adv >= 1) bal.gas = Math.min(1, bal.gas + dt / BAL_INF_MS); }
     else if (bal.eso <= 0) bal.gas = Math.max(0, bal.gas - out / BAL_INF_MS * 1.5);
     if (wantGas) bal.adv = Math.min(1, bal.adv + dt / BAL_ADV_MS);
     else if (bal.gas <= 0) bal.adv = Math.max(0, bal.adv - out / BAL_ADV_MS * 1.5);
-    if (bal.adv !== was[0] || bal.gas !== was[1] || bal.eso !== was[2]) bal.dirty = true;
+    if (bal.adv !== was0 || bal.gas !== was1 || bal.eso !== was2) bal.dirty = true;
     bal.anat = anat;
     balloonSqueeze = 1 - 0.45 * balEase(bal.eso);
     if (bal.dirty) { bal.dirty = false; balloonDraw(anat); }
@@ -9970,11 +10026,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     venousSync(p, t < 0.5, key !== overlayKey);
     if (key === overlayKey) return;
     overlayKey = key;
-    ovAsk = { f, p, t };
+    ovAskBuf.f = f; ovAskBuf.p = p; ovAskBuf.t = t; ovAsk = ovAskBuf;   // (the last ask wins: one kept record, rewritten)
     if (!ovAsked) { ovAsked = true; restPass(overlayCommit); }
   }
   // The overlays' structure (clamps, clots, shunt meshes, marks, bands) is rebuilt between frames from what the frame last asked for.
   let ovAsk = null, ovAsked = false;
+  const ovAskBuf = { f: null, p: null, t: 0 };
   function overlayCommit() {
     ovAsked = false;
     if (!ovAsk) return;
@@ -10254,48 +10311,51 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The ?perf surfaces list (gpu-surfaces.js): the anatomy's own surfaces, each from state this file already keeps. Read by the readout
   // only (twice a second while it is open); without ?perf no getter here is ever called.
   {
+    // (A row's answer is one kept record, rewritten by each getter; the readout copies it at once: gpu-surfaces.js surfaceRows.)
+    const SR = { on: '', via: '', why: '' };
+    const sr = (on, via, why) => { SR.on = on; SR.via = via; SR.why = why; return SR; };
     const notGPU = () => (SOFTWARE ? 'software renderer (WebGL drawn on the CPU)' : !veins ? 'no WebGL2' : veins.lost ? 'context lost' : 'the GPU is not drawing the figure now');
     const anatOn = () => !anatCovered();
     surface('figure canvas', () => {
       if (!anatOn()) return null;
       const mp = (vCanvas.width * vCanvas.height) / 1e6, cap = figOpt('cap');
       const via = `${vCanvas.width}x${vCanvas.height}, ${mp.toFixed(1)} MP${cap ? ` of the ${cap} MP budget` : ', no budget'}, quality step ${quality}${saverOn ? ', Battery saver' : ''}`;
-      return SOFTWARE || !veins ? { on: 'fallback', via, why: notGPU() } : { on: 'gpu', via };
+      return SOFTWARE || !veins ? sr('fallback', via, notGPU()) : sr('gpu', via, '');
     });
     surface('vessels and blood', () => {
       if (!anatOn()) return null;
-      return wrap.classList.contains('gl-on') && veins && !veins.lost && !SOFTWARE ? { on: 'gpu', via: 'WebGL2' } : { on: 'fallback', via: wrap.classList.contains('gl-on') ? 'WebGL2 on the CPU' : 'SVG', why: notGPU() };
+      return wrap.classList.contains('gl-on') && veins && !veins.lost && !SOFTWARE ? sr('gpu', 'WebGL2', '') : sr('fallback', wrap.classList.contains('gl-on') ? 'WebGL2 on the CPU' : 'SVG', notGPU());
     });
     surface('organs', () => {
       if (!anatOn()) return null;
-      if (!veins || veins.lost || !wrap.classList.contains('gl-on')) return { on: 'fallback', via: 'SVG', why: notGPU() };
-      if (wrap.classList.contains('gl-plate')) return { on: SOFTWARE ? 'fallback' : 'gpu', via: veins?.organs?.full ? 'every layer painted live on the GPU (its pictures not in yet)' : glOrgans ? 'GPU picture and live layers' : 'GPU picture', why: SOFTWARE ? notGPU() : '' };
-      return { on: 'fallback', via: 'SVG', why: 'the organs\' picture is down (a theme change, or stale after the lobule)' };
+      if (!veins || veins.lost || !wrap.classList.contains('gl-on')) return sr('fallback', 'SVG', notGPU());
+      if (wrap.classList.contains('gl-plate')) return sr(SOFTWARE ? 'fallback' : 'gpu', veins?.organs?.full ? 'every layer painted live on the GPU (its pictures not in yet)' : glOrgans ? 'GPU picture and live layers' : 'GPU picture', SOFTWARE ? notGPU() : '');
+      return sr('fallback', 'SVG', 'the organs\' picture is down (a theme change, or stale after the lobule)');
     });
     surface('overlays (stents, balloons, catheter, guides)', () => {
       if (!anatOn() || !overNow.units) return null;
-      if (!OVER_ON) return { on: 'fallback', via: 'SVG', why: notGPU() };
-      if (!overNow.painted) return { on: 'fallback', via: 'SVG', why: !wrap.classList.contains('gl-on') ? notGPU() : 'the first overlay group the painter cannot read is the lowest' };
-      return overNow.whole ? { on: 'gpu', via: `WebGL2, ${overNow.painted} groups` } : { on: 'mixed', via: `${overNow.painted} groups on the GPU`, why: 'the first group the painter cannot read, and every group above it, stay SVG' };
+      if (!OVER_ON) return sr('fallback', 'SVG', notGPU());
+      if (!overNow.painted) return sr('fallback', 'SVG', !wrap.classList.contains('gl-on') ? notGPU() : 'the first overlay group the painter cannot read is the lowest');
+      return overNow.whole ? sr('gpu', `WebGL2, ${overNow.painted} groups`, '') : sr('mixed', `${overNow.painted} groups on the GPU`, 'the first group the painter cannot read, and every group above it, stay SVG');
     });
     surface('labels', () => {
       if (!anatOn() || !visible(labelSvg)) return null;
-      if (!labelGL || labelGL.lost) return { on: 'fallback', via: 'SVG', why: !labelGL ? (SOFTWARE ? 'software renderer' : 'no WebGL2') : 'context lost' };
+      if (!labelGL || labelGL.lost) return sr('fallback', 'SVG', !labelGL ? (SOFTWARE ? 'software renderer' : 'no WebGL2') : 'context lost');
       const c = labelGL.counts();
       if (!c.labels) return null;
       const svgN = c.svg + c.marks;
-      return svgN ? { on: c.svg === c.labels ? 'fallback' : 'mixed', via: `${c.labels - c.svg} of ${c.labels} labels on the GPU${c.marks ? `, ${c.marks} marks on SVG` : ''}`, why: 'a filter, letter spacing, a focus ring or a part the atlas cannot draw' } : { on: 'gpu', via: `WebGL2, ${c.labels} labels` };
+      return svgN ? sr(c.svg === c.labels ? 'fallback' : 'mixed', `${c.labels - c.svg} of ${c.labels} labels on the GPU${c.marks ? `, ${c.marks} marks on SVG` : ''}`, 'a filter, letter spacing, a focus ring or a part the atlas cannot draw') : sr('gpu', `WebGL2, ${c.labels} labels`, '');
     });
     const glassRow = (g, none) => () => {
       if (!anatOn()) return null;
-      if (document.documentElement.hasAttribute('data-noglass')) return { on: 'fallback', via: 'solid, no blur', why: document.documentElement.hasAttribute('data-noglass-auto') ? 'blur off by itself on a software renderer or Battery saver' : 'Settings › Blur effect off' };
+      if (document.documentElement.hasAttribute('data-noglass')) return sr('fallback', 'solid, no blur', document.documentElement.hasAttribute('data-noglass-auto') ? 'blur off by itself on a software renderer or Battery saver' : 'Settings › Blur effect off');
       const gl = g();
       return gl ? gl.state() : none();
     };
-    const blurAsk = () => ({ on: 'fallback', via: 'browser blur', why: SOFTWARE ? 'software renderer' : !veins ? 'no WebGL2' : 'no GPU glass made' });
+    const blurAsk = () => sr('fallback', 'browser blur', SOFTWARE ? 'software renderer' : !veins ? 'no WebGL2' : 'no GPU glass made');
     surface('callout glass', glassRow(() => glassGL, () => (document.getElementsByClassName('cl-glass').length ? blurAsk() : null)));
     surface('liver label pane glass', glassRow(() => paneGL, () => (glass.hidden ? null : blurAsk())));
-    surface('card glass', glassRow(() => { for (const g of cardGLs) if (g.state()) return g; return null; }, () => (document.querySelector('.pz-shade') ? { ...blurAsk(), why: blurAsk().why } : null)));
+    surface('card glass', glassRow(() => { for (const g of cardGLs) if (g.state()) return g; return null; }, () => (document.querySelector('.pz-shade') ? blurAsk() : null)));
   }
   // (What the page lays between the figure's canvas and a glass, as client boxes. 'pane': the overlays the GPU does not paint (#stageOver's
   // SVG). 'low' (the teaching card's shade, z-index 1, over the whole stage view): those, the liver pane when the browser blurs it, the
@@ -10334,18 +10394,23 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   const FROST_EVS = ['transitionrun', 'transitionend', 'transitioncancel', 'animationstart', 'animationend', 'animationcancel'];
   const frostListen = (el) => { for (const t of FROST_EVS) el.addEventListener(t, frostTouch, true); };
+  const FROST_OBS_ALL = { attributes: true, childList: true, subtree: true, characterData: true }, FROST_OBS_ATTR = { attributes: true }, FROST_EL = [null, null, null, null, null];
+  const frostSee = (el) => { if (el && !frostSeen.has(el)) { frostSeen.add(el); frostMo.observe(el, FROST_OBS_ATTR); frostListen(el); frostTouch(); } };
   function frostWatch() {
     if (!frostMo) {
       frostMo = new MutationObserver(frostRecords);
-      const all = { attributes: true, childList: true, subtree: true, characterData: true };
-      for (const el of [svgOver, labelSvg, glass, cath.labels, sites.el]) if (el) frostMo.observe(el, all);
-      frostMo.observe(wrap, { attributes: true });
-      frostMo.observe(document.documentElement, { attributes: true });
+      FROST_EL[0] = svgOver; FROST_EL[1] = labelSvg; FROST_EL[2] = glass; FROST_EL[3] = cath.labels; FROST_EL[4] = sites.el;
+      for (let i = 0; i < 5; i++) if (FROST_EL[i]) frostMo.observe(FROST_EL[i], FROST_OBS_ALL);
+      frostMo.observe(wrap, FROST_OBS_ATTR);
+      frostMo.observe(document.documentElement, FROST_OBS_ATTR);
       addEventListener('resize', frostTouch);
-      for (const el of [svgOver, labelSvg, glass, cath.labels, sites.el]) if (el) frostListen(el);
+      for (let i = 0; i < 5; i++) if (FROST_EL[i]) frostListen(FROST_EL[i]);
+      for (let i = 0; i < 5; i++) FROST_EL[i] = null;
     }
-    const lc = labelGL && !labelGL.lost ? labelGL.canvas : null;
-    for (const el of [lc, ...document.querySelectorAll('.pz-shade'), document.querySelector('.stage-credit')]) if (el && !frostSeen.has(el)) { frostSeen.add(el); frostMo.observe(el, { attributes: true }); frostListen(el); frostTouch(); }
+    frostSee(labelGL && !labelGL.lost ? labelGL.canvas : null);
+    const shades = document.getElementsByClassName('pz-shade');
+    for (let i = 0; i < shades.length; i++) frostSee(shades[i]);
+    frostSee(document.querySelector('.stage-credit'));
   }
   function frostOver(level) {
     frostWatch();
@@ -10360,13 +10425,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // (One part's boxes, kept while its count, the mode and the labels' picture stand.)
   const frostParts = new Map();
-  function frostPartRead(p, read) {
+  function frostPartRead(p, read) {   // (read(o) fills o, the part's own kept list, which only the caller's next copy reads: it is never handed on)
     const n = frostPart[p], pres = !!appEl?.classList.contains('presenting'), lost = !!labelGL?.lost, tr = p === 'over' ? svg.style.transform : '';
     const k = frostParts.get(p), boxes = labelGL?.boxes ?? null;
     if (k && k.n === n && k.pres === pres && k.lost === lost && k.tr === tr && k.boxes === boxes) return k;
     if (p === 'over' && !CTM) refreshCTM();
-    const v = k || { n: 0, pres: false, lost: false, tr: '', boxes: null, ctm: null, out: null };
-    v.n = n; v.pres = pres; v.lost = lost; v.tr = tr; v.boxes = boxes; v.ctm = p === 'over' ? CTM : null; v.out = read();
+    const v = k || { n: 0, pres: false, lost: false, tr: '', boxes: null, ctm: null, out: [] };
+    v.n = n; v.pres = pres; v.lost = lost; v.tr = tr; v.boxes = boxes; v.ctm = p === 'over' ? CTM : null; v.out.length = 0; read(v.out);
     frostParts.set(p, v);
     return v;
   }
@@ -10380,76 +10445,84 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const ya = m[1] * l + m[3] * t + m[5], yb = m[1] * rt + m[3] * t + m[5], yc = m[1] * l + m[3] * bt + m[5], yd = m[1] * rt + m[3] * bt + m[5];
     return { left: Math.min(xa, xb, xc, xd), top: Math.min(ya, yb, yc, yd), right: Math.max(xa, xb, xc, xd), bottom: Math.max(ya, yb, yc, yd) };
   }
-  function frostCarry(v) {
+  function frostCarry(v, into) {   // (v's boxes carried to the figure's view now, pushed on `into`)
     if (!CTM) refreshCTM();
     const a = v.ctm, b = CTM;
-    if (!a || !b || a === b || !v.out.length) return v.out;
+    if (!a || !b || a === b || !v.out.length) return frostPush(into, v.out);
     const det = a.a * a.d - a.b * a.c;
-    if (!det) return v.out;
+    if (!det) return frostPush(into, v.out);
     const ia = a.d / det, ib = -a.b / det, ic = -a.c / det, id = a.a / det, ie = (a.c * a.f - a.d * a.e) / det, jf = (a.b * a.e - a.a * a.f) / det;
     CARRY_M[0] = b.a * ia + b.c * ib; CARRY_M[1] = b.b * ia + b.d * ib; CARRY_M[2] = b.a * ic + b.c * id; CARRY_M[3] = b.b * ic + b.d * id;
     CARRY_M[4] = b.a * ie + b.c * jf + b.e; CARRY_M[5] = b.b * ie + b.d * jf + b.f;
-    return v.out.map(carryRect);
+    for (let i = 0; i < v.out.length; i++) into.push(carryRect(v.out[i]));
+    return into;
+  }
+  function frostPush(into, list) { for (let i = 0; i < list.length; i++) into.push(list[i]); return into; }
+  function frostReadOver(o) {
+    if (svgOver && !svgOver.classList.contains(OVER_ALL) && visible(svgOver)) {
+      for (const u of overUnits(worldOver, gOver)) if (!u.classList.contains(OVER_CLASS) && visible(u)) o.push(u.getBoundingClientRect());
+    }
+  }
+  function frostReadPane(o) { if (!glass.hidden && !paneGL?.hosted) o.push(glass.getBoundingClientRect()); }
+  function frostReadLabels(o) {
+    const lc = labelGL && !labelGL.lost ? labelGL.canvas : labelSvg;
+    if (visible(lc) && visible(labelSvg)) {
+      if (labelGL && !labelGL.lost) {
+        // (The labels the GPU draws leave every glass drawn in the figure's canvas out (setHoles): they never send a glass back to the
+        // browser's blur. Only those the SVG still draws itself lie over it.)
+        if (!labelGL.holes) {
+          const r = lc.getBoundingClientRect();
+          for (const b of labelGL.boxes) o.push({ left: r.left + b[0] - 1, top: r.top + b[1] - 1, right: r.left + b[2] + 1, bottom: r.top + b[3] + 1 });
+        }
+        for (const el of labelGL.svgLeft()) o.push(el.getBoundingClientRect());
+      } else for (const el of labelSvg.querySelectorAll('.lb, .leader, .leader-dot')) o.push(el.getBoundingClientRect());
+    }
+  }
+  function frostReadShade(o) {
+    const shades = document.getElementsByClassName('pz-shade');
+    for (let i = 0; i < shades.length; i++) if (visible(shades[i])) o.push(shades[i].getBoundingClientRect());
+    const cr = document.querySelector('.stage-credit');
+    if (cr && !appEl?.classList.contains('presenting') && visible(cr)) o.push(cr.getBoundingClientRect());
+  }
+  function frostReadMarks(o) {
+    for (const el of cath.labels.children) if (visible(el)) o.push(el.getBoundingClientRect());
+    for (const el of sites.el.children) if (visible(el)) o.push(el.getBoundingClientRect());
   }
   function frostOverRead(level) {
-    const out = [...frostCarry(frostPartRead('over', () => {
-      const o = [];
-      if (svgOver && !svgOver.classList.contains(OVER_ALL) && visible(svgOver)) {
-        for (const u of overUnits(worldOver, gOver)) if (!u.classList.contains(OVER_CLASS) && visible(u)) o.push(u.getBoundingClientRect());
-      }
-      return o;
-    }))];
+    const out = [];
+    frostCarry(frostPartRead('over', frostReadOver), out);
     if (level === 'pane') return out;
-    out.push(...frostPartRead('pane', () => (!glass.hidden && !paneGL?.hosted ? [glass.getBoundingClientRect()] : [])).out);
-    out.push(...frostPartRead('labels', () => {
-      const o = [], lc = labelGL && !labelGL.lost ? labelGL.canvas : labelSvg;
-      if (visible(lc) && visible(labelSvg)) {
-        if (labelGL && !labelGL.lost) {
-          // (The labels the GPU draws leave every glass drawn in the figure's canvas out (setHoles): they never send a glass back to the
-          // browser's blur. Only those the SVG still draws itself lie over it.)
-          if (!labelGL.holes) {
-            const r = lc.getBoundingClientRect();
-            for (const b of labelGL.boxes) o.push({ left: r.left + b[0] - 1, top: r.top + b[1] - 1, right: r.left + b[2] + 1, bottom: r.top + b[3] + 1 });
-          }
-          for (const el of labelGL.svgLeft()) o.push(el.getBoundingClientRect());
-        } else for (const el of labelSvg.querySelectorAll('.lb, .leader, .leader-dot')) o.push(el.getBoundingClientRect());
-      }
-      return o;
-    }).out);
+    frostPush(out, frostPartRead('pane', frostReadPane).out);
+    frostPush(out, frostPartRead('labels', frostReadLabels).out);
     if (level === 'low') return out;
-    if (level === 'callouts') {
-      out.push(...frostPartRead('shade', () => {
-        const o = [];
-        for (const el of document.querySelectorAll('.pz-shade')) if (visible(el)) o.push(el.getBoundingClientRect());
-        const cr = document.querySelector('.stage-credit');
-        if (cr && !appEl?.classList.contains('presenting') && visible(cr)) o.push(cr.getBoundingClientRect());
-        return o;
-      }).out);
-      return out;
-    }
-    out.push(...frostPartRead('marks', () => {
-      const o = [];
-      for (const l of [cath.labels, sites.el]) for (const el of l.children) if (visible(el)) o.push(el.getBoundingClientRect());
-      return o;
-    }).out);
-    return out;
+    if (level === 'callouts') return frostPush(out, frostPartRead('shade', frostReadShade).out);
+    return frostPush(out, frostPartRead('marks', frostReadMarks).out);
   }
   hostFrost(paneGL, { order: 0, over: () => frostOver('pane') });
   hostFrost(glassGL, { order: 2, over: () => frostOver('callouts') });
-  const labelGlSync = () => { if (labelGL) labelGL.sync([...pool.values()].filter((b) => b.pos).map((b) => b.pos)); };
+  // (The list is one of two kept arrays taken in turn: the labels' picture holds the last list it was given until the next, so the one it holds is never the one filled.)
+  let labelGlA = [], labelGlB = [];
+  const labelGlAdd = (b) => { if (b.pos) labelGlA.push(b.pos); };
+  const labelGlSync = () => { if (!labelGL) return; const t = labelGlA; labelGlA = labelGlB; labelGlB = t; labelGlA.length = 0; pool.forEach(labelGlAdd); labelGL.sync(labelGlA); };
   const FONT = 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
   // (Words measured from the GPU atlas's own Inter metrics, glyph-measure.js, as label-gl.js sets them: no 2D canvas.)
-  const widths = new Map();
+  const widths = new Map(), widthZ = new Map();   // (widths: a text with its digits as zeros → a flat list of weight, size, track, width; widthZ: a text as given → that form)
+  let widthN = 0;
   function textW(t, size, weight = 500, track = 0) {
     // Labels draw tabular digits (every digit as wide as a zero), so measure them that way too:
     // a value ticking from 6.0 to 6.1 then keeps its width and its label stays put. (Kept by that text too, so a ticking
     // value is measured once, not once for every value it passes through.)
-    const z = t.replace(/\d/g, '0'), k = `${weight}|${size}|${track}|${z}`;
-    let w = widths.get(k);
-    if (w == null) { w = measureWords(z, `${weight} ${size}px ${FONT}`) + track * size * z.length; if (widths.size > 1500) widths.clear(); widths.set(k, w); }   // (a resize or a fluid size makes a new key each time: cut at 1500)
+    let z = widthZ.get(t);
+    if (z === undefined) { z = t.replace(/\d/g, '0'); if (widthZ.size > 3000) widthZ.clear(); widthZ.set(t, z); }
+    let e = widths.get(z);
+    if (e) for (let i = 0; i < e.length; i += 4) if (e[i] === weight && e[i + 1] === size && e[i + 2] === track) return e[i + 3];
+    const w = measureWords(z, `${weight} ${size}px ${FONT}`) + track * size * z.length;
+    if (widthN > 1500) { widths.clear(); widthN = 0; e = undefined; }   // (a resize or a fluid size makes a new key each time: cut at 1500)
+    if (!e) widths.set(z, e = []);
+    e.push(weight, size, track, w); widthN++;
     return w;
   }
-  document.fonts?.ready?.then(() => { widths.clear(); labelFonts++; if (F) updateLabels(F); });
+  document.fonts?.ready?.then(() => { widths.clear(); widthN = 0; labelFonts++; if (F) updateLabels(F); });
 
   // Label text size: the reader's choice (Menu › Text size), and a larger baseline in the circuit,
   // whose labels are the map's only text. Every run's size and spacing is scaled by labelK.
@@ -10486,8 +10559,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // A run's size on screen: its role (reading, name, caption) at this screen's size, times the text size setting;
   // a presentation raises it to the projector's size (never below Explore's).
   const fontPx = (size) => rolePx(roleOf(size)) * labelScale * (projecting ? Math.max(1, Math.min(typeof projecting === 'number' ? projecting : 2, 2.2) / 1.5) : 1);
-  const LINE_H = (line) => Math.max(...line.map((r) => fontPx(r.size))) * 1.24;
-  const lineW = (line) => line.reduce((w, r, i) => w + textW(r.t, fontPx(r.size), r.weight, r.track || 0) + (i ? (r.gap ?? 3) * labelK : 0), 0);
+  const LINE_H = (line) => { let m = -Infinity; for (let i = 0; i < line.length; i++) m = Math.max(m, fontPx(line[i].size)); return m * 1.24; };
+  const lineW = (line) => { let w = 0; for (let i = 0; i < line.length; i++) { const r = line[i]; w = w + textW(r.t, fontPx(r.size), r.weight, r.track || 0) + (i ? (r.gap ?? 3) * labelK : 0); } return w; };
 
   const pool = new Map(); // key → { g, sig, … }
   // A label that is hidden (off the screen, behind a card, colliding, fading out) is neither a keyboard stop nor read aloud: it keeps only its look
@@ -10526,11 +10599,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // offset eases; labels with no point (the organs' names, the lanes) glide only while the camera is still. A label just shown, or one
   // laid out while the figure is hidden (the presenter's camera move, the catheter, the lobule), takes its spot at once.
   let glideCam = '', glideRaf = 0;
-  const glideAt = (g, now) => { const u = easeInOut(clamp((now - g.t0) / LABEL_GLIDE_MS, 0, 1)); return [g.fx + (g.tx - g.fx) * u, g.fy + (g.ty - g.fy) * u]; };
+  const GLIDE_P = [0, 0], glideRaw = [NaN, NaN, NaN, NaN];   // (glideAt's answer, one kept pair read at once; the camera as last turned to text)
+  const glideAt = (g, now) => { const u = easeInOut(clamp((now - g.t0) / LABEL_GLIDE_MS, 0, 1)); GLIDE_P[0] = g.fx + (g.tx - g.fx) * u; GLIDE_P[1] = g.fy + (g.ty - g.fy) * u; return GLIDE_P; };
+  function labelGlideTick() { glideRaf = 0; if (F && !camMove) updateLabels(F, true); }
   function labelGlide(out) {
-    const now = performance.now(), cam = [CTM.a, CTM.b, CTM.e, CTM.f].map((v) => v.toFixed(2)).join();
-    const still = cam === glideCam;
-    glideCam = cam;
+    const now = performance.now();
+    // (The camera to two decimals, as text; made again only when one of its numbers is not the one last seen, else it is the same text.)
+    let still = CTM.a === glideRaw[0] && CTM.b === glideRaw[1] && CTM.e === glideRaw[2] && CTM.f === glideRaw[3];
+    if (!still) {
+      glideRaw[0] = CTM.a; glideRaw[1] = CTM.b; glideRaw[2] = CTM.e; glideRaw[3] = CTM.f;
+      const cam = CTM.a.toFixed(2) + ',' + CTM.b.toFixed(2) + ',' + CTM.e.toFixed(2) + ',' + CTM.f.toFixed(2);
+      still = cam === glideCam;
+      glideCam = cam;
+    }
     const snap = reduceMotion.matches || camMove || wrap.classList.contains('cam-move') || wrap.classList.contains('pinch-hide') || wrap.classList.contains('cath-on') || !!lz?.isOpen();
     let moving = false;
     for (const it of out) {
@@ -10544,15 +10625,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (!b.at || snap || b.rot !== !!it.rot || b.rel !== rel || (!rel && !still)) b.gl = null;
       else {
         let g = b.gl;
-        const [px, py] = g ? [g.tx, g.ty] : b.at;
-        if (Math.hypot(tx - px, ty - py) > 0.5) { const [sx, sy] = g ? glideAt(g, now) : b.at; g = b.gl = { fx: sx, fy: sy, tx, ty, t0: now }; }
+        const px = g ? g.tx : b.at[0], py = g ? g.ty : b.at[1];
+        if (Math.hypot(tx - px, ty - py) > 0.5) {
+          const sp = g ? glideAt(g, now) : b.at, o = b.glo || (b.glo = { fx: 0, fy: 0, tx: 0, ty: 0, t0: 0 });   // (b.glo: this label's glide record, kept and rewritten)
+          o.fx = sp[0]; o.fy = sp[1]; o.tx = tx; o.ty = ty; o.t0 = now; g = b.gl = o;
+        }
         if (g && now - g.t0 >= LABEL_GLIDE_MS) b.gl = g = null;
         if (g) { g.tx = tx; g.ty = ty; const [sx, sy] = glideAt(g, now); it.x = ox + sx + px; it.y = oy + sy + py; moving = true; }
       }
-      b.at = [tx, ty]; b.rel = rel; b.rot = !!it.rot;
+      if (b.at) { b.at[0] = tx; b.at[1] = ty; } else b.at = [tx, ty];
+      b.rel = rel; b.rot = !!it.rot;
     }
     // (Laid out again each frame until every glide lands; nothing else runs the layout while the figure is still.)
-    if (moving && !glideRaf) glideRaf = nextFrame(() => { glideRaf = 0; if (F && !camMove) updateLabels(F, true); });
+    if (moving && !glideRaf) glideRaf = nextFrame(labelGlideTick);
   }
   // The leader lines and their dots, kept by the label they belong to: a new one fades in, one no longer wanted fades out, and the
   // rest are moved in place (rebuilt wholesale, they popped in and out with every change).

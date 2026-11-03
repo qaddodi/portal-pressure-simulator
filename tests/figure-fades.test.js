@@ -27,7 +27,8 @@ test('a moved label glides, keeping to the point it names, and is laid out each 
   // (Hidden figure, reduced motion, a label just shown or turned: it takes its spot at once.)
   assert.match(fn, /const snap = reduceMotion\.matches \|\| camMove \|\| wrap\.classList\.contains\('cam-move'\)/);
   assert.match(fn, /if \(!b\.at \|\| snap \|\| b\.rot !== !!it\.rot \|\| b\.rel !== rel \|\| \(!rel && !still\)\) b\.gl = null;/);
-  assert.match(fn, /if \(moving && !glideRaf\) glideRaf = nextFrame\(\(\) => \{ glideRaf = 0; if \(F && !camMove\) updateLabels\(F, true\); \}\);/);
+  assert.match(fn, /if \(moving && !glideRaf\) glideRaf = nextFrame\(labelGlideTick\);/);
+  assert.match(stage, /function labelGlideTick\(\) \{ glideRaf = 0; if \(F && !camMove\) updateLabels\(F, true\); \}/);   // (one kept function, not a closure made each frame)
   // (Glided before the leaders are drawn, so each leader runs to its label where it stands.)
   const lay = stage.slice(stage.indexOf('function layoutLabels(f, solve, dry = false)'));
   assert.ok(lay.indexOf('labelGlide(out);') > 0 && lay.indexOf('labelGlide(out);') < lay.indexOf('const DISC = 5, pts'));

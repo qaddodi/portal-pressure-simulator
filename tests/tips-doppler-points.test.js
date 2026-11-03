@@ -76,7 +76,8 @@ test("the column's side is chosen from the stent and the screen, never the pick,
   // (the "60 %" reads in the labels' own name size, 12 px at least (the lab role: the text size setting and a presentation's size in it),
   // at any zoom, its gap and its leader's stop-short in step with it)
   assert.match(stage, /const px = fontPx\(11\.5\);\n\s+if \(Math\.abs\(px - clampBase\) > 0\.01\) \{ clampBase = px; applyClampFs\(\); \}/);
-  assert.match(stage, /el\.style\.fontSize = CTM\.sc > 0 && CTM\.sc < 1 \? `\$\{\(clampBase \/ CTM\.sc\)\.toFixed\(2\)\}px` : '';/);
+  assert.match(stage, /const fs = CTM\.sc > 0 && CTM\.sc < 1 \? clampBase \/ CTM\.sc : 0;/);
+  assert.match(stage, /el\.style\.fontSize = fs \? `\$\{fs\.toFixed\(2\)\}px` : '';/);
   assert.match(stage, /const sk = CTM\?\.sc \|\| 0, cfs = sk > 0 \? \(clampBase \/ sk\)\.toFixed\(2\) : '';/);
   assert.match(stage, /const gap = \(6 \* clampBase\) \/ 12 \/ Math\.max\(CTM\?\.sc \|\| 1, 1e-3\)/);
   assert.match(stage, /const b = boxOfEl\(el, \(6 \* clampBase\) \/ 12\);/);

@@ -20,7 +20,7 @@ test('cssAlpha: a fade that asks for a new alpha every frame does not grow the c
 });
 
 test('the label width cache is cut at 1500 and the input tracker is made on read, not on every perf() call', () => {
-  assert.match(read('src/ui/stage.js'), /if \(widths\.size > 1500\) widths\.clear\(\); widths\.set\(k, w\);/);
+  assert.match(read('src/ui/stage.js'), /if \(widthN > 1500\) \{ widths\.clear\(\); widthN = 0; e = undefined; \}/);
   assert.match(read('src/ui/frame.js'), /get inputToPaint\(\) \{ return inputMeasure\(\); \}/);
 });
 

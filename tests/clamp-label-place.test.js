@@ -44,7 +44,7 @@ test('a "60 %" that stands off from its arrows, on the column\'s side or moved o
 test('the clamp label search measures once per text direction', () => {
   const at = body('function clampLabelAt(el) {', '// A quantized value');
   assert.match(at, /const q = clampLabelPos\(el\);\n\s+if \(!q\) return;\n\s+const \{ x, y, left, gap, deg \} = q;/);
-  assert.match(at, /return \{ x, y, left, gap, deg \};/);
+  assert.match(at, /return q;/);   // (the kept record clampPos, rewritten by each call and read at once, not made each time)
   const search = body('const measured = [null, null];', 'clampAlts = clampAlts.filter');
   assert.match(search, /const qx = \+q\.x\.toFixed\(2\), qy = \+q\.y\.toFixed\(2\), ref = measured\[\+q\.left\];/);
   assert.match(search, /if \(ref\) bb = \{ x: ref\.bb\.x \+ \(qx - ref\.x\), y: ref\.bb\.y \+ \(qy - ref\.y\), width: ref\.bb\.width, height: ref\.bb\.height \};/);
