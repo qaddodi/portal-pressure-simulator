@@ -230,7 +230,10 @@ async function stageViews() {
     const b0 = await ask(page, labelState), m0 = await ask(page, camera);
     await page.mouse.move(cx, cy); await page.mouse.down();
     for (let i = 1; i <= 8; i++) { await page.mouse.move(cx - i * 12, cy + i * 6); await watchFor(page, 120); }
-    await page.mouse.up(); await settle();
+    await page.mouse.up();
+    // (the page works through its queued pointer events on its own time: on a loaded CI runner the first look can come before it has begun, and settle() finds nothing gliding yet. Wait for the camera to move, up to 10 s; a drag that never moves it still fails below.)
+    await watchUntil(page, (a) => { const m = document.getElementById('world')?.getScreenCTM(); return !!m && Math.hypot(m.e - a.e, m.f - a.f) > 20; }, m0, { maxFake: 10000 });
+    await settle();
     const b1 = await ask(page, labelState), m1 = await ask(page, camera);
     const pan = [m1.e - m0.e, m1.f - m0.f];
     say(`pan: figure moved ${pan[0].toFixed(0)}, ${pan[1].toFixed(0)}; ${b0.pts.length} label(s) before, ${b1.pts.length} after, ${b1.anchors.length} anchored`);
