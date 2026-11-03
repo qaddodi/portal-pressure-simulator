@@ -532,3 +532,108 @@ Second pass: **18 new findings** (RM1, RM2, TH1, TH2, RS1–RS5, FN1, FN2, FL1, 
 Still not covered: high-DPI and safe-area handling beyond RS5 (the safe-area read at `stage.js:1700-1711` looked right), memory growth
 over long sessions (the GPU budget and context cap in `gpu-budget.js` already cover context loss and leaks well), and `presenter.js`
 (thread A).
+
+---
+
+# Third pass: correctness bugs (3 Nov 2026, read at `fb60ce8`)
+
+This pass looks at state races, async ordering, error handling, stale caches and input checks, outside the drawing code. It is
+read-only, and the line numbers are at `fb60ce8`. The code-health findings and the refactor steps are in `docs/refactor-plan.md`.
+
+**Status since the second pass:** the fix thread has done IN1, TO1, ZO1 and TM1 (`299a97c`) and O4 (`fb60ce8`, the endoscopy tile on
+the GPU).
+
+I also checked the engine's own math (`physiology.js`, `wall-read.js`, `linalg.js`, the sanitising in `scenario.js`). The tube law,
+the volume curve and its inverse, and the compliance agree with each other piece by piece, and the solver pivots properly. I found no
+math errors there. The problems are in how the page talks to the engine.
+
+| ID | What goes wrong | Sev | Effort | Confidence |
+|---|---|---|---|---|
+| B1 | A share link's settings are applied on top of a different patient | P2 | S | Confirmed |
+| B2 | "Restarted" or a patient's name is announced for a load that was replaced or failed | P3 | S | Confirmed |
+| B3 | Taps sent while the engine restarts are silently lost | P3 | S | Confirmed |
+| B4 | A timeline entry whose snapshot fails can never be gone back to, with no word | P3 | S | Confirmed |
+| B5 | Without a worker, an engine error is thrown into whatever UI code sent the message | P3 | S | Plausible |
+| B6 | Pasting a share link into an open tab does nothing | P3 | S | Confirmed |
+| B7 | A hand-edited link's unknown vessels and keys are kept, shown and passed on | P3 | S | Confirmed |
+| B8 | "Resume where you left off" can forget the wrong talk | P3 | S | Plausible |
+| B9 | A store listener removed during a change still hears that change | P3 | S | Confirmed |
+
+### B1. A share link's settings land on another patient (P2, S, Confirmed)
+- **Where:** `main.js:619-631` (`loadShared`: `await loadPreset(s.preset)`, then merges `s.params`, sets the view, the selection and the
+  camera). `loadPreset` (`main.js:588-607`) returns nothing both when a newer load replaced it (`gen !== presetGen`) and when the engine
+  did not answer (the `catch`).
+- **What goes wrong:** open a share link, then tap another patient in the menu before the first one has loaded (easy on a phone's first
+  start). The tapped patient loads, and then the link's settings are merged into it: a cirrhosis link's clot or stent ends up on the
+  healthy patient, and the history marks it as the patient's start. The same happens after an engine failure: the link's settings go
+  onto the old patient.
+- **Fix:** have `loadPreset` return whether it applied (`true` only when `gen === presetGen` after the answer), and stop in `loadShared`
+  when it did not.
+
+### B2. A load that was replaced or failed is still announced (P3, S, Confirmed)
+- **Where:** `main.js:674-675` (`restartPatient`: the "Restarted" toast after `await loadPreset(id)`), `main.js:267` (the Home card's
+  `loadPreset` toasts the patient's name), and `main.js:463`.
+- **What goes wrong:** a quick second tap, or an engine that does not answer, still shows "Restarted: Decompensated cirrhosis" or the
+  first patient's name, while the screen shows another patient or the old one.
+- **Fix:** use B1's return value before the toast.
+
+### B3. Sends during an engine restart are dropped silently (P3, S, Confirmed)
+- **Where:** `host.js:82` (`send(msg) { impl?.post(msg); }`), and `host.js:75-79` (`restartHost` sets `impl = null` until the new worker
+  has answered, up to `WORKER_WAIT`, 15 s).
+- **What goes wrong:** during a restart after a crash, a slider moved, a play or pause, or a treatment tapped is lost. The page's store
+  shows the change, but the engine never heard it, so the figure and the controls disagree until the next change. `restartPatient`
+  (`main.js:667-672`) resends speed and running, but not the Doppler's probe vessel (`probe`), so the Doppler can read a different vessel
+  than the one shown as picked.
+- **Fix:** queue messages while `impl` is null and flush them in order once it is set. Resend the probe with speed and running.
+
+### B4. A failed timeline snapshot is lost without a word (P3, S, Confirmed)
+- **Where:** `timeline.js:146-155` (`snapInto` awaits `host.request('snapshot')` with no `catch`). Its callers are `reset`,
+  `flushParams`, `recordAction` (after 80 ms) and `jump` (after 120 ms).
+- **What goes wrong:** if the engine is slow (the 30 s cap) or has stopped, the rejection is unhandled, and the entry keeps no `snap`.
+  `restorable()` then skips it, so Undo jumps past that change to an older one with no explanation.
+- **Fix:** catch the rejection, mark the entry (`e.snapFailed = true`), and show it in the History card as "can't go back here".
+
+### B5. Without a worker, an engine error is thrown into the caller (P3, S, Plausible)
+- **Where:** `host.js:66-68`. In the main-thread fallback, `impl.post` calls `core.handle(structuredClone(m))` directly. `failed` is
+  never set there, and `crashed()` is never called.
+- **What goes wrong:** on a browser that cannot start the worker (some locked-down school or hospital machines), an exception in the
+  engine is thrown into the slider or button handler that sent the message. The control breaks, and no crash card offers Restart.
+- **Fix:** wrap `core.handle` in `try` / `catch` → `crashed(err.message)`, as the worker's `onerror` does.
+
+### B6. A share link pasted into an open tab does nothing (P3, S, Confirmed)
+- **Where:** `main.js:395` reads `#s=` once at start. Nothing listens for `hashchange` (no `hashchange` or `popstate` handler anywhere in
+  `src/ui`).
+- **What goes wrong:** a tester with the app already open who pastes a colleague's link into the same tab sees the URL change, and the
+  app stays on the old patient. Only a reload applies it.
+- **Fix:** on `hashchange` with a new `#s=`, run `readShare()` and `loadShared()`, as at start.
+
+### B7. Unknown vessels and keys in a link are kept (P3, S, Confirmed)
+- **Where:** `scenario.js:134-155` (`sanitizeParams`). Range and type are checked, but the ids under `stenosis`, `thrombus`,
+  `customShunts`, `stenosisSite` and `spontaneous` are not checked against `EDGES`. `deepMerge` (`scenario.js:160-170`) also copies top-level
+  keys the defaults do not have.
+- **What goes wrong:** a hand-edited or old link with a renamed vessel id keeps it. It then shows in the explainer by its raw id
+  (`explain.js:48-49`: "Stenosis of PV_OLD 50%"), and it is carried into every snapshot, history entry and share link made after. Unknown
+  top-level keys travel the same way.
+- **Fix:** keep only ids in `EDGES` (and only the shunt kinds each map allows), and drop top-level keys `defaultParams()` lacks.
+
+### B8. Resume can forget the wrong talk (P3, S, Plausible)
+- **Where:** `resume.js:16-27` keeps the newest talk last by deleting and re-adding its key, and drops the first keys past `MAX`.
+- **What goes wrong:** JavaScript orders integer-like keys ("12", "2024") before all others, whatever the insertion order. A deck whose id
+  is all digits is always "oldest", so it is dropped first, or never moves to newest. I did not check whether any deck id is all
+  digits.
+- **Fix:** store an array of `{ id, at, n, t }` or keep a timestamp per entry and evict by it.
+
+### B9. A store listener removed during a change still hears it (P3, S, Confirmed)
+- **Where:** `store.js` `on()`: the unsubscribe replaces the array (`filter`), while `wake` (`store.js`, top) loops over the array it
+  already holds.
+- **What goes wrong:** a panel that closes in reaction to a key, and unsubscribes there, still has its later listeners in the same list
+  run once more, after it has torn down its elements. This is a common source of "cannot read properties of null" in panels that close
+  themselves. It is latent here: I did not find a crash from it.
+- **Fix:** mark removed listeners (a `dead` flag checked in `wake`), or copy the list before iterating.
+
+## Count after three passes
+- First pass: 35 findings.
+- Second pass: 18.
+- Third pass: 9 correctness bugs here, plus 14 code-health items in `docs/refactor-plan.md`.
+
+Since the audit started, the fix thread has closed D1 (most of it), T1, N3, IN1, TO1, ZO1, TM1 and O4.
