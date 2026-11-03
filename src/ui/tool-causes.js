@@ -15,11 +15,11 @@
 // steps ease to their new places. These are the model's own shares: a deck line that quotes them needs a source.
 
 import { TILE, RATE, tileShown } from './table-marks.js?v=a483b9975e';
-import { cutsOf } from './tool-curve.js?v=bb2d372db4';
+import { cutsOf } from './tool-curve.js?v=88a4fc6012';
 import { DRUGS } from '../engine/scenario.js?v=d2669cef9b';
 import { restClass } from './rest-pass.js?v=b1da783ead';
 import { frameFor } from './frame.js?v=ca74a6f22a';
-import { createSvgGL, svgModel, setWords, setGeo, setPts } from './svg-gl.js?v=9608939bf5';
+import { createSvgGL, svgModel, setWords, setGeo, setPts } from './svg-gl.js?v=29392c26e2';
 import { numWords, signedWords } from './num-words.js?v=cf53d490d9';
 const nextFrame = frameFor('tool-causes');
 const mix = (a, b, k) => a + (b - a) * k;   // (one step toward b)

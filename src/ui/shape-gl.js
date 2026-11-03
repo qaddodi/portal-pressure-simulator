@@ -59,7 +59,8 @@ function scan() {
         const k = ex - fd;
         let v;
         if (!wide && k >= -22 && k <= 22) v = k < 0 ? m / POW10[-k] : m * POW10[k];
-        else v = Number(PS.substring(neg || c === 43 ? s + 1 : s, q));   // alloc-rare: only a number of more than 22 digits is read through a string
+        // alloc-rare: only a number of more than 15 digits or with an exponent past 22 is read by Number() (no path of the app has one)
+        else v = Number(PS.substring(neg || c === 43 ? s + 1 : s, q));
         TK = 2; TV = neg ? -v : v; TE = q; PI = s; SP = s;
         return;
       }
@@ -77,7 +78,8 @@ function pnum() { scan(); if (TK !== 2) return NaN; PI = TE; return TV; }
  * (newCmds) and written again for each shape of its slot (cmdsReset, then cmdM ...); it grows when a shape is longer than any before, never
  * shrinks, and nothing else is made per shape (the arrays of arrays this replaced made one per command).
  */
-export const newCmds = () => ({ op: new Uint8Array(32), v: new Float64Array(128), n: 0, nv: 0 });   // alloc-rare: a buffer made once per shape when the caller gives none (stage.js, organ-paint keep theirs)
+// alloc-rare: a buffer is made once for each slot that holds a shape's commands (the slot's owner keeps it)
+export const newCmds = () => ({ op: new Uint8Array(32), v: new Float64Array(128), n: 0, nv: 0 });
 const grown = (a, need) => { const g = new a.constructor(Math.max(need, a.length * 2)); g.set(a); return g; };
 function room(c, nv) {
   if (c.n >= c.op.length) c.op = grown(c.op, c.n + 1);
@@ -104,7 +106,8 @@ export function cmdsToArrays(c) {
  * painter in this form as it is made, so its `d` is never parsed again there (organ-paint.js shapeSource).
  */
 export function pathCmds(d, into = null) {
-  PS = d ? (typeof d === 'string' ? d : String(d)) : ''; PI = 0; PN = PS.length; SP = -1;   // alloc-rare: only a non-string d is converted
+  // alloc-rare: String() runs only for a `d` that is not already text (the app hands text)
+  PS = d ? (typeof d === 'string' ? d : String(d)) : ''; PI = 0; PN = PS.length; SP = -1;
   const out = into ? cmdsReset(into) : newCmds();
   let cx = 0, cy = 0, sx = 0, sy = 0, cmd = 0, hasC = false, lcx = 0, lcy = 0, hasQ = false, lqx = 0, lqy = 0;
   for (;;) {
@@ -147,12 +150,15 @@ export function pathCmds(d, into = null) {
  */
 let PATH_BUF = null;   // (the buffer flattenPath reads a path into: one for every call, the polylines made from it at once)
 export const flattenPath = (d, tol = 0.01) => flattenCmds(pathCmds(d, PATH_BUF || (PATH_BUF = newCmds())), tol);
+/** The same into a store of the caller's (newFlat): nothing is made once the store has held a shape as long. */
+export const flattenPathInto = (d, tol, store) => flattenCmdsInto(pathCmds(d, PATH_BUF || (PATH_BUF = newCmds())), tol, store);   // alloc-rare: the shared buffer is made at the first call
 
 // A path is cut with one scratch run of points (doubles, grown when a run is longer than any before) and module state, so the
 // cutting makes only its result: each run's Float32Array and its record, none of the plain arrays, closures and slices it made before.
 let FB = new Float64Array(4096), FN = 0, FHAS = false, FOUT = null, fcx = 0, fcy = 0, fsx = 0, fsy = 0, FTOL = 0.01;
 function fpush(x, y) {
-  if (FN + 2 > FB.length) { const g = new Float64Array(FB.length * 2); g.set(FB); FB = g; }   // alloc-rare: the scratch run, doubled only when a run is longer than any before
+  // alloc-rare: the run of points grows only when a run is longer than any before
+  if (FN + 2 > FB.length) { const g = new Float64Array(FB.length * 2); g.set(FB); FB = g; }
   FB[FN++] = x; FB[FN++] = y;
 }
 // (A run of at least two points is a result; a closed run whose last point repeats its first drops the repeat, the closing edge joins them.)
@@ -160,9 +166,16 @@ function fflush(closed) {
   if (FHAS && FN > 2) {
     let n = FN;
     if (closed && n >= 4 && Math.abs(FB[n - 2] - FB[0]) < 1e-9 && Math.abs(FB[n - 1] - FB[1]) < 1e-9) n -= 2;
-    const pts = new Float32Array(n);   // alloc-rare: the polyline answer for a path met the first time; every caller keeps it by its path string
+    const i = FOUT.n++;
+    let rec = FOUT.recs[i];
+    // alloc-rare: a run's record is made the first time a store holds that many runs; its points are made again only when the run's length differs from the last time
+    if (!rec) rec = FOUT.recs[i] = { pts: new Float32Array(n), closed };
+    // alloc-rare: only when the run's length differs from the last time
+    else if (rec.pts.length !== n) rec.pts = new Float32Array(n);
+    const pts = rec.pts;
     for (let k = 0; k < n; k++) pts[k] = FB[k];
-    FOUT.push({ pts, closed });   // alloc-rare: the polyline answer for a path met the first time; every caller keeps it by its path string
+    rec.closed = closed;
+    FOUT.list[i] = rec;
   }
 }
 function fstart(x, y) { fflush(false); FHAS = true; FN = 0; fpush(x, y); fsx = x; fsy = y; }
@@ -207,9 +220,14 @@ function farc(rx, ry, phi, large, sweep, x, y) {
   }
 }
 
+/** A store for the polylines of a shape cut again and again (flattenCmdsInto, flattenPathInto): its list and the runs' records are kept and written again. */
+export const newFlat = () => ({ list: [], recs: [], n: 0 });   // alloc-rare: made once for each place that cuts a shape over and over
 /** A path's commands (pathCmds, a buffer) as polylines, as flattenPath gives its `d`. */
-export function flattenCmds(cmds, tol = 0.01) {
-  const out = [];   // alloc-rare: the answer for a path met the first time; every caller keeps it by its path string
+export function flattenCmds(cmds, tol = 0.01) { return flattenCmdsInto(cmds, tol, newFlat()); }
+/** The same, written into `store` (newFlat): the list returned is the store's own, good until the store is written again. */
+export function flattenCmdsInto(cmds, tol, store) {
+  const out = store;
+  out.n = 0;
   FOUT = out; FTOL = tol; FN = 0; FHAS = false; fcx = fcy = fsx = fsy = 0;
   const op = cmds.op, v = cmds.v;
   for (let i = 0, k = 0; i < cmds.n; i++) {
@@ -224,7 +242,8 @@ export function flattenCmds(cmds, tol = 0.01) {
   }
   fflush(false);
   FOUT = null;
-  return out;
+  out.list.length = out.n;
+  return out.list;
 }
 
 /**

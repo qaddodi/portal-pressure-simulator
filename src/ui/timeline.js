@@ -12,13 +12,13 @@
 
 import { store, replaceParams, onParamChange } from './store.js?v=a51981892d';
 import { host } from './host.js?v=24f6deba49';
-import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp, putText, swapText } from './util.js?v=335c12de81';
-import { activeInterventions } from './inspector.js?v=10bb22a371';
+import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp, putText, swapText } from './util.js?v=44da4c1464';
+import { activeInterventions } from './inspector.js?v=98a9ecaa03';
 import { removedLabel } from './removed-label.js?v=ea3de67900';
 import { frameFor } from './frame.js?v=ca74a6f22a';
 import { D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=7d7bfe9a62';
-import { createSvgGL, svgModel } from './svg-gl.js?v=9608939bf5';
-import { textPolys, textBox, loadGlyphs, glyphsReady } from './text-gl.js?v=14c53f0af6';
+import { createSvgGL, svgModel } from './svg-gl.js?v=29392c26e2';
+import { textPolys, textBox, loadGlyphs, glyphsReady } from './text-gl.js?v=b1c57e1e7b';
 import { textSoon } from './class-soon.js?v=d59b314e61';
 import { restPass } from './rest-pass.js?v=b1da783ead';
 const nextFrame = frameFor('timeline');
