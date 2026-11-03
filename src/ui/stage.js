@@ -9,6 +9,7 @@ import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOcclud
 import { route as metroRoute, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, CAVITY_LOW, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js';
 import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js';
 import { sideEndScale } from './fork-joins.js';
+import { lookChanged, newLookSig } from './look-sig.js';
 import { veinJoins as joinsPass, smoothRunOn as smoothPass, newJoinStore, runOnSamples } from './vein-joins.js';
 import { nodeEnds, nodeDrawn, dotRadius, bareDots } from './circuit-nodes.js';
 import { STATION_VESSEL, meanVel, velNormal, judgeFlow } from './velNormal.js';
@@ -5187,29 +5188,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   const VLOOK = { shOff: [1.4, 2.8], light: LIGHT, reach: 0, organs: 0, casing: [0, 0, 0, 0], shadow: [0, 0, 0, 0], sheen: [0, 0, 0, 0], shade: [0, 0, 0, 0], ring: [0, 0, 0, 0], netAlpha: 0, fx: true, tierAlpha: TIER_ALPHA, tierGroup: TIER_GROUP, fluid: null, map: MAP, plate: null };   // alloc-rare: kept, made once for the stage
   const lookRgba = (out, rgb, a) => { out[0] = rgb[0]; out[1] = rgb[1]; out[2] = rgb[2]; out[3] = a; };
-  // The look's numbers (all but the fluid's, as its text signature was), now and at the last sync that drew it: whether any changed.
-  const LOOK_NOW = new Float64Array(256), LOOK_PREV = new Float64Array(256);   // alloc-rare: kept, made once for the stage
-  let lookPrevN = -1;
-  function lookChanged(v, plateIsOn) {
-    const A = LOOK_NOW;
-    let n = 0;
-    A[n++] = v.shOff[0]; A[n++] = v.shOff[1];
-    for (let i = 0; i < v.light.length; i++) A[n++] = v.light[i];
-    A[n++] = v.reach; A[n++] = v.organs; A[n++] = v.netAlpha; A[n++] = v.fx ? 1 : 0;
-    for (let i = 0; i < 4; i++) { A[n++] = v.casing[i]; A[n++] = v.shadow[i]; A[n++] = v.sheen[i]; A[n++] = v.shade[i]; A[n++] = v.ring[i]; }
-    for (let i = 0; i < v.tierAlpha.length; i++) A[n++] = v.tierAlpha[i];
-    for (let i = 0; i < v.tierGroup.length; i++) A[n++] = v.tierGroup[i];
-    const m = v.map;
-    A[n++] = m.a; A[n++] = m.fxOn ? 1 : 0; A[n++] = m.fxU;
-    for (let i = 0; i < 4; i++) { A[n++] = m.dot[i]; A[n++] = m.zone[i]; A[n++] = m.fx[i]; A[n++] = m.alt[i]; A[n++] = m.rot[i]; }
-    A[n++] = m.fxX[0]; A[n++] = m.fxX[1]; A[n++] = m.fxCol[0]; A[n++] = m.fxCol[1]; A[n++] = m.fxCol[2];
-    const pl = v.plate;
-    A[n++] = pl ? 1 : 0; A[n++] = pl ? pl.alpha : 0; A[n++] = pl ? pl.sat : 0; A[n++] = pl && pl.stack ? 1 : 0; A[n++] = plateIsOn ? 1 : 0;
-    let differs = n !== lookPrevN;
-    for (let i = 0; i < n; i++) { const a = A[i], b = LOOK_PREV[i]; if (a !== b && !(a !== a && b !== b)) differs = true; LOOK_PREV[i] = a; }
-    lookPrevN = n;
-    return differs;
-  }
+  const LOOK_SIG = newLookSig();   // (what the look held at the last sync that drew it: look-sig.js)
   function syncVeinsNow(t) {
     if (!veins || veins.lost) { colEasing = false; return; }
     glowSync = false;
@@ -5287,7 +5266,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     syncPlateLook();
     // The vessel layer is drawn again only when what it is drawn from changed: a running model sends a frame about ten
     // times a second, and in a steady state most of them leave every vessel's colour, width and fade exactly as they were.
-    const lookDiffers = lookChanged(vl, plateOn());
+    const lookDiffers = lookChanged(vl, plateOn(), LOOK_SIG);
     // Most of those that do change only a few vessels' colours (the pulse), and the vessel layer then redraws only those
     // vessels' cells (veinsRows; see drawVeins): a whole redraw at a Retina size is the heaviest thing the figure draws.
     if (tubesNew || lookDiffers || !tubesShown || tubesShown.length !== tubeData.length) {
