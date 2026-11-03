@@ -21,7 +21,7 @@ const fail = (m) => { failed++; console.log(`FAIL ${m}`); };
 
 try {
   await page.goto(server.url + '');
-  await page.waitForFunction(() => window.pps?.store.get().frame && document.querySelector('canvas#veins'), null, { timeout: 120000 });
+  await page.waitForFunction(() => window.pps?.store?.get().frame && document.querySelector('canvas#veins'), null, { timeout: 120000 });
   // With the switch on, the organs on screen come from the layers.
   for (let t0 = Date.now(); Date.now() - t0 < 60000 && !(await page.evaluate(() => window.pps.stage.organsSettled() && window.pps.stage.organLayersShown()));) await page.waitForTimeout(500);
   if (!(await page.evaluate(() => window.pps.stage.organLayersShown()))) fail('with  the organs are never shown from the layers');

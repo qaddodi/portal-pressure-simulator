@@ -23,7 +23,7 @@ for (const cpu of [1, 4]) {
     new PerformanceObserver((l) => { for (const e of l.getEntries()) window.__stalls.push([e.startTime, e.duration]); }).observe({ type: 'longtask', buffered: true });
   });
   await page.goto(server.url + '?preset=' + preset);
-  await page.waitForFunction(() => window.pps?.store.get().frame, null, { timeout: 60000 });
+  await page.waitForFunction(() => window.pps?.store?.get().frame, null, { timeout: 60000 });
   await page.waitForTimeout(wait);
   await cdp.send('Emulation.setCPUThrottlingRate', { rate: cpu });
   if (profile) { await cdp.send('Profiler.enable'); await cdp.send('Profiler.setSamplingInterval', { interval: 200 }); await cdp.send('Profiler.start'); }

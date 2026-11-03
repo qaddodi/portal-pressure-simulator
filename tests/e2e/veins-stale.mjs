@@ -38,7 +38,7 @@ async function same(what, lobule = false) {
 
 try {
   await page.goto(server.url + '?preset=cirr-decomp');
-  await page.waitForFunction(() => window.pps?.store.get().frame && document.querySelector('canvas#veins'), null, { timeout: 120000 });
+  await page.waitForFunction(() => window.pps?.store?.get().frame && document.querySelector('canvas#veins'), null, { timeout: 120000 });
   await page.waitForTimeout(4000);
   await run(true); await page.waitForTimeout(8000); await run(false);
   await same('anatomy, played then paused');

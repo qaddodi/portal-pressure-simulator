@@ -51,7 +51,7 @@ async function open(ctx, query = '?preset=cirr-decomp') {
   page.setDefaultTimeout(180000);
   page.on('pageerror', (e) => fail(`page error: ${e.message}`));
   await page.goto(server.url + query);
-  await page.waitForFunction(() => window.pps?.store.get().frame && document.querySelector('canvas#veins') && document.getElementById('world'), null, { timeout: 120000 });
+  await page.waitForFunction(() => window.pps?.store?.get().frame && document.querySelector('canvas#veins') && document.getElementById('world'), null, { timeout: 120000 });
   await page.waitForTimeout(5000);
   await steady(page);
   return page;

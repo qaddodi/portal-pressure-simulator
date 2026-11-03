@@ -71,7 +71,7 @@ async function openPage(ctx, prof, query, errors) {
   return { page, cdp };
 }
 // (`#boot`, the cover over the page while it loads, is gone: nobody taps through it, and Playwright waits for it to go before a click.)
-const figureReady = (page) => page.waitForFunction(() => window.pps?.store.get().frame && document.querySelector('canvas#veins') && document.getElementById('world') && !document.getElementById('boot') && window.pps.perf?.inputToPaint, null, { timeout: LOAD });
+const figureReady = (page) => page.waitForFunction(() => window.pps?.store?.get().frame && document.querySelector('canvas#veins') && document.getElementById('world') && !document.getElementById('boot') && window.pps.perf?.inputToPaint, null, { timeout: LOAD });
 
 /** Records the scheduler's frames while `work` runs and for `settle` ms after; the recording's raw numbers. */
 async function recorded(page, work, settle = 600) {

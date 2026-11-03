@@ -19,7 +19,7 @@ let failed = 0;
 const fail = (m) => { failed++; console.log(`FAIL ${m}`); };
 try {
   await page.goto(server.url + '?preset=cirr-decomp');
-  await page.waitForFunction(() => window.pps?.store.get().frame && document.querySelector('canvas#veins'), null, { timeout: 120000 });
+  await page.waitForFunction(() => window.pps?.store?.get().frame && document.querySelector('canvas#veins'), null, { timeout: 120000 });
   await page.waitForFunction(() => (window.pps.store.get().frame?.slow?.ascites || 0) > 800, null, { timeout: 60000 });
   await page.evaluate(() => window.pps.store.set({ running: false }));
   // (The moving blood off: its frames are drawn with the clock at each look, so they would differ from any picture drawn before.)

@@ -32,7 +32,7 @@ for (const [name, prof] of Object.entries(PROFILES)) {
   });
   const t0 = Date.now();
   await page.goto(server.url + '?preset=cirr-decomp');
-  await page.waitForFunction(() => document.querySelector('#scenarioName')?.textContent.includes('Decompensated') && window.pps?.store.get().frame, null, { timeout: 60000 });
+  await page.waitForFunction(() => document.querySelector('#scenarioName')?.textContent.includes('Decompensated') && window.pps?.store?.get().frame, null, { timeout: 60000 });
   const ready = Date.now() - t0;
   await page.waitForTimeout(2500);
   const since = await page.evaluate(() => performance.now());

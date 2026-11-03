@@ -78,7 +78,7 @@ async function drag(what, from, step, n, lobule = false) {
 
 try {
   await page.goto(server.url + '?preset=cirr-decomp');
-  await page.waitForFunction(() => window.pps?.store.get().frame && document.querySelector('canvas#veins'), null, { timeout: 120000 });
+  await page.waitForFunction(() => window.pps?.store?.get().frame && document.querySelector('canvas#veins'), null, { timeout: 120000 });
   await page.waitForTimeout(4000);
   await page.evaluate(() => window.pps.host.send({ type: 'run', running: false }));
   // Zoomed in (so there is somewhere to pan to), then to each edge in turn.

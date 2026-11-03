@@ -52,7 +52,7 @@ function climbing(xs, minRise) {
 
 try {
   await page.goto(server.url + '?preset=cirr-decomp');
-  await page.waitForFunction(() => window.pps?.store.get().frame, null, { timeout: 45000 });
+  await page.waitForFunction(() => window.pps?.store?.get().frame, null, { timeout: 45000 });
   for (const view of ['anatomic', 'lobule']) {
     await page.evaluate((v) => document.querySelector(`#viewSeg [data-view="${v}"]`).click(), view);
     await page.waitForTimeout(5000);   // landed, first rasters done
@@ -245,7 +245,7 @@ try {
     sp.setDefaultTimeout(120000);
     sp.on('pageerror', (e) => errors.push(e.message));
     await sp.goto(server.url + '?preset=cirr-decomp');
-    await sp.waitForFunction(() => window.pps?.store.get().frame);
+    await sp.waitForFunction(() => window.pps?.store?.get().frame);
     await sp.evaluate(() => window.pps.store.set({ lobule: true }));
     await sp.waitForFunction(() => window.pps.stage.lobuleOpen());
     await sp.waitForTimeout(3000);
