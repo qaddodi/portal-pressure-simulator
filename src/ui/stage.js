@@ -11432,7 +11432,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let labelSol = new Map();   // key → solved slot { wx, wy, dx, dy, dir, pi, w, h, leader, lead } or { drop }
   let solvedFor = null;       // { sig, sc, th } the slots were solved for
   const SOLVED_A = { sig: null, sc: 0, th: 0, csig: 0, ins: 0 }, SOLVED_B = { sig: null, sc: 0, th: 0, csig: 0, ins: 0 };   // (what updateLabels writes it into, by turns)
-  const JOB = { g: null, key: null, solvedFor: null }, jobKeyArr = [], labelKeyArr = [];   // (the solve in slices: one at a time, its key and the key of the layout that stands, kept)
+  const JOB_NOW = { maxWait: 0 };
+  const JOB = { g: null, key: null, solvedFor: null, t0: 0 }, jobKeyArr = [], labelKeyArr = [];   // (the solve in slices: one at a time, its key and the key of the layout that stands, kept)
   const keyInto = (to, from) => { to.length = from.length; for (let i = 0; i < from.length; i++) to[i] = from[i]; return to; };
   const labelVis = new Map(); // key → shown last frame (hysteresis against blockers)
   let lapHid = new Set();     // keys the last layout's overlap pass hid (its hysteresis)
@@ -11606,7 +11607,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (blockerBoxes) for (let i = 0; i < blockerBoxes.length; i++) { const o = blockerBoxes[i]; h = sigFold(sigFold(sigFold(sigFold(h, Math.round(o.x0 / 8)), Math.round(o.y0 / 8)), Math.round(o.x1 / 8)), Math.round(o.y1 / 8)); }   // (and the cards' boxes, which can arrive a frame after the insets)
     return h || 1;
   };
-  const stats = { layouts: 0, skips: 0, values: 0, ms: 0 };
+  const stats = { layouts: 0, skips: 0, values: 0, ms: 0, jobs: 0, slices: 0, drops: 0 };
   const handRideRec = { settle: false };   // (the one record of a hand's zoom ridden: handRide points at it while a ride runs)
   function updateLabels(f, force = false) {
     labelPainted = false;
@@ -11686,7 +11687,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (solvedFor && solvedFor.view === morphTarget && !(morph > 0 && morph < 1)) layoutLabels(f, false);   // (not another view's solution: its anchors are that view's world points, which would stand the labels and their dots where the figure has none)
         const g = layoutLabelsGen(f, true);
         if (!labelSliceRun(g, LABEL_SLICE_MS)) {
-          labelJob = JOB; JOB.g = g; JOB.key = keyInto(jobKeyArr, key); JOB.solvedFor = sf;
+          labelJob = JOB; JOB.g = g; JOB.key = keyInto(jobKeyArr, key); JOB.solvedFor = sf; JOB.t0 = performance.now(); stats.jobs++;
           mayTask('label solve', labelJobStep);
           stats.ms += performance.now() - t0;
           labelTail(solvedFor?.view !== morphTarget);
@@ -11739,7 +11740,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return r.done;
   }
   const sameView8 = (a, b) => { for (let i = 0; i < 8; i++) if (a[i] !== b[i]) return false; return true; };
-  function labelJobDrop() { if (!labelJob) return; const g = labelJob.g; labelJob = null; cancelMay('label solve'); g.return(); }
+  function labelJobDrop() { if (!labelJob) return; stats.drops++; const g = labelJob.g; labelJob = null; cancelMay('label solve'); g.return(); }
   // (The running solve finished now, in one go: the labels are laid out for the camera as it stands.)
   function labelJobFinish() {
     const j = labelJob;
@@ -11758,7 +11759,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!j) return false;
     if (camMove || cathHid() || lz?.isOpen()) { labelJobDrop(); labelKey = null; return false; }
     let done;
-    try { done = labelSliceRun(j.g, Math.max(1, Math.min(LABEL_SLICE_MS, left || LABEL_SLICE_MS))); } catch (e) { labelJob = null; labelKey = null; throw e; }
+    // (A frame with no time to spare gives its slice anyway, and a solve that has run long takes more each time (2 ms, up to 12 ms after a
+    // second): on a slow phone, 1 ms slices a few frames apart left another view's layout standing for most of a minute, the Circuit
+    // showing two readings and the anatomy's names after the switch.)
+    stats.slices++;
+    const age = performance.now() - (j.t0 || 0), ms = Math.min(12, LABEL_SLICE_MS + Math.max(0, age - 250) / 75);
+    try { done = labelSliceRun(j.g, Math.max(ms, Math.min(LABEL_SLICE_MS, left || LABEL_SLICE_MS))); } catch (e) { labelJob = null; labelKey = null; throw e; }
+    // (Past 400 ms a slice runs every frame, not every third: on a busy frame budget the may task waited its two frames each time, and a
+    // Circuit solve took half a minute to land, two readings standing meanwhile.)
+    if (!done && age > 400) { mayTask('label solve', labelJobStep, JOB_NOW); return false; }
     if (!done) return true;
     labelJob = null;
     solvedFor = j.solvedFor; solveAsked = false;
@@ -15095,7 +15104,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     dyeInjecting: () => bolus.injecting,
     svg,
     worldToLocal: (x, y) => { refreshCTM(); return worldToLocal(x, y); },
-    labelSolving: () => !!labelJob,   // (a label solve still running in slices)
+    // (a label solve still running in slices, or one still owed: the view or the camera still moving to where it will be laid out, or a layout
+    // dropped and not yet laid again. The browser checks had read the Circuit's labels mid-change, two readings, as a landed layout.)
+    labelSolving: () => !!labelJob || ((camMove || morphFade || morph !== morphTarget || labelKey == null) && !!F && !lz?.isOpen() && !cathHid()),
     anchorPos(anchor) {
       const t = easeInOut(morph);
       if (NODE_POS[anchor]) return nodePos(anchor, t);
