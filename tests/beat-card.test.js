@@ -67,7 +67,7 @@ test('the change since before: one decimal for a pressure, whole beats for the h
 test('the slide card draws the new layout; the Patients chart and an unmeasured HVPG keep theirs', () => {
   assert.match(pt, /if \(slide && range === 'beats' && showHvpg\) \{ drawBeatCard\(/);
   assert.match(pt, /before = ctx\?\.ref \? \{ fp: ctx\.ref, label: t\?\.deltaLabel \|\| 'before' \} : null;/);
-  assert.match(pt, /setLineDash\(DASH_PORTAL\); line\(ctx, sp, X, YB/, 'the portal pressure dashed');
+  assert.match(pt, /setLineDash\(DASH_PORTAL\); line\(ctx, sp, pc, 2, plotW\)/, 'the portal pressure dashed');
   assert.match(pt, /ctx\.strokeStyle = text; ctx\.lineWidth = 1\.6;/, 'the EKG in the text colour');
   assert.match(pt, /fillStyle = cssAlpha\('--text-3', 0\.08\); ctx\.fillRect\(L, YB\(wWas\)/, 'the old gap faint grey');
   assert.ok(css.includes('.pz-tool[data-kind="beats"] .pt-head { display: none !important; }'), 'the header leaves the slide card');
