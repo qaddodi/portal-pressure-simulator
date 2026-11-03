@@ -97,7 +97,7 @@ export function createHvpgProcedure() {
   const startBtn = h('button', { class: 'btn primary', onclick: () => start(), onpointerup: (e) => { if (e.pointerType !== 'mouse' && !startBtn.disabled) start(); } }, icon('catheter'), h('span', {}, 'Measure HVPG'));
   const note = h('p', { class: 'ctl-sub hvpg-note' });
   // (The three readings and the button's words change as the catheter runs: drawn on the GPU while they change, gl-words.js.)
-  const valW = Object.fromEntries(Object.entries(vals).map(([k, e]) => [k, glWords(e)])), btnW = glWords(startBtn.lastChild);
+  const valW = Object.fromEntries(Object.entries(vals).map(([k, e]) => [k, glWords(e, { keep: true })])), btnW = glWords(startBtn.lastChild);
   const bar = h('div', { class: 'hvpg-bar' }, startBtn, kv);
   // The treatments played on the same anatomy (proc-anim.js): each catheter on its own route, the model changed when it ends.
   // One the patient cannot have (a TIPS already in, a shunt already closed) stays dimmed, and a tap says why; BRTO and BATO

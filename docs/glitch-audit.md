@@ -344,7 +344,8 @@ the figure are in the same frame.
 | N1 (numbers change shape and width at hand-over) | **Fixed** by cutting the GPU outlines at opsz 14, 20, 24 and 32 for HTML readouts (`scripts/glyphs-opsz.py`, `glyph-data-opsz.js`, `text-gl.js`). To be confirmed on a Mac and an iPhone. SVG readouts keep the opsz-14 cut: Chromium's own measure of SVG text (`tests/script-measures.test.js`, 62.87 at 27.28 units) matches opsz 14. |
 | G4 (a card's glass comes one frame late on a changed list) | **Fixed** in `67a6a78`: a changed list uses the early read phase. |
 | N4 (dock and panel numbers up to four frames after the figure) | **By design, not a bug**: `mayTask` runs them in the same frame when the budget allows and only carries them when it does not. |
-| N2, T2 | **Open, not safe to change blind**: N2 would switch changing readouts to the never-yet-used `keep` mode, and T2 changes how the shared chart canvas is sized. Each needs a device look first. |
+| N2 (shimmer at the hand-over) | **Fixed**: the Doppler velocity and stat tiles and the HVPG/PPG catheter readings use `keep: true`, so their GPU picture stays and the page text is never handed the number. |
+| T2 (shared chart canvas resized per picture size) | **Open**: bucketing the size shifts every chart shader's `gl_FragCoord` origin; it needs `?perf` `sharedStats.resizes` numbers from a device first. |
 | O1, O2, O3 | **Open**: all in `stage.js`, waiting for the label lead's rebuild to land. |
 | G2, G3 | **Open**: in `glass-gl.js`, which the card-glass thread has. |
 | EXT-VIS-1 (a failed clear is acknowledged and a timer hands the words to the page) | **Fixed** in `gl-words.js`: only a drawn clear hands the words over; a failed clear is asked again, and past three tries the GPU draws the number again and keeps it. |

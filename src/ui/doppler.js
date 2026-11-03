@@ -223,9 +223,10 @@ export function createDoppler({ onProbe, pickGate = true }) {
   }));
   // The report's words that change while the trace runs are drawn on the GPU while they change (gl-words.js, ?glwords=0 writes them
   // into the page as before); the strip's fit, between frames, writes them in at once (now) to measure them.
-  const W = new Map([[velEl.firstChild, glWords(velEl.firstChild)], [dirEl, glWords(dirEl)], [patternEl, glWords(patternEl)],
+  const KEEP = { keep: true };   // (the numbers keep their GPU picture once drawn: no hand-over to the page's own text, so they never change shape or shimmer as they settle, glitch audit N2)
+  const W = new Map([[velEl.firstChild, glWords(velEl.firstChild, KEEP)], [dirEl, glWords(dirEl)], [patternEl, glWords(patternEl)],
     [gLo, glWords(gLo, { after: true })], [gHi, glWords(gHi, { after: true })]]);
-  for (const k in statEls) W.set(statEls[k].dd, glWords(statEls[k].dd));
+  for (const k in statEls) W.set(statEls[k].dd, glWords(statEls[k].dd, KEEP));
   const wSet = (e, t, u) => W.get(e).set(t, u), wNow = (e, t) => W.get(e).now(t), wText = (e) => W.get(e).text;
   const report = h('div', { class: 'dop-report' }, dirEl, h('div', { class: 'dop-velrow' }, velEl, patternEl), rangeEl, stats, noteEl);
   // The top strip's fitting steps (see fitStrip): [type scale, the direction's short form, the pattern on its own line].
