@@ -28,7 +28,8 @@ test('a start that failed reaches the page\'s boot card; a script that cannot be
   const m = read('src/ui/main.js');
   assert.match(m, /\(window\.ppsBootErrors \|\|= \[\]\)\.push\(String\(err\?\.message \|\| err\)\.slice\(0, 300\)\); window\.ppsBootFail\?\.\(\);/);
   const html = read('index.html');
-  assert.match(html, /w\.addEventListener\('error',function\(e\)\{var t=e&&e\.target;if\(t&&t\.tagName==='SCRIPT'\)\{note\('Could not load '/);
+  assert.match(html, /w\.addEventListener\('error',function\(e\)\{var t=e&&e\.target;if\(t&&t\.tagName==='SCRIPT'\)\{.*?note\('Could not load '/);
+  assert.match(html, /data-try[^]*?ppsFigureReady[^]*?\?r='/, 'a failed entry script is retried with a fresh URL before the boot card shows');
   // The gate itself, run: under a CSP with no eval, `new Function` throws an EvalError, which must not read as "syntax".
   const gate = html.match(/<script>(\/\* Can this browser run the app\?[\s\S]*?)<\/script>/)[1];
   const run = (fnImpl) => {
