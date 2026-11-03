@@ -346,7 +346,8 @@ the figure are in the same frame.
 | N4 (dock and panel numbers up to four frames after the figure) | **By design, not a bug**: `mayTask` runs them in the same frame when the budget allows and only carries them when it does not. |
 | N2 (shimmer at the hand-over) | **Fixed**: the Doppler velocity and stat tiles and the HVPG/PPG catheter readings use `keep: true`, so their GPU picture stays and the page text is never handed the number. |
 | T2 (shared chart canvas resized per picture size) | **Open**: bucketing the size shifts every chart shader's `gl_FragCoord` origin; it needs `?perf` `sharedStats.resizes` numbers from a device first. |
-| O1, O2, O3 | **Open**: all in `stage.js`, waiting for the label lead's rebuild to land. |
+| O3 (soft figure while pinching out) | **Closed by decision** (Mohammad, 3 Nov 2026): left as is, so a pinch never reallocates the canvas mid-gesture. |
+| O1, O2 | **Open**: `stage.js`, each a separate piece with a screenshot per mark type; waiting for Mohammad's go-ahead. |
 | G2, G3 | **Open**: in `glass-gl.js`, which the card-glass thread has. |
 | EXT-VIS-1 (a failed clear is acknowledged and a timer hands the words to the page) | **Fixed** in `gl-words.js`: only a drawn clear hands the words over; a failed clear is asked again, and past three tries the GPU draws the number again and keeps it. |
 
