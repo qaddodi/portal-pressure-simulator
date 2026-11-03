@@ -75,20 +75,20 @@ const first = ride0 > 0 ? rec.slice(0, ride0).reverse().find((r) => !r.hidden &&
 const riding = rec.filter((r, i) => r.riding && r.bx.length && i > 0 && rec[i - 1].ex === r.ex && rec[i - 1].fy === r.fy && rec[i - 1].k === r.k);
 if (first && riding.length) {
   const K0 = Math.sqrt(first.k);
-  let worst = 0, n = 0;
+  let worst = 0, n = 0, worstAt = null;
   for (const r of riding) {
     const s = Math.sqrt(r.k) / K0;
     // The centre carried by the camera (about the point both matrices map: the translation difference), picture size unchanged.
     for (const b of first.bx) {
-      if (b[2] - b[0] <= 14 || b[3] - b[1] <= 10) continue;
+      if (b[2] - b[0] <= 30 || b[3] - b[1] <= 28) continue;   // (a label's picture: the leaders' pieces are small)
       // (client px: the boxes are from the label canvas's corner)
       const cx = (b[0] + b[2]) / 2 + first.ox, cy = (b[1] + b[3]) / 2 + first.oy;
       const px = s * cx + (r.ex - s * first.ex), py = s * cy + (r.fy - s * first.fy);
       const hit = r.bx.reduce((m, q) => Math.min(m, Math.hypot((q[0] + q[2]) / 2 + r.ox - px, (q[1] + q[3]) / 2 + r.oy - py)), Infinity);
-      if (px > 10 && py > 10 && px < 380 && py < 834) { n++; worst = Math.max(worst, hit); }
+      if (px > 10 && py > 10 && px < 380 && py < 834) { n++; if (hit > worst) { worst = hit; worstAt = { rest: b.map(Math.round), predicted: [px, py].map(Math.round), scale: +s.toFixed(2) }; } }
     }
   }
-  console.log(`riding: ${riding.length} frames, ${n} label places checked, worst distance from where the camera carries it ${worst.toFixed(1)} px`);
+  console.log(`riding: ${riding.length} frames, ${n} label places checked, worst distance from where the camera carries it ${worst.toFixed(1)} px ${worst > 3 ? JSON.stringify(worstAt) : ''}`);
   if (n && worst > 3) fail(`a label stood ${worst.toFixed(1)} px from where the camera's move carries it`);
 } else fail('no riding frame with the camera still, to check the labels against');
 
