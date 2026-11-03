@@ -29,7 +29,7 @@ import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { serve } from './serve.mjs';
 import { findMarkers, checkBundle } from './gate-static.mjs';
-import { slideFinal, labelState, diaphragmIssues } from './gate-page.mjs';
+import { slideFinal, labelState, labelFollow, diaphragmIssues } from './gate-page.mjs';
 import { assertGpuPath, readPath } from './shoot.mjs';
 import { EXE, launch, openPage, figureUp, stepUntil, stepFor, watchUntil, watchFor, ask, landed, pool as poolOf, gpuName } from './gate-clock.mjs';
 
@@ -261,6 +261,35 @@ async function stageViews() {
     }
     const lostPan = b1.anchors.filter((a) => nearest(b1.pts, a) > 260).length;
     if (b1.anchors.length >= 3 && lostPan > b1.anchors.length * 0.4) fail('views', 'pan', `${lostPan} of ${b1.anchors.length} labels are detached from the vessel they name (more than 260 px away)`);
+    // The Circuit: its station readings ride a pinch and are laid out again where the stations are (the iPhone circuit bug of 2 Nov: they stayed where they were
+    // before the zoom). The readings only show once the view has been moved a little, so one small pinch first; then a bigger one, judged right after the hand lets
+    // go (the ride) and once the layout has landed (solved), against where each station is now.
+    await page.evaluate(() => document.querySelector('#viewSeg [data-view="circuit"]').click());
+    await judge('circuit', 'pinch');
+    const pinch = async (n, dy) => { await page.mouse.move(cx, cy); await page.keyboard.down('Control'); for (let i = 0; i < n; i++) { await page.mouse.wheel(0, dy); await watchFor(page, 120); } await page.keyboard.up('Control'); };
+    await pinch(3, -14); await settle();
+    const c0 = await ask(page, labelFollow);
+    say(`circuit: ${c0.length} station label(s) before the pinch`);
+    if (c0.length < 3) fail('views', 'circuit pinch', `only ${c0.length} station readings show in the Circuit after a small zoom`);
+    else {
+      await pinch(5, -14); await watchFor(page, 300);
+      const c1 = await ask(page, labelFollow);
+      await settle();
+      const c2 = await ask(page, labelFollow);
+      const follow = (c0, c) => {
+        const moved = c0.map((a) => { const b = c.find((x) => x.k === a.k); return b && { k: a.k, dA: [b.ax - a.ax, b.ay - a.ay], dL: [b.lx - a.lx, b.ly - a.ly] }; }).filter((r) => r && Math.hypot(...r.dA) > 60);
+        const ok = moved.filter((r) => Math.hypot(r.dL[0] - r.dA[0], r.dL[1] - r.dA[1]) <= Math.max(40, 0.4 * Math.hypot(...r.dA)));
+        return { moved: moved.length, ok: ok.length, bad: moved.filter((r) => !ok.includes(r)).slice(0, 3).map((r) => `${r.k.slice(2)} (station moved ${r.dA.map(Math.round)}, label ${r.dL.map(Math.round)})`) };
+      };
+      for (const [when, c] of [['right after the pinch', c1], ['once the layout landed', c2]]) {
+        const f = follow(c0, c);
+        say(`circuit ${when}: ${f.ok} of ${f.moved} labels moved with their station`);
+        if (f.moved >= (when === "right after the pinch" ? 3 : 2) && f.ok < Math.ceil(f.moved * 0.7)) fail('views', 'circuit pinch', `labels stayed where they were before the zoom ${when}: only ${f.ok} of ${f.moved} moved with their station (${f.bad.join('; ')})`);
+      }
+      const far = c2.filter((r) => Math.hypot(r.lx - r.ax, r.ly - r.ay) > 260);
+      if (c2.length >= 3 && far.length > c2.length * 0.2) fail('views', 'circuit pinch', `${far.length} of ${c2.length} readings are more than 260 px from the station they name once the layout landed (${far.slice(0, 3).map((r) => r.k.slice(2)).join(', ')})`);
+    }
+    errs('circuit pinch');
     errs('pan and zoom');
   } finally { await app.close(); await browser.close(); server.close(); }
 }

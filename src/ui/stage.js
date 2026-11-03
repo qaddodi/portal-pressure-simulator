@@ -14645,6 +14645,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (What the credit looks at of the labels: where their boxes lie on an 8 px grid, the camera and the views, not how many times they
     // were laid out: their numbers change with the running model and each had the credit measure every card, label and shape again,
     // about 560 reads in 15 s on a phone at rest (motion budget, 2 Nov).)
+    /** The labels the figure shows now, for the gate's "labels follow the camera" check (scripts/gate-page.mjs labelFollow): key → [left, top, right, bottom] of its box in px from the stage's corner (the same 8 px grid as labelBoxStamp, so a quarter-grid coarse), hidden ones left out. Reads nothing from the page. */
+    labelPlaced: () => { const o = {}; for (const [k, b] of pool) if (b.box && !b.box.endsWith('h')) { const q = b.box.split(',').map(Number); o[k] = [q[0] * 8, q[1] * 8, q[2] * 8, q[3] * 8]; } return o; },   // alloc-rare: a test accessor, called by the gate between frames, never from a frame
     labelBoxStamp: () => { let k = ''; for (const b of pool.values()) if (b.box) k += b.box + ';'; return `${k}|${vt.k},${vt.x},${vt.y}|${morph}|${rotU}|${lz?.isOpen?.() ? lz.viewKey() : ''}|${lz?.sinusoidMoving?.() ? performance.now() : ''}`; },
     labelStamp: () => `${stats.layouts}|${vt.k},${vt.x},${vt.y}|${morph}|${rotU}|${lz?.isOpen?.() ? lz.viewKey() : ''}|${lz?.sinusoidMoving?.() ? performance.now() : ''}`,
     /** The stage's kept copy of its computed style, for the stage's own element (null for any other): read it instead of a live read. */

@@ -112,3 +112,18 @@ export function labelState() {
   for (const k of Object.keys(st.labelSlots?.() || {})) { try { const a = st.labelAnchorOf(k); if (a && a.x > 0 && a.y > 0 && a.x < innerWidth && a.y < innerHeight) anchors.push([a.x, a.y]); } catch { /* (a label without an anchor) */ } }
   return { pts, anchors };
 }
+
+/** Each station label the figure shows, with the station it names: [{ k, lx, ly, ax, ay }] on screen (the label box's centre, the station's
+ *  anchor). Boxes come from stage.labelPlaced() (px from the stage's corner, an 8 px grid), anchors from stage.labelAnchorOf (screen px). */
+export function labelFollow() {
+  const st = window.pps.stage, pl = st.labelPlaced?.() || {}, r = document.querySelector('.stage-view').getBoundingClientRect(), rows = [];
+  for (const k of Object.keys(pl)) {
+    if (!k.startsWith('n:')) continue;
+    let a = null;
+    try { a = st.labelAnchorOf(k.slice(2)); } catch { /* (no anchor for this one) */ }
+    if (!a || !(a.x === a.x) || !(a.y === a.y)) continue;
+    const b = pl[k];
+    rows.push({ k, lx: r.left + (b[0] + b[2]) / 2, ly: r.top + (b[1] + b[3]) / 2, ax: a.x, ay: a.y });
+  }
+  return rows;
+}
