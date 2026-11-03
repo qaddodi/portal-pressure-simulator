@@ -14,16 +14,29 @@
 
 import { openApp } from '../../scripts/shoot.mjs';
 
+const view = process.env.LABEL_VIEW || 'circuit';
 let failed = 0;
 const fail = (m) => { failed++; console.log(`FAIL ${m}`); };
 
 const app = await openApp({ device: 'iphone', theme: 'dark', query: '?preset=cirr-decomp' });
 const { page } = app;
-await page.evaluate(() => document.querySelector('#viewSeg [data-view="circuit"]').click());
-// The Circuit's readings are laid out and drawn (software GL solves them a slice a frame: it can take a minute or two).
-const boxes = () => page.evaluate(() => window.pps.stage.labelDrawn()?.map((b) => b.slice()) ?? []);
-for (let i = 0, n = 0; i < 240 && n < 3; i++) { n = (await page.evaluate(() => window.pps.stage.labelCarry().laid)) && (await boxes()).filter((b) => b[2] - b[0] > 14 && b[3] - b[1] > 10).length >= 4 ? n + 1 : 0; await page.waitForTimeout(1000); }
-await page.evaluate(() => window.pps.host.send({ type: 'run', running: true }));
+// The initial healthy frame can arrive before a deep-linked patient has finished loading.
+await page.waitForFunction(() => !window.pps.store.get().presetLoading && window.pps.store.get().presetId === 'cirr-decomp');
+await page.evaluate((v) => document.querySelector(`#viewSeg [data-view="${v}"]`).click(), view);
+await app.freeze();
+await page.evaluate(() => window.pps.store.set({ running: false }));
+// Circuit readings appear after the fit view is enlarged. Start from a drawn, paused layout, then resume the model for the pinch.
+await page.mouse.move(195, 420);
+await page.keyboard.down('Control'); await page.mouse.wheel(0, -100); await page.keyboard.up('Control');
+let ready = false;
+for (let i = 0; i < 90; i++) {
+  ready = await page.evaluate(() => window.pps.stage.labelCarry().laid && window.pps.stage.labelDrawnBy().filter((d) => d.a > 0.9).length >= 4);
+  if (ready) break;
+  await page.waitForTimeout(1000);
+}
+if (!ready) { console.log(await page.evaluate(() => ({ carry: window.pps.stage.labelCarry(), labels: window.pps.stage.labelDrawnBy() }))); await app.close(); throw new Error('no settled GPU label layout before the pinch'); }
+console.log(`${view}: starting pinch from a drawn layout`);
+await page.evaluate(() => { window.pps.store.set({ running: true }); window.pps.host.send({ type: 'run', running: true }); });
 
 // Every animation frame's record, kept in the page (software GL gives few frames: none of them is missed by polling).
 await page.evaluate(() => {
@@ -31,10 +44,9 @@ await page.evaluate(() => {
   const tick = () => {
     const s = window.pps.stage, c = s.labelCarry(), m = document.getElementById('world').getScreenCTM();
     const o = document.getElementById('labelGl').getBoundingClientRect();
-    window.__rec.push({ ...c, k: m.a * m.a + m.b * m.b, ex: m.e, fy: m.f, ox: o.left, oy: o.top, bx: (s.labelDrawn() || []).map((b) => b.slice()) });
-    requestAnimationFrame(tick);
+    window.__rec.push({ ...c, k: m.a * m.a + m.b * m.b, ex: m.e, fy: m.f, ox: o.left, oy: o.top, bx: (s.labelDrawn() || []).map((b) => b.slice()), labels: s.labelDrawnBy() });
   };
-  requestAnimationFrame(tick);
+  globalThis.__frameProbe = tick;
 });
 const cdp = await page.context().newCDPSession(page);
 const touch = (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts.map(([x, y], id) => ({ x, y, id })) });
@@ -56,6 +68,7 @@ for (let i = 0; i < 400; i++) {
   if (i > 6 && !settle[i].hidden && !settle[i].riding && settle[i].bx.length > 3) break;
 }
 const rec = await page.evaluate(() => window.__rec);
+if (process.env.LABEL_SHOT) await page.screenshot({ path: process.env.LABEL_SHOT });
 await app.close();
 
 // 1. No frame, at any time, shows the old labels over the moved view.
@@ -67,30 +80,29 @@ const hid = during.filter((r) => r.hidden);
 if (hid.length) fail(`${hid.length} of ${during.length} pinch steps hid the labels instead of carrying them`);
 if (!during.some((r) => r.riding)) fail('the labels never rode the pinch');
 
-// 3. Riding, each label's picture stands where the camera's move carries its laid-out centre.
-const ride0 = rec.findIndex((r) => r.riding);
-const first = ride0 > 0 ? rec.slice(0, ride0).reverse().find((r) => !r.hidden && r.bx.some((b) => b[2] - b[0] > 14)) : null;   // (the last picture laid out before the ride)
-// (Frames where the camera stood as it did a frame before: a frame that drew the labels before the camera's last move was written is
-// one step behind by construction, on any build; the labels have to catch up the next frame, which is what is judged.)
-const riding = rec.filter((r, i) => r.riding && r.bx.length && i > 0 && rec[i - 1].ex === r.ex && rec[i - 1].fy === r.fy && rec[i - 1].k === r.k);
-if (first && riding.length) {
-  const K0 = Math.sqrt(first.k);
-  let worst = 0, n = 0, worstAt = null;
-  for (const r of riding) {
-    const s = Math.sqrt(r.k) / K0;
-    // The centre carried by the camera (about the point both matrices map: the translation difference), picture size unchanged.
-    for (const b of first.bx) {
-      if (b[2] - b[0] <= 30 || b[3] - b[1] <= 28) continue;   // (a label's picture: the leaders' pieces are small)
-      // (client px: the boxes are from the label canvas's corner)
-      const cx = (b[0] + b[2]) / 2 + first.ox, cy = (b[1] + b[3]) / 2 + first.oy;
-      const px = s * cx + (r.ex - s * first.ex), py = s * cy + (r.fy - s * first.fy);
-      const hit = r.bx.reduce((m, q) => Math.min(m, Math.hypot((q[0] + q[2]) / 2 + r.ox - px, (q[1] + q[3]) / 2 + r.oy - py)), Infinity);
-      if (px > 10 && py > 10 && px < 380 && py < 834) { n++; if (hit > worst) { worst = hit; worstAt = { rest: b.map(Math.round), predicted: [px, py].map(Math.round), scale: +s.toFixed(2) }; } }
-    }
+// 3. Compare keyed GPU pictures after the scheduler has drawn each frame, including frames in which the camera moved.
+// The old check skipped every moving-camera frame and matched whichever box was nearest, so a label trailing a pinch could pass.
+let checked = 0, movedFrames = 0, worst = 0;
+for (let i = 1; i < rec.length; i++) {
+  const a = rec[i - 1], b = rec[i];
+  if (!a.riding || !b.riding || a.hidden || b.hidden) continue;
+  const scale = Math.sqrt(b.k / a.k);
+  if (scale === 1 && a.ex === b.ex && a.fy === b.fy) continue;
+  movedFrames++;
+  const prev = new Map(a.labels.map((d) => [d.key, d]));
+  for (const d of b.labels) {
+    const p = prev.get(d.key);
+    if (!p || p.a < 0.9 || d.a < 0.9) continue;
+    const x = scale * (p.x + p.w / 2) + b.ex - scale * a.ex;
+    const y = scale * (p.y + p.h / 2) + b.fy - scale * a.fy;
+    if (x < 10 || x > 380 || y < 10 || y > 834) continue;
+    checked++;
+    worst = Math.max(worst, Math.hypot(d.x + d.w / 2 - x, d.y + d.h / 2 - y));
   }
-  console.log(`riding: ${riding.length} frames, ${n} label places checked, worst distance from where the camera carries it ${worst.toFixed(1)} px ${worst > 3 ? JSON.stringify(worstAt) : ''}`);
-  if (n && worst > 3) fail(`a label stood ${worst.toFixed(1)} px from where the camera's move carries it`);
-} else fail('no riding frame with the camera still, to check the labels against');
+}
+console.log(`${view}: ${movedFrames} moving-camera frames, ${checked} keyed label positions, worst carry error ${worst.toFixed(1)} px`);
+if (!checked) fail('no keyed label position checked while the camera moved');
+if (worst > 3) fail(`a label trailed its camera by ${worst.toFixed(1)} px`);
 
 // 4. After the hand lets go: labels shown again, laid out for the camera.
 const last = settle[settle.length - 1];

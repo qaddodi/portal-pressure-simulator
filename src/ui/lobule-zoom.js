@@ -1900,6 +1900,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (!rides) {
       // (the pan carries them by the same translate a layout glides: no glide may run under it, or they would trail the hand)
       classSoon(labels, 'lz-ease', false);
+      freezeLabelGlides();
       rides = rideList; rideN = 0;
       for (let i = 0; i < LAB_KEYS.length; i++) {
         const L = labs[LAB_KEYS[i]];
@@ -1933,6 +1934,18 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     leadGL.paint();
   }
   const unglide = () => { for (let i = 0; i < LAB_KEYS.length; i++) labs[LAB_KEYS[i]].gl = null; };
+  // A hand can take over before the last layout's glide lands. Carry the position actually on screen; capSync must not overwrite
+  // the ride with that old glide's positions. Leaders already use seenAt on the same clock.
+  function freezeLabelGlides() {
+    if (glideRaf) cancelFrame(glideRaf);
+    glideRaf = 0; glideUntil = 0;
+    const now = tlNow();
+    for (let i = 0; i < LAB_KEYS.length; i++) {
+      const L = labs[LAB_KEYS[i]];
+      if (L.gl && spot.has(L.el)) { const p = seenAt(L, now); put(L.el, p[0], p[1]); }
+      L.gl = null;
+    }
+  }
   function bakeRides() {
     if (!rides) return false;
     // (Written in place with no glide on, then the page styled once, so the layout's glide starts from where each piece is seen.)
@@ -2282,6 +2295,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // panning lag on a phone. They are placed again, gliding to their new spots, once the hand lets go.
     if (sameB && V.k === follow.k && handOn() && !rides) {
       const dx = V.x - follow.x, dy = V.y - follow.y;
+      if (!panOn) freezeLabelGlides();
       panDX = dx; panDY = dy; panOn = true;
       cap.view(1, dx, dy); leadGL.view(1, dx, dy);
       clearTimeout(followT); followT = setTimeout(followEnd, 140);

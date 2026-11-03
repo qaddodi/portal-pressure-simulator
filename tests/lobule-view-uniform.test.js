@@ -26,3 +26,26 @@ test('a glide or a hand zoom moves the leaders\' held geometry with the labels',
   assert.match(lz, /setGeo\(e, RIDE_ATT\[k\], b \+ \(k < 3 \? d0 : d1\)\)/);
   assert.match(lz, /leadGL\.paint\(\)/);
 });
+
+test('a gesture taking over a half-finished label glide carries its visible position', () => {
+  const take = (name) => {
+    const start = lz.indexOf(`  function ${name}(`);
+    assert.ok(start >= 0, name);
+    return lz.slice(start, lz.indexOf('\n  }', start) + 4);
+  };
+  const el = {}, spot = new WeakMap([[el, [100, 120]]]);
+  const labs = { triad: { el, gl: { x0: 20, y0: 40, x1: 100, y1: 120, t0: 0 } } };
+  const seen = new Map(), cancelled = [];
+  const freeze = new Function('LAB_KEYS', 'labs', 'spot', 'ZERO2', 'tlNow', 'easeLab', 'glOf', 'put', 'cancelled',
+    `let glideRaf = 7, glideUntil = 480; const cancelFrame = (id) => cancelled.push(id);\n${take('seenAt')}\n${take('freezeLabelGlides')}\nreturn freezeLabelGlides;`)(
+    ['triad'], labs, spot, [0, 0], () => 100, () => 0.5, () => { throw new Error('existing glide lost'); },
+    (e, x, y) => { spot.set(e, [x, y]); seen.set(e, [x, y]); }, cancelled);
+  freeze();
+  assert.deepEqual(seen.get(el), [60, 80], 'starts at the drawn halfway point, not the old layout target');
+  assert.equal(labs.triad.gl, null, 'capSync cannot override the camera ride with the previous glide');
+  freeze();
+  assert.deepEqual(spot.get(el), [60, 80], 'a second step keeps the same basis');
+  assert.deepEqual(cancelled, [7], 'the old leader glide cannot overwrite the ride geometry in a later callback');
+  assert.match(lz, /classSoon\(labels, 'lz-ease', false\);\s*freezeLabelGlides\(\);\s*rides = rideList/);
+  assert.match(lz, /if \(!panOn\) freezeLabelGlides\(\);/);
+});

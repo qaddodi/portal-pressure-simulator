@@ -2000,6 +2000,9 @@ void main() { o = texture(uT, vUV) * uA; }`;
       if ((devicePixelRatio || 1) !== dpr) densityChanged();   // (moved to a screen of another density: sized in a task of its own)
       take(mo.takeRecords());
       for (const r of mmo.takeRecords()) { if (!changed(r)) continue; const el = markOf(r.target); if (el) markDirty.add(el); }
+      // A sliced landing or a value refresh may sync while the camera still carries the old layout. Taking its new positions here
+      // would apply that camera move twice. rideEnd hands the drawn positions to the first sync of the landed layout instead.
+      if (rideM) { ask(); return; }
       WAS.clear();
       for (const s of last) WAS.add(s.g);
       // (The first layout after a ride: each label that stays glides from where it rode, a new one fades in, one that goes fades out.)
@@ -2038,7 +2041,11 @@ void main() { o = texture(uT, vUV) * uA; }`;
     /** A camera move's carry, [a, b, c, d, e, f] (where the labels were laid out, stage px, to where that point is now), drawn now. */
     ride(m) {
       if (lost) return;
-      if (m && !rideM) rideT0 = performance.now();
+      if (m && !rideM) {
+        rideT0 = performance.now();
+        // The caller alternates and refills two lists. Own this ride's layout until it ends, even across several syncs.
+        last = last.slice();   // alloc-rare: once when a camera ride starts, never on its steps
+      }
       rideM = m;
       for (const r of glides.values()) gpool.push(r);
       glides.clear();

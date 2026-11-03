@@ -67,3 +67,14 @@ test('a hand zoom in the Circuit carries the readings on the GPU; where they can
   // Laid out while hidden, they take their new places at once (no glide from where they were).
   assert.match(stage, /const snap = [^\n]*wrap\.classList\.contains\('pinch-hide'\)/);
 });
+
+test('a pinch can take over an unfinished solve using the camera of the last committed layout', () => {
+  const start = stage.indexOf('} else if (!handRide && !pinchHide');
+  const takeOver = stage.slice(start, stage.indexOf('// (Where the labels could not ride', start));
+  assert.match(takeOver, /Math\.hypot\(layCTM\[0\], layCTM\[1\]\)/, 'zoom is measured from the drawn layout, not an older solved slot');
+  assert.doesNotMatch(takeOver, /&& labelKey|&& !labelJob/, 'a pending layout cannot prevent the existing picture riding');
+  assert.match(takeOver, /rideStart\(layCTM\)\) \{[\s\S]*?labelJobDrop\(\);/, 'the ride owns the old picture before the unfinished solve is cancelled');
+  const tail = stage.slice(stage.indexOf('  function labelTail()'), stage.indexOf('// The solve running in slices'));
+  assert.doesNotMatch(tail, /layCTM =/, 'a skipped or sliced layout cannot claim the current camera');
+  assert.match(stage, /paintLeaders\(leaders\);[\s\S]*?layCTM = stagePx\(CTM\);/, 'the camera is recorded when the layout is actually committed');
+});

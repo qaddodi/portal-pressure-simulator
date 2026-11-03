@@ -11554,7 +11554,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (handRide && !handRide.settle) {
       if (rideCTM && gestureOn() && restView && rideKeyHeld(st)) { rideStep(); stats.skips++; stats.ms += performance.now() - t0; return; }
       handRideEnd(); labelKey = null;
-    } else if (!handRide && !pinchHide && !pinchLift && gestureOn() && solvedFor && labelKey && !labelJob && restView && layCTM && Math.abs(Math.log(CTM.sc / solvedFor.sc)) > PINCH_ZOOM && rideStart(layCTM)) {
+    } else if (!handRide && !pinchHide && !pinchLift && gestureOn() && solvedFor && restView && layCTM && Math.abs(Math.log(CTM.sc / Math.hypot(layCTM[0], layCTM[1]))) > PINCH_ZOOM && rideStart(layCTM)) {
+      // A playing model may have another solve in slices. The last committed layout can still ride: discard the unfinished solve,
+      // rather than hiding the labels or carrying them from the camera of an older solve.
+      labelJobDrop();
       rideKeyInto(rideKeyA, st);   // (what the labels show as the ride begins)
       handRideRec.settle = false; handRide = handRideRec;
       handRideWatch();
@@ -11643,9 +11646,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function labelTail() {
     pinchLiftNow(false);   // (the labels hidden for a zoom that rode no further come back once their layout is down)
     if (handRide?.settle && !labelJob) handRideEnd();   // (the layout for where the hand stopped has landed: the ride ends as it is drawn)
-    // (The camera this layout was made under, for a hand's ride that starts from it. Not while a solve runs in slices: the labels drawn
-    // are still the last layout's, made under the camera kept before.)
-    if (!labelJob && !rideCTM) { refreshCTM(); layCTM = stagePx(CTM); }
     if (sites.list) sitesPaint();
     if (scan.on) scanPaint();
     dprobePaint();
@@ -13215,6 +13215,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     glass.hidden = !out.some((it) => it.key === 'liver' && !it.hide);
     paintLeaders(leaders);
+    // Keep the camera of every committed layout, including a carry before a sliced solve. A slice itself commits nothing; labelTail
+    // must not stamp an old picture with the current camera merely because its solver has finished or was skipped.
+    layCTM = stagePx(CTM);
     if (HOVER_LINK && (linkLit.size || vh.id || linkPtr || linkKbd)) { linkHeld(); linkSync(); }   // (a label or leader just built, or one whose class was written again, takes its lift)
     // (A group's leaders come in with its number, as its vessels light.)
     for (const w of leaders) {
