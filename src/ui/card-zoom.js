@@ -167,6 +167,16 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
     h.anim?.cancel();
     h.anim = h.el.animate?.([{ clipPath: ms && from && from !== 'none' ? from : to }, { clipPath: to }], { duration: ms || 1, easing: EASE, fill: 'forwards' }) || null;
   };
+  // The pieces as they are drawn this frame (screen px): the card's own drawnBox where the zoom pinned it, else its box.
+  const drawnUnion = (riders) => {
+    let l = Infinity, t = Infinity, r = -Infinity, b = -Infinity;
+    for (const x of riders) {
+      const q = x.el.drawnBox ? x.el.drawnBox() : x.el.getBoundingClientRect();
+      if (!(q.width > 0)) continue;
+      l = Math.min(l, q.left); t = Math.min(t, q.top); r = Math.max(r, q.right); b = Math.max(b, q.bottom);
+    }
+    return l < r ? { left: l, top: t, right: r, bottom: b } : null;
+  };
   const boxAt = (b, mid, s, dx, dy) => { const f = (v, m, d) => m + (v - m) * s + d; const l = f(b.left, mid.x, dx), t = f(b.top, mid.y, dy); return { left: l, top: t, right: f(b.left + b.width, mid.x, dx), bottom: f(b.top + b.height, mid.y, dy) }; };
 
   function end() {
@@ -245,7 +255,26 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
       const to = `translate(${(dx / k).toFixed(2)}px, ${(dy / k).toFixed(2)}px) scale(${sc.toFixed(4)})`;
       // (A new frame over the last: the card's own CSS eases a transform written to its style, so the glide's own kind is used.)
       for (const r of st.riders) { const prev = r.anim; r.anim = r.el.animate?.([{ transform: to }, { transform: to }], { duration: 1, fill: 'forwards' }) || null; prev?.cancel(); }
-      for (const h of st.holes) holeTo(h, boxAt(b, mid, sc, dx, dy), 0);
+      // (The cut under the words is the card as it is drawn now, read from the card itself: the readings' card out above and the card's own
+      // layout (its height grows as the readings come out) are not in the box it rested in at the start, so a cut worked out from that box
+      // left the top and bottom of the zoomed card uncut and the teaching card's words showed sharp through them: Mohammad, 3 Nov 2026.)
+      if (st.holes.length) {
+        const me = st, cut = drawnUnion(st.riders);
+        for (const h of st.holes) holeTo(h, cut || boxAt(q, mid, sc, dx, dy), 0);
+        // (And on every frame after, for as long as the card is up: the card's own CSS eases the transform written above, so it is still arriving
+        // after the last call, and its height and the readings settle behind it. One loop, ended with the zoom; it writes only a cut that moved.)
+        if (!me.cutting) {
+          me.cutting = true;
+          let was = '';
+          raf(function again() {
+            if (st !== me || me.closing) { me.cutting = false; return; }
+            const c = drawnUnion(me.riders), key = c ? [c.left, c.top, c.right, c.bottom].map(Math.round).join() : '';
+            if (c && key !== was) for (const h of me.holes) holeTo(h, c, 0);
+            was = key;
+            raf(again);
+          });
+        }
+      }
       st.cur = { dx, dy, s: sc };
       globalThis.dispatchEvent?.(frame);
       st.s = sc;
