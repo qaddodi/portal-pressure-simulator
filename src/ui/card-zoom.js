@@ -171,7 +171,7 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
   const drawnUnion = (riders) => {
     let l = Infinity, t = Infinity, r = -Infinity, b = -Infinity;
     for (const x of riders) {
-      const q = x.el.drawnBox ? x.el.drawnBox() : x.el.getBoundingClientRect();
+      const q = x.el.drawnBox ? x.el.drawnBox() : readBox(x.el);
       if (!(q.width > 0)) continue;
       l = Math.min(l, q.left); t = Math.min(t, q.top); r = Math.max(r, q.right); b = Math.max(b, q.bottom);
     }
