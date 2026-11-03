@@ -6604,6 +6604,10 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 :root[data-noglass] :is(.lb-glass, .sv-legend, .pz-fk, .pz .pz-fk.pz-fk, .toast) { background: var(--surface); }
 :root[data-noglass] :is(.pz-shade, .pz-shade.pz-card, .pz-shade.stack, .pz-data.pz-data, .pz-case, .pz-bar, .pz.stack .pz-bar, .pz-scales, .cl-glass) { --gl-glass: 0; background: var(--surface); }
 /* (The upright split sheet's two glass pieces: its own fill is none, the pieces carry the glass, so they turn solid with the rest.) */
+/* (The split sheet is its two pseudo-element cards, solid here; its own box is no third card behind them: with the blur off it showed as a second rounded panel round the tiles and the instrument card, Mohammad, 3 Nov 2026.) */
+:root[data-noglass] .pz-data.pz-data.pz-sheet.pz-sheet { background: none; }
+@media (prefers-reduced-transparency: reduce) { .pz-data.pz-data.pz-sheet.pz-sheet { background: none; } }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-data.pz-data.pz-sheet.pz-sheet { background: none; } }
 :root[data-noglass] .pz.stack.stack .pz-data.pz-sheet::before, :root[data-noglass] .pz.stack.stack .pz-data.pz-sheet::after { background: var(--surface); }
 :root[data-noglass] .pz.pz-wide.pz-wide .pz-data.pz-sheet::before, :root[data-noglass] .pz.pz-wide.pz-wide .pz-data.pz-sheet::after { background: var(--surface); }
 /* (Settings › Blur effect off.) The frost goes; the pill stays. A lit lobule or sinusoid name keeps the tinted fill and the ring it has with the blur
