@@ -121,7 +121,8 @@ test('zoom: the card and its handle glide together about their common middle, th
     assert.equal(zoomSrc.includes('PUSH'), false); assert.equal(/glide\([^)]*'scale'/.test(zoomSrc), false); assert.equal(/\bview\b/.test(zoomSrc.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '')), false);
     assert.deepEqual([...zoomSrc.matchAll(/glide\(\w+(?:\.\w+)?, '(\w+)'/g)].map((m) => m[1]), ['transform', 'transform']);
     assert.ok(scrim.classList.contains('on')); assert.ok(app.classList.contains('pz-zoomed')); assert.equal('zoomed' in card.dataset, true);
-    assert.deepEqual(log, [['hold', true], ['boost', +p.s.toFixed(2)]]);
+    // (The pictures are made larger once the glide has ended, never in its first frame: the shared chart canvas's resize was the lag.)
+    assert.deepEqual(log, [['hold', true]]);
     // (Everyone who asks the card or its handle where they are hears where they rest, however far the glide has come.)
     assert.deepEqual([card.getBoundingClientRect().left, card.getBoundingClientRect().width, card.getBoundingClientRect().bottom], [40, 420, 680]);
     assert.equal(lip.getBoundingClientRect().top, 276);

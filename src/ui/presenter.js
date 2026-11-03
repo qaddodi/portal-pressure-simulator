@@ -3378,6 +3378,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       a.onfinish = () => { if (words.anims.includes(a)) { words.anims = words.anims.filter((x) => x !== a); if (!words.anims.length) dispatchEvent(new Event('pps:occ')); } };
     });
   }
+  const slideFrame = new Event('pps:slideframe');   // (the glass reads the readings' card's panes in this frame: glass-gl.js onSlideFrame)
   const liftTo = (u) => { const trav = Math.max(0, slip.lift - slip.base), f = u > 0 ? u : 0; setRise('--pz-lift', slip.base + f * trav); words.u = f; words.trav = trav; setWords(wordsAt()); zoomFollow(f, trav); };
   // (Told when the readings' card starts to move, so the Doppler probe is placed against the cards frame by frame as they go: stage.js dprTrack.)
   const slideTell = () => dispatchEvent(new Event('pps:slide'));
@@ -3394,6 +3395,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const t = ms ? clamp((now - t0) / ms, 0, 1) : 1;
       if (t < 1) { const u = from + (to - from) * (1 - (1 - t) ** 3); d.style.setProperty('--pz-u', u.toFixed(4)); liftTo(u); camAt(u); slip.raf = nextFrame(step); }
       else stopUnder();
+      dispatchEvent(slideFrame);
     };
     slip.raf = nextFrame(step);
   }

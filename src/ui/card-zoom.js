@@ -214,7 +214,11 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
       }
       el.dataset.zoomed = '';
       app.classList.add('pz-zoomed');
-      if (!part) { hold(true); boost(plan.s); behind(true, ms); }
+      // (The pictures are drawn larger once the card has arrived, not as it sets off: the instruments' shared GPU canvas was made 2.2 times
+      // larger on each side in the glide's first frame (a 1440 x 900 canvas to 3168 x 1980, 400 to 800 ms of the main thread in a software-GL
+      // profile, none at rest), the zoom's lag: Mohammad, 3 Nov 2026. They are drawn at the card's resting density, grown by the transform, for the
+      // glide's half second and sharp the moment it ends. With no glide (Reduce Motion) they are larger at once.)
+      if (!part) { hold(true); if (!ms) boost(plan.s); behind(true, ms); }
       const to = `translate(${(plan.dx / k).toFixed(2)}px, ${(plan.dy / k).toFixed(2)}px) scale(${plan.s.toFixed(4)})`;
       for (const r of riders) r.anim = glide(r.el, 'transform', to, ms);
       for (const h of st.holes) { holeTo(h, q, 0); holeTo(h, boxAt(q, st.mid, plan.s, plan.dx, plan.dy), ms); }
@@ -226,11 +230,11 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
         const watch = () => {
           if (st !== me || me.closing || !me.mo) return;
           if (performance.now() - (me.tickAt ?? 0) < 400) { setTimeout(watch, 200); return; }
-          me.mo.done(); me.mo = null; me.cur = { dx: plan.dx, dy: plan.dy, s: plan.s }; me.steady = true;   // alloc-rare: only a glide that never reported its end (a hidden tab), once, as it is let go
+          me.mo.done(); me.mo = null; me.cur = { dx: plan.dx, dy: plan.dy, s: plan.s }; me.steady = true; boost(me.boosted);   // alloc-rare: only a glide that never reported its end (a hidden tab), once, as it is let go
           for (const a of [...riders.map((r) => r.anim), ...me.holes.map((h) => h.anim)]) a?.finish?.();   // alloc-rare: as above, once, as the glide is let go
         };
         setTimeout(watch, ZOOM_MS + 120);
-        going.then(() => { if (st === me && !me.closing) me.steady = true; });
+        going.then(() => { if (st === me && !me.closing) { me.steady = true; if (!part) boost(me.boosted); } });
       }
       return true;
     },

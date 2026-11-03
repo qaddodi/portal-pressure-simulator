@@ -1794,6 +1794,12 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   // (card-zoom.js moves the card in the frame loop and tells each frame: the glass is drawn in that frame, from the same zoom.)
   const onZoomFrame = () => { quiet = 0; ask(); };
   addEventListener('pps:zoomframe', onZoomFrame);
+  // (The readings' card tucking or coming out (presenter.js slideUnder) writes --pz-u each frame, which sizes the sheet's two panes. They were read in
+  // the next frame's read phase, so the glass trailed the card by a frame: the card above's blur slid up from below and back down as the card
+  // tucked and untucked (Mohammad, 3 Nov 2026). The presenter tells the glass right after the write, and a cards' glass reads the panes now, in
+  // the frame that wrote them, once: the layout is the one this frame has to make anyway.)
+  const onSlideFrame = () => { if (!cards) return; if (earlyAsk) { earlyAsk = 0; } measureGeo(); quiet = 0; ask(); };
+  addEventListener('pps:slideframe', onSlideFrame);
   const offMove = onMove(() => wake());   // (a pull moves a card or a sheet by a number, which writes no style for the observer to see)
   // (The figure drawn again: the blur under a glass that shows is taken again. With none showing, the figure is not its business.)
   const offFigure = onFigure?.(() => { if (shown && !hostOn) wake(); });   // (drawn into the figure's canvas: laid with each picture)
@@ -1899,7 +1905,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
       for (const t of DOC_END) document.removeEventListener?.(t, docEnd, true);
       anims.clear();
       for (const l of watched) for (const t of EVENTS) l.removeEventListener(t, held, true);
-      removeEventListener('resize', again); removeEventListener('pps:zoomframe', onZoomFrame);
+      removeEventListener('resize', again); removeEventListener('pps:zoomframe', onZoomFrame); removeEventListener('pps:slideframe', onSlideFrame);
       offFigure?.(); offMove();
       canvas?.removeEventListener('webglcontextlost', onLost);
       canvas?.removeEventListener('webglcontextrestored', onBack);
