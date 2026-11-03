@@ -8,7 +8,8 @@ import { gastricUp } from '../engine/scenario.js';
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js';
 import { route as metroRoute, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, CAVITY_LOW, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js';
 import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js';
-import { nodeJoins, sideEndScale } from './fork-joins.js';
+import { sideEndScale } from './fork-joins.js';
+import { veinJoins as joinsPass, smoothRunOn as smoothPass, newJoinStore, runOnSamples } from './vein-joins.js';
 import { nodeEnds, nodeDrawn, dotRadius, bareDots } from './circuit-nodes.js';
 import { STATION_VESSEL, meanVel, velNormal, judgeFlow } from './velNormal.js';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js';
@@ -4024,21 +4025,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!x.rOf) x.rOf = (u) => tubeRadius(x, u);   // alloc-once: the vessel's first draw
   }
 
-  // Whether q lies within `lim` of a drawn course: the distance to it below lim, in squared lengths and stopping at the
-  // first segment near enough (start-up profile, 2 Nov 2026: Math.hypot on every segment of every vessel near every end was 1.4 s
-  // of the first 20 s of a cold load, headless).
-  function nearCourse(pts, q, lim) {
-    if (!(lim > 0)) return false;
-    const qx = q[0], qy = q[1], L2 = lim * lim;
-    for (let i = 1; i < pts.length; i++) {
-      const a = pts[i - 1], b = pts[i], ax = a[0], ay = a[1], dx = b[0] - ax, dy = b[1] - ay;
-      const u = clamp(((qx - ax) * dx + (qy - ay) * dy) / (dx * dx + dy * dy || 1), 0, 1), ex = ax + dx * u - qx, ey = ay + dy * u - qy;
-      if (ex * ex + ey * ey < L2) return true;
-    }
-    return false;
-  }
-
-
   // ── Vessels on the GPU (veins-gl.js) ─────────────────
   // In the anatomy every vessel (veins in every tier, arteries, cavernoma strands, tributaries,
   // closed collaterals, vessels drawing on, the congestion glow), in the anatomy and in the
@@ -4193,23 +4179,44 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // Joins and smoothed courses of a list (veinJoins, smoothRunOn), leaving the figure's own (glStraight, glRadDirty) as they were. A
   // vessel not drawn yet (the other side's: the circuit's branches, a vessel the anatomy leaves out) is given its radii as they would
-  // be sent (itemRadii) for the while.
-  function joinsOf(items) {
-    const gs = glStraight, gd = glRadDirty, lent = [];
-    for (const it of items) {
-      if (it.obj.glR) continue;
-      const rf = it.kind === 'v' && !it.x.isArt && !it.x.rOf ? () => Math.max(0.5, (it.x.width || 2) / 2) : itemRadii(it)[1], R = Array.from({ length: N_SAMPLES }, (_, i) => rf(i));
+  // be sent (itemRadii) for the while. Given a store (a frame of a morph: FR_STORES), the answer is written into it and is read before the
+  // next call that is given the same store; without one it is made new, for the stretches that keep it.
+  const LENT = [];   // alloc-rare: kept, made once for the stage
+  function lendRadii(items) {
+    let nLent = 0;
+    for (let q = 0; q < items.length; q++) {
+      const it = items[q], o = it.obj;
+      if (o.glR) continue;
+      // alloc-rare: only a vessel whose radii were not sent yet (the other side's, one the view leaves out) is lent them, here and in itemRadii
+      const R = o.glRL || (o.glRL = new Float64Array(N_SAMPLES)), rc = it.kind === 'v' && !it.x.isArt && !it.x.rOf ? Math.max(0.5, (it.x.width || 2) / 2) : -1, rf = rc < 0 ? itemRadii(it)[1] : null;
       let mx = 0;
-      for (const r of R) mx = Math.max(mx, r);
-      it.obj.glR = R; it.obj.glMaxR = mx; lent.push(it.obj);
+      for (let i = 0; i < N_SAMPLES; i++) { const r = rf ? rf(i) : rc; R[i] = r; mx = Math.max(mx, r); }
+      o.glR = R; o.glMaxR = mx; LENT[nLent++] = o;
     }
-    try { const J = veinJoins(items); return { J, smooth: smoothRunOn(items), reach: new Map(items.map((it) => [it.row, reachOf(it)])) }; } finally {
-      glStraight = gs; glRadDirty = gd;
-      for (const o of lent) { delete o.glR; delete o.glMaxR; }
-    }
+    return nLent;
+  }
+  function takeBackRadii(nLent) {
+    for (let q = 0; q < nLent; q++) { LENT[q].glR = undefined; LENT[q].glMaxR = undefined; LENT[q] = null; }
+  }
+  // (Run for each frame of a morph: the answer is written into the store it is given, FR_STORES' one for the frame, and read before the next call given it.)
+  function joinsOf(items, st) {
+    const gs = glStraight, gd = glRadDirty, gst = glStore, nLent = lendRadii(items);
+    try {
+      const J = veinJoins(items, st), smooth = smoothRunOn(items, st);
+      st.res.J = J; st.res.smooth = smooth;
+      return st.res;
+    } finally { glStraight = gs; glRadDirty = gd; glStore = gst; takeBackRadii(nLent); }
+  }
+  // The same, made new for a stretch that keeps it (the change between the views, an ease), with the reach of each vessel by row.
+  function joinsKept(items) {
+    const gs = glStraight, gd = glRadDirty, gst = glStore, nLent = lendRadii(items);
+    try {
+      const st = newJoinStore(), J = veinJoins(items, st), smooth = smoothRunOn(items, st);
+      return { J, smooth, reach: new Map(items.map((it) => [it.row, reachOf(it)])) };
+    } finally { glStraight = gs; glRadDirty = gd; glStore = gst; takeBackRadii(nLent); }
   }
   // A join by what it joins: its members, the trunk they end on, a fork.
-  const joinKey = (j) => j.members.join('.') + (j.trunk != null ? 't' + j.trunk + (j.fork ? 'f' : '') : '');
+  const joinKey = (j) => j.key;   // (a join the joins pass made carries its key)
   const rowKey = (items) => items.map((it) => it.row).join(',');
   // What the stretches are made from, so they are made again when it changes (the vessels shown, their reach, a collateral's coil and a
   // varix's spread, the joins that run on): checked a moment after the figure last binned at rest.
@@ -4262,10 +4269,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // (The joins of the side's own vessels too: a vessel binned for the other side changes the joins it takes part in.)
       if (pc.snaps.length < ts.length) {
         const t = ts[pc.snaps.length], w = pc.work ||= { items: itemsAt(t, pc.anat), own: itemsAt(t, pc.anat, false), o: null, all: null, q: 1, J2: [] };
-        if (!w.o) { w.o = joinsOf(w.own); setTimeout(next, 0); return; }
-        if (!w.all) { w.all = joinsOf(w.items); setTimeout(next, 0); return; }
+        if (!w.o) { w.o = joinsKept(w.own); setTimeout(next, 0); return; }
+        if (!w.all) { w.all = joinsKept(w.items); setTimeout(next, 0); return; }
         // (The joins at moments between too: one can be there for less than a step, as two ends pass each other.)
-        if (pc.snaps.length && w.q < MORPH_JSUB) { const u = lerp(pc.snaps[pc.snaps.length - 1].t, t, w.q / MORPH_JSUB); w.J2.push(...joinsOf(itemsAt(u, pc.anat, false)).J); w.q++; setTimeout(next, 0); return; }
+        if (pc.snaps.length && w.q < MORPH_JSUB) { const u = lerp(pc.snaps[pc.snaps.length - 1].t, t, w.q / MORPH_JSUB); w.J2.push(...joinsKept(itemsAt(u, pc.anat, false)).J); w.q++; setTimeout(next, 0); return; }
         pc.work = null;
         const { items, own, o } = w;
         pc.snaps.push({ t, items, ...w.all, J2: o.J.concat(w.J2), own: new Map(own.map((it) => [it.row, o.smooth.get(it.row) || it.pts])) });
@@ -4292,6 +4299,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     pc.reach = new Map(snaps[0].items.map((it) => [it.row, Math.ceil(Math.max(vBinReach.get(it.row) || 0, more?.get(it.row) || 0, ...snaps.map((sn) => sn.reach.get(it.row) || 0)) * 1.25 / 2) * 2]));
     // (A course as the side's own vessels smooth it where it is one of them: the vessels only the other side shows change which ends run on.)
     pc.path = new Map(snaps[0].items.map((it) => [it.row, snaps.map((sn) => sn.own.get(it.row) || sn.smooth.get(it.row) || sn.items.find((o) => o.row === it.row).pts)]));
+    pc.pathRows = Array.from(pc.path.keys());   // (the rows of the stretch, listed once for the frames that draw from it)
     // (The joins come and go as the vessels' ends move (veinJoins finds them by where the ends lie): every join of any moment, each
     // binned along its centres at the moments it is there; a frame lists the ones it has, the rest written as reaching nothing.)
     // (Joins of the same vessels at two places, a strand's two ends on its varix, are told apart by where they lie.)
@@ -4378,15 +4386,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if ((inMotion() || sinceInput() < 700) && snaps.length < 2 * ENV_AT.length) { setTimeout(next, 200); return; }
       if (snaps.length < 2 * ENV_AT.length) {
         const m = snaps.length >> 1, [w, sp] = ENV_AT[m];
-        if (!part) { const items = envItemsAt(w, sp); part = { items, o: joinsOf(items), J2: null }; setTimeout(next, 0); return; }
+        if (!part) { const items = envItemsAt(w, sp); part = { items, o: joinsKept(items), J2: null }; setTimeout(next, 0); return; }
         // (The joins half way from the moment before too: an end's join can move across the step.)
         const P = m && ENV_AT[m - 1];
-        if (!part.J2) { part.J2 = P ? joinsOf(envItemsAt((P[0] + w) / 2, (P[1] + sp) / 2)).J : []; setTimeout(next, 0); return; }
+        if (!part.J2) { part.J2 = P ? joinsKept(envItemsAt((P[0] + w) / 2, (P[1] + sp) / 2)).J : []; setTimeout(next, 0); return; }
         const { items, o, J2 } = part;
         part = null;
         // (Each moment twice: with only the vessels shown now, and with every one. Which vessels are there changes how their runs are
         // smoothed where they meet (smoothRunOn): a vein running on into a hidden collateral was 6.4 off its course with every one.)
-        const own = joinsOf(items.filter((it) => shown.has(it.row)));
+        const own = joinsKept(items.filter((it) => shown.has(it.row)));
         snaps.push({ items, J: own.J, smooth: own.smooth, reach: o.reach, J2: [], own: own.smooth }, { items, ...o, J2, own: o.smooth });
         setTimeout(next, 0); return;
       }
@@ -4480,15 +4488,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (let a = 0; a < q.members.length; a++) { const m = q.members[a]; if (FR_DRAWN.has(m) && !j.members.includes(m)) return false; }
     return true;
   }
+  const FR_STORES = [newJoinStore(), newJoinStore()];   // alloc-rare: kept, made once for the stage
+  let frFlip = 0;
   function frameFrom(pc, items, sOf, morphMiss) {
     for (let i = 0; i < items.length; i++) if (!pc.path.has(items[i].row)) return morphMiss('vessels');
-    const { J, smooth } = joinsOf(items);
+    // (A store of its own for this frame, the other the last one's: the courses it handed the renderer are not written over while it may read them.)
+    frFlip ^= 1;
+    const { J, smooth } = joinsOf(items, FR_STORES[frFlip]);
     const S2 = MORPH_SLACK * MORPH_SLACK;
     const buf = pc.frame;
     // (A vessel binned for the stretch that this frame does not draw is put far out of every cell's reach.)
     FR_DRAWN.clear();
     for (let i = 0; i < items.length; i++) FR_DRAWN.add(items[i].row);
-    for (const row of pc.path.keys()) if (!FR_DRAWN.has(row)) writePoints(buf, pc.posBase, N_SAMPLES, row, FAR_ROW);
+    for (let q = 0; q < pc.pathRows.length; q++) if (!FR_DRAWN.has(pc.pathRows[q])) writePoints(buf, pc.posBase, N_SAMPLES, pc.pathRows[q], FAR_ROW);
     for (const it of items) {
       if (reachOf(it) > pc.reach.get(it.row)) return morphMiss('reach');
       const P = smooth.get(it.row) || it.pts, R = pc.path.get(it.row), s = sOf(it);
@@ -4686,111 +4698,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // Vessels that run on into each other (from veinJoins): their calibers are eased to meet at the join.
   let glStraight = [], glRadDirty = true;
-  // Where one vessel runs on into the next, the two courses meet at a slight corner: the last few
-  // samples either side are redrawn as one smooth curve (a cubic through the join, following each
-  // course's own direction), so the tube bends through the join instead of kinking.
-  const runOnSamples = (it, n) => (it.ra ? Math.max(2, Math.round(n * (1 - it.f))) : n);
-  function smoothRunOn(items) {
-    const out = new Map(), byRow = new Map(items.map((it) => [it.row, it])), E = 10;
-    const pt = (P, i, end) => (end ? P[P.length - 1 - i] : P[i]);   // i samples in from that end
-    for (const { a, ia, b, ib } of glStraight) {
-      const A = byRow.get(a), B = byRow.get(b);
-      if (!A || !B) continue;
-      const PA = out.get(a) || A.pts.map((q) => q.slice()), PB = out.get(b) || B.pts.map((q) => q.slice());
-      if (PA.length < 2 * E + 2 || PB.length < 2 * E + 2) continue;
-      // From E samples into A, through the join, to E samples into B (fewer into the cava drawn as one,
-      // whose samples lie farther apart: about as far along as into its last stretch alone).
-      const Ea = runOnSamples(A, E), Eb = runOnSamples(B, E);
-      const p0 = pt(PA, Ea, ia), p0b = pt(PA, Ea + 1, ia), p3 = pt(PB, Eb, ib), p3b = pt(PB, Eb + 1, ib);
-      const L = Math.hypot(p3[0] - p0[0], p3[1] - p0[1]) / 3;
-      const ta = [p0[0] - p0b[0], p0[1] - p0b[1]], tb = [p3[0] - p3b[0], p3[1] - p3b[1]];
-      const na = Math.hypot(...ta) || 1, nb = Math.hypot(...tb) || 1;
-      const p1 = [p0[0] + (ta[0] / na) * L, p0[1] + (ta[1] / na) * L], p2 = [p3[0] + (tb[0] / nb) * L, p3[1] + (tb[1] / nb) * L];
-      const bez = (t) => { const u = 1 - t; return [u * u * u * p0[0] + 3 * u * u * t * p1[0] + 3 * u * t * t * p2[0] + t * t * t * p3[0], u * u * u * p0[1] + 3 * u * u * t * p1[1] + 3 * u * t * t * p2[1] + t * t * t * p3[1]]; };
-      // A's samples E … 0 (toward its end) take t 0 … 0.5, B's 0 … E take 0.5 … 1.
-      for (let i = 0; i <= Ea; i++) PA[ia ? PA.length - 1 - i : i] = bez(0.5 * (1 - i / Ea));
-      for (let i = 0; i <= Eb; i++) PB[ib ? PB.length - 1 - i : i] = bez(0.5 + 0.5 * (i / Eb));
-      out.set(a, PA); out.set(b, PB);
-    }
-    return out;
+  // (The joins pass, and the courses redrawn smooth where one vessel runs on into the next: vein-joins.js, which makes nothing in a frame. veinJoins leaves the pairs that run on in glStraight, as it always did,
+  // and the store it wrote into in glStore for smoothRunOn.)
+  let glStore = null;
+  function veinJoins(items, st = newJoinStore()) {
+    glRadDirty = true; glStore = st;
+    const J = joinsPass(items, N_SAMPLES, st);
+    glStraight = st.straight;
+    return J;
   }
-  // Junctions: ends that meet at a model node (clustered by where the drawn courses actually
-  // end), and ends that lie on another vessel's course (a tributary on its trunk, a vein drawn
-  // onto the side of another). Arteries join only arteries.
-  function veinJoins(items) {
-    const joins = [], pairs = new Set();
-    glStraight = []; glRadDirty = true;
-    const pairKey = (a, b) => Math.min(a.row, b.row) + ':' + Math.max(a.row, b.row);
-    const endOf = (it, i) => (i ? it.pts[it.pts.length - 1] : it.pts[0]);
-    const rEnd = (it, i) => it.obj.glR[i ? N_SAMPLES - 1 : 0];
-    const add = (ends, c, trunk) => {
-      const uniq = [...new Map(ends.map((e) => [e[0].row, e])).values()];
-      if (uniq.length < 2) return;
-      const reachOf = (list) => {
-        let spread = 0, rMin = Infinity, rMax = 0;
-        for (const [it, i] of list) {
-          const q = i == null ? c : endOf(it, i), r = i == null ? it.obj.glMaxR : rEnd(it, i);
-          spread = Math.max(spread, Math.hypot(q[0] - c[0], q[1] - c[1]));
-          rMin = Math.min(rMin, r); rMax = Math.max(rMax, r);
-        }
-        return { spread, rMin, rMax };
-      };
-      const isStrand = ([it]) => it.kind === 's';
-      const all = reachOf(uniq), own = uniq.some(isStrand) ? reachOf(uniq.filter((e) => !isStrand(e))) : all;
-      const kOf = (m) => clamp(1.2 * m.rMin + 1.2, 1.5, 11);
-      // Which ends blend into which (fork-joins.js): a vessel running on into the next is not filleted to it, in a fork too.
-      // (A collateral's strands, which end where it does, are left out of that: nodeJoins.)
-      const dir = ([it, i]) => { if (i == null) return null; const P = it.pts, n = P.length, a = i ? P[n - 1] : P[0], b = i ? P[Math.max(0, n - 4)] : P[Math.min(n - 1, 3)], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / L, (b[1] - a[1]) / L]; };
-      const { groups, runOn } = nodeJoins(uniq.map((e) => ({ dir: dir(e), strand: isStrand(e) })));
-      if (runOn) glStraight.push({ a: uniq[runOn[0]][0].row, ia: uniq[runOn[0]][1], b: uniq[runOn[1]][0].row, ib: uniq[runOn[1]][1], fork: uniq.filter((e) => !isStrand(e)).length > 2 });
-      const rows = uniq.map(([it]) => it);
-      for (let a = 0; a < rows.length; a++) for (let b = a + 1; b < rows.length; b++) pairs.add(pairKey(rows[a], rows[b]));
-      for (const g of groups) {
-        // (The vessels' own groups take the blend width their own radii give, the strands' pairs the one all the ends give, as before.)
-        const k = kOf(g.strand ? all : own), reach = all.spread + 2 * all.rMax + k + 6;
-        joins.push({ x: c[0], y: c[1], reach, k, fillet: g.fillet, members: g.members.map((i) => rows[i].row), trunk: g.trunk != null ? rows[g.trunk].row : trunk, fork: g.trunk != null });
-      }
-    };
-    const byNode = new Map();
-    for (const it of items) {
-      if (it.kind === 'f') continue;
-      const pre = it.x.isArt ? 'a:' : '';
-      for (const i of [0, 1]) { const n = pre + (i ? it.endNode || it.x.e.to : it.x.e.from); if (!byNode.has(n)) byNode.set(n, []); byNode.get(n).push([it, i]); }
-    }
-    for (let ends of byNode.values()) {
-      while (ends.length) {
-        const q0 = endOf(...ends[0]);
-        const near = ends.filter(([it, i]) => { const q = endOf(it, i); return Math.hypot(q[0] - q0[0], q[1] - q0[1]) < 20; });
-        ends = ends.filter((e) => !near.includes(e));
-        if (near.length < 2) continue;
-        const c = near.reduce((a, [it, i]) => { const q = endOf(it, i); return [a[0] + q[0] / near.length, a[1] + q[1] / near.length]; }, [0, 0]);
-        add(near, c);
-      }
-    }
-    // (Every end against every course's box, in flat arrays: the same tests in the same order as with a Map of boxes, which with
-    // ~300 items made this loop most of a joins pass, start-up profile 2 Nov 2026.)
-    const n = items.length, bx = new Float64Array(4 * n), art = new Uint8Array(n);
-    for (let k = 0; k < n; k++) {
-      const it = items[k], P = it.pts, m = it.obj.glMaxR + 4;
-      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-      for (const q of P) { x0 = Math.min(x0, q[0]); y0 = Math.min(y0, q[1]); x1 = Math.max(x1, q[0]); y1 = Math.max(y1, q[1]); }
-      bx[4 * k] = x0 - m; bx[4 * k + 1] = y0 - m; bx[4 * k + 2] = x1 + m; bx[4 * k + 3] = y1 + m;
-      art[k] = it.x.isArt ? 1 : 0;
-    }
-    for (let a = 0; a < n; a++) {
-      const it = items[a];
-      for (let i = 0; i < 2; i++) {
-        const q = endOf(it, i), qx = q[0], qy = q[1], rq = rEnd(it, i);
-        for (let k = 0; k < n; k++) {
-          if (k === a || art[k] !== art[a] || qx < bx[4 * k] || qx > bx[4 * k + 2] || qy < bx[4 * k + 1] || qy > bx[4 * k + 3]) continue;
-          const y = items[k];
-          if (y === it || pairs.has(pairKey(it, y))) continue;
-          if (nearCourse(y.pts, q, y.obj.glMaxR + 0.5 * rq + 2)) add([[it, i], [y, null]], q, y.x.e.id === it.x.e.id ? undefined : y.row);   // (the trunk, unless it is another stretch of the same vessel: the azygos arch's bend)
-        }
-      }
-    }
-    return joins;
-  }
+  const smoothRunOn = (items, st = glStore) => smoothPass(items, glStraight, st);
   let tubesShown = null, tubesLook = '', tubesNew = true;
   // A glow or hover easing (glowStep, vhStep) changes only the glow texels of the tube data. While nothing else the whole sync
   // reads has changed since it last ran (the same vessels, model frame, morph, layout, colours, plate, lens, catheter, classes),

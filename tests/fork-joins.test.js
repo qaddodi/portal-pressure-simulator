@@ -182,8 +182,9 @@ test('the coronary vein runs on into the varices, the varices into the azygos ro
 });
 
 test('the figure counts a vessel\'s strands apart at a node (stage.js veinJoins)', () => {
-  const src = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
-  assert.match(src, /import \{ nodeJoins, sideEndScale \} from '\.\/fork-joins\.js/);
-  assert.match(src, /nodeJoins\(uniq\.map\(\(e\) => \(\{ dir: dir\(e\), strand: isStrand\(e\) \}\)\)\)/);
-  assert.match(src, /const isStrand = \(\[it\]\) => it\.kind === 's'/);
+  const src = readFileSync(new URL('../src/ui/vein-joins.js', import.meta.url), 'utf8');
+  assert.match(src, /import \{ nodeJoinsInto, newJoinAnswer \} from '\.\/fork-joins\.js/);
+  assert.match(src, /nodeJoinsInto\(PEND, nu, OUT\)/);
+  assert.match(src, /e\.strand = it\.kind === 's'/);
+  assert.match(readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8'), /import \{ sideEndScale \} from '\.\/fork-joins\.js/);
 });
