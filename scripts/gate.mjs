@@ -349,13 +349,12 @@ async function stageMotion() {
         if (hook !== true) fail('motion', id, `INCONCLUSIVE: ${hook}; the glass cannot be judged (the words and their shade still are)`);
         if (hook === 'no frame.js onFrameEnd') continue;
         const moving = () => !!document.querySelector('.pz-throwing');
-        const judge = (where, samples) => {
-          const r = motionIssues(samples);
-          say(`${where}: ${r.frames} moving frame(s) judged of ${samples.length} sampled, ${r.issues.length} issue(s)`);
-          if (r.inconclusive) fail('motion', where, `INCONCLUSIVE: ${r.why}`);
-          for (const t of r.issues.slice(0, 8)) fail('motion', where, t);
-          if (r.issues.length > 8) fail('motion', where, `and ${r.issues.length - 8} more`);
-        };
+        // (Software GL paints a few frames a second, so one 560 ms throw is one or two sampled frames: each kind of move is made REPS
+        // times and judged on every frame of all of them together; a kind with too few judged frames is INCONCLUSIVE, never a pass.)
+        const REPS = +opt('reps', 3);
+        const kinds = [['Next', ['ArrowRight'], 1], ['Next, then Next again mid-entry', ['ArrowRight', 'ArrowRight'], 2], ['Next, then Back mid-entry', ['ArrowRight', 'ArrowLeft'], 0]];
+        const total = await page.evaluate(() => Number(document.querySelector('.pzb-n')?.textContent.split('/')[1]) || 0);
+        let at = 1;
         const go = async (where, keys, want) => {
           await page.evaluate(takeSamples);
           for (const [i, k] of keys.entries()) {
@@ -363,14 +362,28 @@ async function stageMotion() {
             await page.keyboard.press(k);
           }
           const took = await watchUntil(page, landed, want, { maxFake: 240000 });
-          if (took < 0) { fail('motion', where, `the change never ended in 240 s`); return; }
+          if (took < 0) { fail('motion', where, 'the change never ended in 240 s'); return null; }
           await watchUntil(page, () => !document.querySelector('.pz-throwing'), null, { maxFake: 30000 });
-          judge(where, await page.evaluate(takeSamples));
           errs(where);
+          return page.evaluate(takeSamples);
         };
-        await go(`${id} Next 1 to 2`, ['ArrowRight'], 2);
-        await go(`${id} Next, Next again mid-entry, 2 to 4`, ['ArrowRight', 'ArrowRight'], 4);
-        await go(`${id} Next then Back mid-entry, 4 to 4`, ['ArrowRight', 'ArrowLeft'], 4);
+        for (const [name, keys, step] of kinds) {
+          const all = [];
+          for (let r = 0; r < REPS; r++) {
+            if (at + Math.max(step, 1) > total) { await page.evaluate(() => window.pps.presenter.go(0)); await watchUntil(page, landed, 1, { maxFake: 240000 }); at = 1; await page.evaluate(takeSamples); }
+            const where = `${id} ${name}, ${at} to ${at + step}`;
+            const got = await go(where, keys, at + step);
+            if (!got) continue;
+            at += step;
+            const r1 = motionIssues(got);
+            say(`${where}: ${r1.frames} moving frame(s) judged of ${got.length} sampled, ${r1.issues.length} issue(s)`);
+            for (const t of r1.issues.slice(0, 6)) fail('motion', where, t);
+            all.push(...got);
+          }
+          const r = motionIssues(all);
+          say(`${id} ${name}: ${r.frames} moving frame(s) judged over ${REPS} move(s)`);
+          if (r.inconclusive) fail('motion', `${id} ${name}`, `INCONCLUSIVE: ${r.why} over ${REPS} move(s)`);
+        }
         try { await assertGpuLive(page, `motion ${id}, at the end`, { software: true, vessels: false }); } catch (e) { fail('motion', `${id} gpu`, String(e.message).split('\n').slice(0, 3).join(' ')); }
       } finally { await page.evaluate(() => window.__motionStop?.()).catch(() => {}); await app.close(); }
     }
