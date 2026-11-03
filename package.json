@@ -11,6 +11,8 @@
     "offgpu": "node scripts/off-gpu-scan.mjs --doc",
     "warm": "node --expose-gc --max-semi-space-size=128 scripts/warm-alloc.mjs",
     "stamp": "node scripts/stamp.mjs",
+    "gen:stops": "node scripts/gen-stop-tokens.mjs",
+    "check:stops": "node scripts/gen-stop-tokens.mjs --check",
     "build": "node scripts/build.mjs",
     "preview": "node scripts/serve.mjs dist 8081",
     "smoke": "node tests/e2e/smoke.mjs",

@@ -82,6 +82,9 @@ Workflows pin `ubuntu-24.04`, so a new runner image (and new visual references) 
 - Layout reads go through `src/ui/layout-snap.js` only (plan 3.4): `readBox`, `readStyle`, `readMetric(el, 'offsetHeight')`, `readCTM`…,
   and the snapshot it keeps (`stageBox()`, `worldCTM()`, `safeSides()`, kept boxes). `scripts/off-gpu-scan.mjs` (lint) fails a file with more
   direct reads than its allowance in `scripts/layout-read-allowance.json`, or fewer: lower the number when you move reads, never raise it.
+- Gradient stop colours the organ painter uses are a generated table (`src/ui/stop-tokens.js`, per look: `npm run gen:stops`), never a style read.
+  `tests/stop-tokens.test.js` fails when a stop rule or a custom property it reads changes in `styles/`: run `npm run gen:stops` (it measures the app in
+  headless Chromium) and commit the file; `npm run check:stops` compares the table with the live page. A new gradient stop in `stage.js` needs it too.
 - Pressure colours and cut-offs live once: HVPG amber 5, red 10; PPG amber 6, red 12, in `src/engine/pressure-cuts.js`.
   Read them from there and the colour tokens (`--ok`, `--caution`, `--danger`); `tests/pressure-vocabulary.test.js` fails on a
   second copy.

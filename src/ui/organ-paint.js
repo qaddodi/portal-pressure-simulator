@@ -18,6 +18,7 @@ import { prestart, linkProgram } from './gl-compile.js';
 import { strHash } from './liver-geo.js';
 import { readStyle, readLocalCTM } from './layout-snap.js';
 import { getLive } from './live-style.js';
+import { STOPS, STOPS_CMAP, STOP_LOOK } from './stop-tokens.js';
 // (The colour a clear writes, one array for every clear: none made per call, plan rev 2 §2.8.)
 const CLEAR0 = new Float32Array(4);
 
@@ -252,6 +253,29 @@ function trTo(o, tr) {
   o[0] = k.a; o[1] = k.b; o[2] = k.c; o[3] = k.d; o[4] = k.e; o[5] = k.f;
   return o;
 }
+// (A gradient stop's colour and opacity are the page's styles' to give, and they depend on the look alone (Light, Soft, Dark, Navy;
+// Black as Dark, System as the device's light or dark) and on the circuit view where it differs: scripts/gen-stop-tokens.mjs measures
+// the page for each and writes stop-tokens.js; tests/stop-tokens.test.js fails when the rules they read change. A stop is named by its
+// class, style and presentation attributes, kept per stop with its row until one of them changes.)
+const SYS_DARK = typeof matchMedia === 'function' ? matchMedia('(prefers-color-scheme: dark)') : null;
+const SR = new WeakMap(), SR_WARNED = new Set();
+/** The column of STOP_COLS the page's look takes now. */
+function lookCol(doc) {
+  const r = doc.documentElement;
+  return STOP_LOOK[r.getAttribute('data-palette') || r.getAttribute('data-theme') || (SYS_DARK?.matches ? 'sys-dark' : 'sys-light')] ?? 0;
+}
+/** A stop's row in the table (its colour and opacity for each column), or null, saying so once, for a stop the table lacks. */
+function stopRow(st, g) {
+  const a = st.getAttribute('class') || '', b = st.getAttribute('style') || '', c = st.getAttribute('stop-color') || '', d = st.getAttribute('stop-opacity') || '';
+  let e = SR.get(st);
+  if (!e || e.a !== a || e.b !== b || e.c !== c || e.d !== d) {
+    const sig = `${a}|${b}|${c}|${d}`;   // alloc-rare: a stop's signature is made the first time it is read, and again only where its class or style changed
+    if (!STOPS[sig] && !SR_WARNED.has(sig)) { SR_WARNED.add(sig); console.error(`Organs on the GPU: the gradient stop "${sig}" (${g.id}) is not in stop-tokens.js: run npm run gen:stops`); }   // alloc-rare: as above
+    e = { a, b, c, d, sig };   // alloc-rare: as above
+    SR.set(st, e);
+  }
+  return (st.closest('.stage-wrap.cmap') && STOPS_CMAP[e.sig]) || STOPS[e.sig] || null;
+}
 function readGradient(doc, id) {
   refsOut?.add(id);
   const g = doc.getElementById(id);
@@ -273,11 +297,13 @@ function readGradient(doc, id) {
   for (let i = 0; i < kids.length; i++) {
     const s = kids[i];
     if (s.localName !== 'stop') continue;
-    const cs = readStyle(s), c = parseColor(cs.stopColor || cs.getPropertyValue('stop-color'));
+    const row = stopRow(s, g);   // (its colour and opacity from the table of the page's styles, never the cascade: stop-tokens.js)
+    if (!row) return null;
+    const c = parseColor(row[lookCol(doc) * 2]);
     if (!c) return null;
     const o = Math.min(1, Math.max(last, num(s, 'offset', 0)));
     last = o;
-    if (n < 8) { const j = n * 5; GS[j] = o; GS[j + 1] = c[0]; GS[j + 2] = c[1]; GS[j + 3] = c[2]; GS[j + 4] = c[3] * (parseFloat(cs.stopOpacity || cs.getPropertyValue('stop-opacity')) || 0); }
+    if (n < 8) { const j = n * 5; GS[j] = o; GS[j + 1] = c[0]; GS[j + 2] = c[1]; GS[j + 3] = c[2]; GS[j + 4] = c[3] * (row[lookCol(doc) * 2 + 1] || 0); }
     n++;
   }
   if (!n || n > 8) return null;
