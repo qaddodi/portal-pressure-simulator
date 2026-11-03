@@ -54,7 +54,8 @@ import { classSoon, classHas, textSoon, runSoon } from './class-soon.js';
 import { easeMove, carryRate, carried, cubicBezier, D_SMALL, D_SURFACE } from './ease.js';
 import { surface } from './gpu-surfaces.js';
 import { caught } from './caught.js';
-import { createCaptionGL, mirrorOf } from './caption-gl.js';
+import { createCaptionGL, mirrorOf, rgbaOf as capRGBA } from './caption-gl.js';
+import { readStyle } from './layout-snap.js';
 const nextFrame = frameFor('lobule-zoom');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -1827,6 +1828,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       if (!mirQ.has(e) || !e.isConnected || e.hidden) continue;
       const m = mirrorOf(e, ['.n']);
       if (m) { mirKeep.set(e, m); cap.mirror(key, m); }
+      // (A label's arrow at the screen's edge is in its secondary ink, app.css .lz-lab.edge .n::before: read whether or not it waits there now.)
+      const L = labs[key.slice(4)];
+      if (L && key.startsWith('lab:')) L.arrowC = capRGBA(readStyle(e).getPropertyValue('--text-2').trim());
     }
     mirQ.clear();
     cap.paint();
@@ -1853,9 +1857,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       const off = !e.isConnected || gone(e) || (call ? !classHas(callEl, 'on') : dimmed(e.dataset.target));
       cap.place(key, zone ? x : x + m.w / 2, zone ? y : y + m.h / 2, off ? 0 : 1, off && gone(e) ? D_SMALL : D_SURFACE, call ? (off ? 0.94 : 1) : -1, t);
       if (L) {
-        const n = m.at['.n'];
-        cap.arrow(key, L.edgeA != null && classHas(L.el, 'edge') ? (L.arrow?.ang === L.edgeA && L.arrow.r === L.edgeR && L.arrow.w === m.w ? L.arrow
-          : (L.arrow = { x: m.w / 2, y: m.h / 2, ang: L.edgeA, r: L.edgeR, w: m.w, colour: n?.colour || m.lines[0]?.runs[0]?.r.fill || '' })) : null);
+        const ink = L.arrowC || m.at['.n']?.colour || '';
+        cap.arrow(key, L.edgeA != null && classHas(L.el, 'edge') ? (L.arrow?.ang === L.edgeA && L.arrow.r === L.edgeR && L.arrow.w === m.w && L.arrow.colour === ink ? L.arrow
+          : (L.arrow = { x: m.w / 2, y: m.h / 2, ang: L.edgeA, r: L.edgeR, w: m.w, colour: ink })) : null);   // alloc-rare: only when the arrow turns
       }
     }
     return moving;
