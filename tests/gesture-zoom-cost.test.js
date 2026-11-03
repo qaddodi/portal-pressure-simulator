@@ -24,7 +24,7 @@ test('the figure\'s labels are carried further during a hand\'s zoom, never onto
   // (A carry past 5 % that would put a label on another, or on a callout, is solved at once.)
   assert.match(stage, /if \(carryClear && \(placed\.some\(\(p\) => !p\.dot && hits\(box, p\)\) \|\| callouts\.some\(\(b\) => hits\(box, b\)\)\)\) \{ stale = true; return false; \}/);
   // (Settled: solved again once no hand is on it, the labels gliding to their spots: labelGlide.)
-  assert.match(body(stage, 'function labelSettleSoon('), /if \(gestureOn\(\)\) \{ labelSettleT = setTimeout\(settle, 120\); return; \}/);
+  assert.match(body(stage, 'function labelSettle('), /if \(gestureOn\(\)\) \{ labelSettleT = setTimeout\(labelSettle, 120\); return; \}/);
 });
 
 test('the lobule counts a wheel and a trackpad pinch as a hand, as a scroll', () => {

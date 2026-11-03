@@ -11138,17 +11138,27 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // Where a station's callout attaches: the middle of the vessel it names when that vessel is drawn
   // (see LABEL_VESSEL), else the station itself. `tan` is the vessel's direction there, on screen.
+  // (The anchor is one kept record, read at once by every caller; the direction a label keeps is a pair kept for its station, which the
+  // layout in hand rewrites for the labels it makes.)
+  const ANCHOR = { ax: 0, ay: 0, mid: false, tan: null, w: 0 }, ANCHOR_P = [0, 0], ANCHOR_Q = [0, 0], ANCHOR_TANS = new Map();
   function labelAnchor(id, t) {
-    const eid = LABEL_VESSEL[id], x = eid && E[eid];
+    const eid = LABEL_VESSEL[id], x = eid && E[eid], a = ANCHOR;
     if (x && x.vis && !x.ghost && geo[eid]?.cur?.length > 1) {
       // The middle of the vessel along its course (the sinusoids too: the middle of their bed, not their venous half).
-      const [wx, wy, tx, ty] = arcMid(geo[eid].cur);
-      const [ax, ay] = worldToLocal(wx, wy), [bx, by] = worldToLocal(wx + tx, wy + ty);
+      const m = arcMid(geo[eid].cur), wx = m[0], wy = m[1], tx = m[2], ty = m[3];
+      worldToLocalInto(ANCHOR_P, wx, wy); worldToLocalInto(ANCHOR_Q, wx + tx, wy + ty);
+      const ax = ANCHOR_P[0], ay = ANCHOR_P[1], bx = ANCHOR_Q[0], by = ANCHOR_Q[1];
       const n = Math.hypot(bx - ax, by - ay) || 1;
-      return { ax, ay, mid: true, tan: [(bx - ax) / n, (by - ay) / n], w: x.width || 4 };
+      let tn = ANCHOR_TANS.get(id);
+      if (!tn) ANCHOR_TANS.set(id, tn = [0, 0]);
+      tn[0] = (bx - ax) / n; tn[1] = (by - ay) / n;
+      a.ax = ax; a.ay = ay; a.mid = true; a.tan = tn; a.w = x.width || 4;
+      return a;
     }
-    const [ax, ay] = worldToLocal(...nodePos(id, t));
-    return { ax, ay, mid: false, tan: null, w: 0 };
+    const p = nodePos(id, t);
+    worldToLocalInto(ANCHOR_P, p[0], p[1]);
+    a.ax = ANCHOR_P[0]; a.ay = ANCHOR_P[1]; a.mid = false; a.tan = null; a.w = 0;
+    return a;
   }
   // Whether the esophageal (VAR) or gastric (GV) varices exist yet (the app's "none" cut-off, 2.5 mm),
   // or the learner has selected that station.
@@ -11160,12 +11170,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // Where a leader stops: it aims at the middle of the label, as if it ran behind the text, and is
   // cut off abruptly (no fade) at a small padding around the label's box.
+  // (The point is one kept record, written anew by each call: every caller reads its x and y before it asks again.)
+  const LEAD_XY = { x: 0, y: 0 };
   function leaderEnd(r, ax, ay, pad = 6) {
     const cx = (r.x0 + r.x1) / 2, cy = (r.y0 + r.y1) / 2;
     const hw = (r.x1 - r.x0) / 2 + pad, hh = (r.y1 - r.y0) / 2 + pad;
     const dx = ax - cx, dy = ay - cy;
     const t = Math.min(dx ? hw / Math.abs(dx) : Infinity, dy ? hh / Math.abs(dy) : Infinity);
-    return t >= 1 ? { x: ax, y: ay } : { x: cx + dx * t, y: cy + dy * t };
+    if (t >= 1) { LEAD_XY.x = ax; LEAD_XY.y = ay; } else { LEAD_XY.x = cx + dx * t; LEAD_XY.y = cy + dy * t; }
+    return LEAD_XY;
   }
   // Where a drawn leader stops: on the edge of what is seen of its label (the pill, or the letters' own box), never short
   // of it and never in under the letters, at any zoom (leader-end.js). (leaderEnd above still decides whether one shows.)
@@ -11235,6 +11248,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let colResolve = 0;   // (when a carried stent column last asked to be placed again: see layoutLabels)
   let labelSol = new Map();   // key → solved slot { wx, wy, dx, dy, dir, pi, w, h, leader, lead } or { drop }
   let solvedFor = null;       // { sig, sc, th } the slots were solved for
+  const SOLVED_A = { sig: null, sc: 0, th: 0, csig: 0, ins: 0 }, SOLVED_B = { sig: null, sc: 0, th: 0, csig: 0, ins: 0 };   // (what updateLabels writes it into, by turns)
+  const JOB = { g: null, key: null, solvedFor: null }, jobKeyArr = [], labelKeyArr = [];   // (the solve in slices: one at a time, its key and the key of the layout that stands, kept)
+  const keyInto = (to, from) => { to.length = from.length; for (let i = 0; i < from.length; i++) to[i] = from[i]; return to; };
   const labelVis = new Map(); // key → shown last frame (hysteresis against blockers)
   let lapHid = new Set();     // keys the last layout's overlap pass hid (its hysteresis)
   let labelTurned = false;   // labels remember their side; turning the circuit changes which side is right
@@ -11292,8 +11308,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let pinchLift = false, pinchLiftT = 0;
   function pinchRelease() {
     clearTimeout(pinchT);
-    pinchT = setTimeout(function rel() {
-      if (gestureOn()) { pinchT = setTimeout(rel, 120); return; }
+    pinchT = setTimeout(pinchRel, 160);
+  }
+  function pinchRel() {
+    {
+      if (gestureOn()) { pinchT = setTimeout(pinchRel, 120); return; }
       // (They are laid out for where the zoom stopped. The labels still standing are carried to this camera first, then solved: solvedFor is
       // kept, with a solve asked for, so that carry runs; solvedFor = null skipped it, and the labels as they stood before the zoom were
       // shown, at their old screen places, over the zoomed vessels when the hide was lifted, till the solve landed.)
@@ -11306,7 +11325,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // alloc-rare: one timer closure when a pinch ends, never per frame
       pinchLiftT = setTimeout(() => { pinchLiftT = 0; if (!pinchLift || pinchHide) return; if (labelJob) labelJobFinish(); pinchLiftNow(true); }, 600);
       pinchLiftNow(false);
-    }, 160);
+    }
   }
   // (Lifts the hide once the labels stand laid out for the camera: no solve running, the layout's key kept. `force`: whatever stands.)
   function pinchLiftNow(force) {
@@ -11319,13 +11338,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   function labelSettleSoon() {
     clearTimeout(labelSettleT);
-    labelSettleT = setTimeout(function settle() {
-      if (gestureOn()) { labelSettleT = setTimeout(settle, 120); return; }
-      if (drifting) { labelSettleT = setTimeout(settle, 120); return; }   // (and a slow push lands first)
-      labelSettleT = 0;
-      if (reslotted) { reslotted = false; solvedFor = null; }   // (readings placed one by one mid-gesture: all solved together now)
-      if (F && !camMove && !lz?.isOpen()) { labelKey = null; updateLabels(F); }
-    }, 260);
+    labelSettleT = setTimeout(labelSettle, 260);
+  }
+  function labelSettle() {
+    if (gestureOn()) { labelSettleT = setTimeout(labelSettle, 120); return; }
+    if (drifting) { labelSettleT = setTimeout(labelSettle, 120); return; }   // (and a slow push lands first)
+    labelSettleT = 0;
+    if (reslotted) { reslotted = false; solvedFor = null; }   // (readings placed one by one mid-gesture: all solved together now)
+    if (F && !camMove && !lz?.isOpen()) { labelKey = null; updateLabels(F); }
   }
   // A vessel's width as the labels see it: it moves only once the vessel has changed by 2 px, so a width
   // easing or hovering at a rounding edge does not lay the labels out again on every model update.
@@ -11460,14 +11480,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       carryReslot = false;
       if (solved) {
         carryClear = false;
-        const sf = { sig, sc, th, csig, ins };
+        // (Written into whichever of two kept records is not the one standing: a solve in slices holds its record until it lands.)
+        const sf = solvedFor === SOLVED_A ? SOLVED_B : SOLVED_A;
+        sf.sig = sig; sf.sc = sc; sf.th = th; sf.csig = csig; sf.ins = ins;
         // (The labels already standing are carried to this frame's camera first: a solve that does not land inside its slice leaves them as
         // they are, so each frame of a zoom or glide that asked for a fresh solve left them one more frame behind the figure, and
         // dropped the sliced solve the next frame. Mohammad, 2 Nov: "the labels and callouts move slower than the figure camera".)
         if (solvedFor && !(morph > 0 && morph < 1)) layoutLabels(f, false);
         const g = layoutLabelsGen(f, true);
         if (!labelSliceRun(g, LABEL_SLICE_MS)) {
-          labelJob = { g, key: key.slice(), solvedFor: sf };
+          labelJob = JOB; JOB.g = g; JOB.key = keyInto(jobKeyArr, key); JOB.solvedFor = sf;
           mayTask('label solve', labelJobStep);
           stats.ms += performance.now() - t0;
           labelTail();
@@ -11478,7 +11500,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       else if (hand || reslotted) labelSettleSoon();
       if (gpuProbe.on) gpuProbe.note(solved ? COUNTED.labelSolve : COUNTED.labelCarry);
       carryClear = false;
-      labelKey = key.slice(); stats.layouts++; stats.ms += performance.now() - t0;
+      labelKey = keyInto(labelKeyArr, key); stats.layouts++; stats.ms += performance.now() - t0;
     }
     labelTail();
   }
@@ -11487,12 +11509,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // rode (label-gl.js rideEnd, sync). Ending it before would draw the old layout, uncarried, for the frames the solve takes.
   function handRideWatch() {
     clearTimeout(handRideT);
-    handRideT = setTimeout(function watch() {
-      if (!handRide || handRide.settle) return;
-      if (gestureOn()) { handRideT = setTimeout(watch, 120); return; }
-      handRideT = 0; handRide.settle = true;
-      if (F && !camMove && !lz?.isOpen()) { labelKey = null; updateLabels(F); } else handRideEnd();
-    }, 160);
+    handRideT = setTimeout(handRideWait, 160);
+  }
+  function handRideWait() {
+    if (!handRide || handRide.settle) return;
+    if (gestureOn()) { handRideT = setTimeout(handRideWait, 120); return; }
+    handRideT = 0; handRide.settle = true;
+    if (F && !camMove && !lz?.isOpen()) { labelKey = null; updateLabels(F); } else handRideEnd();
   }
   function handRideEnd() { if (!handRide) return; handRide = null; clearTimeout(handRideT); handRideT = 0; rideStop(); }
   // (What every layout of the labels ends with, a carried, a skipped or a sliced one too: the callouts and probes painted, then the GPU's copy.)
@@ -11528,7 +11551,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     try { while (!labelSliceRun(j.g, 1e6)); } catch (e) { labelJob = null; labelKey = null; throw e; }
     labelJob = null;
     solvedFor = j.solvedFor; solveAsked = false;
-    labelKey = j.key; stats.layouts++;
+    labelKey = keyInto(labelKeyArr, j.key); stats.layouts++;
     labelTail();
   }
   // (A slice in a frame's spare time: true while there is more to do.)
@@ -11542,7 +11565,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     labelJob = null;
     solvedFor = j.solvedFor; solveAsked = false;
     if (gpuProbe.on) gpuProbe.note(COUNTED.labelSolve);
-    labelKey = j.key; stats.layouts++;
+    labelKey = keyInto(labelKeyArr, j.key); stats.layouts++;
     labelTail();
     return false;
   }
@@ -11567,18 +11590,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // not rebuilt or written into the page, so a moving frame does no label DOM work at all. The values catch up in the first frame
   // after the move ends.)
   let heldF = null, heldWait = null;
+  const heldRun = () => { const g = heldF; heldF = null; if (!g || cathHid()) return; if (!refreshValues(g)) labelKey = null; labelGlSync(); };
+  const heldDone = () => { heldWait = null; frameFor('labels')(heldRun); };
   function holdValues(f) {
     heldF = f;
-    heldWait ||= afterMotion(() => {
-      heldWait = null;
-      frameFor('labels')(() => { const g = heldF; heldF = null; if (!g || cathHid()) return; if (!refreshValues(g)) labelKey = null; labelGlSync(); });
-    });
+    heldWait ||= afterMotion(heldDone);
     return true;
   }
   // The live values of the labels showing, rebuilt and written into their text in place. False when one
   // changed shape (a width, a run, a change badge): the caller then lays the labels out again.
+  const refreshNext = [];   // (the labels' new items, kept: written afresh by each call, which does not call itself)
   function refreshValues(f) {
-    const next = [];
+    const next = refreshNext;
+    next.length = 0;
     for (const it of labelShown) {
       const [kind, id, mode, compact] = it.src;
       const n = kind === 'fx' ? fxBuild.get(id)?.() : kind === 'vel' ? velItem(id, f, mode) : kind === 'scan' ? scanItem() : nodeItem(id, f, mode, compact);
@@ -11587,17 +11611,25 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (n.lines.length !== it.lines.length || Math.abs(n.w - it.w) > 0.5 || Math.abs(n.h - it.h) > 0.5) return false;
       for (let i = 0; i < n.lines.length; i++) {
         const a = n.lines[i], o = it.lines[i];
-        if (a.length !== o.length || a.some((r, j) => r.cls !== o[j].cls || r.size !== o[j].size)) return false;
+        if (a.length !== o.length) return false;
+        for (let j = 0; j < a.length; j++) if (a[j].cls !== o[j].cls || a[j].size !== o[j].size) return false;
       }
       next.push(n);
     }
     let changed = false;
-    labelShown.forEach((it, i) => {
-      const n = next[i];
-      if (n.label === it.label && n.lines.every((l, j) => l.every((r, k) => r.t === it.lines[j][k].t))) return;
+    const shown = labelShown, count = shown.length;
+    for (let i = 0; i < count; i++) {
+      const it = shown[i], n = next[i];
+      let same = n.label === it.label;
+      for (let j = 0; same && j < n.lines.length; j++) {
+        const l = n.lines[j], o = it.lines[j];
+        for (let k = 0; k < l.length; k++) if (l[k].t !== o[k].t) { same = false; break; }
+      }
+      if (same) continue;
       it.lines = n.lines; it.label = n.label; changed = true;
       renderBlock(it);
-    });
+    }
+    next.length = 0;
     if (changed) stats.values++;
     return true;
   }
@@ -11611,17 +11643,39 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let segs = [], segIdx = lineIndex([], worldToLocal, 1, SEG_CELL);
   // (The vessels as drawn: every tube the GPU draws, the liver's grey branches, strands and tributaries included, each at its
   // drawn radius along its course plus its wall; a label kept clear of these is clear of the picture: Review 16 Oct.)
+  // (The lines are records in a kept pool, written in place for each build: lineIndex reads them at once and keeps none. A resistor's
+  // zigzag is one shared item for the width and size of its band.)
+  const segLines = [], segLinePool = [], segItems = [], segItemPool = [];
+  const ZZ_ITEM = { x: { width: 22 }, obj: { w: 22 }, pts: null, kind: 'z' };
+  function segLine(n, it) {
+    const x = it.x, rec = segLinePool[n] || (segLinePool[n] = { pts: null, R: undefined, wall: 0, flat: 0, id: '' });   // (more lines than ever before: one more is made)
+    rec.pts = it.pts; rec.R = it.obj.glR; rec.wall = x.isArt ? 0 : x.wallPx || 0; rec.flat = it.kind === 'v' ? (x.width || 4) / 2 : (it.obj.w || 2) / 2; rec.id = x.e ? x.e.id : 'res';   // (a resistor's zigzag has no vessel)
+    segLines[n] = rec;
+  }
   function buildSegs() {
-    const items = glWanted() ? glItems() : EV.filter((x) => x.vis && geo[x.e.id]?.cur).map((x) => ({ x, obj: x, pts: geo[x.e.id].cur, kind: 'v' }));
-    // (A resistor's zigzag stands as a band as wide as its teeth: "4.1" had sat on the liver's.)
-    const zz = [...resMade.values()].filter((g) => g._segs?.length).flatMap((g) => g._segs.map((pts) => ({ x: { width: 22 }, obj: { w: 22 }, pts, kind: 'z' })));
-    // (The lines as plain data (seg-hits.js lineIndex), so the same index can be built where the solver runs: plan rev 2 step 2.)
-    const lines = [];
-    for (const it of [...items, ...zz]) {
-      const x = it.x;
-      lines.push({ pts: it.pts, R: it.obj.glR, wall: x.isArt ? 0 : x.wallPx || 0, flat: it.kind === 'v' ? (x.width || 4) / 2 : (it.obj.w || 2) / 2, id: x.e ? x.e.id : 'res' });   // (a resistor's zigzag has no vessel)
+    let items = segItems, count = 0;
+    if (glWanted()) items = glItems();
+    else {
+      for (let i = 0; i < EV.length; i++) {
+        const x = EV[i];
+        if (!x.vis || !geo[x.e.id]?.cur) continue;
+        const it = segItemPool[count] || (segItemPool[count] = { x: null, obj: null, pts: null, kind: 'v' });   // (more vessels than ever before: one more is made)
+        it.x = x; it.obj = x; it.pts = geo[x.e.id].cur; it.kind = 'v';
+        segItems[count++] = it;
+      }
+      segItems.length = count;
     }
-    segIdx = lineIndex(lines, worldToLocal, CTM.sc, SEG_CELL);
+    // (A resistor's zigzag stands as a band as wide as its teeth: "4.1" had sat on the liver's.)
+    // (The lines as plain data (seg-hits.js lineIndex), so the same index can be built where the solver runs: plan rev 2 step 2.)
+    let n = 0;
+    for (let i = 0; i < items.length; i++) segLine(n++, items[i]);
+    for (const g of resMade.values()) {
+      const zs = g._segs;
+      if (!zs?.length) continue;
+      for (let i = 0; i < zs.length; i++) { ZZ_ITEM.pts = zs[i]; segLine(n++, ZZ_ITEM); }
+    }
+    segLines.length = n;
+    segIdx = lineIndex(segLines, worldToLocal, CTM.sc, SEG_CELL);
     segs = segIdx.segs;
   }
   // How many vessel segments the box touches, a vessel's own width and `margin` px of air included (`skip`: true asks only whether

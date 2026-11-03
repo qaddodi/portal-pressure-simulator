@@ -34,7 +34,7 @@ test('a lane caption turned upright is kept inside the stage by its turned box, 
 test('once the hand lets go, every reading is solved together', () => {
   assert.match(stage, /else if \(hand \|\| reslotted\) labelSettleSoon\(\);/);
   const settle = stage.slice(stage.indexOf('function labelSettleSoon()'), stage.indexOf('function labelSettleSoon()') + 600);
-  assert.match(settle, /if \(gestureOn\(\)\) \{ labelSettleT = setTimeout\(settle, 120\); return; \}/);
+  assert.match(settle, /if \(gestureOn\(\)\) \{ labelSettleT = setTimeout\(labelSettle, 120\); return; \}/);
   assert.match(settle, /if \(reslotted\) \{ reslotted = false; solvedFor = null; \}/, 'no solvedFor: the next layout is a whole solve');
 });
 
@@ -55,7 +55,7 @@ test('a hand zoom in the Circuit carries the readings on the GPU; where they can
   assert.match(ul, /if \(pinchHide \|\| \(easeInOut\(morph\) >= 0\.5 && solvedFor && gestureOn\(\) && Math\.abs\(Math\.log\(CTM\.sc \/ solvedFor\.sc\)\) > PINCH_ZOOM\)\) \{\n\s*if \(gestureOn\(\)\) \{/);
   assert.ok(ul.indexOf('pinchRelease();\n        return;') < ul.indexOf('layoutLabels(f, false)'), 'no layout while it lasts');
   const rel = stage.slice(stage.indexOf('function pinchRelease()'), stage.indexOf('function labelSettleSoon()'));
-  assert.match(rel, /if \(gestureOn\(\)\) \{ pinchT = setTimeout\(rel, 120\); return; \}/, 'waits for the hand to let go');
+  assert.match(rel, /if \(gestureOn\(\)\) \{ pinchT = setTimeout\(pinchRel, 120\); return; \}/, 'waits for the hand to let go');
   assert.match(rel, /solveAsked = true;/, 'a whole solve where the view stopped, the standing labels carried first (solvedFor kept)');
   assert.doesNotMatch(rel, /solvedFor = null;/, 'solvedFor = null skipped the carry: the old labels showed at their old places');
   // The hide is lifted by pinchLiftNow only once no solve runs and the layout's key is kept (labelTail); a late solve is finished at 600 ms.
