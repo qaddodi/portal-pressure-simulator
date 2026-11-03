@@ -164,21 +164,7 @@ const OVER_ASK = typeof location !== 'undefined' && /[?&]stageover=gpu\b/.test(l
 // A presenter's camera move: the labels ride it on the GPU instead of fading out for it (rideStart).
 // The glasses are drawn inside the figure's canvas (frostHost) and are otherwise the browser's (round 2, 2.1).
 // The FibroScan probe's waves stop at idle rest with the rest of the figure (scanTick).
-// Relative luminance of an 'rgb(r,g,b)' string (non-rgb strings count as dark).
-function lumaLin(v) { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }
-function luminance(c) {
-  const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(c || '');
-  if (!m) return 0;
-  const r = lumaLin(m[1]), g = lumaLin(m[2]), b = lumaLin(m[3]);
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-}
-
-
-// The luminance of the colour a vessel last had, kept on the vessel: read again (a pattern match and three numbers) only when the colour changed.
-function lumOf(x, c) {
-  if (x.lumS !== c) { x.lumS = c; x.lumV = luminance(c); }
-  return x.lumV;
-}
+import { lumOf } from './luma.js';
 
 export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, onViewChange }) {
   // (#30) The stage's styles, as the model's frames read them (colours, the plate's theme, whether the figure shows): read live, each
