@@ -28,6 +28,7 @@
 // chart's own paints, so a frame shows the glide and nothing else.
 import { lateFrameFor, cancelFrame, easeNow } from './frame.js?v=ca74a6f22a';
 import { D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, easeMove } from './ease.js?v=7d7bfe9a62';
+import { setGeo, rawGeo } from './held-geo.js?v=5676542ccc';
 
 const nextLate = lateFrameFor('svg-morph');
 
@@ -218,7 +219,7 @@ class Morph {
     if (fade) for (const { a } of plan.pairs) a.el.getAnimations?.().forEach((x) => x.cancel());
     // (The new drawing starts exactly as the old one stood: its pieces at the old pieces' places, the old ones put out of sight under them.)
     for (const { a, b, tweens } of plan.pairs) {
-      for (const [attr, tw] of tweens) { const v = tweenAt(tw, 0); b.el.setAttribute(attr, v); tw.last = v; }
+      for (const [attr, tw] of tweens) { setGeo(b.el, attr, tweenAt(tw, 0)); tw.base = rawGeo(b.el, attr); }   // (held on the piece, no attribute written: the chart's own number stays under it)
       a.el.style.visibility = 'hidden';
     }
     // (A chart drawn on the GPU (svg-gl.js) draws each fade from its animation's own clock: noteFade.)
@@ -240,9 +241,10 @@ class Morph {
     if (this.live && !gone) {
       const e = easeMove(clamp01(t / D_SURFACE));
       for (const { b, tweens } of plan.pairs) for (const [attr, tw] of tweens) {
-        // (Something else wrote this number since the glide did, the chart's own paint: it keeps it, and the glide lets go of it.)
-        if (tw.dead || (tw.last != null && b.el.getAttribute(attr) !== tw.last)) { tw.dead = true; continue; }
-        tw.last = tweenAt(tw, e); b.el.setAttribute(attr, tw.last);
+        // (Something else wrote this number since the glide began, the chart's own paint: it keeps it, and the glide lets go of it.)
+        if (tw.dead) continue;
+        if (rawGeo(b.el, attr) !== tw.base) { tw.dead = true; setGeo(b.el, attr, undefined); continue; }
+        setGeo(b.el, attr, tweenAt(tw, e));
       }
     }
     if (gone || t >= D_SURFACE) { this.finish(); return; }
@@ -250,7 +252,7 @@ class Morph {
   }
   finish() {
     const { plan } = this;
-    if (this.live && this.next.isConnected) for (const { b, tweens } of plan.pairs) for (const [attr, tw] of tweens) if (!tw.dead) b.el.setAttribute(attr, b.geo[attr]);
+    if (this.live && this.next.isConnected) for (const { b, tweens } of plan.pairs) for (const [attr, tw] of tweens) if (!tw.dead) setGeo(b.el, attr, undefined);   // (the number the chart wrote shows again: the landing)
     for (const f of this.fades) f.cancel();
     this.prev.remove();
     cancelFrame(this.raf); this.raf = 0;

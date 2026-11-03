@@ -8,11 +8,11 @@
 // readout tile. In Explore the live HVPG readouts stay hidden until this has run for the patient
 // (store.hvpgMeasured, hiddenNow); the tracing's small waves are illustrative.
 
-import { h, fmt, clamp, icon, cssVar, toast, swapText } from './util.js?v=feff31de51';
-import { glWords } from './gl-words.js?v=10b758a548';
+import { h, fmt, clamp, icon, cssVar, toast, swapText } from './util.js?v=3a261d27c6';
+import { glWords } from './gl-words.js?v=b1ffc0f873';
 import { hvpgSev, hvBlocked } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { FONT } from './charts.js?v=e27d2c09d8';
-import { pressureColor } from './colormap.js?v=fde262f30e';
+import { FONT } from './charts.js?v=6550e7420a';
+import { pressureColor } from './colormap.js?v=8a73b5b0e8';
 import { store, logAction, hiddenNow, updateParams } from './store.js?v=a51981892d';
 import { shownOr } from './shown.js?v=c469d53cf4';
 import { classSoon, restartSoon, attrSoon, dataSoon, propSoon } from './class-soon.js?v=d59b314e61';

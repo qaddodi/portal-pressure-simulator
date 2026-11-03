@@ -12,12 +12,12 @@
 
 import { store, replaceParams, onParamChange } from './store.js?v=a51981892d';
 import { host } from './host.js?v=24f6deba49';
-import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp, putText, swapText } from './util.js?v=feff31de51';
-import { activeInterventions } from './inspector.js?v=f505720451';
+import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp, putText, swapText } from './util.js?v=3a261d27c6';
+import { activeInterventions } from './inspector.js?v=d51a1ba374';
 import { removedLabel } from './removed-label.js?v=ea3de67900';
 import { frameFor } from './frame.js?v=ca74a6f22a';
 import { D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=7d7bfe9a62';
-import { createSvgGL, svgModel } from './svg-gl.js?v=cc8999dc3f';
+import { createSvgGL, svgModel, setGeo } from './svg-gl.js?v=d687806d59';
 import { textPolys, textBox, loadGlyphs, glyphsReady } from './text-gl.js?v=7b87ad71e9';
 import { textSoon } from './class-soon.js?v=d59b314e61';
 import { restPass } from './rest-pass.js?v=b1da783ead';
@@ -228,7 +228,7 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
       const u = clamp((now - t0) / 900, 0, 1);
       // (Drawn again only when the day shown changes: most frames of the count keep it.)
       const dn = dayNum(u);
-      if (gpu && dn !== shownN) { shownN = dn; const t = dayOf(u); shownDay = t; dayPath.setAttribute('d', dayD(t)); dayGL.paint(); }
+      if (gpu && dn !== shownN) { shownN = dn; const t = dayOf(u); shownDay = t; setGeo(dayPath, 'd', dayD(t)); dayGL.paint(); }
       if (u < 1) nextFrame(tick);
       else if (gpu) { dayEnd = dayTok; restPass(dayLand); }
       else jumping = false;

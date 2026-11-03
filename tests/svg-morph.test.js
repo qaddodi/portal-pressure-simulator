@@ -148,11 +148,26 @@ test('morphSvg: the new drawing starts where the old stood, the old pieces are p
   await new Promise((r) => setTimeout(r, 160));
   const mid = +next.children[0].getAttribute('x2');
   assert.ok(mid > 10 && mid < 30, `part way (${mid})`);
+  assert.equal(next.children[0].attrs.get('x2'), '30', 'the glide is held on the piece: no attribute is written in a frame');
   await new Promise((r) => setTimeout(r, 480));
   assert.equal(host.children.length, 1, 'the old drawing is gone');
   assert.equal(host.children[0], next);
   assert.equal(next.children[0].getAttribute('x2'), '30'); assert.equal(next.children[0].getAttribute('y1'), '20');
   assert.ok(inn.cancelled, 'the fade is let go, so the stylesheet has the piece again');
+});
+
+test('a number the chart writes itself while a piece glides is kept, and the glide lets go of it', async () => {
+  const [, old] = mount(line(0, 0, 10, 0, { class: 'g' }));
+  const next = svgOf(line(0, 20, 30, 20, { class: 'g' }));
+  morphSvg(old, next);
+  await new Promise((r) => setTimeout(r, 60));
+  next.children[0].setAttribute('x2', '77');
+  await new Promise((r) => setTimeout(r, 60));
+  assert.equal(next.children[0].getAttribute('x2'), '77', 'the chart\'s own number shows');
+  assert.notEqual(next.children[0].getAttribute('y1'), '77');
+  await new Promise((r) => setTimeout(r, 600));
+  assert.equal(next.children[0].getAttribute('x2'), '77');
+  assert.equal(next.children[0].getAttribute('y1'), '20', 'the other numbers still land');
 });
 
 test('a piece the stylesheet holds at less than full strength is never faded by the morph (a ring that is off)', () => {

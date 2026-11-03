@@ -19,7 +19,9 @@ import { finalFrameFor, easeNow, cancelFrame } from './frame.js?v=ca74a6f22a';
 import { restPass, cancelRest } from './rest-pass.js?v=b1da783ead';
 import { cssCurve, D_SURFACE, EASE_ARRIVE } from './ease.js?v=7d7bfe9a62';
 import { cssColor } from './css-color.js?v=59ed182174';
-import { morphSvg } from './svg-morph.js?v=bcec47f817';
+import { morphSvg } from './svg-morph.js?v=bc1e52cafb';
+import { setGeo } from './held-geo.js?v=5676542ccc';
+export { setGeo };
 import { attrSoon } from './class-soon.js?v=d59b314e61';
 
 // (No bleed: a picture reaching past the box counts as overflow, and the card's fit then shrank the whole card to take it in.)
@@ -368,20 +370,6 @@ function flatOf(d, tol) {
 // (A model piece's moving numbers (a leader's ends, a ring's centre and size, a root's viewBox) are kept on the piece, not written as
 // attributes: no attribute write and no mutation to watch in a frame. setGeo returns whether the value changed; the owner asks the
 // picture to draw once it has set what moved. Read back with geoOf. A piece never given one reads its attribute, as before.)
-/** Sets a model piece's number or viewBox string held on the piece; returns true when it changed. */
-export function setGeo(el, k, v) {
-  let g = el._g;
-  if (!g) {
-    // (Read back as an attribute too, so what asks a piece for its ends or centre (the browser checks, svg-morph) finds them.)
-    g = el._g = {};   // alloc-rare: a piece's first held number (its record is kept on the piece)
-    const base = el.getAttribute;   // (the piece's own, as it was)
-    // alloc-rare: the piece's own getAttribute, made once with its first held number
-    el.getAttribute = (n) => { const x = g[n]; return x === undefined ? (base ? base.call(el, n) : Element.prototype.getAttribute.call(el, n)) : x == null ? null : String(x); };
-  }
-  if (g[k] === v) return false;
-  g[k] = v;
-  return true;
-}
 // (A path's or polygon's outline held on the piece as points, not written as a `d` string: x, y pairs in a typed array the owner keeps
 // and writes in place, n pairs used, closed or not; a pair with an x that is NaN lifts the pen, the next pair starts a new stretch.
 // No string is made in a frame; the picture draws from the points. A piece never given points reads its `d` or `points`, as before.)

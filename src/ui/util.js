@@ -1,7 +1,7 @@
 // DOM & formatting helpers.
 import { saver, frame, cancelFrame, easeNow, readFrame } from './frame.js?v=ca74a6f22a';
 import { restPass, restAttr, restRemove } from './rest-pass.js?v=b1da783ead';
-import { glWords } from './gl-words.js?v=10b758a548';
+import { glWords } from './gl-words.js?v=b1ffc0f873';
 import { slideFold } from './fold-slide.js?v=64e11227a9';
 import { releaseSpeed, isFlick, carryCurve, settleSlope, settleAt, easeMove, D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js?v=7d7bfe9a62';
 import { leaveFromHere } from './menu-leave.js?v=844c081a67';
