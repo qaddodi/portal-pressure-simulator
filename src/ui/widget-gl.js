@@ -68,7 +68,7 @@ export function widgetGL(el, paint, { pad = 0 } = {}) {
       el.classList.remove('wgl-on');
     },
   };
-  const gpu = createTraceGL(host, { redraw: () => api.paint() });
+  const gpu = createTraceGL(host, { redraw: () => api.paint(), keep: true });
   if (!gpu) { host.remove(); dead = true; return null; }
   ALL.add(api);
   const unsized = onCanvasResized(host, () => api.paint());   // (a card or the window changed size: the picture is drawn again at the new size, not stretched)
