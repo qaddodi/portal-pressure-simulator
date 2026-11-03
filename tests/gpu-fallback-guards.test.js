@@ -125,7 +125,7 @@ test('every WebGL2 surface rebuilds after a lost context (or is a probe or a sec
 test('lobule handoff: the 2D tissue stays under the GPU picture as it takes over; the field never draws 2D while the GPU is there', () => {
   const lz = src('src/ui/lobule-zoom.js');
   // (Tissue: kept whole and showing HANDOFF_MS, not freed while the hold runs.)
-  assert.match(lz, /if \(on && !rimDrawn\) \{\n\s*tissueOnGL = true; tissueG\.style\.opacity = '';\n\s*handoffT = setTimeout\(\(\) => \{ handoffT = 0; if \(tissueOnGL\) \{ tissue\.style\.opacity = '0'; free\(tissue\); \} \}, HANDOFF_MS\);/);
+  assert.match(lz, /if \(on && !rimDrawn\) \{\n\s*tissueOnGL = true;\n\s*handoffT = setTimeout\(\(\) => \{ handoffT = 0; if \(tissueOnGL\) free\(tissue\); \}, HANDOFF_MS\);/);
   assert.match(lz, /if \(!\(\(!tissueOnGL \|\| handoffT\) && !rimDrawn\)\) free\(tissue\);/);
   assert.doesNotMatch(lz, /HANDOFF &&|[?&]handoff/);
   // (Field: with the GPU there no 2D field is ever drawn; a frame the GPU cannot draw keeps its last GPU frame, or waits for the first.)

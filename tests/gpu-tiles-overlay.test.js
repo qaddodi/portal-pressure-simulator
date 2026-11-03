@@ -99,6 +99,6 @@ test('one context for the lobule: the tissue is drawn in the vessels\' context a
   // The lobule: made with the vessels' renderer, laid while it shows (or for a wide tile drawn on the GPU), and a frame that drew it
   // but not the vessels lays a picture.
   assert.match(lz, /tissueGL = createTissueGL\(tissueG, \{ onLive: liveCompiled, host: gl\.top \}\) \|\| null;[^\n]*\n\s+tisHostOff = tissueGL \? gl\.top\.under\(\{ on: tisUnder, draw: \(\) => tissueGL\.under\(gl\?\.software \? 0\.5 : 1\) \}\) : null;/);
-  assert.match(lz, /const tisUnder = \(\) => !!tissueGL && tissueGL\.pictured && \(wideBuild \? tisWide : tissueG\.style\.opacity !== '0' && tissueG\.style\.visibility !== 'hidden'\);/);
+  assert.match(lz, /const tisUnder = \(\) => !!tissueGL && tissueGL\.pictured && \(wideBuild \? tisWide : tissueOnGL && tissueG\.style\.visibility !== 'hidden'\);/);
   assert.match(lz, /if \(g && !g\.lost && laid !== undefined && g\.top\.presents === laid && \(fxOn \|\| \(tisHostFor && tissueDrew\)\)\) g\.present\(\);/);
 });

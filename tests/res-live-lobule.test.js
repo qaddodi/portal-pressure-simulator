@@ -120,3 +120,61 @@ test("lobule-zoom.js: the overlay's GPU canvas is shown by what is drawn on it, 
   const show = lz.slice(lz.indexOf('function fxGLShow('), lz.indexOf('function fxGLOff('));
   assert.match(show, /if \(!on\) \{ fxGLKey = ''; fxGL\?\.release\(\); fxHostGL\?\.release\(\); if \(fxG\.width\) \{ fxG\.width = 0; fxG\.height = 0; \} \}/, 'given back blank when it goes off');
 });
+
+// The Safari hand-over (Mohammad, 1 Nov, iPhone): the GPU canvas shows a new frame a frame or more after the page's, so the 2D canvas under
+// it must stay whole until HANDOFF_MS has passed, or the hepatocytes flash the page's dark colour (black in a dark look). Run the real
+// showTissueGL against kept canvases and a fake clock.
+function tissueHandoff(rimDrawn = false) {
+  const lz = src('lobule-zoom.js');
+  const body = lz.slice(lz.indexOf('function showTissueGL('), lz.indexOf('// The tissue on the GPU: the same picture as the 2D passes below'));
+  const timers = [], cv = (name) => ({ name, width: 100, height: 80, style: {} });
+  const env = { tissue: cv('tissue'), tissueG: cv('tissueG'), rimDrawn, HANDOFF_MS: 160, log: [] };
+  const mk = new Function('env', `
+    const { tissue, tissueG, HANDOFF_MS } = env;
+    let tissueOnGL = false, handoffT = 0, rimDrawn = env.rimDrawn;
+    const free = (c) => { if (c.width || c.height) { c.width = 0; c.height = 0; env.log.push('free ' + c.name); } };
+    const setTimeout = (fn, ms) => { env.timers.push({ fn, ms }); return env.timers.length; };
+    const clearTimeout = (id) => { if (id) env.timers[id - 1] = null; };
+    ${body}
+    return { showTissueGL, on: () => tissueOnGL };`);
+  env.timers = timers;
+  return { ...mk(env), env, timers };
+}
+
+test('lobule-zoom.js showTissueGL: the 2D canvas stays whole under the GPU canvas for HANDOFF_MS, and only then is given back (no black frame)', () => {
+  const h = tissueHandoff(false);
+  h.showTissueGL(true);
+  assert.equal(h.on(), true);
+  assert.equal(h.env.tissue.width, 100, 'the 2D picture is still there in the frame the GPU canvas takes over');
+  assert.equal(h.env.log.length, 0, 'nothing given back yet');
+  assert.equal(h.timers.length, 1);
+  assert.equal(h.timers[0].ms, 160);
+  h.timers[0].fn();
+  assert.equal(h.env.tissue.width, 0, 'given back once the hand-over has passed');
+  assert.deepEqual(h.env.log, ['free tissue']);
+  assert.equal(h.env.tissueG.width, 100, 'the GPU canvas is never touched by the hand-over');
+  assert.ok(!('opacity' in h.env.tissue.style) && !('opacity' in h.env.tissueG.style), 'no style written to either canvas');
+});
+
+test('lobule-zoom.js showTissueGL: a hand-over cancelled by going off keeps the 2D picture, and the GPU canvas is given back blank', () => {
+  const h = tissueHandoff(false);
+  h.showTissueGL(true);
+  h.showTissueGL(false);
+  assert.equal(h.timers[0], null, 'the pending give-back is cancelled');
+  assert.equal(h.env.tissue.width, 100, 'the 2D picture is kept');
+  assert.equal(h.env.tissueG.width, 0, 'the GPU canvas is blank');
+});
+
+test('lobule-zoom.js showTissueGL: under the dive\'s rim the 2D canvas is given back at once (it would show through)', () => {
+  const h = tissueHandoff(true);
+  h.showTissueGL(true);
+  assert.equal(h.timers.length, 0);
+  assert.equal(h.env.tissue.width, 0);
+  assert.equal(h.env.tissueG.width, 100);
+});
+
+test('lobule-zoom.js: no style is written to hide or show the tissue canvases, and the hosted tissue is laid while it is on', () => {
+  const lz = src('lobule-zoom.js');
+  assert.ok(!/tissue\.style\.opacity|tissueG\.style\.opacity/.test(lz));
+  assert.match(lz, /const tisUnder = \(\) => !!tissueGL && tissueGL\.pictured && \(wideBuild \? tisWide : tissueOnGL && tissueG\.style\.visibility !== 'hidden'\);/);
+});

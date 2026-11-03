@@ -208,7 +208,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const phoneMQ = matchMedia('(max-width: 720px)');
   // The tissue drawn on the GPU (tissue-gl.js): it stands in for the canvas under it (left empty, never drawn), through the dive and
   // the rise too (the rim past the lobule cleared by its shader). It follows that canvas's visibility and zoom.
-  const tissueG = h('canvas', { class: 'lz-canvas lz-tissue-gl', 'aria-hidden': 'true', style: { opacity: '0', pointerEvents: 'none' } });
+  const tissueG = h('canvas', { class: 'lz-canvas lz-tissue-gl', 'aria-hidden': 'true', style: { pointerEvents: 'none' } });
   // (The overlay on the GPU, fx-gl.js: shown in the 2D overlay's place while it draws it, see fxOnGPU.)
   const fxG = h('canvas', { class: 'lz-canvas lz-fx lz-fx-gl', 'aria-hidden': 'true', style: { pointerEvents: 'none' } });   // (shown by what is drawn on it: blank until fxGLShow(true)'s draw, and given back blank (width 0) by fxGLShow(false), so its style is never written to hide it)
   const el = h('div', { class: 'lz', 'aria-hidden': 'true' }, tissue, tissueG, glCv, fx, ...(FX_GPU ? [fxG] : []), leadersBox, labels);
@@ -3818,7 +3818,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // (tissueG, out of the page, keeps the showing state: showTissueGL, the dive's copies) and, for a wide copy's tile, while the tile
   // is drawn on the GPU (tisWide). Made again with the vessels' renderer (a new one after a lost context).
   let tisHostFor = null, tisHostOff = null, tisWide = false;
-  const tisUnder = () => !!tissueGL && tissueGL.pictured && (wideBuild ? tisWide : tissueG.style.opacity !== '0' && tissueG.style.visibility !== 'hidden');
+  const tisUnder = () => !!tissueGL && tissueGL.pictured && (wideBuild ? tisWide : tissueOnGL && tissueG.style.visibility !== 'hidden');
   function tissueGLOn() {
     if (!glTried) glNow();
     if (gl && !gl.lost && gl.top?.under) {
@@ -3940,11 +3940,15 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (on === tissueOnGL) return;
     clearTimeout(handoffT); handoffT = 0;
     if (on && !rimDrawn) {
-      tissueOnGL = true; tissueG.style.opacity = '';
-      handoffT = setTimeout(() => { handoffT = 0; if (tissueOnGL) { tissue.style.opacity = '0'; free(tissue); } }, HANDOFF_MS);   // alloc-rare: only at the moment the tissue first switches onto the GPU canvas (the hand-over), not in a frame that stays on it
+      tissueOnGL = true;
+      handoffT = setTimeout(() => { handoffT = 0; if (tissueOnGL) free(tissue); }, HANDOFF_MS);   // alloc-rare: only at the moment the tissue first switches onto the GPU canvas (the hand-over), not in a frame that stays on it
       return;
     }
-    tissueOnGL = on; tissue.style.opacity = on ? '0' : ''; tissueG.style.opacity = on ? '' : '0';
+    // (Which canvas shows is what is on it, never a style written to hide the other: the 2D one is given back blank (free) once the GPU's
+    // has taken over, the GPU's given back blank when it goes off. The 160 ms hand-over above is unchanged: the 2D picture stays on it
+    // until the timer.)
+    tissueOnGL = on;
+    if (on) free(tissue); else free(tissueG);
   }
 
   // The tissue on the GPU: the same picture as the 2D passes below (the quiet surround, the lobule's bitmap over it, crossfading with

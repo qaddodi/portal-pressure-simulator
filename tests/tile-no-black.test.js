@@ -95,9 +95,9 @@ test('showing, a frame whose texture did not go keeps the last picture: no black
 test('the GPU canvas taking over leaves the 2D canvas whole under it for a moment', () => {
   const lz = src('src/ui/lobule-zoom.js');
   assert.match(lz, /const HANDOFF_MS = 160;/);
-  assert.match(lz, /if \(on && !rimDrawn\) \{\n\s+tissueOnGL = true; tissueG\.style\.opacity = '';/);
+  assert.match(lz, /if \(on && !rimDrawn\) \{\n\s+tissueOnGL = true;\n/);
   assert.doesNotMatch(lz, /HANDOFF &&|handoff=0/);
-  assert.match(lz, /handoffT = setTimeout\(\(\) => \{ handoffT = 0; if \(tissueOnGL\) \{ tissue\.style\.opacity = '0'; free\(tissue\); \} \}, HANDOFF_MS\);/);
+  assert.match(lz, /handoffT = setTimeout\(\(\) => \{ handoffT = 0; if \(tissueOnGL\) free\(tissue\); \}, HANDOFF_MS\);/);
   assert.match(lz, /if \(!\(\(!tissueOnGL \|\| handoffT\) && !rimDrawn\)\) free\(tissue\);/);
   assert.match(lz, /A\.hold = tissueOnGL;/);
 });
