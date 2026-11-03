@@ -1503,7 +1503,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       if (classHas(L.el, 'sel') !== want) { classSoon(L.el, 'sel', want); mirrorSoon(L.el); }
     }
   };
-  store.on('selection', labSel);
+  // The action card a selection opens (or closes) is read again, once it has come in or gone, so a name never stays under it (V-LBL-4).
+  let selOccT = 0;
+  const selOcc = () => { selOccT = 0; if (!occT) occT = restPass(onOcc); };
+  store.on('selection', () => { labSel(); if (!occT) occT = restPass(onOcc); clearTimeout(selOccT); selOccT = setTimeout(selOcc, 450); });
   // The lesion pointer: a pill near the spot, clear of the labels and cards, with a leader to a ring on it. Eases in and out.
   let cpOn = false, cpAt = null, cpDx = 0, cpDy = 0, callCost = 0;   // (where the pill sat last time, relative to its spot, and what it cost)
   // What no label may cover, a disc on screen each: the central vein (1.25 of its radius: the vein and the mouths of its sinusoids) and
