@@ -11126,7 +11126,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // no carried label comes onto another (carryClear); they are solved for where the view stopped once it is let go (labelSettleSoon),
   // and glide to their new spots (labelGlide). Solving every 5 % was a full search about every third frame of a pinch.
   const SOLVE_ZOOM_HAND = 0.35;
-  let carryClear = false, labelSettleT = 0;
+  let carryClear = false, labelSettleT = 0, solveAsked = false;   // (solveAsked: the next layout is a solve whatever the camera did, with the standing labels carried first)
   // (During a hand's zoom in the Circuit, a carried reading that comes onto a station's ring is placed again by itself (carryReslot),
   // the others carried; once let go every reading is solved again (reslotted). Its rings grow with the zoom while a reading keeps its
   // offset, so a few per cent of a pinch had solved every reading again, nearly every frame: Mohammad, 26 Oct, "the problem is
@@ -11137,15 +11137,44 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // readings first" for "the problem is during the zoom itself it's very very choppy". A pan alone keeps them, carried.
   let pinchHide = false, pinchT = 0;
   const PINCH_ZOOM = 0.01;   // (a 1 % change of scale under a hand is a zoom; a pan leaves the scale exactly as it was)
+  // (What the labels show, as identities: a hand's ride compares it with what it was when the ride began. Not the vessels' widths or
+  // geometry, nor the two flags the zoom itself flips (vt.k > 1.35, zoomedIn): on a playing model the widths move every few frames and
+  // the zoom crosses the flags, and the signature then ended every ride within a frame or two. Written into kept lists, no string made.)
+  const rideKeyA = [], rideKeyB = [];
+  function rideKeyInto(k, st) {
+    k[0] = st.selection?.type; k[1] = st.selection?.id; k[2] = st.layers.labels; k[3] = st.layers.chips; k[4] = layerMode(); k[5] = st.focus?.label;
+    k[6] = st.focus?.edges?.[0]; k[7] = st.focus?.marks; k[8] = st.labelLevel; k[9] = scan.on; k[10] = dop.key; k[11] = fxSig; k[12] = fx; k[13] = st.presenting;
+    k[14] = st.presentLabels; k[15] = st.presentTerms; k[16] = st.presentNames; k[17] = st.hiddenLabels; k[18] = labelBase(); k[19] = projecting;
+    return k;
+  }
+  const rideKeyHeld = (st) => sameDeps(rideKeyA, rideKeyInto(rideKeyB, st));
+  let pinchLift = false, pinchLiftT = 0;
   function pinchRelease() {
     clearTimeout(pinchT);
     pinchT = setTimeout(function rel() {
       if (gestureOn()) { pinchT = setTimeout(rel, 120); return; }
-      pinchT = 0; pinchHide = false; reslotted = false; solvedFor = null;
+      // (They are laid out for where the zoom stopped. The labels still standing are carried to this camera first, then solved: solvedFor is
+      // kept, with a solve asked for, so that carry runs; solvedFor = null skipped it, and the labels as they stood before the zoom were
+      // shown, at their old screen places, over the zoomed vessels when the hide was lifted, till the solve landed.)
+      pinchT = 0; pinchHide = false; reslotted = false; solveAsked = true;
+      pinchLift = true;
       if (F && !camMove && !lz?.isOpen()) { labelKey = null; updateLabels(F); }
-      // (Laid out at their new places first, then shown: they fade in where they stay.)
-      nextFrame(() => { if (!pinchHide) wrap.classList.remove('pinch-hide'); });
+      // (Shown only once that layout has landed (pinchLiftNow, from labelTail); a solve that does not land in its slices is finished at once
+      // after 600 ms, so they are never hidden for good.)
+      clearTimeout(pinchLiftT);
+      // alloc-rare: one timer closure when a pinch ends, never per frame
+      pinchLiftT = setTimeout(() => { pinchLiftT = 0; if (!pinchLift || pinchHide) return; if (labelJob) labelJobFinish(); pinchLiftNow(true); }, 600);
+      pinchLiftNow(false);
     }, 160);
+  }
+  // (Lifts the hide once the labels stand laid out for the camera: no solve running, the layout's key kept. `force`: whatever stands.)
+  function pinchLiftNow(force) {
+    if (!pinchLift || pinchHide) return;
+    if (!force && (labelJob || labelKey == null)) return;
+    pinchLift = false; clearTimeout(pinchLiftT); pinchLiftT = 0;
+    // (Shown a frame after the last write, where they stay: they fade in.)
+    // alloc-rare: one closure when the hide is lifted after a pinch, never per frame
+    nextFrame(() => { if (!pinchHide) wrap.classList.remove('pinch-hide'); });
   }
   function labelSettleSoon() {
     clearTimeout(labelSettleT);
@@ -11204,7 +11233,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     sigStats.builds++;
     const edges = EV.filter((x) => x.vis).map((x) => `${x.e.id}${sigWidth(x)}${x.ghost ? 'g' : ''}`).join(',');
     return (sigText = [labelGeo, t >= 0.5, rotU > 0.5, labelBase(), stageBox().width < 700, st.selection?.type + ':' + st.selection?.id, paramJSON((f.viewParams || st.params).stenosis), paramJSON((f.viewParams || st.params).stenosisSite),
-      isImaging(), st.layers.labels, st.layers.chips, layerMode(), st.focus?.label, st.focus?.edges?.[0], st.focus?.marks && paramJSON(st.focus.marks), fxSig, fx?.steps && slideGlow.map((g) => g.id + g.at).join(), (fx?.organs.some((o) => o.organ === 'spleen') || fx?.calipers.some((c) => c.organ)) && Math.round((f.slow?.spleen ?? 11) * 2), vt.k > 1.35, st.labelLevel, st.presenting && st.presentLabels?.join(','), st.presenting && paramJSON(st.presentTerms || null), st.presenting && st.presentNames, scan.on, [...(st.hiddenLabels || [])].join(','), zoomedIn(), flagged(f).join(','), edges, `${tips}${dips}`, dop.key].join('|'));
+      isImaging(), st.layers.labels, st.layers.chips, layerMode(), st.focus?.label, st.focus?.edges?.[0], st.focus?.marks && paramJSON(st.focus.marks), fxSig, fx?.steps && slideGlow.map((g) => g.id + g.at).join(), (fx?.organs.some((o) => o.organ === 'spleen') || fx?.calipers.some((c) => c.organ)) && Math.round((f.slow?.spleen ?? 11) * 2), d[7], st.labelLevel, st.presenting && st.presentLabels?.join(','), st.presenting && paramJSON(st.presentTerms || null), st.presenting && st.presentNames, scan.on, [...(st.hiddenLabels || [])].join(','), d[8], flagged(f).join(','), edges, `${tips}${dips}`, dop.key].join('|'));
   }
   const sigStats = { builds: 0 };
   // (A vessel's label width moved by its 2 px step, outside a model frame: the width's own ease, stepWidths. See sigWidth.)
@@ -11228,27 +11257,31 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (cathHid()) { labelKey = null; return; }
     const t0 = performance.now();
     refreshCTM();
-    if (pinchHide || (easeInOut(morph) >= 0.5 && solvedFor && gestureOn() && Math.abs(Math.log(CTM.sc / solvedFor.sc)) > PINCH_ZOOM)) {
-      if (gestureOn()) {
-        if (!pinchHide) { pinchHide = true; wrap.classList.add('pinch-hide'); }
-        pinchRelease();
-        return;
-      }
-    }
-    const st = store.get(), sig = labelSig(f), b = stageBox();
-    // (A hand's zoom in the anatomy with every label on the GPU: the labels ride it there (handRide), carried by the camera's move
-    // since they were laid out, with no layout, no picture made and nothing of the page written on any frame of it; solved once the
-    // hand lets go. Only while nothing but the camera changed: anything else (a model frame's new widths, a callout) ends the ride
-    // and the labels are laid out as before.)
+    const st = store.get(), b = stageBox();
+    // (A hand's zoom, in the Circuit as in the anatomy: the labels ride it, solved once the hand lets go. Only at rest in one view or the
+    // other, never between them. What the labels show is compared by rideKeyHeld, not the signature: on a playing model that changes every
+    // few frames (widths, geometry), and the two flags the zoom itself flips.)
+    const restView = morph === 0 || morph === 1;
     if (handRide && !handRide.settle) {
-      if (rideCTM && gestureOn() && solvedFor?.sig === sig && morph === 0) { rideStep(); stats.skips++; stats.ms += performance.now() - t0; return; }
+      if (rideCTM && gestureOn() && restView && rideKeyHeld(st)) { rideStep(); stats.skips++; stats.ms += performance.now() - t0; return; }
       handRideEnd(); labelKey = null;
-    } else if (!handRide && gestureOn() && solvedFor && solvedFor.sig === sig && labelKey && !labelJob && morph === 0 && layCTM && Math.abs(Math.log(CTM.sc / solvedFor.sc)) > PINCH_ZOOM && rideStart(layCTM)) {
+    } else if (!handRide && !pinchHide && !pinchLift && gestureOn() && solvedFor && labelKey && !labelJob && restView && layCTM && Math.abs(Math.log(CTM.sc / solvedFor.sc)) > PINCH_ZOOM && rideStart(layCTM)) {
+      rideKeyInto(rideKeyA, st);   // (what the labels show as the ride begins)
       handRide = { settle: false };
       handRideWatch();
       rideStep(); stats.skips++; stats.ms += performance.now() - t0;
       return;
     }
+    // (Where the labels could not ride (a solve still running, a catheter): they are hidden for the zoom and shown again, laid out for
+    // where it stopped, once that layout has landed.)
+    if (pinchHide || (easeInOut(morph) >= 0.5 && solvedFor && gestureOn() && Math.abs(Math.log(CTM.sc / solvedFor.sc)) > PINCH_ZOOM)) {
+      if (gestureOn()) {
+        if (!pinchHide) { pinchHide = true; pinchLift = false; clearTimeout(pinchLiftT); pinchLiftT = 0; wrap.classList.add('pinch-hide'); }
+        pinchRelease();
+        return;
+      }
+    }
+    const sig = labelSig(f);
     if (carrying && solvedFor?.sig !== sig) { carryAbort(); return; }   // (what the labels show changed mid-move: the usual fade, then laid out as it lands)
     // (R04: the key is a list of numbers and identities compared one by one, not a string joined on every camera frame: the camera's
     // part (the transform in hundredths, the stage box, the morph and turn) and the revisions of the rest.)
@@ -11272,7 +11305,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // all the way, without that check: one may pass over another for a moment, the overlap pass below showing the more important.)
       // (Between the two views the labels ride with the change however far its camera zooms: solved again at its half and as it lands.)
       const dz = solvedFor && !(morph > 0 && morph < 1) ? Math.abs(Math.log(sc / solvedFor.sc)) : 0, hand = dz > SOLVE_ZOOM && gestureOn(), land = landing() && !hand, ride = (drifting || land) && !hand;
-      const solve = !solvedFor || solvedFor.sig !== sig || solvedFor.csig !== csig || solvedFor.ins !== ins || (!ride && dz > (hand ? SOLVE_ZOOM_HAND : SOLVE_ZOOM)) || Math.abs(th - solvedFor.th) > SOLVE_TURN;
+      const solve = !solvedFor || solveAsked || solvedFor.sig !== sig || solvedFor.csig !== csig || solvedFor.ins !== ins || (!ride && dz > (hand ? SOLVE_ZOOM_HAND : SOLVE_ZOOM)) || Math.abs(th - solvedFor.th) > SOLVE_TURN;
       carryClear = hand; carryReslot = gestureOn();
       if (ride && !land && dz > SOLVE_ZOOM) carryClear = true;   // (carried, but never onto each other)
       const solved = solve || layoutLabels(f, false) === false;
@@ -11292,7 +11325,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           labelTail();
           return;
         }
-        solvedFor = sf;
+        solvedFor = sf; solveAsked = false;
       }
       else if (hand || reslotted) labelSettleSoon();
       if (gpuProbe.on) gpuProbe.note(solved ? COUNTED.labelSolve : COUNTED.labelCarry);
@@ -11316,6 +11349,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function handRideEnd() { if (!handRide) return; handRide = null; clearTimeout(handRideT); handRideT = 0; rideStop(); }
   // (What every layout of the labels ends with, a carried, a skipped or a sliced one too: the callouts and probes painted, then the GPU's copy.)
   function labelTail() {
+    pinchLiftNow(false);   // (the labels hidden for a zoom that rode no further come back once their layout is down)
     if (handRide?.settle && !labelJob) handRideEnd();   // (the layout for where the hand stopped has landed: the ride ends as it is drawn)
     // (The camera this layout was made under, for a hand's ride that starts from it. Not while a solve runs in slices: the labels drawn
     // are still the last layout's, made under the camera kept before.)
@@ -11338,6 +11372,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   const sameView8 = (a, b) => { for (let i = 0; i < 8; i++) if (a[i] !== b[i]) return false; return true; };
   function labelJobDrop() { if (!labelJob) return; const g = labelJob.g; labelJob = null; cancelMay('label solve'); g.return(); }
+  // (The running solve finished now, in one go: the labels are laid out for the camera as it stands.)
+  function labelJobFinish() {
+    const j = labelJob;
+    if (!j) return;
+    cancelMay('label solve');
+    try { while (!labelSliceRun(j.g, 1e6)); } catch (e) { labelJob = null; labelKey = null; throw e; }
+    labelJob = null;
+    solvedFor = j.solvedFor; solveAsked = false;
+    labelKey = j.key; stats.layouts++;
+    labelTail();
+  }
   // (A slice in a frame's spare time: true while there is more to do.)
   function labelJobStep(left) {
     const j = labelJob;
@@ -11347,7 +11392,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     try { done = labelSliceRun(j.g, Math.max(1, Math.min(LABEL_SLICE_MS, left || LABEL_SLICE_MS))); } catch (e) { labelJob = null; labelKey = null; throw e; }
     if (!done) return true;
     labelJob = null;
-    solvedFor = j.solvedFor;
+    solvedFor = j.solvedFor; solveAsked = false;
     if (gpuProbe.on) gpuProbe.note(COUNTED.labelSolve);
     labelKey = j.key; stats.layouts++;
     labelTail();
@@ -14580,6 +14625,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     cameraKey: () => `${vt.k.toFixed(3)}|${vt.x.toFixed(1)}|${vt.y.toFixed(1)}`,
     zoomLobule, zoomLiver, lobuleOpen: () => !!lz?.isOpen(), organsPictured: () => !!veins?.organs?.pictured?.(0), lobuleViewKey: () => lz?.viewKey(), lobuleCapture: () => lz?.capture?.() ?? null,
     labelClearance: () => clearanceReport(),   // (the browser check's: see clearanceReport)
+    /** The labels' state against the camera, for the browser check: hidden (the pinch hide), riding (carried by the camera's move on the GPU),
+     *  and stale (shown, not riding, laid out under a camera that is not this one: the old labels over the new view). */
+    labelCarry: () => {
+      refreshCTM();
+      const hidden = pinchHide || pinchLift || wrap.classList.contains('pinch-hide') || wrap.classList.contains('cam-move'), riding = !!rideCTM;
+      let moved = false;
+      if (layCTM) { const n = stagePxInto(stagePxNow, CTM); for (let i = 0; i < 6; i++) if (Math.abs(n[i] - layCTM[i]) > (i < 4 ? 1e-4 : 0.5)) moved = true; }
+      return { hidden, riding, job: !!labelJob, laid: !!solvedFor && !labelJob && labelKey != null && morph === morphTarget, stale: !hidden && !riding && !labelJob && moved };
+    },
     labelDrawn: () => labelGL?.boxes ?? null,   // (what the GPU labels' last picture drew, as boxes in px from their canvas's corner: the browser check of the labels' lag)
     labelDrawnBy: () => { const r = stageBox(), o = labelGL?.drawnLabels?.() ?? []; for (const d of o) { d.x += r.left; d.y += r.top; } return o; },   // (each GPU label's last picture, keyed, client px: the browser check's lag test)
     lobuleSpot: () => lz?.spot() ?? null, lobuleLensFade: () => lz?.lensFade() ?? null, lobuleMem: (detail) => lz?.memBytes(detail) ?? 0, diveProgress: () => diveT, plateRasters: () => plateSeq,

@@ -38,17 +38,32 @@ test('once the hand lets go, every reading is solved together', () => {
   assert.match(settle, /if \(reslotted\) \{ reslotted = false; solvedFor = null; \}/, 'no solvedFor: the next layout is a whole solve');
 });
 
-test('a hand zoom in the Circuit fades the readings out, skips their layout, and shows them solved once let go', () => {
+test('a hand zoom in the Circuit carries the readings on the GPU; where they cannot ride they hide and come back only once laid out', () => {
+  // (3 Nov 2026, Mohammad: "Why aren't the labels moving with the zoom". The zoom had hidden every reading, and lifted the hide a frame
+  // after the hand let go, before the solve for where it stopped had landed: the old labels stood at their old screen places over the
+  // zoomed vessels. They now ride the zoom, in the Circuit as in the anatomy, and the hide is lifted only once their layout is down.)
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
   assert.match(css, /\.stage-view\.pinch-hide > #labels, \.stage-view\.pinch-hide > #labelGl, \.stage-view\.pinch-hide \.lb-glass \{ opacity: 0; \}/);
   const ul = stage.slice(stage.indexOf('function updateLabels(f, force = false) {'), stage.indexOf('function refreshValues('));
-  // Only in the Circuit, only under a hand, only once the scale moved (a pan keeps them, carried).
+  // The ride is tried first, at rest in either view (not between them), and compares what the labels show (rideKeyHeld), never the signature:
+  // a playing model changes that every few frames (widths, geometry) and the zoom flips two of its flags, which had ended every ride at once.
+  assert.match(ul, /const restView = morph === 0 \|\| morph === 1;/);
+  assert.ok(ul.indexOf('rideStart(layCTM)') < ul.indexOf('if (pinchHide || (easeInOut(morph) >= 0.5'), 'the ride before the hide');
+  assert.match(ul, /rideKeyHeld\(st\)/, 'what the labels show, not the signature');
+  assert.doesNotMatch(ul.slice(0, ul.indexOf('if (pinchHide || (easeInOut(morph)')), /labelSig\(f\)/, 'the signature is not read before the ride');
+  // Where they cannot ride: hidden for the zoom, no layout while it lasts.
   assert.match(ul, /if \(pinchHide \|\| \(easeInOut\(morph\) >= 0\.5 && solvedFor && gestureOn\(\) && Math\.abs\(Math\.log\(CTM\.sc \/ solvedFor\.sc\)\) > PINCH_ZOOM\)\) \{\n\s*if \(gestureOn\(\)\) \{/);
   assert.ok(ul.indexOf('pinchRelease();\n        return;') < ul.indexOf('layoutLabels(f, false)'), 'no layout while it lasts');
-  const rel = stage.slice(stage.indexOf('function pinchRelease()'), stage.indexOf('function pinchRelease()') + 700);
+  const rel = stage.slice(stage.indexOf('function pinchRelease()'), stage.indexOf('function labelSettleSoon()'));
   assert.match(rel, /if \(gestureOn\(\)\) \{ pinchT = setTimeout\(rel, 120\); return; \}/, 'waits for the hand to let go');
-  assert.match(rel, /solvedFor = null;/, 'a whole solve where the view stopped');
-  assert.ok(rel.indexOf('updateLabels(F)') < rel.indexOf("classList.remove('pinch-hide')"), 'laid out first, then shown');
+  assert.match(rel, /solveAsked = true;/, 'a whole solve where the view stopped, the standing labels carried first (solvedFor kept)');
+  assert.doesNotMatch(rel, /solvedFor = null;/, 'solvedFor = null skipped the carry: the old labels showed at their old places');
+  // The hide is lifted by pinchLiftNow only once no solve runs and the layout's key is kept (labelTail); a late solve is finished at 600 ms.
+  const lift = rel.slice(rel.indexOf('function pinchLiftNow'));
+  assert.match(lift, /if \(!force && \(labelJob \|\| labelKey == null\)\) return;/);
+  assert.doesNotMatch(rel.slice(0, rel.indexOf('function pinchLiftNow')), /classList\.remove\('pinch-hide'\)/, 'pinchRelease itself no longer lifts it');
+  assert.match(rel, /labelJobFinish\(\)/);
+  assert.match(stage, /function labelTail\(\) \{\n\s*pinchLiftNow\(false\);/);
   // Laid out while hidden, they take their new places at once (no glide from where they were).
   assert.match(stage, /const snap = [^\n]*wrap\.classList\.contains\('pinch-hide'\)/);
 });

@@ -2014,12 +2014,9 @@ void main() { o = texture(uT, vUV) * uA; }`;
       if (raf) { cancelFrame(raf); raf = 0; }
       draw();
     },
-    /** Whether the labels can ride a camera move on the GPU: every label on screen is drawn here (none left to the SVG). */
-    canRide() {
-      if (lost || host) return false;
-      for (const el of svgLeft) if (el.classList?.contains('lb')) return false;
-      return true;
-    },
+    /** Whether the labels can ride a camera move on the GPU. A label the SVG still draws (one with a glyph Inter's cut lacks, as the Circuit's
+     *  "Epigastric → SVC" caption) cannot be carried: the stage fades it with the leaders for the ride (app.css lb-ride), it is back at the landing. */
+    canRide() { return !lost && !host; },
     /** A camera move's carry, [a, b, c, d, e, f] (where the labels were laid out, stage px, to where that point is now), drawn now. */
     ride(m) {
       if (lost) return;

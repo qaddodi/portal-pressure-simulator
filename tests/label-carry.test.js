@@ -79,7 +79,7 @@ test('a carry ends with the move, and a change of what the labels show hands it 
   assert.match(abort, /camMove = true; dpr\.carry = false; wrap\.classList\.add\('cam-move'\);/);
   assert.match(stage, /if \(carrying && solvedFor\?\.sig !== sig\) \{ carryAbort\(\); return; \}/);
   // (before the layout is solved for the new signature, so no new label is drawn part way through)
-  assert.ok(stage.indexOf('if (carrying && solvedFor?.sig !== sig)') < stage.indexOf('const solve = !solvedFor || solvedFor.sig !== sig'));
+  assert.ok(stage.indexOf('if (carrying && solvedFor?.sig !== sig)') < stage.indexOf('const solve = !solvedFor || solveAsked || solvedFor.sig !== sig'));
 });
 
 test('carryAbort and driftEnd, run on their own source: the usual fade begins, or the leaders come back', () => {
@@ -108,6 +108,8 @@ test('carryAbort and driftEnd, run on their own source: the usual fade begins, o
 
 test('the leaders\' layer eases out while a move carries the labels; the names themselves are untouched', () => {
   assert.match(css, /\.lb-leaders \{ transition: opacity var\(--d-small\) var\(--ease\); \}\n\.stage-view\.lb-ride \.lb-leaders \{ opacity: 0; \}/);
+  // (A label the SVG still draws, with a glyph the GPU's cut lacks, cannot be carried: it eases out with them, 3 Nov 2026.)
+  assert.match(css, /\.stage-view\.lb-ride \.lb:not\(\[data-gl\]\) \{ opacity: 0; \}/);
   assert.doesNotMatch(css, /lb-ride[^\n]*(#labels\b|#labelGl|lb-glass)/, 'only the leaders; the label layer and its glass stay');
   // (A presenter's other moves still fade the whole label layer.)
   assert.match(css, /\.stage-view\.cam-move > #labels, \.stage-view\.cam-move > #labelGl, \.stage-view\.cam-move \.lb-glass \{ opacity: 0; \}/);
@@ -121,6 +123,6 @@ test('the carry\'s class is a gesture\'s: no label is read again for it, no plac
   // (It sets no custom property and styles nothing in the figure, only the opacity of the leaders' layer: frame-costs-glow.test.js reads every rule that names it.)
   for (const m of css.matchAll(/([^{}]*\.lb-ride\b[^{}]*)\{([^{}]*)\}/g)) {
     assert.doesNotMatch(m[2], /--[\w-]+\s*:/);
-    assert.match(m[1], /\.lb-leaders/);
+    assert.match(m[1], /\.lb-leaders|\.lb:not\(\[data-gl\]\)/);
   }
 });

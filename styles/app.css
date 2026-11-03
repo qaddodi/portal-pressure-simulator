@@ -183,6 +183,9 @@ html.model-contain .stage-view.gl-on :is(svg#stage, svg#labels) { contain: layou
    transition's events, as it does a leader's own fade.) */
 .lb-leaders { transition: opacity var(--d-small) var(--ease); }
 .stage-view.lb-ride .lb-leaders { opacity: 0; }
+/* (A label the SVG still draws cannot ride on the GPU: it eases out with the leaders and back at the landing.) */
+.stage-view .lb:not([data-gl]) { transition: opacity var(--d-small) var(--ease); }
+.stage-view.lb-ride .lb:not([data-gl]) { opacity: 0; }
 /* The labels the GPU draws (label-gl.js): their SVG copy stays, for its layout, clicks, focus and screen readers, but paints nothing;
    the canvas over it takes the label layer's rules (cam-move, unframed, the lobule, the catheter) and never takes a pointer. */
 #labels .lb[data-gl] > * { opacity: 0; }
