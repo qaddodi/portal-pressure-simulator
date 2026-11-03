@@ -95,8 +95,8 @@ export function createTools({ host, stage }) {
     const tok = ++primeTok;
     // (The Doppler asks for its longest sweep, 12 s: the window it draws is chosen after this asks, from the card's width (autoWindow), and a 3 s answer left the left half of a 6 s window empty.)
     primeP = host.request('history', { secs: k === 'doppler' ? Math.max(12, inst.historySecs?.() ?? 0) : inst.historySecs?.() ?? 10 })
-      .then((m) => { if (tok === primeTok && !held && made[k] === inst && m?.samples) inst.backfill?.({ ...m.samples, probe: m.probe }); })
-      .catch(noop);   // (an engine that cannot answer: the trace fills as it records)
+      .then((m) => { const ok = tok === primeTok && !held && made[k] === inst && !!m?.samples; if (ok) inst.backfill?.({ ...m.samples, probe: m.probe }); return ok; })
+      .catch(() => false);   // (an engine that cannot answer: the trace fills as it records)
   }
   function make(k) {
     if (made[k]) return made[k];
@@ -178,7 +178,13 @@ export function createTools({ host, stage }) {
     },
     /** Resolves once the window of the instrument showing has been filled, or after ms at the longest: a card is not brought in
      *  before its trace is there, unless the model is slow to make it. */
-    ready(ms) { const p = primeP; return p ? Promise.race([p, new Promise((r) => setTimeout(r, ms))]) : Promise.resolve(); },
+    ready(ms) {
+      // (R05: true only when the window was filled, false when the ask timed out, failed, answered nothing or was let go: the caller says so, it is no certificate.
+      // A newer ask made meanwhile is the one waited for.)
+      let timer = 0;
+      const filled = (async () => { for (let p = primeP; p;) { const ok = await p; if (p === primeP) return ok; p = primeP; } return true; })();
+      return Promise.race([filled, new Promise((r) => { timer = setTimeout(r, ms, false); })]).finally(() => clearTimeout(timer));
+    },
     /** Hold the Doppler while the slide's state changes: it draws nothing new, and on release starts over with its window filled by the new
      *  state's own steady beats (prime), then records on. (The EKG strips, beat by beat and vitals, are not held: SWEEPS.) */
     hold(on) {

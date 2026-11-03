@@ -149,6 +149,7 @@ test('every recording instrument takes the history, and the presenter lets its i
   assert.match(pres, /if \(!await morphTo\(st, cut, MORPH_ONE_MS\)\) return; shownState = own \? -1 : si; ui\?\.tools\.hold\(false\); \}/);
   assert.match(pres, /if \(morphP\) \{ if \(!await morphP\) return; shownState = own \? -1 : si; ui\?\.tools\.hold\(false\); \}/);
   assert.match(pres, /await ui\.tools\.ready\(900\)/);
+  assert.match(pres, /if \(!filled\) degrade\('window'\);/, 'a window that did not fill is said so');
   // Patients: a loaded patient's traces open full.
   assert.match(main, /host\.request\('history', \{ secs: 12 \}\)/);
   assert.match(dock, /function backfillTraces\(hs\) \{ byId\.scope\.backfill\(hs\); byId\.doppler\.backfill\(hs\); \}/);

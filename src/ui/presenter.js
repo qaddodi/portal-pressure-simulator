@@ -2110,6 +2110,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const tx = (txn = txns.begin({ to: want, dir: turn }));
     slidePrep.aim(want, turn, tx ? tx.live : undefined);
     noteResume(deck.id, want, slides.length);   // (the Present menu offers to resume here; the first or last slide forgets it)
+    if (ui) delete ui.root.dataset.pzDegraded;   // (R05: a press starts clean)
     beat = firstBeat ? 0 : lastBeat(want);
     paintChrome();
     // (A zoomed card glides back first: the slide is laid out, and its cards kept or changed, with the card where it rests.)
@@ -2126,11 +2127,16 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // and shaders), so the new card never comes in empty; at most PREP_MS, so a Next is still answered at once. A newer press takes over.)
   const PREP_MS = 160;
   let prepT = 0;
+  // (R05: a slide shown before its preparation or its instrument's window was complete says so: the root's data-pz-degraded names what was
+  // missing ('prep-preparing', 'prep-failed', 'prep-unprepared', 'window') until the next press, and degraded() counts them. The time limit
+  // keeps a Next answered at once; it no longer passes for readiness, and a manifest that failed or never began is prepared afresh.)
+  const degraded = { n: 0, last: '' };
+  const degrade = (why) => { degraded.n++; degraded.last = why; if (ui) ui.root.dataset.pzDegraded = why; };
   function prepHold(i, then) {
     clearTimeout(prepT);
     const t0 = performance.now(), tx = txn;
     txn?.onRelease(() => { clearTimeout(prepT); prepT = 0; });
-    const look = () => { prepT = 0; if (!deck || want !== i || !txnLive(tx)) return; if (slidePrep.ready(i) || performance.now() - t0 >= PREP_MS) then(); else prepT = setTimeout(look, 16); };
+    const look = () => { prepT = 0; if (!deck || want !== i || !txnLive(tx)) return; if (slidePrep.ready(i)) then(); else if (performance.now() - t0 >= PREP_MS) { const st = slidePrep.state(i); degrade('prep-' + st); if (st !== 'preparing') slidePrep.aim(i, turn, tx ? tx.live : undefined); then(); } else prepT = setTimeout(look, 16); };
     prepT = setTimeout(look, 16);
   }
   // (Mohammad, 2 Nov 2026: "when i hit next it takes time to move out of the way. it should all be responsive". A Next while the last
@@ -2453,7 +2459,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (swap) { await until(() => cut() || stage.organsSettled(), 1500); if (cut()) return; }
       if (prep) { if (await prep) await smooth(cut, QUICK_SMOOTH); } else await unseen(cut);
       if (cut()) return;
-      await ui.tools.ready(900); if (cut()) return;   // (a recording instrument's window is filled before its card comes in: tools.prime)
+      const filled = await ui.tools.ready(900); if (cut()) return;
+      if (!filled) degrade('window');   // (a recording instrument's window is filled before its card comes in: tools.prime)
       await caseEnd(cut); if (cut()) return;
       bare = false; cardsIn({ i: to, gen: g });
       // (Once they are in, so the size they settle at is the one the camera already framed: no second move.)
@@ -6313,7 +6320,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // Where the show is (for the preview pill's reload): the deck and the slide on screen, or the one it is moving to.
     position: () => (deck ? { id: deck.id, at: shown?.i ?? want } : null),
     // For the browser checks: straight to slide i (0-based) of the deck shown, as the arrow keys move.
-    go: (i) => go(i), busy: () => busy, glass: () => ui?.glass ?? null, skipLapse: () => skipLapse(),   // (a time-lapse sped to its end, as Next does)
+    go: (i) => go(i), busy: () => busy, glass: () => ui?.glass ?? null, degraded: () => ({ ...degraded, now: ui?.root.dataset.pzDegraded || '' }), skipLapse: () => skipLapse(),   // (a time-lapse sped to its end, as Next does)
     // What Settings shows while presenting.
     settings: () => ({ width: pzWidth, setWidth: setPanelWidth, contrast: hiCon, setContrast, stacked: phone() }),
     // For the browser checks: the time-lapse slides, and the card's tiles as the slide shown should read them at its start and end.
