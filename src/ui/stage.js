@@ -6368,6 +6368,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Dashed (on, off in world units), so it reads as where the spleen would be and not as a second organ.
   const normal = { want: false, shown: false, sc: 1 };
   const NORMAL_DASH = [7, 5];
+  const normalOl = { kind: 'normal', id: 'spleen', rings: null, a: 0, on: false, col: null, verts: null };
   function normalSync(sc = normal.sc) {
     normal.sc = sc;
     const p = store.get().params;
@@ -6377,7 +6378,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     let o = null;
     for (let i = 0; i < olList.length; i++) if (olList[i].kind === 'normal') { o = olList[i]; break; }
     if (o) o.on = on;
-    else if (on) olList.push({ kind: 'normal', id: 'spleen', rings: dashRings(olRings('spleen', true), NORMAL_DASH[0], NORMAL_DASH[1]), a: 0, on: true, col: orgTone('spleen') });
+    else if (on) {
+      const n = normalOl;   // (the one record, made ahead: a spleen outline that comes back is this one set afresh)
+      n.rings = dashRings(olRings('spleen', true), NORMAL_DASH[0], NORMAL_DASH[1]); n.a = 0; n.on = true; n.col = orgTone('spleen'); n.verts = null;
+      olList.push(n);
+    }
     olDirty = true; olLast = performance.now(); stageWake();
   }
   // Deck visuals, package F (ext-callouts.js): a slide's figure callouts, or null. live: an edge mark's words by
@@ -6414,7 +6419,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // in the frame after the spares are made again.)
   const fxSpare = [], FX_SPARE = 6;
   let fxFill = 0;
-  function fxTop() { fxFill = 0; while (fxSpare.length < FX_SPARE) fxSpare.push(s('g', {}, s('path', { class: 'fx-halo' }), s('path', { class: 'fx-ink' }))); }
+  // (Each spare carries the calls its life asks for, made with it ahead: fxOn1 starts the fade in two frames on, fxGone takes it away under its key.)
+  function fxTop() {
+    fxFill = 0;
+    while (fxSpare.length < FX_SPARE) {
+      const el = s('g', {}, s('path', { class: 'fx-halo' }), s('path', { class: 'fx-ink' }));
+      el.fxKey = '';
+      el.fxOn2 = () => el.classList.add('on');
+      el.fxOn1 = () => nextFrame(el.fxOn2);
+      el.fxGone = () => { el.remove(); if (fxEls.get(el.fxKey) === el) fxEls.delete(el.fxKey); };
+      fxSpare.push(el);
+    }
+  }
   fxTop();
   function fxLine(key, parent, d, cls) {
     let el = fxEls.get(key);
@@ -6423,34 +6439,44 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (fxSpare.length < FX_SPARE / 2 && !fxFill) fxFill = restPass(fxTop);
       if (!el) return;
       el.setAttribute('class', cls);
+      el.fxKey = key;
       late('add', parent, el); fxEls.set(key, el);
-      if (!reduceMotion.matches) nextFrame(() => nextFrame(() => el.classList.add('on'))); else el.classList.add('on');
+      if (!reduceMotion.matches) nextFrame(el.fxOn1); else el.classList.add('on');
     }
     el.seen = true;
     if (el._d !== d) { el._d = d; for (const p of el.children) p.setAttribute('d', d); }
   }
   // (Screen pixels per world unit now: lines that keep a size on screen are drawn in world units from it.)
   const fxK = () => { if (!CTM) refreshCTM(); return CTM?.sc || 1; };
+  // (A caliper's ends and its segments: kept and written over, read at once by every caller.)
+  const capG = { a: null, b: null }, capS = { a: null, b: null, segs: [[null, null], [[0, 0], [0, 0]], [[0, 0], [0, 0]]] };
   function caliperAt(c, f) {
     if (c.organ) {
       const p = f.viewParams || store.get().params;
       if (p?.splenicRx === 2 || !organEls.spleen) return null;
       const [a, b] = spleenCaliper((f.slow?.spleen ?? 11) / 11);
-      return { a, b };
+      capG.a = a; capG.b = b;
+      return capG;
     }
     const x = E[c.edge], cur = geo[c.edge]?.cur;
     if (!x?.vis || x.ghost || !(cur?.length > 1)) return null;
     // (Wall to wall and a little past, and never shorter than 30 px on screen, so a narrow stent on a phone still reads as a caliper.)
     // (A varix at its middle, where the tile measures it; any other vessel a third along, off its station's dot at the middle.)
     const [wx, wy, tx, ty] = c.key === 'varix' ? arcMid(cur) : pointAt(cur, 0.32), [a, b] = acrossVessel(wx, wy, tx, ty, Math.max((x.width || 4) / 2 + 3, 15 / fxK()));
-    return { a, b };
+    capG.a = a; capG.b = b;
+    return capG;
   }
   // A caliper's line and its end ticks (5 px either side, square to it), in world units.
   function caliperSegs(c, f) {
     const g = caliperAt(c, f);
     if (!g) return null;
-    const [[ax, ay], [bx, by]] = [g.a, g.b], L = Math.hypot(bx - ax, by - ay) || 1, tk = 5 / fxK(), nx = (-(by - ay) / L) * tk, ny = ((bx - ax) / L) * tk;
-    return { a: g.a, b: g.b, segs: [[g.a, g.b], [[ax - nx, ay - ny], [ax + nx, ay + ny]], [[bx - nx, by - ny], [bx + nx, by + ny]]] };
+    const A = g.a, B = g.b, ax = A[0], ay = A[1], bx = B[0], by = B[1], L = Math.hypot(bx - ax, by - ay) || 1, tk = 5 / fxK(), nx = (-(by - ay) / L) * tk, ny = ((bx - ax) / L) * tk;
+    const sg = capS.segs, t1 = sg[1], t2 = sg[2];
+    capS.a = A; capS.b = B;
+    sg[0][0] = A; sg[0][1] = B;
+    t1[0][0] = ax - nx; t1[0][1] = ay - ny; t1[1][0] = ax + nx; t1[1][1] = ay + ny;
+    t2[0][0] = bx - nx; t2[0][1] = by - ny; t2[1][0] = bx + nx; t2[1][1] = by + ny;
+    return capS;
   }
   function fxSync(f, t) {
     for (const el of fxEls.values()) el.seen = false;
@@ -6461,14 +6487,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       fxLine('c:' + c.id, gFx, g.segs.map(([p, q]) => `M${P(p)}L${P(q)}`).join(''), 'fx-cal-line');
     }
     if (fx) for (const sp of fx.spans) { const at = spanOf(sp.from, sp.to, fxK()); if (at) fxLine(`s:${sp.from}:${sp.to}`, gFxC, spanPath(at), 'fx-span-line'); }
-    for (const [k, el] of fxEls) {
+    for (const el of fxEls.values()) {
       if (el.seen || el.going) continue;
       el.going = true; el.classList.remove('on');
-      setTimeout(() => { el.remove(); if (fxEls.get(k) === el) fxEls.delete(k); }, reduceMotion.matches ? 0 : 420);
+      setTimeout(el.fxGone, reduceMotion.matches ? 0 : 420);
     }
     for (const [k, el] of fxEls) if (el.seen && el.going) { fxEls.delete(k); }   // (a line gone and wanted again starts afresh)
-    gFx.style.opacity = t > 0 ? String(1 - t) : '';
+    if (t !== fxOpT) { fxOpT = t; gFx.style.opacity = t > 0 ? 1 - t : ''; }   // (written when it moves: nothing else sets it)
   }
+  let fxOpT = 0;
   // The organ was redrawn (a reshaped liver, a larger spleen): the outlines follow it.
   function olGeom() {
     for (const o of olList) { if (o.kind === 'normal') continue; if (!(o.kind === 'warm' ? wsSame(o.sig, true, warmKeyWalk, o.id) : olSame(o))) { o.rings = olRingsOf(o); o.verts = null; olDirty = true; } }
