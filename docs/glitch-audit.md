@@ -637,3 +637,34 @@ math errors there. The problems are in how the page talks to the engine.
 - Third pass: 9 correctness bugs here, plus 14 code-health items in `docs/refactor-plan.md`.
 
 Since the audit started, the fix thread has closed D1 (most of it), T1, N3, IN1, TO1, ZO1, TM1 and O4.
+
+---
+
+# Fourth pass: the model's clock, and the big renderers (3 Nov 2026, read at `033cc02`)
+
+I read the GPU paths of `veins-gl.js` and `lobule-zoom.js` for per-frame allocations, uniform look-ups, state queries and uploads.
+Their buffers are kept and only grow, uniforms are looked up once, and uploads happen on change. I found nothing new to report there.
+The two findings below are in the model's own loop.
+
+### W1. The model's clock runs about 6% fast at 1× (P3, S, Confirmed)
+- **Where:** `worker-core.js:295`. Each 33 ms tick takes `n = ceil(simDt / h)` steps of `h` (4 ms with the beat on, `worker-core.js:80`),
+  and nothing carries the extra time over to the next tick.
+- **What goes wrong:** a tick of 33 ms real time runs 9 steps, which is 36 ms of model time. On average each tick runs half a step too
+  much (2 ms per 33 ms), so model time gains about 6% at 1× (about 3% at 4×, where `h` is 8 ms). The model's clock, the heart rate per
+  real minute, and the Doppler and Over time sweeps (timed in model seconds) run that much faster than the wall clock. Because `realDt` is
+  also capped at 0.1 s (`worker-core.js:280`), a worker held up for longer loses time instead. So the "clocks" drift in both directions.
+- **Fix:** keep the remainder. `acc += simDt; n = floor(acc / h); acc -= n * h`, with the same cap on `n`. That keeps model time equal to
+  real time × speed over any stretch.
+
+### W2. The heart stops for a presenter's change of patient (P3, S, Plausible by design)
+- **Where:** `worker-core.js:283-287`. During a `morph`, the loop only blends two snapshots (`eng.restore(morphAt(...))`). It takes no
+  `eng.step` and no `sample()`. `cyc`, which gives the cardiac phase (`engine.js:382`), is not in `MORPH_KEYS` (`worker-core.js:29`), so
+  it holds the target's value for the whole blend.
+- **What goes wrong:** for each eased patient change in a deck (`MORPH_ONE_MS`, 1.2 s), the beat stops. The figure's pulse, the vitals
+  and any beat trace on screen freeze, and then start again from a different phase. `presenter.js:1209-1212` says recording instruments
+  wait for the slide's state, so the instruments are covered, but the figure's own pulse is not.
+- **Fix:** keep stepping the heart's phase during the blend (advance `cyc` by `realDt · hr / 60`, and take a sample each tick from the
+  blended state), so the pulse runs on through the change.
+
+**Count after four passes:** 35 + 18 + 9 + 2 glitch and correctness findings, plus 14 code-health items. This pass found far less
+than the three before it. The next useful pass is a device session on Mac and iPhone against the P1 and P2 items, not more reading.

@@ -80,7 +80,7 @@ these two queries outside `look.js`.
 - `clamp` is defined in 12 files (one exported from `engine/physiology.js`, one from `ui/util.js`).
 - `easeInOut`, `easeOut`, `smoothstep`, `lerp` and `mix` have 24 local definitions, while `ease.js` and `pill-motion.js` export some.
 - `wait`, `painted` and `nextFrame = frameFor(…)` wrappers are made per file.
-- Two `UNSAFE` sets for prototype keys: `share-link.js:5` and `scenario.js:158`.
+- Two `UNSAFE` sets for prototype keys: `share-link.js:5` and `scenario.js:159`.
 
 **Steps:** a `math.js` (`clamp`, `lerp`, `mix`, `smoothstep`) and the eases in `ease.js`; replace the locals in one mechanical commit per
 helper. Share the one `UNSAFE` set from `scenario.js` (no imports, so the worker can load it).
