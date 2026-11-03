@@ -50,7 +50,7 @@ export function keepLayer(ctx, name, sig, draw) {
 const POOLS = 3;
 const pools = [];
 /** Size reallocations of the shared buffers and pictures handed over, since the page opened (the ?perf readout, audit R04). */
-export const sharedStats = { resizes: 0, transfers: 0, moves: 0, covAllocs: 0, uploads: 0, subUploads: 0 };
+export const sharedStats = { covRemade: 0, resizes: 0, transfers: 0, moves: 0, covAllocs: 0, uploads: 0, subUploads: 0 };
 // (Review pass item 6, 2 Nov 2026: a pool whose buffer was sized for another chart less than SIZE_HOLD ms ago and is asked for a
 // different size again is thrashing. The chart asking moves, once per MOVE_GAP ms at most, to a pool already at its size or idle in
 // size, and a pool is prepared in a timer for the next chart if none is (programs and glyph field in, never in a frame). Coverage
@@ -757,9 +757,20 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
   // (Review pass item 6: one coverage target per pool (the chart's own without one), grown to the largest chart drawn in CAP_STEP steps and
   // never shrunk: a frame draws into its lower left W x H (texelFetch at the fragment's own pixel), so a chart of another size reallocates
   // nothing. The rows past W x H are never read: each stroke clears its own scissored box first.)
+  // (R17: the target is looked at once a frame, not trusted. A stroke is a pass into it and a composite out of it, so a target that was lost (its
+  // texture or framebuffer gone with a context made again, or let go under memory pressure) or was never complete (an allocation the driver
+  // refused) made every stroke vanish while the fills, which need no target, kept drawing. A target that is gone or incomplete is made again.)
+  let covOk = false;
   function coverTarget() {
     // alloc-rare: the coverage target is made the first time one is needed and kept (the shared one, or the chart's own)
     const c = shown ? (shared.cov ||= { tex: gl.createTexture(), fb: gl.createFramebuffer(), w: 0, h: 0 }) : ownCov;
+    if (!covOk) {
+      covOk = true;
+      if (c.w && (gl.isTexture(c.tex) === false || gl.isFramebuffer(c.fb) === false)) {
+        // alloc-rare: only when the target was lost
+        c.tex = gl.createTexture(); c.fb = gl.createFramebuffer(); c.w = c.h = 0; sharedStats.covRemade++;
+      }
+    }
     if (c.w < W || c.h < H) {
       const nw = Math.max(c.w, capOf(W)), nh = Math.max(c.h, capOf(H));
       gl.bindTexture(gl.TEXTURE_2D, c.tex);
@@ -768,7 +779,9 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
       for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
       gl.bindFramebuffer(gl.FRAMEBUFFER, c.fb);
       gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, c.tex, 0);
-      c.w = nw; c.h = nh; sharedStats.covAllocs++;
+      // (an incomplete target is not kept as grown: the next stroke makes it again, from nothing)
+      if (fbComplete(gl, gl.FRAMEBUFFER, 'rgba8', nw, nh)) { c.w = nw; c.h = nh; } else { c.w = c.h = 0; sharedStats.covRemade++; }
+      sharedStats.covAllocs++;
     }
     covTex = c.tex; fbo = c.fb;
   }
@@ -829,7 +842,7 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
         gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
       }
       gl.enable(gl.BLEND); gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-      clipR = null; clipOn = false; inFrame = true; textN = boxN = 0;
+      clipR = null; clipOn = false; inFrame = true; textN = boxN = 0; covOk = false;
       return true;
     },
     /** Ends the frame (what is batched is drawn) and shows the GPU's picture in place of the 2D canvas's. */

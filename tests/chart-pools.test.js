@@ -12,6 +12,7 @@ globalThis.setTimeout = (f) => { timers.push(f); return timers.length; };
 globalThis.clearTimeout = () => {};
 const runTimers = () => { for (const f of timers.splice(0)) f(); };
 const calls = [];
+const fb = { status: 'FRAMEBUFFER_COMPLETE', alive: true };   // (what the fake driver says of the coverage target)
 function fakeGL() {
   return new Proxy({}, {
     get(_, k) {
@@ -20,7 +21,8 @@ function fakeGL() {
       if (k === 'isContextLost') return () => false;
       if (k === 'getExtension') return () => null;
       if (k === 'getProgramParameter' || k === 'getShaderParameter') return () => true;
-      if (k === 'checkFramebufferStatus') return () => 'FRAMEBUFFER_COMPLETE';
+      if (k === 'checkFramebufferStatus') return () => fb.status;
+      if (k === 'isTexture' || k === 'isFramebuffer') return () => fb.alive;
       return (...a) => { calls.push([k, ...a]); return k.startsWith('create') || k === 'getUniformLocation' ? {} : undefined; };
     },
   });
@@ -82,5 +84,29 @@ test('a picture of the same size again is written into its storage', () => {
   C.upload(src, 'k', 1); C.upload(src, 'k', 2); C.upload(src, 'k', 3);
   C.end();
   assert.ok(sharedStats.subUploads >= 2, `sub uploads: ${sharedStats.subUploads}`);
+  C.dispose();
+});
+
+test('a coverage target the driver lost, or never completed, is made again, so strokes cannot silently stop while fills draw', () => {
+  const C = createTraceGL(host());
+  clock += 3000;
+  assert.ok(draw(C, 400, 200));
+  const base = sharedStats.covAllocs, remade = sharedStats.covRemade;
+  for (let i = 0; i < 40; i++) { clock += 16; assert.ok(draw(C, 400, 200)); }
+  assert.equal(sharedStats.covAllocs, base, 'a healthy target is kept: nothing made again');
+  fb.alive = false;
+  clock += 16; draw(C, 400, 200);
+  fb.alive = true;
+  assert.equal(sharedStats.covRemade, remade + 1, 'a lost target is noticed in the next frame');
+  assert.ok(sharedStats.covAllocs > base, 'and allocated again');
+  const a2 = sharedStats.covAllocs;
+  fb.status = 'FRAMEBUFFER_INCOMPLETE_ATTACHMENT';
+  clock += 16; draw(C, 1100, 700);   // (a chart larger than the target: it grows, and the driver refuses)
+  fb.status = 'FRAMEBUFFER_COMPLETE';
+  for (let i = 0; i < 3; i++) { clock += 16; draw(C, 1100, 700); }
+  const a3 = sharedStats.covAllocs;
+  assert.ok(a3 > a2, 'an incomplete target is not kept: it is tried again');
+  for (let i = 0; i < 20; i++) { clock += 16; draw(C, 1100, 700); }
+  assert.equal(sharedStats.covAllocs, a3, 'once complete it is kept for good');
   C.dispose();
 });
