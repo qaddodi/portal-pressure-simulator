@@ -6920,8 +6920,8 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 }
 .app:not(.presenting) .vdock .readouts:not(.all) .metric .val { display: inline-block; min-width: var(--vr, 0px); text-align: left; font-variant-numeric: tabular-nums; }   /* (room for the tile's usual reading, set per tile in dock.js, so a reading keeps its width as it changes; the spare room falls after the value) */
 @media (min-width: 1000px) {   /* (a Mac, where the unit shows: the room is kept after "mmHg" instead, so the unit stays beside its value) */
-  .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) .metric:is([data-id="hvpg"], [data-id="ppg"]) .val { min-width: 0; }
-  .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) .metric:is([data-id="hvpg"], [data-id="ppg"]) .v { display: inline-block; min-width: 4.175em; }
+  .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) .metric:is([data-id="hvpg"], [data-id="ppg"]) .val { min-width: var(--vr, 0px); text-align: right; }
+  .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) .metric:is([data-id="hvpg"], [data-id="ppg"]) .v { display: inline-block; }   /* (3 Nov 2026, "it's hidden then appears and jumbles around": the value's box is the same wide whether it shows a dash, "4.5" or "16.5", flush to its right, so the unit never moves) */
 }
 @media (min-width: 1000px) {   /* (a Mac from 1024 px, an iPad held sideways) */
   .app:not(.thumb):not(.presenting) .vdock { width: max-content; max-width: calc(100% - 2 * var(--gap)); }
