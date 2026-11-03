@@ -29,7 +29,7 @@ test('a script fade waiting its turn holds its first value (fill backwards), the
   assert.equal(trackAt(m, 100).op, 0);
   const mid = trackAt(m, 350).op;
   assert.ok(mid > 0.5 && mid < 1, `eased: ${mid}`);
-  assert.equal(trackAt(m, 600).op, 1);   // (past it, no forwards fill: the last keyframe, the label's own)
+  assert.equal(trackAt(m, 600).op, null);   // (past it, no forwards fill: no contribution, the label's own opacity)
 });
 
 test('a colour transition on a run gives the share of its new colour; CSS mixes premultiplied', () => {
@@ -71,4 +71,40 @@ test('label-gl follows a label\'s own animations, hovers, focus and theme change
   assert.match(src, /const holeOrigin = \(\) => holeCr;/);
   assert.match(src, /if \(needRepack && !moving\) repack\(\);/);
   assert.match(src, /if \(!moving && !pageTex\[1\] && packer\.maxPages > 1/);
+});
+
+// (R10: the opacity beneath the animations is not invented from a keyframe.)
+const fade = [{ offset: 0, computedOffset: 0, easing: 'linear', opacity: '0' }, { offset: 1, computedOffset: 1, easing: 'linear', opacity: '1' }];
+const fade2 = [{ offset: 0, computedOffset: 0, easing: 'linear', opacity: '0.2' }, { offset: 1, computedOffset: 1, easing: 'linear', opacity: '0.6' }];
+
+test('a delayed fill:none fade contributes nothing before its start or after its end (the caller keeps its own opacity)', () => {
+  const m = trackOf([anim({ target: g, kf: fade, delay: 200, fill: 'none' })], g, () => false, 0);
+  assert.equal(trackAt(m, 100).op, null);
+  assert.ok(Math.abs(trackAt(m, 350).op - 0.5) < 1e-9);
+  assert.equal(trackAt(m, 600).op, null);
+  // (With the real underlying opacity passed in, that is what shows outside the animation.)
+  const u = trackOf([anim({ target: g, kf: fade, delay: 200, fill: 'none' })], g, () => false, 0, 0.4);
+  assert.equal(trackAt(u, 100).op, 0.4);
+  assert.equal(trackAt(u, 600).op, 0.4);
+});
+
+test('fill modes: backwards holds the first keyframe in the delay, forwards the last after the end, both do both, none neither', () => {
+  const at = (fill, t) => trackAt(trackOf([anim({ target: g, kf: fade, delay: 200, fill })], g, () => false, 0, 0.4), t).op;
+  assert.equal(at('backwards', 100), 0);
+  assert.equal(at('backwards', 600), 0.4);
+  assert.equal(at('forwards', 100), 0.4);
+  assert.equal(at('forwards', 600), 1);
+  assert.equal(at('both', 100), 0);
+  assert.equal(at('both', 600), 1);
+  assert.equal(at('none', 100), 0.4);
+  assert.equal(at('none', 600), 0.4);
+});
+
+test('two replace animations: the topmost that contributes wins, the one below shows where it does not', () => {
+  const low = anim({ target: g, kf: fade2, fill: 'both' });
+  const top = anim({ target: g, kf: fade, delay: 200, fill: 'none' });
+  const m = trackOf([low, top], g, () => false, 0, 0.4);
+  assert.ok(Math.abs(trackAt(m, 100).op - 0.2 - 0.4 * (100 / 300)) < 1e-9);   // top waiting: the lower one
+  assert.ok(Math.abs(trackAt(m, 350).op - 0.5) < 1e-9);   // top running: it wins
+  assert.equal(trackAt(m, 600).op, 0.6);   // top over (fill none), lower held forwards
 });
