@@ -1254,6 +1254,8 @@ export function createSinusoidView({ host, before = null }) {
     el,
     /** What the GPU's names drew in the last frame that landed ({ seq, gen, w, h, items }, caption-gl.js snapshot: CSS px from the names' canvas corner), for the browser checks. */
     captions: () => cap.snapshot(),
+    /** The glasses over the names (stage.js, glass-gl.js tellHoles): the names under them are left out. */
+    setHoles: (list) => cap.holes(list),
     /** The canvas the cards' frosted glass is drawn into while the sinusoid is open and still (lobule-zoom.js glassHost), else null. */
     glassHost() {
       if (!gpu || gpu.lost || !open || shown < 1 || dive || !canvas.width || !canvas.height) return null;

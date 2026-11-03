@@ -4798,6 +4798,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       return { gl: g.top.gl, canvas: g.top.canvas, add: g.top.add, warmIn: g.top.warmIn, now: () => { if (!g.lost) g.present(); }, seq: () => g.drawSeq, onPicture: (f) => g.onPicture(f) };
     },
     sinusoidMoving: () => !!sv.labelsMoving?.(),
+    /** The glasses over the liver's names, leaders and the sinusoid's names (stage.js, glass-gl.js tellHoles): what lies under one is left out. */
+    setHoles(list) { cap.holes(list); leadGL.setHoles(list); sv.setHoles(list); },
     sinZoom: () => sinZ,
     /** What the GPU's names drew in the last frame that landed ({ seq, gen, w, h, items }, caption-gl.js snapshot: CSS px from the names' canvas corner), for the browser checks. */
     captions: () => cap.snapshot(),

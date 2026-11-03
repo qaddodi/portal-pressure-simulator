@@ -24,6 +24,8 @@ import { fontOf, measure } from './glyph-measure.js';
 import { fbComplete } from './gl-state.js';
 import { ucOf } from './uniform-cache.js';
 import { caught } from './caught.js';
+import { readBox } from './layout-snap.js';
+const WHITE_INK = 'rgb(255 255 255)';   // colour-exempt: an eraser's ink, only its coverage counts
 export { measure };
 const { GLYPHS, KERN, BASELINES, BASE, RADIUS, CUTOFF, ATLAS_W, ATLAS_H, ATLAS_PNG } = sdfAtlas;
 
@@ -1022,6 +1024,16 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
       if (typeof stroke === 'string' && sw > 0) premulInto(boxData, o + 10, stroke, alpha); else boxData.fill(0, o + 10, o + 14);
       boxN++;
     },
+    /** Takes a rounded box (CSS px, the canvas's own, no transform) out of what is drawn so far: each pixel kept by one less `alpha`
+     *  (a glass lying over this layer: the labels under it are left out, as the GPU's glass does for the figure's labels). */
+    erase(x, y, w, h, r, alpha = 1) {
+      if (!(alpha > 0)) return;
+      flush();
+      gl.blendFunc(gl.ZERO, gl.ONE_MINUS_SRC_ALPHA);
+      this.box(x, y, w, h, r, WHITE_INK, null, 0, Math.min(1, alpha));   // colour-exempt: an eraser's ink, only its coverage counts
+      flush();
+      gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    },
     /** Words at (x, y) (CSS px) in `font`, aligned as the 2D canvas aligns them. sw: the words' outline that wide instead of the words.
      *  turn: [ox, oy, angle] turns them about (ox, oy) (CSS px) by the angle (radians, clockwise on the page, as the 2D canvas's rotate). */
     text(str, x, y, font, color, align = 'left', base = 'alphabetic', alpha = 1, sw = 0, turn = null, ls = 0) {
@@ -1589,6 +1601,7 @@ export function createShim(G) {
       G.image(src, x + ox(), y + oy(), w, h, st.globalAlpha, src, src.glVer || 0);
     },
     /** A soft shadow under a rounded box (the GPU's own, in place of a blurred picture): its colour, blur and offset as the 2D canvas's. */
+    eraseBox(x, y, w, h, r, alpha) { G.erase(x, y, w, h, r, alpha); },
     shadowBox(x, y, w, h, r, colour, blur, dy = 0) { G.box(x, y + dy, w, h, r, colour, null, -blur / 2, 1); },
   };
   return c;
@@ -1607,6 +1620,25 @@ class Gradient {
 /** The pen a chart draws with: the GPU drawer's 2D context where it can draw now ({ ctx, w, h }, ctx.end() ends the frame), else the chart's
  *  canvas sized as fitCanvas sizes it and a pen that draws nothing (util.js), until the GPU can draw it. */
 const PENS = new WeakMap();
+/**
+ * The glasses lying over a pen's canvas, taken out of its picture last (the labels under a card are left out under it, as label-gl.js
+ * cutHoles does for the anatomy's): `holes` as glass-gl.js tellHoles gives them (client px: x, y, w, h, a, rad, d), `cv` the canvas, `w`, `h` its
+ * size in the pen's px. The canvas's place is read once a frame that has a glass over it; it may be scaled or moved (a dive), so its box is the map.
+ * A pen with no GPU under it (no `eraseBox`) draws no glass, so there is nothing to leave out.
+ */
+export function eraseHoles(ctx, cv, w, h, holes) {
+  if (!holes?.length || !ctx.eraseBox || !(w > 0) || !(h > 0)) return;
+  const r = readBox(cv);
+  if (!r || !(r.width > 0) || !(r.height > 0)) return;
+  const sx = r.width / w, sy = r.height / h;
+  for (const o of holes) {
+    if (!(o.a > 0.001) || !(o.w > 0) || !(o.h > 0)) continue;
+    const x = (o.x - r.left) / sx, y = (o.y - r.top) / sy, ww = o.w / sx, hh = o.h / sy;
+    if (x > w || y > h || x + ww < 0 || y + hh < 0) continue;
+    const q = o.rad ? Math.max(o.rad[0], o.rad[1], o.rad[2], o.rad[3]) / sx : o.d ? 12 : 0;
+    ctx.eraseBox(x, y, ww, hh, q, o.a);
+  }
+}
 export function fitPen(canvas, gpu) {
   if (gpu) {
     const z = canvasSize(canvas);

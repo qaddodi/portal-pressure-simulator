@@ -17,7 +17,7 @@
 //   cap.box(key) / cap.at(key)                  // its box (px) / where it is drawn now
 //   cap.paint()
 
-import { createTraceGL, fitPen } from './trace-gl.js';
+import { createTraceGL, fitPen, eraseHoles } from './trace-gl.js';
 import { finalFrameFor, easeNow, cancelFrame } from './frame.js';
 import { measure } from './glyph-measure.js';
 import { textPolys, textWidth, glyphsReady, textCovers, loadGlyphs } from './text-gl.js';
@@ -278,6 +278,7 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
   const items = new Map(), leads = new Map(), extras = new Map(), looks = new Map();
   // (The leaders' and dots' look, the Anatomy's: the owner reads it from the page's tokens between frames, leadLook(); these are its defaults.)
   const leadLook = { line: '', lw: 1, r: 2.4, fill: '', ring: '', rw: 1.3, halo: '', haloR: 5 };
+  let holes = NONE;   // (the glasses lying over this layer, as glass-gl.js tells them: the names under them are left out)
   let vk = 1, ve = 0, vf = 0, ask = 0, gpu = null, drewOnce = false, onDrawn = null, onRest = null, onFrame = null, wasMoving = false, lastT = 0, drawing = false;
   let presented = false, onPresented = null, onLost = null, gen = 0, retries = 0, dead = false;
   // The names the last frame drew, for the browser checks (R17, snapshot()): two record lists, the one being drawn and the one last handed over,
@@ -390,6 +391,7 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
       if (moved) { ctx.save(); ctx.translate(ve, vf); ctx.scale(vk, vk); }
       for (const f of extras.values()) if (f(ctx, now)) more = true;
       if (moved) ctx.restore();
+      if (holes.length) eraseHoles(ctx, cv, w, h, holes);   // (the glasses over the names: left out under them)
     } finally {
       drawing = false;
       const handed = ctx.end?.() !== false;   // (false: the picture could not be handed over, trace-gl.js end)
@@ -446,6 +448,8 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
       }
       return { seq, gen: shownGen, w: shownW, h: shownH, items };
     },
+    /** The glasses over this layer (glass-gl.js tellHoles: client px boxes, fades, shapes), [] for none: the names are left out under them, in the frame that draws them. */
+    holes(list) { if (dead || list === holes) return; holes = list || NONE; api.paint(); },
     /** The content generation: counts each change of words, looks or mirrors. */
     get gen() { return gen; },
     /** Called first in each frame the names are drawn (now): the owner sets their places there; true while one of them still moves. */

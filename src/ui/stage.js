@@ -2486,7 +2486,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function lobuleStep(now, end = false) {
     const on = lobOn, from = lobFrom, to = lobTo, turn = lobTurn, ms = lobMs, t0 = lobT0;
     const e0 = ms && !end ? clamp(((PACED ? easeNow() : now) - t0) / (ms * Math.abs(to - from) || 1), 0, 1) : 1, e = turn ? e0 * e0 * (3 - 2 * e0) : e0;
+    const wasDiving = diveT > 0;
     diveT = from + (to - from) * e;
+    if (wasDiving !== diveT > 0) for (const g of cardGLs) g.redraw();   // (the cards' glass: drawn in the figure's canvas, or only leaving its place out of the labels, the dive's turn)
     // A frame that throws must not leave the anatomy stuck mid-zoom: the glide always goes on to its end.
     try { diveFrame(diveT); } catch (err) { if (e < 1) console.error(err); }
     if (e < 1) lobAnim = nextFrame(lobuleStep);
@@ -7979,11 +7981,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let labelHoles = null;
   const holesAll = [];   // (every glass's list as one, written in place: the labels compare it number by number and keep nothing of it but its length)
   const sendHoles = () => {
-    if (!labelHoles) return;
     holesAll.length = 0;
     for (const l of holeSets.values()) for (let i = 0; i < l.length; i++) holesAll.push(l[i]);
-    labelHoles.setHoles(holesAll);
+    labelHoles?.setHoles(holesAll);
+    // (The liver's names and leaders, and the sinusoid's, are the lobule's own layers: a copy, as each keeps the list it is given.)
+    lz?.setHoles(holesAll.length ? holesAll.slice() : NO_HOLES);
   };
+  const NO_HOLES = [];
   const frostHoles = (key) => (list) => { if (list.length) holeSets.set(key, list); else holeSets.delete(key); sendHoles(); };
   // (The canvas the glasses are drawn into now: frostCtx, its context; frostLiver, the liver's canvas (lobule-zoom.js glassHost) while the
   // frost is taken from it, else null and the figure's. What the glass keys its blur on follows it: a new picture there, not the figure's.)
@@ -8007,6 +8011,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const NO_OVER = [], noOver = () => NO_OVER;   // (no box lies over a card's glass: a list read by the glass, never written)
   const cardGlass = (cards) => {
     if (!veins?.top) return null;
+    cards.holesWhile = () => diveT > 0;   // (glass-gl.js: while the dive has the glass off the figure's canvas, the labels still leave the cards' places out)
     const shade = cards.low;
     const key = {};
     const g = createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, cards, live: () => !!frostLiver || (wrap.classList.contains('gl-on') && !anatCovered() && !(diveT > 0)), version: frostSeq, fresh: frostFresh, onFigure: (f) => veins.onPicture(f), copy: false, onHoles: frostHoles(key) });

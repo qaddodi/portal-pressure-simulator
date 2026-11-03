@@ -13,7 +13,7 @@
 // round or butt ends, fill and stroke opacity, visibility, display none, vector-effect non-scaling-stroke. A drawing's viewBox is mapped to
 // the box as SVG maps it (preserveAspectRatio none, or meet in the middle). The picture covers the box exactly.
 
-import { createTraceGL, fitPen } from './trace-gl.js';
+import { createTraceGL, fitPen, eraseHoles } from './trace-gl.js';
 import { flattenPath, flattenCmdsInto, newFlat, elBox4 } from './shape-gl.js';
 import { finalFrameFor, easeNow, cancelFrame, framePart } from './frame.js';
 import { restPass, cancelRest } from './rest-pass.js';
@@ -904,6 +904,7 @@ export function createSvgGL(box) {
       if (moved) { ctx.save(); ctx.translate(g.ve + BLEED * (1 - g.vk), g.vf + BLEED * (1 - g.vk)); ctx.scale(g.vk, g.vk); }
       const last = drawModels(ctx, now, bw, bh);
       if (moved) ctx.restore();
+      if (g.holes?.length) eraseHoles(ctx, cv, w, h, g.holes);   // (the glasses over the picture: left out under them)
       g.blank = !hasInk();
       const label = last?.getAttribute('aria-label');
       if (label) attrSoon(cv, 'aria-label', label);
@@ -920,6 +921,7 @@ export function createSvgGL(box) {
   // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)
   g.paint = () => { if (!g.ask) g.ask = finalFrame(draw); };
   /** The picture moved as one: a point p is drawn at k p + (e, f) (box px). A pan is k 1; the lobule's dive is a scale about a point. */
+  g.setHoles = (list) => { if (g.holes === list) return; g.holes = list; g.paint(); };
   g.view = (k, e, f) => { if (g.vk === k && g.ve === e && g.vf === f) return; g.vk = k; g.ve = e; g.vf = f; g.paint(); };
   // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)
   g.wake = (ms) => { g.until = Math.max(g.until, easeNow() + ms); g.paint(); };

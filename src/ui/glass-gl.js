@@ -802,7 +802,15 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     if (lost || dead || gl?.isContextLost()) return false;
     const list = glassesNow();
     if (hostOn && (!list.length || !wanted() || !live())) dropHost(true);
-    if (!list.length || !wanted() || !live()) { unmark(); clear(); return false; }
+    if (!list.length || !wanted() || !live()) {
+      unmark(); clear();
+      // (holesWhile: while the figure is not on this canvas (the dive), the browser's own glass is still laid over the labels: the labels
+      // leave its place out, as they do under a glass drawn here, so a label is never seen through a card. Not drawn, only told.)
+      if (cards?.holesWhile && list.length && wanted() && cards.holesWhile()) { try { const R = nowGeo(list); if (R) { tellHoles(R.panes); holeOnly = true; } } catch (e) { caught('glass-gl:holes', e); } }
+      else if (holeOnly) { holeOnly = false; tellHoles(NONE); }
+      return false;
+    }
+    if (holeOnly) holeOnly = false;
     if (host) { const r = hostDraw(list); if (r !== undefined) return r; }
     // (No copy of its own: the browser's glass, until the figure's canvas can take it again.)
     if (!copy) { unmark(); return false; }
@@ -952,6 +960,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   // through it; the browser's blur makes such a label a faint smear, so here the labels are left out under it, as the glass's own copy
   // always left them. Told in the same task the glass is laid, so the two change in the same frame; [] when none is drawn there.)
   const holeList = [];
+  let holeOnly = false;
   let holesA = newKey(), holesB = newKey();
   function tellHoles(panes) {
     if (!onHoles) return;
