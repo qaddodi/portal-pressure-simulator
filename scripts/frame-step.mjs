@@ -39,12 +39,12 @@ const LANDED = () => {
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 /** Runs in the page, once: the stepper. */
-const STEPPER = () => {
+export const STEPPER = () => {
   const born = new WeakMap();   // animation -> { at (ms of step time it began), base (its currentTime then) }
   const S = { T: 0 };
   S.hold = () => {
     for (const a of document.getAnimations()) {
-      if (born.has(a)) { const b = born.get(a); const t = b.base + (S.T - b.at); try { a.currentTime = Math.max(0, t); } catch { /* finished or not seekable */ } continue; }
+      if (born.has(a)) { const b = born.get(a); const t = b.base + (S.T - b.at); try { a.currentTime = Math.max(0, t); const end = a.effect?.getComputedTiming().endTime; if (Number.isFinite(end) && t >= end && a.playState === 'running') { a.playbackRate = 1; a.finish(); } } catch { /* finished or not seekable */ } continue; }   // (held at rate 0 an animation never finishes by itself: one past its end is finished here, so its finish events and playState are as live)
       const ct = Number(a.currentTime) || 0;
       // first seen: a new animation starts now (its delay still counts), an older one carries on from where it is
       const fresh = S.T > 0 || ct < 1;
@@ -61,7 +61,7 @@ const STEPPER = () => {
 };
 
 /** Runs in the page: what every card and glass host looks like right now. */
-const RECORD = () => {
+export const RECORD = () => {
   const q = (s) => [...document.querySelectorAll(s)];
   const vis = (e) => { const c = getComputedStyle(e); return c.display !== 'none' && c.visibility !== 'hidden'; };
   const rec = (e, name) => {
