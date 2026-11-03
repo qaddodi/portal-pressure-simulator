@@ -33,6 +33,7 @@ project ledger are left out.
 ## 1. Doppler monitor (`src/ui/doppler.js`, `src/ui/doppler-gl.js`). Overlap: Doppler/FibroScan thread
 
 ### D1. The spectrum is synthesised on the CPU, pixel by pixel (P1, L, Confirmed)
+> **Status (second pass):** most of this moved to a GPU shader in `ee067d1`. The CPU path still runs until that shader is published and whenever it fails to build, so a first open on a phone still has the old cost. See section 11.
 - **Where:** `doppler.js:766-838` (`writeLine`), called from `doppler.js:1122-1124`. `doppler-gl.js:136-176` only uploads the result.
 - **What you see:** the trace stops for a moment (a dropped frame or several) whenever the whole ring is redrawn. That happens on a new
   scale (the signal grows or the baseline moves, `fitScale`), a new size (a card settling, a rotation, the top strip refitting), a new
@@ -335,3 +336,199 @@ the figure are in the same frame.
 `presenter.js` (6.3k lines) and `card-throw.js` are thread A's and B's (R01–R05, R14, R15). `veins-gl.js` (4.2k) and `lobule-zoom.js`
 (4.9k) I only skimmed: I found nothing beyond the items above, but a full read of their per-frame paths is still to do. All results come
 from reading the code. Every P1 here should be confirmed on Mohammad's Mac and iPhone after its fix.
+
+---
+
+# Second pass: areas Mohammad has not reported (3 Nov 2026, read at `a0dfb6d`)
+
+This pass covers theme switching, resize and rotation, fonts, screen density, reduced motion, first load, timers, z-order, menus,
+toasts and the inspector. It uses the same severity, effort and confidence scale as above, and all line numbers are at `a0dfb6d`.
+Nothing here repeats a first-pass item. A separate thread is fixing the first-pass list, so this pass stays read-only.
+
+**Status of first-pass items since the audit:** D1 is mostly done (`ee067d1`, the spectrum lines now come from a GPU shader). T1 is
+fixed (`a0dfb6d`, a chart keeps its last GPU picture). N3 is fixed (`a0dfb6d`, the text halo is cleared under a GPU number).
+
+## New findings: top 5
+
+| # | ID | What you see | Sev | Effort |
+|---|---|---|---|---|
+| 1 | RM1 | With Reduce Motion on (iPhone or Mac setting), labels vanish for a whole pinch and for every camera glide, then pop back | P2 | S |
+| 2 | TH1 | A theme change lands in steps: figure, words, sliders, labels and glass switch colour in different frames | P2 | M |
+| 3 | RS1 | After a rotation or window resize the figure reframes up to three times (at 0.2 s, 0.7 s and 1.5 s) | P2 | S |
+| 4 | RS2 | Dragging a Mac window's edge stutters: the Tests card measures and rewrites its layout on every resize event | P2 | S |
+| 5 | IN1 | The open inspector rewrites its readings as page text every model frame (layout and paint per frame, not on the GPU) | P2 | M |
+
+## 11. Reduced motion
+
+### RM1. Labels are hidden instead of riding the figure when Reduce Motion is on (P2, S, Confirmed)
+- **Where:** `stage.js:2615`: `rideStart` refuses with `reduceMotion.matches`. The pinch path relies on it (`stage.js:11581`), and so does the
+  presenter glide (`stage.js:2800`, which adds `cam-move` when the ride is refused). `app.css:176` hides `#labels`, `#labelGl` and the label
+  glass under `.cam-move`.
+- **What you see:** on a device with Reduce Motion on, every pinch zoom hides all labels until the hand lets go, then they come back. Every
+  slide glide (shortened to 300 ms, `stage.js:2762`) blinks the labels off and on. That is more flashing, not less, and it breaks "labels
+  move 100% with the figure" for anyone with that setting.
+- **Why:** riding is tracking the figure. It is not decorative motion, but it is gated as if it were.
+- **Fix:** drop `reduceMotion.matches` from `rideStart`'s refusals. Keep reduced motion for the landing glide only (`label-gl.js`
+  `RIDE_MS` → 0 under reduced motion, so labels land in one step after the ride).
+
+### RM2. The landing glide still runs under reduced motion (P3, S, Plausible)
+- **Where:** `label-gl.js:1294-1300` (the glide after `rideEnd`). I found no reduced-motion check on that path in label-gl, while the CSS
+  rule `app.css:260` only covers DOM labels.
+- **Fix:** with RM1, make the GPU label glide instant when `prefers-reduced-motion: reduce` matches.
+
+## 12. Theme and look changes
+
+### TH1. A theme change lands in steps across surfaces (P2, M, Confirmed)
+- **Where:** each GPU surface watches `data-theme` and `data-palette` on its own and redraws on its own schedule:
+  - `gl-words.js:58` (at once, in the observer);
+  - `plate-gl.js:142` (at once);
+  - `widget-gl.js:29` (a rest pass, between frames);
+  - `label-gl.js:867-868` (its own observer plus `pReadSoon`);
+  - `glass-gl.js:1739`;
+  - `svg-gl.js:827`;
+  - `util.js:1240` (the colour-token cache, `readFrame`);
+  - `stage.js:6301` (organ tones then `nextFrame(resTheme)`), and `fibroscan.js:36`, `col-wave.js:109` and `lobule-zoom.js:1876`.
+
+  Rest passes are sliced to about 4–6 ms each (`rest-pass.js:30-60`), so those redraws can spread over several frames.
+- **What you see:** an in-app theme change runs as a View Transition crossfade (`main.js:1319-1322`). The "new" side of that crossfade is
+  live, so surfaces that redraw late pop under the fade. A change of the device's own light or dark setting has no crossfade
+  (`main.js:1364-1367`), and the steps show plainly: the figure turns dark, the numbers follow a frame later, then the sliders, then the
+  labels and glass.
+- **Fix:** one theme epoch. A single observer in `looks.js` bumps an epoch and runs every surface's refresh in the same frame's early
+  phase (`frameFor('theme')` with all subscribers). The surfaces read colours from the token cache only after it has been refreshed for
+  that epoch. In-app switches start the View Transition only after that frame has drawn (`await` one `frameFor` frame inside the update
+  callback), so the captured "new" state is whole.
+
+### TH2. The status bar colour reads the page's style after every app class change (P3, S, Confirmed)
+- **Where:** `main.js:1375` (a MutationObserver on `#app`'s class → `restPass(syncStatusBar)` → `readStyle(...).backgroundColor`, plus
+  `setTimeout(statusLater, 600)`).
+- **What you see:** this is not a visible glitch by itself, but every non-gesture class change on the app (cards, sheets, presenting) costs a
+  style pass between frames, and a second one 600 ms later.
+- **Fix:** the stage's background colour depends on the look alone, so take it from the stop-token table or the token cache keyed by look,
+  and update the meta only on the theme epoch (TH1).
+
+## 13. Resize, rotation and screen density
+
+### RS1. The figure reframes up to three times after a rotation or resize (P2, S, Confirmed)
+- **Where:** `stage.js:3496-3500`: `homeResizeGo` runs `lookHome` at 200 ms, then again at 500 ms and 1300 ms later.
+- **What you see:** turning an iPhone or iPad, or resizing the Mac window, can move the figure at about 0.2 s, 0.7 s and 1.5 s. Each one is a
+  refit that may glide, and labels re-solve each time. It reads as the figure "settling" in jumps.
+- **Fix:** refit once when the layout snapshot reports the stage box stable (two equal reads from `layout-snap.js` a frame apart), and
+  run the late refits only if the box changed since the last one (compare `stageBox()` with the box the last refit used).
+
+### RS2. The Tests card lays itself out synchronously on every resize event (P2, S, Confirmed)
+- **Where:** `dock.js:1040` (`addEventListener('resize', () => { updateSize(); layout(); })`). `updateSize` toggles classes and then reads
+  `clientWidth` or `clientHeight` (`dock.js:688-696`). `layout` toggles more classes and reads `offsetLeft` of each tab (`dock.js:814-826`).
+- **What you see:** dragging a Mac window's edge (dozens of resize events a second) or an iPad Split View drag makes the figure stutter
+  while the edge moves: each event is a forced style and layout pass of the whole page, and some are write-then-read.
+- **Fix:** coalesce into one rest pass per frame (`restPass` with a pending flag), as `glass-gl.js:1772` and `label-gl` already do.
+
+### RS3. A narrow moment while resizing closes the second instrument for good (P3, S, Confirmed)
+- **Where:** `dock.js:816-818`. With two instruments open and `!canSplit()`, `open` is cut to one. Only the profile pair is restored when
+  there is room again (`dock.js:817`).
+- **What you see:** on a Mac, dragging the window narrower and back, or on an iPad entering and leaving Split View, the Doppler and Over
+  time pair (or any pair) comes back as one instrument.
+- **Fix:** keep the chosen pair (`wanted`) apart from what is shown (`open`), and show the pair again when `canSplit()` is true.
+
+### RS4. Every resize event drops the charts' shared looks (P3, S, Confirmed)
+- **Where:** `svg-gl.js:185` (`addEventListener('resize', () => clearShared())`).
+- **What you see:** during a window drag every chart that redraws after a resize asks the page for its looks again (the comment above it
+  counts about 230 asks in a slide change). That adds to RS2's stutter.
+- **Fix:** clear once the resize has settled (one rest pass after the last event), or only when a media query the stylesheet uses has
+  changed its `matches`.
+
+### RS5. Labels stop following a density change after the first one (P3, S, Confirmed)
+- **Where:** `label-gl.js:932`. The `(resolution: Ndppx)` query is built once, from the density at start, and never re-armed. `stage.js:3191`
+  does re-arm its own (`watchDensity`, `{ once: true }`).
+- **What you see:** on a Mac with a Retina screen and an external 1× monitor, moving the window across and back works (the one query
+  flips both ways). Moving across a third density (a scaled monitor, or a browser zoom that leaves the window's CSS size equal) leaves the
+  label canvas at the wrong density: soft or over-sharp labels next to a sharp figure, until the next resize.
+- **Fix:** re-arm the query on each change with the new `devicePixelRatio`, as stage.js does.
+
+## 14. Fonts
+
+### FN1. Label widths are dropped only on the first `fonts.ready` (P3, S, Plausible)
+- **Where:** `stage.js:10563` (`document.fonts.ready.then(...)` clears `widths` once). Inter's Greek and Latin-extended subsets load only
+  when a character in them first appears (`fonts/fonts.css`, `unicode-range`), which can be long after `ready` has resolved.
+- **What you see:** the first label with a Greek letter (α, β, Δ, μ) or a Latin-extended character that shows up later is measured in the
+  fallback font, and its box stays a little too wide or narrow: a slightly off-centre name or a leader that ends short, until the cache
+  reaches 1500 entries.
+- **Fix:** listen to `loadingdone`, as `charts.js:64` and `glass-gl.js:1755` do, and clear only the entries that hold those characters.
+  The best fix is to measure label words with the GPU type metrics (`text-gl.js`), which need no web font at all.
+
+### FN2. The loading cover waits at most 1.5 s for fonts (P3, S, Confirmed by design)
+- **Where:** `index.html:25` (`Promise.race([load, 1500 ms])`); `fonts.css` uses `font-display: swap`.
+- **What you see:** on a slow network the cover lifts with fallback fonts, then every page text (top bar, cards, menus) swaps typeface and
+  width once. GPU words and labels are not affected (their outlines are built in).
+- **Fix:** keep the cap, but show the fallback with matched metrics: an `@font-face` fallback using `size-adjust`, `ascent-override` and
+  `descent-override` for Arial or system-ui tuned to Inter, so the swap does not change widths.
+
+## 15. First load
+
+### FL1. Labels and glass are not held by the loading cover (P3, S, Plausible)
+- **Where:** the cover waits for `ppsFigureReady` (`stage.js:3358`) and the `ppsHold` promises. Only `veins-gl`, `sinusoid-gl`, `gl-compile`
+  (through its callers), the lobule loader (`stage.js:3406`) and `main.js:452` add holds. `label-gl.js` and `glass-gl.js` do not.
+- **What you see:** on a cold start on a phone, the cover lifts on a figure with no labels, and the labels (and their glass) fade in a beat
+  later. The first view is not whole.
+- **Fix:** `holdCover(labelsPresented)` from label-gl's first presented frame, and the same for the glass's first draw, inside the cover's
+  existing 2.5 s cap.
+
+## 16. Inspector, menus and toasts
+
+### IN1. The inspector's live readings are page text rewritten every model frame (P2, M, Confirmed)
+- **Where:** `inspector.js:344-345` (`update`: `el.textContent = v` for each live reading whose words changed), with `.num` spans built
+  at `inspector.js:156`. `main.js` runs it on model frames.
+- **What you see:** with the patient chart or a vessel's panel open while the model plays, each changed number causes a style, layout and
+  paint of the panel's text on the main thread. The figure's frame time rises with the panel open, and a number that gains a digit
+  (9.9 → 10.0) shifts its right-aligned row by one digit. It is also off the GPU, against the owner's rule.
+- **Fix:** host live readings in `glWords` (the same as the dock tiles), keeping the page text under it for screen readers. Update the page
+  text only at rest (the `QUIET` hand-over already does this).
+
+### MN1. The menu is built from scratch on every open (P3, M, Confirmed)
+- **Where:** `menu.js:576` (`el = build(lib)`) builds the whole menu, appends it, then `place()`, `filter()` and `groupsIn(el)` measure and
+  animate it in the same task.
+- **What you see:** the first frame of the menu (and its plate, `plateFor`) can come late on a phone, so the open feels sticky. CI already
+  measured a cold open at 1.9 s on the phone profile (comment at `menu.js:592-594`).
+- **Fix:** keep the built menu between opens (hidden, `inert`) and only re-filter. Build it once during idle after the first paint.
+
+### MN2. The menu's sideways swipe reads a computed transform at the touch (P3, S, Confirmed)
+- **Where:** `menu.js:629` (`shiftX`: `getComputedStyle(el).transform` parsed with `DOMMatrixReadOnly`), called from `touchstart`
+  (`menu.js:637`).
+- **What you see:** a short hitch at the start of a swipe that catches a list still easing. This is a forced style pass in the touch
+  handler.
+- **Fix:** the list moves by a number (`moverOf`, num-move.js), so read the mover's current value instead of the page's computed style.
+
+### TO1. A toast leaving makes the others jump twice (P3, S, Plausible)
+- **Where:** `util.js:241` (close: class `leaving`, then `setTimeout(340)` → `restPass(away)`), `util.js:157-168` (`dropToast`: reads each
+  other toast's top, removes, reads again, then animates `translate`).
+- **What you see:** the leaving toast's slide ends (`--d-small`), but its box stays until the timer and the rest pass run. Rest passes can
+  wait while the shared budget is spent (`rest-pass.js:37-41`, up to `STARVE_MS` 250 ms). The toast below holds its place, then glides up
+  late.
+- **Fix:** remove on the leaving animation's `animationend` (with the timer as a fallback), and compute the others' shift from
+  `toast-gl.js`'s layout heights (`t._L.h`) instead of two layout reads.
+
+## 17. Z-order and clipping
+
+### ZO1. Toasts sit under any open menu or sheet scrim (P3, S, Confirmed by design)
+- **Where:** `app.css:4708` (`.toast-wrap.docked { z-index: calc(var(--z-popover) - 1) }`), with the comment "It stays below menus".
+  `.um-scrim` and `.um-pv` are at `--z-popover` (`app.css:4024`, `3970`).
+- **What you see:** a message raised while the menu is open (a link copied, an error loading a talk) is hidden under the menu, and has often
+  timed out by the time the menu closes. An error (`kind 'bad'`) is lost the same way.
+- **Fix:** keep normal toasts below menus, but lift `.toast.bad` and toasts with actions above them (`--z-toast`), or hold a toast's timer
+  while a popover is open.
+
+## 18. Timers and work while hidden
+
+### TM1. Doppler's 500 ms style read keeps running while the trace is hidden or the tab is in the background (P3, S, Plausible)
+- **Where:** `doppler.js` `stripLayout` (`doppler.js:982`, armed by `setTimeout(stripLayout, 0)` at `doppler.js:1060`; it re-arms every 500 ms while the trace runs, as
+  noted in D6). I found no `document.hidden` check on that path.
+- **What you see:** nothing on screen, but battery use and a style pass every half second for an iPad left open on a Doppler slide, and a
+  burst of catch-up work on return.
+- **Fix:** stop the re-arm when the trace is not shown or `document.hidden`, and start it again on `visibilitychange`.
+
+## Count
+Second pass: **18 new findings** (RM1, RM2, TH1, TH2, RS1–RS5, FN1, FN2, FL1, IN1, MN1, MN2, TO1, ZO1, TM1). None is P1. The P2s (RM1, TH1, RS1, RS2, IN1) are the ones worth a fix thread.
+
+Still not covered: high-DPI and safe-area handling beyond RS5 (the safe-area read at `stage.js:1700-1711` looked right), memory growth
+over long sessions (the GPU budget and context cap in `gpu-budget.js` already cover context loss and leaks well), and `presenter.js`
+(thread A).
