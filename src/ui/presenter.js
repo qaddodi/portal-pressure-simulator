@@ -43,7 +43,7 @@ import { frameFor, cancelFrame, holdMotion, easeNow, PACED } from './frame.js';
 import { loadGlyphs, glyphsReady, textWidth } from './text-gl.js';
 import { restPass, cancelRest } from './rest-pass.js';
 import { createSlidePrep } from './slide-prep.js';
-import { createTxns, createLease } from './slide-txn.js';
+import { createTxns, createLease, createScope } from './slide-txn.js';
 import { glEpoch, onGLRestored } from './gl-state.js';
 import { prepareShaders, shaderFailures } from './gl-compile.js';
 import { createFigureKey } from './figure-key.js';
@@ -2094,6 +2094,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // way out are disowned (inert) from the press until this change's cards come in, so a card leaving or held out of sight takes no tap.)
   const txns = createTxns();
   let txn = null;
+  // (R03: the timers one talk starts belong to its scope, which stopNow disposes; a timer also acts only on the cards it was set for.)
+  let sess = null;
+  const stimer = (fn, ms) => { const u = ui; return sess ? sess.timer(() => { if (ui === u) fn(); }, ms) : 0; };
   const txnLive = (t) => !t || t.live();
   function go(i) {
     if (!deck || leaving) return;
@@ -2334,11 +2337,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (cath.on && (!ct || si !== shownState)) { await cathOut(si !== shownState && shownState >= 0 && (booting || reduce.matches)); if (cut()) return; }
     if (outNow) { await toAnatomy(inAnatomy ? riseFor(cam, fv) : null, cut); if (cut()) return; slideLayers(s); if (cut()) return; }
     // (A patient still being computed off screen: after a short wait the arc shows.)
-    const lateT = states[si] && (!lap || states[stateOf[to]]) ? 0 : setTimeout(() => loading(true), 260);
+    const lateT = states[si] && (!lap || states[stateOf[to]]) ? 0 : stimer(() => { if (!cut()) loading(true); }, 260);
     // (A time-lapse with its own params plays from them set and settled: the chain's start state, not the slide before's.)
-    const own = lap ? (await stateReady(stateOf[to]))?.start || null : pre ? (await stateReady(to))?.before || null : null;
-    const st = own || await stateReady(si);
-    clearTimeout(lateT);
+    let own, st;
+    try {
+      own = lap ? (await stateReady(stateOf[to]))?.start || null : pre ? (await stateReady(to))?.before || null : null;
+      st = own || await stateReady(si);
+    } finally { clearTimeout(lateT); }   // (R03: also when a wait throws or the move is cut; the cover is not raised late for a move that has gone)
     if (!st || cut()) return;
     // A visual waits for every patient it compares (some are computed after the slides).
     // (A table waits too, but only so long: a patient still being computed after TABLE_WAIT_MS leaves its row's cells blank, and the
@@ -2612,7 +2617,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   }
   // (Once a move has landed, the glass's eases are let finish (its size: the camera's step at most) before they are switched off again,
   // so a resize or a turn of the device later moves it at once, as before; switched off mid-ease, a transition would jump to its end.)
-  const turnDone = () => { clearTimeout(glassT); turnNow = ''; glassT = setTimeout(() => { if (ui && !busy) setTurn(false); }, D_SURFACE + 520); };
+  const turnDone = () => { clearTimeout(glassT); turnNow = ''; glassT = stimer(() => { if (ui && !busy) setTurn(false); }, D_SURFACE + 520); };
   // (Starts the cards' fade out and returns how long it runs, ms: 0 when nothing is showing.)
   function wordsOut(next) {
     if (!ui) return 0;
@@ -4361,7 +4366,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         if (!dd.classList.contains('pz-hide')) {
           dd.classList.add('pz-hide'); dd.dataset.colswap = '';
           // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
-          colT = setTimeout(() => { colT = 0; if (!ui) return; const mine = 'colswap' in ui.data.dataset; delete ui.data.dataset.colswap; swapNow = true; try { layout(); } finally { swapNow = false; } if (mine) ui.data.classList.remove('pz-hide'); }, 340);
+          colT = stimer(() => { colT = 0; if (!ui) return; const mine = 'colswap' in ui.data.dataset; delete ui.data.dataset.colswap; swapNow = true; try { layout(); } finally { swapNow = false; } if (mine) ui.data.classList.remove('pz-hide'); }, 340);
         }
       }
     }
@@ -4874,12 +4879,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (Turned between upright (a phone's or tablet's stacked cards) and a wider layout: a data card closed in the one comes in open in
     // the other, at once with everything else. Kept closed, an iPad's card turned on its side stood off the screen's left edge.)
     if (e?.type === 'resize' && phone() !== ui.root.classList.contains('stack') && dock.to === 1 && !dock.auto) { dockHalt(); dock.to = 0; dock.lvl = 0; dock.down = -1; dockRest(); dockPaint(); placeLip(); }
-    clearTimeout(refitT); refitT = setTimeout(reFit, 250);
+    clearTimeout(refitT); refitT = stimer(reFit, 250);
     if (ui.data.hasAttribute('data-sin-tiles')) ui.data.classList.toggle('under', !shortSide.matches && phone());   // (turned on or off its side)
     // (For 0.8 s after a resize or a turn the data card takes each new place at once, with no fade or glide: the words' card
     // re-fits in steps as the size settles, and a data card easing after it passed over the words.)
     const turn = e?.type === 'resize';
-    if (turn) { ui.root.classList.add('pz-turning'); clearTimeout(turnT); turnT = setTimeout(() => ui?.root.classList.remove('pz-turning'), 800); }
+    if (turn) { ui.root.classList.add('pz-turning'); clearTimeout(turnT); turnT = stimer(() => ui?.root.classList.remove('pz-turning'), 800); }
     if (ui.bar.dataset.kind !== pillKind()) paintChrome();   // (turned between a phone's, a tablet's and a wide screen's pill: its buttons change before the words are fitted around it)
     layout();
     // (Judged once the cards have their new layout's classes, then laid out again if that changed the title.)
@@ -4891,7 +4896,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (Another caller (a card's dock moving, its fit done) frames at once, unless a resize is still settling: then that one look covers both.)
     if (!turn && !reframeT) { reframe(400); return; }
     clearTimeout(reframeT);
-    reframeT = setTimeout(() => { reframeT = 0; if (ui && shown) reframe(400); }, 250);
+    reframeT = stimer(() => { reframeT = 0; if (ui && shown) reframe(400); }, 250);
   };
   // Projector-size labels on the figure, for the screen it is on (2 at 1080 lines).
   // (unchanged: left out when the projector size and the text size are the ones it set last. A card that only folded, docked or settled
@@ -6083,6 +6088,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     getSelection()?.removeAllRanges?.();
     app.classList.toggle('pz-hi', hiCon);
     app.style.setProperty('--pz-wk', String(PW_K[pzWidth]));
+    sess?.dispose(); sess = createScope();
     ui = build();
     dataOn = textOn = null; keepNow = NO_KEEP; keepSnap = null; keepBad = []; keepArgs = null;   // (no card on screen yet)
     setLabels();
@@ -6114,6 +6120,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   function stopNow(restore = true) {
     leaving = null;
     if (!deck) return;
+    sess?.dispose(); sess = null; colT = refitT = reframeT = turnT = glassT = 0; swapNow = false;   // (R03: this talk's timers stop with it, none left to act on the next)
     if (cover) coverDown(true);
     stopLapse(); procStop(); cathStop(); abSlow(); liveOff = false; handOn = false;   // (before deck is cleared: stopping a time-lapse repaints the bar)
     txn?.end(); txn = null;
