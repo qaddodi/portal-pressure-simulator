@@ -58,7 +58,8 @@ export function createColourFollow({ tau, eps = 0.002, small = 3 / 255, n = 6 } 
       return s.out;
     },
     /** Forget keys not stepped in `keep` (a Set): drawn again later, they start where they are told. */
-    prune(keep) { for (const [k, s] of S) if (!keep.has(k)) { spare.push(s); S.delete(k); } },
+    // (Keys alone, not each [key, state] pair: no pair is made for every key at every sync.)
+    prune(keep) { for (const k of S.keys()) if (!keep.has(k)) { spare.push(S.get(k)); S.delete(k); } },
   };
   return api;
 }

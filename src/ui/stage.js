@@ -4598,7 +4598,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The lumens' colours follow the model's through the widths' filter (display-state.js; combined plan M1), so a slider's step or
   // a model frame's is an ease, not a step. A crossfade (a lens change, a jump) carries its own change: the filter then shows the
   // target at once, as does Reduce Motion.
-  const colFollow = createColourFollow({ tau: W_TAU }), colT = new Array(6), colRows = new Set();
+  const colFollow = createColourFollow({ tau: W_TAU }), colT = new Array(6);
+  // (The rows the colour pass stepped this sync, for colFollow.prune: a row's number against this sync's, so none is cleared or made. Rows are small whole numbers.)
+  const colRows = {
+    gen: 1, a: new Uint32Array(1024),   // alloc-rare: kept, made once for the stage (doubled below if a row is beyond it)
+    begin() { this.gen++; },
+    add(r) { if (r >= this.a.length) { const b = new Uint32Array(Math.max(r + 1, this.a.length * 2)); b.set(this.a); this.a = b; } this.a[r] = this.gen; },   // alloc-rare: doubled only when a row beyond any before appears
+    has(r) { return r < this.a.length && this.a[r] === this.gen; },
+  };
   let colAt = 0, colEasing = false;
   let sinceP = null;   // (a "change since" slide's reference: see changeRef)
   const JUMP_MMHG = 2;
@@ -5241,7 +5248,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (The colours' filter steps by the time since the last sync: every display frame while it moves, colEasing. From rest the
     // first step is at most one 60 Hz frame, whatever time has passed since the figure last synced, so an ease starts gently.)
     cpDt = Math.min(colEasing ? 0.1 : 1 / 60, (cpNow - (colAt || cpNow)) / 1000);
-    colAt = cpNow; colFollow.begin(); colRows.clear();
+    colAt = cpNow; colFollow.begin(); colRows.begin();
     cpItems = items;
     gpuProbe.time(null, 'vessel sync: colours', colPass);
     cpItems = null; cpCs = null;
