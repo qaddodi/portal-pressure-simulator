@@ -4701,6 +4701,17 @@ body.sim-paused .mon.bad .mv { animation-play-state: paused; }
 .toast-acts { display: inline-flex; flex: none; gap: 8px; }
 .toast-wrap.docked .toast.has-acts { align-content: center; row-gap: 6px; }
 .toast-wrap.docked .toast.has-acts .toast-msg { flex-basis: 100%; }
+/* A toast the GPU draws (widget-gl.js, toast-gl.js): its box, hit area, focus and words stay for the page; its card, shadow, words, mark and
+   buttons are the GPU's picture over it, so the page's own paint steps aside the moment that picture is up (.wgl-on), never before. */
+.toast { position: relative; }
+.wgl, .wgl + .trace-gl { position: absolute; left: calc(-1 * var(--wgl-pad, 0px)); top: calc(-1 * var(--wgl-pad, 0px)); width: calc(100% + 2 * var(--wgl-pad, 0px)); height: calc(100% + 2 * var(--wgl-pad, 0px)); display: block; pointer-events: none; }
+.toast-wrap .toast.wgl-on { background: none !important; box-shadow: none !important; color: transparent; }
+.toast.wgl-on :is(.toast-msg, .toast-acts) { color: transparent; }
+.toast.wgl-on .toast-ic, .toast.wgl-on .toast-x .ic { visibility: hidden; }
+.toast.wgl-on .toast-acts .btn { position: relative; z-index: 1; background: none; border-color: transparent; color: transparent; box-shadow: none; }
+.toast.wgl-on .toast-acts .btn::before { content: none; }
+.toast.wgl-on .toast-x { position: relative; z-index: 1; background: none !important; }
+.toast-wrap.docked .toast.wgl-on .toast-x { position: absolute; }
 @media (prefers-reduced-motion: reduce) {
   .toast-wrap.docked .toast { animation: crossfade var(--d-small) var(--ease) both; }
   .toast-wrap.docked .toast.leaving { animation: crossfade-out var(--d-flip) var(--ease-in) forwards; }

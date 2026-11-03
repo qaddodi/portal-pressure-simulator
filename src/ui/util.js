@@ -8,6 +8,8 @@ import { leaveFromHere } from './menu-leave.js';
 import { follow2, jumpCount, SHOWN_TAU } from './display-state.js';
 import { measure as measureWords } from './glyph-measure.js';
 import { caught } from './caught.js';
+import { widgetGL } from './widget-gl.js';
+import { layoutToast, paintToast, inkOf } from './toast-gl.js';
 
 // replaceChildren/append stringify null and arrays: flatten and drop empties instead.
 // (Nodes and strings alone, the usual call, go straight through: the flattened copy is made only for a list that holds an array, null or false.)
@@ -146,6 +148,7 @@ function dropToast(t) {
   const wrap = t.parentElement;
   if (!wrap) return;
   const others = [...wrap.children].filter((c) => c !== t), tops = others.map((c) => c.getBoundingClientRect().top);
+  t._wgl?.dispose(); t._wgl = null;
   t.remove();
   if (wrap.classList.contains('docked') || reduceMotionMQ.matches) return;
   others.forEach((c, i) => {
@@ -166,25 +169,25 @@ function placeToasts(wrap) {
     Object.assign(wrap.style, { left: `${(W - w) / 2 - 20}px`, width: `${w + 40}px`, top: `${r.bottom}px`, bottom: 'auto', height: '', maxWidth: 'none' });
   } else if (wrap.getAttribute('style')) wrap.removeAttribute('style');
 }
-addEventListener('resize', () => { const wrap = document.getElementById('toasts'); if (wrap?.children.length) placeToasts(wrap); });
+addEventListener('resize', () => { const wrap = document.getElementById('toasts'); if (wrap?.children.length) { placeToasts(wrap); for (const c of wrap.children) c._refit?.(); } });
 // A card slides down from behind the top bars and settles just below them (below every row on a phone); docked, it is filled: the
 // largest size that fits, stepping down for longer text, never clipped.
+// (3 Nov 2026: laid out in script from Inter's own advances (toast-gl.js layoutToast), no page measure, and drawn on the GPU (widget-gl.js);
+// the page's own words, set at the size found, stay under it for the screen reader and until the GPU has drawn the card.)
 function toastFit(wrap, t, msg, actions) {
   if (!t.isConnected) return;
   placeToasts(wrap);
-  if (wrap.classList.contains('docked')) {
-    const m = t.querySelector('.toast-msg');
-    if (msg.length > 60 || actions?.length) t.classList.add('toast-tall');   // (84 px: app.css, a class, so no height is written)
-    let px = msg.length <= 28 ? 20 : msg.length <= 60 ? 17 : 15;
-    const room = t.clientHeight - 8 - (actions?.length ? t.querySelector('.toast-acts').offsetHeight + 6 : 0);
-    // (The largest size from 13 px up to the first guess that fits, found by halving: each try lays the toast out, and the steps were tried one by one, up to eight.)
-    const fitsAt = (v) => { m.style.fontSize = `${v}px`; return m.scrollHeight <= room && m.scrollWidth <= m.clientWidth; };
-    if (!fitsAt(px)) {
-      let lo = 13, hi = px - 1, best = 13;
-      while (lo <= hi) { const mid = (lo + hi) >> 1; if (fitsAt(mid)) { best = mid; lo = mid + 1; } else hi = mid - 1; }
-      m.style.fontSize = `${best}px`;
-    }
-  }
+  const docked = wrap.classList.contains('docked'), bad = t.classList.contains('bad');
+  const L = layoutToast({ msg, bad, acts: actions?.map((a) => a[0]), docked, W: innerWidth });
+  t._L = L;
+  t.classList.toggle('toast-tall', docked && L.h > 52);   // (84 px: app.css, a class, so no height is written)
+  t.querySelector('.toast-msg').style.fontSize = `${L.px}px`;
+  if (docked) { t.style.width = ''; t.style.height = ''; } else { t.style.width = `${L.w}px`; t.style.height = `${L.h}px`; }
+  if (L.btns.length) { const bs = t.querySelectorAll('.toast-acts .btn'); for (let i = 0; i < bs.length; i++) bs[i].style.width = `${L.btns[i].w}px`; }
+  if (!t._wgl) t._wgl = widgetGL(t, (ctx, w, h, pad) => paintToast(ctx, t._L, { pad, docked: t._docked, bad, state: t._st, ink: inkOf(cssVar, t._docked) }), { pad: 18 });
+  t._docked = docked;
+  t._refit = () => restPass(() => toastFit(wrap, t, msg, actions));
+  t._wgl?.paint();
   t.style.visibility = '';
 }
 // (Since 2 Nov 2026 the card is built and put on the page as a task between frames (rest-pass.js), never inside the frame that asked
@@ -227,6 +230,16 @@ function toastBuild(msg, kind, { actions, sticky, onClose }) {
   const x = h('button', { class: 'toast-x', 'aria-label': 'Dismiss' }, icon('close'));
   x.addEventListener('click', (e) => { e.stopPropagation(); close(); });
   t.append(x);
+  // (What the pointer is on, for the GPU's picture: lit under it, pressed while down. An event, not a frame.)
+  const st = t._st = { hot: 0, down: 0 };
+  const lit = (el, id) => {
+    el.addEventListener('pointerenter', (e) => { if (e.pointerType !== 'touch') { st.hot = id; t._wgl?.paint(); } });
+    el.addEventListener('pointerleave', () => { st.hot = st.down = 0; t._wgl?.paint(); });
+    el.addEventListener('pointerdown', () => { st.down = id; t._wgl?.paint(); });
+    for (const ev of ['pointerup', 'pointercancel']) el.addEventListener(ev, () => { st.down = 0; t._wgl?.paint(); });
+  };
+  lit(x, 1);
+  t.querySelectorAll('.toast-acts .btn').forEach((b, i) => lit(b, 2 + i));
   t.addEventListener('click', () => close());
   // Swipe down (or sideways) to dismiss.
   let sx = 0, sy = 0;
