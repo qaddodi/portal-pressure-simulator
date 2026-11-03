@@ -23,7 +23,7 @@ import { createShapeGL, flattenPath, polyMeshInto, ellipsePoly } from './shape-g
 import { createOrganPaint, parseColor, mul } from './organ-paint.js';
 import { textPolys, textWidth, loadGlyphs, glyphsReady, textCovers } from './text-gl.js';
 import { watchSize, sizeOf, rectSoon } from './geom.js';
-import { trackOf, trackAt, mixColour, timingOf, progressAt, keysOf } from './label-track.js';
+import { trackOf, trackAt, mixColour, mixRgbaInto, timingOf, progressAt, keysOf } from './label-track.js';
 import { caught } from './caught.js';
 import { readStyle } from './layout-snap.js';
 const HOLE_MESH = { tri: null, seg: null, nTri: 0, nSeg: 0 };   // alloc-rare: made once (a hole's mask is meshed into it and released after its draw)
@@ -971,7 +971,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     let list;
     try { list = takeAnims(g, true); } catch { list = []; }
     if (!list) {   // (its animations taken just after this frame: followed from the next)
-      const prev = sprites.get(g), was = prev ? prev.held : svgLeft.has(g) ? null : undefined, old = prev?.trk;   // (no picture yet and the SVG drew it last frame: its opacity is not known here, as for a label the SVG drew)
+      const prev = sprites.get(g), was = prev?.held, old = prev?.trk;
       const st0 = refresh(g, rot);
       st0.trk = null;
       // (A hold never outlasts HOLD_MAX: whatever kept its animations from coming, the label is then drawn as the page shows it.)
@@ -1014,16 +1014,28 @@ void main() { o = texture(uT, vUV) * uA; }`;
     return { ...m.base, parts: m.base.parts.map((p) => (p.k === 'rect' ? { ...p, fill: eased(p.fill), stroke: eased(p.stroke) } : { ...p, runs: p.runs.map((r) => ({ ...r, fill: eased(r.fill), stroke: eased(r.stroke) })) })) };
   }
   // ── Between frames (2 Nov 2026, "label-gl fully to the GPU") ──
-  // A label's look is described, laid out and painted into the atlas here, in a task of its own just after the frame that found it changed
-  // (as its style and animations are read: fillStyles, fillAnims), never inside a frame: a frame draws the pictures it has kept, from
-  // numbers it has kept, and makes nothing. A label with no picture yet is the SVG's till this has made one, and draws it in the next
-  // frame. todo: label → what it is owed (1 turned, 2 its look changed, 4 its colour ease moved, 8 read it again).
+  // A label's look is described, laid out and painted into the atlas here, never inside a frame's draw: a draw uses the pictures it has
+  // kept, from numbers it has kept, and makes nothing. The pass runs as a microtask, straight after the callback that found a look
+  // changed and before the browser paints, and draws the layer again at once (settle): the changed label is on screen in the same frame
+  // as its new look, never a frame late, and the SVG's copy that the first draw showed for a label with no picture yet is hidden again
+  // before anything is painted (an attribute written and written back in one task is never drawn).
+  // todo: label → what it is owed (1 turned, 2 its look changed, 4 its colour ease moved, 8 read it again).
   const todo = new Map();
-  let passT = 0, touched = false;
-  const passSoon = () => { if (!passT) passT = setTimeout(rebuildPass, 0); };
+  let touched = false, settleQ = false, settling = false;
+  const settleSoon = () => { if (!settleQ && !settling) { settleQ = true; queueMicrotask(settle); } };
+  function settle() {
+    settleQ = false;
+    if (lost || gl.isContextLost()) { todo.clear(); mtodo.clear(); return; }
+    rebuildPass();
+    markPass();
+    if (host) { ask(); return; }
+    if (raf) { cancelFrame(raf); raf = 0; }
+    settling = true;
+    try { draw(); } finally { settling = false; }
+    if (todo.size || mtodo.size) ask();   // (what the redraw found owed again, e.g. a label read each frame while it eases: the next frame)
+  }
   function rebuildPass() {
-    passT = 0;
-    if (lost || gl.isContextLost() || (host && !host.active())) { todo.clear(); return; }
+    if (host && !host.active()) { todo.clear(); return; }
     const now = performance.now();
     for (const [g, f] of todo) {
       if (!g.isConnected) continue;
@@ -1032,7 +1044,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       if (f & 8) {
         const isLive = live.has(g), dirtyG = (f & 2) !== 0;
         const tracked = TRACK && isLive && !exact.has(g) && (!st || st.trk !== false || dirtyG || st.rot !== rot);
-        const was = st ? st.held : svgLeft.has(g) ? null : undefined;
+        const was = st?.held;   // (a label with no picture yet: as a new label, held at 0 where its fade starts; the SVG's copy its first draw showed is never painted)
         st = tracked ? capture(g, rot, now) : refresh(g, rot);
         if (!tracked) st.trk = isLive && st.trk === false ? false : null;
         st.rot = rot;
@@ -1051,7 +1063,6 @@ void main() { o = texture(uT, vUV) * uA; }`;
     // (The host's context as its own passes expect to find it, as after a picture of the labels.)
     if (host && touched) hostTail();
     touched = false;
-    ask();
   }
   function hostTail() {
     gl.disable(gl.BLEND); gl.bindVertexArray(null); gl.useProgram(null); gl.bindBuffer(gl.ARRAY_BUFFER, null);
@@ -1153,7 +1164,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       // what the pass owes each label: 1 turned, 2 its look changed, 4 its colour ease moved, 8 read it again.)
       if (!st || dirty.has(g) || st.rot !== rot || (isLive && (exact.has(g) || !st.trk || st.trk.carry))) {
         todo.set(g, (todo.get(g) | 0) | 8 | (rot ? 1 : 0) | (dirty.has(g) ? 2 : 0));
-        passSoon();
+        settleSoon();
       }
       if (!st || st.rot !== rot || (st.mode === 'gl' && !st.slot)) {   // (no picture of its own yet, or of the other way up, or its place in the atlas given back: the SVG draws it till the pass has made one)
         if (g.hasAttribute('data-gl')) g.removeAttribute('data-gl');
@@ -1163,7 +1174,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       if (st.trk) {
         // (Followed: this frame's colours and opacity from the track, nothing read; a colour ease's picture drawn again as it changes, by the pass.)
         const v = trackAt(st.trk, now);
-        if (st.trk.base && v.w !== st.trk.w) { todo.set(g, (todo.get(g) | 0) | 4); passSoon(); }
+        if (st.trk.base && v.w !== st.trk.w) { todo.set(g, (todo.get(g) | 0) | 4); settleSoon(); }
         if (v.op != null) st.opacity = v.op;
         if (st.trk.ended && !exact.has(g)) live.delete(g);
       }
@@ -1360,11 +1371,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // pass between frames (markPass, as the labels': 2 Nov 2026), which describes it again and keeps the result.
   // (TRACK: a fade or colour ease of its own is read once as it starts and followed (label-track.js); a theme or mode change, each frame.)
   const mtodo = new Map();   // mark → what it is owed: 2 its look changed, 8 read it again
-  let mpassT = 0;
-  const mpassSoon = () => { if (!mpassT) mpassT = setTimeout(markPass, 0); };
   function markPass() {
-    mpassT = 0;
-    if (lost || gl.isContextLost()) { mtodo.clear(); return; }
     const now = performance.now();
     for (const [el, f] of mtodo) {
       if (!el.isConnected) continue;
@@ -1394,7 +1401,6 @@ void main() { o = texture(uT, vUV) * uA; }`;
       if (el.tagName !== 'g' && !markGeo.has(el)) markGeo.set(el, { a0: null, a1: null, a2: null, ok: false, v: new Float64Array(4) });
     }
     mtodo.clear();
-    ask();
   }
   const lookOf = (el, now) => {
     const lk = looks.get(el);
@@ -1406,7 +1412,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     const isLive = markLive.has(el), exactly = markExact.has(el);
     if (!lk || markDirty.has(el) || (isLive && (exactly || !lk.trk))) {
       mtodo.set(el, (mtodo.get(el) | 0) | 8 | (markDirty.has(el) ? 2 : 0));
-      mpassSoon();
+      settleSoon();
       if (!lk) return false;   // (no look of its own yet: the SVG draws it till the pass has read it)
     }
     if (!lk.trk || !lk.st) return lk.st;
@@ -1416,13 +1422,27 @@ void main() { o = texture(uT, vUV) * uA; }`;
     if (lk.trk.paint) {
       const prs = lk.trk.paint.pairs;
       for (let i = 0; i < prs.length; i++) {
-        const q = prs[i], c = mixColour(q.from, q.to, v.w), off = none(c);
-        if (q.prop === 'stroke') out.stroke = off ? null : rgbaInto(out.sa, c);
-        else if (q.prop === 'fill') out.fill = off ? null : rgbaInto(out.fa, c);
+        const q = prs[i];
+        if (q.prop === 'stroke') out.stroke = mixPre(out.sa, q, v.w) ? out.sa : null;
+        else if (q.prop === 'fill') out.fill = mixPre(out.fa, q, v.w) ? out.fa : null;
       }
     }
     return out;
   };
+  // An eased pair's colour at w as premultiplied RGBA (0 … 1) written into `out`, no text made (the numeric mixer); false where it is not visible.
+  // A pair the mixer does not take (w at an end, a colour that is not rgb()) reads mixColour's own answer, which makes no text either.
+  const KEPT4 = [0, 0, 0, 0];
+  function mixPre(out, q, w) {
+    if (mixRgbaInto(KEPT4, q.from, q.to, w)) {
+      const a = KEPT4[3];
+      out[0] = KEPT4[0] / 255 * a; out[1] = KEPT4[1] / 255 * a; out[2] = KEPT4[2] / 255 * a; out[3] = a;
+      return a > 0;
+    }
+    const c = mixColour(q.from, q.to, w);
+    if (none(c)) return false;
+    rgbaInto(out, c);
+    return true;
+  }
   const markGeo = new WeakMap(), MGEO = new Float64Array(4), MBOX = new Float64Array(4), CLEAR = new Float64Array(4);
   function drawMarks(now) {
     let moving = false;
