@@ -10269,9 +10269,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const p = nodePos(id, t); worldToLocalInto(PIN_P, p[0], p[1]);
     return Math.hypot(PIN_P[0] - ax, PIN_P[1] - ay) < 1 ? 2 : 0;
   }
+  // (How a label's place moves as its gap grows by one px, per direction (stage.js offset).)
+  const PIN_DIR = { N: [0, -1], S: [0, 1], E: [1, 0], W: [-1, 0], EL: [1, 0], WL: [-1, 0], NE: [0.72, -0.72], NW: [-0.72, -0.72], SE: [0.72, 0.72], SW: [-0.72, 0.72] };
   let pinHeldReady = false;
   if (labelGL) labelGL.pinTo((id, out, mid, au) => {
     if (!CTM) refreshCTM();
+    out[2] = CTM.sc;   // (the zoom now: a label beside a vessel stands off it by half the vessel's width, which grows with the zoom)
     if (mid && au != null && au !== 0.5 && pinVesselAt(id, au)) { out[0] = PIN_P[0]; out[1] = PIN_P[1]; return Number.isFinite(out[0]) && Number.isFinite(out[1]); }
     const t = easeInOut(morph), a = labelAnchor(id, t);
     if (mid || !a.mid) { out[0] = a.ax; out[1] = a.ay; } else { const p = nodePos(id, t); worldToLocalInto(PIN_P, p[0], p[1]); out[0] = PIN_P[0]; out[1] = PIN_P[1]; }
@@ -10888,7 +10891,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // a point the layout chose by other rules, is not pinned and moves as before.)
     const pk = it.key.startsWith('n:') && !it.live && Number.isFinite(it.ax) && Number.isFinite(it.ay) ? pinKind(it.key.slice(2), it.ax, it.ay, it.au) : 0, pin = pk > 0;
     const px0 = +it.x.toFixed(1), py0 = +(it.rot ? it.y + it.w : it.y).toFixed(1);
-    b.pos = { g: b.g, x: px0, y: py0, rot: !!it.rot, pid: pin ? it.key.slice(2) : null, pax: pin ? it.ax : 0, pay: pin ? it.ay : 0, pmid: pk === 1, pau: it.au ?? 0.5 };
+    // (phw, psc, pdx, pdy: half its vessel's width as laid out, the zoom it was laid out at and the way it stands off: the GPU widens that gap
+    // with the zoom in the same frame, so a pinch carries it as the next layout would place it, never in steps at each layout.)
+    const dv = pin && it.vw > 0 ? PIN_DIR[it.dir] : null;
+    b.pos = { g: b.g, x: px0, y: py0, rot: !!it.rot, pid: pin ? it.key.slice(2) : null, pax: pin ? it.ax : 0, pay: pin ? it.ay : 0, pmid: pk === 1, pau: it.au ?? 0.5,
+      phw: dv ? it.vw / 2 : 0, psc: CTM.sc, pdx: dv ? dv[0] : 0, pdy: dv ? dv[1] : 0 };
     // (Its box on an 8 px grid, for the corner credit's look (labelBoxStamp): a number ticking inside it moves nothing the credit avoids.)
     const c0 = Math.floor((it.x - it.padX) / 8), c1 = Math.floor((it.y - it.padY) / 8), c2 = Math.ceil((it.x + (it.rot ? it.h : it.w) + it.padX) / 8), c3 = Math.ceil((it.y + (it.rot ? it.w : it.h) + it.padY) / 8), ch = !!it.hide;
     if (!b.box || c0 !== b.bc0 || c1 !== b.bc1 || c2 !== b.bc2 || c3 !== b.bc3 || ch !== b.bch) {
@@ -12317,8 +12324,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const [ax, ay] = worldToLocal(prev.wx, prev.wy);
         it.ax = ax; it.ay = ay; it.au = prev.au; it.dir = prev.dir; it.leader = prev.leader; it.onVessel = !!prev.onv;
         const slack = it.rot ? 0 : prev.w - it.w;
-        it.x = ax + prev.dx + (prev.dir.includes('W') ? slack : prev.dir.includes('E') ? 0 : slack / 2);
-        it.y = ay + prev.dy;
+        // (Its gap widened or narrowed with its vessel's width on the screen since it was solved: carried as a solve at this zoom would put it.)
+        const dvc = prev.vh != null && it.vw > 0 ? PIN_DIR[prev.dir] : null, dh = dvc ? it.vw / 2 - prev.vh : 0;
+        it.x = ax + prev.dx + (prev.dir.includes('W') ? slack : prev.dir.includes('E') ? 0 : slack / 2) + (dvc ? dvc[0] * dh : 0);
+        it.y = ay + prev.dy + (dvc ? dvc[1] * dh : 0);
         // (A Circuit reading carried onto a station's ring is solved again: the figure eased a few per cent closer or farther since
         // it was solved, and the reading, kept as far from the middle of its vessel, came onto the station's ring at its end. One
         // the solve itself left on a ring (dot) is carried, or it would be solved again every frame.)
@@ -12502,7 +12511,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const lead = gapPx > 18 || (!!prev?.lead && gapPx >= 10);
       it.leader = !!best.leader || lead;
       localWorldXY(it.ax, it.ay);
-      nextSol.set(it.key, { wx: LW_XY[0], wy: LW_XY[1], dx: best.dx, dy: best.dy, dir, pi: best.pi, w: wRes, h: it.h, leader: it.leader, lead, short: it.short || 0, abbr: !!it.abbr, au: it.au });
+      nextSol.set(it.key, { wx: LW_XY[0], wy: LW_XY[1], dx: best.dx, dy: best.dy, dir, pi: best.pi, w: wRes, h: it.h, leader: it.leader, lead, short: it.short || 0, abbr: !!it.abbr, au: it.au, vh: it.vw > 0 ? it.vw / 2 : null });
       it._r = best.r; placed.push(best.r); out.push(it);
       // (Within 3 px of a vessel it takes the solid halo, as a solved one does.)
       if (reslot) { it.onVessel = lineHits(best.r, 3) > 0; nextSol.get(it.key).onv = it.onVessel; reslotted = true; }

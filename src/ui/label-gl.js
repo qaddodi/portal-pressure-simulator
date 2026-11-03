@@ -670,7 +670,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // changes the offset, and the label then eases from the offset it was drawn at to the new one (pinGlides), its point and dot not moving.
   let pinAt = null, pinHeldFn = null, pinWasHeld = false;
   const pinHeldNow = () => !!pinHeldFn?.();
-  const PIN = [0, 0];
+  const PIN = [0, 0, 1];   // (the point now, and the zoom now)
   const pinGlides = new Map();   // group -> { fx, fy (the offset it was drawn at, CSS px), t0 }
   // (The offset each pinned label was last drawn at, by its group, kept past its picture: a label whose picture is made again (its text
   // size changes with the zoom) still eases from where it stood, never jumps to its new offset.)
@@ -682,6 +682,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
   const PIN_FRAMES = 6, PIN_SNAP = 16;   // (a slot change's glide: D_SMALL and at least PIN_FRAMES frames; a nudge up to PIN_SNAP px is at once)
   function pinOff(s, now) {
     let ox = s.x - s.pax, oy = s.y - s.pay, u = 1;
+    // (Beside a vessel: its gap grows with the vessel's width on the screen, in this frame (stage.js phw, psc, pdx, pdy).)
+    if (s.phw && s.psc > 0) { const dh = s.phw * (PIN[2] / s.psc - 1); ox += s.pdx * dh; oy += s.pdy * dh; }
     const pg = pinGlides.get(s.g);
     // (Over at least PIN_FRAMES drawn frames as well as RIDE_MS: on a slow phone a frame can take longer than the whole glide, and the label
     // jumped to its new place in one frame: the Circuit's sinusoids and right hepatic vein, 78 px, as an iPhone pan sprang back.)
