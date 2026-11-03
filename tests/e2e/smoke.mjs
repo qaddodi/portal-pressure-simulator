@@ -1873,7 +1873,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       // (Points between the first and the last: a slow machine samples sparsely, so a few are enough; the talk trace had none.)
       const steps = new Set(rec.filter((n) => n > rec[0])).size, back = rec.findIndex((n, j) => j && n < rec[j - 1]), full = await page.evaluate(() => {
         const svg = document.querySelector('.pz-data:not(.pz-hide) .pz-flowtime svg:last-child');
-        return [+svg.dataset.points, svg.querySelectorAll('.ptk-line')[0].getAttribute('d').split('L').length, +svg.dataset.of];
+        return [+svg.dataset.points, svg.querySelectorAll('.ptk-line')[0]._pts.n, +svg.dataset.of];
       });
       const at1 = `${deck} slide ${at + 1}${size ? ` at ${size.width}x${size.height}` : ''}`;
       if (back > 0) throw new Error(`${at1}: the chart lost points (${rec[back - 1]} to ${rec[back]})`);
