@@ -5931,6 +5931,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // (Upright: partly open, fully open, partly open (its readings' card tucked away), closed, partly open again.)
       const split = splitSheet(data);
       if (dock.to === 1) { dock.auto = false; dockTo(0); }
+      // (A tap while the readings are still sliding turns the slide round, it does not step on to "closed": a second tap on Hide while the
+      // card was still moving put the whole card away, content and all: Mohammad, 3 Nov 2026, iPhone.)
+      else if (split && data.classList.contains('pz-sliding')) setFold(!data.classList.contains('tool-open'));
       else if (wideSheet(data)) setFold(!data.classList.contains('tool-open'));   // (Mac and iPad landscape: the handle only brings the readings out or tucks them away)
       else if (data.classList.contains('tool-open')) { if (split) { dock.down = want; setFold(false); } else { dock.auto = false; dockTo(1); } }
       else if (split && dock.down === want) { dock.auto = false; dockTo(1); }
