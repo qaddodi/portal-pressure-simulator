@@ -297,11 +297,12 @@ export function createCore(post) {
     if (morph) {
       const k = Math.min(1, (now - morph.t0) / morph.ms);
       // W2: the beat runs on through the blend. The snapshots carry no cardiac phase, so it is advanced here at the blended heart
-      // rate (as step() does), and a sample of the blended state is taken each tick, so the pulse and the traces do not stop for 1.2 s.
+      // rate (as step() does), so the pulse does not stop for 1.2 s. NO sample is taken: the blend's clock runs from the old moment to the
+      // slide's (here backwards), and a trace fed one sample per frame of it saw a jump every frame and drew no line (3 Nov: the HVPG
+      // catheter tracing and Pressure gut to heart). The traces take their first samples from the landed state.
       const cyc = eng.cyc || 0, COf = eng.COf;   // (a blend carries neither the phase nor the output filter: the live ones go on)
       eng.restore(k >= 1 ? morph.to : morphAt(morph.from, morph.to, easeInOut(k)));
       eng.cyc = cyc + realDt * (eng.hr || 60) / 60; eng.COf = COf;
-      sample();
       if (k >= 1) morph = null;
       paramsDirty = true; frameDirty = true;
     } else if (running) {

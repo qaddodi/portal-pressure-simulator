@@ -29,7 +29,7 @@ test('W1: at 1x and 4x the model clock gains no time on the wall clock', async (
   }
 });
 
-test('W2: the cardiac phase advances during a morph, and a sample is taken each tick', async (t) => {
+test('W2: the cardiac phase advances during a morph', async (t) => {
   const { core, advance } = setup(t);
   await core.handle({ type: 'init' });
   advance(2000);
@@ -39,4 +39,26 @@ test('W2: the cardiac phase advances during a morph, and a sample is taken each 
   advance(600);
   const moved = eng.cyc - c0;
   assert.ok(moved > 0.3 * (eng.hr || 60) / 60 * 0.6 * 0.9, `phase moved ${moved.toFixed(3)} beats in 0.6 s of morph; it was frozen`);
+});
+
+// 3 Nov regression (HVPG catheter tracing and Pressure gut to heart drew no line): the morph's blended clock runs backwards, so a
+// sample taken from it each tick made every frame look like a jump to the traces. A morph posts no samples, and after it they run on in order.
+test('a morph posts no samples, and the samples after it are a steady, increasing stream', async (t) => {
+  const { core, messages, advance } = setup(t);
+  await core.handle({ type: 'init' });
+  await core.handle({ type: 'preset', id: 'cirr-decomp', reqId: 1 });
+  const snap = core.engine().snapshot();
+  await core.handle({ type: 'preset', id: 'healthy', reqId: 2 });
+  advance(500);
+  messages.length = 0;
+  await core.handle({ type: 'morph', snap, ms: 1200 });
+  advance(2500);
+  const frames = messages.filter((m) => m.type === 'frame');
+  const during = frames.filter((m) => m.morphing);
+  assert.ok(during.length > 0);
+  assert.ok(during.every((m) => !m.samples || m.samples.t.length === 0), 'no sample is posted from the blend');
+  const after = frames.filter((m) => !m.morphing && m.samples?.t.length > 1);
+  assert.ok(after.length >= 3, 'samples come in batches after it');
+  let last = -Infinity;
+  for (const m of after) for (const x of m.samples.t) { assert.ok(x > last, `time goes forward (${x} after ${last})`); last = x; }
 });
