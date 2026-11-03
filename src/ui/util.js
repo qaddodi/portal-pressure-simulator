@@ -151,9 +151,13 @@ export function ff(v) { const c = unitConv.flow[units.flow]; ffPair[0] = units.f
 // opts: actions, [[label, fn], …] as buttons after the words (a tap runs it and closes the card); sticky, stays until
 // dismissed; onClose, called once when it goes, with 'pushed' when newer messages pushed it out (else 'user': the
 // person's own tap, × or swipe, or the caller closing it). Returns a function that closes it.
+// The cards on the page now, for the cards' frosted glass (main.js toastGlass: stage.cardGlass lists them, glass-gl.js draws their tint, edge and shadow).
+export const TOASTS = [];
 // A toast that has played its way out leaves, and the ones below it glide up into its place (they jumped).
 function dropToast(t) {
   const wrap = t.parentElement;
+  const at = TOASTS.indexOf(t); if (at >= 0) TOASTS.splice(at, 1);
+  t._glassMo?.disconnect(); t._glassMo = null;
   if (!wrap) return;
   const others = [...wrap.children].filter((c) => c !== t), tops = others.map((c) => c.getBoundingClientRect().top);
   t._wgl?.dispose(); t._wgl = null;
@@ -192,7 +196,17 @@ function toastFit(wrap, t, msg, actions) {
   t.querySelector('.toast-msg').style.fontSize = `${L.px}px`;
   if (docked) { t.style.width = ''; t.style.height = ''; } else { t.style.width = `${L.w}px`; t.style.height = `${L.h}px`; }
   if (L.btns.length) { const bs = t.querySelectorAll('.toast-acts .btn'); for (let i = 0; i < bs.length; i++) bs[i].style.width = `${L.btns[i].w}px`; }
-  if (!t._wgl) t._wgl = widgetGL(t, (ctx, w, h, pad) => paintToast(ctx, t._L, { pad, docked: t._docked, bad, state: t._st, ink: inkOf(cssVar, t._docked) }), { pad: 18 });
+  if (!t._wgl) {
+    // (The glass marks the card it has drawn (data-gl) or is about to (data-gl-wait): the picture then leaves the card's tint, edge and shadow
+    // to it, and draws them itself only where no glass comes. A mark coming or going is drawn again in a rest pass, never in a frame.)
+    const glassed = () => t.hasAttribute('data-gl') || t.hasAttribute('data-gl-wait');
+    t._wgl = widgetGL(t, (ctx, w, h, pad) => paintToast(ctx, t._L, { pad, docked: t._docked, bad, state: t._st, ink: inkOf(cssVar, t._docked), glass: glassed() }), { pad: 18 });
+    if (t._wgl) {
+      let was = glassed();
+      t._glassMo = new MutationObserver(() => { const now = glassed(); if (now !== was) { was = now; restPass(() => t._wgl?.paint()); } });   // alloc-rare: one observer for each toast raised
+      t._glassMo.observe(t, { attributes: true, attributeFilter: ['data-gl', 'data-gl-wait'] });
+    }
+  }
   t._docked = docked;
   t._refit = () => restPass(() => toastFit(wrap, t, msg, actions));
   t._wgl?.paint();
@@ -259,6 +273,7 @@ function toastBuild(msg, kind, { actions, sticky, onClose }) {
   // tick read the bars and its own text's size among that frame's writes. Unseen until then, so it never shows in the wrong place.)
   t.style.visibility = 'hidden';
   wrap.append(t);
+  TOASTS.push(t);
   restPass(() => toastFit(wrap, t, msg, actions));
   // A toast with buttons stays longer, and stays while the pointer or the keyboard is on it, so its button can be reached.
   const life = actions?.length ? 9000 : 4200, arm = () => { clearTimeout(timer); if (!sticky && !gone) timer = setTimeout(close, life); };

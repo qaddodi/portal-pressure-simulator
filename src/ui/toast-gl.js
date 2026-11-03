@@ -149,14 +149,18 @@ function drawMark(ctx, x, y, size, ink) {
 }
 
 /** Draws a laid-out toast at (pad, pad) in a picture. `state`: { hot, down } (the control under the pointer and the one pressed). */
-export function paintToast(ctx, L, { pad, docked, bad, state, ink }) {
+export function paintToast(ctx, L, { pad, docked, bad, state, ink, glass = false }) {
   const x0 = pad, y0 = pad;
-  if (docked) ctx.shadowBox(x0, y0, L.w, L.h, L.r, ink.shadow, 10, 2);
-  else { ctx.shadowBox(x0 + 6 * ink.slant, y0, L.w, L.h, L.r, ink.menu, 20, 6); ctx.shadowBox(x0 + ink.slant, y0, L.w, L.h, L.r, ink.menu2, 3, 1); }
-  ctx.fillStyle = ink.fill;
-  ctx.beginPath(); ctx.roundRect(x0, y0, L.w, L.h, L.r); ctx.fill();
-  ctx.strokeStyle = ink.hair; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.roundRect(x0 + 0.5, y0 + 0.5, L.w - 1, L.h - 1, L.r - 0.5); ctx.stroke();
+  // (glass: the cards' frosted glass draws this card's tint, edge and shadow under it (glass-gl.js, --gl-tint --gl-line --gl-drop), or is
+  // about to: the picture then carries only the words and the controls. Without it, the card is drawn whole here, solid, never bare.)
+  if (!glass) {
+    if (docked) ctx.shadowBox(x0, y0, L.w, L.h, L.r, ink.shadow, 10, 2);
+    else { ctx.shadowBox(x0 + 6 * ink.slant, y0, L.w, L.h, L.r, ink.menu, 20, 6); ctx.shadowBox(x0 + ink.slant, y0, L.w, L.h, L.r, ink.menu2, 3, 1); }
+    ctx.fillStyle = ink.fill;
+    ctx.beginPath(); ctx.roundRect(x0, y0, L.w, L.h, L.r); ctx.fill();
+    ctx.strokeStyle = ink.hair; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.roundRect(x0 + 0.5, y0 + 0.5, L.w - 1, L.h - 1, L.r - 0.5); ctx.stroke();
+  }
   ctx.font = fontOf(L.weight, L.px); ctx.fillStyle = ink.text; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
   for (const ln of L.lines) ctx.fillText(ln.text, x0 + ln.x, y0 + ln.y);
   if (bad && L.mark) drawMark(ctx, x0 + L.mark.x, y0 + L.mark.y, L.mark.size, ink.danger);

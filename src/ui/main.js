@@ -27,7 +27,7 @@ import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, he
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js';
 import { dopplerVel } from './velNormal.js';
 import { controlOwnsKey } from './key-owner.js';
-import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, swapFade, scrollBehavior, reconcile } from './util.js';
+import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, TOASTS, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, swapFade, scrollBehavior, reconcile } from './util.js';
 import { glidePlateOn, platePieces, glideOnResize } from './plate-glide.js';
 import { sheetParts, sheetOffset, setSheetOffset, stopSheet, glideSheet, dragSheet } from './sheet-move.js';
 import { releaseSpeed, isFlick, flickAim, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js';
@@ -1636,6 +1636,7 @@ function wireFloating() {
   treatSheet = sheetBehaviour($('#treatCard'), { handle: h('button', { class: 'sheet-grab', 'aria-label': 'Resize the Treat card' }), drag: '.tc-head', anywhere: true, onClose: closeTreat, fit: '.tc-body' });
   dockSheet = sheetBehaviour($('#dock'), { handle: h('button', { class: 'sheet-grab', 'aria-label': 'Resize the Tests card' }), drag: '.dock-head', anywhere: true, onClose: () => dock.close(), active: () => isPhone() && !$('#dock').classList.contains('side') && !app.classList.contains('instrument-focus') });
   sheetGlass();
+  toastGlass();
   // Focus: dragging, pinching or scrolling the figure fades the floating pieces until it stops.
   let busyT = 0, armT = 0, down = null, moved = false;
   // (Adding a class it already has still counts as a change to the page's observers: every pointer move of a drag or
@@ -1752,6 +1753,17 @@ function sheetGlass() {
   sheetGL = stage?.cardGlass?.({ find: plates, watch: els, before: els[0], cut: (g) => { const el = g.parentElement; const b = el && readBox(el); return b ? { bottom: b.bottom } : null; } }) || null;
   // (The figure's canvas not made yet: asked again shortly, a few times.)
   if (!sheetGL && sheetGLTry++ < 20) setTimeout(sheetGlass, 500);
+}
+// The toasts wear the same frosted GPU glass (Mohammad, 3 Nov 2026: "100% GPU", "CARDS ARE GLASS"): each card's tint, edge and shadow are drawn
+// in the figure's canvas, the words and buttons by the toast's own GPU picture (toast-gl.js). The card's box is read like any card's, and
+// it follows its slide and fade as the others do.
+let toastGL = null, toastGLTry = 0;
+function toastGlass() {
+  if (toastGL) return;
+  const wrap = $('#toasts');
+  if (!wrap) return;
+  toastGL = stage?.cardGlass?.({ find: () => TOASTS, watch: [wrap], before: wrap }) || null;
+  if (!toastGL && toastGLTry++ < 20) setTimeout(toastGlass, 500);
 }
 const sheetInner = (c) => { const l = c.lastElementChild; if (!l) return 0; const b = parseFloat(readStyle(c).paddingBottom) + parseFloat(readStyle(l).marginBottom); return readBox(l).bottom - readBox(c).top + readMetric(c, 'scrollTop') + b; };
 function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = null, anywhere = false }) {
