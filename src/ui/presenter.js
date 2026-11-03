@@ -1967,7 +1967,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   function caseFly(card, dir, v, w) {   // (w: the card's width, read at rest: as the finger landed, or before a wheel's throw)
     const c = card.c, dist = innerWidth / 2 + w, gx = glideX(c), gy = glideY(c);
     const x = Number.isFinite(gx) ? gx : (card.dx || 0), y = Number.isFinite(gy) ? gy : (card.dragY || 0), opacity = parseFloat(c.style.opacity);
-    const left = Math.max(1, dist - Math.abs(x));
+    const left = Math.max(1, Math.abs(dir * dist - x));
     // (With reduced motion it only fades where it was let go.)
     const ms = reduce.matches ? 300 : caseFlight(left, v);
     const slope = (Math.abs(v) * ms) / left;   // the finger's speed as the curve's starting slope
@@ -5461,6 +5461,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     }
     if (!out && (Math.abs(x) > 0.5 || o < 0.999)) { for (const el of els) throwBack(el, x, o); return; }   // (short of the swipe: the card eases back on card-throw.js's clock, from where the finger left it)
     for (const el of els) { el.style.removeProperty('transition'); el.style.removeProperty('opacity'); el.style.removeProperty('transform'); }
+    signalMove();
     if (out) pageThrow(x, els);
   }
   // (A swipe's throw: the card carries on out from where the finger left it, the leave's own way further, decelerating from the finger's
@@ -5488,6 +5489,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (out && throwDir) return;   // (thrown: the card goes on out from the finger's place, on card-throw.js's clock: wordsOut)
     if (!out && (Math.abs(h.x) > 0.5 || h.o < 0.999)) { for (const el of h.els) throwBack(el, h.x, h.o); return; }
     for (const el of h.els) { el.style.removeProperty('transition'); el.style.removeProperty('opacity'); el.style.removeProperty('transform'); }
+    signalMove();
     if (out) pageThrow(h.x, h.els);
   }
   wrap.addEventListener('touchmove', (e) => {
@@ -5599,7 +5601,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (The gesture's one action runs as its own task right after this event, where the slide's cards are measured once before they
     // move (rest-pass.js): the wheel's events, dozens a second, read nothing.)
     // alloc-rare: the wheel gesture's one action: once per gesture
-    restPass(() => wheelAct(a));
+    const wheelDeck = deck, wheelGen = gen;
+    restPass(() => { if (deck === wheelDeck && gen === wheelGen) wheelAct(a); });
   }, { passive: false, capture: true });
   function wheelAct(a) {
     if (!deck || !ui || leaving) return;

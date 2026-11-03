@@ -179,18 +179,19 @@ function ownRun() {
   owned = OWNED;
 }
 function readOwners(el, stop) {
-  if (ownAsk) return;
   ownEl = el; ownStop = stop;
+  if (ownAsk) return;
   ownAsk = restPass(ownRun);
 }
-const onOwnerOver = (e) => { if (e.target?.nodeType === 1) { cancelRest(ownAsk); ownAsk = 0; readOwners(e.target, owned?.stop ?? ownDefaultStop); } };
+const onOwnerOver = (e) => { if (e.target?.nodeType === 1) { cancelRest(ownAsk); ownAsk = 0; readOwners(e.target, ownDefaultStop); } };
 let ownDefaultStop = null;
 const OWN_OPTS = { passive: true, capture: true };
 /** True when a wheel over `el` belongs to a box that scrolls that way itself (wheelScrollers, as last read between frames). A box not yet
  *  read answers by what it is (the slide list or a field) until its read comes in, right after this event. */
 export function ownsWheel(el, axis, opts = null) {
   const stop = opts ? opts.stop ?? null : null, doc = el?.ownerDocument;
-  if (doc?.addEventListener && ownWatch !== doc) { ownWatch = doc; ownDefaultStop = stop; doc.addEventListener('pointerover', onOwnerOver, OWN_OPTS); }
+  if (doc?.addEventListener && ownWatch !== doc) { ownWatch?.removeEventListener('pointerover', onOwnerOver, OWN_OPTS); ownWatch = doc; doc.addEventListener('pointerover', onOwnerOver, OWN_OPTS); }
+  ownDefaultStop = stop;
   if (owned?.el === el && owned.stop === stop) {
     if (performance.now() - owned.at > WHEEL_FRESH) readOwners(el, stop);
     return owned[axis === 'y' ? 'y' : 'x'];

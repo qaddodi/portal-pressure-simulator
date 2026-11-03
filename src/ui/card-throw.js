@@ -105,9 +105,17 @@ function step() {
 // its own end on the wall clock was not finished by a frame (the loop stopped, or the frames came too late): it lands where it was
 // going, its holder told, as step would have. A page whose frames run on time never reaches it.)
 const GUARD_MS = 400;
-let guardT = 0;
+let guardT = 0, guardAt = Infinity;
+function guardBy(deadline) {
+  if (guardT && guardAt <= deadline) return;
+  if (guardT) clearTimeout(guardT);
+  guardAt = deadline;
+  guardT = setTimeout(guard, Math.max(16, deadline - performance.now()));
+  guardT.unref?.();
+}
 function guard() {
-  guardT = 0;
+  if (guardT) clearTimeout(guardT);
+  guardT = 0; guardAt = Infinity;
   const wall = performance.now();
   let soonest = Infinity;
   for (const [el, r] of runs) {
@@ -116,14 +124,14 @@ function guard() {
   }
   signalMove();
   if (runs.size && !ask) ask = nextFrame(step);
-  if (soonest < Infinity) { guardT = setTimeout(guard, Math.max(16, soonest - wall)); guardT.unref?.(); }   // alloc-rare: one timer a move, never in a frame
+  if (soonest < Infinity) guardBy(soonest);
   try { settle(); outCheck(); } catch (e) { caught('card-throw:guard', e); }
 }
 /** Moves still running past their own end by the guard's grace now (for the tests: what the timer would land). */
 export const throwGuard = guard;
 // (R20: the throws are one transition the page's deferrable work waits out, from the first card moving to the last one landing.)
 let endMove = null;
-const settle = () => { if (!runs.size && endMove) { endMove(); endMove = null; } };
+const settle = () => { if (!runs.size) { if (guardT) clearTimeout(guardT); guardT = 0; guardAt = Infinity; if (endMove) { endMove(); endMove = null; } } };
 function start(el, kind, to, ms, delay, done) {
   endMove ||= beginMotion('card throw', ms + delay + 2000);
   const from = here(el);
@@ -132,9 +140,11 @@ function start(el, kind, to, ms, delay, done) {
   el.style.setProperty('transition', 'none', 'important');
   write(el, from.x, from.o);   // (at once, in the task that starts it: no frame shows the class's own place in between)
   signalMove();
-  runs.set(el, { kind, from, to, x: from.x, o: from.o, t0: easeNow() + delay, ms, done, dead: performance.now() + delay + ms + GUARD_MS });
+  const dead = performance.now() + delay + ms + GUARD_MS;
+  runs.set(el, { kind, from, to, x: from.x, o: from.o, t0: easeNow() + delay, ms, done, dead });
+  outCheck();   // A replacement that no longer goes out can release the waiting slide immediately.
   if (!ask) ask = nextFrame(step);
-  if (!guardT) { guardT = setTimeout(guard, delay + ms + GUARD_MS); guardT.unref?.(); }   // alloc-rare: one timer for all the moves, asked when none is waiting
+  guardBy(dead);
 }
 
 /** Throws el out the way the talk goes (dir 'next': to the left; 'back': to the right), dist px, fading to nothing over RAIL_MS. It is
@@ -160,6 +170,10 @@ const holdMo = typeof MutationObserver === 'function' ? new MutationObserver(() 
   }
   if (!held.size) holdMo.disconnect();
 }) : null;
+function releaseHeld(el) {
+  held.delete(el);
+  if (!held.size) holdMo?.disconnect();
+}
 function hold(el) {
   if (!holdMo) { rest(el); return; }
   el.style.removeProperty('transform');
@@ -180,7 +194,7 @@ export function throwIn(el, dir, delay = 0) {
   if (!el) return;
   pinned.delete(el);
   const s = dir === 'back' ? -1 : 1, was = runs.get(el);
-  held.delete(el);
+  releaseHeld(el);
   // (A card already coming in is taken from where it is, never put back at its start: a second call for it mid-way (a repeated pass of
   // cardsIn, a staggered card asked again) used to drop it from full to nothing and slide it in again, a blink.)
   if (!was) { el.style.setProperty('transition', 'none', 'important'); write(el, s * THROW_IN, 0); runs.delete(el); }
@@ -193,7 +207,8 @@ export function throwIn(el, dir, delay = 0) {
  *  trails (or leads) the card by that frame. */
 export function throwBack(el, x, o) {
   if (!el) return;
-  held.delete(el); pinned.delete(el);
+  releaseHeld(el); pinned.delete(el);
+  runs.delete(el);   // The finger's supplied position supersedes any older throw.
   write(el, x, o);
   start(el, 'back', { x: 0, o: 1 }, D_SMALL, 0);
 }
@@ -222,7 +237,7 @@ function outCheck() {
 export const throwing = (el) => runs.has(el);
 
 /** Stops el's move where it is (a finger takes it), its inline values kept for whoever takes it next. */
-export function throwStop(el) { classSoon(el, THROWING, false); runs.delete(el); held.delete(el); pinned.delete(el); if (!runs.size && ask) { cancelFrame(ask); ask = 0; } settle(); outCheck(); }
+export function throwStop(el) { classSoon(el, THROWING, false); runs.delete(el); releaseHeld(el); pinned.delete(el); if (!runs.size && ask) { cancelFrame(ask); ask = 0; } settle(); outCheck(); }
 
 // (The copies that held the old card on one track until the new one was ready (railHold) are gone: every leaving card sets off on the
 // frame of the tap. These are kept, as what they did with no copy, for presenter.js until its own pass.)
