@@ -136,7 +136,7 @@ const num = (v, lo, hi, def) => (typeof v === 'number' && Number.isFinite(v) ? M
 export function sanitizeParams(p) {
   const d = defaultParams();
   const out = isObj(p) ? deepMerge(d, p) : d;
-  for (const k of Object.keys(out)) if (!Object.hasOwn(d, k)) delete out[k];   // B7: a key the model has no parameter for is not carried (a renamed or hand-added one)
+  for (const k of Object.keys(out)) if (!Object.hasOwn(d, k)) delete out[k];   // B7: a key the model has no parameter for is not carried (a renamed or hand-added one)   // alloc-rare: checked when parameters are set, in the simulation worker, never by a drawn frame
   for (const [k, [lo, hi]] of RANGE_LIST) out[k] = num(out[k], lo, hi, d[k]);
   out.splenicRx = Math.round(out.splenicRx);
   for (const k of Object.keys(d)) {   // alloc-rare: checked when parameters are set, in the simulation worker (a few tiny key lists), never by a drawn frame
@@ -162,7 +162,7 @@ export function sanitizeParams(p) {
 const ANY_EDGE = new Set(EDGES.map((e) => e.id));
 const CUSTOM_EDGE = new Set(EDGES.filter((e) => e.shunt === 'custom').map((e) => e.id));
 const SPONTANEOUS_EDGE = new Set(EDGES.filter((e) => e.variant || e.spontaneous).map((e) => e.id));
-function keepKnown(o, ids) { if (isObj(o)) for (const k of Object.keys(o)) if (!ids.has(k)) delete o[k]; }
+function keepKnown(o, ids) { if (isObj(o)) for (const k of Object.keys(o)) if (!ids.has(k)) delete o[k]; }   // alloc-rare: checked when parameters are set, in the simulation worker, never by a drawn frame
 function isObj(x) { return x && typeof x === 'object' && !Array.isArray(x); }
 // (Keys that would reach an object's prototype are skipped, and only the base's own keys are merged into, so a
 // hand-made share link cannot change Object.prototype.)
