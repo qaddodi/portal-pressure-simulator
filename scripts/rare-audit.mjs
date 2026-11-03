@@ -15,11 +15,32 @@ import { fileURLToPath } from 'node:url';
 import * as espree from 'espree';
 import { openApp, DEVICES } from './shoot.mjs';
 import { scan } from './off-gpu-scan.mjs';
+import { isFake } from './rare-audit-rule.mjs';
 
 DEVICES.small = { viewport: { width: 760, height: 520 }, deviceScaleFactor: 1 };   // (software GL: the pixels drawn set the pace; the counts per frame do not depend on them)
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const arg = (k, d) => { const i = process.argv.indexOf(`--${k}`); return i > 0 ? process.argv[i + 1] : d; };
 const DEVICE = arg('device', 'small'), ONLY = arg('only', '').split(',').filter(Boolean), OUT = arg('json', ''), MIN = +arg('min', 2), ROUNDS = +arg('rounds', 3), STEPS = +arg('steps', 8);
+
+// node scripts/rare-audit.mjs --classify <audit.json> --root <the tree the audit ran on> --found scripts/rare-audit-found.json
+// writes the allocations the audit found running in motion as { file, text } (the line's code, its tag left out): the unit test fails when a
+// line with that code carries an alloc-rare tag again.
+if (arg('classify', '')) {
+  const j = JSON.parse(readFileSync(arg('classify', ''), 'utf8')), root = resolve(arg('root', ROOT));
+  const found = new Map();
+  for (const h of j.hot) {
+    if (!isFake(h.hot, h.frameHits, j.frames)) continue;
+    const line = readFileSync(resolve(root, h.file), 'utf8').split('\n')[h.line - 1] || '';
+    const text = line.replace(/\s*\/\/\s*alloc-(?:rare|once):.*$/, '').trim();
+    const above = readFileSync(resolve(root, h.file), 'utf8').split('\n')[h.line - 2] || '';
+    if (!text || /^\/\//.test(text)) continue;
+    found.set(`${h.file}\u0000${text}`, { file: h.file, text, ran: Object.fromEntries(Object.entries(h.hot).slice(0, 3)), above: /alloc-(?:rare|once):/.test(above) });
+  }
+  const out = [...found.values()].sort((a, b) => a.file.localeCompare(b.file) || a.text.localeCompare(b.text)).map(({ file, text, ran }) => ({ file, text, ran }));
+  if (arg('found', '')) writeFileSync(resolve(ROOT, arg('found', '')), JSON.stringify({ about: 'Allocations that scripts/rare-audit.mjs found running in motion; tests/rare-tags-audited.test.js fails when one carries an alloc-rare tag.', found: out }, null, 1) + '\n');
+  console.log(`${out.length} allocation lines run in motion (of ${j.hot.length} that ran twice or more)`);
+  process.exit(0);
+}
 
 // ── The tags: every `alloc-rare` allocation the scan leaves out of its count, with the node's place in its file ──
 const tags = [];
