@@ -916,7 +916,7 @@ export function scan({ root = ROOT } = {}) {
       // on a branch that never runs per frame (first use, a changed key, a resize, a context loss). It leaves the count and is listed
       // with its reason in out.rare and in the inventory. A marker with no reason does not count.)
       const rl = n.loc.start.line, why = rareReason(mod, rl);
-      if (why) { rareList.push({ cat: 'alloc', file: mod.file, line: rl, col: n.loc.start.column, fn: label(f), detail: `${detail} — rare: ${why}` }); continue; }
+      if (why) { rareList.push({ cat: 'alloc', file: mod.file, line: rl, col: n.loc.start.column, start: n.start, end: n.end, fn: label(f), detail: `${detail} — rare: ${why}` }); continue; }
     }
     if (!hit) {
       // (Looked at above, so it would be credited as on the GPU. No frame path reaches it, so it is triaged, never assumed fine, 2 Nov 2026.)

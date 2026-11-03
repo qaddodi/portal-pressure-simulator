@@ -124,13 +124,14 @@ export const CARDS_LANDED = () => {
 };
 
 /** Opens the app on a fresh page on the GPU path. Rejects (naming the cause) when that is not what it got. */
-export async function openApp({ device = 'mac', theme = 'light', query = '', dir = '.', url = '', timeout = 180000, dpr, browser: shared, fakeClock = false, initScript = '' } = {}) {
+export async function openApp({ device = 'mac', theme = 'light', query = '', dir = '.', url = '', timeout = 180000, dpr, browser: shared, fakeClock = false, initScript = '', setup } = {}) {
   const dev = DEVICES[device];
   if (!dev) throw new Error(`unknown device "${device}" (${Object.keys(DEVICES).join(', ')})`);
   const isTalk = /(^|[?&])script=/.test(query);   // (a deck slide: its cards are waited for, settle)
   const server = url ? null : await serve(resolve(ROOT, dir));
   const browser = shared || await chromium.launch({ args: CHROMIUM_ARGS, ...(EXE ? { executablePath: EXE } : {}) });
   const ctx = await browser.newContext({ ...dev, ...(dpr ? { deviceScaleFactor: dpr } : {}), colorScheme: theme, serviceWorkers: 'block' });
+  if (setup) await setup(ctx);   // (before the page opens: a route that serves changed source, rare-audit.mjs)
   const page = await ctx.newPage();
   page.setDefaultTimeout(timeout);
   await page.addInitScript(GPU_NAME);
