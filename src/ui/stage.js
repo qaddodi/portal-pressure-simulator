@@ -69,7 +69,7 @@ import { createDyeRemote } from './dye-remote.js';
 import { createSweepClient } from './sweep-client.js';
 import { retireRows, flowClose } from './flow-rows.js';
 import { createJunctionWidths } from './junction-widths.js';
-import { chainsOf, planChainInto, taperAt } from './vessel-taper.js';
+import { chainsOf, planChainInto } from './vessel-taper.js';
 import { frameFor, lateFrameFor, cancelFrame, mayTask, cancelMay, noteDraw, easeNow, inMotion, afterMotion, PACED, setSaver as setFrameSaver, paceMs, renderScale, renderSetting, onRenderScale, figOpt, figLab, onFigLab, MOTION60_MS, PINCH_LOW_K, readFrameFor } from './frame.js';
 import { softwareYield } from './sw-yield.js';
 import { portalSplit } from './table-marks.js';
@@ -454,7 +454,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     return d;
   };
-  const arcLen = (pts) => { let L = 0; for (let i = 1; i < pts.length; i++) L += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); return L; };
+  // (A square root, not Math.hypot: hypot is a builtin call whose answer is boxed in a new number each time, and this ran over every segment
+  // of every vessel on a frame that eased the radii. The same length to the last digit or two.)
+  const arcLen = (pts) => { let L = 0; for (let i = 1; i < pts.length; i++) { const dx = pts[i][0] - pts[i - 1][0], dy = pts[i][1] - pts[i - 1][1]; L += Math.sqrt(dx * dx + dy * dy); } return L; };
+  // A drawn course's length, kept with the course it was measured on (the arrays are replaced, never changed in place, when the geometry moves).
+  function lenOfItem(it) {
+    const o = it.obj;
+    if (o.glLenPts !== it.pts) { o.glLenPts = it.pts; o.glLenV = arcLen(it.pts); }
+    return o.glLenV;
+  }
   // (The tangent at sample j: central differences, written into tanOut.)
   const tanOut = [0, 0];
   function tanAt(pts, j) {
@@ -1125,7 +1133,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const feeders = !isArt && feedGeo[e.id] ? feedGeo[e.id].map(({ pts: cur, k: fk, fan, when, src, out }, i) => ({ cur, fk, fan, when, src, out, len: arcLen(cur), ph: i * 0.37, fadeMask: !!FEEDER_FADE_Y[e.id] })) : null;
     // A vein that ends in the organ it drains fades out over its first stretch (TIP_FADE, drawn by the GPU from `line`): none in the circuit.
     const tipFade = TIP_FADE[e.id] && !isArt ? { frac: TIP_FADE[e.id], line: [0, 0, 1, 0], joined: false } : null;
-    E[e.id] = { e, tipFade, strands, feeders, isArt, vis: true, width: 4, wallPx: 1, shadeKey: '' };
+    E[e.id] = { e, tipFade, strands, feeders, isArt, vis: true, width: 4, wallPx: 1, shadeOk: false, shadeVer: 0 };
   }
   ALL_EDGES.forEach((e, i) => { E[e.id].row = i; });
   // (Every vessel, in E's order, as one list kept from here on: E is built once above and never gains or loses a key, so the
@@ -3190,7 +3198,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       g.cur = pts;
       g.len = arcLen(pts);
       if (x.tipFade) { const ln = x.tipFade.line, pa = pointAt(pts, x.tipFade.frac); ln[0] = pts[0][0]; ln[1] = pts[0][1]; ln[2] = pa[0]; ln[3] = pa[1]; ln[4] = pa[2]; ln[5] = pa[3]; }   // (written in the vessel's own list)
-      x.shadeKey = '';
+      x.shadeOk = false;
       if (lazy) continue;
       g.lit = litNormals(pts);   // (a clot's layers follow the tube's lit side: updateOverlays)
     }
@@ -3871,6 +3879,26 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const m = tubeHostMax(id, i);
     return tubeHosts ? m / 2 : 0;
   }
+  // The tube's radius at u along it, from the numbers renderTube kept on the vessel (no closure made when they change).
+  function tubeRadius(x, u) {
+    const a = x.rA, w = x.rW, b = x.rB, h0 = x.rH0, h1 = x.rH1, f = x.stenF, L = x.rL;
+    const r = u < 0.3 ? lerp(a, w, smooth(u / 0.3)) : u > 0.7 ? lerp(w, b, smooth((u - 0.7) / 0.3)) : w;
+    const side = (h0 ? sideEndScale(u * L, h0) : 1) * (h1 ? sideEndScale((1 - u) * L, h1) : 1);
+    return Math.max(0.35, (r / 2) * (f ? f(u) : 1) * side);
+  }
+  // The tube's N_SAMPLES radii in one loop (tubeRadius at each sample, the same arithmetic); with `ra` the cava drawn as one: the first
+  // share f of the samples along x, the rest along ra. Nothing is handed back from a call, so no number is boxed per sample.
+  function tubeFill(x, ra, f, R) {
+    for (let i = 0; i < N_SAMPLES; i++) {
+      const u = i / (N_SAMPLES - 1);
+      let v = u, q = x;
+      if (ra) { if (u < f) v = u / f; else { v = (u - f) / (1 - f); q = ra; } }
+      const a = q.rA, w = q.rW, b = q.rB, h0 = q.rH0, h1 = q.rH1, fn = q.stenF, L = q.rL;
+      const r = v < 0.3 ? lerp(a, w, smooth(v / 0.3)) : v > 0.7 ? lerp(w, b, smooth((v - 0.7) / 0.3)) : w;
+      const side = (h0 ? sideEndScale(v * L, h0) : 1) * (h1 ? sideEndScale((1 - v) * L, h1) : 1);
+      R[i] = Math.max(0.35, (r / 2) * (fn ? fn(v) : 1) * side);
+    }
+  }
   function renderTube(x, p, t, J) {
     const g = geo[x.e.id], id = x.e.id, w = x.width, wallPx = x.wallPx;
     const v = isImaging() ? 0 : p.stenosis[id] || 0;
@@ -3891,17 +3919,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const qw = widthMoving(x) ? 2 * edgeQ() : 0;
     keep(x, 'kw', w, qw); keep(x, 'ka', a, qw); keep(x, 'kb', b, qw);
     keep(x, 'kh0', tubeHostR(id, 0, stroked), qw); keep(x, 'kh1', tubeHostR(id, 1, stroked), qw);
-    const key = `${x.kw},${x.ka},${x.kb},${x.kh0},${x.kh1}|${wallPx.toFixed(2)}|${sten ? v.toFixed(3) + '@' + stenosisAt(id, p) : ''}|${lastMorph}|${stroked}`;
-    if (key === x.shadeKey) return;
-    x.shadeKey = key;
+    // (What the radii are made from, kept as numbers and compared one by one: a joined string per vessel per call was garbage on every
+    // frame a width eased. A change takes a new version, shadeVer, which the radii keys follow.)
+    const wallQ = Math.round(wallPx * 100), vQ = sten ? Math.round(v * 1000) : -1, atQ = sten ? stenosisAt(id, p) : 0;
+    const same = x.skKw === x.kw && x.skKa === x.ka && x.skKb === x.kb && x.skH0 === x.kh0 && x.skH1 === x.kh1 && x.skWall === wallQ && x.skV === vQ && x.skAt === atQ && x.skMorph === lastMorph && x.skStroked === stroked;
+    if (same && x.shadeOk) return;
+    x.shadeOk = true;
+    if (!same) {
+      x.skKw = x.kw; x.skKa = x.ka; x.skKb = x.kb; x.skH0 = x.kh0; x.skH1 = x.kh1; x.skWall = wallQ; x.skV = vQ; x.skAt = atQ; x.skMorph = lastMorph; x.skStroked = stroked;
+      x.shadeVer = (x.shadeVer | 0) + 1;
+    }
     const f = sten ? waist(id, v, g.len, w, p) : null;
     x.stenF = f;   // (its caliber factor along it: the GPU's colour follows the resistance it adds, sendRadii alongOf)
-    const h0 = x.kh0, h1 = x.kh1, L = g.len || 1;
-    x.rOf = (u) => {
-      const r = u < 0.3 ? lerp(a, w, smooth(u / 0.3)) : u > 0.7 ? lerp(w, b, smooth((u - 0.7) / 0.3)) : w;
-      const side = (h0 ? sideEndScale(u * L, h0) : 1) * (h1 ? sideEndScale((1 - u) * L, h1) : 1);
-      return Math.max(0.35, (r / 2) * (f ? f(u) : 1) * side);
-    };
+    x.rA = a; x.rW = w; x.rB = b; x.rH0 = x.kh0; x.rH1 = x.kh1; x.rL = g.len || 1;
+    // (Kept as the function the radii are read through; it reads the numbers above, which this call has just set.)
+    if (!x.rOf) x.rOf = (u) => tubeRadius(x, u);   // alloc-once: the vessel's first draw
   }
 
   // Whether q lies within `lim` of a drawn course: the distance to it below lim, in squared lengths and stopping at the
@@ -4494,9 +4526,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const { x, kind } = it;
     if (kind === 'v' && it.ra) {
       const { ra, f } = it;
-      return [`${x.shadeKey}|${ra.shadeKey}|${f.toFixed(4)}`, (i) => { const u = i / (N_SAMPLES - 1); return u < f ? x.rOf(u / f) : ra.rOf((u - f) / (1 - f)); }];
+      return [`${x.shadeVer}|${ra.shadeVer}|${f.toFixed(4)}`, (i) => { const u = i / (N_SAMPLES - 1); return u < f ? x.rOf(u / f) : ra.rOf((u - f) / (1 - f)); }];
     }
-    if (kind === 'v' && !x.isArt) return [x.shadeKey, (i) => x.rOf(i / (N_SAMPLES - 1))];
+    if (kind === 'v' && !x.isArt) return [x.shadeVer, (i) => x.rOf(i / (N_SAMPLES - 1))];
     // (The esophageal balloon squeezes the varices' strands while it is up: balloonSqueeze, 1 … 0.55.)
     const r = (kind === 'v' ? Math.max(0.5, x.width / 2) : kind === 's' ? Math.max(1.6, x.width * it.obj.k) / 2 : it.obj.w / 2) * (kind === 's' && x.e.id === 'C1a' ? balloonSqueeze : 1);
     // (A varix strand beaded by the varix's size: varix-bead.js.)
@@ -4675,8 +4707,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function radFresh(it) {
     const { x, kind } = it, o = it.obj;
     let c, k1, k2 = 0, k3 = 0;
-    if (kind === 'v' && it.ra) { c = 1; k1 = x.shadeKey; k2 = it.ra.shadeKey; k3 = Math.round(it.f * 1e4); }
-    else if (kind === 'v' && !x.isArt) { c = 2; k1 = x.shadeKey; }
+    if (kind === 'v' && it.ra) { c = 1; k1 = x.shadeVer | 0; k2 = it.ra.shadeVer | 0; k3 = Math.round(it.f * 1e4); }
+    else if (kind === 'v' && !x.isArt) { c = 2; k1 = x.shadeVer | 0; }
     else {
       // (As itemRadii: the esophageal balloon squeezes the varices' strands, a varix strand is beaded, a sinusoid strand narrows.)
       const r = (kind === 'v' ? Math.max(0.5, x.width / 2) : kind === 's' ? Math.max(1.6, x.width * o.k) / 2 : o.w / 2) * (kind === 's' && x.e.id === 'C1a' ? balloonSqueeze : 1);
@@ -4695,8 +4727,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   /** The item's lumen radii (itemRadii's rOf at each sample) into out. */
   function radFill(it, out) {
     const { x } = it, o = it.obj, n1 = N_SAMPLES - 1;
-    if (radCase === 1) { const ra = it.ra, f = it.f; for (let i = 0; i < N_SAMPLES; i++) { const u = i / n1; out[i] = u < f ? x.rOf(u / f) : ra.rOf((u - f) / (1 - f)); } }
-    else if (radCase === 2) for (let i = 0; i < N_SAMPLES; i++) out[i] = x.rOf(i / n1);
+    if (radCase === 1) tubeFill(x, it.ra, it.f, out);
+    else if (radCase === 2) tubeFill(x, null, 0, out);
     else if (radCase === 3) for (let i = 0; i < N_SAMPLES; i++) out[i] = beadRadius(radR, radB, i / n1, o.len || 1, o.ph * 1.7, o.u0 || 0);
     else if (radCase === 4) for (let i = 0; i < N_SAMPLES; i++) out[i] = sinStrandRadius(radR, radW, i / n1, o.span);
     else out.fill(radR);
@@ -4782,7 +4814,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           const it = rowIt[tapRows[q]], O = it.obj, R = O.glR0;
           let mx = -Infinity;
           for (let j = 0; j < R.length; j++) if (R[j] > mx) mx = R[j];
-          O.tapBody = mx; O.tapLen = arcLen(it.pts);
+          O.tapBody = mx; O.tapLen = lenOfItem(it);
         }
         for (let q = 0; q < tapChains.length; q++) {
           const chain = tapChains[q];
@@ -4794,7 +4826,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
             if (!(body > 0)) continue;
             if (!O.glE || O.glE.length !== O.glR0.length) O.glE = new Float64Array(O.glR0.length);   // alloc-rare: a vessel's eased buffer, made the first time it is tapered (then refilled in place)
             const R0 = O.glR0, E = O.glE;
-            for (let i = 0; i < R0.length; i++) E[i] = R0[i] * (taperAt(p, len, i / (N_SAMPLES - 1)) / body);
+            // (taperAt written out in the loop, the same arithmetic: a call that hands back a number boxes it in a new object each time.)
+            const y0 = p.y0, y1 = p.y1, d0 = p.d0, d1 = p.d1;
+            if (y0 === y1 && d0 === 0 && d1 === 0) for (let i = 0; i < R0.length; i++) E[i] = R0[i] * (y0 / body);
+            else for (let i = 0; i < R0.length; i++) {
+              const u = i / (N_SAMPLES - 1), u2 = u * u, u3 = u2 * u;
+              E[i] = R0[i] * (((2 * u3 - 3 * u2 + 1) * y0 + (u3 - 2 * u2 + u) * len * d0 + (-2 * u3 + 3 * u2) * y1 + (u3 - u2) * len * d1) / body);
+            }
             O.glEs = easeGen;
           }
         }
@@ -4815,7 +4853,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
             const O = side ? B : A, i = side ? ib : ia, r0 = side ? rb : ra, row = side ? b : a;
             if (r0 >= m) continue;
             // (Over about three trunk radii, not half its course: a short funnel, not a long cone.)
-            const it = rowIt[row], step = arcLen(it.pts) / (N_SAMPLES - 1) || 1;
+            const it = rowIt[row], step = lenOfItem(it) / (N_SAMPLES - 1) || 1;
             const En = Math.min(runOnSamples(it, N_SAMPLES >> 1), Math.max(2, Math.round((3 * m) / step))), R = easeBuf(O);
             for (let s = 0; s < En; s++) R[i ? N_SAMPLES - 1 - s : s] += (m - r0) * (1 - SMOOTH(s / En));
           }
@@ -4953,7 +4991,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (r.dir > 0) hi = 1 - off; else lo = off;
       }
       if (kind === 'v' && ligatedAt(id)) lo = Math.max(lo, divideLen(id) / (it.len || geo[id].len || 1));
-      tubeData[o + 20] = lo; tubeData[o + 21] = hi; tubeData[o + 22] = kind === 's' ? obj.len : kind === 'f' ? arcLen(it.pts) || 1 : it.len || geo[id].len || 1;
+      tubeData[o + 20] = lo; tubeData[o + 21] = hi; tubeData[o + 22] = kind === 's' ? obj.len : kind === 'f' ? lenOfItem(it) || 1 : it.len || geo[id].len || 1;
       for (let j = 23; j < 28; j++) tubeData[o + j] = 0;
       let tint = kind === 'v' && cathTint?.[id], t0 = 0, t1 = 0;
       if (tint) { t0 = tint[0]; t1 = tint[1]; }

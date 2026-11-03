@@ -126,13 +126,13 @@ const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8
 
 test('the GPU radii take the run\'s taper for vessels that run on at a two-vessel node; forks, strands and the cava drawn as one keep their own eases', () => {
   // (Allocation-free since 2 Nov 2026: the chains are found again only when the links change, each chain planned into kept plans.)
-  assert.match(stage, /import \{ chainsOf, planChainInto, taperAt \} from '\.\/vessel-taper\.js/);
+  assert.match(stage, /import \{ chainsOf, planChainInto \} from '\.\/vessel-taper\.js/);
   assert.match(stage, /const plainRow = \(row\) => \{ const it = rowIt\[row\]; return !!it && it\.kind !== 's' && !it\.ra && !!it\.obj\.glR0; \};/);
   assert.match(stage, /L\.chained = !L\.fork && plainRow\(L\.a\) && plainRow\(L\.b\);/);
   assert.match(stage, /tapChains = chainsOf\(tapIds, tapLinks\)\.filter\(\(c\) => c\.length >= 2\);/);
   assert.match(stage, /planChainInto\(chain, tapBodyOf, tapLenOf, tapPlanOf, tapS, tapY, tapD, tapH, tapK\);/);
   // (The vessel's own radii scaled by the plan over its own caliber: a stenosis's waist rides on the taper.)
-  assert.match(stage, /E\[i\] = R0\[i\] \* \(taperAt\(p, len, i \/ \(N_SAMPLES - 1\)\) \/ body\);/);
+  assert.match(stage, /E\[i\] = R0\[i\] \* \(\(\(2 \* u3 - 3 \* u2 \+ 1\) \* y0 \+ \(u3 - 2 \* u2 \+ u\) \* len \* d0 \+ \(-2 \* u3 \+ 3 \* u2\) \* y1 \+ \(u3 - u2\) \* len \* d1\) \/ body\);/);
   // The fork's funnel and the pairs left out of the plan go on as before.
   assert.match(stage, /if \(L\.chained\) continue;/);
   assert.match(stage, /if \(fork\) \{/);
