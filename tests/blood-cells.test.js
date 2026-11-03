@@ -97,7 +97,7 @@ test('the figure bins each vessel with a core and repaints the redrawn cells who
   // The core: the reach less the 18 reachOf adds for casing, shadow and glow, plus a pad.
   assert.match(stage, /const reachOf = \(it\) => Math\.ceil\(\(it\.obj\.glMaxR \+ \(it\.x\.wallPx \|\| 1\) \+ 18\) \/ 2\) \* 2;/);
   assert.match(stage, /const core = reach - 18 \+ BLOOD_PAD;/);
-  assert.match(stage, /reach: reach \+ a\.m, core: core \+ a\.m/);
+  assert.match(stage, /o\.reach = reach \+ a\.m; o\.core = core \+ a\.m;/);   // (binTube writes its tube into a kept entry, not a new object)
   // drawRows changed the vessel layer under some cells: its composite repaints those cells whole (shape and tint both), the rest as the
   // blood's frame does (external review, 21 Oct: one changed cell repainted every cell).
   assert.match(gl, /const both = part\.k \+ tintPart\.k;\n\s*if \(both\) \{ const mark = part\.mark; for \(let c = 0; c < nCells; c\+\+\) if \(tintPart\.mark\[c\]\) mark\[c\] = 1; uploadPart\(mark\); \}\n\s*this\.composite\(look, blood, full, both\);/);

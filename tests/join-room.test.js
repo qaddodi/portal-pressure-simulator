@@ -33,6 +33,7 @@ test('without a binning circle a widening join changes its cells and is binned w
 
 test('the figure keeps a circle per join while it stays inside', () => {
   const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
-  assert.match(st, /const out = b && Math\.hypot\(j\.x - b\.x, j\.y - b\.y\) \+ j\.reach > b\.r;\n\s+if \(!b \|\| out\) joinBin\.set\(k, \{ x: j\.x, y: j\.y, r: Math\.ceil\(Math\.max\(j\.reach \* 1\.5, out \? b\.r \* 1\.5 : 0\) \/ 2\) \* 2 \+ 8 \}\);/);
+  // (A circle is made once, and written in place when a join leaves it: at least half as wide again as the last.)
+  assert.match(st, /const out = b && Math\.hypot\(j\.x - b\.x, j\.y - b\.y\) \+ j\.reach > b\.r;\n\s+let c = b;\n\s+if \(!b\) joinBin\.set\(k, c = \{ x: j\.x, y: j\.y, r: Math\.ceil\(Math\.max\(j\.reach \* 1\.5, 0\) \/ 2\) \* 2 \+ 8 \}\);\n\s+else if \(out\) \{ b\.x = j\.x; b\.y = j\.y; b\.r = Math\.ceil\(Math\.max\(j\.reach \* 1\.5, b\.r \* 1\.5\) \/ 2\) \* 2 \+ 8; \}/);
   assert.match(st, /const J = veinJoins\(items\), smooth = smoothRunOn\(items\);\n\s+joinRoom\(J, items\);/);
 });

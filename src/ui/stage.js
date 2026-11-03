@@ -3078,11 +3078,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     let v = '';
     if (vdpr < vBase - 1e-9) {
       const fx = T[4] - Math.round(T[4]), fy = T[5] - Math.round(T[5]);
-      if (fx || fy) v = `${(fx / vdpr).toFixed(3)}px ${(fy / vdpr).toFixed(3)}px`;
+      if (fx || fy) {
+        if (fx !== subFx || fy !== subFy || vdpr !== subVd) { subFx = fx; subFy = fy; subVd = vdpr; subTxt = `${(fx / vdpr).toFixed(3)}px ${(fy / vdpr).toFixed(3)}px`; }
+        v = subTxt;
+      }
     }
     if (vCanvas.style.translate !== v) vCanvas.style.translate = v;
     if (veins?.overlay) veins.overlay.snap = vdpr < vBase - 1e-9;   // (the overlays drawn in the canvas go at whole pixels with the vessels)
   }
+  let subFx = NaN, subFy = NaN, subVd = NaN, subTxt = '';   // (the rest and density the kept text was made for: the text is made again only when they change)
   function easeRes() {
     // (The kept picture is copied onto the canvas before each read of it: the canvas keeps none of its own between frames.)
     if (glM && !(lz?.isOpen() || lz?.covers()) && !diveOrig) {
@@ -3107,13 +3111,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // share into the renderer's own buffer, then upscaled onto it (veins-gl setPicture). picNow: that share's size, or null (off, at Full,
   // or no GPU renderer): the canvas is then the picture, as before.
   let picNow = null, picLin = false;
+  let resTxtOf = NaN;
   const picNext = [0, 0], picKept = [0, 0];   // (the size asked for now, and the size kept in picNow: two pairs written in place)
   function resizeCanvas() {
     const r = stageBox(), was = vdpr;   // (the stage's box, kept by its observer: no layout read on the frame)
     const base = Math.min(2, devicePixelRatio || 1) * QUALITY[quality].res;
     vdpr = base * figShare(r.width, r.height, base); vBase = base;   // (Settings › Figure resolution)
     veins?.setLayerScale?.(figOpt('glow'));   // (Figure resolution › Glows: the glow layers' own share)
-    wrap.dataset.res = vdpr.toFixed(2);   // (the vessel canvas's pixels per CSS pixel, for diagnosis)
+    if (vdpr !== resTxtOf) { resTxtOf = vdpr; wrap.dataset.res = vdpr.toFixed(2); }   // (the vessel canvas's pixels per CSS pixel, for diagnosis; written when it changes)
     let bw = Math.max(1, Math.round(r.width * vdpr)), bh = Math.max(1, Math.round(r.height * vdpr));
     const pw = bw, ph = bh;
     // (With the overlays on the GPU (?stageover=gpu) the canvas is at the screen's own density, as the SVG they replace is drawn, and
@@ -3206,9 +3211,22 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The view box morphs from the anatomy's to the circuit's, wide or (turned) tall.
   // (The box itself is kept here, not read back from the attribute: while the GPU draws, the attribute is written once the figure rests
   // (setG; flushGeo before anything asks the browser for the figure's matrix), as nothing on the page shows the SVG model then.)
+  // (The four numbers and their text are made again only when a number changed from the last call: a kept list, written in place.)
+  const vbNow = [0, 0, 0, 0], vbSeen = [NaN, NaN, NaN, NaN];
+  let vbTxt = '';
   function setViewBox(t) {
-    const rr = rotEase(rotU), vb = VB_ANAT.map((a, i) => lerp(a, lerp(VB_CIRC[i], VB_CIRC_R[i], rr), t)), txt = vb.map((v) => v.toFixed(1)).join(' ');
-    vbBox.x = +vb[0].toFixed(1); vbBox.y = +vb[1].toFixed(1); vbBox.width = +vb[2].toFixed(1); vbBox.height = +vb[3].toFixed(1);
+    const rr = rotEase(rotU);
+    let vbChanged = false;
+    for (let i = 0; i < 4; i++) {
+      const v = lerp(VB_ANAT[i], lerp(VB_CIRC[i], VB_CIRC_R[i], rr), t);
+      vbNow[i] = v;
+      if (v !== vbSeen[i]) { vbSeen[i] = v; vbChanged = true; }
+    }
+    if (vbChanged) {
+      vbTxt = `${vbNow[0].toFixed(1)} ${vbNow[1].toFixed(1)} ${vbNow[2].toFixed(1)} ${vbNow[3].toFixed(1)}`;
+      vbBox.x = +vbNow[0].toFixed(1); vbBox.y = +vbNow[1].toFixed(1); vbBox.width = +vbNow[2].toFixed(1); vbBox.height = +vbNow[3].toFixed(1);
+    }
+    const txt = vbTxt;
     setG(svg, 'viewBox', txt);
     // (The overlays' SVG shows what the painter leaves to it, unless the GPU paints all of it: its box is written at once then.)
     if (svgOver) setG(svgOver, 'viewBox', txt, svgOver.classList.contains(OVER_ALL) ? undefined : false);
@@ -3217,6 +3235,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
 
   // A vessel's course at t of the change between the views (eased: 0 the anatomy, 1 the circuit), as updateGeometry draws it; and its
   // strands' (strandAt). Pure: the GPU morph (morphTrack) asks for moments ahead of the one drawn.
+  const vesOut = { pts: null, base: null, u0: 0 };   // (the answer, written in place: every caller reads it at once, before the next ask)
   function vesselAt(x, t) {
     const g = geo[x.e.id];
     let pts;
@@ -3224,7 +3243,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const base = pts;
     const u0 = STRAND_FROM[x.e.id] || 0;
     if (x.e.kind === 'collateral' && !x.e.spontaneous && t < 1) { const wz = wiggle(pts, g.wig * (1 - t), x.e.id.length); pts = u0 ? blendFrom(base, wz, u0) : wz; }
-    return { pts, base, u0 };
+    vesOut.pts = pts; vesOut.base = base; vesOut.u0 = u0;
+    return vesOut;
   }
   // Strands fan out from the shared ends (or from where the trunk breaks up) and fold back
   // onto the lane in the circuit.
@@ -3237,6 +3257,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return sp;
   }
   // `only`: the vessels whose shape changed while the morph stayed put (a collateral coiling); the rest keep their paths.
+  let ascT = NaN, ascTxt = '', fxcT = NaN, fxcTxt = '';   // (the opacity texts of the ascites and the circuit's layer, made again only when t moved)
   function updateGeometry(force, only) {
     const t = easeInOut(morph);
     const full = force || t !== lastMorph;
@@ -3266,13 +3287,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (t > 0 && t !== nd.at) nodeVerts(t);   // (the dots show only with the circuit: at 0 they are not drawn, and kept where they were)
     setViewBox(t);
     organMorphA = 1 - t; paintOrganAlpha();
-    setG(gAscites, 'style:opacity', String(1 - t));
+    if (t !== ascT) { ascT = t; ascTxt = String(1 - t); }
+    setG(gAscites, 'style:opacity', ascTxt);
     svg.classList.toggle('circuit', t > 0.5);
     svgOver?.classList.toggle('circuit', t > 0.5);
     if (recs.show(t > 0.5 ? 1 : 0, performance.now(), reduceMotion.matches)) recKick();   // (the kept shapes of the circuit fade in and out as .circuit-only did: D_SURFACE, the page's ease)
     // The circuit is a dark hemodynamic map; the anatomy an atlas plate on paper.
     stageWrap.classList.toggle('cmap', t > 0.5);
-    if (gFxC.firstChild || t === 0 || t === 1) setG(gFxC, 'style:opacity', String(t));   // (an empty layer takes no opacity through the change between the views; its value lands with the view)
+    if (gFxC.firstChild || t === 0 || t === 1) { if (t !== fxcT) { fxcT = t; fxcTxt = String(t); } setG(gFxC, 'style:opacity', fxcTxt); }   // (an empty layer takes no opacity through the change between the views; its value lands with the view)
     // (The map and the dots fade with t on the GPU: at 0 neither is drawn nor read.)
     if (MAP.a !== t) { MAP.a = t; nd.dirty = true; }
     CTM = null;
@@ -3298,8 +3320,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The loading screen (index.html) waits for this: the figure framed, faded in and on screen.
   let figureShown = false;
   const showFigure = () => {
-    wrap.classList.remove('unframed');
     if (figureShown) return;
+    wrap.classList.remove('unframed');
     figureShown = true;
     nextFrame(figureReady1);
   };
@@ -3520,6 +3542,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return jWidths.answer();
   }
 
+  // (The glow a selected vessel takes, one entry per vessel made here once: setGlowSrc reads them and copies what it changes.)
+  const SEL_ENTRY = {}, selGlowList = [];
+  for (const x of EV) { const id = x.e.id; SEL_ENTRY[id] = SIN_EDGES.has(id) ? { id, col: null, amt: 1.5, wide: 1.2, dur: 450 } : { id, col: null, amt: 1.5, wide: 0.6, dur: SEL_FADE * 1000 }; }
   const varixSNow = { VAR: 0, GV: 0 }, coilingBuf = [], NO_VESSELS = [], selIdsNow = [], selIdsKept = [];   // (kept, written in place)
   // A vessel's (or feeder's) two end colours, which the GPU's vessel rows take (syncVeins reads them at once and keeps none): the pair is made
   // the first time and written in place after.
@@ -3528,6 +3553,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!c) o.col = [a, b];
     else if (c[0] !== a || c[1] !== b) { c[0] = a; c[1] = b; }
   }
+  function renderTubes(p, t, J) { for (const x of EV) if (x.vis && !x.isArt) renderTube(x, p, t, J); }
+  const overlaysStep = (f, p, t) => updateOverlays(f, p, lerp(1, 0.8, t), t);   // (gain = lerp(1, 0.8, t), as updateInner has it)
   function updateInner(f) {
     // Covered by the lobule or the dive's field (anatCovered), the plate is left as it is (reading the cards' boxes and
     // restyling it each model frame, unseen, stalled the zoom); it catches up on the way out, with its eases already where they
@@ -3556,7 +3583,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const pRaw = f.viewParams || st.params, p = lesions.view(pRaw, dtW, reduceMotion.matches);
     if (lesions.differs(pRaw)) widthEasing = true;
     const t = easeInOut(morph);
-    const gain = lerp(1, 0.8, t);
     const ref = REF();
     // The circuit shown small (a phone, the whole map): every lane grows by the same factor, so the
     // widest stays about 10 px on screen; capped so neighbouring lanes stay apart.
@@ -3722,8 +3748,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const ids = selIdsKept;
         ids.length = now.length;
         for (let i = 0; i < now.length; i++) ids[i] = now[i];
-        vh.selKey = ids.join(); vh.sel = new Set(ids);
-        setGlowSrc('sel', ids.map((id) => (SIN_EDGES.has(id) ? { id, col: null, amt: 1.5, wide: 1.2, dur: 450 } : { id, col: null, amt: 1.5, wide: 0.6, dur: SEL_FADE * 1000 })));
+        vh.sel.clear(); selGlowList.length = 0;   // (the set and the list are kept and written in place; the entries are made once per vessel, above)
+        for (let i = 0; i < ids.length; i++) { vh.sel.add(ids[i]); selGlowList.push(SEL_ENTRY[ids[i]]); }
+        setGlowSrc('sel', selGlowList);
         if (!vh.raf) { vh.t = performance.now(); vh.raf = nextFrame(vhStep); }
       }
     }
@@ -3734,14 +3761,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // dashed stroke from its first frame (never first as a full tube that then vanishes).
     trackChanges(f, p);
     stepReveals(performance.now());
-    gpuProbe.time(null, 'update: tubes', () => { for (const x of EV) if (x.vis && !x.isArt) renderTube(x, p, t, J); });
+    gpuProbe.time(null, 'update: tubes', renderTubes, p, t, J);
     // A selected vessel stays bright while the rest of the network recedes.
     flag.hasSel = st.selection?.type === 'edge' && !!E[st.selection.id]?.vis;
     syncLift();
     syncVeins(t);
     updateOrganSel(st.selection, t);
     gpuProbe.time(null, 'update: nodes', updateNodesCircuit, f);
-    gpuProbe.time(null, 'update: overlays', () => updateOverlays(f, p, gain, t));
+    gpuProbe.time(null, 'update: overlays', overlaysStep, f, p, t);
     updateFocus();
     dopApply();
     // (Not through a dive or a rise: the anatomy's labels fade out as it starts, and the way out lays them out once, for its landing.)
@@ -3875,20 +3902,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     stageWake();
     inUpdate = true;
     try {
-      gpuProbe.time(null, 'organ step (script)', () => {
-        const t = easeInOut(morph);
-        widthEasing = organsEasing = false;
-        updateOrgans(f, f.viewParams || store.get().params, t);
-        // (What the width step lays out every frame, it does here too: the site labels, a scan, a slide's moving camera, TIPS or DIPS.)
-        if ((sites.list || scan.on || camMove || E.TIPS?.vis || E.DIPS?.vis) && !(diveT > 0 && diveT < 1)) updateLabels(f);
-        if (fx) fxSync(f, t);
-      });
+      gpuProbe.time(null, 'organ step (script)', organStepBody, f);
     } finally { inUpdate = false; fxAt = null; }
     if (plateRedraw) { plateRedraw = false; drawVeins(false, 'plate hidden'); }
     firstFrame();
     prepLobule();
     followHome();
     return true;
+  }
+  function organStepBody(f) {
+    const t = easeInOut(morph);
+    widthEasing = organsEasing = false;
+    updateOrgans(f, f.viewParams || store.get().params, t);
+    // (What the width step lays out every frame, it does here too: the site labels, a scan, a slide's moving camera, TIPS or DIPS.)
+    if ((sites.list || scan.on || camMove || E.TIPS?.vis || E.DIPS?.vis) && !(diveT > 0 && diveT < 1)) updateLabels(f);
+    if (fx) fxSync(f, t);
   }
   function stepWidthsInner(f) {
     const nowW = performance.now(), dt = Math.min(0.1, (nowW - (wAt || nowW)) / 1000);
@@ -4059,16 +4087,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // whole circuit at its smallest zoom (K_MIN) in a small window on a 1x screen, drawn at half resolution (a software
   // renderer). Elsewhere in its cells nothing changes from frame to frame.
   const BLOOD_PAD = 6;
-  function binTube(it, pts) {
+  const binTubes = [], binList = [];   // (binVeins' tubes: kept entries, one per item, written in place; binVeins keeps none of them, only their ids and copies of their points)
+  function binTubeOf(i) { return binTubes[i] || (binTubes[i] = { id: 0, pts: null, bin: null, reach: 0, core: 0 }); }
+  function binTube(it, pts, o) {
     const reach = vBinReach.get(it.row), g = it.x.e.kind === 'collateral' ? geo[it.x.e.id] : null;   // (its strands and feeders too)
     const core = reach - 18 + BLOOD_PAD;
+    o.id = it.row; o.pts = pts;
     // (A collateral that never coils, spontaneous or straight, has no target: wigT stays unset, and a reach of
     // NaN from it spoilt the whole binning's bounds, so no vessel drew at all: the outflow talk's caval collateral, 18 Oct.)
     // (A varix's strands fanning in or out as it changes size move the same way, eased (g.spr toward g.sprT), and are binned the
     // same way: each frame of the ease was a whole binning, a 2.8 MB upload and a whole draw, on the procedure slides. The margin
     // is how far a strand can still move: its offset times the spread left to ease; the check below re-bins past it, so it is only a guess.)
     const wigE = !!g && g.wigT != null && g.wig !== g.wigT, sprE = !!g && it.kind === 's' && g.sprT != null && (g.spr ?? 1) !== g.sprT;
-    if (!wigE && !sprE) { binFrom.delete(it.row); return { id: it.row, pts, reach, core }; }
+    if (!wigE && !sprE) { binFrom.delete(it.row); o.bin = null; o.reach = reach; o.core = core; return o; }
     let a = binFrom.get(it.row);
     if (a && a.pts.length === pts.length) {
       let far = 0;
@@ -4076,27 +4107,30 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (far > a.m) a = null;
     } else a = null;
     if (!a) binFrom.set(it.row, a = { pts: pts.map((q) => q.slice()), m: Math.ceil((wigE ? Math.abs(g.wigT - g.wig) * 2 : 0) + (sprE ? Math.abs(it.obj.off || 0) * Math.abs(g.sprT - (g.spr ?? 1)) * 2.4 : 0) + 1) / 2 });
-    return { id: it.row, pts, bin: a.pts, reach: reach + a.m, core: core + a.m };
+    o.bin = a.pts; o.reach = reach + a.m; o.core = core + a.m;
+    return o;
   }
   // (Each join's binning circle, kept while the join stays inside it: veins-bin lists the join in that circle's cells. The joins ease
   // wider with their vessels on a slide change, and each new cell was a whole binning of every vessel and a 4 MB upload, 11 in one
   // Varices slide change (motion budget, 2 Nov). Kept per set of vessels.)
   const joinBin = new Map();
-  let joinBinIds = '';
+  const joinBinRows = [];   // (the rows the circles were kept for, compared one by one and written in place)
   function joinRoom(J, items) {
-    const ids = items.map((it) => it.row).join(',');
-    if (ids !== joinBinIds) { joinBinIds = ids; joinBin.clear(); }
+    let sameRows = items.length === joinBinRows.length;
+    for (let i = 0; sameRows && i < items.length; i++) if (items[i].row !== joinBinRows[i]) sameRows = false;
+    if (!sameRows) { joinBinRows.length = items.length; for (let i = 0; i < items.length; i++) joinBinRows[i] = items[i].row; joinBin.clear(); }
     for (const j of J) {
       const k = `${j.members.join('.')}|${j.trunk ?? ''}`, b = joinBin.get(k);
       // (A join that leaves its circle takes one at least half as wide again as the last, so a join easing wider leaves it once or
       // twice rather than at every few pixels: still 7 whole binnings in a Varices slide change with the circle at the join's own width.)
       const out = b && Math.hypot(j.x - b.x, j.y - b.y) + j.reach > b.r;
-      if (!b || out) joinBin.set(k, { x: j.x, y: j.y, r: Math.ceil(Math.max(j.reach * 1.5, out ? b.r * 1.5 : 0) / 2) * 2 + 8 });
-      const c = joinBin.get(k);
+      let c = b;
+      if (!b) joinBin.set(k, c = { x: j.x, y: j.y, r: Math.ceil(Math.max(j.reach * 1.5, 0) / 2) * 2 + 8 });
+      else if (out) { b.x = j.x; b.y = j.y; b.r = Math.ceil(Math.max(j.reach * 1.5, b.r * 1.5) / 2) * 2 + 8; }   // (the circle is written in place; its old radius read first)
       j.binX = c.x; j.binY = c.y; j.binReach = c.r;
     }
   }
-  let vBinKey = '', vBinReach = new Map(), veinsDirty = true, veinsDrawKey = '', vLook = null, glOrgans = false;
+  let vBinKey = '', vBinReach = new Map(), vBinSpare = new Map(), veinsDirty = true, veinsDrawKey = '', vLook = null, glOrgans = false;
   // (R04: the drawn view, in thousandths of the transform and the canvas's size; viewNext the one asked now, kept once it is drawn.)
   const viewKeep = new Float64Array(8).fill(NaN), viewNext = new Float64Array(8);
   let viewKeyN = 0;
@@ -4155,7 +4189,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       for (const sd of x.strands || []) if (sd.cur && (sd.live ?? 1) > 0.02) items.push({ x, obj: sd, row: sd.row, pts: strandAt(x, sd, t, v), kind: 's' });
       for (const fd of x.feeders || []) if ((fd.live ?? 1) > 0.02 && fd.w) items.push({ x, obj: fd, row: fd.row, pts: fd.cur, kind: 'f' });
     }
-    return cavaAsOne(items, (id, P) => arcLen(P));
+    return cavaAsOne(items, lenOfArc);
   }
   // Joins and smoothed courses of a list (veinJoins, smoothRunOn), leaving the figure's own (glStraight, glRadDirty) as they were. A
   // vessel not drawn yet (the other side's: the circuit's branches, a vessel the anatomy leaves out) is given its radii as they would
@@ -4318,7 +4352,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         for (const sd of x.strands || []) if (sd.cur) items.push({ x, obj: sd, row: sd.row, pts: strandAt(x, sd, t, v), kind: 's' });
         for (const fd of x.feeders || []) if (fd.cur) items.push({ x, obj: fd, row: fd.row, pts: fd.cur, kind: 'f' });
       }
-      return cavaAsOne(items, (id, P) => geo[id].len || arcLen(P));
+      return cavaAsOne(items, lenOfGeo);
     } finally { for (const [g, wg, s0] of saved) { g.wig = wg; g.spr = s0; } }
   }
   function envSoon() {
@@ -4377,12 +4411,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // A frame of an ease drawn from its stretch, when its vessels fit it. Each vessel's course is followed between the two moments its
   // share of the ease left lies between (the vessels not easing have one course at every moment).
+  const sOfNone = () => -1;
+  let morphS = 0;   // (the moment a frame of the change lies at, for sOfMorph: frameFrom runs at once and is never re-entered)
+  const sOfMorph = () => morphS;
   function coilFrame(items) {
     const pc = et.pc;
     if (!EASE_GPU || !pc?.set || pc.set.owner !== veins) return false;
     if (!coilEasing && mt.using !== pc.set) return false;   // (at rest, from a binning of its own: binned as before)
     // (Each point checked against its courses round the box: an ease can be anywhere in it.)
-    if (!frameFrom(pc, items, () => -1, easeMiss)) return false;
+    if (!frameFrom(pc, items, sOfNone, easeMiss)) return false;
     et.stats.gpu++;
     // (Landed, the figure goes back to a binning of its own once the page is quiet: the envelope's lists are wider than it needs.)
     clearTimeout(et.restT);
@@ -4427,7 +4464,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // Where t falls among the stretch's moments.
     let s = 0;
     while (s < pc.ts.length - 2 && t > pc.ts[s + 1]) s++;
-    return frameFrom(pc, items, () => s, morphMiss);
+    morphS = s;
+    return frameFrom(pc, items, sOfMorph, morphMiss);
   }
   // A frame drawn from a stretch's binning (pc), when its vessels fit it, with `sOf(it)` the moments its course lies between: every point
   // within the slack of where it went between its two (the cells and the circles were swept over the hull of each piece of a vessel at
@@ -4561,8 +4599,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       for (const sd of x.strands || []) if (sd.cur && (sd.live ?? 1) > 0.02) items.push({ x, obj: sd, row: sd.row, pts: sd.cur, kind: 's' });
       for (const fd of x.feeders || []) if ((fd.live ?? 1) > 0.02 && fd.w) items.push({ x, obj: fd, row: fd.row, pts: fd.cur, kind: 'f' });
     }
-    return cavaAsOne(items, (id, P) => geo[id].len || arcLen(P));
+    return cavaAsOne(items, lenOfGeo);
   }
+  const lenOfGeo = (id, P) => geo[id].len || arcLen(P), lenOfArc = (id, P) => arcLen(P);   // (kept: cavaAsOne's length function, no closure made per call)
   const cavaMemo = { P: null, Q: null, La: 0, Lb: 0, pts: null };   // (the cava's resample and the two courses it was made from)
   function cavaAsOne(items, lenOf) {
     // The cava is drawn as one vessel: its two stretches (below and above the hepatic veins) are two
@@ -4726,37 +4765,50 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // those texels alone are written again (writeGlowTexels, as the whole sync writes them) and only the rows that changed are
   // drawn again: the same tube data and the same picture as a whole sync, without rebuilding ~300 items each frame of an ease.
   let glowMemo = null;
+  // (The memo is one kept object written in place by each whole sync, with its widths list and its classes buffer; glowBits' second slot is the
+  // scratch the glow-only check compares against. The buffers grow when a sync has more items than they hold.)
+  const glowMemoObj = { items: null, t: 0, netA: 0, cs: null, mode: '', origin: false, cath: null, F: null, geo: 0, plate: false, cls: '', bits: null, reach: 0, selK: '', wide: [] };
+  const glowBitsBuf = [new Uint8Array(512), new Uint8Array(512)];
   const IVC_LIST = [...IVC_EDGES];
   // Each item's classes the whole sync reads (selected, hovered, ghost; on its own and the cava's upper stretch), and the cava's.
-  function glowBits(items) {
-    const b = new Uint8Array(items.length + IVC_LIST.length);
-    items.forEach((it, i) => { b[i] = (it.x.sel ? 1 : 0) | (it.x.ghost ? 4 : 0) | (it.ra?.sel ? 8 : 0) | (it.x.lifted ? 32 : 0) | (it.x.reveal ? 64 : 0); });
-    IVC_LIST.forEach((id, i) => { b[items.length + i] = E[id]?.sel ? 1 : 0; });
+  function glowBits(items, slot) {
+    const n = items.length + IVC_LIST.length;
+    let b = glowBitsBuf[slot];
+    if (b.length < n) glowBitsBuf[slot] = b = new Uint8Array(n * 2);
+    for (let i = 0; i < items.length; i++) { const it = items[i]; b[i] = (it.x.sel ? 1 : 0) | (it.x.ghost ? 4 : 0) | (it.ra?.sel ? 8 : 0) | (it.x.lifted ? 32 : 0) | (it.x.reveal ? 64 : 0); }
+    for (let i = 0; i < IVC_LIST.length; i++) b[items.length + i] = E[IVC_LIST[i]]?.sel ? 1 : 0;
     return b;
   }
   // Whether a selected or spotlit vessel eases back into the network toward its end at node n (highlight-math.js liftEnd).
+  const selJoins = [], SEL_JOIN_POOL = EV.map(() => ({ lit: false, ghost: false }));   // (a list and its entries, kept: at most one per vessel, written in place)
   function selEnd(id, n) {
-    const joins = [];
+    const joins = selJoins;
+    joins.length = 0;
     for (const y of EV) {
       if (y.e.id === id || !y.vis || (y.e.from !== n && y.e.to !== n)) continue;
-      joins.push({ lit: vh.sel.has(y.e.id) || spot.ids.has(y.e.id), ghost: y.ghost });
+      const jn = SEL_JOIN_POOL[joins.length];
+      jn.lit = vh.sel.has(y.e.id) || spot.ids.has(y.e.id); jn.ghost = y.ghost;
+      joins.push(jn);
     }
     return liftEnd(spot.ids.has(id) && spotOn(), joins);
   }
+  let rgbGlowCs = null;
+  const rgbGlowOf = (c) => toRGB(c, rgbGlowCs);   // (the glow-only sync's colour reader, kept; rgbGlowCs the style it reads)
   function glowOnlyOk(t) {
     const m = glowMemo;
     if (!m || !veins || veins.lost || !vLook || tubesNew || lensFrom || colEasing || !tubesShown || tubesShown.length !== tubeData.length) return false;
     if (m.t !== t || m.F !== F || m.geo !== geometryVersion || m.netA !== netA || m.cs !== wrapCS() || m.mode !== layerMode() || m.origin !== originOn()) return false;
     if (m.selK !== selAKey() || m.cath !== cathTint || m.plate !== veins.hasPlate(0) || m.cls !== wrapCls() || m.reach !== (glow.lit.size ? 20 : 11)) return false;
-    const b = glowBits(m.items);
-    for (let i = 0; i < b.length; i++) if (b[i] !== m.bits[i] || b[i] & 64) return false;   // (a vessel drawing on changes with the clock: whole syncs)
+    const b = glowBits(m.items, 1), nb = m.items.length + IVC_LIST.length;   // (the buffer may be longer than the items it holds)
+    for (let i = 0; i < nb; i++) if (b[i] !== m.bits[i] || b[i] & 64) return false;   // (a vessel drawing on changes with the clock: whole syncs)
     return true;
   }
   /** The glow-only sync: true when it stood in for syncVeins (see glowMemo). */
   function syncGlowOnly(t) {
     if (!glowOnlyOk(t)) return false;
     glowSync = false;
-    const cs = glowMemo.cs, rgbCs = (c) => toRGB(c, cs), W = TUBE_TEXELS * 4;
+    const cs = glowMemo.cs, rgbCs = rgbGlowOf, W = TUBE_TEXELS * 4;
+    rgbGlowCs = cs;
     let changed = false;
     for (const it of glowMemo.items) {
       if (it.kind !== 'v' && it.kind !== 's') continue;
@@ -5109,6 +5161,41 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     binKeyStr = `${geometryVersion}|` + items.map((it) => it.row).join(',');   // alloc-rare: only when the layout or the rows changed
     return binKeyStr;
   }
+  function binningStep(items, key, grew) {
+    morphOff();
+    if (morph !== morphTarget) mt.stats.cpu++;
+    vBinKey = key;
+    // A vessel that outgrows its reach gets a quarter more room than it needs: a widening vein (a congested IVC easing
+    // in over a slide) was re-binned and its geometry uploaded again at every 2 px of growth, about 4 MB each time, a
+    // hundred times in one slide change. (The reach only says which cells list a vessel; the drawing is unchanged.)
+    const reachNext = vBinSpare;   // (the reach map is kept in two, written into the spare and swapped: the old one is read while the new is filled)
+    reachNext.clear();
+    for (let q = 0; q < items.length; q++) { const it = items[q]; reachNext.set(it.row, grew ? Math.max(vBinReach.get(it.row) || 0, Math.ceil(reachOf(it) * 1.25 / 2) * 2) : reachOf(it)); }
+    vBinSpare = vBinReach; vBinReach = reachNext;
+    const J = veinJoins(items), smooth = smoothRunOn(items);
+    joinRoom(J, items);
+    for (const it of items) if (it.kind === 'v') { it.obj.glPts = smooth.get(it.row) || it.pts; }
+    // (Binned against the last binning: a coiling collateral re-tests only its own cells, and when nothing the GPU holds
+    // changed (another vessel's coil easing while it is hidden), nothing is uploaded.)
+    binList.length = items.length;
+    for (let q = 0; q < items.length; q++) binList[q] = binTube(items[q], smooth.get(items[q].row) || items[q].pts, binTubeOf(q));
+    const bins = binVeins(binList, J, binMemo);
+    // (Patched in place, only the rows that changed go up again: the cells and every other entry are as uploaded.)
+    // (A patch changes only the cells of the vessels and joins it wrote again (veins-gl patchGeometry): they are drawn again as vessels
+    // whose radii changed are, veinsRows, instead of the whole layer. A whole binning draws the whole layer, as before.)
+    // (The same bins as shown, a binning that found nothing the GPU holds changed, draw nothing: a coil easing on a hidden
+    // vessel moved the geometry's version at every model frame for 20–35 s after a patient change, and each was a whole draw.)
+    let patched = null, whole = false;
+    if (bins !== binShown) {
+      if (bins.patch && binShown?.ent === bins.ent) { veins.patchGeometry(bins); if (bins.patchRows) patched = bins.patchRows; else whole = true; } else { veins.setGeometry(bins); whole = true; }
+      binShown = bins;
+    }
+    // (Each axis's curvature with it, so the flow arrowheads keep their shape on a bend: veins-gl chevAt.)
+    if (bins !== bendShown) { bendShown = bins; for (const it of items) veins.setBend(it.row, smooth.get(it.row) || it.pts); }
+    if (patched) for (const r of patched) veinsRows.add(r);
+    else if (whole) tubesNew = true;
+    if (morph === morphTarget) { mt.reach[morphTarget] = new Map(vBinReach); morphTrackSoon(); envSoon(); }
+  }
   function syncVeinsNow(t) {
     if (!veins || veins.lost) { colEasing = false; return; }
     glowSync = false;
@@ -5144,36 +5231,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (key === vBinKey) for (let q = 0; q < items.length; q++) if (reachOf(items[q]) > (vBinReach.get(items[q].row) || 0)) { grew = true; break; }
     // (Between the views, a binning made ahead for this stretch of the change, the frame's points sent up in a few rows: morphFrame.)
     if ((key !== vBinKey || grew) && gpuProbe.time(null, 'vessel sync: morph frame', morphFrame, items)) vBinKey = key;
-    else if (key !== vBinKey || grew) gpuProbe.time(null, 'vessel sync: binning', () => {
-      morphOff();
-      if (morph !== morphTarget) mt.stats.cpu++;
-      vBinKey = key;
-      // A vessel that outgrows its reach gets a quarter more room than it needs: a widening vein (a congested IVC easing
-      // in over a slide) was re-binned and its geometry uploaded again at every 2 px of growth, about 4 MB each time, a
-      // hundred times in one slide change. (The reach only says which cells list a vessel; the drawing is unchanged.)
-      vBinReach = new Map(items.map((it) => [it.row, grew ? Math.max(vBinReach.get(it.row) || 0, Math.ceil(reachOf(it) * 1.25 / 2) * 2) : reachOf(it)]));
-      const J = veinJoins(items), smooth = smoothRunOn(items);
-      joinRoom(J, items);
-      for (const it of items) if (it.kind === 'v') { it.obj.glPts = smooth.get(it.row) || it.pts; }
-      // (Binned against the last binning: a coiling collateral re-tests only its own cells, and when nothing the GPU holds
-      // changed (another vessel's coil easing while it is hidden), nothing is uploaded.)
-      const bins = binVeins(items.map((it) => binTube(it, smooth.get(it.row) || it.pts)), J, binMemo);
-      // (Patched in place, only the rows that changed go up again: the cells and every other entry are as uploaded.)
-      // (A patch changes only the cells of the vessels and joins it wrote again (veins-gl patchGeometry): they are drawn again as vessels
-      // whose radii changed are, veinsRows, instead of the whole layer. A whole binning draws the whole layer, as before.)
-      // (The same bins as shown, a binning that found nothing the GPU holds changed, draw nothing: a coil easing on a hidden
-      // vessel moved the geometry's version at every model frame for 20–35 s after a patient change, and each was a whole draw.)
-      let patched = null, whole = false;
-      if (bins !== binShown) {
-        if (bins.patch && binShown?.ent === bins.ent) { veins.patchGeometry(bins); if (bins.patchRows) patched = bins.patchRows; else whole = true; } else { veins.setGeometry(bins); whole = true; }
-        binShown = bins;
-      }
-      // (Each axis's curvature with it, so the flow arrowheads keep their shape on a bend: veins-gl chevAt.)
-      if (bins !== bendShown) { bendShown = bins; for (const it of items) veins.setBend(it.row, smooth.get(it.row) || it.pts); }
-      if (patched) for (const r of patched) veinsRows.add(r);
-      else if (whole) tubesNew = true;
-      if (morph === morphTarget) { mt.reach[morphTarget] = new Map(vBinReach); morphTrackSoon(); envSoon(); }
-    });
+    else if (key !== vBinKey || grew) gpuProbe.time(null, 'vessel sync: binning', binningStep, items, key, grew);
     // Attributes, every frame. (Allocation-free, 2 Nov 2026: the pass wrote each vessel's texels through array literals and spreads,
     // mapped its colours, mixed them into new arrays and kept them in a new Map every frame; now the numbers go straight into
     // tubeData and into kept colour pairs, colPass below, in the same arithmetic.)
@@ -5229,9 +5287,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
     }
     tubesNew = false;
-    glowMemo = { items, t, netA, cs, mode, origin: cpOrigin, cath: cathTint, F, geo: geometryVersion, plate: veins.hasPlate(0), cls: wrapCls(), bits: glowBits(items), reach: vLook.reach };
-    glowMemo.selK = selAKey();   // (the selection's ease sets the vessels' alpha, which the glow-only sync does not write)
-    glowMemo.wide = items.map((it) => it.x.width >= 3.4);   // (the sheen's width: syncRadiiOnly)
+    const gm = glowMemoObj;
+    gm.items = items; gm.t = t; gm.netA = netA; gm.cs = cs; gm.mode = mode; gm.origin = cpOrigin; gm.cath = cathTint; gm.F = F; gm.geo = geometryVersion;
+    gm.plate = veins.hasPlate(0); gm.cls = wrapCls(); gm.bits = glowBits(items, 0); gm.reach = vLook.reach;
+    gm.selK = selAKey();   // (the selection's ease sets the vessels' alpha, which the glow-only sync does not write)
+    gm.wide.length = items.length;   // (the sheen's width: syncRadiiOnly)
+    for (let q = 0; q < items.length; q++) gm.wide[q] = items[q].x.width >= 3.4;
+    glowMemo = gm;
     // The SVG organs just hid for the GPU plate: draw it now, so no frame shows neither.
     if (!plateWas && plateOn()) drawVeins(false, 'plate shown');
   }
@@ -5242,24 +5304,30 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     gpuProbe.by = by;
     try { return drawVeinsNow(fullComposite); } finally { gpuProbe.by = byWas; }
   }
+  // (Kept, written in place each draw: the view's six numbers in canvas pixels, the same six in stage pixels, the rows to name, and none.)
+  const drawT = [0, 0, 0, 0, 0, 0], glMBuf = [0, 0, 0, 0, 0, 0], pendRows = [], NO_ROWS = [];
+  const pendPush = (r) => { pendRows.push(r); };
+  function rowsShown() { for (let i = 0; i < pendRows.length; i++) veinsRows.delete(pendRows[i]); }
   function drawVeinsNow(fullComposite) {
     if (liveSet || liveOn()) { syncLiveOrgans(); if (liveSet) veins.organs.shift('bowel', bowelDy()); }
     if (!veins || veins.lost || !vLook || !F) return false;
     if (!CTM) refreshCTM();
     const m = CTM;
-    const T = [vdpr * m.a, vdpr * m.b, vdpr * m.c, vdpr * m.d, vdpr * (m.e - wrapRect.left), vdpr * (m.f - wrapRect.top)];
+    const T = drawT;
+    T[0] = vdpr * m.a; T[1] = vdpr * m.b; T[2] = vdpr * m.c; T[3] = vdpr * m.d; T[4] = vdpr * (m.e - wrapRect.left); T[5] = vdpr * (m.f - wrapRect.top);
     subPixel(T);
     // (R04: the view the layer was drawn in is kept as numbers (thousandths) and compared one by one; a new view gets a new number
     // as its key. Nothing is joined into a string on a camera frame.)
     const key = viewSame(T, vCanvas.width, vCanvas.height) ? veinsDrawKey : ++viewKeyN;
     // The rows changed since the layer was drawn, taken once and kept until a draw has shown them: a refused partial draw
     // passes them on to the whole draw that stands in for it, and they are let go only once one of the two has drawn.
-    const pending = veinsRows.size ? [...veinsRows] : null;
-    const shown = () => { for (const r of pending || []) veinsRows.delete(r); };
+    pendRows.length = 0;
+    if (veinsRows.size) veinsRows.forEach(pendPush);
+    const pending = pendRows.length ? pendRows : null;
     if (!veinsDirty && key === veinsDrawKey) {
       if (!pending) return false;
       // Only some vessels' attributes changed: their cells alone are drawn again (the same picture as a whole redraw).
-      if (veins.drawRows(T, vLook, bloodLook(), pending, fullComposite)) { shown(); return true; }
+      if (veins.drawRows(T, vLook, bloodLook(), pending, fullComposite)) { rowsShown(); return true; }
     }
     if (key !== veinsDrawKey) {
       settleRes();   // (the view moved: Figure resolution looks again once it settles)
@@ -5268,9 +5336,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     // (Moved with only some vessels' attributes changed, those vessels are named: a drag while the model plays still
     // moves the drawn layer, and draws their cells again, rather than drawing it all.)
-    const rows = veinsDirty ? null : pending || [];
-    veinsDirty = false; veinsDrawKey = key; viewKeep.set(viewNext); shown();
-    glM = [m.a, m.b, m.c, m.d, m.e - wrapRect.left, m.f - wrapRect.top];
+    const rows = veinsDirty ? null : pending || NO_ROWS;
+    veinsDirty = false; veinsDrawKey = key; viewKeep.set(viewNext); rowsShown();
+    glMBuf[0] = m.a; glMBuf[1] = m.b; glMBuf[2] = m.c; glMBuf[3] = m.d; glMBuf[4] = m.e - wrapRect.left; glMBuf[5] = m.f - wrapRect.top;
+    glM = glMBuf;
     // (Settings › Figure performance › Pinch frame reuse (frame.js): only while a hand zooms; a frame that laid the last picture again
     // leaves the layer to be drawn whole, so the view a pinch stops at is always shaded afresh.)
     const reuse = figLab('pinchReuse');
@@ -5313,6 +5382,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const LIVE_LAYERS = new Set(['back', 'spleen', 'liver', 'front']);
   // (Painted live, the bowel is a layer of its own, gathered under the gut's: syncLiveOrgans.)
   const LIVE_ORDER = ['back', 'behind', 'bowel', 'gut', 'kidney', 'spleen', 'stomach', 'liver', 'front'];
+  const LAYER_SPENT = {};   // (the name each layer's paint step is charged under, made once: refine.spent)
+  for (const L of LIVE_ORDER) LAYER_SPENT[L] = `organ layer ${L}`;
+  const bakeStep = (job, until) => job.step(until);
   const bowelDy = () => parseFloat((organG.bowel?.getAttribute('transform') || '').match(/^translate\(0 ([-\d.]+)\)$/)?.[1]) || 0;
   let liveFailed = false, liveFailWhy = '';
   const liveOn = () => gpuOrgansOn() && !!veins.organs.canLive && !liveFailed;
@@ -5361,7 +5433,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // read-back came on top of it). Work that is not wanted any more (the state moved on, a newer picture began) is dropped at its turn.
   const refineHeld = () => gestureOn() || !leftAlone(120);
   /** Waits for a frame in which refinement may run. Resolves with the ms the frame still has for it, or null once `gone()` says the work is not wanted. */
-  const refineTurn = (gone) => refine.turn(() => new Promise((res) => nextFrame(res)), refineHeld, gone);
+  const refineWaitFrame = () => new Promise(refineWaitExec), refineWaitExec = (res) => nextFrame(res);   // (kept, no closure made per turn)
+  const refineTurn = (gone) => refine.turn(refineWaitFrame, refineHeld, gone);
   /** Runs fn as one step of refinement, its time charged to the frame's allowance (and the longest step noted) under `name`. */
   const refineStep = (name, fn) => { const t0 = performance.now(); try { return fn(); } finally { refine.spent(performance.now() - t0, name); } };
   // The organs as layers (gpuOrgansOn): each layer rasterized as the plate is (rasterPlate, from the same copy), cropped to its own
@@ -5549,8 +5622,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const ms = await refineTurn(gone);
         if (ms === null) return false;
         const t0 = performance.now();
-        const done = gpuProbe.time(null, 'organ picture: GPU paint', () => job.step(t0 + ms));
-        refine.spent(performance.now() - t0, `organ layer ${L}`);
+        const done = gpuProbe.time(null, 'organ picture: GPU paint', bakeStep, job, t0 + ms);
+        refine.spent(performance.now() - t0, LAYER_SPENT[L]);
         if (done) return true;
       }
     } finally { if (!v.lost) job.drop(); }
@@ -14297,7 +14370,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     sinBusy: () => !!lz?.sinBusy(),
     cameraMoves: (clear) => (clear ? camMoves.splice(0) : [...camMoves]),
     /** The transform the GPU last drew the figure in, as [a, b, c, d, e, f] from world to stage px (null: not drawn on the GPU). */
-    glMatrix: () => (veins && !veins.lost && wrap.classList.contains('gl-on') ? glM : null),
+    glMatrix: () => (veins && !veins.lost && wrap.classList.contains('gl-on') ? glM?.slice() ?? null : null),   // (a copy: glM is kept and written in place by the next draw)
     /** For the checks: the vessel canvas as it stands (mid-gesture too), then after a whole redraw of it at the same view
      *  (PNG data URLs; equal when nothing on screen is stale, undrawn or softer), or null without the GPU figure. */
     /** For the checks: the organs' picture as the plate (one SVG of the whole plate) and as the layers the GPU draws instead

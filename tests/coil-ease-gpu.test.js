@@ -30,7 +30,7 @@ test('it is made at rest, after a binning at rest, and a frame tries it before t
 
 test('a frame draws from it only through the same checks as the change between the views', () => {
   const cf = body('coilFrame', '\n  }\n');
-  assert.ok(cf.includes('if (!frameFrom(pc, items, () => -1, easeMiss)) return false;'));
+  assert.ok(cf.includes('if (!frameFrom(pc, items, sOfNone, easeMiss)) return false;'));   // (sOfNone: the kept () => -1, no closure per frame)
   const ff = body('frameFrom', '  const veinsRows');
   assert.ok(ff.indexOf("return morphMiss('course')") < ff.indexOf('veins.setMorphFrame(buf)'));
   assert.ok(ff.indexOf("return morphMiss('reach')") < ff.indexOf('veins.setMorphFrame(buf)'));

@@ -8,7 +8,7 @@ import { binVeins } from '../src/ui/veins-bin.js';
 const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
 
 test('binTube treats a collateral with no coil target as settled', () => {
-  assert.match(stage, /const wigE = !!g && g\.wigT != null && g\.wig !== g\.wigT, sprE = !!g && it\.kind === 's' && g\.sprT != null && \(g\.spr \?\? 1\) !== g\.sprT;\n\s+if \(!wigE && !sprE\) \{ binFrom\.delete\(it\.row\); return \{ id: it\.row, pts, reach, core \}; \}/);
+  assert.match(stage, /const wigE = !!g && g\.wigT != null && g\.wig !== g\.wigT, sprE = !!g && it\.kind === 's' && g\.sprT != null && \(g\.spr \?\? 1\) !== g\.sprT;\n\s+if \(!wigE && !sprE\) \{ binFrom\.delete\(it\.row\); o\.bin = null; o\.reach = reach; o\.core = core; return o; \}/);
   // (Each term of the margin only while its own ease runs, and a strand with no offset adds none: never NaN.)
   assert.match(stage, /m: Math\.ceil\(\(wigE \? Math\.abs\(g\.wigT - g\.wig\) \* 2 : 0\) \+ \(sprE \? Math\.abs\(it\.obj\.off \|\| 0\) \* Math\.abs\(g\.sprT - \(g\.spr \?\? 1\)\) \* 2\.4 : 0\) \+ 1\) \/ 2/);
 });
@@ -19,7 +19,7 @@ test('a varix spread easing bins its strands against where they began, as a coil
   assert.match(stage, /g\.sprT = sprT;/);
   const i = stage.indexOf('  function binTube('), body = stage.slice(i, stage.indexOf('\n  }\n', i));
   assert.match(body, /if \(far > a\.m\) a = null;/, 'a strand moved past the margin is binned again');
-  assert.match(body, /return \{ id: it\.row, pts, bin: a\.pts, reach: reach \+ a\.m, core: core \+ a\.m \};/);
+  assert.match(body, /o\.bin = a\.pts; o\.reach = reach \+ a\.m; o\.core = core \+ a\.m;\n\s+return o;/);
 });
 
 test('one vessel with a NaN reach leaves binVeins with no cells (why the guard matters)', () => {
