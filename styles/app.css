@@ -7632,7 +7632,7 @@ body { font-optical-sizing: auto; font-kerning: normal; }
 /* Slide charts drawn on the GPU (svg-gl.js): the picture exactly over the chart's box (nothing past it: overflow would shrink the card's
    fit), and the model it is drawn from hidden. */
 :where(.svg-gl-box) { position: relative; }   /* (no weight: a box the stylesheet places absolutely, the ladder's chart, stays so, and holds the picture all the same) */
-.svg-gl, .svg-gl + .trace-gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
+.svg-gl, .svg-gl + .trace-gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; object-fit: contain; object-position: 0 0; }   /* (a picture drawn for another box shape, while its box changes under it (a card tucking, a fold), keeps its own shape and is drawn again, never stretched: the GUT TO HEART names stretched three times as tall, Mohammad's iPhone, 3 Nov 2026) */
 
 /* Words that change while they show, drawn on the GPU over their own box (gl-words.js): the page's own words are made clear while the
    picture shows the new ones, and take them back once they hold still. The picture reaches a little past the box (never past a clipping
