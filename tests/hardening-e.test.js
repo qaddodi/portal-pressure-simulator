@@ -126,8 +126,8 @@ test('the phone menu sheet is lifted above the on-screen keyboard and put back w
 
 test('a bedside time-lapse waits while the model is stopped, and a new update offers one reload', () => {
   const w = read('src/worker-core.js');
-  assert.match(w, /if \(stoppedAt != null && lapse\?\.bedside\) lapse\.bedside\.t0 \+= performance\.now\(\) - stoppedAt;/);
-  assert.match(w, /if \(timer\) \{ clearInterval\(timer\); if \(lapse\?\.bedside && stoppedAt == null\) stoppedAt = performance\.now\(\); \}/);
+  assert.match(w, /if \(stoppedAt != null\) \{ const d = performance\.now\(\) - stoppedAt; if \(lapse\?\.bedside\) lapse\.bedside\.t0 \+= d; if \(morph\) morph\.t0 \+= d; \}/);
+  assert.match(w, /if \(timer\) \{ clearInterval\(timer\); if \(\(lapse\?\.bedside \|\| morph\) && stoppedAt == null\) stoppedAt = performance\.now\(\); \}/);
   assert.match(w, /morph = null; stoppedAt = null;/, 'a new lapse starts clean');
   const m = read('src/ui/main.js');
   assert.match(m, /if \(navigator\.serviceWorker\.controller\) \{\s*let offered = false;/);

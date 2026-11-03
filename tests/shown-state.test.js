@@ -87,7 +87,7 @@ test('the bar, the Readouts tab, the charts and the instruments read the one sho
   assert.match(read('../styles/app.css'), /\.rb-fill \{[^}]*transition: opacity var\(--d-small\) var\(--ease\);/, 'it fades; its colour is taken at once (1 Nov 2026, move everything to GPU: a colour, shadow or edge eased repaints every frame, so it is taken at once)');
   assert.match(main, /if \(jumpSeen\) \{ jumpSeen = false; noteJump\(\); \}/);
   assert.match(worker, /jump: jumpDirty \|\| clock !== postedClock/);
-  assert.match(worker, /function stateChanged\(\) \{[^}]*jumpDirty = true; \}/);
+  assert.match(worker, /function stateChanged\(replaced = true\) \{[^}]*jumpDirty = true;/);
   assert.match(read('../src/ui/util.js'), /const r = follow2\(v\[i\], w\[i\], T, dt, tau, eps\)/);
   assert.match(read('../src/ui/tool-profile.js'), /follow2\(shown\.v\[i\], shownW\.v\[i\], goal\.v\[i\], dt, SHOWN_TAU, 0\.005\)/);
   assert.match(read('../src/ui/tool-hvpg.js'), /follow2\(cur\[key\], curW\[key\], target\[key\], dt, SHOWN_TAU, 0\.02\)/);
