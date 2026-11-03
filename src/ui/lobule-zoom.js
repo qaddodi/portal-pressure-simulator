@@ -40,7 +40,7 @@ import { h, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, 
 import { createSvgGL, svgModel, setGeo, geoOf } from './svg-gl.js?v=d687806d59';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js?v=8a73b5b0e8';
 import { NODES, EDGES } from '../engine/topology.js?v=512e725aea';
-import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=ce7b4c7bbb';
+import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=34407b36e5';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js?v=4892162325';
 import { createSinusoidView } from './sinusoid-view.js?v=b7a3e44561';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderScale, frame, framePart, easeNow, inMotion, PACED } from './frame.js?v=ca74a6f22a';
