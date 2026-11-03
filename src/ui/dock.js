@@ -382,7 +382,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
         if (!follow) countTo(x.val, null);
         s = t.id === 'hvpg' && hvBlocked(st0.params) ? 'Not measurable' : 'Not measured';
         sev = 'none';
-        x.hist.length = 0;
+        x.histT.length = 0; x.histV.length = 0;   // (the trend starts over: it was x.hist, which no tile has, and threw here for every unmeasured reading, so the strip stopped painting past it)
       } else {
         // (A step the running mean doesn't ease, a paused edit or a treatment, rolls to the new number: P17.)
         COUNT.eased = eased; countTo(x.val, v, t.d, COUNT);
