@@ -17,7 +17,7 @@ test('an item is in CSS px with its opacity, and clipped only where it leaves th
 test('seq counts drawn frames, gen every layout and repack, and only pictures drawn that frame are listed', () => {
   assert.match(lg, /nb = 0;\n\s+frameSeq\+\+;/);
   assert.match(lg, /last = list; gen\+\+;/);
-  assert.match(lg, /packer\.reset\(\); outgoing\.length = 0; gen\+\+;/);
+  assert.match(lg, /pageTex = rpTex; rpTex = \[\]; rp = null; gen\+\+;/);
   assert.match(lg, /st\.seq = frameSeq;\n\s+takeItem\(/);
   assert.match(lg, /st\.seq === frameSeq/);
   assert.match(lg, /return \{ seq: frameSeq, gen, items \};/);
