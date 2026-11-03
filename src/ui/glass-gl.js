@@ -1657,7 +1657,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   function nowGeo(list) {
     const G = geo;
     if (!G) { measureSoon(); return null; }
-    if (!sameList(G.list, list)) measureSoon();
+    if (!sameList(G.list, list)) measureEarly();
     const flag = NF, panes = NOW.panes;
     flag.bad = false; flag.ended = false; flag.live = false;
     panes.length = 0;
