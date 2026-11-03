@@ -5859,6 +5859,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         // (The view as the readings rest now, to follow from: camFollow. Already following (a finger let go), it follows on.)
         const vNow = !stage.following?.() && (u0 === 0 || u0 === 1) && camFollowOk() ? stage.viewNow?.() : null;
         stopUnder();
+        // (The handle's own 24 px step to its open or tucked place, placeLip, is not made here: the readings' slide carries the handle all the
+        // way, so that step ran against it as a second move and the handle jumped 24 px at the start and wobbled back while the card slid:
+        // Mohammad, 3 Nov 2026, "jitter when a card tucks and untucks".)
+        lipStep = null;
         // alloc-rare: a card is built or tapped open: once per tap, not per frame
         data.classList.toggle('tool-open', open); fold.setAttribute('aria-expanded', String(open)); fold.textContent = open ? 'Hide' : 'Show';
         // alloc-rare: a card is built or tapped open: once per tap, not per frame
