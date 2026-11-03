@@ -672,6 +672,9 @@ void main() { o = texture(uT, vUV) * uA; }`;
   const pinHeldNow = () => !!pinHeldFn?.();
   const PIN = [0, 0];
   const pinGlides = new Map();   // group -> { fx, fy (the offset it was drawn at, CSS px), t0 }
+  // (The offset each pinned label was last drawn at, by its group, kept past its picture: a label whose picture is made again (its text
+  // size changes with the zoom) still eases from where it stood, never jumps to its new offset.)
+  const pinLast = new WeakMap();   // group -> Float64Array [ox, oy]
   const pinOf = (s) => (pinAt && s && s.pid != null && pinAt(s.pid, PIN, s.pmid, s.pau) ? s : null);
   // (The offset a pinned label is drawn at this frame, CSS px, into OFF: its layout's, or part way there from where it was drawn while its
   // glide runs. Returns the glide's share, 1 once it is over or there is none. The marks and the label read the same.)
@@ -1327,6 +1330,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
         const fi = glides.get(g);
         if (fi?.fadeIn) { const u = easeMove(Math.min(1, (now - fi.t0) / RIDE_MS)); a *= u; if (u >= 1) dropGlide(g); else moving = true; }
         st.pox = ox; st.poy = oy; st.pin = true; st.ppx = PIN[0]; st.ppy = PIN[1];
+        let pl = pinLast.get(g); if (!pl) pinLast.set(g, pl = new Float64Array(2));   // alloc-rare: one per pinned label
+        pl[0] = ox; pl[1] = oy;
         x = Math.round((PIN[0] + ox) * dpr) + st.ox; y = Math.round((PIN[1] + oy) * dpr) + st.oy;
       } else if (rideM) {
         // (Riding: its centre carried by the camera's move since it was laid out, on a whole device pixel, and kept inside the stage: a
@@ -2329,11 +2334,12 @@ void main() { o = texture(uT, vUV) * uA; }`;
           if (s.pid == null) continue;
           const st = sprites.get(s.g);
           if (glides.get(s.g)?.fadeIn !== true) dropGlide(s.g);
-          if (!st || !st.drawn || st.mode !== 'gl') continue;
+          const pl = pinLast.get(s.g), fresh = !st || !st.drawn || st.mode !== 'gl';
+          if (fresh && !pl) continue;
           // (Where it was drawn, as an offset from its point now: its own offset if it was pinned, else from where its picture stood (a label
-          // that rode or was laid out against another point), so no label jumps as it becomes pinned.)
-          let fx = st.pox, fy = st.poy;
-          if (!st.pin) { if (!pinOf(s)) continue; fx = (st.dx - st.ox) / dpr - PIN[0]; fy = (st.dy - st.oy) / dpr - PIN[1]; }
+          // that rode or was laid out against another point), so no label jumps as it becomes pinned. A picture made again: its last offset.)
+          let fx = fresh ? pl[0] : st.pox, fy = fresh ? pl[1] : st.poy;
+          if (!fresh && !st.pin) { if (!pinOf(s)) continue; fx = (st.dx - st.ox) / dpr - PIN[0]; fy = (st.dy - st.oy) / dpr - PIN[1]; }
           const nx = s.x - s.pax, ny = s.y - s.pay, pg = pinGlides.get(s.g);
           if (Math.hypot(nx - fx, ny - fy) <= 0.75) { if (pg) pinGlides.delete(s.g); continue; }
           // (While a hand moves the figure (pinHeld) a new layout's offset waits: the label stays rigid on its point, and eases to its new
