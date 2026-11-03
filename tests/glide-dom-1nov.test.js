@@ -28,7 +28,7 @@ test('off-home changes no label\'s look (label-gl.js reads them again only for a
 
 test('the vessel marks read every style before writing any data-gl', () => {
   const at = STAGE.indexOf('  function marksBuild() {'), fn = STAGE.slice(at, STAGE.indexOf('\n  }\n', at));
-  assert.match(fn, /const drawn = new Set\(\);/);
+  assert.match(fn, /const drawn = mkDrawn;\n\s+drawn\.clear\(\);/);
   assert.match(fn, /\n\s+let cs = getComputedStyle\(el\)/);
   assert.match(fn, / drawn\.add\(el\);/);
   // (Written once, after the reads, and only where it changes.)
