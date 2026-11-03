@@ -4267,7 +4267,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const p = phone(), wr = readBox(wrap), W = wr.width, H = wr.height, k = wr.width / (readMetric(wrap, 'clientWidth') || wr.width) || 1;
     ui.root.classList.toggle('stack', p); ui.shade.classList.toggle('stack', p);
     ui.root.classList.toggle('tab', p && tabUp()); ui.shade.classList.toggle('tab', p && tabUp());
-    const low = !p && W > H && H <= 500;   // (a phone held sideways: its instruments fold behind Show)
+    // (A phone held sideways takes the Mac and iPad landscape layout, 3 Nov 2026, Mohammad: "the cards on the left both of them, tuck and untuck like Mac":
+    // the words' card and the data card stacked at the left, its readings' card tucked under, the compact .pz.short sizes. `low`, the old split
+    // layout (words left, instruments right behind Show), is never set now; its branches stay for the one-step revert.)
+    const low = false;
     // (A wider screen under 860 px tall, an iPad on its side or a short Mac window: the compact layout, tighter cards at the roles'
     // own sizes whose lettering never zooms under 12 px, shortFit; styles/app.css .pz.short.)
     const short = !p && !low && H / k <= SHORT_H;

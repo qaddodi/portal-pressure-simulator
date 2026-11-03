@@ -1871,7 +1871,7 @@ button.finding { cursor: pointer; }
 .pz.low .pz-text .pz-h { font-size: var(--s-val); }
 .pz.low .pz-text :is(.pz-line, .pz-kick, .pz-check) { font-size: var(--s-lab); }
 .pz.low .pz-text .pz-eq math { font-size: calc(var(--s-lab) * 1.1 * var(--eq-k, 1)); }
-@media (orientation: landscape) and (max-height: 500px) { .pz:not(.stack) .pz-data { top: 8px; max-height: calc(100% - 8px - max(var(--pz-cm), calc(env(safe-area-inset-bottom, 0px) + 8px)) - 44px - 4px); max-width: calc(58vw - 50px); }
+@media (orientation: landscape) and (max-height: 500px) { .pz.low .pz-data { top: 8px; max-height: calc(100% - 8px - max(var(--pz-cm), calc(env(safe-area-inset-bottom, 0px) + 8px)) - 44px - 4px); max-width: calc(58vw - 50px); }
   .pz.low .pz-data.pz-sheet:not(.tool-open) { max-height: calc(100% - 8px - max(var(--pz-cm), calc(env(safe-area-inset-bottom, 0px) + 8px)) - 44px - 4px - 24px); } }   /* (partly open: its sheet's edge below it, .pz-lip) */
 /* (Except the summary table: its five to seven columns only fit a phone at the roles' own size.) */
 .pz.stack .pz-table { --s-cap: calc(var(--t-cap) * var(--ts, 1)); --s-lab: calc(var(--t-lab) * var(--ts, 1)); --s-body: calc(var(--t-body) * var(--ts, 1)); --s-val: calc(var(--t-val) * var(--ts, 1)); }
