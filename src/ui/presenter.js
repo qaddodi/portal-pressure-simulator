@@ -2358,7 +2358,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // A visual waits for every patient it compares (some are computed after the slides).
     // (A table waits too, but only so long: a patient still being computed after TABLE_WAIT_MS leaves its row's cells blank, and the
     // table fills them in the moment it arrives, wherever the table was built: watchRows.)
-    if (s.visual === 'table') { await Promise.race([Promise.all(rowIdx(s).map(stateReady)), wait(TABLE_WAIT_MS)]); if (cut()) return; }
+    if (s.visual === 'table') {
+      await Promise.race([Promise.all(rowIdx(s).map(stateReady)), wait(TABLE_WAIT_MS)]); if (cut()) return;
+      if (rowIdx(s).some((x) => !states[x])) degrade('table-rows');   // (R15: shown with placeholders for the rows still computing, and said so)
+    }
     else if (s.visual) { await Promise.all(rowIdx(s).map(stateReady)); if (cut()) return; }
     // A new patient's case (s.vignette), going forward: a centred glass card covers the figure while the patient loads behind it
     // (it stays up while the camera glides, once, to the slide's own framing; Next lifts it, and the slide's cards then come in with no further move).
@@ -3033,13 +3036,16 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const TABLE_WAIT_MS = 1500;
   function watchRows(el, s) {
     for (const k of new Set(rowIdx(s).filter((x) => !states[x]))) {
-      stateReady(k).then((st) => {
-        if (!st || !ui || !el.isConnected) return;
+      // (R15: the rows are published at a safe boundary: not while the cards are still on their throws, then the layout they change is asked for once, R14.)
+      stateReady(k).then(async (st) => {
+        if (!st || !ui) return;
+        if (thrown()) await Promise.all(throwCards().map((c) => c && throwLanded(c)));
+        if (!ui || !el.isConnected) return;
         const t = summaryTable(s, k), sc = readMetric(el, 'scrollTop');
         el.replaceWith(t); t.scrollTop = sc;
         // (The new table is fitted as the one it replaces was: its head row set upright where the columns are narrow, the card zoomed to hold it.)
         fitDone.delete(ui.panel);
-        if (!cardMoving()) layout();
+        if (!cardMoving()) layout(); else if (thrown()) layoutAtLanding();
       });
     }
   }
@@ -3163,7 +3169,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const noneEl = () => h('span', { class: 'pz-nm', 'aria-hidden': 'true' });
   // A cell whose patient is still being computed: empty (never "…": no ellipsis anywhere), said so to a screen reader; its numbers fade in
   // when the patient arrives (watchRows).
-  const pendEl = () => h('td', { class: 'num pend', 'aria-busy': 'true' }, h('span', { class: 'sr-only' }, 'calculating'));
+  // (R15: not blank, and the width of a number: a bar the size of a value, faint, so the row keeps its height and the column its width when the
+  // number arrives; the screen reader still hears 'calculating'.)
+  const pendEl = () => h('td', { class: 'num pend', 'aria-busy': 'true' }, h('span', { class: 'pz-pendbar', 'aria-hidden': 'true', style: { display: 'inline-block', width: '2.4em', height: '.55em', borderRadius: '.3em', background: 'currentColor', opacity: '0.22', verticalAlign: '-.05em' } }), h('span', { class: 'sr-only' }, 'calculating'));
   // A legend line with its symbols drawn as the table's own: arrows, the dash (•) and the ring (○).
   const withArrows = (t) => t.split(/(↑↑|↓↓|↑|↓|•|○)/).map((x) => (x === '↑↑' ? arrowEl(2) : x === '↓↓' ? arrowEl(-2) : x === '↑' ? arrowEl(1) : x === '↓' ? arrowEl(-1) : x === '•' ? arrowEl(0) : x === '○' ? noneEl() : x));
   const WORD = { 2: 'well above normal', 1: 'above normal', 0: 'normal', '-1': 'below normal', '-2': 'well below normal' };

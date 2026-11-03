@@ -15,7 +15,8 @@ const body = (from, to) => { const a = src.indexOf(from), b = src.indexOf(to, a)
 test('no table cell is ever drawn as "…": a pending cell is empty and told to a screen reader', () => {
   const table = body('  function summaryTable(', '  // (A visual a deck visuals package registers');
   assert.doesNotMatch(table, /'…'|"…"/, 'a table cell prints "…"');
-  assert.match(src, /const pendEl = \(\) => h\('td', \{ class: 'num pend', 'aria-busy': 'true' \}, h\('span', \{ class: 'sr-only' \}, 'calculating'\)\);/);
+  // (R15: no longer an empty cell: a faint bar of a value's width, hidden from the screen reader, which still hears 'calculating'.)
+  assert.match(src, /const pendEl = \(\) => h\('td', \{ class: 'num pend', 'aria-busy': 'true' \}, h\('span', \{ class: 'pz-pendbar', 'aria-hidden': 'true', style: \{[^}]*\} \}\), h\('span', \{ class: 'sr-only' \}, 'calculating'\)\);/);
   assert.equal((table.match(/pendEl\(\)/g) || []).length, 4, 'the value, ascites (two) and column-package cells all use it');
   assert.doesNotMatch(wave, /'…'/, 'the Doppler trace cell prints "…" while it is drawn');
 });
@@ -32,7 +33,7 @@ test('a table asks for its own rows to be filled in, as it is built, and lets go
 });
 
 test('a table shows its numbers when it lands where it can, waiting only a moment for a patient still being computed', () => {
-  const at = src.indexOf("if (s.visual === 'table') { await Promise.race([Promise.all(rowIdx(s).map(stateReady)), wait(TABLE_WAIT_MS)]); if (cut()) return; }");
+  const at = src.indexOf("await Promise.race([Promise.all(rowIdx(s).map(stateReady)), wait(TABLE_WAIT_MS)]); if (cut()) return;");
   assert.ok(at > 0, 'a table waits for its patients, but not for long');
   assert.match(src, /const TABLE_WAIT_MS = 1500;/);
   assert.match(src, /else if \(s\.visual\) \{ await Promise\.all\(rowIdx\(s\)\.map\(stateReady\)\); if \(cut\(\)\) return; \}/, 'the other visuals wait for every patient, as before');
