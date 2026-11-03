@@ -20,7 +20,7 @@ test('seq counts drawn frames, gen every layout and repack, and only pictures dr
   assert.match(lg, /pageTex = rpTex; rpTex = \[\]; rp = null; gen\+\+;/);
   assert.match(lg, /st\.seq = frameSeq;\n\s+takeItem\(/);
   assert.match(lg, /st\.seq === frameSeq/);
-  assert.match(lg, /return \{ seq: frameSeq, gen, items \};/);
+  assert.match(lg, /return \{ seq: frameSeq, gen, items, marks: marksOut \};/);
   // (drawnLabels stays as it was; the stage hands the snapshot out beside it, in page px.)
   assert.match(lg, /drawnLabels\(\) \{/);
   assert.match(st, /labelSnapshot: \(\) => \{ const r = stageBox\(\), o = labelGL\?\.snapshot\?\.\(\)/);
@@ -95,4 +95,16 @@ test('a layout solved for another view is never carried onto this one, nor hande
   assert.match(st, /if \(!force && sameView8\(labelJob\.key, key\)\) \{ labelTail\(solvedFor\?\.view !== morphTarget\); return; \}/);
   assert.match(st, /glHold = noGl;/);
   assert.match(st, /const labelGlSync = \(\) => \{ if \(!labelGL \|\| glHold\) return;/);
+});
+
+// Labels part of the figure (3 Nov 2026): a station label is drawn at its point now plus its layout's offset, and its dot and leader move with it.
+test('pinned labels: drawn at their point now plus the offset, their dot and leader drawn from that point and that picture each frame', () => {
+  assert.match(lg, /const pinOf = \(s\) => \(pinAt && s && s\.pid != null && pinAt\(s\.pid, PIN, s\.pmid, s\.pau\) \? s : null\);/);
+  assert.match(lg, /x = Math\.round\(\(PIN\[0\] \+ ox\) \* dpr\) \+ st\.ox; y = Math\.round\(\(PIN\[1\] \+ oy\) \* dpr\) \+ st\.oy;/);
+  assert.match(lg, /const lx = Math\.round\(\(PIN\[0\] \+ OFF\[0\]\) \* dpr\) \+ st\.ox, ly = Math\.round\(\(PIN\[1\] \+ OFF\[1\]\) \* dpr\) \+ st\.oy;/, 'the leader ends where the picture is drawn');
+  assert.match(lg, /PG\[0\] = px; PG\[1\] = py; PG\[2\] = px \+ dx \* t; PG\[3\] = py \+ dy \* t;/, 'the leader starts at the point');
+  assert.match(lg, /if \(pinAt\) moving = drawPins\(now\) \|\| moving;/);
+  assert.match(lg, /if \(fol\.on && !pinned\)/, 'no follow moves a pinned label');
+  assert.match(st, /labelGL\.pinTo\(\(id, out, mid, au\) => \{/);
+  assert.match(st, /labelGL\.pinDraw\(\);/);
 });

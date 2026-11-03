@@ -2613,7 +2613,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function rideStart(from = null) {
     if (rideCTM) return true;   // (a move taken over by another: the labels ride on from where they were laid out)
     // (A treatment's catheter keeps the figure's labels on (keep): they ride its glides too. The HVPG catheter hides them: nothing to carry.)
-    if (!labelRider?.canRide() || (cath.st && !cath.st.keep) || pinchHide || lobuleOn || lz?.isOpen() || diveT > 0 || wrap.classList.contains('cam-move') || reduceMotion.matches) return false;
+    if (!labelRider?.canRide() || (cath.st && !cath.st.keep) || pinchHide || lobuleOn || lz?.isOpen() || diveT > 0 || wrap.classList.contains('cam-move')) return false;   // (reduced motion rides too: a label that stays on its point as the figure moves adds no motion of its own; hidden, the names went for every pinch and glide)
     refreshCTM();
     if (from) { for (let q = 0; q < 6; q++) stagePxRide[q] = from[q]; } else stagePxInto(stagePxRide, CTM);
     rideCTM = stagePxRide;
@@ -10257,6 +10257,32 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // the iPhone).
   const frostWake = () => { glassGL?.redraw(); paneGL?.redraw(); for (const g of cardGLs) g.redraw(); };
   const labelGL = createLabelGL(labelSvg, gLabels, { software: SOFTWARE, marks: [gLeaders, gScan], onBoxes: frostWake });
+  // (Labels part of the figure: each station label drawn at its point as the figure has it in this frame, label-gl.js pinTo.)
+  // (The same kind of point the layout took (pmid): the middle of the vessel it names, or the station itself. A view change that shows or hides
+  // that vessel must not swap one for the other part way: the label would leap between the two.)
+  const PIN_P = [0, 0];
+  // (A point slid along its vessel by the tidy (au, 0.5 its middle): where it stands on that vessel now, stage px, into PIN_P; false if none.)
+  function pinVesselAt(id, au) {
+    const eid = LABEL_VESSEL[id], x = eid && E[eid], P = x && x.vis && !x.ghost ? geo[eid]?.cur : null;
+    if (!(P?.length > 1)) return false;
+    const m = arcMid(P, au); worldToLocalInto(PIN_P, m[0], m[1]);
+    return true;
+  }
+  function pinKind(id, ax, ay, au) {
+    if (!CTM) refreshCTM();
+    const t = easeInOut(morph), a = labelAnchor(id, t);
+    if (a.mid && (au == null || au === 0.5) && Math.hypot(a.ax - ax, a.ay - ay) < 1) return 1;
+    if (au != null && au !== 0.5 && pinVesselAt(id, au) && Math.hypot(PIN_P[0] - ax, PIN_P[1] - ay) < 1) return 1;
+    const p = nodePos(id, t); worldToLocalInto(PIN_P, p[0], p[1]);
+    return Math.hypot(PIN_P[0] - ax, PIN_P[1] - ay) < 1 ? 2 : 0;
+  }
+  if (labelGL) labelGL.pinTo((id, out, mid, au) => {
+    if (!CTM) refreshCTM();
+    if (mid && au != null && au !== 0.5 && pinVesselAt(id, au)) { out[0] = PIN_P[0]; out[1] = PIN_P[1]; return Number.isFinite(out[0]) && Number.isFinite(out[1]); }
+    const t = easeInOut(morph), a = labelAnchor(id, t);
+    if (mid || !a.mid) { out[0] = a.ax; out[1] = a.ay; } else { const p = nodePos(id, t); worldToLocalInto(PIN_P, p[0], p[1]); out[0] = PIN_P[0]; out[1] = PIN_P[1]; }
+    return Number.isFinite(out[0]) && Number.isFinite(out[1]);
+  });
   wrap.dataset.labels = labelGL ? 'gpu' : 'svg';
   labelRider = labelGL;
   labelHoles = labelGL?.setHoles ? labelGL : null;
@@ -10855,7 +10881,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       setA(b.g, 'transform', it.rot ? `translate(${it.x.toFixed(1)} ${(it.y + it.w).toFixed(1)}) rotate(-90)` : `translate(${it.x.toFixed(1)} ${it.y.toFixed(1)})`);
     }
     // (Where the GPU lays its picture: the same origin, label-gl.js.)
-    b.pos = { g: b.g, x: +it.x.toFixed(1), y: +(it.rot ? it.y + it.w : it.y).toFixed(1), rot: !!it.rot };
+    // (A station's label is pinned to its point: pid names the station, pax/pay where its point stood in this layout, the same frame of
+    // reference as x and y, so the GPU draws it at the point's place now plus its offset, label-gl.js pinTo. Unrounded: the offset is exact.)
+    // (Which point it was laid out against, found by matching it: the middle of its vessel (1) or the station itself (2). One that is neither,
+    // a point the layout chose by other rules, is not pinned and moves as before.)
+    const pk = it.key.startsWith('n:') && !it.live && Number.isFinite(it.ax) && Number.isFinite(it.ay) ? pinKind(it.key.slice(2), it.ax, it.ay, it.au) : 0, pin = pk > 0;
+    const px0 = +it.x.toFixed(1), py0 = +(it.rot ? it.y + it.w : it.y).toFixed(1);
+    b.pos = { g: b.g, x: px0, y: py0, rot: !!it.rot, pid: pin ? it.key.slice(2) : null, pax: pin ? it.ax : 0, pay: pin ? it.ay : 0, pmid: pk === 1, pau: it.au ?? 0.5 };
     // (Its box on an 8 px grid, for the corner credit's look (labelBoxStamp): a number ticking inside it moves nothing the credit avoids.)
     const c0 = Math.floor((it.x - it.padX) / 8), c1 = Math.floor((it.y - it.padY) / 8), c2 = Math.ceil((it.x + (it.rot ? it.h : it.w) + it.padX) / 8), c3 = Math.ceil((it.y + (it.rot ? it.w : it.h) + it.padY) / 8), ch = !!it.hide;
     if (!b.box || c0 !== b.bc0 || c1 !== b.bc1 || c2 !== b.bc2 || c3 !== b.bc3 || ch !== b.bch) {
@@ -12260,7 +12292,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (prev.one) oneLine(it);
         if (it.w > prev.w + 0.5 || it.h > prev.h + 0.5) { stale = true; return false; }
         const [ax, ay] = worldToLocal(prev.wx, prev.wy);
-        it.ax = ax; it.ay = ay; it.dir = prev.dir; it.leader = prev.leader; it.onVessel = !!prev.onv;
+        it.ax = ax; it.ay = ay; it.au = prev.au; it.dir = prev.dir; it.leader = prev.leader; it.onVessel = !!prev.onv;
         const slack = it.rot ? 0 : prev.w - it.w;
         it.x = ax + prev.dx + (prev.dir.includes('W') ? slack : prev.dir.includes('E') ? 0 : slack / 2);
         it.y = ay + prev.dy;
@@ -12435,7 +12467,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const lead = gapPx > 18 || (!!prev?.lead && gapPx >= 10);
       it.leader = !!best.leader || lead;
       localWorldXY(it.ax, it.ay);
-      nextSol.set(it.key, { wx: LW_XY[0], wy: LW_XY[1], dx: best.dx, dy: best.dy, dir, pi: best.pi, w: wRes, h: it.h, leader: it.leader, lead, short: it.short || 0, abbr: !!it.abbr });
+      nextSol.set(it.key, { wx: LW_XY[0], wy: LW_XY[1], dx: best.dx, dy: best.dy, dir, pi: best.pi, w: wRes, h: it.h, leader: it.leader, lead, short: it.short || 0, abbr: !!it.abbr, au: it.au });
       it._r = best.r; placed.push(best.r); out.push(it);
       // (Within 3 px of a vessel it takes the solid halo, as a solved one does.)
       if (reslot) { it.onVessel = lineHits(best.r, 3) > 0; nextSol.get(it.key).onv = it.onVessel; reslotted = true; }
@@ -12816,9 +12848,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           const dotAt = it.mid ? placed.find((p) => p.dot && p.x0 === it.ax - 4 && p.y1 === it.ay + 4 && p.x1 === it.ax + 4) : null;   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
           if (dotAt) placed.splice(placed.indexOf(dotAt), 1);
           const eid = it.mid ? LABEL_VESSEL[it.node] : null, P = eid && geo[eid]?.cur;
-          const anchors = P?.length > 1 ? SLIDE.map((u) => { if (u === 0.5) return [it.ax, it.ay, 0]; const m = arcMid(P, u), [x, y] = worldToLocal(m[0], m[1]); return [x, y, Math.abs(u - 0.5) * 50]; }) : [[it.ax, it.ay, 0]];   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
+          const anchors = P?.length > 1 ? SLIDE.map((u) => { if (u === 0.5) return [it.ax, it.ay, 0, it.au ?? 0.5]; const m = arcMid(P, u), [x, y] = worldToLocal(m[0], m[1]); return [x, y, Math.abs(u - 0.5) * 50, u]; }) : [[it.ax, it.ay, 0, it.au ?? 0.5]];   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
           let best = null;
-          for (const [ax, ay, slide] of anchors) {
+          for (const [ax, ay, slide, au] of anchors) {
             const dot = it.mid ? { x0: ax - 4, y0: ay - 4, x1: ax + 4, y1: ay + 4 } : null;   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
             let rank = 0;
             const tryAt = (dir, gap, pass) => {   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
@@ -12830,18 +12862,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
               if (placed.some((p) => (p.dot ? hits(r, p) : hits(r, { x0: p.x0 - 3, y0: p.y0 - 3, x1: p.x1 + 3, y1: p.y1 + 3 })))) return;   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
               if (obstacles.some((o) => !o.zone && hits(r, { x0: o.x0 - 10, y0: o.y0 - 10, x1: o.x1 + 10, y1: o.y1 + 10 }))) return;   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
               if (lines.some((sg) => segHitsBox({ x0: sg[0], y0: sg[1], x1: sg[2], y1: sg[3] }, r, 3))) return;   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
-              best = { f, dx, dy, dir, r, ax, ay, dot };   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
+              best = { f, dx, dy, dir, r, ax, ay, au, dot };   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
             };
             for (const gap of TIDY_GAPS) for (const dir of ['N', 'S', 'E', 'W', 'NE', 'NW', 'SE', 'SW']) tryAt(dir, gap + it.vw / 2, (rank++ % 8) * 0.01 + dirs.indexOf(dir) * 2);   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
             for (const gap of TIDY_R) for (const dir of RING_DIRS) tryAt(dir, gap + it.vw / 2, 8 + (rank++ % 16) * 0.01);
           }
           if (!best) { placed.push(old); if (dotAt) placed.push(dotAt); continue; }
-          it.ax = best.ax; it.ay = best.ay;
+          it.ax = best.ax; it.ay = best.ay; it.au = best.au;   // (au: how far along its vessel the point slid, 0.5 its middle: what the GPU pins the label to)
           it.x = it.ax + best.dx; it.y = it.ay + best.dy; it.dir = best.dir; it.leader = best.f.drawn; it.onVessel = best.f.onv; it._r = best.r;
           placed.push(best.r);
           if (best.dot) placed.push({ ...best.dot, dot: true });   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
           const sol = was.sol;
-          if (sol) { const [wx, wy] = localToWorld(it.ax, it.ay); nextSol.set(it.key, { ...sol, wx, wy, dx: best.dx, dy: best.dy, dir: best.dir, pi: -1, w: it.w, h: it.h, leader: best.f.drawn, lead: best.f.drawn, onv: best.f.onv, dot: false }); }   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
+          if (sol) { const [wx, wy] = localToWorld(it.ax, it.ay); nextSol.set(it.key, { ...sol, wx, wy, dx: best.dx, dy: best.dy, dir: best.dir, pi: -1, w: it.w, h: it.h, leader: best.f.drawn, lead: best.f.drawn, onv: best.f.onv, dot: false, au: best.au }); }   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
         }
       }
       // Collateral and shunt lanes, captioned along their run.
@@ -13614,7 +13646,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return L;
   }
 
-  let lastT = performance.now(), lastDrawF = null, lastDrawCTM = null, lastAnim = true;
+  let lastT = performance.now(), lastDrawF = null, lastDrawCTM = null, lastAnim = true, pinMorph = -1;
   // (The still frame's key, rev 2 §2.8: two structs mutated in place, the frame's own and the last drawn one's; on: the last drawn
   // frame was still, so it has a key to match.)
   const keyNow = { on: true, cath: 0, morph: 0, rot: 0, cls: '', flow: undefined, blood: '', w: 0, h: 0, holes: '' };
@@ -13919,6 +13951,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     else if (veins && !veins.lost && vLook && F && veins.composite(vLook, bloodLook(), fluidMoved) !== false) { noteDraw('stage'); swYield?.drew(now); }
     drawnView = viewVersion;
     if (still) copyKey(keyNow, keyDrawn); else keyDrawn.on = false;
+    // (The pinned labels drawn with the figure, in its frame, whenever its camera or its shape moved: label-gl.js pinDraw.)
+    if (labelGL && (CTM !== lastDrawCTM || morph !== pinMorph || !CTM)) { if (!CTM) refreshCTM(); pinMorph = morph; labelGL.pinDraw(); }
     lastDrawF = F; lastDrawCTM = CTM; lastAnim = anim || bolus.active || dyeShown;
     askAnimate();
   }
@@ -15206,7 +15240,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     labelVessels: () => { buildSegs(); refreshCTM(); return { left: wrapRect.left, top: wrapRect.top, segs: segs.map((q) => [q.x0, q.y0, q.x1, q.y1, q.hw, q.id]) }; },
     labelDrawn: () => labelGL?.boxes ?? null,   // (what the GPU labels' last picture drew, as boxes in px from their canvas's corner: the browser check of the labels' lag)
     labelDrawnBy: () => { const r = stageBox(), o = labelGL?.drawnLabels?.() ?? []; for (const d of o) { d.x += r.left; d.y += r.top; } return o; },   // (each GPU label's last picture, keyed, client px: the browser check's lag test)
-    labelSnapshot: () => { const r = stageBox(), o = labelGL?.snapshot?.() ?? { seq: 0, gen: 0, items: [] }; for (const d of o.items) { d.x += r.left; d.y += r.top; } return o; },   // (the same, as { seq, gen, items } in page px: what the browser checks read, never SVG boxes)
+    labelSnapshot: () => { const r = stageBox(), o = labelGL?.snapshot?.() ?? { seq: 0, gen: 0, items: [] }; for (const d of o.items) { d.x += r.left; d.y += r.top; if (d.pin) { d.px += r.left; d.py += r.top; } } for (const m of o.marks || []) { m.x0 += r.left; m.y0 += r.top; m.x1 += r.left; m.y1 += r.top; } return o; },   // (the same, as { seq, gen, items } in page px: what the browser checks read, never SVG boxes)
     lobuleSpot: () => lz?.spot() ?? null, lobuleLensFade: () => lz?.lensFade() ?? null, lobuleMem: (detail) => lz?.memBytes(detail) ?? 0, diveProgress: () => diveT, plateRasters: () => plateSeq,
     // (What the station labels' boxes follow: their layouts and the camera. The corner credit's poll looks again only when it changed.)
     // (And the lobule's view and state when it is open, and a fresh value each look while the sinusoid's names glide: the corner credit
@@ -15241,6 +15275,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       for (const b of pool.values()) if (b.g.hasAttribute('tabindex')) b.g.setAttribute('tabindex', keyStops && !b.hid ? '0' : '-1');
     },
     /** Where a station's callout attaches, in client px (for the checks). */
+    labelOnFigure: (id, x, y) => { const r = stageBox(), px = x - r.left, py = y - r.top, eid = LABEL_VESSEL[id], P = eid && geo[eid]?.cur; let best = Infinity; if (P?.length > 1) for (let i = 1; i < P.length; i++) { const a = worldToLocal(P[i - 1][0], P[i - 1][1]), b = worldToLocal(P[i][0], P[i][1]), dx = b[0] - a[0], dy = b[1] - a[1], L = dx * dx + dy * dy, t = L ? Math.max(0, Math.min(1, ((px - a[0]) * dx + (py - a[1]) * dy) / L)) : 0; best = Math.min(best, Math.hypot(px - a[0] - t * dx, py - a[1] - t * dy)); } const n = nodePos(id, easeInOut(morph)), q = worldToLocal(n[0], n[1]); return Math.min(best, Math.hypot(px - q[0], py - q[1])); },   // (how far a point is from the vessel a station names, or the station itself: the browser check's test that a label is pinned to the figure)
+    labelNodeOf: (id) => { const p = nodePos(id, easeInOut(morph)), q = worldToLocal(p[0], p[1]), r = stageBox(); return { x: q[0] + r.left, y: q[1] + r.top }; },   // (the station's own point, client px: the browser check's other place a label may be pinned)
     labelAnchorOf: (id) => { const a = labelAnchor(id, easeInOut(morph)), r = wrap.getBoundingClientRect(); return { x: a.ax + r.left, y: a.ay + r.top, mid: a.mid }; },
     /** The presenter's camera in the lobule: the whole lobule ('fit'), a portal tract ('triad'), the sinusoids ('sinusoid') or the central vein ('central'). */
     lobuleFocus: (part, opts) => !!lz?.focusOn(part, opts),

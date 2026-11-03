@@ -661,6 +661,27 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // carried. At the landing they are laid out again, and each label glides from where it rode to its new place (one that stays), fades
   // in (a new one) or fades out where it rode (one that goes), over D_SURFACE on the app's curve: nothing jumps.
   let rideM = null, rideFrom = null, rideT0 = 0;
+  // Labels part of the figure (Mohammad, 3 Nov 2026: "can you put labels as part of the figure", "the labels jump all over the place with
+  // zooming and switching and panning", "the lines go all over the place and move and elongate"). A station's label is pinned to the point
+  // it names: the layout gives it an offset from that point (its place minus the point, both as laid out: pos.pax, pos.pay), and every
+  // frame draws it at the point where the figure has it now (pinAt, the stage's labelAnchor under this frame's camera and morph) plus that
+  // offset, its dot on the point and its leader from the point to the label, all moved by the same step in the same frame. No ride, carry
+  // or follow moves a pinned label: a pan, a pinch or a view change moves its point, and the label goes with it, rigid. Only a new layout
+  // changes the offset, and the label then eases from the offset it was drawn at to the new one (pinGlides), its point and dot not moving.
+  let pinAt = null;
+  const PIN = [0, 0];
+  const pinGlides = new Map();   // group -> { fx, fy (the offset it was drawn at, CSS px), t0 }
+  const pinOf = (s) => (pinAt && s && s.pid != null && pinAt(s.pid, PIN, s.pmid, s.pau) ? s : null);
+  // (The offset a pinned label is drawn at this frame, CSS px, into OFF: its layout's, or part way there from where it was drawn while its
+  // glide runs. Returns the glide's share, 1 once it is over or there is none. The marks and the label read the same.)
+  const OFF = [0, 0];
+  function pinOff(s, now) {
+    let ox = s.x - s.pax, oy = s.y - s.pay, u = 1;
+    const pg = pinGlides.get(s.g);
+    if (pg) { u = easeMove(Math.min(1, (now - pg.t0) / RIDE_MS)); ox = pg.fx + (ox - pg.fx) * u; oy = pg.fy + (oy - pg.fy) * u; }
+    OFF[0] = ox; OFF[1] = oy;
+    return u;
+  }
   const glides = new Map();   // group → { fx, fy (device px, where it rode), t0 } or { fadeIn: true, t0 }
   const outgoing = [];        // [{ g, st, x, y, a, t0 }]: labels gone at the landing, fading out where they rode
   // (These records are taken from a pool and given back when a glide or fade ends, so a landing makes none: x, y, a, t0 for a label that
@@ -1295,7 +1316,16 @@ void main() { o = texture(uT, vUV) * uA; }`;
       if (!(st.opacity > 0.001)) continue;
       // (The label's origin on a whole device pixel, the picture at its offset from it.)
       let x = Math.round(s.x * dpr) + st.ox, y = Math.round(s.y * dpr) + st.oy, a = Math.min(1, st.opacity);
-      if (rideM) {
+      const pinned = pinOf(s);
+      if (pinned) {
+        // (Pinned: at its point now plus its offset, the offset easing from where it was drawn only while a new layout's glide runs.)
+        const u0 = pinOff(s, now), ox = OFF[0], oy = OFF[1];
+        if (pinGlides.has(g)) { if (u0 >= 1) pinGlides.delete(g); else { moving = true; shifted++; } }
+        const fi = glides.get(g);
+        if (fi?.fadeIn) { const u = easeMove(Math.min(1, (now - fi.t0) / RIDE_MS)); a *= u; if (u >= 1) dropGlide(g); else moving = true; }
+        st.pox = ox; st.poy = oy; st.pin = true; st.ppx = PIN[0]; st.ppy = PIN[1];
+        x = Math.round((PIN[0] + ox) * dpr) + st.ox; y = Math.round((PIN[1] + oy) * dpr) + st.oy;
+      } else if (rideM) {
         // (Riding: its centre carried by the camera's move since it was laid out, on a whole device pixel, and kept inside the stage: a
         // label carried past the edge by the zoom stood half off the screen with its leader coming from beyond it, and glided in from there.)
         rideAt(s, st);
@@ -1308,7 +1338,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
           if (u >= 1) dropGlide(g); else moving = true;
         }
       }
-      if (fol.on) {
+      if (!pinned) st.pin = false;
+      if (fol.on && !pinned) {
         const k = st.fk ??= g.dataset?.key, f = k && fol.m.get(k);
         if (f) { x += Math.round(f.dx * dpr); y += Math.round(f.dy * dpr); } else a *= fol.fade;
       }
@@ -1515,7 +1546,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       // (A followed mark's look as this frame has it: its opacity and eased colours written into these, never a new object in a frame.)
       if (lk.trk && lk.st) lk.cur = { ...lk.st, sa: new Float64Array(4), fa: new Float64Array(4) };
       looks.set(el, lk);
-      if (el.tagName !== 'g' && !markGeo.has(el)) markGeo.set(el, { a0: null, a1: null, a2: null, ok: false, v: new Float64Array(4) });
+      if (el.tagName !== 'g' && !markGeo.has(el)) markGeo.set(el, { a0: null, a1: null, a2: null, ok: false, v: new Float64Array(4), d: new Float64Array(4), seq: -1, a: 0, pv: new Float64Array(4), pgen: -1, pok: false, k: null });
     }
     mtodo.clear();
   }
@@ -1579,6 +1610,15 @@ void main() { o = texture(uT, vUV) * uA; }`;
   }
   const labelByKey = new Map();   // (key → the layout's entry for that label, written at each layout: a leader finds its label's glide by it)
   const markGeo = new WeakMap(), MGEO = new Float64Array(4), MBOX = new Float64Array(4), CLEAR = new Float64Array(4);
+  // (A mark's line or circle, parsed again only when its attributes changed.)
+  function markParse(el, mg, isPath) {
+    const a0 = el.getAttribute(isPath ? 'd' : 'cx'), a1 = isPath ? '' : el.getAttribute('cy'), a2 = isPath ? '' : el.getAttribute('r');
+    if (mg.a0 === a0 && mg.a1 === a1 && mg.a2 === a2) return;
+    mg.a0 = a0; mg.a1 = a1; mg.a2 = a2;
+    mg.k = el.getAttribute('data-k');   // (the label a leader belongs to, its line's far end being that label's)
+    if (isPath) mg.ok = lineInto(a0, mg.v);
+    else { mg.v[0] = NUM(a0); mg.v[1] = NUM(a1); mg.v[2] = NUM(a2); mg.v[3] = 0; mg.ok = true; }
+  }
   function drawMarks(now) {
     let moving = false;
     markDrawn = 0;
@@ -1591,20 +1631,42 @@ void main() { o = texture(uT, vUV) * uA; }`;
       for (const el of root.children) {
         const st = lookOf(el, now);
         if (markLive.has(el)) moving = true;
-        let geo = null, folA = 1;
+        let geo = null, folA = 1, mgD = null;
         if (st) {
           // (A leader's line is parsed when its path changes, a dot's centre when its attributes do: kept on the mark, scaled into a scratch.)
           const isPath = el.tagName === 'path';
-          const a0 = el.getAttribute(isPath ? 'd' : 'cx'), a1 = isPath ? '' : el.getAttribute('cy'), a2 = isPath ? '' : el.getAttribute('r');
           const mg = markGeo.get(el);
+          mgD = mg;
           if (mg) {
-            if (mg.a0 !== a0 || mg.a1 !== a1 || mg.a2 !== a2) {
-              mg.a0 = a0; mg.a1 = a1; mg.a2 = a2;
-              mg.k = el.getAttribute('data-k');   // (the label a leader belongs to, its line's far end being that label's)
-              if (isPath) mg.ok = lineInto(a0, mg.v);
-              else { mg.v[0] = NUM(a0); mg.v[1] = NUM(a1); mg.v[2] = NUM(a2); mg.v[3] = 0; mg.ok = true; }
+            markParse(el, mg, isPath);
+            // (A pinned label's marks are drawn from their geometry as of the layout the GPU was last handed (sync), never a newer one the page
+            // already holds: a layout held back (a ride, a solve for another view) wrote its dots and leaders before its labels came, and a dot
+            // moved by its point's step from another layout's place stood off its vessel.)
+            const pl0 = mg.k ? pinOf(labelByKey.get(mg.k)) : null;
+            // (A pinned label's dot and leader are not the page's: drawn below from the point and the label as they are this frame (drawPins),
+            // in the look the page gives them, kept here. Its SVG copy stays hidden.)
+            if (pl0) {
+              let pk = pinLooks.get(mg.k);
+              if (!pk) pinLooks.set(mg.k, pk = { line: null, dot: null, halo: null, dotR: 2.4, haloR: 5 });   // alloc-rare: one record per pinned label key
+              const cls = el.getAttribute('class') || '';
+              if (isPath) pk.line = st; else if (cls.includes('halo')) { pk.halo = st; if (mg.ok) pk.haloR = mg.v[2]; } else { pk.dot = st; if (mg.ok) pk.dotR = mg.v[2]; }
+              if (!el.hasAttribute('data-gl')) el.setAttribute('data-gl', '');
+              continue;
             }
-            if (mg.ok) { geo = MGEO; for (let i = 0; i < 4; i++) geo[i] = mg.v[i] * dpr; }
+            const src = pl0 ? mg.pv : mg.v;
+            if (pl0 ? mg.pok : mg.ok) { geo = MGEO; for (let i = 0; i < 4; i++) geo[i] = src[i] * dpr; }
+            // (A pinned label's dot and leader: moved by its point's step since the layout, in this frame; the leader's label end also by the
+            // offset's glide, so the line always runs from the point to the label as drawn. Nothing below moves them again.)
+            const pl = geo && mg.k ? pinOf(labelByKey.get(mg.k)) : null;
+            if (pl) {
+              const dx = (PIN[0] - pl.pax) * dpr, dy = (PIN[1] - pl.pay) * dpr;
+              geo[0] += dx; geo[1] += dy;
+              if (isPath) {
+                pinOff(pl, now);
+                geo[2] += dx + (OFF[0] - (pl.x - pl.pax)) * dpr; geo[3] += dy + (OFF[1] - (pl.y - pl.pay)) * dpr;
+              }
+            }
+            if (pl) { /* pinned: placed */ } else {
             // (A camera ride carries the leaders and dots as it carries the labels: each point where the figure's matching point now is, the
             // lines keeping their width and the dots their size. Left where they were laid out, they stretched from their points to the
             // labels that rode on, and spread over the figure, for as long as the ride lasted.)
@@ -1633,6 +1695,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
                 const ls = labelByKey.get(mg.k), lst = ls && sprites.get(ls.g);
                 if (lst && lst.mode === 'gl') { rideAt(ls, lst); geo[2] += RIDE_XY[2]; geo[3] += RIDE_XY[3]; }
               }
+            }
             }
           }
         }
@@ -1665,10 +1728,79 @@ void main() { o = texture(uT, vUV) * uA; }`;
         ucOf(gl).f1(MU.uA, Math.min(1, a));
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
         markDrawn++;
+        if (mgD) { mgD.seq = frameSeq; mgD.a = Math.min(1, a); for (let i = 0; i < 4; i++) mgD.d[i] = geo[i]; }   // (what this frame drew, for the browser check's snapshot: no read, four numbers)
       }
     }
+    if (pinAt) moving = drawPins(now) || moving;
     markDirty.clear();
     return moving;
+  }
+  // The dots and leaders of the pinned labels: the dot on the point as the figure has it this frame, the leader from that point to where the
+  // label's picture is drawn this frame, cut at its edge. Rigid: they cannot lag, stretch on their own or point at nothing. A dot is drawn
+  // where the layout gave the label one (pinWant, taken at sync), a leader wherever the picture stands clear of its point.
+  const pinLooks = new Map(), pinWant = new Map(), pinDrawn = new Map();
+  const PG = new Float64Array(4);
+  let defLine = null, defDot = null, PIN_LINE0 = null;
+  function pinMark(st, geo, isPath, a) {
+    if (!st || !(a > 0.001) || (!st.stroke && !st.fill)) return false;
+    const w = st.stroke ? st.w * dpr : 0, m = w / 2 + 2, box = MBOX;
+    if (isPath) { box[0] = Math.min(geo[0], geo[2]) - m; box[1] = Math.min(geo[1], geo[3]) - m; box[2] = Math.max(geo[0], geo[2]) + m; box[3] = Math.max(geo[1], geo[3]) + m; }
+    else { box[0] = geo[0] - geo[2] - m; box[1] = geo[1] - geo[2] - m; box[2] = geo[0] + geo[2] + m; box[3] = geo[1] + geo[2] + m; }
+    if (box[0] > W || box[1] > H || box[2] < 0 || box[3] < 0) return false;
+    if (isPath) {
+      const k = Math.max(1, Math.min(32, Math.ceil(Math.max(Math.abs(geo[2] - geo[0]), Math.abs(geo[3] - geo[1])) / (24 * dpr))));
+      for (let i = 0; i < k; i++) {
+        const ax = geo[0] + (geo[2] - geo[0]) * i / k, ay = geo[1] + (geo[3] - geo[1]) * i / k, bx = geo[0] + (geo[2] - geo[0]) * (i + 1) / k, by = geo[1] + (geo[3] - geo[1]) * (i + 1) / k;
+        boxAt(Math.min(ax, bx) - m, Math.min(ay, by) - m, Math.max(ax, bx) + m, Math.max(ay, by) + m);
+      }
+    } else boxAt(box[0], box[1], box[2], box[3]);
+    ucOf(gl).f4a(MU.uBox, box);
+    ucOf(gl).i1(MU.uKind, isPath ? 0 : 1);
+    ucOf(gl).f4a(MU.uGeo, geo);
+    ucOf(gl).f1(MU.uW, w);
+    ucOf(gl).f2(MU.uDash, st.dash[0] * dpr, st.dash[1] * dpr);
+    ucOf(gl).f4a(MU.uStroke, st.stroke || CLEAR);
+    ucOf(gl).f4a(MU.uFill, st.fill || CLEAR);
+    ucOf(gl).f1(MU.uA, Math.min(1, a));
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    markDrawn++;
+    return true;
+  }
+  function drawPins(now) {
+    for (const lk of pinLooks.values()) { if (lk.line?.stroke && lk.line.op > 0.5 && !defLine) defLine = lk.line; if (lk.dot && !defDot) defDot = lk.dot; }
+    // (No leader seen yet, a Circuit opened with none: the page's leader colour, read once from a leader the page has, else its text's.)
+    if (!defLine) defLine = PIN_LINE0 ||= { op: 1, stroke: rgba(readStyle(svg).getPropertyValue('--leader').trim() || 'rgb(140,140,140)'), w: 1, fill: null, dash: [0, 0] };   // alloc-rare: once
+    for (const s of last) {
+      const key = s.g.dataset?.key;
+      if (!key || !pinOf(s)) continue;
+      const st = sprites.get(s.g);
+      if (!st || st.mode !== 'gl' || !(st.opacity > 0.001)) continue;
+      const want = pinWant.get(key) | 0, lk = pinLooks.get(key);
+      let a = Math.min(1, st.opacity);
+      const fi = glides.get(s.g);
+      if (fi?.fadeIn) a *= easeMove(Math.min(1, (now - fi.t0) / RIDE_MS));
+      const px = PIN[0] * dpr, py = PIN[1] * dpr;
+      pinOff(s, now);
+      const lx = Math.round((PIN[0] + OFF[0]) * dpr) + st.ox, ly = Math.round((PIN[1] + OFF[1]) * dpr) + st.oy;
+      let rec = pinDrawn.get(key);
+      if (!rec) pinDrawn.set(key, rec = { seq: -1, hasLine: false, hasDot: false, line: new Float64Array(4), dot: new Float64Array(2), a: 0 });   // alloc-rare: one record per pinned label key
+      rec.seq = frameSeq; rec.hasLine = false; rec.hasDot = false; rec.a = a;
+      // (The leader: from the point to the picture's edge, where the picture stands more than 10 px clear of it.)
+      const cx = lx + st.w / 2, cy = ly + st.h / 2, dx = cx - px, dy = cy - py, hw = st.w / 2, hh = st.h / 2;
+      const gap = Math.hypot(Math.max(lx - px, 0, px - (lx + st.w)), Math.max(ly - py, 0, py - (ly + st.h))) / dpr;
+      if (gap > 10) {
+        const t = 1 - Math.min(dx ? hw / Math.abs(dx) : Infinity, dy ? hh / Math.abs(dy) : Infinity);
+        PG[0] = px; PG[1] = py; PG[2] = px + dx * t; PG[3] = py + dy * t;
+        if (pinMark(lk?.line?.stroke ? lk.line : defLine, PG, true, a)) { rec.hasLine = true; for (let i = 0; i < 4; i++) rec.line[i] = PG[i] / dpr; }
+      }
+      if (want & 1) {
+        const ds = lk?.dot || defDot;
+        if (lk?.halo) { PG[0] = px; PG[1] = py; PG[2] = lk.haloR * dpr; PG[3] = 0; pinMark(lk.halo, PG, false, a * (lk.halo.op ?? 1)); }
+        PG[0] = px; PG[1] = py; PG[2] = (lk?.dotR ?? 2.4) * dpr; PG[3] = 0;
+        if (pinMark(ds, PG, false, a * (ds?.op ?? 1))) { rec.hasDot = true; rec.dot[0] = px / dpr; rec.dot[1] = py / dpr; }
+      }
+    }
+    return false;
   }
   // A probe's eased values, read once as their animations start and run by the frame with no read of the page (label-track.js's
   // timing): `list` is [[element, CSS property, parse (keyframe value → number), set (number → the look)]]; each animation of that
@@ -2180,7 +2312,41 @@ void main() { o = texture(uT, vUV) * uA; }`;
         for (const f of from.values()) gpool.push(f);
         from.clear();
       }
+      // (Pinned labels: a label whose new offset differs from the one it was drawn at eases there (pinGlides); its point does not move. A ride's
+      // or a follow's glide is not theirs: their pictures stood at their points all along.)
+      if (pinAt) {
+        const t0 = performance.now();
+        for (const s of list) {
+          if (s.pid == null) continue;
+          const st = sprites.get(s.g);
+          if (glides.get(s.g)?.fadeIn !== true) dropGlide(s.g);
+          if (!st || !st.drawn || st.mode !== 'gl') continue;
+          // (Where it was drawn, as an offset from its point now: its own offset if it was pinned, else from where its picture stood (a label
+          // that rode or was laid out against another point), so no label jumps as it becomes pinned.)
+          let fx = st.pox, fy = st.poy;
+          if (!st.pin) { if (!pinOf(s)) continue; fx = (st.dx - st.ox) / dpr - PIN[0]; fy = (st.dy - st.oy) / dpr - PIN[1]; }
+          const nx = s.x - s.pax, ny = s.y - s.pay, pg = pinGlides.get(s.g);
+          if (Math.hypot(nx - fx, ny - fy) <= 0.75) { if (pg) pinGlides.delete(s.g); continue; }
+          if (pg) { pg.fx = fx; pg.fy = fy; pg.t0 = t0; } else pinGlides.set(s.g, { fx, fy, t0 });   // alloc-rare: one record per label that moves at a layout
+        }
+      }
       last = list; gen++; stuck = false;
+      // (The marks as they stand with this layout: what a pinned label's dot and leader are drawn from until the next.)
+      for (const root of marks) for (const el of root.children) {
+        if (el.tagName === 'g') continue;
+        let mg = markGeo.get(el);
+        if (!mg) markGeo.set(el, mg = { a0: null, a1: null, a2: null, ok: false, v: new Float64Array(4), d: new Float64Array(4), seq: -1, a: 0, pv: new Float64Array(4), pgen: -1, pok: false, k: null });   // alloc-rare: once per mark element
+        markParse(el, mg, el.tagName === 'path');
+        mg.pv.set(mg.v); mg.pok = mg.ok; mg.pgen = gen;
+      }
+      // (Which pinned labels the layout gave a dot (1) or a leader (4): drawPins draws them so until the next layout.)
+      pinWant.clear();
+      for (const root of marks) for (const el of root.children) {
+        const k = el.getAttribute('data-k');
+        if (!k) continue;
+        const cls = el.getAttribute('class') || '';
+        pinWant.set(k, (pinWant.get(k) | 0) | (el.tagName === 'path' ? 4 : cls.includes('halo') ? 2 : 1));
+      }
       labelByKey.clear();
       for (const s of list) { const k = s.g.dataset?.key; if (k) labelByKey.set(k, s); }
       for (const s of list) WAS.delete(s.g);
@@ -2219,6 +2385,10 @@ void main() { o = texture(uT, vUV) * uA; }`;
       rideFrom = fromMap.size ? fromMap : null;
     },
     get riding() { return !!rideM; },
+    /** Pins the station labels to the figure: f(id, out) writes where the figure has station id's point now (stage px) and returns true. */
+    pinTo(f) { pinAt = f; ask(); },
+    /** The figure moved (its camera or its morph): the pinned labels drawn with it, in this frame. */
+    pinDraw() { if (lost || !pinAt) return; if (raf) { cancelFrame(raf); raf = 0; } draw(); },
     /** A view change begins: the labels now laid out are carried by their stations (followPut), the rest faded (followDraw). */
     followStart() { fol.on = true; fol.end = false; fol.fade = 1; rideT0 = performance.now(); },
     /** How far a label's station has moved since the layout (CSS px). A label with none is faded by followDraw's `fade`. */
@@ -2249,9 +2419,22 @@ void main() { o = texture(uT, vUV) * uA; }`;
       const items = [];   // alloc-rare: asked only by the browser check
       for (const s of last) {
         const st = sprites.get(s.g);
-        if (st && st.mode === 'gl' && st.seq === frameSeq && s.g.dataset?.key) items.push(snapshotItem(s.g.dataset.key, st.dx, st.dy, st.w, st.h, st.held ?? 0, dpr, W, H));
+        if (st && st.mode === 'gl' && st.seq === frameSeq && s.g.dataset?.key) { const it = snapshotItem(s.g.dataset.key, st.dx, st.dy, st.w, st.h, st.held ?? 0, dpr, W, H); it.pin = !!st.pin; if (st.pin) { it.px = st.ppx; it.py = st.ppy; } it.glide = pinGlides.has(s.g) || glides.has(s.g); items.push(it); }
       }
-      return { seq: frameSeq, gen, items };
+      // (The marks this frame drew: each dot's centre and radius, each leader's two ends, keyed by its label, CSS px from the canvas's corner.)
+      const marksOut = [];   // alloc-rare: asked only by the browser check
+      for (const root of marks) for (const el of root.children) {
+        const mg = markGeo.get(el);
+        if (!mg || mg.seq !== frameSeq) continue;
+        const d = mg.d, line = el.tagName === 'path';
+        marksOut.push({ k: el.getAttribute('data-k') || '', kind: line ? 'line' : el.getAttribute('class') || 'dot', x0: d[0] / dpr, y0: d[1] / dpr, x1: line ? d[2] / dpr : d[0] / dpr, y1: line ? d[3] / dpr : d[1] / dpr, r: line ? 0 : d[2] / dpr, a: mg.a });
+      }
+      for (const [k, r] of pinDrawn) {
+        if (r.seq !== frameSeq) continue;
+        if (r.hasDot) marksOut.push({ k, kind: 'leader-dot', x0: r.dot[0], y0: r.dot[1], x1: r.dot[0], y1: r.dot[1], r: 2.4, a: r.a });
+        if (r.hasLine) marksOut.push({ k, kind: 'line', x0: r.line[0], y0: r.line[1], x1: r.line[2], y1: r.line[3], r: 0, a: r.a });
+      }
+      return { seq: frameSeq, gen, items, marks: marksOut };
     },
     /** A label animated by script (the Web Animations API, which sends no events): read each frame for `ms`. */
     hold(g, ms) {
