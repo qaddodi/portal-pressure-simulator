@@ -101,7 +101,7 @@ export function textWidth(text, { weight = 400, size = 12, tnum = false, ls = 0 
  * { polys, w } (w: its width, as textWidth).
  */
 export function textPolys(text, x, y, { weight = 400, size = 12, tnum = false, ls = 0 } = NO_OPTS) {
-  const w = weightOf(weight), s = size / UPM, polys = [];   // alloc-rare: the polylines are the answer, made for words drawn once (a label's picture, a probe's screen); a readout that changes each frame draws glyphRun's cached paths
+  const w = weightOf(weight), s = size / UPM, polys = [];
   let at = x, n = 0, prev = '', prevOk = false;
   // (Walked by code point, the kerning of each pair added when its second character arrives: no array made of the characters.)
   for (const ch of strOf(text)) {
@@ -111,13 +111,13 @@ export function textPolys(text, x, y, { weight = 400, size = 12, tnum = false, l
     prevOk = !!g;
     if (!g) continue;
     for (const p of g.polys) {
-      const q = new Float32Array(p.pts.length);   // alloc-rare: the answer's own points (see above)
+      const q = new Float32Array(p.pts.length);
       for (let k = 0; k < q.length; k += 2) { q[k] = at + p.pts[k] * s; q[k + 1] = y - p.pts[k + 1] * s; }
-      polys.push({ pts: q, closed: p.closed });   // alloc-rare: the answer's own polylines (see above)
+      polys.push({ pts: q, closed: p.closed });
     }
     at += g.adv * s + ls;
   }
-  return { polys, w: n ? at - x - ls : 0 };   // alloc-rare: the answer (see above)
+  return { polys, w: n ? at - x - ls : 0 };
 }
 
 // (recs-production-120hz §9: a readout that changes draws each glyph from a path made once per weight, figure style, character and size,
@@ -137,7 +137,7 @@ function glyphPathOf(w, ch, tnum, size) {
     const g = outline(w, ch, tnum), s = size / UPM;
     d = '';
     if (g) for (const p of g.polys) {
-      for (let k = 0; k < p.pts.length; k += 2) d += `${k ? 'L' : 'M'}${(p.pts[k] * s).toFixed(2)} ${(-p.pts[k + 1] * s).toFixed(2)}`;   // alloc-rare: each glyph's path is built once, the first time it is drawn
+      for (let k = 0; k < p.pts.length; k += 2) d += `${k ? 'L' : 'M'}${(p.pts[k] * s).toFixed(2)} ${(-p.pts[k + 1] * s).toFixed(2)}`;
       if (p.closed) d += 'Z';
     }
     if (glyphN > 4096) { glyphD.clear(); glyphN = 0; bySize = new Map(); glyphD.set(wk, bySize); byCh = new Map(); bySize.set(size, byCh); }   // alloc-rare: the tables start over past 4096 glyphs, which one deck's figures never reach
@@ -183,7 +183,7 @@ export function textBox(text, x, y, { anchor = 'start', weight = 400, size = 12,
   const w = textWidth(text, twOpts(weight, size, tnum, ls)), px = size * k;
   const asc = Math.round((1984 / 2048) * px) / k, desc = Math.round((494 / 2048) * px) / k;
   const x0 = anchor === 'end' ? x - w : anchor === 'middle' ? x - w / 2 : x;
-  return { x: x0, y: y - asc, width: w, height: asc + desc };   // alloc-rare: the box is the answer; the callers that run in a frame cache theirs
+  return { x: x0, y: y - asc, width: w, height: asc + desc };
 }
 
 // ── Paragraphs (3 Nov 2026): lines broken as the browser breaks them ──

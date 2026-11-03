@@ -112,7 +112,7 @@ function wrap(gl, r) {
   // written into one kept array the registry reads during the call: no rest array, no copy. Eleven is the most any of them takes.)
   const argv = new Array(11).fill(undefined); // alloc-rare: installed once per context, when its record starts
   for (const name of ['texImage2D', 'copyTexImage2D', 'generateMipmap', 'texStorage2D', 'texImage3D', 'texStorage3D', 'renderbufferStorage', 'renderbufferStorageMultisample', 'bufferData']) { // alloc-rare: installed once per context, when its record starts
-    own(name, (f) => function (a, b, c, d, e, g, h, i, j, k, l) { // alloc-rare: installed once per context, when its record starts
+    own(name, (f) => function (a, b, c, d, e, g, h, i, j, k, l) {
       const n = arguments.length;
       const out = callN(f, n, a, b, c, d, e, g, h, i, j, k, l);
       if (hook) { argv[0] = a; argv[1] = b; argv[2] = c; argv[3] = d; argv[4] = e; argv[5] = g; argv[6] = h; argv[7] = i; argv[8] = j; argv[9] = k; argv[10] = l; hook(gl, name, argv, n); argv.fill(undefined); }   // (nothing kept of the sources: a picture or an array is let go as soon as the call is over)
@@ -259,7 +259,7 @@ export function fbComplete(gl, target, key, w, h) {
   const ok = gl.checkFramebufferStatus(target) === gl.FRAMEBUFFER_COMPLETE;
   if (fb) {
     if (ok && !gl.isContextLost()) {
-      if (v) { v.key = key; v.w = w; v.h = h; } else r.fbOk.set(fb, { key, w, h }); // alloc-rare: the first verdict kept for a framebuffer; later ones are written into it
+      if (v) { v.key = key; v.w = w; v.h = h; } else r.fbOk.set(fb, { key, w, h });
     } else if (v) v.key = null;
   }
   return ok;

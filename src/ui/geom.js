@@ -72,7 +72,7 @@ export function rectInto(el, f) {
 }
 export function rectSoon(el) {
   if (!el || !el.isConnected || !rectObserver()) return Promise.resolve(EMPTY);
-  return new Promise((res) => rectInto(el, res));   // alloc-rare: the Promise form is for one-off asks (a menu opening); a caller asking in a frame or a scroll uses rectInto
+  return new Promise((res) => rectInto(el, res));
 }
 export const rectsSoon = (els) => Promise.all([...els].map(rectSoon));   // alloc-rare: one ask per menu opening (a user action)
 const tasks = new Map();

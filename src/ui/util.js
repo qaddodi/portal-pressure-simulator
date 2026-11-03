@@ -110,7 +110,7 @@ export function fmt(v, d = 1) {
   const m = fmtTexts[d] || (fmtTexts[d] = new Map());   // alloc-rare: a precision met for the first time
   let r = m.get(v);
   if (r !== undefined) return r;
-  const t = v.toFixed(d);   // alloc-rare: a value met for the first time; its text is kept in fmtTexts for the repeats
+  const t = v.toFixed(d);
   // A value that rounds to zero has no sign ("−0" reads as an error).
   r = /^-0(\.0+)?$/.test(t) ? t.slice(1) : t.replace('-', '−');   // alloc-rare: the same new value, signed text made once
   if (m.size > 4096) m.clear();
@@ -687,7 +687,6 @@ function foldRun(el, hide) {
 export function swapText(el, txt, then) {
   const job = swaps.get(el);
   if (job ? job.txt === txt : textNow(el) === txt) return;
-  // alloc-rare: the text changed (an early return above otherwise): one closure for its fill
   const fill = () => { putText(el, txt); then?.(); };   // (drawn on the GPU, gl-words.js, or written between frames: never into the page in a frame)
   if (!job && !el.firstChild && txt && el.animate && el.isConnected && hasBox(el)) {
     fill(); el.animate(FADE_IN, SMALL_ARRIVE); return;

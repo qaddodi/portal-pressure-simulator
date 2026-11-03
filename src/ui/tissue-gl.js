@@ -378,7 +378,6 @@ export function createTissueGL(canvas, opts = {}) {   // alloc-rare: the tissue 
     /** Sends a canvas to the GPU now (painted ahead, so no frame of a gesture waits for it). */
     upload(cv, ver = 0, tile = false) { if (!this.lost && cv?.width) { texFor(cv, ver, tile); hostDone(); } },
     /** Gives back every texture whose canvas was given back (width 0) or is no longer wanted (keep(cv) false). */
-    // alloc-rare: the default test is made only when sweep() is called bare, on a snap or a trim, not in a frame
     sweep(keep = () => true) {
       for (const [cv, t] of texs) if (!cv.width || !keep(cv)) { if (!lost) gl.deleteTexture(t.tex); texs.delete(cv); }
       copier.sweep();

@@ -72,12 +72,10 @@ export function splitFace(face, span, opt) {
     Object.assign(copy.style, look, { position: 'absolute', left: '0', top: `${PAD}px`, width: `${plan.w}px`, height: `${h}px`, margin: '0', padding: '0', display: 'block', transform: `translateX(${side.tx0}px)` });
     box.append(copy);
     boxes.push(box);
-    // alloc-rare: runs once per fold of the view pill (a change of view, from the store), which builds the two halves and their animations; no frame calls it
     moves.push([copy, side]);
   }
   // alloc-rare: runs once per fold of the view pill (a change of view, from the store), which builds the two halves and their animations; no frame calls it
   face.after(...boxes);
-  // alloc-rare: runs once per fold of the view pill (a change of view, from the store), which builds the two halves and their animations; no frame calls it
   for (const [copy, side] of moves) copy.animate([{ transform: `translateX(${side.tx0}px)` }, { transform: `translateX(${side.tx1}px)` }], { ...opt, fill: 'forwards' });
   // alloc-rare: runs once per fold of the view pill (a change of view, from the store), which builds the two halves and their animations; no frame calls it
   const hide = face.animate([{ opacity: 0 }, { opacity: 0 }], { ...opt, fill: 'forwards' });

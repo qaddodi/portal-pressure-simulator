@@ -22,7 +22,6 @@ const arg = (k, d) => { const i = process.argv.indexOf(`--${k}`); return i > 0 ?
 const DEVICE = arg('device', 'small'), ONLY = arg('only', '').split(',').filter(Boolean), OUT = arg('json', ''), MIN = +arg('min', 2), ROUNDS = +arg('rounds', 3), STEPS = +arg('steps', 8);
 
 // ── The tags: every `alloc-rare` allocation the scan leaves out of its count, with the node's place in its file ──
-const RARE = /\/\/\s*alloc-(?:rare|once):\s*(\S.*?)\s*$/;
 const tags = [];
 {
   const seen = new Set();
@@ -81,6 +80,9 @@ if (process.argv.includes('--check')) {   // (offline: every instrumented file m
 const app = await openApp({ device: DEVICE, query: '?preset=cirr-decomp', timeout: 300000, setup: route });
 const { page } = app;
 const hits = () => page.evaluate(() => Array.from(globalThis.__H || []));
+// (The model's frames come by wall time, about 30 a second, and a software renderer draws a display frame in seconds: a motion of 24 display frames sees hundreds of model frames. Both are counted, to tell what a model frame drives from what every display frame does.)
+await page.evaluate(() => { globalThis.__mf = 0; window.pps.store.on('frame', () => { globalThis.__mf++; }); });
+const modelFrames = () => page.evaluate(() => globalThis.__mf);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const frames = (n = 1) => page.evaluate((n) => new Promise((r) => { const f = () => (--n ? requestAnimationFrame(f) : r()); requestAnimationFrame(f); }), n);
 const framesDrawn = () => page.evaluate(() => window.pps.perf.totals.frames);
@@ -180,21 +182,21 @@ function report(final) {
 }
 const rows = new Map();   // id → { motion → count (last round) }
 const stacks = new Map();   // id → { motion → [stack] }
-const nframes = {};
-const save = (out) => { if (OUT) writeFileSync(OUT, JSON.stringify({ frames: nframes, tags: tags.length, unmeasured: tags.filter((t) => !t.measured).map((t) => `${t.file}:${t.line}`), hot: out }, null, 1)); };
+const nframes = {}, nmodel = {}, nsecs = {};
+const save = (out) => { if (OUT) writeFileSync(OUT, JSON.stringify({ frames: nframes, model: nmodel, secs: nsecs, tags: tags.length, unmeasured: tags.filter((t) => !t.measured).map((t) => `${t.file}:${t.line}`), hot: out }, null, 1)); };
 for (const m of MOTIONS.filter((x) => !ONLY.length || ONLY.includes(x.name))) {
-  let f0 = 0, f1 = 0, h0 = null, h1 = null, st = {};
+  let f0 = 0, f1 = 0, mf0 = 0, mf1 = 0, t0, secs = 0, h0 = null, h1 = null, st = {};
   for (let r = 1; r <= ROUNDS; r++) {
     log(`${m.name} round ${r}`);
     await page.evaluate((last) => { globalThis.__on = last; globalThis.__S.length = 0; }, r === ROUNDS);
     h0 = await hits();
-    f0 = await framesDrawn();
+    f0 = await framesDrawn(); mf0 = await modelFrames(); t0 = Date.now();
     try { await m.run(); } catch (e) { console.log(`${m.name}: round ${r} failed: ${String(e.message).split('\n')[0]}`); }
-    f1 = await framesDrawn();
+    f1 = await framesDrawn(); mf1 = await modelFrames(); secs = (Date.now() - t0) / 1000;
     h1 = await hits();
     if (r === ROUNDS) st = await page.evaluate(() => Object.fromEntries(globalThis.__S.map((s, i) => [i, s]).filter(([, s]) => s)));
   }
-  nframes[m.name] = f1 - f0;
+  nframes[m.name] = f1 - f0; nmodel[m.name] = mf1 - mf0; nsecs[m.name] = +secs.toFixed(1);
   for (const t of tags) {
     if (!t.measured) continue;
     const c = h1[t.id] - h0[t.id];

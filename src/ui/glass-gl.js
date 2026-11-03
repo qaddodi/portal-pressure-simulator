@@ -1401,16 +1401,16 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   }
   const stateOf = clockState;
   function timeAnim(an) {
-    const rec = { kf: null, c: null };   // alloc-rare: an animation is timed once, the first time it is seen (trackSoon/measureGeo), never per frame
+    const rec = { kf: null, c: null };
     try { rec.kf = compileKeyframes(an.effect?.getKeyframes?.() || null); } catch { rec.kf = null; }   // (its keyframes as numbers, once: motionAt reads them each frame and builds nothing)
     const c = rec.c = clockOf(an, tlNow());
     if (!c) return rec;
-    const stop = (done) => () => { if (done) c.done = true; else c.idle = true; wake(); measureSoon(); };   // alloc-rare: an animation is timed once, the first time it is seen (trackSoon/measureGeo), never per frame
+    const stop = (done) => () => { if (done) c.done = true; else c.idle = true; wake(); measureSoon(); };
     try {
       an.addEventListener?.('finish', stop(true));
       an.addEventListener?.('cancel', stop(false));
       an.addEventListener?.('remove', stop(false));
-      if (c.s == null) an.ready?.then?.(() => { const s = an.startTime; if (Number.isFinite(s) && c.rate !== 0) c.s = s; wake(); }, () => {});   // alloc-rare: an animation is timed once, the first time it is seen (trackSoon/measureGeo), never per frame
+      if (c.s == null) an.ready?.then?.(() => { const s = an.startTime; if (Number.isFinite(s) && c.rate !== 0) c.s = s; wake(); }, () => {});
     } catch (e) { caught('glass-gl:1233', e); /* (a stand-in with no events: its timing alone) */ }
     return rec;
   }
@@ -1607,7 +1607,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   /** The page read again just after this frame (or now, outside a frame), once however often asked. */
   function measureSoon(ms = 0) { if (!geoT) geoT = setTimeout(measureGeo, ms); }
   // (The labels drawn anew (their boxes may now lie across a glass): read once they rest, 250 ms after the last change.)
-  function measureAtRest() { clearTimeout(restT); restT = setTimeout(() => { restT = 0; measureGeo(); }, 250); }   // alloc-rare: the labels' rest timer is armed from a redraw, not drawn per frame
+  function measureAtRest() { clearTimeout(restT); restT = setTimeout(() => { restT = 0; measureGeo(); }, 250); }
   // (nowGeo's answer and its parts, kept: the canvas's box, the move flags, the glasses of this frame; read before the next call.)
   const NOW = { cr: null, panes: [], sr: null, bgs: '', bg: CLEAR4, bgVar: '', over: null, vw: 0, vh: 0 }, NF = { bad: false, ended: false, live: false }, crLive = newRect();
   let vkSeen = null, vkAt = 0;

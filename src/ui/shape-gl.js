@@ -322,8 +322,8 @@ export function polyMeshInto(polys, cap, drop, out) {
     const m = closed && len > 4 ? len / 2 : len / 2 - 1;
     ns += Math.max(m, 0);
   }
-  if (!out.tri || out.tri.length < nt * 6) out.tri = new Float32Array(nt * 6);   // alloc-rare: grows only when a bigger mesh than any before comes
-  if (!out.seg || out.seg.length < ns * SEG) out.seg = new Float32Array(ns * SEG);   // alloc-rare: grows only when a bigger mesh than any before comes
+  if (!out.tri || out.tri.length < nt * 6) out.tri = new Float32Array(nt * 6);
+  if (!out.seg || out.seg.length < ns * SEG) out.seg = new Float32Array(ns * SEG);
   const tri = out.tri, seg = out.seg;
   let a = 0, b = 0;
   for (let r = 0; r < polys.length; r++) {
@@ -509,7 +509,7 @@ export function createShapeGL(gl) {
   function gpuOf(mesh) {
     let g = mesh.gpu;
     if (g) return g;
-    g = mesh.gpu = { tri: null, seg: null, triVAO: null, segVAO: null };   // alloc-rare: a mesh's GPU record is made once, the first time that mesh is drawn
+    g = mesh.gpu = { tri: null, seg: null, triVAO: null, segVAO: null };
     if (mesh.nTri) {
       g.tri = gl.createBuffer(); g.triVAO = gl.createVertexArray();
       gl.bindVertexArray(g.triVAO);

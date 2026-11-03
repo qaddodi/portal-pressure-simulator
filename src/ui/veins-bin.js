@@ -122,8 +122,8 @@ export function binVeins(tubes, joins, memo = null) {
     // (A quarter's centre is HALF / 2 from its corners: a lumen pixel in it within core of a segment puts the segment within
     // core + HALF / 2 of the centre, and then within core + HALF of the cell's centre, so only cells that pass limC2 are tried.)
     const limQ2 = core == null ? Infinity : (Math.min(core, reach) + HALF / 2) ** 2;
-    const bc = [];   // (the cells its lumen can reach: see `blood`)   // alloc-rare: a vessel whose points or reach changed is binned again, not a steady frame
-    const bq = [];   // (and their quarters: cell × 4 + quarter, 0 1 above, 2 3 below)   // alloc-rare: same, a vessel binned again
+    const bc = [];   // (the cells its lumen can reach: see `blood`)
+    const bq = [];   // (and their quarters: cell × 4 + quarter, 0 1 above, 2 3 below)
     for (let i = 0; i < pts.length - 1; i++) {
       const ax = pts[i][0], ay = pts[i][1], bx = pts[i + 1][0], by = pts[i + 1][1];
       const cx0 = Math.max(0, Math.floor((Math.min(ax, bx) - reach - x0) / CELL)), cx1 = Math.min(nx - 1, Math.floor((Math.max(ax, bx) + reach - x0) / CELL));
@@ -140,11 +140,11 @@ export function binVeins(tubes, joins, memo = null) {
         }
       }
     }
-    const n = nSeg, cs = cellOf.slice(0, n), ss = segOf.slice(0, n); // alloc-rare: a vessel whose points or reach changed is binned again (a new patient, a layout or reach change), never a steady frame
+    const n = nSeg, cs = cellOf.slice(0, n), ss = segOf.slice(0, n);
     // (Its lumen's cells must be the same too: a patch keeps the last result's blood cells.)
-    if (m && m.reach === reach && m.core === core && m.n === n && sameArr(cs, m.cs) && sameArr(ss, m.ss) && sameArr(bc, m.bc) && sameArr(bq, m.bq)) { moved.push(ti); freshMoved++; } else if (m) changed.push({ ti, old: m }); // alloc-rare: a vessel whose points or reach changed is binned again (a new patient, a layout or reach change), never a steady frame
-    per[ti] = { n, cs, ss, bc, bq }; // alloc-rare: a vessel whose points or reach changed is binned again (a new patient, a layout or reach change), never a steady frame
-    if (memo) memo.set(id, { reach, core, pts: Float64Array.from(pts.flat()), at: Float64Array.from(drawn.flat()), n, cs, ss, bc, bq }); // alloc-rare: a vessel whose points or reach changed is binned again (a new patient, a layout or reach change), never a steady frame
+    if (m && m.reach === reach && m.core === core && m.n === n && sameArr(cs, m.cs) && sameArr(ss, m.ss) && sameArr(bc, m.bc) && sameArr(bq, m.bq)) { moved.push(ti); freshMoved++; } else if (m) changed.push({ ti, old: m });
+    per[ti] = { n, cs, ss, bc, bq };
+    if (memo) memo.set(id, { reach, core, pts: Float64Array.from(pts.flat()), at: Float64Array.from(drawn.flat()), n, cs, ss, bc, bq });
   }
   const jCell = JCELL;
   jCell.length = 0;
@@ -425,18 +425,18 @@ function relay(memo, tubes, changed, per, jCell) {
     const p = per[ti];
     if (!sameArr(p.bc, old.bc) || !sameArr(p.bq, old.bq)) bloodMoved = true;
     // (The cells where its pairs differ: a pair (cell, sample) in only one of the two lists puts its cell in A.)
-    const was = new Map(); // alloc-rare: the relay: only the model frame a coiling vessel crosses a cell border, patching the cells it left or entered
+    const was = new Map();
     for (let k = 0; k < old.cs.length; k++) was.set(old.cs[k] * KEY + old.ss[k], k);
-    const now = new Set(), by = new Map(); // alloc-rare: the relay: only the model frame a coiling vessel crosses a cell border, patching the cells it left or entered
+    const now = new Set(), by = new Map();
     for (let k = 0; k < p.cs.length; k++) {
       const c = p.cs[k], key = c * KEY + p.ss[k];
       now.add(key);
-      let a = by.get(c); if (!a) by.set(c, a = []); a.push(p.ss[k]); // alloc-rare: the relay: only the model frame a coiling vessel crosses a cell border, patching the cells it left or entered
+      let a = by.get(c); if (!a) by.set(c, a = []); a.push(p.ss[k]);
       if (!was.has(key)) A.add(c);
     }
     for (let k = 0; k < old.cs.length; k++) if (!now.has(old.cs[k] * KEY + old.ss[k])) A.add(old.cs[k]);
     fresh.set(ti, by);
-    newEs.set(ti, { was, old: es[ti] }); // alloc-rare: the relay: only the model frame a coiling vessel crosses a cell border, patching the cells it left or entered
+    newEs.set(ti, { was, old: es[ti] });
   }
   if (!A.size) return null;
   const inA = new Uint8Array(cap.length); // alloc-rare: the relay: only the model frame a coiling vessel crosses a cell border, patching the cells it left or entered
@@ -448,8 +448,8 @@ function relay(memo, tubes, changed, per, jCell) {
     for (let k = 0; k < cs.length; k++) {
       const c = cs[k];
       if (!inA[c]) continue;
-      let m = ks.get(c); if (!m) ks.set(c, m = new Map()); // alloc-rare: the relay: only the model frame a coiling vessel crosses a cell border, patching the cells it left or entered
-      let a = m.get(ti); if (!a) m.set(ti, a = []); // alloc-rare: the relay: only the model frame a coiling vessel crosses a cell border, patching the cells it left or entered
+      let m = ks.get(c); if (!m) ks.set(c, m = new Map());
+      let a = m.get(ti); if (!a) m.set(ti, a = []);
       a.push(k);
     }
   }
@@ -457,40 +457,40 @@ function relay(memo, tubes, changed, per, jCell) {
   for (const c of A) {
     const r = rec[c];
     if (r < 0 || !cap[c]) return null;
-    const start = cells[r * 6 + 2], count = cells[r * 6 + 3], keep = [], list = []; // alloc-rare: the relay: only the model frame a coiling vessel crosses a cell border, patching the cells it left or entered
+    const start = cells[r * 6 + 2], count = cells[r * 6 + 3], keep = [], list = [];
     for (let e = start; e < start + count;) {
       let g = e + 1;
       while (g < start + count && ent[g * 8 + 5] !== -1) g++;
       const ti = tiOf.get(ent[e * 8 + 4]);
       if (ti === undefined) return null;
-      keep.push({ ti, e0: e, n: g - e }); // alloc-rare: the relay: only the model frame a coiling vessel crosses a cell border, patching the cells it left or entered
+      keep.push({ ti, e0: e, n: g - e });
       if (!chIdx.has(ti)) {
         // (An unchanged vessel's stretch must match its pairs here, or the bookkeeping would not.)
         if ((ks.get(c)?.get(ti)?.length ?? 0) !== g - e - 1) return null;
-        list.push({ ti, e0: e, n: g - e }); // alloc-rare: the relay: only the model frame a coiling vessel crosses a cell border, patching the cells it left or entered
+        list.push({ ti, e0: e, n: g - e });
       }
       e = g;
     }
-    for (const [ti, by] of fresh) { const a = by.get(c); if (a) list.push({ ti, samples: a, n: 1 + a.length }); } // alloc-rare: the relay: only the model frame a coiling vessel crosses a cell border, patching the cells it left or entered
-    list.sort((a, b) => a.ti - b.ti); // alloc-rare: the relay: only the model frame a coiling vessel crosses a cell border, patching the cells it left or entered
+    for (const [ti, by] of fresh) { const a = by.get(c); if (a) list.push({ ti, samples: a, n: 1 + a.length }); }
+    list.sort((a, b) => a.ti - b.ti);
     let total = 0;
     for (const x of list) total += x.n;
     if (!total || total > cap[c]) return null;
     // The cell's new list, written to a copy.
-    const tmp = new Float32Array(cap[c] * 8); // alloc-rare: the relay: only the model frame a coiling vessel crosses a cell border, patching the cells it left or entered
+    const tmp = new Float32Array(cap[c] * 8);
     let pos = 0;
     for (const x of list) {
       if (x.e0 != null) tmp.set(ent.subarray(x.e0 * 8, (x.e0 + x.n) * 8), pos * 8);
       else {
         const t = tubes[x.ti], h = pos;
         tmp[h * 8 + 4] = t.id; tmp[h * 8 + 5] = -1; tmp[h * 8 + 7] = x.samples.length;
-        x.samples.forEach((i, j) => { const a = t.pts[i], b = t.pts[i + 1], q = (h + 1 + j) * 8; tmp[q] = a[0]; tmp[q + 1] = a[1]; tmp[q + 2] = b[0]; tmp[q + 3] = b[1]; tmp[q + 4] = t.id; tmp[q + 5] = i; }); // alloc-rare: the relay: only the model frame a coiling vessel crosses a cell border, patching the cells it left or entered
+        x.samples.forEach((i, j) => { const a = t.pts[i], b = t.pts[i + 1], q = (h + 1 + j) * 8; tmp[q] = a[0]; tmp[q + 1] = a[1]; tmp[q + 2] = b[0]; tmp[q + 3] = b[1]; tmp[q + 4] = t.id; tmp[q + 5] = i; });
         fitStretch(tmp, h);
       }
       x.at = pos;
       pos += x.n;
     }
-    plans.push({ c, r, start, keep, list, total, tmp }); // alloc-rare: the relay: only the model frame a coiling vessel crosses a cell border, patching the cells it left or entered
+    plans.push({ c, r, start, keep, list, total, tmp });
   }
   // Each changed vessel's entries outside A are where they were: found by their (cell, sample) in the old pairs.
   for (const { ti } of changed) {

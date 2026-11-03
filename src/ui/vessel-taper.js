@@ -21,7 +21,7 @@
 //   vessels: Map id → { body (its own caliber, radius), len (its length) }
 //   links:   [{ a, ea, b, eb }]: vessel a's end ea (0 start, 1 end) runs on into vessel b's end eb.
 
-const key = (id, end) => `${id}:${end}`; // alloc-rare: only when a vessel's caliber or the joined set changes (stage.js sendRadii, a model change), never on a steady frame
+const key = (id, end) => `${id}:${end}`;
 
 /** The chains the links make: each an array of { id, enter } (enter: the end the chain comes in by; 0 walks the vessel start to end). */
 export function chainsOf(ids, links) {
@@ -31,16 +31,16 @@ export function chainsOf(ids, links) {
     const ka = key(a, ea), kb = key(b, eb);
     // (Each end runs on into one other at most: the first link an end appears in holds.)
     if (next.has(ka) || next.has(kb)) continue;
-    next.set(ka, { id: b, end: eb }); // alloc-rare: only when a vessel's caliber or the joined set changes (stage.js sendRadii, a model change), never on a steady frame
-    next.set(kb, { id: a, end: ea }); // alloc-rare: only when a vessel's caliber or the joined set changes (stage.js sendRadii, a model change), never on a steady frame
+    next.set(ka, { id: b, end: eb });
+    next.set(kb, { id: a, end: ea });
   }
   const seen = new Set(), chains = []; // alloc-rare: only when a vessel's caliber or the joined set changes (stage.js sendRadii, a model change), never on a steady frame
   const walk = (id, enter) => { // alloc-rare: only when a vessel's caliber or the joined set changes (stage.js sendRadii, a model change), never on a steady frame
-    const chain = []; // alloc-rare: only when a vessel's caliber or the joined set changes (stage.js sendRadii, a model change), never on a steady frame
-    let cur = { id, end: enter }; // alloc-rare: only when a vessel's caliber or the joined set changes (stage.js sendRadii, a model change), never on a steady frame
+    const chain = [];
+    let cur = { id, end: enter };
     while (cur && !seen.has(cur.id)) {
       seen.add(cur.id);
-      chain.push({ id: cur.id, enter: cur.end }); // alloc-rare: only when a vessel's caliber or the joined set changes (stage.js sendRadii, a model change), never on a steady frame
+      chain.push({ id: cur.id, enter: cur.end });
       cur = next.get(key(cur.id, 1 - cur.end));
     }
     return chain;

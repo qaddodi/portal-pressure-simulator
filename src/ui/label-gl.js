@@ -687,7 +687,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       const n = nb >> 2;
       while (BOXP.length < n) BOXP.push([0, 0, 0, 0]);   // alloc-rare: one array per box the most there ever were
       for (let i = 0; i < n; i++) { const b = BOXP[i], o = i << 2; b[0] = BX[o]; b[1] = BX[o + 1]; b[2] = BX[o + 2]; b[3] = BX[o + 3]; }
-      boxes = BOXP.slice(0, n);   // alloc-rare: a new array for a new picture, only in a frame where a box changed
+      boxes = BOXP.slice(0, n);
       BP.set(BX.subarray(0, nb)); npb = nb;
     }
     let pix = nb !== nbk;

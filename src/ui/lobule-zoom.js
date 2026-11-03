@@ -315,7 +315,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     return o;
   }
   const fitA = { k: 1, x: 0, y: 0 }, fitC = { k: 1, x: 0, y: 0 };   // (fitInto's scratch for a move event (fitA) and for clampV (fitC), which only read it in the same call)
-  function fitV() { return fitInto({ k: 1, x: 0, y: 0 }); }   // alloc-rare: only to start or end a gesture (a glide's target, a framing kept), never in a move event or frame
+  function fitV() { return fitInto({ k: 1, x: 0, y: 0 }); }
   // While the lobule is being dragged about at its framing (rubber band), nothing may snap it back to fit.
   let rubber = false, rubberT = 0;
   const bandOffset = (o, L) => L * Math.tanh(o / L);
@@ -447,7 +447,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // the clamp used to snap the lobule sideways before the zoom out began, 20 Oct, Mohammad.)
   function reclamp() {
     const sk = V.k, sx = V.x, sy = V.y, wasFit = atFit; clampV();
-    const to = { k: V.k, x: V.x, y: V.y }, fit = atFit;   // alloc-rare: only when the free space changes (refit: a resize, a card, a slide), the glide's target
+    const to = { k: V.k, x: V.x, y: V.y }, fit = atFit;
     V.k = sk; V.x = sx; V.y = sy; atFit = wasFit;
     if (Math.abs(to.k - V.k) + Math.abs(to.x - V.x) + Math.abs(to.y - V.y) > 0.5) { glideTo(to, 420, false, null, 'inOut', true); atFit = fit; } else { clampV(); viewChanged(); }
   }
@@ -1074,7 +1074,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     return t;
   };
   // A whole number's text (String(n)), made again only when the number changes.
-  const shownInt = (slot, n) => { if (Object.is(slot.q, n) && slot.s !== '') return slot.s; slot.q = n; slot.s = `${n}`; return slot.s; };   // alloc-rare: only when the whole number changes
+  const shownInt = (slot, n) => { if (Object.is(slot.q, n) && slot.s !== '') return slot.s; slot.q = n; slot.s = `${n}`; return slot.s; };
   // A change from healthy, '+5' or '−5' (fmt of its size, a sign before it), made again only when its size or sign changes.
   const shownDelta = (slot, d) => {
     const a = Math.abs(d), q = Math.round(a), up = d > 0;
@@ -1113,7 +1113,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       if (say.kind !== 1 || say.a !== a || say.b !== b || say.c !== c) { say.kind = 1; say.a = a; say.b = b; say.c = c; said = `Liver lobule: oxygen saturation in the portal venule ${a}, sinusoids ${b}, central vein ${c} percent.`; }   // alloc-rare: only when a printed number changes
     } else {
       const a = shown(stP[0], m.P1, 1), b = shown(stP[1], m.P2, 1), c = shown(stP[2], m.P3, 1), f = shownInt(stFlow, Math.round(m.flow * 100));
-      if (say.kind !== 2 || say.a !== a || say.b !== b || say.c !== c || say.f !== f) { say.kind = 2; say.a = a; say.b = b; say.c = c; say.f = f; said = `Liver lobule: portal venule ${a}, sinusoids ${b}, central vein ${c} millimeters of mercury; sinusoidal flow ${f} percent of normal.`; }   // alloc-rare: only when a printed number changes
+      if (say.kind !== 2 || say.a !== a || say.b !== b || say.c !== c || say.f !== f) { say.kind = 2; say.a = a; say.b = b; say.c = c; say.f = f; said = `Liver lobule: portal venule ${a}, sinusoids ${b}, central vein ${c} millimeters of mercury; sinusoidal flow ${f} percent of normal.`; }
     }
     if (said !== tissueSaid) { tissueSaid = said; restAttr(tissue, 'aria-label', said); }
     // Station cards on the figure.
@@ -1132,7 +1132,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (sinTo || sinU > 0) sv.setModel(m);
   }
   const lyUnitSlot = mkSlot();
-  const lymphUnit = (n) => { if (Object.is(lyUnitSlot.q, n) && lyUnitSlot.s !== '') return lyUnitSlot.s; lyUnitSlot.q = n; lyUnitSlot.s = `mL/min · Protein ${n}%`; return lyUnitSlot.s; };   // alloc-rare: only when the protein percentage changes
+  const lymphUnit = (n) => { if (Object.is(lyUnitSlot.q, n) && lyUnitSlot.s !== '') return lyUnitSlot.s; lyUnitSlot.q = n; lyUnitSlot.s = `mL/min · Protein ${n}%`; return lyUnitSlot.s; };
 
   // ── Station labels (HTML, styled as the anatomy's) with leaders ──
   const labs = {}, badges = {};
@@ -1166,7 +1166,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const cls = L.el.className;
     if (L.kEnv === e && L.kCls === cls && L.kVer === L.ver && L.kKey !== undefined) return L.kKey;
     L.kEnv = e; L.kCls = cls; L.kVer = L.ver;
-    L.kKey = `${e}|${cls.replace(/(^| )(stack|lz-off)(?= |$)/g, '')}|${L.el.innerHTML.replace(/\d/g, '0')}`;   // alloc-rare: only when the look, the label's classes or its content changed
+    L.kKey = `${e}|${cls.replace(/(^| )(stack|lz-off)(?= |$)/g, '')}|${L.el.innerHTML.replace(/\d/g, '0')}`;
     return L.kKey;
   };
   // (Whether a label shows is held on the label (_hid) the moment it changes, and written as the `hidden` attribute between frames
@@ -1255,7 +1255,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const easeLab = (g, now) => EASE_LAB(clamp((now - g.t0) / D_SURFACE, 0, 1));
   const labGliding = (L, now) => !!L.gl && (L.gl.x0 !== L.gl.x1 || L.gl.y0 !== L.gl.y1) && now - L.gl.t0 < D_SURFACE;
   // A label's glide is one object on it, written again in place (a glide begun on another carries from where this one stands now).
-  const glOf = (L) => L.gl || (L.gl = { x0: 0, y0: 0, x1: 0, y1: 0, t0: 0 });   // alloc-rare: only the first time a label is placed
+  const glOf = (L) => L.gl || (L.gl = { x0: 0, y0: 0, x1: 0, y1: 0, t0: 0 });
   function noteAt(L) {
     const sp = spot.get(L.el) || ZERO2, x = sp[0], y = sp[1], g = L.gl;
     if (g && g.x1 === x && g.y1 === y) return;
@@ -1345,7 +1345,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // as many numerals leaves the label's size as it was.
     // (Its colour is only a style on the label: a new one, which the pressure glide brings every frame, rebuilds nothing.)
     if (col !== L.col) { L.col = col; L.swWant = col || 'var(--border-strong)'; swQ.add(L); pageSoon(); }   // (the page's variable is set between frames, pageRun)
-    if (L.ukSrc !== u) { L.ukSrc = u; L.uk = u.replace(/\d/g, '0'); }   // alloc-rare: only when the unit's words change (its figure moves a few times a second at most)
+    if (L.ukSrc !== u) { L.ukSrc = u; L.uk = u.replace(/\d/g, '0'); }
     const uk = L.uk, hasD = !!d, empty = v === '';
     const same = L.fN === name && L.fS === short && L.fU === uk && L.fE === empty && L.fD === hasD;   // (the label's make-up, part by part)
     if (same && !L.empty) {
@@ -2521,7 +2521,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     for (let i = 0; i < nr; i++) {
       const r = res[i], it = r.it, L = it.L, k = it.k, w = it.w, hh = it.hh, a = it.a, edge = it.edge, x = r.x, y = r.y;
       const ax = rnd1(a[0]), ay = rnd1(a[1]);
-      if (L.atX !== ax || L.atY !== ay) { L.atX = ax; L.atY = ay; L.atS = `${ax},${ay}`; }   // alloc-rare: only when the label's spot changed by a tenth of a pixel
+      if (L.atX !== ax || L.atY !== ay) { L.atX = ax; L.atY = ay; L.atS = `${ax},${ay}`; }
       restAttr(L.el, 'data-at', L.atS);
       if (r.out) { if (L.peek) { setHid(L.el, true); classSoon(L.el, 'edge', false); } else fadeOut(L.el); leadOff(L); continue; }
       fadeIn(L.el);
@@ -3065,14 +3065,14 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // A lattice point, nudged (ix, iy in half-R and half-height steps, wrapped to the repeat).
     const corner = (x, y) => {   // alloc-rare: only when a tile is drawn (a new look or size), never a frame that already has its tile
       const ix = Math.round(x / (R / 2)), iy = Math.round(y / (S3 * R / 2));
-      if (home(ix, iy)) return [x, y];   // alloc-rare: only when a tile is drawn (a new look or size), never a frame that already has its tile
+      if (home(ix, iy)) return [x, y];
       const u = hash(((ix % 12) + 12) % 12, ((iy % 4) + 4) % 4), w = hash(((ix % 12) + 12) % 12 + 31, ((iy % 4) + 4) % 4 + 17);
       const a = u * TAU, m = 0.11 * R * (0.4 + 0.6 * w);
-      return [x + Math.cos(a) * m, y + Math.sin(a) * m];   // alloc-rare: only when a tile is drawn (a new look or size), never a frame that already has its tile
+      return [x + Math.cos(a) * m, y + Math.sin(a) * m];
     };
     const lat = (q) => (((Math.round(q[0] / (R / 2)) % 12) + 12) % 12) * 4 + (((Math.round(q[1] / (S3 * R / 2)) % 4) + 4) % 4);   // wrapped lattice index   // alloc-rare: only when a tile is drawn (a new look or size), never a frame that already has its tile
     const centres = [];   // alloc-rare: only when a tile is drawn (a new look or size), never a frame that already has its tile
-    for (let i = -1; i <= 4; i++) for (let j = -1; j <= 2; j++) centres.push([1.5 * R * i, S3 * R * (j + (i & 1 ? 0.5 : 0))]);   // alloc-rare: only when a tile is drawn (a new look or size), never a frame that already has its tile
+    for (let i = -1; i <= 4; i++) for (let j = -1; j <= 2; j++) centres.push([1.5 * R * i, S3 * R * (j + (i & 1 ? 0.5 : 0))]);
     const lw = Math.max(0.6, R * 0.05), round = 1 + 0.6 * fs.su;   // nodules: rounder plates
     const Ps = centres.map(([x, y]) => Array.from({ length: 6 }, (_, i) => corner(x + Math.cos((i * Math.PI) / 3) * R, y + Math.sin((i * Math.PI) / 3) * R)));   // alloc-rare: only when a tile is drawn (a new look or size), never a frame that already has its tile
     // In three passes, so the septa lie over every plate and the triads and veins over the septa.
@@ -3082,7 +3082,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       c.beginPath();
       for (let i = 0; i < 6; i++) {
         const A = P[i], B = P[(i + 1) % 6], C = P[(i + 2) % 6];
-        const m1 = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2], m2 = [(B[0] + C[0]) / 2, (B[1] + C[1]) / 2];   // alloc-rare: only when a tile is drawn (a new look or size), never a frame that already has its tile
+        const m1 = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2], m2 = [(B[0] + C[0]) / 2, (B[1] + C[1]) / 2];
         const k = Math.min(1, round - 1), bx = B[0] + (x - B[0]) * 0.12 * k, by = B[1] + (y - B[1]) * 0.12 * k;
         if (!i) c.moveTo(m1[0], m1[1]);
         c.quadraticCurveTo(bx, by, m2[0], m2[1]);
@@ -3095,7 +3095,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       // Congestion: zone 3 pooled with blood (nutmeg).
       if (fs.cong > 0) {
         const n = c.createRadialGradient(x, y, R * 0.08, x, y, R * (0.35 + 0.25 * fs.cong));
-        n.addColorStop(0, tk('--lz-congestion', (0.55 * fs.cong).toFixed(3))); n.addColorStop(1, tk('--lz-congestion', 0));   // alloc-rare: only when a tile is drawn (a new look or size), never a frame that already has its tile
+        n.addColorStop(0, tk('--lz-congestion', (0.55 * fs.cong).toFixed(3))); n.addColorStop(1, tk('--lz-congestion', 0));
         c.fillStyle = n; c.fillRect(x - R, y - R, 2 * R, 2 * R);
       }
       // Sinusoids: from each edge's portal side toward the central vein, each with a slight bend;
@@ -3113,7 +3113,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       // Septa: soft bands along the borders; in cirrhosis, broad pale bands of collagen.
       c.lineJoin = 'round';
       c.globalAlpha = dark ? 0.5 : 0.38; c.strokeStyle = gap; c.lineWidth = lw * 1.6;
-      c.beginPath(); P.forEach((q, i) => c[i ? 'lineTo' : 'moveTo'](q[0], q[1])); c.closePath(); c.stroke();   // alloc-rare: only when a tile is drawn (a new look or size), never a frame that already has its tile
+      c.beginPath(); P.forEach((q, i) => c[i ? 'lineTo' : 'moveTo'](q[0], q[1])); c.closePath(); c.stroke();
     }
     c.globalAlpha = 1;
     if (fs.su > 0) for (const [ci, [x, y]] of centres.entries()) {
@@ -3123,17 +3123,17 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         const bw = R * (0.045 + 0.075 * fs.su), reach = Math.min(1, 0.3 + 2.4 * fs.su), det = R < 40 ? 0 : R < 120 ? 0.5 : 1;
         for (let k = 0; k < 6; k++) {
           let A = P[k], B = P[(k + 1) % 6], ka = lat(A), kb = lat(B);
-          const key = Math.round(A[0] + B[0]) + ',' + Math.round(A[1] + B[1]);   // alloc-rare: only when a tile is drawn (a new look or size), never a frame that already has its tile
+          const key = Math.round(A[0] + B[0]) + ',' + Math.round(A[1] + B[1]);
           if (edges.has(key)) continue; edges.add(key);
           // Seeded and oriented by the wrapped lattice, so a band crossing the repeat matches its copy.
-          if (ka > kb) { [A, B] = [B, A]; [ka, kb] = [kb, ka]; }   // alloc-rare: only when a tile is drawn (a new look or size), never a frame that already has its tile
-          const sd = ka * 48 + kb, o = { w: bw, rgb: COLa, a: 0.5 + 0.4 * fs.su, amp: R * 0.025, seed: sd, detail: det };   // alloc-rare: only when a tile is drawn (a new look or size), never a frame that already has its tile
+          if (ka > kb) { [A, B] = [B, A]; [ka, kb] = [kb, ka]; }
+          const sd = ka * 48 + kb, o = { w: bw, rgb: COLa, a: 0.5 + 0.4 * fs.su, amp: R * 0.025, seed: sd, detail: det };
           if (reach >= 1) fibrousBand(c, A, B, o);
           else { const M = (t, U, Q) => [lerp(U[0], Q[0], t), lerp(U[1], Q[1], t)]; fibrousBand(c, A, M(reach / 2, A, B), { ...o, e1: 0.2 }); fibrousBand(c, B, M(reach / 2, B, A), { ...o, e1: 0.2, seed: sd + 1 }); }   // alloc-rare: only when a tile is drawn (a new look or size), never a frame that already has its tile
         }
         // Portal-central bridges, late in cirrhosis.
         if (fs.su > 0.18) { const g = Math.min(1, (fs.su - 0.18) / 0.4);
-          for (const k of [0, 2, 4]) fibrousBand(c, P[k], [lerp(P[k][0], x, 0.82), lerp(P[k][1], y, 0.82)], { w: bw * (0.6 + 0.3 * g), rgb: COLa, a: 0.4 + 0.45 * g, e1: 0.35, amp: R * 0.04, seed: 5000 + k * 97 + lat([x, y]), detail: det }); }   // alloc-rare: only when a tile is drawn (a new look or size), never a frame that already has its tile
+          for (const k of [0, 2, 4]) fibrousBand(c, P[k], [lerp(P[k][0], x, 0.82), lerp(P[k][1], y, 0.82)], { w: bw * (0.6 + 0.3 * g), rgb: COLa, a: 0.4 + 0.45 * g, e1: 0.35, amp: R * 0.04, seed: 5000 + k * 97 + lat([x, y]), detail: det }); }
       }
     }
     for (const [ci, [x, y]] of centres.entries()) {
@@ -3151,7 +3151,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         if (home(Math.round(px / (R / 2)), Math.round(py / (S3 * R / 2)))) continue;
         if (fs.pre > 0) {
           c.globalAlpha = 1;
-          fibrousTract(c, px, py, R * 0.09 * (0.8 + 0.18 * scarGrowth(fs.pre)), Math.atan2(py - y, px - x), COLa, scarGrowth(fs.pre), 700 + lat([px, py]), 0.35);   // alloc-rare: only when a tile is drawn (a new look or size), never a frame that already has its tile
+          fibrousTract(c, px, py, R * 0.09 * (0.8 + 0.18 * scarGrowth(fs.pre)), Math.atan2(py - y, px - x), COLa, scarGrowth(fs.pre), 700 + lat([px, py]), 0.35);
         }
         c.globalAlpha = 0.85; c.fillStyle = pvc; c.beginPath(); c.ellipse(px, py, R * 0.055, R * 0.04, 0.6, 0, TAU); c.fill();
         c.fillStyle = art; c.beginPath(); c.arc(px + R * 0.06, py - R * 0.035, R * 0.022, 0, TAU); c.fill();
@@ -3748,7 +3748,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     ring: [...rgb01(cs.getPropertyValue('--accent').trim()), 0.4],   // alloc-rare: lookOf, a new copy of the styles only
     netAlpha: 1, fx: true, tierAlpha: Array(MAX_TIERS).fill(1), tierGroup: Array(MAX_TIERS).fill(1),   // alloc-rare: lookOf, a new copy of the styles only
   });
-  const triplet = (cs, n) => { const k = cs.getPropertyValue(n).trim().split(/[\s,/]+/).map(Number); return k.length >= 3 && k.every(Number.isFinite) ? k.slice(0, 3).map((v) => v / 255) : [0, 0, 0]; };   // alloc-rare: only called by lookOf, for a new copy of the styles
+  const triplet = (cs, n) => { const k = cs.getPropertyValue(n).trim().split(/[\s,/]+/).map(Number); return k.length >= 3 && k.every(Number.isFinite) ? k.slice(0, 3).map((v) => v / 255) : [0, 0, 0]; };
 
   // ── Tissue: plates, collagen, zones, congestion (repainted only when the model changes it) ──
   let worldSc = 0, worldGeo = null, worldDraws = 0, holdT = 0;
@@ -4294,7 +4294,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   let gEraseSlot = 0, gLineSlot = 0, capBuf = null, capN = 0;
   // One capsule (x0, y0, x1, y1, r, 0) onto the end of the buffer being written.
   function capPut(x0, y0, x1, y1, r) {
-    if (capN + 6 > capBuf.length) { const nx = new Float32Array(Math.max(256, capBuf.length * 2)); nx.set(capBuf); capBuf = nx; }   // alloc-rare: only when the list outgrows its buffer
+    if (capN + 6 > capBuf.length) { const nx = new Float32Array(Math.max(256, capBuf.length * 2)); nx.set(capBuf); capBuf = nx; }
     capBuf[capN++] = x0; capBuf[capN++] = y0; capBuf[capN++] = x1; capBuf[capN++] = y1; capBuf[capN++] = r; capBuf[capN++] = 0;
   }
   // The kept calibers (rz, to 1/q) compared with a kept copy: true, and the copy updated, when they differ.

@@ -40,7 +40,7 @@ export function timingOf(a, now) {
   if (typeof dur !== 'number' || !(dur >= 0) || !Number.isFinite(delay) || (ct != null && typeof ct !== 'number')) return null;
   const ease = easingOf(tm.easing);
   if (!ease) return null;
-  return { t0: now - (ct ?? 0), delay, dur, ease, fill: String(tm.fill || 'none'), es: String(tm.easing || 'linear') };   // alloc-rare: read once as a label's animation starts (capture), then followed by progressAt with no read
+  return { t0: now - (ct ?? 0), delay, dur, ease, fill: String(tm.fill || 'none'), es: String(tm.easing || 'linear') };
 }
 /** Where a timing stands at `now`, after its easing (0..1), or null where it has no effect (outside it, with no fill there). */
 export function progressAt(t, now) {
@@ -55,14 +55,14 @@ const HARMLESS = new Set(['transform', 'translate', 'scale', 'rotate', 'visibili
 /** A keyframe list for `prop`: [{ o, v, ease }] from offset 0 to 1, or null. */
 export function keysOf(kf, prop) {
   if (!kf?.length) return null;
-  const out = [];   // alloc-rare: read once as a label's animation starts (capture), then followed by trackAt with no read
+  const out = [];
   for (const k of kf) {
     if (k.composite && k.composite !== 'auto' && k.composite !== 'replace') return null;
     const v = k[prop];
     if (v == null || v === '') return null;
     const o = k.computedOffset ?? k.offset, ease = easingOf(k.easing);
     if (!Number.isFinite(o) || !ease) return null;
-    out.push({ o, v, ease });   // alloc-rare: read once as a label's animation starts (capture)
+    out.push({ o, v, ease });
   }
   if (out.length < 2 || out[0].o !== 0 || out[out.length - 1].o !== 1) return null;
   return out;
@@ -83,14 +83,14 @@ const isTransition = (a) => a && 'transitionProperty' in a;
  * Returns { ops: [{ t, keys }] (opacity layers, lowest first), under, paint: { t, ease, pairs: [{ el, prop, from, to }] } | null, end }.
  */
 export function trackOf(anims, opEl, paintOk, now) {
-  const ops = [], pairs = [];   // alloc-rare: a track is read once as a label's animations start (capture, only when the label is new or dirty), then followed by trackAt
+  const ops = [], pairs = [];
   let paintT = null, paintEase = null, paintES = '', end = -Infinity, opTrans = false, opAnim = false;
   for (const a of anims || []) {   // alloc-rare: as above, read once at an animation's start
     const e = a?.effect, el = e?.target;
     if (!e || !el || e.pseudoElement) return null;
     let kf;
     try { kf = e.getKeyframes(); } catch { return null; }
-    const props = new Set();   // alloc-rare: as above, read once at an animation's start
+    const props = new Set();
     for (const k of kf) for (const p in k) if (!META.has(p)) props.add(p);
     let t = null;
     for (const p of props) {
@@ -102,7 +102,7 @@ export function trackOf(anims, opEl, paintOk, now) {
         if (!keys) return null;
         for (const k of keys) { k.v = parseFloat(k.v); if (!Number.isFinite(k.v)) return null; }
         if (isTransition(a)) opTrans = true; else opAnim = true;
-        ops.push({ t, keys });   // alloc-rare: as above, read once at an animation's start
+        ops.push({ t, keys });
       } else if ((p === 'fill' || p === 'stroke') && paintOk(el) && isTransition(a)) {
         const keys = keysOf(kf, p);
         if (!keys || keys.length !== 2 || !rgbOf(keys[0].v) || !rgbOf(keys[1].v)) return null;
@@ -117,7 +117,6 @@ export function trackOf(anims, opEl, paintOk, now) {
   }
   // (A transition and an animation of the opacity at once: which wins is the cascade's, not followed here.)
   if (opTrans && opAnim) return null;
-  // alloc-rare: as above, read once at an animation's start
   return { ops, under: ops.length ? ops[ops.length - 1].keys[ops[ops.length - 1].keys.length - 1].v : null, paint: pairs.length ? { t: paintT, ease: paintEase, pairs } : null, end };
 }
 const AT = { op: null, w: null };

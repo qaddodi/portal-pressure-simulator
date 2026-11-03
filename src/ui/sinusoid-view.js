@@ -583,7 +583,7 @@ export function createSinusoidView({ host, before = null }) {
   }
   const movPool = [];
   function addMover(kind, side, x, y, ph) {
-    const q = movPool.pop() || { kind: 'a', side: 1, x: 0, t: 0, y: 0, ph: 0 };   // alloc-rare: a new one only when more are alive than ever before (900 at most)
+    const q = movPool.pop() || { kind: 'a', side: 1, x: 0, t: 0, y: 0, ph: 0 };
     q.kind = kind; q.side = side; q.x = x; q.t = 0; q.y = y; q.ph = ph;
     movers.push(q);
   }

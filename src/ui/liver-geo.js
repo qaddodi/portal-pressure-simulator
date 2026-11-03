@@ -10,7 +10,7 @@ export const seeded = (seed) => () => { seed = (seed * 9301 + 49297) % 233280; r
 export function strHash(str) {
   let h = 0x811c9dc5;
   for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
-  return h.toString(16).padStart(8, '0');   // alloc-rare: a hash of a path text, made once per distinct text (organ-paint's dKey keeps it) and once for the liver's outline in sampleLiver
+  return h.toString(16).padStart(8, '0');
 }
 
 // Spacing of the grid the sites are bucketed in.

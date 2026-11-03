@@ -139,7 +139,7 @@ export function createTileCopier(gl) {
     const { width: w, height: h, look } = copy;
     // (Everything the context had set is put back: a copy is made from inside its draws, between their own settings.)
     // (From the renderer's own record of the context, gl-state.js: no query reaches the driver.)
-    const was = { prog: glGet(gl, gl.CURRENT_PROGRAM), fb: glGet(gl, gl.FRAMEBUFFER_BINDING), vp: glGet(gl, gl.VIEWPORT), unit: glGet(gl, gl.ACTIVE_TEXTURE), blend: glOn(gl, gl.BLEND), scissor: glOn(gl, gl.SCISSOR_TEST) };   // alloc-rare: once for each tile copy made, when a tile first reaches the GPU
+    const was = { prog: glGet(gl, gl.CURRENT_PROGRAM), fb: glGet(gl, gl.FRAMEBUFFER_BINDING), vp: glGet(gl, gl.VIEWPORT), unit: glGet(gl, gl.ACTIVE_TEXTURE), blend: glOn(gl, gl.BLEND), scissor: glOn(gl, gl.SCISSOR_TEST) };
     gl.activeTexture(gl.TEXTURE0 + 15);   // (a unit no draw of the lobule uses)
     const held = glGet(gl, gl.TEXTURE_BINDING_2D);
     const out = texture(w, h, gl.LINEAR_MIPMAP_LINEAR);

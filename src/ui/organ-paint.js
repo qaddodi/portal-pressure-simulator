@@ -502,7 +502,7 @@ function readRoot(c, root) {
   if (clipId) { lastFail = ['clip on the group', root]; return null; }   // alloc-rare: a refusal, as fail
   const s = E.spec, ops = settle(s && s.ops, list);
   if (s && s.ops === ops && s.opacity === opacity && s.mask === mask) return s;
-  return (E.spec = { ops, opacity, mask, root });   // alloc-rare: a spec made the first time, or when its ops, opacity or mask changed
+  return (E.spec = { ops, opacity, mask, root });
 }
 // (`out`: the list the ops go to, the root's or a nested group's; `a0`: where in the chain the ops' opacities start, past a nested
 // group's own, which is laid with its layer. The walk's frames are the depth's own, written in place.)
@@ -890,9 +890,9 @@ export function createOrganPaint(gl, shape) {
     if (r && r.src === src && r.sid === (src ? src.id : 0) && r.d === d && r.tol === tol && r.cap === cap && r.dash === dash) return r.key;
     // (A dashed stroke's mesh is its dashes: named by its pattern too. A fixed shape dashed is named by the pattern on the shape.)
     const dk = dash ? `|${dash.a.join(',')}@${dash.off}` : '';   // alloc-rare: built when the shape, its cap, tolerance or dash changed, not in a frame that kept them
-    let key = geom.d ? `${tol}|${cap}|${src ? `n${src.id}` : dKey(d)}${dk}` : geom;   // alloc-rare: as above
+    let key = geom.d ? `${tol}|${cap}|${src ? `n${src.id}` : dKey(d)}${dk}` : geom;
     if (dash && !geom.d) { let m = DASHED.get(geom); if (!m) DASHED.set(geom, (m = new Map())); const k2 = `${cap}${dk}`; if (!m.has(k2)) m.set(k2, { k2 }); key = m.get(k2); }   // alloc-rare: a dashed fixed shape, named once per cap and pattern
-    if (!r) meshKeys.set(geom, (r = { src: null, sid: 0, d: null, tol: 0, cap: 0, dash: null, key: null }));   // alloc-rare: one record per shape, the first time its mesh is asked
+    if (!r) meshKeys.set(geom, (r = { src: null, sid: 0, d: null, tol: 0, cap: 0, dash: null, key: null }));
     r.src = src; r.sid = src ? src.id : 0; r.d = d; r.tol = tol; r.cap = cap; r.dash = dash; r.key = key;
     return key;
   }
@@ -918,7 +918,7 @@ export function createOrganPaint(gl, shape) {
     let r = meshes.get(key) || meshesOld.get(key) || kept.get(key);
     if (!r) {
       const polys = flatOf(src, geom, d, tol, dash);
-      r = { mesh: polyMeshInto(polys, cap, null, { tri: null, seg: null, nTri: 0, nSeg: 0 }), polys, box: boxOf(polys, [0, 0, 0, 0]) };   // alloc-rare: as above, a mesh for a shape that changed
+      r = { mesh: polyMeshInto(polys, cap, null, { tri: null, seg: null, nTri: 0, nSeg: 0 }), polys, box: boxOf(polys, [0, 0, 0, 0]) };
     }
     meshes.set(key, r);
     return r;
@@ -1161,12 +1161,12 @@ export function createOrganPaint(gl, shape) {
     if (!r) sigs.set(op, (r = { a: 0, hc: false, hc2: false, pk: '', ck: '', ok: '', css: 0, m: [0, 0, 0, 0, 0, 0], cm: [0, 0, 0, 0, 0, 0], cm2: [0, 0, 0, 0, 0, 0], mm: [0, 0, 0, 0, 0, 0], str: '' }));   // alloc-rare: one record per op, the first time it is described
     r.a = lv.alpha; r.hc = lv.hasCm; r.hc2 = lv.hasCm2; r.pk = pk; r.ck = ck; r.ok = ok; r.css = op.nss ? cssPx : 0;
     copy6(r.m, lv.m); if (lv.hasCm) copy6(r.cm, lv.cm); if (lv.hasCm2) copy6(r.cm2, lv.cm2); copy6(r.mm, m);
-    return (r.str = `${paintKey(op)}|${lv.alpha}|${lv.m.join(',')}|${lv.hasCm ? lv.cm.join(',') : ''}${lv.hasCm2 ? `|${lv.cm2.join(',')}` : ''}|${m.join(',')}|${pk}|${ck}${op.clip?.outer ? `|${ok}` : ''}${op.nss ? `|${cssPx}` : ''}`);   // alloc-rare: built when the op's frame, opacity or outline changed since it was last described
+    return (r.str = `${paintKey(op)}|${lv.alpha}|${lv.m.join(',')}|${lv.hasCm ? lv.cm.join(',') : ''}${lv.hasCm2 ? `|${lv.cm2.join(',')}` : ''}|${m.join(',')}|${pk}|${ck}${op.clip?.outer ? `|${ok}` : ''}${op.nss ? `|${cssPx}` : ''}`);
   }
   // The mask's ops' strings are the op's own with a prefix, kept the same way.
   function maskSig(op, m) {
     const s = opSig(op, m), r = sigs.get(op);
-    if (r.msrc !== s) { r.msrc = s; r.ms = `mask|${s}`; }   // alloc-rare: built when the op's own string changed
+    if (r.msrc !== s) { r.msrc = s; r.ms = `mask|${s}`; }
     return r.ms;
   }
   // The record a describe is writing (dd) and the entries written so far (dn).
