@@ -1321,10 +1321,26 @@ function sizedRun() {
   const due = [...sizedDue]; sizedDue.clear();
   for (const t of due) { const r = boxes.get(t); if (r && r.width >= 1 && r.height >= 1) for (const f of sizedSubs.get(t) || []) f(); }
 }
+const resizeSubs = new WeakMap();   // (canvas -> functions run when its box changes size: a widget's picture is drawn again at the new size)
+const resizeDue = new Set();
+let resizeAsk = 0;
+function resizeRun() {
+  resizeAsk = 0;
+  const due = [...resizeDue]; resizeDue.clear();
+  for (const t of due) { const r = boxes.get(t); if (r && r.width >= 1 && r.height >= 1) for (const f of resizeSubs.get(t) || []) f(); }
+}
+/** f() in a rest pass each time the canvas's box changes size (after it had one). Returns the function that stops it. */
+export function onCanvasResized(canvas, f) {
+  canvasSize(canvas);   // (observed, and its record made)
+  if (!resizeSubs.has(canvas)) resizeSubs.set(canvas, new Set());
+  resizeSubs.get(canvas).add(f);
+  return () => resizeSubs.get(canvas)?.delete(f);
+}
 const boxObserver = new ResizeObserver((entries) => {
   for (const e of entries) {
     const was = boxes.get(e.target), r = { width: e.contentRect.width, height: e.contentRect.height };
     boxes.set(e.target, r);
+    if (was && was.width >= 1 && was.height >= 1 && (was.width !== r.width || was.height !== r.height) && resizeSubs.get(e.target)?.size) { resizeDue.add(e.target); if (!resizeAsk) resizeAsk = restPass(resizeRun); }
     if ((!was || was.width < 1 || was.height < 1) && r.width >= 1 && r.height >= 1 && sizedSubs.get(e.target)?.size) sizedDue.add(e.target);
   }
   if (sizedDue.size && !sizedAsk) sizedAsk = restPass(sizedRun);
