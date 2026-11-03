@@ -9,7 +9,7 @@
 import { firstAtOrAbove } from './sorted.js?v=662e543c85';
 import { ekgRate, beatWalk, walkBeats } from './ekg.js?v=0cc9df5a1b';
 
-const STEP_MIN = 0.004, STEP_MAX = 0.03, MAX_STEPS = 400;   // (spacing of the samples laid, s: the live ones' own, kept within these; most steps in a call)
+const STEP_MIN = 0.004, STEP_MAX = 0.03, MAX_STEPS = 400, LEVEL_S = 0.4;   // (spacing of the samples laid, s: the live ones' own, kept within these; most steps in a call)
 
 /** `keys`: the record's value columns (its samples carry t and ph besides). */
 export function createFreewheel(keys) {
@@ -18,6 +18,7 @@ export function createFreewheel(keys) {
   const ref = { n: 0, u: [] };   // the beat replayed: its samples at u (0 to 1) of the beat, one column to a key
   const out = { t: [], ph: [] };   // the samples laid in a call, in the shape of the live ones
   for (const k of keys) { ref[k] = []; out[k] = []; }   // alloc-rare: once, with the chart
+  const base = new Float64Array(keys.length), shift = new Float64Array(keys.length);   // the readings when it began, and the replayed levels' move since, eased
   let on = false, laid = false;
 
   const valueAt = (k, u) => {
@@ -58,13 +59,14 @@ export function createFreewheel(keys) {
      * Move the sweep on to wall time `now` and return the samples to record (null: none this call). `fine`: the record ({ t, ph, ...keys });
      * `beats`: its beat times; `lastT`: the record's newest time; `headNow`: where the trace is drawn to now (used when it starts); `lag`: s the
      * data runs ahead of the head; `hr`: the heart rate shown; `phase`, `left`: the phase the model's beat resumes at and the seconds until it does
-     * (NaN for neither). The result is one kept object, valid until the next call.
+     * (NaN for neither); `lvl`: the model's reading for each key now (NaN: none), so the beat replayed moves up or down with them as the model's state eases or the days run, glided over about 0.4 s. The result is one kept object, valid until the next call.
      */
-    advance(now, fine, beats, lastT, headNow, lag, hr, phase, left) {
+    advance(now, fine, beats, lastT, headNow, lag, hr, phase, left, lvl = null) {
       if (!on) {
         if (!takeBeat(fine, beats)) return null;
         const ph = fine.ph[fine.ph.length - 1];
         w.ph = Number.isFinite(ph) ? ph - Math.floor(ph) : 0; w.bpm = ekgRate(beats) ?? hr; w.x = 0;
+        for (let i = 0; i < keys.length; i++) { base[i] = lvl ? lvl[i] : NaN; shift[i] = 0; }
         N[0] = headNow; N[1] = now;   // (the head as it stands: the trace goes on from where it is drawn)
         on = true;
       }
@@ -79,7 +81,12 @@ export function createFreewheel(keys) {
         walkBeats(w, step, hr, drop, to);   // (its own beats are found again from the phase by the record's beat clock)
         to.left -= step;
         out.t[m] = t; out.ph[m] = w.ph;
-        for (const k of keys) out[k][m] = valueAt(k, w.ph);
+        const e = 1 - Math.exp(-step / LEVEL_S);
+        for (let i = 0; i < keys.length; i++) {
+          const want = lvl && Number.isFinite(lvl[i]) && Number.isFinite(base[i]) ? lvl[i] - base[i] : 0;
+          shift[i] += (want - shift[i]) * e;
+          out[keys[i]][m] = valueAt(keys[i], w.ph) + shift[i];
+        }
       }
       if (!m) return null;
       out.t.length = out.ph.length = m;

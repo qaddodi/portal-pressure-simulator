@@ -60,6 +60,26 @@ test('the freewheel lays the last beat over the wait, in step with the wall cloc
   assert.ok(!w.on && !w.laid);
 });
 
+test('the beat replayed moves up with the model\'s readings as they change, glided, and starts from where it was', () => {
+  const { fine, clock } = record(70, 8), w = createFreewheel(KEYS);
+  let now = 1000, first = true;
+  const meanOf = (a) => a.reduce((x, y) => x + y, 0) / a.length;
+  const lvl = [20, 3];
+  const before = meanOf(fine.P.slice(-40));
+  for (let s = 0; s < 3; s += 1 / 60) {
+    now += 1000 / 60;
+    lvl[0] = 20 + 6 * Math.min(1, s / 2); lvl[1] = 3;
+    const o = w.advance(now, fine, clock.times, fine.t.at(-1), first ? fine.t.at(-1) - 0.12 : 0, 0.12, 70, NaN, NaN, lvl);
+    first = false;
+    if (o) push(fine, clock, o);
+  }
+  const after = meanOf(fine.P.slice(-60));
+  assert.ok(after - before > 4.5 && after - before < 7, `the pressure rose ${(after - before).toFixed(2)} for a reading that rose 6`);
+  const q = meanOf(fine.Q.slice(-60)), q0 = meanOf(fine.Q.slice(100, 160));
+  assert.ok(Math.abs(q - q0) < 0.2, 'a reading that did not move leaves its trace where it was');
+  assert.ok(Math.abs(fine.P[fine.t.findIndex((t) => t > 8.0)] - fine.P[fine.t.findIndex((t) => t > 8.0) - 1]) < 2, 'no step at the start');
+});
+
 test('the freewheel has nothing to replay without a whole beat on the record, and makes nothing then', () => {
   const w = createFreewheel(KEYS), fine = { t: [0, 0.1], ph: [0.1, 0.2], P: [1, 1], Q: [1, 1] };
   assert.equal(w.advance(1000, fine, [], 0.1, 0, 0.12, 70, NaN, NaN), null);
@@ -197,16 +217,15 @@ for (const [snapT, dayAfter, where] of [[3, 0, 'back'], [500, 0, 'forward'], [3,
   assert.ok(checked > 200, `${checked} frames followed`);
 });
 
-test('the beat chart keeps a live, sweeping EKG strip over the days\' trend through a time-lapse, and carries on after it with no restart', () => {
+test('a slide\'s beat card stays as it is through a time-lapse: its strip sweeps on in the same place, and carries on after it with no restart', () => {
   const draws = play({ lapse: 3 });
   const lapse = draws.filter((d) => d.phase === 'lapse');
   assert.ok(lapse.length > 80, `${lapse.length} frames of the time-lapse`);
   assert.ok(lapse.every((d) => d.peaks.length >= 3), 'the strip is full of beats all through the time-lapse');
   const first = draws.findIndex((d) => d.phase === 'lapse'), end = draws.length - 1;
   let checked = 0;
-  for (let i = first + 1; i <= end; i++) {
+  for (let i = first; i <= end; i++) {   // (from the first frame of the time-lapse: the card's layout does not change under the strip)
     const a = draws[i - 1], b = draws[i];
-    if (a.phase !== b.phase) continue;   // (the chart's layout changes there, the beat card to the days' chart and back: the strip's own pixels move with it)
     const shifts = [];
     for (const x of a.peaks) { const near = b.peaks.filter((x2) => x2 < x + 0.5 && x2 > x - 40); if (near.length) shifts.push(x - near.reduce((p, q) => (Math.abs(q - (x - 6)) < Math.abs(p - (x - 6)) ? q : p))); }
     if (!shifts.length) continue;
@@ -224,6 +243,7 @@ test('the wiring: the EKG cards are not held, cleared or refilled by a change of
   assert.doesNotMatch(pt, /if \(f\.day !== dayNow\) \{ clearHemo\(\)/, 'a day of a time-lapse does not wipe the beats');
   assert.doesNotMatch(pt, /if \(smp\.t\[0\] < lastT - 1e-9\) clearHemo\(\);/, 'a clock that was set does not wipe them either');
   assert.match(pt, /record\(smp, off\);/, 'the trace\'s time is moved on instead');
+  assert.match(pt, /setRange\(clock === 'disease' && !beatCardNow\(\) \? 'days' : userRange\);/, 'a slide\'s beat card keeps its layout through a time-lapse');
   assert.match(pt, /if \(wheel\.on\) return wheel\.head\(\);/, 'and the head follows the freewheel while the model stands still');
   assert.match(pt, /off \|\| wheel\.laid\) return false;/, 'a strip that went on by itself is not backfilled');
 });

@@ -174,8 +174,10 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
   let clock = 'hemo', dayNow = 0, lastT = -Infinity, frame = null, wallAt = 0;
   // off: the model's time plus off is the trace's (the model's clock was set while the trace went on: a state restored, a time-lapse ended).
   let off = 0;
-  // stripDays: a slide's chart on the disease clock (a time-lapse): the days' trend is drawn, and the beat strip goes on sweeping over it.
-  let stripDays = false;
+  // stripDays: the chart on the disease clock (a time-lapse) draws the days' trend, and its beat strip goes on sweeping over it; sweepLapse: the
+  // freewheel runs through the time-lapse (that, or the slide's beat card, which stays as it is).
+  let stripDays = false, sweepLapse = false;
+  const beatCardNow = () => onSlide() && userRange === 'beats' && !hiddenSet().has('trueHVPG');
 
   function resetBuffers() {
     for (const k of Object.keys(fine)) fine[k].length = 0;
@@ -238,14 +240,17 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
   // the live samples take it on from where it is. (On the disease clock the chart is the days' trend: it has no sweep to keep, and the beats it
   // has stay as they are.)
   const wheel = createFreewheel(KEYS);
+  const LV = new Array(KEYS.length).fill(NaN);   // (the model's readings now, one to a key: the replayed beat's levels follow their changes)
   const HEAD = new Float64Array(2);   // [the head as last drawn, the wall time it was drawn at]: the freewheel goes on from it
-  const parkedNow = (f) => !!f && f.running && f.parkSecs != null && (f.clock !== 'disease' || stripDays);
+  const parkedNow = (f) => !!f && f.running && f.parkSecs != null && (f.clock !== 'disease' || sweepLapse);
   /** The heart rate the chart shows (the slide's pinned reading, else the live one). */
   const rateNow = () => { const hr = frame?.clock === 'disease' ? frame.metrics?.hr : pinned?.hr ?? frame?.metrics?.hr; return Math.min(220, Math.max(30, hr > 20 ? hr : 70)); };
   function advanceFw(now) {
     if (!parkedNow(frame)) { wheel.stop(); return; }
     const left = frame.parkSecs == null ? NaN : Math.max(0, frame.parkSecs - (now - wallAt) / 1000);
-    const smp = wheel.advance(now, fine, beatClock.times, lastT, wheel.on ? 0 : HEAD[1] ? HEAD[0] + Math.min(0.25, (now - HEAD[1]) / 1000) : headX(), LAG_S, rateNow(), frame.phase, left);
+    const m = frame.metrics;
+    for (let i = 0; i < KEYS.length; i++) { const k = KEYS[i]; LV[i] = k === 'hvpg' ? m?.hvpg : TRACE_OF[k]?.day?.(m) ?? NaN; }
+    const smp = wheel.advance(now, fine, beatClock.times, lastT, wheel.on ? 0 : HEAD[1] ? HEAD[0] + Math.min(0.25, (now - HEAD[1]) / 1000) : headX(), LAG_S, rateNow(), frame.phase, left, LV);
     if (smp) record(smp);
   }
   function ingest(f) {
@@ -253,12 +258,6 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
     frame = f; wallAt = performance.now();
     wake();
     if (f.clock !== 'disease') settle(f.metrics);
-    if (f.clock !== clock) {
-      clock = f.clock;
-      // The disease clock is a trend: show it as one while it runs, then return to the learner's range.
-      setRange(clock === 'disease' ? 'days' : userRange);
-    }
-    stripDays = f.clock === 'disease' && onSlide();
     // (A new day no longer wipes the beats: a time-lapse runs the days past, and the sweep goes on through them and after them.)
     dayNow = f.day;
     const smp = f.samples;
@@ -274,6 +273,17 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
       wheel.land();
       record(smp, off);
     }
+    // (After the samples: a change of range draws, and the draw must see the record the frame brought.)
+    if (f.clock !== clock) {
+      clock = f.clock;
+      // The disease clock is a trend: show it as one while it runs, then return to the learner's range.
+      // (A slide's beat-by-beat card stays as it is through a time-lapse: its pressures glide with the model's, and its strip sweeps on, so the
+      // card never changes layout under the viewer.)
+      setRange(clock === 'disease' && !beatCardNow() ? 'days' : userRange);
+    }
+    // (Over the days' trend of a time-lapse the EKG strip, if the chart has one, keeps its own window and sweeps on.)
+    stripDays = f.clock === 'disease' && range === 'days' && userRange === 'beats' && (onSlide() ? cfg.ekg : showEkg);
+    sweepLapse = f.clock === 'disease' && (range === 'beats' || stripDays);
     const m = f.metrics;
     const last = days[days.length - 1];
     if (last && f.day < last.day) days = [];
