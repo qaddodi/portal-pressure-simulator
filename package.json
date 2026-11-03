@@ -35,6 +35,7 @@
     "smoke:quick": "node tests/e2e/quick.mjs",
     "gate": "node scripts/gate.mjs",
     "gate:full": "node scripts/gate.mjs --full",
+    "gate:motion": "node scripts/gate.mjs --only static,motion",
     "perf": "node scripts/perf.mjs",
     "perf:frames": "node scripts/frame-cost.mjs",
     "perf:gate": "node scripts/frame-gate.mjs",

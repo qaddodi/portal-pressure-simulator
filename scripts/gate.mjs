@@ -17,6 +17,9 @@
 //   views    Anatomy, Circuit, Lobule and back, each switch waited out to its end on the GPU path (real time: the clock cannot drive software WebGL): organs settled, the diaphragm
 //            drawn and painted live, then labels follow a pan and a zoom (they move with the camera and match a fresh layout)
 //   pixels   the six rest views against tests/visual (tests/e2e/visual.mjs, the CI references)
+//   motion   (only when named: --motion) the deck's cards MOVING on the GPU in real time, normal motion, sampled every frame: words, shade and
+//            glass together through a Next, a Next during an entrance and a Back during one (scripts/gate-motion.mjs). The slides stage
+//            above is a structural, final-state check without WebGL; it never judges motion, and its pass says nothing about it.
 //
 // The slide, view and boot stages run in headless Chromium here (software WebGL: a slide change costs 2 to 4 s of CPU, so they run
 // --jobs at a time, default the CPU count up to 4). Exit code 1 on any finding; the report is also written to
@@ -31,6 +34,7 @@ import { serve } from './serve.mjs';
 import { findMarkers, checkBundle } from './gate-static.mjs';
 import { slideFinal, labelState, labelFollow, diaphragmIssues } from './gate-page.mjs';
 import { assertGpuLive, readPath } from './shoot.mjs';
+import { motionIssues, startSampler, takeSamples } from './gate-motion.mjs';
 import { EXE, launch, openPage, figureUp, stepUntil, stepFor, watchUntil, watchFor, ask, landed, pool as poolOf, gpuName } from './gate-clock.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -38,9 +42,10 @@ const argv = process.argv.slice(2);
 const flag = (n) => argv.includes(`--${n}`);
 const opt = (n, d) => { const i = argv.indexOf(`--${n}`); return i >= 0 && argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[i + 1] : d; };
 const FULL = flag('full');
-const ALL = ['static', 'boot', 'slides', 'views', 'pixels'];
-// (pixels takes two more minutes and CI runs it on every push: a local run adds it with --pixels, --full has it)
-const STAGES = opt('only', (flag('pixels') || FULL ? ALL : ALL.filter((s) => s !== 'pixels')).join(',')).split(',').filter(Boolean);
+const ALL = ['static', 'boot', 'slides', 'views', 'pixels', 'motion'];
+// (pixels takes two more minutes and CI runs it on every push: a local run adds it with --pixels, --full has it. motion, the real-time GPU
+// deck check (scripts/gate-motion.mjs), runs only when named: --motion or --only motion, one GPU browser at a time.)
+const STAGES = opt('only', ALL.filter((s) => (s !== 'pixels' || flag('pixels') || FULL) && (s !== 'motion' || flag('motion'))).join(',')).split(',').filter(Boolean);
 for (const s of STAGES) if (!ALL.includes(s)) { console.error(`unknown stage "${s}" (${ALL.join(', ')})`); process.exit(2); }
 const DIR = opt('dir', '.');
 const JOBS = Math.max(1, +opt('jobs', Math.min(4, cpus().length)));
@@ -163,7 +168,7 @@ async function deckUnit(browser, url, deck, size) {
 }
 
 async function stageSlides() {
-  log('  (slides run WITHOUT WebGL, on the SVG figure, by design: the fake clock cannot drive the GPU figure. The GPU figure is judged by the boot and views stages, which fail when it is not live.)');
+  log('  (slides run WITHOUT WebGL and with reduced motion, on the SVG figure, by design: a structural, final-state check. The GPU figure is judged by the boot and views stages; the cards MOVING on the GPU only by the motion stage, --motion.)');
   const plan = await deckPlan();
   const units = plan.flatMap((d) => SIZE_NAMES.map((s) => ({ deck: d, size: s })));
   // (a share of the units: the full sweep is split over runners; units are dealt out round robin, longest decks first, so shares are alike)
@@ -319,11 +324,63 @@ async function stagePixels() {
   }
 }
 
+// ---- motion ---------------------------------------------------------------------------------------------------------------
+// The deck's cards moving on the GPU, judged frame by frame (recs R16; scripts/gate-motion.mjs): the complement of the slides stage, which
+// judges only where a change ends. Software WebGL named as a GPU, normal motion, real time; a Next, a Next pressed again while the cards
+// are still coming in, and a Back during an entrance. Every move must keep its words, shade and glass together in every sampled frame,
+// and must have enough frames sampled to be judged at all.
+async function stageMotion() {
+  const decks = opt('decks', 'hvpg').split(',').filter((d) => d && d !== 'all');
+  const server = await serve(resolve(ROOT, DIR));
+  const browser = await launch(true);
+  try {
+    for (const id of decks) {
+      const app = await openPage(browser, `${server.url}?script=${id}&slide=1`, { size: 'small', clock: false, instant: false, motion: 'no-preference', init: gpuName });
+      const { page } = app;
+      const t0 = Date.now(), say = (m) => log(`  motion ${id} ${((Date.now() - t0) / 1000).toFixed(0)} s: ${m}`);
+      const seen = new Set();
+      const errs = (where) => { for (const e of app.errors) if (!seen.has(e)) { seen.add(e); fail('motion', where, e); } };
+      try {
+        const up = await watchUntil(page, () => { document.querySelector('.pz-case.on')?.click(); return document.querySelector('#app')?.classList.contains('presenting') && !window.pps?.presenter?.busy(); }, null, { maxFake: 240000 });
+        if (up < 0) { fail('motion', `${id} 1`, 'the deck never opened in 240 s'); continue; }
+        try { await assertGpuLive(page, `motion ${id}`, { software: true }); } catch (e) { fail('motion', `${id} gpu`, String(e.message).split('\n').slice(0, 3).join(' ')); continue; }
+        await page.evaluate(() => window.pps.host.send({ type: 'run', running: false }));   // (the model paused: the frames sampled are the cards')
+        const hook = await page.evaluate(startSampler);
+        if (hook !== true) { fail('motion', id, `INCONCLUSIVE: ${hook}; nothing was judged`); continue; }
+        const moving = () => !!document.querySelector('.pz-throwing');
+        const judge = (where, samples) => {
+          const r = motionIssues(samples);
+          say(`${where}: ${r.frames} moving frame(s) judged of ${samples.length} sampled, ${r.issues.length} issue(s)`);
+          if (r.inconclusive) fail('motion', where, `INCONCLUSIVE: ${r.why}`);
+          for (const t of r.issues.slice(0, 8)) fail('motion', where, t);
+          if (r.issues.length > 8) fail('motion', where, `and ${r.issues.length - 8} more`);
+        };
+        const go = async (where, keys, want) => {
+          await page.evaluate(takeSamples);
+          for (const [i, k] of keys.entries()) {
+            if (i) await watchUntil(page, moving, null, { maxFake: 60000 });   // (the next key while the cards are still on their way)
+            await page.keyboard.press(k);
+          }
+          const took = await watchUntil(page, landed, want, { maxFake: 240000 });
+          if (took < 0) { fail('motion', where, `the change never ended in 240 s`); return; }
+          await watchUntil(page, () => !document.querySelector('.pz-throwing'), null, { maxFake: 30000 });
+          judge(where, await page.evaluate(takeSamples));
+          errs(where);
+        };
+        await go(`${id} Next 1 to 2`, ['ArrowRight'], 2);
+        await go(`${id} Next, Next again mid-entry, 2 to 4`, ['ArrowRight', 'ArrowRight'], 4);
+        await go(`${id} Next then Back mid-entry, 4 to 4`, ['ArrowRight', 'ArrowLeft'], 4);
+        try { await assertGpuLive(page, `motion ${id}, at the end`, { software: true }); } catch (e) { fail('motion', `${id} gpu`, String(e.message).split('\n').slice(0, 3).join(' ')); }
+      } finally { await page.evaluate(() => window.__motionStop?.()).catch(() => {}); await app.close(); }
+    }
+  } finally { await browser.close(); server.close(); }
+}
+
 // ---- run ------------------------------------------------------------------------------------------------------------------
 mkdirSync(OUT, { recursive: true });
 const T0 = Date.now();
 log(`pre-push gate: ${STAGES.join(', ')}${FULL ? ' (full)' : ' (fast)'}; ${JOBS} at a time; sizes ${SIZE_NAMES.join(', ')}${SHARDS > 1 ? `; share ${SHARD}/${SHARDS}` : ''}`);
-const RUN = { static: stageStatic, boot: stageBoot, slides: stageSlides, views: stageViews, pixels: stagePixels };
+const RUN = { static: stageStatic, boot: stageBoot, slides: stageSlides, views: stageViews, pixels: stagePixels, motion: stageMotion };
 for (const s of STAGES) await timed(s, RUN[s]);
 const total = Math.round((Date.now() - T0) / 1000);
 const report = { when: new Date().toISOString(), full: FULL, stages: STAGES, timings, total, findings };
