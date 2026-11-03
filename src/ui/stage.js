@@ -5633,7 +5633,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           if (!el || getComputedStyle(el).display === 'none') continue;
           const spec = el.localName === 'g' ? readGroup(el, { withMask: el !== organG.stomach, nest: true }) : null;
           if (!spec) { console.warn('Organs on the GPU: not readable for painting, this layer stays a picture:', el); bakeWhy.set(L, `${elName(el)} not readable${readFail() ? `: ${readFail()[0]} on ${elName(readFail()[1])}` : ''}`); ok = false; break; }
-          groups.push({ spec, m: matOfEl(el) });
+          groups.push({ spec, m: matOfEl(el).slice() });
         }
         out.set(L, ok ? { groups, at: L === 'bowel' ? bowelDy() : 0, key } : null);
       }
@@ -5662,30 +5662,42 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // The live organs' specs (organ-paint readGroup) read again whenever what they draw may have changed (liveKey), for the next
   // render of the stack. Their outlines are read from the page at the render itself.
-  const matOfEl = (el) => { const t = el?.transform?.baseVal; if (!t || !t.numberOfItems) return [1, 0, 0, 1, 0, 0]; const k = t.consolidate().matrix; return [k.a, k.b, k.c, k.d, k.e, k.f]; };
+  const matBuf = [1, 0, 0, 1, 0, 0];   // (one frame matrix kept, written over at each read; every reader multiplies it at once, none keeps it: a baked group takes a copy)
+  const matOfEl = (el) => {
+    const t = el?.transform?.baseVal, o = matBuf;
+    if (!t || !t.numberOfItems) { o[0] = 1; o[1] = 0; o[2] = 0; o[3] = 1; o[4] = 0; o[5] = 0; return o; }
+    const k = t.consolidate().matrix;
+    o[0] = k.a; o[1] = k.b; o[2] = k.c; o[3] = k.d; o[4] = k.e; o[5] = k.f;
+    return o;
+  };
   const MASK_OF = { gut: '#gutHide', stomach: '#frontM' };
-  let liveKeyWas = '', liveSet = false;
+  let liveKeyWas = '', liveSet = false;   // (liveKeyWas: '' for none, 'kept' while liveKeyOld holds the last key's parts)
+  const liveKeyNow = ['', '', '', '', '', '', '', '', '', '', ''], liveKeyOld = ['', '', '', '', '', '', '', '', '', '', ''];
   // (What eases, the outlines, the organs' frames and the parts' own opacities, the painter reads from the page at each paint
   // (organ-paint liveOf): the specs are read again only when what is in them changes: a part hidden or shown, the liver's mask,
   // the ghost line, a lens, the theme and its colours. They were read again on every frame of an ease: about fifty computed
   // styles, with the step's writes pending.)
   const fullWanted = () => fullOk() && (fullSwap || !veins.organs.pictured(0));
+  // (The key as its parts, in a kept list, not a string built: the same parts as before, compared one by one against the last.)
   function liveKey() {
-    const cs = wrapCS();
-    return [organG.liver.getAttribute('mask'), ghost.style.display, lv.sep.style.visibility, lv.nod.style.visibility, lv.cong.style.visibility, lv.isl.style.visibility,
-      cs.getPropertyValue('--stage-bg'), cs.getPropertyValue('--organ-liver'), flag.imaging, themeKey(), fullWanted()].join('|');
+    const cs = wrapCS(), k = liveKeyNow;
+    k[0] = organG.liver.getAttribute('mask') ?? ''; k[1] = ghost.style.display; k[2] = lv.sep.style.visibility; k[3] = lv.nod.style.visibility; k[4] = lv.cong.style.visibility; k[5] = lv.isl.style.visibility;
+    k[6] = cs.getPropertyValue('--stage-bg'); k[7] = cs.getPropertyValue('--organ-liver'); k[8] = flag.imaging; k[9] = themeKey(); k[10] = fullWanted();
+    return k;
   }
+  function liveKeySame() { for (let i = 0; i < liveKeyNow.length; i++) if (liveKeyNow[i] !== liveKeyOld[i]) return false; return true; }
   function syncLiveOrgans(force = false) {
     const v = veins;
     if (!v || v.lost || !v.organs) return;
     if (!liveOn()) { if (liveSet) { v.organs.setLive(null, null); liveSet = false; liveKeyWas = ''; } return; }
     const key = liveKey();
-    if (!force && key === liveKeyWas) return;
+    if (!force && liveKeyWas && liveKeySame()) return;
     // (fullWanted: the whole set, while no picture is in; its change asks for a new reading too, through the key.)
     // (The organs' own colours: a lens's grey on the live SVG (only while the plate is off) would be read as theirs. The whole set
     // takes it off for its read, liveRead.)
     if (greyList && !fullWanted()) return;
-    liveKeyWas = key;
+    for (let i = 0; i < key.length; i++) liveKeyOld[i] = key[i];
+    liveKeyWas = 'kept';
     // (The specs are read first in the next frame, while the layout is still the last frame's (readFrame), and handed to the stack in
     // that frame's own phase after: never read among a frame's writes.)
     liveAsk ||= readFrame(liveRead);
@@ -5694,6 +5706,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (The backdrop (the diaphragm) is out of the page's layout, display: none, while the GPU draws the plate (app.css): read as shown, or its dome was
   // left out of every reading made then, and the figure drew without it: 2 Nov 2026, e6d08386.)
   const BACKDROP_READ = { shown: true };
+  const NO_MASKS = new Map();   // (never written: the whole set has no masks, liveApply)
   function liveRead() {
     liveAsk = 0;
     const v = veins;
@@ -5716,7 +5729,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (greyed) { greyClear(); organDimKey = ''; }
       // (Read as the pictures' groups are, bakeAll: the gut's see-through shades and the stomach's fades are groups of their own.)
       try { add('back', gBackdrop, BACKDROP_READ); for (const [k, L] of organLayers()) if (L !== 'back') add(L, k, LIVE_LAYERS.has(L) ? undefined : { nest: true }); } finally { if (greyed) syncOrganDim(); }
-      nextFrame(() => liveApply(ok, organs, new Map(), true));
+      nextFrame(() => liveApply(ok, organs, NO_MASKS, true));
       return;
     }
     add('back', gBackdrop, BACKDROP_READ);
@@ -5882,70 +5895,76 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // whole-plate raster would look soft there).
   function schedulePlateView() {
     clearTimeout(plateSettle);
-    plateSettle = setTimeout(async function settled() {
-      // (Not with a finger or button still down, nor within 0.28 s of the last input: it is begun once the figure is let go.)
-      if (!leftAlone(280)) { plateSettle = setTimeout(settled, 120); return; }
-      if (moveLow) { plateSettle = setTimeout(settled, 120); return; }   // (While moving: made for the canvas at rest)
-      if (!veins || !plateOn() || !CTM) return;
-      // (Not in the circuit, or on the way to it: the organs are faded out there, and their sharp picture and the gut's were
-      // drawn after every pan and pinch for nothing (Mohammad, 21 Oct: the lag "also happens in circuit view"). The way back to
-      // the anatomy moves the view on every frame, so the last of them, at the anatomy, schedules them again.)
-      if (morphTarget !== 0 || morph > 0) return;
-      const need = vdpr * CTM.sc;
-      if (need <= PLATE_BASE * 1.2) { if (veins.hasPlate(1)) { veins.dropPlate(1); veinsDirty = true; stageWake(); } return; }
-      // The view in world units (the anatomy is never turned), with a margin, within the plate.
-      const r = stageBox(), [ax, ay] = clientToWorldFast(r.left, r.top), [bx, by] = clientToWorldFast(r.right, r.bottom);
-      // (Painted on the GPU (bake) a view's picture costs little for its size, so it reaches half a view past each side, as far as
-      // the texture's limits allow at the screen's resolution: most pans then stay inside it, below. As pictures of the SVG copy it
-      // reaches a seventh, each pan's uncovered strip drawn from the copy.)
-      const vw = (bx - ax) * need, vh = (by - ay) * need;
-      const reach = liveOn() ? Math.max(0.15, Math.min(0.5, (Math.sqrt(4.2e6 / Math.max(1, vw * vh)) - 1) / 2, (4094 / Math.max(1, vw, vh) - 1) / 2)) : 0.15;
-      const mx = (bx - ax) * reach, my = (by - ay) * reach;
-      let x0 = Math.max(PLATE_RECT[0], ax - mx), y0 = Math.max(PLATE_RECT[1], ay - my);
-      let x1 = Math.min(PLATE_RECT[0] + PLATE_RECT[2], bx + mx), y1 = Math.min(PLATE_RECT[1] + PLATE_RECT[3], by + my);
-      if (x1 <= x0 || y1 <= y0) return;
-      // (4094: the rect grows by up to a pixel each way below, and a texture side stays within 4096.) Painted on the GPU, the
-      // picture is painted through the painter's targets, which hold its width and the canvas's height, or the other way round:
-      // its sides are kept so those stay within the room the canvas gives them (organ-paint targetRoom). A view taller than the
-      // screen and one wider made them 4096 square on an iPad at 2×, and Safari ended the page (Mohammad, 25 Oct).
-      const [roomW, roomH] = picNow || [vCanvas.width, vCanvas.height];   // (the picture's pixels: under Sharper upscaling the canvas is larger)
-      const room = targetRoom(roomW, roomH);
-      const scale = Math.min(need, 4094 / (x1 - x0), 4094 / (y1 - y0), Math.sqrt(4.2e6 / ((x1 - x0) * (y1 - y0))),
-        room / (Math.max(1, roomH) * (x1 - x0)), room / (Math.max(1, roomW) * (y1 - y0)));
-      // On the scale's pixel grid (grown outward to whole pixels): two views at one scale sit whole pixels apart, so the next pan
-      // can take the pixels they share (rasterPlate).
-      x0 = Math.floor(x0 * scale) / scale; y0 = Math.floor(y0 * scale) / scale; x1 = Math.ceil(x1 * scale) / scale; y1 = Math.ceil(y1 * scale) / scale;
-      const key = `${plateKey}|${x0.toFixed(0)},${y0.toFixed(0)},${x1.toFixed(0)},${y1.toFixed(0)}|${scale.toFixed(2)}`;
-      if (key === plateViewKey) return;
-      // The picture of the view kept while it still covers what is on screen (not the margin around it) at the resolution wanted:
-      // a pan or a small zoom within it makes nothing new. (It was made again whenever the margin left it, after nearly every pan.)
-      const vx0 = Math.max(PLATE_RECT[0], ax), vy0 = Math.max(PLATE_RECT[1], ay), vx1 = Math.min(PLATE_RECT[0] + PLATE_RECT[2], bx), vy1 = Math.min(PLATE_RECT[1] + PLATE_RECT[3], by);
-      if (plateView && vx0 >= plateView[0] && vy0 >= plateView[1] && vx1 <= plateView[2] && vy1 <= plateView[3] && scale <= plateView[4] * 1.05) return;
-      plateViewKey = key;
-      try { if (gpuOrgansOn() && await rasterLayers(1, [x0, y0, x1 - x0, y1 - y0], scale)) { plateView = [x0, y0, x1, y1, scale]; veinsDirty = true; stageWake(); } else if (plateViewKey === key) plateViewKey = ''; } catch (e) { caught('stage:5661', e); /* the whole-plate raster stays */ }
-    }, 280);
+    plateSettle = setTimeout(settled, 280);
   }
+  async function settled() {
+    // (Not with a finger or button still down, nor within 0.28 s of the last input: it is begun once the figure is let go.)
+    if (!leftAlone(280)) { plateSettle = setTimeout(settled, 120); return; }
+    if (moveLow) { plateSettle = setTimeout(settled, 120); return; }   // (While moving: made for the canvas at rest)
+    if (!veins || !plateOn() || !CTM) return;
+    // (Not in the circuit, or on the way to it: the organs are faded out there, and their sharp picture and the gut's were
+    // drawn after every pan and pinch for nothing (Mohammad, 21 Oct: the lag "also happens in circuit view"). The way back to
+    // the anatomy moves the view on every frame, so the last of them, at the anatomy, schedules them again.)
+    if (morphTarget !== 0 || morph > 0) return;
+    const need = vdpr * CTM.sc;
+    if (need <= PLATE_BASE * 1.2) { if (veins.hasPlate(1)) { veins.dropPlate(1); veinsDirty = true; stageWake(); } return; }
+    // The view in world units (the anatomy is never turned), with a margin, within the plate.
+    const r = stageBox(), [ax, ay] = clientToWorldFast(r.left, r.top), [bx, by] = clientToWorldFast(r.right, r.bottom);
+    // (Painted on the GPU (bake) a view's picture costs little for its size, so it reaches half a view past each side, as far as
+    // the texture's limits allow at the screen's resolution: most pans then stay inside it, below. As pictures of the SVG copy it
+    // reaches a seventh, each pan's uncovered strip drawn from the copy.)
+    const vw = (bx - ax) * need, vh = (by - ay) * need;
+    const reach = liveOn() ? Math.max(0.15, Math.min(0.5, (Math.sqrt(4.2e6 / Math.max(1, vw * vh)) - 1) / 2, (4094 / Math.max(1, vw, vh) - 1) / 2)) : 0.15;
+    const mx = (bx - ax) * reach, my = (by - ay) * reach;
+    let x0 = Math.max(PLATE_RECT[0], ax - mx), y0 = Math.max(PLATE_RECT[1], ay - my);
+    let x1 = Math.min(PLATE_RECT[0] + PLATE_RECT[2], bx + mx), y1 = Math.min(PLATE_RECT[1] + PLATE_RECT[3], by + my);
+    if (x1 <= x0 || y1 <= y0) return;
+    // (4094: the rect grows by up to a pixel each way below, and a texture side stays within 4096.) Painted on the GPU, the
+    // picture is painted through the painter's targets, which hold its width and the canvas's height, or the other way round:
+    // its sides are kept so those stay within the room the canvas gives them (organ-paint targetRoom). A view taller than the
+    // screen and one wider made them 4096 square on an iPad at 2×, and Safari ended the page (Mohammad, 25 Oct).
+    const roomW = picNow ? picNow[0] : vCanvas.width, roomH = picNow ? picNow[1] : vCanvas.height;   // (the picture's pixels: under Sharper upscaling the canvas is larger)
+    const room = targetRoom(roomW, roomH);
+    const scale = Math.min(need, 4094 / (x1 - x0), 4094 / (y1 - y0), Math.sqrt(4.2e6 / ((x1 - x0) * (y1 - y0))),
+      room / (Math.max(1, roomH) * (x1 - x0)), room / (Math.max(1, roomW) * (y1 - y0)));
+    // On the scale's pixel grid (grown outward to whole pixels): two views at one scale sit whole pixels apart, so the next pan
+    // can take the pixels they share (rasterPlate).
+    x0 = Math.floor(x0 * scale) / scale; y0 = Math.floor(y0 * scale) / scale; x1 = Math.ceil(x1 * scale) / scale; y1 = Math.ceil(y1 * scale) / scale;
+    const key = `${plateKey}|${x0.toFixed(0)},${y0.toFixed(0)},${x1.toFixed(0)},${y1.toFixed(0)}|${scale.toFixed(2)}`;
+    if (key === plateViewKey) return;
+    // The picture of the view kept while it still covers what is on screen (not the margin around it) at the resolution wanted:
+    // a pan or a small zoom within it makes nothing new. (It was made again whenever the margin left it, after nearly every pan.)
+    const vx0 = Math.max(PLATE_RECT[0], ax), vy0 = Math.max(PLATE_RECT[1], ay), vx1 = Math.min(PLATE_RECT[0] + PLATE_RECT[2], bx), vy1 = Math.min(PLATE_RECT[1] + PLATE_RECT[3], by);
+    if (plateView && vx0 >= plateView[0] && vy0 >= plateView[1] && vx1 <= plateView[2] && vy1 <= plateView[3] && scale <= plateView[4] * 1.05) return;
+    plateViewKey = key;
+    try { if (gpuOrgansOn() && await rasterLayers(1, [x0, y0, x1 - x0, y1 - y0], scale)) { plateView = [x0, y0, x1, y1, scale]; veinsDirty = true; stageWake(); } else if (plateViewKey === key) plateViewKey = ''; } catch (e) { caught('stage:5661', e); /* the whole-plate raster stays */ }
+  }
+  const worldBuf = [0, 0];   // (the point kept and written over: every caller takes its two numbers at once)
   function clientToWorldFast(cx, cy) {
     if (!CTM) refreshCTM();
     const { a, b, c, d, e, f } = CTM, det = a * d - b * c || 1, x = cx - e, y = cy - f;
-    return [(d * x - c * y) / det, (-b * x + a * y) / det];
+    worldBuf[0] = (d * x - c * y) / det; worldBuf[1] = (-b * x + a * y) / det;
+    return worldBuf;
   }
   // With a vessel selected the organs (and the ascites over them) step back to SEL_DIM, as app.css's .has-sel filter (G20).
   const SEL_DIM = 0.6;
   const SPOT_NET = 0.16;   // the network's alpha outside a slide's spotlight (deck visuals V2)
   // The plate's dim and grey (a lens or a selection) and the network's dim ease toward their targets
   // (stepPlateEase, each frame), so a lens switch or a selection never changes the figure in one frame.
+  const plateTgt = [1, 1, 1];   // (the three targets kept and written over: each caller reads them at once)
   const plateTargets = () => {
     const dataLayer = flag.dataLayer, own = flag.hasSel || wrap.classList.contains('shunting'), sel = own || spotOn();
     // (A slide's spotlight steps the rest of the network further back than a selection, SPOT_NET: its vessels are a set, and a pale
     // one, as the paraumbilical vein in Pressure colours, must still stand out of it.)
-    return [(sel ? SEL_DIM : 1) * (dataLayer ? 0.72 : 1), dataLayer ? 0.12 : 1, own ? 0.42 : sel ? SPOT_NET : 1];
+    plateTgt[0] = (sel ? SEL_DIM : 1) * (dataLayer ? 0.72 : 1); plateTgt[1] = dataLayer ? 0.12 : 1; plateTgt[2] = own ? 0.42 : sel ? SPOT_NET : 1;
+    return plateTgt;
   };
+  const plateLook = { alpha: 0, sat: 1, stack: false };   // (the plate's look handed to the vessels' painter: kept, written over, read at once)
   function syncPlateLook() {
     syncOrganDim();
     if (!vLook) return;
     if (plateDim == null || reduceMotion.matches) [plateDim, plateSat, netA] = plateTargets();
-    vLook.plate = plateOn() ? { alpha: (1 - easeInOut(morph)) * plateDim, sat: plateSat, stack: gpuOrgansOn() } : null;
+    if (plateOn()) { plateLook.alpha = (1 - easeInOut(morph)) * plateDim; plateLook.sat = plateSat; plateLook.stack = gpuOrgansOn(); vLook.plate = plateLook; } else vLook.plate = null;
     vLook.netAlpha = netA;
   }
   // The live SVG organs (shown while the GPU copy is off: a patient change, a theme switch, no WebGL) take the same dim and
@@ -5959,9 +5978,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let organDimKey = '', greyList = null, greyFilter = false;
   // (While dimmed the groups' opacity transition (app.css, .5 s) is off: it would start each dim from full strength, a flash of
   // the undimmed organs at every patient change. The dim eases on the plate's own clock, as the filter's did.)
+  const organGs = [gOrgans, gBackdrop];
   function paintOrganAlpha() {
     const a = String(organMorphA * organDimA), tr = organDimA !== 1 ? 'none' : '';
-    for (const g of [gOrgans, gBackdrop]) {
+    for (let i = 0; i < organGs.length; i++) {
+      const g = organGs[i];
       if ((getLive(g, 'transition') ?? g.style.transition) !== tr) setG(g, 'style:transition', tr);
       if ((getLive(g, 'opacity') ?? g.style.opacity) !== a) setG(g, 'style:opacity', a);
     }
@@ -6029,13 +6050,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const n = greyNew; greyNew = null;
     if (!n || !greyWant || greyFilter || greyList) return;
     greyList = n.list; greyAt = n.at;
-    if (!greyList) { greyFilter = true; for (const g of [gOrgans, gBackdrop]) g.setAttribute('filter', 'url(#organDim)'); }
+    if (!greyList) { greyFilter = true; for (let i = 0; i < organGs.length; i++) organGs[i].setAttribute('filter', 'url(#organDim)'); }
     greySet(greySat);
   }
   function greyOff() {
     greyWant = false; if (greyAsk) { cancelFrame(greyAsk); greyAsk = 0; } greyNew = null;
     greyClear();
-    if (greyFilter) { greyFilter = false; for (const g of [gOrgans, gBackdrop]) g.removeAttribute('filter'); }
+    if (greyFilter) { greyFilter = false; for (let i = 0; i < organGs.length; i++) organGs[i].removeAttribute('filter'); }
   }
   // (The dim's last key as its parts, not a string built a frame: organDimKey is '' for off or reset, 'on' with these two for a dim.)
   let organDimD = 0, organDimS = 0;
@@ -6521,7 +6542,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     return (colonMask = { x0, y0, w, h, bits });
   }
-  (typeof requestIdleCallback === 'function' ? (f) => requestIdleCallback(f, { timeout: 5000 }) : (f) => setTimeout(f, 3000))(() => { try { colonGrid(); if (organG.bowel && warmDCount('bowel')) warmVis('bowel'); } catch (e) { caught('stage:6172', e); /* each is made when a glow first needs it */ } });   // (made while idle, so a slide's start does not pay for them)
+  try { colonGrid(); } catch (e) { caught('stage:colon', e); /* the glow is not cut where the colon lies over it */ }   // (made as the stage is, once: a frame only reads colonMask)
+  (typeof requestIdleCallback === 'function' ? (f) => requestIdleCallback(f, { timeout: 5000 }) : (f) => setTimeout(f, 3000))(() => { try { if (organG.bowel && warmDCount('bowel')) warmVis('bowel'); } catch (e) { caught('stage:6172', e); /* each is made when a glow first needs it */ } });   // (made while idle, so a slide's start does not pay for them)
   // A warm outline's source as parts (the organ's path and transform, the colon's transform, the bed's and pieces' widths, the tubes' paths):
   // told apart each frame with no string made (ol.sig is written when it moves).
   function warmKeyWalk(id) {
@@ -6733,6 +6755,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   for (const k of Object.keys(OL_LOOK)) PASS_LINE[k] = [[false, ...OL_LOOK[k]]];
   const olDrawPool = [], olFadePool = [], olSpecList = [], olVBuf = [];
   const olSpecs = [{ verts: null, draws: olSpecList, rev: 0 }, { verts: null, draws: olSpecList, rev: 0 }];
+  const ndSpecs = [];   // (each station dot's disc and ring draws, in order)
+  for (let i = 0; i < nodeDots.length; i++) ndSpecs.push({ first: 0, count: 3 * ND_SEG, col: null, alpha: 0, tri: true }, { first: 0, count: 2 * (ND_SEG + 1), col: null, alpha: 0 });
   let olDrawN = 0, olFadeN = 0, olSpecI = 0;
   function olDraw(first, count, col, alpha, soft, warm) {
     let d = olDrawPool[olDrawN++];
@@ -6844,7 +6868,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (V) {
           const mt = gMatrix(organG[o.id]), rad = warmR(o.id) * (mt ? Math.hypot(mt.a, mt.b) : 1), reachMax = Math.min(63, WARM.reach, 0.8 * rad);   // (under the tube's half width, whatever the drawing)
           const cm = o.id === 'colon' ? null : gMatrix(organG.colon);
-          wmV = V; wmRad = rad; wmReachMax = reachMax; wmInv = cm?.inverse() || null; wmGrid = o.id === 'colon' ? null : colonGrid();
+          wmV = V; wmRad = rad; wmReachMax = reachMax; wmInv = cm?.inverse() || null; wmGrid = o.id === 'colon' ? null : colonMask;
           o.runs.length = 0;
           const seen = warmVis(o.id);
           for (let ri = 0; ri < o.rings.length; ri++) {
@@ -6921,7 +6945,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       for (let i = 0; i < nodeDots.length; i++) {
         const a = MAP.a * easeMove(nodeDots[i].u), f = n0 + i * ND_PER;
         if (a <= 0) continue;
-        list.push({ first: f, count: 3 * ND_SEG, col: nd.fill, alpha: a, tri: true }, { first: f + 3 * ND_SEG, count: 2 * (ND_SEG + 1), col: nd.ring, alpha: a });
+        const sa = ndSpecs[2 * i], sb = ndSpecs[2 * i + 1];   // (the dot's two draws, made ahead and written over)
+        sa.first = f; sa.col = nd.fill; sa.alpha = a; sb.first = f + 3 * ND_SEG; sb.col = nd.ring; sb.alpha = a;
+        list.push(sa, sb);
       }
     }
     nd.dirty = false;

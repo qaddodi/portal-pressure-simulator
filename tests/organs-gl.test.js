@@ -116,7 +116,7 @@ test('the live organs are read once per state; the painter reads the eased value
   const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
   const paint = readFileSync(new URL('../src/ui/organ-paint.js', import.meta.url), 'utf8');
   const gl = readFileSync(new URL('../src/ui/organs-gl.js', import.meta.url), 'utf8');
-  assert.match(stage, /return \[organG\.liver\.getAttribute\('mask'\), ghost\.style\.display, lv\.sep\.style\.visibility, lv\.nod\.style\.visibility, lv\.cong\.style\.visibility, lv\.isl\.style\.visibility,\n\s+cs\.getPropertyValue\('--stage-bg'\)/);
+  assert.match(stage, /k\[0\] = organG\.liver\.getAttribute\('mask'\) \?\? ''; k\[1\] = ghost\.style\.display; k\[2\] = lv\.sep\.style\.visibility; k\[3\] = lv\.nod\.style\.visibility; k\[4\] = lv\.cong\.style\.visibility; k\[5\] = lv\.isl\.style\.visibility;\n\s+k\[6\] = cs\.getPropertyValue\('--stage-bg'\)/);
   assert.match(stage, /organs\.get\(L\)\.push\(\{ spec, get m\(\) \{ return matOfEl\(el\); \} \}\);/);
   // The painter: an op's frame, alpha and clip frame from its element chain's inline settings, else as read; at no opacity no box.
   assert.match(paint, /export function liveOf\(op\) \{/);
