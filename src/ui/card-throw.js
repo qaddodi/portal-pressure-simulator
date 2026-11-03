@@ -38,7 +38,17 @@ export function throwInto(out, kind, k, from, to) {
 }
 
 const runs = new Map();
-let ask = 0;
+let ask = 0, runIds = 0;
+const lastRun = new WeakMap();   // (the id of el's latest run, for a card held or pinned after it)
+// (Who waits for a run's landing (throwLanded): kept on the run itself, answered once when it ends, never left behind.)
+function settleRun(r, landed) {
+  const w = r.waits;
+  if (!w) return;
+  r.waits = null;
+  for (let i = 0; i < w.length; i++) w[i](landed);
+}
+// (A run taken off its card without landing: stopped, or put aside by a new move.)
+function dropRun(el) { const r = runs.get(el); runs.delete(el); if (r) settleRun(r, false); }
 // (Written important: a card's leave class holds its opacity at 0 with !important (app.css .pz-shade.stack.pz-leave), which put the glass
 // out at once while its words were still going.)
 // (A card's opacity is written as one of 1001 strings, each made the first time its thousandth is wanted and kept: the fade costs no
@@ -78,6 +88,7 @@ function land(el, r, x, o) {
   runs.delete(el); write(el, x, o);
   if (r.kind !== 'out') { landed.push(el); runSoon(restLanded); }
   r.done?.();
+  settleRun(r, true);
 }
 function stepRun(el, r, now) {
   const k = r.ms > 0 ? (now - r.t0) / r.ms : 1;
@@ -92,7 +103,7 @@ function step() {
   try {
     const now = easeNow();
     for (const [el, r] of runs) {
-      try { stepRun(el, r, now); } catch (e) { caught('card-throw:step', e); if (runs.get(el) === r) { try { land(el, r, r.to.x, r.to.o); } catch (e2) { runs.delete(el); caught('card-throw:land', e2); } } }
+      try { stepRun(el, r, now); } catch (e) { caught('card-throw:step', e); if (runs.get(el) === r) { try { land(el, r, r.to.x, r.to.o); } catch (e2) { dropRun(el); caught('card-throw:land', e2); } } }
     }
   } finally {
     // Every card has reached this frame's position before the glass is asked to draw in the final phase.
@@ -119,7 +130,7 @@ function guard() {
   const wall = performance.now();
   let soonest = Infinity;
   for (const [el, r] of runs) {
-    if (wall >= r.dead) { try { land(el, r, r.to.x, r.to.o); } catch (e) { runs.delete(el); caught('card-throw:guard', e); } }
+    if (wall >= r.dead) { try { land(el, r, r.to.x, r.to.o); } catch (e) { dropRun(el); caught('card-throw:guard', e); } }
     else if (r.dead < soonest) soonest = r.dead;
   }
   signalMove();
@@ -135,13 +146,15 @@ const settle = () => { if (!runs.size) { if (guardT) clearTimeout(guardT); guard
 function start(el, kind, to, ms, delay, done) {
   endMove ||= beginMotion('card throw', ms + delay + 2000);
   const from = here(el);
-  runs.delete(el); pinned.delete(el);
+  dropRun(el); pinned.delete(el);
   el.classList?.add(THROWING); classSoon(el, THROWING, true);   // (on in the task that starts the move; a let-go still waiting is overruled)
   el.style.setProperty('transition', 'none', 'important');
   write(el, from.x, from.o);   // (at once, in the task that starts it: no frame shows the class's own place in between)
   signalMove();
   const dead = performance.now() + delay + ms + GUARD_MS;
-  runs.set(el, { kind, from, to, x: from.x, o: from.o, t0: easeNow() + delay, ms, done, dead });
+  const id = ++runIds;
+  lastRun.set(el, id);
+  runs.set(el, { id, kind, from, to, x: from.x, o: from.o, t0: easeNow() + delay, ms, done, dead, waits: null });
   outCheck();   // A replacement that no longer goes out can release the waiting slide immediately.
   if (!ask) ask = nextFrame(step);
   guardBy(dead);
@@ -197,7 +210,7 @@ export function throwIn(el, dir, delay = 0) {
   releaseHeld(el);
   // (A card already coming in is taken from where it is, never put back at its start: a second call for it mid-way (a repeated pass of
   // cardsIn, a staggered card asked again) used to drop it from full to nothing and slide it in again, a blink.)
-  if (!was) { el.style.setProperty('transition', 'none', 'important'); write(el, s * THROW_IN, 0); runs.delete(el); }
+  if (!was) { el.style.setProperty('transition', 'none', 'important'); write(el, s * THROW_IN, 0); }
   start(el, 'in', { x: 0, o: 1 }, RAIL_MS, was?.kind === 'in' ? 0 : delay);
 }
 
@@ -208,7 +221,7 @@ export function throwIn(el, dir, delay = 0) {
 export function throwBack(el, x, o) {
   if (!el) return;
   releaseHeld(el); pinned.delete(el);
-  runs.delete(el);   // The finger's supplied position supersedes any older throw.
+  dropRun(el);   // The finger's supplied position supersedes any older throw.
   write(el, x, o);
   start(el, 'back', { x: 0, o: 1 }, D_SMALL, 0);
 }
@@ -237,7 +250,7 @@ function outCheck() {
 export const throwing = (el) => runs.has(el);
 
 /** Stops el's move where it is (a finger takes it), its inline values kept for whoever takes it next. */
-export function throwStop(el) { classSoon(el, THROWING, false); runs.delete(el); releaseHeld(el); pinned.delete(el); if (!runs.size && ask) { cancelFrame(ask); ask = 0; } settle(); outCheck(); }
+export function throwStop(el) { classSoon(el, THROWING, false); dropRun(el); releaseHeld(el); pinned.delete(el); if (!runs.size && ask) { cancelFrame(ask); ask = 0; } settle(); outCheck(); }
 
 // (The copies that held the old card on one track until the new one was ready (railHold) are gone: every leaving card sets off on the
 // frame of the tap. These are kept, as what they did with no copy, for presenter.js until its own pass.)
@@ -269,3 +282,25 @@ export function throwOutNow(el, dir, dist) {
 export const throwPinned = (el) => pinned.has(el);
 /** Lets go of a pinned card: to its class's look (a leave class keeps it out). */
 export function throwRelease(el) { if (pinned.delete(el)) hold(el); }
+
+// ── What a card is doing, for whoever must not act on it mid-move (the presenter's stand and landing checks). Read from the sets above;
+// called rarely, never per frame, so a fresh object is fine.
+/** Where el stands in a throw here, or null when this does not own it: { run (id of its latest start), kind 'in'|'out'|'back', x, o,
+ *  left (ms to the end of its run on the eases' clock; 0 held or pinned), readable (on its way in or back and whole), held, pinned }. */
+export function throwState(el) {
+  const r = runs.get(el), h = held.has(el), p = pinned.has(el);
+  if (!r && !h && !p) return null;
+  if (!r) return { run: lastRun.get(el) ?? 0, kind: 'out', x: 0, o: 0, left: 0, readable: false, held: h, pinned: p };
+  return { run: r.id, kind: r.kind, x: r.x, o: r.o, left: Math.max(0, r.t0 + r.ms - easeNow()), readable: r.kind !== 'out' && r.o >= 0.999, held: false, pinned: false };
+}
+/** Whether el is moving, held out of sight, or pinned: anything but at rest and let go. */
+export const throwBusy = (el) => runs.has(el) || held.has(el) || pinned.has(el);
+/** Whether any of els is busy (see throwBusy). */
+export function anyThrowBusy(els) { for (const el of els) if (el && throwBusy(el)) return true; return false; }
+/** Resolves true when el's run now (in or back) lands; false when it is stopped or put aside by another move on el; true at once when
+ *  el has no run. */
+export function throwLanded(el) {
+  const r = runs.get(el);
+  if (!r) return Promise.resolve(true);
+  return new Promise((res) => { (r.waits ||= []).push(res); });
+}
