@@ -289,10 +289,30 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
   const model = document.createElementNS(NS, 'svg'), mblocks = document.createElementNS(NS, 'g');
   model.setAttribute('class', 'cap-model'); model.setAttribute('aria-hidden', 'true'); mblocks.setAttribute('class', 'lb-blocks'); model.append(mblocks);
   box.append(model);
-  const LG = createLabelGL(model, mblocks, { force: true, id: 'capLabelGl' });
+  const lroot = document.createElementNS(NS, 'g');
+  lroot.setAttribute('class', 'lb-leaders'); model.prepend(lroot);
+  const LG = createLabelGL(model, mblocks, { force: true, id: 'capLabelGl', marks: [lroot] });
   const lgList = [];
   const lgOn = () => !!LG && !LG.lost;
   let svSeq = 0;
+  // A leader and its dot as marks label-gl draws (the Anatomy's .leader, .leader-dot-halo, .leader-dot): written here, drawn by the GPU.
+  const mk = (cls) => { const e = document.createElementNS(NS, cls === 'leader' ? 'path' : 'circle'); e.setAttribute('class', cls); lroot.append(e); return e; };
+  function leadMarks(key, L, x1, y1, x2, y2, a) {
+    const M = L.m || (L.m = { p: mk('leader'), h: mk('leader-dot-halo'), d: mk('leader-dot') });
+    M.p.setAttribute('d', `M${x2.toFixed(2)} ${y2.toFixed(2)} L${x1.toFixed(2)} ${y1.toFixed(2)}`);
+    for (const e of [M.h, M.d]) { e.setAttribute('cx', x2.toFixed(2)); e.setAttribute('cy', y2.toFixed(2)); }
+    M.h.setAttribute('r', String(leadLook.haloR)); M.d.setAttribute('r', String(L.r ?? leadLook.r));
+    const o = a.toFixed(3);
+    if (M.o !== o) { M.o = o; M.p.style.opacity = M.h.style.opacity = M.d.style.opacity = o; }
+  }
+  // Whether label-gl can draw all of a caption's words (Inter's outlines have every glyph); else the pen below draws it, so no name goes blank.
+  function covered(I) {
+    if (I.cvSv === I.sv && I.cvGr === glyphsReady()) return I.cv;
+    I.cvSv = I.sv; I.cvGr = glyphsReady();
+    let ok = glyphsReady();
+    for (let li = 0, n = I.set.n ?? I.set.lines.length; ok && li < n; li++) { const ln = I.set.lines[li]; for (let ri = 0, m = ln.m ?? ln.runs.length; ok && ri < m; ri++) ok = textCovers(ln.runs[ri].t); }
+    return (I.cv = ok);
+  }
   // A caption's group, made again only when its words, scale or look changed.
   function buildGroup(I, s) {
     let g = I.g;
@@ -300,14 +320,7 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
     if (I.gsv === I.sv && I.gs === s && I.ggr === glyphsReady()) return g;
     I.gsv = I.sv; I.gs = s; I.ggr = glyphsReady();
     g.textContent = '';
-    const bw = I.w * s, bh = I.h * s;
-    for (const M of I.set.marks || NONE) {
-      if (M.kind !== 'bg') continue;
-      const q = M.inset, r = document.createElementNS(NS, 'rect');
-      r.setAttribute('x', q ? q[0] * s : 0); r.setAttribute('y', q ? q[1] * s : 0);
-      r.setAttribute('width', q ? bw - (q[0] + q[2]) * s : bw); r.setAttribute('height', q ? bh - (q[1] + q[3]) * s : bh);
-      r.setAttribute('rx', M.rad * s); r.style.fill = M.fill; g.append(r);
-    }
+    const bw = I.w * s;
     for (let li = 0, n = I.set.n ?? I.set.lines.length; li < n; li++) {
       const ln = I.set.lines[li], x0 = (bw - ln.w * s) / 2;
       for (let ri = 0, rn = ln.m ?? ln.runs.length; ri < rn; ri++) {
@@ -362,7 +375,7 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
       for (const [key, L] of leads) {
         const a = easeAt(L.a, now) * (L.of ? itemA(L.of, now) : 1);
         more ||= easing(L.a, now);
-        if (a <= 0.002 || !L.colour) continue;
+        if (a <= 0.002 || !L.colour) { if (L.m && L.m.o !== '0.000') { L.m.o = '0.000'; L.m.p.style.opacity = L.m.h.style.opacity = L.m.d.style.opacity = '0'; } continue; }
         let { x1, y1 } = L;
         const I = L.of && items.get(L.of);
         // (Its near end follows its name's step aside, as eased, to the edge of the smaller box when the name was set smaller.)
@@ -374,6 +387,7 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
         { const q = drawnL[drawnLN++] || (drawnL[drawnLN - 1] = { key: '', x0: 0, y0: 0, x1: 0, y1: 0, a: 0 }); q.key = key; q.x0 = x2; q.y0 = y2; q.x1 = sx; q.y1 = sy; q.a = a; }   // (what this frame drew, for snapshot(): the figure's point and the name's end, view applied; alloc-rare, only until a frame has drawn as many leaders as any frame will)
         // The leader and its dot as the Anatomy and Circuit labels draw them (app.css .leader, .leader-dot): a 1px line in the leader ink, the dot on
         // its point with the stage's paper round it and the text ink's ring.
+        if (lgOn()) { leadMarks(key, L, sx, sy, x2, y2, a); continue; }
         const lk = leadLook;
         ctx.globalAlpha = a; ctx.strokeStyle = lk.line || L.colour; ctx.lineWidth = lk.lw; ctx.lineCap = 'round';
         ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(x2, y2); ctx.stroke();
@@ -394,16 +408,8 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
         record(I.key, l, t, bw, bh, a, w, h, I, l, t, s);
         // A lit term (a slide's) shows in its colour on the name and figure alone, as the page's look reads it: no pill or chip behind
         // a figure's label (owner, 2 Nov: anatomy-style halo text, no pills).
-        // Its marks under its words (a call's pill: its shadow, fill and border, as the page drew it).
-        for (const M of I.set.marks || NONE) {
-          if (M.kind !== 'bg') continue;
-          const rr = M.rad * s, q = M.inset, ml = q ? l + q[0] * s : l, mt = q ? t + q[1] * s : t, mw = q ? bw - (q[0] + q[2]) * s : bw, mh = q ? bh - (q[1] + q[3]) * s : bh;
-          if (M.sh) { ctx.globalAlpha = a; ctx.shadowBox(ml, mt, mw, mh, rr, M.sh.colour, M.sh.blur * s, M.sh.dy * s); }
-          ctx.globalAlpha = a; ctx.fillStyle = M.fill; ctx.beginPath(); ctx.roundRect(ml, mt, mw, mh, rr); ctx.fill();
-          if (M.border?.colour) { const bwd = M.border.w * s; ctx.strokeStyle = M.border.colour; ctx.lineWidth = bwd; ctx.beginPath(); ctx.roundRect(ml + bwd / 2, mt + bwd / 2, mw - bwd, mh - bwd, Math.max(0, rr - bwd / 2)); ctx.stroke(); }
-        }
-        if (lgOn()) {
-          if (I.set.n === 0 || !I.set.lines.length) { /* no words */ } else {
+        if (lgOn() && covered(I)) {
+          if (I.set.lines.length && (I.set.n ?? 1) > 0) {
             const g = buildGroup(I, s), e = I.ent;
             e.x = l; e.y = t;
             const o = a.toFixed(3);
