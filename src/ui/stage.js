@@ -46,6 +46,7 @@ import { gpuProbe, COUNTED } from './gpu-probe.js';
 import { refine } from './refine.js';
 import { fadeOver, fadeStop, fading } from './res-fade.js';
 import { LIGHT } from './light.js';
+import { onTheme } from './theme-epoch.js';
 import { leftAlone, sinceInput, booting, holdCover } from './quiet.js';
 import { cropToGrid } from './organs-gl.js';
 import { textPolys, loadGlyphs, glyphsReady, textBox } from './text-gl.js';
@@ -3493,7 +3494,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     circAgain = true;
     try { refit(); } finally { circAgain = false; }
   };
-  const homeResizeGo = () => { homeResizeT = 0; lookHome(); homeLateT[0] = setTimeout(lookHome, 500); homeLateT[1] = setTimeout(lookHome, 1300); };
+  // (The late looks run only if the stage's box is not the one the last look used: a turn whose sheet and cards settled inside the
+  // first 200 ms is framed once, not at 0.2 s, 0.7 s and 1.5 s, each a glide with the labels solved again.)
+  let lookedBox = '';
+  const boxKey = () => { const b = stageBox(); return b ? `${Math.round(b.left)},${Math.round(b.top)},${Math.round(b.width)},${Math.round(b.height)}` : ''; };
+  const lookHomeIfMoved = () => { if (boxKey() !== lookedBox) lookHomeKept(); };
+  const lookHomeKept = () => { lookedBox = boxKey(); lookHome(); };
+  const homeResizeGo = () => { homeResizeT = 0; lookHomeKept(); homeLateT[0] = setTimeout(lookHomeIfMoved, 500); homeLateT[1] = setTimeout(lookHomeIfMoved, 1300); };
   addEventListener('resize', () => {
     clearTimeout(homeResizeT); homeLateT.forEach(clearTimeout);
     homeResizeT = setTimeout(homeResizeGo, 200);
@@ -6298,8 +6305,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
   }
   orgToneRead();
-  new MutationObserver(() => { orgToneRead(); nextFrame(resTheme); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-palette', 'class'] });
+  // (A new look: the tones are read at once, and the resolution painters are drawn again in the theme epoch's frame, the same as every
+  // other surface (theme-epoch.js). A class change on the page alone draws them again in the next frame, as before.)
+  new MutationObserver((rs) => { orgToneRead(); if (rs.some((r) => r.attributeName === 'class')) nextFrame(resTheme); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-palette', 'class'] });
   matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', orgToneRead);
+  onTheme(resTheme);
   const OL_FADE = 160;   // ms
   // A narrowing's clamp and its "60 %" fade in and out with the narrowing (they had popped): each narrowing's shown amount
   // (0 … 1), stepped in olStep. A narrowing that goes keeps its marks, moved to ov.clampsOut, until they have faded.
@@ -10560,7 +10570,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     e.push(weight, size, track, w); widthN++;
     return w;
   }
-  document.fonts?.ready?.then(() => { widths.clear(); widthN = 0; labelFonts++; if (F) updateLabels(F); });
+  // (Cleared at each font that finishes, not only at the first `ready`: Inter's Greek and Latin-extended parts load when a character in
+  // them first appears, and a label measured before that was measured in the fallback face.)
+  const fontsIn = () => { widths.clear(); widthN = 0; labelFonts++; if (F) updateLabels(F); };
+  document.fonts?.ready?.then(fontsIn);
+  document.fonts?.addEventListener?.('loadingdone', fontsIn);
 
   // Label text size: the reader's choice (Menu › Text size), and a larger baseline in the circuit,
   // whose labels are the map's only text. Every run's size and spacing is scaled by labelK.

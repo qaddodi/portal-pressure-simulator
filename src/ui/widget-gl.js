@@ -16,7 +16,7 @@
 // callback draws the box at (pad, pad).
 
 import { createTraceGL, fitPen } from './trace-gl.js';
-import { restPass } from './rest-pass.js';
+import { onTheme } from './theme-epoch.js';
 import { onCanvasResized } from './util.js';
 import { caught } from './caught.js';
 
@@ -26,8 +26,7 @@ let themed = false;
 function watchTheme() {
   if (themed || typeof MutationObserver === 'undefined') return;
   themed = true;
-  new MutationObserver(() => { restPass(drawAll); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-palette'] });   // alloc-rare: one observer for the page, made with the first widget
-  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => restPass(drawAll));   // alloc-rare: one listener for the page
+  onTheme(drawAll);   // (the theme epoch, theme-epoch.js: drawn in the same frame as every other surface)
 }
 function drawAll() { for (const w of ALL) w.paint(); }
 

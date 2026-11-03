@@ -18,6 +18,7 @@ import { Inline, inlineShift, inlineTranslate, Motion, compileKeyframes, motionA
 import { pathPolys, fanTriangles } from './path-poly.js';
 import { easeArrive, D_SURFACE } from './ease.js';
 import { caught } from './caught.js';
+import { booting, holdCover } from './quiet.js';
 import { viewSize } from './layout-snap.js';
 import { parseCssColor } from './css-color.js';
 import { driven, isDrivenAnimation, onMove } from './num-move.js';
@@ -777,7 +778,16 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     }
     return panes;
   }
+  // (The loading cover waits for the glass's first draw, inside its own cap (index.html): it lifted on cards with no frost, which
+  // arrived a beat later. 1.5 s here, so a page that shows no glass does not hold it.)
+  let coverOpen = null;   // alloc-rare: one promise for the cover, made once, only while it is up
+  if (booting()) holdCover(new Promise((done) => { coverOpen = done; setTimeout(done, 1500); }));
   function draw() {
+    const r = drawNow();
+    if (coverOpen && r) { coverOpen(); coverOpen = null; }
+    return r;
+  }
+  function drawNow() {
     if (lost || dead || gl?.isContextLost()) return false;
     const list = glassesNow();
     if (hostOn && (!list.length || !wanted() || !live())) dropHost(true);

@@ -182,7 +182,10 @@ function clearShared() { SHARED.clear(); ROOTS.clear(); }
 const ROOTS = new Map();   // (place key → the keys its roots' shared looks are kept by)
 /** Drops the shared looks of the roots of every box standing at place key pk. */
 function dropRoots(pk) { const ks = ROOTS.get(pk); if (ks) { ks.forEach((k) => SHARED.delete(k)); ROOTS.delete(pk); } }
-if (typeof addEventListener === 'function') addEventListener('resize', () => clearShared());
+// (Not on every event of a window drag: that made each chart that redrew ask the page for its looks again, the more so as the drag went
+// on. Once, when the size has held for 150 ms; the charts on show look again then, as for a new theme.)
+let sizeT = 0;
+if (typeof addEventListener === 'function') addEventListener('resize', () => { clearTimeout(sizeT); sizeT = setTimeout(() => { sizeT = 0; if (!themeAsk) themeAsk = restPass(themeRead); }, 150); });
 // (A box's own inline style, and each ancestor's, minus what only moves it: a type size or a scale set there is part of where it stands.)
 const STYLE_PLACE = /(^|;)\s*(opacity|transform|translate|scale|rotate|clip-path|will-change|transition[\w-]*)\s*:[^;]*/g;
 /** Where a box stands, for the shared looks: its own and its ancestors' tags, classes, data attributes (the theme and palette among

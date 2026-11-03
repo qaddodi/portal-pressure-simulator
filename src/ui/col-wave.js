@@ -10,7 +10,7 @@
 import { h, fmt, cssVar } from './util.js';
 import { createTraceGL, fitPen } from './trace-gl.js';
 import { cssColor } from './css-color.js';
-import { frameFor } from './frame.js';
+import { onTheme } from './theme-epoch.js';
 
 const AWAY = new Set(['RHV_IVC', 'MHV_IVC', 'LHV_IVC', 'IVCS_RA']);
 const NAME = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L: 'left portal vein', SMV_CONF: 'superior mesenteric vein', SV_CONF: 'splenic vein',
@@ -101,12 +101,9 @@ function paintWave(c) {
     strokeHalf(ctx, c, mid, hh, w, hh, penAway);
   } finally { ctx.end?.(); }
 }
-const waveFrame = frameFor('col-wave');
-let themeAsk = 0;
-function repaintAll() { themeAsk = 0; for (const c of live) { if (c.cv.isConnected) paintWave(c); else { c.gpu?.dispose(); live.delete(c); } } }
+function repaintAll() { for (const c of live) { if (c.cv.isConnected) paintWave(c); else { c.gpu?.dispose(); live.delete(c); } } }
 if (typeof MutationObserver === 'function' && typeof document !== 'undefined') {
-  new MutationObserver(() => { if (!themeAsk && live.size) themeAsk = waveFrame(repaintAll); })
-    .observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-palette'] });
+  onTheme(() => { if (live.size) repaintAll(); });   // (the theme epoch, theme-epoch.js: the same frame as every other surface)
 }
 function draw(box, w, vessel, max) {
   const p = wavePath(w, vessel, max);

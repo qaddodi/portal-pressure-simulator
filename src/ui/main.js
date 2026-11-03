@@ -27,7 +27,8 @@ import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, he
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js';
 import { dopplerVel } from './velNormal.js';
 import { controlOwnsKey } from './key-owner.js';
-import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, TOASTS, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, swapFade, scrollBehavior, reconcile } from './util.js';
+import { onTheme, themeSettled } from './theme-epoch.js';
+import { cssVar, $, $$, h, icon, afterExit, fmt, fmtFlow, toast, TOASTS, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, swapFade, scrollBehavior, reconcile } from './util.js';
 import { glidePlateOn, platePieces, glideOnResize } from './plate-glide.js';
 import { sheetParts, sheetOffset, setSheetOffset, stopSheet, glideSheet, dragSheet } from './sheet-move.js';
 import { releaseSpeed, isFlick, flickAim, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js';
@@ -67,7 +68,7 @@ import { ORIGINS } from './blood.js';
 import { parseShare, cleanShare } from './share-link.js';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js';
 import { createPaintGate } from './paint-gate.js';
-import { frameFor, cancelFrame, perf as framePerf, framePart, inMotion, afterMotion, mayTask } from './frame.js';
+import { frameFor, cancelFrame, perf as framePerf, framePart, inMotion, mayTask } from './frame.js';
 import { restPass } from './rest-pass.js';
 import { classSoon, runSoon } from './class-soon.js';
 import { sizeOf, watchSize, rectsSoon, restTask } from './geom.js';
@@ -75,7 +76,6 @@ import { feedbackDiagnostics } from './feedback-diag.js';
 import { noteJump } from './display-state.js';
 import { createIdleRest } from './idle-rest.js';
 import { pillState, foldPill, stopFold } from './pill-motion.js';
-import { classOnly, GESTURE_LOOK } from './idle-keys.js';
 import { readAnims, readBox, readElAt, readMetric, readStyle, scrollInto } from './layout-snap.js';
 import './scroll-edges.js';   // (soft fades at the ends of lists that scroll, only where there is more; ?edges=0 off)
 import { caught, caughtNow } from './caught.js';
@@ -1318,7 +1318,8 @@ function setSpeed(v, lapse = false) {
 // (motion review P1). Page load and a change of the device's own theme apply at once.
 function switchTheme(t, clear) {
   if (!document.startViewTransition || document.hidden) { applyTheme(t, clear); return; }
-  crossfade(() => applyTheme(t, clear));
+  // (The new page is whole before the crossfade captures it: every surface has drawn the look, themeSettled in theme-epoch.js, capped.)
+  crossfade(() => { applyTheme(t, clear); return themeSettled(); });
 }
 // While a crossfade plays, its pictures cover the page, so a tap would land on <html>: lost, and taken as a tap outside the
 // open Settings, which closed. Such a tap ends the crossfade and goes to whatever is under it once the live page shows again.
@@ -1343,14 +1344,12 @@ function applyTheme(t, clear) {
   applyLookAttrs(document.documentElement, t);   // (data-theme, and data-palette for Navy and Black: looks.js)
   try { if (t) localStorage.setItem('pps.theme', t); else if (clear) localStorage.removeItem('pps.theme'); } catch (e) { caught('main:1168', e); /* storage unavailable */ }
   const f = store.get().frame; if (f) { stage?.update(viewFrame(f)); dock?.update(f); }
-  syncStatusBar();
 }
 // The browser's and the installed app's status bar take the color of whatever sits under it: the
 // figure (the top bar floats over it). The theme can differ from the system's, so the color comes from the page, not from a media query.
 function syncStatusBar() {
-  const el = document.getElementById('stageWrap');
-  const c = el && readStyle(el).backgroundColor;
-  if (!c || c === 'rgba(0, 0, 0, 0)') return;   // colour-exempt: the computed value of transparent
+  const c = cssVar('--stage-bg');   // (the stage's ground comes from the look alone: the token cache, read again for each theme epoch)
+  if (!c) return;
   let m = document.querySelector('meta[name="theme-color"]:not([media])');
   if (!m) {
     document.querySelectorAll('meta[name="theme-color"]').forEach((x) => x.remove());
@@ -1363,16 +1362,11 @@ function syncStatusBar() {
 // page in the background and the model paused, so no frame came to redraw the organs and vessels in the colours now.
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
   const f = store.get().frame; if (f) { stage?.update(viewFrame(f)); dock?.update(f); }   // (the instruments too: with the model paused no frame comes to repaint their canvases)
-  syncStatusBar();
 });
-// (again once the figure's background has finished its .5 s fade)
-// (Not for a gesture's or a glide's own classes (idle-keys.js GESTURE_LOOK): the stage's colour comes from the theme alone, and each read
-// of it, right after the classes changed, was a style pass of the whole page as every pan, pinch and slide's zoom began and ended.)
-// (2 Nov 2026: read between frames (rest-pass.js), not in the observer's microtask straight after the page's writes.)
-// (The late look, after the background's .5 s fade, waits out any move: a timer firing in the middle of a slide change read the page's colours then.)
-let statusLaterOff = null;
-const statusLater = () => { statusLaterOff?.(); statusLaterOff = afterMotion(() => { statusLaterOff = null; restPass(syncStatusBar); }); };
-new MutationObserver((rs) => { if (rs.every((r) => classOnly(r, GESTURE_LOOK))) return; restPass(syncStatusBar); setTimeout(statusLater, 600); }).observe(document.getElementById('app'), { attributes: true, attributeFilter: ['class'], attributeOldValue: true });
+// (2 Nov 2026, glitch audit TH2: only for a new look, in the theme epoch's frame (theme-epoch.js). The stage's colour depends on the look
+// alone, so a card, a sheet or a presenting change on the app no longer costs a style pass, nor a second one 600 ms later.)
+onTheme(syncStatusBar);
+syncStatusBar();
 function readLS(k) { try { return localStorage.getItem(k); } catch { return null; } }
 // ── Patient chart, Treat card and instrument workspace ─
 // The chart is a card floating over the right of the figure (a bottom sheet on a phone), opened

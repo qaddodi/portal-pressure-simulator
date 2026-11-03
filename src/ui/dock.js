@@ -491,7 +491,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   const tabOf = (id) => (id === 'scope' ? 'profile' : id);
   const saved = savedInstruments();
   let open = Array.isArray(saved.open) && saved.open.every((id) => byId[id]) && saved.open.length ? saved.open.slice(0, 2) : ['profile'];
-  let frame = null, state = 'open', resizeFrame = 0, picking = false;
+  let frame = null, state = 'open', resizeFrame = 0, picking = false, wanted = null;
   for (const id of open) byId[id].need?.();   // (an instrument left open comes in at once; the others when the app is idle, or when their tab is first shown)
   let heightRatio = typeof saved.h === 'number' ? saved.h : null, widthPx = typeof saved.w === 'number' ? saved.w : null;
   const remember = () => { try { localStorage.setItem('pps.instruments', JSON.stringify({ open, h: heightRatio, w: widthPx })); } catch (e) { caught('dock:434', e); /* storage unavailable */ } };
@@ -813,7 +813,11 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   const isPair = () => open.length === 2 && tabOf(open[0]) === tabOf(open[1]);
   function layout() {
     // Never keep two cramped instruments after rotation or resizing.
-    if (open.length > 1 && !canSplit()) open = open.slice(0, 1);
+    // (A pair cut to one because the card is too narrow for a moment is kept in `wanted`, and shown again as soon as there is room:
+    // a window dragged narrower and back, or an iPad entering and leaving Split View, gives the same pair back, not one instrument.)
+    if (wanted && open.length === 1 && open[0] !== wanted[0]) wanted = null;
+    if (open.length > 1 && !canSplit()) { wanted = open.slice(0, 2); open = open.slice(0, 1); }
+    else if (wanted && open.length === 1 && canSplit()) { open = wanted; wanted = null; }
     else if (open.length === 1 && tabOf(open[0]) === 'profile' && roomy()) open = [...PAIR];
     else if (open.length > 1 && tabOf(open[0]) === tabOf(open[1]) && !roomy()) open = open.slice(0, 1);
     for (const p of panes) { p.el.classList.toggle('active', open.includes(p.id)); p.shown?.(open.includes(p.id)); }
@@ -846,7 +850,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   }
   function endPick() { picking = false; foldHidden(pickHint, true); workspace.classList.remove('picking'); }
   function toggleSecond() {
-    if (open.length > 1) { open = open.slice(0, 1); endPick(); layout(); return; }
+    if (open.length > 1) { wanted = null; open = open.slice(0, 1); endPick(); layout(); return; }
     if (picking) { endPick(); layout(); return; }
     picking = true;
     pickHint.querySelector('b').textContent = byId[open[0]].label;
@@ -1037,7 +1041,11 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   function clearTraces() { byId.scope.clear(); byId.doppler.clear(); }
   /** A new patient's traces open with the steady state's last seconds already drawn (backfill.js); what they have recorded since stays. */
   function backfillTraces(hs) { byId.scope.backfill(hs); byId.doppler.backfill(hs); }
-  addEventListener('resize', () => { updateSize(); layout(); });
+  // (One look at the size per frame, between frames: a window edge dragged on a Mac fires dozens of resize events a second, and each
+  // was a forced style and layout pass of the page, some a write then a read.)
+  let sizeAsk = 0;
+  const sizePass = () => { sizeAsk = 0; updateSize(); layout(); };
+  addEventListener('resize', () => { if (!sizeAsk) sizeAsk = restPass(sizePass); });
   setState('open'); updateSize(); layout();
   /** Bring in the instruments that load after the first paint (main.js calls it when the app is idle). */
   function load() { for (const p of panes) p.need?.(); }

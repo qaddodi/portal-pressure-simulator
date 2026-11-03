@@ -62,7 +62,7 @@ test('a theme the user picks in the app still crossfades', () => {
   const at = main.indexOf('function switchTheme(');
   const s = main.slice(at, main.indexOf('\n}', at));
   assert.match(s, /if \(!document\.startViewTransition \|\| document\.hidden\) \{ applyTheme\(t, clear\); return; \}/);
-  assert.match(s, /crossfade\(\(\) => applyTheme\(t, clear\)\)/);
+  assert.match(s, /crossfade\(\(\) => \{ applyTheme\(t, clear\); return themeSettled\(\); \}\)/);
 });
 
 test('an organ picture given up because the change moved on makes the next one wait longer, and one that lands resets it', () => {

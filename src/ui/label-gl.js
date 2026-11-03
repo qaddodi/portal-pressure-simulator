@@ -25,6 +25,7 @@ import { textPolys, textWidth, loadGlyphs, glyphsReady, textCovers } from './tex
 import { watchSize, sizeOf, rectSoon } from './geom.js';
 import { trackOf, trackAt, settleUnder, mixColour, mixRgbaInto, timingOf, progressAt, keysOf } from './label-track.js';
 import { caught } from './caught.js';
+import { booting, holdCover } from './quiet.js';
 import { planRepack, stepRepack, reconcileRepack, commitRepack } from './label-repack.js';
 import { classSoon } from './class-soon.js';
 import { readStyle } from './layout-snap.js';
@@ -649,6 +650,10 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // (The labels' words are Inter's outlines (text-gl.js), fetched as the layer starts: till they come, the SVG shows every label.)
   if (!glyphsReady()) loadGlyphs().then(() => { for (const s of last) dirty.add(s.g); ask(); }, () => {});
   let lost = false, dpr = 1, W = 1, H = 1, last = [], raf = 0;
+  // (The loading cover waits for the labels' first picture, inside its own cap (index.html): it lifted on a figure with no labels, and
+  // they arrived a beat later. 1.5 s here, so a view that shows none does not hold it.)
+  let coverOpen = null;   // alloc-rare: one promise for the cover, made once, only while it is up
+  if (booting()) holdCover(new Promise((done) => { coverOpen = done; setTimeout(done, 1500); }));
   let frameSeq = 0, gen = 0, displaced = false;   // (the displayed-label snapshot: frames drawn so far, and the layout/atlas generation, up by every layout and every repack)
   const rafDraw = () => { raf = 0; draw(); };   // (the frame's callback, made once)
   // A slide's camera glide (stage.js, ?labelride=0 off): the labels ride with the figure on the GPU instead of fading out for the whole
@@ -929,7 +934,10 @@ void main() { o = texture(uT, vUV) * uA; }`;
   let densT = 0;
   const densRun = () => { densT = 0; size(); ask(); };
   const densityChanged = () => { if (!densT) densT = setTimeout(densRun, 0); };
-  matchMedia(`(resolution: ${devicePixelRatio}dppx)`).addEventListener?.('change', densityChanged);
+  // (The query names the density now in force and fires once it stops matching, so it is made anew each time: a third density, a
+  // scaled monitor or a page zoom, would otherwise leave the labels at the wrong sharpness.)
+  const watchDensity = () => matchMedia(`(resolution: ${devicePixelRatio}dppx)`).addEventListener?.('change', () => { densityChanged(); watchDensity(); }, { once: true });
+  watchDensity();
   size();
   function ask() {
     if (lost) return;
@@ -1356,6 +1364,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     // (Nothing drawn at all (every label, mark and probe has a box): the canvas is hidden, so the compositor does not blend a full-stage layer of
     // nothing over the figure on every frame the blood moves. It shows again in the task that draws the first thing back. app.css [data-blank].)
     if (!host) { const empty = nb === 0; if (empty !== blank) { blank = empty; canvas.toggleAttribute('data-blank', empty); } }
+    if (nb && coverOpen) { coverOpen(); coverOpen = null; }
     if (moving) ask();
   }
   // ── Holes (1 Nov 2026): the frosted glasses drawn in the figure's canvas, under this one (glass-gl.js onHoles) ──

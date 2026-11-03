@@ -29,6 +29,7 @@ import { restPass, cancelRest } from './rest-pass.js';
 import { readMetric, readStyle } from './layout-snap.js';
 import { cssColor } from './css-color.js';
 import { caught } from './caught.js';
+import { onTheme } from './theme-epoch.js';
 
 /** How long the words hold still (ms) before the page's own words take them. */
 export const QUIET = 260;
@@ -55,8 +56,7 @@ const lookOf = (cs, svgT = false, sc = 1) => ({
 // (A new theme or palette: every readout's colour is read again, between frames.)
 const ALL = new Set();
 if (typeof MutationObserver === 'function' && typeof document !== 'undefined') {
-  new MutationObserver(() => { for (const f of ALL) f(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-palette'] });
-  globalThis.matchMedia?.('(prefers-color-scheme: dark)').addEventListener?.('change', () => { for (const f of ALL) f(); });
+  onTheme(() => { for (const f of ALL) f(); });   // (the theme epoch, theme-epoch.js: asked in the same frame as every other surface's redraw)
 }
 
 // (Each step is a function of its own, outside glWords: reading and writing the page happen only in the rest passes and timers that

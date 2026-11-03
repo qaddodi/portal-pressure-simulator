@@ -129,7 +129,7 @@ test('a talk started while one is ending, or while the app returns to healthy, t
 });
 
 test('a theme chosen in the app crossfades the page; loading applies it at once', () => {
-  assert.match(main, /crossfade\(\(\) => applyTheme\(t, clear\)\);/);
+  assert.match(main, /crossfade\(\(\) => \{ applyTheme\(t, clear\); return themeSettled\(\); \}\);/);
   assert.match(main, /const vt = pageFade = document\.startViewTransition\(fn\);/);
   assert.match(main, /switchTheme\(v === 'system' \? null : v, v === 'system'\)/);
   assert.match(main, /applyTheme\(knownLook\(savedTheme\)\)/);

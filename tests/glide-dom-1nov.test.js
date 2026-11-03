@@ -44,9 +44,11 @@ test('a glide\'s own step paints the callouts and probes; the view\'s frame does
   assert.match(fn, /if \(sites\.list\) \{ refreshCTM\(\); sitesPaint\(\); \}\n\s+if \(scan\.on\) scanPaint\(\);\n\s+dprobePaint\(\);/);
 });
 
-test('the status bar\'s colour is not read again for a gesture\'s or a glide\'s own classes', () => {
+test('the status bar\'s colour is taken from the token cache for a new look only, never for a class on #app', () => {
   const MAIN = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8');
-  assert.match(MAIN, /new MutationObserver\(\(rs\) => \{ if \(rs\.every\(\(r\) => classOnly\(r, GESTURE_LOOK\)\)\) return; restPass\(syncStatusBar\); setTimeout\(statusLater, 600\); \}\)\.observe\(document\.getElementById\('app'\), \{ attributes: true, attributeFilter: \['class'\], attributeOldValue: true \}\);/);
+  assert.match(MAIN, /^onTheme\(syncStatusBar\);$/m);
+  assert.match(MAIN, /const c = cssVar\('--stage-bg'\);/);
+  assert.doesNotMatch(MAIN, /observe\(document\.getElementById\('app'\)[^\n]*syncStatusBar|statusLater/);
   // (The stage's colour is the theme's: no class on #app sets it.)
   const TOKENS = readFileSync(new URL('../styles/tokens.css', import.meta.url), 'utf8');
   for (const l of (CSS + TOKENS).split('\n').filter((x) => /--stage-bg:/.test(x))) assert.doesNotMatch(l, /figure-focus|stage-busy|cam-move|off-home|panning|pinch-hide|lb-ride/);
