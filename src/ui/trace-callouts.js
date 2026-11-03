@@ -48,14 +48,11 @@ export function drawCallout(ctx, text, x, y, side, colour, bg, drop, alpha, x0, 
   const lift = (1 - drop) * DROP_PX * side * -1;   // (starts a little further out and drops onto its point)
   const py = Math.min(Math.max(y + side * (STEM + PILL_H / 2) + lift, top + PILL_H / 2), bot - PILL_H / 2);
   ctx.strokeStyle = colour; ctx.lineWidth = 1.4;
-  ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(cx, py - side * (PILL_H / 2)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(cx, py - side * (PILL_H / 2 - 3)); ctx.stroke();
   ctx.fillStyle = colour; ctx.beginPath(); ctx.arc(x, y, 3.2, 0, Math.PI * 2); ctx.fill();
   ctx.strokeStyle = bg; ctx.lineWidth = 1; ctx.stroke();
-  ctx.beginPath();
-  if (ctx.roundRect) ctx.roundRect(cx - half, py - PILL_H / 2, tw, PILL_H, 9);
-  else ctx.rect(cx - half, py - PILL_H / 2, tw, PILL_H);
-  ctx.fillStyle = bg; ctx.fill();
-  ctx.strokeStyle = colour; ctx.lineWidth = 1; ctx.stroke();
+  // (The label look of the figure's labels, label-gl: coloured text on a dark outline, no box or pill.)
+  ctx.lineJoin = 'round'; ctx.lineWidth = 4; ctx.strokeStyle = bg; ctx.strokeText(text, cx - half + PAD, py + 0.5);
   ctx.fillStyle = colour; ctx.fillText(text, cx - half + PAD, py + 0.5);
   ctx.restore();
   return cx;

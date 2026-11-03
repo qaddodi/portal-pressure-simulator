@@ -16,7 +16,7 @@ function fakeCtx() {
   const calls = [];
   const ctx = { globalAlpha: 1, calls, measureText: (s) => ({ width: s.length * 7 }) };
   for (const k of ['save', 'restore', 'beginPath', 'moveTo', 'lineTo', 'stroke', 'fill', 'arc', 'rect', 'roundRect']) ctx[k] = (...a) => calls.push([k, ...a]);
-  ctx.fillText = (s, x, y) => calls.push(['fillText', s, x, y]);
+  ctx.fillText = (s, x, y) => calls.push(['fillText', s, x, y]); ctx.strokeText = () => {};
   return ctx;
 }
 
