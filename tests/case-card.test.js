@@ -65,7 +65,7 @@ test('behind the case card the camera eases out to the whole patient, then the p
   const gl = src.indexOf("await until(() => cut() || !stage.gliding(), 1500)");
   assert.ok(gl > 0 && gl < src.indexOf('await caseEnd(cut); if (cut()) return;\n      bare = false'));
   // A move cut short, or one that ends otherwise, never leaves the card up.
-  assert.match(src, /stage\.holdHome\(false\); caseShut\(\);/);
+  assert.match(src, /homeOff\(\);[^]*?caseShut\(\);/);
 });
 
 test('the case card is cards glass, enters and leaves whole, never resizing', () => {

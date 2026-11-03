@@ -108,7 +108,7 @@ test('the teaching card keeps the size it came in at: the lock starts with the l
   assert.match(js, /function cardsIn\(at\) \{ if \(ui\) \{ if \(!reduce\.matches\) holdMotion\(D_SURFACE \+ 220\); if \(at\) \{ entering = at; layout\(\); \} reFit\(\);/, 'keyed before the cards show');
   assert.match(js, /bare = false; cardsIn\(\{ i: to, gen: g \}\);/);
   assert.match(js, /shown = null; entering = null;\n/, 'a new slide starts unlocked');
-  assert.match(js, /if \(bare && want === to\) \{ bare = false; layout\(\); cardsIn\(\); \}/, 'a move that ends without a newer slide brings its cards in, never locking the next slide early (no `at`)');
+  assert.match(js, /if \(mine && bare && want === to\) \{ bare = false; layout\(\); cardsIn\(\); \}/, 'a move that ends without a newer slide brings its cards in, never locking the next slide early (no `at`)');
   // (The one fold left is the instrument's, decided in the locked layout: nothing folds after the fit once the slide is shown.)
   assert.doesNotMatch(js, /layout\(\); return; \}\s*if \(beside && !tabBeside\(\)\)/, 'no second layout pass after the fit');
   assert.match(js, /fitCards\(ui\.data, ui\.panel\);\s*if \(beside && !tabBeside\(\)\)/);

@@ -98,8 +98,8 @@ test('an instrument that only reads the model rides the change under the glide; 
 
 test('a move cut by a newer slide leaves its cards unseen instead of bringing them in for the newer move to fade out again', () => {
   const tr = src.slice(src.indexOf('async function transition(to) {'), src.indexOf('async function transitionRun('));
-  assert.match(tr, /if \(bare && want === to\) \{ bare = false; layout\(\); cardsIn\(\); \}/);
-  assert.doesNotMatch(tr, /if \(bare\) \{ bare = false; layout\(\); cardsIn\(\); \}/);
+  assert.match(tr, /if \(mine && bare && want === to\) \{ bare = false; layout\(\); cardsIn\(\); \}/);
+  assert.doesNotMatch(tr, /if \((?:mine && )?bare\) \{ bare = false; layout\(\); cardsIn\(\); \}/);
 });
 
 // A camera beat and a flip of the scale (they wait for no cards) used to wait a flat 1.5 s after the glide set off, though the glide lands in

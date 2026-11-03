@@ -213,9 +213,9 @@ test('the presenter lays nothing out while the card is up, and puts it back befo
   assert.match(js, /const reFit = \(\) => \{ if \(zoomHeld\(\)\) return; fitted\.forEach\(fitNow\); \};/);
   assert.match(js, /const zoomSettled = \(\) => restPass\(\(\) => \{ if \(!ui \|\| !zoomMissed \|\| ui\.zoom\.on\) return; zoomMissed = false; fitDone\.delete\(ui\.data\); onResize\(\); \}\);/);
   // (A slide: the card glides back, and only then does the slide run.)
-  assert.match(js, /if \(zoomOn\(\)\) \{ ui\.zoom\.close\(\)\.then\(\(\) => \{ paintZoom\(\); zoomMissed = false; if \(deck && !busy\) run\(\); \}\); return; \}[^\n]*\n {4}if \(!busy\) run\(\);/);
+  assert.match(js, /if \(zoomOn\(\)\) \{ (?:const d0 = deck(?:, t0 = txn)?; )?ui\.zoom\.close\(\)\.then\(\(\) => \{ (?:if \(deck !== d0[^}]*?return; )?paintZoom\(\); zoomMissed = false; if \(deck && !busy\) run\(\); \}\); return; \}[^\n]*\n {4}if \(!busy\) run\(\);/);
   // (Any move that did not come by go, a slide asked for while a time-lapse plays, a new text size: the card glides back first, it never snaps.)
-  assert.match(js, /async function transition\(to\) \{\n(?: {4}\/\/[^\n]*\n)+ {4}if \(zoomOn\(\)\) \{ await ui\.zoom\.close\(\); paintZoom\(\); zoomMissed = false; if \(!deck \|\| !ui\) return; \}/);
+  assert.match(js, /async function transition\(to\) \{\n(?: {4}\/\/[^\n]*\n)+(?: {4}const deck0[^\n]*\n)? {4}if \(zoomOn\(\)\) \{ await ui\.zoom\.close\(\); (?:if \(deck !== deck0[^;]*; )?paintZoom\(\); zoomMissed = false; if \(!deck \|\| !ui\) return; \}/);
   // (Esc first glides the card back; the talk ends on the next one.)
   assert.match(js, /else if \(k === 'Escape'\) \{ if \(black\) toggleBlack\(false\); else if \(zoomOn\(\)\) ui\.zoom\.close\(\)\.then\(paintZoom\); else stop\(\); \}/);
   assert.match(js, /if \(e\?\.type === 'resize' && zoomOn\(\)\) \{ ui\.zoom\.reset\(\); paintZoom\(\); \}/);
@@ -290,7 +290,7 @@ test('the card zooms while a time-lapse plays or its answer eases in: the slide 
   assert.equal([...js.matchAll(/playing = true/g)].length, 1);
   // (Skipping the days forward, Next, keeps the card where it is; the next slide puts it back first.)
   assert.match(js, /if \(lapseOn && lapseLeft > 0 && shown\?\.i === want\) skipLapse\(\);/);
-  assert.match(js, /if \(zoomOn\(\)\) \{ ui\.zoom\.close\(\)\.then\(\(\) => \{ paintZoom\(\); zoomMissed = false; if \(deck && !busy\) run\(\); \}\); return; \}/);
+  assert.match(js, /if \(zoomOn\(\)\) \{ (?:const d0 = deck(?:, t0 = txn)?; )?ui\.zoom\.close\(\)\.then\(\(\) => \{ (?:if \(deck !== d0[^}]*?return; )?paintZoom\(\); zoomMissed = false; if \(deck && !busy\) run\(\); \}\); return; \}/);
 });
 
 // (The zoom's transform as written: translate(x, y) scale(s), in the card's own px.)

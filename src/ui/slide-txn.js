@@ -57,3 +57,25 @@ export function createTxns() {
   }
   return { begin, current: () => cur, stats: () => ({ ...st, id: ids }) };
 }
+
+/**
+ * A counted lease on a shared hold (R02, 3 Nov 2026): take() returns a release that works once (a second call does nothing), so a
+ * move that is cut, thrown or finished twice cannot give back a hold another move took. onFirst runs when the count leaves 0 and
+ * onLast when it returns to 0; a take with the count above 0 changes nothing. count() is what is held now.
+ */
+export function createLease(onFirst, onLast) {
+  let n = 0;
+  return {
+    take() {
+      if (++n === 1) { try { onFirst?.(); } catch (e) { caught('slide-txn:lease', e); } }
+      let held = true;
+      return () => {
+        if (!held) return false;
+        held = false;
+        if (--n === 0) { try { onLast?.(); } catch (e) { caught('slide-txn:lease', e); } }
+        return true;
+      };
+    },
+    count: () => n,
+  };
+}
