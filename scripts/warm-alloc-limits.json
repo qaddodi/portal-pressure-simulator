@@ -4,5 +4,5 @@
   "flow-rows changedRows + retireRows + flowClose": 100,
   "uniform-cache, a frame of fifty uniforms": 100,
   "veins-bin splitCells into a kept record": 100,
-  "stage frame with the vessels (stage.js + veins-gl.js, 60 Hz display, 30 Hz model)": 155000
+  "stage frame with the vessels (stage.js + veins-gl.js, 60 Hz display, 30 Hz model)": 105000
 }

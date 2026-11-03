@@ -13,7 +13,7 @@ test('the Congestion lens draws no halo: GPU, Lite graphics or CSS', () => {
   assert.doesNotMatch(stage, /heatGlow|heatBlur|v-heat|heatA\b/, 'no SVG halo layer for Lite graphics');
   assert.doesNotMatch(css, /#heatGlow|\.v-heat\b/);
   // The lens gets the usual reach: its cells are no wider than any other lens's.
-  assert.match(stage, /reach: glow\.lit\.size \? 20 : 11,/);
+  assert.match(stage, /vl\.reach = glow\.lit\.size \? 20 : 11;/);
 });
 
 test('the Congestion lens still colours the vessels by the heat ramp', () => {

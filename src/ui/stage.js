@@ -172,6 +172,12 @@ function luminance(c) {
 }
 
 
+// The luminance of the colour a vessel last had, kept on the vessel: read again (a pattern match and three numbers) only when the colour changed.
+function lumOf(x, c) {
+  if (x.lumS !== c) { x.lumS = c; x.lumV = luminance(c); }
+  return x.lumV;
+}
+
 export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, onViewChange }) {
   // (#30) The stage's styles, as the model's frames read them (colours, the plate's theme, whether the figure shows): read live, each
   // read made the browser bring its styles up to date in the middle of the frame. They are read once and kept until something that
@@ -3715,7 +3721,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         else if (FEEDERS[e.id].tone === 'end') setColPair(fd, c2, c2);
       }
       // Flow marks are white on dark lumens and ink on pale ones.
-      x.inkDark = mode === 'pressure' ? luminance(pressureColor((P1 + P2) / 2)) > 0.36 : luminance(c1) > 0.36;
+      x.inkDark = lumOf(x, mode === 'pressure' ? pressureColor((P1 + P2) / 2) : c1) > 0.36;
       if (e.kind === 'collateral') {
         const fr = shownFrac(e.id, f);
         const qa = Math.abs(f.Qf ? f.Qf[k] : f.Q[k]);
@@ -4708,7 +4714,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return J;
   }
   const smoothRunOn = (items, st = glStore) => smoothPass(items, glStraight, st);
-  let tubesShown = null, tubesLook = '', tubesNew = true;
+  let tubesShown = null, tubesNew = true;
   // A glow or hover easing (glowStep, vhStep) changes only the glow texels of the tube data. While nothing else the whole sync
   // reads has changed since it last ran (the same vessels, model frame, morph, layout, colours, plate, lens, catheter, classes),
   // those texels alone are written again (writeGlowTexels, as the whole sync writes them) and only the rows that changed are
@@ -5145,6 +5151,31 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     else if (whole) tubesNew = true;
     if (morph === morphTarget) { mt.reach[morphTarget] = new Map(vBinReach); morphTrackSoon(); envSoon(); }
   }
+  const VLOOK = { shOff: [1.4, 2.8], light: LIGHT, reach: 0, organs: 0, casing: [0, 0, 0, 0], shadow: [0, 0, 0, 0], sheen: [0, 0, 0, 0], shade: [0, 0, 0, 0], ring: [0, 0, 0, 0], netAlpha: 0, fx: true, tierAlpha: TIER_ALPHA, tierGroup: TIER_GROUP, fluid: null, map: MAP, plate: null };   // alloc-rare: kept, made once for the stage
+  const lookRgba = (out, rgb, a) => { out[0] = rgb[0]; out[1] = rgb[1]; out[2] = rgb[2]; out[3] = a; };
+  // The look's numbers (all but the fluid's, as its text signature was), now and at the last sync that drew it: whether any changed.
+  const LOOK_NOW = new Float64Array(256), LOOK_PREV = new Float64Array(256);   // alloc-rare: kept, made once for the stage
+  let lookPrevN = -1;
+  function lookChanged(v, plateIsOn) {
+    const A = LOOK_NOW;
+    let n = 0;
+    A[n++] = v.shOff[0]; A[n++] = v.shOff[1];
+    for (let i = 0; i < v.light.length; i++) A[n++] = v.light[i];
+    A[n++] = v.reach; A[n++] = v.organs; A[n++] = v.netAlpha; A[n++] = v.fx ? 1 : 0;
+    for (let i = 0; i < 4; i++) { A[n++] = v.casing[i]; A[n++] = v.shadow[i]; A[n++] = v.sheen[i]; A[n++] = v.shade[i]; A[n++] = v.ring[i]; }
+    for (let i = 0; i < v.tierAlpha.length; i++) A[n++] = v.tierAlpha[i];
+    for (let i = 0; i < v.tierGroup.length; i++) A[n++] = v.tierGroup[i];
+    const m = v.map;
+    A[n++] = m.a; A[n++] = m.fxOn ? 1 : 0; A[n++] = m.fxU;
+    for (let i = 0; i < 4; i++) { A[n++] = m.dot[i]; A[n++] = m.zone[i]; A[n++] = m.fx[i]; A[n++] = m.alt[i]; A[n++] = m.rot[i]; }
+    A[n++] = m.fxX[0]; A[n++] = m.fxX[1]; A[n++] = m.fxCol[0]; A[n++] = m.fxCol[1]; A[n++] = m.fxCol[2];
+    const pl = v.plate;
+    A[n++] = pl ? 1 : 0; A[n++] = pl ? pl.alpha : 0; A[n++] = pl ? pl.sat : 0; A[n++] = pl && pl.stack ? 1 : 0; A[n++] = plateIsOn ? 1 : 0;
+    let differs = n !== lookPrevN;
+    for (let i = 0; i < n; i++) { const a = A[i], b = LOOK_PREV[i]; if (a !== b && !(a !== a && b !== b)) differs = true; LOOK_PREV[i] = a; }
+    lookPrevN = n;
+    return differs;
+  }
   function syncVeinsNow(t) {
     if (!veins || veins.lost) { colEasing = false; return; }
     glowSync = false;
@@ -5207,27 +5238,26 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     let tubesChanged = !tubesShown || tubesShown.length !== tubeData.length;
     if (!tubesChanged) for (let i = 0; i < tubeData.length; i++) if (tubeData[i] !== tubesShown[i]) { tubesChanged = true; break; }
     if (tubesChanged) veins.setTubes(tubeData);
-    vLook = {
-      shOff: [1.4, 2.8], light: LIGHT, reach: glow.lit.size ? 20 : 11, organs: 1 - T0,
-      casing: [...cssTriplet(cs, '--casing-rgb'), cssNum(cs, '--casing-a', 0.56)],
-      shadow: [...cssTriplet(cs, '--shadow-rgb'), cssNum(cs, '--shadow-a', 0.15)],
-      sheen: [...toRGB('var(--light-ink)', cs), cssNum(cs, '--tube-sheen', 0.42)],
-      shade: [...toRGB('var(--tube-shade-ink)', cs), cssNum(cs, '--tube-shade', 0.2)],
-      ring: [...(olCol = toRGB('var(--accent)', cs)), 0.34],
-      netAlpha: netA,
-      fx: true,
-      tierAlpha: TIER_ALPHA, tierGroup: TIER_GROUP, fluid: fluidLook,
-      map: MAP,
-    };
+    // (The look handed to the vessels' painter: one kept object and its colour lists, written in place each sync; its signature is numbers
+    // compared with the last one's, lookChanged, not text made of it.)
+    const vl = VLOOK;
+    vl.reach = glow.lit.size ? 20 : 11; vl.organs = 1 - T0; vl.fluid = fluidLook;
+    lookRgba(vl.casing, cssTriplet(cs, '--casing-rgb'), cssNum(cs, '--casing-a', 0.56));
+    lookRgba(vl.shadow, cssTriplet(cs, '--shadow-rgb'), cssNum(cs, '--shadow-a', 0.15));
+    lookRgba(vl.sheen, toRGB('var(--light-ink)', cs), cssNum(cs, '--tube-sheen', 0.42));
+    lookRgba(vl.shade, toRGB('var(--tube-shade-ink)', cs), cssNum(cs, '--tube-shade', 0.2));
+    lookRgba(vl.ring, olCol = toRGB('var(--accent)', cs), 0.34);
+    vl.netAlpha = netA;
+    vLook = vl;
     syncMapInk(cs);
     syncPlateLook();
     // The vessel layer is drawn again only when what it is drawn from changed: a running model sends a frame about ten
     // times a second, and in a steady state most of them leave every vessel's colour, width and fade exactly as they were.
-    const lookSig = JSON.stringify(vLook, (k, v) => (k === 'fluid' ? undefined : v)) + plateOn();
+    const lookDiffers = lookChanged(vl, plateOn());
     // Most of those that do change only a few vessels' colours (the pulse), and the vessel layer then redraws only those
     // vessels' cells (veinsRows; see drawVeins): a whole redraw at a Retina size is the heaviest thing the figure draws.
-    if (tubesNew || lookSig !== tubesLook || !tubesShown || tubesShown.length !== tubeData.length) {
-      veinsDirty = true; tubesLook = lookSig;
+    if (tubesNew || lookDiffers || !tubesShown || tubesShown.length !== tubeData.length) {
+      veinsDirty = true;
       if (tubesChanged) tubesShown = tubeData.slice();
     } else if (tubesChanged) {
       const W = TUBE_TEXELS * 4;
