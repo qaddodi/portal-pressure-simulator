@@ -4770,6 +4770,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     },
     sinusoidMoving: () => !!sv.labelsMoving?.(),
     sinZoom: () => sinZ,
+    /** What the GPU's names drew in the last frame that landed ({ seq, gen, w, h, items }, caption-gl.js snapshot: CSS px from the names' canvas corner), for the browser checks. */
+    captions: () => cap.snapshot(),
     prewarm, warm, stage: () => framePart('lz.stage', stage), stageRise: () => framePart('lz.stageRise', stageRise), paintAhead, preparePieces, prepareRun,
     /** True once the dive's field (or the lobule) covers the anatomy, which then need not be drawn. */
     covers: () => fade > 0.98 || fieldOp >= 0.999,
