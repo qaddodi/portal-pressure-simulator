@@ -130,7 +130,7 @@ export function createFibroScan() {
     if (map !== undefined || gone || !onScreen()) return map ?? null;
     // alloc-rare: only when the panel comes on screen and has no map yet (makeMap returns at once while it has one)
     map = createElastogramGL(fields(), { className: 'fs-map', onReady: () => { if (!gone) paint(performance.now()); } });
-    if (map) { mapCv = map.canvas; attrSoon(mapCv, 'aria-hidden', 'true'); mapCv.classList.add('fs-map-off'); cv.before(mapCv); }
+    if (map) { mapCv = map.canvas; attrSoon(mapCv, 'aria-hidden', 'true'); classSoon(mapCv, 'fs-map-off', true); cv.before(mapCv); }
     return map;
   };
   const dropMap = () => { map?.dispose(); map = undefined; mapCv = null; mapGpu = null; };
