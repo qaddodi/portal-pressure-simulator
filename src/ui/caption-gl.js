@@ -18,7 +18,7 @@
 //   cap.paint()
 
 import { createTraceGL, fitPen } from './trace-gl.js';
-import { finalFrameFor, easeNow } from './frame.js';
+import { finalFrameFor, easeNow, cancelFrame } from './frame.js';
 import { measure } from './glyph-measure.js';
 import { D_SURFACE, easeArrive } from './ease.js';
 import { cssColor } from './css-color.js';
@@ -27,6 +27,8 @@ import { readBox, readRects, readStyle } from './layout-snap.js';
 const finalFrame = finalFrameFor('caption-gl');
 const RETRIES = 30;   // (frames a failed hand-over is drawn again, in a row)
 const NONE = [];
+const NOOP = () => {};   // (a disposed layer's mutators)
+const ZERO = [0, 0];
 const MIRROR = { lh: 1, gap: 0, halo: 0, haloC: '', runs: {} };   // (a mirrored caption's runs carry their own looks)
 /** A colour as the page computed it (rgb(), color(srgb …), oklab() from a color-mix, a token's raw value), as rgba() the GPU's pen reads; '' for none. */
 export function rgbaOf(c) {
@@ -202,7 +204,7 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
   box.prepend(cv);
   const items = new Map(), leads = new Map(), extras = new Map(), looks = new Map();
   let vk = 1, ve = 0, vf = 0, ask = 0, gpu = null, drewOnce = false, onDrawn = null, onRest = null, onFrame = null, wasMoving = false, lastT = 0, drawing = false;
-  let presented = false, onPresented = null, onLost = null, gen = 0, retries = 0;
+  let presented = false, onPresented = null, onLost = null, gen = 0, retries = 0, dead = false;
   const present = (on) => {
     if (on === presented) return;
     presented = on;
@@ -210,7 +212,7 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
   };
   function draw() {
     ask = 0;
-    if (!cv.isConnected) return;
+    if (dead || !cv.isConnected) return;
     const pen = penOf(cv, gpu), { ctx, w, h } = pen;
     const now = easeNow();
     lastT = now;
@@ -305,19 +307,19 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
     /** Whether the GPU draws the names (WebGL2 and the charts' drawer are here); false: the page's own names must show. */
     get on() { return !!gpu; },
     /** Called once, after the first frame the GPU drew the names and handed over. */
-    set onDrawn(f) { onDrawn = f; if (drewOnce) f?.(); },
+    set onDrawn(f) { if (dead) return; onDrawn = f; if (drewOnce) f?.(); },
     /** True while the GPU's picture of the names is on the screen (a frame at nonzero size, handed over); false: the page's own names must show. */
     get presented() { return presented; },
     /** Called each time the names become presented (at once if they already are). */
-    set onPresented(f) { onPresented = f; if (presented) f?.(); },
+    set onPresented(f) { if (dead) return; onPresented = f; if (presented) f?.(); },
     /** Called when presentation is lost: a failed hand-over, a lost context, a size of nothing. */
-    set onLost(f) { onLost = f; },
+    set onLost(f) { if (!dead) onLost = f; },
     /** The content generation: counts each change of words, looks or mirrors. */
     get gen() { return gen; },
     /** Called first in each frame the names are drawn (now): the owner sets their places there; true while one of them still moves. */
-    set onFrame(f) { onFrame = f; },
+    set onFrame(f) { if (!dead) onFrame = f; },
     /** Called after a frame in which the last of its eases ended. */
-    set onRest(f) { onRest = f; },
+    set onRest(f) { if (!dead) onRest = f; },
     /** A caption's look (lookOf): its sizes are set again the next time it is measured. */
     look(key, lk) { looks.set(key, lk); gen++; api.paint(); },
     hasLook: (key) => looks.has(key),
@@ -405,7 +407,29 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
     paint() { if (!drawing) retries = 0; if (!ask && !drawing) ask = finalFrame(draw); },   // (a new ask starts the tries of a failed hand-over again)
     /** Draws now, in this frame (the owner's frame moved the figure: its names move with it). */
     drawNow() { if (ask) return; draw(); },
-    dispose() { gpu?.dispose?.(); gpu = null; present(false); },
+    /**
+     * Let go once and for good (R13): the queued frame is cancelled, the callbacks, records and the canvas are let go, the drawer is disposed,
+     * and every later call does nothing (no frame is asked, nothing is drawn). Not a lost context: that keeps the picture and draws again.
+     */
+    dispose() {
+      if (dead) return;
+      dead = true;
+      if (ask) cancelFrame(ask);
+      ask = 0;
+      const was = presented, lost = onLost;
+      onFrame = onRest = onDrawn = onPresented = onLost = null;
+      gpu?.dispose?.(); gpu = null;
+      items.clear(); leads.clear(); extras.clear(); looks.clear();
+      cv.remove();
+      presented = false;
+      if (was) lost?.();
+      // alloc-rare: teardown, when the layer is let go, never in a frame
+      for (const k of ['look', 'measure', 'mirror', 'arrow', 'put', 'place', 'reset', 'lead', 'extra', 'view', 'paint', 'drawNow']) api[k] = NOOP;
+      api.measure = () => ZERO;
+      api.hasLook = () => false;
+      api.leadOf = api.at = () => null;
+      api.moving = () => false;
+    },
   };
   return api;
 }

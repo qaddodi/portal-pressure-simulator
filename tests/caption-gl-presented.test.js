@@ -104,3 +104,46 @@ test('a late onPresented hears of a presentation already made', () => {
   let n = 0; R.cap.onPresented = () => n++;
   assert.equal(n, 1);
 });
+
+// ── R13: dispose lets go once and for good ──
+test('dispose cancels the queued frame, lets go the canvas, drawer and callbacks, and every later call does nothing', async () => {
+  const R = rig();
+  let frames = 0, rest = 0;
+  R.cap.onRest = () => rest++;
+  R.cap.onFrame = () => { frames++; return false; };
+  R.frame();
+  const f0 = frames;
+  R.cap.paint();                       // (a frame is queued)
+  R.cap.dispose();
+  assert.equal(R.disposed, 1);
+  assert.equal(R.cap.cv.isConnected, false, 'canvas removed');
+  assert.equal(R.cap.on, false);
+  assert.equal(R.cap.presented, false);
+  assert.deepEqual(R.ev, ['presented', 'lost']);
+  await new Promise((r) => setTimeout(r, 80));
+  assert.equal(frames, f0, 'the queued frame never ran');
+  const ends = R.ends;
+  R.cap.look('a', { lh: 1, gap: 0, halo: 0, haloC: '', runs: {} });
+  R.cap.put('a', { x: 1, y: 1 });
+  R.cap.view(2, 3, 4);
+  R.cap.paint(); R.cap.drawNow();
+  R.cap.onPresented = () => R.ev.push('late');
+  R.cap.onFrame = () => { frames++; };
+  assert.equal(R.cap.hasLook('a'), false);
+  assert.equal(R.cap.at('a'), null);
+  assert.deepEqual([...R.cap.measure('a', [])], [0, 0]);
+  await new Promise((r) => setTimeout(r, 80));
+  assert.equal(R.ends, ends, 'no frame drawn after dispose');
+  assert.equal(frames, f0);
+  assert.deepEqual(R.ev, ['presented', 'lost'], 'no callback after dispose');
+  R.cap.dispose();                     // (idempotent)
+  assert.equal(R.disposed, 1);
+  assert.deepEqual(R.ev, ['presented', 'lost']);
+  assert.equal(rest, 0);
+});
+
+test('disposing a layer that never presented fires no lost', () => {
+  const R = rig();
+  R.cap.dispose();
+  assert.deepEqual(R.ev, []);
+});
