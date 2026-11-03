@@ -1335,6 +1335,20 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   }
   // (pass: 'low', 'high' or 'all'; the last turn of the frame ('high', 'all') gives back the marks of the glasses not drawn.)
   const maskFromKit = (p) => maskOf(p.g, p.d, p.lw, p.lh, hk);
+  // (What the last frame drew, for a check of the page in motion (drawn(), below): one record per glass, kept and written over, so a frame
+  // makes none. A frame may be two passes ('low' then 'high'); it is complete at the final one.)
+  const seen = [];
+  let seenN = 0, seenSeq = 0, seenT = 0, seenOpen = false;
+  function noteSeen(panes, final) {
+    if (!seenOpen) seenN = 0;
+    for (let i = 0; i < panes.length; i++) {
+      const p = panes[i], d = seen[seenN] || (seen[seenN] = { g: null, x: 0, y: 0, w: 0, h: 0, a: 0 });   // alloc-rare: the list grows to the most glasses a frame has drawn
+      d.g = p.g; d.x = p.r.left; d.y = p.r.top; d.w = p.r.width; d.h = p.r.height; d.a = p.a;
+      seenN++;
+    }
+    seenOpen = !final;
+    if (final) { seenSeq++; seenT = performance.now(); }
+  }
   function drawInto(pass = 'all') {
     if (!hostOn || !hf || !hk || lost || dead) return;
     const G = hk.G;
@@ -1349,7 +1363,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
       if (pass === 'all') panes = hf.panes;
       else { panes = passPanes; panes.length = 0; for (const p of hf.panes) if (!!host.low?.(p.g) === (pass === 'low')) panes.push(p); }
     }
-    if (!panes.length) { if (final) settleMarks(frameMarks); return; }
+    if (!panes.length) { if (final) { noteSeen(panes, true); settleMarks(frameMarks); } return; }
     const W2 = host.canvas.width, H2 = host.canvas.height, k = hk.k;
     noteDraw(cards ? 'glass-cards' : pane ? 'glass-pane' : 'glass');
     if (gpuProbe.on) gpuProbe.note(cards ? COUNTED.cardDrawn : pane ? COUNTED.paneDrawn : COUNTED.glassDrawn);
@@ -1365,6 +1379,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     G.uniform3f(U.uBg, hf.base[0], hf.base[1], hf.base[2]);
     G.activeTexture(G.TEXTURE0); G.bindTexture(G.TEXTURE_2D, hk.share ? hk.share.t.blurred : hk.blurred);
     drawPanes(G, U, panes, cr, k, maskFromKit, frameMarks, final);
+    noteSeen(panes, final);
     // (The figure's context left as its other passes expect to find it.)
     G.disable(G.BLEND); G.bindVertexArray(null); G.useProgram(null);
     G.activeTexture(G.TEXTURE1); G.bindTexture(G.TEXTURE_2D, null); G.activeTexture(G.TEXTURE0); G.bindTexture(G.TEXTURE_2D, null);
@@ -1830,6 +1845,14 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
       if (!N) return null;
       for (const p of N.panes) if (p.g === el) return { left: p.r.left, top: p.r.top, width: p.r.width, height: p.r.height };   // alloc-rare: a check's answer, never made in a frame
       return null;
+    },
+    /** What the last frame drawn put on the GPU: { seq (counts drawn frames), t (performance.now() when it was drawn), panes: [{ el (the
+     *  glass element), x, y, w, h (page CSS px, its motion and zoom applied), a (its opacity)}] }. Asked by a check outside a frame; built
+     *  on the call, nothing in a frame makes it. */
+    drawn() {
+      const panes = [];
+      for (let i = 0; i < seenN; i++) { const d = seen[i]; panes.push({ el: d.g, x: d.x, y: d.y, w: d.w, h: d.h, a: d.a }); }
+      return { seq: seenSeq, t: seenT, panes };
     },
     get on() { return !lost && !dead; },
     /** The ?perf surfaces list (gpu-surfaces.js): null with none of its glasses on the page, else how they are drawn now. Read only by
