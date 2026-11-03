@@ -9793,9 +9793,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const clampD = new Map();   // (a column's "60 %": how far out it stands, by stenosis, kept across the overlay's rebuilds)
   // (A new slide (the presenter clears its mark first) starts the stent's column afresh: its callouts, its mark, their side and the
   // "60 %" are solved for this slide alone, as on a fresh load, never held from the slide before: Review 16 Oct.)
+  const FOCUS_SOL_RE = /^(n:TIPS:|n:DIPS:|focus)/;
   store.on('focus', (foc) => {
     if (foc) return;
-    for (const k of [...labelSol.keys()]) if (/^(n:TIPS:|n:DIPS:|focus)/.test(k)) labelSol.delete(k);
+    for (const k of labelSol.keys()) if (FOCUS_SOL_RE.test(k)) labelSol.delete(k);   // (a Map's own order is kept through a delete of the entry it is at)
     ptSide = null; colShown = false; clampD.clear();
   });
   // How far a point's callout stands from its dot: clear of the stent's body, its leader 16 px at most.
@@ -9881,20 +9882,49 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // diameter pulses across a rounding boundary is not rebuilt on every beat).
   const held = {};
   const hold = (k, v, step) => { const h0 = held[k]; if (h0 == null || Math.abs(v - h0) > step * 0.75) held[k] = Math.round(v / step) * step; return held[k]; };
+  // (What the overlays are built from is compared, not made into a text key: every input is written, in order, onto one of two kept lists,
+  // which is compared with the last one; what overlayInputs returns is the count of the times they differed.)
+  const okA = [], okB = [], okW = new Map(), okG = new Map();
+  let okCur = okA, okNext = okB, ovInVer = 1, okT = NaN, okTs = '';
+  function okFlat(o, v) {   // (a value onto the list: an object or an array between its marks, a number that is not one as 'NaN')
+    if (v === null || typeof v !== 'object') { o.push(typeof v === 'number' && v !== v ? 'NaN' : v); return; }
+    if (Array.isArray(v)) { o.push('['); for (let i = 0; i < v.length; i++) okFlat(o, v[i]); o.push(']'); return; }
+    o.push('{'); for (const k in v) { o.push(k); okFlat(o, v[k]); } o.push('}');
+  }
+  function okLesion(o, id) {   // (A vessel's width eases with its pressure for a long while after a change; held in steps, so a clot or stent is not rebuilt several times a second for sub-pixel drift.)
+    if (!E[id]) { o.push('-'); return; }
+    let kw = okW.get(id), kg = okG.get(id);
+    if (kw === undefined) { kw = `w${id}`; kg = `g${id}`; okW.set(id, kw); okG.set(id, kg); }
+    o.push(E[id].vis, hold(kw, E[id].width, 0.25), !!E[id].reveal, geo[id]?.wig ? hold(kg, geo[id].wig, 0.5) : 0);   // (a collateral coils as it opens, so a mark on it is drawn again on the path it has now)
+  }
   function overlayInputs(f, p, t) {
-    const lesions = [...Object.keys(p.stenosis), ...Object.keys(p.thrombus), ...Object.keys(p.occluded), 'TIPS', 'DIPS', 'S_PC', 'S_DSR', 'S_MC', ...LIGATED.map((l) => l[1]), ...Object.keys(p.customShunts || {}), ...(store.get().stented || []), 'C3'];
-    return JSON.stringify([t.toFixed(3), isImaging(), findingHidden('clot'), p.stenosis, p.stenosisSite, p.thrombus, p.occluded, p.splenicRx | 0, p.tips, p.dips, p.customShunts, p.balloonEso, p.balloonGas,
-      // A vessel's width eases with its pressure for a long while after a change; held in steps,
-      // so a clot or stent is not rebuilt several times a second for sub-pixel drift.
-      lesions.map((id) => (E[id] ? [E[id].vis, hold(`w${id}`, E[id].width, 0.25), !!E[id].reveal, geo[id]?.wig ? hold(`g${id}`, geo[id].wig, 0.5) : 0] : 0)),   // (a collateral coils as it opens, so a mark on it is drawn again on the path it has now)
-      // (The varices are no longer drawn here, but by the plexus of channels and strands (varix-look.js), so the varix's diameter, radius
-      // and wall-stress ratio are not part of what these overlays are built from. They were in this key, held in steps narrower than the
-      // beat's own swing, and rebuilt the clamps, clots and plugs, and the vessel marks with them (a style pass and a triangulation of
-      // every mark), five to ten times a second in any patient with a varix.)
-      Math.round(f.bands || 0), hold('c3', recruitFrac('C3', f), 0.1),
+    const o = okNext;
+    o.length = 0;
+    if (t !== okT) { okT = t; okTs = t.toFixed(3); }
+    o.push(okTs, isImaging(), findingHidden('clot'));
+    okFlat(o, p.stenosis); okFlat(o, p.stenosisSite); okFlat(o, p.thrombus); okFlat(o, p.occluded); o.push(p.splenicRx | 0);
+    okFlat(o, p.tips); okFlat(o, p.dips); okFlat(o, p.customShunts); okFlat(o, p.balloonEso); okFlat(o, p.balloonGas);
+    for (const id in p.stenosis) okLesion(o, id);
+    for (const id in p.thrombus) okLesion(o, id);
+    for (const id in p.occluded) okLesion(o, id);
+    okLesion(o, 'TIPS'); okLesion(o, 'DIPS'); okLesion(o, 'S_PC'); okLesion(o, 'S_DSR'); okLesion(o, 'S_MC');
+    for (let i = 0; i < LIGATED.length; i++) okLesion(o, LIGATED[i][1]);
+    for (const id in p.customShunts) okLesion(o, id);
+    const stented = store.get().stented;
+    if (stented) for (let i = 0; i < stented.length; i++) okLesion(o, stented[i]);
+    okLesion(o, 'C3');
+    // (The varices are no longer drawn here, but by the plexus of channels and strands (varix-look.js), so the varix's diameter, radius
+    // and wall-stress ratio are not part of what these overlays are built from. They were in this key, held in steps narrower than the
+    // beat's own swing, and rebuilt the clamps, clots and plugs, and the vessel marks with them (a style pass and a triangulation of
+    // every mark), five to ten times a second in any patient with a varix.)
+    o.push(Math.round(f.bands || 0), hold('c3', recruitFrac('C3', f), 0.1),
       // (The spleen's infarcted patches are drawn at the organ's size, which the organ itself follows each frame while it shrinks or
       // grows: held in steps, so the patches ride it in a few small rebuilds, not stay at the size they were first drawn at.)
-      p.splenicRx === 1 ? hold('sp', f.slow.spleen / 11, 0.02) : 0, lastMorph]);
+      p.splenicRx === 1 ? hold('sp', f.slow.spleen / 11, 0.02) : 0, lastMorph);
+    let same = o.length === okCur.length;
+    for (let i = 0; same && i < o.length; i++) if (o[i] !== okCur[i] && (o[i] === o[i] || okCur[i] === okCur[i])) same = false;   // (a NaN is the same as a NaN)
+    if (!same) { okNext = okCur; okCur = o; ovInVer++; }
+    return ovInVer;
   }
   const setVar = (el, k, v) => { const c = el._v || (el._v = {}); if (c[k] === v) return; c[k] = v; el.style.setProperty(k, v); };
   // The tamponade tube goes in and its balloons fill in order, each eased: the tube slides down the esophagus and into the stomach (adv),

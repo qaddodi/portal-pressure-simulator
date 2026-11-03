@@ -305,9 +305,9 @@ test('the organs with a look of their own keep it over the general organ lines: 
 
 test('the overlays are drawn again when the spleen\'s size moves (infarcted patches) or a lesioned collateral coils (its marks)', () => {
   const s = read('src/ui/stage.js');
-  const at = s.indexOf('function overlayInputs');
-  const key = s.slice(at, at + 3600);
+  const at = s.indexOf('function okLesion');   // (the inputs are written onto a kept list and compared: okLesion, then overlayInputs)
+  const key = s.slice(at, at + 4800);
   assert.match(key, /p\.splenicRx === 1 \? hold\('sp', f\.slow\.spleen \/ 11, 0\.02\) : 0/, 'the patches ride the organ\'s size');
-  assert.match(key, /geo\[id\]\?\.wig \? hold\(`g\$\{id\}`, geo\[id\]\.wig, 0\.5\) : 0/, 'a mark follows the path its collateral has now');
+  assert.match(key, /geo\[id\]\?\.wig \? hold\(kg, geo\[id\]\.wig, 0\.5\) : 0/, 'a mark follows the path its collateral has now');
   assert.ok(!/geometryVersion/.test(key), 'not on every geometry change: that rebuilt the marks several times a second (d3828608)');
 });
