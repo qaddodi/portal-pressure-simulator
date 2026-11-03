@@ -19,32 +19,32 @@
 // the sinusoid exactly over the lobule's one at every step: first the vessel itself, then the tissue
 // around it.
 
-import { h, fmt, clamp, lerp } from './util.js?v=3a261d27c6';
-import { createCaptionGL, lookOf, ringOf, shadowOf, rgbaOf } from './caption-gl.js?v=eb007ceb0c';
-import { measure } from './glyph-measure.js?v=5be332e845';
-import { readStyle } from './layout-snap.js?v=e1329a7c70';
-import { pressureColor } from './colormap.js?v=8a73b5b0e8';
-import { createSvgGL, svgModel, setGeo, geoOf } from './svg-gl.js?v=d687806d59';
-import { isPaused } from './clock.js?v=e507b54cba';
-import { store } from './store.js?v=a51981892d';
-import { STEP_MAX } from './glide-clock.js?v=068ac73ef2';
-import { sinusoidTargets } from './sinusoid-model.js?v=b8f1f7baa9';
-import { createSinusoidGL, poreAt, poreOpenness, calloutPore, cellAtInto, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=337f8c465e';
-import { placeFenDisse } from './fen-place.js?v=2bf0024c73';
-import { frameFor, noteDraw, saver, paceMs, renderScale, onRenderScale, easeNow } from './frame.js?v=ca74a6f22a';
-import { softwareGL, softwareYield } from './sw-yield.js?v=d7fe2f2424';
-import { noteSinusoidSupport, sinusoidSupported } from './gl-support.js?v=5e47f905ef';
-import { FADE_MS, fadeAlpha } from './res-fade.js?v=bb282583bc';
-import { cssColor8 } from './css-color.js?v=59ed182174';
-import { surface } from './gpu-surfaces.js?v=b62dfcfdd1';
-import { restPass, restClass, restAttr } from './rest-pass.js?v=b1da783ead';
+import { h, fmt, clamp, lerp } from './util.js';
+import { createCaptionGL, lookOf, ringOf, shadowOf, rgbaOf } from './caption-gl.js';
+import { measure } from './glyph-measure.js';
+import { readStyle } from './layout-snap.js';
+import { pressureColor } from './colormap.js';
+import { createSvgGL, svgModel, setGeo, geoOf } from './svg-gl.js';
+import { isPaused } from './clock.js';
+import { store } from './store.js';
+import { STEP_MAX } from './glide-clock.js';
+import { sinusoidTargets } from './sinusoid-model.js';
+import { createSinusoidGL, poreAt, poreOpenness, calloutPore, cellAtInto, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js';
+import { placeFenDisse } from './fen-place.js';
+import { frameFor, noteDraw, saver, paceMs, renderScale, onRenderScale, easeNow } from './frame.js';
+import { softwareGL, softwareYield } from './sw-yield.js';
+import { noteSinusoidSupport, sinusoidSupported } from './gl-support.js';
+import { FADE_MS, fadeAlpha } from './res-fade.js';
+import { cssColor8 } from './css-color.js';
+import { surface } from './gpu-surfaces.js';
+import { restPass, restClass, restAttr } from './rest-pass.js';
 const HEP_CELL = { j: 0, x0: 0, x1: 0, nu: 0, nv: 0, nr: 0, bi: false };   // alloc-rare: made once (the hepatocyte's cell, written in place by each layout)
 const nextFrame = frameFor('sinusoid-view');
 
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 function rng(seed) { let q = seed >>> 0; return () => { q = (q * 1664525 + 1013904223) >>> 0; return q / 4294967296; }; }
 
-export { sinusoidSupported } from './gl-support.js?v=5e47f905ef';
+export { sinusoidSupported } from './gl-support.js';
 
 /** `before`: a node of `host` to sit ahead of (the lobule layer, built late, takes the place it would have had). */
 export function createSinusoidView({ host, before = null }) {

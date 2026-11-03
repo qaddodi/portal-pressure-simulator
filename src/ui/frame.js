@@ -16,10 +16,10 @@
 // while nobody watches. perf().inputToPaint is the input-to-first-change measure (input-latency.js, premium-feel recs R2), made on
 // its first read, so a page nobody measures has no listener for it.
 
-import { gpuProbe } from './gpu-probe.js?v=294bbe5874';
-import { createFrameRecorder } from './frame-stats.js?v=41fd97ed52';
-import { createInputLatency, describeTarget } from './input-latency.js?v=3c0129b426';
-import { caught } from './caught.js?v=caf293c676';
+import { gpuProbe } from './gpu-probe.js';
+import { createFrameRecorder } from './frame-stats.js';
+import { createInputLatency, describeTarget } from './input-latency.js';
+import { caught } from './caught.js';
 // A batch of asked-for callbacks, in request order (plan "Holding 120 Hz, always" rev 2 §2.8: zero allocation on the frame path). Three
 // parallel arrays that keep their length from frame to frame, so an ask writes three slots and allocates nothing, and running a batch
 // walks it by index (the Map of [tag, cb] pairs it replaces made one array per ask and one entry array per callback run). A cancelled

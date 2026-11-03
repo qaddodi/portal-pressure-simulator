@@ -1,13 +1,13 @@
 // Lumped-parameter hemodynamic engine (blueprint §7).
 // Pure JS, no DOM: runs in a Web Worker, on the main thread, or in Node tests.
 
-import { NODES, EDGES, dopplerK, dMinOf, edgePresent, isOccluded, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from './topology.js?v=512e725aea';
+import { NODES, EDGES, dopplerK, dMinOf, edgePresent, isOccluded, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from './topology.js';
 import {
   clamp, tubeResistanceFactor, tubeArea, volumeOf, ptmOf, complianceAt, stenosisFactor,
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng,
-} from './physiology.js?v=6fc3ec393a';
-import { defaultParams, DRUGS, PRESETS, deepMerge, MEAL_TONE, MEAL_BLUNT, gastricUp } from './scenario.js?v=d2669cef9b';
-import { detectEvents } from './events.js?v=926b257fbb';
+} from './physiology.js';
+import { defaultParams, DRUGS, PRESETS, deepMerge, MEAL_TONE, MEAL_BLUNT, gastricUp } from './scenario.js';
+import { detectEvents } from './events.js';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
 const KD = { vein: 0.03, diode: 0.03, collateral: 0.08 };
@@ -1294,7 +1294,7 @@ function solve(A, b, n) {
   // inline import to keep hot path monomorphic
   return solveInPlace(A, b, n);
 }
-import { solveInPlace } from './linalg.js?v=4f20e14f7c';
-import { wallIndex } from './wall-read.js?v=06c32c9ed9';
+import { solveInPlace } from './linalg.js';
+import { wallIndex } from './wall-read.js';
 
 export { SPLANCHNIC_ARTERIES, PORTOSYSTEMIC_EDGES };

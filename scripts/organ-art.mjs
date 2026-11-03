@@ -5,7 +5,7 @@
 // It also writes each organ's visible outline (the highlight ring): the bowel's whole pile as one outline, cut where
 // the colon, stomach, spleen and liver lie over it (the gut is hidden under those; the kidney lies on top of the colon).
 //
-//   node scripts/organ-art.mjs && npm run stamp
+//   node scripts/organ-art.mjs
 
 import { writeFileSync } from 'node:fs';
 import { colonAtlas, colonD } from './organ-art/colon-shape.mjs';

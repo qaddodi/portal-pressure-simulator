@@ -7,15 +7,15 @@
 // structure's verbs, whose readings are functions of the model frame, so choosing a structure looks its card up and a frame reads
 // it, and nothing here is built while the app runs. What a frame reads is written in place (see steady, the stats' cells below).
 
-import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent, isStent, stentSite } from '../engine/topology.js?v=512e725aea';
-import { dopplerVel, flowReversed } from './velNormal.js?v=ad0e95380d';
-import { store, updateParams, hiddenNow } from './store.js?v=a51981892d';
-import { fmt, fmtFlow, clamp } from './util.js?v=3a261d27c6';
-import { PREGNANCY_INFO } from '../engine/scenario.js?v=d2669cef9b';
-import { aboutVessel, aboutOrgan } from './about.js?v=03f4b98be4';
-import { lobuleState } from './lobule-model.js?v=4af349e996';
-import { oxygenFor } from './blood.js?v=4892162325';
-import { LABEL_VESSEL, SIN_EDGES } from './anatomy.js?v=b75990ccb4';
+import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent, isStent, stentSite } from '../engine/topology.js';
+import { dopplerVel, flowReversed } from './velNormal.js';
+import { store, updateParams, hiddenNow } from './store.js';
+import { fmt, fmtFlow, clamp } from './util.js';
+import { PREGNANCY_INFO } from '../engine/scenario.js';
+import { aboutVessel, aboutOrgan } from './about.js';
+import { lobuleState } from './lobule-model.js';
+import { oxygenFor } from './blood.js';
+import { LABEL_VESSEL, SIN_EDGES } from './anatomy.js';
 
 export const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 export const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));

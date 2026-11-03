@@ -2,7 +2,7 @@
 // One small record per deck on this device: { at, n } (the slide index, outline included, and the deck's slide count
 // then). A deck whose slide count has changed since, or a position past its end, starts from the beginning again.
 
-import { caught } from './caught.js?v=caf293c676';
+import { caught } from './caught.js';
 const KEY = 'pps.resume';
 const MAX = 40;   // (decks remembered; the oldest go first)
 

@@ -5,9 +5,9 @@
 // at once, as before. A draw that comes before its program is published publishes it itself (the wait the old code always had).
 // Publishing waits for the page to be left alone (quiet.js): the status read, the uniform lookups and the small draw are a few ms of
 // script, and a program that finishes mid pan or pinch had them land in a gesture's frame.
-import { leftAlone } from './quiet.js?v=856a3cdf1e';
-import { glGet } from './gl-state.js?v=ee046876b7';
-import { caught } from './caught.js?v=caf293c676';
+import { leftAlone } from './quiet.js';
+import { glGet } from './gl-state.js';
+import { caught } from './caught.js';
 
 // (Asked once per context where it is there: getExtension is a call into the browser each time. Not kept when it is missing, so a
 // context that came back from a loss is asked again; and one that is there is forgotten when its context is restored, as a restored

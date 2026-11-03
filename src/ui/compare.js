@@ -3,10 +3,10 @@
 // and the change, readouts report "vs then", and this section of the panel names both states and
 // tabulates every difference. There is no Compare mode: unpinning ends it.
 
-import { store } from './store.js?v=a51981892d';
-import { h, fmt, svgIcon } from './util.js?v=3a261d27c6';
-import { liveBalance } from './balance-hold.js?v=1792704e7a';
-import { activeInterventions } from './inspector.js?v=d51a1ba374';
+import { store } from './store.js';
+import { h, fmt, svgIcon } from './util.js';
+import { liveBalance } from './balance-hold.js';
+import { activeInterventions } from './inspector.js';
 
 // The rows in the readouts' teaching order, each group named as the readouts name it (pressure, flow, what they lead to, the
 // systemic circulation), so a long table reads as four short ones.

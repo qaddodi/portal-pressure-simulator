@@ -7,8 +7,8 @@
 //   BRTO: right femoral vein → IVC → left renal vein → the gastrorenal shunt, its balloon near the renal end.
 //   BATO: through the liver into the right portal vein → portal and splenic veins → the short gastric feeder of the varices.
 
-import { frameFor, cancelFrame } from './frame.js?v=ca74a6f22a';
-import { ease, k01 } from './hvpg-clock.js?v=95f13823ce';
+import { frameFor, cancelFrame } from './frame.js';
+import { ease, k01 } from './hvpg-clock.js';
 const nextFrame = frameFor('proc-anim');
 
 // Each step: [id, its word (the callout on the part it works on, and its numbered step in the teaching card), the caption, a

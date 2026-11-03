@@ -11,13 +11,13 @@
 // and a context that is handed one in place of a canvas makes its texture from the record (isGpuPicture), the first time it is drawn.
 // No 2D context, no drawImage and no pixel read anywhere (the owner, 1 Nov 2026: "block everything until everything is on GPU").
 
-import { glGet, glOn, glCap } from './gl-state.js?v=ee046876b7';
-import { ucOf } from './uniform-cache.js?v=323665bf20';
-import { cssColor } from './css-color.js?v=59ed182174';
-import { hold } from './gpu-budget.js?v=a79222bd11';
-import { WARM_MS, bucket } from './warm-views.js?v=5709bebee7';
-import { startProgram, checkProgram, publishWhenDone, stillCompiling } from './gl-compile.js?v=255276a5f4';
-import { caught } from './caught.js?v=caf293c676';
+import { glGet, glOn, glCap } from './gl-state.js';
+import { ucOf } from './uniform-cache.js';
+import { cssColor } from './css-color.js';
+import { hold } from './gpu-budget.js';
+import { WARM_MS, bucket } from './warm-views.js';
+import { startProgram, checkProgram, publishWhenDone, stillCompiling } from './gl-compile.js';
+import { caught } from './caught.js';
 
 const TAU = Math.PI * 2;
 const TOL = 0.2;   // (curves flattened to within 0.2 device px)

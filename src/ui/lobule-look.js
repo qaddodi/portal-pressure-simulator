@@ -1,6 +1,6 @@
 // The lobule's look (G21): pure helpers the lobule view draws with, kept here so they can be tested without a canvas.
 
-import { LENS_GREY } from './organ-dim.js?v=485d50a599';
+import { LENS_GREY } from './organ-dim.js';
 
 /** The sinusoids' lumen against the hepatocyte cords: a quarter narrower than it was, so the cords read as cords. */
 export const SIN_NARROW = 0.75;

@@ -1,13 +1,13 @@
 // Controls panel (blueprint §4.1, §8.4): global parameters in three tabs, or the selected vessel.
 
-import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=512e725aea';
-import { dopplerVel } from './velNormal.js?v=ad0e95380d';
-import { DRUGS, PREGNANCY_INFO } from '../engine/scenario.js?v=d2669cef9b';
-import { store, updateParams, hiddenNow } from './store.js?v=a51981892d';
-import { h, fmt, fmtFlow, fp, ff, clamp, units, tooltipFor, infoButton, icon, svgIcon, paintRange } from './util.js?v=3a261d27c6';
-import { liveBalance } from './balance-hold.js?v=1792704e7a';
-import { frameFor, cancelFrame } from './frame.js?v=ca74a6f22a';
-import { runSoon, propSoon, attrSoon } from './class-soon.js?v=d59b314e61';
+import { EDGES, NODES, dMinOf } from '../engine/topology.js';
+import { dopplerVel } from './velNormal.js';
+import { DRUGS, PREGNANCY_INFO } from '../engine/scenario.js';
+import { store, updateParams, hiddenNow } from './store.js';
+import { h, fmt, fmtFlow, fp, ff, clamp, units, tooltipFor, infoButton, icon, svgIcon, paintRange } from './util.js';
+import { liveBalance } from './balance-hold.js';
+import { frameFor, cancelFrame } from './frame.js';
+import { runSoon, propSoon, attrSoon } from './class-soon.js';
 const nextFrame = frameFor('inspector');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));

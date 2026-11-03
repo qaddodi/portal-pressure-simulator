@@ -59,7 +59,7 @@ test('a name anchored inside its organ stays inside it; one beside its organ sta
 });
 
 test('the label solver tries the anchor first, then those spots, then the anchor over any vessel', () => {
-  assert.match(stage, /import \{ nameSpots, NAME_BREAK \} from '\.\/organ-names\.js(\?v=[0-9a-f]+)?';/);
+  assert.match(stage, /import \{ nameSpots, NAME_BREAK \} from '\.\/organ-names\.js';/);
   assert.match(stage, /const spot = \{ gap: 0, leader: false, clear: true \};\s*placeMulti\(it, \['C'\], \[spot, \.\.\.nameSpots\(txt\)\.map\(\(\[sx, sy\]\) => \{ const \[bx, by\] = worldToLocal\(sx, sy\); return \{ \.\.\.spot, at: \[bx - ax, by - ay\] \}; \}\), \{ gap: 0, leader: false \}\]\);/);
   assert.doesNotMatch(stage, /it\.h = LINE_H\(it\.lines\[0\]\);\s*place\(it, \['C'\], 0, false\);/, 'no organ name is placed by the old single pass');
 });

@@ -112,12 +112,12 @@ export function marginViewTo(o, m, cw, ch) {
   return mulTo(o, VM, m);
 }
 
-import { createShapeGL } from './shape-gl.js?v=9e5dd356a7';
-import { createOrganPaint, mul, mulTo, invTo, prestartOrganPaint } from './organ-paint.js?v=a2ebc3b50d';
-import { prestart, linkProgram, exerciseDraw } from './gl-compile.js?v=255276a5f4';
-import { netChanged } from './idle-keys.js?v=1b5b7b8ddd';
-import { uniformCache } from './uniform-cache.js?v=323665bf20';
-import { easeMove, D_SURFACE } from './ease.js?v=7d7bfe9a62';
+import { createShapeGL } from './shape-gl.js';
+import { createOrganPaint, mul, mulTo, invTo, prestartOrganPaint } from './organ-paint.js';
+import { prestart, linkProgram, exerciseDraw } from './gl-compile.js';
+import { netChanged } from './idle-keys.js';
+import { uniformCache } from './uniform-cache.js';
+import { easeMove, D_SURFACE } from './ease.js';
 // (The colour a clear writes, one array for every clear: none made per call, plan rev 2 §2.8.)
 const CLEAR0 = new Float32Array(4);
 

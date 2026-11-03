@@ -41,7 +41,7 @@ const sha = (buf) => createHash('sha256').update(buf).digest('hex').slice(0, 10)
 rmSync(OUT, { recursive: true, force: true });
 mkdirSync(ASSETS, { recursive: true });
 
-// Source imports carry cache stamps (./x.js?v=hash); in a bundle they are just files.
+// The source imports plain addresses; a `?v=hash` left by an old branch is taken off here, so a bundle never sees one.
 const stripStamps = {
   name: 'strip-stamps',
   setup(b) {

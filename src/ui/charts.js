@@ -1,21 +1,21 @@
 // Dock charts (blueprint §9.2): the pressure profile.
 
-import { NODES } from '../engine/topology.js?v=512e725aea';
-import { PROFILE_PATHS, SHORT } from './anatomy.js?v=b75990ccb4';
-import { pressureColor } from './colormap.js?v=8a73b5b0e8';
-import { store, hiddenNow } from './store.js?v=a51981892d';
-import { h, fmt, canvasSize, cssVar, cssAlpha, clamp, createEaser, axisTop } from './util.js?v=3a261d27c6';
-import { frameFor, cancelFrame, paceMs } from './frame.js?v=ca74a6f22a';
-import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
-import { shownOr } from './shown.js?v=c469d53cf4';
-import { monotoneSegs, curveTester } from './curve-near.js?v=6996ad536a';
-import { glideMoving } from './idle-keys.js?v=1b5b7b8ddd';
-import { plotFill } from './plot-look.js?v=5037697da7';
-import { D_SMALL, EASE_ARRIVE } from './ease.js?v=7d7bfe9a62';
-import { createTraceGL, fitPen } from './trace-gl.js?v=787c5cdac5';
-import { restPass, cancelRest } from './rest-pass.js?v=b1da783ead';
-import { measure } from './glyph-measure.js?v=5be332e845';
-import { glWords } from './gl-words.js?v=b1ffc0f873';
+import { NODES } from '../engine/topology.js';
+import { PROFILE_PATHS, SHORT } from './anatomy.js';
+import { pressureColor } from './colormap.js';
+import { store, hiddenNow } from './store.js';
+import { h, fmt, canvasSize, cssVar, cssAlpha, clamp, createEaser, axisTop } from './util.js';
+import { frameFor, cancelFrame, paceMs } from './frame.js';
+import { tenthGap } from '../engine/gap.js';
+import { shownOr } from './shown.js';
+import { monotoneSegs, curveTester } from './curve-near.js';
+import { glideMoving } from './idle-keys.js';
+import { plotFill } from './plot-look.js';
+import { D_SMALL, EASE_ARRIVE } from './ease.js';
+import { createTraceGL, fitPen } from './trace-gl.js';
+import { restPass, cancelRest } from './rest-pass.js';
+import { measure } from './glyph-measure.js';
+import { glWords } from './gl-words.js';
 const nextFrame = frameFor('charts');
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));

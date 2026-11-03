@@ -67,15 +67,15 @@
 //   zone: { fall: 10, under: 12, label: 'Response' }
 //                     a soft band in the ok colour under y = max(under, x less fall %), dashed along its top and named in it.
 
-import { TILE, SCALE, RATE } from './table-marks.js?v=a483b9975e';
-import { HVPG_CUTS } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { frameFor } from './frame.js?v=ca74a6f22a';
-import { restPass, restClass } from './rest-pass.js?v=b1da783ead';
-import { plotPanel } from './plot-look.js?v=5037697da7';
-import { createSvgGL, svgModel, setWords, wordsOf, setGeo } from './svg-gl.js?v=d687806d59';
-import { airRatio } from './endo-size.js?v=5421ea722d';
-import { NODES } from '../engine/topology.js?v=512e725aea';
-import { safeParamPath, pathOf, getAt, patchOf, mergeOf } from './import-safety.js?v=9db53247a5';
+import { TILE, SCALE, RATE } from './table-marks.js';
+import { HVPG_CUTS } from '../engine/pressure-cuts.js';
+import { frameFor } from './frame.js';
+import { restPass, restClass } from './rest-pass.js';
+import { plotPanel } from './plot-look.js';
+import { createSvgGL, svgModel, setWords, wordsOf, setGeo } from './svg-gl.js';
+import { airRatio } from './endo-size.js';
+import { NODES } from '../engine/topology.js';
+import { safeParamPath, pathOf, getAt, patchOf, mergeOf } from './import-safety.js';
 const nextFrame = frameFor('tool-curve');
 
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));

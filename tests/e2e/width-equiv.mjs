@@ -24,9 +24,8 @@ import { serve } from '../../scripts/serve.mjs';
 const dir = process.argv[2] || '.';
 const N = +(process.env.N || 30);
 const TOL = 0.02;
-// The page imports gpu-probe.js under a cache stamp; the check must import the very same module to hook its timer.
-const stamp = readFileSync(join(dir, 'src/ui/stage.js'), 'utf8').match(/gpu-probe\.js\?v=([0-9a-f]+)/)?.[1];
-if (!stamp) { console.log('FAIL no stamped gpu-probe.js import in src/ui/stage.js (run on the source tree, not dist)'); process.exit(1); }
+// The check must import the very same module the page does (gpu-probe.js, by its plain address) to hook its timer.
+if (!/gpu-probe\.js'/.test(readFileSync(join(dir, 'src/ui/stage.js'), 'utf8'))) { console.log('FAIL no gpu-probe.js import in src/ui/stage.js (run on the source tree, not dist)'); process.exit(1); }
 
 const server = await serve(dir);
 const browser = await chromium.launch({ args: ['--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--disable-gpu-compositing'], ...(process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {}) });
@@ -81,8 +80,8 @@ try {
     if (c.set) await page.evaluate(c.set);
     await page.waitForTimeout(8000);   // (landed: reveals, glides and the patient's first eases done; breathing goes on)
 
-    const res = await page.evaluate(async ({ N, stamp, TOL }) => {
-      const { gpuProbe: g } = await import(`/src/ui/gpu-probe.js?v=${stamp}`);
+    const res = await page.evaluate(async ({ N, TOL }) => {
+      const { gpuProbe: g } = await import('/src/ui/gpu-probe.js');
       const time = g.time.bind(g), now = performance.now.bind(performance);
       const wasOn = g.on; g.on = true;
       const out = [];
@@ -130,7 +129,7 @@ try {
       g.time = time; g.on = wasOn;
       mo.disconnect();
       return out;
-    }, { N, stamp, TOL });
+    }, { N, TOL });
 
     const bad = res.filter((r) => r.diffs.length), smalls = res.filter((r) => r.small).length;
     const tally = new Map();

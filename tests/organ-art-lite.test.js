@@ -63,7 +63,7 @@ test(`every thinned line stays within ${TOL} units of the drawn one, with its en
 
 test('off, nothing of it is in the first load, the offline copy or the stage’s work', () => {
   // Reached only through import() inside syncArtLite, which runs only when the switch is on or turned.
-  assert.doesNotMatch(read('src/ui/main.js') + stage.replace(/import\('\.\/organ-art-lite\.js\?v=[0-9a-f]+'\)/, ''), /organ-art-lite\.js\?/);
+  assert.doesNotMatch(read('src/ui/main.js') + stage.replace(/import\('\.\/organ-art-lite\.js'\)/, ''), /organ-art-lite\.js\?/);
   assert.match(stage, /onFigLab\(\(k\) => \{ if \(k === 'lightArt'\) syncArtLite\(\); \}\);\n {2}if \(figLab\('lightArt'\)\) syncArtLite\(\);/);
   const build = read('scripts/build.mjs');
   assert.match(build, /const liteChunks = .*src\/ui\/organ-art-lite\.js/);
@@ -87,7 +87,7 @@ function harness({ on = false, busy = false, mangle = false } = {}) {
     let plateKey = 'k', plateStale = false;
     const lobuleOn = false, vtGliding = false, camMove = false, drifting = false, diveT = 0, morph = 0, morphTarget = 0, lvMoving = false, fluidEasing = () => false, spleenMoving = () => false;
     const gestureOn = () => env.busy;
-    ${block.replace(/import\('\.\/organ-art-lite\.js\?v=[0-9a-f]+'\)/, '(env.loads++, env.load())')}
+    ${block.replace(/import\('\.\/organ-art-lite\.js'\)/, '(env.loads++, env.load())')}
     return { sync: syncArtLite, plate: () => [plateKey, plateStale] };`);
   env.load = async () => LITE;
   return { env, drawn, organEls, ...make(env, organG, organEls) };

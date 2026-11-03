@@ -13,64 +13,64 @@
 // Enter jumps, G the slide list, Home End, B or . black screen, F full screen, ? the Guide, Esc. (The Guide lists them: PRESENT_KEYS in
 // main.js.) On a touch screen a sideways swipe anywhere on the slide goes on or back.
 
-import { store, replaceParams } from './store.js?v=a51981892d';
-import { download } from './download.js?v=3564e5bf8c';
-import { controlOwnsKey } from './key-owner.js?v=60ed93db32';
-import { glWords } from './gl-words.js?v=b1ffc0f873';
-import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, confirmDialog, askText, popoverOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, odoSwap, odoOn, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js?v=3a261d27c6';
-import { titleParts } from './title-units.js?v=c8d5ce1f26';
-import { liveText, wordsOf } from './live-text.js?v=d16382cfd8';
-import { swipeDir, SWIPE_MIN, SWIPE_RATIO, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight, wheelFinger, wheelGesture, ownsWheel } from './swipe.js?v=1dc3073418';
-import { createSvgGL, svgModel, viewMap, noteLoop } from './svg-gl.js?v=d687806d59';
-import { sinusoidSupported } from './gl-support.js?v=5e47f905ef';
-import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js?v=21aae4e45b';
-import { isCamOn, unionBox, regionBox, growBox, camNames } from './cam-frame.js?v=ada05be692';
-import { runSoon } from './class-soon.js?v=d59b314e61';
-import { NODE_POS } from './anatomy.js?v=b75990ccb4';
-import { DISEASE_SRC, diseasePieces } from './diseases.js?v=fb8a5451c3';
-import { nb, listCase, plateletText } from './glue.js?v=5a0f63226b';
-import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js?v=94784eec41';
-import { fingerprintOf } from '../engine/fingerprint.js?v=eeff27e0ab';
-import { hvpgSev } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { createHvpgMonitor } from './hvpg-proc.js?v=4bdaac853c';
-import { createTools } from './presenter-tools.js?v=6fb8028475';
-import { openHandout } from './handout.js?v=125a20a734';
-import { noteResume, resumeFor } from './resume.js?v=d20bedc552';
-import { parseDeckSource, checkDeck } from './deck-source.js?v=9b082c8330';
-import { cleanEq } from './import-safety.js?v=9db53247a5';
-import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig, sameHead, headOf, cutDp } from './table-marks.js?v=a483b9975e';
-import { frameFor, cancelFrame, holdMotion, PACED } from './frame.js?v=ca74a6f22a';
-import { loadGlyphs, glyphsReady, textWidth } from './text-gl.js?v=7b87ad71e9';
-import { restPass, cancelRest } from './rest-pass.js?v=b1da783ead';
-import { createSlidePrep } from './slide-prep.js?v=281ef2f6bb';
-import { createTxns } from './slide-txn.js?v=25db702a18';
-import { glEpoch, onGLRestored } from './gl-state.js?v=ee046876b7';
-import { prepareShaders, shaderFailures } from './gl-compile.js?v=255276a5f4';
-import { createFigureKey } from './figure-key.js?v=3cdca0d996';
-import { traceWhen } from './trace-labels.js?v=fc916a95c6';
-import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js?v=8a73b5b0e8';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js?v=a1bc009762';
-import { clotWords } from './callout-math.js?v=6b4a03bb1e';
-import { citeText, focusOf, oneLadder } from './teach-extras.js?v=5f5248f5a7';
-import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js?v=9686db4aec';
-import { causeFit } from './cause-fit.js?v=830a6835a5';
-import { anchorsOf, roomFor } from './cam-room.js?v=4ad9730731';
-import { beatCount, beatView } from './slide-beats.js?v=9b65a02064';
-import { COMPACT, WIDE } from './card-type.js?v=5af5f22935';
-import { flowTimeHeight, trailKeys } from './flow-time.js?v=9bcd75c1d5';
-import { PROCS, procBlocked, procOffered, playProcedure, stepMark } from './proc-anim.js?v=0bd6bb6764';
-import { createInsetHold } from './inset-hold.js?v=e34b1d5a56';
-import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js?v=982397f8fb';
-import { createCardZoom, tapTracker } from './card-zoom.js?v=8e8e6d81c5';
-import { sheetPanes } from './sheet-glass.js?v=9bad2768f7';
-import { createScopeTile } from './scope-tile.js?v=e0ed16237b';
-import { tileKeys as cardKeys, toolOnly } from './card-tiles.js?v=e547c76c7f';
-import { D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN, EASE_MOVE, RISE_PX, cssCurve } from './ease.js?v=7d7bfe9a62';
-import { slideFold } from './fold-slide.js?v=64e11227a9';
-import { pageOn, followOf, pageIn, swipeHeld } from './card-page.js?v=47c1239225';
-import { throwOut, throwIn, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, INSTANT, throwOutNow, throwPinned, throwRelease, railable, railHold, railIn, railAway, railGhosts, railWaits, railCopies, RAIL_GAP } from './card-throw.js?v=81d1fb8753';
-import { readAnims, readBox, readCTM, readMetric, readRects, readStyle, readTiming, scrollInto } from './layout-snap.js?v=e1329a7c70';
-import { caught } from './caught.js?v=caf293c676';
+import { store, replaceParams } from './store.js';
+import { download } from './download.js';
+import { controlOwnsKey } from './key-owner.js';
+import { glWords } from './gl-words.js';
+import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, confirmDialog, askText, popoverOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, odoSwap, odoOn, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js';
+import { titleParts } from './title-units.js';
+import { liveText, wordsOf } from './live-text.js';
+import { swipeDir, SWIPE_MIN, SWIPE_RATIO, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight, wheelFinger, wheelGesture, ownsWheel } from './swipe.js';
+import { createSvgGL, svgModel, viewMap, noteLoop } from './svg-gl.js';
+import { sinusoidSupported } from './gl-support.js';
+import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js';
+import { isCamOn, unionBox, regionBox, growBox, camNames } from './cam-frame.js';
+import { runSoon } from './class-soon.js';
+import { NODE_POS } from './anatomy.js';
+import { DISEASE_SRC, diseasePieces } from './diseases.js';
+import { nb, listCase, plateletText } from './glue.js';
+import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js';
+import { fingerprintOf } from '../engine/fingerprint.js';
+import { hvpgSev } from '../engine/pressure-cuts.js';
+import { createHvpgMonitor } from './hvpg-proc.js';
+import { createTools } from './presenter-tools.js';
+import { openHandout } from './handout.js';
+import { noteResume, resumeFor } from './resume.js';
+import { parseDeckSource, checkDeck } from './deck-source.js';
+import { cleanEq } from './import-safety.js';
+import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig, sameHead, headOf, cutDp } from './table-marks.js';
+import { frameFor, cancelFrame, holdMotion, PACED } from './frame.js';
+import { loadGlyphs, glyphsReady, textWidth } from './text-gl.js';
+import { restPass, cancelRest } from './rest-pass.js';
+import { createSlidePrep } from './slide-prep.js';
+import { createTxns } from './slide-txn.js';
+import { glEpoch, onGLRestored } from './gl-state.js';
+import { prepareShaders, shaderFailures } from './gl-compile.js';
+import { createFigureKey } from './figure-key.js';
+import { traceWhen } from './trace-labels.js';
+import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js';
+import { clotWords } from './callout-math.js';
+import { citeText, focusOf, oneLadder } from './teach-extras.js';
+import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js';
+import { causeFit } from './cause-fit.js';
+import { anchorsOf, roomFor } from './cam-room.js';
+import { beatCount, beatView } from './slide-beats.js';
+import { COMPACT, WIDE } from './card-type.js';
+import { flowTimeHeight, trailKeys } from './flow-time.js';
+import { PROCS, procBlocked, procOffered, playProcedure, stepMark } from './proc-anim.js';
+import { createInsetHold } from './inset-hold.js';
+import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChanged, cardBack } from './card-keep.js';
+import { createCardZoom, tapTracker } from './card-zoom.js';
+import { sheetPanes } from './sheet-glass.js';
+import { createScopeTile } from './scope-tile.js';
+import { tileKeys as cardKeys, toolOnly } from './card-tiles.js';
+import { D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN, EASE_MOVE, RISE_PX, cssCurve } from './ease.js';
+import { slideFold } from './fold-slide.js';
+import { pageOn, followOf, pageIn, swipeHeld } from './card-page.js';
+import { throwOut, throwIn, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, INSTANT, throwOutNow, throwPinned, throwRelease, railable, railHold, railIn, railAway, railGhosts, railWaits, railCopies, RAIL_GAP } from './card-throw.js';
+import { readAnims, readBox, readCTM, readMetric, readRects, readStyle, readTiming, scrollInto } from './layout-snap.js';
+import { caught } from './caught.js';
 const nextFrame = frameFor('presenter');
 
 const KEY = 'pps.scripts';
@@ -84,7 +84,7 @@ const readMine = () => { try { const v = JSON.parse(localStorage.getItem(KEY) ||
 const PREVIEW = typeof location !== 'undefined' && /\/preview\//.test(location.pathname);
 // (Loaded only there: the live site's bundle carried the 53 KB deck for nothing. The menu reads TESTING when it opens, long after.)
 let TESTING = [];
-const testingLoad = PREVIEW ? import('./test-decks/demo-all-new-visuals.js?v=9fa2a9216f').then(({ DEMO_ALL }) => { TESTING = [DEMO_ALL].map((d) => ({ id: 'test-' + d.id, title: d.title, summary: d.summary || '', deck: checkDeck(d), test: true })); }).catch(() => { /* the preview's test deck only */ }) : Promise.resolve();
+const testingLoad = PREVIEW ? import('./test-decks/demo-all-new-visuals.js').then(({ DEMO_ALL }) => { TESTING = [DEMO_ALL].map((d) => ({ id: 'test-' + d.id, title: d.title, summary: d.summary || '', deck: checkDeck(d), test: true })); }).catch(() => { /* the preview's test deck only */ }) : Promise.resolve();
 // (Says whether it kept them: storage that is full or blocked used to report "Script created" for a script that was not there.)
 // alloc-rare: the saved-scripts list: runs on a user edit (the scan reaches it only through the name remove)
 const writeMine = (list) => { try { localStorage.setItem(KEY, JSON.stringify(list)); return true; } catch { return false; } };
@@ -1037,7 +1037,7 @@ function makeCalc() {
   const ready = (async () => {
     let w = null;
     try {
-      w = new Worker(new URL('../worker.js?v=8ee3ebb747', import.meta.url), { type: 'module' });
+      w = new Worker(new URL('../worker.js', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 15000);   // (long: a slow load still gets the worker; host.js)
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -1051,7 +1051,7 @@ function makeCalc() {
     } catch {
       if (w) { w.onmessage = w.onerror = null; w.terminate(); }   // (a worker that never said hello: not left running beside the page's own engine)
       try {
-        const { createCore } = await import('../worker-core.js?v=3633ccddbe');
+        const { createCore } = await import('../worker-core.js');
         const core = createCore((m) => setTimeout(() => onMsg(m), 0));
         core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
         post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();

@@ -8,9 +8,8 @@ class W2 {}
 globalThis.WebGL2RenderingContext = W2;
 globalThis.screen = { width: 1440, height: 900 };
 const { budget, budgetOwner } = await import('../src/ui/gpu-budget.js');
-// (The very module gpu-budget.js imports, by its own stamped address: one record, as in the browser.)
-const stamp = /gl-state\.js(\?v=[0-9a-f]+)/.exec(readFileSync(new URL('../src/ui/gpu-budget.js', import.meta.url), 'utf8'))[1];
-const { trackGL } = await import('../src/ui/gl-state.js' + stamp);
+// (The very module gpu-budget.js imports, by its own address: one record, as in the browser.)
+const { trackGL } = await import('../src/ui/gl-state.js');
 
 function fakeGL() {
   const gl = Object.create(W2.prototype);

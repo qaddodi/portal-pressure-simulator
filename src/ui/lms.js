@@ -3,7 +3,7 @@
 // on exit (presentations and patients are ungraded). Outside an LMS this does nothing.
 // LTI 1.3 needs a server and is not part of this static build.
 
-import { caught } from './caught.js?v=caf293c676';
+import { caught } from './caught.js';
 function findAPI(win) {
   for (let i = 0; win && i < 10; i++) {
     try { if (win.API) return win.API; } catch (e) { caught('lms:8', e); /* cross-origin frame */ }

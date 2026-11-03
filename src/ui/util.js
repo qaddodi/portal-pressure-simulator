@@ -1,13 +1,13 @@
 // DOM & formatting helpers.
-import { saver, frame, cancelFrame, easeNow, readFrame } from './frame.js?v=ca74a6f22a';
-import { restPass, restAttr, restRemove } from './rest-pass.js?v=b1da783ead';
-import { glWords } from './gl-words.js?v=b1ffc0f873';
-import { slideFold } from './fold-slide.js?v=64e11227a9';
-import { releaseSpeed, isFlick, carryCurve, settleSlope, settleAt, easeMove, D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js?v=7d7bfe9a62';
-import { leaveFromHere } from './menu-leave.js?v=844c081a67';
-import { follow2, jumpCount, SHOWN_TAU } from './display-state.js?v=e70ae1a877';
-import { measure as measureWords } from './glyph-measure.js?v=5be332e845';
-import { caught } from './caught.js?v=caf293c676';
+import { saver, frame, cancelFrame, easeNow, readFrame } from './frame.js';
+import { restPass, restAttr, restRemove } from './rest-pass.js';
+import { glWords } from './gl-words.js';
+import { slideFold } from './fold-slide.js';
+import { releaseSpeed, isFlick, carryCurve, settleSlope, settleAt, easeMove, D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js';
+import { leaveFromHere } from './menu-leave.js';
+import { follow2, jumpCount, SHOWN_TAU } from './display-state.js';
+import { measure as measureWords } from './glyph-measure.js';
+import { caught } from './caught.js';
 
 // replaceChildren/append stringify null and arrays: flatten and drop empties instead.
 // (Nodes and strings alone, the usual call, go straight through: the flattened copy is made only for a list that holds an array, null or false.)
@@ -258,7 +258,7 @@ export function loadFailed(err) {
 }
 
 // (Announcements close together are coalesced, never dropped: live.js.)
-export { announce } from './live.js?v=c7e9ac862b';
+export { announce } from './live.js';
 
 /** Hover/focus tooltip. `text` may be a string, a function, or { text, key }. `side`: 'right' | 'bottom'. */
 // An ⓘ button: hover (or keyboard focus) shows the tooltip; a tap on touch opens the same text

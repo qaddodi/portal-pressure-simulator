@@ -1,9 +1,9 @@
 // Debug overlay: FPS and frame time, zoom, pixel ratio and build. Off by default; choices persist.
-import { gpuProbe } from './gpu-probe.js?v=294bbe5874';
+import { gpuProbe } from './gpu-probe.js';
 
-import { propSoon } from './class-soon.js?v=d59b314e61';
-import { finalFrameFor, cancelFrame } from './frame.js?v=ca74a6f22a';
-import { caught } from './caught.js?v=caf293c676';
+import { propSoon } from './class-soon.js';
+import { finalFrameFor, cancelFrame } from './frame.js';
+import { caught } from './caught.js';
 // (The overlay's loop goes through the app's one frame scheduler, last in each frame, never a requestAnimationFrame of its own.)
 const nextFrame = finalFrameFor('debug');
 const KEY = 'pps.debug';

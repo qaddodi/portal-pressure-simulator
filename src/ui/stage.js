@@ -1,107 +1,107 @@
 // Anatomical stage (blueprint §6): the figure drawn on the GPU (plate, vessels, moving blood),
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
-import { TIERS_ON, TIER_TOP, tierK, onTierWarm } from './adapt-tier.js?v=58fbd39d22';
-import { hold as gpuHold } from './gpu-budget.js?v=a79222bd11';
-import { WARM_VIEWS, WARM_MS } from './warm-views.js?v=5709bebee7';
-import { gastricUp } from '../engine/scenario.js?v=d2669cef9b';
-import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js?v=512e725aea';
-import { route as metroRoute, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, CAVITY_LOW, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=b75990ccb4';
-import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js?v=8a73b5b0e8';
-import { nodeJoins, sideEndScale } from './fork-joins.js?v=13643dbace';
-import { nodeEnds, nodeDrawn, dotRadius, bareDots } from './circuit-nodes.js?v=b585b39ba4';
-import { STATION_VESSEL, meanVel, velNormal, judgeFlow } from './velNormal.js?v=ad0e95380d';
-import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js?v=a51981892d';
-import { fibroReading } from './clock.js?v=e507b54cba';
-import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, loadFailed, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js?v=3a261d27c6';
-import { riseCentre } from './rise-path.js?v=9a6cc7c969';
-import { lerpVT, camPath, blendPaths, viewsOverlap, driftEase } from './cam-arc.js?v=7a94734b0b';
-import { easeMove, easeArrive, camMs, carryRate, carried, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js?v=7d7bfe9a62';
-import { markFade } from './mark-fade.js?v=0169711823';
-import { lesionEase } from './lesion-ease.js?v=114fd81734';
-import { bandsStep } from './band-ease.js?v=9468ce58e2';
-import { glideClock } from './glide-clock.js?v=068ac73ef2';
-import { sinceSource } from './since-ref.js?v=ef1a818c75';
-import { clipBox, mapBox } from './fit-box.js?v=3449ef7691';
-import { runFlick, FLICK } from './flick.js?v=2112d7a902';
-import { fluidTarget, poolFade, fluidLevel, fluidFloorAt, fluidBase } from './fluid-step.js?v=ac953879ed';
-import { easeTo, fluidSpring, fluidSpringFor } from './organ-ease.js?v=2a6fd38974';
-import { spleenMotion } from './spleen-motion.js?v=4e87db0dbb';
-import { paintBox } from './plate-copy.js?v=20b30d30b0';
-import { segHitsBox, lineIndex, indexHits, segsCross } from './seg-hits.js?v=1f4bb9dad9';
-import { glassCallout, withGlass } from './callout.js?v=922676498b';
-import { flipFrom, flipAt } from './cath-flip.js?v=2e923c771a';
-import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js?v=d7cca3fb73';
-import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=67a532bc39';
-import { diaphragmLine, diaphragmD } from './diaphragm.js?v=e95d9e7e1e';
-import { CIRR, smooth01, liverField, liverShrink, outlineNormals, contourNodules, morphOutline, fix1 } from './liver-morph.js?v=841ec45fec';
-import { LIVER_GEO } from './liver-geo-data.js?v=41a20a25ac';
-import { COLON_ART, BOWEL_ART, DUO_CLIPS, DUO_A, DUO_B } from './organ-art.js?v=a6a766d521';
-import { warmVisible, ringGrid, inGrid } from './warm-vis.js?v=5f4fb81b66';
-import { createRouter } from './circuit-router.js?v=bf750d0b8b';
-import { gpuProbe, COUNTED } from './gpu-probe.js?v=294bbe5874';
-import { refine } from './refine.js?v=fb64519cbd';
-import { fadeOver, fadeStop, fading } from './res-fade.js?v=bb282583bc';
-import { LIGHT } from './light.js?v=f0c4eefb81';
-import { leftAlone, sinceInput, booting, holdCover } from './quiet.js?v=856a3cdf1e';
-import { cropToGrid } from './organs-gl.js?v=406807fd5d';
-import { textPolys, loadGlyphs, glyphsReady, textBox } from './text-gl.js?v=7b87ad71e9';
-import { cssColor8 } from './css-color.js?v=59ed182174';
-import { measure as measureWords } from './glyph-measure.js?v=5be332e845';
-import { readGroup as readGroupNow, readGroupRefs, readFail, shapeSource, reshape, bindShape, targetRoom, mul, elMat } from './organ-paint.js?v=a2ebc3b50d';
-import { setLive, getLive, dropLive } from './live-style.js?v=1a585312ec';
-import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js?v=92f2104661';
-import { pathCmds, flattenPath, flattenPathInto, newFlat, newCmds, cmdsReset, cmdM, cmdL, cmdQ, cmdZ, polyBoxInto, measurePath, elBoxInto, chainMat } from './shape-gl.js?v=9e5dd356a7';
-import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=3719bd84df';
-import { nameSpots, NAME_BREAK } from './organ-names.js?v=709ccdf593';
-import { createLabelGL } from './label-gl.js?v=de5e1b729b';
-import { createGlassGL } from './glass-gl.js?v=9797a3144c';
-import { writePoints, writeJoinNow } from './veins-sweep.js?v=3347bb42f7';
-import { ENT_W } from './veins-bin.js?v=212e62b33a';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js?v=34407b36e5';
-import { varixBead, beadRadius } from './varix-bead.js?v=ac0e84fd89';
-import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js?v=d950c5cd1c';
-import { alongCurve } from './pressure-along.js?v=e669103117';
-import { follow2, createColourFollow, SHOWN_TAU } from './display-state.js?v=e70ae1a877';
-import { advanceStream, createStreamChain, displaySpeed, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS, PERIOD, DRIFT_PERIOD } from './blood.js?v=4892162325';
-import { createDyeRemote } from './dye-remote.js?v=4088f3b1b0';
-import { createSweepClient } from './sweep-client.js?v=82d428b46d';
-import { retireRows, flowClose } from './flow-rows.js?v=1b98c3bdba';
-import { createJunctionWidths } from './junction-widths.js?v=24af760f06';
-import { chainsOf, planChainInto, taperAt } from './vessel-taper.js?v=01b79bbfbd';
-import { frameFor, lateFrameFor, cancelFrame, mayTask, cancelMay, noteDraw, easeNow, inMotion, afterMotion, PACED, setSaver as setFrameSaver, paceMs, renderScale, renderSetting, onRenderScale, figOpt, figLab, onFigLab, MOTION60_MS, PINCH_LOW_K, readFrameFor } from './frame.js?v=ca74a6f22a';
-import { softwareYield } from './sw-yield.js?v=d7fe2f2424';
-import { portalSplit } from './table-marks.js?v=a483b9975e';
-import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js?v=415ba6b9c0';
-import { createVesselPick } from './vessel-pick.js?v=e72f880350';
-import { leaderEnd as edgeOf, leaderEndRects as edgeOfRects } from './leader-end.js?v=56bb38b34d';
-import { balloonShape, esoAt, smoothPath, BALLOON, BALLOON_MS } from './balloon-eso.js?v=a56c97a289';
-import { GAS, gasShape, tubePath, tubeTip, tubeTo, pathAt, sheath, sheathArcs, pullArrow } from './balloon-gas.js?v=4fd019a5d4';
-import { balloonRy, balloonOutline, routeRadii } from './hvpg-balloon.js?v=35d7bb162c';
-import { outlineBox, placeSummary } from './cath-place.js?v=371043a93a';
-import { placePills, pillsClear, PILL_GAP } from './cath-pill.js?v=419e60a907';
-import { layoutWatch } from './idle-keys.js?v=1b5b7b8ddd';
-import { writeGlowTexels } from './glow-texels.js?v=47b5844b5e';
-import { SIN_PERFUSION, sinStrandRadius } from './sin-perfusion.js?v=c9b06a1c70';
-import { wavePacks, paintWave } from './scan-waves.js?v=6c2cc348ba';
-import { fitPoseInto, makeProbePose, makeProbeDraw, probeGeomInto, probeTurn, probeSwing, probeFade, beamBoxes, gateBoxes, wedgeBoxes, awayFromProbe, createProbeMind, NONE_MS, SLACK, PROBE, PROBE_MODEL } from './dop-probe.js?v=541b7d29ef';
-import { organDimMatrix } from './organ-dim.js?v=485d50a599';
-import { parseColor, greyOf, paintRef } from './organ-grey.js?v=f9a05a3ff3';
-import { surface } from './gpu-surfaces.js?v=b62dfcfdd1';
-import { guardBlur } from './blur-guard.js?v=5228284718';
-import { capDensity } from './pixel-budget.js?v=279a2b54f6';
-import { bandRing, dashRings, liftEnd, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js?v=58d3b30db1';
-import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js?v=6b4a03bb1e';
-import { CellGrid, geomOf } from './cell-grid.js?v=00c4abdf4b';
-import { classSoon } from './class-soon.js?v=d59b314e61';
-import { restPass, cancelRest } from './rest-pass.js?v=b1da783ead';
-import { createLateQueue } from './late-queue.js?v=d7da770ef7';
-import { dropLabel } from './drop-label.js?v=90ece7f11f';
-import { glWords } from './gl-words.js?v=b1ffc0f873';
-import { provideStage, readBox, readElAt } from './layout-snap.js?v=e1329a7c70';
+import { TIERS_ON, TIER_TOP, tierK, onTierWarm } from './adapt-tier.js';
+import { hold as gpuHold } from './gpu-budget.js';
+import { WARM_VIEWS, WARM_MS } from './warm-views.js';
+import { gastricUp } from '../engine/scenario.js';
+import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js';
+import { route as metroRoute, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, CAVITY_LOW, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js';
+import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js';
+import { nodeJoins, sideEndScale } from './fork-joins.js';
+import { nodeEnds, nodeDrawn, dotRadius, bareDots } from './circuit-nodes.js';
+import { STATION_VESSEL, meanVel, velNormal, judgeFlow } from './velNormal.js';
+import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js';
+import { fibroReading } from './clock.js';
+import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, loadFailed, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js';
+import { riseCentre } from './rise-path.js';
+import { lerpVT, camPath, blendPaths, viewsOverlap, driftEase } from './cam-arc.js';
+import { easeMove, easeArrive, camMs, carryRate, carried, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js';
+import { markFade } from './mark-fade.js';
+import { lesionEase } from './lesion-ease.js';
+import { bandsStep } from './band-ease.js';
+import { glideClock } from './glide-clock.js';
+import { sinceSource } from './since-ref.js';
+import { clipBox, mapBox } from './fit-box.js';
+import { runFlick, FLICK } from './flick.js';
+import { fluidTarget, poolFade, fluidLevel, fluidFloorAt, fluidBase } from './fluid-step.js';
+import { easeTo, fluidSpring, fluidSpringFor } from './organ-ease.js';
+import { spleenMotion } from './spleen-motion.js';
+import { paintBox } from './plate-copy.js';
+import { segHitsBox, lineIndex, indexHits, segsCross } from './seg-hits.js';
+import { glassCallout, withGlass } from './callout.js';
+import { flipFrom, flipAt } from './cath-flip.js';
+import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js';
+import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js';
+import { diaphragmLine, diaphragmD } from './diaphragm.js';
+import { CIRR, smooth01, liverField, liverShrink, outlineNormals, contourNodules, morphOutline, fix1 } from './liver-morph.js';
+import { LIVER_GEO } from './liver-geo-data.js';
+import { COLON_ART, BOWEL_ART, DUO_CLIPS, DUO_A, DUO_B } from './organ-art.js';
+import { warmVisible, ringGrid, inGrid } from './warm-vis.js';
+import { createRouter } from './circuit-router.js';
+import { gpuProbe, COUNTED } from './gpu-probe.js';
+import { refine } from './refine.js';
+import { fadeOver, fadeStop, fading } from './res-fade.js';
+import { LIGHT } from './light.js';
+import { leftAlone, sinceInput, booting, holdCover } from './quiet.js';
+import { cropToGrid } from './organs-gl.js';
+import { textPolys, loadGlyphs, glyphsReady, textBox } from './text-gl.js';
+import { cssColor8 } from './css-color.js';
+import { measure as measureWords } from './glyph-measure.js';
+import { readGroup as readGroupNow, readGroupRefs, readFail, shapeSource, reshape, bindShape, targetRoom, mul, elMat } from './organ-paint.js';
+import { setLive, getLive, dropLive } from './live-style.js';
+import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js';
+import { pathCmds, flattenPath, flattenPathInto, newFlat, newCmds, cmdsReset, cmdM, cmdL, cmdQ, cmdZ, polyBoxInto, measurePath, elBoxInto, chainMat } from './shape-gl.js';
+import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js';
+import { nameSpots, NAME_BREAK } from './organ-names.js';
+import { createLabelGL } from './label-gl.js';
+import { createGlassGL } from './glass-gl.js';
+import { writePoints, writeJoinNow } from './veins-sweep.js';
+import { ENT_W } from './veins-bin.js';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js';
+import { varixBead, beadRadius } from './varix-bead.js';
+import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js';
+import { alongCurve } from './pressure-along.js';
+import { follow2, createColourFollow, SHOWN_TAU } from './display-state.js';
+import { advanceStream, createStreamChain, displaySpeed, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS, PERIOD, DRIFT_PERIOD } from './blood.js';
+import { createDyeRemote } from './dye-remote.js';
+import { createSweepClient } from './sweep-client.js';
+import { retireRows, flowClose } from './flow-rows.js';
+import { createJunctionWidths } from './junction-widths.js';
+import { chainsOf, planChainInto, taperAt } from './vessel-taper.js';
+import { frameFor, lateFrameFor, cancelFrame, mayTask, cancelMay, noteDraw, easeNow, inMotion, afterMotion, PACED, setSaver as setFrameSaver, paceMs, renderScale, renderSetting, onRenderScale, figOpt, figLab, onFigLab, MOTION60_MS, PINCH_LOW_K, readFrameFor } from './frame.js';
+import { softwareYield } from './sw-yield.js';
+import { portalSplit } from './table-marks.js';
+import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js';
+import { createVesselPick } from './vessel-pick.js';
+import { leaderEnd as edgeOf, leaderEndRects as edgeOfRects } from './leader-end.js';
+import { balloonShape, esoAt, smoothPath, BALLOON, BALLOON_MS } from './balloon-eso.js';
+import { GAS, gasShape, tubePath, tubeTip, tubeTo, pathAt, sheath, sheathArcs, pullArrow } from './balloon-gas.js';
+import { balloonRy, balloonOutline, routeRadii } from './hvpg-balloon.js';
+import { outlineBox, placeSummary } from './cath-place.js';
+import { placePills, pillsClear, PILL_GAP } from './cath-pill.js';
+import { layoutWatch } from './idle-keys.js';
+import { writeGlowTexels } from './glow-texels.js';
+import { SIN_PERFUSION, sinStrandRadius } from './sin-perfusion.js';
+import { wavePacks, paintWave } from './scan-waves.js';
+import { fitPoseInto, makeProbePose, makeProbeDraw, probeGeomInto, probeTurn, probeSwing, probeFade, beamBoxes, gateBoxes, wedgeBoxes, awayFromProbe, createProbeMind, NONE_MS, SLACK, PROBE, PROBE_MODEL } from './dop-probe.js';
+import { organDimMatrix } from './organ-dim.js';
+import { parseColor, greyOf, paintRef } from './organ-grey.js';
+import { surface } from './gpu-surfaces.js';
+import { guardBlur } from './blur-guard.js';
+import { capDensity } from './pixel-budget.js';
+import { bandRing, dashRings, liftEnd, normalShown, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js';
+import { organAnchor, spleenCaliper, acrossVessel, stepGroups, spanOf, spanPath, zoneBand, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js';
+import { CellGrid, geomOf } from './cell-grid.js';
+import { classSoon } from './class-soon.js';
+import { restPass, cancelRest } from './rest-pass.js';
+import { createLateQueue } from './late-queue.js';
+import { dropLabel } from './drop-label.js';
+import { glWords } from './gl-words.js';
+import { provideStage, readBox, readElAt } from './layout-snap.js';
 const STENT_FACTORS = [0, 0, 0];   // alloc-rare: made once (stentSegments writes into it; the caller reads one entry at once)
 const EBOX = { x: 0, y: 0, width: 0, height: 0 }, SCAN_BOX = [0, 0, 0, 0];   // alloc-rare: made once (an element's box is read from EBOX at once; scanLvBox is SCAN_BOX)
-import { caught } from './caught.js?v=caf293c676';
+import { caught } from './caught.js';
 const nextFrame = frameFor('stage');
 // (1 Nov 2026, "Move everything to GPU": zero layout inside the frame. Boxes the figure's pieces keep clear of (the slide's cards, the
 // key pill, the readings' own sizes, the home look's room) are read first in a frame, before anything is written (frame.js readFrame),
@@ -2649,7 +2649,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
   // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js?v=a296d5d72f').catch((err) => { lzCode = null; throw err; }));
+  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js').catch((err) => { lzCode = null; throw err; }));
   function lobuleReady() {
     return (lzLoad ||= lobuleCode().then(({ createLobuleZoom }) => {
       lz = createLobuleZoom({ host: wrap, styles: wrapCS, before: lzAnchor, binAway: (tubes, joins) => sweepBin({ kind: 'bin', tubes, joins }) });
@@ -4043,7 +4043,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // (The worker's lifecycle, sweep-client.js: a dead or stuck one is dropped and its requests rejected; the next request restarts it,
   // up to a few times in a row, and the callers fall back to the main thread on a rejection.)
-  const sweeper = createSweepClient(() => new Worker(new URL('./sweep-worker.js?v=92c357769e', import.meta.url), { type: 'module' }));
+  const sweeper = createSweepClient(() => new Worker(new URL('./sweep-worker.js', import.meta.url), { type: 'module' }));
   const sweepBin = (msg) => sweeper.request(msg);
   const FAR_ROW = Array.from({ length: N_SAMPLES }, () => [1e9, 1e9]);
   // How far (squared) a join's centre lies from the course of its centres through the stretch.
@@ -9127,7 +9127,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     clearTimeout(artLiteT);
     const want = figLab('lightArt');
     if (want === artLite || artLiteOff) return;
-    if (want && !liteLoad?.mod) { liteLoad ||= import('./organ-art-lite.js?v=6d2d2c76bb').then((m) => { liteLoad.mod = m; syncArtLite(); }, () => { liteLoad = null; }); return; }
+    if (want && !liteLoad?.mod) { liteLoad ||= import('./organ-art-lite.js').then((m) => { liteLoad.mod = m; syncArtLite(); }, () => { liteLoad = null; }); return; }
     if (artLiteBusy()) { artLiteT = setTimeout(syncArtLite, 1000); return; }
     if (want) {
       const { LITE_D, LITE_ART } = liteLoad.mod, sets = [];
@@ -11759,7 +11759,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const streams = EDGES.map((e, k) => ({ seed: k + 1 }));
   const LARGE = EDGES.map((e) => (e.kind === 'vein' || e.kind === 'diode') && (e.d || 0) >= STASIS_MIN_D);
   // (The slugs step in a worker, dye-remote.js; ?dyeworker=0 keeps them here.)
-  const bolus = createDyeRemote(EDGES, NODES, () => new Worker(new URL('./dye-worker.js?v=750b8a7e0e', import.meta.url), { type: 'module' }));
+  const bolus = createDyeRemote(EDGES, NODES, () => new Worker(new URL('./dye-worker.js', import.meta.url), { type: 'module' }));
   const net = { Q: new Float32Array(EDGES.length), vd: new Float32Array(EDGES.length), len: new Float32Array(EDGES.length) };
   let origins = null, originsF = null, bloodClock = 0, dyeShown = false;
   // (The blood clock's epoch for the GPU: the shader takes the clock less it, kept under BT_SPAN seconds so its float stays fine; each

@@ -12,7 +12,7 @@
 //   as the context itself would.
 // The wrappers also hand each allocation to the resource registry (gpu-budget.js, R06): see onGLCall.
 
-import { caught } from './caught.js?v=caf293c676';
+import { caught } from './caught.js';
 const W2 = typeof WebGL2RenderingContext !== 'undefined' ? WebGL2RenderingContext : null;
 
 const recs = new WeakMap();

@@ -11,7 +11,7 @@
 //
 // The first build only shows what is already there (a patient loaded, the page opened): no mark fades in from nothing then.
 // A mark fades in over D_SURFACE and out over D_SMALL (a leave takes the step below its entrance).
-import { D_SMALL, D_SURFACE } from './ease.js?v=7d7bfe9a62';
+import { D_SMALL, D_SURFACE } from './ease.js';
 
 export const MARK_IN_MS = D_SURFACE, MARK_OUT_MS = D_SMALL;
 /** The smoothstep every other fade of the figure takes (a clamp's, an organ outline's). */

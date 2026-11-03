@@ -104,8 +104,8 @@ test('a slider or switch left focused keeps only its own keys; text fields keep 
   assert.equal(letterOf({ key: '[', code: 'BracketLeft' }), '[');
   assert.equal(letterOf({ key: 'Enter', code: 'Enter' }), 'enter');
   // The same imported module as the talk's, or the two would each keep their own "keyboard or mouse" state.
-  const stamp = (f) => f.match(/key-owner\.js\?v=\w+/)[0];
-  assert.equal(stamp(m), stamp(read('src/ui/presenter.js')));
+  assert.match(m, /from '\.\/key-owner\.js'/);
+  assert.match(read('src/ui/presenter.js'), /from '\.\/key-owner\.js'/);
   for (const f of ['src/ui/palette.js', 'src/ui/menu.js']) assert.match(read(f), /if \(e\.isComposing \|\| e\.keyCode === 229\) return;/, f);
 });
 

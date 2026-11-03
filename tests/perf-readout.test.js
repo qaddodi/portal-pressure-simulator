@@ -9,14 +9,14 @@ import { gpuProbe } from '../src/ui/gpu-probe.js';
 
 test('the readout is loaded only with ?perf in the address, and nothing else imports it', () => {
   const main = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8');
-  assert.match(main, /if \(new URLSearchParams\(location\.search\)\.has\('perf'\)\) import\('\.\/perf-readout\.js\?v=[0-9a-f]+'\)\.then\(\(\{ startPerfReadout \}\) => startPerfReadout\(/);
+  assert.match(main, /if \(new URLSearchParams\(location\.search\)\.has\('perf'\)\) import\('\.\/perf-readout\.js'\)\.then\(\(\{ startPerfReadout \}\) => startPerfReadout\(/);
   const dir = new URL('../src/ui/', import.meta.url);
   for (const f of readdirSync(dir).filter((f) => f.endsWith('.js'))) {
     const src = readFileSync(new URL(f, dir), 'utf8');
     assert.doesNotMatch(src, /from '\.\/perf-readout\.js/, `${f} imports it statically`);
     if (f !== 'main.js') assert.doesNotMatch(src, /import\(\s*'\.\/perf-readout\.js/, `${f} loads it`);
   }
-  assert.equal((main.match(/perf-readout\.js\?v=/g) || []).length, 1);
+  assert.equal((main.match(/perf-readout\.js'/g) || []).length, 1);
 });
 
 test('without the readout the probe is off and never waits for the GPU; with it, it times script only', () => {

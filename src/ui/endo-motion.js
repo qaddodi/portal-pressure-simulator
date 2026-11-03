@@ -1,8 +1,8 @@
 // How the scope's view moves between states (instruments.js): every change eases, nothing cuts.
 // The shaded field is a bitmap redrawn in small steps (a step of size or stigmata, each frame of a band going on); each new
 // bitmap fades in over the one shown, so a step reads as a glide. The balloon and the bleeding jet fade in and out.
-import { bleedPulse } from './blood.js?v=4892162325';
-import { columnAngle, depthAt } from './endo-columns.js?v=d9a6558d96';
+import { bleedPulse } from './blood.js';
+import { columnAngle, depthAt } from './endo-columns.js';
 export const FADE_MS = 280;
 // The band follows the deflating vein: the vein starts at once, the band cinches in a beat later.
 export const DEFLATE_MS = 500, BAND_MS = 420, BAND_DELAY_MS = 140;

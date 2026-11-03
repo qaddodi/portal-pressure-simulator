@@ -14,9 +14,9 @@
 // cardia (the roof round the opening and the lesser curvature below it) holds its skin a hair's breadth off, so the cone's shoulder
 // flattens against it, softly and a little more with every unit of traction, and the rest of the balloon is as it was. The give is worked
 // out from the stomach's own outline (wallPress), so it follows a redrawn stomach too, and never goes through the wall.
-import { ORGANS, SEAM_D } from './anatomy.js?v=b75990ccb4';
-import { flattenPath } from './shape-gl.js?v=9e5dd356a7';
-import { esoAt, BALLOON, setTubeLine } from './balloon-eso.js?v=a56c97a289';
+import { ORGANS, SEAM_D } from './anatomy.js';
+import { flattenPath } from './shape-gl.js';
+import { esoAt, BALLOON, setTubeLine } from './balloon-eso.js';
 
 export const GAS = {
   margin: 3.5,   // how far inside the wall the balloon stays, in world units: the wall's line and glow, and the balloon's own edge

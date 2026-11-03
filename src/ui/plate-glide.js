@@ -5,7 +5,7 @@
 // a fixed size laid out once, keeps only its outer edge's hairline and shadow (a still clip cuts the rest), and rides one eased
 // translate and scale, all on the same curve, so together they are always one rounded plate from the old box to the new. Nothing
 // is laid out or painted again per frame: the compositor carries every piece. The box takes its own glass back as they land.
-import { D_FLIP, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js?v=7d7bfe9a62';
+import { D_FLIP, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js';
 
 const O = 64;   // (room each piece keeps for its shadow on its outer sides)
 const PIECES = [

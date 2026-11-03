@@ -22,7 +22,7 @@ test('a ring that would reach past a clipping box is clipped; one with room, or 
 
 test('the file is wired in once, eases with the app\'s own curve, and leaves high contrast to the system', () => {
   const f = read('src/ui/focus-ring.js'), main = read('src/ui/main.js');
-  assert.match(main, /import '\.\/focus-ring\.js\?v=[0-9a-f]+';/);
+  assert.match(main, /import '\.\/focus-ring\.js';/);
   assert.match(f, /forced-colors: active/);
   assert.match(f, /--ease-arrive/);
   assert.match(f, /D_SMALL/);

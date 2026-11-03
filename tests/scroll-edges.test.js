@@ -32,7 +32,7 @@ test('nothing is read as a list scrolls or in a frame: the ends come from an Int
 });
 
 test('main.js loads it, and the stylesheet eases the two depths on the motion scale and draws them on the scrolling element', () => {
-  assert.match(main, /import '\.\/scroll-edges\.js\?v=[0-9a-f]+';/);
+  assert.match(main, /import '\.\/scroll-edges\.js';/);
   assert.match(css, /@property --sedge-t \{ syntax: '<number>'; inherits: true; initial-value: 0; \}/);
   assert.match(css, /@property --sedge-b \{ syntax: '<number>'; inherits: true; initial-value: 0; \}/);
   const i = css.indexOf('.um-col.se, .um-cols.se,');

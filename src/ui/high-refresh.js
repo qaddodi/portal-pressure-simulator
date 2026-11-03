@@ -5,7 +5,7 @@
 // full screen is the person's choice and is kept. The page looks the same, without the browser's bars.
 // iPhone Safari cannot show a page full screen (only video): there the Feature Flag, or the app added to the Home Screen, is the way.
 
-import { caught } from './caught.js?v=caf293c676';
+import { caught } from './caught.js';
 /** Whether this device should go full screen for its refresh: a touch screen. */
 export function wantsFullscreen(nav = globalThis.navigator, doc = globalThis.document) {
   if (!doc) return false;

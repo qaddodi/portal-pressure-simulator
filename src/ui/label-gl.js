@@ -12,20 +12,20 @@
 // know, a keyboard focus ring) stays drawn by the SVG, label by label. Without WebGL2, on a software renderer, or
 // once the context is lost, the SVG draws them all, as it always has.
 
-import { glGet, glCap } from './gl-state.js?v=ee046876b7';
-import { frameFor, cancelFrame } from './frame.js?v=ca74a6f22a';
-import { ucOf } from './uniform-cache.js?v=323665bf20';
-import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=1b5b7b8ddd';
-import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js?v=255276a5f4';
-import { createAtlasPacker } from './atlas-pack.js?v=c4bb67fd56';
-import { easeMove, D_SURFACE } from './ease.js?v=7d7bfe9a62';
-import { createShapeGL, flattenPath, polyMeshInto, ellipsePoly } from './shape-gl.js?v=9e5dd356a7';
-import { createOrganPaint, parseColor, mul } from './organ-paint.js?v=a2ebc3b50d';
-import { textPolys, textWidth, loadGlyphs, glyphsReady, textCovers } from './text-gl.js?v=7b87ad71e9';
-import { watchSize, sizeOf, rectSoon } from './geom.js?v=ca69a8335e';
-import { trackOf, trackAt, mixColour, timingOf, progressAt, keysOf } from './label-track.js?v=bc7e86266b';
-import { caught } from './caught.js?v=caf293c676';
-import { readStyle } from './layout-snap.js?v=e1329a7c70';
+import { glGet, glCap } from './gl-state.js';
+import { frameFor, cancelFrame } from './frame.js';
+import { ucOf } from './uniform-cache.js';
+import { classOnly, GESTURE_LOOK } from './idle-keys.js';
+import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js';
+import { createAtlasPacker } from './atlas-pack.js';
+import { easeMove, D_SURFACE } from './ease.js';
+import { createShapeGL, flattenPath, polyMeshInto, ellipsePoly } from './shape-gl.js';
+import { createOrganPaint, parseColor, mul } from './organ-paint.js';
+import { textPolys, textWidth, loadGlyphs, glyphsReady, textCovers } from './text-gl.js';
+import { watchSize, sizeOf, rectSoon } from './geom.js';
+import { trackOf, trackAt, mixColour, timingOf, progressAt, keysOf } from './label-track.js';
+import { caught } from './caught.js';
+import { readStyle } from './layout-snap.js';
 const HOLE_MESH = { tri: null, seg: null, nTri: 0, nSeg: 0 };   // alloc-rare: made once (a hole's mask is meshed into it and released after its draw)
 // (The colour a clear writes, one array for every clear: none made per call, plan rev 2 §2.8.)
 const CLEAR0 = new Float32Array(4);

@@ -6,7 +6,7 @@
 // warm glows read point by point (.ob-deep) stay as they are. Kept points keep their own text, so a kept point is the same
 // number. The stage sets these d values on the drawn paths, in document order, and checks each one's length first.
 //
-//   node scripts/organ-art-lite.mjs && npm run stamp
+//   node scripts/organ-art-lite.mjs
 
 import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';

@@ -11,13 +11,13 @@
 // Without WebGL2 (or once the context is lost) createTissueGL returns null / reports lost, and the tissue is not drawn until the
 // context is back: there is no 2D drawing of it (1 Nov 2026, nothing off the GPU). A software renderer draws it too.
 
-import { startProgram, checkProgram, exerciseDraw, publishWhenDone, compileDone } from './gl-compile.js?v=255276a5f4';
-import { sendCanvas, SEND_RETRY } from './field-gl.js?v=c08088f7b5';
-import { isTileCopy, createTileCopier } from './tile-gl.js?v=a17ed612b3';
-import { isGpuPicture, paintGL } from './paint-gl.js?v=921efda70e';
-import { LIVE_FS, CELLS_PER_ROW, IDX_ROW, SEG_ROW, K_ROW, BIN, panShift, panPlan } from './lobule-live.js?v=96bcd13922';
-import { fbComplete } from './gl-state.js?v=ee046876b7';
-import { uniformCache } from './uniform-cache.js?v=323665bf20';
+import { startProgram, checkProgram, exerciseDraw, publishWhenDone, compileDone } from './gl-compile.js';
+import { sendCanvas, SEND_RETRY } from './field-gl.js';
+import { isTileCopy, createTileCopier } from './tile-gl.js';
+import { isGpuPicture, paintGL } from './paint-gl.js';
+import { LIVE_FS, CELLS_PER_ROW, IDX_ROW, SEG_ROW, K_ROW, BIN, panShift, panPlan } from './lobule-live.js';
+import { fbComplete } from './gl-state.js';
+import { uniformCache } from './uniform-cache.js';
 
 const VS = `#version 300 es
 in vec2 p;

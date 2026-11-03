@@ -527,10 +527,10 @@ uniform sampler2D uOld;
 in vec2 vT;
 out vec4 o;
 void main() { o = texture(uOld, vT); }`;
-import { startProgram, checkProgram, exerciseDraw, publishWhenDone, stillCompiling, SHADER_READY } from './gl-compile.js?v=255276a5f4';
-import { whenQuiet, booting, holdCover } from './quiet.js?v=856a3cdf1e';
-import { glOkAfter, glOkBefore } from './gl-state.js?v=ee046876b7';
-import { caught } from './caught.js?v=caf293c676';
+import { startProgram, checkProgram, exerciseDraw, publishWhenDone, stillCompiling, SHADER_READY } from './gl-compile.js';
+import { whenQuiet, booting, holdCover } from './quiet.js';
+import { glOkAfter, glOkBefore } from './gl-state.js';
+import { caught } from './caught.js';
 
 export function createSinusoidGL(canvas, { warm = false, onReady = null } = {}) {   // alloc-rare: the sinusoid drawer is made once for a view (a context, its programs and handlers)
   let gl = null;

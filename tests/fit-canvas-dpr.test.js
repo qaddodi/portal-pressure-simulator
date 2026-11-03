@@ -12,9 +12,8 @@ globalThis.matchMedia ??= () => ({ matches: false, addEventListener() {}, addLis
 globalThis.document ??= { documentElement: { dataset: {}, style: { setProperty() {} } }, addEventListener() {}, createElement: () => ({ getContext: () => ({}) }) };
 globalThis.addEventListener ??= () => {};
 const { fitCanvas } = await import('../src/ui/util.js');
-// (the same module instance as util.js's own import, cache stamp and all)
-const stamp = (await import('node:fs')).readFileSync(new URL('../src/ui/util.js', import.meta.url), 'utf8').match(/'\.\/frame\.js(\?v=\w+)?'/)[1] || '';
-const { setSaver } = await import(`../src/ui/frame.js${stamp}`);
+// (the same module instance as util.js's own import)
+const { setSaver } = await import('../src/ui/frame.js');
 const canvas = () => ({ width: 0, height: 0, getBoundingClientRect: () => ({ width: 200, height: 100 }), getContext: () => ({ setTransform() {} }) });
 
 test('instrument canvases follow a 3x screen, and Battery saver holds them at 2x', () => {

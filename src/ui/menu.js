@@ -4,19 +4,19 @@
 // same content as a bottom sheet. Hovering a row (or focusing it with the arrow keys) previews it beside
 // the panel; on touch, the ⓘ at a presentation's end opens the same preview under its row.
 
-import { store } from './store.js?v=a51981892d';
-import { createTraceGL, fitPen } from './trace-gl.js?v=787c5cdac5';
-import { h, icon, svgIcon, cssVar, clamp, settleFrom, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ, fmt, shownOf } from './util.js?v=3a261d27c6';
-import { SNAPSHOTS } from './snapshots.js?v=4ca084eda3';
-import { HVPG_CUTS, PPG_CUTS, sevOfCuts } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { pressureColor } from './colormap.js?v=8a73b5b0e8';
-import { ownsSideways, pageGo } from './swipe.js?v=1dc3073418';
-import { frameFor } from './frame.js?v=ca74a6f22a';
-import { restPass } from './rest-pass.js?v=b1da783ead';
-import { classSoon, removeSoon } from './class-soon.js?v=d59b314e61';
-import { slideFold } from './fold-slide.js?v=64e11227a9';
-import { leaveFromHere } from './menu-leave.js?v=844c081a67';
-import { releaseSpeed, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, RISE_PX } from './ease.js?v=7d7bfe9a62';
+import { store } from './store.js';
+import { createTraceGL, fitPen } from './trace-gl.js';
+import { h, icon, svgIcon, cssVar, clamp, settleFrom, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ, fmt, shownOf } from './util.js';
+import { SNAPSHOTS } from './snapshots.js';
+import { HVPG_CUTS, PPG_CUTS, sevOfCuts } from '../engine/pressure-cuts.js';
+import { pressureColor } from './colormap.js';
+import { ownsSideways, pageGo } from './swipe.js';
+import { frameFor } from './frame.js';
+import { restPass } from './rest-pass.js';
+import { classSoon, removeSoon } from './class-soon.js';
+import { slideFold } from './fold-slide.js';
+import { leaveFromHere } from './menu-leave.js';
+import { releaseSpeed, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, RISE_PX } from './ease.js';
 const nextFrame = frameFor('menu');
 const profFrame = frameFor('menu-profile');
 // The hover preview's change of size and place runs without layout per frame: the card is laid out once at the taller of its old

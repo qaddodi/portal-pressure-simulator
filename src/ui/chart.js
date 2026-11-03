@@ -5,14 +5,14 @@
 //   Changes                              Treat card, closed until opened: what has been set, with values
 //   Advanced physiology                  side panel, from Settings
 
-import { store, updateParams } from './store.js?v=a51981892d';
-import { h, icon, svgIcon, toast, reconcile } from './util.js?v=3a261d27c6';
-import { fold } from './fold.js?v=65e98758cf';
-import { DRUGS } from '../engine/scenario.js?v=d2669cef9b';
-import { activeInterventions } from './inspector.js?v=d51a1ba374';
-import { DRUG_NOTE } from './actions.js?v=e2a51e9c55';
-import { factTarget } from './fact-target.js?v=50935889f6';
-import { caught } from './caught.js?v=caf293c676';
+import { store, updateParams } from './store.js';
+import { h, icon, svgIcon, toast, reconcile } from './util.js';
+import { fold } from './fold.js';
+import { DRUGS } from '../engine/scenario.js';
+import { activeInterventions } from './inspector.js';
+import { DRUG_NOTE } from './actions.js';
+import { factTarget } from './fact-target.js';
+import { caught } from './caught.js';
 
 
 // The interventions treatCount counts, besides any drug.

@@ -5,27 +5,27 @@
 // per day). Changes the learner makes and threshold events are marked where they happened, and
 // a crosshair (hover, or drag on a touch screen) reads every trace at one moment.
 
-import { store, hiddenNow } from './store.js?v=a51981892d';
-import { h, fmt, cssVar, cssAlpha, clamp } from './util.js?v=3a261d27c6';
-import { FONT as FONT0, FONT } from './charts.js?v=6550e7420a';
-import { frameFor, cancelFrame, paceMs, noteDraw } from './frame.js?v=ca74a6f22a';
-import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
-import { HVPG_CUTS, hvpgSev } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { firstAtOrAbove, firstAbove } from './sorted.js?v=662e543c85';
-import { limitLabelX as labelX } from './limit-label.js?v=6d7a63c949';
-import { wrapLabel } from './wrap-label.js?v=213d36e12b';
-import { createBeatClock, ekgSeries, leadIISeries } from './ekg.js?v=0cc9df5a1b';
-import { createFreewheel } from './freewheel.js?v=e0ac4a6bf0';
-import { laneRoom } from './trace-lanes.js?v=02d17cf83f';
-import { olderThan, inFront } from './backfill.js?v=455d888760';
-import { plotFill } from './plot-look.js?v=5037697da7';
-import { createTraceGL, fitPen } from './trace-gl.js?v=787c5cdac5';
-import { createStill } from './still-layer.js?v=d5a9373a74';
-import { beatTop, beatLayout, colPlan, paperFine, beforeLabelY, sinceText } from './beat-card.js?v=5681d06da2';
-import { VITALS } from './vital-read.js?v=eb683dfbdd';
-import { restPass, cancelRest } from './rest-pass.js?v=b1da783ead';
-import { shownOr } from './shown.js?v=c469d53cf4';
-import { dropFront } from './drop-front.js?v=21069ee0e8';
+import { store, hiddenNow } from './store.js';
+import { h, fmt, cssVar, cssAlpha, clamp } from './util.js';
+import { FONT as FONT0, FONT } from './charts.js';
+import { frameFor, cancelFrame, paceMs, noteDraw } from './frame.js';
+import { tenthGap } from '../engine/gap.js';
+import { HVPG_CUTS, hvpgSev } from '../engine/pressure-cuts.js';
+import { firstAtOrAbove, firstAbove } from './sorted.js';
+import { limitLabelX as labelX } from './limit-label.js';
+import { wrapLabel } from './wrap-label.js';
+import { createBeatClock, ekgSeries, leadIISeries } from './ekg.js';
+import { createFreewheel } from './freewheel.js';
+import { laneRoom } from './trace-lanes.js';
+import { olderThan, inFront } from './backfill.js';
+import { plotFill } from './plot-look.js';
+import { createTraceGL, fitPen } from './trace-gl.js';
+import { createStill } from './still-layer.js';
+import { beatTop, beatLayout, colPlan, paperFine, beforeLabelY, sinceText } from './beat-card.js';
+import { VITALS } from './vital-read.js';
+import { restPass, cancelRest } from './rest-pass.js';
+import { shownOr } from './shown.js';
+import { dropFront } from './drop-front.js';
 const nextFrame = frameFor('pressure-time');
 
 // hide: the readout that can stay unmeasured (store.hiddenReadouts); day: the value on the

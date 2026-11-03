@@ -26,7 +26,7 @@ test('a rest pass never goes through the frame scheduler, off switch included; t
   const src = readFileSync(new URL('../src/ui/rest-pass.js', import.meta.url), 'utf8');
   assert.doesNotMatch(src, /requestAnimationFrame\(|\bframe\(fn/m);
   // (Its one import is the shared preparation budget (review pass 2), which reads the frame budget and asks for no frame either.)
-  assert.deepEqual(src.match(/^import[^\n]*/gm), [src.match(/^import \{[^}]*\} from '\.\/prep-budget\.js\?v=[0-9a-f]+';/m)?.[0]]);
+  assert.deepEqual(src.match(/^import[^\n]*/gm), [src.match(/^import \{[^}]*\} from '\.\/prep-budget\.js';/m)?.[0]]);
   const budget = readFileSync(new URL('../src/ui/prep-budget.js', import.meta.url), 'utf8');
   assert.doesNotMatch(budget, /requestAnimationFrame\(|\b(frame|lateFrame|finalFrame|readFrame)\(/);
   const scan = readFileSync(new URL('../scripts/off-gpu-scan.mjs', import.meta.url), 'utf8');

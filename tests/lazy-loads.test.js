@@ -13,7 +13,7 @@ const read = (f) => readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'ut
 
 // ── The first load ────────────────────────────────────────────────────────────────────────────────────────────────────────
 // Every module main.js reaches through static imports is in the first download; the lazily loaded ones are reached through import() only.
-const STATIC = /^\s*(?:import|export)\b[^;'"]*?(?:from\s*)?['"](\.{1,2}\/[^'"?]+\.js)(?:\?v=[0-9a-f]+)?['"]/gm;
+const STATIC = /^\s*(?:import|export)\b[^;'"]*?(?:from\s*)?['"](\.{1,2}\/[^'"?]+\.js)['"]/gm;
 function staticGraph(entry) {
   const seen = new Map();
   const walk = (file, from) => {
@@ -35,9 +35,9 @@ test('the first load does not reach the lobule, the sinusoid view, the Doppler o
 });
 
 test('each is loaded by import(), when its time comes', () => {
-  assert.match(read('stage.js'), /import\('\.\/lobule-zoom\.js\?v=[0-9a-f]+'\)/);
-  assert.match(read('main.js'), /lazy\(\(\) => import\('\.\/doppler\.js\?v=[0-9a-f]+'\), \(\{ createDoppler \}\) => createDoppler\(\{ onProbe: probeTo \}\)\)/);
-  assert.match(read('main.js'), /lazy\(\(\) => import\('\.\/fibroscan\.js\?v=[0-9a-f]+'\), \(\{ createFibroScan \}\) => createFibroScan\(\)\)/);
+  assert.match(read('stage.js'), /import\('\.\/lobule-zoom\.js'\)/);
+  assert.match(read('main.js'), /lazy\(\(\) => import\('\.\/doppler\.js'\), \(\{ createDoppler \}\) => createDoppler\(\{ onProbe: probeTo \}\)\)/);
+  assert.match(read('main.js'), /lazy\(\(\) => import\('\.\/fibroscan\.js'\), \(\{ createFibroScan \}\) => createFibroScan\(\)\)/);
   for (const file of ['main.js', 'presenter.js']) assert.match(read(file), /import \{ sinusoidSupported \} from '\.\/gl-support\.js/, `${file} asks gl-support.js, which does not load the view`);
   assert.doesNotMatch(read('main.js'), /from '\.\/sinusoid-view\.js/);
 });
@@ -71,7 +71,7 @@ test('the first dive is prepared ahead as before: the code is fetched as the fig
   const stage = read('stage.js');
   const prep = stage.slice(stage.indexOf('function prepLobule()'), stage.indexOf('let catchUp = false'));
   assert.match(prep, /if \(figureShown && !lzLoad && !lzSoon\) \{ lzSoon = true; lobuleCode\(\)\.catch\(\(\) => \{\}\); prepIdle\(\(\) => lobuleReady\(\)\.then\(\(\) => prepLobule\(\)/);
-  assert.match(stage, /const lobuleCode = \(\) => \(lzCode \|\|= import\('\.\/lobule-zoom\.js\?v=[0-9a-f]+'\)/);
+  assert.match(stage, /const lobuleCode = \(\) => \(lzCode \|\|= import\('\.\/lobule-zoom\.js'\)/);
   assert.match(prep, /if \(prepBusy \|\| !figureShown \|\| now - prepAt < 1000\) return;/);
   assert.match(prep, /lz\.preparePieces\(\)/);
 });

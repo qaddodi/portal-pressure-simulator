@@ -5,10 +5,10 @@
 // One representative lobule stands for the whole liver, read from the right lobe (most of the
 // liver's flow).
 
-import { NODES, EDGES } from '../engine/topology.js?v=512e725aea';
-import { clamp } from './util.js?v=3a261d27c6';
-import { oxygenFor } from './blood.js?v=4892162325';
-import { sinceNow } from './since-ref.js?v=ef1a818c75';
+import { NODES, EDGES } from '../engine/topology.js';
+import { clamp } from './util.js';
+import { oxygenFor } from './blood.js';
+import { sinceNow } from './since-ref.js';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));

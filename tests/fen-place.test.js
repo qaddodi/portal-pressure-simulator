@@ -122,7 +122,7 @@ test('the Disse name takes the stretch nearest its old place, 40 µm from the st
 });
 
 test('the view lays the three out from its resting frame and scale, so a glide never moves a name in the figure', () => {
-  assert.match(VIEW, /import \{ placeFenDisse \} from '\.\/fen-place\.js\?v=[0-9a-f]+';/);
+  assert.match(VIEW, /import \{ placeFenDisse \} from '\.\/fen-place\.js';/);
   assert.ok(VIEW.includes('const spot = placeFenDisse(PFD);'));
   assert.match(VIEW, /PFD\.lo = \(VW\.f\.l - VW\.tC\[0\] \+ 6\) \/ tk; PFD\.hi = \(VW\.f\.r - VW\.tC\[0\] - 6\) \/ tk;/, 'the resting frame (tC), not the eased one');
   assert.match(VIEW, /PFD\.fp = 16 \/ tk;/, 'in the resting scale');

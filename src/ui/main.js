@@ -1,42 +1,42 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { motionBudget } from './motion-budget.js?v=89246e0c5f';   // (first: counts from the start when ?perf or ?budget=1 asks)
-import { budget as gpuBudget } from './gpu-budget.js?v=a79222bd11';   // (the render graph's registry and pass counts, R06: before any context is made)
-import './gl-state.js?v=ee046876b7';   // (early: every WebGL2 context is recorded from its creation, R09/R06)
-import { startHost, host, hostFailed, restartHost } from './host.js?v=24f6deba49';
-import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=a51981892d';
-import { createStage } from './stage.js?v=83208753eb';
-import { createCreditPlacer } from './credit.js?v=24677eddc5';
-import { whenQuiet, booting, holdCover } from './quiet.js?v=856a3cdf1e';
-import { sinusoidSupported } from './gl-support.js?v=5e47f905ef';
-import { createInspector } from './inspector.js?v=d51a1ba374';
-import { createDock, CUTOFFS, savedInstruments } from './dock.js?v=0849d161d4';
-import { setHvpgStage } from './hvpg-proc.js?v=4bdaac853c';
-import { createWhy } from './why.js?v=62729804f4';
-import { createTimeline, LAPSES } from './timeline.js?v=c8fc8397a3';
-import { createCompare } from './compare.js?v=347dd3ac20';
-import { createCard } from './card.js?v=f5cf99fb66';
-import { createChart } from './chart.js?v=c3da0ace12';
-import { createMenu } from './menu.js?v=0b6d27fd30';
-import { caption } from './a11y.js?v=5c126fa0fb';
-import { startLMS } from './lms.js?v=b3bd04032e';
-import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js?v=a9debc0de8';
-import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=e2a51e9c55';
-import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js?v=8a73b5b0e8';
-import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=512e725aea';
-import { dopplerVel } from './velNormal.js?v=ad0e95380d';
-import { controlOwnsKey } from './key-owner.js?v=60ed93db32';
-import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, swapFade, scrollBehavior, reconcile } from './util.js?v=3a261d27c6';
-import { glidePlateOn, platePieces, glideOnResize } from './plate-glide.js?v=b7c299896f';
-import { sheetParts, sheetOffset, setSheetOffset, stopSheet, glideSheet } from './sheet-move.js?v=2bfc9f9090';
-import { releaseSpeed, isFlick, flickAim, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=7d7bfe9a62';
-import { morphKey, crossfadeText } from './legend-morph.js?v=aa8f20faf5';
-import { glideNow } from './seg-glide.js?v=1f5c6eb4e9';
-import './focus-ring.js?v=f04e7d5d2c';
-import { knownLook, currentLook, isDarkLook, lastDarkLook, applyLookAttrs } from './looks.js?v=2d098211a4';
-import { lookChooser } from './look-chooser.js?v=fa82d23ec7';
-import { TEXT_STEPS } from './type-scale.js?v=d7cca3fb73';
+import { motionBudget } from './motion-budget.js';   // (first: counts from the start when ?perf or ?budget=1 asks)
+import { budget as gpuBudget } from './gpu-budget.js';   // (the render graph's registry and pass counts, R06: before any context is made)
+import './gl-state.js';   // (early: every WebGL2 context is recorded from its creation, R09/R06)
+import { startHost, host, hostFailed, restartHost } from './host.js';
+import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js';
+import { createStage } from './stage.js';
+import { createCreditPlacer } from './credit.js';
+import { whenQuiet, booting, holdCover } from './quiet.js';
+import { sinusoidSupported } from './gl-support.js';
+import { createInspector } from './inspector.js';
+import { createDock, CUTOFFS, savedInstruments } from './dock.js';
+import { setHvpgStage } from './hvpg-proc.js';
+import { createWhy } from './why.js';
+import { createTimeline, LAPSES } from './timeline.js';
+import { createCompare } from './compare.js';
+import { createCard } from './card.js';
+import { createChart } from './chart.js';
+import { createMenu } from './menu.js';
+import { caption } from './a11y.js';
+import { startLMS } from './lms.js';
+import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js';
+import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js';
+import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js';
+import { dopplerVel } from './velNormal.js';
+import { controlOwnsKey } from './key-owner.js';
+import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, swapFade, scrollBehavior, reconcile } from './util.js';
+import { glidePlateOn, platePieces, glideOnResize } from './plate-glide.js';
+import { sheetParts, sheetOffset, setSheetOffset, stopSheet, glideSheet } from './sheet-move.js';
+import { releaseSpeed, isFlick, flickAim, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js';
+import { morphKey, crossfadeText } from './legend-morph.js';
+import { glideNow } from './seg-glide.js';
+import './focus-ring.js';
+import { knownLook, currentLook, isDarkLook, lastDarkLook, applyLookAttrs } from './looks.js';
+import { lookChooser } from './look-chooser.js';
+import { TEXT_STEPS } from './type-scale.js';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const app = $('#app');
@@ -60,24 +60,24 @@ const ZOOM_TITLES = [['#zoomOut', 'Zoom out', 'Back out to the lobule'], ['#zoom
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
-import { initDebug } from './debug.js?v=2b7c24be98';
-import { initTopbarMotion } from './topbar-motion.js?v=65d6804b22';
-import { ORIGINS } from './blood.js?v=4892162325';
-import { parseShare, cleanShare } from './share-link.js?v=b6f8e0f909';
-import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=d2669cef9b';
-import { createPaintGate } from './paint-gate.js?v=880ebfff88';
-import { frameFor, cancelFrame, perf as framePerf, framePart, inMotion, afterMotion, mayTask } from './frame.js?v=ca74a6f22a';
-import { restPass } from './rest-pass.js?v=b1da783ead';
-import { classSoon, runSoon } from './class-soon.js?v=d59b314e61';
-import { sizeOf, watchSize, rectsSoon, restTask } from './geom.js?v=ca69a8335e';
-import { feedbackDiagnostics } from './feedback-diag.js?v=c62ab4c0a0';
-import { noteJump } from './display-state.js?v=e70ae1a877';
-import { createIdleRest } from './idle-rest.js?v=4d23822371';
-import { pillState, foldPill, stopFold } from './pill-motion.js?v=9a62cb3535';
-import { classOnly, GESTURE_LOOK } from './idle-keys.js?v=1b5b7b8ddd';
-import { readAnims, readBox, readElAt, readMetric, readStyle, scrollInto } from './layout-snap.js?v=e1329a7c70';
-import './scroll-edges.js?v=e6fc6baf1f';   // (soft fades at the ends of lists that scroll, only where there is more; ?edges=0 off)
-import { caught } from './caught.js?v=caf293c676';
+import { initDebug } from './debug.js';
+import { initTopbarMotion } from './topbar-motion.js';
+import { ORIGINS } from './blood.js';
+import { parseShare, cleanShare } from './share-link.js';
+import { deepMerge, sanitizeParams } from '../engine/scenario.js';
+import { createPaintGate } from './paint-gate.js';
+import { frameFor, cancelFrame, perf as framePerf, framePart, inMotion, afterMotion, mayTask } from './frame.js';
+import { restPass } from './rest-pass.js';
+import { classSoon, runSoon } from './class-soon.js';
+import { sizeOf, watchSize, rectsSoon, restTask } from './geom.js';
+import { feedbackDiagnostics } from './feedback-diag.js';
+import { noteJump } from './display-state.js';
+import { createIdleRest } from './idle-rest.js';
+import { pillState, foldPill, stopFold } from './pill-motion.js';
+import { classOnly, GESTURE_LOOK } from './idle-keys.js';
+import { readAnims, readBox, readElAt, readMetric, readStyle, scrollInto } from './layout-snap.js';
+import './scroll-edges.js';   // (soft fades at the ends of lists that scroll, only where there is more; ?edges=0 off)
+import { caught } from './caught.js';
 const nextFrame = frameFor('main');
 
 // Color lenses: [title, what it shows, legend swatch].
@@ -141,8 +141,8 @@ async function main() {
   // The Doppler and the FibroScan load after the first paint (a tab for one that has not come waits for it, dock.js). One left open when the
   // app was last used is asked for now and waited for with the model's first answers, so its pane is whole with the dock.
   const probeTo = (id) => { host.send({ type: 'probe', id }); logAction('probe', id); };
-  dopplerL = lazy(() => import('./doppler.js?v=d193ccdd81'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
-  fibroL = lazy(() => import('./fibroscan.js?v=5d0e1f0f88'), ({ createFibroScan }) => createFibroScan());
+  dopplerL = lazy(() => import('./doppler.js'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
+  fibroL = lazy(() => import('./fibroscan.js'), ({ createFibroScan }) => createFibroScan());
   const wasOpen = savedInstruments().open;
   const openAtStart = [];
   if (Array.isArray(wasOpen)) for (const [id, l] of [['doppler', dopplerL], ['fibroscan', fibroL]]) if (wasOpen.includes(id)) openAtStart.push(l.get().catch(() => {}));
@@ -247,7 +247,7 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  presenterL = lazy(() => import('./presenter.js?v=c7e75d2dc6'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -255,7 +255,7 @@ async function main() {
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
-  paletteL = lazy(() => import('./palette.js?v=0a8927ff7c'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -1168,12 +1168,12 @@ function wireTopbar() {
   initDebug(() => stage.zoomLevel());
   // ?perf in the address: the readout of what blocks frames after a pan or pinch (perf-readout.js). Without it, never loaded.
   // (And the frame-time overlay beside it, frame-hud.js: fps, 1% low, interval and script percentiles, surfaces, throttle.)
-  if (new URLSearchParams(location.search).has('perf')) import('./frame-hud.js?v=2eaf0c0d93').then(({ startFrameHud }) => startFrameHud()).catch(() => { /* a measuring aid only */ });
+  if (new URLSearchParams(location.search).has('perf')) import('./frame-hud.js').then(({ startFrameHud }) => startFrameHud()).catch(() => { /* a measuring aid only */ });
   // High Refresh (high-refresh.js): on a touch screen the first tap goes full screen, past the browser's 60 Hz hold for pages.
-  import('./high-refresh.js?v=34da2f2f40').then(({ startHighRefresh }) => startHighRefresh()).catch(() => { /* full screen is a bonus */ });
-  if (new URLSearchParams(location.search).has('perf')) import('./perf-readout.js?v=5f21c44cde').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
+  import('./high-refresh.js').then(({ startHighRefresh }) => startHighRefresh()).catch(() => { /* full screen is a bonus */ });
+  if (new URLSearchParams(location.search).has('perf')) import('./perf-readout.js').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
   // ?offgpu=1 in the address: the live count of work off the GPU, flashing red when it happens during motion (offgpu-overlay.js). Without it, never loaded.
-  if (/[?&]offgpu=1\b/.test(location.search)) import('./offgpu-overlay.js?v=fcd06b7e65').then(({ startOffGpuOverlay }) => startOffGpuOverlay()).catch(() => { /* a measuring aid only */ });
+  if (/[?&]offgpu=1\b/.test(location.search)) import('./offgpu-overlay.js').then(({ startOffGpuOverlay }) => startOffGpuOverlay()).catch(() => { /* a measuring aid only */ });
   $('#btnMenu').addEventListener('click', () => mainMenu.toggle());
   $('#btnSettings').addEventListener('click', (e) => openSettings(e.currentTarget));
   $('#btnPalette').addEventListener('click', () => palette.open());

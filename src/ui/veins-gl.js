@@ -31,28 +31,28 @@
 //
 // createVeinsGL(canvas) returns null only when WebGL2 is unavailable altogether.
 
-import { glGet, glCap, glOkBefore, glOkAfter } from './gl-state.js?v=ee046876b7';
-import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
-import { LIGHT } from './light.js?v=f0c4eefb81';
-import { EDGE_GLSL } from './edge.js?v=8321a8017f';
-import { SLOT, DYE_BINS, PERIOD, DRIFT_PERIOD } from './blood.js?v=4892162325';
-import { cssRGB } from './util.js?v=3a261d27c6';
-import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js?v=aaa0923b58';
-import { CELL, ENT_W, binVeins, splitRows, simpleCells, splitCells, cellsOfJoinEntries } from './veins-bin.js?v=212e62b33a';
-import { gpuProbe, COUNTED } from './gpu-probe.js?v=294bbe5874';
-import { changedRows } from './flow-rows.js?v=1b98c3bdba';
-import { leftAlone } from './quiet.js?v=856a3cdf1e';
-import { uniformCache } from './uniform-cache.js?v=323665bf20';
-import { PUBLISH_QUIET_MS, SHADER_WARM, exerciseDraw } from './gl-compile.js?v=255276a5f4';
-import { createShapeGL, flattenPath, ellipsePoly, polyMeshInto } from './shape-gl.js?v=9e5dd356a7';
-import { createOrganStack, prestartOrganStack, prestartLayer } from './organs-gl.js?v=406807fd5d';
-import { warmFade } from './res-fade-gl.js?v=f253f13b3f';
-import { fusedVS, fusedFS } from './veins-fuse.js?v=b5cc409146';
-import { NOISE_W, NOISE_H, NOISE_PER_ROW, OCTAVES, noiseBlock, blockAt, tableSize } from './blood-noise.js?v=d78e4a3425';
-import { createNoiseFiller } from './noise-gl.js?v=6dcab8fc93';
-import { softwareGL } from './sw-yield.js?v=d7fe2f2424';
-import { frameCount, framePhase } from './frame.js?v=ca74a6f22a';
-import { caught } from './caught.js?v=caf293c676';
+import { glGet, glCap, glOkBefore, glOkAfter } from './gl-state.js';
+import { CHEV_GLSL } from './chevron-glsl.js';
+import { LIGHT } from './light.js';
+import { EDGE_GLSL } from './edge.js';
+import { SLOT, DYE_BINS, PERIOD, DRIFT_PERIOD } from './blood.js';
+import { cssRGB } from './util.js';
+import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js';
+import { CELL, ENT_W, binVeins, splitRows, simpleCells, splitCells, cellsOfJoinEntries } from './veins-bin.js';
+import { gpuProbe, COUNTED } from './gpu-probe.js';
+import { changedRows } from './flow-rows.js';
+import { leftAlone } from './quiet.js';
+import { uniformCache } from './uniform-cache.js';
+import { PUBLISH_QUIET_MS, SHADER_WARM, exerciseDraw } from './gl-compile.js';
+import { createShapeGL, flattenPath, ellipsePoly, polyMeshInto } from './shape-gl.js';
+import { createOrganStack, prestartOrganStack, prestartLayer } from './organs-gl.js';
+import { warmFade } from './res-fade-gl.js';
+import { fusedVS, fusedFS } from './veins-fuse.js';
+import { NOISE_W, NOISE_H, NOISE_PER_ROW, OCTAVES, noiseBlock, blockAt, tableSize } from './blood-noise.js';
+import { createNoiseFiller } from './noise-gl.js';
+import { softwareGL } from './sw-yield.js';
+import { frameCount, framePhase } from './frame.js';
+import { caught } from './caught.js';
 const ORGAN_MESH = { tri: null, seg: null, nTri: 0, nSeg: 0 };   // alloc-rare: made once (the organ texture's shapes are meshed into it one at a time, each released after its draw)
 
 export { binVeins };

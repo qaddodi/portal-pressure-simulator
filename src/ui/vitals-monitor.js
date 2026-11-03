@@ -8,15 +8,15 @@
 // parks it for a moment) the monitor goes on: the strip scrolls on this card's clock and lays beats at the heart rate shown, closing in as the
 // number climbs, then hands over to the live beat where the model's phase resumes, so the strip neither stalls nor jumps (ekg.js walkBeats).
 
-import { h, fmt, fitBox, clamp, cssVar } from './util.js?v=3a261d27c6';
-import { createVitalsGL, colorOf, textWidth } from './vitals-gl.js?v=3eb21927ef';
-import { frameFor, cancelFrame, paceMs, noteDraw, frameAnimating } from './frame.js?v=ca74a6f22a';
-import { VITALS, vitalReading } from './vital-read.js?v=eb683dfbdd';
-import { createBeatClock, ekgSeries, beatWalk, walkBeats, seedBeats } from './ekg.js?v=0cc9df5a1b';
-import { olderThan, inFront } from './backfill.js?v=455d888760';
-import { dropFront } from './drop-front.js?v=21069ee0e8';
-import { attrSoon } from './class-soon.js?v=d59b314e61';
-import { restPass } from './rest-pass.js?v=b1da783ead';
+import { h, fmt, fitBox, clamp, cssVar } from './util.js';
+import { createVitalsGL, colorOf, textWidth } from './vitals-gl.js';
+import { frameFor, cancelFrame, paceMs, noteDraw, frameAnimating } from './frame.js';
+import { VITALS, vitalReading } from './vital-read.js';
+import { createBeatClock, ekgSeries, beatWalk, walkBeats, seedBeats } from './ekg.js';
+import { olderThan, inFront } from './backfill.js';
+import { dropFront } from './drop-front.js';
+import { attrSoon } from './class-soon.js';
+import { restPass } from './rest-pass.js';
 const nextFrame = frameFor('vitals-monitor');
 
 export const VITALS_DEFAULT = ['hr', 'map', 'hb'];

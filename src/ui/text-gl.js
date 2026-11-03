@@ -12,9 +12,9 @@
 //    (a chart's ticks, a monitor's live number: trace-gl.js), where a fresh outline fill each frame would cost more.
 // No other module imports glyphs-inter.js or its PNG (tests/text-gl.test.js).
 
-import { flattenPath } from './shape-gl.js?v=9e5dd356a7';
-import { GLYPHS as SDF_GLYPHS, KERN as SDF_KERN, BASELINES as SDF_BASELINES, BASE as SDF_BASE, RADIUS as SDF_RADIUS, CUTOFF as SDF_CUTOFF, ATLAS_W as SDF_W, ATLAS_H as SDF_H } from './glyphs-inter.js?v=d7a58fccac';
-import { ATLAS_PNG as SDF_PNG } from './glyphs-inter-png.js?v=2e096d3c99';
+import { flattenPath } from './shape-gl.js';
+import { GLYPHS as SDF_GLYPHS, KERN as SDF_KERN, BASELINES as SDF_BASELINES, BASE as SDF_BASE, RADIUS as SDF_RADIUS, CUTOFF as SDF_CUTOFF, ATLAS_W as SDF_W, ATLAS_H as SDF_H } from './glyphs-inter.js';
+import { ATLAS_PNG as SDF_PNG } from './glyphs-inter-png.js';
 
 /** The SDF atlas for text that changes every frame: metrics (em), kerning, baselines, its size and its PNG (a data URL). */
 export const sdfAtlas = Object.freeze({ GLYPHS: SDF_GLYPHS, KERN: SDF_KERN, BASELINES: SDF_BASELINES, BASE: SDF_BASE, RADIUS: SDF_RADIUS, CUTOFF: SDF_CUTOFF, ATLAS_W: SDF_W, ATLAS_H: SDF_H, ATLAS_PNG: SDF_PNG });
@@ -23,13 +23,13 @@ let GLYPHS = null, UPM = 2048, WEIGHTS = [], loading = null;
 /** Fetches the outlines once; resolves when text can be drawn. */
 export function loadGlyphs() {
   // alloc-rare: the outlines are fetched once, the first time text is wanted
-  return (loading ||= import('./glyph-data.js?v=df9fda5ad6').then((m) => { GLYPHS = m.GLYPHS; UPM = m.UPM; WEIGHTS = Object.keys(GLYPHS).map(Number); }));
+  return (loading ||= import('./glyph-data.js').then((m) => { GLYPHS = m.GLYPHS; UPM = m.UPM; WEIGHTS = Object.keys(GLYPHS).map(Number); }));
 }
 // (The metrics at each optical size, glyph-metrics.js, 140 kB: fetched only where a paragraph is laid out, never with the outlines.)
 let MET = null, STOPS = [14, 32], metLoading = null;
 /** Fetches the paragraph metrics once (and the outlines' weights); resolves when layoutParagraph can run. */
 export function loadMetrics() {
-  return (metLoading ||= Promise.all([loadGlyphs(), import('./glyph-metrics.js?v=99846c0425')]).then(([, k]) => { MET = k.METRICS; STOPS = k.STOPS; }));
+  return (metLoading ||= Promise.all([loadGlyphs(), import('./glyph-metrics.js')]).then(([, k]) => { MET = k.METRICS; STOPS = k.STOPS; }));
 }
 /** Whether the outlines are here (text can be drawn now). */
 export const glyphsReady = () => !!GLYPHS;

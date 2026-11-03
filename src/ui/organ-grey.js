@@ -2,7 +2,7 @@
 // (stage.js organGrey). A filter over the organs made Safari draw every organ again on each frame of a change in any lens
 // but Pressure (17 Oct). The grey mixes a colour toward its luma (organ-dim.js), a linear map of each colour that leaves its
 // alpha alone, so greying every paint gives the same picture as greying their composite: over overlaps and translucency too.
-import { LUMA } from './organ-dim.js?v=485d50a599';
+import { LUMA } from './organ-dim.js';
 
 /** A computed colour ('rgb(…)', 'rgba(…)', 'color(srgb …)', 'transparent') as [r, g, b, a] in 0–1, or null. */
 export function parseColor(s) {

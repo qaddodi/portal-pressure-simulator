@@ -9,14 +9,14 @@
 //   parseDeckSource(text) → the deck object (plain data), or throws an Error whose message says
 //                           what was wrong and on which line.
 
-import { caught } from './caught.js?v=caf293c676';
+import { caught } from './caught.js';
 const BUILTINS = {
   mi: (x) => `<mi>${x}</mi>`, mo: (x) => `<mo>${x}</mo>`, mn: (x) => `<mn>${x}</mn>`,
   sub: (b, i) => `<msub>${b}<mtext>${i}</mtext></msub>`,
   frac: (n, d) => `<mfrac><mrow>${n}</mrow><mrow>${d}</mrow></mfrac>`,
 };
 const ARRAY_METHODS = new Set(['map', 'filter', 'flatMap', 'concat', 'slice', 'join', 'includes', 'some', 'every', 'find']);
-import { BAD_KEYS, cleanEq, unsafeIn } from './import-safety.js?v=9db53247a5';
+import { BAD_KEYS, cleanEq, unsafeIn } from './import-safety.js';
 const MAX_STEPS = 2e6, MAX_DEPTH = 200, MAX_LEN = 1e6;
 
 class DeckError extends Error {}

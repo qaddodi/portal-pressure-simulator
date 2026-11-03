@@ -1,31 +1,31 @@
 // Instruments (blueprint §8.3, §9.4, §9.5, §6.4): endoscopy,
 // varix cross-section, abdomen.
 
-import { NODES } from '../engine/topology.js?v=512e725aea';
-import { gastricUp } from '../engine/scenario.js?v=d2669cef9b';
-import { wallRead } from '../engine/wall-read.js?v=06c32c9ed9';
-import { pressureColor } from './colormap.js?v=8a73b5b0e8';
-import { h, fmt, canvasSize, cssVar, cssAlpha, clamp, icon, swapText, putText, countTo } from './util.js?v=3a261d27c6';
-import { wordSetter } from './gl-words.js?v=b1ffc0f873';
-import { simTime, isPaused } from './clock.js?v=e507b54cba';
-import { createEndoGL } from './endo-gl.js?v=86a50570d4';
-import { surface } from './gpu-surfaces.js?v=b62dfcfdd1';
-import { renderEndo } from './endo-render.js?v=352e0fb7ba';
-import { endoGrow, airRatio, airFlat } from './endo-size.js?v=5421ea722d';
-import { DEFLATE_MS, BAND_MS, BAND_DELAY_MS, fadeIn, glide, scopeTear } from './endo-motion.js?v=3249278428';
-import { drawScopeBleed } from './endo-bleed.js?v=5eb47643f8';
-import { poolFill } from './blood.js?v=4892162325';
-import { FONT } from './charts.js?v=6550e7420a';
-import { store, updateParams, varicesPresent } from './store.js?v=a51981892d';
-import { classSoon, attrSoon, dataSoon, propSoon } from './class-soon.js?v=d59b314e61';
-import { balanceHold, balanceLine } from './balance-hold.js?v=1792704e7a';
-import { lateFrameFor, cancelFrame, framePhase, easeNow } from './frame.js?v=ca74a6f22a';
-import { restPass } from './rest-pass.js?v=b1da783ead';
-import { createTraceGL, fitPen } from './trace-gl.js?v=787c5cdac5';
-import { createSvgGL, svgModel, setWords, wordsOf, setGeo } from './svg-gl.js?v=d687806d59';
-import { textWidth } from './text-gl.js?v=7b87ad71e9';
-import { D_SURFACE, easeArrive } from './ease.js?v=7d7bfe9a62';
-import { inkBox } from './glyph-measure.js?v=5be332e845';
+import { NODES } from '../engine/topology.js';
+import { gastricUp } from '../engine/scenario.js';
+import { wallRead } from '../engine/wall-read.js';
+import { pressureColor } from './colormap.js';
+import { h, fmt, canvasSize, cssVar, cssAlpha, clamp, icon, swapText, putText, countTo } from './util.js';
+import { wordSetter } from './gl-words.js';
+import { simTime, isPaused } from './clock.js';
+import { createEndoGL } from './endo-gl.js';
+import { surface } from './gpu-surfaces.js';
+import { renderEndo } from './endo-render.js';
+import { endoGrow, airRatio, airFlat } from './endo-size.js';
+import { DEFLATE_MS, BAND_MS, BAND_DELAY_MS, fadeIn, glide, scopeTear } from './endo-motion.js';
+import { drawScopeBleed } from './endo-bleed.js';
+import { poolFill } from './blood.js';
+import { FONT } from './charts.js';
+import { store, updateParams, varicesPresent } from './store.js';
+import { classSoon, attrSoon, dataSoon, propSoon } from './class-soon.js';
+import { balanceHold, balanceLine } from './balance-hold.js';
+import { lateFrameFor, cancelFrame, framePhase, easeNow } from './frame.js';
+import { restPass } from './rest-pass.js';
+import { createTraceGL, fitPen } from './trace-gl.js';
+import { createSvgGL, svgModel, setWords, wordsOf, setGeo } from './svg-gl.js';
+import { textWidth } from './text-gl.js';
+import { D_SURFACE, easeArrive } from './ease.js';
+import { inkBox } from './glyph-measure.js';
 // (The endoscope's field: drawn in the late part of a frame, after the model's frame of it has been taken in, so once a frame.)
 const drawFrame = lateFrameFor('instruments');
 

@@ -2,16 +2,16 @@
 // chart, so every command lands in the timeline like any other change. A number in the query is
 // the argument: "tips 8", "cirrhosis 60", "albumin 2.5", "+6 months", "narrow portal 80".
 
-import { store, updateParams } from './store.js?v=a51981892d';
-import { h, svgIcon, toast, afterExit, visibleBottom, fadeWhileMore, scrollBehavior } from './util.js?v=3a261d27c6';
-import { D_FLIP, EASE_ARRIVE } from './ease.js?v=7d7bfe9a62';
-import { restPass, cancelRest } from './rest-pass.js?v=b1da783ead';
-import { classSoon, attrSoon } from './class-soon.js?v=d59b314e61';
-import { frame } from './frame.js?v=ca74a6f22a';
-import { EDGES } from '../engine/topology.js?v=512e725aea';
-import { DRUGS } from '../engine/scenario.js?v=d2669cef9b';
-import { HIDDEN_EDGES } from './anatomy.js?v=b75990ccb4';
-import { LOOKS } from './looks.js?v=2d098211a4';
+import { store, updateParams } from './store.js';
+import { h, svgIcon, toast, afterExit, visibleBottom, fadeWhileMore, scrollBehavior } from './util.js';
+import { D_FLIP, EASE_ARRIVE } from './ease.js';
+import { restPass, cancelRest } from './rest-pass.js';
+import { classSoon, attrSoon } from './class-soon.js';
+import { frame } from './frame.js';
+import { EDGES } from '../engine/topology.js';
+import { DRUGS } from '../engine/scenario.js';
+import { HIDDEN_EDGES } from './anatomy.js';
+import { LOOKS } from './looks.js';
 
 // One highlight under the list that glides to the active row; the arrow keys and the pointer only move it (and aria-selected on two rows),
 // and the list is rebuilt only when the results change.

@@ -5,12 +5,12 @@
 // and white. Opened as its own page to print or keep on a phone. Works for any deck the Presenter lists
 // (decks.js, new ones included: a slide without a figure prints without one) and for the instructor's scripts.
 
-import { download } from './download.js?v=3564e5bf8c';
-import { LEVELS, withOverview } from './decks.js?v=94784eec41';
-import { TILE, cutText } from './table-marks.js?v=a483b9975e';
-import { plateletText } from './glue.js?v=5a0f63226b';
-import { citeText } from './teach-extras.js?v=5f5248f5a7';
-import { cleanEq } from './import-safety.js?v=9db53247a5';
+import { download } from './download.js';
+import { LEVELS, withOverview } from './decks.js';
+import { TILE, cutText } from './table-marks.js';
+import { plateletText } from './glue.js';
+import { citeText } from './teach-extras.js';
+import { cleanEq } from './import-safety.js';
 
 const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const slug = (t) => t.replace(/[^\w-]+/g, '-').replace(/^-|-$/g, '').toLowerCase();

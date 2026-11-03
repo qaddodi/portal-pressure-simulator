@@ -24,9 +24,9 @@ npm start            # http://127.0.0.1:8080
 It must be served over HTTP (ES modules and the Web Worker don't load from `file://`). Once
 loaded it works offline and can be installed as an app (PWA).
 
-After editing any file under `src/` or `styles/`, run `npm run stamp`: it updates the
-`?v=<hash>` on every local import and link so a browser never mixes fresh and stale files.
-`npm test` fails if a stamp is out of date.
+Imports and links are plain addresses (`./dock.js`); no `?v=<hash>` is committed. Cache-busting is made
+by `npm run build` (bundled files named by their content hash, a generated service worker), which is what the
+live site and the preview serve. `npm test` fails if a stamp is committed (`npm run stamp` takes one out).
 
 ### Production build (optional)
 
@@ -40,7 +40,7 @@ port 8081.
 
 ```bash
 npm ci               # dev tools only: esbuild, ESLint, Playwright (lint needs them)
-npm test             # unit and physiological acceptance tests, plus the stamp check (Node ≥ 20)
+npm test             # unit and physiological acceptance tests, plus the no-committed-stamps check (Node ≥ 20)
 npm run lint         # ESLint
 npm run smoke        # the app in a real browser (desktop and phone): loads, runs, every surface opens
 npm run smoke:quick  # a fast browser check (DECKS=<id> limits it to one deck)
@@ -142,7 +142,7 @@ more). See [docs/PERFORMANCE.md](docs/PERFORMANCE.md).
 | `src/ui/` | Stage (GPU figure and moving blood over the SVG scene, labels, anatomy⇄circuit morph, lobule and sinusoid views), action card, timeline and history, Treat, Tests and its instruments (Doppler, FibroScan, HVPG, endoscopy, ascites), presenter, LMS bridge, accessibility |
 | `styles/` | Design tokens (light and dark) and layout |
 | `fonts/`, `brand/` | Self-hosted fonts (SIL OFL); brand mark, lockup and app icons |
-| `scripts/` | Cache stamping, the production build, SCORM packaging, the preview badge, performance measurements |
+| `scripts/` | Stamp removal, the production build, SCORM packaging, the preview badge, performance measurements |
 | `tests/` | Unit and physiological acceptance tests; `tests/e2e/` browser checks; `tests/visual/` visual references |
 | `src/ui/decks/` | The presentation decks, one file each |
 | `docs/` | All documentation (see below) |

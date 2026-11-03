@@ -3,7 +3,7 @@
 // in it: it draws through a 2D-context API that paint-gl.js records and the GPU paints (1 Nov 2026, nothing off the GPU), from
 // the same plain values (the view's worldInput).
 
-import { cordToneInto, bandOutlineFlat } from './lobule-look.js?v=3667e190ae';
+import { cordToneInto, bandOutlineFlat } from './lobule-look.js';
 
 const TAU = Math.PI * 2;
 const TONE = [0, 0, 0];   // (a cell's tone, written anew for each cell and read at once)

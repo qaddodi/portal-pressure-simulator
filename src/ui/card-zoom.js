@@ -7,9 +7,9 @@
 // the camera keep to them) and puts the card back before a slide changes. Nor does it measure the card: what the card answers while it is up
 // is where it rests, so a measure of how far the readings travel would read none.
 
-import { EASE_ARRIVE, easeArrive } from './ease.js?v=7d7bfe9a62';
-import { frameFor } from './frame.js?v=ca74a6f22a';
-import { readBox, readStyle } from './layout-snap.js?v=e1329a7c70';
+import { EASE_ARRIVE, easeArrive } from './ease.js';
+import { frameFor } from './frame.js';
+import { readBox, readStyle } from './layout-snap.js';
 export const ZOOM_MAX = 2.2;    // the most the card grows
 export const ZOOM_MIN = 1.2;    // under this the card is large enough; no zoom is offered
 export const ZOOM_MS = 520;     // in

@@ -12,7 +12,7 @@
 //   - The exit is the stylesheet's own (its class is set first); ours is played over it, from the look to the same end, on the same
 //     time and curve, and holds the end (the stylesheet's keeps running underneath to the same end).
 //   - Reduce Motion: the entrance the page runs is the opacity-only one, named so by the event, and the exit follows it.
-import { D_FLIP, D_SMALL, EASE_IN, easeArrive } from './ease.js?v=7d7bfe9a62';
+import { D_FLIP, D_SMALL, EASE_IN, easeArrive } from './ease.js';
 
 
 // What leaves through here: the popover menu (and its sheet), the main menu and its sheet and scrim, the "why" card.

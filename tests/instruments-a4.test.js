@@ -76,7 +76,7 @@ test('the vitals read the slide\'s own numbers, decimals as its tiles print them
   // (the helper and the bar share one flag: this is the same function)
   assert.equal(vitalReading({ v: VITALS[0] }, { map: 60 }, false, 0).bad, true);
   const src = read('../src/ui/vitals-monitor.js');
-  assert.match(src, /import \{ createBeatClock, ekgSeries(?:, \w+)* \} from '\.\/ekg\.js(\?v=\w+)?'/, 'the strip is the pressure trace\'s');
+  assert.match(src, /import \{ createBeatClock, ekgSeries(?:, \w+)* \} from '\.\/ekg\.js'/, 'the strip is the pressure trace\'s');
   assert.match(src, /if \(c\.bad\) rectAt\(nr\+\+, x - 5, by - big \* 0\.78 - 4, rw \+ 10, big \* 0\.78 \+ 10, 5, alarm\);\n\s+textAt\(nt\+\+, val, 700, big, x \+ rw - nw, by, c\.bad \? bg : ink\);/);   // (the readings go to the GPU's list; a reading past its limit is reverse video on the alarm patch, a box of the widest number so it never resizes)
   assert.doesNotMatch(src, /shadowBlur|createLinearGradient|arc\(/, 'no glow, gradient or status dot');
   assert.doesNotMatch(src, /textAt\([^;]*, (?:[0-9]|1[01]), [^;]*\);/, 'no word under 12 px');

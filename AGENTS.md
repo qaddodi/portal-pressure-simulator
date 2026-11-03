@@ -67,7 +67,9 @@ with file, function, frame path and owning thread, is `docs/off-gpu-inventory.md
 `scripts/off-gpu-owners.json`). `npx eslint .` alone checks code style while the list is not yet empty. Never weaken the scanner or
 loosen its test to get green. `?offgpu=1` shows the same kinds of work live, per frame, and flashes red when any happens during motion.
 
-Pages serves each copy as its production build (`npm run build` → `dist/`: bundled, minified, hashed), built in the deploy job of `pages.yml`; the repository root still runs as is for `npm start`. The preview's browser checks (`checks.yml`) test that build, as shipped; `ci.yml` tests both the source and the build. Workflows pin `ubuntu-24.04`, so a new runner image (and new visual references) is a deliberate change.
+Pages serves each copy as its production build (`npm run build` → `dist/`: bundled, minified, hashed), built in the deploy job of `pages.yml`; the repository root still runs as is for `npm start`. The preview's browser checks (`checks.yml`) test that build, as shipped; `ci.yml` tests both the source and the build. Source imports are plain addresses: no `?v=<hash>` stamp is committed (2 Nov 2026), so parallel branches no longer conflict on them; cache-busting is the build's hashed
+file names and generated service worker. `tests/stamp.test.js` fails a committed stamp, and `npm run stamp` takes one out of a branch made before this.
+Workflows pin `ubuntu-24.04`, so a new runner image (and new visual references) is a deliberate change.
 
 ## Per-frame work (the GPU is the only per-frame painter)
 

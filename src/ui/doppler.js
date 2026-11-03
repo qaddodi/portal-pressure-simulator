@@ -4,25 +4,25 @@
 // and the waveform pattern. The trace keeps recording while the instrument is closed, so it opens
 // full. It scrolls smoothly, one spectral line at a time, as the machine does.
 
-import { EDGES, dopplerK, stentSegments, stentSite, stentGate, stentCourse } from '../engine/topology.js?v=512e725aea';
-import { glWords, wordsRect } from './gl-words.js?v=b1ffc0f873';
-import { h, fmt, canvasSize, clamp, icon, cssVar, cssAlpha, swapText } from './util.js?v=3a261d27c6';
-import { FONT, textW } from './charts.js?v=6550e7420a';
-import { logAction, shownVel, store } from './store.js?v=a51981892d';
-import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=871f19691f';
-import { frameFor, noteDraw, paceMs, cancelFrame } from './frame.js?v=ca74a6f22a';
-import { windowIndexFor, scaleFor, fitScale } from './dopplerWindow.js?v=87d77987c4';
-import { velNormal, dopplerVel, judgeFlow } from './velNormal.js?v=ad0e95380d';
-import { caliperFrame, caliperLevel, caliperX, CAL_FADE, pairOf, pairBand, pairScale, PAIR_GAP } from './doppler-marks.js?v=857acf845e';
-import { createDopplerGL } from './doppler-gl.js?v=a4cb924d45';
-import { surface } from './gpu-surfaces.js?v=b62dfcfdd1';
-import { olderThan } from './backfill.js?v=455d888760';
-import { createFollow } from './display-state.js?v=e70ae1a877';
-import { D_SMALL, EASE_ARRIVE } from './ease.js?v=7d7bfe9a62';
-import { restPass } from './rest-pass.js?v=b1da783ead';
-import { createTraceGL, fitPen, keepLayer } from './trace-gl.js?v=787c5cdac5';
-import { attrSoon, classSoon, dataSoon, propSoon, runSoon } from './class-soon.js?v=d59b314e61';
-import { dropFront } from './drop-front.js?v=21069ee0e8';
+import { EDGES, dopplerK, stentSegments, stentSite, stentGate, stentCourse } from '../engine/topology.js';
+import { glWords, wordsRect } from './gl-words.js';
+import { h, fmt, canvasSize, clamp, icon, cssVar, cssAlpha, swapText } from './util.js';
+import { FONT, textW } from './charts.js';
+import { logAction, shownVel, store } from './store.js';
+import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js';
+import { frameFor, noteDraw, paceMs, cancelFrame } from './frame.js';
+import { windowIndexFor, scaleFor, fitScale } from './dopplerWindow.js';
+import { velNormal, dopplerVel, judgeFlow } from './velNormal.js';
+import { caliperFrame, caliperLevel, caliperX, CAL_FADE, pairOf, pairBand, pairScale, PAIR_GAP } from './doppler-marks.js';
+import { createDopplerGL } from './doppler-gl.js';
+import { surface } from './gpu-surfaces.js';
+import { olderThan } from './backfill.js';
+import { createFollow } from './display-state.js';
+import { D_SMALL, EASE_ARRIVE } from './ease.js';
+import { restPass } from './rest-pass.js';
+import { createTraceGL, fitPen, keepLayer } from './trace-gl.js';
+import { attrSoon, classSoon, dataSoon, propSoon, runSoon } from './class-soon.js';
+import { dropFront } from './drop-front.js';
 const nextFrame = frameFor('doppler');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));

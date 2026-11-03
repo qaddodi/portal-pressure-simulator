@@ -8,20 +8,20 @@
 // readout tile. In Explore the live HVPG readouts stay hidden until this has run for the patient
 // (store.hvpgMeasured, hiddenNow); the tracing's small waves are illustrative.
 
-import { h, fmt, clamp, icon, cssVar, toast, swapText } from './util.js?v=3a261d27c6';
-import { glWords } from './gl-words.js?v=b1ffc0f873';
-import { hvpgSev, hvBlocked } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { FONT } from './charts.js?v=6550e7420a';
-import { pressureColor } from './colormap.js?v=8a73b5b0e8';
-import { store, logAction, hiddenNow, updateParams } from './store.js?v=a51981892d';
-import { shownOr } from './shown.js?v=c469d53cf4';
-import { classSoon, restartSoon, attrSoon, dataSoon, propSoon } from './class-soon.js?v=d59b314e61';
-import { T, ease, k01, balloonAt, timeOfBalloon, pressureAt as pAt } from './hvpg-clock.js?v=95f13823ce';
-import { frameFor, cancelFrame } from './frame.js?v=ca74a6f22a';
-import { createTraceGL, fitPen } from './trace-gl.js?v=787c5cdac5';
-import { traceRoom, TRACE_MIN } from './trace-room.js?v=3d2b1ff680';
-import { rateOf } from './table-marks.js?v=a483b9975e';
-import { PROCS, PROC_KINDS, procBlocked, procOffered, playProcedure } from './proc-anim.js?v=0bd6bb6764';
+import { h, fmt, clamp, icon, cssVar, toast, swapText } from './util.js';
+import { glWords } from './gl-words.js';
+import { hvpgSev, hvBlocked } from '../engine/pressure-cuts.js';
+import { FONT } from './charts.js';
+import { pressureColor } from './colormap.js';
+import { store, logAction, hiddenNow, updateParams } from './store.js';
+import { shownOr } from './shown.js';
+import { classSoon, restartSoon, attrSoon, dataSoon, propSoon } from './class-soon.js';
+import { T, ease, k01, balloonAt, timeOfBalloon, pressureAt as pAt } from './hvpg-clock.js';
+import { frameFor, cancelFrame } from './frame.js';
+import { createTraceGL, fitPen } from './trace-gl.js';
+import { traceRoom, TRACE_MIN } from './trace-room.js';
+import { rateOf } from './table-marks.js';
+import { PROCS, PROC_KINDS, procBlocked, procOffered, playProcedure } from './proc-anim.js';
 const nextFrame = frameFor('hvpg-proc');
 
 let stageRef = null;

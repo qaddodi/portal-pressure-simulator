@@ -98,34 +98,34 @@
 // Every deck opens with an "Outline and objectives" slide built from its kicker groups and objectives
 // (withOverview below); a deck never writes that slide itself.
 
-import { CIRCULATION } from './decks/circulation.js?v=6f34425bc2';
-import { SITES } from './decks/sites.js?v=df9b36d209';
-import { HVPG } from './decks/hvpg.js?v=9931b4b9d0';
-import { ASCITES } from './decks/ascites.js?v=a66831c764';
-import { VARICES } from './decks/varices.js?v=56ea505657';
-import { TREATMENT } from './decks/treatment.js?v=b2c0dcc11b';
-import { STIFFNESS } from './decks/stiffness.js?v=5b2d2385cf';
-import { LOBULE } from './decks/lobule.js?v=d52e883d47';
-import { SHUNTS } from './decks/shunts.js?v=2552996ea8';
-import { TIPS_DOPPLER } from './decks/tips-doppler.js?v=359feee3f0';
-import { CIRCUIT } from './decks/circuit.js?v=b3b5b96f55';
-import { DOPPLER } from './decks/doppler.js?v=da1aa30e81';
-import { ENDOSCOPY } from './decks/endoscopy.js?v=b87d96a3db';
-import { PREHEPATIC } from './decks/prehepatic.js?v=8149a24e61';
-import { BLEED } from './decks/variceal-bleed.js?v=6738c3ceac';
-import { TWO_INFLOWS } from './decks/two-inflows.js?v=bac786bc6d';
-import { NCPH } from './decks/ncph.js?v=fba64b2bbf';
-import { OUTFLOW } from './decks/outflow.js?v=272a4f621e';
-import { RECOMPENSATION } from './decks/recompensation.js?v=555d8ababe';
-import { WHERE } from './decks/where.js?v=c28f096edc';
-import { PREGNANCY_DECK } from './decks/pregnancy.js?v=d79b566bbb';
-import { ENCEPHALOPATHY } from './decks/encephalopathy.js?v=7d08be79e0';
-import { CAUSE_TREATED } from './decks/cause-treated.js?v=0c9bf8fa7e';
-import { NEXT_BLEED } from './decks/next-bleed.js?v=1c7d1d5d32';
-import { GASTRIC } from './decks/gastric-varices.js?v=86aab71c34';
-import { HYPERDYNAMIC } from './decks/hyperdynamic.js?v=90b476c393';
-import { CHOOSE_TREATMENT } from './decks/choose-treatment.js?v=c81f907a9c';
-import { TEN_YEARS } from './decks/ten-years.js?v=4ebfbf5725';
+import { CIRCULATION } from './decks/circulation.js';
+import { SITES } from './decks/sites.js';
+import { HVPG } from './decks/hvpg.js';
+import { ASCITES } from './decks/ascites.js';
+import { VARICES } from './decks/varices.js';
+import { TREATMENT } from './decks/treatment.js';
+import { STIFFNESS } from './decks/stiffness.js';
+import { LOBULE } from './decks/lobule.js';
+import { SHUNTS } from './decks/shunts.js';
+import { TIPS_DOPPLER } from './decks/tips-doppler.js';
+import { CIRCUIT } from './decks/circuit.js';
+import { DOPPLER } from './decks/doppler.js';
+import { ENDOSCOPY } from './decks/endoscopy.js';
+import { PREHEPATIC } from './decks/prehepatic.js';
+import { BLEED } from './decks/variceal-bleed.js';
+import { TWO_INFLOWS } from './decks/two-inflows.js';
+import { NCPH } from './decks/ncph.js';
+import { OUTFLOW } from './decks/outflow.js';
+import { RECOMPENSATION } from './decks/recompensation.js';
+import { WHERE } from './decks/where.js';
+import { PREGNANCY_DECK } from './decks/pregnancy.js';
+import { ENCEPHALOPATHY } from './decks/encephalopathy.js';
+import { CAUSE_TREATED } from './decks/cause-treated.js';
+import { NEXT_BLEED } from './decks/next-bleed.js';
+import { GASTRIC } from './decks/gastric-varices.js';
+import { HYPERDYNAMIC } from './decks/hyperdynamic.js';
+import { CHOOSE_TREATMENT } from './decks/choose-treatment.js';
+import { TEN_YEARS } from './decks/ten-years.js';
 
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).
 export const REGIONS = {

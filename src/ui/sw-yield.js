@@ -13,7 +13,7 @@
 
 // The renderer test, the same as veins-gl.js's (tests/sw-yield.test.js holds the two together): only a software rasterizer
 // named by the WebGL renderer string. A masked or generic name (Safari's "Apple GPU", ANGLE Metal, Mali, Adreno, Intel) is a GPU.
-import { caught } from './caught.js?v=caf293c676';
+import { caught } from './caught.js';
 const SOFTWARE = /SwiftShader|llvmpipe|softpipe|Software|Basic Render/i;
 /** Whether this WebGL context is drawn on the CPU. */
 export function softwareGL(gl) {

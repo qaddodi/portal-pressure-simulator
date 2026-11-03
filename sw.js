@@ -1,4 +1,4 @@
-// Offline support. Stamped files (…?v=<hash>) never change, so they are served from the cache
+// Offline support. A file stamped with ?v=<hash> never changes, so it is served from the cache
 // first; fonts and the brand art from the cache, refreshed behind it; everything else (the page
 // itself, the manifest) from the network when there is one and from the cache when there isn't,
 // so the simulator keeps working in an exam hall with poor Wi-Fi. Bump CACHE to drop old entries.

@@ -9,7 +9,7 @@ const STAGE = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8
 const CSS = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 const LGL = readFileSync(new URL('../src/ui/label-gl.js', import.meta.url), 'utf8');
 // (The same copy of the GPU text module label-gl.js uses, by its stamped name, with Inter's outlines loaded as the page loads them.)
-const TEXT_SPEC = readFileSync(new URL('../src/ui/label-gl.js', import.meta.url), 'utf8').match(/from '\.\/(text-gl\.js\?v=[0-9a-f]+)'/)[1];
+const TEXT_SPEC = readFileSync(new URL('../src/ui/label-gl.js', import.meta.url), 'utf8').match(/from '\.\/(text-gl\.js)'/)[1];
 const TEXT = await import(`../src/ui/${TEXT_SPEC}`);
 await TEXT.loadGlyphs();
 const run = (o = {}) => ({ t: '12.0', dx: 0, font: '500 14px Inter', size: 14, wt: 500, it: false, fam: 'Inter, system-ui, sans-serif', ls: 0, tnum: true, fill: 'rgb(0, 0, 0)', stroke: 'rgba(251, 250, 247, 0.92)', sw: 3, join: 'round', strokeFirst: true, ...o });

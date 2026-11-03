@@ -250,7 +250,7 @@ To make it a built-in deck for everyone:
 1. Save it as `src/ui/decks/<id>.js`.
 2. Import and register it in `src/ui/decks.js`, and list it under one topic in `TOPICS`.
 3. If a built-in slide uses any of the newer options (the highlights, `scales`, `procedure`, charts, `cite`, the deck-only lenses), list that slide in `tests/deck-adopted.js`.
-4. Run `npm run lint && npm test`, then `npm run stamp`.
+4. Run `npm run lint && npm test`.
 5. Draw the handout pictures with `node scripts/handout-figures.mjs <id>`.
 
 Full guide: sections 12 and 13.

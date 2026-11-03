@@ -26,9 +26,9 @@
 // quick run of slides never jumps; the earlier morph's leaving words finish fading on their own.
 // The clock is the eases' (frame.js easeNow: no leap after a long frame) and the writes come in the frame's late phase, after the
 // chart's own paints, so a frame shows the glide and nothing else.
-import { lateFrameFor, cancelFrame, easeNow } from './frame.js?v=ca74a6f22a';
-import { D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, easeMove } from './ease.js?v=7d7bfe9a62';
-import { setGeo, rawGeo } from './held-geo.js?v=5676542ccc';
+import { lateFrameFor, cancelFrame, easeNow } from './frame.js';
+import { D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, easeMove } from './ease.js';
+import { setGeo, rawGeo } from './held-geo.js';
 
 const nextLate = lateFrameFor('svg-morph');
 

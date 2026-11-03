@@ -8,9 +8,8 @@ import { PRESETS, DRUGS } from '../src/engine/scenario.js';
 import { EDGES } from '../src/engine/topology.js';
 import { readFileSync } from 'node:fs';
 const { activeInterventions, readings } = await import('../src/ui/inspector.js');
-// (The inspector reads util.js by its stamped name, so its units are the ones of that copy of the module: this reads the same one.)
-const utilName = readFileSync(new URL('../src/ui/inspector.js', import.meta.url), 'utf8').match(/from '\.\/(util\.js\?v=\w+)'/)[1];
-const { fmt, fmtFlow, fp, ff, units } = await import(new URL(`../src/ui/${utilName}`, import.meta.url));
+// (The inspector reads util.js by its plain name, so its units are the ones of that copy of the module: this reads the same one.)
+const { fmt, fmtFlow, fp, ff, units } = await import('../src/ui/util.js');
 const { newCell, numText, pressText, flowText, lpmText } = readings;
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));

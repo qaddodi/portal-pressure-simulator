@@ -3,8 +3,8 @@
 // DIPS in, the main portal vein's floor is 30 cm/s, the follow-up scan's cut-off, and it has no ceiling: fast flow is what a working stent does. Every other vein is compared with its
 // own healthy velocity, normal from two-thirds to one and a half times it, as no published range covers it. Collaterals
 // and the other shunts have no normal and stay neutral.
-import { EDGES, dopplerK } from '../engine/topology.js?v=512e725aea';
-import { FLOW_CUTS } from '../engine/flow-cuts.js?v=1c97536e9e';
+import { EDGES, dopplerK } from '../engine/topology.js';
+import { FLOW_CUTS } from '../engine/flow-cuts.js';
 
 export { FLOW_CUTS };
 

@@ -42,6 +42,6 @@ test('a presentation\'s Doppler monitor disposes its frames, observers and WebGL
 test('the preview\'s test deck is not in the live site\'s bundle', () => {
   const p = src('src/ui/presenter.js');
   assert.doesNotMatch(p, /^import [^\n]*test-decks/m);
-  assert.match(p, /const testingLoad = PREVIEW \? import\('\.\/test-decks\/demo-all-new-visuals\.js\?v=[0-9a-f]+'\)/);
+  assert.match(p, /const testingLoad = PREVIEW \? import\('\.\/test-decks\/demo-all-new-visuals\.js'\)/);
   assert.match(p, /if \(!d && typeof id === 'string' && id\.startsWith\('test-'\) && !TESTING\.length && !opts\?\.waited\) return testingLoad\.then\(\(\) => start\(id, at, \{ \.\.\.opts, waited: true \}\)\);/);   // (waits once: a missing test deck is \"not found\", not a loop)
 });

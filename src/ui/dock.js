@@ -1,31 +1,31 @@
 // Readout strip (the four key readouts in the vitals dock, and the rest behind its chevron) and the
 // Instruments card (blueprint §9.1, §9.2).
 
-import { store, hiddenNow } from './store.js?v=a51981892d';
-import { EDGES } from '../engine/topology.js?v=512e725aea';
-import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, fadeIn, glideOnResize, foldHidden, hasBox, putText } from './util.js?v=3a261d27c6';
-import { lobuleFlows } from './lobule-model.js?v=4af349e996';
-import { createProfile } from './charts.js?v=6550e7420a';
-import { createPressureTime } from './pressure-time.js?v=a6a7f20fbe';
-import { createHvpgProcedure } from './hvpg-proc.js?v=4bdaac853c';
-import { lazyPane, holdUntilLoaded } from './lazy-pane.js?v=64397c779b';
-import { ownsSideways, pageGo } from './swipe.js?v=1dc3073418';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=54ff961af5';
-import { createReadoutsPane } from './readouts-pane.js?v=c6cb5c7a9f';
-import { frameFor } from './frame.js?v=ca74a6f22a';
-import { glWords } from './gl-words.js?v=b1ffc0f873';
-import { restPass } from './rest-pass.js?v=b1da783ead';
-import { dropFront } from './drop-front.js?v=21069ee0e8';
-import { classSoon, classHas, classNow } from './class-soon.js?v=d59b314e61';
-import { vitalReading, VITALS } from './vital-read.js?v=eb683dfbdd';
-import { setShown, shownState, FILL_SMALL, fillQ } from './shown.js?v=c469d53cf4';
-import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
-import { HVPG_CUTS, PPG_CUTS, hvpgSev, ppgSev, hvBlocked } from '../engine/pressure-cuts.js?v=0cfa0c573a';
-import { compareRows } from './idle-keys.js?v=1b5b7b8ddd';
-import { releaseSpeed, carryCurve, cubicBezier, easeArrive, D_FLIP, D_SMALL, EASE_IN, EASE_ARRIVE } from './ease.js?v=7d7bfe9a62';
-import { readAnims, readBox, readMetric, readStyle, scrollInto } from './layout-snap.js?v=e1329a7c70';
-import { attrSoon, dataSoon } from './class-soon.js?v=d59b314e61';
-import { caught } from './caught.js?v=caf293c676';
+import { store, hiddenNow } from './store.js';
+import { EDGES } from '../engine/topology.js';
+import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, fadeIn, glideOnResize, foldHidden, hasBox, putText } from './util.js';
+import { lobuleFlows } from './lobule-model.js';
+import { createProfile } from './charts.js';
+import { createPressureTime } from './pressure-time.js';
+import { createHvpgProcedure } from './hvpg-proc.js';
+import { lazyPane, holdUntilLoaded } from './lazy-pane.js';
+import { ownsSideways, pageGo } from './swipe.js';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js';
+import { createReadoutsPane } from './readouts-pane.js';
+import { frameFor } from './frame.js';
+import { glWords } from './gl-words.js';
+import { restPass } from './rest-pass.js';
+import { dropFront } from './drop-front.js';
+import { classSoon, classHas, classNow } from './class-soon.js';
+import { vitalReading, VITALS } from './vital-read.js';
+import { setShown, shownState, FILL_SMALL, fillQ } from './shown.js';
+import { tenthGap } from '../engine/gap.js';
+import { HVPG_CUTS, PPG_CUTS, hvpgSev, ppgSev, hvBlocked } from '../engine/pressure-cuts.js';
+import { compareRows } from './idle-keys.js';
+import { releaseSpeed, carryCurve, cubicBezier, easeArrive, D_FLIP, D_SMALL, EASE_IN, EASE_ARRIVE } from './ease.js';
+import { readAnims, readBox, readMetric, readStyle, scrollInto } from './layout-snap.js';
+import { attrSoon, dataSoon } from './class-soon.js';
+import { caught } from './caught.js';
 const nextFrame = frameFor('dock');
 
 // A number that changes rewrites its text node in place (setting textContent replaces the node: a DOM rebuild per paint).

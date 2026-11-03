@@ -91,7 +91,7 @@ test('the glass takes a new copy of the figure only when the figure, the region 
 });
 
 test('the glass is drawn on the shared final phase, once a frame, after the figure\'s own frame', () => {
-  assert.match(SRC, /import \{ finalFrameFor, readFrameFor, framePhase, frameCount, cancelFrame, noteDraw \} from '\.\/frame\.js\?v=[0-9a-f]+';/);
+  assert.match(SRC, /import \{ finalFrameFor, readFrameFor, framePhase, frameCount, cancelFrame, noteDraw \} from '\.\/frame\.js';/);
   assert.match(SRC, /const later = finalFrameFor\(cards \? 'glass-cards' : pane \? 'glass-pane' : 'glass'\);/);
   assert.match(SRC, /const loop = \(\) => \{ raf = 0; if \(changed\(mo\.takeRecords\(\)\)\) measureSoon\(\); settle\(draw\(\)\); \};/, 'the writes made before it in its frame are drawn by it (a glide or fade put back now; anything else read just after the frame), not again after');
   assert.match(SRC, /function ask\(\) \{ if \(!raf && !lost && !dead\) raf = later\(loop\); \}/);

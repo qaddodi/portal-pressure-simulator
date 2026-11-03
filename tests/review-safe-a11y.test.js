@@ -39,7 +39,7 @@ test('announcements close together are coalesced: the newest is spoken after the
 
 test('util.js re-exports the coalescing announcer and no longer drops messages', () => {
   const util = read('src/ui/util.js');
-  assert.match(util, /export \{ announce \} from '\.\/live\.js(\?v=[0-9a-f]+)?';/);
+  assert.match(util, /export \{ announce \} from '\.\/live\.js';/);
   assert.doesNotMatch(util, /liveLast/);
 });
 

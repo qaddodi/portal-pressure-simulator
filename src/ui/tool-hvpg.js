@@ -10,11 +10,11 @@
 // every frame), and the slide's readings are the ones the catheter's callouts print. The same card stays up from one such slide to the
 // next (card-keep.js), and the trace carries on from where the last slide left it.
 
-import { createHvpgMonitor } from './hvpg-proc.js?v=4bdaac853c';
-import { T, ease, k01 } from './hvpg-clock.js?v=95f13823ce';
-import { frameFor, cancelFrame } from './frame.js?v=ca74a6f22a';
-import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
-import { follow2, SHOWN_TAU } from './display-state.js?v=e70ae1a877';
+import { createHvpgMonitor } from './hvpg-proc.js';
+import { T, ease, k01 } from './hvpg-clock.js';
+import { frameFor, cancelFrame } from './frame.js';
+import { tenthGap } from '../engine/gap.js';
+import { follow2, SHOWN_TAU } from './display-state.js';
 const nextFrame = frameFor('tool-hvpg');
 const REDUCED = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 /** The readings a card shows from a fingerprint (or the live metrics): the two pressures, and the HVPG as the difference of them as printed. */

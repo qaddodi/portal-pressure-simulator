@@ -2,8 +2,8 @@
 // each column's cut-offs (CUT, the same as the readouts' status colors), the direction a cell's arrow points against
 // normal (dirAbs) or against a reference patient (dirRel), and the colour that goes with it.
 
-import { FLOW_CUTS } from '../engine/flow-cuts.js?v=1c97536e9e';
-import { PPG_CUTS, hvpgRate, ppgRate } from '../engine/pressure-cuts.js?v=0cfa0c573a';
+import { FLOW_CUTS } from '../engine/flow-cuts.js';
+import { PPG_CUTS, hvpgRate, ppgRate } from '../engine/pressure-cuts.js';
 
 export const NO_ASC = 150;   // mL: below it there is no ascites to tap (ultrasound grade 1 starts here)
 // (The ratings are fixed pairs [colour class, word], made once and handed out as the same frozen arrays: a tile's rating is asked for on every

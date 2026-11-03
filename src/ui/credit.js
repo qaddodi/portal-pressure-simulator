@@ -1,14 +1,14 @@
 // The corner credit finds a free spot on the figure: never on or touching a card, a sheet, a bar or a menu.
 // It keeps its corner while that corner stays free and is never animated (no glide, no fade): any move hides it at once,
 // holds it hidden only until the cards have settled (a slide change lifts its hold 120 ms after the camera move; a move off a spot a card now covers is hidden for 80 ms), then shows it at once at the new spot; with no figure left anywhere it stays hidden.
-import { readFrameFor, figLab, mayTask } from './frame.js?v=ca74a6f22a';
-import { gpuProbe, COUNTED } from './gpu-probe.js?v=294bbe5874';
-import { restPass, cancelRest } from './rest-pass.js?v=b1da783ead';
-import { CELL, cellFor, regionFor, contains, touches, artTest, boxThrough, multiply, invert } from './credit-art.js?v=77b95dafe8';
-import { CellGrid, geomOf } from './cell-grid.js?v=00c4abdf4b';
-import { elBoxInto, chainMat } from './shape-gl.js?v=9e5dd356a7';
-import { layoutWatch, PLACED, GESTURE_LOOK } from './idle-keys.js?v=1b5b7b8ddd';
-import { readAnims, readBox, readCTM, readMetric, readStyle, readTiming, worldCTM } from './layout-snap.js?v=e1329a7c70';
+import { readFrameFor, figLab, mayTask } from './frame.js';
+import { gpuProbe, COUNTED } from './gpu-probe.js';
+import { restPass, cancelRest } from './rest-pass.js';
+import { CELL, cellFor, regionFor, contains, touches, artTest, boxThrough, multiply, invert } from './credit-art.js';
+import { CellGrid, geomOf } from './cell-grid.js';
+import { elBoxInto, chainMat } from './shape-gl.js';
+import { layoutWatch, PLACED, GESTURE_LOOK } from './idle-keys.js';
+import { readAnims, readBox, readCTM, readMetric, readStyle, readTiming, worldCTM } from './layout-snap.js';
 const OWN_BOX = { x: 0, y: 0, width: 0, height: 0 };   // alloc-rare: made once (a shape's own box, read at once)
 // (The art's walk looks at the camera once a frame: in the frame's first, read-only phase (2 Nov 2026), where the layout is the one the
 // browser last drew, never after the frame's writes.)

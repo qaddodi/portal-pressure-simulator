@@ -1,4 +1,4 @@
-import { dropFront } from './drop-front.js?v=21069ee0e8';
+import { dropFront } from './drop-front.js';
 // A schematic EKG for the beat-by-beat pressure trace and the vitals monitor: a P wave, a QRS and a T wave drawn from the model's own
 // cardiac phase, so each QRS lands on the beat that moves the pressures. It is a rhythm timed to the model, not a modelled ECG.
 //

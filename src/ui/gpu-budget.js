@@ -11,8 +11,8 @@
 // quality tiers read (adapt-tier.js, R07) to step the scene's resolution down before the motion skips frames.
 // Read it: ?perf (the readout's Surfaces block ends with the budget), or pps.budget() in the console.
 
-import { onGLCall, glRec } from './gl-state.js?v=ee046876b7';
-import { onFrameEnd } from './frame.js?v=ca74a6f22a';
+import { onGLCall, glRec } from './gl-state.js';
+import { onFrameEnd } from './frame.js';
 
 const SEARCH = typeof location !== 'undefined' ? location.search || '' : '';
 // (With ?perf, each entry keeps the line of code that made it, so the readout names the biggest creators: a leak names itself.)

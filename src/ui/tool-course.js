@@ -21,10 +21,10 @@
 // treatments from its last state) and kept; until they are there the zones, numbers and axes show and the lines then fade in.
 // These are the model's own speeds, not a patient's: a deck line that quotes them needs a source, or none.
 
-import { TILE, RATE } from './table-marks.js?v=a483b9975e';
-import { lineMeta, cutsOf, fmtTick, placeWord } from './tool-curve.js?v=b60c19ae6c';
-import { plotPanel } from './plot-look.js?v=5037697da7';
-import { createSvgGL, svgModel } from './svg-gl.js?v=d687806d59';
+import { TILE, RATE } from './table-marks.js';
+import { lineMeta, cutsOf, fmtTick, placeWord } from './tool-curve.js';
+import { plotPanel } from './plot-look.js';
+import { createSvgGL, svgModel } from './svg-gl.js';
 
 const CO_MIN = 12;   // (px on the screen: the smallest the chart's words are drawn)
 const BRANCH_C = ['--tr-pv', '--tr-hv'];

@@ -14,13 +14,13 @@
 // While a compare button or what-if slider moves the live model, the causes are worked out again on the live state and the
 // steps ease to their new places. These are the model's own shares: a deck line that quotes them needs a source.
 
-import { TILE, RATE, tileShown } from './table-marks.js?v=a483b9975e';
-import { cutsOf } from './tool-curve.js?v=b60c19ae6c';
-import { DRUGS } from '../engine/scenario.js?v=d2669cef9b';
-import { restClass } from './rest-pass.js?v=b1da783ead';
-import { frameFor } from './frame.js?v=ca74a6f22a';
-import { createSvgGL, svgModel, setWords, setGeo, setPts } from './svg-gl.js?v=d687806d59';
-import { numWords, signedWords } from './num-words.js?v=cf53d490d9';
+import { TILE, RATE, tileShown } from './table-marks.js';
+import { cutsOf } from './tool-curve.js';
+import { DRUGS } from '../engine/scenario.js';
+import { restClass } from './rest-pass.js';
+import { frameFor } from './frame.js';
+import { createSvgGL, svgModel, setWords, setGeo, setPts } from './svg-gl.js';
+import { numWords, signedWords } from './num-words.js';
 const nextFrame = frameFor('tool-causes');
 const mix = (a, b, k) => a + (b - a) * k;   // (one step toward b)
 

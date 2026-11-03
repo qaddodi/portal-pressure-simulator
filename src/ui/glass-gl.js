@@ -8,18 +8,18 @@
 // Off (the browser's glass, as before): no WebGL2, a software renderer, Settings' blur effect off, reduced
 // transparency, a browser without backdrop blur (whose solid card stays), or a copy the browser refuses.
 
-import { shareFor, sharePrep, sharePlan, shareKeep, shareForget, shareTurn, shareUse, shareRelease, shareBytes } from './blur-share.js?v=bce3e2c1bd';
-import { glCap, fbComplete } from './gl-state.js?v=ee046876b7';
-import { hold } from './gpu-budget.js?v=a79222bd11';
-import { gpuProbe, COUNTED } from './gpu-probe.js?v=294bbe5874';
-import { finalFrameFor, readFrameFor, framePhase, frameCount, cancelFrame, noteDraw } from './frame.js?v=ca74a6f22a';
-import { startProgram, checkProgram, compileDone, exerciseDraw, SHADER_WARM } from './gl-compile.js?v=255276a5f4';
-import { Inline, inlineShift, inlineTranslate, Motion, compileKeyframes, motionAt, movesOnly, clockOf, clockAt } from './glass-motion.js?v=c45c2a76ac';
-import { pathPolys, fanTriangles } from './path-poly.js?v=01766890c9';
-import { easeArrive, D_SURFACE } from './ease.js?v=7d7bfe9a62';
-import { caught } from './caught.js?v=caf293c676';
-import { viewSize } from './layout-snap.js?v=e1329a7c70';
-import { parseCssColor } from './css-color.js?v=59ed182174';
+import { shareFor, sharePrep, sharePlan, shareKeep, shareForget, shareTurn, shareUse, shareRelease, shareBytes } from './blur-share.js';
+import { glCap, fbComplete } from './gl-state.js';
+import { hold } from './gpu-budget.js';
+import { gpuProbe, COUNTED } from './gpu-probe.js';
+import { finalFrameFor, readFrameFor, framePhase, frameCount, cancelFrame, noteDraw } from './frame.js';
+import { startProgram, checkProgram, compileDone, exerciseDraw, SHADER_WARM } from './gl-compile.js';
+import { Inline, inlineShift, inlineTranslate, Motion, compileKeyframes, motionAt, movesOnly, clockOf, clockAt } from './glass-motion.js';
+import { pathPolys, fanTriangles } from './path-poly.js';
+import { easeArrive, D_SURFACE } from './ease.js';
+import { caught } from './caught.js';
+import { viewSize } from './layout-snap.js';
+import { parseCssColor } from './css-color.js';
 
 /** The CSS glass this draws (app.css .cl-glass: blur(16px) saturate(1.15) over 58 % of --surface). */
 export const GLASS = { blur: 16, sat: 1.15, tint: 0.58 };

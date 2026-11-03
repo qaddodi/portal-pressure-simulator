@@ -2,10 +2,10 @@
 //
 // The figure's accessible description is kept current with a one-line reading of the patient.
 
-import { store, hiddenNow } from './store.js?v=a51981892d';
-import { fmt } from './util.js?v=3a261d27c6';
-import { EDGES } from '../engine/topology.js?v=512e725aea';
-import { judgeFlow } from './velNormal.js?v=ad0e95380d';
+import { store, hiddenNow } from './store.js';
+import { fmt } from './util.js';
+import { EDGES } from '../engine/topology.js';
+import { judgeFlow } from './velNormal.js';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 

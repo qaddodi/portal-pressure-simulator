@@ -6,10 +6,10 @@
 // instead of the compositor's words running on ahead of the main thread's glass. A card already moving is taken from wherever it is
 // (Next pressed mid-entrance, a swipe let go): its next move starts from there, never from a jump.
 
-import { frameFor, cancelFrame, easeNow, beginMotion } from './frame.js?v=ca74a6f22a';
-import { cubicBezier } from './ease.js?v=7d7bfe9a62';
-import { classSoon, runSoon } from './class-soon.js?v=d59b314e61';
-import { caught } from './caught.js?v=caf293c676';
+import { frameFor, cancelFrame, easeNow, beginMotion } from './frame.js';
+import { cubicBezier } from './ease.js';
+import { classSoon, runSoon } from './class-soon.js';
+import { caught } from './caught.js';
 
 /** How far (px) the new card comes in from, and the stagger (ms) of a second card behind the first. */
 export const THROW_IN = 56, THROW_STAGGER = 40;
