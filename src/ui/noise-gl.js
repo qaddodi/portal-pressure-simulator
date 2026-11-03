@@ -80,7 +80,9 @@ export function createNoiseFiller(gl) {
         if ((fbR ?? null) === (fbD ?? null)) gl.bindFramebuffer(gl.FRAMEBUFFER, fbD ?? null);
         else { gl.bindFramebuffer(gl.READ_FRAMEBUFFER, fbR ?? null); gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, fbD ?? null); }
         if (vp?.length === 4) gl.viewport(vp[0], vp[1], vp[2], vp[3]);
-        gl.useProgram(was ?? null);
+        // (A program the renderer deleted while it was still current is not bound again: Safari hands it back as the current program and
+        // useProgram on it is an INVALID_VALUE, 'attempt to use a deleted object'.)
+        gl.useProgram(was && gl.isProgram(was) ? was : null);
         gl.bindVertexArray(wasVao ?? null);
         if (mask?.length === 4) gl.colorMask(mask[0], mask[1], mask[2], mask[3]);
         for (let i = 0; i < caps.length; i++) if (capOn[i]) gl.enable(caps[i]);
