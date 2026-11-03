@@ -9,6 +9,10 @@ globalThis.requestAnimationFrame = (f) => { q.push(f); return q.length; };
 globalThis.cancelAnimationFrame = () => {};
 performance.now = () => T;
 globalThis.MutationObserver = class { observe() {} disconnect() {} };
+// (The guard's timer is held here, never fired by real time: a timer left from one test going off during the next, on a loaded machine,
+// landed its moves early and failed it once in a full run. The tests call throwGuard themselves.)
+const realTimeout = globalThis.setTimeout;
+globalThis.setTimeout = (f, ms, ...a) => (f?.name === 'guard' ? { unref() {}, ref() {} } : realTimeout(f, ms, ...a));
 const ct = await import('../src/ui/card-throw.js');
 
 const mk = (cls = []) => {
@@ -85,4 +89,37 @@ test('presenter: a finished move that is the current one gives the figure back, 
   const fin = presenter.slice(presenter.indexOf('try { await transitionRun(to); } finally {'), presenter.indexOf('async function transitionRun(to)'));
   assert.match(fin, /if \(tx\?\.live\(\) && want === to && view\.classList\.contains\('pz-out'\)\) figureIn\(\);/);
   assert.ok(fin.indexOf('figureIn()') < fin.indexOf('tx.end()'), 'before the move is ended');
+});
+
+// Presses landing mid-move, in any order, on a stepped clock (the presenter's calls: out on the tap, pinned, in, released, a leave class
+// put on and taken off): whatever the order, once the frames have run no card is left moving or part way (opacity strictly between 0 and 1).
+test('presses landing mid-move in any order leave no card moving or part way', async () => {
+  let seed = 1; const rnd = () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 2 ** 32;
+  for (let run = 0; run < 400; run++) {
+    seed = run + 1;
+    const els = [mk(), mk(), mk()];
+    for (let i = 0, n = 2 + Math.floor(rnd() * 8); i < n; i++) {
+      const el = els[Math.floor(rnd() * 3)], op = Math.floor(rnd() * 6);
+      if (op === 0) ct.throwOut(el, rnd() < 0.5 ? 'next' : 'back', 366);
+      else if (op === 1) ct.throwOutNow(el, 'next', 366);
+      else if (op === 2) ct.throwIn(el, 'next', rnd() < 0.5 ? 0 : 40);
+      else if (op === 3) ct.throwRelease(el);
+      else if (op === 4) el.classList.toggle('pz-leave', rnd() < 0.5);
+      else tick(Math.floor(rnd() * 300));
+      if (rnd() < 0.5) tick(8);
+    }
+    for (let i = 0; i < 200; i++) tick(8);
+    ct.throwGuard();
+    await later();
+    for (const el of els) {
+      const o = el.style.opacity;
+      assert.ok(!ct.throwing(el) && (o === '' || o === '0'), `run ${run}: card left moving or part way: ${el.style.transform} ${o}`);
+    }
+  }
+});
+
+test('window.pps keeps caught(): main.js builds pps with it, so the counted errors can be read', () => {
+  const main = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8');
+  assert.match(main, /import \{ caught, caughtNow \} from '\.\/caught\.js/);
+  assert.match(main, /window\.pps = \{[^\n]*caught: caughtNow \}/);
 });
