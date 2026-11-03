@@ -4372,14 +4372,24 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // A frame drawn from a stretch's binning (pc), when its vessels fit it, with `sOf(it)` the moments its course lies between: every point
   // within the slack of where it went between its two (the cells and the circles were swept over the hull of each piece of a vessel at
   // the two, so a piece whose ends are within the slack of their courses is within the slack of that hull). Else morphMiss(why), false.
+  // (Kept for frameFrom, which runs every frame of a vessel morph and is never re-entered: the rows it draws, the joins it has used, and a join's test.)
+  const FR_DRAWN = new Set(), NO_JOINS = [];   // alloc-rare: kept, made once for the stage
+  let FR_ON = new Uint8Array(64);   // alloc-rare: kept, made once for the stage (grown below if a stretch has more joins)
+  function joinMatches(q, j) {
+    if (q.trunk !== j.trunk || !!q.fork !== !!j.fork) return false;
+    for (let a = 0; a < j.members.length; a++) { const i = q.members.indexOf(j.members[a]); if (!(i >= 0 && i < 4)) return false; }
+    for (let a = 0; a < q.members.length; a++) { const m = q.members[a]; if (FR_DRAWN.has(m) && !j.members.includes(m)) return false; }
+    return true;
+  }
   function frameFrom(pc, items, sOf, morphMiss) {
-    if (items.some((it) => !pc.path.has(it.row))) return morphMiss('vessels');
+    for (let i = 0; i < items.length; i++) if (!pc.path.has(items[i].row)) return morphMiss('vessels');
     const { J, smooth } = joinsOf(items);
     const S2 = MORPH_SLACK * MORPH_SLACK;
     const buf = pc.frame;
     // (A vessel binned for the stretch that this frame does not draw is put far out of every cell's reach.)
-    const drawn = new Set(items.map((it) => it.row));
-    for (const row of pc.path.keys()) if (!drawn.has(row)) writePoints(buf, pc.posBase, N_SAMPLES, row, FAR_ROW);
+    FR_DRAWN.clear();
+    for (let i = 0; i < items.length; i++) FR_DRAWN.add(items[i].row);
+    for (const row of pc.path.keys()) if (!FR_DRAWN.has(row)) writePoints(buf, pc.posBase, N_SAMPLES, row, FAR_ROW);
     for (const it of items) {
       if (reachOf(it) > pc.reach.get(it.row)) return morphMiss('reach');
       const P = smooth.get(it.row) || it.pts, R = pc.path.get(it.row), s = sOf(it);
@@ -4398,17 +4408,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
       writePoints(buf, pc.posBase, N_SAMPLES, it.row, P);
     }
-    const on = new Uint8Array(pc.jpath.length);
+    const nJ = pc.jpath.length;
+    if (FR_ON.length < nJ) FR_ON = new Uint8Array(nJ * 2);   // alloc-rare: grown only when a stretch has more joins than any before
+    else FR_ON.fill(0, 0, nJ);
+    const on = FR_ON;
     for (let ji = 0; ji < J.length; ji++) {
       const j = J[ji];
       let u = -1, off = MORPH_JSLACK ** 2;
-      for (const v of pc.jby.get(joinKey(j)) || []) { const d = joinOff(j.x, j.y, pc.jpath[v]); if (!on[v] && d <= off) { off = d; u = v; } }
+      for (const v of pc.jby.get(joinKey(j)) || NO_JOINS) { const d = joinOff(j.x, j.y, pc.jpath[v]); if (!on[v] && d <= off) { off = d; u = v; } }
       // (Else a join binned with more members, those this frame does not draw, and the same trunk: the shader blends only the members
       // a pixel has in reach, and a vessel not drawn has none, so it draws exactly this join. A vessel shown that the stretch binned
       // hidden changes which ends meet where: the joins of the vessels shown now are then among those of every vessel.)
       if (u < 0) for (let v = 0; v < pc.jof.length; v++) {
         const q = pc.jof[v];
-        if (on[v] || q.trunk !== j.trunk || !!q.fork !== !!j.fork || !j.members.every((m) => { const i = q.members.indexOf(m); return i >= 0 && i < 4; }) || q.members.some((m) => drawn.has(m) && !j.members.includes(m))) continue;
+        if (on[v] || !joinMatches(q, j)) continue;
         const d = joinOff(j.x, j.y, pc.jpath[v]);
         if (d <= off) { off = d; u = v; }
       }
@@ -4417,7 +4430,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       writeJoinNow(buf, pc.joinBase, u, j.x, j.y, j.reach, j.k, j.fillet);
       on[u] = 1;
     }
-    for (let u = 0; u < on.length; u++) if (!on[u]) writeJoinNow(buf, pc.joinBase, u, 0, 0, -1, 0, 0);
+    for (let u = 0; u < nJ; u++) if (!on[u]) writeJoinNow(buf, pc.joinBase, u, 0, 0, -1, 0, 0);
     for (const it of items) if (it.kind === 'v') it.obj.glPts = smooth.get(it.row) || it.pts;
     veins.useMorphSet(pc.set);
     veins.setMorphFrame(buf);
