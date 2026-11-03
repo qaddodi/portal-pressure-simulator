@@ -51,6 +51,7 @@ const rgba = (c) => { const [r, g, b, a] = (c && c !== 'none' && !/^url\(/.test(
 const lookOf = (cs, svgT = false, sc = 1) => ({
   size: (parseFloat(cs.fontSize) || 12) * sc, weight: parseFloat(cs.fontWeight) || 400, tnum: /tabular-nums/.test(cs.fontVariantNumeric || ''),
   ls: (parseFloat(cs.letterSpacing) || 0) * sc, fill: rgba(svgT ? cs.fill : cs.color), upper: cs.textTransform === 'uppercase',
+  optical: !svgT,   // (an HTML readout: the page sets it at its own optical size, so the GPU draws the cut for it, text-gl.js)
 });
 
 // (A new theme or palette: every readout's colour is read again, between frames.)
@@ -264,7 +265,10 @@ function drawn(S, ok) {
   if (S.dead || S.asleep) return;
   // (The hand-over: the picture was asked to clear as the page's words landed (land). Its words stay clear until that frame, so the page's
   // words and the cleared picture appear in the same frame: never both (a number a pixel or two wider, then narrower), never neither.)
-  if (S.handOver) { handOff(S); return; }
+  // (Only a clear that was drawn (ok) hands the words over: a frame the GPU could not draw leaves the old picture showing, and the page's words
+  // shown over it would be a second number. A failed clear is asked again, and after a few tries the picture is drawn again and stays the
+  // reader's: the GPU keeps the number, the page's words stay clear under it (EXT-VIS-1, the external review, 3 Nov 2026).)
+  if (S.handOver) { if (ok) handOff(S); else handRetry(S); return; }
   if (ok) {
     if (S.pend && !S.on) { S.on = true; S.el.classList.add('glw-on'); }
     S.pend = false; S.retries = 0;
@@ -284,13 +288,24 @@ function handOff(S) {
   S.pend = false;
   if (S.on) { S.on = false; S.el.classList.remove('glw-on'); }
 }
-// (Where a frame never comes to clear the picture (its canvas out of the page, the page hidden), the words are handed over after a moment:
-// the page's own words never stay clear.)
-const HAND_MAX = 120;
+// (Where a frame does not come to clear the picture (its canvas out of the page, the page hidden), the clear is asked again after a moment, a
+// few times, and the words are not handed to the page until a frame has cleared the picture: never two numbers at once. Past the tries the
+// picture is drawn again and stays; the page's words stay clear under it.)
+const HAND_MAX = 120, HAND_TRIES = 3;
+function handRetry(S) {
+  if (S.dead || !S.handOver) return;
+  if (++S.handN > HAND_TRIES) {
+    S.handOver = false; clearTimeout(S.handT); S.handT = 0;
+    askLand(S);   // (the number is drawn again, on the GPU)
+    return;
+  }
+  clearTimeout(S.handT); S.handT = setTimeout(() => { S.handT = 0; handRetry(S); }, HAND_MAX);   // alloc-rare: only while a clear is waiting between frames
+  S.gl?.paint();
+}
 // (The words are in the page now, still made clear: the picture is asked to clear, and they show in the frame it does (drawn → handOff).)
 function release(S) {
   S.vPath.setAttribute('d', ''); S.uPath.setAttribute('d', ''); clearSlots(S);
-  S.handOver = true; clearTimeout(S.handT); S.handT = setTimeout(() => { S.handT = 0; if (S.handOver && !S.dead) handOff(S); }, HAND_MAX);   // alloc-rare: once a readout is handed back to the page, between frames
+  S.handOver = true; S.handN = 0; clearTimeout(S.handT); S.handT = setTimeout(() => { S.handT = 0; handRetry(S); }, HAND_MAX);   // alloc-rare: once a readout is handed back to the page, between frames
   S.gl.paint();
 }
 function land(S) {
@@ -326,7 +341,7 @@ export function glWords(el, { unitClass = '', after = false, host = el, onLand =
   // (Its own text node, when it has one alone; otherwise one is made between frames, as the first words land: nothing is written here.)
   const only = el.firstChild?.nodeType === 3 && !el.firstChild.nextSibling ? el.firstChild : null, t0 = el.textContent || '';
   const S = { el, host, after, unitClass, onLand, keep, retries: 0, txt: only, small: null, want: { t: t0, u: '' }, shown: { t: t0, u: '' }, // alloc-rare: once per readout, when it is made (glWords is called as a view is built, and its result kept); not per frame
-    at: null, gl: null, vPath: null, uPath: null, on: false, pend: false, handOver: false, handT: 0, stale: false, landT: 0, measureAsk: 0, landAsk: 0, dead: false, ro: null };
+    at: null, gl: null, vPath: null, uPath: null, on: false, pend: false, handOver: false, handN: 0, handT: 0, stale: false, landT: 0, measureAsk: 0, landAsk: 0, dead: false, ro: null };
   // (The two functions a change hands to a timer or a rest pass, made once with the readout: asking makes no closure.)
   S.landFn = () => land(S); S.quietFn = () => askLand(S); // alloc-rare: once per readout, when it is made (glWords is called as a view is built, and its result kept); not per frame
   if (!only && t0) askLand(S);

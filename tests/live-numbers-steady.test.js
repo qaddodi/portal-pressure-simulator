@@ -77,13 +77,16 @@ test('gl-words: the picture shows only while both its canvases are in the page, 
   assert.match(g, /const attached = \(S\) => !!S\.gl && S\.gl\.cv\.isConnected && \(S\.gl\.gpu\?\.canvas \? S\.gl\.gpu\.canvas\.isConnected : true\) && !!S\.txt && S\.txt\.parentNode === S\.el;/);
   assert.match(g, /\|\| !attached\(S\)\) \{ askLand\(S\); return; \}/, 'a draw never goes into a box whose canvases left the page');
   // The page's words land while the picture is still made clear; the picture is asked to clear and the class goes in that frame (drawn).
-  assert.match(g, /function drawn\(S, ok\) \{\n\s+if \(S\.dead \|\| S\.asleep\) return;\n[^]*?if \(S\.handOver\) \{ handOff\(S\); return; \}/);
+  assert.match(g, /function drawn\(S, ok\) \{\n\s+if \(S\.dead \|\| S\.asleep\) return;\n[^]*?if \(S\.handOver\) \{ if \(ok\) handOff\(S\); else handRetry\(S\); return; \}/, 'only a drawn clear hands the words over (EXT-VIS-1)');
   assert.match(g, /S\.handOver = true;[^]*?S\.gl\.paint\(\);/);
   const land = g.slice(g.indexOf('function land(S)'), g.indexOf('const askLand'));
   assert.doesNotMatch(land, /classList\.remove\('glw-on'\)/, 'land never uncovers the words in a frame of its own');
-  // (A frame that never comes hands the words over after a moment: they are never clear for good.)
-  assert.match(g, /const HAND_MAX = \d+;/);
-  assert.match(g, /setTimeout\(\(\) => \{ S\.handT = 0; if \(S\.handOver && !S\.dead\) handOff\(S\); \}, HAND_MAX\)/);
+  // (A frame that never comes asks the clear again, a few times, and never hands the words to the page without a drawn clear; past the tries the
+  // GPU draws the number again and keeps it: they are never clear for good, and never two numbers at once.)
+  assert.match(g, /const HAND_MAX = \d+, HAND_TRIES = \d+;/);
+  assert.match(g, /setTimeout\(\(\) => \{ S\.handT = 0; handRetry\(S\); \}, HAND_MAX\)/);
+  assert.match(g, /if \(\+\+S\.handN > HAND_TRIES\) \{[^]*?askLand\(S\);/);
+  assert.doesNotMatch(g, /setTimeout\([^\n]*handOff\(S\)/, 'no timer hands the words over by itself');
   // A new draw cancels a pending hand-over; disposing and sleeping let go of its timer.
   assert.match(g, /S\.pend = true;\n\s+S\.handOver = false;/);
   assert.match(g, /clearTimeout\(S\.handT\); S\.handT = 0; S\.handOver = false;/);

@@ -95,3 +95,16 @@ test('a GPU chart reads every look a piece can have: strokes, their widths and s
   for (const f of ['talk-trace', 'tool-course', 'tool-curve', 'tool-causes', 'flow-time', 'tool-lumen', 'tool-fluid', 'tool-criteria', 'visual-plane', 'tool-flows', 'tool-profile'])
     assert.doesNotMatch(fs.readFileSync(new URL(`../src/ui/${f}.js`, import.meta.url), 'utf8'), /createElementNS/, `${f}.js builds no SVG`);
 });
+
+test('a readout the page sets at its own optical size is drawn from the cut for that size (N1, glyph-data-opsz.js)', async () => {
+  const { textWidth, glyphRun, loadGlyphs } = await import('../src/ui/text-gl.js');
+  await loadGlyphs();
+  const o = { weight: 600, size: 28, tnum: true };
+  const plain = textWidth('28.4', o), cut = textWidth('28.4', { ...o, optical: true });
+  assert.ok(cut < plain, `opsz 24 is tighter than opsz 14 (${cut} < ${plain})`);
+  assert.equal(textWidth('28.4', { ...o, optical: false }), plain, 'the default is unchanged');
+  assert.equal(textWidth('28.4', { ...o, size: 12, optical: true }), textWidth('28.4', { ...o, size: 12 }), 'small text stays at opsz 14');
+  assert.equal(textWidth('28 mm', { ...o, optical: true }), textWidth('28 mm', o), 'a text with a character not cut stays whole at opsz 14');
+  const a = glyphRun('28.4', 0, { ...o, optical: true }).glyphs.map((g) => g[0]).join('|'), b = glyphRun('28.4', 0, o).glyphs.map((g) => g[0]).join('|');
+  assert.notEqual(a, b, 'the outlines differ too');
+});

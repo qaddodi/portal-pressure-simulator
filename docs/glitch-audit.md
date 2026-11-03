@@ -326,6 +326,24 @@ the figure are in the same frame.
 
 ---
 
+## Status of items since the audit (3 Nov 2026, checked against `96b8354` by an external review, then by the fixing thread)
+
+| Item | Status |
+|---|---|
+| D1, D3 (spectrum and noise floor synthesised on the CPU) | **Fixed** in `ee067d1`: the spectrum and floor come from a GPU shader (`doppler-synth.js`). Not every frame is CPU pixel synthesis any more. |
+| D2 (only the vitals monitor registers `frameAnimating`) | **Obsolete**: `doppler.js` and `fibroscan.js` call `frameAnimating`. |
+| D4 (a failed spectrum frame paints black) | **Fixed**: the GPU picture is kept; black only where there is no drawer. |
+| F1, F2 (FibroScan still words and font fit drawn every frame) | **Fixed**: `keepLayer` holds the still parts and `drawStill` holds the fit. |
+| N3 (text strokes under a GPU number) | **Fixed** in `a0dfb6d`. |
+| T1 (a chart blinks out for a frame the GPU cannot draw) | **Fixed** in `a0dfb6d` for a recoverable failure. A chart whose GPU is gone for good still shows the page's own drawing, and the readout hand-over has its own policy (EXT-VIS-1, below). Not a blanket clearance. |
+| RS5 (label density query not re-armed) | **Fixed**: `label-gl.js` re-arms the query with `{ once: true }`. |
+| FN1 (label widths dropped only on the first `fonts.ready`) | **Fixed**: `stage.js` also listens for `loadingdone`. |
+| FL1 (labels do not hold the loading cover) | **Partly fixed**: `label-gl.js` registers a cover promise, which is capped, so a slow load still needs a measurement. |
+| O4 (endoscopy tile on the CPU) | **Fixed** in `fb60ce8`: shaded by `endo-gl`; the CPU renderer stays for no-WebGL2 only. |
+| G1 (square drop-shadow corners) | **Fixed** in `d4f6ddc`: the shadow follows the card's rounded corners. |
+| N1 (numbers change shape and width at hand-over) | **Fixed** by cutting the GPU outlines at opsz 14, 20, 24 and 32 for HTML readouts (`scripts/glyphs-opsz.py`, `glyph-data-opsz.js`, `text-gl.js`). To be confirmed on a Mac and an iPhone. SVG readouts keep the opsz-14 cut: Chromium's own measure of SVG text (`tests/script-measures.test.js`, 62.87 at 27.28 units) matches opsz 14. |
+| EXT-VIS-1 (a failed clear is acknowledged and a timer hands the words to the page) | **Fixed** in `gl-words.js`: only a drawn clear hands the words over; a failed clear is asked again, and past three tries the GPU draws the number again and keeps it. |
+
 ## 10. Cross-cutting checks worth adding (no code change to the app)
 - A frame-gate measure that fails when `shedStats().byTag` shows `doppler`, `fibroscan` or `pressure-time` carried during a scroll (catches D2).
 - A gl-words test that compares `textWidth` at 28 px with the page's measured width of the same digits (catches N1).

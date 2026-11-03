@@ -89,7 +89,7 @@ const workerUrl = {
 // loader that fetches its hashed .json (preloaded in the head for the ones the first screen needs, so the fetch runs beside the scripts),
 // and the SDF atlas's base64 PNG becomes a real .png the browser decodes off the main thread. The source modules stay as they are: the
 // repository root runs them as is. The build fails if a value does not come back from JSON exactly as it was.
-const DATA_MODULES = /[\\/]src[\\/]ui[\\/](organ-art|organ-art-lite|glyph-data|glyphs-inter|glyphs-inter-png)\.js$/;
+const DATA_MODULES = /[\\/]src[\\/]ui[\\/](organ-art|organ-art-lite|glyph-data|glyph-data-opsz|glyphs-inter|glyphs-inter-png)\.js$/;
 const dataOut = new Map();   // module name → the file it became
 const dataFiles = {
   name: 'data-files',
