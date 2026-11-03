@@ -11597,8 +11597,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // all the way, without that check: one may pass over another for a moment, the overlap pass below showing the more important.)
       // (Between the two views the labels ride with the change however far its camera zooms: solved again at its half and as it lands.)
       const dz = solvedFor && !(morph > 0 && morph < 1) ? Math.abs(Math.log(sc / solvedFor.sc)) : 0, hand = dz > SOLVE_ZOOM && gestureOn(), land = landing() && !hand, ride = (drifting || land) && !hand;
-      const solve = !solvedFor || solveAsked || solvedFor.sig !== sig || solvedFor.csig !== csig || solvedFor.ins !== ins || (!ride && dz > (hand ? SOLVE_ZOOM_HAND : SOLVE_ZOOM)) || Math.abs(th - solvedFor.th) > SOLVE_TURN;
-      carryClear = hand; carryReslot = gestureOn();
+      const landingRide = !!handRide?.settle;
+      const changed = !solvedFor || solveAsked || solvedFor.sig !== sig || solvedFor.csig !== csig || solvedFor.ins !== ins || Math.abs(th - solvedFor.th) > SOLVE_TURN;
+      const solve = changed || (!landingRide && !ride && dz > (hand ? SOLVE_ZOOM_HAND : SOLVE_ZOOM));
+      carryClear = hand || landingRide; carryReslot = gestureOn();
       if (ride && !land && dz > SOLVE_ZOOM) carryClear = true;   // (carried, but never onto each other)
       const solved = solve || layoutLabels(f, false) === false;
       carryReslot = false;
@@ -11621,6 +11623,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         }
         solvedFor = sf; solveAsked = false;
       }
+      else if (landingRide) { solvedFor.sc = sc; }
       else if (hand || reslotted) labelSettleSoon();
       if (gpuProbe.on) gpuProbe.note(solved ? COUNTED.labelSolve : COUNTED.labelCarry);
       carryClear = false;
@@ -12232,6 +12235,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           // (Carried past the usual 5 % by a hand's zoom: a label that would come onto another, or onto a slide's callout, is solved again.)
           const box = it.rot ? rectOf({ ...it, w: it.h, h: it.w }) : rectOf(it);   // (a turned caption's box is turned too, as when it was solved)
           if (carryClear && (placed.some((p) => !p.dot && hits(box, p)) || callouts.some((b) => hits(box, b)))) { stale = true; return false; }
+          // At a pinch landing, keep a clear reading where it rode. A newly intersecting vessel needs a fresh placement.
+          if (handRide?.settle && circuit && it.key.startsWith('n:') && !prev.onv) {
+            if (!useLines) { useLines = true; buildSegs(); }
+            if (lineHits(box, 2)) { stale = true; return false; }
+          }
           placed.push(box); out.push(it);
           return true;
         }
