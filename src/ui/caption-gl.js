@@ -40,10 +40,12 @@ export function rgbaOf(c) {
  * The ink for words laid over an outline: solid black over a light outline (light themes), solid white over a dark one, so the words
  * always contrast with their halo and read crisp whatever colour the page gave them. '' (none) for a run with no halo: that keeps its own colour.
  */
+let INK = null;   // (the two inks, tokens in styles/tokens.css (--ink-over-light, --ink-over-dark), the same in every theme: read once)
 export function inkOver(haloC) {
   const m = /rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)/.exec(haloC || '');
   if (!m) return '';
-  return (0.2126 * +m[1] + 0.7152 * +m[2] + 0.0722 * +m[3]) / 255 > 0.5 ? 'rgb(0, 0, 0)' : 'rgb(255, 255, 255)';
+  if (!INK) { const cs = readStyle(document.documentElement); INK = [rgbaOf(cs.getPropertyValue('--ink-over-light').trim()), rgbaOf(cs.getPropertyValue('--ink-over-dark').trim())]; }
+  return ((0.2126 * +m[1] + 0.7152 * +m[2] + 0.0722 * +m[3]) / 255 > 0.5 ? INK[0] : INK[1]) || '';
 }
 /**
  * A caption's halo colour for the GPU's pen. The page's names set their outline from the theme's token (app.css: -webkit-text-stroke: … var(--label-halo)),

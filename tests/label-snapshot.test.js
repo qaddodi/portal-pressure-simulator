@@ -104,7 +104,7 @@ test('pinned labels: drawn at their point now plus the offset, their dot and lea
   assert.match(lg, /x = Math\.round\(\(PIN\[0\] \+ ox\) \* dpr\) \+ st\.ox; y = Math\.round\(\(PIN\[1\] \+ oy\) \* dpr\) \+ st\.oy;/);
   assert.match(lg, /const lx = Math\.round\(\(PIN\[0\] \+ OFF\[0\]\) \* dpr\) \+ st\.ox, ly = Math\.round\(\(PIN\[1\] \+ OFF\[1\]\) \* dpr\) \+ st\.oy;/, 'the leader ends where the picture is drawn');
   assert.match(lg, /PG\[0\] = px; PG\[1\] = py; PG\[2\] = px \+ dx \* t; PG\[3\] = py \+ dy \* t;/, 'the leader starts at the point');
-  assert.match(lg, /if \(pinAt\) moving = drawPins\(now\) \|\| moving;/);
+  assert.match(lg, /if \(pinAt\) \{ gl\.useProgram\(mprog\); ucOf\(gl\)\.f2\(MU\.uView, W, H\); moving = drawPins\(now\) \|\| moving; gl\.bindVertexArray\(vao\); \}/, 'after the pictures, so each label is this frame\'s');
   assert.match(lg, /if \(fol\.on && !pinned\)/, 'no follow moves a pinned label');
   assert.match(st, /labelGL\.pinTo\(\(id, out, mid, au\) => \{/);
   assert.match(st, /labelGL\.pinDraw\(\);/);

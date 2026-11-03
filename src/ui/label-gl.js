@@ -1378,7 +1378,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       gl.bindVertexArray(vao);
     }
     // (The pinned labels' dots and leaders, after the pictures: each label's opacity and place are this frame's by now.)
-    if (pinAt) { gl.useProgram(mprog); ucOf(gl).f2(MU.uView, W, H); drawPins(now); gl.bindVertexArray(vao); }
+    if (pinAt) { gl.useProgram(mprog); ucOf(gl).f2(MU.uView, W, H); moving = drawPins(now) || moving; gl.bindVertexArray(vao); }
     if (anyRing) {
       gl.useProgram(mprog); ucOf(gl).f2(MU.uView, W, H); ucOf(gl).i1(MU.uKind, 9);
       for (let i = 0; i < ni; i++) { const it = ITEMS[i]; if (it.st?.ring) ringDraw(it.x, it.y, it.st.ring, it.a); }
