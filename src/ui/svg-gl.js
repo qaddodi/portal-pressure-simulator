@@ -942,8 +942,9 @@ export function createSvgGL(box) {
     g.relook(); g.paint();
   };
   // (A piece fading in, in the picture, from nothing to its own strength, over ms on easing.)
+  // (delay: ms the piece waits, at nothing, before it starts: a row of points coming in one after the other.)
   // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)
-  g.fadeEl = (el, ms, easing = 'ease') => { EASES.set(el, { from: 0, to: 1, t0: easeNow(), ms, ease: cssCurve(easing) }); g.wake(ms + 20); };
+  g.fadeEl = (el, ms, easing = 'ease', delay = 0) => { EASES.set(el, { from: 0, to: 1, t0: easeNow() + delay, ms, ease: cssCurve(easing) }); g.wake(delay + ms + 20); };
   // (A class or a piece changed on a model after it was placed (a value turned on, a word's pieces rebuilt): its looks are read again
   // between frames, and any ease the stylesheet gives the change is run by the picture.)
   if (typeof MutationObserver === 'function') g.mo = new MutationObserver(g.relook);

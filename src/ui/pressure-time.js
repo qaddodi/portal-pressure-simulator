@@ -6,8 +6,8 @@
 // a crosshair (hover, or drag on a touch screen) reads every trace at one moment.
 
 import { store, hiddenNow } from './store.js?v=a51981892d';
-import { h, fmt, cssVar, cssAlpha, clamp } from './util.js?v=d327252833';
-import { FONT as FONT0, FONT } from './charts.js?v=c586872d3a';
+import { h, fmt, cssVar, cssAlpha, clamp } from './util.js?v=8ec44ddc56';
+import { FONT as FONT0, FONT } from './charts.js?v=17c469bf90';
 import { frameFor, cancelFrame, paceMs, noteDraw } from './frame.js?v=ca74a6f22a';
 import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
 import { HVPG_CUTS, hvpgSev } from '../engine/pressure-cuts.js?v=0cfa0c573a';

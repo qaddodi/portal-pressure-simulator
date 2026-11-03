@@ -7256,7 +7256,8 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pze-t { fill: var(--text-2); font-weight: 600; font-variant-numeric: tabular-nums; }
 .pze-t.on { fill: var(--text); font-weight: 700; }
 .pze-ax { fill: var(--text-2); font-weight: 500; }
-.pze-pt { animation: fade-rise var(--d-surface) var(--ease) both; animation-delay: calc(var(--i, 0) * 140ms + 200ms); }
+/* (The points come in one after the other, faded in by the picture, visual-plane.js: a CSS animation on the hidden model read as nothing, so the points never showed, 2 Nov.) */
+.pze-pt { animation: none; }
 .pze-pt circle { fill: var(--site, var(--text-2)); stroke: var(--surface); stroke-width: 3; }
 .pze-pt text { fill: var(--text); font-weight: 600; paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
 .pze-lead { stroke: var(--text-2); stroke-width: 1; opacity: .7; }

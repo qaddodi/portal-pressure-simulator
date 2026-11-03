@@ -23,13 +23,13 @@
 // Everything that decides a place or a size is a pure function here (tests/panels-e.test.js); the drawing is at the
 // element's own pixels, one unit a CSS pixel, so its words keep the slide's caption size (12 px or more) at any width.
 
-import { h, fmt, clamp } from './util.js?v=d327252833';
+import { h, fmt, clamp } from './util.js?v=8ec44ddc56';
 import { HVPG_CUTS, PPG_CUTS } from '../engine/pressure-cuts.js?v=0cfa0c573a';
 import { TILE, tileShown } from './table-marks.js?v=a483b9975e';
 import { plotPanel } from './plot-look.js?v=5037697da7';
 import { frameFor } from './frame.js?v=ca74a6f22a';
 import { easeArrive, D_SURFACE, EASE_ARRIVE } from './ease.js?v=7d7bfe9a62';
-import { createSvgGL, svgModel } from './svg-gl.js?v=88731ae229';
+import { createSvgGL, svgModel } from './svg-gl.js?v=e71bb5f3fd';
 const reduceDot = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : { matches: false };
 
 const nextFrame = frameFor('plane');
@@ -93,6 +93,8 @@ export const PLANES = {
     cuts: { x: [HVPG_CUTS.amber, HVPG_CUTS.red], y: [PPG_CUTS.amber, PPG_CUTS.red] },
     // (HVPG 5 and PPG 6 keep their numbers but draw no line: the zone colours already mark them, Mohammad 29 Oct.)
     noLine: { x: [HVPG_CUTS.amber], y: [PPG_CUTS.amber] },
+    // (reserveCuts: 'y': the y cut-offs' numbers, down the plot's left, are set down before the zones' words, so the PPG axis's name at the top left never pushes a word onto one: 2 Nov, an iPhone held sideways lost its 12. The x numbers keep to what room is left: reserving them sent names out on leader lines.)
+    reserveCuts: 'y',
     // (The two lines that carry a meaning of their own, named on the plot beside the line: { x|y: { value: words } }.)
     lineNames: { x: { [HVPG_CUTS.red]: `CSPH ≥${HVPG_CUTS.red}` }, y: { [PPG_CUTS.red]: `Bleed risk ≥${PPG_CUTS.red}` } },
     source: '',
@@ -189,6 +191,11 @@ export function plotNumbers(pl, fr, X, Y, fs, keepOff = [], part = 'all') {
   }
   if (part !== 'names') for (const [, text, x, y, anchor] of rest) put(text, x, y, anchor, 'pze-t');
   return out;
+}
+/** The y cut-offs' numbers of a plane that sets them down first (pl.reserveCuts): their boxes, for the points' names and the zones' words to keep clear of.
+ *  keepOff: what the numbers keep clear of (the points, the axes' names). [] for any other plane. */
+export function cutNumbers(pl, fr, X, Y, fs, keepOff = []) {
+  return pl.reserveCuts ? plotNumbers(pl, fr, X, Y, fs, keepOff, 'ticks').filter((n) => n.cls.includes('on') && n.anchor === 'start').map((n) => n.box) : [];
 }
 /** A plane with no zones is a scatter (the wedge against the portal pressure): it has no coloured shape whose edge could stand for an
  *  axis, so it draws its own (axesFrame, axesMarks). `axes: true` or `false` on a plane overrides this. A plane with zones keeps the
@@ -737,7 +744,7 @@ export function planePlot(pl, { card = false } = {}) {
   el.append(svg);
   const gl = createSvgGL(el);
   const cardWords = new Map();   // (zone → its text element in the card)
-  let pts = [], ring = null, size = '', was = null, sizeWas = '', ptsVer = 0, drawn = '', lastSize = [0, 0];
+  let pts = [], ring = null, size = '', was = null, sizeWas = '', ptsVer = 0, ptsFaded = 0, drawn = '', lastSize = [0, 0];
   // The patient's trail (card only, set by trail()): the stops' readings and names, the dot's way since the slide came up (in the
   // plot's units, so a resize keeps it), the scale it was drawn at, and the group that holds it (made on first use: with no trail
   // the card is the same elements as before).
@@ -788,7 +795,7 @@ export function planePlot(pl, { card = false } = {}) {
     const cardNums = card ? plotNumbers(pl, fr, X, Y, fs) : [], axisNames = card || axed ? [] : plotNumbers(pl, fr, X, Y, fs, pointBoxes, 'names');
     const numBoxes = cardNums.map((n) => n.box);
     const pr = axed ? pointR(at) : 8;
-    const { names, words, lines } = card ? { names: [], words: [], lines: [] } : layoutPlane(pl, fr, X, Y, fs, at, card, axisNames.map((n) => n.box), pr, axed ? 3 : 0);
+    const { names, words, lines } = card ? { names: [], words: [], lines: [] } : layoutPlane(pl, fr, X, Y, fs, at, card, [...axisNames.map((n) => n.box), ...(card || axed ? [] : cutNumbers(pl, fr, X, Y, fs, [...pointBoxes, ...axisNames.map((n) => n.box)]))], pr, axed ? 3 : 0);
     const nums = card ? cardNums : axed ? [...ax.nums, ...ax.names] : [...axisNames, ...plotNumbers(pl, fr, X, Y, fs, [...pointBoxes, ...axisNames.map((n) => n.box), ...names.filter(Boolean).map((n) => n.box), ...words.map((w) => w.box), ...lines.map((l) => l.box)], 'ticks')];
     for (const b of pl.boxes || []) {
       const [x0, x1, y0, y1] = zoneRect(pl, b);
@@ -860,6 +867,12 @@ export function planePlot(pl, { card = false } = {}) {
     was = now; sizeWas = size;
     base.replaceChildren(...kids);
     gl.adopt(svg);   // (the redrawn pieces take their looks from the ones before them like them: no page read in a frame)
+    // (A summary's points come in one after the other, 140 ms apart, each fading in the picture: a new set of points, not a redraw at another size.)
+    if (!card && ptsFaded !== ptsVer && at.length) {
+      ptsFaded = ptsVer;
+      let k = 0;
+      for (const e of base.children) if (e.classList.contains('pze-pt')) gl.fadeEl(e, reduceDot.matches ? 0 : D_SURFACE, EASE_ARRIVE, reduceDot.matches ? 0 : 200 + 140 * k++);
+    }
     el.setAttribute('aria-label', `${pl.y.name} against ${pl.x.name}` + (at.length ? ': ' + at.map((p) => `${p.name}, ${valOf(pl.x.key, p.f[pl.x.key])} and ${valOf(pl.y.key, p.f[pl.y.key])}, ${zoneOf(pl, p.f)?.t || ''}`).join('; ') : '')
       + (rg ? `; this patient ${valOf(pl.x.key, rg[pl.x.key])} ${unitOf(pl.x.key)} and ${valOf(pl.y.key, rg[pl.y.key])} ${unitOf(pl.y.key)}, ${zoneOf(pl, rg)?.t || ''}` : ''));
   };

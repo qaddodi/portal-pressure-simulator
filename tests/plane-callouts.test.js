@@ -10,7 +10,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DECKS } from '../src/ui/decks.js';
 import { readFileSync } from 'node:fs';
-import { PLANES, planeOf, frame, scaler, layoutPlane, plotNumbers, crosses, cutSegs, gapSegs } from '../src/ui/visual-plane.js';
+import { PLANES, planeOf, frame, scaler, layoutPlane, plotNumbers, cutNumbers, crosses, cutSegs, gapSegs } from '../src/ui/visual-plane.js';
 import { deckStates } from './deck-states.js';
 
 const touch = (a, o) => a[0] < o[2] && a[2] > o[0] && a[1] < o[3] && a[3] > o[1];
@@ -36,11 +36,13 @@ test('HVPG against PPG: no key, every zone named, names beside their points and 
     // (The axes' names stand first, the points' names, the zones' words and the lines' names round them, the numbers last in what room is left:
     // his G2 look, 27 Oct, the numbers on the plot.)
     const keep = pts.map((p) => [p.x - 12, p.y - 12, p.x + 12, p.y + 12]), axes = plotNumbers(pl, fr, X, Y, fs, keep, 'names');
-    const { names, words: zw, rules, dots, lines } = layoutPlane(pl, fr, X, Y, fs, pts, false, axes.map((n) => n.box));
+    const { names, words: zw, rules, dots, lines } = layoutPlane(pl, fr, X, Y, fs, pts, false, [...axes.map((n) => n.box), ...cutNumbers(pl, fr, X, Y, fs, [...keep, ...axes.map((n) => n.box)])]);
     const nums = plotNumbers(pl, fr, X, Y, fs, [...keep, ...axes.map((n) => n.box), ...names.map((n) => n.box), ...zw.map((w) => w.box), ...lines.map((l) => l.box)], 'ticks');
     for (const n of [...axes, ...nums]) for (const o of [...names.map((q) => q.box), ...zw.map((w) => w.box), ...lines.map((l) => l.box)]) assert.ok(!touch(n.box, o), `${where}: the number ${n.text} clear of every name and word`);
     for (const n of nums) for (const q of pts) assert.ok(!touch(n.box, [q.x - 10, q.y - 10, q.x + 10, q.y + 10]), `${where}: the number ${n.text} covers no point`);
     assert.ok(names.every(Boolean), `${where}: every point is named`);
+    // (2 Nov: the y cut-offs' numbers are set down before the zones' words, so the PPG axis's name never costs an iPhone sideways its 12.)
+    for (const v of ['6', '12']) assert.ok(nums.some((n) => n.text === v), `${where}: the PPG cut-off ${v} is numbered`);
     // The two lines carry their own names (Mohammad, 26 Oct: "make it clear that the 10/12 line is clinically significant portal
     // hypertension"): CSPH at the HVPG 10 line, Bleed risk at the PPG 12 line (not the CSPH definition), each beside its own line; the four
     // quadrants stay as they were.
