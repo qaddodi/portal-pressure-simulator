@@ -299,15 +299,17 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
       if (instant || reduce()) { if (!s.part) behind(false, 0); end(); return Promise.resolve(); }
       globalThis.dispatchEvent?.(new Event('pps:cardzoom'));   // alloc-rare: once per zoom out
       s.card.dataset.zoomed = 'back';   // (on its way back: its shadow eases out, styles/app.css)
-      if (!s.part) behind(false, SHUT_MS);
-      for (const r of s.riders) r.anim = glide(r.el, 'transform', 'none', SHUT_MS, r.anim);
-      for (const h of s.holes) holeTo(h, s.box, SHUT_MS);
+      // (A zoom shut part of the way in goes back in the part of SHUT_MS it got, from where it is: V-ZOOM-5.)
+      const ms = Math.round(SHUT_MS * Math.max(0.35, Math.min(1, (s.cur.s - 1) / ((s.plan.s - 1) || 1))));
+      if (!s.part) behind(false, ms);
+      for (const r of s.riders) r.anim = glide(r.el, 'transform', 'none', ms, r.anim);
+      for (const h of s.holes) holeTo(h, s.box, ms);
       // (A glide that never reports its end, a tab hidden mid-way, is let go after its time.)
       let res = null;
       const guard = new Promise((r) => { res = r; });
       const watch = () => { if (st !== s || !s.mo || performance.now() - (s.tickAt ?? 0) >= 400) res(); else setTimeout(watch, 200); };
-      setTimeout(watch, SHUT_MS + 120);
-      s.closing = Promise.race([drive({ dx: 0, dy: 0, s: 1 }, SHUT_MS, [...s.riders.map((r) => r.anim), ...s.holes.map((h) => h.anim)]), guard]).then(() => { if (st === s) end(); });
+      setTimeout(watch, ms + 120);
+      s.closing = Promise.race([drive({ dx: 0, dy: 0, s: 1 }, ms, [...s.riders.map((r) => r.anim), ...s.holes.map((h) => h.anim)]), guard]).then(() => { if (st === s) end(); });
       return s.closing;
     },
     toggle() { return this.up ? this.close() : this.open(); },
