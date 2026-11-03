@@ -25,3 +25,16 @@ test('seq counts drawn frames, gen every layout and repack, and only pictures dr
   assert.match(lg, /drawnLabels\(\) \{/);
   assert.match(st, /labelSnapshot: \(\) => \{ const r = stageBox\(\), o = labelGL\?\.snapshot\?\.\(\)/);
 });
+
+// R09: a picture off its DOM label must not take the click meant for where it stands.
+import { displacedNow } from '../src/ui/label-gl.js';
+test('pointer activation is held off while a ride or a moving glide has the pictures off their labels, and restored after', () => {
+  assert.equal(displacedNow(false, 0), false);
+  assert.equal(displacedNow(true, 0), true);
+  assert.equal(displacedNow(false, 3), true);
+  assert.equal(displacedNow(false, 0), false);   // (the landing done: every glide dropped)
+  // (A class between frames on the labels' svg, toggled on a change only; a fade-in glide does not count, it moves nothing.)
+  assert.match(lg, /import \{ classSoon \} from '\.\/class-soon\.js';/);
+  assert.match(lg, /if \(off !== displaced\) \{ displaced = off; classSoon\(svg, 'lb-displaced', off\); \}/);
+  assert.match(lg, /if \(u < 1\) shifted\+\+; \}/);
+});
