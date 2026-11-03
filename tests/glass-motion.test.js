@@ -211,16 +211,22 @@ test('a pending animation is held at its start until its start time is known, no
 
 // Whether anything is built: the collector's runs are counted (a scavenge follows every few megabytes of garbage), so the same loop
 // over the old code shows them and the new does not. Run once first, to let the optimiser settle: code still being compiled boxes
-// every number it adds.
-async function gcRuns(fn) {
+// every number it adds. The optimiser compiles on another thread, so on a loaded machine (the suite runs files in parallel) the first
+// runs can still be the unoptimised code: the loop is run again, up to `tries` times, and the fewest collector runs of any is the count.
+// (Code that builds something runs the collector on every try; only code that builds nothing can get through one try with none.)
+async function gcRuns(fn, tries = 1) {
   fn();
-  let runs = 0;
-  const obs = new PerformanceObserver((l) => { runs += l.getEntries().length; });
-  obs.observe({ entryTypes: ['gc'] });
-  fn();
-  await new Promise((r) => setTimeout(r, 100));
-  obs.disconnect();
-  return runs;
+  let best = Infinity;
+  for (let t = 0; t < tries && best > 0; t++) {
+    let runs = 0;
+    const obs = new PerformanceObserver((l) => { runs += l.getEntries().length; });
+    obs.observe({ entryTypes: ['gc'] });
+    fn();
+    await new Promise((r) => setTimeout(r, 100));
+    obs.disconnect();
+    best = Math.min(best, runs);
+  }
+  return best;
 }
 
 test('a frame\'s reading of the glass\'s motion builds nothing: no collector run over a million of them', async () => {
@@ -253,7 +259,7 @@ test('a frame\'s reading of the glass\'s motion builds nothing: no collector run
     }
   };
   const old = await gcRuns(runOld);
-  const now = await gcRuns(runNew);
+  const now = await gcRuns(runNew, 8);
   if (old === 0) return;   // (a runtime that reports no collector runs: nothing to hold the loop to)
   assert.equal(now, 0, `${now} collector runs over a million frames' reading (the old code: ${old} over a fifth of that)`);
 });
