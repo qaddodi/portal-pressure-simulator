@@ -36,6 +36,15 @@ export function rgbaOf(c) {
   const [r, g, b, a] = cssColor(c);
   return a > 0 ? `rgba(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)}, ${+a.toFixed(4)})` : '';
 }
+/**
+ * A caption's halo colour for the GPU's pen. The page's names set their outline from the theme's token (app.css: -webkit-text-stroke: … var(--label-halo)),
+ * so the token is read first, as the theme gives it for this element, and the browser's computed stroke colour only where there is none: a browser
+ * that reports that property differently (a current colour, or the colour a theme had before) must not set the halo the GPU draws with.
+ */
+export function haloOf(cs) {
+  const t = cs.getPropertyValue?.('--label-halo');
+  return (t && t.trim() && rgbaOf(t.trim())) || rgbaOf(cs.webkitTextStrokeColor);
+}
 /** An outer box shadow as computed ("<colour> 0px 1px 6px 0px"): { colour, dy, blur }, or null. */
 export function shadowOf(s) {
   if (!s || s === 'none' || /\binset\b/.test(s)) return null;
@@ -84,7 +93,7 @@ export function lookOf(cs, runs) {
   const lh = cs.lineHeight === 'normal' || !cs.lineHeight ? 1.2 : /px$/.test(cs.lineHeight) ? px(cs.lineHeight) / (px(cs.fontSize) || 12) : px(cs.lineHeight);
   const R = {};
   for (const k in runs) if (runs[k]) R[k] = run(runs[k]);
-  return { lh, gap: px(cs.rowGap), halo: px(cs.webkitTextStrokeWidth), haloC: rgbaOf(cs.webkitTextStrokeColor), runs: R };
+  return { lh, gap: px(cs.rowGap), halo: px(cs.webkitTextStrokeWidth), haloC: haloOf(cs), runs: R };
 }
 /** The ring of an inset box shadow as computed ("<colour> 0px 0px 0px 2px inset"): { w, colour }, or null. */
 export function ringOf(s) {
@@ -172,7 +181,7 @@ export function mirrorOf(el, sel = []) {
     if (!rs?.length) continue;   // (shown as display: none: a name's short form on a wide screen)
     const size = px(cs.fontSize) || 12;
     const r = { size, weight: parseFloat(cs.fontWeight) || 400, ls: px(cs.letterSpacing), fill: rgbaOf(cs.color), op, upper: cs.textTransform === 'uppercase', mr: 0,
-      halo: px(cs.webkitTextStrokeWidth), haloC: rgbaOf(cs.webkitTextStrokeColor) };
+      halo: px(cs.webkitTextStrokeWidth), haloC: haloOf(cs) };
     const put = (t, rc) => { if (t.trim()) lines.push({ runs: [{ t: upper(r, t), r, x: rc.left - box.left }], w: box.width, base: rc.bottom - box.top - DESC * size }); };
     if (rs.length === 1) { put(txt.trimEnd(), rs[0]); continue; }
     // (Wrapped: each of its lines from the words that sit on it.)
@@ -388,7 +397,9 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
           const by = r.t + ln.base * r.s;
           rows.push({ x: vk * (x0 + lo * r.s) + ve, y: vk * (by - ASC * top * r.s) + vf, w: vk * (hi - lo) * r.s, h: vk * (ASC + DESC) * top * r.s });
         }
-        items.push({ key: r.key, x: r.x, y: r.y, w: r.w, h: r.h, a: r.a, clipped: r.clipped, rows });
+        let halo = '';   // (the halo colour of the first run that has one, as the pen was given it)
+        if (set) for (let li = 0, n = set.n ?? set.lines.length; li < n && !halo; li++) { const ln = set.lines[li]; for (let ri = 0, m = ln.m ?? ln.runs.length; ri < m && !halo; ri++) { const q = ln.runs[ri].r; if ((q.halo ?? looks.get(r.key)?.halo) > 0) halo = q.haloC ?? looks.get(r.key)?.haloC ?? ''; } }
+        items.push({ key: r.key, x: r.x, y: r.y, w: r.w, h: r.h, a: r.a, clipped: r.clipped, rows, halo });
       }
       return { seq, gen: shownGen, w: shownW, h: shownH, items };
     },
