@@ -2063,7 +2063,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // (A swipe takes every card that shows with the words, the data card and the panel too, on the finger's one move, and lets them go
   // together (Mohammad, 2 Nov 2026: "the cards are not following the text throwing swiping").)
   // alloc-rare: once per swipe, cached in pull.els as the first move lands
-  const swipeEls = () => [...pageEls(), ...[ui.data, ui.panel].filter((el) => el && !el.hidden && el.childElementCount && !el.classList.contains('pz-leave') && !el.classList.contains('pz-hide') && !('zoomed' in el.dataset))];
+  const swipeEls = () => [...pageEls(), ...[ui.data, ui.panel].filter((el) => el && !(el === ui.data && keepsOnSwipe(swipeDx)) && !el.hidden && el.childElementCount && !el.classList.contains('pz-leave') && !el.classList.contains('pz-hide') && !('zoomed' in el.dataset))];
   let shadeAnim = null, pageForce = false;   // (the glass's entrance; pageForce: a swipe the card followed out, so its words leave even if the next slide's are the same)
   const lastBeat = (i) => beatCount(slides[i]) - 1;
   // (R05: the slide going in and its neighbours prepared as one set ahead of the press; a newer press cancels an older one's jobs.
@@ -5452,7 +5452,15 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // carry on from where the finger left them into their way out (app.css data-out, the same transform, eased from where it stands); short
   // of it, they ease back. At the first slide, where Back goes nowhere, they follow a tenth of the finger and do not fade. Only while
   // nothing is moving (no slide change, no case card) and the words are in.
-  let pull = null;
+  let pull = null, swipeDx = 0;   // (swipeDx: the finger's way, for swipeEls)
+  // (A data card the slide the swipe goes to keeps (the same instrument: card-keep.js keepData) stays where it is: it does not follow the finger,
+  // as it is not thrown out on Next. Mohammad, 3 Nov 2026, the iPhone: "it's moving with my finger".)
+  const keepsOnSwipe = (dx) => {
+    const to = dx < 0 ? want + 1 : want - 1, nx = slides[to];
+    if (!nx || !shown || !dataOn) return false;
+    const pl = planOf(nx, to);
+    return pl === undefined || keepData({ from: dataOn, to: pl, prev: slides[shown.i], next: nx, swap: stateOf[to] !== shownState || liveOff });
+  };
   // (Only a swipe that will change the slide moves the words: one that plays a procedure's next step, a beat of the figure, the rest of a
   // time-lapse or lifts a case card leaves them where they are, never following the finger and then springing back: Mohammad, 1 Nov, BRTO steps.)
   const turnsSlide = (dx) => dx < 0
@@ -5462,6 +5470,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   function pullTo(dx) {
     // (The page: the glass and the words follow as one card, transform and opacity only, nothing read from the layout.)
     const f = followOf(dx);
+    swipeDx = dx;
     pull.x = f.x; pull.o = f.o;
     for (const el of (pull.els ??= swipeEls())) { throwStop(el); el.style.transition = 'none'; el.style.transform = `translateX(${f.x.toFixed(1)}px)`; el.style.opacity = f.o.toFixed(3); }
     signalMove();
