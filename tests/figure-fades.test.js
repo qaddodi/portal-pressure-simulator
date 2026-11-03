@@ -55,5 +55,5 @@ test("the resistance zigzag's halo eases with its line, and it is dropped only o
 });
 
 test("the lobule's pointer fades out before it moves to a new spot or takes new words", () => {
-  assert.match(lz, /if \(c && !reduce\.matches && \(fading \|\| \(call && callEl\.classList\.contains\('on'\)\)\)\) \{ if \(call\) callSet\(null\); callSwap = setTimeout\(\(\) => \{ callSwap = 0; callSet\(callWant\); \}, 500\); return; \}/);
+  assert.match(lz, /if \(c && !reduce\.matches && \(fading \|\| \(call && classHas\(callEl, 'on'\)\)\)\) \{ if \(call\) callSet\(null\); callSwap = setTimeout\(\(\) => \{ callSwap = 0; callSet\(callWant\); \}, 500\); return; \}/);
 });

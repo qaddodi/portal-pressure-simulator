@@ -1291,6 +1291,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const pageSoon = () => { if (!pageT) pageT = restPass(pageRun); };
   const mount = (parent, ...els) => { mountQ.push([parent, els]); pageSoon(); };   // alloc-rare: only when a node is first put into the page (callers skip one already there)
   const writeLab = (L) => { labQ.add(L); pageSoon(); };
+  const swQ = new Set();   // (the labels whose swatch colour changed: it is only a variable on the label, so it rebuilds nothing)
   function pageRun() {
     pageT = 0;
     for (const [parent, els] of mountQ.splice(0)) parent.append(...els.filter((e) => !e.isConnected));
@@ -1307,6 +1308,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       mirrorSoon(L.el);
     }
     labQ.clear();
+    for (const L of swQ) if (L.swHas !== L.swWant) { L.swHas = L.swWant; L.el.style.setProperty('--sw', L.swWant); }
+    swQ.clear();
   }
   // A label's parts, built between frames (pageRun) from what the frame asked for (L.spec): a frame builds no elements (2 Nov 2026).
   function labBuild(L) {
@@ -1339,7 +1342,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // a figure inside the unit ('Protein 48%', which moves with the pulse): its numerals are tabular, so a new figure with
     // as many numerals leaves the label's size as it was.
     // (Its colour is only a style on the label: a new one, which the pressure glide brings every frame, rebuilds nothing.)
-    if (col !== L.col) { L.col = col; L.el.style.setProperty('--sw', col || 'var(--border-strong)'); }
+    if (col !== L.col) { L.col = col; L.swWant = col || 'var(--border-strong)'; swQ.add(L); pageSoon(); }   // (the page's variable is set between frames, pageRun)
     if (L.ukSrc !== u) { L.ukSrc = u; L.uk = u.replace(/\d/g, '0'); }   // alloc-rare: only when the unit's words change (its figure moves a few times a second at most)
     const uk = L.uk, hasD = !!d, empty = v === '';
     const same = L.fN === name && L.fS === short && L.fU === uk && L.fE === empty && L.fD === hasD;   // (the label's make-up, part by part)
@@ -1786,9 +1789,14 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (!domT) domT = restPass(domFlush);
     cap.paint();
   };
+  // A piece whose place is taken away (the pill with no spot): its translate is cleared between frames too.
+  const clrQ = new Set();
+  const trClear = (e) => { domQ.delete(e); clrQ.add(e); if (!domT) domT = restPass(domFlush); };
   function domFlush() {
     domT = 0;
     if (rides) return;   // (a hand's ride: placed once it is baked, bakeRides)
+    for (const e of clrQ) if (e.style.translate) e.style.translate = '';
+    clrQ.clear();
     for (const e of domQ) { const p = seenPos.get(e); if (p) e.style.translate = `${p[0].toFixed(2)}px ${p[1].toFixed(2)}px`; }
     domQ.clear();
   }
@@ -1869,7 +1877,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const rideList = [];
   let rides = null, rideN = 0;
   function rideAdd(ax, ay) {
-    const r = rideList[rideN] || (rideList[rideN] = { a: [0, 0], d: [0, 0], els: [null, null, null], ne: 0, tx: NaN, ty: NaN, ts: '' });   // alloc-once: a piece is made the first time a ride needs that many, then reused
+    const r = rideList[rideN] || (rideList[rideN] = { a: [0, 0], d: [0, 0], els: [null, null, null], ne: 0 });   // alloc-once: a piece is made the first time a ride needs that many, then reused
     rideN++; r.a[0] = ax; r.a[1] = ay; r.ne = 0;
     return r;
   }
@@ -1894,12 +1902,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       r.d[0] = d0; r.d[1] = d1;
       for (let j = 0; j < r.ne; j++) {
         const e = r.els[j], p = spot.get(e);
+        // (A leader, its dot or the ring has no spot: the GPU draws it from its geometry, which takes the shift when the ride is baked.)
         if (p) tr(e, p[0] + d0, p[1] + d1);
-        else {
-          // (A leader, its dot or the ring: the same shift as its label, the string made when the shift changed.)
-          if (r.tx !== d0 || r.ty !== d1) { r.tx = d0; r.ty = d1; r.ts = `${d0.toFixed(2)}px ${d1.toFixed(2)}px`; }
-          e.style.translate = r.ts; e._tx = NaN;
-        }
       }
     }
   }
@@ -1920,7 +1924,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       if (dx || dy) moved = true;
       for (let j = 0; j < r.ne; j++) {
         const e = r.els[j], p = spot.get(e);
-        if (p) put(e, p[0] + dx, p[1] + dy); else { e.style.translate = ''; e._tx = NaN; }
+        if (p) put(e, p[0] + dx, p[1] + dy);
         shiftGeo(e, dx, dy);
       }
     }
@@ -2242,7 +2246,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     }
     const c = won ? won.call : shown;
     cpOn = c.pOn; cpAt = c.pAt; cpDx = c.pDx; cpDy = c.pDy; callCost = c.cost;
-    if (c.hasAt) put(callEl, c.ax, c.ay); else { spot.delete(callEl); callEl.style.translate = ''; callEl._tx = NaN; }
+    if (c.hasAt) put(callEl, c.ax, c.ay); else { spot.delete(callEl); trClear(callEl); }
     for (let i = 0; i < 4; i++) setGeo(callLine, CALL_ENDS[i], c.line[i] ?? null);
     leadGL.paint();
     return sol;
