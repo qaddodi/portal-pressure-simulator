@@ -10628,7 +10628,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       still = cam === glideCam;
       glideCam = cam;
     }
-    const snap = reduceMotion.matches || camMove || wrap.classList.contains('cam-move') || wrap.classList.contains('pinch-hide') || wrap.classList.contains('cath-on') || !!lz?.isOpen();
+    // The GPU label layer already glides from the ridden position at a pinch landing. A second layout glide would move its target
+    // on every frame and make the label drift again after the hand stops.
+    const snap = reduceMotion.matches || camMove || !!handRide?.settle || wrap.classList.contains('cam-move') || wrap.classList.contains('pinch-hide') || wrap.classList.contains('cath-on') || !!lz?.isOpen();
     let moving = false;
     for (const it of out) {
       const b = pool.get(it.key);   // (a label with no block yet is new: it fades in where it stands)

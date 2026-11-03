@@ -1997,7 +1997,9 @@ void main() { o = texture(uT, vUV) * uA; }`;
     /** This frame's labels: drawn now, in the same frame as the SVG's layout. */
     sync(list) {
       if (lost) return;
-      if ((devicePixelRatio || 1) !== dpr) densityChanged();   // (moved to a screen of another density: sized in a task of its own)
+      // Compare the density actually used by this canvas. On a 3x screen its 2x cap otherwise looked like a density change on every sync,
+      // repeatedly scheduling a resize task and another GPU draw throughout a gesture.
+      if ((host ? (devicePixelRatio || 1) : labelDensity(devicePixelRatio)) !== dpr) densityChanged();
       take(mo.takeRecords());
       for (const r of mmo.takeRecords()) { if (!changed(r)) continue; const el = markOf(r.target); if (el) markDirty.add(el); }
       // A sliced landing or a value refresh may sync while the camera still carries the old layout. Taking its new positions here

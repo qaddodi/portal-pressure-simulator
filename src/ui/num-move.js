@@ -50,6 +50,18 @@ export class Mover {
     if (glass) { this.d = DRIVEN.get(el) || { x: 0, y: 0, on: false, prop }; this.d.prop = prop; DRIVEN.set(el, this.d); }   // alloc-rare: once per element
   }
 
+  /** A cached mover may first be requested without glass and later be used by a frosted surface. */
+  enableGlass() {
+    if (this.glass) return;
+    this.glass = true;
+    const d = this.d = DRIVEN.get(this.el) || { x: 0, y: 0, on: false, prop: this.prop };   // alloc-rare: only when a cached mover first gains a glass
+    d.prop = this.prop; d.x = this.x; d.y = this.y; d.on = this.on;
+    DRIVEN.set(this.el, d);
+    if (this.ax) DRIVEN_ANIMS.add(this.ax);
+    if (this.ay) DRIVEN_ANIMS.add(this.ay);
+    if (this.on) for (let i = 0; i < wakers.length; i++) wakers[i]();
+  }
+
   /** Arms the animations around (x, y): a first write, or a value out of the window. The x one first, so the y one adds to it. */
   arm(x, y) {
     this.cancel();
@@ -99,7 +111,9 @@ export function moverOf(el, prop, axes, glass = false) {
   let rec = MOVERS.get(el);
   const key = `${prop}:${axes}`;   // alloc-rare: looked up when a drag begins or ends, never per write
   if (!rec) { rec = {}; MOVERS.set(el, rec); }   // alloc-rare: once per element
-  return rec[key] || (rec[key] = new Mover(el, prop, axes, glass));   // alloc-rare: once per element and kind
+  const mover = rec[key] || (rec[key] = new Mover(el, prop, axes, glass));   // alloc-rare: once per element and kind
+  if (glass) mover.enableGlass();
+  return mover;
 }
 
 /** Cancels every mover the element has (nothing if it never had one). */
