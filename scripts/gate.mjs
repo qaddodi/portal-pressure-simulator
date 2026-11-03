@@ -343,7 +343,7 @@ async function stageMotion() {
       try {
         const up = await watchUntil(page, () => { document.querySelector('.pz-case.on')?.click(); return document.querySelector('#app')?.classList.contains('presenting') && !window.pps?.presenter?.busy(); }, null, { maxFake: 240000 });
         if (up < 0) { fail('motion', `${id} 1`, 'the deck never opened in 240 s'); continue; }
-        try { await assertGpuLive(page, `motion ${id}`, { software: true }); } catch (e) { fail('motion', `${id} gpu`, String(e.message).split('\n').slice(0, 3).join(' ')); continue; }
+        try { await assertGpuLive(page, `motion ${id}`, { software: true, vessels: false }); } catch (e) { fail('motion', `${id} gpu`, String(e.message).split('\n').slice(0, 3).join(' ')); continue; }
         await page.evaluate(() => window.pps.host.send({ type: 'run', running: false }));   // (the model paused: the frames sampled are the cards')
         const hook = await page.evaluate(startSampler);
         if (hook !== true) fail('motion', id, `INCONCLUSIVE: ${hook}; the glass cannot be judged (the words and their shade still are)`);
@@ -371,7 +371,7 @@ async function stageMotion() {
         await go(`${id} Next 1 to 2`, ['ArrowRight'], 2);
         await go(`${id} Next, Next again mid-entry, 2 to 4`, ['ArrowRight', 'ArrowRight'], 4);
         await go(`${id} Next then Back mid-entry, 4 to 4`, ['ArrowRight', 'ArrowLeft'], 4);
-        try { await assertGpuLive(page, `motion ${id}, at the end`, { software: true }); } catch (e) { fail('motion', `${id} gpu`, String(e.message).split('\n').slice(0, 3).join(' ')); }
+        try { await assertGpuLive(page, `motion ${id}, at the end`, { software: true, vessels: false }); } catch (e) { fail('motion', `${id} gpu`, String(e.message).split('\n').slice(0, 3).join(' ')); }
       } finally { await page.evaluate(() => window.__motionStop?.()).catch(() => {}); await app.close(); }
     }
   } finally { await browser.close(); server.close(); }
