@@ -77,7 +77,7 @@ test('the readings\' sizes and the cards\' room are kept until they change', () 
   const L = fn(stage, 'cathLabels');
   assert.doesNotMatch(L, /wrap\.clientWidth|cardSpace\(\)|readBlockers\(\)|\[el\.offsetWidth, el\.offsetHeight\]\]\)/);
   assert.match(L, /const room = cathRoomNow\(\)/);
-  assert.match(L, /blockers: room\.blk/);
+  assert.match(L, /blockers = room\.blk/);
   assert.match(fn(stage, 'cathSize'), /text\.replace\(\/\\d\/g, '0'\)/);
   assert.match(stage, /addEventListener\('pps:occ', \(\) => \{ panFit = null; cath\.lblKey = ''; cathRoom\(\); \}\);/);
   assert.match(stage, /addEventListener\('resize', \(\) => \{ panFit = null; cath\.lblKey = ''; cathRoom\(\); \}\);/);

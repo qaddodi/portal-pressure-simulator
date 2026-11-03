@@ -190,7 +190,8 @@ test('the travel is written each frame on the main thread, not left to a CSS tra
   assert.match(stage, /r\._flip = flipFrom\(a\.left - \(x \+ R\[j\]\[0\]\), a\.top - \(y \+ R\[j\]\[1\]\), performance\.now\(\)\);/, 'from its row\'s kept place, no box read');
   assert.match(stage, /const q = flipAt\(f, performance\.now\(\)\);\s*r\.style\.transform = q\.done \? '' : `translate\(/);
   // It asks for the next frame until every reading has landed, as a glide does.
-  assert.match(stage, /if \(travelling && !cath\.glideRaf\) cath\.glideRaf = nextFrame\(\(\) => \{ cath\.glideRaf = 0; cath\.lblKey = ''; cathLabelsSoon\(\); \}\);/);
+  assert.match(stage, /if \(travelling && !cath\.glideRaf\) cath\.glideRaf = nextFrame\(cathGlideTick\);/);
+  assert.match(stage, /cathGlideTick = \(\) => \{ cath\.glideRaf = 0; cath\.lblKey = ''; cathLabelsSoon\(\); \}/);
   assert.doesNotMatch(stage, /transform var\(--d-surface\) var\(--ease\)/, 'no transform transition on a reading');
   assert.doesNotMatch(css, /\.cath-label[^{]*\{[^}]*transition:[^;}]*\btransform\b/, 'none in the stylesheet either');
 });

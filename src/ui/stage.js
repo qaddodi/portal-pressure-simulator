@@ -81,7 +81,7 @@ import { balloonShape, esoAt, smoothPath, BALLOON, BALLOON_MS } from './balloon-
 import { GAS, gasShape, tubePath, tubeTip, tubeTo, pathAt, sheath, sheathArcs, pullArrow } from './balloon-gas.js';
 import { balloonRy, balloonOutline, routeRadii } from './hvpg-balloon.js';
 import { outlineBox, placeSummary } from './cath-place.js';
-import { placePills, pillsClear, PILL_GAP } from './cath-pill.js';
+import { placePillsInto, pillsClear, PILL_GAP } from './cath-pill.js';
 import { layoutWatch } from './idle-keys.js';
 import { writeGlowTexels } from './glow-texels.js';
 import { SIN_PERFUSION, sinStrandRadius } from './sin-perfusion.js';
@@ -9302,99 +9302,133 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const SUM_TPL = (() => { const e = document.createElement('div'), box = document.createElement('div'), col = document.createElement('div'); e.className = 'cath-sum'; box.className = 'cath-sum-box'; col.className = 'cath-sum-col'; box.append(col, s('svg', { class: 'cath-brace', width: 22 }, s('path', {}))); e.append(s('svg', { class: 'cath-leads' }), box); return e; })();
   // (A reading's leader and dot, made between frames: cathLabels.)
   function cathLeadKids(svg) { svg._kAsk = 0; svg._k = Array.from({ length: svg._kN }, () => [s('path', {}), s('circle', { r: 4.5 })]).flat(); svg.replaceChildren(...svg._k); cathLabelsSoon(); }
+  // (What cathLabels works in, kept between its calls: each is filled again at the start of a call and read within it; none is held after.)
+  const cathWantL = new Map(), cathLiveEl = [], cathLiveL = [], cathPillEl = [], cathPillL = [], cathCurEl = [], cathSideOut = [], cathPillRecs = [], cathPillQ = { W: 0, top: 0, lim: 0, blockers: NO_LIST, pills: [] };
+  const cathPreQ = [], cathTravelQ = [], cathPt = [0, 0], cathSideDef = { above: true, dx: 0 }, cathFrom = { tip: null, ahead: null };
+  const CATH_FROM_TIP = { left: 0, top: 0 }, CATH_FROM_AHEAD = { left: 0, top: 0 };
+  const cathA = { tip: [0, 0], ahead: [0, 0] }, cathKeep = [], cathKeepRecs = [{ x0: 0, y0: 0, x1: 0, y1: 0 }, { x0: 0, y0: 0, x1: 0, y1: 0 }, { x0: 0, y0: 0, x1: 0, y1: 0 }];
+  const cathPS = { A: cathA, bw: 0, bh: 0, W: 0, top: 0, lim: 0, gap: 0, blockers: NO_LIST, keep: cathKeep };
+  // (The words and the size of a reading, made from a model: its glass and GPU words built in.)
+  function cathPill(l, cls = '') {
+    const el = PILL_TPL[l.unit ? 1 : 0].cloneNode(true);
+    el.className = `cath-label ${l.cls || ''} ${cls || 'cath-js'}`; el.dataset.at = l.at || '';
+    const [, k, b, u] = el.children;   // (the first is its glass)
+    el._kW = glWords(k); el._bW = glWords(b); el._kW.set(l.kicker || ''); el._bW.set(l.text);
+    if (u) (el._uW = glWords(u)).set(l.unit);
+    el._glass = glassCallout(el);
+    el._sideO = { above: true, dx: 0 };   // (the place it is given, written over by each placing)
+    return el;
+  }
+  const cathFill = (el, l) => { el._kW.set(l.kicker || ''); el._bW.set(l.text); };
+  function cathBuild(l) {
+    if (l.at !== 'sum') return cathPill(l);
+    // The two readings stacked (wedged above free, as on the tracing), a bracket joining them and
+    // the difference beside it; thin leaders run from each reading to where it was taken.
+    const el = SUM_TPL.cloneNode(true);
+    const box = el.querySelector('.cath-sum-box'), col = box.firstChild;
+    el._rows = l.rows.map((r) => cathPill(r, 'in-sum')); el._calc = cathPill(l.calc, 'in-sum calc');
+    late('append', col, el._rows); late('append', box, [el._calc]);   // (in the page between frames; the frame keeps its own references)
+    return el;
+  }
+  // (A reading's point on the stage, for the side it names, written into `out`.)
+  const cathPtOf = (at, el, out) => { const p = el.dataset.at === 'ahead' ? at.ahead : at.tip; return worldToLocalInto(out, p[0], p[1]); };
+  // (The readings that fade out are taken away after their fade; those that come in start from their hidden look and are shown from the next frame.)
+  const cathGone = (el) => { dropLabel(el); el.remove(); cath.leaving.delete(el); };
+  const cathPreRun = () => { for (let i = 0; i < cathPreQ.length; i++) cathPreQ[i].classList.remove('cath-pre'); cathPreQ.length = 0; };
+  const cathTravelRun = () => { for (let i = 0; i < cathTravelQ.length; i++) cathTravelQ[i].classList.remove('cath-travel'); cathTravelQ.length = 0; };
   function cathLabels() {
     const st = cath.st, at = cath.at;
-    if (!st || !at) { for (const el of [...(cath.made?.values() || []), ...(cath.leaving?.keys() || [])]) dropLabel(el); late('kids', cath.labels, []); cath.made?.clear(); cath.leaving?.clear(); cath.lblKey = ''; return; }
+    if (!st || !at) { if (cath.made) for (const el of cath.made.values()) dropLabel(el); if (cath.leaving) for (const el of cath.leaving.keys()) dropLabel(el); late('kids', cath.labels, NO_LIST); cath.made?.clear(); cath.leaving?.clear(); cath.lblKey = ''; return; }
     // Laid out once per change of the camera or the catheter (a glide and the procedure's step both ask in one frame).
-    const lk = `${viewVersion}|${cathVer}`;
-    if (lk === cath.lblKey) return;
-    cath.lblKey = lk;
+    if (cath.lblKey !== '' && viewVersion === cath.lblVV && cathVer === cath.lblCV) return;
+    cath.lblKey = 'laid'; cath.lblVV = viewVersion; cath.lblCV = cathVer;
     // Each label keeps its element while its key is shown (numbers update in place). A new key fades in
     // (opacity and a small rise, eased); one that goes fades out before it is removed.
     const made = cath.made || (cath.made = new Map());
-    const want = new Map((st.labels || []).map((l) => [l.key, l]));
+    const want = cathWantL, labels = st.labels || NO_LIST;
+    want.clear();
+    for (let i = 0; i < labels.length; i++) want.set(labels[i].key, labels[i]);
     // When the summary arrives, the two readings travel from where they were into it (their old pills go at once).
     const leaving = cath.leaving || (cath.leaving = new Map());
-    const travel = want.has('s') && !made.has('s') && !matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const from = {};
+    const travel = want.has('s') && !made.has('s') && !reduceMotion.matches;
+    const from = cathFrom;
+    from.tip = from.ahead = null;
     for (const [k, el] of made) if (!want.has(k)) {
       made.delete(k);
       // (Where it stood, from its own last placing (stage px), not read off the page.)
-      if (travel && (k === 'f' || k === 'w')) { if (el._box) from[k === 'f' ? 'tip' : 'ahead'] = { left: el._box.x0, top: el._box.y0 }; dropLabel(el); el.remove(); continue; }
+      if (travel && (k === 'f' || k === 'w')) { if (el._box) { const o = k === 'f' ? CATH_FROM_TIP : CATH_FROM_AHEAD; o.left = el._box.x0; o.top = el._box.y0; from[k === 'f' ? 'tip' : 'ahead'] = o; } dropLabel(el); el.remove(); continue; }
       // It fades out where it is on the figure (following the camera, never stuck on the screen), then goes.
       el.classList.add('cath-pre', 'cath-out'); leaving.set(el, el._l);
-      setTimeout(() => { dropLabel(el); el.remove(); leaving.delete(el); }, 450);
+      setTimeout(cathGone, 450, el);
     }
     // (A reading is cloned from a model made ahead; its words are drawn by glWords, never written in a frame: gl-words.js.)
-    const pill = (l, cls = '') => {
-      const el = PILL_TPL[l.unit ? 1 : 0].cloneNode(true);
-      el.className = `cath-label ${l.cls || ''} ${cls || 'cath-js'}`; el.dataset.at = l.at || '';
-      const [, k, b, u] = el.children;   // (the first is its glass)
-      el._kW = glWords(k); el._bW = glWords(b); el._kW.set(l.kicker || ''); el._bW.set(l.text);
-      if (u) (el._uW = glWords(u)).set(l.unit);
-      el._glass = glassCallout(el);
-      return el;
-    };
-    const fill = (el, l) => { el._kW.set(l.kicker || ''); el._bW.set(l.text); };
-    const build = (l) => {
-      if (l.at !== 'sum') return pill(l);
-      // The two readings stacked (wedged above free, as on the tracing), a bracket joining them and
-      // the difference beside it; thin leaders run from each reading to where it was taken.
-      const el = SUM_TPL.cloneNode(true);
-      const box = el.querySelector('.cath-sum-box'), col = box.firstChild;
-      el._rows = l.rows.map((r) => pill(r, 'in-sum')); el._calc = pill(l.calc, 'in-sum calc');
-      late('append', col, el._rows); late('append', box, [el._calc]);   // (in the page between frames; the frame keeps its own references)
-      return el;
-    };
     for (const [k, l] of want) {
       if (made.has(k)) continue;
-      const el = build(l); el.classList.add(l.at === 'sum' && travel ? 'cath-travel' : 'cath-pre'); late('cathadd', cath.labels, el); made.set(k, el);
+      const el = cathBuild(l); el.classList.add(l.at === 'sum' && travel ? 'cath-travel' : 'cath-pre'); late('cathadd', cath.labels, el); made.set(k, el);
       if (l.at === 'sum' && travel) el._from = from;
       el._l = l;
       // (The transition runs from the hidden state: this frame's own style pass sees it hidden, and it is shown from the next, with no
       // layout forced for that.)
       // (A reading of its own, cath-js, comes in only once it has its place, below: shown at a first guess, it came in on the card
       // and then glided off it.)
-      if (el.classList.contains('cath-pre') && !el.classList.contains('cath-js')) nextFrame(() => { el.classList.remove('cath-pre'); });
+      if (el.classList.contains('cath-pre') && !el.classList.contains('cath-js')) { cathPreQ.push(el); nextFrame(cathPreRun); }
     }
     // Read, then write: every reading's new text first, then all the sizes (one layout), then the positions.
     // (The live labels: those shown, and those fading out, which follow the camera until they go.)
     for (const [k, l] of want) made.get(k)._l = l;
-    const live = [...[...want].map(([k, l]) => [made.get(k), l]), ...leaving];
-    const pills = live.filter(([, l]) => l && l.at !== 'sum');
-    for (const [el, l] of pills) fill(el, l);
+    cathLiveEl.length = 0; cathLiveL.length = 0; cathPillEl.length = 0; cathPillL.length = 0; cathCurEl.length = 0;
+    for (const [k, l] of want) { const el = made.get(k); cathLiveEl.push(el); cathLiveL.push(l); if (l.at !== 'sum') cathCurEl.push(el); }
+    for (const [el, l] of leaving) { cathLiveEl.push(el); cathLiveL.push(l); }
+    for (let i = 0; i < cathLiveEl.length; i++) {   // (the pills: the live labels that are not the summary)
+      const l = cathLiveL[i];
+      if (l && l.at !== 'sum') { cathPillEl.push(cathLiveEl[i]); cathPillL.push(l); cathFill(cathLiveEl[i], l); }
+    }
     // (The stage's size, the cards' room and the readings' own sizes are kept until they change: cathRoomNow, cathSize.)
     const room = cathRoomNow(), W = room.W, H = room.H;
     // The readings stay in the space the cards leave (a phone's Measure card sits over the bottom).
     const sp = room.sp, lim = H - sp.b;
-    const size = new Map(pills.map(([el, l]) => [el, cathSize(el, `${l.kicker}|${l.text}|${l.unit}`)]));
+    for (let i = 0; i < cathPillEl.length; i++) { const l = cathPillL[i]; cathPillEl[i]._szv = cathSize(cathPillEl[i], `${l.kicker}|${l.text}|${l.unit}`); }
     // Both readings are placed together (cath-pill.js): above or below their points and slid sideways, so neither sits on a card, the top
     // sheet, the stage's edges or the other (2 Nov 2026, his ask: the callouts sat on the cards). Each keeps its place while it stays clear,
     // and any move (a flip to the other side included) glides there (cathGlide), never jumps. Decided only once the cards' room and the
     // readings' sizes are known; before that a reading takes its usual side and no glide starts from that guess.
-    const pt = (el) => { const p = el.dataset.at === 'ahead' ? at.ahead : at.tip; return worldToLocal(p[0], p[1]); };
-    const cur = [...want].filter(([, l]) => l.at !== 'sum').map(([k]) => made.get(k));
-    const ready = room.t > 0 && cur.every((el) => size.get(el)[0] > 0);
+    const cur = cathCurEl;
+    let ready = room.t > 0;
+    for (let i = 0; ready && i < cur.length; i++) if (!(cur[i]._szv[0] > 0)) ready = false;
     // Calm (his ask, 2 Nov 2026, 3:12 AM ET: the readings "jumping around for no good reason"): a reading gets its place once, and is
     // placed again only when that place now covers a card, the band's edge or the other reading, and only at rest: never while the
     // camera glides or a reading is still gliding to a new place, so cards sliding through a slide change never send it to and fro.
     if (ready && cur.length) {
-      const q = { W, top: Math.max(0, sp.t) + 6, lim: lim - 6, blockers: room.blk, pills: cur.map((el) => {
-        const [x, y] = pt(el), [w, h] = size.get(el);
-        return { x, y, w, h, prefer: el.dataset.at !== 'ahead', was: el._side || null };
-      }) };
-      const first = cur.some((el) => !el._side), calm = !vtGliding && !cath.glideRaf;
-      if (first || (calm && !pillsClear(q))) { const res = placePills(q); cur.forEach((el, i) => { el._side = res[i]; }); }
+      const q = cathPillQ;
+      q.W = W; q.top = Math.max(0, sp.t) + 6; q.lim = lim - 6; q.blockers = room.blk; q.pills.length = 0;
+      let first = false;
+      for (let i = 0; i < cur.length; i++) {
+        const el = cur[i], sz = el._szv, p = cathPtOf(at, el, cathPt), r = cathPillRecs[i] || (cathPillRecs[i] = { x: 0, y: 0, w: 0, h: 0, prefer: true, was: null });
+        r.x = p[0]; r.y = p[1]; r.w = sz[0]; r.h = sz[1]; r.prefer = el.dataset.at !== 'ahead'; r.was = el._side || null;
+        q.pills.push(r);
+        if (!el._side) first = true;
+      }
+      const calm = !vtGliding && !cath.glideRaf;
+      if (first || (calm && !pillsClear(q))) {
+        // (Each reading's own place object is written over, as placePills would hand a new one: those it reads (was) are all read before any is written.)
+        cathSideOut.length = 0;
+        for (let i = 0; i < cur.length; i++) cathSideOut.push(cur[i]._sideO);
+        placePillsInto(q, cathSideOut);
+        for (let i = 0; i < cur.length; i++) cur[i]._side = i < 2 ? cur[i]._sideO : undefined;
+      }
+      for (let i = 0; i < q.pills.length; i++) q.pills[i].was = null;   // (nothing of a reading is held in the kept records)
     }
-    for (const [el] of pills) {
-      const [w, h] = size.get(el), [x, y] = pt(el);
-      const side = el._side || { above: el.dataset.at !== 'ahead', dx: 0 }, half = w / 2;
+    for (let i = 0; i < cathPillEl.length; i++) {
+      const el = cathPillEl[i], sz = el._szv, w = sz[0], h = sz[1], pp = cathPtOf(at, el, cathPt), x = pp[0], y = pp[1];
+      let side = el._side;
+      if (!side) { side = cathSideDef; side.above = el.dataset.at !== 'ahead'; side.dx = 0; }
+      const half = w / 2;
       // Kept inside the stage: the box moves in and its pointer stays on the point.
       const bx = clamp(x + side.dx, Math.min(half + 8, W / 2), Math.max(W - half - 8, W / 2)), by = side.above ? y - PILL_GAP - h : y + PILL_GAP;
       let cx = bx, cy = by;
       if (ready) { const q = cathGlide(el, bx, by, x, y); cx = q[0]; cy = q[1]; } else el._gl = null;
       // Placed: it comes in there, from the frame after (the fade and small rise of cath-pre, never a slide from a first guess).
-      if (el._side && !el._shown && !el.classList.contains('cath-out')) { el._shown = true; nextFrame(() => { el.classList.remove('cath-pre'); }); }
+      if (el._side && !el._shown && !el.classList.contains('cath-out')) { el._shown = true; cathPreQ.push(el); nextFrame(cathPreRun); }
       // The pointer is on the side facing its point: it turns as the gliding pill passes the point, not before.
       const above = cy + h / 2 < y;
       if (el.classList.contains('above') !== above) el.classList.toggle('above', above);
@@ -9403,31 +9437,43 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       el.style.transform = `translate(${cx.toFixed(1)}px, ${cy.toFixed(1)}px)`;
       el._box = above ? { x0: cx - half, y0: cy, x1: cx + half, y1: Math.max(y, cy + h) } : { x0: cx - half, y0: Math.min(y, cy), x1: cx + half, y1: cy + h };
     }
-    live.forEach(([el, l]) => {
-      if (!l || l.at !== 'sum') return;
+    for (let li = 0; li < cathLiveEl.length; li++) {
+      const el = cathLiveEl[li], l = cathLiveL[li];
+      if (!l || l.at !== 'sum') continue;
       const box = el.querySelector('.cath-sum-box'), rows = el._rows;
-      rows.forEach((r, j) => fill(r, l.rows[j]));
-      fill(el._calc, l.calc);
-      const A = Object.fromEntries(['tip', 'ahead'].map((k) => [k, worldToLocal(at[k][0], at[k][1])]));
+      for (let j = 0; j < rows.length; j++) cathFill(rows[j], l.rows[j]);
+      cathFill(el._calc, l.calc);
+      const A = cathA;
+      worldToLocalInto(A.tip, at.tip[0], at.tip[1]); worldToLocalInto(A.ahead, at.ahead[0], at.ahead[1]);
       // (read before any write below; kept while the readings' texts and classes stay as they are)
-      const [bw, bh, R] = cathSize(box, [...l.rows, l.calc].map((q) => `${q.kicker}|${q.text}|${q.unit}|${q.cls}`).join('/'), rows);
+      let ck = '';
+      for (let j = 0; j <= l.rows.length; j++) { const q = j < l.rows.length ? l.rows[j] : l.calc; ck += (j ? '/' : '') + `${q.kicker}|${q.text}|${q.unit}|${q.cls}`; }
+      const [bw, bh, R] = cathSize(box, ck, rows);
       const top = Math.max(70, sp.t + 6), gap = lim < 440 ? 40 : 64;
       // Above the readings, centred between them; below them when there is no room above. Either way it sits in the
       // free figure, clear of the cards, the slide's panel and its controls, and never over what it names: the tip,
       // the wedged balloon and the point ahead (cath-place.js). Its leaders stay on the vein.
-      const keep = [...['tip', 'ahead'].map((k) => ({ x0: A[k][0] - 8, y0: A[k][1] - 8, x1: A[k][0] + 8, y1: A[k][1] + 8 }))];
+      cathKeep.length = 0;
+      { const k0 = cathKeepRecs[0], k1 = cathKeepRecs[1]; k0.x0 = A.tip[0] - 8; k0.y0 = A.tip[1] - 8; k0.x1 = A.tip[0] + 8; k0.y1 = A.tip[1] + 8; k1.x0 = A.ahead[0] - 8; k1.y0 = A.ahead[1] - 8; k1.x1 = A.ahead[0] + 8; k1.y1 = A.ahead[1] + 8; cathKeep.push(k0, k1); }
       if (cath.balBox) {
-        const b = cath.balBox, cs = [[b.x0, b.y0], [b.x1, b.y0], [b.x0, b.y1], [b.x1, b.y1]].map(([px, py]) => worldToLocal(px, py));
-        keep.push({ x0: Math.min(...cs.map((c) => c[0])), y0: Math.min(...cs.map((c) => c[1])), x1: Math.max(...cs.map((c) => c[0])), y1: Math.max(...cs.map((c) => c[1])) });
+        const b = cath.balBox, k2 = cathKeepRecs[2];
+        let mx0 = Infinity, my0 = Infinity, mx1 = -Infinity, my1 = -Infinity;
+        for (let c = 0; c < 4; c++) {   // (the box's four corners, to the stage)
+          const cp = worldToLocalInto(cathPt, c & 1 ? b.x1 : b.x0, c & 2 ? b.y1 : b.y0);
+          mx0 = Math.min(mx0, cp[0]); my0 = Math.min(my0, cp[1]); mx1 = Math.max(mx1, cp[0]); my1 = Math.max(my1, cp[1]);
+        }
+        k2.x0 = mx0; k2.y0 = my0; k2.x1 = mx1; k2.y1 = my1; cathKeep.push(k2);
       }
-      let { x, y } = placeSummary({ A, bw, bh, W, top, lim, gap, blockers: room.blk, keep });
+      const ps = cathPS;
+      ps.bw = bw; ps.bh = bh; ps.W = W; ps.top = top; ps.lim = lim; ps.gap = gap; ps.blockers = room.blk;
+      let { x, y } = placeSummary(ps);
       { const q = cathGlide(box, x, y, (A.tip[0] + A.ahead[0]) / 2, (A.tip[1] + A.ahead[1]) / 2); x = q[0]; y = q[1]; }
       box.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
       el._box = { x0: x, y0: y, x1: x + bw, y1: y + bh };
       // The bracket, from the middle of one reading to the middle of the other.
-      const ys = R.map((q) => q[1] + q[3] / 2), path = box.querySelector('.cath-brace path');
+      const ys0 = R[0][1] + R[0][3] / 2, ys1 = R[1][1] + R[1][3] / 2, path = box.querySelector('.cath-brace path');
       box.querySelector('.cath-brace').setAttribute('height', bh);
-      path.setAttribute('d', `M2 ${ys[0]} H9 V${ys[1]} H2 M9 ${(ys[0] + ys[1]) / 2} H20`);
+      path.setAttribute('d', `M2 ${ys0} H9 V${ys1} H2 M9 ${(ys0 + ys1) / 2} H20`);
       // Leaders: from each reading to its point on the vein. The reading nearer the points runs straight
       // from its edge; the other leaves from its outer side and runs down (or up) beside the stack.
       const svg = el.querySelector('.cath-leads');
@@ -9441,8 +9487,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         svg._kN = rows.length;
         if (!svg._kAsk) svg._kAsk = restPass(() => cathLeadKids(svg));
       }
-      if (svg._k?.length === rows.length * 2) rows.forEach((r, j) => {
-        const [px, py] = A[l.rows[j].at];
+      if (svg._k?.length === rows.length * 2) for (let j = 0; j < rows.length; j++) {
+        const pxy = A[l.rows[j].at], px = pxy[0], py = pxy[1];
         const rx0 = x + R[j][0], ry0 = y + R[j][1], rx1 = rx0 + R[j][2], ry1 = ry0 + R[j][3];
         let d;
         if (j === near) d = `M${clamp(px, rx0 + 12, rx1 - 12).toFixed(1)} ${(below ? ry1 : ry0).toFixed(1)} L${px.toFixed(1)} ${py.toFixed(1)}`;
@@ -9450,27 +9496,28 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const lead = svg._k[j * 2], dot = svg._k[j * 2 + 1], cls = l.rows[j].cls || '';
         if (lead.getAttribute('class') !== 'lead ' + cls) { lead.setAttribute('class', 'lead ' + cls); dot.setAttribute('class', 'lead-dot ' + cls); }
         lead.setAttribute('d', d); dot.setAttribute('cx', px.toFixed(1)); dot.setAttribute('cy', py.toFixed(1));
-      });
+      }
       if (el._from) {
         // FLIP: each reading starts where its pill was and eases into its row; the bracket, leaders and
         // HVPG wait (CSS delays) until they have landed.
-        rows.forEach((r, j) => {
-          const a = el._from[l.rows[j].at]; if (!a) return;
+        for (let j = 0; j < rows.length; j++) {
+          const a = el._from[l.rows[j].at]; if (!a) continue;
+          const r = rows[j];
           r._flip = flipFrom(a.left - (x + R[j][0]), a.top - (y + R[j][1]), performance.now());   // (its row's place, stage px, from the sizes kept)
-        });
-        el._from = null; nextFrame(() => el.classList.remove('cath-travel'));
+        }
+        el._from = null; cathTravelQ.push(el); nextFrame(cathTravelRun);
       }
       // (The travel is written by hand each frame, not a CSS transition, which the browser runs a frame ahead of the page: the
       // glass drawn under each reading follows the page, and trailed it. cath-flip.js.)
       let travelling = false;
-      rows.forEach((r) => {
-        const f = r._flip; if (!f) return;
+      for (let j = 0; j < rows.length; j++) {
+        const r = rows[j], f = r._flip; if (!f) continue;
         const q = flipAt(f, performance.now());
         r.style.transform = q.done ? '' : `translate(${q.x.toFixed(1)}px, ${q.y.toFixed(1)}px)`;
         if (q.done) r._flip = null; else travelling = true;
-      });
-      if (travelling && !cath.glideRaf) cath.glideRaf = nextFrame(() => { cath.glideRaf = 0; cath.lblKey = ''; cathLabelsSoon(); });
-    });
+      }
+      if (travelling && !cath.glideRaf) cath.glideRaf = nextFrame(cathGlideTick);
+    }
   }
   // What the readings' layout reads from the page, kept: the stage's size, the cards' room and the blockers (the cards, the
   // slide's glass), until a card moves (pps:occ), the window resizes, or 250 ms pass (a card still sliding in); and each
@@ -9481,11 +9528,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (1 Nov 2026, "Move everything to GPU": both are read first in a frame (readFrame), when they may have changed, and the readings laid
   // out again then; never between a frame's writes. Until then the last ones serve; a reading not measured yet waits hidden (cath-pre).)
   let cathRoomAsk = 0, cathSizeAsk = 0;
-  const cathWant = new Map();
+  const cathWant = new Set(), cathRoomNone = { t: 0, W: 0, H: 0, sp: { t: 0, b: 0 }, blk: [] };
+  const CS_ZERO2 = [0, 0], CS_ZERO3 = [];   // (a reading not measured yet: no size, and for the summary a zero row for each reading)
+  for (let n = 0; n <= 8; n++) { const rs = []; for (let i = 0; i < n; i++) rs.push([0, 0, 0, 0]); CS_ZERO3.push([0, 0, rs]); }
   function cathRoomNow() {
     const now = performance.now();
     if (!cath.room || now - cath.room.t > 250) cathRoomAsk ||= readFrame(cathRoomRead);
-    if (!cath.room) { const b = stageBox(); return { t: 0, W: b.width, H: b.height, sp: { t: 0, b: 0 }, blk: [] }; }
+    if (!cath.room) { const b = stageBox(), r = cathRoomNone; r.W = b.width; r.H = b.height; return r; }   // (before the first read: the stage's size, no room taken; the one caller reads it at once)
     return cath.room;
   }
   function cathRoomRead() {
@@ -9501,13 +9550,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function cathSize(el, text, rows = null) {
     const rs = document.documentElement.style;   // (the label sizes, as set inline: read without a layout)
     const key = `${cathEpoch}|${rs.getPropertyValue('--label-k')}|${rs.getPropertyValue('--label-scale')}|${appEl?.classList.contains('presenting')}|${el.className.replace(/(?:^|\s)cath-pre(?=\s|$)/, '')}|${el.dataset.at || ''}|${text.replace(/\d/g, '0')}`;
-    if (el._sz?.key !== key) { cathWant.set(el, [key, rows]); cathSizeAsk ||= readFrame(cathSizeRead); }
-    return el._sz?.v || (rows ? [0, 0, rows.map(() => [0, 0, 0, 0])] : [0, 0]);
+    if (el._sz?.key !== key) { el._szKey = key; el._szRows = rows; cathWant.add(el); cathSizeAsk ||= readFrame(cathSizeRead); }
+    return el._sz?.v || (rows ? CS_ZERO3[Math.min(rows.length, 8)] : CS_ZERO2);
   }
   function cathSizeRead() {
     cathSizeAsk = 0;
-    for (const [el, [key, rows]] of cathWant) {
+    for (const el of cathWant) {
       if (!el.isConnected) continue;
+      const key = el._szKey, rows = el._szRows;
       el._sz = { key, v: rows ? [el.offsetWidth, el.offsetHeight, rows.map((r) => [r.offsetLeft, r.offsetTop, r.offsetWidth, r.offsetHeight])] : [el.offsetWidth, el.offsetHeight] };
     }
     cathWant.clear();
