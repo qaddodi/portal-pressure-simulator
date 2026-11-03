@@ -115,7 +115,6 @@ export function marginViewTo(o, m, cw, ch) {
 import { createShapeGL } from './shape-gl.js';
 import { createOrganPaint, mul, mulTo, invTo, prestartOrganPaint } from './organ-paint.js';
 import { prestart, linkProgram, exerciseDraw } from './gl-compile.js';
-import { hold } from './gpu-budget.js';
 import { netChanged } from './idle-keys.js';
 import { uniformCache } from './uniform-cache.js';
 import { easeMove, D_SURFACE } from './ease.js';
@@ -429,15 +428,6 @@ export function createOrganStack(gl, { painter: shared = null, moves = !shared }
       else { gl.bindFramebuffer(gl.FRAMEBUFFER, target); gl.viewport(0, 0, w, h); drawLayer(L0, L1, mat, within); }
     }
     painter?.endFrame();
-    deepNote();
-  }
-  // The painter's mask and nested-group layers (each a canvas-sized texture, made when a masked or nested group first needs it) are kept
-  // for the next picture, and given back when the render graph runs over its memory envelope (gpu-budget.js hold): the next group that
-  // needs one makes it again. Only for a painter of the stack's own.
-  let deepHold = null;
-  function deepNote() {   // alloc-rare: a holder is made when such layers first stand (not every frame)
-    if (shared || !painter || deepHold?.held) { deepHold?.touch(); return; }
-    if (painter.deepBytes() > 0) deepHold = hold({ owner: 'organ layers', kind: 'retained', gl, bytes: () => painter.deepBytes(), release: () => { deepHold = null; painter.trimDeep(); } });   // alloc-rare: as above
   }
   // ── Camera-only frames (MOVE_FS) ──
   // exactAt: the view and content the stack's texture holds exactly (null once a moved frame is in it). base: the exact picture the moved
@@ -632,7 +622,7 @@ export function createOrganStack(gl, { painter: shared = null, moves = !shared }
           gl.bindVertexArray(null); gl.disable(gl.BLEND); gl.disable(gl.SCISSOR_TEST); gl.activeTexture(gl.TEXTURE0);
           gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
           if (gi < groups.length) return false;
-          done = true; live = false; free(); deepNote();
+          done = true; live = false; free();
           const was = staged[slot].get(name);
           if (was) gl.deleteTexture(was.tex);
           staged[slot].set(name, { tex, rect, at, flip: true });   // alloc-rare: one layer record per staged picture (a view settling, a patient change), kept as the live layer
