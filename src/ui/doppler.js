@@ -10,7 +10,7 @@ import { h, fmt, canvasSize, clamp, icon, cssVar, cssAlpha, swapText } from './u
 import { FONT, textW } from './charts.js';
 import { logAction, shownVel, store } from './store.js';
 import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js';
-import { frameFor, noteDraw, paceMs, cancelFrame } from './frame.js';
+import { frameFor, noteDraw, paceMs, cancelFrame, frameAnimating } from './frame.js';
 import { windowIndexFor, scaleFor, fitScale } from './dopplerWindow.js';
 import { velNormal, dopplerVel, judgeFlow } from './velNormal.js';
 import { caliperFrame, caliperLevel, caliperX, CAL_FADE, pairOf, pairBand, pairScale, PAIR_GAP } from './doppler-marks.js';
@@ -668,14 +668,13 @@ export function createDoppler({ onProbe, pickGate = true }) {
   let wallLast = 0;
   let ovLast = '', ovAt = 0, ovOn = false, ovTop = 26;   // the report in the top strip (see draw)
   let img = null;
-  const floorRec = { width: 0, height: 0, dpr: 0 }, noiseBins = new Float32Array(16384);
   const TB = [0, 0, 0, 0];
   const GEO = { RW: 0, RH: 0, rBase: 0, rPxPerV: 0, cps: 0, binPx: 0, spkPx: 0, spkMix: 0, pol: 0, k: 0, venous: false, span: 0, topV: 0, botV: 0 };   // (the spectrum's geometry for a frame, written in place)
   const SYN = { rBase: 0, rPxPerV: 0, fade: 0, wfV: 0, spkPx: 0, spkMix: 0, span: 0, uK: 0, venous: false, mode: 0 };   // (the spectrum shader's geometry for a frame, written in place)
   let synthed = false, ringW = 0, ringH = 0;   // (whether the GPU wrote the ring's lines, and the ring's size there)
-  const RENDER = { W: 0, H: 0, dx: 0, dy: 0, RW: 0, RH: 0, p: 0, nx: 0, ny: 0, noiseA: 0, base: 0, wf: 0 };
+  const RENDER = { W: 0, H: 0, dx: 0, dy: 0, RW: 0, RH: 0, p: 0, nx: 0, ny: 0, noiseA: 0, base: 0, wf: 0, nBin: 2, nRun: 1 };
   const FS_ST = { scale: null, baseF: null, settleAt: 0, refit: false }, FS_IN = { fixed: null, holding: false, fits: false, target: 0, tbF: 0, tNow: 0 };   // (fitScale's state and input, written in place)
-  let floor = null, noiseAt = 0, nx = 0, ny = 0, traceBox = null;   // (floor: the noise texture's size and density, { width, height, dpr })
+  let noiseAt = 0, nx = 0, ny = 0, traceBox = null;
   let glFrom = null;    // 'img': the GPU's ring texture needs the whole ImageData, else only new columns
   let imgWhole = false;  // (whether the ImageData holds the whole ring: not after a stretch on the GPU, which leaves it the new lines alone)
   // (What the ring was written for: its size, and the scale, baseline, vessel, sign, window and mode behind it; ok false forgets it.)
@@ -690,7 +689,6 @@ export function createDoppler({ onProbe, pickGate = true }) {
   const FLOOR_DB = 4.5, RANGE_DB = 30;  // log compression: the grey map spans 4.5–34.5 dB
   const LN10_10 = 10 / Math.LN10;
   const GAIN = 1.1;                 // display gain on the grey map
-  const PAD = 96;                   // the noise texture is this much larger than the display
   const live = () => !!frame?.running;
   const expo = () => -Math.log(1 - Math.random() * 0.999999);
 
@@ -717,33 +715,8 @@ export function createDoppler({ onProbe, pickGate = true }) {
     return g.pol * gf * (tb > ta ? va + (vb - va) * clamp((t - ta) / (tb - ta), 0, 1) : va);
   }
 
-  // The noise floor: a screen-sized texture made once per size and shown at a new random offset
-  // a few times a second. Like the grain, it is exponential power, independent from one spectral
-  // line to the next but smooth over a few frequency bins along it, log-compressed.
-  // (Made on a 128 px grid and kept while it covers the screen, so a monitor that settles by a few pixels
-  // as its card enters, or its report grows, does not build it again.)
-  function makeNoise(RW, RH, binPx, cw) {
-    binPx *= 2;
-    const TW = Math.ceil((RW + PAD) / 128) * 128, TH = Math.ceil((RH + PAD) / 128) * 128;
-    const fi = new ImageData(TW, TH), F = fi.data;
-    const nb = Math.ceil(TH / binPx) + 2;
-    const nf = noiseBins;   // (kept: nb is at most about 11,000, the longest side of a canvas over the smallest bin)
-    let nextLine = 0;
-    for (let x = 0; x < TW; x++) {
-      // a new spectral line every 1 to cw columns (at random, so there is no regular grid)
-      if (!x || x >= nextLine) { nextLine = x + 1 + Math.floor(Math.random() * cw); for (let b = 0; b < nb; b++) nf[b] = expo(); }
-      for (let y = 0; y < TH; y++) {
-        const fb = y / binPx, b0 = fb | 0, f0 = fb - b0, f = f0 * f0 * (3 - 2 * f0);
-        const N = nf[b0] + (nf[b0 + 1] - nf[b0]) * f;
-        let I = (Math.log(N) * LN10_10 - 2.5) / RANGE_DB;
-        I = I <= 0 ? 0 : Math.pow(Math.min(1, I), 1.2);
-        const q = (y * TW + x) * 4;
-        F[q] = 236 * I; F[q + 1] = 240 * I; F[q + 2] = 250 * I; F[q + 3] = 255;
-      }
-    }
-    floorRec.width = TW; floorRec.height = TH; floorRec.dpr = cw; floor = floorRec;
-    gpu?.noise(fi);
-  }
+  // The noise floor is worked out by the GPU's fragment shader (doppler-gl.js floorAt): exponential power, independent from one line to the next
+  // and smooth over a few frequency bins, shown at a new random offset about ten times a second, cleared at the baseline by the wall filter.
 
   // The line being written, for power(): its top, its low edge, the widths of the soft ends, the fade, and whether the vessel is a vein.
   let wP = 0, wL = 0, wSigHi = 0, wSigLo = 0, wFade = 0, wVenous = false;
@@ -1181,8 +1154,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     const p = ((cNow % RW) + RW) % RW;
     const dx = Math.round(padL * dpr), dy = Math.round(padT * dpr);
     // the noise floor, fixed to the screen: a new random view of the texture ~10 times a second
-    if (!floor || floor.width < RW + PAD || floor.height < RH + PAD || floor.dpr !== Math.max(1, dpr)) makeNoise(RW, RH, g.binPx, Math.max(1, dpr));
-    if (now - noiseAt > 100) { noiseAt = now; nx = (Math.random() * (floor.width - RW)) | 0; ny = (Math.random() * (floor.height - RH)) | 0; }
+    if (now - noiseAt > 100) { noiseAt = now; nx = (Math.random() * 8192) | 0; ny = (Math.random() * 8192) | 0; }
     // the wall filter removes the noise near the baseline as well as the slow signal
     const wfPx = Math.max(1.2, 0.025 * scale) * g.rPxPerV * 1.6;
     TB[0] = dx; TB[1] = dy; TB[2] = RW; TB[3] = RH; traceBox = TB;   // (drawn whole: the next frame clears round it)
@@ -1192,13 +1164,14 @@ export function createDoppler({ onProbe, pickGate = true }) {
       if (glFrom === 'img') gpu.ringAll(img, RW, RH);
       glFrom = null;
       const R = RENDER;
-      R.W = CW; R.H = CH; R.dx = dx; R.dy = dy; R.RW = RW; R.RH = RH; R.p = p; R.nx = nx; R.ny = ny; R.noiseA = mode === 'spectrum' ? 1 : 0.3; R.base = g.rBase; R.wf = wfPx;
+      R.W = CW; R.H = CH; R.dx = dx; R.dy = dy; R.RW = RW; R.RH = RH; R.p = p; R.nx = nx; R.ny = ny; R.noiseA = mode === 'spectrum' ? 1 : 0.3; R.base = g.rBase; R.wf = wfPx; R.nBin = g.binPx * 2; R.nRun = Math.max(1, Math.round((1 + Math.max(1, dpr)) / 2));
       drawn = gpu.render(R);
     }
     if (!drawn) {
       // (no GPU picture this frame, a lost context: the trace black, its ring synthesised whole when the GPU draws again)
       if (gpu) { glFrom = 'img'; if (!imgWhole) RK.ok = false; }
-      ctx.fillStyle = cssVar('--black'); ctx.fillRect(padL, padT, RW / dpr, RH / dpr);
+      // (With a GPU drawer the canvas under keeps its last picture, which is shown until the next good frame; black only with no drawer at all.)
+      if (!gpu) { ctx.fillStyle = cssVar('--black'); ctx.fillRect(padL, padT, RW / dpr, RH / dpr); }
     }
 
     // Baseline
@@ -1437,8 +1410,12 @@ export function createDoppler({ onProbe, pickGate = true }) {
     return false;
   }
   let raf = 0, askedAt = 0, paintAt = 0, reportDue = false;
+  // (While the trace scrolls its frames are never carried to a later one by the scheduler: a carried frame of a moving picture steps, then jumps.)
+  let animating = false;
+  const anim = (on) => { if (animating !== on) { animating = on; frameAnimating('doppler', on); } };
   function loop(now) {
     raf = 0;
+    anim(!!frame && live() && shown());
     if (!frame || !shown()) { if (reportDue) { reportDue = false; updateReport(); } return; }
     // The running trace scrolls on every frame the screen offers (15 a second in Battery saver). Its samples are the model's,
     // whatever the frame rate: each frame adds only the columns its elapsed time covers. A change while paused draws at once.
@@ -1487,6 +1464,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
    *  context are let go. Each presentation made a new monitor and kept the old one's WebGL context; iOS Safari holds about a
    *  dozen contexts and drops the oldest without a word, which could be the figure's. */
   function dispose() {
+    anim(false);
     if (raf) { cancelFrame(raf); raf = 0; }
     io?.disconnect(); ro?.disconnect(); frame = null;
     gpu?.dispose(); gpu?.canvas.remove(); words?.dispose(); offSurface();

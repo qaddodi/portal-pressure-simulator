@@ -5,13 +5,13 @@
 // dominant dark shear-wave band, and a slope that drifts gently around the model's value.
 
 import { h, clamp, cssAlpha, canvasSize } from './util.js';
-import { createTraceGL, fitPen } from './trace-gl.js';
+import { createTraceGL, fitPen, keepLayer } from './trace-gl.js';
 import { FONT } from './charts.js';
 import { simTime, isPaused, fibroReading } from './clock.js';
 import { store } from './store.js';
 import { createElastogramGL, elastogramUnder } from './fibroscan-gl.js';
 import { surface } from './gpu-surfaces.js';
-import { frameFor, cancelFrame, noteDraw, saver, paceMs } from './frame.js';
+import { frameFor, cancelFrame, noteDraw, saver, paceMs, frameAnimating } from './frame.js';
 import { createFollow } from './display-state.js';
 import { fix1 } from './fix-text.js';
 import { attrSoon, dataSoon } from './class-soon.js';
@@ -152,7 +152,10 @@ export function createFibroScan() {
   let seen = false, fed = false;   // (fed: the model has given it a stiffness to show)
   // (raf: the loop's one frame asked for, let go with the panel: dispose.)
   let raf = 0, gone = false;
-  const start = () => { if (!running && !gone) { running = true; raf = nextFrame(loop); } };
+  // (While the wave runs its frames are never carried to a later one by the scheduler: a carried frame of a moving picture is a hitch.)
+  let animating = false;
+  const anim = (on) => { if (animating !== on) { animating = on; frameAnimating('fibroscan', on); } };
+  const start = () => { if (!running && !gone) { running = true; anim(true); raf = nextFrame(loop); } };
   const io = typeof IntersectionObserver === 'function' ? new IntersectionObserver((es) => { const was = seen; seen = es[es.length - 1].isIntersecting; if (seen && !was && fed) start(); if (!seen && was) dropMap(); }) : null;
   io?.observe(cv); boxRO?.observe(cv);
   const onScreen = () => cv.isConnected && (io ? seen : true);   // (no observer, a bare test page: taken as shown)
@@ -221,11 +224,27 @@ export function createFibroScan() {
     }
     mapGpu = drawn;
     // (A map not drawn this frame is cleared on the GPU by its drawer (fibroscan-gl.js draw), so its canvas never holds an old picture: nothing to hide.)
+    // The still parts (the window lines, the edge, the depth and time words with their halos, "kPa" and the reading's fitted size) are kept as one
+    // GPU picture, drawn again only when the size, the words' size or the theme's colours change, not on every frame of the wave; each frame
+    // lays that picture and draws the fitted line and the reading. (The kept layer, as the Doppler's scale does; the fit is worked out with it.)
+    const ink = cssAlpha('--white', 0.96), halo = cssAlpha('--black', 0.7), dash = cssAlpha('--white', 0.5);
+    if (KS.w !== w || KS.hh !== hh || KS.CAP !== CAP || KS.side !== side || KS.edge !== th.edge || KS.tick !== th.tick || KS.ink !== ink || KS.halo !== halo || KS.dash !== dash) {
+      KS.w = w; KS.hh = hh; KS.CAP = CAP; KS.side = side; KS.edge = th.edge; KS.tick = th.tick; KS.ink = ink; KS.halo = halo; KS.dash = dash; KS.ver++;
+    }
+    KS.th = th; KS.m = m; KS.ew = ew; KS.ph = ph; KS.ex = ex; KS.top = top; KS.bot = bot; KS.FLOOR = FLOOR; KS.ctx = ctx;
+    keepLayer(ctx, 'fs-still', KS.ver, drawStill);
+    const x0 = ex + (WAVE_T0 / 80) * ew, x1 = x0 + clamp((40 / c) / 80, 0, 1) * ew;
+    ctx.strokeStyle = cssAlpha('--white', 0.95); ctx.lineWidth = 1.25; ctx.beginPath(); ctx.moveTo(x0, top + ((WIN0 - DEPTH0) / DEPTH_SPAN) * ph); ctx.lineTo(x1, top + ((WIN1 - DEPTH0) / DEPTH_SPAN) * ph); ctx.stroke();
+    ctx.fillStyle = ink; ctx.strokeStyle = halo; ctx.lineJoin = 'round'; ctx.textAlign = 'right'; ctx.lineWidth = Math.max(3, KS.big * 0.16);
+    ctx.font = FONT(600, KS.big); ctx.strokeText(reading, KS.ux - KS.uw - 5, KS.RY); ctx.fillText(reading, KS.ux - KS.uw - 5, KS.RY);
+  }
+  // (The kept layer's drawing: what the still parts are drawn from is in KS, and the reading's fit is left there for each frame's number.)
+  const KS = { ver: 0, w: 0, hh: 0, CAP: 0, side: false, edge: '', tick: '', ink: '', halo: '', dash: '', th: null, m: 0, ew: 0, ph: 0, ex: 0, top: 0, bot: 0, FLOOR: 0, ctx: null, big: 14, RY: 0, uw: 0, ux: 0 };
+  function drawStill() {
+    const { ctx, th, m, ew, ph, ex, top, bot, side, w, hh, CAP, FLOOR } = KS;
     ctx.strokeStyle = cssAlpha('--white', 0.5); ctx.setLineDash(DASH); ctx.lineWidth = 1;
     for (let i = 0; i < 2; i++) { const d = WINDOW[i]; const y = top + ((d - DEPTH0) / DEPTH_SPAN) * ph; ctx.beginPath(); ctx.moveTo(ex, y); ctx.lineTo(ex + ew, y); ctx.stroke(); }
     ctx.setLineDash(NO_DASH);
-    const x0 = ex + (WAVE_T0 / 80) * ew, x1 = x0 + clamp((40 / c) / 80, 0, 1) * ew;
-    ctx.strokeStyle = cssAlpha('--white', 0.95); ctx.lineWidth = 1.25; ctx.beginPath(); ctx.moveTo(x0, top + ((WIN0 - DEPTH0) / DEPTH_SPAN) * ph); ctx.lineTo(x1, top + ((WIN1 - DEPTH0) / DEPTH_SPAN) * ph); ctx.stroke();
     rrect(ctx, 0.5, 0.5, w - 1, hh - 1, 12); ctx.strokeStyle = th.edge; ctx.lineWidth = 1; ctx.stroke();
     // Axes: the units ride on one tick each ("60 mm", "0 ms"), so they need no room of their own.
     const TK = side ? FLOOR : CAP;
@@ -262,17 +281,17 @@ export function createFibroScan() {
     ctx.textAlign = 'right'; ctx.lineWidth = Math.max(3, big * 0.16);
     ctx.font = FONT(500, Math.round(CAP * 1.4)); const ux = ex + ew - RM;
     ctx.strokeText('kPa', ux, RY); ctx.fillText('kPa', ux, RY);
-    ctx.font = FONT(600, big); ctx.strokeText(reading, ux - uw - 5, RY); ctx.fillText(reading, ux - uw - 5, RY);
+    KS.big = big; KS.RY = RY; KS.uw = uw; KS.ux = ux;
   }
   // Runs only while the pane is on screen; update() restarts it when the tab is shown again.
   // While it plays the map is drawn on every frame the screen offers (15 a second in Battery saver), like the lobule's flow.
   let lastPaint = -1e9;
   function loop(now) {
     raf = 0;
-    if (gone || !onScreen() || document.hidden) { running = false; return; }
+    if (gone || !onScreen() || document.hidden) { running = false; anim(false); return; }
     const hold = REDUCED_MQ.matches || isPaused();
     if (hold || now - lastPaint >= paceMs()) { paint(now); lastPaint = now; noteDraw('fibroscan'); }   // (paused: always drawn, so a change shows)
-    if (hold) { running = false; return; }   // paused: hold this frame; resume restarts the loop
+    if (hold) { running = false; anim(false); return; }   // paused: hold this frame; resume restarts the loop
     raf = nextFrame(loop);
   }
   let pinned = null;   // (the slide's settled stiffness, the tiles' and words' number; the live value swings with each beat)
@@ -284,6 +303,6 @@ export function createFibroScan() {
   /** The panel is done with (a presentation's own instruments go with it): its frame, observer and store watch are let go. */
   // (The ?perf surfaces list, gpu-surfaces.js: read by the readout only.)
   const offSurface = surface('FibroScan map', () => (!cv.isConnected || mapGpu === null ? null : mapGpu ? (words ? ROW_WORDS : ROW_2D) : ROW_NONE));
-  function dispose() { gone = true; running = false; cancelFrame(raf); raf = 0; io?.disconnect(); boxRO?.disconnect(); offRun(); words?.dispose(); dropMap(); }
+  function dispose() { gone = true; running = false; anim(false); cancelFrame(raf); raf = 0; io?.disconnect(); boxRO?.disconnect(); offRun(); words?.dispose(); dropMap(); }
   return { id: 'fibroscan', label: 'FibroScan', el, update, pin(fp) { pinned = fp?.lsm ?? null; if (pinned != null) model = pinned; }, dispose() { dispose(); offSurface(); } };
 }

@@ -25,9 +25,9 @@ test('the Doppler trace and its words are drawn on the GPU', () => {
   assert.match(src, /const pen = fitPen\(cv, words\);\n\s+try \{ drawWith\(pen, now\); \} finally \{ pen\.ctx\.end\?\.\(\); \}/);
   assert.match(src, /const onGpu = !!gpu && !gpu\.lost;/);
   assert.match(src, /if \(glFrom === 'img'\) gpu\.ringAll\(img, RW, RH\);/);
-  assert.match(src, /R\.W = CW; R\.H = CH; R\.dx = dx; R\.dy = dy; R\.RW = RW; R\.RH = RH; R\.p = p; R\.nx = nx; R\.ny = ny; R\.noiseA = mode === 'spectrum' \? 1 : 0\.3; R\.base = g\.rBase; R\.wf = wfPx;\s+drawn = gpu\.render\(R\);/);
+  assert.match(src, /R\.W = CW; R\.H = CH; R\.dx = dx; R\.dy = dy; R\.RW = RW; R\.RH = RH; R\.p = p; R\.nx = nx; R\.ny = ny; R\.noiseA = mode === 'spectrum' \? 1 : 0\.3; R\.base = g\.rBase; R\.wf = wfPx; R\.nBin = g\.binPx \* 2; R\.nRun = Math\.max\(1, Math\.round\(\(1 \+ Math\.max\(1, dpr\)\) \/ 2\)\);\s+drawn = gpu\.render\(R\);/);
   assert.match(src, /gpu\.stretch\(RW, RH, /, 'a new size stretches the ring on the GPU');
-  assert.match(src, /gpu\?\.noise\(fi\);/);
+  assert.match(gl, /vec3 floorAt\(ivec2 t\)/, 'the noise floor is worked out in the shader, no texture built on the CPU');
   assert.doesNotMatch(gl, /SwiftShader\|llvmpipe/, 'a software renderer draws it too: there is no 2D path to keep');
   assert.match(gl, /blitFramebuffer/);
   assert.match(gl, /webglcontextlost/);

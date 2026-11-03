@@ -33,7 +33,7 @@ test('no gut picture is ever made: the gut is painted on the GPU with the other 
 
 test('a presentation\'s Doppler monitor disposes its frames, observers and WebGL context', () => {
   const d = src('src/ui/doppler.js');
-  assert.match(d, /function dispose\(\) \{\n\s+if \(raf\) \{ cancelFrame\(raf\); raf = 0; \}\n\s+io\?\.disconnect\(\); ro\?\.disconnect\(\); frame = null;\n\s+gpu\?\.dispose\(\); gpu\?\.canvas\.remove\(\);/);
+  assert.match(d, /function dispose\(\) \{\n\s+anim\(false\);\n\s+if \(raf\) \{ cancelFrame\(raf\); raf = 0; \}\n\s+io\?\.disconnect\(\); ro\?\.disconnect\(\); frame = null;\n\s+gpu\?\.dispose\(\); gpu\?\.canvas\.remove\(\);/);
   assert.match(d, /return \{ id: 'doppler', [^\n]*, dispose \};/);
   assert.match(src('src/ui/doppler-gl.js'), /canvas\.width = canvas\.height = 0;\n\s+gl\.getExtension\('WEBGL_lose_context'\)\?\.loseContext\(\);/);
   assert.match(src('src/ui/presenter-tools.js'), /made\[k\]\?\.dispose\?\.\(\)/);

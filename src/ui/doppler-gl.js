@@ -21,20 +21,39 @@ void main() { gl_Position = vec4(p, 0.0, 1.0); }`;
 const FS = `#version 300 es
 precision highp float;
 precision highp int;
-uniform sampler2D ring, noise;
+uniform sampler2D ring;
 uniform ivec2 size;      // the trace's width and height (device px; the ring's too)
 uniform ivec2 org;       // the trace's bottom-left corner in the canvas (device px, from the bottom)
 uniform int p;           // the ring column of the newest line: the screen's left edge shows column p + 1
-uniform ivec2 nOff;      // where the noise texture is read from (its view, moved a few times a second)
+uniform ivec2 nOff;      // where the noise floor is read from (its view, moved a few times a second)
+uniform float nBin;      // the noise's frequency bin, px
+uniform int nRun;        // how many columns share one noise line
 uniform float noiseA;    // the noise's share (1 on the grey spectrum, 0.3 under the colour modes)
 uniform vec2 wall;       // the wall filter's band: the baseline's row from the top, its half height (px)
 out vec4 o;
+// The noise floor, worked out here where it was a texture built on the CPU (a log and a pow for each of 2 M pixels, at every size change):
+// exponential power, one draw for each noise line (a few columns) and frequency bin, smooth over the bins, log-compressed.
+uint nh(uint a, uint b) {
+  uint h = a * 747796405u + b * 2891336453u + 1013904223u;
+  h ^= h >> 15; h *= 2246822519u; h ^= h >> 13; h *= 3266489917u; h ^= h >> 16;
+  return h;
+}
+float nexpo(uint g, uint b) { return -log(1.0 - float(nh(g, b) >> 8) * (1.0 / 16777216.0) * 0.999999); }
+vec3 floorAt(ivec2 t) {
+  uint g = uint(t.x / nRun);
+  float fb = float(t.y) / nBin, f0 = fract(fb), f = f0 * f0 * (3.0 - 2.0 * f0);
+  uint b0 = uint(floor(fb));
+  float N = nexpo(g, b0) + (nexpo(g, b0 + 1u) - nexpo(g, b0)) * f;
+  float I = (log(N) * 4.342944819032518 - 2.5) / 30.0;
+  I = I <= 0.0 ? 0.0 : pow(min(1.0, I), 1.2);
+  return vec3(236.0, 240.0, 250.0) / 255.0 * I;
+}
 void main() {
   int lx = int(gl_FragCoord.x) - org.x, ly = size.y - 1 - (int(gl_FragCoord.y) - org.y);
   int c = lx + p + 1;
   if (c >= size.x) c -= size.x;
   vec3 r = texelFetch(ring, ivec2(c, ly), 0).rgb;
-  vec3 n = texelFetch(noise, nOff + ivec2(lx, ly), 0).rgb;
+  vec3 n = floorAt(nOff + ivec2(lx, ly));
   vec3 col = min(vec3(1.0), r + n * noiseA);
   float a = wall.y > 0.0 ? 0.9 * max(0.0, 1.0 - abs(float(ly) + 0.5 - wall.x) / wall.y) : 0.0;
   o = vec4(col * (1.0 - a), 1.0);
@@ -50,16 +69,16 @@ export function createDopplerGL({ onReady = null } = {}) {
   // (lost: the GPU does not draw the monitor, from the loss until the rebuilt program is published.)
   let lost = false, dead = false;
   canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); lost = true; });
-  let started = null, startedL = null, quad = null, vao = null, ringT = null, noiseT = null, stopPoll = null, waitingDraw = false;
+  let started = null, startedL = null, quad = null, vao = null, ringT = null, stopPoll = null, waitingDraw = false;
   let prog = null, U = null, failed = false;
   // (The spectrum's lines worked out on the GPU, doppler-synth.js: its program, the two textures of each line's numbers by ring column, the arrays
   // they are sent from, and the framebuffer that draws into the ring. synthFailed: the shader did not build, and the CPU writes the lines.)
   let startedS = null, stopPollS = null, progS = null, synthFailed = false, colAT = null, colBT = null, colAArr = null, colBArr = null, cw = 0, synthFb = null;
   const SU = {}, SEED = (Math.random() * 4294967296) >>> 0;
-  let rw = 0, rh = 0, noiseSrc = null;   // (noiseSrc: the noise floor as last sent, to send it again to a context that came back)
+  let rw = 0, rh = 0;
   const tex = () => { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); return t; };
   // (Kept for the life of the drawer, so publishing the program and drawing make no objects: the uniforms' places, and the 1 × 1 texel of the warm-up draw.)
-  const UNI = { ring: null, noise: null, size: null, org: null, p: null, nOff: null, noiseA: null, wall: null };
+  const UNI = { ring: null, nBin: null, nRun: null, size: null, org: null, p: null, nOff: null, noiseA: null, wall: null };
   const DOT = new Uint8Array([0, 0, 0, 255]);
   const oneTexel = (t) => { gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, DOT); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST); };
   // What the context holds: the program (started now, published once the driver has finished it, gl-compile.js; render() publishes it if
@@ -79,7 +98,7 @@ export function createDopplerGL({ onReady = null } = {}) {
     gl.bindVertexArray(vao);
     gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
     gl.bindVertexArray(null);
-    ringT = tex(); noiseT = tex(); colAT = tex(); colBT = tex(); synthFb = gl.createFramebuffer();
+    ringT = tex(); colAT = tex(); colBT = tex(); synthFb = gl.createFramebuffer();
     stopPoll?.(); stopPoll = publishWhenDone(gl, [started], publish);
     stopPollS?.(); stopPollS = publishWhenDone(gl, [startedS], publishSynth);   // (its own: the monitor draws without it, the CPU writing the lines, until it is published)
   }
@@ -99,19 +118,19 @@ export function createDopplerGL({ onReady = null } = {}) {
     try {
       prog = checkProgram(gl, started);
       U = UNI;
-      U.ring = gl.getUniformLocation(prog, 'ring'); U.noise = gl.getUniformLocation(prog, 'noise'); U.size = gl.getUniformLocation(prog, 'size'); U.org = gl.getUniformLocation(prog, 'org');
+      U.ring = gl.getUniformLocation(prog, 'ring'); U.nBin = gl.getUniformLocation(prog, 'nBin'); U.nRun = gl.getUniformLocation(prog, 'nRun'); U.size = gl.getUniformLocation(prog, 'size'); U.org = gl.getUniformLocation(prog, 'org');
       U.p = gl.getUniformLocation(prog, 'p'); U.nOff = gl.getUniformLocation(prog, 'nOff'); U.noiseA = gl.getUniformLocation(prog, 'noiseA'); U.wall = gl.getUniformLocation(prog, 'wall');
-      const d0 = gl.createTexture(), d1 = gl.createTexture();
-      oneTexel(d0); oneTexel(d1);
+      const d0 = gl.createTexture();
+      oneTexel(d0);
       // alloc-rare: once for a program, as it is published (a frame comes here only while no program is published; the guard at the top returns after)
       exerciseDraw(gl, () => {
         gl.useProgram(prog);
         gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, d0); gl.uniform1i(U.ring, 0);
-        gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, d1); gl.uniform1i(U.noise, 1);
+        gl.uniform1f(U.nBin, 2); gl.uniform1i(U.nRun, 1);
         gl.uniform2i(U.size, 1, 1);
         gl.bindVertexArray(vao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); gl.bindVertexArray(null);
       });
-      gl.deleteTexture(d0); gl.deleteTexture(d1);
+      gl.deleteTexture(d0);
       lost = false;   // (after a restore: the GPU draws the monitor again from the next frame)
       if (waitingDraw) { waitingDraw = false; try { onReady?.(); } catch (e2) { console.warn('Doppler on the GPU: the redraw failed.', e2); } }
     } catch (e) {
@@ -120,17 +139,12 @@ export function createDopplerGL({ onReady = null } = {}) {
     }
   }
   try { build(); } catch (e) { console.warn('Doppler on the GPU: shader failed; the 2D monitor stays.', e); gl.getExtension('WEBGL_lose_context')?.loseContext(); return null; }
-  const putNoise = (fi) => {
-    gl.bindTexture(gl.TEXTURE_2D, noiseT);
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, fi.width, fi.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, bytes(fi.data));
-  };
   // A context the browser gives back (iOS Safari returns to the page, or a GPU process restarts) is built afresh. The monitor stays on the
   // 2D path (doppler.js reads lost) until the program is published, at an idle moment as at the start, not in a frame; the ring goes up
   // whole with the first GPU frame (rw and rh are zero, and doppler.js marks it while the GPU is not drawing).
   canvas.addEventListener('webglcontextrestored', () => {
     if (dead) return;
-    try { build(); if (noiseSrc) putNoise(noiseSrc); } catch (e) { failed = true; console.warn('Doppler on the GPU: could not be rebuilt; the 2D monitor stays.', e); }
+    try { build(); } catch (e) { failed = true; console.warn('Doppler on the GPU: could not be rebuilt; the 2D monitor stays.', e); }
   });
   // (A blit between two textures through the framebuffers of the stretch under way: rf to read, df to draw.)
   let rf = null, df = null;
@@ -234,14 +248,12 @@ export function createDopplerGL({ onReady = null } = {}) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       gl.activeTexture(gl.TEXTURE0);
     },
-    /** The noise floor's texture (an ImageData, makeNoise). */
-    noise(fi) { noiseSrc = fi; if (!lost && !gl.isContextLost()) putNoise(fi); },
     /**
      * The trace drawn at (dx, dy) of a canvas W × H (device px, from the top left): the ring from column p + 1 on the left,
      * the noise view at (nx, ny) added with share noiseA, and the wall filter's band about the baseline (base px from the
      * trace's top, half height wf px). The rest of the canvas is black (the 2D canvas covers it anyway).
      */
-    render({ W, H, dx, dy, RW, RH, p, nx, ny, noiseA, base, wf }) {
+    render({ W, H, dx, dy, RW, RH, p, nx, ny, noiseA, base, wf, nBin, nRun }) {
       // (Review pass 2, item 2: a frame that comes while the shader is still compiling does not publish it, where reading its status
       // waits for the driver inside the frame. It draws nothing (the trace stays black, as for a lost context), the poller publishes
       // the program the moment the driver is done, and onReady asks the monitor to draw again. ?shaderready=0: published here, as before.)
@@ -256,7 +268,7 @@ export function createDopplerGL({ onReady = null } = {}) {
       gl.useProgram(prog);
       gl.uniform2i(U.org, dx, oy);
       gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, ringT); gl.uniform1i(U.ring, 0);
-      gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, noiseT); gl.uniform1i(U.noise, 1);
+      gl.uniform1f(U.nBin, nBin); gl.uniform1i(U.nRun, nRun);
       gl.uniform2i(U.size, RW, RH);
       gl.uniform1i(U.p, p);
       gl.uniform2i(U.nOff, nx, ny);
@@ -268,8 +280,8 @@ export function createDopplerGL({ onReady = null } = {}) {
       return true;
     },
     dispose() {
-      dead = true; noiseSrc = null; stopPoll?.(); stopPollS?.();
-      gl.deleteTexture(ringT); gl.deleteTexture(noiseT); gl.deleteBuffer(quad); gl.deleteVertexArray(vao); gl.deleteProgram(prog);
+      dead = true; stopPoll?.(); stopPollS?.();
+      gl.deleteTexture(ringT); gl.deleteBuffer(quad); gl.deleteVertexArray(vao); gl.deleteProgram(prog);
       canvas.width = canvas.height = 0;
       gl.getExtension('WEBGL_lose_context')?.loseContext();   // (the context given back at once, as endo-gl.js does, not when the browser gets to it)
     },
