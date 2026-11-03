@@ -116,8 +116,11 @@ that card alone leaves and the new one comes in.
   runs on, the catheter on the figure steps, the balloon and the trace step together (same frame). Back steps the catheter back with the
   trace following. *Check*: gate `slides --decks hvpg`: kept-card probe across the three steps; catheter tip and the trace's step edge
   move in the same frame (within 1 frame).
-- **V-CARD-5 (Fix)** When only the words change, only the teaching card moves. When only the data card changes, only the data card
-  moves; the words do not re-fade or re-lay out. *Check*: kept-card probe on both sides.
+- **V-CARD-5 (Fix)** When only the words change, only the teaching card moves. When only the data card changes (the words stay), the
+  data card's glass stays exactly where it is and only its content crossfades in place over D_SMALL (240 ms); the words do not re-fade
+  or re-lay out (Mohammad, 3 Nov 2026, 14.1 B). If the new content needs a different card size, the glass glides to it (D_SURFACE,
+  EASE_MOVE) under the crossfade, never a rail exit. *Check*: kept-card probe on both sides; on a data-only change the glass record's
+  opacity stays at 1.0 and its position within 0.5 px (unless sized), and old and new content are never both above 50 % opacity.
 - **V-CARD-6 (Now)** A changed card is never shown half-built. A card comes in only once its content is ready (fonts in, chart fitted,
   first GPU frame of its instrument drawn). If it is not ready by `PREP_MS`, the slide shows its other cards and this card arrives when
   ready, labelled degraded in `?perf`, never empty (R05).
@@ -378,7 +381,7 @@ Each is asked as a clickable card in the project thread. Answers are written bac
 1. **14.1 When only the data card changes between slides (the words stay), how should it change?**
    A. It leaves and comes in on the rail, like any card. B. ★ Its glass stays put and only its content crossfades in place (240 ms).
    C. Its glass resizes to the new card while the content crossfades.
-   *Answer*: pending.
+   *Answer*: **B** (Mohammad, 3 Nov 2026). Applied in V-CARD-5.
 2. **14.2 When a card hides, how should the figure use the room?**
    A. ★ Glide to centre in the new space and grow to fill it. B. Glide to centre but keep its size. C. Stay where it is.
    *Answer*: pending.
