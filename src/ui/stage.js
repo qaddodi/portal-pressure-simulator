@@ -7389,6 +7389,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // rolled back the same way when the slide leaves it. It eases on its own clock, so the figure is never waiting on the model.
   const VST_SPAN = [0.25, 0.75], VST_MS = 1100;
   const vst = new Map();   // id → how much of the stent is drawn (0 to 1); on: whether it should be
+  const vstRecs = new Map();   // (each vessel's record, made ahead and set afresh as its stent comes in)
+  for (const id of Object.keys(E)) vstRecs.set(id, { k: 0, parts: null });
   let vstRaf = 0, vstAt = 0, vstDirty = false;
   const vstGoal = (id, anat) => (anat && store.get().stented?.includes(id) && E[id]?.vis && !E[id].reveal && geo[id]?.cur ? 1 : 0);
   // The mesh is built once, whole (each rebuild of the overlays, not each frame), and unrolled on the GPU: it sits in a group (F) placed
@@ -7459,7 +7461,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Called from every overlay update: starts the ease when the slide's stented veins (or the view) changed, and redraws on a rebuild.
   function venousSync(p, anat, rebuilt) {
     venousAnat = anat;
-    for (const id of store.get().stented || []) if (!vst.has(id) && E[id]) vst.set(id, { k: 0 });
+    const stented = store.get().stented;
+    if (stented) for (let i = 0; i < stented.length; i++) { const id = stented[i]; if (!vst.has(id) && E[id]) { const v = vstRecs.get(id); v.k = 0; v.parts = null; vst.set(id, v); } }
     for (const [id, v] of vst) if (v.k !== vstGoal(id, anat) && !vstRaf) { vstAt = 0; vstRaf = nextFrame(venousTick); break; }
     // (Rebuilt between frames, never in the frame whose geometry changed: 2 Nov 2026, "Move everything to GPU".)
     if (rebuilt && vst.size) { if (vstRaf) vstDirty = true; else if (!vstBuildAsk) vstBuildAsk = restPass(venousBuild); }
