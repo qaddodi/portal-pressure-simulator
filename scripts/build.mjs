@@ -222,10 +222,13 @@ self.addEventListener('message', (e) => { if (e.data === 'pps:files' && e.ports[
 self.addEventListener('activate', (e) => { e.waitUntil(caches.keys().then((ks) => { const prev = ks.filter((k) => k !== CACHE && k.startsWith(SCOPE)).at(-1); return Promise.all(ks.filter((k) => k !== CACHE && k !== prev && (k.startsWith(SCOPE) || k.startsWith('pps-'))).map((k) => caches.delete(k))); }).then(() => self.clients.claim())); });
 // (A response is stored under waitUntil, so the worker is kept alive until the write ends; a storage failure is swallowed, the response is still served.)
 const keep = (e, req, res) => { if (res.status === 200) { const copy = res.clone(); e.waitUntil(caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {})); } };
+// A hashed file the page's fresh HTML names can be missing for a moment right after a deploy (an edge of the host still on the old site, or a 404 it
+// remembered): the page would then stop with "Could not load main-HASH.js". So a failed fetch of one is asked again, up to three more times, bypassing the HTTP cache.
+const pull = async (req) => { let res; for (let i = 0; i < 4; i++) { try { res = await fetch(i ? req.url : req, i ? { cache: 'reload' } : undefined); if (res.status < 400) return res; } catch (err) { if (i === 3) throw err; } await new Promise((r) => setTimeout(r, 400 * 2 ** i)); } return res; };
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
-  if (new URL(req.url).pathname.includes('/assets/')) { e.respondWith(caches.match(req).then((hit) => hit || fetch(req).then((res) => { keep(e, req, res); return res; }))); return; }
+  if (new URL(req.url).pathname.includes('/assets/')) { e.respondWith(caches.match(req).then((hit) => hit || pull(req).then((res) => { keep(e, req, res); return res; }))); return; }
   const fresh = req.mode === 'navigate' ? fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' }) : fetch(req, { cache: 'no-cache' });
   e.respondWith(fresh.then((res) => { keep(e, req, res); return res; })
     .catch(() => caches.match(req).then((hit) => hit || (req.mode === 'navigate' ? caches.match('./') : Response.error()))));
