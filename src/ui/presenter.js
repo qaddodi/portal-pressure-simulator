@@ -4051,6 +4051,21 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // The card moves by its own CSS (--pz-u, --pz-grow) and is laid out once it rests: foldStill.)
   // (And while the card is zoomed to the middle of the screen, zoomHeld below: it too is laid out once it rests.)
   const cardMoving = () => !!ui && (ui.data.classList.contains('pz-sliding') || 'folding' in ui.data.dataset || zoomHeld() || throwCards().some((el) => el && throwing(el)));   // (R01: and a card on a throw, in or out)
+  // (R14: a card change that is only wanted (a font that finished loading, a card's box that changed) while the cards are on their throws is
+  // not made under them, nor lost: one pass is queued for when they have landed, whichever of them asked and however many did. A real
+  // resize still lays out at once, onResize. The talk and the cards it was asked for must still be the ones on screen.)
+  const thrown = () => throwCards().some((el) => el && throwing(el));
+  let landQ = false;
+  function layoutAtLanding() {
+    if (landQ || !ui) return;
+    landQ = true;
+    const u = ui, s = sess;
+    Promise.all(throwCards().map((el) => el && throwLanded(el))).then(() => {
+      landQ = false;
+      if (ui !== u || sess !== s || !s?.live()) return;
+      restPass(() => { if (ui !== u || sess !== s) return; if (cardMoving()) { if (thrown()) layoutAtLanding(); return; } if (cardsStill()) fitCards(ui.data); else layout(); });
+    });
+  }
   // ── The data card zoomed to the middle of the screen (Mac and iPad landscape; src/ui/card-zoom.js; Mohammad, 28 Oct) ──
   // A tap on an empty part of the instrument's card, or its corner icon, glides the card to the middle and grows it as one piece, its words
   // and pictures larger, never smaller; the veil dims the figure behind, which stays where it is. Nothing pauses: the instrument, the model and
@@ -4132,7 +4147,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     fitRO ||= new ResizeObserver(() => {
       cancelRest(fitRaf);
       // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
-      fitRaf = restPass(() => { if (ui && cardMoving()) return; if (ui && cardsStill()) { fitCards(ui.data); return; } if (ui && [ui.text, ui.data, ui.panel].some((el) => !el.hidden && fitDone.get(el) !== fitSig(el) && (el.style.getPropertyValue('--pz-fit') || (({ v, h }) => v > 1 || h > 1)(overflowOf(el))))) layout(); });   // (a shrunk card is fitted again when it changes, so it can grow back)
+      fitRaf = restPass(() => { if (ui && cardMoving()) { if (thrown()) layoutAtLanding(); return; } if (ui && cardsStill()) { fitCards(ui.data); return; } if (ui && [ui.text, ui.data, ui.panel].some((el) => !el.hidden && fitDone.get(el) !== fitSig(el) && (el.style.getPropertyValue('--pz-fit') || (({ v, h }) => v > 1 || h > 1)(overflowOf(el))))) layout(); });   // (a shrunk card is fitted again when it changes, so it can grow back)
     });
     // (Watched again only when the cards' children changed: observing a box reports it at once, so re-observing on every pass
     // ran the layout again every frame on a slide sitting still, Circuit 7 on an iPhone some four times a second.)
@@ -4148,7 +4163,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const soon = () => { clearTimeout(clearT); clearT = setTimeout(again, 120); };
     // (The words' glass pane and the figure's insets follow a card that grows after the layout, a chart arriving under the words.)
     // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
-    clearRO ||= new ResizeObserver(() => { cancelRest(paneRaf); paneRaf = restPass(() => { if (!ui || cardMoving()) return; if (cardsStill()) fitCards(ui.data); else layout(); }); soon(); });
+    clearRO ||= new ResizeObserver(() => { cancelRest(paneRaf); paneRaf = restPass(() => { if (!ui) return; if (cardMoving()) { if (thrown()) layoutAtLanding(); return; } if (cardsStill()) fitCards(ui.data); else layout(); }); soon(); });
     if (clearFor !== ui) { clearRO.disconnect(); clearRO.observe(ui.data); clearRO.observe(ui.text); clearFor = ui; }
     ui.data.ontransitionend = ui.text.ontransitionend = soon;   // (a card slides into place: its edge is where it ends, not where it was measured)
   };
@@ -4774,7 +4789,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     return [...mid, ...out.filter(ok)];
   }
   stage.setFreeArea(freeRects);
-  const onFonts = () => { if (ui) layout(); };
+  const onFonts = () => { if (!ui) return; if (thrown()) layoutAtLanding(); else layout(); };   // (R14: a font that arrives while the cards come in refits them once, when they have landed)
   // Where the cards stand, rounded: the camera framed this space last; the same space needs no second glide.
   let framedSig = '';
   // alloc-rare: slide arrival or a camera framing: once per slide change or card grab, never per frame
