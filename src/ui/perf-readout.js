@@ -204,6 +204,7 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
   // own, with the motion budget's counts (merged GPU plan, item 1): the frames and the main-thread work from the press to the settle.
   addEventListener('pps:go', () => begin('slide change', 3000));
   addEventListener('pps:view', () => begin('view switch', 2500));
+  addEventListener('pps:cardzoom', () => begin('card zoom', 2500));   // (a zoom in or out of the data card: it was left out, so the readout kept the last slide change)
   addEventListener('pointercancel', up, { capture: true, passive: true });
   // A scroll or trackpad pinch ends when no wheel event has come for 150 ms (the window then starts at its last event).
   addEventListener('wheel', (e) => {

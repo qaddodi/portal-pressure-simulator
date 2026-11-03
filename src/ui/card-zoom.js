@@ -214,6 +214,7 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
       }
       el.dataset.zoomed = '';
       app.classList.add('pz-zoomed');
+      globalThis.dispatchEvent?.(new Event('pps:cardzoom'));   // alloc-rare: once per zoom (the ?perf readout names its window)
       // (The pictures are drawn larger once the card has arrived, not as it sets off: the instruments' shared GPU canvas was made 2.2 times
       // larger on each side in the glide's first frame (a 1440 x 900 canvas to 3168 x 1980, 400 to 800 ms of the main thread in a software-GL
       // profile, none at rest), the zoom's lag: Mohammad, 3 Nov 2026. They are drawn at the card's resting density, grown by the transform, for the
@@ -292,6 +293,7 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
       const s = st;
       for (const v of s.veils) v.classList.remove('on');
       if (instant || reduce()) { if (!s.part) behind(false, 0); end(); return Promise.resolve(); }
+      globalThis.dispatchEvent?.(new Event('pps:cardzoom'));   // alloc-rare: once per zoom out
       s.card.dataset.zoomed = 'back';   // (on its way back: its shadow eases out, styles/app.css)
       if (!s.part) behind(false, SHUT_MS);
       for (const r of s.riders) r.anim = glide(r.el, 'transform', 'none', SHUT_MS, r.anim);
