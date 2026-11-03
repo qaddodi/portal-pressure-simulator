@@ -23,8 +23,10 @@ import { createShapeGL, flattenPath, polyMeshInto, ellipsePoly } from './shape-g
 import { createOrganPaint, parseColor, mul } from './organ-paint.js';
 import { textPolys, textWidth, loadGlyphs, glyphsReady, textCovers } from './text-gl.js';
 import { watchSize, sizeOf, rectSoon } from './geom.js';
-import { trackOf, trackAt, mixColour, mixRgbaInto, timingOf, progressAt, keysOf } from './label-track.js';
+import { trackOf, trackAt, settleUnder, mixColour, mixRgbaInto, timingOf, progressAt, keysOf } from './label-track.js';
 import { caught } from './caught.js';
+import { planRepack, stepRepack, reconcileRepack, commitRepack } from './label-repack.js';
+import { classSoon } from './class-soon.js';
 import { readStyle } from './layout-snap.js';
 const HOLE_MESH = { tri: null, seg: null, nTri: 0, nSeg: 0 };   // alloc-rare: made once (a hole's mask is meshed into it and released after its draw)
 // (The colour a clear writes, one array for every clear: none made per call, plan rev 2 §2.8.)
@@ -576,6 +578,12 @@ export function ringBox(d, dpr, frame) {
  * figure's overlays not all on the GPU, the labels' layer fading or hidden), it draws nothing and the SVG shows every label.
  * `force`: on a software renderer too (CI's visual check, ?stageover=gpu).
  */
+/** Whether the pictures stand off their DOM labels (a camera ride, or glides moving labels): pointer activation is held off meanwhile. */
+export const displacedNow = (riding, gliding) => riding || gliding > 0;
+/** One drawn picture as the snapshot reports it: device px in, CSS px out; clipped when any of it lies outside the canvas. */
+export function snapshotItem(key, dx, dy, dw, dh, a, dpr, W, H) {
+  return { key, x: dx / dpr, y: dy / dpr, w: dw / dpr, h: dh / dpr, a, clipped: dx < 0 || dy < 0 || dx + dw > W || dy + dh > H };
+}
 export function createLabelGL(svg, blocks, { software = false, marks = [], host = null, force = false, onBoxes = null } = {}) {
   if ((software && !force) || typeof WebGL2RenderingContext === 'undefined') return null;
   const canvas = host ? host.canvas : document.createElement('canvas');
@@ -624,22 +632,24 @@ void main() { o = texture(uT, vUV) * uA; }`;
     gl.bindVertexArray(null);
   }
   try { finish(start()); } catch { return null; }
-  const packer = createAtlasPacker({ size: Math.min(2048, glCap(gl, gl.MAX_TEXTURE_SIZE) || 2048), pad: 2, maxPages: 2 });
-  const pageTex = [];
+  const ATLAS = { size: Math.min(2048, glCap(gl, gl.MAX_TEXTURE_SIZE) || 2048), pad: 2, maxPages: 2 };
+  let packer = createAtlasPacker(ATLAS);
+  let pageTex = [];
   let inst = new Float32Array(64 * 8), needRepack = false;
-  const pageOf = (n) => {
-    if (pageTex[n]) return pageTex[n];
+  const pageOf = (n) => pageTex[n] || (pageTex[n] = makePage());
+  const makePage = () => {
     const t = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, t);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, packer.size, packer.size, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    return (pageTex[n] = t);
+    return t;
   };
   if (!host) svg.after(canvas);
   // (The labels' words are Inter's outlines (text-gl.js), fetched as the layer starts: till they come, the SVG shows every label.)
   if (!glyphsReady()) loadGlyphs().then(() => { for (const s of last) dirty.add(s.g); ask(); }, () => {});
   let lost = false, dpr = 1, W = 1, H = 1, last = [], raf = 0;
+  let frameSeq = 0, gen = 0, displaced = false;   // (the displayed-label snapshot: frames drawn so far, and the layout/atlas generation, up by every layout and every repack)
   const rafDraw = () => { raf = 0; draw(); };   // (the frame's callback, made once)
   // A slide's camera glide (stage.js, ?labelride=0 off): the labels ride with the figure on the GPU instead of fading out for the whole
   // move. rideM maps where they were laid out (stage px) to where that point is now; each label's picture keeps its size, its centre
@@ -870,7 +880,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   }
   const allMarks = () => { const t = performance.now() + 700; for (const root of marks) { markDirty.add(root); markLive.set(root, t); if (!TRACK) markExact.set(root, t); for (const el of root.children) { markDirty.add(el); markLive.set(el, t); if (!TRACK) markExact.set(el, t); } } };
   canvas.addEventListener('webglcontextlost', (e) => {
-    e.preventDefault(); lost = true;
+    e.preventDefault(); lost = true; undisplace();
     for (const s of last) s.g.removeAttribute('data-gl');
     for (const root of marks) for (const el of root.children) el.removeAttribute('data-gl');
     scanEl?.removeAttribute('data-gl');
@@ -885,7 +895,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     publishWhenDone(gl, hs, () => {
       if (!lost || gl.isContextLost()) return;   // (lost again: the next restore starts over)
       try { finish(hs); } catch { return; }   // (the shaders will not build: the SVG keeps every label)
-      pageTex.length = 0; needRepack = false; packer.reset(); outgoing.length = 0; glides.clear(); rideFrom = null;
+      pageTex = []; rpDrop(); retry.clear(); pending.clear(); stuck = false; needRepack = false; packer.reset(); outgoing.length = 0; glides.clear(); rideFrom = null;
       holeMasks = new WeakMap(); holeShape = null; picPaint = null; lostPic(headSp); lostPic(sHeadSp); slotTex = null;
       for (const s of last) { const st = sprites.get(s.g); if (st) { st.slot = null; st.key = ''; } dirty.add(s.g); }
       pReadSoon(); sReadSoon(); allMarks(); nbk = -1;
@@ -935,8 +945,11 @@ void main() { o = texture(uT, vUV) * uA; }`;
     if (!released) { if (!host.active()) { host.now(); if (!released) release(); } return; }
     if (host.active()) ask();
   }
+  // (No picture standing off its label any more, the SVG's labels being the ones shown: their pointer events are theirs again.)
+  function undisplace() { if (displaced) { displaced = false; classSoon(svg, 'lb-displaced', false); } }
   // Every label, mark and the probes given back to the SVG (host mode, while the labels may not be drawn over the figure).
   function release() {
+    undisplace();
     for (const s of last) s.g.removeAttribute('data-gl');
     for (const root of marks) for (const el of root.children) el.removeAttribute('data-gl');
     scanEl?.removeAttribute('data-gl');
@@ -961,11 +974,20 @@ void main() { o = texture(uT, vUV) * uA; }`;
     if (st.key !== key) {
       const lay = layBlock(d, dpr, rot);
       if (!lay) { st.mode = 'none'; return st; }
-      // (Its place in the atlas: kept while the picture stays the same size, else given back and found again.)
-      if (st.slot && (st.slot.w !== lay.w || st.slot.h !== lay.h)) { packer.free(st.slot); st.slot = null; }
-      if (!st.slot) st.slot = packer.alloc(lay.w, lay.h);
-      if (!st.slot) { needRepack = true; st.mode = 'svg'; st.key = ''; return st; }   // (the pages are full: the SVG draws it till they are packed again)
+      // (Its place in the atlas: kept while the picture stays the same size, else a new one found before the old is given back, so a
+      // full atlas leaves it the picture it had, R12.)
+      let slot = st.slot;
+      if (slot && (slot.w !== lay.w || slot.h !== lay.h)) { slot = packer.alloc(lay.w, lay.h); if (slot) { packer.free(st.slot); st.slot = slot; } }
+      else if (!slot) { slot = packer.alloc(lay.w, lay.h); st.slot = slot; }
+      if (!slot) {
+        // (The pages are full: the atlas is packed again beside this one (repackWork), the label keeping the picture it has, or none shown
+        // till the new pages are in place, never the SVG's copy; asked again once they are.)
+        needRepack = true; st.wait = true; retry.add(g);
+        return st;
+      }
+      st.wait = false;
       paintSlot(st.slot, lay, blockOps(d, lay));
+      st.ver = (st.ver | 0) + 1;
       Object.assign(st, { ox: lay.ox, oy: lay.oy, w: lay.w, h: lay.h, shadows: lay.shadows, frame: lay.frame }, { key });
     }
     st.ring = ringBox(d, dpr, st.frame);
@@ -1019,6 +1041,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     }
     if (!st) st = refresh(g, rot);
     if (!m || st.mode !== 'gl') { st.trk = false; return st; }
+    settleUnder(m, now, st.opacity);   // (read while no fade has an effect: the page's own opacity, which a fade with no fill leaves behind it)
     if (m.end <= now) m.ended = true;
     st.trk = m;
     return st;
@@ -1047,34 +1070,45 @@ void main() { o = texture(uT, vUV) * uA; }`;
     if (raf) { cancelFrame(raf); raf = 0; }
     settling = true;
     try { draw(); } finally { settling = false; }
-    if (todo.size || mtodo.size) ask();   // (what the redraw found owed again, e.g. a label read each frame while it eases: the next frame)
+    if (todo.size || mtodo.size || rp) ask();   // (what the redraw found owed again, e.g. a label read each frame while it eases: the next frame)
   }
+  // (R11: the pass builds what the page owes in chunks, new labels first, within REBUILD_MS of a frame's time; the labels it leaves for the
+  // next chunk keep the picture they have, or are hidden if they have none, so a slide change that owes many captions does not build
+  // them all before one paint. At least REBUILD_LEAST labels go each time, so it always ends.)
+  const REBUILD_MS = 4, REBUILD_LEAST = 12;
   function rebuildPass() {
-    if (host && !host.active()) { todo.clear(); return; }
+    if (host && !host.active()) { todo.clear(); pending.clear(); return; }
     const now = performance.now();
-    for (const [g, f] of todo) {
-      if (!g.isConnected) continue;
-      const rot = (f & 1) !== 0;
-      let st = sprites.get(g);
-      if (f & 8) {
-        const isLive = live.has(g), dirtyG = (f & 2) !== 0;
-        const tracked = TRACK && isLive && !exact.has(g) && (!st || st.trk !== false || dirtyG || st.rot !== rot);
-        const was = st?.held;   // (a label with no picture yet: as a new label, held at 0 where its fade starts; the SVG's copy its first draw showed is never painted)
-        st = tracked ? capture(g, rot, now) : refresh(g, rot);
-        if (!tracked) st.trk = isLive && st.trk === false ? false : null;
-        st.rot = rot;
-        // (Read at rest with a new opacity: its fade may only now be starting. Held where it was drawn, and followed from the next frame.)
-        if (!tracked && !isLive && st.mode === 'gl' && was !== null && !REDUCE?.matches && Math.abs((was ?? 0) - st.opacity) > 0.01) {
-          st.opacity = was ?? 0;
-          st.holdSince = now;
-          live.set(g, now + 700);
+    let did = 0, over = false;
+    for (let pass = 0; pass < 2 && !over; pass++) {
+      for (const [g, f] of todo) {
+        if (!g.isConnected) { todo.delete(g); pending.delete(g); continue; }
+        let st = sprites.get(g);
+        if ((pass === 0) !== !st) continue;
+        if (did >= REBUILD_LEAST && performance.now() - now > REBUILD_MS) { over = true; break; }
+        did++; todo.delete(g); pending.delete(g);
+        const rot = (f & 1) !== 0;
+        if (f & 8) {
+          const isLive = live.has(g), dirtyG = (f & 2) !== 0;
+          const tracked = TRACK && isLive && !exact.has(g) && (!st || st.trk !== false || dirtyG || st.rot !== rot);
+          const was = st?.held;   // (a label with no picture yet: as a new label, held at 0 where its fade starts; the SVG's copy its first draw showed is never painted)
+          st = tracked ? capture(g, rot, now) : refresh(g, rot);
+          if (!tracked) st.trk = isLive && st.trk === false ? false : null;
+          st.rot = rot;
+          // (Read at rest with a new opacity: its fade may only now be starting. Held where it was drawn, and followed from the next frame.)
+          if (!tracked && !isLive && st.mode === 'gl' && was !== null && !REDUCE?.matches && Math.abs((was ?? 0) - st.opacity) > 0.01) {
+            st.opacity = was ?? 0;
+            st.holdSince = now;
+            live.set(g, now + 700);
+          }
+        } else if ((f & 4) && st?.trk?.base) {
+          const v = trackAt(st.trk, now);
+          if (v.w !== st.trk.w) { st.trk.w = v.w; refresh(g, st.rot, fillLook(st.trk, v.w)); }
         }
-      } else if ((f & 4) && st?.trk?.base) {
-        const v = trackAt(st.trk, now);
-        if (v.w !== st.trk.w) { st.trk.w = v.w; refresh(g, st.rot, fillLook(st.trk, v.w)); }
       }
     }
-    todo.clear();
+    if (over) for (const g of todo.keys()) pending.add(g);
+    repackWork();
     // (The host's context as its own passes expect to find it, as after a picture of the labels.)
     if (host && touched) hostTail();
     touched = false;
@@ -1083,12 +1117,56 @@ void main() { o = texture(uT, vUV) * uA; }`;
     gl.disable(gl.BLEND); gl.bindVertexArray(null); gl.useProgram(null); gl.bindBuffer(gl.ARRAY_BUFFER, null);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, null); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
   }
-  // The pages were full: every picture is given back and drawn again, packed afresh (at most one such frame in a while).
-  function repack() {
+  // The pages were full or fragmented (R12): the pictures are laid out again in a second packer and copied, on the GPU and a few a frame, into
+  // second pages while the first stay drawable; every label takes its new place in one step (label-repack.js). Nothing is painted again,
+  // no label loses its picture, and the SVG is not asked to stand in. If even the compact layout is too much, the labels without a place
+  // are the SVG's as before (stuck), till some label goes.
+  let rp = null, repackAlt = null, rpTex = [], rpFbo = null, stuck = false;
+  const retry = new Set();   // (labels that found no place: described again once the new pages are in)
+  const pending = new Set();   // (labels the pass left for the next frame, R11: shown by what they had, or hidden, never the SVG's copy)
+  function liveSprites() {
+    const a = [];   // alloc-rare: a repack's step, between frames
+    for (const s of last) { const st = sprites.get(s.g); if (st?.slot) a.push(st); }   // alloc-rare: as above
+    for (const o of outgoing) if (o.st?.slot) a.push(o.st);   // alloc-rare: as above
+    return a;
+  }
+  function rpCopy(from, to, w, h) {
+    touched = true;
+    rpFbo ||= gl.createFramebuffer();
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, rpFbo);
+    gl.framebufferTexture2D(gl.READ_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, pageOf(from.page), 0);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, rpTex[to.page] ||= makePage());
+    gl.copyTexSubImage2D(gl.TEXTURE_2D, 0, to.x, to.y, from.x, from.y, w, h);
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
+  }
+  const rpClock = () => performance.now();
+  function rpDrop() {
+    for (const t of rpTex) if (t) gl.deleteTexture(t);
+    rpTex = []; rp = null; repackAlt?.reset();
+  }
+  // One step of the repack, between frames; true while more is owed.
+  function repackWork() {
+    if (lost || gl.isContextLost()) return false;
+    if (!rp) {
+      if (!needRepack || stuck) return false;
+      needRepack = false;
+      repackAlt ||= createAtlasPacker(ATLAS);
+      repackAlt.reset();
+      rp = planRepack(liveSprites(), repackAlt);
+      if (!rp) { stuck = true; for (const g of retry) { const st = sprites.get(g); if (st) st.wait = false; } retry.clear(); return false; }   // (it will not fit even packed: the SVG shows what has no place)
+    }
+    if (!stepRepack(rp, rpCopy, rpClock, 2, 16)) return true;
+    if (!reconcileRepack(rp, liveSprites(), rpCopy)) { rpDrop(); stuck = true; return false; }
+    commitRepack(rp);
+    const old = packer;
+    packer = rp.packer; repackAlt = old; old.reset();
+    for (const t of pageTex) if (t) gl.deleteTexture(t);
+    pageTex = rpTex; rpTex = []; rp = null; gen++;
     needRepack = false;
-    packer.reset(); outgoing.length = 0;
-    for (const s of last) { const st = sprites.get(s.g); if (st) { st.slot = null; st.key = ''; } dirty.add(s.g); }
+    for (const g of retry) { dirty.add(g); const st = sprites.get(g); if (st) st.wait = false; }
+    retry.clear();
     ask();
+    return false;
   }
   let reserveT = 0;
   function reserveRun() {
@@ -1140,6 +1218,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     }
     svgLeft.clear();
     nb = 0;
+    frameSeq++;
     const now = performance.now();
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, W, H);
@@ -1151,6 +1230,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     moving = drawMarks(now) || moving;
     // (Every label's box and atlas place, in painter order; drawn below as one batch per run of pictures on a page.)
     ni = 0;
+    let shifted = 0;   // (pictures standing off their DOM label: glides on their way)
     // (The labels gone at a ride's landing first, under the rest, fading out where they rode; their pictures given back once faded.)
     if (outgoing.length) {
       let kept = 0;
@@ -1181,6 +1261,11 @@ void main() { o = texture(uT, vUV) * uA; }`;
         todo.set(g, (todo.get(g) | 0) | 8 | (rot ? 1 : 0) | (dirty.has(g) ? 2 : 0));
         settleSoon();
       }
+      if ((!st || st.rot !== rot || (st.mode === 'gl' && !st.slot)) && (pending.has(g) || (st?.wait && !stuck && st.rot === rot))) {
+        // (Owed a picture by the pass's next chunk, or by the atlas being packed: shown by no stand-in, the SVG's copy kept hidden.)
+        if (!g.hasAttribute('data-gl')) g.setAttribute('data-gl', '');
+        continue;
+      }
       if (!st || st.rot !== rot || (st.mode === 'gl' && !st.slot)) {   // (no picture of its own yet, or of the other way up, or its place in the atlas given back: the SVG draws it till the pass has made one)
         if (g.hasAttribute('data-gl')) g.removeAttribute('data-gl');
         svgLeft.add(g);
@@ -1210,12 +1295,13 @@ void main() { o = texture(uT, vUV) * uA; }`;
         const gl0 = glides.get(g);
         if (gl0) {
           const u = easeMove(Math.min(1, (now - gl0.t0) / RIDE_MS));
-          if (gl0.fadeIn) a *= u; else { x = Math.round(gl0.fx + (x - gl0.fx) * u); y = Math.round(gl0.fy + (y - gl0.fy) * u); }
+          if (gl0.fadeIn) a *= u; else { x = Math.round(gl0.fx + (x - gl0.fx) * u); y = Math.round(gl0.fy + (y - gl0.fy) * u); if (u < 1) shifted++; }
           if (u >= 1) dropGlide(g); else moving = true;
         }
       }
       st.dx = x; st.dy = y; st.drawn = now;
       if (x > W || y > H || x + st.w < 0 || y + st.h < 0) continue;
+      st.seq = frameSeq;
       takeItem(st.slot.page, x, y, st.w, st.h, st.slot.x, st.slot.y, a, st);
       boxAt(x, y, x + st.w, y + st.h);
     }
@@ -1254,10 +1340,12 @@ void main() { o = texture(uT, vUV) * uA; }`;
     if (!host && holes.length) cutHoles();
     // (In the host's context: its state as its own passes expect to find it.)
     if (host) hostTail();
-    // (A full atlas is packed again once nothing moves, not mid-move, where every picture drawn again at once is a burst of
-    // work in one frame; the labels that did not fit stay the SVG's till then. And the second page is made at rest, ahead of the first
+    // (R09: while a ride or a landing glide has the pictures off their DOM labels, the labels' pointer events are held off, app.css
+    // #labels.lb-displaced: a click or a hover would land where the label was. A class between frames; keyboard and focus are untouched.)
+    { const off = displacedNow(!!rideM, shifted); if (off !== displaced) { displaced = off; classSoon(svg, 'lb-displaced', off); } }
+    // (A full atlas is packed again beside the old one, never reset (repackWork). And the second page is made at rest, ahead of the first
     // picture that needs it, once the first is more than half full.)
-    if (needRepack && !moving) repack();
+    if ((needRepack && !stuck) || rp || todo.size) settleSoon();   // (a repack goes on a few copies a frame, and what the pass left over is built next, R11/R12)
     if (!moving && !pageTex[1] && packer.maxPages > 1 && packer.used > packer.size * packer.size * 0.5) reserve();
     if (settleBoxes()) { try { onBoxes?.(); } catch (e) { caught('label-gl:1031', e); /* (a listener's failure is not the labels') */ } }
     // (Nothing drawn at all (every label, mark and probe has a box): the canvas is hidden, so the compositor does not blend a full-stage layer of
@@ -1407,7 +1495,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
         if (!list) lk.trk = null;   // (taken just after this frame: followed from the next)
         else {
           try { m = trackOf(list, el, (t) => t === el && el.tagName !== 'g', now); } catch { m = null; }
-          if (m) { if (m.end <= now) m.ended = true; lk.trk = m; }
+          if (m) { settleUnder(m, now, lk.st.op); if (m.end <= now) m.ended = true; lk.trk = m; }
         }
       }
       // (A followed mark's look as this frame has it: its opacity and eased colours written into these, never a new object in a frame.)
@@ -2030,7 +2118,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
         for (const f of from.values()) gpool.push(f);
         from.clear();
       }
-      last = list;
+      last = list; gen++; stuck = false;
       for (const s of list) WAS.delete(s.g);
       for (const g of WAS) { g.removeAttribute('data-gl'); todo.delete(g); dropGlide(g); const st = sprites.get(g); if (st) { packer.free(st.slot); sprites.delete(g); } live.delete(g); }
       if (host) { ask(); return; }
@@ -2072,6 +2160,16 @@ void main() { o = texture(uT, vUV) * uA; }`;
       const o = [];   // alloc-rare: asked only by the browser check
       for (const s of last) { const st = sprites.get(s.g); if (st && st.mode === 'gl' && st.drawn && s.g.dataset?.key) o.push({ key: s.g.dataset.key, x: st.dx / dpr, y: st.dy / dpr, w: st.w / dpr, h: st.h / dpr, a: st.held ?? 0 }); }
       return o;
+    },
+    /** What the last frame drew, for the browser checks: { seq (frames drawn), gen (layout and atlas generation), items: [{ key, x, y, w, h, a, clipped }] }
+     *  in CSS px from the canvas's corner (stage.js labelSnapshot adds the corner, so they are page px). Only the pictures drawn in that frame. */
+    snapshot() {
+      const items = [];   // alloc-rare: asked only by the browser check
+      for (const s of last) {
+        const st = sprites.get(s.g);
+        if (st && st.mode === 'gl' && st.seq === frameSeq && s.g.dataset?.key) items.push(snapshotItem(s.g.dataset.key, st.dx, st.dy, st.w, st.h, st.held ?? 0, dpr, W, H));
+      }
+      return { seq: frameSeq, gen, items };
     },
     /** A label animated by script (the Web Animations API, which sends no events): read each frame for `ms`. */
     hold(g, ms) {

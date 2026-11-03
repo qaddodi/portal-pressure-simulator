@@ -81,8 +81,10 @@ const isTransition = (a) => a && 'transitionProperty' in a;
  *   anims: Element.getAnimations() of it (composite order); opEl: the element whose opacity is followed; paintOk(el): whether a
  *   fill or stroke ease on el is followed (a run or a pill: the parts whose own colour is read); now: performance.now().
  * Returns { ops: [{ t, keys }] (opacity layers, lowest first), under, paint: { t, ease, pairs: [{ el, prop, from, to }] } | null, end }.
+ *   under: the opacity beneath the animations, when the caller knows it (the optional 5th argument); else null, and where no layer
+ *   contributes (a delay with no backwards fill, past the end with no forwards fill) trackAt gives op null: the caller keeps its own.
  */
-export function trackOf(anims, opEl, paintOk, now) {
+export function trackOf(anims, opEl, paintOk, now, under = null) {
   const ops = [], pairs = [];   // alloc-rare: a track is read once as a label's animations start (capture, only when the label is new or dirty), then followed by trackAt
   let paintT = null, paintEase = null, paintES = '', end = -Infinity, opTrans = false, opAnim = false;
   for (const a of anims || []) {   // alloc-rare: as above, read once at an animation's start
@@ -118,7 +120,18 @@ export function trackOf(anims, opEl, paintOk, now) {
   // (A transition and an animation of the opacity at once: which wins is the cascade's, not followed here.)
   if (opTrans && opAnim) return null;
   // alloc-rare: as above, read once at an animation's start
-  return { ops, under: ops.length ? ops[ops.length - 1].keys[ops[ops.length - 1].keys.length - 1].v : null, paint: pairs.length ? { t: paintT, ease: paintEase, pairs } : null, end };
+  return { ops, under: ops.length && Number.isFinite(under) ? under : null, paint: pairs.length ? { t: paintT, ease: paintEase, pairs } : null, end };
+}
+/**
+ * Learn a track's `under` from a read of the page taken while none of its opacity layers has an effect (a delayed fade before it
+ * starts, a fade with no fill after it ends): that read is then the page's own opacity. Returns whether `under` is known.
+ */
+export function settleUnder(m, now, read) {
+  if (!m.ops.length || m.under != null) return m.under != null;
+  for (let i = 0; i < m.ops.length; i++) if (progressAt(m.ops[i].t, now) != null) return false;
+  if (!Number.isFinite(read)) return false;
+  m.under = read;
+  return true;
 }
 const AT = { op: null, w: null };
 /**
