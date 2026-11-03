@@ -21,5 +21,5 @@ test('the queued pass is one at a time, belongs to its talk and cards, and waits
 test('a real resize still lays out at once', () => {
   const rs = PZ.slice(PZ.indexOf('  const onResize = (e) => {'), PZ.indexOf('  // Projector-size labels'));
   assert.doesNotMatch(rs, /layoutAtLanding/);
-  assert.match(rs, /\n    layout\(\);/);
+  assert.match(rs, /\n {4}layout\(\);/);
 });
