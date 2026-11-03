@@ -44,7 +44,7 @@ test('V5: the status is a coloured word after the reading (card) and under the n
 
 test('V6: a change reads "+10.0" as the callouts do: no arrow, one decimal, in the reading\'s colour', () => {
   assert.ok(!/[▲▼]/.test(actions));
-  assert.match(actions, /signed\(P - r, fmt\(Math\.abs\(P - r\), 1\)\)/);
+  assert.match(actions, /signed\(dd, fmt\(ad, 1\)\)/);
   assert.match(css, /\n\.ac-delta\.up, \.ac-delta\.down \{ color: var\(--text\); \}/);
 });
 

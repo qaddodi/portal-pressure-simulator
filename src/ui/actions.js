@@ -107,16 +107,20 @@ function steady(h, s) {
 const S = { v: '', u: '', d: null, up: false };   // (a reading being worked out; the next one overwrites it)
 // A pressure and its change from the reference r (none when r is null or undefined) into S: the texts are made again only when what
 // they print changes (the tenth of P; whether the change reaches 1, its sign and its tenth), and whether P is above r.
-const newPCell = () => ({ kP: NaN, kD: NaN, up: false, v: '', d: null });
+const newPCell = () => ({ kP: NaN, kD: NaN, up: false, v: '', d: null, on: false });
+// (The change shows from 1 and goes below 0.8: a pressure that beats about 1 mmHg from the reference does not make the change come and go
+// with each beat. Its coming and going lays the card's header out again, a line taller or shorter, and every row under it moves.)
 function partsP(c, P, r) {
-  const kP = tenth(P), dd = P - r;
-  const kD = r != null && Math.abs(dd) >= 1 ? (dd > 0 ? 1 : -1) * (tenth(Math.abs(dd)) + 1) : 0;
+  const kP = tenth(P), dd = P - r, ad = Math.abs(dd);
+  const on = r != null && (ad >= 1 || (c.on && ad >= 0.8));
+  const kD = on ? (dd > 0 ? 1 : -1) * (tenth(ad) + 1) : 0;
   const up = r != null && P > r;
   if (kP !== c.kP || kD !== c.kD || up !== c.up) {
     c.v = fmt(P, 1);
-    c.d = r != null && Math.abs(P - r) >= 1 ? signed(P - r, fmt(Math.abs(P - r), 1)) : null;
+    c.d = on ? signed(dd, fmt(ad, 1)) : null;
     c.kP = kP; c.kD = kD; c.up = up;
   }
+  c.on = on;
   S.v = c.v; S.d = c.d; S.up = up;
 }
 // A card's pressure reading at one unit.

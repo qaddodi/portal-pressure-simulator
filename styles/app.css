@@ -4686,6 +4686,7 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 .ac-readout { min-height: 34px; }
 .ac-value b { display: inline-block; min-width: 3.4ch; text-align: right; }
 .ac-delta { display: inline-block; min-width: 5ch; }
+.ac-delta:empty { display: none; }   /* (the slot is always in the reading, so a change's coming and going rewrites its text, never rebuilds the reading) */
 .ac-stat b { min-width: 5ch; text-align: right; white-space: nowrap; }
 .hover-tip .rows { display: grid; grid-template-columns: 1fr minmax(5ch, auto) auto; align-items: baseline; color: var(--text-2); line-height: 1.7; text-align: right; }   /* (right: the number's own box is anonymous, so it takes its alignment from the grid, not from the b) */
 .hover-tip .r, .hover-tip .r b { display: contents; }

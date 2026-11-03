@@ -56,7 +56,7 @@ const P_BODY = { class: 'ac-body' }, P_STATS = { class: 'ac-stats' }, P_BTNS = {
 const P_TOP = { class: 'ac-top' }, P_HEAD = { class: 'ac-head' }, P_TITLES = { class: 'ac-titles' }, P_KICKER = { class: 'ac-kicker' }, P_READOUT = { class: 'ac-readout' };
 const P_SCROLL = { class: 'ac-scroll' };
 const P_FOOT_AT = { class: 'ac-foot at-foot' }, P_FOOT_HEAD = { class: 'ac-foot in-head' }, P_LINK_TEXT = { class: 'ac-link-text' };
-const P_UNMEASURED = { class: 'ac-unmeasured' }, P_UNIT = { class: 'unit' }, P_DELTA_UP = { class: 'ac-delta up' }, P_DELTA_DOWN = { class: 'ac-delta down' };
+const P_UNMEASURED = { class: 'ac-unmeasured' }, P_UNIT = { class: 'unit' }, P_DELTA_UP = { class: 'ac-delta up' }, P_DELTA_DOWN = { class: 'ac-delta down' }, P_DELTA_NONE = { class: 'ac-delta' };   // (the delta's slot is always there, empty when there is no change: see .ac-delta, app.css)
 const P_ABOUT = { class: 'ac-about' }, P_STAT = { class: 'ac-stat' }, P_NUMB = { class: 'num' };
 const P_ROW = { class: 'ac-row' }, P_LABEL = { class: 'ac-label' }, P_CTLTOP = { class: 'ctl-top' }, P_CTLVAL = { class: 'ctl-val' }, P_CTLSUB = { class: 'ctl-sub' };
 const P_RANGEWRAP = { class: 'range-wrap' };
@@ -232,13 +232,15 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
         // The same reading with a new number rolls to it, a paused edit or a treatment included (P17); anything else is
         // drawn afresh. (What was drawn last is kept as its four fields: the model hands back kept readings it may rewrite.)
         const a = numOf(v.v, NUM_A), b = valEl._acHas ? numOf(valEl._acV, NUM_B) : null, numB = numEl.firstChild;
-        if (a && b && a.d === b.d && valEl._acU === v.u && !!valEl._acD === !!v.d && numB?.tagName === 'B') {
+        if (a && b && a.d === b.d && valEl._acU === v.u && numB?.tagName === 'B' && numEl.querySelector('.ac-delta')) {
           countTo(numB, a.n, a.d, store.get().running ? COUNT_EASED : COUNT_STEADY);
           const dl = numEl.querySelector('.ac-delta');
-          if (dl) { dl.textContent = v.d; dl.className = v.up ? 'ac-delta up' : 'ac-delta down'; }
+          if (dl.textContent !== vd) dl.textContent = vd;
+          const dc = !vd ? 'ac-delta' : v.up ? 'ac-delta up' : 'ac-delta down';
+          if (dl.className !== dc) dl.className = dc;
         } else {
           releaseWords(numEl);
-          numEl.replaceChildren(h('b', P_NONE, v.v), h('span', P_UNIT, v.u), v.d ? h('span', v.up ? P_DELTA_UP : P_DELTA_DOWN, v.d) : null);
+          numEl.replaceChildren(h('b', P_NONE, v.v), h('span', P_UNIT, v.u), h('span', !v.d ? P_DELTA_NONE : v.up ? P_DELTA_UP : P_DELTA_DOWN, v.d || null));
           if (a) countTo(numEl.firstChild, a.n, a.d);   // (its starting point for the next roll)
         }
         valEl._acMode = 2; valEl._acV = v.v; valEl._acU = v.u; valEl._acD = vd; valEl._acUp = vup; valEl._acHas = true;
