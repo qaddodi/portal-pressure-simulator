@@ -1030,7 +1030,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     const velNow = wText(velEl.firstChild);
     if (w !== LS.w || hh !== LS.h || velNow !== LS.vel || dirFull !== LS.dir || patFull !== LS.pat || pickNext !== LS.pick || performance.now() - ovAt > 500) {
       LS.w = w; LS.h = hh; LS.vel = velNow; LS.dir = dirFull; LS.pat = patFull; LS.pick = pickNext; layW = w; layH = hh;
-      if (!layoutSoon) layoutSoon = setTimeout(stripLayout, 0);
+      if (!layoutSoon && !document.hidden) layoutSoon = setTimeout(stripLayout, 0);   // (none while the tab is in the background: the next frame on return asks again, the size or the half second having moved on)
     }
     const padL = PAD_L, padR = PAD_R, padT = ovTop, padB = ovOn ? 34 : 20, yLab = ovOn ? hh - 11 : 13;
     // (A slide's paired trace takes a band at the foot of the trace area: the main trace is shorter by it, the card the same size.)

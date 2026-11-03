@@ -238,7 +238,7 @@ function toastBuild(msg, kind, { actions, sticky, onClose }) {
   if (mark) mark.setAttribute('class', 'toast-ic');
   const t = h('div', { class: 'toast ' + kind, role: kind === 'bad' ? 'alert' : 'status' }, h('span', { class: 'toast-msg' }, mark, msg));
   let timer = 0, gone = false;
-  const close = (why = 'user') => { if (gone) return; gone = true; clearTimeout(timer); onClose?.(why); t.classList.add('leaving'); setTimeout(() => restPass(away), 340); };   // (the others' places are read in a rest pass, between frames)
+  const close = (why = 'user') => { if (gone) return; gone = true; clearTimeout(timer); onClose?.(why); t.classList.add('leaving'); t.addEventListener('animationend', function gone1(e) { if (e.target !== t) return; t.removeEventListener('animationend', gone1); restPass(away); }); setTimeout(() => restPass(away), 340); };   // (it leaves as its own exit ends, the timer only a fallback: the cards below no longer wait out the timer)   // (the others' places are read in a rest pass, between frames)
   const away = () => dropToast(t);
   t._close = close;
   if (actions?.length) {

@@ -4,7 +4,7 @@ import { EDGES, NODES, dMinOf } from '../engine/topology.js';
 import { dopplerVel } from './velNormal.js';
 import { DRUGS, PREGNANCY_INFO } from '../engine/scenario.js';
 import { store, updateParams, hiddenNow } from './store.js';
-import { h, fmt, fmtFlow, fp, ff, clamp, units, tooltipFor, infoButton, icon, svgIcon, paintRange } from './util.js';
+import { h, fmt, fmtFlow, fp, ff, clamp, units, tooltipFor, infoButton, icon, svgIcon, paintRange, putText, releaseWords } from './util.js';
 import { liveBalance } from './balance-hold.js';
 import { frameFor, cancelFrame } from './frame.js';
 import { runSoon, propSoon, attrSoon } from './class-soon.js';
@@ -331,6 +331,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
   // ── Render ────────────────────────────────────────
   function render() {
     live.length = 0; syncers.length = 0;
+    releaseWords(root);   // (the old panel's GPU words let go before it is replaced)
     const sel = store.get().details;
     const els = !sel ? home() : sel.type === 'advanced' ? chart.renderAdvanced(ctl) : sel.type === 'edge' ? edgePanel(sel.id) : sel.type === 'node' ? nodePanel(sel.id) : sel.type === 'organ' ? organPanel(sel.id) : home();
     const scroller = root.closest('.panel') || root;
@@ -342,7 +343,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
   }
 
   function update(f) {
-    for (const [el, fn, c] of live) { const v = fn(f, c); if (v != null && el.textContent !== v) el.textContent = v; }
+    for (const [el, fn, c] of live) { const v = fn(f, c); if (v != null) putText(el, v); }   // (GPU words: the page's own text is written only at rest, never in a frame)
     if (!store.get().details) chart?.update(f);
   }
 
