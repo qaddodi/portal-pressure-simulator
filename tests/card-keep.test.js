@@ -220,7 +220,7 @@ test('a kept data card rides the model through a new patient and lands on the sl
 test('nothing is kept after a start or a stop, and each change decides afresh', () => {
   assert.match(src, /ui = build\(\);\n\s+dataOn = textOn = null; keepNow = NO_KEEP;/);
   assert.match(src, /dataOn = textOn = null; keepNow = NO_KEEP; keepSnap = null; keepBad = \[\]; keepArgs = null;\n\s+pillW = 0;/);
-  assert.match(src, /try \{ await transitionRun\(to\); \} finally \{\n\s+keepNow = NO_KEEP;/);
+  assert.match(src, /try \{ await transitionRun\(to\); \} finally \{[^]*?if \(mine\) \{ keepNow = NO_KEEP;/);
   // a change cut short, a card on its way in or out, and the states a tile's ring counts from not yet in keep nothing
   assert.match(src, /const dataStands = \(\) => /);
   assert.match(src, /!states\[stateOf\[to\]\] \|\| \(to > 0 && !states\[stateOf\[to - 1\]\]\)\) return NO_KEEP;/);

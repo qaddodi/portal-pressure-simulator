@@ -92,7 +92,7 @@ test('Next goes through a slide\'s beats before the next slide, Back the other w
   assert.match(PZ, /const prev = \(\) => \{ if \(procBack\(\)\) return; if \(beat > 0\) toBeat\(beat - 1\); else if \(want > 0\) go\(want - 1\); \};/, 'Back: the beat before, then the slide before (its last beat)');
   assert.match(fn(PZ, 'function go(i) {'), /beat = firstBeat \? 0 : lastBeat\(want\);/, 'a jump, Back, a reload or resume: the last beat');
   const tb = fn(PZ, 'function toBeat(k) {');
-  assert.match(tb, /if \(zoomOn\(\)\) \{ ui\.zoom\.close\(\)\.then\(/, 'a zoomed card glides back first, as for a slide');
+  assert.match(tb, /if \(zoomOn\(\)\) \{ (?:const d0 = deck, t0 = txn; )?ui\.zoom\.close\(\)\.then\(/, 'a zoomed card glides back first, as for a slide');
   const run = fn(PZ, 'async function run() {');
   assert.match(run, /shownBeat !== beat/); assert.match(run, /if \(landed\) await beatMove\(want, beat\); else await transition\(want\);/, 'one loop moves slides and beats, so a quick Next twice lands once');
   assert.match(fn(PZ, 'async function transitionRun('), /shown = \{ i: to, gen: g \}; lastAt = to; shownBeat = b0;/);

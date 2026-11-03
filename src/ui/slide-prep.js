@@ -36,7 +36,10 @@ export function createSlidePrep({ count, steps = {}, keep = 3, identity = () => 
   function* plan(i, m, ok) {
     // (B16: a step that throws before its promise exists, or rejects, marks the manifest failed; a failed manifest plans nothing more.)
     const run = (f) => () => { try { return f(); } catch { m.failed = true; return null; } };
-    if (!m.state && !m.failed && ok()) yield run(() => Promise.resolve(steps.state?.(i)).then(() => { if (ok()) m.state = true; }, fail(m)));
+    if (!m.state && !m.failed && ok()) yield run(() => Promise.resolve(steps.state?.(i)).then((v) => {
+      // (R04: a state that settles with nothing (the presentation's states were abandoned, or the slide could not be computed) is not a state: failed, so the next aim tries afresh. The tool's warm below may legitimately settle with nothing.)
+      if (ok()) { if (v == null) m.failed = true; else m.state = true; }
+    }, fail(m)));
     if (m.failed || !ok()) return;
     if (!m.glyphs) yield run(() => Promise.resolve(steps.glyphs?.()).then(() => { if (ok()) m.glyphs = true; }, fail(m)));
     // (Awaited: a warm that returns a promise (a curve's model days) is done when it settles, not when it was started.)
@@ -82,10 +85,12 @@ export function createSlidePrep({ count, steps = {}, keep = 3, identity = () => 
     last = { i, dir, alive };
     const ok = () => g === gen && String(identity() ?? '') === id;   // (this generation, this deck, look and context)
     const okIn = () => ok() && alive();
+    // (R04: the failure baseline is taken before any shader publication this aim makes, the eager call below included, so a failure in it fails the slide.)
+    const sf0 = steps.shadersFailed?.() ?? 0;
     // (The slide going in first, now: its shaders published in the press's own task, before its first frame, within the budget.)
     try { steps.shaders?.(shaderMs()); } catch (e) { caught('slide-prep:70', e); /* next time */ }
     const order = (dir === 'back' ? [i, i - 1, i + 1] : [i, i + 1, i - 1]).filter((k) => k >= 0 && k < count());
-    const mOf = (at) => { let m = made.get(at); if (!m || m.failed) made.set(at, (m = { state: false, tool: false, glyphs: false, shaders: false, done: false, failed: false, id: idNow, sf0: steps.shadersFailed?.() ?? 0 })); return m; };
+    const mOf = (at) => { let m = made.get(at); if (!m || m.failed) made.set(at, (m = { state: false, tool: false, glyphs: false, shaders: false, done: false, failed: false, id: idNow, sf0 })); return m; };
     // (One job, the slide going in first, then the one ahead, then the one behind: each a list of small steps. B19: a slide that failed
     // is counted, the job goes on to the next slide, and it is never counted as a completed job.)
     let bad = 0;

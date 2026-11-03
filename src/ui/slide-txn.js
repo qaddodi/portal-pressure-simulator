@@ -57,3 +57,54 @@ export function createTxns() {
   }
   return { begin, current: () => cur, stats: () => ({ ...st, id: ids }) };
 }
+
+/**
+ * A presentation's disposable scope (R03, 3 Nov 2026): the timers and callbacks one talk starts. timer(fn, ms) is setTimeout whose
+ * callback runs only while the scope is live; dispose() clears every timer still waiting, runs the onDispose functions (newest first)
+ * and makes later calls do nothing, so nothing a closed talk started can reach a talk that began after it.
+ */
+export function createScope() {
+  let dead = false;
+  const ids = new Set(), offs = [];
+  return {
+    live: () => !dead,
+    timer(fn, ms) {
+      if (dead) return 0;
+      const id = setTimeout(() => { ids.delete(id); if (!dead) fn(); }, ms);
+      ids.add(id);
+      return id;
+    },
+    clear(id) { clearTimeout(id); ids.delete(id); },
+    onDispose(fn) { if (dead) { try { fn(); } catch (e) { caught('slide-txn:scope', e); /* given back already */ } return; } offs.push(fn); },
+    dispose() {
+      if (dead) return;
+      dead = true;
+      for (const id of ids) clearTimeout(id);
+      ids.clear();
+      for (const f of offs.splice(0).reverse()) { try { f(); } catch (e) { caught('slide-txn:scope', e); /* the rest still run */ } }
+    },
+    pending: () => ids.size,
+  };
+}
+
+/**
+ * A counted lease on a shared hold (R02, 3 Nov 2026): take() returns a release that works once (a second call does nothing), so a
+ * move that is cut, thrown or finished twice cannot give back a hold another move took. onFirst runs when the count leaves 0 and
+ * onLast when it returns to 0; a take with the count above 0 changes nothing. count() is what is held now.
+ */
+export function createLease(onFirst, onLast) {
+  let n = 0;
+  return {
+    take() {
+      if (++n === 1) { try { onFirst?.(); } catch (e) { caught('slide-txn:lease', e); } }
+      let held = true;
+      return () => {
+        if (!held) return false;
+        held = false;
+        if (--n === 0) { try { onLast?.(); } catch (e) { caught('slide-txn:lease', e); } }
+        return true;
+      };
+    },
+    count: () => n,
+  };
+}
