@@ -9747,6 +9747,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The ?perf blur gauge's question: why the browser's blur, not a glass drawn in the figure's canvas, shows on `el` (null: no glass
   // here is meant to own it, as the toast or the fold chip; '' : its glass is drawn, a mark is about to be set).
   const blurWhy = (el) => { for (const g of [glassGL, paneGL, ...cardGLs]) { const w = g?.why?.(el); if (w != null) return w; } return null; };
+  // Where the glass drawn for `el` stands now ({ left, top, width, height }), for a check that compares it with the card (null: none is drawn for it).
+  const glassBox = (el) => { for (const g of [glassGL, paneGL, ...cardGLs]) { const b = g?.boxOf?.(el); if (b) return b; } return null; };
   // (Each glass and what it was set with: set again on a new renderer, after a lost context is restored.)
   const frostHosts = new Map();
   // (On since 1 Nov 2026 (Mohammad: "Move to GPU"). It had been off since
@@ -13771,6 +13773,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     },
     cardGlass,
     blurWhy,
+    glassBox,
     setView(v) {
       const target = v === 'circuit' ? 1 : 0;
       if (target === morphTarget) return;

@@ -1456,14 +1456,14 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   }
   const MV = { x: 0, y: 0, o: null }, CM = { x: 0, y: 0, o: 1 }, AM = new Motion(), inlines = new WeakMap();   // (moveOf's and chainMove's answers: kept records, read before the next call)
   function moveOf(e, flag) {
-    let tx = 0, ty = 0, hasT = false, o = null;
+    let tx = 0, ty = 0, hasT = false, byProp = false, o = null;
     const m = anims.get(e);
     if (m) {
       for (const [an, rec] of m) {
         const kf = rec.kf, S = stateOf(an, rec), st = S.st;
         if (st === 'idle' || (st === 'finished' && !S.fills)) {
           m.delete(an); flag.ended = true;
-          if (st === 'finished') { AM.at = 1; if (motionAt(kf, AM)) { const was = ended.get(e) || {}; ended.set(e, { t: AM.hasT ? [AM.tx, AM.ty] : was.t || null, o: AM.hasO ? AM.o : was.o ?? null }); } }   // alloc-rare: an animation has just finished (once per animation), not per frame
+          if (st === 'finished') { AM.at = 1; if (motionAt(kf, AM)) { const was = ended.get(e) || {}; ended.set(e, { t: AM.hasT && !AM.prop ? [AM.tx, AM.ty] : was.t || null, o: AM.hasO ? AM.o : was.o ?? null }); } }   // alloc-rare: an animation has just finished (once per animation), not per frame
           continue;
         }
         if (S.bad) { flag.bad = true; continue; }
@@ -1474,7 +1474,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
         // read the page again already, so it no longer asks for a read in every frame.)
         if (!ok && (st === 'finished' || e.zoomAffine)) continue;
         if (!ok) { flag.bad = true; if (st === 'running' && endsOf(an, rec)) flag.live = true; continue; }
-        if (AM.hasT) { tx = AM.tx; ty = AM.ty; hasT = true; }
+        if (AM.hasT) { tx = AM.tx; ty = AM.ty; hasT = true; byProp = AM.prop; }
         if (AM.hasO) o = AM.o;
       }
       if (!m.size) anims.delete(e);
@@ -1486,7 +1486,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
       let im = inlines.get(e);
       if (!im) inlines.set(e, (im = new Inline()));   // alloc-rare: an element's inline reading is made once, the first time it is seen
       if (!hasT && !e.zoomAffine) { if (!inlineShift(im, s.transform)) flag.bad = true; else { tx = im.tx; ty = im.ty; } }
-      if (!inlineTranslate(im, s.translate)) flag.bad = true; else { tx += im.ux; ty += im.uy; }
+      if (byProp) { /* (the translate property is animated: the animation's value stands for the inline one while it plays) */ } else if (!inlineTranslate(im, s.translate)) flag.bad = true; else { tx += im.ux; ty += im.uy; }
       if (o == null && s.opacity !== '' && s.opacity != null && !inlineLoses.has(e)) o = NUM(s.opacity);
       // (A card the page moves by a custom property its stylesheet turns into a translate (the words' card's --pz-rise as the readings are
       // pulled out, the data card's --pz-lift): cards.shift(e) gives that move, read from the inline value each frame, so the glass rises
@@ -1811,6 +1811,15 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
       if (hostOn) return whyEl.get(el) || '';
       if (!host) return copy ? '' : 'no figure canvas to draw into';
       return whyAll || 'not drawn in the figure\'s canvas yet';
+    },
+    /** Where the glass of `el` is drawn now, from the last read of the page and the motion put back on it (CSS px): { left, top, width, height }, or
+     *  null when `el` is none of this glass's. Asked outside a frame, by a check that compares the glass with its card; nothing in a frame asks. */
+    boxOf(el) {
+      if (!el || dead || lost) return null;
+      const N = nowGeo(glassesOf());
+      if (!N) return null;
+      for (const p of N.panes) if (p.g === el) return { left: p.r.left, top: p.r.top, width: p.r.width, height: p.r.height };   // alloc-rare: a check's answer, never made in a frame
+      return null;
     },
     get on() { return !lost && !dead; },
     /** The ?perf surfaces list (gpu-surfaces.js): null with none of its glasses on the page, else how they are drawn now. Read only by

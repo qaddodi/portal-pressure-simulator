@@ -210,7 +210,7 @@ function easingKind(e) {
 const KD = 8, KOFF = 0, KTX = 1, KTY = 2, KOP = 3, KEZ = 4;
 export class Track {
   constructor(n) {
-    this.n = n; this.hasT = false; this.hasO = false; this.bad = false;
+    this.n = n; this.hasT = false; this.hasO = false; this.bad = false; this.prop = false;   // (prop: its translation is the translate property's, which replaces the element's own inline translate while it plays)
     this.d = new Float64Array(n * KD);   // alloc-rare: a track is made once per animation, when it is first seen
     this.f = new Uint8Array(n * 2);   // alloc-rare: a track is made once per animation, when it is first seen
   }
@@ -218,23 +218,26 @@ export class Track {
 /** What one animation does to the glass at one moment: set `at` (its transformed progress), call motionAt(), and read hasT with tx, ty
  *  (px) and hasO with o. (The progress goes in a field, not an argument: a double handed to a call that is not inlined is boxed.) */
 export class Motion {
-  constructor() { this.at = 0; this.hasT = false; this.tx = 0; this.ty = 0; this.hasO = false; this.o = 0; }
+  constructor() { this.at = 0; this.hasT = false; this.tx = 0; this.ty = 0; this.hasO = false; this.o = 0; this.prop = false; }
 }
 /** An effect's getKeyframes() as a Track, or null with none. */
 export function compileKeyframes(kf) {
   if (!kf?.length) return null;
   const n = kf.length, T = new Track(n), d = T.d, f = T.f;   // alloc-rare: an animation is compiled once, when it is first seen
-  let missT = false, missO = false;
+  let missT = false, missO = false, anyTf = false, anyTr = false;
   for (let i = 0; i < n; i++) {
     const k = kf[i];
-    if (k.transform != null) T.hasT = true; else missT = true;
+    // (A keyframe moves the element by its transform or by the translate property (the dock glide, the words' glide); an animation that
+    // mixes the two is not followed.)
+    if (k.transform != null) { T.hasT = true; anyTf = true; } else if (k.translate != null && k.translate !== '') { T.hasT = true; anyTr = true; } else missT = true;
     if (k.opacity != null) T.hasO = true; else missO = true;
   }
-  T.bad = (T.hasT && missT) || (T.hasO && missO);
+  T.prop = anyTr;
+  T.bad = (T.hasT && missT) || (T.hasO && missO) || (anyTf && anyTr);
   for (let i = 0; i < n; i++) {
     const k = kf[i], b = i * KD;
     d[b + KOFF] = k.computedOffset ?? k.offset ?? (n > 1 ? i / (n - 1) : 0);
-    if (k.transform != null && shiftInto(k.transform, PAIR)) { f[2 * i] = 1; d[b + KTX] = PAIR[0]; d[b + KTY] = PAIR[1]; }
+    if (k.transform != null ? shiftInto(k.transform, PAIR) : k.translate != null && translateInto(k.translate, PAIR)) { f[2 * i] = 1; d[b + KTX] = PAIR[0]; d[b + KTY] = PAIR[1]; }
     if (k.opacity != null) d[b + KOP] = NUM(k.opacity);
     const kind = easingKind(k.easing);
     f[2 * i + 1] = kind;
@@ -262,7 +265,7 @@ export function motionAt(T, out) {
   } else u = p >= ob ? 1 : 0;
   if (T.hasT) {
     if (!f[2 * i] || !f[2 * j]) return false;
-    out.hasT = true;
+    out.hasT = true; out.prop = T.prop;
     out.tx = d[a + KTX] + (d[b + KTX] - d[a + KTX]) * u;
     out.ty = d[a + KTY] + (d[b + KTY] - d[a + KTY]) * u;
   }
