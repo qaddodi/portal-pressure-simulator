@@ -13,7 +13,8 @@ import { nodeEnds, nodeDrawn, dotRadius, bareDots } from './circuit-nodes.js';
 import { STATION_VESSEL, meanVel, velNormal, judgeFlow } from './velNormal.js';
 import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js';
 import { fibroReading } from './clock.js';
-import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, loadFailed, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ } from './util.js';
+import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, loadFailed, systemEdge, bloodColors, restBox, translateRest, settledBox, putText, UPRIGHT_MQ, cssVar, cssRGB } from './util.js';
+import { recordLayer } from './over-records.js';
 import { riseCentre } from './rise-path.js';
 import { lerpVT, camPath, blendPaths, viewsOverlap, driftEase } from './cam-arc.js';
 import { easeMove, easeArrive, camMs, carryRate, carried, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js';
@@ -2863,6 +2864,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // stage reads it: read before this line, it threw while the stage was made (31 Oct, d213d755).
   // (Both are read from the context the stage starts with, and again from the one a restore hands back: renderPath.)
   let OVER_ON = !!veins?.overlay && (!SOFTWARE || OVER_ASK);
+  // The figure's kept shapes (3 Nov 2026, over-records.js): the circuit's resistors drawn by the overlay painter from records, no SVG element.
+  // Declared here, before any geometry pass can reach them. The circuit's own layer is hidden until the view is the circuit (recs.show).
+  const recs = recordLayer({ ease: easeArrive, ms: D_SURFACE });
+  recs.show(0, 0, true);
+  let recAsk = 0, recVer = 0;
+  const recOut = { changed: false, moving: false };
   try { localStorage.removeItem('pps.quality'); localStorage.removeItem('pps.q'); } catch (e) { caught('stage:2826', e); /* storage unavailable */ }
   let quality = SOFTWARE ? Q_SOFTWARE : 0, saverOn = false;   // (saverOn: Settings › Battery saver, for the step a changed renderer returns to)
   // A context handed back by a restore is read again for what the start-up one decided: whether the renderer is software (the browser can
@@ -3194,6 +3201,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     setG(gAscites, 'style:opacity', String(1 - t));
     svg.classList.toggle('circuit', t > 0.5);
     svgOver?.classList.toggle('circuit', t > 0.5);
+    if (recs.show(t > 0.5 ? 1 : 0, performance.now(), reduceMotion.matches)) recKick();   // (the kept shapes of the circuit fade in and out as .circuit-only did: D_SURFACE, the page's ease)
     // The circuit is a dark hemodynamic map; the anatomy an atlas plate on paper.
     stageWrap.classList.toggle('cmap', t > 0.5);
     if (gFxC.firstChild || t === 0 || t === 1) setG(gFxC, 'style:opacity', String(t));   // (an empty layer takes no opacity through the change between the views; its value lands with the view)
@@ -6066,7 +6074,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
   }
   orgToneRead();
-  new MutationObserver(orgToneRead).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-palette', 'class'] });
+  new MutationObserver(() => { orgToneRead(); nextFrame(resTheme); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-palette', 'class'] });
   matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', orgToneRead);
   const OL_FADE = 160;   // ms
   // A narrowing's clamp and its "60 %" fade in and out with the narrowing (they had popped): each narrowing's shown amount
@@ -7559,40 +7567,102 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (qc * 0.06 < 0.05) return null;
     return (P[NI.CONF] - P[NI.IVCS]) / qc / r0;
   }
-  const resG = s('g', { class: 'res-zz circuit-only', 'aria-hidden': 'true' });
-  gOver.append(resG);
-  const resMade = new Map();
+  // (3 Nov 2026, "Move figure labels and pills off the SVG model": the circuit's resistors are kept records (over-records.js), drawn by the
+  // overlay painter beside the SVG overlays' groups: no element is made, and no attribute or style written, for a zigzag. recs: their layer.)
+  const resMade = new Map();   // k → { _segs (the zigzags' end points, what the figure's labels keep off: buildSegs), cur (the numbers the record was made from) }
   let resLit = new Map();   // the circuit's resistors a slide's words point at (rLiver, rColl) → their station tone
-  // A resistor's zigzag along a vessel: n teeth of amplitude amp (world units) from a to b.
-  const zig = (a, b, n = 6, amp = 9) => {
-    const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L;
-    let d = `M${a[0].toFixed(1)} ${a[1].toFixed(1)}`;
-    for (let i = 0; i < n; i++) { const u = (i + 0.5) / n, sgn = i % 2 ? -1 : 1; d += ` L${(a[0] + dx * u + nx * amp * sgn).toFixed(1)} ${(a[1] + dy * u + ny * amp * sgn).toFixed(1)}`; }
-    return d + ` L${b[0].toFixed(1)} ${b[1].toFixed(1)}`;
+  // A resistor's zigzag along a vessel: n teeth of amplitude amp (world units) from a to b, written into `out` at `at` (8 points for 6 teeth).
+  const zigInto = (out, at, ax, ay, bx, by, n = 6, amp = 9) => {
+    const dx = bx - ax, dy = by - ay, L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L;
+    out[at++] = ax; out[at++] = ay;
+    for (let i = 0; i < n; i++) { const u = (i + 0.5) / n, sgn = i % 2 ? -1 : 1; out[at++] = ax + dx * u + nx * amp * sgn; out[at++] = ay + dy * u + ny * amp * sgn; }
+    out[at++] = bx; out[at++] = by;
+    return at;
   };
   // (The readings' parts, made ahead: a frame clones them, never builds them.)
   // (A reading's own box, with its glass in it already for those that have one: cloned on a frame, nothing built there. callout.js withGlass)
   const SITE_EL = [document.createElement('div'), withGlass(document.createElement('div'))];
   const SITE_TPL = (() => { const e = document.createElement('div'); e.innerHTML = '<small></small><b></b><span></span><i class="res-k"></i>'; return e; })();
   const SPLIT_B = (() => { const e = document.createElement('b'); e.innerHTML = '<span class="sp-h"><em class="sp-n"></em>% bypasses the liver</span><span class="sp-bar"><i class="sp-l"></i><i class="sp-s"></i></span><span class="sp-cap"><em class="sp-lt"></em><em class="sp-st"></em></span>'; return e; })();
-  // (A resistor's zigzag, built once as a model and cloned as one comes in: a frame builds no page art for it, 2 Nov 2026, "Move everything to GPU".)
-  const RES_TPL = s('g', { class: 'res-one' }, s('path', { class: 'res-halo' }), s('path', { class: 'res-line' }));
+  const r1 = (v) => Math.round(v * 10) / 10;   // (a zigzag's points to a tenth of a world unit, as its path text was written)
+  const RES_LIVER = new Float32Array([812, 303, 888, 303, 812, 387, 888, 387]);
+  const resNow = new Float32Array(32), resKey = new Float64Array(8);   // (a record's numbers worked out, and what makes a resistor look as it does: written in place)
+  // The token a station's tone names (toneCol's own, var(--x) → --x): its colour is read from the theme's tokens, never from the page.
+  const toneTokens = new Map();   // alloc-rare: one text for each tone, made the first time it is lit
+  const toneToken = (tone) => { let t = toneTokens.get(tone); if (!t) toneTokens.set(tone, (t = toneCol(tone).slice(4, -1))); return t; };
+  const tokenRGB = (name, into, o) => { const c = cssRGB(cssVar(name) ? name : '--text'); into[o] = c[0] / 255; into[o + 1] = c[1] / 255; into[o + 2] = c[2] / 255; };
+  // The records ask the painter to draw them again: a changed set of shapes re-sends the overlays' groups (overSend), a changed opacity
+  // writes the shapes in place and touches the painter (recStep); either way a frame is asked for.
+  function recStep() {
+    recAsk = 0;
+    recs.step(performance.now(), recOut);
+    recFlush(recOut.changed);
+    if (recOut.moving) recAsk = nextFrame(recStep);
+  }
+  function recFlush(changed) {
+    if (!changed && recs.ver === recVer) return;
+    if (recLive()) {
+      if (recs.ver !== recVer) { recVer = recs.ver; overSend(); }
+      veins.overlay.touch();
+    } else { recVer = recs.ver; recSvgSync(); }
+    askAnimate();
+  }
+  const recKick = () => { recFlush(false); if (!recAsk) recAsk = nextFrame(recStep); };
+  // Whether the overlay painter is drawing (the GPU draws the records) or the SVG stands in for it (a software renderer, a lost context).
+  const recLive = () => OVER_ON && !!veins?.overlay && !veins.lost && wrap.classList.contains('gl-on');
+  // The SVG that stands in for the records where the GPU does not draw them: made the first time it is needed, from the records as they
+  // stand. (The GPU path never makes it.)
+  let recSvgG = null;
+  function recSvgSync() {   // alloc-rare: only where the overlay painter is not drawing (a software renderer, a lost context), never on the GPU path
+    if (!recs.spec) { recSvgG?.replaceChildren(); return; }
+    if (!recSvgG) { recSvgG = s('g', { class: 'res-zz', 'aria-hidden': 'true', fill: 'none', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }); gOver.append(recSvgG); }
+    const kids = recs.spec.ops.map((op) => {
+      const d = op.geom.poly.map(({ pts }) => { let t = ''; for (let i = 0; i < pts.length; i += 2) t += `${i ? 'L' : 'M'}${pts[i].toFixed(1)} ${pts[i + 1].toFixed(1)}`; return t; }).join(' ');
+      const c = op.paint.solid;
+      return s('path', { d, stroke: `rgb(${Math.round(c[0] * 255)},${Math.round(c[1] * 255)},${Math.round(c[2] * 255)})`, 'stroke-width': op.w, 'stroke-opacity': op.alpha, 'vector-effect': 'non-scaling-stroke' });
+    });
+    recSvgG.replaceChildren(...kids);
+  }
+  // A theme change: the resistors' tones are the theme's tokens, read again (the frame after, when the tokens have been read: util.js readVars).
+  function resTheme() { for (const [k, st] of resMade) resPaint(k, st.d, st.ratio); }
+  // A resistor: the halo under its line, each a zigzag along the segments, in the page's own sizes and tones (as its CSS gave them before the records).
   function resPaint(k, d, ratio) {
-    let g = resMade.get(k);
+    let st = resMade.get(k);
     const want = sites.list?.includes(k) && ratio != null;
-    if (!want) { if (g) { resMade.delete(k); g.style.opacity = 0; setTimeout(() => g.remove(), 700); } return; }   // (faded out whole first: .res-one, .6 s)
-    if (!g) { g = RES_TPL.cloneNode(true); g.style.opacity = 0; late('add', resG, g); resMade.set(k, g); nextFrame(() => nextFrame(() => { g.style.opacity = 1; })); }
-    const segs = d.res === 'liver' ? [[[812, 303], [888, 303]], [[812, 387], [888, 387]]] : (() => {
-      const q = d.res === 'gut' ? geo.A_SMA?.cur && pointAt(geo.A_SMA.cur, 0.5) : geo.C1b && pointAt(geo.C1b.cur, 0.5);
-      return q ? [[[q[0] - q[2] * 34, q[1] - q[3] * 34], [q[0] + q[2] * 34, q[1] + q[3] * 34]]] : [];
-    })();
+    const now = performance.now();
+    if (!want) { if (st) { resMade.delete(k); recs.drop(`res:${k}`, now, reduceMotion.matches); recKick(); } return; }   // (faded out whole first, over D_SURFACE, then gone)
+    if (!st) { st = { _segs: null, cur: null, d, ratio }; resMade.set(k, st); }   // alloc-rare: a resistor's record, made when it first shows
+    // The zigzags' end points: the liver's two are fixed; the gut's and the collaterals' stand on their vessel, level with its course.
+    let n = 0;
+    if (d.res === 'liver') {
+      for (let i = 0; i < RES_LIVER.length; i += 4) n = zigInto(resNow, n, RES_LIVER[i], RES_LIVER[i + 1], RES_LIVER[i + 2], RES_LIVER[i + 3]);
+    } else {
+      const q = d.res === 'gut' ? geo.A_SMA?.cur && pointAt(geo.A_SMA.cur, 0.5) : geo.C1b?.cur && pointAt(geo.C1b.cur, 0.5);
+      if (q) n = zigInto(resNow, n, q[0] - q[2] * 34, q[1] - q[3] * 34, q[0] + q[2] * 34, q[1] + q[3] * 34);
+    }
+    for (let i = 0; i < n; i++) resNow[i] = r1(resNow[i]);
     const lit = resLit.get(k);
-    g.classList.toggle('lit', !!lit); g.style.setProperty('--res-c', lit ? toneCol(lit) : 'var(--text)');
-    g._segs = segs;   // (the figure's labels keep off the zigzags too: buildSegs)
-    const path = segs.map(([a, b]) => zig(a, b)).join(' ');
-    if (g.dataset.d !== path) { g.dataset.d = path; for (const e of g.children) e.setAttribute('d', path); }
-    // Heavier as the resistance rises: 1.5 px at the healthy liver's, about 4 px at four times it (eased by CSS).
-    g.style.setProperty('--res-w', `${clamp(1.5 + 1.25 * Math.log2(Math.max(0.25, ratio)), 0.8, 5).toFixed(2)}px`);
+    // Heavier as the resistance rises: 1.5 px at the healthy liver's, about 4 px at four times it (to a tenth of a pixel).
+    const w = Math.round(clamp(1.5 + 1.25 * Math.log2(Math.max(0.25, ratio)), 0.8, 5) * 10) / 10;
+    // Its look as numbers: lit, the halo's rgb, the line's rgb, its width (the rgb is the theme's tokens', read when the theme last changed).
+    resKey[0] = lit ? 1 : 0; resKey[7] = w;
+    tokenRGB('--stage-bg', resKey, 1);
+    tokenRGB(lit ? toneToken(lit) : '--text', resKey, 4);
+    let same = !!st.cur && st.cur.n === n;
+    if (same) for (let i = 0; i < 8; i++) if (st.cur.key[i] !== resKey[i]) { same = false; break; }
+    if (same) for (let i = 0; i < n; i++) if (st.cur.pts[i] !== resNow[i]) { same = false; break; }
+    st.d = d; st.ratio = ratio;
+    if (!same) {
+      // alloc-rare: a resistor's zigzag, colour or width changed (a slide's change, a theme, a resistance), not a frame that kept them
+      const polys = [];
+      for (let o = 0; o < n; o += 16) polys.push(resNow.slice(o, o + 16));
+      st.cur = { n, key: Array.from(resKey), pts: resNow.slice(0, n) };
+      st._segs = polys.map((p) => [[p[0], p[1]], [p[14], p[15]]]);   // (what the figure's labels keep off, buildSegs)
+      const halo = lit ? { a: 0.22, w: w + 9, rgb: [resKey[4], resKey[5], resKey[6]] } : { a: 0.85, w: w + 3, rgb: [resKey[1], resKey[2], resKey[3]] };
+      const line = { a: lit ? 1 : 0.8, w: lit ? w + 1.5 : w, rgb: [resKey[4], resKey[5], resKey[6]] };
+      recs.put(`res:${k}`, polys.length ? [{ polys, kind: 'stroke', nss: true, cap: 1, ...halo }, { polys, kind: 'stroke', nss: true, cap: 1, ...line }] : [], now, reduceMotion.matches);
+      recKick();
+    }
   }
   // The wide screen's nav pill, read with the cards (readBlockers): its gap from the stage's right edge is the slides' one margin
   // (--pz-cm), and its top bounds the row the figure's readings keep clear of. Null when no pill shows (a phone, or no slide).
@@ -12704,13 +12774,25 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     overStop = run.whole ? null : { unit: run.stop, why: why?.[0] || '?', el: why?.[1] || null };
     overGot = run;
   }
+  // (The kept shapes (over-records.js) are one more group, last: drawn over the groups the page's SVG gives, in the overlays' own frame.
+  // They are laid whether or not the whole run was read: no element of theirs can stop it.)
+  const recGroup = { get spec() { return recs.spec; }, get m() { return elMat(gOver); } };
+  let overRunLast = null;
+  // The overlays' groups sent to the painter again: the page's run as it was last read, and the kept shapes as they stand now.
+  function overSend() {
+    if (!overRunLast || !recLive()) return;
+    overApply(overRunLast);
+  }
   function overApply(run) {
-    const groups = new Map(), names = [];
+    overRunLast = run;
+    const groups = new Map(), names = [];   // alloc-rare: the overlays' groups are sent when a group was read again or a kept shape came or went, not on a frame that changed neither
     run.forEach(([u, spec], i) => {
       const n = `o${i}`, up = u.parentNode === gOver ? gOver : null;
       groups.set(n, [{ spec, get m() { const own = elMat(u); return up ? mul(elMat(up), own) : own; } }]);
       names.push(n);
     });
+    if (recs.spec) { groups.set('rec', [recGroup]); names.push('rec'); }
+    recVer = recs.ver;
     veins.overlay.set(groups, names);
     const now2 = new Set(run.map(([u]) => u));
     for (const u of overPainted) if (!now2.has(u)) u.classList.remove(OVER_CLASS);

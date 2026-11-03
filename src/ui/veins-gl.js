@@ -3696,6 +3696,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         if (!over) return;
         over.setOrder(names); over.setLive(groups && groups.size ? groups : null, null); overShown = !!groups?.size;
       },
+      /** The groups' kept shapes (stage.js, over-records.js) were written in place: the next present draws them again. */
+      touch() { over?.touch(); },
       /** Device px per CSS px of the canvas (a non-scaling stroke's width: organ-paint cssPx). */
       set cssPx(v) { overCss = v; },
       /** Whether the stage moves the canvas by the vessels' sub-pixel rest (stage.js subPixel, below Full): the overlays then go at whole pixels too. */

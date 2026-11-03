@@ -9,6 +9,7 @@ const js = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
 test('a slide term or lit resistor takes its tone through toneCol, never a bare --tr- prefix', () => {
   assert.match(js, /const toneCol = \(tone\) => \(tone\.startsWith\('--'\) \? `var\(\$\{tone\}\)` : tone === 'accent' \? 'var\(--accent\)' : `var\(--tr-\$\{tone\}\)`\);/);
   assert.match(js, /b\.g\.style\.setProperty\('--term', toneCol\(tone\)\)/);
-  assert.match(js, /setProperty\('--res-c', lit \? toneCol\(lit\) : 'var\(--text\)'\)/);
+  assert.match(js, /toneTokens\.set\(tone, \(t = toneCol\(tone\)\.slice\(4, -1\)\)\)/);   
+  assert.match(js, /tokenRGB\(lit \? toneToken\(lit\) : '--text', resKey, 4\)/);
   assert.doesNotMatch(js, /`var\(--tr-\$\{(?!tone\})/, 'no other tone is written straight into a --tr- token');
 });

@@ -46,9 +46,12 @@ test("a slide's reading fades out whole, glass and all, and counts to a new numb
   assert.match(css, /\.cath-label\.site \{ transition: scale var\(--d-surface\) var\(--ease\) \.35s, translate var\(--d-surface\) var\(--ease\); \}/, 'its shadow is no longer eased (1 Nov 2026, move everything to GPU: a colour, shadow or edge eased repaints every frame, so it is taken at once)');
 });
 
-test("the resistance zigzag's halo eases with its line, and it is removed only once faded", () => {
-  assert.match(css, /\.res-one \.res-halo \{[^}]*transition: opacity var\(--d-surface\) var\(--ease\); \}/, 'it fades with its line by opacity; its width and stroke are taken at once (1 Nov 2026, move everything to GPU: a colour, shadow or edge eased repaints every frame, so it is taken at once)');
-  assert.match(stage, /setTimeout\(\(\) => g\.remove\(\), 700\)/);
+test("the resistance zigzag's halo eases with its line, and it is dropped only once faded", () => {
+  // (3 Nov 2026: a resistor is a kept record drawn by the overlay painter, over-records.js; its fade is the page's own surface step and
+  // curve, run in script. Its width and tone are taken at once, as the CSS took them.)
+  assert.match(stage, /const recs = recordLayer\(\{ ease: easeArrive, ms: D_SURFACE \}\);/);
+  assert.match(stage, /recs\.drop\(`res:\$\{k\}`, now, reduceMotion\.matches\)/);
+  assert.doesNotMatch(css, /\.res-one/, 'no resistor element is styled: none is made');
 });
 
 test("the lobule's pointer fades out before it moves to a new spot or takes new words", () => {
