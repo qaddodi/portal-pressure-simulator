@@ -79,7 +79,7 @@ export function assertGpuPath(p, what = 'the page') {
  *  canvas have almost none). Throws, naming the cause. `vessels: false` for a view that has none. A check that runs on the SVG fallback
  *  proves nothing about the figure the owner sees (the glitch sweep ran its flags without WebGL for a day, 3 Nov 2026), so every
  *  script that judges the figure calls this at the start and again at the end of its run. */
-export async function assertGpuLive(page, what = 'the page', { software = false, vessels = true } = {}) {
+export async function assertGpuLive(page, what = 'the page', { software = false, vessels = true, wait = 40000 } = {}) {
   const p = await readPath(page);
   if (software) {
     const why = [];
@@ -89,7 +89,13 @@ export async function assertGpuLive(page, what = 'the page', { software = false,
     if (why.length) throw new Error(`NOT DRAWN BY THE GPU: ${what}:\n  - ${why.join('\n  - ')}\n  (${JSON.stringify(p)})`);
   } else assertGpuPath(p, what);
   if (vessels) {
-    const s = await colourShare(page, await page.screenshot({ timeout: 150000 }));
+    // (a figure still coming up draws its vessels a moment after the page says it is up: looked at for `wait` ms before it counts as not drawing)
+    let s;
+    for (const t0 = Date.now(); ; ) {
+      s = await colourShare(page, await page.screenshot({ timeout: 150000 }));
+      if (s >= 0.002 || Date.now() - t0 > wait) break;
+      await page.waitForTimeout(2000);
+    }
     if (s < 0.002) throw new Error(`NOT DRAWN BY THE GPU: ${what}: almost no vessel colour on the page (${(s * 100).toFixed(3)} % of its pixels), the GPU figure did not draw (${JSON.stringify(p)})`);
   }
 }
