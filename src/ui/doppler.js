@@ -671,6 +671,8 @@ export function createDoppler({ onProbe, pickGate = true }) {
   const floorRec = { width: 0, height: 0, dpr: 0 }, noiseBins = new Float32Array(16384);
   const TB = [0, 0, 0, 0];
   const GEO = { RW: 0, RH: 0, rBase: 0, rPxPerV: 0, cps: 0, binPx: 0, spkPx: 0, spkMix: 0, pol: 0, k: 0, venous: false, span: 0, topV: 0, botV: 0 };   // (the spectrum's geometry for a frame, written in place)
+  const SYN = { rBase: 0, rPxPerV: 0, fade: 0, wfV: 0, spkPx: 0, spkMix: 0, span: 0, uK: 0, venous: false, mode: 0 };   // (the spectrum shader's geometry for a frame, written in place)
+  let synthed = false, ringW = 0, ringH = 0;   // (whether the GPU wrote the ring's lines, and the ring's size there)
   const RENDER = { W: 0, H: 0, dx: 0, dy: 0, RW: 0, RH: 0, p: 0, nx: 0, ny: 0, noiseA: 0, base: 0, wf: 0 };
   const FS_ST = { scale: null, baseF: null, settleAt: 0, refit: false }, FS_IN = { fixed: null, holding: false, fits: false, target: 0, tbF: 0, tNow: 0 };   // (fitScale's state and input, written in place)
   let floor = null, noiseAt = 0, nx = 0, ny = 0, traceBox = null;   // (floor: the noise texture's size and density, { width, height, dpr })
@@ -762,6 +764,25 @@ export function createDoppler({ onProbe, pickGate = true }) {
     if (u > 0) { const z = (L - u) / wSigLo; return 0.16 * Math.exp(-z * z); }
     return 0;
   };
+  // The GPU's way (doppler-synth.js): the same line's numbers, as writeLine works them out, handed to the drawer for ring column x; the
+  // pixels are written there, on the GPU. The grain's draws are made by the shader, so none is made here.
+  function lineParams(c, g) {
+    const x = ((c % g.RW) + g.RW) % g.RW;
+    const v = velAt(c / g.cps, g);
+    const has = !Number.isNaN(v), av = Math.abs(v), s = v < 0 ? -1 : 1;
+    jit = 0.45 * jit + rn(); lineGain = 0.5 * lineGain + rn();
+    const cn = c & 0xFFFFF;
+    if (!has || av <= 0.3) { gpu.setCol(x, 0, 0, 1, 1, 1, 0, 0, cn); return; }
+    const P = av * g.k * (1 + 0.035 * jit);
+    const L = av * (g.venous ? 0.05 : 0.45 - 0.4 * clamp(1 - av / 12, 0, 1));
+    let lineS = 0;
+    if (mode !== 'spectrum') {
+      const vp = velAt(c / g.cps - 0.3, g);
+      lineS = (Number.isNaN(vp) ? 0 : Math.abs(v - vp) / (0.45 * scale)) + 0.5 * clamp((av - 80) / 120, 0, 1);
+    }
+    const wraps = g.span > 0 && P > (s > 0 ? g.topV : g.botV);
+    gpu.setCol(x, P, L, 0.02 * P + 0.4, 0.08 * P + 1.2, 10 ** (0.12 * lineGain), lineS, 1 + (wraps ? 2 : 0) + (s < 0 ? 4 : 0), cn);
+  }
   // Synthesise spectral line c into the ring. Geometry in device pixels.
   function writeLine(c, g) {
     const { RW, RH, rBase, rPxPerV } = g;
@@ -1110,6 +1131,31 @@ export function createDoppler({ onProbe, pickGate = true }) {
     // (a fixed scale's span, and how far the display reaches above and below the baseline, cm/s: where the spectrum wraps)
     g.span = fixed ? H / pxPerV : 0; g.topV = baseY / pxPerV; g.botV = (H - baseY) / pxPerV;
     const cNow = Math.floor(tNow * g.cps);
+    const gs = onGpu && gpu.canSynth();
+    if (gs !== synthed) { synthed = gs; RK.ok = false; glFrom = 'img'; }   // (the lines are made the other way now: the ring is made whole again)
+    let full, from;
+    if (gs) {
+      // On the GPU the lines are drawn into the ring texture; no ImageData of the ring is made or kept.
+      if (ringW !== RW || ringH !== RH) {
+        const oRW = ringW, oRH = ringH;
+        ringW = RW; ringH = RH;
+        // Only the size changed: the trace already drawn is stretched to the new size on the GPU, and new lines draw in sharp.
+        const lc = lastCol != null && RK.ok && RK.RW === oRW && RK.RH === oRH && restSame(sgn) ? Math.floor(lastCol * RW / oRW) : null;
+        if (lc != null && cNow >= lc && cNow - lc < RW && gpu.stretch(RW, RH, ((lastCol % oRW) + oRW) % oRW, (lc + 1) % RW)) { ringSet(RW, RH, sgn); lastCol = lc; }
+      }
+      gpu.ringSize(RW, RH);   // (a no-op while the GPU's ring is that size; a context made again has none)
+      full = !RK.ok || RK.RW !== RW || RK.RH !== RH || !restSame(sgn) || lastCol == null || cNow < lastCol || cNow - lastCol >= RW;
+      from = full ? cNow - RW + 1 : lastCol + 1;
+      if (cNow >= from) {
+        SYN.rBase = g.rBase; SYN.rPxPerV = g.rPxPerV; SYN.fade = 7 / g.rPxPerV; SYN.wfV = Math.max(1.2, 0.025 * scale); SYN.spkPx = g.spkPx; SYN.spkMix = g.spkMix;
+        SYN.span = g.span; SYN.uK = 1 / (0.7 * scale); SYN.venous = g.venous; SYN.mode = mode === 'spectrum' ? 0 : mode === 'velocity' ? 1 : 2;
+        for (let c = from; c <= cNow; c++) lineParams(c, g);
+        const x0 = ((from % RW) + RW) % RW, n = cNow - from + 1;
+        if (x0 + n <= RW) gpu.synth(x0, n, SYN);
+        else { gpu.synth(x0, RW - x0, SYN); gpu.synth(0, x0 + n - RW, SYN); }
+      }
+      glFrom = null; imgWhole = false;
+    } else {
     if (!img || img.width !== RW || img.height !== RH) {
       const oRW = img?.width, oRH = img?.height;
       img = new ImageData(RW, RH);
@@ -1119,8 +1165,8 @@ export function createDoppler({ onProbe, pickGate = true }) {
       if (lc != null && cNow >= lc && cNow - lc < RW && onGpu && !glFrom && gpu.stretch(RW, RH, ((lastCol % oRW) + oRW) % oRW, (lc + 1) % RW)) { ringSet(RW, RH, sgn); lastCol = lc; imgWhole = false; }
     }
     // redraw every line after a change of scale, size or colour, or when time runs backwards
-    const full = !RK.ok || RK.RW !== RW || RK.RH !== RH || !restSame(sgn) || lastCol == null || cNow < lastCol || cNow - lastCol >= RW;
-    const from = full ? cNow - RW + 1 : lastCol + 1;
+    full = !RK.ok || RK.RW !== RW || RK.RH !== RH || !restSame(sgn) || lastCol == null || cNow < lastCol || cNow - lastCol >= RW;
+    from = full ? cNow - RW + 1 : lastCol + 1;
     for (let c = from; c <= cNow; c++) writeLine(c, g);
     if (full) { glFrom = 'img'; imgWhole = true; }
     else if (cNow > lastCol && gpu && !glFrom) {
@@ -1128,6 +1174,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
       const x0 = ((from % RW) + RW) % RW, n = cNow - from + 1;
       if (x0 + n <= RW) gpu.ringCols(img, x0, n);
       else { gpu.ringCols(img, x0, RW - x0); gpu.ringCols(img, 0, x0 + n - RW); }
+    }
     }
     ringSet(RW, RH, sgn); lastCol = cNow;
     // copy the ring out, oldest line on the left, pixel for pixel

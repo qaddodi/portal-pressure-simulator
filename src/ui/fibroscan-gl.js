@@ -60,6 +60,22 @@ void main() {
   o = vec4((20.0 + 220.0 * k) / 255.0, (10.0 + 126.0 * k) / 255.0, (8.0 + 64.0 * k) / 255.0, 1.0);
 }`;
 
+// The map's pixels in the small target of elastogramUnder (at most), and the second pass that stretches it over the chart.
+const MAP_PX = 200000;
+const SHOW_FS = `#version 300 es
+precision highp float;
+uniform sampler2D uMap;
+uniform vec2 uRes;
+uniform float uRad;
+out vec4 o;
+void main() {
+  if (uRad > 0.0) {
+    vec2 q = abs(gl_FragCoord.xy - uRes * 0.5) - (uRes * 0.5 - uRad);
+    if (length(max(q, 0.0)) > uRad) discard;
+  }
+  o = vec4(texture(uMap, gl_FragCoord.xy / uRes).rgb, 1.0);
+}`;
+
 const UNIS = ['uA1', 'uA2', 'uB1', 'uB2', 'uP1', 'uP2', 'uCell', 'uOffA', 'uOffB', 'uOffP', 'uN', 'uNB', 'uC', 'uT0', 'uCos', 'uSin', 'uRes', 'uRad'];
 let st = null;   // { canvas, gl, U, publish, lost } once made; false when WebGL2 is unavailable
 
@@ -201,6 +217,7 @@ export function elastogramUnder(F) {
   let gen = -1, G = null, args = null, drew = false;
   function build(gl) {
     const started = startProgram(gl, VS, FS, [['p', 0]]);
+    const started2 = startProgram(gl, VS, SHOW_FS, [['p', 0]]);
     const vao = gl.createVertexArray(); gl.bindVertexArray(vao);
     const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
@@ -214,12 +231,22 @@ export function elastogramUnder(F) {
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, f.gw, f.gh, 0, gl.RED, gl.FLOAT, Float32Array.from(f.grid));
       return t;
     });
+    // (The map's own small target: it is smooth, so it is worked out at about a quarter of the chart's device pixels (never more than
+    // MAP_PX of them) and stretched to the chart linearly in a second, cheap pass. The 24 field reads and the trig run on a fraction of
+    // the pixels: on a phone's 3× screen the full-size map was most of the frame's GPU time.)
+    const mapT = gl.createTexture(), fbo = gl.createFramebuffer();
+    gl.bindTexture(gl.TEXTURE_2D, mapT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.bindTexture(gl.TEXTURE_2D, null);
-    const g = { vao, tex, prog: null, U: {}, failed: false };
+    const g = { vao, tex, mapT, fbo, mw: 0, mh: 0, prog: null, show: null, U: {}, S: {}, failed: false };
     // (Published once the driver says it is compiled: never a wait in a frame.)
-    publishWhenDone(gl, [started], () => {
+    publishWhenDone(gl, [started, started2], () => {
       if (G !== g || gl.isContextLost()) return;
-      try { g.prog = checkProgram(gl, started); for (const n of UNIS) g.U[n] = gl.getUniformLocation(g.prog, n); } catch (e) { g.failed = true; console.warn('FibroScan map: shader failed.', e); }
+      try {
+        g.prog = checkProgram(gl, started); for (const n of UNIS) g.U[n] = gl.getUniformLocation(g.prog, n);
+        g.show = checkProgram(gl, started2); for (const n of ['uMap', 'uRes', 'uRad']) g.S[n] = gl.getUniformLocation(g.show, n);
+      } catch (e) { g.failed = true; g.prog = g.show = null; console.warn('FibroScan map: shader failed.', e); }
       under.onReady?.();   // (the first map can be drawn now: the panel draws again, also while paused)
     });
     return g;
@@ -227,15 +254,36 @@ export function elastogramUnder(F) {
   const under = (gl, W, H, g) => {
     drew = false;
     if (g !== gen || !G) { gen = g; G = build(gl); }
-    if (!G.prog || !args) return;
+    if (!G.prog || !G.show || !args) return;
+    // The small target's size: half the chart's device pixels a side, held to MAP_PX pixels in all.
+    const k = Math.min(0.5, Math.sqrt(MAP_PX / Math.max(1, W * H)));
+    const mw = Math.max(2, Math.round(W * k)), mh = Math.max(2, Math.round(H * k));
+    if (G.mw !== mw || G.mh !== mh) {
+      gl.bindTexture(gl.TEXTURE_2D, G.mapT);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, mw, mh, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, G.fbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, G.mapT, 0);
+      G.mw = mw; G.mh = mh;
+    }
+    gl.bindVertexArray(G.vao);
+    // Pass 1: the map, over the small target.
+    gl.bindFramebuffer(gl.FRAMEBUFFER, G.fbo);
+    gl.viewport(0, 0, mw, mh);
+    gl.disable(gl.BLEND);
     gl.useProgram(G.prog);
     for (let i = 0; i < G.tex.length; i++) { gl.activeTexture(gl.TEXTURE0 + i); gl.bindTexture(gl.TEXTURE_2D, G.tex[i]); gl.uniform1i(G.U[UNIS[i]], i); }
-    gl.uniform2f(G.U.uRes, W, H); gl.uniform1f(G.U.uRad, args.rad || 0);
+    gl.uniform2f(G.U.uRes, mw, mh); gl.uniform1f(G.U.uRad, 0);
     setMap(gl, G.U, F, args.NB, args.t0, args.N, args.c, args.t);
-    gl.disable(gl.BLEND);
-    gl.bindVertexArray(G.vao);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     for (let i = 0; i < G.tex.length; i++) { gl.activeTexture(gl.TEXTURE0 + i); gl.bindTexture(gl.TEXTURE_2D, null); }
+    // Pass 2: stretched over the chart, its corners cut.
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, W, H);
+    gl.useProgram(G.show);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, G.mapT); gl.uniform1i(G.S.uMap, 0);
+    gl.uniform2f(G.S.uRes, W, H); gl.uniform1f(G.S.uRad, args.rad || 0);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    gl.bindTexture(gl.TEXTURE_2D, null);
     drew = true;
   };
   under.set = (a) => { args = a; };

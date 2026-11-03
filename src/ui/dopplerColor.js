@@ -37,6 +37,9 @@ const map = () => {
   return MAP;
 };
 
+/** The maps' colours (0 to 255), for the GPU's spectrum shader (doppler-synth.js). */
+export const dopplerMap = map;
+
 const clamp01 = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
 const smooth = (a, b, x) => { const t = clamp01((x - a) / (b - a)); return t * t * (3 - 2 * t); };
 

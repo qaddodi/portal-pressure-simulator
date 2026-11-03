@@ -12,6 +12,8 @@
 // and a lost context shows the trace black until the ring is sent again.
 
 import { startProgram, checkProgram, exerciseDraw, publishWhenDone, stillCompiling } from './gl-compile.js';
+import { SYNTH_VS, SYNTH_FS, SYNTH_UNIS } from './doppler-synth.js';
+import { dopplerMap } from './dopplerColor.js';
 
 const VS = `#version 300 es
 in vec2 p;
@@ -50,6 +52,10 @@ export function createDopplerGL({ onReady = null } = {}) {
   canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); lost = true; });
   let started = null, startedL = null, quad = null, vao = null, ringT = null, noiseT = null, stopPoll = null, waitingDraw = false;
   let prog = null, U = null, failed = false;
+  // (The spectrum's lines worked out on the GPU, doppler-synth.js: its program, the two textures of each line's numbers by ring column, the arrays
+  // they are sent from, and the framebuffer that draws into the ring. synthFailed: the shader did not build, and the CPU writes the lines.)
+  let startedS = null, stopPollS = null, progS = null, synthFailed = false, colAT = null, colBT = null, colAArr = null, colBArr = null, cw = 0, synthFb = null;
+  const SU = {}, SEED = (Math.random() * 4294967296) >>> 0;
   let rw = 0, rh = 0, noiseSrc = null;   // (noiseSrc: the noise floor as last sent, to send it again to a context that came back)
   const tex = () => { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); return t; };
   // (Kept for the life of the drawer, so publishing the program and drawing make no objects: the uniforms' places, and the 1 × 1 texel of the warm-up draw.)
@@ -63,6 +69,8 @@ export function createDopplerGL({ onReady = null } = {}) {
   function build() {
     prog = null; U = null; failed = false; rw = rh = 0;
     started = startProgram(gl, VS, FS, [['p', 0]]);
+    startedS = startProgram(gl, SYNTH_VS, SYNTH_FS, [['p', 0]]);
+    progS = null; synthFailed = false; cw = 0; colAArr = colBArr = null;
     startedL = [started];   // (the list each frame's status ask is given while the program is compiling: made here, once for each program)
     quad = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, quad);
@@ -71,12 +79,21 @@ export function createDopplerGL({ onReady = null } = {}) {
     gl.bindVertexArray(vao);
     gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
     gl.bindVertexArray(null);
-    ringT = tex(); noiseT = tex();
+    ringT = tex(); noiseT = tex(); colAT = tex(); colBT = tex(); synthFb = gl.createFramebuffer();
     stopPoll?.(); stopPoll = publishWhenDone(gl, [started], publish);
+    stopPollS?.(); stopPollS = publishWhenDone(gl, [startedS], publishSynth);   // (its own: the monitor draws without it, the CPU writing the lines, until it is published)
   }
   // The finished program read, and one draw of it into a throwaway 1 × 1 target: the browser builds the shader's GPU pipeline at its
   // first draw (Safari's Metal does it then, not at the link), which fell on the monitor's first frame as it opened. The ring's and the
   // noise's textures are not touched (they may already hold the monitor's data); render() binds both again.
+  function publishSynth() {
+    if (progS || synthFailed || gl.isContextLost()) return;
+    try {
+      const p = checkProgram(gl, startedS);
+      for (const n of SYNTH_UNIS) SU[n] = gl.getUniformLocation(p, n);
+      progS = p;
+    } catch (e) { if (gl.isContextLost()) return; synthFailed = true; console.warn('Doppler on the GPU: the spectrum shader failed; the lines are made on the CPU.', e); }
+  }
   function publish() {
     if (prog || failed || gl.isContextLost()) return;
     try {
@@ -174,6 +191,49 @@ export function createDopplerGL({ onReady = null } = {}) {
       gl.pixelStorei(gl.UNPACK_ROW_LENGTH, 0);
       gl.pixelStorei(gl.UNPACK_SKIP_PIXELS, 0);
     },
+    /** Whether the GPU writes the spectrum's lines (its program is published, the context is whole). */
+    canSynth() { return !!progS && !lost && !failed && !synthFailed && !gl.isContextLost(); },
+    /** The ring at this size (an empty texture of it where it is another size): the lines are then drawn into it by synth(). */
+    ringSize(w, h) {
+      if (rw === w && rh === h) return;
+      gl.bindTexture(gl.TEXTURE_2D, ringT); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      rw = w; rh = h;
+    },
+    /** One line's numbers, by ring column x (the ring's width must have been given to ringSize). */
+    setCol(x, P, L, sigHi, sigLo, gain, lineS, flags, cn) {
+      if (cw !== rw) {
+        cw = rw; colAArr = new Float32Array(cw * 4); colBArr = new Float32Array(cw * 4);   // alloc-rare: once for each ring width
+        gl.bindTexture(gl.TEXTURE_2D, colAT); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, cw, 1, 0, gl.RGBA, gl.FLOAT, null);
+        gl.bindTexture(gl.TEXTURE_2D, colBT); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, cw, 1, 0, gl.RGBA, gl.FLOAT, null);
+      }
+      const q = x * 4;
+      colAArr[q] = P; colAArr[q + 1] = L; colAArr[q + 2] = sigHi; colAArr[q + 3] = sigLo;
+      colBArr[q] = gain; colBArr[q + 1] = lineS; colBArr[q + 2] = flags; colBArr[q + 3] = cn;
+    },
+    /** The lines of ring columns x0 … x0 + n − 1 (set by setCol) drawn into the ring, with the geometry G, on the GPU. */
+    synth(x0, n, G) {
+      if (n <= 0 || !progS || cw !== rw) return;
+      gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, colAT); gl.texSubImage2D(gl.TEXTURE_2D, 0, x0, 0, n, 1, gl.RGBA, gl.FLOAT, colAArr, x0 * 4);
+      gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, colBT); gl.texSubImage2D(gl.TEXTURE_2D, 0, x0, 0, n, 1, gl.RGBA, gl.FLOAT, colBArr, x0 * 4);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, synthFb);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, ringT, 0);
+      gl.viewport(0, 0, rw, rh);
+      gl.enable(gl.SCISSOR_TEST); gl.scissor(x0, 0, n, rh);
+      gl.disable(gl.BLEND);
+      gl.useProgram(progS);
+      gl.uniform1i(SU.colA, 2); gl.uniform1i(SU.colB, 3);
+      gl.uniform1f(SU.rBase, G.rBase); gl.uniform1f(SU.rPxPerV, G.rPxPerV); gl.uniform1f(SU.fade, G.fade); gl.uniform1f(SU.wfV, G.wfV);
+      gl.uniform1f(SU.spkPx, G.spkPx); gl.uniform1f(SU.spkMix, G.spkMix); gl.uniform1f(SU.span, G.span); gl.uniform1f(SU.uK, G.uK);
+      gl.uniform1i(SU.venous, G.venous ? 1 : 0); gl.uniform1i(SU.mode, G.mode); gl.uniform1ui(SU.seed, SEED);
+      const M = dopplerMap();
+      gl.uniform3fv(SU.cToward, M.TOWARD); gl.uniform3fv(SU.cAway, M.AWAY);
+      gl.uniform3fv(SU.cVarT0, M.VAR_TOWARD[0]); gl.uniform3fv(SU.cVarT1, M.VAR_TOWARD[1]);
+      gl.uniform3fv(SU.cVarA0, M.VAR_AWAY[0]); gl.uniform3fv(SU.cVarA1, M.VAR_AWAY[1]); gl.uniform3fv(SU.cWhite, M.WHITE);
+      gl.bindVertexArray(vao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); gl.bindVertexArray(null);
+      gl.disable(gl.SCISSOR_TEST);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.activeTexture(gl.TEXTURE0);
+    },
     /** The noise floor's texture (an ImageData, makeNoise). */
     noise(fi) { noiseSrc = fi; if (!lost && !gl.isContextLost()) putNoise(fi); },
     /**
@@ -208,7 +268,7 @@ export function createDopplerGL({ onReady = null } = {}) {
       return true;
     },
     dispose() {
-      dead = true; noiseSrc = null; stopPoll?.();
+      dead = true; noiseSrc = null; stopPoll?.(); stopPollS?.();
       gl.deleteTexture(ringT); gl.deleteTexture(noiseT); gl.deleteBuffer(quad); gl.deleteVertexArray(vao); gl.deleteProgram(prog);
       canvas.width = canvas.height = 0;
       gl.getExtension('WEBGL_lose_context')?.loseContext();   // (the context given back at once, as endo-gl.js does, not when the browser gets to it)
