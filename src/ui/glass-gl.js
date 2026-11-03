@@ -12,9 +12,9 @@ import { shareFor, sharePrep, sharePlan, shareKeep, shareForget, shareTurn, shar
 import { glCap, fbComplete } from './gl-state.js';
 import { hold } from './gpu-budget.js';
 import { gpuProbe, COUNTED } from './gpu-probe.js';
-import { finalFrameFor, readFrameFor, framePhase, frameCount, cancelFrame, noteDraw } from './frame.js';
+import { finalFrameFor, readFrameFor, framePhase, frameCount, cancelFrame, noteDraw, refreshHz } from './frame.js';
 import { startProgram, checkProgram, compileDone, exerciseDraw, SHADER_WARM } from './gl-compile.js';
-import { Inline, inlineShift, inlineTranslate, Motion, compileKeyframes, motionAt, movesOnly, clockOf, clockAt } from './glass-motion.js';
+import { Inline, inlineShift, inlineTranslate, Motion, compileKeyframes, motionAt, movesOnly, clockOf, clockAt, leadFor } from './glass-motion.js';
 import { pathPolys, fanTriangles } from './path-poly.js';
 import { easeArrive, D_SURFACE } from './ease.js';
 import { caught } from './caught.js';
@@ -1388,13 +1388,16 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   // clockAt): its timing taken once when it is first seen, its start time once it has started, and the frame's time. A frame asked each
   // one for its playState, pending and getComputedTiming(), and each of those brings a CSS animation's styles up to date, every frame of
   // a slide change. Its end comes from its timing, or its finish, cancel or remove event (a cancel() sends one).)
+  const screenHz = +globalThis.screen?.refreshRate || 0;
   const tlNow = () => { const t = document.timeline?.currentTime; return Number.isFinite(t) ? t : performance.now(); };
   // (stateOf answers in one kept record, read before the next call: nothing is made for each animation in a frame.)
   const ST = { st: '', has: false, p: 0, end: 0, fills: false, bad: false, live: undefined };
   function clockState(an, rec) {
     ST.live = undefined;
     if (!rec.c) { ST.st = 'running'; ST.has = false; ST.end = Infinity; ST.fills = false; ST.bad = false; return ST; }
-    clockAt(rec.c, tlNow(), ST);
+    // (An animation the compositor moves is where it is a display frame on from the page's time: glass-motion.js leadFor. 120 Hz until the
+    // frames have told the panel's rate, the smaller lead.)
+    clockAt(rec.c, tlNow() + leadFor(rec.c, refreshHz() || screenHz || 120), ST);
     ST.fills = rec.c.fwd; ST.bad = rec.c.bad;
     return ST;
   }

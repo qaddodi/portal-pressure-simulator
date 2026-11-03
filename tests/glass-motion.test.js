@@ -249,10 +249,10 @@ test('a frame\'s reading of the glass\'s motion builds nothing: no collector run
 test('glass-gl.js reads the motion through the numeric calls, and the off-GPU scan finds nothing left in glass-motion.js', () => {
   const glass = readFileSync(new URL('../src/ui/glass-gl.js', import.meta.url), 'utf8');
   const mod = readFileSync(new URL('../src/ui/glass-motion.js', import.meta.url), 'utf8');
-  assert.match(glass, /import \{ Inline, inlineShift, inlineTranslate, Motion, compileKeyframes, motionAt, movesOnly, clockOf, clockAt \} from '\.\/glass-motion\.js/);
+  assert.match(glass, /import \{ Inline, inlineShift, inlineTranslate, Motion, compileKeyframes, motionAt, movesOnly, clockOf, clockAt, leadFor \} from '\.\/glass-motion\.js/);
   assert.doesNotMatch(glass, /\b(shiftOf|translateOf)\(/, 'no text is taken apart into an array in a frame');
   assert.match(glass, /AM = new Motion\(\), inlines = new WeakMap\(\);/);
-  assert.match(glass, /clockAt\(rec\.c, tlNow\(\), ST\);/, 'an animation\'s state is written into the kept record');
+  assert.match(glass, /clockAt\(rec\.c, tlNow\(\) \+ leadFor\(rec\.c, refreshHz\(\) \|\| screenHz \|\| 120\), ST\);/, 'an animation\'s state is written into the kept record');
   assert.match(glass, /rec\.kf = compileKeyframes\(/, 'the keyframes are turned into numbers when the animation is first seen');
   // (Nothing that splits, trims, maps or builds is left in the functions a frame calls: only the lines marked as run-once remain.)
   const frame = mod.slice(mod.indexOf('export function shiftInto'), mod.indexOf('// ── An animation\'s clock'));
