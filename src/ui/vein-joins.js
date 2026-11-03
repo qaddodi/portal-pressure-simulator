@@ -167,9 +167,10 @@ function addJoin(st, nn, cx, cy, trunk, N) {
 /**
  * Junctions: ends that meet at a model node (clustered by where the drawn courses actually end), and ends that lie on another
  * vessel's course (a tributary on its trunk, a vein drawn onto the side of another). Arteries join only arteries. The joins are
- * st.out (st.nOut of them; the array's length is set to that), the pairs that run on st.straight.
+ * st.out (st.nOut of them; the array's length is set to that), the pairs that run on st.straight. A margin widens the box and the
+ * reach of an end meeting a course by that much and keeps every contact of a pair (the stretches' wide pass, made ahead).
  */
-export function veinJoins(items, N, st) {
+export function veinJoins(items, N, st, margin = 0) {
   st.nOut = 0; st.straight.length = 0;
   HGEN++; HN = 0;
   if (HGEN === 0xffffffff) { HG.fill(0); HGEN = 1; }
@@ -224,7 +225,7 @@ export function veinJoins(items, N, st) {
   if (BX.length < 4 * n) { BX = new Float64Array(4 * n * 2); ART = new Uint8Array(n * 2); }   // alloc-rare: grown only when more items than ever appear
   const bx = BX, art = ART;
   for (let k = 0; k < n; k++) {
-    const it = items[k], P = it.pts, m = it.obj.glMaxR + 4;
+    const it = items[k], P = it.pts, m = it.obj.glMaxR + 4 + margin;
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     for (let q = 0; q < P.length; q++) { const p = P[q]; x0 = Math.min(x0, p[0]); y0 = Math.min(y0, p[1]); x1 = Math.max(x1, p[0]); y1 = Math.max(y1, p[1]); }
     bx[4 * k] = x0 - m; bx[4 * k + 1] = y0 - m; bx[4 * k + 2] = x1 + m; bx[4 * k + 3] = y1 + m;
@@ -237,8 +238,8 @@ export function veinJoins(items, N, st) {
       for (let k = 0; k < n; k++) {
         if (k === a || art[k] !== art[a] || qx < bx[4 * k] || qx > bx[4 * k + 2] || qy < bx[4 * k + 1] || qy > bx[4 * k + 3]) continue;
         const y = items[k];
-        if (y === it || pairHas(it.row, y.row)) continue;
-        if (nearCourse(y.pts, q, y.obj.glMaxR + 0.5 * rq + 2)) {
+        if (y === it || (!margin && pairHas(it.row, y.row))) continue;   // (a stretch's wide pass keeps every contact of two vessels, not the first: which comes first depends on the widths)
+        if (nearCourse(y.pts, q, y.obj.glMaxR + 0.5 * rq + 2 + margin)) {
           NIT[0] = it; NI[0] = i; NIT[1] = y; NI[1] = -1;
           addJoin(st, 2, qx, qy, y.x.e.id === it.x.e.id ? undefined : y.row, N);   // (the trunk, unless it is another stretch of the same vessel: the azygos arch's bend)
         }

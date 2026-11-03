@@ -39,7 +39,7 @@ test('the noise table\'s GPU fill hashes as noiseBlock does: the same octaves, s
 test('start-up jobs: one pass over the joins a task, idle-gated; the lobule\'s binning goes to the worker', () => {
   const st = src('stage.js');
   assert.match(src('vein-joins.js'), /function nearCourse\(pts, q, lim\)/);
-  assert.match(src('vein-joins.js'), /nearCourse\(y\.pts, q, y\.obj\.glMaxR \+ 0\.5 \* rq \+ 2\)/);
+  assert.match(src('vein-joins.js'), /nearCourse\(y\.pts, q, y\.obj\.glMaxR \+ 0\.5 \* rq \+ 2 \+ margin\)/);
   assert.match(st, /\(inMotion\(\) \|\| sinceInput\(\) < 700\) && snaps\.length < 2 \* ENV_AT\.length/);
   assert.match(st, /if \(!part\) \{ const items = envItemsAt\(w, sp\); part = /);
   assert.match(st, /const lzBinAway = \(tubes, joins\) => sweepBin\(\{ kind: 'bin', tubes, joins \}\);[\s\S]*binAway: lzBinAway/);
