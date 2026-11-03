@@ -93,8 +93,8 @@ export const PLANES = {
     cuts: { x: [HVPG_CUTS.amber, HVPG_CUTS.red], y: [PPG_CUTS.amber, PPG_CUTS.red] },
     // (HVPG 5 and PPG 6 keep their numbers but draw no line: the zone colours already mark them, Mohammad 29 Oct.)
     noLine: { x: [HVPG_CUTS.amber], y: [PPG_CUTS.amber] },
-    // (reserveCuts: 'y': the y cut-offs' numbers, down the plot's left, are set down before the zones' words, so the PPG axis's name at the top left never pushes a word onto one: 2 Nov, an iPhone held sideways lost its 12. The x numbers keep to what room is left: reserving them sent names out on leader lines.)
-    reserveCuts: 'y',
+    // (reserveCuts: the cut-offs' numbers are set down before the points' names and the zones' words, so neither the PPG axis's name at the top left nor a name low in the plot (Heart failure) takes the 5, 10, 6 or 12 away: 2 Nov. A name with no room left beside its point then sits a little way off on a thin line.)
+    reserveCuts: true,
     // (The two lines that carry a meaning of their own, named on the plot beside the line: { x|y: { value: words } }.)
     lineNames: { x: { [HVPG_CUTS.red]: `CSPH ≥${HVPG_CUTS.red}` }, y: { [PPG_CUTS.red]: `Bleed risk ≥${PPG_CUTS.red}` } },
     source: '',
@@ -192,10 +192,10 @@ export function plotNumbers(pl, fr, X, Y, fs, keepOff = [], part = 'all') {
   if (part !== 'names') for (const [, text, x, y, anchor] of rest) put(text, x, y, anchor, 'pze-t');
   return out;
 }
-/** The y cut-offs' numbers of a plane that sets them down first (pl.reserveCuts): their boxes, for the points' names and the zones' words to keep clear of.
+/** The cut-offs' numbers of a plane that sets them down first (pl.reserveCuts): their boxes, for the points' names and the zones' words to keep clear of.
  *  keepOff: what the numbers keep clear of (the points, the axes' names). [] for any other plane. */
 export function cutNumbers(pl, fr, X, Y, fs, keepOff = []) {
-  return pl.reserveCuts ? plotNumbers(pl, fr, X, Y, fs, keepOff, 'ticks').filter((n) => n.cls.includes('on') && n.anchor === 'start').map((n) => n.box) : [];
+  return pl.reserveCuts ? plotNumbers(pl, fr, X, Y, fs, keepOff, 'ticks').filter((n) => n.cls.includes('on')).map((n) => n.box) : [];
 }
 /** A plane with no zones is a scatter (the wedge against the portal pressure): it has no coloured shape whose edge could stand for an
  *  axis, so it draws its own (axesFrame, axesMarks). `axes: true` or `false` on a plane overrides this. A plane with zones keeps the
