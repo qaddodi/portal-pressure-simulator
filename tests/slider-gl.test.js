@@ -82,3 +82,9 @@ test('the dot is 22 px under the two media queries the stylesheet gives it, and 
   assert.match(src, /const dotWidth = \(\) => \(phone\?\.matches \|\| coarse\?\.matches \? 22 : 18\);/);
   assert.ok(!/readStyle|getComputedStyle/.test(src), 'no style is read');
 });
+
+test('a widget\'s picture box out-ranks .stage-view canvas (inset 0, 100%), so a slider on an organ card is drawn at its padded size, not stretched', () => {
+  assert.match(css, /canvas\.wgl\.wgl, canvas\.wgl\.wgl \+ canvas\.trace-gl \{ position: absolute; left: calc\(-1 \* var\(--wgl-pad, 0px\)\);/);
+  const stage = css.indexOf('.stage-view canvas {'), widget = css.indexOf('canvas.wgl.wgl, ');
+  assert.ok(stage >= 0 && widget > stage, 'and it comes later, so a tie cannot go to the stage rule');
+});
