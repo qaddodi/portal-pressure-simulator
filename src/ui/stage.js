@@ -15157,6 +15157,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     labelVessels: () => { buildSegs(); refreshCTM(); return { left: wrapRect.left, top: wrapRect.top, segs: segs.map((q) => [q.x0, q.y0, q.x1, q.y1, q.hw, q.id]) }; },
     labelDrawn: () => labelGL?.boxes ?? null,   // (what the GPU labels' last picture drew, as boxes in px from their canvas's corner: the browser check of the labels' lag)
     labelDrawnBy: () => { const r = stageBox(), o = labelGL?.drawnLabels?.() ?? []; for (const d of o) { d.x += r.left; d.y += r.top; } return o; },   // (each GPU label's last picture, keyed, client px: the browser check's lag test)
+    labelSnapshot: () => { const r = stageBox(), o = labelGL?.snapshot?.() ?? { seq: 0, gen: 0, items: [] }; for (const d of o.items) { d.x += r.left; d.y += r.top; } return o; },   // (the same, as { seq, gen, items } in page px: what the browser checks read, never SVG boxes)
     lobuleSpot: () => lz?.spot() ?? null, lobuleLensFade: () => lz?.lensFade() ?? null, lobuleMem: (detail) => lz?.memBytes(detail) ?? 0, diveProgress: () => diveT, plateRasters: () => plateSeq,
     // (What the station labels' boxes follow: their layouts and the camera. The corner credit's poll looks again only when it changed.)
     // (And the lobule's view and state when it is open, and a fresh value each look while the sinusoid's names glide: the corner credit

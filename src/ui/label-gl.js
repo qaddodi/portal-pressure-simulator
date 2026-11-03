@@ -576,6 +576,10 @@ export function ringBox(d, dpr, frame) {
  * figure's overlays not all on the GPU, the labels' layer fading or hidden), it draws nothing and the SVG shows every label.
  * `force`: on a software renderer too (CI's visual check, ?stageover=gpu).
  */
+/** One drawn picture as the snapshot reports it: device px in, CSS px out; clipped when any of it lies outside the canvas. */
+export function snapshotItem(key, dx, dy, dw, dh, a, dpr, W, H) {
+  return { key, x: dx / dpr, y: dy / dpr, w: dw / dpr, h: dh / dpr, a, clipped: dx < 0 || dy < 0 || dx + dw > W || dy + dh > H };
+}
 export function createLabelGL(svg, blocks, { software = false, marks = [], host = null, force = false, onBoxes = null } = {}) {
   if ((software && !force) || typeof WebGL2RenderingContext === 'undefined') return null;
   const canvas = host ? host.canvas : document.createElement('canvas');
@@ -640,6 +644,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // (The labels' words are Inter's outlines (text-gl.js), fetched as the layer starts: till they come, the SVG shows every label.)
   if (!glyphsReady()) loadGlyphs().then(() => { for (const s of last) dirty.add(s.g); ask(); }, () => {});
   let lost = false, dpr = 1, W = 1, H = 1, last = [], raf = 0;
+  let frameSeq = 0, gen = 0;   // (the displayed-label snapshot: frames drawn so far, and the layout/atlas generation, up by every layout and every repack)
   const rafDraw = () => { raf = 0; draw(); };   // (the frame's callback, made once)
   // A slide's camera glide (stage.js, ?labelride=0 off): the labels ride with the figure on the GPU instead of fading out for the whole
   // move. rideM maps where they were laid out (stage px) to where that point is now; each label's picture keeps its size, its centre
@@ -1086,7 +1091,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // The pages were full: every picture is given back and drawn again, packed afresh (at most one such frame in a while).
   function repack() {
     needRepack = false;
-    packer.reset(); outgoing.length = 0;
+    packer.reset(); outgoing.length = 0; gen++;
     for (const s of last) { const st = sprites.get(s.g); if (st) { st.slot = null; st.key = ''; } dirty.add(s.g); }
     ask();
   }
@@ -1140,6 +1145,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     }
     svgLeft.clear();
     nb = 0;
+    frameSeq++;
     const now = performance.now();
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, W, H);
@@ -1216,6 +1222,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       }
       st.dx = x; st.dy = y; st.drawn = now;
       if (x > W || y > H || x + st.w < 0 || y + st.h < 0) continue;
+      st.seq = frameSeq;
       takeItem(st.slot.page, x, y, st.w, st.h, st.slot.x, st.slot.y, a, st);
       boxAt(x, y, x + st.w, y + st.h);
     }
@@ -2030,7 +2037,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
         for (const f of from.values()) gpool.push(f);
         from.clear();
       }
-      last = list;
+      last = list; gen++;
       for (const s of list) WAS.delete(s.g);
       for (const g of WAS) { g.removeAttribute('data-gl'); todo.delete(g); dropGlide(g); const st = sprites.get(g); if (st) { packer.free(st.slot); sprites.delete(g); } live.delete(g); }
       if (host) { ask(); return; }
@@ -2072,6 +2079,16 @@ void main() { o = texture(uT, vUV) * uA; }`;
       const o = [];   // alloc-rare: asked only by the browser check
       for (const s of last) { const st = sprites.get(s.g); if (st && st.mode === 'gl' && st.drawn && s.g.dataset?.key) o.push({ key: s.g.dataset.key, x: st.dx / dpr, y: st.dy / dpr, w: st.w / dpr, h: st.h / dpr, a: st.held ?? 0 }); }
       return o;
+    },
+    /** What the last frame drew, for the browser checks: { seq (frames drawn), gen (layout and atlas generation), items: [{ key, x, y, w, h, a, clipped }] }
+     *  in CSS px from the canvas's corner (stage.js labelSnapshot adds the corner, so they are page px). Only the pictures drawn in that frame. */
+    snapshot() {
+      const items = [];   // alloc-rare: asked only by the browser check
+      for (const s of last) {
+        const st = sprites.get(s.g);
+        if (st && st.mode === 'gl' && st.seq === frameSeq && s.g.dataset?.key) items.push(snapshotItem(s.g.dataset.key, st.dx, st.dy, st.w, st.h, st.held ?? 0, dpr, W, H));
+      }
+      return { seq: frameSeq, gen, items };
     },
     /** A label animated by script (the Web Animations API, which sends no events): read each frame for `ms`. */
     hold(g, ms) {
