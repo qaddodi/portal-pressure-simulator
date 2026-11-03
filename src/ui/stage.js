@@ -3493,7 +3493,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     clearTimeout(homeResizeT); homeLateT.forEach(clearTimeout);
     homeResizeT = setTimeout(homeResizeGo, 200);
   });
-  addEventListener('pps:occ', () => { clearTimeout(homeOccT); homeOccT = setTimeout(lookHome, 150); });
+  // (V-FIT: on the card's own clock, the next frame, not 150 ms after it; several announcements in one task make one look.)
+  addEventListener('pps:occ', () => { if (!homeOccT) homeOccT = nextFrame(() => { homeOccT = 0; lookHome(); }); });
 
   // Hidden under the lobule or the sinusoid, the anatomy and the circuit are not drawn, but they go on following the patient:
   // the liver's shape, congestion and tint and the ascites ease on the same clock, with no drawing, so on the way out they show
