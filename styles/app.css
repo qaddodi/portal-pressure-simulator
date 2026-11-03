@@ -1634,7 +1634,7 @@ button.finding { cursor: pointer; }
 .sv-region { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; align-items: center; gap: 1px; pointer-events: none; white-space: nowrap; line-height: 1.15; text-align: center;
   font: var(--caps-w) calc(var(--t-cap) * var(--label-scale, 1)) var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; color: var(--text-2);
   --hw: clamp(1px, calc(1.35px * var(--label-k, 1)), 2px);   /* (the anatomy's crisp halo, a touch fuller so the names read over the cells and the moving blood) */
-  -webkit-text-stroke: calc(var(--hw) * 2) var(--label-halo); paint-order: stroke fill; stroke-linejoin: round; text-shadow: none; }
+  -webkit-text-stroke: calc(var(--hw) * 2) var(--cap-outline); paint-order: stroke fill; stroke-linejoin: round; text-shadow: none; }
 .sv-region .v { letter-spacing: 0; text-transform: none; font-weight: 500; font-size: calc(var(--t-cap) * var(--label-scale, 1)); color: var(--text-2); }
 .sv-region .v b { font-weight: 700; font-size: calc(var(--t-lab) * var(--label-scale, 1)); color: var(--text); margin-right: 1px; }
 /* The fenestrae named as the cells are (small tinted capitals, the lining's slate), their state a quiet value beneath. */
@@ -1726,7 +1726,7 @@ button.finding { cursor: pointer; }
 .lz-zone { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 0; pointer-events: none; white-space: nowrap; line-height: 1.15;
   font: var(--caps-w) calc(var(--t-cap) * var(--label-scale, 1) * var(--zk, 1)) var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; color: color-mix(in srgb, var(--zc) 55%, var(--text));   /* (the zone's colour, deepened: the pure purple read 2.4:1 on its own pill over the central vein) */
   --hw: clamp(.8px, calc(1px * var(--label-k, 1)), 1.5px);
-  -webkit-text-stroke: calc(var(--hw) * 2) var(--label-halo); paint-order: stroke fill; stroke-linejoin: round; text-shadow: none; }
+  -webkit-text-stroke: calc(var(--hw) * 2) var(--cap-outline); paint-order: stroke fill; stroke-linejoin: round; text-shadow: none; }
 :root[data-theme="dark"] .lz-zone b { font-weight: 700; }
 .lz-zone span { font-size: calc(var(--t-cap) * var(--label-scale, 1) * var(--zk, 1)); font-weight: 600; letter-spacing: .08em; opacity: .9; }
 .lz-zone.z1 { --zc: var(--zone-1); } .lz-zone.z2 { --zc: var(--zone-2); } .lz-zone.z3 { --zc: var(--zone-3); }
@@ -4238,7 +4238,7 @@ html.chip-open .topbar .sb-right > .chip-btn[aria-expanded="true"], html.chip-op
 .lz-lab.left { text-align: right; border-left: 0; padding: 1px 9px 1px 8px; }
 /* The anatomy's halo: a smooth outline around each letter (a stroke painted under the fill), so the labels read over the tissue. */
 .lz-lab .n, .lz-lab .v { --hw: clamp(1px, calc(1.35px * var(--label-k, 1)), 2px);
-  -webkit-text-stroke: calc(var(--hw) * 2) var(--label-halo); paint-order: stroke fill; stroke-linejoin: round; text-shadow: none; }
+  -webkit-text-stroke: calc(var(--hw) * 2) var(--cap-outline); paint-order: stroke fill; stroke-linejoin: round; text-shadow: none; }
 /* Floors keep the pill's order at small label sizes: the reading never drops below its unit or name (all 11 px or more). */
 .lz-lab .n { font-size: calc(var(--t-lab) * var(--label-scale, 1)); font-weight: 500; color: var(--text-2); }
 .lz-lab .v { display: flex; align-items: baseline; gap: 2.5px; font-size: calc(var(--t-read) * var(--label-scale, 1)); line-height: 1.1; }
@@ -7668,3 +7668,7 @@ body { font-optical-sizing: auto; font-kerning: normal; }
    (no rule asks for them), so !important changes only the elements the shorthand had caught. The GPU words read this computed value to draw
    their digits (gl-words.js), so the picture and the page set a number the same width. tests/numbers-tabular.test.js pins it. */
 *, *::before, *::after { font-variant-numeric: tabular-nums lining-nums !important; font-feature-settings: 'cv11', 'ss01' !important; }   /* (lining too: the rules that asked for lining figures in the serif keep them; and the body's cv11 and ss01, which the shorthand also resets, so the page sets its digits as the GPU words' atlas does (glyph-atlas.mjs STYLE): in the fonts as shipped the two features change no glyph, checked pixel for pixel in Inter, Source Serif 4 and JetBrains Mono) */
+
+/* Lobule and sinusoid names: the caption's own colour (its term's, deepened with --cap-ink) over a white outline, in every theme (Mohammad, 3 Nov 2026).
+   The theme-wide white (dark) and the lit tint (lighter in dark) are overridden here so the ink always contrasts with the outline. */
+:root:root:root:root:root:root :is(.lz-lab .n, .lz-lab .v, .lz-lab .v b, .lz-lab small, .lz-lab .d, .lz-zone, .lz-zone b, .sv-region, .sv-region .v, .sv-region > span:first-child) { color: color-mix(in srgb, var(--term-c, var(--text-2)) 68%, var(--cap-ink)); }

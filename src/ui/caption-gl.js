@@ -37,23 +37,12 @@ export function rgbaOf(c) {
   return a > 0 ? `rgba(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)}, ${+a.toFixed(4)})` : '';
 }
 /**
- * The ink for words laid over an outline: solid black over a light outline (light themes), solid white over a dark one, so the words
- * always contrast with their halo and read crisp whatever colour the page gave them. '' (none) for a run with no halo: that keeps its own colour.
- */
-let INK = null;   // (the two inks, tokens in styles/tokens.css (--ink-over-light, --ink-over-dark), the same in every theme: read once)
-export function inkOver(haloC) {
-  const m = /rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)/.exec(haloC || '');
-  if (!m) return '';
-  if (!INK) { const cs = readStyle(document.documentElement); INK = [rgbaOf(cs.getPropertyValue('--ink-over-light').trim()), rgbaOf(cs.getPropertyValue('--ink-over-dark').trim())]; }
-  return ((0.2126 * +m[1] + 0.7152 * +m[2] + 0.0722 * +m[3]) / 255 > 0.5 ? INK[0] : INK[1]) || '';
-}
-/**
- * A caption's halo colour for the GPU's pen. The page's names set their outline from the theme's token (app.css: -webkit-text-stroke: … var(--label-halo)),
+ * A caption's halo colour for the GPU's pen. The page's names set their outline from the theme's token (app.css: -webkit-text-stroke: … var(--cap-outline), white in every theme),
  * so the token is read first, as the theme gives it for this element, and the browser's computed stroke colour only where there is none: a browser
  * that reports that property differently (a current colour, or the colour a theme had before) must not set the halo the GPU draws with.
  */
 export function haloOf(cs) {
-  const t = cs.getPropertyValue?.('--label-halo');
+  const t = cs.getPropertyValue?.('--cap-outline');
   return (t && t.trim() && rgbaOf(t.trim())) || rgbaOf(cs.webkitTextStrokeColor);
 }
 /** An outer box shadow as computed ("<colour> 0px 1px 6px 0px"): { colour, dy, blur }, or null. */
@@ -342,7 +331,7 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
             ctx.font = fontOf(r, s); ctx.letterSpacing = spaceOf(r, s);
             const hw = r.halo ?? lk.halo, hc = r.haloC ?? lk.haloC;
             if (hw > 0 && hc) { ctx.globalAlpha = ra; ctx.strokeStyle = hc; ctx.lineWidth = hw * s; ctx.strokeText(txt, x0 + x * s, by); }
-            ctx.globalAlpha = ra; ctx.fillStyle = (hw > 0 && inkOver(hc)) || r.fill; ctx.fillText(txt, x0 + x * s, by);
+            ctx.globalAlpha = ra; ctx.fillStyle = r.fill; ctx.fillText(txt, x0 + x * s, by);
           }
         }
         ctx.letterSpacing = '0px';

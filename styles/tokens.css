@@ -90,7 +90,8 @@
   --vein-systemic: var(--tour-sys);
   --arrow-ink: rgba(24, 26, 34, .78);
   --label-halo: rgba(251, 250, 247, .92);
-  --ink-over-light: #000000; --ink-over-dark: #FFFFFF;   /* caption words over a light halo / a dark one (caption-gl.js inkOver), every theme */
+  --cap-ink: #1b1613;   /* (what a name's own colour is deepened with, so it reads on the white outline in every theme) */
+  --cap-outline: #fff;   /* (the outline of a lobule or sinusoid name: white in every theme, under the name's own colour) */
   --label-panel: rgba(251, 250, 247, .72);   /* a reading's panel on the figure: the paper itself at 72 %, the halo does the separating (looks review F8); dark: the ground */
   --doppler: #22C38E;
   --dop-mark: #FFFFFF; --dop-rim: #000000;   /* the Doppler probe and sample gate: white lines on a black rim, every theme */
