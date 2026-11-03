@@ -63,7 +63,7 @@ test('a hand zoom in the Circuit carries the readings on the GPU; where they can
   assert.match(lift, /if \(!force && \(labelJob \|\| labelKey == null\)\) return;/);
   assert.doesNotMatch(rel.slice(0, rel.indexOf('function pinchLiftNow')), /classList\.remove\('pinch-hide'\)/, 'pinchRelease itself no longer lifts it');
   assert.match(rel, /labelJobFinish\(\)/);
-  assert.match(stage, /function labelTail\(\) \{\n\s*pinchLiftNow\(false\);/);
+  assert.match(stage, /function labelTail\(noGl = false\) \{\n(\s*glHold = noGl;[^\n]*\n)?\s*pinchLiftNow\(false\);/);
   // Laid out while hidden, they take their new places at once (no glide from where they were).
   assert.match(stage, /const snap = [^\n]*wrap\.classList\.contains\('pinch-hide'\)/);
 });

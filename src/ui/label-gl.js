@@ -1769,7 +1769,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   function drawPins(now) {
     for (const lk of pinLooks.values()) { if (lk.line?.stroke && lk.line.op > 0.5 && !defLine) defLine = lk.line; if (lk.dot && !defDot) defDot = lk.dot; }
     // (No leader seen yet, a Circuit opened with none: the page's leader colour, read once from a leader the page has, else its text's.)
-    if (!defLine) defLine = PIN_LINE0 ||= { op: 1, stroke: rgba(readStyle(svg).getPropertyValue('--leader').trim() || 'rgb(140,140,140)'), w: 1, fill: null, dash: [0, 0] };   // alloc-rare: once
+    if (!defLine) defLine = PIN_LINE0 ||= { op: 1, stroke: rgba(readStyle(svg).getPropertyValue('--leader').trim() || readStyle(svg).color), w: 1, fill: null, dash: [0, 0] };   // alloc-rare: once
     for (const s of last) {
       const key = s.g.dataset?.key;
       if (!key || !pinOf(s)) continue;
