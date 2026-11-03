@@ -446,7 +446,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     { const r = snap.hostRaw; if (r && r[0] >= 2 && r[1] >= 2) ensureGeo(Math.round(r[0]), Math.round(r[1])); }
     // (Mid-glide to a station, the glide's target follows the new space: clampV would read the glide's first, still unzoomed frames as the fit
     // and send the lobule back there, so a slide's zoom never arrived.)
-    refitLater = false; const F0 = fitV(); kFit = F0.k; if (atFit) glideTo(F0, 260, false, null, 'inOut', true); else if (camAim) Object.assign(camAim.to, framing(camAim.part, camAim.zoom)); else if (aimed && fade <= 0.98) glideTo(framing(aimed.part, aimed.zoom)); else reclamp(); }
+    refitLater = false; const F0 = fitV(); kFit = F0.k;
+    if (atFit) glideTo(F0, 260, false, null, 'inOut', true); else if (camAim) Object.assign(camAim.to, framing(camAim.part, camAim.zoom)); else if (aimed && fade <= 0.98) glideTo(framing(aimed.part, aimed.zoom));
+    else if (standingAim()) { const to = framing(standAim.part, standAim.zoom); standAim.to = to; glideTo(to, 420, false, standAim, 'inOut', true); } else reclamp(); }
   // Zoomed in (a presenter's station, or a hand's pan) when the free space changes: the new framing is glided to, never jumped to.
   // (A presenter slide's cards change the space as the next slide comes in: on the way out of the lobule from a central-vein close-up
   // the clamp used to snap the lobule sideways before the zoom out began, 20 Oct, Mohammad.)
@@ -483,6 +485,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     viewChanged();
   }
   let aimed = null;
+  // The presenter's station the view stands at ('triad', 'sinusoid', 'central': part, zoom, and `to`, the view it landed on). When the free space
+  // changes (the top data card tucks or hides on a phone) a view still standing there is framed again for the new space; one a hand has
+  // moved off it is left to the clamp. (Before, only a lobule at its fit followed the space: a station stayed small under the freed room.)
+  let standAim = null;
+  const standingAim = () => !!standAim && Math.abs(V.k - standAim.to.k) + Math.abs(V.x - standAim.to.x) + Math.abs(V.y - standAim.to.y) < 2;
   // The presenter's framing of a part ('triad' | 'sinusoid' | 'central'), zoom × the fit; kFit must be current.
   function framing(part, zoom = 2) {
     const g = geo, tri = g.lobules[0].corners[3];
@@ -4737,7 +4744,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       // (Mid-zoom out, the canvases are given back when the zoom ends: freeing them there is one more thing in a moving frame.)
       if (fade === 0) { resCoverEnd(); cancelFrame(raf); raf = 0; last = 0; if (was > 0) { if (diveScaled) relLater = true; else release(); } }
       // Out of the lobule: a presenter's aim is spent (the next way in frames the whole lobule).
-      if (fade === 0 && was > 0) { aimed = null; camHeld = false; heldFree = null; if (camMove) { camMove = false; classSoon(el, 'lz-cam', false); } }
+      if (fade === 0 && was > 0) { aimed = null; standAim = null; camHeld = false; heldFree = null; if (camMove) { camMove = false; classSoon(el, 'lz-cam', false); } }
       // Leaving the lobule view from inside a sinusoid: the sinusoid fades out with it.
       if (sinU > 0) { if (fade === 0) resetSinusoid(); else placeSinusoid(); }
     },
@@ -4868,7 +4875,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       const F0 = fitV(); kFit = F0.k;
       const to = !part || part === 'fit' ? F0 : framing(part, zoom);
       const moved = Math.abs(V.k - to.k) + Math.abs(V.x - to.x) + Math.abs(V.y - to.y) > 0.5;
-      atFit = !part || part === 'fit'; camHeld = false; glideTo(to, ms, true, atFit ? null : { part, zoom, to }, ease);
+      atFit = !part || part === 'fit'; camHeld = false; standAim = atFit ? null : { part, zoom, to }; glideTo(to, ms, true, standAim, ease);
       return moved;
     },
     /** Before (or during) the dive into the lobule: where a presenter slide will want it, so the dive lands there
