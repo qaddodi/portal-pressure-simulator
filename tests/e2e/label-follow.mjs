@@ -11,12 +11,17 @@
 //
 //   node tests/e2e/label-follow.mjs [dir]
 
-import { openApp } from '../../scripts/shoot.mjs';   // (the app on the GPU path a phone takes: labels are drawn by the GPU only there)
+import { openApp } from '../../scripts/shoot.mjs';
+import { stepJudge, frozenLabels, judgedFrames, TOL } from './label-judge.mjs';   // (the app on the GPU path a phone takes: labels are drawn by the GPU only there)
 
 const dir = process.argv[2] || '.';
 let failed = 0;
 const fail = (m) => { failed++; console.log(`FAIL ${m}`); };
-const TOL = 1.5;
+// (R17: a gesture judged from too few of the hand's frames is INCONCLUSIVE, exit 2, never a pass. LF_MIN frames, default 4 for a pan, 3 for a zoom.
+// LF_FREEZE=1 freezes one label's picture where it first stood, in the recorded rows only: the checks must then FAIL, which shows they can.)
+let inconclusive = 0;
+const unsure = (m) => { inconclusive++; console.log(`INCONCLUSIVE ${m}`); };
+const MIN = +process.env.LF_MIN || 0;
 
 const apps = [];
 async function open(_ctx, query, view) {
@@ -32,8 +37,11 @@ async function open(_ctx, query, view) {
   return page;
 }
 // Records, on every frame, the labels drawn with their point (client px) and the blockers' boxes.
-const record = (page) => page.evaluate(() => {
+const FREEZE = !!process.env.LF_FREEZE;
+const record = (page) => page.evaluate((FREEZE) => {
   const rows = window.__labelRows = [];
+  window.__freezeOne = FREEZE;
+  window.__lastSeq = -1;
   // (A frame is the hand's while an input came in the last 250 ms or a button is held: after it the labels settle on the clock's time,
   // and a headless frame can come seconds later, so those are not judged frame to frame.)
   if (!window.__inputWatch) {
@@ -41,15 +49,23 @@ const record = (page) => page.evaluate(() => {
     for (const t of ['pointermove', 'wheel', 'pointerdown']) addEventListener(t, () => { window.__lastIn = performance.now(); }, true);
     addEventListener('pointerdown', () => { window.__held = true; }, true); addEventListener('pointerup', () => { window.__held = false; }, true);
   }
+  window.__frz = {};
   globalThis.__frameProbe = () => {
-    const row = { cam: window.pps.stage.cameraKey(), g: window.__held || performance.now() - window.__lastIn < 250, L: {} };
-    for (const d of window.pps.stage.labelDrawnBy()) {
+    // (From the GPU snapshot: only a frame the labels' layer drew anew is a row, so a frame it did not draw is not counted as a still label.)
+    const snap = window.pps.stage.labelSnapshot();
+    if (snap.seq === window.__lastSeq) return;
+    window.__lastSeq = snap.seq;
+    const row = { cam: window.pps.stage.cameraKey(), seq: snap.seq, gen: snap.gen, g: window.__held || performance.now() - window.__lastIn < 250, L: {} };
+    for (const d of snap.items) {
       const id = /^n:([A-Z_0-9]+)$/.exec(d.key)?.[1], a = id && window.pps.stage.labelAnchorOf(id);
-      if (a) row.L[d.key] = [d.x, d.y, a.x, a.y, d.w, d.h, d.a];
+      if (!a) continue;
+      let x = d.x, y = d.y;
+      if (window.__freezeOne) { window.__frz.key ||= d.key; if (d.key === window.__frz.key) { window.__frz.xy ||= [x, y]; [x, y] = window.__frz.xy; } }
+      row.L[d.key] = [x, y, a.x, a.y, d.w, d.h, d.a];
     }
     rows.push(row);
   };
-});
+}, FREEZE);
 const stopRecording = (page) => page.evaluate(() => { globalThis.__frameProbe = null; return window.__labelRows; });
 // (Read until the labels stand still over two new frames in a row: a headless frame takes seconds, so two reads of the same frame
 // agree whatever is moving.)
@@ -69,31 +85,15 @@ const settled = async (page) => {
 };
 const standing = (page) => page.evaluate(() => Object.fromEntries(window.pps.stage.labelDrawnBy().filter((d) => d.a > 0.9).map((d) => [d.key, [d.x, d.y]])));
 
-// The rule for two frames in a row: a drawn label moved with its point or not at all.
-function judgeFrames(what, rows, [W, H], need = 3, loose = false) {
-  let worst = 0, worstAt = '', judged = 0;
-  for (let i = 1; i < rows.length; i++) {
-    if (!rows[i].g || !rows[i - 1].g) continue;
-    judged++;
-    for (const [key, v] of Object.entries(rows[i].L)) {
-      const u = rows[i - 1].L[key];
-      if (!u || v[6] < 0.9 || u[6] < 0.9) continue;   // (new, fading in or out: not a move)
-      for (const k of [0, 1]) {
-        const d = v[k] - u[k], a = v[2 + k] - u[2 + k];
-        // (With its point, or still. Leaving the stage's edge, where the pull-in that holds it lets go as its point moves in, it follows a part of
-        // its point's move: allowed within 14 px of an edge.)
-        const nearEdge = [u, v].some((q) => q[0] < 14 || q[1] < 14 || q[0] + q[4] > W - 14 || q[1] + q[5] > H - 14);
-        // (A zoom lays the labels out again as it goes, and each glides to its new slot on the clock: in a headless frame seconds apart that is a
-        // jump, so a zoom is judged only for a label moving against its point.)
-        const off = loose ? (d * a < -TOL && Math.abs(d) > TOL ? Math.abs(d) : 0) : nearEdge && d * a >= -TOL && Math.abs(d) <= Math.abs(a) + TOL ? 0 : Math.min(Math.abs(d - a), Math.abs(d));
-        if (off > worst) { worst = off; worstAt = `${key} frame ${i}: moved ${d.toFixed(1)} px while its point moved ${a.toFixed(1)}`; }
-      }
-    }
-  }
-  if (judged < need) fail(`${what}: only ${judged} frames of the hand's gesture were drawn to judge`);
-  else if (judged < 3) console.log(`${what}: only ${judged} frames of the hand's gesture were drawn here (software GL draws a frame in seconds): not judged`);
-  console.log(`${what.padEnd(40)} ${judged} of ${rows.length} frames during the hand, worst label step off its point or off still: ${worst.toFixed(1)} px`);
+// The rules: frame to frame a drawn label moved with its point (label-judge.mjs stepJudge); over a zoom, none stands frozen while its point moves.
+function judgeFrames(what, rows, size, need, loose = false) {
+  const judged = judgedFrames(rows), min = MIN || need;
+  const { worst, worstAt } = stepJudge(rows, size, loose);
+  const frozen = frozenLabels(rows, size);
+  console.log(`${what.padEnd(40)} ${judged} of ${rows.length} frames during the hand, worst label step off its point: ${worst.toFixed(1)} px, frozen: ${frozen.length}`);
   if (worst > TOL) fail(`${what}: ${worstAt}`);
+  for (const f of frozen) fail(`${what}: ${f}`);
+  if (!worst && !frozen.length && judged < min) unsure(`${what}: only ${judged} frames of the hand's gesture were drawn to judge (need ${min})`);
 }
 
 try {
@@ -110,14 +110,14 @@ try {
     for (let i = 1; i <= 16; i++) await page.mouse.move(cx + i * 6, cy - i * 5);
     await page.mouse.up();
     await page.waitForTimeout(6000);
-    judgeFrames(`${name}: pan`, await stopRecording(page), vp);
+    judgeFrames(`${name}: pan`, await stopRecording(page), vp, 4);
     if (process.env.LF_QUICK) { await apps.pop().close(); break; }   // (LF_QUICK=1: the Circuit's pan alone, for a quick look)
     // A zoom with the trackpad's pinch (Ctrl + wheel).
     await record(page);
     await page.mouse.move(cx, cy);
     for (let i = 0; i < 10; i++) { await page.keyboard.down('Control'); await page.mouse.wheel(0, -14); await page.keyboard.up('Control'); await page.waitForTimeout(80); }
     await page.waitForTimeout(6000);
-    judgeFrames(`${name}: zoom`, await stopRecording(page), vp, 0, true);
+    judgeFrames(`${name}: zoom`, await stopRecording(page), vp, 3, true);
     // The figure back where it began: each label back where it stood, from its point as it was.
     await page.evaluate(() => window.pps.stage.fit());
     await page.waitForFunction((k) => window.pps.stage.cameraKey() === k, cam0, { timeout: 90000 }).catch(() => {});
@@ -166,4 +166,5 @@ try {
   for (const a of apps) await a.close().catch(() => {});
 }
 if (failed) { console.log(`\n${failed} failed`); process.exit(1); }
+if (inconclusive) { console.log(`\n${inconclusive} INCONCLUSIVE (too few gesture frames): not a pass`); process.exit(2); }
 console.log('\nlabels follow the figure and keep off the chrome');
