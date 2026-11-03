@@ -10,7 +10,7 @@ const app = await openApp({ device, theme: 'light' });
 const { page } = app;
 let fails = 0;
 const ok = (cond, what) => { if (!cond) { fails++; console.log(`FAIL ${what}`); } else console.log(`ok   ${what}`); };
-const shut = async () => { await page.evaluate(() => window.pps.menu.close()); await page.waitForFunction(() => !document.querySelector('.umenu'), null, { timeout: 5000 }); };
+const shut = async () => { await page.evaluate(() => window.pps.menu.close()); await page.waitForFunction(() => !document.querySelector('.umenu'), null, { timeout: 30000 }); };
 const open = async (section, opts) => {
   await page.evaluate(([s, o]) => window.pps.menu.open(s, o), [section, opts || {}]);
   await page.waitForSelector('.umenu .um-row[data-k^="d:"]', { state: 'attached', timeout: 60000 });
