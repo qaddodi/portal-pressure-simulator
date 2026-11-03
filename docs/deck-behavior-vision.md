@@ -178,8 +178,8 @@ tap or Esc puts it back exactly where it was.
 - **V-ZOOM-5 (Fix)** Interrupted zoom: a second tap mid-zoom reverses from where it is; Next mid-zoom shuts the zoom first (from where
   it is, SHUT_MS scaled by how far it got) then changes slide, in one continuous motion with no stop between. Untuck while zoomed works
   and keeps the words' card in place (Mohammad, 28 Oct).
-- **V-ZOOM-6 (New)** Phone: a card zoom on the phone opens the card full screen as a sheet (rather than a scaled transform), with the
-  figure still running behind the veil. Question 14.4.
+- **V-ZOOM-6 (Now)** No card zoom on a phone (Mohammad, 3 Nov 2026, 14.4 C). A tap on an empty part of a phone's card does nothing,
+  and never starts a zoom, a veil or a layout pass. Card zoom is for Mac and iPad landscape only.
 
 ### Gestures in general
 
@@ -346,7 +346,7 @@ Rules:
 | Data card | beside the figure, readings stacked and tucked under its top edge | sheet under the figure, readings tucked on the sheet's lip | instruments fold behind Show |
 | Next | keys, clicker, Next button, trackpad swipe | swipe, Next button | swipe, Next button |
 | Tuck | ↑ / ↓, handle, trackpad | drag, handle, swipe up or down anywhere on the slide | handle |
-| Card zoom | tap empty part of card | (New, 14.4) | (New, 14.4) |
+| Card zoom | tap empty part of card | none (14.4 C) | none (14.4 C) |
 | Scale pill | left of the slide counter | centred above the teaching card | left of the counter |
 
 - **V-DEV-1 (Now)** The same deck shows the same slides, words, highlights and order on every device.
@@ -396,7 +396,7 @@ Each is asked as a clickable card in the project thread. Answers are written bac
    *Answer*: **B** (Mohammad, 3 Nov 2026). Applied in V-LIT-3.
 4. **14.4 Should a phone get card zoom?**
    A. ★ Yes, as a full-screen sheet over the running figure. B. Yes, the same scaled zoom as Mac. C. No zoom on phone.
-   *Answer*: pending.
+   *Answer*: **C** (Mohammad, 3 Nov 2026). V-ZOOM-6 now says no zoom on phone.
 5. **14.5 Which new feature first?**
    A. ★ Presenter view with notes and next slide (N1). B. Pointer spotlight and pen (N2). C. Tap a label to explain it (N4).
    D. Trace callouts (N6).
