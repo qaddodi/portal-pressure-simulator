@@ -448,7 +448,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // and send the lobule back there, so a slide's zoom never arrived.)
     refitLater = false; const F0 = fitV(); kFit = F0.k;
     if (atFit) glideTo(F0, 260, false, null, 'inOut', true); else if (camAim) Object.assign(camAim.to, framing(camAim.part, camAim.zoom)); else if (aimed && fade <= 0.98) glideTo(framing(aimed.part, aimed.zoom));
-    else if (standingAim()) { const to = framing(standAim.part, standAim.zoom); standAim.to = to; glideTo(to, 420, false, standAim, 'inOut', true); } else reclamp(); }
+    else if (standingAim()) { const to = framing(standAim.part, standAim.zoom); standAim.to = to; glideTo(to, 420, true, standAim, 'inOut', true); } else reclamp(); }
   // Zoomed in (a presenter's station, or a hand's pan) when the free space changes: the new framing is glided to, never jumped to.
   // (A presenter slide's cards change the space as the next slide comes in: on the way out of the lobule from a central-vein close-up
   // the clamp used to snap the lobule sideways before the zoom out began, 20 Oct, Mohammad.)
