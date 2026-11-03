@@ -842,6 +842,13 @@ input[type=range]:disabled { cursor: not-allowed; opacity: .45; }
 input[type=range]:focus-visible { outline: none; }
 input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--focus); }
 input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--focus); }
+/* A slider the GPU draws (slider-gl.js, widget-gl.js): its track, fill, normal band, start ring and dot are the GPU's picture, laid over the wrapper
+   and under the input, so the page's own drawing steps aside the moment that picture is up (.wgl-on), never before. The input stays (clear) for
+   the pointer, the keys, focus and the value a screen reader reads. */
+.range-wrap.wgl-on::before, .range-wrap.wgl-on::after { content: none; }
+.range-wrap.wgl-on > .normal, .range-wrap.wgl-on > .sl-start { visibility: hidden; }
+.range-wrap.wgl-on input[type=range]::-webkit-slider-thumb { background: transparent !important; box-shadow: none !important; transition: none !important; transform: none !important; }
+.range-wrap.wgl-on input[type=range]::-moz-range-thumb { background: transparent !important; box-shadow: none !important; transition: none !important; transform: none !important; }
 .toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .switch { position: relative; width: 34px; height: 20px; flex: none; }
 .switch input { opacity: 0; width: 100%; height: 100%; margin: 0; position: absolute; cursor: pointer; z-index: var(--z-figure); }

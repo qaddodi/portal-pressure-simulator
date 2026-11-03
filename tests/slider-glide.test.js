@@ -9,33 +9,36 @@ const read = (f) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
 const util = read('src/ui/util.js'), css = read('styles/app.css'), seg = read('src/ui/seg-glide.js');
 const fn = (name) => { const at = util.indexOf(`function ${name}(`); assert.ok(at >= 0, name); return util.slice(at, util.indexOf('\n}\n', at)); };
 
-test('only a big jump from outside the pointer\'s hand travels; a drag, a held finger, Reduce Motion and a hidden slider are taken at once', () => {
+test('only a big jump from outside the pointer\'s hand travels; a drag, a held finger, Reduce Motion, a hidden slider and one the GPU has not drawn are taken at once', () => {
   const g = fn('glideFill');
   assert.match(util, /export const GLIDE_MIN = 0\.04;/);
-  assert.match(g, /Math\.abs\(f - prev\) >= GLIDE_MIN/);
-  assert.match(g, /classList\.contains\('held'\) \|\| input\.matches\(':active'\)/);
-  for (const must of ['reduceMotionMQ.matches', '!input.isConnected', '!hasBox(input)']) assert.ok(g.includes(must), must);
+  assert.match(g, /Math\.abs\(f - S\.f\) >= GLIDE_MIN/);
+  assert.match(g, /S\.held \|\| input\.classList\.contains\('held'\) \|\| input\.matches\(':active'\)/);
+  for (const must of ['reduceMotionMQ.matches', '!S.w?.live', '!input.isConnected', '!hasBox(input)']) assert.ok(g.includes(must), must);
 });
 
-test('the dot (the input\'s value) and the fill (--p) move on one clock, the paced eases\' one, on the scale\'s D_SURFACE and easeMove', () => {
-  const g = fn('glideFill');
-  assert.match(g, /easeNow\(\)/);
-  assert.match(g, /D_SURFACE/);
-  assert.match(g, /easeMove\(u\)/);
-  assert.match(g, /input\.value = run\.cur = /);
-  assert.match(g, /setProperty\('--p'/);
-  assert.match(g, /v = Math\.round\(\(v - min\) \/ step\) \* step \+ min/, 'the dot sits on a step and the fill follows it');
-  assert.match(g, /v = u >= 1 \? to : /, 'it ends on the exact value');
+test('the dot and the fill move on one clock, the paced eases\' one, on the scale\'s D_SURFACE and easeMove, drawn by the GPU: no style or value is written in a frame of it', () => {
+  const g = fn('glideFill'), gl = read('src/ui/slider-gl.js');
+  assert.match(g, /else glide\(S, f\);/);
+  assert.ok(!/setProperty|\.value =/.test(g), 'the glide writes nothing to the page');
+  const tick = gl.slice(gl.indexOf('function tick(S)'), gl.indexOf('// ---- The picture'));
+  assert.match(tick, /easeNow\(\)/);
+  assert.match(tick, /D_SURFACE/);
+  assert.match(tick, /easeMove\(u\)/);
+  assert.match(tick, /S\.f = u >= 1 \? S\.gB : glideAt\(/, 'it ends on the exact value');
+  assert.ok(!/setProperty|style\.|\.value =|classList/.test(tick), 'no page write in a frame');
+  assert.match(gl, /if \(step\) v = Math\.round\(\(v - min\) \/ step\) \* step \+ min;/, 'the dot sits on a step and the fill follows it');
 });
 
 test('a model sync that asks again for the glide\'s own target does not restart it', () => {
-  assert.match(fn('glideFill'), /Math\.abs\(g\.f - f\) < 1e-9\) \{ input\.value = g\.cur; return; \}/);
+  assert.match(fn('glideFill'), /if \(gliding\(S, f\)\) return;/);
+  assert.match(read('src/ui/slider-gl.js'), /export const gliding = \(S, f\) => S\.gStart >= 0 && Math\.abs\(S\.gTo - f\) < 1e-9;/);
 });
 
-test('every slider paints through paintRange, and the first paint (no --p yet) is taken at once', () => {
+test('every slider paints through paintRange, and the first paint (no fraction yet) is taken at once', () => {
   const p = fn('paintRange');
-  assert.match(p, /Number\.isFinite\(prev\)\) glideFill/);
-  assert.match(p, /else wrap\.style\.setProperty\('--p'/);
+  assert.match(p, /glideFill\(sliderOf\(input, wrap\), f\);/);
+  assert.ok(Number.isNaN(NaN) && !(Math.abs(0.5 - NaN) >= 0.04), 'a slider with no fraction yet is never "far"');
 });
 
 test('the Pressure / Scope switch is a gliding control with the look its chosen button had, and its own fill is off only while the piece is on', () => {

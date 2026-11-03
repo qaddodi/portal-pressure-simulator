@@ -1,18 +1,20 @@
 // DOM & formatting helpers.
-import { saver, frame, cancelFrame, easeNow, readFrame } from './frame.js';
+import { saver, frame, cancelFrame, readFrame } from './frame.js';
 import { restPass, restAttr, restRemove } from './rest-pass.js';
 import { glWords } from './gl-words.js';
 import { slideFold } from './fold-slide.js';
 import { classSoon, dataSoon } from './class-soon.js';
 import { moverOf } from './num-move.js';
 import { pullRelease, pullAt, pullStop } from './sheet-pull.js';
-import { releaseSpeed, isFlick, carryCurve, settleSlope, settleAt, easeMove, D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js';
+import { releaseSpeed, isFlick, carryCurve, settleSlope, settleAt, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js';
 import { leaveFromHere } from './menu-leave.js';
 import { follow2, jumpCount, SHOWN_TAU } from './display-state.js';
 import { measure as measureWords } from './glyph-measure.js';
 import { caught } from './caught.js';
 import { widgetGL } from './widget-gl.js';
 import { layoutToast, paintToast, inkOf } from './toast-gl.js';
+import { readMetric, readAnims, readStyle, readBox } from './layout-snap.js';
+import { sliderOf, sliderFor, dotWidth, jump, glide, gliding, setHover, setHeld, setFocus, releaseAll, followInput } from './slider-gl.js';
 
 // replaceChildren/append stringify null and arrays: flatten and drop empties instead.
 // (Nodes and strings alone, the usual call, go straight through: the flattened copy is made only for a list that holds an array, null or false.)
@@ -349,7 +351,7 @@ function tipShow(el, text, side, tip) {
 /** Floating menu/popover anchored to an element. Closes on outside click, Escape or re-open. */
 let openMenu = null;
 let lastMenu = { anchor: null, t: 0 };   // (the menu that just closed: on iOS a tapped button takes no focus, so a dialog it opens returns here)
-const reduceMotionMQ = matchMedia('(prefers-reduced-motion: reduce)');
+export const reduceMotionMQ = matchMedia('(prefers-reduced-motion: reduce)');
 /** How a scroll the app makes on its own moves: smooth, or at once with Reduce Motion (as the menu's already did). */
 export const scrollBehavior = () => (reduceMotionMQ.matches ? 'auto' : 'smooth');
 // One card or menu at a time over the thumb dock: whatever opens while another is still playing its way out waits
@@ -528,8 +530,8 @@ export function glideOnResize(root, sel, opts = NO_OPTS) {
 const NO_ALSO = Object.freeze([]);
 function glideWatch(root, sel, { ms = 520, dur = D_SMALL, also = NO_ALSO }) {
   if (!root.isConnected) return;
-  const pos = (el) => { let x = 0, y = 0; for (let n = el; n && n !== document.body; n = n.offsetParent) { x += n.offsetLeft; y += n.offsetTop; } return [x, y]; };
-  const measure = () => new Map([...root.querySelectorAll(sel)].filter((el) => el.offsetParent).map((el) => [el, pos(el)]));
+  const pos = (el) => { let x = 0, y = 0; for (let n = el; n && n !== document.body; n = readMetric(n, 'offsetParent')) { x += readMetric(n, 'offsetLeft'); y += readMetric(n, 'offsetTop'); } return [x, y]; };
+  const measure = () => new Map([...root.querySelectorAll(sel)].filter((el) => readMetric(el, 'offsetParent')).map((el) => [el, pos(el)]));
   let prev = measure();
   const ro = new ResizeObserver(() => {
     const now = measure();
@@ -537,7 +539,7 @@ function glideWatch(root, sel, { ms = 520, dur = D_SMALL, also = NO_ALSO }) {
       const p = prev.get(el);
       if (!p) continue;
       let cx = 0, cy = 0;
-      for (const a of el.getAnimations()) if (a.id === 'glide') { const m = new DOMMatrixReadOnly(getComputedStyle(el).transform); cx = m.m41; cy = m.m42; a.cancel(); break; }
+      for (const a of readAnims(el)) if (a.id === 'glide') { const m = new DOMMatrixReadOnly(readStyle(el).transform); cx = m.m41; cy = m.m42; a.cancel(); break; }
       const dx = p[0] + cx - x, dy = p[1] + cy - y;
       if (Math.abs(dx) < 1 && Math.abs(dy) < 1) continue;
       el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: dur, easing: EASE_ARRIVE }).id = 'glide';
@@ -1367,52 +1369,38 @@ export function fitBox(canvas) {
 
 /** The least a slider's value must jump, as a share of its range, before the dot travels there instead of taking it in one frame. */
 export const GLIDE_MIN = 0.04;
-const glides = new WeakMap();
 /** A value that was set from outside (Reset, a double click, a patient or a preset, an undo) used to put the dot and the fill at
- *  the new place in one frame. They now travel there over --d-surface on the quintic ease, the dot (the input's own value) and the
- *  fill (--p) together, so they never part. Only a jump of GLIDE_MIN of the range or more travels: a drag, a key step, the model
+ *  the new place in one frame. They now travel there over --d-surface on the quintic ease, the dot and the fill (slider-gl.js, drawn
+ *  by the GPU) together, so they never part. Only a jump of GLIDE_MIN of the range or more travels: a drag, a key step, the model
  *  following a time-lapse each frame, all smaller, are taken at once as before, and so is anything under a finger or a mouse button
- *  (the dot stays under the pointer). Reduce Motion and a hidden slider take it at once too. */
-function glideFill(input, wrap, f, prev) {
-  const min = +input.min || 0, max = +(input.max || 100), step = input.step === 'any' ? 0 : +input.step || 1, to = +input.value;
-  const from = min + prev * (max - min);
-  const held = input.classList.contains('held') || input.matches(':active');
-  const g = glides.get(input);
-  // (Asked again for the place it is already going to, as a model sync does each frame: the dot is put back where the glide has it and the glide goes on.)
-  if (g && Math.abs(g.f - f) < 1e-9) { input.value = g.cur; return; }
-  if (g) { cancelFrame(g.raf); glides.delete(input); }
-  const far = Math.abs(f - prev) >= GLIDE_MIN;
-  if (!far || held || reduceMotionMQ.matches || !input.isConnected || !hasBox(input)) { wrap.style.setProperty('--p', String(f)); return; }   // (the fill's text: a CSS value is a string)
-  // alloc-rare: a glide starts only for a jump of GLIDE_MIN of the range or more (a reset, a patient, a preset): its record, its two closures and the dot's first text
-  const t0 = easeNow(), run = { raf: 0, f, cur: String(+(+input.value).toFixed(6)) };
-  glides.set(input, run);
-  // alloc-rare: the glide's position function, once for each glide
-  const at = (k) => {
-    let v = from + (to - from) * k;
-    if (step && k < 1) v = Math.round((v - min) / step) * step + min;   // (the dot sits on a step; the fill follows the dot)
-    return Math.min(max, Math.max(min, v));
-  };
-  // alloc-rare: the glide's step, once for each glide
-  const tick = () => {
-    const u = Math.min(1, (easeNow() - t0) / D_SURFACE), v = u >= 1 ? to : at(easeMove(u));
-    input.value = run.cur = String(+v.toFixed(6));
-    wrap.style.setProperty('--p', String(max > min ? Math.min(1, Math.max(0, (v - min) / (max - min))) : 0));
-    if (u < 1 && glides.get(input) === run) run.raf = frame(tick, 'numbers'); else if (glides.get(input) === run) glides.delete(input);
-  };
-  input.value = run.cur = String(+at(0).toFixed(6)); wrap.style.setProperty('--p', String(Math.min(1, Math.max(0, prev))));   // alloc-rare: the glide's first values, written once as it starts
-  run.raf = frame(tick, 'numbers');
+ *  (the dot stays under the pointer). Reduce Motion, a hidden slider and a slider the GPU has not drawn yet take it at once too.
+ *  The input's own value is the new value from the start; the glide is the picture's, so no style or attribute is written in any frame of it. */
+function glideFill(S, f) {
+  const input = S.input;
+  // (Asked again for the place it is already going to, as a model sync does each frame: the glide goes on.)
+  if (gliding(S, f)) return;
+  const far = Math.abs(f - S.f) >= GLIDE_MIN;
+  if (!far || reduceMotionMQ.matches || !S.w?.live || S.held || input.classList.contains('held') || input.matches(':active') || !input.isConnected || !hasBox(input)) jump(S, f);
+  else glide(S, f);
 }
-/** A slider's fill follows its value: the wrapper (.range-wrap, styles/app.css) draws them from --p, 0 to 1. The caller has set
- *  input.value to the new value; a big jump of it from a place outside the pointer's hand glides (glideFill). */
+/** A slider's fill follows its value: the GPU draws the track, the fill and the dot (slider-gl.js) from the fraction `f`, 0 to 1. The
+ *  caller has changed the slider's value; a big jump of it from a place outside the pointer's hand glides (glideFill). */
 export function paintRange(input, f) {
   const wrap = input.parentElement;
   if (!wrap) return;
   f = Math.min(1, Math.max(0, f));
-  const prev = parseFloat(wrap.style.getPropertyValue('--p'));
-  if (Number.isFinite(prev)) glideFill(input, wrap, f, prev);
-  else wrap.style.setProperty('--p', String(f));
+  glideFill(sliderOf(input, wrap), f);
 }
 
+// (The two events a slider's stepping fires, made once and sent again each time: nothing is made in a drag's moves. One sent while it is
+// already on its way, a handler that steps a slider, goes as a new one.)
+const INPUT_EV = new Event('input', { bubbles: true }), CHANGE_EV = new Event('change', { bubbles: true });   // alloc-rare: two events, made once
+let firing = 0;
+function fire(el, ev) {
+  if (firing) { el.dispatchEvent(new Event(ev.type, { bubbles: true })); return; }   // alloc-rare: only a handler that steps a slider from inside its own event
+  firing = 1;
+  try { el.dispatchEvent(ev); } finally { firing = 0; }
+}
 /** Every range slider in the app, at once (call once):
  *  - a finger anywhere on the track moves the thumb there and drags it (iOS only lets the thumb itself be dragged);
  *  - Shift + arrow keys step ten times as far; the wheel adjusts a slider that has focus;
@@ -1423,11 +1411,11 @@ export function enhanceRanges(root = document) {
     const min = +input.min || 0, max = +(input.max || 100), step = input.step === 'any' ? 0 : +input.step || 1;
     let v = clamp(x, min, max);
     if (step) v = Math.round((v - min) / step) * step + min;
-    v = +v.toFixed(6);
+    v = Math.round(v * 1e6) / 1e6;
     if (+input.value === v && !commit) return;
-    input.value = String(v);
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-    if (commit) input.dispatchEvent(new Event('change', { bubbles: true }));
+    input.value = v;   // (a number: the page takes it as its text)
+    fire(input, INPUT_EV);
+    if (commit) fire(input, CHANGE_EV);
   };
   // (th: the thumb's width, the slider's --tw, 18 px or 22 px on a phone: its centre runs from th / 2 to the far end less th / 2.)
   // (r: the slider's box, read once at the press, never in the drag's moves.)
@@ -1435,23 +1423,36 @@ export function enhanceRanges(root = document) {
     const min = +input.min || 0, max = +(input.max || 100);
     return min + clamp((cx - r.left - th / 2) / Math.max(1, r.width - th), 0, 1) * (max - min);
   };
+  // (What the pointer is doing to a slider, for the GPU's dot: lit under a mouse, held under a press or a finger, ringed when the keys have it.
+  // Events, never a frame; slider-gl.js tweens the rings and draws.)
+  root.addEventListener('pointerover', (e) => { if (e.pointerType !== 'touch' && isRange(e.target)) { const S = sliderFor(e.target); if (S) setHover(S, true); } });
+  root.addEventListener('pointerout', (e) => { if (e.pointerType !== 'touch' && e.target?.matches?.('input[type="range"]')) { const S = sliderFor(e.target); if (S) setHover(S, false); } });
+  root.addEventListener('focusin', (e) => { if (isRange(e.target)) { const S = sliderFor(e.target); if (S) setFocus(S, e.target.matches(':focus-visible')); } });
+  root.addEventListener('focusout', (e) => { const S = e.target?.matches?.('input[type="range"]') && sliderFor(e.target); if (S) setFocus(S, false); });
+  root.addEventListener('input', (e) => { const S = e.target?.matches?.('input[type="range"]') && sliderFor(e.target); if (S) followInput(S); });
+  addEventListener('pointerup', releaseAll, true); addEventListener('pointercancel', releaseAll, true); addEventListener('blur', releaseAll);
   root.addEventListener('pointerdown', (e) => {
     const input = e.target;
-    if (e.pointerType !== 'touch' || !isRange(input)) return;
+    if (!isRange(input)) return;
+    const S = sliderFor(input);
+    if (e.pointerType !== 'touch') { if (S) setHeld(S, true); return; }
     e.preventDefault();
     // (Read first, written after: the focus and the held class dirty the style, and a read after them lays the page out in the frame the finger lands.)
-    const th = parseFloat(getComputedStyle(input).getPropertyValue('--tw')) || 18;
-    const box = input.getBoundingClientRect();
+    const th = dotWidth();   // (the dot's width: the stylesheet's two media queries, slider-gl.js)
+    const box = readBox(input);
     input.focus({ preventScroll: true });
-    input.classList.add('held');   // (the thumb's held ring, app.css: iOS gives a range no :active)
+    const cls = !S?.w?.live;   // (the page's own held ring, app.css, only where the GPU has not drawn the dot: iOS gives a range no :active)
+    if (cls) input.classList.add('held');
+    if (S) setHeld(S, true);
     setTo(input, fromX(input, e.clientX, th, box));
     try { input.setPointerCapture(e.pointerId); } catch (e) { caught('util:1225', e); /* gone */ }
     const move = (ev) => { if (ev.pointerId === e.pointerId) setTo(input, fromX(input, ev.clientX, th, box)); };
     const up = (ev) => {
       if (ev.pointerId !== e.pointerId) return;
       input.removeEventListener('pointermove', move); input.removeEventListener('pointerup', up); input.removeEventListener('pointercancel', up);
-      input.classList.remove('held');
-      input.dispatchEvent(new Event('change', { bubbles: true }));
+      if (cls) input.classList.remove('held');
+      if (S) setHeld(S, false);
+      fire(input, CHANGE_EV);
     };
     input.addEventListener('pointermove', move); input.addEventListener('pointerup', up); input.addEventListener('pointercancel', up);
   }, { capture: true });

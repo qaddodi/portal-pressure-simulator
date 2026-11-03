@@ -2,7 +2,7 @@
   "note": "Direct layout reads still to move into src/ui/layout-snap.js (plan 3.4), per file. Allowances may only go down; scripts/off-gpu-scan.mjs fails a file over or under its number. A file not listed is allowed none.",
   "files": {
     "src/ui/stage.js": 83,
-    "src/ui/util.js": 70,
+    "src/ui/util.js": 62,
     "src/ui/card.js": 10,
     "src/ui/lobule-zoom.js": 25,
     "src/ui/menu.js": 19,
