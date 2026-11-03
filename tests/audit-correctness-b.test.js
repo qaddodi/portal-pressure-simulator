@@ -144,3 +144,15 @@ test('B9: a store listener removed by an earlier one in the same change is not c
   assert.deepEqual(heard, ['a', 'a', 'b']);
   off2();
 });
+
+test('B9: leaving one key does not silence the same listener on another key in that change', () => {
+  const heard = [];
+  const shared = (v) => heard.push(v);
+  let offOne;
+  const first = () => offOne();
+  store.on('b9x', first);
+  offOne = store.on('b9x', shared);
+  store.on('b9y', shared);
+  store.set({ b9x: 'x', b9y: 'y' });
+  assert.deepEqual(heard, ['y'], 'removed from b9x, still heard on b9y in the same change');
+});
