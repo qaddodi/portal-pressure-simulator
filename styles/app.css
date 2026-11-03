@@ -4245,11 +4245,11 @@ html.chip-open .topbar .sb-right > .chip-btn[aria-expanded="true"], html.chip-op
 .lz-lab .n, .lz-lab .v { --hw: max(1px, calc(1.5px * var(--label-k, 1)));
   -webkit-text-stroke: calc(var(--hw) * 2) var(--cap-outline); paint-order: stroke fill; stroke-linejoin: round; text-shadow: none; }
 /* Floors keep the pill's order at small label sizes: the reading never drops below its unit or name (all 11 px or more). */
-.lz-lab .n { font-size: calc(var(--t-lab) * var(--label-scale, 1)); font-weight: 500; color: var(--text-2); }
-.lz-lab .v { display: flex; align-items: baseline; gap: 2.5px; font-size: calc(var(--t-read) * var(--label-scale, 1)); line-height: 1.1; }
+.lz-lab .n { font-size: calc(11.5px * var(--label-scale, 1)); font-weight: 600; color: var(--text-2); }
+.lz-lab .v { display: flex; align-items: baseline; gap: 2.5px; font-size: calc(14px * var(--label-scale, 1)); line-height: 1.1; }
 .lz-lab.left .v { justify-content: flex-end; }
-.lz-lab .v b { font-weight: 700; color: var(--text); }
-.lz-lab small { font-size: calc(var(--t-cap) * var(--label-scale, 1)); color: var(--text-3); }
+.lz-lab .v b { font-weight: 650; color: var(--text); }
+.lz-lab small { font-size: calc(10px * var(--label-scale, 1)); font-weight: 500; color: var(--text-3); }
 /* A label whose structure is off screen waits at the edge with a small arrow pointing the way (lobule-zoom.js layoutLabels). */
 .lz-lab.edge .n::before { content: ""; position: absolute; left: 50%; top: 50%; width: 9px; height: 10px; background: var(--text-2); clip-path: polygon(0 0, 100% 50%, 0 100%); transform: translate(-50%, -50%) rotate(var(--edge-a, 0rad)) translateX(var(--edge-r, 40px)); pointer-events: none; }
 .lz-lab .d { font-size: calc(var(--t-lab) * var(--label-scale, 1)); font-weight: 650; color: var(--text); margin-left: 4px; }   /* (a change, "+3", in its reading's colour) */
@@ -4265,7 +4265,7 @@ html.chip-open .topbar .sb-right > .chip-btn[aria-expanded="true"], html.chip-op
   .lz-lab { border: 0 !important; padding: 0 2px; }
   .lz-lab[data-target="lobule:lymph"] .v { font-size: calc(16px * var(--label-scale, 1)); }   /* (the lymph a second-tier reading, so the tract's pair fits beside its corner) */
   .lz-lab .n-long { display: none; } .lz-lab .n-short { display: inline; }
-  .lz-lab small { font-size: calc(var(--t-cap) * var(--label-scale, 1)); }
+  .lz-lab small { font-size: calc(10px * var(--label-scale, 1)); font-weight: 500; }
 }
 /* Dark lobule labels: white names, values, units and zones on the anatomy's dark outline. */
 :root[data-theme="dark"] .lz :is(.lz-lab, .lz-lab .n, .lz-lab .v, .lz-lab .v b, .lz-lab small, .lz-lab .d, .lz-zone) { color: var(--white); }
