@@ -54,9 +54,13 @@ export function slideFinal({ want, title, wantData, wantText }) {
     if (r.width > 40 && r.height > 20 && +getComputedStyle(e).opacity > 0.5 && !e.hasAttribute('data-gl') && document.documentElement.dataset.glass !== 'off') { out.push(`a card at ${Math.round(r.left)},${Math.round(r.top)} is still waiting for its glass (data-gl-wait)`); break; }
   }
   // labels: none left part way (an inline opacity between faded out and in, with nothing animating it)
-  for (const g of document.querySelectorAll('#labels .lb:not(.lb-off)')) {
+  for (const g of document.querySelectorAll('#labels .lb:not(.lb-off):not(.unlit)')) {   // (an .unlit station rests at 35 % on a slide that lights terms: V-LIT-3, 14.3 B)
     const op = +getComputedStyle(g).opacity;
     if (op > 0.02 && op < 0.95 && !g.getAnimations().length) { out.push(`label "${g.textContent.trim().slice(0, 20)}" is stuck at opacity ${op.toFixed(2)}`); break; }
+  }
+  for (const g of document.querySelectorAll('#labels .lb.unlit:not(.lb-off)')) {
+    const op = +getComputedStyle(g).opacity;
+    if (!g.getAnimations().length && Math.abs(op - 0.35) > 0.03) { out.push(`unlit label "${g.textContent.trim().slice(0, 20)}" rests at opacity ${op.toFixed(2)}, not 0.35`); break; }
   }
   return out;
 }
@@ -64,7 +68,8 @@ export function slideFinal({ want, title, wantData, wantText }) {
 /** What the figure's labels are doing, for the pan and zoom check: one entry per label drawn, with its box on screen. */
 export function labelBoxes() {
   const out = [];
-  for (const g of document.querySelectorAll('#labels .lb:not(.lb-off)')) {
+  for (const g of document.querySelectorAll('#labels .lb:not(.lb-off):not(.unlit)')) {   // (an .unlit station rests at 35 % on a slide that lights terms: V-LIT-3, 14.3 B)
+    
     const cs = getComputedStyle(g);
     if (+cs.opacity < 0.5 || cs.display === 'none' || cs.visibility === 'hidden') continue;
     const t = g.querySelector('text') || g;
@@ -102,7 +107,8 @@ export function labelState() {
   const cv = document.querySelector('#labels canvas, canvas.labels-gl, canvas[data-labels]');
   const o = cv ? cv.getBoundingClientRect() : { left: 0, top: 0 };
   for (const b of st.labelDrawn?.() || []) pts.push([(b[0] + b[2]) / 2 + o.left, (b[1] + b[3]) / 2 + o.top]);
-  for (const g of document.querySelectorAll('#labels .lb:not(.lb-off)')) {
+  for (const g of document.querySelectorAll('#labels .lb:not(.lb-off):not(.unlit)')) {   // (an .unlit station rests at 35 % on a slide that lights terms: V-LIT-3, 14.3 B)
+    
     const cs = getComputedStyle(g);
     if (+cs.opacity < 0.5 || cs.display === 'none' || cs.visibility === 'hidden') continue;
     const r = (g.querySelector('text') || g).getBoundingClientRect();
