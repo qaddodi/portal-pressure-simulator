@@ -46,6 +46,7 @@ export function cubicBezier(x1, y1, x2, y2) {
   };
 }
 export const easeArrive = cubicBezier(0.2, 0.8, 0.2, 1);
+export const easeIn = cubicBezier(0.4, 0, 1, 1);   // (EASE_IN as a function)
 // (A CSS easing as a function of 0..1: cubic-bezier(...) as given, the named curves by their CSS values, else linear. 2 Nov 2026: an
 // ease the page runs, worked out in script where the drawing follows it on the GPU.)
 const NAMED = { ease: [0.25, 0.1, 0.25, 1], 'ease-in': [0.42, 0, 1, 1], 'ease-out': [0, 0, 0.58, 1], 'ease-in-out': [0.42, 0, 0.58, 1] };

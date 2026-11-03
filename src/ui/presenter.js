@@ -39,7 +39,7 @@ import { noteResume, resumeFor } from './resume.js';
 import { parseDeckSource, checkDeck } from './deck-source.js';
 import { cleanEq } from './import-safety.js';
 import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig, sameHead, headOf, cutDp } from './table-marks.js';
-import { frameFor, cancelFrame, holdMotion, PACED } from './frame.js';
+import { frameFor, cancelFrame, holdMotion, easeNow, PACED } from './frame.js';
 import { loadGlyphs, glyphsReady, textWidth } from './text-gl.js';
 import { restPass, cancelRest } from './rest-pass.js';
 import { createSlidePrep } from './slide-prep.js';
@@ -65,7 +65,8 @@ import { createCardZoom, tapTracker } from './card-zoom.js';
 import { sheetPanes } from './sheet-glass.js';
 import { createScopeTile } from './scope-tile.js';
 import { tileKeys as cardKeys, toolOnly } from './card-tiles.js';
-import { D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN, EASE_MOVE, RISE_PX, cssCurve } from './ease.js';
+import { D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, RISE_PX, cssCurve, easeIn } from './ease.js';
+import { glideOpacity } from './script-glide.js';
 import { slideFold } from './fold-slide.js';
 import { pageOn, followOf, pageIn, swipeHeld } from './card-page.js';
 import { throwOut, throwIn, throwBack, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, INSTANT, throwOutNow, throwPinned, throwRelease, railable, railHold, railIn, railAway, railGhosts, railWaits, railCopies, RAIL_GAP } from './card-throw.js';
@@ -3445,8 +3446,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const dockPaint = () => {
     if (!ui) return;
     const vec = dock.vec || DOCK_ZERO, x = vec[0], y = vec[1];
-    // (During a glide the card's own place is where the glide ends: the animation carries it from where it was.)
-    ui.data.style.translate = dockPos(glide ? glide.to : dock.lvl);
+    // (During a glide the card's place is where the frames have it now: glideStep writes it each frame.)
+    ui.data.style.translate = dockPos(dock.lvl);
     // (Where the glide ends: the camera frames for the card there, util.js translateRest, never where it stands this frame.)
     // (Where it ends is written when the card, its place or its target changes, not on each frame of a glide or a drag.)
     if (rtEl !== ui.data || rtX !== x || rtY !== y || rtTo !== dock.to) {
@@ -3527,27 +3528,35 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const say = dock.to === 1 ? 'Open the card' : wideSheet(d) ? (open ? 'Hide the readings' : 'Show the readings') : open ? (split ? 'Hide the readings' : 'Close the card') : split && dock.down === want ? 'Close the card' : 'Show the rest of the card';
     if (l.getAttribute('aria-label') !== say) l.setAttribute('aria-label', say);
   }
-  // The dock glide: the card's translate (and its handle's) as one animation each over the glide's whole way, the eased levels sampled at
-  // DOCK_KEYS + 1 keyframes (linear between them, within 0.2 px of the exact ease on any card), so the browser plays it with no script per
-  // frame and the glass follows its clock (glass-motion.js). The keyframes are kept, their text written at the glide's start.
-  const DOCK_KEYS = 40;
-  // alloc-rare: made once, with the presenter
-  const dockKeys = Array.from({ length: DOCK_KEYS + 1 }, (_, i) => ({ offset: i / DOCK_KEYS, translate: '' }));
-  const dockEase = new Float64Array(DOCK_KEYS + 1);
-  for (let i = 0; i <= DOCK_KEYS; i++) dockEase[i] = ease(i / DOCK_KEYS);
-  const dockTiming = { duration: 0, fill: 'none' };   // (linear, the animation's default: the ease is in the keyframes)
+  // The dock glide: the card's translate (and its handle's) written by the frames, on the eases' clock, in the frame the GPU glass reads
+  // them in (3 Nov 2026, cards trailing: as one animation each the browser's compositor moved the card from a clock of its own, which
+  // can stand a display frame from the page's time, so the glass and the card parted by that frame, 0 or 1 of them from run to run).
+  // One string a frame for the card and its handle, the same; no style is read and nothing else is written. The glass takes the inline
+  // translate (glass-gl.js moveOf), so the two never part.
   function glideLvl() {
-    const g = glide, ct = g.a.currentTime;
-    if (g.a.playState === 'idle') { glideEnd(); return lvlSet; }   // (cancelled from outside: it ended where it was going)
-    const u = ct > 0 ? Math.min(1, ct / g.ms) : 0;
+    const g = glide, u = g.ms > 0 ? clamp((easeNow() - g.t0) / g.ms, 0, 1) : 1;
     return g.from + (g.to - g.from) * ease(u);
+  }
+  // alloc-rare: one string a frame for the card and its handle while a dock glide plays (the translate's text takes the card's place, which no table can hold)
+  const glideText = (lv) => { const v = dock.vec || DOCK_ZERO; return `${(v[0] * lv).toFixed(1)}px ${(v[1] * lv).toFixed(1)}px`; };
+  function glideStep() {
+    dock.raf = 0;
+    const g = glide;
+    if (!g || !ui) return;
+    const u = g.ms > 0 ? clamp((easeNow() - g.t0) / g.ms, 0, 1) : 1;
+    if (u >= 1) { glideDone(); return; }
+    const t = glideText(g.from + (g.to - g.from) * ease(u));
+    ui.data.style.translate = t;
+    if (g.lip && ui.lip) ui.lip.style.translate = t;
+    dock.raf = nextFrame(glideStep);
   }
   // The glide over, where it was going.
   function glideEnd() {
     const g = glide;
     if (!g) return;
+    cancelFrame(dock.raf); dock.raf = 0;
     glide = null; lvlSet = g.to;
-    g.a.onfinish = null; g.a.cancel(); g.b?.cancel();
+    if (ui) { ui.data.style.translate = dockPos(g.to); lipPaint(); }
   }
   const lipSoon = () => ui && placeLip();   // (kept: a glide's landing makes no closure)
   const glideDone = () => { if (!glide) return; glideEnd(); dock.rest = restPass(lipSoon); };   // (landed: the edge measured where the card now rests, between frames)
@@ -3557,19 +3566,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const g = glide;
     if (!g) return;
     const v = glideLvl();
-    if (!glide) return;
     glide = null; lvlSet = v;
-    g.a.onfinish = null; g.a.cancel(); g.b?.cancel();
     if (ui) { ui.data.style.translate = dockPos(v); lipPaint(); }
   }
   function dockGlide(from, to, ms) {
-    const vec = dock.vec || DOCK_ZERO, x = vec[0], y = vec[1], d = ui.data, l = ui.lip;
+    const d = ui.data, l = ui.lip;
     // alloc-rare: a dock glide begins: once per glide, not per frame
-    for (let i = 0; i <= DOCK_KEYS; i++) { const lv = from + (to - from) * dockEase[i]; dockKeys[i].translate = `${(x * lv).toFixed(1)}px ${(y * lv).toFixed(1)}px`; }
-    dockTiming.duration = ms;
-    // alloc-rare: a dock glide begins: once per glide, not per frame
-    glide = { from, to, ms, a: d.animate(dockKeys, dockTiming), b: l && d.classList.contains('pz-sheet') ? l.animate(dockKeys, dockTiming) : null };
-    glide.a.onfinish = glideDone;
+    glide = { from, to, ms, t0: easeNow(), lip: !!(l && d.classList.contains('pz-sheet')) };
+    dock.raf = nextFrame(glideStep);
   }
   function dockTo(to, ms = 380) {
     dockHalt();
@@ -3581,7 +3585,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const from = dock.lvl, t0 = performance.now();
     dockRest();
     cancelRest(dock.rest);
-    if (ms && from !== to && ui && !ui.data.hidden && ui.data.animate && !wideSheet(ui.data)) {
+    if (ms && from !== to && ui && !ui.data.hidden && !wideSheet(ui.data)) {
       dockGlide(from, to, ms);
       dockPaint();
     } else {
@@ -6059,7 +6063,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const els = ui ? [ui.root, ui.shade].filter((el) => el?.animate) : [];
     if (!els.length) { stopNow(restore); chromeIn(); return; }   // (Reduce Motion too: these are fades only, which it keeps)
     for (const el of els) el.inert = true;
-    const me = leaving = Promise.all(els.map((el) => el.animate([{ opacity: 0 }], { duration: D_SMALL, easing: EASE_IN, fill: 'forwards' }).finished.catch(() => {})));
+    const me = leaving = Promise.all(els.map((el) => glideOpacity(el, 1, 0, D_SMALL, easeIn)));   // (on the eases' clock: the card and its glass fade in one frame)
     me.then(() => { if (leaving !== me) return; stopNow(restore); chromeIn(); });
   }
   function chromeIn() {

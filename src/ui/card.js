@@ -12,7 +12,8 @@
 
 import { store, updateParams } from './store.js';
 import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout, countTo, swapText, transformEndX, afterExit, markGone, releaseWords } from './util.js';
-import { releaseSpeed, isFlick, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js';
+import { releaseSpeed, isFlick, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN, easeArrive } from './ease.js';
+import { glideTranslate, glideStop, glideRunning } from './script-glide.js';
 import { cardFor, normalizeSel } from './actions.js';
 import { frameFor } from './frame.js';
 import { restPass, cancelRest } from './rest-pass.js';
@@ -687,8 +688,13 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     // alloc-rare: the card is placed anew (a new structure, a resize, a moved panel): moveTo runs on a changed place only, then just the leader follows
     const t = `${x}px ${y}px`;
     // alloc-rare: the card glides from its old place to a new one: once per placing, never while it stands
-    if (at && (Math.abs(at[0] - x) > 0.5 || Math.abs(at[1] - y) > 0.5) && !reduceMotion.matches) el.animate([{ translate: `${at[0]}px ${at[1]}px` }, { translate: t }], { duration: D_FLIP, easing: EASE_ARRIVE });
-    el.style.translate = t; AT[0] = x; AT[1] = y; at = AT;
+    const moved = at && (Math.abs(at[0] - x) > 0.5 || Math.abs(at[1] - y) > 0.5);
+    if (moved && !reduceMotion.matches) glideTranslate(el, at[0], at[1], x, y, D_FLIP, easeArrive);   // (on the eases' clock, in the frame the glass reads it in: script-glide.js)
+    else {
+      if (!at || reduceMotion.matches) glideStop(el);
+      if (!glideRunning(el)) el.style.translate = t;   // (a glide on its way to this very place carries on)
+    }
+    AT[0] = x; AT[1] = y; at = AT;
   }
   // (Measured in a rest pass, between two frames: placing the card never reads layout. A newer ask replaces one waiting.)
   let fitRest = 0;

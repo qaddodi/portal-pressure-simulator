@@ -37,9 +37,9 @@ test('the desktop vessel card fades in and out, and a new vessel fades its conte
   // RF7: the old contents fade out over the new from a layer that takes no taps, and the card glides to its new place.
   assert.match(card, /const ghost = h\('div', \{ class: 'ac-ghost', 'aria-hidden': 'true', inert: '' \}, \.\.\.was\);/);
   assert.match(css, /\.action-card > \.ac-ghost \{ position: absolute; inset: 0; display: flex; flex-direction: column; pointer-events: none; \}/);
-  // (the glide is by translate since the off-GPU gate: card.js moveTo animates from where it stood, D_FLIP)
+  // (the glide is by translate: card.js moveTo glides from where it stood, D_FLIP, on the frames' clock)
   assert.match(css, /\.action-card:not\(\.docked\) \{ transition: opacity var\(--d-small\) var\(--ease\); \}/);
-  assert.match(card, /el\.animate\(\[\{ translate: `\$\{at\[0\]\}px \$\{at\[1\]\}px` \}, \{ translate: t \}\], \{ duration: D_FLIP, easing: EASE_ARRIVE \}\)/);
+  assert.match(card, /glideTranslate\(el, at\[0\], at\[1\], x, y, D_FLIP, easeArrive\)/, 'the glide is written by the frames (script-glide.js), in the frame the glass reads it in');
 });
 
 test('the zoom pill glides aside with a side card, by a transform (round 2 review, RF2)', () => {
@@ -107,7 +107,7 @@ test('ending a talk fades its cards out, then the app\'s bars in; a new talk end
   // (Reduce Motion keeps these fades: they move nothing.)
   const chromeIn = presenter.slice(presenter.indexOf('  function chromeIn() {'), presenter.indexOf('  function stopNow('));
   assert.doesNotMatch(stop + chromeIn, /reduce\.matches/);
-  assert.match(stop, /el\.animate\(\[\{ opacity: 0 \}\], \{ duration: D_SMALL, easing: EASE_IN, fill: 'forwards' \}\)/);
+  assert.match(stop, /glideOpacity\(el, 1, 0, D_SMALL, easeIn\)/, 'the fade is written by the frames (script-glide.js), in the frame the glass reads it in');
   assert.match(stop, /if \(leaving !== me\) return; stopNow\(restore\); chromeIn\(\);/);
   assert.match(presenter, /if \(deck\) stopNow\(false\);/);
   assert.match(presenter, /function stopNow\(restore = true\) \{\n\s*leaving = null;/);
