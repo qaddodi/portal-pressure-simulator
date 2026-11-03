@@ -86,7 +86,8 @@ function advanceKept(st, opts) {
   const vMean = ADV_IN[0], vNow = ADV_IN[1];
   let dt = ADV_IN[2];
   const { phasic = false, speed = 1, large = true, still = false, rev } = opts;
-  if (st.vSlow == null) { st.vSlow = vMean; st.vFast = vNow; st.D = (st.seed || 0) * 97 % PERIOD; st.hold = 0; st.settle = 0; }
+  // (Not set yet: undefined, or NaN in a stream made with every field a number.)
+  if (!(st.vSlow > -Infinity)) { st.vSlow = vMean; st.vFast = vNow; st.D = (st.seed || 0) * 97 % PERIOD; st.hold = 0; st.settle = 0; }
   const ruled = rev != null, sgR = rev ? -1 : 1;
   // Reduced motion (still): nothing moves or eases; the stream stands where it is and points the way the flow goes now.
   if (still) { st.vSlow = vMean; st.vFast = vNow; st.hold = 0; st.settle = 0; st.sgn = ruled ? sgR : Math.sign(vMean) || st.sgn; dt = 0; }
@@ -100,7 +101,7 @@ function advanceKept(st, opts) {
     st.hold = REVERSE_HOLD + REVERSE_RAMP;
     // Ruled by the colour's signal: the shown blood slows from where it is, while the mean starts afresh from the
     // new flow (shown only once the hold is over), instead of easing for seconds back through zero.
-    if (ruled) { st.settle = REVERSE_SETTLE; st.vOld = st.vm ?? st.vSlow; st.vSlow = vMean; st.vFast = vNow; }
+    if (ruled) { st.settle = REVERSE_SETTLE; st.vOld = st.vm > -Infinity ? st.vm : st.vSlow; st.vSlow = vMean; st.vFast = vNow; }
   }
   if (sg) st.sgn = sg;
   if (st.settle > 0) {

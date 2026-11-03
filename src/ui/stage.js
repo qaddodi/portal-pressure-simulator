@@ -13248,7 +13248,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const flowNow = new Uint8Array(GL_ROWS), flowWas = new Uint8Array(GL_ROWS);
   let flowKept = null, flowKeptFor = null;   // (the table as last sent while the blood stood still: stepBlood)
   const dyeData = new Float32Array(GL_ROWS * DYE_BINS), dyeRow = new Float32Array(DYE_BINS);
-  const streams = EDGES.map((e, k) => ({ seed: k + 1 }));
+  // (Every number a stream will hold is a number from the start, so each field is a double kept in place: a field that began as nothing, or as a
+  // whole number, was stored as a new heap number at every write, about a hundred bytes for each vessel each frame. NaN is "not set yet":
+  // advanceKept's vSlow and vm, anchorStream's aB.)
+  const streams = EDGES.map((e, k) => ({ seed: k + 1, vSlow: NaN, vFast: NaN, D: 0.5, hold: 0.5, settle: 0.5, vOld: 0.5, vm: NaN, v: 0.5, vd: 0.5, stasis: 0.5, drift: 0.5, aB: NaN, aD: 0.5, aV: 0.5, aT: 0.5, aS: 0.5, aR: 0.5 }));
   const LARGE = EDGES.map((e) => (e.kind === 'vein' || e.kind === 'diode') && (e.d || 0) >= STASIS_MIN_D);
   // (The slugs step in a worker, dye-remote.js; ?dyeworker=0 keeps them here.)
   const bolus = createDyeRemote(EDGES, NODES, () => new Worker(new URL('./dye-worker.js', import.meta.url), { type: 'module' }));
@@ -13262,7 +13265,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // boxed in a new heap number, two for each vessel of a frame.)
   function anchorStream(sm, so, reset) {
     const sp = so.speed, t = so.bt;
-    if (!reset && sm.aB != null && t >= sm.aB) {
+    if (!reset && t >= sm.aB) {
       const dt = t - sm.aB;
       // (Where the GPU has it now: the stream's own distance and drift follow it, so the two never part.)
       sm.D = (((sm.aD + sm.aV * sm.aS * dt) % PERIOD) + PERIOD) % PERIOD;
