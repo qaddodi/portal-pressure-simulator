@@ -11510,13 +11510,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       pinchT = 0; pinchHide = false; reslotted = false; solveAsked = true;
       pinchLift = true;
       if (F && !camMove && !lz?.isOpen()) { labelKey = null; updateLabels(F); }
-      // (Shown only once that layout has landed (pinchLiftNow, from labelTail); a solve that does not land in its slices is finished at once
-      // after 600 ms, so they are never hidden for good.)
+      // (Shown only once that layout has landed (pinchLiftNow, from labelTail). A solve still in its slices after 600 ms keeps its slices: it
+      // was finished in one task there, the whole remaining solve on the main thread just as the hand let go (external review EXT-PERF-1).
+      // It is looked at again every 200 ms, and after 3 s the labels come back as they stand, so they are never hidden for good.)
       clearTimeout(pinchLiftT);
-      // alloc-rare: one timer closure when a pinch ends, never per frame
-      pinchLiftT = setTimeout(() => { pinchLiftT = 0; if (!pinchLift || pinchHide) return; if (labelJob) labelJobFinish(); pinchLiftNow(true); }, 600);
+      pinchLiftN = 0;
+      pinchLiftT = setTimeout(pinchLiftCheck, 600);
       pinchLiftNow(false);
     }
+  }
+  let pinchLiftN = 0;
+  function pinchLiftCheck() {
+    pinchLiftT = 0;
+    if (!pinchLift || pinchHide) return;
+    if (labelJob && ++pinchLiftN < 13) { pinchLiftT = setTimeout(pinchLiftCheck, 200); return; }
+    pinchLiftNow(true);
   }
   // (Lifts the hide once the labels stand laid out for the camera: no solve running, the layout's key kept. `force`: whatever stands.)
   function pinchLiftNow(force) {

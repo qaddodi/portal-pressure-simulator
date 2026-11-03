@@ -58,11 +58,13 @@ test('a hand zoom in the Circuit carries the readings on the GPU; where they can
   assert.match(rel, /if \(gestureOn\(\)\) \{ pinchT = setTimeout\(pinchRel, 120\); return; \}/, 'waits for the hand to let go');
   assert.match(rel, /solveAsked = true;/, 'a whole solve where the view stopped, the standing labels carried first (solvedFor kept)');
   assert.doesNotMatch(rel, /solvedFor = null;/, 'solvedFor = null skipped the carry: the old labels showed at their old places');
-  // The hide is lifted by pinchLiftNow only once no solve runs and the layout's key is kept (labelTail); a late solve is finished at 600 ms.
+  // The hide is lifted by pinchLiftNow only once no solve runs and the layout's key is kept (labelTail); a late solve is waited for in its slices.
   const lift = rel.slice(rel.indexOf('function pinchLiftNow'));
   assert.match(lift, /if \(!force && \(labelJob \|\| labelKey == null\)\) return;/);
   assert.doesNotMatch(rel.slice(0, rel.indexOf('function pinchLiftNow')), /classList\.remove\('pinch-hide'\)/, 'pinchRelease itself no longer lifts it');
-  assert.match(rel, /labelJobFinish\(\)/);
+  // (EXT-PERF-1: a late solve keeps its slices, looked at every 200 ms, and the labels come back as they stand after 3 s; never drained in one task.)
+  assert.doesNotMatch(rel, /labelJobFinish\(\)/);
+  assert.match(rel, /if \(labelJob && \+\+pinchLiftN < 13\) \{ pinchLiftT = setTimeout\(pinchLiftCheck, 200\); return; \}/);
   assert.match(stage, /function labelTail\(noGl = false\) \{\n(\s*glHold = noGl;[^\n]*\n)?\s*pinchLiftNow\(false\);/);
   // Laid out while hidden, they take their new places at once (no glide from where they were).
   assert.match(stage, /const snap = [^\n]*wrap\.classList\.contains\('pinch-hide'\)/);

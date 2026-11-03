@@ -1690,10 +1690,15 @@ void main() { o = texture(uT, vUV) * uA; }`;
                 const cx = mg.v[i * 2], cy = mg.v[i * 2 + 1];
                 geo[i * 2] = (M[0] * cx + M[2] * cy + M[4]) * dpr; geo[i * 2 + 1] = (M[1] * cx + M[3] * cy + M[5]) * dpr;
               }
-              // (Its label end goes with the label where the ride held it inside the stage.)
+              // (Its label end goes with the label as the label is drawn: the label keeps its size and is carried by its centre, so its end of
+              // the line is the old end moved by the label's own move, not the end carried as geometry, which a zoom pulled off the label's edge
+              // by (scale − 1) × its distance from the centre (external review EXT-LBL-2).)
               if (isPath && mg.k) {
                 const ls = labelByKey.get(mg.k), lst = ls && sprites.get(ls.g);
-                if (lst && lst.mode === 'gl') { rideAt(ls, lst); geo[2] += RIDE_XY[2]; geo[3] += RIDE_XY[3]; }
+                if (lst && lst.mode === 'gl') {
+                  rideAt(ls, lst);
+                  geo[2] = mg.v[2] * dpr + (RIDE_XY[0] - (Math.round(ls.x * dpr) + lst.ox)); geo[3] = mg.v[3] * dpr + (RIDE_XY[1] - (Math.round(ls.y * dpr) + lst.oy));
+                }
               }
             }
             }

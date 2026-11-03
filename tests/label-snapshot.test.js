@@ -64,7 +64,8 @@ test('a pinch landing solves again a label that rode out of the stage margins (i
 test('a camera ride holds each label inside the stage, and its leader\'s label end with it', () => {
   assert.match(lg, /function rideAt\(s, st\) \{/);
   assert.match(lg, /rideAt\(s, st\);\n\s+x = RIDE_XY\[0\]; y = RIDE_XY\[1\];/);
-  assert.match(lg, /rideAt\(ls, lst\); geo\[2\] \+= RIDE_XY\[2\]; geo\[3\] \+= RIDE_XY\[3\];/);
+  // (EXT-LBL-2: the label end moves by the label's own drawn move, not carried as geometry and scaled off its edge.)
+  assert.match(lg, /geo\[2\] = mg\.v\[2\] \* dpr \+ \(RIDE_XY\[0\] - \(Math\.round\(ls\.x \* dpr\) \+ lst\.ox\)\);/);
 });
 
 test('after a view switch the labels come back only once their layout has landed (no old view over the new one)', () => {
