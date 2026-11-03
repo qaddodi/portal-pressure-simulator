@@ -585,10 +585,10 @@ export const displacedNow = (riding, gliding) => riding || gliding > 0;
 export function snapshotItem(key, dx, dy, dw, dh, a, dpr, W, H) {
   return { key, x: dx / dpr, y: dy / dpr, w: dw / dpr, h: dh / dpr, a, clipped: dx < 0 || dy < 0 || dx + dw > W || dy + dh > H };
 }
-export function createLabelGL(svg, blocks, { software = false, marks = [], host = null, force = false, onBoxes = null } = {}) {
+export function createLabelGL(svg, blocks, { software = false, marks = [], host = null, force = false, onBoxes = null, id = 'labelGl' } = {}) {
   if ((software && !force) || typeof WebGL2RenderingContext === 'undefined') return null;
   const canvas = host ? host.canvas : document.createElement('canvas');
-  if (!host) { canvas.id = 'labelGl'; canvas.setAttribute('aria-hidden', 'true'); }
+  if (!host) { canvas.id = id; canvas.setAttribute('aria-hidden', 'true'); }
   let gl = host ? host.gl : null;
   if (!host) { try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, failIfMajorPerformanceCaveat: true }); } catch { gl = null; } }
   if (!gl) return null;

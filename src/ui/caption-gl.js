@@ -24,6 +24,7 @@ import { textPolys, textWidth, glyphsReady, textCovers, loadGlyphs } from './tex
 import { D_SURFACE, easeArrive } from './ease.js';
 import { cssColor } from './css-color.js';
 import { readBox, readRects, readStyle } from './layout-snap.js';
+import { createLabelGL } from './label-gl.js';
 
 const finalFrame = finalFrameFor('caption-gl');
 const RETRIES = 30;   // (frames a failed hand-over is drawn again, in a row)
@@ -281,6 +282,46 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
   cv.className = 'cap-gl';
   cv.setAttribute('aria-hidden', 'true');
   box.prepend(cv);
+  // The words are drawn by label-gl, the Anatomy and Circuit labels' own renderer (Mohammad, 3 Nov 2026: "Same engine for labels everywhere"):
+  // each caption is a label group (.lb, its words as <text><tspan>) in a model svg, laid out and drawn by a label-gl layer of its own over this box.
+  // The pen below draws only what is not words (leaders, arrows, the legend) and is the words' fallback where label-gl is not available.
+  const NS = 'http://www.w3.org/2000/svg';
+  const model = document.createElementNS(NS, 'svg'), mblocks = document.createElementNS(NS, 'g');
+  model.setAttribute('class', 'cap-model'); model.setAttribute('aria-hidden', 'true'); mblocks.setAttribute('class', 'lb-blocks'); model.append(mblocks);
+  box.append(model);
+  const LG = createLabelGL(model, mblocks, { force: true, id: 'capLabelGl' });
+  const lgList = [];
+  const lgOn = () => !!LG && !LG.lost;
+  let svSeq = 0;
+  // A caption's group, made again only when its words, scale or look changed.
+  function buildGroup(I, s) {
+    let g = I.g;
+    if (!g) { g = I.g = document.createElementNS(NS, 'g'); g.setAttribute('class', 'lb'); mblocks.append(g); I.ent = { g, x: 0, y: 0, rot: false }; }
+    if (I.gsv === I.sv && I.gs === s && I.ggr === glyphsReady()) return g;
+    I.gsv = I.sv; I.gs = s; I.ggr = glyphsReady();
+    g.textContent = '';
+    const bw = I.w * s, bh = I.h * s;
+    for (const M of I.set.marks || NONE) {
+      if (M.kind !== 'bg') continue;
+      const q = M.inset, r = document.createElementNS(NS, 'rect');
+      r.setAttribute('x', q ? q[0] * s : 0); r.setAttribute('y', q ? q[1] * s : 0);
+      r.setAttribute('width', q ? bw - (q[0] + q[2]) * s : bw); r.setAttribute('height', q ? bh - (q[1] + q[3]) * s : bh);
+      r.setAttribute('rx', M.rad * s); r.style.fill = M.fill; g.append(r);
+    }
+    for (let li = 0, n = I.set.n ?? I.set.lines.length; li < n; li++) {
+      const ln = I.set.lines[li], x0 = (bw - ln.w * s) / 2;
+      for (let ri = 0, rn = ln.m ?? ln.runs.length; ri < rn; ri++) {
+        const { t: txt, r, x } = ln.runs[ri];
+        const te = document.createElementNS(NS, 'text'), sp = document.createElementNS(NS, 'tspan');
+        te.setAttribute('x', (x0 + x * s).toFixed(2)); te.setAttribute('y', (ln.base * s).toFixed(2));
+        sp.setAttribute('font-size', (r.size * s).toFixed(2)); sp.setAttribute('font-weight', r.weight);
+        if (r.ls) sp.setAttribute('letter-spacing', (r.ls * s).toFixed(3));
+        sp.style.fill = r.fill; sp.textContent = txt;
+        te.append(sp); g.append(te);
+      }
+    }
+    return g;
+  }
   const items = new Map(), leads = new Map(), extras = new Map(), looks = new Map();
   // (The leaders' and dots' look, the Anatomy's: the owner reads it from the page's tokens between frames, leadLook(); these are its defaults.)
   const leadLook = { line: '', lw: 1, r: 2.4, fill: '', ring: '', rw: 1.3, halo: '', haloR: 5 };
@@ -341,6 +382,7 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
         ctx.fillStyle = lk.fill || L.colour; ctx.beginPath(); ctx.arc(x2, y2, r, 0, Math.PI * 2); ctx.fill();
         if (lk.ring) { ctx.strokeStyle = lk.ring; ctx.lineWidth = lk.rw; ctx.beginPath(); ctx.arc(x2, y2, r, 0, Math.PI * 2); ctx.stroke(); }
       }
+      lgList.length = 0;
       for (const I of items.values()) {
         const lk = looks.get(I.key);
         if (!lk || !I.set) continue;
@@ -359,6 +401,17 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
           if (M.sh) { ctx.globalAlpha = a; ctx.shadowBox(ml, mt, mw, mh, rr, M.sh.colour, M.sh.blur * s, M.sh.dy * s); }
           ctx.globalAlpha = a; ctx.fillStyle = M.fill; ctx.beginPath(); ctx.roundRect(ml, mt, mw, mh, rr); ctx.fill();
           if (M.border?.colour) { const bwd = M.border.w * s; ctx.strokeStyle = M.border.colour; ctx.lineWidth = bwd; ctx.beginPath(); ctx.roundRect(ml + bwd / 2, mt + bwd / 2, mw - bwd, mh - bwd, Math.max(0, rr - bwd / 2)); ctx.stroke(); }
+        }
+        if (lgOn()) {
+          if (I.set.n === 0 || !I.set.lines.length) { /* no words */ } else {
+            const g = buildGroup(I, s), e = I.ent;
+            e.x = l; e.y = t;
+            const o = a.toFixed(3);
+            if (g.style.opacity !== o) g.style.opacity = o;
+            lgList.push(e);
+          }
+          if (I.arrow) drawArrow(ctx, I, l, t, s, a);
+          continue;
         }
         // Its words: each run's halo (a round-joined stroke of Inter's outlines, the Anatomy pen), then its ink, in the page's order.
         ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
@@ -383,16 +436,9 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
           }
         }
         ctx.letterSpacing = '0px';
-        // (An owner's arrow: a small triangle about a point of the caption, turned to the way it points.)
-        if (I.arrow) {
-          const A = I.arrow, c = Math.cos(A.ang), sn = Math.sin(A.ang), ox = l + (A.x + c * A.r) * s, oy = t + (A.y + sn * A.r) * s;
-          ctx.globalAlpha = a; ctx.fillStyle = A.colour; ctx.beginPath();
-          ctx.moveTo(ox + (-4.5 * c + 5 * sn) * s, oy + (-4.5 * sn - 5 * c) * s);
-          ctx.lineTo(ox + 4.5 * c * s, oy + 4.5 * sn * s);
-          ctx.lineTo(ox + (-4.5 * c - 5 * sn) * s, oy + (-4.5 * sn + 5 * c) * s);
-          ctx.closePath(); ctx.fill();
-        }
+        if (I.arrow) drawArrow(ctx, I, l, t, s, a);
       }
+      if (lgOn()) LG.sync(lgList);
       ctx.globalAlpha = 1;
       // (The owner's own drawing, the legend: placed in the layer's space, so it rides the view as a whole.)
       if (moved) { ctx.save(); ctx.translate(ve, vf); ctx.scale(vk, vk); }
@@ -413,6 +459,15 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
     if (more) ask = finalFrame(draw);
     else if (wasMoving) onRest?.();   // (its eases done: the owner may place its page model, between frames)
     wasMoving = more;
+  }
+  // (An owner's arrow: a small triangle about a point of the caption, turned to the way it points.)
+  function drawArrow(ctx, I, l, t, s, a) {
+    const A = I.arrow, c = Math.cos(A.ang), sn = Math.sin(A.ang), ox = l + (A.x + c * A.r) * s, oy = t + (A.y + sn * A.r) * s;
+    ctx.globalAlpha = a; ctx.fillStyle = A.colour; ctx.beginPath();
+    ctx.moveTo(ox + (-4.5 * c + 5 * sn) * s, oy + (-4.5 * sn - 5 * c) * s);
+    ctx.lineTo(ox + 4.5 * c * s, oy + 4.5 * sn * s);
+    ctx.lineTo(ox + (-4.5 * c - 5 * sn) * s, oy + (-4.5 * sn + 5 * c) * s);
+    ctx.closePath(); ctx.fill();
   }
   function itemA(key, now) { const I = items.get(key); return I ? easeAt(I.a, now) : 1; }
   gpu = make(cv, { redraw: () => api.paint(), lose: () => api.paint() });
@@ -459,7 +514,7 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
       return { seq, gen: shownGen, w: shownW, h: shownH, items, leads: leadsOut };
     },
     /** The glasses over this layer (glass-gl.js tellHoles: client px boxes, fades, shapes), [] for none: the names are left out under them, in the frame that draws them. */
-    holes(list) { if (dead || list === holes) return; holes = list || NONE; api.paint(); },
+    holes(list) { if (dead || list === holes) return; holes = list || NONE; LG?.setHoles?.(holes); api.paint(); },
     /** The content generation: counts each change of words, looks or mirrors. */
     get gen() { return gen; },
     /** Called first in each frame the names are drawn (now): the owner sets their places there; true while one of them still moves. */
@@ -478,7 +533,7 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
       if (lk && (I.lines !== lines || I.lk !== lk || I.gr !== glyphsReady())) {
         I.lines = lines; I.lk = lk; I.gr = glyphsReady();
         I.set = setLines(lk, lines, I.own || (I.own = { lines: [], n: 0, w: 0, h: 0 }));   // (its own record: a mirrored one, mirror(), is the owner's, never written into)
-        I.w = I.set.w; I.h = I.set.h; I.size[0] = I.w; I.size[1] = I.h; gen++;
+        I.w = I.set.w; I.h = I.set.h; I.size[0] = I.w; I.size[1] = I.h; I.sv = ++svSeq; gen++;
       } else if (!lk) { I.lines = lines; }
       return lk ? I.size : I.zero;
     },
@@ -488,8 +543,8 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
       if (!I) items.set(key, I = newItem(key));
       if (!looks.has(key)) looks.set(key, MIRROR);
       gen++;
-      if (!m) { I.set = null; api.paint(); return; }
-      I.set = m; I.w = m.w; I.h = m.h; I.sig = ''; I.lines = null;
+      if (!m) { I.set = null; I.sv = ++svSeq; api.paint(); return; }
+      I.set = m; I.w = m.w; I.h = m.h; I.sig = ''; I.lines = null; I.sv = ++svSeq;
       if (glyphsReady()) for (const ln of m.lines) for (const q of ln.runs) if (outlined(q.t)) outlineOf(q.t, q.r);   // (the words' outlines made here, between frames, not in the frame that first draws them)
       api.paint();
     },
@@ -573,7 +628,7 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
       onFrame = onRest = onDrawn = onPresented = onLost = null;
       gpu?.dispose?.(); gpu = null;
       items.clear(); leads.clear(); extras.clear(); looks.clear(); drawn = []; shown = []; drawnL = []; shownL = []; drawnN = shownN = drawnLN = shownLN = 0;
-      cv.remove();
+      cv.remove(); model.remove(); LG?.dispose?.();
       presented = false;
       if (was) lost?.();
       // alloc-rare: teardown, when the layer is let go, never in a frame
