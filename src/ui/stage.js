@@ -1407,6 +1407,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const glowPairs = [];   // (each wanted vessel's two ends, as node, colour, node, colour…: how many glow in which colour at a node)
   // (Two sources lighting a vessel in one colour are merged into one of these, written in place: one per vessel, made once, and read only
   // within the call that fills glowWant.)
+  const glowLitPool = {};
+  for (const id in E) glowLitPool[id] = { v: 0, to: 0, col: null, from: null, cu: 1, rgb: undefined, end: [0, 0], endT: [0, 0], span: [0, 0], spanT: [0, 1] };
   const glowMergePool = ALL_EDGES.map(() => ({ merged: true, id: undefined, col: undefined, amt: undefined, wide: undefined, at: undefined, top: undefined, dur: undefined, span: undefined }));
   // How far from its end a glow fades: a free end over a third of the vessel, an end that meets another colour over a few units, and none
   // where it runs on into a vessel glowing in the same colour.
@@ -1445,7 +1447,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const [id, g] of want) {
       const len = Math.max(1, geo[id]?.len || 60), key = g.col ?? '';
       let l = glow.lit.get(id);
-      if (!l) { l = { v: 0, to: 0, col: g.col, from: null, cu: 1, end: [0, 0], endT: [0, 0], span: [0, 0], spanT: [0, 1] }; glow.lit.set(id, l); }
+      if (!l) {   // (a vessel's record from its own, made once; it is as a new one would be, taken out of glow.lit when its glow ends and put back as it starts)
+        l = glowLitPool[id];
+        l.v = 0; l.to = 0; l.col = g.col; l.from = null; l.cu = 1; l.rgb = undefined;
+        l.end[0] = 0; l.end[1] = 0; l.endT[0] = 0; l.endT[1] = 0; l.span[0] = 0; l.span[1] = 0; l.spanT[0] = 0; l.spanT[1] = 1;
+        glow.lit.set(id, l);
+      }
       if (!l.to) l.start = now + (g.at || 0);
       if (l.col !== g.col) { l.from = l.v > 0 && l.col && l.rgb ? l.rgb : null; l.cu = l.from ? 0 : 1; l.col = g.col; }
       l.to = 1; l.amt = g.amt ?? 1; l.wide = g.wide || 1; l.top = !!g.top; l.dur = (g.dur || 450) / 1000;
@@ -2270,7 +2277,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // their usual .25s opacity transition is held off while it is driven frame by frame (and eases the anatomy back in under the landed lobule).
   let diveFadeO = null;
   function setDiveFade(o) {
-    const q = o === null ? null : +o.toFixed(3);
+    const q = o === null ? null : Math.round(o * 1000) / 1000;   // (o is 0 or 1 here; to the thousandth, with no string made)
     if (q === diveFadeO) return;
     diveFadeO = q;
     fadeStop(vCanvas);   // (a resolution fade gives the canvas's opacity back to the dive at once: both set it, and its copy does not zoom)
@@ -2804,21 +2811,33 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // While presenting, the presenter names the free area (freeArea: the open rectangles the words, the data card where it
   // comes to rest and the controls leave), and the box is centred in whichever of them shows it largest.
   let freeArea = null, lastFree = null;
-  function boxVT([x0, y0, x1, y1], kMax = 4, clear = false) {
-    const r = { width: svg.clientWidth, height: svg.clientHeight };
-    if (!r.width || !r.height) return null;
-    const s0 = Math.min(r.width / VB_ANAT[2], r.height / VB_ANAT[3]), pad = clear ? 12 : 0;   // (clear: a margin for the vessels' glow)
-    const fitK = (q) => Math.min(Math.max(40, q.r - q.l - 2 * pad) / s0 / (x1 - x0), Math.max(40, q.b - q.t - 2 * pad) / s0 / (y1 - y0));
+  // (boxVT's working numbers, kept: its helpers read them, so no closure is made for each call. bvPref: the rectangles that suit the box;
+  // bvDefault: the one rectangle left when the presenter names none.)
+  let bvX0 = 0, bvY0 = 0, bvX1 = 0, bvY1 = 0, bvS0 = 1, bvPad = 0, bvKMax = 4;
+  const bvPref = [], bvRect = { l: 0, t: 0, r: 0, b: 0 }, bvDefault = [bvRect];
+  function bvFitK(q) { return Math.min(Math.max(40, q.r - q.l - 2 * bvPad) / bvS0 / (bvX1 - bvX0), Math.max(40, q.b - q.t - 2 * bvPad) / bvS0 / (bvY1 - bvY0)); }
+  const bvScore = (q) => Math.min(bvFitK(q), bvKMax);
+  const bvArea = (q) => (q.r - q.l) * (q.b - q.t);
+  function boxVT(box, kMax = 4, clear = false) {
+    const x0 = box[0], y0 = box[1], x1 = box[2], y1 = box[3], rw = svg.clientWidth, rh = svg.clientHeight;
+    if (!rw || !rh) return null;
+    bvX0 = x0; bvY0 = y0; bvX1 = x1; bvY1 = y1; bvKMax = kMax;
+    const s0 = bvS0 = Math.min(rw / VB_ANAT[2], rh / VB_ANAT[3]);
+    bvPad = clear ? 12 : 0;   // (clear: a margin for the vessels' glow)
     let rects = store.get().presenting && freeArea ? freeArea() : null;
-    { const pref = rects?.filter((q) => q.pref && fitK(q) >= (clear ? 0.3 : 0.6)); if (pref?.length) rects = pref; }   // (between the cards, when the box fits there)
-    if (!rects?.length) { const ins = safeInsets(clear); rects = [{ l: ins.l, t: ins.t, r: r.width - ins.r, b: r.height - ins.b }]; }
+    if (rects) {   // (between the cards, when the box fits there)
+      const least = clear ? 0.3 : 0.6;
+      bvPref.length = 0;
+      for (let i = 0; i < rects.length; i++) if (rects[i].pref && bvFitK(rects[i]) >= least) bvPref.push(rects[i]);
+      if (bvPref.length) rects = bvPref;
+    }
+    if (!rects?.length) { const ins = safeInsets(clear); bvRect.l = ins.l; bvRect.t = ins.t; bvRect.r = rw - ins.r; bvRect.b = rh - ins.b; rects = bvDefault; }
     // (A clearly larger fit wins; within 4% the larger rectangle does, so a near tie never flips the framing about.)
-    const score = (q) => Math.min(fitK(q), kMax);
-    const area = (q) => (q.r - q.l) * (q.b - q.t);
-    const f = rects.reduce((a, q) => (score(q) > score(a) * 1.04 || (score(q) >= score(a) / 1.04 && area(q) > area(a)) ? q : a));
+    let f = rects[0];
+    for (let i = 1; i < rects.length; i++) { const q = rects[i]; if (bvScore(q) > bvScore(f) * 1.04 || (bvScore(q) >= bvScore(f) / 1.04 && bvArea(q) > bvArea(f))) f = q; }
     lastFree = { ...f, box: [x0, y0, x1, y1] };
-    const k = clamp(fitK(f), clear ? 0.3 : 0.6, kMax);
-    const cx = VB_ANAT[0] + VB_ANAT[2] / 2 + ((f.l + f.r) / 2 - r.width / 2) / s0, cy = VB_ANAT[1] + VB_ANAT[3] / 2 + ((f.t + f.b) / 2 - r.height / 2) / s0;
+    const k = clamp(bvFitK(f), clear ? 0.3 : 0.6, kMax);
+    const cx = VB_ANAT[0] + VB_ANAT[2] / 2 + ((f.l + f.r) / 2 - rw / 2) / s0, cy = VB_ANAT[1] + VB_ANAT[3] / 2 + ((f.t + f.b) / 2 - rh / 2) / s0;
     return { k, x: cx - k * ((x0 + x1) / 2), y: cy - k * ((y0 + y1) / 2) };
   }
   // (opt.drift: a slow push, see drifting.)
