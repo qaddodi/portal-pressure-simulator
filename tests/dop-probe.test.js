@@ -152,7 +152,7 @@ test('the probe and its line of sight take the side clear of the labels and call
   const up = probePose({ g, t, r, w: W, h: H, side: 1 }), down = probePose({ g, t, r, w: W, h: H, side: -1 });
   assert.equal(probePose({ g, t, r, w: W, h: H, cards: [up.box], avoid: [down.box] }).side, -1);
   // The labels keep off the line of sight too, and the probe is drawn beneath the labels' layer (and the callouts above it).
-  assert.match(stage, /out\.push\(\.\.\.\[dpr\.box, \.\.\.dpr\.marks\]\.map\(/);
+  assert.match(stage, /const b = i < 0 \? dpr\.box : marks\[i\], c = PROBE_BOXES\[i \+ 1\]/);   // (the body, then the line of sight, in the callouts)
   assert.match(stage, /labelSvg\.before\(el\); dpr\.el = el/);
   assert.match(stage, /O\.avoid = dprAvoid\(\)/);
 });

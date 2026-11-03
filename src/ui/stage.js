@@ -10505,14 +10505,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (leadShort) { leadShort = false; nextFrame(() => { if (F) updateLabels(F, true); }); }
   }
   const leadTake = (tag) => { const el = leadSpare.get(tag)?.pop() || null; if (!leadFill && (leadSpare.get(tag)?.length ?? 0) < LEAD_SPARE / 2) leadFill = restPass(leadTop); return el; };
+  // (The keys wanted and the leaders wanted, kept and emptied for each call; late('lead') reads the list only when the rest pass runs, and
+  // a later call's list is then the one that stands. A leader's removal after its fade is a function taking its key and its line, asked
+  // of setTimeout with them, so none is made per call.)
+  const leadKeep = new Set(), leadWantEls = [];
+  const leadGoneFire = (k, el) => { if (leadEls.get(k) === el && el._gone) { el.remove(); leadEls.delete(k); } };
   function paintLeaders(want) {
-    const keep = new Set(want.map((w) => w.k)), els = [];
+    const keep = leadKeep, els = leadWantEls;
+    keep.clear(); els.length = 0;
+    for (let i = 0; i < want.length; i++) keep.add(want[i].k);
     for (const w of want) {
       let el = leadEls.get(w.k);
       if (el && el.tagName !== w.tag) { el.remove(); leadEls.delete(w.k); el = null; }
       if (!el) { el = leadTake(w.tag); if (!el) { leadShort = true; if (!leadFill) leadFill = restPass(leadTop); continue; } leadEls.set(w.k, el); }
       if (el._gone) { clearTimeout(el._gone); el._gone = 0; el.classList.remove('ld-gone'); }
-      for (const [a, v] of Object.entries(w.at)) setA(el, a, v);
+      for (const a in w.at) setA(el, a, w.at[a]);
       els.push(el);
     }
     // (A new one goes in just before the next one wanted that is already in, so every line still lies under every dot.)
@@ -10522,7 +10529,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (keep.has(k) || el._gone) continue;
       if (reduceMotion.matches) { el.remove(); leadEls.delete(k); continue; }
       el.classList.add('ld-gone');
-      el._gone = setTimeout(() => { if (leadEls.get(k) === el && el._gone) { el.remove(); leadEls.delete(k); } }, 360);
+      el._gone = setTimeout(leadGoneFire, 360, k, el);
     }
   }
   const termTone =(id) => { const st = store.get(); return (st.presenting && st.presentTerms?.[id]) || null; };
@@ -10617,6 +10624,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       b.bg = bgEl;
     }
   }
+  // (What the liver's glass and each label's place were last written from: the numbers, so the text for the page is made only when one moved.)
+  let glassX = NaN, glassY = NaN, glassW = NaN, glassH = NaN;
   function blockRest(b, it) {
     for (const text of b.textLines) setA(text, 'x', it.align === 'end' ? it.w - (it.swatch ? 7 : 0) : it.align === 'middle' ? it.w / 2 : it.swatch ? 7 : 0);
     if (b.bg) { setA(b.bg, 'width', it.w + 2 * it.padX); setA(b.bg, 'height', it.h + 2 * it.padY); }
@@ -10626,17 +10635,29 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     b.g.classList.toggle('lb-off', !!it.hide);
     labelStop(b, !!it.hide);
     if (it.key === 'liver') {
-      glass.style.transform = `translate(${(it.x - it.padX).toFixed(1)}px, ${(it.y - it.padY).toFixed(1)}px)`;
+      const gx = it.x - it.padX, gy = it.y - it.padY;
+      if (gx !== glassX || gy !== glassY) { glassX = gx; glassY = gy; glass.style.transform = `translate(${gx.toFixed(1)}px, ${gy.toFixed(1)}px)`; }
       // (its size is laid out in a rest pass between frames, never in the frame that placed it: sizeGlass)
-      const gw = `${(it.w + 2 * it.padX).toFixed(1)}px`, gh = `${(it.h + 2 * it.padY).toFixed(1)}px`;
-      if (gw !== glassWant[0] || gh !== glassWant[1]) { glassWant = [gw, gh]; if (!glassSizing) glassSizing = restPass(sizeGlass); }
+      const gwN = it.w + 2 * it.padX, ghN = it.h + 2 * it.padY;
+      if (gwN !== glassW || ghN !== glassH) {
+        glassW = gwN; glassH = ghN;
+        const gw = `${gwN.toFixed(1)}px`, gh = `${ghN.toFixed(1)}px`;
+        if (gw !== glassWant[0] || gh !== glassWant[1]) { glassWant[0] = gw; glassWant[1] = gh; if (!glassSizing) glassSizing = restPass(sizeGlass); }
+      }
     }
     // A turned caption reads bottom to top: its box's top-left is (x, y), and its text runs up from the bottom.
-    setA(b.g, 'transform', it.rot ? `translate(${it.x.toFixed(1)} ${(it.y + it.w).toFixed(1)}) rotate(-90)` : `translate(${it.x.toFixed(1)} ${it.y.toFixed(1)})`);
+    if (it.x !== b.tx || it.y !== b.ty || it.w !== b.tw || !!it.rot !== b.tr) {
+      b.tx = it.x; b.ty = it.y; b.tw = it.w; b.tr = !!it.rot;
+      setA(b.g, 'transform', it.rot ? `translate(${it.x.toFixed(1)} ${(it.y + it.w).toFixed(1)}) rotate(-90)` : `translate(${it.x.toFixed(1)} ${it.y.toFixed(1)})`);
+    }
     // (Where the GPU lays its picture: the same origin, label-gl.js.)
     b.pos = { g: b.g, x: +it.x.toFixed(1), y: +(it.rot ? it.y + it.w : it.y).toFixed(1), rot: !!it.rot };
     // (Its box on an 8 px grid, for the corner credit's look (labelBoxStamp): a number ticking inside it moves nothing the credit avoids.)
-    b.box = `${Math.floor((it.x - it.padX) / 8)},${Math.floor((it.y - it.padY) / 8)},${Math.ceil((it.x + (it.rot ? it.h : it.w) + it.padX) / 8)},${Math.ceil((it.y + (it.rot ? it.w : it.h) + it.padY) / 8)}${it.hide ? 'h' : ''}`;
+    const c0 = Math.floor((it.x - it.padX) / 8), c1 = Math.floor((it.y - it.padY) / 8), c2 = Math.ceil((it.x + (it.rot ? it.h : it.w) + it.padX) / 8), c3 = Math.ceil((it.y + (it.rot ? it.w : it.h) + it.padY) / 8), ch = !!it.hide;
+    if (!b.box || c0 !== b.bc0 || c1 !== b.bc1 || c2 !== b.bc2 || c3 !== b.bc3 || ch !== b.bch) {
+      b.bc0 = c0; b.bc1 = c1; b.bc2 = c2; b.bc3 = c3; b.bch = ch;
+      b.box = `${c0},${c1},${c2},${c3}${ch ? 'h' : ''}`;
+    }
     b.gone = null;
     b.g.style.display = '';
   }
@@ -10647,7 +10668,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const crosses = (x0, y0, x1, y1, b) => {
     let t0 = 0, t1 = 1;
     const dx = x1 - x0, dy = y1 - y0;
-    for (const [p, q] of [[-dx, x0 - b.x0], [dx, b.x1 - x0], [-dy, y0 - b.y0], [dy, b.y1 - y0]]) {
+    for (let n = 0; n < 4; n++) {
+      const p = n === 0 ? -dx : n === 1 ? dx : n === 2 ? -dy : dy, q = n === 0 ? x0 - b.x0 : n === 1 ? b.x1 - x0 : n === 2 ? y0 - b.y0 : b.y1 - y0;
       if (!p) { if (q < 0) return false; continue; }
       const r = q / p;
       if (p < 0) t0 = Math.max(t0, r); else t1 = Math.min(t1, r);
@@ -10659,6 +10681,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Candidate offset of a block around its anchor.
   // A ring's sixteen spots, level ones first (east, west), then ever further from level.
   const RING_DIRS = [0, 8, 1, 15, 7, 9, 2, 14, 6, 10, 3, 13, 5, 11, 4, 12].map((k) => 'R' + k);
+  const RING_K = {};   // (each spot's sixteenths of a turn, looked up by offset: the spot's name is not cut up on every call)
+  for (let k = 0; k < 16; k++) RING_K['R' + k] = k;
   // Spots for a mark's centre around its station, every 6 px out to 150, nearest first (see the focus callout).
   const MARK_GRID = [];
   for (let x = -150; x <= 150; x += 6) for (let y = -150; y <= 150; y += 6) if (Math.hypot(x, y) <= 150 && Math.hypot(x, y) >= 24) MARK_GRID.push([x, y]);
@@ -10685,7 +10709,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       case 'SW': x = -d - w; y = d; break;
       default:
         // 'R<k>': centred on a ring of radius gap around the anchor, k sixteenths of a turn from due east (RING_DIRS)
-        if (dir[0] === 'R') { const a = (+dir.slice(1) * Math.PI) / 8; x = gap * Math.cos(a) - w / 2; y = gap * Math.sin(a) - hh / 2; }
+        if (dir[0] === 'R') { const a = (RING_K[dir] * Math.PI) / 8; x = gap * Math.cos(a) - w / 2; y = gap * Math.sin(a) - hh / 2; }
     }
     OFF_XY[0] = x; OFF_XY[1] = y;
     return OFF_XY;
@@ -10722,7 +10746,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const tone = (v) => { const c = mix3(toRGB(v, cs), [1, 1, 1], lift); return `rgb(${c.map((x) => Math.round(x * 255)).join(', ')})`; };   // colour-exempt: built from the glow tokens
     const up = tone('var(--glow-up)'), down = tone('var(--glow-down)');
     setGlowSrc('delta', list.map(([id, d]) => ({ id, col: d > 0 ? up : down, amt: RIPPLE_AMT, wide: 1.3, dur: 420 })));
-    if (list.length) rippleT = setTimeout(() => setGlowSrc('delta', []), RIPPLE_HOLD);
+    if (list.length) rippleT = setTimeout(setGlowSrc, RIPPLE_HOLD, 'delta', noGlows);
   }
   const isImaging = () => !!store.get().imaging;
   // Captions of findings (varices, collaterals) can stay hidden until a test shows them.
@@ -10960,18 +10984,46 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const pzInset = (k) => parseFloat(appStyle?.getPropertyValue(k)) || 0;
   // The readings drawn over the figure (a slide's measuring sites and resistors, the HVPG catheter's callouts): the figure's
   // labels keep clear of them. Their boxes are worked out where they are placed (calloutBox), so this reads no layout.
+  // (The list is kept and written in place: the one layout that runs reads it, a solve in slices across its frames included, and a layout
+  // that begins ends any other first. The probe's boxes are copies, from a pool made once, as many as the probe's own lists hold.)
+  const calloutBuf = [], PROBE_BOXES = [];
+  for (let i = 0; i < 1600; i++) PROBE_BOXES.push({ x0: 0, y0: 0, x1: 0, y1: 0, probe: true });
   function calloutBoxes() {
-    const out = [];
-    for (const el of sites.made.values()) if (el._box && !el.classList.contains('cath-pre')) out.push(el._box);
-    if (cath.made && !cath.labels.hidden) for (const el of cath.made.values()) if (el._box) out.push(el._box);
-    if (dpr.on && dpr.box) out.push(...[dpr.box, ...dpr.marks].map((b) => ({ ...b, probe: true })));   // (the Doppler probe's body and its line of sight)
+    const out = calloutBuf;
+    let n = 0;
+    for (const el of sites.made.values()) if (el._box && !el.classList.contains('cath-pre')) out[n++] = el._box;
+    if (cath.made && !cath.labels.hidden) for (const el of cath.made.values()) if (el._box) out[n++] = el._box;
+    if (dpr.on && dpr.box) {   // (the Doppler probe's body and its line of sight)
+      const marks = dpr.marks;
+      for (let i = -1; i < marks.length; i++) {
+        const b = i < 0 ? dpr.box : marks[i], c = PROBE_BOXES[i + 1];
+        c.x0 = b.x0; c.y0 = b.y0; c.x1 = b.x1; c.y1 = b.y1;
+        out[n++] = c;
+      }
+    }
+    out.length = n;
     return out;
   }
   // What the labels' slots depend on: which readings show and how big they are (where they stand follows the camera, which
   // the labels' own key already holds). A new or resized reading lays the labels out afresh, so one under it moves aside.
-  const calloutSig = () => [...sites.made.values(), ...(cath.made && !cath.labels.hidden ? cath.made.values() : [])]
-    .map((el) => el._box ? `${el.className}:${Math.round(el._box.x1 - el._box.x0)}x${Math.round(el._box.y1 - el._box.y0)}` : '').join('|')
-    + (dpr.on && dpr.box ? `|dpr:${Math.round((dpr.box.x1 - dpr.box.x0) / 8)}x${Math.round((dpr.box.y1 - dpr.box.y0) / 8)}` : '');
+  // (A number folded from the same things the text was: each reading's class and rounded size in order, then the probe's, so a callout that
+  // comes, goes or is resized changes it. No text is made.)
+  const sigFold = (h, v) => Math.imul(h ^ (v | 0), 16777619);
+  const sigFoldEl = (h, el) => {
+    h = sigFold(h, 124);
+    const b = el._box;
+    if (!b) return h;
+    const c = el.className;
+    if (typeof c === 'string') for (let i = 0; i < c.length; i++) h = sigFold(h, c.charCodeAt(i));
+    return sigFold(sigFold(sigFold(h, 58), Math.round(b.x1 - b.x0)), Math.round(b.y1 - b.y0));
+  };
+  const calloutSig = () => {
+    let h = 2166136261;
+    for (const el of sites.made.values()) h = sigFoldEl(h, el);
+    if (cath.made && !cath.labels.hidden) for (const el of cath.made.values()) h = sigFoldEl(h, el);
+    if (dpr.on && dpr.box) h = sigFold(sigFold(sigFold(h, 100), Math.round((dpr.box.x1 - dpr.box.x0) / 8)), Math.round((dpr.box.y1 - dpr.box.y0) / 8));
+    return h;
+  };
   let blockersAsk = 0;
   // The boxes come from a fresh IntersectionObserver's first report: the browser hands every box over after its own layout of the
   // frame, so reading them forces no layout (a slide change read them ten times a second, ~385 forced layouts: 2 Nov 2026, "Move
@@ -11056,39 +11108,58 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // A haloed label is seen as its letters: each run of text (a name, a number, a unit) from its tallest figures' tops
   // (0.72 of its font) down to the next line, the last line's to just below its baseline, as wide as the run, plus the halo.
   const LOW = /[acegmnopqrsuvwxyz]/, X_HEIGHT = 0.55;   // (Inter's x-height, 0.546 of its size; its round letters overshoot it a little)
+  // (The boxes are a kept pool, written in place, and the list of them a kept list: seenEnd, their one caller, reads them at once.)
+  const inkOut = [], inkPool = [];
+  for (let i = 0; i < 256; i++) inkPool.push({ x0: 0, y0: 0, x1: 0, y1: 0 });
+  const inkBox = (n, x0, y0, x1, y1) => {
+    const b = inkPool[n] || (inkPool[n] = { x0: 0, y0: 0, x1: 0, y1: 0 });   // (more than a label has ever held: one more is made)
+    b.x0 = x0; b.y0 = y0; b.x1 = x1; b.y1 = y1;
+    return b;
+  };
   const inkRects = (it) => {
-    const out = [], halo = 1;
-    let y = it.y, prev = [];
-    it.lines.forEach((line, li) => {
+    const out = inkOut, halo = 1, lines = it.lines;
+    let y = it.y, n = 0, prevFrom = 0, prevTo = 0;
+    for (let li = 0; li < lines.length; li++) {
+      const line = lines[li];
       const lh = LINE_H(line), lw = lineW(line) + (it.swatch ? 7 : 0), base = y + lh * 0.78;
       let x = (it.align === 'end' ? it.x + it.w - lw : it.align === 'middle' ? it.x + (it.w - lw) / 2 : it.x) + (it.swatch ? 7 : 0);
       // (Within a run, letters that stand only to the x-height (a, e, o, v, …) are a box of their own that high: a leader coming down
       // on "vein" from above stopped at the capitals' height, 3 px over the letters it met, as the zoom landed.)
-      const row = [];
-      line.forEach((r, i) => {
+      const rowFrom = n;
+      for (let i = 0; i < line.length; i++) {
+        const r = line[i];
         const f = fontPx(r.size), tr = r.track || 0, w = textW(r.t, f, r.weight, tr);
         if (i) x += (r.gap ?? 3) * labelK;
         let from = 0;
-        if (!r.t.length) row.push({ x0: x - halo, x1: x + w + halo, y0: base - f * 0.72 - halo, y1: base + halo });
+        if (!r.t.length) { out[n] = inkBox(n, x - halo, base - f * 0.72 - halo, x + w + halo, base + halo); n++; }
         for (let j = 1; j <= r.t.length; j++) {
           if (j < r.t.length && LOW.test(r.t[j]) === LOW.test(r.t[from])) continue;
           const a = from ? textW(r.t.slice(0, from), f, r.weight, tr) : 0, e = j === r.t.length ? w : textW(r.t.slice(0, j), f, r.weight, tr);
-          row.push({ x0: x + a - halo, x1: x + e + halo, y0: base - f * (LOW.test(r.t[from]) ? X_HEIGHT : 0.72) - halo, y1: base + halo });
+          out[n] = inkBox(n, x + a - halo, base - f * (LOW.test(r.t[from]) ? X_HEIGHT : 0.72) - halo, x + e + halo, base + halo); n++;
           from = j;
         }
         x += w;
-      });
-      const top = Math.min(...row.map((b) => b.y0));
-      for (const b of prev) b.y1 = Math.max(b.y1, top);
-      out.push(...row); prev = row; y += lh;
-      if (li === it.lines.length - 1) for (const b of row) b.y1 = base + halo;
-    });
+      }
+      let top = Infinity;
+      for (let k = rowFrom; k < n; k++) top = Math.min(top, out[k].y0);
+      for (let k = prevFrom; k < prevTo; k++) out[k].y1 = Math.max(out[k].y1, top);
+      prevFrom = rowFrom; prevTo = n; y += lh;
+      if (li === lines.length - 1) for (let k = rowFrom; k < n; k++) out[k].y1 = base + halo;
+    }
+    out.length = n;
     return out;
   };
+  // (The box of a pill and the outer box of the letters, and the point a leader falls back to: kept, read by seenEnd's caller at once.)
+  const SEEN_R = { x0: 0, y0: 0, x1: 0, y1: 0 }, SEEN_OUTER = { x0: 0, y0: 0, x1: 0, y1: 0 }, SEEN_XY = { x: 0, y: 0 };
   const seenEnd = (it) => {
-    if (it.bg) return edgeOf(rectOf(it), it.ax, it.ay) || { x: it.ax, y: it.ay };
-    const rs = inkRects(it), outer = { x0: Math.min(...rs.map((r) => r.x0)), y0: Math.min(...rs.map((r) => r.y0)), x1: Math.max(...rs.map((r) => r.x1)), y1: Math.max(...rs.map((r) => r.y1)) };
-    return edgeOfRects(rs, outer, it.ax, it.ay) || { x: it.ax, y: it.ay };
+    if (it.bg) {
+      SEEN_R.x0 = it.x - it.padX; SEEN_R.y0 = it.y - it.padY; SEEN_R.x1 = it.x + it.w + it.padX; SEEN_R.y1 = it.y + it.h + it.padY;
+      return edgeOf(SEEN_R, it.ax, it.ay) || (SEEN_XY.x = it.ax, SEEN_XY.y = it.ay, SEEN_XY);
+    }
+    const rs = inkRects(it), outer = SEEN_OUTER;
+    outer.x0 = Infinity; outer.y0 = Infinity; outer.x1 = -Infinity; outer.y1 = -Infinity;
+    for (let k = 0; k < rs.length; k++) { const r = rs[k]; outer.x0 = Math.min(outer.x0, r.x0); outer.y0 = Math.min(outer.y0, r.y0); outer.x1 = Math.max(outer.x1, r.x1); outer.y1 = Math.max(outer.y1, r.y1); }
+    return edgeOfRects(rs, outer, it.ax, it.ay) || (SEEN_XY.x = it.ax, SEEN_XY.y = it.ay, SEEN_XY);
   };
   // ── Label placement ──
   // A label's slot is solved in figure terms and then carried rigidly: it is stored as the figure
@@ -11108,16 +11179,22 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // station in view. All: every station at every zoom. None: only a selected station.
   const KEY_NODES = ['CONF', 'SIN_R', 'RHV'];
   const zoomedIn = () => vt.k > (homeAt?.k || 1) * 1.3;
-  function flagged(f) {
-    const st = store.get(), out = [];
+  // (The stations flagged, written into a kept list: one for the layout, which keeps its list while it runs, and one for the signature, which
+  // is asked for on every frame, a layout in slices between its slices too.)
+  const flagBuf = [], flagSigBuf = [];
+  function flagged(f, out = flagBuf) {
+    const st = store.get();
+    out.length = 0;
     if (hasVarices('VAR', f)) out.push('VAR');
     if (hasVarices('GV', f)) out.push('GV');
     if (f.metrics?.ra > 10) out.push('RA');   // the Findings cut-off for a raised right atrial pressure
     // A narrowed vessel: the stations either side of it.
-    for (const [id, v] of Object.entries((f.viewParams || st.params).stenosis || {})) {
-      const e = v > 0 && EDGES[EI[id]];
+    const sten = (f.viewParams || st.params).stenosis;
+    if (sten) for (const id in sten) {
+      if (!Object.hasOwn(sten, id)) continue;
+      const e = sten[id] > 0 && EDGES[EI[id]];
       if (!e) continue;
-      for (const n of [e.from, e.to]) if (CHIP_NODES.includes(n) && !out.includes(n)) out.push(n);
+      for (let q = 0; q < 2; q++) { const n = q ? e.to : e.from; if (CHIP_NODES.includes(n) && !out.includes(n)) out.push(n); }
     }
     return out;
   }
@@ -11233,7 +11310,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     sigStats.builds++;
     const edges = EV.filter((x) => x.vis).map((x) => `${x.e.id}${sigWidth(x)}${x.ghost ? 'g' : ''}`).join(',');
     return (sigText = [labelGeo, t >= 0.5, rotU > 0.5, labelBase(), stageBox().width < 700, st.selection?.type + ':' + st.selection?.id, paramJSON((f.viewParams || st.params).stenosis), paramJSON((f.viewParams || st.params).stenosisSite),
-      isImaging(), st.layers.labels, st.layers.chips, layerMode(), st.focus?.label, st.focus?.edges?.[0], st.focus?.marks && paramJSON(st.focus.marks), fxSig, fx?.steps && slideGlow.map((g) => g.id + g.at).join(), (fx?.organs.some((o) => o.organ === 'spleen') || fx?.calipers.some((c) => c.organ)) && Math.round((f.slow?.spleen ?? 11) * 2), d[7], st.labelLevel, st.presenting && st.presentLabels?.join(','), st.presenting && paramJSON(st.presentTerms || null), st.presenting && st.presentNames, scan.on, [...(st.hiddenLabels || [])].join(','), d[8], flagged(f).join(','), edges, `${tips}${dips}`, dop.key].join('|'));
+      isImaging(), st.layers.labels, st.layers.chips, layerMode(), st.focus?.label, st.focus?.edges?.[0], st.focus?.marks && paramJSON(st.focus.marks), fxSig, fx?.steps && slideGlow.map((g) => g.id + g.at).join(), (fx?.organs.some((o) => o.organ === 'spleen') || fx?.calipers.some((c) => c.organ)) && Math.round((f.slow?.spleen ?? 11) * 2), d[7], st.labelLevel, st.presenting && st.presentLabels?.join(','), st.presenting && paramJSON(st.presentTerms || null), st.presenting && st.presentNames, scan.on, [...(st.hiddenLabels || [])].join(','), d[8], flagged(f, flagSigBuf).join(','), edges, `${tips}${dips}`, dop.key].join('|'));
   }
   const sigStats = { builds: 0 };
   // (A vessel's label width moved by its 2 px step, outside a model frame: the width's own ease, stepWidths. See sigWidth.)
@@ -11246,7 +11323,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let cathHidAt = 0;
   const cathHid = () => !!cath.st && !cath.st.keep && wrap.classList.contains('cath-on') && performance.now() - cathHidAt > 300;
   // (What a stent's column of callouts is solved against besides the camera: the cards' insets and boxes. Empty without one.)
-  const labelIns = () => (dop.all ? [...['--pz-t', '--pz-l', '--pz-b', '--pz-r'].map((k) => Math.round(pzInset(k) / 8)), ...(blockerBoxes || []).flatMap((o) => [o.x0, o.y0, o.x1, o.y1].map((v) => Math.round(v / 8)))].join() : '');   // (and the cards' boxes, which can arrive a frame after the insets)
+  const INS_KEYS = ['--pz-t', '--pz-l', '--pz-b', '--pz-r'];
+  const labelIns = () => {   // (a number folded from the insets and the boxes, 0 without a column: no text is made)
+    if (!dop.all) return 0;
+    let h = 2166136261;
+    for (let i = 0; i < 4; i++) h = sigFold(h, Math.round(pzInset(INS_KEYS[i]) / 8));
+    if (blockerBoxes) for (let i = 0; i < blockerBoxes.length; i++) { const o = blockerBoxes[i]; h = sigFold(sigFold(sigFold(sigFold(h, Math.round(o.x0 / 8)), Math.round(o.y0 / 8)), Math.round(o.x1 / 8)), Math.round(o.y1 / 8)); }   // (and the cards' boxes, which can arrive a frame after the insets)
+    return h || 1;
+  };
   const stats = { layouts: 0, skips: 0, values: 0, ms: 0 };
   function updateLabels(f, force = false) {
     labelPainted = false;

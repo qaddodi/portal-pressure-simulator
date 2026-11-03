@@ -103,7 +103,8 @@ test("the three callouts never give way to the Doppler probe: the column's side,
   // (Mohammad, 22 Oct, TIPS Doppler slide 5: the mid callout hopped to the far side of the stent when a point was picked. The probe's boxes
   // were obstacles to the callouts, and the probe stood before or after them by chance: the column stands where the stent and the screen
   // put it, whatever the pick and whatever got there first.)
-  assert.match(stage, /if \(dpr\.on && dpr\.box\) out\.push\(\.\.\.\[dpr\.box, \.\.\.dpr\.marks\]\.map\(\(b\) => \(\{ \.\.\.b, probe: true \}\)\)\);/);
+  assert.match(stage, /PROBE_BOXES\.push\(\{ x0: 0, y0: 0, x1: 0, y1: 0, probe: true \}\)/);   // (the probe's boxes are copies marked probe, from a pool)
+  assert.match(stage, /if \(dpr\.on && dpr\.box\) \{[^]*?const b = i < 0 \? dpr\.box : marks\[i\], c = PROBE_BOXES\[i \+ 1\];/);
   assert.match(stage, /callouts\.map\(\(b\) => \(\{ x0: b\.x0 - 3, y0: b\.y0 - 3, x1: b\.x1 \+ 3, y1: b\.y1 \+ 3, call: true, probe: !!b\.probe \}\)\)/);
   // the side is scored without the probe; a point's spots and its visibility ignore it (the in-view pass included)
   assert.match(stage, /\(obstacles\.some\(\(o\) => !o\.probe && hits\(r, o\)\) \? 1e3 : 0\)/);
