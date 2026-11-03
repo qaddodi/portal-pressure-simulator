@@ -66,7 +66,8 @@ import { sheetPanes } from './sheet-glass.js';
 import { createScopeTile } from './scope-tile.js';
 import { tileKeys as cardKeys, toolOnly } from './card-tiles.js';
 import { D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, RISE_PX, cssCurve, easeIn, easeArrive } from './ease.js';
-import { glideOpacity, glideTranslate, glideStop } from './script-glide.js';
+import { glideOpacity, glideTranslate, glideStop, glideX, glideY } from './script-glide.js';
+import { signalMove } from './num-move.js';
 import { slideFold } from './fold-slide.js';
 import { pageOn, followOf, pageIn, swipeHeld } from './card-page.js';
 import { throwOut, throwIn, throwBack, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, INSTANT, throwOutNow, throwPinned, throwRelease, railable, railHold, railIn, railAway, railGhosts, railWaits, railCopies, RAIL_GAP } from './card-throw.js';
@@ -1865,10 +1866,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // frame off the GPU glass drawn under it). Its class says where it ends (app.css .pz-case, .on); this writes the way there, inline, from
   // where it stands if it was still moving, and takes the inline values off once it has landed (the class holds them).
   const RISE_CASE = 14;   // (px: where a case card waits below its place, as app.css .pz-case)
+  const caseFadeTokens = new WeakMap();
   function caseFade(c, on, ms) {
+    // Replacing a fade resolves the previous glide's promise. Its continuation must not stop or clear the new fade.
+    const token = {};   // alloc-rare: once when a case card begins or replaces a fade
+    caseFadeTokens.set(c, token);
     if (ms <= 0) { glideStop(c); c.style.removeProperty('opacity'); c.style.removeProperty('translate'); return; }
     glideTranslate(c, 0, on ? RISE_CASE : 0, 0, on ? 0 : RISE_CASE, ms, easeArrive);
-    glideOpacity(c, on ? 0 : 1, on ? 1 : 0, ms, easeArrive).then(() => { if (c.classList.contains('on') === on && on) { glideStop(c); c.style.removeProperty('opacity'); c.style.removeProperty('translate'); } });
+    glideOpacity(c, on ? 0 : 1, on ? 1 : 0, ms, easeArrive).then(() => { if (caseFadeTokens.get(c) === token && c.classList.contains('on') === on && on) { glideStop(c); c.style.removeProperty('opacity'); c.style.removeProperty('translate'); } });
   }
   let caseLift = null, caseCard = null, caseHideT = 0;   // (caseHideT: the timer that hides the card once it has faded out, caseShut)
   // The glass card goes up, a case's or a question's: its words fitted before it enters, so it never resizes on screen.
@@ -1964,23 +1969,24 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (With reduced motion it only fades where it was let go.)
     const ms = reduce.matches ? 300 : caseFlight(left, v);
     const slope = (Math.abs(v) * ms) / left;   // the finger's speed as the curve's starting slope
-    // alloc-rare: a case card flies or returns: once per throw, not per frame
-    c.style.transition = reduce.matches ? `opacity ${ms}ms linear`
-      // alloc-rare: a case card flies or returns: once per throw, not per frame
-      : `transform ${ms}ms cubic-bezier(.33,${clamp(0.33 * slope, 0.12, 0.9).toFixed(2)},.45,1), opacity ${ms}ms cubic-bezier(.4,0,.6,1)`;   // motion-scale: own pace (a fling carries the finger's own speed, so its curve starts at the finger's slope)
-    // alloc-rare: a case card flies or returns: once per throw, not per frame
-    if (!reduce.matches) c.style.transform = `translateX(${dir * dist}px) rotate(${dir * 10}deg)`;
-    c.style.opacity = '0';
+    const gx = glideX(c), gy = glideY(c);
+    const x = Number.isFinite(gx) ? gx : (card.dx || 0), y = Number.isFinite(gy) ? gy : (card.dragY || 0), opacity = parseFloat(c.style.opacity);
+    const curve = cssCurve(`cubic-bezier(.33,${clamp(0.33 * slope, 0.12, 0.9).toFixed(2)},.45,1)`);
+    caseFadeTokens.set(c, {}); glideStop(c);
+    c.style.removeProperty('transition'); c.style.removeProperty('transform');
+    // The card and its glass read these same frame-clock values. Rotation cannot be followed by the glass's translation model.
+    glideTranslate(c, x, y, reduce.matches ? x : dir * dist, y, ms, reduce.matches ? cssCurve('linear') : curve);
+    glideOpacity(c, Number.isFinite(opacity) ? opacity : 1, 0, ms, reduce.matches ? cssCurve('linear') : cssCurve('cubic-bezier(.4,0,.6,1)'));
     card.flown = performance.now() + ms; caseGone(card);
   }
   function caseBack(card) {
     const c = card.c;
-    // alloc-rare: a case card flies or returns: once per throw, not per frame
-    c.style.transition = `transform ${D_SURFACE}ms var(--ease), opacity ${D_SURFACE}ms var(--ease)`;
-    c.style.removeProperty('transform'); c.style.removeProperty('opacity');
-    card.dx = 0;
-    // alloc-rare: a case card flies or returns: once per throw, not per frame
-    setTimeout(() => { if (!card.flown && !card.drag) c.style.removeProperty('transition'); }, D_SURFACE + 40);
+    const x = card.dx || 0, y = card.dragY || 0, opacity = parseFloat(c.style.opacity), token = {};
+    caseFadeTokens.set(c, token); glideStop(c);
+    c.style.removeProperty('transition'); c.style.removeProperty('transform');
+    glideTranslate(c, x, y, 0, 0, D_SURFACE, easeArrive, () => { if (caseFadeTokens.get(c) === token && !card.flown && !card.drag) c.style.removeProperty('translate'); });
+    glideOpacity(c, Number.isFinite(opacity) ? opacity : 1, 1, D_SURFACE, easeArrive).then(() => { if (caseFadeTokens.get(c) === token && !card.flown && !card.drag) c.style.removeProperty('opacity'); });
+    card.dx = 0; card.dragY = 0;
   }
   // Before the slide's camera move: waits for the tap (the card fades as the camera sets off), and for the organs to be back on
   // their GPU copy, so the zoom to the slide is smooth even after a quick tap while the patient was still easing in.
@@ -5359,7 +5365,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       ? { x: t.clientX, y: t.clientY, t: performance.now() } : null;
   }, { passive: true, capture: true });
 
-  // ── The case card on a touch screen: it follows a finger sideways (tilting a little) and flies off when let go far enough
+  // ── The case card on a touch screen: it follows a finger sideways and flies off when let go far enough
   // out or flicked, either way (caseFling in src/ui/swipe.js); a shorter drag, or one carried back, springs back. A vertical
   // move, a second finger or a cancelled touch leaves it where it was. The slide swipe above leaves the card's touches alone,
   // and the click after a drag is swallowed. Touch events only, so a mouse on the Mac still just clicks. ──
@@ -5383,20 +5389,25 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   wrap.addEventListener('touchmove', (e) => {
     if (!cd) return;
     if (e.touches.length !== 1 || cd.card.flown) { caseLet(false); return; }
-    const t = e.touches[0], dx = t.clientX - cd.x, dy = t.clientY - cd.y, now = performance.now();
+    const t = e.touches[0], moveX = t.clientX - cd.x, dy = t.clientY - cd.y, now = performance.now();
     if (!cd.on) {
-      if (Math.abs(dy) > 10 && Math.abs(dy) >= Math.abs(dx)) { cd = null; return; }   // up or down first: not a card drag
-      if (Math.abs(dx) < 8) return;
+      if (Math.abs(dy) > 10 && Math.abs(dy) >= Math.abs(moveX)) { cd = null; return; }   // up or down first: not a card drag
+      if (Math.abs(moveX) < 8) return;
+      const x0 = glideX(cd.card.c), y0 = glideY(cd.card.c);
+      cd.baseX = Number.isFinite(x0) ? x0 : 0; cd.card.dragY = Number.isFinite(y0) ? y0 : 0;
+      caseFadeTokens.set(cd.card.c, {}); glideStop(cd.card.c);
+      cd.card.c.style.translate = cd.card.dragY ? `0px ${cd.card.dragY}px` : '';
       cd.on = true; cd.card.drag = true;
       cd.card.c.style.transition = 'none';
     }
     if (e.cancelable) e.preventDefault();
     ptPush(cd.pts, t.clientX, now);
     while (cd.pts.length > 2 && now - cd.pts[0][1] > 100) PT_FREE.push(cd.pts.shift());
-    const c = cd.card.c, w = cd.w;
+    const c = cd.card.c, w = cd.w, dx = (cd.baseX || 0) + moveX;
     cd.card.dx = dx;
-    c.style.transform = `translateX(${dx}px) rotate(${(dx / w) * 6}deg)`;
+    c.style.transform = `translateX(${dx}px)`;
     c.style.opacity = String(1 - Math.min(0.5, Math.abs(dx) / w * 0.6));
+    signalMove();
   }, { passive: false, capture: true });
   wrap.addEventListener('touchend', (e) => { if (cd && !e.touches.length) caseLet(true); }, { passive: true, capture: true });
   wrap.addEventListener('touchcancel', () => { if (cd) caseLet(false); }, { passive: true, capture: true });
@@ -5418,6 +5429,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const f = followOf(dx);
     pull.x = f.x; pull.o = f.o;
     for (const el of (pull.els ??= swipeEls())) { throwStop(el); el.style.transition = 'none'; el.style.transform = `translateX(${f.x.toFixed(1)}px)`; el.style.opacity = f.o.toFixed(3); }
+    signalMove();
   }
   // (Let go: the inline styles go in one style change with the slide's own leave (gone: the words carry on out from where they stand),
   // or, staying, the lines ease back from where they are and the words' opacity eases back by the card's own transition.)

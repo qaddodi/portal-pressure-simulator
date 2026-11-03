@@ -11,6 +11,7 @@ import { cubicBezier } from './ease.js';
 import { classSoon, runSoon } from './class-soon.js';
 import { caught } from './caught.js';
 import { D_SMALL } from './ease.js';
+import { signalMove } from './num-move.js';
 
 /** How far (px) the new card comes in from, and the stagger (ms) of a second card behind the first. */
 export const THROW_IN = 56, THROW_STAGGER = 40;
@@ -50,7 +51,7 @@ const write = (el, x, o) => { el.style.setProperty('transform', `translateX(${x.
 // card on the Mac, iPad and phone is a readings sheet whose leave class (.pz-sheet.pz-hide) faded its parts and its two glass pieces on a CSS
 // clock of their own (--d-small) and hid it after that, while the card itself rode 560 ms with the words: its glass and its readings were
 // gone in a third of the move. While thrown, its parts stand whole and only the card's inline opacity, on this clock, fades it: app.css.)
-const rest = (el) => { el.style.removeProperty('transform'); el.style.removeProperty('opacity'); el.style.removeProperty('transition'); classSoon(el, THROWING, false); };   // (let go a task after the frame, never in it: class-soon.js)
+const rest = (el) => { el.style.removeProperty('transform'); el.style.removeProperty('opacity'); el.style.removeProperty('transition'); classSoon(el, THROWING, false); signalMove(); };   // (let go a task after the frame, never in it: class-soon.js)
 const THROWING = 'pz-throwing';
 // (Where a card stands now: its inline translateX and opacity, as a swipe's finger or an earlier move left them, else at rest.)
 function here(el) {
@@ -91,9 +92,11 @@ function step() {
   try {
     const now = easeNow();
     for (const [el, r] of runs) {
-      try { stepRun(el, r, now); } catch (e) { caught('card-throw:step', e); if (runs.get(el) === r) { try { land(el, r, r.to.x, r.kind === 'in' ? 1 : 0); } catch (e2) { runs.delete(el); caught('card-throw:land', e2); } } }
+      try { stepRun(el, r, now); } catch (e) { caught('card-throw:step', e); if (runs.get(el) === r) { try { land(el, r, r.to.x, r.to.o); } catch (e2) { runs.delete(el); caught('card-throw:land', e2); } } }
     }
   } finally {
+    // Every card has reached this frame's position before the glass is asked to draw in the final phase.
+    signalMove();
     if (runs.size && !ask) ask = nextFrame(step);
     try { settle(); outCheck(); } catch (e) { caught('card-throw:settle', e); }
   }
@@ -108,9 +111,10 @@ function guard() {
   const wall = performance.now();
   let soonest = Infinity;
   for (const [el, r] of runs) {
-    if (wall >= r.dead) { try { land(el, r, r.to.x, r.kind === 'in' ? 1 : 0); } catch (e) { runs.delete(el); caught('card-throw:guard', e); } }
+    if (wall >= r.dead) { try { land(el, r, r.to.x, r.to.o); } catch (e) { runs.delete(el); caught('card-throw:guard', e); } }
     else if (r.dead < soonest) soonest = r.dead;
   }
+  signalMove();
   if (runs.size && !ask) ask = nextFrame(step);
   if (soonest < Infinity) { guardT = setTimeout(guard, Math.max(16, soonest - wall)); guardT.unref?.(); }   // alloc-rare: one timer a move, never in a frame
   try { settle(); outCheck(); } catch (e) { caught('card-throw:guard', e); }
@@ -127,6 +131,7 @@ function start(el, kind, to, ms, delay, done) {
   el.classList?.add(THROWING); classSoon(el, THROWING, true);   // (on in the task that starts the move; a let-go still waiting is overruled)
   el.style.setProperty('transition', 'none', 'important');
   write(el, from.x, from.o);   // (at once, in the task that starts it: no frame shows the class's own place in between)
+  signalMove();
   runs.set(el, { kind, from, to, x: from.x, o: from.o, t0: easeNow() + delay, ms, done, dead: performance.now() + delay + ms + GUARD_MS });
   if (!ask) ask = nextFrame(step);
   if (!guardT) { guardT = setTimeout(guard, delay + ms + GUARD_MS); guardT.unref?.(); }   // alloc-rare: one timer for all the moves, asked when none is waiting
@@ -159,6 +164,7 @@ function hold(el) {
   if (!holdMo) { rest(el); return; }
   el.style.removeProperty('transform');
   el.style.setProperty('opacity', '0', 'important');
+  signalMove();
   if (!OUT_CLS.some((c) => el.classList.contains(c))) { rest(el); return; }
   held.add(el);
   holdMo.observe(el, { attributes: true, attributeFilter: ['class'] });

@@ -46,11 +46,13 @@ function step() {
       c.write(u >= 1 ? 1 : c.ease(u));
       if (u >= 1) { r.c = null; c.done?.(); }
     }
-    if (!r.t && !r.o && !r.c) runs.delete(el);
+    // A completion callback may have stopped this record and started another glide on the same element.
+    if (!r.t && !r.o && !r.c && runs.get(el) === r) runs.delete(el);
   }
   // One wake for the frame, after every card part has been written. Glass draws in the scheduler's final phase.
   signalMove();
-  if (runs.size) ask = nextFrame(step);
+  // A completion callback may already have requested the next frame for a replacement glide.
+  if (runs.size && !ask) ask = nextFrame(step);
 }
 const runOf = (el) => { let r = runs.get(el); if (!r) runs.set(el, (r = { t: null, o: null, c: null })); return r; };   // alloc-rare: a card's first glide
 const go = () => { if (!ask) ask = nextFrame(step); };
@@ -72,6 +74,8 @@ export function glideOpacity(el, o0, o1, ms, ease) {
 
 /** Where el's translate glide has it now, px down (NaN when none is under way): the value last written, no style read. */
 export const glideY = (el) => runs.get(el)?.t?.y ?? NaN;
+/** The corresponding horizontal position, for a finger taking over an unfinished glide. */
+export const glideX = (el) => runs.get(el)?.t?.x ?? NaN;
 
 /** Calls write(e) in each frame for ms, e the eased progress (1 exactly in the last), then done: for a move that is more than a translate or an opacity (a scale). */
 export function glideCall(el, ms, ease, write, done) {
