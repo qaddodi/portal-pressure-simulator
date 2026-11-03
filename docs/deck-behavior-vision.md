@@ -207,6 +207,10 @@ hides, the figure glides to use the new room. When the top card on a phone hides
 - **V-FIT-4 (Now)** The figure never reframes while a card zoom is up (the zoomed card reports its rest place).
 - **V-FIT-5 (Now)** The framing leaves room for the slide's marks, lit vessels, readings and labels (`cam-room.js`), so none stands
   outside the frame or under a card.
+- **V-FIT-7 (Fix)** When a card hides, the figure glides to centre in the new free space and grows to fill it, up to the slide's own
+  framing limit (`kMax`) and keeping room for its marks and labels (V-FIT-5); when the card shows again it shrinks back by the same glide.
+  This is the same in Anatomy, Circuit, lobule and sinusoid (Mohammad, 3 Nov 2026, 14.2 A). *Check*: after a hide, the figure's scale is
+  larger than before by the ratio the new free space allows (within 2 %), capped at `kMax`; show restores the first framing to 0.5 %.
 - **V-FIT-6 (Fix)** Repeated opens of the same slide in the same free space give the same framing, to 0.5 %. (A phone once came in at
   0.814 and refit to 0.847.)
 
@@ -384,7 +388,7 @@ Each is asked as a clickable card in the project thread. Answers are written bac
    *Answer*: **B** (Mohammad, 3 Nov 2026). Applied in V-CARD-5.
 2. **14.2 When a card hides, how should the figure use the room?**
    A. ★ Glide to centre in the new space and grow to fill it. B. Glide to centre but keep its size. C. Stay where it is.
-   *Answer*: pending.
+   *Answer*: **A** (Mohammad, 3 Nov 2026). Applied in V-FIT-7.
 3. **14.3 On a deck slide that lights some labels, what do the other labels do (every view)?**
    A. Hide, as the lobule does today. B. ★ Dim to about 35 % and keep their places. C. Stay as they are; only the lit ones change.
    *Answer*: pending.
