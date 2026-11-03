@@ -261,7 +261,7 @@ and the rest step back, the same way in every view.
   slide's lit set and never removes it.
 - **V-LIT-6 (Fix)** During a dive, the lobule's lit labels fade in with the words, so they are already lit when the dive lands.
 - **V-LIT-7 (New)** Tap a label during a talk to spotlight it: the label and its structure light, others step back, a second tap or
-  Next clears it. Off by default on touch until Mohammad picks (14.5).
+  Next clears it. Approved as N4.
 
 ## 8. View switches and dives
 
@@ -298,7 +298,7 @@ up is the same film run backwards.
 - **V-CHART-5 (Fix)** The HVPG tracing follows the catheter: the step in the trace (free to wedge) appears in the same frame the balloon
   inflates on the figure.
 - **V-CHART-6 (New)** Tracing callouts: a short GPU marker drops onto the trace at the moment the reading is taken ("Wedge 22",
-  "Free 8"), so the room sees where the number came from. Question 14.6.
+  "Free 8"), so the room sees where the number came from. Approved as N6.
 - **V-CHART-7 (Now)** On a held question slide (`hold: true`), the answer marks ease in only after the answer slide lands.
 
 ## 10. Readiness, loading and failure
@@ -359,7 +359,10 @@ Rules:
 
 ## 13. New behaviour worth building
 
-Proposals for a great teaching deck, all GPU-drawn. Each is tagged New; the ones marked ★ need Mohammad's pick in section 14.
+Proposals for a great teaching deck, all GPU-drawn. Each is tagged New; the ones marked ★ needed Mohammad's pick in section 14.
+
+**Approved to build (Mohammad, 3 Nov 2026): N1, N2, N3, N4, N5, N6, N8 and N9.** N7 (room poll) and N10 (rehearsal) are not
+being built. Each feature must keep every rule above (no blink, labels with the figure, everything on the GPU) and comes with its own check.
 
 - **N1 ★ Presenter view (Mac).** A second window (or the same window on a laptop while the projector mirrors) with the current slide,
   the next slide's title, the notes, the handout question and a clock. Keys work from either window.
@@ -400,7 +403,7 @@ Each is asked as a clickable card in the project thread. Answers are written bac
 5. **14.5 Which new feature first?**
    A. ★ Presenter view with notes and next slide (N1). B. Pointer spotlight and pen (N2). C. Tap a label to explain it (N4).
    D. Trace callouts (N6).
-   *Answer*: pending.
+   *Answer*: all of them except N7 and N10 (Mohammad, 3 Nov 2026). See section 13.
 
 ## 15. How gates check this
 
