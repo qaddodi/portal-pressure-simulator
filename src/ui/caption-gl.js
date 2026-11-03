@@ -120,7 +120,7 @@ const upper = (r, t) => (r.upper ? t.toUpperCase() : t);
 const outlined = (t) => glyphsReady() && textCovers(t);
 const widthOf = (t, r) => (outlined(t) ? textWidth(t, { weight: r.weight, size: r.size, tnum: true }) : measure(t, fontOf(r, 1)));
 // A run's outlines as the Anatomy pen draws them (the same textPolys label-gl's blockOps fills), made once per word and kept as numbers: pieces (closed),
-// their starts in pts, and the counts. A reading that changes is made once, the frame it first shows; the table starts over past 400 words.
+// their starts in pts, and the counts. A reading that changes is made once, the frame it first shows; the table starts over past 1500 words.
 const OUTL = new Map();
 function outlineOf(t, r) {
   const key = `${r.weight}|${r.size}|${r.ls}|${t}`;
@@ -132,7 +132,7 @@ function outlineOf(t, r) {
   const pts = new Float32Array(n), starts = new Int32Array(polys.length);
   let w = 0;
   polys.forEach((p, i) => { starts[i] = w; pts.set(p.pts, w); w += p.pts.length; pts[w++] = p.pts[0]; pts[w++] = p.pts[1]; });   // (closed: the first point again, for the halo's stroke)
-  if (OUTL.size > 400) OUTL.clear();
+  if (OUTL.size > 1500) OUTL.clear();
   OUTL.set(key, o = { pts, starts, np: polys.length, n });
   return o;
 }
@@ -158,6 +158,7 @@ export function setLines(look, lines, set) {
       const u = upper(r, t).replace(NBSP, ' ');   // (the outlines have no no-break space: a plain one, as wide)
       const run = ln.runs[m] || (ln.runs[m] = newRun());
       run.t = u; run.r = r; run.x = x; m++; last = r;
+      if (outlined(u)) outlineOf(u, r);   // (made now, between frames, so the frame that draws it only lays it)
       x += widthOf(u, r) + r.ls * points(u) + r.mr;
       top = Math.max(top, r.size);
     }
@@ -484,6 +485,7 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
       gen++;
       if (!m) { I.set = null; api.paint(); return; }
       I.set = m; I.w = m.w; I.h = m.h; I.sig = ''; I.lines = null;
+      if (glyphsReady()) for (const ln of m.lines) for (const q of ln.runs) if (outlined(q.t)) outlineOf(q.t, q.r);   // (the words' outlines made here, between frames, not in the frame that first draws them)
       api.paint();
     },
     /** An arrow drawn with a caption ({ x, y, ang, r, colour }: about x, y of its box, turned ang, r out), or none (null). */
