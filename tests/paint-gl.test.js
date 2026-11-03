@@ -129,10 +129,10 @@ test('a fill or stroke colour set as numbers (setFillRGBA, setStrokeRGBA) record
       a[text] = `rgba(${R},${G},${B},${A})`; b[num](R, G, B, A);
       const paint = text === 'fillStyle' ? (c) => { c.beginPath(); c.rect(10, 10, 30, 30); c.fill(); } : (c) => { c.lineWidth = 3; c.beginPath(); c.moveTo(10, 10); c.lineTo(60, 40); c.stroke(); };
       paint(a); paint(b);
-      assert.equal(a.cv.length, b.cv.length);
-      for (let k = 0; k < a.cv.length; k++) assert.ok(Math.abs(a.cv[k] - b.cv[k]) <= 1e-12 * Math.abs(a.cv[k]) + 1e-300, `${num} ${R},${G},${B},${A} at ${k}`);
+      assert.equal(a.cvn, b.cvn);   // (the recorder keeps its numbers in a pooled buffer, the first cvn of them)
+      for (let k = 0; k < a.cvn; k++) assert.ok(Math.abs(a.cvb[k] - b.cvb[k]) <= 1e-12 * Math.abs(a.cvb[k]) + 1e-300, `${num} ${R},${G},${B},${A} at ${k}`);
     }
   }
   const c = new PaintRecorder(10, 10); c.setFillRGBA(255, 0, 0, 1); c.save(); c.setFillRGBA(0, 0, 255, 1); c.restore(); c.beginPath(); c.rect(0, 0, 5, 5); c.fill();
-  assert.ok(c.cv[2] === 1 && c.cv[4] === 0, 'a restore brings back the colour set before the save');
+  assert.ok(c.cvb[2] === 1 && c.cvb[4] === 0, 'a restore brings back the colour set before the save');
 });

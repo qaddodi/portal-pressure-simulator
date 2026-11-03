@@ -33,7 +33,7 @@ import { tileCopy } from './tile-gl.js';
 import { FX_GPU, createFxGL } from './fx-gl.js';
 import { WIDE_GL, createWideGL } from './wide-gl.js';
 import { buildLive, buildDyn, buildItems, liveFibreInto, liveEligible, liveZoomShare, liveColours, liveEase, liveShareOf } from './lobule-live.js';
-import { recordPaint, gpuPicture } from './paint-gl.js';
+import { recordPaint, gpuPicture, releasePicture } from './paint-gl.js';
 import { cssColor8 } from './css-color.js';
 import { fibrousBand, fibrousTract, fibrousCuff, scarGrowth, paintWorldInto, useTokens } from './lobule-paint.js';
 import { h, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js';
@@ -753,7 +753,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   glCv.addEventListener('webglcontextrestored', () => { glTried = false; gl?.dispose?.(); gl = null; binKey = ''; radKey = []; radAll = ''; radCal = ''; attrKey = ''; ensureGL(); if (F) update(F); });
   // Closed: the full-screen canvases and the vessels' GPU buffers are given back (they are sized again on the way in).
   // The world bitmap, the field's tiles and the uploaded network stay, so the next dive has nothing heavy to build.
-  const free = (cv) => { if (cv.width || cv.height) { cv.width = 0; cv.height = 0; } };
+  // (A recorded picture lets go of its record too, which goes back to the pools for the next picture, paint-gl.js.)
+  const free = (cv) => { if (cv.width || cv.height) { if (cv.gpuPicture === true) releasePicture(cv); cv.width = 0; cv.height = 0; } };
   function release() {
     dropWide();
     resCoverEnd();
