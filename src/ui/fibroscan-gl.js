@@ -67,7 +67,7 @@ function make(F) {
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = 1;
   // alloc-rare: made once with a panel's map: createElastogramGL runs only when the panel comes on screen with no map (fibroscan.js makeMap returns at once while it has one)
-  const gl = canvas.getContext('webgl2', { alpha: false, antialias: false, depth: false, stencil: false, premultipliedAlpha: false, preserveDrawingBuffer: false, powerPreference: 'low-power' });
+  const gl = canvas.getContext('webgl2', { alpha: true, antialias: false, depth: false, stencil: false, premultipliedAlpha: true, preserveDrawingBuffer: false, powerPreference: 'low-power' });
   if (!gl) return false;
   // (lost: the GPU does not draw the map, from the loss until the rebuilt program is published.)
   let lost = false, started = null, stopPoll = null;
@@ -150,11 +150,16 @@ export function createElastogramGL(F, { onReady = null, className = '' } = {}) {
   s.onReady = onReady;
   if (className) s.canvas.className = className;   // (set as the canvas is made, before it is in the page: no write to a live node)
   // alloc-rare: made once with a panel's map: createElastogramGL runs only when the panel comes on screen with no map (fibroscan.js makeMap returns at once while it has one)
-  return { canvas: s.canvas, draw: (fMap, NB, t0, N, c, t) => !!drawMap(s, fMap, NB, t0, N, c, t), get lost() { return s.lost; },
+  return { canvas: s.canvas, draw: (fMap, NB, t0, N, c, t) => { const r = drawMap(s, fMap, NB, t0, N, c, t); if (!r) clearMap(s); return !!r; }, get lost() { return s.lost; },
     /** Lets the context go (the panel is off screen): a page holds only so many WebGL contexts, and past that the browser drops the oldest, the figure's. */
     dispose() { stopAll(s); } };
 }
 function stopAll(s) { try { s.gl.getExtension('WEBGL_lose_context')?.loseContext(); } catch (e) { caught('fibroscan-gl:142', e); /* already gone */ } s.canvas.width = s.canvas.height = 0; s.canvas.remove(); }
+// (A frame that did not draw the map leaves its canvas blank, cleared here on the GPU: the page never hides the canvas, and no old picture shows.)
+function clearMap(s) {
+  if (s.lost || !s.gl || s.gl.isContextLost?.()) return;
+  s.gl.clearColor(0, 0, 0, 0); s.gl.clear(s.gl.COLOR_BUFFER_BIT);
+}
 const PEND = [null];   // (the one program drawMap asks about, written in place)
 function drawMap(s, F, NB, t0, N, c, t) {
   if (s.lost) return null;
