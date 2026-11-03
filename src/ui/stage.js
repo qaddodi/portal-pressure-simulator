@@ -2554,13 +2554,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let morphFade = false;
   const morphFadeBuf = [];   // (the two label layers, in one kept list written in place; the callers loop over it at once)
   const morphFadeEls = () => { const b = morphFadeBuf, gl = wrap.querySelector('#labelGl'); b.length = 0; if (labelSvg) b.push(labelSvg); if (gl) b.push(gl); return b; };
-  const morphFadeDrop = () => { if (!morphFade) { const els = morphFadeEls(); for (let i = 0; i < els.length; i++) els[i].classList.remove('morph-fade'); glass.style.opacity = ''; } };
+  // (The labels come back only once their layout for the new view is down: a solve still in slices would show the old view's labels,
+  // their leaders and dots over the new one. A failsafe after 1.5 s brings them back whatever.)
+  const morphFadeDrop = (force) => { if (!morphFade && (force === true || !labelJob)) { const els = morphFadeEls(); for (let i = 0; i < els.length; i++) els[i].classList.remove('morph-fade'); glass.style.opacity = ''; } };
   function morphFadeEnd() {
     if (!morphFade) return;
     morphFade = false;
     labelKey = null;
     camSettle();
     nextFrame(morphFadeDrop);
+    setTimeout(morphFadeDrop, 1500, true);
   }
   // (Whether the view is moving now: a glide, a pan or a pinch. Boxes kept for the frame's reads are not read again while it is.)
   const viewMoving = () => vtGliding || camMove || wrap.classList.contains('pinch-hide') || wrap.classList.contains('panning');
@@ -11684,6 +11687,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     solvedFor = j.solvedFor; solveAsked = false;
     labelKey = keyInto(labelKeyArr, j.key); stats.layouts++;
     labelTail();
+    nextFrame(morphFadeDrop);
   }
   // (A slice in a frame's spare time: true while there is more to do.)
   function labelJobStep(left) {
@@ -11698,6 +11702,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (gpuProbe.on) gpuProbe.note(COUNTED.labelSolve);
     labelKey = keyInto(labelKeyArr, j.key); stats.layouts++;
     labelTail();
+    nextFrame(morphFadeDrop);
     return false;
   }
   // (R04: the labels' key as numbers and identities, written into one kept list. The callouts' boxes fold into one number.)

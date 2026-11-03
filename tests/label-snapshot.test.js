@@ -66,3 +66,9 @@ test('a camera ride holds each label inside the stage, and its leader\'s label e
   assert.match(lg, /rideAt\(s, st\);\n\s+x = RIDE_XY\[0\]; y = RIDE_XY\[1\];/);
   assert.match(lg, /rideAt\(ls, lst\); geo\[2\] \+= RIDE_XY\[2\]; geo\[3\] \+= RIDE_XY\[3\];/);
 });
+
+test('after a view switch the labels come back only once their layout has landed (no old view over the new one)', () => {
+  assert.match(st, /const morphFadeDrop = \(force\) => \{ if \(!morphFade && \(force === true \|\| !labelJob\)\)/);
+  assert.match(st, /setTimeout\(morphFadeDrop, 1500, true\);/);
+  assert.equal((st.match(/labelTail\(\);\n\s+nextFrame\(morphFadeDrop\);/g) || []).length, 2, 'both landings of a sliced solve');
+});
