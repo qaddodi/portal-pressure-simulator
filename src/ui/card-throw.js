@@ -9,6 +9,7 @@
 import { frameFor, cancelFrame, easeNow, beginMotion } from './frame.js?v=ca74a6f22a';
 import { cubicBezier } from './ease.js?v=7d7bfe9a62';
 import { classSoon, runSoon } from './class-soon.js?v=d59b314e61';
+import { caught } from './caught.js?v=caf293c676';
 
 /** How far (px) the new card comes in from, and the stagger (ms) of a second card behind the first. */
 export const THROW_IN = 56, THROW_STAGGER = 40;
@@ -65,21 +66,56 @@ function restLanded() {
   landed.length = 0;
 }
 const pos = { x: 0, o: 0 };   // (where the card being stepped is: one object for every card, every frame)
+// (3 Nov 2026, his iPhone: the data card stood still part way in (dim, a little to the right, no glass) and stayed. A move lives in one
+// loop for every card, and that loop asked for its next frame only after the last card was stepped: one card whose step threw ended the
+// loop for all of them, with their runs still held and no frame asked for, so each stood where it was until another move began. Now a
+// card's step is its own try, the loop's next frame is asked in a finally, and a move that no frame has finished a grace after its own end
+// is finished by a timer (guard, below), whatever stopped the frames.)
+// Lands a run: the card at the end of its way, its holder told, a card coming in let go a task after the frame.
+function land(el, r, x, o) {
+  runs.delete(el); write(el, x, o);
+  if (r.kind === 'in') { landed.push(el); runSoon(restLanded); }
+  r.done?.();
+}
+function stepRun(el, r, now) {
+  const k = r.ms > 0 ? (now - r.t0) / r.ms : 1;
+  if (k < 0) return;   // (a staggered card waits where it starts)
+  const p = throwInto(pos, r.kind, k, r.from, r.to);
+  r.x = p.x; r.o = p.o;
+  if (k >= 1 || (r.kind === 'out' && p.o <= 0.001)) land(el, r, p.x, p.o);   // (in: at rest now, its inline values let go a task after the frame, unless a new move took it: class-soon.js)
+  else write(el, p.x, p.o);
+}
 function step() {
   ask = 0;
-  const now = easeNow();
-  for (const [el, r] of runs) {
-    const k = r.ms > 0 ? (now - r.t0) / r.ms : 1;
-    if (k < 0) continue;   // (a staggered card waits where it starts)
-    const p = throwInto(pos, r.kind, k, r.from, r.to);
-    r.x = p.x; r.o = p.o;
-    if (k >= 1 || (r.kind === 'out' && p.o <= 0.001)) { runs.delete(el); write(el, p.x, p.o); if (r.kind === 'in') { landed.push(el); runSoon(restLanded); } r.done?.(); continue; }   // (in: at rest now, its inline values let go a task after the frame, unless a new move took it: class-soon.js)
-    write(el, p.x, p.o);
+  try {
+    const now = easeNow();
+    for (const [el, r] of runs) {
+      try { stepRun(el, r, now); } catch (e) { caught('card-throw:step', e); if (runs.get(el) === r) { try { land(el, r, r.to.x, r.kind === 'in' ? 1 : 0); } catch (e2) { runs.delete(el); caught('card-throw:land', e2); } } }
+    }
+  } finally {
+    if (runs.size && !ask) ask = nextFrame(step);
+    try { settle(); outCheck(); } catch (e) { caught('card-throw:settle', e); }
   }
-  if (runs.size) ask = nextFrame(step);
-  settle();
-  outCheck();
 }
+// (The guard: one timer for every move, asked when a move starts and again for the next deadline. A move still running GUARD_MS after
+// its own end on the wall clock was not finished by a frame (the loop stopped, or the frames came too late): it lands where it was
+// going, its holder told, as step would have. A page whose frames run on time never reaches it.)
+const GUARD_MS = 400;
+let guardT = 0;
+function guard() {
+  guardT = 0;
+  const wall = performance.now();
+  let soonest = Infinity;
+  for (const [el, r] of runs) {
+    if (wall >= r.dead) { try { land(el, r, r.to.x, r.kind === 'in' ? 1 : 0); } catch (e) { runs.delete(el); caught('card-throw:guard', e); } }
+    else if (r.dead < soonest) soonest = r.dead;
+  }
+  if (runs.size && !ask) ask = nextFrame(step);
+  if (soonest < Infinity) { guardT = setTimeout(guard, Math.max(16, soonest - wall)); guardT.unref?.(); }   // alloc-rare: one timer a move, never in a frame
+  try { settle(); outCheck(); } catch (e) { caught('card-throw:guard', e); }
+}
+/** Moves still running past their own end by the guard's grace now (for the tests: what the timer would land). */
+export const throwGuard = guard;
 // (R20: the throws are one transition the page's deferrable work waits out, from the first card moving to the last one landing.)
 let endMove = null;
 const settle = () => { if (!runs.size && endMove) { endMove(); endMove = null; } };
@@ -90,8 +126,9 @@ function start(el, kind, to, ms, delay, done) {
   el.classList?.add(THROWING); classSoon(el, THROWING, true);   // (on in the task that starts the move; a let-go still waiting is overruled)
   el.style.setProperty('transition', 'none', 'important');
   write(el, from.x, from.o);   // (at once, in the task that starts it: no frame shows the class's own place in between)
-  runs.set(el, { kind, from, to, x: from.x, o: from.o, t0: easeNow() + delay, ms, done });
+  runs.set(el, { kind, from, to, x: from.x, o: from.o, t0: easeNow() + delay, ms, done, dead: performance.now() + delay + ms + GUARD_MS });
   if (!ask) ask = nextFrame(step);
+  if (!guardT) { guardT = setTimeout(guard, delay + ms + GUARD_MS); guardT.unref?.(); }   // alloc-rare: one timer for all the moves, asked when none is waiting
 }
 
 /** Throws el out the way the talk goes (dir 'next': to the left; 'back': to the right), dist px, fading to nothing over RAIL_MS. It is

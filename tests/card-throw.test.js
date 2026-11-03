@@ -71,7 +71,7 @@ test('instant: every leaving card sets off in the tap\'s task, on one distance, 
   assert.ok(throwAt('out', 0.1, from, to).x < -80, 'it moves at once, fast');
   assert.match(presenter, /const dist = INSTANT \? \(throwD = Math\.min\(innerWidth, Math\.max\(120, \.\.\.sized\.map\(wOf\)\) \+ RAIL_GAP\)\) : throwDist\(\);/);
   assert.match(presenter, /if \(INSTANT && bare && throwDir && !el\.hidden && el\.childElementCount && !ui\.text\.hidden && ui\.text\.childElementCount && ui\.text\.classList\.contains\('pz-leave'\)\) return false;/, 'in together with the words');
-  assert.match(src, /if \(k >= 1 \|\| \(r\.kind === 'out' && p\.o <= 0\.001\)\) \{ runs\.delete\(el\);/, 'out of sight ends the way out, so the next words go in at once');
+  assert.match(src, /if \(k >= 1 \|\| \(r\.kind === 'out' && p\.o <= 0\.001\)\) land\(el, r, p\.x, p\.o\);/, 'out of sight ends the way out, so the next words go in at once');
 });
 
 test('glass: a card\'s fade carried by a transition that has just finished stays at its end until the page is read again (always: ?glassend deleted)', () => {
