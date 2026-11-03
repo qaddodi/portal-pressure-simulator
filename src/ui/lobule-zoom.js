@@ -54,7 +54,7 @@ import { classSoon, classHas, textSoon, runSoon } from './class-soon.js';
 import { easeMove, carryRate, carried, cubicBezier, D_SMALL, D_SURFACE } from './ease.js';
 import { surface } from './gpu-surfaces.js';
 import { caught } from './caught.js';
-import { createCaptionGL, mirrorOf, rgbaOf as capRGBA } from './caption-gl.js';
+import { createCaptionGL, composeView, mirrorOf, rgbaOf as capRGBA } from './caption-gl.js';
 import { readStyle } from './layout-snap.js';
 const nextFrame = frameFor('lobule-zoom');
 
@@ -164,7 +164,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // frames) and moved in the frame that moves the lobule; the page's own are a clear model for clicks and screen readers, placed between
   // frames (2 Nov 2026, "Move everything to GPU").
   const cap = createCaptionGL(labels);
-  if (cap.on) labels.classList.add('cap-gl-on');
+  // (The page's own names are made clear only once the GPU's picture of them is on the screen, and shown again if it is lost: caption-gl.js presented.)
+  cap.onPresented = () => classSoon(labels, 'cap-gl-on', true);
+  cap.onLost = () => classSoon(labels, 'cap-gl-on', false);
 
   // ── What sits on the lobule ──
   // Zones and Lymph are layers (the toolbar's Layers menu keeps them in the store). Nothing floats in a card.
@@ -1965,17 +1967,24 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     return moved;
   }
   // The pan's shift of the labels and leaders (the GPU draws both carried by it: cap.view, leadGL.view; nothing is written to the page), and its numbers.
-  let panOn = false, panDX = 0, panDY = 0;
-  const unpan = () => { panOn = false; cap.view(1, 0, 0); leadGL.view(1, 0, 0); };
+  // The pan and the dive are two records, composed in one place (composeView: the pan first, the dive carrying the panned layer); each is
+  // written and cleared by its own owner, so ending a pan never erases the dive.
+  let panOn = false, panDX = 0, panDY = 0, diveK = 1, diveE = 0, diveF = 0;
+  const VIEW = [1, 0, 0];   // (the composed view, written in place)
+  function applyView() {
+    composeView(panOn ? panDX : 0, panOn ? panDY : 0, diveK, diveE, diveF, VIEW);
+    cap.view(VIEW[0], VIEW[1], VIEW[2]); leadGL.view(VIEW[0], VIEW[1], VIEW[2]);
+  }
+  const unpan = () => { if (!panOn) return; panOn = false; applyView(); };
+  const setDive = (k, e, f) => { if (diveK === k && diveE === e && diveF === f) return; diveK = k; diveE = e; diveF = f; applyView(); };
   // Writes the pan's shift into the labels' and leaders' own positions and drops the shared shift, so they glide on from where they are seen.
   function bakeFollow() {
     if (bakeRides()) { clearTimeout(followT); unpan(); return true; }
     clearTimeout(followT);
-    // (Only this function's own shift is a pan: the dive's is a scale about a point.)
-    const mine = panOn;
-    unpan();
-    if (!mine) return false;
+    // (Only this function's own shift is a pan: the dive's is a scale about a point, kept in its own record.)
+    if (!panOn) return false;
     const dx = panDX, dy = panDY;
+    unpan();
     if (!dx && !dy) return false;
     for (let e = labels.firstElementChild; e; e = e.nextElementSibling) { const p = spot.get(e); if (p) put(e, p[0] + dx, p[1] + dy); }
     unglide();
@@ -2297,7 +2306,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       const dx = V.x - follow.x, dy = V.y - follow.y;
       if (!panOn) freezeLabelGlides();
       panDX = dx; panDY = dy; panOn = true;
-      cap.view(1, dx, dy); leadGL.view(1, dx, dy);
+      applyView();
       clearTimeout(followT); followT = setTimeout(followEnd, 140);
       return;
     }
@@ -4790,7 +4799,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       // (A copy in the vessels' own canvas: that canvas shows it, unscaled; the copy is placed on the GPU.)
       if (wide?.host) glCv.style.visibility = '';
       // (The labels and the leaders are drawn by the GPU carried by the same scale about the same point: view(k, e, f) puts a point p at k p + (e, f).)
-      if (k >= 0.9999) { cap.view(1, 0, 0); leadGL.view(1, 0, 0); } else { cap.view(k, tx - k * x, ty - k * y); leadGL.view(k, tx - k * x, ty - k * y); }
+      if (k >= 0.9999) setDive(1, 0, 0); else setDive(k, tx - k * x, ty - k * y);
       for (const e of [tissue, tissueG, glCv, fx, fxG]) {
         if (k >= 0.9999 || (wide?.host && e === glCv)) { e.style.transform = ''; e.style.transformOrigin = ''; continue; }
         // Scaled about its own centre, which sits where the field's lobule at the dive's focus is (tx, ty), so it morphs out of that one.

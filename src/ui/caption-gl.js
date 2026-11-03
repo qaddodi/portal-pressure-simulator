@@ -18,14 +18,17 @@
 //   cap.paint()
 
 import { createTraceGL, fitPen } from './trace-gl.js';
-import { finalFrameFor, easeNow } from './frame.js';
+import { finalFrameFor, easeNow, cancelFrame } from './frame.js';
 import { measure } from './glyph-measure.js';
 import { D_SURFACE, easeArrive } from './ease.js';
 import { cssColor } from './css-color.js';
 import { readBox, readRects, readStyle } from './layout-snap.js';
 
 const finalFrame = finalFrameFor('caption-gl');
+const RETRIES = 30;   // (frames a failed hand-over is drawn again, in a row)
 const NONE = [];
+const NOOP = () => {};   // (a disposed layer's mutators)
+const ZERO = [0, 0];
 const MIRROR = { lh: 1, gap: 0, halo: 0, haloC: '', runs: {} };   // (a mirrored caption's runs carry their own looks)
 /** A colour as the page computed it (rgb(), color(srgb …), oklab() from a color-mix, a token's raw value), as rgba() the GPU's pen reads; '' for none. */
 export function rgbaOf(c) {
@@ -40,6 +43,15 @@ export function shadowOf(s) {
   if (!m) return null;
   const colour = rgbaOf((m[1] || m[6] || '').trim());
   return colour ? { colour, dy: +m[3], blur: +m[4] } : null;
+}
+/**
+ * The layer's one view from its two records (R08), into `out` [k, e, f]: a hand's pan (dx, dy, in the layer's px) and the dive's scale (k about
+ * a point, drawn as k p + (e, f)). The pan is applied first and the dive carries the panned layer, p → k (p + d) + (e, f), so each record
+ * is written and cleared by its own owner and neither erases the other. A record that is off is the identity.
+ */
+export function composeView(dx, dy, k, e, f, out = [1, 0, 0]) {
+  out[0] = k; out[1] = e + k * dx; out[2] = f + k * dy;
+  return out;
 }
 // Inter's ascent and descent (hhea 1984 and 494 of 2048), as the browser sets a line: its baseline from the line's top.
 const ASC = 1984 / 2048, DESC = 494 / 2048;
@@ -184,21 +196,36 @@ export function mirrorOf(el, sel = []) {
   return { lines, w: box.width, h: box.height, marks, at };
 }
 
-/** The names' layer in `box`: see above. */
-export function createCaptionGL(box) {
+/**
+ * The names' layer in `box`: see above. `make`, `pen`: the GPU drawer and its pen, the charts' own (given only by a test).
+ *
+ * Presented (R06): `presented` turns true at the first frame at nonzero size whose end() did not return false, and onPresented fires then;
+ * until it does the page's own names are what shows (the owner adds app.css .cap-gl-on only on it). Once presented it stays: everything is
+ * on the GPU, so a failed hand-over or a lost context keeps the last completed picture and the class, the frame is drawn again on the GPU
+ * (a few tries, and after the context is built again, by the drawer's redraw), and the page's names never come back. onLost fires only
+ * when the drawer is gone for good (dispose, or no WebGL2). New words before the next frame do not take it back either (a flash);
+ * `gen` counts the content generations and a frame always draws the latest.
+ */
+export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen } = {}) {
   const cv = document.createElement('canvas');
   cv.className = 'cap-gl';
   cv.setAttribute('aria-hidden', 'true');
   box.prepend(cv);
   const items = new Map(), leads = new Map(), extras = new Map(), looks = new Map();
   let vk = 1, ve = 0, vf = 0, ask = 0, gpu = null, drewOnce = false, onDrawn = null, onRest = null, onFrame = null, wasMoving = false, lastT = 0, drawing = false;
+  let presented = false, onPresented = null, onLost = null, gen = 0, retries = 0, dead = false;
+  const present = (on) => {
+    if (on === presented) return;
+    presented = on;
+    if (on) onPresented?.(); else onLost?.();
+  };
   function draw() {
     ask = 0;
-    if (!cv.isConnected) return;
-    const pen = fitPen(cv, gpu), { ctx, w, h } = pen;
+    if (dead || !cv.isConnected) return;
+    const pen = penOf(cv, gpu), { ctx, w, h } = pen;
     const now = easeNow();
     lastT = now;
-    let more = false;
+    let more = false, failed = false;
     drawing = true;
     try {
       // (The owner's places for this frame, set as it is drawn: a glide its page eased, a pan's ride.)
@@ -267,26 +294,43 @@ export function createCaptionGL(box) {
       ctx.globalAlpha = 1;
       for (const f of extras.values()) if (f(ctx, now)) more = true;
       if (moved) ctx.restore();
-    } finally { drawing = false; ctx.end?.(); }
-    if (pen.gpu && !drewOnce) { drewOnce = true; onDrawn?.(); }
+    } finally {
+      drawing = false;
+      const handed = ctx.end?.() !== false;   // (false: the picture could not be handed over, trace-gl.js end)
+      // (In the finally: a frame at no size returns above.) A frame that could not be handed over, or came while the context was gone,
+      // leaves the last picture in the canvas and the class on: it is drawn again (a few tries, then at the next paint or restore).
+      if (pen.gpu) {
+        if (w > 0 && h > 0 && handed) { retries = 0; present(true); if (!drewOnce) { drewOnce = true; onDrawn?.(); } }
+        else if (w > 0 && h > 0 && handed === false) failed = true;
+      } else if (gpu?.lost) failed = true;
+    }
+    if (failed && retries++ < RETRIES) more = true;
     if (more) ask = finalFrame(draw);
     else if (wasMoving) onRest?.();   // (its eases done: the owner may place its page model, between frames)
     wasMoving = more;
   }
   function itemA(key, now) { const I = items.get(key); return I ? easeAt(I.a, now) : 1; }
-  gpu = createTraceGL(cv, { redraw: () => api.paint() });
+  gpu = make(cv, { redraw: () => api.paint(), lose: () => api.paint() });
   const api = {
     cv,
     /** Whether the GPU draws the names (WebGL2 and the charts' drawer are here); false: the page's own names must show. */
     get on() { return !!gpu; },
-    /** Called once, after the first frame the GPU drew the names. */
-    set onDrawn(f) { onDrawn = f; if (drewOnce) f?.(); },
+    /** Called once, after the first frame the GPU drew the names and handed over. */
+    set onDrawn(f) { if (dead) return; onDrawn = f; if (drewOnce) f?.(); },
+    /** True while the GPU's picture of the names is on the screen (a frame at nonzero size, handed over); false: the page's own names must show. */
+    get presented() { return presented; },
+    /** Called each time the names become presented (at once if they already are). */
+    set onPresented(f) { if (dead) return; onPresented = f; if (presented) f?.(); },
+    /** Called when presentation is lost: a failed hand-over, a lost context, a size of nothing. */
+    set onLost(f) { if (!dead) onLost = f; },
+    /** The content generation: counts each change of words, looks or mirrors. */
+    get gen() { return gen; },
     /** Called first in each frame the names are drawn (now): the owner sets their places there; true while one of them still moves. */
-    set onFrame(f) { onFrame = f; },
+    set onFrame(f) { if (!dead) onFrame = f; },
     /** Called after a frame in which the last of its eases ended. */
-    set onRest(f) { onRest = f; },
+    set onRest(f) { if (!dead) onRest = f; },
     /** A caption's look (lookOf): its sizes are set again the next time it is measured. */
-    look(key, lk) { looks.set(key, lk); api.paint(); },
+    look(key, lk) { looks.set(key, lk); gen++; api.paint(); },
     hasLook: (key) => looks.has(key),
     /** Sets the lines of a caption in its look, for its size: { w, h } (0 until its look is read). */
     measure(key, lines) {
@@ -297,7 +341,7 @@ export function createCaptionGL(box) {
       if (lk && (I.lines !== lines || I.lk !== lk)) {
         I.lines = lines; I.lk = lk;
         I.set = setLines(lk, lines, I.own || (I.own = { lines: [], n: 0, w: 0, h: 0 }));   // (its own record: a mirrored one, mirror(), is the owner's, never written into)
-        I.w = I.set.w; I.h = I.set.h; I.size[0] = I.w; I.size[1] = I.h;
+        I.w = I.set.w; I.h = I.set.h; I.size[0] = I.w; I.size[1] = I.h; gen++;
       } else if (!lk) { I.lines = lines; }
       return lk ? I.size : I.zero;
     },
@@ -306,6 +350,7 @@ export function createCaptionGL(box) {
       let I = items.get(key);
       if (!I) items.set(key, I = newItem(key));
       if (!looks.has(key)) looks.set(key, MIRROR);
+      gen++;
       if (!m) { I.set = null; api.paint(); return; }
       I.set = m; I.w = m.w; I.h = m.h; I.sig = ''; I.lines = null;
       api.paint();
@@ -368,10 +413,32 @@ export function createCaptionGL(box) {
     },
     /** The whole layer moved as one: a point p is drawn at k p + (e, f) (px). A pan is k 1; the lobule's dive is a scale about a point. */
     view(k, e, f) { if (vk === k && ve === e && vf === f) return; vk = k; ve = e; vf = f; api.paint(); },
-    paint() { if (!ask && !drawing) ask = finalFrame(draw); },
+    paint() { if (!drawing) retries = 0; if (!ask && !drawing) ask = finalFrame(draw); },   // (a new ask starts the tries of a failed hand-over again)
     /** Draws now, in this frame (the owner's frame moved the figure: its names move with it). */
     drawNow() { if (ask) return; draw(); },
-    dispose() { gpu?.dispose?.(); gpu = null; },
+    /**
+     * Let go once and for good (R13): the queued frame is cancelled, the callbacks, records and the canvas are let go, the drawer is disposed,
+     * and every later call does nothing (no frame is asked, nothing is drawn). Not a lost context: that keeps the picture and draws again.
+     */
+    dispose() {
+      if (dead) return;
+      dead = true;
+      if (ask) cancelFrame(ask);
+      ask = 0;
+      const was = presented, lost = onLost;
+      onFrame = onRest = onDrawn = onPresented = onLost = null;
+      gpu?.dispose?.(); gpu = null;
+      items.clear(); leads.clear(); extras.clear(); looks.clear();
+      cv.remove();
+      presented = false;
+      if (was) lost?.();
+      // alloc-rare: teardown, when the layer is let go, never in a frame
+      for (const k of ['look', 'measure', 'mirror', 'arrow', 'put', 'place', 'reset', 'lead', 'extra', 'view', 'paint', 'drawNow']) api[k] = NOOP;
+      api.measure = () => ZERO;
+      api.hasLook = () => false;
+      api.leadOf = api.at = () => null;
+      api.moving = () => false;
+    },
   };
   return api;
 }
