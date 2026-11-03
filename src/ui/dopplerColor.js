@@ -11,7 +11,7 @@
 // and returns [r, g, b, a] (a of 0: black, nothing to draw). The Spectrum mode has no colour.
 
 import { cssRGB } from './util.js?v=3a261d27c6';
-import { PROBE } from './dop-probe.js?v=4ea3c7a286';
+import { PROBE } from './dop-probe.js?v=541b7d29ef';
 
 export const THETA = PROBE.ANGLE;                      // beam-to-flow angle in degrees (the spectral header's θ, the figure probe's angle)
 export const COS_THETA = Math.cos(THETA * Math.PI / 180);
