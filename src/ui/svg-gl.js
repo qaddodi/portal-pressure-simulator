@@ -44,6 +44,10 @@ export function setWords(el, t) {
   if (typeof t !== 'string') t = String(t);   // alloc-rare: only a value that is not already text (the callers pass text)
   if (wordsOf(el) !== t) el._t = t;
 }
+// A path piece's shape handed over as polylines ([{ pts, closed }], as flattenPath gives them): kept on the piece, not written as a `d`, so a
+// shape that changes in a frame (a jump's day count) writes no attribute and the picture parses nothing. Draws instead of its `d`.
+/** Sets the polylines a model's path piece draws; one given them draws them, not its `d`. */
+export function setPolys(el, polys) { el._polys = polys; }
 /** The words a model's text piece shows now. */
 export const wordsOf = (el) => el._t ?? el.textContent;
 
@@ -437,9 +441,9 @@ function shapePath(ctx, el, tag, k) {
     return true;
   }
   if (tag === 'path') {
-    const d = el.getAttribute('d');
-    if (!d) return false;
-    for (const { pts, closed } of flatOf(d, 0.25 / Math.max(k, 0.05))) {
+    const d = el.getAttribute('d'), kept = el._polys;
+    if (!d && !kept) return false;
+    for (const { pts, closed } of kept || flatOf(d, 0.25 / Math.max(k, 0.05))) {
       if (pts.length < 2) continue;
       ctx.moveTo(pts[0], pts[1]);
       for (let i = 2; i < pts.length; i += 2) ctx.lineTo(pts[i], pts[i + 1]);

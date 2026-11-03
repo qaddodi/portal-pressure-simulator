@@ -17,7 +17,7 @@ import { activeInterventions } from './inspector.js';
 import { removedLabel } from './removed-label.js';
 import { frameFor } from './frame.js';
 import { D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js';
-import { createSvgGL, svgModel, setGeo } from './svg-gl.js';
+import { createSvgGL, svgModel, setPolys } from './svg-gl.js';
 import { textPolys, textBox, loadGlyphs, glyphsReady } from './text-gl.js';
 import { textSoon } from './class-soon.js';
 import { restPass } from './rest-pass.js';
@@ -79,10 +79,15 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
   // the count lands, between frames.
   loadGlyphs();
   let dayGL = null, dayPath = null, dayAt = null;
-  const dayD = (t) => {
+  // (The count's outlines for a day, handed to the picture as they are (setPolys): no path string is made or written for a new number.)
+  const dayPolys = (t) => {
     const { size, weight, x, y, align } = dayAt, w = textBox(t, 0, 0, { weight, size, tnum: true }).width; // alloc-rare: once per distinct day shown during a jump, not per frame
     const x0 = align === 'end' ? x - w : align === 'middle' ? x - w / 2 : x;
-    return textPolys(t, x0, y, { weight, size, tnum: true }).polys // alloc-rare: once per distinct day shown during a jump, not per frame
+    return textPolys(t, x0, y, { weight, size, tnum: true }).polys; // alloc-rare: once per distinct day shown during a jump, not per frame
+  };
+  // (The first day's path text, for the model's piece at the jump's start, in the task that starts it.)
+  const dayD = (t) => {
+    return dayPolys(t)
       .map(({ pts, closed }) => { let d = ''; for (let i = 0; i < pts.length; i += 2) d += `${i ? 'L' : 'M'}${pts[i].toFixed(2)} ${pts[i + 1].toFixed(2)}`; return closed ? d + 'Z' : d; }).join(''); // alloc-rare: once per distinct day shown during a jump, not per frame
   };
   // (The count landed: the clock's own words take its last day between frames, and the picture goes.)
@@ -228,7 +233,7 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
       const u = clamp((now - t0) / 900, 0, 1);
       // (Drawn again only when the day shown changes: most frames of the count keep it.)
       const dn = dayNum(u);
-      if (gpu && dn !== shownN) { shownN = dn; const t = dayOf(u); shownDay = t; setGeo(dayPath, 'd', dayD(t)); dayGL.paint(); }
+      if (gpu && dn !== shownN) { shownN = dn; const t = dayOf(u); shownDay = t; setPolys(dayPath, dayPolys(t)); dayGL.paint(); }
       if (u < 1) nextFrame(tick);
       else if (gpu) { dayEnd = dayTok; restPass(dayLand); }
       else jumping = false;
