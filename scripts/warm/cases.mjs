@@ -2,7 +2,10 @@
 // needs in node. A case returns `frame(i)`, called thousands of times; the harness measures what it allocates once V8 has compiled it.
 import { installDomStub } from './dom-stub.mjs';
 
-const stub = installDomStub();
+// (A case that needs the page's DOM asks for it: the real one in jsdom with a GL context that does nothing and SVG geometry from the app's own
+// script, or the light stand-in. Never both, and not for a case that touches no DOM.)
+let page = null;
+const withPage = async () => (page ??= (await import('./dom.mjs')).installPage());
 let T = 1000, fake = false;
 const realNow = performance.now.bind(performance);
 Object.defineProperty(performance, 'now', { value: () => (fake ? T : realNow()), configurable: true });   // (a clock the cases move once the engine's frames are recorded, so a frame is the same on every run)
@@ -10,6 +13,8 @@ export const tick = (ms) => { T += ms; };
 
 // Frames of the real engine (worker-core.js), recorded once; a case replays them with the clock moved on.
 async function recordFrames(seconds) {
+  const was = fake;
+  fake = false;   // (the engine steps by the real clock)
   const { createCore } = await import('../../src/worker-core.js');
   const frames = [];
   const core = createCore((m) => { if (m.type === 'frame') frames.push(m); });
@@ -18,6 +23,7 @@ async function recordFrames(seconds) {
   await new Promise((r) => setTimeout(r, seconds * 1000));
   core.handle({ type: 'run', running: false });
   core.dispose?.();
+  fake = was;
   return frames;
 }
 // `n` frames made from the recorded ones, each with its samples' times (and the frame's) shifted on, built here before anything is measured.
@@ -40,7 +46,33 @@ function replay(recorded, n) {
   return out;
 }
 
+// The requestAnimationFrame the frame scheduler (frame.js) asks of the page: callbacks queued here and run by `pump`, one display frame each time.
+let ask = [], run = [];
+globalThis.requestAnimationFrame = (cb) => { ask.push(cb); return ask.length; };
+globalThis.cancelAnimationFrame = () => {};
+function pump(ms) {
+  T += ms;
+  const b = ask; ask = run; run = b;
+  for (let i = 0; i < run.length; i++) run[i](T);
+  run.length = 0;
+}
+
 export const CASES = [
+  {
+    name: 'stage frame with the vessels (stage.js + veins-gl.js, 60 Hz display, 30 Hz model)',
+    warm: 1500, measure: 600,
+    async setup() {
+      const frames = (await recordFrames(4)).filter((f) => f.samples?.t?.length);
+      await withPage();
+      fake = true;
+      const { createStage } = await import('../../src/ui/stage.js');
+      const st = createStage({ wrap: page.document.getElementById('stageView'), onSelect() {}, onAction() {}, onOpenTab() {}, onHoverInfo() {}, onViewChange() {} });
+      return (i) => {
+        if (i % 2 === 0) st.update(frames[(i >> 1) % frames.length]);
+        pump(16.7);
+      };
+    },
+  },
   {
     name: 'blood.advanceStream, 40 streams',
     async setup() {
@@ -57,6 +89,7 @@ export const CASES = [
     name: 'pressure-time ingest (real engine frames)',
     async setup() {
       const frames = replay(await recordFrames(5), 9000);
+      installDomStub();
       fake = true;
       const { createPressureTime } = await import('../../src/ui/pressure-time.js');
       const pt = createPressureTime();
@@ -104,4 +137,3 @@ export const CASES = [
     },
   },
 ];
-export { stub };

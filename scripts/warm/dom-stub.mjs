@@ -3,7 +3,7 @@
 // test runs its own logic against it. Not for tests of what the page shows.
 import { readFileSync } from 'node:fs';
 // The colour tokens the stylesheets declare on :root (first declaration of each name wins: the light theme), served to getComputedStyle.
-const TOKENS = new Map();
+export const TOKENS = new Map();
 for (const f of ['tokens.css']) {
   const css = readFileSync(new URL(`../../styles/${f}`, import.meta.url), 'utf8');
   for (const m of css.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)) if (!TOKENS.has(m[1])) TOKENS.set(m[1], m[2].trim());
@@ -56,6 +56,7 @@ export function installDomStub() {
   g.DOMMatrixReadOnly ??= class { constructor() { this.a = 1; this.b = 0; this.c = 0; this.d = 1; this.e = 0; this.f = 0; this.m11 = 1; this.m12 = 0; this.m21 = 0; this.m22 = 1; this.m41 = 0; this.m42 = 0; this.is2D = true; } };
   g.DOMMatrix ??= g.DOMMatrixReadOnly;
   g.DOMRect ??= class { constructor(x = 0, y = 0, w = 0, h = 0) { this.x = x; this.y = y; this.width = w; this.height = h; this.left = x; this.top = y; this.right = x + w; this.bottom = y + h; } };
+  g.Path2D ??= class { moveTo() {} lineTo() {} bezierCurveTo() {} quadraticCurveTo() {} closePath() {} rect() {} arc() {} ellipse() {} roundRect() {} addPath() {} };
   g.Element ??= class {};
   g.HTMLElement ??= class {};
   g.Node ??= class {};

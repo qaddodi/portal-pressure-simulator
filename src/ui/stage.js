@@ -64,7 +64,7 @@ import { varixBead, beadRadius } from './varix-bead.js';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js';
 import { alongCurve } from './pressure-along.js';
 import { follow2, createColourFollow, SHOWN_TAU } from './display-state.js';
-import { advanceStream, createStreamChain, displaySpeed, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS, PERIOD, DRIFT_PERIOD } from './blood.js';
+import { advanceStreamAt, createStreamChain, displaySpeed, createReversalHold, bleedShapes, stepBleedFade, fadeBleedShapes, chevFlowLevel, keyChevron, KEY_CHEV_LANES, originFractions, oxygenFor, ORIGIN_N, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS, PERIOD, DRIFT_PERIOD } from './blood.js';
 import { createDyeRemote } from './dye-remote.js';
 import { createSweepClient } from './sweep-client.js';
 import { retireRows, flowClose } from './flow-rows.js';
@@ -12737,7 +12737,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // time it moves on, every stream is anchored again from its own distance.)
   const BT_SPAN = 32, VD_HAIR = 0.01, VD_REL = 0.004, STASIS_HAIR = 0.002;
   let bEpoch = 0;
-  function anchorStream(sm, sp, t, reset) {
+  // (The speed and the blood clock come in `so` (streamOpts: speed, bt), not as arguments: a number passed to a call that is not inlined is
+  // boxed in a new heap number, two for each vessel of a frame.)
+  function anchorStream(sm, so, reset) {
+    const sp = so.speed, t = so.bt;
     if (!reset && sm.aB != null && t >= sm.aB) {
       const dt = t - sm.aB;
       // (Where the GPU has it now: the stream's own distance and drift follow it, so the two never part.)
@@ -12795,7 +12798,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       x.freeTo = !endJoined(x, x.e.to, b[0], b[1]);
     }
   }
-  const streamOpts = { phasic: false, speed: 1, large: true, still: false, rev: false };
+  const streamOpts = { phasic: false, speed: 1, large: true, still: false, rev: false, dt: 0, bt: 0 };
   // Facts that change only with a model frame (or the healthy reference), kept per frame instead of worked out every display
   // frame: each vessel's reversed flag and its two velocities. Key chevrons: 1 for a vessel that always keeps them, 2 for one
   // that keeps them while an open collateral runs in its lane (asked each frame), 0 for none (round 2 review, P8).
@@ -12892,7 +12895,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (One options object and one key-chevrons answer for the whole loop, not one per vessel per frame: advanceStream reads
     // the options at once and keeps none of them.)
     const so = streamOpts, key = keyOnly();
-    so.phasic = !!b.phasic; so.speed = speed; so.still = still;
+    so.phasic = !!b.phasic; so.speed = speed; so.still = still; so.dt = moving ? dt * restK : 0; so.bt = bT;
     // (bloodEasing: a reversed colour or a chevron fade still on its way keeps the figure awake, paused too, so it never stops
     // part-way until Play; each lands exactly once within 0.002 of its end. Round 2 review, B10.)
     bloodEasing = false;
@@ -12906,8 +12909,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // One signal turns both: the reversed colour and the way the blood and its chevrons run (isReversed, held: B3).
       const rt = revHold[k];
       so.large = LARGE[k]; so.rev = !!rt;
-      const sm = advanceStream(streams[k], velQf[k], velQ[k], moving ? dt * restK : 0, so);
-      anchorStream(sm, speed, bT, bReset);
+      const sm = advanceStreamAt(streams[k], velQf, velQ, k, so);
+      anchorStream(sm, so, bReset);
       sm.rev = sm.rev == null ? rt : eased(sm.rev, rt, ease);
       const ct = !key || KEY_K[k] === 1 || (KEY_K[k] === 2 && keyChevron(EDGES[k], laneOpen)) || (glow.lit.get(EDGES[k].id)?.to || 0) > 0 ? 1 : 0;
       sm.chevK = sm.chevK == null ? ct : eased(sm.chevK, ct, ease);

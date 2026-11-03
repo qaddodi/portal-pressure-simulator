@@ -55,7 +55,7 @@ test('P6: the radius sync compares a copy element by element, with no joined key
 test('P8: stepBlood keeps per-frame facts per model frame, syncEnds compares in place', () => {
   const stage = read('src/ui/stage.js').replace(/^\s*\/\/.*$/gm, ''), gl = read('src/ui/veins-gl.js');
   assert.match(stage, /if \(perF !== F \|\| perH !== H\) \{/);
-  assert.match(stage, /advanceStream\(streams\[k\], velQf\[k\], velQ\[k\],/);
+  assert.match(stage, /advanceStreamAt\(streams\[k\], velQf, velQ, k, so\)/);
   assert.match(stage, /KEY_K\[k\] === 1 \|\| \(KEY_K\[k\] === 2 && keyChevron\(EDGES\[k\], laneOpen\)\)/);
   assert.doesNotMatch(stage, /list\.map\(\(x\) => x\.e\.id\)\.join/);
   assert.match(gl, /UC\.fv3\(U\.originCol, originColOf\(/);

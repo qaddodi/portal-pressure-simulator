@@ -70,6 +70,21 @@ export function occupancy(qMlS, vDisp, n, spacing = SLOT) {
  * seconds after the colour.
  */
 export function advanceStream(st, vMean, vNow, dt, opts = NO_OPTS) {
+  ADV_IN[0] = vMean; ADV_IN[1] = vNow; ADV_IN[2] = dt;
+  return advanceKept(st, opts);
+}
+/**
+ * The same for the vessel k of two velocity tables, the time step in `opts.dt`: a frame advances every vessel's stream, and a number handed to a
+ * call that is not inlined (this body is too large to be) is boxed in a new heap number, three for each of them. They go through ADV_IN instead.
+ */
+export function advanceStreamAt(st, means, nows, k, opts) {
+  ADV_IN[0] = means[k]; ADV_IN[1] = nows[k]; ADV_IN[2] = opts.dt;
+  return advanceKept(st, opts);
+}
+const ADV_IN = new Float64Array(3);   // [the mean velocity, the instantaneous one, the time step] of the stream being advanced
+function advanceKept(st, opts) {
+  const vMean = ADV_IN[0], vNow = ADV_IN[1];
+  let dt = ADV_IN[2];
   const { phasic = false, speed = 1, large = true, still = false, rev } = opts;
   if (st.vSlow == null) { st.vSlow = vMean; st.vFast = vNow; st.D = (st.seed || 0) * 97 % PERIOD; st.hold = 0; st.settle = 0; }
   const ruled = rev != null, sgR = rev ? -1 : 1;
