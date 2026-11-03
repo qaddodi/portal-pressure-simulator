@@ -14360,6 +14360,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     relayout() { refreshCTM(); if (F) updateLabels(F, true); },
     // How often the labels were laid out, skipped or only had their values refreshed, and the time spent (for perf checks).
     labelStats: () => ({ ...stats }),
+    /** What the label layer drew last frame, for the checks: the boxes of its pictures and marks (CSS px from its corner) and how many leaders and dots. */
+    labelDrawn: () => ({ boxes: labelGL?.boxes ?? [], marks: labelGL?.counts().marksDrawn ?? 0, riding: !!labelGL?.riding }),
     // How the frames of the changes between the views were drawn (from the stretches made ahead, gpu, or binned there, cpu, and why), for tests.
     morphStats: () => ({ gpu: mt.stats.gpu, cpu: mt.stats.cpu, builds: mt.stats.builds, miss: { ...mt.stats.miss }, ready: (mt.pieces || []).filter((pc) => pc.set).length }),
     // (For the check that an ease drawn on the GPU matches its binning: the coils and fans held where they are, then binned on the CPU.)

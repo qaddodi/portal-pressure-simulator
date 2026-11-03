@@ -96,7 +96,8 @@ test('G3: a gesture\'s own classes keep no layout watch due and make no label re
     assert.equal(w.due(), true, `a card's class: due (${which})`);
   }
   const lg = src('label-gl.js');
-  assert.match(lg, /const outer = new MutationObserver\(\(rs\) => \{ if \(rs\.some\(\(r\) => changed\(r\) && !classOnly\(r, GESTURE_LOOK\)\)\) \{ all\(\); pReadSoon\(\); \} \}\);/);
+  // (A gesture's classes read no label again; lb-ride alone reads the leaders and dots again, rideSeen: see label-gl.test.js.)
+  assert.match(lg, /const outer = new MutationObserver\(\(rs\) => \{\s*rideSeen\(\);\s*if \(rs\.some\(\(r\) => changed\(r\) && !classOnly\(r, GESTURE_LOOK\)\)\) \{ all\(\); pReadSoon\(\); \}[^\n]*\n\s*\}\);/);
 });
 
 test('H3: the glass canvases hold at most 2 device px per CSS px; the labels too (2 Nov: capped at 2x)', async () => {

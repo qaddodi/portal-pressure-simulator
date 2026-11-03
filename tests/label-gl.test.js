@@ -269,3 +269,19 @@ test('a label canvas that drew nothing is hidden, and shows again in the task th
   const at = LGL.indexOf('canvas.toggleAttribute(\'data-blank\'');
   assert.ok(at > LGL.indexOf('drawScan(now)') && at > LGL.indexOf('settleBoxes()'));
 });
+
+test('the leaders and dots stand for the stage\'s ride: their layer\'s kept style is keyed on lb-ride, and only the marks are read again when it comes or goes', () => {
+  // (2 Nov 2026, "Labels just stuck": app.css fades the leaders' layer under .stage-view.lb-ride while the names ride the camera. The layer's kept
+  // style was keyed by what lies under the labels' SVG only, and lb-ride is a gesture class that asks for no restyle (GESTURE_LOOK), so the
+  // GPU kept drawing the dots and leaders whole at the places they were laid out, while the names moved with the figure.)
+  assert.match(CSS, /\.stage-view\.lb-ride \.lb-leaders \{ opacity: 0; \}/, 'the page fades the leaders layer for the ride');
+  assert.match(LGL, /classList\?\.contains\('lb-leaders'\)\) mixC\(rideLook \? 10 : 11\)/, 'the layer\'s style key follows the ride');
+  assert.match(LGL, /const rideSeen = \(\) => \{[\s\S]*?const on = !!svg\.parentElement\?\.closest\?\.\('\.lb-ride'\);[\s\S]*?allMarks\(\); ask\(\);/, 'a ride coming or going reads the marks again');
+  assert.match(LGL, /const outer = new MutationObserver\(\(rs\) => \{\s*rideSeen\(\);/, 'the stage\'s class changes are watched for it');
+  // Any other rule a gesture class makes about something inside the labels' SVG would need the same: none but the leaders' layer exists.
+  const inside = [];
+  for (const m of CSS.matchAll(/([^{}]*\.(?:panning|stage-busy|figure-focus|pinch-hide|cam-move|lb-ride|off-home)\b[^{}]*)\{/g)) {
+    for (const sel of m[1].split(',')) if (/\.(?:panning|stage-busy|figure-focus|pinch-hide|cam-move|lb-ride|off-home)\b[^,]*\s(?:[^,]*\s)?(?:\.lb\b|\.lb-[a-z]+|#labels\s+\S)/.test(sel) && !/#labelGl|> #labels|\.lb-glass/.test(sel)) inside.push(sel.trim());
+  }
+  assert.deepEqual(inside, ['.stage-view.lb-ride .lb-leaders'], 'a gesture class that restyles anything under the labels must be in the style key');
+});

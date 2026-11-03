@@ -706,7 +706,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   const STYLE_PROPS = ['display', 'opacity', 'filter', 'outlineStyle', 'outlineWidth', 'outlineColor', 'outlineOffset', 'fill', 'stroke', 'strokeWidth', 'paintOrder',
     'fontStyle', 'fontWeight', 'fontSize', 'fontFamily', 'letterSpacing', 'fontVariantNumeric', 'strokeLinejoin', 'strokeLinecap', 'strokeDasharray', 'strokeDashoffset'];
   const VOLATILE = new Set(['x', 'y', 'dx', 'dy', 'width', 'height', 'rx', 'ry', 'cx', 'cy', 'r', 'd', 'transform', 'data-gl', 'aria-label', 'tabindex', 'role']);
-  let epoch = 0, fillT = 0;
+  let epoch = 0, fillT = 0, rideLook = !!svg.parentElement?.closest?.('.lb-ride');   // (rideLook: the stage is in a ride, see outer)
   const snaps = new Map(), easing = new WeakMap(), unread = new Set(), waiting = new Set();
   // The key of an element's style is a number worked out from the same things the text key was made of (the epoch, each ancestor's tag,
   // its attributes but the volatile ones, its hover and focus), mixed into two 32-bit hashes kept in a 53-bit integer, so a label
@@ -723,6 +723,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       const at = e.attributes;
       for (let i = 0; i < at.length; i++) { const a = at[i]; if (!VOLATILE.has(a.name)) { mixC(4); mixS(a.name); mixC(5); mixS(a.value); } }
       if (e.classList?.contains('lb')) { try { mixC(e.matches(':hover') ? 6 : 7); mixC(e.matches(':focus-visible') ? 8 : 9); } catch (err) { caught('label-gl:581', err); /* no state */ } }
+      if (e.classList?.contains('lb-leaders')) mixC(rideLook ? 10 : 11);   // (the stage's lb-ride fades this layer on the page: the leaders and dots stand for it, see outer)
     }
     return (kh1 >>> 0) * 2097152 + ((kh2 >>> 0) & 0x1fffff);
   }
@@ -838,7 +839,20 @@ void main() { o = texture(uT, vUV) * uA; }`;
   const all = () => { restyle(); const t = performance.now() + 700; for (const s of last) { dirty.add(s.g); live.set(s.g, t); if (!TRACK) exact.set(s.g, t); } allMarks(); ask(); };
   // (Not for a gesture's own classes, which change no label's look (idle-keys.js GESTURE_LOOK): each one made every label and mark read
   // again on every frame for 0.7 s as a pan or pinch began and as it ended. 30 Oct, review G3.)
-  const outer = new MutationObserver((rs) => { if (rs.some((r) => changed(r) && !classOnly(r, GESTURE_LOOK))) { all(); pReadSoon(); } });   // (the Doppler probe's look follows the theme too)
+  // (One of them does change a look: lb-ride, a hand's or a presenter's ride, fades the leaders' layer on the page (app.css), and the layer's
+  // kept style is keyed by what is under the labels' SVG only, so it stayed whole at the opacity it had before the ride: the labels rode the
+  // camera and their leaders and dots stood still at full strength over the figure (2 Nov 2026, "labels stuck"). The leaders' layer keys
+  // on it (styleKey), and only the marks are read again when it comes or goes: no label's look is touched.)
+  const rideSeen = () => {
+    const on = !!svg.parentElement?.closest?.('.lb-ride');
+    if (on === rideLook) return;
+    rideLook = on;
+    allMarks(); ask();
+  };
+  const outer = new MutationObserver((rs) => {
+    rideSeen();
+    if (rs.some((r) => changed(r) && !classOnly(r, GESTURE_LOOK))) { all(); pReadSoon(); }   // (the Doppler probe's look follows the theme too)
+  });
   for (let el = svg.parentElement; el; el = el.parentElement) outer.observe(el, { attributes: true, attributeOldValue: true, attributeFilter: ['class', 'data-theme', 'data-palette', 'data-noglass', 'data-mode'] });
   matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => { all(); pReadSoon(); });
   addEventListener('pps:labelscale', all);   // (the text size: --label-k on the page)
@@ -1443,9 +1457,11 @@ void main() { o = texture(uT, vUV) * uA; }`;
     rgbaInto(out, c);
     return true;
   }
+  let markDrawn = 0;   // (the marks, leaders and dots, drawn in the last frame that drew any: for the checks, which look at what the GPU shows)
   const markGeo = new WeakMap(), MGEO = new Float64Array(4), MBOX = new Float64Array(4), CLEAR = new Float64Array(4);
   function drawMarks(now) {
     let moving = false;
+    markDrawn = 0;
     if (!marks.length) return false;
     gl.useProgram(mprog);
     ucOf(gl).f2(MU.uView, W, H);
@@ -1498,6 +1514,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
         ucOf(gl).f4a(MU.uFill, st.fill || CLEAR);
         ucOf(gl).f1(MU.uA, Math.min(1, a));
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        markDrawn++;
       }
     }
     markDirty.clear();
@@ -1947,7 +1964,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     }
     return live;
   }
-  const WAS = new Set(), NOW2 = new Set(), SVGL = [], CNT = { labels: 0, svg: 0, marks: 0 };   // (kept: a layout, the SVG's list and the counts make none)
+  const WAS = new Set(), NOW2 = new Set(), SVGL = [], CNT = { marksDrawn: 0, labels: 0, svg: 0, marks: 0 };   // (kept: a layout, the SVG's list and the counts make none)
   return {
     canvas,
     setProbe,
@@ -1970,7 +1987,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       let sv = 0, mk = 0;
       for (const s of last) if (svgLeft.has(s.g)) sv++;
       for (const el of svgLeft) { let own = false; for (const s of last) if (s.g === el) { own = true; break; } if (!own) mk++; }
-      CNT.labels = last.length; CNT.svg = sv; CNT.marks = mk;
+      CNT.marksDrawn = markDrawn; CNT.labels = last.length; CNT.svg = sv; CNT.marks = mk;
       return CNT;
     },
     /** What the last picture drew, as boxes [left, top, right, bottom] (CSS px from the canvas's corner). */
