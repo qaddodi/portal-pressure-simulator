@@ -99,7 +99,7 @@ test('the tokens the painting reads are every token named, read as util.js reads
   for (const m of [HEALTHY, MID, SICK]) for (const zonesOn of [false, true]) paint.paintLobule(new PaintRecorder(800, 800), input(m, { zonesOn }));
   const named = new Set([...lp.matchAll(/tk\('(--[a-z0-9-]+)'/g)].map((x) => x[1]));
   for (const n of named) assert.ok(paint.TOKENS.includes(n), n);
-  assert.match(lp, /tk\(`--lz-zone-\$\{i \+ 1\}`/);
+  assert.match(lp, /ZONE_TOK = \['--lz-zone-1', '--lz-zone-2', '--lz-zone-3'\]/);
   for (const i of [1, 2, 3]) assert.ok(paint.TOKENS.includes(`--lz-zone-${i}`));
   const rd = paint.tokenReader(Object.fromEntries(paint.TOKENS.map((n) => [n, [cssVar(n), [0.1, 0.2, 0.3]]])));
   for (const n of paint.TOKENS) assert.equal(rd(n), cssVar(n));
@@ -118,4 +118,21 @@ test('the view hands the painting every model value it reads, and records it for
   for (const f of ['function paintWorld(', 'function paintTissue(', 'function spareMake(', 'function resSwap(', 'function paintAhead(']) assert.doesNotMatch(fn(f), /getContext|drawImage|getImageData/, `${f} paints on no 2D canvas`);
   assert.doesNotMatch(lz, /tissue-worker|createTissueWorker/);
   assert.match(read('../src/ui/tissue-gl.js'), /if \(isGpuPicture\(cv\)\) \{[\s\S]{0,200}paintGL\(gl\)\.paint\(cv\.rec\)/, 'the shader paints the record into its texture');
+});
+
+test('a fill or stroke colour set as numbers (setFillRGBA, setStrokeRGBA) records the colour its rgba() text names, with no text made', () => {
+  let q = 9; const r = () => { q = (q * 1664525 + 1013904223) >>> 0; return q / 4294967296; };
+  for (let i = 0; i < 300; i++) {
+    const R = Math.floor(r() * 256), G = Math.floor(r() * 256), B = Math.floor(r() * 256), A = i % 5 ? r() : 1;
+    for (const [num, text] of [['setFillRGBA', 'fillStyle'], ['setStrokeRGBA', 'strokeStyle']]) {
+      const a = new PaintRecorder(100, 100), b = new PaintRecorder(100, 100);
+      a[text] = `rgba(${R},${G},${B},${A})`; b[num](R, G, B, A);
+      const paint = text === 'fillStyle' ? (c) => { c.beginPath(); c.rect(10, 10, 30, 30); c.fill(); } : (c) => { c.lineWidth = 3; c.beginPath(); c.moveTo(10, 10); c.lineTo(60, 40); c.stroke(); };
+      paint(a); paint(b);
+      assert.equal(a.cv.length, b.cv.length);
+      for (let k = 0; k < a.cv.length; k++) assert.ok(Math.abs(a.cv[k] - b.cv[k]) <= 1e-12 * Math.abs(a.cv[k]) + 1e-300, `${num} ${R},${G},${B},${A} at ${k}`);
+    }
+  }
+  const c = new PaintRecorder(10, 10); c.setFillRGBA(255, 0, 0, 1); c.save(); c.setFillRGBA(0, 0, 255, 1); c.restore(); c.beginPath(); c.rect(0, 0, 5, 5); c.fill();
+  assert.ok(c.cv[2] === 1 && c.cv[4] === 0, 'a restore brings back the colour set before the save');
 });

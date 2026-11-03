@@ -23,6 +23,8 @@ const TAU = Math.PI * 2;
 const TOL = 0.2;   // (curves flattened to within 0.2 device px)
 
 // ── The recorder ──
+const NUM_FILL = { numeric: 'fill' }, NUM_STROKE = { numeric: 'stroke' }, QN = [0, 0, 0, 1];   // (a colour set as numbers, and the array it is read from)
+const numQ = (r, g, b, a) => { QN[0] = r; QN[1] = g; QN[2] = b; QN[3] = a; return QN; };
 class Gradient {
   constructor(x0, y0, r0, x1, y1, r1, m) { this.g = { x0, y0, r0, x1, y1, r1, m }; this.stops = []; }
   addColorStop(t, c) { this.stops.push([Math.max(0, Math.min(1, +t)), cssColor(c)]); this.stops.sort((a, b) => a[0] - b[0]); }
@@ -37,7 +39,7 @@ export class PaintRecorder {
     this.ops = [];
     this.cv = [];   // coloured triangles: x, y, r, g, b, a (premultiplied)
     this.pv = [];   // plain triangles: x, y
-    this.s = { m: [1, 0, 0, 1, 0, 0], fill: 'black', stroke: 'black', lw: 1, cap: 'butt', join: 'miter', ga: 1, sb: 0, sc: 'transparent', clip: null };
+    this.s = { m: [1, 0, 0, 1, 0, 0], fill: 'black', stroke: 'black', fr: 0, fg: 0, fb: 0, fa: 1, kr: 0, kg: 0, kb: 0, ka: 1, lw: 1, cap: 'butt', join: 'miter', ga: 1, sb: 0, sc: 'transparent', clip: null };
     this.stack = [];
     this.path = []; this.sub = null;
     this.batch = null;
@@ -47,6 +49,9 @@ export class PaintRecorder {
   // State
   get fillStyle() { return this.s.fill; } set fillStyle(v) { this.s.fill = v; }
   get strokeStyle() { return this.s.stroke; } set strokeStyle(v) { this.s.stroke = v; }
+  // The fill or stroke colour given as numbers (r, g, b: 0 ... 255, a: 0 ... 1), the colour 'rgba(r,g,b,a)' names, with no text made to be parsed.
+  setFillRGBA(r, g, b, a) { const s = this.s; s.fill = NUM_FILL; s.fr = r / 255; s.fg = g / 255; s.fb = b / 255; s.fa = a; }
+  setStrokeRGBA(r, g, b, a) { const s = this.s; s.stroke = NUM_STROKE; s.kr = r / 255; s.kg = g / 255; s.kb = b / 255; s.ka = a; }
   get lineWidth() { return this.s.lw; } set lineWidth(v) { if (v > 0 && Number.isFinite(v)) this.s.lw = +v; }
   get lineCap() { return this.s.cap; } set lineCap(v) { this.s.cap = v; }
   get lineJoin() { return this.s.join; } set lineJoin(v) { this.s.join = v; }
@@ -132,7 +137,7 @@ export class PaintRecorder {
       ps.n = n;
       return;
     }
-    const q = cssColor(style), a = q[3] * this.s.ga, o = ps.rgba;
+    const q = style === NUM_FILL ? numQ(this.s.fr, this.s.fg, this.s.fb, this.s.fa) : style === NUM_STROKE ? numQ(this.s.kr, this.s.kg, this.s.kb, this.s.ka) : cssColor(style), a = q[3] * this.s.ga, o = ps.rgba;
     ps.grad = false; o[0] = q[0] * a; o[1] = q[1] * a; o[2] = q[2] * a; o[3] = a;
   }
   // The shadow of the paint just made, into SHD (false: none).

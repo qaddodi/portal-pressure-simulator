@@ -99,7 +99,8 @@ test('the lobule\'s fibrous bands are a deeper tan in light and Soft, the collag
   assert.match(lz, /const WR_TOK = \[[^\]]*'--lz-septum', '--collagen'\];/);
   assert.match(lp, /const COL = rgb\.col;/);
   assert.match(lz, /const COLa = cssRGB01\('--lz-septum'\), edges/);
-  assert.match(lp, /const DIS = rgb\.dis, col = \(a\) => css\(DIS, a\);/, 'the space of Disse lining is unchanged');
+  assert.match(lp, /const DIS = rgb\.dis;/);
+  assert.match(lp, /strokeRGB\(c, DIS, 0\.75 \* m\.fibSin\)/, 'the space of Disse lining is unchanged');
 });
 
 test('the dive\'s field asks the GPU only for the passes that change the picture', () => {

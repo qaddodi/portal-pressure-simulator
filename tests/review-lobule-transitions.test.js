@@ -49,7 +49,7 @@ test('G21: zone 3 cells are deeper and warmer; zone 1 keeps its tone', () => {
   const drop = z3.map((x, i) => 1 - x / cell[i]);
   assert.ok(drop[2] > drop[1] && drop[1] > drop[0], 'warmer: blue drops most, red least');
   assert.ok(cordTone(cell, 0, true)[2] > z3[2], 'gentler in dark mode');
-  assert.match(lp, /cordToneInto\(TONE, base\.map\(/);
+  assert.match(lp, /CT\[i\] = base\[i\] \* t \+ \(1 - t\) \* \(dark \? 0\.15 : 1\) \* 0\.3; fill = cordToneInto\(TONE, CT, k\.q, dark\)/);
   assert.match(lp, /if \(!dead\) c\.stroke\(\);/, 'a thin membrane between neighbouring cells');
   assert.match(lp, /c\.lineWidth = Math\.max\(0\.6, 0\.6 \/ \(c\.getTransform\(\)\.a \|\| 1\)\)/);
 });
@@ -163,7 +163,7 @@ test('the lobule\'s tissue is one shader pass a frame, so a slide\'s camera glid
   assert.equal(on.split("framePart('lz.tissueGL', tisDraw)").length - 1, 1, 'one draw');
   assert.match(on, /fIn = rd \* 1\.1;/); assert.match(on, /const fOut = fadeOuter\(fIn, reach\)/);
   // The lobule's bitmap is opaque inside its own outline (filled first, at 1.015 of the hexagon, full strength).
-  assert.match(lp, /const px = l\.x \+ \(x - l\.x\) \* 1\.015, py = l\.y \+ \(y - l\.y\) \* 1\.015;[^\n]*c\.fill\(\); \}/);
+  assert.match(lp, /fillRGB\(c, MIXC, 1\);[^\n]*\(l\.corners\[i\]\[0\] - l\.x\) \* 1\.015, py = l\.y \+ \(l\.corners\[i\]\[1\] - l\.y\) \* 1\.015;[^\n]*c\.fill\(\); \}/);
 });
 
 test('holding only the ductules, the lobule\'s overlay is not drawn again while nothing in it changes', () => {
