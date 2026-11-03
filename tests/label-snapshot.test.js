@@ -87,3 +87,12 @@ test('a view change carries each label, leader and dot by its own station\'s mov
   assert.match(st, /followNext\.set\(it\.key, \{ id: it\.key\.slice\(2\), ax: it\.ax, ay: it\.ay \}\)/);
   assert.match(st, /class: 'leader-dot', 'data-k': it\.key/);
 });
+
+test('a layout solved for another view is never carried onto this one, nor handed to the GPU while its own solve is pending', () => {
+  assert.match(st, /sf\.view = morphTarget;/);
+  assert.match(st, /if \(solvedFor && solvedFor\.view === morphTarget && !\(morph > 0 && morph < 1\)\) layoutLabels\(f, false\);/);
+  assert.match(st, /labelTail\(solvedFor\?\.view !== morphTarget\);\n\s+return;/);
+  assert.match(st, /if \(!force && sameView8\(labelJob\.key, key\)\) \{ labelTail\(solvedFor\?\.view !== morphTarget\); return; \}/);
+  assert.match(st, /glHold = noGl;/);
+  assert.match(st, /const labelGlSync = \(\) => \{ if \(!labelGL \|\| glHold\) return;/);
+});

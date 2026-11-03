@@ -10551,7 +10551,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (The list is one of two kept arrays taken in turn: the labels' picture holds the last list it was given until the next, so the one it holds is never the one filled.)
   let labelGlA = [], labelGlB = [];
   const labelGlAdd = (b) => { if (b.pos) labelGlA.push(b.pos); };
-  const labelGlSync = () => { if (!labelGL) return; const t = labelGlA; labelGlA = labelGlB; labelGlB = t; labelGlA.length = 0; pool.forEach(labelGlAdd); labelGL.sync(labelGlA); };
+  let glHold = false;
+  const labelGlSync = () => { if (!labelGL || glHold) return; const t = labelGlA; labelGlA = labelGlB; labelGlB = t; labelGlA.length = 0; pool.forEach(labelGlAdd); labelGL.sync(labelGlA); };
   const FONT = 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
   // (Words measured from the GPU atlas's own Inter metrics, glyph-measure.js, as label-gl.js sets them: no 2D canvas.)
   const widths = new Map(), widthZ = new Map();   // (widths: a text with its digits as zeros → a flat list of weight, size, track, width; widthZ: a text as given → that form)
@@ -11620,7 +11621,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // value, a callout) is taken up after it, as after any solve. A camera that moved (the key's first eight: the transform, the stage
     // box, the morph and the turn) drops it, and the labels carry as they always did.)
     if (labelJob) {
-      if (!force && sameView8(labelJob.key, key)) { labelTail(); return; }
+      if (!force && sameView8(labelJob.key, key)) { labelTail(solvedFor?.view !== morphTarget); return; }
       labelJobDrop();
     }
     if (!force && sameKey(key) && (inMotion() ? holdValues(f) : refreshValues(f))) { stats.skips++; stats.ms += performance.now() - t0; }
@@ -11646,17 +11647,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         carryClear = false;
         // (Written into whichever of two kept records is not the one standing: a solve in slices holds its record until it lands.)
         const sf = solvedFor === SOLVED_A ? SOLVED_B : SOLVED_A;
-        sf.sig = sig; sf.sc = sc; sf.th = th; sf.csig = csig; sf.ins = ins;
+        sf.sig = sig; sf.sc = sc; sf.th = th; sf.csig = csig; sf.ins = ins; sf.view = morphTarget;
         // (The labels already standing are carried to this frame's camera first: a solve that does not land inside its slice leaves them as
         // they are, so each frame of a zoom or glide that asked for a fresh solve left them one more frame behind the figure, and
         // dropped the sliced solve the next frame. Mohammad, 2 Nov: "the labels and callouts move slower than the figure camera".)
-        if (solvedFor && !(morph > 0 && morph < 1)) layoutLabels(f, false);
+        if (solvedFor && solvedFor.view === morphTarget && !(morph > 0 && morph < 1)) layoutLabels(f, false);   // (not another view's solution: its anchors are that view's world points, which would stand the labels and their dots where the figure has none)
         const g = layoutLabelsGen(f, true);
         if (!labelSliceRun(g, LABEL_SLICE_MS)) {
           labelJob = JOB; JOB.g = g; JOB.key = keyInto(jobKeyArr, key); JOB.solvedFor = sf;
           mayTask('label solve', labelJobStep);
           stats.ms += performance.now() - t0;
-          labelTail();
+          labelTail(solvedFor?.view !== morphTarget);
           return;
         }
         solvedFor = sf; solveAsked = false;
@@ -11684,7 +11685,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   function handRideEnd() { if (!handRide) return; handRide = null; clearTimeout(handRideT); handRideT = 0; rideStop(); }
   // (What every layout of the labels ends with, a carried, a skipped or a sliced one too: the callouts and probes painted, then the GPU's copy.)
-  function labelTail() {
+  function labelTail(noGl = false) {
+    glHold = noGl;   // (the layout standing is another view's, a solve for this one still running: the GPU keeps what it shows, never that)
     pinchLiftNow(false);   // (the labels hidden for a zoom that rode no further come back once their layout is down)
     if (handRide?.settle && !labelJob) handRideEnd();   // (the layout for where the hand stopped has landed: the ride ends as it is drawn)
     if (!labelJob) { const t = followTab; followTab = followNext; followNext = t; }   // (a layout that has landed: its stations are what a view change carries)
