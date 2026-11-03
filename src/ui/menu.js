@@ -19,7 +19,7 @@ import { classSoon, removeSoon } from './class-soon.js';
 import { slideFold } from './fold-slide.js';
 import { leaveFromHere } from './menu-leave.js';
 import { plateFor } from './plate-gl.js';
-import { releaseSpeed, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, RISE_PX } from './ease.js';
+import { releaseSpeed, carryCurve, cssCurve, D_FLIP, D_SMALL, EASE_ARRIVE, RISE_PX } from './ease.js';
 import { moverOf, cancelMoves } from './num-move.js';
 const nextFrame = frameFor('menu');
 const profFrame = frameFor('menu-profile');
@@ -125,6 +125,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     const panel = el, scrim = back, gone = plate, done = () => { panel.remove(); scrim?.remove(); gone?.dispose(); };
     el = back = plate = null;
     onToggle?.(false);
+    askSpare(900);
     if (panel.contains(document.activeElement) || !document.activeElement || document.activeElement === document.body) anchor.focus({ preventScroll: true });
     // (With Reduce Motion the same exit only fades: app.css turns the keyframes into fades.)
     if (scrim) leaveFromHere(scrim, () => scrim.classList.add('out'));
@@ -334,6 +335,19 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
   // that row again when it has. Building the lists made some 400 nodes in the tap that opened the menu. A row still in a panel that is
   // fading out is not taken from it: the open makes its own. Your scripts are always made fresh (they are the person's own, and few).
   const rows = new Map(), rowSig = new WeakMap();
+  // (The menu made ahead: what it was made from, so a change in any of it makes the next open build anew. Never made while one is open, and
+  // taken at an open, so two builds never claim the same kept rows.)
+  let spare = null, spareAsk = 0;
+  const spareKey = (lib) => { const st = store.get(); return `${lib ? 1 : 0}|${tab}|${query}|${st.presetId}|${st.mode}|${lib ? lib.current() : ''}`; };
+  function makeSpare() {
+    spareAsk = 0;
+    if (open || spare || el || document.querySelector('.umenu')) return;
+    const lib = libraryNow();
+    try { spare = { key: spareKey(lib), el: build(lib) }; } catch { spare = null; }
+  }
+  // (The first after the page has settled, and again after each close once its exit has played.)
+  const askSpare = (ms) => { if (!spareAsk) spareAsk = setTimeout(() => restPass(makeSpare), ms); };
+  askSpare(2500);
   let reuse = true, reused = 0;   // (reuse is off only while columns() makes the lists from nothing to compare; reused counts the rows put back)
   function cleanRow(li) {
     // (What the last open left on it: a preview opened under it, its button's state, a hover mark, a search's hidden, a fold still easing.)
@@ -560,6 +574,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     // For the browser checks (tests/e2e/menu-kept.mjs): the two lists as the next open would make them from the kept rows, and made from
     // nothing, as markup, to be compared. Neither is put in the page.
     columns() {
+      spare = null;   // (its rows would be taken for the lists below)
       const lib = libraryNow(), at = (on) => { reuse = on; reused = 0; try { const { present, patients } = sections(lib); return { present: present.outerHTML, patients: patients.outerHTML, reused }; } finally { reuse = true; } };
       return { fresh: at(false), kept: at(true) };
     },
@@ -573,7 +588,10 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
       if (!open) {
         open = true; query = opts.query || '';
         const sheet = sheetMQ.matches, lib = libraryNow();
-        el = build(lib); coldOpen = !lib;
+        // (A menu made ahead in a rest pass, kept detached and unused, is taken as it is when nothing it was made from has moved: audit MN1.)
+        const sp = spare; spare = null;
+        el = sp && sp.key === spareKey(lib) ? sp.el : null;
+        if (!el) el = build(lib); coldOpen = !lib;
         if (sheet) { el.classList.add('sheet'); back = h('div', { class: 'um-scrim', onclick: () => close() }); document.body.append(back); }
         document.body.append(el);
         plate = plateFor(el, 'umenu');   // (its fill, ring and shadow are the GPU's, a plate laid under it: plate-gl.js)
@@ -626,7 +644,9 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     let sw = null, settle = null, resting = null;   // settle: the last swipe's switch, while its lists are still easing; resting: the list that lands (it is still drawn off its place)
     // (The other list's place over the room in view, as read at the touch: written once, as it becomes the peer.)
     function placePeer(nb, s) { nb.style.setProperty('top', `${s.top}px`); nb.style.setProperty('height', `${s.h}px`); }
-    const shiftX = (el) => { try { const m = getComputedStyle(el).transform; return !m || m === 'none' ? 0 : new DOMMatrixReadOnly(m).m41 || 0; } catch { return 0; } };
+    // (Where the easing list is drawn now: worked out from the release's own numbers and its curve, no style read. 3 Nov 2026, audit MN2.)
+    let easing = null;
+    const shiftX = (el) => { const e = easing; if (!e || e.el !== el) return 0; const k = Math.min(1, (performance.now() - e.t0) / D_SMALL); return e.from + (e.to - e.from) * e.f(k); };
     panel.addEventListener('touchstart', (e) => {
       // (A second swipe before the first has settled finishes the first once it moves, not on the touch: a tap leaves the lists easing.)
       sw = e.touches.length === 1 && !ownsSideways(e.target, { stop: panel }) ? { x: e.touches[0].clientX, y: e.touches[0].clientY, t: performance.now(), on: false, dx: 0, wCur: NaN, wNb: NaN, wNbEl: null, trail: [], pool: [[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]] } : null;
@@ -678,7 +698,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
       if (!s?.on) return;
       const v = releaseSpeed(s.trail, performance.now());   // (the finger's, px per ms to the right: the lists carry it on)
       const go = !!s.nb && pageGo(s.dx, performance.now() - s.t, s.w, v);
-      const d = s.dx < 0 ? 1 : -1, ease = `transform ${D_SMALL}ms ${carryCurve(s.nb ? v : v / 3, (go ? -d * s.w : 0) - s.dx, D_SMALL)}`;   // alloc-rare: once as a swipe is let go, never per frame   // (past the end the list moves a third of the finger)
+      const d = s.dx < 0 ? 1 : -1, curve = carryCurve(s.nb ? v : v / 3, (go ? -d * s.w : 0) - s.dx, D_SMALL), ease = `transform ${D_SMALL}ms ${curve}`;   // alloc-rare: once as a swipe is let go, never per frame   // (past the end the list moves a third of the finger)
       s.cur.style.transition = ease; if (s.nb) s.nb.style.transition = ease;
       s.cur.style.transform = go ? `translateX(${-d * s.w}px)` : '';   // alloc-rare: once as a swipe is let go, never per frame
       if (s.nb) s.nb.style.transform = go ? 'translateX(0)' : `translateX(${d * s.w}px)`;   // alloc-rare: once as a swipe is let go, never per frame
@@ -691,6 +711,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
       };
       const timer = setTimeout(done, 250);
       settle = done; resting = go ? s.nb : s.cur;
+      easing = { el: resting, from: go ? s.dx + d * s.w : s.dx, to: 0, t0: performance.now(), f: cssCurve(curve) };
     };
     // (A touch that never became a drag, a tap: the places set at the touch go, as the finger lifts.)
     const tapDone = () => { const s = sw; if (s && !s.on) for (const c of s.peers || []) if (!c.classList.contains('um-peer')) { c.style.top = ''; c.style.height = ''; } endSwipe(); };
