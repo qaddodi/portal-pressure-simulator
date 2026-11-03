@@ -4459,7 +4459,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (morph !== morphTarget) mt.landAt = now;
     else if (!mt.using || now - mt.landAt > 1000) return false;   // (at rest: binned as before; the landing frames stay on the stretch)
     const anat = morph < 0.5;
-    const pc = mt.pieces.find((p) => p.anat === anat && t >= p.t0 && (anat ? t < p.t1 || p.t1 === 0.5 : t <= p.t1));
+    let pc;   // (the first stretch of this side that t falls in: a loop, no closure)
+    for (let q = 0; q < mt.pieces.length; q++) { const p = mt.pieces[q]; if (p.anat === anat && t >= p.t0 && (anat ? t < p.t1 || p.t1 === 0.5 : t <= p.t1)) { pc = p; break; } }
     if (!pc?.set || pc.set.owner !== veins) return morphMiss(pc?.bad ? 'unfit stretch' : 'not ready');
     // Where t falls among the stretch's moments.
     let s = 0;
@@ -4565,11 +4566,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // the vessels recoloured and the organs' picture redrawn, holds them back instead of eating their first half. ?paced=0: the wall clock.)
   const lensNow = () => (PACED ? easeNow() : performance.now());
   const lensFading = () => !!lensFrom && lensNow() - lensT0 < LENS_FADE + 20;
-  const rgbCache = new Map();
+  const rgbCache = new Map(), rgbVarName = new Map();
   // Any CSS color (rgb(), #hex, a named var) as [r, g, b] in 0–1.
   function toRGB(c, cs) {
-    const m = /^var\((--[\w-]+)\)$/.exec(c || '');
-    const v = m ? cs.getPropertyValue(m[1]).trim() : c;
+    let v = c;
+    if (typeof c === 'string' && c.startsWith('var(')) {
+      let nm = rgbVarName.get(c);   // (the property a var(--x) names, found once for each such string, not by a pattern at every call)
+      if (nm === undefined) { const m = /^var\((--[\w-]+)\)$/.exec(c); nm = m ? m[1] : null; rgbVarName.set(c, nm); }
+      if (nm) v = cs.getPropertyValue(nm).trim();
+    }
     let out = rgbCache.get(v);
     if (out) return out;
     // (Parsed in script, css-color.js, in 8-bit steps as a canvas's fillStyle gave it: no 2D canvas. Anything unreadable is black.)
@@ -4580,24 +4585,45 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   const mix3 = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
   const cssNum = (cs, name, dflt) => { const v = parseFloat(cs.getPropertyValue(name)); return Number.isFinite(v) ? v : dflt; };
-  const cssTriplet = (cs, name) => { const k = cs.getPropertyValue(name).trim().split(/[\s,/]+/).map(Number); return k.length >= 3 && k.every(Number.isFinite) ? k.slice(0, 3).map((v) => v / 255) : [0, 0, 0]; };
+  const tripletKept = new Map();   // (a property's text → its triplet, parsed once: callers copy it, none keeps or writes it)
+  const cssTriplet = (cs, name) => {
+    const raw = cs.getPropertyValue(name);
+    let out = tripletKept.get(raw);
+    if (out) return out;
+    const k = raw.trim().split(/[\s,/]+/).map(Number);
+    out = k.length >= 3 && k.every(Number.isFinite) ? k.slice(0, 3).map((v) => v / 255) : [0, 0, 0];
+    if (tripletKept.size > 64) tripletKept.clear();
+    tripletKept.set(raw, out);
+    return out;
+  };
   /** Whether the GPU draws the vessels (always, except while an SVG export is built). */
   const glWanted = () => !!veins && !veins.lost;
 
   // What the GPU draws this frame: each vessel on screen, its strands and its tributaries. Strands
   // and tributaries lie where the anatomy has them, so the circuit leaves them out (as the SVG did).
-  function glItems() {
-    const items = [];
+  // (The items are kept entries in two pools, written in place: the whole sync's (its list stays as the glow memo's until the next whole sync
+  // writes it again, and nothing else asks for that pool), and a scratch for the callers that read a list at once (envCheck, buildSegs).)
+  const GLI_SYNC = { list: [], objs: [], n: 0 }, GLI_SCRATCH = { list: [], objs: [], n: 0 }, NO_LIST = [];
+  function glItem(pool, x, obj, row, pts, kind) {
+    const i = pool.n++;
+    const it = pool.objs[i] || (pool.objs[i] = { x: null, obj: null, row: 0, pts: null, kind: '', ra: undefined, f: undefined, len: undefined, endNode: undefined });
+    it.x = x; it.obj = obj; it.row = row; it.pts = pts; it.kind = kind;
+    it.ra = undefined; it.f = undefined; it.len = undefined; it.endNode = undefined;   // (what cavaAsOne sets on the cava's, cleared for the entry's next use)
+    pool.list.push(it);
+  }
+  function glItems(pool = GLI_SCRATCH) {
+    const items = pool.list;
+    items.length = 0; pool.n = 0;
     const anat = morph < 0.5;
     for (const x of EV) {
       const pts = geo[x.e.id].cur;
       if (!x.vis || !pts || (!x.isArt && !x.rOf)) continue;
-      items.push({ x, obj: x, row: x.row, pts, kind: 'v' });
+      glItem(pool, x, x, x.row, pts, 'v');
       // The liver's branches lie where the circuit has them, so the anatomy leaves them out.
-      if (!anat && x.cbr) for (const cb of x.cbr) if (cb.w) items.push({ x, obj: cb, row: cb.row, pts: cb.cur, kind: 'c' });
+      if (!anat && x.cbr) for (const cb of x.cbr) if (cb.w) glItem(pool, x, cb, cb.row, cb.cur, 'c');
       if (!anat || x.isArt || x.ghost) continue;
-      for (const sd of x.strands || []) if (sd.cur && (sd.live ?? 1) > 0.02) items.push({ x, obj: sd, row: sd.row, pts: sd.cur, kind: 's' });
-      for (const fd of x.feeders || []) if ((fd.live ?? 1) > 0.02 && fd.w) items.push({ x, obj: fd, row: fd.row, pts: fd.cur, kind: 'f' });
+      for (const sd of x.strands || NO_LIST) if (sd.cur && (sd.live ?? 1) > 0.02) glItem(pool, x, sd, sd.row, sd.cur, 's');
+      for (const fd of x.feeders || NO_LIST) if ((fd.live ?? 1) > 0.02 && fd.w) glItem(pool, x, fd, fd.row, fd.cur, 'f');
     }
     return cavaAsOne(items, lenOfGeo);
   }
@@ -4607,7 +4633,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // The cava is drawn as one vessel: its two stretches (below and above the hepatic veins) are two
     // edges of the model, but one tube on screen, with one course, one shading and one chevron track.
     // Drawn where they would meet, two capped ends layered as an arc, a band and a seam.
-    const a = items.find((it) => it.kind === 'v' && it.x.e.id === 'IVC_IS'), b = items.find((it) => it.kind === 'v' && it.x.e.id === 'IVCS_RA');
+    let a = null, b = null;   // (the first of each, by a loop: no closure)
+    for (let q = 0; q < items.length; q++) {
+      const it = items[q];
+      if (it.kind !== 'v') continue;
+      if (!a && it.x.e.id === 'IVC_IS') a = it;
+      if (!b && it.x.e.id === 'IVCS_RA') b = it;
+    }
     if (a && b && a.pts.length > 1 && b.pts.length > 1) {
       const P = a.pts, Q = b.pts, q = P[P.length - 1], La = lenOf('IVC_IS', P), Lb = lenOf('IVCS_RA', Q);
       // Re-sampled evenly by arc length to the usual count of samples (a sample's index is its place along the vessel).
@@ -5210,7 +5242,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       veins.paintOrgans(getOrganCovers().map(({ src, w }) => ({ ...src, w })), [0, 0, VIEW.w, VIEW.h], 1.5);
       glOrgans = true; tubesNew = true;
     }
-    const items = gpuProbe.time(null, 'vessel sync: list', glItems);
+    const items = gpuProbe.time(null, 'vessel sync: list', glItems, GLI_SYNC);
     const cs = wrapCS();
     const mode = layerMode();
     // A jump in the model (a new patient, Undo or History, a time jump, Compare's Then and Now, Settle) recolours the vessels
