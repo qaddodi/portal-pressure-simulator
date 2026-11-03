@@ -2209,6 +2209,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // (A move cut by a newer slide leaves its cards unseen: that move fades nothing out, and Next pressed in a row waits no step for cards
       // that were brought in for a moment. A move that ends otherwise still brings its cards in.)
       if (bare && want === to) { bare = false; layout(); cardsIn(); }
+      // (3 Nov 2026, his iPhone: the figure stood dimmed behind a card that stopped part way in. A move that ended any way but landing, a throw
+      // from one of its steps, left the figure faded out (figureOut), with only figureIn, further down the move, to bring it back: a move that
+      // is the current one and is over gives the figure back whatever ended it.)
+      if (tx?.live() && want === to && view.classList.contains('pz-out')) figureIn();
       turnDone();
       if (tx?.live() && want === to) tx.end();   // (landed, or given up for this slide: its cards' input is given back; a newer change keeps its own)
       creditHolds--; clearTimeout(creditT);
