@@ -11,26 +11,13 @@
 // and one fold taking over from another starts from wherever the buttons and the face are drawn at that moment.
 
 // (The glide rides the camera's curve, the quintic of ease.js, and its CSS copy is --ease-move: one curve for a move, premium-feel R3.)
-import { easeMove, D_SURFACE, EASE_ARRIVE, EASE_MOVE } from './ease.js';
+import { easeMove, D_SURFACE, EASE_ARRIVE } from './ease.js';
 import { readStyle } from './layout-snap.js';
 import { splitFace } from './face-split.js';
 export const easeIO3 = easeMove;
-export const EASE_IO3 = EASE_MOVE;
 // The fold is quicker than the zoom it plays in (17 Oct, Mohammad: "should be faster and eased"), on the app's own ease
 // (tokens.css --ease: quick off the mark, settling gently), so the buttons have folded well before the pill lands.
 export const FOLD_MS = D_SURFACE, FOLD_EASE = EASE_ARRIVE;
-
-/**
- * One frame of the pill's glide (main.js sinMotion), on one axis, all in screen px. at: the pill's centre as drawn now, which
- * holds its own shift (its transform) and the slide of the dock it sits on
- * (dock); from: where it was when the move began; k: the share of the way still to go (1 − ease). Its resting place is what is
- * left; the shift returned draws it at from + (rest − from)(1 − k), whatever the dock under it is doing. (The dock's slide is taken
- * off too: the pill rides on it, so leaving it in drew the pill off the screen with the dock, out of the sinusoid, 17 Oct.)
- */
-export function glideShift(at, shift, dock, from, k) {
-  const rest = at - shift - dock;
-  return { rest, shift: (from - rest) * k - dock };
-}
 
 /**
  * The fold, worked out. before / after: the buttons drawn then and at rest, each { key, l, r, o } (left and right edges in the

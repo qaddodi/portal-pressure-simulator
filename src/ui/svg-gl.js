@@ -175,9 +175,7 @@ function keyOf(el, pk) {
 // ancestors, the theme): the next slide's chart, built in the task that changes the slide, takes the looks of the pieces like it already
 // read, and only a new kind of piece asks the page (2 Nov 2026: the charts asked the page about 230 times in a slide change). Dropped
 // on a new theme or palette and on a resize (the stylesheet's media queries).
-export const FIRST_LOOK = true;   // (switch deleted; kept for tool-profile.js until its own pass)
 const SHARED = new Map(), SCALE_VARS = ['--svk', '--pzh', '--ch-cap', '--s-cap'];
-export const sharedLooks = () => SHARED;
 function clearShared() { SHARED.clear(); ROOTS.clear(); }
 const ROOTS = new Map();   // (place key → the keys its roots' shared looks are kept by)
 /** Drops the shared looks of the roots of every box standing at place key pk. */

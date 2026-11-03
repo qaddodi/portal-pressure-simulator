@@ -125,7 +125,6 @@ export function fadeOver(canvas, follow = null, capture = null, host = null, box
 /** Ends a fade over canvas at once (a dive taking the canvas over). */
 export function fadeStop(canvas) { const f = fades.get(canvas); if (f) endGpu(canvas, f); }
 /** Whether the fade over canvas runs on the GPU (inside its own presents): always, now. */
-export const fadingOnGpu = (canvas) => fades.has(canvas);
 
 /** Whether a mix is still showing over canvas (for tests). */
 export const fading = (canvas) => fades.has(canvas);

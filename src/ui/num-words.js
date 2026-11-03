@@ -34,28 +34,7 @@ export function signedWords(v, d) {
   return T.signed[(i > T.n ? T.n : i < -T.n ? -T.n : i) + T.n];
 }
 
-// ── Style values a strip writes each frame (a part's place, its length as a scale, its strength): the words for them from tables too ──
-// A place is held to a quarter of a CSS pixel (under one device pixel at any scale a screen has, so an ease still reads as smooth),
-// within ±TX_SPAN px; a scale to 1/512; a strength to 1/1000. Each helper returns the index; the table holds the words.
-const TX_SPAN = 1536, TX_STEP = 4;
-const TX = [];
-for (let i = -TX_SPAN * TX_STEP; i <= TX_SPAN * TX_STEP; i++) TX.push(`${(i / TX_STEP).toFixed(2)}px 0`);
-const SX = [];
-for (let i = 0; i <= 512; i++) SX.push(`${(i / 512).toFixed(4)} 1`);
-const OP = [];
-for (let i = 0; i <= 1000; i++) OP.push((i / 1000).toFixed(3));
-/** The table index of a place x (px). */
-export const txIndex = (x) => { const i = Math.round(x * TX_STEP); return (i > TX_SPAN * TX_STEP ? TX_SPAN * TX_STEP : i < -TX_SPAN * TX_STEP ? -TX_SPAN * TX_STEP : i === i ? i : 0) + TX_SPAN * TX_STEP; };
-/** What `style.translate` is written for that index: 'x.xxpx 0'. */
-export const txWords = (i) => TX[i];
-/** The table index of a scale s (0 to 1; 512 is whole size). */
-export const sxIndex = (s) => { const i = Math.round(s * 512); return i > 512 ? 512 : i > 0 ? i : 0; };
-export const SX_WHOLE = 512;
-/** What `style.scale` is written for that index: 'x.xxxx 1'. */
-export const sxWords = (i) => SX[i];
-/** The words for a strength 0 to 1: '0.250'. */
-export const opWords = (v) => { const i = Math.round(v * 1000); return OP[i > 1000 ? 1000 : i > 0 ? i : 0]; };
-
+// ── Style values a strip writes each frame: the words for a whole percent, from a table ──
 /** '0%' to '100%' for a whole percent (clamped; not a number: 0%). */
 const PCTS = [];
 for (let i = 0; i <= 100; i++) PCTS.push(`${i}%`);

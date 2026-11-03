@@ -55,43 +55,9 @@ let view = null;
 const readView = () => { note(); const d = typeof document !== 'undefined' ? document.documentElement : null; return { w: d?.clientWidth || (typeof innerWidth === 'number' ? innerWidth : 0) || 0, h: d?.clientHeight || (typeof innerHeight === 'number' ? innerHeight : 0) || 0 }; };
 export const viewSize = () => view ?? (view = readView());
 
-// What the presenter and the chrome place: a box per element, its size from the observer, its place from place().
-const kept = new Map();   // el → { w, h, x, y, placed }
-let ro = null;
-const observer = () => (ro ??= typeof ResizeObserver === 'undefined' ? null : new ResizeObserver((entries) => {
-  for (const e of entries) {
-    const k = kept.get(e.target);
-    if (!k) continue;
-    const b = e.borderBoxSize?.[0];
-    k.w = b ? b.inlineSize : e.contentRect.width; k.h = b ? b.blockSize : e.contentRect.height;
-  }
-}));
-// Keep an element's box: its size follows it from now on; its place is the last one place() was told (or the first read's).
-export function keep(el) {
-  if (!el || kept.has(el)) return;
-  const r = readBox(el);
-  kept.set(el, { w: r.width, h: r.height, x: r.left, y: r.top, placed: true });
-  observer()?.observe(el, { box: 'border-box' });
-}
-export function forget(el) { if (kept.delete(el)) ro?.unobserve(el); }
-// Whoever moves a kept element says where it now is (client px of its top left), so the snapshot holds its place without a read.
-// (A place not known (a move by CSS, a scroll) is marked unknown: the next boxOf asks the browser once.)
-export function place(el, x, y) { const k = kept.get(el); if (!k) return; if (x == null) k.placed = false; else { k.x = x; k.y = y; k.placed = true; } }
-// The kept box of an element ({ left, top, width, height, right, bottom }), or the browser's for one not kept or not placed.
-export function boxOf(el) {
-  const k = kept.get(el);
-  if (!k || !k.placed) {
-    const r = readBox(el);
-    if (k) { k.x = r.left; k.y = r.top; k.w = r.width; k.h = r.height; k.placed = true; }
-    return r;
-  }
-  return { left: k.x, top: k.y, width: k.w, height: k.h, right: k.x + k.w, bottom: k.y + k.h, x: k.x, y: k.y };
-}
-// (A resize or a turn may move every kept box: the places are asked again once, as each is next wanted.)
+// (A resize or a turn: the window's size is read again, once, in the event's own task.)
 if (typeof addEventListener !== 'undefined') {
-  const lost = () => { for (const k of kept.values()) k.placed = false; };
-  const turned = () => { if (view) view = readView(); lost(); };   // (read in the event's own task, once)
+  const turned = () => { if (view) view = readView(); };   // (read in the event's own task, once)
   addEventListener('resize', turned);
   addEventListener('orientationchange', turned);
-  addEventListener('scroll', lost, { capture: true, passive: true });
 }

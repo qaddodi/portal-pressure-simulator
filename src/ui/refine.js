@@ -26,7 +26,6 @@ export const REFINE_MS = 1;
 // recurring 100 ms step average 3.2 ms a frame). It cannot undo the frame the overrun was in: pieces are kept small for that (organ-paint
 // counts composites and group setups as units). Every overrun is counted (count, total ms, worst) next to a histogram of step times,
 // for ?perf and the gate.
-export const MAX_DEBT_FRAMES = Infinity;   // (no cap: see above)
 
 const NEVER = () => false;   // (the default of the checks a caller may leave out)
 export function createRefine({ ms = REFINE_MS, probe = gpuProbe } = {}) {

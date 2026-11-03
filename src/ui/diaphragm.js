@@ -142,7 +142,6 @@ function lineD(n) {
 }
 
 /** The diaphragm over the organs as a path through every point of its line (diaphragmFill, then diaphragmD's path): the one call that builds nothing but the text. */
-export function diaphragmPathD(organs, floor = noFloor) { return lineD(diaphragmFill(organs, floor)); }
 
 /** Through every point (Catmull-Rom as cubic Béziers). */
 export function diaphragmD(out) {
