@@ -27,7 +27,7 @@ let theme = null, themeWatch = false, themeSoon = 0;
 function readTheme() {
   themeSoon = 0;
   const cs = getComputedStyle(document.documentElement), g = (n) => cs.getPropertyValue(n).trim();
-  theme = { panel: g('--inst-panel') || g('--surface-2'), edge: g('--border'), tick: g('--text-3'), text: g('--text-2'), orange: g('--fibroscan') };
+  theme = { panel: g('--inst-panel') || g('--surface-2'), edge: g('--border'), tick: g('--text-3'), text: g('--text-2'), orange: g('--fibroscan'), halo: g('--fibroscan-halo') || 'black' };   // (halo: the big reading's, one solid colour, the map's darkest tone: a see-through halo showed the stroke's own overlaps as beads along the edge)
 }
 function watchTheme() {
   if (themeWatch) return;
@@ -39,9 +39,6 @@ function watchTheme() {
 const colors = () => theme;
 // (Kept for every frame: the dash patterns and depth lines, the labels' texts, and the ?perf rows. The chart drawer copies a dash it is given.)
 const DASH = [2, 4], NO_DASH = [], WINDOW = [WIN0, WIN1];
-// The big reading's halo is one solid colour, the map's darkest tone: a see-through halo showed the stroke's own overlaps (its joins and
-// the glyph's counters) as dark beads and bands along the edge.
-const READ_HALO = 'rgb(22,12,9)';
 const DEPTH_TXT = ['30', '45 mm', '60'], TIME_TXT = ['0 ms', '20', '40', '60', '80'];
 const ROW_WORDS = { on: 'gpu', via: 'map WebGL2, words on the GPU chart drawer' }, ROW_2D = { on: 'gpu', via: 'map WebGL2, words 2D canvas (?tracegl=0)' };
 const ROW_NONE = { on: 'fallback', via: 'none', why: 'no WebGL2 or a lost context: no map' };
@@ -231,18 +228,18 @@ export function createFibroScan() {
     // GPU picture, drawn again only when the size, the words' size or the theme's colours change, not on every frame of the wave; each frame
     // lays that picture and draws the fitted line and the reading. (The kept layer, as the Doppler's scale does; the fit is worked out with it.)
     const ink = cssAlpha('--white', 0.96), halo = cssAlpha('--black', 0.7), dash = cssAlpha('--white', 0.5);
-    if (KS.w !== w || KS.hh !== hh || KS.CAP !== CAP || KS.side !== side || KS.edge !== th.edge || KS.tick !== th.tick || KS.ink !== ink || KS.halo !== halo || KS.dash !== dash) {
-      KS.w = w; KS.hh = hh; KS.CAP = CAP; KS.side = side; KS.edge = th.edge; KS.tick = th.tick; KS.ink = ink; KS.halo = halo; KS.dash = dash; KS.ver++;
+    if (KS.w !== w || KS.hh !== hh || KS.CAP !== CAP || KS.side !== side || KS.edge !== th.edge || KS.tick !== th.tick || KS.hc !== th.halo || KS.ink !== ink || KS.halo !== halo || KS.dash !== dash) {
+      KS.w = w; KS.hh = hh; KS.CAP = CAP; KS.side = side; KS.edge = th.edge; KS.tick = th.tick; KS.hc = th.halo; KS.ink = ink; KS.halo = halo; KS.dash = dash; KS.ver++;
     }
     KS.th = th; KS.m = m; KS.ew = ew; KS.ph = ph; KS.ex = ex; KS.top = top; KS.bot = bot; KS.FLOOR = FLOOR; KS.ctx = ctx;
     keepLayer(ctx, 'fs-still', KS.ver, drawStill);
     const x0 = ex + (WAVE_T0 / 80) * ew, x1 = x0 + clamp((40 / c) / 80, 0, 1) * ew;
     ctx.strokeStyle = cssAlpha('--white', 0.95); ctx.lineWidth = 1.25; ctx.beginPath(); ctx.moveTo(x0, top + ((WIN0 - DEPTH0) / DEPTH_SPAN) * ph); ctx.lineTo(x1, top + ((WIN1 - DEPTH0) / DEPTH_SPAN) * ph); ctx.stroke();
-    ctx.fillStyle = ink; ctx.strokeStyle = READ_HALO; ctx.lineJoin = 'round'; ctx.textAlign = 'right'; ctx.lineWidth = Math.max(3, KS.big * 0.16);
+    ctx.fillStyle = ink; ctx.strokeStyle = colors().halo; ctx.lineJoin = 'round'; ctx.textAlign = 'right'; ctx.lineWidth = Math.max(3, KS.big * 0.16);
     ctx.font = FONT(600, KS.big); ctx.strokeText(reading, KS.ux - KS.uw - 5, KS.RY); ctx.fillText(reading, KS.ux - KS.uw - 5, KS.RY);
   }
   // (The kept layer's drawing: what the still parts are drawn from is in KS, and the reading's fit is left there for each frame's number.)
-  const KS = { ver: 0, w: 0, hh: 0, CAP: 0, side: false, edge: '', tick: '', ink: '', halo: '', dash: '', th: null, m: 0, ew: 0, ph: 0, ex: 0, top: 0, bot: 0, FLOOR: 0, ctx: null, big: 14, RY: 0, uw: 0, ux: 0 };
+  const KS = { ver: 0, w: 0, hh: 0, CAP: 0, side: false, edge: '', tick: '', hc: '', ink: '', halo: '', dash: '', th: null, m: 0, ew: 0, ph: 0, ex: 0, top: 0, bot: 0, FLOOR: 0, ctx: null, big: 14, RY: 0, uw: 0, ux: 0 };
   function drawStill() {
     const { ctx, th, m, ew, ph, ex, top, bot, side, w, hh, CAP, FLOOR } = KS;
     ctx.strokeStyle = cssAlpha('--white', 0.5); ctx.setLineDash(DASH); ctx.lineWidth = 1;
@@ -283,7 +280,7 @@ export function createFibroScan() {
     }
     ctx.textAlign = 'right'; ctx.lineWidth = Math.max(3, big * 0.16);
     ctx.font = FONT(500, Math.round(CAP * 1.4)); const ux = ex + ew - RM;
-    ctx.strokeStyle = READ_HALO; ctx.strokeText('kPa', ux, RY); ctx.fillText('kPa', ux, RY);
+    ctx.strokeStyle = th.halo; ctx.strokeText('kPa', ux, RY); ctx.fillText('kPa', ux, RY);
     KS.big = big; KS.RY = RY; KS.uw = uw; KS.ux = ux;
   }
   // Runs only while the pane is on screen; update() restarts it when the tab is shown again.
