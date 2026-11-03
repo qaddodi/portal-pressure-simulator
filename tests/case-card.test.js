@@ -72,7 +72,10 @@ test('the case card is cards glass, enters and leaves whole, never resizing', ()
   const rule = css.match(/\.pz-case \{[^}]*\}/)[0];
   assert.match(rule, /--gl-glass: 1;/);   // (its frost the cards' GPU glass; no CSS blur since 1 Nov 2026)
   assert.match(rule, /height: fit-content/);
-  assert.match(rule, /transition: opacity var\(--d-surface\) var\(--ease\), transform var\(--d-surface\) var\(--ease\);/);
+  // (No CSS transition: its compositor run parted from the GPU glass by a frame. presenter.js caseFade writes the fade on the frame clock.)
+  assert.doesNotMatch(rule, /transition/);
+  assert.match(rule, /opacity: 0;/);
+  assert.match(css, /\.pz-case\.on \{ opacity: 1; translate: none; \}/);
   assert.doesNotMatch(rule, /scale/);
 });
 
@@ -134,7 +137,7 @@ test('the case card follows a finger and a fling lifts it like a tap, also durin
   assert.doesNotMatch(fly, /camera\(|go\(|next\(/);
   // Once flown, Next/caseShut wait only for the rest of the flight, and the next case card comes back whole.
   assert.match(src, /const ms = card\.flown \? Math\.max\(0, Math\.ceil\(card\.flown - performance\.now\(\)\)\) : card\.ms;/);
-  assert.match(src, /for \(const k of \['transform', 'transition', 'opacity'\]\) c\.style\.removeProperty\(k\);/);
+  assert.match(src, /for \(const k of \['transform', 'transition'\]\) c\.style\.removeProperty\(k\);/);
 });
 
 test('a tap, Next or a swipe anywhere lifts the case card at once, even while the patient loads; the next one moves on', () => {
@@ -143,7 +146,7 @@ test('a tap, Next or a swipe anywhere lifts the case card at once, even while th
   // It fades now (no waiting for the load to end), and Next and swipes go back to changing slides.
   assert.match(gone, /if \(caseLift && caseCard === card\) caseLift = null;/);
   assert.match(gone, /card\.lifted = true;/);
-  assert.match(gone, /card\.c\.classList\.remove\('on'\);\s*card\.flown = performance\.now\(\) \+ card\.ms;/);
+  assert.match(gone, /card\.c\.classList\.remove\('on'\);\s*caseFade\(card\.c, false, card\.ms\);\s*card\.flown = performance\.now\(\) \+ card\.ms;/);
   assert.doesNotMatch(gone, /go\(|next\(|camera\(/);
   // A swipe off the card goes through the slide swipe, which calls next() (so caseLift) like any slide.
   assert.match(src, /if \(d > 0\) next\(\); else if \(d < 0\) prev\(\);/);
@@ -197,4 +200,12 @@ test('a case card may open a time-lapse: it covers the patient as it loads at th
   assert.ok(out[1].start?.snap && out[1].start.fp, 'with params the lapse has its own start');
   assert.ok(out[1].start.fp.hvpg > out[1].fp.hvpg, 'the start is the patient before the days run (the cure has not yet lowered it), not where they end');
   assert.equal(out[2].start, null, 'without params there is no start to cover');
+});
+
+test('the case card fades on the frame clock, from where it stands, never on a CSS transition', () => {
+  const fade = src.slice(src.indexOf('function caseFade('), src.indexOf('let caseLift = null'));
+  assert.match(fade, /glideTranslate\(c, 0, on \? RISE_CASE : 0, 0, on \? 0 : RISE_CASE, ms, easeArrive\)/);
+  assert.match(fade, /glideOpacity\(c, on \? 0 : 1, on \? 1 : 0, ms, easeArrive\)/);
+  assert.match(src, /c\.classList\.add\('on'\);\s*caseFade\(c, true, ms\);/);
+  assert.match(css, /\.pz-case \{[^}]*translate: 0 14px;/);
 });

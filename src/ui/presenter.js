@@ -65,8 +65,8 @@ import { createCardZoom, tapTracker } from './card-zoom.js';
 import { sheetPanes } from './sheet-glass.js';
 import { createScopeTile } from './scope-tile.js';
 import { tileKeys as cardKeys, toolOnly } from './card-tiles.js';
-import { D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, RISE_PX, cssCurve, easeIn } from './ease.js';
-import { glideOpacity } from './script-glide.js';
+import { D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, RISE_PX, cssCurve, easeIn, easeArrive } from './ease.js';
+import { glideOpacity, glideTranslate, glideStop } from './script-glide.js';
 import { slideFold } from './fold-slide.js';
 import { pageOn, followOf, pageIn, swipeHeld } from './card-page.js';
 import { throwOut, throwIn, throwBack, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, INSTANT, throwOutNow, throwPinned, throwRelease, railable, railHold, railIn, railAway, railGhosts, railWaits, railCopies, RAIL_GAP } from './card-throw.js';
@@ -1861,18 +1861,30 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // grow in, seen around the card (a camera move over a changing patient paints the organs whole every frame). The slide's words
   // are fitted unseen meanwhile; the tap lifts the card, the camera makes one eased zoom to the slide's own framing, and the
   // slide's cards come in once it has landed (see caseLifted, caseEnd).
+  // The case card comes in and goes out on the frames (3 Nov 2026, "cards trailing behind": its CSS transition ran on the compositor a display
+  // frame off the GPU glass drawn under it). Its class says where it ends (app.css .pz-case, .on); this writes the way there, inline, from
+  // where it stands if it was still moving, and takes the inline values off once it has landed (the class holds them).
+  const RISE_CASE = 14;   // (px: where a case card waits below its place, as app.css .pz-case)
+  function caseFade(c, on, ms) {
+    if (ms <= 0) { glideStop(c); c.style.removeProperty('opacity'); c.style.removeProperty('translate'); return; }
+    glideTranslate(c, 0, on ? RISE_CASE : 0, 0, on ? 0 : RISE_CASE, ms, easeArrive);
+    glideOpacity(c, on ? 0 : 1, on ? 1 : 0, ms, easeArrive).then(() => { if (c.classList.contains('on') === on && on) { glideStop(c); c.style.removeProperty('opacity'); c.style.removeProperty('translate'); } });
+  }
   let caseLift = null, caseCard = null, caseHideT = 0;   // (caseHideT: the timer that hides the card once it has faded out, caseShut)
   // The glass card goes up, a case's or a question's: its words fitted before it enters, so it never resizes on screen.
   function cardUp(tag, ...words) {
     const c = ui.vcase, ms = reduce.matches ? 0 : D_SURFACE;
     clearTimeout(caseHideT); caseHideT = 0;   // (the card is shown again: the timer of its last leaving has nothing left to hide)
     c.replaceChildren(h('span', { class: 'pz-site pz-case-tag' }, tag), ...words);
-    for (const k of ['transform', 'transition', 'opacity']) c.style.removeProperty(k);   // (a card flung off last time comes back whole)
+    const fading = c.classList.contains('on') ? false : c.style.opacity !== '' && c.style.opacity !== '0';   // (still fading out: it comes back from where it stands)
+    for (const k of ['transform', 'transition']) c.style.removeProperty(k);   // (a card flung off last time comes back whole)
+    if (!fading) for (const k of ['opacity', 'translate']) c.style.removeProperty(k);
     c.hidden = false; void readMetric(c, 'offsetWidth');
     // The words run 2.5x the teaching card's; on a short or narrow screen they ease down just enough to fit the card's room (set before it enters, so nothing resizes on screen).
     c.style.removeProperty('--case-k');
     for (let k = parseFloat(readStyle(c).getPropertyValue('--case-max')) || 2.5; k > 1.2 && readMetric(c, 'scrollHeight') > readMetric(c, 'clientHeight') + 1; k -= 0.1) c.style.setProperty('--case-k', k.toFixed(1));
     c.classList.add('on');
+    caseFade(c, true, ms);
     // Lifting works from the moment the card is up: a tap, Next or a swipe anywhere fades it out at once, as a fling does, even
     // while the patient still loads behind it (the slide goes on into this same slide, its cards once loading ends). After
     // that Next and a swipe act as on any other slide.
@@ -1926,6 +1938,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     card.lifted = true;
     if (card.flown) return;
     card.c.classList.remove('on');
+    caseFade(card.c, false, card.ms);
     card.flown = performance.now() + card.ms;
   }
   // The card leaves: no longer a case card for Next to lift; it fades out and is hidden once it has.
@@ -1935,6 +1948,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!card) return 0;
     caseCard = null; caseLift = null;
     card.c.classList.remove('on');
+    if (!card.flown) caseFade(card.c, false, card.ms);
     const ms = card.flown ? Math.max(0, Math.ceil(card.flown - performance.now())) : card.ms;
     // (One card element serves every case: a timer of an earlier leaving would hide it in the middle of this one's.)
     clearTimeout(caseHideT);
