@@ -193,8 +193,9 @@ export function createSinusoidView({ host, before = null }) {
   }
   const el = h('div', { class: 'sv', 'aria-hidden': 'true' }, canvas, labels, legend);
   // (The page's own names made clear while the GPU's picture of them is on the screen: app.css .cap-gl-on, caption-gl.js presented.)
-  cap.onPresented = () => restClass(el, 'cap-gl-on', true);
-  cap.onLost = () => restClass(el, 'cap-gl-on', false);
+  // (Written in the task that handed the picture over: a rest pass could come long after it, with both showing.)
+  cap.onPresented = () => el.classList.add('cap-gl-on');
+  cap.onLost = () => el.classList.remove('cap-gl-on');
   host.insertBefore(el, before);
   // The WebGL2 context is made when the view is about to show (setModel at the start of the dive in, place), not with the lobule: a page
   // holds only so many contexts (iOS Safari about 16, dropping the oldest, which is the figure's), and the lobule opens far more often

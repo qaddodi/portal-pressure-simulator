@@ -165,8 +165,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // frames (2 Nov 2026, "Move everything to GPU").
   const cap = createCaptionGL(labels);
   // (The page's own names are made clear only once the GPU's picture of them is on the screen, and shown again if it is lost: caption-gl.js presented.)
-  cap.onPresented = () => classSoon(labels, 'cap-gl-on', true);
-  cap.onLost = () => classSoon(labels, 'cap-gl-on', false);
+  // (Written in the task that handed the picture over, not in a later one: the page's names are made clear in the very frame the GPU's picture
+  // first shows, never a frame, or a rest pass, after it, when both would show: the double captions.)
+  cap.onPresented = () => labels.classList.add('cap-gl-on');
+  cap.onLost = () => labels.classList.remove('cap-gl-on');
 
   // ── What sits on the lobule ──
   // Zones and Lymph are layers (the toolbar's Layers menu keeps them in the store). Nothing floats in a card.
