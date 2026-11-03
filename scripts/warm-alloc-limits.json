@@ -1,0 +1,7 @@
+{
+  "blood.advanceStream, 40 streams": 900,
+  "pressure-time ingest (real engine frames)": 700,
+  "flow-rows changedRows + retireRows + flowClose": 100,
+  "uniform-cache, a frame of fifty uniforms": 100,
+  "veins-bin splitCells into a kept record": 100
+}

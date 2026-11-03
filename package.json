@@ -9,6 +9,7 @@
     "test": "node --test --test-concurrency=4 tests/*.test.js",
     "lint": "eslint . && node scripts/off-gpu-scan.mjs && node scripts/rules-lint.mjs",
     "offgpu": "node scripts/off-gpu-scan.mjs --doc",
+    "warm": "node --expose-gc --max-semi-space-size=128 scripts/warm-alloc.mjs",
     "stamp": "node scripts/stamp.mjs",
     "build": "node scripts/build.mjs",
     "preview": "node scripts/serve.mjs dist 8081",

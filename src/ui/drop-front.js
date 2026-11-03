@@ -6,7 +6,9 @@ export function dropFront(a, n) {
   const len = a.length;
   if (n <= 0) return a;
   if (n >= len) { a.length = 0; return a; }
-  for (let i = n; i < len; i++) a[i - n] = a[i];
+  // (copyWithin, not a loop of our own: this one function serves arrays of numbers and arrays of objects, and its store, made generic by the
+  // second kind, turned the number arrays into arrays of heap numbers once it was compiled, a new heap number for every value pushed after.)
+  a.copyWithin(0, n);
   a.length = len - n;
   return a;
 }
