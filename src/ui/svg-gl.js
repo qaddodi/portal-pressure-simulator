@@ -882,9 +882,18 @@ export function createSvgGL(box) {
   }
   // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)
   const connect = () => { g.connAsk = 0; if (g.dead) { g.pending = null; return; } const r = g.pending; g.pending = null; if (r && !r.isConnected) box.append(r); };
+  // (Nothing in the box to draw, and the last picture drawn was empty too: the canvas is already clear, so nothing is sized, drawn or
+  // handed over. A full-screen layer with no drawing in it (the lobule's leaders, while the lobule is shut) took a whole-screen
+  // clear and transfer, ~100-350 ms on a phone, again and again through a change between the views.)
+  const hasInk = () => {
+    for (let c = box.firstElementChild; c; c = c.nextElementSibling) if (c.hasAttribute('data-svg-model') && c.firstElementChild) return true;
+    const p = g.pending;
+    return !!p && !p.isConnected && !!p.firstElementChild;
+  };
   function draw() {
     g.ask = 0;
     if (g.dead || !cv.isConnected) return;
+    if (g.blank && !g.ins.size && !hasInk()) return;
     const pen = fitPen(cv, g.gpu), { ctx, w, h } = pen;
     const now = easeNow();
     easing = false;
@@ -894,6 +903,7 @@ export function createSvgGL(box) {
       ctx.clearRect(0, 0, w, h);
       if (!(bw > 0 && bh > 0)) return;
       const last = drawModels(ctx, now, bw, bh);
+      g.blank = !hasInk();
       const label = last?.getAttribute('aria-label');
       if (label) attrSoon(cv, 'aria-label', label);
     } finally { handed = ctx.end?.() !== false; }   // (false: the picture could not be handed over, trace-gl.js end)

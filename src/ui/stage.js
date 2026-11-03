@@ -1117,7 +1117,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // in a pass between frames, when the shapes have held still for GEO_QUIET ms (hit-testing and the corner credit take them first, flushGeo).)
   const GEO_QUIET = 160;
   const geoHeld = new Map();
-  let geoT = 0, geoPass = 0;
+  let geoT = 0, geoPass = 0, geoAt = 0;
   const geoHolding = () => wrap.classList.contains('gl-on');
   /** An attribute (v null: removed) or, as 'style:<prop>', a style of the SVG model, held while the GPU draws it. */
   function setG(el, k, v, hold = geoHolding()) {
@@ -1126,8 +1126,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (!m) geoHeld.set(el, (m = {}));
       m[k] = v;
       if (k.startsWith('style:')) setLive(el, k.slice(6), v);   // (the painters read it from here, live-style.js)
-      if (geoT) clearTimeout(geoT);
-      geoT = setTimeout(geoQuiet, GEO_QUIET);
+      // (One timer, kept: it looks at the time of the last held write when it fires and waits out what is left. A timer made again for each
+      // write was dozens of timers a frame through a change between the views.)
+      geoAt = performance.now();
+      if (!geoT) geoT = setTimeout(geoQuiet, GEO_QUIET);
       return;
     }
     const m = geoHeld.get(el);
@@ -1137,7 +1139,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function putG(el, k, v) {
     if (k.startsWith('style:')) { const p = k.slice(6); dropLive(el, p); if (el.style[p] !== v) el.style[p] = v; } else if (v == null) el.removeAttribute(k); else el.setAttribute(k, v);
   }
-  function geoQuiet() { geoT = 0; if (!geoPass) geoPass = restPass(flushGeoPass); }
+  function geoQuiet() {
+    const left = GEO_QUIET - (performance.now() - geoAt);
+    if (left > 4) { geoT = setTimeout(geoQuiet, left); return; }   // (written again since: wait out the rest of the quiet)
+    geoT = 0;
+    if (!geoPass) geoPass = restPass(flushGeoPass);
+  }
   function flushGeoPass() { geoPass = 0; flushGeo(); }
   function flushGeo() {
     if (geoT) { clearTimeout(geoT); geoT = 0; }
@@ -2992,7 +2999,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     svgOver?.classList.toggle('circuit', t > 0.5);
     // The circuit is a dark hemodynamic map; the anatomy an atlas plate on paper.
     stageWrap.classList.toggle('cmap', t > 0.5);
-    setG(gFxC, 'style:opacity', String(t));
+    if (gFxC.firstChild || t === 0 || t === 1) setG(gFxC, 'style:opacity', String(t));   // (an empty layer takes no opacity through the change between the views; its value lands with the view)
     // (The map and the dots fade with t on the GPU: at 0 neither is drawn nor read.)
     if (MAP.a !== t) { MAP.a = t; nd.dirty = true; }
     CTM = null;
@@ -3761,7 +3768,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // by more than MORPH_SLACK) is binned as before. (Without Worker, as in a test page, every frame is binned.)
   const MORPH_GPU = typeof Worker !== 'undefined';
   const MORPH_PIECES = [[0, 1 / 6], [1 / 6, 1 / 3], [1 / 3, 0.5], [0.5, 2 / 3], [2 / 3, 5 / 6], [5 / 6, 1]];
-  const MORPH_STEPS = 6, MORPH_SLACK = 6, MORPH_JSLACK = 30, MORPH_JSUB = 3;
+  const MORPH_STEPS = 12, MORPH_SLACK = 6, MORPH_JSLACK = 30, MORPH_JSUB = 3;
   const mt = { key: '', pieces: null, using: null, gen: 0, checkT: 0, reach: [null, null], landAt: 0, stats: { gpu: 0, cpu: 0, builds: 0, miss: {} } };
   const morphMiss = (why) => { mt.stats.miss[why] = (mt.stats.miss[why] || 0) + 1; return false; };
   function morphOff() {

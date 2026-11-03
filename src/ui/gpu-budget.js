@@ -187,7 +187,16 @@ function canvasBytes() {
   }
   return b;
 }
-const screenPx = () => { const d = globalThis.devicePixelRatio || 1; return Math.max(1, (globalThis.innerWidth || 1) * (globalThis.innerHeight || 1) * d * d); };
+// (The window's size in device pixels, read once and again after a resize: innerWidth and innerHeight make the browser lay the page out
+// first, and this was read at the end of every frame, after the frame's writes (about 0.6 ms a frame on a phone's change of view).)
+let scrPx = 0;
+const scrDirty = () => { scrPx = 0; };
+if (typeof globalThis.addEventListener === 'function') { globalThis.addEventListener('resize', scrDirty); globalThis.addEventListener('orientationchange', scrDirty); }
+const screenPx = () => {
+  if (scrPx) return scrPx;
+  const d = globalThis.devicePixelRatio || 1;
+  return (scrPx = Math.max(1, (globalThis.innerWidth || 1) * (globalThis.innerHeight || 1) * d * d));
+};
 
 /** The registry and the passes now: bytes against the memory envelope, the last frame's area against the pass envelope. */
 export function budget() {
