@@ -177,7 +177,13 @@ function toastFit(wrap, t, msg, actions) {
     if (msg.length > 60 || actions?.length) t.classList.add('toast-tall');   // (84 px: app.css, a class, so no height is written)
     let px = msg.length <= 28 ? 20 : msg.length <= 60 ? 17 : 15;
     const room = t.clientHeight - 8 - (actions?.length ? t.querySelector('.toast-acts').offsetHeight + 6 : 0);
-    for (; px > 12; px--) { m.style.fontSize = `${px}px`; if (m.scrollHeight <= room && m.scrollWidth <= m.clientWidth) break; }
+    // (The largest size from 13 px up to the first guess that fits, found by halving: each try lays the toast out, and the steps were tried one by one, up to eight.)
+    const fitsAt = (v) => { m.style.fontSize = `${v}px`; return m.scrollHeight <= room && m.scrollWidth <= m.clientWidth; };
+    if (!fitsAt(px)) {
+      let lo = 13, hi = px - 1, best = 13;
+      while (lo <= hi) { const mid = (lo + hi) >> 1; if (fitsAt(mid)) { best = mid; lo = mid + 1; } else hi = mid - 1; }
+      m.style.fontSize = `${best}px`;
+    }
   }
   t.style.visibility = '';
 }
@@ -449,7 +455,9 @@ function moreFlush() { const lists = [...moreAsks]; moreAsks.clear(); for (const
 // (--fade-pb: the list's bottom padding, which the fade reaches down through so it ends at the panel's own edge.)
 function moreSync(el) {
   moreAsks.delete(el);   // (a check made now answers one that was waiting)
-  el.classList.toggle('more', el.scrollHeight - el.clientHeight - el.scrollTop > 4); el.style.setProperty('--fade-pb', getComputedStyle(el).paddingBottom);
+  // (Both read before either is written: the class would dirty the style and the padding read after it would lay the list out again.)
+  const more = el.scrollHeight - el.clientHeight - el.scrollTop > 4, pb = getComputedStyle(el).paddingBottom;
+  el.classList.toggle('more', more); el.style.setProperty('--fade-pb', pb);
 }
 // Whether an element has a box (neither it nor an ancestor display: none), as getClientRects().length says, without laying
 // the page out: checkVisibility needs only styles. (Each read in the middle of a model frame, after its writes, laid the
@@ -1414,10 +1422,11 @@ export function enhanceRanges(root = document) {
     const input = e.target;
     if (e.pointerType !== 'touch' || !isRange(input)) return;
     e.preventDefault();
-    input.focus({ preventScroll: true });
-    input.classList.add('held');   // (the thumb's held ring, app.css: iOS gives a range no :active)
+    // (Read first, written after: the focus and the held class dirty the style, and a read after them lays the page out in the frame the finger lands.)
     const th = parseFloat(getComputedStyle(input).getPropertyValue('--tw')) || 18;
     const box = input.getBoundingClientRect();
+    input.focus({ preventScroll: true });
+    input.classList.add('held');   // (the thumb's held ring, app.css: iOS gives a range no :active)
     setTo(input, fromX(input, e.clientX, th, box));
     try { input.setPointerCapture(e.pointerId); } catch (e) { caught('util:1225', e); /* gone */ }
     const move = (ev) => { if (ev.pointerId === e.pointerId) setTo(input, fromX(input, ev.clientX, th, box)); };

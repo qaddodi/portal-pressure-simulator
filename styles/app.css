@@ -379,6 +379,7 @@ html.chip-open :is(.chip-btn, .lens-btn)[aria-expanded="true"] { background: var
 @property --sedge-t { syntax: '<number>'; inherits: true; initial-value: 0; }
 @property --sedge-b { syntax: '<number>'; inherits: true; initial-value: 0; }
 @keyframes fade-rise { from { opacity: 0; transform: translate(var(--rise-x, 0px), var(--rise-y, 6px)); } }
+@keyframes fade-rise-b { from { opacity: 0; transform: translate(var(--rise-x, 0px), var(--rise-y, 6px)); } }   /* (the same under a second name: swapping names restarts it with no reflow, menu.js setTab) */
 @keyframes fade-rise-out { to { opacity: 0; transform: translate(var(--rise-x, 0px), var(--rise-y, 6px)); } }
 @keyframes slide-from-edge { from { opacity: var(--edge-o, 1); transform: translate(var(--edge-x, 0px), var(--edge-y, 0px)); } }
 @keyframes slide-to-edge { to { opacity: var(--edge-o, 1); transform: translate(var(--edge-x, 0px), var(--edge-y, 0px)); } }
@@ -3917,6 +3918,7 @@ button.finding { cursor: pointer; }
 .umenu[data-tab="present"] .um-col[data-col="patients"], .umenu[data-tab="patients"] .um-col[data-col="present"] { display: none; }
 .um-col { flex: 1 1 auto; }
 .um-col.um-in { animation: fade-rise var(--d-flip) var(--ease); }
+.um-col.um-in2 { animation: fade-rise-b var(--d-flip) var(--ease); }
 /* A sideways swipe pages between the two lists (menu.js swipeTabs): the other list shows beside the open one, over the part in
    view, and the lists slide inside the panel without making it scroll sideways. */
 .um-cols { position: relative; overflow-x: clip; }
@@ -6957,6 +6959,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
    matching media query replaces the one of the same name above.) Loops that only move stop; spinners breathe instead. */
 @media (prefers-reduced-motion: reduce) {
   @keyframes fade-rise { from { opacity: 0; } }
+  @keyframes fade-rise-b { from { opacity: 0; } }
   @keyframes fade-rise-out { to { opacity: 0; } }
   @keyframes slide-from-edge { from { opacity: 0; } }
   @keyframes slide-to-edge { to { opacity: 0; } }

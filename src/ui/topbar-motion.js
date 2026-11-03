@@ -126,10 +126,12 @@ export function initTopbarMotion() {
   // they are always one pill with both ends round. The face itself sits at its new width under them, hidden by an opacity hold
   // until they land. A glide caught by the next takes over from the snapshot, as the width did.
   function plateGlide(face, x0, w0, w1, timing) {
-    for (const g of face.parentElement.querySelectorAll(':scope > .tb-face[data-ghost]')) g.remove();
-    for (const a of face.getAnimations()) if (a.id === 'tbm') a.cancel();
-    const p = Math.min(w0, w1), h = face.offsetHeight;
+    // (Read before the ghosts are taken off and the glide is cancelled: a read after a write lays the bar out again. The faces are absolute and only
+    // transform and opacity are cancelled, so nothing read changes.)
+    const anims = face.getAnimations(), p = Math.min(w0, w1), h = face.offsetHeight;
     const R = Math.min(h / 2, p / 2, parseFloat(getComputedStyle(face).borderTopLeftRadius) || 0);
+    for (const g of face.parentElement.querySelectorAll(':scope > .tb-face[data-ghost]')) g.remove();
+    for (const a of anims) if (a.id === 'tbm') a.cancel();
     const mid = p - 2 * R;
     const mk = (clip, width = p) => {
       const g = face.cloneNode(false);

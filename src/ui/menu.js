@@ -410,8 +410,9 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     for (const b of el.querySelectorAll('.um-tab')) b.setAttribute('aria-selected', String(b.dataset.tab === k));
     hidePreview();
     const col = el.querySelector(`.um-col[data-col="${k}"]`);
-    if (still) col.classList.remove('um-in');
-    else if (!reduce.matches) { col.classList.remove('um-in'); void col.offsetWidth; col.classList.add('um-in'); }
+    // (The entrance plays again by swapping the class between two names for the same animation, which restarts it with no reflow to force.)
+    if (still) col.classList.remove('um-in', 'um-in2');
+    else if (!reduce.matches) { const was = col.classList.contains('um-in'); col.classList.remove('um-in', 'um-in2'); col.classList.add(was ? 'um-in2' : 'um-in'); }
     filter();
     if (focus) el.querySelector(`#umtab-${k}`)?.focus({ preventScroll: true });
   }
