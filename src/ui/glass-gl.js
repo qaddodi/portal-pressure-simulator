@@ -20,6 +20,7 @@ import { easeArrive, D_SURFACE } from './ease.js';
 import { caught } from './caught.js';
 import { viewSize } from './layout-snap.js';
 import { parseCssColor } from './css-color.js';
+import { driven, onMove } from './num-move.js';
 
 /** The CSS glass this draws (app.css .cl-glass: blur(16px) saturate(1.15) over 58 % of --surface). */
 export const GLASS = { blur: 16, sat: 1.15, tint: 0.58 };
@@ -1489,7 +1490,9 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
       let im = inlines.get(e);
       if (!im) inlines.set(e, (im = new Inline()));   // alloc-rare: an element's inline reading is made once, the first time it is seen
       if (!hasT && !e.zoomAffine) { if (!inlineShift(im, s.transform)) flag.bad = true; else { tx = im.tx; ty = im.ty; } }
-      if (byProp) { /* (the translate property is animated: the animation's value stands for the inline one while it plays) */ } else if (!inlineTranslate(im, s.translate)) flag.bad = true; else { tx += im.ux; ty += im.uy; }
+      // (A card or a sheet's plate moved by a finger is held by a number (num-move.js), which replaces its inline translate while it lives: the same two numbers.)
+      const dn = driven(e);
+      if (dn) { tx += dn.x; ty += dn.y; } else if (byProp) { /* (the translate property is animated: the animation's value stands for the inline one while it plays) */ } else if (!inlineTranslate(im, s.translate)) flag.bad = true; else { tx += im.ux; ty += im.uy; }
       if (o == null && s.opacity !== '' && s.opacity != null && !inlineLoses.has(e)) o = NUM(s.opacity);
       // (A card the page moves by a custom property its stylesheet turns into a translate (the words' card's --pz-rise as the readings are
       // pulled out, the data card's --pz-lift): cards.shift(e) gives that move, read from the inline value each frame, so the glass rises
@@ -1752,6 +1755,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   // (card-zoom.js moves the card in the frame loop and tells each frame: the glass is drawn in that frame, from the same zoom.)
   const onZoomFrame = () => { quiet = 0; ask(); };
   addEventListener('pps:zoomframe', onZoomFrame);
+  const offMove = onMove(() => wake());   // (a pull moves a card or a sheet by a number, which writes no style for the observer to see)
   // (The figure drawn again: the blur under a glass that shows is taken again. With none showing, the figure is not its business.)
   const offFigure = onFigure?.(() => { if (shown && !hostOn) wake(); });   // (drawn into the figure's canvas: laid with each picture)
   const onLost = (e) => { e.preventDefault(); lost = true; unmark(); };
@@ -1849,7 +1853,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
       anims.clear();
       for (const l of watched) for (const t of EVENTS) l.removeEventListener(t, held, true);
       removeEventListener('resize', again); removeEventListener('pps:zoomframe', onZoomFrame);
-      offFigure?.();
+      offFigure?.(); offMove();
       canvas?.removeEventListener('webglcontextlost', onLost);
       canvas?.removeEventListener('webglcontextrestored', onBack);
       host?.canvas.removeEventListener('webglcontextlost', onHostLost);

@@ -7,6 +7,7 @@
 // past the screen's edge. A pull, a settle, a sink out and a refit are all this one offset: no height, top or clip animates, and
 // the compositor carries the eases (WAAPI on translate).
 import { D_SMALL, EASE_ARRIVE, cssCurve } from './ease.js';
+import { moverOf } from './num-move.js';
 
 /** The sheet's moving parts (its plate first, put in once). */
 export function sheetParts(el) {
@@ -36,6 +37,35 @@ export function sheetOffset(el) {
   return el._sheetOff || 0;
 }
 
+// A pull: every child (the plate included) is held y px down by a number, `translate` run by a kept paused animation per child (num-move.js),
+// so the finger's move writes no string. The inline translate the children carry stays as it was (the end of the last ease, or nothing)
+// under it until the pull lets go (setSheetOffset, stopSheet): the animation replaces it while it lives, and it is cancelled in the same
+// task as the resting value is written, so the card is never drawn between the two.
+const drags = new WeakMap();   // sheet -> { kids: its children as bound, movers: one per child }
+/** Holds the content y px down by a number (the pull): no string, no object. */
+export function dragSheet(el, y) {
+  let d = drags.get(el);
+  const kids = el.children, n = kids.length;
+  let ok = !!d && d.kids.length === n;
+  for (let i = 0; ok && i < n; i++) if (d.kids[i] !== kids[i]) ok = false;
+  if (!ok) d = bindDrag(el, d);
+  el._sheetOff = y;
+  for (let i = 0; i < n; i++) d.movers[i].set(0, y);
+}
+function bindDrag(el, was) {
+  if (was) for (const m of was.movers) m.cancel();   // alloc-rare: the sheet's children changed in the middle of a pull, or the pull's first move
+  const kids = [...el.children];   // alloc-rare: bound at the pull's first move (and if the children change), never per move
+  const d = { kids, movers: kids.map((c) => moverOf(c, 'translate', 'y', true)) };   // alloc-rare: bound at the pull's first move (and if the children change), never per move
+  drags.set(el, d);
+  return d;
+}
+function dropDrag(el) {
+  const d = drags.get(el);
+  if (!d) return;
+  drags.delete(el);
+  for (const m of d.movers) m.cancel();
+}
+
 /** Holds the content y px down (0: in place), stopping any ease. */
 export function setSheetOffset(el, y) {
   stopSheet(el);
@@ -45,6 +75,7 @@ export function setSheetOffset(el, y) {
 }
 
 export function stopSheet(el) {
+  dropDrag(el);
   const r = runs.get(el);
   if (!r) return;
   runs.delete(el);

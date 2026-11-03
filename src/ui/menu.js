@@ -19,6 +19,7 @@ import { classSoon, removeSoon } from './class-soon.js';
 import { slideFold } from './fold-slide.js';
 import { leaveFromHere } from './menu-leave.js';
 import { releaseSpeed, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, RISE_PX } from './ease.js';
+import { moverOf, cancelMoves } from './num-move.js';
 const nextFrame = frameFor('menu');
 const profFrame = frameFor('menu-profile');
 // The hover preview's change of size and place runs without layout per frame: the card is laid out once at the taller of its old
@@ -617,7 +618,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     const cols = panel.querySelector('.um-cols'), TABS = ['present', 'patients'];
     const colOf = (k) => cols.querySelector(COL_SEL[k]);
     // (A list off its peer role: its transform and class only, in the move; its top and height, set at the touch, are cleared once it has landed.)
-    const unpeer = (e) => { if (e) { e.style.transform = ''; e.style.transition = ''; classSoon(e, 'um-peer', false); } };
+    const unpeer = (e) => { if (e) { cancelMoves(e); e.style.transform = ''; e.style.transition = ''; classSoon(e, 'um-peer', false); } };
     const clear = (e) => { unpeer(e); if (e) { e.style.top = ''; e.style.height = ''; } };
     let sw = null, settle = null, resting = null;   // settle: the last swipe's switch, while its lists are still easing; resting: the list that lands (it is still drawn off its place)
     // (The other list's place over the room in view, as read at the touch: written once, as it becomes the peer.)
@@ -649,11 +650,13 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
         settle?.();
         sw.on = true; sw.i = TABS.indexOf(tab); sw.cur = colOf(tab);
         if (!sw.cur) { sw = null; return; }
+        sw.mc = moverOf(sw.cur, 'transform', 'x');   // alloc-rare: once, as the swipe begins (the lists move by a number: num-move.js)
       }
       if (e.cancelable) e.preventDefault();
       const tdx = dx + sw.carry, d = tdx < 0 ? 1 : -1, j = sw.i + d, nb = j >= 0 && j < TABS.length ? colOf(TABS[j]) : null;
       if (nb !== sw.nb) {
         unpeer(sw.nb); sw.nb = nb; sw.j = j; sw.wNbEl = null;
+        sw.mn = nb ? moverOf(nb, 'transform', 'x') : null;   // alloc-rare: only when the list beside this one changes (the finger crossed its start)
         // (The other list shows from its own top, over the part of the list in view: it lands there. Its place was set at the touch.)
         if (nb) classSoon(nb, 'um-peer', true);
       }
@@ -663,8 +666,9 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
       tp[0] = performance.now(); tp[1] = t.clientX;
       sw.trail.push(tp);
       // (Written only when the number has moved from what this swipe last wrote to that list.)
-      if (sw.dx !== sw.wCur) { sw.wCur = sw.dx; sw.cur.style.transform = `translateX(${sw.dx}px)`; }
-      if (nb) { const nx = sw.dx + d * sw.w; if (nx !== sw.wNb || nb !== sw.wNbEl) { sw.wNb = nx; sw.wNbEl = nb; nb.style.transform = `translateX(${nx}px)`; } }
+      // (The lists are held by a number each, a kept paused animation of their transform, num-move.js: no string is built as the finger moves.)
+      if (sw.dx !== sw.wCur) { sw.wCur = sw.dx; sw.mc.set(sw.dx, 0); }
+      if (nb) { const nx = sw.dx + d * sw.w; if (nx !== sw.wNb || nb !== sw.wNbEl) { sw.wNb = nx; sw.wNbEl = nb; sw.mn.set(nx, 0); } }
     }, { passive: false });
     const endSwipe = () => {
       const s = sw; sw = null;
@@ -675,6 +679,8 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
       s.cur.style.transition = ease; if (s.nb) s.nb.style.transition = ease;
       s.cur.style.transform = go ? `translateX(${-d * s.w}px)` : '';   // alloc-rare: once as a swipe is let go, never per frame
       if (s.nb) s.nb.style.transform = go ? 'translateX(0)' : `translateX(${d * s.w}px)`;   // alloc-rare: once as a swipe is let go, never per frame
+      // (The held numbers go in this same task: the transition starts from where the lists were drawn, as it did from their inline transform.)
+      s.mc.cancel(); s.mn?.cancel();
       const done = () => {   // alloc-rare: one per swipe, made as it is let go
         clearTimeout(timer); settle = null;
         clear(s.cur); clear(s.nb);
