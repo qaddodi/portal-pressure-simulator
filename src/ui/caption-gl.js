@@ -248,7 +248,7 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
   let presented = false, onPresented = null, onLost = null, gen = 0, retries = 0, dead = false;
   // The names the last frame drew, for the browser checks (R17, snapshot()): two record lists, the one being drawn and the one last handed over,
   // their records reused; nothing is made in a frame once they have grown to the most names a frame draws.
-  let drawn = [], shown = [], drawnN = 0, shownN = 0, seq = 0, shownGen = 0, drawnGen = 0, shownW = 0, shownH = 0;
+  let drawn = [], shown = [], drawnV = [1, 0, 0], shownV = [1, 0, 0], drawnN = 0, shownN = 0, seq = 0, shownGen = 0, drawnGen = 0, shownW = 0, shownH = 0;
   const record = (key, x, y, w, h, a, cw, ch, I, l, t, sc) => {
     const r = drawn[drawnN++] || (drawn[drawnN - 1] = { key: '', x: 0, y: 0, w: 0, h: 0, a: 0, clipped: false, I: null, l: 0, t: 0, s: 1 });   // alloc-rare: only until a frame has drawn as many names as any frame will
     r.key = key; r.x = x; r.y = y; r.w = w; r.h = h; r.a = a; r.I = I; r.l = l; r.t = t; r.s = sc;
@@ -266,7 +266,7 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
     const now = easeNow();
     lastT = now;
     let more = false, failed = false;
-    drawing = true; drawnN = 0; drawnGen = gen;
+    drawing = true; drawnN = 0; drawnGen = gen; drawnV[0] = vk; drawnV[1] = ve; drawnV[2] = vf;
     try {
       // (The owner's places for this frame, set as it is drawn: a glide its page eased, a pan's ride.)
       if (onFrame?.(now)) more = true;
@@ -346,7 +346,7 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
       // (In the finally: a frame at no size returns above.) A frame that could not be handed over, or came while the context was gone,
       // leaves the last picture in the canvas and the class on: it is drawn again (a few tries, then at the next paint or restore).
       if (pen.gpu) {
-        if (w > 0 && h > 0 && handed) { retries = 0; seq++; const t = shown; shown = drawn; drawn = t; shownN = drawnN; shownGen = drawnGen; shownW = w; shownH = h; present(true); if (!drewOnce) { drewOnce = true; onDrawn?.(); } }
+        if (w > 0 && h > 0 && handed) { retries = 0; seq++; const t = shown; shown = drawn; drawn = t; shownN = drawnN; shownGen = drawnGen; { const v = shownV; shownV = drawnV; drawnV = v; } shownW = w; shownH = h; present(true); if (!drewOnce) { drewOnce = true; onDrawn?.(); } }
         else if (w > 0 && h > 0 && handed === false) failed = true;
       } else if (gpu?.lost) failed = true;
     }
@@ -378,7 +378,7 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
       const items = [];
       for (let i = 0; i < shownN; i++) {
         const r = shown[i], rows = [];   // (rows: each line's own box as the GPU drew it, from the words' runs as they stand: a line as wide as its letters)
-        const set = r.I?.set, bw = r.w / (vk || 1);
+        const set = r.I?.set, vk = shownV[0], ve = shownV[1], vf = shownV[2], bw = r.w / (vk || 1);
         if (set) for (let li = 0, n = set.n ?? set.lines.length; li < n; li++) {
           const ln = set.lines[li], m = ln.m ?? ln.runs.length;
           if (!m) continue;
