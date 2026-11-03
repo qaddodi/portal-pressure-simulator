@@ -205,6 +205,31 @@ frame(() => { bus.emit('go', 1); bus.emit('named', 2); runHooks(); run('grow', d
   assert.ok(hits.some((h) => h.file === 'src/ui/idle.js' && h.cat === 'layoutRead'));
 });
 
+test('dispatch aliases are scoped: a local named like another function\'s registry element calls nothing in the registry', () => {
+  const hits = fixture({
+    'src/ui/scoped.js': `
+import { frame } from './frame.js';
+const shown = [() => document.body.append('x')];
+function other() { for (const r of shown) r(); }
+other();
+function step() { const r = 3; return r.toFixed(2); }
+function again() { for (const r of shown) r(); }
+frame(step);
+export function later() { again(); }
+`,
+  });
+  assert.ok(!hits.some((h) => h.file === 'src/ui/scoped.js' && h.cat === 'domWrite' && / path: /.test(h.detail)), 'step()\'s own r is not the loop\'s r in other()');
+  const hits2 = fixture({
+    'src/ui/scoped2.js': `
+import { frame } from './frame.js';
+const shown = [() => document.body.append('x')];
+function step() { for (const r of shown) r(); }
+frame(step);
+`,
+  });
+  assert.ok(hits2.some((h) => h.file === 'src/ui/scoped2.js' && h.cat === 'domWrite' && / path: /.test(h.detail)), 'a call through the loop\'s own r is still followed');
+});
+
 test('a style written through a computed name is counted (el.style[k] = v, Object.assign(el.style, …))', () => {
   const hits = fixture({
     'src/ui/w.js': `

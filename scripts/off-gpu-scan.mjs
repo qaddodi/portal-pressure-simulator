@@ -58,6 +58,10 @@ import { join, relative, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as espree from 'espree';
 
+const scopeIds = new WeakMap();
+let scopeCount = 0;
+const scopeId = (fn) => { let k = scopeIds.get(fn); if (!k) scopeIds.set(fn, k = ++scopeCount); return k; };
+
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const OWNERS = JSON.parse(readFileSync(join(ROOT, 'scripts/off-gpu-owners.json'), 'utf8'));
 
@@ -449,6 +453,14 @@ export function scan({ root = ROOT } = {}) {
       {
         const f0 = enclosing(n);
         const note = (map, k, v) => { if (!map.has(k)) map.set(k, new Set()); map.get(k).add(v); };
+        // (An alias is the name of a local that holds a registry's element: it holds in the function that declares it and the ones nested in
+        // it, never in the whole file. Kept by scope, 2 Nov 2026: `r.toFixed()` in one function was taken for a call of every callback in
+        // the file's registries because another function had a `(r) =>` over one.)
+        const aliasKey = (fn, name) => `${fn ? scopeId(fn) : 0}|${name}`;
+        // (A name declared in a nearer function hides the alias of the same name further out: its own `const r` is not the outer loop's r.)
+        const patIds = (pt, out = []) => { if (!pt) return out; if (pt.type === 'Identifier') out.push(pt.name); else if (pt.type === 'ArrayPattern') pt.elements.forEach((e) => patIds(e, out)); else if (pt.type === 'ObjectPattern') pt.properties.forEach((q) => patIds(q.value || q.argument, out)); else if (pt.type === 'AssignmentPattern') patIds(pt.left, out); else if (pt.type === 'RestElement') patIds(pt.argument, out); return out; };
+        if (n.type === 'VariableDeclarator') for (const nm of patIds(n.id)) (mod.declared ||= new Set()).add(aliasKey(f0, nm));
+        if (isFn(n)) for (const pm of n.params) for (const nm of patIds(pm)) (mod.declared ||= new Set()).add(aliasKey(n, nm));
         const isVal = (v) => v && (isFn(v) || v.type === 'Identifier' || (v.type === 'MemberExpression' && !v.computed));
         // a registry is kept under a local key and, when it is a property of some object, a global one (another file may store into it)
         const store = (R, v, viaMember, at) => {
@@ -457,7 +469,7 @@ export function scan({ root = ROOT } = {}) {
         };
         if (n.type === 'VariableDeclarator' && n.id.type === 'Identifier' && n.init && !isFn(n.init)) {
           const i = n.init;
-          if ((i.type === 'MemberExpression' && i.computed) || (i.type === 'CallExpression' && i.callee.type === 'MemberExpression' && i.callee.property.name === 'get') || (i.type === 'ChainExpression')) { const R = baseName(i); if (R) note(mod.alias, n.id.name, R); }
+          if ((i.type === 'MemberExpression' && i.computed) || (i.type === 'CallExpression' && i.callee.type === 'MemberExpression' && i.callee.property.name === 'get') || (i.type === 'ChainExpression')) { const R = baseName(i); if (R) note(mod.alias, aliasKey(f0, n.id.name), R); }
           if (i.type === 'ObjectExpression') for (const pr of i.properties) if (pr.type === 'Property') store(n.id.name, pr.value, false, f0);
           if (i.type === 'ArrayExpression') for (const el of i.elements) store(n.id.name, el, false, f0);
           if (i.type === 'NewExpression' && /^(Map|Set)$/.test(i.callee.name || '') && i.arguments[0]?.type === 'ArrayExpression') for (const el of i.arguments[0].elements) { if (el?.type === 'ArrayExpression') for (const e2 of el.elements) store(n.id.name, e2, false, f0); else store(n.id.name, el, false, f0); }
@@ -465,14 +477,14 @@ export function scan({ root = ROOT } = {}) {
         if (n.type === 'ForOfStatement' || n.type === 'ForInStatement') {
           const d = n.left.type === 'VariableDeclaration' ? n.left.declarations[0]?.id : n.left;
           const R = baseName(n.right);
-          if (R && d) for (const id of d.type === 'ArrayPattern' ? d.elements : [d]) if (id?.type === 'Identifier') note(mod.alias, id.name, R);
+          if (R && d) for (const id of d.type === 'ArrayPattern' ? d.elements : [d]) if (id?.type === 'Identifier') note(mod.alias, aliasKey(f0, id.name), R);
         }
         if (n.type === 'CallExpression') {
           const c = n.callee, cn0 = calleeName(n);
           // callbacks of forEach/map/... over a registry
           if (c.type === 'MemberExpression' && !c.computed && /^(forEach|map|some|every|find|filter)$/.test(c.property.name) && isFn(n.arguments[0])) {
             const R = baseName(c.object);
-            if (R) for (const pm of n.arguments[0].params) { const id = pm.type === 'ArrayPattern' ? pm.elements[pm.elements.length - 1] : pm; if (id?.type === 'Identifier') note(mod.alias, id.name, R); }
+            if (R) for (const pm of n.arguments[0].params) { const id = pm.type === 'ArrayPattern' ? pm.elements[pm.elements.length - 1] : pm; if (id?.type === 'Identifier') note(mod.alias, aliasKey(n.arguments[0], id.name), R); }
           }
           // calls through a registry: X[k](…), l[i](…), cb(…) over a list, X.get(k)(…)
           let R = null;
@@ -642,8 +654,9 @@ export function scan({ root = ROOT } = {}) {
   // The callbacks a reached function can run by calling through a registry of its module (or one stored into from elsewhere by property).
   const dispatched = (mod, f) => {
     const out = [];
-    for (const R0 of f.__disp || []) for (const R of [R0, ...(mod.alias.get(R0) || [])]) for (const key of [`${mod.file}:${R}`, `*:${R}`]) for (const t of regs.get(key)?.values() || []) out.push(t);
-    for (const R0 of f.__dispM || []) for (const R of mod.alias.get(R0) || []) for (const key of [`${mod.file}:${R}`, `*:${R}`]) for (const t of regs.get(key)?.values() || []) out.push(t);
+    const aliasOf = (name) => { const out = new Set(); for (let p = f; ; p = enclosing(p)) { const k = `${p ? scopeId(p) : 0}|${name}`; for (const R of mod.alias.get(k) || []) out.add(R); if (!p || mod.declared?.has(k)) break; } return out; };
+    for (const R0 of f.__disp || []) for (const R of [R0, ...aliasOf(R0)]) for (const key of [`${mod.file}:${R}`, `*:${R}`]) for (const t of regs.get(key)?.values() || []) out.push(t);
+    for (const R0 of f.__dispM || []) for (const R of aliasOf(R0)) for (const key of [`${mod.file}:${R}`, `*:${R}`]) for (const t of regs.get(key)?.values() || []) out.push(t);
     return out;
   };
   const takers = new Map();   // fn -> Set of argument indexes it hands to a frame
