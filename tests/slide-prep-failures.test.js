@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 const { createSlidePrep } = await import('../src/ui/slide-prep.js');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const until = async (f, ms = 1500) => { const t = Date.now(); while (!f() && Date.now() - t < ms) await sleep(10); };
-const ok = { state: () => Promise.resolve(), glyphs: () => Promise.resolve(), tool: () => null, shaders: () => 0 };
+const ok = { state: () => Promise.resolve({}), glyphs: () => Promise.resolve(), tool: () => null, shaders: () => 0 };
 
 test('a tool that throws, or rejects, ends failed, not ready', async () => {
   for (const tool of [() => { throw new Error('x'); }, () => Promise.reject(new Error('x'))]) {
