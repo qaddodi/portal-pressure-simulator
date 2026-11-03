@@ -15,6 +15,9 @@ import { widgetGL } from './widget-gl.js';
 import { layoutToast, paintToast, inkOf } from './toast-gl.js';
 import { readMetric, readAnims, readStyle, readBox } from './layout-snap.js';
 import { sliderOf, sliderFor, dotWidth, jump, glide, gliding, setHover, setHeld, setFocus, releaseAll, followInput } from './slider-gl.js';
+import { plateFor } from './plate-gl.js';
+import { layoutTip, covers } from './tip-layout.js';
+import { tipDraw, tipUndrawn } from './tip-gl.js';
 
 // replaceChildren/append stringify null and arrays: flatten and drop empties instead.
 // (Nodes and strings alone, the usual call, go straight through: the flattened copy is made only for a list that holds an array, null or false.)
@@ -324,13 +327,20 @@ export function tooltipFor(el, text, side = 'right') {
   el.addEventListener('blur', hide);
   el.addEventListener('click', hide);
 }
+// (3 Nov 2026: the tip is laid out in script from Inter's own advances (tip-gl.js), so no page measure fits it, and drawn on the GPU; the
+// page's own words, in a span beside the picture, stay for the screen reader and until the GPU has drawn it.)
 function tipShow(el, text, side, tip) {
   const r = el.getBoundingClientRect();
   const v = typeof text === 'function' ? text() : text;
-  tip.replaceChildren(typeof v === 'object' ? [v.text, v.key ? h('kbd', {}, v.key) : null] : v);
-  // (Measured by its layout size, which the hidden state's scale does not touch; and shown only once its side is set, so it eases in from
+  const words = typeof v === 'object' ? v.text : v, key = typeof v === 'object' ? v.key : null;
+  let span = tip._words;
+  if (!span) { span = tip._words = h('span', { class: 'tip-words' }); tip.replaceChildren(span); }
+  span.replaceChildren(typeof v === 'object' ? [v.text, v.key ? h('kbd', {}, v.key) : null] : v);
+  // (Sized by its layout, which the hidden state's scale does not touch; and shown only once its side is set, so it eases in from
   // this button's side, not from the previous tip's: the transition starts when .show is added.)
-  const tr = { width: tip.offsetWidth, height: tip.offsetHeight };
+  const L = layoutTip(words, key, innerWidth);
+  const tr = { width: L.w, height: L.h };
+  if (covers(words) && (!key || covers(key))) tipDraw(tip, L); else { tipUndrawn(tip); tip.style.width = ''; tip.style.height = ''; }
   // A side that would run off the window takes the opposite one (a top-bar button's tip had sat on its own button when
   // 'top' ran off; a timeline tip clipped at a short window's foot), and the tip rises from the side it came from.
   let x, y, at = side;
@@ -344,7 +354,7 @@ function tipShow(el, text, side, tip) {
     if (x + tr.width > innerWidth - 8) { x = r.left - tr.width - 10; at = 'left'; }
   }
   tip.dataset.side = at;
-  // (Its place is a translate from the window's corner, the compositor's: no left/top is written, so no layout. The tip rests at 0,0 and is measured there.)
+  // (Its place is a translate from the window's corner, the compositor's: no left/top is written, so no layout. The tip rests at 0,0.)
   tip.style.translate = `${clamp(x, 8, innerWidth - tr.width - 8)}px ${clamp(y, 8, innerHeight - tr.height - 8)}px`;
   tip.classList.add('show');
 }
@@ -439,6 +449,8 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
   };
   if (el.classList.contains('app-menu')) { const ro = new ResizeObserver(() => { if (!el.isConnected) ro.disconnect(); else clipBar(); }); ro.observe(el); }
   put();
+  // (Its fill, ring and shadow are the GPU's, a plate laid under it: plate-gl.js. It reads the look from this menu's own CSS.)
+  const plate = plateFor(el, 'menu');
   // (History's list has its own soft edges at both ends.)
   if (!el.classList.contains('tl-history')) fadeWhileMore(el);
   if (asSheet) swipeSheet(el, () => closePopover());
@@ -449,7 +461,7 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
   // (Armed after this task, so the tap that opened the menu does not close it; a close before then cancels it.)
   const arm = setTimeout(() => { addEventListener('pointerdown', off, true); addEventListener('keydown', esc); }, 0);
   vv?.addEventListener('resize', onVV);
-  openMenu = { el, anchor, put, cleanup: () => { clearTimeout(arm); removeEventListener('pointerdown', off, true); removeEventListener('keydown', esc); vv?.removeEventListener('resize', onVV); onClose?.(); } };
+  openMenu = { el, anchor, put, plate, cleanup: () => { clearTimeout(arm); removeEventListener('pointerdown', off, true); removeEventListener('keydown', esc); vv?.removeEventListener('resize', onVV); onClose?.(); } };
   restAttr(anchor, 'aria-expanded', 'true');   // (a screen reader's state, written between frames)
   // Opened from the keyboard (the button shows its focus ring): focus goes in, so Tab does not have to cross the whole page to reach
   // the menu. A mouse or a touch leaves focus where it was.
@@ -905,7 +917,11 @@ export function closePopover() {
   // A sheet swiped away is already sliding down; it leaves when it is out of sight.
   // (Over the thumb dock it sinks behind the tab row, as the cards do, in the same step: a leave is one flip, app.css thumbOut.)
   // alloc-rare: a menu closes (a tap away or a choice): its leave closure and the timer's, once for each close
-  if (el.isConnected) { const ms = D_FLIP; const leave = () => el.classList.add('leaving'); if (el.dataset.swiped) leave(); else leaveFromHere(el, leave); el.inert = true; markGone(el.dataset.swiped ? 0 : ms); setTimeout(() => { releaseWords(el); restRemove(el); }, el.dataset.swiped ? D_SMALL : ms + 10); }
+  if (el.isConnected) {
+    const ms = D_FLIP, plate = openMenu.plate; const leave = () => el.classList.add('leaving');
+    if (el.dataset.swiped) leave(); else if (leaveFromHere(el, leave)) plate?.leaveAlong();   // (the plate follows by its twin rules; one put away while still coming in follows the menu's exit from where it had got to)
+    el.inert = true; markGone(el.dataset.swiped ? 0 : ms); setTimeout(() => { releaseWords(el); restRemove(el); plate?.dispose(); }, el.dataset.swiped ? D_SMALL : ms + 10);
+  } else openMenu.plate?.dispose();
   restAttr(openMenu.anchor, 'aria-expanded', 'false'); openMenu.cleanup();
   lastMenu.anchor = openMenu.anchor; lastMenu.t = performance.now();   // (the one record, written in place)
   openMenu = null;
@@ -1322,6 +1338,12 @@ export function canvasSize(canvas) {
   if (!z) sizeOf.set(canvas, z = { w: 0, h: 0, W: 1, H: 1, dpr: 1 });   // alloc-rare: a canvas's record, made once with its first size
   z.w = r.width; z.h = r.height; z.W = Math.max(1, Math.round(r.width * dpr)); z.H = Math.max(1, Math.round(r.height * dpr)); z.dpr = dpr;
   return z;
+}
+/** Records the box a canvas is about to have (CSS px), for a picture drawn at a size just written, before the observer has reported it. */
+export function noteBox(canvas, w, h) {
+  canvasSize(canvas);   // (observed, and its record made)
+  const r = boxes.get(canvas);
+  r.width = w; r.height = h;
 }
 // A pen that draws nothing: what a chart is handed where the GPU cannot draw it now (no WebGL2, its shader failed, a lost context, or
 // ?tracegl=0). No 2D canvas is drawn on anywhere (Mohammad, 1 Nov 2026: "block everything until everything is on GPU"): the chart's

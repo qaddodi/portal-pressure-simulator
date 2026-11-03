@@ -284,8 +284,9 @@ test('a question over the menu: its letters stay in the dialog, Tab stays in it,
 test('a tooltip is measured by its layout size and shown only once its side is set, so it eases in from its own button', () => {
   const u = read('src/ui/util.js');
   const at = u.indexOf('export function tooltipFor');
-  const body = u.slice(at, at + 2600);
-  assert.match(body, /const tr = \{ width: tip\.offsetWidth, height: tip\.offsetHeight \};/, 'the hidden state\'s scale does not shrink what is measured');
+  const body = u.slice(at, at + 4600);
+  assert.match(body, /const L = layoutTip\(words, key, innerWidth\);\n\s*const tr = \{ width: L\.w, height: L\.h \};/, 'sized by its layout in script (tip-gl.js), which the hidden state\'s scale does not touch, never measured');
+  assert.doesNotMatch(body, /offsetWidth|offsetHeight/, 'no page measure');
   assert.ok(body.indexOf('tip.dataset.side = at') < body.indexOf("tip.classList.add('show')"), 'side first, then .show starts the transition');
   assert.equal((body.match(/classList\.add\('show'\)/g) || []).length, 1);
 });

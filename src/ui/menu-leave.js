@@ -41,6 +41,9 @@ const KF_FADE = [{ opacity: 0 }, { opacity: 0 }];
 const O_EDGE = 'var(--edge-o, 1)';
 const KF_EDGE = [{ opacity: '', transform: '' }, { opacity: O_EDGE, transform: 'translate(var(--edge-x, 0px), var(--edge-y, 0px))' }];
 const ANIM = { duration: 0, easing: EASE_IN, fill: 'forwards' };
+let lastExit = null;   // (the exit last played from where a menu had got to: a plate laid under the menu, plate-gl.js, plays the same)
+/** Plays the exit just played on a menu (leaveFromHere answered true) on `other` too, from the same look over the same time and curve. */
+export function replayExit(other) { if (lastExit && other.animate) other.animate(lastExit, ANIM); }
 function looks(name, k) {
   if (name === 'scale-settle') { KF_SCALE[0].opacity = f4(k); return KF_SCALE; }
   if (name === 'crossfade') { KF_FADE[0].opacity = f4(k); return KF_FADE; }
@@ -64,5 +67,6 @@ export function leaveFromHere(el, leave) {
   leave();
   ANIM.duration = timeOut(el, rec.name);
   el.animate(kf, ANIM);
+  lastExit = kf;
   return true;
 }

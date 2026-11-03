@@ -18,6 +18,7 @@ import { restPass } from './rest-pass.js';
 import { classSoon, removeSoon } from './class-soon.js';
 import { slideFold } from './fold-slide.js';
 import { leaveFromHere } from './menu-leave.js';
+import { plateFor } from './plate-gl.js';
 import { releaseSpeed, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, RISE_PX } from './ease.js';
 import { moverOf, cancelMoves } from './num-move.js';
 const nextFrame = frameFor('menu');
@@ -111,7 +112,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
   const reduce = matchMedia('(prefers-reduced-motion: reduce)');
   const sheetMQ = matchMedia(PHONE_MQ);
   const fine = matchMedia('(hover: hover) and (pointer: fine)');
-  let el = null, back = null, pv = null, coldOpen = false, open = false, hoverT = 0, hideT = 0, pvKey = null, pvTok = 0, mark = null, query = '', tab = 'present';
+  let el = null, back = null, plate = null, pv = null, coldOpen = false, open = false, hoverT = 0, hideT = 0, pvKey = null, pvTok = 0, mark = null, query = '', tab = 'present';
 
   const close = (o = {}) => {
     if (!open) return;
@@ -121,8 +122,8 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     removeEventListener('keydown', typed, true);
     removeEventListener('resize', place);
     vv?.removeEventListener('resize', fitSheet); vv?.removeEventListener('scroll', fitSheet);
-    const panel = el, scrim = back, done = () => { panel.remove(); scrim?.remove(); };
-    el = back = null;
+    const panel = el, scrim = back, gone = plate, done = () => { panel.remove(); scrim?.remove(); gone?.dispose(); };
+    el = back = plate = null;
     onToggle?.(false);
     if (panel.contains(document.activeElement) || !document.activeElement || document.activeElement === document.body) anchor.focus({ preventScroll: true });
     // (With Reduce Motion the same exit only fades: app.css turns the keyframes into fades.)
@@ -136,7 +137,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
         panel.style.transform = 'translateY(100%)';
         if (!sheet) panel.style.opacity = '0';
       }
-    } else leaveFromHere(panel, () => panel.classList.add('out'));
+    } else if (leaveFromHere(panel, () => panel.classList.add('out'))) gone?.leaveAlong();   // (the plate under it follows by its twin rules; one put away while still coming in follows the menu's exit from where it had got to)
     // (Inert from the first frame of its exit, as the popovers are; a menu opened again before it has gone leaves it fading, below.)
     panel.inert = true;
     setTimeout(done, sheet || o.dragged ? D_SMALL : D_FLIP);
@@ -542,6 +543,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     for (const v of ['--menu-kb', '--menu-h']) { const x = el.style.getPropertyValue(v); if (x) next.style.setProperty(v, x); }   // (the keyboard is still up)
     next.classList.toggle('kb-tight', el.classList.contains('kb-tight'));
     el.replaceWith(next); el = next;
+    { const old = plate; plate = plateFor(el, 'umenu'); old?.dispose(); }   // (the new panel's own plate; the old panel's goes with it, the same look in its place)
     filter(); place(); groupsIn(el); dragToClose(el); swipeTabs(el);
     if (keep) el.querySelector('.um-cols').scrollTop = keep;
     if (focus === 'q') el.querySelector('.um-q').focus({ preventScroll: true });
@@ -574,6 +576,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
         el = build(lib); coldOpen = !lib;
         if (sheet) { el.classList.add('sheet'); back = h('div', { class: 'um-scrim', onclick: () => close() }); document.body.append(back); }
         document.body.append(el);
+        plate = plateFor(el, 'umenu');   // (its fill, ring and shadow are the GPU's, a plate laid under it: plate-gl.js)
         openAt = performance.now(); place(); filter(); groupsIn(el);
         anchor.setAttribute('aria-expanded', 'true');
         setTimeout(() => document.addEventListener('pointerdown', outside, true), 0);
