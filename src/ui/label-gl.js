@@ -1603,11 +1603,10 @@ void main() { o = texture(uT, vUV) * uA; }`;
   const pRead = () => {
     pReadT = 0;
     if (!probe?.isConnected) return;
-    pLook = probeLookRead(probe); pLookV++;
+    pLook = probeLookRead(probe); pLook.ver = ++pLookV;
     ask();
   };
   const pReadSoon = () => { if (!pReadT) pReadT = setTimeout(pRead, 0); };
-  let headSp = null;
   function setProbe(el, st) {
     if (probe === el && probeSt === st) return;
     probe = el; probeSt = st; pLook = null;
@@ -1621,8 +1620,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
       const c = readStyle(st), [r, g, b, k] = rgba(c.stopColor), a = NUM(c.stopOpacity) * k, u = k > 0 ? a / k : 0;
       return [NUM(st.getAttribute('offset')), [r * u, g * u, b * u, a]];
     });
-    return {
-      stops,
+    const look = {
+      stops, ver: 0, hm: [1, 0, 0, 1, 0, 0], headOps: [],
       rimL: probeStroke(q('.dpr-rim-l')), line: probeStroke(q('.dpr-line')), gateRim: probeStroke(q('.dpr-gate-rim')), gate: probeStroke(q('.dpr-gate')),
       // (The head's four shapes, each with its outline flattened once here: the picture is laid from them at every angle.)
       head: ['.dpr-rim', '.dpr-body', '.dpr-face', '.dpr-light'].map((k) => {
@@ -1630,6 +1629,10 @@ void main() { o = texture(uT, vUV) * uA; }`;
         return { geom: { poly: circle ? ellipsePoly(circle[0], circle[1], circle[2], circle[2]) : flattenPath(e.getAttribute('d') || '', 0.05) }, fill: none(c.fill) ? '' : c.fill, stroke: none(c.stroke) ? '' : c.stroke, w: NUM(c.strokeWidth) };
       }),
     };
+    // (The head's shapes as the painter's ops with a matrix of their own, made here once: a frame writes the angle into the matrix and paints
+    // the head again from them, so no ops, shapes or arrays are made in a frame.)
+    for (const h of look.head) shapeOps(look.headOps, h.geom, look.hm, h.fill, h.stroke, h.w);
+    return look;
   }
   // The frame's working numbers, kept: the probe's turn and place in pixels, the box its marks cover (for the glass), a segment's ends.
   let pCa = 1, pSa = 0, pGx = 0, pGy = 0, pEx0 = 0, pEy0 = 0, pEx1 = 0, pEy1 = 0;
@@ -1646,7 +1649,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     ucOf(gl).f4a(MU.uStroke, st.col); ucOf(gl).f1(MU.uA, op);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   };
-  const P4 = [0, 0, 0, 0], PT0 = [0, 0], PT1 = [0, 0], PT2 = [0, 0], P_OPS = [], P_M = [1, 0, 0, 1, 0, 0];
+  const P4 = [0, 0, 0, 0], PT0 = [0, 0], PT1 = [0, 0], PT2 = [0, 0], PT = new Float64Array(2);   // (PT: the FibroScan probe's point, below)
   const pSeg = (x0, y0, x1, y1, st, op) => { P4[0] = x0; P4[1] = y0; P4[2] = x1; P4[3] = y1; pSegOp(st, op); };
   function drawProbe() {
     const S = probeSt;
@@ -1683,20 +1686,18 @@ void main() { o = texture(uT, vUV) * uA; }`;
     const hop = op * S.headOp;
     if (hop > 0.001) {
       const k = G.hs;
-      if (!headSp || Math.abs(headSp.kA - ang) > 0.02 || headSp.kK !== k || headSp.kD !== dpr || headSp.kL !== pLookV) {
+      if (headSp.ver !== L.ver || Math.abs(headSp.kq - ang) > 0.02 || headSp.k !== k || headSp.dpr !== dpr) {
         // (Its box: the body's −3 … 48 along it, ±11 across, grown for the rim, turned with it.)
         let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
         for (let i = 0; i < 4; i++) {
           const u = i & 1 ? 50 : -5, v = i & 2 ? 14 : -14, X = (u * ca - v * sa) * k * dpr, Y = (u * sa + v * ca) * k * dpr;
           if (X < bx0) bx0 = X; if (X > bx1) bx1 = X; if (Y < by0) by0 = Y; if (Y > by1) by1 = Y;
         }
-        const x0 = Math.floor(bx0), y0 = Math.floor(by0), x1 = Math.ceil(bx1), y1 = Math.ceil(by1);
+        const x0 = Math.floor(bx0), y0 = Math.floor(by0), x1 = Math.ceil(bx1), y1 = Math.ceil(by1), M = L.hm;
         // Its shapes filled and stroked on the GPU (the organs' painter, into a texture of its own): no 2D canvas.
-        P_M[0] = ca * k * dpr; P_M[1] = sa * k * dpr; P_M[2] = -sa * k * dpr; P_M[3] = ca * k * dpr; P_M[4] = -x0; P_M[5] = -y0;
-        P_OPS.length = 0;
-        for (let i = 0; i < L.head.length; i++) { const h = L.head[i]; shapeOps(P_OPS, h.geom, P_M, h.fill, h.stroke, h.w); }   // alloc-rare: the head's picture is laid again only when its angle, size or look changes
-        headSp = picture(headSp, Math.max(1, x1 - x0), Math.max(1, y1 - y0), P_OPS);
-        headSp.kA = ang; headSp.kK = k; headSp.kD = dpr; headSp.kL = pLookV; headSp.ox = x0; headSp.oy = y0;
+        M[0] = ca * k * dpr; M[1] = sa * k * dpr; M[2] = -sa * k * dpr; M[3] = ca * k * dpr; M[4] = -x0; M[5] = -y0;
+        picture(headSp, Math.max(1, x1 - x0), Math.max(1, y1 - y0), L.headOps);
+        headSp.ver = L.ver; headSp.kq = ang; headSp.k = k; headSp.dpr = dpr; headSp.ox = x0; headSp.oy = y0;
       }
       const hx = pX(G.dh, 0), hy = pY(G.dh, 0);
       gl.useProgram(prog);
