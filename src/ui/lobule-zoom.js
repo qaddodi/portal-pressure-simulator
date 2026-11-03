@@ -1497,7 +1497,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     for (const k in labs) {
       const L = labs[k]; if (!L.el) continue;
       let want = false;
-      if (on) { try { const hv = hitKind(k); want = hv.part === sl.part && (hv.part === 'cv' || (hv.part === 'sin' ? hv.tube === sl.tube : hv.tri === sl.tri)); } catch (e) { caught('lobule-zoom:labSel', e); } }
+      if (on) { try { const hv = hitKind(k); want = hv.part === sl.part && (hv.part === 'cv' || hv.part === 'sin' || hv.tri === sl.tri); } catch (e) { caught('lobule-zoom:labSel', e); } }
       if (classHas(L.el, 'sel') !== want) { classSoon(L.el, 'sel', want); mirrorSoon(L.el); }
     }
   };
@@ -2092,7 +2092,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // the leader stops on the pill's outline.
   const lettersInto = (o, L, l, t, w, hh) => {
     o.L = L;
-    if (!cap.on && litIn(L.el.dataset.target)) {   // (the GPU draws no pill: the leader stops on the letters)
+    if (litIn(L.el.dataset.target)) {   // (a lit label's pill, drawn by the GPU as the page lays it out: the leader stops on its outline)
       // (Its pill's insets as measured with its size, measureRun; before that, app.css's own sums for them.)
       const lk = parseFloat(document.documentElement.style.getPropertyValue('--label-k')) || 1, q = L.pillQ;
       o.x0 = l + (q ? q[0] : -4 * lk); o.y0 = t + (q ? q[1] : -5 * lk); o.x1 = l + w - (q ? q[2] : -4 * lk); o.y1 = t + hh - (q ? q[3] : -5 * lk); o.r = q ? q[4] : 12;

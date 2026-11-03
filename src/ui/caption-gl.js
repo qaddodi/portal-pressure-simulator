@@ -193,6 +193,13 @@ export function mirrorOf(el, sel = []) {
     marks.push({ kind: 'bg', fill: bg, rad: Math.min(px(cs0.borderTopLeftRadius), box.height / 2, box.width / 2), sh: shadowOf(cs0.boxShadow),
       border: bw > 0 ? { w: bw, colour: rgbaOf(cs0.borderTopColor) } : null });
   }
+  // A lit term's pill (a slide's: app.css ::before, solid in the term's colour as Anatomy's highlighted label is) reaches past the words by its insets:
+  // its own mark, under the words, read as the page lays it out (its box is not the element's, so `inset` says how far it reaches).
+  try {
+    const pb = getComputedStyle(el, '::before'), pfill = pb.content !== 'none' && +pb.opacity > 0.01 ? rgbaOf(pb.backgroundColor) : '';
+    if (pfill) marks.push({ kind: 'bg', fill: pfill, rad: px(pb.borderTopLeftRadius), sh: null, border: null,
+      inset: [px(pb.left), px(pb.top), px(pb.right), px(pb.bottom)] });
+  } catch { /* no pseudo-element styles: no pill */ }
   const rg = document.createRange(), tw = document.createTreeWalker(el, 4 /* NodeFilter.SHOW_TEXT */);
   for (let n = tw.nextNode(); n; n = tw.nextNode()) {
     const txt = n.data.replace(/\s+/g, ' ');
@@ -350,10 +357,10 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
         // Its marks under its words (a call's pill: its shadow, fill and border, as the page drew it).
         for (const M of I.set.marks || NONE) {
           if (M.kind !== 'bg') continue;
-          const rr = M.rad * s;
-          if (M.sh) { ctx.globalAlpha = a; ctx.shadowBox(l, t, bw, bh, rr, M.sh.colour, M.sh.blur * s, M.sh.dy * s); }
-          ctx.globalAlpha = a; ctx.fillStyle = M.fill; ctx.beginPath(); ctx.roundRect(l, t, bw, bh, rr); ctx.fill();
-          if (M.border?.colour) { const bwd = M.border.w * s; ctx.strokeStyle = M.border.colour; ctx.lineWidth = bwd; ctx.beginPath(); ctx.roundRect(l + bwd / 2, t + bwd / 2, bw - bwd, bh - bwd, Math.max(0, rr - bwd / 2)); ctx.stroke(); }
+          const rr = M.rad * s, q = M.inset, ml = q ? l + q[0] * s : l, mt = q ? t + q[1] * s : t, mw = q ? bw - (q[0] + q[2]) * s : bw, mh = q ? bh - (q[1] + q[3]) * s : bh;
+          if (M.sh) { ctx.globalAlpha = a; ctx.shadowBox(ml, mt, mw, mh, rr, M.sh.colour, M.sh.blur * s, M.sh.dy * s); }
+          ctx.globalAlpha = a; ctx.fillStyle = M.fill; ctx.beginPath(); ctx.roundRect(ml, mt, mw, mh, rr); ctx.fill();
+          if (M.border?.colour) { const bwd = M.border.w * s; ctx.strokeStyle = M.border.colour; ctx.lineWidth = bwd; ctx.beginPath(); ctx.roundRect(ml + bwd / 2, mt + bwd / 2, mw - bwd, mh - bwd, Math.max(0, rr - bwd / 2)); ctx.stroke(); }
         }
         // Its words: each run's halo (a round-joined stroke of Inter's outlines, the Anatomy pen), then its ink, in the page's order.
         ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
