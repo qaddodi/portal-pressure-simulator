@@ -130,6 +130,9 @@ const presenter = {
   active: () => !!presenterL.now()?.active(),
   settings: () => presenterL.now()?.settings() ?? null,
   probe: () => presenterL.now()?.probe() ?? null,
+  // (For the browser checks: the cards' GPU glass (its drawn() record, scripts/gate-motion.mjs) and a slide's degraded readiness, R05.)
+  glass: () => presenterL.now()?.glass?.() ?? null,
+  degraded: () => presenterL.now()?.degraded?.() ?? null,
 };
 
 async function main() {
