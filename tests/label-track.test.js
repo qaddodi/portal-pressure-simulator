@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { trackOf, trackAt, easingOf, mixColour } from '../src/ui/label-track.js';
+import { trackOf, trackAt, settleUnder, easingOf, mixColour } from '../src/ui/label-track.js';
 
 const src = readFileSync(new URL('../src/ui/label-gl.js', import.meta.url), 'utf8');
 
@@ -107,4 +107,14 @@ test('two replace animations: the topmost that contributes wins, the one below s
   assert.ok(Math.abs(trackAt(m, 100).op - 0.2 - 0.4 * (100 / 300)) < 1e-9);   // top waiting: the lower one
   assert.ok(Math.abs(trackAt(m, 350).op - 0.5) < 1e-9);   // top running: it wins
   assert.equal(trackAt(m, 600).op, 0.6);   // top over (fill none), lower held forwards
+});
+
+test('a read of the page taken while no fade has an effect becomes the opacity under it; one taken mid-fade does not', () => {
+  const m = trackOf([anim({ target: g, kf: fade, delay: 100, fill: 'none' })], g, () => false, 0);
+  assert.equal(settleUnder(m, 50, 0.6), true);
+  assert.equal(trackAt(m, 50).op, 0.6);
+  assert.equal(trackAt(m, 450).op, 0.6);
+  const mid = trackOf([anim({ target: g, kf: fade, fill: 'none', ct: 100 })], g, () => false, 0);
+  assert.equal(settleUnder(mid, 0, 0.3), false);
+  assert.equal(mid.under, null);
 });

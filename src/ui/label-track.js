@@ -122,6 +122,17 @@ export function trackOf(anims, opEl, paintOk, now, under = null) {
   // alloc-rare: as above, read once at an animation's start
   return { ops, under: ops.length && Number.isFinite(under) ? under : null, paint: pairs.length ? { t: paintT, ease: paintEase, pairs } : null, end };
 }
+/**
+ * Learn a track's `under` from a read of the page taken while none of its opacity layers has an effect (a delayed fade before it
+ * starts, a fade with no fill after it ends): that read is then the page's own opacity. Returns whether `under` is known.
+ */
+export function settleUnder(m, now, read) {
+  if (!m.ops.length || m.under != null) return m.under != null;
+  for (let i = 0; i < m.ops.length; i++) if (progressAt(m.ops[i].t, now) != null) return false;
+  if (!Number.isFinite(read)) return false;
+  m.under = read;
+  return true;
+}
 const AT = { op: null, w: null };
 /**
  * A track at `now`: { op: the opacity (null: not animated), w: the colours' share from `from` to `to` (null: none) }.

@@ -23,7 +23,7 @@ import { createShapeGL, flattenPath, polyMeshInto, ellipsePoly } from './shape-g
 import { createOrganPaint, parseColor, mul } from './organ-paint.js';
 import { textPolys, textWidth, loadGlyphs, glyphsReady, textCovers } from './text-gl.js';
 import { watchSize, sizeOf, rectSoon } from './geom.js';
-import { trackOf, trackAt, mixColour, mixRgbaInto, timingOf, progressAt, keysOf } from './label-track.js';
+import { trackOf, trackAt, settleUnder, mixColour, mixRgbaInto, timingOf, progressAt, keysOf } from './label-track.js';
 import { caught } from './caught.js';
 import { classSoon } from './class-soon.js';
 import { readStyle } from './layout-snap.js';
@@ -1027,6 +1027,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     }
     if (!st) st = refresh(g, rot);
     if (!m || st.mode !== 'gl') { st.trk = false; return st; }
+    settleUnder(m, now, st.opacity);   // (read while no fade has an effect: the page's own opacity, which a fade with no fill leaves behind it)
     if (m.end <= now) m.ended = true;
     st.trk = m;
     return st;
@@ -1421,7 +1422,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
         if (!list) lk.trk = null;   // (taken just after this frame: followed from the next)
         else {
           try { m = trackOf(list, el, (t) => t === el && el.tagName !== 'g', now); } catch { m = null; }
-          if (m) { if (m.end <= now) m.ended = true; lk.trk = m; }
+          if (m) { settleUnder(m, now, lk.st.op); if (m.end <= now) m.ended = true; lk.trk = m; }
         }
       }
       // (A followed mark's look as this frame has it: its opacity and eased colours written into these, never a new object in a frame.)
