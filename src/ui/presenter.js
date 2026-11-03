@@ -3679,6 +3679,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       dock.raf = nextFrame(step);
     }
     layout();   // (the figure frames itself for where the card is going)
+    // (V-FIT: and the camera sets off now, on the card's own clock, not once the card's fit pass has run 60 ms on; that pass then finds the camera
+    // already headed to the same view. Not while a slide comes in or goes, or a resize is still settling: they frame it themselves.)
+    if (ui && shown && shown.i === want && shown.gen === gen && !(busy && !playing) && !leaving && !booting && !reframeT && !zoomOn()) reframe(ms);
     // alloc-rare: a dock glide begins or lands: once per glide, not per step
     clearTimeout(dock.fit); dock.fit = setTimeout(() => restPass(fitRest), 60);
   }
