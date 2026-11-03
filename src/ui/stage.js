@@ -12130,6 +12130,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     let stale = false;
     const prevSol = labelSol, nextSol = solve ? labelSolSpare : labelSol;   // (the one that was not kept last time, cleared: the two take turns)
     if (solve) nextSol.clear();
+    // (A solve in the anatomy at the zoom, turn and view it was last solved for (a pan, a value that changed what shows): every label
+    // whose old spot beside its point is still free keeps it, and only the others are placed again. Solved whole, a pan's release had
+    // put CONF, SMV, SV and IMV on other sides of their vessels, the labels sliding against the figure as the hand let go: 3 Nov 2026.)
+    const keepSlots = solve && !dry && !circuit && !!solvedFor && solvedFor.view === morphTarget && (morph === 0 || morph === 1)
+      && Math.abs(Math.log(CTM.sc / solvedFor.sc)) < 0.03 && Math.abs(Math.atan2(CTM.b, CTM.a) - solvedFor.th) < 0.01;
     const out = [];
     const leaders = [];   // { k, tag, at }: every line, then every dot (paintLeaders)
     let useLines = false, rings = [], ringXY = [];   // rings: the Circuit's stations with a reading (see placeMulti); ringXY: their dots
@@ -12336,7 +12341,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // A turned caption (see renderBlock) takes up a box as wide as its text is tall.
       const probe = it.rot ? { ...it, w: it.h, h: it.w } : { ...it, w: wRes };
       let best = null;
-      passes.forEach((ps, pi) => pi >= from && pi < to && (ps.dirs || dirs).forEach((dir, i) => {
+      if (keepSlots && prev && !prev.drop && prev.pi >= from && prev.pi < to && it.w <= prev.w + 0.5 && it.h <= prev.h + 0.5 && !it.point && !/^focus/.test(it.key)) {
+        // (Its point too: the one on the figure it was solved at, while that is still on the stage. A vessel's label is anchored at the middle of
+        // the part in view, which slides along the vessel as the view pans; held there, the label would move against the figure.)
+        const V = viewOf(it), [kx, ky] = worldToLocal(prev.wx, prev.wy), atOld = kx >= V.x0 && kx <= V.x1 && ky >= V.y0 && ky <= V.y1;
+        const ax = atOld ? kx : it.ax, ay = atOld ? ky : it.ay;
+        const r = rectOf({ ...probe, x: ax + prev.dx, y: ay + prev.dy });
+        if (within(r, V) && !placed.some((p) => hits(r, p)) && !obstacles.some((o) => hits(r, o)) && !callouts.some((b) => hits(r, b))
+          && !(creditBox && hits(r, creditBox)) && !(useLines && !prev.onv && lineHits(r, 0, true))) {
+          best = { cost: 0, dx: prev.dx, dy: prev.dy, r, dir: prev.dir, pi: prev.pi, leader: prev.leader };
+          if (atOld) { it.ax = ax; it.ay = ay; if (prev.au != null) it.au = prev.au; }
+        }
+      }
+      if (!best) passes.forEach((ps, pi) => pi >= from && pi < to && (ps.dirs || dirs).forEach((dir, i) => {
         // (A spot on the grid around the station is tried once, not per direction, and only until one is free: the grid runs nearest
         // first. The spot the label held is still tried, so it can hold it.)
         if (ps.skip || (ps.at && (i || (best && !(prev && prev.pi === pi))))) return;
@@ -15105,8 +15122,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     svg,
     worldToLocal: (x, y) => { refreshCTM(); return worldToLocal(x, y); },
     // (a label solve still running in slices, or one still owed: the view or the camera still moving to where it will be laid out, or a layout
-    // dropped and not yet laid again. The browser checks had read the Circuit's labels mid-change, two readings, as a landed layout.)
-    labelSolving: () => !!labelJob || ((camMove || morphFade || morph !== morphTarget || labelKey == null) && !!F && !lz?.isOpen() && !cathHid()),
+    // dropped and not yet laid again, or labels still gliding to their new spots. The browser checks had read the Circuit's labels mid-change,
+    // two readings, as a landed layout, and the anatomy's mid-glide after a zoom as where they stood before a pan.)
+    labelSolving: () => !!labelJob || !!glideRaf || ((camMove || morphFade || morph !== morphTarget || labelKey == null) && !!F && !lz?.isOpen() && !cathHid()),
     anchorPos(anchor) {
       const t = easeInOut(morph);
       if (NODE_POS[anchor]) return nodePos(anchor, t);
