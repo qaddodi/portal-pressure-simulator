@@ -1292,7 +1292,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     let px = x, py = y;
     if (g) { const e = easeLab(g, now); px = g.x0 + (g.x1 - g.x0) * e; py = g.y0 + (g.y1 - g.y0) * e; }
     // (Only a label already shown glides: one coming out of hidden starts where it is written, as the page shows it.)
-    const eased = !!g && !L.peek && !reduce.matches && classHas(labels, 'lz-ease');
+    const eased = false;   // (a label laid out to another slot is there in this frame, not glided to over a short time: V-LBL-1, V-LBL-3)
     const o = glOf(L);
     if (eased) { o.x0 = px; o.y0 = py; } else { o.x0 = x; o.y0 = y; }
     o.x1 = x; o.y1 = y; o.t0 = now;

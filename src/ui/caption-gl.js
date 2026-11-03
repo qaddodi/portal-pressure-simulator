@@ -501,7 +501,7 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
       I.x = x; I.y = y;
       if (off) {
         if (!I.placed) { snap(I.dx, off[0]); snap(I.dy, off[1]); snap(I.s, off[2]); }
-        else { easeTo(I.dx, off[0], now); easeTo(I.dy, off[1], now); easeTo(I.s, off[2], now); }
+        else { snap(I.dx, off[0]); snap(I.dy, off[1]); easeTo(I.s, off[2], now); }   // (a name's step aside is a place, so it is where the owner puts it in this frame, never eased toward: V-LBL-1)
       }
       if (I.set) {
         if (!I.placed) I.placed = true;
