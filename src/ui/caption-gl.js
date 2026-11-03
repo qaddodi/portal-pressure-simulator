@@ -214,6 +214,14 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
   const items = new Map(), leads = new Map(), extras = new Map(), looks = new Map();
   let vk = 1, ve = 0, vf = 0, ask = 0, gpu = null, drewOnce = false, onDrawn = null, onRest = null, onFrame = null, wasMoving = false, lastT = 0, drawing = false;
   let presented = false, onPresented = null, onLost = null, gen = 0, retries = 0, dead = false;
+  // The names the last frame drew, for the browser checks (R17, snapshot()): two record lists, the one being drawn and the one last handed over,
+  // their records reused; nothing is made in a frame once they have grown to the most names a frame draws.
+  let drawn = [], shown = [], drawnN = 0, shownN = 0, seq = 0, shownGen = 0, drawnGen = 0, shownW = 0, shownH = 0;
+  const record = (key, x, y, w, h, a, cw, ch) => {
+    const r = drawn[drawnN++] || (drawn[drawnN - 1] = { key: '', x: 0, y: 0, w: 0, h: 0, a: 0, clipped: false });   // alloc-rare: only until a frame has drawn as many names as any frame will
+    r.key = key; r.x = x; r.y = y; r.w = w; r.h = h; r.a = a;
+    r.clipped = x < 0 || y < 0 || x + w > cw || y + h > ch;
+  };
   const present = (on) => {
     if (on === presented) return;
     presented = on;
@@ -226,7 +234,7 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
     const now = easeNow();
     lastT = now;
     let more = false, failed = false;
-    drawing = true;
+    drawing = true; drawnN = 0; drawnGen = gen;
     try {
       // (The owner's places for this frame, set as it is drawn: a glide its page eased, a pan's ride.)
       if (onFrame?.(now)) more = true;
@@ -234,6 +242,9 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
       if (!(w > 0 && h > 0)) return;
       // (The whole layer carried by the owner's view, view(): a point p is drawn at k p + (e, f). A pan, or the lobule's dive about a point.)
       const moved = vk !== 1 || ve !== 0 || vf !== 0;
+      // (Layer-scaled words, R07: the whole layer's scale carries the glyphs, their spacing and halo as it carries the anchors and the leaders'
+      // width; a caption's own scale s is set in its font above, and this one is the layer's, never both on the same size.)
+      ctx.textScale = vk !== 1;
       if (moved) { ctx.save(); ctx.translate(ve, vf); ctx.scale(vk, vk); }
       // Leaders under the names, as their layer was.
       for (const L of leads.values()) {
@@ -256,6 +267,8 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
         more ||= easing(I.a, now) || easing(I.s, now) || easing(I.dx, now) || easing(I.dy, now);
         if (a <= 0.002) continue;
         const cx = I.x + dx, cy = I.y + dy, bw = I.w * s, bh = I.h * s, l = cx - bw / 2, t = cy - bh / 2;
+        // (Where the names stand on the screen, the layer's view included: k p + (e, f).)
+        record(I.key, vk * l + ve, vk * t + vf, vk * bw, vk * bh, a, w, h);
         // A lit term (a slide's) shows in its colour on the name and figure alone, as the page's look reads it: no pill or chip behind
         // a figure's label (owner, 2 Nov: anatomy-style halo text, no pills).
         // Its marks under its words (a call's pill: its shadow, fill and border, as the page drew it).
@@ -294,13 +307,14 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
       ctx.globalAlpha = 1;
       for (const f of extras.values()) if (f(ctx, now)) more = true;
       if (moved) ctx.restore();
+      ctx.textScale = false;
     } finally {
       drawing = false;
       const handed = ctx.end?.() !== false;   // (false: the picture could not be handed over, trace-gl.js end)
       // (In the finally: a frame at no size returns above.) A frame that could not be handed over, or came while the context was gone,
       // leaves the last picture in the canvas and the class on: it is drawn again (a few tries, then at the next paint or restore).
       if (pen.gpu) {
-        if (w > 0 && h > 0 && handed) { retries = 0; present(true); if (!drewOnce) { drewOnce = true; onDrawn?.(); } }
+        if (w > 0 && h > 0 && handed) { retries = 0; seq++; const t = shown; shown = drawn; drawn = t; shownN = drawnN; shownGen = drawnGen; shownW = w; shownH = h; present(true); if (!drewOnce) { drewOnce = true; onDrawn?.(); } }
         else if (w > 0 && h > 0 && handed === false) failed = true;
       } else if (gpu?.lost) failed = true;
     }
@@ -323,6 +337,16 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
     set onPresented(f) { if (dead) return; onPresented = f; if (presented) f?.(); },
     /** Called when presentation is lost: a failed hand-over, a lost context, a size of nothing. */
     set onLost(f) { if (!dead) onLost = f; },
+    /**
+     * What the last frame handed over drew, for the browser checks (R17): { seq (counts the frames that landed), gen (the content generation they
+     * drew), w, h (the canvas), items: [{ key, x, y, w, h, a, clipped }] } in the layer's px, view included, as the GPU drew them (not the page's
+     * model); a (0 to 1) what it shows, clipped when its box reaches past the canvas. A frame that did not land changes nothing. Made on a call.
+     */
+    snapshot() {
+      const items = [];
+      for (let i = 0; i < shownN; i++) { const r = shown[i]; items.push({ key: r.key, x: r.x, y: r.y, w: r.w, h: r.h, a: r.a, clipped: r.clipped }); }
+      return { seq, gen: shownGen, w: shownW, h: shownH, items };
+    },
     /** The content generation: counts each change of words, looks or mirrors. */
     get gen() { return gen; },
     /** Called first in each frame the names are drawn (now): the owner sets their places there; true while one of them still moves. */
@@ -428,7 +452,7 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
       const was = presented, lost = onLost;
       onFrame = onRest = onDrawn = onPresented = onLost = null;
       gpu?.dispose?.(); gpu = null;
-      items.clear(); leads.clear(); extras.clear(); looks.clear();
+      items.clear(); leads.clear(); extras.clear(); looks.clear(); drawn = []; shown = []; drawnN = shownN = 0;
       cv.remove();
       presented = false;
       if (was) lost?.();

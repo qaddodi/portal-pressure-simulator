@@ -10,7 +10,8 @@ const js = readFileSync(new URL('../src/ui/trace-gl.js', import.meta.url), 'utf8
 
 test('fillText and strokeText place the anchor through the full transform (X, Y), and turn about that point', () => {
   assert.match(js, /const textAt = \(t, x, y, colour, sw\) => \{\s*const m = st\.m, ang = m \? Math\.atan2\(m\[1\], m\[0\]\) : 0, px = X\(x, y\), py = Y\(x, y\);/);
-  assert.match(js, /G\.text\(t, px, py, st\.font, colour, align\(\), st\.textBaseline, st\.globalAlpha, sw, ang \? TURN : null, st\.ls\);/);
+  // (R07: the size, spacing and outline follow the transform's scale only when the caller asks, ctx.textScale; tests/caption-text-policy.test.js.)
+  assert.match(js, /G\.text\(t, px, py, k === 1 \? st\.font : scaledFont\(st\.font, k\), colour, align\(\), st\.textBaseline, st\.globalAlpha, sw \* k, ang \? TURN : null, st\.ls \* k\);/);
   assert.match(js, /fillText\(t, x, y\) \{ textAt\(/);
   assert.match(js, /strokeText\(t, x, y\) \{ textAt\(/);
   assert.doesNotMatch(js, /G\.text\(t, x \+ ox\(\), y \+ oy\(\)/, 'no word is placed by the offset alone');
