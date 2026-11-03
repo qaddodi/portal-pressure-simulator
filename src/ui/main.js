@@ -1014,13 +1014,12 @@ function openLayers(anchor) {
     s0.imaging ? h('div', { class: 'ctl-sub', style: { padding: '2px 10px 6px' } }, 'This view shows anatomy only until you measure.') : null,
   ], { cls: 'layers-pop' });
 }
-// Active bleeding is a state, not an alarm: the app only notes it (the figure shows the blood itself).
+// Active bleeding is a state, not an alarm: the figure shows the blood itself; the readings are drawn again when it starts or stops.
 let lastBleed = false;
 function syncBleeding(f) {
   const on = !!f.metrics.bleeding;
   if (on === lastBleed) return;
   lastBleed = on;
-  app.classList.toggle('bleeding', on);
   redraw();
 }
 let tipInfo = null;
@@ -1146,7 +1145,6 @@ function renderBanner() {
   const had = !!el.firstChild;
   if (had && !bannerOn) swapFade(el, bannerClear);
   else { swapFade(el, bannerFill, INSTANT); if (!had && bannerOn) el.animate?.(BANNER_IN, BANNER_IN_OPTS); }
-  app.classList.toggle('cmp-on', !!s0.compareSnap);
   // The switch's height, for views that place their own controls under it (the lobule's).
   // (Its height as the browser last reported it, geom.js: the switch just built is reported after this layout and written again then.)
   syncCmpH();
@@ -2141,7 +2139,6 @@ function closeHistory(opts) {
 // ── Modes ───────────────────────────────────────────
 const FOCUS_NULL = { focus: null }, EXPLORE_RESET = { hiddenReadouts: null, hiddenEvents: null, imaging: false, found: null }, SELECTION_NULL = { selection: null, details: null };   // (store.set patches: read, never kept)
 function onMode(mode) {
-  app.dataset.mode = mode;
   store.set(FOCUS_NULL);
   if (mode === 'explore') { store.set(EXPLORE_RESET); if (store.get().tool !== 'select') setTool(); }
   store.set(SELECTION_NULL);
