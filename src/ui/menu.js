@@ -10,6 +10,8 @@ import { h, icon, svgIcon, cssVar, clamp, settleFrom, swipeSheet, visibleBottom,
 import { SNAPSHOTS } from './snapshots.js';
 import { HVPG_CUTS, PPG_CUTS, sevOfCuts } from '../engine/pressure-cuts.js';
 import { pressureColor } from './colormap.js';
+import { readAnims } from './layout-snap.js';
+import { deckSig, patientSig } from './menu-keep.js';
 import { ownsSideways, pageGo } from './swipe.js';
 import { frameFor } from './frame.js';
 import { restPass } from './rest-pass.js';
@@ -324,15 +326,40 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
   }
   const $$rows = () => (el ? [...el.querySelectorAll('.um-row')] : []);
 
+  // ── Kept rows ──
+  // Each row is made once and kept (its listeners with it) while the menu is shut; the next open puts it back as it is when what it shows has
+  // not changed (menu-keep.js: the deck is the one playing, its resume place, the new-deck mark; the patient is the one shown), and makes
+  // that row again when it has. Building the lists made some 400 nodes in the tap that opened the menu. A row still in a panel that is
+  // fading out is not taken from it: the open makes its own. Your scripts are always made fresh (they are the person's own, and few).
+  const rows = new Map(), rowSig = new WeakMap();
+  let reuse = true, reused = 0;   // (reuse is off only while columns() makes the lists from nothing to compare; reused counts the rows put back)
+  function cleanRow(li) {
+    // (What the last open left on it: a preview opened under it, its button's state, a hover mark, a search's hidden, a fold still easing.)
+    for (const a of readAnims(li, { subtree: true }) || []) a.cancel();
+    li.querySelector(':scope > .um-inline')?.remove();
+    li.querySelector(':scope > .um-info')?.setAttribute('aria-expanded', 'false');
+    li.firstElementChild?.classList.remove('pv-on');
+    li.hidden = false;
+  }
+  function rowFor(key, sig, make) {
+    let li = reuse ? rows.get(key) : null;
+    if (li && sig != null && !li.isConnected && rowSig.get(li) === sig) { cleanRow(li); reused++; return li; }
+    li = make();
+    if (reuse) { rowSig.set(li, sig); rows.set(key, li); }
+    return li;
+  }
+  const deckRowK = (d, lib, script) => rowFor((script ? 's:' : 'd:') + d.id, deckSig(d, script, lib.current() === d.id, resumeOf(d, lib, script), mark === d.id), () => deckRow(d, lib, script));
+  const patientRowK = (p, cur) => rowFor('p:' + p.id, patientSig(p, p.id === cur), () => patientRow(p, cur));
+
   // ── Panel ──
-  function build(lib) {
+  function sections(lib) {
     const st = store.get(), cur = st.presetId;
     const groups = {};
     for (const p of st.presetList || []) (groups[p.group] ||= []).push(p);
     const patients = h('section', { class: 'um-col', 'data-col': 'patients' },
       Object.entries(groups).map(([g, ps]) => h('div', { class: 'um-g' },
         h('div', { class: 'um-gl', id: 'umg-' + g }, h('b', {}, g), h('span', {}, GROUP_WHERE[g] || '')),
-        h('ul', { 'aria-labelledby': 'umg-' + g }, ps.map((p) => patientRow(p, cur))))));
+        h('ul', { 'aria-labelledby': 'umg-' + g }, ps.map((p) => patientRowK(p, cur))))));
     let present;
     if (!lib) present = h('section', { class: 'um-col', 'data-col': 'present' }, h('p', { class: 'um-note um-wait' }, 'Loading…'));   // (the note shows only if the wait runs past 0.4 s: a quick fill shows no flash of it)
     else {
@@ -340,11 +367,11 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
       present = h('section', { class: 'um-col', 'data-col': 'present' },
         lib.topics.map(([k, name, list]) => h('div', { class: 'um-g' },
           h('div', { class: 'um-gl', id: 'umt-' + k }, h('b', {}, name)),
-          h('ul', { 'aria-labelledby': 'umt-' + k }, list.map(([id]) => lib.decks.find((d) => d.id === id)).filter(Boolean).map((d) => deckRow(d, lib)))),
+          h('ul', { 'aria-labelledby': 'umt-' + k }, list.map(([id]) => lib.decks.find((d) => d.id === id)).filter(Boolean).map((d) => deckRowK(d, lib)))),
         ),
         lib.testing?.length ? h('div', { class: 'um-g' },
           h('div', { class: 'um-gl', id: 'umt-testing' }, h('b', {}, 'Testing')),
-          h('ul', { 'aria-labelledby': 'umt-testing' }, lib.testing.map((s) => deckRow(s, lib, true)))) : null,
+          h('ul', { 'aria-labelledby': 'umt-testing' }, lib.testing.map((s) => deckRowK(s, lib, true)))) : null,
         h('div', { class: 'um-g scripts' },
           h('div', { class: 'um-gl', id: 'umt-mine' }, h('b', {}, 'Your scripts'),
             h('span', { class: 'um-gacts' },
@@ -353,6 +380,10 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
           mine.length ? h('ul', { 'aria-labelledby': 'umt-mine' }, mine.map((s) => deckRow(s, lib, true)))
             : h('p', { class: 'um-note' }, 'Capture states of the model and play them like a presentation.')));
     }
+    return { patients, present };
+  }
+  function build(lib) {
+    const { patients, present } = sections(lib);
     const input = h('input', { class: 'um-q', type: 'search', placeholder: 'Find a presentation or patient', 'aria-label': 'Find a presentation or patient', autocomplete: 'off', spellcheck: 'false', value: query });
     input.addEventListener('input', () => { query = input.value; filter(); });
     const panel = h('div', { class: 'umenu', role: 'dialog', 'aria-label': 'Menu' },
@@ -523,6 +554,12 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
   function askLibrary() { setTimeout(askLibraryStep, 0); }
   let scrollOpen = null;
   return {
+    // For the browser checks (tests/e2e/menu-kept.mjs): the two lists as the next open would make them from the kept rows, and made from
+    // nothing, as markup, to be compared. Neither is put in the page.
+    columns() {
+      const lib = libraryNow(), at = (on) => { reuse = on; reused = 0; try { const { present, patients } = sections(lib); return { present: present.outerHTML, patients: patients.outerHTML, reused }; } finally { reuse = true; } };
+      return { fresh: at(false), kept: at(true) };
+    },
     // section: 'present' | 'patients' | 'scripts' (scrolled into view); opts.mark: a script id to highlight;
     // opts.query: words to start the search with (a mistyped ?preset= link).
     open(section, opts = {}) {

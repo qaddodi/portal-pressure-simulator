@@ -18,6 +18,7 @@
     "smoke:idle": "node tests/e2e/idle-steady.mjs",
     "smoke:veins": "node tests/e2e/veins-gesture.mjs",
     "smoke:rows": "node tests/e2e/veins-rows.mjs && node tests/e2e/veins-stale.mjs",
+    "smoke:menu": "node tests/e2e/menu-kept.mjs",
     "smoke:widths": "node tests/e2e/width-equiv.mjs",
     "smoke:draws": "node tests/e2e/figure-draws.mjs",
     "smoke:gesture": "node tests/e2e/pinch-pan.mjs",

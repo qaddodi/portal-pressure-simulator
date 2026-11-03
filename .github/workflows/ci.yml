@@ -264,6 +264,8 @@ jobs:
         run: npm run smoke:widths
         env:
           N: 10
+      - name: The menu's kept rows equal rows made from nothing after each kind of change
+        run: npm run smoke:menu
       - name: The figure draws its vessels (home and zoomed), and a paused figure sleeps after a lens switch
         run: npm run smoke:draws
 
