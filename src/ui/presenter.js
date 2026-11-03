@@ -43,6 +43,7 @@ import { frameFor, cancelFrame, holdMotion, easeNow, PACED } from './frame.js';
 import { loadGlyphs, glyphsReady, textWidth } from './text-gl.js';
 import { restPass, cancelRest } from './rest-pass.js';
 import { createSlidePrep } from './slide-prep.js';
+import { replayable, replayKind, replayFrom } from './replay.js';
 import { createTxns, createLease, createScope } from './slide-txn.js';
 import { glEpoch, onGLRestored } from './gl-state.js';
 import { prepareShaders, shaderFailures } from './gl-compile.js';
@@ -2207,6 +2208,36 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (zoomOn()) { const d0 = deck, t0 = txn; ui.zoom.close().then(() => { if (deck !== d0 || txn !== t0 || !txnLive(t0)) return; paintZoom(); zoomMissed = false; if (deck && !busy) run(); }); return; }
     if (!busy) run();
   }
+  // ── Replay the change (N8, replay.js) ──
+  // The slide's change run again from the state before it: the figure, numbers and charts ease back and play it as the first play did.
+  // The cards are not touched (V-SLIDE-3); a Next, Back or jump during it cuts it (rid), and the next slide eases on from wherever the model is.
+  let rid = 0;
+  const playOn = (on) => { playing = on; };
+  const replayEl = (s, i) => h('div', { class: 'pz-ab pz-rp', role: 'group', 'aria-label': 'Replay' }, h('button', { type: 'button', class: 'pz-abb', title: 'Play the change again (R)', onclick: () => replay() }, '\u21BB Replay'));
+  async function replay() {
+    const to = want, s = slides[to];
+    if (!deck || !ui || leaving || busy || shown?.i !== to || !replayable(s, to) || cath.on || zoomOn()) return;
+    const g = gen, id = ++rid, deck0 = deck, cut = () => deck !== deck0 || want !== to || gen !== g || rid !== id;
+    const kind = replayKind(s);
+    try {
+      const end = await stateReady(stateOf[to]), from = replayFrom(s, to, states, stateOf) || await stateReady(stateOf[to - 1]);
+      if (!end || !from || cut()) return;
+      const ref = refOf(s, to);
+      stopLapse(); procStop(true); handOn = false; shownState = -1;
+      if (kind === 'procedure') procDoneAt = -1;
+      playOn(true);   // (the slide stands whole while the figure replays, as for its days: the card may zoom)
+      // (Back to where the change began: quick, with the data card's readings riding the model as they do when a kept card follows a change.)
+      let easing = true;
+      (async () => { while (easing && !cut()) { await wait(150); const fr = store.get().frame; if (easing && fr?.metrics && !cut()) dataTo(s, liveFp(fr), ref, 280); } })();
+      const back = await morphTo(from, cut, reduce.matches ? 0 : REPLAY_BACK_MS, false);
+      easing = false;
+      if (!back || cut()) return;
+      if (kind === 'lapse') { if (ui.text.querySelector('.pz-lapse')) paintLapse(s, 0, s.days); await playLapse(s, to, cut); }
+      else if (kind === 'procedure') { shownState = stateOf[to]; playOn(false); procPlay(s, to, 0); return; }
+      else await answerPlay(s, to, cut);
+    } finally { if (rid === id) playOn(false); }
+  }
+  const REPLAY_BACK_MS = 500;
   async function run() {
     busy = true; announce();   // (the cards are changing: a reader waits for them, aria-busy)
     try {
@@ -2898,6 +2929,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
           s.whatIf ? whatIfEl(s, i, st) : null,
           s.column ? wedgeColumn() : null,
           s.lapse && i > 0 ? lapseRow(s) : null,
+          replayable(s, i) ? replayEl(s, i) : null,
           s.rail ? rail(s.rail === 'all' ? 'all' : s.site) : null,
           s.causes?.length ? h('p', { class: 'pz-causes' }, h('span', { class: 'pz-sub' }, s.causesHead || 'Causes'), nb(listCase(s.causes))) : null]);
       paintKey((slideLens(s) !== 'pressure' || lensButtons(s)) ? slideLens(s) : null, s);
@@ -5737,6 +5769,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     else if (lk === 'b' || k === '.' || lk === 'w') toggleBlack();
     else if (lk === 'f') fullscreen();
     else if (lk === 'g') toggleJump(true);
+    else if (lk === 'r') replay();
     else if (lk === 'n' || lk === 's' || lk === 'l') { /* the app's own N, S and L (such as the lens) stay off while presenting */ }
     else if (k === 'F5') { /* a clicker's "start show": never reload the page */ }
     else if (k === 'Escape') { if (black) toggleBlack(false); else if (zoomOn()) ui.zoom.close().then(paintZoom); else stop(); }   // (a zoomed card first glides back)
