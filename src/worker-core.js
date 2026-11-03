@@ -143,7 +143,20 @@ export function createCore(post) {
   // The model was given another state (a patient, a restore, an action): the history under way is of the old one, and nothing posted is the new one's.
   // (jumpDirty: the next frame tells the page the model jumped, so nothing it shows is blended across the change: display-state.js noteJump.)
   let jumpDirty = true, postedClock = null;
-  function stateChanged() { endHistory(false); postedT = NaN; jumpDirty = true; }
+  // (EXT-WRK-1: a patient, a reset, a restore or a morph REPLACES the state: the samples taken from the old one are dropped, with their bookkeeping,
+  // and `gen` counts the replacements so a page can tell a frame's samples are of the state it names. An action goes on from the same state.)
+  let gen = 0;
+  function stateChanged(replaced = true) {
+    endHistory(false); postedT = NaN; jumpDirty = true;
+    if (replaced) { gen++; samples = null; sampT = NaN; sampCyc = 0; }
+  }
+  // EXT-WRK-2: a new patient (a preset, a reset) ends what was acting on the old one: an eased change of patient, a presenter's time-lapse
+  // and its ramp, the easing of a slider. The clock the PAGE chose (its own time-lapse, a speed) stays; only a clock a presenter's lapse owned
+  // goes back to the bedside, as when a lapse ends.
+  function endTransitions() {
+    if (lapse) { clock = 'hemo'; speed = 1; }
+    morph = null; lapse = null; stoppedAt = null; relaxUntil = 0; diseaseAcc = 0;
+  }
   function histSlice() {
     histTimer = 0;
     const j = hist;
@@ -193,7 +206,7 @@ export function createCore(post) {
     for (let k = 0; k < eng.E; k++) D[k] = eng.diameter(eng.edges[k].id);
     const f = {   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; the posted frame message itself
       type: 'frame',
-      changed: frameDirty,
+      changed: frameDirty, gen,
       jump: jumpDirty || clock !== postedClock,
       t: eng.t, day: eng.day, running, speed, clock, probe,
       parkSecs: parkSecs(),
@@ -285,9 +298,9 @@ export function createCore(post) {
       const k = Math.min(1, (now - morph.t0) / morph.ms);
       // W2: the beat runs on through the blend. The snapshots carry no cardiac phase, so it is advanced here at the blended heart
       // rate (as step() does), and a sample of the blended state is taken each tick, so the pulse and the traces do not stop for 1.2 s.
-      const cyc = eng.cyc || 0;
+      const cyc = eng.cyc || 0, COf = eng.COf;   // (a blend carries neither the phase nor the output filter: the live ones go on)
       eng.restore(k >= 1 ? morph.to : morphAt(morph.from, morph.to, easeInOut(k)));
-      eng.cyc = cyc + realDt * (eng.hr || 60) / 60;
+      eng.cyc = cyc + realDt * (eng.hr || 60) / 60; eng.COf = COf;
       sample();
       if (k >= 1) morph = null;
       paramsDirty = true; frameDirty = true;
@@ -370,14 +383,15 @@ export function createCore(post) {
   let stoppedAt = null;
   function start() {
     if (timer || crashed || !running || !visible) return;
-    if (stoppedAt != null && lapse?.bedside) lapse.bedside.t0 += performance.now() - stoppedAt;
+    // (EXT-WRK-3: the time the clock stood still, the page hidden or paused, is not the time-lapse's or the morph's own.)
+    if (stoppedAt != null) { const d = performance.now() - stoppedAt; if (lapse?.bedside) lapse.bedside.t0 += d; if (morph) morph.t0 += d; }
     stoppedAt = null;
     last = null;
     timer = setInterval(tick, 33);
   }
 
   function stop() {
-    if (timer) { clearInterval(timer); if (lapse?.bedside && stoppedAt == null) stoppedAt = performance.now(); }
+    if (timer) { clearInterval(timer); if ((lapse?.bedside || morph) && stoppedAt == null) stoppedAt = performance.now(); }
     timer = null;
     last = null;
   }
@@ -411,11 +425,11 @@ export function createCore(post) {
     },
     *preset({ id, days, reqId }) {
       stateChanged();
-      morph = null;
+      endTransitions();
       yield* eng.loadPresetSteps(id, days != null ? { days: days + (PRESETS.find((p) => p.id === id)?.days || 0) } : {});
       post({ type: 'presetLoaded', reqId, id, params: eng.params });
     },
-    reset() { stateChanged(); morph = null; eng = new Engine(); paramsDirty = true; },
+    reset() { stateChanged(); endTransitions(); eng = new Engine(); paramsDirty = true; },
     run({ running: r, speed: s, clock: c }) {
       if (r !== undefined) running = r;
       if (s !== undefined) speed = s;
@@ -465,7 +479,7 @@ export function createCore(post) {
       paramsDirty = true;
     },
     settle() { eng.settle(); },
-    action({ action }) { stateChanged(); morph = null; applyAction(eng, action); paramsDirty = true; },
+    action({ action }) { stateChanged(false); morph = null; applyAction(eng, action); paramsDirty = true; },
     // Run the model forward at bedside time (so the vitals have settled before they are shown).
     *preroll({ seconds, reqId }) {
       for (let t = 0; t < seconds; t += 0.1) { eng.step(0.1); yield; }
@@ -485,6 +499,7 @@ export function createCore(post) {
       lapse = null; clock = 'hemo'; speed = 1; diseaseAcc = 0; relaxUntil = 0;
       if (!(ms > 0)) { morph = null; eng.restore(snap); paramsDirty = true; return; }
       morph = { from: eng.snapshot(), to: snap, t0: performance.now(), ms };
+      stoppedAt = timer ? null : morph.t0;   // (begun while the model stands still, the page hidden: it has not begun to play)
       running = true; start();
     },
     explain({ metric, reqId }) {
