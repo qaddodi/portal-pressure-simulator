@@ -88,3 +88,9 @@ test('a widget\'s picture box out-ranks .stage-view canvas (inset 0, 100%), so a
   const stage = css.indexOf('.stage-view canvas {'), widget = css.indexOf('canvas.wgl.wgl, ');
   assert.ok(stage >= 0 && widget > stage, 'and it comes later, so a tie cannot go to the stage rule');
 });
+
+test('a widget\'s picture is drawn again when its box changes size (a window or card resize), not left stretched at the old buffer', () => {
+  const widget = readFileSync(new URL('../src/ui/widget-gl.js', import.meta.url), 'utf8');
+  assert.match(widget, /onCanvasResized\(host, \(\) => api\.paint\(\)\)/);
+  assert.match(widget, /unsized\(\); gpu\?\.dispose\(\)/);
+});

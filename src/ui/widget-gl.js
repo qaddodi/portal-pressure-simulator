@@ -17,6 +17,7 @@
 
 import { createTraceGL, fitPen } from './trace-gl.js';
 import { restPass } from './rest-pass.js';
+import { onCanvasResized } from './util.js';
 import { caught } from './caught.js';
 
 const ALL = new Set();   // alloc-rare: the widgets alive (a toast, a menu: each added once when built)
@@ -61,7 +62,7 @@ export function widgetGL(el, paint, { pad = 0 } = {}) {
       if (dead) return;
       dead = true;
       ALL.delete(api);
-      gpu?.dispose();
+      unsized(); gpu?.dispose();
       host.remove();
       api.live = false;
       el.classList.remove('wgl-on');
@@ -70,6 +71,7 @@ export function widgetGL(el, paint, { pad = 0 } = {}) {
   const gpu = createTraceGL(host, { redraw: () => api.paint() });
   if (!gpu) { host.remove(); dead = true; return null; }
   ALL.add(api);
+  const unsized = onCanvasResized(host, () => api.paint());   // (a card or the window changed size: the picture is drawn again at the new size, not stretched)
   watchTheme();
   return api;
 }
