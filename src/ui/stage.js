@@ -15264,6 +15264,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     setCamera(to, ms = 900) { if (lobuleOn || !to || sameView(to, vtGliding ? vtTarget : vt)) return; fitted = false; animateVT({ ...to }, ms, { scale: true }); },
     cameraKey: () => `${vt.k.toFixed(3)}|${vt.x.toFixed(1)}|${vt.y.toFixed(1)}`,
     zoomLobule, zoomLiver, lobuleOpen: () => !!lz?.isOpen(), organsPictured: () => !!veins?.organs?.pictured?.(0), lobuleViewKey: () => lz?.viewKey(), lobuleCaptions: () => lz?.captions?.() ?? null, sinusoidCaptions: () => lz?.sinusoidCaptions?.() ?? null, lobuleLeaderEnds: () => lz?.leaderEnds?.() ?? [], lobuleGliding: () => !!lz?.labelsGliding?.(), lobuleCapture: () => lz?.capture?.() ?? null,
+    /** The figure on show → stage px as an affine { a, b, c, d, e, f } (the pen's, ink-gl.js), written into o; returns the view's kind ('w' world, 'l' lobule, 's' sinusoid). */
+    figureXform(o) {
+      if (lz?.isOpen() && lz.xform(o)) return lz.sinusoidOpen() ? 's' : 'l';
+      if (!CTM) refreshCTM(); const c = CTM, b = stageBox(); if (!c || !b) return '';
+      o.a = c.a; o.b = c.b; o.c = c.c; o.d = c.d; o.e = c.e - b.left; o.f = c.f - b.top;
+      return 'w';
+    },
     labelClearance: () => clearanceReport(),   // (the browser check's: see clearanceReport)
     /** The labels' state against the camera, for the browser check: hidden (the pinch hide), riding (carried by the camera's move on the GPU),
      *  and stale (shown, not riding, laid out under a camera that is not this one: the old labels over the new view). */

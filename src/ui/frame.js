@@ -106,6 +106,7 @@ function flush(now) {
     finalNow = fin;
     fin = spareF.size ? new Batch() : spareF;    // (likewise)
     run(finalNow, now, 'final');
+    if (finals.size) for (const w of finals) try { w(now); } catch (e) { rethrow(e); }   // (after the last callback, before the frame is judged: the ink lays itself on the figure as drawn)
     runMay(now);
   } finally {
     current.clear(); spareQ = current; current = null;
@@ -180,6 +181,10 @@ function runPass(batch, now, phase, prio) {
 /** Calls fn({ now, gap, script, parts }) after every frame the scheduler runs (frame-stats.js has the shape). Returns the stop.
  *  Detailed: while anyone watches, every callback's time is kept per part. For ?perf, the gates and tests only. */
 export function watchFrames(fn) { watchers.add(fn); return () => watchers.delete(fn); }
+const finals = new Set();
+/** Calls fn(now) at the very end of every frame the scheduler runs, after the final callbacks and before the frame is judged: for a surface that must
+ *  follow whatever the others drew this frame (the pen's ink). Returns the stop. Costs nothing while nobody listens. */
+export function onFrameFinal(fn) { finals.add(fn); return () => finals.delete(fn); }
 const ends = new Set(), endF = { now: 0, gap: 0, script: 0 };
 let lastTask = 0;
 /** Calls fn({ now, gap, script }) at the end of every frame, cheaply (no parts; the object is reused, read it in the call). Returns the stop. */

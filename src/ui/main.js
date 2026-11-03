@@ -133,6 +133,7 @@ const presenter = {
   // (For the browser checks: the cards' GPU glass (its drawn() record, scripts/gate-motion.mjs) and a slide's degraded readiness, R05.)
   glass: () => presenterL.now()?.glass?.() ?? null,
   degraded: () => presenterL.now()?.degraded?.() ?? null,
+  ink: () => presenterL.now()?.ink?.() ?? null,   // (N2: the pen and spotlight, for the browser checks)
 };
 
 async function main() {
@@ -2334,7 +2335,7 @@ const PRESENT_KEYS = [
   ['→ · Space · Enter', 'Next slide (during a time-lapse, run it to its end)'], ['← · Backspace', 'Previous slide'],
   ['↑ · ↓', 'Show / tuck the readings under the instrument card (Mac, iPad on its side)'],
   ['Home · End', 'First / last slide'], ['Number, then Enter', 'Jump to that slide'], ['G', 'The slide list'],
-  ['B or .', 'Black screen'], ['F', 'Full screen'], ['?', 'This guide'], ['Esc', 'Put an enlarged card back, then stop presenting'],
+  ['B or .', 'Black screen'], ['F', 'Full screen'], ['Hold L', 'Spotlight on the pointer (iPad: press and hold)'], ['D · E', 'Pen on / off · erase the pen'], ['?', 'This guide'], ['Esc', 'Put an enlarged card back, then stop presenting'],
 ];
 function openHelp(section) {
   // (Grouped by what a person is doing, so the list reads down a column: run it, change the view, reach and act. Every row is a key the handler takes.)

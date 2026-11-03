@@ -76,6 +76,7 @@ import { readAnims, readBox, readCTM, readMetric, readRects, readStyle, readTimi
 import { caught } from './caught.js';
 import { scrubSpec, scrubKey } from './scrub-plan.js';
 import { scrubEl } from './scrub.js';
+import { createInk } from './ink-gl.js';
 const nextFrame = frameFor('presenter');
 
 import { readMine, writeMine, NO_ROOM, enc, dec } from './script-library.js';
@@ -2128,6 +2129,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   function go(i) {
     if (!deck || leaving) return;
     dispatchEvent(new Event('pps:go'));   // (the ?perf readout's slide-change window; nothing listens otherwise)
+    ink?.clear();   // (N2: the pen's strokes belong to the slide they were drawn on)
     turn = i === want + 1 || firstBeat ? 'next' : i === want - 1 ? 'back' : 'jump';   // (the slide before or after, by whatever key or button: a turn; further: a jump)
     want = clamp(i, 0, slides.length - 1);
     const tx = (txn = txns.begin({ to: want, dir: turn }));
@@ -5740,13 +5742,19 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     else if (lk === 'b' || k === '.' || lk === 'w') toggleBlack();
     else if (lk === 'f') fullscreen();
     else if (lk === 'g') toggleJump(true);
-    else if (lk === 'n' || lk === 's' || lk === 'l') { /* the app's own N, S and L (such as the lens) stay off while presenting */ }
+    else if (lk === 'l') inkOf().hold(true);   // (N2: hold L for the spotlight; released on keyup)
+    else if (lk === 'd') { if (!e.repeat) toast(inkOf().togglePen() ? 'Pen on: draw on the figure, E erases' : 'Pen off', '', { present: true }); }
+    else if (lk === 'e') { if (!e.repeat) ink?.clear(); }
+    else if (lk === 'n' || lk === 's') { /* the app's own N and S stay off while presenting */ }
     else if (k === 'F5') { /* a clicker's "start show": never reload the page */ }
     else if (k === 'Escape') { if (black) toggleBlack(false); else if (zoomOn()) ui.zoom.close().then(paintZoom); else stop(); }   // (a zoomed card first glides back)
     else used = false;
     if (used) { e.preventDefault(); e.stopImmediatePropagation(); }
   }
   addEventListener('keydown', onKey, true);
+  addEventListener('keyup', (e) => { if (e.key === 'l' || e.key === 'L') ink?.hold(false); }, true);
+  let ink = null;   // (N2: the pointer's spotlight and the pen, made at their first key: ink-gl.js)
+  const inkOf = () => ink ??= createInk({ host: view, xform: (o) => stage.figureXform(o), active: () => !!deck && !!ui && !black, onFigure: (e) => !!offFig(e) });
 
   // The card's own touch: along its axis it follows the finger (docking past half way or on a quick flick); a tap on the sliver opens it.
   function dockTouch(el, ...more) {   // (more: the card's sheet edge, its sibling, takes the same touch)
@@ -6176,6 +6184,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     setLabels();
     prepare();
     addEventListener('resize', onResize);
+    inkOf();   // (N2: the pen and spotlight listen from the talk's start, so a press and hold on the iPad finds them)
     sizeSeen = sizeNow();
     wrapRO ||= typeof ResizeObserver === 'function' ? new ResizeObserver(() => { if (ui && sizeNow() !== sizeSeen) onResize({ type: 'resize' }); }) : null;
     wrapRO?.observe(wrap);
@@ -6202,6 +6211,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   function stopNow(restore = true) {
     leaving = null;
     if (!deck) return;
+    ink?.dispose(); ink = null;
     sess?.dispose(); sess = null; colT = refitT = reframeT = turnT = glassT = 0; swapNow = false;   // (R03: this talk's timers stop with it, none left to act on the next)
     if (cover) coverDown(true);
     stopLapse(); procStop(); cathStop(); abSlow(); liveOff = false; handOn = false;   // (before deck is cleared: stopping a time-lapse repaints the bar)
@@ -6371,7 +6381,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     scriptNotes: (s) => { const d = fromScript(s); openHandout(d, deckNumbers(d)); }, newScript, importFile, addStep, shareScript, exportScript, remove, current: () => deck?.id ?? null,
     resumeAt: (d) => resumeFor(d.id, (d.mine ? d.slides : withOverview(d).slides).length) });
 
-  return { start, stop, library, readLink, active: () => !!deck,
+  return { start, stop, library, readLink, active: () => !!deck, ink: () => ink,
     // Where the show is (for the preview pill's reload): the deck and the slide on screen, or the one it is moving to.
     position: () => (deck ? { id: deck.id, at: shown?.i ?? want } : null),
     // For the browser checks: straight to slide i (0-based) of the deck shown, as the arrow keys move.

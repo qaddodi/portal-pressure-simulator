@@ -1313,6 +1313,8 @@ export function createSinusoidView({ host, before = null }) {
       return FRAME_OUT;
     },
     isOpen: () => open,
+    /** The view's figure → stage px as an affine { a, b, c, d, e, f } (the ink's, ink-gl.js): written into o, true while the view rests open. */
+    xform(o) { if (!open || !geo) return false; const ca = Math.cos(geo.ang), sa = Math.sin(geo.ang); o.a = VW.k * ca; o.b = VW.k * sa; o.c = -VW.k * sa; o.d = VW.k * ca; o.e = VW.C[0]; o.f = VW.C[1]; return true; },
     /** Where the GPU draws a name now (stage px: its box's centre; the legend's top left), by its key ('sin', 'fen', 'in', …, 'legend'). */
     captionAt(key) { if (key === 'legend') return [LEG.x, LEG.y]; const c = cap.at(key); return c ? [c.x, c.y] : null; },
     /** Whether its names are gliding to new places this frame (the corner credit's look, credit.js). */
