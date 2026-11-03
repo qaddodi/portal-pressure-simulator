@@ -2889,16 +2889,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     // Right after loading the liver may not be laid out yet: try again shortly.
     // From the circuit, ease into the anatomy first, then dive.
-    if (!liverBox() || morphTarget !== 0 || morph > 0.02) { if (tries < 40) setTimeout(lobuleRetry, 120, tries + 1); return; }
+    // (Asked again for as long as the lobule is wanted and the way is not clear, one timer at a time, slower after a few seconds: it used to give up
+    // after forty tries, 4.8 s, and a circuit's slow turn back to the anatomy (software GL, a few frames a second) outlasted that, leaving the lobule
+    // wanted in the store and never opened.)
+    clearTimeout(lobuleRetryT);
+    if (!liverBox() || morphTarget !== 0 || morph > 0.02) { lobuleRetryT = setTimeout(lobuleRetry, tries < 40 ? 120 : 400, tries + 1); return; }
     // The anatomy's card (the liver's, usually) would sit over the lobule: the lobule's parts have their own.
     if (store.get().selection && store.get().selection.type !== 'lobule') store.set1('selection', null);
     setLobule(true);
   }
+  let lobuleRetryT = 0;
   function lobuleRetry(tries) { if (store.get().lobule) openLobule(tries); }   // (the count rides on the timer: no closure carries it)
   const lobuleArrived = () => { lzWaiting = false; if (store.get().lobule) openLobule(); };
   const LOBULE_OFF_BOTH = { lobule: false, sinusoid: false }, LOBULE_OFF = { lobule: false };   // (patches the store reads and does not keep)
   const lobuleNotArrived = (err) => { lzWaiting = false; loadFailed(err); store.set(LOBULE_OFF_BOTH); };
-  function closeLobule() { setLobule(false); }
+  function closeLobule() { clearTimeout(lobuleRetryT); setLobule(false); }
   store.on('lobule', (on) => (on ? openLobule() : closeLobule()));
   const zoomLobule = () => store.set1('lobule', true);
   // The lobule's layer (the zoom, the sinusoid view under it) is built when its code has arrived, which the stage asks for once the
