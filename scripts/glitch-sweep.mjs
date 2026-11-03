@@ -32,7 +32,7 @@ import { cpus } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { serve } from './serve.mjs';
-import { CHROMIUM_ARGS, assertGpuPath, readPath } from './shoot.mjs';
+import { CHROMIUM_ARGS, assertGpuLive } from './shoot.mjs';
 import { findAnomalies, STEPPER, RECORD } from './frame-step.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -82,6 +82,18 @@ const RECORD_MORE = () => {
     }
     if (out.nums.length > 60) break;
   }
+  // what the GPU labels actually drew (boxes in px from the figure canvas's corner), and where each laid-out label should be: its anchor on
+  // the figure now (client px) and the offset the layout gave it
+  try {
+    const d = st.labelDrawn?.(); out.drawn = d ? d.slice(0, 120).map((b) => [Math.round(b[0]), Math.round(b[1]), Math.round(b[2]), Math.round(b[3])]) : null;
+    out.slots = [];
+    for (const [k, v] of Object.entries(st.labelSlots?.() || {})) {
+      if (!k.startsWith('n:')) continue;
+      const a = st.labelAnchorOf(k.slice(2)); if (!a || !Number.isFinite(a.x)) continue;
+      const [dx, dy] = v.split('/')[2].split(',').map(Number);
+      out.slots.push([k, +a.x.toFixed(1), +a.y.toFixed(1), dx, dy]);
+    }
+  } catch { /* no labels yet */ }
   const cv = document.querySelector('#veins') || document.querySelector('.stage-view canvas');
   if (cv) { const c = getComputedStyle(cv); out.figure = { vis: c.visibility !== 'hidden' && c.display !== 'none', op: eye(cv), w: cv.clientWidth, test: 'testGl' in cv.dataset }; }
   try { out.busy = window.pps.presenter.busy(); } catch { out.busy = null; }
@@ -125,10 +137,17 @@ const PIXELS = async (b64) => {
 // ---- the driver -------------------------------------------------------------------------------------------------------------
 
 /** A page on `url` whose clock is fake and paused, its motion held, its errors collected. */
-async function openPage(browser, url, { size = 'desktop', scheme = 'light', gl = false } = {}) {
-  const ctx = await browser.newContext({ ...SIZES[size], colorScheme: scheme, serviceWorkers: 'block' });
+async function openPage(browser, url, { size = 'desktop', scheme = 'light', gl = false, dpr = 0 } = {}) {
+  const ctx = await browser.newContext({ ...SIZES[size], ...(dpr ? { deviceScaleFactor: dpr } : {}), colorScheme: scheme, serviceWorkers: 'block' });
   await ctx.addInitScript(() => {
     for (const C of [window.WebGLRenderingContext, window.WebGL2RenderingContext]) { if (!C) continue; const gp = C.prototype.getParameter; C.prototype.getParameter = function (p) { return p === 0x9246 || p === 0x1F01 ? 'Apple M2 GPU' : gp.call(this, p); }; }
+  });
+  await ctx.addInitScript(() => {
+    // requestAnimationFrame is a queue the sweep drains once per step (window.__tick): one app frame per recorded frame, in a fixed order
+    const q = new Map(); let n = 0;
+    window.requestAnimationFrame = (cb) => { q.set(++n, cb); return n; };
+    window.cancelAnimationFrame = (id) => { q.delete(id); };
+    window.__tick = () => { const t = performance.now(), run = [...q]; q.clear(); for (const [, cb] of run) { try { cb(t); } catch (e) { setTimeout(() => { throw e; }); } } };
   });
   if (!gl) await ctx.addInitScript(() => {
     // not drawn on screen (as the gate): a software GL read-back costs seconds a frame, and these checks judge boxes and words
@@ -149,24 +168,27 @@ async function openPage(browser, url, { size = 'desktop', scheme = 'light', gl =
 }
 
 /** The stepper: one fake frame at a time, with the held animations moved on to match. */
-function stepper(page, { fps, pace }) {
+function stepper(page, { fps, pace, anim = 'before' }) {
   const dt = 1000 / fps;
   const S = { t: 0, installed: false, prof: { run: 0, hold: 0, rec: 0 } };
-  S.one = async () => {
+  /** One frame of `ms`: the browser's order is animations (style update), then timers, then the frame callbacks. 'before' does that;
+   *  'after' (the first version of this file) ran the callbacks first and moved the animations afterwards, so anything that reads an
+   *  animation in a callback saw the previous frame's value. The frame callbacks run once per step (the page's rAF is a queue this file drains). */
+  S.advance = async (ms) => {
     const a = Date.now();
-    await page.clock.runFor(dt);
+    if (anim === 'before') await page.evaluate((d) => { if (window.__fs) { window.__fs.T += d; window.__fs.hold(); } }, ms);
+    await page.clock.runFor(ms);
     const b = Date.now();
-    await page.evaluate((d) => { if (window.__fs) { window.__fs.T += d; window.__fs.hold(); } }, dt);
+    await page.evaluate(([d, mode]) => { window.__tick(); if (mode !== 'before' && window.__fs) { window.__fs.T += d; window.__fs.hold(); } }, [ms, anim]);
     S.prof.run += b - a; S.prof.hold += Date.now() - b;
-    S.t += dt;
-    if (pace) await sleep(pace);
+    S.t += ms;
   };
+  S.one = async () => { await S.advance(dt); if (pace) await sleep(pace); };
   /** Coarse steps (100 ms, like the gate) until `ready(arg)` is true in the page. Returns the fake ms taken or -1. */
   S.until = async (ready, arg, maxFake = 30000) => {
     for (let t = 0; t <= maxFake; t += 100) {
       if (await page.evaluate(ready, arg)) return t;
-      await page.clock.runFor(100);
-      await page.evaluate(() => { if (window.__fs) { window.__fs.T += 100; window.__fs.hold(); } });
+      await S.advance(100);
       if (pace) await sleep(Math.max(pace, 30));
     }
     return -1;
@@ -258,6 +280,31 @@ export function judge(frames, { expect = {}, glass = false, restFrom = null, cam
       if (far > lim) add('label-detached', i, i, `"${l.key}" sits ${far.toFixed(0)} px from its anchor (limit ${lim.toFixed(0)})`);
     }
   }
+  // What the GPU labels drew against what the layout (the page's label model) says is on screen. A label model entry (a visible `.lb`) must have
+  // a drawn box at its spot; a drawn box nothing in the model explains is a label left behind. Only judged when the GPU labels are drawing.
+  const near = (cx, cy, boxes, ox, oy) => { let d = 1e9; for (const b of boxes) d = Math.min(d, Math.hypot((b[0] + b[2]) / 2 + ox - cx, (b[1] + b[3]) / 2 + oy - cy)); return d; };
+  const drawing = frames.some((f) => f.more.drawn && f.more.drawn.length > 3);
+  if (drawing) {
+    const missRun = new Map();
+    for (let i = 0; i < N; i++) {
+      const f = frames[i], d = f.more.drawn || [], ox = f.more.wr ? f.more.wr[0] : 0, oy = f.more.wr ? f.more.wr[1] : 0;
+      for (const l of f.more.labels) {
+        if (l.op < 0.9 || !l.key.startsWith('n:') || l.glNot) continue;
+        const dist = d.length ? near(l.x, l.y, d, ox, oy) : 1e9;
+        const r = missRun.get(l.key);
+        if (dist > 40) { if (r && r.last === i - 1) { r.last = i; r.n++; r.worst = Math.max(r.worst, dist); } else missRun.set(l.key, { first: i, last: i, n: 1, worst: dist }); }
+        else if (r) { if (r.n >= 3) add('label-stale', r.first, r.last, `"${l.key}" is laid out at ${Math.round(l.x)},${Math.round(l.y)} but the GPU drew nothing within 40 px of it for ${r.n} frames (up to ${Math.round(r.worst)} px away)`); missRun.delete(l.key); }
+      }
+      for (const [k, r] of [...missRun]) if (r.last < i && r.n >= 3) { add('label-stale', r.first, r.last, `"${k}" is laid out where the GPU drew nothing for ${r.n} frames (up to ${Math.round(r.worst)} px away)`); missRun.delete(k); }
+    }
+    for (const [k, r] of missRun) if (r.n >= 3) add('label-stale', r.first, r.last, `"${k}" is laid out where the GPU drew nothing for ${r.n} frames (up to ${Math.round(r.worst)} px away)`);
+    // left behind: at the end of the window, drawn boxes no laid-out label or mark explains (a label of a view that has gone, or of a slide that has gone)
+    const end = frames[N - 1], ox = end.more.wr ? end.more.wr[0] : 0, oy = end.more.wr ? end.more.wr[1] : 0;
+    const spots = end.more.labels.map((l) => [l.x, l.y]);
+    const orphans = (end.more.drawn || []).filter((b) => { const cx = (b[0] + b[2]) / 2 + ox, cy = (b[1] + b[3]) / 2 + oy; return !spots.some(([x, y]) => Math.hypot(x - cx, y - cy) < 40); });
+    const first = frames[0], base = (first.more.drawn || []).filter((b) => { const cx = (b[0] + b[2]) / 2 + ox, cy = (b[1] + b[3]) / 2 + oy; return !first.more.labels.some((l) => Math.hypot(l.x - cx, l.y - cy) < 40); }).length;
+    if (orphans.length > base + 2 && N > 10) add('label-lingers', N - 1, N - 1, `${orphans.length} drawn label box(es) at the end of the window have no laid-out label (${base} at the start): ${orphans.slice(0, 3).map((b) => `${b[0]},${b[1]}-${b[2]},${b[3]}`).join(' ')}`);
+  }
   // text width: a number or word changes width while its card holds still
   const byId = new Map();
   frames.forEach((f, i) => { for (const n of f.more.nums) (byId.get(n.id) || byId.set(n.id, []).get(n.id)).push([i, n]); });
@@ -297,7 +344,7 @@ const fail = (unit, f, frames, fps) => findings.push({ unit, rule: f.rule, from:
 /** One deck at one size: every slide Next (forward), then Back down to the first. */
 async function deckUnit(browser, url, deck, size, o) {
   const unit = `${deck.id}@${size}`;
-  const app = await openPage(browser, `${url}?script=${deck.id}&slide=1`, { size, gl: o.gl });
+  const app = await openPage(browser, `${url}?script=${deck.id}&slide=1`, { size, gl: o.gl, dpr: o.dpr });
   const { page } = app;
   const S = stepper(page, o);
   const dump = { unit, passes: [] };
@@ -306,7 +353,7 @@ async function deckUnit(browser, url, deck, size, o) {
     if (up >= 0) await S.install();
     const settled = up >= 0 ? await S.until(SETTLED, 1, 60000) : -1;
     if (up < 0 || settled < 0) { findings.push({ unit, rule: 'error', from: 0, to: 0, ms: [0, 0], n: 1, detail: up < 0 ? 'the deck never opened in 60 s of clock time' : `slide 1 never settled in 60 s of clock time (${await page.evaluate(WHY)})` }); return; }
-    if (o.gl) assertGpuPath(await readPath(page), unit);
+    if (!flag('svg')) await assertGpuLive(page, unit, { vessels: o.gl });
     const n = deck.slides.length, order = [];
     for (let i = 1; i < n; i++) order.push({ to: i, key: 'ArrowRight', dir: 'next' });
     for (let i = n - 2; i >= 0; i--) order.push({ to: i, key: 'ArrowLeft', dir: 'back' });
@@ -345,6 +392,7 @@ async function deckUnit(browser, url, deck, size, o) {
       if (o.keep) dump.passes.push({ where, frames });
       process.stdout.write('.');
     }
+    if (!flag('svg')) await assertGpuLive(page, `${unit} (end of the run)`, { vessels: o.gl });
   } catch (e) { findings.push({ unit, rule: 'error', from: 0, to: 0, ms: [0, 0], n: 1, detail: `the unit broke: ${String(e.stack || e).split('\n').slice(0, 2).join(' | ')}` }); }
   finally { if (o.keep) { mkdirSync(o.out, { recursive: true }); writeFileSync(join(o.out, `${unit}.json`), JSON.stringify(dump)); } await app.close(); console.log(` ${unit}`); }
 }
@@ -352,7 +400,7 @@ async function deckUnit(browser, url, deck, size, o) {
 /** The main app (no deck) at one size: view switches (including a switch reversed half way), then pan and pinch. */
 async function scenarioUnit(browser, url, name, size, o) {
   const unit = `${name}@${size}`;
-  const app = await openPage(browser, `${url}?preset=cirr-decomp`, { size, gl: o.gl });
+  const app = await openPage(browser, `${url}?preset=cirr-decomp`, { size, gl: o.gl, dpr: o.dpr });
   const { page } = app;
   const S = stepper(page, o);
   const dump = { unit, passes: [] };
@@ -370,7 +418,9 @@ async function scenarioUnit(browser, url, name, size, o) {
   try {
     if ((await S.until(() => !!window.pps?.store?.get().frame && !document.documentElement.dataset.boot, null, 90000)) < 0) { findings.push({ unit, rule: 'error', from: 0, to: 0, ms: [0, 0], n: 1, detail: 'the figure never came up' }); return; }
     await S.install();
-    for (let t = 0; t < 4000; t += 100) { await page.clock.runFor(100); await page.evaluate(() => { window.__fs.T += 100; window.__fs.hold(); }); await sleep(30); }
+    for (let t = 0; t < 4000; t += 100) { await S.advance(100); await sleep(30); }
+    if (!flag('svg')) await assertGpuLive(page, unit, { vessels: o.gl });
+    if (process.env.GS_DEBUG) { await run('probe-circuit', 20, { events: [[1, view('circuit')]] }); for (let t = 0; t < 6000; t += 100) { await S.advance(100); await sleep(30); } console.log(await page.evaluate(() => { const st = window.pps.stage; return JSON.stringify({ drawn: st.labelDrawn()?.length ?? null, gl: document.querySelectorAll('.lb[data-gl]').length, lbs: document.querySelectorAll('#labels .lb').length, off: document.querySelectorAll('#labels .lb.lb-off').length, stats: st.labelStats?.(), v: { ...document.querySelector('.stage-view').dataset }, tg: !!document.querySelector('canvas[data-test-gl]'), lg: !!document.querySelector('#labelGl'), cls: document.querySelector('#labelGl')?.className }); })); return; }
     if (name === 'views') {
       await run('anatomy-to-circuit', fr(2500), { events: [[1, view('circuit')]] });
       await run('circuit-to-anatomy', fr(2500), { events: [[1, view('anatomic')]] });
@@ -380,6 +430,18 @@ async function scenarioUnit(browser, url, name, size, o) {
       await run('lobule-to-anatomy', fr(3500), { events: [[1, view('anatomic')]] });
       await run('lobule-reversed', fr(4000), { events: [[1, view('lobule')], [fr(500), view('anatomic')], [fr(1200), view('lobule')]] });
       await run('lobule-to-circuit', fr(3500), { events: [[1, view('circuit')]] });
+    } else if (name === 'circuit') {
+      // the Circuit view: pinch and pan on it (the labels must ride the figure), then back to Anatomy (the Circuit's labels must go)
+      await run('anatomy-to-circuit', fr(3000), { events: [[1, view('circuit')]] });
+      const box = await page.locator('.stage-view').boundingBox();
+      const c = [box.x + box.width * 0.4, box.y + box.height * 0.4];
+      const isTouch = !!SIZES[size].hasTouch, cdp = isTouch ? await page.context().newCDPSession(page) : null;
+      const tp = (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts.map(([x, y], id) => ({ x, y, id })) });
+      const steps = 10, pinch = [[0, () => (isTouch ? tp('touchStart', [[c[0] - 30, c[1]], [c[0] + 30, c[1]]]) : (page.mouse.move(c[0], c[1]), page.keyboard.down('Control')))]];
+      for (let k = 1; k <= steps; k++) pinch.push([k, () => (isTouch ? tp('touchMove', [[c[0] - (30 + k * 2.5), c[1]], [c[0] + (30 + k * 2.5), c[1]]]) : page.mouse.wheel(0, -12))]);
+      pinch.push([steps + 1, () => (isTouch ? tp('touchEnd', []) : page.keyboard.up('Control'))]);
+      await run('circuit-pinch', fr(2500), { events: pinch, judge: { restFrom: steps + 1 } });
+      await run('circuit-to-anatomy', fr(3500), { events: [[1, view('anatomic')]] });
     } else if (name === 'gestures') {
       const box = await page.locator('.stage-view').boundingBox();
       const c = [box.x + box.width * 0.35, box.y + box.height * 0.4];
@@ -405,6 +467,7 @@ async function scenarioUnit(browser, url, name, size, o) {
       // a view switch while the camera is still settling from a gesture
       await run('pinch-then-circuit', 60, { events: [...pinch.slice(0, 6), [fr(500), view('circuit')]], judge: { restFrom: null } });
     }
+    if (!flag('svg')) await assertGpuLive(page, `${unit} (end of the run)`, { vessels: o.gl });
   } catch (e) { findings.push({ unit, rule: 'error', from: 0, to: 0, ms: [0, 0], n: 1, detail: `the unit broke: ${String(e.stack || e).split('\n').slice(0, 2).join(' | ')}` }); }
   finally { if (o.keep) { mkdirSync(o.out, { recursive: true }); writeFileSync(join(o.out, `${unit}.json`), JSON.stringify(dump)); } await app.close(); console.log(` ${unit}`); }
 }
@@ -414,13 +477,13 @@ async function main() {
   const only = opt('decks', '').split(',').filter(Boolean);
   const decks = DECKS.filter((d) => (flag('full') && !only.length) || only.includes(d.id)).map((d) => ({ id: d.id, slides: withOverview(d).slides }));
   const sizes = opt('sizes', 'desktop,phone,sideways').split(',');
-  const o = { fps: +opt('fps', 30), ms: +opt('ms', 2000), pace: +opt('pace', 8), gl: flag('gl'), shotEvery: +opt('shots', 0), shotDir: opt('shot-dir', ''), out: resolve(opt('out', join(ROOT, 'test-results/glitch-sweep'))), keep: !flag('no-json'), slides: opt('slides', '') ? opt('slides', '').split(',').map(Number) : null };
+  const o = { dpr: +opt('dpr', 1), anim: opt('anim', 'before'), fps: +opt('fps', 30), ms: +opt('ms', 2000), pace: +opt('pace', 8), gl: flag('gl'), shotEvery: +opt('shots', 0), shotDir: opt('shot-dir', ''), out: resolve(opt('out', join(ROOT, 'test-results/glitch-sweep'))), keep: !flag('no-json'), slides: opt('slides', '') ? opt('slides', '').split(',').map(Number) : null };
   const [shard, shards] = opt('shard', '1/1').split('/').map(Number);
   const jobs = Math.max(1, +opt('jobs', Math.min(3, cpus().length)));
   const scen = opt('scenarios', '').split(',').filter(Boolean);
   const units = [...decks.flatMap((d) => sizes.map((s) => ({ d, s }))), ...scen.flatMap((n) => sizes.map((s) => ({ n, s })))].filter((_, k) => k % shards === shard - 1);
   const server = await serve(ROOT);
-  const browser = await chromium.launch({ args: o.gl ? CHROMIUM_ARGS : ['--no-sandbox', '--disable-3d-apis'], ...(EXE ? { executablePath: EXE } : {}) });
+  const browser = await chromium.launch({ args: flag('svg') ? ['--no-sandbox', '--disable-3d-apis'] : CHROMIUM_ARGS, ...(EXE ? { executablePath: EXE } : {}) });
   const q = [...units];
   const t0 = Date.now();
   try { await Promise.all(Array.from({ length: Math.min(jobs, q.length) }, async () => { for (let u = q.shift(); u; u = q.shift()) await (u.n ? scenarioUnit(browser, server.url, u.n, u.s, o) : deckUnit(browser, server.url, u.d, u.s, o)); })); }

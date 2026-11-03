@@ -65,3 +65,25 @@ test('a camera still moving at the end of the window, or moving after the hand l
   assert.ok(rules(snap, { restFrom: 30 }).includes('moves-after-release'), 'a 50 px snap in one frame after release');
   assert.ok(!rules(series(), { restFrom: 30 }).includes('moves-after-release'), 'a smooth settle is not');
 });
+
+// The GPU labels: what is drawn against what the layout says.
+const gl = (mut = () => {}) => series((f, i) => {
+  f.more.wr = [0, 0, 1440, 900];
+  const x = 500 + Math.min(i, 40);   // the label (and its drawn picture) ride the camera until frame 40
+  f.more.labels = [{ key: 'n:PV', op: 1, x, y: 300, w: 40, h: 14, ax: x - 20, ay: 310 }];
+  f.more.drawn = [[x - 20, 293, x + 20, 307], [100, 100, 140, 114], [101, 140, 141, 154], [102, 180, 142, 194]];
+  f.more.labels.push(...[[120, 107], [121, 147], [122, 187]].map(([lx, ly], k) => ({ key: `n:L${k}`, op: 1, x: lx, y: ly, w: 40, h: 14, ax: lx - 20, ay: ly + 10 })));
+  mut(f, i);
+});
+
+test('GPU labels drawn where the layout puts them are not flagged', () => assert.deepEqual(rules(gl()), []));
+
+test('a label the GPU keeps drawing at its pre-zoom spot while the layout has moved on is stale', () => {
+  const r = gl((f, i) => { if (i >= 20) f.more.drawn[0] = [380, 293, 420, 307]; });
+  assert.ok(rules(r).includes('label-stale'));
+});
+
+test('drawn label boxes that no laid-out label explains at the end are left-behind labels', () => {
+  const r = gl((f, i) => { if (i >= 30) f.more.drawn.push([300, 500, 340, 514], [300, 540, 340, 554], [300, 580, 340, 594], [300, 620, 340, 634]); });
+  assert.ok(rules(r).includes('label-lingers'));
+});
