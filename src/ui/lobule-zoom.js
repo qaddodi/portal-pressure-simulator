@@ -1805,7 +1805,13 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     return (capList = [...Object.entries(labs).map(([k, L]) => [`lab:${k}`, L.el, L]), ...zoneEls.map((z, i) => [`zone:${i}`, z, null]), ['call', callEl, null]]);
   };
   function mirrorSoon(...els) { if (!cap.on) return; for (const e of els) if (e) mirQ.add(e); if (!mirT) mirT = restPass(mirrorRun); }
-  const mirrorAll = () => mirrorSoon(...Object.values(labs).map((L) => L.el), ...zoneEls, callEl);
+  const mirrorAll = () => {
+    if (!cap.on) return;
+    for (const k in labs) { const e = labs[k].el; if (e) mirQ.add(e); }
+    for (let i = 0; i < zoneEls.length; i++) if (zoneEls[i]) mirQ.add(zoneEls[i]);
+    if (callEl) mirQ.add(callEl);
+    if (!mirT) mirT = restPass(mirrorRun);
+  };
   function mirrorRun() {
     mirT = 0;
     flushRestAttrs();   // (shown or hidden, as the frame asked: written before the page is read)
