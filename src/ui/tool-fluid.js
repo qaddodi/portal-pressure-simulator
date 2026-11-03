@@ -309,10 +309,10 @@ export function createFluid() {
   const brk = svgModel('path', { class: 'gs-brk', opacity: '0' }), brkBuf = new Float64Array(8);
   const stripModel = svgModel('svg', { class: 'gs-svg', 'aria-hidden': 'true' }, brk, segCar, segBlue, segShrink, segBuild, segRoom, lCar.el, lSpare.el);
   const trk = h('div', { class: 'gs-trk' });
-  const plate = h('div', { class: 'gs-plate' }, h('div', { class: 'gs-brkrow' }, h('span', {}, 'Leaked ', sLeak)), trk);
+  // (The model is in its box before the picture is made, as the flow picture's is: a piece added after would start a look read of its own.)
+  const plate = h('div', { class: 'gs-plate' }, h('div', { class: 'gs-brkrow' }, h('span', {}, 'Leaked ', sLeak)), trk, stripModel);
   const glStrip = createSvgGL(plate);
   glStrip.cv.setAttribute('aria-hidden', 'true'); glStrip.cv.removeAttribute('role');   // (the card's own label says it; the picture is a drawing of it)
-  plate.append(stripModel);
   const legCar = h('span', {}, swCar, 'Carried ', sCarN);
   const lab = h('div', { class: 'gs-lab' }, legCar, h('span', {}, swBack, 'Reabsorbed ', sBack, h('span', { class: 'gs-gap' }, swBuild, nBuild, sBuildN)));
   const win = h('div', { class: 'gs' },
@@ -325,10 +325,9 @@ export function createFluid() {
   const segPush = span('gs-seg gs-push', [0.4, 0.7], [END_ROUND, END_POINT]), segPull = span('gs-seg gs-pull', [0.7, 0.4], [END_POINT, END_ROUND]);
   const wall = svgModel('path', { class: 'gs-wall' }), wallBuf = new Float64Array(4);
   const tugModel = svgModel('svg', { class: 'gs-svg', 'aria-hidden': 'true' }, segPush, segPull, wall, lPush.el, lPull.el);
-  const tug = h('div', { class: 'gs-trk gs-tug' });
+  const tug = h('div', { class: 'gs-trk gs-tug' }, tugModel);
   const glTug = createSvgGL(tug);
   glTug.cv.setAttribute('aria-hidden', 'true'); glTug.cv.removeAttribute('role');
-  tug.append(tugModel);
   const forces = h('div', { class: 'gs-forces' }, h('div', { class: 'gs-fcap' }, h('span', {}, 'Across the sinusoid wall · mmHg'), h('span', {}, 'net ', fNet)), tug);
   const el = h('div', { class: 'gf', role: 'img' }, win, flowBox, unit, words, forces, caveat);
   const set = (n, t) => { if (n.textContent === t) return false; n.textContent = t; return true; };
