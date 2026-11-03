@@ -25,7 +25,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { openApp } from './shoot.mjs';
+import { openApp, assertGpuLive } from './shoot.mjs';
 
 // Like shoot.mjs CARDS_LANDED without the Doppler "Acquiring…" wait (that needs 1.5 s of recorded vessel, minutes on software GL):
 // the root is out of prep, and every card is opaque with no finite animation running in it.
@@ -201,6 +201,7 @@ export async function capture({ scenario, device = 'mac', theme = 'light', scrip
       frames.push(rec);
       if (shotEvery && i % shotEvery === 0) await page.screenshot({ path: join(out, `f${String(i).padStart(4, '0')}.png`), timeout: 150000 });
     }
+    await assertGpuLive(page, 'frame-step, after the last frame', { vessels: false });   // (a fallback to the SVG vessels or a lost context part way through makes every frame above a picture of the wrong figure)
     const findings = findAnomalies(frames);
     writeFileSync(join(out, 'frames.json'), JSON.stringify(frames));
     const txt = findings.length

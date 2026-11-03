@@ -74,8 +74,28 @@ export function assertGpuPath(p, what = 'the page') {
   if (why.length) throw new Error(`NOT THE REAL APP'S GPU PATH:\n  - ${why.join('\n  - ')}\n  (${JSON.stringify(p)})`);
 }
 
+/** The page is on the GPU path AND the GPU is drawing the figure: the path attributes (assertGpuPath; `software` accepts the software renderer's
+ *  own path, WebGL2 still required) and a shot of the page with the vessels' colours in it (the flat SVG vessels, a lost context or a blank
+ *  canvas have almost none). Throws, naming the cause. `vessels: false` for a view that has none. A check that runs on the SVG fallback
+ *  proves nothing about the figure the owner sees (the glitch sweep ran its flags without WebGL for a day, 3 Nov 2026), so every
+ *  script that judges the figure calls this at the start and again at the end of its run. */
+export async function assertGpuLive(page, what = 'the page', { software = false, vessels = true } = {}) {
+  const p = await readPath(page);
+  if (software) {
+    const why = [];
+    if (p.veins !== 'webgl2') why.push(`no WebGL2 context (data-veins="${p.veins}")`);
+    if (!p.glOn) why.push('.stage-view has no gl-on: the SVG vessels show');
+    if (p.lost) why.push('the WebGL context is lost');
+    if (why.length) throw new Error(`NOT DRAWN BY THE GPU: ${what}:\n  - ${why.join('\n  - ')}\n  (${JSON.stringify(p)})`);
+  } else assertGpuPath(p, what);
+  if (vessels) {
+    const s = await colourShare(page, await page.screenshot({ timeout: 150000 }));
+    if (s < 0.002) throw new Error(`NOT DRAWN BY THE GPU: ${what}: almost no vessel colour on the page (${(s * 100).toFixed(3)} % of its pixels), the GPU figure did not draw (${JSON.stringify(p)})`);
+  }
+}
+
 /** Share of a screenshot's pixels that are strongly coloured (the vessels' reds and blues; the page chrome is grey). Decoded in the page. */
-const colourShare = (page, png) => page.evaluate(async (b64) => {
+export const colourShare = (page, png) => page.evaluate(async (b64) => {
   const img = new Image(); img.src = `data:image/png;base64,${b64}`; await img.decode();
   const k = Math.min(1, 400 / img.width), c = document.createElement('canvas');
   c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);

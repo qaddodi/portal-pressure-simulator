@@ -30,7 +30,7 @@ import { fileURLToPath } from 'node:url';
 import { serve } from './serve.mjs';
 import { findMarkers, checkBundle } from './gate-static.mjs';
 import { slideFinal, labelState, labelFollow, diaphragmIssues } from './gate-page.mjs';
-import { assertGpuPath, readPath } from './shoot.mjs';
+import { assertGpuPath, assertGpuLive, readPath } from './shoot.mjs';
 import { EXE, launch, openPage, figureUp, stepUntil, stepFor, watchUntil, watchFor, ask, landed, pool as poolOf, gpuName } from './gate-clock.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -79,7 +79,7 @@ async function bootCheck(browser, url, name, { gl }) {
     const info = await app.page.evaluate(() => ({ boot: window.ppsBootErrors || [], unsupported: window.ppsUnsupported, api: ['store', 'host', 'stage', 'presenter', 'card'].filter((k) => !window.pps?.[k]) }));
     for (const e of info.boot) fail('boot', name, `boot error: ${e}`);
     if (info.api.length) fail('boot', name, `window.pps lacks ${info.api.join(', ')}`);
-    if (gl) { try { assertGpuPath(await readPath(app.page), name); } catch (e) { fail('boot', name, String(e.message).split('\n').slice(0, 3).join(' ')); } }
+    if (gl) { try { await assertGpuLive(app.page, name); } catch (e) { fail('boot', name, String(e.message).split('\n').slice(0, 3).join(' ')); } }
     for (const e of [...new Set(app.errors)].slice(0, 6)) fail('boot', name, e);
   } finally { await app.close(); }
 }
@@ -163,6 +163,7 @@ async function deckUnit(browser, url, deck, size) {
 }
 
 async function stageSlides() {
+  log('  (slides run WITHOUT WebGL, on the SVG figure, by design: the fake clock cannot drive the GPU figure. The GPU figure is judged by the boot and views stages, which fail when it is not live.)');
   const plan = await deckPlan();
   const units = plan.flatMap((d) => SIZE_NAMES.map((s) => ({ deck: d, size: s })));
   // (a share of the units: the full sweep is split over runners; units are dealt out round robin, longest decks first, so shares are alike)
@@ -203,6 +204,7 @@ async function stageViews() {
     // (The page takes the path a GPU-less machine takes: a page that names itself a GPU queues software draws at 120 Hz and never catches up; this one steps itself down to a few frames a second, as CI's runners do. The figure must still be the WebGL one.)
     const path = await readPath(page);
     if (path.veins !== 'webgl2' || !path.glOn || path.lost) return fail('views', 'boot', `the figure is not drawn with WebGL (${JSON.stringify(path)})`);
+    try { await assertGpuLive(page, 'views stage, at the start', { software: true }); } catch (e) { return fail('views', 'gpu', String(e.message).split('\n').slice(0, 3).join(' ')); }
     await page.evaluate(() => window.pps.host.send({ type: 'run', running: false }));   // (the model paused: readings still, as visual.mjs does)
     await watchFor(page, 1500);
     const judge = async (v, step) => {
@@ -289,6 +291,7 @@ async function stageViews() {
       const far = c2.filter((r) => Math.hypot(r.lx - r.ax, r.ly - r.ay) > 260);
       if (c2.length >= 3 && far.length > c2.length * 0.2) fail('views', 'circuit pinch', `${far.length} of ${c2.length} readings are more than 260 px from the station they name once the layout landed (${far.slice(0, 3).map((r) => r.k.slice(2)).join(', ')})`);
     }
+    try { await assertGpuLive(page, 'views stage, at the end', { software: true }); } catch (e) { fail('views', 'gpu', String(e.message).split('\n').slice(0, 3).join(' ')); }
     errs('circuit pinch');
     errs('pan and zoom');
   } finally { await app.close(); await browser.close(); server.close(); }
