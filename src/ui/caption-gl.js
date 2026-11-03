@@ -45,7 +45,12 @@ export function rgbaOf(c) {
 export function haloOf(cs) {
   // (One halo for every label: the theme's --label-halo, as the Anatomy and Circuit labels have it. --cap-outline, white in every theme, was the lobule's own.)
   const t = cs.getPropertyValue?.('--label-halo');
-  return (t && t.trim() && rgbaOf(t.trim())) || rgbaOf(cs.webkitTextStrokeColor);
+  const own = t && t.trim() && rgbaOf(t.trim());
+  if (own) return own;
+  // (A name whose own page rule cleared the token (a lit term's, once) still has the theme's outline: the root's.)
+  let root = '';
+  try { if (typeof document !== 'undefined' && document.documentElement) root = rgbaOf(readStyle(document.documentElement).getPropertyValue('--label-halo').trim()); } catch { /* no root style: the stroke colour below */ }
+  return root || rgbaOf(cs.webkitTextStrokeColor);
 }
 /** An outer box shadow as computed ("<colour> 0px 1px 6px 0px"): { colour, dy, blur }, or null. */
 export function shadowOf(s) {
