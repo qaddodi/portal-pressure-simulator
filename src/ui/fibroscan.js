@@ -4,9 +4,9 @@
 // are left out. The map is a continuously evolving reading: coherent speckle that morphs smoothly, one
 // dominant dark shear-wave band, and a slope that drifts gently around the model's value.
 
-import { h, clamp, cssAlpha, canvasSize } from './util.js?v=def6323a0b';
-import { createTraceGL, fitPen } from './trace-gl.js?v=5a30004dcb';
-import { FONT } from './charts.js?v=1da9759e3f';
+import { h, clamp, cssAlpha, canvasSize } from './util.js?v=fa4084f96b';
+import { createTraceGL, fitPen } from './trace-gl.js?v=574b92ff97';
+import { FONT } from './charts.js?v=615ab0873b';
 import { simTime, isPaused, fibroReading } from './clock.js?v=e507b54cba';
 import { store } from './store.js?v=a51981892d';
 import { createElastogramGL, elastogramUnder } from './fibroscan-gl.js?v=12eb092393';
