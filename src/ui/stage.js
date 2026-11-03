@@ -54,7 +54,7 @@ import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } fro
 import { pathCmds, flattenPath, flattenPathInto, newFlat, newCmds, cmdsReset, cmdM, cmdL, cmdQ, cmdZ, polyBoxInto, measurePath, elBoxInto, chainMat } from './shape-gl.js?v=9e5dd356a7';
 import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js?v=3719bd84df';
 import { nameSpots, NAME_BREAK } from './organ-names.js?v=709ccdf593';
-import { createLabelGL } from './label-gl.js?v=5081d91576';
+import { createLabelGL } from './label-gl.js?v=de5e1b729b';
 import { createGlassGL } from './glass-gl.js?v=9797a3144c';
 import { writePoints, writeJoinNow } from './veins-sweep.js?v=3347bb42f7';
 import { ENT_W } from './veins-bin.js?v=212e62b33a';
