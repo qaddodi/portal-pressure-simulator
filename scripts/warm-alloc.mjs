@@ -3,7 +3,7 @@
 // collection first). scripts/frame-alloc.mjs measures the real app in a browser, but headless that runs a few frames a second and V8 never
 // compiles the frame code, so it counts the numbers boxed by the interpreter along with the real garbage; this counts only the real kind.
 //
-//   node --expose-gc --max-semi-space-size=128 scripts/warm-alloc.mjs [--json] [--case <text>]
+//   node --expose-gc --max-semi-space-size=128 --min-semi-space-size=128 scripts/warm-alloc.mjs [--json] [--case <text>]
 //
 // Limits (bytes a frame, per case) are in scripts/warm-alloc-limits.json; a case over its limit exits 1. A case with no limit is only listed.
 import { readFileSync } from 'node:fs';
@@ -12,7 +12,7 @@ import { spawnSync } from 'node:child_process';
 /* global gc */
 
 const WARM = 6000, MEASURE = 2000;
-if (typeof gc !== 'function') { console.error('run with: node --expose-gc --max-semi-space-size=128 scripts/warm-alloc.mjs'); process.exit(2); }
+if (typeof gc !== 'function') { console.error('run with: node --expose-gc --max-semi-space-size=128 --min-semi-space-size=128 scripts/warm-alloc.mjs'); process.exit(2); }
 const json = process.argv.includes('--json'), profile = process.argv.includes('--profile');
 const only = process.argv.includes('--case') ? process.argv[process.argv.indexOf('--case') + 1] : '';
 const { CASES } = await import('./warm/cases.mjs');
@@ -23,7 +23,7 @@ const index = process.argv.includes('--index') ? +process.argv[process.argv.inde
 if (index < 0 && !profile) {
   for (let i = 0; i < CASES.length; i++) {
     if (only && !CASES[i].name.includes(only)) continue;
-    const r = spawnSync(process.execPath, ['--expose-gc', '--max-semi-space-size=128', process.argv[1], '--json', '--index', String(i)], { encoding: 'utf8', timeout: 170000, maxBuffer: 1 << 26 });
+    const r = spawnSync(process.execPath, ['--expose-gc', '--max-semi-space-size=128', '--min-semi-space-size=128', process.argv[1], '--json', '--index', String(i)], { encoding: 'utf8', timeout: 170000, maxBuffer: 1 << 26 });
     try { results.push(...JSON.parse(r.stdout.trim().split('\n').pop())); } catch { results.push({ name: CASES[i].name, error: `no result: ${(r.stderr || '').split('\n').slice(-3).join(' | ')}`, limit: limits[CASES[i].name] ?? null }); }
   }
   report();
@@ -49,9 +49,17 @@ for (let ci = 0; ci < CASES.length; ci++) {
     gc(); gc();
     let session = null;
     if (profile) { session = new Session(); session.connect(); await session.post('HeapProfiler.enable'); await session.post('HeapProfiler.startSampling', { samplingInterval: 64, includeObjectsCollectedByMajorGC: true, includeObjectsCollectedByMinorGC: true }); }
+    // (The young generation is sized so that nothing is collected over the run: a collection frees the very garbage being counted, and the
+    // heap then reads far too low. A run in which one did happen is an error, not a small number.)
+    const gcs = new PerformanceObserver(() => {});
+    gcs.observe({ entryTypes: ['gc'] });
     const before = process.memoryUsage().heapUsed;
     for (let i = 0; i < measure; i++) frame(warm + i);
-    const bytes = Math.max(0, (process.memoryUsage().heapUsed - before) / measure);
+    const after = process.memoryUsage().heapUsed;
+    const collected = gcs.takeRecords().length;
+    gcs.disconnect();
+    if (collected) throw new Error(`${collected} collector runs during the measure: the heap reading is too low (raise --min-semi-space-size or lower the case's measure)`);
+    const bytes = Math.max(0, (after - before) / measure);
     r = { name: c.name, bytes: Math.round(bytes), limit: limits[c.name] ?? null };
     if (session) {
       const { profile: p } = await session.post('HeapProfiler.stopSampling');

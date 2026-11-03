@@ -25,7 +25,7 @@ import { beatTop, beatLayout, colPlan, paperFine, beforeLabelY, sinceText } from
 import { VITALS } from './vital-read.js';
 import { restPass, cancelRest } from './rest-pass.js';
 import { shownOr } from './shown.js';
-import { dropFront } from './drop-front.js';
+import { dropFront, dropFrontNums } from './drop-front.js';
 const nextFrame = frameFor('pressure-time');
 
 // hide: the readout that can stay unmeasured (store.hiddenReadouts); day: the value on the
@@ -159,7 +159,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
   // fine: every sample of the last few seconds; coarse: quarter-second bins (trough, peak, mean)
   // for the last two minutes; days: one point per simulated day.
   const fine = { t: [], ph: [], ...Object.fromEntries(KEYS.map((k) => [k, []])) };
-  const beatClock = createBeatClock();   // (when the cardiac phase wrapped: each wrap starts a beat on the EKG strip)
+  const beatClock = createBeatClock(), BC = beatClock.cur;   // (when the cardiac phase wrapped: each wrap starts a beat on the EKG strip)
   const coarse = [];
   let bin = null;
   // The quarter-second bins are kept for the window and handed back to this pool when it lets them go, so a bin is made only until the window has been
@@ -206,27 +206,32 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
   const endOf = (id) => (Number.isFinite(pinned?.[PIN[id]]) ? pinned[PIN[id]] : steady[id]);
   const steadyHvpg = () => tenthGap(endOf('whvp'), endOf('RHV'), frame.metrics.hvpg);
   // Samples (a frame's, or the history's) into the fine buffer, the quarter-second bins and the beat clock; the buffers keep a fixed window.
+  let nans = new Float64Array(0);
   function record(smp, o = 0) {
     // (lastT is held in a local through the loop and written back once: a number kept in a closure's variable is a heap object made anew
     // at each assignment, one for every sample of every frame.)
     let lt = lastT;
-    const ts = smp.t, ph = smp.ph, KN = KEYS.length;
-    for (let j = 0; j < KN; j++) SRC[j] = smp[KEYS[j]] || null;
+    const ts = smp.t, KN = KEYS.length;
+    // (A column the samples lack reads as NaN from `nans`: a load that may be a number or undefined, or `a ? a[i] : NaN`, is a tagged value, a
+    // heap number made for every sample of every column, 5 KB a frame: scripts/warm-alloc.mjs, 3 Nov 2026. `+` keeps it a number.)
+    if (nans.length < ts.length) nans = new Float64Array(ts.length * 2).fill(NaN);   // alloc-rare: grows only when a longer sample set than any before arrives
+    for (let j = 0; j < KN; j++) SRC[j] = smp[KEYS[j]] || nans;
+    const phs = smp.ph || nans;
     for (let i = 0; i < ts.length; i++) {
       const t = ts[i] + o;
       if (t <= lt) continue;
       lt = t;
-      const p = ph ? ph[i] : undefined;
-      fine.t.push(t); fine.ph.push(p ?? NaN); beatClock.push(t, p);
+      const p = +phs[i];
+      fine.t.push(t); fine.ph.push(p); BC[0] = t; BC[1] = p; beatClock.step();
       const b0 = Math.floor(t / BIN) * BIN;
       if (!bin || bin.t !== b0) {
         if (bin) coarse.push(bin);
         bin = takeBin(b0);
       }
       for (let j = 0; j < KN; j++) {
-        const a = SRC[j], v = a ? a[i] : undefined;
-        FINE_COLS[j].push(v ?? NaN);
-        if (v == null || v !== v) continue;
+        const v = +SRC[j][i];
+        FINE_COLS[j].push(v);
+        if (v !== v) continue;
         const s = bin.rows[j];
         if (!bin.has[j]) { bin.has[j] = 1; s[0] = v; s[1] = v; s[2] = 0; s[3] = 0; bin.v[KEYS[j]] = s; }
         if (v < s[0]) s[0] = v; if (v > s[1]) s[1] = v; s[2] += v; s[3]++;
@@ -235,7 +240,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
     lastT = lt;
     const tf = fine.t, limF = lastT - FINE_S, limC = lastT - COARSE_S;
     let cut = 0; while (cut < tf.length && tf[cut] < limF) cut++;
-    if (cut) { for (let q = 0; q < ALL_COLS.length; q++) dropFront(ALL_COLS[q], cut); beatClock.dropBefore(fine.t[0]); }
+    if (cut) { for (let q = 0; q < ALL_COLS.length; q++) dropFrontNums(ALL_COLS[q], cut); beatClock.dropBefore(fine.t[0]); }
     cut = 0; while (cut < coarse.length && coarse[cut].t < limC) cut++;
     if (cut) { for (let q = 0; q < cut; q++) freeBin(coarse[q]); dropFront(coarse, cut); }
   }

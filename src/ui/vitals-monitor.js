@@ -14,7 +14,7 @@ import { frameFor, cancelFrame, paceMs, noteDraw, frameAnimating } from './frame
 import { VITALS, vitalReading } from './vital-read.js';
 import { createBeatClock, ekgSeries, beatWalk, walkBeats, seedBeats } from './ekg.js';
 import { olderThan, inFront } from './backfill.js';
-import { dropFront } from './drop-front.js';
+import { dropFrontNums } from './drop-front.js';
 import { attrSoon } from './class-soon.js';
 import { restPass } from './rest-pass.js';
 const nextFrame = frameFor('vitals-monitor');
@@ -280,7 +280,7 @@ export function createVitalsMonitor({ gpu = true, makeGL = createVitalsGL } = {}
     const keep = lastT - 2 * SPAN_S;
     clock.dropBefore(keep);
     let cut = 0; while (cut < raw.t.length && raw.t[cut] < keep) cut++;
-    if (cut) { dropFront(raw.t, cut); dropFront(raw.ph, cut); }
+    if (cut) { dropFrontNums(raw.t, cut); dropFrontNums(raw.ph, cut); }
   }
   function ingest(f) {
     const head = synth ? 0 : headX();   // (where the strip is drawn to now, by the frame it was drawn from)

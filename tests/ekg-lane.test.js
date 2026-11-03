@@ -124,7 +124,7 @@ test('a slide\'s card keeps the HVPG lane and shows the portal pressure alone; P
 });
 
 test('the phase reaches the chart: its fine buffer, the beat clock and the cleared trace', () => {
-  assert.match(pt, /const p = ph \? ph\[i\] : undefined;\s+fine\.t\.push\(t\); fine\.ph\.push\(p \?\? NaN\); beatClock\.push\(t, p\);/);
+  assert.match(pt, /const p = \+phs\[i\];\s+fine\.t\.push\(t\); fine\.ph\.push\(p\); BC\[0\] = t; BC\[1\] = p; beatClock\.step\(\);/);
   assert.match(pt, /beatClock\.reset\(\);/, 'a new patient starts the strip over');
   assert.match(pt, /beatClock\.dropBefore\(fine\.t\[0\]\)/);
 });

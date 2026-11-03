@@ -74,6 +74,88 @@ export const CASES = [
     },
   },
   {
+    name: 'pressure-time chart drawn by the GPU pen (pressure-time.js + trace-gl.js, update and redraw)',
+    warm: 1500, measure: 600,
+    async setup() {
+      const frames = replay(await recordFrames(5), 24000);
+      // (Every canvas the page watches has a box once it is watched: layout gives none in jsdom.)
+      globalThis.ResizeObserver = class { constructor(cb) { this.cb = cb; } observe(el) { this.cb([{ target: el, contentRect: { width: 640, height: 320 } }]); } disconnect() {} };
+      await withPage();
+      fake = true;
+      const { createPressureTime } = await import('../../src/ui/pressure-time.js');
+      const pt = createPressureTime();
+      page.document.body.append(pt.el);
+      return (i) => {
+        tick(33);
+        pt.update(frames[i % frames.length]);
+        pump(16.7);
+      };
+    },
+  },
+  {
+    name: 'display-state: colour follows, scalar follows and the shown state, a frame of each',
+    async setup() {
+      const { createColourFollow, createFollow, createShownState } = await import('../../src/ui/display-state.js');
+      const NK = 40, cf = createColourFollow({ n: 6 }), keys = Array.from({ length: NK }, (_, i) => `v${i}`);
+      const tgt = Array.from({ length: NK }, () => new Float32Array(6));
+      const fl = Array.from({ length: 12 }, () => createFollow({ small: 0.01 }));
+      const keep = new Set(keys.slice(0, NK / 2)), pend = [];
+      const shown = createShownState({ ask: (cb) => { pend.push(cb); return pend.length; }, now: () => T });
+      const names = Array.from({ length: 16 }, (_, i) => `r${i}`);
+      return (i) => {
+        T += 16.7;
+        for (let k = 0; k < NK; k++) {
+          const t = tgt[k];
+          for (let c = 0; c < 6; c++) t[c] = 0.5 + 0.4 * Math.sin(i * 0.02 + k + c);
+          cf.step(keys[k], t, 0.0167, false);
+        }
+        if (i % 90 === 0) cf.prune(keep);
+        for (let k = 0; k < fl.length; k++) fl[k].step(5 + 3 * Math.sin(i * 0.01 + k), 0.0167);
+        for (let k = 0; k < names.length; k++) shown.set(names[k], 10 + 4 * Math.sin(i * 0.05 + k));
+        const cbs = pend.splice(0);
+        for (let k = 0; k < cbs.length; k++) cbs[k](T);
+      };
+    },
+  },
+  {
+    name: 'label-gl: reading 30 labels (describeBlock, svgOnly, lookKey), as a sync reads those that changed',
+    async setup() {
+      await withPage();
+      const { describeBlock, lookKey, svgOnly } = await import('../../src/ui/label-gl.js');
+      const NS = 'http://www.w3.org/2000/svg', doc = page.document, svg = doc.createElementNS(NS, 'svg');
+      const style = (o) => ({ display: 'inline', opacity: '1', filter: 'none', fill: 'rgb(20, 20, 20)', stroke: 'none', strokeWidth: '0px', paintOrder: 'normal', fontStyle: 'normal', fontWeight: '600', fontSize: '12px', fontFamily: 'Inter', letterSpacing: 'normal', fontVariantNumeric: 'normal', strokeLinejoin: 'round', outlineStyle: 'none', outlineWidth: '0px', outlineColor: '', outlineOffset: '0px', ...o });
+      const styles = new WeakMap(), blocks = [];
+      for (let i = 0; i < 30; i++) {
+        const g = doc.createElementNS(NS, 'g'), r = doc.createElementNS(NS, 'rect'), t = doc.createElementNS(NS, 'text'), sp = doc.createElementNS(NS, 'tspan');
+        r.setAttribute('x', '0'); r.setAttribute('y', '0'); r.setAttribute('width', '60'); r.setAttribute('height', '18'); r.setAttribute('rx', '6');
+        t.setAttribute('x', '4'); t.setAttribute('y', '13'); sp.textContent = `Label ${i} 12.${i % 10}`;
+        t.append(sp); g.append(r, t); svg.append(g); blocks.push(g);
+        for (const el of [g, r, t, sp]) styles.set(el, style(el === r ? { fill: 'rgba(255, 255, 255, 0.6)' } : {}));
+      }
+      const cs = (el) => styles.get(el);
+      return (i) => {
+        for (let k = 0; k < blocks.length; k++) {
+          const d = describeBlock(blocks[k], cs, null);
+          if (d && !svgOnly(d, true)) lookKey(d, false, 2);
+        }
+        void i;
+      };
+    },
+  },
+  {
+    name: 'glass-gl: the blur plan of eight glasses (blurBoxesInto), a picture',
+    async setup() {
+      const { blurBoxesInto } = await import('../../src/ui/glass-gl.js');
+      const boxes = Array.from({ length: 8 }, (_, k) => ({ x: 20 + k * 60, y: 30 + (k % 3) * 70, w: 90, h: 50 }));
+      const out = [], pool = [];
+      return (i) => {
+        const j = i % 40;
+        for (let k = 0; k < boxes.length; k++) boxes[k].x = 20 + k * 60 + j * 0.5;
+        blurBoxesInto(out, pool, boxes, 0, 0, 8, 160, 120);
+      };
+    },
+  },
+  {
     name: 'blood.advanceStream, 40 streams',
     async setup() {
       const { advanceStreamAt, advanceStream } = await import('../../src/ui/blood.js');
@@ -87,8 +169,9 @@ export const CASES = [
   },
   {
     name: 'pressure-time ingest (real engine frames)',
+    warm: 20000,
     async setup() {
-      const frames = replay(await recordFrames(5), 9000);
+      const frames = replay(await recordFrames(5), 24000);
       installDomStub();
       fake = true;
       const { createPressureTime } = await import('../../src/ui/pressure-time.js');

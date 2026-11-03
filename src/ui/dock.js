@@ -15,7 +15,7 @@ import { createReadoutsPane } from './readouts-pane.js';
 import { frameFor } from './frame.js';
 import { glWords } from './gl-words.js';
 import { restPass } from './rest-pass.js';
-import { dropFront } from './drop-front.js';
+import { dropFrontNums } from './drop-front.js';
 import { classSoon, classHas, classNow } from './class-soon.js';
 import { vitalReading, VITALS } from './vital-read.js';
 import { setShown, shownState, FILL_SMALL, fillQ } from './shown.js';
@@ -271,7 +271,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       ht.push(now); hv.push(v);
       let k = 0;
       while (k < ht.length && now - ht[k] > TREND_S * 1000 + 600) k++;
-      if (k) { dropFront(ht, k); dropFront(hv, k); }
+      if (k) { dropFrontNums(ht, k); dropFrontNums(hv, k); }
     }
     if (now - ht[0] < TREND_S * 1000 * 0.8) return '';
     const d = v - hv[0], thr = TREND_FRAC * (x.t.scale[1] - x.t.scale[0]);
