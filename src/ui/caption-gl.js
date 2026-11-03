@@ -197,6 +197,38 @@ export function mirrorOf(el, sel = []) {
 }
 
 /**
+ * The rows of words an element shows, each as its own box { x0, y0, x1, y1 } from the element's corner (a line as wide as its letters, not
+ * as the widest line): written into `out` (its records reused) and returned. A leader stops on the row it runs to, not on the corner of
+ * a box the longer line makes wide. Reads only; never called in a frame.
+ */
+export function inkRows(el, out = []) {
+  let n = 0;
+  const box = readBox(el);
+  if (box && box.width > 0 && box.height > 0) {
+    const rg = document.createRange(), tw = document.createTreeWalker(el, 4 /* NodeFilter.SHOW_TEXT */);
+    for (let t = tw.nextNode(); t; t = tw.nextNode()) {
+      if (!t.data.trim()) continue;
+      rg.selectNodeContents(t);
+      const rs = readRects(rg);
+      for (let i = 0; rs && i < rs.length; i++) {
+        const r = rs[i];
+        if (!(r.width > 0 && r.height > 0)) continue;
+        const x0 = r.left - box.left, y0 = r.top - box.top, x1 = r.right - box.left, y1 = r.bottom - box.top;
+        let row = null;
+        for (let j = 0; j < n; j++) {
+          const q = out[j], ov = Math.min(q.y1, y1) - Math.max(q.y0, y0);
+          if (ov > 0.5 * Math.min(q.y1 - q.y0, y1 - y0)) { row = q; break; }
+        }
+        if (row) { row.x0 = Math.min(row.x0, x0); row.y0 = Math.min(row.y0, y0); row.x1 = Math.max(row.x1, x1); row.y1 = Math.max(row.y1, y1); }
+        else { const q = out[n++] || (out[n - 1] = { x0: 0, y0: 0, x1: 0, y1: 0 }); q.x0 = x0; q.y0 = y0; q.x1 = x1; q.y1 = y1; }   // alloc-rare: a row record is made once and reused
+      }
+    }
+  }
+  out.length = n;
+  return out;
+}
+
+/**
  * The names' layer in `box`: see above. `make`, `pen`: the GPU drawer and its pen, the charts' own (given only by a test).
  *
  * Presented (R06): `presented` turns true at the first frame at nonzero size whose end() did not return false, and onPresented fires then;
@@ -217,9 +249,9 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
   // The names the last frame drew, for the browser checks (R17, snapshot()): two record lists, the one being drawn and the one last handed over,
   // their records reused; nothing is made in a frame once they have grown to the most names a frame draws.
   let drawn = [], shown = [], drawnN = 0, shownN = 0, seq = 0, shownGen = 0, drawnGen = 0, shownW = 0, shownH = 0;
-  const record = (key, x, y, w, h, a, cw, ch) => {
-    const r = drawn[drawnN++] || (drawn[drawnN - 1] = { key: '', x: 0, y: 0, w: 0, h: 0, a: 0, clipped: false });   // alloc-rare: only until a frame has drawn as many names as any frame will
-    r.key = key; r.x = x; r.y = y; r.w = w; r.h = h; r.a = a;
+  const record = (key, x, y, w, h, a, cw, ch, I, l, t, sc) => {
+    const r = drawn[drawnN++] || (drawn[drawnN - 1] = { key: '', x: 0, y: 0, w: 0, h: 0, a: 0, clipped: false, I: null, l: 0, t: 0, s: 1 });   // alloc-rare: only until a frame has drawn as many names as any frame will
+    r.key = key; r.x = x; r.y = y; r.w = w; r.h = h; r.a = a; r.I = I; r.l = l; r.t = t; r.s = sc;
     r.clipped = x < 0 || y < 0 || x + w > cw || y + h > ch;
   };
   const present = (on) => {
@@ -268,7 +300,7 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
         if (a <= 0.002) continue;
         const cx = I.x + dx, cy = I.y + dy, bw = I.w * s, bh = I.h * s, l = cx - bw / 2, t = cy - bh / 2;
         // (Where the names stand on the screen, the layer's view included: k p + (e, f).)
-        record(I.key, vk * l + ve, vk * t + vf, vk * bw, vk * bh, a, w, h);
+        record(I.key, vk * l + ve, vk * t + vf, vk * bw, vk * bh, a, w, h, I, l, t, s);
         // A lit term (a slide's) shows in its colour on the name and figure alone, as the page's look reads it: no pill or chip behind
         // a figure's label (owner, 2 Nov: anatomy-style halo text, no pills).
         // Its marks under its words (a call's pill: its shadow, fill and border, as the page drew it).
@@ -344,7 +376,20 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
      */
     snapshot() {
       const items = [];
-      for (let i = 0; i < shownN; i++) { const r = shown[i]; items.push({ key: r.key, x: r.x, y: r.y, w: r.w, h: r.h, a: r.a, clipped: r.clipped }); }
+      for (let i = 0; i < shownN; i++) {
+        const r = shown[i], rows = [];   // (rows: each line's own box as the GPU drew it, from the words' runs as they stand: a line as wide as its letters)
+        const set = r.I?.set, bw = r.w / (vk || 1);
+        if (set) for (let li = 0, n = set.n ?? set.lines.length; li < n; li++) {
+          const ln = set.lines[li], m = ln.m ?? ln.runs.length;
+          if (!m) continue;
+          const x0 = r.l + (bw - ln.w * r.s) / 2;
+          let lo = Infinity, hi = -Infinity, top = 0;
+          for (let ri = 0; ri < m; ri++) { const q = ln.runs[ri]; lo = Math.min(lo, q.x); hi = Math.max(hi, q.x + measure(q.t, q.r.weight + ' ' + q.r.size + 'px Inter') + q.r.ls * points(q.t)); top = Math.max(top, q.r.size); }
+          const by = r.t + ln.base * r.s;
+          rows.push({ x: vk * (x0 + lo * r.s) + ve, y: vk * (by - ASC * top * r.s) + vf, w: vk * (hi - lo) * r.s, h: vk * (ASC + DESC) * top * r.s });
+        }
+        items.push({ key: r.key, x: r.x, y: r.y, w: r.w, h: r.h, a: r.a, clipped: r.clipped, rows });
+      }
       return { seq, gen: shownGen, w: shownW, h: shownH, items };
     },
     /** The content generation: counts each change of words, looks or mirrors. */

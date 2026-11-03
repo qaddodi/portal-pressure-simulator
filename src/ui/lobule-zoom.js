@@ -47,14 +47,14 @@ import { frameFor, cancelFrame, noteDraw, saver, paceMs, renderScale, onRenderSc
 import { gpuProbe, COUNTED } from './gpu-probe.js';
 import { FADE_MS, fadeAlpha } from './res-fade.js';
 import { createResCover, coverFollow, coverFollowInto } from './res-cover-gl.js';
-import { leaderEnd, runInside } from './leader-end.js';
+import { leaderEnd, leaderEndRects, runInside } from './leader-end.js';
 import { LIGHT } from './light.js';
 import { restPass, cancelRest, restAttr, restRemove, flushRestAttrs } from './rest-pass.js';
 import { classSoon, classHas, textSoon, runSoon } from './class-soon.js';
 import { easeMove, carryRate, carried, cubicBezier, D_SMALL, D_SURFACE } from './ease.js';
 import { surface } from './gpu-surfaces.js';
 import { caught } from './caught.js';
-import { createCaptionGL, composeView, mirrorOf, rgbaOf as capRGBA } from './caption-gl.js';
+import { createCaptionGL, composeView, inkRows, mirrorOf, rgbaOf as capRGBA } from './caption-gl.js';
 import { readStyle } from './layout-snap.js';
 const nextFrame = frameFor('lobule-zoom');
 
@@ -1223,6 +1223,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         const cs = getComputedStyle(L.el), p = getComputedStyle(L.el, '::before');
         L.pad = ['Left', 'Right', 'Top', 'Bottom'].map((d) => px(cs[`padding${d}`]));
         L.pillQ = [px(p.left), px(p.top), px(p.right), px(p.bottom), px(p.borderTopLeftRadius)];
+        L.rows = inkRows(L.el, L.rows);   // (each line's own box: a leader stops on the line it runs to, not on the corner a longer line makes)
       }
       shown.forEach((L, i) => {
         const was = L.sz, k = stack[i] ? 's1' : 's0', key = labKey(env, L);
@@ -2579,7 +2580,16 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // A leader's end: on the edge of its label's letters, on the way to the label's middle. While another label lies across
   // it (one gliding past), the leader is hidden, and eases back once clear: a leader never runs across a label.
   function leadTo(L, ink, inks, n) {
-    const e = leaderEnd(ink, L.a[0], L.a[1]);
+    // (A label of two lines of unequal width is seen as its lines' boxes, each as wide as its letters, so its leader meets the letters it
+    // runs to: the Lymphatic's name above a longer reading stopped a dozen pixels short of its word, on the corner of the wider line.)
+    let e;
+    const rows = L.rows;
+    if (rows && rows.length && !ink.r) {
+      const p = L.pad, ox = ink.x0 - (p ? p[0] : 0), oy = ink.y0 - (p ? p[2] : 0), rr = L.rr || (L.rr = []);   // alloc-once: a label's row boxes are made with its first leader
+      for (let i = 0; i < rows.length; i++) { const b = rr[i] || (rr[i] = { x0: 0, y0: 0, x1: 0, y1: 0 }); b.x0 = ox + rows[i].x0; b.y0 = oy + rows[i].y0; b.x1 = ox + rows[i].x1; b.y1 = oy + rows[i].y1; }   // alloc-rare: a row box is made once and reused
+      rr.length = rows.length;
+      e = leaderEndRects(rr, ink, L.a[0], L.a[1]);
+    } else e = leaderEnd(ink, L.a[0], L.a[1]);
     if (!e) { classSoon(L.line, 'ld-gone', true); return; }
     setGeo(L.line, 'x2', e.x); setGeo(L.line, 'y2', e.y);
     const q = LC.q;
@@ -4772,6 +4782,17 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     sinZoom: () => sinZ,
     /** What the GPU's names drew in the last frame that landed ({ seq, gen, w, h, items }, caption-gl.js snapshot: CSS px from the names' canvas corner), for the browser checks. */
     captions: () => cap.snapshot(),
+    /** Where each shown leader ends, in the same px as captions() (the layer's view included), for the browser checks: [{ key, x, y }]. */
+    leaderEnds() {
+      const out = [];   // alloc-rare: asked only by the browser check
+      for (const k of Object.keys(labs)) {
+        const L = labs[k];
+        if (!L.a || isHid(L.el) || classHas(L.el, 'edge') || classHas(L.line, 'ld-gone') || classHas(L.line, 'lz-hid')) continue;
+        const x = +geoOf(L.line, 'x2'), y = +geoOf(L.line, 'y2');
+        if (Number.isFinite(x) && Number.isFinite(y)) out.push({ key: `lab:${k}`, x: VIEW[0] * x + VIEW[1], y: VIEW[0] * y + VIEW[2] });
+      }
+      return out;
+    },
     prewarm, warm, stage: () => framePart('lz.stage', stage), stageRise: () => framePart('lz.stageRise', stageRise), paintAhead, preparePieces, prepareRun,
     /** True once the dive's field (or the lobule) covers the anatomy, which then need not be drawn. */
     covers: () => fade > 0.98 || fieldOp >= 0.999,
