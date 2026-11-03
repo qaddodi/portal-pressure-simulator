@@ -10276,13 +10276,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const p = nodePos(id, t); worldToLocalInto(PIN_P, p[0], p[1]);
     return Math.hypot(PIN_P[0] - ax, PIN_P[1] - ay) < 1 ? 2 : 0;
   }
+  let pinHeldReady = false;
   if (labelGL) labelGL.pinTo((id, out, mid, au) => {
     if (!CTM) refreshCTM();
     if (mid && au != null && au !== 0.5 && pinVesselAt(id, au)) { out[0] = PIN_P[0]; out[1] = PIN_P[1]; return Number.isFinite(out[0]) && Number.isFinite(out[1]); }
     const t = easeInOut(morph), a = labelAnchor(id, t);
     if (mid || !a.mid) { out[0] = a.ax; out[1] = a.ay; } else { const p = nodePos(id, t); worldToLocalInto(PIN_P, p[0], p[1]); out[0] = PIN_P[0]; out[1] = PIN_P[1]; }
     return Number.isFinite(out[0]) && Number.isFinite(out[1]);
-  }, () => gestureOn());
+  }, () => pinHeldReady && gestureOn());   // (gestureOn is declared further down: asked only once the stage is built)
   wrap.dataset.labels = labelGL ? 'gpu' : 'svg';
   labelRider = labelGL;
   labelHoles = labelGL?.setHoles ? labelGL : null;
@@ -14450,6 +14451,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // held, so each move of a drag, wheel or flick is arithmetic only. A new gesture, a card or a resize reads it afresh.
   let panFit = null;
   const gestureOn = () => !!drag || !!glide || performance.now() - wheelAt < 250;
+  pinHeldReady = true;
   function fitForPan() {
     const c = morphTarget === 1;
     if (!gestureOn()) { panFit = null; return defaultVT(c); }
