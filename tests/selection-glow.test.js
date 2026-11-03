@@ -10,7 +10,7 @@ test('a selected vessel glows as a hovered one does, with no solid ring', () => 
   const sel = stage.match(/\{ id, col: null, amt: ([\d.]+), wide: ([\d.]+), dur: SEL_FADE \* 1000 \}/), hov = stage.match(/setGlowSrc\('hover'[^\n]*amt: ([\d.]+), wide: ([\d.]+)/);
   assert.ok(sel && hov);
   assert.ok(+sel[1] >= +hov[1] && +sel[2] > +hov[2] && +sel[2] <= 1.3, 'a little stronger and wider than the hover, within the band the shader allows');
-  assert.match(stage, /const want = new Set\(\[\.\.\.\(vh\.id \? vhEdges\(vh\.id\) : \[\]\), \.\.\.vh\.sel\]\);/, 'its lumen brightens as a hovered one does, eased');
+  assert.match(stage, /const want = vhWant; want\.clear\(\);\n\s+if \(vh\.id\) vhAdd\(want, vh\.id\);\n\s+for \(const id of vh\.sel\) want\.add\(id\);/, 'its lumen brightens as a hovered one does, eased');
 });
 
 test('selecting and deselecting ease the vessel in and out of the dimmed network', () => {

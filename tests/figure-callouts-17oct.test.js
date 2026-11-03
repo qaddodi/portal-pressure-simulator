@@ -67,8 +67,8 @@ test('on a slide the circuit stands centred in the free height, and its readings
 
 test('the FibroScan probe turns clear of the slide\'s cards', () => {
   const turn = stage.slice(stage.indexOf('  function scanTurn('), stage.indexOf('  function scanPaint('));
-  assert.match(turn, /const cards = scanCards\(\), clear = /);
-  assert.match(turn, /if \(alt\.length\) deg = alt\.sort/);
+  assert.match(turn, /const cards = scanCards\(\);\n\s+if \(!scanClear\(cards, tx, y, deg\)\) \{/);
+  assert.match(turn, /if \(best >= 0\) deg = best;/);   // (the nearest clear angle, the larger of two as far)
   assert.match(stage, /cards: \['\.pz-shade, \.pz-data\.stage-blocker, \.pz-panel\.stage-blocker', /, 'read first in a frame, at a change (scanLookRead)');
 });
 

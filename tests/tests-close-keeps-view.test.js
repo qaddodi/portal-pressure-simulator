@@ -30,7 +30,7 @@ test('closeView fits again a fitted view, whatever the tools did with the camera
   assert.match(stage, /fitSlow\(ms = 1300, opt = \{\}\) \{[^\n]*fitted = true;/);
   assert.match(stage, /if \(!sameView\(d, homeAt\)\) \{ homeAt = d; fitted = true;/, 'home following');
   // a pinch, a drag, the wheel and the zoom steps mark it moved
-  assert.match(stage, /vt = \{ k, x: vx - drag\.wx \* k, y: vy - drag\.wy \* k \}; fitted = false;/);
+  assert.match(stage, /VT_BUF\.k = k; VT_BUF\.x = vx - drag\.wx \* k; VT_BUF\.y = vy - drag\.wy \* k; vt = VT_BUF; fitted = false;/);
   assert.match(stage, /vt = softPan\([^\n]*\); fitted = false;/);
   assert.match(stage, /stopGlide\(\); userMoved = true; fitted = false;/);
   assert.match(stage, /function animZoomAt\(cx, cy, factor\) \{\n {4}fitted = false;/);

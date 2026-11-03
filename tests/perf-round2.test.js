@@ -119,7 +119,7 @@ test('RF4 and NP3: the lens key and its name are watched by the top bar glide; A
   assert.match(tb, /for \(const id of \['scenarioName', 'legend', 'colorModeLabel'\]\)/);
   assert.match(stage, /const GLOW_RANK = \[[^\]]*'shunt', 'key'\];/);
   assert.match(stage, /setGlowSrc\('shunt', \[\.\.\.shunt\.targets\.keys\(\)\]\.map\(\(id\) => \(\{ id, col: 'var\(--accent\)'/);
-  assert.match(stage, /const out = shunt \? new Set\(\[\.\.\.vh\.sel, shunt\.src, \.\.\.shunt\.targets\.keys\(\)\]/);
+  assert.match(stage, /if \(shunt\) \{\n\s+out = vhOut; out\.clear\(\);\n\s+for \(const id of vh\.sel\) if \(E\[id\]\?\.vis\) out\.add\(id\);\n\s+if \(E\[shunt\.src\]\?\.vis\) out\.add\(shunt\.src\);\n\s+for \(const id of shunt\.targets\.keys\(\)\) if \(E\[id\]\?\.vis\) out\.add\(id\);/);
   assert.match(stage, /wrap\.classList\.remove\('shunting'\);\n\s*setGlowSrc\('shunt', \[\]\);/);
 });
 

@@ -7,13 +7,13 @@ import { readFileSync } from 'node:fs';
 
 const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
 const read = st.slice(st.indexOf('  function frostOverRead(level) {'), st.indexOf('  hostFrost(paneGL, { order: 0'));
-const carrySrc = st.slice(st.indexOf('  function frostCarry(v) {'), st.indexOf('  function frostOverRead(level) {'));
+const carrySrc = st.slice(st.indexOf('  const CARRY_M = '), st.indexOf('  function frostOverRead(level) {'));
 
 test('each part between is read through its own count; the camera moving the overlays reads none of them', () => {
   for (const p of ['over', 'pane', 'labels', 'shade', 'marks']) assert.match(read, new RegExp(`frostPartRead\\('${p}', `), p);
   assert.match(read, /const out = \[\.\.\.frostCarry\(frostPartRead\('over', /, 'the overlays carried by the figure\'s transform');
   assert.match(st, /if \(m\.target === worldOver && m\.type === 'attributes' && m\.attributeName === 'transform'\) continue;/);
-  assert.match(st, /if \(k && k\.key === key && k\.boxes === boxes\) return k;/, 'a part kept is used again');
+  assert.match(st, /if \(k && k\.n === n && k\.pres === pres && k\.lost === lost && k\.tr === tr && k\.boxes === boxes\) return k;/, 'a part kept is used again');
   assert.doesNotMatch(st, /FROST_KEEP|glassreads=/);
   assert.match(st, /const frostTouch = \(e\) => \{ frostDirty\+\+; const p = frostPartOf\(e\?\.target\); if \(p\) frostPart\[p\]\+\+; else frostAll\(\); \};/);
 });

@@ -192,7 +192,12 @@ test('the stage: off unless asked for; the painted groups\' SVG hidden by an emp
   assert.equal((vg.match(/overView\(\)/g) || []).length, 3);
   assert.match(vg, /set snap\(v\) \{ overSnap = !!v; \}/);
   // (Read again when a class outside the overlays changes how they show: the app's, the page's, the stage's.)
-  assert.match(st, /const overKey = \(\) => `\$\{gestureFree\(appEl\?\.className \|\| ''\)\}\|\$\{document\.documentElement\.className\}\|\$\{wrapCls\(\)\}\|/);
+  // (A version stepped when a part differs from the last ask's: the app's classes without a gesture's own, the page's, the stage's,
+  // the overlays' without OVER_ALL, the theme and palette, reduced motion.)
+  assert.match(st, /if \(a !== okAppRaw\) \{ okAppRaw = a; const f = gestureFree\(a\); if \(f !== okApp\) \{ okApp = f; changed = true; \} \}/);
+  assert.match(st, /const a = appEl\?\.className \|\| '', d = document\.documentElement\.className, w = wrapCls\(\)/);
+  assert.match(st, /\.filter\(\(c\) => c !== OVER_ALL\)\.join\(' '\)/);
+  assert.match(st, /if \(d !== okDoc \|\| w !== okWrap \|\| th !== okTheme \|\| pal !== okPal \|\| rm !== okRM\)/);
   assert.match(st, /if \(!veins\?\.overlay \|\| veins\.lost \|\| !wrap\.classList\.contains\('gl-on'\)\) \{ if \(overPainted\.length \|\| svgOver\?\.classList\.contains\(OVER_ALL\)\) overClear\(\); return; \}/);
   assert.match(st, /vCanvas\.addEventListener\('webglcontextlost', \(\) => \{\n\s+wrap\.classList\.remove\('gl-on'\);\n\s+overClear\(\);/);
   assert.match(st, /function overClear\(\) \{\n\s+for \(const u of overPainted\) u\.classList\.remove\(OVER_CLASS\);\n\s+overPainted = \[\];\n\s+svgOver\?\.classList\.remove\(OVER_ALL\);/);
