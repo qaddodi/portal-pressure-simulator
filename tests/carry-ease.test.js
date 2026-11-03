@@ -102,7 +102,7 @@ test('the camera, the lobule, the sheets and the paging take it', () => {
   assert.match(main, /easing: carryCurve\(speed, to - \(el\._sheetOff \|\| 0\), D_SMALL\)/, 'the settle leaves at the finger\'s speed (the content\'s offset, down)');
   assert.match(main, /else h = Math\.max\(60, start\.h - dy\);/, "the pull up continues from the height drawn when it began (start.h is the drawn height, a sunk card's included)");
   assert.match(util, /const flick = isFlick\(s0\.dy, speed, s0\.dy \/ Math\.max\(1, performance\.now\(\) - s0\.t\), 0\.6, 30\);/);
-  assert.match(util, /carryCurve\(speed, left, D_SMALL\)/);
+  assert.match(util, /carryCurve\(speed, to - s0\.dy, ms\)/, "the sheet's let-go carries the finger's speed on (sheet-pull.js plays it)");
   assert.match(card, /const flick = isFlick\(dy, speed, dy \/ Math\.max\(1, performance\.now\(\) - t0\), 0\.6, 30\);/);
   assert.match(card, /if \(e\.pointerId !== pid\) return;/, 'a second finger is not the pull');
   // The bottom bar's fold reversed mid-glide stands at the size it is drawn at while its words fade, then glides on from there (no snap to the glide's end).

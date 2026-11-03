@@ -3,6 +3,9 @@ import { saver, frame, cancelFrame, easeNow, readFrame } from './frame.js';
 import { restPass, restAttr, restRemove } from './rest-pass.js';
 import { glWords } from './gl-words.js';
 import { slideFold } from './fold-slide.js';
+import { classSoon, dataSoon } from './class-soon.js';
+import { moverOf } from './num-move.js';
+import { pullRelease, pullAt, pullStop } from './sheet-pull.js';
 import { releaseSpeed, isFlick, carryCurve, settleSlope, settleAt, easeMove, D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js';
 import { leaveFromHere } from './menu-leave.js';
 import { follow2, jumpCount, SHOWN_TAU } from './display-state.js';
@@ -938,21 +941,26 @@ function liveShift(panel) {
   } catch { return 0; }
 }
 // The sheet's numbers at the touch (an event, not a frame): where it is drawn, how tall it is, and whether the list under the finger is at its top.
-function sheetGrab(panel, target, t, thumb) {
+// (shift: where the sheet is drawn along y now, px: a let-go still easing is worked out from its own clock (sheet-pull.js), never read from the
+// page; a sheet not easing is drawn where the page puts it, read once here, at the touch.)
+function sheetGrab(panel, target, t, thumb, easing) {
   let sc = null;
   for (let n = target; n && n !== panel.parentElement; n = n.parentElement) if (n.scrollHeight > n.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(n).overflowY)) { sc = n; break; }
-  return { x: t.clientX, y: t.clientY, top: !sc || sc.scrollTop <= 0, on: false, dy: 0, t: 0, trail: [], shift: thumb ? 0 : liveShift(panel), h: panel.offsetHeight };
+  return { x: t.clientX, y: t.clientY, top: !sc || sc.scrollTop <= 0, on: false, dy: 0, t: 0, trail: [], shift: easing ? pullAt(easing) : thumb ? 0 : liveShift(panel), h: panel.offsetHeight, thumb, pull: null };
 }
 export function swipeSheet(panel, onClose) {
-  let s = null, easeT = 0;   // easeT: lets go of the transition a release leaves on the panel (one timer: an older release's must not cut a newer one's short)
-  // Over the thumb dock the sheet slides down behind the tab row: what passes below its resting bottom edge is clipped.
+  // Over the thumb dock the sheet slides down behind the tab row: what passes below its resting bottom edge is clipped (its own still clip, app.css).
   const thumbUi = () => document.documentElement.classList.contains('thumb-ui');
+  // The pull and the let-go are the compositor's (sheet-pull.js): a move of the finger sets one animation's clock, nothing is written to the
+  // panel's style, and the let-go is one animation that carries the finger's speed on. `easing`: the let-go still under way.
+  let s = null, easing = null;
+  const clearEasing = () => { easing = null; };
   panel.addEventListener('touchstart', (e) => {
     s = null;
     if (e.touches.length !== 1 || e.target.closest('input[type="range"], textarea, [contenteditable]')) return;
     const t = e.touches[0];
     // (Where the sheet is drawn, how tall it is and whether its list is at the top, read at the touch, never in the moves that follow: sheetGrab.)
-    s = sheetGrab(panel, e.target, t, thumbUi());
+    s = sheetGrab(panel, e.target, t, thumbUi(), easing && !easing.over ? easing : null);
   }, { passive: true });
   panel.addEventListener('touchmove', (e) => {
     if (!s) return;
@@ -964,19 +972,22 @@ export function swipeSheet(panel, onClose) {
       if (down && e.cancelable) e.preventDefault();
       if (Math.hypot(dx, dy) < 8) return;
       if (!down) { s = null; return; }
-      // (Caught while it is still easing back: the pull carries on from where the sheet is, without a jump.)
-      // (Not over the thumb dock too: the sheet's own transform is still easing back, read where it is drawn now, so the pull takes it
-      // over from there and it does not jump to the finger.)
-      s.on = true; s.y = t.clientY - (thumbUi() ? parseFloat(panel.style.getPropertyValue('--sink')) || 0 : s.shift); s.t = performance.now();
-      panel.style.transition = 'none'; panel.style.animation = 'none'; stopSink(panel);
+      // (Caught while it is still easing back: the pull carries on from where the sheet is, without a jump. The new pull is laid under the
+      // old let-go's place before that is taken away, so no frame shows the sheet anywhere else.)
+      // (Where it is drawn now, from the let-go's own clock: it has kept easing since the touch, so the place read at the touch is behind it.)
+      const here = easing && !easing.over ? pullAt(easing) : s.shift;
+      s.on = true; s.y = t.clientY - here; s.t = performance.now();
+      classSoon(panel, 'pulling', true);   // (the stylesheet's entrance, if it is still playing, gives way to the finger: a class, written between frames, app.css .pulling)
+      s.pull = moverOf(panel, s.thumb ? 'translate' : 'transform', 'y');   // (num-move.js: one paused animation, its clock the finger's distance)
+      s.pull.set(0, here);
+      pullStop(easing); easing = null;
     }
     if (e.cancelable) e.preventDefault();
     s.dy = Math.max(0, t.clientY - s.y);
     // (The last eight touches, each a pair reused when it falls off the end: only the first eight moves of a drag make one.)
     const tr = s.trail, pair = tr.length >= 8 ? tr.shift() : [0, 0];   // alloc-rare: the first eight moves of a drag, then the pairs are reused
     pair[0] = performance.now(); pair[1] = t.clientY; tr.push(pair);
-    if (thumbUi()) panel.style.setProperty('--sink', `${s.dy}px`);
-    else panel.style.transform = `translateY(${s.dy}px)`;
+    s.pull.set(0, s.dy);   // (the finger's distance, a number: the panel is drawn there by the compositor)
   }, { passive: false });
   const end = () => {
     const s0 = s; s = null;
@@ -986,19 +997,12 @@ export function swipeSheet(panel, onClose) {
     const flick = isFlick(s0.dy, speed, s0.dy / Math.max(1, performance.now() - s0.t), 0.6, 30);
     const H = s0.h;
     const gone = flick || s0.dy > Math.min(90, H * 0.3);
-    // (Over the thumb dock it sinks behind the tab row: the move and the cut in one value, never one ahead of the other.)
-    if (thumbUi()) {
-      panel.style.transition = '';
-      if (gone) { sinkTo(panel, H, 220, undefined, speed); panel.dataset.swiped = '1'; onClose(); } else sinkTo(panel, 0, 220, undefined, speed);
-      return;
-    }
-    // (The same, as a CSS curve: its opening slope is the finger's speed over the distance left, up to the .2/.8 curve's own, 4.)
-    const left = gone ? H - s0.dy : -s0.dy;
-    // alloc-rare: the release's curve, written once as the finger lifts
-    panel.style.transition = `transform ${D_SMALL}ms ${carryCurve(speed, left, D_SMALL)}`;   // (a let-go carries the finger's own speed, so the curve opens at its slope)
-    if (gone) { panel.style.transform = 'translateY(100%)'; panel.dataset.swiped = '1'; onClose(); }
-    // alloc-rare: a sheet let go short of the line eases back: one timer and its closure, once for each release
-    else { panel.style.transform = ''; clearTimeout(easeT); easeT = setTimeout(() => { if (!s) panel.style.transition = ''; }, D_SMALL); }
+    // (A let-go carries the finger's own speed: the curve opens at its slope. Over the thumb dock it sinks behind the tab row, its cut a still
+    // clip, so the move needs no cut beside it. Away it goes to the sheet's own height and stays there until the menu takes it off.)
+    const to = gone ? H : 0, ms = s0.thumb ? 220 : D_SMALL;
+    if (gone) dataSoon(panel, 'swiped', '1');
+    easing = pullRelease(panel, s0.thumb ? 'translate' : 'transform', s0.pull, s0.dy, to, ms, carryCurve(speed, to - s0.dy, ms), clearEasing);   // alloc-rare: a let-go
+    if (gone) onClose();
   };
   panel.addEventListener('touchend', end);
   panel.addEventListener('touchcancel', end);

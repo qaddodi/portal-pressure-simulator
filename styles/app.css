@@ -4012,6 +4012,7 @@ button.finding { cursor: pointer; }
 .um-scrim.out { animation: crossfade-out var(--d-small) var(--ease-in) forwards; }
 .umenu.sheet { left: 0 !important; right: 0; top: auto !important; bottom: var(--menu-kb, 0px); width: auto; height: var(--menu-h, 88dvh); max-height: none; border-radius: var(--r-sheet) var(--r-sheet) 0 0; --edge-y: 100%; animation: slide-from-edge var(--d-small) var(--ease); padding-bottom: env(safe-area-inset-bottom, 0px); padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }   /* (the sheet's glass runs edge to edge, its rows keep clear of the notch or island when the phone is held sideways) */
 .umenu.sheet.still { animation: none; }
+.umenu.sheet.pulling { animation: none; }   /* (a finger has the sheet: its entrance gives way, util.js swipeSheet) */
 .umenu.sheet.out { animation: slide-to-edge var(--d-small) var(--ease-in) forwards; }
 /* Upright (over the thumb dock) the shared sheet swipe moves it by --sink (util.js swipeSheet): it follows the finger down. */
 html.thumb-ui .umenu.sheet { translate: 0 var(--sink, 0px); }
