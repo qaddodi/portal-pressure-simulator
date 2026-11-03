@@ -1210,7 +1210,17 @@ export function createShim(G) {
   const textAt = (t, x, y, colour, sw) => {
     const m = st.m, ang = m ? Math.atan2(m[1], m[0]) : 0, px = X(x, y), py = Y(x, y);
     if (ang) { TURN[0] = px; TURN[1] = py; TURN[2] = ang; }
-    G.text(t, px, py, st.font, colour, align(), st.textBaseline, st.globalAlpha, sw, ang ? TURN : null, st.ls);
+    // (Two text policies, R07. Constant screen size (the default): the transform places and turns the words, their size is the font's, as
+    // a caller that sizes its own words for the screen (svg-gl.js) sets it. Layer-scaled (ctx.textScale = true): the transform's scale carries
+    // the glyphs too, with their letter spacing and outline, as it carries a line's width.)
+    const k = textScaled ? sc() : 1;
+    G.text(t, px, py, k === 1 ? st.font : scaledFont(st.font, k), colour, align(), st.textBaseline, st.globalAlpha, sw * k, ang ? TURN : null, st.ls * k);
+  };
+  let textScaled = false, sfFrom = '', sfK = 0, sfTo = '';   // alloc-rare: made once with the shim (the policy, and the last scaled font text: a layer draws at one scale for a frame)
+  // alloc-rare: made once with the shim, which is made once with its chart, never in a frame
+  const scaledFont = (font, k) => {
+    if (font !== sfFrom || k !== sfK) { sfFrom = font; sfK = k; sfTo = font.replace(/([\d.]+)px/, `${(fontOf(font).px * k).toFixed(3)}px`); }   // alloc-rare: only when the font or the scale changes
+    return sfTo;
   };
   const TURN = new Float64Array(3);   // alloc-rare: made once with the shim (a turned word's centre and angle)
   // alloc-rare: made once with the shim, which is made once with its chart, never in a frame
@@ -1314,6 +1324,8 @@ export function createShim(G) {
     get font() { return st.font; }, set font(v) { st.font = v; },
     // (The 2D canvas's letterSpacing, '0.72px'; the words are measured with it too.)
     // alloc-rare: made once with the shim, which is made once with its chart, never in a frame
+    /** Whether the transform's scale also carries the words' size, letter spacing and outline (R07); false: constant screen size. */
+    get textScale() { return textScaled; }, set textScale(v) { textScaled = !!v; },
     get letterSpacing() { return lsText(st.ls); }, set letterSpacing(v) { st.ls = parseFloat(v) || 0; },
     // alloc-rare: made once with the shim, which is made once with its chart, never in a frame
     get textAlign() { return st.textAlign; }, set textAlign(v) { st.textAlign = v; },

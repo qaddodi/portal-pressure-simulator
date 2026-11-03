@@ -234,6 +234,9 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
       if (!(w > 0 && h > 0)) return;
       // (The whole layer carried by the owner's view, view(): a point p is drawn at k p + (e, f). A pan, or the lobule's dive about a point.)
       const moved = vk !== 1 || ve !== 0 || vf !== 0;
+      // (Layer-scaled words, R07: the whole layer's scale carries the glyphs, their spacing and halo as it carries the anchors and the leaders'
+      // width; a caption's own scale s is set in its font above, and this one is the layer's, never both on the same size.)
+      ctx.textScale = vk !== 1;
       if (moved) { ctx.save(); ctx.translate(ve, vf); ctx.scale(vk, vk); }
       // Leaders under the names, as their layer was.
       for (const L of leads.values()) {
@@ -294,6 +297,7 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
       ctx.globalAlpha = 1;
       for (const f of extras.values()) if (f(ctx, now)) more = true;
       if (moved) ctx.restore();
+      ctx.textScale = false;
     } finally {
       drawing = false;
       const handed = ctx.end?.() !== false;   // (false: the picture could not be handed over, trace-gl.js end)
