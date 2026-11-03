@@ -292,13 +292,24 @@ float boxCover(vec2 p, vec2 wh, vec4 rad) {
 }
 float erfa(float x) { float a = 0.147, x2 = x * x; return sign(x) * sqrt(1.0 - exp(-x2 * (1.2732395 + a * x2) / (1.0 + a * x2))); }
 float cover(float x, float a, float b, float s) { return 0.5 * (erfa((x - a) / (s * 1.4142136)) - erfa((x - b) / (s * 1.4142136))); }
+// A drop shadow's coverage at p from a rounded box b (device px: left, top, right, bottom) with the card's corner radii, blurred by sigma s: the
+// error function of the signed distance to the rounded box, so the shadow of a rounded card has rounded corners (the product of two edge
+// coverages is a blurred rectangle, with dark wedges past a large radius).
+float shCover(vec2 p, vec4 b, vec4 rad, float s) {
+  vec2 wh = b.zw - b.xy, c = p - (b.xy + wh * 0.5);
+  float r = c.x < 0.0 ? (c.y < 0.0 ? rad.x : rad.w) : (c.y < 0.0 ? rad.y : rad.z);
+  r = min(r, min(wh.x, wh.y) * 0.5);
+  vec2 q = abs(c) - wh * 0.5 + r;
+  float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
+  return 0.5 * (1.0 - erfa(d / (s * 1.4142136)));
+}
 void main() {
   vec2 p = vec2(gl_FragCoord.x, uView.y - gl_FragCoord.y);
   float m = uMode == 1 ? boxCover(p - uBox.xy, uBox.zw, uRad) : texture(uMask, (p - uBox.xy) / uBox.zw * uMS).a;
   // (A card's drop shadows, outside its box only, as the CSS draws a box-shadow: so the card's box, its edge and its shadow are one GPU
   // shape that can change size in view with nothing of the page laid out again.)
-  float d0 = uD0C.a > 0.0 ? uD0C.a * cover(p.x, uD0B.x, uD0B.z, max(uDS.x, 0.5)) * cover(p.y, uD0B.y, uD0B.w, max(uDS.x, 0.5)) : 0.0;
-  float d1 = uD1C.a > 0.0 ? uD1C.a * cover(p.x, uD1B.x, uD1B.z, max(uDS.y, 0.5)) * cover(p.y, uD1B.y, uD1B.w, max(uDS.y, 0.5)) : 0.0;
+  float d0 = uD0C.a > 0.0 ? uD0C.a * (uMode == 1 ? shCover(p, uD0B, uRad, max(uDS.x, 0.5)) : cover(p.x, uD0B.x, uD0B.z, max(uDS.x, 0.5)) * cover(p.y, uD0B.y, uD0B.w, max(uDS.x, 0.5))) : 0.0;
+  float d1 = uD1C.a > 0.0 ? uD1C.a * (uMode == 1 ? shCover(p, uD1B, uRad, max(uDS.y, 0.5)) : cover(p.x, uD1B.x, uD1B.z, max(uDS.y, 0.5)) * cover(p.y, uD1B.y, uD1B.w, max(uDS.y, 0.5))) : 0.0;
   float sa = 1.0 - (1.0 - d0) * (1.0 - d1);
   vec3 sc = sa > 0.0 ? (uD0C.rgb * d0 * (1.0 - d1) + uD1C.rgb * d1) / sa : vec3(0.0);
   if (m <= 0.0) { if (sa <= 0.001) discard; o = vec4(sc * sa, sa) * uA; return; }
