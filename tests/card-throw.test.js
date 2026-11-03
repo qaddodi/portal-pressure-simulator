@@ -39,28 +39,23 @@ test('one clock: the scheduler frame and the eases clock, inline values only, no
 
 test('presenter: thrown cards go out and come in by card-throw.js; a swipe hands over its place', () => {
   assert.doesNotMatch(presenter, /CARD_THROW|cardthrow/);
-  assert.match(presenter, /if \(railOK\(el\)\) railHold\(el, [^;]+;\n\s+else throwOut\(el, throwDir, dist\);/, 'a card rides the rail, or is thrown');
-  assert.match(presenter, /if \(!t\.hidden && t\.childElementCount\) \{\n\s+if \(!railIn\(t, k\)\) throwIn\(t, k, 0, throwD\);\n\s+if \(!railIn\(ui\.shade, k\)\) throwIn\(ui\.shade, k, 0, throwD\);\n\s+\} else \{ railAway\(t\); railAway\(ui\.shade\); \}/, 'only a card that shows; a copy with no card to follow goes alone');
-  assert.match(presenter, /if \(throwDir && !el\.hidden && el\.childElementCount\) \{ if \(bare && railWaits\(el\) && railWaits\(ui\.text\)\) \{ \/\* rides with the words: wordsTurnIn \*\/ \} else if \(!railIn\(el, throwDir, delay\)\) throwIn\(el, throwDir, delay, throwD\); \} else railAway\(el\);/);
-  assert.match(presenter, /const pairD = pair\.length \? Math\.max\(\.\.\.pair\.map\(\(el\) => el\.offsetWidth\)\) \+ RAIL_GAP : 0;/, 'the words and their glass keep one spacing on the rail');
-  assert.match(presenter, /\.\.\.railGhosts\(\)\],/, 'the copies are drawn by the cards\' GPU glass');
+  assert.match(presenter, /for \(const el of goes\) throwOut\(el, throwDir, dist\);/, 'every card leaving is thrown on the tap');
+  assert.match(presenter, /if \(!t\.hidden && t\.childElementCount\) \{\n\s+throwIn\(t, k, 0\);\n\s+throwIn\(ui\.shade, k, 0\);\n\s+\}/, 'only a card that shows comes in; the words and their glass together');
+  assert.match(presenter, /if \(throwDir && !el\.hidden && el\.childElementCount\) throwIn\(el, throwDir, delay\);/, 'a card that shows comes in thrown');
+  assert.doesNotMatch(presenter, /railGhosts|railHold|railIn|railAway|railWaits|railCopies|railable|INSTANT/, 'the rail is gone');
   assert.match(presenter, /if \(throwDir\) await throwsOut\(\);/, 'the next words go in only once the old card is out of sight');
-  assert.match(presenter, /if \(!bare\) \{ const dir = throwDir \|\| 'next'; for \(const el of \[ui\.text, ui\.shade, ui\.data, ui\.panel\]\) if \(throwPinned\(el\)\) \{[^\n]*throwIn\(el, dir, 0, throwD\); else throwRelease\(el\); \} throwDir = ''; railAway\(\); \}/, 'bare words still come in thrown after the camera; copies left over go; a card sent out on the tap and kept by the new slide comes back in');
+  assert.match(presenter, /if \(!bare\) \{ const dir = throwDir \|\| 'next'; for \(const el of \[ui\.text, ui\.shade, ui\.data, ui\.panel\]\) if \(throwPinned\(el\)\) \{[^\n]*throwIn\(el, dir, 0, throwD\); else throwRelease\(el\); \} throwDir = ''; \}/, 'bare words still come in thrown after the camera; copies left over go; a card sent out on the tap and kept by the new slide comes back in');
   assert.match(presenter, /if \(busy\) outNow\(\);\n\s+if \(!busy\) run\(\);/, 'a Next while the last change still runs sends the cards out on the tap');
   assert.match(presenter, /if \(out && throwDir\) return;/, 'a held swipe keeps the finger place for the throw');
   assert.match(presenter, /for \(const el of \(pull\.els \?\?= swipeEls\(\)\)\) \{ throwStop\(el\);/, 'a finger takes a card from the throw');
 });
 
 test('the rail\'s curve and spacing; no held copies: every card leaves on the tap', async () => {
-  const { RAIL_MS, RAIL_GAP, railable, railIn, railWaits, railGhosts } = await import('../src/ui/card-throw.js');
-  assert.equal(RAIL_MS, 560);
-  assert.equal(RAIL_GAP, 24);
+  const ct = await import('../src/ui/card-throw.js');
+  assert.equal(ct.RAIL_MS, 560);
+  assert.equal(ct.RAIL_GAP, 24);
   assert.match(src, /const easeRail = cubicBezier\(0\.32, 0\.72, 0, 1\);/);
-  assert.match(src, /export const INSTANT = true;/);
-  assert.equal(railable({}), false);
-  assert.equal(railIn({}, 'next'), false);
-  assert.equal(railWaits({}), false);
-  assert.deepEqual(railGhosts(), []);
+  assert.doesNotMatch(src, /INSTANT|railable|railIn|railHold|railWaits|railGhosts|railCopies|railAway/, 'the switch and its no-op stubs are gone');
 });
 
 test('instant: every leaving card sets off in the tap\'s task, on one distance, gone from sight within the first part of its way; in from as far', () => {
@@ -69,8 +64,8 @@ test('instant: every leaving card sets off in the tap\'s task, on one distance, 
   for (let k = 0; k <= 1; k += 0.01) if (throwAt('out', k, from, to).o <= 0.001) { k0 = k; break; }
   assert.ok(k0 <= 0.45, `out of sight by ${k0}`);
   assert.ok(throwAt('out', 0.1, from, to).x < -80, 'it moves at once, fast');
-  assert.match(presenter, /const dist = INSTANT \? \(throwD = Math\.min\(innerWidth, Math\.max\(120, \.\.\.sized\.map\(wOf\)\) \+ RAIL_GAP\)\) : throwDist\(\);/);
-  assert.match(presenter, /if \(INSTANT && bare && throwDir && !el\.hidden && el\.childElementCount && !ui\.text\.hidden && ui\.text\.childElementCount && ui\.text\.classList\.contains\('pz-leave'\)\) return false;/, 'in together with the words');
+  assert.match(presenter, /const dist = \(throwD = Math\.min\(innerWidth, Math\.max\(120, \.\.\.sized\.map\(wOf\)\) \+ RAIL_GAP\)\);/);
+  assert.match(presenter, /if \(bare && throwDir && !el\.hidden && el\.childElementCount && !ui\.text\.hidden && ui\.text\.childElementCount && ui\.text\.classList\.contains\('pz-leave'\)\) return false;/, 'in together with the words');
   assert.match(src, /if \(k >= 1 \|\| \(r\.kind === 'out' && p\.o <= 0\.001\)\) land\(el, r, p\.x, p\.o\);/, 'out of sight ends the way out, so the next words go in at once');
 });
 

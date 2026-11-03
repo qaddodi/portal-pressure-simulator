@@ -20,9 +20,8 @@ const nextFrame = frameFor('card-throw');
 // apart, as iOS pages: 560 ms on a calm curve that starts quick and settles long, no overshoot (its y never passes 1).)
 // (Since Mohammad's next note, the same day, "it should all be responsive": every leaving card sets off on the frame of the tap, on the
 // rail's curve.)
-// (Instant: out on the rail's curve, which starts at once and fast, gone from sight by 85 % of its way (a few frames), and in on it from
+// (Out on the rail's curve, which starts at once and fast, gone from sight by 85 % of its way (a few frames), and in on it from
 // the same distance.)
-export const INSTANT = true;   // (switch deleted; kept for presenter.js until its own pass)
 export const RAIL_MS = 560, RAIL_GAP = 24;
 const easeRail = cubicBezier(0.32, 0.72, 0, 1);
 
@@ -249,16 +248,6 @@ export const throwing = (el) => runs.has(el);
 /** Stops el's move where it is (a finger takes it), its inline values kept for whoever takes it next. */
 export function throwStop(el) { classSoon(el, THROWING, false); runs.delete(el); settleLands(el, false); releaseHeld(el); pinned.delete(el); if (!runs.size && ask) { cancelFrame(ask); ask = 0; } settle(); outCheck(); }
 
-// (The copies that held the old card on one track until the new one was ready (railHold) are gone: every leaving card sets off on the
-// frame of the tap. These are kept, as what they did with no copy, for presenter.js until its own pass.)
-export const railable = () => false;   // (switch deleted; kept for presenter.js until its own pass)
-export function railCopies() { return Promise.resolve(); }   // (switch deleted; kept for presenter.js until its own pass)
-const NO_GHOSTS = Object.freeze([]);
-export const railGhosts = () => NO_GHOSTS;   // (switch deleted; kept for presenter.js until its own pass)
-export function railHold() {}   // (switch deleted; kept for presenter.js until its own pass)
-export function railIn() { return false; }   // (switch deleted; kept for presenter.js until its own pass)
-export function railAway() {}   // (switch deleted; kept for presenter.js until its own pass)
-export const railWaits = () => false;   // (switch deleted; kept for presenter.js until its own pass)
 
 // ── Out on the tap, while the slide before is still settling (Mohammad, 2 Nov 2026: "when i hit next it takes time to move out of the
 // way. it should all be responsive"). A Next pressed while the last change still runs (its landing, its after-steps) used to wait for it
