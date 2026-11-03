@@ -346,7 +346,8 @@ async function stageMotion() {
         try { await assertGpuLive(page, `motion ${id}`, { software: true }); } catch (e) { fail('motion', `${id} gpu`, String(e.message).split('\n').slice(0, 3).join(' ')); continue; }
         await page.evaluate(() => window.pps.host.send({ type: 'run', running: false }));   // (the model paused: the frames sampled are the cards')
         const hook = await page.evaluate(startSampler);
-        if (hook !== true) { fail('motion', id, `INCONCLUSIVE: ${hook}; nothing was judged`); continue; }
+        if (hook !== true) fail('motion', id, `INCONCLUSIVE: ${hook}; the glass cannot be judged (the words and their shade still are)`);
+        if (hook === 'no frame.js onFrameEnd') continue;
         const moving = () => !!document.querySelector('.pz-throwing');
         const judge = (where, samples) => {
           const r = motionIssues(samples);
