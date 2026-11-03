@@ -726,16 +726,16 @@ export function createTraceGL(host, { redraw = null, under = null } = {}) {
   const SPC = new Float32Array(64), SPO = new Float32Array(16), SPI = new Int32Array(16);   // alloc-rare: made once with the drawer
   function setPaint(u, style, alpha) {
     if (style && (style.grad || style.rad)) {
-      const src = style.stops, n = Math.min(16, src.length);
+      const offs = style.offs, cols = style.cols, n = Math.min(16, style.n);
       if (n) {
         for (let i = 0; i < n; i++) {
-          const o = src[i][0];
+          const o = offs[i];
           let j = i;
           while (j > 0 && SPO[j - 1] > o) { SPO[j] = SPO[j - 1]; SPI[j] = SPI[j - 1]; j--; }
           SPO[j] = o; SPI[j] = i;
         }
         SPC.fill(0);
-        for (let i = 0; i < n; i++) premulInto(SPC, i * 4, src[SPI[i]][1]);
+        for (let i = 0; i < n; i++) premulInto(SPC, i * 4, cols[SPI[i]]);
         SPO.fill(0, n);
         ucOf(gl).fv4(u.pc, SPC); ucOf(gl).fv1(u.po, SPO); ucOf(gl).i1(u.pn, n); ucOf(gl).f1(u.ga, alpha);
         if (style.rad) { const r = style.rad; ucOf(gl).f4(u.pl, r[0], r[1], r[3], r[4]); ucOf(gl).f2(u.pr, r[2], r[5]); ucOf(gl).i1(u.pk, 1); }
@@ -1153,6 +1153,8 @@ export function createTraceGL(host, { redraw = null, under = null } = {}) {
 export function createShim(G) {
   const TAU = Math.PI * 2;
   let st = null, K = 1;
+  const GR = [];   // alloc-rare: made once with the shim (the gradients handed out, round and round: grN of them are out in this frame)
+  let grN = 0;
   const stack = [];   // alloc-rare: made once with the shim
   const keepSlots = [];   // alloc-rare: made once with the shim
   let keepDepth = 0;
@@ -1172,7 +1174,7 @@ export function createShim(G) {
   const DSA = new Float64Array(16);   // alloc-rare: made once with the shim (a stroke's dashes, scaled)
   const spare = [];   // alloc-rare: made once with the shim (the states given back by restore, used again by the next save)
   const STO = { alpha: 1, dash: null, dashN: 0, offset: 0, round: true };   // alloc-rare: made once with the shim (a stroke's options, written in place)
-  const GP = { grad: null, rad: null, stops: null, inv: null };   // alloc-rare: made once with the shim (a gradient fill's paint)
+  const GP = { grad: null, rad: null, offs: null, cols: null, n: 0, inv: null };   // alloc-rare: made once with the shim (a gradient fill's paint)
   const INV = new Float64Array(6), MT = { width: 0 }, GT = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };   // alloc-rare: made once with the shim (a gradient's matrix back, measureText's and getTransform's answers: read at once by every caller, written again by the next call)
   // alloc-rare: a state is made only until the stack has been this deep once
   const fresh = () => ({ ls: 0, fillStyle: '#000', strokeStyle: '#000', lineWidth: 1, lineCap: 'butt', lineJoin: 'miter', font: '10px sans-serif', textAlign: 'start', textBaseline: 'alphabetic', globalAlpha: 1, dash: new Float64Array(16), dn: 0, lineDashOffset: 0, clip: null, clipA: [0, 0, 0, 0], nClip: 0, m: null, mA: new Float64Array(6) });   // colour-exempt: the 2D canvas's own defaults; alloc-rare: a state is made only until the stack has been this deep once
@@ -1245,8 +1247,8 @@ export function createShim(G) {
   // alloc-rare: made once with the shim, which is made once with its chart, never in a frame
   const paintOf = (style) => {
     if (typeof style === 'string') return style;
-    if (!(style && style.stops)) return 'transparent';
-    GP.grad = style.grad; GP.rad = style.rad; GP.stops = style.stops; GP.inv = inv();
+    if (!(style && style.offs)) return 'transparent';
+    GP.grad = style.grad; GP.rad = style.rad; GP.offs = style.offs; GP.cols = style.cols; GP.n = style.n; GP.inv = inv();
     return GP;
   };
   // (A clip by a path that is not a rectangle: its pieces of 3 points or more copied into the clip rows after the clips of the states open, and the drawer told.)
@@ -1275,7 +1277,7 @@ export function createShim(G) {
     onGPU: true,   // (what a chart asks to know it draws through this; a real context has no such field)
     canvas: null,
     reset(k) {
-      K = k;
+      K = k; grN = 0;
       while (stack.length) spare.push(stack.pop());
       if (st) spare.push(st);
       st = defaults(spare.pop() || fresh());
@@ -1526,8 +1528,18 @@ export function createShim(G) {
     // (The answer is one record, written again by the next call: every caller reads its width at once.)
     // alloc-rare: only when the argument is not already a string (the 2D canvas converts it the same way); a string is not copied
     measureText(t) { const s = typeof t === 'string' ? t : String(t); MT.width = G.measure(s, st.font) + (st.ls ? st.ls * pointsIn(s) : 0); return MT; },
-    createLinearGradient(x0, y0, x1, y1) { const g = { grad: [x0, y0, x1, y1], stops: [], addColorStop(o, col) { g.stops.push([o, col]); } }; return g; },
-    createRadialGradient(x0, y0, r0, x1, y1, r1) { const g = { rad: [x0, y0, r0, x1, y1, r1], stops: [], addColorStop(o, col) { g.stops.push([o, col]); } }; return g; },
+    createLinearGradient(x0, y0, x1, y1) {
+      const g = GR[grN] || (GR[grN] = new Gradient()); grN++;   // alloc-rare: the context makes a gradient only until a frame has asked for as many as any frame will
+      const a = g.g4; a[0] = x0; a[1] = y0; a[2] = x1; a[3] = y1;
+      g.grad = a; g.rad = null; g.n = 0;
+      return g;
+    },
+    createRadialGradient(x0, y0, r0, x1, y1, r1) {
+      const g = GR[grN] || (GR[grN] = new Gradient()); grN++;   // alloc-rare: the context makes a gradient only until a frame has asked for as many as any frame will
+      const r = g.r6; r[0] = x0; r[1] = y0; r[2] = r0; r[3] = x1; r[4] = y1; r[5] = r1;
+      g.rad = r; g.grad = null; g.n = 0;
+      return g;
+    },
     /** A picture (canvas, image or ImageData) in a box, translated with the transform: drawImage(src, x, y) or (src, x, y, w, h). The
      *  picture goes up to the GPU once per src.glVer (a canvas the caller draws again bumps it). */
     drawImage(src, x, y, w, h) {
@@ -1539,7 +1551,16 @@ export function createShim(G) {
   };
   return c;
 }
-const stopColour = (g) => (g && g.stops && g.stops.length ? g.stops[0][1] : 'transparent');
+const stopColour = (g) => (g && g.n ? g.cols[0] : 'transparent');
+
+// A gradient the 2D context hands out: its ends or circles, and up to MAX_STOPS stops (offsets and colours in rows), written in place. The context keeps a
+// few of these and hands them round and round, one for each gradient a frame asks for, so a frame that asks for the same gradients makes nothing. One
+// is good until the context is reset for the next frame (a chart's frame start); a caller that wants a gradient in the next frame asks again.
+const MAX_STOPS = 16;
+class Gradient {
+  constructor() { this.g4 = new Float32Array(4); this.r6 = new Float64Array(6); this.grad = null; this.rad = null; this.offs = new Float64Array(MAX_STOPS); this.cols = new Array(MAX_STOPS).fill(''); this.n = 0; }   // alloc-rare: a gradient is made only until a frame has asked for as many as any frame will; they go round after
+  addColorStop(o, col) { if (this.n < MAX_STOPS) { this.offs[this.n] = o; this.cols[this.n++] = col; } }
+}
 
 /** The pen a chart draws with: the GPU drawer's 2D context where it can draw now ({ ctx, w, h }, ctx.end() ends the frame), else the chart's
  *  canvas sized as fitCanvas sizes it and a pen that draws nothing (util.js), until the GPU can draw it. */

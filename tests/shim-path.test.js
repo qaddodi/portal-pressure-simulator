@@ -28,7 +28,7 @@ const recorder = () => {
     poly(b, st, p0, p1, end, style, alpha) {
       const pieces = [];
       for (let q = p0; q < p1; q++) { const e = q + 1 < p1 ? st[q + 1] : end; if (e - st[q] >= 6) pieces.push(Array.from(b.subarray(st[q], e))); }
-      log.push({ poly: pieces, style: typeof style === 'string' ? style : { grad: style.grad ? Array.from(style.grad) : null, stops: style.stops.map((s) => s[0]) }, alpha });
+      log.push({ poly: pieces, style: typeof style === 'string' ? style : { grad: style.grad ? Array.from(style.grad) : null, stops: Array.from(style.offs.subarray(0, style.n)) }, alpha });
     },
     line(xs, ys, n, style, w, o) {
       log.push({ line: Array.from(xs.subarray(0, n), (x, i) => [x, ys[i]]), w, dash: o.dash ? Array.from(o.dash).slice(0, o.dashN) : null, offset: o.offset, round: o.round, alpha: o.alpha });
@@ -140,4 +140,20 @@ test('letter spacing is added after every character, a surrogate pair counting o
   ctx.letterSpacing = '2px';
   // (the stub measures 6 px for every code unit: a letter, a pair and a letter are 4 units and 3 characters)
   assert.equal(ctx.measureText('a\u{1F600}b').width, 4 * 6 + 3 * 2);
+});
+
+test('gradients are handed round: two in one frame are two, a frame after the reset reuses them rewritten', () => {
+  const { ctx, log } = recorder();
+  const a = ctx.createLinearGradient(0, 0, 10, 0); a.addColorStop(0, '#f00'); a.addColorStop(1, '#00f');
+  const b = ctx.createLinearGradient(0, 0, 10, 0); b.addColorStop(0, '#0f0');
+  assert.notEqual(a, b, 'two asked for in one frame are two');
+  ctx.fillStyle = a; ctx.fillRect(0, 0, 4, 4); ctx.fillStyle = b; ctx.fillRect(0, 0, 4, 4);
+  assert.deepEqual([log[0].style.stops, log[1].style.stops], [[0, 1], [0]], 'each keeps its own stops');
+  ctx.reset(1);
+  const c = ctx.createRadialGradient(1, 2, 3, 4, 5, 6); c.addColorStop(0.25, '#fff');
+  assert.equal(c, a, 'the first of the next frame is the first of the last');
+  ctx.fillStyle = c; ctx.fillRect(0, 0, 4, 4);
+  assert.deepEqual([log[2].style.stops, log[2].style.grad], [[0.25], null], 'rewritten: one stop, a circle not a line');
+  for (let i = 0; i < 20; i++) c.addColorStop(i / 20, '#000');
+  assert.equal(c.n, 16, 'a gradient holds at most the 16 stops the drawer reads');
 });

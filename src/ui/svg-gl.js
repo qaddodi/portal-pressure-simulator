@@ -503,11 +503,10 @@ function stopCss(st, sc, op) {
   st._sc = sc; st._so = op;
   return (st._sv = `rgba(${Math.round(c[0] * 255)}, ${Math.round(c[1] * 255)}, ${Math.round(c[2] * 255)}, ${c[3] * op})`);   // alloc-rare: a stop's colour text, made when its colour or strength changes (kept on the stop)
 }
-// The gradient last made for a shape is kept with what it was made from (its ends or circles, and each stop's offset and colour text),
-// and handed to the pen again while all of that holds: a gradient whose numbers stand still costs nothing in the next frame.
-const GRADS = new WeakMap();
+// A shape's gradient is asked of the pen again for each frame, with its stops read from the page as they stand: the pen (trace-gl.js) hands
+// out the same few gradient objects round and round, so a frame makes nothing, and one asked for here is good until the next frame only.
 const GP = new Float64Array(6);
-function gradientOf(ctx, g, el, slot) {
+function gradientOf(ctx, g, el) {
   const user = g.getAttribute('gradientUnits') === 'userSpaceOnUse';
   let bx = 0, by = 0, bw = 0, bh = 0;
   if (!user) {
@@ -524,33 +523,16 @@ function gradientOf(ctx, g, el, slot) {
   } else {
     GP[0] = gradPt(g, 'x1', 0, user, bw, bx); GP[1] = gradPt(g, 'y1', 0, user, bh, by); GP[2] = gradPt(g, 'x2', 1, user, bw, bx); GP[3] = gradPt(g, 'y2', 0, user, bh, by);
   }
-  // (A shape's fill and its stroke may both be gradients: each keeps its own record, slot 0 for the fill and 1 for the stroke.)
-  let pair = GRADS.get(el);
-  if (!pair) GRADS.set(el, pair = [null, null]);   // alloc-rare: a shape's first gradient (the records are kept on the shape)
-  let kept = pair[slot];
-  if (!kept) pair[slot] = kept = { ctx: null, radial, p: new Float64Array(6), n: -1, offs: [], cols: [], gr: null };   // alloc-rare: a shape's first gradient (the records are kept on the shape)
-  let same = kept.gr !== null && kept.ctx === ctx && kept.radial === radial && kept.p[0] === GP[0] && kept.p[1] === GP[1] && kept.p[2] === GP[2] && kept.p[3] === GP[3] && kept.p[4] === GP[4] && kept.p[5] === GP[5];
-  // The stops, in turn: compared with the kept ones, and written into them where they differ.
-  let n = 0;
+  const gr = radial ? ctx.createRadialGradient(GP[0], GP[1], GP[2], GP[3], GP[4], GP[5]) : ctx.createLinearGradient(GP[0], GP[1], GP[2], GP[3]);
+  // The stops, in turn, given to it as they stand.
   for (let st = g.firstElementChild; st; st = st.nextElementSibling) {
     if (st.localName !== 'stop') continue;
     const S = looks.get(st), off = st.getAttribute('offset') || '0', o = /%$/.test(off) ? parseFloat(off) / 100 : parseFloat(off) || 0;
     // (A stop with no look read yet, a chart built in this frame, takes the colour it is written with: the line never draws empty.)
     const sc = S?.stopAttr || !S ? st.getAttribute('stop-color') : S?.stop;
     if (!sc) continue;
-    const col = stopCss(st, sc, S ? S.stopOp : 1), off01 = Math.max(0, Math.min(1, o));
-    if (same && (kept.n <= n || kept.offs[n] !== off01 || kept.cols[n] !== col)) same = false;
-    kept.offs[n] = off01; kept.cols[n] = col;
-    n++;
+    gr.addColorStop(Math.max(0, Math.min(1, o)), stopCss(st, sc, S ? S.stopOp : 1));
   }
-  if (same && kept.n === n) return kept.gr;
-  kept.n = n; kept.radial = radial; kept.ctx = ctx;
-  for (let i = 0; i < 6; i++) kept.p[i] = GP[i];
-  kept.cols.length = n; kept.offs.length = n;
-  // alloc-rare: the gradient is made again only when its numbers or its stops changed (a glide), and handed on as it is while they stand still
-  const gr = radial ? ctx.createRadialGradient(GP[0], GP[1], GP[2], GP[3], GP[4], GP[5]) : ctx.createLinearGradient(GP[0], GP[1], GP[2], GP[3]);
-  for (let i = 0; i < n; i++) gr.addColorStop(kept.offs[i], kept.cols[i]);
-  kept.gr = gr;
   return gr;
 }
 // The tiles a pattern fill needs to lay over a shape's box b (x0, x1, y0, y1 in tiles, written in place): the box's four corners taken into the
@@ -568,7 +550,7 @@ function tileSpan(bx, by, bw, bh, m, tw, th) {
 }
 function fillByRef(ctx, root, el, tag, ref, alpha, k) {
   if (ref.localName === 'lineargradient' || ref.localName === 'radialgradient') {
-    const gr = gradientOf(ctx, ref, el, 0);
+    const gr = gradientOf(ctx, ref, el);
     if (gr) { ctx.globalAlpha = alpha; ctx.fillStyle = gr; ctx.fill(); }
     return;
   }
@@ -597,7 +579,7 @@ function paintShape(ctx, root, el, tag, L, alpha, k) {
   if (paintOn(L.fill) && tag !== 'line') { ctx.globalAlpha = alpha * L.fo; ctx.fillStyle = L.fill; ctx.fill(); }
   else if (tag !== 'line' && /^url\(/.test(L.fill || '')) { const ref = refOf(root, ownPaint(el, 'fill', L.fill)); if (ref) { fillByRef(ctx, root, el, tag, ref, alpha * L.fo, k); if (ref.localName === 'pattern') shapePath(ctx, el, tag, k); } }
   const sRef = !paintOn(L.stroke) && /^url\(/.test(L.stroke || '') ? refOf(root, ownPaint(el, 'stroke', L.stroke)) : null;
-  const sGr = sRef && (sRef.localName === 'lineargradient' || sRef.localName === 'radialgradient') ? gradientOf(ctx, sRef, el, 1) : null;
+  const sGr = sRef && (sRef.localName === 'lineargradient' || sRef.localName === 'radialgradient') ? gradientOf(ctx, sRef, el) : null;
   if ((paintOn(L.stroke) || sGr) && L.sw > 0) {
     const s = L.fixed ? 1 / k : 1;
     ctx.globalAlpha = alpha * L.so; ctx.strokeStyle = sGr || L.stroke; ctx.lineWidth = L.sw * s;

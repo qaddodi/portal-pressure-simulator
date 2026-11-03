@@ -1,6 +1,6 @@
 // The GPU drawer's 2D context (trace-gl.js createShim) makes nothing in a frame once it has been made and has drawn the same kind of frame a
 // few times (2 Nov 2026: "cut per-frame garbage in chart drawing"). A child process draws 100 frames of a chart's usual calls (paths, strokes,
-// dashes, clips, saves and restores, boxes, text, the batch calls for a trace) and reports the bytes the heap grew by; a young generation too big
+// dashes, gradients, clips, saves and restores, boxes, text, the batch calls for a trace) and reports the bytes the heap grew by; a young generation too big
 // for a collection to run in between makes the growth the whole of what was made.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -47,6 +47,8 @@ if (CHILD) {
     ctx.fillStyle = '#36c'; ctx.fillRect(100, 20, 100, 80); ctx.restore();
     ctx.fillStyle = '#eee'; ctx.beginPath(); ctx.roundRect(5, 5, 60, 20, 4); ctx.fill();
     ctx.beginPath(); ctx.arc(200, 50, 12, 0, 2 * Math.PI); ctx.fill(); ctx.stroke();
+    const lg = ctx.createLinearGradient(0, 0, 100, 0); lg.addColorStop(0, '#f00'); lg.addColorStop(1, '#00f'); ctx.fillStyle = lg; ctx.fillRect(0, 0, 50, 50);
+    const rg = ctx.createRadialGradient(20, 20, 2, 20, 20, 30); rg.addColorStop(0, '#fff'); rg.addColorStop(0.5, '#888'); rg.addColorStop(1, '#000'); ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(20, 20, 18, 0, 2 * Math.PI); ctx.fill();
     ctx.font = '500 12px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.letterSpacing = '1px';
     ctx.fillStyle = '#222'; ctx.fillText('mmHg', 8, 10); ctx.fillText('HVPG 12.0', 100, 10); ctx.measureText('WHVP 22.0'); ctx.strokeText('PPG', 200, 10);
     ctx.letterSpacing = '0px'; ctx.getTransform();
@@ -60,10 +62,10 @@ if (CHILD) {
   const before = process.memoryUsage().heapUsed;
   for (let k = 0; k < 100; k++) frame(k);
   const grew = process.memoryUsage().heapUsed - before - base;
-  // The control: a gradient made in each frame is made anew (the 2D canvas's own contract), so the measure must see it.
+  // The control: something made and kept in each frame, so the measure must see it.
   gc();
   const b2 = process.memoryUsage().heapUsed;
-  for (let k = 0; k < 100; k++) { ctx.reset(1); const g = ctx.createLinearGradient(0, 0, 10, 0); g.addColorStop(0, '#f00'); g.addColorStop(1, '#00f'); ctx.fillStyle = g; ctx.fillRect(0, 0, 5, 5); }
+  const sink = []; for (let k = 0; k < 100; k++) { ctx.reset(1); sink.push([k, k + 0.5, { k }]); }
   const control = process.memoryUsage().heapUsed - b2 - base;
   process.stdout.write(`RESULT ${JSON.stringify({ grew, control, drawn })}\n`);
 } else {
@@ -73,7 +75,7 @@ if (CHILD) {
     assert.ok(m, `the child gave no result: ${r.stderr || r.stdout}`);
     const { grew, control, drawn } = JSON.parse(m[1]);
     assert.ok(drawn > 1000, 'the frames drew');
-    assert.ok(control > 20000, `the measure sees what is made (the control made ${control} bytes)`);
+    assert.ok(control > 10000, `the measure sees what is made (the control made ${control} bytes)`);
     assert.ok(grew < 2048, `100 frames grew the heap by ${grew} bytes (the shim should make nothing in a frame)`);
   });
 }
