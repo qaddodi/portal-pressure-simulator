@@ -10685,7 +10685,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     // The GPU label layer already glides from the ridden position at a pinch landing. A second layout glide would move its target
     // on every frame and make the label drift again after the hand stops.
-    const snap = reduceMotion.matches || camMove || !!handRide?.settle || wrap.classList.contains('cam-move') || wrap.classList.contains('pinch-hide') || wrap.classList.contains('cath-on') || !!lz?.isOpen();
+    // (Drawn by the GPU, no label eases here: its offset from its point is the layout's at once, and label-gl.js alone moves one that changes
+    // slot, once (V-LBL-1). Eased here as well, the GPU's labels were carried to their places over 450 ms: "the labels match slowly
+    // towards their positions", Mohammad, 3 Nov.)
+    const snap = (!!labelGL && !labelGL.lost) || reduceMotion.matches || camMove || !!handRide?.settle || wrap.classList.contains('cam-move') || wrap.classList.contains('pinch-hide') || wrap.classList.contains('cath-on') || !!lz?.isOpen();
     let moving = false;
     for (const it of out) {
       const b = pool.get(it.key);   // (a label with no block yet is new: it fades in where it stands)

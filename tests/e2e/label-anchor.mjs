@@ -28,6 +28,7 @@ const unsure = (m) => { unsureN++; console.log(`INCONCLUSIVE ${m}`); };
 const BREAK = !!process.env.LA_BREAK;
 const ONLY = (process.env.LA_ONLY || 'pan,zoom,switch').split(',');
 const DEVS = (process.env.LA_DEV || 'mac,iphone,iphone-reduce').split(',');
+const VIEWS = (process.env.LA_VIEWS || 'circuit,anatomic').split(','), REPEAT = Math.max(1, +process.env.LA_REPEAT || 1);   // (LA_REPEAT: each pan that many times, back and forth, to catch a rare one)
 
 const record = (page) => page.evaluate((BREAK) => {
   const rows = (window.__laRows = []);
@@ -55,6 +56,7 @@ const record = (page) => page.evaluate((BREAK) => {
 }, BREAK);
 const stop = (page) => page.evaluate(() => { globalThis.__frameProbe = null; return window.__laRows; });
 
+const atEdge = (b, W, H) => b.x < 6 || b.y < 6 || b.x + b.w > W - 6 || b.y + b.h > H - 6;
 const boxDist = (px, py, l) => Math.hypot(Math.max(l.x - px, 0, px - (l.x + l.w)), Math.max(l.y - py, 0, py - (l.y + l.h)));
 /** The judgement over recorded rows (exported for tests/label-anchor.test.js). Returns { issues: [text], frames }. */
 export function judgeRows(rows, { W = 1e9, H = 1e9 } = {}) {
@@ -80,8 +82,10 @@ export function judgeRows(rows, { W = 1e9, H = 1e9 } = {}) {
     if (prev) for (const [k, l] of by) {
       const p = prev.get(k);
       if (!p || l.glide || p.glide) continue;   // (a new layout's offset easing at rest: its point, dot and leader are judged above, not its move)
+      // (A label held against the stage's edge (its box within 6 px of it in both frames) keeps to the screen as the figure moves past it.)
+      if (atEdge(l, W, H) && atEdge(p, W, H)) continue;
       const j = Math.hypot((l.x - p.x) - (l.ax - p.ax), (l.y - p.y) - (l.ay - p.ay));
-      if (j > JUMP) add(`j${k}`, `${k} (${p.pin ? 'pinned' : 'unpinned'}→${l.pin ? 'pinned' : 'unpinned'}, gen ${p.gen}→${l.gen}): label moved ${j.toFixed(1)} px against its point between frames ${r.seq - 1}→${r.seq}`);
+      if (j > JUMP) add(`j${k}`, `${k} (${p.pin ? 'pinned' : 'unpinned'}→${l.pin ? 'pinned' : 'unpinned'}, gen ${p.gen}→${l.gen}): label moved ${j.toFixed(1)} px against its point between frames ${r.seq - 1}→${r.seq} (box ${p.x.toFixed(0)},${p.y.toFixed(0)} ${p.w?.toFixed?.(0)}x${p.h?.toFixed?.(0)} → ${l.x.toFixed(0)},${l.y.toFixed(0)} ${l.w?.toFixed?.(0)}x${l.h?.toFixed?.(0)}; point ${p.ax.toFixed(0)},${p.ay.toFixed(0)} → ${l.ax.toFixed(0)},${l.ay.toFixed(0)})`);
       if (l.line && p.line) {
         const len = (q) => Math.hypot(q.line[2] - q.line[0], q.line[3] - q.line[1]);
         const dl = Math.abs(len(l) - len(p));
@@ -91,6 +95,10 @@ export function judgeRows(rows, { W = 1e9, H = 1e9 } = {}) {
     prev = by;
   }
   for (const [k, n] of seen) if (n > 3) issues.push(`(${k.replace(/^[a-z]+/, '')}: ${n - 3} more of that kind)`);
+  // (Eased, not ridden: a label gliding in more than a third of the frames (at least 6) is one trailing towards its place, V-LBL-1.)
+  const gl = new Map(), seenK = new Map();
+  for (const r of rows) for (const l of r.L) { seenK.set(l.key, (seenK.get(l.key) || 0) + 1); if (l.glide) gl.set(l.key, (gl.get(l.key) || 0) + 1); }
+  for (const [k, n] of gl) if (n >= 6 && n > seenK.get(k) / 3) issues.push(`${k}: eased towards its place in ${n} of ${seenK.get(k)} frames (labels ride the figure; only a slot change glides, once)`);
   return { issues, frames: rows.filter((r) => r.L.length).length };
 }
 
@@ -138,7 +146,7 @@ try {
     await settle(page);
     const vp = await page.evaluate(() => ({ W: innerWidth, H: innerHeight }));
     const cx = Math.round(vp.W / 2), cy = Math.round(vp.H / 2);
-    for (const view of ['circuit', 'anatomic']) {
+    for (const view of VIEWS) {
       if (view === 'anatomic') {
         if (ONLY.includes('switch')) await gesture(page, `${device} switch to anatomy`, () => page.evaluate(() => document.querySelector('#viewSeg [data-view="anatomic"]').click()), vp, 3, 40000);
         else await page.evaluate(() => document.querySelector('#viewSeg [data-view="anatomic"]').click());
@@ -147,12 +155,15 @@ try {
       // (The view at rest: judged on its own frames too.)
       await gesture(page, `${device} ${view} rest`, async () => {}, vp, 1);
       if (ONLY.includes('pan')) {
-        await gesture(page, `${device} ${view} pan`, async () => {
-          await page.mouse.move(cx, cy); await page.mouse.down();
-          for (let i = 1; i <= 16; i++) await page.mouse.move(cx + i * 6, cy - i * 4);
-          await page.mouse.up();
-        }, vp);
-        await settle(page);
+        for (let n = 0; n < REPEAT; n++) {
+          const sg = n % 2 ? -1 : 1;
+          await gesture(page, `${device} ${view} pan${REPEAT > 1 ? ` ${n + 1}` : ''}`, async () => {
+            await page.mouse.move(cx, cy); await page.mouse.down();
+            for (let i = 1; i <= 16; i++) await page.mouse.move(cx + sg * i * 6, cy - sg * i * 4);
+            await page.mouse.up();
+          }, vp);
+          await settle(page);
+        }
       }
       if (ONLY.includes('zoom')) {
         await gesture(page, `${device} ${view} zoom`, async () => {

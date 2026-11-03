@@ -18,7 +18,7 @@ import { ucOf } from './uniform-cache.js';
 import { classOnly, GESTURE_LOOK } from './idle-keys.js';
 import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js';
 import { createAtlasPacker } from './atlas-pack.js';
-import { easeMove, D_SURFACE } from './ease.js';
+import { easeMove, D_SURFACE, D_SMALL } from './ease.js';
 import { createShapeGL, flattenPath, polyMeshInto, ellipsePoly } from './shape-gl.js';
 import { createOrganPaint, parseColor, mul } from './organ-paint.js';
 import { textPolys, textWidth, loadGlyphs, glyphsReady, textCovers } from './text-gl.js';
@@ -679,10 +679,13 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // (The offset a pinned label is drawn at this frame, CSS px, into OFF: its layout's, or part way there from where it was drawn while its
   // glide runs. Returns the glide's share, 1 once it is over or there is none. The marks and the label read the same.)
   const OFF = [0, 0];
+  const PIN_FRAMES = 6, PIN_SNAP = 16;   // (a slot change's glide: D_SMALL and at least PIN_FRAMES frames; a nudge up to PIN_SNAP px is at once)
   function pinOff(s, now) {
     let ox = s.x - s.pax, oy = s.y - s.pay, u = 1;
     const pg = pinGlides.get(s.g);
-    if (pg) { u = pg.t0 === Infinity ? 0 : easeMove(Math.max(0, Math.min(1, (now - pg.t0) / RIDE_MS))); ox = pg.fx + (ox - pg.fx) * u; oy = pg.fy + (oy - pg.fy) * u; }
+    // (Over at least PIN_FRAMES drawn frames as well as RIDE_MS: on a slow phone a frame can take longer than the whole glide, and the label
+    // jumped to its new place in one frame: the Circuit's sinusoids and right hepatic vein, 78 px, as an iPhone pan sprang back.)
+    if (pg) { u = pg.t0 === Infinity ? 0 : easeMove(Math.max(0, Math.min(1, (now - pg.t0) / D_SMALL, pg.n / PIN_FRAMES))); ox = pg.fx + (ox - pg.fx) * u; oy = pg.fy + (oy - pg.fy) * u; }
     OFF[0] = ox; OFF[1] = oy;
     return u;
   }
@@ -1325,6 +1328,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
       const pinned = pinOf(s);
       if (pinned) {
         // (Pinned: at its point now plus its offset, the offset easing from where it was drawn only while a new layout's glide runs.)
+        const pgN = pinGlides.get(g);
+        if (pgN && pgN.t0 !== Infinity) pgN.n++;   // (one more frame of its glide drawn)
         const u0 = pinOff(s, now), ox = OFF[0], oy = OFF[1];
         if (pinGlides.has(g)) { if (u0 >= 1) pinGlides.delete(g); else { moving = true; shifted++; } }
         const fi = glides.get(g);
@@ -2341,11 +2346,13 @@ void main() { o = texture(uT, vUV) * uA; }`;
           let fx = fresh ? pl[0] : st.pox, fy = fresh ? pl[1] : st.poy;
           if (!fresh && !st.pin) { if (!pinOf(s)) continue; fx = (st.dx - st.ox) / dpr - PIN[0]; fy = (st.dy - st.oy) / dpr - PIN[1]; }
           const nx = s.x - s.pax, ny = s.y - s.pay, pg = pinGlides.get(s.g);
-          if (Math.hypot(nx - fx, ny - fy) <= 0.75) { if (pg) pinGlides.delete(s.g); continue; }
+          // (Only a change of slot moves by a glide (V-LBL-1, V-LBL-6): a nudge of up to PIN_SNAP px (an edge's pull as the figure pans, a
+          // width that changed) is the layout's at once, so the label never trails towards where it belongs.)
+          if (Math.hypot(nx - fx, ny - fy) <= PIN_SNAP && !(pg && pg.t0 === Infinity)) { if (pg) pinGlides.delete(s.g); continue; }
           // (While a hand moves the figure (pinHeld) a new layout's offset waits: the label stays rigid on its point, and eases to its new
           // place once the hand lets go. An edge pull or a reslot in the middle of a pan was a label sliding against its point.)
           const tg = pinHeldNow() ? Infinity : t0;
-          if (pg) { if (pg.t0 !== Infinity || tg === Infinity) { pg.fx = fx; pg.fy = fy; } pg.t0 = tg; } else pinGlides.set(s.g, { fx, fy, t0: tg });   // alloc-rare: one record per label that moves at a layout
+          if (pg) { if (pg.t0 !== Infinity || tg === Infinity) { pg.fx = fx; pg.fy = fy; } pg.t0 = tg; pg.n = 0; } else pinGlides.set(s.g, { fx, fy, t0: tg, n: 0 });   // alloc-rare: one record per label that moves at a layout
         }
       }
       last = list; gen++; stuck = false;
