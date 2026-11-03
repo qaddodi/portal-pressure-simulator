@@ -38,3 +38,9 @@ test('pointer activation is held off while a ride or a moving glide has the pict
   assert.match(lg, /if \(off !== displaced\) \{ displaced = off; classSoon\(svg, 'lb-displaced', off\); \}/);
   assert.match(lg, /if \(u < 1\) shifted\+\+; \}/);
 });
+
+test('the pointer hold is lifted when the pictures are given back to the SVG or the context is lost', () => {
+  assert.match(lg, /function undisplace\(\) \{ if \(displaced\) \{ displaced = false; classSoon\(svg, 'lb-displaced', false\); \} \}/);
+  assert.match(lg, /function release\(\) \{\n\s+undisplace\(\);/);
+  assert.match(lg, /lost = true; undisplace\(\);/);
+});

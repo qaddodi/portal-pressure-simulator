@@ -878,7 +878,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   }
   const allMarks = () => { const t = performance.now() + 700; for (const root of marks) { markDirty.add(root); markLive.set(root, t); if (!TRACK) markExact.set(root, t); for (const el of root.children) { markDirty.add(el); markLive.set(el, t); if (!TRACK) markExact.set(el, t); } } };
   canvas.addEventListener('webglcontextlost', (e) => {
-    e.preventDefault(); lost = true;
+    e.preventDefault(); lost = true; undisplace();
     for (const s of last) s.g.removeAttribute('data-gl');
     for (const root of marks) for (const el of root.children) el.removeAttribute('data-gl');
     scanEl?.removeAttribute('data-gl');
@@ -943,8 +943,11 @@ void main() { o = texture(uT, vUV) * uA; }`;
     if (!released) { if (!host.active()) { host.now(); if (!released) release(); } return; }
     if (host.active()) ask();
   }
+  // (No picture standing off its label any more, the SVG's labels being the ones shown: their pointer events are theirs again.)
+  function undisplace() { if (displaced) { displaced = false; classSoon(svg, 'lb-displaced', false); } }
   // Every label, mark and the probes given back to the SVG (host mode, while the labels may not be drawn over the figure).
   function release() {
+    undisplace();
     for (const s of last) s.g.removeAttribute('data-gl');
     for (const root of marks) for (const el of root.children) el.removeAttribute('data-gl');
     scanEl?.removeAttribute('data-gl');
