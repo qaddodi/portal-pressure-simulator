@@ -30,6 +30,7 @@ test("the style sheet's phone blocks use exactly those queries", () => {
     '(min-width: 360px) and (max-width: 767px), (min-width: 360px) and (max-width: 1100px) and (orientation: portrait)',
     '(max-width: 767px) and (prefers-reduced-motion: no-preference), (max-width: 1100px) and (orientation: portrait) and (prefers-reduced-motion: no-preference)',
     '(max-width: 720px) and (max-height: 500px) and (orientation: landscape)',
+    '(min-width: 1000px), (orientation: landscape) and (max-height: 500px)',   // the iPad/Mac bottom bar, also on a phone on its side
   ];
   for (const q of qs) assert.ok([STACK_MQ, PHONE_MQ, ...NARROWED].includes(q), `app.css: @media ${q}`);
   for (const q of [...css.matchAll(/@media ([^{]*max-height: 500px[^{]*)\{/g)].map((m) => m[1].trim())) assert.ok([SIDEWAYS_MQ, SHORT_SIDE_MQ, PHONE_MQ, ...NARROWED].includes(q), `app.css: @media ${q}`);

@@ -3805,11 +3805,15 @@ button.finding { cursor: pointer; }
 .app.instrument-focus .stage-view { display: block; visibility: hidden; }
 .app.instrument-focus .vdock .readouts { display: none; }
 
+/* Upright phones keep the toolbar icon-only; a phone on its side keeps the iPad's labelled toolbar (Treat, Tests, History) until
+   main.js's bar fit (data-fit 2-3) has to drop them to keep one row. */
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
+  .tb-sep, .tb-act > span { display: none; }
+}
 /* Phone and small landscape: the chart and Treat open as bottom sheets with three heights
    (peek, half, full); a drag on the handle moves between them. */
 @media (max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape), (max-width: 1100px) and (orientation: portrait) {
   .top-right.float-pill { gap: 0; padding: 3px; }
-  .tb-sep, .tb-act > span { display: none; }
   .tb-act { padding: 0 8px; height: 38px; }
   .tb-id { flex: 1 1 0; }
   .tb-id .brand { padding: 2px; }
@@ -4454,9 +4458,7 @@ input[type="range"] { touch-action: none; }
   .vdock .timeline { gap: 6px; }
   .vdock .tl-hist { padding: 0 6px; gap: 4px; }
 }
-@media (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
-  .vdock .readouts:not(.all) .metric .v .unit { display: none; }
-}
+/* (A phone on its side shows the unit beside each reading, as the iPad does.) */
 
 /* Text is not selectable anywhere, with a mouse or a finger: a drag or a long press highlights
    nothing, and a long press stays a gesture here (hold to inspect, drag, pinch). Fields that take
@@ -6925,12 +6927,13 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
   .vdock:not(.mini) .readouts:not(.all) .metric.primary { flex: none; width: max-content; }
 }
 .app:not(.presenting) .vdock .readouts:not(.all) .metric .val { display: inline-block; min-width: var(--vr, 0px); text-align: left; font-variant-numeric: tabular-nums; }   /* (room for the tile's usual reading, set per tile in dock.js, so a reading keeps its width as it changes; the spare room falls after the value) */
-@media (min-width: 1000px) {   /* (a Mac, where the unit shows: the room is kept after "mmHg" instead, so the unit stays beside its value) */
+@media (min-width: 1000px), (orientation: landscape) and (max-height: 500px) {   /* (a Mac, where the unit shows: the room is kept after "mmHg" instead, so the unit stays beside its value) */
   .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) .metric:is([data-id="hvpg"], [data-id="ppg"]) .val { min-width: var(--vr, 0px); text-align: right; }
   .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) .metric:is([data-id="hvpg"], [data-id="ppg"]) .v { display: inline-block; }   /* (3 Nov 2026, "it's hidden then appears and jumbles around": the value's box is the same wide whether it shows a dash, "4.5" or "16.5", flush to its right, so the unit never moves) */
 }
-@media (min-width: 1000px) {   /* (a Mac from 1024 px, an iPad held sideways) */
+@media (min-width: 1000px), (orientation: landscape) and (max-height: 500px) {   /* (a Mac from 1024 px, an iPad held sideways) */
   .app:not(.thumb):not(.presenting) .vdock { width: max-content; max-width: calc(100% - 2 * var(--gap)); }
+  .app:not(.thumb):not(.presenting):not(.dock-open) .vdock { left: 50%; right: auto; transform: translateX(-50%); }   /* (centred as on the iPad, where a phone on its side had it left-aligned) */
   .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) :is(.ro-tiles, .metric) { flex: none; }
   .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) .metric { width: max-content; }
   .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) .metric :is(.k, .v) { flex: none; overflow: visible; }
