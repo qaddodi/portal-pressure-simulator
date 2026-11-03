@@ -402,7 +402,7 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
     },
     /** The whole layer moved as one: a point p is drawn at k p + (e, f) (px). A pan is k 1; the lobule's dive is a scale about a point. */
     view(k, e, f) { if (vk === k && ve === e && vf === f) return; vk = k; ve = e; vf = f; api.paint(); },
-    paint() { if (!ask && !drawing) ask = finalFrame(draw); },
+    paint() { if (!drawing) retries = 0; if (!ask && !drawing) ask = finalFrame(draw); },   // (a new ask starts the tries of a failed hand-over again)
     /** Draws now, in this frame (the owner's frame moved the figure: its names move with it). */
     drawNow() { if (ask) return; draw(); },
     dispose() { gpu?.dispose?.(); gpu = null; present(false); },
