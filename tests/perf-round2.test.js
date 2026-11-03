@@ -25,16 +25,21 @@ test('P7: live labels, the clock and the stage readouts rewrite their text node 
   assert.match(tl, /putText\(timeLong, t\); putText\(timeShort,/);
 });
 
+// (Rest passes run between frames, after a message task and under the shared preparation budget: how soon is the machine's, so a test waits for
+// the effect itself, up to a second, never a fixed few milliseconds. What is asserted is unchanged.)
+const until = async (ok, ms = 1000) => { const t0 = Date.now(); while (!ok() && Date.now() - t0 < ms) await new Promise((r) => setTimeout(r, 2)); };
+
 test('putText keeps the text node and changes only its data; an element without one gets its text set (between frames)', async () => {
   const node = { nodeType: 3, nextSibling: null, data: '12.0' };
   const el = { firstChild: node, set textContent(v) { throw new Error('rebuilt'); }, get textContent() { return node.data; } };
   putText(el, '12.4');
-  await new Promise((r) => setTimeout(r, 30));   // (written in a rest pass between frames, never in the frame that asked)
+  assert.equal(node.data, '12.0', 'not written in the frame that asked');
+  await until(() => node.data === '12.4');   // (written in a rest pass between frames)
   assert.equal(node.data, '12.4');
   putText(el, '12.4');
   const empty = { firstChild: null, textContent: '' };
   putText(empty, '7');
-  await new Promise((r) => setTimeout(r, 30));
+  await until(() => empty.textContent === '7');
   assert.equal(empty.textContent, '7');
 });
 
@@ -82,22 +87,22 @@ test('NP11: afterExit hides once the exit animations end, never for an element o
   const el = { classList: { contains: (c) => cls.has(c) }, getAnimations: () => [{ finished }] };
   let hidden = 0;
   afterExit(el, 'leaving', () => hidden++, 5000);
-  await new Promise((r) => setTimeout(r, 10));
+  await new Promise((r) => setTimeout(r, 30));
   assert.equal(hidden, 0, 'waits for the fade');
   resolve();
-  await new Promise((r) => setTimeout(r, 0));
+  await until(() => hidden === 1);
   assert.equal(hidden, 1);
   // Opened again before its fade ended: the leaving class is gone, nothing hides.
   let r2; const f2 = new Promise((r) => { r2 = r; });
   el.getAnimations = () => [{ finished: f2 }];
   const t = afterExit(el, 'leaving', () => hidden++, 5000);
   cls.delete('leaving'); clearTimeout(t); r2();
-  await new Promise((r) => setTimeout(r, 0));
+  await new Promise((r) => setTimeout(r, 60));   // (long enough for its rest pass to have run on an idle machine: nothing may hide)
   assert.equal(hidden, 1);
   // No animation at all: it hides at once (next task).
   cls.add('leaving'); el.getAnimations = () => [];
   afterExit(el, 'leaving', () => hidden++, 5000);
-  await new Promise((r) => setTimeout(r, 5));
+  await until(() => hidden === 2);
   assert.equal(hidden, 2);
 });
 
