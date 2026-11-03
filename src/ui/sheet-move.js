@@ -8,7 +8,7 @@
 // the frames carry the eases (script-glide.js: the content's inline translate written in the frame the glass reads it in, 3 Nov 2026 "cards
 // trailing behind": a compositor animation can stand a display frame off the glass drawn over the same sheet).
 import { D_SMALL, EASE_ARRIVE, cssCurve } from './ease.js';
-import { moverOf } from './num-move.js';
+import { moverOf, signalMove } from './num-move.js';
 import { glideTranslate, glideStop, glideY } from './script-glide.js';
 
 /** The sheet's moving parts (its plate first, put in once). */
@@ -70,12 +70,15 @@ export function setSheetOffset(el, y) {
   el._sheetOff = y;
   const v = y ? `0px ${y}px` : '';
   for (const c of el.children) c.style.translate = v;   // (its plate put in as the sheet was set up: sheetParts)
+  signalMove();
 }
 
 export function stopSheet(el) {
   dropDrag(el);
   const r = runs.get(el);
   if (!r) return;
+  const y = glideY(r.parts[0]);
+  if (Number.isFinite(y)) el._sheetOff = y;
   runs.delete(el); clearTimeout(r.timer);
   for (const c of r.parts) glideStop(c);
 }
@@ -87,13 +90,13 @@ export function glideSheet(el, y, { easing = EASE_ARRIVE, duration = D_SMALL, do
   const parts = [...el.children];   // (the plate first, put in as the sheet was set up: sheetParts)
   el._sheetOff = y;
   const v = y ? `0px ${y}px` : '';
-  if (Math.abs(from - y) < 0.5) { for (const c of parts) c.style.translate = v; done?.(); return; }
+  if (Math.abs(from - y) < 0.5) { for (const c of parts) c.style.translate = v; signalMove(); done?.(); return; }
   const ease = cssCurve(easing);
   // alloc-rare: a sheet's ease begins: one record and its end, once for each move, not for each frame
   const r = { parts, to: y, timer: 0 };
   runs.set(el, r);
   // (Put where it lands, in the exact text the stylesheet and a pull expect; every part's glide ended first, so none writes after.)
-  const end = () => { if (runs.get(el) !== r) return; runs.delete(el); clearTimeout(r.timer); for (const c of parts) { glideStop(c); c.style.translate = v; } done?.(); };
+  const end = () => { if (runs.get(el) !== r) return; runs.delete(el); clearTimeout(r.timer); for (const c of parts) { glideStop(c); c.style.translate = v; } signalMove(); done?.(); };
   for (let i = 0; i < parts.length; i++) glideTranslate(parts[i], 0, from, 0, y, duration, ease, i ? undefined : end);
   r.timer = setTimeout(end, duration + 120);   // (a page whose frames stall, in the background or a busy browser, still lands on time)
 }

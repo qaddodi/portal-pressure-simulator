@@ -1965,12 +1965,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // (It carries on from where the finger let go at the finger's own speed, then eases out as it fades to nothing; a slow
   // let-go still takes long enough to be seen leaving, never a pop. The card is hidden only once the flight is over.)
   function caseFly(card, dir, v, w) {   // (w: the card's width, read at rest: as the finger landed, or before a wheel's throw)
-    const c = card.c, dist = innerWidth / 2 + w, left = Math.max(1, dist - Math.abs(card.dx || 0));
+    const c = card.c, dist = innerWidth / 2 + w, gx = glideX(c), gy = glideY(c);
+    const x = Number.isFinite(gx) ? gx : (card.dx || 0), y = Number.isFinite(gy) ? gy : (card.dragY || 0), opacity = parseFloat(c.style.opacity);
+    const left = Math.max(1, dist - Math.abs(x));
     // (With reduced motion it only fades where it was let go.)
     const ms = reduce.matches ? 300 : caseFlight(left, v);
     const slope = (Math.abs(v) * ms) / left;   // the finger's speed as the curve's starting slope
-    const gx = glideX(c), gy = glideY(c);
-    const x = Number.isFinite(gx) ? gx : (card.dx || 0), y = Number.isFinite(gy) ? gy : (card.dragY || 0), opacity = parseFloat(c.style.opacity);
     const curve = cssCurve(`cubic-bezier(.33,${clamp(0.33 * slope, 0.12, 0.9).toFixed(2)},.45,1)`);
     caseFadeTokens.set(c, {}); glideStop(c);
     c.style.removeProperty('transition'); c.style.removeProperty('transform');
@@ -5375,6 +5375,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const g = cd; cd = null;
     if (!g?.on) return;
     g.card.drag = false; caseDragAt = performance.now();
+    if (g.card.flown || caseCard !== g.card) return;
     const p = g.pts, a = p[0], b = p[p.length - 1], v = b[1] - a[1] >= 16 ? (b[0] - a[0]) / (b[1] - a[1]) : 0;
     const dir = fly ? caseFling(g.card.dx, v, g.w) : 0;
     if (dir) caseFly(g.card, dir, v, g.w); else caseBack(g.card);
@@ -5395,6 +5396,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (Math.abs(moveX) < 8) return;
       const x0 = glideX(cd.card.c), y0 = glideY(cd.card.c);
       cd.baseX = Number.isFinite(x0) ? x0 : 0; cd.card.dragY = Number.isFinite(y0) ? y0 : 0;
+      const opacity = parseFloat(cd.card.c.style.opacity);
+      cd.opacity = Number.isFinite(opacity) ? opacity : 1;
       caseFadeTokens.set(cd.card.c, {}); glideStop(cd.card.c);
       cd.card.c.style.translate = cd.card.dragY ? `0px ${cd.card.dragY}px` : '';
       cd.on = true; cd.card.drag = true;
@@ -5406,7 +5409,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const c = cd.card.c, w = cd.w, dx = (cd.baseX || 0) + moveX;
     cd.card.dx = dx;
     c.style.transform = `translateX(${dx}px)`;
-    c.style.opacity = String(1 - Math.min(0.5, Math.abs(dx) / w * 0.6));
+    c.style.opacity = String(Math.min(cd.opacity, 1 - Math.min(0.5, Math.abs(dx) / w * 0.6)));
     signalMove();
   }, { passive: false, capture: true });
   wrap.addEventListener('touchend', (e) => { if (cd && !e.touches.length) caseLet(true); }, { passive: true, capture: true });
