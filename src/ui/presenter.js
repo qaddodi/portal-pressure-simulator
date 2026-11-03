@@ -2140,7 +2140,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (A data card the next slide keeps (card-keep.js keepData: the same instrument, a patient it can ride to) stays where it is and glides
     // to the new numbers, never thrown out and built again (Mohammad, 2 Nov 2026: "if the graph is gonna change, it should TRANSITION not just
     // pop out and in").)
-    const nx = slides[want], keeps = !!nx && !!shown && keepData({ from: dataOn, to: planOf(nx, want), prev: slides[shown.i], next: nx, swap: stateOf[want] !== shownState || liveOff });
+    const nx = slides[want], pl = nx ? planOf(nx, want) : null;
+    // (A plan not yet known (undefined: a state its tiles' ring is counted from is still being computed, as on a phone at the press) is not "thrown out": the card
+    // waits where it is, and the slide's own change keeps it or lets it go, as it does for a card the press found stays. Thrown out on the press and then kept
+    // a moment later, it left and came back: Mohammad, 3 Nov 2026, the iPhone's Next with the same instrument on the next slide.)
+    const keeps = !!nx && !!shown && (pl === undefined && !!dataOn || keepData({ from: dataOn, to: pl, prev: slides[shown.i], next: nx, swap: stateOf[want] !== shownState || liveOff }));
     const els = [ui.text, keeps ? null : ui.data, ui.panel].filter((el) => el && showing(el));
     if (!els.length) return;
     if (els.includes(ui.text) && !ui.shade.classList.contains('pz-leave') && ui.shade.style.opacity !== '0') els.push(ui.shade);
