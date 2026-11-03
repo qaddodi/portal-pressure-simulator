@@ -3414,13 +3414,6 @@ button.finding { cursor: pointer; }
 .app .cath-label.site.res.low.keyed .res-k { bottom: auto; top: calc(100% + 4px); }
 .app .cath-label.site.res.low.keyed:not(.coll, .gut) .res-k { left: calc(100% + 10px); }
 .app .cath-label.site.res.coll.low.keyed .res-k { left: -10px; }
-/* The circuit's resistors: a zigzag over the vessel, heavier as its resistance rises (eased, never a jump). */
-.res-one { transition: opacity var(--d-surface) var(--ease); }
-.res-one path { fill: none; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; transition: none; }
-.res-one .res-halo { stroke: var(--stage-bg, var(--bg)); stroke-width: calc(var(--res-w, 1.5px) + 3px); opacity: .85; transition: opacity var(--d-surface) var(--ease); }
-.res-one .res-line { stroke: var(--res-c, var(--text)); stroke-width: var(--res-w, 1.5px); opacity: .8; transition: opacity var(--d-surface) var(--ease); }
-.res-one.lit .res-line { opacity: 1; stroke-width: calc(var(--res-w, 1.5px) + 1.5px); }
-.res-one.lit .res-halo { stroke: var(--res-c); stroke-width: calc(var(--res-w, 1.5px) + 9px); opacity: .22; }
 .cath-label.site.off { --lo: 0; } .cath-label.site.off, .cath-label.site.off > * { transition-delay: 0s; }
 /* (A hidden callout's frosted glass is hidden outright once it has faded, and its shadow fades with it: the shadow left behind
    drew a ghost rectangle over the figure on a phone.) */

@@ -676,6 +676,8 @@ export function createOrganStack(gl, { painter: shared = null, moves = !shared }
     },
     /** The names the stack lays, back to front (the layers' and the live organs'). */
     setOrder(names) { setNames(names); ver++; },
+    /** A live group's shapes were written in place (a kept record, no element for the page's watch to see): the next render draws them. */
+    touch() { pageVer++; },
     drop(slot) { if (live[slot].size) { free(live[slot]); ver++; } free(staged[slot]); },
     has: (slot) => live[slot].size > 0 || (slot === 0 && full),   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
     /** Whether a slot holds pictures of its own (not only the live layers that stand in for them). */
