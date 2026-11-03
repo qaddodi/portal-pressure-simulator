@@ -21,7 +21,7 @@ test('each frame of the glide carries them on the GPU; the landing ends the ride
 });
 
 test('the ride moves pictures only: each centre carried, at whole device pixels, and the landing eases every label', () => {
-  assert.match(lg, /x = Math\.round\(\(M\[0\] \* cx \+ M\[2\] \* cy \+ M\[4\]\) \* dpr - st\.w \/ 2\); y = Math\.round\(\(M\[1\] \* cx \+ M\[3\] \* cy \+ M\[5\]\) \* dpr - st\.h \/ 2\);/);
+  assert.match(lg, /const ux = Math\.round\(\(M\[0\] \* cx \+ M\[2\] \* cy \+ M\[4\]\) \* dpr - st\.w \/ 2\), uy = Math\.round\(\(M\[1\] \* cx \+ M\[3\] \* cy \+ M\[5\]\) \* dpr - st\.h \/ 2\);/);   // (R: now held inside the stage by rideAt)
   assert.match(lg, /const u = easeMove\(Math\.min\(1, \(now - gl0\.t0\) \/ RIDE_MS\)\);/);
   // (The glide and fade-out records come from a pool and are given back, so a landing makes none: 2 Nov 2026.)
   assert.match(lg, /r\.t0 = t0; r\.fadeIn = !f;\n\s+if \(f\) \{ r\.fx = f\.x; r\.fy = f\.y; \}\n\s+glides\.set\(s\.g, r\);/);

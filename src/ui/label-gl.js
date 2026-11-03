@@ -1288,9 +1288,10 @@ void main() { o = texture(uT, vUV) * uA; }`;
       // (The label's origin on a whole device pixel, the picture at its offset from it.)
       let x = Math.round(s.x * dpr) + st.ox, y = Math.round(s.y * dpr) + st.oy, a = Math.min(1, st.opacity);
       if (rideM) {
-        // (Riding: its centre carried by the camera's move since it was laid out, on a whole device pixel.)
-        const cx = (x + st.w / 2) / dpr, cy = (y + st.h / 2) / dpr, M = rideM;
-        x = Math.round((M[0] * cx + M[2] * cy + M[4]) * dpr - st.w / 2); y = Math.round((M[1] * cx + M[3] * cy + M[5]) * dpr - st.h / 2);
+        // (Riding: its centre carried by the camera's move since it was laid out, on a whole device pixel, and kept inside the stage: a
+        // label carried past the edge by the zoom stood half off the screen with its leader coming from beyond it, and glided in from there.)
+        rideAt(s, st);
+        x = RIDE_XY[0]; y = RIDE_XY[1];
       } else {
         const gl0 = glides.get(g);
         if (gl0) {
@@ -1547,6 +1548,17 @@ void main() { o = texture(uT, vUV) * uA; }`;
     return true;
   }
   let markDrawn = 0;   // (the marks, leaders and dots, drawn in the last frame that drew any: for the checks, which look at what the GPU shows)
+  // A label's place under a camera ride (device px): its centre carried by the ride's matrix, then held inside the canvas (4 px margin) when
+  // it fits. RIDE_XY: [x, y, how far the hold moved it in x, in y].
+  const RIDE_XY = [0, 0, 0, 0];
+  function rideAt(s, st) {
+    const x = Math.round(s.x * dpr) + st.ox, y = Math.round(s.y * dpr) + st.oy, M = rideM;
+    const cx = (x + st.w / 2) / dpr, cy = (y + st.h / 2) / dpr;
+    const ux = Math.round((M[0] * cx + M[2] * cy + M[4]) * dpr - st.w / 2), uy = Math.round((M[1] * cx + M[3] * cy + M[5]) * dpr - st.h / 2);
+    const m = 4 * dpr;
+    const kx = st.w <= W - 2 * m ? Math.max(m, Math.min(W - m - st.w, ux)) : ux, ky = st.h <= H - 2 * m ? Math.max(m, Math.min(H - m - st.h, uy)) : uy;
+    RIDE_XY[0] = kx; RIDE_XY[1] = ky; RIDE_XY[2] = kx - ux; RIDE_XY[3] = ky - uy;
+  }
   const labelByKey = new Map();   // (key → the layout's entry for that label, written at each layout: a leader finds its label's glide by it)
   const markGeo = new WeakMap(), MGEO = new Float64Array(4), MBOX = new Float64Array(4), CLEAR = new Float64Array(4);
   function drawMarks(now) {
@@ -1592,6 +1604,11 @@ void main() { o = texture(uT, vUV) * uA; }`;
               for (let i = 0; i < n; i++) {
                 const cx = mg.v[i * 2], cy = mg.v[i * 2 + 1];
                 geo[i * 2] = (M[0] * cx + M[2] * cy + M[4]) * dpr; geo[i * 2 + 1] = (M[1] * cx + M[3] * cy + M[5]) * dpr;
+              }
+              // (Its label end goes with the label where the ride held it inside the stage.)
+              if (isPath && mg.k) {
+                const ls = labelByKey.get(mg.k), lst = ls && sprites.get(ls.g);
+                if (lst && lst.mode === 'gl') { rideAt(ls, lst); geo[2] += RIDE_XY[2]; geo[3] += RIDE_XY[3]; }
               }
             }
           }
