@@ -44,6 +44,15 @@ export function shadowOf(s) {
   const colour = rgbaOf((m[1] || m[6] || '').trim());
   return colour ? { colour, dy: +m[3], blur: +m[4] } : null;
 }
+/**
+ * The layer's one view from its two records (R08), into `out` [k, e, f]: a hand's pan (dx, dy, in the layer's px) and the dive's scale (k about
+ * a point, drawn as k p + (e, f)). The pan is applied first and the dive carries the panned layer, p → k (p + d) + (e, f), so each record
+ * is written and cleared by its own owner and neither erases the other. A record that is off is the identity.
+ */
+export function composeView(dx, dy, k, e, f, out = [1, 0, 0]) {
+  out[0] = k; out[1] = e + k * dx; out[2] = f + k * dy;
+  return out;
+}
 // Inter's ascent and descent (hhea 1984 and 494 of 2048), as the browser sets a line: its baseline from the line's top.
 const ASC = 1984 / 2048, DESC = 494 / 2048;
 
