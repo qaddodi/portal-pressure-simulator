@@ -10,7 +10,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DECKS } from '../src/ui/decks.js';
 import { readFileSync } from 'node:fs';
-import { PLANES, planeOf, frame, scaler, layoutPlane, plotNumbers, cutNumbers, crosses, cutSegs, gapSegs } from '../src/ui/visual-plane.js';
+import { PLANES, planeOf, frame, scaler, layoutPlane, plotNumbers, cutNumbers, widen, crosses, cutSegs, gapSegs } from '../src/ui/visual-plane.js';
 import { deckStates } from './deck-states.js';
 
 const touch = (a, o) => a[0] < o[2] && a[2] > o[0] && a[1] < o[3] && a[3] > o[1];
@@ -36,11 +36,20 @@ test('HVPG against PPG: no key, every zone named, names beside their points and 
     // (The axes' names stand first, the points' names, the zones' words and the lines' names round them, the numbers last in what room is left:
     // his G2 look, 27 Oct, the numbers on the plot.)
     const keep = pts.map((p) => [p.x - 12, p.y - 12, p.x + 12, p.y + 12]), axes = plotNumbers(pl, fr, X, Y, fs, keep, 'names');
-    const { names, words: zw, rules, dots, lines } = layoutPlane(pl, fr, X, Y, fs, pts, false, [...axes.map((n) => n.box), ...cutNumbers(pl, fr, X, Y, fs, [...keep, ...axes.map((n) => n.box)])]);
+    const { names, words: zw, rules, dots, lines } = layoutPlane(pl, fr, X, Y, fs, pts, false, [...axes.map((n) => n.box), ...cutNumbers(pl, fr, X, Y, fs, [...keep, ...axes.map((n) => n.box)])].map((b) => widen(b, (pl.nameGap || 3) - 3)), 8, pl.nameGap || 0);
     const nums = plotNumbers(pl, fr, X, Y, fs, [...keep, ...axes.map((n) => n.box), ...names.map((n) => n.box), ...zw.map((w) => w.box), ...lines.map((l) => l.box)], 'ticks');
     for (const n of [...axes, ...nums]) for (const o of [...names.map((q) => q.box), ...zw.map((w) => w.box), ...lines.map((l) => l.box)]) assert.ok(!touch(n.box, o), `${where}: the number ${n.text} clear of every name and word`);
     for (const n of nums) for (const q of pts) assert.ok(!touch(n.box, [q.x - 10, q.y - 10, q.x + 10, q.y + 10]), `${where}: the number ${n.text} covers no point`);
     assert.ok(names.every(Boolean), `${where}: every point is named`);
+    // (3 Nov, crowded names: no two names, zones' words, line names or axis names sit closer than the plane's nameGap, and each name keeps to its own dot,
+    // beside it or, with no room beside it, a short way off on a thin line; the text widths are estimated a little over, so the gaps drawn are 6 px or more.)
+    {
+      const items = [...names.map((n, i) => [pts[i].name, n.box]), ...zw.map((w) => [`words ${w.z.t}`, w.box]), ...lines.map((l) => [`line ${l.text}`, l.box]), ...axes.map((a) => [`axis ${a.text}`, a.box])];
+      const gapOf = (a, b) => Math.hypot(Math.max(a[0] - b[2], b[0] - a[2], 0), Math.max(a[1] - b[3], b[1] - a[3], 0));
+      for (const [i, [an, ab]] of items.entries()) for (const [bn, bb] of items.slice(i + 1)) assert.ok(gapOf(ab, bb) >= pl.nameGap - 0.01, `${where}: ${an} and ${bn} keep ${pl.nameGap} px apart`);
+      for (const [i, n] of names.entries()) if (!n.lead) assert.ok(Math.hypot(Math.max(n.box[0] - pts[i].x, 0, pts[i].x - n.box[2]), Math.max(n.box[1] - pts[i].y, 0, pts[i].y - n.box[3])) <= 24, `${where}: ${pts[i].name} sits beside its dot`);
+      assert.ok(names.filter((n) => n.lead).length <= 1, `${where}: at most one name goes out on a line`);
+    }
     // (2 Nov: the cut-offs' numbers are set down before the names and the zones' words, so no axis name or low point takes one away.)
     for (const v of ['5', '10', '6', '12']) assert.ok(nums.some((n) => n.text === v), `${where}: the cut-off ${v} is numbered`);
     // The two lines carry their own names (Mohammad, 26 Oct: "make it clear that the 10/12 line is clinically significant portal

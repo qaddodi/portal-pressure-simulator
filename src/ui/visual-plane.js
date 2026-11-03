@@ -95,6 +95,8 @@ export const PLANES = {
     noLine: { x: [HVPG_CUTS.amber], y: [PPG_CUTS.amber] },
     // (reserveCuts: the cut-offs' numbers are set down before the points' names and the zones' words, so neither the PPG axis's name at the top left nor a name low in the plot (Heart failure) takes the 5, 10, 6 or 12 away: 2 Nov. A name with no room left beside its point then sits a little way off on a thin line.)
     reserveCuts: true,
+    // (nameGap: no two names, zone words, line names, axis names or numbers sit closer than this many px (as the text widths are estimated, 0.62 em a letter, a little over what Inter takes: the gaps drawn are 6 px or more): Mohammad's crowded-names ask, 3 Nov. The names' own boxes are kept this much larger against the names after them, the zones' words keep this far from every box, and the numbers' and axis names' boxes (3 px padded already) are widened to it.)
+    nameGap: 4,
     // (The two lines that carry a meaning of their own, named on the plot beside the line: { x|y: { value: words } }.)
     lineNames: { x: { [HVPG_CUTS.red]: `CSPH ≥${HVPG_CUTS.red}` }, y: { [PPG_CUTS.red]: `Bleed risk ≥${PPG_CUTS.red}` } },
     source: '',
@@ -145,6 +147,8 @@ export function bleed(seg, fr, W, H) {
   const ex = (v) => (Math.abs(v - fr.L) < 0.5 ? 0 : Math.abs(v - fr.R) < 0.5 ? W : v), ey = (v) => (Math.abs(v - fr.T) < 0.5 ? 0 : Math.abs(v - fr.B) < 0.5 ? H : v);
   return { ...seg, x1: ex(seg.x1), x2: ex(seg.x2), y1: ey(seg.y1), y2: ey(seg.y2) };
 }
+/** A box [x0, y0, x1, y1] grown by g px on every side (g of 0 or less: the same box). */
+export const widen = (b, g) => (g > 0 ? [b[0] - g, b[1] - g, b[2] + g, b[3] + g] : b);
 export const est = (t, px, w = 0.6) => String(t).length * px * w;   // (a run's width: Inter averages about 0.6 em a character)
 export const scaler = (pl, fr) => ({
   X: (v) => fr.L + (fr.R - fr.L) * (clamp(v, pl.x.min ?? 0, pl.x.max) - (pl.x.min ?? 0)) / (pl.x.max - (pl.x.min ?? 0)),
@@ -516,7 +520,8 @@ export function placeZoneWords(pl, fr, X, Y, fs, used, dots, card = false, only 
     const zl = Math.max(X(x0), fr.L) + 4, zr = Math.min(X(x1), fr.R) - 4, zt = Math.max(Y(y1), fr.T) + 4, zb = Math.min(Y(y0), fr.B) - 4;
     const inZone = (b) => b[0] >= zl && b[2] <= zr && b[1] >= zt && b[3] <= zb && !over.some((o) => b[0] < o[2] + 4 && b[2] > o[0] - 4 && b[1] < o[3] + 4 && b[3] > o[1] - 4);
     // (A zone's words keep a breath of room, WORD_PAD, from the names and lines already placed: "Both normal" sat flush between Healthy and Heart failure.)
-    const clear = (b) => !taken.some((o) => b[0] < o[2] + WORD_PAD && b[2] > o[0] - WORD_PAD && b[1] < o[3] + WORD_PAD && b[3] > o[1] - WORD_PAD) && !dots.some((o) => b[0] < o[2] && b[2] > o[0] && b[1] < o[3] && b[3] > o[1]);
+    const wp = Math.max(WORD_PAD, pl.nameGap || 0);
+    const clear = (b) => !taken.some((o) => b[0] < o[2] + wp && b[2] > o[0] - wp && b[1] < o[3] + wp && b[3] > o[1] - wp) && !dots.some((o) => b[0] < o[2] && b[2] > o[0] && b[1] < o[3] && b[3] > o[1]);
     for (const [k, lines] of forms.entries()) {
       // (The short name only where the full one has no clear place, and with no key only.)
       if (k && !noKey) break;
@@ -589,6 +594,7 @@ export function layoutPlane(pl, fr, X, Y, fs, at, card = false, extra = [], r = 
   const cross = rules.slice(0, cutSegs(pl, X, Y, fr).length);
   const boxesOf = (ns) => ns.filter(Boolean).map((n) => n.box);
   let names = placeNames(at, fr, fs, r, rules, cross, pad), words = placeZoneWords(pl, fr, X, Y, fs, [...boxesOf(names), ...rules], dots, card);
+  const wd = (b) => widen(b, pl.nameGap || 0);   // (a word's box, kept nameGap px clear of the names placed round it)
   const missing = (pl.key === false || pl.key === 'never') && !card ? pl.zones.filter((z) => !words.some((w) => w.z === z)) : [];
   if (missing.length) {
     // (Each of them where it leaves the names best placed: all of them named, the fewest out on a line, then the nearest.)
@@ -597,12 +603,12 @@ export function layoutPlane(pl, fr, X, Y, fs, at, card = false, extra = [], r = 
     const chosen = [];
     const judge = (cands) => {
       let bi = 0, bs = null;
-      cands.forEach((b, i) => { const sc = score(placeNames(at, fr, fs, r, [...rules, ...chosen, b], cross, pad)); if (!bs || better(sc, bs)) bi = i, bs = sc; });
+      cands.forEach((b, i) => { const sc = score(placeNames(at, fr, fs, r, [...rules, ...chosen.map(wd), wd(b)], cross, pad)); if (!bs || better(sc, bs)) bi = i, bs = sc; });
       chosen.push(cands[bi]);
       return bi;
     };
     const first = placeZoneWords(pl, fr, X, Y, fs, rules, dots, card, missing, judge), held = first.map((w) => w.box);
-    const again = placeNames(at, fr, fs, r, [...rules, ...held], cross, pad);
+    const again = placeNames(at, fr, fs, r, [...rules, ...held.map(wd)], cross, pad);
     if (first.length && boxesOf(again).length >= boxesOf(names).length) {
       names = again;
       words = [...first, ...placeZoneWords(pl, fr, X, Y, fs, [...boxesOf(names), ...rules, ...held], dots, card, [...pl.zones.filter((z) => !missing.includes(z)), ...(pl.boxes || [])])];
@@ -795,7 +801,7 @@ export function planePlot(pl, { card = false } = {}) {
     const cardNums = card ? plotNumbers(pl, fr, X, Y, fs) : [], axisNames = card || axed ? [] : plotNumbers(pl, fr, X, Y, fs, pointBoxes, 'names');
     const numBoxes = cardNums.map((n) => n.box);
     const pr = axed ? pointR(at) : 8;
-    const { names, words, lines } = card ? { names: [], words: [], lines: [] } : layoutPlane(pl, fr, X, Y, fs, at, card, [...axisNames.map((n) => n.box), ...(card || axed ? [] : cutNumbers(pl, fr, X, Y, fs, [...pointBoxes, ...axisNames.map((n) => n.box)]))], pr, axed ? 3 : 0);
+    const { names, words, lines } = card ? { names: [], words: [], lines: [] } : layoutPlane(pl, fr, X, Y, fs, at, card, [...axisNames.map((n) => n.box), ...(card || axed ? [] : cutNumbers(pl, fr, X, Y, fs, [...pointBoxes, ...axisNames.map((n) => n.box)]))].map((b) => widen(b, (pl.nameGap || 3) - 3)), pr, axed ? 3 : pl.nameGap || 0);
     const nums = card ? cardNums : axed ? [...ax.nums, ...ax.names] : [...axisNames, ...plotNumbers(pl, fr, X, Y, fs, [...pointBoxes, ...axisNames.map((n) => n.box), ...names.filter(Boolean).map((n) => n.box), ...words.map((w) => w.box), ...lines.map((l) => l.box)], 'ticks')];
     for (const b of pl.boxes || []) {
       const [x0, x1, y0, y1] = zoneRect(pl, b);
