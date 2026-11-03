@@ -72,7 +72,7 @@ test('the slide\'s marks start once the cards are in sight (CARDS_SEEN), and the
   // (the camera's own wait for the cards to be fully in, before a rise, is the whole step, as before)
   assert.match(cam, /await until\(\(\) => cut\(\) \|\| !cardsEntering\(\), 1200\);/);
   // (the size the cards settle at is read after their last step, past the marks)
-  const marks = run.indexOf('paintOverlays(fv, to, st);'), last = run.indexOf('if (bareSeen) { await until(() => cut() || !cardsEntering(), 1200); if (cut()) return; }'), sig = run.indexOf('lastCam = cam; framedSig = cardSig();');
+  const marks = run.indexOf('paintOverlays(fv, to, st);'), last = run.indexOf('if (bareSeen) { await Promise.race('), sig = run.indexOf('lastCam = cam; framedSig = cardSig();');
   assert.ok(marks > 0 && last > marks && sig > last, 'marks, then the wait for the last step, then the size is read');
   // (only with the same patient over the plate: a change of patient's marks wait for the model)
   assert.match(run, /bareSeen = plate && !swap && !caseCard;/);
