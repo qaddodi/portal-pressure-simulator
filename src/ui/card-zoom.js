@@ -270,12 +270,16 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
         // after the last call, and its height and the readings settle behind it. One loop, ended with the zoom; it writes only a cut that moved.)
         if (!me.cutting) {
           me.cutting = true;
-          let was = '';
+          // (Not while the card glides: the cut is eased with it by one animation, and a new one and a read of the card's box each frame of the glide
+          // were the zoom's lag. Once it has landed, until the box has stood still for 20 frames, which ends the loop; follow() starts it again.)
+          let was = '', still = 0;
           raf(function again() {
             if (st !== me || me.closing) { me.cutting = false; return; }
+            if (!me.steady) { raf(again); return; }
             const c = drawnUnion(me.riders), key = c ? [c.left, c.top, c.right, c.bottom].map(Math.round).join() : '';
-            if (c && key !== was) for (const h of me.holes) holeTo(h, c, 0);
+            if (c && key !== was) { for (const h of me.holes) holeTo(h, c, 0); still = 0; } else still++;
             was = key;
+            if (still >= 20) { me.cutting = false; return; }
             raf(again);
           });
         }
