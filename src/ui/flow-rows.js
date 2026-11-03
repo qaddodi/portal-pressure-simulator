@@ -32,7 +32,7 @@ export function changedRows(data, last, stride, rows, out = null) {
   const lo = Math.floor(i / stride), hi = Math.floor(j / stride);
   for (let k = lo * stride, e = (hi + 1) * stride; k < e; k++) last[k] = data[k];
   if (out) { out[0] = lo; out[1] = hi; return out; }
-  return [lo, hi];
+  return [lo, hi];   // alloc-rare: the answer for a caller that passes no `out`; every caller on a frame path (veins-gl's SPAN) passes one
 }
 
 /**

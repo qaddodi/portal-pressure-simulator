@@ -49,6 +49,7 @@ export const safeSides = () => stage?.sides?.() || { l: 0, r: 0 };
 // The window's size (the page's visible area, client px), kept from the last resize or turn: read once at first use and again in the
 // resize and orientationchange events, never in a frame. { w, h }; the object is the same until the window changes.
 let view = null;
+// alloc-rare: read at first use and again only on a resize or turn of the window (see above), never in a frame
 const readView = () => { note(); const d = typeof document !== 'undefined' ? document.documentElement : null; return { w: d?.clientWidth || (typeof innerWidth === 'number' ? innerWidth : 0) || 0, h: d?.clientHeight || (typeof innerHeight === 'number' ? innerHeight : 0) || 0 }; };
 export const viewSize = () => view ?? (view = readView());
 
