@@ -67,12 +67,24 @@ function makePool() {
   canvas.addEventListener?.('webglcontextrestored', () => { pool.gen++; });   // alloc-rare: a drawing pool is made once
   return pool;
 }
+// The programs of a started set as a list, made once for each set and handed on after (the compile checks ask for it while a chart waits on the driver).
+const progLists = new WeakMap();
+const progList = (started) => {
+  let l = progLists.get(started);
+  if (!l) { l = Object.values(started); progLists.set(started, l); }   // alloc-rare: made once for each set of started programs
+  return l;
+};
+const poolCompiling = (q) => stillCompiling(q.gl, progList(q.started));
+const NO_OPTS = Object.freeze({});   // (a stroke asked for with no options: nothing is made for it)
+const LS_TEXT = new Map();
+const lsText = (n) => LS_TEXT.get(n) ?? LS_TEXT.set(n, `${n}px`).get(n);   // alloc-rare: the text of a letter spacing is made the first time that spacing is set, then looked up
 function sharedGL() {
   if (!pools.length) { const first = makePool(); pools.push(first); if (first.dead) return null; }
   if (pools[0].dead) return null;
   // (One context at the start; the others are made, ahead and in a timer, only when charts of different sizes meet in one: prewarmSoon.
   // A page holds only so many contexts, and the dock's charts are made at the start but drawn only when shown.)
-  const best = pools.reduce((a, b) => (b.users < a.users ? b : a));
+  let best = pools[0];
+  for (let i = 1; i < pools.length; i++) if (pools[i].users < best.users) best = pools[i];
   best.users++;
   return best;
 }
@@ -382,6 +394,7 @@ const pointsIn = (str) => { let n = str.length; for (let i = 0; i + 1 < str.leng
 const premulInto = (out, o, c, alpha = 1) => { const v = rgba(c), a = v[3] * alpha; out[o] = v[0] * a; out[o + 1] = v[1] * a; out[o + 2] = v[2] * a; out[o + 3] = a; return a; };
 
 /** The GPU drawer for one chart, over `host` (the chart's 2D canvas), or null where it cannot be (the 2D canvas draws the chart). */
+// alloc-rare: made once with the chart (createTraceGL runs once for a chart), never in a frame
 export function createTraceGL(host, { redraw = null, under = null } = {}) {
   // (canvasSize never measures: a chart drawn before the observer reported its box drew nothing, and draws again once it has one,
   // with or without this drawer)
@@ -399,27 +412,34 @@ export function createTraceGL(host, { redraw = null, under = null } = {}) {
     try { shown = canvas.getContext('bitmaprenderer'); } catch { shown = null; }
     if (shown) { gl = shared.gl; glCanvas = shared.canvas; }
   }
+  // alloc-rare: made once with the chart (createTraceGL runs once for a chart), never in a frame
   if (!gl) try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: true, preserveDrawingBuffer: false, powerPreference: 'low-power', failIfMajorPerformanceCaveat: true }); } catch { gl = null; }
   if (!gl || typeof gl.createShader !== 'function' || typeof host?.after !== 'function') return null;
   const loser = shown ? null : gl.getExtension('WEBGL_lose_context');   // (the shared context is never given back: every chart draws in it)   // (kept now: a lost context gives no extensions)
   // (A software renderer draws it too: a chart is a few hundred small shapes, well within one.)
 
   let lost = false, dead = false, failed = false, missed = false, parked = false, back = false, gen = 0;   // (missed: a frame asked for the GPU while it could not draw)
+  // alloc-rare: made once with the chart (createTraceGL runs once for a chart), never in a frame
   const onLost = (e) => { e.preventDefault(); lost = true; };
   glCanvas.addEventListener?.('webglcontextlost', onLost);
   let P = null, started = null, stopPoll = null;
   let quad = null, quadVao = null, segBuf = null, segVao = null, fillBuf = null, fillVao = null, boxBuf = null, boxVao = null, textBuf = null, textVao = null;
   let covTex = null, fbo = null, ownCov = null, movedAt = -1e9, atlasTex = null, atlasIn = false, unitBuf = null, unitVao = null;
+  // alloc-rare: made once with the chart (createTraceGL runs once for a chart), never in a frame
   const images = new Map();   // (a picture's key → { tex, ver }: textures kept from frame to frame, a few at most)
+  // alloc-rare: made once with the chart (createTraceGL runs once for a chart), never in a frame
   const PU = ['pc', 'po', 'pl', 'pn', 'ga', 'pr', 'pk', 'pm'];
+  // alloc-rare: made once with the chart (createTraceGL runs once for a chart), never in a frame
   const UN = { seg: ['res', 'hw', 'dash', 'cap'], comp: ['cov', 'res', 'k', ...PU], fill: ['res', 'k', ...PU], box: ['res', 'k'], text: ['res', 'asz', 'atlas', 'sdf'], img: ['res', 'k', 'box', 'img', 'ga'] };
 
   function build() {
     P = null; failed = false; gen++;
     // (Shared: the programs compiled once for every chart; each chart only finds its uniforms.)
     if (shown) startPool(shared);
+    // alloc-rare: build runs when the chart's context is made or made again (its creation, a context restored), never in a frame
     started = shown ? shared.started : Object.fromEntries(Object.entries(SRC).map(([k, [vs, fs]]) => [k, startProgram(gl, vs, fs)]));
     quad = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+    // alloc-rare: build runs when the chart's context is made or made again (its creation, a context restored), never in a frame
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
     quadVao = gl.createVertexArray(); gl.bindVertexArray(quadVao);
     gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
@@ -429,26 +449,32 @@ export function createTraceGL(host, { redraw = null, under = null } = {}) {
     fillBuf = gl.createBuffer(); fillVao = gl.createVertexArray(); gl.bindVertexArray(fillVao); gl.bindBuffer(gl.ARRAY_BUFFER, fillBuf);
     gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
     boxBuf = gl.createBuffer(); boxVao = gl.createVertexArray(); gl.bindVertexArray(boxVao); gl.bindBuffer(gl.ARRAY_BUFFER, boxBuf);
+    // alloc-rare: build runs when the chart's context is made or made again (its creation, a context restored), never in a frame
     for (const [i, n, off] of [[0, 4, 0], [1, 2, 16], [2, 4, 24], [3, 4, 40]]) { gl.enableVertexAttribArray(i); gl.vertexAttribPointer(i, n, gl.FLOAT, false, 56, off); gl.vertexAttribDivisor(i, 1); }
     textBuf = gl.createBuffer(); textVao = gl.createVertexArray(); gl.bindVertexArray(textVao); gl.bindBuffer(gl.ARRAY_BUFFER, textBuf);
+    // alloc-rare: build runs when the chart's context is made or made again (its creation, a context restored), never in a frame
     for (const [i, n, off] of [[0, 4, 0], [1, 4, 16], [2, 4, 32], [3, 2, 48], [4, 4, 56]]) { gl.enableVertexAttribArray(i); gl.vertexAttribPointer(i, n, gl.FLOAT, false, TS * 4, off); gl.vertexAttribDivisor(i, 1); }
     gl.bindVertexArray(null);
     unitBuf = gl.createBuffer(); unitVao = gl.createVertexArray(); gl.bindVertexArray(unitVao); gl.bindBuffer(gl.ARRAY_BUFFER, unitBuf);
+    // alloc-rare: build runs when the chart's context is made or made again (its creation, a context restored), never in a frame
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]), gl.STATIC_DRAW);
     gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
     gl.bindVertexArray(null);
     images.clear();
     // (Coverage: the pool's one target when shared, else the chart's own; grown in steps, never shrunk: coverTarget.)
+    // alloc-rare: build runs when the chart's context is made or made again (its creation, a context restored), never in a frame
     ownCov = shown ? null : { tex: gl.createTexture(), fb: gl.createFramebuffer(), w: 0, h: 0 };
     covTex = fbo = null;
     if (shown && shared.atlasTex) atlasTex = shared.atlasTex;
     else {
       atlasTex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, atlasTex);
+      // alloc-rare: build runs when the chart's context is made or made again (its creation, a context restored), never in a frame
       for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
       if (shown) { shared.atlasTex = atlasTex; shared.atlasIn = false; }
     }
     // (The glyphs' field goes up once, from the decoded PNG, when the context is made or made again; 1 MB, never in a frame of motion.)
     atlasIn = false;
+    // alloc-rare: build runs when the chart's context is made or made again (its creation, a context restored), never in a frame
     stopPoll?.(); stopPoll = publishWhenDone(gl, Object.values(started), publish);
   }
   // The glyphs' field, sent once per context (generation), shared by every chart drawn in the shared context.
@@ -466,16 +492,22 @@ export function createTraceGL(host, { redraw = null, under = null } = {}) {
   function sendAtlasSoon() {
     if (atlasSoon) return;
     atlasSoon = true;
+    // alloc-rare: at most once for each context: atlasSoon holds a second one off until the first has run
     const later = typeof requestIdleCallback === 'function' ? (f) => requestIdleCallback(f, { timeout: 120 }) : (f) => setTimeout(f, 16);
+    // alloc-rare: at most once for each context: atlasSoon holds a second one off until the first has run
     later(() => { atlasSoon = false; if (sendAtlas() && redraw && !dead) { try { redraw(); } catch (e) { console.warn('Charts on the GPU: the redraw failed.', e); } } });
   }
   function publish() {
     if (P || failed || gl.isContextLost()) return;
     try {
+      // alloc-rare: publish runs once when the programs have compiled (or a context is made again), never in a frame
       const out = {};
+      // alloc-rare: publish runs once when the programs have compiled (or a context is made again), never in a frame
       for (const k of Object.keys(SRC)) { const p = checkProgram(gl, started[k]); out[k] = { p, u: Object.fromEntries(UN[k].map((n) => [n, gl.getUniformLocation(p, n)])) }; }
+      // alloc-rare: publish runs once when the programs have compiled (or a context is made again), never in a frame
       exerciseDraw(gl, () => {
         gl.bindVertexArray(quadVao);
+        // alloc-rare: publish runs once when the programs have compiled (or a context is made again), never in a frame
         for (const k of ['fill', 'comp']) { gl.useProgram(out[k].p); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); }
         gl.bindVertexArray(null);
       });
@@ -491,6 +523,7 @@ export function createTraceGL(host, { redraw = null, under = null } = {}) {
     }
   }
   try { build(); } catch (e) { console.warn('Charts on the GPU: could not start; the chart is not drawn.', e); gl.getExtension('WEBGL_lose_context')?.loseContext(); return null; }
+  // alloc-rare: made once with the chart (createTraceGL runs once for a chart), never in a frame
   const onRestored = () => {
     if (dead) return;
     try { build(); } catch (e) { failed = true; console.warn('Charts on the GPU: could not be rebuilt; the chart is not drawn.', e); }
@@ -499,7 +532,9 @@ export function createTraceGL(host, { redraw = null, under = null } = {}) {
   // The chart's own objects in its context (not the pool's programs, glyph field or coverage): let go on a move or a dispose.
   function freeOwn() {
     try {
+      // alloc-rare: teardown, when the chart's context is let go, never in a frame
       for (const b of [quad, segBuf, fillBuf, boxBuf, textBuf, unitBuf]) gl.deleteBuffer(b);
+      // alloc-rare: teardown, when the chart's context is let go, never in a frame
       for (const v of [quadVao, segVao, fillVao, boxVao, textVao, unitVao]) gl.deleteVertexArray(v);
       for (const e of images.values()) gl.deleteTexture(e.tex);
       images.clear();
@@ -527,12 +562,15 @@ export function createTraceGL(host, { redraw = null, under = null } = {}) {
   // (Parking: the context is given back while the chart is off the screen, display:none included, and taken again as it comes near.)
   let parkT = 0, seen = null;
   if (loser && typeof IntersectionObserver === 'function') {
+    // alloc-rare: made once with the chart (createTraceGL runs once for a chart), never in a frame
     seen = new IntersectionObserver((es) => {
       if (dead) return;
       const on = es[es.length - 1].isIntersecting;
       clearTimeout(parkT); parkT = 0;
       if (on) { if (parked) { parked = false; back = true; loser.restoreContext(); } }
+      // alloc-rare: made when the chart leaves the view (the observer's callback), not in a frame
       else if (!parked) parkT = setTimeout(() => { parkT = 0; if (dead || parked) return; parked = true; stopPoll?.(); loser.loseContext(); }, PARK_MS);
+    // alloc-rare: made once with the chart (createTraceGL runs once for a chart), never in a frame
     }, { rootMargin: '50%' });
     seen.observe(host);
   }
@@ -542,16 +580,24 @@ export function createTraceGL(host, { redraw = null, under = null } = {}) {
   const clipBox = [0, 0, 0, 0];   // alloc-rare: made once with the drawer (the clip rectangle, written in place)
   // (R16: the target a frame's draws land in: the chart's canvas (null), or a kept layer's texture while keep() draws one.)
   let outFb = null;
+  // alloc-rare: made once with the chart (createTraceGL runs once for a chart), never in a frame
   const layers = new Map();   // (a kept layer's name → { tex, fb, rb, w, h, gen, sig }: the still parts of a chart, drawn once per sig)
   // (Review pass item 8: a chart's kept layers are held in the global budget as 'retained': let go, least recently drawn first, only while the
   // registry is over its envelope; drawn again at the next frame. Let go inside a frame, they go when it ends.)
   let layerHold = null, dropAfter = false;
+  // alloc-rare: made once with the chart (createTraceGL runs once for a chart), never in a frame
   const layerBytes = () => { let b = 0; for (const e of layers.values()) b += e.w * e.h * 5; return b; };
+  // alloc-rare: made once with the chart (createTraceGL runs once for a chart), never in a frame
   const dropLayers = () => { for (const e of layers.values()) dropLayer(e); layers.clear(); };
+  // alloc-rare: made once with the chart (createTraceGL runs once for a chart), never in a frame
   const holdLayers = () => { if (layerHold?.held) layerHold.touch(); else layerHold = hold({ owner: 'chart layers', kind: 'retained', gl, bytes: layerBytes, release: () => { layerHold = null; if (inFrame) dropAfter = true; else dropLayers(); } }); };
+  // alloc-rare: made once with the chart (createTraceGL runs once for a chart), never in a frame
   const dropLayer = (e) => { try { gl.deleteTexture(e.tex); gl.deleteFramebuffer(e.fb); gl.deleteRenderbuffer(e.rb); } catch (e) { caught('trace-gl:542', e); /* lost */ } };
+  // alloc-rare: made once with the chart (createTraceGL runs once for a chart), never in a frame
   let segData = new Float32Array(6144), fillData = new Float32Array(4096);
+  // alloc-rare: made once with the chart (createTraceGL runs once for a chart), never in a frame
   let textData = new Float32Array(18 * 32), textN = 0, boxData = new Float32Array(560), boxN = 0;
+  // alloc-rare: made once with the chart (createTraceGL runs once for a chart), never in a frame
   const grow = (a, n) => { if (a.length >= n) return a; let m = a.length; while (m < n) m *= 2; const b = new Float32Array(m); b.set(a); return b; };
   function scissor(r) {
     if (!r) { gl.disable(gl.SCISSOR_TEST); return true; }
@@ -562,6 +608,7 @@ export function createTraceGL(host, { redraw = null, under = null } = {}) {
   }
   // (The box x, y, w, h cut to the clip's rectangle, written into one kept box and returned (null: nothing of it is inside the clip). The next call writes it again.)
   const IB = new Float64Array(4);   // alloc-rare: made once with the drawer
+  // alloc-rare: made once with the chart (createTraceGL runs once for a chart), never in a frame
   const inter = (x, y, w, h) => {
     if (!clipR) { IB[0] = x; IB[1] = y; IB[2] = w; IB[3] = h; return IB; }
     const x0 = Math.max(x, clipR[0]), y0 = Math.max(y, clipR[1]), x1 = Math.min(x + w, clipR[0] + clipR[2]), y1 = Math.min(y + h, clipR[1] + clipR[3]);
@@ -591,6 +638,7 @@ export function createTraceGL(host, { redraw = null, under = null } = {}) {
     }
     return m;
   }
+  // alloc-rare: made once with the chart (createTraceGL runs once for a chart), never in a frame
   const fullQuad = () => { fillData[0] = -1e5; fillData[1] = -1e5; fillData[2] = 1e5; fillData[3] = -1e5; fillData[4] = -1e5; fillData[5] = 1e5; fillData[6] = 1e5; fillData[7] = 1e5; gl.bufferData(gl.ARRAY_BUFFER, fillData, gl.STREAM_DRAW, 0, 8); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); };
   /** The clip: the intersection of the first `count` paths held in `cl` (the shim's clip rows: b the points, st each piece's start, ep each
    *  path's end in pieces, en in points; CSS px), filled by the nonzero rule; 0 for none. */
@@ -620,6 +668,7 @@ export function createTraceGL(host, { redraw = null, under = null } = {}) {
   }
   // The outline glyphs batched by text() (white, so their coverage is their red), laid into the coverage target with MAX blending and
   // painted once in the outline's premultiplied colour over r (CSS px).
+  // alloc-rare: made once with the chart (createTraceGL runs once for a chart), never in a frame
   const outPC = new Float32Array(64);   // (the outline's colour as the paint's one stop, kept: nothing made per frame)
   function outline(tint, bx, by, bw, bh) {
     const r = inter(bx, by, bw, bh), n = textN;
@@ -671,6 +720,7 @@ export function createTraceGL(host, { redraw = null, under = null } = {}) {
   // Paint uniforms: a colour string, or a gradient from the context ({ grad: [x0, y0, x1, y1], stops: [[offset, colour], …] }).
   const TINT = new Float32Array(4), WHITE = new Float32Array([1, 1, 1, 1]);   // alloc-rare: made once with the drawer (the words' colour, premultiplied, and the outline's white ink)
   const ID3 = new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]);   // alloc-rare: made once with the drawer
+  // alloc-rare: made once with the chart (createTraceGL runs once for a chart), never in a frame
   const PM = new Float32Array(9);   // (the path's matrix, refilled for each draw)
   // (A gradient's stops are taken, at most 16, into these kept rows and put in order of offset by an insertion sort: nothing is made.)
   const SPC = new Float32Array(64), SPO = new Float32Array(16), SPI = new Int32Array(16);   // alloc-rare: made once with the drawer
@@ -704,11 +754,13 @@ export function createTraceGL(host, { redraw = null, under = null } = {}) {
   // never shrunk: a frame draws into its lower left W x H (texelFetch at the fragment's own pixel), so a chart of another size reallocates
   // nothing. The rows past W x H are never read: each stroke clears its own scissored box first.)
   function coverTarget() {
+    // alloc-rare: the coverage target is made the first time one is needed and kept (the shared one, or the chart's own)
     const c = shown ? (shared.cov ||= { tex: gl.createTexture(), fb: gl.createFramebuffer(), w: 0, h: 0 }) : ownCov;
     if (c.w < W || c.h < H) {
       const nw = Math.max(c.w, capOf(W)), nh = Math.max(c.h, capOf(H));
       gl.bindTexture(gl.TEXTURE_2D, c.tex);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, nw, nh, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      // alloc-rare: the coverage target is made the first time one is needed and kept (the shared one, or the chart's own)
       for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
       gl.bindFramebuffer(gl.FRAMEBUFFER, c.fb);
       gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, c.tex, 0);
@@ -717,12 +769,14 @@ export function createTraceGL(host, { redraw = null, under = null } = {}) {
     covTex = c.tex; fbo = c.fb;
   }
 
+  // alloc-rare: made once with the chart (createTraceGL runs once for a chart), never in a frame
   const api = {
     canvas,
+    // alloc-rare: made once with the chart (createTraceGL runs once for a chart), never in a frame
     get ready() {
       // (R10: still compiling, the draw is not where it is published: the chart keeps what it shows, the poller publishes it as soon as
       // the driver is done and draws it then. ?shaderready=0: published here, as before.)
-      if (!P && !failed && !dead && started && stillCompiling(gl, Object.values(started))) { missed = true; stopPoll?.want?.(); return false; }
+      if (!P && !failed && !dead && started && stillCompiling(gl, progList(started))) { missed = true; stopPoll?.want?.(); return false; }
       missed = false;   // (published here, the frame asking draws it: no second draw from publish)
       publish();
       if (!glyphImage && redraw && !dead) waiting.add(redraw);
@@ -745,7 +799,7 @@ export function createTraceGL(host, { redraw = null, under = null } = {}) {
         if (glCanvas.width !== Wd || glCanvas.height !== Hd) {
           const t = performance.now();
           if (shared.sizedBy !== api && t - shared.sizedAt < SIZE_HOLD && t - movedAt > MOVE_GAP) {   // (another chart sized it just now; a chart changing its own size stays)
-            const p = poolFor(pools, shared, Wd, Hd, t, (q) => stillCompiling(q.gl, Object.values(q.started)));
+            const p = poolFor(pools, shared, Wd, Hd, t, poolCompiling);
             if (p) {
               movedAt = t;
               if (!moveTo(p)) { shared.active = null; missed = true; api.hide(); return false; }
@@ -809,7 +863,7 @@ export function createTraceGL(host, { redraw = null, under = null } = {}) {
      * A stroke through pieces of line (CSS px): xs, ys (n points; a NaN starts a new piece). o: { alpha, paint (a colour or a gradient),
      * dash: [on, off, …] (CSS px, the first dashN of them), offset (CSS px), round: round ends (true) or butt }.
      */
-    line(xs, ys, n, style, width, o = {}) {
+    line(xs, ys, n, style, width, o = NO_OPTS) {
       if (n < 2 || !(width > 0)) return;
       flush();
       segData = grow(segData, n * 6);
@@ -965,6 +1019,7 @@ export function createTraceGL(host, { redraw = null, under = null } = {}) {
     /** Words at (x, y) (CSS px) in `font`, aligned as the 2D canvas aligns them. sw: the words' outline that wide instead of the words.
      *  turn: [ox, oy, angle] turns them about (ox, oy) (CSS px) by the angle (radians, clockwise on the page, as the 2D canvas's rotate). */
     text(str, x, y, font, color, align = 'left', base = 'alphabetic', alpha = 1, sw = 0, turn = null, ls = 0) {
+      // alloc-rare: only when the argument is not already a string (the 2D canvas converts it the same way); a string is not copied
       if (typeof str !== 'string') str = String(str);
       if (!str || typeof color !== 'string') return;
       // (An outline is laid as coverage first, glyph by glyph with MAX blending, then painted once in its colour: as the 2D canvas strokes
@@ -1024,12 +1079,14 @@ export function createTraceGL(host, { redraw = null, under = null } = {}) {
       if (e && e.gen !== gen) { layers.delete(name); e = null; }   // (a context made again holds none of the old ones)
       if (!e) {
         if (layers.size >= 4) { const [k0, e0] = layers.entries().next().value; dropLayer(e0); layers.delete(k0); }
+        // alloc-rare: a kept layer is made the first time its name is drawn and kept by name after (layers holds at most four)
         e = { tex: gl.createTexture(), fb: gl.createFramebuffer(), rb: gl.createRenderbuffer(), w: 0, h: 0, gen, sig: null };
         layers.set(name, e);
       }
       if (e.w !== W || e.h !== H) {
         gl.bindTexture(gl.TEXTURE_2D, e.tex);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, W, H, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        // alloc-rare: a kept layer is made the first time its name is drawn and kept by name after (layers holds at most four)
         for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
         gl.bindRenderbuffer(gl.RENDERBUFFER, e.rb); gl.renderbufferStorage(gl.RENDERBUFFER, gl.STENCIL_INDEX8, W, H); gl.bindRenderbuffer(gl.RENDERBUFFER, null);
         gl.bindFramebuffer(gl.FRAMEBUFFER, e.fb);
@@ -1059,8 +1116,10 @@ export function createTraceGL(host, { redraw = null, under = null } = {}) {
       gl.bindVertexArray(unitVao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); gl.bindVertexArray(null);
       return true;
     },
+    // alloc-rare: made once with the chart (createTraceGL runs once for a chart), never in a frame
     get lost() { return (lost && !parked && !back) || failed; },   // (a parked chart is not lost: it draws again on its return)
     /** True while the chart is off the screen and its context given back (drawn again by redraw when it returns). */
+    // alloc-rare: made once with the chart (createTraceGL runs once for a chart), never in a frame
     get parked() { return parked; },
     dispose() {
       if (dead) return;   // (idempotent: the listeners, the size subscription and the atlas wait are let go once)
@@ -1071,6 +1130,7 @@ export function createTraceGL(host, { redraw = null, under = null } = {}) {
       freeOwn();
       try {
         if (!shown) gl.deleteTexture(atlasTex);
+        // alloc-rare: teardown, when the chart is let go, never in a frame
         if (P && !shown) for (const k of Object.keys(P)) gl.deleteProgram(P[k].p);   // (shared: the programs and the field stay for the others)
       } catch (e) { caught('trace-gl:1029', e); /* a lost context holds nothing */ }
       if (shown && shared.sizedBy === api) shared.sizedBy = null;
@@ -1114,28 +1174,42 @@ export function createShim(G) {
   const STO = { alpha: 1, dash: null, dashN: 0, offset: 0, round: true };   // alloc-rare: made once with the shim (a stroke's options, written in place)
   const GP = { grad: null, rad: null, stops: null, inv: null };   // alloc-rare: made once with the shim (a gradient fill's paint)
   const INV = new Float64Array(6), MT = { width: 0 }, GT = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };   // alloc-rare: made once with the shim (a gradient's matrix back, measureText's and getTransform's answers: read at once by every caller, written again by the next call)
+  // alloc-rare: a state is made only until the stack has been this deep once
   const fresh = () => ({ ls: 0, fillStyle: '#000', strokeStyle: '#000', lineWidth: 1, lineCap: 'butt', lineJoin: 'miter', font: '10px sans-serif', textAlign: 'start', textBaseline: 'alphabetic', globalAlpha: 1, dash: new Float64Array(16), dn: 0, lineDashOffset: 0, clip: null, clipA: [0, 0, 0, 0], nClip: 0, m: null, mA: new Float64Array(6) });   // colour-exempt: the 2D canvas's own defaults; alloc-rare: a state is made only until the stack has been this deep once
+  // alloc-rare: made once with the shim, which is made once with its chart, never in a frame
   const defaults = (t) => { t.ls = 0; t.fillStyle = '#000'; t.strokeStyle = '#000'; t.lineWidth = 1; t.lineCap = 'butt'; t.lineJoin = 'miter'; t.font = '10px sans-serif'; t.textAlign = 'start'; t.textBaseline = 'alphabetic'; t.globalAlpha = 1; t.dn = 0; t.lineDashOffset = 0; t.clip = null; t.nClip = 0; t.m = null; return t; };   // colour-exempt: the 2D canvas's own defaults
+  // alloc-rare: made once with the shim, which is made once with its chart, never in a frame
   const grow1 = (a, n, T) => { let q = a.length; while (q < n) q *= 2; const b = new T(q); b.set(a); return b; };
   const needPts = (n) => { if (pb.length < n) pb = grow1(pb, n, Float64Array); };   // alloc-rare: grows only for a path longer than any before
   const needPieces = (n) => { if (ps.length < n) ps = grow1(ps, n, Int32Array); };   // alloc-rare: grows only for a path of more pieces than any before
   // The transform (m: [a, b, c, d, e, f], null for none), as the 2D canvas's, over the drawer's own device scale. Paths are kept on the page.
+  // alloc-rare: made once with the shim, which is made once with its chart, never in a frame
   const X = (x, y) => (st.m ? st.m[0] * x + st.m[2] * y + st.m[4] : x), Y = (x, y) => (st.m ? st.m[1] * x + st.m[3] * y + st.m[5] : y);
+  // alloc-rare: made once with the shim, which is made once with its chart, never in a frame
   const moved = () => !st.m || (st.m[0] === 1 && st.m[1] === 0 && st.m[2] === 0 && st.m[3] === 1);   // (no turn or scale: shapes stay shapes)
+  // alloc-rare: made once with the shim, which is made once with its chart, never in a frame
   const ox = () => (st.m ? st.m[4] : 0), oy = () => (st.m ? st.m[5] : 0);
+  // alloc-rare: made once with the shim, which is made once with its chart, never in a frame
   const putPt = (x, y) => { needPts(pn + 2); pb[pn++] = x; pb[pn++] = y; };
+  // alloc-rare: made once with the shim, which is made once with its chart, never in a frame
   const openPiece = () => { needPieces(pc + 1); ps[pc++] = pn; curOn = true; };
+  // alloc-rare: made once with the shim, which is made once with its chart, never in a frame
   const startPiece = (x, y) => { LP[0] = x; LP[1] = y; openPiece(); putPt(X(x, y), Y(x, y)); };
+  // alloc-rare: made once with the shim, which is made once with its chart, never in a frame
   const add = (x, y) => { if (!curOn) { startPiece(x, y); return; } LP[0] = x; LP[1] = y; putPt(X(x, y), Y(x, y)); };
+  // alloc-rare: made once with the shim, which is made once with its chart, never in a frame
   const pieceLen = () => pn - ps[pc - 1];   // (the numbers in the open piece)
   const addShape = (x, y, w, h, r) => { if (sh.length < (shn + 1) * 5) sh = grow1(sh, (shn + 1) * 5, Float64Array); const o = shn++ * 5; sh[o] = x; sh[o + 1] = y; sh[o + 2] = w; sh[o + 3] = h; sh[o + 4] = r; };   // alloc-rare: grows only for a path of more shapes than any before
+  // alloc-rare: made once with the shim, which is made once with its chart, never in a frame
   const sc = () => (st.m ? Math.sqrt(Math.abs(st.m[0] * st.m[3] - st.m[1] * st.m[2])) || 1 : 1);
+  // alloc-rare: made once with the shim, which is made once with its chart, never in a frame
   const textAt = (t, x, y, colour, sw) => {
     const m = st.m, ang = m ? Math.atan2(m[1], m[0]) : 0, px = X(x, y), py = Y(x, y);
     if (ang) { TURN[0] = px; TURN[1] = py; TURN[2] = ang; }
     G.text(t, px, py, st.font, colour, align(), st.textBaseline, st.globalAlpha, sw, ang ? TURN : null, st.ls);
   };
   const TURN = new Float64Array(3);   // alloc-rare: made once with the shim (a turned word's centre and angle)
+  // alloc-rare: made once with the shim, which is made once with its chart, never in a frame
   const ellPts = (cx, cy, rx, ry, rot, a0, a1, ccw) => {
     let sweep = a1 - a0;
     if (!ccw && sweep < 0) sweep = (sweep % TAU) + TAU; if (ccw && sweep > 0) sweep = (sweep % TAU) - TAU;
@@ -1155,9 +1229,12 @@ export function createShim(G) {
     }
     LP[0] = x; LP[1] = y;
   };
+  // alloc-rare: made once with the shim, which is made once with its chart, never in a frame
   const arcPts = (cx, cy, r, a0, a1, ccw) => ellPts(cx, cy, r, r, 0, a0, a1, ccw);
+  // alloc-rare: made once with the shim, which is made once with its chart, never in a frame
   const align = () => (st.textAlign === 'end' ? 'right' : st.textAlign === 'start' ? 'left' : st.textAlign);
   // (a gradient as it is filled: in the space of the transform it is filled under; written into INV, null for none)
+  // alloc-rare: made once with the shim, which is made once with its chart, never in a frame
   const inv = () => {
     const m = st.m;
     if (!m) return null;
@@ -1165,6 +1242,7 @@ export function createShim(G) {
     INV[0] = d / det; INV[1] = -b / det; INV[2] = -c0 / det; INV[3] = a / det; INV[4] = (c0 * f - d * e) / det; INV[5] = (b * e - a * f) / det;
     return INV;
   };
+  // alloc-rare: made once with the shim, which is made once with its chart, never in a frame
   const paintOf = (style) => {
     if (typeof style === 'string') return style;
     if (!(style && style.stops)) return 'transparent';
@@ -1172,6 +1250,7 @@ export function createShim(G) {
     return GP;
   };
   // (A clip by a path that is not a rectangle: its pieces of 3 points or more copied into the clip rows after the clips of the states open, and the drawer told.)
+  // alloc-rare: made once with the shim, which is made once with its chart, never in a frame
   const pushClip = () => {
     const i = st.nClip, p0 = i ? CL.ep[i - 1] : 0, n0 = i ? CL.en[i - 1] : 0;
     let np = 0, npts = 0;
@@ -1190,6 +1269,7 @@ export function createShim(G) {
     st.nClip = i + 1;
     G.clipPaths(CL, st.nClip);
   };
+  // alloc-rare: made once with the shim, which is made once with its chart, never in a frame
   const c = {
     gpu: G,
     onGPU: true,   // (what a chart asks to know it draws through this; a real context has no such field)
@@ -1216,17 +1296,28 @@ export function createShim(G) {
       }
     },
     end() { return G.end(); },
+    // alloc-rare: made once with the shim, which is made once with its chart, never in a frame
     get fillStyle() { return st.fillStyle; }, set fillStyle(v) { st.fillStyle = v; },
+    // alloc-rare: made once with the shim, which is made once with its chart, never in a frame
     get strokeStyle() { return st.strokeStyle; }, set strokeStyle(v) { st.strokeStyle = v; },
+    // alloc-rare: made once with the shim, which is made once with its chart, never in a frame
     get lineWidth() { return st.lineWidth; }, set lineWidth(v) { if (v > 0) st.lineWidth = v; },
+    // alloc-rare: made once with the shim, which is made once with its chart, never in a frame
     get lineCap() { return st.lineCap; }, set lineCap(v) { st.lineCap = v; },
+    // alloc-rare: made once with the shim, which is made once with its chart, never in a frame
     get lineJoin() { return st.lineJoin; }, set lineJoin(v) { st.lineJoin = v; },
+    // alloc-rare: made once with the shim, which is made once with its chart, never in a frame
     get font() { return st.font; }, set font(v) { st.font = v; },
     // (The 2D canvas's letterSpacing, '0.72px'; the words are measured with it too.)
-    get letterSpacing() { return `${st.ls}px`; }, set letterSpacing(v) { st.ls = parseFloat(v) || 0; },
+    // alloc-rare: made once with the shim, which is made once with its chart, never in a frame
+    get letterSpacing() { return lsText(st.ls); }, set letterSpacing(v) { st.ls = parseFloat(v) || 0; },
+    // alloc-rare: made once with the shim, which is made once with its chart, never in a frame
     get textAlign() { return st.textAlign; }, set textAlign(v) { st.textAlign = v; },
+    // alloc-rare: made once with the shim, which is made once with its chart, never in a frame
     get textBaseline() { return st.textBaseline; }, set textBaseline(v) { st.textBaseline = v; },
+    // alloc-rare: made once with the shim, which is made once with its chart, never in a frame
     get globalAlpha() { return st.globalAlpha; }, set globalAlpha(v) { if (v >= 0 && v <= 1) st.globalAlpha = v; },
+    // alloc-rare: made once with the shim, which is made once with its chart, never in a frame
     get lineDashOffset() { return st.lineDashOffset; }, set lineDashOffset(v) { st.lineDashOffset = v; },
     imageSmoothingEnabled: true,
     imageSmoothingQuality: 'high',
@@ -1238,6 +1329,7 @@ export function createShim(G) {
       for (let i = 0; i < len; i++) row[i] = d[i];
       if (n % 2) { for (let i = 0; i < len; i++) row[len + i] = d[i]; st.dn = len * 2; } else st.dn = len;
     },
+    // alloc-rare: the API hands back an array of its own; no chart asks for it
     getLineDash() { return Array.from(st.dash.subarray(0, st.dn)); },
     // (A state saved is copied into one given back by an earlier restore. The clip rectangle, the dashes and the transform are copied into the
     // saved state's own; its clip paths are the first nClip of the clip rows, which a later clip() writes past, never over.)
@@ -1432,6 +1524,7 @@ export function createShim(G) {
     fillText(t, x, y) { textAt(t, x, y, typeof st.fillStyle === 'string' ? st.fillStyle : stopColour(st.fillStyle), 0); },
     strokeText(t, x, y) { textAt(t, x, y, typeof st.strokeStyle === 'string' ? st.strokeStyle : stopColour(st.strokeStyle), st.lineWidth); },
     // (The answer is one record, written again by the next call: every caller reads its width at once.)
+    // alloc-rare: only when the argument is not already a string (the 2D canvas converts it the same way); a string is not copied
     measureText(t) { const s = typeof t === 'string' ? t : String(t); MT.width = G.measure(s, st.font) + (st.ls ? st.ls * pointsIn(s) : 0); return MT; },
     createLinearGradient(x0, y0, x1, y1) { const g = { grad: [x0, y0, x1, y1], stops: [], addColorStop(o, col) { g.stops.push([o, col]); } }; return g; },
     createRadialGradient(x0, y0, r0, x1, y1, r1) { const g = { rad: [x0, y0, r0, x1, y1, r1], stops: [], addColorStop(o, col) { g.stops.push([o, col]); } }; return g; },
