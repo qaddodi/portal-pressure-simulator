@@ -94,3 +94,10 @@ test('a widget\'s picture is drawn again when its box changes size (a window or 
   assert.match(widget, /onCanvasResized\(host, \(\) => api\.paint\(\)\)/);
   assert.match(widget, /unsized\(\); gpu\?\.dispose\(\)/);
 });
+
+test('a frame the GPU could not draw never takes a widget\'s picture down (its page look is out of the way, so a hidden picture was a vanished slider)', () => {
+  const widget = readFileSync(new URL('../src/ui/widget-gl.js', import.meta.url), 'utf8');
+  const trace = readFileSync(new URL('../src/ui/trace-gl.js', import.meta.url), 'utf8');
+  assert.match(widget, /createTraceGL\(host, \{ redraw: \(\) => api\.paint\(\), keep: true \}\)/);
+  assert.match(trace, /hide\(\) \{\n\s+if \(keep && host\.style\.opacity === '0'\) return;/);
+});

@@ -395,7 +395,7 @@ const premulInto = (out, o, c, alpha = 1) => { const v = rgba(c), a = v[3] * alp
 
 /** The GPU drawer for one chart, over `host` (the chart's 2D canvas), or null where it cannot be (the 2D canvas draws the chart). */
 // alloc-rare: made once with the chart (createTraceGL runs once for a chart), never in a frame
-export function createTraceGL(host, { redraw = null, under = null, lose = null } = {}) {
+export function createTraceGL(host, { redraw = null, under = null, lose = null, keep = false } = {}) {   // (keep: a widget's picture is never taken down by a frame the GPU could not draw: the last completed picture stays until the retry draws it again)
   // (canvasSize never measures: a chart drawn before the observer reported its box drew nothing, and draws again once it has one,
   // with or without this drawer)
   let unsized = null;   // (the size subscription's release, called by dispose)
@@ -855,6 +855,7 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null }
     },
     /** The 2D canvas draws the chart (shown again); the GPU's picture is hidden. */
     hide() {
+      if (keep && host.style.opacity === '0') return;   // (a widget's last completed GPU picture stays: its page look is out of the way, so a hidden picture would leave a hole)
       if (canvas.style.visibility !== 'hidden') canvas.style.visibility = 'hidden';
       if (host.style.opacity) host.style.opacity = '';
     },
