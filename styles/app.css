@@ -7652,6 +7652,7 @@ body { font-optical-sizing: auto; font-kerning: normal; }
    and the overlays still in the SVG (#stageOver: the circuit's node dots and resistor zigzags where the GPU has not taken them). The frost is
    drawn in that canvas, so they showed sharp through a zoomed card and flickered as they slid under it: Mohammad, 2 Nov 2026, the Circuit
    deck's "Pressure, gut to heart" zoomed on his Mac, "no blur, and the labels are flickering passing through".) */
+.pz-zoomed :is(.lz-labels, .lz-leaders) { opacity: 0 !important; transition: opacity var(--d-small) var(--ease) !important; }   /* (the lobule's names and leaders: drawn by the GPU in .cap-gl above the card glass) */
 .pz-zoomed .stage-view :is(#stageOver, .cath-labels) { opacity: 0 !important; transition: opacity var(--d-small) var(--ease) !important; }
 /* While the cards' glass is drawn in the figure's canvas (html[data-cardgl], glass-gl.js waitFor), a card its glass has not drawn yet (its first
    frame coming in) shows no solid card: the solid card for a frame, then the frost, read as the blur flickering as each card opened (Mohammad,
