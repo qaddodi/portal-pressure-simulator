@@ -66,7 +66,7 @@ test('in the circuit a dot marked off is invisible, and one that is not shows (i
   const src = read('src/ui/stage.js');
   assert.match(src, /\.map\(\(n\) => \(\{ id: n\.id, r: dotRadius\(n\.kind\), on: false, u: 0 \}\)\)/, 'each dot starts off');
   assert.match(src, /const a = MAP\.a \* easeMove\(nodeDots\[i\]\.u\), f = n0 \+ i \* ND_PER;\s*if \(a <= 0\) continue;/, 'off (u 0) or no circuit (MAP.a 0): not drawn');
-  assert.match(src, /col: nd\.fill, alpha: a, tri: true \}, \{ first: f \+ 3 \* ND_SEG, count: 2 \* \(ND_SEG \+ 1\), col: nd\.ring, alpha: a \}/, 'the disc and its ring, one alpha');
+  assert.match(src, /count: 3 \* ND_SEG, col: null, alpha: 0, tri: true \}, \{ first: 0, count: 2 \* \(ND_SEG \+ 1\), col: null, alpha: 0 \}[\s\S]*sa\.first = f; sa\.col = nd\.fill; sa\.alpha = a; sb\.first = f \+ 3 \* ND_SEG; sb\.col = nd\.ring; sb\.alpha = a;/, 'the disc and its ring, one alpha');
   assert.match(src, /V\[o\+\+\] = -1; V\[o\+\+\] = 0\.8;/, 'a ring 1.6 wide, as the SVG stroke was');
 });
 

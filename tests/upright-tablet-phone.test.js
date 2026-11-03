@@ -132,7 +132,7 @@ test('an upright tablet\'s bottom bar and cards take the deck cards\' 70 % of th
   const main = read('../src/ui/main.js');
   assert.match(main, /const tabletMQ = matchMedia\(TABLET_UP_MQ\);/);
   assert.match(main, /THUMB = \[0\.62, 1\], TABLET = \[0\.45, 0\.62\];/, 'Half an iPhone\'s 45 % of the screen, Full 62 %');
-  assert.match(main, /const stops = \(\) => \(!thumb\(\) \? SIZES : tabletMQ\.matches \? TABLET\.map\(\(s\) => Math\.min\(1, \(s \* app\.clientHeight\) \/ \(room\(\) \|\| app\.clientHeight\)\)\) : THUMB\);/, 'as shares of the room, as the phone\'s');
+  assert.match(main, /const stops = \(\) => \{\n {4}if \(!thumb\(\)\) return SIZES;\n {4}if \(!tabletMQ\.matches\) return THUMB;\n {4}const H = app\.clientHeight, R = room\(\) \|\| H;\n {4}for \(let i = 0; i < 2; i\+\+\) TAB_NOW\[i\] = Math\.min\(1, \(TABLET\[i\] \* H\) \/ R\);/, 'as shares of the room, as the phone\'s');
 });
 
 // Liver inflow 2 on an upright iPad (18 Oct): a deck started after one whose readings' card travelled as far had no --pz-d on its new

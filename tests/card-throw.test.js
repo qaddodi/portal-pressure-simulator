@@ -108,7 +108,7 @@ test('a thrown readings sheet keeps its parts and glass whole: only the throw fa
   assert.match(src, /el\.classList\?\.add\(THROWING\); classSoon\(el, THROWING, true\);[^\n]*\n\s+el\.style\.setProperty\('transition', 'none', 'important'\);/, 'marked in the task that starts the move');
   assert.match(src, /const rest = \(el\) => \{[^\n]*classSoon\(el, THROWING, false\)/, 'let go at rest, a task after the frame');
   assert.doesNotMatch(src, /data-thrown/, 'no attribute written in a frame');
-  assert.match(src, /if \(r\.kind === 'in'\) \{ landed\.push\(el\); runSoon\(restLanded\); \}/, 'a card come in is let go a task after the frame (no closure made in the frame)');
+  assert.match(src, /if \(r\.kind !== 'out'\) \{ landed\.push\(el\); runSoon\(restLanded\); \}/, 'a card come in (or eased back) is let go a task after the frame (no closure made in the frame)');
   assert.match(src, /if \(!runs\.has\(el\) && !held\.has\(el\) && !pinned\.has\(el\)\) rest\(el\);/, 'unless a new move took it');
   for (const pre of ['.pz.stack.stack', '.pz.pz-wide.pz-wide']) {
     assert.ok(css.includes(`${pre} .pz-data.pz-sheet.pz-hide.pz-throwing { visibility: visible; pointer-events: none; }`), `${pre}: not hidden on its own timer`);

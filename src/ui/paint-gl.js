@@ -25,27 +25,210 @@ const TOL = 0.2;   // (curves flattened to within 0.2 device px)
 // ── The recorder ──
 const NUM_FILL = { numeric: 'fill' }, NUM_STROKE = { numeric: 'stroke' }, QN = [0, 0, 0, 1];   // (a colour set as numbers, and the array it is read from)
 const numQ = (r, g, b, a) => { QN[0] = r; QN[1] = g; QN[2] = b; QN[3] = a; return QN; };
+// (A gradient is the recorder's own, one of a list it keeps and hands out again for each recording: a painter uses it where it made it,
+// and none is kept past the picture. Its stops are the first ns of the list, in order of offset.)
 class Gradient {
-  constructor(x0, y0, r0, x1, y1, r1, m) { this.g = { x0, y0, r0, x1, y1, r1, m }; this.stops = []; }
-  addColorStop(t, c) { this.stops.push([Math.max(0, Math.min(1, +t)), cssColor(c)]); this.stops.sort((a, b) => a[0] - b[0]); }
+  constructor() { this.g = { x0: 0, y0: 0, r0: 0, x1: 0, y1: 0, r1: 0, m: [1, 0, 0, 1, 0, 0] }; this.stops = []; this.ns = 0; }   // alloc-rare: pool empty: a gradient is made only when more are used in one picture than ever before
+  addColorStop(t, c) {
+    const st = this.stops;
+    if (this.ns === st.length) st.push([0, null]);   // alloc-rare: pool empty: a stop slot is made only when a gradient has more stops than ever before
+    const e = st[this.ns++];
+    e[0] = Math.max(0, Math.min(1, +t)); e[1] = cssColor(c);
+    // (Kept in order of offset, equal offsets in the order they came, as the stable sort did.)
+    for (let i = this.ns - 1; i > 0 && st[i - 1][0] - st[i][0] > 0; i--) { const q = st[i]; st[i] = st[i - 1]; st[i - 1] = q; }
+  }
 }
-const mulM = (m, a, b, c, d, e, f) => [m[0] * a + m[2] * b, m[1] * a + m[3] * b, m[0] * c + m[2] * d, m[1] * c + m[3] * d, m[0] * e + m[2] * f + m[4], m[1] * e + m[3] * f + m[5]];
+// (The matrix times (a..f), written back into m: the same six numbers the product made, with no new array.)
+const mulM = (m, a, b, c, d, e, f) => {
+  const m0 = m[0], m1 = m[1], m2 = m[2], m3 = m[3];
+  const e2 = m0 * e + m2 * f + m[4], f2 = m1 * e + m3 * f + m[5];
+  m[0] = m0 * a + m2 * b; m[1] = m1 * a + m3 * b; m[2] = m0 * c + m2 * d; m[3] = m1 * c + m3 * d; m[4] = e2; m[5] = f2;
+};
 const scaleOf = (m) => Math.sqrt(Math.abs(m[0] * m[3] - m[1] * m[2])) || 1;
+
+// ── The record's pools ──
+// A picture's record is made of many small records (a batch, an op, a clip, a paint, a shadow, a stop list) over two vertex arrays. During
+// a zoom several new tiles are recorded in consecutive frames, so none of them is made afresh: each kind has a free list, the recorder
+// takes from it, and a picture given back (releasePicture, lobule-zoom.js free) returns all of its records to it. Every taker sets every
+// field, so nothing of an earlier picture is left in the next. A pool grows only when it is empty, to the most records alive at once
+// (one line each, tagged); after that a picture's recording makes none. A record is recycled once: its holders are counted (gpuPicture
+// holds one; a record that nobody holds is released by releaseRecord), and the picture lets go of its record when it is released, so a
+// stale reader finds none. The pooled records are the very shapes the unpooled recorder made (same keys, same values), nothing more.
+const LED = Symbol('paint-gl record ledger');   // (a hidden property of each record: not enumerable, so the record reads as it always did)
+const EMPTY_F32 = new Float32Array(0);
+const P_SHELL = [], P_RECORDER = [], P_STATE = [], P_BATCH = [], P_OP = [], P_CLEAR = [], P_CLIP = [], P_SOLID = [], P_SHADOW = [];
+const P_GRAD = [], P_CHAIN = [], P_F32 = [];   // (by stop count, by chain length, by size class: lists of lists)
+function newShell() {
+  const rec = { width: 0, height: 0, ops: [], cv: EMPTY_F32, pv: EMPTY_F32 };   // alloc-rare: pool empty: a record shell is made only when more pictures are alive than ever before
+  Object.defineProperty(rec, LED, { value: { live: false, refs: 0, clips: [], chains: [], nClips: 0, nChains: 0, cvb: null, pvb: null } });   // alloc-rare: pool empty (the shell's ledger, made with the shell)
+  return rec;
+}
+function takeShell() {
+  const rec = P_SHELL.pop() || newShell(), led = rec[LED];
+  led.live = true; led.refs = 0; led.nClips = 0; led.nChains = 0; led.cvb = null; led.pvb = null;
+  rec.width = 0; rec.height = 0; rec.ops.length = 0; rec.cv = EMPTY_F32; rec.pv = EMPTY_F32;
+  return rec;
+}
+// (A vertex array's storage: Float32Arrays in power-of-two classes, from 1024 numbers.)
+function f32Take(n) {
+  const c = n <= 1024 ? 10 : 32 - Math.clz32(n - 1);
+  const list = P_F32[c] || (P_F32[c] = []);   // alloc-rare: the first storage of a size class (the list of its spare ones)
+  return list.pop() || new Float32Array(1 << c);   // alloc-rare: pool empty: storage of this class is made only when more is in use than ever before
+}
+const f32Give = (b) => { P_F32[31 - Math.clz32(b.length)].push(b); };
+function takeBatch(from, clip) {
+  const b = P_BATCH.pop() || { k: 'direct', from: 0, count: 0, clip: null };   // alloc-rare: pool empty: a batch is made only when more are alive than ever before
+  b.from = from; b.count = 0; b.clip = clip;
+  return b;
+}
+function takeOp(k, from, count, rule, paint, shadow, clip, x0, y0, x1, y1) {
+  const o = P_OP.pop() || { k: '', from: 0, count: 0, rule: '', paint: null, shadow: null, clip: null, box: [0, 0, 0, 0] };   // alloc-rare: pool empty: an op (with its box) is made only when more are alive than ever before
+  o.k = k; o.from = from; o.count = count; o.rule = rule; o.paint = paint; o.shadow = shadow; o.clip = clip;
+  const b = o.box; b[0] = x0; b[1] = y0; b[2] = x1; b[3] = y1;
+  return o;
+}
+function takeClear(from, count, clip, x0, y0, x1, y1) {
+  const o = P_CLEAR.pop() || { k: 'clear', from: 0, count: 0, clip: null, box: [0, 0, 0, 0] };   // alloc-rare: pool empty: a clear op (with its box) is made only when more are alive than ever before
+  o.from = from; o.count = count; o.clip = clip;
+  const b = o.box; b[0] = x0; b[1] = y0; b[2] = x1; b[3] = y1;
+  return o;
+}
+function takeClip(from, count, rule, x0, y0, x1, y1) {
+  const c = P_CLIP.pop() || { from: 0, count: 0, rule: '', box: [0, 0, 0, 0] };   // alloc-rare: pool empty: a clip (with its box) is made only when more are alive than ever before
+  c.from = from; c.count = count; c.rule = rule;
+  const b = c.box; b[0] = x0; b[1] = y0; b[2] = x1; b[3] = y1;
+  return c;
+}
+// A clip chain: the clips before it, then the new one (a list of exactly that length, kept by length).
+function takeChain(prev, c) {
+  const n = (prev ? prev.length : 0) + 1;
+  const list = P_CHAIN[n] || (P_CHAIN[n] = []);   // alloc-rare: the first chain of this length (the list of its spare ones)
+  let a = list.pop();
+  if (!a) { a = []; for (let i = 0; i < n; i++) a.push(null); }   // alloc-rare: pool empty: a chain of this length is made only when more are alive than ever before
+  for (let i = 0; i < n - 1; i++) a[i] = prev[i];
+  a[n - 1] = c;
+  return a;
+}
+function takeSolid(r, g, b, a) {
+  const p = P_SOLID.pop() || { rgba: [0, 0, 0, 0] };   // alloc-rare: pool empty: a solid paint is made only when more are alive than ever before
+  const o = p.rgba; o[0] = r; o[1] = g; o[2] = b; o[3] = a;
+  return p;
+}
+function makeGrad(n) {
+  const stops = [];   // alloc-rare: pool empty (a gradient paint of this many stops)
+  for (let i = 0; i < n; i++) stops.push([0, 0, 0, 0, 0]);   // alloc-rare: pool empty (its stops)
+  return { grad: { cx: 0, cy: 0, r0: 0, r1: 0, stops } };   // alloc-rare: pool empty (the paint itself)
+}
+function takeGrad(n) {
+  const list = P_GRAD[n] || (P_GRAD[n] = []);   // alloc-rare: the first gradient paint with this many stops (the list of its spare ones)
+  return list.pop() || makeGrad(n);
+}
+function takeShadow(r, g, b, a, sigma) {
+  const s = P_SHADOW.pop() || { rgba: [0, 0, 0, 0], sigma: 0 };   // alloc-rare: pool empty: a shadow is made only when more are alive than ever before
+  const o = s.rgba; o[0] = r; o[1] = g; o[2] = b; o[3] = a; s.sigma = sigma;
+  return s;
+}
+// (The path's points and sub-paths are pooled the same way: they are given back when the path is begun again. A path is its list a and
+// the count n of sub-paths in it, a sub-path its list p and the count n of points: the lists keep their room, so they are written by
+// index, and what is past the count is not read.)
+const P_PT = [], P_SUB = [], P_PATH = [];
+function takePt(x, y) {
+  const a = P_PT.pop() || [0, 0];   // alloc-rare: pool empty: a path point is made only when a path has more points than ever before
+  a[0] = x; a[1] = y;
+  return a;
+}
+function takeSub(first) {
+  const s = P_SUB.pop() || { p: [], n: 0, closed: false };   // alloc-rare: pool empty: a sub-path is made only when a path has more of them than ever before
+  s.p[0] = first; s.n = 1; s.closed = false;
+  return s;
+}
+function dropPath(path) {
+  for (let i = 0; i < path.n; i++) {
+    const sub = path.a[i], p = sub.p;
+    for (let j = 0; j < sub.n; j++) P_PT.push(p[j]);
+    P_SUB.push(sub);
+  }
+  path.n = 0;
+}
+function newState() {
+  return { m: [1, 0, 0, 1, 0, 0], fill: 'black', stroke: 'black', fr: 0, fg: 0, fb: 0, fa: 1, kr: 0, kg: 0, kb: 0, ka: 1, lw: 1, cap: 'butt', join: 'miter', ga: 1, sb: 0, sc: 'transparent', clip: null };   // alloc-rare: pool empty: a saved drawing state is made only when saves nest deeper than ever before
+}
+function copyState(to, s) {
+  const m = to.m, f = s.m;
+  m[0] = f[0]; m[1] = f[1]; m[2] = f[2]; m[3] = f[3]; m[4] = f[4]; m[5] = f[5];
+  to.fill = s.fill; to.stroke = s.stroke; to.fr = s.fr; to.fg = s.fg; to.fb = s.fb; to.fa = s.fa; to.kr = s.kr; to.kg = s.kg; to.kb = s.kb; to.ka = s.ka; to.lw = s.lw; to.cap = s.cap; to.join = s.join; to.ga = s.ga; to.sb = s.sb; to.sc = s.sc; to.clip = s.clip;
+}
+// A record's own parts given back to their pools (the shapes are told apart as the recorder made them).
+function giveOp(op) {
+  if (op.k === 'direct') { P_BATCH.push(op); return; }
+  if (op.k === 'clear') { P_CLEAR.push(op); return; }
+  const p = op.paint;
+  if (p) { if (p.rgba) P_SOLID.push(p); else P_GRAD[p.grad.stops.length].push(p); }
+  if (op.shadow) P_SHADOW.push(op.shadow);
+  P_OP.push(op);
+}
+function recycle(rec, led) {
+  led.live = false; led.refs = 0;
+  const ops = rec.ops;
+  for (let i = 0; i < ops.length; i++) giveOp(ops[i]);
+  ops.length = 0;
+  for (let i = 0; i < led.nClips; i++) P_CLIP.push(led.clips[i]);
+  for (let i = 0; i < led.nChains; i++) { const a = led.chains[i]; P_CHAIN[a.length].push(a); }
+  led.nClips = 0; led.nChains = 0;
+  if (led.cvb) f32Give(led.cvb);
+  if (led.pvb) f32Give(led.pvb);
+  led.cvb = null; led.pvb = null;
+  rec.width = 0; rec.height = 0; rec.cv = EMPTY_F32; rec.pv = EMPTY_F32;
+  P_SHELL.push(rec);
+}
+/** Gives a record's parts back for the next picture. A record held by pictures (gpuPicture) goes only when the last lets go; one nobody
+ *  holds goes at once. False for a record already given back, or one this recorder did not make. Nothing may read it afterwards. */
+export function releaseRecord(rec) {
+  const led = rec?.[LED];
+  if (!led || !led.live) return false;
+  if (--led.refs > 0) return false;
+  recycle(rec, led);
+  return true;
+}
 
 /** A recorder with a 2D context's drawing calls (the ones the app's painters use). The record: ops (in order) over two vertex arrays. */
 export class PaintRecorder {
+  // (Made only when no recorder is spare, recordPaint: its own state, path, saved states and gradients, which every recording after reuses.)
   constructor(width, height) {
+    this.s = newState();
+    this.stack = [];   // alloc-rare: pool empty: a recorder is made only when more recordings run at once than ever before
+    this.path = { a: [], n: 0 }; this.sub = null;   // alloc-rare: pool empty (the recorder's own path)
+    this.canvas = { width, height };   // alloc-rare: pool empty (the recorder's own canvas stand-in)
+    this.grads = []; this.gn = 0;   // alloc-rare: pool empty (the gradients made in a recording, over again for the next)
+    this.tf = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };   // alloc-rare: pool empty (what getTransform hands out, written in place)
+    this._init(width, height);
+  }
+  // Starts a recording (a pooled recorder is started again for each picture; every field is set).
+  _init(width, height) {
     this.width = width; this.height = height;
-    this.ops = [];
-    this.cv = [];   // coloured triangles: x, y, r, g, b, a (premultiplied)
-    this.pv = [];   // plain triangles: x, y
-    this.s = { m: [1, 0, 0, 1, 0, 0], fill: 'black', stroke: 'black', fr: 0, fg: 0, fb: 0, fa: 1, kr: 0, kg: 0, kb: 0, ka: 1, lw: 1, cap: 'butt', join: 'miter', ga: 1, sb: 0, sc: 'transparent', clip: null };
-    this.stack = [];
-    this.path = []; this.sub = null;
+    const rec = this.rec = takeShell(), led = rec[LED];
+    this.ops = rec.ops;
+    this.cvb = led.cvb = f32Take(0); this.cvn = 0;   // coloured triangles: x, y, r, g, b, a (premultiplied)
+    this.pvb = led.pvb = f32Take(0); this.pvn = 0;   // plain triangles: x, y
+    const s = this.s, m = s.m;
+    m[0] = 1; m[1] = 0; m[2] = 0; m[3] = 1; m[4] = 0; m[5] = 0;
+    s.fill = 'black'; s.stroke = 'black'; s.fr = 0; s.fg = 0; s.fb = 0; s.fa = 1; s.kr = 0; s.kg = 0; s.kb = 0; s.ka = 1; s.lw = 1; s.cap = 'butt'; s.join = 'miter'; s.ga = 1; s.sb = 0; s.sc = 'transparent'; s.clip = null;
+    while (this.stack.length) P_STATE.push(this.stack.pop());
+    dropPath(this.path); this.sub = null;
+    this.gn = 0;
     this.batch = null;
-    this.canvas = { width, height };
+    this.canvas.width = width; this.canvas.height = height;
     this.imageSmoothingEnabled = true; this.imageSmoothingQuality = 'low'; this.globalCompositeOperation = 'source-over';
   }
+  // A recording given up part way (the painter threw): what it made goes back.
+  _abort() {
+    const rec = this.rec;
+    if (!rec) return;
+    this.rec = null; this.ops = null; this.gn = 0;
+    recycle(rec, rec[LED]);
+  }
+  _growCv(need) { const b = f32Take(need); b.set(this.cvb); f32Give(this.cvb); this.cvb = this.rec[LED].cvb = b; }
+  _growPv(need) { const b = f32Take(need); b.set(this.pvb); f32Give(this.pvb); this.pvb = this.rec[LED].pvb = b; }
   // State
   get fillStyle() { return this.s.fill; } set fillStyle(v) { this.s.fill = v; }
   get strokeStyle() { return this.s.stroke; } set strokeStyle(v) { this.s.stroke = v; }
@@ -58,38 +241,61 @@ export class PaintRecorder {
   get globalAlpha() { return this.s.ga; } set globalAlpha(v) { if (v >= 0 && v <= 1) this.s.ga = +v; }
   get shadowBlur() { return this.s.sb; } set shadowBlur(v) { if (v >= 0 && Number.isFinite(v)) this.s.sb = +v; }
   get shadowColor() { return this.s.sc; } set shadowColor(v) { this.s.sc = v; }
-  save() { this.stack.push({ ...this.s, m: this.s.m.slice() }); }
-  restore() { const s = this.stack.pop(); if (s) this.s = s; }
-  setTransform(a, b, c, d, e, f) { if (typeof a === 'object' && a) ({ a, b, c, d, e, f } = a); this.s.m = [a, b, c, d, e, f]; }
-  resetTransform() { this.s.m = [1, 0, 0, 1, 0, 0]; }
-  getTransform() { const [a, b, c, d, e, f] = this.s.m; return { a, b, c, d, e, f }; }
-  transform(a, b, c, d, e, f) { this.s.m = mulM(this.s.m, a, b, c, d, e, f); }
-  translate(x, y) { this.s.m = mulM(this.s.m, 1, 0, 0, 1, x, y); }
-  scale(x, y) { this.s.m = mulM(this.s.m, x, 0, 0, y, 0, 0); }
-  rotate(a) { const c = Math.cos(a), s = Math.sin(a); this.s.m = mulM(this.s.m, c, s, -s, c, 0, 0); }
-  createRadialGradient(x0, y0, r0, x1, y1, r1) { return new Gradient(x0, y0, r0, x1, y1, r1, this.s.m.slice()); }
-  // Path (points kept in device px)
-  _pt(x, y) { const m = this.s.m; return [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]]; }
-  beginPath() { this.path = []; this.sub = null; }
-  moveTo(x, y) { this.sub = { p: [this._pt(x, y)], closed: false }; this.path.push(this.sub); }
-  lineTo(x, y) { if (!this.sub) { this.moveTo(x, y); return; } if (this.sub.closed) this._reopen(); this.sub.p.push(this._pt(x, y)); }
-  _reopen() { const s = this.sub.p[0]; this.sub = { p: [s.slice()], closed: false }; this.path.push(this.sub); }
-  closePath() { if (this.sub && this.sub.p.length) this.sub.closed = true; }
-  _curve(f, n) { for (let i = 1; i <= n; i++) { const [x, y] = f(i / n); this.sub.p.push(this._pt(x, y)); } }
+  // (A saved state is a pooled record copied from the current one; the state restored from is given back.)
+  save() { const t = P_STATE.pop() || newState(); copyState(t, this.s); this.stack.push(t); }
+  restore() { const s = this.stack.pop(); if (s) { P_STATE.push(this.s); this.s = s; } }
+  setTransform(a, b, c, d, e, f) { if (typeof a === 'object' && a) ({ a, b, c, d, e, f } = a); const m = this.s.m; m[0] = a; m[1] = b; m[2] = c; m[3] = d; m[4] = e; m[5] = f; }
+  resetTransform() { const m = this.s.m; m[0] = 1; m[1] = 0; m[2] = 0; m[3] = 1; m[4] = 0; m[5] = 0; }
+  // (The recorder's own object, written in place: read where it is asked for, as the painting does; not kept.)
+  getTransform() { const m = this.s.m, t = this.tf; t.a = m[0]; t.b = m[1]; t.c = m[2]; t.d = m[3]; t.e = m[4]; t.f = m[5]; return t; }
+  transform(a, b, c, d, e, f) { mulM(this.s.m, a, b, c, d, e, f); }
+  translate(x, y) { mulM(this.s.m, 1, 0, 0, 1, x, y); }
+  scale(x, y) { mulM(this.s.m, x, 0, 0, y, 0, 0); }
+  rotate(a) { const c = Math.cos(a), s = Math.sin(a); mulM(this.s.m, c, s, -s, c, 0, 0); }
+  createRadialGradient(x0, y0, r0, x1, y1, r1) {
+    if (this.gn === this.grads.length) this.grads.push(new Gradient());   // alloc-rare: pool empty: a gradient is made only when more are used in one picture than ever before
+    const G = this.grads[this.gn++];
+    const g = G.g, m = g.m, f = this.s.m;
+    g.x0 = x0; g.y0 = y0; g.r0 = r0; g.x1 = x1; g.y1 = y1; g.r1 = r1;
+    m[0] = f[0]; m[1] = f[1]; m[2] = f[2]; m[3] = f[3]; m[4] = f[4]; m[5] = f[5];
+    G.ns = 0;
+    return G;
+  }
+  // Path (points kept in device px; each is a pooled pair, given back with its sub-path when the path is begun again)
+  _pt(x, y) { const m = this.s.m; return takePt(m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]); }
+  beginPath() { dropPath(this.path); this.sub = null; }
+  // (A path made on the side, for a rect that is filled or stroked at once: the path in hand is kept as it was.)
+  _side() { const kp = this.path; this.path = P_PATH.pop() || { a: [], n: 0 }; return kp; }   // alloc-rare: pool empty: a side path is made only when more nest than ever before
+  _unside(kp, ks) { dropPath(this.path); P_PATH.push(this.path); this.path = kp; this.sub = ks; }
+  _addSub(sub) { const path = this.path; path.a[path.n++] = sub; this.sub = sub; }
+  moveTo(x, y) { this._addSub(takeSub(this._pt(x, y))); }
+  lineTo(x, y) { if (!this.sub) { this.moveTo(x, y); return; } if (this.sub.closed) this._reopen(); const sub = this.sub; sub.p[sub.n++] = this._pt(x, y); }
+  _reopen() { const s = this.sub.p[0]; this._addSub(takeSub(takePt(s[0], s[1]))); }
+  closePath() { if (this.sub && this.sub.n) this.sub.closed = true; }
   quadraticCurveTo(cx, cy, x, y) {
     if (!this.sub) this.moveTo(cx, cy);
     if (this.sub.closed) this._reopen();
-    const m = this.s.m, last = this.sub.p[this.sub.p.length - 1], inv = invPt(m, last);
-    const n = Math.min(64, Math.max(2, Math.ceil(Math.sqrt(Math.hypot(cx - inv[0], cy - inv[1]) * scaleOf(m) / TOL) / 2)));
-    this._curve((t) => { const u = 1 - t; return [u * u * inv[0] + 2 * u * t * cx + t * t * x, u * u * inv[1] + 2 * u * t * cy + t * t * y]; }, n);
+    const m = this.s.m, sub = this.sub, p = sub.p;
+    invPt(m, p[sub.n - 1]);
+    const ix = IX, iy = IY;
+    const n = Math.min(64, Math.max(2, Math.ceil(Math.sqrt(Math.hypot(cx - ix, cy - iy) * scaleOf(m) / TOL) / 2)));
+    for (let i = 1; i <= n; i++) {
+      const t = i / n, u = 1 - t;
+      p[sub.n++] = this._pt(u * u * ix + 2 * u * t * cx + t * t * x, u * u * iy + 2 * u * t * cy + t * t * y);
+    }
   }
   bezierCurveTo(c1x, c1y, c2x, c2y, x, y) {
     if (!this.sub) this.moveTo(c1x, c1y);
     if (this.sub.closed) this._reopen();
-    const m = this.s.m, last = this.sub.p[this.sub.p.length - 1], p0 = invPt(m, last);
-    const L = Math.hypot(c1x - p0[0], c1y - p0[1]) + Math.hypot(c2x - c1x, c2y - c1y) + Math.hypot(x - c2x, y - c2y);
+    const m = this.s.m, sub = this.sub, p = sub.p;
+    invPt(m, p[sub.n - 1]);
+    const ix = IX, iy = IY;
+    const L = Math.hypot(c1x - ix, c1y - iy) + Math.hypot(c2x - c1x, c2y - c1y) + Math.hypot(x - c2x, y - c2y);
     const n = Math.min(96, Math.max(2, Math.ceil(Math.sqrt(L * scaleOf(m) / TOL) / 2)));
-    this._curve((t) => { const u = 1 - t; return [u * u * u * p0[0] + 3 * u * u * t * c1x + 3 * u * t * t * c2x + t * t * t * x, u * u * u * p0[1] + 3 * u * u * t * c1y + 3 * u * t * t * c2y + t * t * t * y]; }, n);
+    for (let i = 1; i <= n; i++) {
+      const t = i / n, u = 1 - t;
+      p[sub.n++] = this._pt(u * u * u * ix + 3 * u * u * t * c1x + 3 * u * t * t * c2x + t * t * t * x, u * u * u * iy + 3 * u * u * t * c1y + 3 * u * t * t * c2y + t * t * t * y);
+    }
   }
   arc(x, y, r, a0, a1, ccw = false) { this.ellipse(x, y, r, r, 0, a0, a1, ccw); }
   ellipse(x, y, rx, ry, rot, a0, a1, ccw = false) {
@@ -101,12 +307,14 @@ export class PaintRecorder {
     const step = rr > TOL ? 2 * Math.acos(Math.max(-1, 1 - TOL / rr)) : TAU / 4;
     const n = Math.min(720, Math.max(1, Math.ceil(Math.abs(sweep) / step)));
     const cr = Math.cos(rot), sr = Math.sin(rot);
-    const at = (a) => { const ex = rx * Math.cos(a), ey = ry * Math.sin(a); return this._pt(x + ex * cr - ey * sr, y + ex * sr + ey * cr); };
-    const p0 = at(a0);
-    if (!this.sub) { this.sub = { p: [p0], closed: false }; this.path.push(this.sub); }
-    else { if (this.sub.closed) this._reopen(); this.sub.p.push(p0); }
-    for (let i = 1; i <= n; i++) this.sub.p.push(at(a0 + (sweep * i) / n));
+    const p0 = this._ept(x, y, rx, ry, cr, sr, a0);
+    if (!this.sub) this._addSub(takeSub(p0));
+    else { if (this.sub.closed) this._reopen(); const sub = this.sub; sub.p[sub.n++] = p0; }
+    const sub = this.sub;
+    for (let i = 1; i <= n; i++) sub.p[sub.n++] = this._ept(x, y, rx, ry, cr, sr, a0 + (sweep * i) / n);
   }
+  // The point at angle a of an ellipse (centre x, y; radii rx, ry; turned by rot, whose cosine and sine are cr, sr), in device px.
+  _ept(x, y, rx, ry, cr, sr, a) { const ex = rx * Math.cos(a), ey = ry * Math.sin(a); return this._pt(x + ex * cr - ey * sr, y + ex * sr + ey * cr); }
   rect(x, y, w, h) { this.moveTo(x, y); this.lineTo(x + w, y); this.lineTo(x + w, y + h); this.lineTo(x, y + h); this.closePath(); this.moveTo(x, y); }
   roundRect(x, y, w, h, r = 0) {
     let rr = Array.isArray(r) ? r[0] : r;
@@ -125,13 +333,13 @@ export class PaintRecorder {
   _paint(style) {
     const ps = PS;
     if (style instanceof Gradient) {
-      const { r0, x1, y1, r1, m } = style.g, k = scaleOf(m), ga = this.s.ga, st = style.stops;
+      const { r0, x1, y1, r1, m } = style.g, k = scaleOf(m), ga = this.s.ga, st = style.stops, ns = style.ns;
       ps.grad = true; ps.cx = m[0] * x1 + m[2] * y1 + m[4]; ps.cy = m[1] * x1 + m[3] * y1 + m[5]; ps.r0 = r0 * k; ps.r1 = r1 * k;
       // (concentric gradients only: the app's are; no stops at all is one clear stop)
-      const n = st.length ? Math.min(8, st.length) : 1;
+      const n = ns ? Math.min(8, ns) : 1;
       for (let i = 0; i < n; i++) {
         const o = ps.st[i];
-        if (st.length) { const t = st[i][0], q = st[i][1]; o[0] = t; o[1] = q[0] * q[3] * ga; o[2] = q[1] * q[3] * ga; o[3] = q[2] * q[3] * ga; o[4] = q[3] * ga; }
+        if (ns) { const t = st[i][0], q = st[i][1]; o[0] = t; o[1] = q[0] * q[3] * ga; o[2] = q[1] * q[3] * ga; o[3] = q[2] * q[3] * ga; o[4] = q[3] * ga; }
         else { o[0] = 0; o[1] = 0; o[2] = 0; o[3] = 0; o[4] = 0; }
       }
       ps.n = n;
@@ -154,24 +362,32 @@ export class PaintRecorder {
   // The triangles in TR[0..tn), one colour (premultiplied).
   _direct(rgba) {
     let b = this.batch;
-    if (!b || b.clip !== this.s.clip) { b = this.batch = { k: 'direct', from: this.cv.length / 6, count: 0, clip: this.s.clip }; this.ops.push(b); }   // alloc-rare: the record's own batch (one per run of shapes under a clip), which the picture keeps: made as a picture is recorded, a tile drawn for a new look or size, never a frame that has its tile
-    const r = rgba[0], g = rgba[1], bb = rgba[2], a = rgba[3], cv = this.cv;
-    for (let i = 0; i < tn; i += 2) cv.push(TR[i], TR[i + 1], r, g, bb, a);
+    if (!b || b.clip !== this.s.clip) { b = this.batch = takeBatch(this.cvn / 6, this.s.clip); this.ops.push(b); }
+    const r = rgba[0], g = rgba[1], bb = rgba[2], a = rgba[3];
+    if (this.cvn + tn * 3 > this.cvb.length) this._growCv(this.cvn + tn * 3);
+    const cv = this.cvb;
+    let k = this.cvn;
+    for (let i = 0; i < tn; i += 2) { cv[k] = TR[i]; cv[k + 1] = TR[i + 1]; cv[k + 2] = r; cv[k + 3] = g; cv[k + 4] = bb; cv[k + 5] = a; k += 6; }
+    this.cvn = k;
     b.count += tn / 2;
   }
   // The triangles in TR[0..tn) as a stencil-and-cover op with the scratch's paint (and its shadow, when sh).
   _stencil(k, rule, sh) {
     if (tn < 6) return;
     this._end();
-    const from = this.pv.length / 2;
+    const from = this.pvn / 2;
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    if (this.pvn + tn > this.pvb.length) this._growPv(this.pvn + tn);
+    const pv = this.pvb;
+    let q = this.pvn;
     for (let i = 0; i < tn; i += 2) {
       const x = TR[i], y = TR[i + 1];
-      this.pv.push(x, y);
+      pv[q] = x; pv[q + 1] = y; q += 2;
       if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
     }
+    this.pvn = q;
     const paint = keptPaint(), shadow = sh ? keptShadow() : null;
-    this.ops.push({ k, from, count: tn / 2, rule, paint, shadow, clip: this.s.clip, box: [x0, y0, x1, y1] });   // alloc-rare: the record's own op, which the picture keeps: made as a picture is recorded, a tile drawn for a new look or size, never a frame that has its tile
+    this.ops.push(takeOp(k, from, tn / 2, rule, paint, shadow, this.s.clip, x0, y0, x1, y1));
   }
   fill(rule = 'nonzero') {
     if (typeof rule === 'object') rule = 'nonzero';   // (a Path2D is not recorded)
@@ -179,12 +395,12 @@ export class PaintRecorder {
     if (!PS.grad && !(PS.rgba[3] > 0)) return;
     const path = this.path;
     let ns = 0, only = null;
-    for (let i = 0; i < path.length; i++) if (path[i].p.length >= 3) { ns++; only = path[i]; }
+    for (let i = 0; i < path.n; i++) if (path.a[i].n >= 3) { ns++; only = path.a[i]; }
     const sh = this._shadow();
     if (!ns) return;
     tn = 0;
-    if (ns === 1 && !PS.grad && !sh && convex(only.p)) { fanTo(only.p); this._direct(PS.rgba); return; }
-    for (let i = 0; i < path.length; i++) if (path[i].p.length >= 3) fanTo(path[i].p);
+    if (ns === 1 && !PS.grad && !sh && convex(only.p, only.n)) { fanTo(only.p, only.n); this._direct(PS.rgba); return; }
+    for (let i = 0; i < path.n; i++) if (path.a[i].n >= 3) fanTo(path.a[i].p, path.a[i].n);
     this._stencil('fill', rule === 'evenodd' ? 'evenodd' : 'nonzero', sh);
   }
   stroke() {
@@ -198,45 +414,65 @@ export class PaintRecorder {
     }
     const path = this.path;
     let ns = 0, only = null;
-    for (let i = 0; i < path.length; i++) if (path[i].p.length >= 2) { ns++; only = path[i]; }
+    for (let i = 0; i < path.n; i++) if (path.a[i].n >= 2) { ns++; only = path.a[i]; }
     const sh = this._shadow();
     if (!ns) return;
     tn = 0;
-    if (ns === 1 && only.closed && !ps.grad && !sh && convexRingTo(only.p, hw)) { this._direct(ps.rgba); return; }
+    if (ns === 1 && only.closed && !ps.grad && !sh && convexRingTo(only.p, only.n, hw)) { this._direct(ps.rgba); return; }
     tn = 0;
-    for (let i = 0; i < path.length; i++) if (path[i].p.length >= 2) strokeTris(path[i].p, path[i].closed, hw, this.s.cap);
+    for (let i = 0; i < path.n; i++) if (path.a[i].n >= 2) strokeTris(path.a[i].p, path.a[i].n, path.a[i].closed, hw, this.s.cap);
     this._stencil('stroke', 'nonzero', sh);
   }
   clip(rule = 'nonzero') {
     const path = this.path;
     tn = 0;
-    for (let i = 0; i < path.length; i++) if (path[i].p.length >= 3) fanTo(path[i].p);
+    for (let i = 0; i < path.n; i++) if (path.a[i].n >= 3) fanTo(path.a[i].p, path.a[i].n);
     this._end();
-    const from = this.pv.length / 2;
+    const from = this.pvn / 2;
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-    for (let i = 0; i < tn; i += 2) { const x = TR[i], y = TR[i + 1]; this.pv.push(x, y); if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
-    const c = { from, count: tn / 2, rule: rule === 'evenodd' ? 'evenodd' : 'nonzero', box: tn ? [x0, y0, x1, y1] : [0, 0, 0, 0] };   // alloc-rare: the record's own clip, which the picture keeps: made as a picture is recorded, a tile drawn for a new look or size, never a frame that has its tile
-    this.s.clip = this.s.clip ? [...this.s.clip, c] : [c];   // alloc-rare: the clip chain the record's ops keep: made as a picture is recorded, never a frame that has its tile
+    if (this.pvn + tn > this.pvb.length) this._growPv(this.pvn + tn);
+    const pv = this.pvb;
+    let q = this.pvn;
+    for (let i = 0; i < tn; i += 2) { const x = TR[i], y = TR[i + 1]; pv[q] = x; pv[q + 1] = y; q += 2; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    this.pvn = q;
+    const eo = rule === 'evenodd' ? 'evenodd' : 'nonzero';
+    const c = tn ? takeClip(from, tn / 2, eo, x0, y0, x1, y1) : takeClip(from, 0, eo, 0, 0, 0, 0);
+    const chain = takeChain(this.s.clip, c), led = this.rec[LED];
+    led.clips[led.nClips++] = c; led.chains[led.nChains++] = chain;
+    this.s.clip = chain;
   }
-  fillRect(x, y, w, h) { const kp = this.path, ks = this.sub; this.beginPath(); this.rect(x, y, w, h); this.fill(); this.path = kp; this.sub = ks; }
-  strokeRect(x, y, w, h) { const kp = this.path, ks = this.sub; this.beginPath(); this.rect(x, y, w, h); this.stroke(); this.path = kp; this.sub = ks; }
+  fillRect(x, y, w, h) { const ks = this.sub, kp = this._side(); this.sub = null; this.rect(x, y, w, h); this.fill(); this._unside(kp, ks); }
+  strokeRect(x, y, w, h) { const ks = this.sub, kp = this._side(); this.sub = null; this.rect(x, y, w, h); this.stroke(); this._unside(kp, ks); }
   clearRect(x, y, w, h) {
     const m = this.s.m, full = !this.s.clip && m[1] === 0 && m[2] === 0 && this.ops.length === 0;
     const a = this._pt(x, y), b = this._pt(x + w, y + h);
     if (full && Math.min(a[0], b[0]) <= 0 && Math.min(a[1], b[1]) <= 0 && Math.max(a[0], b[0]) >= this.width && Math.max(a[1], b[1]) >= this.height) return;   // (the picture starts clear)
-    const kp = this.path, ks = this.sub; this.beginPath(); this.rect(x, y, w, h);
+    const ks = this.sub, kp = this._side(); this.sub = null; this.rect(x, y, w, h);
     tn = 0;
-    if (this.sub) fanTo(this.path[0].p);
-    this.path = kp; this.sub = ks;
+    if (this.sub) fanTo(this.path.a[0].p, this.path.a[0].n);
+    this._unside(kp, ks);
     this._end();
-    const from = this.pv.length / 2;
-    for (let i = 0; i < tn; i++) this.pv.push(TR[i]);
-    this.ops.push({ k: 'clear', from, count: tn / 2, clip: this.s.clip, box: [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[0], b[0]), Math.max(a[1], b[1])] });   // alloc-rare: the record's own op, which the picture keeps: made as a picture is recorded, never a frame that has its tile
+    const from = this.pvn / 2;
+    if (this.pvn + tn > this.pvb.length) this._growPv(this.pvn + tn);
+    const pv = this.pvb;
+    let q = this.pvn;
+    for (let i = 0; i < tn; i++) pv[q++] = TR[i];
+    this.pvn = q;
+    this.ops.push(takeClear(from, tn / 2, this.s.clip, Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[0], b[0]), Math.max(a[1], b[1])));
   }
   // (Pixel calls a 2D painter might make are not recorded: a GPU picture has no pixels on the CPU.)
   drawImage() { throw new Error('paint-gl: drawImage is not recorded'); }
   /** The record, its arrays packed. */
-  done() { this._end(); return { width: this.width, height: this.height, ops: this.ops, cv: new Float32Array(this.cv), pv: new Float32Array(this.pv) }; }   // alloc-rare: once per recorded picture, whose packed record is what it keeps
+  done() {
+    this._end();
+    const rec = this.rec;
+    rec.width = this.width; rec.height = this.height;
+    // (Each array is a view of its storage as long as the numbers written: the record reads as the array made from them.)
+    rec.cv = this.cvn === this.cvb.length ? this.cvb : this.cvb.subarray(0, this.cvn);
+    rec.pv = this.pvn === this.pvb.length ? this.pvb : this.pvb.subarray(0, this.pvn);
+    this.rec = null; this.ops = null; this.cvb = null; this.pvb = null; this.gn = 0;
+    return rec;
+  }
 }
 // ── Kept scratch (the recorder is single-threaded and none of its calls re-enter another): the paint, the shadow and the triangles of the
 // call in hand, and the points of a cleaned polygon. They grow to the biggest shape seen and are then reused, so a shape allocates nothing.
@@ -247,7 +483,7 @@ let RING = new Float64Array(512);   // a ring's outer corners then its inner one
 const QB = [];   // the cleaned polygon's points (the path's own, not copies)
 function trGrow(need) {
   const b = new Float64Array(Math.max(need, TR.length * 2));   // alloc-rare: the triangle scratch grows only when a shape is bigger than every one before it, then it is reused
-  b.set(TR.subarray(0, tn)); TR = b;
+  b.set(TR.subarray(0, tn)); TR = b;   // alloc-rare: the same growth: the old scratch's filled part, copied once into the bigger one
 }
 function tri(a, b, c, d, e, f) {
   if (tn + 6 > TR.length) trGrow(tn + 6);
@@ -255,31 +491,34 @@ function tri(a, b, c, d, e, f) {
 }
 // The record's own copy of the paint in PS (a stencil op keeps it), and of the shadow in SHD.
 function keptPaint() {
-  if (!PS.grad) return { rgba: [PS.rgba[0], PS.rgba[1], PS.rgba[2], PS.rgba[3]] };   // alloc-rare: the record's own paint, which the picture keeps: made as a picture is recorded, never a frame that has its tile
-  const stops = [];   // alloc-rare: the record's own paint, which the picture keeps: made as a picture is recorded, never a frame that has its tile
-  for (let i = 0; i < PS.n; i++) { const o = PS.st[i]; stops.push([o[0], o[1], o[2], o[3], o[4]]); }   // alloc-rare: the record's own stops, which the picture keeps: made as a picture is recorded, never a frame that has its tile
-  return { grad: { cx: PS.cx, cy: PS.cy, r0: PS.r0, r1: PS.r1, stops } };   // alloc-rare: the record's own paint, which the picture keeps: made as a picture is recorded, never a frame that has its tile
+  if (!PS.grad) return takeSolid(PS.rgba[0], PS.rgba[1], PS.rgba[2], PS.rgba[3]);
+  const p = takeGrad(PS.n), g = p.grad, stops = g.stops;
+  g.cx = PS.cx; g.cy = PS.cy; g.r0 = PS.r0; g.r1 = PS.r1;
+  for (let i = 0; i < PS.n; i++) { const o = PS.st[i], d = stops[i]; d[0] = o[0]; d[1] = o[1]; d[2] = o[2]; d[3] = o[3]; d[4] = o[4]; }
+  return p;
 }
-function keptShadow() { return { rgba: [SHD.rgba[0], SHD.rgba[1], SHD.rgba[2], SHD.rgba[3]], sigma: SHD.sigma }; }   // alloc-rare: the record's own shadow, which the picture keeps: made as a picture is recorded, never a frame that has its tile
+function keptShadow() { return takeShadow(SHD.rgba[0], SHD.rgba[1], SHD.rgba[2], SHD.rgba[3], SHD.sigma); }
 
-function invPt(m, [x, y]) {
-  const det = m[0] * m[3] - m[1] * m[2] || 1, dx = x - m[4], dy = y - m[5];
-  return [(m[3] * dx - m[2] * dy) / det, (-m[1] * dx + m[0] * dy) / det];
+// A point of the device, back in the space of matrix m: into IX, IY.
+let IX = 0, IY = 0;
+function invPt(m, pt) {
+  const det = m[0] * m[3] - m[1] * m[2] || 1, dx = pt[0] - m[4], dy = pt[1] - m[5];
+  IX = (m[3] * dx - m[2] * dy) / det; IY = (-m[1] * dx + m[0] * dy) / det;
 }
 // A polygon's fan of triangles, appended to TR.
-function fanTo(p) {
+function fanTo(p, np) {
   const p0 = p[0];
-  for (let i = 1; i + 1 < p.length; i++) tri(p0[0], p0[1], p[i][0], p[i][1], p[i + 1][0], p[i + 1][1]);
+  for (let i = 1; i + 1 < np; i++) tri(p0[0], p0[1], p[i][0], p[i][1], p[i + 1][0], p[i + 1][1]);
 }
 // The polygon without repeated points, into QB; its count.
-function cleanTo(p) {
+function cleanTo(p, np) {
   let n = 0;
-  for (let i = 0; i < p.length; i++) { const v = p[i], l = n ? QB[n - 1] : null; if (!l || Math.abs(l[0] - v[0]) > 1e-6 || Math.abs(l[1] - v[1]) > 1e-6) QB[n++] = v; }
+  for (let i = 0; i < np; i++) { const v = p[i], l = n ? QB[n - 1] : null; if (!l || Math.abs(l[0] - v[0]) > 1e-6 || Math.abs(l[1] - v[1]) > 1e-6) QB[n++] = v; }
   while (n > 1 && Math.abs(QB[0][0] - QB[n - 1][0]) < 1e-6 && Math.abs(QB[0][1] - QB[n - 1][1]) < 1e-6) n--;
   return n;
 }
 // (A polygon that turns one way only, once round: its fan never overlaps itself.)
-function convex(p) { return convexQ(cleanTo(p)); }
+function convex(p, np) { return convexQ(cleanTo(p, np)); }
 function convexQ(n) {   // of the n points already in QB
   if (n < 3) return false;
   let sign = 0, turn = 0;
@@ -293,8 +532,8 @@ function convexQ(n) {   // of the n points already in QB
   return Math.abs(turn) < TAU + 0.01;
 }
 // The outline of a convex closed path as one ring of quads (half width hw), appended to TR; false when it is not one (then stencil and cover).
-function convexRingTo(p, hw) {
-  const n = cleanTo(p);
+function convexRingTo(p, np, hw) {
+  const n = cleanTo(p, np);
   if (n < 3 || !convexQ(n)) return false;
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, area = 0;
   for (let i = 0; i < n; i++) { const x = QB[i][0], y = QB[i][1], x2 = QB[(i + 1) % n][0], y2 = QB[(i + 1) % n][1]; area += x * y2 - x2 * y; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
@@ -331,8 +570,8 @@ function disc(x, y, r) {
 }
 // A stroke's triangles, appended to TR (they overlap at the joins: drawn by stencil and cover, so each pixel is laid once). Joins are
 // round (a disc at each bend), caps as asked.
-function strokeTris(p, closed, hw, cap) {
-  const n = cleanTo(p);
+function strokeTris(p, np, closed, hw, cap) {
+  const n = cleanTo(p, np);
   if (n < 2) return;
   const segs = closed ? n : n - 1;
   for (let i = 0; i < segs; i++) {
@@ -360,14 +599,27 @@ function strokeTris(p, closed, hw, cap) {
 
 /** Runs draw(ctx) against a recorder w × h (device px) and keeps the record. */
 export function recordPaint(width, height, draw) {
-  const r = new PaintRecorder(width, height);
-  draw(r);
-  return r.done();
+  const r = P_RECORDER.pop() || new PaintRecorder(width, height);   // alloc-rare: pool empty: a recorder is made only when more recordings run at once than ever before (one, in practice)
+  if (r.rec === null) r._init(width, height);   // (a new recorder is started by its constructor, a pooled one here)
+  let rec;
+  try { draw(r); rec = r.done(); } catch (err) { r._abort(); P_RECORDER.push(r); throw err; }
+  P_RECORDER.push(r);
+  return rec;
 }
 
 /** A GPU picture: a record that stands where a canvas did (width, height; free() sets them to 0). ver: the caller's count of paints. */
 export function gpuPicture(rec, ver = 0) {
-  return { width: rec.width, height: rec.height, rec, ver, gpuPicture: true };   // alloc-rare: once per picture, the stand-in for a canvas that the picture keeps
+  const led = rec[LED];
+  if (led && led.live) led.refs++;   // (the picture holds the record; releasePicture lets go of it)
+  return { width: rec.width, height: rec.height, rec, ver, gpuPicture: true };   // alloc-rare: the picture's own handle, one small object a picture: it is the key the GPU contexts' caches know the picture by (tissue-gl texs, tile-gl raw and copies' src), so it is never recycled, or a new picture would read as the old one
+}
+/** Gives a picture back (what free() does to a canvas, width 0): it lets go of its record, which returns to the pools once no picture holds it. */
+export function releasePicture(pic) {
+  const rec = pic.rec;
+  pic.width = 0; pic.height = 0;
+  if (!rec) return false;
+  pic.rec = null;
+  return releaseRecord(rec);
 }
 export const isGpuPicture = (cv) => !!cv && cv.gpuPicture === true;
 

@@ -56,7 +56,7 @@ test('the glow texels are written exactly as the whole vessel sync wrote them, o
 test('a glow ease runs the glow-only sync, which falls back to the whole sync unless nothing else changed', () => {
   assert.match(stage, /if \(glowSync && !syncGlowOnly\(easeInOut\(morph\)\)\) syncVeins\(easeInOut\(morph\)\);/);
   assert.match(stage, /writeGlowTexels\(tubeData, o, kind, id, ra\?\.e\.id, obj\.len, glow\.lit, vh\.amt, cpRgb, easeInOut\);/, 'the whole sync writes them with the same helper');
-  assert.match(stage, /glowMemo = \{ items, t, netA, cs, mode, origin: cpOrigin, cath: cathTint, F, geo: geometryVersion, plate: veins\.hasPlate\(0\), cls: wrapCls\(\), bits: glowBits\(items\), reach: vLook\.reach \};/);
+  assert.match(stage, /gm\.items = items; gm\.t = t; gm\.netA = netA; gm\.cs = cs; gm\.mode = mode; gm\.origin = cpOrigin; gm\.cath = cathTint; gm\.F = F; gm\.geo = geometryVersion;\n\s+gm\.plate = veins\.hasPlate\(0\); gm\.cls = wrapCls\(\); gm\.bits = glowBits\(items, 0\); gm\.reach = vLook\.reach;/);   // (the memo is one kept object written in place)
   const ok = stage.slice(stage.indexOf('function glowOnlyOk'), stage.indexOf('function syncGlowOnly'));
   for (const c of ['tubesNew', 'lensFrom', 'm.t !== t', 'm.F !== F', 'm.geo !== geometryVersion', 'm.netA !== netA', 'm.cs !== wrapCS()', 'm.mode !== layerMode()', 'm.origin !== originOn()', 'm.cath !== cathTint', 'm.plate !== veins.hasPlate(0)', 'm.cls !== wrapCls()', 'm.reach !==', 'b[i] !== m.bits[i]', 'b[i] & 64']) assert.ok(ok.includes(c), `checks ${c}`);
   for (const c of ['it.x.sel', 'it.x.ghost', 'it.ra?.sel', 'it.x.lifted', 'it.x.reveal']) assert.ok(stage.slice(stage.indexOf('function glowBits'), stage.indexOf('function glowOnlyOk')).includes(c), `bits hold ${c}`);
@@ -74,7 +74,8 @@ test('the FibroScan packets write an opacity or a path only when its text change
   paintWave(packs[1], '0.500', (j) => `M${j}`);
   paintWave(packs[1], '0.500', (j) => (j === 1 ? 'M9' : `M${j}`));
   assert.deepEqual(writes, [['g1', 'op', '0.500'], ['p10', 'd', 'M0'], ['p11', 'd', 'M1'], ['p12', 'd', 'M2'], ['p11', 'd', 'M9']]);
-  assert.match(stage, /paintWave\(w, fade\.toFixed\(3\), \(j\) => scanArc\(Math\.max\(1, r \+ \(j - 1\) \* gap\)\)\)/, 'the same arcs as before');
+  assert.match(stage, /const scanArcAt = \(j\) => scanArc\(Math\.max\(1, scanWaveR \+ \(j - 1\) \* scanWaveGap\)\);/, 'the same arcs as before');
+  assert.match(stage, /scanWaveR = r; scanWaveGap = gap;\n\s+paintWave\(w, fade\.toFixed\(3\), scanArcAt\);/);
   assert.match(stage, /scan\.el = null; scan\.packs = null;/, 'a new probe looks its packets up again');
 });
 

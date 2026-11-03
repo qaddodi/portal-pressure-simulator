@@ -29,7 +29,7 @@ import { dopplerVel } from './velNormal.js';
 import { controlOwnsKey } from './key-owner.js';
 import { $, $$, h, icon, afterExit, fmt, fmtFlow, toast, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, swapFade, scrollBehavior, reconcile } from './util.js';
 import { glidePlateOn, platePieces, glideOnResize } from './plate-glide.js';
-import { sheetParts, sheetOffset, setSheetOffset, stopSheet, glideSheet } from './sheet-move.js';
+import { sheetParts, sheetOffset, setSheetOffset, stopSheet, glideSheet, dragSheet } from './sheet-move.js';
 import { releaseSpeed, isFlick, flickAim, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js';
 import { morphKey, crossfadeText } from './legend-morph.js';
 import { glideNow } from './seg-glide.js';
@@ -37,6 +37,7 @@ import './focus-ring.js';
 import { knownLook, currentLook, isDarkLook, lastDarkLook, applyLookAttrs } from './looks.js';
 import { lookChooser } from './look-chooser.js';
 import { TEXT_STEPS } from './type-scale.js';
+import { moverOf, cancelMoves } from './num-move.js';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const app = $('#app');
@@ -112,6 +113,7 @@ function lazy(load, make) {
 }
 let paletteL, presenterL, dopplerL, fibroL;
 const palette = {
+  // alloc-rare: the palette is opened by a key or a tap (its promise and handlers), not in a frame
   open: () => paletteL.get().then((p) => p.open()).catch(() => {}),   // (a part that cannot load has said so: loadFailed)
   close: () => paletteL.now()?.close(),
   isOpen: () => !!paletteL.now()?.isOpen(),
@@ -1751,13 +1753,21 @@ function sheetGlass() {
   // (The figure's canvas not made yet: asked again shortly, a few times.)
   if (!sheetGL && sheetGLTry++ < 20) setTimeout(sheetGlass, 500);
 }
+const sheetInner = (c) => { const l = c.lastElementChild; if (!l) return 0; const b = parseFloat(readStyle(c).paddingBottom) + parseFloat(readStyle(l).marginBottom); return readBox(l).bottom - readBox(c).top + readMetric(c, 'scrollTop') + b; };
 function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = null, anywhere = false }) {
   const SIZES = [0.32, 0.56, 0.9], THUMB = [0.62, 1], TABLET = [0.45, 0.62];
   const thumb = () => app.classList.contains('thumb') && isPhone();
   // (17 Oct, Mohammad: an upright iPad's cards open "proportional to the ipad proportions vertically" and never fill the whole
   // screen: Half takes the share of the screen's height an iPhone's Half takes, 45 %, and Full stops at 62 %, the figure in view
   // above it. As shares of the room, like the phone's, so a drag and its release are measured the same way.)
-  const stops = () => (!thumb() ? SIZES : tabletMQ.matches ? TABLET.map((s) => Math.min(1, (s * readMetric(app, 'clientHeight')) / (room() || readMetric(app, 'clientHeight')))) : THUMB);
+  const TAB_NOW = [0, 0];   // (the tablet's stops, written in place at each ask and read where they are asked for, not kept)
+  const stops = () => {
+    if (!thumb()) return SIZES;
+    if (!tabletMQ.matches) return THUMB;
+    const H = readMetric(app, 'clientHeight'), R = room() || H;
+    for (let i = 0; i < 2; i++) TAB_NOW[i] = Math.min(1, (TABLET[i] * H) / R);
+    return TAB_NOW;
+  };
   const half = () => stops().length - 2;
   // The room a thumb sheet may fill: the CSS cap (100% - top bar - tab row - 22 px, styles/app.css thumb block).
   const room = () => (thumb() ? readMetric(app, 'clientHeight') - (parseFloat(app.style.getPropertyValue('--top-safe')) || 0) - (parseFloat(app.style.getPropertyValue('--nb-occ')) || 0) - 22 : 0);
@@ -1771,8 +1781,9 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
     if (!fit || !isPhone() || el.hidden) return Infinity;
     const cs = readStyle(el);
     // The body fills the sheet, so its own height says nothing: measure down to its last child.
-    const inner = (c) => { const l = c.lastElementChild; if (!l) return 0; const b = parseFloat(readStyle(c).paddingBottom) + parseFloat(readStyle(l).marginBottom); return readBox(l).bottom - readBox(c).top + readMetric(c, 'scrollTop') + b; };
-    return [...el.children].reduce((a, c) => a + (c.classList.contains('sheet-plate') ? 0 : c.matches(fit) ? inner(c) : readMetric(c, 'offsetHeight')), 0) + parseFloat(cs.paddingBottom) + parseFloat(cs.paddingTop);
+    let sum = 0;
+    for (let i = 0; i < el.children.length; i++) { const c = el.children[i]; sum += c.classList.contains('sheet-plate') ? 0 : c.matches(fit) ? sheetInner(c) : readMetric(c, 'offsetHeight'); }
+    return sum + parseFloat(cs.paddingBottom) + parseFloat(cs.paddingTop);
   };
   // (A phone turned upright or sideways changes the stops, three sideways and two over the thumb dock: Half stays Half and the top stays the top.)
   const remap = () => { const n = stops().length; if (n !== lastN) { size = size === lastN - 1 ? n - 1 : n - 2; lastN = n; } };
@@ -1782,6 +1793,7 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
     const S = stops(), r = room();
     size = Math.min(size, S.length - 1);
     const need = size === half() ? natural() : Infinity;
+    // alloc-rare: the sheet's height as a CSS value, made when a gesture starts or ends or the sheet opens, not while it moves
     return need < S[half()] * (r || readMetric(app, 'clientHeight')) ? `${Math.ceil(need)}px` : r ? `${Math.round(S[size] * r)}px` : `${Math.round(S[size] * 100)}%`;
   };
   const pxOf = (v) => (/px$/.test(v) ? parseFloat(v) : (parseFloat(v) / 100) * readMetric(app, 'clientHeight'));
@@ -1832,7 +1844,7 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
     const mv = (el.style.translate || '0px 0px').split(' ').map(parseFloat), S = stops(), R = room() || readMetric(app, 'clientHeight');
     const sc = own ? null : scroller(e.target);
     const h0 = drawnHeight(), box = lay || readMetric(el, 'offsetHeight');
-    start = { id: e.pointerId, t0: performance.now(), x: e.clientX, y: e.clientY, h: h0, box, H: R, S, size, thumb: thumb(), phone: isPhone(), tx: mv[0] || 0, ty: mv[1] || 0, moved: false, wx: NaN, wy: NaN, wOff: NaN, trail: [], pool: [[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]], loose: !own || headTab, sc, scTop: sc ? readMetric(sc, 'scrollTop') : 0, top: S[S.length - 1] * R };
+    start = { id: e.pointerId, t0: performance.now(), x: e.clientX, y: e.clientY, h: h0, box, H: R, S, size, thumb: thumb(), phone: isPhone(), tx: mv[0] || 0, ty: mv[1] || 0, mv: null, moved: false, wx: NaN, wy: NaN, wOff: NaN, trail: [], pool: [[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]], loose: !own || headTab, sc, scTop: sc ? readMetric(sc, 'scrollTop') : 0, top: S[S.length - 1] * R };
     // (Half's height, as apply() sets it: the content's own height when that is less)
     if (start.thumb && size === S.length - 1 && S.length > 1) { start.full = true; start.half = Math.min(h0, natural(), S[half()] * R); }
   });
@@ -1857,7 +1869,9 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
       start.moved = true;
       // (Caught while it is still easing: the pull takes it over from where it is drawn, without a jump. A tap leaves it easing.)
       start.off0 = sheetOffset(el);
-      stopSheet(el); setSheetOffset(el, start.off0);
+      // (Held where it is drawn: the pull's number (dragSheet, below, this same move) takes over from the ease's end value at once.)
+      stopSheet(el); el._sheetOff = start.off0;
+      if (!start.phone) start.mv = moverOf(el, 'translate', 'xy', true);   // alloc-rare: once, at the pull's first move
       el.setPointerCapture?.(e.pointerId);   // (only once it moves: captured at once, a tap's click would land on the sheet, not the grabber)
     }
     classSoon(el, 'dragging', true);
@@ -1872,7 +1886,7 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
     let h;
     if (!start.phone) {   // (written only when the card's place has moved from what this drag last wrote)
       const tx = start.tx + dx, ty = start.ty + dy;
-      if (tx !== start.wx || ty !== start.wy) { start.wx = tx; start.wy = ty; el.style.translate = `${tx}px ${ty}px`; }
+      if (tx !== start.wx || ty !== start.wy) { start.wx = tx; start.wy = ty; start.mv.set(tx, ty); }   // (a number: the card's place is a kept paused animation, num-move.js; its resting inline translate is written once at the release)
       return;
     }
     if (start.thumb && dy > 0 && start.full) { const lo = start.half, hh = start.h - dy; h = Math.max(60, hh >= lo ? hh : lo - (lo - hh) * 0.25); }
@@ -1882,8 +1896,7 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
     el._sheetOff = Math.max(0, box - h);
     if (el._sheetOff !== start.wOff) {   // (written only when the offset has moved from what this drag last wrote)
       start.wOff = el._sheetOff;
-      const v = el._sheetOff ? `0px ${el._sheetOff}px` : '';
-      for (const c of el.children) c.style.translate = v;
+      dragSheet(el, el._sheetOff);   // (every child held that far down by a number: sheet-move.js, num-move.js)
     }
   });
   // Once the sheet follows the finger, the page must not scroll under it, and the lift is not a tap.
@@ -1900,6 +1913,8 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
   const end = (e) => {
     if (!start || (e && e.pointerId !== start.id)) return;
     const s0 = start; start = null;
+    // (The pull's numbers become the resting style it always left: the same inline translate, then the animations go, in this one task.)
+    if (s0.moved) { if (s0.phone) setSheetOffset(el, el._sheetOff || 0); else if (s0.mv) { if (s0.wx === s0.wx) el.style.translate = `${s0.wx}px ${s0.wy}px`; s0.mv.cancel(); } }
     classSoon(el, 'dragging', false);
     if (s0.moved) swallow = performance.now() + 350;
     if (!s0.moved || !s0.phone) return;
@@ -1936,7 +1951,7 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
   };
   el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end); el.addEventListener('lostpointercapture', (e) => { if (e.target === el) end(e); });   // (not a child's: a touch is first captured by what is under the finger, and handing the capture to the sheet at 6 px ends that one, which bubbles up here)
   // (Opening sizes the sheet at once: it never comes in at the last size it had and shrinks into place, and the figure frames once.)
-  return { open: () => { if (isPhone()) { size = half(); stopSheet(el); commit(sizeValue()); } }, closed: () => { stopSheet(el); setSheetOffset(el, 0); el.style.translate = ''; el.style.height = ''; lay = 0; el.style.clipPath = ''; } };
+  return { open: () => { if (isPhone()) { size = half(); stopSheet(el); commit(sizeValue()); } }, closed: () => { stopSheet(el); setSheetOffset(el, 0); el.style.translate = ''; cancelMoves(el); el.style.height = ''; lay = 0; el.style.clipPath = ''; } };
 }
 // ── The thumb dock (15 Oct) ─────────────────────────
 // A phone, or a tablet held upright, in Patients: the top keeps only the patient (left) and the Colored-by key

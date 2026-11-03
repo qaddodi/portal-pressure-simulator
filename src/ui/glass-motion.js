@@ -394,7 +394,11 @@ export function clockAt(c, now, out) {
   const end = Math.max(c.delay + active + c.endDelay, 0);
   out.end = end;
   if (c.idle) { out.st = 'idle'; out.has = false; return out; }
-  const local = c.s != null ? (now - c.s) * c.rate : c.c0 + (now - c.w0) * c.rate;
+  // (Pending, no start time yet: held where it is, not run on from when it was read. The browser starts a new transition or animation at the
+  // frame it is first shown in, so its first frame is at its start, however long the frame before it took; counting on from the read
+  // put the glass's fade ahead of the card's by every frame between, a frost gone a frame before its card at the start of a fade-out and
+  // up before its card at the start of a fade-in. 3 Nov 2026, "Find every card trailing case".)
+  const local = c.s != null ? (now - c.s) * c.rate : c.c0;
   const st = c.done || (c.rate > 0 && local >= end) || (c.rate < 0 && local <= 0) ? 'finished' : 'running';
   out.st = st;
   const beforeEnd = Math.min(c.delay, end), activeEnd = Math.min(c.delay + active, end);

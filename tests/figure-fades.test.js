@@ -36,7 +36,7 @@ test('leaders and dots are kept by their label: new ones fade in, old ones fade 
 });
 
 test("a slide's reading fades out whole, glass and all, and counts to a new number as the tiles do", () => {
-  assert.match(stage, /function siteLeave\(k, el\) \{[\s\S]*?el\.classList\.add\('cath-leave'\);[\s\S]*?, reduceMotion\.matches \? 0 : 700\);/);
+  assert.match(stage, /function siteLeave\(k, el\) \{[\s\S]*?el\.classList\.add\('cath-leave'\);[\s\S]*?, reduceMotion\.matches \? 0 : 700(?:, el)?\);/);
   assert.match(css, /\.cath-label\.site\.cath-leave > \.cl-glass \{ visibility: hidden; transition: opacity var\(--d-surface\) var\(--ease\), visibility 0s linear var\(--d-surface\); \}/);
   assert.match(css, /\.cath-label\.site\.cath-leave, \.cath-label\.site\.cath-leave > \* \{ transition-delay: 0s; \}/);
   assert.match(stage, /const COUNT_MS = 950/);
@@ -50,10 +50,10 @@ test("the resistance zigzag's halo eases with its line, and it is dropped only o
   // (3 Nov 2026: a resistor is a kept record drawn by the overlay painter, over-records.js; its fade is the page's own surface step and
   // curve, run in script. Its width and tone are taken at once, as the CSS took them.)
   assert.match(stage, /const recs = recordLayer\(\{ ease: easeArrive, ms: D_SURFACE \}\);/);
-  assert.match(stage, /recs\.drop\(`res:\$\{k\}`, now, reduceMotion\.matches\)/);
+  assert.match(stage, /recs\.drop\(RES_KEYS\[k\], now, reduceMotion\.matches\)/);
   assert.doesNotMatch(css, /\.res-one/, 'no resistor element is styled: none is made');
 });
 
 test("the lobule's pointer fades out before it moves to a new spot or takes new words", () => {
-  assert.match(lz, /if \(c && !reduce\.matches && \(fading \|\| \(call && callEl\.classList\.contains\('on'\)\)\)\) \{ if \(call\) callSet\(null\); callSwap = setTimeout\(\(\) => \{ callSwap = 0; callSet\(callWant\); \}, 500\); return; \}/);
+  assert.match(lz, /if \(c && !reduce\.matches && \(fading \|\| \(call && classHas\(callEl, 'on'\)\)\)\) \{ if \(call\) callSet\(null\); callSwap = setTimeout\(\(\) => \{ callSwap = 0; callSet\(callWant\); \}, 500\); return; \}/);
 });

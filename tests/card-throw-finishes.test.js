@@ -17,7 +17,9 @@ const mk = (cls = []) => {
     classList: { contains: (n) => c.has(n), add: (n) => c.add(n), remove: (n) => c.delete(n), toggle: (n, on) => (on ? c.add(n) : c.delete(n)) }, isConnected: true, hidden: false };
 };
 const tick = (ms) => { T += ms; const f = q; q = []; f.forEach((x) => x(T)); };
-const later = () => new Promise((r) => setTimeout(r, 5));   // (class-soon lets go of a landed card in a task of its own)
+// (class-soon lets go of a landed card in a task of its own, a MessageChannel message: on a busy machine (a full `npm test`) that task can
+// come well after 5 ms, which failed this test once. Wait for the let-go, up to two seconds, never a fixed pause.)
+const later = async (done = () => true) => { for (let i = 0; i < 400 && !done(); i++) await new Promise((r) => setTimeout(r, 5)); await new Promise((r) => setTimeout(r, 5)); };
 const atRest = (el) => el.style.transform === '' && el.style.opacity === '';
 
 // A slide change as the presenter makes it: the visible cards out on the tap, the next words after they are out, the new cards in.
@@ -33,7 +35,7 @@ test('a slide change on a fake clock ends with every card at rest, whole and in 
   const cards = [mk(), mk(), mk()];
   await slideChange(cards);
   for (let i = 0; i < 100; i++) tick(8);
-  await later();
+  await later(() => cards.every(atRest));
   for (const el of cards) { assert.ok(!ct.throwing(el)); assert.ok(atRest(el), `card at rest: ${el.style.transform} ${el.style.opacity}`); }
 });
 
@@ -45,7 +47,7 @@ test('one card whose step throws does not stop the others, and the card itself e
   const errs = []; process.on('uncaughtException', (e) => errs.push(e));
   await slideChange(cards);
   for (let i = 0; i < 100; i++) tick(8);
-  await later();
+  await later(() => cards.every(atRest));
   process.removeAllListeners('uncaughtException');
   for (const el of cards) { assert.ok(!ct.throwing(el), 'no card is left moving'); assert.ok(atRest(el), `card at rest: ${el.style.transform} ${el.style.opacity}`); }
 });
@@ -59,7 +61,7 @@ test('frames that never come: the timer lands every move on its own end', async 
   T += 560 + 100; ct.throwGuard();
   assert.ok(cards.every((el) => ct.throwing(el)), 'inside the guard\'s grace it leaves the move to the frames');
   T += 400; ct.throwGuard();
-  await later();
+  await later(() => cards.every(atRest));
   for (const el of cards) { assert.ok(!ct.throwing(el)); assert.ok(atRest(el), `card at rest: ${el.style.transform} ${el.style.opacity}`); }
 });
 
@@ -69,7 +71,7 @@ test('a card thrown out whose frames stop is out of sight, and the one waiting f
   let told = false; ct.throwsOut().then(() => { told = true; });
   tick(16); q = [];
   T += 560 + 400; ct.throwGuard();
-  await later();
+  await later(() => !ct.throwing(el));
   assert.ok(told, 'the next words are not held for ever');
   assert.ok(!ct.throwing(el));
   assert.equal(el.style.opacity, '0');

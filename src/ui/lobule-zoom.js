@@ -33,7 +33,7 @@ import { tileCopy } from './tile-gl.js';
 import { FX_GPU, createFxGL } from './fx-gl.js';
 import { WIDE_GL, createWideGL } from './wide-gl.js';
 import { buildLive, buildDyn, buildItems, liveFibreInto, liveEligible, liveZoomShare, liveColours, liveEase, liveShareOf } from './lobule-live.js';
-import { recordPaint, gpuPicture } from './paint-gl.js';
+import { recordPaint, gpuPicture, releasePicture } from './paint-gl.js';
 import { cssColor8 } from './css-color.js';
 import { fibrousBand, fibrousTract, fibrousCuff, scarGrowth, paintWorldInto, useTokens } from './lobule-paint.js';
 import { h, fmt, clamp, createEaser, systemEdge, bloodColors, cssVar, cssAlpha, cssRGB01 } from './util.js';
@@ -50,7 +50,7 @@ import { createResCover, coverFollow, coverFollowInto } from './res-cover-gl.js'
 import { leaderEnd, runInside } from './leader-end.js';
 import { LIGHT } from './light.js';
 import { restPass, cancelRest, restAttr, restRemove, flushRestAttrs } from './rest-pass.js';
-import { classSoon, classHas } from './class-soon.js';
+import { classSoon, classHas, textSoon, runSoon } from './class-soon.js';
 import { easeMove, carryRate, carried, cubicBezier, D_SMALL, D_SURFACE } from './ease.js';
 import { surface } from './gpu-surfaces.js';
 import { caught } from './caught.js';
@@ -152,6 +152,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const leadersBox = h('div', { class: 'lz-leaders svg-gl-box', 'aria-hidden': 'true' });
   const leaders = svgModel('svg', { viewBox: '0 0 1 1', preserveAspectRatio: 'none' });
   const leadGL = createSvgGL(leadersBox);
+  const leadPaint = () => leadGL.paint();
   leadGL.cv.setAttribute('aria-hidden', 'true'); leadGL.cv.removeAttribute('role');
   leadGL.show(leaders, false);
   if (typeof MutationObserver === 'function') new MutationObserver(() => leadGL.paint()).observe(leaders, { subtree: true, childList: true, attributes: true, attributeFilter: ['x1', 'y1', 'x2', 'y2', 'cx', 'cy', 'r', 'viewBox', 'style', 'transform'] });
@@ -188,7 +189,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const callSet = (c) => {
     call = c;
     if (c) {
-      callEl.textContent = c.label; for (const e of callParts) restAttr(e, 'data-kind', c.kind || 'block');   // (a style hook, written between frames; measureRun flushes it before it measures the pill)
+      textSoon(callEl, c.label); for (const e of callParts) restAttr(e, 'data-kind', c.kind || 'block');   // (a style hook, written between frames; measureRun flushes it before it measures the pill)
       // (Its size measured between frames for its new words, before it is first placed: placeCall waits for it.)
       measQ.add(callEl); if (!measT) measT = restPass(measureRun);
     }
@@ -200,7 +201,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     callWant = c;
     const fading = !!callSwap;
     clearTimeout(callSwap); callSwap = 0;
-    if (c && !reduce.matches && (fading || (call && callEl.classList.contains('on')))) { if (call) callSet(null); callSwap = setTimeout(() => { callSwap = 0; callSet(callWant); }, 500); return; }   // alloc-rare: only when a slide's pointer changes while one shows (store lobuleCallout)
+    if (c && !reduce.matches && (fading || (call && classHas(callEl, 'on')))) { if (call) callSet(null); callSwap = setTimeout(() => { callSwap = 0; callSet(callWant); }, 500); return; }   // alloc-rare: only when a slide's pointer changes while one shows (store lobuleCallout)
     callSet(c);
   };
   store.on('lobuleCallout', onCallout);
@@ -459,7 +460,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   });
   // A new text size: the labels glide to their new places instead of jumping.
   let easeT = 0;
-  addEventListener('pps:labelscale', () => { measureShown(); labels.classList.add('lz-ease'); clearTimeout(easeT); easeT = setTimeout(easeEnd, 450); syncLeaders(); drawVersion++; viewVer++; layoutKey = ''; if (!raf && fade > 0) raf = nextFrame(loop); });
+  addEventListener('pps:labelscale', () => { measureShown(); classSoon(labels, 'lz-ease', true); clearTimeout(easeT); easeT = setTimeout(easeEnd, 450); syncLeaders(); drawVersion++; viewVer++; layoutKey = ''; if (!raf && fade > 0) raf = nextFrame(loop); });
   let pacedVer = -1, viewVer = 0;   // viewVer: a pan, zoom, resize or label change, drawn without waiting
   // (viewBumps: the bumps of drawVersion that only moved the camera: the model's own, drawVersion less these, is what the surface pass
   // in drawGL waits for when the model is paused.)
@@ -616,7 +617,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   el.addEventListener('pointerup', (ev) => {
     if (down && touches.size <= 1 && Math.hypot(ev.clientX - down.x, ev.clientY - down.y) < 8 && performance.now() - down.t < 600 && onScene(ev)) {
       const w = down.label ? anchorOf(down.label) : [wX(localX(ev)), wY(localY(ev))];   // alloc-rare: a tap (once per gesture), not a move
-      if (down.label && labs[down.label]?.el.classList.contains('edge')) centreOn(w);
+      if (down.label && labs[down.label] && classHas(labs[down.label].el, 'edge')) centreOn(w);
       else select(down.label ? hitKind(down.label) : hit(w[0], w[1]), w);
     }
     down = null;
@@ -752,7 +753,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   glCv.addEventListener('webglcontextrestored', () => { glTried = false; gl?.dispose?.(); gl = null; binKey = ''; radKey = []; radAll = ''; radCal = ''; attrKey = ''; ensureGL(); if (F) update(F); });
   // Closed: the full-screen canvases and the vessels' GPU buffers are given back (they are sized again on the way in).
   // The world bitmap, the field's tiles and the uploaded network stay, so the next dive has nothing heavy to build.
-  const free = (cv) => { if (cv.width || cv.height) { cv.width = 0; cv.height = 0; } };
+  // (A recorded picture lets go of its record too, which goes back to the pools for the next picture, paint-gl.js.)
+  const free = (cv) => { if (cv.width || cv.height) { if (cv.gpuPicture === true) releasePicture(cv); cv.width = 0; cv.height = 0; } };
   function release() {
     dropWide();
     resCoverEnd();
@@ -1206,7 +1208,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       // (As the layout did in the frame before: unstacked to read the width, stacked where that is too wide, then read; written,
       // then read together. Put back as found, for the next frame to lay out.)
       const shown = want.ks.map((k) => labs[k]).filter(Boolean);
-      const peek = shown.map((L) => L.el.hidden), had = shown.map((L) => L.el.classList.contains('stack'));
+      const peek = shown.map((L) => L.el.hidden), had = shown.map((L) => classHas(L.el, 'stack'));
       shown.forEach((L) => { L.el.hidden = false; L.el.classList.remove('stack'); });
       const w0 = shown.map((L) => L.el.offsetWidth), u2 = shown.map((L) => !!L.el.querySelector('.u2'));
       const stack = shown.map((x, i) => w0[i] > want.fw && u2[i]);
@@ -1241,7 +1243,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   }
   // A label's size as measured, for the stacking it has now.
   const LAB_WH = [100, 40];   // (read, never written: a label's size before it is measured)
-  const labWH = (L) => (L.sz && (L.el.classList.contains('stack') ? L.sz.s1 : L.sz.s0)) || LAB_WH;
+  const labWH = (L) => (L.sz && (classHas(L.el, 'stack') ? L.sz.s1 : L.sz.s0)) || LAB_WH;
   // ── Where a label is seen, mid-glide ──
   // A label moved while the labels glide (app.css .lz-ease: left and top on --d-surface with --ease) goes there on that curve from
   // where it was seen; its glide is noted as it is written (noteAt), and each frame's place worked out from it (seenAt), on the page's
@@ -1260,7 +1262,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     let px = x, py = y;
     if (g) { const e = easeLab(g, now); px = g.x0 + (g.x1 - g.x0) * e; py = g.y0 + (g.y1 - g.y0) * e; }
     // (Only a label already shown glides: one coming out of hidden starts where it is written, as the page shows it.)
-    const eased = !!g && !L.peek && !reduce.matches && labels.classList.contains('lz-ease');
+    const eased = !!g && !L.peek && !reduce.matches && classHas(labels, 'lz-ease');
     const o = glOf(L);
     if (eased) { o.x0 = px; o.y0 = py; } else { o.x0 = x; o.y0 = y; }
     o.x1 = x; o.y1 = y; o.t0 = now;
@@ -1290,6 +1292,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const pageSoon = () => { if (!pageT) pageT = restPass(pageRun); };
   const mount = (parent, ...els) => { mountQ.push([parent, els]); pageSoon(); };   // alloc-rare: only when a node is first put into the page (callers skip one already there)
   const writeLab = (L) => { labQ.add(L); pageSoon(); };
+  const swQ = new Set();   // (the labels whose swatch colour changed: it is only a variable on the label, so it rebuilds nothing)
   function pageRun() {
     pageT = 0;
     for (const [parent, els] of mountQ.splice(0)) parent.append(...els.filter((e) => !e.isConnected));
@@ -1306,6 +1309,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       mirrorSoon(L.el);
     }
     labQ.clear();
+    for (const L of swQ) if (L.swHas !== L.swWant) { L.swHas = L.swWant; L.el.style.setProperty('--sw', L.swWant); }
+    swQ.clear();
   }
   // A label's parts, built between frames (pageRun) from what the frame asked for (L.spec): a frame builds no elements (2 Nov 2026).
   function labBuild(L) {
@@ -1321,7 +1326,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // a frame that first names one finds it made.
   function labMake(key) {
     const L = labs[key] = { el: h('button', { class: 'lz-lab', type: 'button', 'data-target': `lobule:${LZ_TARGET[key] || key}` }), line: svgModel('line', { class: 'leader', 'data-target': `lobule:${LZ_TARGET[key] || key}` }), dotEl: svgModel('circle', { class: 'leader-dot', r: 3, 'data-target': `lobule:${LZ_TARGET[key] || key}` }) };
-    L.el.addEventListener('click', (ev) => { if (!geo || ev.detail !== 0) return; const q = anchorOf(key); if (L.el.classList.contains('edge')) centreOn(q); else select(hitKind(key), [q[0], q[1]]); });
+    L.el.addEventListener('click', (ev) => { if (!geo || ev.detail !== 0) return; const q = anchorOf(key); if (classHas(L.el, 'edge')) centreOn(q); else select(hitKind(key), [q[0], q[1]]); });
     // (Hidden until it is first placed, where it fades in: a label its slide does not name never shows at all.)
     L.el.hidden = true;
     labels.append(L.el); leaders.append(L.line, L.dotEl);
@@ -1338,7 +1343,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // a figure inside the unit ('Protein 48%', which moves with the pulse): its numerals are tabular, so a new figure with
     // as many numerals leaves the label's size as it was.
     // (Its colour is only a style on the label: a new one, which the pressure glide brings every frame, rebuilds nothing.)
-    if (col !== L.col) { L.col = col; L.el.style.setProperty('--sw', col || 'var(--border-strong)'); }
+    if (col !== L.col) { L.col = col; L.swWant = col || 'var(--border-strong)'; swQ.add(L); pageSoon(); }   // (the page's variable is set between frames, pageRun)
     if (L.ukSrc !== u) { L.ukSrc = u; L.uk = u.replace(/\d/g, '0'); }   // alloc-rare: only when the unit's words change (its figure moves a few times a second at most)
     const uk = L.uk, hasD = !!d, empty = v === '';
     const same = L.fN === name && L.fS === short && L.fU === uk && L.fE === empty && L.fD === hasD;   // (the label's make-up, part by part)
@@ -1563,7 +1568,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // (Not shown until its size is known for its words: placed at a guessed size, it slid sideways once measured, seconds in on a slow renderer.)
     const on = !!ring && callEl._lzSz?.txt === callEl.textContent;
     if (ring && !on) { measQ.add(callEl); if (!measT) measT = restPass(measureRun); }
-    for (let i = 0; i < 3; i++) callParts[i].classList.toggle('on', on);
+    if (classHas(callEl, 'on') !== on) { for (let i = 0; i < 3; i++) classSoon(callParts[i], 'on', on); runSoon(leadPaint); }   // (the leader's look is read when it is drawn: drawn again once the class is in)
     if (!on) return null;
     const a = ring.a, rr = ring.rr;
     // (A phone on its side keeps the data card's whole column out of the free space, though the card stands at its top only: the
@@ -1625,7 +1630,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // room and no taps, only once the fade is over; one that comes back fades in (app.css lz-in) or, caught mid-fade, turns back from
   // where it is. Its leader and dot fade with it (.ld-gone). They used to cut out and pop in (P15).
   const OFF_MS = D_SMALL;
-  function offEnd(el, done) { el._lzOff = 0; setHid(el, true); classSoon(el, 'lz-off', false); el.classList.remove('edge'); done?.(); }
+  function offEnd(el, done) { el._lzOff = 0; setHid(el, true); classSoon(el, 'lz-off', false); classSoon(el, 'edge', false); done?.(); }
   const offFire = (el, done) => { if (classHas(el, 'lz-off')) offEnd(el, done); };
   function fadeOut(el, done) {
     if (isHid(el)) { done?.(); return; }
@@ -1724,7 +1729,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // full there, and redrew the lobule's bitmap at each √2 step, which is what made zooming the lobule on a Mac lag.)
   const handOn = () => touches.size > 0 || !!cancelFlick || (!!wheelKind && performance.now() - wheelAt < 250);
   // The hand let go (or paused): place the labels again for where the view now is.
-  function followEnd() { if (handOn()) { followT = setTimeout(followEnd, 140); return; } if (labels.style.transform || rough || rides) { rough = false; layoutKey = ''; viewChanged(); } }
+  function followEnd() { if (handOn()) { followT = setTimeout(followEnd, 140); return; } if (panOn || rough || rides) { rough = false; layoutKey = ''; viewChanged(); } }
   // Boxes and leader ends the ride's check works in, kept and written in place (a pool grows by index, once, to the most labels there are).
   const rhBox = [], rhLead = [], rhOth = [];
   const poolBox = (pool, i) => pool[i] || (pool[i] = { l: 0, r: 0, t: 0, b: 0 });   // alloc-once: a pool grows the first time a larger count is asked for, then it is reused
@@ -1779,17 +1784,20 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const seenPos = new Map(), domQ = new Set();
   let domT = 0;
   const tr = (e, x, y) => {
-    // (Written only when the place changed; the element keeps the last it was given, _tx and _ty, NaN where its translate was cleared.)
-    if (!cap.on) { if (e._tx === x && e._ty === y) return; e._tx = x; e._ty = y; e.style.translate = `${x.toFixed(2)}px ${y.toFixed(2)}px`; return; }
     let q = seenPos.get(e);
     if (!q) seenPos.set(e, q = [0, 0]);   // alloc-rare: once a piece
     q[0] = x; q[1] = y; domQ.add(e);
     if (!domT) domT = restPass(domFlush);
     cap.paint();
   };
+  // A piece whose place is taken away (the pill with no spot): its translate is cleared between frames too.
+  const clrQ = new Set();
+  const trClear = (e) => { domQ.delete(e); clrQ.add(e); if (!domT) domT = restPass(domFlush); };
   function domFlush() {
     domT = 0;
     if (rides) return;   // (a hand's ride: placed once it is baked, bakeRides)
+    for (const e of clrQ) if (e.style.translate) e.style.translate = '';
+    clrQ.clear();
     for (const e of domQ) { const p = seenPos.get(e); if (p) e.style.translate = `${p[0].toFixed(2)}px ${p[1].toFixed(2)}px`; }
     domQ.clear();
   }
@@ -1842,11 +1850,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       let x = p[0], y = p[1];
       if (L && labGliding(L, now)) { const g = L.gl, k = easeLab(g, now); x = g.x0 + (g.x1 - g.x0) * k; y = g.y0 + (g.y1 - g.y0) * k; moving = true; }
       const call = e === callEl, zone = !L && !call;
-      const off = !e.isConnected || gone(e) || (call ? !callEl.classList.contains('on') : dimmed(e.dataset.target));
+      const off = !e.isConnected || gone(e) || (call ? !classHas(callEl, 'on') : dimmed(e.dataset.target));
       cap.place(key, zone ? x : x + m.w / 2, zone ? y : y + m.h / 2, off ? 0 : 1, off && gone(e) ? D_SMALL : D_SURFACE, call ? (off ? 0.94 : 1) : -1, t);
       if (L) {
         const n = m.at['.n'];
-        cap.arrow(key, L.edgeA != null && L.el.classList.contains('edge') ? (L.arrow?.ang === L.edgeA && L.arrow.r === L.edgeR && L.arrow.w === m.w ? L.arrow
+        cap.arrow(key, L.edgeA != null && classHas(L.el, 'edge') ? (L.arrow?.ang === L.edgeA && L.arrow.r === L.edgeR && L.arrow.w === m.w ? L.arrow
           : (L.arrow = { x: m.w / 2, y: m.h / 2, ang: L.edgeA, r: L.edgeR, w: m.w, colour: n?.colour || m.lines[0]?.runs[0]?.r.fill || '' })) : null);
       }
     }
@@ -1870,25 +1878,35 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const rideList = [];
   let rides = null, rideN = 0;
   function rideAdd(ax, ay) {
-    const r = rideList[rideN] || (rideList[rideN] = { a: [0, 0], d: [0, 0], els: [null, null, null], ne: 0, tx: NaN, ty: NaN, ts: '' });   // alloc-once: a piece is made the first time a ride needs that many, then reused
+    const r = rideList[rideN] || (rideList[rideN] = { a: [0, 0], d: [0, 0], els: [null, null, null], ne: 0, b: new Float64Array(18) });   // alloc-once: a piece is made the first time a ride needs that many, then reused
     rideN++; r.a[0] = ax; r.a[1] = ay; r.ne = 0;
     return r;
+  }
+  // A leader's, dot's or ring's geometry as the ride began (x1, x2, cx, y1, y2, cy; NaN where the piece has none): each frame of the ride draws it
+  // carried by the piece's own shift, the way its label is, and the bake lands there.
+  const RIDE_ATT = ['x1', 'x2', 'cx', 'y1', 'y2', 'cy'];
+  function rideBase(r) {
+    for (let j = 0; j < r.ne; j++) {
+      const e = r.els[j], own = spot.get(e);
+      for (let k = 0; k < 6; k++) { const o = own ? null : geoOf(e, RIDE_ATT[k]); r.b[j * 6 + k] = o != null && o !== '' ? +o : NaN; }
+    }
   }
   function ride() {
     const f = follow;
     if (!rides) {
       // (the pan carries them by the same translate a layout glides: no glide may run under it, or they would trail the hand)
-      labels.classList.remove('lz-ease');
+      classSoon(labels, 'lz-ease', false);
       rides = rideList; rideN = 0;
       for (let i = 0; i < LAB_KEYS.length; i++) {
         const L = labs[LAB_KEYS[i]];
-        if (L.a && !isHid(L.el) && !L.el.classList.contains('edge')) { const r = rideAdd(L.a[0], L.a[1]); r.els[0] = L.el; r.els[1] = L.line; r.els[2] = L.dotEl; r.ne = 3; }
+        if (L.a && !isHid(L.el) && !classHas(L.el, 'edge')) { const r = rideAdd(L.a[0], L.a[1]); r.els[0] = L.el; r.els[1] = L.line; r.els[2] = L.dotEl; r.ne = 3; }
       }
       for (let i = 0; i < zoneEls.length; i++) {
         const z = zoneEls[i], s = z.isConnected && spot.get(z);
         if (s) { const r = rideAdd(s[0], s[1]); r.els[0] = z; r.ne = 1; }
       }
-      if (callRing.classList.contains('on')) { const r = rideAdd(+geoOf(callRing, 'cx'), +geoOf(callRing, 'cy')); r.els[0] = callEl; r.els[1] = callLine; r.els[2] = callRing; r.ne = 3; }
+      if (classHas(callRing, 'on')) { const r = rideAdd(+geoOf(callRing, 'cx'), +geoOf(callRing, 'cy')); r.els[0] = callEl; r.els[1] = callLine; r.els[2] = callRing; r.ne = 3; }
+      for (let i = 0; i < rideN; i++) rideBase(rideList[i]);
     }
     for (let i = 0; i < rideN; i++) {
       const r = rideList[i], a0 = r.a[0], a1 = r.a[1], d0 = (a0 - f.x) / f.k * V.k + V.x - a0, d1 = (a1 - f.y) / f.k * V.k + V.y - a1;
@@ -1897,12 +1915,12 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         const e = r.els[j], p = spot.get(e);
         if (p) tr(e, p[0] + d0, p[1] + d1);
         else {
-          // (A leader, its dot or the ring: the same shift as its label, the string made when the shift changed.)
-          if (r.tx !== d0 || r.ty !== d1) { r.tx = d0; r.ty = d1; r.ts = `${d0.toFixed(2)}px ${d1.toFixed(2)}px`; }
-          e.style.translate = r.ts; e._tx = NaN;
+          // (A leader, its dot or the ring has no spot: the GPU draws it from its geometry, set to where the ride began plus the shift.)
+          for (let k = 0; k < 6; k++) { const b = r.b[j * 6 + k]; if (b === b) setGeo(e, RIDE_ATT[k], b + (k < 3 ? d0 : d1)); }
         }
       }
     }
+    leadGL.paint();
   }
   // A model piece's ends and centre carried by the pan's shift (held on the piece, never written as attributes).
   const shiftAttr = (e, a, v) => { const o = geoOf(e, a); if (o != null && o !== '') setGeo(e, a, +o + v); };
@@ -1914,15 +1932,14 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   function bakeRides() {
     if (!rides) return false;
     // (Written in place with no glide on, then the page styled once, so the layout's glide starts from where each piece is seen.)
-    labels.classList.remove('lz-ease');
+    classSoon(labels, 'lz-ease', false);
     let moved = false;
     for (let i = 0; i < rideN; i++) {
       const r = rideList[i], dx = r.d[0], dy = r.d[1];
       if (dx || dy) moved = true;
       for (let j = 0; j < r.ne; j++) {
         const e = r.els[j], p = spot.get(e);
-        if (p) put(e, p[0] + dx, p[1] + dy); else { e.style.translate = ''; e._tx = NaN; }
-        shiftGeo(e, dx, dy);
+        if (p) put(e, p[0] + dx, p[1] + dy);   // (a leader's geometry is where the ride drew it: nothing to carry)
       }
     }
     rides = null;
@@ -1930,15 +1947,16 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     unglide();
     return moved;
   }
-  // The pan's shift as last written to the labels and leaders (a string made only when it changed), and its numbers.
-  let panStr = null, panDX = 0, panDY = 0;
+  // The pan's shift of the labels and leaders (the GPU draws both carried by it: cap.view, leadGL.view; nothing is written to the page), and its numbers.
+  let panOn = false, panDX = 0, panDY = 0;
+  const unpan = () => { panOn = false; cap.view(1, 0, 0); leadGL.view(1, 0, 0); };
   // Writes the pan's shift into the labels' and leaders' own positions and drops the shared shift, so they glide on from where they are seen.
   function bakeFollow() {
-    if (bakeRides()) { clearTimeout(followT); labels.style.transform = leadersBox.style.transform = ''; return true; }
+    if (bakeRides()) { clearTimeout(followT); unpan(); return true; }
     clearTimeout(followT);
-    // (Only this function's own shift is a translate3d: the dive's is a translate and a scale.)
-    const mine = labels.style.transform.startsWith('translate3d(');
-    labels.style.transform = leadersBox.style.transform = '';
+    // (Only this function's own shift is a pan: the dive's is a scale about a point.)
+    const mine = panOn;
+    unpan();
     if (!mine) return false;
     const dx = panDX, dy = panDY;
     if (!dx && !dy) return false;
@@ -2243,7 +2261,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     }
     const c = won ? won.call : shown;
     cpOn = c.pOn; cpAt = c.pAt; cpDx = c.pDx; cpDy = c.pDy; callCost = c.cost;
-    if (c.hasAt) put(callEl, c.ax, c.ay); else { spot.delete(callEl); callEl.style.translate = ''; callEl._tx = NaN; }
+    if (c.hasAt) put(callEl, c.ax, c.ay); else { spot.delete(callEl); trClear(callEl); }
     for (let i = 0; i < 4; i++) setGeo(callLine, CALL_ENDS[i], c.line[i] ?? null);
     leadGL.paint();
     return sol;
@@ -2260,21 +2278,21 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // panning lag on a phone. They are placed again, gliding to their new spots, once the hand lets go.
     if (sameB && V.k === follow.k && handOn() && !rides) {
       const dx = V.x - follow.x, dy = V.y - follow.y;
-      if (panStr === null || dx !== panDX || dy !== panDY) { panDX = dx; panDY = dy; panStr = `translate3d(${dx}px, ${dy}px, 0)`; }
-      labels.style.transform = leadersBox.style.transform = panStr;
+      panDX = dx; panDY = dy; panOn = true;
+      cap.view(1, dx, dy); leadGL.view(1, dx, dy);
       clearTimeout(followT); followT = setTimeout(followEnd, 140);
       return;
     }
     // A short glide (+, −, Fit, a space that holds still) carries each label, leader and zone name with the spot it names, at
     // its own size, and lays them out once where the glide lands (they glide there from where they are seen). Solving the
     // layout on every frame of the glide (measuring the cards, trying hundreds of spots and orders) stalled it on a phone.
-    if (sameB && gliding && !camMove && !handOn() && !labels.style.transform) { ride(); return; }
+    if (sameB && gliding && !camMove && !handOn() && !panOn) { ride(); return; }
     // A hand's zoom (a pinch, the wheel, a trackpad's pinch) carries them the same way, each with its own spot at its own size, for as
     // long as that leaves every label clear of the others, of their leaders, of the structures, of the cards and inside the free space
     // (rideHolds); a frame where it would not, they are placed again (gliding there), and once the hand lets go, placed for where it
     // stopped. Placing them in full on every frame of a pinch (measuring, then trying hundreds of spots) is what made zooming lag.
     if (sameB && follow.ride && V.k !== follow.k && handOn() && rideHolds(fr0)) {
-      labels.style.transform = leadersBox.style.transform = '';   // (a pan's shared shift before it: ride moves each piece from the layout itself)
+      unpan();   // (a pan's shared shift before it: ride moves each piece from the layout itself)
       ride(); clearTimeout(followT); followT = setTimeout(followEnd, 140);
       return;
     }
@@ -2286,7 +2304,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // A label that moves while the view holds still (a term lit, a value's width changed) glides to its new spot;
     // while the view itself pans or zooms, the labels follow it at once.
     const wasFollow = follow;   // (put back should the labels wait to be measured, below)
-    if ((layoutKey && follow.W === g.W && follow.H === g.H && V.k === follow.k && V.x === follow.x && V.y === follow.y) || baked) { labels.classList.add('lz-ease'); clearTimeout(easeT); easeT = setTimeout(easeEnd, 450); }
+    if ((layoutKey && follow.W === g.W && follow.H === g.H && V.k === follow.k && V.x === follow.x && V.y === follow.y) || baked) { classSoon(labels, 'lz-ease', true); clearTimeout(easeT); easeT = setTimeout(easeEnd, 450); }
     const nf = wasFollow === follows[0] ? follows[1] : follows[0];
     layoutKey = 'laid'; fillBase(nf, fr0, g); nf.k = V.k; nf.x = V.x; nf.y = V.y; nf.ride = null; follow = nf;
     pickAnchors(fr0);
@@ -2362,7 +2380,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       for (let i = 0; i < ns; i++) {
         const L = shL[i], sz = L.sz;
         stack[i] = sz.w0 > fw && sz.u2;
-        L.el.classList.toggle('stack', stack[i]);
+        classSoon(L.el, 'stack', stack[i]);
       }
       for (let i = 0; i < ns; i++) sizes[i] = stack[i] ? shL[i].sz.s1 : shL[i].sz.s0;
     } else {
@@ -2382,8 +2400,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       // What it names has left the screen: the label waits at the free space's edge, pointing the way (a tap brings it back into view).
       const chip = outside && k !== 'lymph';
       const off = (outside && !chip) || fr.r - fr.l < w + 16 || fr.b - fr.t < hh + 16;
-      if (off) { if (L.peek) { setHid(L.el, true); L.el.classList.remove('edge'); } else fadeOut(L.el); leadOff(L); continue; }
-      L.el.classList.toggle('edge', chip);
+      if (off) { if (L.peek) { setHid(L.el, true); classSoon(L.el, 'edge', false); } else fadeOut(L.el); leadOff(L); continue; }
+      classSoon(L.el, 'edge', chip);
       const it = LC.pool[ni++];
       it.k = k; it.L = L; it.w = w; it.hh = hh; it.a[0] = ax; it.a[1] = ay; it.edge = null;
       if (chip) {
@@ -2393,11 +2411,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         const ang = Math.atan2(dy, dx), c = Math.cos(ang), sn = Math.sin(ang);
         it.ea[0] = mx + dx * f; it.ea[1] = my + dy * f; it.edge = it.ea;
         const er = Math.min(w / 2 / Math.max(Math.abs(c), 1e-6), hh / 2 / Math.max(Math.abs(sn), 1e-6)) + 7;
-        // (The strings made when the angle or the radius changed.)
-        if (L.eAng !== ang) { L.eAng = ang; L.eAngS = `${ang}rad`; }   // alloc-rare: only when the chip's angle changed
-        if (L.eRad !== er) { L.eRad = er; L.eRadS = `${er}px`; }   // alloc-rare: only when the chip's radius changed
         L.edgeA = ang; L.edgeR = er;
-        if (!cap.on) { L.el.style.setProperty('--edge-a', L.eAngS); L.el.style.setProperty('--edge-r', L.eRadS); }
       }
       items.push(it);
     }
@@ -2469,7 +2483,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     }
     if (anyCrossed) for (let i = 0; i < nr; i++) if (res[i].crossed) res[i].out = true;
     // (What a hand's zoom checks as it carries them: rideHolds.)
-    if (!callRing.classList.contains('on')) {
+    if (!classHas(callRing, 'on')) {
       const R = follow.rideBuf;
       let nl = 0, nc = 0;
       for (let i = 0; i < nr; i++) {
@@ -2505,11 +2519,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       const ax = rnd1(a[0]), ay = rnd1(a[1]);
       if (L.atX !== ax || L.atY !== ay) { L.atX = ax; L.atY = ay; L.atS = `${ax},${ay}`; }   // alloc-rare: only when the label's spot changed by a tenth of a pixel
       restAttr(L.el, 'data-at', L.atS);
-      if (r.out) { if (L.peek) { setHid(L.el, true); L.el.classList.remove('edge'); } else fadeOut(L.el); leadOff(L); continue; }
+      if (r.out) { if (L.peek) { setHid(L.el, true); classSoon(L.el, 'edge', false); } else fadeOut(L.el); leadOff(L); continue; }
       fadeIn(L.el);
       put(L.el, x - w / 2, y - hh / 2);
       noteAt(L);
-      L.el.classList.toggle('left', !edge && (k === 'triad' || k === 'lymph') && x + w / 2 < a[0] - 4);
+      classSoon(L.el, 'left', !edge && (k === 'triad' || k === 'lymph') && x + w / 2 < a[0] - 4);
       if (edge) { leadOff(L); continue; }
       // (The label's spot is kept in the label's own pair: the layout's records are written again by the next.)
       const ab = L.ab || (L.ab = [0, 0]);   // alloc-once: a label's pair is made with its first layout
@@ -2525,7 +2539,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     }
     // A label gliding to its new spot takes its leader's end with it, frame by frame, so the leader never runs
     // through it or stops short of it on the way.
-    if (labels.classList.contains('lz-ease')) { syncLeaders(); glideUntil = performance.now() + 480; if (!glideRaf) glideRaf = frame(glideLeaders, 'lobule-glide'); }
+    if (classHas(labels, 'lz-ease')) { syncLeaders(); glideUntil = performance.now() + 480; if (!glideRaf) glideRaf = frame(glideLeaders, 'lobule-glide'); }
     mirrorAll();   // (their classes as laid out, a label at the edge or on the left, and the ones now shown: read again between frames)
   }
   // The labels to be measured, asked for (kept, written in place: measureRun takes it and clears it).
@@ -2549,7 +2563,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   }
   let glideRaf = 0, glideUntil = 0;
   // The glide cut short (its time is up): the labels land at once, and their leaders with them.
-  function easeEnd() { labels.classList.remove('lz-ease'); unglide(); syncLeaders(); }
+  function easeEnd() { classSoon(labels, 'lz-ease', false); unglide(); syncLeaders(); }
   function glideLeaders(now) {
     glideRaf = 0;
     // (Followed until every glide has ended: a slow frame can start one late.)
@@ -2565,7 +2579,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     for (let i = 0; i < n; i++) { const L = on[i], [x, y] = seenAt(L, now), [w, hh] = labWH(L); lettersInto(inks[i], L, x, y, w, hh); }
     for (let i = 0; i < n; i++) {
       const L = on[i];
-      if (!L.a || L.el.classList.contains('edge') || classHas(L.dotEl, 'ld-gone')) continue;
+      if (!L.a || classHas(L.el, 'edge') || classHas(L.dotEl, 'ld-gone')) continue;
       classSoon(L.line, 'ld-gone', false);
       leadTo(L, inks[i], inks, n);
       moving ||= labGliding(L, now);
@@ -4757,7 +4771,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       if (wide) { for (const e of WIDE_HIDE) e.style.visibility = 'hidden'; wide.el.style.visibility = ''; }
       // (A copy in the vessels' own canvas: that canvas shows it, unscaled; the copy is placed on the GPU.)
       if (wide?.host) glCv.style.visibility = '';
-      for (const e of [tissue, tissueG, glCv, fx, fxG, leadersBox, labels]) {
+      // (The labels and the leaders are drawn by the GPU carried by the same scale about the same point: view(k, e, f) puts a point p at k p + (e, f).)
+      if (k >= 0.9999) { cap.view(1, 0, 0); leadGL.view(1, 0, 0); } else { cap.view(k, tx - k * x, ty - k * y); leadGL.view(k, tx - k * x, ty - k * y); }
+      for (const e of [tissue, tissueG, glCv, fx, fxG]) {
         if (k >= 0.9999 || (wide?.host && e === glCv)) { e.style.transform = ''; e.style.transformOrigin = ''; continue; }
         // Scaled about its own centre, which sits where the field's lobule at the dive's focus is (tx, ty), so it morphs out of that one.
         e.style.transformOrigin = `${x.toFixed(1)}px ${y.toFixed(1)}px`;

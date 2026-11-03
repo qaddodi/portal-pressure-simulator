@@ -28,7 +28,8 @@
 // chart's own paints, so a frame shows the glide and nothing else.
 import { lateFrameFor, cancelFrame, easeNow } from './frame.js';
 import { D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, easeMove } from './ease.js';
-import { setGeo, rawGeo } from './held-geo.js';
+import { removeSoon } from './class-soon.js';
+import { setGeo, rawGeo, holdPts, dropPts } from './held-geo.js';
 
 const nextLate = lateFrameFor('svg-morph');
 
@@ -75,16 +76,38 @@ export function polyD(pts) {
 export function tweenOf(attr, a, b) {
   if (a === b) return { still: true };
   const A = splitNums(a), B = splitNums(b);
-  if (sameGlue(A.glue, B.glue) && A.nums.length === B.nums.length) return { glue: B.glue, from: A.nums, to: B.nums };
+  if (sameGlue(A.glue, B.glue) && A.nums.length === B.nums.length) {
+    const tw = { glue: B.glue, from: A.nums, to: B.nums };
+    // (A single number glides as a number, a polyline's points as a typed array: the frame writes no text. Anything else is text.)
+    if (A.nums.length === 1 && B.glue[0] === '' && B.glue[1] === '') tw.one = true;
+    else if (attr === 'points' ? A.nums.length >= 4 && A.nums.length % 2 === 0 : attr === 'd' && polyPoints(a) && polyPoints(b)) tw.flat = flatOf(A.nums, B.nums);
+    return tw;
+  }
   if (attr === 'd') {
     const p = polyPoints(a), q = polyPoints(b);
     if (p && q) {
       const n = Math.max(p.length, q.length), pad = (pts) => Array.from({ length: n }, (_, i) => pts[Math.min(i, pts.length - 1)]);
-      return { poly: true, from: pad(p), to: pad(q) };
+      const from = pad(p), to = pad(q);
+      return { poly: true, from, to, flat: flatOf(from.flat(), to.flat()) };
     }
   }
   return null;
 }
+// (Both ends of a polyline's glide as typed arrays, and the one the frame writes in place.)
+const flatOf = (from, to) => ({ from: Float64Array.from(from), to: Float64Array.from(to), buf: new Float64Array(from.length) });
+/** Puts the glide at k on the piece: held as a number or as points, or (a curve, a transform) as its text. */
+function holdTween(el, attr, tw, k) {
+  const f = tw.flat;
+  if (f) {
+    const { from, to, buf } = f;
+    for (let i = 0; i < buf.length; i++) buf[i] = from[i] + (to[i] - from[i]) * k;
+    holdPts(el, buf, buf.length >> 1, attr === 'points' && (el.localName || el.tagName) === 'polygon');
+  } else if (tw.one) setGeo(el, attr, tw.from[0] + (tw.to[0] - tw.from[0]) * k);
+  else setGeo(el, attr, tweenAt(tw, k));
+}
+/** Lets go of what holdTween put on the piece: it shows the chart's own number again. */
+function letGo(el, attr, tw) { if (tw.flat) dropPts(el); setGeo(el, attr, undefined); }
+
 /** The glide's string at k (0 → a, 1 → b). */
 export function tweenAt(tw, k) {
   // (Written straight into the string, a frame of the glide builds no point lists: the same text polyD and joinNums make of the tween's points.)
@@ -187,6 +210,7 @@ export function morphSvg(prev, next) {
   try {
     if (reduced() || !prev?.isConnected || !prev.parentNode || typeof prev.querySelectorAll !== 'function' || typeof next?.querySelectorAll !== 'function' || typeof prev.getAttributeNames !== 'function') return false;
     for (const a of ['viewBox', 'width', 'height', 'preserveAspectRatio']) if ((prev.getAttribute(a) || '') !== (next.getAttribute(a) || '')) return false;
+    active.get(prev.parentNode)?.snapshot();   // (a glide still going on in this drawing is read as it stands now)
     const plan = planMorph(describe(prev), describe(next));
     if (!plan.pairs.length) return false;
     const host = prev.parentNode;
@@ -206,7 +230,7 @@ class Morph {
   constructor(host, prev, next, plan) {
     this.tickFn = () => this.tick();   // (made once: a frame of the glide asks for the next with it, no new closure)
     this.host = host; this.prev = prev; this.next = next; this.plan = plan;
-    this.live = true; this.t0 = null; this.raf = 0; this.fades = [];
+    this.live = true; this.t0 = null; this.raf = 0; this.fades = []; this.k = 0;
   }
   start() {
     const { host, next, plan } = this;
@@ -219,7 +243,7 @@ class Morph {
     if (fade) for (const { a } of plan.pairs) a.el.getAnimations?.().forEach((x) => x.cancel());
     // (The new drawing starts exactly as the old one stood: its pieces at the old pieces' places, the old ones put out of sight under them.)
     for (const { a, b, tweens } of plan.pairs) {
-      for (const [attr, tw] of tweens) { setGeo(b.el, attr, tweenAt(tw, 0)); tw.base = rawGeo(b.el, attr); }   // (held on the piece, no attribute written: the chart's own number stays under it)
+      for (const [attr, tw] of tweens) { if (tw.flat && b.el._pts) tw.flat = null; holdTween(b.el, attr, tw, 0); tw.base = rawGeo(b.el, attr); }   // (held on the piece, no attribute written: the chart's own number stays under it)
       a.el.style.visibility = 'hidden';
     }
     // (A chart drawn on the GPU (svg-gl.js) draws each fade from its animation's own clock: noteFade.)
@@ -232,6 +256,11 @@ class Morph {
   }
   /** Another morph takes this card over: this one stops moving the new drawing (it is that morph's old one now); its leaving words finish. */
   release() { this.live = false; }
+  /** The points of a glide still going written out as text on their pieces, so a drawing read mid-glide (by the next morph) shows the numbers it shows now. */
+  snapshot() {
+    if (!this.live) return;
+    for (const { b, tweens } of this.plan.pairs) for (const [attr, tw] of tweens) if (tw.flat && !tw.dead) setGeo(b.el, attr, tweenAt(tw, this.k));
+  }
   tick() {
     this.raf = 0;
     const now = easeNow();
@@ -239,12 +268,12 @@ class Morph {
     const t = now - this.t0, { plan } = this;
     const gone = !this.next.isConnected;
     if (this.live && !gone) {
-      const e = easeMove(clamp01(t / D_SURFACE));
+      const e = this.k = easeMove(clamp01(t / D_SURFACE));
       for (const { b, tweens } of plan.pairs) for (const [attr, tw] of tweens) {
         // (Something else wrote this number since the glide began, the chart's own paint: it keeps it, and the glide lets go of it.)
         if (tw.dead) continue;
-        if (rawGeo(b.el, attr) !== tw.base) { tw.dead = true; setGeo(b.el, attr, undefined); continue; }
-        setGeo(b.el, attr, tweenAt(tw, e));
+        if (rawGeo(b.el, attr) !== tw.base) { tw.dead = true; letGo(b.el, attr, tw); continue; }
+        holdTween(b.el, attr, tw, e);
       }
     }
     if (gone || t >= D_SURFACE) { this.finish(); return; }
@@ -252,9 +281,9 @@ class Morph {
   }
   finish() {
     const { plan } = this;
-    if (this.live && this.next.isConnected) for (const { b, tweens } of plan.pairs) for (const [attr, tw] of tweens) if (!tw.dead) setGeo(b.el, attr, undefined);   // (the number the chart wrote shows again: the landing)
+    if (this.live && this.next.isConnected) for (const { b, tweens } of plan.pairs) for (const [attr, tw] of tweens) if (!tw.dead) letGo(b.el, attr, tw);   // (the number the chart wrote shows again: the landing)
     for (const f of this.fades) f.cancel();
-    this.prev.remove();
+    removeSoon(this.prev);   // (taken out right after this task, before the next frame: a write between frames, not in one)
     cancelFrame(this.raf); this.raf = 0;
     if (active.get(this.host) === this) active.delete(this.host);
     this.live = false;

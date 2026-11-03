@@ -39,7 +39,7 @@ test('lobule labels are pinned beside what they name and never cover the central
   assert.match(js, /disc: \{ x: 0, y: 0, r: 10 \}/);
   assert.match(js, /disc\.x = a\[0\]; disc\.y = a\[1\];[\s\S]*?\(into\(disc, cb\) > 0 \? 1e6/, 'a label never covers the spot it names');
   assert.match(js, /lead \* 8/, 'short leaders are preferred');
-  assert.match(js, /L\.el\.classList\.toggle\('edge'/, 'a label whose structure is off screen waits at the edge');
+  assert.match(js, /classSoon\(L\.el, 'edge', chip\)/, 'a label whose structure is off screen waits at the edge');
   assert.match(js, /if \(bestCost >= 1e6\) \{ r\.out = true; total \+= dropCost\(k\); continue; \}/, 'a label with no clear spot is left out, never stacked on another');
   assert.match(js, /(?:let|const) callLead = placeCall\(/, 'the slide\'s pointer pill is placed before the labels');
   assert.match(js, /if \(sol\.total >= 1e5 && !rough\)/, 'when a label is hidden or crowded, other layouts are tried');

@@ -24,7 +24,12 @@ Work happens in the cloud; previews are published to GitHub Pages.
   coding agent; do not add `codex/` branches without changing both deployment rules.
 
 Loop for every change (fast previews first, full tests before merge):
-1. Make the change and run only `npm run lint && npm test` (seconds). Do not run the browser
+1. Make the change and run `npm run lint && npm test` (seconds), then `npm run gate` (the pre-push gate, `scripts/gate.mjs`, a few
+   minutes): it fails on a conflict marker, an import that does not resolve, a page that does not boot, a deck slide change that does
+   not end whole (card frozen mid-fade, glass never arriving, camera still gliding), a Circuit/Anatomy/Lobule switch that does not
+   settle, a missing diaphragm, labels that do not follow a pan or zoom, and a rest view that drifts from `tests/visual/`. A thread pushes only
+   when it passes (`--only static,slides` for a quick run on a deck change; `--decks hvpg` narrows it). CI runs it on every push
+   (`gate.yml`; `[gate-full]` in a commit message runs every slide on desktop and phone). Details: header of `scripts/gate.mjs`. Do not run the browser
    checks (`npm run smoke`) or `npm run check` locally at this stage. For any UI change, also
    take screenshots of the intended behaviour in the running app before pushing: phone
    (390x844, deviceScaleFactor 3), iPad and desktop where the change applies. Check them
@@ -82,6 +87,9 @@ Workflows pin `ubuntu-24.04`, so a new runner image (and new visual references) 
 - Layout reads go through `src/ui/layout-snap.js` only (plan 3.4): `readBox`, `readStyle`, `readMetric(el, 'offsetHeight')`, `readCTM`…,
   and the snapshot it keeps (`stageBox()`, `worldCTM()`, `safeSides()`, kept boxes). `scripts/off-gpu-scan.mjs` (lint) fails a file with more
   direct reads than its allowance in `scripts/layout-read-allowance.json`, or fewer: lower the number when you move reads, never raise it.
+- Gradient stop colours the organ painter uses are a generated table (`src/ui/stop-tokens.js`, per look: `npm run gen:stops`), never a style read.
+  `tests/stop-tokens.test.js` fails when a stop rule or a custom property it reads changes in `styles/`: run `npm run gen:stops` (it measures the app in
+  headless Chromium) and commit the file; `npm run check:stops` compares the table with the live page. A new gradient stop in `stage.js` needs it too.
 - Pressure colours and cut-offs live once: HVPG amber 5, red 10; PPG amber 6, red 12, in `src/engine/pressure-cuts.js`.
   Read them from there and the colour tokens (`--ok`, `--caution`, `--danger`); `tests/pressure-vocabulary.test.js` fails on a
   second copy.

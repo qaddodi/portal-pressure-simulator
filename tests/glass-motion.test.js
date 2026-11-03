@@ -197,6 +197,18 @@ test('clockAt answers as the old clockAt did, over random timings and times', ()
   }
 });
 
+test('a pending animation is held at its start until its start time is known, not run on from when it was read', () => {
+  const fade = { playState: 'pending', playbackRate: 1, startTime: null, currentTime: 0, effect: { getTiming: () => ({ duration: 240, delay: 0, endDelay: 0, iterations: 1, iterationStart: 0, direction: 'normal', fill: 'both', easing: 'linear' }) } };
+  const c = clockOf(fade, 1000), out = { st: '', has: false, p: 0, end: 0 };
+  // read in a frame at 1000; a slow frame later (1230) the browser has not started it yet: its first frame is its start
+  assert.equal(clockAt(c, 1230, out).p, 0, 'still at its start');
+  assert.equal(out.st, 'running');
+  // the browser starts it at the next frame (1250); from then on it runs from there
+  c.s = 1250;
+  assert.equal(clockAt(c, 1250, out).p, 0);
+  assert.ok(Math.abs(clockAt(c, 1370, out).p - 0.5) < 1e-9);
+});
+
 // Whether anything is built: the collector's runs are counted (a scavenge follows every few megabytes of garbage), so the same loop
 // over the old code shows them and the new does not. Run once first, to let the optimiser settle: code still being compiled boxes
 // every number it adds.

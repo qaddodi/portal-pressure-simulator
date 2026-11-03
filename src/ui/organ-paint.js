@@ -18,6 +18,7 @@ import { prestart, linkProgram } from './gl-compile.js';
 import { strHash } from './liver-geo.js';
 import { readStyle, readLocalCTM } from './layout-snap.js';
 import { getLive } from './live-style.js';
+import { STOPS, STOPS_CMAP, STOP_LOOK } from './stop-tokens.js';
 // (The colour a clear writes, one array for every clear: none made per call, plan rev 2 §2.8.)
 const CLEAR0 = new Float32Array(4);
 
@@ -74,16 +75,19 @@ function readDash(cs) {
 }
 /** Polylines cut into their dashes (SVG's rule: the pattern runs on along each subpath from its start, shifted by the offset). */
 export function dashPolys(polys, { a, off }) {
+  // alloc-rare: dashes are cut only where no mesh is kept for the shape at this pattern (it, its cap or its tolerance changed), never in a frame that kept it
   const P = a.reduce((t, v) => t + v, 0), out = [];
   for (const { pts, closed } of polys) {
     const n = pts.length / 2;
     if (n < 2) continue;
+    // alloc-rare: dashes are cut only where no mesh is kept for the shape at this pattern (it, its cap or its tolerance changed), never in a frame that kept it
     const xs = [], ys = [];
     for (let k = 0; k < n; k++) { xs.push(pts[2 * k]); ys.push(pts[2 * k + 1]); }
     if (closed) { xs.push(pts[0]); ys.push(pts[1]); }
     // (Where in the pattern the subpath starts: the offset taken into one period.)
     let pos = ((off % P) + P) % P, i = 0;
     while (pos >= a[i]) { pos -= a[i]; i = (i + 1) % a.length; }
+    // alloc-rare: dashes are cut only where no mesh is kept for the shape at this pattern (it, its cap or its tolerance changed), never in a frame that kept it
     let left = a[i] - pos, on = i % 2 === 0, cur = on ? [xs[0], ys[0]] : null;
     for (let k = 1; k < xs.length; k++) {
       let x0 = xs[k - 1], y0 = ys[k - 1], L = Math.hypot(xs[k] - x0, ys[k] - y0);
@@ -91,12 +95,15 @@ export function dashPolys(polys, { a, off }) {
       for (;;) {
         if (left >= L) { left -= L; if (on) cur.push(x1, y1); break; }
         const f = left / L, x = x0 + (x1 - x0) * f, y = y0 + (y1 - y0) * f;
+        // alloc-rare: dashes are cut only where no mesh is kept for the shape at this pattern (it, its cap or its tolerance changed), never in a frame that kept it
         if (on) { cur.push(x, y); if (cur.length >= 4) out.push({ pts: new Float32Array(cur), closed: false }); cur = null; }
         L -= left; x0 = x; y0 = y;
         i = (i + 1) % a.length; left = a[i]; on = i % 2 === 0;
+        // alloc-rare: dashes are cut only where no mesh is kept for the shape at this pattern (it, its cap or its tolerance changed), never in a frame that kept it
         if (on) cur = [x, y];
       }
     }
+    // alloc-rare: dashes are cut only where no mesh is kept for the shape at this pattern (it, its cap or its tolerance changed), never in a frame that kept it
     if (cur && cur.length >= 4) out.push({ pts: new Float32Array(cur), closed: false });
   }
   return out;
@@ -252,6 +259,29 @@ function trTo(o, tr) {
   o[0] = k.a; o[1] = k.b; o[2] = k.c; o[3] = k.d; o[4] = k.e; o[5] = k.f;
   return o;
 }
+// (A gradient stop's colour and opacity are the page's styles' to give, and they depend on the look alone (Light, Soft, Dark, Navy;
+// Black as Dark, System as the device's light or dark) and on the circuit view where it differs: scripts/gen-stop-tokens.mjs measures
+// the page for each and writes stop-tokens.js; tests/stop-tokens.test.js fails when the rules they read change. A stop is named by its
+// class, style and presentation attributes, kept per stop with its row until one of them changes.)
+const SYS_DARK = typeof matchMedia === 'function' ? matchMedia('(prefers-color-scheme: dark)') : null;
+const SR = new WeakMap(), SR_WARNED = new Set();
+/** The column of STOP_COLS the page's look takes now. */
+function lookCol(doc) {
+  const r = doc.documentElement;
+  return STOP_LOOK[r.getAttribute('data-palette') || r.getAttribute('data-theme') || (SYS_DARK?.matches ? 'sys-dark' : 'sys-light')] ?? 0;
+}
+/** A stop's row in the table (its colour and opacity for each column), or null, saying so once, for a stop the table lacks. */
+function stopRow(st, g) {
+  const a = st.getAttribute('class') || '', b = st.getAttribute('style') || '', c = st.getAttribute('stop-color') || '', d = st.getAttribute('stop-opacity') || '';
+  let e = SR.get(st);
+  if (!e || e.a !== a || e.b !== b || e.c !== c || e.d !== d) {
+    const sig = `${a}|${b}|${c}|${d}`;   // alloc-rare: a stop's signature is made the first time it is read, and again only where its class or style changed
+    if (!STOPS[sig] && !SR_WARNED.has(sig)) { SR_WARNED.add(sig); console.error(`Organs on the GPU: the gradient stop "${sig}" (${g.id}) is not in stop-tokens.js: run npm run gen:stops`); }   // alloc-rare: as above
+    e = { a, b, c, d, sig };   // alloc-rare: as above
+    SR.set(st, e);
+  }
+  return (st.closest('.stage-wrap.cmap') && STOPS_CMAP[e.sig]) || STOPS[e.sig] || null;
+}
 function readGradient(doc, id) {
   refsOut?.add(id);
   const g = doc.getElementById(id);
@@ -273,11 +303,13 @@ function readGradient(doc, id) {
   for (let i = 0; i < kids.length; i++) {
     const s = kids[i];
     if (s.localName !== 'stop') continue;
-    const cs = readStyle(s), c = parseColor(cs.stopColor || cs.getPropertyValue('stop-color'));
+    const row = stopRow(s, g);   // (its colour and opacity from the table of the page's styles, never the cascade: stop-tokens.js)
+    if (!row) return null;
+    const c = parseColor(row[lookCol(doc) * 2]);
     if (!c) return null;
     const o = Math.min(1, Math.max(last, num(s, 'offset', 0)));
     last = o;
-    if (n < 8) { const j = n * 5; GS[j] = o; GS[j + 1] = c[0]; GS[j + 2] = c[1]; GS[j + 3] = c[2]; GS[j + 4] = c[3] * (parseFloat(cs.stopOpacity || cs.getPropertyValue('stop-opacity')) || 0); }
+    if (n < 8) { const j = n * 5; GS[j] = o; GS[j + 1] = c[0]; GS[j + 2] = c[1]; GS[j + 3] = c[2]; GS[j + 4] = c[3] * (row[lookCol(doc) * 2 + 1] || 0); }
     n++;
   }
   if (!n || n > 8) return null;

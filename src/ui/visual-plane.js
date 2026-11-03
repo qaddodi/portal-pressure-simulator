@@ -29,7 +29,8 @@ import { TILE, tileShown } from './table-marks.js';
 import { plotPanel } from './plot-look.js';
 import { frameFor } from './frame.js';
 import { easeArrive, D_SURFACE, EASE_ARRIVE } from './ease.js';
-import { createSvgGL, svgModel, setGeo } from './svg-gl.js';
+import { createSvgGL, svgModel, setPts } from './svg-gl.js';
+import { propSoon } from './class-soon.js';
 const reduceDot = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : { matches: false };
 
 const nextFrame = frameFor('plane');
@@ -860,7 +861,7 @@ export function planePlot(pl, { card = false } = {}) {
           // (Moving out of the dot's way: out quickly before the dot gets there, back in at its new place.)
           t.style.opacity = '0';
           clearTimeout(t._mv);
-          t._mv = setTimeout(() => { t.style.transform = pos; t.style.opacity = ''; }, 150);
+          t._mv = setTimeout(() => { propSoon(t.style, 'transform', pos); propSoon(t.style, 'opacity', ''); }, 150);   // (written between frames)
         }
         if (t.dataset.body !== body) {
           t.dataset.body = body;
@@ -914,7 +915,7 @@ export function planePlot(pl, { card = false } = {}) {
   // The line: through the stops, then the way the dot went since the slide came up, to the dot where it stands now.
   // (The line is worked out in kept lists: the stops' places in stopXY, the way in `walk` as flat (a, b) pairs of the plane's own units. A frame of the
   // dot's glide makes no point lists; the path's text is the one thing built, as the painter takes it.)
-  let stopXY = new Float64Array(16), pcXY = new Float64Array(16), pcN = -1, pcD = '', walkD = null;
+  let stopXY = new Float64Array(16), pcXY = new Float64Array(18);   // (pcXY: the stops and the way, and the dot's end after them: the points the line is drawn from)
   function paintWalk() {
     if (!walkPath || !inv) return;
     const cur = dotNow(), ns = stops.length, xk = pl.x.key, yk = pl.y.key;
@@ -941,23 +942,15 @@ export function planePlot(pl, { card = false } = {}) {
       }
     }
     const wc = walk.length >> 1, pc = ns + wc, cnt = pc + (cur ? 1 : 0);
-    // (The text of the points before the dot (the stops and the way) is kept while their places are the same, which they are through
-    // a glide but for the way's growth; a frame then builds only the dot's end.)
-    if (pcXY.length < pc * 2) pcXY = new Float64Array(pc * 4);   // alloc-rare: more points than ever before
-    let same = pc === pcN;
+    // (The line is drawn from its points as they stand: the stops, the way and the dot's end, kept in pcXY.)
+    if (pcXY.length < pc * 2 + 2) pcXY = new Float64Array(pc * 4 + 2);   // alloc-rare: more points than ever before
     for (let i = 0; i < pc; i++) {
       let x, y;
       if (i < ns) { x = stopXY[2 * i]; y = stopXY[2 * i + 1]; } else { const j = i - ns; x = inv.X(walk[2 * j]); y = inv.Y(walk[2 * j + 1]); }
-      if (same && (pcXY[2 * i] !== x || pcXY[2 * i + 1] !== y)) same = false;
       pcXY[2 * i] = x; pcXY[2 * i + 1] = y;
     }
-    if (!same) {
-      pcN = pc; pcD = '';
-      for (let i = 0; i < pc; i++) { pcD += i ? ' L' : 'M'; pcD += pcXY[2 * i].toFixed(1); pcD += ','; pcD += pcXY[2 * i + 1].toFixed(1); }   // alloc-rare: only when a stop or the way moved or grew
-    }
-    let d = '';
-    if (cnt > 1) d = cur ? pcD + (pc ? ' L' : 'M') + cur.x.toFixed(1) + ',' + cur.y.toFixed(1) : pcD;
-    if (d !== walkD) { walkD = d; setGeo(walkPath, 'd', d); }   // (held on the piece: the frame writes no attribute)
+    if (cur) { pcXY[2 * pc] = cur.x; pcXY[2 * pc + 1] = cur.y; }
+    setPts(walkPath, pcXY, cnt > 1 ? cnt : 0);   // (the line is drawn from these points as they are: the frame makes no text and writes no attribute)
     gl.paint();
   }
   // While the dot glides, the line follows it each frame (the dot's ease, so the line is drawn in behind it, never ahead).

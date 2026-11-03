@@ -14,8 +14,8 @@ import { classSoon, attrSoon, dataSoon } from './class-soon.js';
 import { restPass } from './rest-pass.js';
 import { plotPanel } from './plot-look.js';
 import { RX, bandKeys } from './rx-bands.js';
-import { createSvgGL, svgModel, setWords, setGeo } from './svg-gl.js';
-import { fix1, round1, tenths, printedKey } from './fix-text.js';
+import { createSvgGL, svgModel, setWords, setGeo, setPts } from './svg-gl.js';
+import { fix1, round1, printedKey } from './fix-text.js';
 import { D_SURFACE, EASE_ARRIVE } from './ease.js';
 const nextFrame = frameFor('flow-time');
 
@@ -217,9 +217,9 @@ export function createFlowTime() {
     return { svg, lines, boxes };
   }
   // Draw the lines up to minute m, each line's value over its head (flipped left near the right edge).
-  // (Written every frame of a glide, so nothing here makes a list: the path up to each passed point is a string kept on the line, grown as
-  // points are passed; coordinates come from the table of tenths; a printed value, its width and the chart's label are made again only
-  // when the printed number changes.)
+  // (Written every frame of a glide, so nothing here makes a list or a string for the lines: each line is held as points in a typed array
+  // kept on the line, grown as points are passed; a printed value, its width and the chart's label are made again only when the printed
+  // number changes.)
   function paint(m) {
     if (!parts) return;
     const ls = parts.lines, mins = ser.min, nm = mins.length;
@@ -227,14 +227,15 @@ export function createFlowTime() {
     while (n < nm && mins[n] < m) n++;
     for (let i = 0; i < ls.length; i++) {
       const l = ls[i], arr = ser[l.k], hx = X(m), v = val(arr, m), hy = l.Y(v);
-      let pre = l.pre;
-      // alloc-rare: the line's kept strings, made once per line of a chart (a chart is made again when its size or trail changes)
-      if (!pre) pre = l.pre = [''];
-      // alloc-rare: grows by one point's text the first time a glide passes it, then kept (a new chart starts again)
-      for (let c = pre.length; c <= n; c++) pre[c] = pre[c - 1] + (c - 1 ? 'L' : 'M') + fix1(X(mins[c - 1])) + ' ' + fix1(l.Y(arr[c - 1]));
-      // (The path is written only when its head or its point count moved.)
-      const kx = tenths(hx), ky = tenths(hy);   // (the path's text depends on the head only through these tenths)
-      if (l.dn !== n || kx < 0 || ky < 0 || l.dx !== kx || l.dy !== ky) { l.dn = n; l.dx = kx; l.dy = ky; setGeo(l.path, 'd', pre[n] + (n ? 'L' : 'M') + fix1(hx) + ' ' + fix1(hy)); }
+      // (The line is held on its piece as points (setPts): the passed points written once, as they are passed, then the head at index n,
+      // written in place each frame. Every coordinate is taken to the tenth, as the path text was, so the picture is the same.)
+      let P = l.pts;
+      // alloc-rare: the line's kept points, made once per line of a chart (a chart is made again when its size or trail changes)
+      if (!P) { P = l.pts = new Float64Array(2 * (nm + 1)); l.nf = 0; }
+      for (let c = l.nf; c < n; c++) { P[2 * c] = round1(X(mins[c])); P[2 * c + 1] = round1(l.Y(arr[c])); }
+      if (n > l.nf) l.nf = n;
+      P[2 * n] = round1(hx); P[2 * n + 1] = round1(hy);
+      setPts(l.path, P, n + 1, false);
       const key = printedKey(v, l.d);
       if (key !== l.pk) {
         l.pk = key; printed = true;

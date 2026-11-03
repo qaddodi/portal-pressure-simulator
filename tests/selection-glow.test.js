@@ -6,7 +6,8 @@ const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8
 
 test('a selected vessel glows as a hovered one does, with no solid ring', () => {
   assert.doesNotMatch(stage, /\? F_SEL : 0/, 'the GPU ring with hard round ends is not drawn');
-  assert.match(stage, /setGlowSrc\('sel', ids\.map\(/, 'every selected vessel takes the glow, not only the sinusoids');
+  assert.match(stage, /selGlowList\.push\(SEL_ENTRY\[ids\[i\]\]\);[^\n]*\n\s+setGlowSrc\('sel', selGlowList\);/, 'every selected vessel takes the glow, not only the sinusoids');
+  assert.match(stage, /for \(const x of EV\) \{ const id = x\.e\.id; SEL_ENTRY\[id\] = SIN_EDGES\.has\(id\) \?/, 'one entry per vessel, made once');
   const sel = stage.match(/\{ id, col: null, amt: ([\d.]+), wide: ([\d.]+), dur: SEL_FADE \* 1000 \}/), hov = stage.match(/setGlowSrc\('hover'[^\n]*amt: ([\d.]+), wide: ([\d.]+)/);
   assert.ok(sel && hov);
   assert.ok(+sel[1] >= +hov[1] && +sel[2] > +hov[2] && +sel[2] <= 1.3, 'a little stronger and wider than the hover, within the band the shader allows');
@@ -17,7 +18,7 @@ test('selecting and deselecting ease the vessel in and out of the dimmed network
   assert.match(stage, /if \(x\.back \|\| tier >= TIER_LIFT\) alpha \*= netA \+ \(1 - netA\) \* easeInOut\(/);
   assert.match(stage, /const on = IVC_EDGES\.has\(x\.e\.id\) && \(x\.sel \|\| vh\.selA\.get\(x\.e\.id\) > 0\) && !SIN_EDGES\.has\(x\.e\.id\);/, 'only the cava is lifted when selected');
   assert.match(stage, /m\.selK !== selAKey\(\)/, 'the glow-only sync gives way while the selection eases (it does not write alpha)');
-  assert.match(stage, /glowMemo\.selK = selAKey\(\);/);
+  assert.match(stage, /gm\.selK = selAKey\(\);/);
 });
 
 test('the selected vessel eases back into the dimmed network toward its ends, with no hard round end', () => {

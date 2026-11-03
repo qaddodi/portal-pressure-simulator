@@ -39,12 +39,12 @@ const LANDED = () => {
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 /** Runs in the page, once: the stepper. */
-const STEPPER = () => {
+export const STEPPER = () => {
   const born = new WeakMap();   // animation -> { at (ms of step time it began), base (its currentTime then) }
   const S = { T: 0 };
   S.hold = () => {
     for (const a of document.getAnimations()) {
-      if (born.has(a)) { const b = born.get(a); const t = b.base + (S.T - b.at); try { a.currentTime = Math.max(0, t); } catch { /* finished or not seekable */ } continue; }
+      if (born.has(a)) { const b = born.get(a); const t = b.base + (S.T - b.at); try { a.currentTime = Math.max(0, t); const end = a.effect?.getComputedTiming().endTime; if (Number.isFinite(end) && t >= end && a.playState === 'running') { a.playbackRate = 1; a.finish(); } } catch { /* finished or not seekable */ } continue; }   // (held at rate 0 an animation never finishes by itself: one past its end is finished here, so its finish events and playState are as live)
       const ct = Number(a.currentTime) || 0;
       // first seen: a new animation starts now (its delay still counts), an older one carries on from where it is
       const fresh = S.T > 0 || ct < 1;
@@ -61,7 +61,7 @@ const STEPPER = () => {
 };
 
 /** Runs in the page: what every card and glass host looks like right now. */
-const RECORD = () => {
+export const RECORD = () => {
   const q = (s) => [...document.querySelectorAll(s)];
   const vis = (e) => { const c = getComputedStyle(e); return c.display !== 'none' && c.visibility !== 'hidden'; };
   const rec = (e, name) => {
@@ -162,9 +162,15 @@ export async function capture({ scenario, device = 'mac', theme = 'light', scrip
       await page.clock.pauseAt(T0 + 3000);   // (time runs by itself for 3 s more, then holds)
     } else {
       // installed late, the fake performance.now restarts near 0, so a timestamp the page took earlier is AHEAD of it (seen: "Invalid array length")
+      const pre = await page.evaluate(() => performance.now());
       const T0 = Date.now();
       await page.clock.install({ time: T0 });
       await page.clock.pauseAt(T0 + 3000);
+      // (3 Nov 2026: the fake performance.now starts at 0 and had only run 3 s, the page's own was minutes in: every ease read a negative
+      // elapsed time, the camera blew up and binVeins threw "Invalid array length". Jump the fake clock past where the page's was: a
+      // fastForward fires each timer once, not once per frame of the jump.)
+      const cur = await page.evaluate(() => performance.now());
+      if (pre + 200 > cur) await page.clock.fastForward(Math.ceil(pre + 200 - cur));
     }
     await page.waitForTimeout(3500);
     await page.clock.runFor(60);

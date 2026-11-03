@@ -837,7 +837,7 @@ export function createSvgGL(box) {
   cv.setAttribute('role', 'img');
   box.prepend(cv);
   // alloc-rare: a picture's kept state, made once for each chart host
-  const g = { box, cv, gpu: null, until: 0, ask: 0, lookAsk: 0, ins: new Map(), dead: false, timers: new Set() };
+  const g = { box, cv, gpu: null, until: 0, ask: 0, lookAsk: 0, ins: new Map(), dead: false, timers: new Set(), vk: 1, ve: 0, vf: 0 };
   live.add(g);
   // (A drawing swapped in during a frame waits off the page, pending, and is drawn from there; it joins the box between frames.)
   // alloc-rare: the picture's drawings list, called by slide changes and rest passes, never by a frame's draw
@@ -888,7 +888,11 @@ export function createSvgGL(box) {
     try {
       ctx.clearRect(0, 0, w, h);
       if (!(bw > 0 && bh > 0)) return;
+      // (The whole picture carried by the owner's view, g.view: a pan or a zoom about a point, drawn as it is, never a transform on the page.)
+      const moved = g.vk !== 1 || g.ve !== 0 || g.vf !== 0;
+      if (moved) { ctx.save(); ctx.translate(g.ve + BLEED * (1 - g.vk), g.vf + BLEED * (1 - g.vk)); ctx.scale(g.vk, g.vk); }
       const last = drawModels(ctx, now, bw, bh);
+      if (moved) ctx.restore();
       g.blank = !hasInk();
       const label = last?.getAttribute('aria-label');
       if (label) attrSoon(cv, 'aria-label', label);
@@ -904,6 +908,8 @@ export function createSvgGL(box) {
   if (typeof ResizeObserver === 'function') { g.ro = new ResizeObserver(() => { if (g.pk) dropRoots(g.pk); g.paint(); }); g.ro.observe(box); }
   // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)
   g.paint = () => { if (!g.ask) g.ask = finalFrame(draw); };
+  /** The picture moved as one: a point p is drawn at k p + (e, f) (box px). A pan is k 1; the lobule's dive is a scale about a point. */
+  g.view = (k, e, f) => { if (g.vk === k && g.ve === e && g.vf === f) return; g.vk = k; g.ve = e; g.vf = f; g.paint(); };
   // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)
   g.wake = (ms) => { g.until = Math.max(g.until, easeNow() + ms); g.paint(); };
   // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)

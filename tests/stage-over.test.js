@@ -206,7 +206,7 @@ test('the stage: off unless asked for; the painted groups\' SVG hidden by an emp
   assert.match(st, /svgOver\.addEventListener\('transitionrun', ran\);\n\s+svgOver\.addEventListener\('transitionend', ended\);\n\s+svgOver\.addEventListener\('transitioncancel', ended\);/);
   assert.match(st, /watch\.observe\(svgOver, \{ subtree: true, childList: true, attributes: true, attributeOldValue: true, characterData: true \}\);/);
   // (Each painted group's frame as it is at each paint, under the overlays' own group where it is one of its children.)
-  assert.match(st, /groups\.set\(n, \[\{ spec, get m\(\) \{ const own = elMat\(u\); return up \? mul\(elMat\(up\), own\) : own; \} \}\]\);/);
+  assert.match(st, /groups\.set\(n, \[\{ spec, get m\(\) \{ const own = elMat\(u\); return up \? mulTo\(sc, elMat\(up\), own\) : own; \} \}\]\);/);
   assert.match(st, /for \(const u of overPainted\) if \(!now2\.has\(u\)\) u\.classList\.remove\(OVER_CLASS\);\n\s+for \(const u of now2\) u\.classList\.add\(OVER_CLASS\);/);
   // (Read each frame before the figure decides to sleep, and laid again alone when only they changed.)
   assert.match(st, /syncOver\(\);\n\s+\/\/ [^\n]*\n\s+if \(OVER_ON && veins\?\.overlay\?\.stale && !veins\.lost\) veins\.present\(\);\n\s+const rowsWait/);

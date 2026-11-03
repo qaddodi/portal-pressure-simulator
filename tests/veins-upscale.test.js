@@ -132,5 +132,5 @@ test('the stage: off, the canvas and its early return are as before; on, the can
   assert.match(fn, /let full = veins\?\.overlay && \(!SOFTWARE \|\| OVER_ASK\) \? devicePixelRatio \|\| 1 : 0;\n[\s\S]*?full = capDensity\(full, r\.width, r\.height, figOpt\('cap'\)\);\n\s+let lin = false;\n\s+if \(full && vdpr < full - 1e-9\) \{ bw = Math\.max\(1, Math\.round\(r\.width \* full\)\); bh = Math\.max\(1, Math\.round\(r\.height \* full\)\); lin = !figLab\('upscale'\); \}/);
   assert.doesNotMatch(stage, /OVER_GPU|stageover=svg/);
   assert.match(stage, /if \(picNow\) veins\?\.setPicture\?\.\(picNow, picLin\);/, 'a restored context draws at the same share');
-  assert.match(stage, /const \[roomW, roomH\] = picNow \|\| \[vCanvas\.width, vCanvas\.height\];/, 'the organ picture sized for the picture, not the larger canvas');
+  assert.match(stage, /const roomW = picNow \? picNow\[0\] : vCanvas\.width, roomH = picNow \? picNow\[1\] : vCanvas\.height;/, 'the organ picture sized for the picture, not the larger canvas');
 });

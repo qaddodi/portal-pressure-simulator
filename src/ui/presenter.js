@@ -68,7 +68,7 @@ import { tileKeys as cardKeys, toolOnly } from './card-tiles.js';
 import { D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN, EASE_MOVE, RISE_PX, cssCurve } from './ease.js';
 import { slideFold } from './fold-slide.js';
 import { pageOn, followOf, pageIn, swipeHeld } from './card-page.js';
-import { throwOut, throwIn, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, INSTANT, throwOutNow, throwPinned, throwRelease, railable, railHold, railIn, railAway, railGhosts, railWaits, railCopies, RAIL_GAP } from './card-throw.js';
+import { throwOut, throwIn, throwBack, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, INSTANT, throwOutNow, throwPinned, throwRelease, railable, railHold, railIn, railAway, railGhosts, railWaits, railCopies, RAIL_GAP } from './card-throw.js';
 import { readAnims, readBox, readCTM, readMetric, readRects, readStyle, readTiming, scrollInto } from './layout-snap.js';
 import { caught } from './caught.js';
 const nextFrame = frameFor('presenter');
@@ -5413,7 +5413,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // (thrown: already going on out from the finger, card-throw.js. A card the swipe took along that the new slide keeps (the same
       // data card) is not thrown: it eases back from the finger to its place.)
       // alloc-rare: a swipe is let go: once per gesture
-      for (const el of els) if (!throwing(el) && !throwPinned(el) && el.style.transform) { const o0 = parseFloat(el.style.opacity); el.style.removeProperty('transition'); el.style.removeProperty('opacity'); el.style.removeProperty('transform'); el.animate?.([{ transform: `translateX(${x}px)`, opacity: Number.isFinite(o0) ? o0 : 1 }, { transform: 'none', opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE }); }
+      for (const el of els) if (!throwing(el) && !throwPinned(el) && el.style.transform) { const o0 = parseFloat(el.style.opacity); throwBack(el, x, Number.isFinite(o0) ? o0 : 1); }   // (on card-throw.js's clock: the glass and the words part for no frame)
       return;
     }
     // alloc-rare: a swipe is let go: once per gesture
@@ -5424,12 +5424,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       pageHeld = { x, o, els, t: setTimeout(() => { if (pageHeld) pageHand(false); }, 600) };
       return;
     }
+    if (!out && (Math.abs(x) > 0.5 || o < 0.999)) { for (const el of els) throwBack(el, x, o); return; }   // (short of the swipe: the card eases back on card-throw.js's clock, from where the finger left it)
     for (const el of els) { el.style.removeProperty('transition'); el.style.removeProperty('opacity'); el.style.removeProperty('transform'); }
     if (out) pageThrow(x, els);
-    else if (Math.abs(x) > 0.5 || o < 0.999) {
-      // alloc-rare: a swipe is let go: once per gesture
-      for (const el of els) el.animate?.([{ transform: `translateX(${x}px)`, opacity: o }, { transform: 'none', opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE });
-    }
   }
   // (A swipe's throw: the card carries on out from where the finger left it, the leave's own way further, decelerating from the finger's
   // pace (app.css pz-thrown: --ease-arrive, not the leave's --ease-in, which stood the card still at the finger before it went on). The
@@ -5454,12 +5451,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!h) return;
     clearTimeout(h.t);
     if (out && throwDir) return;   // (thrown: the card goes on out from the finger's place, on card-throw.js's clock: wordsOut)
+    if (!out && (Math.abs(h.x) > 0.5 || h.o < 0.999)) { for (const el of h.els) throwBack(el, h.x, h.o); return; }
     for (const el of h.els) { el.style.removeProperty('transition'); el.style.removeProperty('opacity'); el.style.removeProperty('transform'); }
     if (out) pageThrow(h.x, h.els);
-    else if (Math.abs(h.x) > 0.5 || h.o < 0.999) {
-      // alloc-rare: a swipe is let go: once per gesture
-      for (const el of h.els) el.animate?.([{ transform: `translateX(${h.x}px)`, opacity: h.o }, { transform: 'none', opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE });
-    }
   }
   wrap.addEventListener('touchmove', (e) => {
     if (e.touches.length > 1) { sw = null; if (pull) pullLet(false); return; }
