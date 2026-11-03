@@ -1310,6 +1310,7 @@ const boxes = new WeakMap();
 // laid out, so they are drawn for the size they are seen at. 1 otherwise.
 let canvasBoost = 1;
 export const setCanvasBoost = (k) => { canvasBoost = Math.max(1, +k || 1); };
+const BOOST_PIXELS = 3.2e6;
 const sizedSubs = new WeakMap();   // (canvas -> functions run when it first has a box, or has one again after none)
 // (2 Nov 2026, timers and observers during motion: the observer only records the boxes. The redraws that waited for a box (a chart's
 // first GPU draw, seconds of work on a phone) run in a rest pass, between frames and within its shared budget, never inside the
@@ -1364,10 +1365,13 @@ export function canvasSize(canvas) {
   if (!r) { boxes.set(canvas, { width: 0, height: 0 }); boxObserver.observe(canvas); r = boxes.get(canvas); }   // alloc-rare: a canvas met for the first time (an observer may report its box at once, so it is read back)
   // The instruments (Doppler, FibroScan, the HVPG tracing, scope, wall, charts) at the screen's own density, up to 3x: a 3x iPhone drew
   // their words at 2x, slightly soft (#34). Battery saver keeps 2x.
+  // (A card zoomed up draws its charts denser, but not past about 3 million pixels: the shared GPU canvas is made again at the new size, and a
+  // 6 MP one stalled the frame in Safari when the zoom landed and left. The screen's own density is never given up.)
   const dpr = Math.min(saver() ? 2 : 3, (window.devicePixelRatio || 1) * canvasBoost);
+  const dev = window.devicePixelRatio || 1, fit = canvasBoost > 1 && r.width > 0 && r.height > 0 ? Math.max(dev, Math.sqrt(BOOST_PIXELS / (r.width * r.height))) : dpr, d = Math.min(dpr, fit);
   let z = sizeOf.get(canvas);
   if (!z) sizeOf.set(canvas, z = { w: 0, h: 0, W: 1, H: 1, dpr: 1 });   // alloc-rare: a canvas's record, made once with its first size
-  z.w = r.width; z.h = r.height; z.W = Math.max(1, Math.round(r.width * dpr)); z.H = Math.max(1, Math.round(r.height * dpr)); z.dpr = dpr;
+  z.w = r.width; z.h = r.height; z.W = Math.max(1, Math.round(r.width * d)); z.H = Math.max(1, Math.round(r.height * d)); z.dpr = d;
   return z;
 }
 /** Records the box a canvas is about to have (CSS px), for a picture drawn at a size just written, before the observer has reported it. */
