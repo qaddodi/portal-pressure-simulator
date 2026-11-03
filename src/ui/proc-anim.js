@@ -189,12 +189,15 @@ export function playProcedure(stage, kind, { stepped = false, to = 0, apply = nu
     onMark?.(null, null);
     onEnd?.({ done: !rewound, rewound });   // alloc-rare: once, as the procedure ends
   }
+  // alloc-rare: once, as the procedure is stopped (an options record in, the end record out)
   function stop({ home = true } = {}) {
     if (over) return;
     cancelFrame(raf); raf = 0; over = true;
     stage.setCatheter(null);
+    // alloc-rare: once, as the procedure is stopped
     if (home && shot) stage.cathFocus('home', SHOT_MS, { arc: true });
     onMark?.(null, null);
+    // alloc-rare: once, as the procedure is stopped
     onEnd?.({ done: false, rewound: false });
   }
   // (The first frame next frame, never inside this call: a caller's callbacks may name the run this returns.)
@@ -208,6 +211,7 @@ export function playProcedure(stage, kind, { stepped = false, to = 0, apply = nu
     to(k) { if (over) return false; at = Math.max(0, Math.min(n - 1, k | 0)); goal = P.stops[at]; holdT = 0; wake(); return true; },
     stop,
     /** The cards changed the room: the shot on show framed again (false when there is none yet). */
+    // alloc-rare: only when the cards changed the room (a resize or a slide's change), not in a frame
     refit(ms = 700) { if (over || !shot) return false; stage.cathFocus(shot, ms, { steady: true }); return true; },   // (the cards moved: a slow frame at its start holds the glide back, stage animateVT)
     get running() { return !over; },
     get at() { return at; },

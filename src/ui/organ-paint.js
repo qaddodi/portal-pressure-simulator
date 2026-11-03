@@ -75,16 +75,19 @@ function readDash(cs) {
 }
 /** Polylines cut into their dashes (SVG's rule: the pattern runs on along each subpath from its start, shifted by the offset). */
 export function dashPolys(polys, { a, off }) {
+  // alloc-rare: dashes are cut only where no mesh is kept for the shape at this pattern (it, its cap or its tolerance changed), never in a frame that kept it
   const P = a.reduce((t, v) => t + v, 0), out = [];
   for (const { pts, closed } of polys) {
     const n = pts.length / 2;
     if (n < 2) continue;
+    // alloc-rare: dashes are cut only where no mesh is kept for the shape at this pattern (it, its cap or its tolerance changed), never in a frame that kept it
     const xs = [], ys = [];
     for (let k = 0; k < n; k++) { xs.push(pts[2 * k]); ys.push(pts[2 * k + 1]); }
     if (closed) { xs.push(pts[0]); ys.push(pts[1]); }
     // (Where in the pattern the subpath starts: the offset taken into one period.)
     let pos = ((off % P) + P) % P, i = 0;
     while (pos >= a[i]) { pos -= a[i]; i = (i + 1) % a.length; }
+    // alloc-rare: dashes are cut only where no mesh is kept for the shape at this pattern (it, its cap or its tolerance changed), never in a frame that kept it
     let left = a[i] - pos, on = i % 2 === 0, cur = on ? [xs[0], ys[0]] : null;
     for (let k = 1; k < xs.length; k++) {
       let x0 = xs[k - 1], y0 = ys[k - 1], L = Math.hypot(xs[k] - x0, ys[k] - y0);
@@ -92,12 +95,15 @@ export function dashPolys(polys, { a, off }) {
       for (;;) {
         if (left >= L) { left -= L; if (on) cur.push(x1, y1); break; }
         const f = left / L, x = x0 + (x1 - x0) * f, y = y0 + (y1 - y0) * f;
+        // alloc-rare: dashes are cut only where no mesh is kept for the shape at this pattern (it, its cap or its tolerance changed), never in a frame that kept it
         if (on) { cur.push(x, y); if (cur.length >= 4) out.push({ pts: new Float32Array(cur), closed: false }); cur = null; }
         L -= left; x0 = x; y0 = y;
         i = (i + 1) % a.length; left = a[i]; on = i % 2 === 0;
+        // alloc-rare: dashes are cut only where no mesh is kept for the shape at this pattern (it, its cap or its tolerance changed), never in a frame that kept it
         if (on) cur = [x, y];
       }
     }
+    // alloc-rare: dashes are cut only where no mesh is kept for the shape at this pattern (it, its cap or its tolerance changed), never in a frame that kept it
     if (cur && cur.length >= 4) out.push({ pts: new Float32Array(cur), closed: false });
   }
   return out;

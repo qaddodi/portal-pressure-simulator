@@ -43,8 +43,10 @@ export function recordLayer({ ease = (x) => x, ms = 420 } = {}) {
   const running = (t, now) => t.ms > 0 && now < t.t0 + t.ms;
 
   const paintOf = (rgb) => {   // alloc-rare: a colour met for the first time (a theme, a tone); kept after
+    // alloc-rare: only on a put, which the caller makes when a resistor's look changed (a slide's change, a theme), never in a frame that kept it
     const k = `${rgb[0].toFixed(4)},${rgb[1].toFixed(4)},${rgb[2].toFixed(4)}`;
     let p = paints.get(k);
+    // alloc-rare: a colour met for the first time, kept after
     if (!p) paints.set(k, (p = { solid: [rgb[0], rgb[1], rgb[2], 1] }));
     return p;
   };
@@ -52,9 +54,11 @@ export function recordLayer({ ease = (x) => x, ms = 420 } = {}) {
   // The ops are rebuilt only when an entry comes, goes or changes what it is made of; the ones that stay are the same objects, so the
   // painter keeps its meshes for them.
   function rebuild() {   // alloc-rare: an entry came, went or changed (a resistor or a label appearing, lit, or gone), never a frame that kept them
+    // alloc-rare: the list of ops is made when an entry came, went or changed
     const list = [];
     for (const e of entries.values()) for (const p of e.parts) list.push(p);
     ops = list.length ? list : SPEC_EMPTY;
+    // alloc-rare: a new spec when the set of ops changed (the painter treats its group as new)
     spec = list.length ? { ops, opacity: 1, mask: null, root: null } : null;   // (a new spec: the painter treats its group as new)
     ver++;
   }
@@ -106,6 +110,7 @@ export function recordLayer({ ease = (x) => x, ms = 420 } = {}) {
       let changed = fresh;
       if (fresh || e.gone) { e.gone = false; aim(e.fade, 1, now, instant ? 0 : ms); }
       // The ops already there are kept when a part is what it was (same points, colour, width, cap); a part that is not is made again.
+      // alloc-rare: the entry's new part lists, made on a put (a change in the resistor), not in a frame
       const next = [], base = [];
       for (let i = 0; i < parts.length; i++) {
         const p = parts[i], old = e.parts[i];
@@ -114,6 +119,7 @@ export function recordLayer({ ease = (x) => x, ms = 420 } = {}) {
         if (!same) {
           changed = true;
           op = {   // alloc-rare: a part made when its points, colour, width or cap changed
+            // alloc-rare: a part made when its points, colour, width or cap changed
             geom: { poly: p.polys.map((pts) => ({ pts, closed: !!p.closed })) },
             geomSrc: p.polys, m: IDENT, kind: p.kind || 'stroke', paint: paintOf(p.rgb), rgbKey: paintOf(p.rgb), closed: !!p.closed, alpha: 0, w: p.w || 0, cap: p.cap ?? 1, clip: null, el: null, a0: 0,
           };

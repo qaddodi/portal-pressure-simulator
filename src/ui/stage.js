@@ -49,7 +49,7 @@ import { cropToGrid } from './organs-gl.js';
 import { textPolys, loadGlyphs, glyphsReady, textBox } from './text-gl.js';
 import { cssColor8 } from './css-color.js';
 import { measure as measureWords } from './glyph-measure.js';
-import { readGroup as readGroupNow, readGroupRefs, readFail, shapeSource, reshape, bindShape, targetRoom, mul, elMat } from './organ-paint.js';
+import { readGroup as readGroupNow, readGroupRefs, readFail, shapeSource, reshape, bindShape, targetRoom, mulTo, elMat } from './organ-paint.js';
 import { setLive, getLive, dropLive } from './live-style.js';
 import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js';
 import { pathCmds, flattenPath, flattenPathInto, newFlat, newCmds, cmdsReset, cmdM, cmdL, cmdQ, cmdZ, polyBoxInto, measurePath, elBoxInto, chainMat } from './shape-gl.js';
@@ -13090,7 +13090,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const groups = new Map(), names = [];   // alloc-rare: the overlays' groups are sent when a group was read again or a kept shape came or went, not on a frame that changed neither
     run.forEach(([u, spec], i) => {
       const n = `o${i}`, up = u.parentNode === gOver ? gOver : null;
-      groups.set(n, [{ spec, get m() { const own = elMat(u); return up ? mul(elMat(up), own) : own; } }]);
+      // alloc-rare: one matrix per overlay group, made when the groups are sent (a group was read again or a kept shape came or went)
+      const sc = up ? [1, 0, 0, 1, 0, 0] : null;   // (this group's own matrix, written in place at each read and used where it is read)
+      groups.set(n, [{ spec, get m() { const own = elMat(u); return up ? mulTo(sc, elMat(up), own) : own; } }]);
       names.push(n);
     });
     if (recs.spec) { groups.set('rec', [recGroup]); names.push('rec'); }

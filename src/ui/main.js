@@ -112,6 +112,7 @@ function lazy(load, make) {
 }
 let paletteL, presenterL, dopplerL, fibroL;
 const palette = {
+  // alloc-rare: the palette is opened by a key or a tap (its promise and handlers), not in a frame
   open: () => paletteL.get().then((p) => p.open()).catch(() => {}),   // (a part that cannot load has said so: loadFailed)
   close: () => paletteL.now()?.close(),
   isOpen: () => !!paletteL.now()?.isOpen(),
@@ -1751,13 +1752,21 @@ function sheetGlass() {
   // (The figure's canvas not made yet: asked again shortly, a few times.)
   if (!sheetGL && sheetGLTry++ < 20) setTimeout(sheetGlass, 500);
 }
+const sheetInner = (c) => { const l = c.lastElementChild; if (!l) return 0; const b = parseFloat(readStyle(c).paddingBottom) + parseFloat(readStyle(l).marginBottom); return readBox(l).bottom - readBox(c).top + readMetric(c, 'scrollTop') + b; };
 function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = null, anywhere = false }) {
   const SIZES = [0.32, 0.56, 0.9], THUMB = [0.62, 1], TABLET = [0.45, 0.62];
   const thumb = () => app.classList.contains('thumb') && isPhone();
   // (17 Oct, Mohammad: an upright iPad's cards open "proportional to the ipad proportions vertically" and never fill the whole
   // screen: Half takes the share of the screen's height an iPhone's Half takes, 45 %, and Full stops at 62 %, the figure in view
   // above it. As shares of the room, like the phone's, so a drag and its release are measured the same way.)
-  const stops = () => (!thumb() ? SIZES : tabletMQ.matches ? TABLET.map((s) => Math.min(1, (s * readMetric(app, 'clientHeight')) / (room() || readMetric(app, 'clientHeight')))) : THUMB);
+  const TAB_NOW = [0, 0];   // (the tablet's stops, written in place at each ask and read where they are asked for, not kept)
+  const stops = () => {
+    if (!thumb()) return SIZES;
+    if (!tabletMQ.matches) return THUMB;
+    const H = readMetric(app, 'clientHeight'), R = room() || H;
+    for (let i = 0; i < 2; i++) TAB_NOW[i] = Math.min(1, (TABLET[i] * H) / R);
+    return TAB_NOW;
+  };
   const half = () => stops().length - 2;
   // The room a thumb sheet may fill: the CSS cap (100% - top bar - tab row - 22 px, styles/app.css thumb block).
   const room = () => (thumb() ? readMetric(app, 'clientHeight') - (parseFloat(app.style.getPropertyValue('--top-safe')) || 0) - (parseFloat(app.style.getPropertyValue('--nb-occ')) || 0) - 22 : 0);
@@ -1771,8 +1780,9 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
     if (!fit || !isPhone() || el.hidden) return Infinity;
     const cs = readStyle(el);
     // The body fills the sheet, so its own height says nothing: measure down to its last child.
-    const inner = (c) => { const l = c.lastElementChild; if (!l) return 0; const b = parseFloat(readStyle(c).paddingBottom) + parseFloat(readStyle(l).marginBottom); return readBox(l).bottom - readBox(c).top + readMetric(c, 'scrollTop') + b; };
-    return [...el.children].reduce((a, c) => a + (c.classList.contains('sheet-plate') ? 0 : c.matches(fit) ? inner(c) : readMetric(c, 'offsetHeight')), 0) + parseFloat(cs.paddingBottom) + parseFloat(cs.paddingTop);
+    let sum = 0;
+    for (let i = 0; i < el.children.length; i++) { const c = el.children[i]; sum += c.classList.contains('sheet-plate') ? 0 : c.matches(fit) ? sheetInner(c) : readMetric(c, 'offsetHeight'); }
+    return sum + parseFloat(cs.paddingBottom) + parseFloat(cs.paddingTop);
   };
   // (A phone turned upright or sideways changes the stops, three sideways and two over the thumb dock: Half stays Half and the top stays the top.)
   const remap = () => { const n = stops().length; if (n !== lastN) { size = size === lastN - 1 ? n - 1 : n - 2; lastN = n; } };
@@ -1782,6 +1792,7 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
     const S = stops(), r = room();
     size = Math.min(size, S.length - 1);
     const need = size === half() ? natural() : Infinity;
+    // alloc-rare: the sheet's height as a CSS value, made when a gesture starts or ends or the sheet opens, not while it moves
     return need < S[half()] * (r || readMetric(app, 'clientHeight')) ? `${Math.ceil(need)}px` : r ? `${Math.round(S[size] * r)}px` : `${Math.round(S[size] * 100)}%`;
   };
   const pxOf = (v) => (/px$/.test(v) ? parseFloat(v) : (parseFloat(v) / 100) * readMetric(app, 'clientHeight'));
