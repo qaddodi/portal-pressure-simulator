@@ -74,7 +74,8 @@ test('the FibroScan packets write an opacity or a path only when its text change
   paintWave(packs[1], '0.500', (j) => `M${j}`);
   paintWave(packs[1], '0.500', (j) => (j === 1 ? 'M9' : `M${j}`));
   assert.deepEqual(writes, [['g1', 'op', '0.500'], ['p10', 'd', 'M0'], ['p11', 'd', 'M1'], ['p12', 'd', 'M2'], ['p11', 'd', 'M9']]);
-  assert.match(stage, /paintWave\(w, fade\.toFixed\(3\), \(j\) => scanArc\(Math\.max\(1, r \+ \(j - 1\) \* gap\)\)\)/, 'the same arcs as before');
+  assert.match(stage, /const scanArcAt = \(j\) => scanArc\(Math\.max\(1, scanWaveR \+ \(j - 1\) \* scanWaveGap\)\);/, 'the same arcs as before');
+  assert.match(stage, /scanWaveR = r; scanWaveGap = gap;\n\s+paintWave\(w, fade\.toFixed\(3\), scanArcAt\);/);
   assert.match(stage, /scan\.el = null; scan\.packs = null;/, 'a new probe looks its packets up again');
 });
 

@@ -7560,9 +7560,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (A hex digit's value from its character code, as parseInt(pair, 16) reads a colour's pairs; NaN for anything else.)
   const hexDigit = (c) => (c >= 48 && c <= 57 ? c - 48 : c >= 97 && c <= 102 ? c - 87 : c >= 65 && c <= 70 ? c - 55 : NaN);
   function readFluidInk(cs) {
-    const hex = cs.getPropertyValue('--ascites').trim().replace('#', ''), a = parseFloat(cs.getPropertyValue('--ascites-a')) || 0.4;
-    if (hex.length === 6) {
-      for (let i = 0; i < 3; i++) fluidInkRGBA[i] = (hexDigit(hex.charCodeAt(2 * i)) * 16 + hexDigit(hex.charCodeAt(2 * i + 1))) / 255;
+    // (The value's digits found in place, as trim() and replace('#', '') found them: no string made. Six digits after an optional '#'.)
+    const raw = cs.getPropertyValue('--ascites'), a = parseFloat(cs.getPropertyValue('--ascites-a')) || 0.4;
+    let i0 = 0, i1 = raw.length;
+    while (i0 < i1 && raw.charCodeAt(i0) <= 32) i0++;
+    while (i1 > i0 && raw.charCodeAt(i1 - 1) <= 32) i1--;
+    if (i0 < i1 && raw.charCodeAt(i0) === 35) i0++;
+    if (i1 - i0 === 6 && raw.indexOf('#', i0) < 0) {
+      for (let i = 0; i < 3; i++) fluidInkRGBA[i] = (hexDigit(raw.charCodeAt(i0 + 2 * i)) * 16 + hexDigit(raw.charCodeAt(i0 + 2 * i + 1))) / 255;
       fluidInkRGBA[3] = a;
     }
   }
@@ -7776,14 +7781,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The resistors' key, under the one reading at the group's outer edge (resKeyed).
   const RES_KEY = '× healthy liver’s resistance';
   // Where the resistors' readings stand (stage-local): centred over the circuit, above it, or below it once it is turned upright.
+  const resAtKept = { x: 0, y: 0, up: false }, resAtPt = [0, 0];   // (read at once by its callers, none keeps it)
   function resAt() {
     // (the figure's four corners, in stage-local units)
-    let c = worldToLocal(60, 40); const x0 = c[0], y0 = c[1];
-    c = worldToLocal(1360, 40); const x1 = c[0], y1 = c[1];
-    c = worldToLocal(60, 640); const x2 = c[0], y2 = c[1];
-    c = worldToLocal(1360, 640); const x3 = c[0], y3 = c[1];
-    const up = rotU > 0.5;
-    return { x: (x0 + x1 + x2 + x3) / 4, y: up ? Math.max(y0, y1, y2, y3) : Math.min(y0, y1, y2, y3), up };
+    let c = worldToLocalInto(resAtPt, 60, 40); const x0 = c[0], y0 = c[1];
+    c = worldToLocalInto(resAtPt, 1360, 40); const x1 = c[0], y1 = c[1];
+    c = worldToLocalInto(resAtPt, 60, 640); const x2 = c[0], y2 = c[1];
+    c = worldToLocalInto(resAtPt, 1360, 640); const x3 = c[0], y3 = c[1];
+    const up = rotU > 0.5, r = resAtKept;
+    r.x = (x0 + x1 + x2 + x3) / 4; r.y = up ? Math.max(y0, y1, y2, y3) : Math.min(y0, y1, y2, y3); r.up = up;
+    return r;
   }
   // Resistance as ΔP / Q: the liver's lobes, each its venules, sinusoids and outflow in series, in parallel with each other.
   const LOBES = [['PRE_R', 'SIN_RR', 'POST_R_RHV'], ['PRE_L', 'SIN_LL', 'POST_L_LHV']];
@@ -7809,6 +7816,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // (3 Nov 2026, "Move figure labels and pills off the SVG model": the circuit's resistors are kept records (over-records.js), drawn by the
   // overlay painter beside the SVG overlays' groups: no element is made, and no attribute or style written, for a zigzag. recs: their layer.)
+  const RES_KEYS = {};   // (each reading's key in the records, made once: res:<name>)
+  for (const k of Object.keys(SITE_DEF)) RES_KEYS[k] = 'res:' + k;
   const resMade = new Map();   // k → { _segs (the zigzags' end points, what the figure's labels keep off: buildSegs), cur (the numbers the record was made from) }
   let resLit = new Map();   // the circuit's resistors a slide's words point at (rLiver, rColl) → their station tone
   // A resistor's zigzag along a vessel: n teeth of amplitude amp (world units) from a to b, written into `out` at `at` (8 points for 6 teeth).
@@ -7856,12 +7865,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function recSvgSync() {   // alloc-rare: only where the overlay painter is not drawing (a software renderer, a lost context), never on the GPU path
     if (!recs.spec) { recSvgG?.replaceChildren(); return; }
     if (!recSvgG) { recSvgG = s('g', { class: 'res-zz', 'aria-hidden': 'true', fill: 'none', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }); gOver.append(recSvgG); }
-    const kids = recs.spec.ops.map((op) => {
-      const d = op.geom.poly.map(({ pts }) => { let t = ''; for (let i = 0; i < pts.length; i += 2) t += `${i ? 'L' : 'M'}${pts[i].toFixed(1)} ${pts[i + 1].toFixed(1)}`; return t; }).join(' ');
+    const ops = recs.spec.ops;
+    recSvgG.replaceChildren();
+    for (let n = 0; n < ops.length; n++) {
+      const op = ops[n], poly = op.geom.poly;
+      let d = '';
+      for (let j = 0; j < poly.length; j++) { const pts = poly[j].pts; if (j) d += ' '; for (let i = 0; i < pts.length; i += 2) d += `${i ? 'L' : 'M'}${pts[i].toFixed(1)} ${pts[i + 1].toFixed(1)}`; }
       const c = op.paint.solid;
-      return s('path', { d, stroke: `rgb(${Math.round(c[0] * 255)},${Math.round(c[1] * 255)},${Math.round(c[2] * 255)})`, 'stroke-width': op.w, 'stroke-opacity': op.alpha, 'vector-effect': 'non-scaling-stroke' });
-    });
-    recSvgG.replaceChildren(...kids);
+      recSvgG.append(s('path', { d, stroke: `rgb(${Math.round(c[0] * 255)},${Math.round(c[1] * 255)},${Math.round(c[2] * 255)})`, 'stroke-width': op.w, 'stroke-opacity': op.alpha, 'vector-effect': 'non-scaling-stroke' }));
+    }
   }
   // A theme change: the resistors' tones are the theme's tokens, read again (the frame after, when the tokens have been read: util.js readVars).
   function resTheme() { for (const [k, st] of resMade) resPaint(k, st.d, st.ratio); }
@@ -7870,7 +7882,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     let st = resMade.get(k);
     const want = sites.list?.includes(k) && ratio != null;
     const now = performance.now();
-    if (!want) { if (st) { resMade.delete(k); recs.drop(`res:${k}`, now, reduceMotion.matches); recKick(); } return; }   // (faded out whole first, over D_SURFACE, then gone)
+    if (!want) { if (st) { resMade.delete(k); recs.drop(RES_KEYS[k], now, reduceMotion.matches); recKick(); } return; }   // (faded out whole first, over D_SURFACE, then gone)
     if (!st) { st = { _segs: null, cur: null, d, ratio }; resMade.set(k, st); }   // alloc-rare: a resistor's record, made when it first shows
     // The zigzags' end points: the liver's two are fixed; the gut's and the collaterals' stand on their vessel, level with its course.
     let n = 0;
@@ -7900,7 +7912,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       st._segs = polys.map((p) => [[p[0], p[1]], [p[14], p[15]]]);   // (what the figure's labels keep off, buildSegs)
       const halo = lit ? { a: 0.22, w: w + 9, rgb: [resKey[4], resKey[5], resKey[6]] } : { a: 0.85, w: w + 3, rgb: [resKey[1], resKey[2], resKey[3]] };
       const line = { a: lit ? 1 : 0.8, w: lit ? w + 1.5 : w, rgb: [resKey[4], resKey[5], resKey[6]] };
-      recs.put(`res:${k}`, polys.length ? [{ polys, kind: 'stroke', nss: true, cap: 1, ...halo }, { polys, kind: 'stroke', nss: true, cap: 1, ...line }] : [], now, reduceMotion.matches);
+      recs.put(RES_KEYS[k], polys.length ? [{ polys, kind: 'stroke', nss: true, cap: 1, ...halo }, { polys, kind: 'stroke', nss: true, cap: 1, ...line }] : [], now, reduceMotion.matches);
       recKick();
     }
   }
@@ -7917,7 +7929,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // glass's list, told to the labels as one whenever one changes. The labels' renderer is made further down (labelHoles).)
   const holeSets = new Map();
   let labelHoles = null;
-  const sendHoles = () => labelHoles?.setHoles([].concat(...holeSets.values()));
+  const holesAll = [];   // (every glass's list as one, written in place: the labels compare it number by number and keep nothing of it but its length)
+  const sendHoles = () => {
+    if (!labelHoles) return;
+    holesAll.length = 0;
+    for (const l of holeSets.values()) for (let i = 0; i < l.length; i++) holesAll.push(l[i]);
+    labelHoles.setHoles(holesAll);
+  };
   const frostHoles = (key) => (list) => { if (list.length) holeSets.set(key, list); else holeSets.delete(key); sendHoles(); };
   // (The canvas the glasses are drawn into now: frostCtx, its context; frostLiver, the liver's canvas (lobule-zoom.js glassHost) while the
   // frost is taken from it, else null and the figure's. What the glass keys its blur on follows it: a new picture there, not the figure's.)
@@ -7938,13 +7956,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // figure sharp through it (Mohammad, 2 Nov 2026, HVPG 6 in the lobule: "CARDS ARE GLASS"), as the anatomy's overlay boxes, kept from
   // before the lobule covered it, still crossed it there. The labels the GPU draws already leave every card's glass out (setHoles); the
   // card's own words lie over whatever else does.)
+  const NO_OVER = [], noOver = () => NO_OVER;   // (no box lies over a card's glass: a list read by the glass, never written)
   const cardGlass = (cards) => {
     if (!veins?.top) return null;
     const shade = cards.low;
     const key = {};
     const g = createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, cards, live: () => !!frostLiver || (wrap.classList.contains('gl-on') && !anatCovered() && !(diveT > 0)), version: frostSeq, fresh: frostFresh, onFigure: (f) => veins.onPicture(f), copy: false, onHoles: frostHoles(key) });
     if (!g) return null;
-    hostFrost(g, { order: { low: 1, high: 3 }, active: () => !frostWhy(true), why: () => frostWhy(true), over: () => [], low: (el) => el === shade || el?.dataset?.ghost === 'shade' });
+    hostFrost(g, { order: { low: 1, high: 3 }, active: () => !frostWhy(true), why: () => frostWhy(true), over: noOver, low: (el) => el === shade || el?.dataset?.ghost === 'shade' });
     cardGLs.add(g);
     const dispose = g.dispose;
     g.dispose = () => { cardGLs.delete(g); frostHosts.delete(g); dispose(); if (holeSets.delete(key)) sendHoles(); };
@@ -7961,11 +7980,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // asked for through the one filter the tiles' bars follow theirs with (display-state.js follow2, SHOWN_TAU): a new share
   // glides in, a share that keeps moving (a running model's mean, a what-if slider) is followed as it goes, and the callout's
   // size never changes.
+  const SPLIT_TXT = [];   // percent → [the shunts' number, 'To the liver n%', 'Shunts n%']
+  for (let i = 0; i <= 100; i++) SPLIT_TXT.push([`${i}`, `To the liver ${i}%`, `Shunts ${i}%`]);
   function splitShow(el, sh) {
-    const p = portalSplit(sh), lx = `To the liver ${p.liver}%`, sx = `Shunts ${p.shunt}%`;   // (a share of the portal blood: never read as the tile's liver flow, % of normal)
-    // (Its three readings are drawn by glWords, never written in a frame: gl-words.js.)
+    const p = portalSplit(sh);   // (a share of the portal blood: never read as the tile's liver flow, % of normal)
+    // (Its three readings are drawn by glWords, never written in a frame: gl-words.js. Their words for each whole percent are made once: SPLIT_TXT.)
     const W = el._spW;
-    W[0].set(`${p.shunt}`); W[1].set(lx); W[2].set(sx);
+    W[0].set(SPLIT_TXT[p.shunt][0]); W[1].set(SPLIT_TXT[p.liver][1]); W[2].set(SPLIT_TXT[p.shunt][2]);
     el.style.setProperty('--sp-lf', (1 - sh).toFixed(4)); el.style.setProperty('--sp-sf', sh.toFixed(4));
     el.style.setProperty('--sp-lm', p.liver ? '4px' : '0px'); el.style.setProperty('--sp-sm', p.shunt ? '4px' : '0px');   // a share that rounds above 0 keeps a sliver; 0 leaves none
   }
@@ -8026,20 +8047,26 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function siteLeave(k, el) {
     if (sites.made.get(k) === el) sites.made.delete(k);
     el.classList.add('cath-leave');
-    setTimeout(() => { dropLabel(el); el.remove(); }, reduceMotion.matches ? 0 : 700);
+    setTimeout(siteGone, reduceMotion.matches ? 0 : 700, el);
   }
+  const siteGone = (el) => { dropLabel(el); el.remove(); };
   // A reading's number counts to a new value over 950 ms, eased, as the data card's tiles count (presenter.js tweener), so a slide's
   // or a patient's change never swaps it at once; within tol of the number shown (the live model breathing, a slider being dragged)
   // it simply follows. A reading just shown, hidden, or under reduced motion takes its number at once.
   const COUNT_MS = 950, LABEL_GLIDE_MS = 450;   // (LABEL_GLIDE_MS: the figure's labels glide as long: labelGlide)
   let sitesRaf = 0;
-  const sitesAgain = () => { if (!sitesRaf) sitesRaf = nextFrame(() => { sitesRaf = 0; if (F && sites.list) { refreshCTM(); sitesPaint(); } }); };
+  const sitesRun = () => { sitesRaf = 0; if (F && sites.list) { refreshCTM(); sitesPaint(); } };
+  const sitesAgain = () => { if (!sitesRaf) sitesRaf = nextFrame(sitesRun); };
+  const SITE_CLS = {};   // (each reading's class text, made once)
+  for (const k of Object.keys(SITE_DEF)) SITE_CLS[k] = `cath-label site ${SITE_DEF[k].cls} cath-pre`;
+  const SITE_COUNT = {};   // (each reading's count in flight, made once: the record its element counts with)
+  for (const k of Object.keys(SITE_DEF)) SITE_COUNT[k] = { from: 0, to: 0, t0: 0 };
   function siteCount(el, to, tol) {
     if (!Number.isFinite(to)) { el._nv = null; el._ng = null; return to; }
     if (el._nv == null || reduceMotion.matches || el.classList.contains('off')) { el._ng = null; return (el._nv = to); }
     const now = performance.now();
     let g = el._ng;
-    if (g ? Math.abs(to - g.to) > tol : Math.abs(to - el._nv) > tol) g = el._ng = { from: el._nv, to, t0: now };
+    if (g ? Math.abs(to - g.to) > tol : Math.abs(to - el._nv) > tol) { g = el._ng = el._ngO; g.from = el._nv; g.to = to; g.t0 = now; }
     if (!g) return (el._nv = to);
     g.to = to;
     const u = clamp((now - g.t0) / COUNT_MS, 0, 1);
@@ -8049,23 +8076,30 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // The resistors' group, moved clear of the cards, glides to its new place when a slide's change moves it (a reading joining or leaving
   // the group); while the camera moves it keeps with the circuit exactly, as before.
-  let resCam = '';
+  const resCam = new Float64Array(4), resDyG = { from: 0, to: 0, t0: 0 };   // (the camera's four numbers to a hundredth, as last seen; the glide's record)
+  let resCamOk = false;
   function resShift(dy) {
-    const cam = [CTM.a, CTM.b, CTM.e, CTM.f].map((v) => v.toFixed(2)).join(), still = cam === resCam;
-    resCam = cam;
+    const c0 = Math.round(CTM.a * 100), c1 = Math.round(CTM.b * 100), c2 = Math.round(CTM.e * 100), c3 = Math.round(CTM.f * 100);
+    const still = resCamOk && resCam[0] === c0 && resCam[1] === c1 && resCam[2] === c2 && resCam[3] === c3;
+    resCam[0] = c0; resCam[1] = c1; resCam[2] = c2; resCam[3] = c3; resCamOk = true;
     const now = performance.now();
     if (sites.dy == null || !still || reduceMotion.matches || camMove) { sites.dyG = null; return (sites.dy = dy); }
     let g = sites.dyG;
-    if (Math.abs(dy - (g ? g.to : sites.dy)) > 0.5) g = sites.dyG = { from: sites.dy, to: dy, t0: now };
+    if (Math.abs(dy - (g ? g.to : sites.dy)) > 0.5) { g = sites.dyG = resDyG; g.from = sites.dy; g.to = dy; g.t0 = now; }
     if (!g) return (sites.dy = dy);
     const u = clamp((now - g.t0) / LABEL_GLIDE_MS, 0, 1);
     sites.dy = g.from + (g.to - g.from) * easeInOut(u);
     if (u < 1) sitesAgain(); else sites.dyG = null;
     return sites.dy;
   }
+  const siteAt = [0, 0], resGone = [], RES_UP = ['rGut', 'rLiver', 'rColl'], RES_LEVEL = ['rGut', 'rColl', 'rLiver'];   // (the resistors to drop, listed first as resPaint takes them out of resMade; the order the key goes by)
+  let sitesWant = NO_LIST;   // (the readings this paint is for)
+  const siteOn = (k) => sitesWant.includes(k) && resRatio(SITE_DEF[k].res) != null;
   function sitesPaint() {
-    const want = sites.list || [], made = sites.made;
-    for (const k of [...resMade.keys()]) if (!want.includes(k)) resPaint(k, SITE_DEF[k], null);
+    const want = sitesWant = sites.list || NO_LIST, made = sites.made;
+    resGone.length = 0;
+    for (const k of resMade.keys()) if (!want.includes(k)) resGone.push(k);
+    for (let i = 0; i < resGone.length; i++) resPaint(resGone[i], SITE_DEF[resGone[i]], null);
     for (const [k, el] of made) if (!want.includes(k)) siteLeave(k, el);
     if (!F || !want.length) return;
     const { width: W, height: H } = stageBox(), t = easeInOut(morph);   // (the cached box: reading the wrap's each model frame forced a layout)
@@ -8078,13 +8112,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // The resistors' readings stand as one group (side by side under an upright circuit, stacked above a level one, the gut's
     // the farthest out): where the group's box would reach under the slide's cards, the whole group moves into the free space.
     let resDy = 0, resKeyed = null, resH = 0;
-    const ra0 = want.some((k) => SITE_DEF[k]?.res) ? resAt() : null;
+    let anyRes = false;
+    for (let i = 0; i < want.length; i++) if (SITE_DEF[want[i]]?.res) { anyRes = true; break; }
+    const ra0 = anyRes ? resAt() : null;
     if (ra0) {
-      const rh = resH = Math.max(0, ...[...made].filter(([k]) => SITE_DEF[k]?.res).map(([, el]) => el._h || 0));
-      const on = (k) => want.includes(k) && resRatio(SITE_DEF[k].res) != null;
-      const gut = on('rGut'), coll = on('rColl');
+      let rh = 0;   // (the tallest resistor reading made)
+      for (const [k, el] of made) if (SITE_DEF[k]?.res) rh = Math.max(rh, el._h || 0);
+      resH = rh;
+      const gut = siteOn('rGut'), coll = siteOn('rColl');
       // (The key goes with the reading at the group's outer edge: the top one of a level circuit, else under the row of an upright one.)
-      resKeyed = (ra0.up ? ['rGut', 'rLiver', 'rColl'] : ['rGut', 'rColl', 'rLiver']).find(on) || null;
+      const order = ra0.up ? RES_UP : RES_LEVEL;
+      for (let i = 0; i < order.length && !resKeyed; i++) if (siteOn(order[i])) resKeyed = order[i];
       const kh = resKeyed ? rh + 4 : 0;
       if (rh && ra0.up) resDy = Math.min(0, y1 - (ra0.y + (gut ? 2 * rh + 18 : rh + 10) + kh));
       else if (rh) resDy = Math.max(0, y0 - (ra0.y - (gut ? 3 * rh + 24 : coll ? 2 * rh + 18 : rh + 12) - kh));
@@ -8098,7 +8136,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (d.res) resPaint(k, d, ratio);
       let el = made.get(k);
       if (!el) {
-        el = SITE_EL[d.res ? 0 : 1].cloneNode(true); el.className = `cath-label site ${d.cls} cath-pre`;
+        el = SITE_EL[d.res ? 0 : 1].cloneNode(true); el.className = SITE_CLS[k]; el._ngO = SITE_COUNT[k];
         if (!d.res) el._glass = glassCallout(el);
         // (Its parts are cloned from a model made ahead and put in the page, with their words, between frames: late().)
         const [sm, b0, u, kk] = SITE_TPL.cloneNode(true).children, b = d.split ? SPLIT_B.cloneNode(true) : b0;
@@ -8122,7 +8160,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (v != null) putText(b, v);
       const ra = d.res ? resAt() : null;
       if (ra) { el.classList.toggle('low', ra.up); el.classList.toggle('keyed', k === resKeyed); }
-      const [x, y] = ra ? [ra.x, ra.y + resDy] : worldToLocal(...nodePos(d.node, t));
+      let x, y;
+      if (ra) { x = ra.x; y = ra.y + resDy; } else { const np = nodePos(d.node, t), wl = worldToLocalInto(siteAt, np[0], np[1]); x = wl[0]; y = wl[1]; }
       // Off the free space (or a resistor with nothing to show, or out of the circuit), the reading waits hidden; above
       // its point unless the top is covered (decided once, so it never jumps).
       // (A reading wider than the free space, as the portal blood's share is between two wide cards on a phone held sideways, waits
@@ -8155,8 +8194,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           if (r.l - dx >= x0 && Math.abs(x - (cx - dx)) < half - 16) {
             el.style.setProperty('--ax', `${(x - cx + dx).toFixed(1)}px`); el._glass?.(x - cx + dx);
             el.style.transform = `translate(${(cx - dx).toFixed(1)}px, ${y.toFixed(1)}px)`;
-            if (el._box) el._box = { ...el._box, x0: el._box.x0 - dx, x1: el._box.x1 - dx };
-          } else if (!el._below && r.t - dy >= y0 - 8) { el.style.transform = `translate(${cx.toFixed(1)}px, ${(y - dy).toFixed(1)}px)`; if (el._box) el._box = { ...el._box, y0: el._box.y0 - dy, y1: el._box.y1 - dy }; }
+            if (el._box) { el._box.x0 -= dx; el._box.x1 -= dx; }   // (the box calloutBox just made for this paint: no other holds it yet)
+          } else if (!el._below && r.t - dy >= y0 - 8) { el.style.transform = `translate(${cx.toFixed(1)}px, ${(y - dy).toFixed(1)}px)`; if (el._box) { el._box.y0 -= dy; el._box.y1 -= dy; } }
           // (One below its point, as the portal blood's share is, with no room to the left: it turns to stand above its point when
           // that is clear, once (Shunts 2 on a phone held sideways, its foot on the key).)
           else if (el._below && !el._turned && y - 18 - el._kh >= y0) { el._turned = true; el._below = false; el.dataset.at = ''; }
@@ -8166,7 +8205,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // A reading's size (and a resistor's top, from where it was last placed), read first in the next frame (readFrame), when its words or
   // classes changed; the reading is placed again then. (Its digits are tabular: a counting number keeps its key and is never read again for it.)
-  const siteWant = new Map();
+  const siteWant = new Set();
   let siteAsk = 0;
   function siteMeasure(el, d, wk) {
     el._wk = wk; el._half = el.offsetWidth / 2; el._h = el.offsetHeight; el._kwid = d.res ? el.querySelector('.res-k')?.offsetWidth || 0 : 0;
@@ -8174,16 +8213,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     else { el._kh = el._h; el._kt = el.dataset.at === 'ahead' && !el.classList.contains('above') ? 18 : -18 - el._kh; }
   }
   function siteSize(el, d, wk) {
-    siteWant.set(el, [d, wk]);
+    el._sd = d; el._sk = wk; siteWant.add(el);   // (what to measure it with, kept on the reading itself)
     siteAsk ||= readFrame(siteRead);
   }
   function siteRead() {
     siteAsk = 0;
-    for (const [e, [dd, k]] of siteWant) if (e.isConnected) siteMeasure(e, dd, k);
+    for (const e of siteWant) if (e.isConnected) siteMeasure(e, e._sd, e._sk);
     siteWant.clear();
     sitesAgain();
   }
   let kpAt = -1e9, kpBox = null, kpAsk = 0;
+  const kpBoxKept = { l: 0, t: 0, r: 0, b: 0 };   // (kpBox when a pill shows: written in place by each read, which comes first in a frame; the one caller reads it at once)
   function keyPillBox() {
     const now = performance.now();
     if (now - kpAt < 500) return kpBox;
@@ -8195,12 +8235,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function keyPillRead() {
     kpAsk = 0; kpAt = performance.now();
     let box = null;
-    const wb = stageBox();
-    for (const q of document.querySelectorAll('.pz:not(.stack) .pz-fk:not([hidden]):not([data-empty]), .pz-bar.pzb-pill, .pz:not(.stack) .pz-scales:not([hidden])')) {
-      const r = q.getBoundingClientRect();
+    const wb = stageBox(), nl = document.querySelectorAll('.pz:not(.stack) .pz-fk:not([hidden]):not([data-empty]), .pz-bar.pzb-pill, .pz:not(.stack) .pz-scales:not([hidden])');
+    for (let i = 0; i < nl.length; i++) {
+      const r = nl[i].getBoundingClientRect();
       if (!r.width) continue;
-      const o = { l: r.left - wb.left, t: r.top - wb.top, r: r.right - wb.left, b: r.bottom - wb.top };
-      box = box ? { l: Math.min(box.l, o.l), t: Math.min(box.t, o.t), r: Math.max(box.r, o.r), b: Math.max(box.b, o.b) } : o;
+      const l = r.left - wb.left, t = r.top - wb.top, rr = r.right - wb.left, b = r.bottom - wb.top;
+      if (box) { box.l = Math.min(box.l, l); box.t = Math.min(box.t, t); box.r = Math.max(box.r, rr); box.b = Math.max(box.b, b); } else { box = kpBoxKept; box.l = l; box.t = t; box.r = rr; box.b = b; }
     }
     kpBox = box;
     sitesAgain();
@@ -8222,30 +8262,39 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // frame (readFrame), and only when the page's layout may have changed (layoutWatch), at most four times a second, never while the view
   // moves; the frames in between use the boxes last read. The tip's tap restarts by turning between two copies of its animation (tap, tap2),
   // not by reading the computed style to start the one again.)
-  const scanLooks = new Map();
+  const scanLooks = { head: { made: false, at: 0, ask: 0, list: [], pool: [] }, cards: { made: false, at: 0, ask: 0, list: [], pool: [] } };
   const SCAN_LOOKS = {
     head: ['.pz-text.stage-blocker, .pz-data.stage-blocker, .pz-panel.stage-blocker', (el) => !(el.hidden || 'gone' in el.dataset || el.classList.contains('pz-hide') || getComputedStyle(el).opacity < 0.5), () => 0],
     cards: ['.pz-shade, .pz-data.stage-blocker, .pz-panel.stage-blocker', (el) => !(el.hidden || 'gone' in el.dataset || el.classList.contains('pz-hide') || el.classList.contains('pz-leave') || +getComputedStyle(el).opacity < 0.5), () => (pillEdge ? pillEdge.m : 8)],
   };
   const SCAN_READS = { head: () => { scanLookRead('head'); scanAgain(); }, cards: () => { scanLookRead('cards'); scanAgain(); } };
+  // (Each look's record is kept: its list is written over by each read, with boxes from a pool of its own. Its callers use the list at once.)
   function scanLook(key) {
-    const now = performance.now(), o = scanLooks.get(key);
-    if (o && (o.ask || now - o.at < 250 || viewMoving() || !watch.due())) return o.list;
-    scanLooks.set(key, { at: o?.at ?? 0, list: o?.list || [], ask: readFrame(SCAN_READS[key]) });
-    return o?.list || [];
+    const now = performance.now(), o = scanLooks[key];
+    if (o.made && (o.ask || now - o.at < 250 || viewMoving() || !watch.due())) return o.list;
+    o.made = true; o.ask = readFrame(SCAN_READS[key]);
+    return o.list;
   }
   function scanLookRead(key) {
-    const [sel, keep, mOf] = SCAN_LOOKS[key], wr = stageBox(), m = mOf();
-    const list = [...document.querySelectorAll(sel)].map((el) => {
-      if (!keep(el)) return null;
+    const L = SCAN_LOOKS[key], sel = L[0], keep = L[1], wr = stageBox(), m = L[2](), o = scanLooks[key], list = o.list, pool = o.pool;
+    const nl = document.querySelectorAll(sel);
+    let n = 0;
+    for (let i = 0; i < nl.length; i++) {
+      const el = nl[i];
+      if (!keep(el)) continue;
       const q = el.getBoundingClientRect();
-      return q.width ? { x0: q.left - wr.left - m, y0: q.top - wr.top - m, x1: q.right - wr.left + m, y1: q.bottom - wr.top + m } : null;
-    }).filter(Boolean);
-    scanLooks.set(key, { at: performance.now(), list, ask: 0 });
+      if (!q.width) continue;
+      const b = pool[n] || (pool[n] = { x0: 0, y0: 0, x1: 0, y1: 0 });
+      b.x0 = q.left - wr.left - m; b.y0 = q.top - wr.top - m; b.x1 = q.right - wr.left + m; b.y1 = q.bottom - wr.top + m;
+      list[n++] = b;
+    }
+    list.length = n;
+    o.made = true; o.at = performance.now(); o.ask = 0;
     return list;
   }
   // (Read: the probe is turned and its head shown or faded again against them, in the frame's own phase.)
-  const scanAgain = () => nextFrame(() => { if (!scan.el) return; scan.headAt = 0; const t = scanTipLocal(); if (t) scanTurn(t.tx, t.y); });
+  const scanAgainRun = () => { if (!scan.el) return; scan.headAt = 0; const t = scanTipLocal(); if (t) scanTurn(t.tx, t.y); };
+  const scanAgain = () => nextFrame(scanAgainRun);
   // The probe's body and cable lie up and to the left of its tip, turned 45°: where a card covers any of that, the head fades out and the
   // waves stay, so no stub pokes out from under the card. (The box is the head's four corners, 90 px back along the axis, 13 px to either side.)
   function scanHead() {
@@ -8256,6 +8305,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const r of scanLook('head')) if (r.x0 < q.x1 && r.x1 > q.x0 && r.y0 < q.y1 && r.y1 > q.y0) { hit = true; break; }
     scan.el.classList.toggle('head-off', hit);
   }
+  const scanNap = () => { if (scan.on && !scan.raf) scan.raf = nextFrame(scanTick); };
+  let scanWaveR = 0, scanWaveGap = 0;   // (the packet being drawn: its front and the ripples' gap, which scanArcAt reads)
+  const scanArcAt = (j) => scanArc(Math.max(1, scanWaveR + (j - 1) * scanWaveGap));
   function scanTick(now) {
     scan.raf = 0;
     if (!scan.on || !scan.el) return;
@@ -8265,7 +8317,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (restStill()) { scan.last = 0; scan.parked = true; return; }
     // Under an open lobule the probe is covered: it looks again four times a second instead of every frame (leaving the
     // lobule uncovers it gradually, so it is moving again before it shows).
-    if (lz?.isOpen()) { scan.last = 0; clearTimeout(scan.nap); scan.nap = setTimeout(() => { if (scan.on && !scan.raf) scan.raf = nextFrame(scanTick); }, 250); return; }
+    if (lz?.isOpen()) { scan.last = 0; clearTimeout(scan.nap); scan.nap = setTimeout(scanNap, 250); return; }
     // Drawn on every frame the screen offers, like the blood (15 a second in Battery saver).
     if (scan.last && now - scan.last < paceMs()) { scan.raf = nextFrame(scanTick); return; }
     const dt = scan.last && !reduceMotion.matches ? Math.min(0.1, (now - scan.last) / 1000) : 0; scan.last = now;
@@ -8278,18 +8330,22 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (now >= scan.next) { scan.fronts.push(0); scan.next = now + SCAN_EVERY * 1000; }
     if (!(now < scan.nextTap)) { scan.nextTap = scan.nextTap && now - scan.nextTap < 250 ? scan.nextTap + 1000 : now + 1000; scan.tapB = !scan.tapB; scan.el.classList.toggle('tap', !scan.tapB); scan.el.classList.toggle('tap2', scan.tapB); }   // the probe itself shakes once a second; the waves keep their own rhythm
     const span = clamp(scan.v * 2.5, 70, SCAN_SPAN);   // slow fronts fade sooner, so a healthy liver shows a few calm arcs, not a crowd
-    scan.fronts = scan.fronts.map((r) => r + scan.v * dt).filter((r) => r < span);
+    const fr = scan.fronts, step = scan.v * dt;   // (each front moves on, those past the span are left out: in place)
+    let nf = 0;
+    for (let i = 0; i < fr.length; i++) { const r = fr[i] + step; if (r < span) fr[nf++] = r; }
+    fr.length = nf;
     const gap = clamp(scan.v * SCAN_EVERY * 0.4, 2, SCAN_GAP);   // the ripples tighten when fronts are close, so neighbours never merge
     // (The packets' elements are looked up once, and an opacity or a path is written only when its text changed: an idle packet
     // stays at 0 without a write each frame. The same values as before, so the same picture.)
     scan.packs ||= wavePacks(scan.el);
-    scan.packs.forEach((w, i) => {
-      const r = scan.fronts[i];
-      if (r == null) { paintWave(w, '0'); return; }
+    for (let i = 0; i < scan.packs.length; i++) {
+      const w = scan.packs[i], r = scan.fronts[i];
+      if (r == null) { paintWave(w, '0'); continue; }
       const u = r / span, fade = Math.sin(Math.PI * Math.min(1, u * 1.15 + 0.04)) ** 1.2 * (1 - u * 0.35);
       // A short packet: the crest, with a faint ripple ahead and behind.
-      paintWave(w, fade.toFixed(3), (j) => scanArc(Math.max(1, r + (j - 1) * gap)));
-    });
+      scanWaveR = r; scanWaveGap = gap;
+      paintWave(w, fade.toFixed(3), scanArcAt);
+    }
     labelGL?.redraw();   // (the waves moved: the GPU copy of the probe follows in this frame)
     scan.raf = nextFrame(scanTick);
   }
@@ -8325,8 +8381,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function scanShow(cardTxt) {
     if (!scan.el) return;
     // (Whether a card is on screen is asked only when its number is not given: the card's own frame gives it, and asking laid the page out.)
-    const card = fibroReading.cv, live = () => card?.isConnected && !card.closest('[hidden]') && fibroReading.txt != null;   // (no layout asked: the card's own frame gives the number)
-    const k = scan.k, txt = cardTxt ?? (live() ? fibroReading.txt : k == null ? '--' : k.toFixed(1));
+    const card = fibroReading.cv, k = scan.k;   // (no layout asked: the card's own frame gives the number)
+    const txt = cardTxt ?? (card?.isConnected && !card.closest('[hidden]') && fibroReading.txt != null ? fibroReading.txt : k == null ? '--' : k.toFixed(1));
     const sv = scan.el.querySelector('.sp-val');
     putText(sv, txt);
   }
@@ -8349,9 +8405,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // The slide's cards the probe keeps clear of, one margin out (read at most four times a second).
 
-  const scanCards = () => (store.get().presenting ? scanLook('cards') : []);
+  const scanCards = () => (store.get().presenting ? scanLook('cards') : NO_LIST);
   // (The same, read now: the Doppler probe's own read of the cards, in the frame's read phase.)
-  const scanCardsRead = () => (store.get().presenting ? scanLookRead('cards') : []);
+  const scanCardsRead = () => (store.get().presenting ? scanLookRead('cards') : NO_LIST);
   // (The turn's tests are plain functions of an angle, made once; none is a closure made on each ask.)
   const scanLeftOk = (tx, d) => tx - 92 * Math.cos(d * Math.PI / 180) - 13 * Math.sin(d * Math.PI / 180) >= SCAN_EDGE;
   const scanTopOk = (y, d) => y - 76 * Math.sin(d * Math.PI / 180) - 13.8 * Math.cos(d * Math.PI / 180) >= 4;
@@ -8362,6 +8418,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const b of cards) if (b.x0 < q.x1 && b.x1 > q.x0 && b.y0 < q.y1 && b.y1 > q.y0) return false;
     return true;
   }
+  const SCAN_DEG = [];   // (the turn's text for each whole degree, made once)
+  for (let i = 0; i <= 90; i++) SCAN_DEG.push(`${i}deg`);
   function scanTurn(tx, y = Infinity) {
     let deg = 45;
     while (deg < 80 && !scanLeftOk(tx, deg)) deg += 5;
@@ -8380,7 +8438,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
       if (best >= 0) deg = best;
     }
-    if (deg !== scan.deg) { scan.deg = deg; scan.el.style.setProperty('--sp-turn', `${deg}deg`); }
+    if (deg !== scan.deg) { scan.deg = deg; scan.el.style.setProperty('--sp-turn', SCAN_DEG[deg]); }
     // (The cable stays a short stub behind the body at every angle: laid flatter it used to run on to the screen's edge, a long
     // straight wire across the stage and under the cards, 18 Oct.)
   }
@@ -8399,6 +8457,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
 
     return el;
   })();
+  const scanShown = () => scan.el?.classList.remove('cath-pre');
   function scanPaint() {
     if (!scan.el) {
       const el = SCAN_TPL.cloneNode(true);
@@ -8409,8 +8468,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       late('add', sites.el, el); scan.el = el; scan.deg = 45;
       labelGL?.setScan(el);   // (drawn over the labels on their GPU layer while it can be; label-gl.js)
       const t0 = scanTipLocal(); if (t0) scanTurn(t0.tx, t0.y);   // (turned before it first shows, so it fades in at its angle rather than swinging to it)
-      nextFrame(() => el.classList.remove('cath-pre'));   // (its first look at cath-pre is this frame's own style pass: no layout forced for the fade)
-      if (reduceMotion.matches) { scan.fronts = [40, 90]; scan.v = 0; scan.next = scan.nextTap = Infinity; }
+      nextFrame(scanShown);   // (its first look at cath-pre is this frame's own style pass: no layout forced for the fade)
+      if (reduceMotion.matches) { scan.fronts.length = 0; scan.fronts.push(40, 90); scan.v = 0; scan.next = scan.nextTap = Infinity; }
       if (!scan.raf) { scan.last = 0; scan.raf = nextFrame(scanTick); }
     }
     const tip = scanTipLocal(), wr = stageBox();   // (the cached box: reading the wrap's on each paint forced a layout)

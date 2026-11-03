@@ -107,8 +107,9 @@ test('the stage keeps the circuit\'s resistors as records, hands them to the pai
   assert.match(STAGE, /import \{ recordLayer \} from '\.\/over-records\.js/);
   assert.match(STAGE, /const recs = recordLayer\(\{ ease: easeArrive, ms: D_SURFACE \}\);/);
   const rp = STAGE.slice(STAGE.indexOf('  function resPaint('), STAGE.indexOf("  // The wide screen's nav pill"));
-  assert.match(rp, /recs\.put\(`res:\$\{k\}`/);
-  assert.match(rp, /recs\.drop\(`res:\$\{k\}`/);
+  assert.match(rp, /recs\.put\(RES_KEYS\[k\]/);
+  assert.match(rp, /recs\.drop\(RES_KEYS\[k\]/);
+  assert.match(STAGE, /RES_KEYS\[k\] = 'res:' \+ k/, 'each reading\'s record key is res:<name>, made once');
   assert.doesNotMatch(rp, /setAttribute|classList|\.style\.|setProperty|dataset|createElementNS|cloneNode/, 'a resistor writes no element, class or style');
   assert.doesNotMatch(STAGE, /res-one|RES_TPL/, 'no resistor element is built');
   // The painter is told when a kept shape was written in place (the page's watch cannot see it), and when the set of shapes changed.

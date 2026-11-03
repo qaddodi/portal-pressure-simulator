@@ -29,7 +29,7 @@ test('stage: the figure\'s boxes are read in the read phase at a change, never b
   assert.match(st, /kpAsk \|\|= readFrame\(keyPillRead\);/, 'the key pill');
   assert.match(st, /dprCardsAsk \|\|= readFrame\(dprCardsRead\);/, 'the Doppler probe\'s cards');
   assert.match(st, /if \(!dprQuiet\(\)\) dprMonAsk \|\|= readFrame\(dprMonRead\);/, 'the Doppler monitor check');
-  assert.match(st, /ask: readFrame\(SCAN_READS\[key\]\)/, 'the FibroScan probe\'s cards');
+  assert.match(st, /o\.ask = readFrame\(SCAN_READS\[key\]\)/, 'the FibroScan probe\'s cards');
   assert.match(st, /hoverRaf \|\|= readFrame\(hoverRead\);/, 'a hover\'s hit tests');
   assert.match(st, /shuntAsk \|\|= readFrame\(shuntRead\);/, 'a shunt drag\'s target');
   assert.match(st, /function refit\(\) \{ refitAsk \|\|= readFrame\(refitRead\); \}/, 'a refit');
