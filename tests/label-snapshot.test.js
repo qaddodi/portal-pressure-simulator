@@ -44,3 +44,8 @@ test('the pointer hold is lifted when the pictures are given back to the SVG or 
   assert.match(lg, /function release\(\) \{\n\s+undisplace\(\);/);
   assert.match(lg, /lost = true; undisplace\(\);/);
 });
+
+test('a camera ride carries the leaders and dots with the labels (they were left where laid out, stretching from their points)', () => {
+  assert.match(lg, /if \(geo && rideM\) \{\n\s+const M = rideM, n = isPath \? 2 : 1;/);
+  assert.match(lg, /geo\[i \* 2\] = \(M\[0\] \* cx \+ M\[2\] \* cy \+ M\[4\]\) \* dpr;/);
+});

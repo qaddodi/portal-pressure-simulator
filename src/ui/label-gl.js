@@ -1573,6 +1573,16 @@ void main() { o = texture(uT, vUV) * uA; }`;
               else { mg.v[0] = NUM(a0); mg.v[1] = NUM(a1); mg.v[2] = NUM(a2); mg.v[3] = 0; mg.ok = true; }
             }
             if (mg.ok) { geo = MGEO; for (let i = 0; i < 4; i++) geo[i] = mg.v[i] * dpr; }
+            // (A camera ride carries the leaders and dots as it carries the labels: each point where the figure's matching point now is, the
+            // lines keeping their width and the dots their size. Left where they were laid out, they stretched from their points to the
+            // labels that rode on, and spread over the figure, for as long as the ride lasted.)
+            if (geo && rideM) {
+              const M = rideM, n = isPath ? 2 : 1;
+              for (let i = 0; i < n; i++) {
+                const cx = mg.v[i * 2], cy = mg.v[i * 2 + 1];
+                geo[i * 2] = (M[0] * cx + M[2] * cy + M[4]) * dpr; geo[i * 2 + 1] = (M[1] * cx + M[3] * cy + M[5]) * dpr;
+              }
+            }
           }
         }
         // (A mark this drawing cannot give stays the SVG's; one it draws is hidden there, in the same frame.)
