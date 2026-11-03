@@ -75,25 +75,13 @@ import { readAnims, readBox, readCTM, readMetric, readRects, readStyle, readTimi
 import { caught } from './caught.js';
 const nextFrame = frameFor('presenter');
 
-const KEY = 'pps.scripts';
-// Only well-formed scripts: a damaged saved value is ignored rather than stopping the library.
-// (A script with no steps, or a null step, is dropped too: one bad entry from a hand-edited link or an old import used to stop every start.)
-const okScript = (x) => x && typeof x === 'object' && x.id && (x.deck ? typeof x.deck === 'object' : x.steps == null || (Array.isArray(x.steps) && x.steps.every((st) => st && typeof st === 'object')));
-// alloc-rare: the saved-scripts list: runs on a user edit (the scan reaches it only through the name remove)
-const readMine = () => { try { const v = JSON.parse(localStorage.getItem(KEY) || '[]'); return Array.isArray(v) ? v.filter(okScript) : []; } catch { return []; } };
+import { readMine, writeMine, NO_ROOM, enc, dec } from './script-library.js';
 // Test decks: on the /preview/ copy only (never the live site), listed under "Testing" in Present. Each plays exactly as
 // if imported (an "Outline and objectives" slide in front, so its slide numbers match the imported file's).
 const PREVIEW = typeof location !== 'undefined' && /\/preview\//.test(location.pathname);
 // (Loaded only there: the live site's bundle carried the 53 KB deck for nothing. The menu reads TESTING when it opens, long after.)
 let TESTING = [];
 const testingLoad = PREVIEW ? import('./test-decks/demo-all-new-visuals.js').then(({ DEMO_ALL }) => { TESTING = [DEMO_ALL].map((d) => ({ id: 'test-' + d.id, title: d.title, summary: d.summary || '', deck: checkDeck(d), test: true })); }).catch(() => { /* the preview's test deck only */ }) : Promise.resolve();
-// (Says whether it kept them: storage that is full or blocked used to report "Script created" for a script that was not there.)
-// alloc-rare: the saved-scripts list: runs on a user edit (the scan reaches it only through the name remove)
-const writeMine = (list) => { try { localStorage.setItem(KEY, JSON.stringify(list)); return true; } catch { return false; } };
-const NO_ROOM = 'This device has no room to keep scripts. Free some browser storage and try again.';
-const enc = (o) => btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-const dec = (s) => JSON.parse(decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/')))));
-
 // alloc-rare: one timer per awaited step of a procedure, seconds apart, not per frame
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const reduce = matchMedia('(prefers-reduced-motion: reduce)');

@@ -6,7 +6,8 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 
 const pres = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-const okScript = vm.runInNewContext(pres.slice(pres.indexOf('const okScript ='), pres.indexOf('const readMine =')) + '; okScript');
+const lib = readFileSync(new URL('../src/ui/script-library.js', import.meta.url), 'utf8');   // (the saved scripts' storage moved out of presenter.js)
+const okScript = vm.runInNewContext(lib.slice(lib.indexOf('const okScript ='), lib.indexOf('export const readMine =')) + '; okScript');
 
 test('okScript keeps the scripts the library can read and drops the ones that would stop it', () => {
   assert.ok(okScript({ id: 'a', title: 'A', steps: [{ title: 'one' }] }));
@@ -22,7 +23,7 @@ test('okScript keeps the scripts the library can read and drops the ones that wo
 });
 
 test('a refused save is said, never reported as done', () => {
-  assert.match(pres, /const writeMine = \(list\) => \{ try \{ localStorage\.setItem\(KEY, JSON\.stringify\(list\)\); return true; \} catch \{ return false; \} \};/);
+  assert.match(lib, /export const writeMine = \(list\) => \{ try \{ localStorage\.setItem\(KEY, JSON\.stringify\(list\)\); return true; \} catch \{ return false; \} \};/);
   assert.equal((pres.match(/if \(!writeMine\(/g) || []).length >= 4, true, 'new, add step, remove, import');
   assert.match(pres, /if \(!writeMine\(list\)\) throw new Error\(NO_ROOM\);/);
   assert.match(pres, /catch \(e\) \{ toast\(e\?\.message === NO_ROOM \? NO_ROOM : 'The shared script could not be read\.', 'bad'\); \}/);
