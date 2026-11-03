@@ -507,9 +507,11 @@ export const MOTION_MAX_MS = 5000;
 const moving = new Map();   // (transition token → { name, t0, until })
 /** A transition begins: deferrable work waits until the returned end() is called (or MOTION_MAX_MS passes, counted as overdue). */
 export function beginMotion(name = 'move', maxMs = MOTION_MAX_MS) {
+  // alloc-rare: once per transition (a slide change, a dive), when it begins; never in a frame
   const tok = {}, t0 = wall();
-  moving.set(tok, { name, t0, until: t0 + maxMs });
+  moving.set(tok, { name, t0, until: t0 + maxMs });   // alloc-rare: the transition's record, made with its begin
   clockStats.transitions++;
+  // alloc-rare: the transition's end function, made with its begin
   return () => { if (!moving.delete(tok)) return; clockStats.lastMs = wall() - t0; clockStats.lastName = name; };
 }
 function anyMoving(t) {
