@@ -1,5 +1,7 @@
 // Scenario parameters, presets and drug effects (blueprint §8.4, §10.1, §10.2).
 
+import { EDGES } from './topology.js';
+
 export function defaultParams() {
   return {   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
     cirrhosis: 0,                 // macro 0..1 (§8.4)
@@ -134,6 +136,7 @@ const num = (v, lo, hi, def) => (typeof v === 'number' && Number.isFinite(v) ? M
 export function sanitizeParams(p) {
   const d = defaultParams();
   const out = isObj(p) ? deepMerge(d, p) : d;
+  for (const k of Object.keys(out)) if (!Object.hasOwn(d, k)) delete out[k];   // B7: a key the model has no parameter for is not carried (a renamed or hand-added one)
   for (const [k, [lo, hi]] of RANGE_LIST) out[k] = num(out[k], lo, hi, d[k]);
   out.splenicRx = Math.round(out.splenicRx);
   for (const k of Object.keys(d)) {   // alloc-rare: checked when parameters are set, in the simulation worker (a few tiny key lists), never by a drawn frame
@@ -149,10 +152,17 @@ export function sanitizeParams(p) {
   for (const k of SWITCHED) { out[k].on = !!out[k].on; out[k].d = num(out[k].d, 6, 12, 8); }
   for (const id of Object.keys(out.customShunts)) if (out.customShunts[id]) out.customShunts[id] = num(out.customShunts[id], 4, 16, 10);   // alloc-rare: checked when parameters are set, in the simulation worker (a few tiny key lists), never by a drawn frame
   for (const k of Object.keys(out.drugs)) out.drugs[k] = !!out.drugs[k];   // alloc-rare: checked when parameters are set, in the simulation worker (a few tiny key lists), never by a drawn frame
+  keepKnown(out.stenosis, ANY_EDGE); keepKnown(out.thrombus, ANY_EDGE); keepKnown(out.stenosisSite, ANY_EDGE); keepKnown(out.occluded, ANY_EDGE);   // B7
+  keepKnown(out.customShunts, CUSTOM_EDGE); keepKnown(out.spontaneous, SPONTANEOUS_EDGE);
   out.seed = num(out.seed, 0, 2 ** 31, 1);
   return out;
 }
 
+// B7: the ids under stenosis, thrombus, stenosisSite, occluded, customShunts and spontaneous are vessels of the model; a link's other ids are dropped.
+const ANY_EDGE = new Set(EDGES.map((e) => e.id));
+const CUSTOM_EDGE = new Set(EDGES.filter((e) => e.shunt === 'custom').map((e) => e.id));
+const SPONTANEOUS_EDGE = new Set(EDGES.filter((e) => e.variant || e.spontaneous).map((e) => e.id));
+function keepKnown(o, ids) { if (isObj(o)) for (const k of Object.keys(o)) if (!ids.has(k)) delete o[k]; }
 function isObj(x) { return x && typeof x === 'object' && !Array.isArray(x); }
 // (Keys that would reach an object's prototype are skipped, and only the base's own keys are merged into, so a
 // hand-made share link cannot change Object.prototype.)

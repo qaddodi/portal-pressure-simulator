@@ -4,6 +4,8 @@ import { defaultParams, deepMerge } from '../engine/scenario.js';
 import { runSoon } from './class-soon.js';
 
 const listeners = new Map();
+const gone = new Set();   // (B9: listeners unsubscribed while a change is being told; that change skips them. Emptied when the telling ends.)
+let waking = 0;
 const state = {
   mode: 'explore',
   tool: 'select',
@@ -58,11 +60,16 @@ let depth = 0;
 // The listeners of a change: those of each key, then '*', then the rest-of-the-state ones when something besides the frame changed.
 function wake(keys) {
   if (!keys.length) return;
+  waking++;
+  try { wakeAll(keys); } finally { if (--waking === 0) gone.clear(); }
+}
+function wakeAll(keys) {
   let rest = false;
-  for (let j = 0; j < keys.length; j++) { const k = keys[j], l = listeners.get(k); if (k !== 'frame') rest = true; if (l) for (let i = 0; i < l.length; i++) l[i](state[k], state); }
+  // (B9: a listener removed while this change is being told, by one that ran before it, is not called: the removal marks it.)
+  for (let j = 0; j < keys.length; j++) { const k = keys[j], l = listeners.get(k); if (k !== 'frame') rest = true; if (l) for (let i = 0; i < l.length; i++) if (!gone.has(l[i])) l[i](state[k], state); }
   const any = listeners.get('*');
-  if (any) for (let i = 0; i < any.length; i++) any[i](keys, state);
-  if (rest) { const r = listeners.get(REST); if (r) for (let i = 0; i < r.length; i++) r[i](keys, state); }
+  if (any) for (let i = 0; i < any.length; i++) if (!gone.has(any[i])) any[i](keys, state);
+  if (rest) { const r = listeners.get(REST); if (r) for (let i = 0; i < r.length; i++) if (!gone.has(r[i])) r[i](keys, state); }
 }
 const soonKeys = new Set();   // (keys set from a frame with setSoon, their listeners still to run)
 let soonAsked = false;
@@ -127,7 +134,8 @@ export const store = {
     if (key === '*' && !frames) key = REST;
     if (!listeners.has(key)) listeners.set(key, []);
     listeners.get(key).push(fn);
-    return () => listeners.set(key, listeners.get(key).filter((f) => f !== fn));
+    gone.delete(fn);
+    return () => { listeners.set(key, listeners.get(key).filter((f) => f !== fn)); if (waking) gone.add(fn); };
   },
 };
 

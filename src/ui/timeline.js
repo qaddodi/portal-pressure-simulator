@@ -144,7 +144,11 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
     if (curId != null) { cursor = -1; for (let i = 0; i < entries.length; i++) if (entries[i].id === curId) { cursor = i; break; } }
   }
   async function snapInto(e) {
-    const { snap } = await host.request('snapshot');
+    let snap;
+    // B4: an engine that is slow or stopped leaves the entry without a snapshot; it says so ("can't go back here") instead of being skipped by Undo unseen.
+    try { ({ snap } = await host.request('snapshot')); } catch { snap = null; }
+    if (!snap) { e.snapFailed = true; render(true); for (const fn of listeners) fn(); return; }
+    e.snapFailed = false;
     e.snap = snap; e.t = snap.t; e.day = snap.day;
     const f = frameNow();
     if (f) e.frame = captureFrame(f, snap.params);
@@ -328,9 +332,10 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
       if (e.frame) act('Compare with now', svgIcon('camera', 'mi-ic'), 2, () => { closePopover(); pinFrom(e.frame, e.label, fmtClock(e.t, e.day)); toast(`Comparing with ${fmtClock(e.t, e.day)}: ${e.label}.`); });
       const future = cursor >= 0 && i > cursor;
       // (key and sig: the History card updates its list in place, main.js reconcile.)
-      return h('div', { class: `tl-pop-row${future ? ' future' : ''}`, 'data-row': `${e.t}|${e.day || 0}|${e.kind}|${e.label}`, 'data-sig': `${future}|${acts.map((b) => b.title).join(',')}|${e.detail || ''}` },
+      return h('div', { class: `tl-pop-row${future ? ' future' : ''}`, 'data-row': `${e.t}|${e.day || 0}|${e.kind}|${e.label}`, 'data-sig': `${future}|${acts.map((b) => b.title).join(',')}|${e.detail || ''}|${e.snapFailed && !e.snap ? 'nogo' : ''}` },
         h('div', { class: 'tl-pop-head' }, h('i', { class: `tl-dot ${e.kind}`, style: { background: e.kind === 'event' ? SEV[e.sev] || SEV.info : '' } }), h('b', {}, e.kind === 'start' ? `Patient: ${e.label}` : e.label), h('span', { class: 'when' }, e.kind === 'start' ? 'Start' : fmtClock(e.t, e.day)), h('span', { class: 'tl-pop-acts' }, acts)),
-        e.detail ? h('div', { class: 'tl-pop-d' }, e.detail) : null);
+        e.detail ? h('div', { class: 'tl-pop-d' }, e.detail) : null,
+        e.snapFailed && !e.snap ? h('div', { class: 'tl-pop-d tl-nogo' }, 'Can’t go back here: the model did not save this moment.') : null);
     });
   }
   let lastTime = '', lastRun = null, lastRunMode = null, lastSpeed = null, lastIcon = 'pause';

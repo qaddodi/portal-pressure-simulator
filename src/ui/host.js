@@ -6,6 +6,9 @@ let failed = false;         // the worker stopped for good (an uncaught error): 
 const handlers = new Map();
 let reqSeq = 1;
 const pending = new Map();
+const queued = [];            // B3: messages sent while there is no engine yet (a restart); told to the new one, in order, once it answers
+const QUEUE_MAX = 500;
+function flushQueued() { while (queued.length && impl) impl.post(queued.shift()); }
 
 function dispatch(msg) {
   if (msg.reqId && pending.has(msg.reqId)) {
@@ -54,15 +57,19 @@ async function startHostNow() {
     w.onerror = (e) => { e.preventDefault?.(); crashed(e.message || 'The engine stopped.'); };
     liveWorker = w;
     impl = { post: (m) => w.postMessage(m), kind: 'worker' };
+    flushQueued();
   } catch (err) {
     // A slow module load can finish after the timeout. Never leave a second
     // engine alive, or let its late frames reach the fallback's subscribers.
     if (w) { w.onmessage = null; w.onerror = null; w.terminate(); }
     console.warn('Web Worker unavailable, running engine on main thread.', err);
     const { createCore } = await import('../worker-core.js');
-    const core = createCore((m) => setTimeout(() => dispatch(m), 0));
-    impl = { post: (m) => core.handle(structuredClone(m)), kind: 'main' };
+    // (B5: the core's own crash message, a clock that threw or made a number that is not one, is a crash of the host too: it is marked failed, so Restart is offered.)
+    const core = createCore((m) => setTimeout(() => (m.type === 'crash' ? crashed(m.message) : dispatch(m)), 0));
+    // B5: a message the engine cannot take would be thrown into the slider or button that sent it: it is a crash, as the worker's onerror says.
+    impl = { post: (m) => { if (failed) return; try { core.handle(structuredClone(m)); } catch (e) { crashed(e?.message || 'The engine stopped.'); } }, kind: 'main' };
     impl.post({ type: 'init', delta: true });
+    flushQueued();
   }
   return impl.kind;
 }
@@ -74,12 +81,12 @@ export function hostFailed() { return failed; }
  *  subscribed; the caller sends again what the engine had been told (visibility, speed) and loads its patient. */
 export async function restartHost() {
   if (!failed) return impl?.kind;
-  hostStart = null; impl = null;
+  hostStart = null; impl = null; queued.length = 0;   // (what was sent to the stopped engine is not carried over: the caller tells the new one again)
   return startHost();
 }
 
 export const host = {
-  send(msg) { impl?.post(msg); },
+  send(msg) { if (impl) impl.post(msg); else if (queued.length < QUEUE_MAX) queued.push(msg); },
   on(type, fn) {
     if (!handlers.has(type)) handlers.set(type, []);
     handlers.get(type).push(fn);

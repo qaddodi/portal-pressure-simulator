@@ -253,6 +253,7 @@ export function createCore(post) {
     try { tickOnce(); } catch (err) { crash(err); }
   }
 
+  let stepAcc = 0;   // W1: model seconds owed to the bedside clock, less than one step
   let lastFrame = 0, ackOn = false, unpainted = false, owed = false;
   const ACK_MAX_MS = 400;
   // A frame goes out only when the model moved past a small hysteresis since the last one posted, or once a second as a heartbeat (the
@@ -282,7 +283,12 @@ export function createCore(post) {
     eng.beat = beat;
     if (morph) {
       const k = Math.min(1, (now - morph.t0) / morph.ms);
+      // W2: the beat runs on through the blend. The snapshots carry no cardiac phase, so it is advanced here at the blended heart
+      // rate (as step() does), and a sample of the blended state is taken each tick, so the pulse and the traces do not stop for 1.2 s.
+      const cyc = eng.cyc || 0;
       eng.restore(k >= 1 ? morph.to : morphAt(morph.from, morph.to, easeInOut(k)));
+      eng.cyc = cyc + realDt * (eng.hr || 60) / 60;
+      sample();
       if (k >= 1) morph = null;
       paramsDirty = true; frameDirty = true;
     } else if (running) {
@@ -291,8 +297,12 @@ export function createCore(post) {
         // (On a hidden copy of the model: the beat runs on, so the Doppler and tracings stay smooth while a slider moves.)
         if (now < relaxUntil) eng.relaxHidden(); else eng.relaxDone();
         const h = hemoStep(eng.params.pulsatile || beat, speed);
-        let simDt = realDt * speed;
-        let n = Math.min(Math.ceil(simDt / h), h < 0.02 ? 700 : 400);
+        // W1: the part of a tick that is not a whole step is kept for the next one (stepAcc), so model time equals real time x speed
+        // (the steps used to be rounded up, which ran the clock about 6% fast at 1x). A tick the page held up past the cap drops the excess.
+        const cap = h < 0.02 ? 700 : 400;
+        stepAcc += realDt * speed;
+        let n = Math.min(Math.floor(stepAcc / h + 1e-9), cap);
+        stepAcc = n >= cap ? 0 : Math.max(0, stepAcc - n * h);
         const every = Math.max(1, Math.floor(n / 24));
         for (let i = 0; i < n; i++) {
           eng.step(h);

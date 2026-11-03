@@ -60,6 +60,6 @@ test('Windows high contrast keeps the on and selected states and the switches vi
 test('a preset that cannot be loaded clears the figure\'s wait', () => {
   const m = read('src/ui/main.js');
   const fn = m.slice(m.indexOf('async function loadPreset(id, opts = {})'), m.indexOf('function encodeShare('));
-  assert.match(fn, /catch \{ if \(gen === presetGen\) store\.set\(\{ presetLoading: false \}\); return; \}/);
+  assert.match(fn, /catch \{ if \(gen === presetGen\) store\.set\(\{ presetLoading: false \}\); return false; \}/);
   assert.ok(fn.indexOf('presetLoading: true') < fn.indexOf('presetLoading: false'));
 });

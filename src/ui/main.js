@@ -264,7 +264,7 @@ async function main() {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
-    loadPreset: async (id) => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); await loadPreset(id); toast(store.get().presetList.find((p) => p.id === id)?.label); },
+    loadPreset: async (id) => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); if (await loadPreset(id)) toast(store.get().presetList.find((p) => p.id === id)?.label); },
     home: () => mainMenu.open(), theme: () => toggleTheme(), look: (id) => switchTheme(id), help: () => openHelp(), share, restart: () => restartPatient(), reset: () => resetEverything(),
     library: presenter.library, libraryNow: presenter.libraryNow, present: (id) => presenter.start(id),
   } }));
@@ -409,6 +409,16 @@ async function main() {
   if (back) { const u = new URL(location.href); for (const k of ['back', 'script', 'slide']) u.searchParams.delete(k); u.hash = ''; history.replaceState(null, '', u.pathname + u.search); }   // (a later plain reload starts fresh)
   // Startup has decided who the patient is (a deep link, a shared link, or the default one): the figure may frame itself.
   store.set({ booted: true });
+  // B6: a share link pasted into this open tab (the address changes, the page does not reload) is applied as at start.
+  let lastShareHash = shared ? location.hash : '';
+  window.addEventListener('hashchange', () => {
+    if (!/#s=/.test(location.hash) || location.hash === lastShareHash) return;
+    lastShareHash = location.hash;
+    const next = readShare();
+    if (!next) { toast('This shared link could not be read.', 'bad'); return; }
+    if (store.get().mode !== 'explore') store.set({ mode: 'explore' });
+    loadShared(next);
+  });
   // Offline support registers once the figure is up and the page has been left alone a moment, so its install (every file of the app,
   // fetched at once) does not compete with the modules still loading, nor with the first touches. The fonts' other subsets come later
   // still (the worker is asked once it is active, build.mjs 'pps:fill').
@@ -594,9 +604,9 @@ async function loadPreset(id, opts = {}) {
   dock?.clearTraces();   // the Over time and Doppler traces start over with the new (or restarted) patient
   let res;
   try { res = await host.request('preset', { id, days: opts.days }); }
-  catch { if (gen === presetGen) store.set({ presetLoading: false }); return; }   // (the engine stopped: its crash card says so; the figure is not left waiting for a patient)
+  catch { if (gen === presetGen) store.set({ presetLoading: false }); return false; }   // (the engine stopped: its crash card says so; the figure is not left waiting for a patient)
   // Patients tapped in quick succession: the engine loads them in order, so only the last one's answer is applied.
-  if (gen !== presetGen) return;
+  if (gen !== presetGen) return false;
   // The traces start from the steady state the patient opens on: its last seconds are made beside the first live ones (backfill.js).
   host.request('history', { secs: 12 }).then((m) => { if (gen === presetGen && m?.samples) dock?.backfillTraces({ ...m.samples, probe: m.probe }); }).catch(() => { /* the traces fill as they record */ });
   replaceParams(res.params);
@@ -604,6 +614,7 @@ async function loadPreset(id, opts = {}) {
   clearHistory();
   store.set({ presetLoading: false, presetId: id, lastHVPG: null, hvpgMeasured: false, selection: store.get().selection, historyTick: (store.get().historyTick || 0) + 1 });
   timeline?.reset(store.get().presetList?.find((x) => x.id === id)?.label);
+  return true;   // (B1: true only when this load's answer was the one applied; a replaced or failed load answers false)
 }
 
 function encodeShare(extra) {
@@ -617,7 +628,8 @@ function readShare() {
   return m ? cleanShare(parseShare(m[1]), store.get().presetList?.map((p) => p.id)) : null;
 }
 async function loadShared(s, { quiet = false } = {}) {
-  await loadPreset(s.preset);
+  // B1: a load that was replaced (another patient tapped meanwhile) or failed must not take this link's settings.
+  if (!(await loadPreset(s.preset))) return false;
   let clamped = false;
   const missing = s.missing && `This link names a patient the app does not have (“${s.missing}”), so its settings opened on the healthy patient.`;
   if (s.params) {
@@ -632,6 +644,7 @@ async function loadShared(s, { quiet = false } = {}) {
   if (clamped) toast(missing || 'This link had values out of range; they were set to the nearest allowed values.', missing ? 'bad' : undefined);
   else if (missing) toast(missing, 'bad');
   else if (!quiet) toast('Loaded the shared scenario.');
+  return true;
 }
 // The orange PREVIEW pill reloads onto the newest build and calls this first: a URL for the same place. In Present, the same
 // presentation and slide (?script=&slide=); in Patients, the same patient, settings, view, camera and selection (#s=).
@@ -670,8 +683,9 @@ async function restartPatient() {
     const s = store.get();
     host.send(s.lapse ? { type: 'run', speed: s.lapse, clock: 'disease' } : { type: 'run', speed: s.speed, clock: 'hemo' });
     if (s.running === false) host.send({ type: 'run', running: false });
+    if (s.frame?.probe) host.send({ type: 'probe', id: s.frame.probe });   // B3: the Doppler reads the vessel the page shows as picked
   }
-  await loadPreset(id);
+  if (!(await loadPreset(id))) return;   // (B2: no "Restarted" for a load that was replaced or failed)
   toast(`Restarted: ${store.get().presetList?.find((p) => p.id === id)?.label || 'patient'}.`);
 }
 function resetEverything() {
