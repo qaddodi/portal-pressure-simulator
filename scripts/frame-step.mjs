@@ -162,9 +162,15 @@ export async function capture({ scenario, device = 'mac', theme = 'light', scrip
       await page.clock.pauseAt(T0 + 3000);   // (time runs by itself for 3 s more, then holds)
     } else {
       // installed late, the fake performance.now restarts near 0, so a timestamp the page took earlier is AHEAD of it (seen: "Invalid array length")
+      const pre = await page.evaluate(() => performance.now());
       const T0 = Date.now();
       await page.clock.install({ time: T0 });
       await page.clock.pauseAt(T0 + 3000);
+      // (3 Nov 2026: the fake performance.now starts at 0 and had only run 3 s, the page's own was minutes in: every ease read a negative
+      // elapsed time, the camera blew up and binVeins threw "Invalid array length". Jump the fake clock past where the page's was: a
+      // fastForward fires each timer once, not once per frame of the jump.)
+      const cur = await page.evaluate(() => performance.now());
+      if (pre + 200 > cur) await page.clock.fastForward(Math.ceil(pre + 200 - cur));
     }
     await page.waitForTimeout(3500);
     await page.clock.runFor(60);

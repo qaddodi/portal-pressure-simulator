@@ -10,6 +10,7 @@ import { frameFor, cancelFrame, easeNow, beginMotion } from './frame.js';
 import { cubicBezier } from './ease.js';
 import { classSoon, runSoon } from './class-soon.js';
 import { caught } from './caught.js';
+import { D_SMALL } from './ease.js';
 
 /** How far (px) the new card comes in from, and the stagger (ms) of a second card behind the first. */
 export const THROW_IN = 56, THROW_STAGGER = 40;
@@ -30,7 +31,7 @@ export function throwAt(kind, k, from, to) { return throwInto({ x: 0, o: 0 }, ki
 /** The same, written into out ({x, o}) in place: what the frame uses, so a moving card costs no object a frame. */
 export function throwInto(out, kind, k, from, to) {
   k = k <= 0 ? 0 : k >= 1 ? 1 : k;
-  const e = easeRail(k), f = kind === 'out' ? Math.min(1, e / 0.85) : Math.min(1, e / 0.4);
+  const e = easeRail(k), f = kind === 'out' ? Math.min(1, e / 0.85) : kind === 'back' ? e : Math.min(1, e / 0.4);   // ('back': a card let go short of a swipe, fading in on its way as it moves, not ahead of it)
   out.x = from.x + (to.x - from.x) * e; out.o = from.o + (to.o - from.o) * f;
   return out;
 }
@@ -74,7 +75,7 @@ const pos = { x: 0, o: 0 };   // (where the card being stepped is: one object fo
 // Lands a run: the card at the end of its way, its holder told, a card coming in let go a task after the frame.
 function land(el, r, x, o) {
   runs.delete(el); write(el, x, o);
-  if (r.kind === 'in') { landed.push(el); runSoon(restLanded); }
+  if (r.kind !== 'out') { landed.push(el); runSoon(restLanded); }
   r.done?.();
 }
 function stepRun(el, r, now) {
@@ -178,6 +179,17 @@ export function throwIn(el, dir, delay = 0) {
   // cardsIn, a staggered card asked again) used to drop it from full to nothing and slide it in again, a blink.)
   if (!was) { el.style.setProperty('transition', 'none', 'important'); write(el, s * THROW_IN, 0); runs.delete(el); }
   start(el, 'in', { x: 0, o: 1 }, RAIL_MS, was?.kind === 'in' ? 0 : delay);
+}
+
+/** A card let go short of a swipe (or one the swipe took along that the next slide keeps) eases back to its place from where the finger left it
+ *  (x px, opacity o), on this clock: its inline values are written in the frame the glass reads them in. The CSS animation it was before
+ *  (el.animate) is moved by the compositor, which can show it a display frame from where the page's own time puts it; the GPU glass then
+ *  trails (or leads) the card by that frame. */
+export function throwBack(el, x, o) {
+  if (!el) return;
+  held.delete(el); pinned.delete(el);
+  write(el, x, o);
+  start(el, 'back', { x: 0, o: 1 }, D_SMALL, 0);
 }
 
 /** How long (ms) el's way out still has to run (0 when it is not on its way out). */

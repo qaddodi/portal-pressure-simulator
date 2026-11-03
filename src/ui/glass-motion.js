@@ -387,18 +387,6 @@ export function clockOf(an, now) {
   return c;
 }
 export const fillsAfter = (c) => c.fwd;
-/** How far ahead (ms) of the frame's own time a running animation is drawn by the compositor: one display frame. The page's timeline
- *  stands at the frame's start (document.timeline.currentTime), and the compositor, which moves a CSS or script animation of a transform,
- *  a translate or an opacity on its own, samples it when it draws, a frame later; so the card is where its animation is one frame on from
- *  the page's time. Measured headless (3 Nov 2026, a canvas square drawn each frame from the animation's currentTime beside the box it
- *  animates): the square stood a constant 7 px (one frame at 60 Hz) behind the box; sampled one frame ahead it stood within 1 px.
- *  A glass drawn from the page's time alone trails every card moved by an animation by that frame (its words and its glass part). Only an
- *  animation that has started (its start time known) is ahead: one still pending starts at the compositor's first draw, at progress 0.
- *  An inline value written by a script in the frame (card-throw.js, a finger's pull) is drawn with the glass, in the same frame: no lead. */
-export function leadFor(c, hz) {
-  if (!c || c.s == null || c.rate === 0 || !(hz > 0)) return 0;
-  return (1000 / hz) * (c.rate < 0 ? -1 : 1) * Math.abs(c.rate);
-}
 /** The clock at the timeline's time `now`, written into out: { st: 'idle' | 'running' | 'finished', has (whether it is in its active time,
  *  or in a fill), p (its transformed progress, when has), end (its end time) }. Returns out. */
 export function clockAt(c, now, out) {
