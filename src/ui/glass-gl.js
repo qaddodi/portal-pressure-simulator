@@ -1022,13 +1022,15 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     unmark();
     tellHoles(NONE);
     if (canvas) canvas.style.visibility = '';
-    if (again) host?.now(); else ask();
+    if (again && !inPrep) host?.now(); else ask();
   }
   // The loop's turn while a host is set: true, 'same' or false as draw() returns, or undefined when the glass is drawn on its own canvas.
   const inside = (p, cr, vw, vh) => {
     const l = Math.max(p.r.left, 0), t = Math.max(p.r.top, 0), r = Math.min(p.r.right, vw), b = Math.min(p.r.bottom, vh);
     return !(r > l && b > t) || (l >= cr.left - 2 && t >= cr.top - 2 && r <= cr.right + 2 && b <= cr.bottom + 2);
   };
+  // (hostDraw run from the figure's own turn (prepInto) lays the panes it will draw and does not ask the figure for another picture.)
+  let inPrep = false;
   function hostDraw(list) {
     if (!host.active()) { whyAll = host.why?.() || 'the figure\'s canvas is not taking glass'; dropHost(true); return undefined; }
     const R = nowGeo(list);
@@ -1106,7 +1108,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     hf = hfSet;
     hf.panes = panes; hf.cr = cr; hf.base = bg[3] > 0 ? bg : colour(bgVar, 'transparent');
     tellHoles(panes);
-    host.now();
+    if (!inPrep) host.now();
     return panes.length ? true : false;
   }
   // A texture and framebuffer for one halving step, grown (never shrunk) to hold w × h.
@@ -1244,6 +1246,13 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   function prepInto() {
     frameMarks.clear(); blurOK = false;
     if (hk) hk.share = null;
+    // (The panes as the page and the motion have them now, before this picture lays them: a picture laid with the last frame's panes was
+    // laid again in the glass's final phase with these, two whole pictures and every card's glass twice a frame while cards moved (Mohammad's
+    // ?perf, 3 Nov 2026: "card glass: drawn x8", "50 frames with two"). Laid with them here, the final phase finds the same key and draws nothing.)
+    if (hostOn && hk && host && !inPrep && !lost && !dead && !gl?.isContextLost?.()) {
+      inPrep = true;
+      try { const list = glassesNow(); if (list.length && wanted() && live()) hostDraw(list); } catch (e) { caught('glass-gl:prep', e); } finally { inPrep = false; }
+    }
     if (!hostOn || !hf || !hk || lost || dead) return;
     const G = hk.G;
     if (G.isContextLost() || !host.active()) return;
