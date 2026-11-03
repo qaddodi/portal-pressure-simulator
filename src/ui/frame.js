@@ -61,10 +61,10 @@ let parts = null, chained = false, lastNow = 0;
 // gate), so a long frame names what inside the surface took the time: phase 'in' (inside a callback: its time is also the surface's
 // own) or 'outside' (run from a timer or an event, outside the scheduler: listed with the next frame, never in its script time).
 let outsideParts = [];
-export function framePart(tag, fn) {
-  if (!watchers.size) return fn();
+export function framePart(tag, fn, a, b, c) {
+  if (!watchers.size) return fn(a, b, c);
   const t0 = performance.now();
-  try { return fn(); } finally {
+  try { return fn(a, b, c); } finally {
     const e = [tag, parts ? 'in' : 'outside', performance.now() - t0];   // alloc-rare: only while frames are watched (the ?perf readout, the gates): the early return above skips it
     if (parts) parts.push(e); else if (outsideParts.length < 64) outsideParts.push(e);
   }

@@ -26,5 +26,5 @@ test("gpuProbe's named steps are pieces of their frame too, and cost one call wh
   try { assert.equal(gpuProbe.time(null, 'x', () => 7), 14); } finally { gpuProbe.part = null; }
   assert.match(readFileSync(new URL('../src/ui/frame.js', import.meta.url), 'utf8'), /\ngpuProbe\.part = framePart;\n/);
   const gp = readFileSync(new URL('../src/ui/gpu-probe.js', import.meta.url), 'utf8');
-  assert.match(gp, /if \(!this\.on\) return this\.part \? this\.part\(name, f\) : f\(\);/);
+  assert.match(gp, /if \(!this\.on\) return this\.part \? this\.part\(name, f, a, b, c\) : f\(a, b, c\);/);
 });

@@ -1013,7 +1013,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!baseLiver) { try { baseLiver = sampleLiver(); } catch { return; } if (!baseLiver.pts.length) { baseLiver = null; return; } }
     liverKey = c + ',' + g; liverKeyC = c; liverKeyG = g;
     // (?perf: the outline and nodules worked out, apart from writing them into the page: the browser's own work on them comes later.)
-    const { out, dome } = gpuProbe.time(null, 'liver: outline (maths)', () => morphOutline(baseLiver, c, g));
+    const { out, dome } = gpuProbe.time(null, 'liver: outline (maths)', morphOutline, baseLiver, c, g);
     const f1 = fix1;
     // (Its commands too, for the GPU painter: the liver is painted from these numbers, never parsing or hashing the text.)
     let d = liverD, cmds = liverCmds;
@@ -3298,7 +3298,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function update(f) {
     stageWake();
     inUpdate = true;
-    try { gpuProbe.time(null, 'update (script)', () => updateInner(f)); } finally { inUpdate = false; fxAt = null; }
+    try { gpuProbe.time(null, 'update (script)', updateInner, f); } finally { inUpdate = false; fxAt = null; }
     // (Hidden, no animation frame comes to draw the vessels again: they are drawn now, so the canvas never keeps colours the
     // page no longer has, as after a change of the device's light or dark setting in the background.)
     if (plateRedraw || (document.hidden && (veinsDirty || veinsRows.size))) { const by = plateRedraw ? 'plate hidden' : 'tab hidden'; plateRedraw = false; drawVeins(false, by); }
@@ -3520,7 +3520,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (spr !== sprT) { const d = sprT - spr; g.spr = Math.abs(d) < 0.005 ? sprT : spr + d * kW; if (!coiling.includes(x)) coiling.push(x); if (g.spr !== sprT) widthEasing = coilEasing = true; }
       }
     }
-    gpuProbe.time(null, 'update: geometry', () => updateGeometry(false, coiling));
+    gpuProbe.time(null, 'update: geometry', updateGeometry, false, coiling);
 
     for (const x of EV) {
       const e = x.e;
@@ -3664,7 +3664,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     syncLift();
     syncVeins(t);
     updateOrganSel(st.selection, t);
-    gpuProbe.time(null, 'update: nodes', () => updateNodesCircuit(f));
+    gpuProbe.time(null, 'update: nodes', updateNodesCircuit, f);
     gpuProbe.time(null, 'update: overlays', () => updateOverlays(f, p, gain, t));
     updateFocus();
     dopApply();
@@ -3690,7 +3690,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let labelF = null;
   function labelsMay() {
     const f = labelF; labelF = null;
-    if (f && !(diveT > 0 && diveT < 1)) gpuProbe.time(null, 'update: labels', () => updateLabels(f));
+    if (f && !(diveT > 0 && diveT < 1)) gpuProbe.time(null, 'update: labels', updateLabels, f);
   }
   let orgAsk = null;
   const orgAskBuf = { f: null, p: null, t: 0, at: null };   // (what the organs' step was asked for, written in place; organsMay copies it out at once)
@@ -3701,8 +3701,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const was = inUpdate, wasAt = fxAt;
     inUpdate = true; fxAt = atAt;
     try {
-      gpuProbe.time(null, 'update: organs', () => updateOrgans(af, ap, at));
-      gpuProbe.time(null, 'update: slide marks', () => fxSync(af, at));
+      gpuProbe.time(null, 'update: organs', updateOrgans, af, ap, at);
+      gpuProbe.time(null, 'update: slide marks', fxSync, af, at);
     } finally { inUpdate = was; fxAt = wasAt; }
     if (!was && plateRedraw) { plateRedraw = false; drawVeins(false, 'plate hidden'); }
   }
@@ -3734,7 +3734,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // writes can differ from what it last wrote (the glow-only sync's own test, glowOnlyOk, with no glow or plate ease under
   // way and no vessel crossing the sheen's 3.4 width); a vessel outgrowing its binned reach takes the whole sync (it re-bins).
   function syncRadiiOnly(t) {
-    return gpuProbe.time(null, 'radius sync (script)', () => syncRadiiOnlyInner(t));
+    return gpuProbe.time(null, 'radius sync (script)', syncRadiiOnlyInner, t);
   }
   function syncRadiiOnlyInner(t) {
     if (glowSync || plateEasing() || !glowOnlyOk(t)) return false;
@@ -3776,7 +3776,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (CTM !== widthCTM && (CTM.sc !== widthCTM.sc || CTM.a !== widthCTM.a || CTM.b !== widthCTM.b)) return false;
     stageWake();
     inUpdate = true;
-    try { gpuProbe.time(null, 'width step (script)', () => stepWidthsInner(f)); } finally { inUpdate = false; fxAt = null; }
+    try { gpuProbe.time(null, 'width step (script)', stepWidthsInner, f); } finally { inUpdate = false; fxAt = null; }
     firstFrame();
     prepLobule();
     followHome();
@@ -4976,7 +4976,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
     }
   }
-  function syncVeins(t) { return gpuProbe.time(null, 'vessel sync (script)', () => syncVeinsNow(t)); }
+  function syncVeins(t) { return gpuProbe.time(null, 'vessel sync (script)', syncVeinsNow, t); }
   // The binning's key (the layout's version and the rows drawn, in order), built again only when one of them changed: it was a
   // string joined from every row on every sync (2 Nov 2026). The same string as before, so every reset to '' still re-bins.
   let binKeyRows = new Int32Array(64), binKeyN = -1, binKeyGeo = -1, binKeyStr = '';
@@ -5006,7 +5006,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       veins.paintOrgans(getOrganCovers().map(({ src, w }) => ({ ...src, w })), [0, 0, VIEW.w, VIEW.h], 1.5);
       glOrgans = true; tubesNew = true;
     }
-    const items = gpuProbe.time(null, 'vessel sync: list', () => glItems());
+    const items = gpuProbe.time(null, 'vessel sync: list', glItems);
     const cs = wrapCS();
     const mode = layerMode();
     // A jump in the model (a new patient, Undo or History, a time jump, Compare's Then and Now, Settle) recolours the vessels
@@ -5020,13 +5020,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     lensMode = mode;
     if (lensFrom && !lensFading()) lensFrom = null;
     shownCol = nextShown();
-    gpuProbe.time(null, 'vessel sync: radii', () => sendRadii(items));
+    gpuProbe.time(null, 'vessel sync: radii', sendRadii, items);
     // Geometry: re-binned when the layout, the set of vessels or a vessel's reach grows.
     const key = binKeyOf(items);
     let grew = false;
     if (key === vBinKey) for (let q = 0; q < items.length; q++) if (reachOf(items[q]) > (vBinReach.get(items[q].row) || 0)) { grew = true; break; }
     // (Between the views, a binning made ahead for this stretch of the change, the frame's points sent up in a few rows: morphFrame.)
-    if ((key !== vBinKey || grew) && gpuProbe.time(null, 'vessel sync: morph frame', () => morphFrame(items))) vBinKey = key;
+    if ((key !== vBinKey || grew) && gpuProbe.time(null, 'vessel sync: morph frame', morphFrame, items)) vBinKey = key;
     else if (key !== vBinKey || grew) gpuProbe.time(null, 'vessel sync: binning', () => {
       morphOff();
       if (morph !== morphTarget) mt.stats.cpu++;

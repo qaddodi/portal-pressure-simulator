@@ -365,6 +365,12 @@ export function scan({ root = ROOT } = {}) {
         const o = member ? c.object : null;
         const recv = !o ? null : o.type === 'Identifier' ? o.name : o.type === 'ThisExpression' ? 'this' : o.type === 'MemberExpression' && !o.computed ? o.property.name : null;
         if (cn) (f ? (f.__calls ||= []) : mod.top).push({ name: cn, member: member && !c.computed, recv, node: n, at: f });
+        // A step handed by name to the timing wrappers that run it on the spot (gpuProbe.time(null, name, fn, a, b, c), framePart(tag, fn, a, b, c)) is called there, as the closure
+        // `() => fn(a)` it replaced was: the name is a call of the function around (a function made to pass arguments is not a way out of the scan).
+        if ((cn === 'time' && recv === 'gpuProbe') || cn === 'framePart') {
+          const fa = n.arguments[cn === 'time' ? 2 : 1];
+          if (fa?.type === 'Identifier') (f ? (f.__calls ||= []) : mod.top).push({ name: fa.name, member: false, recv: null, node: n, at: f });
+        }
 
         // Always-hits.
         const a0 = n.arguments[0];

@@ -72,16 +72,17 @@ export const gpuProbe = {
   parts: {},
   stack: [],
   part: null,   // (frame.js: each step is also a named piece of its frame while frames are watched, framePart)
-  /** Runs f as the step `name` and returns its result; a step inside another counts only toward its own name. */
-  time(gl, name, f) {
-    if (!this.on) return this.part ? this.part(name, f) : f();
+  /** Runs f as the step `name` and returns its result; a step inside another counts only toward its own name.
+   *  f takes up to three arguments (a, b, c) given here, so a call site need not make a closure each frame to pass them. */
+  time(gl, name, f, a, b, c) {
+    if (!this.on) return this.part ? this.part(name, f, a, b, c) : f(a, b, c);
     // Work queued before the step by untimed calls (uploads made on the way) is waited for first, as its own share.
     const ts = performance.now();
     if (this.cpuOnly) gl = null;
     if (gl) { gl.finish(); this.add('other GPU', performance.now() - ts); }
     const t0 = performance.now();
     this.stack.push(0);
-    try { return f(); } finally {
+    try { return f(a, b, c); } finally {
       gl?.finish();
       const t1 = performance.now(), inner = this.stack.pop();
       this.add(name, t1 - t0 - inner);
