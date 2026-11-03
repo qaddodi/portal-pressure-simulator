@@ -18,6 +18,9 @@
 const HALF = 1024;
 const MOVERS = new WeakMap();   // element -> its movers by key (prop:axes)
 const DRIVEN = new WeakMap();   // element -> { x, y, on }, what the glass reads
+const DRIVEN_ANIMS = new WeakSet();
+/** A drag's own paused animation is already represented by driven(). */
+export const isDrivenAnimation = (a) => DRIVEN_ANIMS.has(a);
 const wakers = [];
 
 /** Calls fn() whenever a glass mover's number changes; returns the function that stops it. */
@@ -44,7 +47,7 @@ export class Mover {
     this.ax = null; this.ay = null; this.lx = 0; this.ly = 0;
     this.x = 0; this.y = 0; this.on = false;
     this.d = null;
-    if (glass) { this.d = DRIVEN.get(el) || { x: 0, y: 0, on: false }; DRIVEN.set(el, this.d); }   // alloc-rare: once per element
+    if (glass) { this.d = DRIVEN.get(el) || { x: 0, y: 0, on: false, prop }; this.d.prop = prop; DRIVEN.set(el, this.d); }   // alloc-rare: once per element
   }
 
   /** Arms the animations around (x, y): a first write, or a value out of the window. The x one first, so the y one adds to it. */
@@ -66,6 +69,7 @@ export class Mover {
 
   make(kf, add) {
     const a = this.el.animate(kf, { duration: 2 * HALF, fill: 'both', easing: 'linear', composite: add ? 'add' : 'replace' });   // alloc-rare: see arm; motion-scale: own pace (paused, set by currentTime: it has no time of its own)
+    if (this.glass) DRIVEN_ANIMS.add(a);
     a.pause();
     return a;
   }

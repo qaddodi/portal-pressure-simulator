@@ -20,7 +20,7 @@ import { easeArrive, D_SURFACE } from './ease.js';
 import { caught } from './caught.js';
 import { viewSize } from './layout-snap.js';
 import { parseCssColor } from './css-color.js';
-import { driven, onMove } from './num-move.js';
+import { driven, isDrivenAnimation, onMove } from './num-move.js';
 
 /** The CSS glass this draws (app.css .cl-glass: blur(16px) saturate(1.15) over 58 % of --surface). */
 export const GLASS = { blur: 16, sat: 1.15, tint: 0.58 };
@@ -1458,9 +1458,13 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   const MV = { x: 0, y: 0, o: null }, CM = { x: 0, y: 0, o: 1 }, AM = new Motion(), inlines = new WeakMap();   // (moveOf's and chainMove's answers: kept records, read before the next call)
   function moveOf(e, flag) {
     let tx = 0, ty = 0, hasT = false, byProp = false, o = null;
+    // A number-driven drag owns its animated property; its paused Web Animations are also visible to the animation tracker.
+    // Count that property from driven() only, while still following an independent transform or opacity on the same element.
+    const dn = driven(e);
     const m = anims.get(e);
     if (m) {
       for (const [an, rec] of m) {
+        if (dn && isDrivenAnimation(an)) continue;
         const kf = rec.kf, S = stateOf(an, rec), st = S.st;
         if (st === 'idle' || (st === 'finished' && !S.fills)) {
           m.delete(an); flag.ended = true;
@@ -1486,10 +1490,12 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     if (s) {
       let im = inlines.get(e);
       if (!im) inlines.set(e, (im = new Inline()));   // alloc-rare: an element's inline reading is made once, the first time it is seen
-      if (!hasT && !e.zoomAffine) { if (!inlineShift(im, s.transform)) flag.bad = true; else { tx = im.tx; ty = im.ty; } }
+      if (!hasT && !e.zoomAffine && dn?.prop !== 'transform') { if (!inlineShift(im, s.transform)) flag.bad = true; else { tx = im.tx; ty = im.ty; } }
       // (A card or a sheet's plate moved by a finger is held by a number (num-move.js), which replaces its inline translate while it lives: the same two numbers.)
-      const dn = driven(e);
-      if (dn) { tx += dn.x; ty += dn.y; } else if (byProp) { /* (the translate property is animated: the animation's value stands for the inline one while it plays) */ } else if (!inlineTranslate(im, s.translate)) flag.bad = true; else { tx += im.ux; ty += im.uy; }
+      if (dn) {
+        tx += dn.x; ty += dn.y;
+        if (dn.prop === 'transform' && !byProp) { if (!inlineTranslate(im, s.translate)) flag.bad = true; else { tx += im.ux; ty += im.uy; } }
+      } else if (byProp) { /* (the translate property is animated: the animation's value stands for the inline one while it plays) */ } else if (!inlineTranslate(im, s.translate)) flag.bad = true; else { tx += im.ux; ty += im.uy; }
       if (o == null && s.opacity !== '' && s.opacity != null && !inlineLoses.has(e)) o = NUM(s.opacity);
       // (A card the page moves by a custom property its stylesheet turns into a translate (the words' card's --pz-rise as the readings are
       // pulled out, the data card's --pz-lift): cards.shift(e) gives that move, read from the inline value each frame, so the glass rises
