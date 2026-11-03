@@ -193,13 +193,6 @@ export function mirrorOf(el, sel = []) {
     marks.push({ kind: 'bg', fill: bg, rad: Math.min(px(cs0.borderTopLeftRadius), box.height / 2, box.width / 2), sh: shadowOf(cs0.boxShadow),
       border: bw > 0 ? { w: bw, colour: rgbaOf(cs0.borderTopColor) } : null });
   }
-  // A lit term's pill (a slide's: app.css ::before, solid in the term's colour as Anatomy's highlighted label is) reaches past the words by its insets:
-  // its own mark, under the words, read as the page lays it out (its box is not the element's, so `inset` says how far it reaches).
-  try {
-    const pb = getComputedStyle(el, '::before'), pfill = pb.content !== 'none' && +pb.opacity > 0.01 ? rgbaOf(pb.backgroundColor) : '';
-    if (pfill) marks.push({ kind: 'bg', fill: pfill, rad: px(pb.borderTopLeftRadius), sh: null, border: null,
-      inset: [px(pb.left), px(pb.top), px(pb.right), px(pb.bottom)] });
-  } catch { /* no pseudo-element styles: no pill */ }
   const rg = document.createRange(), tw = document.createTreeWalker(el, 4 /* NodeFilter.SHOW_TEXT */);
   for (let n = tw.nextNode(); n; n = tw.nextNode()) {
     const txt = n.data.replace(/\s+/g, ' ');

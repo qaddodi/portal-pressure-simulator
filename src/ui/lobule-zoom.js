@@ -1767,49 +1767,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // Boxes and leader ends the ride's check works in, kept and written in place (a pool grows by index, once, to the most labels there are).
   const rhBox = [], rhLead = [], rhOth = [];
   const poolBox = (pool, i) => pool[i] || (pool[i] = { l: 0, r: 0, t: 0, b: 0 });   // alloc-once: a pool grows the first time a larger count is asked for, then it is reused
-  const poolPair = (pool, i) => pool[i] || (pool[i] = [[0, 0], [0, 0]]);   // alloc-once: a pool grows the first time a larger count is asked for, then it is reused
   // Whether the labels as laid out (follow.ride), each carried with its spot to the view now, still keep the layout's rules: no label on
   // another, a zone's name or a chip, none on another's leader, no two leaders crossed, none on a structure (which grows as the view
   // zooms in) or a card, each inside the free space and what it names still in it, and no chip's spot come back into view.
-  function rideHolds(fr) {
-    const R = follow.ride, f = follow, g = geo, fx = f.x, fy = f.y, fk = f.k;
-    if (call && callRingAt(fr)) return false;
-    const chips = R.chips, labsR = R.labs, zonesR = R.zones, cards = R.cards;
-    for (let i = 0; i < R.nc; i++) {
-      const a = chips[i].a, x = (a[0] - fx) / fk * V.k + V.x, y = (a[1] - fy) / fk * V.k + V.y;
-      if (x >= fr.l - 4 && x <= fr.r + 4 && y >= fr.t - 4 && y <= fr.b + 4) return false;
-    }
-    const keep = keepDiscs(g);
-    // (The zones' names carried by their own spot's move, the chips' boxes as they stand.)
-    rhOth.length = 0;
-    for (let i = 0; i < R.nz; i++) {
-      const b = zonesR[i], cx = (b.l + b.r) / 2, cy = (b.t + b.b) / 2, dx = (cx - fx) / fk * V.k + V.x - cx, dy = (cy - fy) / fk * V.k + V.y - cy, s = poolBox(rhBox, 8 + i);
-      s.l = b.l + dx; s.r = b.r + dx; s.t = b.t + dy; s.b = b.b + dy;
-      rhOth.push(s);
-    }
-    for (let i = 0; i < R.nc; i++) rhOth.push(chips[i].box);
-    let nb = 0;
-    for (let i = 0; i < R.nl; i++) {
-      const it = labsR[i], ia = it.a, ib = it.box, ax = (ia[0] - fx) / fk * V.k + V.x, ay = (ia[1] - fy) / fk * V.k + V.y, dx = ax - ia[0], dy = ay - ia[1], b = poolBox(rhBox, nb);
-      b.l = ib.l + dx; b.r = ib.r + dx; b.t = ib.t + dy; b.b = ib.b + dy;
-      if (!(ax >= fr.l - 4 && ax <= fr.r + 4 && ay >= fr.t - 4 && ay <= fr.b + 4) || b.l < fr.l + R.ix - 0.5 || b.r > fr.r - R.ix + 0.5 || b.t < fr.t + R.iy - 0.5 || b.b > fr.b - R.iy + 0.5) return false;
-      for (let q = 0; q < keep.length; q++) if (into(keep[q], b) > 0) return false;
-      for (let q = 0; q < cards.length; q++) if (overlap(b, cards[q]) > 0) return false;
-      const ld = poolPair(rhLead, nb);
-      ld[0][0] = ax; ld[0][1] = ay; ld[1][0] = it.c[0] + ax - ia[0]; ld[1][1] = it.c[1] + ay - ia[1];
-      nb++;
-    }
-    for (let i = 0; i < nb; i++) {
-      const bi = rhBox[i], pi = rhLead[i][0], qi = rhLead[i][1];
-      for (let o = 0; o < rhOth.length; o++) if (overlap(bi, rhOth[o]) > 0 || crosses(pi, qi, rhOth[o])) return false;
-      for (let j = 0; j < nb; j++) {
-        if (j === i) continue;
-        const bj = rhBox[j];
-        if ((j > i && overlap(bi, bj) > 0) || crosses(pi, qi, bj) || (j > i && cut(pi, qi, rhLead[j][0], rhLead[j][1]))) return false;
-      }
-    }
-    return true;
-  }
   // The glide's ride: each piece moved by its own spot's move since the last layout (a CSS translate, written into its place by bakeFollow).
   // Every label, zone name and pill stands where `translate` puts it (laid out once at the box's corner, so a move or glide is the
   // compositor's, never a layout per frame); its spot is kept here, and a pan's ride adds its shift on top.
@@ -2092,7 +2052,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // the leader stops on the pill's outline.
   const lettersInto = (o, L, l, t, w, hh) => {
     o.L = L;
-    if (litIn(L.el.dataset.target)) {   // (a lit label's pill, drawn by the GPU as the page lays it out: the leader stops on its outline)
+    if (!cap.on && litIn(L.el.dataset.target)) {   // (the GPU draws no pill: the leader stops on the letters)
       // (Its pill's insets as measured with its size, measureRun; before that, app.css's own sums for them.)
       const lk = parseFloat(document.documentElement.style.getPropertyValue('--label-k')) || 1, q = L.pillQ;
       o.x0 = l + (q ? q[0] : -4 * lk); o.y0 = t + (q ? q[1] : -5 * lk); o.x1 = l + w - (q ? q[2] : -4 * lk); o.y1 = t + hh - (q ? q[3] : -5 * lk); o.r = q ? q[4] : 12;
@@ -2349,7 +2309,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // long as that leaves every label clear of the others, of their leaders, of the structures, of the cards and inside the free space
     // (rideHolds); a frame where it would not, they are placed again (gliding there), and once the hand lets go, placed for where it
     // stopped. Placing them in full on every frame of a pinch (measuring, then trying hundreds of spots) is what made zooming lag.
-    if (sameB && follow.ride && V.k !== follow.k && handOn() && rideHolds(fr0)) {
+    // (While a hand zooms, the labels keep their slots and ride with the figure whether or not the spot they ride to is still clear: they are placed
+    // again, gliding, when the hand lets go. Placed again mid-gesture, a label jumped to another slot while the figure moved under the hand: 3 Nov 2026.)
+    if (sameB && follow.ride && V.k !== follow.k && handOn()) {
       unpan();   // (a pan's shared shift before it: ride moves each piece from the layout itself)
       ride(); clearTimeout(followT); followT = setTimeout(followEnd, 140);
       return;
@@ -4817,6 +4779,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     /** The sinusoid view's names, the same (its own names layer), for the browser checks. */
     sinusoidCaptions: () => sv.captions?.() ?? null,
     /** Where each shown leader ends, in the same px as captions() (the layer's view included), for the browser checks: [{ key, x, y (the name's end), px, py (the end on the figure's point) }]. */
+    /** Whether any label is gliding to a new spot now (the browser checks judge a label's offset from its point only while none is). */
+    labelsGliding() { const now = tlNow(); for (let i = 0; i < LAB_KEYS.length; i++) if (labGliding(labs[LAB_KEYS[i]], now)) return true; return false; },
     leaderEnds() {
       const out = [];   // alloc-rare: asked only by the browser check
       for (const k of Object.keys(labs)) {

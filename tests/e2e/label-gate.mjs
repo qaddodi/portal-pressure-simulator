@@ -54,7 +54,9 @@ const RECORD = (kind) => {
       if (seq === G.last) return;
       // (The lobule's leaders are drawn by their own layer: their point ends come from stage.lobuleLeaderEnds; the sinusoid's by the names' layer: the snapshot's leads.)
       const pts = new Map(kind === 'lobule' ? st.lobuleLeaderEnds().map((e) => [e.key, { x0: e.px, y0: e.py, a: 1 }]) : (snap.leads || []).map((l) => [l.key, l]));
-      for (const i of snap.items) { const l = pts.get(i.key); if (l) L[i.key] = { x: i.x, y: i.y, w: i.w, h: i.h, a: Math.min(i.a, l.a), ax: l.x0, ay: l.y0, dx: null, dy: null, glide: false, foreign: false }; }
+      // (A label gliding to its new spot after the hand let go is eased on the page's curve, not lagging: judged once it lands. Never during the gesture.)
+      const gliding = kind === 'lobule' && !!st.lobuleGliding?.();
+      for (const i of snap.items) { const l = pts.get(i.key); if (l) L[i.key] = { x: i.x, y: i.y, w: i.w, h: i.h, a: Math.min(i.a, l.a), ax: l.x0, ay: l.y0, dx: null, dy: null, glide: kind === 'lobule' && gliding, foreign: false }; }
     }
     G.last = seq;
     G.rows.push({ g: G.on, view, seq, L });
