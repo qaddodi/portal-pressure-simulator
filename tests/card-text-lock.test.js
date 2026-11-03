@@ -127,8 +127,8 @@ test('a time-lapse slide in view never lays its cards out again as its readings 
   // (Every reading that measured the data card a hair different ran the whole layout again, many times a second while the days ran,
   // and on an iPhone the teaching card vibrated: Endoscopy 3, 18 Oct.)
   assert.match(js, /const cardsStill = \(\) => !!shown && shown\.i === want && \(liveOff \|\| handOn \|\| !!slides\[want\]\?\.lapse\) && !!ui && !ui\.root\.classList\.contains\('pz-prep'\);/);
-  assert.match(js, /clearRO \|\|= new ResizeObserver\(\(\) => \{ cancelRest\(paneRaf\); paneRaf = restPass\(\(\) => \{ if \(!ui \|\| cardMoving\(\)\) return; if \(cardsStill\(\)\) fitCards\(ui\.data\); else layout\(\); \}\); soon\(\); \}\);/);
-  assert.match(js, /fitRaf = restPass\(\(\) => \{ if \(ui && cardMoving\(\)\) return; if \(ui && cardsStill\(\)\) \{ fitCards\(ui\.data\); return; \}/);
+  assert.match(js, /clearRO \|\|= new ResizeObserver\(\(\) => \{ cancelRest\(paneRaf\); paneRaf = restPass\(\(\) => \{ if \(!ui\) return; if \(cardMoving\(\)\) \{ if \(thrown\(\)\) layoutAtLanding\(\); return; \} if \(cardsStill\(\)\) fitCards\(ui\.data\); else layout\(\); \}\); soon\(\); \}\);/);
+  assert.match(js, /fitRaf = restPass\(\(\) => \{ if \(ui && cardMoving\(\)\) \{ if \(thrown\(\)\) layoutAtLanding\(\); return; \} if \(ui && cardsStill\(\)\) \{ fitCards\(ui\.data\); return; \}/);
   assert.ok(js.indexOf('const cardsStill') < js.indexOf('function layout()'));
 });
 
@@ -138,7 +138,7 @@ test('a what-if slider or compare button never lays the cards out again as the r
   const still = js.match(/const cardsStill = \(\) => ([^;]+);/)?.[1] || '';
   assert.match(still, /liveOff/, 'a slider or button driving the live model counts as readings only');
   // (Both observers that lay the cards out after a resize hold the words while it does.)
-  assert.equal((js.match(/cardsStill\(\)\) (?:\{ )?fitCards\(ui\.data\)/g) || []).length, 2);
+  assert.equal((js.match(/cardsStill\(\)\) (?:\{ )?fitCards\(ui\.data\)/g) || []).length, 3);   // (the two observers, and R14's pass at the cards' landing)
   // (The slider drives the live model through liveSet, which sets liveOff before its first reading.)
   const live = js.match(/async function liveSet\(s, i, patch\) \{[\s\S]*?\n {2}\}/)[0];
   assert.ok(live.indexOf('liveOff = true') < live.indexOf('dataTo('));

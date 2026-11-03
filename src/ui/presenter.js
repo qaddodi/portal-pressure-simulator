@@ -70,7 +70,7 @@ import { glideOpacity, glideTranslate, glideStop, glideX, glideY } from './scrip
 import { signalMove } from './num-move.js';
 import { slideFold } from './fold-slide.js';
 import { pageOn, followOf, pageIn, swipeHeld } from './card-page.js';
-import { throwOut, throwIn, throwBack, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, INSTANT, throwOutNow, throwPinned, throwRelease, railable, railHold, railIn, railAway, railGhosts, railWaits, railCopies, RAIL_GAP } from './card-throw.js';
+import { throwOut, throwIn, throwBack, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, INSTANT, throwOutNow, throwPinned, throwRelease, throwState, throwBusy, throwLanded, railable, railHold, railIn, railAway, railGhosts, railWaits, railCopies, RAIL_GAP } from './card-throw.js';
 import { readAnims, readBox, readCTM, readMetric, readRects, readStyle, readTiming, scrollInto } from './layout-snap.js';
 import { caught } from './caught.js';
 const nextFrame = frameFor('presenter');
@@ -1341,7 +1341,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     await wait(gl);
   }
   // (left: only the entrances with more than this many ms still to run count: 0 is all of them; CARDS_SEEN, the cards in sight.)
-  const cardsEntering = (left = 0) => [ui?.text, ui?.panel, ui?.data].some((el) => el && !el.hidden && readAnims(el, { subtree: true }).some((a) => { if (a.playState !== 'running') return false; const t = readTiming(a.effect); return Number.isFinite(t?.endTime) && t.endTime - (t.localTime || 0) > left; }));
+  // (R01: the cards' way in is card-throw.js's, scheduler-driven inline transform and opacity that getAnimations() never lists: throwState says
+  // what the throw of the words, their glass, the panel and the data card has still to run, and the browser's own animations still count.)
+  const throwCards = () => [ui?.text, ui?.shade, ui?.panel, ui?.data];
+  const throwEnters = (el, left) => { const s = el && !el.hidden ? throwState(el) : null; return !!s && s.kind !== 'out' && s.left > left; };
+  const cardsEntering = (left = 0) => throwCards().some((el) => throwEnters(el, left)) || [ui?.text, ui?.panel, ui?.data].some((el) => el && !el.hidden && readAnims(el, { subtree: true }).some((a) => { if (a.playState !== 'running') return false; const t = readTiming(a.effect); return Number.isFinite(t?.endTime) && t.endTime - (t.localTime || 0) > left; }));
   // Where the way out of the lobule should land for a slide: its framing, asked for when the rise begins (null: the fit).
   const riseFor = (cam, s) => (cam === 'fit' ? null : { box: () => camBox(cam, s), kMax: s.kMax || 3.2, clear: !!s.clear });
   // What the figure shows for the slide on screen (fig: { i, s }): the slide itself, framed where its time-lapse ends (lapse.cam) once
@@ -2466,7 +2470,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     paintOverlays(fv, to, st);
     if (holdEase) { holdEase = false; holdAnswer(false); }   // (an answer slide: what its question slide held back eases in now)
     // (The cards' last step: their size is read where they rest, after it, never mid-slide.)
-    if (bareSeen) { await until(() => cut() || !cardsEntering(), 1200); if (cut()) return; }
+    // (R01: a full landing is the throws' own promise, then whatever the browser's animations still run.)
+    if (bareSeen) { await Promise.race([Promise.all(throwCards().map((el) => el && throwLanded(el))), wait(1200)]); if (cut()) return; await until(() => cut() || !cardsEntering(), 1200); if (cut()) return; }
     lastCam = cam; framedSig = cardSig();
     await unhush(cut);
     if (cut()) return;
@@ -2948,8 +2953,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     return dataPlan(s, { keys: tileKeys(s), ref: !!refOf(s, i), title: cardTitle(s), ghost: s.tool ? toolGhost(s, i) : null, under: under(s), sin: sinTiles(s) });
   }
   // A card standing whole (not on its way in or out, not half folded or pulled) can be kept.
-  const dataStands = () => { const d = ui.data; return !d.hidden && !d.classList.contains('pz-hide') && !d.classList.contains('pz-sliding') && !['gone', 'prep', 'hold', 'colswap', 'folding'].some((k) => k in d.dataset); };
-  const textStands = () => { const t = ui.text; return !t.hidden && !!t.childElementCount && !t.classList.contains('pz-leave') && !ui.root.classList.contains('pz-prep'); };
+  const dataStands = () => { const d = ui.data; return !d.hidden && !throwBusy(d) && !d.classList.contains('pz-hide') && !d.classList.contains('pz-sliding') && !['gone', 'prep', 'hold', 'colswap', 'folding'].some((k) => k in d.dataset); };
+  const textStands = () => { const t = ui.text; return !t.hidden && !throwBusy(t) && !throwBusy(ui.shade) && !!t.childElementCount && !t.classList.contains('pz-leave') && !ui.root.classList.contains('pz-prep'); };
   // Which cards slide `to` keeps from the slide on screen (prev). A change cut short, a start, a slide drawn again for a new text size, a case card,
   // a catheter, a time-lapse or a question (card-keep.js) keep nothing.
   function keepFor(prev, s, to, swap, o) {
@@ -4045,7 +4050,22 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // again, the words fitted afresh and the figure framed, frame by frame, so the slide ran at about 10 frames a second (Mohammad, 25 Oct).
   // The card moves by its own CSS (--pz-u, --pz-grow) and is laid out once it rests: foldStill.)
   // (And while the card is zoomed to the middle of the screen, zoomHeld below: it too is laid out once it rests.)
-  const cardMoving = () => !!ui && (ui.data.classList.contains('pz-sliding') || 'folding' in ui.data.dataset || zoomHeld());
+  const cardMoving = () => !!ui && (ui.data.classList.contains('pz-sliding') || 'folding' in ui.data.dataset || zoomHeld() || throwCards().some((el) => el && throwing(el)));   // (R01: and a card on a throw, in or out)
+  // (R14: a card change that is only wanted (a font that finished loading, a card's box that changed) while the cards are on their throws is
+  // not made under them, nor lost: one pass is queued for when they have landed, whichever of them asked and however many did. A real
+  // resize still lays out at once, onResize. The talk and the cards it was asked for must still be the ones on screen.)
+  const thrown = () => throwCards().some((el) => el && throwing(el));
+  let landQ = false;
+  function layoutAtLanding() {
+    if (landQ || !ui) return;
+    landQ = true;
+    const u = ui, s = sess;
+    Promise.all(throwCards().map((el) => el && throwLanded(el))).then(() => {
+      landQ = false;
+      if (ui !== u || sess !== s || !s?.live()) return;
+      restPass(() => { if (ui !== u || sess !== s) return; if (cardMoving()) { if (thrown()) layoutAtLanding(); return; } if (cardsStill()) fitCards(ui.data); else layout(); });
+    });
+  }
   // ── The data card zoomed to the middle of the screen (Mac and iPad landscape; src/ui/card-zoom.js; Mohammad, 28 Oct) ──
   // A tap on an empty part of the instrument's card, or its corner icon, glides the card to the middle and grows it as one piece, its words
   // and pictures larger, never smaller; the veil dims the figure behind, which stays where it is. Nothing pauses: the instrument, the model and
@@ -4127,7 +4147,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     fitRO ||= new ResizeObserver(() => {
       cancelRest(fitRaf);
       // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
-      fitRaf = restPass(() => { if (ui && cardMoving()) return; if (ui && cardsStill()) { fitCards(ui.data); return; } if (ui && [ui.text, ui.data, ui.panel].some((el) => !el.hidden && fitDone.get(el) !== fitSig(el) && (el.style.getPropertyValue('--pz-fit') || (({ v, h }) => v > 1 || h > 1)(overflowOf(el))))) layout(); });   // (a shrunk card is fitted again when it changes, so it can grow back)
+      fitRaf = restPass(() => { if (ui && cardMoving()) { if (thrown()) layoutAtLanding(); return; } if (ui && cardsStill()) { fitCards(ui.data); return; } if (ui && [ui.text, ui.data, ui.panel].some((el) => !el.hidden && fitDone.get(el) !== fitSig(el) && (el.style.getPropertyValue('--pz-fit') || (({ v, h }) => v > 1 || h > 1)(overflowOf(el))))) layout(); });   // (a shrunk card is fitted again when it changes, so it can grow back)
     });
     // (Watched again only when the cards' children changed: observing a box reports it at once, so re-observing on every pass
     // ran the layout again every frame on a slide sitting still, Circuit 7 on an iPhone some four times a second.)
@@ -4143,7 +4163,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const soon = () => { clearTimeout(clearT); clearT = setTimeout(again, 120); };
     // (The words' glass pane and the figure's insets follow a card that grows after the layout, a chart arriving under the words.)
     // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
-    clearRO ||= new ResizeObserver(() => { cancelRest(paneRaf); paneRaf = restPass(() => { if (!ui || cardMoving()) return; if (cardsStill()) fitCards(ui.data); else layout(); }); soon(); });
+    clearRO ||= new ResizeObserver(() => { cancelRest(paneRaf); paneRaf = restPass(() => { if (!ui) return; if (cardMoving()) { if (thrown()) layoutAtLanding(); return; } if (cardsStill()) fitCards(ui.data); else layout(); }); soon(); });
     if (clearFor !== ui) { clearRO.disconnect(); clearRO.observe(ui.data); clearRO.observe(ui.text); clearFor = ui; }
     ui.data.ontransitionend = ui.text.ontransitionend = soon;   // (a card slides into place: its edge is where it ends, not where it was measured)
   };
@@ -4769,7 +4789,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     return [...mid, ...out.filter(ok)];
   }
   stage.setFreeArea(freeRects);
-  const onFonts = () => { if (ui) layout(); };
+  const onFonts = () => { if (!ui) return; if (thrown()) layoutAtLanding(); else layout(); };   // (R14: a font that arrives while the cards come in refits them once, when they have landed)
   // Where the cards stand, rounded: the camera framed this space last; the same space needs no second glide.
   let framedSig = '';
   // alloc-rare: slide arrival or a camera framing: once per slide change or card grab, never per frame

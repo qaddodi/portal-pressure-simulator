@@ -207,7 +207,7 @@ test('zoom: reset and a card that is large already', () => {
 
 test('the presenter lays nothing out while the card is up, and puts it back before a slide, a resize, Esc or the end of the talk', () => {
   // (Held: the card's watchers, its layout and its refits wait; one pass runs once it is back.)
-  assert.match(js, /const cardMoving = \(\) => !!ui && \(ui\.data\.classList\.contains\('pz-sliding'\) \|\| 'folding' in ui\.data\.dataset \|\| zoomHeld\(\)\);/);
+  assert.match(js, /const cardMoving = \(\) => !!ui && \(ui\.data\.classList\.contains\('pz-sliding'\) \|\| 'folding' in ui\.data\.dataset \|\| zoomHeld\(\) \|\| throwCards\(\)\.some\(\(el\) => el && throwing\(el\)\)\);/);
   assert.match(js, /const zoomHeld = \(\) => \{ if \(!ui\?\.zoom\.on\) return false; zoomMissed = true; return true; \};/);
   assert.match(js, /function layout\(\) \{\n {4}if \(!ui\) return;\n {4}if \(zoomHeld\(\)\) return;/);
   assert.match(js, /const reFit = \(\) => \{ if \(zoomHeld\(\)\) return; fitted\.forEach\(fitNow\); \};/);
