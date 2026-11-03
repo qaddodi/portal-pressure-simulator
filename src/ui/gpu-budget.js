@@ -29,7 +29,7 @@ const siteOf = () => {
 export const ENVELOPES = {
   phone: { mb: 320, screens: 8 },
   tablet: { mb: 512, screens: 8 },
-  desktop: { mb: 1024, screens: 10 },
+  desktop: { mb: 1536, screens: 10 },   // (3 Nov 2026: was 1024, a figure that was never measured; the 8 MP figure canvas and its layers read 1190–1330 MB on a Mac with nothing wrong)
 };
 export function deviceClass() {
   const s = globalThis.screen, short = s ? Math.min(s.width, s.height) : 1024;
