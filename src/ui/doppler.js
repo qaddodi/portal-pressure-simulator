@@ -6,10 +6,10 @@
 
 import { EDGES, dopplerK, stentSegments, stentSite, stentGate, stentCourse } from '../engine/topology.js?v=512e725aea';
 import { glWords, wordsRect } from './gl-words.js?v=a0e7624175';
-import { h, fmt, canvasSize, clamp, icon, cssVar, cssAlpha, swapText } from './util.js?v=65ddc3912c';
-import { FONT, textW } from './charts.js?v=4489a0ae08';
+import { h, fmt, canvasSize, clamp, icon, cssVar, cssAlpha, swapText } from './util.js?v=d327252833';
+import { FONT, textW } from './charts.js?v=c586872d3a';
 import { logAction, shownVel, store } from './store.js?v=a51981892d';
-import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=c8f47d17ca';
+import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=11b6523471';
 import { frameFor, noteDraw, paceMs, cancelFrame } from './frame.js?v=ca74a6f22a';
 import { windowIndexFor, scaleFor, fitScale } from './dopplerWindow.js?v=87d77987c4';
 import { velNormal, dopplerVel, judgeFlow } from './velNormal.js?v=ad0e95380d';
