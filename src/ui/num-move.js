@@ -65,7 +65,7 @@ export class Mover {
   }
 
   make(kf, add) {
-    const a = this.el.animate(kf, { duration: 2 * HALF, fill: 'both', easing: 'linear', composite: add ? 'add' : 'replace' });   // alloc-rare: see arm
+    const a = this.el.animate(kf, { duration: 2 * HALF, fill: 'both', easing: 'linear', composite: add ? 'add' : 'replace' });   // alloc-rare: see arm; motion-scale: own pace (paused, set by currentTime: it has no time of its own)
     a.pause();
     return a;
   }
