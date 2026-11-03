@@ -17,7 +17,7 @@
 //   cap.box(key) / cap.at(key)                  // its box (px) / where it is drawn now
 //   cap.paint()
 
-import { createTraceGL, fitPen } from './trace-gl.js?v=83c9b660df';
+import { createTraceGL, fitPen } from './trace-gl.js?v=787c5cdac5';
 import { finalFrameFor, easeNow } from './frame.js?v=ca74a6f22a';
 import { measure } from './glyph-measure.js?v=5be332e845';
 import { D_SURFACE, easeArrive } from './ease.js?v=7d7bfe9a62';

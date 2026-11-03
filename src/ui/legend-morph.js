@@ -10,8 +10,8 @@
 // All of it is opacity and translate/scale on the compositor, but the bar's colour, which is repainted by CSS for the
 // 420 ms (one small bar, once per switch). A key switched again before it has landed finishes at once, the bar carrying
 // its colour on from where it had got to. Reduce Motion keeps the plain fade out and in (swapFade).
-import { rgb2oklab, oklab2rgb } from './colormap.js?v=a30a491136';
-import { cssRGB, swapFade, hasBox } from './util.js?v=737f5fa51a';
+import { rgb2oklab, oklab2rgb } from './colormap.js?v=fde262f30e';
+import { cssRGB, swapFade, hasBox } from './util.js?v=feff31de51';
 import { D_SURFACE, EASE_MOVE } from './ease.js?v=7d7bfe9a62';
 
 export const MORPH_STOPS = 24;

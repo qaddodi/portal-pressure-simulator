@@ -12,12 +12,12 @@
 
 import { store, replaceParams, onParamChange } from './store.js?v=a51981892d';
 import { host } from './host.js?v=24f6deba49';
-import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp, putText, swapText } from './util.js?v=737f5fa51a';
-import { activeInterventions } from './inspector.js?v=76c8c2133f';
+import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp, putText, swapText } from './util.js?v=feff31de51';
+import { activeInterventions } from './inspector.js?v=f505720451';
 import { removedLabel } from './removed-label.js?v=ea3de67900';
 import { frameFor } from './frame.js?v=ca74a6f22a';
 import { D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js?v=7d7bfe9a62';
-import { createSvgGL, svgModel } from './svg-gl.js?v=d1be2294ce';
+import { createSvgGL, svgModel } from './svg-gl.js?v=cc8999dc3f';
 import { textPolys, textBox, loadGlyphs, glyphsReady } from './text-gl.js?v=7b87ad71e9';
 import { textSoon } from './class-soon.js?v=d59b314e61';
 import { restPass } from './rest-pass.js?v=b1da783ead';
