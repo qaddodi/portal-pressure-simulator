@@ -28,6 +28,8 @@ export const readBox = (el) => { if (el == null) return undefined; note(); retur
 export const readRects = (el) => { if (el == null) return undefined; note(); return el.getClientRects(); };
 export const readStyle = (el, pseudo) => { note(); return pseudo ? getComputedStyle(el, pseudo) : getComputedStyle(el); };
 export const readCTM = (el) => { if (el == null) return undefined; note(); return el.getScreenCTM?.() ?? null; };
+// (An SVG element's frame in its own svg's units (getCTM, not the screen's): the organs' paint undoes a parent's by it, which the camera never moves.)
+export const readLocalCTM = (el) => { if (el == null) return undefined; note(); return el.getCTM?.() ?? null; };
 // (offsetWidth, offsetHeight, offsetTop, offsetLeft, offsetParent, clientWidth, clientHeight, clientTop, clientLeft, scrollWidth,
 // scrollHeight, scrollTop, scrollLeft, innerWidth, innerHeight, innerText: one element's (or the window's) layout metric, by name.)
 export const readMetric = (el, k) => { if (el == null) return undefined; note(); return el[k]; };

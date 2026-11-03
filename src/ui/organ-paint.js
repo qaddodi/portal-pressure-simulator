@@ -16,6 +16,7 @@
 import { flattenPath, flattenCmds, ellipsePoly, polyBoxInto, polyMeshInto, prestartShapes } from './shape-gl.js';
 import { prestart, linkProgram } from './gl-compile.js';
 import { strHash } from './liver-geo.js';
+import { readStyle, readLocalCTM } from './layout-snap.js';
 import { getLive } from './live-style.js';
 // (The colour a clear writes, one array for every clear: none made per call, plan rev 2 §2.8.)
 const CLEAR0 = new Float32Array(4);
@@ -200,7 +201,7 @@ export const elMat = (el) => {
 const CL_B = [1, 0, 0, 1, 0, 0], CL_I = [1, 0, 0, 1, 0, 0], CL_A = [1, 0, 0, 1, 0, 0], CL_M = [1, 0, 0, 1, 0, 0];
 /** An element's own transform as the browser lays it (its frame (getCTM) undone by its parent's) written into `o`, or null where either is not known (o is then unchanged). */
 function cssLocalTo(o, el) {
-  const a = el.getCTM?.(), b = el.parentNode?.getCTM?.();
+  const a = readLocalCTM(el), b = readLocalCTM(el.parentNode);
   if (!a || !b) return null;
   CL_B[0] = b.a; CL_B[1] = b.b; CL_B[2] = b.c; CL_B[3] = b.d; CL_B[4] = b.e; CL_B[5] = b.f;
   CL_A[0] = a.a; CL_A[1] = a.b; CL_A[2] = a.c; CL_A[3] = a.d; CL_A[4] = a.e; CL_A[5] = a.f;
@@ -272,7 +273,7 @@ function readGradient(doc, id) {
   for (let i = 0; i < kids.length; i++) {
     const s = kids[i];
     if (s.localName !== 'stop') continue;
-    const cs = getComputedStyle(s), c = parseColor(cs.stopColor || cs.getPropertyValue('stop-color'));
+    const cs = readStyle(s), c = parseColor(cs.stopColor || cs.getPropertyValue('stop-color'));
     if (!c) return null;
     const o = Math.min(1, Math.max(last, num(s, 'offset', 0)));
     last = o;
@@ -454,7 +455,7 @@ function readRoot(c, root) {
   // from the chain at each paint (liveOf); what the page's styles give (read here, computed) stands until the group is read again.
   walk(c, root, ID, 1, null, 'visible', E.rch || (E.rch = []), list, 0);   // alloc-rare: a root's (empty) chain, the first time it is read
   if (!c.ok) return null;
-  const rcs = getComputedStyle(root);
+  const rcs = readStyle(root);
   const opacity = parseFloat(rcs.opacity) || 0;
   CS_O.set(root, opacity);
   let mask = null;
@@ -483,7 +484,7 @@ function walkEl(c, el, m, alpha, clip, vis, chain, out, a0) {
   const root = c.root, doc = c.doc;
   // (Definitions kept inside an organ's own art (the colon's and the bowel's clips) paint nothing where they are.)
   if (el !== root && DEFS_RE.test(el.localName)) return;
-  const cs = getComputedStyle(el);
+  const cs = readStyle(el);
   if (cs.display === 'none' && !(c.shown && el === root)) return;
   const E = rec(el);
   if (c.strict) {
