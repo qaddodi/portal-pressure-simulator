@@ -24,8 +24,7 @@ test('B02: a measure asked while the picture is up is kept (dirty), landed and m
 
 test('B07/B08: the card-copy hold (canvas copies, PICS_MAX, stale-value clones) is gone, so no clone can replace a card', () => {
   assert.doesNotMatch(throwJs, /PICS_MAX|cloneNode|glw-cv/);
-  assert.match(throwJs, /export function railHold\(\) \{\}/);
-  assert.match(throwJs, /export const railable = \(\) => false;/);
+  assert.doesNotMatch(throwJs, /railHold|railable/);
 });
 
 test('B09: a failed bitmap hand-over leaves the host visible, closes the bitmap and tells the owner (drawn false)', () => {

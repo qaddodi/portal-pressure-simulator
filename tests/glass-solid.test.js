@@ -26,7 +26,7 @@ test('every glass the GPU is not drawing is solid, never the GPU-drawn one', () 
 
 test('the teaching card\'s shade is on the cards\' GPU glass', () => {
   assert.doesNotMatch(pres, /SHADE_GL|shadegl/);
-  assert.match(pres, /find: \(\) => \[shade, data, vcase, bar, scl, fk, \.\.\.railGhosts\(\)\],/, 'and the copies riding out on the rail, card-throw.js');
+  assert.match(pres, /find: \(\) => \[shade, data, vcase, bar, scl, fk\],/, 'and no copies riding out: every card leaves on the tap, card-throw.js');
   assert.match(css, /:root:root \.pz-shade \{ will-change: transform; \}/);
 });
 
