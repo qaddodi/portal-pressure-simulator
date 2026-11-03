@@ -389,7 +389,8 @@ export function createHvpgMonitor() {
   function balloon(b) {
     if (b === bal) return;
     bal = b;
-    if (mode && !raf && el.isConnected) go();
+    // (V-CHART-5: drawn in the frame the figure moved the balloon in, not asked for the next one, so the step in the trace and the balloon land together.)
+    if (mode && el.isConnected) { const now = performance.now(); if (!raf) last = now; cancelFrame(raf); raf = 0; step(now); }
   }
   // (A new size redraws it; the animation loop paints while it runs.)
   new ResizeObserver(() => { if (!raf && mode) draw(); }).observe(cv);
