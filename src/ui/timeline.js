@@ -19,7 +19,7 @@ import { frameFor } from './frame.js';
 import { D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js';
 import { createSvgGL, svgModel, setPolys } from './svg-gl.js';
 import { textPolys, textBox, loadGlyphs, glyphsReady } from './text-gl.js';
-import { textSoon } from './class-soon.js';
+import { textSoon, attrSoon } from './class-soon.js';
 import { restPass } from './rest-pass.js';
 const nextFrame = frameFor('timeline');
 
@@ -372,9 +372,9 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
     render();
   }
   store.on('compareSnap', (s) => {
-    pinBtn.setAttribute('aria-pressed', s ? 'true' : 'false');
+    attrSoon(pinBtn, 'aria-pressed', s ? 'true' : 'false');   // (between frames: a compare can be asked from a model frame's change)
     swapText(pinBtn.querySelector('span'), s ? 'Stop' : 'Compare');   // (the word crossfades; it popped)
-    pinBtn.setAttribute('aria-label', s ? 'Stop comparing' : 'Compare from here');
+    attrSoon(pinBtn, 'aria-label', s ? 'Stop comparing' : 'Compare from here');
   });
   onParamChange(({ label, history }) => { if (history || pending) noteParamChange(label); });
 
