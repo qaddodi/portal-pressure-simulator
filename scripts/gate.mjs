@@ -1,11 +1,12 @@
 // The pre-push gate: every thread runs it before it pushes to the preview branch, and CI runs it on every push (gate.yml).
 //
-//   npm run gate                      the fast gate: static, boot, a sample of every deck's slides, the views, the rest frames
+//   npm run gate                      the pre-push gate (about six minutes on 4 cores): static, boot, five slides of each of eight decks, the views
+//   npm run gate -- --pixels --decks all   what CI runs: the same on all 28 decks, and the rest frames against tests/visual
 //   npm run gate -- --full            every slide of every deck (CI shards this), on every size
 //   node scripts/gate.mjs --only static,slides --decks hvpg,circuit --sizes desktop --jobs 4
 //   node scripts/gate.mjs --shard 2/6 --only slides --full           one share of the full slide sweep
 //
-// Stages (--only picks some; the default runs all but `pixels`' phone half, which --full adds):
+// Stages (--only picks some; the default is every stage but `pixels`, which --pixels or --full adds):
 //   static   no conflict marker in any file git tracks; the app and the engine worker bundle (a missing export, a missing file, a
 //            syntax error or an import that is always undefined fails: the MAY_ON boot break of 2 Nov)          ~1 s
 //   boot     the page starts with and without WebGL: no page error, no console error, no failed request, no boot error       ~30 s
@@ -38,7 +39,8 @@ const flag = (n) => argv.includes(`--${n}`);
 const opt = (n, d) => { const i = argv.indexOf(`--${n}`); return i >= 0 && argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[i + 1] : d; };
 const FULL = flag('full');
 const ALL = ['static', 'boot', 'slides', 'views', 'pixels'];
-const STAGES = opt('only', ALL.join(',')).split(',').filter(Boolean);
+// (pixels takes two more minutes and CI runs it on every push: a local run adds it with --pixels, --full has it)
+const STAGES = opt('only', (flag('pixels') || FULL ? ALL : ALL.filter((s) => s !== 'pixels')).join(',')).split(',').filter(Boolean);
 for (const s of STAGES) if (!ALL.includes(s)) { console.error(`unknown stage "${s}" (${ALL.join(', ')})`); process.exit(2); }
 const DIR = opt('dir', '.');
 const JOBS = Math.max(1, +opt('jobs', Math.min(4, cpus().length)));
@@ -95,13 +97,17 @@ async function stageBoot() {
 // ---- slides ---------------------------------------------------------------------------------------------------------------
 async function deckPlan() {
   const { DECKS, withOverview } = await import(new URL('../src/ui/decks.js', import.meta.url));
-  const only = opt('decks', '').split(',').filter(Boolean);
+  // The pre-push run judges eight decks that between them hold every kind of slide (a case card, an instrument and data card, a table, a plane,
+  // the ladders, the quadrant, the lobule dive, the Circuit view, an endoscopy): about two minutes. --decks all (CI) or --full takes all 28.
+  const REP = ['hvpg', 'ascites', 'sites', 'doppler', 'lobule', 'circuit', 'endoscopy', 'outflow'];
+  const given = opt('decks', '');
+  const only = given === 'all' || FULL ? [] : given ? given.split(',').filter(Boolean) : REP;
   const decks = DECKS.filter((d) => !only.length || only.includes(d.id)).map((d) => ({ id: d.id, slides: withOverview(d).slides }));
   // The fast gate visits the first three slides, the middle one and the last of every deck (Next from the one before where it
   // is adjacent, a jump otherwise); the full gate visits every slide.
   return decks.map((d) => {
     const n = d.slides.length;
-    const idx = FULL ? [...Array(n).keys()] : [...new Set([0, 1, 2, Math.floor(n / 2), n - 1].filter((i) => i < n))].sort((a, b) => a - b);
+    const idx = FULL ? [...Array(n).keys()] : [...new Set([0, 1, 2, Math.floor(n / 2), n - 1].filter((i) => i < n))].sort((a, b) => a - b);   // (first three, the middle, the last)
     return { ...d, idx };
   });
 }

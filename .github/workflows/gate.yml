@@ -4,7 +4,7 @@ name: Pre-push gate
 # requests into it, so a regression that got past a thread still shows up red within minutes, with the stage and the slide or view named.
 #   static   conflict markers in any tracked file; the app and the worker bundle (missing export, missing file, syntax error)
 #   boot     the page starts with and without WebGL, with no page error, console error or failed request
-#   slides   a sample of every deck's slides (first three, middle, last) stepped to their end state on a paused fake clock
+#   slides   five slides of every deck (first three, middle, last) stepped to their end state on a paused fake clock
 #   views    Anatomy / Circuit / Lobule switches stepped to their end; the diaphragm drawn; labels follow a pan and a zoom
 #   pixels   the six rest views against tests/visual (desktop)
 # The full sweep (every slide of every deck, desktop and phone) runs when the commit message contains [gate-full] or on dispatch, split over
@@ -38,7 +38,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-browser
       - name: Gate
-        run: node scripts/gate.mjs --jobs 3
+        run: node scripts/gate.mjs --pixels --decks all --jobs 3
       - uses: actions/upload-artifact@v4
         if: always()
         with:

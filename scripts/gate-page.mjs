@@ -37,8 +37,10 @@ export function slideFinal({ want, title, wantData, wantText }) {
   const words = document.querySelector('.pz-text');
   if (wantText && !(shown(words) && words.childElementCount && +getComputedStyle(words).opacity >= 0.98)) out.push('the words card is not shown');
   if (wantText && title && shown(words)) {
-    const t = title.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim().slice(0, 14).toLowerCase();
-    if (t && !words.innerText.replace(/\s+/g, ' ').toLowerCase().includes(t)) out.push(`the words card does not carry the slide's title ("${t}")`);
+    // (compared without spaces or line breaks: the title is set in pieces, and a hyphen or dash can end a line)
+    const flat = (x) => x.replace(/<[^>]*>/g, '').replace(/[\s\u00AD\u200B-\u200D\u2060]+/g, '').toLowerCase();
+    const t = flat(title).slice(0, 12);
+    if (t && !flat(words.textContent).includes(t)) out.push(`the words card does not carry the slide's title ("${title.replace(/<[^>]*>/g, '').slice(0, 24)}")`);
   }
   const data = document.querySelector('.pz-data');
   if (wantData && !(shown(data) && data.childElementCount && (+getComputedStyle(data).opacity >= 0.98 || data.classList.contains('pz-hide')))) out.push('the data card is missing');
