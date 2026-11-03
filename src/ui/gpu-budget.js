@@ -305,6 +305,8 @@ export function holdersNow() { return { evictions, releaseFails, unmetMB: +(unme
 
 /** True while the render graph is over its envelope: the last frames ran past the pass envelope, or the registry past memory's. */
 export function overBudget() { return overMem || overFrames >= 2; }
+/** True while the registry is over its memory envelope (the last look, twice a second): work that only prepares ahead waits. */
+export function overMemory() { return overMem; }
 
 /** The ?perf readout's lines. */
 export function budgetText() {

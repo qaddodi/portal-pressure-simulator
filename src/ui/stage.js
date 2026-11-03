@@ -2,7 +2,7 @@
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
 import { TIERS_ON, TIER_TOP, tierK, onTierWarm } from './adapt-tier.js';
-import { hold as gpuHold } from './gpu-budget.js';
+import { hold as gpuHold, overMemory as gpuOverMemory } from './gpu-budget.js';
 import { WARM_VIEWS, WARM_MS } from './warm-views.js';
 import { gastricUp } from '../engine/scenario.js';
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js';
@@ -3398,7 +3398,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const now = performance.now();
     if (prepBusy || !figureShown || now - prepAt < 1000) return;
     prepAt = now;
-    if (!prepCalm() || figureHidden()) return;
+    if (!prepCalm() || figureHidden() || gpuOverMemory()) return;   // (the lobule's preparation ahead keeps ~130 MB; over the memory envelope it is given back, and not made again until under)
     const q = lz.preparePieces();
     if (!q.length) return;
     prepBusy = true;
