@@ -56,7 +56,8 @@ import { easeMove, carryRate, carried, cubicBezier, D_SMALL, D_SURFACE } from '.
 import { surface } from './gpu-surfaces.js';
 import { caught } from './caught.js';
 import { createCaptionGL, composeView, inkRows, mirrorOf, rgbaOf as capRGBA } from './caption-gl.js';
-import { readStyle } from './layout-snap.js';
+import { readStyle, readBox as boxOf } from './layout-snap.js';
+import { hitLabel, explainText } from './label-explain.js';
 const nextFrame = frameFor('lobule-zoom');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -1331,6 +1332,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       else {
         if (L.b && L.b.textContent !== L.bv) L.b.textContent = L.bv;
         if (L.dEl && L.dEl.textContent !== L.dv) L.dEl.textContent = L.dv;
+        if (L.xEl && L.xEl.textContent !== L.xv) L.xEl.textContent = L.xv;
         if (L.uw != null) { const [a, ...rest] = L.uw.split(' · '); if (rest.length) { L.uEls[0].textContent = a; L.uEls[1].lastChild.textContent = rest.join(' · '); } else if (L.uw) L.uEls[0].textContent = L.uw; L.uw = null; }
       }
       L.ver = (L.ver | 0) + 1;   // (its content may have changed: labKey makes its key again)
@@ -1344,13 +1346,14 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   }
   // A label's parts, built between frames (pageRun) from what the frame asked for (L.spec): a frame builds no elements (2 Nov 2026).
   function labBuild(L) {
-    const { name, short, u, hasD } = L.spec, uw = L.uw ?? u;
+    const { name, short, u, hasD, hasX } = L.spec, uw = L.uw ?? u;
     L.spec = null; L.uw = null;
     L.b = L.empty ? null : h('b', {}, L.bv);
     L.dEl = hasD ? h('span', { class: 'd' }, L.dv) : null;
+    L.xEl = hasX ? h('span', { class: 'x' }, L.xv) : null;
     L.uEls = unitParts(uw);
     L.el.replaceChildren(...[h('span', { class: 'n' }, h('span', { class: 'n-long' }, name), h('span', { class: 'n-short' }, short)),
-      L.empty ? null : h('span', { class: 'v' }, L.b, ...L.uEls, L.dEl)].filter(Boolean));
+      L.empty ? null : h('span', { class: 'v' }, L.b, ...L.uEls, L.dEl), L.xEl].filter(Boolean));
   }
   // Every label and its leader are made with the view, hidden, in the order the panel names them (so their tab order is the panel's):
   // a frame that first names one finds it made.
@@ -1362,12 +1365,33 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     labels.append(L.el); leaders.append(L.line, L.dotEl);
   }
   for (const k of ['triad', 'sin', 'cv', 'lymph', 'ha', 'bd']) labMake(k);
+  // Tap a label to explain it (N4, label-explain.js): the tapped station's label takes one more line (what it is, and its reading), its lit term is the only
+  // one lit while it is explained (the page's own lit terms, .app[data-lit], as a slide's words set them), and a second tap, the next slide or the talk's end puts it back.
+  let exKey = null, exSaved = null, exSet = null;
+  const EX_NOTE = { triad: 'where portal blood enters', sin: 'where blood meets the liver cells', cv: 'collects the sinusoids, drains to the hepatic vein',
+    lymph: 'carries filtered fluid and protein away', ha: 'arterial blood, with oxygen', bd: 'carries bile out' };
+  function explainTip(key, name, v, u) {
+    const n = Number.parseFloat(v), note = EX_NOTE[key];
+    return explainText({ name: '', value: Number.isFinite(n) && !/[^\d.\-+−]/.test(v) ? n : NaN, unit: u || 'mmHg', note });
+  }
+  function explainSet(key, target = null) {
+    const app = appEl?.isConnected ? appEl : (appEl = document.querySelector('.app'));
+    if (key === exKey) return;
+    if (app) {
+      if (key) { if (exKey == null) exSaved = app.dataset.lit ?? null; exSet = target; app.dataset.lit = exSet; }
+      else { if (app.dataset.lit === exSet) { if (exSaved) app.dataset.lit = exSaved; else delete app.dataset.lit; } exSet = exSaved = null; }
+    }
+    exKey = key; sv.setExplain?.(key); layoutKey = '';
+    if (model) panel();
+    pageSoon();
+  }
   function setLab(key, name, short, v, u, d, col) {
     const L = labs[key];
     // (What it last showed, compared part by part: no text is made to find that nothing changed.)
-    const textSame = L.sN === name && L.sV === v && L.sU === u && L.sD === d;
+    const x = exKey === key ? explainTip(key, name, v, u) : '';   // (the tapped label's own line, label-explain.js)
+    const textSame = L.sN === name && L.sV === v && L.sU === u && L.sD === d && (L.sX ?? '') === x;
     if (textSame && L.sC === col) return;
-    L.sN = name; L.sV = v; L.sU = u; L.sD = d; L.sC = col;
+    L.sN = name; L.sV = v; L.sU = u; L.sD = d; L.sC = col; L.sX = x;
     // Only the number (or its change) moved: its text is updated in place, and the labels are laid out again
     // only when it takes more or fewer characters (the label is rebuilt only when its make-up changes). The same holds for
     // a figure inside the unit ('Protein 48%', which moves with the pulse): its numerals are tabular, so a new figure with
@@ -1376,18 +1400,19 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (col !== L.col) { L.col = col; L.swWant = col || 'var(--border-strong)'; swQ.add(L); pageSoon(); }   // (the page's variable is set between frames, pageRun)
     if (L.ukSrc !== u) { L.ukSrc = u; L.uk = u.replace(/\d/g, '0'); }
     const uk = L.uk, hasD = !!d, empty = v === '';
-    const same = L.fN === name && L.fS === short && L.fU === uk && L.fE === empty && L.fD === hasD;   // (the label's make-up, part by part)
+    const hasX = !!x, same = L.fN === name && L.fS === short && L.fU === uk && L.fE === empty && L.fD === hasD && !!L.fX === hasX;   // (the label's make-up, part by part)
     if (same && !L.empty) {
       if (v.length !== L.bv.length || (d && d.length !== L.dv.length)) { layoutKey = ''; L.relay = true; }
       // (Each part is written only when its own text changed: a new colour alone, or a new unit figure, leaves the number be.
       // Written between frames, pageRun.)
       if (L.bv !== v) { L.bv = v; writeLab(L); }
       if (d && L.dv !== d) { L.dv = d; writeLab(L); }
+      if (hasX && L.xv !== x) { L.xv = x; writeLab(L); }
       if (u !== L.u) { L.uw = u; writeLab(L); }
     } else {
-      L.fN = name; L.fS = short; L.fU = uk; L.fE = empty; L.fD = hasD;
-      L.lk = `${name}|${short}|${uk}|${empty}|${hasD}`;   // alloc-rare: only when the label's make-up changes (what the layout depends on; a value of new length clears layoutKey above)
-      L.spec = { name, short, u, hasD };   // alloc-rare: only when the label's make-up changes
+      L.fN = name; L.fS = short; L.fU = uk; L.fE = empty; L.fD = hasD; L.fX = hasX; L.xv = x;
+      L.lk = `${name}|${short}|${uk}|${empty}|${hasD}|${hasX}`;   // alloc-rare: only when the label's make-up changes (what the layout depends on; a value of new length clears layoutKey above)
+      L.spec = { name, short, u, hasD, hasX };   // alloc-rare: only when the label's make-up changes
       L.empty = empty;
       L.bv = v; L.dv = d || ''; L.uw = null;
       writeLab(L);
@@ -4780,6 +4805,25 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     sinZoom: () => sinZ,
     /** What the GPU's names drew in the last frame that landed ({ seq, gen, w, h, items }, caption-gl.js snapshot: CSS px from the names' canvas corner), for the browser checks. */
     captions: () => cap.snapshot(),
+    /** A tap at client (x, y) in a talk (N4, label-explain.js): explains the station label the GPU drew there, or ends it when it is the one explained. True when a label took the tap. */
+    explainAt(x, y) {
+      if (!model || !classHas(appEl ?? document.querySelector('.app'), 'presenting')) return false;
+      if (sv.isOpen()) {   // (the sinusoid's own names: sinusoid-view.js)
+        const hit = sv.explainHit(x, y);
+        if (!hit) return false;
+        explainSet(hit.key === exKey ? null : hit.key, hit.target);
+        return true;
+      }
+      const snap = cap.snapshot(), r = boxOf(labels);   // (the tap's own read: no frame is running)
+      for (const it of snap.items) { it.x += r.left; it.y += r.top; }
+      const hit = hitLabel(snap.items, x, y, 8, (k) => k.startsWith('lab:') && !!labs[k.slice(4)]);
+      if (!hit) return false;
+      const key = hit.key.slice(4);
+      explainSet(key === exKey ? null : key, LIT_OF[key]);
+      return true;
+    },
+    explainClear() { explainSet(null); },
+    explainKey: () => exKey,
     /** The sinusoid view's names, the same (its own names layer), for the browser checks. */
     sinusoidCaptions: () => sv.captions?.() ?? null,
     /** Where each shown leader ends, in the same px as captions() (the layer's view included), for the browser checks: [{ key, x, y (the name's end), px, py (the end on the figure's point) }]. */

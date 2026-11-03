@@ -38,6 +38,8 @@ import { FADE_MS, fadeAlpha } from './res-fade.js';
 import { cssColor8 } from './css-color.js';
 import { surface } from './gpu-surfaces.js';
 import { restPass, restClass, restAttr } from './rest-pass.js';
+import { hitLabel } from './label-explain.js';
+import { readBox as boxOf } from './layout-snap.js';
 const HEP_CELL = { j: 0, x0: 0, x1: 0, nu: 0, nv: 0, nr: 0, bi: false };   // alloc-rare: made once (the hepatocyte's cell, written in place by each layout)
 const nextFrame = frameFor('sinusoid-view');
 
@@ -64,6 +66,11 @@ export function createSinusoidView({ host, before = null }) {
   let sizedNew = false, onSized = null;
   const ZERO2 = [0, 0], NO_LINES = [];
   const szOf = (R) => (R ? cap.measure(R.key, R.lines || NO_LINES) : ZERO2);
+  // Tap a name to explain it (N4, label-explain.js): the tapped name takes one more line, what the part is. The page's lit term is set by the lobule view (lobule-zoom.js explainSet).
+  let exKey = null;
+  const SV_NOTE = { fen: 'pores: plasma passes to the space of Disse', disse: 'where plasma meets the liver cells', lymph: 'carries filtered fluid and protein away',
+    hep: 'liver cells: take up and process what plasma brings', hsc: 'stores vitamin A; lays down scar when activated', kup: 'resident macrophage of the sinusoid', sin: 'blood from the portal tract and the hepatic artery mixes here',
+    in: 'blood arrives from the portal venule', out: 'blood leaves to the central vein' };
   const SV_TARGET = { fen: 'fenestrae', hsc: 'stellate', kup: 'kupffer', hep: 'hepatocyte', sin: 'lumen', in: 'in', out: 'out' };
   // Page writes asked for inside a frame (a caption made, its words, the fenestrae's share) land between frames (rest-pass.js), in the
   // order asked, so a frame does no DOM work (2 Nov 2026, "Move everything to GPU"); its look is read after it is in.
@@ -91,13 +98,15 @@ export function createSinusoidView({ host, before = null }) {
     let R = regions[key];
     // (Its page model is made between frames, pageRun.)
     if (!R) { R = regions[key] = { key, cls: cls || `sv-region sv-region-${key}`, el: null, n: 0, name: null, value: null, text: null, off: null }; mountQ.push(R); pageSoon(); }   // alloc-rare: a caption is made once, the first time it is named
-    if (R.name !== name || R.value !== value) {
+    const ex = exKey === key ? SV_NOTE[key] || '' : '';   // (the tapped name's own line: label-explain.js)
+    if (R.name !== name || R.value !== value || (R.ex ?? '') !== ex) {
       // (Its words changed: a number moved, or a name was set. The strings are built then, never on a frame where they are the same.)
       const same = R.text && R.name === name && R.n === 1 + (value ? value.split(' · ').length : 0);   // alloc-rare: only when a caption's words changed
       R.name = name; R.value = value;
-      R.text = name + '|' + value;   // alloc-rare: only when a caption's words changed
+      R.text = name + '|' + value; R.ex = ex;   // alloc-rare: only when a caption's words changed
       const lines = value ? value.split(' · ') : [];   // alloc-rare: only when a caption's words changed
       R.lines = linesOf(name, key === 'fen' && same ? [fenTxt()] : lines);   // alloc-rare: only when a caption's words changed (the GPU's words change in this frame)
+      if (ex) R.lines = [...R.lines, [[ex, 'unit']]];   // alloc-rare: only while a name is explained
       if (same && key === 'fen') return R;   // (its value is kept by fenTick, which eases it: the page's caption is not rebuilt)
       capQ.set(R, [name, lines]);   // alloc-rare: only when a caption's words changed
       R.n = 1 + lines.length; pageSoon();   // (put in between frames, pageRun)
@@ -1262,6 +1271,14 @@ export function createSinusoidView({ host, before = null }) {
     el,
     /** What the GPU's names drew in the last frame that landed ({ seq, gen, w, h, items }, caption-gl.js snapshot: CSS px from the names' canvas corner), for the browser checks. */
     captions: () => cap.snapshot(),
+    /** A tap at client (x, y): the key of the explainable name the GPU drew there, or null (N4, label-explain.js). The tap's own read: no frame is running. */
+    explainHit(x, y) {
+      const snap = cap.snapshot(), r = boxOf(labels);
+      for (const it of snap.items) { it.x += r.left; it.y += r.top; }
+      const hit = hitLabel(snap.items, x, y, 8, (k) => !!SV_NOTE[k] && !!regions[k]);
+      return hit ? { key: hit.key, target: `sinusoid:${SV_TARGET[hit.key] || hit.key}` } : null;
+    },
+    setExplain(key) { exKey = key; },
     /** The glasses over the names (stage.js, glass-gl.js tellHoles): the names under them are left out. */
     setHoles: (list) => cap.holes(list),
     /** The canvas the cards' frosted glass is drawn into while the sinusoid is open and still (lobule-zoom.js glassHost), else null. */

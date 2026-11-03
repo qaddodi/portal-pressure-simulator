@@ -253,6 +253,8 @@ html.chip-open :is(.chip-btn, .lens-btn)[aria-expanded="true"] { background: var
    label's opacity after it ends, and the browser then starts no transition of it, so every later hide or show (lb-off, ld-gone) snapped
    off and on at once (2 Nov, "labels turn on and off randomly"). */
 #labels .lb { transition: opacity var(--d-small) var(--ease); animation: crossfade var(--d-small) var(--ease) backwards; }
+/* Tap a label to explain it (stage.js explainApply, label-explain.js): the others step back to 35 %, their leaders with them. Before .lb-off and .ld-gone, which stay at 0. */
+#labels .lb.spot-dim, .lb-leaders > .spot-dim { opacity: .35; }
 #labels .lb.lb-off { opacity: 0; pointer-events: none; }
 .lb-leaders > * { transition: opacity var(--d-small) var(--ease); animation: crossfade var(--d-small) var(--ease) backwards; }
 .lb-leaders > .ld-gone { opacity: 0; }
@@ -1721,6 +1723,7 @@ button.finding { cursor: pointer; }
 .lz-lab .n { font-size: 12px; font-weight: 500; color: var(--text-2); white-space: nowrap; }
 .lz-lab .v { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .lz-lab small { font-size: 12px; font-weight: 500; color: var(--text-3); }
+.lz-lab .x { font-size: 11px; font-weight: 500; color: var(--text-2); white-space: nowrap; }   /* (a tapped label's own line, label-explain.js) */
 .lz-lab[hidden] { display: none; }
 .lz-lab:focus-visible, .lz-lab.sel { border-color: var(--accent); outline: none; }   /* (as Anatomy: a hover changes the name's ink only; a focus or selection also takes the accent outline, .lb.node.sel.inline .lb-bg) */
 /* Zone names: no chip, just letters in the band, as the organs are named (small capitals on a soft halo). */

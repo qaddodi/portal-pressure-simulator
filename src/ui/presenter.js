@@ -2347,6 +2347,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (cut()) return;
     // Words out, and the marks: they belong to the slide that is leaving.
     markBase = null;
+    stage.explainClear?.();   // (a label explained by a tap goes with the slide: label-explain.js)
     store.set({ focus: null, stented: stentedKept(s), presentLabels: [], presentTerms: null, lobuleCallout: null, presentFp: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null);
     figureHooks('clear');   // (and what a deck visuals package put on the figure: slide-ext.js)
     // The slide's lens: the figure crossfades to its colours (stage.js) while the old words leave. A question, or a
@@ -5715,6 +5716,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // The figure is read-only here: no hover highlight or glow, no vessel popup, no pick, no actions menu, no text selection.
   // (Gated at the input layer, so the figure's own handlers never run. Pointer leaves are left alone, so a hover that was
   // lit as the deck started still clears. The bar's wake-on-move listens on the window, so a move over the figure wakes it here.)
+  // (One exception, N4: a tap on a station's label explains it, or ends the explaining (label-explain.js); the stage judges it against what the GPU drew.
+  // Before the swallowing below, so it sees the click; a drag or a swipe sends no click.)
+  wrap.addEventListener('click', (e) => { if (offFig(e) && !leaving && stage.explainAt?.(e.clientX, e.clientY)) e.preventDefault(); }, { capture: true });
   for (const t of ['pointerdown', 'mousedown', 'mouseup', 'pointerup', 'click', 'dblclick', 'wheel', 'gesturestart',
     'pointermove', 'pointerover', 'pointerout', 'mousemove', 'mouseover', 'mouseout', 'contextmenu', 'selectstart', 'dragstart'])
     wrap.addEventListener(t, (e) => {

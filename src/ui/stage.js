@@ -57,6 +57,7 @@ import { setLive, getLive, dropLive } from './live-style.js';
 import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js';
 import { pathCmds, flattenPath, flattenPathInto, newFlat, newCmds, cmdsReset, cmdM, cmdL, cmdQ, cmdZ, polyBoxInto, measurePath, elBoxInto, chainMat } from './shape-gl.js';
 import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js';
+import { hitLabel, explainText, createExplain } from './label-explain.js';
 import { nameSpots, NAME_BREAK } from './organ-names.js';
 import { createLabelGL } from './label-gl.js';
 import { createGlassGL } from './glass-gl.js';
@@ -10639,6 +10640,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lineW = (line) => { let w = 0; for (let i = 0; i < line.length; i++) { const r = line[i]; w = w + textW(r.t, fontPx(r.size), r.weight, r.track || 0) + (i ? (r.gap ?? 3) * labelK : 0); } return w; };
 
   const pool = new Map(); // key → { g, sig, … }
+  // Tap a label to explain it (N4, label-explain.js): the tapped station's label grows a line of its own (name and live value, drawn by the GPU with
+  // it, so it rides with it), the rest of the labels and their leaders step back to 35 % (.spot-dim, app.css). explainApply sets the classes.
+  const explain = createExplain(() => explainChanged());
   // A label that is hidden (off the screen, behind a card, colliding, fading out) is neither a keyboard stop nor read aloud: it keeps only its look
   // until it is wanted again. (One with focus on it keeps its place until focus moves.)
   function labelStop(b, hid) {
@@ -10667,6 +10671,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     late('label', g);
     b = { g, sig: '', seen: 0 };
     pool.set(key, b);
+    if (explain.key) g.classList.add(explain.state(key) === 'on' ? 'spot-on' : 'spot-dim');   // (a label that comes in while one is explained steps back too)
     return b;
   }
   let frameNo = 0;
@@ -10755,6 +10760,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (A new one goes in just before the next one wanted that is already in, so every line still lies under every dot.)
     late('lead', els);
     dprDots();
+    if (explain.key) explainLeaders();
     for (const [k, el] of leadEls) {
       if (keep.has(k) || el._gone) continue;
       if (reduceMotion.matches) { el.remove(); leadEls.delete(k); continue; }
@@ -11151,9 +11157,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (rev) pr.push({ t: '⟲', size: 12, weight: 650, cls: 'lb-rev', gap: 5 });
     if (pr && one) lines[0].push(...pr.map((r, i) => (i ? r : { ...r, gap: 4 })));
     else if (pr) lines.push(pr);
+    // The explained label (tap, label-explain.js) carries its structure's name and live readings as one more line of its own picture.
+    const exp = explain.key === 'n:' + id && mode !== 'atlas';
+    if (exp) lines.push([{ t: explainText({ name: (meta?.name || NODES[NI[id]].label) !== name ? meta?.name || NODES[NI[id]].label : '', what: 'mean', value: Number.isFinite(P) ? P : NaN, flow: throughput(f.Qf || f.Q, id) }), size: 10.5, weight: 500, cls: 'lb-explain' }]);
     const w = Math.max(...lines.map(lineW)) + (mode === 'atlas' ? 7 : 0);
     const hh = lines.reduce((a, l) => a + LINE_H(l), 0);
-    return { key: 'n:' + id, src: ['node', id, mode, compact], node: id, cls: 'node ' + mode + (one ? ' bare' : ''), lines, w, h: hh, sel, canShort: !!pr && mode !== 'atlas', label: `${NODES[NI[id]].label}${lr ? `: ${lr.runs.filter((r) => r.cls !== 'lb-rev').map((r) => r.t).join(' ')}` : pr ? `: ${fmt(P, 1)} millimeters of mercury` : ''}${rev ? ', flow reversed' : ''}`,
+    return { key: 'n:' + id, src: ['node', id, mode, compact], node: id, cls: 'node ' + mode + (one ? ' bare' : ''), lines, w, h: hh, sel, canShort: !!pr && mode !== 'atlas' && !exp, label: `${NODES[NI[id]].label}${lr ? `: ${lr.runs.filter((r) => r.cls !== 'lb-rev').map((r) => r.t).join(' ')}` : pr ? `: ${fmt(P, 1)} millimeters of mercury` : ''}${rev ? ', flow reversed' : ''}`,
       swatch: mode === 'atlas' && pr ? (lr ? lr.color : layerMode() === 'heat' ? heatColor(P - (REF()?.[NI[id]] ?? P)) : pressureColor(P)) : null, bg: mode === 'inline' && !one, padX: mode === 'inline' && !one ? 6 : 3, padY: mode === 'inline' && !one ? 3 : 2 };
   }
 
@@ -11501,7 +11510,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function rideKeyInto(k, st) {
     k[0] = st.selection?.type; k[1] = st.selection?.id; k[2] = st.layers.labels; k[3] = st.layers.chips; k[4] = layerMode(); k[5] = st.focus?.label;
     k[6] = st.focus?.edges?.[0]; k[7] = st.focus?.marks; k[8] = st.labelLevel; k[9] = scan.on; k[10] = dop.key; k[11] = fxSig; k[12] = fx; k[13] = st.presenting;
-    k[14] = st.presentLabels; k[15] = st.presentTerms; k[16] = st.presentNames; k[17] = st.hiddenLabels; k[18] = labelBase(); k[19] = projecting;
+    k[14] = st.presentLabels; k[15] = st.presentTerms; k[16] = st.presentNames; k[17] = st.hiddenLabels; k[18] = labelBase(); k[19] = projecting; k[20] = explain.key;
     return k;
   }
   const rideKeyHeld = (st) => sameDeps(rideKeyA, rideKeyInto(rideKeyB, st));
@@ -11602,7 +11611,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     sigStats.builds++;
     const edges = EV.filter((x) => x.vis).map((x) => `${x.e.id}${sigWidth(x)}${x.ghost ? 'g' : ''}`).join(',');
     return (sigText = [labelGeo, t >= 0.5, rotU > 0.5, labelBase(), stageBox().width < 700, st.selection?.type + ':' + st.selection?.id, paramJSON((f.viewParams || st.params).stenosis), paramJSON((f.viewParams || st.params).stenosisSite),
-      isImaging(), st.layers.labels, st.layers.chips, layerMode(), st.focus?.label, st.focus?.edges?.[0], st.focus?.marks && paramJSON(st.focus.marks), fxSig, fx?.steps && slideGlow.map((g) => g.id + g.at).join(), (fx?.organs.some((o) => o.organ === 'spleen') || fx?.calipers.some((c) => c.organ)) && Math.round((f.slow?.spleen ?? 11) * 2), d[7], st.labelLevel, st.presenting && st.presentLabels?.join(','), st.presenting && paramJSON(st.presentTerms || null), st.presenting && st.presentNames, scan.on, [...(st.hiddenLabels || [])].join(','), d[8], flagged(f, flagSigBuf).join(','), edges, `${tips}${dips}`, dop.key].join('|'));
+      isImaging(), st.layers.labels, st.layers.chips, layerMode(), st.focus?.label, st.focus?.edges?.[0], st.focus?.marks && paramJSON(st.focus.marks), fxSig, fx?.steps && slideGlow.map((g) => g.id + g.at).join(), (fx?.organs.some((o) => o.organ === 'spleen') || fx?.calipers.some((c) => c.organ)) && Math.round((f.slow?.spleen ?? 11) * 2), d[7], st.labelLevel, st.presenting && st.presentLabels?.join(','), st.presenting && paramJSON(st.presentTerms || null), st.presenting && st.presentNames, explain.key, scan.on, [...(st.hiddenLabels || [])].join(','), d[8], flagged(f, flagSigBuf).join(','), edges, `${tips}${dips}`, dop.key].join('|'));
   }
   const sigStats = { builds: 0 };
   // (A vessel's label width moved by its 2 px step, outside a model frame: the width's own ease, stepWidths. See sigWidth.)
@@ -14396,6 +14405,48 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (A talk that opens, a tool that is picked and a shunt that starts take the link back; setHover brings the vessel's own lift and let-go.)
   if (HOVER_LINK) { store.on('presenting', linkApply); store.on('tool', linkApply); MQ[3].addEventListener?.('change', linkApply); }
 
+  // ── Tap a label to explain it (N4, V-LIT-7; label-explain.js) ──
+  // A tap in a talk is judged against what the GPU last drew (the labels' snapshot), never the page's boxes. The explained label's station lights as
+  // a hovered one does (setHover), its label takes a line with the name and live readings (nodeItem), and the others step back (.spot-dim).
+  // A second tap on it, the next slide, or the talk's end clears it.
+  let explainEdge = null;
+  function explainApply() {
+    const key = explain.key, t = key ? labelTarget(key) : null;
+    const edge = t?.edge && E[t.edge] ? t.edge : null;
+    if (edge !== explainEdge) { if (edge) setHover(edge, t.also.length ? t.also : null); else if (explainEdge && hoverId === explainEdge) setHover(null); explainEdge = edge; }
+    for (const [k, b] of pool) {
+      const sv = explain.state(k);
+      b.g.classList.toggle('spot-on', sv === 'on'); b.g.classList.toggle('spot-dim', sv === 'dim');
+    }
+    explainLeaders();
+  }
+  // (The leaders and dots: the explained label's own keep their ink, every other steps back. Run again whenever the leaders are painted.)
+  function explainLeaders() {
+    const key = explain.key;
+    for (const el of gLeaders.children) {
+      const k = el.getAttribute('data-k'), on = key && k === key, dim = !!key && !on;
+      if (el.classList.contains('spot-dim') !== dim) el.classList.toggle('spot-dim', dim);
+      if (el.classList.contains('spot-on') !== !!on) el.classList.toggle('spot-on', !!on);
+    }
+  }
+  function explainChanged() {
+    explainApply();
+    nextFrame(() => { if (F) updateLabels(F, true); });   // (the label's new line, laid out in the next frame)
+  }
+  store.on('presenting', () => { if (!store.get().presenting) { explain.clear(); lz?.explainClear?.(); } });
+  /** A tap at client (x, y): explains the station label under it, or clears when it is the one explained. True when a label took the tap. */
+  function explainAt(x, y) {
+    if (!store.get().presenting) return false;
+    if (lobuleOn || lz?.isOpen()) return !!lz?.explainAt?.(x, y);
+    const r = stageBox(), items = labelGL?.drawnLabels?.();   // (each label's last drawn picture, whatever frame drew it: a tap lands between frames)
+    if (!items) return false;
+    for (const it of items) { it.x += r.left; it.y += r.top; }
+    const hit = hitLabel(items, x, y, 8, (k) => k.startsWith('n:') && labelTarget(k) != null);
+    if (!hit) return false;
+    explain.tap(hit.key);
+    return true;
+  }
+
   // ── Gestures: wheel, trackpad, mouse and touch ──
   // A mouse wheel zooms about the pointer. A trackpad's two-finger scroll pans and its pinch (a
   // wheel event with ctrlKey) zooms, as in maps and drawing apps; Ctrl/⌘ + wheel always zooms.
@@ -15295,6 +15346,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     labelVessels: () => { buildSegs(); refreshCTM(); return { left: wrapRect.left, top: wrapRect.top, segs: segs.map((q) => [q.x0, q.y0, q.x1, q.y1, q.hw, q.id]) }; },
     labelDrawn: () => labelGL?.boxes ?? null,   // (what the GPU labels' last picture drew, as boxes in px from their canvas's corner: the browser check of the labels' lag)
     labelDrawnBy: () => { const r = stageBox(), o = labelGL?.drawnLabels?.() ?? []; for (const d of o) { d.x += r.left; d.y += r.top; } return o; },   // (each GPU label's last picture, keyed, client px: the browser check's lag test)
+    explainAt, explainClear: () => { explain.clear(); lz?.explainClear?.(); }, explainKey: () => explain.key || lz?.explainKey?.() || null,   // (tap a label to explain it: label-explain.js)
     labelSnapshot: () => { const r = stageBox(), o = labelGL?.snapshot?.() ?? { seq: 0, gen: 0, items: [] }; for (const d of o.items) { d.x += r.left; d.y += r.top; if (d.pin) { d.px += r.left; d.py += r.top; } } for (const m of o.marks || []) { m.x0 += r.left; m.y0 += r.top; m.x1 += r.left; m.y1 += r.top; } return o; },   // (the same, as { seq, gen, items } in page px: what the browser checks read, never SVG boxes)
     lobuleSpot: () => lz?.spot() ?? null, lobuleLensFade: () => lz?.lensFade() ?? null, lobuleMem: (detail) => lz?.memBytes(detail) ?? 0, diveProgress: () => diveT, plateRasters: () => plateSeq,
     // (What the station labels' boxes follow: their layouts and the camera. The corner credit's poll looks again only when it changed.)
