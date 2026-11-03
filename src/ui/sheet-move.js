@@ -5,9 +5,11 @@
 // the sheet's paper and shadow: each rides `translate` only, all on the same value, so the card is one piece. Over the thumb dock
 // the sheet's still clip (app.css, its cut at the resting foot) hides what slides below the tab row's top line; sideways it slides
 // past the screen's edge. A pull, a settle, a sink out and a refit are all this one offset: no height, top or clip animates, and
-// the compositor carries the eases (WAAPI on translate).
+// the frames carry the eases (script-glide.js: the content's inline translate written in the frame the glass reads it in, 3 Nov 2026 "cards
+// trailing behind": a compositor animation can stand a display frame off the glass drawn over the same sheet).
 import { D_SMALL, EASE_ARRIVE, cssCurve } from './ease.js';
 import { moverOf } from './num-move.js';
+import { glideTranslate, glideStop, glideY } from './script-glide.js';
 
 /** The sheet's moving parts (its plate first, put in once). */
 export function sheetParts(el) {
@@ -21,18 +23,14 @@ export function sheetParts(el) {
   return [...el.children];
 }
 
-const runs = new WeakMap();
+const runs = new WeakMap();   // sheet -> { parts: its moving children, to: where the ease goes }
 export { cssCurve as curveOf };
-/** Where the content is drawn now, px down from its place in the box (the eased value mid-way, read from the running ease). */
+/** Where the content is drawn now, px down from its place in the box (the eased value mid-way, as the frames last wrote it). */
 export function sheetOffset(el) {
   const r = runs.get(el);
   if (r) {
-    // (2 Nov 2026: worked out from the run's own clock and curve, not getComputedTiming, which brought the page's styles up to date
-    // in the finger's move.)
-    const ms = r.anims[0]?.currentTime;
-    if (typeof ms !== 'number' || !(r.duration > 0)) return r.to;
-    const k = Math.max(0, Math.min(1, ms / r.duration));
-    return k >= 1 ? r.to : r.from + (r.to - r.from) * r.ease(k);
+    const y = glideY(r.parts[0]);
+    return y === y ? y : r.to;
   }
   return el._sheetOff || 0;
 }
@@ -78,8 +76,8 @@ export function stopSheet(el) {
   dropDrag(el);
   const r = runs.get(el);
   if (!r) return;
-  runs.delete(el);
-  for (const a of r.anims) a.cancel();
+  runs.delete(el); clearTimeout(r.timer);
+  for (const c of r.parts) glideStop(c);
 }
 
 /** Eases the content from where it is drawn to y px down, on `easing` (a finger's carry curve, or the arrival), then calls done. */
@@ -89,14 +87,13 @@ export function glideSheet(el, y, { easing = EASE_ARRIVE, duration = D_SMALL, do
   const parts = [...el.children];   // (the plate first, put in as the sheet was set up: sheetParts)
   el._sheetOff = y;
   const v = y ? `0px ${y}px` : '';
-  for (const c of parts) c.style.translate = v;
-  if (Math.abs(from - y) < 0.5 || typeof parts[0].animate !== 'function') { done?.(); return; }
-  const anims = parts.map((c) => c.animate([{ translate: `0px ${from}px` }, { translate: `0px ${y}px` }], { duration, easing }));
-  const r = { anims, from, to: y, duration, ease: cssCurve(easing) };
+  if (Math.abs(from - y) < 0.5) { for (const c of parts) c.style.translate = v; done?.(); return; }
+  const ease = cssCurve(easing);
+  // alloc-rare: a sheet's ease begins: one record and its end, once for each move, not for each frame
+  const r = { parts, to: y, timer: 0 };
   runs.set(el, r);
-  let over = false;
-  const finish = () => { if (over) return; over = true; if (runs.get(el) === r) runs.delete(el); done?.(); };
-  anims[0].onfinish = finish;
-  // (A page whose frames stall, in the background or a busy browser, still lands on time.)
-  setTimeout(() => { if (runs.get(el) === r) { stopSheet(el); finish(); } }, duration + 120);
+  // (Put where it lands, in the exact text the stylesheet and a pull expect; every part's glide ended first, so none writes after.)
+  const end = () => { if (runs.get(el) !== r) return; runs.delete(el); clearTimeout(r.timer); for (const c of parts) { glideStop(c); c.style.translate = v; } done?.(); };
+  for (let i = 0; i < parts.length; i++) glideTranslate(parts[i], 0, from, 0, y, duration, ease, i ? undefined : end);
+  r.timer = setTimeout(end, duration + 120);   // (a page whose frames stall, in the background or a busy browser, still lands on time)
 }

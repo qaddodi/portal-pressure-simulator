@@ -56,3 +56,31 @@ test('an opacity glide resolves at its target, and a stopped one keeps what it w
   assert.equal(b.style.translate, was);
   assert.ok(!sg.glideRunning(b));
 });
+
+test('a called glide writes in each frame from 0 to exactly 1, takes no frame after, and a stop ends it', () => {
+  const el = mk(), seen = [];
+  let done = 0;
+  sg.glideCall(el, 64, (u) => u, (e) => seen.push(e), () => { done++; });
+  assert.deepEqual(seen, [0], 'written at once, at its start');
+  for (let i = 0; i < 12; i++) tick(8);
+  assert.equal(seen[seen.length - 1], 1);
+  assert.equal(seen.filter((e) => e === 1).length, 1, 'its last frame once');
+  assert.ok(seen.every((e, i) => !i || e >= seen[i - 1]));
+  assert.equal(done, 1);
+  assert.equal(q.length, 0, 'no frame is asked for after it');
+  const n = seen.length;
+  sg.glideCall(el, 64, (u) => u, (e) => seen.push(e));
+  tick(8); sg.glideStop(el); const m = seen.length; tick(8); tick(8);
+  assert.equal(seen.length, m, 'a stopped glide writes nothing more');
+  assert.ok(m > n);
+});
+
+import { readFileSync } from 'node:fs';
+test('the instrument card\'s height fit is written by the frames, not a compositor animation', () => {
+  const src = readFileSync(new URL('../src/ui/dock.js', import.meta.url), 'utf8');
+  const fit = src.slice(src.indexOf('function setFit('), src.indexOf('const reduceFit'));
+  assert.match(fit, /glideCall\(workspace, D_SMALL, easeArrive, write\)/);
+  assert.doesNotMatch(fit, /\.animate\(/);
+  const sheet = readFileSync(new URL('../src/ui/sheet-move.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(sheet, /\.animate\(/, 'a sheet\'s ease is the frames\'');
+});

@@ -8,13 +8,14 @@
 //
 //   glideTranslate(el, x0, y0, x1, y1, ms, ease, done)   el.style.translate from (x0, y0) px to (x1, y1) px; at the end it stands at (x1, y1)
 //   glideOpacity(el, o0, o1, ms, ease)                   el.style.opacity from o0 to o1; resolves when it is there
+//   glideCall(el, ms, ease, write, done)                 write(e) each frame with the eased progress 0..1 (the caller writes what it likes, in the frame); e is exactly 1 in the last
 //   glideStop(el)                                        ends what glides on el where it stands (its inline values kept)
 // A second glide on the same property of an element takes over from where the first stands, never from a jump.
 
 import { frameFor, cancelFrame, easeNow } from './frame.js';
 
 const nextFrame = frameFor('script-glide');
-const runs = new Map();   // element → { t: its translate run | null, o: its opacity run | null }
+const runs = new Map();   // element → { t: its translate run | null, o: its opacity run | null, c: its called run | null }
 let ask = 0;
 
 const OPACITY = new Array(1001);
@@ -38,11 +39,17 @@ function step() {
       el.style.opacity = opacityText(o.v);
       if (u >= 1) { r.o = null; o.res(); }
     }
-    if (!r.t && !r.o) runs.delete(el);
+    const c = r.c;
+    if (c) {
+      const u = c.ms > 0 ? Math.min(1, Math.max(0, (now - c.t0) / c.ms)) : 1;
+      c.write(u >= 1 ? 1 : c.ease(u));
+      if (u >= 1) { r.c = null; c.done?.(); }
+    }
+    if (!r.t && !r.o && !r.c) runs.delete(el);
   }
   if (runs.size) ask = nextFrame(step);
 }
-const runOf = (el) => { let r = runs.get(el); if (!r) runs.set(el, (r = { t: null, o: null })); return r; };   // alloc-rare: a card's first glide
+const runOf = (el) => { let r = runs.get(el); if (!r) runs.set(el, (r = { t: null, o: null, c: null })); return r; };   // alloc-rare: a card's first glide
 const go = () => { if (!ask) ask = nextFrame(step); };
 
 export function glideTranslate(el, x0, y0, x1, y1, ms, ease, done) {
@@ -59,13 +66,24 @@ export function glideOpacity(el, o0, o1, ms, ease) {
   return new Promise((res) => { r.o = { v0: o0, v1: o1, v: o0, ms, ease, t0: easeNow(), res }; el.style.opacity = opacityText(o0); go(); });   // alloc-rare: one record and promise a fade, not a frame
 }
 
+/** Where el's translate glide has it now, px down (NaN when none is under way): the value last written, no style read. */
+export const glideY = (el) => runs.get(el)?.t?.y ?? NaN;
+
+/** Calls write(e) in each frame for ms, e the eased progress (1 exactly in the last), then done: for a move that is more than a translate or an opacity (a scale). */
+export function glideCall(el, ms, ease, write, done) {
+  const r = runOf(el);
+  r.c = { ms, ease, write, done, t0: easeNow() };   // alloc-rare: one record a glide, not a frame
+  write(0);
+  go();
+}
+
 /** Whether a translate glide is under way on el. */
 export const glideRunning = (el) => !!runs.get(el)?.t;
 
 export function glideStop(el) {
   const r = runs.get(el);
   if (!r) return;
-  r.t = null; r.o?.res(); r.o = null;
+  r.t = null; r.c = null; r.o?.res(); r.o = null;
   runs.delete(el);
   if (!runs.size && ask) { cancelFrame(ask); ask = 0; }
 }

@@ -13,6 +13,7 @@ import { ownsSideways, pageGo } from './swipe.js';
 import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js';
 import { createReadoutsPane } from './readouts-pane.js';
 import { frameFor } from './frame.js';
+import { glideCall, glideStop } from './script-glide.js';
 import { glWords } from './gl-words.js';
 import { restPass } from './rest-pass.js';
 import { dropFrontNums } from './drop-front.js';
@@ -756,27 +757,38 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     }
     setFit(h0, Math.round(Math.min(full, Math.max(140, need))));
   }
-  // The card takes its new height at once, and its free edge glides there from where it stood, on the compositor: the card scaled from
-  // its anchored edge (the foot over the figure, the top on the side), each part inside scaled back by as much about that edge, so the
-  // words and charts keep their size and place. The scales are worked out on the arrival curve frame by frame, so the inverse is exact.
+  // The card takes its new height at once, and its free edge glides there from where it stood: the card scaled from its anchored edge (the foot
+  // over the figure, the top on the side), each part inside scaled back by as much about that edge, so the words and charts keep their size and
+  // place. The scales are worked out on the arrival curve and written by the frames (script-glide.js glideCall), in the frame the glass over the
+  // card reads them in (3 Nov 2026, cards trailing: a compositor animation can stand a display frame off it), so the inverse is exact.
   // (Was a CSS height transition: the card and everything in it laid out again in every frame of the ease.)
-  let fitAnims = [];
+  let fitKids = [];
   function setFit(h0, h1) {
     if (workspace.style.getPropertyValue('--fit-h') === `${h1}px`) return;
-    for (const a of fitAnims) a.cancel();
-    fitAnims = [];
+    glideStop(workspace);
+    workspace.style.transform = '';
+    for (const c of fitKids) c.style.transform = '';
+    fitKids = [];
     workspace.style.setProperty('--fit-h', `${h1}px`);
-    if (!(h0 > 0) || Math.abs(h1 - h0) < 1 || reduceFit.matches || typeof workspace.animate !== 'function') return;
-    const top = isSide(), N = 16, card = [], back = [];
-    for (let i = 0; i <= N; i++) { const k = (h0 + (h1 - h0) * easeArrive(i / N)) / h1; card.push({ transform: `scaleY(${k.toFixed(5)})` }); back.push({ transform: `scaleY(${(1 / k).toFixed(5)})` }); }
-    const opt = { duration: D_SMALL };   // (linear between the frames: the curve is in them)
+    if (!(h0 > 0) || Math.abs(h1 - h0) < 1 || reduceFit.matches) return;
+    const top = isSide();
     workspace.style.transformOrigin = top ? '50% 0' : '50% 100%';
-    fitAnims.push(workspace.animate(card, opt));
+    // alloc-rare: a fit begins (the card's height changed): the parts' list and the frame's writer, once for each fit
+    const kids = [];
     for (const c of workspace.children) {
       if (c.classList.contains('sheet-plate') || c.hidden) continue;
       c.style.transformOrigin = `50% ${top ? -readMetric(c, 'offsetTop') : h1 - readMetric(c, 'offsetTop')}px`;
-      fitAnims.push(c.animate(back, opt));
+      kids.push(c);
     }
+    fitKids = kids;
+    const write = (e) => {
+      if (e >= 1) { workspace.style.transform = ''; for (const c of kids) c.style.transform = ''; return; }
+      const k = (h0 + (h1 - h0) * e) / h1;
+      workspace.style.transform = `scaleY(${k.toFixed(5)})`;
+      const back = `scaleY(${(1 / k).toFixed(5)})`;
+      for (const c of kids) c.style.transform = back;
+    };
+    glideCall(workspace, D_SMALL, easeArrive, write);
   }
   const reduceFit = matchMedia('(prefers-reduced-motion: reduce)');
   const fitWatch = new ResizeObserver(() => fitHeight());
