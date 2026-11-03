@@ -10421,14 +10421,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (!b) continue;
       if (it.hide || it.live || it.fixedLead || it.key === 'scan') { b.gl = null; b.at = null; continue; }
       const rel = Number.isFinite(it.ax) && Number.isFinite(it.ay) && it.cls !== 'organ' && it.cls !== 'lane';
-      const ox = rel ? it.ax : 0, oy = rel ? it.ay : 0, tx = it.x - ox, ty = it.y - oy;
+      // (The edge's pull (it.px, it.py) is the screen's, not the slot's: a label held against the edge keeps still while the figure pans past it. Easing
+      // its offset from the station would carry it with the figure and ease it back, one camera step behind, every frame: 3 Nov 2026.)
+      const px = it.px || 0, py = it.py || 0, ox = rel ? it.ax : 0, oy = rel ? it.ay : 0, tx = it.x - px - ox, ty = it.y - py - oy;
       if (!b.at || snap || b.rot !== !!it.rot || b.rel !== rel || (!rel && !still)) b.gl = null;
       else {
         let g = b.gl;
         const [px, py] = g ? [g.tx, g.ty] : b.at;
         if (Math.hypot(tx - px, ty - py) > 0.5) { const [sx, sy] = g ? glideAt(g, now) : b.at; g = b.gl = { fx: sx, fy: sy, tx, ty, t0: now }; }
         if (g && now - g.t0 >= LABEL_GLIDE_MS) b.gl = g = null;
-        if (g) { g.tx = tx; g.ty = ty; const [sx, sy] = glideAt(g, now); it.x = ox + sx; it.y = oy + sy; moving = true; }
+        if (g) { g.tx = tx; g.ty = ty; const [sx, sy] = glideAt(g, now); it.x = ox + sx + px; it.y = oy + sy + py; moving = true; }
       }
       b.at = [tx, ty]; b.rel = rel; b.rot = !!it.rot;
     }
@@ -12392,6 +12394,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (A Circuit reading that the pull below would set on a station's ring, its own included, where its halo would hide the ring,
     // slides the least it needs instead, any way within 120 px: into the free space, onto no other reading as they will stand, its
     // leader through none of them and none of theirs through it. Failing that it is pulled in as before.)
+    const ringPull = new Map();   // (what the ring pass below slid a reading by: part of the screen's edge pull, not of its slot)
     if (circuit && ringXY.length) {
       const ns = out.filter((o) => o.key.startsWith('n:') && !o.live && o.ax >= -8 && o.ax <= W + 8 && o.ay >= -8 && o.ay <= H + 8);
       const pull = new Map(ns.map((o) => { const e = rectOf(o), V = viewOf(o); return [o, [Math.max(V.x0 - e.x0, Math.min(0, V.x1 - e.x1)), Math.max(V.y0 - e.y0, Math.min(0, V.y1 - e.y1))]]; }));
@@ -12409,11 +12412,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           return !others.some((o) => segHitsBox(sg, o, 2));
         });
         if (!step) continue;
-        it.x += cx + step[0]; it.y += cy + step[1]; it.leader = true; pull.set(it, [0, 0]);
+        it.x += cx + step[0]; it.y += cy + step[1]; it.leader = true; pull.set(it, [0, 0]); ringPull.set(it, [cx + step[0], cy + step[1]]);
         if (solve && useLines && lineHits(rectOf(it), 2)) { it.onVessel = true; const sol = nextSol.get(it.key); if (sol) sol.onv = true; }   // (on a vessel: the solid halo)
       }
     }
     for (const it of out) {
+      // (How far the stage's edge pulled this label in from its slot: the glide eases the slot, never this, which is fixed to the screen.)
+      const rp = ringPull.get(it);
+      it.px = rp ? rp[0] : 0; it.py = rp ? rp[1] : 0;
       if (it.live) { it.hide = false; continue; }
       // A label a pan has pushed over the stage edge is pulled back inside (with a leader to its station)
       // so it is never cut off; once its station has left the stage the label goes too.
@@ -12424,7 +12430,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // easing at its edge cannot flick it on and off.)
       if (it.cls === 'organ') { const was = labelVis.get(it.key) !== false, m = was ? 0 : 10, grown = { x0: edge.x0 - m, y0: edge.y0 - m, x1: edge.x1 + m, y1: edge.y1 + m }; it.hide = !within(grown, V) || obstacles.some((o) => hits(grown, o)); labelVis.set(it.key, !it.hide); continue; }
       const cx = Math.max(V.x0 - edge.x0, Math.min(0, V.x1 - edge.x1)), cy = Math.max(V.y0 - edge.y0, Math.min(0, V.y1 - edge.y1));
-      if (cx || cy) { it.x += cx; it.y += cy; if (Math.hypot(cx, cy) > 2) it.leader = true; }
+      if (cx || cy) { it.x += cx; it.y += cy; it.px += cx; it.py += cy; if (Math.hypot(cx, cy) > 2) it.leader = true; }
       // (A reading pulled in onto a vessel takes the solid halo there too.)
       if ((cx || cy) && solve && useLines && it.key.startsWith('n:') && lineHits(rectOf(it), 2)) { it.onVessel = true; const sol = nextSol.get(it.key); if (sol) sol.onv = true; }
       if (!it.sel && (it.ax < -8 || it.ax > W + 8 || it.ay < -8 || it.ay > H + 8)) { it.hide = true; labelVis.set(it.key, false); continue; }
@@ -14522,6 +14528,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     zoomLobule, zoomLiver, lobuleOpen: () => !!lz?.isOpen(), organsPictured: () => !!veins?.organs?.pictured?.(0), lobuleViewKey: () => lz?.viewKey(), lobuleCapture: () => lz?.capture?.() ?? null,
     labelClearance: () => clearanceReport(),   // (the browser check's: see clearanceReport)
     labelDrawn: () => labelGL?.boxes ?? null,   // (what the GPU labels' last picture drew, as boxes in px from their canvas's corner: the browser check of the labels' lag)
+    labelDrawnBy: () => { const r = stageBox(), o = labelGL?.drawnLabels?.() ?? []; for (const d of o) { d.x += r.left; d.y += r.top; } return o; },   // (each GPU label's last picture, keyed, client px: the browser check's lag test)
     lobuleSpot: () => lz?.spot() ?? null, lobuleLensFade: () => lz?.lensFade() ?? null, lobuleMem: (detail) => lz?.memBytes(detail) ?? 0, diveProgress: () => diveT, plateRasters: () => plateSeq,
     // (What the station labels' boxes follow: their layouts and the camera. The corner credit's poll looks again only when it changed.)
     // (And the lobule's view and state when it is open, and a fresh value each look while the sinusoid's names glide: the corner credit

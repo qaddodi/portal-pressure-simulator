@@ -25,6 +25,7 @@
     "smoke:widths": "node tests/e2e/width-equiv.mjs",
     "smoke:draws": "node tests/e2e/figure-draws.mjs",
     "smoke:gesture": "node tests/e2e/pinch-pan.mjs",
+    "smoke:labels": "node tests/e2e/label-follow.mjs",
     "smoke:frame": "node tests/e2e/frame-centre.mjs",
     "smoke:card": "node tests/e2e/text-card.mjs",
     "smoke:words": "node tests/e2e/gl-words-keep.mjs",

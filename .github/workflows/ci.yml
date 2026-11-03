@@ -282,6 +282,8 @@ jobs:
         run: npm run smoke:veins
       - name: Pinch and pan follow the hand (phone, lobule, trackpad, Safari gesture events)
         run: npm run smoke:gesture
+      - name: Labels follow the figure (a pan, a zoom) and keep off the view switcher
+        run: npm run smoke:labels
 
   # The compact layout (an iPad held sideways, a Mac window 700 px tall): no slide's text under 12 px on the screen.
   text-floor:

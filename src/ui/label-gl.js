@@ -2043,6 +2043,12 @@ void main() { o = texture(uT, vUV) * uA; }`;
       rideFrom = fromMap.size ? fromMap : null;
     },
     get riding() { return !!rideM; },
+    /** Where each label's picture stood in the last frame, keyed: [{ key, x, y, w, h, a (its opacity) }] in CSS px from the canvas's corner (the browser check's lag test). */
+    drawnLabels() {
+      const o = [];   // alloc-rare: asked only by the browser check
+      for (const s of last) { const st = sprites.get(s.g); if (st && st.mode === 'gl' && st.drawn && s.g.dataset?.key) o.push({ key: s.g.dataset.key, x: st.dx / dpr, y: st.dy / dpr, w: st.w / dpr, h: st.h / dpr, a: st.held ?? 0 }); }
+      return o;
+    },
     /** A label animated by script (the Web Animations API, which sends no events): read each frame for `ms`. */
     hold(g, ms) {
       if (!g) return;

@@ -17,7 +17,13 @@ test('a label no longer wanted fades out before it leaves, and fades back if wan
 
 test('a moved label glides, keeping to the point it names, and is laid out each frame until it lands', () => {
   const fn = stage.slice(stage.indexOf('function labelGlide(out)'), stage.indexOf('function paintLeaders('));
-  assert.match(fn, /const ox = rel \? it\.ax : 0, oy = rel \? it\.ay : 0, tx = it\.x - ox, ty = it\.y - oy;/);
+  // (It eases the slot's offset from its point, never the edge's pull: a label held against the stage's edge stays on the screen while the
+  // figure pans past it, instead of riding with the figure and easing back one camera step behind, every frame: 3 Nov 2026.)
+  assert.match(fn, /const px = it\.px \|\| 0, py = it\.py \|\| 0, ox = rel \? it\.ax : 0, oy = rel \? it\.ay : 0, tx = it\.x - px - ox, ty = it\.y - py - oy;/);
+  assert.match(fn, /it\.x = ox \+ sx \+ px; it\.y = oy \+ sy \+ py;/);
+  const lay0 = stage.slice(stage.indexOf('function layoutLabels(f, solve, dry = false)'));
+  assert.match(lay0, /it\.x \+= cx; it\.y \+= cy; it\.px \+= cx; it\.py \+= cy;/);   // (the pull-in records what it pulled)
+  assert.match(lay0, /ringPull\.set\(it, \[cx \+ step\[0\], cy \+ step\[1\]\]\)/);   // (the ring pass too)
   // (Hidden figure, reduced motion, a label just shown or turned: it takes its spot at once.)
   assert.match(fn, /const snap = reduceMotion\.matches \|\| camMove \|\| wrap\.classList\.contains\('cam-move'\)/);
   assert.match(fn, /if \(!b\.at \|\| snap \|\| b\.rot !== !!it\.rot \|\| b\.rel !== rel \|\| \(!rel && !still\)\) b\.gl = null;/);
