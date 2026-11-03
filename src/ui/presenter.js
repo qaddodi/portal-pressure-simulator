@@ -70,7 +70,7 @@ import { glideOpacity, glideTranslate, glideStop, glideX, glideY } from './scrip
 import { signalMove } from './num-move.js';
 import { slideFold } from './fold-slide.js';
 import { pageOn, followOf, pageIn, swipeHeld } from './card-page.js';
-import { throwOut, throwIn, throwBack, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, INSTANT, throwOutNow, throwPinned, throwRelease, railable, railHold, railIn, railAway, railGhosts, railWaits, railCopies, RAIL_GAP } from './card-throw.js';
+import { throwOut, throwIn, throwBack, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, throwOutNow, throwPinned, throwRelease, RAIL_GAP } from './card-throw.js';
 import { readAnims, readBox, readCTM, readMetric, readRects, readStyle, readTiming, scrollInto } from './layout-snap.js';
 import { caught } from './caught.js';
 const nextFrame = frameFor('presenter');
@@ -1195,7 +1195,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // Resolves once the slide's exact state is in, or early (the model left part way) when cut() says a newer slide was asked for.
   const MORPH_MS = 2000;
   // A slide change is one move (premium-feel R1). Over the plate the cards come in during the
-  // camera's last 40 percent (CARDS_AT), so it lands on a finished slide, and a change of patient eases under the glide itself, over
+  // camera's last three quarters (CARDS_AT: once a quarter of it has run), so it lands on a finished slide, and a change of patient eases under the glide itself, over
   // MORPH_ONE_MS (the glide's camMs, 480 to 900 ms, and a tail), not 2 s after it lands. A large change keeps easing under the cards:
   // the widths and colours follow it (display-state.js). Kept serial, as before: the lobule's way in and out, a catheter, a case card
   // over a loading patient, a slide with an instrument (it records the slide's own state), and a figure that cannot move smoothly
@@ -2035,10 +2035,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       // (Thrown: the words and their glass come in on card-throw.js's clock, together, from the side the talk comes from.)
       // (Only a card that shows: a visual slide hides the words, and its glass stays out.)
       if (!t.hidden && t.childElementCount) {
-        if (!railIn(t, k)) throwIn(t, k, 0, throwD);
-        if (!railIn(ui.shade, k)) throwIn(ui.shade, k, 0, throwD);
-      } else { railAway(t); railAway(ui.shade); }
-      for (const el of [ui.panel, ui.data]) if (railWaits(el) && !el.hidden && el.childElementCount && !el.classList.contains(el === ui.data ? 'pz-hide' : 'pz-leave')) railIn(el, k, el === ui.data ? THROW_STAGGER : 0);   // (the cards that waited to ride with the words)
+        throwIn(t, k, 0);
+        throwIn(ui.shade, k, 0);
+      }
       turnAnim = null; shadeAnim = null;
       return;
     }
@@ -2066,7 +2065,6 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // A data card that stays (the same instrument) stays put. Transform and opacity only.
   // (Moved by card-throw.js, on one clock with the GPU glass: their inline transform and opacity written in the scheduler's frame.)
   let throwDir = '', throwD = 0;
-  const throwDist = () => Math.min(420, Math.max(120, innerWidth * 0.3)) + 20;
   // alloc-rare: once per swipe, cached in pull.els as the first move lands
   const pageEls = () => [ui.text, ui.shade];
   // (A swipe takes every card that shows with the words, the data card and the panel too, on the finger's one move, and lets them go
@@ -2138,7 +2136,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // then, when the wait ended, left from there, and pageForce was dropped so a slide with the same words kept its card. 2 Nov 2026.)
   const changing = () => busy || !!prepT;
   function outNow() {
-    if (!INSTANT || !ui || reduce.matches || (turn !== 'next' && turn !== 'back')) return;
+    if (!ui || reduce.matches || (turn !== 'next' && turn !== 'back')) return;
     const showing = (el) => !el.hidden && !!el.childElementCount && !el.classList.contains('pz-leave') && !el.classList.contains('pz-hide') && !throwing(el) && !throwPinned(el);
     // (A data card the next slide keeps (card-keep.js keepData: the same instrument, a patient it can ride to) stays where it is and glides
     // to the new numbers, never thrown out and built again (Mohammad, 2 Nov 2026: "if the graph is gonna change, it should TRANSITION not just
@@ -2318,7 +2316,6 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     stopLapse(); procStop(); abSlow(); handOn = false; procDoneAt = done && s.procedure ? to : -1;
     await wait(Math.max(0, outMs - (performance.now() - outAt)));
     if (throwDir) await throwsOut();   // (thrown: until the old cards are out of sight on the eases' clock, never mid-flight: card-throw.js)
-    if (throwDir) await railCopies();   // (and until each copy on the rail has its pictures and stands in for its card: card-throw.js)
     // (Nothing in the liver changes until its labels are gone.)
     if (hushed) { await wait(Math.max(0, HUSH_OUT - (performance.now() - hushAt))); await eased(['opacity'], 600, '.lz-labels'); if (cut()) return; }
     if (cut()) return;
@@ -2427,7 +2424,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       morphP = morphTo(st, cut, MORPH_ONE_MS, false).finally(() => app.classList.remove('pz-morph-under'));
     }
     // (Same patient over the plate: the unseen cards' last fitting, two frames and a smooth one, runs under the glide's first frames, so
-    // the cards come in as its last 40 percent begins on any machine, not after it has landed. A new patient's waits for its change.)
+    // the cards come in once a quarter of it has run on any machine, not after it has landed. A new patient's waits for its change.)
     let prep = null, bareSeen = false;
     const prepWith = plate && !swap && !caseCard ? () => { prep ||= unseenFit(cut); } : null;
     if (ct) await cathTo(ct, st.fp, cut);
@@ -2535,17 +2532,17 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // at is the size they keep: keyed only once the slide was shown, the passes while the cards eased in measured afresh, and on a
   // tight iPad a reading settling or a chart lettered stepped the title or folded the ladder, so the card came in and then snapped.)
   // (While they fade in, the work that can wait does: frame.js holdMotion, the delay and the fade, app.css .pz-text.pz-enter.)
-  function cardsIn(at) { if (ui) { if (!reduce.matches) holdMotion(D_SURFACE + 220); if (at) { entering = at; layout(); } reFit(); if (!bare) { ui.text.classList.remove('pz-leave'); txn?.restore(); wordsTurnIn(); ui.scl.classList.remove('pz-leave'); delete ui.root.dataset.bare; } ui.root.classList.remove('pz-prep'); cardIn(ui.panel, 'pz-leave'); if (ui.data.dataset.prep && !('hold' in ui.data.dataset)) { const p = ui.data.dataset.prep; delete ui.data.dataset.prep; if (!cardIn(ui.data, 'pz-hide', THROW_STAGGER)) ui.data.dataset.prep = p; } if (!bare) { const dir = throwDir || 'next'; for (const el of [ui.text, ui.shade, ui.data, ui.panel]) if (throwPinned(el)) { if (!el.hidden && el.childElementCount !== 0 && !el.classList.contains('pz-leave') && !el.classList.contains('pz-hide')) throwIn(el, dir, 0, throwD); else throwRelease(el); } throwDir = ''; railAway(); } } }   // (bare: the words come in later, thrown too)
+  function cardsIn(at) { if (ui) { if (!reduce.matches) holdMotion(D_SURFACE + 220); if (at) { entering = at; layout(); } reFit(); if (!bare) { ui.text.classList.remove('pz-leave'); txn?.restore(); wordsTurnIn(); ui.scl.classList.remove('pz-leave'); delete ui.root.dataset.bare; } ui.root.classList.remove('pz-prep'); cardIn(ui.panel, 'pz-leave'); if (ui.data.dataset.prep && !('hold' in ui.data.dataset)) { const p = ui.data.dataset.prep; delete ui.data.dataset.prep; if (!cardIn(ui.data, 'pz-hide', THROW_STAGGER)) ui.data.dataset.prep = p; } if (!bare) { const dir = throwDir || 'next'; for (const el of [ui.text, ui.shade, ui.data, ui.panel]) if (throwPinned(el)) { if (!el.hidden && el.childElementCount !== 0 && !el.classList.contains('pz-leave') && !el.classList.contains('pz-hide')) throwIn(el, dir, 0, throwD); else throwRelease(el); } throwDir = ''; } } }   // (bare: the words come in later, thrown too)
   // (A data card or panel coming in: thrown in from the side the talk goes when the old cards were thrown, else as before.
   // Its way out is forgotten in the same style change, so the leave's place never runs back across the screen under the way in.)
   function cardIn(el, cls, delay = 0) {
     if (!el.classList.contains(cls)) return true;
     // (Instant: bare, the words come in only once the camera lands, and a card thrown with them waits to come in with them, in that later
     // pass of cardsIn: out together, in together.)
-    if (INSTANT && bare && throwDir && !el.hidden && el.childElementCount && !ui.text.hidden && ui.text.childElementCount && ui.text.classList.contains('pz-leave')) return false;
+    if (bare && throwDir && !el.hidden && el.childElementCount && !ui.text.hidden && ui.text.childElementCount && ui.text.classList.contains('pz-leave')) return false;
     // (Bare, the words come in only once the camera lands: a card on the rail waits to ride with them, never on ahead of them. Mohammad,
     // 2 Nov 2026: "the data card and the teaching cards move out at different paces; should go together".)
-    if (throwDir && !el.hidden && el.childElementCount) { if (bare && railWaits(el) && railWaits(ui.text)) { /* rides with the words: wordsTurnIn */ } else if (!railIn(el, throwDir, delay)) throwIn(el, throwDir, delay, throwD); } else railAway(el);
+    if (throwDir && !el.hidden && el.childElementCount) throwIn(el, throwDir, delay);
     delete el.dataset.out;
     el.classList.remove(cls);
     return true;
@@ -2628,7 +2625,6 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (The way the talk goes, by the key or swipe, whether or not the glass turns as a page: glassTurn leaves it off for a catheter or
     // monitor slide, a reading card and the like, and those cards are thrown too.)
     throwDir = !reduce.matches && (turn === 'next' || turn === 'back') ? turn : '';
-    railAway();   // (a copy left from a change cut short goes now, before this change's copies are made: card-throw.js)
     const up = (el) => !el.hidden && !!el.childElementCount && !el.classList.contains('pz-leave');
     const textUp = !keepNow.text && up(ui.text), panelUp = up(ui.panel);
     // The data card leaves with the words on every slide change, whole (the same ease and pace), and comes back in with the new cards:
@@ -2673,22 +2669,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (textUp && !keep) { goes.push(ui.text); if (ui.shade.classList.contains('pz-leave')) goes.push(ui.shade); }
       if (dataOut) goes.push(data);
       if (panelUp) goes.push(ui.panel);
-      // (Instant, card-throw.js INSTANT: every card leaving sets off in this task, the tap's, on one clock and one distance, so the words,
+      // (Every card leaving sets off in this task, the tap's, on one clock and one distance, so the words,
       // their glass, a data card and a panel go together (Mohammad, 2 Nov 2026: "should go together", "it should all be responsive"):
       // a card's width and a gap, so an upright phone's card clears the screen, and the next cards come in from as far.)
       const wOf = (el) => (el === ui.panel ? Math.min(readMetric(el, 'offsetWidth'), innerWidth * 0.5) : readMetric(el, 'offsetWidth'));
       const sized = goes.filter((el) => el !== ui.shade);
-      const dist = INSTANT ? (throwD = Math.min(innerWidth, Math.max(120, ...sized.map(wOf)) + RAIL_GAP)) : throwDist();
-      // (One track, card-throw.js RAIL: each card stays, as a copy of itself, until its next is laid out and drawn behind it; then both
-      // ride the rail, a card's width and a gap apart. The words and their glass keep one spacing, so they never part. A card holding a
-      // picture of the GPU's is thrown as before, the words with their glass. ?rail=0: thrown, as before.)
-      const pair = goes.filter((el) => el === ui.text || el === ui.shade);
-      const railOK = (el) => (pair.includes(el) ? pair.every(railable) : railable(el));
-      const pairD = pair.length ? Math.max(...pair.map((el) => readMetric(el, 'offsetWidth'))) + RAIL_GAP : 0;
-      for (const el of goes) {
-        if (railOK(el)) railHold(el, pair.includes(el) ? pairD : readMetric(el, 'offsetWidth') + RAIL_GAP, el === ui.text ? 'text' : el === ui.shade ? 'shade' : el === data ? 'data' : 'panel', throwDir);
-        else throwOut(el, throwDir, dist);
-      }
+      const dist = (throwD = Math.min(innerWidth, Math.max(120, ...sized.map(wOf)) + RAIL_GAP));
+      for (const el of goes) throwOut(el, throwDir, dist);
     }
     if (leaving) return fading ? fading + 20 : 0;
     return D_SMALL + 20;   // (the words leave at the data card's pace, one small step; with reduced motion they still fade, without sliding: app.css)
@@ -5984,7 +5971,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (app.css: where the figure's canvas cannot take it, the shade turns solid; no backdrop-filter is declared anywhere) and the shade keeps one
     // layer of its own throughout, so the swap that lost its picture on an iPhone no longer happens.)
     // alloc-rare: a card is built or tapped open: once per tap, not per frame
-    const glass = stage.cardGlass?.({ find: () => [shade, data, vcase, bar, scl, fk, ...railGhosts()], watch: [root, shade], before: shade, low: shade, read: (g) => (g === data || g.dataset?.ghost === 'data' ? sheetPanes(g) : undefined), shift: riseShift }) || null;
+    const glass = stage.cardGlass?.({ find: () => [shade, data, vcase, bar, scl, fk], watch: [root, shade], before: shade, low: shade, read: (g) => (g === data || g.dataset?.ghost === 'data' ? sheetPanes(g) : undefined), shift: riseShift }) || null;
     return { root, shade, safe, load, text, data, lip, lipRO, lipMO, shadeMO, cardTouch, setFold, zoom, zbtn, pscrim, partOf, vcase, fk, figKey, glass, dhT, tiles, tools, veil, panel, prog, scl, bar, black: blackEl, jump, say };
   }
   // The start's cover (see start). While it is up (booting) the camera cuts instead of gliding.
