@@ -160,16 +160,17 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
   // for the last two minutes; days: one point per simulated day.
   const fine = { t: [], ph: [], ...Object.fromEntries(KEYS.map((k) => [k, []])) };
   const beatClock = createBeatClock();   // (when the cardiac phase wrapped: each wrap starts a beat on the EKG strip)
-  let coarse = [], bin = null;
-  // (The quarter-second bins go round: a bin that has left the window is taken again for the next, with its four-number records for the
-  // channels kept inside it, so no bin or record is made once the window has filled. A channel the bin has not seen reads null.)
+  const coarse = [];
+  let bin = null;
+  // The quarter-second bins are kept for the window and handed back to this pool when it lets them go, so a bin is made only until the window has been
+  // as long as it will be: each has its row of four numbers (trough, peak, sum, count) for every trace, bin.v[key] the row once the trace has a
+  // reading in the bin (undefined before), bin.has which rows are in use.
   const binPool = [];
-  const newBin = (t0) => {
-    const b = binPool.pop() || { t: 0, v: {}, sp: {} };   // alloc-rare: a bin is made only while the pool is empty (the first minutes, up to the window's length); after that they go round
-    b.t = t0;
-    return b;
-  };
-  const freeBin = (b) => { for (const k of KEYS) b.v[k] = null; binPool.push(b); };   // alloc-rare: the pool grows to the window's bins, then stays
+  const mkBin = () => ({ t: 0, v: {}, rows: KEYS.map(() => new Float64Array(4)), has: new Uint8Array(KEYS.length) });   // alloc-rare: a bin is made only until the window has been this long once; the pool then hands back the ones it lets go
+  const takeBin = (t0) => { const b = binPool.pop() || mkBin(); b.t = t0; return b; };
+  const freeBin = (b) => { for (let j = 0; j < KEYS.length; j++) if (b.has[j]) { b.has[j] = 0; b.v[KEYS[j]] = undefined; } binPool.push(b); };
+  // (The columns of the fine buffer in the order of KEYS, and the sources of the frame being recorded: nothing is looked up by name for every sample.)
+  const FINE_COLS = KEYS.map((k) => fine[k]), ALL_COLS = [fine.t, fine.ph, ...FINE_COLS], SRC = KEYS.map(() => null);
   let days = [];
   let clock = 'hemo', dayNow = 0, lastT = -Infinity, frame = null, wallAt = 0;
   // off: the model's time plus off is the trace's (the model's clock was set while the trace went on: a state restored, a time-lapse ended).
@@ -180,10 +181,10 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
   const beatCardNow = () => onSlide() && userRange === 'beats' && !hiddenSet().has('trueHVPG');
 
   function resetBuffers() {
-    for (const k of Object.keys(fine)) fine[k].length = 0;
-    for (let i = 0; i < coarse.length; i++) freeBin(coarse[i]);
-    if (bin) freeBin(bin);
-    coarse.length = 0; bin = null; lastT = -Infinity; beatClock.reset(); off = 0; wheel.stop();
+    for (let q = 0; q < ALL_COLS.length; q++) ALL_COLS[q].length = 0;
+    for (let q = 0; q < coarse.length; q++) freeBin(coarse[q]);
+    coarse.length = 0; if (bin) freeBin(bin);
+    bin = null; lastT = -Infinity; beatClock.reset(); off = 0; wheel.stop();
   }
   function clearHemo() { resetBuffers(); steadyAt = 0; }
   // On a slide each reading is its steady value, the mean over the last few seconds, so the lines' end labels, the header and
@@ -209,30 +210,34 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
     // (lastT is held in a local through the loop and written back once: a number kept in a closure's variable is a heap object made anew
     // at each assignment, one for every sample of every frame.)
     let lt = lastT;
-    for (let i = 0; i < smp.t.length; i++) {
-      const t = smp.t[i] + o;
+    const ts = smp.t, ph = smp.ph, KN = KEYS.length;
+    for (let j = 0; j < KN; j++) SRC[j] = smp[KEYS[j]] || null;
+    for (let i = 0; i < ts.length; i++) {
+      const t = ts[i] + o;
       if (t <= lt) continue;
       lt = t;
-      fine.t.push(t); fine.ph.push(smp.ph?.[i] ?? NaN); beatClock.push(t, smp.ph?.[i]);
-      for (const k of KEYS) fine[k].push(smp[k]?.[i] ?? NaN);
+      const p = ph ? ph[i] : undefined;
+      fine.t.push(t); fine.ph.push(p ?? NaN); beatClock.push(t, p);
       const b0 = Math.floor(t / BIN) * BIN;
       if (!bin || bin.t !== b0) {
         if (bin) coarse.push(bin);
-        bin = newBin(b0);
+        bin = takeBin(b0);
       }
-      for (const k of KEYS) {
-        const v = smp[k]?.[i];
-        if (v == null || Number.isNaN(v)) continue;
-        let s = bin.v[k];
-        if (!s) { s = bin.sp[k] || (bin.sp[k] = [0, 0, 0, 0]); s[0] = v; s[1] = v; s[2] = 0; s[3] = 0; bin.v[k] = s; }   // alloc-rare: a channel's four numbers are made the first time a bin of the pool sees the channel, then kept in the bin
+      for (let j = 0; j < KN; j++) {
+        const a = SRC[j], v = a ? a[i] : undefined;
+        FINE_COLS[j].push(v ?? NaN);
+        if (v == null || v !== v) continue;
+        const s = bin.rows[j];
+        if (!bin.has[j]) { bin.has[j] = 1; s[0] = v; s[1] = v; s[2] = 0; s[3] = 0; bin.v[KEYS[j]] = s; }
         if (v < s[0]) s[0] = v; if (v > s[1]) s[1] = v; s[2] += v; s[3]++;
       }
     }
     lastT = lt;
-    let cut = 0; while (cut < fine.t.length && fine.t[cut] < lastT - FINE_S) cut++;
-    if (cut) { for (const k in fine) dropFront(fine[k], cut); beatClock.dropBefore(fine.t[0]); }
-    cut = 0; while (cut < coarse.length && coarse[cut].t < lastT - COARSE_S) cut++;
-    if (cut) { for (let i = 0; i < cut; i++) freeBin(coarse[i]); dropFront(coarse, cut); }
+    const tf = fine.t, limF = lastT - FINE_S, limC = lastT - COARSE_S;
+    let cut = 0; while (cut < tf.length && tf[cut] < limF) cut++;
+    if (cut) { for (let q = 0; q < ALL_COLS.length; q++) dropFront(ALL_COLS[q], cut); beatClock.dropBefore(fine.t[0]); }
+    cut = 0; while (cut < coarse.length && coarse[cut].t < limC) cut++;
+    if (cut) { for (let q = 0; q < cut; q++) freeBin(coarse[q]); dropFront(coarse, cut); }
   }
   // ── The freewheel (freewheel.js) ──
   // While the model's own clock stands still under a running page (a state easing in: frame.parkSecs is a number) it sends no samples, and the
@@ -544,6 +549,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
   function drawBeatCard(ctx, w, hh, x0, x1, xNow, FONT, noPv, text, muted, faint, panel) {
     const lay = beatLayout(w, hh, cfg.ekg), { L, R, top, bot } = lay, plotW = R - L;
     F.L = L; F.x0 = x0; F.x1 = x1; F.plotW = plotW; F.bot = bot;
+    affine(X, 0);   // (X as the two numbers the series are drawn with)
     const wNow = endOf('whvp'), fNow = endOf('RHV'), pvNow = endOf('CONF'), hv = steadyHvpg();
     const hr = Number.isFinite(pinned?.hr) ? pinned.hr : frame.metrics.hr;
     const was = before?.fp, wWas = was?.whvp, fWas = was?.fhvp;
@@ -611,7 +617,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
       if (e.x.length > 1) {
         ctx.save(); ctx.beginPath(); ctx.rect(L, et - 2, plotW, eb - et + 4); ctx.clip();
         ctx.strokeStyle = text; ctx.lineWidth = 1.6; ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.beginPath();
-        for (let i = 0; i < e.x.length; i++) ctx[i ? 'lineTo' : 'moveTo'](X(e.x[i]), YEb(e.v[i]));
+        affine(YEb, 2); tracePts(ctx, e.x, e.v, e.x.length, 1, true);
         ctx.stroke(); ctx.restore();
       }
     }
@@ -627,13 +633,13 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
     // the HVPG, shaded between wedged and free in the colour of its status
     if (sw.x.length > 1 && sw.x.length === sf.x.length) {
       ctx.globalAlpha = 0.12; ctx.fillStyle = sevColor(hv); ctx.beginPath();
-      for (let i = 0; i < sw.x.length; i++) ctx[i ? 'lineTo' : 'moveTo'](X(sw.x[i]), YB(sw.mid[i]));
-      for (let i = sf.x.length - 1; i >= 0; i--) ctx.lineTo(X(sf.x[i]), YB(sf.mid[i]));
+      affine(YB, 2); tracePts(ctx, sw.x, sw.mid, sw.x.length, 1, true); tracePts(ctx, sf.x, sf.mid, sf.x.length, -1, false);
       ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1;
     }
-    if (!noPv) { ctx.setLineDash(DASH_PORTAL); line(ctx, sp, X, YB, pc, 2, plotW); ctx.setLineDash(DASH_NONE); }
-    line(ctx, sw, X, YB, wc, 2, plotW);
-    line(ctx, sf, X, YB, fc, 2, plotW);
+    affine(YB, 2);
+    if (!noPv) { ctx.setLineDash(DASH_PORTAL); line(ctx, sp, pc, 2, plotW); ctx.setLineDash(DASH_NONE); }
+    line(ctx, sw, wc, 2, plotW);
+    line(ctx, sf, fc, 2, plotW);
     ctx.restore();
 
     // the old gap named once, on a plate, where no line passes under the words
@@ -854,6 +860,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
       }
     }
     F.L = L; F.x0 = x0; F.x1 = x1; F.plotW = plotW;   // (X, a time to x)
+    affine(X, 0);   // (X as the two numbers the series are drawn with)
     // (A slide's card, with the HVPG measured: the wedged and free pressures on EKG paper, beat-card.js. Any other card, as before.)
     if (slide && range === 'beats' && showHvpg) { drawBeatCard(ctx, w, hh, x0, x1, xNow, FONT, hidden.has('pv'), text, muted, faint, panel); return; }
 
@@ -950,6 +957,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
     for (let li = 0; li < lanes.length; li++) {
       const lane = lanes[li];
       const { top, bot, Y, keys } = lane;
+      affine(Y, 2);
       ctx.save(); ctx.beginPath(); ctx.rect(L, top - 2, plotW, bot - top + 4); ctx.clip();
       if (lane.key === 'hvpg') {
         const s = data.hvpg;
@@ -959,10 +967,10 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
           g.addColorStop(0, sevCol); g.addColorStop(1, 'transparent');
           ctx.globalAlpha = 0.14; ctx.fillStyle = g;
           ctx.beginPath(); ctx.moveTo(X(s.x[0]), Y(0));
-          for (let i = 0; i < s.x.length; i++) ctx.lineTo(X(s.x[i]), Y(s.mid[i]));
+          tracePts(ctx, s.x, s.mid, s.x.length, 1, false);
           ctx.lineTo(X(s.x[s.x.length - 1]), Y(0)); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1;
-          if (s.lo) band(ctx, s, X, Y, text, 0.1);
-          line(ctx, s, X, Y, text, 1.75, plotW);
+          if (s.lo) band(ctx, s, text, 0.1);
+          line(ctx, s, text, 1.75, plotW);
           const e = range === 'days' ? recent(s) : slide ? steadyHvpg() : hv; pushEnd(Y(e), e, undefined, 'HVPG', text, lane);   // (the header's own reading)
         }
       } else {
@@ -970,8 +978,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
         const sw = data.whvp, sf = data.RHV;
         if (sw && sf && sw.x.length > 1 && sw.x.length === sf.x.length) {
           ctx.globalAlpha = 0.1; ctx.fillStyle = sevCol; ctx.beginPath();
-          for (let i = 0; i < sw.x.length; i++) ctx[i ? 'lineTo' : 'moveTo'](X(sw.x[i]), Y(sw.mid[i]));
-          for (let i = sf.x.length - 1; i >= 0; i--) ctx.lineTo(X(sf.x[i]), Y(sf.mid[i]));
+          tracePts(ctx, sw.x, sw.mid, sw.x.length, 1, true); tracePts(ctx, sf.x, sf.mid, sf.x.length, -1, false);
           ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1;
         }
         for (let tj = 0; tj < traces.length; tj++) {
@@ -979,9 +986,9 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
           const s = data[t.id];
           if (s.x.length < 1) continue;
           const c = cssVar(t.c);
-          if (s.lo) band(ctx, s, X, Y, c, 0.16);
-          line(ctx, s, X, Y, c, t.id === 'CONF' ? 2 : 1.75, plotW);
-          if (range === 'days' && s.x.length < 60) dots(ctx, s, X, Y, c, panel);
+          if (s.lo) band(ctx, s, c, 0.16);
+          line(ctx, s, c, t.id === 'CONF' ? 2 : 1.75, plotW);
+          if (range === 'days' && s.x.length < 60) dots(ctx, s, c, panel);
           const e = range === 'days' ? recent(s) : (slide && Number.isFinite(endOf(t.id)) ? endOf(t.id) : liveEnd(t, frame.metrics)) ?? recent(s); pushEnd(Y(range !== 'days' && slide && Number.isFinite(recent(s)) ? recent(s) : e), e, undefined, t.abbr, c, lane);   // (on a slide, written at the line's end, its steady number; the live readings, so wedged − free is the header's HVPG)
         }
       }
@@ -1008,7 +1015,9 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
       if (e.x.length > 1) {
         ctx.save(); ctx.beginPath(); ctx.rect(L, top - 2, plotW, bot - top + 4); ctx.clip();
         ctx.strokeStyle = text; ctx.lineWidth = 1.5; ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.beginPath();
-        for (let i = 0; i < e.x.length; i++) ctx[i ? 'lineTo' : 'moveTo'](sd ? L + ((e.x[i] - xs0) / BEAT_CARD_S) * plotW : X(e.x[i]), YEg(e.v[i]));
+        if (sd) { AF[0] = L - (xs0 / BEAT_CARD_S) * plotW; AF[1] = plotW / BEAT_CARD_S; }   // (the strip over the days' trend has its own window)
+        affine(YEg, 2); tracePts(ctx, e.x, e.v, e.x.length, 1, true);
+        if (sd) affine(X, 0);
         ctx.stroke(); ctx.restore();
       }
       ctx.font = FONT(500, 12); ctx.fillStyle = faint; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText('EKG', 8, mid); ctx.textBaseline = 'alphabetic';
@@ -1224,11 +1233,17 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
       const first = days.find((x) => x.day >= days[days.length - 1].day - 730) || days[0];
       d = v - first.v.hvpg; over = `since day ${first.day}`;
     } else if (range !== 'days' && coarse.length > 60) {
-      const first = coarse.find((x) => x.t >= lastT - 120);
-      const win = coarse.filter((x) => x.t >= first.t && x.t < first.t + 1 && x.v.hvpg);
-      const now = coarse.filter((x) => x.t >= lastT - 1 && x.v.hvpg);
-      const mean = (bs) => bs.reduce((a, b) => a + b.v.hvpg[2] / b.v.hvpg[3], 0) / bs.length;
-      if (win.length && now.length) { d = mean(now) - mean(win); over = lastT - first.t > 100 ? 'in 2\u00a0min' : `in ${Math.round(lastT - first.t)}\u00a0s`; }   // (a number keeps its unit: never "43" over a lone "s")
+      // (The mean HVPG of the bins in the first second of the last two minutes and of those in the last second, summed in place: no list made.)
+      let fi = 0; while (fi < coarse.length && !(coarse[fi].t >= lastT - 120)) fi++;
+      const first = coarse[fi], t1 = first.t + 1;
+      let winSum = 0, winN = 0, nowSum = 0, nowN = 0;
+      for (let q = 0; q < coarse.length; q++) {
+        const b = coarse[q], r = b.v.hvpg;
+        if (!r) continue;
+        if (b.t >= first.t && b.t < t1) { winSum += r[2] / r[3]; winN++; }
+        if (b.t >= lastT - 1) { nowSum += r[2] / r[3]; nowN++; }
+      }
+      if (winN && nowN) { d = nowSum / nowN - winSum / winN; over = lastT - first.t > 100 ? 'in 2\u00a0min' : `in ${Math.round(lastT - first.t)}\u00a0s`; }   // (a number keeps its unit: never "43" over a lone "s")
     }
     const flat = d == null || Math.abs(d) < 0.4;
     const dt = d == null ? '' : flat ? `Steady ${over}` : `${d > 0 ? '▲' : '▼'} ${fmt(Math.abs(d), 1)} ${over}`;
@@ -1267,33 +1282,47 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
   return { id: 'scope', label: 'Pressure over time', el, update, ingest, redraw, clear, pin, configure, backfill, historySecs: () => RANGES[0][2], dispose() { gpu?.dispose(); offs.forEach((off) => off()); io?.disconnect(); cancelFrame(tickRaf); tickRaf = 0; ticking = false; frame = null; still.drop(); } };
 }
 
+// The charts' X and Y are straight lines (v ↦ a + b·v): their two numbers, the time's then the value's of the lane being drawn, are kept here and
+// the series are put into the path in one call each (the shim's tracePoints and traceLine), not a lineTo for every sample.
+const AF = new Float64Array(4);
+const affine = (f, o) => { const a = f(0); AF[o] = a; AF[o + 1] = f(1) - a; };
+// A series as a path's points (the GPU's context takes them in one call; any other context, one by one).
+function tracePts(ctx, xs, ys, n, dir, move) {
+  if (ctx.onGPU === true) { ctx.tracePoints(xs, ys, n, dir, AF[0], AF[1], AF[2], AF[3], move); return; }
+  for (let k = 0; k < n; k++) {
+    const i = dir > 0 ? k : n - 1 - k, x = AF[0] + AF[1] * xs[i], y = AF[2] + AF[3] * ys[i];
+    if (k === 0 && move) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+}
 // Thin a series to about two points per pixel column (a pulsatile trace has thousands of samples).
-function line(ctx, s, X, Y, color, width, plotW) {
+function line(ctx, s, color, width, plotW) {
   const n = s.x.length;
   if (n < 2) return;
   const stride = Math.max(1, Math.floor(n / (plotW * 2)));
   ctx.strokeStyle = color; ctx.lineWidth = width; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
   ctx.beginPath();
-  let started = false;
-  for (let i = 0; i < n; i += stride) {
-    const v = s.mid[i];
-    if (Number.isNaN(v)) { started = false; continue; }
-    const px = X(s.x[i]), py = Y(v);
-    if (!started) { ctx.moveTo(px, py); started = true; } else ctx.lineTo(px, py);
+  if (ctx.onGPU === true) ctx.traceLine(s.x, s.mid, n, stride, AF[0], AF[1], AF[2], AF[3]);
+  else {
+    let started = false;
+    for (let i = 0; i < n; i += stride) {
+      const v = s.mid[i];
+      if (Number.isNaN(v)) { started = false; continue; }
+      const px = AF[0] + AF[1] * s.x[i], py = AF[2] + AF[3] * v;
+      if (!started) { ctx.moveTo(px, py); started = true; } else ctx.lineTo(px, py);
+    }
+    if ((n - 1) % stride) ctx.lineTo(AF[0] + AF[1] * s.x[n - 1], AF[2] + AF[3] * s.mid[n - 1]);
   }
-  if ((n - 1) % stride) ctx.lineTo(X(s.x[n - 1]), Y(s.mid[n - 1]));
   ctx.stroke();
 }
-function band(ctx, s, X, Y, color, alpha) {
+function band(ctx, s, color, alpha) {
   if (s.x.length < 2) return;
   ctx.globalAlpha = alpha; ctx.fillStyle = color; ctx.beginPath();
-  for (let i = 0; i < s.x.length; i++) ctx[i ? 'lineTo' : 'moveTo'](X(s.x[i]), Y(s.hi[i]));
-  for (let i = s.x.length - 1; i >= 0; i--) ctx.lineTo(X(s.x[i]), Y(s.lo[i]));
+  tracePts(ctx, s.x, s.hi, s.x.length, 1, true); tracePts(ctx, s.x, s.lo, s.x.length, -1, false);
   ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1;
 }
-function dots(ctx, s, X, Y, color, ring) {
+function dots(ctx, s, color, ring) {
   for (let i = 0; i < s.x.length; i++) {
-    const px = X(s.x[i]), py = Y(s.mid[i]);
+    const px = AF[0] + AF[1] * s.x[i], py = AF[2] + AF[3] * s.mid[i];
     ctx.fillStyle = ring; ctx.beginPath(); ctx.arc(px, py, 4, 0, 7); ctx.fill();
     ctx.fillStyle = color; ctx.beginPath(); ctx.arc(px, py, 2.6, 0, 7); ctx.fill();
   }

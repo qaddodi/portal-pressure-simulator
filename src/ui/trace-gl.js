@@ -336,9 +336,12 @@ const num = (t, scale) => (t.endsWith('%') ? parseFloat(t) / 100 : parseFloat(t)
 // (the arguments of a function, split at top-level commas)
 const args = (t) => { const out = []; let d = 0, cur = ''; for (const ch of t) { if (ch === '(') d++; if (ch === ')') d--; if (ch === ',' && !d) { out.push(cur.trim()); cur = ''; } else cur += ch; } if (cur.trim()) out.push(cur.trim()); return out; };
 export function parseColour(c) {
+  // (The string as it came is looked up first: a colour with a capital letter or a space, read again every frame, made a new string each time it was lowercased.)
+  const raw = c;
+  if (typeof raw === 'string') { const hit = colours.get(raw); if (hit) return hit; }
   c = String(c ?? '').trim().toLowerCase();
   let v = colours.get(c);
-  if (v) return v;
+  if (v) { if (typeof raw === 'string' && colours.size < 512) colours.set(raw, v); return v; }
   v = [0, 0, 0, 0];
   let m;
   if (NAMED[c]) v = NAMED[c];
@@ -369,6 +372,7 @@ export function parseColour(c) {
   v = v.map((x) => (Number.isFinite(x) ? Math.min(1, Math.max(0, x)) : 0));
   if (colours.size > 512) colours.clear();
   colours.set(c, v);
+  if (typeof raw === 'string' && raw !== c) colours.set(raw, v);
   return v;
 }
 const rgba = parseColour;
@@ -1098,9 +1102,9 @@ export function createShim(G) {
   //   curOn: the last piece is the open one (a lineTo goes on with it); the pieces before pcB, and the shapes before shB, are an outer
   //   path's, kept while a keep() draws (beginPath starts above them).
   //   sh: the whole shapes (x, y, w, h, r) a fill of them draws as boxes; shn: how many; only: the path is made of those and nothing else.
-  //   lx, ly: the path's last point in the drawing's own space.
   let pb = new Float64Array(2048), ps = new Int32Array(64), sh = new Float64Array(80);   // alloc-rare: made once with the shim
-  let pn = 0, pc = 0, curOn = false, pcB = 0, pnB = 0, shn = 0, shB = 0, only = true, lx = 0, ly = 0;
+  let pn = 0, pc = 0, curOn = false, pcB = 0, pnB = 0, shn = 0, shB = 0, only = true;
+  const LP = new Float64Array(2);   // alloc-rare: made once with the shim (lx, ly: the path's last point in the drawing's own space; a number kept in a closure's variable is a heap object made anew at each assignment)
   let sx = new Float32Array(1024), sy = new Float32Array(1024);   // alloc-rare: made once with the shim (a stroke's points, kept from frame to frame)
   // The clip paths of the states, kept the same way: entry i is the path of the i-th clip() of the states now open (nested as save and restore
   // are), its pieces up to ep[i] (ep, en: where its pieces and its points end), so a state remembers its clips by how many it has.
@@ -1121,8 +1125,8 @@ export function createShim(G) {
   const ox = () => (st.m ? st.m[4] : 0), oy = () => (st.m ? st.m[5] : 0);
   const putPt = (x, y) => { needPts(pn + 2); pb[pn++] = x; pb[pn++] = y; };
   const openPiece = () => { needPieces(pc + 1); ps[pc++] = pn; curOn = true; };
-  const startPiece = (x, y) => { lx = x; ly = y; openPiece(); putPt(X(x, y), Y(x, y)); };
-  const add = (x, y) => { if (!curOn) { startPiece(x, y); return; } lx = x; ly = y; putPt(X(x, y), Y(x, y)); };
+  const startPiece = (x, y) => { LP[0] = x; LP[1] = y; openPiece(); putPt(X(x, y), Y(x, y)); };
+  const add = (x, y) => { if (!curOn) { startPiece(x, y); return; } LP[0] = x; LP[1] = y; putPt(X(x, y), Y(x, y)); };
   const pieceLen = () => pn - ps[pc - 1];   // (the numbers in the open piece)
   const addShape = (x, y, w, h, r) => { if (sh.length < (shn + 1) * 5) sh = grow1(sh, (shn + 1) * 5, Float64Array); const o = shn++ * 5; sh[o] = x; sh[o + 1] = y; sh[o + 2] = w; sh[o + 3] = h; sh[o + 4] = r; };   // alloc-rare: grows only for a path of more shapes than any before
   const sc = () => (st.m ? Math.sqrt(Math.abs(st.m[0] * st.m[3] - st.m[1] * st.m[2])) || 1 : 1);
@@ -1138,7 +1142,18 @@ export function createShim(G) {
     if (Math.abs(a1 - a0) >= TAU) sweep = ccw ? -TAU : TAU;
     const n = Math.max(2, Math.ceil((Math.abs(sweep) * Math.max(1, Math.max(rx, ry) * K * sc())) / 3));
     const cr = Math.cos(rot), sr = Math.sin(rot);
-    for (let i = 0; i <= n; i++) { const a = a0 + (sweep * i) / n, u = rx * Math.cos(a), v = ry * Math.sin(a); add(cx + u * cr - v * sr, cy + u * sr + v * cr); }
+    // (The points go straight into the row, the transform worked in the loop: a call for each point made two numbers each time.)
+    needPts(pn + 2 * (n + 1) + 2);
+    if (!curOn) openPiece();
+    const m = st.m;
+    let x = 0, y = 0;
+    for (let i = 0; i <= n; i++) {
+      const a = a0 + (sweep * i) / n, u = rx * Math.cos(a), v = ry * Math.sin(a);
+      x = cx + u * cr - v * sr; y = cy + u * sr + v * cr;
+      pb[pn++] = m ? m[0] * x + m[2] * y + m[4] : x;
+      pb[pn++] = m ? m[1] * x + m[3] * y + m[5] : y;
+    }
+    LP[0] = x; LP[1] = y;
   };
   const arcPts = (cx, cy, r, a0, a1, ccw) => ellPts(cx, cy, r, r, 0, a0, a1, ccw);
   const align = () => (st.textAlign === 'end' ? 'right' : st.textAlign === 'start' ? 'left' : st.textAlign);
@@ -1293,7 +1308,7 @@ export function createShim(G) {
     arcTo(x1, y1, x2, y2, r) {
       only = false;
       if (!curOn) { startPiece(x1, y1); return; }
-      const x0 = lx, y0 = ly;
+      const x0 = LP[0], y0 = LP[1];
       const ax = x0 - x1, ay = y0 - y1, bx = x2 - x1, by = y2 - y1, la = Math.hypot(ax, ay), lb = Math.hypot(bx, by);
       const cos = (ax * bx + ay * by) / (la * lb || 1), ang = Math.acos(Math.max(-1, Math.min(1, cos)));
       if (!r || la < 1e-9 || lb < 1e-9 || ang < 1e-6 || Math.abs(ang - Math.PI) < 1e-6) { add(x1, y1); return; }
@@ -1308,15 +1323,55 @@ export function createShim(G) {
     quadraticCurveTo(qx, qy, x, y) {
       only = false;
       if (!curOn) startPiece(qx, qy);
-      const x0 = lx, y0 = ly;
+      const x0 = LP[0], y0 = LP[1];
       for (let i = 1; i <= 12; i++) { const t = i / 12, u = 1 - t; add(u * u * x0 + 2 * u * t * qx + t * t * x, u * u * y0 + 2 * u * t * qy + t * t * y); }
     },
     bezierCurveTo(ax, ay, bx, by, x, y) {
       only = false;
       if (!curOn) startPiece(ax, ay);
-      const x0 = lx, y0 = ly;
+      const x0 = LP[0], y0 = LP[1];
       const n = Math.max(6, Math.min(48, Math.ceil(Math.hypot(x - x0, y - y0) * K * sc() / 4)));
       for (let i = 1; i <= n; i++) { const t = i / n, u = 1 - t; add(u * u * u * x0 + 3 * u * u * t * ax + 3 * u * t * t * bx + t * t * t * x, u * u * u * y0 + 3 * u * u * t * ay + 3 * u * t * t * by + t * t * t * y); }
+    },
+    /** A series as part of the path, in one call: the points (ax + bx * xs[i], ay + by * ys[i]) for i = 0 … n - 1, or from n - 1 down when dir is -1,
+     *  the first as a moveTo when `move` is set and a lineTo otherwise: what a chart's own loop of lineTo calls drew, with no call for each point. */
+    tracePoints(xs, ys, n, dir, ax, bx, ay, by, move) {
+      if (n < 1) return;
+      only = false;
+      needPts(pn + 2 * n + 2);
+      const m = st.m;
+      let x = 0, y = 0;
+      for (let k = 0; k < n; k++) {
+        const i = dir > 0 ? k : n - 1 - k;
+        x = ax + bx * xs[i]; y = ay + by * ys[i];
+        if (k === 0 && move) { openPiece(); } else if (!curOn) openPiece();
+        pb[pn++] = m ? m[0] * x + m[2] * y + m[4] : x;
+        pb[pn++] = m ? m[1] * x + m[3] * y + m[5] : y;
+      }
+      LP[0] = x; LP[1] = y;
+    },
+    /** A series as the line a chart draws for it (pressure-time.js): every stride-th sample, a NaN reading lifting the pen, and the last sample. */
+    traceLine(xs, ys, n, stride, ax, bx, ay, by) {
+      if (n < 1) return;
+      only = false;
+      needPts(pn + 2 * n + 4);
+      const m = st.m;
+      let on = false, x = 0, y = 0;
+      for (let i = 0; i < n; i += stride) {
+        const v = ys[i];
+        if (v !== v) { on = false; continue; }
+        x = ax + bx * xs[i]; y = ay + by * v;
+        if (!on) { openPiece(); on = true; } else if (!curOn) openPiece();
+        pb[pn++] = m ? m[0] * x + m[2] * y + m[4] : x;
+        pb[pn++] = m ? m[1] * x + m[3] * y + m[5] : y;
+      }
+      if ((n - 1) % stride) {
+        x = ax + bx * xs[n - 1]; y = ay + by * ys[n - 1];
+        if (!curOn) openPiece();
+        pb[pn++] = m ? m[0] * x + m[2] * y + m[4] : x;
+        pb[pn++] = m ? m[1] * x + m[3] * y + m[5] : y;
+      }
+      LP[0] = x; LP[1] = y;
     },
     fill() {
       const a = st.globalAlpha;
