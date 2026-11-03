@@ -14,6 +14,7 @@ import { store, updateParams } from './store.js';
 import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout, countTo, swapText, transformEndX, afterExit, markGone, releaseWords } from './util.js';
 import { releaseSpeed, isFlick, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN, easeArrive } from './ease.js';
 import { glideTranslate, glideStop, glideRunning } from './script-glide.js';
+import { signalMove } from './num-move.js';
 import { cardFor, normalizeSel } from './actions.js';
 import { frameFor } from './frame.js';
 import { restPass, cancelRest } from './rest-pass.js';
@@ -692,7 +693,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     if (moved && !reduceMotion.matches) glideTranslate(el, at[0], at[1], x, y, D_FLIP, easeArrive);   // (on the eases' clock, in the frame the glass reads it in: script-glide.js)
     else {
       if (!at || reduceMotion.matches) glideStop(el);
-      if (!glideRunning(el)) el.style.translate = t;   // (a glide on its way to this very place carries on)
+      if (!glideRunning(el) && el.style.translate !== t) { el.style.translate = t; signalMove(); }   // (a glide on its way to this very place carries on)
     }
     AT[0] = x; AT[1] = y; at = AT;
   }
@@ -712,7 +713,11 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     if (!model || el.hidden) return;
     if (isPhoneLayout()) {
       if (el.parentNode !== dockHost) dockHost.append(el);
-      el.style.translate = ''; at = null; el.classList.add('docked'); if (leader.firstChild) leader.replaceChildren(); return;
+      // A desktop placement can still be gliding when the layout changes to a phone dock.
+      // Stop it before clearing the offset, or its next frame will move the docked card again.
+      if (glideRunning(el)) glideStop(el);
+      if (el.style.translate) { el.style.translate = ''; signalMove(); }
+      at = null; el.classList.add('docked'); if (leader.firstChild) leader.replaceChildren(); return;
     }
     if (el.parentNode !== view) view.append(el);
     el.classList.remove('docked');
