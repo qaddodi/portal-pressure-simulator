@@ -83,7 +83,8 @@ export const startSampler = async () => {
     const d = window.pps?.presenter?.glass?.()?.drawn?.() || null;
     S.push({ n: fr.frameCount(), els: { text: box(text), shade: box(shade), data: box(data) }, glass: d ? { seq: d.seq, panes: { shade: pane(d, shade), data: pane(d, data) } } : null });
     if (S.length > 4000) S.splice(0, 1000);
+    window.__motionN = (window.__motionN || 0) + 1;
   });
   return window.pps?.presenter?.glass?.()?.drawn ? true : 'the card glass has no drawn() hook';
 };
-export const takeSamples = () => { const s = window.__motion || []; window.__motion = []; return s; };
+export const takeSamples = () => (window.__motion || []).splice(0);   // (emptied in place: the sampler keeps writing into the same list)
