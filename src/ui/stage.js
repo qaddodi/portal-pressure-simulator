@@ -11506,6 +11506,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return h || 1;
   };
   const stats = { layouts: 0, skips: 0, values: 0, ms: 0 };
+  const handRideRec = { settle: false };   // (the one record of a hand's zoom ridden: handRide points at it while a ride runs)
   function updateLabels(f, force = false) {
     labelPainted = false;
     // Laid out once the presenter's camera settles (see camSettle), or at once if its glide was cut short.
@@ -11525,7 +11526,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       handRideEnd(); labelKey = null;
     } else if (!handRide && !pinchHide && !pinchLift && gestureOn() && solvedFor && labelKey && !labelJob && restView && layCTM && Math.abs(Math.log(CTM.sc / solvedFor.sc)) > PINCH_ZOOM && rideStart(layCTM)) {
       rideKeyInto(rideKeyA, st);   // (what the labels show as the ride begins)
-      handRide = { settle: false };
+      handRideRec.settle = false; handRide = handRideRec;
       handRideWatch();
       rideStep(); stats.skips++; stats.ms += performance.now() - t0;
       return;
@@ -11728,6 +11729,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const X = x + wrapRect.left - CTM.e, Y = y + wrapRect.top - CTM.f, det = CTM.a * CTM.d - CTM.b * CTM.c;
     return [(CTM.d * X - CTM.c * Y) / det, (CTM.a * Y - CTM.b * X) / det];
   }
+  // (The same point written into a kept pair, for a caller that reads it at once: localWorldXY(x, y) then LW_XY[0], LW_XY[1].)
+  const LW_XY = [0, 0];
+  function localWorldXY(x, y) {
+    const X = x + wrapRect.left - CTM.e, Y = y + wrapRect.top - CTM.f, det = CTM.a * CTM.d - CTM.b * CTM.c;
+    LW_XY[0] = (CTM.d * X - CTM.c * Y) / det; LW_XY[1] = (CTM.a * Y - CTM.b * X) / det;
+  }
   // Vessel geometry as capsules in screen space, bucketed, so a label can ask exactly which vessels it touches.
   const SEG_CELL = 64;
   let segs = [], segIdx = lineIndex([], worldToLocal, 1, SEG_CELL);
@@ -11814,15 +11821,140 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     do r = g.next(); while (!r.done);
     return r.value;
   }
+  // (Kept for the layout that runs, one at a time (a layout that begins ends any other first), and written in place by each: its view
+  // rectangles, its lists of obstacles and boxes placed, the stent's three dots, and scratch pairs, boxes and steps.)
+  let lbkNum = NaN, lbkStr = '', labelSolSpare = new Map();
+  const LAB_VIEW = { x0: 0, y0: 0, x1: 0, y1: 0 }, LAB_PLAIN = { x0: 0, y0: 0, x1: 0, y1: 0 }, LAB_PTVIEW = { x0: 0, y0: 0, x1: 0, y1: 0 };
+  const viewOf = (it) => (it.key === 'scan' ? LAB_PLAIN : it.point || (dop.all && /^focus/.test(it.key)) ? LAB_PTVIEW : LAB_VIEW);
+  const OBST_BUF = [], PLACED_BUF = [], CLAMP_ALTS = [];
+  const FAR_DIRS = ['SE', 'NE', 'SW', 'NW', 'E', 'W', 'S', 'N'];
+  const STENT_PTS = ['proximal', 'mid', 'distal'];
+  const MARK_DOTS = [[0, 0], [0, 0], [0, 0]];
+  const SB_A = [0, 0], SB_B = [0, 0], SB_C = [0, 0], SP_P = [0, 0], SP_Q = [0, 0];
+  const SC_R = { x0: 0, y0: 0, x1: 0, y1: 0 };
+  const LANE = { ox: 0, oy: 0, ux: 0, uy: 0 };
+  const CLAMP_BEST = { n: 0, d: 0, t: 0 }, CLAMP_BB = { x: 0, y: 0, width: 0, height: 0 }, CLAMP_R = { x0: 0, y0: 0, x1: 0, y1: 0 };
+  const CLAMP_MEAS = [{ set: false, x: 0, y: 0, bb: { x: 0, y: 0, width: 0, height: 0 } }, { set: false, x: 0, y: 0, bb: { x: 0, y: 0, width: 0, height: 0 } }];
+  // (The "60 %" search's steps: every 4 px out to 64 and every 8 along the vessel, -64 to 64, nearest first. The same for every label.)
+  const CLAMP_STEPS = [];
+  for (let px = 0; px <= 64; px += 4) for (let tp = -64; tp <= 64; tp += 8) CLAMP_STEPS.push([px, tp]);
+  CLAMP_STEPS.sort((a, b) => Math.hypot(...a) - Math.hypot(...b));
+  // A stent's point on the screen, written into `out`.
+  function pointAtLocal(out, pts, u) { const p = pointAt(pts, u); return worldToLocalInto(out, p[0], p[1]); }
+  // (A slide's caliper or bracket: boxes along the line from p to q, pushed on the boxes placed.)
+  function segBoxes(p, q, pad) {
+    worldToLocalInto(SB_A, p[0], p[1]); worldToLocalInto(SB_B, q[0], q[1]);
+    const x0 = SB_A[0], y0 = SB_A[1], x1 = SB_B[0], y1 = SB_B[1], n = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 8));
+    for (let i = 0; i < n; i++) {
+      const u0 = i / n, u1 = (i + 1) / n, xa = x0 + (x1 - x0) * u0, xb = x0 + (x1 - x0) * u1, ya = y0 + (y1 - y0) * u0, yb = y0 + (y1 - y0) * u1;
+      PLACED_BUF.push({ x0: Math.min(xa, xb) - pad, y0: Math.min(ya, yb) - pad, x1: Math.max(xa, xb) + pad, y1: Math.max(ya, yb) + pad, dot: true });
+    }
+  }
+  // lineW of a line with every figure run read as "000" (the widest a reading's figures can be).
+  function lineW000(line) { let w = 0; for (let i = 0; i < line.length; i++) { const r = line[i]; w = w + textW(r.cls === 'lb-val' ? '000' : r.t, fontPx(r.size), r.weight, r.track || 0) + (i ? (r.gap ?? 3) * labelK : 0); } return w; }
+  // How badly a stent's three points would stand in a column on `side` of their dots: off the view, under a card, over vessels.
+  function colSideScore(side, col, tpl, G, wT, h, view, obstacles) {
+    const padX = tpl.padX || 0, padY = tpl.padY || 0;
+    let n = 0;
+    for (let i = 0; i < 3; i++) {
+      pointAtLocal(SB_C, geo[col].cur, STENT_SITES[STENT_PTS[i]]);
+      const x = side === 'E' ? SB_C[0] + G : SB_C[0] - G - wT, y = SB_C[1] - h / 2;
+      SC_R.x0 = x - padX; SC_R.y0 = y - padY; SC_R.x1 = x + wT + padX; SC_R.y1 = y + h + padY;
+      let under = false;
+      for (let j = 0; j < obstacles.length; j++) { const o = obstacles[j]; if (!o.probe && hits(SC_R, o)) { under = true; break; } }
+      n = n + (within(SC_R, view) ? 0 : 1e3) + (under ? 1e3 : 0) + lineHits(SC_R, 2) * 10;
+    }
+    return n;
+  }
+  // The slide's mark (or the first of its marks) that stands on this stent, or null.
+  function focusMarkOn(st, col) {
+    const fo = st.focus;
+    if (!fo) return null;
+    const ms = fo.marks;
+    if (ms) { for (let i = 0; i < ms.length; i++) if (ms[i].edges?.[0] === col) return ms[i]; return null; }
+    return fo.edges?.[0] === col ? fo : null;
+  }
+  // The lane the slide's mark leaves along at the narrowing (kept record LANE), or null.
+  function laneFor(col, st, f) {
+    const m = focusMarkOn(st, col);
+    if (!m) return null;
+    const pp = f.viewParams || st.params, cur = geo[col].cur;
+    const pt = pointAt(cur, stenosisAt(col, pp)), x = pt[0], y = pt[1], dx = pt[2], dy = pt[3];
+    worldToLocalInto(SB_A, x, y);
+    const ox = SB_A[0], oy = SB_A[1];
+    pointAtLocal(SB_B, cur, m.seg ? STENT_SITES[stentGate(m.seg, pp, col)] : 0.5);
+    if (Math.hypot(SB_B[0] - ox, SB_B[1] - oy) > 12) return null;
+    worldToLocalInto(SB_B, x + dx, y + dy);
+    const tx = SB_B[0], ty = SB_B[1], n = Math.hypot(tx - ox, ty - oy) || 1;
+    pointAtLocal(SB_C, cur, STENT_SITES.mid);
+    const cx = SB_C[0], cy = SB_C[1];
+    const sg = (cx - ox) * (tx - ox) + (cy - oy) * (ty - oy) > 0 ? -1 : 1;
+    LANE.ox = ox; LANE.oy = oy; LANE.ux = (sg * (tx - ox)) / n; LANE.uy = (sg * (ty - oy)) / n;
+    return LANE;
+  }
+  function inLaneBox(lane, r) {
+    if (!lane) return false;
+    const { ox, oy, ux, uy } = lane, sx = Math.max(1, (r.x1 - r.x0) / 8), sy = Math.max(1, (r.y1 - r.y0) / 4);
+    for (let x = r.x0; x <= r.x1 + 0.01; x += sx) for (let y = r.y0; y <= r.y1 + 0.01; y += sy) {
+      const a = (x - ox) * ux + (y - oy) * uy;
+      if (a > 10 && a < 150 && Math.abs((y - oy) * ux - (x - ox) * uy) < 46) return true;
+    }
+    return false;
+  }
+  // (The "60 %" the probe would cover: its box moved by d out and t along the vessel, judged against the probe's boxes, the view and the credit.
+  // One label at a time, so the context is kept and the box is a kept record.)
+  const CLB = { c: null, base: null, ox: 0, oy: 0, id: '', credit: null, probe: null, view: null };
+  const CLB_BASE = { x0: 0, y0: 0, x1: 0, y1: 0 }, CLB_R = { x0: 0, y0: 0, x1: 0, y1: 0 }, BOX_TMP = { x0: 0, y0: 0, x1: 0, y1: 0 };
+  const PROBE_BUF = [], CLAMP_SEEN = new Set(), MARK_TRIS = [], MARK_ARROWS = [];
+  for (let i = 0; i < 8; i++) MARK_TRIS.push([[0, 0], [0, 0], [0, 0]]);
+  const PROBE_STEPS = [];
+  for (let px = 0; px <= 80; px += 8) for (let tp = -88; tp <= 88; tp += 8) if (px || tp) PROBE_STEPS.push([px, tp]);
+  PROBE_STEPS.sort((u, v) => Math.hypot(...u) - Math.hypot(...v));
+  function clBoxAt(d, t) {
+    const c = CLB.c, base = CLB.base;
+    worldToLocalInto(SB_A, c.x + c.nx * (d - 16) - c.ny * t, c.y + c.ny * (d - 16) + c.nx * t);
+    if (!base) return base;
+    const bx = SB_A[0], by = SB_A[1], r = CLB_R;
+    r.x0 = base.x0 + bx - CLB.ox; r.y0 = base.y0 + by - CLB.oy; r.x1 = base.x1 + bx - CLB.ox; r.y1 = base.y1 + by - CLB.oy;
+    return r;
+  }
+  function clProbeHit(b) { const pr = CLB.probe; for (let i = 0; i < pr.length; i++) if (hits(b, pr[i])) return true; return false; }
+  function clFree(b) { return b && !clProbeHit(b) && within(b, CLB.view) && lineHits(b, 6, CLB.id) < 1 && !(CLB.credit && hits(b, CLB.credit)); }
+  // An element's box in stage px, `m` px grown, written into `out` (or null when it has none).
+  function boxOfElInto(out, el, m = 2) {
+    const b = elBoxInto(el, EBOX, clampTextBox);
+    if (!b?.width) return null;
+    const bx = b.x, by = b.y, bw = b.width, bh = b.height;
+    worldToLocalInto(SB_A, bx, by); let x0 = SB_A[0], y0 = SB_A[1], x1 = x0, y1 = y0;
+    worldToLocalInto(SB_A, bx + bw, by); x0 = Math.min(x0, SB_A[0]); y0 = Math.min(y0, SB_A[1]); x1 = Math.max(x1, SB_A[0]); y1 = Math.max(y1, SB_A[1]);
+    worldToLocalInto(SB_A, bx, by + bh); x0 = Math.min(x0, SB_A[0]); y0 = Math.min(y0, SB_A[1]); x1 = Math.max(x1, SB_A[0]); y1 = Math.max(y1, SB_A[1]);
+    worldToLocalInto(SB_A, bx + bw, by + bh); x0 = Math.min(x0, SB_A[0]); y0 = Math.min(y0, SB_A[1]); x1 = Math.max(x1, SB_A[0]); y1 = Math.max(y1, SB_A[1]);
+    out.x0 = x0 - m; out.y0 = y0 - m; out.x1 = x1 + m; out.y1 = y1 + m;
+    return out;
+  }
+  function boxOfEl(el, m = 2) { const b = boxOfElInto(BOX_TMP, el, m); return b && { x0: b.x0, y0: b.y0, x1: b.x1, y1: b.y1 }; }
+  // How far (x, y) is from the triangle: 0 inside it.
+  function triSide(a, b, x, y) { return (b[0] - a[0]) * (y - a[1]) - (b[1] - a[1]) * (x - a[0]); }
+  function triDist(x, y, tri) {
+    const s0 = triSide(tri[0], tri[1], x, y), s1 = triSide(tri[1], tri[2], x, y), s2 = triSide(tri[2], tri[0], x, y);
+    if ((s0 >= 0 && s1 >= 0 && s2 >= 0) || (s0 <= 0 && s1 <= 0 && s2 <= 0)) return 0;
+    let m = Infinity;
+    for (let k = 0; k < 3; k++) {
+      const a = tri[k], b = tri[(k + 1) % 3], ex = b[0] - a[0], ey = b[1] - a[1], t = Math.max(0, Math.min(1, ((x - a[0]) * ex + (y - a[1]) * ey) / (ex * ex + ey * ey || 1)));
+      m = Math.min(m, Math.hypot(x - a[0] - ex * t, y - a[1] - ey * t));
+    }
+    return m;
+  }
   // (The layout itself, a generator: a solve yields between labels once its slice is spent (sliceOver); run whole, it never yields.)
   function* layoutLabelsGen(f, solve, dry = false) {
     frameNo++;
     const st = store.get();
     const t = easeInOut(morph);
     const circuit = t >= 0.5;
-    if ((circuit && rotU > 0.5) !== labelTurned) { labelTurned = !labelTurned; labelSol = new Map(); if (!solve) return false; }
+    if ((circuit && rotU > 0.5) !== labelTurned) { labelTurned = !labelTurned; labelSol.clear(); if (!solve) return false; }
     labelK = labelBase() * (circuit ? CIRCUIT_LABEL_K : 1);
-    const lbk = labelK.toFixed(2);
+    if (labelK !== lbkNum) { lbkNum = labelK; lbkStr = labelK.toFixed(2); }   // (the text made only when the number moved)
+    const lbk = lbkStr;
     if (gLabels.dataset.k !== lbk) { gLabels.dataset.k = lbk; gLabels.style.setProperty('--lbk', lbk); }
     const wr = stageBox();
     const W = wr.width, H = wr.height;
@@ -11831,7 +11963,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (On a wide screen's slide the readings keep the slides' one margin from every edge, as the cards do, and stay above the nav
     // pill's row: 17 Oct design review, a reading had stood 8 px from the right edge, and another level with the pill.)
     const M = st.presenting && pillEdge ? pillEdge.m : 6;
-    const view = { x0: M, y0: M, x1: W - M, y1: H - M }, plain = { x0: 6, y0: 6, x1: W - 6, y1: H - 6 };   // plain: the whole stage, for the FibroScan callout, which keeps with its probe (see below)
+    const view = LAB_VIEW, plain = LAB_PLAIN;
+    view.x0 = M; view.y0 = M; view.x1 = W - M; view.y1 = H - M; plain.x0 = 6; plain.y0 = 6; plain.x1 = W - 6; plain.y1 = H - 6;   // plain: the whole stage, for the FibroScan callout, which keeps with its probe (see below)
     if (st.presenting && pillEdge) view.y1 = Math.max(H * 0.5, Math.min(view.y1, pillEdge.top - 8));
     // (A label keeps out of the sensor housing and the rounded corners of a phone held sideways: the stage runs edge to edge under them.)
     { const sa = saSides(); view.x0 = Math.max(view.x0, sa.l - wr.left); view.x1 = Math.min(view.x1, W - Math.max(0, sa.r - (innerWidth - wr.right))); }
@@ -11839,48 +11972,51 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (st.presenting) { view.x0 = Math.max(view.x0, pzInset('--pz-l') + 30); view.y0 = Math.max(view.y0, pzInset('--pz-t') + 12); }
     // (A stent's point, and the slide's mark beside it, come as near the top card as they may come to any card (4 px past its box, and
     // a pixel to spare), so the point nearest it can still stand level with its dot: Review 16 Oct.)
-    const ptView = { ...view, y0: st.presenting ? Math.max(6, pzInset('--pz-t') + 5) : view.y0 };
-    const viewOf = (it) => (it.key === 'scan' ? plain : it.point || (dop.all && /^focus/.test(it.key)) ? ptView : view);
+    const ptView = LAB_PTVIEW;
+    ptView.x0 = view.x0; ptView.y0 = st.presenting ? Math.max(6, pzInset('--pz-t') + 5) : view.y0; ptView.x1 = view.x1; ptView.y1 = view.y1;
     const compact = W < 700;
     // Floating panels over the figure (notifications, hint cards, banners): a label under one is hidden.
     // Their boxes are read before this frame's SVG changes (see updateInner), while layout is clean.
-    const blockers = blockerBoxes || [];   // (none read yet: read first in the next frame, see updateInner)
+    const blockers = blockerBoxes || NO_BLK;   // (none read yet: read first in the next frame, see updateInner)
     const callouts = calloutBoxes();
-    const obstacles = [...blockers, ...callouts];   // what can hide a label this frame
-    const placed = solve ? callouts.map((b) => ({ x0: b.x0 - 3, y0: b.y0 - 3, x1: b.x1 + 3, y1: b.y1 + 3, call: true, probe: !!b.probe })) : [];
+    const obstacles = OBST_BUF;   // what can hide a label this frame
+    obstacles.length = 0;
+    for (let i = 0; i < blockers.length; i++) obstacles.push(blockers[i]);
+    for (let i = 0; i < callouts.length; i++) obstacles.push(callouts[i]);
+    const placed = PLACED_BUF;
+    placed.length = 0;
+    if (solve) for (let i = 0; i < callouts.length; i++) { const b = callouts[i]; placed.push({ x0: b.x0 - 3, y0: b.y0 - 3, x1: b.x1 + 3, y1: b.y1 + 3, call: true, probe: !!b.probe }); }
     // (A slide's calipers and brackets (package F) are lines no label may sit on, their own readings included: boxes along each.)
     if (solve && fx) {
-      const segBoxes = (p, q, pad) => {
-        const [x0, y0] = worldToLocal(...p), [x1, y1] = worldToLocal(...q), n = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 8));
-        for (let i = 0; i < n; i++) {
-          const u0 = i / n, u1 = (i + 1) / n, xa = x0 + (x1 - x0) * u0, xb = x0 + (x1 - x0) * u1, ya = y0 + (y1 - y0) * u0, yb = y0 + (y1 - y0) * u1;
-          placed.push({ x0: Math.min(xa, xb) - pad, y0: Math.min(ya, yb) - pad, x1: Math.max(xa, xb) + pad, y1: Math.max(ya, yb) + pad, dot: true });
-        }
-      };
       if (!circuit) for (const c of fx.calipers) { const g = caliperSegs(c, f); if (g) for (const [p, q] of g.segs) segBoxes(p, q, 5); }
       if (circuit) for (const sp of fx.spans) {
         const at = spanOf(sp.from, sp.to, fxK());
-        if (at) for (const [p, q] of [[[at.x0, at.y], [at.x1, at.y]], [[at.x0, at.y - SPAN_TICK], [at.x0, at.y]], [[at.x1, at.y - SPAN_TICK], [at.x1, at.y]]]) segBoxes(p, q, 5);
+        if (at) {
+          SP_P[0] = at.x0; SP_P[1] = at.y; SP_Q[0] = at.x1; SP_Q[1] = at.y; segBoxes(SP_P, SP_Q, 5);
+          SP_P[0] = at.x0; SP_P[1] = at.y - SPAN_TICK; SP_Q[0] = at.x0; SP_Q[1] = at.y; segBoxes(SP_P, SP_Q, 5);
+          SP_P[0] = at.x1; SP_P[1] = at.y - SPAN_TICK; SP_Q[0] = at.x1; SP_Q[1] = at.y; segBoxes(SP_P, SP_Q, 5);
+        }
       }
     }
     // (The corner credit, where it shows: a stent's column and the slide's mark beside it keep off it where they can, so it holds its
     // spot when another point is picked. It moves whenever a label comes to cover it, and does not come back.)
     // (Its box read with the cards', first in a frame: readBlockersRead.)
     const creditBox = solve && dop.all ? creditKept : null;
-    const markDots = solve && dop.all && dop.id && geo[dop.id]?.cur?.length > 1 ? ['proximal', 'mid', 'distal'].map((pt) => worldToLocal(...pointAt(geo[dop.id].cur, STENT_SITES[pt]))) : null;   // (the stent's three dots)
+    const markDots = solve && dop.all && dop.id && geo[dop.id]?.cur?.length > 1 ? MARK_DOTS : null;   // (the stent's three dots: kept pairs)
+    if (markDots) for (let i = 0; i < 3; i++) pointAtLocal(MARK_DOTS[i], geo[dop.id].cur, STENT_SITES[STENT_PTS[i]]);
     const later = [];   // labels placed after the slide's marks (a stent's points other than the sampled one)
     // Where a stent's point goes when nothing near its third is free: a little farther out on a leader that crosses no label (diagonal
     // first, which clears a narrowing's clamp above or below its "60 %"), then farther still.
-    const FAR_DIRS = ['SE', 'NE', 'SW', 'NW', 'E', 'W', 'S', 'N'];
     // (A stent's point with still no room, on a phone's small stent beside its narrowing: the far spots slid up or down a
     // little, nearest first, so its leader can pass by the narrowing's clamp and its label sit in the gap that is left.)
     const SLID = (far) => [far + 12, far + 48, far + 84].flatMap((gap) => [-24, 24, -48, 48, -72, 72].map((y) => ({ gap, leader: true, uncrossed: true, shift: [0, y] })));
     let stale = false;
-    const prevSol = labelSol, nextSol = solve ? new Map() : labelSol;
+    const prevSol = labelSol, nextSol = solve ? labelSolSpare : labelSol;   // (the one that was not kept last time, cleared: the two take turns)
+    if (solve) nextSol.clear();
     const out = [];
     const leaders = [];   // { k, tag, at }: every line, then every dot (paintLeaders)
     let useLines = false, rings = [], ringXY = [];   // rings: the Circuit's stations with a reading (see placeMulti); ringXY: their dots
-    let clampAlts = [];   // (the column's "60 %": other spots off the vessels, nearest first, for the slide's mark)
+    const clampAlts = CLAMP_ALTS;   // (the column's "60 %": other spots off the vessels, nearest first, for the slide's mark)
     const buildLines = () => { if (solve && !useLines) { useLines = true; buildSegs(); } };
     // A stent called out at its three points: the three stand in a column beside their own dots, distal to proximal in the stent's
     // own order, on the side with room (off the cards and the stage edge, over the fewest vessels). The side is chosen from the stent
@@ -11890,122 +12026,115 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (col) {
         buildLines();
         const tpl = velItem(col, f, 'distal'), h = tpl.h, G = colGap(col);
-        const wT = lineW(tpl.lines[0].map((r) => (r.cls === 'lb-val' ? { ...r, t: '000' } : r)));
-        const score = (side) => ['proximal', 'mid', 'distal'].reduce((n, pt) => {
-          const [ax, ay] = worldToLocal(...pointAt(geo[col].cur, STENT_SITES[pt]));
-          const r = rectOf({ x: side === 'E' ? ax + G : ax - G - wT, y: ay - h / 2, w: wT, h, padX: tpl.padX || 0, padY: tpl.padY || 0 });
-          return n + (within(r, view) ? 0 : 1e3) + (obstacles.some((o) => !o.probe && hits(r, o)) ? 1e3 : 0) + lineHits(r, 2) * 10;
-        }, 0);
-        const e = score('E'), w = score('W');
+        const wT = lineW000(tpl.lines[0]);
+        const e = colSideScore('E', col, tpl, G, wT, h, view, obstacles), w = colSideScore('W', col, tpl, G, wT, h, view, obstacles);
         ptSide = clampFor === col && ptSide === 'W' ? (e + 5 < w ? 'E' : 'W') : (w + 5 < e ? 'W' : 'E');   // (a near tie keeps the side it had)
       } else ptSide = null;
       const away = col ? (ptSide === 'E' ? 'W' : 'E') : null;
-      if (away !== clampAway || col !== clampFor) { clampAway = away; clampFor = col; for (const el of clampW.querySelectorAll('.clamp-label')) clampLabelAt(el); }
-      for (const el of clampW.querySelectorAll('.clamp-label')) clampFontAt(el);
+      const cws = clampW.children;
+      if (away !== clampAway || col !== clampFor) { clampAway = away; clampFor = col; for (let i = 0; i < cws.length; i++) if (cws[i].classList.contains('clamp-label')) clampLabelAt(cws[i]); }
+      for (let i = 0; i < cws.length; i++) if (cws[i].classList.contains('clamp-label')) clampFontAt(cws[i]);
       // (The column's "60 %" stands off the vessels on its side (Review 15 Oct: it sat on the grey vein): the nearest spot clear of
       // every vessel but its stent and of the credit, a step farther out or slid along the stent at a time, up to 64 px each way;
       // failing that, the one over the fewest.)
       // (Where the slide's mark points at the narrowing, its leader can only leave along the stent, between the arrows and away from the
       // other dots: the "60 %" keeps out of that lane where it can, so the mark finds a spot there off the vessels: Review 16 Oct.)
-      const lane = col && (() => {
-        const m = (st.focus ? st.focus.marks || [st.focus] : []).find((k) => k.edges?.[0] === col);
-        if (!m) return null;
-        const pp = f.viewParams || st.params, [x, y, dx, dy] = pointAt(geo[col].cur, stenosisAt(col, pp));
-        const [ox, oy] = worldToLocal(x, y), [mx, my] = worldToLocal(...pointAt(geo[col].cur, m.seg ? STENT_SITES[stentGate(m.seg, pp, col)] : 0.5));
-        if (Math.hypot(mx - ox, my - oy) > 12) return null;
-        const [tx, ty] = worldToLocal(x + dx, y + dy), n = Math.hypot(tx - ox, ty - oy) || 1, [cx, cy] = worldToLocal(...pointAt(geo[col].cur, STENT_SITES.mid));
-        const sg = (cx - ox) * (tx - ox) + (cy - oy) * (ty - oy) > 0 ? -1 : 1;
-        return { ox, oy, ux: (sg * (tx - ox)) / n, uy: (sg * (ty - oy)) / n };
-      })();
-      const inLane = (r) => {
-        if (!lane) return false;
-        const { ox, oy, ux, uy } = lane, sx = Math.max(1, (r.x1 - r.x0) / 8), sy = Math.max(1, (r.y1 - r.y0) / 4);
-        for (let x = r.x0; x <= r.x1 + 0.01; x += sx) for (let y = r.y0; y <= r.y1 + 0.01; y += sy) {
-          const a = (x - ox) * ux + (y - oy) * uy;
-          if (a > 10 && a < 150 && Math.abs((y - oy) * ux - (x - ox) * uy) < 46) return true;
-        }
-        return false;
-      };
-      if (col) for (const el of clampW.querySelectorAll('.clamp-label')) {
-        if (el._c?.id !== col) continue;
-        const k = 1 / Math.max(CTM.sc, 1e-3), steps = [];
-        for (let px = 0; px <= 64; px += 4) for (let tp = -64; tp <= 64; tp += 8) steps.push([px, tp]);
-        steps.sort((a, b) => Math.hypot(...a) - Math.hypot(...b));
-        let best = null;
+      const lane = col ? laneFor(col, st, f) : null;
+      if (col) for (let wi = 0; wi < cws.length; wi++) {
+        const el = cws[wi];
+        if (!el.classList.contains('clamp-label') || el._c?.id !== col) continue;
+        const k = 1 / Math.max(CTM.sc, 1e-3), steps = CLAMP_STEPS;
+        let hasBest = false;
+        const best = CLAMP_BEST;
         // (Where the slide's mark is on this stent, the next few spots off the vessels are kept too: the mark may need the one it takes,
         // and then the "60 %" moves to the nearest of them that frees it (see the focus callout).)
-        const markOn = (st.focus ? st.focus.marks || [st.focus] : []).some((m) => m.edges?.[0] === col);
-        clampAlts = [];
+        const markOn = focusMarkOn(st, col) !== null;
+        clampAlts.length = 0;
         // (Its box is measured once for each way its text can run; every other step only moves it, so the box moves by the
         // same amount: up to 289 forced layouts in one search had been one per step. Review item 24.)
-        const measured = [null, null];
-        for (const [px, tp] of steps) {
-          if (best && !best.n && (!markOn || clampAlts.length >= 12)) break;
+        const measured = CLAMP_MEAS;
+        measured[0].set = false; measured[1].set = false;
+        for (let si = 0; si < steps.length; si++) {
+          const px = steps[si][0], tp = steps[si][1];
+          if (hasBest && !best.n && (!markOn || clampAlts.length >= 12)) break;
           el._d = 16 + px * k; el._t = tp * k;
           const q = clampLabelPos(el);
           if (!q) break;
           const qx = +q.x.toFixed(2), qy = +q.y.toFixed(2), ref = measured[+q.left];
           let bb;
-          if (ref) bb = { x: ref.bb.x + (qx - ref.x), y: ref.bb.y + (qy - ref.y), width: ref.bb.width, height: ref.bb.height };
+          if (ref.set) { bb = CLAMP_BB; bb.x = ref.bb.x + (qx - ref.x); bb.y = ref.bb.y + (qy - ref.y); bb.width = ref.bb.width; bb.height = ref.bb.height; }
           else {
             clampLabelAt(el);
             bb = clampTextBox(el);
             if (!bb) break;
-            measured[+q.left] = { x: qx, y: qy, bb: { x: bb.x, y: bb.y, width: bb.width, height: bb.height } };
+            ref.set = true; ref.x = qx; ref.y = qy; ref.bb.x = bb.x; ref.bb.y = bb.y; ref.bb.width = bb.width; ref.bb.height = bb.height;
           }
-          const cs = [[bb.x, bb.y], [bb.x + bb.width, bb.y + bb.height]].map(([x, y]) => worldToLocal(x, y));
-          const r = { x0: Math.min(cs[0][0], cs[1][0]), y0: Math.min(cs[0][1], cs[1][1]), x1: Math.max(cs[0][0], cs[1][0]), y1: Math.max(cs[0][1], cs[1][1]) };
-          const n = lineHits(r, 8, col) + (within(r, view) ? 0 : 1e3) + (creditBox && hits(r, creditBox) ? 100 : 0) + (inLane(r) ? 0.5 : 0);   // (its 3.5 px halo and 2 px of air past it, and a pixel and a half to spare)
-          if (n < 1 && best && best.n < 1) clampAlts.push({ d: el._d, t: el._t, el });
-          if (!best || n < best.n) best = { n, d: el._d, t: el._t };
+          worldToLocalInto(SB_A, bb.x, bb.y); worldToLocalInto(SB_B, bb.x + bb.width, bb.y + bb.height);
+          const r = CLAMP_R;
+          r.x0 = Math.min(SB_A[0], SB_B[0]); r.y0 = Math.min(SB_A[1], SB_B[1]); r.x1 = Math.max(SB_A[0], SB_B[0]); r.y1 = Math.max(SB_A[1], SB_B[1]);
+          const n = lineHits(r, 8, col) + (within(r, view) ? 0 : 1e3) + (creditBox && hits(r, creditBox) ? 100 : 0) + (inLaneBox(lane, r) ? 0.5 : 0);   // (its 3.5 px halo and 2 px of air past it, and a pixel and a half to spare)
+          if (n < 1 && hasBest && best.n < 1) clampAlts.push({ d: el._d, t: el._t, el });
+          if (!hasBest || n < best.n) { hasBest = true; best.n = n; best.d = el._d; best.t = el._t; }
         }
-        clampAlts = clampAlts.filter((a) => a.d !== best?.d || a.t !== best?.t);
-        if (best) { clampD.set(col, { d: best.d, t: best.t }); el._d = el._t = undefined; clampLabelAt(el); }
+        let kept = 0;
+        for (let i = 0; i < clampAlts.length; i++) { const a = clampAlts[i]; if (a.d !== (hasBest ? best.d : undefined) || a.t !== (hasBest ? best.t : undefined)) clampAlts[kept++] = a; }
+        clampAlts.length = kept;
+        if (hasBest) { clampD.set(col, { d: best.d, t: best.t }); el._d = el._t = undefined; clampLabelAt(el); }
       }
     }
     // Stenosis clamps and their percentages are drawn on the figure; keep labels off them. (Beside a stent called out in a column,
     // only the clamp's own arrows and its "60 %", so the callout at the narrowing can stand right by its dot.)
-    const boxOfEl = (el, m = 2) => {
-      const b = elBoxInto(el, EBOX, clampTextBox);
-      if (!b?.width) return null;
-      const cs = [[b.x, b.y], [b.x + b.width, b.y], [b.x, b.y + b.height], [b.x + b.width, b.y + b.height]].map(([x, y]) => worldToLocal(x, y));
-      return { x0: Math.min(...cs.map((c) => c[0])) - m, y0: Math.min(...cs.map((c) => c[1])) - m, x1: Math.max(...cs.map((c) => c[0])) + m, y1: Math.max(...cs.map((c) => c[1])) + m };
-    };
-    if (solve && !isImaging()) for (const [id, v] of Object.entries((f.viewParams || st.params).stenosis)) {
-      if (!(v > 0) || !E[id]?.vis) continue;
-      if (id === clampFor && ptSide) { for (const el of ov.clamps.querySelectorAll(`.clamp[data-id="${id}"]`)) { const b = boxOfEl(el, 0); if (b) placed.push(b); } continue; }
-      const [sx, sy] = worldToLocal(...pointAt(geo[id].cur, stenosisAt(id, f.viewParams || st.params)));
-      placed.push({ x0: sx - 26, y0: sy - 22, x1: sx + 60, y1: sy + 22 });
+    if (solve && !isImaging()) {
+      const stenoses = (f.viewParams || st.params).stenosis;
+      for (const id in stenoses) {
+        const v = stenoses[id];
+        if (!(v > 0) || !E[id]?.vis) continue;
+        if (id === clampFor && ptSide) {
+          const cks = ov.clamps.children;
+          for (let i = 0; i < cks.length; i++) {
+            const el = cks[i];
+            if (!el.classList.contains('clamp') || el.getAttribute('data-id') !== id) continue;
+            const b = boxOfElInto({ x0: 0, y0: 0, x1: 0, y1: 0 }, el, 0);
+            if (b) placed.push(b);
+          }
+          continue;
+        }
+        pointAtLocal(SB_A, geo[id].cur, stenosisAt(id, f.viewParams || st.params));
+        const sx = SB_A[0], sy = SB_A[1];
+        placed.push({ x0: sx - 26, y0: sy - 22, x1: sx + 60, y1: sy + 22 });
+      }
     }
     // (The clamps' "60 %" again on its own: a station inside the clamp's box above may send a long leader out, but never through it,
     // and no leader passes nearer than 2 px to its halo: Review 15 Oct.)
     // The "60 %" the probe would cover steps out on a leader line (its fade out and in: clampStep); the leader is drawn from the
     // clamp's outer tip (clampLeads, below).
     if (solve && !isImaging()) {
-      const probe = dpr.on && dpr.box ? [dpr.box, ...dpr.marks] : [], seen = new Set(), k = 1 / Math.max(CTM.sc, 1e-3);
-      for (const el of clampW.querySelectorAll('.clamp-label')) {
+      const probe = PROBE_BUF, seen = CLAMP_SEEN, k = 1 / Math.max(CTM.sc, 1e-3);
+      probe.length = 0; seen.clear();
+      if (dpr.on && dpr.box) { probe.push(dpr.box); const pm = dpr.marks; for (let i = 0; i < pm.length; i++) probe.push(pm[i]); }
+      const cws2 = clampW.children;
+      for (let wi = 0; wi < cws2.length; wi++) {
+        const el = cws2[wi];
+        if (!el.classList.contains('clamp-label')) continue;
         const c = el._c, id = c?.id, m = clampMv.get(id);
         if (!c || id === clampFor || (!probe.length && !m?.cur)) continue;   // (a column's "60 %" has its own spot: clampD)
         seen.add(id);
         buildLines();
         // (The box at the usual spot once, then shifted: a move of d out and t along the vessel is the same move on screen.)
         el._d = 16; el._t = 0; clampLabelAt(el);
-        const base = boxOfEl(el, 5), o = worldToLocal(c.x, c.y);
+        const base = boxOfElInto(CLB_BASE, el, 5);
+        worldToLocalInto(SB_B, c.x, c.y);
         el._d = el._t = undefined;
-        const boxAt = (d, t) => {
-          const [bx, by] = worldToLocal(c.x + c.nx * (d - 16) - c.ny * t, c.y + c.ny * (d - 16) + c.nx * t);
-          return base && { x0: base.x0 + bx - o[0], y0: base.y0 + by - o[1], x1: base.x1 + bx - o[0], y1: base.y1 + by - o[1] };
-        };
-        const free = (b) => b && !probe.some((q) => hits(b, q)) && within(b, view) && lineHits(b, 6, id) < 1 && !(creditBox && hits(b, creditBox));
-        let want = null;
-        if (probe.some((q) => hits(boxAt(16, 0), q))) {
+        CLB.c = c; CLB.base = base; CLB.ox = SB_B[0]; CLB.oy = SB_B[1]; CLB.id = id; CLB.credit = creditBox; CLB.probe = probe; CLB.view = view;
+        let want = null, probed = false;
+        for (let i = 0; i < probe.length; i++) if (hits(clBoxAt(16, 0), probe[i])) { probed = true; break; }
+        if (probed) {
           const cur = m?.want;
-          if (cur && free(boxAt(cur.d, cur.t))) want = cur;   // (a spot that still works is kept: nothing hops while the probe stays)
+          if (cur && clFree(clBoxAt(cur.d, cur.t))) want = cur;   // (a spot that still works is kept: nothing hops while the probe stays)
           else {
-            const steps = [];
-            for (let px = 0; px <= 80; px += 8) for (let tp = -88; tp <= 88; tp += 8) if (px || tp) steps.push([px, tp]);
-            steps.sort((u, v) => Math.hypot(...u) - Math.hypot(...v));
-            const hit = steps.find(([px, tp]) => free(boxAt(16 + px * k, tp * k)));
+            const steps = PROBE_STEPS;
+            let hit = null;
+            for (let i = 0; i < steps.length; i++) if (clFree(clBoxAt(16 + steps[i][0] * k, steps[i][1] * k))) { hit = steps[i]; break; }
             if (hit) want = { d: 16 + hit[0] * k, t: hit[1] * k };
           }
         }
@@ -12014,21 +12143,28 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
       for (const [id, m] of clampMv) if (!seen.has(id) && !m.busy) clampMv.delete(id);
     }
-    if (solve && !isImaging()) for (const el of clampW.querySelectorAll('.clamp-label')) { const b = boxOfEl(el, 6); if (b) placed.push(el._box = { ...b, lab: true }); }
+    if (solve && !isImaging()) for (let wi = 0, cwl = clampW.children; wi < cwl.length; wi++) {
+      const el = cwl[wi];
+      if (!el.classList.contains('clamp-label')) continue;
+      const b = boxOfElInto(BOX_TMP, el, 6);
+      if (b) placed.push(el._box = { x0: b.x0, y0: b.y0, x1: b.x1, y1: b.y1, lab: true });
+    }
     // (The column's narrowing arrows, for the slide's mark: its leader keeps 6 px off them, as drawn (their triangles, not their
     // boxes, so a leader straight up between them still passes): Review 16 Oct.)
-    const markArrows = solve && dop.all && clampFor && ptSide ? [...ov.clamps.querySelectorAll(`.clamp[data-id="${clampFor}"]`)].map((el) => {
-      const n = (el.getAttribute('d') || '').match(/-?[\d.]+(e-?\d+)?/g)?.map(Number) || [];
-      return n.length >= 6 ? [0, 2, 4].map((k) => worldToLocal(n[k], n[k + 1])) : null;
-    }).filter(Boolean) : [];
-    const triDist = (x, y, tri) => {
-      const side = (a, b) => (b[0] - a[0]) * (y - a[1]) - (b[1] - a[1]) * (x - a[0]), s0 = side(tri[0], tri[1]), s1 = side(tri[1], tri[2]), s2 = side(tri[2], tri[0]);
-      if ((s0 >= 0 && s1 >= 0 && s2 >= 0) || (s0 <= 0 && s1 <= 0 && s2 <= 0)) return 0;
-      return Math.min(...[0, 1, 2].map((k) => {
-        const a = tri[k], b = tri[(k + 1) % 3], ex = b[0] - a[0], ey = b[1] - a[1], t = Math.max(0, Math.min(1, ((x - a[0]) * ex + (y - a[1]) * ey) / (ex * ex + ey * ey || 1)));
-        return Math.hypot(x - a[0] - ex * t, y - a[1] - ey * t);
-      }));
-    };
+    const markArrows = MARK_ARROWS;
+    markArrows.length = 0;
+    if (solve && dop.all && clampFor && ptSide) {
+      const cks = ov.clamps.children;
+      for (let i = 0; i < cks.length; i++) {
+        const el = cks[i];
+        if (!el.classList.contains('clamp') || el.getAttribute('data-id') !== clampFor) continue;
+        const n = (el.getAttribute('d') || '').match(/-?[\d.]+(e-?\d+)?/g);
+        if (!n || n.length < 6) continue;
+        const tri = MARK_TRIS[markArrows.length] || (MARK_TRIS[markArrows.length] = [[0, 0], [0, 0], [0, 0]]);   // (more arrows than ever: one more is made)
+        for (let j = 0; j < 3; j++) worldToLocalInto(tri[j], +n[j * 2], +n[j * 2 + 1]);
+        markArrows.push(tri);
+      }
+    }
     // Slots are searched over every (pass, direction) pair at once: an earlier pass always beats a
     // later one (nearer, no leader, clear of vessels), then the direction order decides. The slot a
     // label held before wins as long as it still collides with nothing: no label, no dot, and (in a
@@ -12105,7 +12241,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           const L = Math.sqrt(L2);
           for (let u = 7; ps.clear && u < L && markArrows.length; u += 1.5) {
             const x = it.ax + (ex * u) / L, y = it.ay + (ey * u) / L;
-            if (markArrows.some((tri) => triDist(x, y, tri) < 6)) return;
+            for (let ti = 0; ti < markArrows.length; ti++) if (triDist(x, y, markArrows[ti]) < 6) return;
           }
         }
         // (The mark moves with the point sampled, so it holds its spot only while its dot stays put.)
@@ -12214,8 +12350,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const rr = best.r, gapPx = Math.hypot(Math.max(rr.x0 - it.ax, 0, it.ax - rr.x1), Math.max(rr.y0 - it.ay, 0, it.ay - rr.y1));
       const lead = gapPx > 18 || (!!prev?.lead && gapPx >= 10);
       it.leader = !!best.leader || lead;
-      const [wx, wy] = localToWorld(it.ax, it.ay);
-      nextSol.set(it.key, { wx, wy, dx: best.dx, dy: best.dy, dir, pi: best.pi, w: wRes, h: it.h, leader: it.leader, lead, short: it.short || 0, abbr: !!it.abbr });
+      localWorldXY(it.ax, it.ay);
+      nextSol.set(it.key, { wx: LW_XY[0], wy: LW_XY[1], dx: best.dx, dy: best.dy, dir, pi: best.pi, w: wRes, h: it.h, leader: it.leader, lead, short: it.short || 0, abbr: !!it.abbr });
       it._r = best.r; placed.push(best.r); out.push(it);
       // (Within 3 px of a vessel it takes the solid halo, as a solved one does.)
       if (reslot) { it.onVessel = lineHits(best.r, 3) > 0; nextSol.get(it.key).onv = it.onVessel; reslotted = true; }
@@ -12828,7 +12964,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     if (stale) return false;
     if (solve && sliceOver()) yield;   // (the page's part below runs whole, in a slice of its own)
-    if (solve) labelSol = nextSol;
+    if (solve) { labelSolSpare = labelSol; labelSol = nextSol; }
     if (dry) return true;
     // (The stations' rings, and the readings given up for want of room with where their stations are, for the browser checks:
     // tests/e2e/smoke.mjs. Written at every layout, a carried one too: written only when solved, they lagged behind a pan since,

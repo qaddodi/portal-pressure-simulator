@@ -45,9 +45,9 @@ test('the clamp label search measures once per text direction', () => {
   const at = body('function clampLabelAt(el) {', '// A quantized value');
   assert.match(at, /const q = clampLabelPos\(el\);\n\s+if \(!q\) return;\n\s+const \{ x, y, left, gap, deg \} = q;/);
   assert.match(at, /return q;/);   // (the kept record clampPos, rewritten by each call and read at once, not made each time)
-  const search = body('const measured = [null, null];', 'clampAlts = clampAlts.filter');
+  const search = body('const measured = CLAMP_MEAS;', 'let kept = 0;');
   assert.match(search, /const qx = \+q\.x\.toFixed\(2\), qy = \+q\.y\.toFixed\(2\), ref = measured\[\+q\.left\];/);
-  assert.match(search, /if \(ref\) bb = \{ x: ref\.bb\.x \+ \(qx - ref\.x\), y: ref\.bb\.y \+ \(qy - ref\.y\), width: ref\.bb\.width, height: ref\.bb\.height \};/);
+  assert.match(search, /if \(ref\.set\) \{ bb = CLAMP_BB; bb\.x = ref\.bb\.x \+ \(qx - ref\.x\); bb\.y = ref\.bb\.y \+ \(qy - ref\.y\); bb\.width = ref\.bb\.width; bb\.height = ref\.bb\.height; \}/);   // (the kept records CLAMP_MEAS and CLAMP_BB, written in place)
   // (2 Nov 2026: the measure is worked out in script (clampTextBox, Inter's advances and metrics), not by getBBox.)
   assert.equal((search.match(/clampTextBox\(el\)/g) || []).length, 1, 'one measuring call, taken only without a reference');
   assert.equal((search.match(/getBBox\(\)/g) || []).length, 0, 'nothing measured by the browser');

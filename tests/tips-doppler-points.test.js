@@ -71,7 +71,7 @@ test('one callout per point, at its own third, the three in a column beside thei
 test("the column's side is chosen from the stent and the screen, never the pick, and the narrowing's \"60 %\" takes the other side, 12 px at least", () => {
   const side = stage.slice(stage.indexOf('A stent called out at its three points: the three stand in a column'), stage.indexOf('// Stenosis clamps and their percentages'));
   assert.ok(side.length > 0 && !/dop\.seg|dopGateOf|st\.dopGate/.test(side), 'the side does not read the sampled point');
-  assert.match(side, /lb-val' \? \{ \.\.\.r, t: '000' \}/);   // (a fixed template width: the values the pick changes do not tip it)
+  assert.match(stage, /textW\(r\.cls === 'lb-val' \? '000' : r\.t, /);   // (a fixed template width: the values the pick changes do not tip it)
   assert.match(stage, /const away = col \? \(ptSide === 'E' \? 'W' : 'E'\) : null;/);
   // (the "60 %" reads in the labels' own name size, 12 px at least (the lab role: the text size setting and a presentation's size in it),
   // at any zoom, its gap and its leader's stop-short in step with it)
@@ -106,9 +106,9 @@ test("the three callouts never give way to the Doppler probe: the column's side,
   // put it, whatever the pick and whatever got there first.)
   assert.match(stage, /PROBE_BOXES\.push\(\{ x0: 0, y0: 0, x1: 0, y1: 0, probe: true \}\)/);   // (the probe's boxes are copies marked probe, from a pool)
   assert.match(stage, /if \(dpr\.on && dpr\.box\) \{[^]*?const b = i < 0 \? dpr\.box : marks\[i\], c = PROBE_BOXES\[i \+ 1\];/);
-  assert.match(stage, /callouts\.map\(\(b\) => \(\{ x0: b\.x0 - 3, y0: b\.y0 - 3, x1: b\.x1 \+ 3, y1: b\.y1 \+ 3, call: true, probe: !!b\.probe \}\)\)/);
+  assert.match(stage, /placed\.push\(\{ x0: b\.x0 - 3, y0: b\.y0 - 3, x1: b\.x1 \+ 3, y1: b\.y1 \+ 3, call: true, probe: !!b\.probe \}\)/);
   // the side is scored without the probe; a point's spots and its visibility ignore it (the in-view pass included)
-  assert.match(stage, /\(obstacles\.some\(\(o\) => !o\.probe && hits\(r, o\)\) \? 1e3 : 0\)/);
+  assert.match(stage, /if \(!o\.probe && hits\(SC_R, o\)\) \{ under = true; break; \}/);
   assert.match(stage, /!\(o\.zone && ps\.strict\) && !\(it\.point && o\.probe\) && hits\(r, /);
   assert.match(stage, /obstacles\.some\(\(o\) => !\(it\.point && o\.probe\) && \(o\.zone \? /);
   // every box check of a spot trial against the labels placed so far skips the probe's, for a point

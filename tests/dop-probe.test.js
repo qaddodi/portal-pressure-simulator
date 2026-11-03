@@ -226,11 +226,12 @@ test('the probe stands clear of a narrowing\'s "60 %": its flow axis counts with
 test('a "60 %" the probe would cover steps out to a clear spot on a leader line, fading out and in, and comes back when the probe goes', () => {
   assert.match(stage, /const clampMv = new Map\(\);/);
   // It tests the label at its usual spot against the probe's body, line of sight, bars and flow axis (dpr.box, dpr.marks)...
-  assert.match(stage, /const probe = dpr\.on && dpr\.box \? \[dpr\.box, \.\.\.dpr\.marks\] : \[\]/);
-  assert.match(stage, /if \(probe\.some\(\(q\) => hits\(boxAt\(16, 0\), q\)\)\) \{/);
+  assert.match(stage, /if \(dpr\.on && dpr\.box\) \{ probe\.push\(dpr\.box\); const pm = dpr\.marks; for \(let i = 0; i < pm\.length; i\+\+\) probe\.push\(pm\[i\]\); \}/);   // (the kept list PROBE_BUF)
+  assert.match(stage, /for \(let i = 0; i < probe\.length; i\+\+\) if \(hits\(clBoxAt\(16, 0\), probe\[i\]\)\) \{ probed = true; break; \}/);
   // ...and takes the nearest spot clear of the probe, the vessels, the credit and the screen's edge, keeping one that still works.
-  assert.match(stage, /free = \(b\) => b && !probe\.some\(\(q\) => hits\(b, q\)\) && within\(b, view\) && lineHits\(b, 6, id\) < 1 && !\(creditBox && hits\(b, creditBox\)\)/);
-  assert.match(stage, /if \(cur && free\(boxAt\(cur\.d, cur\.t\)\)\) want = cur;/);
+  assert.match(stage, /function clFree\(b\) \{ return b && !clProbeHit\(b\) && within\(b, CLB\.view\) && lineHits\(b, 6, CLB\.id\) < 1 && !\(CLB\.credit && hits\(b, CLB\.credit\)\); \}/);
+  assert.match(stage, /function clProbeHit\(b\) \{ const pr = CLB\.probe; for \(let i = 0; i < pr\.length; i\+\+\) if \(hits\(b, pr\[i\]\)\) return true; return false; \}/);
+  assert.match(stage, /if \(cur && clFree\(clBoxAt\(cur\.d, cur\.t\)\)\) want = cur;/);
   // The move fades out where it stands and in at the new place, never a jump; the leader joins the clamp's outer tip to the label.
   assert.match(stage, /function clampStep\(id, want\)/);
   // (from where it stands: the fade's only keyframe is its end, so starting it reads no style.)
