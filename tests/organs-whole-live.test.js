@@ -21,7 +21,7 @@ test('with no picture in (or one being replaced) every layer is read live, in it
   assert.match(stage, /const fullWanted = \(\) => fullOk\(\) && \(fullSwap \|\| !veins\.organs\.pictured\(0\)\);/);
   assert.match(stage, /add\(L, k, LIVE_LAYERS\.has\(L\) \? undefined : \{ nest: true \}\)/, 'nested groups as bakeAll reads them');
   assert.match(stage, /if \(greyed\) \{ greyClear\(\); organDimKey = ''; \}\n\s+\/\/[^\n]*\n\s+try \{ add\('back', gBackdrop, BACKDROP_READ\);/);
-  assert.match(stage, /themeKey\(\), fullWanted\(\)\]\.join\('\|'\);/, 'its change reads the organs again');
+  assert.match(stage, /k\[9\] = themeKey\(\); k\[10\] = fullWanted\(\);/, 'its change reads the organs again');
 });
 
 test('a dropped picture stays until the whole set takes over; an unreadable layer gives the whole set up for the old way', () => {
