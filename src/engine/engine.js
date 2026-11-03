@@ -1266,6 +1266,7 @@ export class Engine {
     return structuredClone({
       params: this.paramsTarget(), V: Array.from(this.V), P: Array.from(this.P), Q: Array.from(this.Q), t: this.t, day: this.day,
       baro: this.baro, MAPf: this.MAPf, habr: this.habr, hr: this.hr, slow: this.slow, blood: this.blood,
+      cyc: this.cyc || 0, COf: this.COf,   // (EXT-ENG-1: the beat's phase and the cardiac-output filter belong to the moment too)
       bleed: this.bleed, infusions: this.infusions, bands: this.bands, rng: this.rng.state(), iap: this.iap,
       valsalva: this.valsalva, evState: this.evState,
     });
@@ -1276,6 +1277,9 @@ export class Engine {
     this.V.set(c.V); this.P.set(c.P); if (c.Q) this.Q.set(c.Q);
     Object.assign(this, { t: c.t, day: c.day, baro: c.baro, MAPf: c.MAPf, habr: c.habr, hr: c.hr, slow: c.slow, blood: c.blood,
       bleed: c.bleed, infusions: c.infusions, bands: c.bands, iap: c.iap, valsalva: c.valsalva || { until: -1, start: -1 }, evState: c.evState || {} });
+    // EXT-ENG-1: the moment's own beat phase and cardiac-output filter. A snapshot made before they were kept has neither: the beat then starts
+    // at phase 0 and the filter at the first step's output, not the later moment's values this engine happened to hold.
+    this.cyc = Number.isFinite(c.cyc) ? c.cyc : 0; this.COf = Number.isFinite(c.COf) ? c.COf : undefined;
     this.evAvg = null;   // (the events' breath average, events.js, starts over from the restored state)
     this.rng.setState(c.rng);
     // A snapshot from before the bleeding reflexes: the volume it holds is the patient's own.
