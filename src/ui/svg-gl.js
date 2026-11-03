@@ -324,6 +324,14 @@ function moveNow(el, L, now) {
   return MV;
 }
 
+/** Where a piece the chart moves inline (style.transform) is drawn now, [x, y] in MV (read it at once), or null while it has no look or move.
+ *  The one answer for the picture and for a chart that draws something to follow it (a line to a dot): both read this record at the
+ *  frame's clock, so they cannot differ by the frame the glide was first seen in or by the time a callback has used. */
+export function moveAt(el, now = easeNow()) {
+  const L = looks.get(el);
+  return L && !L.none && el.style.transform ? moveNow(el, L, now) : null;
+}
+
 // ── Transforms ──
 const mulM = (m, n) => [m[0] * n[0] + m[2] * n[1], m[1] * n[0] + m[3] * n[1], m[0] * n[2] + m[2] * n[3], m[1] * n[2] + m[3] * n[3], m[0] * n[4] + m[2] * n[5] + m[4], m[1] * n[4] + m[3] * n[5] + m[5]];   // alloc-rare: a transform text's matrix is worked out once (transformOf keeps it in tCache)
 // A matrix with a translation (tx, ty) laid on the outside of it, in SM (written in place, used at once): a piece's own move or loop.

@@ -27,9 +27,9 @@ import { h, fmt, clamp } from './util.js';
 import { HVPG_CUTS, PPG_CUTS } from '../engine/pressure-cuts.js';
 import { TILE, tileShown } from './table-marks.js';
 import { plotPanel } from './plot-look.js';
-import { frameFor } from './frame.js';
+import { frameFor, easeNow } from './frame.js';
 import { easeArrive, D_SURFACE, EASE_ARRIVE } from './ease.js';
-import { createSvgGL, svgModel, setPts } from './svg-gl.js';
+import { createSvgGL, svgModel, setPts, moveAt } from './svg-gl.js';
 import { propSoon } from './class-soon.js';
 const reduceDot = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : { matches: false };
 
@@ -740,7 +740,7 @@ export function planePlot(pl, { card = false } = {}) {
   const halo = sv('circle', { class: 'pze-halo' }), dot = sv('circle', { class: 'pze-dot' });
   let dotGo = null;   // (the dot's glide: from fx, fy to tx, ty, started at t0)
   const DOT_AT = { x: 0, y: 0 };   // (the dot's place now, one kept pair written in place; a caller reads it as it is returned)
-  const dotEased = (t = performance.now()) => {
+  const dotEased = (t = easeNow()) => {
     if (!dotGo) return null;
     const k = reduceDot.matches ? 1 : easeArrive(Math.min(1, Math.max(0, (t - dotGo.t0) / D_SURFACE)));
     DOT_AT.x = dotGo.fx + (dotGo.tx - dotGo.fx) * k; DOT_AT.y = dotGo.fy + (dotGo.ty - dotGo.fy) * k;
@@ -837,7 +837,7 @@ export function planePlot(pl, { card = false } = {}) {
     halo.setAttribute('r', (r + g).toFixed(1)); dot.setAttribute('r', r.toFixed(1));
     if (now) {
       const sx = now.x.toFixed(1), sy = now.y.toFixed(1), to = { x: +sx, y: +sy };
-      if (!dotGo || dotGo.tx !== to.x || dotGo.ty !== to.y) { const at = dotEased() || to; dotGo = { fx: at.x, fy: at.y, tx: to.x, ty: to.y, t0: performance.now() }; }
+      if (!dotGo || dotGo.tx !== to.x || dotGo.ty !== to.y) { const at = dotEased() || to; dotGo = { fx: at.x, fy: at.y, tx: to.x, ty: to.y, t0: easeNow() }; }
       ringG.style.transform = `translate(${sx}px, ${sy}px)`;
       ringG.style.opacity = '1';
     } else ringG.style.opacity = '0';
@@ -911,7 +911,13 @@ export function planePlot(pl, { card = false } = {}) {
   }
   // Where the dot is on screen now, mid-glide included, px, or null while it is hidden: its glide worked out here on the curve its CSS
   // transition runs (.pze-ring: --d-surface, --ease), not read back from the page, so a glide's frame reads no style.
-  const dotNow = () => (ringG.style.opacity === '0' ? null : dotEased());
+  const dotNow = () => {   // (the dot as the picture draws it: one record, one clock)
+    if (ringG.style.opacity === '0') return null;
+    const m = moveAt(ringG);
+    if (!m) return dotEased();
+    DOT_AT.x = m[0]; DOT_AT.y = m[1];
+    return DOT_AT;
+  };
   // The line: through the stops, then the way the dot went since the slide came up, to the dot where it stands now.
   // (The line is worked out in kept lists: the stops' places in stopXY, the way in `walk` as flat (a, b) pairs of the plane's own units. A frame of the
   // dot's glide makes no point lists; the path's text is the one thing built, as the painter takes it.)

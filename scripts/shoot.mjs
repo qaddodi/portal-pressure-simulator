@@ -186,7 +186,23 @@ export async function openApp({ device = 'mac', theme = 'light', query = '', dir
     }
     return shot;
   }
-  return { page, ctx, browser, close, settle, freeze, errors, device, theme };
+  /** For fakeClock: pauses the clock for stepping (page.clock.runFor) and waits until the page's frames come every step. The fake clock
+   *  runs by itself until it is paused, and a cold boot's long tasks can leave it stepped back: the page's one frame request (frame.js
+   *  `pending`) is then stamped later than the clock now reads and does not fire until the clock reaches it (measured 2.3 s and 4.3 s),
+   *  so a stepped run saw no frame for that long, a count frozen and then jumping to its end. Not the app: performance.now() of a real
+   *  browser never steps back. Returns the ms stepped to get there. */
+  async function pauseClock() {
+    await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 500);
+    const frames = () => page.evaluate(() => window.pps?.perf?.totals?.frames ?? 0);
+    let stepped = 0;
+    for (let k = 0; k < 80; k++) {
+      const f0 = await frames();
+      await page.clock.runFor(250); stepped += 250;
+      if ((await frames()) - f0 >= 10) break;   // (250 ms is 15 frames at 60 Hz: they come every step again)
+    }
+    return stepped;
+  }
+  return { page, ctx, browser, close, settle, freeze, pauseClock, errors, device, theme };
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
