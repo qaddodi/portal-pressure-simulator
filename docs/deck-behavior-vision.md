@@ -251,8 +251,10 @@ and the rest step back, the same way in every view.
   labels; once `cap-gl-on` hides them, the GPU picture must carry the same state, or the lit label looks unlit and the unlit ones stay.
   *Check*: on a lit lobule slide (lobule deck) and a lit sinusoid slide, the caption `snapshot()` items carry `lit` and `a`; lit items
   have the term tone, unlit items are at the dim level of 14.3; compare to a reference shot per view.
-- **V-LIT-3 (Fix)** The unlit labels step back the same way in every view (one rule; Mohammad picks it in 14.3). They keep their places,
-  so lighting a term never makes the other labels jump.
+- **V-LIT-3 (Fix)** On a slide that lights some labels, every unlit label and its leader dims to 35 % opacity and keeps its place, the
+  same in Anatomy, Circuit, lobule and sinusoid (Mohammad, 3 Nov 2026, 14.3 B). This replaces the lobule's and sinusoid's opacity 0
+  (`app.css` `--lit-o`). Lighting or unlighting a term never makes the other labels move. *Check*: on a lit slide in each view, the
+  snapshot's unlit items have `a` 0.35 (±0.03), lit items 1.0, and no item moves more than 0.5 px between the unlit and lit layouts.
 - **V-LIT-4 (Fix)** Lit labels arrive with the slide's other marks (after the camera lands, V-SLIDE-12) and leave before the camera
   sets off. A lit label on a kept view (same view, same camera) eases its tone over D_SMALL; it never blinks off and on.
 - **V-LIT-5 (Now)** Hovering or focusing a label lights what it names (the hover link), on Mac. On a deck slide, hover adds to the
@@ -391,7 +393,7 @@ Each is asked as a clickable card in the project thread. Answers are written bac
    *Answer*: **A** (Mohammad, 3 Nov 2026). Applied in V-FIT-7.
 3. **14.3 On a deck slide that lights some labels, what do the other labels do (every view)?**
    A. Hide, as the lobule does today. B. ★ Dim to about 35 % and keep their places. C. Stay as they are; only the lit ones change.
-   *Answer*: pending.
+   *Answer*: **B** (Mohammad, 3 Nov 2026). Applied in V-LIT-3.
 4. **14.4 Should a phone get card zoom?**
    A. ★ Yes, as a full-screen sheet over the running figure. B. Yes, the same scaled zoom as Mac. C. No zoom on phone.
    *Answer*: pending.
