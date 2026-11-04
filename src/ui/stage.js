@@ -8647,11 +8647,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // is on screen; without one it falls back to the model's eased value.
   function scanShow(cardTxt) {
     if (!scan.el) return;
+    if (cardTxt != null && cardTxt === scan.shown && scan.svEl) return;   // (the card gives its number every frame; the same number is not written again)
     // (Whether a card is on screen is asked only when its number is not given: the card's own frame gives it, and asking laid the page out.)
     const card = fibroReading.cv, k = scan.k;   // (no layout asked: the card's own frame gives the number)
     const txt = cardTxt ?? (card?.isConnected && !card.closest('[hidden]') && fibroReading.txt != null ? fibroReading.txt : k == null ? '--' : k.toFixed(1));
-    const sv = scan.el.querySelector('.sp-val');
+    const sv = scan.svEl?.isConnected && scan.el.contains(scan.svEl) ? scan.svEl : (scan.svEl = scan.el.querySelector('.sp-val'));   // (found once, not queried every frame)
     putText(sv, txt);
+    scan.shown = cardTxt != null ? cardTxt : null;
   }
   fibroReading.show = scanShow;
   // (Its body's far corners sit 76 px back from the tip along the probe and 13.8 px either side of it, the stroke included,
