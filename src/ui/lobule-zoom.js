@@ -747,6 +747,19 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const elXf = { rot: 0, Z: 1, ox: 0, oy: 0 };   // (the sinusoid zoom's turn and growth of the lobule about its fixed point: placeSinusoid)
   let fieldWas = 0;
   // The lobule's texture, then the field's under it, laid in the stage's present (under the glass: LZ_UNDER_GLASS).
+  // The view the lobule's picture in the figure's texture was drawn for, and whether it is now carried to the view by the GPU (a hand is moving it).
+  const drawnV = { ok: false, k: 1, x: 0, y: 0, W: 0, H: 0, dpr: 0, dark: false };
+  let frozenDraw = false, frozenT = 0;
+  const frozenOK = (W, H, dpr, dark) => drawnV.ok && !glDirty && fade > 0.98 && !diveScaled && sinU === 0 && !sinTo && !wide && !staging && handOn()
+    && drawnV.W === W && drawnV.H === H && drawnV.dpr === dpr && drawnV.dark === dark && !!gl && !gl.lost && !!gl.target?.w;
+  // The hand let go (or paused): the picture is drawn again for the view where it stands.
+  function frozenEnd() {
+    frozenT = 0;
+    if (handOn()) { frozenT = setTimeout(frozenEnd, 120); return; }
+    if (!frozenDraw) return;
+    idleDrawn = ''; drawVersion++; viewChanged();
+    if (!raf && fade > 0) raf = nextFrame(loop);
+  }
   function layShared() {
     const t = shareTop;
     if (!t || !gl || gl.lost) return;
@@ -758,7 +771,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const wh = !!wide?.host;
     // (The glCv's own CSS transform in the dive, then the layer's, the sinusoid zoom's turn and growth about its fixed point.)
     let a = 1, b = 0, c = 0, d = 1, tx = 0, ty = 0;
-    if (!wh && (diveK !== 1 || diveE || diveF)) { a = d = diveK; tx = diveE; ty = diveF; }
+    // (The picture was drawn for another view: the hand's move since, as a scale and a shift of its own.)
+    if (frozenDraw && drawnV.ok && drawnV.k > 0) { a = d = V.k / drawnV.k; tx = V.x - a * drawnV.x; ty = V.y - a * drawnV.y; }
+    if (!wh && (diveK !== 1 || diveE || diveF)) { a *= diveK; d *= diveK; tx = tx * diveK + diveE; ty = ty * diveK + diveF; }
     if (elXf.rot || elXf.Z !== 1) {
       const cs = Math.cos(elXf.rot) * elXf.Z, sn = Math.sin(elXf.rot) * elXf.Z, ox = elXf.ox, oy = elXf.oy;
       // p' = o + R (p - o), after the dive's map
@@ -826,6 +841,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (shared) { gl?.target; fieldGL?.release?.(); }   // (hosted: the lobule's and the field's textures back to a texel; the shaders stay, ready for the next dive)
     // Out of the lobule for a while: what the visit kept (the world bitmap, the field's tiles) goes too, whatever the budget says; the idle preparation
     // makes it again ahead of the next dive. (Never while it is open or being dived into.)
+    drawnV.ok = false; frozenDraw = false;
     clearTimeout(keptT); keptT = setTimeout(() => { keptT = 0; if (fade > 0 || !geo || !keptH) return; const h = keptH; keptRelease(true); h.drop(); }, KEPT_MS);
     tissueKey = ''; idleDrawn = ''; drawKey = ''; glDirty = true;
     staged = ''; relLater = false;
@@ -2832,13 +2848,22 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const g = glNow();
     // (On the GPU, always: through the dive, the rise and the zoom into and out of a sinusoid too, the GPU canvas, drawn once, is
     // turned and grown with the lobule by the compositor, its rim drawn by the shader. Nothing is drawn on a 2D canvas.)
-    showTissueGL(paintTissue(W, H, dpr, dark, cs, !g, g ? tissueGLOn() : null));
+    // A hand's pinch, wheel or drag, with the lobule in the figure's own context: the last picture is carried to the view by the GPU (layShared), and
+    // the vessels, the tissue and the overlay are drawn again once the hand lets go. The labels are laid for the view as it is, every frame.
+    const frz = !!(g && shared && frozenOK(W, H, dpr, dark));
+    if (!frz) showTissueGL(paintTissue(W, H, dpr, dark, cs, !g, g ? tissueGLOn() : null));
     snapNext = false;
     framePart('lz.layoutLabels', layoutLabels);
+    if (frz) {
+      frozenDraw = true;
+      if (!frozenT) frozenT = setTimeout(frozenEnd, 120);
+      shareTop.present();
+      return true;
+    }
     // (The overlay first: in the vessels' own context it is laid over them at their present, in drawGL.)
     const fxOn = fxOnGPU(W, H, dpr, dark, dt, g && !g.lost);
     const laid = g?.top?.presents;
-    if (g && !g.lost) drawGL(W, H, dpr, dark, cs, dt);
+    if (g && !g.lost) { drawGL(W, H, dpr, dark, cs, dt); frozenDraw = false; drawnV.ok = true; drawnV.k = V.k; drawnV.x = V.x; drawnV.y = V.y; drawnV.W = W; drawnV.H = H; drawnV.dpr = dpr; drawnV.dark = dark; }
     // (What is drawn in the vessels' canvas besides them, the tissue under and the overlay over: a frame that drew the vessels again
     // laid them all; one that did not lays them now.)
     if (g && !g.lost && laid !== undefined && g.top.presents === laid && (fxOn || (tisHostFor && tissueDrew))) g.present();
@@ -2927,7 +2952,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         fxGLKey = ''; fxArgs = null;
         const fxOn = fxOnGPU(w, hh, dpr, dark, 0, true), fxIn = fxOn && !!fxArgs, tisIn = onG && !!tisHostFor;
         tisWide = tisIn;
-        drawKey = ''; drawGL(TW, TH, dpr, dark, cs, 0);
+        drawKey = ''; drawnV.ok = false; drawGL(TW, TH, dpr, dark, cs, 0);
         // (Hosted: every layer is in the vessels' canvas now, laid by its present, and the tile is copied from it in the context.)
         if (hosted) ok = onG && tisIn && (fxIn || !fxOn) && (g.present(), wg.tile(t, Math.max(1, Math.round(w * dpr * res)), Math.max(1, Math.round(hh * dpr * res)), dpr * res, 'host'));
         else ok = onG && wg.tile(t, canvasPx(w, dpr), canvasPx(hh, dpr), dpr, [...(tisIn ? [] : [tissueG]), glCv, ...(fxIn || !fxOn ? [] : [fxG])]);
