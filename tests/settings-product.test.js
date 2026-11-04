@@ -30,8 +30,8 @@ test('R14 every default is as it was: Full, and off (but the credit\'s lean look
   assert.equal(f.renderScale(), 1);
   assert.deepEqual(Object.fromEntries(Object.keys(f.FIG_OPTS).map((k) => [k, f.figOpt(k)])), { move: 1, glow: 1, cap: 8, adapt: false, floor: 0.1 });
   assert.deepEqual(Object.fromEntries(Object.keys(f.FIG_LAB).map((k) => [k, f.figLab(k)])),
-    { motion60: false, glassCache: false, creditLean: true, lymphBoxes: false, pinchReuse: 0, upscale: false, lightArt: false, pinchLow: false });
-  assert.equal(f.paceMs(), 0, 'every frame');
+    { motion60: true, glassCache: false, creditLean: true, lymphBoxes: false, pinchReuse: 0, upscale: false, lightArt: false, pinchLow: false });
+  assert.equal(f.paceMs(), f.MOTION60_MS, 'steady motion at most every 10 ms (4 Nov 2026)');
   delete globalThis.localStorage;
 });
 

@@ -662,7 +662,8 @@ export function setFigOpt(k, v) {
 // Figure performance (30 Oct, Round 3 of the review, each off until chosen; Settings › Figure performance). Unlike the options above,
 // none of these changes the canvas's size, so a change is told only to its own listeners (onFigLab), never to the resolution's.
 // motion60: steady motion (the blood, the lobule, the sinusoid, the instruments) is drawn at most about 60 times a second on a faster
-//   screen; pans and zooms stay at the screen's rate. A 60 Hz screen draws as before.
+//   screen; pans, zooms, glides and labels stay at the screen's rate. A 60 Hz screen draws as before. ON by default since 4 Nov 2026
+//   (Mac heat, mac-thermal-recs R1: the GPU never idled at 120 a second); setFigLab('motion60', false) brings every frame back.
 // glassCache: the callouts' GPU glass keeps each callout's box, fade and shadow until something says they changed (glass-gl.js).
 // creditLean: in Present, the corner credit's once-a-second look runs only when the layout may have changed (credit.js). ON by default since
 //   31 Oct (laptop heat H7): the look measures every card and label, and in Present it ran every second whatever had happened.
@@ -676,7 +677,7 @@ export function setFigOpt(k, v) {
 // pinchLow: a zoom frame under a hand draws the vessel layer at PINCH_LOW_K of its width and height and stretches it; the view a
 //   pinch stops at is drawn at Full (veins-gl.js lowPass). Pinch frame reuse, when on, takes those frames instead.
 // (The first of a switch's values is its default.)
-export const FIG_LAB = { motion60: [false, true], glassCache: [false, true], creditLean: [true, false], lymphBoxes: [false, true], pinchReuse: [0, 2, 3], upscale: [false, true], lightArt: [false, true], pinchLow: [false, true] };
+export const FIG_LAB = { motion60: [true, false], glassCache: [false, true], creditLean: [true, false], lymphBoxes: [false, true], pinchReuse: [0, 2, 3], upscale: [false, true], lightArt: [false, true], pinchLow: [false, true] };
 const figLabs = Object.fromEntries(Object.entries(FIG_LAB).map(([k, v]) => [k, v[0]]));
 for (const k of Object.keys(figLabs)) {
   try { const t = localStorage.getItem(`pps.fig.${k}`), v = t === 'true' ? true : t === 'false' ? false : +t; if (t != null && FIG_LAB[k].includes(v)) figLabs[k] = v; } catch (e) { caught('frame:631', e); /* storage unavailable */ }

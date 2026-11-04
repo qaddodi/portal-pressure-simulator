@@ -169,10 +169,10 @@ test('H10: the FibroScan probe\'s tap restarts with no style read and no layout 
 
 test('none of the visible trade-offs changed their defaults', async () => {
   const { figLab, figOpt, renderSetting, paceMs } = await import('../src/ui/frame.js');
-  assert.equal(figLab('motion60'), false);
+  assert.equal(figLab('motion60'), true);   // (on by default since 4 Nov 2026: steady motion at 60 a second, the camera and labels at the screen's rate)
   assert.equal(figLab('pinchLow'), false);
   assert.equal(figLab('glassCache'), false);
   assert.equal(renderSetting(), 1);
   assert.equal(figOpt('move'), 1);
-  assert.equal(paceMs(), 0);
+  assert.equal(paceMs(), 10);
 });

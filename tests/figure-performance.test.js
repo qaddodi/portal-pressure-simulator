@@ -21,7 +21,7 @@ test('every switch is off by default, stored only when on, heard by its own list
   f.onFigLab(() => lab++);
   f.onRenderScale(() => res++);
   for (const [k, v] of Object.entries(f.FIG_LAB)) f.setFigLab(k, v[1]);
-  f.setFigLab('motion60', true); f.setFigLab('nope', true); f.setFigLab('glassCache', 2);   // (no change, or not a choice: not heard)
+  f.setFigLab('motion60', false); f.setFigLab('nope', true); f.setFigLab('glassCache', 2);   // (no change, or not a choice: not heard)
   assert.equal(lab, Object.keys(f.FIG_LAB).length);
   assert.equal(res, 0, 'no switch reallocates the canvas or redraws for a resolution');
   for (const k of Object.keys(f.FIG_LAB)) assert.ok(store.has(`pps.fig.${k}`));
@@ -31,8 +31,8 @@ test('every switch is off by default, stored only when on, heard by its own list
 });
 
 test('a stored value is read back; a stored value that is not a choice is ignored', async () => {
-  const { f } = await freshFrame(new Map([['pps.fig.motion60', 'true'], ['pps.fig.glassCache', '7']]));
-  assert.equal(f.figLab('motion60'), true);
+  const { f } = await freshFrame(new Map([['pps.fig.motion60', 'false'], ['pps.fig.glassCache', '7']]));
+  assert.equal(f.figLab('motion60'), false);
   assert.equal(f.figLab('glassCache'), false);
   delete globalThis.localStorage;
 });
@@ -46,11 +46,9 @@ test('no Figure performance heading or switch in Settings', () => {
   for (const k of Object.keys(FIG_LAB)) assert.doesNotMatch(settings, new RegExp(`'${k}'`), `${k} has no row`);
 });
 
-test('Motion at 60: off, paceMs is 0 as before; on, 10 ms (every other frame at 120 Hz, every frame at 60 or 90 Hz)', async () => {
+test('Motion at 60 (on by default since 4 Nov 2026): paceMs is 10 ms (every other frame at 120 Hz, every frame at 60 or 90 Hz); off, 0', async () => {
   const { f } = await freshFrame();
-  assert.equal(f.paceMs(), 0, 'off: every frame, as before');
-  f.setFigLab('motion60', true);
-  assert.equal(f.paceMs(), f.MOTION60_MS);
+  assert.equal(f.paceMs(), f.MOTION60_MS, 'on by default');
   // (The readers skip a frame when now − last drawn < paceMs(), and set last drawn to now.)
   const drawn = (gap) => { let last = 0, n = 0; for (let t = gap; t < 1000; t += gap) if (t - last >= f.paceMs()) { last = t; n++; } return n; };
   assert.ok(Math.abs(drawn(1000 / 120) - 60) <= 1, '120 Hz: about 60 a second');
@@ -59,7 +57,7 @@ test('Motion at 60: off, paceMs is 0 as before; on, 10 ms (every other frame at 
   f.setSaver(true);
   assert.equal(f.paceMs(), f.SAVER_MS, 'Battery saver still wins');
   f.setSaver(false); f.setFigLab('motion60', false);
-  assert.equal(f.paceMs(), 0);
+  assert.equal(f.paceMs(), 0, 'off: every frame');
   delete globalThis.localStorage;
 });
 
