@@ -32,8 +32,8 @@ test('section 8: zone titles are not carried by a ride, and every zoom rule read
 
 test('step 3: figure labels carry a world anchor and label-gl pins by it', () => {
   assert.ok(st.includes('function localToWorldInto'));
-  assert.ok(/pwv: gw || zn \? morph : null/.test(st));
-  assert.ok(/NO_ANCHOR = \/\^\(z:\|lane:/.test(st));
+  assert.ok(/pwv: gw \? morph : null/.test(st));
+  assert.ok(/NO_ANCHOR = \/\^\(lane:/.test(st));
   assert.ok(gl.includes('s.pwv != null'));
 });
 
@@ -62,9 +62,8 @@ test('view switch: no landing-time rebuild; a picture of the other view is kept 
   assert.ok(gl.includes('st.alt') && gl.includes('dropGhosts'));
 });
 
-test('step 3b: zone titles are placed every frame by the GPU from their band', () => {
-  assert.ok(st.includes('it._zone = [x0, x1, turned]'));
-  assert.ok(st.includes('pz: !!zn'));
-  assert.ok(gl.includes('s.pz && pinZoneAt'));
-  assert.ok(gl.includes('if (pinned && PIN_HID) continue;'));
+test('step 2 (option C): a zone title is a world-anchored figure label, not placed per frame', () => {
+  assert.ok(!st.includes('it._zone') && !st.includes('pz: !!zn') && !gl.includes('pinZoneAt'));
+  assert.ok(!/NO_ANCHOR = \/\^\(z:/.test(st));
+  assert.ok(!/const zoneAt = \(x, y\) => \{ it\.live/.test(st));
 });

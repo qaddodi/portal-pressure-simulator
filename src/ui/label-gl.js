@@ -675,7 +675,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // offset, its dot on the point and its leader from the point to the label, all moved by the same step in the same frame. No ride, carry
   // or follow moves a pinned label: a pan, a pinch or a view change moves its point, and the label goes with it, rigid. Only a new layout
   // changes the offset, and the label takes it at once (no glide), its point and dot not moving.
-  let pinAt = null, pinWorldAt = null, pinZoneAt = null, PIN_HID = false;
+  let pinAt = null, pinWorldAt = null, PIN_HID = false;
   const PIN = [0, 0];
   // (The offset each pinned label was last drawn at, by its group, kept past its picture: a label whose picture is made again (its text
   // size changes with the zoom) still eases from where it stood, never jumps to its new offset.)
@@ -685,8 +685,6 @@ void main() { o = texture(uT, vUV) * uA; }`;
   const pinOf = (s) => {
     PIN_HID = false;
     if (!pinAt || !s || s.pid == null) return null;
-    // (A zone title (step 3b): placed every frame from its band by the stage, never carried or ridden. Hidden when its band is off screen or too narrow.)
-    if (s.pz && pinZoneAt) { if (!pinZoneAt(s, PIN)) PIN_HID = true; return s; }
     if (s.pwv != null) return pinWorldAt && pinWorldAt(s.pwx, s.pwy, s.pwv, PIN, s) ? s : null;
     return pinAt(s.pid, PIN, s.pmid, s.pau) ? s : null;
   };
@@ -2467,7 +2465,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     get ghosting() { return ghosts.length > 0; },
     get riding() { return !!rideM; },
     /** Pins the station labels to the figure: f(id, out) writes where the figure has station id's point now (stage px) and returns true. */
-    pinTo(f, w = null, z = null) { pinAt = f; pinWorldAt = w; pinZoneAt = z; ask(); },
+    pinTo(f, w = null) { pinAt = f; pinWorldAt = w; ask(); },
     /** The figure moved (its camera or its morph): the pinned labels drawn with it, in this frame. */
     pinDraw() { if (lost || !pinAt) return; if (raf) { cancelFrame(raf); raf = 0; } draw(); },
     /** Where each label's picture stood in the last frame, keyed: [{ key, x, y, w, h, a (its opacity) }] in CSS px from the canvas's corner (the browser check's lag test). */
