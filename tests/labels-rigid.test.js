@@ -33,7 +33,7 @@ test('section 8: zone titles are not carried by a ride, and every zoom rule read
 
 test('step 3: figure labels carry a world anchor and label-gl pins by it', () => {
   assert.ok(st.includes('function localToWorldInto'));
-  assert.ok(/pwv: gw \? morph : null/.test(st));
+  assert.ok(/pwv: gw \? (live\.)?morph : null/.test(st));
   assert.ok(/NO_ANCHOR = \/\^\(lane:/.test(st));
   assert.ok(gl.includes('s.pwv != null'));
 });
@@ -50,7 +50,7 @@ test('view switch: no hide, no rush, no wait for a draw: the old labels ride as 
 
 test('view switch: only labels laid out for the shown view reach the GPU', () => {
   assert.ok(st.includes('b.pos.view === morphTarget'));
-  assert.ok(/view: morphTarget, mA: null \}/.test(st));
+  assert.ok(/view: (live\.)?morphTarget, mA: null \}/.test(st));
   assert.ok(!st.includes('NO_LABELS'));
 });
 
