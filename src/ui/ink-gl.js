@@ -106,13 +106,9 @@ void main() {
   float a = uCol.a * smoothstep(uC.z * 0.8, uC.z * 1.55, d);
   // (a thin ring at the window's edge and a dot at its centre, in the pen's colour, so the pointer reads as a pointer on any slide)
   float ring = (1.0 - smoothstep(0.75, 1.75, abs(d - uC.z * 0.8))) * 0.85;
-  float dot_ = 1.0 - smoothstep(4.0, 5.5, d);
+  float dot_ = 1.0 - smoothstep(4.6, 5.2, d);   // (a solid dot, opaque to its edge)
   float k = max(ring, dot_) * uPen.a;
-  // (a soft glow round the dot, additive in the pen's colour: premultiplied with less alpha than colour, so it brightens and never darkens)
-  float gr = uC.z * 0.5;
-  float glw = exp(-(d * d) / (gr * gr * 0.5)) * 0.75 * uPen.a;
-  vec4 base = vec4(uCol.rgb * a * (1.0 - k) + uPen.rgb * k, a * (1.0 - k) + k);
-  o = vec4(base.rgb * (1.0 - glw) + uPen.rgb * glw, max(base.a, glw * 0.45));
+  o = vec4(uCol.rgb * a * (1.0 - k) + uPen.rgb * k, a * (1.0 - k) + k);
 }`;
 
 const VAR = (name, fallback) => {
@@ -245,6 +241,7 @@ export function createInk({ host, xform, active, onFigure }) {
   const spot = (on) => {
     if (spotOn === on) return;
     spotOn = on; spotAt = easeNow();
+    host.style.cursor = on ? 'none' : (penOn ? 'crosshair' : ''); document.documentElement.style.cursor = on ? 'none' : '';   // (the laser is the pointer: the mouse arrow is hidden while it is on)
     if (on && !hasPos) { const b = stageBox(); if (b) say([(b.width || b.sw) / 2, (b.height || b.sh) / 2]); }
     if (on) { clearTimeout(idleT); idleT = 0; }
     again();
@@ -311,7 +308,7 @@ export function createInk({ host, xform, active, onFigure }) {
     /** Erases every stroke (E, and a new slide). */
     clear() { endStroke(); const had = strokes.length > 0; strokes = []; if (had) { last.a = NaN; again(); } },
     /** The slide changed or the talk ended: erase, and let the veil go. */
-    reset() { this.clear(); spotOn = false; spotA = 0; touchSpot = false; clearTimeout(holdT); holdT = 0; },
+    reset() { this.clear(); if (spotOn) { host.style.cursor = ''; document.documentElement.style.cursor = ''; } spotOn = false; spotA = 0; touchSpot = false; clearTimeout(holdT); holdT = 0; },
     count: () => strokes.length,
     /** Whether the laser or a stroke in progress is live (the talk is not idle while it is). */
     live: () => spotOn || spotA > 0.004 || penDown,
@@ -321,7 +318,7 @@ export function createInk({ host, xform, active, onFigure }) {
     drawNow: () => draw(true),
     dispose() {
       for (const [t, f] of L) removeEventListener(t, f, { capture: true });
-      stopTheme?.(); clearTimeout(holdT); strokes = []; spotOn = false; spotA = 0; host.style.cursor = ''; release(); dead = true;
+      stopTheme?.(); clearTimeout(holdT); strokes = []; spotOn = false; spotA = 0; host.style.cursor = ''; document.documentElement.style.cursor = ''; release(); dead = true;
     },
   };
 }
