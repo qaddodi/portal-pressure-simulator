@@ -45,7 +45,7 @@ test('the dive does no full-size redraws or hidden compositing mid-zoom', () => 
   assert.match(lz, /cs: styleSnap\(cs\)/);
   // The magnified anatomy is hidden while the whole field covers it (z ≥ FIELD_WHOLE, where the field is opaque), and shown again on every end.
   assert.match(stage, /if \(!landed\) setDiveHidden\(t > 0 && t < 1 && z >= FIELD_WHOLE,/);
-  assert.match(stage, /if \(k <= 1\.0001\) \{\n\s+if \(!keep\) \{ setDiveHidden\(false, false\); setDiveFade\(null\); \}/);
+  assert.match(stage, /if \(k <= 1\.0001\) \{\n\s+if \(!keep\) \{ setDomHidden\(false\); setDiveHidden\(false, false\); setDiveFade\(null\); \}/);
   assert.match(stage, /df\.a = smoothT\(FIELD_IN, FIELD_WHOLE, z\)/, 'the field is whole exactly where the anatomy is hidden, and comes in only over its last stretch');
   // The hand-over spans about two octaves of zoom, ending before the anatomy's magnification stops (LC + 0.4), so it never pops.
   const [fin, fwh] = stage.match(/const FIELD_IN = LC - ([\d.]+), FIELD_WHOLE = LC \+ ([\d.]+);/).slice(1).map(Number);
@@ -85,7 +85,7 @@ test('every zoom into the lobule draws it first, for where it lands, then zooms;
   assert.match(lz, /draw\(0\); release\(\); prepKey = key;/);
   // Landed, the anatomy stays hidden under the lobule until it has settled; every other end shows it at once.
   assert.match(stage, /const landed = t >= 1 && !(?:live\.)?diveOut;\n\s+setDiveScale\(t >= 1 \? 1 : Math\.exp\(Math\.min\(z, LC \+ 0\.4\)\), landed\);/);
-  assert.match(stage, /const diveUnhide = \(\) => \{ if \((?:live\.)?diveT >= 1 && (?:live\.)?lobuleOn\) \{ setDiveHidden\(false, false\); setDiveFade\(null\); \} \};/);
+  assert.match(stage, /const diveUnhide = \(\) => \{ if \((?:live\.)?diveT >= 1 && (?:live\.)?lobuleOn\) \{ setDomHidden\(false\); setDiveHidden\(false, false\); setDiveFade\(null\); \} \};/);
   assert.match(stage, /unhideAt = setTimeout\(diveUnhide, 500\)/);
 });
 

@@ -7,6 +7,7 @@ import { fadeStop } from './res-fade.js';
 import { riseCentre } from './rise-path.js';
 import { store } from './store.js';
 import { clamp, lerp } from './util.js';
+import { OVER_ALL } from './stage-over.js';
 
 export function createDive(st, live) {
   const { applyVT, defaultVT, drawFrame, driftEnd, liverBox, lobuleBackstop, lobuleStep, nextFrame, refreshCTM, riseVT, sameView, spleenMoving, svg, syncSemantic, update, updateLabels, vCanvas, worldToLocal, wrap } = st;
@@ -23,9 +24,15 @@ export function createDive(st, live) {
   // second at the dive's fastest instead of a sixth: the lobules came in, and the anatomy's vessels went, all at once (Mohammad, 25 Oct).
   const FIELD_IN = LC - 1.2, FIELD_WHOLE = LC + 0.35;
   // (The zoomed layers, in one kept list written in place: the callers loop over it at once and never keep it.)
-  const diveElsBuf = [];
+  const diveZoomBuf = [], diveAllBuf = [];
+  // The GPU draws the whole figure (the vessels, the organs' plate), its overlays when they are all on it, and the labels as sprites: the
+  // page's layers then show nothing the canvas does not, and are not scaled at all (Safari re-rasterised three screen-sized bitmaps at each
+  // scale), only hidden as the dive starts. Lite, or a context not holding the plate, keeps the CSS zoom.
+  const diveGpu = () => !!live.veins && !live.veins.lost && wrap.classList.contains('gl-on') && wrap.classList.contains('gl-plate');
+  const overOnGPU = (over) => !!over && over.classList.contains(OVER_ALL);
+  // (Every layer the dive touches, in one kept list; diveZoomEls is those it zooms.)
   const diveEls = () => {
-    const b = diveElsBuf, over = wrap.querySelector('#stageOver'), lab = wrap.querySelector('#labels');
+    const b = diveAllBuf, over = wrap.querySelector('#stageOver'), lab = wrap.querySelector('#labels');
     b.length = 0;
     if (svg) b.push(svg);
     if (over) b.push(over);
@@ -33,6 +40,25 @@ export function createDive(st, live) {
     if (vCanvas) b.push(vCanvas);
     return b;
   };
+  const diveZoomEls = () => {
+    const all = diveEls(), b = diveZoomBuf, gpu = diveGpu();
+    b.length = 0;
+    for (let i = 0; i < all.length; i++) {
+      const el = all[i];
+      if (gpu && el !== vCanvas && (el.id !== 'stageOver' || overOnGPU(el))) continue;   // (el === svg has no id of its own to match: the overlay is the one with the id)
+      b.push(el);
+    }
+    return b;
+  };
+  // The page's layers the GPU stands in for, hidden for the dive (not scaled); the labels' own layer follows its fade (setDiveHidden).
+  let domHid = false;
+  const domOnGPU = (el) => el !== vCanvas && el.id !== 'labels' && (el.id !== 'stageOver' || overOnGPU(el));
+  function setDomHidden(on) {
+    if (on === domHid) return;
+    domHid = on;
+    const all = diveEls();
+    for (let i = 0; i < all.length; i++) if (domOnGPU(all[i])) all[i].style.visibility = on ? 'hidden' : '';
+  }
   // Each zoomed layer's offset in the stage, for its zoom's origin. From the boxes, not offsetLeft/Top: an SVG has none, and its origin
   // would fall back to its own centre, so the overlays (stents, the Doppler's glow) drifted from the anatomy as it zoomed. Read when a
   // dive or rise is asked for (setLobule, an input or a slide's change), never in the zoom's frames.
@@ -41,7 +67,7 @@ export function createDive(st, live) {
   function diveOffsRead() {
     const w0 = wrap.getBoundingClientRect();
     diveOffs.clear();
-    const els = diveEls();
+    const els = diveZoomEls();
     for (let i = 0; i < els.length; i++) { const el = els[i], r = el.getBoundingClientRect(), o = diveOffPool[i]; o[0] = r.left - w0.left; o[1] = r.top - w0.top; diveOffs.set(el, o); }
   }
   const diveTargetPt = [0, 0];   // (the dive's spot in the liver, written in place; its callers read it at once)
@@ -59,6 +85,7 @@ export function createDive(st, live) {
     const els = diveEls();
     for (let i = 0; i < els.length; i++) {
       const el = els[i];
+      if (domHid && domOnGPU(el)) continue;   // (hidden for the whole dive by setDomHidden)
       // (The lobule is drawn in the figure's own canvas: hiding that canvas hid the lobule and its field with it, black until the dive settled. The figure's alpha, camDive, hides the anatomy there.)
       if (el === vCanvas && live.lz?.shared) { el.style.visibility = ''; continue; }
       el.style.visibility = (el.id === 'labels' ? lab : on) ? 'hidden' : '';
@@ -109,10 +136,10 @@ export function createDive(st, live) {
     if (live.diveOrig) return;
     for (let i = 0; i < diveOrigBuf.length; i++) { const el = diveOrigBuf[i][0]; el.style.willChange = ''; el.style.transform = ''; }
   };
-  const diveUnhide = () => { if (live.diveT >= 1 && live.lobuleOn) { setDiveHidden(false, false); setDiveFade(null); } };
+  const diveUnhide = () => { if (live.diveT >= 1 && live.lobuleOn) { setDomHidden(false); setDiveHidden(false, false); setDiveFade(null); } };
   function setDiveScale(k, keep = false) {
     if (k <= 1.0001) {
-      if (!keep) { setDiveHidden(false, false); setDiveFade(null); }
+      if (!keep) { setDomHidden(false); setDiveHidden(false, false); setDiveFade(null); }
       // The transform goes first and the layer hint a frame later: dropping both at once can leave the
       // browser showing the last zoomed picture while clicks already land on the unzoomed figure.
       if (live.diveOrig) { for (let i = 0; i < live.diveOrig.length; i++) { const el = live.diveOrig[i][0]; if (el === vCanvas) continue; el.style.transform = 'none'; el.style.transformOrigin = ''; } live.camK = 1; pushCam(); nextFrame(diveWillOff); }
@@ -125,7 +152,7 @@ export function createDive(st, live) {
       const [ox, oy] = live.diveAt;
       // (The layers' offsets in the stage were read as the dive was asked for (diveOffsRead), outside any frame; a layer not
       // read then stands at the stage's corner, as all of them do.)
-      const els = diveEls(), b = diveOrigBuf;
+      const els = diveZoomEls(), b = diveOrigBuf;
       b.length = 0;
       for (let i = 0; i < els.length; i++) { const el = els[i], d = diveOffs.get(el) || DIVE_ORIGIN_ZERO, pr = diveOrigPool[i]; pr[0] = el; pr[1] = `${(ox - d[0]).toFixed(1)}px ${(oy - d[1]).toFixed(1)}px`; b.push(pr); if (el === vCanvas) { live.camOx = +(ox - d[0]).toFixed(1); live.camOy = +(oy - d[1]).toFixed(1); } }
       live.diveOrig = b;
@@ -198,6 +225,7 @@ export function createDive(st, live) {
       }
       // Once the field is whole (fully opaque, from z = FIELD_WHOLE) the magnified anatomy beneath it is not seen: it is hidden, so the
       // browser stops compositing it (Safari redraws a scaled SVG at each new scale, every frame); the labels as soon as they have faded.
+      if (!landed && diveGpu()) setDomHidden(t > 0 && t < 1);
       if (!landed) setDiveHidden(t > 0 && t < 1 && z >= FIELD_WHOLE, lab && t > 0 && t < 1 && +lab.style.opacity <= 0.001);
     }
     live.lobU = live.easeInOut(clamp((t - 0.48) / 0.4, 0, 1));

@@ -43,3 +43,12 @@ test('the dive and the rise draw the rim on the GPU and make no 2D copy (none is
   assert.match(fn('function buildWide(W, H, box) {'), /return WIDE_GL \? buildWideGL\(W, H, box\) : null;/, "the wide copy only on the GPU");
   assert.match(fn('function paintTissue('), /if \(same\) return gpu && keyGPU;/, 'a key the GPU did not draw is never reported as on the GPU');
 });
+
+test('under the GPU the dive scales no page layer: only the canvas zooms, the layers it draws are hidden', () => {
+  const sd = readFileSync(new URL('../src/ui/stage-dive.js', import.meta.url), 'utf8');
+  assert.match(sd, /const diveGpu = \(\) => .*gl-on.*gl-plate/, 'the GPU path needs the context and the whole plate');
+  assert.match(sd, /if \(gpu && el !== vCanvas && \(el\.id !== 'stageOver' \|\| overOnGPU\(el\)\)\) continue;/, 'the zoomed list is the canvas (and an overlay the GPU does not draw)');
+  assert.match(sd, /if \(!landed && diveGpu\(\)\) setDomHidden\(t > 0 && t < 1\);/);
+  assert.match(sd, /if \(!keep\) \{ setDomHidden\(false\);/, 'given back when the dive ends');
+  assert.match(sd, /const diveUnhide = \(\) => \{ if \(live\.diveT >= 1 && live\.lobuleOn\) \{ setDomHidden\(false\);/);
+});
