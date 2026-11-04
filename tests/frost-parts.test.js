@@ -21,7 +21,7 @@ test('each part between is read through its own count; the camera moving the ove
 
 test('boxes read at one view are carried to another by the change of transform', () => {
   // (Run the stage's own frostCarry on two views: a box read at the first lands where the second puts it.)
-  const make = new Function('CTM0', 'refreshCTM', `let CTM = CTM0;\n${carrySrc}\nreturn { frostCarry, set: (c) => { CTM = c; } };`);
+  const make = new Function('CTM0', 'refreshCTM', `const live = { CTM: CTM0 };\n${carrySrc}\nreturn { frostCarry, set: (c) => { live.CTM = c; } };`);
   const at = (k, x, y) => ({ a: k, b: 0, c: 0, d: k, e: x, f: y });
   const v1 = at(2, 10, 20), v2 = at(3, -5, 4);
   const f = make(v1, () => {});
