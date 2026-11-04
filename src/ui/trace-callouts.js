@@ -22,6 +22,14 @@ export function edgeFade(px, span = 48) {
   return u * u * (3 - 2 * u);
 }
 
+/** A line of width `w` from (x0, y0) to (x1, y1) added to the open path as small round boxes, to be filled with ctx.fill() (fillStyle set by the caller).
+ *  The GPU lays boxes and fills straight onto the picture; a stroked line goes through its coverage target, and where that target gave nothing the
+ *  tracing showed its axes, its numbers and its dot but no line (HVPG TRACING, 4 Nov 2026). So the monitors' lines are boxes, which draw wherever the dot does. */
+export function inkSeg(ctx, x0, y0, x1, y1, w) {
+  const r = w / 2, dx = x1 - x0, dy = y1 - y0, n = Math.max(1, Math.ceil(Math.hypot(dx, dy) / Math.max(0.5, w * 0.45)));
+  for (let i = 0; i <= n; i++) { const u = i / n; ctx.roundRect(x0 + dx * u - r, y0 + dy * u - r, w, w, r); }
+}
+
 /** A marker's words, rebuilt only when the number differs from the one they were built from (a cell is { v, s }). */
 export const calloutCell = () => ({ v: undefined, s: '' });
 export function calloutText(c, name, v, digits = 1) {
@@ -47,8 +55,7 @@ export function drawCallout(ctx, text, x, y, side, colour, bg, drop, alpha, x0, 
   const cx = Math.min(Math.max(x, x0 + half), Math.max(x0 + half, x1 - half));
   const lift = (1 - drop) * DROP_PX * side * -1;   // (starts a little further out and drops onto its point)
   const py = Math.min(Math.max(y + side * (STEM + PILL_H / 2) + lift, top + PILL_H / 2), bot - PILL_H / 2);
-  ctx.strokeStyle = colour; ctx.lineWidth = 1.4;
-  ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(cx, py - side * (PILL_H / 2 - 3)); ctx.stroke();
+  ctx.fillStyle = colour; ctx.beginPath(); inkSeg(ctx, x, y, cx, py - side * (PILL_H / 2 - 3), 1.4); ctx.fill();
   ctx.fillStyle = colour; ctx.beginPath(); ctx.arc(x, y, 3.2, 0, Math.PI * 2); ctx.fill();
   ctx.strokeStyle = bg; ctx.lineWidth = 1; ctx.stroke();
   // (The label look of the figure's labels, label-gl: coloured text on a dark outline, no box or pill.)

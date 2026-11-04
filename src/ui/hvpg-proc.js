@@ -21,7 +21,7 @@ import { frameFor, cancelFrame } from './frame.js';
 import { createTraceGL, fitPen } from './trace-gl.js';
 import { traceRoom, TRACE_MIN } from './trace-room.js';
 import { rateOf } from './table-marks.js';
-import { drawCallout, dropK, sideFor, calloutCell, calloutText } from './trace-callouts.js';
+import { drawCallout, dropK, sideFor, calloutCell, calloutText, inkSeg } from './trace-callouts.js';
 import { PROCS, PROC_KINDS, procBlocked, procOffered, playProcedure } from './proc-anim.js';
 const nextFrame = frameFor('hvpg-proc');
 
@@ -450,8 +450,8 @@ function traceOn({ ctx, w, h: hh }, { ph, t, v, blocked, running }) {
   axTop = top; axBot = bot; axMax = ymax; axL = L; axR = R;   // (Y and X, above, read these)
   ctx.lineWidth = 1; ctx.font = FONT(500, 12); ctx.fillStyle = C.text; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
   for (let p = 0; p <= ymax; p += 5) {
-    ctx.strokeStyle = p ? C.grid : C.line; ctx.beginPath(); ctx.moveTo(L, Math.round(Y(p)) + 0.5); ctx.lineTo(R, Math.round(Y(p)) + 0.5); ctx.stroke();
-    if (p % 10 === 0 || ymax <= 20) ctx.fillText(tick(p), L - 5, Y(p));
+    ctx.fillStyle = p ? C.grid : C.line; ctx.fillRect(L, Math.round(Y(p)), R - L, 1);   // (boxes, not stroked lines: see inkSeg)
+    if (p % 10 === 0 || ymax <= 20) { ctx.fillStyle = C.text; ctx.fillText(tick(p), L - 5, Y(p)); }
   }
   if (ph === 'idle' || ph === 'enter') {
     // (Wrapped inside the grid, 8 px clear of the axis numbers and the monitor's right edge, on a solid patch of the monitor
@@ -475,7 +475,7 @@ function traceOn({ ctx, w, h: hh }, { ph, t, v, blocked, running }) {
     level(ctx, v.whvp, C.wedge, 'WHVP', yw, narrow, R, L, cLvW);
     const a = ease(k01(t, T.sum - 400, T.sum + 200)), xa = L + (R - L) * 0.9, y1 = Y(v.fhvp), y2 = Y(v.fhvp + (v.whvp - v.fhvp) * a), col2 = C[sevOf(v.hvpg)];
     ctx.strokeStyle = col2; ctx.fillStyle = col2; ctx.lineWidth = 1.6;
-    ctx.beginPath(); ctx.moveTo(xa, y1); ctx.lineTo(xa, y2); ctx.stroke();
+    ctx.fillRect(xa - 0.8, Math.min(y1, y2), 1.6, Math.abs(y2 - y1));
     if (Math.abs(y1 - y2) > 10) { arrowHead(ctx, xa, y1, 1); arrowHead(ctx, xa, y2, -1); }
     if (a > 0.6) {
       ctx.save(); ctx.globalAlpha = ease(k01(t, T.sum, T.sum + 450));
@@ -500,20 +500,31 @@ function traceOn({ ctx, w, h: hh }, { ph, t, v, blocked, running }) {
   }
   ctx.fillStyle = C.text; ctx.font = FONT(500, 12); ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
   ctx.fillText('balloon up', X(T.inflate), bot + 15);
-  ctx.strokeStyle = C.line; ctx.beginPath(); ctx.moveTo(X(T.inflate), bot); ctx.lineTo(X(T.inflate), bot + 4); ctx.stroke();
+  ctx.fillStyle = C.line; ctx.fillRect(X(T.inflate) - 0.5, bot, 1, 4);
 }
 
 // The trace from a to b (ms on the procedure's clock), swept as far as tNow. (Drawn with the axes traceOn set: Y, X.)
 function seg(ctx, a, b, colr, tNow, v) {
   if (tNow <= a) return;
-  ctx.strokeStyle = colr; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.beginPath();
-  for (let tt = a; tt <= Math.min(b, tNow); tt += 30) { const X1 = X(tt), Y1 = Y(pAt(tt, v)); tt === a ? ctx.moveTo(X1, Y1) : ctx.lineTo(X1, Y1); }
-  ctx.stroke();
+  // (Laid as small round boxes along the trace, not one stroked line: a stroke is drawn through the GPU's coverage target and the tracing came
+  // up with no line on a phone while its dot, words and axes drew. A box draws wherever the dot does.)
+  ctx.fillStyle = colr; ctx.beginPath();
+  let px = 0, py = 0, have = false;
+  const end = Math.min(b, tNow);
+  for (let tt = a; tt <= end + 15; tt += 30) {
+    const t2 = Math.min(tt, end), X1 = X(t2), Y1 = Y(pAt(t2, v));
+    if (have) inkSeg(ctx, px, py, X1, Y1, 2); else inkSeg(ctx, X1, Y1, X1, Y1, 2);
+    px = X1; py = Y1; have = true;
+    if (t2 >= end) break;
+  }
+  ctx.fill();
 }
 // A level's dashed line across the grid and, when there is room, its name and number at the right (c: the number's text cell).
 function level(ctx, p, colr, txt, ly, narrow, R, L, c) {
-  ctx.save(); ctx.strokeStyle = colr; ctx.globalAlpha = 0.75; ctx.setLineDash(DASH); ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(L, Y(p)); ctx.lineTo(R, Y(p)); ctx.stroke(); ctx.restore();
+  ctx.save(); ctx.fillStyle = colr; ctx.globalAlpha = 0.75;
+  const dy = Math.round(Y(p));
+  for (let dx = L; dx < R; dx += DASH[0] + DASH[1]) ctx.fillRect(dx, dy, Math.min(DASH[0], R - dx), 1);   // (dashes as boxes: see seg)
+  ctx.restore();
   if (!narrow) { ctx.fillStyle = colr; ctx.font = FONT(600, 12); ctx.textAlign = 'left'; ctx.fillText(txt, R + 6, ly - 7); ctx.font = FONT(700, 12); ctx.fillText(fm1(c, p), R + 6, ly + 7); }
 }
 // One end of the difference's bracket: a small arrowhead at yy, pointing d (1 down the page's way, -1 the other).
