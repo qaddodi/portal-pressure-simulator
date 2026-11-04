@@ -77,7 +77,7 @@ export function tapTracker(card, { ok = () => true, onTap }) {
  * the slides"): one of the six cells of the ladders panel, { card: cell, scrim: [the page's veil, the panel's], part: true }. A part is only
  * centred and enlarged: the instrument's boost, the credit's sitting out, the words' cue and the readings' follow are for the data card.
  */
-export function createCardZoom({ card, along = [], scrim, app, area, scale = () => 1, reduce = () => false, boost = () => {}, hold = () => {}, settled = () => {}, behind = () => {}, under = () => [], shift = () => null, raf = frameFor('card-zoom') }) {
+export function createCardZoom({ card, along = [], scrim, app, area, scale = () => 1, reduce = () => false, boost = () => {}, hold = () => {}, settled = () => {}, behind = () => {}, under = () => [], shift = () => null, scene = () => [], raf = frameFor('card-zoom') }) {
   let st = null;   // { card, veils, part, plan, riders: [{ el, rest, own, anim }], closing, steady, box, mid, k, s, boosted, cur: { dx, dy, s }, mo }
   // The glide is run in the frame loop, not by the browser's clock (Mohammad, 2 Nov 2026: "the instrument card has a trailing card behind it").
   // Its animations are made paused and set to the frame's own time in the 'card-zoom' callback of each frame, so the card the page shows and the
@@ -115,8 +115,9 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
   // The card and what rides with it, as they rest: a stacked card's handle stands on its top edge (the readings' card tucked behind it), so the
   // box that is centred and fitted to the screen is the whole of them, never the card's box alone (Mohammad, 28 Oct: a stacked card sat off the
   // middle and ran off the bottom).
-  const pieces = (el = card, rides = along) => [el, ...rides].map((x) => ({ el: x, rest: x.hidden && x !== el ? null : x.getBoundingClientRect(), own: null, anim: null })).filter((r) => r.rest && r.rest.width > 0);
-  const whole = (riders, el = card) => (riders.some((r) => r.el === el) ? unionBox(riders.map((r) => r.rest)) : null);
+  // (scene: the rest of the page that rides the camera with the card (the teaching card and its glass): each turns about the same middle by the same transform, so the page is one picture that zooms toward the card, and the zoomed card never lies over its words (4 Nov 2026, Mohammad: "zoom the entire camera"). They are not part of the box that is fitted: pass.)
+  const pieces = (el = card, rides = along, extra = []) => [...[el, ...rides].map((x) => [x, false]), ...extra.map((x) => [x, true])].map(([x, pass]) => ({ el: x, pass, rest: x.hidden && x !== el ? null : x.getBoundingClientRect(), own: null, anim: null })).filter((r) => r.rest && r.rest.width > 0);
+  const whole = (riders, el = card) => (riders.some((r) => r.el === el) ? unionBox(riders.filter((r) => !r.pass).map((r) => r.rest)) : null);
   // The piece's box as it rests, for everyone who asks the element (the figure's labels keep clear of the cards by it): a copy that does
   // not move with the glide. Its own getBoundingClientRect is put back as it was.
   const pin = (r) => {
@@ -203,7 +204,7 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
     plan() { const q = whole(pieces()); return q && zoomPlan(q, area()); },
     open({ card: el = card, along: rides = along, scrim: veil = scrim, part = false } = {}) {
       if (st) return false;
-      const a = area(), riders = pieces(el, rides), q = whole(riders, el), plan = q && zoomPlan(q, a, zoomMargin(a));
+      const a = area(), riders = pieces(el, rides, part ? [] : scene()), q = whole(riders, el), plan = q && zoomPlan(q, a, zoomMargin(a));
       if (!plan) return false;
       const k = scale(el) || 1, ms = reduce() ? 0 : ZOOM_MS;
       const cx = q.left + q.width / 2, cy = q.top + q.height / 2;

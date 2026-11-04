@@ -6134,7 +6134,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       scale: (el) => (el && el !== data && readMetric(el, 'offsetWidth') ? readBox(el).width / readMetric(el, 'offsetWidth') : readBox(wrap).width / (readMetric(wrap, 'clientWidth') || 1)) || 1,
       reduce: () => reduce.matches, boost: setCanvasBoost, hold: zoomCredit, settled: zoomSettled,
       // (The words' card stays up while the card is zoomed; its words, and its deck tab on the card's edge (the shade holds the tab), are cut away under the card, card-zoom.js, and it rests at slip.base's rise meanwhile.)
-      under: () => [text, shade], shift: (el) => (el === text ? (root.classList.contains('pz-wide') ? [0, -slip.base] : null) : el === shade && shade.classList.contains('pz-card') && !shade.classList.contains('stack') && !shade.classList.contains('low') ? [0, -slip.base] : null), behind: zoomBehind });
+      scene: () => [text, shade], under: () => [text, shade], shift: (el) => (el === text ? (root.classList.contains('pz-wide') ? [0, -slip.base] : null) : el === shade && shade.classList.contains('pz-card') && !shade.classList.contains('stack') && !shade.classList.contains('low') ? [0, -slip.base] : null), behind: zoomBehind });
     tapTracker(data, { ok: () => zoomReady() || zoom.up, onTap: () => zoomToggle() });
     tapTracker(panel, { ok: () => cellReady() || zoom.up, onTap: cellTap });
     const root = h('div', { class: 'pz' }, safe, veil, load, fk, text, zscrim, data, lip, panel, vcase, prog, scl, bar, jump, blackEl, say);
