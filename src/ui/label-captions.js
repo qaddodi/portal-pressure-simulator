@@ -468,7 +468,11 @@ export function createCaptions(box, { labelGL = createLabelGL, deferred = false 
         const top = spec.top;
         const host = { gl: top.gl, canvas: top.canvas, ask: () => top.present(), now: () => top.present(), active: () => !dead && !top.gl.isContextLost() && (spec.active ? !!spec.active() : true), scale: spec.scale };
         LG = labelGL(model, mblocks, { force: true, id: 'capLabelGl', marks: [lroot], host });
-        if (LG) hosted = { top, spec, alpha: null, off: top.add({ order: spec.order ?? 0, solo: true, on: () => !!(lgList.length || leads.size) && (spec.active ? !!spec.active() : true), prep: () => { if (lgList.length || leads.size) LG?.drawInto?.(); }, draw: () => {} }) };   // (a prep, as the stage labels': laid before any glass takes its blur)   // (nothing to draw: the present has cleared the canvas, no pass is run)
+        if (LG) hosted = { top, spec, alpha: null, off: top.add({ order: spec.order ?? 0, solo: true, on: () => !!(lgList.length || leads.size) && (spec.active ? !!spec.active() : true), draw: () => { if (lgList.length || leads.size) LG?.drawInto?.(); } }) };
+        // (A draw, never a prep: the lobule's and the sinusoid's own pictures are draws at lower orders (LZ_UNDER_GLASS - 5, - 4), and every prep runs
+        // before any draw, so names laid in the prep were painted over by the opaque lobule: no lobule or sinusoid names at all (616e214, Mohammad
+        // 4 Nov 2026: "Labels in lobule and sinusoids just don't exist"). The glass still blurs them: a shared blur is taken at the first glass's
+        // draw (blur-share.js), after this pass, at its higher order.)
       } else LG = labelGL(model, mblocks, { force: true, id: 'capLabelGl', marks: [lroot] });
       gen++;
       api.paint();

@@ -57,12 +57,12 @@ test('attached to the figure: the drawer is in host mode, one pass at the owner\
   assert.equal(R.passes.length, 1);
   assert.equal(R.passes[0].order, -8);
   assert.equal(R.passes[0].solo, true);
-  assert.equal(typeof R.passes[0].prep, 'function', 'laid in the prep phase: a glass over a caption blurs it');
+  assert.equal(R.passes[0].prep, undefined, 'a draw, not a prep: the lobule\'s and sinusoid\'s pictures are draws under it and every prep runs before them');
   assert.equal(R.gcCalls, 0, 'no getContext');
   assert.equal(R.box.querySelector('canvas'), null, 'no canvas of its own in the layer');
 });
 
-test('the pass draws the names in the host\'s present (its prep, before any glass), only when there are some', async () => {
+test('the pass draws the names in the host\'s present, only when there are some', async () => {
   const R = rig();
   R.cap.attach({ top: R.top, order: -8 });
   await tick();
@@ -74,6 +74,24 @@ test('the pass draws the names in the host\'s present (its prep, before any glas
   R.cap.drawNow();
   R.top.present();
   assert.ok(R.made[0].syncs.length >= 1, 'the frame handed its list over');
+});
+
+test('the names are laid after the lobule\'s own picture (a draw at a lower order), never under it', async () => {
+  const R = rig();
+  const seq = [];
+  R.top.add({ order: -15, solo: true, draw: () => seq.push('lobule') });
+  R.cap.attach({ top: R.top, order: -8 });
+  R.made[0].drawInto = () => seq.push('names');
+  R.top.add({ order: 2, prep: () => seq.push('glass prep'), draw: () => seq.push('glass') });
+  await tick();
+  R.cap.look('a', { halo: 0, haloC: '', size: 12, weight: 500, lh: 1.2, gap: 0, runs: {} });
+  R.cap.mirror('a', { w: 10, h: 10, lines: [{ w: 10, base: 8, runs: [{ t: 'Zone', x: 0, r: { size: 10, weight: 500, fill: '#000', ls: 0 } }] }] });
+  R.cap.put('a', { x: 50, y: 40, show: 1 });
+  R.cap.lead('a', { x1: 0, y1: 0, x2: 10, y2: 10, show: 1, colour: 'rgba(0, 0, 0, 1)' });
+  R.cap.drawNow();
+  seq.length = 0;
+  R.top.present();
+  assert.deepEqual(seq, ['glass prep', 'lobule', 'names', 'glass']);
 });
 
 test('a layer at no size hands over an empty list: nothing stays drawn in the host\'s canvas', async () => {
