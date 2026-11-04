@@ -159,12 +159,14 @@ import { createDiaphragm } from './stage-diaphragm.js';
 import { createDive } from './stage-dive.js';
 import { createPaths } from './stage-paths.js';
 import { createGeo } from './stage-geo.js';
+import { createView } from './stage-view.js';
 
 export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, onViewChange }) {
   // <stage-split live>
   // The stage's shared lets (and consts made after a part), read at the moment of use by the part files: never copied, so a part cannot draw a frame late.
   const live = {
     get adaptK() { return adaptK; }, set adaptK(v) { adaptK = v; },
+    get arcRun() { return arcRun; }, set arcRun(v) { arcRun = v; },
     get ascEls() { return ascEls; },
     get ascShown() { return ascShown; }, set ascShown(v) { ascShown = v; },
     get ascTarget() { return ascTarget; }, set ascTarget(v) { ascTarget = v; },
@@ -181,6 +183,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get box() { return box; }, set box(v) { box = v; },
     get boxH() { return boxH; }, set boxH(v) { boxH = v; },
     get boxW() { return boxW; }, set boxW(v) { boxW = v; },
+    get calloutSig() { return calloutSig; },
     get camDive() { return camDive; }, set camDive(v) { camDive = v; },
     get camK() { return camK; }, set camK(v) { camK = v; },
     get camMove() { return camMove; }, set camMove(v) { camMove = v; },
@@ -191,7 +194,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get camShowRaf() { return camShowRaf; }, set camShowRaf(v) { camShowRaf = v; },
     get camShowT0() { return camShowT0; }, set camShowT0(v) { camShowT0 = v; },
     get camShowTo() { return camShowTo; }, set camShowTo(v) { camShowTo = v; },
+    get carrying() { return carrying; }, set carrying(v) { carrying = v; },
     get catchUp() { return catchUp; }, set catchUp(v) { catchUp = v; },
+    get cath() { return cath; },
     get cathFade() { return cathFade; }, set cathFade(v) { cathFade = v; },
     get cathRadOf() { return cathRadOf; },
     get cathTint() { return cathTint; }, set cathTint(v) { cathTint = v; },
@@ -219,6 +224,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get dprCardsList() { return dprCardsList; }, set dprCardsList(v) { dprCardsList = v; },
     get drag() { return drag; }, set drag(v) { drag = v; },
     get drawOnce() { return drawOnce; }, set drawOnce(v) { drawOnce = v; },
+    get drifting() { return drifting; }, set drifting(v) { drifting = v; },
     get dyeShown() { return dyeShown; }, set dyeShown(v) { dyeShown = v; },
     get E() { return E; },
     get easeInOut() { return easeInOut; },
@@ -233,6 +239,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get fluidFade() { return fluidFade; },
     get fluidStillAt() { return fluidStillAt; }, set fluidStillAt(v) { fluidStillAt = v; },
     get fluidSurf() { return fluidSurf; }, set fluidSurf(v) { fluidSurf = v; },
+    get following() { return following; }, set following(v) { following = v; },
     get forceDraw() { return forceDraw; }, set forceDraw(v) { forceDraw = v; },
     get frostHold() { return frostHold; }, set frostHold(v) { frostHold = v; },
     get fullFailed() { return fullFailed; }, set fullFailed(v) { fullFailed = v; },
@@ -242,10 +249,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get geometryVersion() { return geometryVersion; }, set geometryVersion(v) { geometryVersion = v; },
     get gestureOn() { return gestureOn; },
     get gGut() { return gGut; }, set gGut(v) { gGut = v; },
+    get gLabels() { return gLabels; },
+    get glass() { return glass; },
     get glassGL() { return glassGL; }, set glassGL(v) { glassGL = v; },
     get glide() { return glide; }, set glide(v) { glide = v; },
     get glM() { return glM; }, set glM(v) { glM = v; },
     get glowSync() { return glowSync; }, set glowSync(v) { glowSync = v; },
+    get glSuppress() { return glSuppress; }, set glSuppress(v) { glSuppress = v; },
     get glWanted() { return glWanted; },
     get gScan() { return gScan; },
     get guideGlow() { return guideGlow; },
@@ -253,19 +263,37 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get guideLine() { return guideLine; },
     get haloK() { return haloK; }, set haloK(v) { haloK = v; },
     get handed() { return handed; }, set handed(v) { handed = v; },
+    get handRide() { return handRide; }, set handRide(v) { handRide = v; },
     get homeAt() { return homeAt; }, set homeAt(v) { homeAt = v; },
     get hoverId() { return hoverId; }, set hoverId(v) { hoverId = v; },
     get inUpdate() { return inUpdate; }, set inUpdate(v) { inUpdate = v; },
     get isImaging() { return isImaging; },
     get islOn() { return islOn; }, set islOn(v) { islOn = v; },
     get islSrc() { return islSrc; }, set islSrc(v) { islSrc = v; },
-    get labelGL() { return labelGL; },
+    get JOB_NOW() { return JOB_NOW; },
+    get keyInto() { return keyInto; },
+    get labelFonts() { return labelFonts; }, set labelFonts(v) { labelFonts = v; },
+    get labelGL() { return labelGL; }, set labelGL(v) { labelGL = v; },
+    get labelGlSync() { return labelGlSync; },
+    get labelIns() { return labelIns; },
+    get labelJob() { return labelJob; }, set labelJob(v) { labelJob = v; },
+    get labelK() { return labelK; }, set labelK(v) { labelK = v; },
+    get labelKey() { return labelKey; }, set labelKey(v) { labelKey = v; },
+    get labelKeyArr() { return labelKeyArr; },
+    get labelSol() { return labelSol; }, set labelSol(v) { labelSol = v; },
+    get labelSolSpare() { return labelSolSpare; }, set labelSolSpare(v) { labelSolSpare = v; },
     get labelSvg() { return labelSvg; },
+    get labelTurned() { return labelTurned; }, set labelTurned(v) { labelTurned = v; },
     get labHid() { return labHid; }, set labHid(v) { labHid = v; },
+    get landRide() { return landRide; }, set landRide(v) { landRide = v; },
+    get landTo() { return landTo; }, set landTo(v) { landTo = v; },
+    get lastMorph() { return lastMorph; }, set lastMorph(v) { lastMorph = v; },
     get lastMoveAt() { return lastMoveAt; }, set lastMoveAt(v) { lastMoveAt = v; },
     get layerCommits() { return layerCommits; }, set layerCommits(v) { layerCommits = v; },
     get layerStarts() { return layerStarts; }, set layerStarts(v) { layerStarts = v; },
     get layerStartsEasing() { return layerStartsEasing; }, set layerStartsEasing(v) { layerStartsEasing = v; },
+    get lbkNum() { return lbkNum; }, set lbkNum(v) { lbkNum = v; },
+    get lbkStr() { return lbkStr; }, set lbkStr(v) { lbkStr = v; },
     get lbRects() { return lbRects; }, set lbRects(v) { lbRects = v; },
     get leadEls() { return leadEls; },
     get lensFrom() { return lensFrom; }, set lensFrom(v) { lensFrom = v; },
@@ -371,6 +399,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get restOn() { return restOn; }, set restOn(v) { restOn = v; },
     get restStill() { return restStill; },
     get restU() { return restU; }, set restU(v) { restU = v; },
+    get rideLeaders() { return rideLeaders; },
     get riseBox() { return riseBox; }, set riseBox(v) { riseBox = v; },
     get riseFast() { return riseFast; }, set riseFast(v) { riseFast = v; },
     get riseLine() { return riseLine; }, set riseLine(v) { riseLine = v; },
@@ -378,14 +407,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get risePrepT() { return risePrepT; }, set risePrepT(v) { risePrepT = v; },
     get riseUsed() { return riseUsed; }, set riseUsed(v) { riseUsed = v; },
     get rotTarget() { return rotTarget; }, set rotTarget(v) { rotTarget = v; },
+    get rotU() { return rotU; }, set rotU(v) { rotU = v; },
     get shunt() { return shunt; }, set shunt(v) { shunt = v; },
     get sites() { return sites; },
     get smooth01() { return smooth01; },
     get SOFTWARE() { return SOFTWARE; }, set SOFTWARE(v) { SOFTWARE = v; },
+    get solveAsked() { return solveAsked; }, set solveAsked(v) { solveAsked = v; },
+    get SOLVED_A() { return SOLVED_A; },
+    get SOLVED_B() { return SOLVED_B; },
+    get solvedFor() { return solvedFor; }, set solvedFor(v) { solvedFor = v; },
     get spleenTimer() { return spleenTimer; }, set spleenTimer(v) { spleenTimer = v; },
     get sprayA() { return sprayA; }, set sprayA(v) { sprayA = v; },
     get sprayLast() { return sprayLast; }, set sprayLast(v) { sprayLast = v; },
     get stageWake() { return stageWake; }, set stageWake(v) { stageWake = v; },
+    get stats() { return stats; },
     get tokenRGB() { return tokenRGB; },
     get toneToken() { return toneToken; },
     get userMoved() { return userMoved; }, set userMoved(v) { userMoved = v; },
@@ -395,13 +430,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get veinsDirty() { return veinsDirty; }, set veinsDirty(v) { veinsDirty = v; },
     get viewSeq() { return viewSeq; }, set viewSeq(v) { viewSeq = v; },
     get viewVersion() { return viewVersion; }, set viewVersion(v) { viewVersion = v; },
+    get viewXf() { return viewXf; }, set viewXf(v) { viewXf = v; },
     get vLook() { return vLook; }, set vLook(v) { vLook = v; },
     get vt() { return vt; }, set vt(v) { vt = v; },
     get vtAnim() { return vtAnim; }, set vtAnim(v) { vtAnim = v; },
     get vtGliding() { return vtGliding; }, set vtGliding(v) { vtGliding = v; },
+    get vtMs() { return vtMs; }, set vtMs(v) { vtMs = v; },
     get vtTarget() { return vtTarget; }, set vtTarget(v) { vtTarget = v; },
+    get vtUntil() { return vtUntil; }, set vtUntil(v) { vtUntil = v; },
     get widthEasing() { return widthEasing; }, set widthEasing(v) { widthEasing = v; },
     get wrapRect() { return wrapRect; }, set wrapRect(v) { wrapRect = v; },
+    get xfHold() { return xfHold; }, set xfHold(v) { xfHold = v; },
+    get xfOp() { return xfOp; }, set xfOp(v) { xfOp = v; },
+    get xfSolving() { return xfSolving; }, set xfSolving(v) { xfSolving = v; },
     get zShift() { return zShift; }, set zShift(v) { zShift = v; },
   };
   // </stage-split live>
@@ -1940,256 +1981,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // then runs everything: the camera is lerped from its framing to the target's by p, the ghosts ride their points at 1 - 2p and the new labels
   // theirs at 2p - 1. Nothing is solved or built as it lands; the pictures of the new view are built in the frames of the change.
   let viewXf = null, glSuppress = false, xfOp = '';
-  const xfVis = [null, null];
-  function viewXfP() { const x = viewXf, t = easeInOut(morph); return x.tT === x.t0 ? 1 : clamp((t - x.t0) / (x.tT - x.t0), 0, 1); }
-  // (The label layers the GPU does not draw (the SVG's own, the liver's pane) come in with the new labels.)
-  function xfLayer(n) {
-    const v = n >= 1 ? '' : n.toFixed(3);
-    if (v === xfOp) return;
-    xfOp = v;
-    if (labelSvg) labelSvg.style.opacity = v;
-    glass.style.opacity = v;
-  }
-  function xfVisFill() {
-    for (let v = 0; v < 2; v++) { const a = xfVis[v] ||= new Uint8Array(EV.length); for (let i = 0; i < EV.length; i++) a[i] = F && visAt(EV[i], v === 0) ? 1 : 0; }
-  }
-  // Where a world point laid out for `view` (0 anatomy, 1 circuit) is at this frame of the change: found once, on the nearest drawn vessel of that view
-  // (its segment and share along it, and what is left over), then carried by that vessel's own two courses, A and C, as the change blends them.
-  // A point on no vessel (an organ's name) keeps its place in the world.
-  const MA_NONE = { i: -1, f: 0, dx: 0, dy: 0, id: null };
-  function resolveMorphAnchor(wx, wy, view) {
-    const vis = xfVis[view];
-    let best = null, bd = 25 * 25;
-    for (let n = 0; n < EV.length; n++) {
-      if (vis && !vis[n]) continue;
-      const g = geo[EV[n].e.id], P = g && (view === 0 ? g.A : g.C);
-      if (!P || P.length < 2 || !g.C || g.C.length !== g.A.length) continue;
-      for (let i = 0; i < P.length - 1; i++) {
-        const ax = P[i][0], ay = P[i][1], bx = P[i + 1][0], by = P[i + 1][1], ex = bx - ax, ey = by - ay, l2 = ex * ex + ey * ey;
-        const f = l2 > 0 ? clamp(((wx - ax) * ex + (wy - ay) * ey) / l2, 0, 1) : 0, qx = ax + ex * f, qy = ay + ey * f, d2 = (wx - qx) * (wx - qx) + (wy - qy) * (wy - qy);
-        if (d2 < bd) { bd = d2; best = { id: EV[n].e.id, i, f, dx: wx - qx, dy: wy - qy }; }
-      }
-    }
-    return best || MA_NONE;
-  }
-  function morphAnchorAt(wx, wy, view, out, s) {
-    let r = s ? s.mA : null;
-    if (!r) { r = resolveMorphAnchor(wx, wy, view); if (s) s.mA = r; }
-    let x = wx, y = wy;
-    if (r.id) {
-      const g = geo[r.id], t = easeInOut(morph), a0 = g.A[r.i], a1 = g.A[r.i + 1], c0 = g.C[r.i], c1 = g.C[r.i + 1], w = view === 0 ? 1 - t : t;
-      x = lerp(a0[0] + (a1[0] - a0[0]) * r.f, c0[0] + (c1[0] - c0[0]) * r.f, t) + r.dx * w;
-      y = lerp(a0[1] + (a1[1] - a0[1]) * r.f, c0[1] + (c1[1] - c0[1]) * r.f, t) + r.dy * w;
-    }
-    worldToLocalInto(out, x, y);
-    return Number.isFinite(out[0]) && Number.isFinite(out[1]);
-  }
-  // The new view's labels laid out for where the change lands: the stage put to its end (the view, the camera, the vessels' courses and which
-  // are drawn), the labels solved whole, and the stage put back, nothing drawn in between.
-  const solveTargetVT = { k: 1, x: 0, y: 0 };
-  // (Runs fn with the stage at the change's end state, then puts it back, nothing drawn in between. Each slice of the solve runs inside it.)
-  function atTargetStage(d, fn, tgt = morphTarget, kept = null) {
-    const keepTgt = morphTarget, keepVT = vt, keepMorph = morph, keepLast = lastMorph, vb0 = vbBox.x, vb1 = vbBox.y, vb2 = vbBox.width, vb3 = vbBox.height;
-    const curS = [], visS = [];
-    glSuppress = true;
-    try {
-      morph = tgt; lastMorph = tgt; morphTarget = tgt;
-      const rr = rotEase(rotU), vbT = (i) => +lerp(VB_ANAT[i], lerp(VB_CIRC[i], VB_CIRC_R[i], rr), tgt).toFixed(1);
-      vbBox.x = vbT(0); vbBox.y = vbT(1); vbBox.width = vbT(2); vbBox.height = vbT(3);
-      solveTargetVT.k = d.k; solveTargetVT.x = d.x; solveTargetVT.y = d.y; vt = solveTargetVT;
-      for (let i = 0; i < EV.length; i++) {
-        const x = EV[i], g = geo[x.e.id];
-        curS.push(g.cur); visS.push(x.vis);
-        // (kept: the end state's courses and shown set found once for the change's frames, not again for each slice of its solve.)
-        if (kept && kept.pts[i]) { g.cur = kept.pts[i]; x.vis = kept.vis[i]; continue; }
-        g.cur = vesselAt(x, tgt).pts;
-        x.vis = x.reveal?.out ? true : edgeVisible(x, F);
-        if (kept) { kept.pts[i] = g.cur; kept.vis[i] = x.vis; }
-      }
-      CTM = null; refreshCTM();
-      return fn();
-    } finally {
-      for (let i = 0; i < EV.length; i++) { geo[EV[i].e.id].cur = curS[i]; EV[i].vis = visS[i]; }
-      morph = keepMorph; lastMorph = keepLast; morphTarget = keepTgt; vt = keepVT;
-      vbBox.x = vb0; vbBox.y = vb1; vbBox.width = vb2; vbBox.height = vb3;
-      CTM = null; refreshCTM();
-      glSuppress = false;
-    }
-  }
+  const { morphAnchorAt, pre, preAbort, preAsk, viewXfP, viewXfStart, viewXfStep, xfMarkCurrent, xfRelease } = createView({ EV, VB_CIRC_R, applyVT, circWhole, defaultVT, driftEnd, edgeVisible, geo, handRideEnd, labelJobDrop, labelJobStep, labelKeyNow, labelSig, labelSliceRun, labelTail, layoutLabels, layoutLabelsGen, nextFrame, refreshCTM, rotEase, sameView, stageBox, updateLabels, vbBox, vesselAt, visAt, worldToLocalInto }, live);
   // The solve is a job sliced over the change's frames: one short slice in the tap's own frame (xfSolving shortens updateLabels' first slice), then one
   // per frame of the morph (viewXfStep), the rest at the landing if it comes first. The new labels stay at nothing until it lands.
   let xfSolving = false;
   // (The change landed before the new view's labels were solved: they stay at nothing until the solve lands, never the old view's labels on the new figure.)
   let xfHold = false;
-  // (Solved after the landing: the new labels come in with a fade, as they do through the change, never in one frame.)
-  const XF_FADE_MS = 160;
-  let xfRamp = 0;
-  function xfRelease() {
-    if (!xfHold) return;
-    xfHold = false;
-    const id = ++xfRamp, t0 = performance.now();
-    const step = () => {
-      if (id !== xfRamp || viewXf || xfHold) return;
-      const n = clamp((performance.now() - t0) / XF_FADE_MS, 0, 1);
-      xfLayer(n); labelGL.crossfade(0, n);
-      if (n < 1) nextFrame(step); else labelGL.dropGhosts();
-    };
-    step();
-  }
-  const XF_SLICE_MS = 4;   // (a slice of the target's solve in a frame of the change: the Circuit's whole solve is longer than the change, and at 1.2 ms it landed long after it, its labels popping in; what is left goes on after it lands)
-  let xfKept = null;
-  function solveTargetView(d) {
-    labelKey = null; solveAsked = true;
-    xfKept = { pts: [], vis: [] };
-    preAbort();
-    xfSolving = true;
-    try {
-      atTargetStage(d, () => {
-        // (The other view's labels were solved ahead in idle time (preStep) for this very framing: their slots are carried, with no solve.)
-        if (pre.slots && pre.key === preKey(d) && preCommit()) return;
-        updateLabels(F, true);
-      }, morphTarget, xfKept);
-    } finally { xfSolving = false; }
-    cancelMay('label solve');   // (the job is ours: no idle slice runs it)
-    if (!labelJob) { labelGlSync(); return false; }
-    return true;   // pending
-  }
-  // (One slice of the pending solve, at the stage's end state; true once it has landed.)
-  function xfSolveSlice(d, ms) {
-    const j = labelJob;
-    if (!j) return true;
-    let done = false;
-    atTargetStage(d, () => {
-      try { done = labelSliceRun(j.g, ms); } catch (e) { labelJob = null; labelKey = null; throw e; }
-      if (!done) return;
-      labelJob = null;
-      solvedFor = j.solvedFor; solveAsked = false;
-      labelKey = keyInto(labelKeyArr, j.key); stats.layouts++;
-      labelTail();
-    }, morphTarget, xfKept);
-    if (done) labelGlSync();
-    return done;
-  }
-  function viewXfStart(d) {
-    xfHold = false; xfRamp++;
-    viewXf = null;   // (a change begun on another: the new one is solved first, with the layers out of the old one's hands)
-    labelJobDrop();
-    if (handRide) handRideEnd();
-    labelGL.freezeGhosts();
-    xfVisFill();
-    const pending = solveTargetView(d);
-    // (A glide of the camera that was running is over: the change's own clock moves it now.)
-    cancelFrame(vtAnim); arcRun = null; landRide = false; landTo = null; following = false;
-    if (drifting) driftEnd();
-    drifting = false;
-    if (carrying) { carrying = false; rideLeaders(false); }
-    const to = { k: d.k, x: d.x, y: d.y };
-    viewXf = { t0: easeInOut(morph), tT: morphTarget, from: { ...vt }, to, same: sameView(vt, to), pending, tStart: performance.now(), sigTap: solvedFor?.sig || null };
-    vtTarget = to; vtGliding = !viewXf.same; vtUntil = performance.now() + 700; vtMs = 700;
-    xfOp = '';
-    xfLayer(0);
-    viewXfStep(true);
-  }
-  // (Each frame of the change, after the figure is drawn at its morph: the crossfade from its progress. The camera was set before it.)
-  function viewXfStep(first = false) {
-    const x = viewXf, p = viewXfP();
-    refreshCTM();
-    if (x.pending && !first) {
-      if (!labelJob) { x.pending = false; labelKey = null; solveAsked = true; }   // (the job was dropped by another: laid out as it lands)
-      else {
-        if (xfSolveSlice(x.to, XF_SLICE_MS)) { x.pending = false; x.sigTap = solvedFor?.sig || null; }
-      }
-    }
-    const n = x.pending ? 0 : clamp(2 * p - 1, 0, 1);
-    xfLayer(n);
-    labelGL.crossfade(clamp(1 - 2 * p, 0, 1), n);
-    if (p >= 1 || morph === morphTarget) viewXfEnd();
-  }
-  // The other view's labels solved ahead, in idle slices (a dry solve at that view's end state, the slots kept by a key of what the labels
-  // show, the framing and the stage): at a tap they are carried, with no solve. A real solve, a carry or anything moving drops one in progress.
-  const pre = { need: true, g: null, key: null, cur: '', d: null, tgt: 0, slots: null, tasked: false };
-  const cutSig = (t) => t.slice(t.indexOf('|'));
-  function preKey(d) { return `${cutSig(labelSig(F))}|${Math.round(d.k * 100)},${Math.round(d.x)},${Math.round(d.y)},${stageBox().width},${stageBox().height},${rotU > 0.5},${labelFonts},${calloutSig()},${labelIns()}`; }
-  function preAbort() { if (pre.g) { pre.g.return(); pre.g = null; pre.need = true; } }
-  function preCommit() {
-    const keep = labelSol, m = new Map();
-    for (const [k, v] of pre.slots) m.set(k, { ...v });
-    labelSol = m;
-    if (layoutLabels(F, false) === false) { labelSol = keep; return false; }
-    const sf = solvedFor === SOLVED_A ? SOLVED_B : SOLVED_A, sig = labelSig(F);
-    sf.sig = sig; sf.sc = CTM.sc; sf.th = Math.atan2(CTM.b, CTM.a); sf.csig = calloutSig(); sf.ins = labelIns(); sf.view = morphTarget; sf.ck = null;
-    solvedFor = sf; solveAsked = false;
-    labelKey = keyInto(labelKeyArr, labelKeyNow(store.get(), sig, stageBox())); stats.layouts++;
-    labelTail();
-    return true;
-  }
-  const preIdle = () => !!F && !!labelGL && !labelGL.lost && !viewXf && !labelJob && !handRide && !gestureOn() && !camMove && !drifting && !carrying && !glSuppress
-    && morph === morphTarget && (morph === 0 || morph === 1) && rotU === rotTarget && !lobuleOn && !lz?.isOpen() && !(cath.st && !cath.st.keep) && !vtGliding;
-  // (What the kept solution was made for, read at the stage as it stands: a change in any of these, a new patient frame, a selection, a resize, a font, makes it
-  // stale, and it is made again at once in idle time. Otherwise a solution that no longer matched at the tap was never replaced, and the tap solved it all.)
-  const preNowKey = () => (pre.d ? preKey(preFraming(pre.tgt)) : '');
-  function preAsk() {
-    if (pre.slots && !pre.g && preIdle() && preNowKey() !== pre.cur) { pre.slots = null; pre.need = true; }
-    if (pre.tasked || !(pre.need || pre.g) || !preIdle()) return;
-    pre.tasked = true;
-    mayTask('label presolve', preStep, JOB_NOW);   // (a slice a frame while the figure rests, not when a frame happens to be spare)
-  }
-  function preStep() {
-    pre.tasked = false;
-    if (!preIdle()) { preAbort(); return false; }
-    const tgt = morphTarget === 0 ? 1 : 0;
-    const keepSol = labelSol, keepSpare = labelSolSpare, keepTurn = labelTurned, keepK = labelK, kn = lbkNum, ks = lbkStr;
-    const dk = gLabels.dataset.k, lv = gLabels.style.getPropertyValue('--lbk');
-    let done = false;
-    try {
-      atTargetStage(pre.d || preFraming(tgt), () => {
-        if (!pre.g) {
-          pre.d = preFraming(tgt); pre.tgt = tgt; pre.need = false; pre.slots = null;
-          pre.key = preKey(pre.d);
-          labelSol = new Map(keepSol);   // (a turn between the views clears the slots it finds: not the standing ones)
-          pre.g = layoutLabelsGen(F, true, true);
-        }
-        done = labelSliceRun(pre.g, 3).valueOf();
-        if (done) { pre.slots = new Map(); for (const [k, v] of labelSol) pre.slots.set(k, { ...v }); pre.cur = ''; }
-      }, tgt);
-    } catch (e) { pre.g = null; pre.d = null; throw e; }
-    finally {
-      labelSol = keepSol; labelSolSpare = keepSpare; labelTurned = keepTurn; labelK = keepK; lbkNum = kn; lbkStr = ks;
-      if (dk === undefined) delete gLabels.dataset.k; else gLabels.dataset.k = dk;
-      if (lv) gLabels.style.setProperty('--lbk', lv);
-    }
-    if (done) { pre.g = null; pre.cur = preNowKey(); return false; }
-    pre.tasked = true;
-    mayTask('label presolve', preStep, JOB_NOW);
-    return false;
-  }
-  // (The framing a tap on the other view would take: setView.)
-  function preFraming(tgt) {
-    const wasOut = tgt === 1 && (vt.k <= 1.001 || (homeAt && sameView(vt, homeAt)));
-    return wasOut ? circWhole() : defaultVT(tgt === 1);
-  }
-  function xfMarkCurrent(tap) {
-    if (!F || !solvedFor || solvedFor.sig !== tap) return;
-    const sig = labelSig(F), cut = (t) => t.slice(t.indexOf('|'));
-    if (sig !== tap && cut(sig) === cut(tap)) { solvedFor.sig = sig; if (labelKey) labelKey[16] = sig; }
-  }
-  function viewXfEnd() {
-    const x = viewXf;
-    if (!x) return;
-    // (The morph landed first: the solve goes on in the usual slices at rest, the stage being at its end state, and is marked current when it lands.)
-    if (x.pending && labelJob) { labelJob.xfTap = labelJob.solvedFor.sig; mayTask('label solve', labelJobStep, JOB_NOW); }
-    xfHold = !!(x.pending && labelJob);
-    x.pending = false;
-    viewXf = null;
-    if (!x.same) { vt = { ...x.to }; applyVT(); CTM = null; }
-    vtGliding = false;
-    if (xfHold) { labelGL.dropGhosts(); labelGL.crossfade(0, 0); } else { xfLayer(1); labelGL.dropGhosts(); }
-    refreshCTM();
-    // (Laid out for this very camera already: the solve at the tap was for the landed geometry, so it stands. The signature differs only by the geometry's
-    // version, which every morph frame bumped: marked current, the landing only refreshes values and does not solve again.)
-    if (F && x.sigTap && !labelJob) xfMarkCurrent(x.sigTap);
-    if (F) updateLabels(F);
-  }
   // (Whether the view is moving now: a glide, a pan or a pinch. Boxes kept for the frame's reads are not read again while it is.)
   const viewMoving = () => vtGliding || camMove || wrap.classList.contains('pinch-hide') || wrap.classList.contains('panning');
   // A slow push (opt.drift: a time-lapse's lapse.cam) is not a move of that kind: the labels stay up and ride with the figure, each kept
