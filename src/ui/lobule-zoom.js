@@ -806,7 +806,16 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // figure's kept picture, which the stage's present then does not lay under it. Conservative: any doubt says no.
   function shareOpaque() {
     const t = shareTop;
-    if (!t || !gl || gl.lost || fade < 0.999 || el.style.visibility === 'hidden') return false;
+    if (!t || !gl || gl.lost) return false;
+    // (Z3, perf review 4 Nov 2026: the dive's field, whole, covers the canvas by itself (covers() counts it so), so the kept picture is not laid
+    // under it while the lobule's own texture is still fading in. Laid by layShared as one map over the canvas: no card zoom, or one that only
+    // scales up about the top left.)
+    if (fieldOp >= 0.999 && fieldGL?.target) {
+      if (!zoomCam) return true;
+      const r = (t.canvas.width || 1) / (shW || 1), W = t.canvas.width, H = t.canvas.height;
+      if (zK >= 1 && zE * r <= 0.5 && zF * r <= 0.5 && zK * W + zE * r >= W - 0.5 && zK * H + zF * r >= H - 0.5) return true;
+    }
+    if (fade < 0.999 || el.style.visibility === 'hidden') return false;
     const tg = gl.target;
     if (!tg?.w || tg.w !== t.canvas.width || tg.h !== t.canvas.height) return false;
     const m = shareMap(), r = (t.canvas.width || 1) / (shW || 1);

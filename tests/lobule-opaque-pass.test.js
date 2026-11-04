@@ -18,8 +18,11 @@ test('L3: an opaque solo pass skips laying the figure\'s kept picture and leaves
 test('L3: the lobule\'s pass says opaque only when faded in and carried over the whole canvas', () => {
   assert.match(lz, /solo: true, on: [^\n]*opaque: shareOpaque, draw: layShared/);
   const a = lz.indexOf('function shareOpaque()');
-  const body = lz.slice(a, a + 900);
+  const body = lz.slice(a, a + 1900);
   assert.match(body, /fade < 0\.999/);
   assert.match(body, /m\.b \|\| m\.c/);
   assert.match(body, /m\.a \* W \+ tx >= W - 0\.5/);
+  // Z3: the whole field alone covers the canvas, ahead of the fade check
+  assert.match(body, /fieldOp >= 0\.999 && fieldGL\?\.target/);
+  assert.ok(body.indexOf('fieldOp >= 0.999') < body.indexOf('fade < 0.999'));
 });
