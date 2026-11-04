@@ -14,7 +14,7 @@ from fontTools.pens.svgPathPen import SVGPathPen
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WEIGHTS = [400, 500, 600, 700]
-CHARS = [chr(c) for c in range(0x20, 0x7F)] + list('−·×–°µ‰≥≤→')
+CHARS = [chr(c) for c in range(0x20, 0x7F)] + list('−·×–°µ‰≥≤→…—±')
 
 import importlib.util
 _spec = importlib.util.spec_from_file_location('glyph_helpers', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'glyph-helpers.py'))
