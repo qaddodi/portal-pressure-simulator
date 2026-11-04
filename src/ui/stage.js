@@ -1460,7 +1460,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // push (drifting) and are solved again once it ends (followEnd, driftEnd). Any glide or framing set outright ends it (animateVT).
   // aimView: where a framing would go, without moving: the camera functions run with animateVT only noting its target.
   let following = false, follow0 = null, follow1 = null, aiming = false, aimed = null, followScene = false, followU = 0;
-  const { aimView, arcRoom, camSettle, camSettleIdle, driftEnd: driftEnd$, followAt, followStart, rideLeaders, rideStart, rideStep, rideStop, stagePx, stagePxInto, stagePxNow, viewNow } = createRide({ applyVT, dpr, labelSettleSoon, nextFrame, refreshCTM, sameView, sceneSet, sceneStart, sitesPaint, stageBox, updateLabels, vCanvas, vbBox, wrap }, live);
+  const { aimView, arcRoom, camSettle, camSettleIdle, driftEnd: driftEnd$, followAt, followStart, rideLeaders, rideNow, rideStart, rideStep, rideStop, stagePx, stagePxInto, stagePxNow, viewNow } = createRide({ applyVT, dpr, labelSettleSoon, nextFrame, refreshCTM, sameView, sceneSet, sceneStart, sitesPaint, stageBox, updateLabels, vCanvas, vbBox, wrap }, live);
   function driftEnd(...a) { return driftEnd$(...a); }   // <stage-split stub>
   let handRide = false, handRideT = 0, layCTM = null;   // (handRide: the labels are held while the camera moves, see updateLabels; layCTM: the camera they were last laid out under)
   // The arc a presenter's long move is taking (see cam-arc.js), so a refit while it runs bends it to the new framing instead of starting over.
@@ -1478,7 +1478,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     let drawCam = null;   // (a card's zoom landed: the figure's layer drawn for C·view, see zoomSharp; null: drawn for the view, carried by the camera)
     let vdpr = 1, vBase = 1, boxW = -1, boxH = -1;   // (vBase: the canvas's pixels per CSS pixel at Full)
     let labelGL = null, labelPassOff = null;
-  const { cardZoomAt, followEnd, sceneSet: sceneSet$, sceneStart: sceneStart$, zoomEnd, zoomOpen, zoomSharp } = createZoom({ applyVT, drawVeins, driftEnd, flushVT, refreshCTM, rideStart, rideStop, svg, vCanvas, viewNow, wrap }, live);
+  const { cardZoomAt, followEnd, sceneSet: sceneSet$, sceneStart: sceneStart$, zoomEnd, zoomOpen, zoomSharp } = createZoom({ applyVT, drawVeins, driftEnd, flushVT, refreshCTM, rideNow, rideStart, rideStop, svg, vCanvas, viewNow, wrap }, live);
   function sceneStart(...a) { return sceneStart$(...a); }   // <stage-split stub>
   function sceneSet(...a) { return sceneSet$(...a); }   // <stage-split stub>
     // The presenter's camera: glide so a box of the plate (world units) fills the space the floating

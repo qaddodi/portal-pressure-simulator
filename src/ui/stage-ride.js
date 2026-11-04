@@ -2,6 +2,7 @@
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { VIEW } from './anatomy.js';
 import { cancelFrame } from './frame.js';
+import { cams } from './scene-cam.js';
 import { clamp } from './util.js';
 
 export function createRide(st, live) {
@@ -25,13 +26,22 @@ export function createRide(st, live) {
     live.labelRider.ride(rideM6);
     return true;
   }
+  // The one ride matrix, stage px: the card camera ∘ (the view now over the view the labels were laid out under). A glide moves the view and leaves the card
+  // at the identity; a card's zoom moves the card and leaves the view (so the second factor is the identity); a camera-only move is the card alone.
+  // Written into a kept six and handed to the labels, in this frame.
+  function rideNow() {
+    if (!live.rideCTM) return;
+    if (!live.CTM) refreshCTM();
+    const [a, b, c, d, e, f] = live.rideCTM, n = stagePxInto(stagePxNow, live.CTM), det = a * d - b * c || 1e-9, K = cams.stage.card;
+    const i0 = d / det, i1 = -b / det, i2 = -c / det, i3 = a / det, i4 = (c * f - d * e) / det, i5 = (b * e - a * f) / det;   // (where the labels were laid out, inverted)
+    rideM6[0] = K.k * (n[0] * i0 + n[2] * i1); rideM6[1] = K.k * (n[1] * i0 + n[3] * i1); rideM6[2] = K.k * (n[0] * i2 + n[2] * i3); rideM6[3] = K.k * (n[1] * i2 + n[3] * i3);
+    rideM6[4] = K.k * (n[0] * i4 + n[2] * i5 + n[4]) + K.x; rideM6[5] = K.k * (n[1] * i4 + n[3] * i5 + n[5]) + K.y;
+    live.labelRider.ride(rideM6);
+  }
   function rideStep() {
     if (!live.rideCTM) return;
     refreshCTM();
-    const [a, b, c, d, e, f] = live.rideCTM, n = stagePxInto(stagePxNow, live.CTM), det = a * d - b * c || 1e-9;
-    const i0 = d / det, i1 = -b / det, i2 = -c / det, i3 = a / det, i4 = (c * f - d * e) / det, i5 = (b * e - a * f) / det;   // (where the labels were laid out, inverted)
-    rideM6[0] = n[0] * i0 + n[2] * i1; rideM6[1] = n[1] * i0 + n[3] * i1; rideM6[2] = n[0] * i2 + n[2] * i3; rideM6[3] = n[1] * i2 + n[3] * i3; rideM6[4] = n[0] * i4 + n[2] * i5 + n[4]; rideM6[5] = n[1] * i4 + n[3] * i5 + n[5];
-    live.labelRider.ride(rideM6);
+    rideNow();
   }
   // (The landing, before the labels are laid out again: they glide on from where they rode.)
   function rideStop() {
@@ -96,5 +106,5 @@ export function createRide(st, live) {
     if (live.sites.list) { refreshCTM(); sitesPaint(); }
     if (live.scan.on) live.scanPaint(); live.dprobePaint();
   }
-  return { aimView, arcRoom, camSettle, camSettleIdle, driftEnd, followAt, followStart, rideLeaders, rideStart, rideStep, rideStop, stagePx, stagePxInto, stagePxNow, viewNow };
+  return { aimView, arcRoom, camSettle, camSettleIdle, driftEnd, followAt, followStart, rideLeaders, rideNow, rideStart, rideStep, rideStop, stagePx, stagePxInto, stagePxNow, viewNow };
 }

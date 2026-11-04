@@ -3,6 +3,7 @@
 import { figOpt } from './frame.js';
 import { gpuProbe } from './gpu-probe.js';
 import { provideStage } from './layout-snap.js';
+import { cams, camSet } from './scene-cam.js';
 import { clamp } from './util.js';
 
 export function createCamera(st, live) {
@@ -105,6 +106,9 @@ addEventListener('orientationchange', saRead);
     // An unchanged view keeps the same object, so the frame loop (which compares it) sees that nothing moved; a new one is made only when it moved.
     if (!(ctmLast && ctmLast.a === ma && ctmLast.b === mb && ctmLast.c === mc && ctmLast.d === md && ctmLast.e === me && ctmLast.f === mf && ctmLast.sc === sk)) ctmLast = { a: ma, b: mb, c: mc, d: md, e: me, f: mf, sc: sk };
     live.CTM = ctmLast;
+    // (The stage's base camera record, stage px from the stage's corner, without the circuit's turn: the one place the stage box and vt meet, so the one writer.
+    // A resize moves it with no write to vt.)
+    camSet(cams.stage.base, s * live.vt.k, ox + s * live.vt.x - b.left, oy + s * live.vt.y - b.top);
     // (A dot keeps at least a 4 px radius on screen however far the map is zoomed out: written where the scale steps a quarter octave.)
     if (sk > 0) { const rm = DOT_MIN_PX / 2 ** (Math.round(Math.log2(sk) * 4) / 4); if (rm !== nd.rmin) { nd.rmin = rm; if (nd.at > 0) nodeVerts(nd.at); } }
     live.wrapRect = b;

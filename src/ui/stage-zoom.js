@@ -1,10 +1,11 @@
 // The card zoom: the figure's scene scaled and shifted under a card, its layers, glass and sharpness, and the follow that ends it.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { D_SMALL } from './ease.js';
-import { sceneCam } from './scene-cam.js';
+import { cams, camId, camSet, sceneCam } from './scene-cam.js';
 
 export function createZoom(st, live) {
-  const { applyVT, drawVeins, driftEnd, flushVT, refreshCTM, rideStart, rideStop, svg, vCanvas, viewNow, wrap } = st;
+  const { applyVT, drawVeins, driftEnd, flushVT, refreshCTM, rideNow, rideStart, rideStop, svg, vCanvas, viewNow, wrap } = st;
+  const CARD = cams.stage.card;   // (the card camera: sceneSet is its only writer, sceneStop its identity; zoomM6, zoomT and zoomAff are views of it)
   const zoomM6 = [1, 0, 0, 1, 0, 0], zoomT = [0, 0];
   const zoomGlass = [], zoomHid = [], zoomAff = { s: 1, dx: 0, dy: 0, ox: 0, oy: 0 };   // (the callouts' glass bodies given the zoom, and the callouts that go out under the zoomed card)
   const zoomAffFn = () => (live.zoomLayers ? zoomAff : null), zoomScaleFn = () => zoomAff.s;   // (C in stage px, written in place each frame: the label ride's matrix and the pinned points')
@@ -54,15 +55,16 @@ export function createZoom(st, live) {
   // glass and the labels, all from the same numbers, in this frame.
   function sceneSet(S, tx, ty) {
     if (!live.zoomLayers || !live.wrapRect) return;
-    zoomT[0] = tx; zoomT[1] = ty;
-    zoomM6[0] = S; zoomM6[3] = S; zoomM6[4] = tx; zoomM6[5] = ty;
+    camSet(CARD, S, tx, ty);
+    zoomT[0] = CARD.x; zoomT[1] = CARD.y;
+    zoomM6[0] = CARD.k; zoomM6[3] = CARD.k; zoomM6[4] = CARD.x; zoomM6[5] = CARD.y;
     live.zoomM = zoomM6;
     zoomAff.s = S; zoomAff.dx = live.wrapRect.left * (1 - S) + tx; zoomAff.dy = live.wrapRect.top * (1 - S) + ty;
     const sx = vCanvas.width / (live.boxW || vCanvas.width || 1), sy = vCanvas.height / (live.boxH || vCanvas.height || 1);
     if (live.drawCam && (Math.abs(live.drawCam[0] - S) > 1e-4 || Math.abs(live.drawCam[4] - tx) > 0.01 || Math.abs(live.drawCam[5] - ty) > 0.01)) zoomSharp(false);   // (the zoom moved: the rest picture carried again)
     if (!live.drawCam) live.veins?.setScene?.(S, tx * sx, ty * sy);
     for (const l of live.zoomLayers) l.el.style.transform = `matrix(${S.toFixed(5)},0,0,${S.toFixed(5)},${((S - 1) * (l.left - live.wrapRect.left) + tx).toFixed(2)},${((S - 1) * (l.top - live.wrapRect.top) + ty).toFixed(2)})`;
-    if (live.rideCTM) live.labelRider.ride(zoomM6);   // (draws every label: the stations' at C(their points), the rest carried)
+    if (live.rideCTM) rideNow();   // (draws every label from the one ride matrix, card ∘ (the view now over the view they were laid out under): the stations' at C(their points), the rest carried)
     else live.labelGL?.pinDraw();
   }
   // Sharp at landing (card-zoom-plan.md 3.5): once the card has landed, the figure's layer is drawn again for exactly the view the camera carries it
@@ -85,7 +87,7 @@ export function createZoom(st, live) {
     if (!on && live.zoomM) { const sx = vCanvas.width / (live.boxW || vCanvas.width || 1), sy = vCanvas.height / (live.boxH || vCanvas.height || 1); live.veins.setScene(zoomM6[0], zoomM6[4] * sx, zoomM6[5] * sy); }
   }
   function sceneStop() {
-    live.zoomM = null;
+    live.zoomM = null; camId(CARD);
     if (live.drawCam) { live.drawCam = null; live.veinsDirty = true; live.CTM = null; refreshCTM(); drawVeins(true, 'zoom-end'); }   // (landed sharp: drawn for the rest view again before the camera is let go)
     live.veins?.setScene?.(1, 0, 0);
     for (const l of live.zoomLayers || []) { l.el.style.transform = ''; l.el.style.transformOrigin = ''; l.el.style.transition = ''; }
