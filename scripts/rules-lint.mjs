@@ -99,6 +99,18 @@ for (const f of files.filter((x) => x.endsWith('.js'))) {
   if (tighten) writeFileSync(sizeFile, JSON.stringify(doc, null, 1).replace(/\n {2,}"/g, ' "').replace(/\{\n {2}"src/, '{ "src') + '\n');
 }
 
+// Timer budget (PR-10): the stage, the lobule and main may not add bare timers; a new one belongs to a scope (docs/scheduling.md).
+{
+  const tfile = join(ROOT, 'scripts/timer-budget.json'), doc = JSON.parse(readFileSync(tfile, 'utf8'));
+  const tighten = process.argv.includes('--tighten');
+  for (const [rel, max] of Object.entries(doc.files)) {
+    const n = (readFileSync(join(ROOT, rel), 'utf8').match(/\b(setTimeout|setInterval)\(/g) || []).length;
+    if (n > max) errors.push(`${rel} has ${n} bare timers, over its budget of ${max} in scripts/timer-budget.json: give the new timer to a scope (src/ui/scope.js, docs/scheduling.md) (PR-10)`);
+    else if (n < max && tighten) doc.files[rel] = n;
+  }
+  if (tighten) writeFileSync(tfile, JSON.stringify(doc, null, 1).replace(/\{\n {2}"files": \{\n/, '{\n "files": {\n') + '\n');
+}
+
 // No new source-regex tests (PR-02): a test judges behaviour, or its rule lives here with a reason.
 {
   const doc = JSON.parse(readFileSync(join(ROOT, 'scripts/source-regex-tests.json'), 'utf8')), listed = new Set(doc.files), now = sourceRegexTests();
