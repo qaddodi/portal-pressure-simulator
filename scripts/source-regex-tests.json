@@ -262,6 +262,7 @@
  "numbers-agree.test.js",
  "numbers-tabular.test.js",
  "one-ladder.test.js",
+ "one-vt-writer.test.js",
  "orange-chevrons.test.js",
  "organ-art-lite.test.js",
  "organ-dim.test.js",

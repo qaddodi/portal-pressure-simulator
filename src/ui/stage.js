@@ -571,7 +571,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get viewVersion() { return viewVersion; }, set viewVersion(v) { viewVersion = v; },
     get viewXf() { return viewXf; }, set viewXf(v) { viewXf = v; },
     get vLook() { return vLook; }, set vLook(v) { vLook = v; },
-    get vt() { return vt; }, set vt(v) { vt = v; },
+    get vt() { return vt; }, set vt(v) { writeVT(v); },
     get vtAnim() { return vtAnim; }, set vtAnim(v) { vtAnim = v; },
     get vtGliding() { return vtGliding; }, set vtGliding(v) { vtGliding = v; },
     get vtMs() { return vtMs; }, set vtMs(v) { vtMs = v; },
@@ -1217,6 +1217,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
 
   // ── View transform (pan / zoom) ───────────────────
   let vt = { k: 1, x: 0, y: 0 };
+  // The ONE writer of the camera (S6.6): whoever moves the view drops the transform in the same breath, so the labels and the figure never read
+  // a transform made for another view. Every part writes `live.vt = ...`; nothing else assigns vt.
+  function writeVT(v) { vt = v; CTM = null; }
   let morph = store.get().view === 'circuit' ? 1 : 0, morphTarget = morph, lastMorph = -1;
   // The circuit can be turned a quarter turn counter-clockwise, so its flow runs bottom to top and
   // the map is tall instead of wide: it fills a phone held upright. rotU is the (animated) turn,
@@ -2737,7 +2740,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (morph !== morphTarget) {
       morph = clamp(morph + Math.sign(morphTarget - morph) * dt / 0.6, 0, 1);
       // (The camera is on the change's clock: its framing is the share of the way the figure has come.)
-      if (viewXf && !viewXf.same) { const p = viewXfP(); vt = p >= 1 ? { ...viewXf.to } : lerpVT(viewXf.from, viewXf.to, p); viewVersion++; }   // (the camera moved: a view move, never paced like the model's motion)
+      if (viewXf && !viewXf.same) { const p = viewXfP(); writeVT(p >= 1 ? { ...viewXf.to } : lerpVT(viewXf.from, viewXf.to, p)); viewVersion++; }   // (the camera moved: a view move, never paced like the model's motion)
       if (F) update(F); else updateGeometry(true);
       if (viewXf) viewXfStep();
     } else if (widthEasing && F && !stepOrgans() && !stepWidths()) update(F);   // a width still easing to its target: one step a frame (stepWidths: the widths alone, when nothing else changed)
@@ -2745,7 +2748,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       rotU = clamp(rotU + Math.sign(rotTarget - rotU) * dt / 0.5, 0, 1);
       setViewBox(easeInOut(morph));
       if (rotHold) { holdView(rotHold); if (rotU === rotTarget) rotHold = null; }
-      else if (rotU === rotTarget && morphTarget === 1 && rotWhole) { vt = { ...rotWhole }; rotWhole = null; applyVT(); CTM = null; }
+      else if (rotU === rotTarget && morphTarget === 1 && rotWhole) { writeVT({ ...rotWhole }); rotWhole = null; applyVT(); }
     }
     stepReveals(now);
     stepRest(dt);

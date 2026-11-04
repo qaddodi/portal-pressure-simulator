@@ -119,7 +119,7 @@ test('the change keeps the labels up: solved at the tap, ridden on the morph\'s 
   // (No label work on a frame of the change: updateLabels returns while viewXf stands, and nothing is solved as it lands.)
   assert.match(stage, /if \((?:live\.)?(?:live\.)?viewXf\) return;/);
   assert.match(stage, /if \((?:live\.)?camMove\) \{ if \(!(?:live\.)?vtGliding\) camSettle\(\); return; \}/);
-  assert.match(stage, /(?:live\.)?vt = p >= 1 \? \{ \.\.\.viewXf\.to \} : lerpVT\((?:live\.)?viewXf\.from, (?:live\.)?viewXf\.to, p\);/);
+  assert.match(stage, /writeVT\(p >= 1 \? \{ \.\.\.viewXf\.to \} : lerpVT\((?:live\.)?viewXf\.from, (?:live\.)?viewXf\.to, p\)\);/);
   // (From the change's progress and the share at which the new labels were whole (view-xf.js viewXfMix): the ghosts ride at full until then, never a timer.)
   assert.match(stage, /const m = viewXfMix\(p, x\.landAt, XF_MIX\);\s*xfLayer\(m\.n\);\s*(?:live\.)?labelGL\.crossfade\(m\.o, m\.n\);/);
   assert.doesNotMatch(stage, /XF_FADE_MS|xfRamp/);
