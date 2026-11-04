@@ -2412,7 +2412,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // keeps about the pixels it had at home), in steps down to 10%. It is changed only once the view has settled and been let go,
   // so a pinch or a glide never reallocates the canvas as it moves.
   let autoK = 1, autoT = 0;
-  const { autoNow, easeRes, moveGaps, noteMoveFrame, resizeCanvas, settleRes, subPixel } = createRes({ OVER_ASK, QUALITY, drawVeins, schedulePlateView: () => schedulePlateView(), stageBox, vCanvas, wrap }, live);
+  const { autoNow, easeRes, moveGaps, noteMoveFrame, resizeCanvas, settleRes, subPixel } = createRes({ OVER_ASK, QUALITY, drawVeins: (...a) => drawVeins(...a), schedulePlateView: () => schedulePlateView(), stageBox, vCanvas, wrap }, live);
   // Figure resolution › Adapt to frame rate: the gaps between the frames of each move (moveGaps, from drawVeins); once it settles,
   // one step lower (down to 25%) when they ran half again as long as the screen's own pace (the shortest gaps seen, fastGap), one
   // step back up when they kept up with it. Once a move, never during one.
@@ -2817,6 +2817,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     pc.frame = new Float32Array((b.rows - b.entRows) * ENT_W * 4);
     pc.posBase = b.posBase - b.entRows * ENT_W; pc.joinBase = b.joinBase - b.entRows * ENT_W;
   }
+  let shownCol = new Map(), lensFrom = null, lensT0 = 0, lensMode = null;
   // ── A coil or a varix's spread easing at rest, on the GPU (2 Nov 2026, Mohammad: "Move. Everything. To. GPU.") ──
   // A slide change that grows or shrinks a varix eases its channels' coil (g.wig toward g.wigT) and its strands' fan (g.spr toward
   // g.sprT) over a second or two, and the strands spread into cells their binning did not list: 10 to 19 whole binnings of every vessel
@@ -3044,7 +3045,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const veinsRows = new Set();   // vessel rows whose attributes changed since the vessel layer was drawn (only those, while veinsDirty is false)
   let plateDim = null, plateSat = 1, netA = 1;
   // A lens switch crossfades every vessel from the colors it showed to the new lens's (no one-frame recolor).
-  let shownCol = new Map(), lensFrom = null, lensT0 = 0, lensMode = null;
   // The lumens' colours follow the model's through the widths' filter (display-state.js; combined plan M1), so a slider's step or
   // a model frame's is an ease, not a step. A crossfade (a lens change, a jump) carries its own change: the filter then shows the
   // target at once, as does Reduce Motion.
