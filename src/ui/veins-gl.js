@@ -1904,12 +1904,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // is kept in a texture of the renderer's own, copied whole to the canvas each time it is drawn on (see present). Nor a stencil: the
   // one-pass frames mark their cells in that buffer's stencil, never the canvas's.)
   const ownBuf = who === 'stage' || who === 'lobule';
-  // (The canvas keeps its picture all the same (preserveDrawingBuffer, 4 Nov 2026): Mohammad caught a frame on the HVPG slide with the figure
-  // wholly black, no vessels, organs or labels, the cards and charts drawn. A canvas that does not keep its picture is cleared once the page has
-  // shown it, so any frame that touches it without the whole kept picture laid first (a pass, a glass or a cover drawing on its own, a draw of
-  // nothing) shows a cleared figure. Kept, such a frame shows the last picture under it. Every present still lays the kept picture whole.)
   let gl = null;
-  try { gl = share ? share.gl : canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: !ownBuf, preserveDrawingBuffer: true, failIfMajorPerformanceCaveat: !force }); } catch { gl = null; }
+  try { gl = share ? share.gl : canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: !ownBuf, preserveDrawingBuffer: !ownBuf, failIfMajorPerformanceCaveat: !force }); } catch { gl = null; }
   if (!gl) return null;
   // The composite's per-frame uniforms are sent only when they changed (uniform-cache.js; laptop-heat Q2). They are set nowhere else.
   const UC = uniformCache(gl);
