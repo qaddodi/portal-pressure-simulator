@@ -1828,7 +1828,6 @@ button.finding { cursor: pointer; }
 /* The data card is the same glass: see-through tint, the same blur, crisp edge with a hairline highlight, soft shadow. */
 .pz-data.pz-data { --pz-glass-edge: color-mix(in srgb, var(--white) 45%, transparent); --pz-glass-drop: var(--glass-drop); --gl-glass: 1; --gl-tint: color-mix(in srgb, var(--surface) var(--pz-frost, 66%), transparent); background: var(--gl-tint); border-color: color-mix(in srgb, var(--text) 10%, transparent); box-shadow: inset 0 1px 0 var(--pz-glass-edge), 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); }
 /* (4 Nov 2026: a zoomed card no longer cuts the teaching card's words away under it (card-zoom.js: that clip-path repainted the words every frame of the zoom). The words stay, and the card's frost is raised so they only ghost through it, as the glass's own tint: no per-frame work.) */
-.pz-data.pz-data[data-zoomed] { will-change: transform; }
 /* Tiles sit lighter than the glass around them in light mode, darker in dark mode. */
 .pz-data .pz-tile, .pz-data .pz-tool .endo-read > div { background: color-mix(in srgb, var(--white) 78%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 8%, transparent); }
 :root[data-theme="soft"] .pz-data .pz-tile, :root[data-theme="soft"] .pz-data .pz-tool .endo-read > div { background: var(--tile-bg); box-shadow: inset 0 0 0 1px var(--tile-edge); }
@@ -7685,10 +7684,10 @@ body { font-optical-sizing: auto; font-kerning: normal; }
    2 Nov 2026). Only a card about to be drawn there ([data-gl-wait], for at most 300 ms): one held out of that canvas or not drawn there keeps
    the solid card, never a bare one (HVPG 6 on the iPhone, 2 Nov: both cards bare over the lobule). Where the figure's canvas cannot take the glass at all
    (a dive) the attribute is off and the solid card stands. */
-:root:root[data-cardgl] :is(.pz-shade, .pz-shade.pz-card, .pz-shade.stack, .pz-data.pz-data, .pz-case, .pz-bar, .pz.stack .pz-bar, .pz-scales, .pz-fk, .pz .pz-fk.pz-fk)[data-gl-wait]:not([data-gl]):not([data-zoomed]) { background: none; }
+:root:root[data-cardgl] :is(.pz-shade, .pz-shade.pz-card, .pz-shade.stack, .pz-data.pz-data, .pz-case, .pz-bar, .pz.stack .pz-bar, .pz-scales, .pz-fk, .pz .pz-fk.pz-fk)[data-gl-wait]:not([data-gl]) { background: none; }
 :root:root[data-cardgl] .has-plate.has-plate > .sheet-plate.sheet-plate.sheet-plate[data-gl-wait]:not([data-gl]) { background: none; }
-:root:root[data-cardgl] .pz.stack.stack .pz-data.pz-sheet[data-gl-wait]:not([data-gl]):not([data-zoomed])::before, :root:root[data-cardgl] .pz.stack.stack .pz-data.pz-sheet[data-gl-wait]:not([data-gl]):not([data-zoomed])::after,
-:root:root[data-cardgl] .pz.pz-wide.pz-wide .pz-data.pz-sheet[data-gl-wait]:not([data-gl]):not([data-zoomed])::before, :root:root[data-cardgl] .pz.pz-wide.pz-wide .pz-data.pz-sheet[data-gl-wait]:not([data-gl]):not([data-zoomed])::after { background: none; }
+:root:root[data-cardgl] .pz.stack.stack .pz-data.pz-sheet[data-gl-wait]:not([data-gl])::before, :root:root[data-cardgl] .pz.stack.stack .pz-data.pz-sheet[data-gl-wait]:not([data-gl])::after,
+:root:root[data-cardgl] .pz.pz-wide.pz-wide .pz-data.pz-sheet[data-gl-wait]:not([data-gl])::before, :root:root[data-cardgl] .pz.pz-wide.pz-wide .pz-data.pz-sheet[data-gl-wait]:not([data-gl])::after { background: none; }
 
 /* ── Numbers hold still (2 Nov 2026: "make sure the text everywhere and the numbers everywhere aren't jiggly and changing sizes constantly") ──
    The body sets tabular figures, which every element inherits, and the `font` shorthand sets them back to proportional (and sets
