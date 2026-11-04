@@ -63,3 +63,10 @@ test('a moved statement that runs code may not jump over a staying one that runs
   const r2 = splitStage(src, { ...spec, names: ['probeTick'], also: ['console.log(probeBox);'] });
   assert.equal(r2.ok, true);
 });
+
+test('two statements on one line are cut as two, not twice', () => {
+  const src = FIX.replace('  const api = {', '  probeTick(0); probeShow();   // run once, twice\n  const api = {').replace("names: ['probeBox'", "names: ['probeBox'");
+  const r = splitStage(src, { ...spec, names: ['probeBox', 'probeTick', 'probeShow'], also: ['probeTick(0);', 'probeShow();'] });
+  assert.ok(r.ok, (r.refusals || []).join('; '));
+  assert.deepEqual(checkEquivalence(src, r.stage, () => r.part), []);
+});

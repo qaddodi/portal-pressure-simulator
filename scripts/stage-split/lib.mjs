@@ -32,14 +32,15 @@ function unitRanges(src, ast, body) {
   const lineEnd = (pos) => { const i = src.indexOf('\n', pos); return i < 0 ? src.length : i; };
   const commentsAfter = (end) => ast.comments.filter((c) => c.range[0] >= end && c.range[0] < lineEnd(end) && src.slice(end, c.range[0]).trim() === '' );
   const trailEnd = (n) => { let e = n.range[1]; for (const c of commentsAfter(e)) e = Math.max(e, c.range[1]); return e; };
-  const full = body.map((n) => [n.range[0], trailEnd(n)]);
+  const full = body.map((n, i) => [n.range[0], body[i + 1] && body[i + 1].loc.start.line === n.loc.end.line ? n.range[1] : trailEnd(n)]);   // (a statement followed on its line by another keeps no trailing comment)
   return body.map((n, i) => {
     const prevEnd = i ? full[i - 1][1] : n.range[0] - 1;
     let start = n.range[0];
     const lead = ast.comments.filter((c) => c.range[0] >= prevEnd && c.range[1] <= n.range[0] && c.range[0] > (i ? prevEnd : -1));
     for (const c of lead) { const ls = src.lastIndexOf('\n', c.range[0] - 1) + 1; if (ls >= prevEnd && src.slice(ls, c.range[0]).trim() === '') start = Math.min(start, ls); }
     start = Math.min(start, n.range[0]);
-    return { stmt: n, i, start: src.lastIndexOf('\n', start - 1) + 1, end: full[i][1] };
+    const sharesLine = i > 0 && body[i - 1].loc.end.line === n.loc.start.line;   // (two statements on one line: the second starts where it stands)
+    return { stmt: n, i, start: sharesLine ? n.range[0] : src.lastIndexOf('\n', start - 1) + 1, end: full[i][1] };
   });
 }
 
