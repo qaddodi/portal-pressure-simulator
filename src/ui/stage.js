@@ -6559,7 +6559,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (The labels' pass in the figure's present: its prep, so they are laid before any glass takes its blur, which then has them in it.)
   const labelPass = () => {
     labelPassOff?.(); labelPassOff = null;
-    if (labelGL && veins?.top) labelPassOff = veins.top.add({ order: LABELS_ORDER, prep: () => labelGL?.drawInto(), draw: () => {} });
+    if (labelGL && veins?.top) labelPassOff = veins.top.add({ order: LABELS_ORDER, prep: () => { if (!gpuProbe.skipLabels) labelGL?.drawInto(); }, draw: () => {} });
   };
   { const host = labelHost(); labelGL = host ? createLabelGL(labelSvg, gLabels, { software: SOFTWARE, marks: [gLeaders, gScan], onBoxes: frostWake, host }) : null; labelPass(); }
   // (Labels part of the figure: each station label drawn at its point as the figure has it in this frame, label-gl.js pinTo.)

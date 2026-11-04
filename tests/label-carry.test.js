@@ -100,9 +100,9 @@ test('the leaders\' layer eases out while a move carries the labels; the names t
   assert.match(css, /\.lb-leaders \{ transition: opacity var\(--d-small\) var\(--ease\); \}\n\.stage-view\.lb-ride \.lb-leaders \{ opacity: 0; \}/);
   // (A label the SVG still draws, with a glyph the GPU's cut lacks, cannot be carried: it eases out with them, 3 Nov 2026.)
   assert.match(css, /\.stage-view\.lb-ride \.lb:not\(\[data-gl\]\) \{ opacity: 0; \}/);
-  assert.doesNotMatch(css, /lb-ride[^\n]*(#labels\b|#labelGl|lb-glass)/, 'only the leaders; the label layer and its glass stay');
+  assert.doesNotMatch(css, /lb-ride[^\n]*(#labels\b|lb-glass)/, 'only the leaders; the label layer and its glass stay');
   // (A presenter's other moves still fade the whole label layer.)
-  assert.match(css, /\.stage-view\.cam-move > #labels, \.stage-view\.cam-move > #labelGl, \.stage-view\.cam-move \.lb-glass \{ opacity: 0; \}/);
+  assert.match(css, /\.stage-view\.cam-move > #labels, \.stage-view\.cam-move \.lb-glass \{ opacity: 0; \}/);
 });
 
 test('the carry\'s class is a gesture\'s: no label is read again for it, no placed piece moves with it, and the stage\'s look is not dropped', () => {

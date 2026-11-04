@@ -468,7 +468,7 @@ export function createCaptions(box, { labelGL = createLabelGL, deferred = false 
         const top = spec.top;
         const host = { gl: top.gl, canvas: top.canvas, ask: () => top.present(), now: () => top.present(), active: () => !dead && !top.gl.isContextLost() && (spec.active ? !!spec.active() : true), scale: spec.scale };
         LG = labelGL(model, mblocks, { force: true, id: 'capLabelGl', marks: [lroot], host });
-        if (LG) hosted = { top, spec, alpha: null, off: top.add({ order: spec.order ?? 0, solo: true, draw: () => { if (lgList.length || leads.size) LG?.drawInto?.(); } }) };   // (nothing to draw: the present has cleared the canvas, no pass is run)
+        if (LG) hosted = { top, spec, alpha: null, off: top.add({ order: spec.order ?? 0, solo: true, prep: () => { if (lgList.length || leads.size) LG?.drawInto?.(); }, draw: () => {} }) };   // (a prep, as the stage labels': laid before any glass takes its blur)   // (nothing to draw: the present has cleared the canvas, no pass is run)
       } else LG = labelGL(model, mblocks, { force: true, id: 'capLabelGl', marks: [lroot] });
       gen++;
       api.paint();

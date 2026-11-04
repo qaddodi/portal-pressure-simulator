@@ -19,7 +19,7 @@ test('the glide\'s classes are no look the stage\'s keyed readers depend on', ()
   assert.notEqual(free('stage-view gl-on in-lobule'), free('stage-view gl-on'), 'a class that changes the look still counts');
   // (What the three do in the style sheet: the label layer's opacity and the zoom pill's ink, nothing the marks, organs or glow read.)
   const rules = CSS.split('\n').filter((l) => /cam-move|pinch-hide|off-home/.test(l) && !/^\s*\/?\*/.test(l) && /\{/.test(l));
-  for (const r of rules) assert.match(r, /(#labels|#labelGl|\.lb-glass|\.zoom-pill)[^{]*\{ opacity: [\d.]+; \}/, r);
+  for (const r of rules) assert.match(r, /(#labels|\.lb-glass|\.zoom-pill)[^{]*\{ opacity: [\d.]+; \}/, r);
 });
 
 test('off-home changes no label\'s look (label-gl.js reads them again only for a look)', () => {

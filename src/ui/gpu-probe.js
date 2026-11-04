@@ -61,6 +61,7 @@ export const gpuProbe = {
   on: false,
   // Script time only (the ?perf readout, perf-readout.js): no wait for the GPU, so the page runs as it does for everyone.
   cpuOnly: false,
+  skipLabels: false,   // (the ?perf test switch: the labels' pass in the figure's present draws nothing)
   skipGL: false,   // (the ?perf test switch: the vessels' screen picture is not drawn)
   by: '',          // (who asked for the draw under way: stage.js drawVeins sets it, one of BY)
   // The organs drawn as layers on the GPU (organs-gl.js), the changing ones painted live, instead of one picture: on by default

@@ -22,7 +22,7 @@ function rig() {
   R.top = {
     gl: { isContextLost: () => false, getContext() { R.gcCalls++; } },
     canvas: { width: 2000, height: 1000, getContext() { R.gcCalls++; } },
-    present() { R.presents++; for (const p of R.passes) p.draw(); },
+    present() { R.presents++; for (const p of R.passes) p.prep?.(); for (const p of R.passes) p.draw(); },
     add(t) { R.passes.push(t); R.passes.sort((a, b) => a.order - b.order); return () => { const i = R.passes.indexOf(t); if (i >= 0) R.passes.splice(i, 1); }; },
   };
   const labelGL = (svg, blocks, opts) => {
@@ -57,11 +57,12 @@ test('attached to the figure: the drawer is in host mode, one pass at the owner\
   assert.equal(R.passes.length, 1);
   assert.equal(R.passes[0].order, -8);
   assert.equal(R.passes[0].solo, true);
+  assert.equal(typeof R.passes[0].prep, 'function', 'laid in the prep phase: a glass over a caption blurs it');
   assert.equal(R.gcCalls, 0, 'no getContext');
   assert.equal(R.box.querySelector('canvas'), null, 'no canvas of its own in the layer');
 });
 
-test('the pass draws the names in the host\'s present, only when there are some', async () => {
+test('the pass draws the names in the host\'s present (its prep, before any glass), only when there are some', async () => {
   const R = rig();
   R.cap.attach({ top: R.top, order: -8 });
   await tick();

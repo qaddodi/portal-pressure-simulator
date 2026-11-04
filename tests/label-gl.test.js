@@ -87,9 +87,10 @@ test('pictures are laid at whole device pixels, one texel per pixel, never scale
 test('the SVG copy is see-through only while the GPU draws that label, marked in the frame its picture is drawn', () => {
   assert.match(CSS, /#labels \.lb\[data-gl\] > \* \{ opacity: 0; \}/);
   assert.doesNotMatch(CSS, /canvas#labelGl/, 'no canvas of its own');
-  assert.match(CSS, /\.stage-view\.cam-move > #labelGl/);
-  assert.match(CSS, /\.stage-view\.in-lobule #labelGl/);
-  assert.match(CSS, /\.cath-on :is\(#labels, #labelGl\)/);
+  assert.doesNotMatch(CSS, /#labelGl/, 'no canvas of its own, so no selector for one');
+  assert.match(CSS, /\.stage-view\.cam-move > #labels/);
+  assert.match(CSS, /\.stage-view\.in-lobule #labels/);
+  assert.match(CSS, /\.cath-on #labels/);
   assert.match(LGL, /if \(st\.mode !== 'gl'\) \{ if \(g\.hasAttribute\('data-gl'\)\) g\.removeAttribute\('data-gl'\); if \(st\.mode === 'svg'\) svgLeft\.add\(g\); continue; \}\n\s+if \(!g\.hasAttribute\('data-gl'\)\) g\.setAttribute\('data-gl', ''\);/);
   assert.match(LGL, /webglcontextlost[\s\S]{0,200}for \(const s of last\) s\.g\.removeAttribute\('data-gl'\);/);
 });
@@ -251,7 +252,7 @@ test('the leaders and dots stand for the stage\'s ride: their layer\'s kept styl
   // Any other rule a gesture class makes about something inside the labels' SVG would need the same: the leaders' layer and the labels the SVG still draws (keyed by data-gl).
   const inside = [];
   for (const m of CSS.matchAll(/([^{}]*\.(?:panning|stage-busy|figure-focus|pinch-hide|cam-move|lb-ride|off-home)\b[^{}]*)\{/g)) {
-    for (const sel of m[1].split(',')) if (/\.(?:panning|stage-busy|figure-focus|pinch-hide|cam-move|lb-ride|off-home)\b[^,]*\s(?:[^,]*\s)?(?:\.lb\b|\.lb-[a-z]+|#labels\s+\S)/.test(sel) && !/#labelGl|> #labels|\.lb-glass/.test(sel)) inside.push(sel.trim());
+    for (const sel of m[1].split(',')) if (/\.(?:panning|stage-busy|figure-focus|pinch-hide|cam-move|lb-ride|off-home)\b[^,]*\s(?:[^,]*\s)?(?:\.lb\b|\.lb-[a-z]+|#labels\s+\S)/.test(sel) && !/> #labels|\.lb-glass/.test(sel)) inside.push(sel.trim());
   }
   assert.deepEqual(inside, ['.stage-view.lb-ride .lb-leaders', '.stage-view.lb-ride .lb:not([data-gl])'], 'a gesture class that restyles anything under the labels must be in the style key');
 });

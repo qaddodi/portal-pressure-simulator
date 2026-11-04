@@ -49,6 +49,6 @@ test('the stage labels are a pass of the figure\'s present under every glass: no
   assert.match(STAGE, /onHoles: frostHoles\(key\)/);
   assert.doesNotMatch(STAGE, /labelHoles|labelGL\.holes/);
   assert.match(STAGE, /const LABELS_ORDER = -6;/);
-  assert.match(STAGE, /veins\.top\.add\(\{ order: LABELS_ORDER, prep: \(\) => labelGL\?\.drawInto\(\), draw: \(\) => \{\} \}\)/, 'laid before any glass takes its blur');
+  assert.match(STAGE, /veins\.top\.add\(\{ order: LABELS_ORDER, prep: \(\) => \{ if \(!gpuProbe\.skipLabels\) labelGL\?\.drawInto\(\); \}, draw: \(\) => \{\} \}\)/, 'laid before any glass takes its blur');
   assert.match(STAGE, /function hostFrost\(g, o\) \{ if \(!g \|\| !veins\?\.top\) return;/);
 });

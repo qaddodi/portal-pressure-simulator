@@ -174,11 +174,11 @@ html.model-contain .stage-view.gl-on :is(svg#stage, svg#labels) { contain: layou
 .stage-view > :is(#stage, #stageOver, #labels, canvas:not(#veins)) { transition: opacity var(--d-small) var(--ease); }   /* (#veins is eased as an alpha in the renderer's present: stage.js camShowTo_) */
 .stage-view.unframed > :is(#stage, #stageOver, #labels, canvas:not(#veins)) { opacity: 0; }
 /* A presenter's camera move: the labels ease out as it starts and back in once it settles (stage.js camSettle). */
-.stage-view.cam-move > #labels, .stage-view.cam-move > #labelGl, .stage-view.cam-move .lb-glass { opacity: 0; }
+.stage-view.cam-move > #labels, .stage-view.cam-move .lb-glass { opacity: 0; }
 /* The label layers show and hide at once (4 Nov: no fade after a view change, a camera move or a zoom). */
-.stage-view > #labels, .stage-view > #labelGl { transition: none; }
+.stage-view > #labels { transition: none; }
 /* A hand's zoom in the Circuit: the same, until it is let go (stage.js pinchHide). */
-.stage-view.pinch-hide > #labels, .stage-view.pinch-hide > #labelGl, .stage-view.pinch-hide .lb-glass { opacity: 0; }
+.stage-view.pinch-hide > #labels, .stage-view.pinch-hide .lb-glass { opacity: 0; }
 /* A presenter's small camera move that keeps its labels (stage.js animateVT, carry): the names ride with the figure and only the leaders
    and their dots ease out, back in once it lands. (The layer is a mark of the GPU label painter: it reads this opacity and the
    transition's events, as it does a leader's own fade.) */
@@ -1742,7 +1742,7 @@ button.finding { cursor: pointer; }
 :root[data-theme="dark"] .lz-zone b { font-weight: 700; }
 .lz-zone span { font-size: calc(var(--t-cap) * var(--label-scale, 1) * var(--zk, 1)); font-weight: 600; letter-spacing: .08em; opacity: .9; }
 .lz-zone.z1 { --zc: var(--zone-1); } .lz-zone.z2 { --zc: var(--zone-2); } .lz-zone.z3 { --zc: var(--zone-3); }
-.stage-view.in-lobule #labels, .stage-view.in-lobule #labelGl, .stage-view.in-lobule:not(.lz-shared) #veins, .stage-view.in-lobule .res-fade, .stage-view.in-lobule #stageOver, .stage-view.in-lobule #overlay { visibility: hidden; }
+.stage-view.in-lobule #labels, .stage-view.in-lobule:not(.lz-shared) #veins, .stage-view.in-lobule .res-fade, .stage-view.in-lobule #stageOver, .stage-view.in-lobule #overlay { visibility: hidden; }
 /* Phone: snugger cards (labels keep the one size every screen uses) */
 @media (max-width: 720px) {
   .lz-lab { padding: 3px 7px 4px; }
@@ -3242,8 +3242,8 @@ button.finding { cursor: pointer; }
 .cath-balloon { fill: var(--cath-balloon); stroke: var(--cath-shadow); stroke-width: .5; stroke-linejoin: round; }
 .cath-column { fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-opacity: .9; }
 /* While the catheter is in, the figure's own readouts are hidden so its labels read clearly. */
-.stage-view #labels, .stage-view #labelGl { transition: opacity var(--d-surface) var(--ease); }
-.cath-on :is(#labels, #labelGl) { opacity: 0; visibility: hidden; transition: opacity var(--d-small) var(--ease-in), visibility 0s linear var(--d-small); }
+.stage-view #labels { transition: opacity var(--d-surface) var(--ease); }
+.cath-on #labels { opacity: 0; visibility: hidden; transition: opacity var(--d-small) var(--ease-in), visibility 0s linear var(--d-small); }
 .cath-labels { position: absolute; inset: 0; pointer-events: none; z-index: 4; }
 .cath-labels[hidden] { display: none; }
 .cath-label { position: absolute; left: 0; top: 0; isolation: isolate; display: inline-flex; flex-direction: column; align-items: center; gap: 1px; padding: 7px 16px 8px; border: 2px solid transparent; border-radius: 14px; white-space: nowrap;
@@ -7385,7 +7385,7 @@ body { font-optical-sizing: auto; font-kerning: normal; }
 /* A card zoomed up keeps its frost and the words' card stays up behind it (Mohammad, 2 Nov 2026: the teaching card must not vanish when the data card is
    maximised, and its words and glass must come and go together). Its words are cut away under the zoomed card by card-zoom.js (a clip-path eased with the
    card), so nothing of them shows sharp through the frost; only the stage's labels step out from under it. */
-.pz-zoomed:not(.pz-cam) :is(#labelGl, #labels) { opacity: 0 !important; transition: opacity var(--d-small) var(--ease) !important; }
+.pz-zoomed:not(.pz-cam) #labels { opacity: 0 !important; transition: opacity var(--d-small) var(--ease) !important; }
 /* (Likewise what the page itself paints over the figure's canvas, above its glass: the circuit's readings and the catheter's callouts (.cath-labels),
    and the overlays still in the SVG (#stageOver: the circuit's node dots and resistor zigzags where the GPU has not taken them). The frost is
    drawn in that canvas, so they showed sharp through a zoomed card and flickered as they slid under it: Mohammad, 2 Nov 2026, the Circuit

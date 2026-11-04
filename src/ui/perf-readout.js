@@ -96,7 +96,7 @@ const HIDES = ['', 'no live organs', 'no figure SVG', 'no labels', 'no GPU pictu
 const HIDE_CSS = {
   'no live organs': '#stageView svg#stage :is(#backdrop, #organs, #ascites, #ghosts) { visibility: hidden !important; }',
   'no figure SVG': '#stageView :is(svg#stage, svg#stageOver) { visibility: hidden !important; }',
-  'no labels': '#stageView svg#labels, #stageView #labelGl { visibility: hidden !important; }',
+  'no labels': '#stageView svg#labels { visibility: hidden !important; }',
 };
 let hideAt = 0;
 // Notes counted frame by frame over a window (veins-gl.js composite): a frame that redrew the whole picture, a frame with the organ
@@ -303,6 +303,8 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
     hideStyle.textContent = HIDE_CSS[HIDES[hideAt]] || '';
     if (!hideStyle.isConnected) document.head.append(hideStyle);
     gpuProbe.skipGL = HIDES[hideAt] === 'no GPU picture';
+    gpuProbe.skipLabels = HIDES[hideAt] === 'no labels';
+    window.pps?.stage?.labelGL?.pinDraw?.();   // (draw once more, so the switch shows without waiting for a frame)
     hideLabel();
   };
   hideLabel();

@@ -43,7 +43,7 @@ await page.evaluate(() => {
   window.__rec = [];
   const tick = () => {
     const s = window.pps.stage, c = s.labelCarry(), m = document.getElementById('world').getScreenCTM();
-    const o = document.getElementById('labelGl').getBoundingClientRect();
+    const o = document.getElementById('stage').getBoundingClientRect();   // (the labels have no canvas of their own: they ride the figure's)
     window.__rec.push({ ...c, k: m.a * m.a + m.b * m.b, ex: m.e, fy: m.f, ox: o.left, oy: o.top, bx: (s.labelDrawn() || []).map((b) => b.slice()), labels: s.labelDrawnBy() });
   };
   globalThis.__frameProbe = tick;

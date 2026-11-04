@@ -52,7 +52,7 @@ test('the floating glass is opaque enough to hold the figure back at rest: every
 
 test('the figure\'s canvases and layers stack below the chrome, and the chrome above them', () => {
   assert.ok(z('figure') < z('hud') && z('hud') < z('panel'), 'the z scale: figure < hud < panel');
-  const figure = /#veins|#labelGl|#glassGl|#cardGl|#stageOver|#labels|#stage\b|\.stage-view\s*>\s*(?:canvas|\.flow-dash)|\.stage-view canvas|\.lz\b|\.sv\b|#overlay/;
+  const figure = /#veins|#glassGl|#cardGl|#stageOver|#labels|#stage\b|\.stage-view\s*>\s*(?:canvas|\.flow-dash)|\.stage-view canvas|\.lz\b|\.sv\b|#overlay/;
   const over = [];
   for (const [sel, body] of rules) {
     if (!figure.test(sel) || CHROME.test(sel)) continue;
