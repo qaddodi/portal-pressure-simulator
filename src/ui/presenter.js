@@ -5778,7 +5778,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // lit as the deck started still clears. The bar's wake-on-move listens on the window, so a move over the figure wakes it here.)
   // (One exception, N4: a tap on a station's label explains it, or ends the explaining (label-explain.js); the stage judges it against what the GPU drew.
   // Before the swallowing below, so it sees the click; a drag or a swipe sends no click.)
-  wrap.addEventListener('click', (e) => { if (offFig(e) && !leaving && stage.explainAt?.(e.clientX, e.clientY)) e.preventDefault(); }, { capture: true });
+  wrap.addEventListener('click', (e) => {
+    if (!offFig(e) || leaving) return;
+    if (stage.explainAt?.(e.clientX, e.clientY)) e.preventDefault();
+    else if (stage.explainKey?.()) stage.explainClear();   // (a tap anywhere else on the figure or the empty stage ends it)
+  }, { capture: true });
   for (const t of ['pointerdown', 'mousedown', 'mouseup', 'pointerup', 'click', 'dblclick', 'wheel', 'gesturestart',
     'pointermove', 'pointerover', 'pointerout', 'mousemove', 'mouseover', 'mouseout', 'contextmenu', 'selectstart', 'dragstart'])
     wrap.addEventListener(t, (e) => {

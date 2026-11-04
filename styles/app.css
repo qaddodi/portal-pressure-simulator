@@ -271,6 +271,8 @@ html.chip-open :is(.chip-btn, .lens-btn)[aria-expanded="true"] { background: var
 .lb-name { fill: var(--text-2); }
 .lb-val { fill: var(--text); }
 .lb-unit { fill: var(--text-3); }
+.lb-explain { fill: var(--text); }   /* (a tapped label's own line, label-explain.js: the name's ink on the same halo, the term's colour on a lit one) */
+#labels .lb.term .lb-explain { fill: var(--term); }
 .lb-delta { fill: var(--text); }   /* (a change is in its reading's colour: 17 Oct design review) */
 .lb-alert { fill: var(--danger); }
 .lb-rev { fill: var(--flow-reversed); }
