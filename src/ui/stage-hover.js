@@ -13,7 +13,7 @@ import { putText, s, toast } from './util.js';
 import { createVesselPick } from './vessel-pick.js';
 
 export function createHover(st, live) {
-  const { E, EI, EV, GL_ROWS, MQ, SEL_FADE, TIER_ART, TIER_LIFT, TIER_LIFT_FRONT, ascitesLine, ascitesPath, ascitesSvg, clientToWorldFast, defs, easeInOut, explain, gGuides, gLeaders, gSelO, geo, glLines, labelGL, late, lateRun, levelTier, nearbyEdge, nextFrame, nodePos, olSet, onHoverInfo, onSelect, orgTone, organEls, organG, pointAt, polyD, pool, readFrame, refreshCTM, setGlowSrc, spot, spotOn, stageBox, svg, syncPlateLook, updateLabels, vh, wrap } = st;
+  const { E, EI, EV, GL_ROWS, MQ, SEL_FADE, TIER_ART, TIER_LIFT, TIER_LIFT_FRONT, ascitesLine, ascitesPath, ascitesSvg, clientToWorldFast, defs, easeInOut, explain, gGuides, gLeaders, gSelO, geo, glLines, late, lateRun, levelTier, nearbyEdge, nextFrame, nodePos, olSet, onHoverInfo, onSelect, orgTone, organEls, organG, pointAt, polyD, pool, readFrame, refreshCTM, setGlowSrc, spot, spotOn, stageBox, svg, syncPlateLook, updateLabels, vh, wrap } = st;
   function edgeFromEvent(ev) {
     // A pointer is picked on the vessels' data (hitVessel), never by the browser's hit test; an event with no point (a key on the
     // figure) names the vessel the keyboard is on (figKeys).
@@ -363,7 +363,7 @@ export function createHover(st, live) {
   function explainAt(x, y) {
     if (!store.get().presenting) return false;
     if (live.lobuleOn || live.lz?.isOpen()) return !!live.lz?.explainAt?.(x, y);
-    const r = stageBox(), items = labelGL?.drawnLabels?.();   // (each label's last drawn picture, whatever frame drew it: a tap lands between frames)
+    const r = stageBox(), items = live.labelGL?.drawnLabels?.();   // (each label's last drawn picture, whatever frame drew it: a tap lands between frames)
     if (!items) return false;
     for (const it of items) { it.x += r.left; it.y += r.top; }
     const hit = hitLabel(items, x, y, 8, (k) => k.startsWith('n:') && labelTarget(k) != null);
