@@ -22,6 +22,7 @@ import { booting, holdCover } from './quiet.js';
 import { viewSize } from './layout-snap.js';
 import { parseCssColor } from './css-color.js';
 import { driven, isDrivenAnimation, onMove } from './num-move.js';
+import { counts } from './frame-counts.js';
 
 /** The CSS glass this draws (app.css .cl-glass: blur(16px) saturate(1.15) over 58 % of --surface). */
 export const GLASS = { blur: 16, sat: 1.15, tint: 0.58 };
@@ -1265,7 +1266,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     G.bindTexture(G.TEXTURE_2D, null); G.useProgram(null); G.bindVertexArray(null);
     if (ok) shareKeep(S); else shareForget(S);
     S.ok = !!ok;
-    if (ok) S.blurs++;
+    if (ok) { S.blurs++; counts.blur++; }
     return S.ok;
   }
   // (pass: 'low', 'high' or 'all'; the last turn of the frame ('high', 'all') gives back the marks of the glasses not drawn.)

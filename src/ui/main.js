@@ -1206,6 +1206,14 @@ function wireTopbar() {
 }
 // Two menus with one job each: Settings (how the simulator looks and reads) and Help (how to
 // use it, what it is, and who made it).
+// Settings › Show frame breakdown: the frame-time panel (frame-hud.js, as ?perf shows it), started and stopped here. Nothing is loaded or run while it is off.
+let hudEl = null, hudBusy = false;
+function setFrameBreakdown(on) {
+  if (!on) { hudEl?.stop?.(); hudEl = null; return; }
+  if (hudEl || hudBusy) return;
+  hudBusy = true;
+  import('./frame-hud.js').then(({ startFrameHud }) => { hudEl = startFrameHud(); }).catch(() => { /* a measuring aid only */ }).finally(() => { hudBusy = false; });
+}
 const fpsOn = () => { try { return localStorage.getItem('pps.fps') === '1'; } catch { return false; } };
 setFpsCounter(fpsOn());
 function openSettings(anchor, withSearch = false) {
@@ -1238,6 +1246,7 @@ function openSettings(anchor, withSearch = false) {
       try { localStorage.setItem('pps.fps', on ? '1' : '0'); } catch (e) { caught('main:fps', e); /* storage unavailable */ }
       setFpsCounter(on);
     }),
+    menuToggle(!!hudEl, 'gauge', 'Show frame breakdown', 'Frame time, script time, which surfaces cost most, and whether the GPU or the script is the limit', (on) => { setFrameBreakdown(on); }),
     // (What the model shows and how far it goes has its own heading: "Always show HVPG" is not an accessibility setting, and a rule under Blur
     // left it reading as one.)
     ...(talk ? [] : [

@@ -12,6 +12,7 @@
 //     reported; Safari has neither), with the script that took most of it: work outside the scheduler's callbacks shows there too.
 // It reads only the scheduler's own numbers and writes its words once a second, between frames (rest-pass.js), never in a frame. It
 // adds no frame loop of its own: an idle page stays idle (the panel then says so).
+import { counts } from './frame-counts.js';
 import { watchFrames, perf, refreshHz, refreshMaxHz, frameBudget, targetHz, watchdogStats, mayStats } from './frame.js';
 import { restPass } from './rest-pass.js';
 import { sharedStats } from './trace-gl.js';
@@ -63,6 +64,7 @@ export function hudText(st, o) {
     st.n ? `${f(st.fps)} fps  p99-interval rate ${f(st.low1)}  frames ${st.n}${o.missed != null ? `  missed ${o.missed} of ${st.n} at the target` : ''}` : 'idle: no frames (nothing moving)',
     st.n ? `interval p50 ${f(st.p50)}  p95 ${f(st.p95)}  p99 ${f(st.p99)}  max ${f(st.max)} ms` : '',
     st.n ? `script p50 ${f(st.s50)}  p95 ${f(st.s95)}  max ${f(st.smax)} ms${st.s95 > o.budget ? '  OVER' : ''}` : '',
+    st.n ? `verdict: ${st.p50 > 2 * Math.max(st.s50, 0.5) && st.p50 > 1.5 * o.budget ? 'GPU-bound (the frame takes over twice the script time)' : st.s50 > 0.6 * st.p50 ? 'script-bound' : 'in between'}` : '',
     o.surfaces.length ? `per frame: ${o.surfaces.map(([k, ms]) => `${k} ${f(ms)}`).join(', ')}` : '',
     o.charts ? `charts: ${o.charts.resizes} buffer resizes, ${o.charts.transfers} pictures handed over (last second)` : '',
     `watchdog ${o.mode}, carried over ${o.shed}${o.gov == null || o.gov < 0 ? '' : `; governor ${['all run', 'P3 yielding', 'P2+P3 yielding'][o.gov]}, ${o.yielded} chart frames yielded, over budget ${o.streak} in a row`}`,
@@ -88,12 +90,14 @@ function workerClock(onHz) {
 
 export function startFrameHud() {
   const gaps = [], scripts = [];
+  let dead = false, c0 = { ...counts };
   let last = perf().totals, lastFrames = last.frames, workerHz = 0, idleAt = 0, lastCharts = { ...sharedStats };
   // (A visibility change is marked as it happens: the one interval that spans it is left out, by that published rule and no other;
   // a foreground stall of any length stays in.)
   let hiddenAt = -1;
   document.addEventListener('visibilitychange', () => { hiddenAt = performance.now(); });
   watchFrames((fr) => {
+    if (dead) return;
     const spansHidden = hiddenAt >= 0 && hiddenAt >= fr.now - fr.gap - 1;
     if (spansHidden) hiddenAt = -1;
     if (fr.gap > 0 && !spansHidden) { gaps.push(fr.gap); if (gaps.length > KEEP) gaps.shift(); }
@@ -127,10 +131,14 @@ export function startFrameHud() {
     // (Missed target chances: an interval past the target by over half a frame (timestamp jitter) counts each frame it skipped.)
     const b = frameBudget(), missed = gaps.slice(-k).reduce((n, g) => n + (g > b * 1.5 ? Math.max(1, Math.round(g / b) - 1) : 0), 0);
     el.textContent = hudText(st, { hz, maxHz, workerHz, target: targetHz(), missed, budget: b, surfaces, gov: w.governor, yielded: w.yielded, streak: w.streak, loaf: loafText(worst), may: mayStats(), charts: { resizes: sharedStats.resizes - lastCharts.resizes, transfers: sharedStats.transfers - lastCharts.transfers }, mode: w.mode, shed: w.shed, throttle: throttleOf({ hz, maxHz, workerHz, target: targetHz(), hidden: document.hidden }) });
+    const cn = { draw: counts.draw - c0.draw, composite: counts.composite - c0.composite, whole: counts.whole - c0.whole, blur: counts.blur - c0.blur };
+    el.textContent += `\nper second: vessel draws ${cn.draw}, composites ${cn.composite} (whole ${cn.whole}), glass blurs ${cn.blur}`;
+    c0 = { ...counts };
     last = now; lastFrames = now.frames; lastCharts = { ...sharedStats };
   };
-  const tick = () => { if (!document.hidden) restPass(write); setTimeout(tick, 1000); };
+  const tick = () => { if (dead) return; if (!document.hidden) restPass(write); setTimeout(tick, 1000); };
   setTimeout(tick, 1000);
   if (window.pps) window.pps.hud = () => el.textContent;
+  el.stop = () => { dead = true; el.remove(); };   // (Settings › Show frame breakdown, off)
   return el;
 }

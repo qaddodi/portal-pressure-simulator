@@ -53,6 +53,7 @@ import { createNoiseFiller } from './noise-gl.js';
 import { softwareGL } from './sw-yield.js';
 import { frameCount, framePhase } from './frame.js';
 import { caught } from './caught.js';
+import { counts } from './frame-counts.js';
 const ORGAN_MESH = { tri: null, seg: null, nTri: 0, nSeg: 0 };   // alloc-rare: made once (the organ texture's shapes are meshed into it one at a time, each released after its draw)
 
 export { binVeins };
@@ -3770,6 +3771,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      * transform [a, b, c, d, e, f]; `look`: the theme's inks and the per-tier opacity and group.
      */
     draw(m, look, blood, rows = null) {
+      counts.draw++;
       for (let i = 0; i < 6; i++) OVER[i] = m[i];
       overM = OVER;
       m = whole(m, WM);
@@ -4097,6 +4099,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       nPool = 0;
       if (!full && !nCells && !(fl?.ripple && nFluid) && !pool && !dirt && !cath) return;
       if (gpuProbe.on) { if (full) gpuProbe.note('whole picture'); if (!look.plate) gpuProbe.note('organ picture down'); }
+      counts.composite++; if (full) counts.whole++;
       if (gpuProbe.on) { gpuProbe.note(COUNTED.picture); if (full) gpuProbe.note(COUNTED.pictureWhole); }
       const det = m[0] * m[3] - m[1] * m[2] || 1e-9;
       // device → world: the inverse of [a c e; b d f].
