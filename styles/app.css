@@ -1703,6 +1703,7 @@ button.finding { cursor: pointer; }
 .lz-labels .lz-off { opacity: 0; pointer-events: none; }
 .lz-labels :is(.lz-lab, .lz-zone).lz-off.lz-off { transition-duration: var(--d-small), var(--d-surface), var(--d-surface); }   /* (going, it fades on the quicker clock; opacity is first in every list) */
 @media (prefers-reduced-motion: reduce) { .lz-lab, .lz-zone { animation: none; } }
+.lz-leaders.cap-lead :is(.leader, .leader-dot) { opacity: 0 !important; transition: none !important; }   /* (drawn with their names by label-gl: caption-gl.js leadMarks) */
 .lz-leaders .leader { transition: opacity var(--d-small) var(--ease); } .lz-leaders .leader.lz-hid { opacity: 0; transition: none; }
 .lz-leaders .leader-dot { transition: opacity var(--d-small) var(--ease); } .lz-leaders .ld-gone { opacity: 0; transition: opacity var(--d-small) var(--ease); }   /* (a leader and dot leave with their label) */
 /* The presenter's camera gliding in the lobule: its labels ease out, and back in at their new places (lobule-zoom.js focusOn). */

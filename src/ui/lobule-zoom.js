@@ -169,8 +169,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // (The page's own names are made clear only once the GPU's picture of them is on the screen, and shown again if it is lost: caption-gl.js presented.)
   // (Written in the task that handed the picture over, not in a later one: the page's names are made clear in the very frame the GPU's picture
   // first shows, never a frame, or a rest pass, after it, when both would show: the double captions.)
-  cap.onPresented = () => labels.classList.add('cap-gl-on');
-  cap.onLost = () => labels.classList.remove('cap-gl-on');
+  cap.onPresented = () => { labels.classList.add('cap-gl-on'); leadersBox.classList.add('cap-lead'); leadGL.relook(); };
+  cap.onLost = () => { labels.classList.remove('cap-gl-on'); leadersBox.classList.remove('cap-lead'); leadGL.relook(); };
 
   // ── What sits on the lobule ──
   // Zones and Lymph are layers (the toolbar's Layers menu keeps them in the store). Nothing floats in a card.
@@ -1859,6 +1859,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   };
   // Every name's place and show for this frame, drawn in it: a label gliding to its new spot on the page's curve (easeLab), one riding
   // a pan at its spot's shift (tr), a zone name at its centre, the call pill easing in from a little smaller.
+  const LEADO = { x1: 0, y1: 0, x2: 0, y2: 0, show: 1, colour: 'rgba(150, 150, 150, .5)', cut: false, of: null, follow: false, sg: 0 };   // (one record, rewritten for each lead)
   function capSync(t) {
     if (fade <= 0) return false;
     const now = tlNow();   // (the page's clock, which the labels' glides are noted on; t: the names' own, for their fades)
@@ -1873,6 +1874,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       const off = !e.isConnected || gone(e) || (call && !classHas(callEl, 'on'));
       cap.place(key, zone ? x : x + m.w / 2, zone ? y : y + m.h / 2, off ? 0 : !call && dimmed(e.dataset.target) ? DIM_A : 1, off && gone(e) ? D_SMALL : D_SURFACE, call ? (off ? 0.94 : 1) : -1, t);
       if (L) {
+        // The station's leader and dot, drawn with its name by label-gl (the lead's near end is the name's, its far end the figure's point).
+        const hid = off || classHas(L.line, 'ld-gone') || classHas(L.line, 'lz-hid') || classHas(L.el, 'edge');
+        LEADO.x1 = +geoOf(L.line, 'x2'); LEADO.y1 = +geoOf(L.line, 'y2'); LEADO.x2 = +geoOf(L.line, 'x1'); LEADO.y2 = +geoOf(L.line, 'y1');
+        LEADO.show = hid ? 0 : dimmed(e.dataset.target) ? DIM_A : 1;
+        if (Number.isFinite(LEADO.x1 + LEADO.y1 + LEADO.x2 + LEADO.y2)) cap.lead(key, LEADO);
         const ink = L.arrowC || m.at['.n']?.colour || '';
         cap.arrow(key, L.edgeA != null && classHas(L.el, 'edge') ? (L.arrow?.ang === L.edgeA && L.arrow.r === L.edgeR && L.arrow.w === m.w && L.arrow.colour === ink ? L.arrow
           : (L.arrow = { x: m.w / 2, y: m.h / 2, ang: L.edgeA, r: L.edgeR, w: m.w, colour: ink })) : null);   // alloc-rare: only when the arrow turns
