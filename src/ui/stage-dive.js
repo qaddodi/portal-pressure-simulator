@@ -165,22 +165,21 @@ export function createDive(st, live) {
     for (let i = 0; i < live.diveOrig.length; i++) { const el = live.diveOrig[i][0]; if (el !== vCanvas) el.style.transform = tf; }
     camAbout(DIVEC, k, live.camOx, live.camOy); pushCam();
   }
-  // The labels' fade in once a rise has landed: from where their layer stands (0 after a rise) to whole over D_SMALL, smoothstep, on the
-  // frames; the inline opacity goes back to '' at its end. A new dive or rise stops it (diveFrame), and reduced motion shows them at once.
-  let labInRaf = 0, labInT0 = 0, labInFrom = 0, labInEl = null;
-  function labelsInStep(now) {
-    labInRaf = 0;
-    const u = Math.min(1, (now - labInT0) / D_SMALL), e = u * u * (3 - 2 * u);
-    labInEl.style.opacity = u >= 1 ? '' : (labInFrom + (1 - labInFrom) * e).toFixed(3);
-    if (u < 1) labInRaf = drawFrame(labelsInStep);
-  }
-  function labelsInStop() { if (labInRaf) { cancelFrame(labInRaf); labInRaf = 0; } }
-  function labelsIn(lab) {
-    if (labInRaf) return;
-    const cur = lab.style.opacity === '' ? 1 : parseFloat(lab.style.opacity);
-    if (!(cur < 1) || reduceMotion.matches) { lab.style.opacity = ''; return; }
-    labInEl = lab; labInFrom = Math.max(0, cur); labInT0 = performance.now();
-    labInRaf = drawFrame(labelsInStep);
+  // The anatomy's labels through a dive and a rise are part of the figure: each pinned label, its dot and its leader are drawn at its point under
+  // the dive's own camera record (stage-label-host.js camOut, the record veins-gl draws the figure under), the few with no point ride the same
+  // matrix (label-gl ride, zone titles left out as for a card's zoom), and their layer shows exactly as much as the anatomy shows through the
+  // field (1 - its cover, on the zoom, never a clock), so on a rise they are on the figure for its whole last stretch, moving with it; no fade
+  // at the landing. (Mohammad, 4 Nov 2026, "labels show up too early, wrong place, in place while zoom is zooming out": pinned under the rest
+  // camera alone they stood at their landed places over a figure still magnified; f4f2c22 then hid them for the rise and faded them in after it.)
+  const diveRideM = [1, 0, 0, 1, 0, 0];
+  let labOpTxt = null;   // (the layer's opacity text as written: written only when it changes)
+  function labelsRide(lab, t, cover) {
+    const op = t <= 0 ? '' : t >= 1 ? '0' : (1 - cover).toFixed(3);
+    if (lab && op !== labOpTxt) { labOpTxt = op; lab.style.opacity = op; lab.style.transition = t > 0 && t < 1 ? 'none' : ''; }   // (its own CSS fade off while the zoom drives it: a fade lagged the figure)
+    const r = live.labelRider;
+    if (!r || live.rideCTM) return;   // (a card's zoom owns the ride; none during a dive)
+    if (DIVEC.k > 1.0001 && t > 0 && t < 1) { diveRideM[0] = DIVEC.k; diveRideM[3] = DIVEC.k; diveRideM[4] = DIVEC.x; diveRideM[5] = DIVEC.y; r.ride(diveRideM); }
+    else if (r.riding) { r.rideEnd(); r.pinDraw(); }
   }
   const diveFrom = [0, 0], diveTo = [0, 0];   // (the rise's two ends, written in place for riseCentre)
   const diveField = { a: 0, x: 0, y: 0, r: 0, ox: 0, oy: 0, quiet: 0, focus: 0, blur: 0, dof: 0 };   // (the field's state for lz.setDive, written in place)
@@ -212,17 +211,7 @@ export function createDive(st, live) {
       // second as the field took over: a dark flash zooming in, in dark mode, Mohammad, 24 Oct. Zooming out it fell where the field
       // itself was already fading into the page, so it did not show.)
       setDiveFade(t <= 0 ? null : landed ? 0 : 1);
-      // The anatomy's labels leave as the zoom starts.
       const lab = wrap.querySelector('#labels');
-      // Going out they stay away for the whole zoom and fade in only once it has landed, where they were laid out (setLobule lays them
-      // out for the final framing as the rise begins). They are pinned to the figure at its rest camera, not under the dive's scale
-      // (the dive camera record, drawn by the GPU about camOx/camOy), so shown part way they stood at their landed places over a figure still magnified
-      // and moving under them (Mohammad, 4 Nov 2026: "labels show up too early, wrong place, in place while zoom is zooming out").
-      // The fade in is the landing's own, on the frame clock, like a view switch's (labelsIn).
-      if (lab) {
-        if (t <= 0) labelsIn(lab);
-        else { labelsInStop(); lab.style.opacity = live.diveOut ? '0' : (1 - smoothT(0, 0.12, t)).toFixed(3); }
-      }
       // The detailed lobule comes in while the zoom is still settling, zooming with the field.
       const r = RH * Math.exp(z - LC);
       const [ox, oy] = live.diveAt;
@@ -237,7 +226,7 @@ export function createDive(st, live) {
       live.lz.setDiveZoom(t >= 1 ? 1 : clamp(r / live.diveLand.r, 0.05, 1), live.diveLand.x, live.diveLand.y, px, py);
       // (The field's state is one kept object written in place: lobule-zoom.js reads it at once and keeps none of it.)
       const df = diveField;
-      if (t <= 0 || t >= 1) live.lz.setDive(null);
+      if (t <= 0 || t >= 1) { live.lz.setDive(null); labelsRide(lab, t, t >= 1 ? 1 : 0); }
       else {
         // The field comes in only over the anatomy's last stretch (×5 to ×23, its lobules a fine grain a few px across), whole
         // where the anatomy is hidden; its neighbours drain and fade into the page only once it is whole, toward the landing, so the
@@ -249,11 +238,12 @@ export function createDive(st, live) {
         // the lobule view's own surround takes over (GPU only: lobule-zoom.js paintFieldGL).
         df.blur = 1 - smoothT(FIELD_IN, FIELD_WHOLE + 0.3, z); df.dof = smoothT(FIELD_IN + 0.3, FIELD_WHOLE + 0.6, z) * (1 - smoothT(lt - 0.9, lt, z));
         live.lz.setDive(df);
+        labelsRide(lab, t, df.a);   // (the labels show through the field as the anatomy does, and ride the zoom with it)
       }
       // Once the field is whole (fully opaque, from z = FIELD_WHOLE) the magnified anatomy beneath it is not seen: it is hidden, so the
       // browser stops compositing it (Safari redraws a scaled SVG at each new scale, every frame); the labels as soon as they have faded.
       if (!landed && diveGpu()) setDomHidden(t > 0 && t < 1);
-      if (!landed) setDiveHidden(t > 0 && t < 1 && z >= FIELD_WHOLE, lab && t > 0 && t < 1 && +lab.style.opacity <= 0.001);
+      if (!landed) setDiveHidden(t > 0 && t < 1 && z >= FIELD_WHOLE, !!lab && t > 0 && t < 1 && +labOpTxt <= 0.001);
     }
     live.lobU = live.easeInOut(clamp((t - 0.48) / 0.4, 0, 1));
     syncSemantic();

@@ -3,7 +3,15 @@
 import { LABEL_VESSEL } from './anatomy.js';
 import { gpuProbe } from './gpu-probe.js';
 import { createLabelGL } from './label-gl.js';
+import { cams } from './scene-cam.js';
 
+// A pinned point under the cameras over the stage's own (scene-cam.js, card ∘ dive ∘ base): the dive's record (p' = k p + (x, y), stage px, the one
+// veins-gl draws the figure under), then a card's zoom. Only the point is carried (the label keeps its size and offset): it rides the dive with the figure.
+export function camOut(out, dive, zoomM) {
+  if (dive && dive.k !== 1) { out[0] = dive.k * out[0] + dive.x; out[1] = dive.k * out[1] + dive.y; }
+  if (zoomM) { const x = out[0], y = out[1]; out[0] = zoomM[0] * x + zoomM[4]; out[1] = zoomM[3] * y + zoomM[5]; }
+  return out;
+}
 export function createLabelHost(st, live) {
   const { E, LABELS_ORDER, arcMid, easeInOut, frostWake, gLabels, gLeaders, gScan, geo, labelAnchor, labelHost, labelSvg, morphAnchorAt, nodePos, refreshCTM, worldToLocalInto, wrap } = st;
   // (The labels' pass in the figure's present: its prep, so they are laid before any glass takes its blur, which then has them in it.)
@@ -33,13 +41,14 @@ export function createLabelHost(st, live) {
   }
   // (How a label's place moves as its gap grows by one px, per direction (stage.js offset).)
   const PIN_DIR = { N: [0, -1], S: [0, 1], E: [1, 0], W: [-1, 0], EL: [1, 0], WL: [-1, 0], NE: [0.72, -0.72], NW: [-0.72, -0.72], SE: [0.72, 0.72], SW: [-0.72, 0.72] };
+  const DIVEC = cams.stage.dive;
   if (live.labelGL) live.labelGL.pinTo((id, out, mid, au) => {
     if (!live.CTM) refreshCTM();
-    if (mid && au != null && au !== 0.5 && pinVesselAt(id, au)) { out[0] = PIN_P[0]; out[1] = PIN_P[1]; if (live.zoomM) { out[0] = live.zoomM[0] * out[0] + live.zoomM[4]; out[1] = live.zoomM[3] * out[1] + live.zoomM[5]; } return Number.isFinite(out[0]) && Number.isFinite(out[1]); }
+    if (mid && au != null && au !== 0.5 && pinVesselAt(id, au)) { out[0] = PIN_P[0]; out[1] = PIN_P[1]; camOut(out, DIVEC, live.zoomM); return Number.isFinite(out[0]) && Number.isFinite(out[1]); }
     const t = easeInOut(live.morph), a = labelAnchor(id, t);
     if (mid || !a.mid) { out[0] = a.ax; out[1] = a.ay; } else { const p = nodePos(id, t); worldToLocalInto(PIN_P, p[0], p[1]); out[0] = PIN_P[0]; out[1] = PIN_P[1]; }
-    // (A card's zoom: the point is carried by the scene camera; the label's offset from it is not.)
-    if (live.zoomM) { const x = out[0], y = out[1]; out[0] = live.zoomM[0] * x + live.zoomM[4]; out[1] = live.zoomM[3] * y + live.zoomM[5]; }
+    // (The dive's zoom and a card's zoom: the point is carried by the scene's cameras; the label's offset from it is not.)
+    camOut(out, DIVEC, live.zoomM);
     return Number.isFinite(out[0]) && Number.isFinite(out[1]);
   }, (wx, wy, view, out, s) => {
     // (A world anchor, any figure label: where the point is under this frame's camera. Only at rest in the view it was laid out for: between the
@@ -48,6 +57,7 @@ export function createLabelHost(st, live) {
     if (!(live.morph === 0 || live.morph === 1) || live.morph !== view) return false;
     if (!live.CTM) refreshCTM();
     worldToLocalInto(out, wx, wy);
+    camOut(out, DIVEC, null);   // (the dive's zoom carries this point too; a card's zoom is applied here as it was, that is not yet: card-zoom seam)
     return Number.isFinite(out[0]) && Number.isFinite(out[1]);
   });
   wrap.dataset.labels = live.labelGL ? 'gpu' : 'svg';
