@@ -619,6 +619,14 @@ function fitChart(svg, lay, onPlace = null) {
   return c;
 }
 if (typeof addEventListener !== 'undefined') addEventListener('pps:labelscale', () => restPass(() => fitted.forEach(fitNow)));
+/** Lets go of every GPU chart inside a card that is about to be replaced (the column, rail block, quadrant, walls art): its svg-gl picture is
+ *  disposed (the module keeps each one live until then), and its fit entry and observer are dropped. Never run on a kept card. */
+function dropCharts(el) {
+  if (!el) return;
+  for (const c of [...fitted]) if (el.contains(c.svg)) { c.ro?.disconnect(); cancelRest(c.raf); fitted.delete(c); }
+  for (const b of el.querySelectorAll('.svg-gl-box')) b._svgGL?.dispose();
+  if (el._svgGL) el._svgGL.dispose();
+}
 const fsOf = (el, px) => { el.style.fontSize = px.toFixed(2) + 'px'; };
 
 // The block is a hatched fill: bold diagonal red stripes over a faint red tint (visible in light and dark, no label).
@@ -2883,6 +2891,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (Thrown in, the words stay out until cardsIn throws them in: let go here, they faded in at rest first and then jumped to the side.)
     if (!caseCard && !bare && !(throwDir && !s.visual)) text.classList.remove('pz-leave');
     if (s.visual) {
+      dropCharts(text); dropCharts(panel);
       text.hidden = true; text.replaceChildren(); paintKey(null);
       // A panel that was not there fades in (never pops): unhidden while still faded, then let go.
       if (panel.hidden) { panel.classList.add('pz-leave'); panel.hidden = false; void readMetric(panel, 'offsetWidth'); }
@@ -2895,6 +2904,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       if (!ui.root.classList.contains('pz-prep')) cardIn(panel, 'pz-leave');   // (else once fitted: settle)
       ui.veil.classList.add('on');
     } else {
+      dropCharts(panel); dropCharts(text);
       panel.hidden = true; panel.replaceChildren(); panel.classList.remove('pz-leave'); ui.veil.classList.remove('on');
       text.hidden = false;
       const head = h('h1', { class: 'pz-h' }, ...diseaseNodes(nb(s.title)));
