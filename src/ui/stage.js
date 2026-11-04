@@ -8140,19 +8140,41 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     rColl: { kicker: 'Collateral resistance', cls: 'res coll', unit: '', res: 'coll' },
     // The gut's arterioles (the splanchnic arteries in parallel), in series before the liver: most of the pressure falls here.
     rGut: { kicker: 'Gut arteriole resistance', cls: 'res gut', unit: '', res: 'gut' } };
-  // The resistors' key, under the one reading at the group's outer edge (resKeyed).
-  const RES_KEY = '× healthy liver’s resistance';
-  // Where the resistors' readings stand (stage-local): centred over the circuit, above it, or below it once it is turned upright.
-  const resAtKept = { x: 0, y: 0, up: false }, resAtPt = [0, 0];   // (read at once by its callers, none keeps it)
-  function resAt() {
-    // (the figure's four corners, in stage-local units)
-    let c = worldToLocalInto(resAtPt, 60, 40); const x0 = c[0], y0 = c[1];
-    c = worldToLocalInto(resAtPt, 1360, 40); const x1 = c[0], y1 = c[1];
-    c = worldToLocalInto(resAtPt, 60, 640); const x2 = c[0], y2 = c[1];
-    c = worldToLocalInto(resAtPt, 1360, 640); const x3 = c[0], y3 = c[1];
-    const up = rotU > 0.5, r = resAtKept;
-    r.x = (x0 + x1 + x2 + x3) / 4; r.y = up ? Math.max(y0, y1, y2, y3) : Math.min(y0, y1, y2, y3); r.up = up;
-    return r;
+  // A resistor's reading is a figure label (label-gl, the one style): "R liver ×2.3", at the middle of its own zigzag, world-anchored like
+  // every figure label, so it moves with the figure through every pan, pinch and zoom. resMask: which readings have a value (the labels'
+  // signature); RES_LABEL: its words; the key ("vs healthy liver") rides once, on the outermost reading.
+  const RES_BIT = { rGut: 1, rColl: 2, rLiver: 4 }, RES_LABEL = { rLiver: 'R liver', rColl: 'R collaterals', rGut: 'R gut' }, RES_FULL = { rLiver: 'Liver resistance', rColl: 'Collateral resistance', rGut: 'Gut arteriole resistance' };
+  let resMask = 0, resLitRev = 0;
+  const resKeyOn = () => (resMask & 1 ? 'rGut' : resMask & 2 ? 'rColl' : resMask & 4 ? 'rLiver' : null);
+  function resItem(k) {
+    const d = SITE_DEF[k], ratio = d?.res ? resRatio(d.res) : null;
+    if (ratio == null) return null;
+    const v = '×' + fmt(ratio, ratio < 10 ? 1 : 0);
+    const lines = [[{ t: RES_LABEL[k], size: 11.5, weight: 600, cls: 'lb-name' }, { t: v, size: 11.5, weight: 650, cls: 'lb-val', gap: 4 }]];
+    if (resKeyOn() === k) lines.push([{ t: 'vs healthy liver', size: 9.5, weight: 500, cls: 'lb-name' }]);
+    return { key: 'r:' + k, res: k, src: ['res', k], cls: 'node res', lines, align: 'middle', padX: 3, padY: 2, w: Math.max(...lines.map(lineW)), h: lines.reduce((a, l) => a + LINE_H(l), 0), label: `${RES_FULL[k]}: ${v} the healthy liver's resistance` };
+  }
+  const resPt = [0, 0], resTan = [0, 0];
+  // Where the reading's centre stands, stage-local, and the zigzag's anchor: the liver's between its two lobes' zigzags; the others beside theirs,
+  // on the side away from the lane, clear of the zigzag's own amplitude (8 px at least, as resPaint draws it).
+  function resPlace(it) {
+    const k = it.res;
+    let ax, ay, cx, cy;
+    if (k === 'rLiver') {
+      const a = worldToLocalInto(resPt, 850, 345); ax = a[0]; ay = a[1]; cx = ax; cy = ay;
+    } else {
+      const q = k === 'rGut' ? geo.A_SMA?.cur && pointAt(geo.A_SMA.cur, 0.5) : geo.C1b?.cur && pointAt(geo.C1b.cur, 0.5);
+      if (!q) return false;
+      const a = worldToLocalInto(resPt, q[0], q[1]); ax = a[0]; ay = a[1];
+      const b = worldToLocalInto(resTan, q[0] + q[2] * 10, q[1] + q[3] * 10), L = Math.hypot(b[0] - ax, b[1] - ay) || 1;
+      const tx = (b[0] - ax) / L, ty = (b[1] - ay) / L;
+      let nx = -ty, ny = tx;
+      if (Math.abs(ny) >= Math.abs(nx) ? ny > 0 : nx < 0) { nx = -nx; ny = -ny; }   // (up, else to the right)
+      const off = Math.max(9 * (CTM?.sc || 1), RES_MIN_AMP_PX) + 6 + Math.abs(nx) * it.w / 2 + Math.abs(ny) * it.h / 2;
+      cx = ax + nx * off; cy = ay + ny * off;
+    }
+    it.ax = ax; it.ay = ay; it.x = cx - it.w / 2; it.y = cy - it.h / 2;
+    return true;
   }
   // Resistance as ΔP / Q: the liver's lobes, each its venules, sinusoids and outflow in series, in parallel with each other.
   const LOBES = [['PRE_R', 'SIN_RR', 'POST_R_RHV'], ['PRE_L', 'SIN_LL', 'POST_L_LHV']];
@@ -8480,29 +8502,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (u < 1) sitesAgain(); else el._ng = null;
     return el._nv;
   }
-  // The resistors' group, moved clear of the cards, glides to its new place when a slide's change moves it (a reading joining or leaving
-  // the group); while the camera moves it keeps with the circuit exactly, as before.
-  const resCam = new Float64Array(4), resDyG = { from: 0, to: 0, t0: 0 };   // (the camera's four numbers to a hundredth, as last seen; the glide's record)
-  let resCamOk = false;
-  function resShift(dy) {
-    const c0 = Math.round(CTM.a * 100), c1 = Math.round(CTM.b * 100), c2 = Math.round(CTM.e * 100), c3 = Math.round(CTM.f * 100);
-    const still = resCamOk && resCam[0] === c0 && resCam[1] === c1 && resCam[2] === c2 && resCam[3] === c3;
-    resCam[0] = c0; resCam[1] = c1; resCam[2] = c2; resCam[3] = c3; resCamOk = true;
-    const now = performance.now();
-    if (sites.dy == null || !still || reduceMotion.matches || camMove) { sites.dyG = null; return (sites.dy = dy); }
-    let g = sites.dyG;
-    if (Math.abs(dy - (g ? g.to : sites.dy)) > 0.5) { g = sites.dyG = resDyG; g.from = sites.dy; g.to = dy; g.t0 = now; }
-    if (!g) return (sites.dy = dy);
-    const u = clamp((now - g.t0) / LABEL_GLIDE_MS, 0, 1);
-    sites.dy = g.from + (g.to - g.from) * easeInOut(u);
-    if (u < 1) sitesAgain(); else sites.dyG = null;
-    return sites.dy;
-  }
-  const siteAt = [0, 0], resGone = [], RES_UP = ['rGut', 'rLiver', 'rColl'], RES_LEVEL = ['rGut', 'rColl', 'rLiver'];   // (the resistors to drop, listed first as resPaint takes them out of resMade; the order the key goes by)
+  const siteAt = [0, 0], resGone = [];   // (the resistors to drop, listed first as resPaint takes them out of resMade; the order the key goes by)
   let sitesWant = NO_LIST;   // (the readings this paint is for)
-  const siteOn = (k) => sitesWant.includes(k) && resRatio(SITE_DEF[k].res) != null;
   function sitesPaint() {
     const want = sitesWant = sites.list || NO_LIST, made = sites.made;
+    resMask = 0;
     resGone.length = 0;
     for (const k of resMade.keys()) if (!want.includes(k)) resGone.push(k);
     for (let i = 0; i < resGone.length; i++) resPaint(resGone[i], SITE_DEF[resGone[i]], null);
@@ -8515,31 +8519,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (A wider screen's colour key stands on the nav pill at the lower right (presenter.js): one box, kept clear of every callout;
     // read at most twice a second, not each model frame.)
     const ko = keyPillBox();
-    // The resistors' readings stand as one group (side by side under an upright circuit, stacked above a level one, the gut's
-    // the farthest out): where the group's box would reach under the slide's cards, the whole group moves into the free space.
-    let resDy = 0, resKeyed = null, resH = 0;
-    let anyRes = false;
-    for (let i = 0; i < want.length; i++) if (SITE_DEF[want[i]]?.res) { anyRes = true; break; }
-    const ra0 = anyRes ? resAt() : null;
-    if (ra0) {
-      let rh = 0;   // (the tallest resistor reading made)
-      for (const [k, el] of made) if (SITE_DEF[k]?.res) rh = Math.max(rh, el._h || 0);
-      resH = rh;
-      const gut = siteOn('rGut'), coll = siteOn('rColl');
-      // (The key goes with the reading at the group's outer edge: the top one of a level circuit, else under the row of an upright one.)
-      const order = ra0.up ? RES_UP : RES_LEVEL;
-      for (let i = 0; i < order.length && !resKeyed; i++) if (siteOn(order[i])) resKeyed = order[i];
-      const kh = resKeyed ? rh + 4 : 0;
-      if (rh && ra0.up) resDy = Math.min(0, y1 - (ra0.y + (gut ? 2 * rh + 18 : rh + 10) + kh));
-      else if (rh) resDy = Math.max(0, y0 - (ra0.y - (gut ? 3 * rh + 24 : coll ? 2 * rh + 18 : rh + 12) - kh));
-    }
-    // (Readings not measured yet take their place at once next frame: a group just come never slides in from where it was not.)
-    resDy = ra0 && resH ? resShift(resDy) : ((sites.dy = null), resDy);
     for (const k of want) {
       const d = SITE_DEF[k];
       if (!d || (d.node && !NODE_POS[d.node])) continue;
-      const ratio = d.res ? resRatio(d.res) : null;
-      if (d.res) resPaint(k, d, ratio);
+      // (A resistor's reading is a figure label now, resItem: only its zigzag is painted here, and which readings have a value is noted for the labels' signature.)
+      if (d.res) { const ratio = resRatio(d.res); resPaint(k, d, ratio); if (ratio != null) resMask |= RES_BIT[k]; continue; }
+      const ratio = null;
       let el = made.get(k);
       if (!el) {
         el = SITE_EL[d.res ? 0 : 1].cloneNode(true); el.className = SITE_CLS[k]; el._ngO = SITE_COUNT[k];
@@ -8552,7 +8537,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         el._b = b;   // (its number's box, kept for the same reason)
         late('text', sm, d.kicker); late('text', u, d.split ? '' : d.unit ?? 'mmHg');
         late('append', el, d.res ? [sm, b, u, kk] : [sm, b, u]);
-        if (d.res) late('text', kk, RES_KEY);
         late('add', sites.el, el); made.set(k, el);
         // (Its first look at cath-pre is the frame's own style pass: it comes in from there next frame, with no layout forced for it.)
         { sitePreQ.push(el); nextFrame(sitePreRun); }
@@ -8564,10 +8548,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const n = d.split ? null : d.res ? (ratio == null ? null : siteCount(el, ratio, 0.15)) : siteCount(el, siteLive(Number.isFinite(sites.fp?.[k]) ? sites.fp[k] : pinned()?.at?.P[NI[d.node]], (F.Pf || F.P)[NI[d.node]], breath(Number.isFinite(sites.fp?.[k]) ? sites.fp[k] : (F.Pf || F.P)[NI[d.node]])), 0.5);
       const b = el._b, v = d.split ? null : d.res ? (n == null ? '' : '×' + fmt(n, n < 10 ? 1 : 0)) : fmt(n, 1);
       if (v != null) putText(b, v);
-      const ra = d.res ? resAt() : null;
-      if (ra) { el.classList.toggle('low', ra.up); el.classList.toggle('keyed', k === resKeyed); }
       let x, y;
-      if (ra) { x = ra.x; y = ra.y + resDy; } else { const np = nodePos(d.node, t), wl = worldToLocalInto(siteAt, np[0], np[1]); x = wl[0]; y = wl[1]; }
+      { const np = nodePos(d.node, t), wl = worldToLocalInto(siteAt, np[0], np[1]); x = wl[0]; y = wl[1]; }
       // Off the free space (or a resistor with nothing to show, or out of the circuit), the reading waits hidden; above
       // its point unless the top is covered (decided once, so it never jumps).
       // (A reading wider than the free space, as the portal blood's share is between two wide cards on a phone held sideways, waits
@@ -11179,7 +11161,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     b.seen = laidFrame;
     b.g.classList.toggle('ring', / ring\b/.test(it.cls));   // (a slide's pill that could find no spot off the vessels: see the focus callout)
     // A presenter slide's term (presentTerms): the station's label takes the term's colour, eased (.lb.term).
-    const tone = it.node ? termTone(it.node) : null;
+    const tone = it.node ? termTone(it.node) : it.res ? resLit.get(it.res) || null : null;   // (a resistor's reading takes its station tone when the slide's words point at it)
     if (tone !== (b.tone || null)) { b.tone = tone; b.g.classList.toggle('term', !!tone); if (tone) b.g.style.setProperty('--term', toneCol(tone)); }   // (a tone may name its own token, '--tour-sys' for the right atrium: as var(--tr---tour-sys) it was unset and the label fell back to black, dark on dark in the dark theme)
     // A slide that lights terms (presentTerms) dims every station it does not light to 35 %, its leader too, and it keeps its place (V-LIT-3, Mohammad's pick 14.3 B): .unlit, app.css.
     const unlit = !tone && termsLit() && !/\bfocus\b/.test(it.cls);
@@ -11945,7 +11927,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const d = sigNow;
     d[0] = f; d[1] = store.rev; d[2] = labelGeo; d[3] = t >= 0.5; d[4] = rotU > 0.5; d[5] = labelBase(); d[6] = stageBox().width < 700;
     d[7] = labelRestK() > 1.35; d[8] = zoomedIn(); d[9] = scan.on; d[10] = fxSig; d[11] = fx; d[12] = slideGlow; d[13] = dop.key; d[14] = edgeRev;
-    d[15] = tips; d[16] = dips; d[17] = projecting; d[18] = glowSetAt; d[19] = labelRestK() >= 1.9;
+    d[15] = tips; d[16] = dips; d[17] = projecting; d[18] = glowSetAt; d[19] = labelRestK() >= 1.9; d[20] = resMask; d[21] = resLitRev; d[22] = !!sites.list;
     if (sigDeps.length === d.length && sameDeps(sigDeps, d)) return sigText;
     for (let i = 0; i < d.length; i++) sigDeps[i] = d[i];
     sigStats.builds++;
@@ -12167,7 +12149,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     next.length = 0;
     for (const it of labelShown) {
       const [kind, id, mode, compact] = it.src;
-      const n = kind === 'fx' ? fxBuild.get(id)?.() : kind === 'vel' ? velItem(id, f, mode) : kind === 'scan' ? scanItem() : nodeItem(id, f, mode, compact);
+      const n = kind === 'fx' ? fxBuild.get(id)?.() : kind === 'res' ? resItem(id) : kind === 'vel' ? velItem(id, f, mode) : kind === 'scan' ? scanItem() : nodeItem(id, f, mode, compact);
       if (!n) return false;   // (a slide's callout gone: lay out again)
       if (it.short || it.abbr) shortenTo(n, it.short || 0, it.abbr);
       if (n.lines.length !== it.lines.length || Math.abs(n.w - it.w) > 0.5 || Math.abs(n.h - it.h) > 0.5) return false;
@@ -13065,6 +13047,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           const zc = zoneKeep(it.key, zlo, zhi, (v0 + v1) / 2, false, zy), zr = zoneAt(zc, zy);
           it._slide = { at: (c) => zoneAt(c, zy), c: zc, lo: zlo, hi: zhi };
           if (within(zr, { x0: 6, y0: 6, x1: W - 6, y1: H - 6 }) && !blockers.some((o) => hits(zr, o)) && !callouts.some((o) => hits(zr, o))) { out.push(it); obstacles.push({ ...zr, zone: true, key: it.key }); it._zr = zr; }
+        }
+      }
+      // The resistors' readings (label-gl figure labels at their zigzags, resItem): placed straight, not solved; their boxes are kept clear by the stations after.
+      if (sites.list && t >= 0.5) {
+        for (const k of ['rGut', 'rColl', 'rLiver']) {
+          if (!sites.list.includes(k)) continue;
+          const it = resItem(k);
+          if (!it || !resPlace(it)) continue;
+          out.push(it); placed.push({ ...rectOf(it), res: true });
         }
       }
       buildLines();
@@ -15441,7 +15432,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
      *  match its ladder and tiles) or else the live figure; null removes them. */
     // A presenter slide's glows: vessels ([{ id, tone }], eased, in the station's colour) and organs (outlined, held).
     setGlow(list) { setGlow(list); },
-    setResGlow(list) { resLit = new Map((list || []).map((r) => [r.id, r.tone])); if (sites.list) sitesPaint(); },
+    setResGlow(list) { resLit = new Map((list || []).map((r) => [r.id, r.tone])); resLitRev++; if (sites.list) sitesPaint(); },
     pinOrgans(list) { pinOrgans(list); },
     // Organs eased in or out beside the slide's own pins (null: out): { id, tone, glow, fade } (ext-highlights.js, a meal's gut glow).
     glowOrgans(list) { pinOrgans(null, list || []); },

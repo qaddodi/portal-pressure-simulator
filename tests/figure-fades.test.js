@@ -48,8 +48,7 @@ test("a slide's reading fades out whole, glass and all, and counts to a new numb
   assert.match(css, /\.cath-label\.site\.cath-leave, \.cath-label\.site\.cath-leave > \* \{ transition-delay: 0s; \}/);
   assert.match(stage, /const COUNT_MS = 950/);
   assert.match(stage, /siteCount\(el, ratio, 0\.15\)/);
-  // (The resistors' group glides when a reading joins it; class-driven offsets ease too.)
-  assert.match(stage, /resDy = ra0 && resH \? resShift\(resDy\)/);
+  // (The resistors' readings are figure labels at their zigzags now, resItem: no group glides.)
   assert.match(css, /\.cath-label\.site \{ transition: scale var\(--d-surface\) var\(--ease\) \.35s, translate var\(--d-surface\) var\(--ease\); \}/, 'its shadow is no longer eased (1 Nov 2026, move everything to GPU: a colour, shadow or edge eased repaints every frame, so it is taken at once)');
 });
 

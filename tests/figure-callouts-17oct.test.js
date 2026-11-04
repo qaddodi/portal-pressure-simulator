@@ -46,8 +46,8 @@ test('the resistors are named in full, and "vs healthy liver" is said once, in t
   assert.match(stage, /rColl: \{ kicker: 'Collateral resistance', cls: 'res coll', unit: '',/);
   assert.match(stage, /rGut: \{ kicker: 'Gut arteriole resistance', cls: 'res gut', unit: '',/);
   assert.doesNotMatch(stage, /unit: 'vs healthy liver'/);
-  assert.match(stage, /const RES_KEY = '× healthy liver’s resistance';/);
-  assert.match(css, /\.cath-label\.site\.res\.keyed \.res-k \{ display: block;/);
+  // (The key is a second line of the outermost reading's label, resItem: 'vs healthy liver'.)
+  assert.match(stage, /'vs healthy liver'/);
 });
 
 test('a slide\'s readings keep the cards\' margin from every edge and stay above the nav pill\'s row', () => {
