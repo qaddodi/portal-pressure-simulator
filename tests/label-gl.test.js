@@ -95,7 +95,7 @@ test('the SVG copy is see-through only while the GPU draws that label, marked in
 
 test('stage.js hands the GPU every label it laid out, in the same frame, and the script fades', () => {
   assert.match(STAGE, /const labelGL = createLabelGL\(labelSvg, gLabels, \{ software: SOFTWARE, marks: \[gLeaders, gScan\], onBoxes: frostWake \}\);/);
-  assert.match(STAGE, /b\.pos = \{ g: b\.g, x: px0, y: py0, rot: !!it\.rot, pid: pin \? it\.key\.slice\(2\) : null, pax: pin \? it\.ax : 0, pay: pin \? it\.ay : 0, pmid: pk === 1, pau: it\.au \?\? 0\.5 \};/);
+  assert.match(STAGE, /b\.pos = \{ g: b\.g, x: px0, y: py0, rot: !!it\.rot, pid: pin \? it\.key\.slice\(2\) : null, pax: pin \? it\.ax : 0, pay: pin \? it\.ay : 0, pmid: pk === 1, pau: it\.au \?\? 0\.5,\n\s+phw: dv \? it\.vw \/ 2 : 0, psc: CTM\.sc, pdx: dv \? dv\[0\] : 0, pdy: dv \? dv\[1\] : 0 \};/, 'pinned to its point, its gap widening with the zoom');
   assert.match(STAGE, /dprobePaint\(\);\n\s+labelPainted = true;\n\s+labelGlSync\(\);/, 'last, after the probe is placed');
   for (const m of STAGE.matchAll(/b\.g\.animate\?\.\(/g)) assert.match(STAGE.slice(m.index, m.index + 260), /labelGL\?\.hold\(b\.g, /, 'a scripted fade is held');
 });

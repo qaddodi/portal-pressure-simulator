@@ -19,7 +19,7 @@ test('each abbreviation names a labelled vessel and none ends in a full stop', (
 test('the abbreviation is the first shortening step, kept with the slot, and the circuit\'s unit rule skips it', () => {
   const fn = stage.slice(stage.indexOf('  function shortenItem('), stage.indexOf('  const shortenTo ='));
   assert.match(fn, /if \(abbr && abbrevName\(it\)\) return true;\n\s+if \(it\.short === 2/);
-  assert.match(stage, /short: it\.short \|\| 0, abbr: !!it\.abbr(, au: it\.au)? \}\);/, 'a solved slot remembers its abbreviation');
+  assert.match(stage, /short: it\.short \|\| 0, abbr: !!it\.abbr(, au: it\.au)?(, vh: [^}]+)? \}\);/, 'a solved slot remembers its abbreviation');
   assert.match(stage, /if \(\(prev\.short \|\| prev\.abbr\) && it\.canShort\) shortenTo\(it, \+prev\.short \|\| 0, prev\.abbr\);/, 'a carried slot reads it again');
   assert.match(stage, /if \(it\.short \|\| it\.abbr\) shortenTo\(n, it\.short \|\| 0, it\.abbr\);/, 'live values keep it');
   const pass = stage.slice(stage.indexOf('One unit rule for the whole circuit'), stage.indexOf('// Collateral and shunt lanes, captioned along their run.'));
