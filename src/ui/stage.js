@@ -12855,7 +12855,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (pres && !hasVarices('GV', f)) show.delete('GV');
       // Key, at the home framing on a wide screen: the other major stations too, but only where one fits
       // beside its vessel without a leader (see `minor` below); a phone keeps to the key ones.
-      const minor = new Set(!pres && lvl === 'key' && !zoomed && !compact ? CHIP_NODES.filter((id) => !show.has(id) && id !== 'VAR') : []);
+      const minor = new Set(!pres && lvl === 'key' && !zoomed && !compact ? [...CHIP_NODES, 'HA'].filter((id) => !show.has(id) && id !== 'VAR') : []);
       for (const id of minor) show.add(id);
       if (st.selection?.type === 'node') { show.add(st.selection.id); minor.delete(st.selection.id); }
       const [lx] = worldToLocal(ATLAS_COLUMNS[0], 500), [rx] = worldToLocal(ATLAS_COLUMNS[1], 500);
@@ -13056,10 +13056,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (!hasDot.has(n.id) || !CIRCUIT_LABELS[n.id]) continue;
         if (!nodeVisible(n.id) || labelHidden(n.id)) continue;
         if ((n.id === 'VAR' || n.id === 'GV') && !hasVarices(n.id, f)) continue;
-        if (!open && LIVER_INNER.has(n.id) && !(st.selection?.type === 'node' && st.selection.id === n.id)) continue;
+        if (!open && n.id !== 'HA' && LIVER_INNER.has(n.id) && !(st.selection?.type === 'node' && st.selection.id === n.id)) continue;   // (the hepatic artery's caption stays: it sits between the lobes, not in a lobe)
         // Levels of detail: none shows only a selected station; key, zoomed out, the major ones (and the flagged).
         const isSel = st.selection?.type === 'node' && st.selection.id === n.id, lvlC = st.labelLevel || 'key';
-        if (!isSel && (lvlC === 'none' || (lvlC === 'key' && !zoomedIn() && CIRCUIT_LABELS[n.id].pri < (compact ? 8 : 5) && !flagC.includes(n.id)))) continue;
+        if (!isSel && (lvlC === 'none' || (lvlC === 'key' && !zoomedIn() && CIRCUIT_LABELS[n.id].pri < (compact ? 8 : 5) && n.id !== 'HA' && !flagC.includes(n.id)))) continue;
         const { ax, ay, mid, tan, w: vw } = labelAnchor(n.id, t);
         // The station dot stays where it is; a callout on a vessel also keeps clear of its own marker.
         const [sx, sy] = worldToLocal(...nodePos(n.id, t));
