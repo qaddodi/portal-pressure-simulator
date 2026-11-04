@@ -31,7 +31,7 @@ import { STEP_MAX } from './glide-clock.js';
 import { sinusoidTargets } from './sinusoid-model.js';
 import { createSinusoidGL, poreAt, poreOpenness, calloutPore, cellAtInto, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js';
 import { placeFenDisse } from './fen-place.js';
-import { frameFor, noteDraw, saver, paceMs, renderScale, onRenderScale, easeNow } from './frame.js';
+import { frameFor, noteDraw, saver, paceMs, frameGapFor, renderScale, onRenderScale, easeNow } from './frame.js';
 import { softwareGL, softwareYield } from './sw-yield.js';
 import { noteSinusoidSupport, sinusoidSupported } from './gl-support.js';
 import { FADE_MS, fadeAlpha } from './res-fade.js';
@@ -1266,10 +1266,17 @@ export function createSinusoidView({ host, before = null, share = null }) {
   onSized = wake;
   store.on('*', wake);
   addEventListener('pps:occ', wake);   // (the room the cards leave changed: the view starts gliding to it at once, asleep or not)
+  const CALM_AFTER = 600;   // (ms of only the flow moving before it is drawn at the flow's rate: the anatomy's CALM_AFTER_MS)
+  let busyAt = 0;
   function loop(now) {
     raf = 0;
     if (shown <= 0 || !model) return;
-    if (!dive && !drewNow && now - lastPaint < paceMs()) { raf = nextFrame(loop); return; }
+    // (The governor, frame.js (pure GPU plan C2, C4), as the anatomy has it: a zoom, a dive or a glide draws at once or at the glide's rate;
+    // once only the flow has moved for CALM_AFTER, it is drawn at the flow's 30 Hz, the shader stepping it on its own clock. On a 120 Hz
+    // Mac the sinusoid drew every other screen frame whatever moved (4 Nov 2026, Mohammad: "is it in lobule too? and sinusoid?").)
+    if (dive || drewNow || svMoving || !lastPaint) busyAt = now;
+    const gap = now - busyAt > CALM_AFTER ? Math.max(paceMs(), frameGapFor('flow')) : paceMs();
+    if (!dive && !drewNow && now - lastPaint < gap) { raf = nextFrame(loop); return; }
     if (svYield && !dive && !drewNow && !svYield.ready(now)) { raf = nextFrame(loop); return; }   // (the zoom: drawn by place())
     lastPaint = now;
     const el = (now - (last || now)) / 1000; last = now;
