@@ -131,6 +131,9 @@ export function settleSlope(v, dist, ms, max = 3) {
 // alloc-rare: the curve's string is made once per let-go (a swipe or sheet release), not per frame
 export const carryCurve = (v, dist, ms) => `cubic-bezier(.2, ${(0.2 * settleSlope(v, dist, ms, 4)).toFixed(3)}, .2, 1)`;
 
+/** The release rules every sheet over the thumb dock shares, cards and menus (dock-sheet.js, util.js swipeSheet): a flick is faster than SHEET_FLICK_MIN px/ms as the finger lifted (or over the pull) and further than SHEET_FLICK_FAR px; a pull down past SHEET_CLOSE_PX (or SHEET_CLOSE_SHARE of the sheet's height) closes it. */
+export const SHEET_FLICK_MIN = 0.9, SHEET_FLICK_FAR = 40, SHEET_CLOSE_PX = 90, SHEET_CLOSE_SHARE = 0.3;
+
 /**
  * Whether a pull of `dy` px down (past `far`) was a flick: fast as the finger lifted (`speed`, releaseSpeed, px/ms down), or fast over the whole
  * pull (`avg`, px/ms) and not coming back up as it lifted. Judged by the release alone it caught a quick flick after a slow start, which the

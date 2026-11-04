@@ -6,7 +6,7 @@ import { slideFold } from './fold-slide.js';
 import { classSoon, dataSoon } from './class-soon.js';
 import { moverOf } from './num-move.js';
 import { pullRelease, pullAt, pullStop } from './sheet-pull.js';
-import { releaseSpeed, isFlick, carryCurve, settleSlope, settleAt, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js';
+import { SHEET_FLICK_MIN, SHEET_FLICK_FAR, SHEET_CLOSE_PX, SHEET_CLOSE_SHARE, releaseSpeed, isFlick, carryCurve, settleSlope, settleAt, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js';
 import { leaveFromHere } from './menu-leave.js';
 import { follow2, jumpCount, SHOWN_TAU } from './display-state.js';
 import { measure as measureWords } from './glyph-measure.js';
@@ -1036,66 +1036,87 @@ function liveShift(panel) {
 function sheetGrab(panel, target, t, thumb, easing) {
   let sc = null;
   for (let n = target; n && n !== panel.parentElement; n = n.parentElement) if (n.scrollHeight > n.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(n).overflowY)) { sc = n; break; }
-  return { x: t.clientX, y: t.clientY, top: !sc || sc.scrollTop <= 0, on: false, dy: 0, t: 0, trail: [], shift: easing ? pullAt(easing) : thumb ? 0 : liveShift(panel), h: panel.offsetHeight, thumb, pull: null };
+  return { sc, x: t.clientX, y: t.clientY, top: !sc || sc.scrollTop <= 0, on: false, dy: 0, t: 0, trail: [], shift: easing ? pullAt(easing) : thumb ? 0 : liveShift(panel), h: panel.offsetHeight, thumb, pull: null };
 }
+<<<<<<< Updated upstream
 export function swipeSheet(panel, onClose, enabled = null) {   // (enabled: a card that is a sheet only on a phone says when it is one)
   // Over the thumb dock the sheet slides down behind the tab row: what passes below its resting bottom edge is clipped (its own still clip, app.css).
+=======
+export function swipeSheet(panel, onClose) {
+  // Over the thumb dock the sheet slides down behind the dock: what passes below its resting bottom edge is clipped (its own still clip, app.css).
+>>>>>>> Stashed changes
   const thumbUi = () => document.documentElement.classList.contains('thumb-ui');
   // The pull and the let-go are the compositor's (sheet-pull.js): a move of the finger sets one animation's clock, nothing is written to the
   // panel's style, and the let-go is one animation that carries the finger's speed on. `easing`: the let-go still under way.
+  // (4 Nov 2026, Menu system plan W2: pointer events like the cards' engine (dock-sheet.js), the cards' release rules (SHEET_FLICK_MIN/FAR,
+  // SHEET_CLOSE_PX/SHARE, ease.js), and a pull up past the menu's own height stretches with resistance and springs back, as a card's does at Full.)
   let s = null, easing = null;
   const clearEasing = () => { easing = null; };
-  panel.addEventListener('touchstart', (e) => {
+  panel.addEventListener('pointerdown', (e) => {
     s = null;
+<<<<<<< Updated upstream
     if ((enabled && !enabled()) || e.touches.length !== 1 || e.target.closest('input[type="range"], textarea, [contenteditable]')) return;
     const t = e.touches[0];
+=======
+    if (e.pointerType === 'mouse' || !e.isPrimary || e.target.closest('input[type="range"], textarea, [contenteditable]')) return;
+>>>>>>> Stashed changes
     // (Where the sheet is drawn, how tall it is and whether its list is at the top, read at the touch, never in the moves that follow: sheetGrab.)
-    s = sheetGrab(panel, e.target, t, thumbUi(), easing && !easing.over ? easing : null);
+    s = sheetGrab(panel, e.target, e, thumbUi(), easing && !easing.over ? easing : null);
+    s.id = e.pointerId;
+    s.more = !!s.sc && s.sc.scrollTop + s.sc.clientHeight < s.sc.scrollHeight - 1;   // (a list with more below it scrolls on a pull up; at its end it stretches)
   }, { passive: true });
+  // Once the sheet follows the finger the page must not scroll under it (a pull down from the top of a list is claimed at its first move).
   panel.addEventListener('touchmove', (e) => {
-    if (!s) return;
-    if (e.touches.length !== 1) { end(); return; }
+    if (!s || !e.cancelable) return;
+    if (s.on) { e.preventDefault(); return; }
     const t = e.touches[0], dx = t.clientX - s.x, dy = t.clientY - s.y;
+    if (dy >= Math.abs(dx) && ((dy > 0 && s.top) || (dy < 0 && !s.more))) e.preventDefault();
+  }, { passive: false });
+  panel.addEventListener('pointermove', (e) => {
+    if (!s || e.pointerId !== s.id) return;
+    const dx = e.clientX - s.x, dy = e.clientY - s.y;
     if (!s.on) {
-      // A pull down from the top is the sheet's from its first move (so the page never starts scrolling under it).
-      const down = s.top && dy > 0 && dy >= Math.abs(dx);
-      if (down && e.cancelable) e.preventDefault();
       if (Math.hypot(dx, dy) < 8) return;
-      if (!down) { s = null; return; }
+      // A pull down from the top, or a pull up with nothing more to scroll, is the sheet's; a sideways drag or a list's scroll is not.
+      const mine = Math.abs(dy) > Math.abs(dx) && ((dy > 0 && s.top) || (dy < 0 && !s.more));
+      if (!mine) { s = null; return; }
       // (Caught while it is still easing back: the pull carries on from where the sheet is, without a jump. The new pull is laid under the
       // old let-go's place before that is taken away, so no frame shows the sheet anywhere else.)
       // (Where it is drawn now, from the let-go's own clock: it has kept easing since the touch, so the place read at the touch is behind it.)
       const here = easing && !easing.over ? pullAt(easing) : s.shift;
-      s.on = true; s.y = t.clientY - here; s.t = performance.now();
+      s.on = true; s.y = e.clientY - here; s.t = performance.now();
       classSoon(panel, 'pulling', true);   // (the stylesheet's entrance, if it is still playing, gives way to the finger: a class, written between frames, app.css .pulling)
       s.pull = moverOf(panel, s.thumb ? 'translate' : 'transform', 'y');   // (num-move.js: one paused animation, its clock the finger's distance)
       s.pull.set(0, here);
       pullStop(easing); easing = null;
+      panel.setPointerCapture?.(e.pointerId);
     }
-    if (e.cancelable) e.preventDefault();
-    s.dy = Math.max(0, t.clientY - s.y);
+    const raw = e.clientY - s.y;
+    s.dy = raw >= 0 ? raw : raw * 0.25;   // (past its own height a pull up stretches with resistance, 0.25, as a card does past Full)
     // (The last eight touches, each a pair reused when it falls off the end: only the first eight moves of a drag make one.)
     const tr = s.trail, pair = tr.length >= 8 ? tr.shift() : [0, 0];   // alloc-rare: the first eight moves of a drag, then the pairs are reused
-    pair[0] = performance.now(); pair[1] = t.clientY; tr.push(pair);
+    pair[0] = performance.now(); pair[1] = e.clientY; tr.push(pair);
     s.pull.set(0, s.dy);   // (the finger's distance, a number: the panel is drawn there by the compositor)
-  }, { passive: false });
-  const end = () => {
-    const s0 = s; s = null;
-    if (!s0?.on) return;
+  });
+  const end = (e) => {
+    const s0 = s;
+    if (!s0?.on || (e && e.pointerId !== s0.id)) { if (!e || !s0 || e.pointerId === s0.id) s = null; return; }
+    s = null;
     const speed = releaseSpeed(s0.trail, performance.now());   // (px per ms down, as the finger lifted: the settle starts at that speed)
     // (A flick is how fast the finger was going as it lifted, not only the pull's average: a slow start and a quick flick at the end is one.)
-    const flick = isFlick(s0.dy, speed, s0.dy / Math.max(1, performance.now() - s0.t), 0.6, 30);
+    const flick = isFlick(s0.dy, speed, s0.dy / Math.max(1, performance.now() - s0.t), SHEET_FLICK_MIN, SHEET_FLICK_FAR);
     const H = s0.h;
-    const gone = flick || s0.dy > Math.min(90, H * 0.3);
-    // (A let-go carries the finger's own speed: the curve opens at its slope. Over the thumb dock it sinks behind the tab row, its cut a still
+    const gone = s0.dy > 0 && (flick || s0.dy > Math.min(SHEET_CLOSE_PX, H * SHEET_CLOSE_SHARE));
+    // (A let-go carries the finger's own speed: the curve opens at its slope. Over the thumb dock it sinks behind the dock, its cut a still
     // clip, so the move needs no cut beside it. Away it goes to the sheet's own height and stays there until the menu takes it off.)
     const to = gone ? H : 0, ms = s0.thumb ? 220 : D_SMALL;
     if (gone) dataSoon(panel, 'swiped', '1');
     easing = pullRelease(panel, s0.thumb ? 'translate' : 'transform', s0.pull, s0.dy, to, ms, carryCurve(speed, to - s0.dy, ms), clearEasing);   // alloc-rare: a let-go
     if (gone) onClose();
   };
-  panel.addEventListener('touchend', end);
-  panel.addEventListener('touchcancel', end);
+  panel.addEventListener('pointerup', end);
+  panel.addEventListener('pointercancel', end);
+  panel.addEventListener('lostpointercapture', (e) => { if (e.target === panel) end(e); });
 }
 export function menuItem(label, { checked, onClick, kb, icon: ic } = {}) {
   // A toggle with an icon keeps its icon (so every row in a group has one) and shows its state
