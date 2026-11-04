@@ -396,7 +396,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   }
   // A short glide between framings (the buttons, Fit, a card opening).
   let glide = 0, gliding = false;
-  // A presenter's glide (focusOn): the labels ease out, are not laid out on the way, and ease back in where it lands.
+  // A presenter's glide (focusOn) carries the labels like any glide. camMove is aim's hold only: the labels are out through a dive to an
+  // aimed spot, are not laid out on the way, and come in where focusOn's glide lands.
   let camMove = false, camInT = 0, camUntil = 0, camHeld = false;   // (camHeld: aim's hold, which only focusOn or leaving lets go)
   // A second aim's hold let go where no focusOn will come to do it: the presentation ended, or the view went on into the sinusoid
   // (its labels would otherwise never show again in this lobule).
@@ -426,7 +427,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const from = { ...V }, t0 = performance.now();   // alloc-rare: once as a glide begins (a button, a station, a resize), kept by its frames
     // (Lite mode: the presenter's camera jumps, and the lobule fades in at its new framing.)
     if (reduce.matches || !fade) { camAim = null; Object.assign(V, to); viewChanged(); camSettle(); return; }
-    if (cam && Math.abs(from.k - to.k) + Math.abs(from.x - to.x) + Math.abs(from.y - to.y) > 0.5) { camMove = true; camUntil = t0 + ms + 50; classSoon(el, 'lz-cam-in', false); classSoon(el, 'lz-cam', true); setTimeout(() => { if (camMove && performance.now() >= camUntil) camSettle(); }, ms + 80); } else camSettle();   // alloc-rare: once as a presenter's glide begins
+    // A presenter's glide carries the labels, leaders and dots with the figure (ride, as every other glide does), and they are placed
+    // again in the frame it lands: no fade out at its start, no fade back in on a timer (Z5). Only labels already held out (aim's hold
+    // through a dive, a presenter glide taken over by another) stay out until it lands.
+    if (cam && camMove && Math.abs(from.k - to.k) + Math.abs(from.x - to.x) + Math.abs(from.y - to.y) > 0.5) { camUntil = t0 + ms + 50; setTimeout(() => { if (camMove && performance.now() >= camUntil) camSettle(); }, ms + 80); } else camSettle();   // alloc-rare: once as a held presenter's glide begins
     const clock = steady ? glideClock() : null;
     const c0 = v0 ? carryRate(v0, from, to, Math.max(1, snap.w)) * ms : 0;
     const step = (now) => {   // alloc-rare: once as a glide begins (the frames below allocate nothing)
