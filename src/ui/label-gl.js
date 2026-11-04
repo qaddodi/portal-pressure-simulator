@@ -30,6 +30,7 @@ import { planRepack, stepRepack, reconcileRepack, commitRepack } from './label-r
 import { classSoon } from './class-soon.js';
 import { readStyle } from './layout-snap.js';
 import { reduceMotionMQ } from './motion.js';
+import { leaderEnd } from './leader-end.js';
 import { darkMQ } from './look.js';
 const HOLE_MESH = { tri: null, seg: null, nTri: 0, nSeg: 0 };   // alloc-rare: made once (a hole's mask is meshed into it and released after its draw)
 // (The colour a clear writes, one array for every clear: none made per call, plan rev 2 §2.8.)
@@ -1848,6 +1849,21 @@ void main() { o = texture(uT, vUV) * uA; }`;
     markDrawn++;
     return true;
   }
+  // One leader's two ends (leader rule L3, device px, into PG): it starts just outside the dot's ring (or on the point where there is no dot) and
+  // ends on the edge of the letters: the picture's box less its margin (2 px) and the room it keeps above and below the letters (a fifth of its
+  // height), the same for every view. False when the point lies inside the letters (no leader).
+  const LG_BOX = { x0: 0, y0: 0, x1: 0, y1: 0, r: 0 };
+  function leaderGeom(px, py, lx, ly, w, h, dotR) {
+    const m = 2 * dpr, v = h * 0.2;
+    LG_BOX.x0 = lx + m; LG_BOX.x1 = lx + w - m; LG_BOX.y0 = ly + v; LG_BOX.y1 = ly + h - v;
+    const e = leaderEnd(LG_BOX, px, py);
+    if (!e) return false;
+    let dx = e.x - px, dy = e.y - py;
+    const L = Math.hypot(dx, dy), s0 = dotR > 0 ? (dotR + 1.5) * dpr : 0;
+    if (L <= s0 + dpr) return false;
+    PG[0] = px + (dx / L) * s0; PG[1] = py + (dy / L) * s0; PG[2] = e.x; PG[3] = e.y;
+    return true;
+  }
   function drawPins(now) {
     for (const lk of pinLooks.values()) { if (lk.line?.stroke && lk.line.op > 0.5 && !defLine) defLine = lk.line; if (lk.dot && !defDot) defDot = lk.dot; }
     // (No leader seen yet, a Circuit opened with none: the page's leader colour, read once from a leader the page has, else its text's.)
@@ -1868,11 +1884,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
       if (!rec) pinDrawn.set(key, rec = { seq: -1, hasLine: false, hasDot: false, line: new Float64Array(4), dot: new Float64Array(2), a: 0 });   // alloc-rare: one record per pinned label key
       rec.seq = frameSeq; rec.hasLine = false; rec.hasDot = false; rec.a = a;
       // (The leader: only where the layout asked for one (want bit 4), from the point to the picture's edge once the picture stands clear of it.)
-      const cx = lx + st.w / 2, cy = ly + st.h / 2, dx = cx - px, dy = cy - py, hw = st.w / 2, hh = st.h / 2;
       const gap = Math.hypot(Math.max(lx - px, 0, px - (lx + st.w)), Math.max(ly - py, 0, py - (ly + st.h))) / dpr;
-      if ((want & 4) && gap > 2) {
-        const t = 1 - Math.min(dx ? hw / Math.abs(dx) : Infinity, dy ? hh / Math.abs(dy) : Infinity);
-        PG[0] = px; PG[1] = py; PG[2] = px + dx * t; PG[3] = py + dy * t;
+      if ((want & 4) && gap > 2 && leaderGeom(px, py, lx, ly, st.w, st.h, want & 1 ? lk?.dotR ?? 2.4 : 0)) {
         if (pinMark(lk?.line?.stroke ? lk.line : defLine, PG, true, a)) { rec.hasLine = true; for (let i = 0; i < 4; i++) rec.line[i] = PG[i] / dpr; }
       }
       if (want & 1) {
@@ -1889,11 +1902,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
       const a = Math.min(1, st.opacity) * xfOld * gh.a0;
       if (!(a > 0.001)) continue;
       const px = gh.px * dpr, py = gh.py * dpr, lx = gh.lx, ly = gh.ly;
-      const cx = lx + st.w / 2, cy = ly + st.h / 2, dx = cx - px, dy = cy - py, hw = st.w / 2, hh = st.h / 2;
       const gap = Math.hypot(Math.max(lx - px, 0, px - (lx + st.w)), Math.max(ly - py, 0, py - (ly + st.h))) / dpr;
-      if ((gh.want & 4) && gap > 2) {
-        const t = 1 - Math.min(dx ? hw / Math.abs(dx) : Infinity, dy ? hh / Math.abs(dy) : Infinity);
-        PG[0] = px; PG[1] = py; PG[2] = px + dx * t; PG[3] = py + dy * t;
+      if ((gh.want & 4) && gap > 2 && leaderGeom(px, py, lx, ly, st.w, st.h, gh.want & 1 ? lk?.dotR ?? 2.4 : 0)) {
         pinMark(lk?.line?.stroke ? lk.line : defLine, PG, true, a);
       }
       if (gh.want & 1) {
