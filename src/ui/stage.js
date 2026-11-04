@@ -11475,7 +11475,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const at = pin.at?.P[NI[id]];
       P = Number.isFinite(at) && Math.abs(P - at) < breath(at) ? at : beatMean('n:' + id, P, 6);
     }
-    let name = mode === 'atlas' ? (meta?.name || NODES[NI[id]].label) : id === 'HA' ? 'HA' : (SHORT[id] || id);   // (the hepatic artery reads "HA" on the figure, Mohammad 4 Nov; its card has the full name)
+    let name = mode === 'atlas' ? (meta?.name || NODES[NI[id]].label) : (SHORT[id] || id);
     // On a presenter's ladder and catheter slides, the stations the ladder names carry its name too (one vocabulary).
     if (st.presenting && st.presentNames && LADDER_TAG[id]) name += ` · ${LADDER_TAG[id]}`;
     // On a small screen an inline label is one quiet line (name, value) on a text halo, not a
@@ -11496,7 +11496,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (exp) lines.push([{ t: explainText({ name: (meta?.name || NODES[NI[id]].label) !== name ? meta?.name || NODES[NI[id]].label : '', what: 'mean', value: Number.isFinite(P) ? P : NaN, flow: throughput(f.Qf || f.Q, id) }), size: 12, weight: 600, cls: 'lb-explain' }]);
     const w = Math.max(...lines.map(lineW)) + (mode === 'atlas' ? 7 : 0);
     const hh = lines.reduce((a, l) => a + LINE_H(l), 0);
-    return { key: 'n:' + id, src: ['node', id, mode, compact], node: id, cls: 'node ' + mode + (one ? ' bare' : ''), lines, w, h: hh, sel, canShort: !!pr && mode !== 'atlas' && !exp, label: `${NODES[NI[id]].label}${lr ? `: ${lr.runs.filter((r) => r.cls !== 'lb-rev').map((r) => r.t).join(' ')}` : pr ? `: ${fmt(P, 1)} millimeters of mercury` : ''}${rev ? ', flow reversed' : ''}`,
+    return { key: 'n:' + id, src: ['node', id, mode, compact], node: id, cls: 'node ' + mode + (one ? ' bare' : ''), lines, w, h: hh, sel, canShort: (!!pr || id === 'HA') && mode !== 'atlas' && !exp,   // (the hepatic artery has no number to drop, but takes its abbreviation, "HA", where it is crowded)
+ label: `${NODES[NI[id]].label}${lr ? `: ${lr.runs.filter((r) => r.cls !== 'lb-rev').map((r) => r.t).join(' ')}` : pr ? `: ${fmt(P, 1)} millimeters of mercury` : ''}${rev ? ', flow reversed' : ''}`,
       swatch: mode === 'atlas' && pr ? (lr ? lr.color : layerMode() === 'heat' ? heatColor(P - (REF()?.[NI[id]] ?? P)) : pressureColor(P)) : null, bg: mode === 'inline' && !one, padX: mode === 'inline' && !one ? 6 : 3, padY: mode === 'inline' && !one ? 3 : 2 };
   }
 
@@ -12829,7 +12830,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // (Mohammad, 4 Nov: "when there is no room we shouldn't have labels covering like portal vein and structures completely".) A station's label that could only be
       // placed over a vessel does not cover it: it takes its abbreviation first, then drops its unit and change, and where it still has no room it is left out. A label the
       // reader asked for (selected, or named by a slide) is the exception and keeps its spot.)
-      if (best && best.onLine > 0 && it.key.startsWith('n:') && !it.sel && !st.presenting) best = null;
+      if (best && best.onLine > 0 && it.key.startsWith('n:') && !it.sel && !st.presenting && !(it.node === 'HA' && it.abbr)) best = null;   // (the hepatic artery always shows: once it reads "HA" it keeps its spot)
       if (reslot && (!best || lineHits(best.r, 2) || callouts.some((b) => hits(best.r, b)))) { stale = true; return false; }
       if (!best) {
         // No room with the value: try it without its units and change, then the name alone (up to maxShort), before giving the label up.

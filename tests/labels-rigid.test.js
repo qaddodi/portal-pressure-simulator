@@ -75,6 +75,7 @@ test('crowded labels: abbreviate first, never cover a vessel (Mohammad, 4 Nov)',
   for (const k of ['HA', 'CONF', 'RPV', 'LPV', 'SV', 'RHV', 'MHV', 'LHV']) assert.ok(new RegExp(`\\b${k}: '`).test(an.slice(an.indexOf('export const ABBR'))));
 });
 
-test('the hepatic artery label reads HA', () => {
-  assert.ok(st.includes("id === 'HA' ? 'HA' : (SHORT[id] || id)"));
+test('the hepatic artery label abbreviates to HA only when crowded', () => {
+  assert.ok(st.includes("(!!pr || id === 'HA') && mode !== 'atlas'"));
+  assert.ok(!st.includes("id === 'HA' ? 'HA' : (SHORT[id] || id)"));
 });
