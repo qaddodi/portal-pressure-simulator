@@ -7,7 +7,7 @@ import { COUNTED, gpuProbe } from './gpu-probe.js';
 import { store } from './store.js';
 
 export function createLabelDriver(st, live) {
-  const { E, EI, EV, LABEL_FIRST_REST_MS, LABEL_REST_SLICE_MS, LABEL_SLICE_MS, calloutSig, camSettle, cath, dop, dpr, dprobePaint, easeInOut, explain, fxBuild, hasVarices, isImaging, labelBase, labelGlSync, layerMode, layoutLabels, layoutLabelsGen, nextFrame, nodeItem, pre, preAbort, preAsk, pzInset, refreshCTM, renderBlock, resItem, sameDeps, scan, scanItem, scanPaint, shortenTo, sigFold, sites, sitesPaint, stageBox, themeKey, velItem, wrap, xfMarkCurrent, xfRelease } = st;
+  const { E, EI, EV, LABEL_FIRST_REST_MS, LABEL_REST_SLICE_MS, LABEL_SLICE_MS, calloutSig, camSettle, cath, dop, dpr, dprobePaint, easeInOut, explain, fxBuild, hasVarices, isImaging, labelBase, labelGlSync, layerMode, layoutLabels, layoutLabelsGen, nextFrame, nodeItem, pre, preAsk, pzInset, refreshCTM, renderBlock, resItem, sameDeps, scan, scanItem, scanPaint, shortenTo, sigFold, sites, sitesPaint, stageBox, themeKey, velItem, wrap, xfMarkCurrent, xfRelease } = st;
   const SOLVED_A = { sig: null, sc: 0, th: 0, csig: 0, ins: 0 }, SOLVED_B = { sig: null, sc: 0, th: 0, csig: 0, ins: 0 };   // (what updateLabels writes it into, by turns)
   const JOB_NOW = { maxWait: 0 };
   const HAND_STILL_MS = 90;   // (a wheel step is over this long after its last tick: the settle no longer waits the 250 ms of gestureOn)
@@ -208,8 +208,7 @@ export function createLabelDriver(st, live) {
         // they are, so each frame of a zoom or glide that asked for a fresh solve left them one more frame behind the figure, and
         // dropped the sliced solve the next frame. Mohammad, 2 Nov: "the labels and callouts move slower than the figure camera".)
         if (live.solvedFor && live.solvedFor.view === live.morphTarget && !(live.morph > 0 && live.morph < 1)) layoutLabels(f, false);   // (not another view's solution: its anchors are that view's world points, which would stand the labels and their dots where the figure has none)
-        preAbort();
-        const g = layoutLabelsGen(f, true);
+        const g = layoutLabelsGen(f, true);   // (the other view's solve ahead of time goes on: it has scratch of its own, stage-label-solve.js)
         if (!labelSliceRun(g, live.xfSolving ? 2 : live.gestureOn() || live.drifting || (live.morph > 0 && live.morph < 1) ? LABEL_SLICE_MS : LABEL_FIRST_REST_MS)) {   // (at rest the first slice is long: most solves land in it)
           live.labelJob = JOB; JOB.g = g; JOB.key = keyInto(jobKeyArr, key); JOB.solvedFor = sf; JOB.xfTap = null; JOB.t0 = performance.now(); stats.jobs++;
           mayTask('label solve', labelJobStep, !live.gestureOn() ? JOB_NOW : undefined);   // (at rest the slices run every frame, none waits two)

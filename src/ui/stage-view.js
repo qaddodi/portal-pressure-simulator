@@ -172,13 +172,13 @@ export function createView(st, live) {
     live.labelGL.crossfade(m.o, m.n);
     if (p >= 1 || live.morph === live.morphTarget) viewXfEnd();
   }
-  // The other view's labels solved ahead, in idle slices (a dry solve at that view's end state, the slots kept by a key of what the labels
-  // show, the framing and the stage): at a tap they are carried, with no solve. A real solve, a carry or anything moving drops one in progress.
-  // (slots, key, slotsTgt, slotsD: the last whole solve and what it was made for, kept while the next is made, so a tap mid-way still finds one;
-  // g, gKey, d, tgt: the solve under way.)
-  const pre = { need: true, g: null, key: null, gKey: null, cur: '', d: null, tgt: 0, slots: null, slotsTgt: -1, slotsD: null, tasked: false };
-  const cutSig = (t) => t.slice(t.indexOf('|'));
-  function preKey(d) { return `${cutSig(labelSig(live.F))}|${Math.round(d.k * 100)},${Math.round(d.x)},${Math.round(d.y)},${stageBox().width},${stageBox().height},${live.rotU > 0.5},${live.labelFonts},${live.calloutSig()},${live.labelIns()}`; }
+  // The other view's labels solved ahead, in idle slices (a dry solve at that view's end state, the slots kept by a key of what the labels show, the framing and
+  // the stage): at a tap they are carried, with no solve. Anything moving drops one in progress, the view's own layouts (every frame or two on a playing model) do
+  // not: it has scratch of its own (stage-label-solve.js DRY_SC, segIdxDry). A new framing or stage begins it again (preSlice). (slots, key, slotsTgt, slotsD: the
+  // last whole solve and what it was made for, kept while the next is made, so a tap mid-way still finds one; g, gKey, gFrame, d, tgt, k: the solve under way.)
+  const pre = { need: true, g: null, key: null, gKey: null, gFrame: '', cur: '', d: null, tgt: 0, k: 1, slots: null, slotsTgt: -1, slotsD: null, tasked: false };
+  const cutSig = (t) => t.slice(t.indexOf('|')), preFrame = (d) => `${Math.round(d.k * 100)},${Math.round(d.x)},${Math.round(d.y)},${stageBox().width},${stageBox().height},${live.rotU > 0.5},${live.labelFonts},${live.calloutSig()},${live.labelIns()}`;
+  function preKey(d) { return `${cutSig(labelSig(live.F))}|${preFrame(d)}`; }
   function preAbort() { if (pre.g) { pre.g.return(); pre.g = null; pre.need = true; } }
   // (The kept slots' framing near enough the tap's to carry them: the same zoom within a tenth, the centre within an eighth of the stage.)
   function preNear(d) {
@@ -216,36 +216,37 @@ export function createView(st, live) {
   }
   function preStep() {
     pre.tasked = false;
-    if (!preIdle()) { preAbort(); return false; }
+    if (!preIdle()) preAbort(); else if (!preSlice(3)) { pre.tasked = true; mayTask('label presolve', preStep, live.JOB_NOW); }
+    return false;
+  }
+  // (A slice of ms, at the other view's end state; true once landed. What the solve sets on the stage is put back: slots, turn, label scale, lines' index.)
+  function preSlice(ms) {
     const tgt = live.morphTarget === 0 ? 1 : 0;
-    const keepSol = live.labelSol, keepSpare = live.labelSolSpare, keepTurn = live.labelTurned, keepK = live.labelK, kn = live.lbkNum, ks = live.lbkStr;
+    // (A new solve's framing is read before the stage is put to its end: read inside, a framing moved since the last (a zoom) began it for the old one.)
+    if (pre.g && (pre.tgt !== tgt || preFrame(pre.d) !== pre.gFrame || !sameView(preFraming(tgt), pre.d))) preAbort();
+    if (!pre.g) { pre.d = preFraming(tgt); pre.tgt = tgt; pre.gFrame = preFrame(pre.d); }
+    const keepSol = live.labelSol, keepSpare = live.labelSolSpare, keepTurn = live.labelTurned, keepK = live.labelK, kn = live.lbkNum, ks = live.lbkStr, keepIdx = live.segIdx;
     const dk = live.gLabels.dataset.k, lv = live.gLabels.style.getPropertyValue('--lbk');
     let done = false;
-    // (A new solve's framing is read before the stage is put to its end: it was read inside, after the first slice's stage had been put at the
-    // last solve's framing, so a framing that had moved since (a zoom in the anatomy) keyed and began its solve for the old one.)
-    if (!pre.g) { pre.d = preFraming(tgt); pre.tgt = tgt; }
     try {
       atTargetStage(pre.d, () => {
-        if (!pre.g) {
-          pre.need = false;
-          pre.gKey = preKey(pre.d);
-          live.labelSol = new Map(keepSol);   // (a turn between the views clears the slots it finds: not the standing ones)
-          pre.g = layoutLabelsGen(live.F, true, true);
-        }
-        done = labelSliceRun(pre.g, 3).valueOf();
+        live.segIdx = live.segIdxDry;   // (its own lines, built by its first slice that needs them, untouched by the live layouts' builds)
+        if (!pre.g) { pre.need = false; pre.gKey = preKey(pre.d); live.labelSol = new Map(keepSol); pre.g = layoutLabelsGen(live.F, true, true); }   // (a copy: a turn between the views clears the slots it finds)
+        else live.labelK = pre.k;   // (the target view's label scale, which its first slice set: the gaps between a reading's runs are measured with it)
+        done = labelSliceRun(pre.g, ms).valueOf(); pre.k = live.labelK;
         if (done) { const m = new Map(); for (const [k, v] of live.labelSol) m.set(k, { ...v }); pre.slots = m; pre.key = pre.gKey; pre.slotsTgt = pre.tgt; pre.slotsD = { ...pre.d }; pre.cur = ''; }
       }, tgt);
     } catch (e) { pre.g = null; pre.d = null; throw e; }
     finally {
-      live.labelSol = keepSol; live.labelSolSpare = keepSpare; live.labelTurned = keepTurn; live.labelK = keepK; live.lbkNum = kn; live.lbkStr = ks;
+      live.labelSol = keepSol; live.labelSolSpare = keepSpare; live.labelTurned = keepTurn; live.labelK = keepK; live.lbkNum = kn; live.lbkStr = ks; live.segIdx = keepIdx;
       if (dk === undefined) delete live.gLabels.dataset.k; else live.gLabels.dataset.k = dk;
       if (lv) live.gLabels.style.setProperty('--lbk', lv);
     }
-    if (done) { pre.g = null; pre.cur = preNowKey(); return false; }
-    pre.tasked = true;
-    mayTask('label presolve', preStep, live.JOB_NOW);
-    return false;
+    if (done) { pre.g = null; pre.cur = preNowKey(); }
+    return done;
   }
+  // (The node check's (tests/label-presolve-interleave.test.js): a whole run in slices of ms, between() after each that did not land.)
+  function preRun(ms, between) { preAbort(); let n = 1; for (; !preSlice(ms); n++) between?.(); return { slots: pre.slots, slices: n }; }
   // (The framing a tap on the other view would take: setView.)
   function preFraming(tgt) {
     const wasOut = tgt === 1 && (live.vt.k <= 1.001 || (live.homeAt && sameView(live.vt, live.homeAt)));
@@ -274,5 +275,5 @@ export function createView(st, live) {
     if (live.F && x.sigTap && !live.labelJob) xfMarkCurrent(x.sigTap);
     if (live.F) updateLabels(live.F);
   }
-  return { morphAnchorAt, pre, preAbort, preAsk, viewXfP, viewXfStart, viewXfStep, xfMarkCurrent, xfRelease };
+  return { morphAnchorAt, pre, preAbort, preAsk, preRun, viewXfP, viewXfStart, viewXfStep, xfMarkCurrent, xfRelease };
 }

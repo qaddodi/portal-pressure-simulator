@@ -15,12 +15,12 @@ import { store } from './store.js';
 
 export function createLabelSolve(st, live) {
   const { ANAT_EXTRA, ANAT_PRI, CIRCUIT_LABEL_K, E, EBOX, EI, KEY_NODES, LINE_H, LW_XY, MARK_GRID, NI, NO_BLK, PIN_DIR, PULL_GRID, TURN_DIR, ZONE_SHORT, arcMid, blockWant, buildSegs, caliperAt, caliperSegs, calloutBoxes, cath, cathRadOf, clampD, clampFontAt, clampLabelAt, clampLabelPos, clampMv, clampStep, clampTextBox, clampW, colGap, dop, dpr, easeInOut, flagged, fontPx, fxBuild, fxK, fxPill, gLabels, gScan, geo, glass, hasDot, hasVarices, isImaging, labelAnchor, labelBase, labelGlide, labelHidden, labelStop, labelVis, laneAlt, laneU, leadEls, leadRectOf, leaderEnd, lineHits, lineW, liverExpanded, localToWorld, localWorldXY, nodeItem, nodePos, onSelect, oneLine, organEls, ov, paintLeaders, pointAt, pool, procIn, pzInset, rectOf, renderBlock, resItem, resPlace, saSides, scan, scanTipLocal, seenEnd, shortenItem, shortenTo, sites, sliceOver, stageBox, stagePx, stenosisAt, stentReady, textW, velItem, vh, worldToLocal, worldToLocalInto, zoneStick, zoomedIn } = st;
-  const LAB_VIEW = { x0: 0, y0: 0, x1: 0, y1: 0 }, LAB_PLAIN = { x0: 0, y0: 0, x1: 0, y1: 0 }, LAB_PTVIEW = { x0: 0, y0: 0, x1: 0, y1: 0 };
-  const viewOf = (it) => (it.key === 'scan' ? LAB_PLAIN : it.point || (dop.all && /^focus/.test(it.key)) ? LAB_PTVIEW : LAB_VIEW);
-  const OBST_BUF = [], PLACED_BUF = [], CLAMP_ALTS = [];
+  // (What a layout keeps from label to label across a solve's slices (views, obstacles, boxes, callouts, "60 %" spots, stent dots, arrows, slots), in two records: the live layout's and the dry solve ahead's (stage-view.js preStep), which runs between live layouts.)
+  const rect0 = () => ({ x0: 0, y0: 0, x1: 0, y1: 0 }), scratch = () => ({ view: rect0(), plain: rect0(), ptView: rect0(), obst: [], placed: [], call: [], clampAlts: [], markDots: [[0, 0], [0, 0], [0, 0]], markArrows: [], markTris: Array.from({ length: 8 }, () => [[0, 0], [0, 0], [0, 0]]), sol: new Map() });
+  const LIVE_SC = scratch(), DRY_SC = scratch();
+  const viewOf = (it, S) => (it.key === 'scan' ? S.plain : it.point || (dop.all && /^focus/.test(it.key)) ? S.ptView : S.view);
   const FAR_DIRS = ['SE', 'NE', 'SW', 'NW', 'E', 'W', 'S', 'N'];
   const STENT_PTS = ['proximal', 'mid', 'distal'];
-  const MARK_DOTS = [[0, 0], [0, 0], [0, 0]];
   const SB_A = [0, 0], SB_B = [0, 0], SB_C = [0, 0], SP_P = [0, 0], SP_Q = [0, 0];
   const SC_R = { x0: 0, y0: 0, x1: 0, y1: 0 };
   const LANE = { ox: 0, oy: 0, ux: 0, uy: 0 };
@@ -33,12 +33,12 @@ export function createLabelSolve(st, live) {
   // A stent's point on the screen, written into `out`.
   function pointAtLocal(out, pts, u) { const p = pointAt(pts, u); return worldToLocalInto(out, p[0], p[1]); }
   // (A slide's caliper or bracket: boxes along the line from p to q, pushed on the boxes placed.)
-  function segBoxes(p, q, pad) {
+  function segBoxes(placed, p, q, pad) {
     worldToLocalInto(SB_A, p[0], p[1]); worldToLocalInto(SB_B, q[0], q[1]);
     const x0 = SB_A[0], y0 = SB_A[1], x1 = SB_B[0], y1 = SB_B[1], n = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 8));
     for (let i = 0; i < n; i++) {
       const u0 = i / n, u1 = (i + 1) / n, xa = x0 + (x1 - x0) * u0, xb = x0 + (x1 - x0) * u1, ya = y0 + (y1 - y0) * u0, yb = y0 + (y1 - y0) * u1;
-      PLACED_BUF.push({ x0: Math.min(xa, xb) - pad, y0: Math.min(ya, yb) - pad, x1: Math.max(xa, xb) + pad, y1: Math.max(ya, yb) + pad, dot: true });
+      placed.push({ x0: Math.min(xa, xb) - pad, y0: Math.min(ya, yb) - pad, x1: Math.max(xa, xb) + pad, y1: Math.max(ya, yb) + pad, dot: true });
     }
   }
   // lineW of a line with every figure run read as "000" (the widest a reading's figures can be).
@@ -96,8 +96,7 @@ export function createLabelSolve(st, live) {
   // One label at a time, so the context is kept and the box is a kept record.)
   const CLB = { c: null, base: null, ox: 0, oy: 0, id: '', credit: null, probe: null, view: null };
   const CLB_BASE = { x0: 0, y0: 0, x1: 0, y1: 0 }, CLB_R = { x0: 0, y0: 0, x1: 0, y1: 0 }, BOX_TMP = { x0: 0, y0: 0, x1: 0, y1: 0 };
-  const PROBE_BUF = [], CLAMP_SEEN = new Set(), MARK_TRIS = [], MARK_ARROWS = [];
-  for (let i = 0; i < 8; i++) MARK_TRIS.push([[0, 0], [0, 0], [0, 0]]);
+  const PROBE_BUF = [], CLAMP_SEEN = new Set();
   const PROBE_STEPS = [];
   for (let px = 0; px <= 80; px += 8) for (let tp = -88; tp <= 88; tp += 8) if (px || tp) PROBE_STEPS.push([px, tp]);
   PROBE_STEPS.sort((u, v) => Math.hypot(...u) - Math.hypot(...v));
@@ -139,6 +138,7 @@ export function createLabelSolve(st, live) {
   // (The layout itself, a generator: a solve yields between labels once its slice is spent (sliceOver); run whole, it never yields.)
   function* layoutLabelsGen(f, solve, dry = false) {
     live.frameNo++;
+    const S = dry ? DRY_SC : LIVE_SC;
     const st = store.get();
     const t = easeInOut(live.morph);
     const circuit = t >= 0.5;
@@ -154,7 +154,7 @@ export function createLabelSolve(st, live) {
     // (On a wide screen's slide the readings keep the slides' one margin from every edge, as the cards do, and stay above the nav
     // pill's row: 17 Oct design review, a reading had stood 8 px from the right edge, and another level with the pill.)
     const M = st.presenting && live.pillEdge ? live.pillEdge.m : 6;
-    const view = LAB_VIEW, plain = LAB_PLAIN;
+    const view = S.view, plain = S.plain, ptView = S.ptView;
     view.x0 = M; view.y0 = M; view.x1 = W - M; view.y1 = H - M; plain.x0 = 6; plain.y0 = 6; plain.x1 = W - 6; plain.y1 = H - 6;   // plain: the whole stage, for the FibroScan callout, which keeps with its probe (see below)
     if (st.presenting && live.pillEdge) view.y1 = Math.max(H * 0.5, Math.min(view.y1, live.pillEdge.top - 8));
     // (A label keeps out of the sensor housing and the rounded corners of a phone held sideways: the stage runs edge to edge under them.)
@@ -163,29 +163,29 @@ export function createLabelSolve(st, live) {
     if (st.presenting) { view.x0 = Math.max(view.x0, pzInset('--pz-l') + 30); view.y0 = Math.max(view.y0, pzInset('--pz-t') + 12); }
     // (A stent's point, and the slide's mark beside it, come as near the top card as they may come to any card (4 px past its box, and
     // a pixel to spare), so the point nearest it can still stand level with its dot: Review 16 Oct.)
-    const ptView = LAB_PTVIEW;
     ptView.x0 = view.x0; ptView.y0 = st.presenting ? Math.max(6, pzInset('--pz-t') + 5) : view.y0; ptView.x1 = view.x1; ptView.y1 = view.y1;
     const compact = W < 700;
     // Floating panels over the figure (notifications, hint cards, banners): a label under one is hidden.
     // Their boxes are read before this frame's SVG changes (see updateInner), while layout is clean.
     const blockers = live.blockerBoxes || NO_BLK;   // (none read yet: read first in the next frame, see updateInner)
-    const callouts = calloutBoxes();
-    const obstacles = OBST_BUF;   // what can hide a label this frame
+    const callouts = S.call, cb = calloutBoxes();   // (copied: the list calloutBoxes gives is rewritten by the next layout's call)
+    callouts.length = 0; for (let i = 0; i < cb.length; i++) callouts.push(cb[i]);
+    const obstacles = S.obst;   // what can hide a label this frame
     obstacles.length = 0;
     for (let i = 0; i < blockers.length; i++) obstacles.push(blockers[i]);
     for (let i = 0; i < callouts.length; i++) obstacles.push(callouts[i]);
-    const placed = PLACED_BUF;
+    const placed = S.placed;
     placed.length = 0;
     if (solve) for (let i = 0; i < callouts.length; i++) { const b = callouts[i]; placed.push({ x0: b.x0 - 3, y0: b.y0 - 3, x1: b.x1 + 3, y1: b.y1 + 3, call: true, probe: !!b.probe }); }
     // (A slide's calipers and brackets (package F) are lines no label may sit on, their own readings included: boxes along each.)
     if (solve && live.fx) {
-      if (!circuit) for (const c of live.fx.calipers) { const g = caliperSegs(c, f); if (g) for (const [p, q] of g.segs) segBoxes(p, q, 5); }
+      if (!circuit) for (const c of live.fx.calipers) { const g = caliperSegs(c, f); if (g) for (const [p, q] of g.segs) segBoxes(placed, p, q, 5); }
       if (circuit) for (const sp of live.fx.spans) {
         const at = spanOf(sp.from, sp.to, fxK());
         if (at) {
-          SP_P[0] = at.x0; SP_P[1] = at.y; SP_Q[0] = at.x1; SP_Q[1] = at.y; segBoxes(SP_P, SP_Q, 5);
-          SP_P[0] = at.x0; SP_P[1] = at.y - SPAN_TICK; SP_Q[0] = at.x0; SP_Q[1] = at.y; segBoxes(SP_P, SP_Q, 5);
-          SP_P[0] = at.x1; SP_P[1] = at.y - SPAN_TICK; SP_Q[0] = at.x1; SP_Q[1] = at.y; segBoxes(SP_P, SP_Q, 5);
+          SP_P[0] = at.x0; SP_P[1] = at.y; SP_Q[0] = at.x1; SP_Q[1] = at.y; segBoxes(placed, SP_P, SP_Q, 5);
+          SP_P[0] = at.x0; SP_P[1] = at.y - SPAN_TICK; SP_Q[0] = at.x0; SP_Q[1] = at.y; segBoxes(placed, SP_P, SP_Q, 5);
+          SP_P[0] = at.x1; SP_P[1] = at.y - SPAN_TICK; SP_Q[0] = at.x1; SP_Q[1] = at.y; segBoxes(placed, SP_P, SP_Q, 5);
         }
       }
     }
@@ -193,8 +193,8 @@ export function createLabelSolve(st, live) {
     // spot when another point is picked. It moves whenever a label comes to cover it, and does not come back.)
     // (Its box read with the cards', first in a frame: readBlockersRead.)
     const creditBox = solve && dop.all ? live.creditKept : null;
-    const markDots = solve && dop.all && dop.id && geo[dop.id]?.cur?.length > 1 ? MARK_DOTS : null;   // (the stent's three dots: kept pairs)
-    if (markDots) for (let i = 0; i < 3; i++) pointAtLocal(MARK_DOTS[i], geo[dop.id].cur, STENT_SITES[STENT_PTS[i]]);
+    const markDots = solve && dop.all && dop.id && geo[dop.id]?.cur?.length > 1 ? S.markDots : null;   // (the stent's three dots: kept pairs)
+    if (markDots) for (let i = 0; i < 3; i++) pointAtLocal(markDots[i], geo[dop.id].cur, STENT_SITES[STENT_PTS[i]]);
     const later = [];   // labels placed after the slide's marks (a stent's points other than the sampled one)
     // Where a stent's point goes when nothing near its third is free: a little farther out on a leader that crosses no label (diagonal
     // first, which clears a narrowing's clamp above or below its "60 %"), then farther still.
@@ -202,7 +202,7 @@ export function createLabelSolve(st, live) {
     // little, nearest first, so its leader can pass by the narrowing's clamp and its label sit in the gap that is left.)
     const SLID = (far) => [far + 12, far + 48, far + 84].flatMap((gap) => [-24, 24, -48, 48, -72, 72].map((y) => ({ gap, leader: true, uncrossed: true, shift: [0, y] })));
     let stale = false;
-    const prevSol = live.labelSol, nextSol = solve ? live.labelSolSpare : live.labelSol;   // (the one that was not kept last time, cleared: the two take turns)
+    const prevSol = live.labelSol, nextSol = solve ? (dry ? S.sol : live.labelSolSpare) : live.labelSol;   // (the one that was not kept last time, cleared: the two take turns; a dry solve's own)
     if (solve) nextSol.clear();
     // (A solve in the anatomy at the zoom, turn and view it was last solved for (a pan, a value that changed what shows): every label
     // whose old spot beside its point is still free keeps it, and only the others are placed again. Solved whole, a pan's release had
@@ -212,8 +212,8 @@ export function createLabelSolve(st, live) {
     const out = [];
     const leaders = [];   // { k, tag, at }: every line, then every dot (paintLeaders)
     let useLines = false, rings = [], ringXY = [];   // rings: the Circuit's stations with a reading (see placeMulti); ringXY: their dots
-    const clampAlts = CLAMP_ALTS;   // (the column's "60 %": other spots off the vessels, nearest first, for the slide's mark)
-    const buildLines = () => { if (solve && !useLines) { useLines = true; buildSegs(); } };
+    const clampAlts = S.clampAlts;   // (the column's "60 %": other spots off the vessels, nearest first, for the slide's mark)
+    const buildLines = () => { if (solve && !useLines) { useLines = true; buildSegs(dry ? live.segIdxDry : null); } };   // (a dry solve's lines in an index of its own: preStep)
     // A stent called out at its three points: the three stand in a column beside their own dots, distal to proximal in the stent's
     // own order, on the side with room (off the cards and the stage edge, over the fewest vessels). The side is chosen from the stent
     // and the screen alone, never from the point sampled, so nothing moves when another point is picked; the "60 %" takes the other side.
@@ -347,7 +347,7 @@ export function createLabelSolve(st, live) {
     }
     // (The column's narrowing arrows, for the slide's mark: its leader keeps 6 px off them, as drawn (their triangles, not their
     // boxes, so a leader straight up between them still passes): Review 16 Oct.)
-    const markArrows = MARK_ARROWS;
+    const markArrows = S.markArrows, markTris = S.markTris, ptSide = live.ptSide;   // (ptSide: this layout's, read after a slice too, when a live layout may have set its own)
     markArrows.length = 0;
     if (solve && dop.all && live.clampFor && live.ptSide) {
       const cks = ov.clamps.children;
@@ -356,7 +356,7 @@ export function createLabelSolve(st, live) {
         if (!el.classList.contains('clamp') || el.getAttribute('data-id') !== live.clampFor) continue;
         const n = (el.getAttribute('d') || '').match(/-?[\d.]+(e-?\d+)?/g);
         if (!n || n.length < 6) continue;
-        const tri = MARK_TRIS[markArrows.length] || (MARK_TRIS[markArrows.length] = [[0, 0], [0, 0], [0, 0]]);   // (more arrows than ever: one more is made)
+        const tri = markTris[markArrows.length] || (markTris[markArrows.length] = [[0, 0], [0, 0], [0, 0]]);   // (more arrows than ever: one more is made)
         for (let j = 0; j < 3; j++) worldToLocalInto(tri[j], +n[j * 2], +n[j * 2 + 1]);
         markArrows.push(tri);
       }
@@ -412,7 +412,7 @@ export function createLabelSolve(st, live) {
       if (keepSlots && prev && !prev.drop && prev.pi >= from && prev.pi < to && it.w <= prev.w + 0.5 && it.h <= prev.h + 0.5 && !it.point && !/^focus/.test(it.key)) {
         // (Its point too: the one on the figure it was solved at, while that is still on the stage. A vessel's label is anchored at the middle of
         // the part in view, which slides along the vessel as the view pans; held there, the label would move against the figure.)
-        const V = viewOf(it), [kx, ky] = worldToLocal(prev.wx, prev.wy), atOld = kx >= V.x0 && kx <= V.x1 && ky >= V.y0 && ky <= V.y1;
+        const V = viewOf(it, S), [kx, ky] = worldToLocal(prev.wx, prev.wy), atOld = kx >= V.x0 && kx <= V.x1 && ky >= V.y0 && ky <= V.y1;
         const ax = atOld ? kx : it.ax, ay = atOld ? ky : it.ay;
         const r = rectOf({ ...probe, x: ax + prev.dx, y: ay + prev.dy });
         if (within(r, V) && !placed.some((p) => hits(r, p)) && !obstacles.some((o) => hits(r, o)) && !callouts.some((b) => hits(r, b))
@@ -456,7 +456,7 @@ export function createLabelSolve(st, live) {
         }
         // (The mark moves with the point sampled, so it holds its spot only while its dot stays put.)
         const moved = dop.all && /^focus/.test(it.key) && prev && Math.hypot(...worldToLocal(prev.wx, prev.wy).map((v, j) => v - (j ? it.ay : it.ax))) > 2;
-        const V = viewOf(it), inside = within(r, V), held = !moved && !!prev && !prev.drop && prev.dir === dir && prev.pi === pi && (inside || !within({ x0: it.ax, y0: it.ay, x1: it.ax, y1: it.ay }, V));
+        const V = viewOf(it, S), inside = within(r, V), held = !moved && !!prev && !prev.drop && prev.dir === dir && prev.pi === pi && (inside || !within({ x0: it.ax, y0: it.ay, x1: it.ax, y1: it.ay }, V));
         // (edge: px inside the stage it keeps; avoid: drawn shapes (an organ, a lit outline) it keeps off, by pad px.)
         if ((ps.edge && !insideBy(r, V, ps.edge)) || (ps.avoid && !clearOf(r, ps.avoid, ps.pad ?? 0))) return;
         // (fans: the targets of a numbered step's group, V10. Each of its leaders, from its target to the box, runs through no label and
@@ -729,7 +729,7 @@ export function createLabelSolve(st, live) {
       const turned = live.rotU > 0.5, dirOf = (d) => (turned ? TURN_DIR[d] : d);
       // (A title keeps the place it had if it still fits in the visible part of its band (sticky: a small pan never nudges it); else it takes the
       // middle of that part. Kept as a screen coordinate along the band's axis (c) with the band's own key.)
-      const zoneKeep = (key, lo, hi, mid, tn, other) => { const p = zoneStick.get(key), q = p ? worldToLocal(p[0], p[1]) : null, k = q ? q[tn ? 1 : 0] : NaN, c = k >= lo && k <= hi ? k : Math.min(hi, Math.max(lo, mid)); zoneStick.set(key, localToWorld(tn ? other : c, tn ? c : other)); return c; };
+      const zoneKeep = (key, lo, hi, mid, tn, other) => { const p = zoneStick.get(key), q = p ? worldToLocal(p[0], p[1]) : null, k = q ? q[tn ? 1 : 0] : NaN, c = k >= lo && k <= hi ? k : Math.min(hi, Math.max(lo, mid)); if (!dry) zoneStick.set(key, localToWorld(tn ? other : c, tn ? c : other)); return c; };   // (read, never written, by a dry solve: the live one keeps its own)
       for (const [txt, x0, x1] of CIRCUIT_ZONES) {
         const [a, ay0] = worldToLocal(x0, 60), [b, by] = worldToLocal(x1, 60);
         // The liver's and the heart's titles open their cards (there is no organ to click in the circuit).
@@ -1032,7 +1032,7 @@ export function createLabelSolve(st, live) {
     }
     // (Beside a stent's column of three points the slide's mark keeps off the whole column, the gaps between its callouts included, so
     // the three read as one block in order.)
-    if (solve && live.ptSide) {
+    if (solve && ptSide) {
       const col = out.filter((o) => o.point).map(rectOf);
       if (col.length > 1) placed.push({ x0: Math.min(...col.map((r) => r.x0)), y0: Math.min(...col.map((r) => r.y0)), x1: Math.max(...col.map((r) => r.x1)), y1: Math.max(...col.map((r) => r.y1)) });
     }
@@ -1231,13 +1231,13 @@ export function createLabelSolve(st, live) {
     const ringPull = new Map();   // (what the ring pass below slid a reading by: part of the screen's edge pull, not of its slot)
     if (circuit && ringXY.length) {
       const ns = out.filter((o) => o.key.startsWith('n:') && !o.live && o.ax >= -8 && o.ax <= W + 8 && o.ay >= -8 && o.ay <= H + 8);
-      const pull = new Map(ns.map((o) => { const e = rectOf(o), V = viewOf(o); return [o, [Math.max(V.x0 - e.x0, Math.min(0, V.x1 - e.x1)), Math.max(V.y0 - e.y0, Math.min(0, V.y1 - e.y1))]]; }));
+      const pull = new Map(ns.map((o) => { const e = rectOf(o), V = viewOf(o, S); return [o, [Math.max(V.x0 - e.x0, Math.min(0, V.x1 - e.x1)), Math.max(V.y0 - e.y0, Math.min(0, V.y1 - e.y1))]]; }));
       const pulledBox = (o) => { const [cx, cy] = pull.get(o); return rectOf({ ...o, x: o.x + cx, y: o.y + cy }); };
       const onRing = (r) => ringXY.some(([x, y, rx]) => x > r.x0 - rx && x < r.x1 + rx && y > r.y0 - 5 && y < r.y1 + 5);
       for (const it of ns) {
         const [cx, cy] = pull.get(it);
         if ((!cx && !cy) || !onRing(pulledBox(it))) continue;
-        const near = ns.filter((o) => o !== it), others = near.map(pulledBox), V = viewOf(it);
+        const near = ns.filter((o) => o !== it), others = near.map(pulledBox), V = viewOf(it, S);
         const lines = near.filter((o) => o.leader || Math.hypot(...pull.get(o)) > 2).map((o) => { const r = pulledBox(o), e = leaderEnd(r, o.ax, o.ay); return { x0: o.ax, y0: o.ay, x1: e.x, y1: e.y }; });
         const step = PULL_GRID.find(([dx, dy]) => {
           const r = rectOf({ ...it, x: it.x + cx + dx, y: it.y + cy + dy });
@@ -1258,7 +1258,7 @@ export function createLabelSolve(st, live) {
       // A label a pan has pushed over the stage edge is pulled back inside (with a leader to its station)
       // so it is never cut off; once its station has left the stage the label goes too.
       // (A caption turned upright takes its box turned too: pulled in by its unturned box, one beside the right edge slid left across the lanes.)
-      const edge = it.rot ? rectOf({ ...it, w: it.h, h: it.w }) : rectOf(it), V = viewOf(it);
+      const edge = it.rot ? rectOf({ ...it, w: it.h, h: it.w }) : rectOf(it), V = viewOf(it, S);
       // An organ's name is pinned inside its organ: where a card or the stage edge covers it, it hides with the organ, never slides.
       // (Shown, it hides as a card first touches it; hidden, it comes back only once 10 px clear of the card as of the stage's edge, so a card
       // easing at its edge cannot flick it on and off.)

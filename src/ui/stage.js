@@ -11,7 +11,7 @@ import { recordLayer } from './over-records.js';
 import { lerpVT } from './cam-arc.js';
 import { easeArrive, createGlideTracker, D_SURFACE } from './ease.js';
 import { spleenMotion } from './spleen-motion.js';
-import { segHitsBox, lineIndex, indexHits } from './seg-hits.js';
+import { segHitsBox, lineIndex, lineIndexBuf, indexHits } from './seg-hits.js';
 import { smooth01 } from './liver-morph.js';
 import { COLON_ART, BOWEL_ART, DUO_CLIPS, DUO_B } from './organ-art.js';
 import { gpuProbe } from './gpu-probe.js';
@@ -511,7 +511,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get scan() { return scan; },
     get scanPaint() { return scanPaint; },
     get schedulePlateView() { return schedulePlateView; },
-    get segIdx() { return segIdx; }, set segIdx(v) { segIdx = v; },
+    get segIdx() { return segIdx; }, set segIdx(v) { segIdx = v; }, get segIdxDry() { return segIdxDry; },
     get settleRes() { return settleRes; },
     get shownCol() { return shownCol; }, set shownCol(v) { shownCol = v; },
     get shunt() { return shunt; }, set shunt(v) { shunt = v; },
@@ -1440,7 +1440,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // then runs everything: the camera is lerped from its framing to the target's by p, the ghosts ride their points at 1 - 2p and the new labels
   // theirs at 2p - 1. Nothing is solved or built as it lands; the pictures of the new view are built in the frames of the change.
   let viewXf = null, glSuppress = false, xfOp = '';
-  const { morphAnchorAt, pre, preAbort, preAsk, viewXfP, viewXfStart, viewXfStep, xfMarkCurrent, xfRelease } = createView({ CIRC_C, EV, VB_CIRC_R, applyVT, circTurn, circWhole, defaultVT, driftEnd, edgeVisible, geo, handRideEnd, labelJobDrop, labelJobStep, labelKeyNow, labelSig, labelSliceRun, labelTail, layoutLabels, layoutLabelsGen, refreshCTM, rotEase, sameView, stageBox, updateLabels, vbBox, vesselAt, visAt, worldToLocalInto }, live);
+  const { morphAnchorAt, pre, preAbort, preAsk, preRun, viewXfP, viewXfStart, viewXfStep, xfMarkCurrent, xfRelease } = createView({ CIRC_C, EV, VB_CIRC_R, applyVT, circTurn, circWhole, defaultVT, driftEnd, edgeVisible, geo, handRideEnd, labelJobDrop, labelJobStep, labelKeyNow, labelSig, labelSliceRun, labelTail, layoutLabels, layoutLabelsGen, refreshCTM, rotEase, sameView, stageBox, updateLabels, vbBox, vesselAt, visAt, worldToLocalInto }, live);
   // The solve is a job sliced over the change's frames: one short slice in the tap's own frame (xfSolving shortens updateLabels' first slice), then one
   // per frame of the morph (viewXfStep), the rest at the landing if it comes first. The new labels stay at nothing until it lands.
   let xfSolving = false;
@@ -2295,7 +2295,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let colResolve = 0;   // (when a carried stent column last asked to be placed again: see layoutLabels)
   let labelSol = new Map();   // key → solved slot { wx, wy, dx, dy, dir, pi, w, h, leader, lead } or { drop }
   let solvedFor = null;       // { sig, sc, th } the slots were solved for
-  const { JOB_NOW, KEY_NODES, SOLVED_A, SOLVED_B, SOLVE_TURN, cathHid, flagged, handRideEnd: handRideEnd$, keyInto, labelIns, labelJobDrop: labelJobDrop$, labelJobStep: labelJobStep$, labelKeyArr, labelKeyNow: labelKeyNow$, labelRestK: labelRestK$, labelSettleSoon: labelSettleSoon$, labelSig: labelSig$, labelSliceRun: labelSliceRun$, labelTail: labelTail$, labelVis, sigWidthMoved, sliceOver, stats, stentReady, updateLabels: updateLabels$, zoneStick, zoomedIn } = createLabelDriver({ E, EI, EV, LABEL_FIRST_REST_MS, LABEL_REST_SLICE_MS, LABEL_SLICE_MS, calloutSig, camSettle, cath, dop, dpr, dprobePaint, easeInOut, explain, fxBuild, hasVarices, isImaging, labelBase, labelGlSync, layerMode, layoutLabels, layoutLabelsGen, nextFrame, nodeItem, pre, preAbort, preAsk, pzInset, refreshCTM, renderBlock, resItem, sameDeps, scan, scanItem, scanPaint, shortenTo, sigFold, sites, sitesPaint, stageBox, themeKey, velItem, wrap, xfMarkCurrent, xfRelease }, live);
+  const { JOB_NOW, KEY_NODES, SOLVED_A, SOLVED_B, SOLVE_TURN, cathHid, flagged, handRideEnd: handRideEnd$, keyInto, labelIns, labelJobDrop: labelJobDrop$, labelJobStep: labelJobStep$, labelKeyArr, labelKeyNow: labelKeyNow$, labelRestK: labelRestK$, labelSettleSoon: labelSettleSoon$, labelSig: labelSig$, labelSliceRun: labelSliceRun$, labelTail: labelTail$, labelVis, sigWidthMoved, sliceOver, stats, stentReady, updateLabels: updateLabels$, zoneStick, zoomedIn } = createLabelDriver({ E, EI, EV, LABEL_FIRST_REST_MS, LABEL_REST_SLICE_MS, LABEL_SLICE_MS, calloutSig, camSettle, cath, dop, dpr, dprobePaint, easeInOut, explain, fxBuild, hasVarices, isImaging, labelBase, labelGlSync, layerMode, layoutLabels, layoutLabelsGen, nextFrame, nodeItem, pre, preAsk, pzInset, refreshCTM, renderBlock, resItem, sameDeps, scan, scanItem, scanPaint, shortenTo, sigFold, sites, sitesPaint, stageBox, themeKey, velItem, wrap, xfMarkCurrent, xfRelease }, live);
   function labelRestK(...a) { return labelRestK$(...a); }   // <stage-split stub>
   function labelSettleSoon(...a) { return labelSettleSoon$(...a); }   // <stage-split stub>
   function labelSig(...a) { return labelSig$(...a); }   // <stage-split stub>
@@ -2347,7 +2347,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // Vessel geometry as capsules in screen space, bucketed, so a label can ask exactly which vessels it touches.
   const SEG_CELL = 64;
-  let segs = [], segIdx = lineIndex([], worldToLocal, 1, SEG_CELL);
+  let segs = [], segIdx = lineIndex([], worldToLocal, 1, SEG_CELL); const segIdxDry = lineIndexBuf();   // (segIdxDry: the solve ahead's own, built into (buildSegs) between the live layouts' builds)
   // (The vessels as drawn: every tube the GPU draws, the liver's grey branches, strands and tributaries included, each at its
   // drawn radius along its course plus its wall; a label kept clear of these is clear of the picture: Review 16 Oct.)
   // (The lines are records in a kept pool, written in place for each build: lineIndex reads them at once and keeps none. A resistor's
@@ -2359,7 +2359,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     rec.pts = it.pts; rec.R = it.obj.glR; rec.wall = x.isArt && !x.tube ? 0 : x.wallPx || 0; rec.flat = it.kind === 'v' ? (x.width || 4) / 2 : (it.obj.w || 2) / 2; rec.id = x.e ? x.e.id : 'res';   // (a resistor's zigzag has no vessel)
     segLines[n] = rec;
   }
-  function buildSegs() {
+  function buildSegs(into = null) {
     let items = segItems, count = 0;
     if (glWanted()) items = glItems();
     else {
@@ -2382,8 +2382,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       for (let i = 0; i < zs.length; i++) { ZZ_ITEM.pts = zs[i]; segLine(n++, ZZ_ITEM); }
     }
     segLines.length = n;
-    segIdx = lineIndex(segLines, worldToLocal, CTM.sc, SEG_CELL);
-    segs = segIdx.segs;
+    segIdx = lineIndex(segLines, worldToLocal, CTM.sc, SEG_CELL, into);
+    if (!into) segs = segIdx.segs;
   }
   // How many vessel segments the box touches, a vessel's own width and `margin` px of air included (`skip`: true asks only whether
   // one does; a vessel's id leaves that one out; { only: id } counts just that one).
@@ -2423,17 +2423,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // `solve`: search (stickily) and record the slots; otherwise carry the recorded slots. Returns false
   // when a label turned up that has no slot or no longer fits its slot: the caller then solves.
   // (dry: a solve that only finds the slots (labelSol) and draws nothing: for a framing the camera has not reached yet.)
-  // (All at once: a carry, a dry solve, a solve with slicing off. Any solve still in slices gives way to it.)
+  // (All at once: a carry, a dry solve, a solve with slicing off. Any solve still in slices gives way to it; the solve ahead (preStep), with scratch of its own, only to a dry one.)
   function layoutLabels(f, solve, dry = false) {
     if (labelJob) labelJobDrop();
-    preAbort();
+    if (dry) preAbort();
     const g = layoutLabelsGen(f, solve, dry);
     let r;
     do r = g.next(); while (!r.done);
     return r.value;
   }
-  // (Kept for the layout that runs, one at a time (a layout that begins ends any other first), and written in place by each: its view
-  // rectangles, its lists of obstacles and boxes placed, the stent's three dots, and scratch pairs, boxes and steps.)
+  // (The solver keeps what a layout carries from label to label in two records written in place: the live layout's and the solve ahead's.)
   let lbkNum = NaN, lbkStr = '', labelSolSpare = new Map();
   const { layoutLabelsGen: layoutLabelsGen$ } = createLabelSolve({ ANAT_EXTRA, ANAT_PRI, CIRCUIT_LABEL_K, E, EBOX, EI, KEY_NODES, LINE_H, LW_XY, MARK_GRID, NI, NO_BLK, PIN_DIR, PULL_GRID, TURN_DIR, ZONE_SHORT, arcMid, blockWant, buildSegs, caliperAt, caliperSegs, calloutBoxes, cath, cathRadOf, clampD, clampFontAt, clampLabelAt, clampLabelPos, clampMv, clampStep, clampTextBox, clampW, colGap, dop, dpr, easeInOut, flagged, fontPx, fxBuild, fxK, fxPill, gLabels, gScan, geo, glass, hasDot, hasVarices, isImaging, labelAnchor, labelBase, labelGlide, labelHidden, labelStop, labelVis, laneAlt, laneU, leadEls, leadRectOf, leaderEnd, lineHits, lineW, liverExpanded, localToWorld, localWorldXY, nodeItem, nodePos, onSelect, oneLine, organEls, ov, paintLeaders, pointAt, pool, procIn, pzInset, rectOf, renderBlock, resItem, resPlace, saSides, scan, scanTipLocal, seenEnd, shortenItem, shortenTo, sites, sliceOver, stageBox, stagePx, stenosisAt, stentReady, textW, velItem, vh, worldToLocal, worldToLocalInto, zoneStick, zoomedIn }, live);
   function* layoutLabelsGen(...a) { return yield* layoutLabelsGen$(...a); }   // <stage-split stub>
@@ -3186,6 +3185,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       return 'w';
     },
     labelClearance: () => clearanceReport(),   // (the browser check's: see clearanceReport)
+    labelPresolveRun: (ms, between) => preRun(ms, between), labelLayoutNow: (solve = true) => { if (!F) return null; labelKey = null; if (solve) solveAsked = true; updateLabels(F); return labelSol; },   // (the node check of the solve ahead: preRun; a layout now, a solve or (false) a carry)
     /** The labels' state against the camera, for the browser check: hidden (the pinch hide), riding (carried by the camera's move on the GPU),
      *  and stale (shown, not riding, laid out under a camera that is not this one: the old labels over the new view). */
     labelCarry: () => {

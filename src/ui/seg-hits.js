@@ -54,10 +54,14 @@ export function gridHits(grid, cell, r, margin, stamp, any = false) {
  *  other; an index older than the one before it has been written over. */
 const newIdx = () => ({ segs: [], grid: new Map(), cell: 64, stamp: 0, pool: [] });
 const BUFS = [newIdx(), newIdx()];
+/** A buffer of one's own for lineIndex's `into`: an index a caller keeps across the two shared buffers' rebuilds (the labels' ahead-of-time
+ *  solve, which runs in slices between the live layouts, each of which builds the shared index again). */
+export const lineIndexBuf = newIdx;
 let bufAt = 0, CUM = new Float64Array(512);
 const radAt = (R, flat, u) => (R ? R[Math.round(Math.min(1, Math.max(0, u)) * (R.length - 1))] : flat);
-export function lineIndex(lines, toLocal, sc, cell = 64) {
-  const idx = BUFS[bufAt]; bufAt ^= 1;
+export function lineIndex(lines, toLocal, sc, cell = 64, into = null) {
+  const idx = into || BUFS[bufAt];
+  if (!into) bufAt ^= 1;
   const { segs, grid, pool } = idx;
   idx.cell = cell; idx.stamp = 0;
   for (const c of grid.values()) c.length = 0;   // (the buckets keep their lists)
