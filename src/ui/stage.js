@@ -2747,7 +2747,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // The other view's labels solved ahead, in idle slices (a dry solve at that view's end state, the slots kept by a key of what the labels
   // show, the framing and the stage): at a tap they are carried, with no solve. A real solve, a carry or anything moving drops one in progress.
-  const pre = { need: true, g: null, key: null, d: null, tgt: 0, slots: null, tasked: false };
+  const pre = { need: true, g: null, key: null, cur: '', d: null, tgt: 0, slots: null, tasked: false };
   const cutSig = (t) => t.slice(t.indexOf('|'));
   function preKey(d) { return `${cutSig(labelSig(F))}|${Math.round(d.k * 100)},${Math.round(d.x)},${Math.round(d.y)},${stageBox().width},${stageBox().height},${rotU > 0.5},${labelFonts},${calloutSig()},${labelIns()}`; }
   function preAbort() { if (pre.g) { pre.g.return(); pre.g = null; pre.need = true; } }
@@ -2765,10 +2765,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   const preIdle = () => !!F && !!labelGL && !labelGL.lost && !viewXf && !labelJob && !handRide && !gestureOn() && !camMove && !drifting && !carrying && !glSuppress
     && morph === morphTarget && (morph === 0 || morph === 1) && rotU === rotTarget && !lobuleOn && !lz?.isOpen() && !(cath.st && !cath.st.keep) && !vtGliding;
+  // (What the kept solution was made for, read at the stage as it stands: a change in any of these, a new patient frame, a selection, a resize, a font, makes it
+  // stale, and it is made again at once in idle time. Otherwise a solution that no longer matched at the tap was never replaced, and the tap solved it all.)
+  const preNowKey = () => (pre.d ? preKey(preFraming(pre.tgt)) : '');
   function preAsk() {
+    if (pre.slots && !pre.g && preIdle() && preNowKey() !== pre.cur) { pre.slots = null; pre.need = true; }
     if (pre.tasked || !(pre.need || pre.g) || !preIdle()) return;
     pre.tasked = true;
-    mayTask('label presolve', preStep);
+    mayTask('label presolve', preStep, JOB_NOW);   // (a slice a frame while the figure rests, not when a frame happens to be spare)
   }
   function preStep() {
     pre.tasked = false;
@@ -2786,7 +2790,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           pre.g = layoutLabelsGen(F, true, true);
         }
         done = labelSliceRun(pre.g, 3).valueOf();
-        if (done) { pre.slots = new Map(); for (const [k, v] of labelSol) pre.slots.set(k, { ...v }); }
+        if (done) { pre.slots = new Map(); for (const [k, v] of labelSol) pre.slots.set(k, { ...v }); pre.cur = ''; }
       }, tgt);
     } catch (e) { pre.g = null; pre.d = null; throw e; }
     finally {
@@ -2794,9 +2798,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (dk === undefined) delete gLabels.dataset.k; else gLabels.dataset.k = dk;
       if (lv) gLabels.style.setProperty('--lbk', lv);
     }
-    if (done) { pre.g = null; pre.d = null; return false; }
+    if (done) { pre.g = null; pre.cur = preNowKey(); return false; }
     pre.tasked = true;
-    mayTask('label presolve', preStep);
+    mayTask('label presolve', preStep, JOB_NOW);
     return false;
   }
   // (The framing a tap on the other view would take: setView.)
