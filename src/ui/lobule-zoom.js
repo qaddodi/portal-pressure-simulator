@@ -4855,6 +4855,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     capture: () => gl?.capture?.() ?? null,
     /** Whether the lobule is drawn in the stage's own GPU context (the glass and the dive then need no hand-over). */
     get shared() { return shared; },
+    /** Counts the pictures the lobule laid (shared: with the figure's, the glass over both blurs again when it changes). */
+    drawSeq: () => gl?.drawSeq ?? 0,
     sinusoidOpen: () => sv.isOpen(),
     /** The GPU canvas the cards' frosted glass is drawn into while the liver shows (stage.js frostSrc; Mohammad, 2 Nov 2026: "No blur at all on
      *  top, solid card on bottom"): the open sinusoid's, or the landed lobule's vessel canvas (its tissue is laid in it too), or null while

@@ -8032,7 +8032,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (The canvas the glasses are drawn into now: frostCtx, its context; frostLiver, the liver's canvas (lobule-zoom.js glassHost) while the
   // frost is taken from it, else null and the figure's. What the glass keys its blur on follows it: a new picture there, not the figure's.)
   let frostCtx = null, frostLiver = null;
-  const frostSeq = () => (frostLiver ? `l${frostLiver.seq()}` : veins.drawSeq);
+  const frostSeq = () => (frostLiver ? `l${frostLiver.seq()}` : lzInFigure() ? `${veins.drawSeq}.${lz.drawSeq()}` : veins.drawSeq);
+  // (The lobule drawn in the figure's own canvas: the glass is drawn over it there, with no hand-over to the lobule's canvas; its pictures count with the figure's.)
+  const lzInFigure = () => !!lz?.shared && (lobuleOn || lz.isShown());
   const frostFresh = () => (frostLiver ? 0 : veins.bloodSeq);
   // The callouts' frosted glass, drawn on the GPU under both callout layers while it can be (glass-gl.js); else the browser's.
   const glassGL = veins ? createGlassGL(wrap, vCanvas, [cath.labels, sites.el], { software: SOFTWARE, live: () => wrap.classList.contains('gl-on'), version: () => veins.drawSeq, fresh: () => veins.bloodSeq, capture: () => veins?.capture(), onFigure: (f) => veins.onPicture(f), keep: () => figLab('glassCache'), due: () => watch.due(), onHoles: frostHoles('callouts') }) : null;
@@ -8054,7 +8056,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     cards.holesWhile = () => diveT > 0;   // (glass-gl.js: while the dive has the glass off the figure's canvas, the labels still leave the cards' places out)
     const shade = cards.low;
     const key = {};
-    const g = createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, cards, live: () => !!frostLiver || (wrap.classList.contains('gl-on') && !anatCovered() && !(diveT > 0)), version: frostSeq, fresh: frostFresh, onFigure: (f) => veins.onPicture(f), onHoles: frostHoles(key) });
+    const g = createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, cards, live: () => !!frostLiver || (wrap.classList.contains('gl-on') && (lzInFigure() || (!anatCovered() && !(diveT > 0)))), version: frostSeq, fresh: frostFresh, onFigure: (f) => veins.onPicture(f), onHoles: frostHoles(key) });
     if (!g) return null;
     hostFrost(g, { order: { low: 1, high: 3 }, active: () => !frostWhy(true), why: () => frostWhy(true), over: noOver, low: (el) => el === shade || !!cards.isLow?.(el) || el?.dataset?.ghost === 'shade' });
     cardGLs.add(g);
