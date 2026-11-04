@@ -12,12 +12,25 @@ let reg = null;
 /** Called once with stage.glass (main.js), after the stage is made. */
 export function initMenuGlass(glass) { api = glass || null; }
 
-// A menu that is coming, going or sliding keeps the page's own card (class mg-move: the fill at the glass's tint, app.css), which is part of the
-// menu and so moves, fades and clips exactly as its words do, whatever animation does it; the frost takes over when it has settled. (A card the
-// GPU drew apart from the menu's own animation popped in and out while the words slid: Mohammad, 4 Nov 2026.)
+// A menu that is coming, going or sliding keeps its GPU glass the whole time: while any menu moves (class mg-move; a running animation or the exit
+// classes) the glass is read and drawn again in every frame (its box with the menu's live transform and translate, its opacity from the animation),
+// so the card goes with the words exactly. Only a clip-path (the dock menus' sink) is not followed. (Mohammad, 4 Nov 2026: the card popped while the words slid.)
 const MENUISH = '.menu, .umenu, .why-pop';
 const moving = (e) => e.classList.contains('leaving') || e.classList.contains('out') || (e.getAnimations ? e.getAnimations().some((a) => a.playState !== 'finished' && a.playState !== 'idle') : false);
-const sync = (e) => { const m = moving(e); if (m !== e.classList.contains('mg-move')) e.classList.toggle('mg-move', m); };
+let raf = 0;
+const movers = new Set();   // alloc-rare: the menus moving now
+const tick = () => {
+  raf = 0;
+  for (const e of movers) if (!e.isConnected || !e.classList.contains('mg-move')) movers.delete(e);
+  if (!movers.size) return;
+  reg?.redraw?.();
+  raf = requestAnimationFrame(tick);
+};
+const sync = (e) => {
+  const m = moving(e);
+  if (m !== e.classList.contains('mg-move')) e.classList.toggle('mg-move', m);
+  if (m) { movers.add(e); if (!raf) raf = requestAnimationFrame(tick); } else movers.delete(e);
+};
 let listening = false;
 function listen() {
   if (listening || typeof document === 'undefined') return;
@@ -30,9 +43,9 @@ function listen() {
 }
 const live = () => {
   list.length = 0;
-  for (const e of open) { if (!e.isConnected) open.delete(e); else if (!e.classList.contains('mg-move')) list.push(e); }
+  for (const e of open) { if (!e.isConnected) open.delete(e); else list.push(e); }
   const why = document.getElementById('whyPop');
-  if (why && !why.classList.contains('mg-move')) list.push(why);
+  if (why) list.push(why);
   const tip = document.getElementById('tooltip');
   if (tip) list.push(tip);   // (the tooltip's card is glass too; its words are the GPU picture of tip-gl.js)
   return list;

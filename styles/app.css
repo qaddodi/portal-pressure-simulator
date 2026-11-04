@@ -7748,4 +7748,3 @@ body { font-optical-sizing: auto; font-kerning: normal; }
 .menu, .umenu, .why-pop { --gl-tint: color-mix(in srgb, var(--surface) 76%, transparent); --gl-line: var(--hairline); --gl-drop: var(--shadow-3); }
 :root:root :is(.menu, .umenu, .why-pop)[data-gl] { background: none; box-shadow: none; }
 .tooltip { --gl-tint: color-mix(in srgb, var(--text) 80%, transparent); --gl-drop: var(--shadow-2); }
-:root:root :is(.menu, .umenu, .why-pop).mg-move { background: var(--gl-tint); box-shadow: var(--shadow-3), 0 0 0 1px var(--hairline); }   /* (moving: the page's own card goes with the menu; the frost returns when it settles, menu-glass.js) */
