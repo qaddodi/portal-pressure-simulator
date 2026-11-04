@@ -103,8 +103,8 @@ export function createTissueGL(canvas, opts = {}) {   // alloc-rare: the tissue 
   // hepatocytes and the background all went black while zooming).)
   // (On a software renderer too, as the lobule's vessels are (veins-gl.js force): the tissue has no other drawing; nothing is drawn on a
   // 2D canvas.)
-  try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, failIfMajorPerformanceCaveat: false }); } catch { gl = null; }   // alloc-rare: the context is made once
-  if (!gl) return null;
+  // (Hosted only, the two-contexts plan: the figure's context is the lobule's one and a lost one is waited for. opts.gl is a context handed in by a unit test's fake; this file makes none.)
+  if (opts.gl) gl = opts.gl; else return null;
   // (Hosted, the picture's own target, sized to each frame; tgt: the size it holds (the canvas itself, on a context of its own); scr():
   // the framebuffer a frame ends in, null for the canvas.)
   let hostT = null;

@@ -66,7 +66,6 @@ test('nothing is sent to the GPU or compiled during the zoom', () => {
 });
 
 test('the GPU field is the only field: a software renderer draws it too; without WebGL2, or while its context is lost, none is drawn', () => {
-  assert.match(fgl, /failIfMajorPerformanceCaveat: false/);
   assert.match(fgl, /canvas\.addEventListener\('webglcontextlost', \(e\) => \{ lost = true;/);
   assert.match(lz, /return fieldGL && !fieldGL\.lost \? fieldGL : null;/);
   assert.match(fgl, /LINEAR_MIPMAP_LINEAR/, 'mipmapped: a size shown below its own never shimmers');

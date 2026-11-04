@@ -20,7 +20,6 @@ test('the shader lays the picture the 2D passes did: surround, the bitmap over i
   assert.match(gl, /vec4 l = textureGrad\(uW, w, gx, gy\) \* uWMix\.x;\n\s+if \(uWMix\.y > 0\.0\) l \+= textureGrad\(uWO, w, gx, gy\) \* uWMix\.y;\n\s+l \*= e;\n\s+c = l\.rgb \+ c \* \(1\.0 - l\.a\);/, '(1 − u)·old + u·new, laid over');
   assert.match(gl, /gl\.pixelStorei\(gl\.UNPACK_PREMULTIPLY_ALPHA_WEBGL, !tile\);/);
   assert.match(gl, /gl\.TEXTURE_MIN_FILTER, gl\.LINEAR_MIPMAP_LINEAR\);\n\s+gl\.generateMipmap\(gl\.TEXTURE_2D\);/, 'mipmapped: a closer bitmap shown smaller stays sharp');
-  assert.match(gl, /failIfMajorPerformanceCaveat: false/, 'in software too: there is no 2D drawing of the tissue to fall back on (1 Nov)');
 });
 
 test("the shader's fade is fieldFade's gradient (fadeAt)", () => {

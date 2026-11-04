@@ -130,7 +130,7 @@ export function createFxGL(canvas, { host = null } = {}) {
   const D0 = new Float32Array(MAX_DUCTS * 4), D1 = new Float32Array(MAX_DUCTS * 4);   // (the ductules' two uniform arrays, refilled each frame)
   if (host) gl = host.gl;
   // alloc-rare: built once per context (createFxGL / restore), not per frame
-  else try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, failIfMajorPerformanceCaveat: false }); } catch { gl = null; }
+  else return null;   // (hosted only, the two-contexts plan)
   if (!gl) return null;
   if (host) canvas = host.canvas;
   let lost = false, failed = false, P = null;

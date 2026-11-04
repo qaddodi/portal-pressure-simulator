@@ -84,7 +84,8 @@ export function createFieldGL(canvas, { host = null } = {}) {
   let gl = null;
   let vao = null, tgt = null;   // (hosted: its own vertex array, and the picture's texture and framebuffer)
   let ucache = null;   // (the uniform cache, made at the first draw)
-  try { gl = host ? host.gl : canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, failIfMajorPerformanceCaveat: false }); } catch { gl = null; }
+  if (!host) return null;   // (hosted only, the two-contexts plan)
+  gl = host.gl;
   if (!gl) return null;
   // (lost: the GPU does not draw the field, from the loss until the rebuilt program is published.)
   let pictured = false;   // (the canvas holds a frame at its present size)

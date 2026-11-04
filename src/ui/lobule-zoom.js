@@ -846,11 +846,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       // The names and their leaders are a pass of the same present (L1, docs/gpu-two-contexts-plan.md): over the lobule's overlay and the wide copy, under every
       // glass, so the cards frost them and no hole is cut. The layer's own fades (the camera's, the dive's, a hush) are followed by layer-alpha.js.
       cap.attach({ top: fig, order: LZ_UNDER_GLASS + 2, near: el, active: () => shared && shareTop === fig, scale: () => (fig.canvas.width || 1) / (shW || 1) });
-    } else { gl = createVeinsGL(glCv, { tubes: MAXT, force: true, who: 'lobule' }); cap.attach(null); }
+    } else { glTried = false; return null; }   // (no figure context now: nothing is drawn and the picture stays; asked for again between frames)
     restAttr(el, 'data-vessels', gl ? 'webgl2' : 'flat');
     // (A software renderer only: each lobule frame waits for the last to finish on the GPU and gives the page as long again,
     // as the anatomy's vessels do; see sw-yield.js. On a GPU there is no yield.)
-    lzYield = softwareYield(!!gl?.software, gl?.software ? (shared ? shareTop.gl : glCv.getContext('webgl2')) : null);
+    lzYield = softwareYield(!!gl?.software, gl?.software ? shareTop.gl : null);
     if (!gl) { restRemove(glCv); return null; }
     return gl;
   }
@@ -864,7 +864,6 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     return null;
   }
   // (Registered once: one per ensureGL would add another handler on every restore.)
-  glCv.addEventListener('webglcontextrestored', () => { glTried = false; gl?.dispose?.(); gl = null; binKey = ''; radKey = []; radAll = ''; radCal = ''; attrKey = ''; ensureGL(); if (F) update(F); });
   // Closed: the full-screen canvases and the vessels' GPU buffers are given back (they are sized again on the way in).
   // The world bitmap, the field's tiles and the uploaded network stay, so the next dive has nothing heavy to build.
   // (A recorded picture lets go of its record too, which goes back to the pools for the next picture, paint-gl.js.)
@@ -2964,12 +2963,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       }
       return wideGL && !wideGL.lost ? wideGL : null;
     }
-    if (wideHostFor) return null;   // (hosted, and the vessels' context lost: no copy until it is made again)
-    if (wideGL === undefined) {
-      wideCv = h('canvas', { class: 'lz-canvas lz-wide-gl', 'aria-hidden': 'true', style: { visibility: 'hidden', pointerEvents: 'none' } });
-      wideGL = createWideGL(wideCv);
-    }
-    return wideGL || null;   // (begin says whether it can build: a copy lost with the context stays lost until the next)
+    return null;   // (no copy while the figure's context is lost; it is made again with the renderer)
   }
   function buildWideGL(W, H, box) {
     const g = glNow();
@@ -3385,7 +3379,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // The field's GPU drawing (field-gl.js): made the first time it is asked for (ahead of the first dive, by the idle preparation);
   // null where WebGL2 is missing, and set aside if its context is lost (no field is drawn until it is made again).
   function fieldGLOn() {
-    if (fieldGL === undefined) { const ft = figureTop(); fieldGL = createFieldGL(fieldG, ft ? { host: ft } : {}); if (!fieldGL) fieldG.remove(); }
+    if (fieldGL === undefined) { const ft = figureTop(); fieldGL = ft ? createFieldGL(fieldG, { host: ft }) : null; if (!fieldGL) fieldG.remove(); }
     return fieldGL && !fieldGL.lost ? fieldGL : null;
   }
   // A tile's liver-toned and quieted copies sent to the GPU ahead of the dive (no frame of it uploads a texture).
@@ -4042,15 +4036,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       }
       return tissueGL && !tissueGL.lost ? tissueGL : null;
     }
-    if (tisHostFor) return null;   // (hosted, and the vessels' context lost: the 2D canvas until it is made again)
-    if (tissueGL === undefined) { tissueGL = createTissueGL(tissueG, { onLive: liveCompiled }); if (!tissueGL) restRemove(tissueG); else tissueGL.liveReady(); }   // alloc-once: the tissue's own GPU drawing is made once, the first time it is asked for
-    // (A context the browser takes back (Safari does, under GPU memory pressure or past its count of live contexts) leaves the canvas
-    // with no picture. It was left showing until something drew the lobule again, a pan (Mohammad, 1 Nov: the cells went black
-    // while zooming in, and came back when he panned; black on Lobule 5 in a talk, where nothing pans). It is put aside at once and the
-    // lobule drawn again once the context is back; the canvas is see-through (tissue-gl.js), so the moment before that shows
-    // no black. Once the browser gives the context back, the tissue goes back on the GPU (tissueRestored).)
-    if (tissueGL && !tissueG._lostWatch) { tissueG._lostWatch = true; tissueG.addEventListener('webglcontextlost', tissueLost); tissueG.addEventListener('webglcontextrestored', tissueRestored); }   // (liveReady: the shader that draws the lobule starts compiling now, ahead of the first look)
-    return tissueGL && !tissueGL.lost ? tissueGL : null;
+    return null;   // (no figure context: the last picture stays until the renderer is made again)
   }
   // The lobule's tissue drawn live by the shader (lobule-live.js, A5b): in the share of the picture the state allows (liveEligible:
   // the shader draws the fill, cells, congestion, zones and hairline so far, a state with collagen, stellate cells or septa is the
@@ -4132,10 +4118,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // tiles in one go (0.2 to 0.5 s headless, a visible hitch as each zoom-in settled), for a picture mixed out entirely. It is now painted
   // at most at the step that covers the shader's threshold, and one already sharper is kept.
   const seenCap = (G) => (liveE >= 1 && liveGoal() === 1 && tissueOnGL ? 2 ** (Math.ceil(Math.log2(6 / (0.052 * G.R)) * 2) / 2) : Infinity);
-  function tissueLost() { showTissueGL(false); wake(); }
   // (The context given back after a loss (tissue-gl.js asks for it): everything on it was lost with it, so the tissue's GPU drawing is
   // made again on the same canvas the next time it is asked for.)
-  function tissueRestored() { if (tissueGL?.lost) { tissueGL = undefined; wake(); } }
   // The lobule draws again (its tissue first): a bitmap came in, or the next one can be asked for.
   function wake() { tissueKey = ''; idleDrawn = ''; if (!raf && fade > 0) raf = nextFrame(loop); }
   // Which of the two shows (in the frame it was drawn in, so the picture never goes missing between them).
@@ -4428,7 +4412,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // The lobule's overlay (with WebGL vessels: the ductules, and with the Lymph layer the drops, beads, eraser and lining), drawn by
   // the GPU in the 2D overlay's place, scaled with the others through the dive and the rise as the tissue's GPU canvas is;
   // not without the vessels' WebGL. Its old 2D canvas stays empty (given back). ?fxgpu=0: no overlay.
-  let fxGL, fxGLKey = '', fxGLShown = false;
+  let fxGLKey = '', fxGLShown = false;
   let lyRaw = new Float32Array(0);   // the lymph's kept array of drops (R13, see lyDrops; their instance arrays are fxDI, fxBI)
   // One context for the lobule (veins-gl.js): the overlay is drawn in the vessels' own canvas, over them, at the end of each
   // picture they lay (their top), from the frame's arguments fxOnGPU leaves here (fxArgs; null: nothing laid, the 2D overlay draws),
@@ -4453,14 +4437,13 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       }
       return fxHostGL && !fxHostGL.lost && performance.now() >= fxHostBad ? fxHostGL : null;
     }
-    if (fxGL === undefined) { fxGL = FX_GPU && fxG.isConnected ? createFxGL(fxG) : null; if (!fxGL) restRemove(fxG); }   // alloc-once: the overlay's own GPU drawing is made once, the first time it is asked for
-    return fxGL && !fxGL.lost && fxG.isConnected ? fxGL : null;   // (its canvas taken out once the overlay was hosted: the 2D overlay)
+    return null;   // (hosted only)
   }
   function fxGLShow(on) {
     if (!on) fxArgs = null;
     if (on === fxGLShown) return;
     fxGLShown = on;
-    if (!on) { fxGLKey = ''; fxGL?.release(); fxHostGL?.release(); if (fxG.width) { fxG.width = 0; fxG.height = 0; } }
+    if (!on) { fxGLKey = ''; fxHostGL?.release(); if (fxG.width) { fxG.width = 0; fxG.height = 0; } }
   }
   function fxGLOff() { fxGLShow(false); }
   // A colour token as [r, g, b, a] (0–1), whatever form it is written in (css-color.js: read in script, in the canvas's 8-bit steps).

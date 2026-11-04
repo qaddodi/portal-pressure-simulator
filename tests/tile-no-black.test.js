@@ -52,7 +52,7 @@ test('a texture the GPU could not take is never drawn: the draw returns false, a
   assert.deepEqual(calls.at(-2).slice(1), ['TEXTURE_2D', 0, 'RGBA8', 16, 8, 0, 'RGBA', 'UNSIGNED_BYTE', null]);
   assert.deepEqual(calls.at(-1), ['texSubImage2D', 'TEXTURE_2D', 0, 0, 0, 'RGBA', 'UNSIGNED_BYTE', cv]);
   assert.doesNotMatch(src('src/ui/field-gl.js'), /TEX_SAFE|texsafe/, 'every send checked');
-  const g = createTissueGL({ width: 0, height: 0, getContext: () => gl, addEventListener() {} });
+  const g = createTissueGL({ width: 0, height: 0, addEventListener() {} }, { gl });
   const q = { width: 4, height: 4 }, w = { width: 64, height: 64 };
   const frame = (wVer) => ({ W: 100, H: 100, qa: q, qb: null, mix: 0, w, wVer, rect: [0, 0, 100], ox: 50, oy: 50, rd: 40, fade: [44, 128], mid: 0.5, bg: [1, 1, 1] });
   assert.equal(g.draw(frame(1)), true);
@@ -80,7 +80,7 @@ test('showing, a frame whose texture did not go keeps the last picture: no black
     return (...a) => { calls.push([p, ...a]); return {}; };
   } });
   const canvas = { width: 0, height: 0, getContext: () => gl, addEventListener() {} };
-  const g = createTissueGL(canvas);
+  const g = createTissueGL(canvas, { gl });
   const q = { width: 4, height: 4 }, w = { width: 64, height: 64 };
   const frame = (wVer, W = 100) => ({ W, H: 100, qa: q, qb: null, mix: 0, w, wVer, rect: [0, 0, 100], ox: 50, oy: 50, rd: 40, fade: [44, 128], mid: 0.5, bg: [1, 1, 1], hold: true });
   assert.equal(g.draw(frame(1)), true);

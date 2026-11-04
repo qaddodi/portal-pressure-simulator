@@ -56,7 +56,7 @@ export function createWideGL(canvas, { host = null } = {}) {
   const SCRN = () => (host && host.screen ? host.screen() : null);   // (the framebuffer the host's canvas stands in as: null, or a shared renderer's texture)
   let gl = null;
   if (host) { gl = host.gl; canvas = host.canvas; }
-  else try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, failIfMajorPerformanceCaveat: true }); } catch { gl = null; }
+  else return null;   // (hosted only, the two-contexts plan)
   if (!gl) return null;
   let lost = false, stale = false;   // (stale: the copy was lost with the context, until the next begin)
   if (!host) {

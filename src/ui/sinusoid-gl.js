@@ -537,7 +537,8 @@ import { caught } from './caught.js';
 // of its own, no copy. The canvas stays in the page only as the size of the texture. Without a host the view draws into its own canvas, as before.
 export function createSinusoidGL(canvas, { warm = false, onReady = null, host = null } = {}) {   // alloc-rare: the sinusoid drawer is made once for a view (a context, its programs and handlers)
   let gl = null;
-  try { gl = host ? host.gl : canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false }); } catch { gl = null; }   // alloc-rare: the sinusoid drawer is made once for a view (a context, its programs and handlers)
+  if (!host) return null;   // (hosted only, the two-contexts plan)
+  gl = host.gl;
   if (!gl) return null;
   const evCv = host ? host.canvas : canvas;   // (whose context events say this drawer's context was lost or given back)
   // Host mode: the texture the view is drawn into (its size is the canvas's), made at the first draw, back to a texel by free().

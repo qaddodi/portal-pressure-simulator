@@ -170,7 +170,7 @@ test('the lobule is drawn live with no setting: nothing reads a switch for it, t
 
 test('the live program starts compiling as soon as the tissue\'s GPU drawing is made; when it arrives, or fails, while the lobule shows, the share eases over 400 ms and the loop wakes; unseen, it starts at the goal', () => {
   const lz = uiSrc('lobule-zoom.js');
-  assert.match(lz, /tissueGL = createTissueGL\(tissueG, \{ onLive: liveCompiled \}\); if \(!tissueGL\) restRemove\(tissueG\); else tissueGL\.liveReady\(\);/, 'asked at once, ahead of the first look');
+  assert.match(lz, /tissueGL = createTissueGL\(tissueG, \{ onLive: liveCompiled, host: gl\.top \}\) \|\| null;/, 'asked at once, ahead of the first look');
   assert.match(lz, /function liveChanged\(\) \{ if \(unseen\(\)\) liveE = -1; else \{ liveAt = performance\.now\(\); wake\(\); \} \}/);
   assert.match(lz, /function liveCompiled\(\) \{ liveChanged\(\); \}/);
   assert.match(lz, /if \(liveE < 0 \|\| unseen\(\)\) liveE = goal;\n\s+else liveE = liveEase\(liveE, goal, now - liveAt\);/);
@@ -264,7 +264,7 @@ const frame = (live) => ({ W: 100, H: 80, qa: tile, qb: null, mix: 0, w: tile, w
 test('until the live program is asked for the tissue is one program with nothing of the live lobule in it, and drawing the bitmap asks for no other', async () => {
   const g = stubGL();
   const warn = console.warn; console.warn = () => {};
-  const tg = createTissueGL(g.canvas, { onLive: () => assert.fail('nobody asked for it') });
+  const tg = createTissueGL(g.canvas, { gl: g.gl, onLive: () => assert.fail('nobody asked for it') });
   await tick();
   assert.equal(g.programs.length, 1, 'one program made');
   assert.ok(g.programs[0].shaders.every((s) => !s.src.includes('liveTissue') && !s.src.includes('uLive')));
@@ -279,7 +279,7 @@ test('until the live program is asked for the tissue is one program with nothing
 test('the live program starts when it is first asked for, is ready once published, and is told to the caller once', async () => {
   const g = stubGL();
   let told = 0;
-  const tg = createTissueGL(g.canvas, { onLive: () => told++ });
+  const tg = createTissueGL(g.canvas, { gl: g.gl, onLive: () => told++ });
   await tick();
   assert.equal(tg.liveReady(), false, 'asked: its compile starts, it is not published yet');
   assert.equal(g.programs.length, 2);
@@ -293,7 +293,7 @@ test('the live program starts when it is first asked for, is ready once publishe
 
 test('a draw uses the live program only with a share and the program ready; with none, or before it is ready, the bitmap program', async () => {
   const g = stubGL();
-  const tg = createTissueGL(g.canvas, { onLive: () => {} });
+  const tg = createTissueGL(g.canvas, { gl: g.gl, onLive: () => {} });
   await tick();
   tg.liveReady();
   assert.equal(tg.draw(frame(liveArgs(0.5))), true, 'a share asked for before the program is ready: the bitmap, not a missing picture');
@@ -314,7 +314,7 @@ test('a live program that fails to build costs only the live drawing: the bitmap
   const g = stubGL({ failLive: true });
   const warn = console.warn, warned = []; console.warn = (...a) => warned.push(a[0]);
   let told = 0;
-  const tg = createTissueGL(g.canvas, { onLive: () => told++ });
+  const tg = createTissueGL(g.canvas, { gl: g.gl, onLive: () => told++ });
   await tick();
   tg.liveReady();
   await tick();
@@ -455,7 +455,7 @@ test('a long drag keeps the picture it started from: the reference moves in whol
 // The same on the real tissue-gl.js against the stub context: what it asks of the GPU.
 async function liveGL(opts) {
   const g = stubGL(opts);
-  const tg = createTissueGL(g.canvas, { onLive: () => {} });
+  const tg = createTissueGL(g.canvas, { gl: g.gl, onLive: () => {} });
   await tick(); tg.liveReady(); await tick();
   assert.equal(tg.liveReady(), true);
   return { g, tg, L: liveArgs(0.5) };

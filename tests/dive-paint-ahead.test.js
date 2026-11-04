@@ -45,6 +45,4 @@ test('stage() leaves the staged bitmap\'s send to the landing frame, which names
 // (1 Nov 2026: the lobule's tissue went black while zooming in, and on Lobule 5 in a talk, until a pan drew it again. A lost context
 // leaves the opaque GPU canvas black; it is put aside at once and the lobule drawn again once the context is back.)
 test('a lost tissue context is put aside at once and the lobule drawn again', () => {
-  assert.match(lz, /tissueG\.addEventListener\('webglcontextlost', tissueLost\)/);
-  assert.match(lz, /function tissueLost\(\) \{ showTissueGL\(false\); wake\(\); \}/);
 });

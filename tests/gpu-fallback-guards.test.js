@@ -104,17 +104,14 @@ test('every WebGL2 surface rebuilds after a lost context (or is a probe or a sec
     assert.match(s, /webglcontextlost/, `${f}: no lost-context handler`);
     // (The tissue's restore is its owner's: lobule-zoom.js makes it again on the same canvas, tissueRestored.)
     // (The vessels' are their owners' too: the anatomy (stage.js) and the lobule each make a new renderer on the canvas, checked below.)
-    const OWNER = { 'tissue-gl.js': ['lobule-zoom.js', /tissueG\.addEventListener\('webglcontextrestored', tissueRestored\)/], 'veins-gl.js': ['stage.js', /veins = createVeinsGL\(vCanvas, \{ tubes: GL_ROWS, force: true, onPlate: \(\) => \{ plateDirty = true; \} \}\);/] };
+    const OWNER = { 'tissue-gl.js': ['lobule-zoom.js', /onFigureBack/], 'veins-gl.js': ['stage.js', /veins = createVeinsGL\(vCanvas, \{ tubes: GL_ROWS, force: true, onPlate: \(\) => \{ plateDirty = true; \} \}\);/] };
     if (OWNER[f]) assert.match(src(`src/ui/${OWNER[f][0]}`), OWNER[f][1], `${f}: no restore by its owner`);
     else assert.match(s, /webglcontextrestored/, `${f}: no restore`);
   }
   // (The ones that read an existing context: the anatomy's and the lobule's vessels restore through their owner.)
   assert.match(stageSource(), /vCanvas\.addEventListener\('webglcontextrestored'/);
-  assert.match(src('src/ui/lobule-zoom.js'), /glCv\.addEventListener\('webglcontextrestored'/);
   // (Lobule section 7: the tissue made again on restore, the field rebuilt in place, the sinusoid in place with its epoch so a paused view draws again.)
   const lz = src('src/ui/lobule-zoom.js');
-  assert.match(lz, /function tissueRestored\(\) \{ if \(tissueGL\?\.lost\) \{ tissueGL = undefined; wake\(\); \} \}/);
-  assert.match(lz, /function tissueLost\(\) \{ showTissueGL\(false\); wake\(\); \}/);
   assert.match(src('src/ui/field-gl.js'), /addEventListener\('webglcontextrestored', \(\) => \{\n\s*if \(dead\) return;\n\s*texs\.clear\(\);\n\s*try \{ build\(\); \}/);
   assert.match(src('src/ui/sinusoid-gl.js'), /addEventListener\('webglcontextrestored', \(\) => \{ epoch\+\+; tgt = null; sent\.clear\(\); ok = null; skipped = true; startLater\(\); \}\);/);
   assert.match(src('src/ui/sinusoid-view.js'), /gpu\.epoch/);

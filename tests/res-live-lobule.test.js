@@ -117,7 +117,7 @@ test("lobule-zoom.js: the overlay's GPU canvas is shown by what is drawn on it, 
   assert.ok(!/fxG\.style\.opacity/.test(lz), 'no opacity written to fxG');
   assert.ok(!/const fxG = h\('canvas'[^\n]*opacity/.test(lz), 'and none at its making');
   const show = lz.slice(lz.indexOf('function fxGLShow('), lz.indexOf('function fxGLOff('));
-  assert.match(show, /if \(!on\) \{ fxGLKey = ''; fxGL\?\.release\(\); fxHostGL\?\.release\(\); if \(fxG\.width\) \{ fxG\.width = 0; fxG\.height = 0; \} \}/, 'given back blank when it goes off');
+  assert.match(show, /if \(!on\) \{ fxGLKey = ''; fxHostGL\?\.release\(\); if \(fxG\.width\) \{ fxG\.width = 0; fxG\.height = 0; \} \}/, 'given back blank when it goes off');
 });
 
 // The Safari hand-over (Mohammad, 1 Nov, iPhone): the GPU canvas shows a new frame a frame or more after the page's, so the 2D canvas under

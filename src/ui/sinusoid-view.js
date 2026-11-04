@@ -230,7 +230,7 @@ export function createSinusoidView({ host, before = null, share = null }) {
     noteSinusoidSupport(!!gpu);
     // (A software renderer only: a frame of the view waits for the last to finish on the GPU and gives the page as long again,
     // as the anatomy's vessels do; see sw-yield.js. On a GPU there is no yield.)
-    const swGL = gpu ? (shareTop ? gpu.gl : canvas.getContext('webgl2')) : null;
+    const swGL = gpu ? gpu.gl : null;
     svSoft = !!(swGL && softwareGL(swGL));   // (for the ?perf surfaces list below)
     svYield = svSoft ? softwareYield(true, swGL) : null;
   }

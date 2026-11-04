@@ -15,13 +15,6 @@ const ALLOWED = {
   'src/ui/sw-yield.js': 2,      // probe (webgl2, then webgl, on one line)
   // today's sites, each deleted by the package named
   'src/ui/stage.js': 2,         // S2/split: the software-yield probe on the figure's canvas
-  'src/ui/lobule-zoom.js': 1,   // F2: software-yield probe on the lobule's own canvas
-  'src/ui/sinusoid-view.js': 1, // F2
-  'src/ui/sinusoid-gl.js': 1,   // F2
-  'src/ui/tissue-gl.js': 1,     // F2
-  'src/ui/fx-gl.js': 1,         // F2
-  'src/ui/wide-gl.js': 1,       // F2
-  'src/ui/field-gl.js': 1,      // F2
 };
 
 const root = new URL('../src/', import.meta.url).pathname;
