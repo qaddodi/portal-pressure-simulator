@@ -801,6 +801,9 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
   // alloc-rare: made once with the chart (createTraceGL runs once for a chart), never in a frame
   const api = {
     canvas,
+    // (The ?perf surfaces list: whether the drawer's picture is the one on show (it hides the host as it lays one), and whether the drawer can no longer draw.)
+    get presented() { return host.style.opacity === '0'; },
+    get gone() { return dead || failed || lost; },
     // alloc-rare: made once with the chart (createTraceGL runs once for a chart), never in a frame
     get ready() {
       // (R10: still compiling, the draw is not where it is published: the chart keeps what it shows, the poller publishes it as soon as

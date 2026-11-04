@@ -58,7 +58,8 @@ const PROBES = [
 for (const p of PROBES) p.name = p.kind === 'tips' ? `${p.short} ${stentCourse(EDGES[EI[p.id]])}` : p.short;
 // The fade a row takes when it comes in, and the two answers of the ?perf surfaces list: made once (animate() reads its keyframes and timing as it is called).
 const FADE_KEYS = [{ opacity: 0 }, { opacity: 1 }], FADE_OPTS = { duration: D_SMALL, easing: EASE_ARRIVE };
-const SURF_GPU = { on: 'gpu', via: 'trace and words WebGL2' }, SURF_MIXED = { on: 'mixed', via: 'trace WebGL2, words 2D canvas (?tracegl=0)' },
+const SURF_GPU = { on: 'gpu', via: 'trace and words WebGL2' }, SURF_WAIT = { on: 'gpu', via: 'trace WebGL2, words by the GPU chart drawer (its first picture not laid yet)' },
+  SURF_NOWORDS = { on: 'fallback', via: 'trace WebGL2, words not drawn', why: 'the GPU chart drawer failed, was lost or has no WebGL2 (the words have no 2D copy)' },
   SURF_CPU_LINES = { on: 'fallback', via: 'ring and words on the GPU, the spectrum lines made on the CPU', why: 'the spectrum shader is not built yet, or failed (see the console)' };
 const SURF_LOST = { on: 'fallback', via: 'none', why: 'context lost' }, SURF_NONE = { on: 'fallback', via: 'none', why: 'no WebGL2' };
 // The sentences that name a stent, made once for each of the two (the stent is 'TIPS' or 'DIPS'), and the resistive index's words for each hundredth.
@@ -175,7 +176,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   if (gpu) { gpu.canvas.setAttribute('aria-hidden', 'true'); gpu.canvas.classList.add('dop-gl'); cv.before(gpu.canvas); }
   const words = createTraceGL(cv, { redraw: () => redraw() });
   // (The ?perf surfaces list, gpu-surfaces.js: read by the readout only.)
-  const offSurface = surface('Doppler trace', () => (!cv.isConnected ? null : gpu && !gpu.lost ? (!gpu.canSynth() ? SURF_CPU_LINES : cv.style.opacity === '0' ? SURF_GPU : SURF_MIXED) : gpu ? SURF_LOST : SURF_NONE));
+  const offSurface = surface('Doppler trace', () => (!cv.isConnected || cv.checkVisibility?.() === false ? null : gpu && !gpu.lost ? (!gpu.canSynth() ? SURF_CPU_LINES : !words || words.gone ? SURF_NOWORDS : words.presented ? SURF_GPU : SURF_WAIT) : gpu ? SURF_LOST : SURF_NONE));
 
   // The report
   const dirEl = h('b', { class: 'dop-dir' }, '—');

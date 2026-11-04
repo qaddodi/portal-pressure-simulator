@@ -133,9 +133,9 @@ export function createEndoscopy({ onAction }) {
   let glVer = 0, swap = false;   // (glVer: the shader canvas's content, counted; swap: the field shown is kept as the old one before the new goes up)
   // (The ?perf surfaces list, gpu-surfaces.js: read by the readout only.)
   // (Its answers are made once: the readout asks twice a second and reads them, never keeps or changes them.)
-  const SURF_GPU = { on: 'gpu', via: 'shaded WebGL2 once per state, laid by the GPU drawer' }, SURF_MIXED = { on: 'mixed', via: 'shaded WebGL2 once per state, laid by the GPU drawer' };
+  const SURF_GPU = { on: 'gpu', via: 'shaded WebGL2 once per state, laid by the GPU drawer' }, SURF_WAIT = { on: 'gpu', via: 'shaded WebGL2 once per state, laid by the GPU drawer (its first picture not laid yet)' };
   const SURF_LOST = { on: 'fallback', via: 'CPU shading, laid by the GPU drawer', why: 'context lost' }, SURF_NOGL = { on: 'fallback', via: 'CPU shading, laid by the GPU drawer', why: 'no WebGL2, or its shader failed' };
-  const offSurface = surface('endoscopy field', () => (!cv.isConnected ? null : gl && !gl.lost ? (cv.style.opacity === '0' ? SURF_GPU : SURF_MIXED) : gl ? SURF_LOST : SURF_NOGL));
+  const offSurface = surface('endoscopy field', () => (!cv.isConnected || away || cv.checkVisibility?.() === false ? null : gl && !gl.lost ? (pen?.presented ? SURF_GPU : SURF_WAIT) : gl ? SURF_LOST : noGl ? SURF_NOGL : null));
   let peak = 0, peakRed = 0, an = null, lastT = 0, last = null, raf = 0, bleedLast = null, poolA = 0, mv = null, held = null, pinned = null;
   // What identifies the field shown, kept as numbers (a frame joins no text): glId, the shader field's (0: none shaded since a reset), cacheId, the CPU renderer's;
   // the numbers they were made from, to tell whether a draw has a new one; and what was last painted over it (pSig, ok: false until painted).
