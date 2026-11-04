@@ -154,6 +154,9 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
     const L = ((b.left - h.x) / h.k).toFixed(1), T = ((b.top - h.y) / h.k).toFixed(1), R = ((b.right - h.x) / h.k).toFixed(1), B = ((b.bottom - h.y) / h.k).toFixed(1);
     return `polygon(evenodd, -${BIG}px -${BIG}px, ${BIG}px -${BIG}px, ${BIG}px ${BIG}px, -${BIG}px ${BIG}px, -${BIG}px -${BIG}px, ${L}px ${T}px, ${R}px ${T}px, ${R}px ${B}px, ${L}px ${B}px, ${L}px ${T}px)`;
   };
+  // (4 Nov 2026, Mohammad: the teaching card's words are NOT cut any more. The clip-path glide ran toward the zoomed card's FINAL box, so half the
+  // words vanished before the card got there, and it repainted the DOM words on every frame of the zoom, the lag. open() now keeps `holes` empty, so
+  // the zoom is the riders' compositor transform alone. holesOf/holeTo/carve stay for the loops that read st.holes, which are now no-ops.)
   const holesOf = (k) => under().filter((el) => el && !el.hidden).map((el) => {
     const r = readBox(el);
     if (!(r.width > 0)) return null;
@@ -206,7 +209,7 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
       const cx = q.left + q.width / 2, cy = q.top + q.height / 2;
       // (box and mid: the whole as it rests as the card zooms, and its middle, for follow below; steady: the glide in has ended, for the
       // data card only: a part has no readings to bring out.)
-      st = { card: el, veils: [veil].flat(), part, plan, riders, closing: null, steady: ms === 0 && !part, box: q, mid: { x: cx, y: cy }, k, s: plan.s, boosted: plan.s, holes: part ? [] : holesOf(k), cur: { dx: 0, dy: 0, s: 1 }, mo: null };
+      st = { card: el, veils: [veil].flat(), part, plan, riders, closing: null, steady: ms === 0 && !part, box: q, mid: { x: cx, y: cy }, k, s: plan.s, boosted: plan.s, holes: [], cur: { dx: 0, dy: 0, s: 1 }, mo: null };
       for (const r of riders) {
         // (Each piece turns about the middle of them all, so they move as one.)
         r.el.style.transformOrigin = `${((cx - r.rest.left) / k).toFixed(2)}px ${((cy - r.rest.top) / k).toFixed(2)}px`;
