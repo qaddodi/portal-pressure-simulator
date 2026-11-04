@@ -9845,6 +9845,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   });
   wrap.dataset.labels = labelGL ? 'gpu' : 'svg';
   labelRider = labelGL;
+  labelGL?.setProbeCam?.(() => zoomM);   // (the Doppler probe rides a card's zoom with the figure)
   labelHoles = labelGL?.setHoles ? labelGL : null;
   sendHoles();
   // The frosted glasses drawn inside the figure's canvas (round 2, 2.1, 31 Oct): each glass's blur is taken from the picture the vessel

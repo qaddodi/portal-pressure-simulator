@@ -2031,6 +2031,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // labels as the SVG lay. Where it stands, its turn, its draw back and its fades are the record's numbers, written a frame at a time by
   // the stage's ease: nothing is parsed, read from the page or made in a frame. Only its look (colours, widths, the head's outline) is
   // read from a model element of plain styled nodes, in a task of its own after the theme or the model changes, never inside a frame.
+  let probeCam = null;   // (a function giving the scene camera's matrix [s,0,0,s,tx,ty] while a card zooms, else null)
   let probe = null, probeSt = null, pLook = null, pLookV = 0, pReadT = 0;
   const pRead = () => {
     pReadT = 0;
@@ -2089,7 +2090,9 @@ void main() { o = texture(uT, vUV) * uA; }`;
     const L = pLook, op = Math.min(1, S.op);
     if (!(op > 0.001)) return false;
     const G = S.g, ang = S.ang, ca = Math.cos(ang * Math.PI / 180), sa = Math.sin(ang * Math.PI / 180);
-    pCa = ca; pSa = sa; pGx = S.x; pGy = S.y;
+    // (A card's zoom: the gate is carried by the scene camera like a station's point; the probe keeps its size and its turn.)
+    const CM = probeCam?.();
+    pCa = ca; pSa = sa; pGx = CM ? CM[0] * S.x + CM[4] : S.x; pGy = CM ? CM[3] * S.y + CM[5] : S.y;
     // (Its box, for the glass: every point it is drawn through, grown by the head's reach.)
     pEx0 = pEx1 = S.x * dpr; pEy0 = pEy1 = S.y * dpr;
     gl.useProgram(mprog);
@@ -2363,6 +2366,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   return {
     canvas,
     setProbe,
+    setProbeCam(f) { probeCam = f; },
     setScan,
     /** Draws now (a mark the stage just moved, outside a label layout: the probe's ease). */
     redraw() { if (lost) return; if (host) { ask(); return; } if (raf) { cancelFrame(raf); raf = 0; } draw(); },
