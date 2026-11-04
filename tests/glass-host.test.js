@@ -148,6 +148,7 @@ test('the host says no: that picture has no glass, the browser\'s shows at once,
 
 test('let go: its objects in the figure\'s context are deleted, and the picture laid once more without it', async () => {
   may = true;
+  G.setHost({ gl: fig.gl, canvas: source, add, order: 2, now: present, active: () => may, over: () => between });
   await frames(3);
   assert.equal(G.hosted, true);
   const del = fig.n.deleted, p = presents;
