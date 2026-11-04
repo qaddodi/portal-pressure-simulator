@@ -2261,7 +2261,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (on === diveHid && lab === labHid) return;
     diveHid = on; labHid = lab;
     const els = diveEls();
-    for (let i = 0; i < els.length; i++) { const el = els[i]; el.style.visibility = (el.id === 'labels' ? lab : on) ? 'hidden' : ''; }
+    for (let i = 0; i < els.length; i++) {
+      const el = els[i];
+      // (The lobule is drawn in the figure's own canvas: hiding that canvas hid the lobule and its field with it, black until the dive settled. The figure's alpha, camDive, hides the anatomy there.)
+      if (el === vCanvas && lz?.shared) { el.style.visibility = ''; continue; }
+      el.style.visibility = (el.id === 'labels' ? lab : on) ? 'hidden' : '';
+    }
   }
   // The anatomy is out of sight: under the landed lobule (or the sinusoid), or under the dive's field once it is whole. Until then,
   // through the start of a dive and the end of a rise, it shows, magnified, and goes on following the patient as it does anywhere:
