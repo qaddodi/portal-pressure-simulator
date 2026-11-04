@@ -2895,18 +2895,6 @@ button.finding { cursor: pointer; }
 .pz-flowtime svg { grid-area: 1 / 1; width: 100%; height: auto; overflow: visible; transition: opacity var(--d-surface) var(--ease); }
 @media (max-height: 960px) { .pz.stack .pz-flowtime svg { max-height: 160px; } }/* (A phone's after-meal chart keeps one size: .pz.stack.stack .pz-flowtime.) */
 .pz-flowtime svg.in { opacity: 0; }
-.pft-key line { stroke-width: 4; stroke-linecap: round; }
-.pft-key text:not(.ptk-ax) { font: 700 calc(17px * var(--svk, 1)) var(--font-ui); }
-.pft-x { stroke: var(--text-3); stroke-width: 1.5; }
-.pft-t { font: 600 calc(16px * var(--svk, 1)) var(--font-ui); fill: var(--text-2); }
-.pft-t.meal { fill: var(--text); font-weight: 700; }
-.pft-tk { font: 500 calc(14px * var(--svk, 1)) var(--font-ui); fill: var(--text-3); font-variant-numeric: tabular-nums; }
-.pft-meal { stroke: var(--text-2); stroke-width: 2; stroke-dasharray: 5 5; }
-.pft-start { fill: var(--surface); stroke-width: 2.5; }
-.pft-dot { stroke: var(--surface); stroke-width: 2; }
-.pft-v { transition: opacity var(--d-small) var(--ease); } .pft-v.off { opacity: 0; }
-.pft-v0 { font: 600 calc(15px * var(--svk, 1)) var(--font-ui); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
-.pft-v { font: 700 calc(18px * var(--svk, 1)) var(--font-ui); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
 .ptk-grid line { stroke: color-mix(in srgb, var(--text) 11%, transparent); stroke-width: 1; }   /* (a tint of the ink, not the card border: it reads on the profile zones' tints and the plot panel alike) */
 .ptk-grid.cut line { stroke-dasharray: 4 5; stroke-width: 1.5; }
 .ptk-grid[data-rate="mid"] line { stroke: var(--caution); } .ptk-grid[data-rate="hi"] line { stroke: var(--danger); }
@@ -6245,9 +6233,6 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .pz.stack .pz-flowtime { --ft-h: min(54cqi, 180px); }
 .pz.low .pz-data.has-tool .pz-flowtime { --ft-h: min(48cqi, 140px); min-height: 0; }   /* (a phone on its side: short enough to sit with its tiles, all shown) */
 .pz-flowtime svg, .pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool[data-kind="flowtime"] .pz-flowtime svg { width: 100%; height: 100%; max-height: none; }
-.pz-flowtime :is(.pft-key text, .pft-t, .pft-tk, .pft-v0, .ptk-grid text, .ptk-ax) { font-size: 1em; }
-.pz-flowtime .pft-v { font-size: 1.1em; } .pz-flowtime .ptk-ax { letter-spacing: .04em; }
-.pz-flowtime .pft-u { font-weight: 500; fill: var(--text-3); }
 @media (pointer: coarse) { .pz:not(.stack) .pz-grip { opacity: 0; transition: opacity var(--d-small) var(--ease); } .pz:not(.stack) .pz-data:is(:hover, :active) .pz-grip { opacity: 1; } }   /* (a tablet's handle shows once the card is touched, not at rest over the tiles' edge) */
 /* Tile names stay on one line everywhere; a name too long for its tile (measured, see fitCards) shows its short form. */
 .pz .pz-data .pz-tiles .pzt-k { white-space: nowrap !important; min-height: 0 !important; }
@@ -7100,16 +7085,8 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
    --band-room). The bands are stronger on a dark card, where a faint tint disappears. */
 .pz-talk.has-bands { height: calc((var(--talk-h, 280px) + var(--band-room, 0px)) * var(--pz-fit, 1)); }
 /* (The year chart's milestones style, talk-trace.js drawMiles: level names over the milestones, the HVPG line in its cut-off colours.) */
-.pft-band { fill: color-mix(in oklab, var(--rx) 70%, var(--text)); }   /* (a deeper shade on a light card: 3:1 for every treatment) */
 .pz-flowtime.has-bands { height: calc(var(--ft-h, max(60cqi, 15em)) + var(--band-room, 0em)); }
 @media (max-height: 960px) { .pz.stack .pz-flowtime.has-bands svg { max-height: calc(160px + var(--band-room, 0em)); } }   /* (a phone's cap, by as much) */
-.pft-band-n tspan { font: 600 1em var(--font-ui); fill: color-mix(in oklab, var(--rx) 62%, var(--text)); }
-:root[data-theme="dark"] .pft-band { fill: var(--rx); opacity: .8; }
-:root[data-theme="dark"] .pft-band-n tspan { fill: color-mix(in oklab, var(--rx) 72%, var(--text)); }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]):not([data-theme="soft"]) .pft-band { fill: var(--rx); opacity: .8; }
-  :root:not([data-theme="light"]):not([data-theme="soft"]) .pft-band-n tspan { fill: color-mix(in oklab, var(--rx) 72%, var(--text)); }
-}
 /* ── Package B: end ── */
 
 /* ── Package C, model charts: start ── */
@@ -7131,59 +7108,6 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pz:not(.stack) .pz-data.has-tool:has(.pz-tool:is([data-kind="curve"], [data-kind="causes"], [data-kind="course"])) { width: clamp(340px, 44vw, 480px); }
 .pz-curve :is(svg, .ic), .pz-cbars :is(svg, .ic) { grid-area: 1 / 1; width: 100%; height: 100%; overflow: visible; transition: opacity var(--d-surface) var(--ease); }
 .pz-curve :is(svg, .ic).in { opacity: 0; }
-.pz-curve :is(.pft-key text, .pft-tk, .ptk-grid text, .pcv-ax) { font-size: 1em; }
-.pz-curve .pft-u { font-weight: 500; fill: var(--text-3); }
-.pcv-ax { font: 600 1em var(--font-ui); fill: var(--text-2); }
-.pcv-line { transition: opacity var(--d-surface) var(--ease); }
-.pcv-at { stroke: var(--text-3); stroke-width: 1.5; stroke-dasharray: 3 4; transition: opacity var(--d-small) var(--ease); }
-/* (With a reading on x the case's mark is a short tick up from the x axis, not a second upright dashed line beside the cut-off's.) */
-.pcv-atx { stroke-dasharray: none; stroke-width: 2.5; stroke-linecap: round; }
-.pcv-ring { fill: var(--surface); stroke-width: 3; transition: opacity var(--d-small) var(--ease); }
-.pcv-v { font: 700 1.1em var(--font-ui); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; transition: opacity var(--d-small) var(--ease); }
-:is(.pcv-at, .pcv-ring, .pcv-v).off { opacity: 0; }
-/* (A curve with `against`: each line's name on the drawing, or a key at the top on a small card.) */
-.pcv-name { font: 700 1em var(--font-ui); paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; transition: opacity var(--d-small) var(--ease); }
-:is(.pcv-name, .pcv-alt).off { opacity: 0; }
-.pcv-alt { transition: opacity var(--d-small) var(--ease); }
-/* (The amber cut-off line a little darker than the shared amber, so it keeps 3:1 against the card in the light theme.) */
-.pz-curve .ptk-grid[data-rate="mid"] line { stroke: color-mix(in srgb, var(--caution) 85%, var(--text)); }
-.pz-curve .pcv-cut { font: 600 1em var(--font-ui); paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
-.pz-curve :is(.pcv-cut, .pcv-v).on { stroke-width: 8px; }   /* (on its own line: the dashes stop round the words) */
-.ptk-grid[data-rate="mid"] .pcv-cut { fill: color-mix(in oklab, var(--caution) 70%, var(--text)); }
-.ptk-grid[data-rate="hi"] .pcv-cut { fill: color-mix(in oklab, var(--danger) 80%, var(--text)); }
-/* (Relation charts: the "no change" diagonal, other patients as small points (a walk joins a patient's visits), and a guideline
-   zone as a soft band under a dashed edge, in the ok colour. Plain marks in the chart's own colours, nothing new.) */
-.pz-curve .pcv-ref { stroke-width: 1.5; stroke-dasharray: 3 4; }
-.pz-curve .pcv-dash { stroke-dasharray: 5 7; }   /* (a sweep after a change, against's dash: true; round caps lengthen each dash by the stroke's width, so the gaps are set wide) */
-.pz-curve .pft-key .pcv-dash { stroke-dasharray: 3 9; }
-.pcv-dot { stroke: var(--surface); stroke-width: 1.5; }
-.pcv-dname { font: 600 1em var(--font-ui); fill: var(--text-2); paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
-.pcv-dname { transition: opacity var(--d-small) var(--ease); }
-.pcv-lead { stroke: var(--text-3); stroke-width: 1; transition: opacity var(--d-small) var(--ease); }
-:is(.pcv-dname, .pcv-lead).off { opacity: 0; }
-.pcv-sep { fill: var(--text-3); }
-/* (Dots numbered, the key under the chart naming them: a number is a plain bold digit beside its dot.) */
-.pz-curve .pcv-dnum { font-weight: 700; }
-.pz-curve .pcv-sk { font: 600 1em var(--font-ui); fill: var(--text-2); }
-.pz-curve .pcv-sn { font-weight: 700; }
-.pz-curve .pcv-kv { font-weight: 700; font-variant-numeric: tabular-nums; }   /* (the case's value in its key: readout 'key') */
-/* (A cut-off held as a tick on the left axis: its number bold in its rating's colour, a short stub of the colour at the plot's edge.) */
-.pz-curve .pcv-tc { font-weight: 700; }
-.pz-curve .pcv-tc[data-tc="mid"] { fill: color-mix(in oklab, var(--caution) 70%, var(--text)); }
-.pz-curve .pcv-tc[data-tc="hi"] { fill: color-mix(in oklab, var(--danger) 80%, var(--text)); }
-.pz-curve .pcv-stub { stroke-width: 2.5; stroke-linecap: round; }
-.pz-curve .pcv-stub[data-tc="mid"] { stroke: color-mix(in srgb, var(--caution) 85%, var(--text)); }
-.pz-curve .pcv-stub[data-tc="hi"] { stroke: var(--danger); }
-.pcv-walk { fill: none; stroke-width: 1.5; stroke-dasharray: 2 4; stroke-linecap: round; opacity: .7; }
-.pcv-arrow { stroke: none; opacity: .85; }   /* (the head on the middle of each step of a walk: which way he went) */
-.pcv-zone-fill { fill: color-mix(in srgb, var(--ok) 12%, transparent); stroke: none; }
-.pcv-zone-edge { fill: none; stroke: var(--ok); stroke-width: 1.5; stroke-dasharray: 4 5; }
-.pcv-zone-t { font: 600 1em var(--font-ui); fill: color-mix(in oklab, var(--ok) 80%, var(--text)); paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
-/* The course chart's zones (tool-course.js): the reading's rating bands behind the lines, the first and last of them (none, the deepest) a little stronger. */
-.pco-z { fill: color-mix(in srgb, var(--ok) 22%, transparent); }
-.pco-z[data-rate="mid"] { fill: color-mix(in srgb, var(--caution) 17%, transparent); }
-.pco-z[data-rate="hi"] { fill: color-mix(in srgb, var(--danger) 12%, transparent); }
-.pco-z[data-deep] { fill: color-mix(in srgb, var(--danger) 24%, transparent); }
 
 /* ── Package C: end ── */
 
@@ -7422,8 +7346,6 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pzc-kl b { font-weight: 600; color: var(--text); }
 .pzc-sw { display: block; flex: none; width: 22px; height: 14px; border-radius: 4px; background: repeating-linear-gradient(-45deg, color-mix(in srgb, var(--text) 42%, var(--surface-3)) 0 2px, var(--surface-3) 0 4.95px); }
 /* The rounded plot (his G2 look, 27 Oct; plot-look.js): the panel behind a chart's lines, the app's own tile tone, its corners the plot's. */
-:is(.pz-curve, .pz-flowtime) { --surface: var(--surface-2); }   /* (inside these charts the halos round words and the rings' fill are the panel's own tone, so none shows as a patch on it) */
-:is(.pz-curve, .pz-flowtime) .ptk-grid:not(.cut) line { stroke: color-mix(in srgb, var(--border-strong) 70%, transparent); }   /* (the hairlines read on the panel's tone as they did on the card's) */
 /* A case card's own question (slide caseQ): the case's type and size, on a line of its own under it, in the accent so it reads as the ask. */
 .pz-case-q { margin-top: .55em; }
 

@@ -25,6 +25,7 @@ import { TILE, RATE } from './table-marks.js';
 import { lineMeta, cutsOf, fmtTick, placeWord } from './tool-curve.js';
 import { plotPanel } from './plot-look.js';
 import { createSvgGL, svgModel } from './svg-gl.js';
+import { fittedType, tokName } from './chart-ctx.js';
 
 const CO_MIN = 12;   // (px on the screen: the smallest the chart's words are drawn)
 const BRANCH_C = ['--tr-pv', '--tr-hv'];
@@ -224,12 +225,12 @@ export function warmCourse(t, c) { return t && c ? courseWork(t, c)?.catch(() =>
 export function createCourse() {
   const el = document.createElement('div');
   el.className = 'pz-curve pz-course';   // (the curve's card: its height, type and number styles)
-  const gl = createSvgGL(el);
+  const gl = createSvgGL(el, { host: 'curve' });
   let t = null, c = null, ctx = null, ser = null, parts = null, G = null, labels = null, zoneNames = [], key = '', lastSz = '';
 
   const size = () => {
     const w = el.clientWidth, z = w ? el.getBoundingClientRect().width / w : 1;
-    const f = Math.max(parseFloat(getComputedStyle(el).fontSize) || 12, z > 0.2 && z < 1 ? CO_MIN / z : 0);
+    const f = fittedType(el, gl, z > 0.2 && z < 1 ? CO_MIN / z : 0);   // (the card's small type from the chart's looks table, grown to stay readable on a zoomed card)
     return [Math.max(160, w || 420), Math.max(8 * f, el.clientHeight || 240), f];
   };
   const fmt = (v) => `${v < 0.05 ? '0' : v.toFixed(1)} ${ser.unit === 'L' ? 'liters' : ser.unit}`;
@@ -237,33 +238,34 @@ export function createCourse() {
     const { f, L, R, B, X, Y } = G, r = Math.max(3.5, 0.3 * f);
     const panel = plotPanel(sv, 0, G.py, G.w, B + G.foot - G.py);
     // (The zones from the top of the scale to the baseline, the panel's corners on them, each named where the lines leave room; the numbers on the cut-offs in the strip at the left.)
-    const zones = sv('g', { 'clip-path': panel.url }, G.zones.map((z) => sv('rect', { class: 'pco-z', 'data-rate': z.rate, 'data-deep': z.deep ? '1' : null, x: 0, width: G.w, y: Y(z.to).toFixed(1), height: (Y(z.from) - Y(z.to)).toFixed(1) })));
-    const names = sv('g', { class: 'ptk-grid' }, zoneNames.filter((q) => q.p).map(({ zone: z, p }) => sv('text', { class: 'pcv-tc', 'data-tc': z.rate, x: p.x.toFixed(1), y: p.y.toFixed(1), 'text-anchor': p.anchor }, z.name)));
+    const zones = sv('g', { 'clip-path': panel.url }, G.zones.map((z) => sv('rect', { class: 'pco-z', 'data-look': 'co.z', 'data-rate': z.rate, 'data-deep': z.deep ? '1' : null, x: 0, width: G.w, y: Y(z.to).toFixed(1), height: (Y(z.from) - Y(z.to)).toFixed(1) })));
+    const names = sv('g', { class: 'ptk-grid' }, zoneNames.filter((q) => q.p).map(({ zone: z, p }) => sv('text', { class: 'pcv-tc', 'data-look': 'cv.tc', 'data-tc': z.rate, x: p.x.toFixed(1), y: p.y.toFixed(1), 'text-anchor': p.anchor }, z.name)));
     const grid = G.ticks.map((q) => sv('g', { class: 'ptk-grid' },
-      q.v ? sv('line', { x1: L, x2: R, y1: Y(q.v).toFixed(1), y2: Y(q.v).toFixed(1) }) : null,
-      q.v ? sv('line', { class: 'pcv-stub', 'data-tc': q.rate, x1: L, x2: L + 0.9 * f, y1: Y(q.v).toFixed(1), y2: Y(q.v).toFixed(1) }) : null,
-      sv('text', { class: q.v ? 'pcv-tc' : null, 'data-tc': q.rate, x: G.tickX, y: (Y(q.v) + 0.35 * f).toFixed(1), 'text-anchor': 'end' }, q.text)));
-    const axis = [sv('line', { class: 'pft-x', x1: L, x2: R, y1: B, y2: B }),
-      G.xt.map((q) => sv('text', { class: 'pft-tk', x: X(q.d).toFixed(1), y: (B + 1.25 * f).toFixed(1), 'text-anchor': 'middle' }, q.text)),
-      sv('text', { class: 'pcv-ax', x: ((L + R) / 2).toFixed(1), y: (B + 2.6 * f).toFixed(1), 'text-anchor': 'middle' }, c.words.axis)];
+      q.v ? sv('line', { 'data-look': 'plot.grid.line', x1: L, x2: R, y1: Y(q.v).toFixed(1), y2: Y(q.v).toFixed(1) }) : null,
+      q.v ? sv('line', { class: 'pcv-stub', 'data-look': 'cv.stub', 'data-tc': q.rate, x1: L, x2: L + 0.9 * f, y1: Y(q.v).toFixed(1), y2: Y(q.v).toFixed(1) }) : null,
+      sv('text', q.v ? { class: 'pcv-tc', 'data-look': 'cv.tc', 'data-tc': q.rate, x: G.tickX, y: (Y(q.v) + 0.35 * f).toFixed(1), 'text-anchor': 'end' }
+        : { 'data-look': 'time.grid.text', 'data-p-c': 'text-3', x: G.tickX, y: (Y(q.v) + 0.35 * f).toFixed(1), 'text-anchor': 'end' }, q.text)));
+    const axis = [sv('line', { class: 'pft-x', 'data-look': 'time.axis.line', x1: L, x2: R, y1: B, y2: B }),
+      G.xt.map((q) => sv('text', { class: 'pft-tk', 'data-look': 'time.tk', x: X(q.d).toFixed(1), y: (B + 1.25 * f).toFixed(1), 'text-anchor': 'middle' }, q.text)),
+      sv('text', { class: 'pcv-ax', 'data-look': 'cv.ax', x: ((L + R) / 2).toFixed(1), y: (B + 2.6 * f).toFixed(1), 'text-anchor': 'middle' }, c.words.axis)];
     const caption = sv('g', { class: 'pft-key', transform: `translate(0 ${0.75 * f})` },
-      sv('text', { x: 0, y: 0.36 * f, style: 'fill: var(--text-2)' }, sv('tspan', {}, c.words.label.split(',')[0]), c.words.label.includes(',') ? sv('tspan', { class: 'pft-u' }, `,${c.words.label.split(',').slice(1).join(',')}`) : null));
+      sv('text', { 'data-look': 'time.key.text', 'data-p-c': 'text-2', x: 0, y: 0.36 * f }, sv('tspan', { 'data-look': 'time.span' }, c.words.label.split(',')[0]), c.words.label.includes(',') ? sv('tspan', { class: 'pft-u', 'data-look': 'time.key.unit' }, `,${c.words.label.split(',').slice(1).join(',')}`) : null));
     // (The key row, when the lines' names would not stand clear at their ends: a swatch and the name, each in its line's colour.)
     const keys = G.keyRow ? sv('g', { class: 'pft-key', transform: `translate(0 ${2.25 * f})` }, G.keys.map((k) => sv('g', { transform: `translate(${k.x.toFixed(1)} 0)` },
-      sv('line', { x1: 0, x2: 16, y1: 0, y2: 0, style: `stroke: var(${k.c})` }), sv('text', { x: 22, y: 0.36 * f, style: `fill: var(${k.c})` }, k.name)))) : null;
-    const word = (cls, text, p, style) => (p ? sv('text', { class: cls, x: p.x.toFixed(1), y: p.y.toFixed(1), 'text-anchor': p.anchor, style }, text) : null);
+      sv('line', { 'data-look': 'time.key.line', 'data-p-c': tokName(k.c), x1: 0, x2: 16, y1: 0, y2: 0 }), sv('text', { 'data-look': 'time.key.text', 'data-p-c': tokName(k.c), x: 22, y: 0.36 * f }, k.name)))) : null;
+    const word = (cls, look, text, p, c) => (p ? sv('text', { class: cls, 'data-look': look, 'data-p-c': c ? tokName(c) : null, x: p.x.toFixed(1), y: p.y.toFixed(1), 'text-anchor': p.anchor }, text) : null);
     let data = null, label = `${c.words.label}: being worked out`;
     if (ser) {
       const xd = X(-G.lead), yd = Y(ser.before), headPx = ser.head.map(([d, v]) => [X(d), Y(v)]);
-      const dot = (x, y, col) => sv('circle', { class: 'pcv-dot', cx: x.toFixed(1), cy: y.toFixed(1), r, style: `fill: var(${col})` });
-      const line = (d, col) => sv('path', { class: 'ptk-line pcv-line', d, style: `stroke: var(${col})` });
+      const dot = (x, y, col) => sv('circle', { class: 'pcv-dot', 'data-look': 'cv.dot', 'data-p-c': tokName(col), cx: x.toFixed(1), cy: y.toFixed(1), r });
+      const line = (d, col) => sv('path', { class: 'ptk-line pcv-line', 'data-look': 'cv.line', 'data-p-c': tokName(col), d });
       const tailPx = ser.tails.map((q) => q.pts.map(([d, v]) => [X(d), Y(v)]));
-      data = [labels.start ? sv('line', { class: 'pcv-at', x1: X(ser.wait).toFixed(1), x2: X(ser.wait).toFixed(1), y1: labels.vTop.toFixed(1), y2: B }) : null,
-        word('pcv-dname', c.words.start, labels.start), word('pcv-dname', c.words.before, labels.before), word('pcv-dname', c.words.rise, labels.rise),
+      data = [labels.start ? sv('line', { class: 'pcv-at', 'data-look': 'cv.at', x1: X(ser.wait).toFixed(1), x2: X(ser.wait).toFixed(1), y1: labels.vTop.toFixed(1), y2: B }) : null,
+        word('pcv-dname', 'cv.dname', c.words.start, labels.start), word('pcv-dname', 'cv.dname', c.words.before, labels.before), word('pcv-dname', 'cv.dname', c.words.rise, labels.rise),
         line(`M${xd.toFixed(1)} ${yd.toFixed(1)}L${headPx[0][0].toFixed(1)} ${yd.toFixed(1)}L${headPx[0][0].toFixed(1)} ${headPx[0][1].toFixed(1)}${smoothPath(headPx, true).replace(/^L[^C]*/, '')}`, HEAD_C),
         ...ser.tails.map((q, j) => line(smoothPath(tailPx[j]), q.c)),
         dot(xd, yd, HEAD_C), ...ser.tails.map((q, j) => dot(...tailPx[j].at(-1), q.c)),
-        ...ser.tails.map((q, j) => word('pcv-name', q.name, labels.tails[j], `fill: var(${q.c})`))];
+        ...ser.tails.map((q, j) => word('pcv-name', 'cv.name', q.name, labels.tails[j], q.c))];
       label = `${c.words.label}: ${c.words.before ? `${c.words.before.toLowerCase()}, ` : ''}${fmt(ser.before)}; after the ${c.words.event.toLowerCase()} ${fmt(ser.head[0][1])}, `
         + `${fmt(ser.head.at(-1)[1])} at ${ser.wait} days; ${ser.tails.map((q) => `${q.name} ${fmt(q.pts.at(-1)[1])} at ${ser.days} days`).join('; ')}`;
     }

@@ -1,9 +1,10 @@
 // Looks shared by the over-time charts' plot pieces (docs/chart-looks-in-code-plan.md WP4): the rounded plot, the grid, the axis names, the
 // units and the series lines. Written by hand from app.css, in the order the cascade picks a winner (specificity, then the file's order);
-// each entry names the lines it replaces. So far only the talk chart (host 'talk') reads them; flow-time, course, curve and profile are
-// still on the stylesheet's .ptk-* rules (kept for them) and add their host's rows here as each moves (WP5, WP6).
+// each entry names the lines it replaces. The talk chart (host 'talk'), the flow-time chart ('flowtime') and the curve and course ('curve', time.js) read
+// them; profile is still on the stylesheet's .ptk-* rules (kept for it) and adds its host's rows here when it moves (WP6).
 import { tok, param, mix, px, em, svk, max } from './dsl.js';
 
+const FITTED = ['talk', 'flowtime', 'curve'];   // (the hosts that set the grid's numbers and the plain gridline in the card's type)
 const ROW = ['wide', 'short', 'low'];   // (.pz:not(.stack): every layout but the stacked ones)
 
 export const PLOT = {
@@ -17,19 +18,20 @@ export const PLOT = {
       [{ cut: true }, { dash: [4, 5], width: 1.5 }],
       [{ rate: 'mid' }, { stroke: tok('caution') }],
       [{ rate: 'hi' }, { stroke: tok('danger') }],
-      [{ host: 'talk', cut: false }, { stroke: mix('srgb', tok('border-strong'), 70, 'transparent') }],
+      [{ host: 'curve', cut: true, rate: 'mid' }, { stroke: mix('srgb', tok('caution'), 85, tok('text')) }],   // (7214 .pz-curve: the amber cut-off a little darker, 3:1 on the light card)
+      [{ host: FITTED, cut: false }, { stroke: mix('srgb', tok('border-strong'), 70, 'transparent') }],   // (7607)
       [{ layout: ROW, in: 'cell' }, { width: max(px(1), em(0.075)) }],
     ],
   },
   // 2959 .ptk-grid text, 6178 (.pz-talk: 1em)
   'plot.grid.text': {
     base: { font: [500, svk(px(15))], fill: tok('text-3') },
-    when: [[{ host: 'talk' }, { size: em(1) }]],
+    when: [[{ host: FITTED }, { size: em(1) }]],
   },
   // 2960 .ptk-ax, 6178, 6179 (.pz-talk: 1em, .04em)
   'plot.ax': {
     base: { font: [600, svk(px(13))], letterSpacing: svk(px(0.78)), upper: true, fill: tok('text-3') },
-    when: [[{ host: 'talk' }, { size: em(1), letterSpacing: em(0.04) }]],
+    when: [[{ host: ['talk', 'flowtime'] }, { size: em(1), letterSpacing: em(0.04) }]],   // (6314-6315 the flow-time chart's too)
   },
   // 2961 .ptk-unit, 6178
   'plot.unit': {

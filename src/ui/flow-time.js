@@ -18,6 +18,7 @@ import { createSvgGL, svgModel, setWords, setGeo, setPts } from './svg-gl.js';
 import { fix1, round1, printedKey } from './fix-text.js';
 import { D_SURFACE, EASE_ARRIVE } from './ease.js';
 import { reduceMotionMQ } from './motion.js';
+import { fittedType, tokName } from './chart-ctx.js';
 const nextFrame = frameFor('flow-time');
 
 // (No imports: the series and scales load in Node for the unit tests. Every value here is positive.)
@@ -129,7 +130,7 @@ export function createFlowTime() {
   const reduceMQ = reduceMotionMQ;   // (one query, read each frame: a new one was made every frame)
   const el = document.createElement('div');
   el.className = 'pz-flowtime';
-  const gl = createSvgGL(el);
+  const gl = createSvgGL(el, { host: 'flowtime' });
   el.dataset.lines = MEAL_LINES.join(',');
   let ser = null, parts = null, shown = 0, goal = 0, raf = 0, sig = '', clock = 'meal', keys = MEAL_LINES, given = null, LINES = linesOf(keys);
   let rx = [];   // (the treatments on through the slide's time-lapse that its tool shades, rx-bands.js; none on a built-in deck)
@@ -157,9 +158,9 @@ export function createFlowTime() {
   function build() {
     const { f, L, R, T, B, FB, PB, meal } = G;
     const lines = LINES.map(([k, s, , c, , unit, d]) => ({ k, unit, d, c, Y: Yof(k === 'flow' ? FB : PB, ser[s]),
-      path: sv('path', { class: 'ptk-line', style: `stroke: var(${c})` }),
-      dot: sv('circle', { class: 'pft-dot', r: Math.max(4, f * 0.42), style: `fill: var(${c})` }),
-      val: sv('text', { class: 'pft-v', style: `fill: var(${c})` }) }));
+      path: sv('path', { class: 'ptk-line', 'data-look': 'plot.line', 'data-p-c': tokName(c) }),
+      dot: sv('circle', { class: 'pft-dot', 'data-look': 'ft.dot', 'data-p-c': tokName(c), r: Math.max(4, f * 0.42) }),
+      val: sv('text', { class: 'pft-v', 'data-look': 'ft.v', 'data-p-c': tokName(c) }) }));
     // The first values at the start, each under its line (a line that rises runs away from it, never through it). Where the
     // value under the start would run onto the axis or onto its own line (a line that falls, or starts on the axis), it sits over it.
     const at0 = lines.map((l) => { const v = ser[l.k][0], y = l.Y(v), x0 = X(ax().from) + 4, x1 = x0 + cw(withUnit(v, l.d, l.unit), f);
@@ -171,8 +172,8 @@ export function createFlowTime() {
     // own choice when that is clear of the other's.)
     const clear = (a, b) => Math.abs(a - b) >= 1.15 * f;
     const pick = at0.length === 2 ? [[0, 0], [0, 1], [1, 0], [1, 1]].find(([i, j]) => clear(at0[0].ys[i], at0[1].ys[j]) && at0[0].ys[i] - 0.8 * f > T - 1.5 * f && at0[1].ys[j] - 0.8 * f > T - 1.5 * f) || [0, 0] : at0.map(() => 0);
-    const start = at0.map(({ l, v, y, x0, ys }, i) => [sv('circle', { class: 'pft-start', cx: X(ax().from), cy: y, r: Math.max(3, f * 0.3), style: `stroke: var(${l.c})` }),
-      sv('text', { class: 'pft-v0', x: x0, y: ys[pick[i]], style: `fill: var(${l.c})` }, withUnit(v, l.d, l.unit))]);
+    const start = at0.map(({ l, v, y, x0, ys }, i) => [sv('circle', { class: 'pft-start', 'data-look': 'ft.start', 'data-p-c': tokName(l.c), cx: X(ax().from), cy: y, r: Math.max(3, f * 0.3) }),
+      sv('text', { class: 'pft-v0', 'data-look': 'ft.v0', 'data-p-c': tokName(l.c), x: x0, y: ys[pick[i]] }, withUnit(v, l.d, l.unit))]);
     const [lp, lf] = lines;
     // Each band's gridlines, numbered on its own side in its line's colour: every line when they are 1.3 lines of type
     // apart or more, else the ends only (else the top alone).
@@ -182,15 +183,15 @@ export function createFlowTime() {
     };
     const grid = (sc, Y, x, anchor, c) => {
       const show = shows(sc, Y);
-      return sc.ticks.map((v, j) => sv('g', { class: 'ptk-grid' }, sv('line', { x1: L, x2: R, y1: Y(v), y2: Y(v) }),
-        show(j) ? sv('text', { x, y: Y(v) + 0.35 * f, 'text-anchor': anchor, style: `fill: var(${c})` }, fmt(v, dec(sc))) : null));
+      return sc.ticks.map((v, j) => sv('g', { class: 'ptk-grid' }, sv('line', { 'data-look': 'plot.grid.line', x1: L, x2: R, y1: Y(v), y2: Y(v) }),
+        show(j) ? sv('text', { 'data-look': 'time.grid.text', 'data-p-c': tokName(c), x, y: Y(v) + 0.35 * f, 'text-anchor': anchor }, fmt(v, dec(sc))) : null));
     };
     // The legend: each line's swatch, name and unit; the lower line's on the left, the upper's on the right (or under it).
     const legend = G.keysL.map((k, j) => { const right = j && G.oneRow, y = (j && !G.oneRow ? G.rowH : 0) + 0.75 * f, x0 = right ? G.w : 0;
       return sv('g', { class: 'pft-key', transform: `translate(${x0} ${y})` },
-        sv('line', { x1: right ? -16 : 0, x2: right ? 0 : 16, y1: 0, y2: 0, style: `stroke: var(${k.c})` }),
-        sv('text', { x: right ? -22 : 22, y: 0.36 * f, 'text-anchor': right ? 'end' : 'start', style: `fill: var(${k.c})` },
-          right ? [sv('tspan', { class: 'pft-u' }, `${k.unit} `), sv('tspan', {}, k.name)] : [sv('tspan', {}, k.name), sv('tspan', { class: 'pft-u' }, ` ${k.unit}`)])); });
+        sv('line', { 'data-look': 'time.key.line', 'data-p-c': tokName(k.c), x1: right ? -16 : 0, x2: right ? 0 : 16, y1: 0, y2: 0 }),
+        sv('text', { 'data-look': 'time.key.text', 'data-p-c': tokName(k.c), x: right ? -22 : 22, y: 0.36 * f, 'text-anchor': right ? 'end' : 'start' },
+          right ? [sv('tspan', { class: 'pft-u', 'data-look': 'time.key.unit' }, `${k.unit} `), sv('tspan', { 'data-look': 'time.span' }, k.name)] : [sv('tspan', { 'data-look': 'time.span' }, k.name), sv('tspan', { class: 'pft-u', 'data-look': 'time.key.unit' }, ` ${k.unit}`)])); });
     const mins = [], step = meal ? 10 : niceStep(ax().end / Math.max(2, Math.min(4, Math.floor((R - L) / (4 * f)))));
     for (let m = ax().from; m <= ax().end + 1e-9; m += step) mins.push(m);
     // (The upper band's numbers shown in the right margin, as boxes a line's value keeps clear of.)
@@ -200,20 +201,20 @@ export function createFlowTime() {
     // under the clock, then a thin bar each in the same order and colour, over the plot's whole time, so every bar starts
     // where the treatment does and no line, value or number can run into them.
     const bandEls = rx.length ? sv('g', { class: 'pft-bands' },
-      sv('text', { class: 'pft-band-n', x: L, y: B + 2.55 * f }, rx.map((k, j) => sv('tspan', { style: `--rx: var(${RX[k][2]})` }, (j ? '  ·  ' : '') + RX[k][0]))),
-      rx.map((k, j) => sv('rect', { class: 'pft-band', 'data-rx': k, style: `--rx: var(${RX[k][2]})`, x: L, width: Math.max(2, R - L), y: B + 2.8 * f + j * 0.32 * f, height: 0.2 * f, rx: 0.1 * f }))) : null;
+      sv('text', { class: 'pft-band-n', 'data-look': 'time.span', x: L, y: B + 2.55 * f }, rx.map((k, j) => sv('tspan', { 'data-look': 'ft.band.name', 'data-p-rx': tokName(RX[k][2]) }, (j ? '  ·  ' : '') + RX[k][0]))),
+      rx.map((k, j) => sv('rect', { class: 'pft-band', 'data-look': 'ft.band.bar', 'data-p-rx': tokName(RX[k][2]), 'data-rx': k, x: L, width: Math.max(2, R - L), y: B + 2.8 * f + j * 0.32 * f, height: 0.2 * f, rx: 0.1 * f }))) : null;
     // (The panel under everything: from just under the legend to the chart's foot, its full width, so the treatments' names and bars under the
     // clock stand inside it; with none, the foot is 1.7 em under the axis, under the clock's numbers.)
     const panel = plotPanel(sv, 0, G.keyH + 0.1 * f, G.w, G.h - (G.keyH + 0.1 * f));
     const svg = sv('svg', { viewBox: `0 0 ${G.w} ${G.h}`, width: G.w, height: G.h, role: 'img', style: `font-size: ${G.f.toFixed(2)}px` },
       sv('defs', {}, panel.clip), panel.back, bandEls, grid(ser.fScale, lf.Y, R + 6, 'start', lf.c), grid(ser.pScale, lp.Y, L - 6 - (rx.length ? Math.max(3, f * 0.3) + 2 : 0), 'end', lp.c), legend,
-      sv('line', { class: 'pft-x', x1: L, x2: R, y1: B, y2: B }),
-      mins.map((m) => sv('text', { class: 'pft-tk', x: X(m), y: B + 1.25 * f, 'text-anchor': 'middle' }, m > 0 ? `+${m}` : m < 0 ? `−${-m}` : '0')),
-      sv('text', { class: 'ptk-ax', x: R + G.half, y: B + 1.25 * f }, meal ? 'min' : 'days'),
+      sv('line', { class: 'pft-x', 'data-look': 'time.axis.line', x1: L, x2: R, y1: B, y2: B }),
+      mins.map((m) => sv('text', { class: 'pft-tk', 'data-look': 'time.tk', x: X(m), y: B + 1.25 * f, 'text-anchor': 'middle' }, m > 0 ? `+${m}` : m < 0 ? `−${-m}` : '0')),
+      sv('text', { class: 'ptk-ax', 'data-look': 'plot.ax', x: R + G.half, y: B + 1.25 * f }, meal ? 'min' : 'days'),
       // Fasting, then the meal: a dashed line at 0 min.
-      meal ? [sv('text', { class: 'pft-t', x: (X(MINUTES.from) + X(0)) / 2, y: T - 0.6 * f, 'text-anchor': 'middle' }, 'Fasting'),
-        sv('line', { class: 'pft-meal', x1: X(0), x2: X(0), y1: T - 1.5 * f, y2: B }),
-        sv('text', { class: 'pft-t meal', x: X(0) + 6, y: T - 0.6 * f }, 'Meal')] : null,
+      meal ? [sv('text', { class: 'pft-t', 'data-look': 'ft.t', x: (X(MINUTES.from) + X(0)) / 2, y: T - 0.6 * f, 'text-anchor': 'middle' }, 'Fasting'),
+        sv('line', { class: 'pft-meal', 'data-look': 'ft.meal', x1: X(0), x2: X(0), y1: T - 1.5 * f, y2: B }),
+        sv('text', { class: 'pft-t meal', 'data-look': 'ft.t', x: X(0) + 6, y: T - 0.6 * f }, 'Meal')] : null,
       lines.map((l) => l.path), start, lines.map((l) => [l.dot, l.val]));
     return { svg, lines, boxes };
   }
@@ -288,7 +289,7 @@ export function createFlowTime() {
   // by as much, so its words are never under 12 px on the screen; they were 9.6 px on a Mac and 8 px on an iPad held sideways.)
   const size = () => {
     const w = el.clientWidth, z = w ? el.getBoundingClientRect().width / w : 1;
-    const f = Math.max(parseFloat(getComputedStyle(el).fontSize) || 12, z > 0.2 && z < 1 ? FT_MIN / z : 0);
+    const f = fittedType(el, gl, z > 0.2 && z < 1 ? FT_MIN / z : 0);   // (the card's small type from the chart's looks table, grown to stay readable on a zoomed card)
     return [Math.max(160, w || 420), Math.max(8 * f, el.clientHeight || 260), f];
   };
   let lastSz = '';

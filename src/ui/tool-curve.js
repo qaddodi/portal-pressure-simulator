@@ -71,6 +71,7 @@ import { TILE, SCALE, RATE } from './table-marks.js';
 import { HVPG_CUTS } from '../engine/pressure-cuts.js';
 import { frameFor } from './frame.js';
 import { restPass, restClass } from './rest-pass.js';
+import { fittedType, tokName } from './chart-ctx.js';
 import { plotPanel } from './plot-look.js';
 import { createSvgGL, svgModel, setWords, wordsOf, setGeo } from './svg-gl.js';
 import { airRatio } from './endo-size.js';
@@ -567,14 +568,14 @@ export function createCurve() {
   const reduceMQ = reduceMotionMQ;
   const el = document.createElement('div');
   el.className = 'pz-curve';
-  const gl = createSvgGL(el);
+  const gl = createSvgGL(el, { host: 'curve' });
   let t = null, ctx = null, ser = null, dots = [], parts = null, G = null, key = '', lastSz = '', raf = 0;
   let ring = null, goal = null, settleId = 0;   // ({ x, ys } in shown units: where the rings are drawn, and where they glide to)
   let altNow = false;   // (with against: the lines' key stands in, with rows of its own, because their names did not fit on the drawing)
 
   const size = () => {
     const w = el.clientWidth, z = w ? el.getBoundingClientRect().width / w : 1;
-    const f = Math.max(parseFloat(getComputedStyle(el).fontSize) || 12, z > 0.2 && z < 1 ? CV_MIN / z : 0);
+    const f = fittedType(el, gl, z > 0.2 && z < 1 ? CV_MIN / z : 0);   // (the card's small type from the chart's looks table, grown to stay readable on a zoomed card)
     return [Math.max(160, w || 420), Math.max(8 * f, el.clientHeight || 240), f];
   };
   // A dot's place on line j (shown units), or null: with against every line is the one reading, so a dot sits once, on the first.
@@ -665,19 +666,20 @@ export function createCurve() {
     // the gridline stays the plain one.)
     const grid = sL.ticks.map((v, j) => { const tc = G.tickCuts.find((c) => Math.abs(c.v - v) < 1e-6);
       return sv('g', { class: 'ptk-grid' },
-        sv('line', { x1: L, x2: R, y1: YL(v), y2: YL(v) }),
-        tc ? sv('line', { class: 'pcv-stub', 'data-tc': tc.rate, x1: L, x2: L + 0.9 * f, y1: YL(v), y2: YL(v) }) : null,
-        sv('text', { class: tc ? 'pcv-tc' : null, 'data-tc': tc?.rate, x: L - 6, y: YL(v) + 0.35 * f, 'text-anchor': 'end', style: tc ? null : `fill: var(${G.ag ? '--text-2' : tickC})` }, fmtTick(v, dec(sL))),
-        sR ? sv('text', { x: R + 6, y: YL(v) + 0.35 * f, 'text-anchor': 'start', style: `fill: var(${ls[1].c})` }, fmtTick(sR.ticks[j], dec(sR))) : null); });
+        sv('line', { 'data-look': 'plot.grid.line', x1: L, x2: R, y1: YL(v), y2: YL(v) }),
+        tc ? sv('line', { class: 'pcv-stub', 'data-look': 'cv.stub', 'data-tc': tc.rate, x1: L, x2: L + 0.9 * f, y1: YL(v), y2: YL(v) }) : null,
+        sv('text', tc ? { class: 'pcv-tc', 'data-look': 'cv.tc', 'data-tc': tc.rate, x: L - 6, y: YL(v) + 0.35 * f, 'text-anchor': 'end' }
+          : { 'data-look': 'time.grid.text', 'data-p-c': tokName(G.ag ? '--text-2' : tickC), x: L - 6, y: YL(v) + 0.35 * f, 'text-anchor': 'end' }, fmtTick(v, dec(sL))),
+        sR ? sv('text', { 'data-look': 'time.grid.text', 'data-p-c': tokName(ls[1].c), x: R + 6, y: YL(v) + 0.35 * f, 'text-anchor': 'start' }, fmtTick(sR.ticks[j], dec(sR))) : null); });
     // (A zone: the band under its edge in the ok colour, dashed along the top, its name placed on every paint.)
     let zone = null, zoneLab = null;
     const edge = zoneEdge(t.zone, G.x0, G.x1);
     if (edge) {
       const pts = edge.map(([x, y]) => [X(x), YL(clamp(y, sL.min, sL.max))]);
       const top = pts.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join('');
-      zoneLab = typeof t.zone.label === 'string' && t.zone.label ? sv('text', { class: 'pcv-zone-t', 'data-nomorph': '' }, t.zone.label) : null;
-      zone = sv('g', { class: 'pcv-zone' }, sv('path', { class: 'pcv-zone-fill', d: `${top}L${pts.at(-1)[0].toFixed(1)} ${B}L${pts[0][0].toFixed(1)} ${B}Z` }),
-        sv('path', { class: 'pcv-zone-edge', d: top }), zoneLab);
+      zoneLab = typeof t.zone.label === 'string' && t.zone.label ? sv('text', { class: 'pcv-zone-t', 'data-look': 'cv.zone.t', 'data-nomorph': '' }, t.zone.label) : null;
+      zone = sv('g', { class: 'pcv-zone' }, sv('path', { class: 'pcv-zone-fill', 'data-look': 'cv.zone.fill', d: `${top}L${pts.at(-1)[0].toFixed(1)} ${B}L${pts[0][0].toFixed(1)} ${B}Z` }),
+        sv('path', { class: 'pcv-zone-edge', 'data-look': 'cv.zone.edge', d: top }), zoneLab);
     }
     // (The first line's cut-offs, dashed in their rating's colour, where they fall inside its scale.)
     // (A cut-off held as a tick draws no dashed line, but a named one still writes its name, "Grade 2", over its gridline.)
@@ -692,7 +694,7 @@ export function createCurve() {
       const nm = t.cutNames?.[c.v], vtxt = fmt(c.v, Number.isInteger(c.v) ? 0 : 1), isHeld = held(c);
       // (A named cut-off reads "Grade 2 ≥1.5 L", or just "Grade 2" where its number already stands on the axis; an unnamed one "Ascites 1.5".)
       const y = YL(c.v), txt = nm ? (isHeld ? nm : `${nm} ≥${vtxt} ${ls[0].unit}`.trim()) : `${G.ag ? readingName(t) : ls[0].name} ${vtxt}`;
-      const el = sv('text', { class: 'pcv-cut', 'data-nomorph': '' }, txt);
+      const el = sv('text', { class: 'pcv-cut', 'data-look': 'cv.cut', 'data-nomorph': '' }, txt);
       // (short: where the whole name has no clear spot, just its number, in the rating's colour, beside its line: two cut-offs a line's width apart, "Liver flow 55" over "Liver flow 75".)
       cutLabs.push({ el, txt, short: nm ? null : vtxt, twS: 1.12 * cw(vtxt, f, true), tw: 1.12 * cw(txt, f, true), lines: cutVs.filter((o) => o !== c && !held(o)).map((o) => ({ y: YL(o.v), x0: L, x1: R })),
         // (Over the line; else on it, the dashes stopping round the words (a short chart's cut-offs stand close); else under.)
@@ -701,27 +703,27 @@ export function createCurve() {
           { x: R - 3, y: y + 1.05 * f, anchor: 'end' }, { x: L + 3, y: y + 1.05 * f, anchor: 'start' },
           // (A grade's name, which stands over a gridline with no dashes of its own, may also stand part of the way along when both ends are taken.)
           ...(isHeld ? [{ x: L + 0.3 * (R - L), y: y - 0.35 * f, anchor: 'start' }, { x: L + 0.55 * (R - L), y: y - 0.35 * f, anchor: 'start' }, { x: L + 0.3 * (R - L), y: y + 1.05 * f, anchor: 'start' }] : [])] });
-      return sv('g', { class: 'ptk-grid cut', 'data-rate': c.rate }, isHeld ? null : sv('line', { x1: L, x2: R, y1: y, y2: y }), el);
+      return sv('g', { class: 'ptk-grid cut', 'data-rate': c.rate }, isHeld ? null : sv('line', { 'data-look': 'plot.grid.line', x1: L, x2: R, y1: y, y2: y }), el);
     });
     // (The x reading's cut-offs, upright and dashed the same way, each named over the plot, "15 kPa".)
     const xCutLabs = [];
     const xCuts = xCutsOf(t).filter((c) => c.v > G.x0 && c.v < G.x1).map((c) => {
       // (The HVPG 10 line is named for what it marks, "CSPH ≥10"; any other reads as its number and unit.)
-      const x = X(c.v), vtxt = fmt(c.v, Number.isInteger(c.v) ? 0 : 1), nm = xCutName(G.ax.k, c.v), txt = nm ? `${nm} ≥${vtxt}` : `${vtxt} ${ax.unit}`.trim(), el = sv('text', { class: 'pcv-cut', 'data-nomorph': '' }, txt);
+      const x = X(c.v), vtxt = fmt(c.v, Number.isInteger(c.v) ? 0 : 1), nm = xCutName(G.ax.k, c.v), txt = nm ? `${nm} ≥${vtxt}` : `${vtxt} ${ax.unit}`.trim(), el = sv('text', { class: 'pcv-cut', 'data-look': 'cv.cut', 'data-nomorph': '' }, txt);
       xCutLabs.push({ el, x, tw: 1.12 * cw(txt, f, true) });
       segs.push(Object.assign([x, T, x, B], { w: 5 }));
-      return sv('g', { class: 'ptk-grid cut', 'data-rate': c.rate }, sv('line', { x1: x, x2: x, y1: T - 0.2 * f, y2: B }), el);
+      return sv('g', { class: 'ptk-grid cut', 'data-rate': c.rate }, sv('line', { 'data-look': 'plot.grid.line', x1: x, x2: x, y1: T - 0.2 * f, y2: B }), el);
     });
     // (With the values in the key row each key reads "Varix 5.3 mm": its name, the case's value in bold, its unit, the same order on both sides.)
     const kv = [];
     const legend = G.keys.map((k, j) => { const right = j && G.oneRow, y = (j && !G.oneRow ? G.rowH : 0) + 0.75 * f, x0 = right ? G.w : 0;
-      const val = G.keyRead ? sv('tspan', { class: 'pcv-kv' }, ' ') : null;
+      const val = G.keyRead ? sv('tspan', { class: 'pcv-kv', 'data-look': 'cv.kv' }, ' ') : null;
       if (val) kv[j] = val;
       return sv('g', { class: 'pft-key', transform: `translate(${x0} ${y})` },
-        k.bare ? null : sv('line', { x1: right ? -16 : 0, x2: right ? 0 : 16, y1: 0, y2: 0, style: `stroke: var(${k.c})` }),
-        sv('text', { x: k.bare ? 0 : right ? -22 : 22, y: 0.36 * f, 'text-anchor': right ? 'end' : 'start', style: `fill: var(${k.c})` },
-          val ? [sv('tspan', {}, k.name), val, sv('tspan', { class: 'pft-u' }, k.unit)]
-            : right ? [sv('tspan', { class: 'pft-u' }, `${k.unit} `), sv('tspan', {}, k.name)] : [sv('tspan', {}, k.name), sv('tspan', { class: 'pft-u' }, ` ${k.unit}`)])); });
+        k.bare ? null : sv('line', { 'data-look': 'time.key.line', 'data-p-c': tokName(k.c), x1: right ? -16 : 0, x2: right ? 0 : 16, y1: 0, y2: 0 }),
+        sv('text', { 'data-look': 'time.key.text', 'data-p-c': tokName(k.c), x: k.bare ? 0 : right ? -22 : 22, y: 0.36 * f, 'text-anchor': right ? 'end' : 'start' },
+          val ? [sv('tspan', { 'data-look': 'time.span' }, k.name), val, sv('tspan', { class: 'pft-u', 'data-look': 'time.key.unit' }, k.unit)]
+            : right ? [sv('tspan', { class: 'pft-u', 'data-look': 'time.key.unit' }, `${k.unit} `), sv('tspan', { 'data-look': 'time.span' }, k.name)] : [sv('tspan', { 'data-look': 'time.span' }, k.name), sv('tspan', { class: 'pft-u', 'data-look': 'time.key.unit' }, ` ${k.unit}`)])); });
     // (With against, a key of the lines kept hidden at the right of the key row: shown only when a chart is too cramped
     // for the lines' names on the drawing, a phone held sideways.)
     let alt = null;
@@ -735,64 +737,64 @@ export function createCurve() {
       else { let x = 0; for (let j = ls.length - 1; j >= 0; j--) { x -= kw(ls[j]); at[j] = [x, 0]; x -= f; } }
       // (Beside the reading the key of the lines stands left of the styles' key, which keeps the right end.)
       const shift = G.sty && !G.styBelow && !G.altBelow ? G.sty.reduce((a, s) => a + 22 + 1.05 * cw(s, f, 1), 0) + 2 * f : 0;
-      const ks = ls.map((l, i) => sv('g', { transform: `translate(${(at[i][0] - shift).toFixed(1)} ${at[i][1].toFixed(1)})` }, sv('line', { x1: 0, x2: 16, y1: 0, y2: 0, class: l.ref ? 'pcv-ref' : l.dash ? 'pcv-dash' : null, style: `stroke: var(${l.c})` }),
-        sv('text', { x: 22, y: 0.36 * f, style: `fill: var(${l.c})` }, l.name)));
-      alt = sv('g', { class: 'pft-key pcv-alt off', transform: `translate(${G.w} ${(G.altBelow ? G.rowH * (G.styBelow ? 2 : 1) : 0) + 0.75 * f})` }, ks);
+      const ks = ls.map((l, i) => sv('g', { transform: `translate(${(at[i][0] - shift).toFixed(1)} ${at[i][1].toFixed(1)})` }, sv('line', { 'data-look': 'time.key.line', 'data-p-c': tokName(l.c), x1: 0, x2: 16, y1: 0, y2: 0, class: l.ref ? 'pcv-ref' : l.dash ? 'pcv-dash' : null }),
+        sv('text', { 'data-look': 'time.key.text', 'data-p-c': tokName(l.c), x: 22, y: 0.36 * f }, l.name)));
+      alt = sv('g', { class: 'pft-key pcv-alt off', 'data-look': 'cv.alt', transform: `translate(${G.w} ${(G.altBelow ? G.rowH * (G.styBelow ? 2 : 1) : 0) + 0.75 * f})` }, ks);
     }
     // (styles: a solid and a dashed swatch in the plain text colour, each with its name ("GRS open", "GRS closed"), at the right of the key row
     // or on the row under the reading, from the left edge.)
     let styKey = null;
     if (G.sty) {
       let x = 0;
-      const ks = G.sty.map((s, i) => { const g = sv('g', { transform: `translate(${x.toFixed(1)} 0)` }, sv('line', { x1: 0, x2: 16, y1: 0, y2: 0, class: i ? 'pcv-dash' : null, style: 'stroke: var(--text-2)' }),
-        sv('text', { class: 'pcv-sty', x: 22, y: 0.36 * f, style: 'fill: var(--text-2)' }, s)); x += 22 + 1.05 * cw(s, f, 1) + f; return g; });
+      const ks = G.sty.map((s, i) => { const g = sv('g', { transform: `translate(${x.toFixed(1)} 0)` }, sv('line', { 'data-look': 'time.key.line', 'data-p-c': 'text-2', x1: 0, x2: 16, y1: 0, y2: 0, class: i ? 'pcv-dash' : null }),
+        sv('text', { class: 'pcv-sty', 'data-look': 'time.key.text', 'data-p-c': 'text-2', x: 22, y: 0.36 * f }, s)); x += 22 + 1.05 * cw(s, f, 1) + f; return g; });
       const wAll = x - f;
       styKey = sv('g', { class: 'pft-key pcv-styles', transform: `translate(${(G.styBelow ? 0 : G.w - wAll).toFixed(1)} ${((G.styBelow ? G.rowH : 0) + 0.75 * f).toFixed(1)})` }, ks);
     }
-    const axis = [sv('line', { class: 'pft-x', x1: L, x2: R, y1: B, y2: B }),
+    const axis = [sv('line', { class: 'pft-x', 'data-look': 'time.axis.line', x1: L, x2: R, y1: B, y2: B }),
       // (The two end numbers stand inside the plot's ends, clear of the corner numbers of the y axes.)
-      xt.map((x) => sv('text', { class: 'pft-tk', x: X(x), y: B + 1.25 * f, 'text-anchor': X(x) <= L + 1 ? 'start' : X(x) >= R - 1 ? 'end' : 'middle' }, fmtTick(x, ax.d))),
+      xt.map((x) => sv('text', { class: 'pft-tk', 'data-look': 'time.tk', x: X(x), y: B + 1.25 * f, 'text-anchor': X(x) <= L + 1 ? 'start' : X(x) >= R - 1 ? 'end' : 'middle' }, fmtTick(x, ax.d))),
       // (The name on the numbers' row where it fits between them, else on a row of its own under them, xAxisRow.)
-      sv('text', { class: 'pcv-ax', x: G.nameAt ?? (L + R) / 2, y: B + (G.nameAt == null ? 2.6 : 1.25) * f, 'text-anchor': 'middle' }, xAxisName(ax))];
+      sv('text', { class: 'pcv-ax', 'data-look': 'cv.ax', x: G.nameAt ?? (L + R) / 2, y: B + (G.nameAt == null ? 2.6 : 1.25) * f, 'text-anchor': 'middle' }, xAxisName(ax))];
     const lines = ls.map((l, j) => {
       const Y = j && !G.one ? YR || YL : YL, ys = ser?.ys[j], xs = lineX(j);
       const d = ys ? ys.map((y, i) => (Number.isFinite(y) ? [X(xs[i]), Y(y)] : null)).filter(Boolean).map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join('') : '';
-      return { l, Y, path: sv('path', { class: `ptk-line pcv-line${l.ref ? ' pcv-ref' : l.dash ? ' pcv-dash' : ''}`, d, style: `stroke: var(${l.c})` }),
-        ring: sv('circle', { class: 'pcv-ring off', r: Math.max(5, f * 0.45), style: `stroke: var(${l.c})`, 'data-nomorph': '' }),
+      return { l, Y, path: sv('path', { class: `ptk-line pcv-line${l.ref ? ' pcv-ref' : l.dash ? ' pcv-dash' : ''}`, 'data-look': 'cv.line', 'data-p-c': tokName(l.c), d }),
+        ring: sv('circle', { class: 'pcv-ring off', 'data-look': 'cv.ring', 'data-p-c': tokName(l.c), r: Math.max(5, f * 0.45), 'data-nomorph': '' }),
         // (Its pieces for a merged readout, "5.3 mm · 72 %": a separator and a value in each line's colour, built with the drawing, so a
         // frame only gives them words, never builds them.)
-        val: sv('text', { class: 'pcv-v', style: `fill: var(${l.c})`, 'data-nomorph': '' },
-          ls.flatMap((q, i) => [i ? sv('tspan', { class: 'pcv-sep' }, '') : null, sv('tspan', { style: `fill: var(${q.c})` }, '')]).filter(Boolean)),
+        val: sv('text', { class: 'pcv-v', 'data-look': 'cv.v', 'data-p-c': tokName(l.c), 'data-nomorph': '' },
+          ls.flatMap((q, i) => [i ? sv('tspan', { class: 'pcv-sep', 'data-look': 'cv.sep' }, '') : null, sv('tspan', { 'data-look': 'cv.vpart', 'data-p-c': tokName(q.c) }, '')]).filter(Boolean)),
         // (With against each line is named on the drawing, placed on every paint clear of the rings and the values.)
-        name: G.ag ? sv('text', { class: 'pcv-name', style: `fill: var(${l.c})`, 'data-nomorph': '' }, l.name) : null };
+        name: G.ag ? sv('text', { class: 'pcv-name', 'data-look': 'cv.name', 'data-p-c': tokName(l.c), 'data-nomorph': '' }, l.name) : null };
     });
     // (The other states as small filled points in their line's colour, named beside the first; a walk joins them in order.)
     const dr = Math.max(3.5, 0.3 * f), dotEls = [], walks = [];
     let nth = 0;
     const dotPts = dots.map((d) => {
       const at = ls.map((l, j) => { const p = dotXY(d, j, ls); return p ? [X(p[0]), (j && !G.one ? YR || YL : YL)(p[1])] : null; });
-      at.forEach((p, j) => { if (p) dotEls.push(sv('circle', { class: 'pcv-dot', cx: p[0].toFixed(1), cy: p[1].toFixed(1), r: dr, style: `fill: var(${ls[j].c})` })); });
+      at.forEach((p, j) => { if (p) dotEls.push(sv('circle', { class: 'pcv-dot', 'data-look': 'cv.dot', 'data-p-c': tokName(ls[j].c), cx: p[0].toFixed(1), cy: p[1].toFixed(1), r: dr })); });
       const first = at.find(Boolean), num = d.name && first ? String(++nth) : '';
       // (With a key of steps the dot carries its number, and the name stands in the key.)
       const txt = G.stepKey && num ? num : d.name || '';
-      return { name: d.name ? sv('text', { class: `pcv-dname off${G.stepKey ? ' pcv-dnum' : ''}`, 'data-nomorph': '' }, txt) : null, lead: d.name ? sv('line', { class: 'pcv-lead off', 'data-nomorph': '' }) : null, txt, full: d.name || '', at, first };
+      return { name: d.name ? sv('text', { class: `pcv-dname off${G.stepKey ? ' pcv-dnum' : ''}`, 'data-look': 'cv.dname', 'data-nomorph': '' }, txt) : null, lead: d.name ? sv('line', { class: 'pcv-lead off', 'data-look': 'cv.lead', 'data-nomorph': '' }) : null, txt, full: d.name || '', at, first };
     });
-    const stepsKey = G.stepKey?.rows ? sv('g', { class: 'pcv-steps' }, G.stepKey.items.map((it) => sv('text', { class: 'pcv-sk', x: it.x, y: B + G.foot + 1.3 * f + it.row * 1.5 * f },
-      sv('tspan', { class: 'pcv-sn' }, String(it.n)), ` ${it.name}`))) : null;
+    const stepsKey = G.stepKey?.rows ? sv('g', { class: 'pcv-steps' }, G.stepKey.items.map((it) => sv('text', { class: 'pcv-sk', 'data-look': 'cv.sk', x: it.x, y: B + G.foot + 1.3 * f + it.row * 1.5 * f },
+      sv('tspan', { class: 'pcv-sn', 'data-look': 'cv.sn' }, String(it.n)), ` ${it.name}`))) : null;
     const walkSets = walksOf(t), arrows = [];
     ls.forEach((l, j) => walkSets.forEach((g) => {
       const pts = g.map((i) => dotPts[i]?.at[j]).filter(Boolean);
-      if (pts.length > 1) walks.push(sv('path', { class: 'pcv-walk', d: pts.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join(''), style: `stroke: var(${l.c})` }));
+      if (pts.length > 1) walks.push(sv('path', { class: 'pcv-walk', 'data-look': 'cv.walk', 'data-p-c': tokName(l.c), d: pts.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join('') }));
       for (let i = 1; i < pts.length; i++) {
         // (The words keep off a walk's dotted line too, and off the arrowhead that shows which way it runs.)
         segs.push(Object.assign([pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1]], { w: 2 }));
         const ar = walkArrow(pts[i - 1], pts[i], dr, f);
-        if (ar) { arrows.push(sv('path', { class: 'pcv-arrow', d: ar.d, style: `fill: var(${l.c})` })); segs.push(Object.assign(ar.seg, { w: 3 })); }
+        if (ar) { arrows.push(sv('path', { class: 'pcv-arrow', 'data-look': 'cv.arrow', 'data-p-c': tokName(l.c), d: ar.d })); segs.push(Object.assign(ar.seg, { w: 3 })); }
       }
     }));
     for (const d of dotPts) for (const p of d.at) if (p) segs.push(Object.assign([p[0] - dr, p[1], p[0] + dr, p[1]], { w: 3 }));
     // (With a reading on x the case stands out by its rings: its mark is only a short tick on the x axis, not a second upright dashed line.)
-    const xk = xKeyOf(t), at = sv('line', { class: xk ? 'pcv-at pcv-atx' : 'pcv-at', y1: xk ? B - 0.8 * f : T - 0.4 * f, y2: B, 'data-nomorph': '' });
+    const xk = xKeyOf(t), at = sv('line', { class: xk ? 'pcv-at pcv-atx' : 'pcv-at', 'data-look': 'cv.at', y1: xk ? B - 0.8 * f : T - 0.4 * f, y2: B, 'data-nomorph': '' });
     // (The panel under everything: from just under the key row to under the axis's name, the chart's full width.)
     const panel = plotPanel(sv, 0, G.keyH + 0.2 * f, G.w, B + G.foot - (G.keyH + 0.2 * f));
     const svg = sv('svg', { viewBox: `0 0 ${G.w} ${G.h}`, width: G.w, height: G.h, role: 'img', style: `font-size: ${f.toFixed(2)}px` },

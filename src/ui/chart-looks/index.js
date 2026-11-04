@@ -9,6 +9,7 @@ import { CAUSES } from './causes.js';
 import { PLANE } from './plane.js';
 import { FLUID } from './fluid.js';
 import { LUMEN } from './lumen.js';
+import { TIME } from './time.js';
 
 /** key → entry. A key is <group>.<part>[.<sub>] (lowercase, dots). */
 export const LOOKS = {
@@ -21,10 +22,13 @@ export const LOOKS = {
   ...PLANE,
   ...FLUID,
   ...LUMEN,
+  ...TIME,
 };
 
 /** host name → (ctx) → the host's base type size in px, what an `em` of that host means. A host missing here is 12. */
 export const HOSTS = {
+  flowtime: (c) => c.scale.sm ?? 12,   // (a fitted chart: chart-ctx.js fittedType hands over the size it is drawn in, px, which wins; this is the card's small size it grows from)
+  curve: (c) => c.scale.sm ?? 12,   // (the curve and the course)
   talk: (c) => c.scale.sm ?? 12,   // app.css 6177 .pz-talk { font-size: var(--pz-sm, var(--pz-psm, 12px)) }; --pz-psm on a stacked card = its cap = scale.sm
   crit: (c) => Math.max(12, c.scale.sm ?? 14),   // app.css 7533 .pz-crit { font-size: max(12px, var(--bs, 14px)) }; --bs is the card's --pz-sm (a stacked or low card: its --pz-psm, = scale.sm)
   causes: (c) => c.scale.sm ?? 12,   // app.css 7184 .pz-cbars { font-size: var(--pz-sm, var(--pz-psm, 12px)) }, the same rule

@@ -74,7 +74,8 @@ async function draw(deck, W, H, f) {
   const { s, i } = slideOf(deck), { states, fp } = await workOut(deck);
   const cur = createCurve(), el = cur.el;
   el.clientWidth = W; el.clientHeight = H;
-  globalThis.getComputedStyle = () => ({ fontSize: `${f}px` });
+  globalThis.getComputedStyle = () => ({ fontSize: `${f}px` });   // (the svg root and the groups are still read from the page; every piece of the chart names its look)
+  el._svgGL.setCtx({ scale: { sm: f } });   // (the card's small type, handed to the chart's looks: the chart asks no style)
   cur.configure(s.tool, { deck: { id: `names-${Math.random()}` }, slide: s, index: i, snap: true, fp, params: s.params || {}, liveParams: () => s.params || {}, run: async () => states, fpOf: () => null });
   const ready = () => [...el.children].reverse().find((c) => c.dataset?.points && c.dataset.points !== '0');
   for (let k = 0; k < 200 && !ready(); k++) await new Promise((r) => setTimeout(r, 25));

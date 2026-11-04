@@ -57,7 +57,7 @@ export function makeCtx(local = null) {
     theme, dark, palette: ra('data-palette') || 'navy', view: l.view || viewNow, motion: mq('(prefers-reduced-motion: reduce)') ? 'reduce' : 'full',
     host: l.host || '', layout: l.layout || '', in: l.in || '', boxW: l.boxW || 0, scale: l.scale || NO_SCALE, svk: l.svk || 1, fit: l.fit || 1, dk: l.dk || 1, hostPx: 12, sig: '',
   };
-  c.hostPx = HOSTS[c.host] ? HOSTS[c.host](c) : 12;
+  c.hostPx = l.px > 0 ? l.px : HOSTS[c.host] ? HOSTS[c.host](c) : 12;   // (px: the size a fitted chart is drawn in, flow-time, curve and course: its host's size, grown to keep the type readable on a zoomed card)
   c.sig = ctxSig(c);
   return c;
 }
