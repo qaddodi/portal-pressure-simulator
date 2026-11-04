@@ -198,6 +198,39 @@ export function placeKey(box) {
   }
   return k;
 }
+// The look table: the looks of every kind of piece the deck's charts have, read from the page once at build time (scripts/gen-look-tokens.mjs,
+// run from the "Look tokens" workflow) and kept in look-tokens.js by the hash of the piece's shared key. A piece found there is never read from the page.
+const TP = ['transitionProperty', 'transitionDuration', 'transitionDelay', 'transitionTimingFunction'];
+/** A string's 53-bit hash (cyrb53), the look table's key. */
+export function keyHash(str) {
+  let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+  for (let i = 0; i < str.length; i++) { const c = str.charCodeAt(i); h1 = Math.imul(h1 ^ c, 2654435761); h2 = Math.imul(h2 ^ c, 1597334677); }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return 4294967296 * (2097151 & h2) + (h1 >>> 0);
+}
+let SEED = null;
+/** Hands over the look table ({ pool: [[raw, o, tp]...], keys: { hash: poolIndex } }): later pieces of those kinds take their look from it. */
+export function seedLooks(t) {
+  const m = new Map();
+  for (const h of Object.keys(t.keys)) { const e = t.pool[t.keys[h]]; m.set(+h, { raw: e[0], o: e[1], tp: e[2] }); }
+  SEED = m;
+}
+/** The shared looks as the generator keeps them: { pool, keys } (scripts/gen-look-tokens.mjs reads it from the page). Only pieces under a root. */
+export function exportLooks() {
+  const pool = [], seen = new Map(), keys = {};
+  for (const [key, v] of SHARED) {
+    if (!v.tp || /^[^>]*root$/.test(key) || v.full) continue;   // (roots read the page's scale and are asked each time)
+    const rec = JSON.stringify([v.raw, v.o, v.tp]);
+    let i = seen.get(rec); if (i === undefined) { i = pool.length; seen.set(rec, i); pool.push([v.raw, v.o, v.tp]); }
+    keys[keyHash(key)] = i;
+  }
+  return { pool, keys };
+}
+if (typeof window !== 'undefined') {
+  if (window.ppsLookExport) window.ppsLookExport = exportLooks;
+  else if (typeof requestIdleCallback === 'function') requestIdleCallback(() => import('./look-tokens.js').then((m) => { if (m.LOOKS?.pool?.length) seedLooks(m.LOOKS); }).catch(() => {}));   // alloc-rare: once, at idle
+}
 /** Reads the looks of a model's pieces; returns the longest ease it started (ms), 0 for none. Fresh: as a new drawing, nothing eased.
  *  shared: the box's place key, to take looks already read for a piece like it there (SHARED) and keep the ones read. */
 function readLooks(root, fresh = false, cache = null, shared = '') {
@@ -210,13 +243,20 @@ function readLooks(root, fresh = false, cache = null, shared = '') {
     // pieces are kept by, so a piece's look sized in em, or by the card's own scale, is never taken from another size. A root is taken
     // from the shared looks only for a box standing in the same place (placeKey), and dropped when that box changes size (rootsOf).)
     const hit = shared && (pr || fresh) ? SHARED.get(key) : null;   // (a look read again because something changed reads its root)
-    let raw, o, L;
+    let raw, o, L, seed, tpOf;
     if (hit) { ({ raw, o, L } = hit); if (!pr && hit.full) { if (cache) cache.set(key, { raw, o, L, full: hit.full }); key = hit.full; } }
-    else {
+    else if (pr && shared && SEED && (seed = SEED.get(keyHash(key)))) {
+      // (A piece like one the look table (look-tokens.js, made by scripts/gen-look-tokens.mjs) holds: its look is taken from there, the page never asked.)
+      ({ raw, o } = seed);
+      L = lookOf(o, num(raw.fontSize, 12));
+      L.tr = opEase(seed.tp); L.trT = opEase(seed.tp, 'transform');
+      SHARED.set(key, { raw, o, L, tp: seed.tp });
+    } else {
       const r = resolve(el, pr, po);
       raw = r.raw; o = r.o;
       L = lookOf(o, num(raw.fontSize, 12));
       L.tr = opEase(r.cs); L.trT = opEase(r.cs, 'transform');
+      tpOf = TP.reduce((q, k) => { q[k] = r.cs[k]; return q; }, {});   // alloc-rare: a piece's look is read from the page once (then shared)
       if (shared && !pr) {
         const plain = key;
         key += `|${PROPS.map(([k]) => raw[k]).join('|')}|${SCALE_VARS.map((v) => r.cs.getPropertyValue(v)).join('|')}`;
@@ -224,7 +264,7 @@ function readLooks(root, fresh = false, cache = null, shared = '') {
         SHARED.set(plain, { raw, o, L, full: key });
         let ks = ROOTS.get(shared); if (!ks) ROOTS.set(shared, ks = new Set()); ks.add(plain);
       }
-      if (shared) SHARED.set(key, { raw, o, L });
+      if (shared) SHARED.set(key, { raw, o, L, tp: tpOf });
     }
     const was = looks.get(el), tr = L.tr;
     if (fresh) { EASES.delete(el); INLINE.delete(el); MOVES.delete(el); }

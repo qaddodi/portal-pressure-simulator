@@ -1,0 +1,32 @@
+name: Look tokens
+
+# One-off, on request only (Actions tab, Run workflow; owner OK'd 4 Nov 2026, pure-gpu-plan A3). Opens every deck on the production build, on the
+# GPU path (software WebGL), reads the shared chart looks (scripts/gen-look-tokens.mjs) and commits src/ui/look-tokens.js to the branch it ran on.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: look-tokens-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  tokens:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-browser
+      - name: Production build
+        run: npm run build
+      - name: Read the looks
+        run: node scripts/gen-look-tokens.mjs dist
+      - name: Commit the table
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/ui/look-tokens.js
+          if git diff --cached --quiet; then echo "no change"; else git commit -m "Look tokens: the chart looks read from the page once, for every look and deck" && git push; fi
