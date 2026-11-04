@@ -11866,15 +11866,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       rideStep(); stats.skips++; stats.ms += performance.now() - t0;
       return;
     }
-    // (Where the labels could not ride (a solve still running, a catheter): they are hidden for the zoom and shown again, laid out for
-    // where it stopped, once that layout has landed.)
-    if (pinchHide || (easeInOut(morph) >= 0.5 && solvedFor && gestureOn() && Math.abs(Math.log(CTM.sc / solvedFor.sc)) > PINCH_ZOOM)) {
-      if (gestureOn()) {
-        if (!pinchHide) { pinchHide = true; pinchLift = false; clearTimeout(pinchLiftT); pinchLiftT = 0; wrap.classList.add('pinch-hide'); }
-        pinchRelease();
-        return;
-      }
-    }
+    // (Labels are never hidden for a zoom: the anchored ones ride the camera on the GPU (world anchors), the rest are carried and solved as it goes. Mohammad, 4 Nov: "after I zoom there is like 2-3 s until labels show up in the Circuit" was this hide, lifted by a 3 s poll.)
     const sig = labelSig(f);
     if (carrying && solvedFor?.sig !== sig) { carryAbort(); return; }   // (what the labels show changed mid-move: the usual fade, then laid out as it lands)
     // (R04: the key is a list of numbers and identities compared one by one, not a string joined on every camera frame: the camera's

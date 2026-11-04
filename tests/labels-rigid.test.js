@@ -36,3 +36,7 @@ test('step 3: figure labels carry a world anchor and label-gl pins by it', () =>
   assert.ok(/NO_ANCHOR = \/\^\(z:\|lane:/.test(st));
   assert.ok(gl.includes('s.pwv != null'));
 });
+
+test('Circuit: no label hide for a zoom', () => {
+  assert.ok(!st.includes("wrap.classList.add('pinch-hide')"));
+});
