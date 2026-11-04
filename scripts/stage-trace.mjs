@@ -38,6 +38,7 @@ const pump = (ms) => { const end = T + ms; runTimers(end); T = end; const run = 
 
 // ---- GL recorder ----
 const H = { h: 2166136261 >>> 0, calls: 0 };
+const ROUND = !!process.env.TRACE_ROUND;   // (a number rounded to 6 significant digits before it is hashed: a change in the order a camera is composed may move a uniform by an ulp)
 const DUMP = process.env.TRACE_DUMP ? [] : null;
 const mix = (n) => { H.h = Math.imul(H.h ^ (n >>> 0), 16777619) >>> 0; };
 const ids = new WeakMap(); let nextId = 1;
@@ -47,7 +48,7 @@ function mixVal(v, depth = 0) {
   if (v === null || v === undefined) return mix(0x9e37);
   const t = typeof v;
   if (t === 'number' && CONST_NAME.has(v)) return mixStr(CONST_NAME.get(v));
-  if (t === 'number') { if (Number.isInteger(v) && Math.abs(v) < 2 ** 31) return mix(v | 0); const f = new Float64Array([v]), u = new Uint32Array(f.buffer); mix(u[0]); return mix(u[1]); }
+  if (t === 'number') { if (Number.isInteger(v) && Math.abs(v) < 2 ** 31) return mix(v | 0); if (ROUND) v = +v.toPrecision(6); const f = new Float64Array([v]), u = new Uint32Array(f.buffer); mix(u[0]); return mix(u[1]); }
   if (t === 'boolean') return mix(v ? 1 : 2);
   if (t === 'string') return mixStr(v.length > 200 ? v.length + v.slice(0, 64) : v);
   if (ArrayBuffer.isView(v)) { const u = new Uint8Array(v.buffer, v.byteOffset, v.byteLength); mix(u.length); for (let i = 0; i < u.length; i += 1) mix(u[i]); return undefined; }
@@ -123,6 +124,14 @@ export async function runTrace() {
   call('circuit', () => st.setView?.('circuit')); run(150, 'circuit');
   call('anatomy', () => st.setView?.('anatomy')); run(150, 'anatomy');
   call('zoomOut', () => st.zoomOut?.()); run(60, 'zoomOut');
+  // The camera seams (one-camera-record-plan.md push 0): the dive, a card zoom inside the lobule, the rise, a card zoom on the anatomy.
+  const { store } = await import('../src/ui/store.js');
+  call('dive', () => store.set1('lobule', true)); for (let i = 0; i < 40; i++) { await new Promise((r) => setImmediate(r)); run(5, 'dive'); }
+  call('lzCard', () => st.zoomOpen()); for (let i = 0; i <= 30; i++) { call('lzCard', () => st.zoomAt(1 + i / 30, 600, 400, 0, 0)); run(1, 'lzCard'); }
+  call('lzCardEnd', () => st.zoomEnd()); run(10, 'lzCardEnd');
+  call('rise', () => store.set1('lobule', false)); run(150, 'rise');
+  call('card', () => st.zoomOpen()); for (let i = 0; i <= 30; i++) { call('card', () => st.zoomAt(1 + i / 30, 600, 400, 50, 0)); run(1, 'card'); }
+  call('cardEnd', () => st.zoomEnd()); run(10, 'cardEnd');
   return out;
 }
 

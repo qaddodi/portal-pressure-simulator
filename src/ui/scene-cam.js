@@ -25,3 +25,23 @@ export const sceneCam = {
     return out;
   },
 };
+
+// ── One affine record for every camera (one-camera-record-plan.md, 4 Nov 2026): p' = k p + (x, y), in stage px from the stage's top-left
+// corner. Identity: k 1, x 0, y 0. Pure and allocation-free: each takes the record it writes. A layer's frame camera is always
+// card ∘ dive ∘ (pan ∘) base; every record has exactly one writer, and a writer never clears another's.
+export const camNew = () => ({ k: 1, x: 0, y: 0 });
+export const camSet = (r, k, x, y) => { r.k = k; r.x = x; r.y = y; return r; };
+export const camId = (r) => camSet(r, 1, 0, 0);
+/** k about the fixed point (px, py). */
+export const camAbout = (r, k, px, py) => camSet(r, k, (1 - k) * px, (1 - k) * py);
+/** out = outer ∘ inner (inner first); out may be either input. */
+export function camThen(out, outer, inner) {
+  const k = outer.k * inner.k, x = outer.k * inner.x + outer.x, y = outer.k * inner.y + outer.y;
+  out.k = k; out.x = x; out.y = y;
+  return out;
+}
+/** The scene's camera records. The lobule's `base` is the lobule's own view V, handed in by lobule-zoom.js. */
+export const cams = {
+  stage: { base: camNew(), dive: camNew(), card: camNew() },
+  lobule: { base: null, pan: camNew(), dive: camNew(), card: camNew() },
+};
