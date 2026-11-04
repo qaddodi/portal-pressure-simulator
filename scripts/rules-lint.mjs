@@ -29,6 +29,7 @@ import { join, relative, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse } from 'espree';
 import { sourceRegexTests } from './test-classes.mjs';
+import { inventory as chartInventory, countsOf as chartCounts } from './chart-looks-inventory.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const KEEP = new Set(['perf', 'offgpu', 'fps', 'budget', 'inputs', 'script', 'slide', 'preset', 'home', 'back', 'presenter-view', 'v']);
@@ -155,6 +156,15 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   const mFile = join(ROOT, 'scripts/motion-allowance.json'), mDoc = JSON.parse(readFileSync(mFile, 'utf8'));
   if (bare > mDoc.bareDurations) errors.push(`styles/ has ${bare} transition/animation lines without a --d-* duration token, over the allowance of ${mDoc.bareDurations} in scripts/motion-allowance.json: use var(--d-flip|small|surface|camera) and var(--ease-*) (PR-22)`);
   else if (bare < mDoc.bareDurations && process.argv.includes('--tighten')) writeFileSync(mFile, JSON.stringify({ ...mDoc, bareDurations: bare }, null, 1) + '\n');
+}
+
+// Chart looks (chart-looks-in-code plan, WP0): the count of chart look rules left in styles/app.css, per chart, may not rise above
+// scripts/chart-look-allowance.json. A chart's migration PR deletes its rules and lowers its number (--tighten); WP12 ends at 0.
+{
+  const aFile = join(ROOT, 'scripts/chart-look-allowance.json'), aDoc = JSON.parse(readFileSync(aFile, 'utf8'));
+  const now = chartCounts(chartInventory(readFileSync(join(ROOT, 'styles/app.css'), 'utf8')));
+  for (const [chart, n] of Object.entries(now)) if (n > (aDoc.charts[chart] ?? 0)) errors.push(`styles/app.css has ${n} ${chart} chart look rules, over the allowance of ${aDoc.charts[chart] ?? 0} in scripts/chart-look-allowance.json: a chart's look belongs in its chart-looks table, not in app.css (node scripts/chart-looks-inventory.mjs --chart ${chart})`);
+  if (process.argv.includes('--tighten')) writeFileSync(aFile, JSON.stringify({ ...aDoc, charts: Object.fromEntries(Object.entries(now).map(([c, n]) => [c, Math.min(n, aDoc.charts[c] ?? n)])) }, null, 1) + '\n');
 }
 
 if (process.argv.includes('--list')) {
