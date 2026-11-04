@@ -3752,7 +3752,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     /** The canvas's own context for what is drawn over the figure in it (the glasses): add({ order, prep, draw }) puts one in at the end of
      *  each present (see tops) and returns the call that takes it out. */
     top: ownBuf ? {
-      gl, canvas: hostCv || canvas,
+      gl, canvas,
       /** The framebuffer the canvas stands in as (null; shared, the texture's): what a pass laid on this renderer's picture binds. */
       screen: SCR,
       add(t) { tops.push(t); tops.sort((a, b) => (a.order || 0) - (b.order || 0)); return () => { const i = tops.indexOf(t); if (i >= 0) tops.splice(i, 1); }; },

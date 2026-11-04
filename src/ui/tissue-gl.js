@@ -94,6 +94,7 @@ export function createTissueGL(canvas, opts = {}) {   // alloc-rare: the tissue 
   // drawn into a picture of its own (hostT) in the host's context, and laid on the host's canvas under the vessels at each of its presents
   // (under). The owner makes it again with the renderer it makes after a lost context.
   const host = opts.host || null;
+  const SCRN = () => (host && host.screen ? host.screen() : null);   // (the framebuffer the host's canvas stands in as: null, or a shared renderer's texture)
   if (host) { gl = host.gl; canvas = host.canvas; }
   else
   // (See-through, not opaque: every pixel is drawn whole (alpha 1), so the picture is the same, but a frame in which the browser has no
@@ -139,7 +140,7 @@ export function createTissueGL(canvas, opts = {}) {   // alloc-rare: the tissue 
   // (Hosted: the context as the host's own passes expect to find it, after each of this one's calls.)
   function hostDone() {
     if (!host) return;
-    gl.useProgram(null); gl.bindVertexArray(null); gl.bindBuffer(gl.ARRAY_BUFFER, null); gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.useProgram(null); gl.bindVertexArray(null); gl.bindBuffer(gl.ARRAY_BUFFER, null); gl.bindFramebuffer(gl.FRAMEBUFFER, SCRN());
     for (let u = 0; u <= 12; u++) { gl.activeTexture(gl.TEXTURE0 + u); gl.bindTexture(gl.TEXTURE_2D, null); }   // (the tiles and bitmaps, SCRATCH and the live shapes: units 0–12)
     gl.activeTexture(gl.TEXTURE0);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
@@ -284,7 +285,7 @@ export function createTissueGL(canvas, opts = {}) {   // alloc-rare: the tissue 
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
     const ok = fbComplete(gl, gl.FRAMEBUFFER, 'rgba8', w, h);   // (asked per framebuffer, size and attachment set: gl-state.js)
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, SCRN());
     gl.bindTexture(gl.TEXTURE_2D, null);   // (not left bound on a unit: the target is only ever drawn into and copied from)
     return { tex, fbo, ok };   // alloc-rare: a picture target is made once, when the first live frame is kept (and again if the canvas is resized)
   }
@@ -479,9 +480,9 @@ export function createTissueGL(canvas, opts = {}) {   // alloc-rare: the tissue 
       const ch = canvas.height, dw = Math.round(tgt.width * k), dh = Math.round(tgt.height * k);
       gl.disable(gl.SCISSOR_TEST);
       gl.bindFramebuffer(gl.READ_FRAMEBUFFER, hostT.fbo);
-      gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+      gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, SCRN());
       gl.blitFramebuffer(0, 0, tgt.width, tgt.height, 0, ch - dh, dw, ch, gl.COLOR_BUFFER_BIT, k === 1 ? gl.NEAREST : gl.LINEAR);
-      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, SCRN());
     },
     /** Gives back the picture's own target (hosted), as the canvas's memory would be. */
     release() { dropKept(); if (hostT && !lost && !gl.isContextLost()) freeTarget(hostT); hostT = null; tgt.width = tgt.height = 0; pictured = false; },

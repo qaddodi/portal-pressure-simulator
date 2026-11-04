@@ -123,6 +123,7 @@ export const fxShaders = { capVS, capFS, quadVS, compFS };   // (for the shader 
  *  own passes expect to find it. */
 // alloc-rare: built once per context (createFxGL / restore), not per frame
 export function createFxGL(canvas, { host = null } = {}) {
+  const SCRN = () => (host && host.screen ? host.screen() : null);   // (the framebuffer the host's canvas stands in as: null, or a shared renderer's texture)
   let gl = null;
   let ucache = null;   // (the uniform cache, made at the first draw; uniforms are set only through it, uniform-cache.js)
   // alloc-rare: built once per context (createFxGL / restore), not per frame
@@ -181,7 +182,7 @@ export function createFxGL(canvas, { host = null } = {}) {
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
     const ok = fbComplete(gl, gl.FRAMEBUFFER, 'rgba8', w, h);   // (asked per framebuffer, size and attachment set: gl-state.js)
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, SCRN());
     // alloc-rare: a coverage target is made when the canvas size changes
     return ok ? { tex, fbo, w, h } : (gl.deleteFramebuffer(fbo), gl.deleteTexture(tex), null);
   }
@@ -237,7 +238,7 @@ export function createFxGL(canvas, { host = null } = {}) {
         layer('erase', lymph.erase, M_A, lymph.eraseAdd, 0);
         if (lymph.line) {
           lin = target(lin, W, H);
-          if (!lin) { gl.disable(gl.BLEND); gl.colorMask(true, true, true, true); gl.bindFramebuffer(gl.FRAMEBUFFER, null); return false; }
+          if (!lin) { gl.disable(gl.BLEND); gl.colorMask(true, true, true, true); gl.bindFramebuffer(gl.FRAMEBUFFER, SCRN()); return false; }
           gl.bindFramebuffer(gl.FRAMEBUFFER, lin.fbo);
           gl.colorMask(true, true, true, true); gl.clear(gl.COLOR_BUFFER_BIT);
           layer('line', lymph.line, M_R, 0, 0);
@@ -245,7 +246,7 @@ export function createFxGL(canvas, { host = null } = {}) {
         gl.bindVertexArray(null);
         gl.disable(gl.BLEND); gl.blendEquation(gl.FUNC_ADD); gl.colorMask(true, true, true, true);
       }
-      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, SCRN());
       gl.viewport(0, 0, W, H);
       gl.useProgram(P.comp);
       const U = P.KU;

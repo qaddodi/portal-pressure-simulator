@@ -53,6 +53,7 @@ export const wideShaders = { LAY_VS, LAY_FS, SHOW_VS, SHOW_FS };   // (for the s
  *  zoom is drawn on the host's canvas at its present (draw, from the host's replace or top), leaving the context as the host's passes
  *  expect it. The owner makes it again with the renderer it makes after a lost context. */
 export function createWideGL(canvas, { host = null } = {}) {
+  const SCRN = () => (host && host.screen ? host.screen() : null);   // (the framebuffer the host's canvas stands in as: null, or a shared renderer's texture)
   let gl = null;
   if (host) { gl = host.gl; canvas = host.canvas; }
   else try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, failIfMajorPerformanceCaveat: true }); } catch { gl = null; }
@@ -66,7 +67,7 @@ export function createWideGL(canvas, { host = null } = {}) {
   let vao = null;
   function hostDone() {
     if (!host) return;
-    gl.useProgram(null); gl.bindVertexArray(null); gl.bindBuffer(gl.ARRAY_BUFFER, null); gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.useProgram(null); gl.bindVertexArray(null); gl.bindBuffer(gl.ARRAY_BUFFER, null); gl.bindFramebuffer(gl.FRAMEBUFFER, SCRN());
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, null); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, null);
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false); gl.disable(gl.BLEND);
   }
@@ -114,7 +115,7 @@ export function createWideGL(canvas, { host = null } = {}) {
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
       gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
       gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
-      const done = (good) => { gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.deleteFramebuffer(fbo); if (!good) gl.deleteTexture(tex); return good; };
+      const done = (good) => { gl.bindFramebuffer(gl.FRAMEBUFFER, SCRN()); gl.deleteFramebuffer(fbo); if (!good) gl.deleteTexture(tex); return good; };
       if (!fbComplete(gl, gl.FRAMEBUFFER, 'rgba8mip', pw, ph) || !ok()) return done(false);   // (asked per framebuffer, size and attachment set: gl-state.js)
       gl.viewport(0, 0, pw, ph);
       gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
@@ -154,7 +155,7 @@ export function createWideGL(canvas, { host = null } = {}) {
       // (Hosted: on the host's canvas as its owner sized it, over what the host cleared or laid (premultiplied); dpr its density.)
       const cw = host ? canvas.width : Math.max(1, Math.round(W * dpr)), ch = host ? canvas.height : Math.max(1, Math.round(H * dpr));
       if (!host && (canvas.width !== cw || canvas.height !== ch)) { canvas.width = cw; canvas.height = ch; }
-      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, SCRN());
       gl.viewport(0, 0, cw, ch);
       if (host) { gl.bindVertexArray(vao); gl.enable(gl.BLEND); gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); }
       else { gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); }
@@ -188,9 +189,9 @@ export function createWideGL(canvas, { host = null } = {}) {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
     gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, fbo);
     gl.framebufferTexture2D(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
-    const done = (good) => { gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.deleteFramebuffer(fbo); if (!good) gl.deleteTexture(tex); hostDone(); return good; };
+    const done = (good) => { gl.bindFramebuffer(gl.FRAMEBUFFER, SCRN()); gl.deleteFramebuffer(fbo); if (!good) gl.deleteTexture(tex); hostDone(); return good; };
     if (!fbComplete(gl, gl.DRAW_FRAMEBUFFER, 'rgba8mip', pw, ph) || !ok()) return done(false);
-    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, SCRN());
     gl.disable(gl.SCISSOR_TEST);
     gl.blitFramebuffer(0, ch - ph, pw, ch, 0, ph, pw, 0, gl.COLOR_BUFFER_BIT, gl.NEAREST);
     gl.bindTexture(gl.TEXTURE_2D, tex);
