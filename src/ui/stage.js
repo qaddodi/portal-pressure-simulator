@@ -1268,14 +1268,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const ND_SEG = 32, ND_PER = 3 * ND_SEG + 2 * (ND_SEG + 1);   // (a disc's triangles, then its ring's strip)
   const nodeDots = NODES.filter((n) => n.kind !== 'wedge' && !HIDDEN_NODES.has(n.id)).map((n) => ({ id: n.id, r: dotRadius(n.kind), on: false, u: 0 }));
   const hasDot = new Set(nodeDots.map((d) => d.id));
-  const nd = { verts: new Float32Array(nodeDots.length * ND_PER * 6), rev: 0, at: -1, dirty: false, fill: [0, 0, 0], ring: [0, 0, 0] };
+  // (rmin: the least radius a dot keeps on screen, 4 px, in world units at the scale now, in quarter-octave steps: the dots are rebuilt only when it steps, refreshCTM.)
+  const DOT_MIN_PX = 4, nd = { verts: new Float32Array(nodeDots.length * ND_PER * 6), rev: 0, at: -1, dirty: false, fill: [0, 0, 0], ring: [0, 0, 0], rmin: 0 };
   const ND_COS = Float32Array.from({ length: ND_SEG + 1 }, (_, k) => Math.cos((2 * Math.PI * k) / ND_SEG)), ND_SIN = Float32Array.from({ length: ND_SEG + 1 }, (_, k) => Math.sin((2 * Math.PI * k) / ND_SEG));
   // The dots' vertices where the morph has the stations at t, written in place (one array, sent again by its rev: nothing allocated).
   function nodeVerts(t) {
     const V = nd.verts;
     let o = 0;
     for (const d of nodeDots) {
-      const [x, y] = nodePos(d.id, t), rf = d.r - 0.4, rr = d.r;
+      const [x, y] = nodePos(d.id, t), rr = Math.max(d.r, nd.rmin), rf = rr - 0.4;
       for (let k = 0; k < ND_SEG; k++) {
         V[o++] = x; V[o++] = y; V[o++] = 1; V[o++] = 0; V[o++] = 0; V[o++] = 1e4;
         V[o++] = x + rf * ND_COS[k]; V[o++] = y + rf * ND_SIN[k]; V[o++] = 1; V[o++] = 0; V[o++] = 0; V[o++] = 1e4;
@@ -1716,6 +1717,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // An unchanged view keeps the same object, so the frame loop (which compares it) sees that nothing moved; a new one is made only when it moved.
     if (!(ctmLast && ctmLast.a === ma && ctmLast.b === mb && ctmLast.c === mc && ctmLast.d === md && ctmLast.e === me && ctmLast.f === mf && ctmLast.sc === sk)) ctmLast = { a: ma, b: mb, c: mc, d: md, e: me, f: mf, sc: sk };
     CTM = ctmLast;
+    // (A dot keeps at least a 4 px radius on screen however far the map is zoomed out: written where the scale steps a quarter octave.)
+    if (sk > 0) { const rm = DOT_MIN_PX / 2 ** (Math.round(Math.log2(sk) * 4) / 4); if (rm !== nd.rmin) { nd.rmin = rm; if (nd.at > 0) nodeVerts(nd.at); } }
     wrapRect = b;
     applyClampFs();
   }
@@ -8193,6 +8196,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const SITE_TPL = (() => { const e = document.createElement('div'); e.innerHTML = '<small></small><b></b><span></span><i class="res-k"></i>'; return e; })();
   const SPLIT_B = (() => { const e = document.createElement('b'); e.innerHTML = '<span class="sp-h"><em class="sp-n"></em>% bypasses the liver</span><span class="sp-bar"><i class="sp-l"></i><i class="sp-s"></i></span><span class="sp-cap"><em class="sp-lt"></em><em class="sp-st"></em></span>'; return e; })();
   const r1 = (v) => Math.round(v * 10) / 10;   // (a zigzag's points to a tenth of a world unit, as its path text was written)
+  const RES_MIN_AMP_PX = 8, RES_MIN_W = 2.5;
   const RES_LIVER = new Float32Array([812, 303, 888, 303, 812, 387, 888, 387]);
   const resNow = new Float32Array(32), resKey = new Float64Array(8);   // (a record's numbers worked out, and what makes a resistor look as it does: written in place)
   // The token a station's tone names (toneCol's own, var(--x) → --x): its colour is read from the theme's tokens, never from the page.
@@ -8245,16 +8249,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!st) { st = { _segs: null, cur: null, d, ratio }; resMade.set(k, st); }   // alloc-rare: a resistor's record, made when it first shows
     // The zigzags' end points: the liver's two are fixed; the gut's and the collaterals' stand on their vessel, level with its course.
     let n = 0;
+    // (A zigzag keeps at least 8 px of amplitude on screen at any zoom: its world amplitude is the larger of 9 units and 8 px at the scale now,
+    // stepped a quarter octave so a zoom rebuilds the record a few times, not each frame.)
+    const sc = CTM?.sc > 0 ? CTM.sc : 1, amp = Math.max(9, RES_MIN_AMP_PX / 2 ** (Math.round(Math.log2(sc) * 4) / 4));
     if (d.res === 'liver') {
-      for (let i = 0; i < RES_LIVER.length; i += 4) n = zigInto(resNow, n, RES_LIVER[i], RES_LIVER[i + 1], RES_LIVER[i + 2], RES_LIVER[i + 3]);
+      for (let i = 0; i < RES_LIVER.length; i += 4) n = zigInto(resNow, n, RES_LIVER[i], RES_LIVER[i + 1], RES_LIVER[i + 2], RES_LIVER[i + 3], 6, amp);
     } else {
       const q = d.res === 'gut' ? geo.A_SMA?.cur && pointAt(geo.A_SMA.cur, 0.5) : geo.C1b?.cur && pointAt(geo.C1b.cur, 0.5);
-      if (q) n = zigInto(resNow, n, q[0] - q[2] * 34, q[1] - q[3] * 34, q[0] + q[2] * 34, q[1] + q[3] * 34);
+      if (q) n = zigInto(resNow, n, q[0] - q[2] * 34, q[1] - q[3] * 34, q[0] + q[2] * 34, q[1] + q[3] * 34, 6, amp);
     }
     for (let i = 0; i < n; i++) resNow[i] = r1(resNow[i]);
     const lit = resLit.get(k);
     // Heavier as the resistance rises: 1.5 px at the healthy liver's, about 4 px at four times it (to a tenth of a pixel).
-    const w = Math.round(clamp(1.5 + 1.25 * Math.log2(Math.max(0.25, ratio)), 0.8, 5) * 10) / 10;
+    const w = Math.round(clamp(1.5 + 1.25 * Math.log2(Math.max(0.25, ratio)), RES_MIN_W, 5) * 10) / 10;   // (never under 2.5 px: a healthy resistor read as a hairline)
     // Its look as numbers: lit, the halo's rgb, the line's rgb, its width (the rgb is the theme's tokens', read when the theme last changed).
     resKey[0] = lit ? 1 : 0; resKey[7] = w;
     tokenRGB('--stage-bg', resKey, 1);
