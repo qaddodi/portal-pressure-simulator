@@ -896,29 +896,43 @@ export function createPaintGL(gl) {
   // (Its helpers are made once for the painter and read the tile being drawn from D, so a tile makes no function and no list.)
   const tileHits = (x0, y0, x1, y1) => x1 >= D.tx - 1 && x0 <= D.tx + D.tw + 1 && y1 >= D.ty - 1 && y0 <= D.ty + D.th + 1;   // alloc-rare: once per GL context (made at its first picture), not per frame
   const plain = (from, count) => { gl.bindVertexArray(D.r.vaoP); gl.drawArrays(gl.TRIANGLES, from, count); };   // alloc-rare: once per GL context (made at its first picture), not per frame
-  const useP = () => { gl.useProgram(progs.p.p); ucOf(gl).fv4(progs.p.U.uV, VIEW); };   // alloc-rare: once per GL context (made at its first picture), not per frame
+  // The state the tile's ops set again and again (a colour mask, the stencil's mask, function and op, the stencil test, the blend, the program) is
+  // sent only when it is not what this painter last set (P5 of the 4 Nov review: ~20 state calls to a draw). Forgotten at the start of a tile and
+  // after a shadow, which sets its own; nothing else sets these between two ops of a tile.
+  let tCM = -1, tSM = -1, tSF = -1, tSR = 0, tSK = 0, tSO = -1, tSO2 = 0, tSO3 = 0, tST = -1, tBL = -1, tBF = -1, tBD = 0, tPG = null;   // alloc-rare: made once per GL context
+  const forget = () => { tCM = tSM = tSF = tSO = tST = tBL = tBF = -1; tPG = null; };   // alloc-rare: once per GL context
+  const cm = (on) => { const v = on ? 1 : 0; if (tCM !== v) { tCM = v; gl.colorMask(on, on, on, on); } };   // alloc-rare: once per GL context
+  const sm = (m) => { if (tSM !== m) { tSM = m; gl.stencilMask(m); } };   // alloc-rare: once per GL context
+  const sf = (f, r, m) => { if (tSF !== f || tSR !== r || tSK !== m) { tSF = f; tSR = r; tSK = m; gl.stencilFunc(f, r, m); } };   // alloc-rare: once per GL context
+  const so = (a, b, c) => { if (tSO !== a || tSO2 !== b || tSO3 !== c) { tSO = a; tSO2 = b; tSO3 = c; gl.stencilOp(a, b, c); } };   // alloc-rare: once per GL context
+  const sops = () => { tSO = -1; gl.stencilOpSeparate(gl.FRONT, gl.KEEP, gl.KEEP, gl.INCR_WRAP); gl.stencilOpSeparate(gl.BACK, gl.KEEP, gl.KEEP, gl.DECR_WRAP); };   // alloc-rare: once per GL context
+  const stenOn = (on) => { const v = on ? 1 : 0; if (tST !== v) { tST = v; if (on) gl.enable(gl.STENCIL_TEST); else gl.disable(gl.STENCIL_TEST); } };   // alloc-rare: once per GL context
+  const blendOn = () => { if (tBL !== 1) { tBL = 1; gl.enable(gl.BLEND); } };   // alloc-rare: once per GL context
+  const bf = (s, d) => { if (tBF !== s || tBD !== d) { tBF = s; tBD = d; gl.blendFunc(s, d); } };   // alloc-rare: once per GL context
+  const prog = (p) => { if (tPG !== p) { tPG = p; gl.useProgram(p); } };   // alloc-rare: once per GL context
+  const useP = () => { prog(progs.p.p); ucOf(gl).fv4(progs.p.U.uV, VIEW); };   // alloc-rare: once per GL context (made at its first picture), not per frame
   const winding = (from, count, rule, stroke) => {   // alloc-rare: once per GL context (made at its first picture), not per frame
-    gl.colorMask(false, false, false, false);
-    gl.stencilFunc(gl.ALWAYS, 1, 0xff);
-    if (stroke) { gl.stencilMask(0x01); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE); }
-    else if (rule === 'evenodd') { gl.stencilMask(0x01); gl.stencilOp(gl.KEEP, gl.KEEP, gl.INVERT); }
-    else { gl.stencilMask(0x7f); gl.stencilOpSeparate(gl.FRONT, gl.KEEP, gl.KEEP, gl.INCR_WRAP); gl.stencilOpSeparate(gl.BACK, gl.KEEP, gl.KEEP, gl.DECR_WRAP); }
+    cm(false);
+    sf(gl.ALWAYS, 1, 0xff);
+    if (stroke) { sm(0x01); so(gl.KEEP, gl.KEEP, gl.REPLACE); }
+    else if (rule === 'evenodd') { sm(0x01); so(gl.KEEP, gl.KEEP, gl.INVERT); }
+    else { sm(0x7f); sops(); }
     plain(from, count);
-    gl.colorMask(true, true, true, true);
+    cm(true);
   };
   const setClip = (list) => {   // alloc-rare: once per GL context (made at its first picture), not per frame
     if (list === D.clipOn) return;
     useP();
-    gl.enable(gl.STENCIL_TEST);
-    gl.stencilMask(0xff); gl.clear(gl.STENCIL_BUFFER_BIT);
+    stenOn(true);
+    sm(0xff); gl.clear(gl.STENCIL_BUFFER_BIT);
     if (list) for (let i = 0; i < list.length; i++) {
       const c = list[i];
       winding(c.from, c.count, c.rule, false);
-      gl.colorMask(false, false, false, false);
-      gl.stencilMask(0xff);
-      if (i === 0) { gl.stencilFunc(gl.NOTEQUAL, 0x80, 0x7f); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE); coverBox(D.r, c.box); }
-      else { gl.stencilFunc(gl.LESS, 0x80, 0xff); gl.stencilOp(gl.ZERO, gl.ZERO, gl.REPLACE); coverBox(D.r, FULL); }
-      gl.colorMask(true, true, true, true);
+      cm(false);
+      sm(0xff);
+      if (i === 0) { sf(gl.NOTEQUAL, 0x80, 0x7f); so(gl.KEEP, gl.KEEP, gl.REPLACE); coverBox(D.r, c.box); }
+      else { sf(gl.LESS, 0x80, 0xff); so(gl.ZERO, gl.ZERO, gl.REPLACE); coverBox(D.r, FULL); }
+      cm(true);
     }
     D.clipOn = list;
   };
@@ -934,47 +948,48 @@ export function createPaintGL(gl) {
     ucOf(gl).fv4(U.uS, S); ucOf(gl).fv1(U.uT, T);
   };
   const cover = (box, clip) => {   // alloc-rare: once per GL context (made at its first picture), not per frame
-    gl.stencilMask(0x7f);
-    if (clip) gl.stencilFunc(gl.LESS, 0x80, 0xff); else gl.stencilFunc(gl.NOTEQUAL, 0, 0x7f);
-    gl.stencilOp(gl.ZERO, gl.ZERO, gl.ZERO);
+    sm(0x7f);
+    if (clip) sf(gl.LESS, 0x80, 0xff); else sf(gl.NOTEQUAL, 0, 0x7f);
+    so(gl.ZERO, gl.ZERO, gl.ZERO);
     coverBox(D.r, box);
   };
   function drawTile(rec, r, tx, ty, tw, th) {
     gl.bindFramebuffer(gl.FRAMEBUFFER, r.ms);
     gl.viewport(0, 0, tw, th); gl.scissor(0, 0, tw, th);
-    gl.colorMask(true, true, true, true); gl.stencilMask(0xff);
+    forget();   // (the host's state is whatever it was)
+    cm(true); sm(0xff);
     gl.clearColor(0, 0, 0, 0); gl.clearStencil(0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.STENCIL_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    blendOn(); bf(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     D.r = r; D.tx = tx; D.ty = ty; D.tw = tw; D.th = th; D.clipOn = null;
     VIEW[0] = tx; VIEW[1] = ty; VIEW[2] = 2 / tw; VIEW[3] = 2 / th;
     FULL[0] = tx - 2; FULL[1] = ty - 2; FULL[2] = tx + tw + 2; FULL[3] = ty + th + 2;
     for (const op of rec.ops) {
       if (op.k === 'direct') {
-        if (op.clip) { setClip(op.clip); gl.enable(gl.STENCIL_TEST); gl.stencilMask(0); gl.stencilFunc(gl.EQUAL, 0x80, 0x80); } else gl.disable(gl.STENCIL_TEST);
-        gl.useProgram(progs.c.p); ucOf(gl).fv4(progs.c.U.uV, VIEW);
+        if (op.clip) { setClip(op.clip); stenOn(true); sm(0); sf(gl.EQUAL, 0x80, 0x80); } else stenOn(false);
+        prog(progs.c.p); ucOf(gl).fv4(progs.c.U.uV, VIEW);
         gl.bindVertexArray(r.vaoC); gl.drawArrays(gl.TRIANGLES, op.from, op.count);
         continue;
       }
       const reach = op.shadow ? Math.ceil(op.shadow.sigma * 3) + 2 : 0, b = op.box;
       if (!tileHits(b[0] - reach, b[1] - reach, b[2] + reach, b[3] + reach)) continue;
       setClip(op.clip);
-      gl.enable(gl.STENCIL_TEST);
+      stenOn(true);
       if (op.k === 'clear') {
         useP(); ucOf(gl).i1(progs.p.U.uN, 0); ucOf(gl).f4(progs.p.U.uC, 0, 0, 0, 0);
-        gl.blendFunc(gl.ZERO, gl.ZERO);
-        gl.stencilMask(0); if (op.clip) gl.stencilFunc(gl.EQUAL, 0x80, 0x80); else gl.stencilFunc(gl.ALWAYS, 0, 0);
+        bf(gl.ZERO, gl.ZERO);
+        sm(0); if (op.clip) sf(gl.EQUAL, 0x80, 0x80); else sf(gl.ALWAYS, 0, 0);
         plain(op.from, op.count);
-        gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+        bf(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
         continue;
       }
-      if (op.shadow) shadow(rec, r, op, tx, ty, tw, th, reach, VIEW);
+      if (op.shadow) { shadow(rec, r, op, tx, ty, tw, th, reach, VIEW); forget(); }
       useP();
       winding(op.from, op.count, op.rule, op.k === 'stroke');
       setPaint(op.paint);
       cover(op.box, !!op.clip);
     }
-    gl.disable(gl.STENCIL_TEST);
+    stenOn(false);
     gl.bindVertexArray(null);
     D.r = null; D.clipOn = null;
   }
