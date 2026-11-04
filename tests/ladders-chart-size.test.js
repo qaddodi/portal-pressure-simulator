@@ -75,19 +75,7 @@ test('chartScale: the instrument scaled down whole, never up, its words 12 px at
   }
 });
 
-test('its lines grow with its type and are never thinner than they were at 12 px', () => {
-  for (const [sel, w] of [['.ppf-line', 'max\\(3px, \\.2em\\)'], [':is(.ppf-hl, .ppf-bf)', 'max\\(1\\.75px, \\.14em\\)'], [':is(.ppf-br path, .ppf-brace path)', 'max\\(1\\.5px, \\.11em\\)'], [':is(.ppf-axis, .ptk-grid line)', 'max\\(1px, \\.075em\\)']]) {
-    assert.match(rule(`${CELL} ${sel}`), new RegExp(`stroke-width: ${w};`), sel);
-  }
-  assert.match(rule(`${CELL} .ppf-hl`), /stroke-dasharray: max\(4px, \.33em\) max\(5px, \.42em\);/);
-  assert.match(rule(`${CELL} .ppf-bf`), /stroke-dasharray: max\(1\.5px, \.125em\) max\(4\.5px, \.375em\);/);
-  // (The halos behind the numbers stay 4 px: the chart's label placing counts 2 px of halo.)
-  assert.match(css, /\.ppf-v \{[^}]*stroke-width: 4px;/);
-  assert.doesNotMatch(css, /\.pz-cell[^{]*\.ppf-v[^{]*\{/);
-  // (The data card's own chart is untouched.)
-  assert.match(css, /\.ppf-line \{ fill: none; stroke-width: 3; /);
-  assert.match(css, /\.ppf-axis \{ stroke: var\(--axis\); stroke-width: 1; \}/);
-});
+// (Its lines grow with its type and are never thinner than they were at 12 px: the table's cell rows, tests/profile-looks.test.js.)
 
 // (The chart's box in px from the same clamps as the CSS: pzh = 1vh, B = clamp(17, 2.311 pzh, 28), the card's margin cm and padding cp, its width cw (the
 // instrument's chart is that less two paddings), the title, the gaps and each cell's first row, the card's vertical padding as trimmed; the instrument's

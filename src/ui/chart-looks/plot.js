@@ -1,7 +1,7 @@
 // Looks shared by the over-time charts' plot pieces (docs/chart-looks-in-code-plan.md WP4): the rounded plot, the grid, the axis names, the
 // units and the series lines. Written by hand from app.css, in the order the cascade picks a winner (specificity, then the file's order);
 // each entry names the lines it replaces. The talk chart (host 'talk'), the flow-time chart ('flowtime') and the curve and course ('curve', time.js) read
-// them; profile is still on the stylesheet's .ptk-* rules (kept for it) and adds its host's rows here when it moves (WP6).
+// them; the profile ladder ('prof') reads the grid's numbers and the unit (WP6).
 import { tok, param, mix, px, em, svk, max } from './dsl.js';
 
 const FITTED = ['talk', 'flowtime', 'curve'];   // (the hosts that set the grid's numbers and the plain gridline in the card's type)
@@ -23,20 +23,20 @@ export const PLOT = {
       [{ layout: ROW, in: 'cell' }, { width: max(px(1), em(0.075)) }],
     ],
   },
-  // 2959 .ptk-grid text, 6178 (.pz-talk: 1em)
+  // 2959 .ptk-grid text, 6178 (.pz-talk: 1em), 7122 (.pz-prof: 1em)
   'plot.grid.text': {
     base: { font: [500, svk(px(15))], fill: tok('text-3') },
-    when: [[{ host: FITTED }, { size: em(1) }]],
+    when: [[{ host: [...FITTED, 'prof'] }, { size: em(1) }]],
   },
   // 2960 .ptk-ax, 6178, 6179 (.pz-talk: 1em, .04em)
   'plot.ax': {
     base: { font: [600, svk(px(13))], letterSpacing: svk(px(0.78)), upper: true, fill: tok('text-3') },
     when: [[{ host: ['talk', 'flowtime'] }, { size: em(1), letterSpacing: em(0.04) }]],   // (6314-6315 the flow-time chart's too)
   },
-  // 2961 .ptk-unit, 6178
+  // 2961 .ptk-unit, 6178, 7122 (.pz-prof)
   'plot.unit': {
     base: { font: [500, svk(px(13))], fill: tok('text-3') },
-    when: [[{ host: 'talk' }, { size: em(1) }]],
+    when: [[{ host: ['talk', 'prof'] }, { size: em(1) }]],
   },
   // 2965 .ptk-line: a series line, its colour given by the builder (data-p-c)
   'plot.line': { base: { fill: 'none', stroke: param('c'), width: 3, join: 'round', cap: 'round' } },

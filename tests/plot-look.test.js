@@ -122,8 +122,8 @@ test('the ladder\'s three zones are one rounded band, the corners of the whole',
   // (The band is the chart's full width, its first tint out to the left edge and its last to the right, so the axis numbers stand inside it.)
   assert.match(src, /const band = plotPanel\(sv, 0, G\.T - G\.hdr, w, G\.B - \(G\.T - G\.hdr\), \{ fill: false \}\)/);
   assert.match(src, /tx0 = k \? G\.x\(a\) - G\.slot \/ 2 : 0, tx1 = k < sp\.length - 1 \? G\.x\(b\) \+ G\.slot \/ 2 : w;/, 'the first tint reaches the left edge, the last the right');
-  assert.match(src, /sv\('rect', \{ x: tx0, width: tx1 - tx0, y: y0, height: G\.B - y0, 'clip-path': band\.url \}\)/, 'each zone\'s tint clipped to the band');
-  assert.match(src, /const ln = sv\('line', \{ x1: G\.L, x2: G\.R, y1: 0, y2: 0 \}\), tx = k \? sv\('text', \{ x: G\.L - 6, y: 0, 'text-anchor': 'end' \}, ''\) : null;/, 'the numbers stand in the strip left of the lines, inside the band, and no 0 (it is implied)');
+  assert.match(src, /sv\('rect', \{ 'data-look': ZONE_LOOK\[k\], x: tx0, width: tx1 - tx0, y: y0, height: G\.B - y0, 'clip-path': band\.url \}\)/, 'each zone\'s tint clipped to the band');
+  assert.match(src, /const ln = sv\('line', \{ 'data-look': 'plot\.grid\.line', x1: G\.L, x2: G\.R, y1: 0, y2: 0 \}\), tx = k \? sv\('text', \{ 'data-look': 'plot\.grid\.text', x: G\.L - 6, y: 0, 'text-anchor': 'end' \}, ''\) : null;/, 'the numbers stand in the strip left of the lines, inside the band, and no 0 (it is implied)');
   assert.match(read('../src/ui/charts.js'), /if \(p && p % lstep === 0\) \{ ctx\.textAlign = 'right'; ctx\.fillText\(numText\(p\), L - 6, y\(p\) \+ 4\); \}/, 'the Explore profile prints no 0 either');
   assert.equal(ZONE_TOP, 0.5, 'the zones\' names keep half their size over them, under the band\'s top edge');
 });

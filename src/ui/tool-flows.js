@@ -23,6 +23,7 @@ import { EDGES, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from '../engine/topol
 import { portalSplit } from './table-marks.js';
 import { measure } from './glyph-measure.js';
 import { createSvgGL, svgModel, setGeo, setPts, setWords } from './svg-gl.js';
+import { fittedType } from './chart-ctx.js';
 import { pctWords } from './num-words.js';
 import { reduceMotionMQ } from './motion.js';
 
@@ -273,7 +274,7 @@ let uid = 0;
 export function createFlowsTool() {
   const el = document.createElement('div');
   el.className = 'pz-flows';
-  const gl = createSvgGL(el);
+  const gl = createSvgGL(el, { host: 'flows' });
   const reduceMQ = reduceMotionMQ;
   const clip = `pfl-clip-${++uid}`;
   let of = 'portal', params = null, goal = null, hGoal = null, ctx0 = null, raf = 0, size = '', memo = null, wait = 0;
@@ -285,7 +286,8 @@ export function createFlowsTool() {
   let box = null, measuring = 0;
   const measureBox = () => {
     const w = el.clientWidth, z = w ? el.getBoundingClientRect().width / w : 1;
-    const f = Math.max(parseFloat(getComputedStyle(el).fontSize) || 12, z > 0.2 && z < 1 ? 12 / z : 0);
+    // (The box's own type size from the chart's looks table: the card's sizes handed over, never read off the page.)
+    const f = fittedType(el, gl, z > 0.2 && z < 1 ? 12 / z : 0);
     box = [Math.max(160, w || 420), Math.max(6 * f, el.clientHeight || 160), f];
   };
   const sizeNow = () => box || [420, 160, 12];
@@ -341,7 +343,7 @@ export function createFlowsTool() {
   // ── The model (built between frames) ──
   // A piece's strength is held on it as a number (setGeo), set before its look is read, so the picture reads it live.
   const strength = (n, v = 0) => { setGeo(n, 'opacity', v); return n; };
-  const tspan = (cls) => sv('tspan', cls ? { class: cls } : {});
+  const tspan = (cls) => sv('tspan', cls ? { class: cls, 'data-look': 'flows.pill.k' } : { 'data-look': 'flows.tspan' });
   // Widths of the words a pill carries for each whole percent (the name and its percent as one, then the name alone), measured once per size
   // here, so a frame sets a pill's width from a table, never measures a string.
   let pillF = 0, pillW = {};
@@ -371,26 +373,27 @@ export function createFlowsTool() {
     size = `${Math.round(w)}x${Math.round(hh)}`;
     const clipRect = sv('rect', { x: 0, width: w });
     const segG = sv('g', { 'clip-path': `url(#${clip})` });
-    const mkText = sv('text', { 'text-anchor': 'middle' }), mkLine = sv(inflow ? 'line' : 'path', {});
+    const mkText = sv('text', { 'data-look': 'flows.mk.text', 'text-anchor': 'middle' }), mkLine = sv(inflow ? 'line' : 'path', { 'data-look': 'flows.mk.line' });
     const mk = strength(sv('g', { class: 'pfl-mk' }, mkLine, mkText));
     const pieces = {};
     const kids = [sv('defs', {}, sv('clipPath', { id: clip }, clipRect)), segG, mk];
     for (const id of ids) {
       const p = pieces[id] = {};
-      p.seg = strength(sv('rect', { class: 'pfl-seg', 'data-part': id, style: `--tone: var(${TONE_OF[id]})` }));
+      const tone = TONE_OF[id].replace(/^--/, '');   // (the colour's token name, for the looks)
+      p.seg = strength(sv('rect', { class: 'pfl-seg', 'data-look': 'flows.seg', 'data-p-tone': tone, 'data-part': id }));
       segG.append(p.seg);
       if (!inflow) {
         // The wordings of a part in a pill under the bar: the name and its percent (tier 3), the name alone (tier 2).
-        p.pillRectV = sv('rect', {}); p.pillKV = tspan('k'); p.pillV = tspan('');
-        p.pillTextV = sv('text', { 'text-anchor': 'middle' }, p.pillKV, p.pillV);
-        p.pillGV = strength(sv('g', { class: 'ppf-pill pfl-pill', 'data-part': id, style: `--tone: var(${TONE_OF[id]})` }, p.pillRectV, p.pillTextV));
-        p.pillRectN = sv('rect', {}); p.pillTextN = sv('text', { 'text-anchor': 'middle' });
-        p.pillGN = strength(sv('g', { class: 'ppf-pill pfl-pill', 'data-part': id, style: `--tone: var(${TONE_OF[id]})` }, p.pillRectN, p.pillTextN));
+        p.pillRectV = sv('rect', { 'data-look': 'flows.pill.rect', 'data-p-tone': tone }); p.pillKV = tspan('k'); p.pillV = tspan('');
+        p.pillTextV = sv('text', { 'data-look': 'flows.pill.text', 'text-anchor': 'middle' }, p.pillKV, p.pillV);
+        p.pillGV = strength(sv('g', { class: 'ppf-pill pfl-pill', 'data-part': id }, p.pillRectV, p.pillTextV));
+        p.pillRectN = sv('rect', { 'data-look': 'flows.pill.rect', 'data-p-tone': tone }); p.pillTextN = sv('text', { 'data-look': 'flows.pill.text', 'text-anchor': 'middle' });
+        p.pillGN = strength(sv('g', { class: 'ppf-pill pfl-pill', 'data-part': id }, p.pillRectN, p.pillTextN));
         setWords(p.pillKV, `${NAME_OF[id]} `); setWords(p.pillTextN, NAME_OF[id]);
         kids.push(p.pillGV, p.pillGN);
       }
-      p.n = sv('text', { class: 'n', 'text-anchor': 'middle' }); p.v = sv('text', { class: 'v', 'text-anchor': 'middle' });
-      p.lead = inflow ? sv('line', { class: 'pfl-lead' }) : null;
+      p.n = sv('text', { class: 'n', 'data-look': 'flows.lab.n', 'text-anchor': 'middle' }); p.v = sv('text', { class: 'v', 'data-look': 'flows.lab.v', 'text-anchor': 'middle' });
+      p.lead = inflow ? sv('line', { class: 'pfl-lead', 'data-look': 'flows.lead' }) : null;
       p.lab = strength(sv('g', { class: 'pfl-lab', 'data-part': id }, ...(p.lead ? [p.lead, p.n, p.v] : [p.n, p.v])));
       kids.push(p.lab);
     }

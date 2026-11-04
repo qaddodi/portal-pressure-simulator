@@ -74,7 +74,7 @@ test('the block is drawn under the axis line, the line and the readings, which k
   const at = (re) => { const m = prof.slice(prof.indexOf('export function createProfileTool')).search(re); assert.ok(m > 0, String(re)); return m; };
   const blk = at(/M\.blk,/), axis = at(/class: 'ppf-axis'/), line = at(/M\.lineP,/), vals = at(/M\.vt,/);
   assert.ok(blk < axis && axis < line && line < vals, 'block, axis, line, readings: back to front');
-  assert.match(css, /\.ppf-v \{[^}]*paint-order: stroke; stroke: var\(--surface\); stroke-width: 4px;/);
+  // (The readings' outline is the table's prof.v: tests/profile-looks.test.js.)
 });
 
 test('every bracket and the healthy line\'s name keep clear of the blocks; a block eases in and out, hatched as the old ladder\'s', () => {
@@ -82,6 +82,6 @@ test('every bracket and the healthy line\'s name keep clear of the blocks; a blo
   assert.match(prof, /if \(!b \|\| b\.a !== a\) \{ blkS\[i\]\.from = reduceMQ\.matches \? a : b \? blkOp\(b, t\) : 0; blkS\[i\]\.a = a; blkS\[i\]\.t0 = t; blkLive\[i\] = 1; \}/);
   assert.match(prof, /if \(blkLive\[i\] && t - blkS\[i\]\.t0 < FADE_MS\) fading = true;/);
   assert.match(prof, /sv\('rect', \{ class: 'pz-hb', width: s, height: s \}\), sv\('rect', \{ class: 'pz-hs', width: s \/ 2, height: s \}\)/);
-  assert.match(css, /\.ppf-blk \{ stroke: var\(--danger\); stroke-width: 1\.2; stroke-opacity: \.7; \}/);
+  // (The block's ring is the table's prof.blk: tests/profile-looks.test.js.)
   assert.match(css, /\.pz-hs \{ fill: var\(--danger\); fill-opacity: \.55; \}/);
 });

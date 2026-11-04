@@ -2245,12 +2245,6 @@ button.finding { cursor: pointer; }
 /* (Its lines grow with its type, never thinner than the data card's: the line 3 px, the healthy and earlier lines 1.75, the brackets and the brace 1.5,
    the axis and the gridlines 1 px, at the 12 px type they were drawn for. The value halos and the red hatching stay: the chart's label placing
    counts a halo as 2 px.) */
-.pz:not(.stack) .pz-cell .ppf-line { stroke-width: max(3px, .2em); }
-.pz:not(.stack) .pz-cell :is(.ppf-hl, .ppf-bf) { stroke-width: max(1.75px, .14em); }
-.pz:not(.stack) .pz-cell .ppf-hl { stroke-dasharray: max(4px, .33em) max(5px, .42em); }
-.pz:not(.stack) .pz-cell .ppf-bf { stroke-dasharray: max(1.5px, .125em) max(4.5px, .375em); }
-.pz:not(.stack) .pz-cell :is(.ppf-br path, .ppf-brace path) { stroke-width: max(1.5px, .11em); }
-.pz:not(.stack) .pz-cell :is(.ppf-axis, .ptk-grid line) { stroke-width: max(1px, .075em); }
 /* (A card never scrolls, in any direction: a table that is too wide or too tall is zoomed by the card's fit (presenter.js overflowOf reads its
    sideways overflow), never scrolled inside its card, and what a finger or a trackpad might pan is clipped. Mohammad, 25 Oct: on an iPad
    on its side the summary table "scrolls right and left. They should not ever scroll.") */
@@ -7024,52 +7018,13 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
    keep their whole width and redraw at their own pixels; only their allocated height changes. */
 .pz.pz-wide .pz-data.pz-data.pz-data.pz-data.pz-data.pz-data.pz-flowfit > .pz-tool[data-kind="flowtime"] { width: 100%; zoom: 1; }
 .pz.pz-wide .pz-flowfit .pz-flowtime { height: var(--ft-room); min-height: 0; }   /* (fitted while the card is out or the window changes: taken at once, never eased by its height) */
-.ppf-liver rect { fill: var(--chart-liver-band); }
-.ppf-pre rect { fill: var(--chart-pre-band); }
-.ppf-post rect { fill: var(--chart-post-band); }
-.ppf-zone text { font: 600 1em var(--font-ui); letter-spacing: .06em; fill: var(--text-3); }
-.ppf-zone.tight text { letter-spacing: 0; }   /* (a zone's name: its width is measured with this spacing, tool-profile.js zoneW) */
-.pz-prof :is(.ptk-grid text, .ptk-unit) { font-size: 1em; }
-.ppf-hl { stroke: var(--text-3); stroke-dasharray: 4 5; }
-.ppf-bf { stroke: var(--text-2); stroke-dasharray: 1.5 4.5; }
-.ppf-lname { font: 500 1em var(--font-ui); fill: var(--text-2); }
-.ppf-hl, .ppf-bf { fill: none; stroke-width: 1.75; stroke-linecap: round; }
-.ppf-fill { opacity: .16; }
-.ppf-line { fill: none; stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
-.ppf-v { font: 700 1em var(--font-ui); fill: var(--text); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
-.ppf-axis { stroke: var(--axis); stroke-width: 1; }
-.ppf-name { font: 500 1em var(--font-ui); fill: var(--text-2); }
-.ppf-name.liv { font-style: italic; }   /* Pre-, Intra-, Post-: the liver's three stations */
-.ppf-blk { stroke: var(--danger); stroke-width: 1.2; stroke-opacity: .7; }   /* (the resistance, hatched red: tool-profile.js blocksOf) */
 .pz-pstrip { display: none; width: 100%; }   /* (a phone's six-case grid, one line a case: tool-profile.js createProfileStrip) */
 .pz-pstrip :is(svg, .ic) { display: block; overflow: visible; }
-.pps-line { fill: none; stroke-width: 4; stroke-linecap: round; }
-.pps-v { font: 700 1em var(--font-ui); fill: var(--text); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--surface-2); stroke-width: 4px; stroke-linejoin: round; }   /* (outlined in the cell's colour, so a reading stays whole over its block's hatching) */
-.ppf-brace path { fill: none; stroke: var(--text-3); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
-.ppf-brace text { font: 500 1em var(--font-ui); fill: var(--text-2); }
-.ppf-br path { fill: none; stroke: var(--text-3); stroke-width: 1.5; }
-.ppf-br text { font: 700 1em var(--font-ui); fill: var(--text); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
-.ppf-br text .k { font-weight: 600; fill: var(--text-2); }
-.ppf-br[data-rate="mid"] path { stroke: var(--caution); } .ppf-br[data-rate="mid"] text { fill: var(--caution); }
-.ppf-br[data-rate="hi"] path { stroke: var(--danger); } .ppf-br[data-rate="hi"] text { fill: var(--danger); }
-/* (The two readings as pills in the plot's top right, tinted as the brackets rate them: green, amber or red, like the app's rated pills (.pz-val.tone).) */
-.ppf-pill { --tone: var(--ok); }
-.ppf-pill[data-rate="mid"] { --tone: var(--caution); } .ppf-pill[data-rate="hi"] { --tone: var(--danger); }
-.ppf-pill rect { fill: color-mix(in srgb, var(--tone) 15%, var(--surface)); stroke: color-mix(in srgb, var(--tone) 50%, transparent); stroke-width: 1; }
-.ppf-pill text { font: 700 1em var(--font-ui); font-variant-numeric: tabular-nums; fill: color-mix(in srgb, var(--tone) 82%, var(--text)); }
-.ppf-pill text .k { font-weight: 600; }
 /* (One bar across the whole card, the Healthy bracket or line over it and the pills of the names too narrow for the bar under it, the
    drawing centred in the card whatever the slide holds, tool-flows.js. The portal blood card has room for two rows of pills; the
    inflow's has none. Names and percents on the bars carry a halo in the card's colour, so they read on every segment.) */
 .pz-flows { height: var(--flows-h, 10em); min-height: 10em; }
 .pz-flows[data-of="inflow"] { --flows-h: 6em; min-height: 6em; }   /* (the liver's inflow is one bar with the Healthy line over it: the words above, the bar, the line's overshoot; nothing hangs under it, tool-flows.js inflowGeo) */
-.pfl-seg { fill: color-mix(in srgb, var(--tone) 70%, transparent); }
-.pfl-lab text { font: 500 1em var(--font-ui); fill: var(--text); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
-.pfl-lab .v { font-weight: 700; }
-.ppf-pill.pfl-pill text { fill: var(--text); }   /* (a route's pill is tinted with its colour like the segment; its words stay in the text colour, which reads on every tint, amber included) */
-.pfl-lead { fill: none; stroke: var(--text-3); stroke-width: 1; stroke-linejoin: round; }
-.pfl-mk :is(line, path) { fill: none; stroke: var(--text-3); stroke-width: 1.75; stroke-dasharray: 4 5; stroke-linecap: round; stroke-linejoin: round; }   /* (the ladder's Healthy line: .ppf-hl) */
-.pfl-mk text { font: 500 1em var(--font-ui); fill: var(--text-2); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
 /* Treatment bands on the over-time charts (rx-bands.js). On the talk trace a soft band in the treatment's colour, its name in a
    deeper shade over the lines with a halo; the chart grows by the names' rows (talk-trace.js sets --band-room). On a flowtime
    chart the treatments' names on a row under the clock and a thin bar each, the chart taller by them (flow-time.js sets

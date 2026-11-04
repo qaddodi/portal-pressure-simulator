@@ -65,7 +65,7 @@ test('a wide screen shows the chart; a phone, upright or sideways, the line, und
 test('the line shares the chart\'s stations, names, colours and blocks, and is lettered at 12 px or more', () => {
   const strip = prof.slice(prof.indexOf('export function createProfileStrip'));
   assert.match(strip, /const slot = \(w - 10\) \/ STATIONS\.length; return \{ slot, x: \(i\) => slot \* \(i \+ 0\.5\) \};/, 'the names and the lines measure their columns alike');
-  assert.match(strip, /const f = Math\.max\(12, parseFloat\(getComputedStyle\(el\)\.fontSize\) \|\| 12\)/);
+  assert.match(strip, /const f = fittedType\(el, gl, 12\)/);
   assert.match(strip, /const fit = nameFit\(slot, tw\)/);
   assert.match(strip, /blocksOf\(p, hl\)\.map\(/);
   assert.match(strip, /'stop-color': pressureColor\(v\)/);
@@ -77,7 +77,7 @@ test('a phone\'s line puts each block on its station\'s column, behind the line 
   assert.match(strip, /const box = \(i\) => blockSpan\(x\(i\), slot, tw\);/, 'the chart\'s own width rule, centred on its column');
   const at = (re) => { const m = strip.search(re); assert.ok(m > 0, String(re)); return m; };
   assert.ok(at(/class: 'ppf-blk'/) < at(/class: 'pps-line'/) && at(/class: 'pps-line'/) < at(/class: 'pps-v'/), 'block, line, readings: back to front');
-  assert.match(css, /\.pps-v \{[^}]*paint-order: stroke; stroke: var\(--surface-2\); stroke-width: 4px;/);
+  // (The readings' outline in the cell's colour is the table's prof.strip.v: tests/profile-looks.test.js.)
 });
 
 test('the cause is fitted again when its own width changes (its font loading late), not only the row\'s', () => {
@@ -87,13 +87,11 @@ test('the cause is fitted again when its own width changes (its font loading lat
 
 test('a phone\'s station names carry the sinusoidal brace over Pre-, Intra- and Post-; each line has the three zones\' tints behind its readings', () => {
   const strip = prof.slice(prof.indexOf('export function createProfileStrip'));
-  assert.match(strip, /sv\('g', \{ class: 'ppf-brace' \}, sv\('path', \{ d: braceD\(x\(i0\) - 0\.42 \* slot, x\(i1\) \+ 0\.42 \* slot, 0, 0\.55 \* f\), transform: `translate\(0 \$\{ends\.toFixed\(2\)\}\) scale\(1 -1\)` \}\),\n\s*sv\('text', \{ x: \(x\(i0\) \+ x\(i1\)\) \/ 2, y: 0\.95 \* f, 'text-anchor': 'middle' \}, BRACE_NAME\)\)/);
+  assert.match(strip, /sv\('g', \{ class: 'ppf-brace' \}, sv\('path', \{ 'data-look': 'prof\.brace\.path', d: braceD\(x\(i0\) - 0\.42 \* slot, x\(i1\) \+ 0\.42 \* slot, 0, 0\.55 \* f\), transform: `translate\(0 \$\{ends\.toFixed\(2\)\}\) scale\(1 -1\)` \}\),\n\s*sv\('text', \{ 'data-look': 'prof\.brace\.text', x: \(x\(i0\) \+ x\(i1\)\) \/ 2, y: 0\.95 \* f, 'text-anchor': 'middle' \}, BRACE_NAME\)\)/);
   assert.match(strip, /const fit = nameFit\(slot, tw\), ends = 1\.85 \* f, base = ends \+ 1\.05 \* f,/, 'the names stand under the brace, clear of it');
   // (Drawn first: under the blocks, the line and the numbers. Pre-hepatic: Gut and PV; intrahepatic: the liver's three; post-hepatic: HV, IVC and RA.)
-  assert.match(strip, /zoneSpans\(\)\.map\(\(\[a, b\], k\) => sv\('g', \{ class: ZONES\[k\]\.cls \},\n\s*sv\('rect', \{ x: x\(a\) - slot \/ 2 \+ 0\.5, y: 0, width: slot \* \(b - a \+ 1\) - 1, height: hh, rx: 4 \}\)\)\),\n(\s*\/\/[^\n]*\n)*\s*blocksOf\(p, hl\)/);
-  assert.match(css, /\.ppf-liver rect \{ fill: var\(--chart-liver-band\); \}/);
-  assert.match(css, /\.ppf-pre rect \{ fill: var\(--chart-pre-band\); \}/);
-  assert.match(css, /\.ppf-post rect \{ fill: var\(--chart-post-band\); \}/);
+  assert.match(strip, /zoneSpans\(\)\.map\(\(\[a, b\], k\) => sv\('g', \{ class: ZONES\[k\]\.cls \},\n\s*sv\('rect', \{ 'data-look': ZONE_LOOK\[k\], x: x\(a\) - slot \/ 2 \+ 0\.5, y: 0, width: slot \* \(b - a \+ 1\) - 1, height: hh, rx: 4 \}\)\)\),\n(\s*\/\/[^\n]*\n)*\s*blocksOf\(p, hl\)/);
+  // (The three tints are the table's prof.zone.*: tests/profile-looks.test.js.)
 });
 
 test('Sites 10 has no line over the grid (Mohammad, 21 Oct: "get rid of that sentence above everything")', () => {

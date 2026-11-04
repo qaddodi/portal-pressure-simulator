@@ -55,7 +55,7 @@ export function makeCtx(local = null) {
   const l = local || {};
   const c = {
     theme, dark, palette: ra('data-palette') || 'navy', view: l.view || viewNow, motion: mq('(prefers-reduced-motion: reduce)') ? 'reduce' : 'full',
-    host: l.host || '', layout: l.layout || '', in: l.in || '', boxW: l.boxW || 0, scale: l.scale || NO_SCALE, svk: l.svk || 1, fit: l.fit || 1, dk: l.dk || 1, hostPx: 12, sig: '',
+    host: l.host || '', layout: l.layout || '', in: l.in || '', boxW: l.boxW || 0, scale: l.scale || NO_SCALE, svk: l.svk || 1, fit: l.fit || 1, dk: l.dk || 1, lad: l.lad || 1, hostPx: 12, sig: '',
   };
   c.hostPx = l.px > 0 ? l.px : HOSTS[c.host] ? HOSTS[c.host](c) : 12;   // (px: the size a fitted chart is drawn in, flow-time, curve and course: its host's size, grown to keep the type readable on a zoomed card)
   c.sig = ctxSig(c);
@@ -63,7 +63,7 @@ export function makeCtx(local = null) {
 }
 const NO_SCALE = {};
 function ctxSig(c) {
-  let s = `${c.theme}${c.dark ? 'd' : ''}|${c.palette}|${c.view}|${c.motion}|${c.host}|${c.layout}|${c.in}|${c.svk}|${c.fit}|${c.dk}|${c.hostPx}`;
+  let s = `${c.theme}${c.dark ? 'd' : ''}|${c.palette}|${c.view}|${c.motion}|${c.host}|${c.layout}|${c.in}|${c.svk}|${c.fit}|${c.dk}|${c.lad}|${c.hostPx}`;
   for (const k in c.scale) s += `|${k}=${c.scale[k]}`;
   return s;
 }

@@ -89,7 +89,5 @@ test('the pills are drawn over the chart, tinted as the brackets rate them, glid
   // (The brackets keep their place in the plot before the pills do: they stand down, with the plot's height unchanged.)
   assert.match(prof, /if \(!brk && !band\) \{ brk = placeBrackets\(g, tw, goal, hl, bf, s, old\?\.brk, \[\]\); pl = brk \? placePills\(g, tw, goal, hl, bf, s, brk\) : null; \}/);
   // (The look: a soft fill in the rating's own tone, a ring, bold figures; the same three tones as the .pz-val pills.)
-  assert.match(css, /\.ppf-pill \{ --tone: var\(--ok\); \}/);
-  assert.match(css, /\.ppf-pill\[data-rate="mid"\] \{ --tone: var\(--caution\); \} \.ppf-pill\[data-rate="hi"\] \{ --tone: var\(--danger\); \}/);
-  assert.match(css, /\.ppf-pill rect \{ fill: color-mix\(in srgb, var\(--tone\) 15%, var\(--surface\)\); stroke: color-mix\(in srgb, var\(--tone\) 50%, transparent\);/);
+  // (The pill's tones are the table's prof.pill.*: tests/profile-looks.test.js.)
 });

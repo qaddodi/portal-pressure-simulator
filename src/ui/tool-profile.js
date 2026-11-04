@@ -22,6 +22,7 @@ import { measure } from './glyph-measure.js';
 import { hvpgRate, ppgRate } from '../engine/pressure-cuts.js';
 import { numWords } from './num-words.js';
 import { createSvgGL, svgModel, setWords, setGeo, setPts } from './svg-gl.js';
+import { fittedType } from './chart-ctx.js';
 import { reduceMotionMQ } from './motion.js';
 
 const PATH = PROFILE_PATHS[0];
@@ -53,6 +54,7 @@ export const SPANS = [['hvpg', 'HVPG', 'SIN_R', 'RHV'], ['ppg', 'PPG', 'CONF', '
 export const ZONES = [{ cls: 'ppf-zone ppf-pre', one: 'PRE-HEPATIC', top: 'PRE' }, { cls: 'ppf-zone ppf-liver', one: 'INTRAHEPATIC', top: 'INTRA' },
   { cls: 'ppf-zone ppf-post', one: 'POST-HEPATIC', top: 'POST' }];
 export const ZONE_SECOND = 'HEPATIC';
+const ZONE_LOOK = ['prof.zone.pre', 'prof.zone.liver', 'prof.zone.post'];   // (the look of each zone's tint, in ZONES' order)
 export const ZONE_GAP = 4;
 /** The stations each zone covers: [first, last] indexes (none where the path has no liver). */
 export function zoneSpans() {
@@ -653,7 +655,7 @@ const blkOp = (b, now) => b.from + (b.a - b.from) * (0.5 - 0.5 * Math.cos(Math.P
 export function createProfileTool() {
   const el = document.createElement('div');
   el.className = 'pz-prof';
-  const gl = createSvgGL(el);
+  const gl = createSvgGL(el, { host: 'prof' });
   const reduceMQ = reduceMotionMQ;
   let goal = null, shown = null, ref = null, cfg = { from: null }, ctx0 = null, raf = 0, plan = null, stale = false, size = '', wantMin = null;
   let fSeen = 0;   // (the type size it was drawn at, x100: a zoom the box's own size does not show)
@@ -694,11 +696,13 @@ export function createProfileTool() {
   let sz0 = null, fs0 = 12, measuring = 0;
   const measure0 = () => {
     const w = el.clientWidth, hh = el.clientHeight, z = w ? el.getBoundingClientRect().width / w : 1;
-    fs0 = parseFloat(getComputedStyle(el).fontSize) || 12;
+    // (The box's own type size from the chart's looks table: the card's sizes handed over, never read off the page.)
+    fs0 = fittedType(el, gl) || 12;
     if (!w || !hh) { sz0 = null; return null; }
     // (Zoomed by the page or an ancestor (the card's own fit leaves the chart unzoomed: styles/app.css): the type is set larger by as
     // much, never under 12 px on the screen.)
     const f = Math.max(fs0, z > 0.2 && z < 1 ? 12 / z : 0);
+    gl.setCtx({ px: f });   // (the size the chart is drawn at: an em of its pieces' looks)
     sz0 = [w, hh, f];
     return sz0;
   };
@@ -803,23 +807,23 @@ export function createProfileTool() {
     for (let i = 0; i < NS; i++) {
       const [bx0, bx1] = blockSpan(G.x(i), G.slot, tw);
       M.bx.push([bx0, bx1]);
-      M.blk.push(blkRect([bx0, bx1, 0, 0], { class: 'ppf-blk', fill: `url(#${gid}-h)`, opacity: 0 }));
+      M.blk.push(blkRect([bx0, bx1, 0, 0], { class: 'ppf-blk', 'data-look': 'prof.blk', fill: `url(#${gid}-h)`, opacity: 0 }));
       M.clip.push(blkRect([bx0, bx1, 0, 0]));
     }
     // (The gridlines: as many as the axis may need, each shown or not by its strength.)
     M.gl = []; M.gt = [];
     for (let k = 0; k < cap; k++) {
-      const ln = sv('line', { x1: G.L, x2: G.R, y1: 0, y2: 0 }), tx = k ? sv('text', { x: G.L - 6, y: 0, 'text-anchor': 'end' }, '') : null;
+      const ln = sv('line', { 'data-look': 'plot.grid.line', x1: G.L, x2: G.R, y1: 0, y2: 0 }), tx = k ? sv('text', { 'data-look': 'plot.grid.text', x: G.L - 6, y: 0, 'text-anchor': 'end' }, '') : null;
       M.gl.push(ln); M.gt.push(tx);
     }
     const grid = M.gl.map((ln, k) => sv('g', { class: 'ptk-grid', opacity: 0 }, ln, M.gt[k]));
     M.grid = grid;
-    M.hlP = [0, 1].map(() => sv('path', { class: 'ppf-hl', d: 'M0 0', mask: `url(#${gid}-m)`, opacity: 0 }));
-    M.bfP = [0, 1].map(() => sv('path', { class: 'ppf-bf', d: 'M0 0', mask: `url(#${gid}-m)`, opacity: 0 }));
-    M.fill = sv('path', { class: 'ppf-fill', d: 'M0 0', style: `fill: url(#${gid})` });
-    M.lineP = sv('path', { class: 'ppf-line', d: 'M0 0', style: `stroke: url(#${gid})`, mask: `url(#${gid}-m)` });
-    M.vt = STATIONS.map((_, i) => sv('text', { class: 'ppf-v', x: M.xs[i], y: 0, 'text-anchor': 'middle' }, ''));
-    for (const c of ['hl', 'bf']) M.nameEl[c] = sv('text', { class: `ppf-lname ${c}`, x: 0, y: 0, 'text-anchor': 'middle', opacity: 0 }, '');
+    M.hlP = [0, 1].map(() => sv('path', { class: 'ppf-hl', 'data-look': 'prof.hl', d: 'M0 0', mask: `url(#${gid}-m)`, opacity: 0 }));
+    M.bfP = [0, 1].map(() => sv('path', { class: 'ppf-bf', 'data-look': 'prof.bf', d: 'M0 0', mask: `url(#${gid}-m)`, opacity: 0 }));
+    M.fill = sv('path', { class: 'ppf-fill', 'data-look': 'prof.fill', d: 'M0 0', fill: `url(#${gid})` });
+    M.lineP = sv('path', { class: 'ppf-line', 'data-look': 'prof.line', d: 'M0 0', stroke: `url(#${gid})`, mask: `url(#${gid}-m)` });
+    M.vt = STATIONS.map((_, i) => sv('text', { class: 'ppf-v', 'data-look': 'prof.v', x: M.xs[i], y: 0, 'text-anchor': 'middle' }, ''));
+    for (const c of ['hl', 'bf']) M.nameEl[c] = sv('text', { class: `ppf-lname ${c}`, 'data-look': 'prof.name', x: 0, y: 0, 'text-anchor': 'middle', opacity: 0 }, '');
     // (The brackets: for each of the two, two places (where it stands, where it stood) and in each the three ratings' pieces.)
     M.br = SPANS.map(([k, name, a, b], r) => {
       const x0 = G.x(STATIONS.indexOf(a)), x1 = G.x(STATIONS.indexOf(b)), fs = G.brFs[r], z = fs / f, stack = G.brMode[r] === 'stack', mid = (x0 + x1) / 2;
@@ -837,10 +841,11 @@ export function createProfileTool() {
       }
       const slots = [0, 1].map(() => {
         const buf = new Float64Array(24), tones = TONES.map((rate) => {
-          const path = sv('path', { d: 'M0 0' });
-          const val = sv('tspan', stack ? { x: mid, dy: (1.1 * f).toFixed(2) } : {}, '0');
-          const txt = sv('text', { x: mid, y: 0, 'text-anchor': 'middle' }, sv('tspan', { class: 'k' }, stack ? name : `${name} `), val);
-          const gEl = sv('g', { class: 'ppf-br', 'data-rate': rate, 'data-k': k, 'data-mode': G.brMode[r], opacity: 0, style: fs < f - 0.01 ? `font-size: ${fs.toFixed(2)}px` : null }, path, txt);
+          const path = sv('path', { 'data-look': 'prof.br.path', d: 'M0 0' });
+          const val = sv('tspan', stack ? { 'data-look': 'prof.tspan', x: mid, dy: (1.1 * f).toFixed(2) } : { 'data-look': 'prof.tspan' }, '0');
+          // (A bracket set smaller to fit says so on its words: the look leaves the size alone.)
+          const txt = sv('text', { 'data-look': 'prof.br.text', 'font-size': (fs < f - 0.01 ? fs : f).toFixed(2), x: mid, y: 0, 'text-anchor': 'middle' }, sv('tspan', { class: 'k', 'data-look': 'prof.br.k' }, stack ? name : `${name} `), val);
+          const gEl = sv('g', { class: 'ppf-br', 'data-rate': rate, 'data-k': k, 'data-mode': G.brMode[r], opacity: 0 }, path, txt);
           return { g: gEl, path, txt, val };
         });
         return { buf, tones };
@@ -850,8 +855,8 @@ export function createProfileTool() {
     // (The two pills, a piece for each rating.)
     const ps = pillSize(G, tw);
     M.pill = SPANS.map(([k, name], q) => ({ key: k, w: ps.w[q], h: ps.h, tones: TONES.map((rate) => {
-      const rect = sv('rect', { x: 0, y: 0, width: ps.w[q], height: ps.h, rx: ps.h / 2 }), val = sv('tspan', {}, '0');
-      const txt = sv('text', { x: 0, y: 0, 'text-anchor': 'middle' }, sv('tspan', { class: 'k' }, `${name} `), val);
+      const rect = sv('rect', { 'data-look': 'prof.pill.rect', x: 0, y: 0, width: ps.w[q], height: ps.h, rx: ps.h / 2 }), val = sv('tspan', { 'data-look': 'prof.tspan' }, '0');
+      const txt = sv('text', { 'data-look': 'prof.pill.text', x: 0, y: 0, 'text-anchor': 'middle' }, sv('tspan', { class: 'k', 'data-look': 'prof.pill.k' }, `${name} `), val);
       return { g: sv('g', { class: 'ppf-pill', 'data-rate': rate, 'data-k': k, opacity: 0 }, rect, txt), rect, txt, val };
     }) }));
     M.svg = sv('svg', { viewBox: `0 0 ${w} ${hh}`, width: w, height: hh, role: 'img', style: `font-size: ${f.toFixed(2)}px`, 'aria-label': 'Pressure from gut to heart' },
@@ -865,25 +870,26 @@ export function createProfileTool() {
       zoneSpans().map(([a, b], k, sp) => {
         const m = (G.x(a) + G.x(b)) / 2, y0 = G.T - G.hdr, ls = zoneLines(k, G.zone.lines);
         const zf = zoneSize(f), tx0 = k ? G.x(a) - G.slot / 2 : 0, tx1 = k < sp.length - 1 ? G.x(b) + G.slot / 2 : w;
-        return sv('g', { class: G.zone.tight ? `${ZONES[k].cls} tight` : ZONES[k].cls, style: zf < f - 0.01 ? `font-size: ${zf.toFixed(2)}px` : null }, sv('rect', { x: tx0, width: tx1 - tx0, y: y0, height: G.B - y0, 'clip-path': band.url }),
-          G.zone.lines ? ls.map((t, j) => sv('text', { x: m, y: G.T - G.zb - (ls.length - 1 - j) * 1.05 * zf, 'text-anchor': 'middle' }, t)) : null);
+        // (A zone's name is set at zoneSize and spaced .06 em, 0 when tight: the look gives its weight and ink, these two are the piece's own.)
+        return sv('g', { class: G.zone.tight ? `${ZONES[k].cls} tight` : ZONES[k].cls }, sv('rect', { 'data-look': ZONE_LOOK[k], x: tx0, width: tx1 - tx0, y: y0, height: G.B - y0, 'clip-path': band.url }),
+          G.zone.lines ? ls.map((t, j) => sv('text', { 'data-look': 'prof.zone.text', 'font-size': (zf < f - 0.01 ? zf : f).toFixed(2), 'letter-spacing': G.zone.tight ? '0' : '0.06em', x: m, y: G.T - G.zb - (ls.length - 1 - j) * 1.05 * zf, 'text-anchor': 'middle' }, t)) : null);
       }),
       grid,
       // (The unit in the bottom row, at the left, level with the brace's name: Mohammad, 21 Oct, "Remove mmHg from above put it below".)
-      sv('text', { class: 'ptk-unit', x: 0, y: G.braceY + 1.55 * f }, 'mmHg'),
+      sv('text', { class: 'ptk-unit', 'data-look': 'plot.unit', x: 0, y: G.braceY + 1.55 * f }, 'mmHg'),
       M.hlP[0], M.bfP[0], M.fill,
       // The blocks, over the fill and under the line and the readings; the healthy and the earlier lines are drawn again over them, clipped to
       // them, so those show whole too (Mohammad, 22 Oct: the line and the numbers stay visible over the block).
       M.blk,
       sv('g', { 'clip-path': `url(#${gid}-c)` }, M.hlP[1], M.bfP[1]),
-      sv('line', { class: 'ppf-axis', x1: G.L, x2: G.R, y1: G.B, y2: G.B }),
+      sv('line', { class: 'ppf-axis', 'data-look': 'prof.axis', x1: G.L, x2: G.R, y1: G.B, y2: G.B }),
       M.lineP,
       M.vt,
       M.nameEl.hl, M.nameEl.bf,
-      STATIONS.map((n, i) => sv('text', { class: n in LIVER_NAMES ? 'ppf-name liv' : 'ppf-name', x: G.nameX(i), y: G.nameY(i), 'text-anchor': 'middle' }, G.fit.names[i])),
+      STATIONS.map((n, i) => sv('text', { class: n in LIVER_NAMES ? 'ppf-name liv' : 'ppf-name', 'data-look': 'prof.name', x: G.nameX(i), y: G.nameY(i), 'text-anchor': 'middle' }, G.fit.names[i])),
       // (One brace under Pre, Intra and Post, inside the liver's band, named Sinusoidal under its tip.)
-      i0 >= 0 ? sv('g', { class: 'ppf-brace' }, sv('path', { d: braceD(G.x(i0) - 0.42 * G.slot, G.x(i1) + 0.42 * G.slot, G.braceY, 0.55 * f) }),
-        sv('text', { x: (G.x(i0) + G.x(i1)) / 2, y: G.braceY + 1.55 * f, 'text-anchor': 'middle' }, BRACE_NAME)) : null,
+      i0 >= 0 ? sv('g', { class: 'ppf-brace' }, sv('path', { 'data-look': 'prof.brace.path', d: braceD(G.x(i0) - 0.42 * G.slot, G.x(i1) + 0.42 * G.slot, G.braceY, 0.55 * f) }),
+        sv('text', { 'data-look': 'prof.brace.text', x: (G.x(i0) + G.x(i1)) / 2, y: G.braceY + 1.55 * f, 'text-anchor': 'middle' }, BRACE_NAME)) : null,
       // The HVPG (sinusoid to hepatic vein) and the PPG (portal vein − IVC) as brackets inside the plot (else in a band at its foot), in
       // their cut-off colours, each label inside its own bracket.
       M.br.flatMap((b) => b.slots.flatMap((s) => s.tones.map((q) => q.g))),
@@ -1075,13 +1081,14 @@ export function createProfileTool() {
 export function createProfileStrip(namesOnly = false) {
   const el = document.createElement('div');
   el.className = namesOnly ? 'pz-pstrip names' : 'pz-pstrip';
-  const gl = createSvgGL(el);
+  const gl = createSvgGL(el, { host: namesOnly ? 'pstriph' : 'pstrip' });
   let fp = null, hlOf = null, size = '';
   const xOf = (w) => { const slot = (w - 10) / STATIONS.length; return { slot, x: (i) => slot * (i + 0.5) }; };
   function drawStrip() {
     const w = el.clientWidth;
     if (!w) return;
-    const f = Math.max(12, parseFloat(getComputedStyle(el).fontSize) || 12), tw = (t, wt) => textW(t, f, wt), { slot, x } = xOf(w);
+    // (The strip's type size from the looks table: the card's label size, or its cap size over the six, never read off the page; 12 px at least.)
+    const f = fittedType(el, gl, 12), tw = (t, wt) => textW(t, f, wt), { slot, x } = xOf(w);
     size = String(Math.round(w));
     const i0 = STATIONS.indexOf(PATH.liver[0]), i1 = STATIONS.indexOf(PATH.liver[1]);
     if (namesOnly) {
@@ -1090,9 +1097,9 @@ export function createProfileStrip(namesOnly = false) {
       const fit = nameFit(slot, tw), ends = 1.85 * f, base = ends + 1.05 * f, hh = Math.ceil(base + (fit.rows - 1) * 1.25 * f + 0.3 * f);
       el.style.height = `${hh}px`;
       gl.swap(sv('svg', { viewBox: `0 0 ${w} ${hh}`, width: w, height: hh, style: `font-size: ${f.toFixed(2)}px` },
-        i0 >= 0 ? sv('g', { class: 'ppf-brace' }, sv('path', { d: braceD(x(i0) - 0.42 * slot, x(i1) + 0.42 * slot, 0, 0.55 * f), transform: `translate(0 ${ends.toFixed(2)}) scale(1 -1)` }),
-          sv('text', { x: (x(i0) + x(i1)) / 2, y: 0.95 * f, 'text-anchor': 'middle' }, BRACE_NAME)) : null,
-        STATIONS.map((n, i) => sv('text', { class: n in LIVER_NAMES ? 'ppf-name liv' : 'ppf-name', x: x(i) + fit.dx[i], y: base + (fit.low[i] ? 1.25 * f : 0), 'text-anchor': 'middle' }, fit.names[i]))));
+        i0 >= 0 ? sv('g', { class: 'ppf-brace' }, sv('path', { 'data-look': 'prof.brace.path', d: braceD(x(i0) - 0.42 * slot, x(i1) + 0.42 * slot, 0, 0.55 * f), transform: `translate(0 ${ends.toFixed(2)}) scale(1 -1)` }),
+          sv('text', { 'data-look': 'prof.brace.text', x: (x(i0) + x(i1)) / 2, y: 0.95 * f, 'text-anchor': 'middle' }, BRACE_NAME)) : null,
+        STATIONS.map((n, i) => sv('text', { class: n in LIVER_NAMES ? 'ppf-name liv' : 'ppf-name', 'data-look': 'prof.name', x: x(i) + fit.dx[i], y: base + (fit.low[i] ? 1.25 * f : 0), 'text-anchor': 'middle' }, fit.names[i]))));
       return;
     }
     const p = profileOf(fp);
@@ -1110,12 +1117,12 @@ export function createProfileStrip(namesOnly = false) {
       // "every graph has a background behind the pre, intra, and post numbers"; 22 Oct, a tint before and after it too. Tint only, no
       // names (the names strip over the six carries the brace). Under the blocks, the line and the numbers, a hair apart.)
       zoneSpans().map(([a, b], k) => sv('g', { class: ZONES[k].cls },
-        sv('rect', { x: x(a) - slot / 2 + 0.5, y: 0, width: slot * (b - a + 1) - 1, height: hh, rx: 4 }))),
+        sv('rect', { 'data-look': ZONE_LOOK[k], x: x(a) - slot / 2 + 0.5, y: 0, width: slot * (b - a + 1) - 1, height: hh, rx: 4 }))),
       // (Each block on its station's column, behind the line and the readings, which keep their outline: Mohammad, 22 Oct.)
-      blocksOf(p, hl).map((i) => { const [x0, x1] = box(i); return sv('rect', { class: 'ppf-blk', x: x0, y: 1, width: x1 - x0, height: hh - 2, rx: Math.min(4, (x1 - x0) / 2), fill: `url(#${gid}-h)` }); }),
+      blocksOf(p, hl).map((i) => { const [x0, x1] = box(i); return sv('rect', { class: 'ppf-blk', 'data-look': 'prof.blk', x: x0, y: 1, width: x1 - x0, height: hh - 2, rx: Math.min(4, (x1 - x0) / 2), fill: `url(#${gid}-h)` }); }),
       // (The line stops NUM_PAD px short of each reading, as on the chart.)
-      sv('path', { class: 'pps-line', style: `stroke: url(#${gid})`, d: p.v.slice(0, n).map((_, i) => `M${(x(i) + hw[i] + pad).toFixed(1)} ${cy}H${(x(i + 1) - hw[i + 1] - pad).toFixed(1)}`).join('') }),
-      labels.map((t, i) => sv('text', { class: 'pps-v', x: x(i), y: cy + 0.36 * f, 'text-anchor': 'middle' }, t))));
+      sv('path', { class: 'pps-line', 'data-look': 'prof.strip.line', stroke: `url(#${gid})`, d: p.v.slice(0, n).map((_, i) => `M${(x(i) + hw[i] + pad).toFixed(1)} ${cy}H${(x(i + 1) - hw[i + 1] - pad).toFixed(1)}`).join('') }),
+      labels.map((t, i) => sv('text', { class: 'pps-v', 'data-look': 'prof.strip.v', x: x(i), y: cy + 0.36 * f, 'text-anchor': 'middle' }, t))));
   }
   if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (el.isConnected && size !== String(Math.round(el.clientWidth))) drawStrip(); }).observe(el);
   return {
