@@ -2898,7 +2898,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   const makeOwn = () => { const o = { tex: dataTex(gl), fbo: gl.createFramebuffer(), w: 0, h: 0 }; gl.bindTexture(gl.TEXTURE_2D, o.tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); return o; };
   // (Sharper upscaling makes one too, while it is on, and gives it back after: the picture is drawn there and upscaled onto the canvas.)
   let own = ownBuf ? makeOwn() : null;
-  let directNow = false, ownStale = false, noDirect = false, compLook = null, compBlood = null, directFrame = -1;
+  let directNow = false, ownStale = false, noDirect = false, wholeRun = 0, compLook = null, compBlood = null, directFrame = -1;
   // (The picture's and the blood's counts when it was drawn straight onto the canvas, and when a reader last took the canvas, as numbers: -1 for none.)
   let directP = -1, directB = -1;
   let capturedAt = -1, capP = -1, capB = -1, capN = -1;
@@ -4114,7 +4114,14 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       // not the canvas's), else it is drawn into the kept picture, which has, and laid from there.)
       // (Not while the blood moves: the next frame is then the blood's own, drawn over the kept picture, which a direct whole picture left out of date,
       // so every whole picture cost a second one (the iPad panel, 4 Nov: 16 whole composites a second beside 14 vessel draws).)
-      const direct = who !== 'lobule' && !noDirect && !!own && full && !blood.on && !up && !camOn() && !(under && under.on()) && !(replace && replace.on()) && !(fused && !ctxStencil);
+      // (Blood moving no longer rules it out while the picture itself is changing: in a motion (the view moving, or the second whole picture running)
+      // the next frame is a whole one too, so nothing needs the kept picture, and each of those frames wrote 31 MB twice (B2, pure-gpu-plan; the
+      // ?perf of 4 Nov showed "composite build: plain" and the kept picture copied onto the canvas in 36 of 49 frames of a motion). A lone whole
+      // picture beside blood-alone frames still goes through the kept one, as before. The frame that has to make the kept picture again after
+      // a direct run (ownStale, not full) is never direct, so the run ends there.)
+      const bloodOk = !blood.on || moving || wholeRun >= 2;
+      const direct = who !== 'lobule' && !noDirect && !!own && full && bloodOk && !up && !camOn() && !(under && under.on()) && !(replace && replace.on()) && !(fused && !ctxStencil);
+      wholeRun = full ? wholeRun + 1 : 0;
       if (own && ownStale && !full) full = true;
       if (full) dirt = 0;
       const fl = look.fluid && fluidRect ? look.fluid : null;
