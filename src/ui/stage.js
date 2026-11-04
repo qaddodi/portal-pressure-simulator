@@ -2642,7 +2642,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // are drawn), the labels solved whole, and the stage put back, nothing drawn in between.
   const solveTargetVT = { k: 1, x: 0, y: 0 };
   // (Runs fn with the stage at the change's end state, then puts it back, nothing drawn in between. Each slice of the solve runs inside it.)
-  function atTargetStage(d, fn, tgt = morphTarget) {
+  function atTargetStage(d, fn, tgt = morphTarget, kept = null) {
     const keepTgt = morphTarget, keepVT = vt, keepMorph = morph, keepLast = lastMorph, vb0 = vbBox.x, vb1 = vbBox.y, vb2 = vbBox.width, vb3 = vbBox.height;
     const curS = [], visS = [];
     glSuppress = true;
@@ -2654,8 +2654,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       for (let i = 0; i < EV.length; i++) {
         const x = EV[i], g = geo[x.e.id];
         curS.push(g.cur); visS.push(x.vis);
+        // (kept: the end state's courses and shown set found once for the change's frames, not again for each slice of its solve.)
+        if (kept && kept.pts[i]) { g.cur = kept.pts[i]; x.vis = kept.vis[i]; continue; }
         g.cur = vesselAt(x, tgt).pts;
         x.vis = x.reveal?.out ? true : edgeVisible(x, F);
+        if (kept) { kept.pts[i] = g.cur; kept.vis[i] = x.vis; }
       }
       CTM = null; refreshCTM();
       return fn();
@@ -2670,9 +2673,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The solve is a job sliced over the change's frames: one short slice in the tap's own frame (xfSolving shortens updateLabels' first slice), then one
   // per frame of the morph (viewXfStep), the rest at the landing if it comes first. The new labels stay at nothing until it lands.
   let xfSolving = false;
-  const XF_SLICE_MS = 1.5;   // (a slice of the target's solve in a frame of the change: small, so the change itself keeps its frame rate; what is left goes on after it lands)
+  const XF_SLICE_MS = 1.2;   // (a slice of the target's solve in a frame of the change: small, so the change itself keeps its frame rate; what is left goes on after it lands)
+  let xfKept = null;
   function solveTargetView(d) {
     labelKey = null; solveAsked = true;
+    xfKept = { pts: [], vis: [] };
     preAbort();
     xfSolving = true;
     try {
@@ -2680,7 +2685,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         // (The other view's labels were solved ahead in idle time (preStep) for this very framing: their slots are carried, with no solve.)
         if (pre.slots && pre.key === preKey(d) && preCommit()) return;
         updateLabels(F, true);
-      });
+      }, morphTarget, xfKept);
     } finally { xfSolving = false; }
     cancelMay('label solve');   // (the job is ours: no idle slice runs it)
     if (!labelJob) { labelGlSync(); return false; }
@@ -2698,7 +2703,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       solvedFor = j.solvedFor; solveAsked = false;
       labelKey = keyInto(labelKeyArr, j.key); stats.layouts++;
       labelTail();
-    });
+    }, morphTarget, xfKept);
     if (done) labelGlSync();
     return done;
   }
