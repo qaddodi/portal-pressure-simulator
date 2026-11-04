@@ -14,6 +14,6 @@ test('the figure\'s draw pass runs a waiting view sync first, before the cathete
 });
 
 test('a view change still asks its sync for the frame (applyVT), and syncView clears the ask', () => {
-  assert.match(STAGE, /if \(!viewRaf\) viewRaf = nextFrame\(syncView\);/);
-  assert.match(STAGE, /function syncView\(\) \{\n\s+viewRaf = 0;/);
+  assert.match(STAGE, /if \(!(?:live\.)?(?:live\.)?viewRaf\) (?:live\.)?(?:live\.)?viewRaf = nextFrame\(syncView\);/);
+  assert.match(STAGE, /function syncView\(\) \{\n\s+(?:live\.)?viewRaf = 0;/);
 });

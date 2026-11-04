@@ -416,7 +416,7 @@ test('stage: a probe shown afresh starts at its place, and a jump fades out and 
 
 test('stage: on a slide the probe waits, hidden, for the slide\'s camera to settle (Doppler 2)', () => {
   const src = stageSource();
-  assert.match(src, /if \(id && store\.get\(\)\.presenting\) dprHold\(\);/);
+  assert.match(src, /if \(id && store\.get\(\)\.presenting\) (?:live\.)?(?:live\.)?dprHold\(\);/);
   assert.match(src, /const show = [^;]*!camHides && !dpr\.hold/);
   const av = src.slice(src.indexOf('function animateVT('), src.indexOf('const step = (now)', src.indexOf('function animateVT(')));
   assert.ok(av.indexOf('camMove = true') < av.lastIndexOf('dprLet()'), 'the hold lets go only once the move has hidden it');
