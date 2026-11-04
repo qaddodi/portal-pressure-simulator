@@ -40,3 +40,7 @@ test('step 3: figure labels carry a world anchor and label-gl pins by it', () =>
 test('Circuit: no label hide for a zoom', () => {
   assert.ok(!st.includes("wrap.classList.add('pinch-hide')"));
 });
+
+test('view switch: the new view solve is finished in the frame the morph lands', () => {
+  assert.ok(/camSettle\(\);\s*\/\/[^\n]*\n\s*if \(labelJob\) labelJobFinish\(\);/.test(st));
+});
