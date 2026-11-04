@@ -6,7 +6,8 @@
 
 let api = null;
 const open = new Set();   // alloc-rare: the menus open now (one added as each opens)
-const list = [];
+const list = [], others = [], seen = new WeakSet();
+let othersAt = -1e9;
 let reg = null;
 
 /** Called once with stage.glass (main.js), after the stage is made. */
@@ -15,7 +16,8 @@ export function initMenuGlass(glass) { api = glass || null; }
 // A menu that is coming, going or sliding keeps its GPU glass the whole time: while any menu moves (class mg-move; a running animation or the exit
 // classes) the glass is read and drawn again in every frame (its box with the menu's live transform and translate, its opacity from the animation),
 // so the card goes with the words exactly. Only a clip-path (the dock menus' sink) is not followed. (Mohammad, 4 Nov 2026: the card popped while the words slid.)
-const MENUISH = '.menu, .umenu, .why-pop';
+const OTHERS = '.um-pv.on:not(.pv-resizing), .modal, .pal';   // (the main menu's preview card, dialogs and the search palette: found by class, they are made by script and come and go)
+const MENUISH = '.menu, .umenu, .why-pop, .um-pv, .modal, .pal';
 const moving = (e) => e.classList.contains('leaving') || e.classList.contains('out') || (e.getAnimations ? e.getAnimations().some((a) => a.playState !== 'finished' && a.playState !== 'idle') : false);
 let raf = 0;
 const movers = new Set();   // alloc-rare: the menus moving now
@@ -36,7 +38,7 @@ function listen() {
   if (listening || typeof document === 'undefined') return;
   listening = true;
   for (const ev of ['animationstart', 'animationend', 'animationcancel', 'transitionrun', 'transitionend', 'transitioncancel']) {
-    document.addEventListener(ev, (x) => { const e = x.target; if (e?.matches?.(MENUISH)) sync(e); }, true);
+    document.addEventListener(ev, (x) => { const e = x.target; if (e?.matches?.(MENUISH)) { othersAt = -1e9; sync(e); } }, true);
   }
   // (A class change that starts or ends the exit (leaving, out) is seen here too, before the animation's own event.)
   new MutationObserver((rs) => { for (const r of rs) if (r.target.matches?.(MENUISH)) sync(r.target); }).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class'] });
@@ -44,6 +46,9 @@ function listen() {
 const live = () => {
   list.length = 0;
   for (const e of open) { if (!e.isConnected) open.delete(e); else list.push(e); }
+  const t = performance.now();
+  if (t - othersAt > 120) { othersAt = t; others.length = 0; for (const e of document.querySelectorAll(OTHERS)) { others.push(e); if (!seen.has(e)) { seen.add(e); own.observe(e, { attributes: true, attributeFilter: ['style', 'class', 'hidden'] }); } } }
+  for (const e of others) if (e.isConnected) list.push(e);
   const why = document.getElementById('whyPop');
   if (why) list.push(why);
   const tip = document.getElementById('tooltip');
