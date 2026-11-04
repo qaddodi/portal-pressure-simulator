@@ -658,7 +658,8 @@ test('stage: while the readings slide, the probe is placed on every frame agains
   assert.match(pres, /const take = \(gg\) => \{ gg\.on = true; if \(gg\.split\) \{ cancelFrame\(slip\.raf\); slideTell\(\); \}/);
   // (1 Nov 2026, no layout read on the frames of a slide: the cards are read as it starts and once it rests, first in a frame.)
   const tr = stage.slice(stage.indexOf('function dprTrack() {'), stage.indexOf('function dprCards() {'));
-  assert.match(tr, /document\.querySelector\('\.pz-data\.pz-sliding'\) \? 0 : dprTrackQuiet \+ 1/);
+  assert.match(tr, /slidingCards\.length \? 0 : dprTrackQuiet \+ 1/);   // (C5: a kept live list of the sliding card, no selector match per frame)
+  assert.match(stage, /const slidingCards = document\.getElementsByClassName\('pz-sliding'\);/);
   assert.match(tr, /dpr\.track = dprTrackQuiet <= 6;/);
   assert.match(tr, /if \(was && !dpr\.track\) dprStale\(\);/);
   assert.match(tr, /if \(dop\.id\) \{ dprobePaint\(\); (?:live\.)?labelGL\?\.redraw\(\); \}/);   // (and drawn by the GPU's label layer in that frame)

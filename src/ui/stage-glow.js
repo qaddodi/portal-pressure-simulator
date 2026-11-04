@@ -85,9 +85,10 @@ export function createGlow(st, live) {
   }
   function glowStep(now) {
     const dt = Math.min(0.1, (now - glow.t) / 1000); glow.t = now;
-    let moving = false;
+    let moving = false, waitOnly = glow.lit.size > 0;
     for (const [id, l] of glow.lit) {
       if (l.to && now < l.start) { moving = true; continue; }
+      waitOnly = false;
       const k = reduceMotion.matches ? 1 : dt / l.dur;
       l.v = l.to > l.v ? Math.min(1, l.v + k) : Math.max(0, l.v - k);
       l.cu = Math.min(1, l.cu + k);
@@ -96,7 +97,8 @@ export function createGlow(st, live) {
       if (l.v <= 0 && !l.to) glow.lit.delete(id);
       else if (l.v !== l.to || l.cu < 1 || l.end[0] !== l.endT[0] || l.end[1] !== l.endT[1] || l.span[0] !== l.spanT[0] || l.span[1] !== l.spanT[1]) moving = true;
     }
-    live.glowSync = true; live.stageWake();
+    // (C5: a frame in which every glow only waits for its start changes nothing: the vessel layer is not synced for it.)
+    if (!waitOnly) { live.glowSync = true; live.stageWake(); }
     glow.raf = moving ? nextFrame(glowStep) : 0;
   }
   // The watched vessels (REVERSAL_WATCH) whose flow runs against its healthy direction, as shown: their stations' value

@@ -18,6 +18,7 @@ export function createDoppler(st, live) {
   // the cards on every frame: it stays where it is while it has room, swings out of a card's way, and fades only where no place is clear
   // (Mohammad, 22 Oct: "it should only hide once there is no space available; not hide and show during the tuck untuck").
   let dprTrackRaf = 0, dprTrackQuiet = 0;
+  const slidingCards = document.getElementsByClassName('pz-sliding');
   // (The cards are read first in each frame, before any write, and the probe placed against them after: dprCards.)
   // (1 Nov 2026, "Move everything to GPU": no layout read on the frames of a slide. The cards are read once as the readings' card starts to
   // move (pps:slide), with the room the sliding card may still take on its way out (its own --pz-u and --pz-d, written by the presenter),
@@ -25,7 +26,7 @@ export function createDoppler(st, live) {
   // made first in a frame (readFrame), at those two moments only; the probe is placed against them on every frame in between.)
   function dprTrack() {
     dprTrackRaf = 0;
-    dprTrackQuiet = document.querySelector('.pz-data.pz-sliding') ? 0 : dprTrackQuiet + 1;
+    dprTrackQuiet = slidingCards.length ? 0 : dprTrackQuiet + 1;   // (C5: a kept live list, no selector match per frame; only the readings' card slides)
     const was = dpr.track;
     dpr.track = dprTrackQuiet <= 6;
     if (was && !dpr.track) dprStale();   // (it rests: the cards' last place is read once)
