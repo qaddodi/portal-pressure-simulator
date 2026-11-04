@@ -5022,11 +5022,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       // (Card zoom, 4 Nov 2026, card-zoom-plan.md: the view V and the labels' layout stay as they rest. The camera C, a scale S about (px, py) and a move
       // (dx, dy), carries the picture in the figure's present (layShared) and the names and leaders by the same view (cap.view, leadGL.view: a point is
       // drawn where C puts it, a name keeps its size). The camera is a record of its own: the dive's frames set the dive's and never undo it.)
-      const lx = px - snap.l, ly = py - snap.t;
-      let tx = (1 - S) * lx + dx, ty = (1 - S) * ly + dy;
-      // (The picture, the lobule's or the sinusoid's, is only the stage's size: a zoom about a card at one side would carry the rest of it out of view
-      // and leave the stage bare, so its move is kept so it covers the stage.)
-      if (S > 1) { tx = Math.min(0, Math.max(snap.w * (1 - S), tx)); ty = Math.min(0, Math.max(snap.h * (1 - S), ty)); }
+      // (Mohammad, 4 Nov 2026: the lobule and the sinusoid scale in place, about the stage's middle, as the card grows: they stay where they are and never leave
+      // view, whatever side the card is on. The move of the card is not theirs.)
+      const tx = (1 - S) * snap.w / 2, ty = (1 - S) * snap.h / 2;
       if (zbase.sin) { sv.camera(S, tx, ty, (shareTop?.canvas.width || 1) / (shW || 1)); return; }
       zK = S; zE = tx; zF = ty; zoomCam = true;
       applyView();
