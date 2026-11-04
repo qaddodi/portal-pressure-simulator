@@ -12811,10 +12811,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         // figure moved, never outranks a level one that is free again: Review 16 Oct.)
         const near = ps.tier != null && ps.clear ? Math.hypot((r.x0 + r.x1) / 2 - it.ax, (r.y0 + r.y1) / 2 - it.ay) * 10 : 0;
         const cost = (ps.tier ?? pi) * 1e4 + (inside ? 0 : 2e3) + (ps.clear ? 0 : onLine * 12) + i + near + (ps.bias || 0) - (held ? (ps.clear ? (it.point && it.col ? 5e3 : 1e5) : 4) : 0);
-        if (!best || cost < best.cost) best = { cost, dx, dy, r, dir, pi, leader: ps.leader };
+        if (!best || cost < best.cost) best = { cost, dx, dy, r, dir, pi, leader: ps.leader, onLine: ps.clear ? 0 : onLine };
       }));
       // (Placed again by itself mid-gesture: a spot that would want what only a whole solve does (shortening, a rescue, moving off a
       // vessel, room clear of a slide's callout) has the readings solved again together, as before.)
+      // (Mohammad, 4 Nov: "when there is no room we shouldn't have labels covering like portal vein and structures completely".) A station's label that could only be
+      // placed over a vessel does not cover it: it takes its abbreviation first, then drops its unit and change, and where it still has no room it is left out. A label the
+      // reader asked for (selected, or named by a slide) is the exception and keeps its spot.)
+      if (best && best.onLine > 0 && it.key.startsWith('n:') && !it.sel && !st.presenting) best = null;
       if (reslot && (!best || lineHits(best.r, 2) || callouts.some((b) => hits(best.r, b)))) { stale = true; return false; }
       if (!best) {
         // No room with the value: try it without its units and change, then the name alone (up to maxShort), before giving the label up.

@@ -667,7 +667,7 @@ export const SHORT = {
 
 // Where a vessel's label is crowded it reads its clinical abbreviation first ("RPV 9.8" before it drops a number or hides), and
 // the full name returns once a zoom makes room (Mohammad, 18 Oct). No abbreviation ends in a full stop (17 Oct design review).
-export const ABBR = { HA: 'HA', CONF: 'PV', RPV: 'RPV', LPV: 'LPV', SV: 'SV', RHV: 'RHV', MHV: 'MHV', LHV: 'LHV' };
+export const ABBR = { HA: 'HA', CONF: 'PV', PVH: 'PV', RPV: 'RPV', LPV: 'LPV', SV: 'SV', RHV: 'RHV', MHV: 'MHV', LHV: 'LHV', LGV: 'LGV', IVCI: 'IVC', RA: 'RA', LRV: 'LRV', RRV: 'RRV' };
 
 // Chips shown by default (major vessels)
 export const CHIP_NODES = ['CONF', 'SV', 'SMV', 'SIN_R', 'RHV', 'IVCS', 'IVCI', 'RA', 'VAR'];

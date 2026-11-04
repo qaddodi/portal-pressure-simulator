@@ -72,3 +72,9 @@ test('step 7 (option C): a zone title is set over the visible part of its band a
   assert.ok(st.includes('const zoneKeep = ') && st.includes('const zoneStick = new Map()'));
   assert.ok(/const span = v1 - v0;/.test(st));
 });
+
+test('crowded labels: abbreviate first, never cover a vessel (Mohammad, 4 Nov)', () => {
+  assert.ok(/best\.onLine > 0 && it\.key\.startsWith\('n:'\) && !it\.sel && !st\.presenting\) best = null/.test(st));
+  const an = readFileSync(new URL('../src/ui/anatomy.js', import.meta.url), 'utf8');
+  for (const k of ['HA', 'CONF', 'RPV', 'LPV', 'SV', 'RHV', 'MHV', 'LHV']) assert.ok(new RegExp(`\\b${k}: '`).test(an.slice(an.indexOf('export const ABBR'))));
+});
