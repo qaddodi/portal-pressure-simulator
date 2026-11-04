@@ -41,7 +41,12 @@ const warmSubs = new Set();
 /** The tier now (0: Full). */
 export const sceneTier = () => tier;
 /** The vessel layer's share on a moving frame now (0: Full). */
-export const tierK = () => TIERS[tier];
+// Settings › Sharp while moving (PR-06): on, a move is drawn at Full like a still page, whatever the frames cost. Off (the default) is the tiers above.
+let sharp = false;
+try { sharp = localStorage.getItem('pps.sharp') === '1'; } catch { /* storage unavailable: tiers stay on */ }
+export const sharpMoving = () => sharp;
+export const setSharpMoving = (on) => { sharp = !!on; };
+export const tierK = () => (sharp ? 0 : TIERS[tier]);
 const whyOf = (e) => (e.kind === WHY_CALM ? `${UP_CALM} ms of frames on time with light script`
   : `${e.n} of ${DOWN_OF} frames ${e.kind === WHY_MISS ? `missed (${e.gap.toFixed(1)} ms at a ${e.b.toFixed(1)} ms frame)` : `heavy (script ${e.script.toFixed(1)} ms${e.over ? ', render graph over its envelope' : ''})`}`);
 /** The last tier changes, oldest first: { at, from, to, why, mb }. A fresh array of fresh objects (the ring is not handed out). */

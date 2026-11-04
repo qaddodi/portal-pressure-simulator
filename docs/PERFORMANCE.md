@@ -42,6 +42,11 @@ What changed:
   `syncGlowOnly` in `stage.js` writes those texels alone, with the helper the whole sync uses
   (`glow-texels.js`), and only the changed rows are drawn again; otherwise the whole sync runs.
   The same tube data, so the same picture (`tests/frame-costs-glow.test.js`).
+- **The quality rule, exactly (one place).** Resolution and motion are never lowered at rest, and never for text (labels, readings, cards and
+  every GPU word stay at full density). The one thing that may step down is the vessel layer's *moving* frames (`adapt-tier.js`: 0.71 then
+  0.5 of the width and height, chosen by the frame deadline during a pan, pinch, glide or dive), and it returns to Full at the frame the
+  move ends. Settings › Sharp while moving turns even that off (`pps.sharp`). A software renderer is the only other reduction (below).
+  The paragraph after this one describes the same rule from the older, still-true side.
 - **Full detail, always.** The figure, the lobule and the FibroScan never
   lower their own resolution or frame rate: no governor steps them down when frames run long, and
   zooming in keeps every pixel. Levels older builds stored (`pps.quality`, `pps.q`) are removed at
