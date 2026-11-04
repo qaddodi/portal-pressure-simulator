@@ -552,7 +552,7 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
       for (const b of [quad, segBuf, fillBuf, boxBuf, textBuf, unitBuf]) gl.deleteBuffer(b);
       // alloc-rare: teardown, when the chart's context is let go, never in a frame
       for (const v of [quadVao, segVao, fillVao, boxVao, textVao, unitVao]) gl.deleteVertexArray(v);
-      for (const e of images.values()) gl.deleteTexture(e.tex);
+      for (const e of images.values()) dropImage(e);
       images.clear();
       for (const e of layers.values()) dropLayer(e);
       layers.clear();
@@ -609,6 +609,8 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
   const holdLayers = () => { if (layerHold?.held) layerHold.touch(); else layerHold = hold({ owner: 'chart layers', kind: 'retained', gl, bytes: layerBytes, release: () => { layerHold = null; if (inFrame) dropAfter = true; else dropLayers(); } }); };
   // alloc-rare: made once with the chart (createTraceGL runs once for a chart), never in a frame
   const dropLayer = (e) => { try { gl.deleteTexture(e.tex); gl.deleteFramebuffer(e.fb); gl.deleteRenderbuffer(e.rb); } catch (e) { caught('trace-gl:542', e); /* lost */ } };
+  // (A kept picture let go: its texture, and the framebuffer it was shaded through if it was shaded here.)
+  const dropImage = (e) => { gl.deleteTexture(e.tex); if (e.fb) gl.deleteFramebuffer(e.fb); };   // alloc-rare: a kept picture is let go when the oldest of six is, or the chart is
   // alloc-rare: made once with the chart (createTraceGL runs once for a chart), never in a frame
   let segData = new Float32Array(6144), fillData = new Float32Array(4096);
   // alloc-rare: made once with the chart (createTraceGL runs once for a chart), never in a frame
@@ -804,6 +806,23 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
     // (The ?perf surfaces list: whether the drawer's picture is the one on show (it hides the host as it lays one), and whether the drawer can no longer draw.)
     get presented() { return host.style.opacity === '0'; },
     get gone() { return dead || failed || lost; },
+    // ── For a drawer that shares this chart's context (the Doppler's trace, doppler-gl.js; pure-GPU plan B1: one context for the cards' drawings) ──
+    /** The context this chart draws in now (null where it cannot draw), and which build of it this is: with the context, gen changes whenever it is made again (and the context itself when the chart moves to another pool). */
+    glNow() { return lost || failed || dead || gl.isContextLost() ? null : gl; },
+    get gen() { return shown ? shared.gen : gen; },
+    /** Enters the open frame for a pass of the sharer's own: what the chart batched is laid first, scissor and clip are off. Null where no frame is open. leave() gives the chart's state back. */
+    enter() {
+      if (!inFrame || !P || lost || failed || dead || gl.isContextLost()) return null;
+      flush();
+      gl.disable(gl.SCISSOR_TEST); gl.disable(gl.STENCIL_TEST);
+      return gl;
+    },
+    leave() {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, outFb); gl.bindVertexArray(null); gl.useProgram(null); gl.activeTexture(gl.TEXTURE0);
+      gl.viewport(0, 0, W, H); clipState(); scissor(clipR);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+      gl.enable(gl.BLEND); gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    },
     // alloc-rare: made once with the chart (createTraceGL runs once for a chart), never in a frame
     get ready() {
       // (R10: still compiling, the draw is not where it is published: the chart keeps what it shows, the poller publishes it as soon as
@@ -998,7 +1017,8 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
       const e = src ? api.upload(src, key, ver) : images.get(key);
       if (!e || !scissor(clipR)) return;
       gl.useProgram(P.img.p);
-      ucOf(gl).f2(P.img.u.res, W, H); ucOf(gl).f1(P.img.u.k, K); ucOf(gl).f4(P.img.u.box, x, y, w, h); ucOf(gl).f1(P.img.u.ga, alpha);
+      // (A picture shaded here, into a texture of this context (shade), has its first row at the foot: laid with a negative height, as the kept layers are.)
+      ucOf(gl).f2(P.img.u.res, W, H); ucOf(gl).f1(P.img.u.k, K); if (e.fb) ucOf(gl).f4(P.img.u.box, x, y + h, w, -h); else ucOf(gl).f4(P.img.u.box, x, y, w, h); ucOf(gl).f1(P.img.u.ga, alpha);
       gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, e.tex); ucOf(gl).i1(P.img.u.img, 0);
       gl.bindVertexArray(unitVao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); gl.bindVertexArray(null);
     },
@@ -1010,7 +1030,7 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
       if (!e || e.ver !== ver || e.img !== src) {
         if (!e) {
           // (a few kept at most: the oldest let go)
-          if (images.size >= 6) { const [k0, e0] = images.entries().next().value; gl.deleteTexture(e0.tex); images.delete(k0); }
+          if (images.size >= 6) { const [k0, e0] = images.entries().next().value; dropImage(e0); images.delete(k0); }
           const tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex);
           for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);   // alloc-rare: an image goes up to the GPU once (the first time it is drawn, then kept by its key)
           e = { tex }; images.set(key, e);   // alloc-rare: an image goes up to the GPU once
@@ -1027,12 +1047,51 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
       }
       return e;
     },
+    /**
+     * A picture shaded by the sharer (endo-gl.js: the endoscopy field) straight into the texture kept under key, res × res, from where
+     * image(null, …, key) lays it: nothing is copied from another context. drawer.draw(gl, res) draws it with the target bound and
+     * the viewport set (no blending, scissor or clip); true when it drew. Inside an open frame the chart's batched draws are laid first and
+     * its state given back after.
+     */
+    shade(key, ver, res, drawer) {
+      if (lost || failed || dead || gl.isContextLost() || !(res > 0)) return false;
+      const inF = inFrame;
+      if (inF) flush(); else if (shown && shared.active && shared.active !== api) shared.active.end();   // (another chart's frame still open here is finished first)
+      let e = images.get(key);
+      if (e && !e.fb) return false;   // (that key holds an uploaded picture)
+      if (!e) {
+        if (images.size >= 6) { const [k0, e0] = images.entries().next().value; dropImage(e0); images.delete(k0); }
+        e = { tex: gl.createTexture(), fb: gl.createFramebuffer(), w: 0, h: 0, ver: -1, img: null };   // alloc-rare: a shaded picture's texture and target are made once, the first time its key is shaded
+        gl.bindTexture(gl.TEXTURE_2D, e.tex);
+        for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);   // alloc-rare: as above
+        images.set(key, e);
+      }
+      let ok;
+      try {
+        if (e.w !== res || e.h !== res) {
+          gl.bindTexture(gl.TEXTURE_2D, e.tex);
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, res, res, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+          gl.bindFramebuffer(gl.FRAMEBUFFER, e.fb);
+          gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, e.tex, 0);
+          e.w = e.h = res;
+        } else gl.bindFramebuffer(gl.FRAMEBUFFER, e.fb);
+        gl.disable(gl.SCISSOR_TEST); gl.disable(gl.STENCIL_TEST); gl.disable(gl.BLEND);
+        gl.viewport(0, 0, res, res);
+        ok = drawer.draw(gl, res) === true;
+        if (ok) { e.ver = ver; e.img = drawer; }
+      } catch (er) { caught('trace-gl:shade', er); ok = false; }
+      finally {
+        if (inF) api.leave();
+        else { gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.bindVertexArray(null); gl.useProgram(null); gl.activeTexture(gl.TEXTURE0); }
+      }
+      return ok;
+    },
     /** The picture kept under `from` kept on under `to` (its texture moved, nothing copied): a fade's old picture. */
     keepImage(from, to) {
       const e = images.get(from);
       if (!e) return false;
       const old = images.get(to);
-      if (old && old !== e) gl.deleteTexture(old.tex);
+      if (old && old !== e) dropImage(old);
       images.delete(from); images.set(to, e);
       return true;
     },

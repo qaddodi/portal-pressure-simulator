@@ -168,12 +168,11 @@ export function createDoppler({ onProbe, pickGate = true }) {
   const WAVE_PX = 20;   // the a, S, v, D letters: large enough to read against the card text
   const cv = h('canvas', { role: 'img', 'aria-label': 'Spectral Doppler' });
   const box = h('div', { class: 'chart-box dark dop-box' }, cv);
-  // The trace (the ring, the noise floor, the wall filter's band) is drawn on the GPU into a canvas under this one (doppler-gl.js;
-  // Mohammad, 22 Oct: "Move to GPU"), and the margins, words, ticks and calipers by the GPU's chart drawer in a canvas over it
-  // (trace-gl.js; 1 Nov: nothing off the GPU). This canvas is only their host: it takes the pointer and is never drawn (?tracegl=0 draws
-  // the margins and words on it, as before). Nothing of the trace is drawn on the CPU: without WebGL2 it stays black.
+  // The trace (the ring, the noise floor, the wall filter's band) is drawn on the GPU (doppler-gl.js; Mohammad, 22 Oct: "Move to GPU") in the
+  // context of the GPU chart drawer (trace-gl.js, the shared pool: pure-GPU plan B1, no WebGL context of its own), inside the drawer's own
+  // frame, and the margins, words, ticks and calipers are laid over it in the same picture (1 Nov: nothing off the GPU). This canvas is only
+  // their host: it takes the pointer and is never drawn. Nothing of the trace is drawn on the CPU: without WebGL2 it stays black.
   const gpu = createDopplerGL({ onReady: () => redraw() });
-  if (gpu) { gpu.canvas.setAttribute('aria-hidden', 'true'); gpu.canvas.classList.add('dop-gl'); cv.before(gpu.canvas); }
   const words = createTraceGL(cv, { redraw: () => redraw() });
   // (The ?perf surfaces list, gpu-surfaces.js: read by the readout only.)
   const offSurface = surface('Doppler trace', () => (!cv.isConnected || cv.checkVisibility?.() === false ? null : gpu && !gpu.lost ? (!gpu.canSynth() ? SURF_CPU_LINES : !words || words.gone ? SURF_NOWORDS : words.presented ? SURF_GPU : SURF_WAIT) : gpu ? SURF_LOST : SURF_NONE));
@@ -1014,9 +1013,10 @@ export function createDoppler({ onProbe, pickGate = true }) {
     labBusy = false;
     const z = canvasSize(cv), CW = z.W, CH = z.H, dpr = CW / Math.max(1, w), onPen = ctx.onGPU === true;
     ctx.fillStyle = cssVar('--black');
+    gpu?.attach(onPen ? ctx.gpu : null);   // (the drawer's context this frame is drawn in: the trace is drawn there, doppler-gl.js)
     const onGpu = !!gpu && !gpu.lost;
-    // On the GPU's drawer the words lie over the trace's own canvas, which is black round the trace: nothing to lay. On this canvas
-    // (?tracegl=0) the margins are laid black and the trace's rectangle cleared to show it.
+    // On the GPU's drawer the margins are laid black first and the trace is drawn over its rectangle, the words over both. On this canvas
+    // (?tracegl=0) the margins are laid black and the trace's rectangle cleared (nothing is drawn there: the trace is the drawer's).
     if (!onPen) {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       if (traceBox && traceBox[2] > 0 && traceBox[3] > 0 && traceBox[0] >= 0 && traceBox[1] >= 0 && traceBox[0] + traceBox[2] <= CW && traceBox[1] + traceBox[3] <= CH) {
@@ -1026,7 +1026,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
         ctx.clearRect(bx, by, bw, bh);
       } else ctx.fillRect(0, 0, CW, CH);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    } else if (!onGpu) ctx.fillRect(0, 0, w, hh);
+    } else ctx.fillRect(0, 0, w, hh);
     traceBox = null;
     // On a slide's data card the report sits in the top strip (CSS sets --dop-ov on the box): the strip is as tall as the
     // report, and the vessel and settings move to the bottom strip under the second ticks. Read again when the size changes.
@@ -1489,7 +1489,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     anim(false);
     if (raf) { cancelFrame(raf); raf = 0; }
     io?.disconnect(); ro?.disconnect(); frame = null;
-    gpu?.dispose(); gpu?.canvas.remove(); words?.dispose(); offSurface();
+    gpu?.dispose(); words?.dispose(); offSurface();
   }
   return { id: 'doppler', label: 'Doppler', el, update, ingest, redraw, clear, restart, backfill, historySecs: () => sweepSeconds, setInvert, setWaves, autoWindow, pin, configure, dispose };
 }

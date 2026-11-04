@@ -34,9 +34,11 @@ test('no gut picture is ever made: the gut is painted on the GPU with the other 
 
 test('a presentation\'s Doppler monitor disposes its frames, observers and WebGL context', () => {
   const d = src('src/ui/doppler.js');
-  assert.match(d, /function dispose\(\) \{\n\s+anim\(false\);\n\s+if \(raf\) \{ cancelFrame\(raf\); raf = 0; \}\n\s+io\?\.disconnect\(\); ro\?\.disconnect\(\); frame = null;\n\s+gpu\?\.dispose\(\); gpu\?\.canvas\.remove\(\);/);
+  assert.match(d, /function dispose\(\) \{\n\s+anim\(false\);\n\s+if \(raf\) \{ cancelFrame\(raf\); raf = 0; \}\n\s+io\?\.disconnect\(\); ro\?\.disconnect\(\); frame = null;\n\s+gpu\?\.dispose\(\); words\?\.dispose\(\);/);
   assert.match(d, /return \{ id: 'doppler', [^\n]*, dispose \};/);
-  assert.match(src('src/ui/doppler-gl.js'), /canvas\.width = canvas\.height = 0;\n\s+gl\.getExtension\('WEBGL_lose_context'\)\?\.loseContext\(\);/);
+  // (no context of its own to give back: it lets go of its textures, framebuffer and programs in the chart drawer's, which stays for the others)
+  assert.match(src('src/ui/doppler-gl.js'), /gl\.deleteTexture\(ringT\); gl\.deleteTexture\(colAT\); gl\.deleteTexture\(colBT\); gl\.deleteFramebuffer\(synthFb\);/);
+  assert.doesNotMatch(src('src/ui/doppler-gl.js'), /getContext\(/);
   assert.match(src('src/ui/presenter-tools.js'), /made\[k\]\?\.dispose\?\.\(\)/);
 });
 

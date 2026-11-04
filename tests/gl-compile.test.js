@@ -160,7 +160,7 @@ test('the lobule tissue, lobule field, sinusoid and the instruments start their 
   for (const f of ['tissue-gl', 'field-gl', 'doppler-gl', 'fibroscan-gl', 'endo-gl']) {
     const s = src(`src/ui/${f}.js`);
     assert.match(s, /startProgram\(gl, /, f);
-    assert.match(s, /publishWhenDone\(gl, \[started\], /, f);
+    assert.match(s, /publishWhenDone\(gl, \[(r\.)?started\], /, f);
     assert.match(s, /exerciseDraw\(gl, /, f);
     assert.doesNotMatch(s, /gl\.linkProgram/, `${f} links through gl-compile.js`);
   }
@@ -176,10 +176,10 @@ test('a draw that comes before its program is published publishes it first', () 
   assert.match(src('src/ui/field-gl.js'), /if \(ready\) publish\(\);\n\s+else return hold && pictured && canvas\.width === W && canvas\.height === H \? 'held' : false;\n\s+\}\n\s+if \(this\.lost \|\| !prog\) return false;/);
   // (Review pass 2: the Doppler monitor and the endoscopy field publish in a draw only once the driver says it is compiled, too.)
   assert.match(src('src/ui/doppler-gl.js'), /if \(!prog && started && stillCompiling\(gl, startedL\)\) \{ stopPoll\?\.want\?\.\(\); waitingDraw = true; return false; \}\n\s+publish\(\);\n\s+if \(lost \|\| failed/);
-  assert.match(src('src/ui/endo-gl.js'), /render\(res, st\) \{\n\s+if \(lost \|\| this\.pending\) return cv;\n\s+publish\(\);/);
+  assert.match(src('src/ui/endo-gl.js'), /shade\(key, ver, res, st\) \{\n\s+if \(!sync\(\)\) return false;\n\s+if \(!r\.u\) \{ if \(this\.pending\) return false; publish\(r\); if \(!r\.u\) return false; \}/);
   // (Recs B8: a lost context is not ready, so the scope draws on the CPU, as with no WebGL.)
-  assert.match(src('src/ui/endo-gl.js'), /cv\.addEventListener\('webglcontextlost', \(e\) => \{ e\.preventDefault\(\); lost = true; \}\);/);
-  assert.match(src('src/ui/endo-gl.js'), /ready\(\) \{ if \(lost\) return false; if \(this\.pending\) return true; publish\(\); return !!u; \},/);
+  assert.match(src('src/ui/endo-gl.js'), /get lost\(\) \{ const e = sync\(\); if \(!e\) \{ holder\.need = true; return true; \} return false; \},/);
+  assert.match(src('src/ui/endo-gl.js'), /ready\(\) \{ const e = sync\(\); if \(!e\) return false; if \(e\.u\) return true; if \(this\.pending\) return true; publish\(e\); return !!e\.u; \},/);
   // (A shader that failed is let go for the CPU renderer; a lost context is kept, for the GPU to take over again once it is built afresh.)
   assert.match(src('src/ui/instruments.js'), /if \(gl && !gl\.ready\(\) && !gl\.lost\) \{ gl\.dispose\(\); gl = null; glId = 0; noGl = true; \}/);
   assert.match(src('src/ui/fibroscan-gl.js'), /s\.publish\(\);\n\s+if \(s\.lost \|\| !s\.published\) return null;/);
@@ -188,7 +188,7 @@ test('a draw that comes before its program is published publishes it first', () 
 test('a failed shader hands the picture to the 2D path rather than leaving a blank', () => {
   assert.match(src('src/ui/tissue-gl.js'), /get lost\(\) \{ return lost \|\| failed/);
   assert.match(src('src/ui/field-gl.js'), /get lost\(\) \{ return lost \|\| failed/);
-  assert.match(src('src/ui/doppler-gl.js'), /get lost\(\) \{ return lost \|\| failed; \}/);
+  assert.match(src('src/ui/doppler-gl.js'), /get lost\(\) \{ return lost \|\| failed \|\| !gl; \},/);
   assert.match(src('src/ui/instruments.js'), /if \(gl && !gl\.ready\(\) && !gl\.lost\) \{ gl\.dispose\(\); gl = null; glId = 0; noGl = true; \}/);
 });
 

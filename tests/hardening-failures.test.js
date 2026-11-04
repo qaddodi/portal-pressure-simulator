@@ -62,7 +62,7 @@ test('GL: a restored sinusoid context draws a paused picture again; the lobule g
   assert.match(read('src/ui/sinusoid-view.js'), /sigW === canvas\.width && sigH === canvas\.height && sigEpoch === gpu\.epoch/);
   assert.match(read('src/ui/lobule-zoom.js'), /glTried = false; gl\?\.dispose\?\.\(\); gl = null;/);
   const d = read('src/ui/doppler-gl.js');
-  assert.equal((d.match(/getExtension\('WEBGL_lose_context'\)\?\.loseContext\(\); return null;/g) || []).length, 1);   // (a shader that will not build: the only way out now a software renderer draws too)
+  assert.doesNotMatch(d, /getContext\(/);   // (the Doppler's trace has no context of its own to leave unused: it draws in the chart drawer's)
 });
 
 test('a still layer gives its bitmap back; a presenter worker that never said hello is terminated before the fallback', () => {

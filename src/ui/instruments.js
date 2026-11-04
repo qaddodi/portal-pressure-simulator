@@ -118,8 +118,9 @@ export function createEndoscopy({ onAction }) {
   // (What is asked of the frame clock and the shader's context is made once: a draw asks for the next frame again and again while it eases.)
   const lastS = { f: null, vx: null };   // (the frame and its varix the field was last asked to draw: `last` is this, written in place, or null)
   const redraw = () => { raf = 0; if (last) draw(last.f, last.vx); };
-  const glOpts = { onBack: () => { if (!raf) raf = drawFrame(redraw); } };
-  const mkGl = () => acquireEndoGL(glOpts);
+  const glOpts = { onBack: () => { if (!raf) raf = drawFrame(redraw); }, pen: null };
+  const mkGl = () => { glOpts.pen = pen; return acquireEndoGL(glOpts); };   // (the field is shaded in the context of the chart drawer that lays it: no context of its own)
+  const gImg = { glVer: 0 };   // (the shaded field as the picture shown: its version)
   let gl = null, wasGl = false, glGone = false, noGl = false, away = false;   // (wasGl: which renderer drew the field last, so a change between them fades; glGone: the context was given back, not failed; away: the tab is off the screen)
   function needGl() {
     if (gl || noGl || away) return;
@@ -252,14 +253,14 @@ export function createEndoscopy({ onAction }) {
         rOpt.grow = an.g; rOpt.vis = an.v; rOpt.red = an.r;
         for (let c = 0; c < 4; c++) rOpt.def[c] = an.def[c].cur;
         for (let i = 0; i < 16; i++) rOpt.kn[i] = an.kn[i].cur;
-        gl.render(res, rOpt);
-        gl.canvas.glVer = ++glVer;
-        // (taken up by the drawer as a texture at once, while the shader's picture is there: GPU to GPU; the one shown kept as the old one
-        // first. A drawer not ready yet has the field shaded again when it is.)
-        if (pen?.ready) { if (swap) { pen.keepImage('field', 'old'); swap = false; } pen.upload(gl.canvas, 'field', glVer); } else glId = 0;
+        // (shaded straight into the drawer's texture, in its own context; the one shown kept as the old one first. A drawer not ready yet has
+        // the field shaded again when it is.)
+        glVer++;
+        if (pen?.ready) { if (swap) { pen.keepImage('field', 'old'); swap = false; } if (!gl.shade('field', glVer, res, rOpt)) glId = 0; } else glId = 0;
+        gImg.glVer = glVer;
         dataSoon(cv, 'renders', cv._renders = (cv._renders || 0) + 1);   // (read by the browser checks: a steady field is not redrawn)
       }
-      img = gl.canvas;
+      img = gImg;
     } else {
       // No WebGL: the CPU renderer draws the target state without transitions.
       const r2 = Math.min(res, 300), gq = Math.round(tg * 14) / 14;

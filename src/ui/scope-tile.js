@@ -47,18 +47,21 @@ export function createScopeTile() {
   // its shader failed, the CPU renderer draws it (the no-WebGL2 path alone); while the shader is still compiling or the context is lost, the
   // picture showing stays and the picture is asked for again once the shader is back.)
   let egl = null, eglNo = false, wantK = null, retryT = 0;
+  const gImg = { glVer: 0 };   // (the shaded picture as the one shown: its version)
   const sOpt = { grow: 0, vis: 0, red: 0, def: [0, 0, 0, 0], kn: new Array(16).fill(0) };   // (an unbanded field: no column deflated, no knuckle)
-  const needGl = () => { if (!egl && !eglNo) { egl = acquireEndoGL({ onBack: () => { if (wantK !== null && wantK !== key && !dead) show(wantK); } }); if (!egl) eglNo = true; } return egl; }
+  const needGl = () => { if (!egl && !eglNo) { egl = acquireEndoGL({ pen, onBack: () => { if (wantK !== null && wantK !== key && !dead) show(wantK); } }); if (!egl) eglNo = true; } return egl; }
   const shadeGL = (k) => {
     const g = needGl();
     if (!g) return null;
     if (!g.ready() && !g.pending) { if (!g.lost) eglNo = true; return g.lost ? 'wait' : null; }   // (failed: the CPU renderer; lost: waits for the restore)
     if (g.pending || g.lost) return 'wait';
     sOpt.grow = Math.max(0, k) / STEPS; sOpt.vis = k < 0 ? 0 : 1;
-    g.render(RES, sOpt);
-    g.canvas.glVer = ++ver;
+    if (!pen.ready) return 'wait';
+    ver++;
     if (swap) { pen.keepImage('pic', 'old'); swap = false; }
-    return pen.upload(g.canvas, 'pic', g.canvas.glVer) ? g.canvas : 'wait';
+    if (!g.shade('pic', ver, RES, sOpt)) return 'wait';   // (shaded straight into the drawer's texture, in its own context)
+    gImg.glVer = ver;
+    return gImg;
   };
   // (one frame of the picture: the old one under the new while it fades in)
   function paint() {
@@ -70,7 +73,7 @@ export function createScopeTile() {
       if (swap) { G.keepImage('pic', 'old'); swap = false; }
       const a = fadeT0 < 0 ? 1 : easeArrive(Math.min(1, (performance.now() - fadeT0) / D_SURFACE));
       if (a < 1 && G.hasImage('old')) G.image(null, 0, 0, p.w, p.h, 1, 'old');
-      G.image(img === egl?.canvas ? null : img, 0, 0, p.w, p.h, a, 'pic', img.glVer);
+      G.image(img === gImg ? null : img, 0, 0, p.w, p.h, a, 'pic', img.glVer);
       if (a < 1) { if (!asked) asked = nextFrame(paint) || 1; } else fadeT0 = -1;
     } finally { ctx.end?.(); }
   }
