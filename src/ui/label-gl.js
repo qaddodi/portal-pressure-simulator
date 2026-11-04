@@ -1016,11 +1016,12 @@ void main() { o = texture(uT, vUV) * uA; }`;
       if (e !== MISS) throw e;
       // (Its style not read yet: its last picture stays, or the SVG draws it for this frame; read just after it, then drawn again.)
       waiting.add(g);
-      if (st.mode !== 'gl' || !st.slot) st.mode = 'svg';
+      // (A view switch's new labels are read in the first frames of the fade: held hidden, never handed to the SVG, till the read comes and the picture is drawn, A1.)
+      if (st.mode !== 'gl' || !st.slot) { st.mode = 'gl'; st.wait = true; }
       return st;
     }
     st.mode = !d ? 'none' : svgOnly(d) ? 'svg' : 'gl';
-    if (st.mode !== 'gl') return st;
+    if (st.mode !== 'gl') { st.wait = false; return st; }
     const key = lookKey(d, rot, dpr);
     if (st.key !== key && st.alt && st.alt.key === key && st.alt.slot) {
       // (The picture this label had in the other view, kept when that view's ghost landed: swapped back in, nothing painted. The one it leaves is kept in its place.)
@@ -1374,8 +1375,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
         todo.set(g, (todo.get(g) | 0) | 8 | (rot ? 1 : 0) | (dirty.has(g) ? 2 : 0));
         settleSoon();
       }
-      if ((!st || st.rot !== rot || (st.mode === 'gl' && !st.slot)) && (pending.has(g) || (st?.wait && !stuck && st.rot === rot))) {
-        // (Owed a picture by the pass's next chunk, or by the atlas being packed: shown by no stand-in, the SVG's copy kept hidden.)
+      if ((!st || st.rot !== rot || (st.mode === 'gl' && !st.slot)) && (pending.has(g) || todo.has(g) || (st?.wait && !stuck && st.rot === rot))) {
+        // (Owed a picture by the pass (todo: a label new to the layer, as in a view switch, is not given to the SVG for a frame, A1), its next chunk, or by the atlas being packed: shown by no stand-in, the SVG's copy kept hidden.)
         if (!g.hasAttribute('data-gl')) g.setAttribute('data-gl', '');
         continue;
       }
