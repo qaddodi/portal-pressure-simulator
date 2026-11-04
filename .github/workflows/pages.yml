@@ -5,12 +5,17 @@ name: Pages (live site + preview)
 #   /preview/  the commit that triggered the run (the preview branch, or main after a merge)
 # On main, lint and unit tests (validate) gate the deploy and the build is strict (BUILD_STRICT: a chunk over the size limit fails it).
 # On the preview branch the deploy starts at once and an oversized chunk only warns; lint and unit tests run beside it in quick.yml.
-# A deploy that is publishing is never cancelled; only the newest waiting one runs next. Browser checks are not part of the deploy.
+# On the preview branch a new push cancels every older run of this workflow, waiting or running: only the newest commit deploys.
+# On main nothing is cancelled. Browser checks are not part of the deploy.
 
 on:
   push:
     branches: [main, claude/settings-topbar-icon-flvft1]
   workflow_dispatch:
+
+concurrency:
+  group: pages-run-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref_name != 'main' }}
 
 permissions:
   contents: read
