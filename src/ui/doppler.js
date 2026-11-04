@@ -48,6 +48,8 @@ const PROBES = [
   { id: 'LHV_IVC', short: 'LHV', kind: 'hepatic', normal: [10, 40], away: true },
   { id: 'IVCS_RA', short: 'IVC', kind: 'ivc', normal: [10, 50], away: true },
   { id: 'A_HEP', short: 'HA', kind: 'artery', normal: [30, 100] },
+  { id: 'A_HR', short: 'RHA', kind: 'artery', normal: [30, 100] },
+  { id: 'A_HL', short: 'LHA', kind: 'artery', normal: [30, 100] },
   { id: 'TIPS', short: 'TIPS', kind: 'tips', normal: [90, 190] },
   { id: 'DIPS', short: 'DIPS', kind: 'tips', normal: [90, 190] },
   { id: 'C1b', short: 'Varix C1', kind: 'collateral', normal: null },

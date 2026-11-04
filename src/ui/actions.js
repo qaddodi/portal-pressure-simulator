@@ -131,6 +131,7 @@ const ST_STAGNANT = ['warn', 'Stagnant'], ST_REVERSED = ['rev', 'Reversed flow']
 const ST_BLEEDING = ['bad', 'Bleeding'], ST_WALE = ['warn', 'Red wale signs'], ST_CONGESTED = ['warn', 'Congested'];
 const NONE = [];
 
+const HEP_ART = new Set(['A_HEP', 'A_HR', 'A_HL']);
 function buildEdgeCard(e) {
   const id = e.id, k = EI[id];
   const verbs = [];
@@ -148,6 +149,14 @@ function buildEdgeCard(e) {
   if (isArt) {
     kicker = 'Artery';
     verbs.push(stat('Flow', (f, c) => flowText(c, f.Q[k] * 0.06)));
+    // The hepatic artery and its two branches are full vessels, as the veins are: narrow it, clot it, stent it open, read its Doppler.
+    if (HEP_ART.has(id)) {
+      const open = (p) => (p.stenosis[id] || 0) > 0 || (p.thrombus[id] || 0) > 0;
+      verbs.push(narrow, clot);
+      verbs.push({ type: 'button', id: 'stent', label: 'Stent open', icon: 'stent', showIf: () => open(store.get().params),
+        run: () => updateParams((p) => { delete p.stenosis[id]; delete p.thrombus[id]; return p; }, { label: `${e.label}: stented open` }) });
+      verbs.push(doppler);
+    }
   } else if (isColl) {
     kicker = `Collateral · ${e.code || id}`; why = 'shunt';
     verbs.push(stat('Recruitment', (f, c) => pctOf(c, clamp(((f.slow.dEff?.[id] ?? f.slow.d[id]) - dMinOf(e)) / (e.dMax - dMinOf(e)), 0, 1))));
