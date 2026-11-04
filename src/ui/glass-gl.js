@@ -226,14 +226,25 @@ export function gaussTaps(s, n = 12) {
 }
 // (The weights for a sigma, made the first time it is asked for and kept: a blur in a frame looks them up.)
 const tapsKept = new Map();
+/** The taps a sigma needs: three sigmas a side (under 1 % of the middle's weight at the last), at most 12, at least 3. */
+export const tapN = (s) => Math.min(12, Math.max(3, Math.ceil(3 * s)));
 export function tapsFor(s) {
   let w = tapsKept.get(s);
   if (!w) {
     if (tapsKept.size > 32) tapsKept.clear();   // alloc-rare: a new sigma (a new screen density or look), once
-    w = gaussTaps(s);   // alloc-rare: a new sigma, once
+    const n = tapN(s), g = gaussTaps(s, n);   // alloc-rare: a new sigma, once
+    w = new Float32Array(13); w.set(g);   // alloc-rare: a new sigma, once (the taps past n stay zero; the shader stops at n: uN)
+    w.n = n;
     tapsKept.set(s, w);
   }
   return w;
+}
+// (blurBoxesInto with a `keep` fixed, one function for each: sharePlan calls it with no keep to give.)
+const keepFns = new Map();
+function keepFor(keep) {
+  let f = keepFns.get(keep);
+  if (!f) { f = (out, pool, boxes, ox, oy, t, bw, bh) => blurBoxesInto(out, pool, boxes, ox, oy, t, bw, bh, keep); keepFns.set(keep, f); }   // alloc-rare: one for each tap count, at most ten
+  return f;
 }
 
 const QVS = `#version 300 es
@@ -252,11 +263,12 @@ uniform sampler2D uT;
 uniform vec4 uBox;          // (its size: the copy's, in texels)
 uniform vec2 uDir;          // one texel across or down
 uniform float uW[13];
+uniform int uN;             // the taps used (3 sigmas a side: tapN); uW past it is zero
 out vec4 o;
 void main() {
   vec2 sz = uBox.zw, uv = gl_FragCoord.xy / sz;
   vec4 c = texture(uT, uv) * uW[0];
-  for (int i = 1; i < 13; i++) { vec2 d = uDir * float(i) / sz; c += (texture(uT, uv + d) + texture(uT, uv - d)) * uW[i]; }
+  for (int i = 1; i < 13; i++) { if (i > uN) break; vec2 d = uDir * float(i) / sz; c += (texture(uT, uv + d) + texture(uT, uv - d)) * uW[i]; }
   o = c;
 }`;
 // A callout's glass: the blurred figure under it over the stage's own colour, saturated as the CSS does, under the tint, cut
@@ -340,7 +352,7 @@ void main() {
 // The blur's and the glass's uniform locations, read once a context's two programs are linked (hostKit).
 function uniformsOf(gl, bprog, pprog) {
   const uni = (p, ks) => Object.fromEntries(ks.map((k) => [k, gl.getUniformLocation(p, k)]));   // alloc-rare: a context's two programs are linked once (setHost, a restored context), never per frame
-  const BU = uni(bprog, ['uBox', 'uView', 'uT', 'uDir', 'uW']);   // alloc-rare: a context's two programs are linked once (setHost, a restored context), never per frame
+  const BU = uni(bprog, ['uBox', 'uView', 'uT', 'uDir', 'uW', 'uN']);   // alloc-rare: a context's two programs are linked once (setHost, a restored context), never per frame
   const PU = uni(pprog, ['uBox', 'uView', 'uMS', 'uReg', 'uScene', 'uMask', 'uBg', 'uTint', 'uSat', 'uA', 'uBB', 'uShC', 'uShB', 'uShS', 'uRad', 'uMode', 'uGrow', 'uD0C', 'uD1C', 'uD0B', 'uD1B', 'uDS', 'uLine', 'uLW']);   // alloc-rare: a context's two programs are linked once (setHost, a restored context), never per frame
   return { bprog, pprog, BU, PU };   // alloc-rare: a context's two programs are linked once (setHost, a restored context), never per frame
 }
@@ -503,7 +515,7 @@ export function dropsOf(v) {
   }
   return out;
 }
-export function createGlassGL(wrap, source, layers, { software = false, live = () => true, pane = null, cards = null, version = null, capture = null, onFigure = null, keep = null, due = null, reblur = 0, fresh = null, full = false, onHoles = null } = {}) {
+export function createGlassGL(wrap, source, layers, { software = false, live = () => true, pane = null, cards = null, version = null, capture = null, onFigure = null, keep = null, due = null, reblur = 0, fresh = null, dirty = null, full = false, onHoles = null } = {}) {
   if (reblur > 0) fresh = null;
   // (cards.callouts: the figure's callouts, a glass.add region of their own (stage.js): the cards' machinery, with the callouts' own ways kept: no
   // wait for a first draw, no html[data-cardgl], one turn ('all') between the cards' two, one over-list, their shadow and tint strength, the parent's box.)
@@ -1054,7 +1066,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     G.useProgram(B.bprog); G.bindVertexArray(B.vao); G.disable(G.BLEND);
     G.viewport(0, 0, bw, bh);
     G.uniform4f(B.BU.uBox, 0, 0, bw, bh); G.uniform2f(B.BU.uView, bw, bh); G.uniform1i(B.BU.uT, 0);
-    G.uniform1fv(B.BU.uW, tapsFor(look.blur * g.k / g.T));
+    { const w = tapsFor(look.blur * g.k / g.T); G.uniform1fv(B.BU.uW, w); G.uniform1i(B.BU.uN, w.n); }
     G.activeTexture(G.TEXTURE0);
     G.enable(G.SCISSOR_TEST);
     partPass(G, B, B.fbPass, B.copy, 1, 0, parts);
@@ -1098,7 +1110,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     G.useProgram(B.bprog); G.bindVertexArray(B.vao); G.disable(G.BLEND);
     G.viewport(0, 0, bw, bh);
     G.uniform4f(B.BU.uBox, 0, 0, bw, bh); G.uniform2f(B.BU.uView, bw, bh); G.uniform1i(B.BU.uT, 0);
-    G.uniform1fv(B.BU.uW, tapsFor(look.blur * k / T));
+    { const w = tapsFor(look.blur * k / T); G.uniform1fv(B.BU.uW, w); G.uniform1i(B.BU.uN, w.n); }
     G.activeTexture(G.TEXTURE0);
     G.bindFramebuffer(G.FRAMEBUFFER, B.fbPass); G.bindTexture(G.TEXTURE_2D, B.copy); G.uniform2f(B.BU.uDir, 1, 0); G.drawArrays(G.TRIANGLE_STRIP, 0, 4);
     G.bindFramebuffer(G.FRAMEBUFFER, B.fbOut); G.bindTexture(G.TEXTURE_2D, B.pass); G.uniform2f(B.BU.uDir, 0, 1); G.drawArrays(G.TRIANGLE_STRIP, 0, 4);
@@ -1203,14 +1215,25 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   }
   // The shared blur (blur-share.js), made by the first glass of its look drawn on this picture: the union of every glass's parts, on
   // the whole canvas's grid, into targets sized by the canvas alone (so a card moving never reallocates them). False: nothing to draw from.
+  // (The device-px rect the moving blood drew over since the frame `from` (option dirty: the figure's), as a box in CSS px from the canvas's corner, or null.)
+  const dirtyBox = { x: 0, y: 0, w: 0, h: 0 }, dirtyDev = [0, 0, 0, 0];
+  function dirtyFn(from, to) {
+    if (!dirty || !dirty(from, to, dirtyDev)) return null;
+    const k = host.canvas.width / cr0.width;
+    dirtyBox.x = dirtyDev[0] / k; dirtyBox.y = dirtyDev[1] / k; dirtyBox.w = (dirtyDev[2] - dirtyDev[0]) / k; dirtyBox.h = (dirtyDev[3] - dirtyDev[1]) / k;
+    return dirtyBox;
+  }
+  let cr0 = null;
   function runShare(S, cr) {
+    cr0 = cr;
     if (!shareTurn(S)) return S.ok;
     const G = hk.G, W2 = host.canvas.width, H2 = host.canvas.height, k = hk.k;
     S.ok = false;
     const grid = hostGrid(0, 0, cr.width, cr.height, k, W2, H2);
     if (!grid) { shareForget(S); return false; }
     const bw = (grid.X1 - grid.X0) / grid.T, bh = (grid.Y1 - grid.Y0) / grid.T;
-    const plan = sharePlan(S, grid, grid.T / k, bw, bh, full, blurBoxesInto);
+    const nT = tapN(look.blur * grid.k / grid.T);
+    const plan = sharePlan(S, grid, grid.T / k, bw, bh, full, keepFor(nT + 2), dirty ? dirtyFn : null, keepFor(2 * nT + 3));   // (the parts grown by the taps this sigma has, one for the glass's sampling between two texels, one spare)
     const sr = S.reg || (S.reg = { x: 0, y: 0, w: 0, h: 0 });   // alloc-rare: the share's region record is made at its first blur
     sr.x = grid.x; sr.y = grid.y; sr.w = grid.w; sr.h = grid.h;
     // (In use in this frame, kept or made again: see the release below.)

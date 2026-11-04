@@ -2008,6 +2008,39 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // (figVer: counts the uploads a blood frame could show, other than the blood's own rows: geometry, radii, curvature, attributes, dye, the
   // fluid's cells. A composite after any of them is counted as the figure drawn again, whatever it repaints.)
   let bloodSeq = 0, figVer = 0, figAt = 0;
+  // (Where each of the last BD_N blood-alone frames drew: the union of its squares' boxes, in device px from the canvas's top left, or
+  // unknown (an empty record of -1). The glass blurs again only the parts of its copy that a blood frame since its last blur reached.)
+  const BD_N = 16, bdRect = new Float32Array(BD_N * 4), bdSeq = new Float64Array(BD_N).fill(-1), bdKnown = new Uint8Array(BD_N);
+  function bloodMark(seq, cells, n, m, size) {
+    const i = seq % BD_N, r = i * 4;
+    bdSeq[i] = seq;
+    if (!cells || !m || !PW() || !PH()) { bdKnown[i] = 0; return; }
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    const W = PW(), H = PH(), a = m[0] * size, b = m[1] * size, c = m[2] * size, d = m[3] * size;
+    for (let q = 0; q < n; q++) {
+      const x = m[0] * cells[q * 6] + m[2] * cells[q * 6 + 1] + m[4], y = m[1] * cells[q * 6] + m[3] * cells[q * 6 + 1] + m[5];
+      const lx = Math.min(x, x + a, x + c, x + a + c), hx = Math.max(x, x + a, x + c, x + a + c);
+      const ly = Math.min(y, y + b, y + d, y + b + d), hy = Math.max(y, y + b, y + d, y + b + d);
+      if (lx < x0) x0 = lx; if (hx > x1) x1 = hx; if (ly < y0) y0 = ly; if (hy > y1) y1 = hy;
+    }
+    bdKnown[i] = 1;
+    // (A pixel wider each side for the edge; an empty union, no square on the canvas, is a rect with no area.)
+    bdRect[r] = Math.max(0, x0 - 1); bdRect[r + 1] = Math.max(0, y0 - 1); bdRect[r + 2] = Math.min(W, x1 + 1); bdRect[r + 3] = Math.min(H, y1 + 1);
+  }
+  /** What the blood frames after number `from` up to `to` drew over: sets out = [x0, y0, x1, y1] (device px from the canvas's top left) and
+   *  returns true, or false when that is not known (too many frames ago, or one of them drew the whole canvas or under a camera). */
+  function bloodDirty(from, to, out) {
+    if (!(to > from) || to - from > BD_N) return false;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (let s = from + 1; s <= to; s++) {
+      const i = s % BD_N;
+      if (bdSeq[i] !== s || !bdKnown[i]) return false;
+      const r = i * 4;
+      if (bdRect[r + 2] > bdRect[r] && bdRect[r + 3] > bdRect[r + 1]) { x0 = Math.min(x0, bdRect[r]); y0 = Math.min(y0, bdRect[r + 1]); x1 = Math.max(x1, bdRect[r + 2]); y1 = Math.max(y1, bdRect[r + 3]); }
+    }
+    out[0] = x0; out[1] = y0; out[2] = x1; out[3] = y1;
+    return true;
+  }
   const callPicture = (f) => f();
   const pictured = (blood = false) => { if (blood) { bloodSeq++; return; } pictureSeq++; onPicture.forEach(callPicture); };
   let lines = null, linesWas = false, lastPW = -1, lastPH = -1, viewId = 0;
@@ -4101,7 +4134,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       // (Drawn on: counted for the glass unless it is the blood's own frame alone, the lumens repainted with every uniform as last time.)
       const figNew = figVer !== figAt;
       figAt = figVer;
-      pictured(!full && !part && !dirt && !pool && !(fl?.ripple && nFluid) && !cath && bare && same && !figNew);
+      const bloodAlone = !full && !part && !dirt && !pool && !(fl?.ripple && nFluid) && !cath && bare && same && !figNew;
+      pictured(bloodAlone);
+      if (bloodAlone) bloodMark(bloodSeq, fused || up || camOn() ? null : bloodCPU, nBlood, m, bloodCell);
       if (still) {
         let ch = false;
         for (let r = 0; r < nTubes; r++) if (movedUp[r * 4] !== moved[r]) { movedUp[r * 4] = moved[r]; ch = true; }
@@ -4263,6 +4298,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     get drawSeq() { return pictureSeq; },
     /** The frames of the moving blood alone, which drawSeq leaves out. */
     get bloodSeq() { return bloodSeq; },
+    /** Where the blood frames after number `from`, up to `to`, drew: fills out [x0, y0, x1, y1] (device px, top left origin; x0 > x1 when nowhere) and returns true; false if unknown (the glass then blurs all it reads). */
+    bloodDirty,
     /** The view the picture was last drawn for (the world matrix), as a string that changes whenever a pan, a zoom or a glide moves it (the glass blurs again at once then). */
     get viewKey() { return baseM ? viewKeyStr : ''; },
     /** Calls f each time drawSeq changes; returns the call that stops it. */

@@ -22,14 +22,14 @@ export function shareFor(map, gl, key) {
   // alloc-rare: a context's first glass of this look makes its share (once per look and context), never per frame
   if (!byLook) { byLook = new Map(); map.set(gl, byLook); }   // alloc-rare: once per context
   // alloc-rare: once per look and context
-  S = { look: key, reqs: [], phase: 'draw', ok: false, reg: null, t: null, blurs: 0, skips: 0, allocs: 0, boxBuf: [], partsOut: [], partsPool: [], snapOk: false, snap: newSnap(), cand: newSnap(), plan: { parts: null, same: false } };
+  S = { look: key, reqs: [], phase: 'draw', ok: false, reg: null, t: null, blurs: 0, skips: 0, allocs: 0, boxBuf: [], partsOut: [], partsPool: [], snapOk: false, snap: newSnap(), cand: newSnap(), dBox: [null], dOut: [], dPool: [], rOut: [], rPool: [], rFull: [[0, 0, 0, 0]], plan: { parts: null, same: false } };
   byLook.set(key, S);
   return S;
 }
 
 // A plan's key is kept as numbers in kept arrays and compared in place (no key string is made for each picture): the requests' picture keys
 // (v, f; in any order), the grid, and the parts of the copy to blur.
-const newSnap = () => ({ n: 0, v: [], f: [], g: [0, 0, 0, 0, 0], np: -1, p: [], full: false });   // alloc-rare: a share's two snapshots are made with the share, once
+const newSnap = () => ({ n: 0, v: [], f: [], g: [0, 0, 0, 0, 0], np: -1, p: [], fn: -1, fp: [], full: false });   // alloc-rare: a share's two snapshots are made with the share, once
 const sameNum = (a, b) => a === b || (a !== a && b !== b);
 
 /** An instance's needs for the picture just laid: req { id, boxes (CSS px from the canvas's corner), v, f (the keys of the picture under
@@ -44,7 +44,7 @@ export function sharePrep(S, req) {
 /** What the first draw on this picture blurs: the parts of the copy every request needs (null: all of it), and whether that, the grid and
  *  every request's picture are the same as the last blur kept (shareKeep): { parts, same } (a record kept in the share, read before the
  *  next call). blurInto(out, pool, boxes, ox, oy, t, bw, bh): glass-gl's blurBoxesInto. */
-export function sharePlan(S, grid, t, bw, bh, full, blurInto) {
+export function sharePlan(S, grid, t, bw, bh, full, blurInto, dirtyFor = null, dirtyInto = null) {
   const boxes = S.boxBuf;
   boxes.length = 0;
   for (const r of S.reqs) for (const b of r.boxes) boxes.push(b);
@@ -54,6 +54,33 @@ export function sharePlan(S, grid, t, bw, bh, full, blurInto) {
   for (let i = 0; i < n; i++) { C.v[i] = S.reqs[i].v; C.f[i] = S.reqs[i].f; }
   C.n = n;
   C.g[0] = grid.X0; C.g[1] = grid.Y0; C.g[2] = grid.X1; C.g[3] = grid.Y1; C.g[4] = grid.T;
+  // (The parts the glasses read, whole: kept in the snapshot beside the parts blurred, which may be fewer; see below.)
+  C.fn = parts ? parts.length : -1;
+  if (parts) { let k = 0; for (const r of parts) { C.fp[k++] = r[0]; C.fp[k++] = r[1]; C.fp[k++] = r[2]; C.fp[k++] = r[3]; } }
+  // Only the moving blood changed since the last blur (the one request with the same picture, only its blood count moved), the grid and
+  // the parts the glasses read the same, and the blood frames' squares known (dirtyFor): the parts to blur are those inside the squares'
+  // reach, the rest of the blurred picture being what the last blur left. No squares known, or any of that different: all the parts, as ever.
+  if (dirtyFor && dirtyInto && !full && n === 1 && S.snapOk) {
+    const P = S.snap;
+    let ok = P.n === 1 && P.v[0] === C.v[0] && P.fn === C.fn && typeof P.f[0] === 'number' && typeof C.f[0] === 'number' && C.f[0] > P.f[0];
+    for (let i = 0; ok && i < 5; i++) if (!sameNum(P.g[i], C.g[i])) ok = false;
+    for (let i = 0; ok && i < C.fn * 4; i++) if (P.fp[i] !== C.fp[i]) ok = false;
+    const d = ok ? dirtyFor(P.f[0], C.f[0]) : null;
+    if (d) {
+      let rects = parts;
+      if (!rects) { const r = S.rFull[0]; r[0] = 0; r[1] = 0; r[2] = bw; r[3] = bh; rects = S.rFull; }
+      S.dBox[0] = d;
+      const dp = dirtyInto(S.dOut, S.dPool, S.dBox, grid.x, grid.y, t, bw, bh);
+      let m = 0;
+      for (const r of rects) for (let j = 0; j < dp.length; j++) {
+        const q = dp[j], x0 = Math.max(r[0], q[0]), y0 = Math.max(r[1], q[1]), x1 = Math.min(r[2], q[2]), y1 = Math.min(r[3], q[3]);
+        if (x1 > x0 && y1 > y0) { const o = S.rPool[m] || (S.rPool[m] = [0, 0, 0, 0]); o[0] = x0; o[1] = y0; o[2] = x1; o[3] = y1; S.rOut[m++] = o; }   // alloc-rare: the pool grows to the most parts a picture has had
+      }
+      S.rOut.length = m;
+      if (!m) { S.plan.parts = null; S.plan.same = true; return S.plan; }   // (nothing the glasses read was reached: the blur kept is current; the snapshot stays, so the next range starts from it)
+      parts = S.rOut;
+    }
+  }
   C.np = parts ? parts.length : -1;
   if (parts) { let k = 0; for (const r of parts) { C.p[k++] = r[0]; C.p[k++] = r[1]; C.p[k++] = r[2]; C.p[k++] = r[3]; } }
   S.plan.parts = parts;

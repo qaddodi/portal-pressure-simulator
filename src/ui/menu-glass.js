@@ -41,7 +41,7 @@ function listen() {
     document.addEventListener(ev, (x) => { const e = x.target; if (e?.matches?.(MENUISH)) { othersAt = -1e9; sync(e); } }, true);
   }
   // (A class change that starts or ends the exit (leaving, out) is seen here too, before the animation's own event.)
-  new MutationObserver((rs) => { for (const r of rs) if (r.target.matches?.(MENUISH)) sync(r.target); }).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class'] });
+  new MutationObserver((rs) => { for (const r of rs) { const t = r.target; if (t.matches?.(MENUISH)) sync(t); if (t.id === 'whyPop' || t.id === 'tooltip') reg?.redraw?.(); } }).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class'] });
 }
 const live = () => {
   list.length = 0;
@@ -49,10 +49,12 @@ const live = () => {
   const t = performance.now();
   if (t - othersAt > 120) { othersAt = t; others.length = 0; for (const e of document.querySelectorAll(OTHERS)) { others.push(e); if (!seen.has(e)) { seen.add(e); own.observe(e, { attributes: true, attributeFilter: ['style', 'class', 'hidden'] }); } } }
   for (const e of others) if (e.isConnected) list.push(e);
+  // (Only while shown or leaving: a hidden why-pop (display none) and a tooltip at rest (no .show, nothing running) are not read at each
+  // measure. Their class writes are seen by the body observer in listen(), which asks for a redraw.)
   const why = document.getElementById('whyPop');
-  if (why) list.push(why);
+  if (why && (why.classList.contains('show') || why.classList.contains('leaving'))) list.push(why);
   const tip = document.getElementById('tooltip');
-  if (tip) list.push(tip);   // (the tooltip's card is glass too; its words are the GPU picture of tip-gl.js)
+  if (tip && (tip.classList.contains('show') || tip.getAnimations?.().length)) list.push(tip);   // (the tooltip's card is glass too; its words are the GPU picture of tip-gl.js)
   return list;
 };
 // The dock menus' clip-path (inset(.. .. bottom ..), app.css, the sink): the glass is cut at the same foot, in client px, read with the box.
