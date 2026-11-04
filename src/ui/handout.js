@@ -11,6 +11,7 @@ import { TILE, cutText } from './table-marks.js';
 import { plateletText } from './glue.js';
 import { citeText } from './teach-extras.js';
 import { cleanEq } from './import-safety.js';
+import { plainLine } from './reveal.js';
 
 const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const slug = (t) => t.replace(/[^\w-]+/g, '-').replace(/^-|-$/g, '').toLowerCase();
@@ -111,7 +112,7 @@ function slideBlock(d, base, s, i, fp, at) {
     <p class="cap"><span class="n">${i + 1}</span>${s.kicker ? ` · ${esc(s.kicker)}` : ''}</p>
     ${typeof s.question === 'string' && s.question.trim() ? `<div class="q"><p class="cap">Question</p><p>${esc(s.question)}</p></div>` : ''}
     <h2>${esc(s.title || 'Slide')}</h2>
-    ${s.line ? `<p class="line">${esc(lineText(s.line, fp, at))}</p>` : ''}
+    ${s.line ? `<p class="line">${esc(lineText(s.reveal ? plainLine(s.line) : s.line, fp, at))}</p>` : ''}
     ${ml ? `<div class="eq"><math display="block">${ml}</math>${legend ? `<small>${esc(legend)}</small>` : ''}</div>` : ''}
     ${citeText(s.cite) ? `<p class="cite">${esc(citeText(s.cite))}</p>` : ''}
     ${s.notes ? `<div class="notes"><p class="cap">Notes</p><p>${esc(s.notes)}</p></div>` : ''}

@@ -56,6 +56,7 @@ import { createProfileTool, createProfileStrip, pillReadings, chartScale } from 
 import { causeFit } from './cause-fit.js';
 import { anchorsOf, roomFor } from './cam-room.js';
 import { beatCount, beatView } from './slide-beats.js';
+import { clausesOf, revealCount, shownLine } from './reveal.js';
 import { COMPACT, WIDE } from './card-type.js';
 import { flowTimeHeight, trailKeys } from './flow-time.js';
 import { PROCS, procBlocked, procOffered, playProcedure, stepMark } from './proc-anim.js';
@@ -279,7 +280,7 @@ function termList(s) {
 /** Everything a slide points at on the figure: its terms (as the line names them) and its glow field. */
 // On a Doppler slide the vessel being read glows the Doppler's green (as in Explore), over the colour its word would give it.
 const isDop = (s) => s?.tool?.kind === 'doppler';
-export function slideTargets(s, line = s.line || '') {
+export function slideTargets(s, line = shownLine(s, s.revealed)) {   // (a revealing slide names only the clauses shown so far: reveal.js)
   // alloc-rare: slide arrival or a camera framing: once per slide change or card grab, never per frame
   const keys = new Set();
   for (const m of line.matchAll(/\[([^\]]+)\]\(([\w:]+)\)/g)) if (TARGETS[m[2]]) keys.add(m[2]);
@@ -356,11 +357,15 @@ export const LENS_WORDS = { 'pressure drop': 'drop', 'blood origin': 'origin', o
   flow: 'flow', direction: 'direction', congestion: 'heat', change: 'delta', 'vein system': 'system', oxygen: 'oxygen' };
 export const LENS_TONE = { velocity: '--vel-normal', flow: '--lens-flow', direction: '--flow-reversed', heat: '--lens-heat', drop: '--lens-drop', delta: '--delta-high', origin: '--origin-spleen', system: '--tr-var', oxygen: '--lens-oxygen' };
 const LENS_RE = String.raw`\b([Cc]olou?red by )(${Object.keys(LENS_WORDS).sort((a, b) => b.length - a.length).join('|')})\b`;
-function rich(t, s = {}, fp = null, tips = false) {
+function rich(t, s = {}, fp = null, tips = false, cuts = null) {
   const { re, tl } = lineRe(s);
   const marked = /\{(?!#\d+\})[^}]+\}/.test(t);   // ({#1}, a figure's step marker, is no value: it never keeps a typed number from its pill)
   const out = [], seen = new Set(), seenT = new Set(); let at = 0, bold = 0, pills = 0, m;
   t = nb(t);
+  // (cuts: where the clauses of a revealing line end, as offsets in the line as typeset; a CUT in the list marks each: grouped at the end.)
+  let ci = 0;
+  const plain = (a, b) => { for (; cuts && ci < cuts.length && cuts[ci] <= b; ci++) { if (cuts[ci] > a) { out.push(t.slice(a, cuts[ci]), CL_CUT); a = cuts[ci]; } } out.push(t.slice(a, b)); };
+  const flush = (to) => { for (; cuts && ci < cuts.length && cuts[ci] <= to; ci++) out.push(CL_CUT); };
   // A pill keeps the word before it and the stop after it on its line (a no-break space, one unbreakable span).
   const glue = () => { const prev = out[out.length - 1]; if (typeof prev === 'string') out[out.length - 1] = prev.replace(/ $/, '\u00a0'); };
   const pill = (v, stop, cls = '', tone = null, rate = null) => { glue();
@@ -377,7 +382,7 @@ function rich(t, s = {}, fp = null, tips = false) {
     if (key && seen.has(w)) continue;
     const tk = tword ? tl.find(([x]) => new RegExp(`^(?:${x})$`, 'i').test(tword))?.[1] : null;
     if (tword && (!tk || seenT.has(tk))) continue;
-    out.push(t.slice(at, m.index));
+    plain(at, m.index);
     if (lensW) out.push(lensBy.replace(/ $/, '\u00a0'), h('span', { class: 'pz-term pz-lens-t', style: `--tone: ${toneVar(LENS_TONE[LENS_WORDS[lensW]])}` }, lensW));
     else if (lw) out.push(TARGETS[lk] ? termPill(lw, lk) : lw);
     else if (tword) { seenT.add(tk); out.push(termPill(tword, tk)); }
@@ -393,16 +398,40 @@ function rich(t, s = {}, fp = null, tips = false) {
     // (A term pill keeps the stop or bracket after it on its line.)
     const last = out[out.length - 1];
     if (last?.classList?.contains('pz-term') && /^[),.;:]+/.test(t.slice(at))) { const st = t.slice(at).match(/^[),.;:]+/)[0]; out[out.length - 1] = h('span', { class: 'pz-nw pz-stop' }, last, st); at += st.length; }
+    flush(at);
   }
-  out.push(t.slice(at));
+  plain(at, t.length);
   // (The last line never holds a word or a pill alone: the line's last plain space is a no-break space when what follows it is short.)
   for (let i = out.length - 1, tail = 0; i >= 0 && tail <= 12; i--) {
     const x = out[i], j = typeof x === 'string' ? x.lastIndexOf(' ') : -1;
+    if (x === CL_CUT) continue;
     if (j < 0) { tail += typeof x === 'string' ? x.length : x.textContent.length; continue; }
     if (tail + x.length - j - 1 <= 12 && /\S/.test(x.slice(0, j))) out[i] = `${x.slice(0, j)}\u00a0${x.slice(j + 1)}`;
     break;
   }
-  return out;
+  if (!cuts) return out;
+  // Each clause in a span of its own (pz-cl): the reveal fades and lifts them one at a time (revealPaint).
+  const parts = [[]];
+  for (const x of out) { if (x === CL_CUT) parts.push([]); else parts.at(-1).push(x); }
+  return parts.map((p, k) => h('span', { class: 'pz-cl', 'data-cl': String(k) }, ...p));
+}
+const CL_CUT = Symbol('clause cut');
+// A revealing slide's line (reveal.js): the whole line is typeset, so the card is fitted once and never reflows, each clause in a span;
+// the first `n` are on, the rest transparent (app.css .pz-cl).
+function revealLine(s, fp, tips, n) {
+  const cl = clausesOf(s.line), cuts = []; let acc = '';
+  for (const c of cl.slice(0, -1)) { acc += c; cuts.push(nb(acc).length); }
+  const nodes = rich(cl.join(''), s, fp, tips, cuts);
+  paintClauses(nodes, n);
+  return nodes;
+}
+/** Shows the first `n` clauses of a line (its spans, or the paragraph holding them): the rest are transparent and hidden from a reader. */
+function paintClauses(line, n) {
+  for (const c of Array.isArray(line) ? line : line?.querySelectorAll('.pz-cl') || []) {
+    const on = +c.dataset.cl < n;
+    c.classList.toggle('on', on);
+    if (on) c.removeAttribute('aria-hidden'); else c.setAttribute('aria-hidden', 'true');
+  }
 }
 // The still column (D5), for a wedge slide with column: true: one vessel drawn along its path (portal vein, the portal tract's narrowing,
 // the sinusoids as fine channels, central vein, hepatic vein, the balloon on its catheter, free blood beyond it). The balloon stops the
@@ -2891,7 +2920,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       panel.hidden = true; panel.replaceChildren(); panel.classList.remove('pz-leave'); ui.veil.classList.remove('on');
       text.hidden = false;
       const head = h('h1', { class: 'pz-h' }, ...diseaseNodes(nb(s.title)));
-      const line = s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp, !!st?.params?.tips?.on)) : null;
+      const rv = revealCount(s), line = s.line ? h('p', { class: 'pz-line' }, ...(rv ? revealLine(s, st?.fp, !!st?.params?.tips?.on, Math.min(beat, lastBeat(i)) + 1) : rich(s.line, s, st?.fp, !!st?.params?.tips?.on))) : null;
       if (bare) for (const a of readAnims(text)) a.finish();   // (the old words' leave is finished before the new words go in: the box never shows them mid-fade)
       text.replaceChildren(...[head, s.eq ? equation(s.eq) : null, s.monitor ? monitorFor(s, i) : null,
           line, s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null, citeEl(s),
@@ -5144,6 +5173,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // beat's move and the beat calls out what it names. The words, the data card and the model stay as they are. A flip of the scale
   // is a detour that ends here: the beat opens on the slide's own scale.
   async function beatMove(i, k) {
+    if (revealCount(slides[i])) return revealMove(i, k);   // (a revealing line: one more clause, no camera: reveal.js)
     const g = gen, s = slides[i], cut = () => !deck || want !== i || gen !== g || beat !== k || shown?.i !== i;
     const v = beatView(s, k), cam = v.cam || 'fit';
     if (scalePick) { scalePick = null; paintScaleSel(pickedScale(null, i, v)); }
@@ -5167,6 +5197,27 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     } finally {
       creditOff();
     }
+  }
+
+  // One more clause of a revealing line (reveal.js, N3): it fades in (or the last one out, going back) and the figure lights the terms the
+  // clauses shown name. Nothing else moves: no camera, no cards, no refit (the whole line is typeset from the start). In the liver a
+  // change of the lit set runs the labels' hush as a slide change does, so no label shows half lit.
+  async function revealMove(i, k) {
+    const g = gen, s = slides[i], cut = () => !deck || want !== i || gen !== g || beat !== k || shown?.i !== i;
+    const v = beatView(s, k), creditOff = creditLease.take();
+    try {
+      if (flipping) { await until(() => !flipping, 9000); if (cut()) return; }
+      if ((store.get().lobule || store.get().sinusoid) && !booting && slideTargets(v).lit.join(' ') !== (app.dataset.lit || '')) {
+        hush();
+        await wait(Math.max(0, HUSH_OUT - (performance.now() - hushAt))); await eased(['opacity'], 600, '.lz-labels'); if (cut()) return;
+      }
+      fig = { i, s: v };
+      paintClauses(ui.text.querySelector('.pz-line'), k + 1);
+      paintOverlays(v, i, states[stateOf[i]] || null, false);
+      await unhush(cut);
+      if (cut()) return;
+      shownBeat = k; paintChrome();
+    } finally { creditOff(); }
   }
 
   // The words' last shown block keeps clear of a phone's pill: a line of words (or the station key) ends with a gap the pill's

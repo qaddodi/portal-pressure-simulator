@@ -1937,6 +1937,10 @@ button.finding { cursor: pointer; }
 .pz-text .pz-h, .pz-ph .pz-h { padding-bottom: calc(.3em + 2px); }
 .pz.stack .pz-h { padding-bottom: calc(.22em + 2px); }
 .pz-line { margin: 0; font: 400 var(--s-body)/1.4 var(--font-ui); color: var(--text-2); text-wrap: pretty; }
+/* A revealing slide's line (reveal.js): every clause is laid out from the start, so the card never refits; those not shown yet are transparent and fade in one by one. */
+.pz-cl { transition: opacity var(--d-small) var(--ease); }
+.pz-cl:not(.on) { opacity: 0; }
+@media (prefers-reduced-motion: reduce) { .pz-cl { transition: none; } }
 /* Body emphasis: key terms in the heading colour, values in a quiet pill with even figures. */
 .pz-line b { font-weight: 600; color: var(--text); }
 /* A slide's colour key (presenter.js keyNodes), a small frosted pill on the figure, not in the teaching card: the lens named, then its

@@ -7,20 +7,23 @@
 // A beat changes only the figure: where the camera is and what it calls out there (BEAT_KEYS). The words, the data card and the
 // model stay as they are through the beats. A field a beat leaves out keeps the slide's (or null clears it: mark: null). Next goes
 // through the beats before the next slide, Back the other way; a slide opened any other way (Back from the next one, a jump, a
-// reload) shows its last beat, so it stands with its whole point made.
+// reload) shows its last beat, so it stands with its whole point made. A slide with reveal: true (reveal.js) has one beat per clause of its
+// line: the figure stays and the next clause comes in, lighting the terms it names.
 
 import { camProblems } from './cam-frame.js';
+import { revealCount } from './reveal.js';
 
 export const BEAT_KEYS = ['cam', 'zoom', 'kMax', 'clear', 'labels', 'terms', 'mark', 'marks', 'sites', 'glow', 'glowSeq', 'steps', 'spot', 'callout'];
 export const MAX_BEATS = 3;   // (the slide and two more)
 const LOBULE = /^(lobule|sinusoid)/;
 
 /** How many views of the figure a slide has: 1, or 1 + its beats. */
-export const beatCount = (s) => (Array.isArray(s?.beats) && s.beats.length && !s.visual ? 1 + s.beats.length : 1);
+export const beatCount = (s) => (Array.isArray(s?.beats) && s.beats.length && !s.visual ? 1 + s.beats.length : revealCount(s) || 1);
 
 /** The slide as beat `b` shows it (0: the slide itself); each beat builds on the one before. */
 export function beatView(s, b) {
   const n = beatCount(s);
+  if (revealCount(s)) return { ...s, revealed: Math.min(Math.max(b || 0, 0), n - 1) + 1 };   // (reveal.js: the same slide, its first b + 1 clauses named)
   if (!b || n === 1) return s;
   let v = { ...s };
   for (let i = 0; i < Math.min(b, n - 1); i++) v = { ...v, ...s.beats[i] };

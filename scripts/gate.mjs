@@ -35,6 +35,7 @@ import { findMarkers, checkBundle } from './gate-static.mjs';
 import { slideFinal, labelState, labelFollow, diaphragmIssues } from './gate-page.mjs';
 import { assertGpuLive, readPath } from './shoot.mjs';
 import { motionIssues, startSampler, takeSamples } from './gate-motion.mjs';
+import { beatCount } from '../src/ui/slide-beats.js';
 import { EXE, launch, openPage, figureUp, stepUntil, stepFor, watchUntil, watchFor, ask, landed, pool as poolOf, gpuName } from './gate-clock.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -135,13 +136,16 @@ async function deckUnit(browser, url, deck, size) {
   try {
     const up = await stepUntil(page, () => { document.querySelector('.pz-case.on')?.click(); return document.querySelector('#app')?.classList.contains('presenting') && !window.pps?.presenter?.busy(); }, null, { maxFake: 60000 });
     if (up < 0) return fail('slides', `${tag} 1`, 'the deck never opened');
-    let at = 0;
+    let at = 0, via = 'go';
     for (const i of deck.idx) {
       const s = deck.slides[i], where = `${tag} ${i + 1}/${deck.slides.length}`;
       if (i !== 0 || at !== 0) {
         const e0 = mark();
-        if (i === at + 1) await page.keyboard.press('ArrowRight');
-        else await page.evaluate((k) => window.pps.presenter.go(k), i);
+        if (i === at + 1) {
+          // (A slide with views of the figure, camera beats or a revealing line, takes a Next for each before it leaves; its opening view comes with the Next that steps onto it.)
+          for (let v = 1; v < (via === 'key' ? beatCount(deck.slides[at]) : 1); v++) { await page.keyboard.press('ArrowRight'); await stepFor(page, 2500); }
+          await page.keyboard.press('ArrowRight'); via = 'key';
+        } else { await page.evaluate((k) => window.pps.presenter.go(k), i); via = 'go'; }
         const took = await stepUntil(page, landed, i + 1, { maxFake: 30000 });
         if (took < 0) { fail('slides', where, `the slide change never ended in 30 s of clock time (${await page.evaluate(stuckInfo)})`); at = i; continue; }
         at = i;
