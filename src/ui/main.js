@@ -28,7 +28,7 @@ import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js';
 import { dopplerVel } from './velNormal.js';
 import { controlOwnsKey } from './key-owner.js';
 import { onTheme, themeSettled } from './theme-epoch.js';
-import { cssVar, $, $$, h, icon, afterExit, fmt, fmtFlow, toast, TOASTS, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, swapFade, scrollBehavior, reconcile } from './util.js';
+import { cssVar, $, $$, h, icon, afterExit, fmt, fmtFlow, toast, TOASTS, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, menuSection, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, swapFade, scrollBehavior, reconcile } from './util.js';
 import { initMenuGlass, whyGlass } from './menu-glass.js';
 import { glidePlateOn, platePieces, glideOnResize } from './plate-glide.js';
 import { sheetParts, sheetOffset, setSheetOffset, stopSheet, glideSheet, dragSheet } from './sheet-move.js';
@@ -1220,46 +1220,44 @@ function openSettings(anchor, withSearch = false) {
   const cur = currentLook() || 'system';
   // While presenting, only what changes how the talk looks (appearance, full screen, text size, blur effect), and Send feedback.
   const talk = presenter.active();
+  // Settings is sorted by what a row does, one titled group each (the revamp, 4 Nov 2026): the one-shot actions first, then how it looks, the
+  // display switches, the model, the measuring aids, and Reset last. ("Accessibility" had held Blur effect and the two measuring aids.)
+  const toggleStored = (key, caught_) => (on) => { try { localStorage.setItem(key, on ? '1' : '0'); } catch (e) { caught(caught_, e); /* storage unavailable */ } };
   popover(anchor, [
     // (Send feedback heads the sheet in every mode and on every device, above the dock's Search and Help, talks included, so a tester reaches it in one tap from any Settings button.)
-    ...(FEEDBACK_EMAIL ? [menuItem('Send feedback', { icon: 'mail', onClick: () => { closePopover(); sendFeedback(); } })] : []),
-    // (From the thumb dock's Settings tab, Search and Help follow it: the dock has no More menu, and a touch keyboard has no ?.)
-    ...(withSearch ? [menuItem('Search', { icon: 'search', onClick: () => { closePopover(); palette.open(); } }),
-      menuItem('Help', { icon: 'help', onClick: () => { closePopover(); openHelpMenu(anchor, { place: 'above', align: 'end', cls: 'app-menu' }); } })] : []),
-    // (Enter full screen is a one-shot row like Send feedback, Search and Help, so it sits with them, not between Appearance and Text size.)
-    fullscreenControl(),
-    h('div', { class: 'menu-title' }, 'Appearance'),
-    lookChooser(cur, (v) => switchTheme(v === 'system' ? null : v, v === 'system')),
-    ...(talk ? presenterSettings() : []),
-    h('div', { class: 'menu-title' }, 'Text size on the figure'),
-    textSizeControl(),
+    // (From the thumb dock's Settings tab, Search and Help follow it: the dock has no More menu, and a touch keyboard has no ?. Enter full screen acts once, so it sits with them.)
+    menuSection(null,
+      ...(FEEDBACK_EMAIL ? [menuItem('Send feedback', { icon: 'mail', onClick: () => { closePopover(); sendFeedback(); } })] : []),
+      ...(withSearch ? [menuItem('Search', { icon: 'search', onClick: () => { closePopover(); palette.open(); } }),
+        menuItem('Help', { icon: 'help', onClick: () => { closePopover(); openHelpMenu(anchor, { place: 'above', align: 'end', cls: 'app-menu' }); } })] : []),
+      fullscreenControl()),
+    menuSection('Appearance',
+      lookChooser(cur, (v) => switchTheme(v === 'system' ? null : v, v === 'system')),
+      ...(talk ? presenterSettings() : []),
+      h('div', { class: 'menu-title' }, 'Text size on the figure'),
+      textSizeControl()),
     // (The figure's resolution choices and performance switches (frame.js) are not in Settings (premium-feel R14, 31 Oct): what a build stored for them is cleared at
     // start (index.html), so they stay at their defaults: Full, and off. Their code stays.)
     // (Blur effect is one setting for the app and the talks: the same switch and the same stored value in both.)
-    h('div', { class: 'menu-title' }, 'Accessibility'),
-    menuToggle(!document.documentElement.hasAttribute('data-noglass'), 'layers', 'Blur effect', 'Frosted glass on cards and labels. Off runs cooler', (on) => {
-      try { localStorage.setItem('pps.noGlass', on ? '0' : '1'); } catch (e) { caught('main:1038', e); /* storage unavailable */ }
-      document.documentElement.toggleAttribute('data-noglass', !on);
-      document.documentElement.removeAttribute('data-noglass-auto');   // (chosen now: no longer the software renderer's own choice, blur-guard.js)
-    }),
-    menuToggle(fpsOn(), 'gauge', 'Show frame rate', 'A small counter in the bottom-left corner', (on) => {
-      try { localStorage.setItem('pps.fps', on ? '1' : '0'); } catch (e) { caught('main:fps', e); /* storage unavailable */ }
-      setFpsCounter(on);
-    }),
-    menuToggle(!!hudEl, 'gauge', 'Show frame breakdown', 'Frame time, script time, which surfaces cost most, and whether the GPU or the script is the limit', (on) => { setFrameBreakdown(on); }),
-    // (What the model shows and how far it goes has its own heading: "Always show HVPG" is not an accessibility setting, and a rule under Blur
-    // left it reading as one.)
-    ...(talk ? [] : [
-      h('div', { class: 'menu-title' }, 'Model'),
+    menuSection('Display',
+      menuToggle(!document.documentElement.hasAttribute('data-noglass'), 'layers', 'Blur effect', 'Frosted glass on cards and labels. Off runs cooler', (on) => {
+        toggleStored('pps.noGlass', 'main:1038')(!on);   // (stored inverted: 1 means the blur is off)
+        document.documentElement.toggleAttribute('data-noglass', !on);
+        document.documentElement.removeAttribute('data-noglass-auto');   // (chosen now: no longer the software renderer's own choice, blur-guard.js)
+      })),
+    // (What the model shows and how far it goes has its own heading; none of it is in a talk.)
+    ...(talk ? [] : [menuSection('Model',
       menuToggle(store.get().showHvpg, 'gauge', 'Always show HVPG', 'Show HVPG without measuring it first', (on) => {
-        try { localStorage.setItem('pps.showHvpg', on ? '1' : '0'); } catch (e) { caught('main:1047', e); /* storage unavailable */ }
+        toggleStored('pps.showHvpg', 'main:1047')(on);
         document.body.classList.remove('hvpg-swap'); void readMetric(document.body, 'offsetWidth'); document.body.classList.add('hvpg-swap');
         setTimeout(() => classSoon(document.body, 'hvpg-swap', false), 600);
         store.set({ showHvpg: on });
       }),
-      menuItem('Advanced physiology', { icon: 'sliders', onClick: () => { closePopover(); closeTreat(); store.set({ selection: null, details: { type: 'advanced' } }); openPanel(); } }),
-      h('div', { class: 'menu-sep' }),
-      menuItem('Reset everything…', { icon: 'reset', onClick: () => resetEverything() })]),
+      menuItem('Advanced physiology', { icon: 'sliders', onClick: () => { closePopover(); closeTreat(); store.set({ selection: null, details: { type: 'advanced' } }); openPanel(); } }))]),
+    menuSection('Performance',
+      menuToggle(fpsOn(), 'gauge', 'Show frame rate', 'A small counter in the bottom-left corner', (on) => { toggleStored('pps.fps', 'main:fps')(on); setFpsCounter(on); }),
+      menuToggle(!!hudEl, 'gauge', 'Show frame breakdown', 'Frame time, script time, which surfaces cost most, and whether the GPU or the script is the limit', (on) => { setFrameBreakdown(on); })),
+    ...(talk ? [] : [menuSection(null, menuItem('Reset everything…', { icon: 'reset', onClick: () => resetEverything() }))]),
   ], withSearch ? { place: 'above', align: 'end', cls: 'app-menu' } : { align: 'start', cls: 'app-menu' });
 }
 // While presenting: no extra settings for now (panel width and high contrast were taken out of slides).

@@ -954,7 +954,10 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .menu-item[aria-checked="true"] { font-weight: 600; }
 /* (A menu's rows keep their own height where the menu is shorter than they are together, and the menu scrolls: they shrank to their 40 px
    touch floor, which for a row with a two-line note (Blur effect, Always show HVPG) left its words over the next row on a phone held sideways.) */
-.menu > :is(.menu-item, .lens-opt, .menu-title) { flex-shrink: 0; }
+.menu > :is(.menu-item, .lens-opt, .menu-title, .menu-group) { flex-shrink: 0; }
+.menu-group { display: flex; flex-direction: column; gap: 1px; }   /* (a titled group of rows: Settings, Help, Blood and Layers sort their rows the same way) */
+.menu-group + .menu-group { margin-top: 4px; padding-top: 4px; box-shadow: 0 -1px 0 var(--hairline); }   /* (a hairline between groups, drawn by a shadow: no extra box to lay out) */
+.menu-group > .menu-title { padding-top: 6px; }
 @media (pointer: coarse) { .menu-item, .lens-opt { min-height: 40px; } }   /* (a finger's 40 px: these rows were 36.3 px) */
 .menu-item :is(svg, .ic) { width: var(--ic-s); height: var(--ic-s); flex: none; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; color: var(--text-2); } .menu-item .ic { -webkit-mask-image: url("../brand/icons/icons-r.png"); mask-image: url("../brand/icons/icons-r.png"); background-color: currentColor; }
 .menu-item .mi-check { width: var(--ic-s); height: var(--ic-s); stroke: var(--accent); stroke-width: 2.4; fill: none; opacity: 0; } .menu-item .mi-check.ic { -webkit-mask-image: url("../brand/icons/icons-b.png"); mask-image: url("../brand/icons/icons-b.png"); background-color: var(--accent); }

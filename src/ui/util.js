@@ -492,6 +492,8 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
   put();
   // (Its fill, ring and shadow are the GPU's, a plate laid under it: plate-gl.js. It reads the look from this menu's own CSS.)
   const plate = glassPlate(el) || plateFor(el, 'menu');
+  // Arrow keys walk the rows (Up, Down, Home, End; wrapping at the ends), as every native menu does; Tab still leaves.
+  el.addEventListener('keydown', menuKeys);
   // (History's list has its own soft edges at both ends.)
   if (!el.classList.contains('tl-history')) fadeWhileMore(el);
   if (asSheet) swipeSheet(el, () => closePopover());
@@ -947,6 +949,18 @@ export function countTo(el, v, d = 1, { eased = false } = NO_COUNT) {
 export const popoverOpen = () => !!openMenu;
 /** Places the open menu again, after something it is anchored to has moved or resized. */
 export function repositionPopover() { if (openMenu) { openMenu.put(); } }
+const ROWS = 'button:not([disabled]), a[href], input:not([disabled]), [tabindex="0"]';
+function menuKeys(e) {
+  const k = e.key;
+  if (k !== 'ArrowDown' && k !== 'ArrowUp' && k !== 'Home' && k !== 'End') return;
+  if (e.target.matches?.('input[type="text"], input[type="search"], textarea, [contenteditable]')) return;
+  const rows = [...e.currentTarget.querySelectorAll(ROWS)].filter((r) => r.checkVisibility ? r.checkVisibility() : true);
+  if (!rows.length) return;
+  const at = rows.indexOf(document.activeElement);
+  const to = k === 'Home' ? 0 : k === 'End' ? rows.length - 1 : k === 'ArrowDown' ? (at + 1) % rows.length : (at <= 0 ? rows.length - 1 : at - 1);
+  e.preventDefault();
+  rows[to].focus({ preventScroll: false });
+}
 export function closePopover() {
   if (!openMenu) return;
   // The menu fades out (it is inert at once, so nothing under it waits), then leaves the page.
@@ -1087,6 +1101,13 @@ export function menuItem(label, { checked, onClick, kb, icon: ic } = {}) {
     toggle ? svgIcon('check', 'mi-check mi-trail') : null);
   b.addEventListener('click', (e) => { onClick?.(e); });
   return b;
+}
+/** A titled group of rows in a menu: the title names the group for a screen reader (role group, labelled by it) and the rows keep one gap, so
+ *  every menu sorts its rows the same way (Settings, Help, Blood, Layers). A title-less group (the quick actions) is a plain run of rows. */
+let sectionN = 0;
+export function menuSection(title, ...rows) {
+  const id = title ? 'mg-' + (++sectionN) : null;   // alloc-rare: a menu opens
+  return h('div', { class: 'menu-group', role: 'group', 'aria-labelledby': id }, title ? h('div', { class: 'menu-title', id }, title) : null, rows);
 }
 export function svgIcon(id, cls = '') {
   const el = icon(id);
