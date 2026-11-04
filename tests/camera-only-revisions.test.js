@@ -26,7 +26,7 @@ test('a camera-only call reuses the labels\' signature; a revision rebuilds it',
   const env = {
     rev: 0, store: null, easeInOut: (v) => v, morph: 0, GEO_LAZY: true, labelGeo: 0, geometryVersion: 3, stentReady: () => false, rotU: 0,
     labelBase: () => 1, stageBox: () => ({ width: 1000 }), vt: { k: 1 }, zoomedIn: () => false, scan: { on: false }, fxSig: '', fx: null,
-    slideGlow: [], dop: { key: '' }, edgeRev: 0, projecting: false, glowSetAt: 0, sigWidth: (x) => Math.round(x.width), paramJSON: JSON.stringify,
+    slideGlow: [], explain: { key: null }, dop: { key: '' }, edgeRev: 0, projecting: false, glowSetAt: 0, sigWidth: (x) => Math.round(x.width), paramJSON: JSON.stringify,
     isImaging: () => false, layerMode: () => 'pressure', flagged: () => [], flagSigBuf: [], LABEL_REV: true,
     sameDeps: (a, b) => { for (let i = 0; i < b.length; i++) if (a[i] !== b[i]) return false; return true; },
     get EV() { built++; return vessels; },

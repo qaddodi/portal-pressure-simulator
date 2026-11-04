@@ -10755,12 +10755,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (!el) { el = leadTake(w.tag); if (!el) { leadShort = true; if (!leadFill) leadFill = restPass(leadTop); continue; } leadEls.set(w.k, el); }
       if (el._gone) { clearTimeout(el._gone); el._gone = 0; el.classList.remove('ld-gone'); }
       for (const a in w.at) setA(el, a, w.at[a]);
+      if (explain.key) { const on = w.at['data-k'] === explain.key; el.classList.toggle('spot-dim', !on); el.classList.toggle('spot-on', on); }   // (a leader made or moved while a label is explained: label-explain.js)
       els.push(el);
     }
     // (A new one goes in just before the next one wanted that is already in, so every line still lies under every dot.)
     late('lead', els);
     dprDots();
-    if (explain.key) explainLeaders();
     for (const [k, el] of leadEls) {
       if (keep.has(k) || el._gone) continue;
       if (reduceMotion.matches) { el.remove(); leadEls.delete(k); continue; }

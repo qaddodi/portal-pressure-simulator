@@ -1723,7 +1723,7 @@ button.finding { cursor: pointer; }
 .lz-lab .n { font-size: 12px; font-weight: 500; color: var(--text-2); white-space: nowrap; }
 .lz-lab .v { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .lz-lab small { font-size: 12px; font-weight: 500; color: var(--text-3); }
-.lz-lab .x { font-size: 11px; font-weight: 500; color: var(--text-2); white-space: nowrap; }   /* (a tapped label's own line, label-explain.js) */
+.lz-lab .x { font-size: 12px; font-weight: 500; color: var(--text-2); white-space: nowrap; }   /* (a tapped label's own line, label-explain.js) */
 .lz-lab[hidden] { display: none; }
 .lz-lab:focus-visible, .lz-lab.sel { border-color: var(--accent); outline: none; }   /* (as Anatomy: a hover changes the name's ink only; a focus or selection also takes the accent outline, .lb.node.sel.inline .lb-bg) */
 /* Zone names: no chip, just letters in the band, as the organs are named (small capitals on a soft halo). */
