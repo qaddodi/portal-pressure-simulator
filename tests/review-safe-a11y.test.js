@@ -69,8 +69,8 @@ test('a share link naming an unknown patient opens healthy and says so', () => {
 test('the organs a tap opens are keyboard items of the figure that never take the pointer or show a ring', () => {
   const stage = stageSource();
   assert.match(stage, /const ORGAN_KEYS = \[\['heart', 'Right heart'\], \['liver', 'Liver'\], \['spleen', 'Spleen'\]\];/);
-  const keys = stage.slice(stage.indexOf('  const figKeys = '), stage.indexOf('  // ── Shunts: from a source vessel to a drop target ──'));
-  assert.match(keys, /if \(morph < 0\.5\) for \(const \[id\] of ORGAN_KEYS\) out\.push\('organ:' \+ id\);/, 'no organ items in the circuit view');
+  const keys = stage.slice(stage.indexOf('  const figKeys = '), stage.indexOf('  // ── Anchors for the action card')) + stage.slice(stage.indexOf("  svg.addEventListener('keydown'"), stage.indexOf('  const guideLine'));   // (the figure's keys: the items in stage-pick.js, the key handler in stage.js)
+  assert.match(keys, /if \((?:live\.)?morph < 0\.5\) for \(const \[id\] of ORGAN_KEYS\) out\.push\('organ:' \+ id\);/, 'no organ items in the circuit view');
   assert.match(keys, /return `\$\{ORGAN_NAME\.get\(item\.slice\(6\)\)\}\. Press Enter for its card\.`;/);
   assert.match(keys, /onSelect\(\{ type: 'organ', id: item\.slice\(6\) \}, \{ keyboard: true \}\)/);
   assert.match(keys, /setOrganHover\(sel\?\.type === 'organ' && sel\.id === org \? null : org\);/, 'focus shows as the hover outline');
