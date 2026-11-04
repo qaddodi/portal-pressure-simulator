@@ -11636,6 +11636,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let solvedFor = null;       // { sig, sc, th } the slots were solved for
   const SOLVED_A = { sig: null, sc: 0, th: 0, csig: 0, ins: 0 }, SOLVED_B = { sig: null, sc: 0, th: 0, csig: 0, ins: 0 };   // (what updateLabels writes it into, by turns)
   const JOB_NOW = { maxWait: 0 };
+  const HAND_STILL_MS = 90;   // (a wheel step is over this long after its last tick: the settle no longer waits the 250 ms of gestureOn)
   const JOB = { g: null, key: null, solvedFor: null, t0: 0 }, jobKeyArr = [], labelKeyArr = [];   // (the solve in slices: one at a time, its key and the key of the layout that stands, kept)
   const keyInto = (to, from) => { to.length = from.length; for (let i = 0; i < from.length; i++) to[i] = from[i]; return to; };
   const labelVis = new Map(); // key → shown last frame (hysteresis against blockers)
@@ -11894,7 +11895,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const g = layoutLabelsGen(f, true);
         if (!labelSliceRun(g, LABEL_SLICE_MS)) {
           labelJob = JOB; JOB.g = g; JOB.key = keyInto(jobKeyArr, key); JOB.solvedFor = sf; JOB.t0 = performance.now(); stats.jobs++;
-          mayTask('label solve', labelJobStep);
+          mayTask('label solve', labelJobStep, handRide?.settle || !gestureOn() ? JOB_NOW : undefined);   // (at rest the slices run every frame, none waits two)
           stats.ms += performance.now() - t0;
           labelTail(solvedFor?.view !== morphTarget);
           return;
@@ -11913,16 +11914,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // they still ride, and only once that layout has landed (a sliced solve too) does the ride end, each label gliding on from where it
   // rode (label-gl.js rideEnd, sync). Ending it before would draw the old layout, uncarried, for the frames the solve takes.
   function handRideWatch() {
-    clearTimeout(handRideT);
-    handRideT = setTimeout(handRideWait, 160);
+    cancelFrame(handRideT);
+    handRideT = nextFrame(handRideWait);   // (checked every frame, not on a timer: the settle starts in the first frame the hand has been still)
   }
   function handRideWait() {
     if (!handRide || handRide.settle) return;
-    if (gestureOn()) { handRideT = setTimeout(handRideWait, 120); return; }
+    if (drag || glide || performance.now() - wheelAt < HAND_STILL_MS) { handRideT = nextFrame(handRideWait); return; }
     handRideT = 0; handRide.settle = true;
     if (F && !camMove && !lz?.isOpen()) { labelKey = null; updateLabels(F); } else handRideEnd();
   }
-  function handRideEnd() { if (!handRide) return; handRide = null; clearTimeout(handRideT); handRideT = 0; rideStop(); }
+  function handRideEnd() { if (!handRide) return; handRide = null; cancelFrame(handRideT); handRideT = 0; rideStop(); }
   // (What every layout of the labels ends with, a carried, a skipped or a sliced one too: the callouts and probes painted, then the GPU's copy.)
   function labelTail(noGl = false) {
     glHold = noGl;   // (the layout standing is another view's, a solve for this one still running: the GPU keeps what it shows, never that)
@@ -11973,7 +11974,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     try { done = labelSliceRun(j.g, Math.max(ms, Math.min(LABEL_SLICE_MS, left || LABEL_SLICE_MS))); } catch (e) { labelJob = null; labelKey = null; throw e; }
     // (Past 400 ms a slice runs every frame, not every third: on a busy frame budget the may task waited its two frames each time, and a
     // Circuit solve took half a minute to land, two readings standing meanwhile.)
-    if (!done && age > 400) { mayTask('label solve', labelJobStep, JOB_NOW); return false; }
+    if (!done && (age > 400 || !gestureOn())) { mayTask('label solve', labelJobStep, JOB_NOW); return false; }
     if (!done) return true;
     labelJob = null;
     solvedFor = j.solvedFor; solveAsked = false;

@@ -2383,7 +2383,9 @@ void main() { o = texture(uT, vUV) * uA; }`;
         const st = sprites.get(s.g);
         if (st && st.mode === 'gl' && st.drawn >= rideT0 && !(st.fk ??= s.g.dataset?.key)?.startsWith('z:')) { const f = takeRec(); f.x = st.dx; f.y = st.dy; f.a = Math.min(1, st.opacity); fromMap.set(s.g, f); }
       }
-      rideFrom = fromMap.size ? fromMap : null;
+      rideFrom = null;   // (no glide from where the labels rode: the layout stands as it lands)
+      for (const f of fromMap.values()) gpool.push(f);
+      fromMap.clear();
     },
     get riding() { return !!rideM; },
     /** Pins the station labels to the figure: f(id, out) writes where the figure has station id's point now (stage px) and returns true. */
