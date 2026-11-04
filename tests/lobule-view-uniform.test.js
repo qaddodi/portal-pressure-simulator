@@ -15,10 +15,10 @@ test('captions and the leaders both take a view, and draw their whole picture in
 
 test('a hand pan and the dive hand the camera to both, and put no transform on the labels or the leaders box', () => {
   // (R08: the pan and the dive are two records composed by composeView, and both views take the composed one.)
-  assert.match(lz, /panDX = dx; panDY = dy; panOn = true;\s*applyView\(\);/);
+  assert.match(lz, /camSet\(PAN, 1, dx, dy\); panOn = true;\s*applyView\(\);/);
   assert.match(lz, /if \(k >= 0\.9999\) setDive\(1, 0, 0\); else setDive\(k, tx - k \* x, ty - k \* y\);/);
   assert.match(lz, /cap\.view\(VIEW\[0\], VIEW\[1\], VIEW\[2\]\); leadGL\.view\(VIEW\[0\], VIEW\[1\], VIEW\[2\]\);/);
-  assert.match(lz, /const unpan = \(\) => \{ if \(!panOn\) return; panOn = false; applyView\(\); \};/);
+  assert.match(lz, /const unpan = \(\) => \{ if \(!panOn\) return; panOn = false; camId\(PAN\); applyView\(\); \};/);
   assert.doesNotMatch(lz, /labels\.style\.transform/);
   assert.doesNotMatch(lz, /leadersBox\.style\.transform/);
 });

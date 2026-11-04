@@ -3,6 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { camNew, camSet, camId, camThen } from '../src/ui/scene-cam.js';
 import { JSDOM } from 'jsdom';
 
 const dom = new JSDOM('<!doctype html><body></body>');
@@ -31,11 +32,12 @@ test('composeView: identity, pan alone, dive alone, and both in a defined order'
 test('unpan removes only the pan; bakeFollow without a pan leaves the dive in place', () => {
   const seen = [];
   const grab = (name) => { const i = lz.indexOf(name); assert.ok(i >= 0, name); return lz.slice(i, lz.indexOf('\n', i)); };
-  const src = `${grab('  let panOn = false, panDX = 0')}\n${grab('  const VIEW = [1, 0, 0]')}
-    function applyView() { composeView(panOn ? panDX : 0, panOn ? panDY : 0, diveK, diveE, diveF, VIEW); seen.push(VIEW.slice()); }
+  const src = `${grab('  let panOn = false')}\n${grab('  const VIEW = [1, 0, 0]')}
+    const PAN = camNew(), DIVE = camNew(), CARD = camNew();
+    function applyView() { camThen(VIEWC, CARD, camThen(VIEWC, DIVE, PAN)); VIEW[0] = VIEWC.k; VIEW[1] = VIEWC.x; VIEW[2] = VIEWC.y; seen.push(VIEW.slice()); }
     ${grab('  const unpan = ')}\n${grab('  const setDive = ')}
-    return { setDive, unpan, pan(dx, dy) { panDX = dx; panDY = dy; panOn = true; applyView(); }, get panOn() { return panOn; } };`;
-  const R = new Function('composeView', 'seen', src)(composeView, seen);
+    return { setDive, unpan, pan(dx, dy) { camSet(PAN, 1, dx, dy); panOn = true; applyView(); }, get panOn() { return panOn; } };`;
+  const R = new Function('camNew', 'camSet', 'camId', 'camThen', 'seen', src)(camNew, camSet, camId, camThen, seen);
   R.setDive(0.5, 10, 20);
   R.pan(8, 4);
   R.unpan();

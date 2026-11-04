@@ -56,6 +56,8 @@ import { classSoon, classHas, textSoon, runSoon } from './class-soon.js';
 import { easeMove, carryRate, carried, createGlideTracker, cubicBezier, D_SMALL, D_SURFACE } from './ease.js';
 import { surface } from './gpu-surfaces.js';
 import { caught } from './caught.js';
+import { camThen, camSet, camId, camAbout, cams } from './scene-cam.js';
+import { lerpInto } from './cam-arc.js';
 import { createCaptions, composeView, inkRows, mirrorOf, rgbaOf as capRGBA } from './label-captions.js';
 import { readStyle, readBox as boxOf } from './layout-snap.js';
 import { hitLabel, explainText } from './label-explain.js';
@@ -236,14 +238,16 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
 
   // ── The view: the lobule framed in the space the floating pieces leave (top bar, dock, cards and
   // its own card), free zoom up to 5× that, the pan held to this lobule. Zooming out stops at the framing.
-  const V = { k: 1, x: 0, y: 0 };
+  const V = cams.lobule.base = { k: 1, x: 0, y: 0 };   // (the lobule's own view is the scene camera's base record, scene-cam.js; the pan, the dive and a card's zoom are its siblings, each written by one owner)
+  const PAN = camId(cams.lobule.pan), DIVE = camId(cams.lobule.dive), CARD = camId(cams.lobule.card);   // (a new lobule starts them at the identity)
   const KMAX = 5;
   // The most px per world unit the bitmap can be shown at, by what the screen can ask for: the zoom stops at KMAX times the fit, so a
   // bitmap sharper than dpr × that (stepped up a √2, as the scales are) is never shown larger than it was painted. At most 3600 px square,
   // and never under what the view is at now. (Recs B3: the spare for twice the zoom no longer reaches past the deepest zoom.)
   const worldCap = (G, dpr) => Math.min(3600 / (2.6 * G.R), Math.max(dpr * kFit * KMAX, dpr * V.k) * Math.SQRT2);
   let kFit = 1, atFit = true;
-  let zoomCam = false, zK = 1, zE = 0, zF = 0, zres = 1;   // (zres: a card's zoom landed, the picture is drawn at this many times the density, same geometry)   // (a card's zoom carries the lobule: layShared lays the field through the camera too)
+  const cardOn = () => CARD.k !== 1 || CARD.x !== 0 || CARD.y !== 0;   // (a card's zoom camera is off at the identity)
+  let zres = 1;   // (zres: a card's zoom landed, the picture is drawn at this many times the density, same geometry)   // (a card's zoom carries the lobule: layShared lays the field through the camera too)
   let zbase = null;   // (the view as a card's camera zoom found it: zoomOpen)
   // A presenter's glide to a station still under way: its part, zoom and target (which refit moves, so the glide still lands on the station).
   let camAim = null;
@@ -428,8 +432,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const step = (now) => {   // alloc-rare: once as a glide begins (the frames below allocate nothing)
       const u = clamp((clock ? clock(now) : now - t0) / ms, 0, 1), e = ease === 'in' ? u * u : easeMove(u);
       const ec = u < 1 ? carried(e, u, c0) : e;   // (with the speed of a glide this one took over from, if any: ease.js carried)
-      const k = from.k * Math.pow(to.k / from.k, ec), a = (k - from.k) / ((to.k - from.k) || 1);
-      V.k = k; V.x = from.x + (to.x - from.x) * (to.k === from.k ? ec : a); V.y = from.y + (to.y - from.y) * (to.k === from.k ? ec : a);
+      lerpInto(from, to, ec, V);   // (the even glide, cam-arc.js: the same record maths the stage's glides use)
       glideTrack.sample(V, now);
       viewChanged();
       if (u < 1) glide = nextFrame(step); else { gliding = false; camAim = null; camSettle(); viewChanged(); }   // (landed: drawn once more at the sharpness the new zoom wants)
@@ -786,7 +789,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     let a = 1, b = 0, c = 0, d = 1, tx = 0, ty = 0;
     // (The picture was drawn for another view: the hand's move since, as a scale and a shift of its own.)
     if (frozenDraw && drawnV.ok && drawnV.k > 0) { a = d = V.k / drawnV.k; tx = V.x - a * drawnV.x; ty = V.y - a * drawnV.y; }
-    if (!wh && (diveK !== 1 || diveE || diveF)) { a *= diveK; d *= diveK; tx = tx * diveK + diveE; ty = ty * diveK + diveF; }
+    if (!wh && (DIVE.k !== 1 || DIVE.x || DIVE.y)) { a *= DIVE.k; d *= DIVE.k; tx = tx * DIVE.k + DIVE.x; ty = ty * DIVE.k + DIVE.y; }
     if (elXf.rot || elXf.Z !== 1) {
       const cs = Math.cos(elXf.rot) * elXf.Z, sn = Math.sin(elXf.rot) * elXf.Z, ox = elXf.ox, oy = elXf.oy;
       // p' = o + R (p - o), after the dive's map
@@ -794,8 +797,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       const ntx = ox + cs * (tx - ox) - sn * (ty - oy), nty = oy + sn * (tx - ox) + cs * (ty - oy);
       a = na; b = nb; c = nc; d = nd; tx = ntx; ty = nty;
     }
-    // (A card's zoom camera, after all of those: p' = zK p + (zE, zF).)
-    if (zoomCam) { a *= zK; b *= zK; c *= zK; d *= zK; tx = zK * tx + zE; ty = zK * ty + zF; }
+    // (A card's zoom camera, after all of those: p' = CARD.k p + (CARD.x, CARD.y).)
+    if (cardOn()) { a *= CARD.k; b *= CARD.k; c *= CARD.k; d *= CARD.k; tx = CARD.k * tx + CARD.x; ty = CARD.k * ty + CARD.y; }
     shXf.a = a; shXf.b = b; shXf.c = c; shXf.d = d; shXf.tx = tx; shXf.ty = ty;
     return shXf;
   }
@@ -808,9 +811,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // under it while the lobule's own texture is still fading in. Laid by layShared as one map over the canvas: no card zoom, or one that only
     // scales up about the top left.)
     if (fieldOp >= 0.999 && fieldGL?.target) {
-      if (!zoomCam) return true;
+      if (!cardOn()) return true;
       const r = (t.canvas.width || 1) / (shW || 1), W = t.canvas.width, H = t.canvas.height;
-      if (zK >= 1 && zE * r <= 0.5 && zF * r <= 0.5 && zK * W + zE * r >= W - 0.5 && zK * H + zF * r >= H - 0.5) return true;
+      if (CARD.k >= 1 && CARD.x * r <= 0.5 && CARD.y * r <= 0.5 && CARD.k * W + CARD.x * r >= W - 0.5 && CARD.k * H + CARD.y * r >= H - 0.5) return true;
     }
     if (fade < 0.999 || el.style.visibility === 'hidden') return false;
     const tg = gl.target;
@@ -824,7 +827,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const t = shareTop;
     if (!t || !gl || gl.lost) return;
     const r = (t.canvas.width || 1) / (shW || 1);   // (the stage canvas's pixels per CSS px)
-    if (fieldOp > 0.002 && fieldGL?.target) { const f = fieldGL.target; if (zoomCam) t.lay(f.tex, zK, 0, 0, zK, zE * r, zF * r, fieldOp); else t.lay(f.tex, 1, 0, 0, 1, 0, 0, fieldOp); }
+    if (fieldOp > 0.002 && fieldGL?.target) { const f = fieldGL.target; if (cardOn()) t.lay(f.tex, CARD.k, 0, 0, CARD.k, CARD.x * r, CARD.y * r, fieldOp); else t.lay(f.tex, 1, 0, 0, 1, 0, 0, fieldOp); }
     if (fade <= 0 || el.style.visibility === 'hidden') return;
     const tg = gl.target;
     if (!tg?.w) return;
@@ -2116,22 +2119,22 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // The pan's shift of the labels and leaders (the GPU draws both carried by it: cap.view, leadGL.view; nothing is written to the page), and its numbers.
   // The pan and the dive are two records, composed in one place (composeView: the pan first, the dive carrying the panned layer); each is
   // written and cleared by its own owner, so ending a pan never erases the dive.
-  let panOn = false, panDX = 0, panDY = 0, diveK = 1, diveE = 0, diveF = 0;
-  const VIEW = [1, 0, 0];   // (the composed view, written in place)
+  let panOn = false;   // (the pan's shift is the PAN record: x, y)
+  const VIEW = [1, 0, 0], VIEWC = { k: 1, x: 0, y: 0 };   // (the composed view, written in place)
   function applyView() {
-    composeView(panOn ? panDX : 0, panOn ? panDY : 0, diveK, diveE, diveF, VIEW);
-    if (zoomCam) { VIEW[0] *= zK; VIEW[1] = zK * VIEW[1] + zE; VIEW[2] = zK * VIEW[2] + zF; }   // (a card's zoom camera, its own record: the dive's frames write the dive's, never this)
+    camThen(VIEWC, CARD, camThen(VIEWC, DIVE, PAN));   // (the card ∘ the dive ∘ the pan: each record has one writer, a card's zoom camera is never written by the dive's frames)
+    VIEW[0] = VIEWC.k; VIEW[1] = VIEWC.x; VIEW[2] = VIEWC.y;
     cap.view(VIEW[0], VIEW[1], VIEW[2]); leadGL.view(VIEW[0], VIEW[1], VIEW[2]);
   }
-  const unpan = () => { if (!panOn) return; panOn = false; applyView(); };
-  const setDive = (k, e, f) => { if (diveK === k && diveE === e && diveF === f) return; diveK = k; diveE = e; diveF = f; applyView(); };
+  const unpan = () => { if (!panOn) return; panOn = false; camId(PAN); applyView(); };
+  const setDive = (k, e, f) => { if (DIVE.k === k && DIVE.x === e && DIVE.y === f) return; camSet(DIVE, k, e, f); applyView(); };
   // Writes the pan's shift into the labels' and leaders' own positions and drops the shared shift, so they glide on from where they are seen.
   function bakeFollow() {
     if (bakeRides()) { clearTimeout(followT); unpan(); return true; }
     clearTimeout(followT);
     // (Only this function's own shift is a pan: the dive's is a scale about a point, kept in its own record.)
     if (!panOn) return false;
-    const dx = panDX, dy = panDY;
+    const dx = PAN.x, dy = PAN.y;
     unpan();
     if (!dx && !dy) return false;
     for (let e = labels.firstElementChild; e; e = e.nextElementSibling) { const p = spot.get(e); if (p) put(e, p[0] + dx, p[1] + dy); }
@@ -2453,7 +2456,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (sameB && V.k === follow.k && handOn() && !rides) {
       const dx = V.x - follow.x, dy = V.y - follow.y;
       if (!panOn) freezeLabelGlides();
-      panDX = dx; panDY = dy; panOn = true;
+      camSet(PAN, 1, dx, dy); panOn = true;
       applyView();
       clearTimeout(followT); followT = setTimeout(followEnd, 140);
       return;
@@ -5060,19 +5063,18 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       // drawn where C puts it, a name keeps its size). The camera is a record of its own: the dive's frames set the dive's and never undo it.)
       // (Mohammad, 4 Nov 2026: the lobule and the sinusoid scale in place, about the stage's middle, as the card grows: they stay where they are and never leave
       // view, whatever side the card is on. The move of the card is not theirs.)
-      const tx = (1 - S) * snap.w / 2, ty = (1 - S) * snap.h / 2;
-      if (zbase.sin) { sv.camera(S, tx, ty, (shareTop?.canvas.width || 1) / (shW || 1)); return; }
-      zK = S; zE = tx; zF = ty; zoomCam = true;
+      camAbout(CARD, S, snap.w / 2, snap.h / 2);
+      if (zbase.sin) { sv.camera(S, CARD.x, CARD.y, (shareTop?.canvas.width || 1) / (shW || 1)); camId(CARD); return; }
       applyView();
       shareTop?.present();
     },
-    /** A card's zoom has landed (on) or is going (off): the lobule's picture is drawn again at zK times the density with the same view and layout (the labels
+    /** A card's zoom has landed (on) or is going (off): the lobule's picture is drawn again at CARD.k times the density with the same view and layout (the labels
      *  are not laid out again), so what the camera carries is sharp; the sinusoid's likewise. At most 3 device px per CSS px. */
     zoomSharp(on) {
       if (!zbase) return;
       if (zbase.sin) { sv.sharpen?.(on); return; }
       const base = Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * lzScale();
-      const z = on ? Math.max(1, Math.min(zK, 3 / (base || 1))) : 1;
+      const z = on ? Math.max(1, Math.min(CARD.k, 3 / (base || 1))) : 1;
       if (z === zres) return;
       zres = z; glDirty = true; tissueKey = ''; drawKey = ''; idleDrawn = ''; drawVersion++;
       if (!raf && fade > 0) raf = nextFrame(loop);
@@ -5084,7 +5086,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       sv.sharpen?.(false);
       zbase = null;
       if (sin) { sv.camera(1, 0, 0, 1); return; }
-      zoomCam = false; zK = 1; zE = 0; zF = 0;
+      camId(CARD);
       applyView();
       shareTop?.present();
     },
