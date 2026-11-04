@@ -41,10 +41,10 @@ test('the scales, the stored value and the listeners', async () => {
 });
 
 test('the anatomy canvas, the lobule and the sinusoid read it; the instruments and labels do not', () => {
-  const stage = stageSource();
-  assert.match(stage, /vdpr = base \* figShare\(r\.width, r\.height, base\);/);
-  assert.match(stage, /let k = \(renderSetting\(\) === 'auto' \? autoK : renderScale\(\)\) \* \(moveLow \? figOpt\('move'\) : 1\) \* adaptK;/);
-  assert.match(stage, /onRenderScale\(\(\) => \{ autoK = autoNow\(\); moveLow = false; adaptK = 1; moveGaps\.length = 0; easeRes\(\); veinsDirty = true; forceDraw = true; stageWake\(\); settleRes\(\); \}\)/);
+  const stage = stageSource().replace(/\blive\./g, '');   // (the stage's shared lets read live.x in a part; judged here by their names)
+  assert.match(stage, /(?:live\.)?vdpr = base \* figShare\(r\.width, r\.height, base\);/);
+  assert.match(stage, /let k = \(renderSetting\(\) === 'auto' \? (?:live\.)?(?:live\.)?autoK : renderScale\(\)\) \* \((?:live\.)?(?:live\.)?moveLow \? figOpt\('move'\) : 1\) \* (?:live\.)?(?:live\.)?adaptK;/);
+  assert.match(stage, /onRenderScale\(\(\) => \{ (?:live\.)?autoK = autoNow\(\); (?:live\.)?moveLow = false; (?:live\.)?adaptK = 1; moveGaps\.length = 0; easeRes\(\); (?:live\.)?veinsDirty = true; (?:live\.)?forceDraw = true; (?:live\.)?stageWake\(\); settleRes\(\); \}\)/);
   assert.equal(src('lobule-zoom.js').split('* lzScale()').length - 1, 6);   // (a sixth reader joined the five below; draw; paintAhead reads draw's own; spareMake; rimOnGPU, the dive's rim drawn on the GPU; buildWideGL, the wide copy on the GPU. The 2D ones went 1 Nov)
   assert.equal(src('sinusoid-view.js').split('* svScale()').length - 1, 2);
   for (const f of ['util.js', 'label-gl.js', 'glass-gl.js', 'instruments.js']) assert.ok(!src(f).includes('renderScale'), f);
@@ -63,7 +63,7 @@ test('the lobule and the sinusoid take a change up while hidden and as they open
 });
 
 test('Auto: 1/zoom past the home framing, in steps down to 10%, changed only once the view settles', () => {
-  const stage = stageSource();
+  const stage = stageSource().replace(/\blive\./g, '');   // (the stage's shared lets read live.x in a part; judged here by their names)
   const steps = stage.match(/const AUTO_STEPS = (\[[^\]]+\])/)[1];
   const body = stage.match(/const autoScale = (\(zoom\) => \{[^\n]+\});/)[1];
   const autoScale = new Function('AUTO_STEPS', `return ${body}`)(JSON.parse(steps));
@@ -77,14 +77,14 @@ test('Auto: 1/zoom past the home framing, in steps down to 10%, changed only onc
   assert.equal(autoScale(40), 0.1, 'never under 10%');
   const fn = stage.slice(stage.indexOf('function settleRes('), stage.indexOf('// Every change of the share eases'));
   assert.match(fn, /leftAlone\(280\)/, 'not while a finger or a glide is moving the view');
-  assert.match(fn, /vtGliding/);
-  assert.match(fn, /if \(k === autoK && !moveLow && a === adaptK\) return;/, 'no reallocation unless the share changes');
-  assert.match(fn, /autoK = k; moveLow = false; easeRes\(\);/, 'and that change eases');
+  assert.match(fn, /(?:live\.)?vtGliding/);
+  assert.match(fn, /if \(k === (?:live\.)?autoK && !(?:live\.)?moveLow && a === (?:live\.)?adaptK\) return;/, 'no reallocation unless the share changes');
+  assert.match(fn, /(?:live\.)?autoK = k; (?:live\.)?moveLow = false; easeRes\(\);/, 'and that change eases');
   assert.match(stage, /settleRes\(\); {3}\/\/ \(the view moved/);
 });
 
 test('every resize for a share goes through easeRes; the copy is laid over first, then the canvas is resized', () => {
-  const stage = stageSource();
+  const stage = stageSource().replace(/\blive\./g, '');   // (the stage's shared lets read live.x in a part; judged here by their names)
   const fn = stage.slice(stage.indexOf('function easeRes('), stage.indexOf('// (The canvas\'s share of its pixels:'));
   const at = fn.indexOf('fadeOver(vCanvas, resFollow, veinsPresent, veins && !veins.lost ? veins.top : null, fadeBox)');
   assert.ok(at >= 0 && at < fn.indexOf('resizeCanvas()'), 'copied before the resize clears it, the kept picture put on the canvas for each read');
@@ -93,7 +93,7 @@ test('every resize for a share goes through easeRes; the copy is laid over first
 });
 
 test('resFollow: the old picture moves from the transform it was drawn in to the one drawn now', () => {
-  const stage = stageSource();
+  const stage = stageSource().replace(/\blive\./g, '');   // (the stage's shared lets read live.x in a part; judged here by their names)
   const body = stage.slice(stage.indexOf('function resFollow('), stage.indexOf('function easeRes('));
   const follow = (m0, m1) => new Function('fadeM0', 'glM', 'resFollowOut', `${body}; return resFollow();`)(m0, m1, [0, 0, 0, 0, 0, 0]);
   assert.deepEqual(follow([2, 0, 0, 2, 10, 20], [2, 0, 0, 2, 10, 20]), [1, 0, 0, 1, 0, 0]);
@@ -133,7 +133,7 @@ test('the further options: all off by default but the 8-megapixel budget, stored
 });
 
 test('figShare: the setting, While moving, Adapt and Size cap together', () => {
-  const stage = stageSource();
+  const stage = stageSource().replace(/\blive\./g, '');   // (the stage's shared lets read live.x in a part; judged here by their names)
   const body = stage.slice(stage.indexOf('function figShare('), stage.indexOf('function resizeCanvas('));
   const make = (o) => new Function('renderSetting', 'renderScale', 'autoK', 'moveLow', 'figOpt', 'adaptK', `${body}; return figShare;`)(
     () => o.set ?? 1, () => (o.set === 'auto' ? 1 : o.set ?? 1), o.autoK ?? 1, !!o.moving, (k) => ({ move: 1, cap: 0, ...o.opts })[k], o.adaptK ?? 1);
@@ -153,7 +153,7 @@ test('figShare: the setting, While moving, Adapt and Size cap together', () => {
 });
 
 test('While moving drops the canvas once per move and back once it settles; the plate picture waits for rest', () => {
-  const stage = stageSource();
+  const stage = stageSource().replace(/\blive\./g, '');   // (the stage's shared lets read live.x in a part; judged here by their names)
   const vt = stage.slice(stage.indexOf('const applyVT = () => {'), stage.indexOf('function syncView()'));
   assert.match(vt, /if \(resizeReady && !moveLow && figOpt\('move'\) < 1 && !\(diveT > 0\)\) \{ moveLow = true; easeRes\(\); settleRes\(\); \}/);
   assert.match(stage, /if \(moveLow\) \{ plateSettle = setTimeout\(settled, 120\); return; \}/);
@@ -161,7 +161,7 @@ test('While moving drops the canvas once per move and back once it settles; the 
 });
 
 test('Adapt: one step a move, down when frames ran half again as long as the fastest, up when they kept pace', () => {
-  const stage = stageSource();
+  const stage = stageSource().replace(/\blive\./g, '');   // (the stage's shared lets read live.x in a part; judged here by their names)
   const body = stage.slice(stage.indexOf('function adaptStep('), stage.indexOf('function noteMoveFrame('));
   const run = (gaps, k0, fast = null, on = true) => new Function('figOpt', 'AUTO_STEPS', 'g0', 'k0', 'f0', `let moveGaps = g0, adaptK = k0, fastGap = Infinity, fastGaps = f0; const moveGapsSorted = [], byValue = (a, b) => a - b; ${body}; adaptStep(); return [adaptK, fastGap, moveGaps.length];`)(
     () => on, [1, 0.75, 0.5, 0.35, 0.25, 0.18, 0.14, 0.1], gaps, k0, fast == null ? [] : [fast]);
@@ -190,7 +190,7 @@ test('Settings: none of the four further rows, nor Adapt to frame rate', () => {
 });
 
 test('Auto’s lowest: Auto never goes under the chosen floor (10% unless chosen)', () => {
-  const stage = stageSource();
+  const stage = stageSource().replace(/\blive\./g, '');   // (the stage's shared lets read live.x in a part; judged here by their names)
   const steps = JSON.parse(stage.match(/const AUTO_STEPS = (\[[^\]]+\])/)[1]);
   const body = stage.match(/const autoScale = (\(zoom\) => \{[^\n]+\});/)[1];
   const now = stage.match(/const autoNow = (\(cur = 0\) => [^\n]+\));/)[1];
@@ -215,7 +215,7 @@ test('res-fade mixes old × a + new × (1 − a) on the GPU, the new picture who
 });
 
 test('Adapt learns the screen again: after a few moves at 60 a second, 60 is the pace, and the figure steps back up', () => {
-  const stage = stageSource();
+  const stage = stageSource().replace(/\blive\./g, '');   // (the stage's shared lets read live.x in a part; judged here by their names)
   const body = stage.slice(stage.indexOf('function adaptStep('), stage.indexOf('function noteMoveFrame('));
   const sim = new Function('figOpt', 'AUTO_STEPS', `let moveGaps = [], adaptK = 1, fastGap = Infinity, fastGaps = []; const moveGapsSorted = [], byValue = (a, b) => a - b; ${body};
     const move = (ms) => { moveGaps = Array(40).fill(ms); adaptStep(); return adaptK; };
@@ -230,7 +230,7 @@ test('Adapt learns the screen again: after a few moves at 60 a second, 60 is the
 });
 
 test('Below Full the canvas is moved by the part of a canvas pixel the renderer rounds off; at Full nothing is set', () => {
-  const stage = stageSource();
+  const stage = stageSource().replace(/\blive\./g, '');   // (the stage's shared lets read live.x in a part; judged here by their names)
   const body = stage.slice(stage.indexOf('function subPixel('), stage.indexOf('function easeRes('));
   const veins = { overlay: { snap: null } };
   const run = (vdpr, vBase, T) => { const vCanvas = { style: { translate: '' } }; new Function('vdpr', 'vBase', 'vCanvas', 'veins', `${body}; subPixel(T);`.replace('subPixel(T);', 'subPixel(arguments[4]);'))(vdpr, vBase, vCanvas, veins, T); return vCanvas.style.translate; };
@@ -244,7 +244,7 @@ test('Below Full the canvas is moved by the part of a canvas pixel the renderer 
 });
 
 test('A dive takes the canvas over at once from a resolution fade', () => {
-  const stage = stageSource();
+  const stage = stageSource().replace(/\blive\./g, '');   // (the stage's shared lets read live.x in a part; judged here by their names)
   const fade = stage.slice(stage.indexOf('function setDiveFade('), stage.indexOf('function setDiveFade(') + 600);
   assert.ok(fade.indexOf('fadeStop(vCanvas)') > 0 && fade.indexOf('fadeStop(vCanvas)') < fade.indexOf('const els = diveEls();'));
   assert.match(stage, /el\.style\.transformOrigin = b\[i\]\[1\]; \}\n\s*fadeStop\(vCanvas\);/);
@@ -252,7 +252,7 @@ test('A dive takes the canvas over at once from a resolution fade', () => {
 });
 
 test('Auto keeps its step near an edge: no flip between 75% and 50% when the zoom is let go about 2×', () => {
-  const stage = stageSource();
+  const stage = stageSource().replace(/\blive\./g, '');   // (the stage's shared lets read live.x in a part; judged here by their names)
   const steps = JSON.parse(stage.match(/const AUTO_STEPS = (\[[^\]]+\])/)[1]);
   const body = stage.match(/const autoScale = (\(zoom\) => \{[^\n]+\});/)[1];
   const sticky = stage.slice(stage.indexOf('const AUTO_HOLD'), stage.indexOf("// (Auto's step for the view now"));
@@ -265,12 +265,12 @@ test('Auto keeps its step near an edge: no flip between 75% and 50% when the zoo
   for (const z of [0.8, 1, 1.5, 2, 3, 4, 7, 12]) assert.equal(f.autoSticky(z, 0), f.autoScale(z), `from nothing (a new setting): the table's own step at ${z}×`);
   // (The table and its edges unchanged: 75% from 1.34×.)
   assert.equal(f.autoScale(1.34), 0.75);
-  assert.match(stage, /const k = autoNow\(autoK\), a = adaptK;/);
+  assert.match(stage, /const k = autoNow\((?:live\.)?(?:live\.)?autoK\), a = (?:live\.)?(?:live\.)?adaptK;/);
 });
 
 // (Mohammad, 30 Oct: "no resolution drop unless I choose to".)
 test('Full with every option off: the canvas at the screen’s own density (up to 2×) up to the 8-megapixel budget', async () => {
-  const stage = stageSource();
+  const stage = stageSource().replace(/\blive\./g, '');   // (the stage's shared lets read live.x in a part; judged here by their names)
   const body = stage.slice(stage.indexOf('function figShare('), stage.indexOf('function resizeCanvas('));
   const store = new Map();
   globalThis.localStorage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
@@ -285,6 +285,6 @@ test('Full with every option off: the canvas at the screen’s own density (up t
   assert.equal(f.renderScale(), 1, 'the lobule and the sinusoid at Full');
   delete globalThis.localStorage;
   // (Every stage path that lowers the canvas is gated on a choice: While moving, Auto, Adapt, the cap.)
-  assert.match(stage, /if \(resizeReady && !moveLow && figOpt\('move'\) < 1 && !\(diveT > 0\)\)/);
-  assert.match(stage, /if \(renderSetting\(\) !== 'auto' && autoK === 1 && !moveLow && !figOpt\('adapt'\) && adaptK === 1\) return;/);
+  assert.match(stage, /if \((?:live\.)?resizeReady && !(?:live\.)?moveLow && figOpt\('move'\) < 1 && !\((?:live\.)?diveT > 0\)\)/);
+  assert.match(stage, /if \(renderSetting\(\) !== 'auto' && (?:live\.)?autoK === 1 && !(?:live\.)?moveLow && !figOpt\('adapt'\) && (?:live\.)?adaptK === 1\) return;/);
 });

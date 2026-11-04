@@ -1,7 +1,7 @@
 // Anatomical stage (blueprint §6): the figure drawn on the GPU (plate, vessels, moving blood),
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
-import { TIERS_ON, TIER_TOP, tierK, motionK, onTierWarm } from './adapt-tier.js';
+import { TIERS_ON, TIER_TOP, tierK, motionK } from './adapt-tier.js';
 import { hold as gpuHold, overMemory as gpuOverMemory } from './gpu-budget.js';
 import { WARM_VIEWS, WARM_MS } from './warm-views.js';
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js';
@@ -39,7 +39,7 @@ import { COLON_ART, BOWEL_ART, DUO_CLIPS, DUO_A, DUO_B } from './organ-art.js';
 import { createRouter } from './circuit-router.js';
 import { gpuProbe, COUNTED } from './gpu-probe.js';
 import { refine } from './refine.js';
-import { fadeOver, fadeStop, fading } from './res-fade.js';
+import { fadeStop, fading } from './res-fade.js';
 import { LIGHT } from './light.js';
 import { leftAlone, sinceInput, booting, holdCover } from './quiet.js';
 import { cropToGrid } from './organs-gl.js';
@@ -68,7 +68,7 @@ import { createReversalHold, oxygenFor } from './blood.js';
 import { createSweepClient } from './sweep-client.js';
 import { createJunctionWidths } from './junction-widths.js';
 import { chainsOf, planChainInto } from './vessel-taper.js';
-import { frameFor, lateFrameFor, cancelFrame, mayTask, cancelMay, noteDraw, easeNow, inMotion, afterMotion, PACED, setSaver as setFrameSaver, renderScale, renderSetting, onRenderScale, figOpt, figLab, onFigLab, PINCH_LOW_K, readFrameFor, frameGapFor, setHandProbe } from './frame.js';
+import { frameFor, lateFrameFor, cancelFrame, mayTask, cancelMay, noteDraw, easeNow, inMotion, afterMotion, PACED, setSaver as setFrameSaver, onRenderScale, figOpt, figLab, onFigLab, PINCH_LOW_K, readFrameFor, frameGapFor, setHandProbe } from './frame.js';
 import { softwareYield } from './sw-yield.js';
 import { portalSplit } from './table-marks.js';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js';
@@ -81,7 +81,6 @@ import { organDimMatrix } from './organ-dim.js';
 import { parseColor, greyOf, paintRef } from './organ-grey.js';
 import { surface } from './gpu-surfaces.js';
 import { guardBlur } from './blur-guard.js';
-import { capDensity } from './pixel-budget.js';
 import { liftEnd, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js';
 import { organAnchor, stepGroups, spanOf, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js';
 import { CellGrid, geomOf } from './cell-grid.js';
@@ -162,11 +161,15 @@ import { createCath } from './stage-cath.js';
 import { createOutlines } from './stage-outlines.js';
 import { createFocus } from './stage-focus.js';
 import { createHover } from './stage-hover.js';
+import { createRes } from './stage-res.js';
 
 export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, onViewChange }) {
   // <stage-split live>
   // The stage's shared lets (and consts made after a part), read at the moment of use by the part files: never copied, so a part cannot draw a frame late.
   const live = {
+    get adaptK() { return adaptK; }, set adaptK(v) { adaptK = v; },
+    get autoK() { return autoK; }, set autoK(v) { autoK = v; },
+    get autoT() { return autoT; }, set autoT(v) { autoT = v; },
     get balloonSqueeze() { return balloonSqueeze; }, set balloonSqueeze(v) { balloonSqueeze = v; },
     get BLOCK_IO() { return BLOCK_IO; },
     get blockerBoxes() { return blockerBoxes; }, set blockerBoxes(v) { blockerBoxes = v; },
@@ -174,6 +177,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get blockersStale() { return blockersStale; }, set blockersStale(v) { blockersStale = v; },
     get bloodClock() { return bloodClock; }, set bloodClock(v) { bloodClock = v; },
     get bloodEasing() { return bloodEasing; }, set bloodEasing(v) { bloodEasing = v; },
+    get boxH() { return boxH; }, set boxH(v) { boxH = v; },
+    get boxW() { return boxW; }, set boxW(v) { boxW = v; },
     get camMove() { return camMove; }, set camMove(v) { camMove = v; },
     get cathFade() { return cathFade; }, set cathFade(v) { cathFade = v; },
     get cathRadOf() { return cathRadOf; },
@@ -184,27 +189,36 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get colShown() { return colShown; }, set colShown(v) { colShown = v; },
     get colWaitAt() { return colWaitAt; }, set colWaitAt(v) { colWaitAt = v; },
     get CTM() { return CTM; }, set CTM(v) { CTM = v; },
+    get diveOrig() { return diveOrig; }, set diveOrig(v) { diveOrig = v; },
+    get diveT() { return diveT; }, set diveT(v) { diveT = v; },
     get dprCardsAt() { return dprCardsAt; }, set dprCardsAt(v) { dprCardsAt = v; },
     get dprCardsList() { return dprCardsList; }, set dprCardsList(v) { dprCardsList = v; },
     get drag() { return drag; }, set drag(v) { drag = v; },
     get dyeShown() { return dyeShown; }, set dyeShown(v) { dyeShown = v; },
     get edgeRev() { return edgeRev; }, set edgeRev(v) { edgeRev = v; },
     get F() { return F; }, set F(v) { F = v; },
+    get fastGap() { return fastGap; }, set fastGap(v) { fastGap = v; },
     get figKeys() { return figKeys; },
     get fluidFade() { return fluidFade; },
     get fluidSurf() { return fluidSurf; }, set fluidSurf(v) { fluidSurf = v; },
+    get forceDraw() { return forceDraw; }, set forceDraw(v) { forceDraw = v; },
+    get frostHold() { return frostHold; }, set frostHold(v) { frostHold = v; },
     get fx() { return fx; }, set fx(v) { fx = v; },
     get fxSig() { return fxSig; }, set fxSig(v) { fxSig = v; },
     get geometryVersion() { return geometryVersion; }, set geometryVersion(v) { geometryVersion = v; },
+    get glassGL() { return glassGL; }, set glassGL(v) { glassGL = v; },
+    get glM() { return glM; }, set glM(v) { glM = v; },
     get glowSync() { return glowSync; }, set glowSync(v) { glowSync = v; },
     get gScan() { return gScan; },
     get guideGlow() { return guideGlow; },
     get guideLab() { return guideLab; },
     get guideLine() { return guideLine; },
+    get homeAt() { return homeAt; }, set homeAt(v) { homeAt = v; },
     get hoverId() { return hoverId; }, set hoverId(v) { hoverId = v; },
     get inUpdate() { return inUpdate; }, set inUpdate(v) { inUpdate = v; },
     get labelGL() { return labelGL; },
     get labelSvg() { return labelSvg; },
+    get lastMoveAt() { return lastMoveAt; }, set lastMoveAt(v) { lastMoveAt = v; },
     get lbRects() { return lbRects; }, set lbRects(v) { lbRects = v; },
     get leadEls() { return leadEls; },
     get LINE_H() { return LINE_H; },
@@ -221,6 +235,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get marksSync() { return marksSync; },
     get mk() { return mk; },
     get morph() { return morph; }, set morph(v) { morph = v; },
+    get moveLow() { return moveLow; }, set moveLow(v) { moveLow = v; },
     get noChevBoxes() { return noChevBoxes; }, set noChevBoxes(v) { noChevBoxes = v; },
     get olCol() { return olCol; }, set olCol(v) { olCol = v; },
     get olDirty() { return olDirty; }, set olDirty(v) { olDirty = v; },
@@ -230,19 +245,28 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get organMorphA() { return organMorphA; }, set organMorphA(v) { organMorphA = v; },
     get origins() { return origins; }, set origins(v) { origins = v; },
     get originsF() { return originsF; }, set originsF(v) { originsF = v; },
+    get paneGL() { return paneGL; }, set paneGL(v) { paneGL = v; },
     get pickVer() { return pickVer; }, set pickVer(v) { pickVer = v; },
+    get picLin() { return picLin; }, set picLin(v) { picLin = v; },
+    get picNow() { return picNow; }, set picNow(v) { picNow = v; },
     get pillEdge() { return pillEdge; }, set pillEdge(v) { pillEdge = v; },
+    get plateOn() { return plateOn; },
     get pool() { return pool; },
+    get quality() { return quality; }, set quality(v) { quality = v; },
+    get resizeReady() { return resizeReady; }, set resizeReady(v) { resizeReady = v; },
     get restK() { return restK; }, set restK(v) { restK = v; },
     get restOn() { return restOn; }, set restOn(v) { restOn = v; },
     get restStill() { return restStill; },
     get restU() { return restU; }, set restU(v) { restU = v; },
     get shunt() { return shunt; }, set shunt(v) { shunt = v; },
+    get SOFTWARE() { return SOFTWARE; }, set SOFTWARE(v) { SOFTWARE = v; },
     get sprayA() { return sprayA; }, set sprayA(v) { sprayA = v; },
     get sprayLast() { return sprayLast; }, set sprayLast(v) { sprayLast = v; },
     get stageWake() { return stageWake; }, set stageWake(v) { stageWake = v; },
+    get vBase() { return vBase; }, set vBase(v) { vBase = v; },
     get vdpr() { return vdpr; }, set vdpr(v) { vdpr = v; },
     get veins() { return veins; }, set veins(v) { veins = v; },
+    get veinsDirty() { return veinsDirty; }, set veinsDirty(v) { veinsDirty = v; },
     get viewVersion() { return viewVersion; }, set viewVersion(v) { viewVersion = v; },
     get vt() { return vt; }, set vt(v) { vt = v; },
     get vtAnim() { return vtAnim; }, set vtAnim(v) { vtAnim = v; },
@@ -3531,169 +3555,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // keeps about the pixels it had at home), in steps down to 10%. It is changed only once the view has settled and been let go,
   // so a pinch or a glide never reallocates the canvas as it moves.
   let autoK = 1, autoT = 0;
-  const AUTO_STEPS = [1, 0.75, 0.5, 0.35, 0.25, 0.18, 0.14, 0.1];
-  const autoScale = (zoom) => { const want = 1 / Math.max(1, zoom); let b = 1; for (let i = 0; i < AUTO_STEPS.length; i++) { const s = AUTO_STEPS[i]; if (s >= want - 1e-6) b = s; } return b; };
-  // (A margin at each step's edges: the step Auto is on is kept while 1/zoom stays within AUTO_HOLD of it, so a zoom let go near 2×
-  // does not flip between 75% and 50% from one settle to the next, each reallocating and fading (review, 30 Oct). The steps
-  // themselves, and where each starts, are as chosen.)
-  const AUTO_HOLD = 1.08;
-  const autoSticky = (zoom, cur) => {
-    const k = autoScale(zoom), want = 1 / Math.max(1, zoom), i = AUTO_STEPS.indexOf(cur);
-    if (i < 0 || k === cur) return k;
-    if (k > cur && want <= cur * AUTO_HOLD) return cur;   // (a little sharper wanted: not yet)
-    if (k < cur && i + 1 < AUTO_STEPS.length && want * AUTO_HOLD > AUTO_STEPS[i + 1]) return cur;   // (a little softer allowed: not yet)
-    return k;
-  };
-  // (Auto's step for the view now, no lower than Settings › Auto's lowest.)
-  const autoNow = (cur = 0) => (renderSetting() === 'auto' ? Math.max(figOpt('floor'), autoSticky(vt.k / Math.max(1e-6, homeAt?.k ?? 1), cur)) : 1);
+  const { autoNow, easeRes, moveGaps, noteMoveFrame, resizeCanvas, settleRes, subPixel } = createRes({ OVER_ASK, QUALITY, drawVeins, schedulePlateView, stageBox, vCanvas, wrap }, live);
   // Figure resolution › Adapt to frame rate: the gaps between the frames of each move (moveGaps, from drawVeins); once it settles,
   // one step lower (down to 25%) when they ran half again as long as the screen's own pace (the shortest gaps seen, fastGap), one
   // step back up when they kept up with it. Once a move, never during one.
   // (fastGap: the shortest of the last few moves' quick frames, so a screen that drops to 60 a second, a Low Power Mac or another
   // monitor, is learned again within a few moves instead of every move looking slow from then on (review, 30 Oct).)
   let adaptK = 1, lastMoveAt = 0, fastGap = Infinity;
-  const moveGaps = [], fastGaps = [], moveGapsSorted = [];   // (kept lists, written in place)
-  const byValue = (a, b) => a - b;
-  function adaptStep() {
-    if (!figOpt('adapt')) { adaptK = 1; moveGaps.length = 0; return; }
-    if (moveGaps.length < 20) return;
-    const g = moveGapsSorted;
-    g.length = moveGaps.length;
-    for (let i = 0; i < moveGaps.length; i++) g[i] = moveGaps[i];
-    g.sort(byValue);
-    const med = g[g.length >> 1];
-    fastGaps.push(g[Math.floor(g.length * 0.1)]); if (fastGaps.length > 5) fastGaps.shift();
-    let lowest = Infinity;
-    for (let i = 0; i < fastGaps.length; i++) lowest = Math.min(lowest, fastGaps[i]);
-    fastGap = Math.max(4, lowest);
-    moveGaps.length = 0;
-    const at = AUTO_STEPS.indexOf(adaptK);
-    if (med > fastGap * 1.5 && adaptK > 0.25) adaptK = AUTO_STEPS[at + 1];
-    else if (med < fastGap * 1.15 && adaptK < 1) adaptK = AUTO_STEPS[at - 1];
-  }
-  function noteMoveFrame() {
-    const t = performance.now();
-    if (t - lastMoveAt < 250) { moveGaps.push(t - lastMoveAt); if (moveGaps.length > 240) moveGaps.shift(); }
-    lastMoveAt = t;
-  }
-  // Once the view has settled and been let go: Auto's step for the zoom, the canvas back from its moving share, Adapt's next step.
-  function settleRes() {
-    if (renderSetting() !== 'auto' && autoK === 1 && !moveLow && !figOpt('adapt') && adaptK === 1) return;
-    clearTimeout(autoT);
-    autoT = setTimeout(resSettled, 200);
-  }
-  function resSettled() {
-    // (Never during a dive or a rise: its copy, laid over the canvas, would stand still while the dive's scale zooms the rest.)
-    if (!leftAlone(280) || vtGliding || (diveT > 0 && diveT < 1)) { autoT = setTimeout(resSettled, 120); return; }
-    const k = autoNow(autoK), a = adaptK;
-    adaptStep();
-    if (k === autoK && !moveLow && a === adaptK) return;
-    autoK = k; moveLow = false; easeRes();
-    if (plateOn()) schedulePlateView();   // (the view's sharp picture, made again for the new resolution)
-  }
-  // Every change of the share eases (Mohammad, 30 Oct: "nothing snaps"): the picture as drawn is laid over the canvas and fades out
-  // (res-fade.js) while the canvas is resized and drawn again under it; the copy follows the view from the transform it was drawn
-  // in (glM then) to the one each frame is drawn in.
-  let fadeM0 = null;
-  const fadeM0Buf = [0, 0, 0, 0, 0, 0], resFollowOut = [0, 0, 0, 0, 0, 0], fadeBox = { w: 0, h: 0 };
-  const veinsPresent = () => veins?.present?.();
-  function resFollow() {
-    if (!fadeM0 || !glM) return null;
-    const [a, b, c, d, e, f] = fadeM0, det = a * d - b * c;
-    if (!det) return null;
-    const ia = d / det, ib = -b / det, ic = -c / det, id = a / det, ie = (c * f - d * e) / det, iff = (b * e - a * f) / det;
-    const [A, B, C, D, E, G] = glM, o = resFollowOut;   // (now ∘ then⁻¹; written into a kept six, which the fade reads at once)
-    o[0] = A * ia + C * ib; o[1] = B * ia + D * ib; o[2] = A * ic + C * id; o[3] = B * ic + D * id; o[4] = A * ie + C * iff + E; o[5] = B * ie + D * iff + G;
-    return o;
-  }
-  // Below Full a canvas pixel spans more of the screen, and the renderer draws the figure at whole canvas pixels (veins-gl whole()):
-  // the canvas is moved by the rest, in CSS px, so a pan glides with the labels instead of stepping (review, 30 Oct). At Full nothing
-  // is set, as on the live site. (`translate`, not `transform`: the dive scales the canvas by its transform.)
-  function subPixel(T) {
-    let v = '';
-    if (vdpr < vBase - 1e-9) {
-      const fx = T[4] - Math.round(T[4]), fy = T[5] - Math.round(T[5]);
-      if (fx || fy) {
-        if (fx !== subFx || fy !== subFy || vdpr !== subVd) { subFx = fx; subFy = fy; subVd = vdpr; subTxt = `${(fx / vdpr).toFixed(3)}px ${(fy / vdpr).toFixed(3)}px`; }
-        v = subTxt;
-      }
-    }
-    if (vCanvas.style.translate !== v) vCanvas.style.translate = v;
-    if (veins?.overlay) veins.overlay.snap = vdpr < vBase - 1e-9;   // (the overlays drawn in the canvas go at whole pixels with the vessels)
-  }
-  let subFx = NaN, subFy = NaN, subVd = NaN, subTxt = '';   // (the rest and density the kept text was made for: the text is made again only when they change)
-  function easeRes() {
-    // (The kept picture is copied onto the canvas before each read of it: the canvas keeps none of its own between frames.)
-    if (glM && !(lz?.isOpen() || lz?.covers()) && !diveOrig) {
-      // (The picture kept for the fade is the figure without the glasses drawn in its canvas: they go back to their own way first, and
-      // come back once the fade has ended, frostOn.)
-      frostHold = true;
-      try { glassGL?.release(); paneGL?.release(); fadeBox.w = boxW; fadeBox.h = boxH; fadeOver(vCanvas, resFollow, veinsPresent, veins && !veins.lost ? veins.top : null, fadeBox); } finally { frostHold = false; }
-      for (let q = 0; q < 6; q++) fadeM0Buf[q] = glM[q];
-      fadeM0 = fadeM0Buf;
-    }
-    resizeCanvas();
-  }
-  // (The canvas's share of its pixels: the setting (or Auto's step), While moving's share during a move, Adapt's step, and at most
-  // Size cap's megapixels; never under a tenth of the screen's density.)
-  function figShare(w, h, base) {
-    let k = (renderSetting() === 'auto' ? autoK : renderScale()) * (moveLow ? figOpt('move') : 1) * adaptK;
-    const cap = figOpt('cap') * 1e6, px = w * h * (base * k) ** 2;
-    if (cap > 0 && px > cap) k *= Math.sqrt(cap / px);
-    return Math.max(0.1, k);
-  }
   // Settings › Figure performance › Sharper upscaling (frame.js): under Full the canvas stays at Full and the figure is drawn at its
   // share into the renderer's own buffer, then upscaled onto it (veins-gl setPicture). picNow: that share's size, or null (off, at Full,
   // or no GPU renderer): the canvas is then the picture, as before.
   let picNow = null, picLin = false;
-  let resTxtOf = NaN;
-  const picNext = [0, 0], picKept = [0, 0];   // (the size asked for now, and the size kept in picNow: two pairs written in place)
-  function resizeCanvas() {
-    const r = stageBox(), was = vdpr;   // (the stage's box, kept by its observer: no layout read on the frame)
-    const base = Math.min(2, devicePixelRatio || 1) * QUALITY[quality].res;
-    vdpr = base * figShare(r.width, r.height, base); vBase = base;   // (Settings › Figure resolution)
-    veins?.setLayerScale?.(figOpt('glow'));   // (Figure resolution › Glows: the glow layers' own share)
-    if (vdpr !== resTxtOf) { resTxtOf = vdpr; wrap.dataset.res = vdpr.toFixed(2); }   // (the vessel canvas's pixels per CSS pixel, for diagnosis; written when it changes)
-    let bw = Math.max(1, Math.round(r.width * vdpr)), bh = Math.max(1, Math.round(r.height * vdpr));
-    const pw = bw, ph = bh;
-    // (With the overlays on the GPU (?stageover=gpu) the canvas is at the screen's own density, as the SVG they replace is drawn, and
-    // the figure, at its own, upscaled onto it by a plain filtered copy, as the page's compositor upscales a smaller canvas.)
-    let full = veins?.overlay && (!SOFTWARE || OVER_ASK) ? devicePixelRatio || 1 : 0;
-    // (The pixel budget holds for that canvas too (figOpt('cap'), 8 MP): on a big external screen at the screen's own density it had been
-    // 14.7 MP, the figure upscaled onto it past the budget. Every laptop, iPad and phone is under it, so none of them changes.)
-    full = capDensity(full, r.width, r.height, figOpt('cap'));
-    let lin = false;
-    if (full && vdpr < full - 1e-9) { bw = Math.max(1, Math.round(r.width * full)); bh = Math.max(1, Math.round(r.height * full)); lin = !figLab('upscale'); }
-    else if (figLab('upscale') && veins?.setPicture && !SOFTWARE && vdpr < base - 1e-9) { bw = Math.max(1, Math.round(r.width * base)); bh = Math.max(1, Math.round(r.height * base)); }
-    const pic = bw !== pw || bh !== ph ? picNext : null;
-    if (pic) { pic[0] = pw; pic[1] = ph; }
-    wrap.classList.toggle('compact', r.height < 600);
-    // A notice that changed nothing the buffer holds (same backing size and ratio) leaves the canvas as it is: assigning a
-    // width, even the same one, clears every surface drawn on it, and the figure was drawn again in the same task. A box
-    // that moved by less than a backing pixel is drawn again on the next frame, as any change is, without the clear.
-    if (resizeReady && bw === vCanvas.width && bh === vCanvas.height && vdpr === was && (pic ? !!picNow && pic[0] === picNow[0] && pic[1] === picNow[1] : !picNow) && lin === picLin) {
-      CTM = null;
-      if (r.width !== boxW || r.height !== boxH) { boxW = r.width; boxH = r.height; forceDraw = true; stageWake(); }
-      return;
-    }
-    boxW = r.width; boxH = r.height;
-    vCanvas.width = bw; vCanvas.height = bh;
-    if (pic || picNow) { if (pic) { picKept[0] = pic[0]; picKept[1] = pic[1]; picNow = picKept; } else picNow = null; picLin = lin; veins?.setPicture?.(pic, lin); }
-    CTM = null; forceDraw = true; stageWake();
-    // Resizing clears the canvas, and the organs (the plate) and vessels drawn on it with it: draw
-    // them again in the same task. A pinch or a layout change can land after this frame's draw
-    // (Safari delivers touches outside the frame loop), and the figure would vanish for a frame.
-    if (resizeReady && F && !inUpdate && !(lz?.isOpen() || lz?.covers())) { veinsDirty = true; drawVeins(false, 'resize'); }
-  }
-  new ResizeObserver(resizeCanvas).observe(wrap);
-  // (A change that leaves the canvas's size as it is (Glows alone) still draws the figure again, its glow layers remade.)
-  // (Auto's step is taken at once for the view as it stands, so a change goes in one eased step, not by Full and back.)
-  if (TIERS_ON) onTierWarm(() => { if (veins && !veins.lost) veins.prepLow?.(TIER_TOP); });   // (the tiers' targets, made between frames)
-    // (B3: the lower targets, made between frames a moment after the canvas was sized, so the first moving frame allocates nothing.)
-  let lowWarmT = 0;
-  const lowWarm = () => { clearTimeout(lowWarmT); lowWarmT = setTimeout(() => { if (veins && !veins.lost && !inMotion()) veins.prepLow?.(TIER_TOP); }, 1500); };
-  lowWarm(); new ResizeObserver(lowWarm).observe(wrap);
-onRenderScale(() => { autoK = autoNow(); moveLow = false; adaptK = 1; moveGaps.length = 0; easeRes(); veinsDirty = true; forceDraw = true; stageWake(); settleRes(); });
+ onRenderScale(() => { autoK = autoNow(); moveLow = false; adaptK = 1; moveGaps.length = 0; easeRes(); veinsDirty = true; forceDraw = true; stageWake(); settleRes(); });
   resizeCanvas(); resizeReady = true;
   // A window dragged to a screen of another density keeps its CSS size, so no resize notice follows and the figure would stay at the old screen's
   // sharpness: the canvas is measured again when the density changes. (The query names the density now in force and fires once it stops matching, so it is made anew each time.)

@@ -48,8 +48,8 @@ test('no surface steps its own resolution or frame rate down', () => {
   assert.match(stage, /removeItem\('pps\.q'\)/, 'an old stored level is dropped');
   // (Besides the step, only Settings › Figure resolution and its options, which the viewer picks (frame.js, all off unless chosen;
   // Adapt to frame rate is the one that steps down by itself, and only once he switches it on, 30 Oct).
-  assert.match(stage, /const base = Math\.min\(2, devicePixelRatio \|\| 1\) \* QUALITY\[quality\]\.res;\n\s*vdpr = base \* figShare\(r\.width, r\.height, base\);/, 'the vessel canvas follows only the explicit step and settings');
-  assert.match(stage, /if \(!figOpt\('adapt'\)\) \{ adaptK = 1;/, 'Adapt stays at Full unless chosen');
+  assert.match(stage, /const base = Math\.min\(2, devicePixelRatio \|\| 1\) \* QUALITY\[(?:live\.)?quality\]\.res;\n\s*(?:live\.)?vdpr = base \* figShare\(r\.width, r\.height, base\);/, 'the vessel canvas follows only the explicit step and settings');
+  assert.match(stage, /if \(!figOpt\('adapt'\)\) \{ (?:live\.)?adaptK = 1;/, 'Adapt stays at Full unless chosen');
   const lob = readFileSync(new URL('lobule-zoom.js', SRC), 'utf8');
   assert.ok(!/\blzRes\b/.test(lob), 'lobule-zoom.js: its resolution governor is back');
   const fib = readFileSync(new URL('fibroscan.js', SRC), 'utf8');

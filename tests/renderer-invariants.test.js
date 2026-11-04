@@ -100,7 +100,7 @@ test('the stage resizes its drawing buffer from the wrap size and ratio, never f
 });
 
 test('a resize notice that leaves the backing size and ratio as they were neither clears the canvas nor draws in the same task', () => {
-  const src = stageSource();
+  const src = stageSource().replace(/\blive\./g, '');   // (read by names: the part reads the shared lets as live.x)
   const fn = src.slice(src.indexOf('function resizeCanvas()'), src.indexOf('new ResizeObserver(resizeCanvas)'));
   const guard = fn.indexOf('bw === vCanvas.width && bh === vCanvas.height && vdpr === was');
   assert.ok(guard > 0, 'the unchanged size is checked');

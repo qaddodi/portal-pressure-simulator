@@ -124,14 +124,14 @@ test('the upscale filter: Catmull-Rom in five reads, held within the four neares
 test('the stage: off, the canvas and its early return are as before; on, the canvas stays at Full under a smaller picture', () => {
   const stage = stageSource();
   const fn = stage.slice(stage.indexOf('  function resizeCanvas() {'), stage.indexOf('  new ResizeObserver(resizeCanvas).observe(wrap);'));
-  assert.match(fn, /else if \(figLab\('upscale'\) && veins\?\.setPicture && !SOFTWARE && vdpr < base - 1e-9\) \{ bw = Math\.max\(1, Math\.round\(r\.width \* base\)\); bh = Math\.max\(1, Math\.round\(r\.height \* base\)\); \}/);
+  assert.match(fn, /else if \(figLab\('upscale'\) && (?:live\.)?(?:live\.)?veins\?\.setPicture && !(?:live\.)?(?:live\.)?SOFTWARE && (?:live\.)?(?:live\.)?vdpr < base - 1e-9\) \{ bw = Math\.max\(1, Math\.round\(r\.width \* base\)\); bh = Math\.max\(1, Math\.round\(r\.height \* base\)\); \}/);
   assert.match(fn, /const pic = bw !== pw \|\| bh !== ph \? picNext : null;\n\s+if \(pic\) \{ pic\[0\] = pw; pic\[1\] = ph; \}/);
-  assert.match(fn, /if \(resizeReady && bw === vCanvas\.width && bh === vCanvas\.height && vdpr === was && \(pic \? !!picNow && pic\[0\] === picNow\[0\] && pic\[1\] === picNow\[1\] : !picNow\) && lin === picLin\) \{/, 'off: pic and picNow both null, the old test');
-  assert.match(fn, /if \(pic \|\| picNow\) \{ if \(pic\) \{ picKept\[0\] = pic\[0\]; picKept\[1\] = pic\[1\]; picNow = picKept; \} else picNow = null; picLin = lin; veins\?\.setPicture\?\.\(pic, lin\); \}/, 'off: never called');
+  assert.match(fn, /if \((?:live\.)?resizeReady && bw === vCanvas\.width && bh === vCanvas\.height && (?:live\.)?vdpr === was && \(pic \? !!(?:live\.)?picNow && pic\[0\] === (?:live\.)?picNow\[0\] && pic\[1\] === (?:live\.)?picNow\[1\] : !(?:live\.)?picNow\) && lin === (?:live\.)?picLin\) \{/, 'off: pic and picNow both null, the old test');
+  assert.match(fn, /if \(pic \|\| (?:live\.)?picNow\) \{ if \(pic\) \{ picKept\[0\] = pic\[0\]; picKept\[1\] = pic\[1\]; (?:live\.)?picNow = picKept; \} else (?:live\.)?picNow = null; (?:live\.)?picLin = lin; (?:live\.)?veins\?\.setPicture\?\.\(pic, lin\); \}/, 'off: never called');
   // (The overlays on the GPU, wherever the GPU draws them: the canvas at the screen's density, the picture upscaled by a plain filtered copy.)
   // (At most the pixel budget since 1 Nov 2026: capDensity, gpu-fallback-guards.test.js.)
-  assert.match(fn, /let full = veins\?\.overlay && \(!SOFTWARE \|\| OVER_ASK\) \? devicePixelRatio \|\| 1 : 0;\n[\s\S]*?full = capDensity\(full, r\.width, r\.height, figOpt\('cap'\)\);\n\s+let lin = false;\n\s+if \(full && vdpr < full - 1e-9\) \{ bw = Math\.max\(1, Math\.round\(r\.width \* full\)\); bh = Math\.max\(1, Math\.round\(r\.height \* full\)\); lin = !figLab\('upscale'\); \}/);
+  assert.match(fn, /let full = (?:live\.)?veins\?\.overlay && \(!(?:live\.)?SOFTWARE \|\| OVER_ASK\) \? devicePixelRatio \|\| 1 : 0;\n[\s\S]*?full = capDensity\(full, r\.width, r\.height, figOpt\('cap'\)\);\n\s+let lin = false;\n\s+if \(full && (?:live\.)?vdpr < full - 1e-9\) \{ bw = Math\.max\(1, Math\.round\(r\.width \* full\)\); bh = Math\.max\(1, Math\.round\(r\.height \* full\)\); lin = !figLab\('upscale'\); \}/);
   assert.doesNotMatch(stage, /OVER_GPU|stageover=svg/);
-  assert.match(stage, /if \(picNow\) veins\?\.setPicture\?\.\(picNow, picLin\);/, 'a restored context draws at the same share');
-  assert.match(stage, /const roomW = picNow \? picNow\[0\] : vCanvas\.width, roomH = picNow \? picNow\[1\] : vCanvas\.height;/, 'the organ picture sized for the picture, not the larger canvas');
+  assert.match(stage, /if \((?:live\.)?picNow\) (?:live\.)?veins\?\.setPicture\?\.\((?:live\.)?picNow, (?:live\.)?picLin\);/, 'a restored context draws at the same share');
+  assert.match(stage, /const roomW = (?:live\.)?picNow \? (?:live\.)?picNow\[0\] : vCanvas\.width, roomH = (?:live\.)?picNow \? (?:live\.)?picNow\[1\] : vCanvas\.height;/, 'the organ picture sized for the picture, not the larger canvas');
 });

@@ -176,19 +176,19 @@ test('the stage: off unless asked for; the painted groups\' SVG hidden by an emp
   const st = stageSource(), css = read('../styles/app.css');
   assert.match(st, /const OVER_ASK = typeof location !== 'undefined' && \/\[\?&\]stageover=gpu\\b\/\.test\(location\.search\);/);
   assert.doesNotMatch(st, /OVER_GPU|stageover=svg/);
-  assert.match(st, /let OVER_ON = !!veins\?\.overlay && \(!SOFTWARE \|\| OVER_ASK\);/);
+  assert.match(st, /let OVER_ON = !!(?:live\.)?veins\?\.overlay && \(!(?:live\.)?SOFTWARE \|\| OVER_ASK\);/);
   assert.match(css, /\.stage-view svg#stageOver \.gpu-over \{ clip-path: inset\(50%\) !important; \}/);
   // (All they show painted: the overlays' SVG composited at nothing; with no picture to paint in, every copy shown again.)
   assert.match(css, /\.stage-view svg#stageOver\.gpu-all \{ opacity: 0 !important; \}/);
   assert.match(st, /svgOver\.classList\.toggle\(OVER_ALL, run\.whole\);/);
   // (A non-scaling stroke's px: the canvas's own over its box's, given to the painter before each change check and paint.)
-  assert.match(st, /veins\.overlay\.cssPx = boxW > 0 \? vCanvas\.width \/ boxW : 1;/);
+  assert.match(st, /(?:live\.)?veins\.overlay\.cssPx = (?:live\.)?boxW > 0 \? vCanvas\.width \/ (?:live\.)?boxW : 1;/);
   const vg = read('../src/ui/veins-gl.js');
   assert.match(vg, /stack\.painter\.cssPx = overCss;\n\s+return over\.stale\(overView\(\), canvas\.width, canvas\.height\);/);
   assert.match(vg, /const om = overSnap \? whole\(overM, WO\) : overM;\n\s+const kx = canvas\.width \/ PW\(\), ky = canvas\.height \/ PH\(\);\n\s+OV_M\[0\] = om\[0\] \* kx;/);
   assert.match(vg, /stack\.painter\.cssPx = overCss;\n\s+if \(over\.stale\(m, canvas\.width, canvas\.height\)\) over\.render/);
   // (Below Full the canvas is moved by the vessels' sub-pixel rest: the overlays go at whole pixels with the vessels, in the check and the paint.)
-  assert.match(st, /if \(veins\?\.overlay\) veins\.overlay\.snap = vdpr < vBase - 1e-9;/);
+  assert.match(st, /if \((?:live\.)?(?:live\.)?veins\?\.overlay\) (?:live\.)?(?:live\.)?veins\.overlay\.snap = (?:live\.)?(?:live\.)?vdpr < (?:live\.)?(?:live\.)?vBase - 1e-9;/);
   assert.equal((vg.match(/overSnap \? whole\(overM, WO\) : overM/g) || []).length, 1, 'one view for the check and the paint');
   assert.equal((vg.match(/overView\(\)/g) || []).length, 3);
   assert.match(vg, /set snap\(v\) \{ overSnap = !!v; \}/);
@@ -199,7 +199,7 @@ test('the stage: off unless asked for; the painted groups\' SVG hidden by an emp
   assert.match(st, /const a = appEl\?\.className \|\| '', d = document\.documentElement\.className, w = wrapCls\(\)/);
   assert.match(st, /\.filter\(\(c\) => c !== OVER_ALL\)\.join\(' '\)/);
   assert.match(st, /if \(d !== okDoc \|\| w !== okWrap \|\| th !== okTheme \|\| pal !== okPal \|\| rm !== okRM\)/);
-  assert.match(st, /if \(!veins\?\.overlay \|\| veins\.lost \|\| !wrap\.classList\.contains\('gl-on'\)\) \{ if \(overPainted\.length \|\| svgOver\?\.classList\.contains\(OVER_ALL\)\) overClear\(\); return; \}/);
+  assert.match(st, /if \(!(?:live\.)?veins\?\.overlay \|\| (?:live\.)?veins\.lost \|\| !wrap\.classList\.contains\('gl-on'\)\) \{ if \(overPainted\.length \|\| svgOver\?\.classList\.contains\(OVER_ALL\)\) overClear\(\); return; \}/);
   assert.match(st, /vCanvas\.addEventListener\('webglcontextlost', \(\) => \{\n\s+wrap\.classList\.remove\('gl-on'\);\n\s+overClear\(\);/);
   assert.match(st, /function overClear\(\) \{\n\s+for \(const u of overPainted\) u\.classList\.remove\(OVER_CLASS\);\n\s+overPainted = \[\];\n\s+svgOver\?\.classList\.remove\(OVER_ALL\);/);
   assert.match(st, /const spec = readGroup\(u, \{ nest: true, strict: true \}\);/);
@@ -210,5 +210,5 @@ test('the stage: off unless asked for; the painted groups\' SVG hidden by an emp
   assert.match(st, /groups\.set\(n, \[\{ spec, get m\(\) \{ const own = elMat\(u\); return up \? mulTo\(sc, elMat\(up\), own\) : own; \} \}\]\);/);
   assert.match(st, /for \(const u of overPainted\) if \(!now2\.has\(u\)\) u\.classList\.remove\(OVER_CLASS\);\n\s+for \(const u of now2\) u\.classList\.add\(OVER_CLASS\);/);
   // (Read each frame before the figure decides to sleep, and laid again alone when only they changed.)
-  assert.match(st, /syncOver\(\);\n\s+\/\/ [^\n]*\n\s+if \(OVER_ON && veins\?\.overlay\?\.stale && !veins\.lost\) veins\.present\(\);\n\s+const rowsWait/);
+  assert.match(st, /syncOver\(\);\n\s+\/\/ [^\n]*\n\s+if \(OVER_ON && (?:live\.)?veins\?\.overlay\?\.stale && !(?:live\.)?veins\.lost\) (?:live\.)?veins\.present\(\);\n\s+const rowsWait/);
 });

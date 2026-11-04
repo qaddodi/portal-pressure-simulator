@@ -1,0 +1,1 @@
+{ "factory": "createRes", "file": "stage-res.js", "about": "The figure's resolution and size: the canvas share (Auto, Adapt, While moving, Size cap), its eased changes, its resize and the density watch.", "lines": [[3529, 3695]], "trust": ["settleRes", "easeRes", "noteMoveFrame", "subPixel"] }
