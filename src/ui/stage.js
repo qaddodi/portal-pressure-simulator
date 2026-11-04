@@ -15541,6 +15541,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // (The dive into the lobule never moves the anatomy's own framing.)
       const fromLobule = lobuleOn || lobU > 0, at = vt;
       morphTarget = target; handed = false;
+      lastT = performance.now() - 16;   // (a figure that slept before the tap has a stale clock: its first frame of the change took the 0.1 s clamp, a lurch; it starts at one frame)
       syncSemantic();
       // Zoomed out (or fitted) in the anatomy, the circuit opens zoomed out too: the whole map, not
       // the close-up it opens with on a phone. From a zoomed-in view it takes its usual framing.
