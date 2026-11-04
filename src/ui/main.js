@@ -29,6 +29,7 @@ import { dopplerVel } from './velNormal.js';
 import { controlOwnsKey } from './key-owner.js';
 import { onTheme, themeSettled } from './theme-epoch.js';
 import { cssVar, $, $$, h, icon, afterExit, fmt, fmtFlow, toast, TOASTS, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, swapFade, scrollBehavior, reconcile } from './util.js';
+import { initMenuGlass, whyGlass } from './menu-glass.js';
 import { glidePlateOn, platePieces, glideOnResize } from './plate-glide.js';
 import { sheetParts, sheetOffset, setSheetOffset, stopSheet, glideSheet, dragSheet } from './sheet-move.js';
 import { releaseSpeed, isFlick, flickAim, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js';
@@ -1650,6 +1651,8 @@ function wireFloating() {
   sheetGlass();
   toastGlass();
   chromeGlass();
+  initMenuGlass(stage?.glass);
+  whyGlass();
   // Focus: dragging, pinching or scrolling the figure fades the floating pieces until it stops.
   let busyT = 0, armT = 0, down = null, moved = false;
   // (Adding a class it already has still counts as a change to the page's observers: every pointer move of a drag or

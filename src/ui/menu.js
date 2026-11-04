@@ -19,6 +19,7 @@ import { classSoon, removeSoon } from './class-soon.js';
 import { slideFold } from './fold-slide.js';
 import { leaveFromHere } from './menu-leave.js';
 import { plateFor } from './plate-gl.js';
+import { glassPlate } from './menu-glass.js';
 import { releaseSpeed, carryCurve, cssCurve, D_FLIP, D_SMALL, EASE_ARRIVE, RISE_PX } from './ease.js';
 import { moverOf, cancelMoves } from './num-move.js';
 const nextFrame = frameFor('menu');
@@ -558,7 +559,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     for (const v of ['--menu-kb', '--menu-h']) { const x = el.style.getPropertyValue(v); if (x) next.style.setProperty(v, x); }   // (the keyboard is still up)
     next.classList.toggle('kb-tight', el.classList.contains('kb-tight'));
     el.replaceWith(next); el = next;
-    { const old = plate; plate = plateFor(el, 'umenu'); old?.dispose(); }   // (the new panel's own plate; the old panel's goes with it, the same look in its place)
+    { const old = plate; plate = glassPlate(el) || plateFor(el, 'umenu'); old?.dispose(); }   // (the new panel's own plate; the old panel's goes with it, the same look in its place)
     filter(); place(); groupsIn(el); dragToClose(el); swipeTabs(el);
     if (keep) el.querySelector('.um-cols').scrollTop = keep;
     if (focus === 'q') el.querySelector('.um-q').focus({ preventScroll: true });
@@ -595,7 +596,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
         if (!el) el = build(lib); coldOpen = !lib;
         if (sheet) { el.classList.add('sheet'); back = h('div', { class: 'um-scrim', onclick: () => close() }); document.body.append(back); }
         document.body.append(el);
-        plate = plateFor(el, 'umenu');   // (its fill, ring and shadow are the GPU's, a plate laid under it: plate-gl.js)
+        plate = glassPlate(el) || plateFor(el, 'umenu');   // (its fill, ring and shadow are the GPU's, a plate laid under it: plate-gl.js)
         openAt = performance.now(); place(); filter(); groupsIn(el);
         anchor.setAttribute('aria-expanded', 'true');
         setTimeout(() => document.addEventListener('pointerdown', outside, true), 0);

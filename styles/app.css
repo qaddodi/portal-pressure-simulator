@@ -7741,3 +7741,8 @@ body { font-optical-sizing: auto; font-kerning: normal; }
 /* The figure's chrome (pills, zoom controls, the bottom dock, the view switcher's face, the sinusoid legend) wears frosted GPU glass (main.js chromeGlass): its fill is drawn in
    the figure's canvas under it once the GPU has drawn it ([data-gl]); until then, and wherever the canvas cannot take it, it keeps the --glass fill above. Its ring and shadow stay the page's. */
 :root:root :is(.topbar .tb-face, .topbar .float-pill, .topbar #viewSeg, .topbar .lens-btn, .zoom-pill, .vdock, .nb-views > .vp-face, .sv-legend)[data-gl] { background: none; }
+
+/* Menus, popovers and the Why? pop are frosted GPU glass (menu-glass.js): tint, ring and shadow drawn in the figure's canvas under them once the GPU has drawn
+   them ([data-gl]); until then, and where it cannot, they keep the fill, ring and shadow above. */
+.menu, .umenu, .why-pop { --gl-tint: color-mix(in srgb, var(--surface) 76%, transparent); --gl-line: var(--hairline); --gl-drop: var(--shadow-3); }
+:root:root :is(.menu, .umenu, .why-pop)[data-gl] { background: none; box-shadow: none; }

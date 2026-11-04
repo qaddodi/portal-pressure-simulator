@@ -16,6 +16,7 @@ import { layoutToast, paintToast, inkOf } from './toast-gl.js';
 import { readMetric, readAnims, readStyle, readBox } from './layout-snap.js';
 import { sliderOf, sliderFor, dotWidth, jump, glide, gliding, setHover, setHeld, setFocus, releaseAll, followInput } from './slider-gl.js';
 import { plateFor } from './plate-gl.js';
+import { glassPlate } from './menu-glass.js';
 import { layoutTip, covers } from './tip-layout.js';
 import { tipDraw, tipUndrawn } from './tip-gl.js';
 
@@ -465,7 +466,7 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
   if (el.classList.contains('app-menu')) { const ro = new ResizeObserver(() => { if (!el.isConnected) ro.disconnect(); else clipBar(); }); ro.observe(el); }
   put();
   // (Its fill, ring and shadow are the GPU's, a plate laid under it: plate-gl.js. It reads the look from this menu's own CSS.)
-  const plate = plateFor(el, 'menu');
+  const plate = glassPlate(el) || plateFor(el, 'menu');
   // (History's list has its own soft edges at both ends.)
   if (!el.classList.contains('tl-history')) fadeWhileMore(el);
   if (asSheet) swipeSheet(el, () => closePopover());
