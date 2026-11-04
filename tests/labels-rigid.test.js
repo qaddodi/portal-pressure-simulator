@@ -29,3 +29,10 @@ test('section 8: zone titles are not carried by a ride, and every zoom rule read
   assert.ok(st.includes('d[19] = labelRestK() >= 1.9'));
   assert.ok(st.includes('LABEL_REST_SLICE_MS = 8'));
 });
+
+test('step 3: figure labels carry a world anchor and label-gl pins by it', () => {
+  assert.ok(st.includes('function localToWorldInto'));
+  assert.ok(/pwv: gw \? morph : null/.test(st));
+  assert.ok(/NO_ANCHOR = \/\^\(z:\|lane:/.test(st));
+  assert.ok(gl.includes('s.pwv != null'));
+});

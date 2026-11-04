@@ -1739,6 +1739,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     o[0] = CTM.a * x + CTM.c * y + CTM.e - wrapRect.left; o[1] = CTM.b * x + CTM.d * y + CTM.f - wrapRect.top;
     return o;
   }
+  // (The inverse: a stage point (local px) as a world point under the camera now.)
+  const NO_ANCHOR = /^(z:|lane:|scan|stage|fxs:|tips|dips|dsrs|portocaval|mesocaval|custom|60%:)/, ANCHOR_W = [0, 0];
+  function localToWorldInto(o, x, y) {
+    if (!CTM) refreshCTM();
+    const px = x + wrapRect.left - CTM.e, py = y + wrapRect.top - CTM.f, det = CTM.a * CTM.d - CTM.b * CTM.c;
+    if (!det) { o[0] = NaN; o[1] = NaN; return o; }
+    o[0] = (CTM.d * px - CTM.c * py) / det; o[1] = (CTM.a * py - CTM.b * px) / det;
+    return o;
+  }
   function clientToWorld(cx, cy) {
     flushVT(); if (geoHeld.size) flushGeo();
     const m = world.getScreenCTM().inverse();
@@ -10492,6 +10501,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (A card's zoom: the point is carried by the scene camera; the label's offset from it is not.)
     if (zoomM) { const x = out[0], y = out[1]; out[0] = zoomM[0] * x + zoomM[4]; out[1] = zoomM[3] * y + zoomM[5]; }
     return Number.isFinite(out[0]) && Number.isFinite(out[1]);
+  }, (wx, wy, view, out) => {
+    // (A world anchor, any figure label: where the point is under this frame's camera. Only at rest in the view it was laid out for: between the
+    // two views the geometry moves, and those labels follow as before.)
+    if (!(morph === 0 || morph === 1) || morph !== view) return false;
+    if (!CTM) refreshCTM();
+    worldToLocalInto(out, wx, wy);
+    return Number.isFinite(out[0]) && Number.isFinite(out[1]);
   });
   wrap.dataset.labels = labelGL ? 'gpu' : 'svg';
   labelRider = labelGL;
@@ -11123,7 +11139,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // a point the layout chose by other rules, is not pinned and moves as before.)
     const pk = it.key.startsWith('n:') && !it.live && Number.isFinite(it.ax) && Number.isFinite(it.ay) ? pinKind(it.key.slice(2), it.ax, it.ay, it.au) : 0, pin = pk > 0;
     const px0 = +it.x.toFixed(1), py0 = +(it.rot ? it.y + it.w : it.y).toFixed(1);
-    b.pos = { g: b.g, x: px0, y: py0, rot: !!it.rot, pid: pin ? it.key.slice(2) : null, pax: pin ? it.ax : 0, pay: pin ? it.ay : 0, pmid: pk === 1, pau: it.au ?? 0.5 };
+    // (Every other figure label gets a world anchor (step 3 of the rigid-labels plan): its point as laid out, taken back to the world under this layout's camera,
+    // so the GPU keeps it on that point through any pan, pinch or zoom. Not the screen's furniture (zone titles, lanes, the scan, the stage) and not between views.)
+    const gp = !pin && !it.live && !it.hide && Number.isFinite(it.ax) && Number.isFinite(it.ay) && (morph === 0 || morph === 1) && !NO_ANCHOR.test(it.key);
+    if (gp) localToWorldInto(ANCHOR_W, it.ax, it.ay);
+    const gw = gp && Number.isFinite(ANCHOR_W[0]) && Number.isFinite(ANCHOR_W[1]);
+    b.pos = { g: b.g, x: px0, y: py0, rot: !!it.rot, pid: pin ? it.key.slice(2) : gw ? it.key : null, pax: pin || gw ? it.ax : 0, pay: pin || gw ? it.ay : 0, pmid: pk === 1, pau: it.au ?? 0.5, pwx: gw ? ANCHOR_W[0] : 0, pwy: gw ? ANCHOR_W[1] : 0, pwv: gw ? morph : null };
     // (Its box on an 8 px grid, for the corner credit's look (labelBoxStamp): a number ticking inside it moves nothing the credit avoids.)
     const c0 = Math.floor((it.x - it.padX) / 8), c1 = Math.floor((it.y - it.padY) / 8), c2 = Math.ceil((it.x + (it.rot ? it.h : it.w) + it.padX) / 8), c3 = Math.ceil((it.y + (it.rot ? it.w : it.h) + it.padY) / 8), ch = !!it.hide;
     if (!b.box || c0 !== b.bc0 || c1 !== b.bc1 || c2 !== b.bc2 || c3 !== b.bc3 || ch !== b.bch) {

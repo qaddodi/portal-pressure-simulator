@@ -675,12 +675,18 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // offset, its dot on the point and its leader from the point to the label, all moved by the same step in the same frame. No ride, carry
   // or follow moves a pinned label: a pan, a pinch or a view change moves its point, and the label goes with it, rigid. Only a new layout
   // changes the offset, and the label takes it at once (no glide), its point and dot not moving.
-  let pinAt = null;
+  let pinAt = null, pinWorldAt = null;
   const PIN = [0, 0];
   // (The offset each pinned label was last drawn at, by its group, kept past its picture: a label whose picture is made again (its text
   // size changes with the zoom) still eases from where it stood, never jumps to its new offset.)
   const pinLast = new WeakMap();   // group -> Float64Array [ox, oy]
-  const pinOf = (s) => (pinAt && s && s.pid != null && pinAt(s.pid, PIN, s.pmid, s.pau) ? s : null);
+  // (A label with a world anchor (pwv set: step 3, every figure label) is pinned by that world point, taken to the stage under the camera of this frame;
+  // a station's is named by its id. Either way the label is its point now plus its layout's offset.)
+  const pinOf = (s) => {
+    if (!pinAt || !s || s.pid == null) return null;
+    if (s.pwv != null) return pinWorldAt && pinWorldAt(s.pwx, s.pwy, s.pwv, PIN) ? s : null;
+    return pinAt(s.pid, PIN, s.pmid, s.pau) ? s : null;
+  };
   // (The offset a pinned label is drawn at this frame, CSS px, into OFF: its layout's, or part way there from where it was drawn while its
   // glide runs. Returns the glide's share, 1 once it is over or there is none. The marks and the label read the same.)
   const OFF = [0, 0];
@@ -2389,7 +2395,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     },
     get riding() { return !!rideM; },
     /** Pins the station labels to the figure: f(id, out) writes where the figure has station id's point now (stage px) and returns true. */
-    pinTo(f) { pinAt = f; ask(); },
+    pinTo(f, w = null) { pinAt = f; pinWorldAt = w; ask(); },
     /** The figure moved (its camera or its morph): the pinned labels drawn with it, in this frame. */
     pinDraw() { if (lost || !pinAt) return; if (raf) { cancelFrame(raf); raf = 0; } draw(); },
     /** A view change begins: the labels now laid out are carried by their stations (followPut), the rest faded (followDraw). */
