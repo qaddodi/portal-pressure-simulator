@@ -34,8 +34,8 @@ test('no pan before the zoom: the share of the way travelled never runs ahead of
 
 test('the stage uses the straight path for every way out of a landed lobule, the dive in keeps its drift', () => {
   const st = stageSource();
-  assert.match(st, /if \(riseLine\) \{ diveFrom\[0\] = diveLand\.x; diveFrom\[1\] = diveLand\.y; diveTo\[0\] = ox; diveTo\[1\] = oy; const c = riseCentre\(diveFrom, diveTo, Math\.exp\(-lt\), Math\.exp\(z - lt\)\); px = c\[0\]; py = c\[1\]; \}\n\s*else \{ px = lerp\(ox, diveLand\.x, g\); py = lerp\(oy, diveLand\.y, g\); \}/);
-  assert.match(st, /riseFast = false; riseLine = false;/, 'a fresh dive in drops it');
-  assert.match(st, /\} else if \(!on && diveT >= 1\) \{\n\s+riseLine = true;/, 'set as any way out of the landed lobule begins');
+  assert.match(st, /if \((?:live\.)?(?:live\.)?riseLine\) \{ diveFrom\[0\] = (?:live\.)?(?:live\.)?diveLand\.x; diveFrom\[1\] = (?:live\.)?(?:live\.)?diveLand\.y; diveTo\[0\] = ox; diveTo\[1\] = oy; const c = riseCentre\(diveFrom, diveTo, Math\.exp\(-lt\), Math\.exp\(z - lt\)\); px = c\[0\]; py = c\[1\]; \}\n\s*else \{ px = lerp\(ox, (?:live\.)?(?:live\.)?diveLand\.x, g\); py = lerp\(oy, (?:live\.)?(?:live\.)?diveLand\.y, g\); \}/);
+  assert.match(st, /(?:live\.)?riseFast = false; (?:live\.)?riseLine = false;/, 'a fresh dive in drops it');
+  assert.match(st, /\} else if \(!on && (?:live\.)?diveT >= 1\) \{\n\s+(?:live\.)?riseLine = true;/, 'set as any way out of the landed lobule begins');
   assert.equal((st.match(/riseLine = (?:true|false);/g) || []).length, 2, 'only there: a reversal keeps the path it was on');
 });

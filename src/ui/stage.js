@@ -15,7 +15,6 @@ import { STATION_VESSEL, meanVel, velNormal, judgeFlow } from './velNormal.js';
 import { store, varicesPresent, varixGrowth, shownVel } from './store.js';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, loadFailed, restBox, translateRest, settledBox, putText, UPRIGHT_MQ, cssVar, cssRGB } from './util.js';
 import { recordLayer } from './over-records.js';
-import { riseCentre } from './rise-path.js';
 import { lerpVT, camPath, blendPaths, viewsOverlap, driftEase } from './cam-arc.js';
 import { easeMove, easeArrive, camMs, carryRate, carried, D_SMALL, D_SURFACE, EASE_ARRIVE } from './ease.js';
 import { lesionEase } from './lesion-ease.js';
@@ -33,7 +32,7 @@ import { smooth01 } from './liver-morph.js';
 import { COLON_ART, BOWEL_ART, DUO_CLIPS, DUO_B } from './organ-art.js';
 import { createRouter } from './circuit-router.js';
 import { gpuProbe, COUNTED } from './gpu-probe.js';
-import { fadeStop, fading } from './res-fade.js';
+import { fading } from './res-fade.js';
 import { LIGHT } from './light.js';
 import { sinceInput, booting, holdCover } from './quiet.js';
 import { textPolys, loadGlyphs, glyphsReady, textBox } from './text-gl.js';
@@ -158,6 +157,7 @@ import { createOrgans } from './stage-organs.js';
 import { createResistors } from './stage-resistors.js';
 import { createPlate } from './stage-plate.js';
 import { createDiaphragm } from './stage-diaphragm.js';
+import { createDive } from './stage-dive.js';
 
 export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, onViewChange }) {
   // <stage-split live>
@@ -177,9 +177,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get blockersStale() { return blockersStale; }, set blockersStale(v) { blockersStale = v; },
     get bloodClock() { return bloodClock; }, set bloodClock(v) { bloodClock = v; },
     get bloodEasing() { return bloodEasing; }, set bloodEasing(v) { bloodEasing = v; },
+    get box() { return box; }, set box(v) { box = v; },
     get boxH() { return boxH; }, set boxH(v) { boxH = v; },
     get boxW() { return boxW; }, set boxW(v) { boxW = v; },
+    get camDive() { return camDive; }, set camDive(v) { camDive = v; },
+    get camK() { return camK; }, set camK(v) { camK = v; },
     get camMove() { return camMove; }, set camMove(v) { camMove = v; },
+    get camOx() { return camOx; }, set camOx(v) { camOx = v; },
+    get camOy() { return camOy; }, set camOy(v) { camOy = v; },
+    get camShow() { return camShow; }, set camShow(v) { camShow = v; },
+    get camShowFrom() { return camShowFrom; }, set camShowFrom(v) { camShowFrom = v; },
+    get camShowRaf() { return camShowRaf; }, set camShowRaf(v) { camShowRaf = v; },
+    get camShowT0() { return camShowT0; }, set camShowT0(v) { camShowT0 = v; },
+    get camShowTo() { return camShowTo; }, set camShowTo(v) { camShowTo = v; },
+    get catchUp() { return catchUp; }, set catchUp(v) { catchUp = v; },
     get cathFade() { return cathFade; }, set cathFade(v) { cathFade = v; },
     get cathRadOf() { return cathRadOf; },
     get cathTint() { return cathTint; }, set cathTint(v) { cathTint = v; },
@@ -193,16 +204,27 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get csSnap() { return csSnap; }, set csSnap(v) { csSnap = v; },
     get CTM() { return CTM; }, set CTM(v) { CTM = v; },
     get diaKey() { return diaKey; }, set diaKey(v) { diaKey = v; },
+    get diveAt() { return diveAt; }, set diveAt(v) { diveAt = v; },
+    get diveFadeO() { return diveFadeO; }, set diveFadeO(v) { diveFadeO = v; },
+    get diveGen() { return diveGen; }, set diveGen(v) { diveGen = v; },
+    get diveHid() { return diveHid; }, set diveHid(v) { diveHid = v; },
+    get diveLand() { return diveLand; }, set diveLand(v) { diveLand = v; },
     get diveOrig() { return diveOrig; }, set diveOrig(v) { diveOrig = v; },
+    get diveOut() { return diveOut; }, set diveOut(v) { diveOut = v; },
     get diveT() { return diveT; }, set diveT(v) { diveT = v; },
+    get diveWait() { return diveWait; }, set diveWait(v) { diveWait = v; },
+    get diveZ() { return diveZ; }, set diveZ(v) { diveZ = v; },
     get dprCardsAt() { return dprCardsAt; }, set dprCardsAt(v) { dprCardsAt = v; },
     get dprCardsList() { return dprCardsList; }, set dprCardsList(v) { dprCardsList = v; },
     get drag() { return drag; }, set drag(v) { drag = v; },
+    get drawOnce() { return drawOnce; }, set drawOnce(v) { drawOnce = v; },
     get dyeShown() { return dyeShown; }, set dyeShown(v) { dyeShown = v; },
+    get easeInOut() { return easeInOut; },
     get edgeRev() { return edgeRev; }, set edgeRev(v) { edgeRev = v; },
     get F() { return F; }, set F(v) { F = v; },
     get fastGap() { return fastGap; }, set fastGap(v) { fastGap = v; },
     get figKeys() { return figKeys; },
+    get figureHidden() { return figureHidden; },
     get figureShown() { return figureShown; }, set figureShown(v) { figureShown = v; },
     get fitted() { return fitted; }, set fitted(v) { fitted = v; },
     get fluidEasing() { return fluidEasing; },
@@ -222,6 +244,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get glide() { return glide; }, set glide(v) { glide = v; },
     get glM() { return glM; }, set glM(v) { glM = v; },
     get glowSync() { return glowSync; }, set glowSync(v) { glowSync = v; },
+    get glWanted() { return glWanted; },
     get gScan() { return gScan; },
     get guideGlow() { return guideGlow; },
     get guideLab() { return guideLab; },
@@ -236,6 +259,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get islSrc() { return islSrc; }, set islSrc(v) { islSrc = v; },
     get labelGL() { return labelGL; },
     get labelSvg() { return labelSvg; },
+    get labHid() { return labHid; }, set labHid(v) { labHid = v; },
     get lastMoveAt() { return lastMoveAt; }, set lastMoveAt(v) { lastMoveAt = v; },
     get layerCommits() { return layerCommits; }, set layerCommits(v) { layerCommits = v; },
     get layerStarts() { return layerStarts; }, set layerStarts(v) { layerStarts = v; },
@@ -254,13 +278,26 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get liveFailed() { return liveFailed; }, set liveFailed(v) { liveFailed = v; },
     get liveFailWhy() { return liveFailWhy; }, set liveFailWhy(v) { liveFailWhy = v; },
     get liveKeyWas() { return liveKeyWas; }, set liveKeyWas(v) { liveKeyWas = v; },
+    get liveOn() { return liveOn; },
     get liverDome() { return liverDome; }, set liverDome(v) { liverDome = v; },
     get liverFloor() { return liverFloor; }, set liverFloor(v) { liverFloor = v; },
     get liverFluidCut() { return liverFluidCut; }, set liverFluidCut(v) { liverFluidCut = v; },
     get liverKey() { return liverKey; }, set liverKey(v) { liverKey = v; },
     get liverScale() { return liverScale; }, set liverScale(v) { liverScale = v; },
     get liveSet() { return liveSet; }, set liveSet(v) { liveSet = v; },
+    get lobAnim() { return lobAnim; }, set lobAnim(v) { lobAnim = v; },
+    get lobEnd() { return lobEnd; }, set lobEnd(v) { lobEnd = v; },
+    get lobFrom() { return lobFrom; }, set lobFrom(v) { lobFrom = v; },
+    get lobIn() { return lobIn; }, set lobIn(v) { lobIn = v; },
+    get lobMs() { return lobMs; }, set lobMs(v) { lobMs = v; },
+    get lobOn() { return lobOn; }, set lobOn(v) { lobOn = v; },
+    get lobSeen() { return lobSeen; }, set lobSeen(v) { lobSeen = v; },
+    get lobT0() { return lobT0; }, set lobT0(v) { lobT0 = v; },
+    get lobTo() { return lobTo; }, set lobTo(v) { lobTo = v; },
+    get lobTurn() { return lobTurn; }, set lobTurn(v) { lobTurn = v; },
+    get lobU() { return lobU; }, set lobU(v) { lobU = v; },
     get lobuleOn() { return lobuleOn; }, set lobuleOn(v) { lobuleOn = v; },
+    get logMove() { return logMove; },
     get lvAt() { return lvAt; }, set lvAt(v) { lvAt = v; },
     get lvC() { return lvC; }, set lvC(v) { lvC = v; },
     get lvCT() { return lvCT; }, set lvCT(v) { lvCT = v; },
@@ -308,10 +345,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get plateLast() { return plateLast; }, set plateLast(v) { plateLast = v; },
     get plateMiss() { return plateMiss; }, set plateMiss(v) { plateMiss = v; },
     get plateOn() { return plateOn; },
+    get platePoke() { return platePoke; },
     get plateSat() { return plateSat; }, set plateSat(v) { plateSat = v; },
     get plateSeq() { return plateSeq; }, set plateSeq(v) { plateSeq = v; },
     get plateSettle() { return plateSettle; }, set plateSettle(v) { plateSettle = v; },
     get plateStale() { return plateStale; }, set plateStale(v) { plateStale = v; },
+    get plateStateKey() { return plateStateKey; },
     get plateTheme() { return plateTheme; }, set plateTheme(v) { plateTheme = v; },
     get plateTimer() { return plateTimer; }, set plateTimer(v) { plateTimer = v; },
     get plateView() { return plateView; }, set plateView(v) { plateView = v; },
@@ -330,8 +369,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get restOn() { return restOn; }, set restOn(v) { restOn = v; },
     get restStill() { return restStill; },
     get restU() { return restU; }, set restU(v) { restU = v; },
+    get riseBox() { return riseBox; }, set riseBox(v) { riseBox = v; },
+    get riseFast() { return riseFast; }, set riseFast(v) { riseFast = v; },
+    get riseLine() { return riseLine; }, set riseLine(v) { riseLine = v; },
     get risePrep() { return risePrep; }, set risePrep(v) { risePrep = v; },
     get risePrepT() { return risePrepT; }, set risePrepT(v) { risePrepT = v; },
+    get riseUsed() { return riseUsed; }, set riseUsed(v) { riseUsed = v; },
     get rotTarget() { return rotTarget; }, set rotTarget(v) { rotTarget = v; },
     get shunt() { return shunt; }, set shunt(v) { shunt = v; },
     get sites() { return sites; },
@@ -357,6 +400,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get vtTarget() { return vtTarget; }, set vtTarget(v) { vtTarget = v; },
     get widthEasing() { return widthEasing; }, set widthEasing(v) { widthEasing = v; },
     get wrapRect() { return wrapRect; }, set wrapRect(v) { wrapRect = v; },
+    get zShift() { return zShift; }, set zShift(v) { zShift = v; },
   };
   // </stage-split live>
   // (#30) The stage's styles, as the model's frames read them (colours, the plate's theme, whether the figure shows): read live, each
@@ -2125,72 +2169,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // its pace is about the same.)
   // The anatomy's own framing is never touched. diveT is the dive's clock, 0 (anatomy) to 1 (lobule).
   let diveAt = null, diveLand = null, diveT = 0, diveOut = false;
-  const diveAtBuf = [0, 0];   // (diveAt's pair, written in place)
-  const DIVE_MS = 2200, RISE_MS = 1300;
+  const { anatCovered, camShowTo_, diveFrame, prepRise, pushCam, riseReady, setDiveScale, setLobule } = createDive({ applyVT, defaultVT, drawFrame, driftEnd, liverBox, lobuleBackstop, lobuleStep, nextFrame, refreshCTM, riseVT, sameView, spleenMoving, svg, syncSemantic, update, updateLabels, vCanvas, worldToLocal, wrap }, live);
   let diveZ = 0;   // the dive's zoom so far (log scale), kept for cameraZoom
   let riseLine = false, riseFast = false, zShift = 0;   // (zShift: for cameraZoom, the plate's zoom is reset unseen when the rise begins)
-  // The anatomy's share of the zoom (×16), the field's the rest: the camera goes deep into one part of the liver, its vessels still
-  // drawn, before any lobule shows (Mohammad, 24 Oct, on an iPad: at ×5 the liver and its portal branches still filled the screen as
-  // the lobules came in). RH: a lobule's radius on screen (px) at that zoom, about true to scale, a lobule (1 to 1.5 mm) being about
-  // 1/130 of the liver's width (6 px at ×5). The whole dive stays about ×140 on a phone and ×230 on a Mac.
-  const LC = Math.log(16);
-  const RH = 19;
-  // The hand-over from the anatomy to the field, on the zoom: the field starts to come in at FIELD_IN and is whole (opaque) at
-  // FIELD_WHOLE, where the magnified anatomy under it is hidden. About two octaves of zoom (×4.7), so it takes about a third of a
-  // second at the dive's fastest instead of a sixth: the lobules came in, and the anatomy's vessels went, all at once (Mohammad, 25 Oct).
-  const FIELD_IN = LC - 1.2, FIELD_WHOLE = LC + 0.35;
-  // (The zoomed layers, in one kept list written in place: the callers loop over it at once and never keep it.)
-  const diveElsBuf = [];
-  const diveEls = () => {
-    const b = diveElsBuf, over = wrap.querySelector('#stageOver'), lab = wrap.querySelector('#labels');
-    b.length = 0;
-    if (svg) b.push(svg);
-    if (over) b.push(over);
-    if (lab) b.push(lab);
-    if (vCanvas) b.push(vCanvas);
-    return b;
-  };
-  // Each zoomed layer's offset in the stage, for its zoom's origin. From the boxes, not offsetLeft/Top: an SVG has none, and its origin
-  // would fall back to its own centre, so the overlays (stents, the Doppler's glow) drifted from the anatomy as it zoomed. Read when a
-  // dive or rise is asked for (setLobule, an input or a slide's change), never in the zoom's frames.
-  const diveOffs = new Map();
-  const diveOffPool = [[0, 0], [0, 0], [0, 0], [0, 0]], DIVE_ORIGIN_ZERO = [0, 0];   // (one pair per zoomed layer, written in place; the layers are four at most)
-  function diveOffsRead() {
-    const w0 = wrap.getBoundingClientRect();
-    diveOffs.clear();
-    const els = diveEls();
-    for (let i = 0; i < els.length; i++) { const el = els[i], r = el.getBoundingClientRect(), o = diveOffPool[i]; o[0] = r.left - w0.left; o[1] = r.top - w0.top; diveOffs.set(el, o); }
-  }
-  const diveTargetPt = [0, 0];   // (the dive's spot in the liver, written in place; its callers read it at once)
-  function diveTarget() {
-    const lb = liverBox();
-    if (!lb) return null;
-    diveTargetPt[0] = lb.x + lb.w * 0.42; diveTargetPt[1] = lb.y + lb.h * 0.5;
-    return diveTargetPt;
-  }
-  const smoothT = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
   // The elements' offsets are read once per dive, before any write: read between writes, each would
   // make the browser lay the page out again, every frame.
   let diveOrig = null, diveHid = false, labHid = false;
-  function setDiveHidden(on, lab = on) {
-    lab = !!(on || lab);
-    if (on === diveHid && lab === labHid) return;
-    diveHid = on; labHid = lab;
-    const els = diveEls();
-    for (let i = 0; i < els.length; i++) {
-      const el = els[i];
-      // (The lobule is drawn in the figure's own canvas: hiding that canvas hid the lobule and its field with it, black until the dive settled. The figure's alpha, camDive, hides the anatomy there.)
-      if (el === vCanvas && lz?.shared) { el.style.visibility = ''; continue; }
-      el.style.visibility = (el.id === 'labels' ? lab : on) ? 'hidden' : '';
-    }
-  }
-  // The anatomy is out of sight: under the landed lobule (or the sinusoid), or under the dive's field once it is whole. Until then,
-  // through the start of a dive and the end of a rise, it shows, magnified, and goes on following the patient as it does anywhere:
-  // the ascites filling, a varix growing, the liver changing play on through the zoom (Mohammad, 30 Oct: they paused while the
-  // view zoomed into or out of the lobule, and went on once it landed).
-  // (Only with the changing organs painted live: otherwise an ease drops the organs' picture for the live SVG, which Safari, scaled by
-  // the dive, drew without its masked groups (the stomach, the gut). There the anatomy holds through the dive as before.)
-  const anatCovered = () => (lobuleOn && diveT >= 1) || !!lz?.isOpen() || !!lz?.covers() || (diveHid && diveT > 0 && diveT < 1) || (lobuleOn && !liveOn());
   // The field fades in over the anatomy, which stays whole beneath it and is hidden only once the field covers it, so nothing pops out
   // of or into view at either end of the zoom and the page never shows through between them (see diveFrame). Opacity on layers the zoom already composites costs nothing per frame;
   // their usual .25s opacity transition is held off while it is driven frame by frame (and eases the anatomy back in under the landed lobule).
@@ -2200,235 +2184,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // dive's zoom and its origin (CSS px from the canvas's corner); camDive/camShow: the dive's hide and the figure's own fade-in, each 0 to 1.
   let lobIn = false;   // (the lobule is landed and drawn in this renderer's context: the figure's alpha is 0 under it)
   let camK = 1, camOx = 0, camOy = 0, camDive = 1, camShow = 1, camShowRaf = 0, camShowT0 = 0, camShowFrom = 1, camShowTo = 1;
-  function pushCam() {
-    if (!veins || veins.lost) return;
-    const sx = vCanvas.width / (boxW || vCanvas.width || 1), sy = vCanvas.height / (boxH || vCanvas.height || 1);
-    // (Landed in the lobule drawn in this renderer's own context: the figure under it is not laid at all, as #veins was hidden before.)
-    veins.setCamera(camK, camOx * sx, camOy * sy, lobIn ? 0 : camDive * camShow);
-  }
-  function camShowStep(now) {
-    camShowRaf = 0;
-    const u = Math.min(1, (now - camShowT0) / D_SMALL), e = u * u * (3 - 2 * u);
-    camShow = camShowFrom + (camShowTo - camShowFrom) * e;
-    pushCam();
-    if (u < 1) camShowRaf = drawFrame(camShowStep);
-  }
-  // (The figure's own fade, the first framing and a hide: eased over the same D_SMALL the canvas's CSS transition had, as an alpha.)
-  function camShowTo_(to) {
-    if (camShowTo === to && (camShowRaf || camShow === to)) return;
-    camShowFrom = camShow; camShowTo = to; camShowT0 = performance.now();
-    if (camShowRaf) cancelFrame(camShowRaf);
-    if (reduceMotion.matches) { camShow = to; camShowRaf = 0; pushCam(); return; }
-    camShowRaf = drawFrame(camShowStep);
-  }
-  function setDiveFade(o) {
-    const q = o === null ? null : Math.round(o * 1000) / 1000;   // (o is 0 or 1 here; to the thousandth, with no string made)
-    if (q === diveFadeO) return;
-    diveFadeO = q;
-    fadeStop(vCanvas);   // (a resolution fade gives the canvas's opacity back to the dive at once: both set it, and its copy does not zoom)
-    const els = diveEls();
-    for (let i = 0; i < els.length; i++) { const el = els[i]; if (el.id === 'labels') continue; if (el === vCanvas) { camDive = q === null ? 1 : q; pushCam(); continue; } el.style.transition = q === null ? '' : 'none'; el.style.opacity = q === null ? '' : q; }
-  }
-  // (keep: landed in the lobule, the anatomy stays hidden under it a moment longer, see diveFrame.)
-  let unhideAt = 0;
-  // The zoomed layers and the origin each is scaled about: one list, its pairs kept and written in place. (diveOrig is that list while a dive
-  // is on, null otherwise; the list stays as it was after the dive, for the layer hint's drop a frame later.)
-  const diveOrigBuf = [], diveOrigPool = [[null, ''], [null, ''], [null, ''], [null, '']];
-  const diveWillOff = () => {
-    if (diveOrig) return;
-    for (let i = 0; i < diveOrigBuf.length; i++) { const el = diveOrigBuf[i][0]; el.style.willChange = ''; el.style.transform = ''; }
-  };
-  const diveUnhide = () => { if (diveT >= 1 && lobuleOn) { setDiveHidden(false, false); setDiveFade(null); } };
-  function setDiveScale(k, keep = false) {
-    if (k <= 1.0001) {
-      if (!keep) { setDiveHidden(false, false); setDiveFade(null); }
-      // The transform goes first and the layer hint a frame later: dropping both at once can leave the
-      // browser showing the last zoomed picture while clicks already land on the unzoomed figure.
-      if (diveOrig) { for (let i = 0; i < diveOrig.length; i++) { const el = diveOrig[i][0]; if (el === vCanvas) continue; el.style.transform = 'none'; el.style.transformOrigin = ''; } camK = 1; pushCam(); nextFrame(diveWillOff); }
-      // The stage's measured box (and so the drawing transform) may have been taken while the dive's zoom
-      // was on, which would keep the canvas drawn zoomed in after it ends: measure again.
-      if (diveOrig) { box = null; CTM = null; }
-      diveOrig = null; return;
-    }
-    if (!diveOrig) {
-      const [ox, oy] = diveAt;
-      // (The layers' offsets in the stage were read as the dive was asked for (diveOffsRead), outside any frame; a layer not
-      // read then stands at the stage's corner, as all of them do.)
-      const els = diveEls(), b = diveOrigBuf;
-      b.length = 0;
-      for (let i = 0; i < els.length; i++) { const el = els[i], d = diveOffs.get(el) || DIVE_ORIGIN_ZERO, pr = diveOrigPool[i]; pr[0] = el; pr[1] = `${(ox - d[0]).toFixed(1)}px ${(oy - d[1]).toFixed(1)}px`; b.push(pr); if (el === vCanvas) { camOx = +(ox - d[0]).toFixed(1); camOy = +(oy - d[1]).toFixed(1); } }
-      diveOrig = b;
-      for (let i = 0; i < b.length; i++) { const el = b[i][0]; if (el === vCanvas) continue; el.style.willChange = 'transform'; el.style.transformOrigin = b[i][1]; }
-      fadeStop(vCanvas);   // (likewise: the copy laid over the canvas would stand still while the dive zooms it)
-    }
-    const tf = `scale(${k.toFixed(4)})`;
-    for (let i = 0; i < diveOrig.length; i++) { const el = diveOrig[i][0]; if (el !== vCanvas) el.style.transform = tf; }
-    camK = k; pushCam();
-  }
-  const diveFrom = [0, 0], diveTo = [0, 0];   // (the rise's two ends, written in place for riseCentre)
-  const diveField = { a: 0, x: 0, y: 0, r: 0, ox: 0, oy: 0, quiet: 0, focus: 0, blur: 0, dof: 0 };   // (the field's state for lz.setDive, written in place)
-  function diveFrame(t) {
-    if (diveAt && diveLand) {
-      // The whole zoom in one log scale. The lobule's place is read live, so the field settles exactly
-      // where the view frames it.
-      if (lz.isShown()) diveLand = lz.current();
-      else if (lobuleOn) lz.warm();
-      const lt = LC + Math.log(Math.max(RH * 2, diveLand.r) / RH);
-      // Eased in and out (smootherstep), one ease over the whole log scale: the anatomy's part and the field's run on at the same
-      // speed where they meet. (Each part had its own rate, so the zoom sped up by a sixth or more, suddenly, a third of the way in.)
-      // (riseFast: a way out of the landed lobule moves from its first frame; the dive's ease starts at rest and held the lobule
-      // still for its first 120-160 ms. A reversal keeps the curve it was on, so nothing jumps.)
-      // (A sine ease: from rest and back to rest, its fastest a sixth slower than the smootherstep's, which passed the hand-over at
-      // its peak speed.)
-      const TJ = riseFast ? 1 : 0.84, u = clamp(t / TJ, 0, 1);
-      const p = riseFast ? u * u * (2 - u) : (1 - Math.cos(Math.PI * u)) / 2;
-      const z = lt * p;
-      diveZ = z;
-      // Landed in the lobule: the anatomy under it is shown again only once the lobule has settled and its flow marks have
-      // faded in. (Shown in the landing frame, Safari redrew the whole figure there, with everything else the landing does.)
-      const landed = t >= 1 && !diveOut;
-      setDiveScale(t >= 1 ? 1 : Math.exp(Math.min(z, LC + 0.4)), landed);
-      if (landed) { clearTimeout(unhideAt); unhideAt = setTimeout(diveUnhide, 500); }
-      // The anatomy stays whole under the field as it fades in (and out, on the way back), and is hidden only once the field covers
-      // it. (Faded out on the field's curve, the two half-clear layers let the page through, about a fifth of it, for a fifth of a
-      // second as the field took over: a dark flash zooming in, in dark mode, Mohammad, 24 Oct. Zooming out it fell where the field
-      // itself was already fading into the page, so it did not show.)
-      setDiveFade(t <= 0 ? null : landed ? 0 : 1);
-      // The anatomy's labels leave as the zoom starts.
-      const lab = wrap.querySelector('#labels');
-      // (Going out they come back over the last half of the zoom, in place, rather than at the very end.)
-      if (lab) lab.style.opacity = t <= 0 ? '' : (1 - smoothT(0, diveOut ? 0.55 : 0.12, t)).toFixed(3);
-      // The detailed lobule comes in while the zoom is still settling, zooming with the field.
-      const r = RH * Math.exp(z - LC);
-      const [ox, oy] = diveAt;
-      // Going in, the zoom's centre drifts from the dive point to the lobule's place. Going out (riseLine), one straight pull-out:
-      // the lobule is scaled about one fixed point, so it leaves its place in step with the zoom and ends on the dive point, with
-      // no sideways pan across it first (rise-path.js).
-      const g = smoothT(LC - 0.5, lt, z);
-      let px, py;
-      if (riseLine) { diveFrom[0] = diveLand.x; diveFrom[1] = diveLand.y; diveTo[0] = ox; diveTo[1] = oy; const c = riseCentre(diveFrom, diveTo, Math.exp(-lt), Math.exp(z - lt)); px = c[0]; py = c[1]; }
-      else { px = lerp(ox, diveLand.x, g); py = lerp(oy, diveLand.y, g); }
-      // The detailed lobule rides on the field's own lobule at that centre, so it grows out of it.
-      lz.setDiveZoom(t >= 1 ? 1 : clamp(r / diveLand.r, 0.05, 1), diveLand.x, diveLand.y, px, py);
-      // (The field's state is one kept object written in place: lobule-zoom.js reads it at once and keeps none of it.)
-      const df = diveField;
-      if (t <= 0 || t >= 1) lz.setDive(null);
-      else {
-        // The field comes in only over the anatomy's last stretch (×5 to ×23, its lobules a fine grain a few px across), whole
-        // where the anatomy is hidden; its neighbours drain and fade into the page only once it is whole, toward the landing, so the
-        // grain fills the screen first. (On the zoom, not the clock: the way out passes the same pictures in reverse.)
-        df.a = smoothT(FIELD_IN, FIELD_WHOLE, z); df.x = px; df.y = py;
-        df.r = r; df.ox = ox; df.oy = oy; df.quiet = smoothT(lerp(FIELD_WHOLE, lt, 0.4), lt, z); df.focus = smoothT(FIELD_WHOLE, lt, z);
-        // A focus pull: the field comes in soft, the liver's grain, and sharpens into lobules as it becomes whole; and a depth of
-        // field: the lobules away from the one being landed on stay a little soft through the zoom, sharp again as it lands, where
-        // the lobule view's own surround takes over (GPU only: lobule-zoom.js paintFieldGL).
-        df.blur = 1 - smoothT(FIELD_IN, FIELD_WHOLE + 0.3, z); df.dof = smoothT(FIELD_IN + 0.3, FIELD_WHOLE + 0.6, z) * (1 - smoothT(lt - 0.9, lt, z));
-        lz.setDive(df);
-      }
-      // Once the field is whole (fully opaque, from z = FIELD_WHOLE) the magnified anatomy beneath it is not seen: it is hidden, so the
-      // browser stops compositing it (Safari redraws a scaled SVG at each new scale, every frame); the labels as soon as they have faded.
-      if (!landed) setDiveHidden(t > 0 && t < 1 && z >= FIELD_WHOLE, lab && t > 0 && t < 1 && +lab.style.opacity <= 0.001);
-    }
-    lobU = easeInOut(clamp((t - 0.48) / 0.4, 0, 1));
-    syncSemantic();
-  }
   // Before the way out of a landed lobule (prepRise, asked for by the presenter as the slide changes): the anatomy under it, still
   // covered, follows the model again and its organs' picture is made for the patient now, so the rise fades in a current picture.
   // (Left as it was under the lobule, the picture held the patient from before the dive: shown through the rise and swapped at
   // landing, the organs changed in one frame; dropped as the rise began, the live drawing showed, scaled up by the zoom, and
   // Safari lost its masked groups, the stomach and gut, until partway down: Mohammad, 20 Oct, HVPG 7 to 8.)
   let risePrep = false, risePrepT = 0;
-  function prepRise() {
-    if (!lobuleOn || diveT < 1 || morphTarget !== 0 || risePrep) return;
-    risePrep = true; clearTimeout(risePrepT); risePrepT = setTimeout(() => { risePrep = false; }, 6000);   // (never left on in the lobule)
-    if (F && !inUpdate) update(F);
-    platePoke();
-  }
-  // The organs' picture is made for the patient now (prepRise is done: it ends when that picture lands), or there is none to wait for.
-  function riseReady() {
-    if (!risePrep || !F || !veins || veins.lost || !glWanted(easeInOut(morph)) || figureHidden() || !lobuleOn) return true;
-    // (With the changing organs painted live, the picture holds none of them: the rise sets off while the fluid, the liver or the
-    // spleen still ease, and they go on easing in view as it zooms out, drawn live, rather than finishing unseen first.)
-    return plateOn() && !plateBusy && (liveOn() || (!lvMoving && !fluidEasing() && !spleenMoving())) && plateKey === plateStateKey();
-  }
   // (diveWait: a dive waiting for its tissue to be painted ahead, which goes on only if nothing else was asked for meanwhile.)
   let diveWait = 0, diveGen = 0;
-  function setLobule(on, painted = false) {
-    if (on && morphTarget !== 0) return;
-    risePrep = false; clearTimeout(risePrepT);
-    if (diveWait) { diveWait = 0; diveGen++; }   // (any other ask calls a waiting dive off; a dive asked again waits afresh)
-    const from0 = diveT;
-    diveOut = !on;
-    if (on) { riseBox = null; riseUsed = false; }
-    if (lobuleOn === on && diveT === (on ? 1 : 0)) return;
-    // Into the lobule for a new patient: its tissue bitmap is painted in the worker first (lz.paintAhead), so the frame the zoom
-    // starts in does not paint it on the main thread (1.8 s on CI's laptop profile, HVPG 5 to 6). The anatomy stays as it is
-    // meanwhile (nothing is set: lobuleOn waits too), the slide's words still coming in; the dive then starts as before.
-    if (on && diveT === 0 && !painted) {
-      const ahead = lz?.paintAhead?.();
-      if (ahead) {
-        const gen = ++diveGen;
-        diveWait = gen;
-        ahead.then(() => { if (diveWait === gen && !lobuleOn && diveT === 0) { diveWait = 0; if (store.get().lobule) setLobule(true, true); } });
-        return;
-      }
-    }
-    lobuleOn = on;
-    logMove({ t: performance.now(), kind: on ? 'dive' : 'rise' });
-    cancelFrame(lobAnim);
-    if (on && diveT === 0) {
-      riseFast = false; riseLine = false;
-      const w = diveTarget();
-      if (w) {
-        refreshCTM();
-        const [x, y] = worldToLocal(w[0], w[1]);
-        diveAtBuf[0] = clamp(x, 0, wrap.clientWidth); diveAtBuf[1] = clamp(y, 0, wrap.clientHeight); diveAt = diveAtBuf;
-      } else { diveAtBuf[0] = wrap.clientWidth / 2; diveAtBuf[1] = wrap.clientHeight / 2; diveAt = diveAtBuf; }
-      diveOffsRead();
-      diveLand = lz.landing();
-      lz.prewarm(diveLand.r);
-      lz.stage();   // the lobule is drawn now, for where it lands, and only then does the zoom start (its clock starts below)
-    } else if (!on && diveT >= 1) {
-      riseLine = true;   // (kept through a reversal, so the lobule stays on the line it was on)
-      diveOffsRead();
-      riseFast = true;
-      lz.stageRise();   // (out of a zoomed-in lobule: its whole copy is drawn now, before the rise's clock starts)
-      diveLand = lz.current();
-      // The anatomy is covered by the lobule at this point: take it to its fit framing now, unseen, so the way out is one
-      // continuous zoom from the lobule's fit to the anatomy's fit, with no correction after it lands.
-      if (morphTarget === 0 && liverBox()) {
-        // Leaving from the sinusoid, its focus class (main.js) still hides the dock and bars until the store's other
-        // listeners run: drop it first, or the fit is measured without them and lands too close, cutting off the ascites.
-        if (!store.get().lobule) document.getElementById('app')?.classList.remove('sin-focus');
-        cancelFrame(vtAnim); driftEnd(); vtGliding = false;
-        refreshCTM(); const zOld = Math.log(CTM.sc);
-        const d = defaultVT(false); vt = { ...d }; homeAt = d; fitted = true; applyVT(); CTM = null; refreshCTM();
-        // The plate stopped updating under the lobule, so it still holds the old zoom's culling and detail: bring it up to date for the fit now, not when the zoom lands.
-        if (F && !inUpdate) { catchUp = true; try { update(F); } finally { catchUp = false; } }
-        // The next slide's own framing, if it asked for one: the rise lands there, not at the fit.
-        const rv = riseVT();
-        riseUsed = !!rv && !sameView(rv, d);
-        if (riseUsed) { vt = { ...rv }; applyVT(); CTM = null; refreshCTM(); if (F && !inUpdate) { catchUp = true; try { update(F); } finally { catchUp = false; } } }
-        zShift = zOld - Math.log(CTM.sc);
-        const w = diveTarget(); if (w) { const [x, y] = worldToLocal(w[0], w[1]); diveAtBuf[0] = clamp(x, 0, wrap.clientWidth); diveAtBuf[1] = clamp(y, 0, wrap.clientHeight); diveAt = diveAtBuf; }
-        diveOffsRead(); diveOrig = null; drawOnce = forceDraw = true;   // the vessel canvas is frozen for the zoom: redraw it now at the fit, not the old camera
-        if (F) updateLabels(F);   // the labels are laid out for the final framing now, so they come in where they will stay
-      }
-    }
-    // (Lite mode: no zoom, the figure fades in at the lobule or the anatomy.)
-    // A reversal mid-way glides back from where it is, at the speed of the move it turns round (eased from rest, not at full speed at once).
-    const turn = from0 > 0 && from0 < 1, from = diveT, to = on ? 1 : 0;
-    const ms = reduceMotion.matches ? 0 : turn ? (on ? RISE_MS : DIVE_MS) : on ? DIVE_MS : RISE_MS;
-    // (Timed by the eases' clock, frame.js easeNow: a long frame mid-zoom holds it back rather than letting it leap ahead. The backstop
-    // below passes `end` to land it.)
-    const t0 = PACED ? easeNow() : performance.now();
-    lobOn = on; lobFrom = from; lobTo = to; lobTurn = turn; lobMs = ms; lobT0 = t0; lobSeen = -1;
-    lobuleStep(t0);
-    // Backstop: if the frames stop (a throttled or dropped frame loop), land on the end state anyway.
-    clearTimeout(lobEnd);
-    // (With the eases' clock a run of long frames makes the zoom take longer: it is landed only once it stops moving, frames having stopped.)
-    lobEnd = setTimeout(lobuleBackstop, ms * Math.abs(to - from) + 250);
-  }
   // (The glide in and out of the lobule, one at a time: a new one cancels the frame and the backstop of the last, so its state is kept
   // here, in the variables below, and one function steps it, instead of a closure made for each.)
   let lobOn = false, lobFrom = 0, lobTo = 0, lobTurn = false, lobMs = 0, lobT0 = 0, lobSeen = -1;

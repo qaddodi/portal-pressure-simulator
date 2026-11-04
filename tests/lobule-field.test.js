@@ -22,7 +22,7 @@ test('the field starts with lobules about true to scale, deep in the liver, so t
   assert.ok(Math.abs(rh / Math.exp(lc) - 6 / 5) < 0.15, `field lobules start at ${rh}px radius at the anatomy's ×${Math.exp(lc).toFixed(0)}`);
   // The whole zoom: the anatomy's share, then the field from RH to the landing lobule's radius (phone and Mac framings).
   for (const land of [164, 272]) assert.ok(Math.exp(lc + Math.log(Math.max(rh * 2, land) / rh)) >= 120, `only ×${Math.exp(lc + Math.log(land / rh)).toFixed(0)} for a ${land} px lobule`);
-  assert.match(stage, /const lt = LC \+ Math\.log\(Math\.max\(RH \* 2, diveLand\.r\) \/ RH\);/);
+  assert.match(stage, /const lt = LC \+ Math\.log\(Math\.max\(RH \* 2, (?:live\.)?(?:live\.)?diveLand\.r\) \/ RH\);/);
   // Longer for the deeper zoom, the way out quicker; the field's sizes blended so their detail comes in gradually.
   assert.match(stage, /const DIVE_MS = 2200, RISE_MS = 1300;/);
   assert.match(lz, /fieldBlend\(rd \* 0\.55\)/);
@@ -71,21 +71,21 @@ test('in dark mode the field lobules\' capillarized sinusoids are dark (they rec
 });
 
 test('every zoom into the lobule draws it first, for where it lands, then zooms; the anatomy returns after landing', () => {
-  assert.match(lz, /function stage\(\) \{\n\s+while \(warm\(\)\);[^\n]*\n\s+if \(fade > 0 \|\| !F\) return;\n\s+flowA = 0; flowT = 0; resetView\(\); staging = true; snapState\(\);/);
+  assert.match(lz, /function stage\(\) \{\n\s+while \(warm\(\)\);[^\n]*\n\s+if \(fade > 0 \|\| !(?:live\.)?F\) return;\n\s+flowA = 0; flowT = 0; resetView\(\); staging = true; snapState\(\);/);
   assert.match(lz, /idleDrawn = ''; draw\(0\); diveDrawn = true; staged = api\.viewKey\(\); relLater = true;/);
   assert.match(lz, /if \(fade <= 0 && !staging\) return;/, 'update fills in the model while staging');
   // The way in (a tap or slide; manual zoom never dives) draws it before the zoom's clock starts.
-  assert.match(stage, /lz\.prewarm\(diveLand\.r\);\n\s+lz\.stage\(\); {3}\/\/ the lobule is drawn now/);
-  assert.ok(stage.indexOf('lz.stage();   //') < stage.indexOf('const t0 = PACED ? easeNow() : performance.now();\n    lobOn = on;'), 'drawn before the zoom is timed');
+  assert.match(stage, /(?:live\.)?(?:live\.)?lz\.prewarm\((?:live\.)?(?:live\.)?diveLand\.r\);\n\s+(?:live\.)?(?:live\.)?lz\.stage\(\); {3}\/\/ the lobule is drawn now/);
+  assert.ok(stage.indexOf('lz.stage();   //') < stage.indexOf('const t0 = PACED ? easeNow() : performance.now();\n    live.lobOn = on;'), 'drawn before the zoom is timed');
   // The frame it starts to fade in draws nothing new when the framing still matches.
-  assert.match(lz, /if \(staged && staged === api\.viewKey\(\) && model\) \{ if \(!raf\) raf = nextFrame\(loop\); \} else \{ diveDrawn = false; snapState\(\); if \(F\) update\(F\); \}/);
+  assert.match(lz, /if \(staged && staged === api\.viewKey\(\) && model\) \{ if \(!raf\) raf = nextFrame\(loop\); \} else \{ diveDrawn = false; snapState\(\); if \((?:live\.)?F\) update\((?:live\.)?F\); \}/);
   // Its memory is given back when the zoom returns to the anatomy (never mid-zoom); the idle preparation keeps nothing.
   assert.match(lz, /if \(was > 0\) \{ if \(diveScaled\) relLater = true; else release\(\); \}/);
   assert.match(lz, /if \(!diveScaled && fade <= 0\) \{ staged = ''; if \(relLater\) \{ relLater = false; release\(\); \} \}/);
   assert.match(lz, /draw\(0\); release\(\); prepKey = key;/);
   // Landed, the anatomy stays hidden under the lobule until it has settled; every other end shows it at once.
-  assert.match(stage, /const landed = t >= 1 && !diveOut;\n\s+setDiveScale\(t >= 1 \? 1 : Math\.exp\(Math\.min\(z, LC \+ 0\.4\)\), landed\);/);
-  assert.match(stage, /const diveUnhide = \(\) => \{ if \(diveT >= 1 && lobuleOn\) \{ setDiveHidden\(false, false\); setDiveFade\(null\); \} \};/);
+  assert.match(stage, /const landed = t >= 1 && !(?:live\.)?diveOut;\n\s+setDiveScale\(t >= 1 \? 1 : Math\.exp\(Math\.min\(z, LC \+ 0\.4\)\), landed\);/);
+  assert.match(stage, /const diveUnhide = \(\) => \{ if \((?:live\.)?diveT >= 1 && (?:live\.)?lobuleOn\) \{ setDiveHidden\(false, false\); setDiveFade\(null\); \} \};/);
   assert.match(stage, /unhideAt = setTimeout\(diveUnhide, 500\)/);
 });
 

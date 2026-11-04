@@ -8,13 +8,13 @@ import { readFileSync } from 'node:fs';
 
 const st = stageSource();
 const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
-const set = st.match(/function setLobule\(on, painted = false\) \{[\s\S]*?\n {4}lobuleOn = on;/)[0];
+const set = st.match(/function setLobule\(on, painted = false\) \{[\s\S]*?\n {4}live\.lobuleOn = on;/)[0];
 const ahead = lz.match(/function paintAhead\(\) \{[\s\S]*?\n {2}\}\n/)[0];
 
 test('a dive waits for the tissue painted ahead, and anything asked for meanwhile calls it off', () => {
-  assert.match(set, /if \(diveWait\) \{ diveWait = 0; diveGen\+\+; \}/);
-  assert.match(set, /const ahead = lz\?\.paintAhead\?\.\(\);/);
-  assert.match(set, /ahead\.then\(\(\) => \{ if \(diveWait === gen && !lobuleOn && diveT === 0\) \{ diveWait = 0; if \(store\.get\(\)\.lobule\) setLobule\(true, true\); \} \}\);/);
+  assert.match(set, /if \(live\.diveWait\) \{ live\.diveWait = 0; live\.diveGen\+\+; \}/);
+  assert.match(set, /const ahead = live\.lz\?\.paintAhead\?\.\(\);/);
+  assert.match(set, /ahead\.then\(\(\) => \{ if \(live\.diveWait === gen && !live\.lobuleOn && live\.diveT === 0\) \{ live\.diveWait = 0; if \(store\.get\(\)\.lobule\) setLobule\(true, true\); \} \}\);/);
   assert.ok(set.indexOf('paintAhead') < set.indexOf('lobuleOn = on;'), 'nothing is set before the painting is in');
   assert.match(st, /lobuleSettled: \(\) => !diveWait && /, 'a waiting dive is not settled');
 });

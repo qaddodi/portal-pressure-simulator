@@ -12,12 +12,12 @@ const fn = (head) => { const i = st.indexOf(head); assert.ok(i >= 0, head); retu
 const line = (head) => { const i = st.indexOf(head); assert.ok(i >= 0, head); return st.slice(i, st.indexOf('\n', i)); };
 
 test('covered means out of sight: the landed lobule, the lobule or field over it, or the dive hiding it under a whole field', () => {
-  const c = line('const anatCovered = () =>');
+  const c = line('const anatCovered = () =>').replace(/live\./g, '');   // (read through the live record in stage-dive.js)
   for (const part of ['lobuleOn && diveT >= 1', 'lz?.isOpen()', 'lz?.covers()', 'diveHid && diveT > 0 && diveT < 1']) assert.ok(c.includes(part), part);
   // Without live-painted organs an ease drops the organs' picture for the scaled SVG (Safari loses its masked groups): held as before.
   assert.ok(c.includes('lobuleOn && !liveOn()'));
   // Merely diving (lobuleOn) is not covered: the anatomy is still on screen for the first part of the zoom.
-  assert.doesNotMatch(c, /\(\) => lobuleOn \|\|/);
+  assert.doesNotMatch(c, /\(\) => (?:live\.)?lobuleOn \|\|/);
 });
 
 test('model frames update the anatomy while it shows through the zoom, and only follow unseen once it is covered', () => {
@@ -51,7 +51,7 @@ test('the frame loop draws what eases while the anatomy shows; at rest the zoom 
 
 test('out of the lobule, live-painted organs do not hold the rise until they finish easing unseen', () => {
   const ready = fn('  function riseReady() {');
-  assert.match(ready, /\(liveOn\(\) \|\| \(!lvMoving && !fluidEasing\(\) && !spleenMoving\(\)\)\)/);
+  assert.match(ready, /\((?:live\.)?(?:live\.)?liveOn\(\) \|\| \(!(?:live\.)?(?:live\.)?lvMoving && !(?:live\.)?(?:live\.)?fluidEasing\(\) && !spleenMoving\(\)\)\)/);
 });
 
 // The eases themselves run on time, not on drawn frames: a fill that plays through a dive lands where it would have without one.

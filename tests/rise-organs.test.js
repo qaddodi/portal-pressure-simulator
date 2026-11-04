@@ -14,18 +14,18 @@ const prep = st.match(/function prepRise\(\) \{[\s\S]*?\n {2}\}\n/)[0];
 const ready = st.match(/function riseReady\(\) \{[\s\S]*?\n {2}\}\n/)[0];
 
 test('before the way out, the covered anatomy follows the model again and its picture is made for the patient now', () => {
-  assert.match(prep, /if \(!(?:live\.)?lobuleOn \|\| (?:live\.)?diveT < 1 \|\| (?:live\.)?morphTarget !== 0 \|\| (?:live\.)?risePrep\) return;/, 'only from a landed lobule');
-  assert.match(prep, /if \((?:live\.)?F && !(?:live\.)?inUpdate\) update\((?:live\.)?F\);\n\s+platePoke\(\);/);
-  assert.match(st, /const under = anatCovered\(\) && !catchUp && !(?:live\.)?risePrep;/, 'model frames reach the organs meanwhile');
+  assert.match(prep, /if \(!(?:live\.)?(?:live\.)?lobuleOn \|\| (?:live\.)?(?:live\.)?diveT < 1 \|\| (?:live\.)?(?:live\.)?morphTarget !== 0 \|\| (?:live\.)?(?:live\.)?risePrep\) return;/, 'only from a landed lobule');
+  assert.match(prep, /if \((?:live\.)?(?:live\.)?(?:live\.)?F && !(?:live\.)?(?:live\.)?(?:live\.)?inUpdate\) update\((?:live\.)?(?:live\.)?(?:live\.)?F\);\n\s+(?:live\.)?(?:live\.)?platePoke\(\);/);
+  assert.match(st, /const under = anatCovered\(\) && !(?:live\.)?catchUp && !(?:live\.)?(?:live\.)?risePrep;/, 'model frames reach the organs meanwhile');
   // Done when the picture of the patient now lands; never left on.
-  assert.match(st, /if \(!(?:live\.)?(?:live\.)?plateOn\(\)\) (?:live\.)?(?:live\.)?plateKey = '';[^\n]*\n\s+else if \((?:live\.)?(?:live\.)?risePrep\) \{ (?:live\.)?(?:live\.)?risePrep = false; clearTimeout\((?:live\.)?(?:live\.)?risePrepT\); \}/);
-  assert.match(st, /function setLobule\(on, painted = false\) \{\n[^\n]*\n\s+(?:live\.)?risePrep = false; clearTimeout\((?:live\.)?risePrepT\);/);
+  assert.match(st, /if \(!(?:live\.)?(?:live\.)?(?:live\.)?plateOn\(\)\) (?:live\.)?(?:live\.)?(?:live\.)?plateKey = '';[^\n]*\n\s+else if \((?:live\.)?(?:live\.)?(?:live\.)?risePrep\) \{ (?:live\.)?(?:live\.)?(?:live\.)?risePrep = false; clearTimeout\((?:live\.)?(?:live\.)?(?:live\.)?risePrepT\); \}/);
+  assert.match(st, /function setLobule\(on, painted = false\) \{\n[^\n]*\n\s+(?:live\.)?(?:live\.)?risePrep = false; clearTimeout\((?:live\.)?(?:live\.)?risePrepT\);/);
 });
 
 test('ready means the picture shown is the state now: its key is the organs\' key, and nothing in it still eases', () => {
   // (With the changing organs painted live the picture holds none of them, so their eases play on through the rise instead.)
-  assert.match(ready, /return plateOn\(\) && !plateBusy && \(liveOn\(\) \|\| \(!lvMoving && !fluidEasing\(\) && !spleenMoving\(\)\)\) && plateKey === plateStateKey\(\);/);
-  assert.match(ready, /if \(!risePrep \|\|/, 'nothing to wait for once it is made (or none was asked for)');
+  assert.match(ready, /return (?:live\.)?(?:live\.)?plateOn\(\) && !(?:live\.)?(?:live\.)?plateBusy && \((?:live\.)?(?:live\.)?liveOn\(\) \|\| \(!(?:live\.)?(?:live\.)?lvMoving && !(?:live\.)?(?:live\.)?fluidEasing\(\) && !spleenMoving\(\)\)\) && (?:live\.)?(?:live\.)?plateKey === (?:live\.)?(?:live\.)?plateStateKey\(\);/);
+  assert.match(ready, /if \(!(?:live\.)?risePrep \|\|/, 'nothing to wait for once it is made (or none was asked for)');
 });
 
 test('the rise waits for it at rest in the lobule, then glides straight on and out; nothing holds a stale picture through the rise', () => {
