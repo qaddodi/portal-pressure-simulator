@@ -238,7 +238,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // and never under what the view is at now. (Recs B3: the spare for twice the zoom no longer reaches past the deepest zoom.)
   const worldCap = (G, dpr) => Math.min(3600 / (2.6 * G.R), Math.max(dpr * kFit * KMAX, dpr * V.k) * Math.SQRT2);
   let kFit = 1, atFit = true;
-  let zoomCam = false, zK = 1, zE = 0, zF = 0;   // (a card's zoom carries the lobule: layShared lays the field through the camera too)
+  let zoomCam = false, zK = 1, zE = 0, zF = 0, zres = 1;   // (zres: a card's zoom landed, the picture is drawn at this many times the density, same geometry)   // (a card's zoom carries the lobule: layShared lays the field through the camera too)
   let zbase = null;   // (the view as a card's camera zoom found it: zoomOpen)
   // A presenter's glide to a station still under way: its part, zoom and target (which refit moves, so the glide still lands on the station).
   let camAim = null;
@@ -2846,7 +2846,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     diveDrawn = scaled;
     const [W, H] = hostSize();
     ensureGeo(W, H);
-    const dpr = Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * lzScale();   // (Battery saver: one pixel per CSS pixel)
+    const dpr = Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * lzScale() * zres;   // (Battery saver: one pixel per CSS pixel)
     const dark = isDark();
     // Keep watching for view/theme/size changes, but leave a settled paused picture alone.
     // (The picture it last drew, kept as numbers and compared in place: idleDrawn is '' when no paused picture stands.)
@@ -5030,9 +5030,22 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       applyView();
       shareTop?.present();
     },
+    /** A card's zoom has landed (on) or is going (off): the lobule's picture is drawn again at zK times the density with the same view and layout (the labels
+     *  are not laid out again), so what the camera carries is sharp; the sinusoid's likewise. At most 3 device px per CSS px. */
+    zoomSharp(on) {
+      if (!zbase) return;
+      if (zbase.sin) { sv.sharpen?.(on); return; }
+      const base = Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * lzScale();
+      const z = on ? Math.max(1, Math.min(zK, 3 / (base || 1))) : 1;
+      if (z === zres) return;
+      zres = z; glDirty = true; tissueKey = ''; drawKey = ''; idleDrawn = ''; drawVersion++;
+      if (!raf && fade > 0) raf = nextFrame(loop);
+    },
     zoomEnd() {
       if (!zbase) return;
       const sin = zbase.sin;
+      if (zres !== 1) { zres = 1; glDirty = true; tissueKey = ''; drawKey = ''; idleDrawn = ''; drawVersion++; if (!raf && fade > 0) raf = nextFrame(loop); }
+      sv.sharpen?.(false);
       zbase = null;
       if (sin) { sv.camera(1, 0, 0, 1); return; }
       zoomCam = false; zK = 1; zE = 0; zF = 0;

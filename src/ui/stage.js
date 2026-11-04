@@ -2822,6 +2822,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // to, and the camera is let go for the figure's canvas: nothing moves, only the sharpness changes (the layout keeps reading the rest view, and the
   // labels' points are still carried by C). Going back, or a change of the zoom (the readings coming out), carries the rest picture again first.
   function zoomSharp(on) {
+    if (zoomLz && zoomBase) { lz?.zoomSharp?.(on); return; }
     if (!zoomBase?.scene || !zoomLayers || !veins || veins.lost) return;
     if (on === !!drawCam) return;
     if (on) {
