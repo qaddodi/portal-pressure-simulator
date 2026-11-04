@@ -70,7 +70,7 @@ import { ORIGINS } from './blood.js';
 import { parseShare, cleanShare } from './share-link.js';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js';
 import { createPaintGate } from './paint-gate.js';
-import { frameFor, cancelFrame, perf as framePerf, framePart, inMotion, mayTask } from './frame.js';
+import { frameFor, cancelFrame, perf as framePerf, framePart, inMotion, mayTask, setPageRest } from './frame.js';
 import { restPass } from './rest-pass.js';
 import { classSoon, runSoon } from './class-soon.js';
 import { sizeOf, watchSize, rectsSoon, restTask } from './geom.js';
@@ -188,8 +188,8 @@ async function main() {
   // Never while a talk is open, a time-lapse plays or the patient is still changing.
   idleRest = createIdleRest({
     canRest: () => { const st = store.get(), f = st.frame; return st.mode === 'explore' && !presenter.active() && !st.lapse && !!f && !f.lapseDay && !f.morphing && !f.settling && !f.jump; },
-    onRest: () => { stage.rest(true); host.send({ type: 'visibility', visible: false }); },
-    onWake: () => { host.send({ type: 'visibility', visible: !document.hidden }); stage.rest(false); },
+    onRest: () => { setPageRest(true); stage.rest(true); host.send({ type: 'visibility', visible: false }); },
+    onWake: () => { setPageRest(false); host.send({ type: 'visibility', visible: !document.hidden }); stage.rest(false); },
   });
   compare = createCompare();
   timeline = createTimeline({

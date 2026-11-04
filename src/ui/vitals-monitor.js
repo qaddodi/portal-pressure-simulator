@@ -10,7 +10,7 @@
 
 import { h, fmt, fitBox, clamp, cssVar } from './util.js';
 import { createVitalsGL, colorOf, textWidth } from './vitals-gl.js';
-import { frameFor, cancelFrame, paceMs, noteDraw, frameAnimating } from './frame.js';
+import { frameFor, cancelFrame, paceMs, noteDraw, frameAnimating, pageRest, onPageWake } from './frame.js';
 import { VITALS, vitalReading } from './vital-read.js';
 import { createBeatClock, ekgSeries, beatWalk, walkBeats, seedBeats } from './ekg.js';
 import { olderThan, inFront } from './backfill.js';
@@ -69,7 +69,7 @@ export function createVitalsMonitor({ gpu = true, makeGL = createVitalsGL } = {}
   let last = 0, raf = 0, seen = false, lastLabel = '';
   const io = typeof IntersectionObserver === 'function' ? new IntersectionObserver((es) => { seen = es[es.length - 1].isIntersecting; wake(); }) : null;
   io?.observe(cv);
-  const live = () => frame?.running && (io ? seen : true) && !document.hidden;   // (no IntersectionObserver: taken as on screen; no layout is read in a frame)
+  const live = () => frame?.running && (io ? seen : true) && !document.hidden && !pageRest();   // (no IntersectionObserver: taken as on screen; no layout is read in a frame)
 
   const C = (n) => cssVar(n);
   function headX() {
@@ -230,6 +230,7 @@ export function createVitalsMonitor({ gpu = true, makeGL = createVitalsGL } = {}
   }
   // (R10: while the strip scrolls, Locked never carries its frames over: frame.js frameAnimating.)
   function wake() { if (!ticking && !gone && live()) { ticking = true; frameAnimating('vitals-monitor', true); loopRaf = nextFrame(loop); } }
+  const offRest = onPageWake(wake);   // (idle rest ends: the strip scrolls again)
   const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(() => { if (!ticking) draw(); }) : null;
   ro?.observe(cv);
 
@@ -319,6 +320,6 @@ export function createVitalsMonitor({ gpu = true, makeGL = createVitalsGL } = {}
     clear() { clock.reset(); raw.t.length = raw.ph.length = 0; lastT = -Infinity; firstT = Infinity; synth = null; off = 0; synthed = false; xs.clear(); shownV.clear(); if (frame) draw(); },
     backfill, historySecs: () => SPAN_S,
     restart() { this.clear(); },
-    dispose() { gone = true; cancelFrame(raf); raf = 0; cancelFrame(loopRaf); loopRaf = 0; if (ticking) frameAnimating('vitals-monitor', false); ticking = false; io?.disconnect(); ro?.disconnect(); glr?.dispose(); },
+    dispose() { gone = true; cancelFrame(raf); raf = 0; cancelFrame(loopRaf); loopRaf = 0; if (ticking) frameAnimating('vitals-monitor', false); ticking = false; io?.disconnect(); ro?.disconnect(); offRest(); glr?.dispose(); },
   };
 }

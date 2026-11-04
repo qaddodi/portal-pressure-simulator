@@ -268,6 +268,17 @@ let frameT0 = 0, lastScript = 0, overLast = false;
 const shedRun = new Map(), shedBy = new Map();
 let shedTotal = 0, carryForced = 0;
 const animatingTags = new Map();   // (tag → how many of its surfaces animate now: each on is paired with one off)
+// The page at idle rest (idle-rest.js, main.js: 30 s with no input in Explore): the model's worker is stopped, so no sample comes and a
+// strip that scrolls "while the model runs" would redraw the same picture on every screen frame for as long as the page sits (idle heat,
+// 4 Nov 2026). A surface that loops on its own asks pageRest() in its live(), and registers onPageWake to start again at the first input.
+let pageRestOn = false;
+const pageWake = new Set();
+/** Whether the page is at idle rest: nothing new comes, so a loop that only repeats the last picture stops. */
+export const pageRest = () => pageRestOn;
+/** Idle rest begins (true) or ends (false); ending calls each registered wake, once, in the input's own event. */
+export function setPageRest(on) { on = !!on; if (on === pageRestOn) return; pageRestOn = on; if (!on) for (const fn of pageWake) fn(); }
+/** fn is called when idle rest ends (a surface starts its loop again). Returns the remover. */
+export function onPageWake(fn) { pageWake.add(fn); return () => pageWake.delete(fn); }
 /** A surface animating on screen (on) or still (off): its frames are never carried over while it animates. */
 export function frameAnimating(tag, on) {
   const n = (animatingTags.get(tag) || 0) + (on ? 1 : -1);

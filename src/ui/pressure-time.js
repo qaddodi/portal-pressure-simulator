@@ -8,7 +8,7 @@
 import { store, hiddenNow } from './store.js';
 import { h, fmt, cssVar, cssAlpha, clamp } from './util.js';
 import { FONT as FONT0, FONT } from './charts.js';
-import { frameFor, cancelFrame, paceMs, noteDraw, frameAnimating } from './frame.js';
+import { frameFor, cancelFrame, paceMs, noteDraw, frameAnimating, pageRest, onPageWake } from './frame.js';
 import { tenthGap } from '../engine/gap.js';
 import { HVPG_CUTS, hvpgSev } from '../engine/pressure-cuts.js';
 import { firstAtOrAbove, firstAbove } from './sorted.js';
@@ -434,7 +434,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
   let seen = false;
   const io = typeof IntersectionObserver === 'function' ? new IntersectionObserver((es) => { seen = es[es.length - 1].isIntersecting; wake(); }) : null;
   io?.observe(cv);
-  const live = () => frame?.running && (range !== 'days' || stripDays) && (io ? seen : true) && !document.hidden;
+  const live = () => frame?.running && (range !== 'days' || stripDays) && (io ? seen : true) && !document.hidden && !pageRest();
   // (Battery saver or Settings › Figure performance › Motion at 60: the scroll is drawn at that pace, as the figure's steady motion is;
   // otherwise on every frame, as before. tickAt: when the loop last drew.)
   let tickAt = -Infinity;
@@ -450,6 +450,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
     noteDraw('pressure-time');
   }
   function wake() { if (!ticking && live()) { ticking = true; tickRaf = nextFrame(tickLoop); } }
+  const offRest = onPageWake(wake);   // (idle rest ends: the strip scrolls again)
 
   function draw() {
     gliding = false;
@@ -1288,7 +1289,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
     before = ctx?.ref ? { fp: ctx.ref, label: t?.deltaLabel || 'before' } : null;
     if (frame) redraw();
   }
-  return { id: 'scope', label: 'Pressure over time', el, update, ingest, redraw, clear, pin, configure, backfill, historySecs: () => RANGES[0][2], dispose() { gpu?.dispose(); offs.forEach((off) => off()); io?.disconnect(); cancelFrame(tickRaf); tickRaf = 0; ticking = false; frame = null; anim(false); still.drop(); } };
+  return { id: 'scope', label: 'Pressure over time', el, update, ingest, redraw, clear, pin, configure, backfill, historySecs: () => RANGES[0][2], dispose() { gpu?.dispose(); offs.forEach((off) => off()); io?.disconnect(); offRest(); cancelFrame(tickRaf); tickRaf = 0; ticking = false; frame = null; anim(false); still.drop(); } };
 }
 
 // The charts' X and Y are straight lines (v ↦ a + b·v): their two numbers, the time's then the value's of the lane being drawn, are kept here and
