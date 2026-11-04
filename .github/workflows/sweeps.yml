@@ -1,0 +1,165 @@
+name: Sweeps (deck layout, glitch)
+
+# On request only, never deploys or blocks. Push a commit whose message contains [deck-sweep] or [glitch-sweep] (or both), or run it
+# from the Actions tab once this file is on main (a dispatch works only for workflows on the default branch).
+#   deck sweep    plays every slide of every deck at phones (375, 390, 430, upright and sideways), iPad and desktop sizes and reports
+#                 layout findings (tests/e2e/deck-sweep.mjs). It waits for this commit's deploy first and uses at most 10 runners.
+#   glitch sweep  walks every deck forward and back, and the view switches, a pinch and a pan, on a fake clock at Mac, iPhone and
+#                 iPhone-sideways sizes, and flags stuck cards, labels off their figure, flashes and a camera that never rests
+#                 (scripts/glitch-sweep.mjs).
+# Findings are in each job's log and the report job. A newer sweep on the branch cancels the older one.
+
+on:
+  push:
+    branches: [claude/settings-topbar-icon-flvft1]
+  workflow_dispatch:
+    inputs:
+      which:
+        description: 'Which sweep'
+        type: choice
+        options: [both, deck, glitch]
+        default: both
+
+permissions:
+  contents: read
+  actions: read   # (gh run list, to wait for the deploy)
+
+concurrency:
+  # (a push that asks for no sweep never cancels one that does)
+  group: sweeps-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[deck-sweep]') || contains(github.event.head_commit.message, '[glitch-sweep]') }}
+  cancel-in-progress: true
+
+jobs:
+  # The deck list comes from the deck registry (src/ui/decks.js), so a new deck is never left out.
+  plan:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[deck-sweep]') || contains(github.event.head_commit.message, '[glitch-sweep]')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    outputs:
+      decks: ${{ steps.decks.outputs.decks }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: List the decks
+        id: decks
+        run: |
+          decks=$(node -e "import('./src/ui/decks.js').then((m) => { const ids = m.DECKS.map((d) => d.id); if (!ids.length) throw new Error('no decks'); console.log(JSON.stringify(ids)); })")
+          echo "$decks"
+          echo "decks=$decks" >> "$GITHUB_OUTPUT"
+      # The deck sweep yields to the deploy: it starts once this commit's Pages run is done (or after about 27 minutes).
+      - name: Wait for this commit's Pages run
+        if: (github.event_name == 'workflow_dispatch' && inputs.which != 'glitch') || contains(github.event.head_commit.message, '[deck-sweep]')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for i in $(seq 1 55); do
+            left=$(gh run list -R "$GITHUB_REPOSITORY" -w pages.yml -c "$GITHUB_SHA" --json status -q '[.[] | select(.status != "completed")] | length')
+            [ "$left" = "0" ] && exit 0
+            sleep 30
+          done
+          echo "Pages run still going; sweeping anyway"
+
+  deck:
+    name: deck ${{ matrix.deck }} (${{ matrix.size }})
+    needs: plan
+    if: (github.event_name == 'workflow_dispatch' && inputs.which != 'glitch') || contains(github.event.head_commit.message, '[deck-sweep]')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      max-parallel: 10
+      matrix:
+        deck: ${{ fromJSON(needs.plan.outputs.decks) }}
+        size: ['mac,desktop', 'laptop,wide', 'ipadwide,ipad', 'phone,phone375', 'phone430,sideways', 'sideways375,sideways430']   # (two sizes a job: a matrix holds at most 256 jobs)
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-browser
+      - name: Play the deck
+        env:
+          DECKS: ${{ matrix.deck }}
+          DEVS: ${{ matrix.size }}
+          FAST: '1'
+        run: node tests/e2e/deck-sweep.mjs
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: deck-sweep-${{ matrix.deck }}-${{ strategy.job-index }}
+          path: deck-sweep/
+          if-no-files-found: ignore
+          retention-days: 1
+
+  glitch-slides:
+    name: glitch ${{ matrix.deck }} (${{ matrix.size }})
+    needs: plan
+    if: (github.event_name == 'workflow_dispatch' && inputs.which != 'deck') || contains(github.event.head_commit.message, '[glitch-sweep]')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      max-parallel: 20
+      matrix:
+        deck: ${{ fromJSON(needs.plan.outputs.decks) }}
+        size: [desktop, phone, sideways]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-browser
+      - name: Walk the deck forward and back
+        run: node scripts/glitch-sweep.mjs --decks ${{ matrix.deck }} --sizes ${{ matrix.size }} --jobs 1 --fps 20 --ms 1500 --out glitch-sweep --show 200
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: glitch-sweep-${{ matrix.deck }}-${{ matrix.size }}
+          path: glitch-sweep/findings.json
+          if-no-files-found: ignore
+          retention-days: 3
+
+  glitch-scenarios:
+    name: glitch views and gestures (${{ matrix.size }})
+    needs: plan
+    if: (github.event_name == 'workflow_dispatch' && inputs.which != 'deck') || contains(github.event.head_commit.message, '[glitch-sweep]')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      matrix:
+        size: [desktop, phone, sideways]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-browser
+      - name: View switches, pinch and pan
+        run: node scripts/glitch-sweep.mjs --scenarios views,gestures --sizes ${{ matrix.size }} --jobs 1 --fps 20 --out glitch-sweep --show 200
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: glitch-sweep-scenarios-${{ matrix.size }}
+          path: glitch-sweep/findings.json
+          if-no-files-found: ignore
+          retention-days: 3
+
+  report:
+    needs: [plan, deck, glitch-slides, glitch-scenarios]
+    if: always() && needs.plan.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - name: Deck sweep results
+        if: needs.deck.result != 'skipped'
+        uses: actions/download-artifact@v7
+        with:
+          pattern: deck-sweep-*
+          path: results-deck
+      - name: Deck sweep summary
+        if: needs.deck.result != 'skipped'
+        run: node scripts/deck-sweep-summary.mjs results-deck
+      - name: Glitch sweep results
+        if: always() && (needs.glitch-slides.result != 'skipped' || needs.glitch-scenarios.result != 'skipped')
+        uses: actions/download-artifact@v7
+        with:
+          pattern: glitch-sweep-*
+          path: results-glitch
+      - name: Glitch sweep summary
+        if: always() && (needs.glitch-slides.result != 'skipped' || needs.glitch-scenarios.result != 'skipped')
+        run: node scripts/glitch-sweep-summary.mjs results-glitch | tee -a "$GITHUB_STEP_SUMMARY"
