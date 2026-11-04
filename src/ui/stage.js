@@ -56,7 +56,7 @@ import { createReversalHold, oxygenFor } from './blood.js';
 import { createSweepClient } from './sweep-client.js';
 import { createJunctionWidths } from './junction-widths.js';
 import { chainsOf, planChainInto } from './vessel-taper.js';
-import { frameFor, lateFrameFor, cancelFrame, mayTask, cancelMay, noteDraw, easeNow, inMotion, afterMotion, PACED, setSaver as setFrameSaver, onRenderScale, figOpt, figLab, onFigLab, PINCH_LOW_K, readFrameFor, frameGapFor } from './frame.js';
+import { frameFor, lateFrameFor, cancelFrame, mayTask, noteDraw, easeNow, inMotion, afterMotion, PACED, setSaver as setFrameSaver, onRenderScale, figOpt, figLab, onFigLab, PINCH_LOW_K, readFrameFor, frameGapFor } from './frame.js';
 import { softwareYield } from './sw-yield.js';
 import { portalSplit } from './table-marks.js';
 import { layoutWatch } from './idle-keys.js';
@@ -158,6 +158,7 @@ import { createView } from './stage-view.js';
 import { createLabelLayer } from './stage-label-layer.js';
 import { createClamps } from './stage-clamps.js';
 import { createLabelItems } from './stage-label-items.js';
+import { createLabelDriver } from './stage-labels.js';
 
 export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, onViewChange }) {
   // <stage-split live>
@@ -195,10 +196,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get camShowRaf() { return camShowRaf; }, set camShowRaf(v) { camShowRaf = v; },
     get camShowT0() { return camShowT0; }, set camShowT0(v) { camShowT0 = v; },
     get camShowTo() { return camShowTo; }, set camShowTo(v) { camShowTo = v; },
+    get carryClear() { return carryClear; }, set carryClear(v) { carryClear = v; },
     get carrying() { return carrying; }, set carrying(v) { carrying = v; },
+    get carryReslot() { return carryReslot; }, set carryReslot(v) { carryReslot = v; },
     get catchUp() { return catchUp; }, set catchUp(v) { catchUp = v; },
     get cath() { return cath; },
     get cathFade() { return cathFade; }, set cathFade(v) { cathFade = v; },
+    get cathHidAt() { return cathHidAt; }, set cathHidAt(v) { cathHidAt = v; },
     get cathRadOf() { return cathRadOf; },
     get cathTint() { return cathTint; }, set cathTint(v) { cathTint = v; },
     get cathVer() { return cathVer; }, set cathVer(v) { cathVer = v; },
@@ -265,6 +269,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get glideCam() { return glideCam; }, set glideCam(v) { glideCam = v; },
     get glideRaf() { return glideRaf; }, set glideRaf(v) { glideRaf = v; },
     get glM() { return glM; }, set glM(v) { glM = v; },
+    get glowSetAt() { return glowSetAt; }, set glowSetAt(v) { glowSetAt = v; },
     get glowSync() { return glowSync; }, set glowSync(v) { glowSync = v; },
     get glSuppress() { return glSuppress; }, set glSuppress(v) { glSuppress = v; },
     get glWanted() { return glWanted; },
@@ -275,6 +280,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get haloK() { return haloK; }, set haloK(v) { haloK = v; },
     get handed() { return handed; }, set handed(v) { handed = v; },
     get handRide() { return handRide; }, set handRide(v) { handRide = v; },
+    get handRideT() { return handRideT; }, set handRideT(v) { handRideT = v; },
     get homeAt() { return homeAt; }, set homeAt(v) { homeAt = v; },
     get hoverId() { return hoverId; }, set hoverId(v) { hoverId = v; },
     get inUpdate() { return inUpdate; }, set inUpdate(v) { inUpdate = v; },
@@ -292,6 +298,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get labelK() { return labelK; }, set labelK(v) { labelK = v; },
     get labelKey() { return labelKey; }, set labelKey(v) { labelKey = v; },
     get labelKeyArr() { return labelKeyArr; },
+    get labelPainted() { return labelPainted; }, set labelPainted(v) { labelPainted = v; },
+    get labelSettleT() { return labelSettleT; }, set labelSettleT(v) { labelSettleT = v; },
+    get labelShown() { return labelShown; }, set labelShown(v) { labelShown = v; },
     get labelSol() { return labelSol; }, set labelSol(v) { labelSol = v; },
     get labelSolSpare() { return labelSolSpare; }, set labelSolSpare(v) { labelSolSpare = v; },
     get labelSvg() { return labelSvg; },
@@ -302,6 +311,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get landTo() { return landTo; }, set landTo(v) { landTo = v; },
     get lastMorph() { return lastMorph; }, set lastMorph(v) { lastMorph = v; },
     get lastMoveAt() { return lastMoveAt; }, set lastMoveAt(v) { lastMoveAt = v; },
+    get layCTM() { return layCTM; }, set layCTM(v) { layCTM = v; },
     get layerCommits() { return layerCommits; }, set layerCommits(v) { layerCommits = v; },
     get layerStarts() { return layerStarts; }, set layerStarts(v) { layerStarts = v; },
     get layerStartsEasing() { return layerStartsEasing; }, set layerStartsEasing(v) { layerStartsEasing = v; },
@@ -378,10 +388,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get overlayKey() { return overlayKey; }, set overlayKey(v) { overlayKey = v; },
     get ovT() { return ovT; }, set ovT(v) { ovT = v; },
     get paneGL() { return paneGL; }, set paneGL(v) { paneGL = v; },
+    get paramJSONs() { return paramJSONs; },
     get pickVer() { return pickVer; }, set pickVer(v) { pickVer = v; },
     get picLin() { return picLin; }, set picLin(v) { picLin = v; },
     get picNow() { return picNow; }, set picNow(v) { picNow = v; },
     get pillEdge() { return pillEdge; }, set pillEdge(v) { pillEdge = v; },
+    get pinchHide() { return pinchHide; }, set pinchHide(v) { pinchHide = v; },
+    get pinchLift() { return pinchLift; }, set pinchLift(v) { pinchLift = v; },
+    get pinchLiftT() { return pinchLiftT; }, set pinchLiftT(v) { pinchLiftT = v; },
+    get pinchT() { return pinchT; }, set pinchT(v) { pinchT = v; },
     get pinned() { return pinned; },
     get plateAgain() { return plateAgain; }, set plateAgain(v) { plateAgain = v; },
     get plateBusy() { return plateBusy; }, set plateBusy(v) { plateBusy = v; },
@@ -403,6 +418,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get plateView() { return plateView; }, set plateView(v) { plateView = v; },
     get plateViewKey() { return plateViewKey; }, set plateViewKey(v) { plateViewKey = v; },
     get pool() { return pool; },
+    get projecting() { return projecting; }, set projecting(v) { projecting = v; },
     get putA() { return putA; },
     get quality() { return quality; }, set quality(v) { quality = v; },
     get recKick() { return recKick; },
@@ -410,12 +426,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get resizeReady() { return resizeReady; }, set resizeReady(v) { resizeReady = v; },
     get resKey() { return resKey; },
     get resLit() { return resLit; }, set resLit(v) { resLit = v; },
+    get resLitRev() { return resLitRev; }, set resLitRev(v) { resLitRev = v; },
+    get reslotted() { return reslotted; }, set reslotted(v) { reslotted = v; },
     get resMask() { return resMask; }, set resMask(v) { resMask = v; },
     get resNow() { return resNow; },
     get restK() { return restK; }, set restK(v) { restK = v; },
     get restOn() { return restOn; }, set restOn(v) { restOn = v; },
     get restStill() { return restStill; },
     get restU() { return restU; }, set restU(v) { restU = v; },
+    get rideCTM() { return rideCTM; }, set rideCTM(v) { rideCTM = v; },
     get rideLeaders() { return rideLeaders; },
     get riseBox() { return riseBox; }, set riseBox(v) { riseBox = v; },
     get riseFast() { return riseFast; }, set riseFast(v) { riseFast = v; },
@@ -427,10 +446,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get rotU() { return rotU; }, set rotU(v) { rotU = v; },
     get shownCol() { return shownCol; }, set shownCol(v) { shownCol = v; },
     get shunt() { return shunt; }, set shunt(v) { shunt = v; },
+    get sigW() { return sigW; },
     get sinceP() { return sinceP; }, set sinceP(v) { sinceP = v; },
     get sites() { return sites; },
+    get sliceEnd() { return sliceEnd; }, set sliceEnd(v) { sliceEnd = v; },
+    get slideGlow() { return slideGlow; }, set slideGlow(v) { slideGlow = v; },
     get smooth01() { return smooth01; },
     get SOFTWARE() { return SOFTWARE; }, set SOFTWARE(v) { SOFTWARE = v; },
+    get solCache() { return solCache; },
     get solveAsked() { return solveAsked; }, set solveAsked(v) { solveAsked = v; },
     get SOLVED_A() { return SOLVED_A; },
     get SOLVED_B() { return SOLVED_B; },
@@ -440,6 +463,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get sprayLast() { return sprayLast; }, set sprayLast(v) { sprayLast = v; },
     get stageWake() { return stageWake; }, set stageWake(v) { stageWake = v; },
     get stats() { return stats; },
+    get STENT_CALM_MS() { return STENT_CALM_MS; },
+    get stentCalm() { return stentCalm; },
     get thrombiKey() { return thrombiKey; }, set thrombiKey(v) { thrombiKey = v; },
     get tokenRGB() { return tokenRGB; },
     get toneToken() { return toneToken; },
@@ -463,6 +488,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get xfHold() { return xfHold; }, set xfHold(v) { xfHold = v; },
     get xfOp() { return xfOp; }, set xfOp(v) { xfOp = v; },
     get xfSolving() { return xfSolving; }, set xfSolving(v) { xfSolving = v; },
+    get zoomBase() { return zoomBase; }, set zoomBase(v) { zoomBase = v; },
     get zShift() { return zShift; }, set zShift(v) { zShift = v; },
   };
   // </stage-split live>
@@ -6248,47 +6274,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let colResolve = 0;   // (when a carried stent column last asked to be placed again: see layoutLabels)
   let labelSol = new Map();   // key → solved slot { wx, wy, dx, dy, dir, pi, w, h, leader, lead } or { drop }
   let solvedFor = null;       // { sig, sc, th } the slots were solved for
-  const SOLVED_A = { sig: null, sc: 0, th: 0, csig: 0, ins: 0 }, SOLVED_B = { sig: null, sc: 0, th: 0, csig: 0, ins: 0 };   // (what updateLabels writes it into, by turns)
-  const JOB_NOW = { maxWait: 0 };
-  const HAND_STILL_MS = 90;   // (a wheel step is over this long after its last tick: the settle no longer waits the 250 ms of gestureOn)
-  const JOB = { g: null, key: null, solvedFor: null, t0: 0 }, jobKeyArr = [], labelKeyArr = [];   // (the solve in slices: one at a time, its key and the key of the layout that stands, kept)
-  const keyInto = (to, from) => { to.length = from.length; for (let i = 0; i < from.length; i++) to[i] = from[i]; return to; };
-  const labelVis = new Map(); // key → shown last frame (hysteresis against blockers)
-  const zoneStick = new Map();   // zone title key -> [world x, y] of its centre at the last layout (sticky placement)
+  const { JOB_NOW, KEY_NODES, SOLVED_A, SOLVED_B, SOLVE_TURN, cathHid, flagged, handRideEnd: handRideEnd$, keyInto, labelIns, labelJobDrop: labelJobDrop$, labelJobStep: labelJobStep$, labelKeyArr, labelKeyNow: labelKeyNow$, labelRestK: labelRestK$, labelSettleSoon: labelSettleSoon$, labelSig: labelSig$, labelSliceRun: labelSliceRun$, labelTail: labelTail$, labelVis, sigWidthMoved, sliceOver, stats, stentReady, updateLabels: updateLabels$, zoneStick, zoomedIn } = createLabelDriver({ E, EI, EV, LABEL_FIRST_REST_MS, LABEL_REST_SLICE_MS, LABEL_SLICE_MS, calloutSig, camSettle, carryAbort, cath, dop, dpr, dprobePaint, easeInOut, explain, fxBuild, hasVarices, isImaging, labelBase, labelGlSync, landing, layerMode, layoutLabels, layoutLabelsGen, nextFrame, nodeItem, pre, preAbort, preAsk, pzInset, refreshCTM, renderBlock, resItem, rideStart, rideStep, rideStop, sameDeps, scan, scanItem, scanPaint, shortenTo, sigFold, sites, sitesPaint, stageBox, themeKey, velItem, wrap, xfMarkCurrent, xfRelease }, live);
+  function labelRestK(...a) { return labelRestK$(...a); }   // <stage-split stub>
+  function labelSettleSoon(...a) { return labelSettleSoon$(...a); }   // <stage-split stub>
+  function labelSig(...a) { return labelSig$(...a); }   // <stage-split stub>
+  function updateLabels(...a) { return updateLabels$(...a); }   // <stage-split stub>
+  function handRideEnd(...a) { return handRideEnd$(...a); }   // <stage-split stub>
+  function labelTail(...a) { return labelTail$(...a); }   // <stage-split stub>
+  function labelSliceRun(...a) { return labelSliceRun$(...a); }   // <stage-split stub>
+  function labelJobDrop(...a) { return labelJobDrop$(...a); }   // <stage-split stub>
+  function labelJobStep(...a) { return labelJobStep$(...a); }   // <stage-split stub>
+  function labelKeyNow(...a) { return labelKeyNow$(...a); }   // <stage-split stub>
   let lapHid = new Set();     // keys the last layout's overlap pass hid (its hysteresis)
   let labelTurned = false;   // labels remember their side; turning the circuit changes which side is right
-  // Levels of detail (Blood menu › Labels). Key: at the home framing only the portal vein, the HVPG pair
-  // (wedged sinusoids and the free hepatic vein) and the stations the model flags; zoomed in, every
-  // station in view. All: every station at every zoom. None: only a selected station.
-  const KEY_NODES = ['CONF', 'SIN_R', 'RHV'];
-  // (The zoom the labels' level of detail is read from is the camera at rest: the view a card zoom began at, or where a glide is headed, never the live
-  // view part way, so a zoom or glide cannot flip a flag and solve the labels mid-move.)
-  function labelRestK() { return zoomBase?.vt ? zoomBase.vt.k : vtGliding && vtTarget ? vtTarget.k : vt.k; }
-  const zoomedIn = () => labelRestK() > (homeAt?.k || 1) * 1.3;
-  // (The stations flagged, written into a kept list: one for the layout, which keeps its list while it runs, and one for the signature, which
-  // is asked for on every frame, a layout in slices between its slices too.)
-  const flagBuf = [], flagSigBuf = [];
-  function flagged(f, out = flagBuf) {
-    const st = store.get();
-    out.length = 0;
-    if (hasVarices('VAR', f)) out.push('VAR');
-    if (hasVarices('GV', f)) out.push('GV');
-    if (f.metrics?.ra > 10) out.push('RA');   // the Findings cut-off for a raised right atrial pressure
-    // A narrowed vessel: the stations either side of it.
-    const sten = (f.viewParams || st.params).stenosis;
-    if (sten) for (const id in sten) {
-      if (!Object.hasOwn(sten, id)) continue;
-      const e = sten[id] > 0 && EDGES[EI[id]];
-      if (!e) continue;
-      for (let q = 0; q < 2; q++) { const n = q ? e.to : e.from; if (CHIP_NODES.includes(n) && !out.includes(n)) out.push(n); }
-    }
-    return out;
-  }
-  const SOLVE_ZOOM = 0.05, SOLVE_TURN = 0.03;   // re-solve after a 5 % zoom change or ~2 degrees of turn
-  // While a hand zooms (a pinch, the wheel, a flick), the labels are carried up to a 35 % change before they are solved again, as long as
-  // no carried label comes onto another (carryClear); they are solved for where the view stopped once it is let go (labelSettleSoon),
-  // and glide to their new spots (labelGlide). Solving every 5 % was a full search about every third frame of a pinch.
-  const SOLVE_ZOOM_HAND = 0.35;
   let carryClear = false, labelSettleT = 0, solveAsked = false;   // (solveAsked: the next layout is a solve whatever the camera did, with the standing labels carried first)
   // (During a hand's zoom in the Circuit, a carried reading that comes onto a station's ring is placed again by itself (carryReslot),
   // the others carried; once let go every reading is solved again (reslotted). Its rings grow with the zoom while a reading keeps its
@@ -6299,400 +6297,29 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // where the view stopped, once it is let go (as a presenter's camera move does: cam-move). Mohammad, 26 Oct, his pick "Both,
   // readings first" for "the problem is during the zoom itself it's very very choppy". A pan alone keeps them, carried.
   let pinchHide = false, pinchT = 0;
-  const PINCH_ZOOM = 0.01;   // (a 1 % change of scale under a hand is a zoom; a pan leaves the scale exactly as it was)
-  // (What the labels show, as identities: a hand's ride compares it with what it was when the ride began. Not the vessels' widths or
-  // geometry, nor the two flags the zoom itself flips (vt.k > 1.35, zoomedIn): on a playing model the widths move every few frames and
-  // the zoom crosses the flags, and the signature then ended every ride within a frame or two. Written into kept lists, no string made.)
-  const rideKeyA = [], rideKeyB = [];
-  function rideKeyInto(k, st) {
-    k[0] = st.selection?.type; k[1] = st.selection?.id; k[2] = st.layers.labels; k[3] = st.layers.chips; k[4] = layerMode(); k[5] = st.focus?.label;
-    k[6] = st.focus?.edges?.[0]; k[7] = st.focus?.marks; k[8] = st.labelLevel; k[9] = scan.on; k[10] = dop.key; k[11] = fxSig; k[12] = fx; k[13] = st.presenting;
-    k[14] = st.presentLabels; k[15] = st.presentTerms; k[16] = st.presentNames; k[17] = st.hiddenLabels; k[18] = labelBase(); k[19] = projecting; k[20] = explain.key;
-    return k;
-  }
-  const rideKeyHeld = (st) => sameDeps(rideKeyA, rideKeyInto(rideKeyB, st));
   let pinchLift = false, pinchLiftT = 0;
-  function pinchRelease() {
-    clearTimeout(pinchT);
-    pinchT = setTimeout(pinchRel, 160);
-  }
-  function pinchRel() {
-    {
-      if (gestureOn()) { pinchT = setTimeout(pinchRel, 120); return; }
-      // (They are laid out for where the zoom stopped. The labels still standing are carried to this camera first, then solved: solvedFor is
-      // kept, with a solve asked for, so that carry runs; solvedFor = null skipped it, and the labels as they stood before the zoom were
-      // shown, at their old screen places, over the zoomed vessels when the hide was lifted, till the solve landed.)
-      pinchT = 0; pinchHide = false; reslotted = false; solveAsked = true;
-      pinchLift = true;
-      if (F && !camMove && !lz?.isOpen()) { labelKey = null; updateLabels(F); }
-      // (Shown only once that layout has landed (pinchLiftNow, from labelTail). A solve still in its slices after 600 ms keeps its slices: it
-      // was finished in one task there, the whole remaining solve on the main thread just as the hand let go (external review EXT-PERF-1).
-      // It is looked at again every 200 ms, and after 3 s the labels come back as they stand, so they are never hidden for good.)
-      clearTimeout(pinchLiftT);
-      pinchLiftN = 0;
-      pinchLiftT = setTimeout(pinchLiftCheck, 600);
-      pinchLiftNow(false);
-    }
-  }
-  let pinchLiftN = 0;
-  function pinchLiftCheck() {
-    pinchLiftT = 0;
-    if (!pinchLift || pinchHide) return;
-    if (labelJob && ++pinchLiftN < 13) { pinchLiftT = setTimeout(pinchLiftCheck, 200); return; }
-    pinchLiftNow(true);
-  }
-  // (Lifts the hide once the labels stand laid out for the camera: no solve running, the layout's key kept. `force`: whatever stands.)
-  function pinchLiftNow(force) {
-    if (!pinchLift || pinchHide) return;
-    if (!force && (labelJob || labelKey == null)) return;
-    pinchLift = false; clearTimeout(pinchLiftT); pinchLiftT = 0;
-    // (Shown a frame after the last write, where they stay: they fade in.)
-    // alloc-rare: one closure when the hide is lifted after a pinch, never per frame
-    nextFrame(() => { if (!pinchHide) wrap.classList.remove('pinch-hide'); });
-  }
-  // (No timer: the labels are solved in the first frame after the hand lets go and any push has landed.)
-  function labelSettleSoon() {
-    cancelFrame(labelSettleT);
-    labelSettleT = nextFrame(labelSettle);
-  }
-  function labelSettle() {
-    if (gestureOn() || drifting) { labelSettleT = nextFrame(labelSettle); return; }
-    labelSettleT = 0;
-    if (reslotted) { reslotted = false; solvedFor = null; }   // (readings placed one by one mid-gesture: all solved together now)
-    if (F && !camMove && !lz?.isOpen()) { labelKey = null; updateLabels(F); }
-  }
   // A vessel's width as the labels see it: it moves only once the vessel has changed by 2 px, so a width
   // easing or hovering at a rounding edge does not lay the labels out again on every model update.
   const sigW = new Map();
-  function sigWidth(x) {
-    const w = x.width || 0, s = sigW.get(x.e.id);
-    if (s != null && Math.abs(w - s) < 2) return s;
-    sigW.set(x.e.id, Math.round(w));
-    return Math.round(w);
-  }
   // A stent's velocity callout waits until the stent has grown in and the flow through it has settled: while it draws on,
   // widens, or the presenter eases the model to a new patient, the reading swings through values no scan would show.
   const STENT_CALM_MS = 1200, stentCalm = new Map();
-  function stentReady(sid, f) {
-    const x = E[sid];
-    if (!x?.vis) { stentCalm.delete(sid); return false; }
-    const now = performance.now(), c = stentCalm.get(sid);
-    if (!c || x.reveal || f.morphing || x.width !== x.wT) { stentCalm.set(sid, now); return false; }
-    return now - c >= STENT_CALM_MS;
-  }
   // The narrowings' part of the signature, kept per object: a change of parameters always makes new objects (updateParams
   // clones them, and each model frame brings its own), so the same object always gives the same text. The same holds for the
   // slide's marks and terms (the presenter sets new ones per slide) and the cards' boxes (readBlockers returns a new list):
   // their text is built once per object, not on every call (review item 25).
   const paramJSONs = new WeakMap();
-  const paramJSON = (o) => { if (!o || typeof o !== 'object') return JSON.stringify(o); let j = paramJSONs.get(o); if (j === undefined) paramJSONs.set(o, (j = JSON.stringify(o))); return j; };
-  let labelGeo = 0;
-  // (R04, review pass 2: the signature is rebuilt only when one of the things it is made from changed: the frame, the store's
-  // revision, the geometry's version, the vessels' shown set (edgeRev), the slide's marks and the few view thresholds it reads. A
-  // camera move alone (a pan, a pinch, a glide: every frame) changes none of them, and had rebuilt the whole string, every vessel's
-  // id and width joined, on each of its frames. ?labelrev=0: built on every call, as before.)
-  let sigText = '';
-  const sigDeps = [], sigNow = [];
-  function labelSig(f) {
-    const st = store.get(), t = easeInOut(morph);
-    // (Between the two views the vessels' geometry changes every frame: the labels are carried along with it, and solved again when the
-    // change reaches its second half and when it lands, as the geometry's version then stands.)
-    if (!(morph > 0 && morph < 1)) labelGeo = geometryVersion;
-    const tips = +stentReady('TIPS', f), dips = +stentReady('DIPS', f);
-    const d = sigNow;
-    d[0] = f; d[1] = store.rev; d[2] = labelGeo; d[3] = t >= 0.5; d[4] = rotU > 0.5; d[5] = labelBase(); d[6] = stageBox().width < 700;
-    d[7] = labelRestK() > 1.35; d[8] = zoomedIn(); d[9] = scan.on; d[10] = fxSig; d[11] = fx; d[12] = slideGlow; d[13] = dop.key; d[14] = edgeRev;
-    d[15] = tips; d[16] = dips; d[17] = projecting; d[18] = glowSetAt; d[19] = labelRestK() >= 1.9; d[20] = resMask; d[21] = resLitRev; d[22] = !!sites.list;
-    if (sigDeps.length === d.length && sameDeps(sigDeps, d)) return sigText;
-    for (let i = 0; i < d.length; i++) sigDeps[i] = d[i];
-    sigStats.builds++;
-    const edges = EV.filter((x) => x.vis).map((x) => `${x.e.id}${sigWidth(x)}${x.ghost ? 'g' : ''}`).join(',');
-    return (sigText = [labelGeo, t >= 0.5, rotU > 0.5, labelBase(), stageBox().width < 700, st.selection?.type + ':' + st.selection?.id, paramJSON((f.viewParams || st.params).stenosis), paramJSON((f.viewParams || st.params).stenosisSite),
-      isImaging(), st.layers.labels, st.layers.chips, layerMode(), st.focus?.label, st.focus?.edges?.[0], st.focus?.marks && paramJSON(st.focus.marks), fxSig, fx?.steps && slideGlow.map((g) => g.id + g.at).join(), (fx?.organs.some((o) => o.organ === 'spleen') || fx?.calipers.some((c) => c.organ)) && Math.round((f.slow?.spleen ?? 11) * 2), d[7], st.labelLevel, st.presenting && st.presentLabels?.join(','), st.presenting && paramJSON(st.presentTerms || null), st.presenting && st.presentNames, explain.key, scan.on, [...(st.hiddenLabels || [])].join(','), d[8], flagged(f, flagSigBuf).join(','), edges, `${tips}${dips}`, dop.key, d[19]].join('|'));
-  }
-  const sigStats = { builds: 0 };
-  // (A vessel's label width moved by its 2 px step, outside a model frame: the width's own ease, stepWidths. See sigWidth.)
-  const sigWidthMoved = (x) => { const s = sigW.get(x.e.id); return s == null || Math.abs((x.width || 0) - s) >= 2; };
   // Layout runs only when one of its inputs changed: the camera and stage box (the CTM), the label
   // signature (geometry, widths, selection, layers, levels...), the morph and turn, the floating panels,
   // fonts, theme and the presenter's insets. Otherwise the last layout stands, and only the live values
   // are refreshed in place (see refreshValues); a value whose text changes shape lays the labels out again.
   let labelKey = null, labelFonts = 0, labelShown = [], noChevBoxes = [], labelPainted = false;   // labelPainted: the last updateLabels painted the callouts and probes
   let cathHidAt = 0;
-  const cathHid = () => !!cath.st && !cath.st.keep && wrap.classList.contains('cath-on') && performance.now() - cathHidAt > 300;
-  // (What a stent's column of callouts is solved against besides the camera: the cards' insets and boxes. Empty without one.)
-  const INS_KEYS = ['--pz-t', '--pz-l', '--pz-b', '--pz-r'];
-  const labelIns = () => {   // (a number folded from the insets and the boxes, 0 without a column: no text is made)
-    if (!dop.all) return 0;
-    let h = 2166136261;
-    for (let i = 0; i < 4; i++) h = sigFold(h, Math.round(pzInset(INS_KEYS[i]) / 8));
-    if (blockerBoxes) for (let i = 0; i < blockerBoxes.length; i++) { const o = blockerBoxes[i]; h = sigFold(sigFold(sigFold(sigFold(h, Math.round(o.x0 / 8)), Math.round(o.y0 / 8)), Math.round(o.x1 / 8)), Math.round(o.y1 / 8)); }   // (and the cards' boxes, which can arrive a frame after the insets)
-    return h || 1;
-  };
-  const stats = { layouts: 0, skips: 0, values: 0, ms: 0, jobs: 0, slices: 0, drops: 0 };
   // The Circuit's solved slots kept by zoom (a quarter octave a step), pan bucket, turn and what the labels show, a few, least recently used out:
   // a settle at a step already solved commits them at once. Only at rest in the Circuit; every label must still fit (the carry says), else it solves.
   const solCache = new Map();
-  function solCacheKey(sig, sc, th, b, csig, ins) {
-    if (morph !== 1 || morphTarget !== 1 || xfSolving || viewXf || !(sc > 0)) return null;
-    return [sig, Math.round(Math.log2(sc) * 4), Math.round(th * 100), Math.round(CTM.e / (b.width / 4)), Math.round(CTM.f / (b.height / 4)), b.width, b.height, rotU > 0.5, labelFonts, csig, ins].join('|');
-  }
-  function solCachePut(sf) {
-    pre.need = true;   // (what the labels show was solved again: the other view's ahead-of-time solve is made again in idle time)
-    if (!sf.ck || !(morph === 1 && morphTarget === 1)) return;
-    const m = new Map();
-    for (const [k, v] of labelSol) m.set(k, { ...v });
-    solCache.delete(sf.ck); solCache.set(sf.ck, m);
-    if (solCache.size > 6) solCache.delete(solCache.keys().next().value);
-  }
-  function solCacheTry(ck, f) {
-    const c = solCache.get(ck);
-    if (!c) return false;
-    const keep = labelSol;
-    const m = new Map();
-    for (const [k, v] of c) m.set(k, { ...v });
-    labelSol = m;
-    if (layoutLabels(f, false) !== false) { solCache.delete(ck); solCache.set(ck, c); return true; }
-    labelSol = keep;
-    return false;
-  }
-  const handRideRec = { settle: false };   // (the one record of a hand's zoom ridden: handRide points at it while a ride runs)
-  function updateLabels(f, force = false) {
-    labelPainted = false;
-    if (viewXf) return;   // (the change between the views: the new view's labels were solved at the tap for where it lands, and ride it)
-    // Laid out once the presenter's camera settles (see camSettle), or at once if its glide was cut short.
-    if (camMove) { if (!vtGliding) camSettle(); return; }
-    // (Not while the HVPG catheter hides them (cath-on, after its .25 s fade): its view follows the tip every frame, and every frame
-    // of it had laid out, drawn and sent to the GPU labels nobody could see. setCatheter lays them out as it goes.)
-    if (cathHid()) { labelKey = null; return; }
-    const t0 = performance.now();
-    refreshCTM();
-    const st = store.get(), b = stageBox();
-    // (A hand's zoom, in the Circuit as in the anatomy: the labels ride it, solved once the hand lets go. Only at rest in one view or the
-    // other, never between them. What the labels show is compared by rideKeyHeld, not the signature: on a playing model that changes every
-    // few frames (widths, geometry), and the two flags the zoom itself flips.)
-    const restView = morph === 0 || morph === 1;
-    // (The hand came back while the settle solve ran: back to riding, the solve dropped, no carry, no ride end and no glide.)
-    if (handRide?.settle && gestureOn() && rideCTM && restView && rideKeyHeld(st)) {
-      labelJobDrop(); handRide.settle = false; handRideWatch();
-      rideStep(); stats.skips++; stats.ms += performance.now() - t0;
-      return;
-    }
-    if (handRide && !handRide.settle) {
-      if (rideCTM && gestureOn() && restView && rideKeyHeld(st)) { rideStep(); stats.skips++; stats.ms += performance.now() - t0; return; }
-      handRideEnd(); labelKey = null;
-    } else if (!handRide && !pinchHide && !pinchLift && gestureOn() && solvedFor && restView && layCTM && Math.abs(Math.log(CTM.sc / Math.hypot(layCTM[0], layCTM[1]))) > PINCH_ZOOM && rideStart(layCTM)) {
-      // A playing model may have another solve in slices. The last committed layout can still ride: discard the unfinished solve,
-      // rather than hiding the labels or carrying them from the camera of an older solve.
-      labelJobDrop();
-      rideKeyInto(rideKeyA, st);   // (what the labels show as the ride begins)
-      handRideRec.settle = false; handRide = handRideRec;
-      handRideWatch();
-      rideStep(); stats.skips++; stats.ms += performance.now() - t0;
-      return;
-    }
-    // (Labels are never hidden for a zoom: the anchored ones ride the camera on the GPU (world anchors), the rest are carried and solved as it goes. Mohammad, 4 Nov: "after I zoom there is like 2-3 s until labels show up in the Circuit" was this hide, lifted by a 3 s poll.)
-    const sig = labelSig(f);
-    if (carrying && solvedFor?.sig !== sig) { carryAbort(); return; }   // (what the labels show changed mid-move: the usual fade, then laid out as it lands)
-    // (R04: the key is a list of numbers and identities compared one by one, not a string joined on every camera frame: the camera's
-    // part (the transform in hundredths, the stage box, the morph and turn) and the revisions of the rest.)
-    const key = labelKeyNow(st, sig, b);
-    // (A solve still running in slices for this same view: the labels stand as they are until it lands, and what changed meanwhile (a
-    // value, a callout) is taken up after it, as after any solve. A camera that moved (the key's first eight: the transform, the stage
-    // box, the morph and the turn) drops it, and the labels carry as they always did.)
-    if (labelJob) {
-      if (!force && sameView8(labelJob.key, key)) { labelTail(); return; }
-      labelJobDrop();
-    }
-    if (!force && sameKey(key) && (inMotion() ? holdValues(f) : refreshValues(f))) { stats.skips++; stats.ms += performance.now() - t0; }
-    else {
-      const sc = CTM.sc, th = Math.atan2(CTM.b, CTM.a);
-      const csig = calloutSig();
-      // (A stent called out at its three points is solved again when the presenter's cards move (the monitor folded or opened): carried,
-      // its callouts and the slide's mark would hide under a card or keep spots chosen for another view: Review 16 Oct.)
-      const ins = labelIns();
-      // (A slow push (ride) carries them however far it zooms, while none comes onto another: a label changing sides mid-push would
-      // jump. They are solved again as it lands: driftEnd. A glide whose labels were solved for where it lands (landing) carries them
-      // all the way, without that check: one may pass over another for a moment, the overlap pass below showing the more important.)
-      // (Between the two views the labels ride with the change however far its camera zooms: solved again at its half and as it lands.)
-      const dz = solvedFor && !(morph > 0 && morph < 1) ? Math.abs(Math.log(sc / solvedFor.sc)) : 0, hand = dz > SOLVE_ZOOM && gestureOn(), land = landing() && !hand, ride = (drifting || land || !!zoomBase) && !hand;
-      const landingRide = !!handRide?.settle;
-      const changed = !solvedFor || solveAsked || solvedFor.sig !== sig || solvedFor.csig !== csig || solvedFor.ins !== ins || Math.abs(th - solvedFor.th) > SOLVE_TURN;
-      const solve = changed || (!landingRide && !ride && dz > (hand ? SOLVE_ZOOM_HAND : SOLVE_ZOOM));
-      carryClear = hand || landingRide; carryReslot = gestureOn();
-      if (ride && !land && dz > SOLVE_ZOOM) carryClear = true;   // (carried, but never onto each other)
-      const solved = solve || layoutLabels(f, false) === false;
-      carryReslot = false;
-      if (solved) {
-        carryClear = false;
-        // (Written into whichever of two kept records is not the one standing: a solve in slices holds its record until it lands.)
-        const sf = solvedFor === SOLVED_A ? SOLVED_B : SOLVED_A;
-        sf.sig = sig; sf.sc = sc; sf.th = th; sf.csig = csig; sf.ins = ins; sf.view = morphTarget;
-        sf.ck = solCacheKey(sig, sc, th, b, csig, ins);
-        // (A zoom back to a step already solved in the Circuit: its recorded slots are carried, with no solve. They stand only if every label still fits.)
-        if (sf.ck && solCacheTry(sf.ck, f)) { solvedFor = sf; solveAsked = false; } else {
-        // (The labels already standing are carried to this frame's camera first: a solve that does not land inside its slice leaves them as
-        // they are, so each frame of a zoom or glide that asked for a fresh solve left them one more frame behind the figure, and
-        // dropped the sliced solve the next frame. Mohammad, 2 Nov: "the labels and callouts move slower than the figure camera".)
-        if (solvedFor && solvedFor.view === morphTarget && !(morph > 0 && morph < 1)) layoutLabels(f, false);   // (not another view's solution: its anchors are that view's world points, which would stand the labels and their dots where the figure has none)
-        preAbort();
-        const g = layoutLabelsGen(f, true);
-        if (!labelSliceRun(g, xfSolving ? 2 : gestureOn() || drifting || (morph > 0 && morph < 1) ? LABEL_SLICE_MS : LABEL_FIRST_REST_MS)) {   // (at rest the first slice is long: most solves land in it)
-          labelJob = JOB; JOB.g = g; JOB.key = keyInto(jobKeyArr, key); JOB.solvedFor = sf; JOB.xfTap = null; JOB.t0 = performance.now(); stats.jobs++;
-          mayTask('label solve', labelJobStep, handRide?.settle || !gestureOn() ? JOB_NOW : undefined);   // (at rest the slices run every frame, none waits two)
-          stats.ms += performance.now() - t0;
-          labelTail();
-          return;
-        }
-        solvedFor = sf; solveAsked = false; solCachePut(sf);
-        }
-      }
-      else if (landingRide) { solvedFor.sc = sc; }
-      else if (hand || reslotted) labelSettleSoon();
-      if (gpuProbe.on) gpuProbe.note(solved ? COUNTED.labelSolve : COUNTED.labelCarry);
-      carryClear = false;
-      labelKey = keyInto(labelKeyArr, key); stats.layouts++; stats.ms += performance.now() - t0;
-    }
-    labelTail();
-  }
-  // The hand's ride (see updateLabels): watched until the hand lets go, then the labels are laid out for where the view stopped while
-  // they still ride, and only once that layout has landed (a sliced solve too) does the ride end, each label gliding on from where it
-  // rode (label-gl.js rideEnd, sync). Ending it before would draw the old layout, uncarried, for the frames the solve takes.
-  function handRideWatch() {
-    cancelFrame(handRideT);
-    handRideT = nextFrame(handRideWait);   // (checked every frame, not on a timer: the settle starts in the first frame the hand has been still)
-  }
-  function handRideWait() {
-    if (!handRide || handRide.settle) return;
-    if (drag || glide || gestureOn()) {   // (the settle starts once the hand has let go: pointer up, or the wheel quiet, not at any short pause)
-      handRideT = nextFrame(handRideWait); return; }
-    handRideT = 0; handRide.settle = true;
-    if (F && !camMove && !lz?.isOpen()) { labelKey = null; updateLabels(F); } else handRideEnd();
-  }
-  function handRideEnd() { if (!handRide) return; handRide = null; cancelFrame(handRideT); handRideT = 0; rideStop(); }
-  // (What every layout of the labels ends with, a carried, a skipped or a sliced one too: the callouts and probes painted, then the GPU's copy.)
-  function labelTail() {
-    pinchLiftNow(false);   // (the labels hidden for a zoom that rode no further come back once their layout is down)
-    if (handRide?.settle && !labelJob) handRideEnd();   // (the layout for where the hand stopped has landed: the ride ends as it is drawn)
-    if (sites.list) sitesPaint();
-    if (scan.on) scanPaint();
-    dprobePaint();
-    labelPainted = true;
-    preAsk();
-    if (xfHold && !labelJob) xfRelease();
-    labelGlSync();   // (last: the probe's place, just written, is drawn in this frame too)
-  }
   // The solve running in slices (LABEL_SLICE_MS): its generator, the view's key it was started for and what it was solved for.
   let labelJob = null, sliceEnd = Infinity;
-  const sliceOver = () => performance.now() > sliceEnd;
-  // (Runs the solve for up to ms; true once it has landed.)
-  function labelSliceRun(g, ms) {
-    sliceEnd = performance.now() + ms;
-    let r;
-    try { r = g.next(); } finally { sliceEnd = Infinity; }
-    return r.done;
-  }
-  const sameView8 = (a, b) => { for (let i = 0; i < 8; i++) if (a[i] !== b[i]) return false; return true; };
-  function labelJobDrop() { if (!labelJob) return; stats.drops++; const g = labelJob.g; labelJob = null; cancelMay('label solve'); g.return(); }
-  // (The running solve finished now, in one go: the labels are laid out for the camera as it stands.)
-  function labelJobFinish() {
-    const j = labelJob;
-    if (!j) return;
-    cancelMay('label solve');
-    try { while (!labelSliceRun(j.g, 1e6)); } catch (e) { labelJob = null; labelKey = null; throw e; }
-    labelJob = null;
-    solvedFor = j.solvedFor; solveAsked = false; solCachePut(solvedFor);
-    labelKey = keyInto(labelKeyArr, j.key); stats.layouts++;
-    labelTail();
-  }
-  // (A slice in a frame's spare time: true while there is more to do.)
-  function labelJobStep(left) {
-    const j = labelJob;
-    if (!j) return false;
-    if (camMove || cathHid() || lz?.isOpen()) { labelJobDrop(); labelKey = null; return false; }
-    let done;
-    // (A frame with no time to spare gives its slice anyway, and a solve that has run long takes more each time (2 ms, up to 12 ms after a
-    // second): on a slow phone, 1 ms slices a few frames apart left another view's layout standing for most of a minute, the Circuit
-    // showing two readings and the anatomy's names after the switch.)
-    stats.slices++;
-    const age = performance.now() - (j.t0 || 0), ms = Math.max(gestureOn() || drifting ? 0 : LABEL_REST_SLICE_MS, Math.min(12, LABEL_SLICE_MS + Math.max(0, age - 250) / 75));   // (at rest a solve takes a longer slice each frame, so it lands in a few frames)
-    try { done = labelSliceRun(j.g, Math.max(ms, Math.min(LABEL_SLICE_MS, left || LABEL_SLICE_MS))); } catch (e) { labelJob = null; labelKey = null; throw e; }
-    // (Past 400 ms a slice runs every frame, not every third: on a busy frame budget the may task waited its two frames each time, and a
-    // Circuit solve took half a minute to land, two readings standing meanwhile.)
-    if (!done && (age > 400 || !gestureOn())) { mayTask('label solve', labelJobStep, JOB_NOW); return false; }
-    if (!done) return true;
-    labelJob = null;
-    solvedFor = j.solvedFor; solveAsked = false; solCachePut(solvedFor);
-    if (gpuProbe.on) gpuProbe.note(COUNTED.labelSolve);
-    labelKey = keyInto(labelKeyArr, j.key); stats.layouts++;
-    if (j.xfTap) xfMarkCurrent(j.xfTap);
-    labelTail();
-    return false;
-  }
-  // (R04: the labels' key as numbers and identities, written into one kept list. The callouts' boxes fold into one number.)
-  const keyBuf = [];
-  function labelKeyNow(st, sig, b) {
-    const k = keyBuf;
-    k[0] = Math.round(CTM.a * 100); k[1] = Math.round(CTM.b * 100); k[2] = Math.round(CTM.e * 100); k[3] = Math.round(CTM.f * 100);
-    k[4] = b.width; k[5] = b.height; k[6] = morph; k[7] = rotU; k[8] = labelFonts; k[9] = themeKey(); k[10] = pzInset('--pz-l'); k[11] = pzInset('--pz-t');
-    k[12] = st.mode; k[13] = !!st.compareSnap; k[14] = st.compareView; k[15] = paramJSON(blockerBoxes); k[16] = sig;
-    let h = 0, n = 0;
-    for (const el of sites.made.values()) if (el._box && !el.classList.contains('cath-pre')) { h = foldBox(h, el._box); n++; }
-    if (cath.made && !cath.labels.hidden) for (const el of cath.made.values()) if (el._box) { h = foldBox(h, el._box); n++; }
-    if (dpr.on && dpr.box) { h = foldBox(h, dpr.box); n++; for (const m of dpr.marks) { h = foldBox(h, m); n++; } }
-    k[17] = h; k[18] = n;
-    return k;
-  }
-  const foldBox = (h, b) => Math.imul(Math.imul(h ^ Math.round(b.x0 / 8), 16777619) ^ Math.round(b.y0 / 8), 16777619);
-  const sameKey = (k) => Array.isArray(labelKey) && labelKey.length === k.length && sameDeps(labelKey, k);
-  // (Cached labels while something moves (recs.md item 6, 2 Nov 2026): during a transition (inMotion: a slide's cards thrown, a
-  // dive) a laid-out label is left exactly as it is, its places, widths and collisions kept from its last layout and its live values
-  // not rebuilt or written into the page, so a moving frame does no label DOM work at all. The values catch up in the first frame
-  // after the move ends.)
-  let heldF = null, heldWait = null;
-  const heldRun = () => { const g = heldF; heldF = null; if (!g || cathHid()) return; if (!refreshValues(g)) labelKey = null; labelGlSync(); };
-  const heldDone = () => { heldWait = null; frameFor('labels')(heldRun); };
-  function holdValues(f) {
-    heldF = f;
-    heldWait ||= afterMotion(heldDone);
-    return true;
-  }
-  // The live values of the labels showing, rebuilt and written into their text in place. False when one
-  // changed shape (a width, a run, a change badge): the caller then lays the labels out again.
-  const refreshNext = [];   // (the labels' new items, kept: written afresh by each call, which does not call itself)
-  function refreshValues(f) {
-    const next = refreshNext;
-    next.length = 0;
-    for (const it of labelShown) {
-      const [kind, id, mode, compact] = it.src;
-      const n = kind === 'fx' ? fxBuild.get(id)?.() : kind === 'res' ? resItem(id) : kind === 'vel' ? velItem(id, f, mode) : kind === 'scan' ? scanItem() : nodeItem(id, f, mode, compact);
-      if (!n) return false;   // (a slide's callout gone: lay out again)
-      if (it.short || it.abbr) shortenTo(n, it.short || 0, it.abbr);
-      if (n.lines.length !== it.lines.length || Math.abs(n.w - it.w) > 0.5 || Math.abs(n.h - it.h) > 0.5) return false;
-      for (let i = 0; i < n.lines.length; i++) {
-        const a = n.lines[i], o = it.lines[i];
-        if (a.length !== o.length) return false;
-        for (let j = 0; j < a.length; j++) if (a[j].cls !== o[j].cls || a[j].size !== o[j].size) return false;
-      }
-      next.push(n);
-    }
-    let changed = false;
-    const shown = labelShown, count = shown.length;
-    for (let i = 0; i < count; i++) {
-      const it = shown[i], n = next[i];
-      let same = n.label === it.label;
-      for (let j = 0; same && j < n.lines.length; j++) {
-        const l = n.lines[j], o = it.lines[j];
-        for (let k = 0; k < l.length; k++) if (l[k].t !== o[k].t) { same = false; break; }
-      }
-      if (same) continue;
-      it.lines = n.lines; it.label = n.label; changed = true;
-      renderBlock(it);
-    }
-    next.length = 0;
-    if (changed) stats.values++;
-    return true;
-  }
   // Figure point under a local (stage) pixel.
   function localToWorld(x, y) {
     const X = x + wrapRect.left - CTM.e, Y = y + wrapRect.top - CTM.f, det = CTM.a * CTM.d - CTM.b * CTM.c;
