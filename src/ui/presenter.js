@@ -5812,9 +5812,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     else if (lk === 'b' || k === '.' || lk === 'w') toggleBlack();
     else if (lk === 'f') fullscreen();
     else if (lk === 'g') toggleJump(true);
-    else if (lk === 'l') inkOf().hold(true);   // (N2: hold L for the spotlight; released on keyup)
-    else if (lk === 'd') { if (!e.repeat) toast(inkOf().togglePen() ? 'Pen on: draw on the figure, E erases' : 'Pen off', '', { present: true }); }
-    else if (lk === 'e') { if (!e.repeat) ink?.clear(); }
+    else if (lk === 'l') { if (!e.repeat) inkOf().toggleSpot(); }   // (N2: L switches the laser on and off)
     else if (lk === 'p') pview.open();   // (N1: the presenter view)
     else if (lk === 'n' || lk === 's') { /* the app's own N and S stay off while presenting */ }
     else if (k === 'F5') { /* a clicker's "start show": never reload the page */ }
@@ -5823,7 +5821,6 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (used) { e.preventDefault(); e.stopImmediatePropagation(); }
   }
   addEventListener('keydown', onKey, true);
-  addEventListener('keyup', (e) => { if (e.key === 'l' || e.key === 'L') ink?.hold(false); }, true);
   let ink = null;   // (N2: the pointer's spotlight and the pen, made at their first key: ink-gl.js)
   const inkOf = () => ink ??= createInk({ host: view, xform: (o) => stage.figureXform(o), active: () => !!deck && !!ui && !black, onFigure: (e) => !!offFig(e) });
 

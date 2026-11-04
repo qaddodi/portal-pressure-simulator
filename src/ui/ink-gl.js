@@ -19,7 +19,7 @@ import { parseCssColor } from './css-color.js';
 import { caught } from './caught.js';
 
 export const HOLD_MS = 500, HOLD_SLOP = 10, PEN_PX = 3.5, STEP_PX = 1.5, MAX_SEGS = 24000;
-const VEIL = 0.62, FADE_MS = 90;
+const VEIL = 0, FADE_MS = 90;
 
 /** The inverse of the affine m = { a, b, c, d, e, f } (x' = a x + c y + e, y' = b x + d y + f), written into o; false when it has none. */
 export function invertInto(o, m) {
@@ -215,7 +215,7 @@ export function createInk({ host, xform, active, onFigure }) {
     gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.bindVertexArray(vao);
     if (spotA > 0.004 && hasPos) {
-      const R = Math.max(90, Math.min(190, Math.min(W, H) * 0.17));
+      const R = Math.max(50, Math.min(100, Math.min(W, H) * 0.09));
       gl.useProgram(vprog);
       gl.uniform2f(vprog.u.view, W, H); gl.uniform3f(vprog.u.c, px, py, R); gl.uniform1f(vprog.u.dpr, dpr);
       gl.uniform4f(vprog.u.col, veil[0], veil[1], veil[2], VEIL * spotA); gl.uniform4f(vprog.u.pen, pen[0], pen[1], pen[2], spotA);
@@ -298,6 +298,8 @@ export function createInk({ host, xform, active, onFigure }) {
 
   return {
     /** Holds the spotlight on (L down) or lets it go (L up). */
+    /** L: the laser on if off, off if on. */
+    toggleSpot() { spot(active() ? !spotOn : false); },
     hold(on) { if (active()) spot(!!on); else spot(false); },
     /** Turns the pen on or off (D); returns whether it is on. */
     togglePen(on = !penOn) { penOn = !!on && active(); host.style.cursor = penOn ? 'crosshair' : ''; if (!penOn) endStroke(); return penOn; },

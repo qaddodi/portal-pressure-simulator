@@ -2180,7 +2180,7 @@ const PRESENT_KEYS = [
   ['→ · Space · Enter', 'Next slide (during a time-lapse, run it to its end)'], ['← · Backspace', 'Previous slide'],
   ['↑ · ↓', 'Show / tuck the readings under the instrument card (Mac, iPad on its side)'],
   ['Home · End', 'First / last slide'], ['Number, then Enter', 'Jump to that slide'], ['G', 'The slide list'], ['P', 'Presenter view: notes, next slide and clocks in a second window'],
-  ['B or .', 'Black screen'], ['F', 'Full screen'], ['Hold L', 'Spotlight on the pointer (iPad: press and hold)'], ['D · E', 'Pen on / off · erase the pen'], ['?', 'This guide'], ['Esc', 'Put an enlarged card back, then stop presenting'],
+  ['B or .', 'Black screen'], ['F', 'Full screen'], ['L', 'Laser pointer on / off (iPad: press and hold)'], ['?', 'This guide'], ['Esc', 'Put an enlarged card back, then stop presenting'],
 ];
 function openHelp(section) {
   // (Grouped by what a person is doing, so the list reads down a column: run it, change the view, reach and act. Every row is a key the handler takes.)
