@@ -15,7 +15,7 @@ const ready = st.match(/function riseReady\(\) \{[\s\S]*?\n {2}\}\n/)[0];
 
 test('before the way out, the covered anatomy follows the model again and its picture is made for the patient now', () => {
   assert.match(prep, /if \(!(?:live\.)?(?:live\.)?lobuleOn \|\| (?:live\.)?(?:live\.)?diveT < 1 \|\| (?:live\.)?(?:live\.)?morphTarget !== 0 \|\| (?:live\.)?(?:live\.)?risePrep\) return;/, 'only from a landed lobule');
-  assert.match(prep, /if \((?:live\.)?(?:live\.)?(?:live\.)?F && !(?:live\.)?(?:live\.)?(?:live\.)?inUpdate\) update\((?:live\.)?(?:live\.)?(?:live\.)?F\);\n\s+(?:live\.)?(?:live\.)?platePoke\(\);/);
+  assert.match(prep, /const fit = preFit\(\);\n\s+if \(live\.F && !live\.inUpdate\) \{ live\.catchUp = fit; try \{ update\(live\.F\); \} finally \{ live\.catchUp = false; \} if \(fit\) preF = live\.F; \}\n\s+live\.platePoke\(\);/, 'taken to the rise\'s fit unseen and brought up to date there (next-view pre-render)');
   assert.match(st, /const under = anatCovered\(\) && !(?:live\.)?catchUp && !(?:live\.)?(?:live\.)?risePrep;/, 'model frames reach the organs meanwhile');
   // Done when the picture of the patient now lands; never left on.
   assert.match(st, /if \(!(?:live\.)?(?:live\.)?(?:live\.)?plateOn\(\)\) (?:live\.)?(?:live\.)?(?:live\.)?plateKey = '';[^\n]*\n\s+else if \((?:live\.)?(?:live\.)?(?:live\.)?risePrep\) \{ (?:live\.)?(?:live\.)?(?:live\.)?risePrep = false; clearTimeout\((?:live\.)?(?:live\.)?(?:live\.)?risePrepT\); \}/);
@@ -53,4 +53,15 @@ test('the picture for the way out is begun early, so Next goes straight out: ahe
   assert.ok(+/const RISE_AHEAD_MS = (\d+);/.exec(pz)[1] <= 2000);
   // Made ahead and nothing changed since: ready at once (its key still matches), so the wait in toAnatomy costs nothing.
   assert.match(st, /if \(key === (?:live\.)?(?:live\.)?plateKey && (?:live\.)?(?:live\.)?veins\.hasPlate\(0\)\) return;/);
+});
+
+test('next-view pre-render: the rise\'s fit is made ahead at prepRise, so the tap has no refit or catch-up update when nothing moved', () => {
+  const sl = st.match(/function setLobule\(on, painted = false\) \{[\s\S]*?\n {2}\}\n/)[0];
+  assert.match(sl, /const ahead = !!preVT && sameView\(preVT, live\.vt\) && sameView\(d, live\.vt\) && !!live\.F && preF === live\.F;/);
+  assert.match(sl, /if \(!ahead\) \{\n\s+live\.vt = \{ \.\.\.d \};/);
+  assert.match(sl, /const zOld = Math\.log\(live\.CTM\.sc\) \+ live\.zShift;/, 'the dive\'s zoom stays whole across a refit made ahead');
+  assert.match(sl, /if \(on\) \{ preVT = null; preF = null; \}/, 'a dive drops a fit made ahead');
+  const pf = st.match(/function preFit\(\) \{[\s\S]*?\n {2}\}\n/)[0];
+  assert.match(pf, /live\.vtGliding \|\| live\.lz\?\.sinBusy\?\.\(\) \|\| document\.getElementById\('app'\)\?\.classList\.contains\('sin-focus'\)\) return false;/, 'never measured with the sinusoid\'s focus still hiding the dock');
+  assert.match(pf, /live\.zShift = zOld - Math\.log\(live\.CTM\.sc\);/);
 });

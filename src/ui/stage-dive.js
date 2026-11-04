@@ -248,10 +248,27 @@ export function createDive(st, live) {
     live.lobU = live.easeInOut(clamp((t - 0.48) / 0.4, 0, 1));
     syncSemantic();
   }
+  // The rise's own framing, made ahead (next-view pre-render): the anatomy under the landed lobule is taken to its fit framing at
+  // prepRise, unseen (the figure's alpha is 0 under the lobule and cameraZoom is null while landed), and brought up to date there, so
+  // the plate is painted for the framing the rise lands on and the tap that starts the rise has no refit or catch-up update to do.
+  // (preVT/preF: the fit made and the model frame it was brought up to date for; a later frame or any other move of the camera meanwhile
+  // makes the tap do it all again, as before. zShift keeps the dive's zoom whole across the unseen refit, so a sinusoid opened meanwhile
+  // zooms from where it was.)
+  let preVT = null, preF = null;
+  function preFit() {
+    preVT = null; preF = null;
+    if (!liverBox() || live.vtGliding || live.lz?.sinBusy?.() || document.getElementById('app')?.classList.contains('sin-focus')) return false;
+    refreshCTM(); const zOld = Math.log(live.CTM.sc) + live.zShift;
+    const d = defaultVT(false); live.vt = { ...d }; live.homeAt = d; live.fitted = true; applyVT(); live.CTM = null; refreshCTM();
+    live.zShift = zOld - Math.log(live.CTM.sc);
+    preVT = { ...live.vt };
+    return true;
+  }
   function prepRise() {
     if (!live.lobuleOn || live.diveT < 1 || live.morphTarget !== 0 || live.risePrep) return;
     live.risePrep = true; clearTimeout(live.risePrepT); live.risePrepT = setTimeout(() => { live.risePrep = false; }, 6000);   // (never left on in the lobule)
-    if (live.F && !live.inUpdate) update(live.F);
+    const fit = preFit();
+    if (live.F && !live.inUpdate) { live.catchUp = fit; try { update(live.F); } finally { live.catchUp = false; } if (fit) preF = live.F; }
     live.platePoke();
   }
   // The organs' picture is made for the patient now (prepRise is done: it ends when that picture lands), or there is none to wait for.
@@ -264,6 +281,7 @@ export function createDive(st, live) {
   function setLobule(on, painted = false) {
     if (on && live.morphTarget !== 0) return;
     live.risePrep = false; clearTimeout(live.risePrepT);
+    if (on) { preVT = null; preF = null; }   // (a fit made ahead holds only for the rise it was made for)
     if (live.diveWait) { live.diveWait = 0; live.diveGen++; }   // (any other ask calls a waiting dive off; a dive asked again waits afresh)
     const from0 = live.diveT;
     live.diveOut = !on;
@@ -309,10 +327,16 @@ export function createDive(st, live) {
         // listeners run: drop it first, or the fit is measured without them and lands too close, cutting off the ascites.
         if (!store.get().lobule) document.getElementById('app')?.classList.remove('sin-focus');
         cancelFrame(live.vtAnim); driftEnd(); live.vtGliding = false;
-        refreshCTM(); const zOld = Math.log(live.CTM.sc);
-        const d = defaultVT(false); live.vt = { ...d }; live.homeAt = d; live.fitted = true; applyVT(); live.CTM = null; refreshCTM();
-        // The plate stopped updating under the lobule, so it still holds the old zoom's culling and detail: bring it up to date for the fit now, not when the zoom lands.
-        if (live.F && !live.inUpdate) { live.catchUp = true; try { update(live.F); } finally { live.catchUp = false; } }
+        refreshCTM(); const zOld = Math.log(live.CTM.sc) + live.zShift;   // (zShift: an unseen refit made ahead, preFit)
+        const d = defaultVT(false);
+        // Made ahead at prepRise for this very fit and model frame: nothing to refit or bring up to date at the tap.
+        const ahead = !!preVT && sameView(preVT, live.vt) && sameView(d, live.vt) && !!live.F && preF === live.F;
+        preVT = null; preF = null;
+        if (!ahead) {
+          live.vt = { ...d }; live.homeAt = d; live.fitted = true; applyVT(); live.CTM = null; refreshCTM();
+          // The plate stopped updating under the lobule, so it still holds the old zoom's culling and detail: bring it up to date for the fit now, not when the zoom lands.
+          if (live.F && !live.inUpdate) { live.catchUp = true; try { update(live.F); } finally { live.catchUp = false; } }
+        } else { live.homeAt = d; live.fitted = true; }
         // The next slide's own framing, if it asked for one: the rise lands there, not at the fit.
         const rv = riseVT();
         live.riseUsed = !!rv && !sameView(rv, d);
