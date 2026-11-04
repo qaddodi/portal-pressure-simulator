@@ -10,7 +10,7 @@ import { readFileSync } from 'node:fs';
 const src = (f) => readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf8');
 
 const { viewFollow } = await import('../src/ui/res-fade.js');
-const { coverFollow, layerShows } = await import('../src/ui/res-cover-gl.js');
+const { coverFollow } = await import('../src/ui/res-cover-gl.js');
 
 test('viewFollow carries the picture with a pan and a zoom, and is nothing while the view stands', () => {
   assert.equal(viewFollow({ k: 2, x: 10, y: 20 }, { k: 2, x: 10, y: 20 }), '');
@@ -20,16 +20,6 @@ test('viewFollow carries the picture with a pan and a zoom, and is nothing while
     const s0 = [w[0] * v0.k + v0.x, w[1] * v0.k + v0.y], s = [w[0] * v.k + v.x, w[1] * v.k + v.y];
     assert.ok(Math.abs(m[0] * s0[0] + m[2] * s0[1] + m[4] - s[0]) < 1e-9 && Math.abs(m[1] * s0[0] + m[3] * s0[1] + m[5] - s[1]) < 1e-9, `world ${w}`);
   }
-});
-
-test('the cover stacks the layers that show and skips hidden, empty or detached ones', () => {
-  const c = (extra = {}) => ({ isConnected: true, width: 4, height: 4, style: { opacity: '', visibility: '' }, ...extra });
-  assert.equal(layerShows(c()), true);
-  assert.equal(layerShows(c({ style: { opacity: '0', visibility: '' } })), false);
-  assert.equal(layerShows(c({ style: { opacity: '', visibility: 'hidden' } })), false);
-  assert.equal(layerShows(c({ width: 0 })), false);
-  assert.equal(layerShows(c({ isConnected: false })), false);
-  assert.equal(layerShows(null), false);
 });
 
 test('coverFollow is viewFollow over the box: the picture before is laid where the view has carried it', () => {
@@ -42,14 +32,12 @@ test('coverFollow is viewFollow over the box: the picture before is laid where t
   }
 });
 
-test('res-cover-gl.js: the stack is made in its own WebGL context, kept in a texture, and the cover before laid over at its weight', () => {
+test('res-cover-gl.js: no context, canvas or canvas copy of its own: the figure is copied inside its context and laid as a pass (L2)', () => {
   const g = src('res-cover-gl.js').replace(/\/\/.*$/gm, '');
-  assert.ok(!/getContext\('2d'\)|drawImage|getImageData|putImageData/.test(g), 'no 2D canvas');
-  assert.match(g, /cv\.getContext\('webgl2'/);
-  assert.match(g, /gl\.texImage2D\(gl\.TEXTURE_2D, 0, gl\.RGBA, gl\.RGBA, gl\.UNSIGNED_BYTE, l\);/, 'each layer taken in once');
-  assert.match(g, /gl\.blendFunc\(gl\.ONE, gl\.ONE_MINUS_SRC_ALPHA\)/, 'premultiplied source-over, as the page stacks them');
-  assert.match(g, /if \(prev && kept\) \{ gl\.bindFramebuffer\(gl\.FRAMEBUFFER, next\.fbo\); quad\(kept\.tex, prev\.a, prev\.m, true\); \}/);
-  assert.match(g, /compileDone\(gl, handle\)/, 'never waits on a compile');
+  assert.ok(!/getContext|drawImage|getImageData|putImageData|texImage2D|createElement/.test(g), 'no context, no 2D canvas, no canvas taken into a texture');
+  assert.match(g, /gl\.blitFramebuffer\(/, 'copied inside the GPU, no read back');
+  assert.match(g, /top\.lay\(/, 'laid by the figure context\'s own laying');
+  assert.match(g, /top\.add\(\{ order: LZ_COVER_ORDER/, 'a pass of the figure\'s present');
 });
 
 test('lobule-zoom.js: the change waits for a still, whole lobule, and its GPU cover never touches the layers', () => {
@@ -61,11 +49,10 @@ test('lobule-zoom.js: the change waits for a still, whole lobule, and its GPU co
   assert.match(lz, /if \(lzWant != null\) coverGL\(\)\?\.prepare\(\);/, 'its program compiles when the change is asked for');
   const swap = lz.slice(lz.indexOf('function resSwap()'), lz.indexOf('function resCoverStep('));
   assert.ok(!/stackInto|getContext|drawImage|hostSize\(/.test(swap), 'no 2D stack, no layout read');
-  assert.ok(swap.indexOf('g?.ready && draw(0)') < swap.indexOf('g.build([tissue, tissueG, glCv, fx], prev)'), 'copied in the frame that drew it');
+  assert.ok(swap.indexOf('g?.ready && draw(0)') < swap.indexOf('g.build()'), 'copied in the frame that drew it');
   assert.ok(swap.indexOf('g.build(') < swap.indexOf('lzK = k;'), 'at the share before');
   assert.match(lz, /function freshDraw\(\) \{ tissueKey = ''; drawKey = ''; glDirty = true; idleDrawn = ''; \}/, 'every layer drawn whole');
   assert.match(swap, /freshDraw\(\);[\s\S]*?freshDraw\(\);/, 'before the copy is made and again once the new resolution stands');
-  assert.match(swap, /if \(!cv\.isConnected\) fx\.after\(cv\);/, 'over the layers, under the leaders and labels');
   assert.match(lz, /if \(u >= 1 \|\| diveScaled \|\| wide \|\| fade <= 0\) \{ resCoverEnd\(\); return; \}/);
   assert.match(lz, /setDiveZoom\(k, x, y, tx = x, ty = y\) \{\n\s*if \(k < 0\.9999\) resCoverEnd\(\);/, 'a dive takes it away before the layers scale');
   assert.match(lz, /function release\(\) \{\n\s*dropWide\(\);\n\s*resCoverEnd\(\);/);
@@ -99,18 +86,30 @@ test('the cover fades and follows the view in its own GPU draw: the canvas style
   assert.match(step, /if \(same\) return;/, 'a frame that changed neither the weight nor the place draws nothing');
   const swap = lz.slice(lz.indexOf('function resSwap()'), lz.indexOf('function resCoverStep('));
   assert.ok(!/cv\.style\./.test(swap), 'the cover is shown whole by build(), with no style written');
-  assert.match(src('res-cover-gl.js'), /show\(a, m\) \{/);
+  assert.match(src('res-cover-gl.js'), /show\(w, mm\) \{/);
 });
 
-test('res-cover-gl show(): the kept picture is cleared and drawn at the weight and place given, or the cover ends', async () => {
-  const calls = [];
-  const gl = new Proxy({}, { get: (_, k) => (k === 'isContextLost' ? () => false : (...a) => { calls.push([k, ...a]); return k === 'getUniformLocation' ? k : {}; }) });
+test('res-cover-gl: a capture copies the figure inside its context, then the pass lays it at the weight and place given and it fades to nothing', async () => {
+  const calls = [], lays = [], passes = [];
+  const gl = new Proxy({}, { get: (_, k) => (k === 'isContextLost' ? () => false : (...a) => { calls.push(k); return {}; }) });
+  const top = {
+    gl, canvas: { width: 800, height: 600, addEventListener() {} }, screen: () => null,
+    add: (t) => { passes.push(t); return () => {}; }, lay: (...a) => lays.push(a),
+    present: () => { for (const t of passes) t.draw(); },
+  };
   const { createResCover } = await import('../src/ui/res-cover-gl.js');
-  const cv = { width: 8, height: 6, addEventListener() {}, getContext: () => gl };
-  globalThis.WebGL2RenderingContext = function () {};
-  const g = createResCover(() => cv);
-  assert.equal(g.show(1, null), false, 'nothing kept yet');
-  assert.equal(calls.length, 0, 'and no GL call made');
+  assert.equal(createResCover(null), null, 'no figure context, no cover');
+  const g = createResCover(top);
+  assert.equal(g.ready, false); assert.equal(g.show(1, null), false, 'nothing kept yet');
+  g.prepare(); assert.equal(passes.length, 1); assert.equal(g.ready, true);
+  assert.equal(g.build(), true);
+  assert.ok(calls.includes('blitFramebuffer') && !calls.includes('texImage2D') && !calls.includes('getContext'), 'copied by blit, no canvas taken in');
+  assert.equal(lays.length, 0, 'the capture present lays nothing over the picture it copies');
+  assert.equal(g.show(0.5, [2, 0, 0, 0, 2, 0, 0.1, 0.2, 1]), true);
+  const l = lays.at(-1);
+  assert.deepEqual([l[1], l[2], l[3], l[4], l[5], l[6], l[7]], [2, 0, 0, 2, 80, 120, 0.5], 'weight and place, in canvas px');
+  g.show(0, null); const n = lays.length; g.present?.(); top.present(); assert.equal(lays.length, n, 'weight 0 lays nothing');
+  g.drop(); const m = lays.length; top.present(); assert.equal(lays.length, m, 'dropped: nothing laid');
 });
 
 test("lobule-zoom.js: the overlay's GPU canvas is shown by what is drawn on it, never by a style written to hide or show it", () => {

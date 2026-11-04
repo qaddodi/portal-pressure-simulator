@@ -48,7 +48,7 @@ import { createSinusoidView } from './sinusoid-view.js';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, frameGapFor, renderScale, onRenderScale, frame, framePart, easeNow, inMotion, PACED } from './frame.js';
 import { gpuProbe, COUNTED } from './gpu-probe.js';
 import { FADE_MS, fadeAlpha } from './res-fade.js';
-import { createResCover, coverFollow, coverFollowInto } from './res-cover-gl.js';
+import { createResCover, coverFollowInto } from './res-cover-gl.js';
 import { leaderEnd, leaderEndRects, runInside } from './leader-end.js';
 import { LIGHT } from './light.js';
 import { restPass, cancelRest, restAttr, restRemove, flushRestAttrs } from './rest-pass.js';
@@ -2812,12 +2812,14 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // (On the GPU, 1 Nov, "Move everything to GPU": the stack is made in the cover's own WebGL context (res-cover-gl.js), each layer taken
   // into a texture once at the change and the picture kept there; no 2D canvas, no drawImage. Where that context cannot be had or its
   // program is not ready yet, the new share is taken at once.)
-  let resCover = null, resT0 = 0, resV0 = null, resGL, resA = 1, resW = 1, resH = 1, resShownA = -1;
+  let resCover = false, resT0 = 0, resV0 = null, resGL = null, resFor = null, resW = 1, resH = 1, resShownA = -1;
   const resM = [1, 0, 0, 0, 1, 0, 0, 0, 1], resShownM = [0, 0, 0, 0, 0, 0, 0, 0, 0];   // (the cover's weight and place, kept and written in place; what was last drawn, so a frame that changed neither draws nothing)
-  // (Its canvas is made with the view, its context only at the first change: a frame makes no element for it. 2 Nov 2026.)
-  const resCv = h('canvas', { class: 'lz-canvas lz-res', 'aria-hidden': 'true' });
-  const resCvOf = () => resCv;
-  const coverGL = () => (resGL === undefined ? (resGL = createResCover(resCvOf)) : resGL);
+  // (L2: the cover is a pass of the figure's own present, no canvas and no context of its own; with the lobule not in that context the new share is taken at once.)
+  const coverGL = () => {
+    if (!shared || !shareTop || !gl || gl.lost) return null;
+    if (resFor !== shareTop) { resGL?.drop(); resGL = createResCover(shareTop); resFor = shareTop; }   // alloc-rare: only when the figure's renderer is new
+    return resGL;
+  };
   const resSteady = () => fade > 0.98 && !diveScaled && sinU === 0 && !sinTo && !wide && !staging && !!geo && !!model;
   function resSwap() {
     const k = lzWant;
@@ -2826,13 +2828,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     freshDraw();
     const g = coverGL();
     if (g?.ready && draw(0)) {
-      // (A change while one still fades starts from the mix as it shows: the cover before, laid over at its weight and place.)
-      const [W, H] = snap.hostWH || [g.cv.width || 1, g.cv.height || 1];   // alloc-rare: only on a change of the Figure's resolution (lzWant), never a frame's own
-      const prev = resCover ? { a: resA, m: coverFollow(resV0, V, W, H) } : null;   // alloc-rare: only on a change of the Figure's resolution (lzWant), never a frame's own
-      if (g.build([tissue, tissueG, glCv, fx], prev)) {   // alloc-rare: only on a change of the Figure's resolution (lzWant), never a frame's own
-        const cv = g.cv;
-        if (!cv.isConnected) fx.after(cv);
-        resCover = cv; resT0 = performance.now(); resV0 = { ...V }; resA = 1; resW = W; resH = H; resShownA = -1;   // (build drew it whole, at weight 1 and no move)   // alloc-rare: only on a change of the Figure's resolution (lzWant), never a frame's own
+      // (A change while one still fades starts from the mix as it shows: the cover before is laid in the picture kept, at its weight and place.)
+      const [W, H] = snap.hostWH || [1, 1];   // alloc-rare: only on a change of the Figure's resolution (lzWant), never a frame's own
+      if (g.build()) {
+        resCover = true; resT0 = performance.now(); resV0 = { ...V }; resW = W; resH = H; resShownA = -1;   // (the kept picture is laid whole, at weight 1 and no move)   // alloc-rare: only on a change of the Figure's resolution (lzWant), never a frame's own
       } else resCoverEnd();
     } else resCoverEnd();
     lzK = k;
@@ -2850,12 +2849,12 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     for (let i = 0; same && i < 9; i++) if (m[i] !== resShownM[i]) same = false;
     if (same) return;
     if (!resGL?.show(a, m)) { resCoverEnd(); return; }
-    resA = a; resShownA = a;
+    resShownA = a;
     for (let i = 0; i < 9; i++) resShownM[i] = m[i];
   }
   function resCoverEnd() {
     if (!resCover) return;
-    restRemove(resCover); resGL?.drop(); resCover = null;
+    resGL?.drop(); resCover = false;
   }
   // The flow marks (shimmer and chevrons) fade out as the dive starts and back in once the lobule has landed, over about
   // 0.3 s each way. Ordinary panning and zooming inside the lobule view leave them alone.

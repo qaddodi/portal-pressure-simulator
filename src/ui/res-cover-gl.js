@@ -1,146 +1,72 @@
-// The lobule's resolution-change cover on the GPU (lobule-zoom.js resSwap; Mohammad, 1 Nov: "Move everything to GPU"). The cover is the
-// lobule's layers as they stood, stacked as the page stacks them (premultiplied source-over, each stretched over the whole box) and laid
-// over the layers while they are drawn again at the new share, fading out by its CSS opacity (the compositor). It used to be stacked in a
-// 2D canvas with drawImage, the previous cover blended in by 2D too. Here each layer is taken into a texture of the cover's own WebGL
-// context once, at the change, and stacked by a shader into a texture the context keeps (a retained target); the canvas shows that.
-// A second change while one fades lays the kept picture over the new stack at its weight and place, inside the GPU, so nothing jumps.
-// The programs are started when a change is asked for (prepare), before the lobule stands still for it; a change that comes before they
-// are ready takes the new share at once rather than wait on a compile in a frame.
-import { startProgram, compileDone, checkProgram } from './gl-compile.js';
+// The lobule's resolution-change cover on the GPU (lobule-zoom.js resSwap; Mohammad, 1 Nov: "Move everything to GPU"), inside the figure's
+// own WebGL context (L2, docs/gpu-two-contexts-plan.md): it has no canvas and no context of its own. At a change the figure's present is
+// copied on the GPU (blitFramebuffer, canvas to a texture of the same context) as it stands at the cover's place in the pass order:
+// the tissue, vessels, overlay and effects of the lobule at the old share, with any cover still fading laid in it at its weight and place
+// (so a second change while one fades keeps the blend, nothing jumps). Then it is a pass of each present, laid over the layers drawn again
+// at the new share (veins-gl top.lay), faded out by its weight and carried by the view's follow. Nothing is copied in from a canvas.
+// Where the figure's context cannot be had, the new share is taken at once (the caller's fallback); no other draw is ever made.
+import { LZ_COVER_ORDER } from './lobule-order.js';
 
-const VS = `#version 300 es
-in vec2 c;
-uniform mat3 m;      // the quad's [0,1]² → the target's [0,1]² (y down)
-uniform float flip;  // 1: a texture drawn by this context (its first row the bottom); 0: one taken from a canvas (its first row the top)
-out vec2 uv;
-void main() {
-  vec2 p = (m * vec3(c, 1.0)).xy;
-  uv = vec2(c.x, mix(c.y, 1.0 - c.y, flip));
-  gl_Position = vec4(p.x * 2.0 - 1.0, 1.0 - p.y * 2.0, 0.0, 1.0);
-}`;
-const FS = `#version 300 es
-precision mediump float;
-uniform sampler2D t;
-uniform float a;
-in vec2 uv;
-out vec4 o;
-void main() { o = texture(t, uv) * a; }`;
-const ID = [1, 0, 0, 0, 1, 0, 0, 0, 1];
-
-/** Whether a layer shows (as stackInto judged it): in the page, with pixels, not hidden by its inline opacity or visibility. */
-export const layerShows = (l) => !!l?.isConnected && l.width > 0 && l.height > 0 && l.style.opacity !== '0' && l.style.visibility !== 'hidden';
-
-/** A cover kept for the lobule: { cv, prepare(), ready, build(layers, prev), drop() }; null where WebGL 2 cannot be had. */
-export function createResCover(make = () => document.createElement('canvas')) {   // alloc-rare: the default maker is a closure made once per cover, on its first use
-  if (typeof WebGL2RenderingContext === 'undefined') return null;
-  const cv = make();
-  let gl = null;
-  try { gl = cv.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, preserveDrawingBuffer: false }); } catch { gl = null; }   // alloc-rare: once per cover, its context's options
-  if (!gl) return null;
-  const shown = [];   // alloc-rare: once per cover, the one list its builds gather the layers that show in, emptied again after each
-  let K = null, handle = null, lost = false, kept = null;   // kept: { tex, fbo, w, h } the picture the canvas shows
-  cv.addEventListener('webglcontextlost', (e) => { e.preventDefault(); lost = true; K = null; handle = null; kept = null; });   // alloc-rare: once per cover, made on first use (lobule-zoom coverGL); not per frame
-  cv.addEventListener('webglcontextrestored', () => { lost = false; });   // alloc-rare: once per cover, made on first use (lobule-zoom coverGL); not per frame
-
-  function prepare() { if (!lost && !K && !handle) handle = startProgram(gl, VS, FS, [['c', 0]]); }   // alloc-rare: starts the programs once, the first time the lobule comes to rest
-  function ready() {
-    if (K) return true;
-    if (lost || !handle || !compileDone(gl, handle)) return false;
-    try { checkProgram(gl, handle); } catch { handle = null; return false; }
-    const p = handle.p, vao = gl.createVertexArray(), buf = gl.createBuffer();
-    gl.bindVertexArray(vao); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]), gl.STATIC_DRAW);   // alloc-rare: once per cover, when its program is first ready
-    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
-    gl.bindVertexArray(null);
-    K = { p, vao, m: gl.getUniformLocation(p, 'm'), t: gl.getUniformLocation(p, 't'), a: gl.getUniformLocation(p, 'a'), flip: gl.getUniformLocation(p, 'flip'), src: gl.createTexture() };   // alloc-rare: once per cover, when its program is first ready
-    return true;
-  }
-  const params = (tex) => {   // alloc-rare: once per cover, made on first use (lobule-zoom coverGL); not per frame
+/** A cover kept for the lobule in the figure's context `top` (veins-gl .top): { prepare(), ready, build(), show(a, m), drop() }; null with no host. */
+export function createResCover(top) {   // alloc-rare: once per cover, on its first use
+  if (!top?.gl || !top.add || !top.lay || typeof top.screen !== 'function') return null;
+  const gl = top.gl;
+  let off = null, lost = false, kept = null, cap = false, a = 1;   // kept: { tex, fbo, w, h } the picture the pass lays; cap: the next present copies the canvas into it
+  const m = [1, 0, 0, 0, 1, 0, 0, 0, 1];   // (the weight and place the pass lays at, written in place)
+  const onLost = () => { lost = true; kept = null; cap = false; };   // alloc-rare: once per cover
+  const onBack = () => { lost = false; };   // alloc-rare: once per cover
+  top.canvas.addEventListener('webglcontextlost', onLost);
+  top.canvas.addEventListener('webglcontextrestored', onBack);
+  const free = (t) => { if (t) { gl.deleteFramebuffer(t.fbo); gl.deleteTexture(t.tex); } };   // alloc-rare: once per cover
+  const lay = (k, wt, mm) => {
+    const cw = top.canvas.width, ch = top.canvas.height, r = mm[0];
+    top.lay(k.tex, r, 0, 0, r, mm[6] * cw, mm[7] * ch, wt);
+  };
+  function capture() {
+    const cw = top.canvas.width, ch = top.canvas.height;
+    if (!(cw > 0 && ch > 0)) return;
+    if (kept) lay(kept, a, m);   // (the cover before, at the weight and place it shows now, is part of the picture kept)
+    const tex = gl.createTexture();   // alloc-rare: once per resolution change (a swap)
     gl.bindTexture(gl.TEXTURE_2D, tex);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-  };
-  function target(w, h) {
-    const tex = gl.createTexture(); params(tex);
-    gl.texStorage2D(gl.TEXTURE_2D, 1, gl.RGBA8, w, h);
+    gl.texStorage2D(gl.TEXTURE_2D, 1, gl.RGBA8, cw, ch);
     const fbo = gl.createFramebuffer();
-    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
-    return { tex, fbo, w, h };   // alloc-rare: once per resolution change (a swap): the kept picture's record
+    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, fbo);
+    gl.framebufferTexture2D(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, top.screen());
+    gl.disable(gl.SCISSOR_TEST);
+    gl.blitFramebuffer(0, 0, cw, ch, 0, 0, cw, ch, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, top.screen());
+    free(kept); kept = { tex, fbo, w: cw, h: ch };
+    a = 1; m[0] = 1; m[6] = 0; m[7] = 0;
   }
-  const free = (t) => { if (t) { gl.deleteFramebuffer(t.fbo); gl.deleteTexture(t.tex); } };   // alloc-rare: once per cover, made on first use (lobule-zoom coverGL); not per frame
-  function quad(tex, a, m, flip) {
-    gl.useProgram(K.p); gl.uniformMatrix3fv(K.m, false, m || ID); gl.uniform1i(K.t, 0); gl.uniform1f(K.a, a); gl.uniform1f(K.flip, flip ? 1 : 0);
-    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex);
-    gl.bindVertexArray(K.vao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-  }
-
   return {   // alloc-rare: once per cover
-    cv,
-    prepare,
-    get ready() { return ready(); },   // alloc-rare: once per cover
-    /**
-     * Stacks the layers that show into a new kept picture and shows it on the cover's canvas. prev ({ a, m }: the weight the cover before
-     * shows at and its place now, m a 3 × 3 column-major matrix over [0,1]²) lays the picture before over it, so the screen does not jump.
-     * False when nothing shows, the programs are not ready or the context is lost (the caller then takes the change at once).
-     */
-    build(layers, prev = null) {
-      if (lost || gl.isContextLost() || !ready()) return false;
-      shown.length = 0;
-      let w = 0, h = 0;
-      for (let i = 0; i < layers.length; i++) {
-        const l = layers[i];
-        if (!layerShows(l)) continue;
-        shown.push(l);
-        if (l.width > w) w = l.width;
-        if (l.height > h) h = l.height;
-      }
-      if (!shown.length) return false;
-      const next = target(w, h);
-      gl.viewport(0, 0, w, h);
-      gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
-      gl.enable(gl.BLEND); gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
-      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-      try {
-        for (const l of shown) {
-          params(K.src);
-          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, l);
-          gl.bindFramebuffer(gl.FRAMEBUFFER, next.fbo);
-          quad(K.src, 1, null, false);
-        }
-      } catch { shown.length = 0; free(next); gl.bindFramebuffer(gl.FRAMEBUFFER, null); return false; }
-      shown.length = 0;
-      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
-      if (prev && kept) { gl.bindFramebuffer(gl.FRAMEBUFFER, next.fbo); quad(kept.tex, prev.a, prev.m, true); }
-      // (The source texture let go of its pixels: a 1 × 1 keeps the name.)
-      gl.bindTexture(gl.TEXTURE_2D, K.src); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-      free(kept); kept = next;
-      if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
-      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-      gl.viewport(0, 0, w, h);
-      gl.disable(gl.BLEND);
-      quad(kept.tex, 1, null, true);
-      gl.bindVertexArray(null);
+    /** Puts the pass into the figure's present (once); where the lobule comes to rest, before a change is asked for. */
+    prepare() { if (!off && !lost) off = top.add({ order: LZ_COVER_ORDER, draw: () => { if (cap) { cap = false; capture(); } else if (kept && a > 0) lay(kept, a, m); } }); },   // alloc-rare: once per cover
+    get ready() { return !!off && !lost && !gl.isContextLost(); },   // alloc-rare: once per cover
+    /** Keeps the figure's picture as it now stands (one present, which the pass copies). False when nothing could be kept: the caller takes the change at once. */
+    build() {
+      if (!this.ready) return false;
+      cap = true;
+      try { top.present(); } catch { cap = false; return false; }
+      cap = false;
+      return !!kept;
+    },
+    /** Lays the kept picture at weight w and carried by mm (3 × 3 column-major over [0,1]²) in a present. False when nothing is kept or the context is lost (the caller ends the cover). */
+    show(w, mm) {
+      if (lost || !kept || gl.isContextLost() || !off) return false;
+      a = w; for (let i = 0; i < 9; i++) m[i] = mm ? mm[i] : (i % 4 === 0 ? 1 : 0);
+      top.present();
       return true;
     },
-    /**
-     * Draws the kept picture on the cover's canvas at weight a and carried by m (a 3 × 3 column-major over [0,1]², null for none): the fade and
-     * the view's follow are made here, in the GPU's own draw, so the page's style (the canvas's opacity and transform) is never written in
-     * a frame. False when nothing is kept, the programs are not ready or the context is lost (the caller then ends the cover).
-     */
-    show(a, m) {
-      if (lost || !kept || gl.isContextLost() || !K) return false;
-      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-      gl.viewport(0, 0, cv.width, cv.height);
-      gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
-      gl.disable(gl.BLEND);
-      quad(kept.tex, a, m, true);
-      gl.bindVertexArray(null);
-      return true;
+    /** Lets the kept picture go, and presents again without it. */
+    drop() {
+      if (!kept) return;
+      if (!lost && !gl.isContextLost()) free(kept);
+      kept = null;
+      if (!lost) { try { top.present(); } catch { /* (the next present lays the figure without it) */ } }
     },
-    /** Lets the kept picture go (the canvas is taken out of the page by the caller). */
-    drop() { if (!lost && kept) free(kept); kept = null; },
   };
 }
 
