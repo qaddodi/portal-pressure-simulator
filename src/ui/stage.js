@@ -2274,13 +2274,37 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // of or into view at either end of the zoom and the page never shows through between them (see diveFrame). Opacity on layers the zoom already composites costs nothing per frame;
   // their usual .25s opacity transition is held off while it is driven frame by frame (and eases the anatomy back in under the landed lobule).
   let diveFadeO = null;
+  // The figure's canvas is moved and faded by its renderer's final present (veins-gl setCamera), not by CSS on the canvas: a CSS scale or
+  // opacity takes the cards' glass drawn in it along, and the glass goes solid for the ease, the fade and the dive. camK/camOx/camOy: the
+  // dive's zoom and its origin (CSS px from the canvas's corner); camDive/camShow: the dive's hide and the figure's own fade-in, each 0 to 1.
+  let camK = 1, camOx = 0, camOy = 0, camDive = 1, camShow = 1, camShowRaf = 0, camShowT0 = 0, camShowFrom = 1, camShowTo = 1;
+  function pushCam() {
+    if (!veins || veins.lost) return;
+    const sx = vCanvas.width / (boxW || vCanvas.width || 1), sy = vCanvas.height / (boxH || vCanvas.height || 1);
+    veins.setCamera(camK, camOx * sx, camOy * sy, camDive * camShow);
+  }
+  function camShowStep(now) {
+    camShowRaf = 0;
+    const u = Math.min(1, (now - camShowT0) / D_SMALL), e = u * u * (3 - 2 * u);
+    camShow = camShowFrom + (camShowTo - camShowFrom) * e;
+    pushCam();
+    if (u < 1) camShowRaf = drawFrame(camShowStep);
+  }
+  // (The figure's own fade, the first framing and a hide: eased over the same D_SMALL the canvas's CSS transition had, as an alpha.)
+  function camShowTo_(to) {
+    if (camShowTo === to && (camShowRaf || camShow === to)) return;
+    camShowFrom = camShow; camShowTo = to; camShowT0 = performance.now();
+    if (camShowRaf) cancelFrame(camShowRaf);
+    if (reduceMotion.matches) { camShow = to; camShowRaf = 0; pushCam(); return; }
+    camShowRaf = drawFrame(camShowStep);
+  }
   function setDiveFade(o) {
     const q = o === null ? null : Math.round(o * 1000) / 1000;   // (o is 0 or 1 here; to the thousandth, with no string made)
     if (q === diveFadeO) return;
     diveFadeO = q;
     fadeStop(vCanvas);   // (a resolution fade gives the canvas's opacity back to the dive at once: both set it, and its copy does not zoom)
     const els = diveEls();
-    for (let i = 0; i < els.length; i++) { const el = els[i]; if (el.id === 'labels') continue; el.style.transition = q === null ? '' : 'none'; el.style.opacity = q === null ? '' : q; }
+    for (let i = 0; i < els.length; i++) { const el = els[i]; if (el.id === 'labels') continue; if (el === vCanvas) { camDive = q === null ? 1 : q; pushCam(); continue; } el.style.transition = q === null ? '' : 'none'; el.style.opacity = q === null ? '' : q; }
   }
   // (keep: landed in the lobule, the anatomy stays hidden under it a moment longer, see diveFrame.)
   let unhideAt = 0;
@@ -2297,7 +2321,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (!keep) { setDiveHidden(false, false); setDiveFade(null); }
       // The transform goes first and the layer hint a frame later: dropping both at once can leave the
       // browser showing the last zoomed picture while clicks already land on the unzoomed figure.
-      if (diveOrig) { for (let i = 0; i < diveOrig.length; i++) { const el = diveOrig[i][0]; el.style.transform = 'none'; el.style.transformOrigin = ''; } nextFrame(diveWillOff); }
+      if (diveOrig) { for (let i = 0; i < diveOrig.length; i++) { const el = diveOrig[i][0]; if (el === vCanvas) continue; el.style.transform = 'none'; el.style.transformOrigin = ''; } camK = 1; pushCam(); nextFrame(diveWillOff); }
       // The stage's measured box (and so the drawing transform) may have been taken while the dive's zoom
       // was on, which would keep the canvas drawn zoomed in after it ends: measure again.
       if (diveOrig) { box = null; CTM = null; }
@@ -2309,13 +2333,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // read then stands at the stage's corner, as all of them do.)
       const els = diveEls(), b = diveOrigBuf;
       b.length = 0;
-      for (let i = 0; i < els.length; i++) { const el = els[i], d = diveOffs.get(el) || DIVE_ORIGIN_ZERO, pr = diveOrigPool[i]; pr[0] = el; pr[1] = `${(ox - d[0]).toFixed(1)}px ${(oy - d[1]).toFixed(1)}px`; b.push(pr); }
+      for (let i = 0; i < els.length; i++) { const el = els[i], d = diveOffs.get(el) || DIVE_ORIGIN_ZERO, pr = diveOrigPool[i]; pr[0] = el; pr[1] = `${(ox - d[0]).toFixed(1)}px ${(oy - d[1]).toFixed(1)}px`; b.push(pr); if (el === vCanvas) { camOx = +(ox - d[0]).toFixed(1); camOy = +(oy - d[1]).toFixed(1); } }
       diveOrig = b;
-      for (let i = 0; i < b.length; i++) { const el = b[i][0]; el.style.willChange = 'transform'; el.style.transformOrigin = b[i][1]; }
+      for (let i = 0; i < b.length; i++) { const el = b[i][0]; if (el === vCanvas) continue; el.style.willChange = 'transform'; el.style.transformOrigin = b[i][1]; }
       fadeStop(vCanvas);   // (likewise: the copy laid over the canvas would stand still while the dive zooms it)
     }
     const tf = `scale(${k.toFixed(4)})`;
-    for (let i = 0; i < diveOrig.length; i++) diveOrig[i][0].style.transform = tf;
+    for (let i = 0; i < diveOrig.length; i++) { const el = diveOrig[i][0]; if (el !== vCanvas) el.style.transform = tf; }
+    camK = k; pushCam();
   }
   const diveFrom = [0, 0], diveTo = [0, 0];   // (the rise's two ends, written in place for riseCentre)
   const diveField = { a: 0, x: 0, y: 0, r: 0, ox: 0, oy: 0, quiet: 0, focus: 0, blur: 0, dof: 0 };   // (the field's state for lz.setDive, written in place)
@@ -2993,6 +3018,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   vCanvas.addEventListener('webglcontextrestored', () => {
     veins?.dispose();   // the lost instance's listener goes with it (one per restore otherwise)
     veins = createVeinsGL(vCanvas, { tubes: GL_ROWS, force: true, onPlate: () => { plateDirty = true; } });
+    pushCam();   // (the camera and alpha are the new renderer's to hold again)
     veins?.setLayerScale?.(figOpt('glow'));
     if (picNow) veins?.setPicture?.(picNow, picLin);   // (Sharper upscaling, or the overlays' plain upscale: the new context draws the picture at the same share)
     if (!veins) { wrap.classList.remove('gl-on', 'gl-plate'); syncPlateLook(); return; }   // (no context this time: the SVG stays)
@@ -3339,11 +3365,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   store.on('presetLoading', () => { patientReady = patientArrived(); });
   store.on('booted', () => { patientReady = patientArrived(); firstFrame(); });
   wrap.classList.add('unframed');
+  camShow = 0; camShowTo = 0; pushCam();   // (unframed: the canvas is clear until the figure is framed, then eased in as an alpha; app.css leaves the canvas out of the opacity rules)
   // The loading screen (index.html) waits for this: the figure framed, faded in and on screen.
   let figureShown = false;
   const showFigure = () => {
     if (figureShown) return;
     wrap.classList.remove('unframed');
+    camShowTo_(1);
     figureShown = true;
     nextFrame(figureReady1);
   };
@@ -10299,7 +10327,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // glass is taken from it.)
   const vcLook = () => {
     const vc = getComputedStyle(vCanvas);
-    return vc.display !== 'none' && vc.visibility === 'visible' && +vc.opacity >= 0.999 ? '' : 'the figure\'s canvas is hidden or faded';
+    return vc.display !== 'none' && vc.visibility === 'visible' ? '' : 'the figure\'s canvas is hidden';   // (its fades are alpha in the renderer's present, never CSS opacity)
   };
   let vcWhy = null, vcPass = 0, vcEasing = 0;
   // (2 Nov 2026, Mohammad's iPhone: "fix the backgrounds", the teaching card a flat solid slab at rest. vcEasing counted the canvas's
@@ -10337,12 +10365,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (frostLiver || frostCtx !== veins.top.gl) { rehostSoon(); return 'the glass is moving back to the figure\'s canvas'; }
     if (veins.lost) return 'the GPU context is lost';
     if (diveT > 0) return 'the dive is under way';
-    if (!cards && fading(vCanvas)) return 'the canvas is fading (a resolution change)';
     const wc = wrap.classList;
     if (!wc.contains('gl-on')) return 'the GPU figure is not showing';
     if (wc.contains('in-lobule')) return 'the lobule is showing';
     if (wc.contains('unframed')) return 'the figure is unframed';
-    if (vcEasing > 0) return 'the figure\'s canvas is easing';
     if (vcWhy == null) { vcStale(); return 'the figure\'s canvas is being read'; }
     return vcWhy;
   };

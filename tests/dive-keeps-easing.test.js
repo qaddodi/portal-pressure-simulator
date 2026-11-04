@@ -77,7 +77,7 @@ test('Figure resolution never changes the canvas mid-zoom: no fade copy that sta
   assert.match(fn('  function easeRes() {'), /!\(lz\?\.isOpen\(\) \|\| lz\?\.covers\(\)\) && !diveOrig\) \{\n[^\n]*\n[^\n]*\n\s+frostHold = true;\n\s+try \{ glassGL\?\.release\(\); paneGL\?\.release\(\); fadeBox\.w = boxW; fadeBox\.h = boxH; fadeOver\(vCanvas, resFollow, veinsPresent, veins && !veins\.lost \? veins\.top : null, fadeBox\); \} finally \{ frostHold = false; \}/);
   // (The cards' glass is kept through the fade, never flat for it, and never let go for it.)
   assert.doesNotMatch(st, /RES_FROST|resfrost=|for \(const g of cardGLs\) g\.release\(\)/);
-  assert.match(st, /if \(!cards && fading\(vCanvas\)\) return 'the canvas is fading \(a resolution change\)';/);
+  assert.doesNotMatch(st, /fading\(vCanvas\)\) return 'the canvas is fading/);   // (the fade is an alpha in the present: it no longer stops the glass)
   // A redraw through the zoom keeps the camera it started with, so it never counts as a move (settleRes, Adapt's frame gaps).
   const draw = fn('  function drawVeinsNow(fullComposite) {');
   assert.ok(draw.indexOf('if (key !== veinsDrawKey) {') < draw.indexOf('settleRes();'));

@@ -126,6 +126,21 @@ precision mediump float;
 uniform sampler2D uT;
 out vec4 o;
 void main() { o = texelFetch(uT, ivec2(gl_FragCoord.xy), 0); }`;
+// The camera and alpha of the final present (moved off CSS on the canvas, 4 Nov 2026: a CSS scale or opacity on the canvas takes the glass drawn in
+// it along): a picture (own, or the overlays') laid onto the canvas scaled by uCam.x about (uCam.y, uCam.z) (canvas px, y up) and weighed by
+// uA, premultiplied; outside the picture, clear. Filtered, so a zoom is smooth.
+const CAM_FS = `#version 300 es
+precision highp float;
+uniform sampler2D uT;
+uniform highp vec2 uDst;
+uniform highp vec3 uCam;
+uniform float uA;
+out vec4 o;
+void main() {
+  highp vec2 q = (gl_FragCoord.xy - uCam.yz) / uCam.x + uCam.yz;
+  highp vec2 uv = q / uDst;
+  o = (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) ? vec4(0.0) : texture(uT, uv) * uA;
+}`;
 // Sharper upscaling: the picture (uSrc px) onto the canvas (uDst px), each pixel a Catmull-Rom of the picture's 4 × 4 around it, in five
 // filtered reads (the corner taps left out, their weights folded away), then held within the four picture pixels nearest it so an
 // edge never rings. Premultiplied in and out. (Both framebuffers run y up, so no flip.)
@@ -2783,6 +2798,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       return;
     }
     if (!own?.w || lost) return;
+    // (The camera or alpha came on after a picture was drawn straight onto the canvas: that one cannot be moved, so it is drawn again into the kept picture.)
+    if (directNow && camOn()) { directNow = false; ownStale = true; }
     // (A canvas resized since the last picture holds nothing current: it is drawn whole by the next composite, which sizes the kept
     // picture first. Copied before that, the old picture would land in a corner of the new canvas.)
     if (own.w !== PW() || own.h !== PH()) return;
@@ -2811,7 +2828,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     if (gpuProbe.on) gpuProbe.note(COUNTED.present, own.w * own.h * 4 / 1024);
     gl.disable(gl.SCISSOR_TEST);
     presents++;
-    if (!up && under && under.on() && underLay()) { /* (laid: the under picture, the kept one over it) */ }
+    if (camOn() && camDraw(own.tex, false)) { /* (laid: the kept picture under the camera and alpha) */ }
+    else if (!up && under && under.on() && underLay()) { /* (laid: the under picture, the kept one over it) */ }
     else if (!(up && !upLin && upDraw())) {
       // (A picture under the canvas's size with the plain upscale: filtered, as the page's compositor scales a smaller canvas up.)
       gl.bindFramebuffer(gl.READ_FRAMEBUFFER, own.fbo);
@@ -2888,6 +2906,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     const m = overView();
     stack.painter.cssPx = overCss;
     if (over.stale(m, canvas.width, canvas.height)) over.render(m, canvas.width, canvas.height);
+    if (camOn() && camDraw(over.texture, true)) return;
     if (layP === null) {
       // (Started at setup: taken up now if prepare() has not published it yet; waited on only here, as dropping the overlays would blink.)
       try { layP = auxTake('lay', true) || finishProgram(gl, startProgram(gl, REUSE_VS, LAY_FS)); } catch (e) { console.warn('Veins renderer: the overlays\' shader could not be made.', e); layP = false; }
@@ -2904,6 +2923,34 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     gl.bindVertexArray(null);
     gl.disable(gl.BLEND);
+  }
+  // The camera (k about (ox, oy), canvas px, y down) and alpha the final present lays the figure with: the dive's zoom and every fade of the
+  // figure's canvas (a hide, the first framing), as uniforms of one pass, so the glass drawn over the figure in the same present never moves
+  // or fades with it. Set by the stage; none (k 1, a 1) is the plain copy, as before.
+  const cam = { k: 1, ox: 0, oy: 0, a: 1 };
+  const camOn = () => cam.k !== 1 || cam.a !== 1;
+  let camP = null;
+  function camDraw(tex, blend) {
+    if (camP === null) {
+      try { camP = finishProgram(gl, startProgram(gl, REUSE_VS, CAM_FS)); } catch (e) { console.warn('Veins renderer: the camera shader could not be made.', e); camP = false; }
+    }
+    if (!camP) return false;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.disable(gl.SCISSOR_TEST); gl.disable(gl.STENCIL_TEST);
+    if (blend) { gl.enable(gl.BLEND); gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); } else { gl.disable(gl.BLEND); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); }
+    gl.useProgram(camP.p);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    UC.i1(camP.u.uT, 0);
+    UC.f2(camP.u.uDst, canvas.width, canvas.height);
+    gl.uniform3f(camP.u.uCam, cam.k, cam.ox, canvas.height - cam.oy);
+    gl.uniform1f(camP.u.uA, cam.a);
+    gl.bindVertexArray(compVAO);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    gl.bindVertexArray(null);
+    gl.disable(gl.BLEND);
+    return true;
   }
   // Sharper upscaling: the kept picture onto the whole canvas by UP_FS (Catmull-Rom, held within its four nearest pixels). False when
   // its program cannot be made (the picture then goes on as a plain copy, a corner of the canvas: setPicture turns the switch off).
@@ -3843,7 +3890,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       // sends every other whole frame through it (recs 2 Nov, sec. 7: direct, kept, direct, kept). A one-pass frame marks its cells in a
       // stencil: it goes straight onto the canvas only when the canvas's own buffer has one (recs sec. 4: the kept picture's stencil is
       // not the canvas's), else it is drawn into the kept picture, which has, and laid from there.)
-      const direct = who !== 'lobule' && !noDirect && !!own && full && !up && !(under && under.on()) && !(replace && replace.on()) && !(fused && !ctxStencil);
+      const direct = who !== 'lobule' && !noDirect && !!own && full && !up && !camOn() && !(under && under.on()) && !(replace && replace.on()) && !(fused && !ctxStencil);
       if (own && ownStale && !full) full = true;
       if (full) dirt = 0;
       const fl = look.fluid && fluidRect ? look.fluid : null;
@@ -4097,6 +4144,18 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       cathBase = base;
       if (cath.verts.byteLength) gl.bufferSubData(gl.ARRAY_BUFFER, at, cath.verts);
     },
+    /**
+     * The camera and alpha of the final present: the figure (and its overlays) laid scaled by k about (ox, oy) (canvas px from its top left)
+     * and weighed by a (0 to 1), the glass over it untouched. (1, any, any, 1) is the plain copy. Lays the canvas again at once when it changed.
+     */
+    setCamera(k, ox, oy, a = 1) {
+      if (!(k > 0) || !(a >= 0)) return;
+      a = Math.min(1, a);
+      if (cam.k === k && cam.a === a && (k === 1 || (cam.ox === ox && cam.oy === oy))) return;
+      cam.k = k; cam.a = a; cam.ox = ox; cam.oy = oy;
+      if (!lost) present(true, true);
+    },
+    get camera() { return cam; },
     /** Changes whenever the canvas is drawn on again, but for a frame of the moving blood alone (the glass takes a new copy of the figure only then). */
     get drawSeq() { return pictureSeq; },
     /** The frames of the moving blood alone, which drawSeq leaves out. */
@@ -4107,7 +4166,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     onPicture(f) { onPicture.add(f); return () => onPicture.delete(f); },
     clear() { pictured(); if (own?.w) { gl.bindFramebuffer(gl.FRAMEBUFFER, own.fbo); gl.viewport(0, 0, own.w, own.h); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); } gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, canvas.width, canvas.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); nCells = nBlood = nGen = nSimple = 0; baseM = null; fboOK = false; },
     /** The current picture as a PNG data URL (call right after draw, in the same task). */
-    snapshot() { present(false); const url = canvas.toDataURL('image/png'); if (tops.length) present(); return url; },   // (the figure alone; then laid again whole, as it shows)
+    snapshot() { const c = { ...cam }; cam.k = 1; cam.a = 1; try { present(false); const url = canvas.toDataURL('image/png'); Object.assign(cam, c); if (tops.length || camOn()) present(); return url; } finally { Object.assign(cam, c); } },   // (the figure alone; then laid again whole, as it shows)
     /**
      * The canvas holding the whole current picture, for a reader that takes it in this same task (a download, a handout, the glass'
      * copy, drawImage, createImageBitmap, toDataURL): the kept picture is copied onto it first, so the reader
