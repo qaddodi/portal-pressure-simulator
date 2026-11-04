@@ -11994,6 +11994,31 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return h || 1;
   };
   const stats = { layouts: 0, skips: 0, values: 0, ms: 0, jobs: 0, slices: 0, drops: 0 };
+  // The Circuit's solved slots kept by zoom (a quarter octave a step), pan bucket, turn and what the labels show, a few, least recently used out:
+  // a settle at a step already solved commits them at once. Only at rest in the Circuit; every label must still fit (the carry says), else it solves.
+  const solCache = new Map();
+  function solCacheKey(sig, sc, th, b, csig, ins) {
+    if (morph !== 1 || morphTarget !== 1 || xfSolving || viewXf || !(sc > 0)) return null;
+    return [sig, Math.round(Math.log2(sc) * 4), Math.round(th * 100), Math.round(CTM.e / (b.width / 4)), Math.round(CTM.f / (b.height / 4)), b.width, b.height, rotU > 0.5, labelFonts, csig, ins].join('|');
+  }
+  function solCachePut(sf) {
+    if (!sf.ck || !(morph === 1 && morphTarget === 1)) return;
+    const m = new Map();
+    for (const [k, v] of labelSol) m.set(k, { ...v });
+    solCache.delete(sf.ck); solCache.set(sf.ck, m);
+    if (solCache.size > 6) solCache.delete(solCache.keys().next().value);
+  }
+  function solCacheTry(ck, f) {
+    const c = solCache.get(ck);
+    if (!c) return false;
+    const keep = labelSol;
+    const m = new Map();
+    for (const [k, v] of c) m.set(k, { ...v });
+    labelSol = m;
+    if (layoutLabels(f, false) !== false) { solCache.delete(ck); solCache.set(ck, c); return true; }
+    labelSol = keep;
+    return false;
+  }
   const handRideRec = { settle: false };   // (the one record of a hand's zoom ridden: handRide points at it while a ride runs)
   function updateLabels(f, force = false) {
     labelPainted = false;
@@ -12066,6 +12091,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         // (Written into whichever of two kept records is not the one standing: a solve in slices holds its record until it lands.)
         const sf = solvedFor === SOLVED_A ? SOLVED_B : SOLVED_A;
         sf.sig = sig; sf.sc = sc; sf.th = th; sf.csig = csig; sf.ins = ins; sf.view = morphTarget;
+        sf.ck = solCacheKey(sig, sc, th, b, csig, ins);
+        // (A zoom back to a step already solved in the Circuit: its recorded slots are carried, with no solve. They stand only if every label still fits.)
+        if (sf.ck && solCacheTry(sf.ck, f)) { solvedFor = sf; solveAsked = false; } else {
         // (The labels already standing are carried to this frame's camera first: a solve that does not land inside its slice leaves them as
         // they are, so each frame of a zoom or glide that asked for a fresh solve left them one more frame behind the figure, and
         // dropped the sliced solve the next frame. Mohammad, 2 Nov: "the labels and callouts move slower than the figure camera".)
@@ -12078,7 +12106,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           labelTail();
           return;
         }
-        solvedFor = sf; solveAsked = false;
+        solvedFor = sf; solveAsked = false; solCachePut(sf);
+        }
       }
       else if (landingRide) { solvedFor.sc = sc; }
       else if (hand || reslotted) labelSettleSoon();
@@ -12132,7 +12161,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     cancelMay('label solve');
     try { while (!labelSliceRun(j.g, 1e6)); } catch (e) { labelJob = null; labelKey = null; throw e; }
     labelJob = null;
-    solvedFor = j.solvedFor; solveAsked = false;
+    solvedFor = j.solvedFor; solveAsked = false; solCachePut(solvedFor);
     labelKey = keyInto(labelKeyArr, j.key); stats.layouts++;
     labelTail();
   }
@@ -12153,7 +12182,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!done && (age > 400 || !gestureOn())) { mayTask('label solve', labelJobStep, JOB_NOW); return false; }
     if (!done) return true;
     labelJob = null;
-    solvedFor = j.solvedFor; solveAsked = false;
+    solvedFor = j.solvedFor; solveAsked = false; solCachePut(solvedFor);
     if (gpuProbe.on) gpuProbe.note(COUNTED.labelSolve);
     labelKey = keyInto(labelKeyArr, j.key); stats.layouts++;
     labelTail();
