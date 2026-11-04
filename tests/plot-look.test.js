@@ -112,7 +112,8 @@ test('the charts all put their plot on a rounded panel, the planes draw their zo
   // (Mohammad, 29 Oct: the 55 % black outline the FibroScan readings wear on a picture smeared the plane's numbers and axis names, drawn in the
   // card's own dark text, on a light card. No outline now; the cut-off lines break behind the numbers instead, visual-plane.js.)
   assert.doesNotMatch(css, /\.pze-t, \.pze-ax \{[^}]*stroke/, 'the plane\'s numbers and names carry no outline');
-  assert.doesNotMatch(css, /\.pzz-w \{[^}]*stroke: rgb\(var\(--black-rgb\)/, 'nor do the criteria graph\'s words: a dark outline round dark text smears it, so the halo is the card\'s own colour');
+  assert.doesNotMatch(css, /\.pzz-/, 'the criteria graph\'s looks are in chart-looks/crit.js, not the stylesheet');
+  assert.deepEqual(LOOKS['crit.word'].base.halo, { stroke: { k: 'tok', n: 'surface' }, width: 3, join: 'round' }, 'the criteria graph\'s words: the halo is the card\'s own colour, never a dark outline');
   assert.match(plane, /gapSegs\(cutSegs\(pl, X, Y, fr, true\), \[\.\.\.names\.filter\(\(n\) => n\?\.across\)\.map\(\(n\) => n\.box\), \.\.\.nums\.map\(\(n\) => n\.box\)\]\)/, 'a cut-off line breaks behind a number it runs to');
 });
 

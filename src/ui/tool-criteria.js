@@ -33,6 +33,7 @@ import { h, fmt } from './util.js';
 import { TILE } from './table-marks.js';
 import { plotPanel } from './plot-look.js';
 import { createSvgGL, svgModel } from './svg-gl.js';
+import { chartCtx } from './chart-ctx.js';
 
 export const CRITERIA_MAX = 4;
 /** The graphs a criteria card can draw (zones), in their own units: x and y ranges, the zones, the hatched area and the axis marks. */
@@ -107,7 +108,7 @@ export function createCriteria() {
   const top = h('div', { class: 'pzc-top' }, lead, rule);
   const list = h('ul', { class: 'pzc-list', role: 'list' });
   const verdict = h('p', { class: 'pzc-verdict' });
-  const plot = h('div', { class: 'pzc-zones' }), gl = createSvgGL(plot);
+  const plot = h('div', { class: 'pzc-zones' }), gl = createSvgGL(plot, { host: 'crit' });
   const key = h('div', { class: 'pzc-key' });
   const el = h('div', { class: 'pz-crit' }, top, list, plot, key, verdict);
   let rows = [], parts = [], fig = null, drawnW = 0;
@@ -117,17 +118,19 @@ export function createCriteria() {
     const W = Math.round(plot.clientWidth);
     if (!fig || !W || W === drawnW) return;
     drawnW = W;
-    const fs = Math.max(12, Math.min(14, (parseFloat(getComputedStyle(el).fontSize) || 14) * 0.93)), sm = 12;
+    let host = 14;
+    try { const cx = chartCtx(plot); delete cx.svk; gl.setCtx(cx); host = gl.hostSize(); } catch { /* (no card round it yet: the sizes as they stand) */ }
+    const fs = Math.max(12, Math.min(14, host * 0.93)), sm = 12;
     const ph = Math.round(W * (W < 420 ? 0.46 : 0.34));
     const X = (k) => ((k - fig.x[0]) / (fig.x[1] - fig.x[0])) * W, Y = (p) => ((fig.y[1] - p) / (fig.y[1] - fig.y[0])) * ph;
     const box = (a, extra = {}) => svg('rect', { x: X(a.x[0]), y: Y(a.y[1]), width: X(a.x[1]) - X(a.x[0]), height: Y(a.y[0]) - Y(a.y[1]), ...extra });
-    const word = (x, y, t, cls, anchor = 'middle', size = fs) => svg('text', { x, y, class: `pzz-w ${cls || ''}`, 'text-anchor': anchor, 'font-size': size }, t);
+    const word = (x, y, t, cls, anchor = 'middle', size = fs) => svg('text', { x, y, class: `pzz-w ${cls || ''}`, 'data-look': 'crit.word', 'text-anchor': anchor, 'font-size': size }, t);
     const panel = plotPanel(svg, 0, 0, W, ph, { fill: false });   // (the shared rounded plot, plot-look.js)
-    const g = svg('g', { 'clip-path': panel.url }, ...fig.zones.map((z) => box(z, { class: 'pzz-z', 'data-rate': z.rate })), fig.hatch ? box(fig.hatch, { fill: `url(#${id}h)` }) : null);
+    const g = svg('g', { 'clip-path': panel.url }, ...fig.zones.map((z) => box(z, { class: 'pzz-z', 'data-look': 'crit.zone', 'data-rate': z.rate })), fig.hatch ? box(fig.hatch, { fill: `url(#${id}h)` }) : null);
     const by = ph - 8;
     gl.show(svg('svg', { width: W, height: ph, viewBox: `0 0 ${W} ${ph}`, role: 'img', 'aria-label': fig.label || '' },
       svg('defs', {}, panel.clip,
-        svg('pattern', { id: `${id}h`, width: 7, height: 7, patternUnits: 'userSpaceOnUse', patternTransform: 'rotate(45)' }, svg('rect', { width: 2, height: 7, class: 'pzz-hl' }))),
+        svg('pattern', { id: `${id}h`, width: 7, height: 7, patternUnits: 'userSpaceOnUse', patternTransform: 'rotate(45)' }, svg('rect', { width: 2, height: 7, class: 'pzz-hl', 'data-look': 'crit.hatch' }))),
       g,
       ...fig.zones.filter((z) => z.name).map((z) => word(X(z.at[0]), Y(z.at[1]) + fs * 0.36, z.name, 'n')),
       ...fig.xTicks.map((k) => word(X(k), by, String(k), 'v', 'middle', sm)),
