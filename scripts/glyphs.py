@@ -11,10 +11,14 @@ import json, os
 from fontTools.ttLib import TTFont
 from fontTools.varLib.instancer import instantiateVariableFont
 from fontTools.pens.svgPathPen import SVGPathPen
+from fontTools.pens.transformPen import TransformPen
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WEIGHTS = [400, 500, 600, 700]
 CHARS = [chr(c) for c in range(0x20, 0x7F)] + list('−·×–°µ‰≥≤→…—±')
+# Signs Inter has no outline for, taken from Noto Sans Math (scripts/font-sources/noto-sans-math-latin.woff2, SIL OFL; one weight for all four) and the subscript two
+# made from Inter's own two (smaller, set low): the clinical marks (HVPG ≥ 10, → , ≤, √, ↔, τ) draw on the GPU like every other letter.
+FALLBACK = list('→≤≥√↔τ')
 
 import importlib.util
 _spec = importlib.util.spec_from_file_location('glyph_helpers', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'glyph-helpers.py'))
@@ -36,6 +40,15 @@ for w in WEIGHTS:
         n = cmap.get(ord(ch))
         if not n: continue
         chars[ch] = glyph(n); names[ch] = n
+    nf = TTFont(os.path.join(ROOT, 'scripts/font-sources/noto-sans-math-latin.woff2')); ncm = nf.getBestCmap(); ngs = nf.getGlyphSet(); nh = nf['hmtx']; sc = 2048 / nf['head'].unitsPerEm
+    for ch in FALLBACK:
+        n = ncm.get(ord(ch))
+        if not n or ch in chars: continue
+        pen = SVGPathPen(ngs, lambda v: ('%.1f' % v).rstrip('0').rstrip('.')); tp = TransformPen(pen, (sc, 0, 0, sc, 0, 0)); ngs[n].draw(tp)
+        chars[ch] = [round(nh[n][0] * sc), pen.getCommands()]
+    if '2' in chars:   # (the subscript two: Inter's two at 62 %, lowered)
+        two = cmap.get(ord('2')); pen = SVGPathPen(gs, lambda v: ('%.1f' % v).rstrip('0').rstrip('.')); tp = TransformPen(pen, (0.62, 0, 0, 0.62, 0, -260)); gs[two].draw(tp)
+        chars['₂'] = [round(hmtx[two][0] * 0.62), pen.getCommands()]
     tab = {}
     # (Every character the tnum feature swaps, not only the figures: tabular figures also set a full stop, comma, colon, sign, bracket
     # or space on the figures' pitch (a "." is 0.55 em, not 0.6 em, wide, in Inter), so a number the GPU draws keeps the width the page gives it.)
