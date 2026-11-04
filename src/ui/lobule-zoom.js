@@ -773,14 +773,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     idleDrawn = ''; drawVersion++; viewChanged();
     if (!raf && fade > 0) raf = nextFrame(loop);
   }
-  function layShared() {
-    const t = shareTop;
-    if (!t || !gl || gl.lost) return;
-    const r = (t.canvas.width || 1) / (shW || 1);   // (the stage canvas's pixels per CSS px)
-    if (fieldOp > 0.002 && fieldGL?.target) { const f = fieldGL.target; if (zoomCam) t.lay(f.tex, zK, 0, 0, zK, zE * r, zF * r, fieldOp); else t.lay(f.tex, 1, 0, 0, 1, 0, 0, fieldOp); }
-    if (fade <= 0 || el.style.visibility === 'hidden') return;
-    const tg = gl.target;
-    if (!tg?.w) return;
+  // The map the lobule's texture is laid by (CSS px), written in place into shXf: p' = [a b; c d] p + (tx, ty).
+  const shXf = { a: 1, b: 0, c: 0, d: 1, tx: 0, ty: 0 };
+  function shareMap() {
     const wh = !!wide?.host;
     // (The glCv's own CSS transform in the dive, then the layer's, the sinusoid zoom's turn and growth about its fixed point.)
     let a = 1, b = 0, c = 0, d = 1, tx = 0, ty = 0;
@@ -796,7 +791,31 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     }
     // (A card's zoom camera, after all of those: p' = zK p + (zE, zF).)
     if (zoomCam) { a *= zK; b *= zK; c *= zK; d *= zK; tx = zK * tx + zE; ty = zK * ty + zF; }
-    t.lay(tg.tex, a, b, c, d, tx * r, ty * r, fade);
+    shXf.a = a; shXf.b = b; shXf.c = c; shXf.d = d; shXf.tx = tx; shXf.ty = ty;
+    return shXf;
+  }
+  // L3: the lobule's texture, faded in and laid by a map that only scales up about the top left (no turn) over the whole canvas, hides the
+  // figure's kept picture, which the stage's present then does not lay under it. Conservative: any doubt says no.
+  function shareOpaque() {
+    const t = shareTop;
+    if (!t || !gl || gl.lost || fade < 0.999 || el.style.visibility === 'hidden') return false;
+    const tg = gl.target;
+    if (!tg?.w || tg.w !== t.canvas.width || tg.h !== t.canvas.height) return false;
+    const m = shareMap(), r = (t.canvas.width || 1) / (shW || 1);
+    if (m.b || m.c || !(m.a >= 1) || Math.abs(m.a - m.d) > 1e-6) return false;
+    const W = t.canvas.width, H = t.canvas.height, tx = m.tx * r, ty = m.ty * r;
+    return tx <= 0.5 && ty <= 0.5 && m.a * W + tx >= W - 0.5 && m.a * H + ty >= H - 0.5;
+  }
+  function layShared() {
+    const t = shareTop;
+    if (!t || !gl || gl.lost) return;
+    const r = (t.canvas.width || 1) / (shW || 1);   // (the stage canvas's pixels per CSS px)
+    if (fieldOp > 0.002 && fieldGL?.target) { const f = fieldGL.target; if (zoomCam) t.lay(f.tex, zK, 0, 0, zK, zE * r, zF * r, fieldOp); else t.lay(f.tex, 1, 0, 0, 1, 0, 0, fieldOp); }
+    if (fade <= 0 || el.style.visibility === 'hidden') return;
+    const tg = gl.target;
+    if (!tg?.w) return;
+    const m = shareMap();
+    t.lay(tg.tex, m.a, m.b, m.c, m.d, m.tx * r, m.ty * r, fade);
   }
   function shareDown() {
     shareOff?.(); shareOff = null;
@@ -821,7 +840,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (gl) {
       shareTop = fig; shared = true;
       fig.canvas.addEventListener('webglcontextrestored', onFigureBack);
-      shareOff = fig.add({ order: LZ_UNDER_GLASS - 5, solo: true, draw: layShared });
+      shareOff = fig.add({ order: LZ_UNDER_GLASS - 5, solo: true, opaque: shareOpaque, draw: layShared });
       host.classList.add('lz-shared');
     } else gl = createVeinsGL(glCv, { tubes: MAXT, force: true, who: 'lobule' });
     restAttr(el, 'data-vessels', gl ? 'webgl2' : 'flat');
@@ -4225,7 +4244,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     K[ki++] = W; K[ki++] = H; K[ki++] = dpr; K[ki++] = wk; K[ki++] = gpu;
     K[ki++] = fading ? Math.round(xfU(xfT0, xfNow(now)) * 1000) : -1; K[ki++] = fading ? Math.round(xfU(surT0, xfNow(now)) * 1000) : -1;
     K[ki++] = flatVessels ? [ink('sin', 1), ink('sin', 0), ink('pv'), ink('cv'), m.art.toFixed(2), [...selIds()].join('.')].join('|') : '';   // alloc-rare: only for the flat vessels (no WebGL2 vessels), where the tissue is not drawn on the GPU
-    K[ki++] = lk > 0 ? Math.round(lk * 1000) : -1; K[ki++] = lk > 0 ? Math.round(m.congU * 1000) : -1;
+    K[ki++] = lk > 0 ? Math.round(lk * 1000) : -1; K[ki++] = lk > 0 ? Math.round(m.congU * 200) : -1;   // (congestion to 0.005: it moves a little each frame while the model runs, and each step redrew the tissue full screen; L3)
     K[ki++] = fs.su; K[ki++] = fs.pre; K[ki++] = fs.post; K[ki++] = fs.sin; K[ki++] = fs.cong;
     K[ki++] = Math.round(V.k * 1000); K[ki++] = Math.round(V.x * 10); K[ki++] = Math.round(V.y * 10); K[ki++] = Math.round(gk * 1000);
     let same = tissueKey !== '';
