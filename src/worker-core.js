@@ -98,6 +98,8 @@ export function createCore(post) {
   let lapse = null;
   // The presenter's eased change of patient on the live model: { from, to, t0, ms } (see 'morph').
   let morph = null;
+  let morphParamsAt = 0;
+  const MORPH_PARAMS_MS = 250;
   // Until this time (ms) every tick also relaxes a hidden copy of the model quietly, so a live change settles while the clock runs on.
   let relaxUntil = 0;
   let beat = true; // the heartbeat always runs (the Over time trace is beat to beat from the start)
@@ -303,8 +305,11 @@ export function createCore(post) {
       const cyc = eng.cyc || 0, COf = eng.COf;   // (a blend carries neither the phase nor the output filter: the live ones go on)
       eng.restore(k >= 1 ? morph.to : morphAt(morph.from, morph.to, easeInOut(k)));
       eng.cyc = cyc + realDt * (eng.hr || 60) / 60; eng.COf = COf;
+      // F5 (slide-deck-perf-recs): the params object is NOT posted on every tick of a morph (every post fanned out to every page
+      // store.on('params') listener, 10 to 30 times a second for 1.2 to 2 s). It goes at the start, about 4 times a second, and at the landing.
+      if (k >= 1 || now - morphParamsAt >= MORPH_PARAMS_MS) { paramsDirty = true; morphParamsAt = now; }
       if (k >= 1) morph = null;
-      paramsDirty = true; frameDirty = true;
+      frameDirty = true;
     } else if (running) {
       if (clock === 'hemo') {
         if (lapse?.bedside) bedsideStep(now);
@@ -500,6 +505,7 @@ export function createCore(post) {
       lapse = null; clock = 'hemo'; speed = 1; diseaseAcc = 0; relaxUntil = 0;
       if (!(ms > 0)) { morph = null; eng.restore(snap); paramsDirty = true; return; }
       morph = { from: eng.snapshot(), to: snap, t0: performance.now(), ms };
+      morphParamsAt = morph.t0; paramsDirty = true;   // (the start posts the params once; the ticks then post them about 4 times a second)
       stoppedAt = timer ? null : morph.t0;   // (begun while the model stands still, the page hidden: it has not begun to play)
       running = true; start();
     },
