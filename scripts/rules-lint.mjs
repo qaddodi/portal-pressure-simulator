@@ -17,6 +17,8 @@
 //              carry no --d-* duration token may not rise above scripts/motion-allowance.json (it only falls: --tighten lowers it).
 //   look     (PR-19) the dark-mode media query is made only by src/ui/look.js (import darkMQ / isDark() from it); stage.js's list of queries, fibroscan.js,
 //              organ-paint.js and theme-epoch.js (guarded forms) are the only other readers.
+//   css      (PR-21) the count of lines in styles/*.css with !important, and with a doubled class (.a.a, a specificity hack), may not rise above
+//              scripts/css-allowance.json; --tighten lowers each number to today's count. A new surface wins by order or by the state layer, not by doubling.
 //   (The built chunks' 200 KB limit is held by scripts/build.mjs itself: the build fails on a chunk over it.)
 //
 //   node scripts/rules-lint.mjs            check
@@ -116,6 +118,15 @@ for (const f of files.filter((x) => x.endsWith('.js'))) {
   for (const f of files.filter((x) => x.endsWith('.js'))) {
     const rel = relative(ROOT, f).split('\\').join('/');
     if (!LOOK_READERS.has(rel) && /matchMedia\??\.?\(\s*['"]\(prefers-color-scheme/.test(readFileSync(f, 'utf8'))) errors.push(`${rel} makes its own prefers-color-scheme query: import darkMQ or isDark() from src/ui/look.js (PR-19)`);
+  }
+  {
+    const cssLines = readdirSync(join(ROOT, 'styles')).filter((n) => n.endsWith('.css')).flatMap((name) => readFileSync(join(ROOT, 'styles', name), 'utf8').split('\n'));
+    const live = cssLines.filter((l) => !/^\s*(?:\/\*|\*)/.test(l));
+    const imp = live.filter((l) => /!important/.test(l)).length, dbl = live.filter((l) => /(\.[\w-]+)\1(?![\w-])/.test(l)).length;
+    const cFile = join(ROOT, 'scripts/css-allowance.json'), cDoc = JSON.parse(readFileSync(cFile, 'utf8'));
+    if (imp > cDoc.important) errors.push(`styles/ has ${imp} lines with !important, over the allowance of ${cDoc.important} in scripts/css-allowance.json (PR-21)`);
+    if (dbl > cDoc.doubledClass) errors.push(`styles/ has ${dbl} lines with a doubled class (.a.a), over the allowance of ${cDoc.doubledClass} in scripts/css-allowance.json: win by order or the state layer, not by doubling (PR-21)`);
+    if (process.argv.includes('--tighten')) writeFileSync(cFile, JSON.stringify({ ...cDoc, important: Math.min(imp, cDoc.important), doubledClass: Math.min(dbl, cDoc.doubledClass) }, null, 1) + '\n');
   }
   const bare = readdirSync(join(ROOT, 'styles')).filter((n) => n.endsWith('.css')).reduce((n, name) => n + readFileSync(join(ROOT, 'styles', name), 'utf8').split('\n')
     .filter((l) => /(?:^|[\s;{])(?:transition|animation)(?:-duration)?\s*:/.test(l) && !/var\(--d-|var\(--vp-ms|var\(--dur|transition\s*:\s*(?:none|var\()|animation\s*:\s*none/.test(l)).length, 0);
