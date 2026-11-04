@@ -1,4 +1,4 @@
-import { stageSource } from './stage-src.js';
+import { stageSource, stageFn } from './stage-src.js';
 // Review 22 Oct, item 10: the lobule view, the sinusoid view, the Doppler and the FibroScan load after the first paint (about 700 kB of
 // script that most sessions open late or never). These tests pin the three things that make that safe: the first load really does not
 // reach them, nothing a late-built layer or pane would have heard is lost, and the page keeps the order it had.
@@ -57,12 +57,12 @@ test('a dive asked for before the layer exists goes on when it does, with the sl
 
 test('the first dive is prepared ahead as before: the code is fetched as the figure is shown, the layer built when the page is quiet', () => {
   const stage = stageSource();
-  const prep = stage.slice(stage.indexOf('function prepLobule()'), stage.indexOf('let catchUp = false'));
-  assert.match(prep, /if \(figureShown && !lzLoad && !lzSoon\) \{ lzSoon = true; lobuleCode\(\)\.catch\(lobuleNoop\); prepIdle\(prepLoad\);/);
+  const prep = stageFn('prepLobule');
+  assert.match(prep, /if \((?:live\.)?(?:live\.)?figureShown && !(?:live\.)?(?:live\.)?lzLoad && !(?:live\.)?(?:live\.)?lzSoon\) \{ (?:live\.)?(?:live\.)?lzSoon = true; lobuleCode\(\)\.catch\(lobuleNoop\); prepIdle\(prepLoad\);/);
   assert.match(stage, /const prepLoad = \(\) => lobuleReady\(\)\.then\(prepLobule, prepLoadLost\);/);
   assert.match(stage, /const lobuleCode = \(\) => \(lzCode \|\|= import\('\.\/lobule-zoom\.js'\)/);
-  assert.match(prep, /if \(prepBusy \|\| !figureShown \|\| now - prepAt < 1000\) return;/);
-  assert.match(prep, /lz\.preparePieces\(\)/);
+  assert.match(prep, /if \(prepBusy \|\| !(?:live\.)?figureShown \|\| now - prepAt < 1000\) return;/);
+  assert.match(prep, /(?:live\.)?lz\.preparePieces\(\)/);
 });
 
 test('a layer built after the store was set reads the slide\'s callout and a sinusoid already asked for', () => {

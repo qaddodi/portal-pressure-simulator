@@ -43,9 +43,9 @@ test('each surface\'s callbacks are set against the frames it really drew, over 
 test('G1: a pan takes the width step instead of the whole update; a zoom or a turn still takes the update', () => {
   const s = stageSource();
   const fn = s.slice(s.indexOf('  function stepWidths() {'), s.indexOf('  // In the same way, while the organs ease'));
-  assert.match(fn, /if \(!f \|\| f !== widthF \|\| storeVer !== widthVer \|\| !widthCTM \|\| coilEasing \|\| organsEasing \|\| catchUp \|\| bandsMoving\(\) \|\| lesionsMoving\(\)\) return false;/);
-  assert.match(fn, /if \(!CTM\) refreshCTM\(\);/);
-  assert.match(fn, /if \(CTM !== widthCTM && \(CTM\.sc !== widthCTM\.sc \|\| CTM\.a !== widthCTM\.a \|\| CTM\.b !== widthCTM\.b\)\) return false;/);
+  assert.match(fn, /if \(!f \|\| f !== (?:live\.)?(?:live\.)?widthF \|\| (?:live\.)?(?:live\.)?storeVer !== (?:live\.)?(?:live\.)?widthVer \|\| !(?:live\.)?(?:live\.)?widthCTM \|\| (?:live\.)?(?:live\.)?coilEasing \|\| (?:live\.)?(?:live\.)?organsEasing \|\| (?:live\.)?(?:live\.)?catchUp \|\| bandsMoving\(\) \|\| lesionsMoving\(\)\) return false;/);
+  assert.match(fn, /if \(!(?:live\.)?CTM\) refreshCTM\(\);/);
+  assert.match(fn, /if \((?:live\.)?CTM !== (?:live\.)?widthCTM && \((?:live\.)?CTM\.sc !== (?:live\.)?widthCTM\.sc \|\| (?:live\.)?CTM\.a !== (?:live\.)?widthCTM\.a \|\| (?:live\.)?CTM\.b !== (?:live\.)?widthCTM\.b\)\) return false;/);
 });
 
 test('G3: a gesture\'s own classes keep no layout watch due and make no label read again; a class that moves a bar still does', () => {

@@ -72,7 +72,7 @@ test('a running change names its parts in the readout: the vessel sync and the u
   const src = stageSource();
   for (const name of ['vessel sync: list', 'vessel sync: radii', 'vessel sync: binning', 'vessel sync: colours', 'update: geometry', 'update: tubes', 'update: overlays', 'update: labels', 'update: organs', 'update: slide marks', 'update: nodes']) {
     // (A step is a named function with its arguments after it since 2 Nov 2026 (gpuProbe.time(null, name, fn, a, b, c)): no closure made per frame.)
-    assert.match(src, new RegExp(`gpuProbe\\.time\\(null, '${name}', (\\(\\) => |[A-Za-z]\\w*[,)])`), name);
+    assert.match(src, new RegExp(`gpuProbe\\.time\\(null, '${name}', (\\(\\) => |[A-Za-z][\\w.]*[,)])`), name);
   }
 });
 

@@ -21,9 +21,9 @@ test('the width step falls back to the full update whenever anything but the wid
   for (const cond of ['f !== widthF', 'storeVer !== widthVer', 'CTM !== widthCTM', 'coilEasing', 'organsEasing', 'catchUp',
     'anatCovered()', 'hid.at', 'plateStale', 'plateRedraw', 'blockersStale', 'watch.due()',
     'ascShown !== ascTarget', 'morph !== morphTarget', "wrap.classList.contains('gl-on')", 'anyReveal()']) {
-    assert.ok(s.includes(cond), `stepWidths checks ${cond}`);
+    assert.ok(s.replaceAll('live.', '').includes(cond), `stepWidths checks ${cond}`);
   }
-  assert.match(body('updateInner'), /widthF = f; widthVer = storeVer; widthCTM = CTM;/);
+  assert.match(body('updateInner'), /(?:live\.)?widthF = f; (?:live\.)?widthVer = (?:live\.)?storeVer; (?:live\.)?widthCTM = (?:live\.)?CTM;/);
 });
 
 test('both paths write a width the same way and draw the same width-led layers', () => {
@@ -39,21 +39,21 @@ test('both paths write a width the same way and draw the same width-led layers',
 });
 
 test('a coil or the liver still easing keeps the full update running', () => {
-  assert.match(body('updateInner'), /(?:live\.)?widthEasing = coilEasing = true/);
-  assert.match(body('updateOrgans'), /if \((?:live\.)?(?:live\.)?lvT !== tT\) (?:live\.)?(?:live\.)?widthEasing = (?:live\.)?(?:live\.)?organsEasing = true;/);
-  assert.match(body('updateOrgans'), /if \(moving\) (?:live\.)?widthEasing = (?:live\.)?organsEasing = true;/);
+  assert.match(body('updateInner'), /(?:live\.)?(?:live\.)?(?:live\.)?widthEasing = (?:live\.)?(?:live\.)?coilEasing = true/);
+  assert.match(body('updateOrgans'), /if \((?:live\.)?(?:live\.)?(?:live\.)?lvT !== tT\) (?:live\.)?(?:live\.)?(?:live\.)?widthEasing = (?:live\.)?(?:live\.)?(?:live\.)?organsEasing = true;/);
+  assert.match(body('updateOrgans'), /if \(moving\) (?:live\.)?(?:live\.)?widthEasing = (?:live\.)?(?:live\.)?organsEasing = true;/);
 });
 
 test('between model frames, an organ ease alone steps the organs alone, under the width step\'s guards', () => {
   const src = STAGE;
   const fn = src.slice(src.indexOf('  function stepOrgans()'), src.indexOf('  function stepWidthsInner('));
-  assert.match(fn, /if \(!(?:live\.)?organsEasing \|\| !f \|\| f !== widthF \|\| (?:live\.)?storeVer !== widthVer \|\| !(?:live\.)?CTM \|\| !widthCTM \|\| (?:live\.)?CTM\.sc !== widthCTM\.sc \|\| (?:live\.)?CTM\.a !== widthCTM\.a \|\| (?:live\.)?CTM\.b !== widthCTM\.b \|\| coilEasing \|\| (?:live\.)?catchUp\) return false;/, 'a pan takes the organ step, a zoom or turn the full update');
-  assert.match(STAGE, /function syncView\(\) \{\n\s+(?:live\.)?viewRaf = 0;\n\s+flushVT\(\);\n\s+if \(!(?:live\.)?F \|\| (?:live\.)?lz\?\.isOpen\(\)\) return;\n\s+refreshCTM\(\);\n\s+gpuProbe\.time\(null, 'labels \(script\)', syncLabelsRun\);/, 'a view change lays out the labels itself');
-  assert.match(fn, /if \(anatCovered\(\) \|\| hid\.at \|\| (?:live\.)?plateStale \|\| (?:live\.)?blockersStale \|\| \(performance\.now\(\) - (?:live\.)?blockersAt > 100 && watch\.due\(\)\)\) return false;/);
-  assert.match(fn, /if \((?:live\.)?morph !== (?:live\.)?morphTarget \|\| glAtUpdate !== wrap\.classList\.contains\('gl-on'\) \|\| bandsMoving\(\) \|\| lesionsMoving\(\) \|\| anyReveal\(\) \|\| visWidthMoving\(\)\) return false;/, 'any vessel width, band or lesion still moving takes the full update');
-  assert.match(fn, /(?:live\.)?widthEasing = (?:live\.)?organsEasing = false;\n\s+updateOrgans\(f, f\.viewParams \|\| store\.get\(\)\.params, t\);/, 'the organs set their own easing flags again');
-  assert.match(fn, /if \(plateRedraw\) \{ plateRedraw = false; drawVeins\(false, 'plate hidden'\); \}/, 'a plate redraw it asks for is drawn, as after an update');
-  assert.match(src, /\} else if \((?:live\.)?widthEasing && (?:live\.)?F && !stepOrgans\(\) && !stepWidths\(\)\) update\((?:live\.)?F\);/);
+  assert.match(fn, /if \(!(?:live\.)?(?:live\.)?organsEasing \|\| !f \|\| f !== (?:live\.)?widthF \|\| (?:live\.)?(?:live\.)?storeVer !== (?:live\.)?widthVer \|\| !(?:live\.)?(?:live\.)?CTM \|\| !(?:live\.)?widthCTM \|\| (?:live\.)?(?:live\.)?CTM\.sc !== (?:live\.)?widthCTM\.sc \|\| (?:live\.)?(?:live\.)?CTM\.a !== (?:live\.)?widthCTM\.a \|\| (?:live\.)?(?:live\.)?CTM\.b !== (?:live\.)?widthCTM\.b \|\| (?:live\.)?coilEasing \|\| (?:live\.)?(?:live\.)?catchUp\) return false;/, 'a pan takes the organ step, a zoom or turn the full update');
+  assert.match(STAGE, /function syncView\(\) \{\n\s+(?:live\.)?(?:live\.)?viewRaf = 0;\n\s+flushVT\(\);\n\s+if \(!(?:live\.)?(?:live\.)?F \|\| (?:live\.)?(?:live\.)?lz\?\.isOpen\(\)\) return;\n\s+refreshCTM\(\);\n\s+gpuProbe\.time\(null, 'labels \(script\)', syncLabelsRun\);/, 'a view change lays out the labels itself');
+  assert.match(fn, /if \(anatCovered\(\) \|\| hid\.at \|\| (?:live\.)?(?:live\.)?plateStale \|\| (?:live\.)?(?:live\.)?blockersStale \|\| \(performance\.now\(\) - (?:live\.)?(?:live\.)?blockersAt > 100 && watch\.due\(\)\)\) return false;/);
+  assert.match(fn, /if \((?:live\.)?(?:live\.)?morph !== (?:live\.)?(?:live\.)?morphTarget \|\| glAtUpdate !== wrap\.classList\.contains\('gl-on'\) \|\| bandsMoving\(\) \|\| lesionsMoving\(\) \|\| anyReveal\(\) \|\| visWidthMoving\(\)\) return false;/, 'any vessel width, band or lesion still moving takes the full update');
+  assert.match(fn, /(?:live\.)?(?:live\.)?widthEasing = (?:live\.)?(?:live\.)?organsEasing = false;\n\s+(?:live\.)?updateOrgans\(f, f\.viewParams \|\| store\.get\(\)\.params, t\);/, 'the organs set their own easing flags again');
+  assert.match(fn, /if \((?:live\.)?plateRedraw\) \{ (?:live\.)?plateRedraw = false; drawVeins\(false, 'plate hidden'\); \}/, 'a plate redraw it asks for is drawn, as after an update');
+  assert.match(src, /\} else if \((?:live\.)?(?:live\.)?widthEasing && (?:live\.)?(?:live\.)?F && !stepOrgans\(\) && !stepWidths\(\)\) update\((?:live\.)?(?:live\.)?F\);/);
   // Nothing else in the update follows the liver's ease: only the organs and the fluid read it.
   for (const name of ['updateOverlays', 'updateLabels', 'updateNodesCircuit', 'fxSync', 'updateFocus', 'updateOrganSel']) {
     const at = src.indexOf(`  function ${name}(`), next = src.indexOf('\n  function ', at + 10);

@@ -54,9 +54,9 @@ test('the labels\' key and the drawn view are numbers, not joined text, on a cam
   assert.match(stage, /const key = viewSame\(T, vCanvas\.width, vCanvas\.height\) \? veinsDrawKey : \+\+viewKeyN;/);
   assert.match(stage, /veinsDrawKey = key; viewKeep\.set\(viewNext\);/);
   // Every place that changes what the signature reads of the vessels bumps edgeRev.
-  assert.match(stage, /x\.vis = vis; edgeRev\+\+; \}/);
-  assert.match(stage, /if \(sigWidthMoved\(x\)\) edgeRev\+\+;/);
-  assert.match(stage, /if \(x\.ghost !== \(!openNow && !x\.reveal\?\.out\)\) edgeRev\+\+;/);
+  assert.match(stage, /x\.vis = vis; (?:live\.)?(?:live\.)?edgeRev\+\+; \}/);
+  assert.match(stage, /if \((?:live\.)?sigWidthMoved\(x\)\) (?:live\.)?edgeRev\+\+;/);
+  assert.match(stage, /if \(x\.ghost !== \(!openNow && !x\.reveal\?\.out\)\) (?:live\.)?edgeRev\+\+;/);
   const vs = slice('  function viewSame(T, w, h) {', '\n  }\n') + '\n  }';
   const viewKeep = new Float64Array(8).fill(NaN), viewNext = new Float64Array(8);
   let veinsDrawKey = '';

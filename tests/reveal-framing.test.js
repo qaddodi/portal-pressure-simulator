@@ -24,8 +24,8 @@ test('the cover reframes for a late resize or settled cards, and once more as th
 
 test('the stage\'s first fit leaves a presenting slide\'s framing alone and glides when the figure already shows', () => {
   const ff = st.slice(st.indexOf('function firstFrame()'), st.indexOf('showFigure();', st.indexOf('function firstFrame()')));
-  assert.match(ff, /!userMoved && !store\.get\(\)\.presenting/);
-  assert.match(ff, /if \(figureShown\) \{ homeAt = d; fitted = true; if \(!sameView\(d, vtGliding \? vtTarget : vt\)\) animateVT\(d, 450\); \}/);
+  assert.match(ff, /!(?:live\.)?(?:live\.)?userMoved && !store\.get\(\)\.presenting/);
+  assert.match(ff, /if \((?:live\.)?figureShown\) \{ (?:live\.)?homeAt = d; (?:live\.)?fitted = true; if \(!(?:live\.)?sameView\(d, (?:live\.)?vtGliding \? (?:live\.)?vtTarget : (?:live\.)?vt\)\) animateVT\(d, 450\); \}/);
 });
 
 test('under the start cover a slide with no framing of its own (the outline) takes the stage\'s fit outright', () => {

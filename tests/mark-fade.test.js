@@ -142,6 +142,6 @@ test('a long frame moves the count no further than its own time (no jump when th
 });
 test('stage.js: the strand reads the drawn count, and the width step stands aside while it moves', () => {
   assert.match(stage, /sd\.live = e\.code === 'C1' \? clamp\(i \+ 1 - \(bandsShown \?\? \(f\.bands \|\| 0\)\), 0, 1\)/);
-  assert.match(stage, /catchUp \|\| bandsMoving\(\) \|\| lesionsMoving\(\)\) return false;/);
-  assert.match(stage, /if \(stepBands\(f, dtW\)\) widthEasing = true;/);
+  assert.match(stage, /(?:live\.)?catchUp \|\| bandsMoving\(\) \|\| lesionsMoving\(\)\) return false;/);
+  assert.match(stage, /if \(stepBands\(f, dtW\)\) (?:live\.)?(?:live\.)?widthEasing = true;/);
 });

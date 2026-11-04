@@ -2,7 +2,7 @@
  "note": "Bare setTimeout/setInterval calls the big files may not pass (PR-10). The numbers only go down: a new timer in these files uses a scope (src/ui/scope.js, docs/scheduling.md); converting one lowers the number here in the same commit. node scripts/rules-lint.mjs --tighten lowers each to today's count.",
  "files": {
   "src/ui/stage*": 83,
-  "src/ui/stage.js": 42,
+  "src/ui/stage.js": 34,
   "src/ui/lobule-zoom.js": 26,
   "src/ui/main.js": 22
  }

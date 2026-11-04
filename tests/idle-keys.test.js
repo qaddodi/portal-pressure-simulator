@@ -145,9 +145,9 @@ test('a transition that moves no box leaves the watch settled; one that moves a 
 
 test('the framing, the labels\' card boxes and the credit\'s poll go by the watch', () => {
   const stage = stageSource();
-  assert.match(stage, /if \(home && now - homeCheck > 500 && watch\.due\(\)\)/);
-  assert.match(stage, /if \(home && !wasHome\) watch\.touch\(\)/);
-  assert.match(stage, /performance\.now\(\) - blockersAt > 100 && watch\.due\(\)/);
+  assert.match(stage, /if \(home && now - (?:live\.)?(?:live\.)?homeCheck > 500 && watch\.due\(\)\)/);
+  assert.match(stage, /if \(home && !(?:live\.)?wasHome\) watch\.touch\(\)/);
+  assert.match(stage, /performance\.now\(\) - (?:live\.)?blockersAt > 100 && watch\.due\(\)/);
   assert.match(stage, /for \(const g of \[gBackdrop, gOrgans, gAscites\]\) watch\.addGroup\(g\)/);
   const credit = src('credit.js');
   assert.match(credit, /if \(watch\.due\(\) \|\| k !== polled/);

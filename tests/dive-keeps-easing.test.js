@@ -22,16 +22,16 @@ test('covered means out of sight: the landed lobule, the lobule or field over it
 
 test('model frames update the anatomy while it shows through the zoom, and only follow unseen once it is covered', () => {
   const inner = fn('  function updateInner(f) {');
-  assert.match(inner, /const under = anatCovered\(\) && !catchUp && !risePrep;/);
+  assert.match(inner, /const under = anatCovered\(\) && !(?:live\.)?(?:live\.)?catchUp && !(?:live\.)?(?:live\.)?risePrep;/);
   assert.match(inner, /if \(under\) \{ followHidden\(f\); return; \}/);
-  assert.doesNotMatch(inner, /const under = \(lobuleOn/);
+  assert.doesNotMatch(inner, /const under = \((?:live\.)?lobuleOn/);
   // The display frames between model frames step the widths and the organs there too (not the whole update each frame).
   assert.match(fn('  function stepWidths() {'), /if \(anatCovered\(\) \|\| hid\.at/);
   assert.match(fn('  function stepOrgans() {'), /if \(anatCovered\(\) \|\| hid\.at/);
   // The labels, faded out through the zoom, are not laid out on every model frame of it.
   // (A may task of the model frame since rev 2 step 1: labelsMay.)
   assert.match(inner, /mayTask\('stage-labels', labelsMay\);/);
-  assert.match(st, /function labelsMay\(\) \{\n\s*const f = labelF; labelF = null;\n\s*if \(f && !\(diveT > 0 && diveT < 1\)\) gpuProbe\.time\(null, 'update: labels'/);
+  assert.match(st, /function labelsMay\(\) \{\n\s*const f = labelF; labelF = null;\n\s*if \(f && !\((?:live\.)?diveT > 0 && (?:live\.)?diveT < 1\)\) gpuProbe\.time\(null, 'update: labels'/);
 });
 
 test('the frame loop draws what eases while the anatomy shows; at rest the zoom only moves the blood (no idle redraws)', () => {

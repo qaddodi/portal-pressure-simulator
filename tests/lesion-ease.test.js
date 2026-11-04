@@ -65,7 +65,7 @@ test('Reduce Motion lands at once; a long frame carries no further than the time
 const stage = stageSource();
 test('stage.js: the full update draws the lesions as they follow, and the width and organ steps stand aside while they move', () => {
   assert.match(stage, /const pRaw = f\.viewParams \|\| st\.params, p = lesions\.view\(pRaw, dtW, reduceMotion\.matches\);/);
-  assert.match(stage, /if \(lesions\.differs\(pRaw\)\) widthEasing = true;/);
-  assert.match(stage, /catchUp \|\| bandsMoving\(\) \|\| lesionsMoving\(\)\) return false;/);
+  assert.match(stage, /if \(lesions\.differs\(pRaw\)\) (?:live\.)?(?:live\.)?widthEasing = true;/);
+  assert.match(stage, /(?:live\.)?catchUp \|\| bandsMoving\(\) \|\| lesionsMoving\(\)\) return false;/);
   assert.match(stage, /bandsMoving\(\) \|\| lesionsMoving\(\) \|\| anyReveal\(\) \|\| visWidthMoving\(\)\) return false;/);
 });

@@ -9,7 +9,8 @@ import { readFileSync } from 'node:fs';
 // begun in the background (stage.js rasterPlate, platePoke).
 const src = stageSource();
 const body = (name) => {
-  const at = src.indexOf(`function ${name}(`);
+  let at = src.indexOf(`function ${name}(`);
+  if (src.startsWith('(...a)', at + 9 + name.length)) at = src.indexOf(`function ${name}(`, at + 10);   // (the stage-split stub forwards; the body is in the part)
   assert.ok(at >= 0, `${name} not found`);
   const next = src.indexOf('\n  function ', at + 10);
   return src.slice(at, next < 0 ? undefined : next);
@@ -48,7 +49,7 @@ test('a picture in colours the page no longer has is dropped while hidden, and n
 
 test('hidden, the vessel layer is drawn in the same task as the update (no animation frame comes)', () => {
   const u = body('update');
-  assert.match(u, /if \(plateRedraw \|\| \(document\.hidden && \(veinsDirty \|\| veinsRows\.size\)\)\) \{ const by = plateRedraw \? 'plate hidden' : 'tab hidden'; plateRedraw = false; drawVeins\(false, by\); \}/);
+  assert.match(u, /if \((?:live\.)?(?:live\.)?plateRedraw \|\| \(document\.hidden && \((?:live\.)?(?:live\.)?veinsDirty \|\| (?:live\.)?(?:live\.)?veinsRows\.size\)\)\) \{ const by = (?:live\.)?(?:live\.)?plateRedraw \? 'plate hidden' : 'tab hidden'; (?:live\.)?(?:live\.)?plateRedraw = false; drawVeins\(false, by\); \}/);
 });
 
 test('a change of the device light or dark setting redraws the figure at once, with no crossfade', () => {

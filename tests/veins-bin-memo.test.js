@@ -138,12 +138,12 @@ test('the renderer keeps its vessel layer for a geometry patch, and the figure n
   assert.doesNotMatch(gl, /radRows\.clear\(\)(?!; patchMark = null)/, 'every let-go of radRows lets go of the joins\' cells');
   assert.match(gl, /movedAll = true; patchMark = null; patchK = 0;/, 'a whole binning drops them');
   const stage = stageSource();
-  assert.match(stage, /if \(patched\) for \(const r of patched\) veinsRows\.add\(r\);\s*else if \(whole\) tubesNew = true;/);
+  assert.match(stage, /if \(patched\) for \(const r of patched\) (?:live\.)?veinsRows\.add\(r\);\s*else if \(whole\) tubesNew = true;/);
   // (A binning that gives back the bins already shown (nothing the GPU holds changed: a coil easing on a hidden vessel) draws nothing.)
-  assert.match(stage, /let patched = null, whole = false;\n\s+if \(bins !== binShown\) \{\n\s+if \(bins\.patch && binShown\?\.ent === bins\.ent\) \{ veins\.patchGeometry\(bins\); if \(bins\.patchRows\) patched = bins\.patchRows; else whole = true; \} else \{ veins\.setGeometry\(bins\); whole = true; \}/);
+  assert.match(stage, /let patched = null, whole = false;\n\s+if \(bins !== binShown\) \{\n\s+if \(bins\.patch && binShown\?\.ent === bins\.ent\) \{ (?:live\.)?veins\.patchGeometry\(bins\); if \(bins\.patchRows\) patched = bins\.patchRows; else whole = true; \} else \{ (?:live\.)?veins\.setGeometry\(bins\); whole = true; \}/);
   // (Rows waiting keep the loop from sleeping, as a dirty layer does, and a hidden page draws them as it draws a dirty layer.)
-  assert.match(stage, /const rowsWait = veinsRows\.size > 0 && !!veins && !veins\.lost && !!vLook && !!F;\s*if \(still && !veinsDirty && !rowsWait && /);
-  assert.match(stage, /if \(plateRedraw \|\| \(document\.hidden && \(veinsDirty \|\| veinsRows\.size\)\)\) \{/);
+  assert.match(stage, /const rowsWait = (?:live\.)?veinsRows\.size > 0 && !!(?:live\.)?veins && !(?:live\.)?veins\.lost && !!(?:live\.)?vLook && !!(?:live\.)?F;\s*if \(still && !(?:live\.)?veinsDirty && !rowsWait && /);
+  assert.match(stage, /if \((?:live\.)?(?:live\.)?plateRedraw \|\| \(document\.hidden && \((?:live\.)?(?:live\.)?veinsDirty \|\| (?:live\.)?(?:live\.)?veinsRows\.size\)\)\) \{/);
 });
 
 // A coil step moves one vessel's points without changing which cells list it: the last result is patched in place, entry for

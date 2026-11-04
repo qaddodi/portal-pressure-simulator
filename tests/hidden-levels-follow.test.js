@@ -21,8 +21,8 @@ test('covered by the lobule, the figure still follows the patient, and draws not
   const inner = fnBody('updateInner');
   assert.match(inner, /if \(under\) \{ followHidden\(f\); return; \}/);
   const follow = fnBody('followHidden');
-  assert.match(follow, /easeLiver\(f, p, dt\)/);
-  assert.match(follow, /fluidTarget\(ascTarget, f\.slow\.ascites\)/);
+  assert.match(follow, /(?:live\.)?easeLiver\(f, p, dt\)/);
+  assert.match(follow, /fluidTarget\((?:live\.)?(?:live\.)?ascTarget, f\.slow\.ascites\)/);
   assert.match(follow, /fluidSpringFor\(/);
   // (no painting while hidden: no DOM writes, no drawing, no raster)
   for (const w of ['setAttribute', 'style', 'putA', 'setA', 'setT', 'draw', 'platePoke', 'hidePlate', 'morphLiver', 'classList']) assert.ok(!follow.includes(w), `followHidden writes ${w}`);

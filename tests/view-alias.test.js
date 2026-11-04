@@ -15,11 +15,11 @@ test('no code changes a field of the view in place', () => {
 });
 
 test('the view, the home framing and the glide target are never one object', () => {
-  assert.doesNotMatch(src, /\bvt\s*=\s*(?:homeAt|vtTarget|d)\s*=/, 'no chain that gives vt and the home framing one object');
-  assert.doesNotMatch(src, /\bhomeAt\s*=\s*vtTarget\b|\bvtTarget\s*=\s*homeAt\b|\bhomeAt\s*=\s*vt\b(?!\.)/, 'nor homeAt and vtTarget, nor homeAt and vt');
-  const fit = /if \(figureShown\) \{ homeAt = d;[^\n]*\n\s*else \{([^\n]*)\}/.exec(src);
+  assert.doesNotMatch(src, /\bvt\s*=\s*(?:(?:live\.)?homeAt|(?:live\.)?vtTarget|d)\s*=/, 'no chain that gives vt and the home framing one object');
+  assert.doesNotMatch(src, /\bhomeAt\s*=\s*(?:live\.)?vtTarget\b|\bvtTarget\s*=\s*(?:live\.)?homeAt\b|\bhomeAt\s*=\s*(?:live\.)?vt\b(?!\.)/, 'nor homeAt and vtTarget, nor homeAt and vt');
+  const fit = /if \((?:live\.)?figureShown\) \{ (?:live\.)?homeAt = d;[^\n]*\n\s*else \{([^\n]*)\}/.exec(src);
   assert.ok(fit, 'the first fit is in stage.js');
-  assert.match(fit[1], /vt = \{ \.\.\.d \}; homeAt = d; vtTarget = \{ \.\.\.d \};/, 'the first fit, set outright, gives each its own copy');
+  assert.match(fit[1], /(?:live\.)?vt = \{ \.\.\.d \}; (?:live\.)?homeAt = d; (?:live\.)?vtTarget = \{ \.\.\.d \};/, 'the first fit, set outright, gives each its own copy');
 });
 
 test('a zoom builds a new view', () => {
