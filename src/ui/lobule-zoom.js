@@ -19,6 +19,7 @@
 // tapped (triad, inlet venule, sinusoid, arteriole, central vein, septum, hepatocytes).
 // Without WebGL2 the vessels are drawn flat on the tissue canvas.
 
+import { carryCovers, carryBetween } from './carry-cover.js';
 import { runFlick, FLICK } from './flick.js';
 import { store } from './store.js';
 import { glideClock } from './glide-clock.js';
@@ -751,8 +752,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // The view the lobule's picture in the figure's texture was drawn for, and whether it is now carried to the view by the GPU (a hand is moving it).
   const drawnV = { ok: false, k: 1, x: 0, y: 0, W: 0, H: 0, dpr: 0, dark: false };
   let frozenDraw = false, frozenT = 0;
+  const carryNow = { a: 1, tx: 0, ty: 0 };   // (the carry for the view now, written in place)
   const frozenOK = (W, H, dpr, dark) => drawnV.ok && !glDirty && fade > 0.98 && !diveScaled && sinU === 0 && !sinTo && !wide && !staging && handOn()
-    && drawnV.W === W && drawnV.H === H && drawnV.dpr === dpr && drawnV.dark === dark && !!gl && !gl.lost && !!gl.target?.w;
+    && drawnV.W === W && drawnV.H === H && drawnV.dpr === dpr && drawnV.dark === dark && !!gl && !gl.lost && !!gl.target?.w
+    // (Only while the picture still covers the screen carried to the view: else this frame is drawn whole, and the carry goes on from that picture.)
+    && drawnV.k > 0 && (carryBetween(drawnV.k, drawnV.x, drawnV.y, V.k, V.x, V.y, carryNow), carryCovers(carryNow.a, carryNow.tx, carryNow.ty, W, H));
   // The hand let go (or paused): the picture is drawn again for the view where it stands.
   function frozenEnd() {
     frozenT = 0;
