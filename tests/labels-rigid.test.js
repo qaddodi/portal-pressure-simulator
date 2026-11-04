@@ -61,3 +61,9 @@ test('view switch: only labels laid out for the shown view reach the GPU', () =>
   assert.ok(/view: morphTarget \}/.test(st));
   assert.ok(st.includes('labelGL.sync(NO_LABELS)'));
 });
+
+test('view switch: pictures are built again, and the hide runs without a morph too', () => {
+  assert.ok(st.includes('labelGL?.invalidate?.()'));
+  assert.ok(gl.includes('invalidate() {'));
+  assert.ok(st.includes('No morph to wait for here'));
+});

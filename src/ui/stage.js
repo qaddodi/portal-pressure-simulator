@@ -2615,6 +2615,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     camSettle();
     // (The new view's labels are laid out in this frame, whole: a solve left in slices kept the other view's labels standing, Mohammad 4 Nov: "labels should just update instantly".)
     if (labelJob) labelJobFinish();
+    labelGL?.invalidate?.();   // (every picture is built again for the new view's text: none is reused by its key)
     morphFadeDrop();   // (in this frame, not the next)
     setTimeout(morphFadeDrop, 1500, true);
   }
@@ -15278,6 +15279,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         // (Every label is hidden for the change and shown whole the moment the new view lands, Mohammad 4 Nov: "hide the labels during the switch then show once done instantly".)
         for (const e of morphFadeEls()) e.classList.add('morph-fade');
         glass.style.opacity = '0';
+      } else if (F) {
+        // (No morph to wait for here: reduced motion, a catheter or a lobule. The layers are hidden for the switch all the same and shown once the new view's labels are drawn whole.)
+        for (const e of morphFadeEls()) e.classList.add('morph-fade');
+        glass.style.opacity = '0';
+        nextFrame(() => nextFrame(() => { if (!morphFade) { if (labelGL?.afterDraw) labelGL.afterDraw(morphFadeShow); else morphFadeShow(); } }));
       }
     },
     relayout() { refreshCTM(); if (F) updateLabels(F, true); },

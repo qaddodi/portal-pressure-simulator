@@ -2401,6 +2401,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
     rush(ms) { rushUntil = performance.now() + ms; },
     /** Calls fn after a draw that left no picture owed: the layer is shown only then, so no label of the old view or half built is ever seen. */
     afterDraw(fn) { afterQ.push(fn); ask(); },
+    /** Every picture standing is read and built again: a label whose text or look changed with the view never shows its old picture. */
+    invalidate() { for (const s of last) dirty.add(s.g); ask(); },
     get riding() { return !!rideM; },
     /** Pins the station labels to the figure: f(id, out) writes where the figure has station id's point now (stage px) and returns true. */
     pinTo(f, w = null) { pinAt = f; pinWorldAt = w; ask(); },
