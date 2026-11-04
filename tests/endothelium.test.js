@@ -15,7 +15,7 @@ const block = (sel) => {
   return tokens.slice(open + 1, tokens.indexOf('}', open));
 };
 const vars = (src) => Object.fromEntries([...src.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)].map((m) => [m[1], m[2].trim()]));
-const light = vars(block(':root'));
+const light = Object.assign({}, ...[...tokens.matchAll(/\n:root \{([^}]*)\}/g)].map((m) => vars(m[1])));   // (the hand-written :root, then the printed one: the tokens that change with the look)
 const THEMES = { light, dark: { ...light, ...vars(block(':root[data-theme="dark"]')) }, soft: { ...light, ...vars(block(':root[data-theme="soft"]')) } };
 const hex = (s) => { assert.match(s, /^#[0-9a-f]{6}$/i, `a solid colour, got ${s}`); return [1, 3, 5].map((i) => parseInt(s.slice(i, i + 2), 16)); };
 const lum = (c) => { const l = c.map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * l[0] + 0.7152 * l[1] + 0.0722 * l[2]; };

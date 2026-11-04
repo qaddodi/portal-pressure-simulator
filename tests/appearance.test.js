@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import vm from 'node:vm';
+import { TOKENS, CIRCUIT, tokensOfLook } from '../src/ui/theme-tokens.js';
 import { LOOKS, knownLook, isDarkLook, currentLook, applyLookAttrs, lastDarkLook } from '../src/ui/looks.js';
 
 const ROOT = new URL('..', import.meta.url).pathname;
@@ -21,19 +22,12 @@ const fakeRoot = () => {
   return { a, setAttribute: (k, v) => a.set(k, String(v)), removeAttribute: (k) => a.delete(k), getAttribute: (k) => (a.has(k) ? a.get(k) : null) };
 };
 
-const block = (sel) => {
-  const at = tokens.search(new RegExp(`\\n${sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\{`));
-  assert.ok(at >= 0, `token block ${sel}`);
-  const open = tokens.indexOf('{', at), close = tokens.indexOf('}', open);
-  return Object.fromEntries([...tokens.slice(open + 1, close).matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)].map((m) => [m[1], m[2].trim()]));
-};
-const light = block(':root');
-const dark = { ...light, ...block(':root[data-theme="dark"]') };
-const soft = { ...light, ...block(':root[data-theme="soft"]') };
-const navy = { ...dark, ...block(':root[data-theme="dark"][data-palette="navy"]') };
+// (The values are read from src/ui/theme-tokens.js, the table styles/tokens.css is printed from. A palette's own entries are the table's
+// object for it; the tiles are read from the printed stylesheet.)
+const pre = (o) => Object.fromEntries(Object.entries(o).filter(([k]) => k !== 'from').map(([k, v]) => [`--${k}`, v]));
 const PALETTES = LOOKS.filter((l) => l.palette);   // (Navy, and any palette added later: every one is held to the same checks below)
-const paletteTokens = (l) => ({ ...dark, ...block(`:root[data-theme="dark"][data-palette="${l.palette}"]`) });
-const BY_LOOK = { light, soft, dark, ...Object.fromEntries(PALETTES.map((l) => [l.id, paletteTokens(l)])) };
+const BY_LOOK = Object.fromEntries(LOOKS.map((l) => [l.id, pre(tokensOfLook(l.id))]));
+const { dark, navy } = BY_LOOK;
 const tile = Object.fromEntries([...tokens.matchAll(/(--look-[\w-]+)\s*:\s*([^;]+);/g)].map((m) => [m[1], m[2].trim()]));
 
 test('the looks start Light, Soft, Dark, Navy, Black, and every palette is a palette of the dark theme', () => {
@@ -73,13 +67,14 @@ test('the quick light / dark switch goes back to the dark look last worn', () =>
 });
 
 test('a palette moves only tokens Dark has, and keeps Dark\'s accent and status colours', () => {
-  const darkOnly = block(':root[data-theme="dark"]');
+  const darkOnly = pre(TOKENS.dark);
   for (const l of PALETTES) {
-    const own = block(`:root[data-theme="dark"][data-palette="${l.palette}"]`);
+    const own = pre(TOKENS[l.palette]);
+    assert.equal(TOKENS[l.palette].from, 'dark', `${l.id} starts from Dark`);
     const strange = Object.keys(own).filter((k) => !(k in darkOnly) && k !== '--on-status');
     assert.deepEqual(strange, [], `${l.id} overrides only tokens that Dark defines`);
-    for (const k of ['--accent', '--accent-ink', '--ok', '--caution', '--danger', '--critical', '--flow-normal', '--flow-reversed', '--doppler', '--artery', '--ascites']) assert.ok(!(k in own), `${l.id} leaves ${k} to Dark`);
-    block(`:root[data-theme="dark"][data-palette="${l.palette}"] .stage-wrap.cmap`);   // (and has its circuit map's ground: a missing block throws)
+    for (const k of ['--accent', '--accent-ink', '--ok', '--caution', '--danger', '--critical', '--flow-normal', '--flow-reversed', '--doppler', '--artery', '--ascites']) assert.ok(!(k in own), `${l.id} keeps Dark's ${k}`);
+    assert.ok(CIRCUIT[l.palette], `${l.id} has its circuit map's ground`);
   }
 });
 

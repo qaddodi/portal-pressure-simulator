@@ -8,6 +8,7 @@ import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { TOKENS } from '../src/ui/theme-tokens.js';
 import { AWAY, probePose, fitPose, SIZES, QUIET, ZOOMED_OUT, probeGeomInto, makeProbeGeom, makeProbeDraw, probeFade, probeTurn, probeSwing, probeJumps, JUMP_DEG, JUMP_PX, gateDims, bodyBox, beamBoxes, gateBoxes, wedgeBoxes, PROBE, PROBE_MODEL, placeId, createProbeMind, SLACK, NONE_MS, PEND_MS, LEAVES } from '../src/ui/dop-probe.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
@@ -122,8 +123,9 @@ test('every mark and the probe are white-lined on a black rim, with no θ on the
   assert.match(stage, /dopGlow = \{ id: null, col: 'var\(--dop-glow\)'/);   // (the Doppler's glow object, written in place: setGlowSrc('dop', id ? dopGlowList : noGlows))
   assert.match(read('src/ui/presenter.js'), /glow\.set\(v, '--dop-glow'\)/);
   // White on both dark blocks (the system's dark and the chosen dark), ink on the light themes.
-  assert.equal((tokens.match(/--doppler: #3EE0A5; --dop-glow: #F4F6FF;/g) || []).length, 2);
-  assert.match(tokens, /--dop-glow: #1F2433;/);
+  // (Both dark blocks, the system's and the chosen one, are printed from the one TOKENS.dark.)
+  assert.deepEqual([TOKENS.dark.doppler, TOKENS.dark['dop-glow']], ['#3EE0A5', '#F4F6FF']);
+  assert.equal(TOKENS.light['dop-glow'], '#1F2433');
 });
 
 test('the monitor names the probe\'s angle and gate', () => {

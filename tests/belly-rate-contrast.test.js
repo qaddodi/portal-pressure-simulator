@@ -11,7 +11,7 @@ const tokens = readFileSync(new URL('../styles/tokens.css', import.meta.url), 'u
 
 const block = (re) => { const m = tokens.match(re); assert.ok(m, `token block ${re}`); return m[1]; };
 const vars = (src) => Object.fromEntries([...src.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)].map((m) => [m[1], m[2].trim()]));
-const base = vars(block(/\n:root \{([^}]*)\}/));
+const base = Object.assign({}, ...[...tokens.matchAll(/\n:root \{([^}]*)\}/g)].map((m) => vars(m[1])));   // (the hand-written :root, then the printed one: the tokens that change with the look)
 const THEMES = {
   light: base,
   dark: { ...base, ...vars(block(/\n:root\[data-theme="dark"\] \{([^}]*)\}/)) },

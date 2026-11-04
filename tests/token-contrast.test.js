@@ -1,10 +1,12 @@
 // Every text token reads at 4.5:1 or better on every surface it can sit on, in every theme (docs/ACCESSIBILITY.md
-// claims it; review Q18). The tokens are read from styles/tokens.css, so a colour change that breaks the claim fails here.
+// claims it; review Q18). The tokens are read from src/ui/theme-tokens.js (styles/tokens.css is printed from it), so a colour change that
+// breaks the claim fails here.
 // The system dark theme (prefers-color-scheme) must carry the same colours as the chosen dark theme, so it is checked
 // to match rather than measured twice.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { TOKENS, LOOK_IDS, tokensOfLook } from '../src/ui/theme-tokens.js';
 
 const tokens = readFileSync(new URL('../styles/tokens.css', import.meta.url), 'utf8');
 // The body of the first rule (from `from` on) whose selector is exactly `sel`, as written at the start of a line.
@@ -14,18 +16,18 @@ const block = (sel, from = 0) => {
   const open = tokens.indexOf('{', at), close = tokens.indexOf('}', open);
   return tokens.slice(open + 1, close);
 };
-const vars = (src) => Object.fromEntries([...src.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)].map((m) => [m[1], m[2].trim()]));
-const light = vars(block(':root'));
-const dark = { ...light, ...vars(block(':root[data-theme="dark"]')) };
-const darkMap = vars(block(':root[data-theme="dark"] .stage-wrap.cmap'));
-// (A dark palette (Navy, and any added later) is data-theme="dark" plus data-palette: it takes Dark's tokens and moves only its own, so every
-// palette block in tokens.css is measured, found by its selector.)
-const PALETTES = [...tokens.matchAll(/\n:root\[data-theme="dark"\]\[data-palette="([\w-]+)"\] \{/g)].map((m) => m[1]);
-const THEMES = { light, dark, soft: { ...light, ...vars(block(':root[data-theme="soft"]')) }, 'dark circuit map': { ...dark, ...darkMap } };
+// (The values are read from src/ui/theme-tokens.js, the table tokens.css is printed from; tokens.css itself is read for the checks that
+// the printed stylesheet carries the system dark theme and the hand-written ink tokens.)
+const pre = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [`--${k}`, v]));
+const look = (id, circuit = false) => pre(tokensOfLook(id, circuit));
+const light = look('light');
+const dark = look('dark');
+// (A dark palette (Navy, and any added later) takes Dark's tokens and moves only its own, so every palette in the table is measured.)
+const PALETTES = LOOK_IDS.filter((id) => TOKENS[id].from === 'dark');
+const THEMES = { light, dark, soft: look('soft'), 'dark circuit map': look('dark', true) };
 for (const name of PALETTES) {
-  const own = { ...dark, ...vars(block(`:root[data-theme="dark"][data-palette="${name}"]`)) };
-  THEMES[name] = own;
-  THEMES[`${name} circuit map`] = { ...own, ...darkMap, ...vars(block(`:root[data-theme="dark"][data-palette="${name}"] .stage-wrap.cmap`)) };
+  THEMES[name] = look(name);
+  THEMES[`${name} circuit map`] = look(name, true);
 }
 
 const TEXT = ['--text', '--text-2', '--text-3'];
@@ -53,7 +55,7 @@ test('every text token is at least 4.5:1 on every surface, in every theme', () =
 });
 
 test('the system dark theme uses the same text and surface colours as the chosen dark theme', () => {
-  const sys = vars(block(':root:not([data-theme="light"]):not([data-theme="soft"])', tokens.indexOf('@media (prefers-color-scheme: dark)')));
+  const sys = Object.fromEntries([...block(':root:not([data-theme="light"]):not([data-theme="soft"])', tokens.indexOf('@media (prefers-color-scheme: dark)')).matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)].map((m) => [m[1], m[2].trim()]));
   for (const k of [...TEXT, ...SURFACES]) assert.equal(sys[k], dark[k], `system dark ${k}`);
 });
 

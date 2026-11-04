@@ -4,6 +4,7 @@ import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { TOKENS } from '../src/ui/theme-tokens.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const stage = stageSource();
@@ -63,10 +64,10 @@ test('the anatomy stays whole under the field until the field covers it, so the 
 });
 
 test('in dark mode the field lobules\' capillarized sinusoids are dark (they recede), pale in light and Soft', () => {
-  const tokens = read('../styles/tokens.css');
   assert.match(lz, /c\.strokeStyle = fs\.sin > 0\.2 \? tk\('--lz-field-sin-pale'\) : gap;/);
-  assert.match(tokens, /--collagen: rgb\(237, 222, 186\); --lz-field-sin-pale: var\(--collagen\);/);
-  assert.equal((tokens.match(/--collagen: rgb\(199, 186, 153\); --lz-field-sin-pale: #2E1A26;/g) || []).length, 2, 'both dark blocks (system and chosen)');
+  assert.deepEqual([TOKENS.light.collagen, TOKENS.light['lz-field-sin-pale']], ['rgb(237, 222, 186)', 'var(--collagen)']);
+  // (Both dark blocks, the system's and the chosen one, are printed from the one TOKENS.dark.)
+  assert.deepEqual([TOKENS.dark.collagen, TOKENS.dark['lz-field-sin-pale']], ['rgb(199, 186, 153)', '#2E1A26']);
 });
 
 test('every zoom into the lobule draws it first, for where it lands, then zooms; the anatomy returns after landing', () => {
@@ -95,9 +96,8 @@ test('nothing is built during the zoom: the field\'s tiles and their quieted cop
 });
 
 test('the lobule\'s fibrous bands are a deeper tan in light and Soft, the collagen itself in dark (Mohammad, 16 Oct)', () => {
-  const tokens = read('../styles/tokens.css');
-  assert.match(tokens, /--lz-septum: rgb\(206, 178, 130\);/);
-  assert.equal((tokens.match(/--lz-field-sin-pale: #2E1A26; --lz-septum: rgb\(199, 186, 153\);/g) || []).length, 2, 'dark unchanged, both dark blocks');
+  assert.equal(TOKENS.light['lz-septum'], 'rgb(206, 178, 130)');
+  assert.deepEqual([TOKENS.dark['lz-field-sin-pale'], TOKENS.dark['lz-septum']], ['#2E1A26', 'rgb(199, 186, 153)'], 'dark unchanged');
   assert.match(lz, /const WR_TOK = \[[^\]]*'--lz-septum', '--collagen'\];/);
   assert.match(lp, /const COL = rgb\.col;/);
   assert.match(lz, /const COLa = cssRGB01\('--lz-septum'\), edges/);
