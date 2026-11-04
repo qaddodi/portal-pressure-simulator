@@ -167,7 +167,8 @@ export function holdTween(el, attr, tw, k) {
     const { from, to, buf } = t;
     for (let i = 0; i < buf.length; i++) buf[i] = from[i] + (to[i] - from[i]) * k;
     holdMat(el, composeMat(t));
-  } else setGeo(el, attr, tw.from[0] + (tw.to[0] - tw.from[0]) * k);   // (a single number)
+  } else if (tw.one) setGeo(el, attr, tw.from[0] + (tw.to[0] - tw.from[0]) * k);   // (a single number)
+  else setGeo(el, attr, tweenAt(tw, k));   // (anything else held as text, never written as an attribute)
 }
 /** Lets go of what holdTween put on the piece: it shows the chart's own number again. */
 function letGo(el, attr, tw) { if (tw.flat) dropPts(el); else if (tw.cmds) dropCmds(el); else if (tw.mat) dropMat(el); setGeo(el, attr, undefined); }
@@ -307,8 +308,11 @@ class Morph {
     if (fade) for (const { a } of plan.pairs) a.el.getAnimations?.().forEach((x) => x.cancel());
     // (The new drawing starts exactly as the old one stood: its pieces at the old pieces' places, the old ones put out of sight under them.)
     for (const { a, b, tweens } of plan.pairs) {
-      for (const [attr, tw] of tweens) { if (b.defs || (tw.flat && b.el._pts) || (tw.cmds && b.el._cmds) || (tw.mat && b.el._mat)) { tw.flat = tw.cmds = tw.mat = null; }   // (a clip path in <defs> is read as text; a piece the chart holds itself keeps to text)
-      holdTween(b.el, attr, tw, 0); tw.base = rawGeo(b.el, attr); }   // (held on the piece, no attribute written: the chart's own number stays under it)
+      for (const [attr, tw] of tweens) {
+        // (A piece the chart holds itself (its own points, commands or matrix) is drawn from those, so a glide could show nothing: it keeps its own.)
+        if ((tw.flat && b.el._pts) || (tw.cmds && b.el._cmds) || (tw.mat && b.el._mat)) { tw.dead = true; continue; }
+        holdTween(b.el, attr, tw, 0); tw.base = rawGeo(b.el, attr);   // (held on the piece, no attribute written: the chart's own number stays under it; a clip path in <defs> glides as points too, clipTo cuts them)
+      }
       a.el.style.visibility = 'hidden';
     }
     // (A chart drawn on the GPU (svg-gl.js) draws each fade from its animation's own clock: noteFade.)

@@ -711,7 +711,18 @@ function clipTo(ctx, root, el, k) {
   for (const c of cp.children) {
     const tag = c.localName;
     if (tag === 'rect') { const rx = at(c, 'rx'); if (rx > 0) ctx.roundRect(at(c, 'x'), at(c, 'y'), at(c, 'width'), at(c, 'height'), rx); else ctx.rect(at(c, 'x'), at(c, 'y'), at(c, 'width'), at(c, 'height')); }
-    else if (tag === 'path') for (const { pts } of flatOf(c.getAttribute('d') || '', 0.25 / Math.max(k, 0.05))) { ctx.moveTo(pts[0], pts[1]); for (let q = 2; q < pts.length; q += 2) ctx.lineTo(pts[q], pts[q + 1]); ctx.closePath(); }
+    else if (tag === 'path') {
+      // (A clip path mid-glide (svg-morph.js) is held as points or commands, cut here: no text made and no outline parsed in a frame.)
+      const P = c._pts, cm = c._cmds;
+      if (P) {
+        const { buf, n } = P;
+        let pen = false;
+        for (let q = 0; q < n; q++) { const x = buf[2 * q], y = buf[2 * q + 1]; if (x !== x) { if (pen) ctx.closePath(); pen = false; continue; } if (pen) ctx.lineTo(x, y); else { ctx.moveTo(x, y); pen = true; } }
+        if (pen) ctx.closePath();
+      } else for (const { pts } of cm ? flattenCmdsInto(cm, 0.25 / Math.max(k, 0.05), c._cflat || (c._cflat = newFlat())) : flatOf(c.getAttribute('d') || '', 0.25 / Math.max(k, 0.05))) {   // alloc-rare: a clip piece's first store, kept on it
+        ctx.moveTo(pts[0], pts[1]); for (let q = 2; q < pts.length; q += 2) ctx.lineTo(pts[q], pts[q + 1]); ctx.closePath();
+      }
+    }
   }
   ctx.clip();
 }
