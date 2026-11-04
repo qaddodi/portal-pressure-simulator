@@ -13,7 +13,7 @@ import { D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, cssCurve } from '../ease.js';
 import { LOOKS, HOSTS } from './index.js';
 import { tokensFor as themeTokens } from '../theme-tokens.js';
 
-const MAGENTA = 'rgb(255, 0, 255)';   // (a colour or a key the table lacks: seen at once in a dev build)
+const MAGENTA = 'rgb(255, 0, 255)';   // colour-exempt: (a colour or a key the table lacks: seen at once in a dev build)
 const warned = new Set();   // alloc-rare: one entry for each missing key or token, kept
 function report(what) {
   if (warned.has(what)) return;

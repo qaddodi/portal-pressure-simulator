@@ -91,7 +91,9 @@ function newRec() {   // alloc-rare: once per memo
 export function binVeins(tubes, joins, memo = null) {
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   for (const t of tubes) {
-    const P = t.bin || t.pts, r = t.reach;
+    // (The margin is reach + HALF, the least a cell's centre can lie from a point and still list it: the cells a vessel lists are then the
+    // same on any grid that holds the bounds, a kept grid included, never cut short by the grid's own edge.)
+    const P = t.bin || t.pts, r = t.reach + CELL * Math.SQRT1_2;
     for (let i = 0; i < P.length; i++) { const x = P[i][0], y = P[i][1]; x0 = Math.min(x0, x - r); y0 = Math.min(y0, y - r); x1 = Math.max(x1, x + r); y1 = Math.max(y1, y + r); }
   }
   if (!tubes.length) return { ent: new Float32Array(0), rows: 1, cells: new Float32Array(0), nCells: 0, nEnt: 0, blood: new Float32Array(0), nBlood: 0, bloodQ: new Float32Array(0), nBloodQ: 0 }; // alloc-rare: no vessels: an empty result, once per empty figure

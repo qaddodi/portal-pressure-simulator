@@ -10,8 +10,8 @@ performance.now = () => T;
 globalThis.MutationObserver = class { observe() {} disconnect() {} };
 const ct = await import('../src/ui/card-throw.js');
 const mk = () => {
-  const s = new Map(), c = new Set();
-  return { style: { setProperty: (k, v) => s.set(k, v), removeProperty: (k) => s.delete(k), get transform() { return s.get('transform') || ''; }, get opacity() { return s.get('opacity') || ''; } },
+  const s = new Map(), pr = new Map(), c = new Set();
+  return { style: { setProperty: (k, v, p) => { s.set(k, v); pr.set(k, p || ''); }, getPropertyPriority: (k) => pr.get(k) || '', removeProperty: (k) => { s.delete(k); pr.delete(k); }, get transform() { return s.get('transform') || ''; }, get opacity() { return s.get('opacity') || ''; } },
     classList: { contains: (n) => c.has(n), add: (n) => c.add(n), remove: (n) => c.delete(n), toggle: (n, on) => (on ? c.add(n) : c.delete(n)) }, isConnected: true, hidden: false };
 };
 const tick = (ms) => { T += ms; const f = q; q = []; f.forEach((x) => x(T)); };

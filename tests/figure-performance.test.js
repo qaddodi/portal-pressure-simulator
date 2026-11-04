@@ -66,11 +66,14 @@ test('Motion at 60 in the figure loop: off, the interval and the gate are as bef
   const stage = stageSource();
   const fn = stage.slice(stage.indexOf('function animate(now)'), stage.indexOf('const dt = Math.min(0.1, (now - lastT) / 1000);', stage.indexOf('function animate(now)')));
   assert.match(fn, /const m60 = !paceOf\(quality\) && figLab\('motion60'\);/);
-  assert.match(fn, /const interval = m60 \? MOTION60_MS : paceOf\(quality\);/);
+  // (Since the frame governor, 4 Nov 2026: the base gap is the governor's 'glide' gap (MOTION60_MS) on, paceOf(quality) off; a calm frame
+  // (only the blood moving) is held to CALM_MS at least.)
+  assert.match(fn, /const base = m60 \? frameGapFor\('glide'\) : paceOf\(quality\);/);
+  assert.match(fn, /const interval = calm \? Math\.max\(base, CALM_MS\) : base;/);
   assert.match(fn, /if \(interval && !viewMoved && !forceDraw && now - flowGate < interval\) \{ askAnimate\(\); return; \}/);
-  assert.match(fn, /flowGate = interval && !m60 \? now - \(\(now - flowGate\) % interval\) : now;/);
-  // (Off: m60 false, so interval = paceOf(quality) and the gate is `interval ? … : now`, the old lines exactly.)
-  const gate = (m60, interval, now, flowGate) => (interval && !m60 ? now - ((now - flowGate) % interval) : now);
+  assert.match(fn, /flowGate = interval && \(!m60 \|\| calm\) \? now - \(\(now - flowGate\) % interval\) : now;/);
+  // (Off: m60 false, so the gate is `interval ? … : now`, the old line exactly. On and not calm: no phase is carried.)
+  const gate = (m60, interval, now, flowGate, calm = false) => (interval && (!m60 || calm) ? now - ((now - flowGate) % interval) : now);
   const old = (interval, now, flowGate) => (interval ? now - ((now - flowGate) % interval) : now);
   for (const [i, n, g] of [[0, 100, 90], [1000 / 15, 200, 120], [1000 / 8, 500, 300]]) assert.equal(gate(false, i, n, g), old(i, n, g));
   // (On, at 120 Hz: drawn every other frame, never two in a row.)

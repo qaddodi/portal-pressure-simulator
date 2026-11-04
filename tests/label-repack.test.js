@@ -74,7 +74,7 @@ test('R12: a full atlas is packed beside the old one on the GPU; no reset, no SV
   assert.match(lg, /gl\.copyTexSubImage2D\(gl\.TEXTURE_2D, 0, to\.x, to\.y, from\.x, from\.y, w, h\)/);
   assert.match(lg, /slot = packer\.alloc\(lay\.w, lay\.h\); if \(slot\) \{ packer\.free\(st\.slot\); st\.slot = slot; \}/);
   assert.match(lg, /needRepack = true; st\.wait = true; retry\.add\(g\);/);
-  assert.match(lg, /\(pending\.has\(g\) \|\| \(st\?\.wait && !stuck && st\.rot === rot\)\)/);
+  assert.match(lg, /\(pending\.has\(g\) \|\| todo\.has\(g\) \|\| \(st\?\.wait && !stuck && st\.rot === rot\)\)/);
   assert.match(lg, /commitRepack\(rp\);/);
 });
 test('R11: the pass builds in chunks within a time budget, new labels first, and leaves the rest pending (not the SVG)', () => {
