@@ -166,6 +166,7 @@ export function createDive(st, live) {
   const diveFrom = [0, 0], diveTo = [0, 0];   // (the rise's two ends, written in place for riseCentre)
   const diveField = { a: 0, x: 0, y: 0, r: 0, ox: 0, oy: 0, quiet: 0, focus: 0, blur: 0, dof: 0 };   // (the field's state for lz.setDive, written in place)
   function diveFrame(t) {
+    live.stageWake();   // (C5: a dive or rise frame wakes a figure asleep under the lobule, which no longer looks once a second: stage-idle.js sleep)
     if (live.diveAt && live.diveLand) {
       // The whole zoom in one log scale. The lobule's place is read live, so the field settles exactly
       // where the view frames it.

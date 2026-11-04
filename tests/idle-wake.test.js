@@ -7,8 +7,11 @@ import { readFileSync } from 'node:fs';
 // only after a store write, and every organ picture that lands outside a frame wakes it, so nothing waits on the look.
 const st = stageSource();
 
-test('the idle loop looks again once a second and keys the blood setting on the store version', () => {
-  assert.match(st, /function sleep\(\) \{\s+(?:live\.)?(?:live\.)?sleeping = true; clearTimeout\((?:live\.)?(?:live\.)?sleepTimer\); (?:live\.)?(?:live\.)?sleepTimer = setTimeout\(wake, 1000\);/);
+test('the idle loop looks again once a second while shown and still, and keys the blood setting on the store version', () => {
+  assert.match(st, /function sleep\(\) \{\s+(?:live\.)?sleeping = true; clearTimeout\((?:live\.)?sleepTimer\); (?:live\.)?sleepTimer = 0;\s+const ms = sleepLook\(\);\s+if \(ms\) (?:live\.)?sleepTimer = setTimeout\(wake, ms\);/);
+  // (C5: the once-a-second look is kept only for a still figure on screen; a figure not shown looks once, at the warm window's end)
+  assert.match(st, /function sleepLook\(\) \{\s+if \(!unseen\(\)\) return 1000;/);
+  assert.match(st, /return Math\.max\(0, WARM_MS - \(performance\.now\(\) - (?:live\.)?hiddenAt\)\) \+ 1;/);
   assert.match(st, /if \(still && bloodKeyVer !== (?:live\.)?storeVer\) \{ bloodKey = JSON\.stringify\(st\.blood\); bloodKeyVer = (?:live\.)?storeVer; \}/);
   assert.doesNotMatch(st, /\$\{JSON\.stringify\(st\.blood\)\}/);
   // (rev 2 step 3: a model frame alone does not bump it; nothing it keys on is in the frame)

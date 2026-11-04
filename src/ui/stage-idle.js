@@ -24,8 +24,19 @@ export function createIdle(st, live) {
     live.veinsHold?.drop(); live.veinsHold = null;
     live.veins.trim(); live.veinsTrimmed = true; live.veinsDirty = true;
   }
+  // (C5: a still figure on screen looks again once a second; one not shown (page hidden, home screen, lobule over it) is woken by what
+  // shows it again, and looks only at the warm window's end, to give its buffers back (trimVeins), and never once they are.)
+  const unseen = () => document.hidden || !!appEl?.classList.contains('home-open') || !!live.lz?.isOpen();
+  function sleepLook() {
+    if (!unseen()) return 1000;
+    if (live.veinsTrimmed || !live.veins || live.veins.lost) return 0;
+    if (live.glowSync || !live.hiddenAt) return 1000;   // (the trim was held back this time: look again as before)
+    return Math.max(0, WARM_MS - (performance.now() - live.hiddenAt)) + 1;
+  }
   function sleep() {
-    live.sleeping = true; clearTimeout(live.sleepTimer); live.sleepTimer = setTimeout(wake, 1000);
+    live.sleeping = true; clearTimeout(live.sleepTimer); live.sleepTimer = 0;
+    const ms = sleepLook();
+    if (ms) live.sleepTimer = setTimeout(wake, ms);
   }
   function wake() { if (!live.sleeping) return; live.sleeping = false; clearTimeout(live.sleepTimer); askAnimate(); }
   live.stageWake = wake;
