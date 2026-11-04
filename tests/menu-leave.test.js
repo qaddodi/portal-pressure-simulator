@@ -54,7 +54,6 @@ test('the scrim fades from its look', () => {
   assert.equal(leaveFromHere(scrim, () => {}), true);
   assert.deepEqual(calls[0].kf, [{ opacity: +easeArrive(0.25).toFixed(4) }, { opacity: 0 }]);
 });
-});
 
 test('an entrance that had finished, or one never seen: the leave is today\'s, nothing is played', () => {
   calls.length = 0;
