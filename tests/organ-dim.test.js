@@ -74,8 +74,8 @@ test('computed colours are read in every form the browsers give them', () => {
 });
 
 test('the filter is on only while the live drawing shows, and follows every plate switch', () => {
-  assert.match(stage, /if \(plateDirty\) \{ plateDirty = false; wrap\.classList\.toggle\('gl-plate', veins\.hasPlate\(0\)\); \}\n {4}syncOrganDim\(\);/, 'what the GPU holds, looked at when it said it changed');
-  assert.match(stage, /wrap\.classList\.remove\('gl-plate'\); plateDirty = true; veinsDirty = true; syncPlateLook\(\);/, 'hidePlate');
-  assert.match(stage, /wrap\.classList\.add\('gl-plate'\); syncPlateLook\(\);/, 'a raster landing');
-  assert.match(stage, /if \(!plateEasing\(\)\) \{ plateFrom = null; return; \}/, 'eases without the GPU too');
+  assert.match(stage, /if \((?:live\.)?plateDirty\) \{ (?:live\.)?plateDirty = false; wrap\.classList\.toggle\('gl-plate', (?:live\.)?veins\.hasPlate\(0\)\); \}\n {4}(?:live\.)?syncOrganDim\(\);/, 'what the GPU holds, looked at when it said it changed');
+  assert.match(stage, /wrap\.classList\.remove\('gl-plate'\); (?:live\.)?plateDirty = true; (?:live\.)?veinsDirty = true; (?:live\.)?syncPlateLook\(\);/, 'hidePlate');
+  assert.match(stage, /wrap\.classList\.add\('gl-plate'\); (?:live\.)?syncPlateLook\(\);/, 'a raster landing');
+  assert.match(stage, /if \(!(?:live\.)?plateEasing\(\)\) \{ plateFrom = null; return; \}/, 'eases without the GPU too');
 });

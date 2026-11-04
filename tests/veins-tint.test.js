@@ -244,10 +244,10 @@ test('a refused partial draw names its reason, and a drawn one says so', async (
 test('the stage keeps its changed rows through a refused partial draw and lets them go only once drawn', () => {
   const st = stageSource();
   const fn = st.slice(st.indexOf('function drawVeins('), st.indexOf('function clearJoins('));
-  assert.match(fn, /pendRows\.length = 0;\n\s+if \(veinsRows\.size\) veinsRows\.forEach\(pendPush\);\n\s+const pending = pendRows\.length \? pendRows : null;/);   // (a kept list, written in place)
-  assert.doesNotMatch(fn, /veinsRows\.clear\(\)/, 'never cleared before a draw has shown them');
-  assert.match(fn, /if \(veins\.drawRows\(T, vLook, bloodLook\(\), pending, fullComposite\)\) \{ rowsShown\(\); return true; \}/);
-  assert.match(fn, /const rows = veinsDirty \? null : pending \|\| NO_ROWS;/);
+  assert.match(fn, /pendRows\.length = 0;\n\s+if \((?:live\.)?veinsRows\.size\) (?:live\.)?veinsRows\.forEach\(pendPush\);\n\s+const pending = pendRows\.length \? pendRows : null;/);   // (a kept list, written in place)
+  assert.doesNotMatch(fn, /(?:live\.)?veinsRows\.clear\(\)/, 'never cleared before a draw has shown them');
+  assert.match(fn, /if \((?:live\.)?(?:live\.)?veins\.drawRows\(T, (?:live\.)?(?:live\.)?vLook, (?:live\.)?(?:live\.)?bloodLook\(\), pending, fullComposite\)\) \{ rowsShown\(\); return true; \}/);
+  assert.match(fn, /const rows = (?:live\.)?veinsDirty \? null : pending \|\| NO_ROWS;/);
   const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
   assert.match(lz, /if \(!g\.drawRows\(T, look, blood, rows\)\) \{ g\.draw\(T, look, blood, rows\); tLast \^= 1; \}/);
 });

@@ -51,12 +51,12 @@ test('a camera-only call reuses the labels\' signature; a revision rebuilds it',
 
 test('the labels\' key and the drawn view are numbers, not joined text, on a camera frame', () => {
   assert.match(stage, /const key = labelKeyNow\(st, sig, b\);/);
-  assert.match(stage, /const key = viewSame\(T, vCanvas\.width, vCanvas\.height\) \? veinsDrawKey : \+\+viewKeyN;/);
-  assert.match(stage, /veinsDrawKey = key; viewKeep\.set\(viewNext\);/);
+  assert.match(stage, /const key = viewSame\(T, vCanvas\.width, vCanvas\.height\) \? (?:live\.)?(?:live\.)?veinsDrawKey : \+\+(?:live\.)?(?:live\.)?viewKeyN;/);
+  assert.match(stage, /(?:live\.)?veinsDrawKey = key; viewKeep\.set\(viewNext\);/);
   // Every place that changes what the signature reads of the vessels bumps edgeRev.
-  assert.match(stage, /x\.vis = vis; (?:live\.)?(?:live\.)?edgeRev\+\+; \}/);
-  assert.match(stage, /if \((?:live\.)?sigWidthMoved\(x\)\) (?:live\.)?edgeRev\+\+;/);
-  assert.match(stage, /if \(x\.ghost !== \(!openNow && !x\.reveal\?\.out\)\) (?:live\.)?edgeRev\+\+;/);
+  assert.match(stage, /x\.vis = vis; (?:live\.)?(?:live\.)?(?:live\.)?edgeRev\+\+; \}/);
+  assert.match(stage, /if \((?:live\.)?(?:live\.)?sigWidthMoved\(x\)\) (?:live\.)?(?:live\.)?edgeRev\+\+;/);
+  assert.match(stage, /if \(x\.ghost !== \(!openNow && !x\.reveal\?\.out\)\) (?:live\.)?(?:live\.)?edgeRev\+\+;/);
   const vs = slice('  function viewSame(T, w, h) {', '\n  }\n') + '\n  }';
   const viewKeep = new Float64Array(8).fill(NaN), viewNext = new Float64Array(8);
   let veinsDrawKey = '';

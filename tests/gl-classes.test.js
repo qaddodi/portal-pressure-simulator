@@ -17,7 +17,7 @@ test('gl-on is set when the GPU is made or comes back and taken off when its con
 });
 
 test('gl-plate is written in the sync only when the GPU said the whole plate came or went, or a class was set by hand', () => {
-  assert.match(sync, /if \(plateDirty\) \{ plateDirty = false; wrap\.classList\.toggle\('gl-plate', veins\.hasPlate\(0\)\); \}/);
+  assert.match(sync, /if \((?:live\.)?(?:live\.)?plateDirty\) \{ (?:live\.)?(?:live\.)?plateDirty = false; wrap\.classList\.toggle\('gl-plate', (?:live\.)?(?:live\.)?veins\.hasPlate\(0\)\); \}/);
   assert.equal((stage.match(/onPlate: \(\) => \{ plateDirty = true; \}/g) || []).length, 2, 'told by the first GPU and by the one made on a restore');
   // Every place that sets the class by hand marks it to be looked at again (the sync reconciles it with what the GPU holds).
   for (const m of stage.matchAll(/wrap\.classList\.remove\('gl-plate'\)[^\n]*/g)) {

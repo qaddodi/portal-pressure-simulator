@@ -23,10 +23,10 @@ test('the envelope goes round the whole box a coil and a fan can be in', () => {
 });
 
 test('it is made at rest, after a binning at rest, and a frame tries it before the change between the views', () => {
-  assert.match(st, /mt\.reach\[morphTarget\] = new Map\(vBinReach\); morphTrackSoon\(\); envSoon\(\);/);
+  assert.match(st, /mt\.reach\[(?:live\.)?(?:live\.)?morphTarget\] = new Map\((?:live\.)?(?:live\.)?vBinReach\); morphTrackSoon\(\); envSoon\(\);/);
   const ck = body('envCheck', '\n  }\n');
-  assert.ok(ck.includes('if (inMotion() || coilEasing) { envSoon(); return; }'));
-  assert.ok(st.includes('if (morph === morphTarget && coilFrame(items)) return true;'));
+  assert.ok(ck.includes('if (inMotion() || live.coilEasing) { envSoon(); return; }'));
+  assert.ok(st.includes('if (live.morph === live.morphTarget && coilFrame(items)) return true;'));
 });
 
 test('a frame draws from it only through the same checks as the change between the views', () => {
@@ -52,6 +52,6 @@ test('a coil target is held either side of its threshold', () => {
 
 test('landed, the figure goes back to a binning of its own once the page is quiet', () => {
   const r = body('easeRest', '\n  }\n');
-  assert.ok(r.includes('if (coilEasing || inMotion() || inUpdate)'));
+  assert.ok(r.includes('if (live.coilEasing || inMotion() || live.inUpdate)'));
   assert.ok(r.includes("vBinKey = ''"));
 });

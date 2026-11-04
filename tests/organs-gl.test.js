@@ -47,16 +47,16 @@ test('the bowel is a picture at rest gathered under the gut, moved by its float 
   const gl = readFileSync(new URL('../src/ui/organs-gl.js', import.meta.url), 'utf8');
   assert.match(stage, /const LIVE_ORDER = \['back', 'behind', 'bowel', 'gut', /);
   assert.match(stage, /for \(const L of LIVE_ORDER\) \{/);
-  assert.match(stage, /opacity: parseFloat\(getComputedStyle\((?:live\.)?(?:live\.)?gGut\)\.opacity\), under: \[\{ name: 'bowel', dy: bowelDy\(\) \}\]/);
-  assert.match(stage, /if \((?:live\.)?liveSet\) (?:live\.)?veins\.organs\.shift\('bowel', bowelDy\(\)\);/);
+  assert.match(stage, /opacity: parseFloat\(getComputedStyle\((?:live\.)?(?:live\.)?(?:live\.)?gGut\)\.opacity\), under: \[\{ name: 'bowel', dy: (?:live\.)?bowelDy\(\) \}\]/);
+  assert.match(stage, /if \((?:live\.)?(?:live\.)?(?:live\.)?liveSet\) (?:live\.)?(?:live\.)?(?:live\.)?veins\.organs\.shift\('bowel', (?:live\.)?(?:live\.)?bowelDy\(\)\);/);
   // The picture: the bowel alone, painted where the bowel is (at), its float held in the pictures' state while the fluid eases and
   // taken once it settles.
-  assert.match(stage, /out\.set\(L, ok \? \{ groups, at: L === 'bowel' \? bowelDy\(\) : 0, key \} : null\);/);
-  assert.match(stage, /if \(!(?:live\.)?fluidEasing\(\)\) bowelHeld = organG\.bowel\.getAttribute\('transform'\);\n\s+if \(liveOn\(\)\) return \['live', bowelHeld, /);
+  assert.match(stage, /out\.set\(L, ok \? \{ groups, at: L === 'bowel' \? (?:live\.)?bowelDy\(\) : 0, key \} : null\);/);
+  assert.match(stage, /if \(!(?:live\.)?(?:live\.)?fluidEasing\(\)\) bowelHeld = organG\.bowel\.getAttribute\('transform'\);\n\s+if \((?:live\.)?liveOn\(\)\) return \['live', bowelHeld, /);
   // On the GPU: moved by whole device pixels, drawn under the gut's picture, laid with the gut's opacity.
   assert.match(gl, /const dy = Math\.round\(\(\(u\.dy \|\| 0\) - U0\.at\) \* m\[3\]\);\n[^\n]*\n\s+mm\.set\(mat\);\n\s+mm\[7\] \+= dy;/);
   assert.match(gl, /for \(let i = 0; i < nUnder; i\+\+\) drawLayer\(underU0\[i\], underU1\[i\], underMM\[i\], b\);\n\s+drawLayer\(cutL0, cutL1, mat, b\);/);
-  assert.match(gl, /painter\.layMasked\(drawCut, box, cut\.spec, mulTo\(MM, m, cut\.m\), w, h, target, cut\.opacity \?\? 1, within\);/);
+  assert.match(gl, /painter\.layMasked\(drawCut, (?:live\.)?box, cut\.spec, mulTo\(MM, m, cut\.m\), w, h, target, cut\.opacity \?\? 1, within\);/);
 });
 
 // A live organ's ease changes its own box, not the screen: the stack is drawn again only there (the boxes of the ops whose outline,

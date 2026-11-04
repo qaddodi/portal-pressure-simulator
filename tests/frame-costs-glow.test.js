@@ -55,12 +55,12 @@ test('the glow texels are written exactly as the whole vessel sync wrote them, o
 });
 
 test('a glow ease runs the glow-only sync, which falls back to the whole sync unless nothing else changed', () => {
-  assert.match(stage, /if \(glowSync && !syncGlowOnly\(easeInOut\(morph\)\)\) syncVeins\(easeInOut\(morph\)\);/);
-  assert.match(stage, /writeGlowTexels\(tubeData, o, kind, id, ra\?\.e\.id, obj\.len, glow\.lit, vh\.amt, cpRgb, easeInOut\);/, 'the whole sync writes them with the same helper');
-  assert.match(stage, /gm\.items = items; gm\.t = t; gm\.netA = netA; gm\.cs = cs; gm\.mode = mode; gm\.origin = cpOrigin; gm\.cath = cathTint; gm\.F = F; gm\.geo = geometryVersion;\n\s+gm\.plate = veins\.hasPlate\(0\); gm\.cls = wrapCls\(\); gm\.bits = glowBits\(items, 0\); gm\.reach = vLook\.reach;/);   // (the memo is one kept object written in place)
+  assert.match(stage, /if \((?:live\.)?glowSync && !syncGlowOnly\((?:live\.)?easeInOut\((?:live\.)?morph\)\)\) syncVeins\((?:live\.)?easeInOut\((?:live\.)?morph\)\);/);
+  assert.match(stage, /writeGlowTexels\((?:live\.)?tubeData, o, kind, id, ra\?\.e\.id, obj\.len, glow\.lit, vh\.amt, cpRgb, (?:live\.)?easeInOut\);/, 'the whole sync writes them with the same helper');
+  assert.match(stage, /gm\.items = items; gm\.t = t; gm\.netA = (?:live\.)?(?:live\.)?netA; gm\.cs = cs; gm\.mode = mode; gm\.origin = cpOrigin; gm\.cath = (?:live\.)?(?:live\.)?cathTint; gm\.F = (?:live\.)?(?:live\.)?F; gm\.geo = (?:live\.)?(?:live\.)?geometryVersion;\n\s+gm\.plate = (?:live\.)?(?:live\.)?veins\.hasPlate\(0\); gm\.cls = wrapCls\(\); gm\.bits = glowBits\(items, 0\); gm\.reach = (?:live\.)?(?:live\.)?vLook\.reach;/);   // (the memo is one kept object written in place)
   const ok = stage.slice(stage.indexOf('function glowOnlyOk'), stage.indexOf('function syncGlowOnly'));
-  for (const c of ['tubesNew', 'lensFrom', 'm.t !== t', 'm.F !== F', 'm.geo !== geometryVersion', 'm.netA !== netA', 'm.cs !== wrapCS()', 'm.mode !== layerMode()', 'm.origin !== originOn()', 'm.cath !== cathTint', 'm.plate !== veins.hasPlate(0)', 'm.cls !== wrapCls()', 'm.reach !==', 'b[i] !== m.bits[i]', 'b[i] & 64']) assert.ok(ok.includes(c), `checks ${c}`);
-  for (const c of ['it.x.sel', 'it.x.ghost', 'it.ra?.sel', 'it.x.lifted', 'it.x.reveal']) assert.ok(stage.slice(stage.indexOf('function glowBits'), stage.indexOf('function glowOnlyOk')).includes(c), `bits hold ${c}`);
+  for (const c of ['tubesNew', 'lensFrom', 'm.t !== t', 'm.F !== live.F', 'm.geo !== live.geometryVersion', 'm.netA !== live.netA', 'm.cs !== wrapCS()', 'm.mode !== layerMode()', 'm.origin !== live.originOn()', 'm.cath !== live.cathTint', 'm.plate !== live.veins.hasPlate(0)', 'm.cls !== wrapCls()', 'm.reach !==', 'b[i] !== m.bits[i]', 'b[i] & 64']) assert.ok(ok.includes(c), `checks ${c}`);
+  for (const c of ['it.x.sel', 'it.x.ghost', 'it.ra?.sel', 'it.x.lifted', 'it.x.reveal']) assert.ok(stage.slice(stage.indexOf('function glowBits'), stage.indexOf('function glowOnlyOk(t)')).includes(c), `bits hold ${c}`);
 });
 
 test('the FibroScan packets write an opacity or a path only when its text changed', () => {

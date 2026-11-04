@@ -1,0 +1,1 @@
+{ "factory": "createVessels", "file": "stage-vessels.js", "about": "The vessels on the GPU: coil and varix-spread ease, the morph frame, colours, radii, colour pass, syncVeins and drawVeins.", "lines": [[2822, 3822]], "trust": ["drawVeins"] }

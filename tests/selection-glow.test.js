@@ -16,7 +16,7 @@ test('a selected vessel glows as a hovered one does, with no solid ring', () => 
 });
 
 test('selecting and deselecting ease the vessel in and out of the dimmed network', () => {
-  assert.match(stage, /if \(x\.back \|\| tier >= TIER_LIFT\) alpha \*= netA \+ \(1 - netA\) \* easeInOut\(/);
+  assert.match(stage, /if \(x\.back \|\| tier >= TIER_LIFT\) alpha \*= (?:live\.)?(?:live\.)?netA \+ \(1 - (?:live\.)?(?:live\.)?netA\) \* (?:live\.)?(?:live\.)?easeInOut\(/);
   assert.match(stage, /const on = IVC_EDGES\.has\(x\.e\.id\) && \(x\.sel \|\| vh\.selA\.get\(x\.e\.id\) > 0\) && !SIN_EDGES\.has\(x\.e\.id\);/, 'only the cava is lifted when selected');
   assert.match(stage, /m\.selK !== selAKey\(\)/, 'the glow-only sync gives way while the selection eases (it does not write alpha)');
   assert.match(stage, /gm\.selK = selAKey\(\);/);
