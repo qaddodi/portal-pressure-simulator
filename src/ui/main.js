@@ -28,7 +28,7 @@ import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js';
 import { dopplerVel } from './velNormal.js';
 import { controlOwnsKey } from './key-owner.js';
 import { onTheme, themeSettled } from './theme-epoch.js';
-import { cssVar, $, $$, h, icon, afterExit, fmt, fmtFlow, toast, TOASTS, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, menuSection, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, enterAfterGone, enhanceRanges, systemEdge, swapFade, scrollBehavior, reconcile } from './util.js';
+import { cssVar, $, $$, h, icon, afterExit, fmt, fmtFlow, toast, TOASTS, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, menuSection, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, switchIn, enhanceRanges, systemEdge, swapFade, scrollBehavior, reconcile } from './util.js';
 import { initMenuGlass, whyGlass } from './menu-glass.js';
 import { glidePlateOn, platePieces, glideOnResize } from './plate-glide.js';
 import { sheetParts, sheetOffset, setSheetOffset, stopSheet, glideSheet, dragSheet } from './sheet-move.js';
@@ -1407,13 +1407,13 @@ function leave(el) {
   // (A leave already playing starts again from its first frame: its own animations are set back to the start, no reflow to restart it.)
   if (el.classList.contains('card-leaving')) { const as = readAnims(el); if (as) for (const a of as) if (a.animationName) a.currentTime = 0; }
   el.classList.add('card-leaving');
-  markGone(180);
+  markGone(D_SMALL, el);
   // (Each card has its own step, made on its first leave and kept: adding the same listener again is a no-op, and it takes itself off as before.)
   const done = el._leaveDone ||= (e) => { if (e && e.target !== el) return; el.classList.remove('card-leaving'); el.removeEventListener('animationend', el._leaveDone); };   // alloc-rare: one per card, made on its first leave
   el.addEventListener('animationend', done);
   setTimeout(done, 400);
 }
-const arrive = (el) => { el.classList.remove('card-leaving'); enterAfterGone(el); };
+const arrive = (el) => { el.classList.remove('card-leaving'); switchIn(el); };
 function panelShown() { return !app.classList.contains('instrument-focus') && app.classList.contains('panel-open'); }
 // The figure re-fits to the space the open cards leave (once as the card starts, again when its sheet has settled).
 // The patient's name in the top bar shows whole, never cut with "…" (sweep, 16 Oct: "Budd–Chiari (he…" on a phone held
@@ -1770,13 +1770,13 @@ const tabletMQ = matchMedia(TABLET_UP_MQ);
 // sheet's paper (its plate, sheet-move.js) is drawn by the cards' glass in the figure's canvas (stage.cardGlass, glass-gl.js), following
 // the plate's slide from its translate and its eases, never a read in a frame. It is cut at the sheet's still foot (cut: the sheet's box, read with the
 // glass's other boxes when the page is read, not in each frame), as the sheet's own clip cuts what slides below it on the page. Where the figure's canvas cannot take it, the plate keeps its paper (app.css).
-const SHEETS = ['#panel', '#treatCard', '#dock'];
+const SHEETS = ['#panel', '#treatCard', '#dock', '.action-card'];   // (the vessel card's plate is on the glass only while it is docked: a phone's card)
 let sheetGL = null;
 function sheetGlass() {
   if (sheetGL) return;
   const els = SHEETS.map((q) => $(q)).filter(Boolean);
   if (!els.length) return;
-  const plates = () => els.filter((el) => !el.hidden && el.classList.contains('has-plate')).map((el) => el.querySelector(':scope > .sheet-plate')).filter(Boolean);
+  const plates = () => els.filter((el) => !el.hidden && el.classList.contains('has-plate') && (!el.classList.contains('action-card') || el.classList.contains('docked'))).map((el) => el.querySelector(':scope > .sheet-plate')).filter(Boolean);
   // (glass.add asks again by itself while the figure's canvas is not made yet.)
   sheetGL = stage?.glass?.add(plates, { watch: els, before: els[0], cut: (g) => { const el = g.parentElement; const b = el && readBox(el); return b ? { bottom: b.bottom } : null; } }) || null;
 }

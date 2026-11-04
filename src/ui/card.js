@@ -11,7 +11,8 @@
 // into a string to be compared.
 
 import { store, updateParams } from './store.js';
-import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout, countTo, swapText, transformEndX, afterExit, markGone, releaseWords } from './util.js';
+import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout, countTo, swapText, transformEndX, afterExit, markGone, switchIn, releaseWords } from './util.js';
+import { sheetParts } from './sheet-move.js';
 import { releaseSpeed, isFlick, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN, easeArrive } from './ease.js';
 import { glideTranslate, glideStop, glideRunning } from './script-glide.js';
 import { signalMove } from './num-move.js';
@@ -111,6 +112,12 @@ const sameNum = (a, b) => a === b || (a !== a && b !== b);   // (NaN is the same
 export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   const el = h('section', { class: 'action-card stage-blocker', role: 'dialog', 'aria-label': 'Actions', hidden: true });
   view.append(el);
+  // A phone's card is a sheet like Details and Treat (Menu system plan W4): a plate (paper and glass) and its content slide together
+  // under the card's still cut, the one motion (app.css .ac-in, .ac-leaving). The plate is kept across rebuilds (it is the first child).
+  const plate = (sheetParts(el), el.querySelector(':scope > .sheet-plate'));
+  // alloc-rare: the card opens afresh: its class for the entrance's length, once for each open
+  const endIn = () => el.classList.remove('ac-in');
+  const opening = () => { switchIn(el); el.classList.add('ac-in'); setTimeout(endIn, D_SMALL + 60); };
   // A thin line from the card's nearest edge to the structure, with a dot on it, when they are apart.
   // (Plain boxes, no SVG: the line a dashed box turned to the anchor, the dot a ringed box, each placed by a transform: app.css .ac-lline, .ac-ldot.)
   const leader = document.createElement('div');
@@ -120,7 +127,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
   const sizes = { vw: view.clientWidth, vh: view.clientHeight, w: 0, h: 0 };
   new ResizeObserver(() => { const moved = Math.abs(sizes.vw - view.clientWidth) > 2 || !sizes.vh; sizes.vw = view.clientWidth; sizes.vh = view.clientHeight; if (moved) { placedOk = false; lastLayout = ''; pinned = null; } position(); if (isDocked()) reveal(); }).observe(view);
-  new ResizeObserver(() => { const first = !sizes.w; sizes.w = el.offsetWidth; sizes.h = el.offsetHeight; if (first) { placedOk = false; lastLayout = ''; pinned = null; } else lastLayout = ''; position(); syncMore(); if (isDocked()) reveal(); }).observe(el);
+  new ResizeObserver(() => { const first = !sizes.w; sizes.w = el.offsetWidth; sizes.h = el.offsetHeight; el.style.setProperty('--sheet-size', sizes.h + 'px'); if (first) { placedOk = false; lastLayout = ''; pinned = null; } else lastLayout = ''; position(); syncMore(); if (isDocked()) reveal(); }).observe(el);
   const uiState = {};
   ctx.ui = (key, def) => (uiState[key] ||= def);
   // live: the elements whose reading follows the model (each says which in _acK: 1 the header's value and status, 2 a readout, 3 the
@@ -192,7 +199,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
       // (Docked, it sinks away; a desktop card fades out where it stands: it had closed in one frame.)
       // (With Reduce Motion both only fade: app.css turns the keyframes into fades.)
       el.classList.add('ac-leaving');
-      if (isDocked()) markGone(180);   // (a phone's card sinks like a sheet: whatever opens next waits for it, as it does for a sheet)
+      if (isDocked()) markGone(D_SMALL, el);   // (a phone's card sinks like a sheet: whatever opens next crosses over with it, as it does with a sheet)
       closeTimer = afterExit(el, 'ac-leaving', afterLeave);
     }
     model = null; live.length = 0; syncs.length = 0; actionable.length = 0;
@@ -391,16 +398,16 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     scroller.addEventListener('scroll', moreSoon, PASSIVE);
     const swap = !el.hidden && !same && !!el.animate;
     wasKids.length = 0;
-    if (swap) for (let c = el.firstElementChild; c; c = c.nextElementSibling) if (!c.classList.contains('ac-ghost')) wasKids.push(c);
+    if (swap) for (let c = el.firstElementChild; c; c = c.nextElementSibling) if (!c.classList.contains('ac-ghost') && c !== plate) wasKids.push(c);
     const was = wasKids;
     el.querySelector(':scope > .ac-ghost')?.remove();
     releaseWords(el);   // (the readouts of the content being replaced)
-    el.replaceChildren(top, scroller, foot);
+    el.replaceChildren(plate, top, scroller, foot);
     // Another vessel picked while the card is open: its contents fade in, rather than the words changing in one frame, and
     // the old ones fade out over them from a layer on top that takes no taps, instead of vanishing first (round 2 review, RF7).
     if (swap) {
       // alloc-rare: the fade-in of a swapped card's contents: once per pick that swaps one card for another
-      for (const c of el.children) c.animate([{ opacity: 0 }, { opacity: 1 }], FADE_IN);
+      for (const c of el.children) if (c !== plate) c.animate([{ opacity: 0 }, { opacity: 1 }], FADE_IN);
       if (was.length) {
         // alloc-rare: the ghost of a swapped card: once per pick that swaps one card for another
         const ghost = h('div', { class: 'ac-ghost', 'aria-hidden': 'true', inert: '' }, ...was);
@@ -413,7 +420,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     }
     // alloc-rare: the card is built when a selection (or the shunting flag) changes, once per pick; the listener runs on that key's change, never per frame
     el.setAttribute('aria-label', `${m.title}: actions`);
-    if (el.hidden) at = null;   // (opened afresh: it appears where it is placed, no glide from where it last stood)
+    if (el.hidden) { at = null; opening(); }   // (opened afresh: it appears where it is placed, no glide from where it last stood)
     el.hidden = false;
     // Number keys trigger the verbs in order; show the number beside each.
     for (let i = 0; i < actionable.length && i < 9; i++) actionable[i].dataset.key = KEYS[i];

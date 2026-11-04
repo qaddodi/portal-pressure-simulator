@@ -32,7 +32,6 @@ if (typeof addEventListener === 'function') addEventListener('animationstart', o
 const timeIn = (el, name) => (name === 'scale-settle' ? (el.classList.contains('from-dock') ? D_SMALL : D_FLIP) : D_SMALL);
 const sheetish = (el) => el.classList.contains('as-sheet') || (el.classList.contains('from-dock') && document.documentElement.classList.contains('thumb-ui'));
 const timeOut = (el, name) => (name === 'scale-settle' ? (sheetish(el) ? D_SMALL : D_FLIP) : name === 'crossfade' ? (el.classList.contains('um-scrim') ? D_SMALL : D_FLIP) : el.classList.contains('umenu') || sheetish(el) ? D_SMALL : D_FLIP);
-const delayOf = (el) => (el.classList.contains('from-dock') ? parseFloat(el.style.getPropertyValue('--enter-delay')) || 0 : 0);
 const f4 = (v) => +v.toFixed(4);   // alloc-rare: a menu put away while its entrance still runs (a tap away), never per frame
 
 // The look now and the exit's end, for the entrance's eased progress k (0 = its from, 1 = at rest).
@@ -62,7 +61,7 @@ function looks(name, k) {
 export function leaveFromHere(el, leave) {
   const rec = started.get(el);
   if (!rec || typeof el.animate !== 'function') { leave(); return false; }
-  const x = (performance.now() - rec.t - delayOf(el)) / timeIn(el, rec.name);
+  const x = (performance.now() - rec.t) / timeIn(el, rec.name);
   if (x >= 1) { leave(); return false; }   // (it had finished coming in)
   const kf = looks(rec.name, easeArrive(Math.max(0, x)));
   leave();

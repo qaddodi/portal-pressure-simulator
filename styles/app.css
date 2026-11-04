@@ -6521,7 +6521,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 #app.sin-focus .zoom-pill { flex-direction: column; }
 /* One card or menu at a time above the thumb dock, each a solid piece that comes and goes whole: it rises a little
    out of the dock as it fades in and sinks back as it fades out, never sliding across the dock, and one opened while
-   another is still going out waits until that one has gone (--enter-delay, set by util.js enterAfterGone). */
+   another is still going out crosses over with it (.sw-in and .sw-out, util.js switchIn). */
 /* (15 Oct, Mohammad) Every card and sheet sits on the tab row's top edge, covering the play bar, and rises out from
    behind the tab row and sinks back behind it, Tests included: it slides by its own height while the part below its
    resting bottom edge is clipped (clip-path is in the card's own moved coordinates, so the cut stays on that edge). */
@@ -6559,16 +6559,22 @@ html.thumb-ui :is(.menu.as-sheet, .why-pop.as-sheet):not(.from-dock) { clip-path
 }
 .app.thumb :is(.panel, .treat-card, .instrument-workspace.float-ui) { --card-out: thumbOut; }
 @media (prefers-reduced-motion: no-preference) {
-  #app.thumb.panel-open .panel, #app.thumb .treat-card, #app.thumb .instrument-workspace.float-ui.entering { animation: thumbIn var(--d-small) var(--ease) var(--enter-delay, 0ms) backwards; }
+  #app.thumb.panel-open .panel, #app.thumb .treat-card, #app.thumb .instrument-workspace.float-ui.entering { animation: thumbIn var(--d-small) var(--ease) backwards; }
   /* (A menu is drawn above the tab row, so it never rises across it: it settles in where it rests, by opacity.) */
-  html.thumb-ui .menu.from-dock { animation: scale-settle var(--d-small) var(--ease) var(--enter-delay, 0ms) backwards; }
+  html.thumb-ui .menu.from-dock { animation: scale-settle var(--d-small) var(--ease) backwards; }
   html.thumb-ui .menu.from-dock.leaving { animation: scale-settle-out var(--d-small) var(--ease-in) forwards; }
   /* A sheet moved by its content (has-plate, sheet-move.js) rises and sinks the same way, but by its content's translate alone under
      its still clip: no --sink is eased frame by frame on the main thread. The box holds (sheet-hold) so its leave still ends on it. */
   #app.thumb.panel-open .panel.has-plate, #app.thumb .treat-card.has-plate, #app.thumb .instrument-workspace.float-ui.entering.has-plate { animation: none; }
-  #app.thumb.panel-open .panel.has-plate > *, #app.thumb .treat-card.has-plate > *, #app.thumb .instrument-workspace.float-ui.entering.has-plate > * { animation: sheet-rise var(--d-small) var(--ease) var(--enter-delay, 0ms) backwards; }
-  #app.thumb :is(#panel, #treatCard, #historyCard, #dock).has-plate.card-leaving { --card-out: sheet-hold; }
-  #app.thumb :is(#panel, #treatCard, #historyCard, #dock).has-plate.card-leaving > * { animation: sheet-sink var(--d-flip) var(--ease-in) forwards; }
+  #app.thumb.panel-open .panel.has-plate > *, #app.thumb .treat-card.has-plate > *, #app.thumb .instrument-workspace.float-ui.entering.has-plate > * { animation: sheet-rise var(--d-small) var(--ease) backwards; }
+  #app.thumb :is(#panel, #treatCard, #historyCard, #dock).has-plate.card-leaving { --card-out: sheet-hold; animation-duration: var(--d-small) !important; }
+  #app.thumb :is(#panel, #treatCard, #historyCard, #dock).has-plate.card-leaving > * { animation: sheet-sink var(--d-small) var(--ease-in) forwards; }
+  /* (W4) A switch (Treat to Tests, Layers to Settings, a vessel's card to Details) keeps the spot: the one coming in fades in over the
+     one going out, which fades out, neither slides, so nothing stands empty between them and the dock never blinks. */
+  #app.thumb .has-plate.sw-in.sw-in.sw-in > * { animation: crossfade var(--d-small) var(--ease-arrive) backwards; }
+  #app.thumb .has-plate.card-leaving.sw-out.sw-out > *, #app.thumb .has-plate.ac-leaving.sw-out.sw-out > * { animation: crossfade-out var(--d-small) var(--ease-in) forwards; }
+  html.thumb-ui .menu.as-sheet.sw-in.sw-in { animation: crossfade var(--d-small) var(--ease-arrive) backwards; }
+  html.thumb-ui .menu.as-sheet.leaving.sw-out.sw-out { animation: crossfade-out var(--d-small) var(--ease-in) forwards; }
 }
 @keyframes sheet-rise { from { translate: 0px calc(var(--sheet-size, 60vh) + 8px); } }
 @keyframes sheet-sink { to { translate: 0px calc(var(--sheet-size, 60vh) + 8px); } }
@@ -6618,12 +6624,20 @@ html.thumb-ui :is(.menu.as-sheet, .why-pop.as-sheet):not(.from-dock) { clip-path
   }
   .app.thumb.panel-open .action-card.docked { visibility: hidden; transition: visibility 0s linear var(--d-small); }
   /* No X on a phone card: a pull down puts it away (card.js wireSheet), as the others. */
+  .app.thumb:not(.dock-open) .action-card.docked.has-plate { background: transparent; box-shadow: none; overflow: visible; isolation: isolate; }
+  .app.thumb:not(.dock-open) .action-card.docked.has-plate > .sheet-plate { display: block; position: absolute; inset: 0; z-index: -1; border-radius: inherit; --gl-glass: 1; --gl-tint: color-mix(in srgb, var(--surface) var(--sheet-frost, 80%), transparent); background: var(--surface); box-shadow: var(--shadow-3), inset 0 0 0 1px var(--hairline); pointer-events: none; }
   .app.thumb .action-card.docked .ac-close { display: none; }
   .app.thumb .action-card.docked .ac-top { grid-template-columns: minmax(0, 1fr) auto; }
 }
 @media (max-width: 767px) and (prefers-reduced-motion: no-preference), (max-width: 1100px) and (orientation: portrait) and (prefers-reduced-motion: no-preference) {
-  .app.thumb:not(.dock-open) .action-card.docked { animation: thumbIn var(--d-small) var(--ease) var(--enter-delay, 0ms) backwards; }
-  .app.thumb:not(.dock-open) .action-card.docked.ac-leaving { animation: thumbOut var(--d-flip) var(--ease-in) forwards; }
+  /* (W4) A phone's vessel or organ card slides like the other sheets: its plate and content rise from behind the dock under the still cut
+     (.ac-in is on only for the entrance, so a rebuilt card does not slide again) and sink back, 240 ms each way. */
+  .app.thumb:not(.dock-open) .action-card.docked.has-plate { animation: none; }
+  .app.thumb:not(.dock-open) .action-card.docked.has-plate.ac-in > * { animation: sheet-rise var(--d-small) var(--ease-arrive) backwards; }
+  .app.thumb:not(.dock-open) .action-card.docked.has-plate.ac-leaving { animation: sheet-hold var(--d-small) forwards; }
+  .app.thumb:not(.dock-open) .action-card.docked.has-plate.ac-leaving > * { animation: sheet-sink var(--d-small) var(--ease-in) forwards; }
+  .app.thumb:not(.dock-open) .action-card.docked.has-plate.ac-in.sw-in.sw-in > * { animation: crossfade var(--d-small) var(--ease-arrive) backwards; }
+  .app.thumb:not(.dock-open) .action-card.docked.has-plate.ac-leaving.sw-out.sw-out > * { animation: crossfade-out var(--d-small) var(--ease-in) forwards; }
 }
 
 /* (17 Oct, Mohammad) An upright iPad has the iPhone's bottom bar and cards, "scaled down proportionally, similar to how much we

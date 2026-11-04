@@ -402,14 +402,21 @@ let lastMenu = { anchor: null, t: 0 };   // (the menu that just closed: on iOS a
 export const reduceMotionMQ = matchMedia('(prefers-reduced-motion: reduce)');
 /** How a scroll the app makes on its own moves: smooth, or at once with Reduce Motion (as the menu's already did). */
 export const scrollBehavior = () => (reduceMotionMQ.matches ? 'auto' : 'smooth');
-// One card or menu at a time over the thumb dock: whatever opens while another is still playing its way out waits
-// until it has gone (--enter-delay, read by the thumb dock's entrance animations), so the two never overlap.
-let goneAt = 0;
+// One card or menu at a time above the thumb dock. A sheet that opens while another is still going out does not wait for it (Menu system
+// plan W4, 4 Nov 2026): the two are one switch, the new one comes in and the old one goes out by a crossfade over the same spot
+// (.sw-in and .sw-out, styles/app.css), so nothing stands empty between them and the dock never blinks.
+let goneAt = 0, goneEl = null;
 /** Notes that a card or menu is playing its way out for the next ms. */
-export function markGone(ms) { goneAt = Math.max(goneAt, performance.now() + ms); }
-/** Holds a card or menu that is about to come in until the one going out has gone. */
-// alloc-rare: the delay's text, made once as a card or menu opens (an open, not a frame)
-export function enterAfterGone(el) { el.style.setProperty('--enter-delay', Math.round(Math.max(0, goneAt - performance.now())) + 'ms'); }
+export function markGone(ms, el = null) { goneAt = Math.max(goneAt, performance.now() + ms); if (el) goneEl = el; }
+/** A card or menu is coming in: if another is still going out, the two cross-fade (a switch) instead of one sliding down while the other slides up. */
+export function switchIn(el) {
+  const g = goneEl;
+  if (!g || g === el || performance.now() >= goneAt) return;
+  goneEl = null;
+  // alloc-rare: a switch between two sheets: its two classes and the timer that takes them off, once for each switch
+  el.classList.add('sw-in'); g.classList.add('sw-out');
+  setTimeout(() => { el.classList.remove('sw-in'); g.classList.remove('sw-out'); }, D_SMALL + 40);
+}
 // sheet: on a phone the menu rises as a bottom sheet (full width, its text wraps) instead of a tall
 // popover; pass false for a menu that lays itself out.
 /** The bottom of what is visible: above the on-screen keyboard on iOS, where innerHeight does not shrink. */
@@ -443,7 +450,7 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
   // the Colored-by key on an upright iPad, pops in where it rests, as everywhere else, never sliding up from below it.)
   const fromDock = asSheet || !!anchor.closest?.('.vdock');
   const el = h('div', { class: 'menu ' + cls + (asSheet ? ' as-sheet' : '') + (fromDock ? ' from-dock' : ''), role: 'dialog', 'aria-label': anchor.getAttribute?.('aria-label') || anchor.title || anchor.textContent?.trim().slice(0, 40) || 'Menu' }, content);
-  enterAfterGone(el);
+  switchIn(el);
   // A sheet has a light scrim that takes the tap away, as the main menu's does.
   const scrim = asSheet ? h('div', { class: 'um-scrim' }) : null;
   if (scrim) document.body.append(scrim);
@@ -980,7 +987,7 @@ export function closePopover() {
     const ms = menuExitMs(el), plate = openMenu.plate, scrim = openMenu.scrim; const leave = () => el.classList.add('leaving');
     if (el.dataset.swiped) leave(); else if (leaveFromHere(el, leave)) plate?.leaveAlong();   // (the plate follows by its twin rules; one put away while still coming in follows the menu's exit from where it had got to)
     if (scrim) leaveFromHere(scrim, () => scrim.classList.add('out'));
-    el.inert = true; markGone(el.dataset.swiped ? 0 : ms); setTimeout(() => { releaseWords(el); restRemove(el); if (scrim) restRemove(scrim); plate?.dispose(); }, el.dataset.swiped ? D_SMALL : ms + 10);
+    el.inert = true; markGone(el.dataset.swiped ? 0 : ms, el); setTimeout(() => { releaseWords(el); restRemove(el); if (scrim) restRemove(scrim); plate?.dispose(); }, el.dataset.swiped ? D_SMALL : ms + 10);
   } else { openMenu.plate?.dispose(); if (openMenu.scrim) restRemove(openMenu.scrim); }
   restAttr(openMenu.anchor, 'aria-expanded', 'false'); openMenu.cleanup();
   lastMenu.anchor = openMenu.anchor; lastMenu.t = performance.now();   // (the one record, written in place)
