@@ -4936,6 +4936,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   let rgbGlowCs = null;
   const rgbGlowOf = (c) => toRGB(c, rgbGlowCs);   // (the glow-only sync's colour reader, kept; rgbGlowCs the style it reads)
+  // (A vessel attribute counts as changed once it is a 255th away from what the layer was drawn with: a colour step under that cannot show, and a
+  // running model's colours follow a little on every frame. The difference is kept, so the steps add up; NaN counts as changed.)
+  const tubeMoved = (a, b) => !(Math.abs(a - b) <= 0.0039);
   function glowOnlyOk(t) {
     const m = glowMemo;
     if (!m || !veins || veins.lost || !vLook || tubesNew || lensFrom || colEasing || !tubesShown || tubesShown.length !== tubeData.length) return false;
@@ -4956,7 +4959,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (it.kind !== 'v' && it.kind !== 's') continue;
       const o = it.row * W;
       writeGlowTexels(tubeData, o, it.kind, it.x.e.id, it.ra?.e.id, it.obj.len, glow.lit, vh.amt, rgbCs, easeInOut);
-      for (let i = o + 39; i < o + 48; i++) if (tubeData[i] !== tubesShown[i]) { veinsRows.add(it.row); tubesShown.set(tubeData.subarray(o, o + W), o); changed = true; break; }
+      for (let i = o + 39; i < o + 48; i++) if (tubeMoved(tubeData[i], tubesShown[i])) { veinsRows.add(it.row); tubesShown.set(tubeData.subarray(o, o + W), o); changed = true; break; }
     }
     if (changed) veins.setTubes(tubeData);
     return true;
@@ -5405,7 +5408,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     colFollow.prune(colRows);
     // (Uploaded only when some vessel's attributes changed: most model frames in a steady state change none.)
     let tubesChanged = !tubesShown || tubesShown.length !== tubeData.length;
-    if (!tubesChanged) for (let i = 0; i < tubeData.length; i++) if (tubeData[i] !== tubesShown[i]) { tubesChanged = true; break; }
+    if (!tubesChanged) for (let i = 0; i < tubeData.length; i++) if (tubeMoved(tubeData[i], tubesShown[i])) { tubesChanged = true; break; }
     if (tubesChanged) veins.setTubes(tubeData);
     // (The look handed to the vessels' painter: one kept object and its colour lists, written in place each sync; its signature is numbers
     // compared with the last one's, lookChanged, not text made of it.)
@@ -5431,7 +5434,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     } else if (tubesChanged) {
       const W = TUBE_TEXELS * 4;
       for (let o = 0; o < tubeData.length; o += W) {
-        for (let i = o; i < o + W; i++) if (tubeData[i] !== tubesShown[i]) { veinsRows.add(o / W); tubesShown.set(tubeData.subarray(o, o + W), o); break; }
+        for (let i = o; i < o + W; i++) if (tubeMoved(tubeData[i], tubesShown[i])) { veinsRows.add(o / W); tubesShown.set(tubeData.subarray(o, o + W), o); break; }
       }
     }
     tubesNew = false;
