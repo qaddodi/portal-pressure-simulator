@@ -17,7 +17,7 @@ test('a wheel or trackpad zoom finds the point under the pointer by arithmetic, 
 });
 
 test('the lobule counts a wheel and a trackpad pinch as a hand, as a scroll', () => {
-  assert.match(lobule, /const handOn = \(\) => touches\.size > 0 \|\| !!cancelFlick \|\| \(!!wheelKind && performance\.now\(\) - wheelAt < 250\);/);
+  assert.match(lobule, /const handOn = \(\) => touches\.size > 0 \|\| !!cancelFlick \|\| \(!!wheelKind && !wheelQuiet\(250\)\);/);
 });
 
 test('a trackpad pinch (Ctrl/⌘ + wheel) marks wheelAt, so the anatomy counts it as a hand like a wheel zoom or a pan', () => {

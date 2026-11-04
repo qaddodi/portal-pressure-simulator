@@ -45,7 +45,7 @@ import { NODES, EDGES } from '../engine/topology.js';
 import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js';
 import { createSinusoidView } from './sinusoid-view.js';
-import { frameFor, cancelFrame, noteDraw, saver, paceMs, frameGapFor, renderScale, onRenderScale, frame, framePart, easeNow, inMotion, PACED } from './frame.js';
+import { frameFor, cancelFrame, noteDraw, saver, paceMs, frameGapFor, frameCount, renderScale, onRenderScale, frame, framePart, easeNow, inMotion, PACED } from './frame.js';
 import { gpuProbe, COUNTED } from './gpu-probe.js';
 import { FADE_MS, fadeAlpha } from './res-fade.js';
 import { createResCover, coverFollowInto } from './res-cover-gl.js';
@@ -350,7 +350,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const k = kFit * Math.pow(rawK / kFit, 0.3), r = k / V.k;
     V.x = px - (px - V.x) * r; V.y = py - (py - V.y) * r; V.k = k; viewChanged();
   }
-  function endStretch() { if (!rawK) return; rawK = 0; rubber = false; glideTo(fitV(), 380); atFit = true; }
+  function endStretch() { if (!rawK) return; if (!wheelQuiet()) { stretchT = setTimeout(endStretch, 120); return; } rawK = 0; rubber = false; glideTo(fitV(), 380); atFit = true; }
   function clampV() {
     if (!geo || rubber) return;
     const F0 = fitInto(fitC);
@@ -535,16 +535,21 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // ── Gestures: wheel and pinch zoom, drag pans, a tap selects; out past 1× returns to the liver ──
   // As on the anatomy: a mouse wheel zooms about the pointer; a trackpad's two-finger scroll pans (once zoomed in)
   // and its pinch (ctrlKey) zooms; Ctrl/⌘ + wheel always zooms. A gesture is classified once, as it starts.
-  let wheelKind = null, wheelAt = 0, wheelMute = false;
-  const rubberEnd = () => { rubberT = 0; if (!rubber) return; rubber = false; const G0 = fitV(); glideTo(G0, 380); atFit = true; };   // (the wheel's rubber band lets go: springs back)
+  let wheelKind = null, wheelAt = 0, wheelMute = false, wheelFrame = -9;
+  // (The wheel has gone quiet: 220 ms since its last event AND two frames run since. The browser hands a trackpad's wheel events over
+  // once a frame, so on a slow frame (200 ms and more) the time alone had passed with the pinch still going: its spring-back glided the
+  // lobule out to its framing between two of the pinch's events, and the next one zoomed it in again, the zoom flickering in and out
+  // (4 Nov 2026, Mohammad). A gesture's own 250 ms window counts the same way: a slow frame never ends a pinch.)
+  const wheelQuiet = (ms = 200) => performance.now() - wheelAt >= ms && frameCount() - wheelFrame >= 2;
+  const rubberEnd = () => { rubberT = 0; if (!rubber) return; if (!wheelQuiet()) { rubberT = setTimeout(rubberEnd, 120); return; } rubber = false; const G0 = fitV(); glideTo(G0, 380); atFit = true; };   // (the wheel's rubber band lets go: springs back)
   el.addEventListener('wheel', (ev) => {
     ev.preventDefault();
     if (wheelMute) { const now = performance.now(); if (now - wheelAt < 250) { wheelAt = now; return; } wheelMute = false; }
     stopInertia();
     cancelFrame(glide); gliding = false;   // a button's glide never fights the hand
     const u = ev.deltaMode === 1 ? 16 : ev.deltaMode === 2 ? snap.h : 1, dx = ev.deltaX * u, dy = ev.deltaY * u, now = performance.now();
-    if (now - wheelAt > 250) wheelKind = ev.ctrlKey || ev.metaKey ? 'pinch' : ev.deltaMode === 0 && (dx !== 0 || ev.wheelDeltaY == null || Math.abs(Math.abs(ev.wheelDeltaY) - Math.abs(ev.deltaY) * 3) < 1) ? 'pad' : 'wheel';
-    wheelAt = now;
+    if (wheelQuiet(250)) wheelKind = ev.ctrlKey || ev.metaKey ? 'pinch' : ev.deltaMode === 0 && (dx !== 0 || ev.wheelDeltaY == null || Math.abs(Math.abs(ev.wheelDeltaY) - Math.abs(ev.deltaY) * 3) < 1) ? 'pad' : 'wheel';
+    wheelAt = now; wheelFrame = frameCount();
     if (wheelKind === 'pad' && !ev.ctrlKey && !ev.metaKey) {
       if (V.k <= kFit * 1.001 && geo) {   // at its framing the lobule follows the scroll on a rubber band, and springs back when it stops
         const F0 = fitInto(fitA), Lx = 0.4 * (snap.w || 800), Ly = 0.4 * (snap.h || 600);
@@ -1894,7 +1899,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   }
   // (A wheel or a trackpad's pinch is a hand too, as a scroll is: each of them changed the zoom on every frame and laid the labels out in
   // full there, and redrew the lobule's bitmap at each √2 step, which is what made zooming the lobule on a Mac lag.)
-  const handOn = () => touches.size > 0 || !!cancelFlick || (!!wheelKind && performance.now() - wheelAt < 250);
+  const handOn = () => touches.size > 0 || !!cancelFlick || (!!wheelKind && !wheelQuiet(250));
   // The hand let go (or paused): place the labels again for where the view now is.
   function followEnd() { if (handOn()) { followT = setTimeout(followEnd, 140); return; } if (panOn || rough || rides) { rough = false; layoutKey = ''; viewChanged(); } }
   // Boxes and leader ends the ride's check works in, kept and written in place (a pool grows by index, once, to the most labels there are).
