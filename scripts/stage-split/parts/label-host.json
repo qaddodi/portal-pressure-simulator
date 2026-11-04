@@ -1,0 +1,1 @@
+{"factory":"createLabelHost","file":"stage-label-host.js","about":"The labels' GPU host in the figure's present, and their pin to the figure.","lines":[[5278,5323]],"stay":["labelGL","labelPassOff"]}

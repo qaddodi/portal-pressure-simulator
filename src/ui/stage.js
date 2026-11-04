@@ -39,7 +39,6 @@ import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } fro
 import { elBoxInto } from './shape-gl.js';
 import { HOVER_LINK } from './hover-link.js';
 import { createExplain } from './label-explain.js';
-import { createLabelGL } from './label-gl.js';
 import { sceneCam } from './scene-cam.js';
 import { createGlassGL, glassRegions, GLASS, PANE, roundPath } from './glass-gl.js';
 import { writePoints, writeJoinNow } from './veins-sweep.js';
@@ -154,6 +153,7 @@ import { createFrame } from './stage-frame.js';
 import { createTransitions } from './stage-transitions.js';
 import { createIdle } from './stage-idle.js';
 import { createLabelSolve } from './stage-label-solve.js';
+import { createLabelHost } from './stage-label-host.js';
 
 export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, onViewChange }) {
   // <stage-split live>
@@ -316,6 +316,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get labelKey() { return labelKey; }, set labelKey(v) { labelKey = v; },
     get labelKeyArr() { return labelKeyArr; },
     get labelPainted() { return labelPainted; }, set labelPainted(v) { labelPainted = v; },
+    get labelPassOff() { return labelPassOff; }, set labelPassOff(v) { labelPassOff = v; },
+    get labelRider() { return labelRider; }, set labelRider(v) { labelRider = v; },
     get labelSettleT() { return labelSettleT; }, set labelSettleT(v) { labelSettleT = v; },
     get labelShown() { return labelShown; }, set labelShown(v) { labelShown = v; },
     get labelSol() { return labelSol; }, set labelSol(v) { labelSol = v; },
@@ -525,6 +527,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get xfOp() { return xfOp; }, set xfOp(v) { xfOp = v; },
     get xfSolving() { return xfSolving; }, set xfSolving(v) { xfSolving = v; },
     get zoomBase() { return zoomBase; }, set zoomBase(v) { zoomBase = v; },
+    get zoomM() { return zoomM; }, set zoomM(v) { zoomM = v; },
     get zShift() { return zShift; }, set zShift(v) { zShift = v; },
   };
   // </stage-split live>
@@ -5274,53 +5277,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return top ? { gl: top.gl, canvas: top.canvas, ask: () => veins?.top?.present(), now: () => veins?.top?.present(), active: () => !!veins?.top && !veins.lost && wrap.classList.contains('gl-on'), scale: () => vCanvas.width / (stageBox().width || 1), layerAlpha: true } : null;
   };
   let labelGL = null, labelPassOff = null;
-  // (The labels' pass in the figure's present: its prep, so they are laid before any glass takes its blur, which then has them in it.)
-  const labelPass = () => {
-    labelPassOff?.(); labelPassOff = null;
-    if (labelGL && veins?.top) labelPassOff = veins.top.add({ order: LABELS_ORDER, prep: () => { if (!gpuProbe.skipLabels) labelGL?.drawInto(); }, draw: () => {} });
-  };
-  { const host = labelHost(); labelGL = host ? createLabelGL(labelSvg, gLabels, { software: SOFTWARE, marks: [gLeaders, gScan], onBoxes: frostWake, host }) : null; labelPass(); }
-  // (Labels part of the figure: each station label drawn at its point as the figure has it in this frame, label-gl.js pinTo.)
-  // (The same kind of point the layout took (pmid): the middle of the vessel it names, or the station itself. A view change that shows or hides
-  // that vessel must not swap one for the other part way: the label would leap between the two.)
-  const PIN_P = [0, 0];
-  // (A point slid along its vessel by the tidy (au, 0.5 its middle): where it stands on that vessel now, stage px, into PIN_P; false if none.)
-  function pinVesselAt(id, au) {
-    const eid = LABEL_VESSEL[id], x = eid && E[eid], P = x && x.vis && !x.ghost ? geo[eid]?.cur : null;
-    if (!(P?.length > 1)) return false;
-    const m = arcMid(P, au); worldToLocalInto(PIN_P, m[0], m[1]);
-    return true;
-  }
-  function pinKind(id, ax, ay, au) {
-    if (!CTM) refreshCTM();
-    const t = easeInOut(morph), a = labelAnchor(id, t);
-    if (a.mid && (au == null || au === 0.5) && Math.hypot(a.ax - ax, a.ay - ay) < 1) return 1;
-    if (au != null && au !== 0.5 && pinVesselAt(id, au) && Math.hypot(PIN_P[0] - ax, PIN_P[1] - ay) < 1) return 1;
-    const p = nodePos(id, t); worldToLocalInto(PIN_P, p[0], p[1]);
-    return Math.hypot(PIN_P[0] - ax, PIN_P[1] - ay) < 1 ? 2 : 0;
-  }
-  // (How a label's place moves as its gap grows by one px, per direction (stage.js offset).)
-  const PIN_DIR = { N: [0, -1], S: [0, 1], E: [1, 0], W: [-1, 0], EL: [1, 0], WL: [-1, 0], NE: [0.72, -0.72], NW: [-0.72, -0.72], SE: [0.72, 0.72], SW: [-0.72, 0.72] };
-  if (labelGL) labelGL.pinTo((id, out, mid, au) => {
-    if (!CTM) refreshCTM();
-    if (mid && au != null && au !== 0.5 && pinVesselAt(id, au)) { out[0] = PIN_P[0]; out[1] = PIN_P[1]; if (zoomM) { out[0] = zoomM[0] * out[0] + zoomM[4]; out[1] = zoomM[3] * out[1] + zoomM[5]; } return Number.isFinite(out[0]) && Number.isFinite(out[1]); }
-    const t = easeInOut(morph), a = labelAnchor(id, t);
-    if (mid || !a.mid) { out[0] = a.ax; out[1] = a.ay; } else { const p = nodePos(id, t); worldToLocalInto(PIN_P, p[0], p[1]); out[0] = PIN_P[0]; out[1] = PIN_P[1]; }
-    // (A card's zoom: the point is carried by the scene camera; the label's offset from it is not.)
-    if (zoomM) { const x = out[0], y = out[1]; out[0] = zoomM[0] * x + zoomM[4]; out[1] = zoomM[3] * y + zoomM[5]; }
-    return Number.isFinite(out[0]) && Number.isFinite(out[1]);
-  }, (wx, wy, view, out, s) => {
-    // (A world anchor, any figure label: where the point is under this frame's camera. Only at rest in the view it was laid out for: between the
-    // two views the geometry moves, and those labels follow as before.)
-    if (viewXf) { if (!CTM) refreshCTM(); return morphAnchorAt(wx, wy, view, out, s); }   // (the change between the views: the point rides the vessel it lies on)
-    if (!(morph === 0 || morph === 1) || morph !== view) return false;
-    if (!CTM) refreshCTM();
-    worldToLocalInto(out, wx, wy);
-    return Number.isFinite(out[0]) && Number.isFinite(out[1]);
-  });
-  wrap.dataset.labels = labelGL ? 'gpu' : 'svg';
-  labelRider = labelGL;
-  labelGL?.setProbeCam?.(() => zoomM);   // (the Doppler probe rides a card's zoom with the figure)
+  const { PIN_DIR, labelPass, pinKind } = createLabelHost({ E, LABELS_ORDER, arcMid, easeInOut, frostWake, gLabels, gLeaders, gScan, geo, labelAnchor, labelHost, labelSvg, morphAnchorAt, nodePos, refreshCTM, worldToLocalInto, wrap }, live);
   // The frosted glasses drawn inside the figure's canvas (round 2, 2.1, 31 Oct): each glass's blur is taken from the picture the vessel
   // renderer has just laid in its own context (veins-gl top), so nothing is copied off the GPU, and the glass's own canvas (the
   // callouts', the liver pane's) or the browser's blur (the Present cards') is not needed. Drawn in the page's order: the pane (under the
