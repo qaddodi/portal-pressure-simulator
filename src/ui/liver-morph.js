@@ -81,6 +81,9 @@ export const KEEP = { vessel: 13, strand: 8 };
 // Where a vessel reaches the edge by design (the hepatic veins leave the top for the cava; the caudate's veins the cava's wall),
 // its last stretch is not held in.
 const AT_EDGE = { POST_R_RHV: 0.6, POST_R_MHV: 0.6, POST_L_LHV: 0.6, CAUD: 0.6 };
+// The hepatic artery comes in from outside the liver, beside the portal trunk, and enters only at the hilum: only the share of it
+// past ENTERS lies in the liver. Holding the edge off its outside run drew a tail of liver down along it toward the duodenum.
+const ENTERS = { A_HEP: 0.85 };
 const sampleCurve = (d, per = 24) => {
   const t = d.match(/[MC]|-?\d+(\.\d+)?/g), P = [];   // alloc-rare: built once and kept (the keepOut / keepCells guard at the top of the function), at the first outline that holds the edge off the vessels
   let cur = null, cmd;
@@ -114,6 +117,7 @@ export function liverKeepOut() {
     if (!EDGE_PATH[id] || HIDDEN_EDGES.has(id) || ANAT_HIDDEN.has(id)) continue;
     let P = sampleCurve(EDGE_PATH[id]);
     for (const p of strandPts(id, P)) keepOut.push([p[0], p[1], KEEP.strand]);   // alloc-rare: built once and kept (the keepOut / keepCells guard at the top of the function), at the first outline that holds the edge off the vessels
+    if (ENTERS[id]) P = P.slice(Math.round(P.length * ENTERS[id]));   // alloc-rare: built once and kept, at the first outline that holds the edge off the vessels
     if (AT_EDGE[id]) P = P.slice(0, Math.round(P.length * AT_EDGE[id]));   // alloc-rare: built once and kept (the keepOut / keepCells guard at the top of the function), at the first outline that holds the edge off the vessels
     for (const p of P) keepOut.push([p[0], p[1], KEEP.vessel]);   // alloc-rare: built once and kept (the keepOut / keepCells guard at the top of the function), at the first outline that holds the edge off the vessels
   }
