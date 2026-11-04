@@ -1783,6 +1783,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
             }
           }
         }
+        // (A leader with no line yet (the FibroScan callout's, before it has a callout: no `d`) shows nothing in the SVG either: it is the GPU's, drawn as nothing, not a mark left to the SVG.)
+        if (st && !geo && el.tagName === 'path' && !el.getAttribute('d')) { if (!el.hasAttribute('data-gl')) el.setAttribute('data-gl', ''); continue; }
         // (A mark this drawing cannot give stays the SVG's; one it draws is hidden there, in the same frame.)
         if (st === false || (st && !geo)) { if (el.hasAttribute('data-gl')) el.removeAttribute('data-gl'); svgLeft.add(el); continue; }
         if (!el.hasAttribute('data-gl')) el.setAttribute('data-gl', '');
