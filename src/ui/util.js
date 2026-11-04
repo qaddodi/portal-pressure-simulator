@@ -376,6 +376,28 @@ function tipShow(el, text, side, tip) {
 }
 /** Floating menu/popover anchored to an element. Closes on outside click, Escape or re-open. */
 let openMenu = null;
+// One menu-like surface at a time (a popover, the main menu or the Why card): opening one puts the other away by its own exit, and
+// Esc or a tap outside go to the one on top only, from these two listeners, not from one per surface (menu motion recs, 4 Nov 2026).
+// A surface is { close(), has(target), onEsc?(e) } (onEsc answers true when it used the key itself, as the search field's clear does).
+let surface = null;
+const dialogUp = () => !!document.querySelector('#modalBack.show, .pal-back:not([hidden]):not(.leaving)');   // (a dialog on top has the keys and the taps)
+export function claimSurface(s) {
+  if (surface && surface !== s) { const old = surface; surface = null; old.close(); }
+  surface = s; s.armed = false;
+  setTimeout(() => { s.armed = true; }, 0);   // (armed after this task, so the tap that opened it does not close it)
+}
+export function releaseSurface(s) { if (surface === s) surface = null; }
+addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape' || !surface || dialogUp() || e.isComposing) return;
+  e.preventDefault(); e.stopPropagation();
+  if (!surface.onEsc?.(e)) surface.close();
+}, true);
+addEventListener('pointerdown', (e) => {
+  const s = surface;
+  if (s && s.armed && !dialogUp() && !s.has(e.target)) s.close();
+}, true);
+/** How long a menu takes to leave: a sheet, and a menu from the thumb dock (which settles in over --d-small), take --d-small both ways; any other, --d-flip. */
+export const menuExitMs = (el) => (el.classList.contains('as-sheet') || (el.classList.contains('from-dock') && document.documentElement.classList.contains('thumb-ui')) ? D_SMALL : D_FLIP);
 let lastMenu = { anchor: null, t: 0 };   // (the menu that just closed: on iOS a tapped button takes no focus, so a dialog it opens returns here)
 export const reduceMotionMQ = matchMedia('(prefers-reduced-motion: reduce)');
 /** How a scroll the app makes on its own moves: smooth, or at once with Reduce Motion (as the menu's already did). */
@@ -400,12 +422,15 @@ export function settleFrom(el, anchor, left, top) {
 
 export function popover(anchor, content, { cls = '', align = 'start', place = 'below', onClose, sheet = true } = {}) {
   if (openMenu) { const same = openMenu.anchor === anchor; closePopover(); if (same) return null; }
-  const asSheet = sheet && (innerWidth < 768 || matchMedia(UPRIGHT_MQ).matches);
+  const asSheet = sheet && matchMedia(STACK_MQ).matches;   // (the one breakpoint, shared with the main menu: a phone held sideways is a popover, as on a Mac)
   // (from-dock: over the thumb dock a sheet, or a menu from the dock, rises from behind the tab row; one from the top bar,
   // the Colored-by key on an upright iPad, pops in where it rests, as everywhere else, never sliding up from below it.)
   const fromDock = asSheet || !!anchor.closest?.('.vdock');
   const el = h('div', { class: 'menu ' + cls + (asSheet ? ' as-sheet' : '') + (fromDock ? ' from-dock' : ''), role: 'dialog', 'aria-label': anchor.getAttribute?.('aria-label') || anchor.title || anchor.textContent?.trim().slice(0, 40) || 'Menu' }, content);
   enterAfterGone(el);
+  // A sheet has a light scrim that takes the tap away, as the main menu's does.
+  const scrim = asSheet ? h('div', { class: 'um-scrim' }) : null;
+  if (scrim) document.body.append(scrim);
   document.body.append(el);
   const put = () => {
     if (asSheet) return;
@@ -470,14 +495,13 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
   // (History's list has its own soft edges at both ends.)
   if (!el.classList.contains('tl-history')) fadeWhileMore(el);
   if (asSheet) swipeSheet(el, () => closePopover());
-  const off = (e) => { if (!el.contains(e.target) && !anchor.contains(e.target)) closePopover(); };
-  const esc = (e) => { if (e.key === 'Escape') closePopover(); };
   // The keyboard opening or closing (a search field) moves the visible bottom: place the menu again.
   const vv = window.visualViewport, onVV = () => { if (!asSheet) put(); };
   // (Armed after this task, so the tap that opened the menu does not close it; a close before then cancels it.)
-  const arm = setTimeout(() => { addEventListener('pointerdown', off, true); addEventListener('keydown', esc); }, 0);
+  const me = { close: closePopover, has: (n) => el.contains(n) || anchor.contains(n) };
+  claimSurface(me);
   vv?.addEventListener('resize', onVV);
-  openMenu = { el, anchor, put, plate, cleanup: () => { clearTimeout(arm); removeEventListener('pointerdown', off, true); removeEventListener('keydown', esc); vv?.removeEventListener('resize', onVV); onClose?.(); } };
+  openMenu = { el, anchor, put, plate, scrim, cleanup: () => { releaseSurface(me); vv?.removeEventListener('resize', onVV); onClose?.(); } };
   restAttr(anchor, 'aria-expanded', 'true');   // (a screen reader's state, written between frames)
   // Opened from the keyboard (the button shows its focus ring): focus goes in, so Tab does not have to cross the whole page to reach
   // the menu. A mouse or a touch leaves focus where it was.
@@ -934,10 +958,11 @@ export function closePopover() {
   // (Over the thumb dock it sinks behind the tab row, as the cards do, in the same step: a leave is one flip, app.css thumbOut.)
   // alloc-rare: a menu closes (a tap away or a choice): its leave closure and the timer's, once for each close
   if (el.isConnected) {
-    const ms = D_FLIP, plate = openMenu.plate; const leave = () => el.classList.add('leaving');
+    const ms = menuExitMs(el), plate = openMenu.plate, scrim = openMenu.scrim; const leave = () => el.classList.add('leaving');
     if (el.dataset.swiped) leave(); else if (leaveFromHere(el, leave)) plate?.leaveAlong();   // (the plate follows by its twin rules; one put away while still coming in follows the menu's exit from where it had got to)
-    el.inert = true; markGone(el.dataset.swiped ? 0 : ms); setTimeout(() => { releaseWords(el); restRemove(el); plate?.dispose(); }, el.dataset.swiped ? D_SMALL : ms + 10);
-  } else openMenu.plate?.dispose();
+    if (scrim) leaveFromHere(scrim, () => scrim.classList.add('out'));
+    el.inert = true; markGone(el.dataset.swiped ? 0 : ms); setTimeout(() => { releaseWords(el); restRemove(el); if (scrim) restRemove(scrim); plate?.dispose(); }, el.dataset.swiped ? D_SMALL : ms + 10);
+  } else { openMenu.plate?.dispose(); if (openMenu.scrim) restRemove(openMenu.scrim); }
   restAttr(openMenu.anchor, 'aria-expanded', 'false'); openMenu.cleanup();
   lastMenu.anchor = openMenu.anchor; lastMenu.t = performance.now();   // (the one record, written in place)
   openMenu = null;
@@ -1151,8 +1176,8 @@ export function closeModal() {
   // (It fades out as it faded in, then is hidden: closed in one frame, Help, About and every dialog blinked out.)
   back.classList.remove('show'); back.classList.add('leaving');
   modalVV?.removeEventListener('resize', fitModalSoon); modalVV?.removeEventListener('scroll', fitModalSoon);
-  clearTimeout(modalLeaveT); modalLeaveT = setTimeout(() => restPass(modalLeaveEnd), 220);
-  setTimeout(() => restPass(modalClosedDown), 240);   // (the dialog holds its place while it fades)
+  clearTimeout(modalLeaveT); modalLeaveT = setTimeout(() => restPass(modalLeaveEnd), D_FLIP + 20);   // (its exit is --d-flip: the timer comes from it, not a number of its own)
+  setTimeout(() => restPass(modalClosedDown), D_FLIP + 40);   // (the dialog holds its place while it fades)
   const appEl = document.getElementById('app'); if (appEl) appEl.inert = false;
   behindDialog(false);
   const back0 = modalReturn?.isConnected ? modalReturn : document.getElementById('btnMenu');

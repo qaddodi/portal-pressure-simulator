@@ -6,7 +6,7 @@
 
 import { store } from './store.js';
 import { createTraceGL, fitPen } from './trace-gl.js';
-import { h, icon, svgIcon, cssVar, clamp, settleFrom, swipeSheet, visibleBottom, fadeWhileMore, PHONE_MQ, fmt, shownOf } from './util.js';
+import { h, icon, svgIcon, cssVar, clamp, settleFrom, swipeSheet, visibleBottom, fadeWhileMore, STACK_MQ, fmt, shownOf, claimSurface, releaseSurface } from './util.js';
 import { SNAPSHOTS } from './snapshots.js';
 import { HVPG_CUTS, PPG_CUTS, sevOfCuts } from '../engine/pressure-cuts.js';
 import { pressureColor } from './colormap.js';
@@ -111,7 +111,7 @@ const matches = (hay, words) => words.every((w) => hay.includes(w));
 
 export function createMenu({ anchor, library, libraryNow, onPreset, share, help, onToggle }) {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)');
-  const sheetMQ = matchMedia(PHONE_MQ);
+  const sheetMQ = matchMedia(STACK_MQ);
   const fine = matchMedia('(hover: hover) and (pointer: fine)');
   let el = null, back = null, plate = null, pv = null, coldOpen = false, open = false, hoverT = 0, hideT = 0, pvKey = null, pvTok = 0, mark = null, query = '', tab = 'present';
 
@@ -119,7 +119,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     if (!open) return;
     open = false; clearTimeout(hoverT); hidePreview(true);
     anchor.setAttribute('aria-expanded', 'false');
-    document.removeEventListener('pointerdown', outside, true);
+    releaseSurface(surf);
     removeEventListener('keydown', typed, true);
     removeEventListener('resize', place);
     vv?.removeEventListener('resize', fitSheet); vv?.removeEventListener('scroll', fitSheet);
@@ -149,7 +149,8 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     if (!el || el.contains(e.target) || e.ctrlKey || e.metaKey || e.altKey || e.key.length !== 1 || e.key === ' ' || e.target.closest?.('input, textarea, select, [contenteditable], #modalBack')) return;   // (a question over the menu keeps its own keys)
     el.querySelector('.um-q').focus();
   };
-  const outside = (e) => { if (el && !el.contains(e.target) && !pv?.contains(e.target) && !anchor.contains(e.target) && !e.target.closest?.('#modalBack')) close(); };   // (a question opened from a row, Delete script or a name, is answered with the menu still open behind it)
+  // (The one surface on top, util.js claimSurface: Esc clears a typed search first and then closes; a tap outside closes. A question opened from a row is answered with the menu still open behind it.)
+  const surf = { close: () => close(), has: (n) => !el || el.contains(n) || !!pv?.contains(n) || anchor.contains(n) || !!n.closest?.('#modalBack'), onEsc: () => { const q = el?.querySelector('.um-q'); if (q && q.value) { q.value = ''; query = ''; filter(); q.focus({ preventScroll: true }); return true; } return false; } };   // (a question opened from a row, Delete script or a name, is answered with the menu still open behind it)
 
   // ── Rows ──
   // A deck's level as a short muted word (Foundation, Core, Advanced), not a row of pips.
@@ -599,7 +600,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
         plate = glassPlate(el) || plateFor(el, 'umenu');   // (its fill, ring and shadow are the GPU's, a plate laid under it: plate-gl.js)
         openAt = performance.now(); place(); filter(); groupsIn(el);
         anchor.setAttribute('aria-expanded', 'true');
-        setTimeout(() => document.addEventListener('pointerdown', outside, true), 0);
+        claimSurface(surf);
         addEventListener('resize', place);
         vv?.addEventListener('resize', fitSheet); vv?.addEventListener('scroll', fitSheet);
         if (sheet) { el._top = null; sheetLiftSoon(); }   // (where the sheet's top rests as it opens: the first lift eases from there)

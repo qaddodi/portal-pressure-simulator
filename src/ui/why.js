@@ -2,12 +2,14 @@
 
 import { classSoon } from './class-soon.js';
 import { host } from './host.js';
-import { h, fmt, svgIcon, visibleBottom, announce } from './util.js';
+import { h, fmt, svgIcon, visibleBottom, announce, claimSurface, releaseSurface } from './util.js';
 import { leaveFromHere } from './menu-leave.js';
 import { D_FLIP, D_SMALL, EASE_ARRIVE, EASE_MOVE } from './ease.js';
 import { glidePlate } from './plate-glide.js';
 
 export function createWhy(pop) {
+  // (The one surface on top: util.js claimSurface routes Esc and the outside tap to it; a metric, finding, vital, button or link is not 'outside', it opens the next card.)
+  const me = { close: () => close(), has: (n) => pop.contains(n) || !!n.closest?.('.metric, .finding, .vital, .btn, .link') };
   let openFor = null, anchorEl = null;
   // (Placed by translate from the window's corner, as util.js popover places a menu: left and top are never written, so nothing is laid
   // out, and the left is not read back; the clamp keeps it clear of the notch (env() is 0 elsewhere) and inside the window.)
@@ -38,6 +40,7 @@ export function createWhy(pop) {
     clearTimeout(leaveT); pop.classList.remove('leaving');
     pop.replaceChildren(head('Why?'), h('div', { class: 'sub' }, 'Working out what drives it…'), h('div', { class: 'skeleton', style: { width: '90%' } }), h('div', { class: 'skeleton', style: { width: '70%' } }), h('div', { class: 'skeleton', style: { width: '80%' } }));
     pop.classList.add('show');
+    claimSurface(me);
     place(anchor);
     // Opened from the keyboard: focus goes into the card (its close button), and Esc or that button brings it back to the anchor.
     if (anchor.matches?.(':focus-visible')) pop.querySelector('button')?.focus({ preventScroll: true });
@@ -89,10 +92,8 @@ export function createWhy(pop) {
       leaveFromHere(pop, () => { pop.classList.remove('show'); pop.classList.add('leaving'); });
       clearTimeout(leaveT); leaveT = setTimeout(() => classSoon(pop, 'leaving', false), 200);
     }
+    releaseSurface(me);
     openFor = null; anchorEl?.focus?.({ preventScroll: true }); anchorEl = null;
   }
-  // (Capture: one Esc closes this card and only this card; the page's own Esc, which clears the selection it was opened from, does not also run. Not while Search has the key: its Esc is the one that counts.)
-  addEventListener('keydown', (e) => { if (e.key === 'Escape' && pop.classList.contains('show') && !e.target.closest?.('.pal-back')) { e.preventDefault(); e.stopPropagation(); close(); } }, true);
-  addEventListener('pointerdown', (e) => { if (pop.classList.contains('show') && !pop.contains(e.target) && !e.target.closest('.metric, .finding, .vital, .btn, .link')) close(); });
   return { open, close };
 }

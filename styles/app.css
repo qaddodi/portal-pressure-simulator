@@ -995,7 +995,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .menu.se::after { bottom: calc(-1 * var(--fade-pb, 8px)); margin-top: -13px; margin-bottom: 0; height: 12px; background: linear-gradient(to bottom, transparent, var(--surface)); opacity: var(--sedge-b); }
 .menu.as-sheet { left: 0 !important; right: 0; top: auto !important; bottom: 0; width: auto !important; min-width: 0; max-width: none; max-height: 75dvh; overflow: hidden auto; overscroll-behavior: contain; touch-action: pan-y;
   padding: 10px 8px calc(10px + env(safe-area-inset-bottom)); border-radius: var(--r-sheet) var(--r-sheet) 0 0; --edge-y: 100%; animation: slide-from-edge var(--d-small) var(--ease); }
-.menu.as-sheet.leaving { animation: slide-to-edge var(--d-flip) var(--ease-in) forwards; }
+.menu.as-sheet.leaving { animation: slide-to-edge var(--d-small) var(--ease-in) forwards; }
 .menu.as-sheet .lens-d { white-space: normal; }
 
 .why-pop { position: fixed; left: 0; top: 0; /* (placed by translate: why.js) */ z-index: var(--z-popover); width: min(440px, calc(100vw - 24px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px))); max-height: calc(100dvh - 16px); overflow: hidden auto; overscroll-behavior: contain; background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3), 0 0 0 1px var(--hairline); padding: 16px 16px 16px; display: none; }
@@ -1507,10 +1507,10 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 /* Command palette */
 .pal-back { position: fixed; inset: 0; z-index: var(--z-dialog); background: var(--scrim); display: flex; justify-content: center; align-items: flex-start; padding: calc(12vh + var(--safe-top)) calc(16px + env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) calc(16px + env(safe-area-inset-left, 0px)); }
 .pal-back[hidden] { display: none; }
-.pal-back { animation: crossfade var(--d-flip) var(--ease); }
+.pal-back { animation: crossfade var(--d-small) var(--ease); }
 .pal-back.leaving { pointer-events: none; animation: crossfade-out var(--d-flip) var(--ease-in) forwards; }
 .pal-back.leaving .pal { animation: scale-settle-out var(--d-flip) var(--ease-in) forwards; }
-.pal { width: min(620px, 100%); background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3), 0 0 0 1px var(--hairline); overflow: hidden; animation: scale-settle var(--d-flip) var(--ease); }
+.pal { width: min(620px, 100%); background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3), 0 0 0 1px var(--hairline); overflow: hidden; animation: scale-settle var(--d-small) var(--ease); }
 .pal-top { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--hairline); }
 .pal-ic { width: var(--ic-m); height: var(--ic-m); stroke: var(--text-3); fill: none; stroke-width: 1.7; }
 .pal-input { flex: 1; border: 0; outline: none; background: transparent; font-size: var(--fs-16); color: var(--text); }
@@ -6545,7 +6545,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
   #app.thumb.panel-open .panel, #app.thumb .treat-card, #app.thumb .instrument-workspace.float-ui.entering { animation: thumbIn var(--d-small) var(--ease) var(--enter-delay, 0ms) backwards; }
   /* (A menu is drawn above the tab row, so it never rises across it: it settles in from its own foot, by scale and opacity.) */
   html.thumb-ui .menu.from-dock { animation: scale-settle var(--d-small) var(--ease) var(--enter-delay, 0ms) backwards; transform-origin: 50% 100%; }
-  html.thumb-ui .menu.from-dock.leaving { animation: scale-settle-out var(--d-flip) var(--ease-in) forwards; }
+  html.thumb-ui .menu.from-dock.leaving { animation: scale-settle-out var(--d-small) var(--ease-in) forwards; }
   /* A sheet moved by its content (has-plate, sheet-move.js) rises and sinks the same way, but by its content's translate alone under
      its still clip: no --sink is eased frame by frame on the main thread. The box holds (sheet-hold) so its leave still ends on it. */
   #app.thumb.panel-open .panel.has-plate, #app.thumb .treat-card.has-plate, #app.thumb .instrument-workspace.float-ui.entering.has-plate { animation: none; }
