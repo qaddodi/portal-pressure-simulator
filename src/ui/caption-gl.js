@@ -317,10 +317,15 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
   function buildGroup(I, s) {
     let g = I.g;
     if (!g) { g = I.g = document.createElementNS(NS, 'g'); g.setAttribute('class', 'lb'); mblocks.append(g); I.ent = { g, x: 0, y: 0, rot: false }; }
-    if (I.gsv === I.sv && I.gs === s && I.ggr === glyphsReady()) return g;
-    I.gsv = I.sv; I.gs = s; I.ggr = glyphsReady();
+    if (I.gsv === I.sv && I.gs === s && I.ggr === glyphsReady() && I.garr === I.arrow) return g;
+    I.gsv = I.sv; I.gs = s; I.ggr = glyphsReady(); I.garr = I.arrow;
     g.textContent = '';
     const bw = I.w * s;
+    if (I.arrow) {   // (an owner's arrow: a small triangle about a point of the caption, turned to the way it points)
+      const A = I.arrow, c = Math.cos(A.ang), sn = Math.sin(A.ang), ox = (A.x + c * A.r) * s, oy = (A.y + sn * A.r) * s, tri = document.createElementNS(NS, 'polygon');
+      tri.setAttribute('points', [ox + (-4.5 * c + 5 * sn) * s, oy + (-4.5 * sn - 5 * c) * s, ox + 4.5 * c * s, oy + 4.5 * sn * s, ox + (-4.5 * c - 5 * sn) * s, oy + (-4.5 * sn + 5 * c) * s].map((v) => v.toFixed(2)).join(' '));
+      tri.style.fill = A.colour; g.append(tri);
+    }
     for (let li = 0, n = I.set.n ?? I.set.lines.length; li < n; li++) {
       const ln = I.set.lines[li], x0 = (bw - ln.w * s) / 2;
       for (let ri = 0, rn = ln.m ?? ln.runs.length; ri < rn; ri++) {
@@ -416,7 +421,6 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
             if (g.style.opacity !== o) g.style.opacity = o;
             lgList.push(e);
           }
-          if (I.arrow) drawArrow(ctx, I, l, t, s, a);
           continue;
         }
         // Its words: each run's halo (a round-joined stroke of Inter's outlines, the Anatomy pen), then its ink, in the page's order.

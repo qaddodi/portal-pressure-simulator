@@ -386,6 +386,11 @@ export function describeBlock(g, cs = getComputedStyle, boxOf) {   // (boxOf: a 
       d.parts.push({ k: 'rect', x: NUM(el.getAttribute('x')), y: NUM(el.getAttribute('y')), w: NUM(el.getAttribute('width')), h: NUM(el.getAttribute('height')),
         rx: NUM(el.getAttribute('rx')), fill: none(c.fill) ? '' : c.fill, stroke: none(c.stroke) ? '' : c.stroke, sw: NUM(c.strokeWidth),
         strokeFirst: /^stroke/.test(c.paintOrder), filter: c.filter === 'none' ? '' : c.filter });
+    } else if (el.tagName === 'polygon') {
+      // (A filled shape of straight edges: an arrow's triangle, a legend's dot as a many-sided one.)
+      const pts = (el.getAttribute('points') || '').trim().split(/[\s,]+/).map(NUM);
+      if (pts.length < 6 || pts.length % 2) return { svg: 'part' };
+      d.parts.push({ k: 'poly', pts, fill: none(c.fill) ? '' : c.fill, stroke: none(c.stroke) ? '' : c.stroke, sw: NUM(c.strokeWidth), strokeFirst: /^stroke/.test(c.paintOrder) });
     } else if (el.tagName === 'text') {
       const line = { k: 'text', x: NUM(el.getAttribute('x')), y: NUM(el.getAttribute('y')), anchor: el.getAttribute('text-anchor') || 'start', runs: [] };
       for (const sp of el.children) {
@@ -424,7 +429,7 @@ export function svgOnly(d, ready = glyphsReady()) {
   if (d.filter || d.parts.some((p) => p.filter && !(p.k === 'rect' && shadowsOf(p.filter)))) return 'filter';
   const paints = (c) => !c || !!parseColor(c);
   for (const p of d.parts) {
-    if (p.k === 'rect') { if (!paints(p.fill) || !paints(p.stroke)) return 'colour'; continue; }
+    if (p.k === 'rect' || p.k === 'poly') { if (!paints(p.fill) || !paints(p.stroke)) return 'colour'; continue; }
     for (const r of p.runs) {
       if (r.fam && !INTER.test(r.fam)) return 'font';
       if (!ready) return 'glyphs';
@@ -502,6 +507,7 @@ export function layBlock(d, dpr, rot = false) {
   const lines = [];
   for (const p of d.parts) {
     if (p.k === 'rect') { const m = p.sw / 2; grow(p.x - m, p.y - m, p.x + p.w + m, p.y + p.h + m); continue; }
+    if (p.k === 'poly') { const m = p.sw / 2; for (let i = 0; i < p.pts.length; i += 2) grow(p.pts[i] - m, p.pts[i + 1] - m, p.pts[i] + m, p.pts[i + 1] + m); continue; }
     const runs = p.runs.map((r) => ({ r, w: textWidth(r.t, typeOf(r)) }));
     let w = 0;
     runs.forEach((q, i) => { w += (i ? q.r.dx : 0) + q.w; });
@@ -550,6 +556,7 @@ export function blockOps(d, lay) {
   };
   for (const p of d.parts) {
     if (p.k === 'rect') { put({ poly: roundRectPoly(p.x, p.y, p.w, p.h, p.rx) }, lay.m, p.fill, p.stroke, p.sw, p.strokeFirst); continue; }
+    if (p.k === 'poly') { put({ poly: [{ pts: Float32Array.from(p.pts), closed: true }] }, lay.m, p.fill, p.stroke, p.sw, p.strokeFirst); continue; }
     for (const q of lay.lines.find((l) => l.p === p).runs) {
       const r = q.r;
       if (!r.t) continue;
@@ -748,7 +755,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   const MISS = new Error('style not read yet');
   const STYLE_PROPS = ['display', 'opacity', 'filter', 'outlineStyle', 'outlineWidth', 'outlineColor', 'outlineOffset', 'fill', 'stroke', 'strokeWidth', 'paintOrder',
     'fontStyle', 'fontWeight', 'fontSize', 'fontFamily', 'letterSpacing', 'fontVariantNumeric', 'strokeLinejoin', 'strokeLinecap', 'strokeDasharray', 'strokeDashoffset'];
-  const VOLATILE = new Set(['x', 'y', 'dx', 'dy', 'width', 'height', 'rx', 'ry', 'cx', 'cy', 'r', 'd', 'transform', 'data-gl', 'aria-label', 'tabindex', 'role']);
+  const VOLATILE = new Set(['points', 'x', 'y', 'dx', 'dy', 'width', 'height', 'rx', 'ry', 'cx', 'cy', 'r', 'd', 'transform', 'data-gl', 'aria-label', 'tabindex', 'role']);
   let epoch = 0, fillT = 0, rideLook = !!svg.parentElement?.closest?.('.lb-ride');   // (rideLook: the stage is in a ride, see outer)
   const snaps = new Map(), easing = new WeakMap(), unread = new Set(), waiting = new Set();
   // The key of an element's style is a number worked out from the same things the text key was made of (the epoch, each ancestor's tag,
@@ -878,7 +885,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // (The layer's own group: its text scale, --lbk, sets the halos' width: every label.)
   const take = (rs) => { for (const r of rs) { if (!changed(r)) continue; if (r.target === blocks && r.type === 'attributes') { restyle(); for (const s of last) dirty.add(s.g); continue; } const g = labelOf(r.target); if (g) { dirty.add(g); ringKept.delete(g); if (animsKept.get(g)?.ans) animsKept.delete(g); } } };
   const mo = new MutationObserver((rs) => { take(rs); if (dirty.size) ask(); });
-  mo.observe(blocks, { subtree: true, childList: true, characterData: true, attributes: true, attributeOldValue: true, attributeFilter: ['class', 'style', 'x', 'y', 'dx', 'width', 'height', 'rx', 'fill', 'font-size', 'font-weight', 'letter-spacing', 'text-anchor'] });
+  mo.observe(blocks, { subtree: true, childList: true, characterData: true, attributes: true, attributeOldValue: true, attributeFilter: ['class', 'style', 'points', 'x', 'y', 'dx', 'width', 'height', 'rx', 'fill', 'font-size', 'font-weight', 'letter-spacing', 'text-anchor'] });
   // Anything outside them that can change how they look (the theme, the glass setting, the text size, a mode's class): every label.
   const all = () => { restyle(); const t = performance.now() + 700; for (const s of last) { dirty.add(s.g); live.set(s.g, t); if (!TRACK) exact.set(s.g, t); } allMarks(); ask(); };
   // (Not for a gesture's own classes, which change no label's look (idle-keys.js GESTURE_LOOK): each one made every label and mark read
@@ -1085,7 +1092,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   function fillLook(m, w) {
     const { pairs } = m.paint;
     const eased = (v) => { if (typeof v !== 'string' || v[0] !== TOK) return v; const q = pairs[+v.slice(1)], c = mixColour(q.from, q.to, w); return none(c) ? '' : c; };
-    return { ...m.base, parts: m.base.parts.map((p) => (p.k === 'rect' ? { ...p, fill: eased(p.fill), stroke: eased(p.stroke) } : { ...p, runs: p.runs.map((r) => ({ ...r, fill: eased(r.fill), stroke: eased(r.stroke) })) })) };
+    return { ...m.base, parts: m.base.parts.map((p) => (p.k === 'rect' || p.k === 'poly' ? { ...p, fill: eased(p.fill), stroke: eased(p.stroke) } : { ...p, runs: p.runs.map((r) => ({ ...r, fill: eased(r.fill), stroke: eased(r.stroke) })) })) };
   }
   // ── Between frames (2 Nov 2026, "label-gl fully to the GPU") ──
   // A label's look is described, laid out and painted into the atlas here, never inside a frame's draw: a draw uses the pictures it has
