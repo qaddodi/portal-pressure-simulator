@@ -7,6 +7,6 @@ import { readFileSync } from 'node:fs';
 // slop in its first frame (review item 22). The start point is taken once; later moves keep it.
 test('a pan rebases its start point the moment it first counts as moved', () => {
   const st = stageSource();
-  assert.match(st, /\(ev\.pointerType === 'touch' \? 8 : 4\)\) \{ if \(!drag\.moved\) \{ drag\.moved = true; drag\.x = ev\.clientX; drag\.y = ev\.clientY; \} clearPress\(\); \}/);
-  assert.match(st, /PAN_IN\.x = drag\.vx \+ \(ev\.clientX - drag\.x\) \/ drag\.s0; PAN_IN\.y = drag\.vy \+ \(ev\.clientY - drag\.y\) \/ drag\.s0;/);
+  assert.match(st, /\(ev\.pointerType === 'touch' \? 8 : 4\)\) \{ if \(!(?:live\.)?(?:live\.)?drag\.moved\) \{ (?:live\.)?(?:live\.)?drag\.moved = true; (?:live\.)?(?:live\.)?drag\.x = ev\.clientX; (?:live\.)?(?:live\.)?drag\.y = ev\.clientY; \} clearPress\(\); \}/);
+  assert.match(st, /PAN_IN\.x = (?:live\.)?drag\.vx \+ \(ev\.clientX - (?:live\.)?drag\.x\) \/ (?:live\.)?drag\.s0; PAN_IN\.y = (?:live\.)?drag\.vy \+ \(ev\.clientY - (?:live\.)?drag\.y\) \/ (?:live\.)?drag\.s0;/);
 });

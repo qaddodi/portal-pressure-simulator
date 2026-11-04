@@ -24,20 +24,20 @@ test('every close path runs through setPanelTab', () => {
 
 test('closeView fits again a fitted view, whatever the tools did with the camera; a moved one is kept', () => {
   const fn = stage.match(/function closeView\(\) \{[\s\S]*?\n {2}\}/)[0];
-  assert.match(fn, /if \(fitted\) return true;\n {4}homeAt = null;\n {4}return false;/);
+  assert.match(fn, /if \((?:live\.)?fitted\) return true;\n {4}(?:live\.)?homeAt = null;\n {4}return false;/);
   // every fit marks the view fitted
-  assert.match(stage, /function refit\(\) \{[\s\S]*?fitted = true;[\s\S]*?\n {2}\}/);
-  assert.match(stage, /const fit = \(\) => \{[\s\S]*?fitted = true;[\s\S]*?\n {2}\};/);
-  assert.match(stage, /fitSlow\(ms = 1300, opt = \{\}\) \{[^\n]*fitted = true;/);
-  assert.match(stage, /if \(!sameView\(d, homeAt\)\) \{ homeAt = d; fitted = true;/, 'home following');
+  assert.match(stage, /function refit\(\) \{[\s\S]*?(?:live\.)?fitted = true;[\s\S]*?\n {2}\}/);
+  assert.match(stage, /const fit = \(\) => \{[\s\S]*?(?:live\.)?fitted = true;[\s\S]*?\n {2}\};/);
+  assert.match(stage, /fitSlow\(ms = 1300, opt = \{\}\) \{[^\n]*(?:live\.)?fitted = true;/);
+  assert.match(stage, /if \(!sameView\(d, (?:live\.)?homeAt\)\) \{ (?:live\.)?homeAt = d; (?:live\.)?fitted = true;/, 'home following');
   // a pinch, a drag, the wheel and the zoom steps mark it moved
-  assert.match(stage, /VT_BUF\.k = k; VT_BUF\.x = vx - drag\.wx \* k; VT_BUF\.y = vy - drag\.wy \* k; vt = VT_BUF; fitted = false;/);
-  assert.match(stage, /vt = softPan\([^\n]*\); fitted = false;/);
-  assert.match(stage, /stopGlide\(\); userMoved = true; fitted = false;/);
-  assert.match(stage, /function animZoomAt\(cx, cy, factor\) \{\n {4}fitted = false;/);
+  assert.match(stage, /VT_BUF\.k = k; VT_BUF\.x = vx - (?:live\.)?(?:live\.)?drag\.wx \* k; VT_BUF\.y = vy - (?:live\.)?(?:live\.)?drag\.wy \* k; (?:live\.)?(?:live\.)?vt = VT_BUF; (?:live\.)?(?:live\.)?fitted = false;/);
+  assert.match(stage, /(?:live\.)?vt = softPan\([^\n]*\); (?:live\.)?fitted = false;/);
+  assert.match(stage, /stopGlide\(\); (?:live\.)?userMoved = true; (?:live\.)?fitted = false;/);
+  assert.match(stage, /function animZoomAt\(cx, cy, factor\) \{\n {4}(?:live\.)?fitted = false;/);
   // the catheter's camera never touches it; a refit mid-measurement moves where its trip back ends
   const cam = stage.match(/function cathFocus\([\s\S]*?\n {2}\}/)[0] + stage.match(/function cathFollow\(\) \{[\s\S]*?\n {2}\}/)[0];
-  assert.doesNotMatch(cam, /fitted/);
+  assert.doesNotMatch(cam, /(?:live\.)?fitted/);
   assert.match(stage, /if \(cath\.saved\) \{ cath\.saved = to; return; \}/);
   assert.match(stage, /fit, refit, closeView,/);
 });
