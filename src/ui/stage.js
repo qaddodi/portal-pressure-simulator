@@ -11543,9 +11543,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   const LADDER_TAG = { SIN_R: 'WHVP', RHV: 'FHVP' };
   const LADDER_KEY = { CONF: 'pv', SIN_R: 'whvp', RHV: 'fhvp', IVCS: 'ivc', RA: 'ra' };
-  const ANAT_PRI = { HA: 1, CONF: 10, VAR: 9, SIN_R: 9, RHV: 8, RA: 8, SV: 7, SMV: 7, GV: 7, IVCS: 6, MHV: 5, LHV: 5, RPV: 5, LPV: 5, SIN_L: 5, IMV: 4, LGV: 4, W_R: 12, W_M: 12, W_L: 12 };
+  const ANAT_PRI = { HA: 3, CONF: 10, VAR: 9, SIN_R: 9, RHV: 8, RA: 8, SV: 7, SMV: 7, GV: 7, IVCS: 6, MHV: 5, LHV: 5, RPV: 5, LPV: 5, SIN_L: 5, IMV: 4, LGV: 4, W_R: 12, W_M: 12, W_L: 12 };
   // Stations labelled only when zoomed in enough to give them room, in this order (see updateLabels).
-  const ANAT_EXTRA = ['MHV', 'LHV', 'RPV', 'LPV', 'SIN_L', 'IMV', 'LGV', 'HA'];
+  const ANAT_EXTRA = ['MHV', 'LHV', 'RPV', 'LPV', 'SIN_L', 'IMV', 'LGV'];
 
   let blockerBoxes = null, blockersAt = -1e9, blockersStale = true;
   const staleBlockers = () => { blockersStale = true; };
@@ -12852,10 +12852,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // between the coronary vein and the azygos, and a "varices" label on it would mislead.
       if (!hasVarices('VAR', f)) show.delete('VAR');
       if (!pres && lvl !== 'none' && hasVarices('GV', f)) show.add('GV');
+      // The hepatic artery is named at every size and zoom (a plain label, not an optional one): it takes a leader out to the upper right
+      // where it has no room beside its vessel, and it is the last of the named stations to give way.
+      if (!pres && lvl !== 'none') show.add('HA');
       if (pres && !hasVarices('GV', f)) show.delete('GV');
       // Key, at the home framing on a wide screen: the other major stations too, but only where one fits
       // beside its vessel without a leader (see `minor` below); a phone keeps to the key ones.
-      const minor = new Set(!pres && lvl === 'key' && !zoomed && !compact ? [...CHIP_NODES, 'HA'].filter((id) => !show.has(id) && id !== 'VAR') : []);
+      const minor = new Set(!pres && lvl === 'key' && !zoomed && !compact ? CHIP_NODES.filter((id) => !show.has(id) && id !== 'VAR') : []);
       for (const id of minor) show.add(id);
       if (st.selection?.type === 'node') { show.add(st.selection.id); minor.delete(st.selection.id); }
       const [lx] = worldToLocal(ATLAS_COLUMNS[0], 500), [rx] = worldToLocal(ATLAS_COLUMNS[1], 500);
