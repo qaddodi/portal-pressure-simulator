@@ -51,7 +51,7 @@ import { fusedVS, fusedFS } from './veins-fuse.js';
 import { NOISE_W, NOISE_H, NOISE_PER_ROW, OCTAVES, noiseBlock, blockAt, tableSize } from './blood-noise.js';
 import { createNoiseFiller } from './noise-gl.js';
 import { softwareGL } from './sw-yield.js';
-import { frameCount, framePhase } from './frame.js';
+import { frameCount, framePhase, onFrameFinal } from './frame.js';
 import { caught } from './caught.js';
 import { counts, tally } from './frame-counts.js';
 const ORGAN_MESH = { tri: null, seg: null, nTri: 0, nSeg: 0 };   // alloc-rare: made once (the organ texture's shapes are meshed into it one at a time, each released after its draw)
@@ -2926,7 +2926,27 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // as it is, so the picture is laid again with it even in the frame that drew it straight onto the canvas. Skipped there, the new card's
   // glass waited for the figure's next picture, which a figure at rest never draws: the card showed clear, or solid once its wait ran out
   // (2 Nov 2026, Mohammad's Mac and iPhone: "no blur", every card that opened).)
+  // (One present a frame (4 Nov 2026, Mohammad's ?perf on a slide change: "kept picture onto the canvas x2", 62 MB copied on the GPU every
+  // frame). A present asked inside a frame of the scheduler is laid once, at the frame's very end (onFrameFinal), with every ask of that
+  // frame folded in: the figure's own picture and the glass's ask after its cards moved (host.now) were two whole copies of the kept
+  // picture and two draws of every card's glass. A reader that takes the canvas in the frame (capture) lays the pending one first; a
+  // present outside a frame, or once the frame's end has passed, is laid at once as before.)
+  let presPend = 0, presFlushing = false, presDoneAt = -1;
+  function flushPresent() {
+    presDoneAt = frameCount();
+    if (!presPend) return;
+    const p = presPend;
+    presPend = 0;
+    presFlushing = true;
+    try { presentNow(true, (p & 2) !== 0); } finally { presFlushing = false; }
+  }
+  const offPresFinal = onFrameFinal(flushPresent);
   function present(top = true, again = false) {
+    if (top && !presFlushing && !lost && framePhase() && presDoneAt !== frameCount()) { presPend |= 1 | (again ? 2 : 0); return; }
+    if (presPend && top) { again = again || (presPend & 2) !== 0; presPend = 0; }
+    presentNow(top, again);
+  }
+  function presentNow(top, again) {
     presentSelf(top, again);
     // (Shared: the picture is laid in this renderer's texture; the host lays it over the figure in its own present, which this asks for.)
     if (share && top && !lost) share.present?.();
@@ -4421,8 +4441,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     // canvas as it is: the same full-screen copy and glass draw were done again for each glass that asked.)
     capture() {
       const f = frameCount();
+      if (presPend) { const again = (presPend & 2) !== 0; presPend = 0; presentNow(true, again); }
       if (f === capturedAt && capP === pictureSeq && capB === bloodSeq && capN === presents && !(replace && replace.on())) return canvas;
-      present(); capturedAt = f; capP = pictureSeq; capB = bloodSeq; capN = presents;
+      presentNow(true, false); capturedAt = f; capP = pictureSeq; capB = bloodSeq; capN = presents;
       return canvas;
     },
     /**
@@ -4456,6 +4477,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      * then cannot draw until the browser restores it, so give the next instance a new canvas.
      */
     dispose({ lose = false } = {}) {
+      offPresFinal(); presPend = 0;
       (hostCv || canvas).removeEventListener('webglcontextlost', onLost);
       (hostCv || canvas).removeEventListener('webglcontextrestored', onRestored);
       if (!lost) {
