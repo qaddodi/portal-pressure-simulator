@@ -8,7 +8,7 @@ import { readMetric } from './layout-snap.js';
 import { createThumbAtlas } from './thumb-atlas.js';
 
 export const CW = 160, GAP = 10, PAD = 14, PIC_H = 100, KICK_H = 22;   // (css px: a cell's width, the gap, the row's side padding, the picture's height, the kicker line; tile 320 × 200 is 2× the picture)
-const SETTLE_MS = 450, TRIES = 16, RETRY_MS = 500;
+const SETTLE_MS = 150, TRIES = 16, RETRY_MS = 500;
 
 /** The scroll position that shows cell i whole (centred where it can be), within [0, max]. */
 export function scrollFor(i, vw, n, from = 0) {
@@ -165,8 +165,11 @@ export function createSlideStrip({ h, layers, count, still, reduced = () => fals
     if (typeof ResizeObserver !== 'undefined') {
       ro = new ResizeObserver((es) => {
         const w = Math.round(es[es.length - 1].contentRect.width);
-        if (!view || !w || w === vw) return;
-        vw = w; x = clampX(x);
+        if (!view || !w) return;
+        const first = !view.placed;
+        view.placed = true;
+        if (w === vw && !first) return;
+        vw = w; x = first ? scrollFor(view.cur, vw, n, 0) : clampX(x);   // (the first size the panel really has: the current slide is brought into view by it)
         if (view.cv) view.cv.style.width = `${vw}px`;
         atlas?.resize(vw, PIC_H, Math.min(3, globalThis.devicePixelRatio || 1));
         kick();

@@ -5477,7 +5477,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   addEventListener('pointerdown', () => { if (deck) wake(); });
 
   // ── The slide list (G, or the count): a strip of the slides' pictures, each with its title and kicker; a tap or Enter goes there ──
-  const strip = createSlideStrip({ h, layers: () => stage.figureLayers?.() || [], count: () => slides.length, still: (i) => !!deck && !!shown && shown.i === i && shown.i === want && shown.gen === gen && !busy && !leaving, reduced: () => reduce.matches });
+  const strip = createSlideStrip({ h, layers: () => stage.figureLayers?.() || [], count: () => slides.length, still: (i) => !!deck && !!shown && shown.i === i && shown.i === want && shown.gen === gen, reduced: () => reduce.matches });
   function toggleJump(on = ui?.jump.hidden) {
     if (!ui) return;
     const j = ui.jump;
