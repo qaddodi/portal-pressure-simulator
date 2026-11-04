@@ -1,0 +1,45 @@
+name: Quick checks (lint, unit tests)
+
+# Lint and the unit tests on every push to the preview branch, beside the deploy (pages.yml) and never blocking it:
+# a red run here is fixed in a follow-up push. One run at a time; a newer push replaces only the waiting one.
+# (Main runs the same checks before its deploy, in pages.yml's validate job, and in ci.yml.)
+
+on:
+  push:
+    branches: [claude/settings-topbar-icon-flvft1]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quick-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  quick:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # The unit tests keep every deck's slide states in node_modules/.cache (tests/deck-states.js); a miss only warns.
+      - name: Restore saved deck states
+        uses: actions/cache@v5
+        continue-on-error: true
+        timeout-minutes: 1
+        env:
+          SEGMENT_DOWNLOAD_TIMEOUT_MINS: 1
+        with:
+          path: node_modules/.cache/pps-deck-states
+          key: deck-states-${{ hashFiles('src/engine/**', 'src/worker-core.js', 'src/worker.js', 'src/ui/decks/**') }}
+          restore-keys: deck-states-
+      - name: Lint
+        run: npm run lint
+      - name: Unit tests
+        if: success() || failure()   # (the tests run even when lint failed)
+        run: npm test
