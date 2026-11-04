@@ -21,3 +21,7 @@ export const crosses = (x0, y0, x1, y1, b) => {
 export const within = (r, B) => r.x0 >= B.x0 && r.y0 >= B.y0 && r.x1 <= B.x1 && r.y1 <= B.y1;
 /** The area where two boxes overlap (0 for none). */
 export const overlap = (a, b) => Math.max(0, Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0)) * Math.max(0, Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0));
+/** The same, for a box kept as { l, r, t, b } (the lobule's own). */
+export const overlapLRTB = (p, q) => Math.max(0, Math.min(p.r, q.r) - Math.max(p.l, q.l)) * Math.max(0, Math.min(p.b, q.b) - Math.max(p.t, q.t));
+/** How far a disc { x, y, r } reaches into a { l, r, t, b } box (0 for none). */
+export const discInto = (q, b) => Math.max(0, q.r - Math.hypot(Math.max(b.l - q.x, 0, q.x - b.r), Math.max(b.t - q.y, 0, q.y - b.b)));

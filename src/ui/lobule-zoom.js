@@ -58,6 +58,7 @@ import { caught } from './caught.js';
 import { createCaptionGL, composeView, inkRows, mirrorOf, rgbaOf as capRGBA } from './caption-gl.js';
 import { readStyle, readBox as boxOf } from './layout-snap.js';
 import { hitLabel, explainText } from './label-explain.js';
+import { overlapLRTB, discInto } from './label-place.js';
 const nextFrame = frameFor('lobule-zoom');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -1615,7 +1616,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const candBuf = new Float64Array(3 * 80);   // (the pill's candidate spots: x, y and whether it is the one it sat at last time; 61 at most)
   const candPQ = [0, 0], cBox = { l: 0, r: 0, t: 0, b: 0 };   // (a candidate's spot and box, handed to the checks)
   let callFitN = -1, callFitS = '';
-  const boxOv = (p, q) => Math.max(0, Math.min(p.r, q.r) - Math.max(p.l, q.l)) * Math.max(0, Math.min(p.b, q.b) - Math.max(p.t, q.t));
+  const boxOv = overlapLRTB;
   // (placeCall's answer, the pill's box and its leader's two ends, written into the record it is handed: the layout's own, kept and written
   // again each time, or a fresh one in the settled re-layout that still has a clash, where the first answer must outlive the second.)
   const mkCallOut = () => ({ box: { l: 0, r: 0, t: 0, b: 0 }, lead: [[0, 0], [0, 0]] });   // alloc-rare: once at setup (callOutMain), else only in the settled clash retry (coreFirst), never a frame of a hand's move
@@ -2015,7 +2016,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // (The layout's geometry, shared with the zoom's ride check: rideHolds.)
   const overlap = (a, b) => Math.max(0, Math.min(a.r, b.r) - Math.max(a.l, b.l))
     * Math.max(0, Math.min(a.b, b.b) - Math.max(a.t, b.t));
-  const into = (q, b) => Math.max(0, q.r - Math.hypot(Math.max(b.l - q.x, 0, q.x - b.r), Math.max(b.t - q.y, 0, q.y - b.b)));
+  const into = discInto;
   // Leaders run to each label's centre; a leader never crosses another label, and a label never sits on another's leader.
   // (The segment's parameter range, narrowed by each axis in turn: kept here, so a test makes no array.)
   let ct0 = 0, ct1 = 1;
