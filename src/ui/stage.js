@@ -5662,12 +5662,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (Its turn first: reading every organ's box and shape is a step of its own, tens of ms on a phone, begun from a timer.)
     const seq0 = plateSeq, drops0 = plateDrops, v = veins;
     if (await refineTurn(() => seq0 !== plateSeq || drops0 !== plateDrops || v !== veins || !v || v.lost) === null) return false;
-    const boxes = refineStep('organ layers: boxes', layerBoxes), names = [], live = liveOn(), paths = new Map();
+    const boxes = refineStep('organ layers: boxes', layerBoxes), names = [], liveNow = liveOn(), paths = new Map();
     layerStarts++; if (fluidEasing()) layerStartsEasing++;
     // Each layer's picture is painted on the GPU straight from its organs' shapes (bakeLayer). There is no other way to make one: the
     // SVG copy rasterized by the browser, a strip at a time through 2D canvases, is gone (owner, 1 Nov: nothing off the GPU). Without
     // the live painter, or with a layer it cannot read, no picture is made and the organs stay the page's own SVG.
-    if (!live) { organPaths.clear(); organPaths.set('all', `SVG (${liveWhy()})`); return false; }
+    if (!liveNow) { organPaths.clear(); organPaths.set('all', `SVG (${liveWhy()})`); return false; }
     const baked = refineStep('organ layers: shapes read', bakeAll);
     const unread = [...baked].find(([, b]) => !b);
     if (unread) { organPaths.clear(); organPaths.set(unread[0], `SVG (${bakeWhy.get(unread[0]) || 'not readable'})`); return false; }
@@ -5964,10 +5964,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // moved, then jumped to the new shape at the end (Ascites deck slide 5, 17 Oct).
     // (With the changing organs painted live (liveOn) nothing is held or dropped: the pictures under them hold no liver, spleen or
     // diaphragm, and are made again while the fluid eases, a strip a frame, the one shown staying until the new one is in.)
-    const live = liveOn();
-    if (!live && (lvMoving || fluidEasing())) { if (plateKey && veins.hasPlate(0) && plateStateKey() !== plateKey) hidePlate(); return; }
+    const liveNow = liveOn();
+    if (!liveNow && (lvMoving || fluidEasing())) { if (plateKey && veins.hasPlate(0) && plateStateKey() !== plateKey) hidePlate(); return; }
     // (A growing spleen: no new size may come once it stops, so a later poke rasterizes it once it has settled.)
-    if (!live && spleenMoving()) { if (plateKey && veins.hasPlate(0) && plateStateKey() !== plateKey) hidePlate(); clearTimeout(spleenTimer); spleenTimer = setTimeout(platePoke, 320); return; }
+    if (!liveNow && spleenMoving()) { if (plateKey && veins.hasPlate(0) && plateStateKey() !== plateKey) hidePlate(); clearTimeout(spleenTimer); spleenTimer = setTimeout(platePoke, 320); return; }
     const stale = plateStale; plateStale = false;
     const key = plateStateKey();
     if (key === plateKey && veins.hasPlate(0)) return;
@@ -5983,7 +5983,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // below: the GPU picture stays up and is made again behind it. Dropping it showed the page's SVG organs, which Safari draws again
     // on the CPU at the screen's full pixels on every frame the camera moves: the way out of the lobule and the slide's glide after it
     // ran at a few frames a second on an iPhone (Mohammad, 1 Nov). ?stalekeep=0: dropped, as before.)
-    const drop = themed || (stale && !live);
+    const drop = themed || (stale && !liveNow);
     if (drop && veins.hasPlate(0)) {
       hidePlate();
     }
@@ -5997,7 +5997,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // given up costs a strip, and the waits of up to 3.2 s kept the live organs up, every pan or zoom a repaint of all of them, for
     // seconds after a change: external review, 22 Oct.)
     const still = plateMiss ? 800 : 400;
-    const wait = themed ? 0 : live ? Math.max(0, 500 - (performance.now() - plateLast)) : Math.max(0, 500 - (performance.now() - plateLast), still - (performance.now() - lvStillAt), 400 - (performance.now() - spleenMv.stillAt()), still - (performance.now() - fluidStillAt));
+    const wait = themed ? 0 : liveNow ? Math.max(0, 500 - (performance.now() - plateLast)) : Math.max(0, 500 - (performance.now() - plateLast), still - (performance.now() - lvStillAt), 400 - (performance.now() - spleenMv.stillAt()), still - (performance.now() - fluidStillAt));
     clearTimeout(plateTimer);
     plateTimer = setTimeout(async () => {
       const moving = !liveOn() && (lvMoving || fluidEasing() || spleenMoving());
