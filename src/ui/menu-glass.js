@@ -50,9 +50,18 @@ const live = () => {
   if (tip) list.push(tip);   // (the tooltip's card is glass too; its words are the GPU picture of tip-gl.js)
   return list;
 };
+// The dock menus' clip-path (inset(.. .. bottom ..), app.css, the sink): the glass is cut at the same foot, in client px, read with the box.
+const cut = (e) => {
+  const c = getComputedStyle(e).clipPath;
+  if (!c || c === 'none' || !c.startsWith('inset(')) return null;
+  const v = c.slice(6, c.indexOf(')')).split(/\s+/).map(parseFloat);
+  const bot = v.length === 1 ? v[0] : v.length === 2 ? v[0] : v[2];
+  if (!(bot > 0)) return null;
+  return { bottom: e.getBoundingClientRect().bottom - bot };
+};
 function ensure() {
   if (reg || !api?.add) return;
-  reg = api.add(live, { watch: document.body, before: document.body });
+  reg = api.add(live, { watch: document.body, before: document.body, cut });
 }
 /** Registers `el` (a .menu or .umenu) with the glass; null where there is no glass API (the caller then asks plate-gl.js). */
 export function glassPlate(el) {
