@@ -5872,11 +5872,15 @@ onRenderScale(() => { autoK = autoNow(); moveLow = false; adaptK = 1; moveGaps.l
     // (B3, pure-gpu-plan: while the camera glides, a hand or wheel zooms, or the figure morphs between the views, the vessels, blood and organs are drawn at
     // MOTION_K of the layer's width and height and stretched in the present; labels, lines and glass are on their own layers, at Full. The frame that
     // lands (morph at its target, the gesture over) draws the layer whole, and `soft` keeps the page awake until it has. Not in a dive, the lobule or a card's zoom.)
+    // (A hand's move only (4 Nov 2026, Mohammad: "the slide figure flickers intermittently"). A glide the app runs steps its camera at 60 Hz
+    // (the governor), so on a 120 Hz screen every other frame has the same camera: those skip the lower pass and the beat's radius patches
+    // draw the layer whole, so the figure went soft, sharp, soft at 60 Hz through every slide change, and popped sharp as it landed. A morph
+    // between the views is left whole for the same reason as the tiers above.)
     const morphing = morph !== morphTarget;
-    const moving = TIERS_ON && (morphing || vtGliding || gestureOn()) && !(diveT > 0) && !lobuleOn && !drawCam && !lz?.isOpen();
+    const moving = TIERS_ON && !morphing && gestureOn() && !(diveT > 0) && !lobuleOn && !drawCam && !lz?.isOpen();
     const tk = TIERS_ON && !morphing ? tierK() : 0, mk = moving ? motionK() : 0;
     const lk = tk && mk ? Math.min(tk, mk) : tk || mk;
-    veins.setLow?.(lk || (low ? PINCH_LOW_K : 0), lk ? true : low && gestureOn(), TIERS_ON ? TIER_TOP : 0, morphing && !!mk);
+    veins.setLow?.(lk || (low ? PINCH_LOW_K : 0), lk ? true : low && gestureOn(), TIERS_ON ? TIER_TOP : 0, false);
     veins.draw(T, vLook, bloodLook(), rows);
     if (veins.reused || veins.soft) veinsDirty = true;
     return true;
