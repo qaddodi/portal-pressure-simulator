@@ -1201,8 +1201,10 @@ float radAt(int id, float s, float len) {
 // clock bT, from where the CPU last anchored them (flow texel 6: that clock B0 and the display speed's factor). Between anchors a
 // stream runs at the speed and stasis it was anchored with, so a steady flow sends nothing a frame. A factor of 0 (the lobule) is the CPU's own distance and drift, as before.
 float flowD(int id, float D, float vd) {
-  vec2 a = texelFetch(flow, ivec2(6, id), 0).xy;
-  return a.y == 0.0 ? D : mod(D + vd * a.y * (bT - a.x), ${PERIOD}.0);
+  vec3 a = texelFetch(flow, ivec2(6, id), 0).xyz;
+  // (a.z: how fast the display speed was changing at the anchor, so a beat's swing is integrated here and not re-sent every frame.)
+  float t = bT - a.x;
+  return a.y == 0.0 ? D : mod(D + (vd + 0.5 * a.z * t) * a.y * t, ${PERIOD}.0);
 }
 float flowDrift(int id, float dr, float stasis) {
   vec2 a = texelFetch(flow, ivec2(6, id), 0).xy;
@@ -1210,10 +1212,11 @@ float flowDrift(int id, float dr, float stasis) {
 }
 // A chained vessel's root stream (row rid): its distance and drift now, from its own row (ch: the CPU's copy, flow texel 5).
 vec2 rootDD(int rid, vec2 ch) {
-  vec2 a = texelFetch(flow, ivec2(6, rid), 0).xy;
+  vec3 a = texelFetch(flow, ivec2(6, rid), 0).xyz;
   if (a.y == 0.0) return ch;
   vec4 r0 = texelFetch(flow, ivec2(0, rid), 0);
-  return vec2(mod(r0.x + r0.y * a.y * (bT - a.x), ${PERIOD}.0),
+  float tr = bT - a.x;
+  return vec2(mod(r0.x + (r0.y + 0.5 * a.z * tr) * a.y * tr, ${PERIOD}.0),
               mod(texelFetch(flow, ivec2(3, rid), 0).z + r0.w * 0.06 * (bT - a.x), ${DRIFT_PERIOD}.0));
 }
 // Moving blood in one lumen at arc length s (world, may run past either end) and across y (−1 … 1):
@@ -2480,6 +2483,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     if (v && typeof v === 'object') { for (let i = 0; i < v.length && sn < sigNow.length; i++) sigNow[sn++] = +v[i] || 0; }
     else if (sn < sigNow.length) sigNow[sn++] = +v || 0;
   };
+  const bloodRow = new Uint8Array(nTubes);   // (rows that carry blood: setFlow)
+  let btLast = NaN;                          // (the blood clock of the last picture drawn: composite)
   const SPAN = [0, 0];   // (the changed span of rows changedRows writes, kept)
   // (Marks the rows of `data` that differ from `last`, `w` floats a row: before `last` takes them.)
   const markRows = (data, last, w) => {
@@ -3772,6 +3777,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       // flow-rows.js changedRows. The first upload of this context sends every row.)
       const stride = FLOW_TEXELS * 4;
       if (noiseTex) fillNoise(data, stride);
+      // (Which rows carry blood now: strength (flow texel 1, z) above 0. A lumen of one is drawn again on a frame the blood's clock moved,
+      // so "still lumens left alone" can be on while blood flows; composite.)
+      for (let r = 0; r < nTubes; r++) bloodRow[r] = data[r * stride + 6] > 0 || data[r * stride + 8] < 0 ? 1 : 0;
       let lo = 0, hi = nTubes - 1;
       if (!flowSent) { flowSent = Float32Array.from(data.subarray(0, nTubes * stride)); movedAll = true; }
       else {
@@ -4248,11 +4256,15 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       sg(fluidRect || R_UNIT); sg(fl?.s || V4_ZERO); sg(fl ? fl.ink : V4_ZERO); sg(fl?.lv || LV_DEF);
       sigNow[sn++] = +(blood.on) || 0; sigNow[sn++] = +(blood.chev) || 0; sigNow[sn++] = +(blood.still) || 0; sigNow[sn++] = +(blood.alpha ?? 1) || 0; sigNow[sn++] = +(blood.streakA ?? 1) || 0; sigNow[sn++] = +(blood.chevA ?? 1) || 0; sigNow[sn++] = +(blood.originA ?? 1) || 0;
       sg(blood.chevInk || CHEV_INK); sg(blood.chevLight || CHEV_LIGHT); sigNow[sn++] = +(blood.vdpr || 1) || 0; sigNow[sn++] = +(blood.origin) || 0; sigNow[sn++] = +(dyeAny && blood.dye !== false) || 0;
-      sigNow[sn++] = +(blood.streakLen) || 0; sigNow[sn++] = +(blood.bt || 0) || 0;
+      sigNow[sn++] = +(blood.streakLen) || 0;   // (the blood's clock is left out: the rows that carry blood are marked moved below when it moved)
       sg(originColOf(blood.originCol || ORIGIN_WHITE)); sg(blood.dyeCol || DYE_COL); sg(blood.revCol || REV_COL);
       sg(blood.inkLight || INK_LIGHT); sg(blood.inkDark || INK_DARK); sg(ncv); sigNow[sn++] = +(ncN) || 0; sg(hb); sg(hr); sigNow[sn++] = +(hoN) || 0; sigNow[sn++] = +(layer) || 0; sigNow[sn++] = +(glow) || 0; sigNow[sn++] = +(warm) || 0; sigNow[sn++] = +(useStack) || 0; sigNow[sn++] = +(bare) || 0; sigNow[sn++] = +(texVer) || 0;
       sigNow[sn++] = halfOn ? 1 : 0;   // (the half-size streaks pass is on or off: a lumen drawn the other way is drawn again)
       sigNow[sn++] = map ? map.a : 0; if (map) { sg(map.dot); sg(map.zone); sg(map.fx); sg(map.alt); sg(map.fxX); sg(map.rot); }
+      // (The clock moved since the last picture: every row carrying blood changes with it, so its lumen is drawn again; the rest are left alone.)
+      const btNow = blood.bt || 0;
+      if (btNow !== btLast && (blood.on || blood.chev || blood.origin)) for (let r = 0; r < nTubes; r++) if (bloodRow[r]) moved[r] = 1;
+      btLast = btNow;
       let same = !!stillSig && sn === stillN && sn < sigNow.length;
       for (let i = 0; same && i < sn; i++) if (sigNow[i] !== stillSig[i]) same = false;
       const still = !full && !movedAll && !bl.length && same;

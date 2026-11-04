@@ -33,14 +33,14 @@ export function createBlood(st, live) {
   // (Every number a stream will hold is a number from the start, so each field is a double kept in place: a field that began as nothing, or as a
   // whole number, was stored as a new heap number at every write, about a hundred bytes for each vessel each frame. NaN is "not set yet":
   // advanceKept's vSlow and vm, anchorStream's aB.)
-  const streams = EDGES.map((e, k) => ({ seed: k + 1, vSlow: NaN, vFast: NaN, D: 0.5, hold: 0.5, settle: 0.5, vOld: 0.5, vm: NaN, v: 0.5, vd: 0.5, stasis: 0.5, drift: 0.5, aB: NaN, aD: 0.5, aV: 0.5, aT: 0.5, aS: 0.5, aR: 0.5 }));
+  const streams = EDGES.map((e, k) => ({ seed: k + 1, vSlow: NaN, vFast: NaN, D: 0.5, hold: 0.5, settle: 0.5, vOld: 0.5, vm: NaN, v: 0.5, vd: 0.5, stasis: 0.5, drift: 0.5, aB: NaN, aA: 0, vp: 0, aD: 0.5, aV: 0.5, aT: 0.5, aS: 0.5, aR: 0.5 }));
   const LARGE = EDGES.map((e) => (e.kind === 'vein' || e.kind === 'diode') && (e.d || 0) >= STASIS_MIN_D);
   // (The slugs step in a worker, dye-remote.js; ?dyeworker=0 keeps them here.)
   const bolus = createDyeRemote(EDGES, NODES, () => new Worker(new URL('./dye-worker.js', import.meta.url), { type: 'module' }));
   const net = { Q: new Float32Array(EDGES.length), vd: new Float32Array(EDGES.length), len: new Float32Array(EDGES.length) };
   // (The blood clock's epoch for the GPU: the shader takes the clock less it, kept under BT_SPAN seconds so its float stays fine; each
   // time it moves on, every stream is anchored again from its own distance.)
-  const BT_SPAN = 32, VD_HAIR = 0.01, VD_REL = 0.004, STASIS_HAIR = 0.002;
+  const ACC_MAX = 200, BT_SPAN = 32, VD_HAIR = 0.01, VD_REL = 0.004, STASIS_HAIR = 0.002;
   let bEpoch = 0;
   // (The speed and the blood clock come in `so` (streamOpts: speed, bt), not as arguments: a number passed to a call that is not inlined is
   // boxed in a new heap number, two for each vessel of a frame.)
@@ -48,11 +48,16 @@ export function createBlood(st, live) {
     const sp = so.speed, t = so.bt;
     if (!reset && t >= sm.aB) {
       const dt = t - sm.aB;
-      // (Where the GPU has it now: the stream's own distance and drift follow it, so the two never part.)
-      sm.D = (((sm.aD + sm.aV * sm.aS * dt) % PERIOD) + PERIOD) % PERIOD;
+      // (Where the GPU has it now: the stream's own distance and drift follow it, so the two never part. The GPU integrates the
+      // display speed's slope aA too (flowD), so a beat's swing needs no new anchor while the slope holds.)
+      sm.D = (((sm.aD + (sm.aV + 0.5 * sm.aA * dt) * sm.aS * dt) % PERIOD) + PERIOD) % PERIOD;
       sm.drift = (sm.aR + sm.aT * 0.06 * dt) % DRIFT_PERIOD;
-      if (sp === sm.aS && Math.abs(sm.vd - sm.aV) <= VD_HAIR + VD_REL * Math.abs(sm.aV) && Math.abs(sm.stasis - sm.aT) <= STASIS_HAIR) return;
+      if (sp === sm.aS && Math.abs(sm.vd - (sm.aV + sm.aA * dt)) <= VD_HAIR + VD_REL * Math.abs(sm.aV) && Math.abs(sm.stasis - sm.aT) <= STASIS_HAIR) { sm.vp = sm.vd; return; }
     }
+    // (The new slope: this frame's change in the display speed over the blood clock it took; none while the clock stands still.)
+    const a = so.dt > 0 && sm.aB === sm.aB ? (sm.vd - sm.vp) / so.dt : 0;
+    sm.aA = a > ACC_MAX ? ACC_MAX : a < -ACC_MAX ? -ACC_MAX : a;
+    sm.vp = sm.vd;
     sm.aB = t; sm.aD = sm.D; sm.aV = sm.vd; sm.aT = sm.stasis; sm.aS = sp; sm.aR = sm.drift || 0;
   }
   // In the imaging view the flow shows once a Doppler has looked at it (still in neutral colours: pressures stay unmeasured).
@@ -173,7 +178,7 @@ export function createBlood(st, live) {
     const o = row * FLOW_TEXELS * 4, sm = streams[k];
     flowData.fill(0, o, o + FLOW_TEXELS * 4); flowNow[row] = 1;
     flowData[o] = sm.aD; flowData[o + 1] = sm.aV; flowData[o + 2] = KAPPA * Math.abs(q); flowData[o + 3] = sm.aT;
-    flowData[o + 24] = sm.aB; flowData[o + 25] = sm.aS;
+    flowData[o + 24] = sm.aB; flowData[o + 25] = sm.aS; flowData[o + 26] = sm.aA;
     flowData[o + 4] = f0 ? 1 : 0; flowData[o + 5] = f1 ? 1 : 0; flowData[o + 6] = strength; flowData[o + 7] = sm.rev;
     if (live.origins) for (let c = 0; c < ORIGIN_N; c++) flowData[o + 8 + c] = live.origins[k * ORIGIN_N + c];
     flowData[o + 12] = sm.chevK ?? 1;
