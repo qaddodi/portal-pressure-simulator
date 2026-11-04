@@ -1002,7 +1002,10 @@ export function readAllowance({ root = ROOT } = {}) {
   try { return JSON.parse(readFileSync(join(root, 'scripts/layout-read-allowance.json'), 'utf8')).files || {}; } catch { return {}; }
 }
 // Files over their allowance (a read added outside the snapshot) and under it (a read moved: lower the allowance).
+// (The stage family — stage.js and every stage-*.js part — shares one allowance, listed as src/ui/stage.js: a read moved into a part stays counted.)
+const stageFam = (o) => { const r = {}; for (const [f, n] of Object.entries(o)) { const k = /^src\/ui\/stage(-.+)?\.js$/.test(f) ? 'src/ui/stage.js' : f; r[k] = (r[k] || 0) + n; } return r; };
 export function readRatchet(found = directReads(), allowed = readAllowance()) {
+  found = stageFam(found); allowed = stageFam(allowed);
   const over = [], under = [];
   for (const [f, n] of Object.entries(found)) if (n > (allowed[f] || 0)) over.push(`${f}: ${n} direct layout reads, ${allowed[f] || 0} allowed`);
   for (const [f, n] of Object.entries(allowed)) if ((found[f] || 0) < n) under.push(`${f}: ${found[f] || 0} direct layout reads, ${n} allowed (lower its allowance)`);

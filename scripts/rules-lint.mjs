@@ -87,12 +87,19 @@ for (const f of files.filter((x) => x.endsWith('.js'))) {
   }
 }
 
+// The stage family: stage.js and every src/ui/stage-*.js part (stage-split plan). A budget key ending in * is the sum over the family, so a
+// move out of stage.js hands no free room to the next feature.
+const stageFamily = () => ['src/ui/stage.js', ...readdirSync(join(ROOT, 'src/ui')).filter((n) => /^stage-.+\.js$/.test(n)).sort().map((n) => 'src/ui/' + n)];
+const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json lists the part with its own number)
+
 // Size budget: the three files that grow fastest may not pass their committed line count; a file under it asks for the number to come down.
 {
   const sizeFile = join(ROOT, 'scripts/size-budget.json'), doc = JSON.parse(readFileSync(sizeFile, 'utf8'));
   const tighten = process.argv.includes('--tighten');
+  const lines = (rel) => readFileSync(join(ROOT, rel), 'utf8').split('\n').length - 1;
+  for (const rel of stageFamily().slice(1)) if (!(rel in doc.files) && lines(rel) > PART_MAX) errors.push(`${rel} has ${lines(rel)} lines, over the ${PART_MAX} a stage part may have (PR-09)`);
   for (const [rel, max] of Object.entries(doc.files)) {
-    const n = readFileSync(join(ROOT, rel), 'utf8').split('\n').length - 1;
+    const n = rel.endsWith('*') ? stageFamily().reduce((a, f) => a + lines(f), 0) : lines(rel);
     if (n > max) errors.push(`${rel} has ${n} lines, over its budget of ${max} in scripts/size-budget.json: move code out into its own module first (PR-09)`);
     else if (n < max && tighten) doc.files[rel] = n;   // (a file under its number passes; --tighten lowers the number so the gain cannot be spent again)
   }
@@ -104,7 +111,8 @@ for (const f of files.filter((x) => x.endsWith('.js'))) {
   const tfile = join(ROOT, 'scripts/timer-budget.json'), doc = JSON.parse(readFileSync(tfile, 'utf8'));
   const tighten = process.argv.includes('--tighten');
   for (const [rel, max] of Object.entries(doc.files)) {
-    const n = (readFileSync(join(ROOT, rel), 'utf8').match(/\b(setTimeout|setInterval)\(/g) || []).length;
+    const count = (f) => (readFileSync(join(ROOT, f), 'utf8').match(/\b(setTimeout|setInterval)\(/g) || []).length;
+    const n = rel.endsWith('*') ? stageFamily().reduce((a, f) => a + count(f), 0) : count(rel);
     if (n > max) errors.push(`${rel} has ${n} bare timers, over its budget of ${max} in scripts/timer-budget.json: give the new timer to a scope (src/ui/scope.js, docs/scheduling.md) (PR-10)`);
     else if (n < max && tighten) doc.files[rel] = n;
   }

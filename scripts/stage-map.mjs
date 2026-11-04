@@ -5,7 +5,7 @@
 //   node scripts/stage-map.mjs --check    print the totals only
 //
 // Names are matched by identifier, not by scope: a local that shadows a closure name counts as a use, so the numbers read high, never low.
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse } from 'espree';
@@ -80,5 +80,11 @@ for (const s of only.filter((x) => x.users.length).sort((a, b) => a.line - b.lin
 md.push('', '## Biggest functions and how much state each reaches', '', '| function | line | lines | state variables reached |', '|---|---|---|---|');
 for (const u of [...units].sort((a, b) => b.lines - a.lines).slice(0, 60)) md.push(`| \`${u.name}\` | ${u.line} | ${u.lines} | ${touches.get(u.name).filter((n) => vars.get(n).kind !== 'fn').length} |`);
 md.push('', `State never used by a function at the top of the closure: ${state.filter((s) => !s.users.length).length} (read only inside nested code or by the closure body itself).`, '');
+const parts = readdirSync(join(ROOT, 'src/ui')).filter((n) => /^stage-.+\.js$/.test(n)).sort();
+if (parts.length) {
+  md.push('## Parts split out of stage.js (stage-split plan)', '', '| file | lines |', '|---|---|');
+  for (const n of parts) md.push(`| \`src/ui/${n}\` | ${readFileSync(join(ROOT, 'src/ui', n), 'utf8').split('\n').length - 1} |`);
+  md.push('');
+}
 writeFileSync(join(ROOT, 'docs/stage-map.md'), md.join('\n'));
 console.log('docs/stage-map.md written: ' + totals);

@@ -17,6 +17,6 @@
     { "files": ["callout", "label-gl", "organ-names", "wrap-label", "leader-end", "limit-label", "figure-key", "credit", "res-fade", "stage-over", "mark-fade", "highlight", "removed-label", "trace-labels"], "thread": "Move figure overlays to GPU (cmsg_018GZjFhtvTeoUFdeosmA9rJ93Ab3d8XiycSay8k2YJckM)" },
     { "files": ["organ-paint", "organs-gl", "shape-gl", "plate-copy", "plate-upload", "vessel-taper"], "thread": "Move organ raster layers to GPU (cmsg_018GZjFhtvTeoUFdeosmA9rJRs65tgkFw47V1LsQF3yHrs)" },
     { "files": ["card", "glass-gl", "sheet-glass", "lz-pills", "beat-card"], "thread": "Make slide-change motion seamless (cmsg_018GZjFhtvTeoUFdeosmA9rJ5gr79YrKNNx4bqKsJWzr8k)" },
-    { "files": ["index.html", "src/ui/debug.js", "src/ui/presenter.js", "src/ui/stage.js", "src/ui/still-layer.js", "src/ui/util.js", "src/ui/vitals-gl.js"], "thread": "Move organ raster layers to GPU (cmsg_018GZjFhtvTeoUFdeosmA9rJRs65tgkFw47V1LsQF3yHrs)" }
+    { "files": ["index.html", "src/ui/debug.js", "src/ui/presenter.js", "src/ui/stage", "src/ui/still-layer.js", "src/ui/util.js", "src/ui/vitals-gl.js"], "thread": "Move organ raster layers to GPU (cmsg_018GZjFhtvTeoUFdeosmA9rJRs65tgkFw47V1LsQF3yHrs)" }
   ]
 }
