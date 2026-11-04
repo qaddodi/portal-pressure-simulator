@@ -8,7 +8,7 @@ import { ENT_W } from './veins-bin.js';
 
 import { stageScope } from './stage-scope.js';
 export function createMorph(st, live) {
-  const { BLOOD_PAD, EV, GL_ROWS, N_SAMPLES, cavaAsOne, edgeVisible, geo, itemRadii, reachOf, strandAt, veinJoins, vesselAt, wrap } = st;
+  const { BLOOD_PAD, EV, GL_ROWS, N_SAMPLES, cavaAsOne, cbAt, edgeVisible, geo, itemRadii, reachOf, strandAt, veinJoins, vesselAt, wrap } = st;
   // ── The change between the views on the GPU (2 Nov 2026, his iPhone: "going from anatomy to circuit is so laggy") ──
   // Each frame of the change had binned every vessel again on the CPU and sent the 4 MB list up. Now the change is cut into stretches
   // (MORPH_PIECES), and each stretch's binning, listing everything that can draw in a cell anywhere along it (veins-sweep.js), is made
@@ -52,7 +52,7 @@ export function createMorph(st, live) {
       if (!vis || !geo[x.e.id]?.cur) continue;
       const v = vesselAt(x, t);
       items.push({ x, obj: x, row: x.row, pts: v.pts, kind: 'v' });
-      if (!anat && x.cbr) for (const cb of x.cbr) if (cb.w) items.push({ x, obj: cb, row: cb.row, pts: cb.cur, kind: 'c' });
+      if (!anat && x.cbr) for (const cb of x.cbr) if (cb.w) items.push({ x, obj: cb, row: cb.row, pts: cbAt(cb, t), kind: 'c' });
       if (!anat || x.isArt || x.ghost) continue;
       for (const sd of x.strands || []) if (sd.cur && (sd.live ?? 1) > 0.02) items.push({ x, obj: sd, row: sd.row, pts: strandAt(x, sd, t, v), kind: 's' });
       for (const fd of x.feeders || []) if ((fd.live ?? 1) > 0.02 && fd.w) items.push({ x, obj: fd, row: fd.row, pts: fd.cur, kind: 'f' });
@@ -135,7 +135,7 @@ export function createMorph(st, live) {
   // varix's spread, the joins that run on): checked a moment after the figure last binned at rest.
   function morphTrackKey() {
     return [rowKey(itemsAt(0, true)), rowKey(itemsAt(1, false)), EV.map((x) => { const g = geo[x.e.id]; return `${(g.wig || 0).toFixed(1)}/${(g.spr ?? 1).toFixed(2)}`; }).join(','),
-      EV.map((x) => (x.strands || []).map((sd) => +((sd.live ?? 1) > 0.02)).join('')).join('')].join('|');
+      EV.map((x) => (x.strands || []).map((sd) => +((sd.live ?? 1) > 0.02)).join('')).join(''), `turn ${live.rotU}`].join('|');
   }
   function morphTrackSoon() {
     if (!MORPH_GPU || mt.checkT) return;

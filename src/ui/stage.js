@@ -1,6 +1,7 @@
 // Anatomical stage (blueprint §6): the figure drawn on the GPU (plate, vessels, moving blood),
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
+import { createCircTurn } from './circ-turn.js';
 import { EDGES, NODES, PORTAL_TERRITORY, isStent, stentSite, STENT_SITES } from '../engine/topology.js';
 import { RECTUM_FADE, LABEL_VESSEL, TIP_FADE, ART_FADE, VIEW, VB_CIRC, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NODE_POS, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, CAVITY_LOW, SITES, LIVER_SPLIT_X, CIRCUIT_ZONES, STRANDS, SIN_EDGES } from './anatomy.js';
 import { nodeEnds, nodeDrawn, dotRadius } from './circuit-nodes.js';
@@ -731,8 +732,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     return c[0];
   };
-  const nodeOut = [0, 0];   // (every caller reads the two numbers at once, by destructuring, spreading or indexing)
-  const nodePos = (id, t) => { if (WEDGE_BRANCH[id]) { const w = wedgeTip(id); if (w) return w; } const a = NODE_POS[id][0], c = NODE_POS[id][1]; nodeOut[0] = lerp(a[0], c[0], t); nodeOut[1] = lerp(a[1], c[1], t); return nodeOut; };
+  const nodeOut = [0, 0], nodePos = (id, t) => { if (WEDGE_BRANCH[id]) { const w = wedgeTip(id); if (w) return w; } const a = NODE_POS[id][0], c = circTurnPt(NODE_POS[id][1], t); nodeOut[0] = lerp(a[0], c[0], t); nodeOut[1] = lerp(a[1], c[1], t); return nodeOut; };   // (nodeOut read at once by every caller; the circuit's end turned mid-change: circTurnPt)
 
   // ── SVG scaffolding ───────────────────────────────
   const defs = s('defs');
@@ -1234,8 +1234,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const rotEase = (u) => u * u * (3 - 2 * u);
   const CIRC_C = [VB_CIRC[0] + VB_CIRC[2] / 2, VB_CIRC[1] + VB_CIRC[3] / 2];
   const VB_CIRC_R = [CIRC_C[0] - VB_CIRC[3] / 2, CIRC_C[1] - VB_CIRC[2] / 2, VB_CIRC[3], VB_CIRC[2]];
-  // Degrees the world is turned by right now (blended in with the view morph).
-  const rotDeg = () => -90 * rotEase(rotU) * Math.max(0, lastMorph);
+  // Degrees the world is turned by: only once the circuit has landed; mid-change the circuit's side lies turned instead (circ-turn.js: no spin).
+  const rotDeg = () => (lastMorph >= 1 ? -90 * rotEase(rotU) : -0), { cbAt, circTurn, circTurnPt } = createCircTurn(CIRC_C, rotEase, () => rotU);
   // The circuit's map turns upright with the turn alone, never with the morph (it only fades in): its turn from the world's, which the GPU
   // undoes about the same centre (veins-gl.js mapAt). (Turned with the vessels, the grid and its bands swung through 90 degrees on every
   // switch between the views on an upright circuit.)
@@ -1661,7 +1661,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The hover link (below): the reading label under the pointer or with keyboard focus, what it lit, and the labels lifted.
   let linkPtr = null, linkKbd = null, linkEdge = null, linkOrgan = null, linkLit = new Set();
 
-  const { collOpen, easeInOut, edgeVisible: edgeVisible$, findingHidden, recruitFrac, setViewBox: setViewBox$, shownFrac, strandAt, updateGeometry, varixHeld, vesselAt: vesselAt$ } = createFrame({ EI, EV, MAP, VB_CIRC_R, applyVT, arcLen, blendFrom, braid, gAscites, gFxC, geo, litNormals, nd, nodeVerts, pointAt, recs, rotEase, setG, stageWrap, svg, vbBox, wiggle }, live);
+  const { collOpen, easeInOut, edgeVisible: edgeVisible$, findingHidden, recruitFrac, setViewBox: setViewBox$, shownFrac, strandAt, updateGeometry, varixHeld, vesselAt: vesselAt$ } = createFrame({ CIRC_C, EI, EV, MAP, VB_CIRC_R, applyVT, arcLen, blendFrom, braid, cbAt, circTurn, gAscites, gFxC, geo, litNormals, nd, nodeVerts, pointAt, recs, rotEase, setG, stageWrap, svg, vbBox, wiggle }, live);
   function edgeVisible(...a) { return edgeVisible$(...a); }   // <stage-split stub>
   function setViewBox(...a) { return setViewBox$(...a); }   // <stage-split stub>
   function vesselAt(...a) { return vesselAt$(...a); }   // <stage-split stub>
@@ -1730,7 +1730,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   };
   // Rows of the per-vessel textures: the model's vessels, then every strand, tributary and liver branch.
   {
-    for (const [id, list] of Object.entries(treeGeo)) if (E[id]) E[id].cbr = list.map(({ pts, k }) => ({ cur: pts, k, w: 0 }));
+    for (const [id, list] of Object.entries(treeGeo)) if (E[id]) E[id].cbr = list.map(({ pts, k }) => ({ cur: pts, c0: pts, k, w: 0 }));
     let row = ALL_EDGES.length;
     for (const e of ALL_EDGES) {
       const x = E[e.id];
@@ -1820,7 +1820,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // (The joins pass, and the courses redrawn smooth where one vessel runs on into the next: vein-joins.js, which makes nothing in a frame. veinJoins leaves the pairs that run on in glStraight, as it always did,
   // and the store it wrote into in glStore for smoothRunOn.)
   let glStore = null;
-  const { MORPH_GPU, MORPH_JSLACK, MORPH_SLACK, joinKey, joinsKept, joinsOf, morphMiss, morphOff, morphTrackSoon, mt, rowKey, setOf, sweepPiece, visAt: visAt$ } = createMorph({ BLOOD_PAD, EV, GL_ROWS, N_SAMPLES, cavaAsOne, edgeVisible, geo, itemRadii, reachOf, strandAt, veinJoins, vesselAt, wrap }, live);
+  const { MORPH_GPU, MORPH_JSLACK, MORPH_SLACK, joinKey, joinsKept, joinsOf, morphMiss, morphOff, morphTrackSoon, mt, rowKey, setOf, sweepPiece, visAt: visAt$ } = createMorph({ BLOOD_PAD, EV, GL_ROWS, N_SAMPLES, cavaAsOne, cbAt, edgeVisible, geo, itemRadii, reachOf, strandAt, veinJoins, vesselAt, wrap }, live);
   function visAt(...a) { return visAt$(...a); }   // <stage-split stub>
   let shownCol = new Map(), lensFrom = null, lensT0 = 0, lensMode = null;
     let plateDim = null, plateSat = 1, netA = 1;

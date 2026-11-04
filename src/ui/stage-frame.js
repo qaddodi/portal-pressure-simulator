@@ -8,7 +8,7 @@ import { store, varixGrowth } from './store.js';
 import { clamp, lerp } from './util.js';
 
 export function createFrame(st, live) {
-  const { EI, EV, MAP, VB_CIRC_R, applyVT, arcLen, blendFrom, braid, gAscites, gFxC, geo, litNormals, nd, nodeVerts, pointAt, recs, rotEase, setG, stageWrap, svg, vbBox, wiggle } = st;
+  const { CIRC_C, EI, EV, MAP, VB_CIRC_R, applyVT, arcLen, blendFrom, braid, cbAt, circTurn, gAscites, gFxC, geo, litNormals, nd, nodeVerts, pointAt, recs, rotEase, setG, stageWrap, svg, vbBox, wiggle } = st;
   // A view may keep each finding (varices, collaterals, clots, flow) off the figure until a test shows it.
   const findingHidden = (k) => { const fd = store.get().found; return !!fd && !fd.has(k); };
   const FINDING_OF = { VAR: 'eso', GV: 'gv' };
@@ -88,9 +88,16 @@ export function createFrame(st, live) {
       g.mixI ^= 1;
       let m = mix[g.mixI];
       if (!m || m.length !== n) { m = mix[g.mixI] = Array.from({ length: n }, () => [0, 0]); }   // alloc-rare: made once for the vessel (and again if its sampling changes)
-      for (let i = 0; i < n; i++) { const q = m[i]; q[0] = lerp(A[i][0], C[i][0], t); q[1] = lerp(A[i][1], C[i][1], t); }
+      const T = circTurn(t), cx = CIRC_C[0], cy = CIRC_C[1], tc = T.c, ts = T.s;
+      if (T.on) for (let i = 0; i < n; i++) { const q = m[i], dx = C[i][0] - cx, dy = C[i][1] - cy; q[0] = lerp(A[i][0], cx + tc * dx - ts * dy, t); q[1] = lerp(A[i][1], cy + ts * dx + tc * dy, t); }
+      else for (let i = 0; i < n; i++) { const q = m[i]; q[0] = lerp(A[i][0], C[i][0], t); q[1] = lerp(A[i][1], C[i][1], t); }
       pts = m;
-    } else pts = g.A.map((p, i) => [lerp(p[0], g.C[i][0], t), lerp(p[1], g.C[i][1], t)]);
+    } else {
+      const T = circTurn(t), cx = CIRC_C[0], cy = CIRC_C[1], tc = T.c, ts = T.s;
+      pts = T.on
+        ? g.A.map((p, i) => { const dx = g.C[i][0] - cx, dy = g.C[i][1] - cy; return [lerp(p[0], cx + tc * dx - ts * dy, t), lerp(p[1], cy + ts * dx + tc * dy, t)]; })
+        : g.A.map((p, i) => [lerp(p[0], g.C[i][0], t), lerp(p[1], g.C[i][1], t)]);
+    }
     const base = pts;
     const u0 = STRAND_FROM[x.e.id] || 0;
     if (x.e.kind === 'collateral' && !x.e.spontaneous && t < 1) { const wz = wiggle(pts, g.wig * (1 - t), x.e.id.length); pts = u0 ? blendFrom(base, wz, u0) : wz; }
@@ -129,6 +136,7 @@ export function createFrame(st, live) {
       }
       g.cur = pts;
       g.len = arcLen(pts);
+      if (x.cbr) for (const cb of x.cbr) cb.cur = cbAt(cb, t);
       if (x.tipFade) { const ln = x.tipFade.line, pa = pointAt(pts, x.tipFade.frac); ln[0] = pts[0][0]; ln[1] = pts[0][1]; ln[2] = pa[0]; ln[3] = pa[1]; ln[4] = pa[2]; ln[5] = pa[3]; }   // (written in the vessel's own list)
       if (x.endFade) { const ln = x.endFade.line, pa = pointAt(pts, x.endFade.frac), pe = pts[pts.length - 1]; ln[0] = pa[0]; ln[1] = pa[1]; ln[2] = pe[0]; ln[3] = pe[1]; }
       x.shadeOk = false;
