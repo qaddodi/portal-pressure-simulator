@@ -79,7 +79,7 @@ const progList = (started) => {
 const poolCompiling = (q) => stillCompiling(q.gl, progList(q.started));
 const NO_OPTS = Object.freeze({});   // (a stroke asked for with no options: nothing is made for it)
 const LS_TEXT = new Map();
-const lsText = (n) => LS_TEXT.get(n) ?? LS_TEXT.set(n, `${n}px`).get(n);   // alloc-rare: the text of a letter spacing is made the first time that spacing is set, then looked up
+const lsText = (n) => LS_TEXT.get(n) ?? (LS_TEXT.size >= 400 && LS_TEXT.clear(), LS_TEXT.set(n, `${n}px`).get(n));   // alloc-rare: the text of a letter spacing is made the first time that spacing is set, then looked up
 function sharedGL() {
   if (!pools.length) { const first = makePool(); pools.push(first); if (first.dead) return null; }
   if (pools[0].dead) return null;

@@ -33,6 +33,7 @@ export function labelTarget(key) {
   else if (hung) t = { edge: hung, also: [] };   // alloc-rare: only a label key's first ask (memo)
   else if (sel?.type === 'organ' && OUTLINED.has(sel.id)) t = { organ: sel.id };   // alloc-rare: only a label key's first ask (memo)
   else t = null;
+  if (memo.size >= 400) memo.clear();   // (bounded: keys are a few hundred at most; clearing only rebuilds the answer once)
   memo.set(key, t);
   return t;
 }

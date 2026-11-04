@@ -27,6 +27,7 @@ export function easingOf(s) {
     const m = /^cubic-bezier\(([^)]+)\)$/.exec(s);
     if (m) { const v = m[1].split(',').map(Number); if (v.length === 4 && v.every(Number.isFinite)) f = cubicBezier(...v); }   // alloc-rare: first sight of this easing string (memoised after)
   }
+  if (memo.size >= 400) memo.clear();   // (bounded: an easing string is read from page styles, so a long session cannot grow it without end)
   memo.set(s, f);
   return f;
 }

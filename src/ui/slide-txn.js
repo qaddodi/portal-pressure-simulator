@@ -58,34 +58,8 @@ export function createTxns() {
   return { begin, current: () => cur, stats: () => ({ ...st, id: ids }) };
 }
 
-/**
- * A presentation's disposable scope (R03, 3 Nov 2026): the timers and callbacks one talk starts. timer(fn, ms) is setTimeout whose
- * callback runs only while the scope is live; dispose() clears every timer still waiting, runs the onDispose functions (newest first)
- * and makes later calls do nothing, so nothing a closed talk started can reach a talk that began after it.
- */
-export function createScope() {
-  let dead = false;
-  const ids = new Set(), offs = [];
-  return {
-    live: () => !dead,
-    timer(fn, ms) {
-      if (dead) return 0;
-      const id = setTimeout(() => { ids.delete(id); if (!dead) fn(); }, ms);
-      ids.add(id);
-      return id;
-    },
-    clear(id) { clearTimeout(id); ids.delete(id); },
-    onDispose(fn) { if (dead) { try { fn(); } catch (e) { caught('slide-txn:scope', e); /* given back already */ } return; } offs.push(fn); },
-    dispose() {
-      if (dead) return;
-      dead = true;
-      for (const id of ids) clearTimeout(id);
-      ids.clear();
-      for (const f of offs.splice(0).reverse()) { try { f(); } catch (e) { caught('slide-txn:scope', e); /* the rest still run */ } }
-    },
-    pending: () => ids.size,
-  };
-}
+// (createScope lives in scope.js now; re-exported here so the presenter and its tests keep their import.)
+export { createScope } from './scope.js';
 
 /**
  * A counted lease on a shared hold (R02, 3 Nov 2026): take() returns a release that works once (a second call does nothing), so a

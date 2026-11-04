@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "bundler",
+    "checkJs": true,
+    "noEmit": true,
+    "allowJs": true,
+    "strict": false,
+    "noImplicitAny": false,
+    "skipLibCheck": true,
+    "lib": ["ES2023", "DOM", "DOM.Iterable", "WebWorker"],
+    "types": []
+  },
+  "include": [
+    "src/engine/*.js",
+    "src/ui/store.js",
+    "src/ui/host.js",
+    "src/ui/frame.js",
+    "src/ui/scope.js"
+  ]
+}

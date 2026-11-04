@@ -66,6 +66,7 @@ export function nameSpots(name) {
     // (Spots a caption's own width would not tell apart are offered once: the nearest of each, so the few cover the organ.)
     for (const [x, y] of cands.sort((p, q) => p[2] - q[2])) if (out.length < MOST && out.every(([u, v]) => Math.hypot(u - x, v - y) >= APART)) out.push([x, y]);   // alloc-rare: a caption's spots are worked out the first time that name is asked and kept in `kept` (and the outlines in `outlines`), never again
   }
+  if (kept.size >= 200) kept.clear();   // (bounded: names are a fixed few dozen; this only guards a caller that passes free text)
   kept.set(name, out);
   return out;
 }

@@ -23,7 +23,7 @@ const widthsOf = new Map();
 export function measure(str, font) {
   if (typeof str !== 'string') str = String(str);   // alloc-rare: callers hand strings; a number is the odd one out
   let ws = widthsOf.get(font);
-  if (ws === undefined) { ws = new Map(); widthsOf.set(font, ws); }   // alloc-rare: only at a font string's first use
+  if (ws === undefined) { if (widthsOf.size >= 64) widthsOf.clear(); ws = new Map(); widthsOf.set(font, ws); }   // alloc-rare: only at a font string's first use
   let w = ws.get(str);
   if (w === undefined) {
     const f = fontOf(font), g = GLYPHS[f.w], kw = KERN[f.w];
@@ -47,7 +47,7 @@ const inks = new Map(), B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvw
  */
 export function inkBox(str, font) {
   let byWord = inks.get(font);
-  if (byWord === undefined) { byWord = new Map(); inks.set(font, byWord); }   // alloc-rare: only at a font string's first use
+  if (byWord === undefined) { if (inks.size >= 64) inks.clear(); byWord = new Map(); inks.set(font, byWord); }   // alloc-rare: only at a font string's first use
   let rows = byWord.get(str);
   if (rows) return rows;
   const f = fontOf(font), g = GLYPHS[f.w], kw = KERN[f.w], s = f.px / BASE, width = measure(str, font);
