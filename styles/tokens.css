@@ -28,7 +28,6 @@
   --ramp-heat: #B4B8C2 0, #F4D35E .12, #F08A24 .45, #D7263D .75, #6E0B2E 1;
   --ramp-drop: #DCE6D2 0, #A8C97A .3, #4F8C3C .65, #1D4724 1;
   --ramp-oxygen: #3A4F8F 0, #6E6A9F .35, #A9578A .65, #D2386F .9, #DC2F5E 1;   /* oxygen saturation 60–100 %: deoxygenated blue to oxygenated cerise */
-  --ramp-violet: #925CDD; --ramp-wine: #A4216E;   /* (the pressure ramp's 12 and 20 mmHg stops, as flat colours: the HVPG against PPG plane's violet and wine zones) */
   --lens-flow: #1E6F8C; --lens-heat: #D7263D; --lens-drop: #4F8C3C; --lens-oxygen: #C2387A;   /* a view named in the words: its pill, from its own ramp */
   --delta-low: #2D6CDF; --delta-mid: #9696A0; --delta-high: #D22846;   /* Change lens: lower, same, higher than healthy */
   /* blood origin lens (both themes): the streams in the vessels, their legend, and the matching traces */
@@ -120,7 +119,7 @@
   --white: #FFFFFF; --black: #000000; --white-rgb: 255 255 255; --black-rgb: 0 0 0; --night-rgb: 20 22 30;
   --scrim-panel: var(--scrim); --scrim-menu: var(--scrim);
   --shadow-btn-primary: 0 1px 2px rgba(20, 30, 80, .18); --shadow-cath-label: 0 8px 24px rgba(16, 20, 30, .22); --shadow-cath-label-off: 0 8px 24px rgba(16, 20, 30, 0);
-  --albumin-line: rgba(120, 64, 0, .5); --pz-albumin: var(--albumin); --pz-hepatocyte: #C58B5C;
+  --albumin-line: rgba(120, 64, 0, .5); --pz-albumin: var(--albumin);
   --dye-icon: #7fae16;
   /* timeline time-lapse, and a wrong answer in the exam review */
   --lapse: var(--caution); --exam-no: var(--danger);
@@ -364,6 +363,9 @@
   --sv-gl-lymph-lo: #EBF0E0;
   --sv-gl-lymph-mid: #E0EBD1;
   --sv-gl-lymph-hi: #D1E3BD;
+  --ramp-violet: #925CDD;
+  --ramp-wine: #A4216E;
+  --pz-hepatocyte: #C58B5C;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {

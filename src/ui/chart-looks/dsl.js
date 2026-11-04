@@ -20,5 +20,7 @@ export const fs12 = scaleOf('fs12'), fs14 = scaleOf('fs14');
 export const max = (...a) => ({ k: 'fn', f: 'max', a });
 export const min = (...a) => ({ k: 'fn', f: 'min', a });
 export const clamp = (lo, v, hi) => ({ k: 'fn', f: 'clamp', a: [lo, v, hi] });
-/** A transition the picture runs itself: kind 'flip' | 'small' | 'surface' (the durations of ease.js), curve a CSS easing (default: arrive), delay in ms. */
+/** A transition the picture runs itself: kind 'flip' | 'small' | 'surface' (the durations of ease.js) or a number of ms (a pace of the piece's own), curve a CSS easing (default: arrive), delay in ms. */
 export const ease = (kind, curve, delay = 0) => ({ k: 'ease', kind, curve, delay });
+/** k times the piece's own font size, as CSS letter-spacing: 0.02em says (own(0.02)); em() is the chart host's size instead. */
+export const own = (k) => ({ k: 'own', n: k });

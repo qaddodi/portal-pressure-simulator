@@ -100,6 +100,7 @@ function val(v, ctx, params) {
     }
     case 'px': return v.n;
     case 'em': return v.n * ctx.hostPx;
+    case 'own': return `${v.n}em`;   // (the piece's own font size: svg-gl's lookOf takes an em letter spacing against it)
     case 'svk': return num(val(v.x, ctx, params)) * ctx.svk;
     case 'scale': {
       const s = ctx.scale[v.name];
@@ -111,7 +112,7 @@ function val(v, ctx, params) {
       return v.f === 'max' ? Math.max(...a) : v.f === 'min' ? Math.min(...a) : Math.min(Math.max(a[1], a[0]), a[2]);
     }
     case 'ease': {
-      const ms = v.kind === 'flip' ? D_FLIP : v.kind === 'small' ? D_SMALL : D_SURFACE;
+      const ms = typeof v.kind === 'number' ? v.kind : v.kind === 'flip' ? D_FLIP : v.kind === 'small' ? D_SMALL : D_SURFACE;
       return { ms, delay: v.delay, ease: cssCurve(v.curve || EASE_ARRIVE) };
     }
     default: return v;
@@ -192,7 +193,7 @@ const CSSNAME = { fill: 'fill', stroke: 'stroke', width: 'strokeWidth', opacity:
   upper: 'textTransform', paintStroke: 'paintOrder', hidden: 'visibility', none: 'display', fixed: 'vectorEffect', baseline: 'dominantBaseline', stop: 'stopColor', stopOpacity: 'stopOpacity' };
 const PX = new Set(['width', 'dashOffset', 'size', 'letterSpacing']);
 function spell(k, v) {
-  if (PX.has(k)) return `${v}px`;
+  if (PX.has(k)) return typeof v === 'string' && /em$/.test(v) ? v : `${v}px`;
   switch (k) {
     case 'dash': return v && v.length ? v.join(' ') : 'none';
     case 'upper': return v ? 'uppercase' : 'none';

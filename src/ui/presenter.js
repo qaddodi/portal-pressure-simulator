@@ -455,28 +455,28 @@ function wedgeColumn() {
   const xs0 = xS0 + 6, xs1 = xS1 - 6, mid = (xs0 + xs1) / 2, ys = [-8.8, 0, 8.8], fw = bx0 + 8 - xN - 1, idF = `${id}f`;
   const lane = (dy) => `M${xs1} 0 C${xs1 - 16} ${dy * 0.15} ${xs1 - 22} ${dy} ${xs1 - 46} ${dy} H${xs0 + 46} C${xs0 + 22} ${dy} ${xs0 + 16} ${dy * 0.15} ${xs0} 0`;
   const links = `M${mid - 14} ${ys[0]} V${ys[1]} M${mid + 14} ${ys[1]} V${ys[2]}`;
-  const lanes = (cls) => ys.map((dy) => sv('path', { class: cls, d: lane(dy), pathLength: 1 }));
-  const fill = sv('rect', { class: 'c-fill', x: xN + 1, y: -16, width: fw, height: 32, style: `transform: translate(${fw}px, 0px)` });
-  const art = sv('g', { class: 'c-art' },
-    sv('clipPath', { id }, sv('path', { d: sil })),
-    sv('g', { 'clip-path': `url(#${id})` }, sv('rect', { class: 'c-pv', x: L - 1, y: -16, width: xN - L + 2, height: 32 }), sv('rect', { class: 'c-flow', x: xN + 1, y: -16, width: R - xN, height: 32 })),
-    ...lanes('c-lane'), sv('path', { class: 'c-lane c-link-b', d: links }),
+  const lanes = (cls, look) => ys.map((dy) => sv('path', { class: cls, 'data-look': look, d: lane(dy), pathLength: 1 }));
+  const fill = sv('rect', { class: 'c-fill', 'data-look': 'card.col.fill', x: xN + 1, y: -16, width: fw, height: 32, style: `transform: translate(${fw}px, 0px)` });
+  const art = sv('g', { class: 'c-art', 'data-look': 'card.g' },
+    sv('clipPath', { id, 'data-look': 'card.g' }, sv('path', { 'data-look': 'card.g', d: sil })),
+    sv('g', { 'clip-path': `url(#${id})`, 'data-look': 'card.g' }, sv('rect', { class: 'c-pv', 'data-look': 'card.col.pv', x: L - 1, y: -16, width: xN - L + 2, height: 32 }), sv('rect', { class: 'c-flow', 'data-look': 'card.col.flow', x: xN + 1, y: -16, width: R - xN, height: 32 })),
+    ...lanes('c-lane', 'card.col.lane'), sv('path', { class: 'c-lane c-link-b', 'data-look': 'card.col.link.b', d: links }),
     // (The column fills from the balloon back: its colour slides in from the right inside its own span, eased by the picture from its
     // transition, where a scaleX on SVG was repainted by the page every frame.)
-    sv('clipPath', { id: idF }, sv('rect', { x: xN + 1, y: -16, width: fw, height: 32 })),
-    sv('g', { 'clip-path': `url(#${id})` }, sv('g', { 'clip-path': `url(#${idF})` }, fill)),
-    ...lanes('c-lane-f'), sv('path', { class: 'c-lane-f c-link', d: links }),
-    sv('path', { class: 'c-edge', d: sil }),
-    sv('path', { class: 'c-blk', d: `M${xN - 5} -11.4 Q${xN} -3.5 ${xN - 5} -1.3 M${xN + 6} -11.4 Q${xN + 1} -3.5 ${xN + 6} -1.3 M${xN - 5} 11.4 Q${xN} 3.5 ${xN - 5} 1.3 M${xN + 6} 11.4 Q${xN + 1} 3.5 ${xN + 6} 1.3` }),
-    sv('rect', { class: 'c-bal', x: bx0, y: -14, width: bx1 - bx0, height: 28, rx: 9.7 }),
-    sv('path', { class: 'c-cath', d: `M${bx0 + 7} 0 H${W - 1}` }), sv('circle', { class: 'c-tip', cx: bx0 + 7, cy: 0, r: 2.3 }));
-  const lead = sv('path', { class: 'c-lead' }), brk = sv('path', { class: 'c-brk' });
-  const top = ['Still column:', 'reads the sinusoids'].map((t) => sv('text', { class: 'c-top', 'text-anchor': 'middle' }, t));
-  const red = ['Resistance in', 'the portal tract'].map((t) => sv('text', { class: 'c-blkt' }, t));
-  const names = [['Portal vein', 'start'], ['Sinusoids', 'middle'], ['Central vein', 'middle'], ['Balloon', 'end']].map(([t, a]) => sv('text', { 'text-anchor': a }, t));
-  const model = sv('svg', { viewBox: `0 0 ${W} 100`, 'aria-label': 'The still column fills from the balloon back through the central vein and the sinusoids, and stops at the resistance in the portal tract.' },
+    sv('clipPath', { id: idF, 'data-look': 'card.g' }, sv('rect', { 'data-look': 'card.g', x: xN + 1, y: -16, width: fw, height: 32 })),
+    sv('g', { 'clip-path': `url(#${id})`, 'data-look': 'card.g' }, sv('g', { 'clip-path': `url(#${idF})`, 'data-look': 'card.g' }, fill)),
+    ...lanes('c-lane-f', 'card.col.lane.f'), sv('path', { class: 'c-lane-f c-link', 'data-look': 'card.col.link.f', d: links }),
+    sv('path', { class: 'c-edge', 'data-look': 'card.col.edge', d: sil }),
+    sv('path', { class: 'c-blk', 'data-look': 'card.col.blk', d: `M${xN - 5} -11.4 Q${xN} -3.5 ${xN - 5} -1.3 M${xN + 6} -11.4 Q${xN + 1} -3.5 ${xN + 6} -1.3 M${xN - 5} 11.4 Q${xN} 3.5 ${xN - 5} 1.3 M${xN + 6} 11.4 Q${xN + 1} 3.5 ${xN + 6} 1.3` }),
+    sv('rect', { class: 'c-bal', 'data-look': 'card.col.bal', x: bx0, y: -14, width: bx1 - bx0, height: 28, rx: 9.7 }),
+    sv('path', { class: 'c-cath', 'data-look': 'card.col.cath', d: `M${bx0 + 7} 0 H${W - 1}` }), sv('circle', { class: 'c-tip', 'data-look': 'card.col.tip', cx: bx0 + 7, cy: 0, r: 2.3 }));
+  const lead = sv('path', { class: 'c-lead', 'data-look': 'card.col.lead' }), brk = sv('path', { class: 'c-brk', 'data-look': 'card.col.brk' });
+  const top = ['Still column:', 'reads the sinusoids'].map((t) => sv('text', { class: 'c-top', 'data-look': 'card.col.top', 'text-anchor': 'middle' }, t));
+  const red = ['Resistance in', 'the portal tract'].map((t) => sv('text', { class: 'c-blkt', 'data-look': 'card.col.blkt' }, t));
+  const names = [['Portal vein', 'start'], ['Sinusoids', 'middle'], ['Central vein', 'middle'], ['Balloon', 'end']].map(([t, a]) => sv('text', { 'data-look': 'card.col.text', 'text-anchor': a }, t));
+  const model = sv('svg', { 'data-look': 'card.root', viewBox: `0 0 ${W} 100`, 'aria-label': 'The still column fills from the balloon back through the central vein and the sinusoids, and stops at the resistance in the portal tract.' },
     art, lead, brk, ...red, ...top, ...names);
-  const svg = glBox('pz-col', model, { role: 'img', 'aria-label': model.getAttribute('aria-label'), style: `aspect-ratio: ${W} / 100` });
+  const svg = glBox('pz-col', model, { role: 'img', 'aria-label': model.getAttribute('aria-label'), style: `aspect-ratio: ${W} / 100` }, 'col');
   // The words follow the lettering (the slide's caption size as drawn): two lines over the picture, the names in one row under it.
   // (Widths are measured: the column only lays out while it shows.) The lettering never steps off its role: when the four names do not
   // stand in one row clear of each other they take two rows, and when the two headings do not stand side by side the column's heading
@@ -508,7 +508,7 @@ function wedgeColumn() {
     const vh = (base + (rows2 ? lh : 0) + 0.3 * c + 2).toFixed(1);
     setA(model, 'viewBox', `0 0 ${W} ${vh}`);
     if (svg.style.aspectRatio !== `${W} / ${vh}`) svg.style.aspectRatio = `${W} / ${vh}`;
-  }, () => restPass(() => { svg.classList.add('in'); fill.style.transform = 'translate(0px, 0px)'; svg._svgGL.wake(2600); }));
+  }, () => restPass(() => { svg.classList.add('in'); model.classList.add('in'); fill.style.transform = 'translate(0px, 0px)'; svg._svgGL.wake(2600); }));
   if (!glyphsReady()) loadGlyphs().then(() => restPass(() => fitted.forEach((c) => c.svg === svg && (c.fs = null, fitNow(c)))));
   return svg;
 }
@@ -562,9 +562,9 @@ function tweener(draw) {
 const sv = svgModel;
 /** A diagram's box: a block of the diagram's class (its look and size in the stylesheet) holding the model and the GPU picture of it. Its
  *  look is read once it is on the page and laid out (fitChart), and again whenever its lettering is laid out anew. */
-function glBox(cls, root, attrs = {}) {
+function glBox(cls, root, attrs = {}, host = '') {   // (host: the chart's name in the looks table, chart-looks/card.js)
   const box = h('div', { class: cls, ...attrs });
-  const gl = createSvgGL(box);
+  const gl = createSvgGL(box, { host });
   if (!attrs['aria-label']) { gl.cv.setAttribute('aria-hidden', 'true'); gl.cv.removeAttribute('role'); }
   box.append(root);
   box._model = root;
@@ -628,7 +628,7 @@ function dropCharts(el) {
   for (const b of el.querySelectorAll('.svg-gl-box')) b._svgGL?.dispose();
   if (el._svgGL) el._svgGL.dispose();
 }
-const fsOf = (el, px) => { el.style.fontSize = px.toFixed(2) + 'px'; };
+const fsOf = (el, px) => { el.style.fontSize = px.toFixed(2) + 'px'; el.setAttribute('font-size', px.toFixed(2)); };   // (a model piece's looks come from the table, which takes its size from the attribute)
 
 // The block is a hatched fill: bold diagonal red stripes over a faint red tint (visible in light and dark, no label).
 // Shared by the ladders and the level rail, so the block looks the same everywhere.
@@ -939,19 +939,19 @@ function quadrantVisual(rows) {
     const near = pts.find((p) => Math.abs(p.saag - r.f.saag) < 0.3 && Math.abs(p.tp - r.f.tp) < 0.5);   // (labels that would overlap)
     if (near) near.names.push(r.name); else pts.push({ saag: r.f.saag, tp: r.f.tp, names: [r.name], site: r.site });
   }
-  const quads = QUADS.map((q) => { const rect = sv('rect'), n = sv('text', { class: 'pzq-n', 'text-anchor': 'start' }, String(q.n)); return { q, rect, n, g: sv('g', { class: 'pzq-q', 'data-q': String(q.n) }, rect, n) }; });
-  const cuts = [sv('line', { class: 'pzq-cut' }), sv('line', { class: 'pzq-cut' })], axes = [sv('line', { class: 'pzq-axis' }), sv('line', { class: 'pzq-axis' })];
-  const xt = [[0, '0'], [1.1, '1.1'], [2, '2'], [3, '3']].map(([v, t]) => ({ v, el: sv('text', { class: 'pzq-t' + (v === 1.1 ? ' on' : ''), 'text-anchor': 'middle' }, t) }));
-  const yt = [[0, '0'], [2.5, '2.5'], [5, '5']].map(([v, t]) => ({ v, el: sv('text', { class: 'pzq-t' + (v === 2.5 ? ' on' : ''), 'text-anchor': 'end' }, t) }));
-  const axX = sv('text', { class: 'pzq-ax', 'text-anchor': 'middle' }, 'SAAG, g/dL'), axY = sv('text', { class: 'pzq-ax', x: 0, y: 0, 'text-anchor': 'middle' }, 'Ascites protein, g/dL');
+  const quads = QUADS.map((q) => { const rect = sv('rect', { 'data-look': 'card.quad.rect' }), n = sv('text', { class: 'pzq-n', 'data-look': 'card.quad.n', 'text-anchor': 'start' }, String(q.n)); return { q, rect, n, g: sv('g', { class: 'pzq-q', 'data-look': 'card.g', 'data-q': String(q.n) }, rect, n) }; });
+  const cuts = [sv('line', { class: 'pzq-cut', 'data-look': 'card.quad.cut' }), sv('line', { class: 'pzq-cut', 'data-look': 'card.quad.cut' })], axes = [sv('line', { class: 'pzq-axis', 'data-look': 'card.quad.axis' }), sv('line', { class: 'pzq-axis', 'data-look': 'card.quad.axis' })];
+  const xt = [[0, '0'], [1.1, '1.1'], [2, '2'], [3, '3']].map(([v, t]) => ({ v, el: sv('text', { class: 'pzq-t' + (v === 1.1 ? ' on' : ''), 'data-look': 'card.quad.t', 'text-anchor': 'middle' }, t) }));
+  const yt = [[0, '0'], [2.5, '2.5'], [5, '5']].map(([v, t]) => ({ v, el: sv('text', { class: 'pzq-t' + (v === 2.5 ? ' on' : ''), 'data-look': 'card.quad.t', 'text-anchor': 'end' }, t) }));
+  const axX = sv('text', { class: 'pzq-ax', 'data-look': 'card.quad.ax', 'text-anchor': 'middle' }, 'SAAG, g/dL'), axY = sv('text', { class: 'pzq-ax', 'data-look': 'card.quad.ax', x: 0, y: 0, 'text-anchor': 'middle' }, 'Ascites protein, g/dL');
   const dots = pts.map((p, i) => {
-    const circle = sv('circle', { r: 15 }), names = p.names.map((nm) => sv('text', {}, nm));
-    return { p, circle, names, g: sv('g', { class: 'pzq-pt', 'data-site': p.site || 'none', style: `--i:${i}` }, circle, names) };
+    const circle = sv('circle', { 'data-look': 'card.quad.dot', r: 15 }), names = p.names.map((nm) => sv('text', { 'data-look': 'card.quad.name' }, nm));
+    return { p, circle, names, g: sv('g', { class: 'pzq-pt', 'data-look': 'card.quad.pt', 'data-site': p.site || 'none', 'data-i': String(i) }, circle, names) };
   });
   const label = 'SAAG against ascites protein: ' + pts.map((p) => `${p.names.join(' and ')}, SAAG ${fmt(p.saag, 1)}, protein ${fmt(p.tp, 1)}`).join('; ');
-  const model = sv('svg', { viewBox: `0 0 ${W} 640`, 'aria-label': label },
+  const model = sv('svg', { 'data-look': 'card.root', viewBox: `0 0 ${W} 640`, 'aria-label': label },
     quads.map((q) => q.g), cuts, axes, xt.map((t) => t.el), yt.map((t) => t.el), axX, axY, dots.map((d) => d.g));
-  const svg = glBox('pz-quad', model, { role: 'img', 'aria-label': label, style: `aspect-ratio: ${W} / 640` });
+  const svg = glBox('pz-quad', model, { role: 'img', 'aria-label': label, style: `aspect-ratio: ${W} / 640` }, 'quad');
   const at = (e, o) => { for (const [k, v] of Object.entries(o)) e.setAttribute(k, typeof v === 'number' ? v.toFixed(1) : v); };
   const lay = (fs) => {
     const t = fs.cap, a = fs.cap, nm = fs.lab, n = fs.val;
@@ -998,7 +998,7 @@ function quadrantVisual(rows) {
   lay({ cap: 25, lab: 29, val: 42 });
   // (Each point fades and rises into place in turn (its transition, app.css .pzq-pt), run by the picture once its look is read.)
   for (const { g } of dots) g.style.transform = 'translate(0px, 9px)';
-  fitChart(svg, lay, () => restPass(() => { svg.classList.add('in'); for (const { g } of dots) g.style.transform = 'translate(0px, 0px)'; svg._svgGL.wake(400 + dots.length * 180 + 600); }));
+  fitChart(svg, lay, () => restPass(() => { svg.classList.add('in'); model.classList.add('in'); for (const { g } of dots) g.style.transform = 'translate(0px, 0px)'; svg._svgGL.wake(400 + dots.length * 180 + 600); }));
   return h('div', { class: 'pz-visual pz-quadwrap' }, svg,
     h('ol', { class: 'pz-quads' }, QUADS.map((q) => h('li', { 'data-q': String(q.n) },
       h('span', { class: 'qn' }, String(q.n)), h('span', { class: 'qt' }, q.t), h('span', { class: 'qc' }, q.c)))));
@@ -1012,28 +1012,28 @@ function wallsVisual() {
   // Side by side on a wide screen, one above the other on a phone.
   const panel = (sin) => {
     const yW = 236, lumen = [yW + 16, yW + 132], dots = [];
-    for (let i = 0; i < 8; i++) dots.push(sv('circle', { class: 'pzw-alb', cx: 70 + i * 66, cy: lumen[0] + 30 + (i % 3) * 30, r: 8 }));   // (their drift stays in the lumen)
+    for (let i = 0; i < 8; i++) dots.push(sv('circle', { class: 'pzw-alb', 'data-look': 'card.walls.alb', cx: 70 + i * 66, cy: lumen[0] + 30 + (i % 3) * 30, r: 8 }));   // (their drift stays in the lumen)
     const cross = [];
     // The sinusoid's wall: six plates with a pore between each; albumin rises through three of them.
     const pores = [104, 202, 300, 398, 496];
-    if (sin) for (const x of [pores[0], pores[2], pores[4]]) cross.push(sv('circle', { class: 'pzw-alb pzw-cross', cx: x, cy: yW + 6, r: 8, style: `--d:${(x / 400).toFixed(2)}s` }));
+    if (sin) for (const x of [pores[0], pores[2], pores[4]]) cross.push(sv('circle', { class: 'pzw-alb pzw-cross', 'data-look': 'card.walls.cross', cx: x, cy: yW + 6, r: 8, style: `--d:${(x / 400).toFixed(2)}s` }));
     // (Each arrow's head is drawn as its own shape at the line's end (the marker's triangle, 5 strokes long, pointing up), so the picture draws it.)
     const sw = sin ? 7 : 4, hs = sw / 2;
-    const arrows = (sin ? pores : [170, 430]).map((x) => { const ey = yW - (sin ? 22 : 26); return sv('g', { class: 'pzw-arrow' }, sv('path', { class: 'pzw-flow' + (sin ? ' big' : ''), d: `M${x} ${yW + 40} V${ey}` }), sv('path', { class: 'pzw-head', d: `M${x - 5 * hs} ${ey + 5 * hs} L${x} ${ey - 5 * hs} L${x + 5 * hs} ${ey + 5 * hs} Z` })); });
+    const arrows = (sin ? pores : [170, 430]).map((x) => { const ey = yW - (sin ? 22 : 26); return sv('g', { class: 'pzw-arrow', 'data-look': 'card.g' }, sv('path', { class: 'pzw-flow' + (sin ? ' big' : ''), 'data-look': 'card.walls.flow', d: `M${x} ${yW + 40} V${ey}` }), sv('path', { class: 'pzw-head', 'data-look': 'card.walls.head', d: `M${x - 5 * hs} ${ey + 5 * hs} L${x} ${ey - 5 * hs} L${x + 5 * hs} ${ey + 5 * hs} Z` })); });
     const wall = sin
-      ? [0, 1, 2, 3, 4, 5].map((k) => sv('rect', { class: 'pzw-wall', x: 20 + k * 98, y: yW, width: 70, height: 14, rx: 7 }))
-      : [sv('rect', { class: 'pzw-wall', x: 20, y: yW, width: 560, height: 14, rx: 7 }), sv('rect', { class: 'pzw-bm', x: 20, y: yW - 9, width: 560, height: 6, rx: 3 })];
+      ? [0, 1, 2, 3, 4, 5].map((k) => sv('rect', { class: 'pzw-wall', 'data-look': 'card.walls.wall', x: 20 + k * 98, y: yW, width: 70, height: 14, rx: 7 }))
+      : [sv('rect', { class: 'pzw-wall', 'data-look': 'card.walls.wall', x: 20, y: yW, width: 560, height: 14, rx: 7 }), sv('rect', { class: 'pzw-bm', 'data-look': 'card.walls.bm', x: 20, y: yW - 9, width: 560, height: 6, rx: 3 })];
     // A band's name, placed in lay: [text, band top, band height, centred in the band].
-    const names = sin ? [[sv('text', { class: 'pzw-l', x: 34 }, 'Liver cells'), 108, 42, true], [sv('text', { class: 'pzw-l', x: 34 }, 'Space of Disse: lymph'), 154, 74, false]]
-      : [[sv('text', { class: 'pzw-l', x: 34 }, 'Tissue fluid: little'), 108, 120, false]];
-    const dotsG = sv('g', { class: 'pzw-dots' }, dots);
-    const model = sv('svg', { viewBox: '0 100 600 276' },
-      sin ? [sv('rect', { class: 'pzw-hep', x: 20, y: 108, width: 560, height: 42, rx: 12 }), sv('rect', { class: 'pzw-disse', x: 20, y: 154, width: 560, height: 74, rx: 8 })]
-        : sv('rect', { class: 'pzw-tissue', x: 20, y: 108, width: 560, height: 120, rx: 12 }),
+    const names = sin ? [[sv('text', { class: 'pzw-l', 'data-look': 'card.walls.l', x: 34 }, 'Liver cells'), 108, 42, true], [sv('text', { class: 'pzw-l', 'data-look': 'card.walls.l', x: 34 }, 'Space of Disse: lymph'), 154, 74, false]]
+      : [[sv('text', { class: 'pzw-l', 'data-look': 'card.walls.l', x: 34 }, 'Tissue fluid: little'), 108, 120, false]];
+    const dotsG = sv('g', { class: 'pzw-dots', 'data-look': 'card.g' }, dots);
+    const model = sv('svg', { 'data-look': 'card.root', viewBox: '0 100 600 276' },
+      sin ? [sv('rect', { class: 'pzw-hep', 'data-look': 'card.walls.hep', x: 20, y: 108, width: 560, height: 42, rx: 12 }), sv('rect', { class: 'pzw-disse', 'data-look': 'card.walls.disse', x: 20, y: 154, width: 560, height: 74, rx: 8 })]
+        : sv('rect', { class: 'pzw-tissue', 'data-look': 'card.walls.tissue', x: 20, y: 108, width: 560, height: 120, rx: 12 }),
       names.map(([t]) => t),
-      sv('rect', { class: 'pzw-lumen', x: 20, y: lumen[0], width: 560, height: lumen[1] - lumen[0], rx: 10 }),
+      sv('rect', { class: 'pzw-lumen', 'data-look': 'card.walls.lumen', x: 20, y: lumen[0], width: 560, height: lumen[1] - lumen[0], rx: 10 }),
       dotsG, cross, wall, arrows);
-    const draw = glBox('pzw-art', model, { style: 'aspect-ratio: 600 / 276' });
+    const draw = glBox('pzw-art', model, { style: 'aspect-ratio: 600 / 276' }, 'walls');
     // The scene keeps moving on the picture (svg-gl noteLoop), as its keyframes did on SVG (app.css pzw-drift, pzw-pulse, pzw-rise): the
     // albumin drifts in the lumen, the flow pulses up through the wall, and in the sinusoid albumin rises through three pores. Reduced
     // motion keeps the pulse and the rise's fade, and nothing travels.
