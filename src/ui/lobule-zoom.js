@@ -350,7 +350,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const k = kFit * Math.pow(rawK / kFit, 0.3), r = k / V.k;
     V.x = px - (px - V.x) * r; V.y = py - (py - V.y) * r; V.k = k; viewChanged();
   }
-  function endStretch() { if (!rawK) return; if (!wheelQuiet()) { stretchT = setTimeout(endStretch, 120); return; } rawK = 0; rubber = false; glideTo(fitV(), 380); atFit = true; }
+  // (The stretch's and the rubber band's spring-backs, each one timer, asked again (and re-armed while the wheel is not yet quiet) here.)
+  function stretchSoon(ms) { clearTimeout(stretchT); stretchT = setTimeout(endStretch, ms); }
+  function rubberSoon(ms) { clearTimeout(rubberT); rubberT = setTimeout(rubberEnd, ms); }
+  function endStretch() { if (!rawK) return; if (!wheelQuiet()) { stretchSoon(120); return; } rawK = 0; rubber = false; glideTo(fitV(), 380); atFit = true; }
   function clampV() {
     if (!geo || rubber) return;
     const F0 = fitInto(fitC);
@@ -541,7 +544,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // lobule out to its framing between two of the pinch's events, and the next one zoomed it in again, the zoom flickering in and out
   // (4 Nov 2026, Mohammad). A gesture's own 250 ms window counts the same way: a slow frame never ends a pinch.)
   const wheelQuiet = (ms = 200) => performance.now() - wheelAt >= ms && frameCount() - wheelFrame >= 2;
-  const rubberEnd = () => { rubberT = 0; if (!rubber) return; if (!wheelQuiet()) { rubberT = setTimeout(rubberEnd, 120); return; } rubber = false; const G0 = fitV(); glideTo(G0, 380); atFit = true; };   // (the wheel's rubber band lets go: springs back)
+  const rubberEnd = () => { rubberT = 0; if (!rubber) return; if (!wheelQuiet()) { rubberSoon(120); return; } rubber = false; const G0 = fitV(); glideTo(G0, 380); atFit = true; };   // (the wheel's rubber band lets go: springs back)
   el.addEventListener('wheel', (ev) => {
     ev.preventDefault();
     if (wheelMute) { const now = performance.now(); if (now - wheelAt < 250) { wheelAt = now; return; } wheelMute = false; }
@@ -557,7 +560,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         rubber = true; atFit = false;
         V.x = F0.x + bandOffset(bx - dx, Lx); V.y = F0.y + bandOffset(by - dy, Ly); viewChanged();
         clearTimeout(rubberT);
-        rubberT = setTimeout(rubberEnd, 220);
+        rubberSoon(220);
         return;
       }
       V.x -= dx; V.y -= dy; atFit = false; clampV(); viewChanged();
@@ -569,9 +572,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // must end it here, or the spring-back glided the lobule to the framing in the middle of the zoom, then the pinch carried on.)
     if (rubber && !rawK) { clearTimeout(rubberT); rubberT = 0; rubber = false; }
     if (V.k <= kFit * 1.001 && f < 1) {
-      stretchBy(px, py, f); clearTimeout(stretchT); stretchT = setTimeout(endStretch, 220); return;   // a zoom-out at its framing stretches and springs back
+      stretchBy(px, py, f); stretchSoon(220); return;   // a zoom-out at its framing stretches and springs back
     }
-    if (rawK && f > 1) { stretchBy(px, py, f); clearTimeout(stretchT); stretchT = setTimeout(endStretch, 220); return; }
+    if (rawK && f > 1) { stretchBy(px, py, f); stretchSoon(220); return; }
     zoomAround(px, py, f);
   }, { passive: false });
   const touches = new Map();
