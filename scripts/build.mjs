@@ -144,16 +144,12 @@ const reached = new Set(Object.values(app.metafile.outputs).flatMap((o) => o.imp
 for (const [f, o] of Object.entries(app.metafile.outputs)) {
   if (o.entryPoint && !o.entryPoint.endsWith('src/ui/main.js') && !reached.has(f)) { rmSync(resolve(f), { force: true }); delete app.metafile.outputs[f]; }
 }
-// (The limit holds where BUILD_STRICT is set (main's deploy, CI): the build fails on a chunk over it. A chunk that is one module alone waits
-// for that module to be split in its source, and may not grow past the size it had when it was listed here. Without BUILD_STRICT (the
-// preview deploy, a local build) an over-limit chunk is a warning, so a few KB never keep a preview off the devices.)
-const SPLIT_PENDING = { 'src/ui/stage.js': 420 * 1024 };
+// (The limit holds where BUILD_STRICT is set (main's deploy, CI): the build fails on a chunk over it. Without BUILD_STRICT (the preview
+// deploy, a local build) an over-limit chunk is a warning, so a few KB never keep a preview off the devices. The stage no longer needs an
+// allowance (PR-18): it is split into parts, and the bundler shares them out into chunks under the limit.)
 for (const [f, o] of Object.entries(app.metafile.outputs)) {
   if (!f.endsWith('.js') || o.bytes <= CHUNK_LIMIT) continue;
   const mods = Object.entries(o.inputs).filter(([, i]) => i.bytesInOutput > 0).map(([i]) => i);
-  if (mods.length === 1 && o.bytes <= (SPLIT_PENDING[mods[0]] || 0)) continue;
-  // (The stage split: a chunk made only of stage.js and stage-*.js parts is the stage still waiting for its split, under the same size.)
-  if (mods.length && mods.every((m) => /^src\/ui\/stage(-.+)?\.js$/.test(m)) && o.bytes <= SPLIT_PENDING['src/ui/stage.js']) continue;
   const msg = `${basename(f)} is ${(o.bytes / 1024).toFixed(0)} KB (${mods.slice(0, 4).join(', ')}): no chunk over ${CHUNK_LIMIT / 1024} KB`;
   if (process.env.BUILD_STRICT) throw new Error(msg);
   console.warn(`::warning title=Chunk over the size limit::${msg}`);
