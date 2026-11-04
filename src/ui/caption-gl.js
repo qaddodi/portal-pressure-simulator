@@ -116,10 +116,6 @@ const fontOf = (r, s) => {
   if (r.fontS !== s) { r.fontS = s; r.fontStr = `${r.weight} ${(r.size * s).toFixed(2)}px Inter`; }
   return r.fontStr;
 };
-const spaceOf = (r, s) => {
-  if (r.spaceS !== s) { r.spaceS = s; r.spaceStr = `${r.ls * s}px`; }
-  return r.spaceStr;
-};
 const NBSP = /\u00a0/g;
 const upper = (r, t) => (r.upper ? t.toUpperCase() : t);
 // (A run's width: Inter's own outlines and kerning, as the Anatomy labels are set (label-gl.js layBlock), once the outlines are here; the SDF atlas's before.)
@@ -399,14 +395,7 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
         { const q = drawnL[drawnLN++] || (drawnL[drawnLN - 1] = { key: '', x0: 0, y0: 0, x1: 0, y1: 0, a: 0 }); q.key = key; q.x0 = x2; q.y0 = y2; q.x1 = sx; q.y1 = sy; q.a = a; }   // (what this frame drew, for snapshot(): the figure's point and the name's end, view applied; alloc-rare, only until a frame has drawn as many leaders as any frame will)
         // The leader and its dot as the Anatomy and Circuit labels draw them (app.css .leader, .leader-dot): a 1px line in the leader ink, the dot on
         // its point with the stage's paper round it and the text ink's ring.
-        if (lgOn()) { leadMarks(key, L, sx, sy, x2, y2, a); continue; }
-        const lk = leadLook;
-        ctx.globalAlpha = a; ctx.strokeStyle = lk.line || L.colour; ctx.lineWidth = lk.lw; ctx.lineCap = 'round';
-        ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(x2, y2); ctx.stroke();
-        const r = L.r ?? lk.r;
-        if (lk.halo) { ctx.fillStyle = lk.halo; ctx.beginPath(); ctx.arc(x2, y2, lk.haloR, 0, Math.PI * 2); ctx.fill(); }
-        ctx.fillStyle = lk.fill || L.colour; ctx.beginPath(); ctx.arc(x2, y2, r, 0, Math.PI * 2); ctx.fill();
-        if (lk.ring) { ctx.strokeStyle = lk.ring; ctx.lineWidth = lk.rw; ctx.beginPath(); ctx.arc(x2, y2, r, 0, Math.PI * 2); ctx.stroke(); }
+        if (lgOn()) leadMarks(key, L, sx, sy, x2, y2, a);
       }
       lgList.length = 0;
       for (const I of items.values()) {
@@ -430,30 +419,6 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
           }
           continue;
         }
-        // Its words: each run's halo (a round-joined stroke of Inter's outlines, the Anatomy pen), then its ink, in the page's order.
-        ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-        for (let li = 0, ln0 = I.set.n ?? I.set.lines.length; li < ln0; li++) {
-          const ln = I.set.lines[li];
-          const x0 = l + (bw - ln.w * s) / 2, by = t + ln.base * s;
-          for (let ri = 0, rn = ln.m ?? ln.runs.length; ri < rn; ri++) {
-            const { t: txt, r, x } = ln.runs[ri];
-            const ra = a * r.op;
-            const hw = r.halo ?? lk.halo, hc = r.haloC ?? lk.haloC;
-            if (outlined(txt)) {
-              const o = outlineOf(txt, r);
-              ctx.beginPath(); ctx.addPolys(o.pts, o.starts, o.np, o.n, x0 + x * s, by, s);
-              if (hw > 0 && hc) { ctx.globalAlpha = ra; ctx.strokeStyle = hc; ctx.lineWidth = hw * s; ctx.lineCap = 'round'; ctx.stroke(); }
-              ctx.globalAlpha = ra; ctx.fillStyle = r.fill; ctx.fill();
-              continue;
-            }
-            // (Till the outlines are here: the atlas's words, as before.)
-            ctx.font = fontOf(r, s); ctx.letterSpacing = spaceOf(r, s);
-            if (hw > 0 && hc) { ctx.globalAlpha = ra; ctx.strokeStyle = hc; ctx.lineWidth = hw * s; ctx.strokeText(txt, x0 + x * s, by); }
-            ctx.globalAlpha = ra; ctx.fillStyle = r.fill; ctx.fillText(txt, x0 + x * s, by);
-          }
-        }
-        ctx.letterSpacing = '0px';
-        if (I.arrow) drawArrow(ctx, I, l, t, s, a);
       }
       if (lgOn()) LG.sync(lgList);
       ctx.globalAlpha = 1;
@@ -476,15 +441,6 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
     if (more) ask = finalFrame(draw);
     else if (wasMoving) onRest?.();   // (its eases done: the owner may place its page model, between frames)
     wasMoving = more;
-  }
-  // (An owner's arrow: a small triangle about a point of the caption, turned to the way it points.)
-  function drawArrow(ctx, I, l, t, s, a) {
-    const A = I.arrow, c = Math.cos(A.ang), sn = Math.sin(A.ang), ox = l + (A.x + c * A.r) * s, oy = t + (A.y + sn * A.r) * s;
-    ctx.globalAlpha = a; ctx.fillStyle = A.colour; ctx.beginPath();
-    ctx.moveTo(ox + (-4.5 * c + 5 * sn) * s, oy + (-4.5 * sn - 5 * c) * s);
-    ctx.lineTo(ox + 4.5 * c * s, oy + 4.5 * sn * s);
-    ctx.lineTo(ox + (-4.5 * c - 5 * sn) * s, oy + (-4.5 * sn + 5 * c) * s);
-    ctx.closePath(); ctx.fill();
   }
   function itemA(key, now) { const I = items.get(key); return I ? easeAt(I.a, now) : 1; }
   gpu = make(cv, { redraw: () => api.paint(), lose: () => api.paint() });
