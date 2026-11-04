@@ -437,7 +437,7 @@ export function createOrganStack(gl, { painter: shared = null, moves = !shared }
   const exactBuf = { m: [1, 0, 0, 1, 0, 0], ck: '' }, baseBuf = { m: [1, 0, 0, 1, 0, 0], s: 1, ck: '' }, margBuf = { p: [1, 0, 0, 1, 0, 0], s: 1, ck: '' };   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
   let exactAt = null, base = null, marg = null, mvShown = false, mvAt = 0, mvS = null, mvM = null;
   const setExact = (m, ck) => { copyView(exactBuf.m, m); exactBuf.ck = ck; exactAt = exactBuf; };   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
-  const moveStats = { moved: 0, bases: 0, margins: 0, exact: 0 };   // (for the tests and ?organpaths: frames moved, bases copied, margins painted, exact paints)   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
+  const moveStats = { moved: 0, bases: 0, margins: 0, exact: 0, restored: 0 };   // (for the tests and ?organpaths: frames moved, bases copied, margins painted, exact paints)   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
   // (The content's name, built again only when a number in it moved: a camera-only frame finds the same string.)
   let ckVer = -1, ckLive = -1, ckPage = -1, ckW = -1, ckH = -1, ckStr = '';
   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
@@ -466,6 +466,15 @@ export function createOrganStack(gl, { painter: shared = null, moves = !shared }
   const dropTarget = (t) => { if (t) { gl.deleteTexture(t.tex); gl.deleteFramebuffer(t.fb); } return null; };   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
   // (Given back once the camera has settled, on trim and on dispose: two canvas-sized textures held only while the camera moves.)
   function moveDrop() { mvS = dropTarget(mvS); mvM = dropTarget(mvM); base = marg = null; }
+  // Whether a frame at view m lands on the base's own view (to a hundredth of a device pixel), its content as the base was copied, with no
+  // view's picture still fading in: the base's copy is then the exact picture for it (render puts it back).
+  const landsOnBase = (m, ck, cw, ch) => {   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
+    if (!base || !mvS || base.ck !== ck || !painter || w !== cw || h !== ch || mvS.w !== cw || mvS.h !== ch) return false;
+    const b = base.m;
+    if (Math.abs(b[0] - m[0]) > 1e-6 || Math.abs(b[1] - m[1]) > 1e-6 || Math.abs(b[2] - m[2]) > 1e-6 || Math.abs(b[3] - m[3]) > 1e-6 || Math.abs(b[4] - m[4]) > 0.01 || Math.abs(b[5] - m[5]) > 0.01) return false;
+    for (const L of live[1].values()) if (L.from != null) return false;
+    return true;
+  };
   // (Only with live groups, whose shapes are what a frame paints; a stack of pictures alone lays a quad a layer, cheaper than a copy.
   // Never while a view's picture fades in (each frame of it is drawn a step further) or without the page watch, which says that nothing
   // in the live groups was written.)
@@ -700,6 +709,20 @@ export function createOrganStack(gl, { painter: shared = null, moves = !shared }
       const settle = mvShown && performance.now() - mvAt >= MOVE_SETTLE_MS;
       if (unchanged && (watch || !liveNow()) && !settle) return null;
       const ck = contentKey(cw, ch);
+      // (Landed back on the camera the move set off from, its content unchanged: the copy taken as the move began (mvS) is that exact
+      // picture, so it is put back and nothing is painted from shapes. A view change that returns to the framing it left, Anatomy to
+      // Circuit and back to its home framing, lands without repainting the organs: the next-view pre-render's kept plate.)
+      if ((settle || !unchanged) && landsOnBase(m, ck, cw, ch)) {
+        gl.bindFramebuffer(gl.READ_FRAMEBUFFER, mvS.fb); gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, fbo);
+        gl.disable(gl.SCISSOR_TEST);
+        gl.blitFramebuffer(0, 0, cw, ch, 0, 0, cw, ch, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+        gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null); gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+        moveDrop(); mvShown = false;
+        keepKey();
+        setView(kAt, ver, m, cw, ch); kAt.ok = true;
+        setExact(m, ck); moveStats.restored++;
+        return true;
+      }
       // (Only the camera moved: the last pictures moved on the GPU, nothing painted from shapes.)
       if (!unchanged && moveOk(ck, cw, ch)) {
         if (moveFrame(m, ck, cw, ch)) { keepKey(); return true; }

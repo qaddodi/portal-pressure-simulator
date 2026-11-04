@@ -249,12 +249,8 @@ export function createDive(st, live) {
     live.lobU = live.easeInOut(clamp((t - 0.48) / 0.4, 0, 1));
     syncSemantic();
   }
-  // The rise's own framing, made ahead (next-view pre-render): the anatomy under the landed lobule is taken to its fit framing at
-  // prepRise, unseen (the figure's alpha is 0 under the lobule and cameraZoom is null while landed), and brought up to date there, so
-  // the plate is painted for the framing the rise lands on and the tap that starts the rise has no refit or catch-up update to do.
-  // (preVT/preF: the fit made and the model frame it was brought up to date for; a later frame or any other move of the camera meanwhile
-  // makes the tap do it all again, as before. zShift keeps the dive's zoom whole across the unseen refit, so a sinusoid opened meanwhile
-  // zooms from where it was.)
+  // Next-view pre-render: at prepRise the covered anatomy is taken to the rise's fit unseen and brought up to date there, so the tap has no
+  // refit or catch-up to do (preVT/preF: that fit and model frame; anything else moved, the tap does it all. zShift keeps the dive's zoom whole).
   let preVT = null, preF = null;
   function preFit() {
     preVT = null; preF = null;
@@ -330,7 +326,6 @@ export function createDive(st, live) {
         cancelFrame(live.vtAnim); driftEnd(); live.vtGliding = false;
         refreshCTM(); const zOld = Math.log(live.CTM.sc) + live.zShift;   // (zShift: an unseen refit made ahead, preFit)
         const d = defaultVT(false);
-        // Made ahead at prepRise for this very fit and model frame: nothing to refit or bring up to date at the tap.
         const ahead = !!preVT && sameView(preVT, live.vt) && sameView(d, live.vt) && !!live.F && preF === live.F;
         preVT = null; preF = null;
         if (!ahead) {
