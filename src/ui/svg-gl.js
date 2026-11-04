@@ -23,6 +23,8 @@ import { morphSvg } from './svg-morph.js';
 import { setGeo } from './held-geo.js';
 export { setGeo };
 import { attrSoon } from './class-soon.js';
+import { onTheme } from './theme-epoch.js';
+import { lookFor, makeCtx, clearLookMemo, hostSizeFor, looksNeedWidth } from './chart-looks/resolve.js';
 
 // (No bleed: a picture reaching past the box counts as overflow, and the card's fit then shrank the whole card to take it in.)
 export const BLEED = 0;
@@ -102,7 +104,10 @@ const rgbaOf = (c) => {
   const [r, g, b, a] = cssColor(c);
   return `rgba(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)}, ${a})`;
 };
-function resolve(el, parentRaw, parentOut) {
+// (A piece with data-look takes its look from the chart-looks table, in the chart's context lc (makeCtx), and asks the page nothing; every
+// other piece is read from the page as before, until the last chart has moved: docs/chart-looks-in-code-plan.md.)
+function resolve(el, parentRaw, parentOut, lc) {
+  if (el.getAttribute('data-look')) return lookFor(el, lc || makeCtx(), parentOut, PROPS);
   const cs = getComputedStyle(el), raw = {}, o = {};
   for (const [k, attr, inh, init] of PROPS) {
     const v = cs[k];
@@ -200,7 +205,7 @@ export function placeKey(box) {
 }
 /** Reads the looks of a model's pieces; returns the longest ease it started (ms), 0 for none. Fresh: as a new drawing, nothing eased.
  *  shared: the box's place key, to take looks already read for a piece like it there (SHARED) and keep the ones read. */
-function readLooks(root, fresh = false, cache = null, shared = '') {
+function readLooks(root, fresh = false, cache = null, shared = '', lc = null) {
   const now = easeNow();
   let longest = 0;
   if (SHARED.size > 20000) clearShared();
@@ -213,13 +218,13 @@ function readLooks(root, fresh = false, cache = null, shared = '') {
     let raw, o, L;
     if (hit) { ({ raw, o, L } = hit); if (!pr && hit.full) { if (cache) cache.set(key, { raw, o, L, full: hit.full }); key = hit.full; } }
     else {
-      const r = resolve(el, pr, po);
+      const r = resolve(el, pr, po, lc);
       raw = r.raw; o = r.o;
       L = lookOf(o, num(raw.fontSize, 12));
-      L.tr = opEase(r.cs); L.trT = opEase(r.cs, 'transform');
+      L.tr = r.cs ? opEase(r.cs) : r.tr; L.trT = r.cs ? opEase(r.cs, 'transform') : r.trT;
       if (shared && !pr) {
         const plain = key;
-        key += `|${PROPS.map(([k]) => raw[k]).join('|')}|${SCALE_VARS.map((v) => r.cs.getPropertyValue(v)).join('|')}`;
+        key += `|${PROPS.map(([k]) => raw[k]).join('|')}|${r.cs ? SCALE_VARS.map((v) => r.cs.getPropertyValue(v)).join('|') : ''}`;
         if (cache) cache.set(plain, { raw, o, L, full: key });   // (a drawing built again in a frame finds its root by its plain key: adoptLooks)
         SHARED.set(plain, { raw, o, L, full: key });
         let ks = ROOTS.get(shared); if (!ks) ROOTS.set(shared, ks = new Set()); ks.add(plain);
@@ -833,11 +838,13 @@ export function viewMap(vb, par, w, h) {
 const finalFrame = finalFrameFor('svg-gl');
 const live = new Set();
 let themeAsk = 0;
-function themeRead() { themeAsk = 0; clearShared(); for (const g of live) { if (!g.box.isConnected) continue; g.relook(); } }
+function themeRead() { themeAsk = 0; clearShared(); clearLookMemo(); for (const g of live) { if (!g.box.isConnected) continue; g.relook(); } }
 if (typeof MutationObserver === 'function' && typeof document !== 'undefined') {
   new MutationObserver(() => { clearShared(); if (!themeAsk && live.size) themeAsk = restPass(themeRead); })
     .observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-palette'] });
 }
+// (The device's own dark mode too, which the attributes above never show: theme-epoch.js sees it, and runs this in the theme's frame.)
+onTheme(() => { clearShared(); clearLookMemo(); if (!themeAsk && live.size) themeAsk = restPass(themeRead); });
 
 // (A box's roots are kept under its place key and "root"; the joined text is made once for each place key, not for each drawing.)
 function rootKeyOf(g) {
@@ -852,14 +859,14 @@ function rootKeyOf(g) {
  * then, once; again between frames on a theme change); fadeIn(root, ms) fades a new model in; wake(ms) draws every frame for ms (a glide); paint() once.
  */
 const endPen = (ctx) => ctx.end?.() !== false;
-export function createSvgGL(box) {
+export function createSvgGL(box, opts = null) {
   box.classList.add('svg-gl-box');
   const cv = document.createElement('canvas');
   cv.className = 'svg-gl';
   cv.setAttribute('role', 'img');
   box.prepend(cv);
   // alloc-rare: a picture's kept state, made once for each chart host
-  const g = { box, cv, gpu: null, until: 0, ask: 0, lookAsk: 0, ins: new Map(), dead: false, timers: new Set(), vk: 1, ve: 0, vf: 0 };
+  const g = { box, cv, local: { host: opts?.host || '' }, lc: null, gpu: null, until: 0, ask: 0, lookAsk: 0, ins: new Map(), dead: false, timers: new Set(), vk: 1, ve: 0, vf: 0 };
   live.add(g);
   // (A drawing swapped in during a frame waits off the page, pending, and is drawn from there; it joins the box between frames.)
   // alloc-rare: the picture's drawings list, called by slide changes and rest passes, never by a frame's draw
@@ -934,7 +941,7 @@ export function createSvgGL(box) {
   // (Drawn again as its box first gets a size, or a new one: a chart built before its card was on the page drew nothing then.)
   // (A box that changes size may take another type size or scale from the stylesheet: its roots' shared looks are read again.)
   // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)
-  if (typeof ResizeObserver === 'function') { g.ro = new ResizeObserver(() => { if (g.pk) dropRoots(g.pk); g.paint(); }); g.ro.observe(box); }
+  if (typeof ResizeObserver === 'function') { g.ro = new ResizeObserver((es) => { if (g.pk) dropRoots(g.pk); const r = es[0]?.contentRect; if (r && g.local.boxW !== r.width) { g.local.boxW = r.width; if (looksNeedWidth()) g.relook(); } g.paint(); }); g.ro.observe(box); }
   // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)
   g.paint = () => { if (!g.ask) g.ask = finalFrame(draw); };
   /** The picture moved as one: a point p is drawn at k p + (e, f) (box px). A pan is k 1; the lobule's dive is a scale about a point. */
@@ -944,13 +951,21 @@ export function createSvgGL(box) {
   g.wake = (ms) => { g.until = Math.max(g.until, easeNow() + ms); g.paint(); };
   // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)
   g.cache = new Map();
-  function lookRead() { g.lookAsk = 0; if (g.dead) return; g.cache.clear(); g.pk = placeKey(box); let ms = 0; for (const root of models()) ms = Math.max(ms, readLooks(root, false, g.cache, g.pk)); if (ms) g.wake(ms + 20); else g.paint(); }
+  // (Where the box stands, for the shared looks: the page round it, and what the chart handed over (host, layout, fit, letter scale, card scale).)
+  // alloc-rare: a place key made when looks are read, never in a frame
+  const placeOf = () => { const pk = placeKey(box); return pk && g.local.host ? pk + makeCtx(g.local).sig : pk; };   // (a chart with no host given keeps the place key as it was)
+  /** The chart's context for its looks: { host, layout, in, scale, svk, fit } as handed over; the look is read again between frames. */
+  // alloc-rare: called when the card's fit or layout changes, not in a frame
+  g.setCtx = (c) => { let ch = false; for (const k in c) if (g.local[k] !== c[k]) { g.local[k] = c[k]; ch = true; } if (ch) { clearLookMemo(); g.relook(); } };
+  /** The host's base type size in px (what `em` means to its pieces); a builder asks for it in place of reading the host's font size. */
+  g.hostSize = () => hostSizeFor(makeCtx(g.local));
+  function lookRead() { g.lookAsk = 0; if (g.dead) return; g.cache.clear(); g.pk = placeOf(); g.lc = makeCtx(g.local); let ms = 0; for (const root of models()) ms = Math.max(ms, readLooks(root, false, g.cache, g.pk, g.lc)); if (ms) g.wake(ms + 20); else g.paint(); }
   // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)
   g.relook = () => { if (!g.lookAsk) g.lookAsk = restPass(lookRead); };
   // (A drawing's look is read as it is placed, once, in the task that builds it (a slide's change, a resize), so its first frame draws it
   // whole: a morph hides the old drawing's pieces in that same task.)
   // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)
-  g.place = (root) => { live.add(g); g.cache.clear(); g.pk = placeKey(box); readLooks(root, true, g.cache, g.pk); g.paint(); };
+  g.place = (root) => { live.add(g); g.cache.clear(); g.pk = placeOf(); g.lc = makeCtx(g.local); readLooks(root, true, g.cache, g.pk, g.lc); g.paint(); };
   // (Pieces built again in a frame (a redraw, a glide): each takes the look of the piece before it like it, read from nothing; a new kind of
   // piece is read between frames, and drawn from then.)
   // (A chart's first drawing in a new box (a slide's new data card) has no looks of its own yet: it takes those read for a chart like it
@@ -961,7 +976,7 @@ export function createSvgGL(box) {
   g.adopt = (root) => {
     if (adoptLooks(root, g.cache, rootKeyOf(g))) { g.paint(); return; }
     if (!g.cache.size) {
-      const pk = placeKey(box);
+      const pk = placeOf();
       // alloc-rare: only while the drawing's looks cache is empty (its first drawing, or after a theme or size change)
       if (pk && adoptLooks(root, SHARED, `${pk}root`, g.cache)) { g.pk = pk; g.relook(); g.paint(); return; }
     }

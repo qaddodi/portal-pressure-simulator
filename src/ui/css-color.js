@@ -461,3 +461,11 @@ export function cssColor8(c) {
   seen8.set(c, v);
   return v;
 }
+
+/** color-mix(in <space>, a [pctA]%, b [pctB]%) worked out here: [r, g, b, a] (0–1, unpremultiplied sRGB), null if a part is not a colour. A part is
+ *  a CSS colour string or an [r, g, b, a] array; a missing percentage is the rest of 100, as CSS reads it. This is the one mixer: the parse of a
+ *  computed colour (parseCssColor) and the chart look table (chart-looks/resolve.js) both go through it, so they cannot drift apart. */
+export function mixColor(space, a, pctA, b, pctB) {
+  const part = (c, p) => `${typeof c === 'string' ? c : `color(srgb ${c[0]} ${c[1]} ${c[2]} / ${c[3]})`}${p == null ? '' : ` ${p}%`}`;
+  return parseCssColor(`color-mix(in ${space}, ${part(a, pctA)}, ${part(b, pctB)})`);
+}
