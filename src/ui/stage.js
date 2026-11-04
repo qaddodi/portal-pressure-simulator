@@ -24,13 +24,12 @@ import { glideClock } from './glide-clock.js';
 import { sinceSource } from './since-ref.js';
 import { clipBox, mapBox } from './fit-box.js';
 import { fluidTarget, poolFade, fluidLevel, fluidFloorAt, fluidBase } from './fluid-step.js';
-import { easeTo, fluidSpring, fluidSpringFor } from './organ-ease.js';
+import { fluidSpring, fluidSpringFor } from './organ-ease.js';
 import { spleenMotion } from './spleen-motion.js';
 import { segHitsBox, lineIndex, indexHits, segsCross, leaderVesselHits } from './seg-hits.js';
 import { glassCallout, withGlass } from './callout.js';
 import { TEXT_MIN, TEXT_MAX, rolePx, roleOf } from './type-scale.js';
-import { diaphragmLine, diaphragmD } from './diaphragm.js';
-import { smooth01, liverShrink } from './liver-morph.js';
+import { smooth01 } from './liver-morph.js';
 import { COLON_ART, BOWEL_ART, DUO_CLIPS, DUO_B } from './organ-art.js';
 import { createRouter } from './circuit-router.js';
 import { gpuProbe, COUNTED } from './gpu-probe.js';
@@ -43,7 +42,7 @@ import { measure as measureWords } from './glyph-measure.js';
 import { readFail, mulTo, elMat } from './organ-paint.js';
 import { setLive, dropLive } from './live-style.js';
 import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js';
-import { measurePath, elBoxInto } from './shape-gl.js';
+import { elBoxInto } from './shape-gl.js';
 import { HOVER_LINK, labelTarget } from './hover-link.js';
 import { explainText, createExplain } from './label-explain.js';
 import { nameSpots, NAME_BREAK } from './organ-names.js';
@@ -158,6 +157,7 @@ import { createGestures } from './stage-gestures.js';
 import { createOrgans } from './stage-organs.js';
 import { createResistors } from './stage-resistors.js';
 import { createPlate } from './stage-plate.js';
+import { createDiaphragm } from './stage-diaphragm.js';
 
 export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, onViewChange }) {
   // <stage-split live>
@@ -165,6 +165,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const live = {
     get adaptK() { return adaptK; }, set adaptK(v) { adaptK = v; },
     get ascEls() { return ascEls; },
+    get ascShown() { return ascShown; }, set ascShown(v) { ascShown = v; },
+    get ascTarget() { return ascTarget; }, set ascTarget(v) { ascTarget = v; },
     get autoK() { return autoK; }, set autoK(v) { autoK = v; },
     get autoT() { return autoT; }, set autoT(v) { autoT = v; },
     get balloonSqueeze() { return balloonSqueeze; }, set balloonSqueeze(v) { balloonSqueeze = v; },
@@ -182,6 +184,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get cathRadOf() { return cathRadOf; },
     get cathTint() { return cathTint; }, set cathTint(v) { cathTint = v; },
     get cathVer() { return cathVer; }, set cathVer(v) { cathVer = v; },
+    get caudK() { return caudK; }, set caudK(v) { caudK = v; },
     get chevHoles() { return chevHoles; }, set chevHoles(v) { chevHoles = v; },
     get clampLast() { return clampLast; }, set clampLast(v) { clampLast = v; },
     get colEasing() { return colEasing; }, set colEasing(v) { colEasing = v; },
@@ -200,6 +203,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get F() { return F; }, set F(v) { F = v; },
     get fastGap() { return fastGap; }, set fastGap(v) { fastGap = v; },
     get figKeys() { return figKeys; },
+    get figureShown() { return figureShown; }, set figureShown(v) { figureShown = v; },
     get fitted() { return fitted; }, set fitted(v) { fitted = v; },
     get fluidEasing() { return fluidEasing; },
     get fluidFade() { return fluidFade; },
@@ -227,6 +231,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get homeAt() { return homeAt; }, set homeAt(v) { homeAt = v; },
     get hoverId() { return hoverId; }, set hoverId(v) { hoverId = v; },
     get inUpdate() { return inUpdate; }, set inUpdate(v) { inUpdate = v; },
+    get isImaging() { return isImaging; },
     get islOn() { return islOn; }, set islOn(v) { islOn = v; },
     get islSrc() { return islSrc; }, set islSrc(v) { islSrc = v; },
     get labelGL() { return labelGL; },
@@ -253,10 +258,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get liverFloor() { return liverFloor; }, set liverFloor(v) { liverFloor = v; },
     get liverFluidCut() { return liverFluidCut; }, set liverFluidCut(v) { liverFluidCut = v; },
     get liverKey() { return liverKey; }, set liverKey(v) { liverKey = v; },
+    get liverScale() { return liverScale; }, set liverScale(v) { liverScale = v; },
     get liveSet() { return liveSet; }, set liveSet(v) { liveSet = v; },
     get lobuleOn() { return lobuleOn; }, set lobuleOn(v) { lobuleOn = v; },
+    get lvAt() { return lvAt; }, set lvAt(v) { lvAt = v; },
+    get lvC() { return lvC; }, set lvC(v) { lvC = v; },
+    get lvCT() { return lvCT; }, set lvCT(v) { lvCT = v; },
+    get lvG() { return lvG; }, set lvG(v) { lvG = v; },
+    get lvGT() { return lvGT; }, set lvGT(v) { lvGT = v; },
+    get lvGTo() { return lvGTo; }, set lvGTo(v) { lvGTo = v; },
     get lvMoving() { return lvMoving; }, set lvMoving(v) { lvMoving = v; },
     get lvStillAt() { return lvStillAt; }, set lvStillAt(v) { lvStillAt = v; },
+    get lvT() { return lvT; }, set lvT(v) { lvT = v; },
+    get lvTT() { return lvTT; }, set lvTT(v) { lvTT = v; },
     get lz() { return lz; }, set lz(v) { lz = v; },
     get mapWake() { return mapWake; }, set mapWake(v) { mapWake = v; },
     get markLast() { return markLast; }, set markLast(v) { markLast = v; },
@@ -276,6 +290,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get olVerts() { return olVerts; }, set olVerts(v) { olVerts = v; },
     get organDimA() { return organDimA; }, set organDimA(v) { organDimA = v; },
     get organMorphA() { return organMorphA; }, set organMorphA(v) { organMorphA = v; },
+    get organsEasing() { return organsEasing; }, set organsEasing(v) { organsEasing = v; },
     get origins() { return origins; }, set origins(v) { origins = v; },
     get originsF() { return originsF; }, set originsF(v) { originsF = v; },
     get paneGL() { return paneGL; }, set paneGL(v) { paneGL = v; },
@@ -340,6 +355,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get vtAnim() { return vtAnim; }, set vtAnim(v) { vtAnim = v; },
     get vtGliding() { return vtGliding; }, set vtGliding(v) { vtGliding = v; },
     get vtTarget() { return vtTarget; }, set vtTarget(v) { vtTarget = v; },
+    get widthEasing() { return widthEasing; }, set widthEasing(v) { widthEasing = v; },
     get wrapRect() { return wrapRect; }, set wrapRect(v) { wrapRect = v; },
   };
   // </stage-split live>
@@ -5758,170 +5774,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
   }
 
-  // The diaphragm is drawn around the organs it covers, the way a plate shows it: one smooth dome a
-  // little above the liver, the fundus and the spleen, bridging the dips between them, and down the
-  // flanks on both sides (where diaMask fades it out). It runs along the top of their current outlines,
-  // pushed out a few units, so it follows a shrunken or congested liver and an enlarged spleen as they
-  // ease, and never crosses an organ; the heart rests on it.
-  const diaEls = gBackdrop.querySelectorAll('.org-diaphragm');
-  // Just under the heart's base, column by column (or far above, beside it), for the diaphragm the heart rests on.
-  let heartBase = null;
-  function heartFloor(x) {
-    if (!heartBase) {
-      heartBase = new Map();
-      for (const [hx, hy] of outlinePts(diaCut.heart.getAttribute('d'), diaCut.heart)) {
-        const i = Math.round(hx / 4);
-        if (hy > (heartBase.get(i) ?? -Infinity)) heartBase.set(i, hy);
-      }
-      // (A column the outline's samples skipped, or caught only on its upper side, takes its neighbours' base: no notch.)
-      const ks = [...heartBase.keys()].sort((p, q) => p - q);
-      for (let k = ks[0]; k <= ks.at(-1); k++) {
-        const l = heartBase.get(k - 1), r = heartBase.get(k + 1), v = heartBase.get(k);
-        if (l != null && r != null && (v == null || v < Math.min(l, r) - 6)) heartBase.set(k, (l + r) / 2);
-      }
-    }
-    const i = x / 4, a = heartBase.get(Math.floor(i)), b = heartBase.get(Math.ceil(i));
-    return a == null || b == null ? -Infinity : a + (b - a) * (i - Math.floor(i)) + 3.5;
-  }
+  const { easeLiver, updateOrgans } = createDiaphragm({ EI, NI, abdTo, caud, diaCut, drawAscites, findingHidden, gBackdrop, hidePlate, liveOn, liverTint, lv, morphLiver, normalSync, organEls, organG, platePoke, putA, qP, recruitFrac, spleenMv, syncOrganMasks, syncSelFluid, syncSelLine }, live);
   let diaKey = '';
-  // An outline's points: a polyline's own (the diseased liver), else sampled once along the curve.
-  const outlineCache = new Map();
-  function outlinePts(d, el) {
-    if (!/[CQSAcqsa]/.test(d)) { const n = d.match(/-?\d+(\.\d+)?/g).map(Number); return n.flatMap((v, i) => (i % 2 ? [] : [[v, n[i + 1]]])); }
-    if (!outlineCache.has(d)) {
-      const mp = measurePath(d), out = [];   // (in script: no layout in the diaphragm's frame, 2 Nov 2026)
-      for (let u = 0; u < mp.L; u += 4) out.push(mp.at(u));
-      outlineCache.set(d, out);
-    }
-    return outlineCache.get(d);
-  }
-  const diaParts = [null, null, null], DIA_IDS = ['liver', 'spleen'];
-  function diaphragmPath(shrink, sc) {
-    const at = (P, cx, cy, k) => P.map(([x, y]) => [cx + (x - cx) * k, cy + (y - cy) * k]);
-    // (The liver's smooth dome, never its nodular edge: the nodules stand out about 2 at most, inside the gap.)
-    const liver = at(liverDome || outlinePts(diaCut.liver.getAttribute('d'), diaCut.liver), 560, 350, shrink);
-    const stomach = outlinePts(diaCut.stomach.getAttribute('d'), diaCut.stomach);
-    const spleen = at(outlinePts(diaCut.spleen.getAttribute('d'), diaCut.spleen), SPLEEN_CENTER[0], SPLEEN_CENTER[1], sc);
-    // One smooth dome over them (diaphragm.js); the heart rests on it, just under its base.
-    diaParts[0] = liver; diaParts[1] = stomach; diaParts[2] = spleen;
-    return diaphragmD(diaphragmLine(diaParts, heartFloor));
-  }
-  function liftDiaphragm(shrink, sc) {
-    // The spleen in steps of 1% (as the plate key reads it): the running model's slow drift must not
-    // redraw the dome, and the plate with it, every frame. The gap absorbs the difference.
-    const scQ = Math.round(sc * 100) / 100;
-    const key = `${liverKey}|${shrink.toFixed(3)}|${scQ}`;
-    if (key === diaKey) return;
-    diaKey = key;
-    for (const id of DIA_IDS) diaCut[id].setAttribute('transform', organG[id].getAttribute('transform') || '');
-    const d = diaphragmPath(shrink, scQ);
-    for (const el of diaEls) el.setAttribute('d', d);
-  }
 
-  // Targets that follow the running model's pressures move only in steps (with hysteresis), so a
-  // pressure wavering with the cycle never keeps the liver easing, and its plate being dropped and
-  // rasterized again, over and over.
-  // An end (0 or 1) is reached at once but left only on a clear move, so a value hovering just
-  // past an end never flips to it and back.
-  const stepHeld = (prev, v, tol) => (prev === null || Math.abs(v - prev) > ((prev === 0 || prev === 1) ? 2 * tol : tol) || (v === 0 && prev !== 0) || (v === 1 && prev !== 1) ? v : prev);
-  // The liver's shape (cirrhosis), congestion and tint, eased toward the patient over `dt` seconds: [cT, gT, tT], their targets.
-  function easeLiver(f, p, dt) {
-    // The heart-cycle-averaged pressures: the beat must not swing the liver's look.
-    const PA = f.Pf || f.P;
-    const psin = Math.max(PA[NI.SIN_R], PA[NI.SIN_L]);
-    lvTT = stepHeld(lvTT, clamp((psin - 8) / 16, 0, 1), 0.1);
-    const tT = isImaging() ? 0 : lvTT * 0.5;
-    const hp = store.get().healthy?.P;
-    const cvUp = hp ? Math.max(PA[NI.CV_R] - hp[NI.CV_R], PA[NI.CV_L] - hp[NI.CV_L]) : 0;
-    lvGT = stepHeld(lvGT, clamp((cvUp - 4) / 10, 0, 1), 0.03);
-    const cT = Math.min(1, p.cirrhosis), gT = lvGT;
-    if (lvC === null || reduceMotion.matches || !figureShown) { lvC = cT; lvG = gT; lvT = tT; }   // under the loading screen nothing is seen easing
-    else { lvC = easeTo(lvC, cT, dt); lvG = easeTo(lvG, gT, dt); lvT = easeTo(lvT, tT, dt); }
-    lvAt = performance.now();
-    lvTargets[0] = cT; lvTargets[1] = gT; lvTargets[2] = tT;
-    return lvTargets;
-  }
-  const lvTargets = [0, 0, 0];   // (read at once by its callers)
-  // (What updateOrgans hands the probe's timed calls, kept: the calls are fixed functions that read these, so none is made in a frame.)
-  let orgMoving = false, orgPA2 = null, orgShrink = 1;
-  const orgMorphLiver = () => morphLiver(lvC, lvG, orgMoving);
-  const orgCaudate = () => caud.sync(pressureColor(qP(orgPA2[NI.IVCS] + 0.5)), caudK);
-  const orgMasks = () => syncOrganMasks(orgShrink, organG.spleen.getAttribute('transform'));
-  const QUARTERS = ['0', '0.25', '0.5', '0.75', '1'];   // (String(n / 4) for n 0 … 4)
-  // The congestion's shades stay hidden at no opacity (the glossy one aside), and all hide in the figure view.
-  function lvShade(el, gloss, imaging) { const v = imaging || (el !== gloss && !(+el.style.opacity > 0)) ? 'hidden' : ''; if (el.style.visibility !== v) el.style.visibility = v; }
-  function updateOrgans(f, p, t) {
-    const k = 1 - t;
-    const imaging = isImaging();
-    const [cT, gT, tT] = easeLiver(f, p, Math.min(0.1, (performance.now() - lvAt) / 1000));
-    // The congestion tint eases here, not by a CSS transition: the plate raster reads the value
-    // it shows, and a fade in progress at that moment would be baked in (re-rastered over and
-    // over, the tint flickered between mid-fade values).
-    // (The congested liver takes the even dusk instead, so the tint's darker rim gives way to it as congestion comes in: organ
-    // picks, 20 Oct.) It hands over across the same range the dusk comes in by (morphLiver: g / 0.5), so a slightly raised
-    // pressure (after a TIPS) keeps some of the tint until the dusk is there to take its place.
-    // (Not faded with the switch to the circuit: the organs' group fades it there, and a tint stepping down with the switch
-    // changed the picture's key, so the organs' picture was drawn again every half second of the fade.)
-    liverTint.style.opacity = (lvT * (1 - smooth01(lvG / 0.5))).toFixed(3);
-    if (lvT !== tT) widthEasing = organsEasing = true;
-    const moving = lvC !== cT || lvG !== gT;
-    // While it eases, the live drawing shows (a raster would move in steps); the plate is
-    // rasterized again once it settles.
-    // A large change, or one still under way (a time-lapse), shows the live drawing. A small step
-    // (the running model's congestion drifting a notch) eases under the plate and is rasterized once
-    // it settles: swapping to the live drawing and back every few seconds would flash the organs.
-    const retarget = lvMoving && (cT !== lvCT || gT !== lvGTo);
-    lvCT = cT; lvGTo = gT;
-    if (moving && (retarget || Math.max(Math.abs(cT - lvC), Math.abs(gT - lvG)) > 0.08) && veins && !veins.lost && veins.hasPlate(0) && !liveOn()) hidePlate();
-    if (lvMoving && !moving) lvStillAt = performance.now();
-    lvMoving = moving;
-    if (moving) widthEasing = organsEasing = true;
-    orgMoving = moving;
-    gpuProbe.time(null, 'organs: liver', orgMorphLiver);
-    // (The congestion's shades stay hidden at no opacity, as lvFade leaves them: showing them here undid lvFade on every liver frame, a
-    // flip of the SVG's visibility each frame that also read the liver for the GPU again each time (motion budget, 2 Nov).)
-    lvShade(lv.cong, lv.gloss, imaging); lvShade(lv.isl, lv.gloss, imaging); lvShade(lv.gloss, lv.gloss, imaging);
-    // A cirrhotic liver shrinks a little; a congested one swells.
-    const shrink = liverShrink(lvC, lvG);
-    liverScale = shrink;
-    const liverT = `translate(560 350) scale(${shrink.toFixed(4)}) translate(-560 -350)`;
-    putA(organG.liver, 'transform', liverT);
-    putA(organG.falciform, 'transform', liverT);   // (the falciform line goes with the liver, as its surface lines do)
-    {
-      // The caudate lobe grows as its veins carry the liver's outflow: from twice their normal flow, fully at four times.
-      const hq = store.get().healthy?.Q?.[EI.CAUD], PA2 = f.Pf || f.P;
-      caudK = stepHeld(caudK, hq ? clamp((Math.abs((f.Qf || f.Q)[EI.CAUD] / hq) - 2) / 2, 0, 1) : 0, 0.05);
-      orgPA2 = PA2;
-      gpuProbe.time(null, 'organs: caudate', orgCaudate);
-    }
-    const c3 = recruitFrac('C3', f);
-    abdTo((clamp((c3 - 0.1) / 0.4, 0, 1) * 0.9 * k).toFixed(2));
-    // The umbilicus is a landmark only for the paraumbilical vein that runs to it: with that vein closed, it was a lone ring
-    // in the empty abdomen beside the gut (sweep batches 02–04). It fades in as the vein opens, as the caput's veins do, in
-    // quarter steps (the organs' raster is drawn again at each step: plateStateKey).
-    if (organEls.umbilicus) {
-      const op = QUARTERS[Math.round(4 * (findingHidden('coll') ? 0 : clamp((c3 - 0.15) / 0.3, 0, 1)))];
-      if (organEls.umbilicus.getAttribute('opacity') !== op) organEls.umbilicus.setAttribute('opacity', op);
-    }
-    const sc = f.slow.spleen / 11;
-    normalSync(sc);
-    // Growing, the plate (a picture of the organs at one size) gives way to the live drawing, which follows this size each frame.
-    if (spleenMv.see(sc, performance.now()) && veins && !veins.lost && veins.hasPlate(0) && !liveOn()) hidePlate();
-    putA(organG.spleen, 'transform', `translate(${SPLEEN_CENTER[0]} ${SPLEEN_CENTER[1]}) scale(${sc.toFixed(3)}) translate(${-SPLEEN_CENTER[0]} ${-SPLEEN_CENTER[1]})`);
-    orgShrink = shrink;
-    gpuProbe.time(null, 'organs: masks', orgMasks);
-    if (organG.spleen.style.opacity !== (p.splenicRx === 2 ? '0.14' : '')) organG.spleen.style.opacity = p.splenicRx === 2 ? '0.14' : '';
-    liftDiaphragm(shrink, sc);
-    syncSelLine();
-    // The shown ascites eases to the model's volume (stepFluid), so a tap or diuretics never pops the level.
-    // (In steps of FLUID_STEP from the volume drawn: the model's trickle each update must not count as the fluid moving.)
-    const asc = fluidTarget(ascTarget, f.slow.ascites);
-    if (ascTarget === null) ascShown = asc;
-    ascTarget = asc;
-    gpuProbe.time(null, 'organs: fluid', drawAscites);
-    syncSelFluid();
-    gpuProbe.time(null, 'organs: plate poke', platePoke);
-  }
 
   // Ascites collects in the flanks and the pelvis first (supine patient, frontal view), so its
   // surface is a meniscus: highest at the sides, lowest in the middle. The abdominal wall bulges

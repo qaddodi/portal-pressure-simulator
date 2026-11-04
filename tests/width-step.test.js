@@ -39,9 +39,9 @@ test('both paths write a width the same way and draw the same width-led layers',
 });
 
 test('a coil or the liver still easing keeps the full update running', () => {
-  assert.match(body('updateInner'), /widthEasing = coilEasing = true/);
-  assert.match(body('updateOrgans'), /if \(lvT !== tT\) widthEasing = organsEasing = true;/);
-  assert.match(body('updateOrgans'), /if \(moving\) widthEasing = organsEasing = true;/);
+  assert.match(body('updateInner'), /(?:live\.)?widthEasing = coilEasing = true/);
+  assert.match(body('updateOrgans'), /if \((?:live\.)?(?:live\.)?lvT !== tT\) (?:live\.)?(?:live\.)?widthEasing = (?:live\.)?(?:live\.)?organsEasing = true;/);
+  assert.match(body('updateOrgans'), /if \(moving\) (?:live\.)?widthEasing = (?:live\.)?organsEasing = true;/);
 });
 
 test('between model frames, an organ ease alone steps the organs alone, under the width step\'s guards', () => {

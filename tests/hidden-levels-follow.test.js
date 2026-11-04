@@ -33,11 +33,11 @@ test('covered by the lobule, the figure still follows the patient, and draws not
 test('shown again, the figure takes up where its eases have got to, and its stale raster is not shown', () => {
   const inner = fnBody('updateInner');
   assert.match(inner, /if \(hid\.at\) \{ followHidden\(f\);/);
-  assert.match(inner, /(?:live\.)?plateStale = true/);
+  assert.match(inner, /(?:live\.)?(?:live\.)?plateStale = true/);
   // (Dropped for the live SVG unless the changing organs are painted live on the GPU, whose pictures hold none of them.)
-  assert.match(fnBody('platePoke'), /const drop = themed \|\| \(stale && !liveNow\);\n\s+if \(drop && (?:live\.)?(?:live\.)?veins\.hasPlate\(0\)\)/);
+  assert.match(fnBody('platePoke'), /const drop = themed \|\| \(stale && !liveNow\);\n\s+if \(drop && (?:live\.)?(?:live\.)?(?:live\.)?veins\.hasPlate\(0\)\)/);
   // The drawn liver reads the hidden ease's own values (one shared state, one clock).
-  assert.match(fnBody('updateOrgans'), /easeLiver\(f, p, Math\.min\(0\.1, \(performance\.now\(\) - lvAt\) \/ 1000\)\)/);
+  assert.match(fnBody('updateOrgans'), /easeLiver\(f, p, Math\.min\(0\.1, \(performance\.now\(\) - (?:live\.)?(?:live\.)?lvAt\) \/ 1000\)\)/);
 });
 
 // The model's frames while covered (at most every 80 ms when nothing else changed, main.js onFrame).
