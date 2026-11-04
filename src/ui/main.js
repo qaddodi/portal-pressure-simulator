@@ -133,8 +133,8 @@ const presenter = {
   go: (i) => presenterL.now()?.go(i),
   busy: () => !!presenterL.now()?.busy(),
   readLink: () => (/#script=/.test(location.hash) ? presenterL.get().then((p) => p.readLink()) : false),
-  active: () => !!presenterL.now()?.active(),
-  idle: () => !!presenterL.now()?.idle?.(),   // (the slide shown is settled and the deck lets it rest: main.js idle rest in a talk)
+  active: () => !!presenterL?.now()?.active(),   // (asked at boot by the idle rest's first timer, before presenterL is made)
+  idle: () => !!presenterL?.now()?.idle?.(),   // (the slide shown is settled and the deck lets it rest: main.js idle rest in a talk)
   settings: () => presenterL.now()?.settings() ?? null,
   probe: () => presenterL.now()?.probe() ?? null,
   // (For the browser checks: the cards' GPU glass (its drawn() record, scripts/gate-motion.mjs) and a slide's degraded readiness, R05.)
