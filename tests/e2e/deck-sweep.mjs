@@ -1,4 +1,4 @@
-// Deck layout sweep (manual, .github/workflows/sweeps.yml): plays every slide of one or more presenter decks
+// Deck layout sweep (on request, [deck-sweep], .github/workflows/checks.yml): plays every slide of one or more presenter decks
 // forward at each size (and back again on desktop), and prints what the DOM shows: a card off screen, clipped or
 // overflowing text, cards that overlap, the corner credit on a card, a slide whose title never shows, a summary
 // table or text that differs between forward and back, and console errors. The figure's look is not judged.

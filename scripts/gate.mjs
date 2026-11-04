@@ -1,4 +1,4 @@
-// The pre-push gate: every thread runs it before it pushes to the preview branch, and CI runs it on every push (gate.yml).
+// The pre-push gate: every thread runs it before it pushes to the preview branch, and CI runs it on request ([gate] or [gate-full] in a commit message, checks.yml).
 //
 //   npm run gate                      the pre-push gate (about six minutes on 4 cores): static, boot, five slides of each of eight decks, the views
 //   npm run gate -- --pixels --decks all   what CI runs: the same on all 28 decks, and the rest frames against tests/visual

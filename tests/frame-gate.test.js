@@ -178,7 +178,7 @@ test('the frame gate warns on the preview (checks.yml) and blocks in ci.yml, in 
   assert.ok(browser.indexOf('perf:gate') > browser.indexOf('\n  visual:\n'), 'browser.yml: in the visual job');
   const jobs = (yml) => [...yml.slice(yml.indexOf('\njobs:')).matchAll(/^ {2}([a-z][a-z-]*):\s*$/gm)].map((m) => m[1]);
   assert.deepEqual(jobs(browser), ['plan', 'browser-checks', 'gpu-organs', 'webkit', 'visual'], 'browser.yml: the browser jobs');
-  assert.deepEqual(jobs(checks), ['build', 'browser'], 'checks.yml: the build, then browser.yml');
+  assert.deepEqual(jobs(checks).slice(0, 2), ['build', 'browser'], 'checks.yml: the build, then browser.yml (the gate and the sweeps follow)');
   assert.deepEqual(jobs(ci), ['quick', 'browser', 'idle', 'gesture', 'text-floor'], 'ci.yml: quick, browser.yml and its own checks');
   assert.ok(!/perf:gate|frame-gate/.test(read('.github/workflows/pages.yml')), 'pages.yml, the deploy, does not run it');
   assert.match(browser, /continue-on-error: \$\{\{ !inputs\.strict \}\}\n\s+timeout-minutes: 15\n\s+env:\n\s+PERF_PROFILE/, 'a warning unless strict, never a red preview run');

@@ -29,7 +29,7 @@ Loop for every change (fast previews first, full tests before merge):
    not end whole (card frozen mid-fade, glass never arriving, camera still gliding), a Circuit/Anatomy/Lobule switch that does not
    settle, a missing diaphragm, labels that do not follow a pan or zoom, and a rest view that drifts from `tests/visual/`. A thread pushes only
    when it passes (`--only static,slides` for a quick run on a deck change; `--decks hvpg` narrows it). CI runs it only on request
-   (`gate.yml`: `[gate]` in a commit message, or `[gate-full]` to run every slide on desktop and phone too). Details: header of `scripts/gate.mjs`. Do not run the browser
+   (`checks.yml`: `[gate]` in a commit message, or `[gate-full]` to run every slide on desktop and phone too). Details: header of `scripts/gate.mjs`. Do not run the browser
    checks (`npm run smoke`) or `npm run check` locally at this stage. For any UI change, also
    take screenshots of the intended behaviour in the running app before pushing: phone
    (390x844, deviceScaleFactor 3), iPad and desktop where the change applies. Check them

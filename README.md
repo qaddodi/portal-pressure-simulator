@@ -57,11 +57,9 @@ GitHub workflows run them:
 |----------|------|------|
 | `pages.yml` | pushes to `main` and the preview branch | publishes the live site at `/` and the preview at `/preview/` (with an orange PREVIEW badge); on `main` lint and unit tests gate it first |
 | `quick.yml` | pushes to the preview branch | lint and unit tests beside the deploy, as a warning |
-| `checks.yml` | on request (`[checks]` in a commit message, or the Actions tab) | the browser checks of the production build on desktop and phone, the visual comparison and the iPhone WebKit check; a drift only warns |
+| `checks.yml` | on request: a tag in the commit message, or the Actions tab | `[checks]` the browser checks of the production build (visual comparison and iPhone WebKit included; a drift only warns), `[gate]` / `[gate-full]` the pre-push gate (`scripts/gate.mjs`), `[deck-sweep]` every deck at several screen sizes, `[glitch-sweep]` every deck and gesture walked for glitches |
 | `ci.yml` | pull requests and `main` | everything: lint, tests, a strict build, browser checks of the source and the build, gesture, idle and text-floor checks; a visual drift or a slow frame blocks the merge |
 | `browser.yml` | called by `checks.yml` and `ci.yml` | the browser, GPU-organ, WebKit and visual jobs, defined once |
-| `gate.yml` | on request (`[gate]` or `[gate-full]` in a commit message) | the pre-push gate (`scripts/gate.mjs`) |
-| `sweeps.yml` | on request (`[deck-sweep]` or `[glitch-sweep]` in a commit message) | plays every deck at several screen sizes, or walks every deck and gesture looking for glitches |
 | `visual-refs.yml` | run by hand on a branch | redraws only the drifted visual references on CI's machines and commits them |
 
 The preview workflow and the merge rules are in [AGENTS.md](AGENTS.md).
