@@ -9,7 +9,7 @@ import { store } from './store.js';
 import { s, h, clamp, lerp, toast, loadFailed, restBox, translateRest, settledBox, UPRIGHT_MQ } from './util.js';
 import { recordLayer } from './over-records.js';
 import { lerpVT, camPath, blendPaths, viewsOverlap, driftEase } from './cam-arc.js';
-import { easeMove, easeArrive, camMs, carryRate, carried, D_SURFACE } from './ease.js';
+import { easeMove, easeArrive, camMs, carryRate, carried, createGlideTracker, D_SURFACE } from './ease.js';
 import { glideClock } from './glide-clock.js';
 import { clipBox, mapBox } from './fit-box.js';
 import { spleenMotion } from './spleen-motion.js';
@@ -1807,8 +1807,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (lobIn !== (u > 0.98 && !!lz?.shared)) { lobIn = !lobIn; pushCam(); }
   }
   let vtUntil = 0, vtMs = 0;   // (the glide under way: when it lands and how long it runs in all, for the presenter's cards: glideLeft)
-  let vtVel = null, vtLast = null;   // (the last frames of a plain glide: its speed per ms, so another begun on it carries that on)
-  const vtVelBuf = { t: 0, dlogk: 0, x: 0, y: 0 }, vtLastBuf = { t: 0, k: 1, x: 0, y: 0 };   // (what they are while set, written in place)
+  const vtTrack = createGlideTracker();   // (the last frames of a plain glide: its speed per ms, so another begun on it carries that on, ease.js)
   const camMoves = [], logMove = (m) => { camMoves.push(m); if (camMoves.length > 60) camMoves.shift(); };   // every glide of the camera (and dive), kept for the tests: a way into or out of the lobule is a single move
   // A presenter's camera move: the labels ease out as it starts, are not laid out while it runs, and ease
   // back in at their new places once it settles (they never slide across the figure).
@@ -2037,8 +2036,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     let at = (u) => (u >= 1 ? { ...to } : lerpVT(from, to, u));
     // (Another plain glide still moving: this one carries its speed on, instead of starting over from rest. The arcs blend their own.)
-    const v0 = !drift && vtVel && vtGliding && performance.now() - vtVel.t < 80 ? vtVel : null;
-    vtLast = null;
+    const v0 = !drift && vtGliding ? vtTrack.take(performance.now()) : null;
+    vtTrack.begin();
     const room = opt.arc && !reduceMotion.matches ? arcRoom() : null;   // (reduced motion: no pull-back, the plain short glide)
     if (room && prev && vtGliding && performance.now() < prev.t0 + prev.ms && viewsOverlap(prev.to, to, room.vb)) {
       // A refit while an arc runs (the cards settled, the screen turned): the same arc from where it began, now to the new framing,
@@ -2086,8 +2085,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const raw = clamp((clock ? clock(now) : now - t0) / ms, 0, 1), u = (drift ? driftEase : camEase)(raw);
       vt = at(u, raw);
       if (!drift) {   // (the speed a glide begun now would carry on: per ms, the zoom as its logarithm)
-        if (vtLast && now > vtLast.t && now - vtLast.t < 100) { const dt = now - vtLast.t, o = vtVelBuf; o.t = now; o.dlogk = Math.log(vt.k / vtLast.k) / dt; o.x = (vt.x - vtLast.x) / dt; o.y = (vt.y - vtLast.y) / dt; vtVel = o; }
-        vtLast = vtLastBuf; vtLastBuf.t = now; vtLastBuf.k = vt.k; vtLastBuf.x = vt.x; vtLastBuf.y = vt.y;
+        vtTrack.sample(vt, now);
       }
       applyVT(); CTM = null;
       if (rideCTM) rideStep();   // (the labels riding the move: their pictures carried on the GPU, label-gl.js)
