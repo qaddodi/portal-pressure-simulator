@@ -101,7 +101,9 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
     const t = Math.max(0, now - m.t0), p = Math.min(1, t / m.ms);
     st.cur = lerpTo(m, easeArrive(p));
     camAt();
-    for (const a of m.anims) if (a) a.currentTime = Math.min(t, m.ms);
+    // (One progress for the frame, the eased one: the card's and the words' animations are linear in it, so each is set to that share of its time and the card, the words, the figure and the glass are at the same place at the same instant.)
+    const e = easeArrive(p);
+    for (const a of m.anims) if (a) a.currentTime = e * m.ms;
     globalThis.dispatchEvent?.(frame);
     if (p < 1) { tickId = raf(tick); return; }
     st.mo = null;
@@ -149,7 +151,7 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
   const glide = (el, prop, to, ms, prev) => {
     const from = globalThis.getComputedStyle(el)[prop];
     prev?.cancel();
-    return el.animate?.([{ [prop]: from }, { [prop]: to }], { duration: ms, easing: EASE, fill: 'forwards' }) || null;
+    return el.animate?.([{ [prop]: from }, { [prop]: to }], { duration: ms, easing: 'linear', fill: 'forwards' }) || null;
   };
   // The words' card stays up behind the zoomed card (Mohammad, 2 Nov 2026: it must not vanish when the card is maximised), but its words are
   // cut away where the zoomed card lies, so they never show sharp through the frost. The cut is one polygon on the words' box that follows the
