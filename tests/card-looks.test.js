@@ -51,7 +51,7 @@ test('the walls: the flow is thicker in the sinusoid, albumin crossing a pore st
   assert.equal(P('card.walls.alb').fill, P('card.walls.cross').fill);
 });
 test('every piece presenter.js builds for these diagrams names a look that exists, and the sheet keeps no model rule', () => {
-  const src = read('src/ui/presenter.js');
+  const src = read('src/ui/presenter.js') + read('src/ui/presenter-visuals.js');
   const names = [...src.matchAll(/'data-look': '(card\.[\w.]+)'/g)].map((m) => m[1]);
   assert.ok(names.length >= 30);
   for (const n of names) assert.ok(LOOKS[n], `look ${n}`);

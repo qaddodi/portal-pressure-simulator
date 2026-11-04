@@ -2,7 +2,7 @@
   "note": "Every dynamic import, and what reads its module in before a person can reach it (scripts/rules-lint.mjs). Nothing is imported on a user tap.",
   "imports": {
     "src/ui/host.js → ../worker-core.js": "only when a Worker cannot start (the engine runs on the page instead), at boot",
-    "src/ui/presenter.js → ../worker-core.js": "the same fallback for a presentation's own engine, when its Worker cannot start",
+    "src/ui/presenter-visuals.js → ../worker-core.js": "the same fallback for a presentation's own engine, when its Worker cannot start",
     "src/ui/main.js → ./presenter-view-page.js": "only the presenter's second window (?presenter-view), whose page loads it at boot instead of the app; no person reaches it from a tap",
     "src/ui/main.js → ./doppler.js": "main.js warmUp, idle after boot and under the loading cover",
     "src/ui/main.js → ./fibroscan.js": "main.js warmUp, idle after boot and under the loading cover",
