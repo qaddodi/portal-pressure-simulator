@@ -170,7 +170,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   // (trace-gl.js; 1 Nov: nothing off the GPU). This canvas is only their host: it takes the pointer and is never drawn (?tracegl=0 draws
   // the margins and words on it, as before). Nothing of the trace is drawn on the CPU: without WebGL2 it stays black.
   const gpu = createDopplerGL({ onReady: () => redraw() });
-  if (gpu) { gpu.canvas.setAttribute('aria-hidden', 'true'); cv.before(gpu.canvas); }
+  if (gpu) { gpu.canvas.setAttribute('aria-hidden', 'true'); gpu.canvas.classList.add('dop-gl'); cv.before(gpu.canvas); }
   const words = createTraceGL(cv, { redraw: () => redraw() });
   // (The ?perf surfaces list, gpu-surfaces.js: read by the readout only.)
   const offSurface = surface('Doppler trace', () => (!cv.isConnected ? null : gpu && !gpu.lost ? (!gpu.canSynth() ? SURF_CPU_LINES : cv.style.opacity === '0' ? SURF_GPU : SURF_MIXED) : gpu ? SURF_LOST : SURF_NONE));

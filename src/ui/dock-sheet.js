@@ -64,17 +64,17 @@ export function sheetBehaviour(el, { handle, drag, onClose, active = () => true,
   let lay = 0;
   // The chart grows with the finger (Menu system plan W3, option A; `grow`, the Tests card): while the pane is held at the size it is laid
   // out at, each chart box in it is stretched by the compositor (scale, from its top edge) by what the card has grown since, and what
-  // follows it is moved down by the same. Words in the box are hidden meanwhile (not stretched). The growth is dock.js's own rule for the
-  // plot (the card's height less 150, between 190 and 420), so in the frame the sheet lands, when the pane is let go, laid out and drawn once
-  // at its true size, and these are taken off in the same task, the picture is where the stretch had it. A pull down from Full shrinks the same way.
-  let gr = null;   // { base: the card's height the pane is laid out at, p0, items: [[element, boxes above it, its height | 0 for a follower]], last }
-  const plotAt = (H) => Math.min(420, Math.max(190, H - 150));
+  // follows it is moved down by the same. Words in the box are hidden meanwhile (not stretched). On a phone's sheet the chart fills what the
+  // card leaves it (app.css, "Tests in a narrow card": flex 1 1 0), so it grows by the card's own growth, split between the boxes; in the
+  // frame the sheet lands, when the pane is let go, laid out and drawn once at its true size, and these are taken off in the same task.
+  // A pull down from Full shrinks the same way. (Notes that come back at Full take some of that room: they appear at landing.)
+  let gr = null;   // { base: the card's height the pane is laid out at, share: the chart boxes the growth is split between, items: [[element, boxes above it, its height | 0 for a follower]], last }
   const growArm = (base) => {
     if (!grow || gr || !isPhone() || !thumb()) return;
     const pane = el.querySelector('.dock-body .dock-pane.active');
     if (!pane || readMetric(pane, 'scrollTop') > 0) return;
     const boxes = [...pane.querySelectorAll('.chart-box:not(.square)')].filter((b) => readMetric(b, 'offsetHeight') > 0);   // alloc-rare: once for each gesture
-    if (!boxes.length || !(parseFloat(el.style.getPropertyValue('--plot-h')) > 0)) return;
+    if (!boxes.length) return;
     const rects = boxes.map((b) => readBox(b));   // alloc-rare: once for each gesture
     const items = [], seen = new Set();   // alloc-rare: once for each gesture
     const above = (top) => rects.reduce((n, r) => n + (r.bottom <= top + 1 ? 1 : 0), 0);
@@ -86,12 +86,12 @@ export function sheetBehaviour(el, { handle, drag, onClose, active = () => true,
       }
     });
     for (const it of items) if (it[2]) it[0].style.transformOrigin = '50% 0';
-    gr = { base, items, last: NaN };
+    gr = { base, items, share: boxes.length, last: NaN };
     el.classList.add('sheet-grow');
   };
   const growTo = (off) => {
     if (!gr) return;
-    const ga = Math.round((plotAt((lay || gr.base) - off) - plotAt(gr.base)) * 4) / 4;
+    const ga = Math.round(((lay || gr.base) - off - gr.base) / gr.share * 4) / 4;
     if (ga === gr.last) return;
     gr.last = ga;
     for (const [e, n, hb] of gr.items) {
@@ -143,7 +143,6 @@ export function sheetBehaviour(el, { handle, drag, onClose, active = () => true,
     const h1 = pxOf(v), H = Math.max(h0, h1);
     if (Math.abs(h1 - h0) < 1) { stopSheet(el); commit(v); return; }
     if (lay !== H) { stopSheet(el); hold(); el.style.height = `${H}px`; lay = H; setSheetOffset(el, H - h0); }
-    classSoon(el, 'sheet-half', thumb() && size === half());
     glideSheet(el, H - h1, { easing, done: () => commit(v), frame: growTo });
   };
   const drawnHeight = () => (lay || readMetric(el, 'offsetHeight')) - sheetOffset(el);
