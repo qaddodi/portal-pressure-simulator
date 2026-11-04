@@ -3144,14 +3144,15 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // The camera (k about (ox, oy), canvas px, y down) and alpha the final present lays the figure with: the dive's zoom and every fade of the
   // figure's canvas (a hide, the first framing), as uniforms of one pass, so the glass drawn over the figure in the same present never moves
   // or fades with it. Set by the stage; none (k 1, a 1) is the plain copy, as before.
-  const cam = { k: 1, ox: 0, oy: 0, a: 1 };
+  const cam = { k: 1, ex: 0, ey: 0, a: 1 };   // (the dive's camera, the same shape as the scene's below: p' = k p + (ex, ey) in canvas px, y down, and the alpha)
   // (The scene camera of a card's zoom, composed after the dive's: p' = k p + (ex, ey) in canvas px, y down. The glass drawn over the figure is
   // not moved by it: it is drawn from the zoomed card's own place. setScene.)
   const scn = { k: 1, ex: 0, ey: 0 };
   const camOn = () => cam.k !== 1 || cam.a !== 1 || scn.k !== 1;
   let camP = null;
-  function camDraw(tex, blend, k = cam.k, ex = (1 - cam.k) * cam.ox, eyUp = (1 - cam.k) * (canvas.height - cam.oy), a = cam.a) {
-    if (scn.k !== 1) { ex = scn.k * ex + scn.ex; eyUp = scn.k * eyUp + canvas.height * (1 - scn.k) - scn.ey; k *= scn.k; }
+  function camDraw(tex, blend) {
+    // (The scene's camera after the dive's, composed in y down as the scene camera records are, and flipped for the framebuffer once, at the end.)
+    const a = cam.a, k = cam.k * scn.k, ex = scn.k * cam.ex + scn.ex, eyUp = canvas.height * (1 - k) - (scn.k * cam.ey + scn.ey);
     if (camP === null) {
       try { camP = finishProgram(gl, startProgram(gl, REUSE_VS, CAM_FS)); } catch (e) { console.warn('Veins renderer: the camera shader could not be made.', e); camP = false; }
     }
@@ -4457,11 +4458,14 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      * The camera and alpha of the final present: the figure (and its overlays) laid scaled by k about (ox, oy) (canvas px from its top left)
      * and weighed by a (0 to 1), the glass over it untouched. (1, any, any, 1) is the plain copy. Lays the canvas again at once when it changed.
      */
-    setCamera(k, ox, oy, a = 1) {
+    setCamera(k, ox, oy, a = 1) { return this.setCameraRec(k, (1 - k) * ox, (1 - k) * oy, a); },
+    /** The same camera as a record (scene-cam.js): p' = k p + (ex, ey) in canvas px, y down. */
+    setCameraRec(k, ex, ey, a = 1) {
       if (!(k > 0) || !(a >= 0)) return;
       a = Math.min(1, a);
-      if (cam.k === k && cam.a === a && (k === 1 || (cam.ox === ox && cam.oy === oy))) return;
-      cam.k = k; cam.a = a; cam.ox = ox; cam.oy = oy;
+      if (k === 1) ex = ey = 0;
+      if (cam.k === k && cam.a === a && cam.ex === ex && cam.ey === ey) return;
+      cam.k = k; cam.a = a; cam.ex = ex; cam.ey = ey;
       if (!lost) present(true, true);
     },
     /**
@@ -4492,7 +4496,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     onPicture(f) { onPicture.add(f); return () => onPicture.delete(f); },
     clear() { pictured(); if (own?.w) { gl.bindFramebuffer(gl.FRAMEBUFFER, own.fbo); gl.viewport(0, 0, own.w, own.h); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); } gl.bindFramebuffer(gl.FRAMEBUFFER, SCR()); gl.viewport(0, 0, canvas.width, canvas.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); nCells = nBlood = nGen = nSimple = 0; baseM = null; fboOK = false; },
     /** The current picture as a PNG data URL (call right after draw, in the same task). */
-    snapshot() { if (share) return null; const c = { ...cam }; cam.k = 1; cam.a = 1; try { present(false); const url = canvas.toDataURL('image/png'); Object.assign(cam, c); if (tops.length || camOn()) present(); return url; } finally { Object.assign(cam, c); } },   // (the figure alone; then laid again whole, as it shows)
+    snapshot() { if (share) return null; const c = { ...cam }; cam.k = 1; cam.ex = cam.ey = 0; cam.a = 1; try { present(false); const url = canvas.toDataURL('image/png'); Object.assign(cam, c); if (tops.length || camOn()) present(); return url; } finally { Object.assign(cam, c); } },   // (the figure alone; then laid again whole, as it shows)
     /**
      * The canvas holding the whole current picture, for a reader that takes it in this same task (a download, a handout, the glass'
      * copy, drawImage, createImageBitmap, toDataURL): the kept picture is copied onto it first, so the reader

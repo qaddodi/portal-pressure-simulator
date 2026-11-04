@@ -8,9 +8,11 @@ import { riseCentre } from './rise-path.js';
 import { store } from './store.js';
 import { clamp, lerp } from './util.js';
 import { OVER_ALL } from './stage-over.js';
+import { cams, camAbout, camId } from './scene-cam.js';
 
 export function createDive(st, live) {
   const { applyVT, defaultVT, drawFrame, driftEnd, liverBox, lobuleBackstop, lobuleStep, nextFrame, refreshCTM, riseVT, sameView, spleenMoving, svg, syncSemantic, update, updateLabels, vCanvas, worldToLocal, wrap } = st;
+  const DIVEC = cams.stage.dive;   // (the dive's camera, a scene-cam record in canvas px: setDiveScale is its only writer, pushCam hands it to the figure)
   const diveAtBuf = [0, 0];   // (diveAt's pair, written in place)
   const DIVE_MS = 2200, RISE_MS = 1300;
   // The anatomy's share of the zoom (×16), the field's the rest: the camera goes deep into one part of the liver, its vessels still
@@ -102,7 +104,7 @@ export function createDive(st, live) {
     if (!live.veins || live.veins.lost) return;
     const sx = vCanvas.width / (live.boxW || vCanvas.width || 1), sy = vCanvas.height / (live.boxH || vCanvas.height || 1);
     // (Landed in the lobule drawn in this renderer's own context: the figure under it is not laid at all, as #veins was hidden before.)
-    live.veins.setCamera(live.camK, live.camOx * sx, live.camOy * sy, live.lobIn ? 0 : live.camDive * live.camShow);
+    live.veins.setCameraRec(DIVEC.k, DIVEC.x * sx, DIVEC.y * sy, live.lobIn ? 0 : live.camDive * live.camShow);
   }
   function camShowStep(now) {
     live.camShowRaf = 0;
@@ -142,7 +144,7 @@ export function createDive(st, live) {
       if (!keep) { setDomHidden(false); setDiveHidden(false, false); setDiveFade(null); }
       // The transform goes first and the layer hint a frame later: dropping both at once can leave the
       // browser showing the last zoomed picture while clicks already land on the unzoomed figure.
-      if (live.diveOrig) { for (let i = 0; i < live.diveOrig.length; i++) { const el = live.diveOrig[i][0]; if (el === vCanvas) continue; el.style.transform = 'none'; el.style.transformOrigin = ''; } live.camK = 1; pushCam(); nextFrame(diveWillOff); }
+      if (live.diveOrig) { for (let i = 0; i < live.diveOrig.length; i++) { const el = live.diveOrig[i][0]; if (el === vCanvas) continue; el.style.transform = 'none'; el.style.transformOrigin = ''; } camId(DIVEC); pushCam(); nextFrame(diveWillOff); }
       // The stage's measured box (and so the drawing transform) may have been taken while the dive's zoom
       // was on, which would keep the canvas drawn zoomed in after it ends: measure again.
       if (live.diveOrig) { live.box = null; live.CTM = null; }
@@ -161,7 +163,7 @@ export function createDive(st, live) {
     }
     const tf = `scale(${k.toFixed(4)})`;
     for (let i = 0; i < live.diveOrig.length; i++) { const el = live.diveOrig[i][0]; if (el !== vCanvas) el.style.transform = tf; }
-    live.camK = k; pushCam();
+    camAbout(DIVEC, k, live.camOx, live.camOy); pushCam();
   }
   // The labels' fade in once a rise has landed: from where their layer stands (0 after a rise) to whole over D_SMALL, smoothstep, on the
   // frames; the inline opacity goes back to '' at its end. A new dive or rise stops it (diveFrame), and reduced motion shows them at once.
@@ -214,7 +216,7 @@ export function createDive(st, live) {
       const lab = wrap.querySelector('#labels');
       // Going out they stay away for the whole zoom and fade in only once it has landed, where they were laid out (setLobule lays them
       // out for the final framing as the rise begins). They are pinned to the figure at its rest camera, not under the dive's scale
-      // (camK, drawn by the GPU about camOx/camOy), so shown part way they stood at their landed places over a figure still magnified
+      // (the dive camera record, drawn by the GPU about camOx/camOy), so shown part way they stood at their landed places over a figure still magnified
       // and moving under them (Mohammad, 4 Nov 2026: "labels show up too early, wrong place, in place while zoom is zooming out").
       // The fade in is the landing's own, on the frame clock, like a view switch's (labelsIn).
       if (lab) {

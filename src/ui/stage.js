@@ -169,7 +169,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get boxW() { return boxW; }, set boxW(v) { boxW = v; },
     get calloutSig() { return calloutSig; },
     get camDive() { return camDive; }, set camDive(v) { camDive = v; },
-    get camK() { return camK; }, set camK(v) { camK = v; },
     get camMove() { return camMove; }, set camMove(v) { camMove = v; },
     get camOx() { return camOx; }, set camOx(v) { camOx = v; },
     get camOy() { return camOy; }, set camOy(v) { camOy = v; },
@@ -1744,10 +1743,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // their usual .25s opacity transition is held off while it is driven frame by frame (and eases the anatomy back in under the landed lobule).
   let diveFadeO = null;
   // The figure's canvas is moved and faded by its renderer's final present (veins-gl setCamera), not by CSS on the canvas: a CSS scale or
-  // opacity takes the cards' glass drawn in it along, and the glass goes solid for the ease, the fade and the dive. camK/camOx/camOy: the
+  // opacity takes the cards' glass drawn in it along, and the glass goes solid for the ease, the fade and the dive. the dive record (scene-cam.js, camOx/camOy its fixed point): the
   // dive's zoom and its origin (CSS px from the canvas's corner); camDive/camShow: the dive's hide and the figure's own fade-in, each 0 to 1.
   let lobIn = false;   // (the lobule is landed and drawn in this renderer's context: the figure's alpha is 0 under it)
-  let camK = 1, camOx = 0, camOy = 0, camDive = 1, camShow = 1, camShowRaf = 0, camShowT0 = 0, camShowFrom = 1, camShowTo = 1;
+  let camOx = 0, camOy = 0, camDive = 1, camShow = 1, camShowRaf = 0, camShowT0 = 0, camShowFrom = 1, camShowTo = 1;
   // Before the way out of a landed lobule (prepRise, asked for by the presenter as the slide changes): the anatomy under it, still
   // covered, follows the model again and its organs' picture is made for the patient now, so the rise fades in a current picture.
   // (Left as it was under the lobule, the picture held the patient from before the dive: shown through the rise and swapped at
