@@ -28,8 +28,8 @@ test('the early framing reads the handle where it will rest and refits as the ca
 });
 
 test('the refit once the card rests leaves a glide to the same view alone, so the camera is not started again', () => {
-  assert.match(stage, /if \(!to \|\| sameView\(to, vtGliding \? vtTarget : vt\)\) return;/, 'frameBox');
-  assert.match(stage, /fitSlow\(ms = 1300, opt = \{\}\) \{[^\n]*if \(!sameView\(to, vtGliding \? vtTarget : vt\)\) animateVT/, 'fitSlow');
+  assert.match(stage, /if \(!to \|\| (?:live\.)?sameView\(to, (?:live\.)?vtGliding \? (?:live\.)?vtTarget : (?:live\.)?vt\)\) return;/, 'frameBox');
+  assert.match(stage, /fitSlow\(ms = 1300, opt = \{\}\) \{[^\n]*if \(!(?:live\.)?sameView\(to, (?:live\.)?vtGliding \? (?:live\.)?vtTarget : (?:live\.)?vt\)\) animateVT/, 'fitSlow');
 });
 
 test('the stage\'s home look waits while a slide\'s stacked card folds, and looks again once it rests', () => {

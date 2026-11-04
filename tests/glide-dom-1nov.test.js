@@ -42,7 +42,7 @@ test('the vessel marks read every style before writing any data-gl', () => {
 
 test('a glide\'s own step paints the callouts and probes; the view\'s frame does not paint them a second time', () => {
   const at = STAGE.indexOf('  function animateVT('), fn = STAGE.slice(at, STAGE.indexOf('\n  }\n', at));
-  assert.match(fn, /if \(sites\.list\) \{ refreshCTM\(\); sitesPaint\(\); \}\n\s+if \(scan\.on\) scanPaint\(\);\n\s+dprobePaint\(\);/);
+  assert.match(fn, /if \((?:live\.)?(?:live\.)?sites\.list\) \{ refreshCTM\(\); sitesPaint\(\); \}\n\s+if \((?:live\.)?(?:live\.)?scan\.on\) (?:live\.)?(?:live\.)?scanPaint\(\);\n\s+(?:live\.)?(?:live\.)?dprobePaint\(\);/);
 });
 
 test('the status bar\'s colour is taken from the token cache for a new look only, never for a class on #app', () => {

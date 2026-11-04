@@ -54,7 +54,7 @@ const stage = stageSource(), presenter = read('src/ui/presenter.js'), lobule = r
 
 test('the stage times a steady glide by the clock, and never a drift or a move on an arc', () => {
   const a = fn(stage, 'function animateVT(');
-  assert.match(a, /const clock = opt\.steady && !drift && !arcRun \? glideClock\(\) : null;/);
+  assert.match(a, /const clock = opt\.steady && !drift && !(?:live\.)?(?:live\.)?arcRun \? glideClock\(\) : null;/);
   assert.match(a, /clamp\(\(clock \? clock\(now\) : now - t0\) \/ ms, 0, 1\)/, 'and the step reads it');
 });
 

@@ -17,8 +17,8 @@ test('always one move: the share of the glide and the shared morph window', () =
 });
 
 test('the stage says what is left of its glide, read from the glide itself', () => {
-  assert.match(stage, /vtGliding = true; vtUntil = t0 \+ ms; vtMs = ms;/);
-  assert.match(stage, /glideLeft: \(\) => \(vtGliding \? \{ left: Math\.max\(0, vtUntil - performance\.now\(\)\), ms: vtMs \} : \{ left: 0, ms: 0 \}\),/);
+  assert.match(stage, /(?:live\.)?(?:live\.)?vtGliding = true; (?:live\.)?(?:live\.)?vtUntil = t0 \+ ms; (?:live\.)?(?:live\.)?vtMs = ms;/);
+  assert.match(stage, /glideLeft: \(\) => \((?:live\.)?vtGliding \? \{ left: Math\.max\(0, (?:live\.)?vtUntil - performance\.now\(\)\), ms: (?:live\.)?vtMs \} : \{ left: 0, ms: 0 \}\),/);
 });
 
 test('what stays serial: the liver, a catheter, a case or question card, an instrument, a figure that cannot move smoothly', () => {

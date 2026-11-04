@@ -416,7 +416,7 @@ test('stage: a probe shown afresh starts at its place, and a jump fades out and 
 
 test('stage: on a slide the probe waits, hidden, for the slide\'s camera to settle (Doppler 2)', () => {
   const src = stageSource();
-  assert.match(src, /if \(id && store\.get\(\)\.presenting\) (?:live\.)?(?:live\.)?dprHold\(\);/);
+  assert.match(src, /if \(id && store\.get\(\)\.presenting\) (?:live\.)?(?:live\.)?(?:live\.)?dprHold\(\);/);
   assert.match(src, /const show = [^;]*!camHides && !dpr\.hold/);
   const av = src.slice(src.indexOf('function animateVT('), src.indexOf('const step = (now)', src.indexOf('function animateVT(')));
   assert.ok(av.indexOf('camMove = true') < av.lastIndexOf('dprLet()'), 'the hold lets go only once the move has hidden it');
@@ -645,9 +645,9 @@ test('stage: a glide that only refits the figure to cards that changed does not 
   // The stage decides once, as the glide starts: only a probe already showing, and only within a moment of the presenter saying so; the
   // carry ends when the camera settles, so a later slide framing is never taken for a refit.
   const av = stage.slice(stage.indexOf('function animateVT('), stage.indexOf('const step = (now)', stage.indexOf('function animateVT(')));
-  assert.match(av, /camMove = true; dpr\.carry = dpr\.on && performance\.now\(\) < dpr\.refitUntil;/);
+  assert.match(av, /(?:live\.)?(?:live\.)?camMove = true; dpr\.carry = dpr\.on && performance\.now\(\) < dpr\.refitUntil;/);
   assert.match(stage, /carryProbe\(\) \{ dpr\.refitUntil = performance\.now\(\) \+ 300; \}/);
-  assert.match(stage, /camMove = false; dpr\.carry = false;/);
+  assert.match(stage, /(?:live\.)?camMove = false; dpr\.carry = false;/);
 });
 
 test('stage: while the readings slide, the probe is placed on every frame against the cards read as the slide starts and as it rests', () => {

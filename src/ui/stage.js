@@ -2,14 +2,13 @@
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
 import { EDGES, NODES, PORTAL_TERRITORY, isStent, stentSite, STENT_SITES } from '../engine/topology.js';
-import { RECTUM_FADE, LABEL_VESSEL, TIP_FADE, ART_FADE, VIEW, VB_ANAT, VB_CIRC, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NODE_POS, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, CAVITY_LOW, SITES, LIVER_SPLIT_X, CIRCUIT_ZONES, STRANDS, SIN_EDGES } from './anatomy.js';
+import { RECTUM_FADE, LABEL_VESSEL, TIP_FADE, ART_FADE, VIEW, VB_CIRC, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NODE_POS, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, CAVITY_LOW, SITES, LIVER_SPLIT_X, CIRCUIT_ZONES, STRANDS, SIN_EDGES } from './anatomy.js';
 import { nodeEnds, nodeDrawn, dotRadius } from './circuit-nodes.js';
 import { store } from './store.js';
 import { s, h, clamp, lerp, toast, loadFailed, UPRIGHT_MQ } from './util.js';
 import { recordLayer } from './over-records.js';
-import { lerpVT, camPath, blendPaths, viewsOverlap, driftEase } from './cam-arc.js';
-import { easeMove, easeArrive, camMs, carryRate, carried, createGlideTracker, D_SURFACE } from './ease.js';
-import { glideClock } from './glide-clock.js';
+import { lerpVT } from './cam-arc.js';
+import { easeArrive, createGlideTracker, D_SURFACE } from './ease.js';
 import { spleenMotion } from './spleen-motion.js';
 import { segHitsBox, lineIndex, indexHits } from './seg-hits.js';
 import { smooth01 } from './liver-morph.js';
@@ -130,6 +129,7 @@ import { createGlass } from './stage-glass.js';
 import { createMorph } from './stage-morph.js';
 import { createFit } from './stage-fit.js';
 import { createRide } from './stage-ride.js';
+import { createGlide } from './stage-glide.js';
 
 export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, onViewChange }) {
   // <stage-split live>
@@ -224,6 +224,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get dprCardsAt() { return dprCardsAt; }, set dprCardsAt(v) { dprCardsAt = v; },
     get dprCardsList() { return dprCardsList; }, set dprCardsList(v) { dprCardsList = v; },
     get dprHold() { return dprHold; },
+    get dprLet() { return dprLet; },
     get dprobePaint() { return dprobePaint; },
     get drag() { return drag; }, set drag(v) { drag = v; },
     get drawCam() { return drawCam; }, set drawCam(v) { drawCam = v; },
@@ -266,6 +267,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get fontPx() { return fontPx; },
     get forceDraw() { return forceDraw; }, set forceDraw(v) { forceDraw = v; },
     get frameNo() { return frameNo; }, set frameNo(v) { frameNo = v; },
+    get freeArea() { return freeArea; }, set freeArea(v) { freeArea = v; },
     get frostCtx() { return frostCtx; }, set frostCtx(v) { frostCtx = v; },
     get frostHold() { return frostHold; }, set frostHold(v) { frostHold = v; },
     get frostLiver() { return frostLiver; }, set frostLiver(v) { frostLiver = v; },
@@ -341,6 +343,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get labHid() { return labHid; }, set labHid(v) { labHid = v; },
     get laidFrame() { return laidFrame; }, set laidFrame(v) { laidFrame = v; },
     get lapHid() { return lapHid; }, set lapHid(v) { lapHid = v; },
+    get lastFree() { return lastFree; }, set lastFree(v) { lastFree = v; },
     get lastMorph() { return lastMorph; }, set lastMorph(v) { lastMorph = v; },
     get lastMoveAt() { return lastMoveAt; }, set lastMoveAt(v) { lastMoveAt = v; },
     get layCTM() { return layCTM; }, set layCTM(v) { layCTM = v; },
@@ -490,6 +493,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get rideCTM() { return rideCTM; }, set rideCTM(v) { rideCTM = v; },
     get rideLeaders() { return rideLeaders; },
     get riseBox() { return riseBox; }, set riseBox(v) { riseBox = v; },
+    get riseExp() { return riseExp; }, set riseExp(v) { riseExp = v; },
     get riseFast() { return riseFast; }, set riseFast(v) { riseFast = v; },
     get riseFitAsk() { return riseFitAsk; }, set riseFitAsk(v) { riseFitAsk = v; },
     get riseLine() { return riseLine; }, set riseLine(v) { riseLine = v; },
@@ -1474,158 +1478,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const { cardZoomAt, followEnd, sceneSet: sceneSet$, sceneStart: sceneStart$, zoomEnd, zoomOpen, zoomSharp } = createZoom({ applyVT, drawVeins, driftEnd, flushVT, refreshCTM, rideStart, rideStop, svg, vCanvas, viewNow, wrap }, live);
   function sceneStart(...a) { return sceneStart$(...a); }   // <stage-split stub>
   function sceneSet(...a) { return sceneSet$(...a); }   // <stage-split stub>
-  // The camera's curve and its time (ease.js; combined plan M2): the quintic, with no catch half way, and a glide asked to be scaled
-  // (opt.scale: a slide's framing, a fit, a camera set) takes the time its reach on screen needs, 480 to 900 ms, never longer than
-  // asked.
-  const camEase = easeMove;
-  // opt.steady: a refit to cards that moved (a data card tucked or untucked, a turn): timed by glideClock, so a slow frame at its start
-  // (the layout and label passes the same change set off) holds it back a little instead of carrying it part of the way in one step.
-  const NO_OPT = {};   // (the options of a glide asked for with none: read only)
-  const aimedBuf = { k: 1, x: 0, y: 0 };   // (where a framing would go, written in place; aimView reads it at once)
-  function animateVT(to, ms = 700, opt = NO_OPT) {
-    if (aiming) { aimedBuf.k = to.k; aimedBuf.x = to.x; aimedBuf.y = to.y; aimed = aimedBuf; return; }   // (asked only where it would go: aimView)
-    following = false;   // (a glide or a framing set outright takes over from a card the view was following)
-    cancelFrame(vtAnim);
-    const prev = arcRun; arcRun = null;
-    const drift = !!opt.drift && ms > 0 && !reduceMotion.matches;   // (reduced motion: a drift is the short plain glide)
-    if (drifting && !drift) driftEnd();
-    drifting = drift;
-    vtTarget = to;
-    const from = { ...vt };
-    let t0 = performance.now();
-    if (reduceMotion.matches) ms = Math.min(ms, 300);   // (reduced motion: a short glide, never a jump)
-    else if (opt.scale && !drift && ms > 0) ms = Math.min(ms, camMs(from, to, VIEW.w));
-    // Lite mode: a jump, and a move that changes the view (not a small refit) fades the figure in at its new framing.
-    if (ms <= 0) {
-      drifting = false;
-      if (!sameView(from, to)) logMove({ t: t0, ms, restart: vtGliding, kind: 'glide', zoom: Math.abs(Math.log(to.k / from.k)), pan: Math.hypot(to.x - from.x, to.y - from.y) });
-      vtGliding = false; vt = to; applyVT(); CTM = null; camSettle(); dprLet(); return;
-    }
-    let at = (u) => (u >= 1 ? { ...to } : lerpVT(from, to, u));
-    // (Another plain glide still moving: this one carries its speed on, instead of starting over from rest. The arcs blend their own.)
-    const v0 = !drift && vtGliding ? vtTrack.take(performance.now()) : null;
-    vtTrack.begin();
-    const room = opt.arc && !reduceMotion.matches ? arcRoom() : null;   // (reduced motion: no pull-back, the plain short glide)
-    if (room && prev && vtGliding && performance.now() < prev.t0 + prev.ms && viewsOverlap(prev.to, to, room.vb)) {
-      // A refit while an arc runs (the cards settled, the screen turned): the same arc from where it began, now to the new framing,
-      // taken over gradually from here on, keeping its pace and its end time. Nothing jumps and it does not start over from rest.
-      const u = camEase(clamp((performance.now() - prev.t0) / prev.ms, 0, 1));
-      const path = camPath(prev.from, to, room.vb, room.wMax);
-      at = blendPaths(prev.at, path.at, u, room.vb);
-      t0 = prev.t0; ms = prev.ms;
-      arcRun = { from: prev.from, to, t0, ms, at };
-    } else if (room) {
-      const path = camPath(from, to, room.vb, room.wMax);
-      if (path.arc) { ms = Math.round(ms * path.stretch); at = path.at; arcRun = { from, to, t0, ms, at }; }
-    }
-    let c0 = 0;
-    if (v0 && !arcRun && !sameView(from, to)) {
-      c0 = carryRate(v0, from, to, VIEW.w) * ms;
-      if (c0 > 0) at = (u, raw) => (u >= 1 ? { ...to } : lerpVT(from, to, carried(u, raw, c0)));
-    }
-    if (!sameView(from, to)) logMove({ t: t0, ms, restart: vtGliding, kind: drift ? 'drift' : 'glide', arc: !!arcRun, zoom: Math.abs(Math.log(to.k / from.k)), pan: Math.hypot(to.x - from.x, to.y - from.y) });
-    const left = Math.max(0, t0 + ms - performance.now());
-    // (Not for a drift or a move on an arc: those keep their end time, which a refit that bends them reads from the wall clock.)
-    const clock = opt.steady && !drift && !arcRun ? glideClock() : null;
-    vtGliding = true; vtUntil = t0 + ms; vtMs = ms;
-    if (cath.st?.keep && !sameView(from, to) || store.get().presenting && !drift && !sameView(from, to)) { camMove = true; dpr.carry = dpr.on && performance.now() < dpr.refitUntil; setTimeout(camSettleIdle, left + 80); } else camSettle();
-    dprLet();   // (a probe waiting for the slide's framing: a move hides it till it lands, a refit shows it now)
-    // (0, 4 Nov 2026: a glide moves its camera every frame again while the figure flicker is chased; at 60 on a 120 Hz screen the figure
-    // stepped every other frame beside cards and labels that moved every frame.)
-    const stepGap = 0;
-    let stepAt = -1e9;
-    const step = (now) => {
-      // A newer glide (or a framing set outright) took over: this one stops. A glide started from inside this step's
-      // frame (a refit a view change set off) left two running, and the older could land last, where nobody wanted it.
-      if (vtTarget !== to) return;
-      // (The governor, frame.js: a glide the app runs itself moves the camera 60 times a second, not 120, camera, labels and figure together
-      // (they all read this step's camera, so none is a frame ahead of another). Its time is the clock's, so nothing jumps; the landing and a hand's
-      // frames are never held.)
-      if (now - stepAt < stepGap && now - t0 < ms - 20 && !gestureOn()) { vtAnim = nextFrame(step); return; }
-      stepAt = now;
-      const raw = clamp((clock ? clock(now) : now - t0) / ms, 0, 1), u = (drift ? driftEase : camEase)(raw);
-      vt = at(u, raw);
-      if (!drift) {   // (the speed a glide begun now would carry on: per ms, the zoom as its logarithm)
-        vtTrack.sample(vt, now);
-      }
-      applyVT(); CTM = null;
-      if (rideCTM) rideStep();   // (a card's zoom, which owns the ride)
-      // With the catheter in, the vessels, the catheter and its labels follow the camera in this very frame (the labels and the
-      // vessel layer after the frame's other steps: cathLabelsSoon, then animate's one render pass).
-      if (cath.st) { refreshCTM(); cathLabelsSoon(); }
-      if (sites.list) { refreshCTM(); sitesPaint(); }
-      if (scan.on) scanPaint();
-      dprobePaint();
-      if (u < 1) vtAnim = nextFrame(step); else { vtGliding = false; arcRun = null; camSettle(); if (drift) driftEnd(); }
-    };
-    vtAnim = nextFrame(step);
-  }
-  function zoomToBox(x0, y0, x1, y1) {
-    fitted = false;
-    const k = clamp(Math.min(VIEW.w / (x1 - x0), VIEW.h / (y1 - y0)) * 0.9, 1, 5);
-    animateVT({ k, x: VIEW.w / 2 - ((x0 + x1) / 2) * k, y: VIEW.h / 2 - ((y0 + y1) / 2) * k }, 400);
-  }
-  // The presenter's camera: glide so a box of the plate (world units) fills the space the floating
+    // The presenter's camera: glide so a box of the plate (world units) fills the space the floating
   // pieces leave, as Fit does for the whole plate, zoomed in no further than kMax.
   // (clear: the box goes entirely into the band the cards leave, however thin: it may zoom out past the usual floor for it.)
   // The camera that frames a box of the plate (world units) in the space the floating pieces leave.
   // While presenting, the presenter names the free area (freeArea: the open rectangles the words, the data card where it
   // comes to rest and the controls leave), and the box is centred in whichever of them shows it largest.
   let freeArea = null, lastFree = null;
-  // (boxVT's working numbers, kept: its helpers read them, so no closure is made for each call. bvPref: the rectangles that suit the box;
-  // bvDefault: the one rectangle left when the presenter names none.)
-  let bvX0 = 0, bvY0 = 0, bvX1 = 0, bvY1 = 0, bvS0 = 1, bvPad = 0, bvKMax = 4;
-  const bvPref = [], bvRect = { l: 0, t: 0, r: 0, b: 0 }, bvDefault = [bvRect];
-  function bvFitK(q) { return Math.min(Math.max(40, q.r - q.l - 2 * bvPad) / bvS0 / (bvX1 - bvX0), Math.max(40, q.b - q.t - 2 * bvPad) / bvS0 / (bvY1 - bvY0)); }
-  const bvScore = (q) => Math.min(bvFitK(q), bvKMax);
-  const bvArea = (q) => (q.r - q.l) * (q.b - q.t);
-  function boxVT(box, kMax = 4, clear = false) {
-    // (In the circuit the box is in the circuit's world units, turned a quarter turn about its centre when the map stands upright,
-    // and the view box is the circuit's: the same sums, the other plate.)
-    const circ = morphTarget === 1, VB = circ ? circVB() : VB_ANAT, turn = circ && rotTarget;
-    const x0 = turn ? CIRC_C[0] + (box[1] - CIRC_C[1]) : box[0], y0 = turn ? CIRC_C[1] - (box[2] - CIRC_C[0]) : box[1];
-    const x1 = turn ? CIRC_C[0] + (box[3] - CIRC_C[1]) : box[2], y1 = turn ? CIRC_C[1] - (box[0] - CIRC_C[0]) : box[3];
-    const rw = svg.clientWidth, rh = svg.clientHeight;
-    if (!rw || !rh) return null;
-    bvX0 = x0; bvY0 = y0; bvX1 = x1; bvY1 = y1; bvKMax = kMax;
-    const s0 = bvS0 = Math.min(rw / VB[2], rh / VB[3]);
-    bvPad = clear ? 12 : 0;   // (clear: a margin for the vessels' glow)
-    let rects = store.get().presenting && freeArea ? freeArea() : null;
-    if (rects) {   // (between the cards, when the box fits there)
-      const least = clear ? 0.3 : 0.6;
-      bvPref.length = 0;
-      for (let i = 0; i < rects.length; i++) if (rects[i].pref && bvFitK(rects[i]) >= least) bvPref.push(rects[i]);
-      if (bvPref.length) rects = bvPref;
-    }
-    if (!rects?.length) { const ins = safeInsets(clear); bvRect.l = ins.l; bvRect.t = ins.t; bvRect.r = rw - ins.r; bvRect.b = rh - ins.b; rects = bvDefault; }
-    // (A clearly larger fit wins; within 4% the larger rectangle does, so a near tie never flips the framing about.)
-    let f = rects[0];
-    for (let i = 1; i < rects.length; i++) { const q = rects[i]; if (bvScore(q) > bvScore(f) * 1.04 || (bvScore(q) >= bvScore(f) / 1.04 && bvArea(q) > bvArea(f))) f = q; }
-    lastFree = { ...f, box: [x0, y0, x1, y1] };
-    const k = clamp(bvFitK(f), clear ? 0.3 : 0.6, kMax);
-    const cx = VB[0] + VB[2] / 2 + ((f.l + f.r) / 2 - rw / 2) / s0, cy = VB[1] + VB[3] / 2 + ((f.t + f.b) / 2 - rh / 2) / s0;
-    return { k, x: cx - k * ((x0 + x1) / 2), y: cy - k * ((y0 + y1) / 2) };
-  }
-  // (opt.drift: a slow push, see drifting.)
-  function frameBox(box, ms = 1300, kMax = 4, clear = false, opt = {}) {
-    fitted = false; handed = false;
-    if (morphTarget !== 0 && morphTarget !== 1) return;   // (the anatomy or the circuit; not on the way between)
-    const to = boxVT(box, kMax, clear);
-    if (!to || sameView(to, vtGliding ? vtTarget : vt)) return;
-    if (opt.drift) animateVT(to, ms, { drift: true }); else animateVT(to, ms, { arc: true, steady: !!opt.steady, scale: !opt.steady });   // (a drift never arcs)
-  }
-  // Where the way out of the lobule lands when the next slide frames somewhere other than the fit: the rise itself
+    // Where the way out of the lobule lands when the next slide frames somewhere other than the fit: the rise itself
   // zooms straight to that framing, so there is no stop at the fit on the way. The box is asked for when the rise
   // begins (the plate is brought up to date first, so it is measured as it will be). It expires if the lobule was not open to rise from.
   let riseBox = null, riseExp = 0, riseUsed = false;
-  function riseTo(box, kMax, clear) { riseBox = box ? { box, kMax, clear } : null; riseExp = performance.now() + 4000; }
-  function riseVT() {
-    const r = riseBox; riseBox = null; handed = false;
-    if (!r || performance.now() > riseExp) return null;
-    const box = typeof r.box === 'function' ? r.box() : r.box;
-    return box ? boxVT(box, r.kMax, r.clear) : null;
-  }
-  function vtFor(wx, wy, k) { const [cx, cy] = vbCenter(); return { k, x: cx - wx * k, y: cy - wy * k }; }
+  const { animateVT: animateVT$, frameBox, riseTo, riseVT: riseVT$, vtFor, zoomToBox } = createGlide({ CIRC_C, applyVT, arcRoom, camSettle, camSettleIdle, circVB, dpr, driftEnd, logMove, nextFrame, refreshCTM, rideStep, safeInsets, sameView, sitesPaint, svg, vbCenter, vtTrack }, live);
+  function animateVT(...a) { return animateVT$(...a); }   // <stage-split stub>
+  function riseVT(...a) { return riseVT$(...a); }   // <stage-split stub>
   function zoomLiver() {
     if (store.get().lobule) store.set1('lobule', false);
     const lb = liverBox(); if (!lb) return;

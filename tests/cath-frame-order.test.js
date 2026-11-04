@@ -35,12 +35,12 @@ test('the figure renders as the frame\'s last callback, and the camera paths no 
   assert.match(stage, /^import \{ frameFor, lateFrameFor, cancelFrame,/m);
   assert.match(stage, /const drawFrame = lateFrameFor\('stage'\);/);
   assert.doesNotMatch(stage, /nextFrame\(animate\)/);
-  assert.match(stage, /function animate\(now\) \{\n {4}animRaf = 0;\n(?: {4}\/\/[^\n]*\n)+ {4}if \(viewRaf\) \{ cancelFrame\(viewRaf\); syncView\(\); \}\n {4}cathLabelsNow\(\);/);
+  assert.match(stage, /function animate\(now\) \{\n {4}animRaf = 0;\n(?: {4}\/\/[^\n]*\n)+ {4}if \((?:live\.)?viewRaf\) \{ cancelFrame\((?:live\.)?viewRaf\); syncView\(\); \}\n {4}cathLabelsNow\(\);/);
   const follow = fn(stage, 'cathFollow');
   assert.doesNotMatch(follow, /drawVeins|getBoundingClientRect|clientToVB\(|safeInsets\(|cutLen/);
   assert.match(follow, /const wr = stageBox\(\), ins = cathInsets\(now\);/);
   const glide = fn(stage, 'animateVT');
-  assert.match(glide, /if \(cath\.st\) \{ refreshCTM\(\); cathLabelsSoon\(\); \}/);
+  assert.match(glide, /if \((?:live\.)?(?:live\.)?cath\.st\) \{ refreshCTM\(\); (?:live\.)?(?:live\.)?cathLabelsSoon\(\); \}/);
   assert.doesNotMatch(glide, /drawVeins/);
 });
 
