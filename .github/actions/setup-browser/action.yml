@@ -3,7 +3,7 @@ description: npm ci, then Chromium for Playwright from a cache keyed on its vers
 runs:
   using: composite
   steps:
-    - uses: actions/setup-node@v4
+    - uses: actions/setup-node@v5
       with:
         node-version: 22
         cache: npm
@@ -13,7 +13,7 @@ runs:
       id: playwright
       shell: bash
       run: echo "version=$(node -p "require('./package-lock.json').packages['node_modules/playwright-core'].version")" >> "$GITHUB_OUTPUT"
-    - uses: actions/cache@v4
+    - uses: actions/cache@v5
       id: playwright-cache
       with:
         path: ~/.cache/ms-playwright

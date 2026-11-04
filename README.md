@@ -55,14 +55,16 @@ GitHub workflows run them:
 
 | Workflow | When | What |
 |----------|------|------|
-| `pages.yml` | pushes to `main` and the preview branch | lint and unit tests, then publishes the live site at `/` and the preview branch at `/preview/` (with an orange PREVIEW badge) |
-| `checks.yml` | the same pushes | browser checks on desktop and phone, the visual comparison (a drift is a warning) and the iPhone WebKit check |
-| `ci.yml` | pull requests and `main` | everything: lint, tests, build, browser checks split over parallel runners, the performance report, gesture and idle checks, and the visual comparison (a drift blocks the merge) |
+| `pages.yml` | pushes to `main` and the preview branch | publishes the live site at `/` and the preview at `/preview/` (with an orange PREVIEW badge); on `main` lint and unit tests gate it first |
+| `quick.yml` | pushes to the preview branch | lint and unit tests beside the deploy, as a warning |
+| `checks.yml` | on request (`[checks]` in a commit message, or the Actions tab) | the browser checks of the production build on desktop and phone, the visual comparison and the iPhone WebKit check; a drift only warns |
+| `ci.yml` | pull requests and `main` | everything: lint, tests, a strict build, browser checks of the source and the build, gesture, idle and text-floor checks; a visual drift or a slow frame blocks the merge |
+| `browser.yml` | called by `checks.yml` and `ci.yml` | the browser, GPU-organ, WebKit and visual jobs, defined once |
+| `gate.yml` | on request (`[gate]` or `[gate-full]` in a commit message) | the pre-push gate (`scripts/gate.mjs`) |
+| `sweeps.yml` | on request (`[deck-sweep]` or `[glitch-sweep]` in a commit message) | plays every deck at several screen sizes, or walks every deck and gesture looking for glitches |
 | `visual-refs.yml` | run by hand on a branch | redraws only the drifted visual references on CI's machines and commits them |
 
-`deck-sweep.yml` plays every deck at several screen sizes when run from the Actions tab or a
-commit message contains `[deck-sweep]`. The preview workflow and the merge rules are in
-[AGENTS.md](AGENTS.md).
+The preview workflow and the merge rules are in [AGENTS.md](AGENTS.md).
 
 The acceptance tests are the model's validation targets (healthy ranges, HVPG in presinusoidal
 disease and heart failure, splenic-vein reversal, hepatofugal flow, TIPS outcomes, the rupture

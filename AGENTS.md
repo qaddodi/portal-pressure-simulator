@@ -28,18 +28,18 @@ Loop for every change (fast previews first, full tests before merge):
    minutes): it fails on a conflict marker, an import that does not resolve, a page that does not boot, a deck slide change that does
    not end whole (card frozen mid-fade, glass never arriving, camera still gliding), a Circuit/Anatomy/Lobule switch that does not
    settle, a missing diaphragm, labels that do not follow a pan or zoom, and a rest view that drifts from `tests/visual/`. A thread pushes only
-   when it passes (`--only static,slides` for a quick run on a deck change; `--decks hvpg` narrows it). CI runs it on every push
-   (`gate.yml`; `[gate-full]` in a commit message runs every slide on desktop and phone). Details: header of `scripts/gate.mjs`. Do not run the browser
+   when it passes (`--only static,slides` for a quick run on a deck change; `--decks hvpg` narrows it). CI runs it only on request
+   (`gate.yml`: `[gate]` in a commit message, or `[gate-full]` to run every slide on desktop and phone too). Details: header of `scripts/gate.mjs`. Do not run the browser
    checks (`npm run smoke`) or `npm run check` locally at this stage. For any UI change, also
    take screenshots of the intended behaviour in the running app before pushing: phone
    (390x844, deviceScaleFactor 3), iPad and desktop where the change applies. Check them
    against the request, and do not report a fix as done without that check. Keep the
    screenshots outside the repo (the scratchpad).
-2. Commit and push to the preview branch. The preview deploy no longer waits for lint and unit in
-   `pages.yml` (about a minute to live); they run beside it in the "preview tests" job as a warning, so a
-   red one is fixed in a follow-up push. Check the "Pages (live site + preview)" deploy job
-   finished (GitHub Actions tools), then tell the owner the preview URL. Do not wait for the
-   browser checks (the "Checks" workflow); glance at it later and mention any failure, but it does not block testing.
+2. Commit and push to the preview branch. The preview deploy (`pages.yml`) does not wait for lint and unit
+   (about a minute to live); they run beside it in `quick.yml` as a warning, so a red one is fixed in a follow-up
+   push. A red "Pages (live site + preview)" run means the preview did not publish. Check it finished (GitHub
+   Actions tools), then tell the owner the preview URL. The browser checks (`checks.yml`) run only on request:
+   `[checks]` in a commit message, or the Actions tab.
 3. The owner tests on their devices and reports anything broken; repeat steps 1-2 quickly.
 4. When the owner is happy, run the full `npm run check` (lint, unit, build, smoke, smoke:dist),
    fix anything it finds, and recommend any tests worth adding for the new behaviour.
@@ -47,8 +47,8 @@ Loop for every change (fast previews first, full tests before merge):
    parallel runners (source site and build, desktop in twenty-eight shares and phone in fourteen, plus the visual
    check per device). A browser check that failed only by timing out gets one more try
    (`SMOKE_RETRIES`); any other failure counts at once.
-   Visual references (`tests/visual/`): every preview push compares the look (job `visual` in
-   `checks.yml`). A drift there is a warning with the diffs as an artifact; in `ci.yml` it blocks
+   Visual references (`tests/visual/`): the browser checks compare the look (job `visual` in
+   `browser.yml`, called by `checks.yml` and `ci.yml`). On the preview (`checks.yml`) a drift is a warning with the diffs as an artifact; in `ci.yml` it blocks
    the merge. If your change is meant to alter a view, run the "Visual references" workflow on your
    branch right after pushing it (GitHub Actions API: run `visual-refs.yml` on the branch). It
    redraws only the drifted views on CI's machines and commits them as "Visual references redrawn
@@ -57,8 +57,8 @@ Loop for every change (fast previews first, full tests before merge):
    Frame time and input latency (`scripts/frame-gate.mjs`, limits in `scripts/perf-limits.json`): the production build is driven as a
    person does on the laptop and phone profiles (a pan, a pinch, a camera glide, Next through a deck, a verb, a lens switch, the
    menu) and judged by the scheduler's script time per frame and the time from an input to the first change on the page. It runs
-   inside the `visual` job of `checks.yml` (a warning with the numbers in the job summary and the long frames in the `perf-gate-*`
-   artifact) and of `ci.yml` (blocks past a ceiling). A measure past its ceiling is a regression to fix, never a limit to raise;
+   inside the `visual` job of `browser.yml`: called by `checks.yml` it warns (the numbers in the job summary, the long frames in the
+   `perf-gate-*` artifact); called by `ci.yml` it blocks past a ceiling. A measure past its ceiling is a regression to fix, never a limit to raise;
    tighten a ceiling to the measured number (plus its margin) when the runners have reported. In the app, `?perf` lists every frame over 50 ms with
    its surfaces and phase and the slowest inputs, and Copy puts them in the paste.
 5. Merge to `main` only when the owner says so. That also resets `/preview/` to match `main`.
@@ -135,9 +135,8 @@ If a deploy fails:
   and the newest Pages run replaces it even when agents use different branches. Check
   `/preview/preview-info.txt` against your branch and commit before asking the owner to test.
 - Only one Pages deploy matters at a time (job `deploy`, `concurrency: pages`, newest wins).
-  The browser, visual and WebKit checks run in their own workflow (`checks.yml`), so a deploy never
-  waits for them. A started checks run always finishes (about 35-40 minutes); a newer push replaces
-  only the run waiting behind it, so results arrive for a recent commit, not necessarily the newest.
+  The browser, visual and WebKit checks run in their own workflow (`checks.yml`, on request), so a deploy never
+  waits for them. A started checks run always finishes; a newer request replaces only the run waiting behind it.
   A `main` push replaces a branch preview with `main`, which is expected after a merge.
 
 Preview access depends on the current agent's environment. Some cloud sandboxes block
