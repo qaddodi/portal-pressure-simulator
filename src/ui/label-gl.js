@@ -2480,7 +2480,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     },
     /** Whether the labels can ride a camera move on the GPU. A label the SVG still draws (one with a glyph Inter's cut lacks, as the Circuit's
      *  "Epigastric → SVC" caption) cannot be carried: the stage fades it with the leaders for the ride (app.css lb-ride), it is back at the landing. */
-    canRide() { return !lost && !host; },
+    canRide() { return !lost; },   // (S1: host mode rides too; the carry is read in each present of the host)
     /** A camera move's carry, [a, b, c, d, e, f] (where the labels were laid out, stage px, to where that point is now), drawn now. */
     ride(m) {
       if (lost) return;
@@ -2492,6 +2492,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       rideM = m;
       for (const r of glides.values()) gpool.push(r);
       glides.clear();
+      if (host) { ask(); return; }   // (S1: the host's present draws it, with the camera of that frame)
       if (raf) { cancelFrame(raf); raf = 0; }
       draw();
     },
@@ -2511,7 +2512,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     },
     /** A view change begins: the anchored labels standing are kept as ghosts (their pictures, pins and leaders), and their labels owe new pictures. */
     freezeGhosts() {
-      if (lost || host) return 0;
+      if (lost) return 0;   // (S1: host mode keeps ghosts too, drawn in the host's present)
       dropGhosts();
       for (const s of last) {
         const g = s.g, st = sprites.get(g);
@@ -2526,7 +2527,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       return ghosts.length;
     },
     /** The change's crossfade, from its own progress: the old view's ghosts at `o`, the new view's labels at `n`; a draw in this frame. */
-    crossfade(o, n) { xfOld = o; xfNew = n; if (lost) return; if (raf) { cancelFrame(raf); raf = 0; } draw(); },
+    crossfade(o, n) { xfOld = o; xfNew = n; if (lost) return; if (host) { ask(); return; } if (raf) { cancelFrame(raf); raf = 0; } draw(); },
     /** The change has landed: the ghosts go, each giving its picture to its label as the one for that view's look. */
     dropGhosts() { dropGhosts(); xfOld = 1; xfNew = 1; ask(); },
     get ghosting() { return ghosts.length > 0; },
@@ -2534,7 +2535,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     /** Pins the station labels to the figure: f(id, out) writes where the figure has station id's point now (stage px) and returns true. */
     pinTo(f, w = null) { pinAt = f; pinWorldAt = w; ask(); },
     /** The figure moved (its camera or its morph): the pinned labels drawn with it, in this frame. */
-    pinDraw() { if (lost || !pinAt) return; if (raf) { cancelFrame(raf); raf = 0; } draw(); },
+    pinDraw() { if (lost || !pinAt) return; if (host) { ask(); return; } if (raf) { cancelFrame(raf); raf = 0; } draw(); },
     /** Where each label's picture stood in the last frame, keyed: [{ key, x, y, w, h, a (its opacity) }] in CSS px from the canvas's corner (the browser check's lag test). */
     drawnLabels() {
       const o = [];   // alloc-rare: asked only by the browser check
