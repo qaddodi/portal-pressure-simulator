@@ -1,0 +1,1 @@
+{ "factory": "createCamera", "file": "stage-camera.js", "about": "The camera core: the view transform write (flush, apply), the box and safe-side reads, the world transform matrix and the coordinate conversions, the zoom at a point.", "lines": [[1189, 1358]] }

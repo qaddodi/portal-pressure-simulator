@@ -106,7 +106,7 @@ test('the figure places the gate where the callout points (the middle of the ves
   assert.match(stage, /const u = dop\.seg \? STENT_SITES\[dop\.seg\] : null;/);
   assert.match(stage, /u == null \? arcMid\(pts\) : pointAt\(pts, u\)/);
   // It follows the camera with the labels, and the labels keep clear of its body.
-  assert.equal((stage.match(/^\s*dprobePaint\(\);$|^\s*if \(dop\.id\) \{ dprobePaint\(\); live\.labelGL\?\.redraw\(\); \}$/gm) || []).length, 4, 'view change, zoom glide, labels laid out, Doppler set');
+  assert.equal((stage.match(/^\s*(?:live\.)?dprobePaint\(\);$|^\s*if \(dop\.id\) \{ dprobePaint\(\); live\.labelGL\?\.redraw\(\); \}$/gm) || []).length, 5, 'view change, zoom glide, labels laid out, Doppler set, and the glow pass');
   // It hides while the views morph and in the liver's own views, and moves by fading out and back in.
   assert.match(stage, /\((?:live\.)?(?:live\.)?(?:live\.)?(?:live\.)?morph < 0\.01 \|\| (?:live\.)?(?:live\.)?(?:live\.)?(?:live\.)?morph > 0\.99\) && !camHides && !dpr\.hold && dprMonitorOn\(\) && !st\.lobule && !st\.sinusoid && !(?:live\.)?(?:live\.)?(?:live\.)?(?:live\.)?lz\?\.isOpen\(\)/);
   // (it goes and comes by drawing back along its line of sight, then fading as it leaves, on its own clock in the stage's record: dprShape; no CSS fade)
@@ -416,7 +416,7 @@ test('stage: a probe shown afresh starts at its place, and a jump fades out and 
 
 test('stage: on a slide the probe waits, hidden, for the slide\'s camera to settle (Doppler 2)', () => {
   const src = stageSource();
-  assert.match(src, /if \(id && store\.get\(\)\.presenting\) (?:live\.)?(?:live\.)?dprHold\(\);/);
+  assert.match(src, /if \(id && store\.get\(\)\.presenting\) dprHold\(\);/);
   assert.match(src, /const show = [^;]*!camHides && !dpr\.hold/);
   const av = src.slice(src.indexOf('function animateVT('), src.indexOf('const step = (now)', src.indexOf('function animateVT(')));
   assert.ok(av.indexOf('camMove = true') < av.lastIndexOf('dprLet()'), 'the hold lets go only once the move has hidden it');

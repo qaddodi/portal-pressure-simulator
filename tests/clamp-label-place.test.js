@@ -11,7 +11,7 @@ const stage = stageSource();
 const body = (from, to) => stage.slice(stage.indexOf(from), stage.indexOf(to, stage.indexOf(from)));
 
 test('every redraw of the marks and every change of zoom places the "60 %" by the one rule the layout also uses', () => {
-  const place = body('function placeClampLabels() {', 'const applyVT');
+  const place = body('function placeClampLabels() {', 'let zoomBase');
   // (The labels stand in their own group, clampW, at the top of the overlays since 02be07c7.)
   assert.match(place, /for \(const t of clampW\.querySelectorAll\('\.clamp-label'\)\) clampLabelAt\(t\);/);
   assert.doesNotMatch(place, /setAttribute\('x'|dataset\.at/, 'no second formula for the spot');

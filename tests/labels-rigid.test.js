@@ -12,7 +12,7 @@ test('step 1: pinned labels take a new offset at once (no glide, no held wait)',
 });
 
 test('step 1: a card zoom neither drifts nor settles, and the level of detail reads the rest camera', () => {
-  const open = st.slice(st.indexOf('function zoomOpen()'), st.indexOf('function zoomAt('));
+  const open = st.slice(st.indexOf('function zoomOpen()'), st.indexOf('function sceneStart('));
   assert.ok(!/driftEnd|drifting\s*=\s*true/.test(open));
   const end = st.slice(st.indexOf('function zoomEnd()'), st.indexOf('function followEnd()'));
   assert.ok(!/driftEnd|labelSettleSoon/.test(end));
