@@ -10275,7 +10275,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let pinHeldReady = false;
   if (labelGL) labelGL.pinTo((id, out, mid, au) => {
     if (!CTM) refreshCTM();
-    out[2] = CTM.sc;   // (the zoom now: a label beside a vessel stands off it by half the vessel's width, which grows with the zoom)
     if (mid && au != null && au !== 0.5 && pinVesselAt(id, au)) { out[0] = PIN_P[0]; out[1] = PIN_P[1]; return Number.isFinite(out[0]) && Number.isFinite(out[1]); }
     const t = easeInOut(morph), a = labelAnchor(id, t);
     if (mid || !a.mid) { out[0] = a.ax; out[1] = a.ay; } else { const p = nodePos(id, t); worldToLocalInto(PIN_P, p[0], p[1]); out[0] = PIN_P[0]; out[1] = PIN_P[1]; }
@@ -10897,11 +10896,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // a point the layout chose by other rules, is not pinned and moves as before.)
     const pk = it.key.startsWith('n:') && !it.live && Number.isFinite(it.ax) && Number.isFinite(it.ay) ? pinKind(it.key.slice(2), it.ax, it.ay, it.au) : 0, pin = pk > 0;
     const px0 = +it.x.toFixed(1), py0 = +(it.rot ? it.y + it.w : it.y).toFixed(1);
-    // (phw, psc, pdx, pdy: half its vessel's width as laid out, the zoom it was laid out at and the way it stands off: the GPU widens that gap
-    // with the zoom in the same frame, so a pinch carries it as the next layout would place it, never in steps at each layout.)
-    const dv = pin && it.vw > 0 ? PIN_DIR[it.dir] : null;
-    b.pos = { g: b.g, x: px0, y: py0, rot: !!it.rot, pid: pin ? it.key.slice(2) : null, pax: pin ? it.ax : 0, pay: pin ? it.ay : 0, pmid: pk === 1, pau: it.au ?? 0.5,
-      phw: dv ? it.vw / 2 : 0, psc: CTM.sc, pdx: dv ? dv[0] : 0, pdy: dv ? dv[1] : 0 };
+    b.pos = { g: b.g, x: px0, y: py0, rot: !!it.rot, pid: pin ? it.key.slice(2) : null, pax: pin ? it.ax : 0, pay: pin ? it.ay : 0, pmid: pk === 1, pau: it.au ?? 0.5 };
     // (Its box on an 8 px grid, for the corner credit's look (labelBoxStamp): a number ticking inside it moves nothing the credit avoids.)
     const c0 = Math.floor((it.x - it.padX) / 8), c1 = Math.floor((it.y - it.padY) / 8), c2 = Math.ceil((it.x + (it.rot ? it.h : it.w) + it.padX) / 8), c3 = Math.ceil((it.y + (it.rot ? it.w : it.h) + it.padY) / 8), ch = !!it.hide;
     if (!b.box || c0 !== b.bc0 || c1 !== b.bc1 || c2 !== b.bc2 || c3 !== b.bc3 || ch !== b.bch) {

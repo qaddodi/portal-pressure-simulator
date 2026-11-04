@@ -670,7 +670,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // changes the offset, and the label then eases from the offset it was drawn at to the new one (pinGlides), its point and dot not moving.
   let pinAt = null, pinHeldFn = null, pinWasHeld = false;
   const pinHeldNow = () => !!pinHeldFn?.();
-  const PIN = [0, 0, 1];   // (the point now, and the zoom now)
+  const PIN = [0, 0];
   const pinGlides = new Map();   // group -> { fx, fy (the offset it was drawn at, CSS px), t0 }
   // (The offset each pinned label was last drawn at, by its group, kept past its picture: a label whose picture is made again (its text
   // size changes with the zoom) still eases from where it stood, never jumps to its new offset.)
@@ -682,8 +682,6 @@ void main() { o = texture(uT, vUV) * uA; }`;
   const PIN_FRAMES = 6, PIN_SNAP = 16;   // (a slot change's glide: D_SMALL and at least PIN_FRAMES frames; a nudge up to PIN_SNAP px is at once)
   function pinOff(s, now) {
     let ox = s.x - s.pax, oy = s.y - s.pay, u = 1;
-    // (Beside a vessel: its gap grows with the vessel's width on the screen, in this frame (stage.js phw, psc, pdx, pdy).)
-    if (s.phw && s.psc > 0) { const dh = s.phw * (PIN[2] / s.psc - 1); ox += s.pdx * dh; oy += s.pdy * dh; }
     const pg = pinGlides.get(s.g);
     // (Over at least PIN_FRAMES drawn frames as well as RIDE_MS: on a slow phone a frame can take longer than the whole glide, and the label
     // jumped to its new place in one frame: the Circuit's sinusoids and right hepatic vein, 78 px, as an iPhone pan sprang back.)
@@ -2350,10 +2348,13 @@ void main() { o = texture(uT, vUV) * uA; }`;
           const nx = s.x - s.pax, ny = s.y - s.pay, pg = pinGlides.get(s.g);
           // (Only a change of slot moves by a glide (V-LBL-1, V-LBL-6): a nudge of up to PIN_SNAP px (an edge's pull as the figure pans, a
           // width that changed) is the layout's at once, so the label never trails towards where it belongs.)
-          if (Math.hypot(nx - fx, ny - fy) <= PIN_SNAP && !(pg && pg.t0 === Infinity)) { if (pg) pinGlides.delete(s.g); continue; }
+          // (While a hand moves the figure every change waits (below), small ones too: taken at once, they were steps of 4-14 px at each
+          // layout of a pinch.)
+          const held = pinHeldNow(), waiting = !!pg && pg.t0 === Infinity, d = Math.hypot(nx - fx, ny - fy);
+          if (d <= 0.75 || (!held && !waiting && d <= PIN_SNAP)) { if (pg) pinGlides.delete(s.g); continue; }
           // (While a hand moves the figure (pinHeld) a new layout's offset waits: the label stays rigid on its point, and eases to its new
           // place once the hand lets go. An edge pull or a reslot in the middle of a pan was a label sliding against its point.)
-          const tg = pinHeldNow() ? Infinity : t0;
+          const tg = held ? Infinity : t0;
           if (pg) { if (pg.t0 !== Infinity || tg === Infinity) { pg.fx = fx; pg.fy = fy; } pg.t0 = tg; pg.n = 0; } else pinGlides.set(s.g, { fx, fy, t0: tg, n: 0 });   // alloc-rare: one record per label that moves at a layout
         }
       }
@@ -2446,7 +2447,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       const items = [];   // alloc-rare: asked only by the browser check
       for (const s of last) {
         const st = sprites.get(s.g);
-        if (st && st.mode === 'gl' && st.seq === frameSeq && s.g.dataset?.key) { const it = snapshotItem(s.g.dataset.key, st.dx, st.dy, st.w, st.h, st.held ?? 0, dpr, W, H); it.pin = !!st.pin; if (st.pin) { it.px = st.ppx; it.py = st.ppy; } it.glide = pinGlides.has(s.g) || glides.has(s.g); items.push(it); }
+        if (st && st.mode === 'gl' && st.seq === frameSeq && s.g.dataset?.key) { const it = snapshotItem(s.g.dataset.key, st.dx, st.dy, st.w, st.h, st.held ?? 0, dpr, W, H); it.pin = !!st.pin; if (st.pin) { it.px = st.ppx; it.py = st.ppy; } it.glide = (pinGlides.has(s.g) && pinGlides.get(s.g).t0 !== Infinity) || glides.has(s.g); items.push(it); }
       }
       // (The marks this frame drew: each dot's centre and radius, each leader's two ends, keyed by its label, CSS px from the canvas's corner.)
       const marksOut = [];   // alloc-rare: asked only by the browser check
