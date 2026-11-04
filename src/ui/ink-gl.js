@@ -19,7 +19,7 @@ import { parseCssColor } from './css-color.js';
 import { caught } from './caught.js';
 
 export const HOLD_MS = 500, HOLD_SLOP = 10, PEN_PX = 3.5, STEP_PX = 1.5, MAX_SEGS = 24000;
-const VEIL = 0, FADE_MS = 90;
+const VEIL = 0.62, FADE_MS = 90;
 
 /** The inverse of the affine m = { a, b, c, d, e, f } (x' = a x + c y + e, y' = b x + d y + f), written into o; false when it has none. */
 export function invertInto(o, m) {
@@ -110,9 +110,9 @@ void main() {
   float k = max(ring, dot_) * uPen.a;
   // (a soft glow round the dot, additive in the pen's colour: premultiplied with less alpha than colour, so it brightens and never darkens)
   float gr = uC.z * 0.5;
-  float gl = exp(-(d * d) / (gr * gr * 0.5)) * 0.75 * uPen.a;
+  float glw = exp(-(d * d) / (gr * gr * 0.5)) * 0.75 * uPen.a;
   vec4 base = vec4(uCol.rgb * a * (1.0 - k) + uPen.rgb * k, a * (1.0 - k) + k);
-  o = vec4(base.rgb * (1.0 - gl) + uPen.rgb * gl, max(base.a, gl * 0.45));
+  o = vec4(base.rgb * (1.0 - glw) + uPen.rgb * glw, max(base.a, glw * 0.45));
 }`;
 
 const VAR = (name, fallback) => {
