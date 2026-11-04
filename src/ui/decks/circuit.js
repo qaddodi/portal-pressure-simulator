@@ -18,7 +18,7 @@ const POINTS = { resistance: 'rLiver', collaterals: 'rColl' };
 const withPoints = (d) => ({ ...d, slides: d.slides.map((s) => (s.visual ? s : { terms: POINTS, ...s })) });
 
 export const CIRCUIT = withPoints({
-  id: 'circuit', level: 'foundation', keepPinch: true, title: 'Portal pressure as a circuit', minutes: 8,
+  id: 'circuit', level: 'foundation', keepPinch: true, zoomTiles: true, title: 'Portal pressure as a circuit', minutes: 8,
   // (Every slide shares one kicker, so the outline's sections name the slides.)
   sections: [['Flow and resistance', ['ohm', 'where', 'meal']], ['Cirrhosis', ['resist', 'both']], ['Collaterals', ['parallel']], ['Treatment', ['tips']]],
   objectives: [

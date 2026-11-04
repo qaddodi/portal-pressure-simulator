@@ -4151,7 +4151,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const ZOOM_OPENS_READINGS = false;
   // Whether the card may zoom now: it stands whole, on a wide screen, with an instrument, and nothing else is going on.
   const zoomReady = () => !!ui && !!deck && !!shown && shown.i === want && shown.gen === gen && (!busy || playing) && !leaving && !black && !caseStands() && ui.jump.hidden && !isModalOpen()
-    && ui.root.classList.contains('pz-wide') && ui.data.classList.contains('has-tool') && dataStands() && !ui.root.classList.contains('pz-prep');
+    && ui.root.classList.contains('pz-wide') && zoomCard() && dataStands() && !ui.root.classList.contains('pz-prep');
+  // (A card with an instrument zooms; in a talk that opts in (deck zoomTiles: the Circuit talk) a tiles-only card does too, so every slide's card can.)
+  const zoomCard = () => ui.data.classList.contains('has-tool') || (!!deck?.zoomTiles && !ui.data.hidden);
   const caseStands = () => !!caseCard && !caseCard.flown;
   async function zoomOpen() {
     if (!zoomReady() || ui.zoom.on) return;
@@ -4617,7 +4619,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     set('--pz-b', p && t ? B + 34 : 0);
     if (!dock.drag) { dockPaint(); placeLip(); }   // (the edge's place, read here at rest: a glide's frames only move it)
     // (The corner icon is offered where the card has room to grow, and only on a wide screen with an instrument: card-zoom.js.)
-    ui.data.classList.toggle('pz-zoomable', wide && !ui.data.hidden && ui.data.classList.contains('has-tool') && !!ui.zoom.plan());
+    ui.data.classList.toggle('pz-zoomable', wide && !ui.data.hidden && zoomCard() && !!ui.zoom.plan());
     placeBar();
     if (!insets.held) dispatchEvent(new Event('pps:occ'));
   }
