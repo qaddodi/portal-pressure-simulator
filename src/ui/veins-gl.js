@@ -141,6 +141,22 @@ void main() {
   highp vec2 uv = q / uDst;
   o = (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) ? vec4(0.0) : texture(uT, uv) * uA;
 }`;
+// A shared renderer's picture (the lobule's) laid over the canvas: it spans the canvas (uDst px), and goes where p' = M p + t puts it (canvas px,
+// y down; uM the inverse of M, row by row, uTr = t), weighed by uA, premultiplied; outside it, clear. Filtered. (Both y up in the framebuffers.)
+const LAYT_FS = `#version 300 es
+precision highp float;
+uniform sampler2D uT;
+uniform highp vec2 uDst;
+uniform highp vec4 uM;
+uniform highp vec2 uTr;
+uniform float uA;
+out vec4 o;
+void main() {
+  highp vec2 dd = vec2(gl_FragCoord.x, uDst.y - gl_FragCoord.y) - uTr;
+  highp vec2 s = vec2(uM.x * dd.x + uM.y * dd.y, uM.z * dd.x + uM.w * dd.y);
+  highp vec2 uv = vec2(s.x / uDst.x, 1.0 - s.y / uDst.y);
+  o = (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) ? vec4(0.0) : texture(uT, uv) * uA;
+}`;
 // Sharper upscaling: the picture (uSrc px) onto the canvas (uDst px), each pixel a Catmull-Rom of the picture's 4 × 4 around it, in five
 // filtered reads (the corner taps left out, their weights folded away), then held within the four picture pixels nearest it so an
 // edge never rings. Premultiplied in and out. (Both framebuffers run y up, so no flip.)
@@ -2990,6 +3006,32 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.disable(gl.BLEND);
     return true;
   }
+  // A shared renderer's texture laid over the canvas as p' = M p + t (see LAYT_FS): top.lay.
+  let lyP = null;
+  function layTex(tex, a, b, c, d, tx, ty, alpha) {
+    if (lyP === null) {
+      try { lyP = finishProgram(gl, startProgram(gl, REUSE_VS, LAYT_FS)); } catch (e) { console.warn('Veins renderer: the lobule\'s laying shader could not be made.', e); lyP = false; }
+    }
+    if (!lyP || !(alpha > 0)) return false;
+    const det = a * d - b * c;
+    if (!det) return false;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.disable(gl.SCISSOR_TEST); gl.disable(gl.STENCIL_TEST);
+    gl.enable(gl.BLEND); gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    gl.useProgram(lyP.p);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex);
+    UC.i1(lyP.u.uT, 0);
+    UC.f2(lyP.u.uDst, canvas.width, canvas.height);
+    gl.uniform4f(lyP.u.uM, d / det, -b / det, -c / det, a / det);
+    gl.uniform2f(lyP.u.uTr, tx, ty);
+    gl.uniform1f(lyP.u.uA, alpha);
+    gl.bindVertexArray(compVAO);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    gl.bindVertexArray(null);
+    gl.disable(gl.BLEND);
+    return true;
+  }
   // Sharper upscaling: the kept picture onto the whole canvas by UP_FS (Catmull-Rom, held within its four nearest pixels). False when
   // its program cannot be made (the picture then goes on as a plain copy, a corner of the canvas: setPicture turns the switch off).
   let upP = null;
@@ -3770,11 +3812,11 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       gl, canvas,
       /** The framebuffer the canvas stands in as (null; shared, the texture's): what a pass laid on this renderer's picture binds. */
       screen: SCR,
-      /** Lays a texture over the canvas (blended, premultiplied) as k p + e (e in canvas px from the top left, y down), weighed by a: a shared renderer's picture. */
-      lay(tex, k, ex, ey, a = 1) { if (!lost) camDraw(tex, true, k, ex, canvas.height * (1 - k) - ey, a); },
+      /** Lays a texture over the canvas (blended, premultiplied) as p' = M p + t (M = [a b; c d], t = (tx, ty) in canvas px, y down), weighed by alpha: a shared renderer's picture. */
+      lay(tex, a, b, c, d, tx, ty, alpha = 1) { if (!lost) layTex(tex, a, b, c, d, tx, ty, alpha); },
       /** Presents the canvas again with everything on it (a shared renderer's picture changed). */
       present: () => present(true, true),
-      add(t) { tops.push(t); tops.sort((a, b) => (a.order || 0) - (b.order || 0)); return () => { const i = tops.indexOf(t); if (i >= 0) tops.splice(i, 1); }; },
+      add(t) { if (t.solo && lyP === null && !lost) { try { lyP = finishProgram(gl, startProgram(gl, REUSE_VS, LAYT_FS)); } catch { lyP = false; } } tops.push(t); tops.sort((a, b) => (a.order || 0) - (b.order || 0)); return () => { const i = tops.indexOf(t); if (i >= 0) tops.splice(i, 1); }; },
       /** What is drawn under the figure in this canvas ({ on(), draw() }, one at a time): drawn first at each present while on() says so,
        *  onto the cleared canvas, the kept picture laid over it. Returns the call that takes it out. */
       under(u) { under = u; auxStart('lay'); return () => { if (under === u) under = null; }; },

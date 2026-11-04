@@ -2277,11 +2277,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The figure's canvas is moved and faded by its renderer's final present (veins-gl setCamera), not by CSS on the canvas: a CSS scale or
   // opacity takes the cards' glass drawn in it along, and the glass goes solid for the ease, the fade and the dive. camK/camOx/camOy: the
   // dive's zoom and its origin (CSS px from the canvas's corner); camDive/camShow: the dive's hide and the figure's own fade-in, each 0 to 1.
+  let lobIn = false;   // (the lobule is landed and drawn in this renderer's context: the figure's alpha is 0 under it)
   let camK = 1, camOx = 0, camOy = 0, camDive = 1, camShow = 1, camShowRaf = 0, camShowT0 = 0, camShowFrom = 1, camShowTo = 1;
   function pushCam() {
     if (!veins || veins.lost) return;
     const sx = vCanvas.width / (boxW || vCanvas.width || 1), sy = vCanvas.height / (boxH || vCanvas.height || 1);
-    veins.setCamera(camK, camOx * sx, camOy * sy, camDive * camShow);
+    // (Landed in the lobule drawn in this renderer's own context: the figure under it is not laid at all, as #veins was hidden before.)
+    veins.setCamera(camK, camOx * sx, camOy * sy, lobIn ? 0 : camDive * camShow);
   }
   function camShowStep(now) {
     camShowRaf = 0;
@@ -2552,6 +2554,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     lz.setFade(u);
     if (wasOpen && !lz.isOpen() && F && !inUpdate) update(F);
     wrap.classList.toggle('in-lobule', u > 0.98);
+    if (lobIn !== (u > 0.98 && !!lz?.shared)) { lobIn = !lobIn; pushCam(); }
   }
   let vtAnim = 0, vtGliding = false;
   let vtUntil = 0, vtMs = 0;   // (the glide under way: when it lands and how long it runs in all, for the presenter's cards: glideLeft)
@@ -2950,7 +2953,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lobuleCodeLost = (err) => { lzCode = null; throw err; };
   const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js').catch(lobuleCodeLost));
   const lzBinAway = (tubes, joins) => sweepBin({ kind: 'bin', tubes, joins });
-  const lzOptions = { host: wrap, styles: wrapCS, before: lzAnchor, binAway: lzBinAway };
+  const lzOptions = { host: wrap, styles: wrapCS, before: lzAnchor, binAway: lzBinAway, figure: () => (veins && !veins.lost ? veins.top : null) };   // (figure: the lobule is drawn in this renderer's context, lobule-zoom.js ensureGL)
   const lobuleBuilt = ({ createLobuleZoom }) => {
     lz = createLobuleZoom(lzOptions);
     if (aimWait) { lz.aim(aimWait[0], aimWait[1]); aimWait = null; }
@@ -10364,7 +10367,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     if (frostLiver || frostCtx !== veins.top.gl) { rehostSoon(); return 'the glass is moving back to the figure\'s canvas'; }
     if (veins.lost) return 'the GPU context is lost';
-    if (diveT > 0) return 'the dive is under way';
+    if (diveT > 0 && !lz?.shared) return 'the dive is under way';   // (the lobule drawn in the figure's own context: the dive is a pass of its present, the glass stays frosted)
     const wc = wrap.classList;
     if (!wc.contains('gl-on')) return 'the GPU figure is not showing';
     if (wc.contains('in-lobule')) return 'the lobule is showing';
