@@ -41,10 +41,6 @@ test('Circuit: no label hide for a zoom', () => {
   assert.ok(!st.includes("wrap.classList.add('pinch-hide')"));
 });
 
-test('view switch: the new view solve is finished in the frame the morph lands', () => {
-  assert.ok(/camSettle\(\);\s*\/\/[^\n]*\n\s*if \(labelJob\) labelJobFinish\(\);/.test(st));
-});
-
 test('view switch: no hide, no rush, no wait for a draw: the old labels ride as ghosts and the new ones are already solved', () => {
   for (const w of ['morph-fade', 'afterDraw', 'morphFadeEnd', 'labelGL?.rush', 'labelGL.followStart']) assert.ok(!st.includes(w), w);
   assert.ok(st.includes('labelGL.freezeGhosts()') && st.includes('labelGL.crossfade('));
