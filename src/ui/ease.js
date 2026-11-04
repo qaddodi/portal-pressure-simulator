@@ -97,6 +97,23 @@ export function carryRate(v, from, to, w) {
   const dot = (v.dlogk / LN2_2) * T0 + (v.x / w) * T1 + (v.y / w) * T2;
   return Number.isFinite(dot) ? Math.max(0, dot / tt) : 0;
 }
+/**
+ * The one carry-over tracker every camera glide uses (stage view, lobule view): sample() each frame with the camera ({ k, x, y }) it just
+ * wrote, and take() at the start of the next glide for the speed to carry on (carryRate), null if the last frames are older than 80 ms.
+ * Written in place, nothing allocated per frame. begin() forgets the last sample (a new glide's first frame has no speed yet).
+ */
+export function createGlideTracker() {
+  const vel = { t: 0, dlogk: 0, x: 0, y: 0 }, last = { t: 0, k: 1, x: 0, y: 0 };
+  let haveVel = false, haveLast = false;
+  return {
+    begin() { haveLast = false; },
+    sample(cam, now) {
+      if (haveLast && now > last.t && now - last.t < 100) { const dt = now - last.t; vel.t = now; vel.dlogk = Math.log(cam.k / last.k) / dt; vel.x = (cam.x - last.x) / dt; vel.y = (cam.y - last.y) / dt; haveVel = true; }
+      last.t = now; last.k = cam.k; last.x = cam.x; last.y = cam.y; haveLast = true;
+    },
+    take(now) { return haveVel && now - vel.t < 80 ? vel : null; },
+  };
+}
 /** The glide's progress at its clock `raw` (0..1), its eased value `eased`, with the old speed (carryRate × ms) as `c`. */
 export const carried = (eased, raw, c) => (c > 0 ? Math.min(1, eased + Math.min(c, CARRY_MAX) * raw * (1 - raw) * (1 - raw)) : eased);
 

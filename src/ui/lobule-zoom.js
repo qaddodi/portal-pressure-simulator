@@ -53,7 +53,7 @@ import { leaderEnd, leaderEndRects, runInside } from './leader-end.js';
 import { LIGHT } from './light.js';
 import { restPass, cancelRest, restAttr, restRemove, flushRestAttrs } from './rest-pass.js';
 import { classSoon, classHas, textSoon, runSoon } from './class-soon.js';
-import { easeMove, carryRate, carried, cubicBezier, D_SMALL, D_SURFACE } from './ease.js';
+import { easeMove, carryRate, carried, createGlideTracker, cubicBezier, D_SMALL, D_SURFACE } from './ease.js';
 import { surface } from './gpu-surfaces.js';
 import { caught } from './caught.js';
 import { createCaptions, composeView, inkRows, mirrorOf, rgbaOf as capRGBA } from './label-captions.js';
@@ -412,13 +412,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // (steady: a refit to cards that moved: timed by glideClock, so a slow frame at its start (the layout the same change set off) holds
   // the glide back a little instead of carrying it part of the way at once.)
   // (The in-out glide on the stage camera's curve, the quintic: ease.js, combined plan M2.)
-  let glideVel = null, glideLast = null;   // (a glide's last frames: its speed per ms, so another begun on it carries that on, ease.js carryRate)
-  // (glideVel and glideLast are these two objects, written in place each frame, or null: a glide begun on one reads it at once, before its first frame writes.)
-  const glideVelO = { t: 0, dlogk: 0, x: 0, y: 0 }, glideLastO = { t: 0, k: 0, x: 0, y: 0 };
+  const glideTrack = createGlideTracker();   // (a glide's last frames: its speed per ms, so another begun on it carries that on, ease.js)
   function glideTo(to, ms = 260, cam = false, aim = null, ease = 'inOut', steady = false) {
     stopInertia();
-    const v0 = gliding && glideVel && ease !== 'in' && performance.now() - glideVel.t < 80 ? glideVel : null;
-    glideLast = null;
+    const v0 = gliding && ease !== 'in' ? glideTrack.take(performance.now()) : null;
+    glideTrack.begin();
     cancelFrame(glide); gliding = false;
     camAim = aim;   // (any other glide, or a hand on the lobule, replaces the presenter's)
     const from = { ...V }, t0 = performance.now();   // alloc-rare: once as a glide begins (a button, a station, a resize), kept by its frames
@@ -432,8 +430,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       const ec = u < 1 ? carried(e, u, c0) : e;   // (with the speed of a glide this one took over from, if any: ease.js carried)
       const k = from.k * Math.pow(to.k / from.k, ec), a = (k - from.k) / ((to.k - from.k) || 1);
       V.k = k; V.x = from.x + (to.x - from.x) * (to.k === from.k ? ec : a); V.y = from.y + (to.y - from.y) * (to.k === from.k ? ec : a);
-      if (glideLast && now > glideLast.t && now - glideLast.t < 100) { const dt = now - glideLast.t, gv = glideVelO; gv.t = now; gv.dlogk = Math.log(V.k / glideLast.k) / dt; gv.x = (V.x - glideLast.x) / dt; gv.y = (V.y - glideLast.y) / dt; glideVel = gv; }
-      const gl0 = glideLastO; gl0.t = now; gl0.k = V.k; gl0.x = V.x; gl0.y = V.y; glideLast = gl0;
+      glideTrack.sample(V, now);
       viewChanged();
       if (u < 1) glide = nextFrame(step); else { gliding = false; camAim = null; camSettle(); viewChanged(); }   // (landed: drawn once more at the sharpness the new zoom wants)
     };
