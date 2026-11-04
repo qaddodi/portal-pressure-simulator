@@ -5138,12 +5138,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         }
       }
     }
+    const radTol = 0.3 / Math.max(0.05, Math.hypot(drawT[0], drawT[1]) || 1);   // (world units: a third of a device pixel at the view last drawn)
     for (let q = 0; q < items.length; q++) {
       const it = items[q], o = it.obj, R = o.glEs === easeGen ? o.glE : o.glR0;
       // (Compared with a copy of the radii last sent, element by element, and copied only when they change: a joined string
       // per vessel per sync was megabytes a second of garbage; round 2 review, P6.)
       const sent = o.glRSent;
-      if (sent && sent.length === R.length) { let j = 0; while (j < R.length && sent[j] === R[j]) j++; if (j === R.length) continue; }
+      // (A change under a third of a device pixel at every sample is not sent: the vessels' caliber follows the model's pressures, and
+      // each tiny step redrew the whole vessel layer at the model's rate (Mohammad's photo, 4 Nov: 14 whole draws a second, 10 fps). The
+      // difference is kept, so the steps add up and one is sent once it is a third of a pixel; the lobule's radii work the same way.)
+      if (sent && sent.length === R.length) { let d = 0; for (let j = 0; j < R.length; j++) { const x = Math.abs(sent[j] - R[j]); if (x > d) d = x; } if (d <= radTol) continue; }
       let mx = -Infinity;
       for (let j = 0; j < R.length; j++) if (R[j] > mx) mx = R[j];
       // (The copy is refilled in place when it is the same size: no new array per changed vessel per frame of an ease. It is the

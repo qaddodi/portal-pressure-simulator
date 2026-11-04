@@ -4092,7 +4092,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       // sends every other whole frame through it (recs 2 Nov, sec. 7: direct, kept, direct, kept). A one-pass frame marks its cells in a
       // stencil: it goes straight onto the canvas only when the canvas's own buffer has one (recs sec. 4: the kept picture's stencil is
       // not the canvas's), else it is drawn into the kept picture, which has, and laid from there.)
-      const direct = who !== 'lobule' && !noDirect && !!own && full && !up && !camOn() && !(under && under.on()) && !(replace && replace.on()) && !(fused && !ctxStencil);
+      // (Not while the blood moves: the next frame is then the blood's own, drawn over the kept picture, which a direct whole picture left out of date,
+      // so every whole picture cost a second one (the iPad panel, 4 Nov: 16 whole composites a second beside 14 vessel draws).)
+      const direct = who !== 'lobule' && !noDirect && !!own && full && !blood.on && !up && !camOn() && !(under && under.on()) && !(replace && replace.on()) && !(fused && !ctxStencil);
       if (own && ownStale && !full) full = true;
       if (full) dirt = 0;
       const fl = look.fluid && fluidRect ? look.fluid : null;
