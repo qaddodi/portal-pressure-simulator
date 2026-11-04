@@ -5784,7 +5784,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const low = figLab('pinchLow');
     // (Quality tiers, adapt-tier.js (R07): under deadline pressure every zoom frame of a move, a hand's or a glide's, draws the layer at
     // the tier's share inside targets made once at the top tier's size; the view a move stops at is drawn at Full. ?tiers=0: off.)
-    const tk = TIERS_ON ? tierK() : 0;
+    // (Not through the change between the views: its frames drawn lower and the landing at Full read as a flicker, soft then sharp, on the figure.)
+    const tk = TIERS_ON && morph === morphTarget ? tierK() : 0;
     veins.setLow?.(tk || (low ? PINCH_LOW_K : 0), tk ? true : low && gestureOn(), TIERS_ON ? TIER_TOP : 0);
     veins.draw(T, vLook, bloodLook(), rows);
     if (veins.reused || veins.soft) veinsDirty = true;
