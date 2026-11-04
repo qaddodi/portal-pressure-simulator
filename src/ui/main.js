@@ -1649,6 +1649,7 @@ function wireFloating() {
   dockSheet = sheetBehaviour($('#dock'), { handle: h('button', { class: 'sheet-grab', 'aria-label': 'Resize the Tests card' }), drag: '.dock-head', anywhere: true, onClose: () => dock.close(), active: () => isPhone() && !$('#dock').classList.contains('side') && !app.classList.contains('instrument-focus') });
   sheetGlass();
   toastGlass();
+  chromeGlass();
   // Focus: dragging, pinching or scrolling the figure fades the floating pieces until it stops.
   let busyT = 0, armT = 0, down = null, moved = false;
   // (Adding a class it already has still counts as a change to the page's observers: every pointer move of a drag or
@@ -1774,6 +1775,23 @@ function toastGlass() {
   const wrap = $('#toasts');
   if (!wrap) return;
   toastGL = stage?.glass?.add(() => TOASTS, { watch: wrap, before: wrap }) || null;
+}
+// The figure's own chrome wears the same frosted GPU glass (Mohammad, 4 Nov 2026, "Use the glass for all the menus", "Including UI elements", "Like timeline
+// and stuff"): the top bar's pills (the patient, the view switcher, the Blood/Layers/colour key pill, Treat/Tests/History/Settings/Search), the zoom
+// controls, the bottom dock (timeline, play, speed and readouts) and the view switcher folded into it, and the sinusoid's legend. Each pill's frost is
+// drawn in the figure's canvas under it (stage.glass.add), tinted with --frost; its words, buttons, ring and shadow stay the page's. Where the canvas
+// cannot take it (no region yet, the GPU lost, Blur effect off) the pill keeps its --glass fill (app.css), never a CSS blur.
+const CHROME = ['.topbar .tb-face:not([data-ghost])', '.topbar .float-pill:not(.has-face):not(.tb-id)', '.topbar #viewSeg', '.topbar .lens-btn:not(.sb-right > .lens-btn)', '.zoom-pill', '.vdock', '.nb-views > .vp-face', '.sv-legend'].join(', ');
+let chromeGL = null;
+function chromeGlass() {
+  if (chromeGL) return;
+  const roots = ['#topbar', '#vdock', '#zoomPill', '#stageView'].map((q) => $(q)).filter(Boolean);
+  if (!roots.length) return;
+  const list = [];
+  let at = -1e9;
+  // (The set changes only when a pill is made or goes (a face is added, the legend comes with the lobule): looked up twice a second, not in each frame.)
+  const live = () => { const t = performance.now(); if (t - at > 500) { at = t; list.length = 0; for (const el of document.querySelectorAll(CHROME)) list.push(el); } return list; };
+  chromeGL = stage?.glass?.add(live, { watch: roots, before: roots[0], tint: (_g, cs) => cs.getPropertyValue('--frost') }) || null;
 }
 const sheetInner = (c) => { const l = c.lastElementChild; if (!l) return 0; const b = parseFloat(readStyle(c).paddingBottom) + parseFloat(readStyle(l).marginBottom); return readBox(l).bottom - readBox(c).top + readMetric(c, 'scrollTop') + b; };
 function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = null, anywhere = false }) {

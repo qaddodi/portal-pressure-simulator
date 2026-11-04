@@ -7737,3 +7737,7 @@ body { font-optical-sizing: auto; font-kerning: normal; }
   .app:not(.thumb):not(.presenting) .vdock .tl-pin span { display: none; }
   .app:not(.thumb):not(.presenting) .vdock .tl-pin { width: 34px; padding: 0; justify-content: center; gap: 0; }
 }
+
+/* The figure's chrome (pills, zoom controls, the bottom dock, the view switcher's face, the sinusoid legend) wears frosted GPU glass (main.js chromeGlass): its fill is drawn in
+   the figure's canvas under it once the GPU has drawn it ([data-gl]); until then, and wherever the canvas cannot take it, it keeps the --glass fill above. Its ring and shadow stay the page's. */
+:root:root :is(.topbar .tb-face, .topbar .float-pill, .topbar #viewSeg, .topbar .lens-btn, .zoom-pill, .vdock, .nb-views > .vp-face, .sv-legend)[data-gl] { background: none; }
