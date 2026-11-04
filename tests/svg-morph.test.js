@@ -31,6 +31,7 @@ globalThis.cancelAnimationFrame = (id) => clearTimeout(id);
 globalThis.matchMedia = () => ({ matches: false, addEventListener() {} });
 globalThis.getComputedStyle = (el) => ({ opacity: el.css });
 const M = await import('../src/ui/svg-morph.js');
+const { reduceMotionMQ } = await import('../src/ui/motion.js');
 const { splitNums, joinNums, polyPoints, polyD, tweenOf, tweenAt, describe, planMorph, morphSvg, holdTween } = M;
 
 const svgOf = (...kids) => new El('svg', { viewBox: '0 0 100 50' }, ...kids);
@@ -188,9 +189,9 @@ test('morphSvg does nothing, and says so, when it cannot: another size, no commo
   assert.equal(old2.children[0].vis, '');
   assert.equal(old2.children[0].anims.length, 0);
   const [, old3] = mount(line(0, 0, 1, 1));
-  globalThis.matchMedia = () => ({ matches: true, addEventListener() {} });
+  reduceMotionMQ.matches = true;
   assert.equal(morphSvg(old3, svgOf(line(0, 0, 2, 2))), false, 'Reduce Motion');
-  globalThis.matchMedia = () => ({ matches: false, addEventListener() {} });
+  reduceMotionMQ.matches = false;
   assert.equal(morphSvg(null, svgOf()), false);
   assert.equal(morphSvg(new El('svg'), svgOf()), false, 'a drawing that is not on the page');
 });

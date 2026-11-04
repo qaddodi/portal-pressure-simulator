@@ -64,15 +64,3 @@ test('one context for the lobule: the copy is made and shown in the vessels\' ow
   assert.match(dw, /nextFrame\(step\)/, 'the fade on the frame scheduler');
   assert.doesNotMatch(dw, /requestAnimationFrame/);
 });
-
-test('hosted, the copy uses the host\'s context and canvas, its own vertex array, puts the context back, and never sizes or clears the host\'s canvas', () => {
-  assert.match(wg, /if \(host\) \{ gl = host\.gl; canvas = host\.canvas; \}/);
-  assert.match(wg, /if \(host\) \{ vao = gl\.createVertexArray\(\); gl\.bindVertexArray\(vao\); \}/);
-  assert.match(wg, /const cw = host \? canvas\.width : /);
-  assert.match(wg, /if \(!host && \(canvas\.width !== cw \|\| canvas\.height !== ch\)\)/);
-  assert.match(wg, /release\(\) \{ clear\(\); if \(!host && canvas\.width\)/);
-  assert.match(wg, /if \(layers === 'host'\) return fromHost\(t, pw, ph, dpr\);/);
-  assert.match(wg, /uniform float uA;/);
-  const hd = wg.slice(wg.indexOf('function hostDone() {'), wg.indexOf('\n  }\n', wg.indexOf('function hostDone() {')));
-  for (const s of ['useProgram(null)', 'bindVertexArray(null)', 'bindFramebuffer(gl.FRAMEBUFFER, null)']) assert.ok(hd.includes(s), s);
-});

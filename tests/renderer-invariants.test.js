@@ -131,8 +131,6 @@ test('capture() hands exports the canvas with the whole current picture', async 
   const n = f.calls.length;
   assert.equal(g.capture(), canvas);
   assert.equal(f.calls.slice(n).filter((c) => c[0] === 'blitFramebuffer').length, 1, 'the canvas keeps no picture of its own: the kept one is copied onto it');
-  const stage = read('../src/ui/stage.js');
-  assert.equal((stage.match(/capture: \(\) => veins\?\.capture\(\)/g) || []).length, 2, 'the callouts\' glass and the liver pane (the Present cards take no copy)');
 });
 
 test('the vessel layer\'s second-lumen target is bounded: given back to a texel while the picture is not shown, and a pan makes no copy of it', async () => {

@@ -31,7 +31,7 @@
 //
 // createVeinsGL(canvas) returns null only when WebGL2 is unavailable altogether.
 
-import { glGet, glCap, glOkBefore, glOkAfter } from './gl-state.js';
+import { glGet, glCap, glOkBefore, glOkAfter, fbComplete } from './gl-state.js';
 import { CHEV_GLSL } from './chevron-glsl.js';
 import { LIGHT } from './light.js';
 import { EDGE_GLSL } from './edge.js';
@@ -2000,7 +2000,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
       gl.bindFramebuffer(gl.FRAMEBUFFER, half.fbo);
       gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, half.tex, 0);
-      half.ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+      half.ok = fbComplete(gl, gl.FRAMEBUFFER, 'rgba8', w, h);
       rebind();
     }
     return half.ok;

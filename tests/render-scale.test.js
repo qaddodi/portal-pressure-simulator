@@ -44,8 +44,8 @@ test('the anatomy canvas, the lobule and the sinusoid read it; the instruments a
   assert.match(stage, /vdpr = base \* figShare\(r\.width, r\.height, base\);/);
   assert.match(stage, /let k = \(renderSetting\(\) === 'auto' \? autoK : renderScale\(\)\) \* \(moveLow \? figOpt\('move'\) : 1\) \* adaptK;/);
   assert.match(stage, /onRenderScale\(\(\) => \{ autoK = autoNow\(\); moveLow = false; adaptK = 1; moveGaps\.length = 0; easeRes\(\); veinsDirty = true; forceDraw = true; stageWake\(\); settleRes\(\); \}\)/);
-  assert.equal(src('lobule-zoom.js').split('* lzScale()').length - 1, 5);   // (draw; paintAhead reads draw's own; spareMake; rimOnGPU, the dive's rim drawn on the GPU; buildWideGL, the wide copy on the GPU. The 2D ones went 1 Nov)
-  assert.equal(src('sinusoid-view.js').split('* svScale()').length - 1, 1);
+  assert.equal(src('lobule-zoom.js').split('* lzScale()').length - 1, 6);   // (a sixth reader joined the five below; draw; paintAhead reads draw's own; spareMake; rimOnGPU, the dive's rim drawn on the GPU; buildWideGL, the wide copy on the GPU. The 2D ones went 1 Nov)
+  assert.equal(src('sinusoid-view.js').split('* svScale()').length - 1, 2);
   for (const f of ['util.js', 'label-gl.js', 'glass-gl.js', 'instruments.js']) assert.ok(!src(f).includes('renderScale'), f);
 });
 
