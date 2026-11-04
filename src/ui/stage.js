@@ -3666,7 +3666,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       return store.get().layers.collaterals || collOpen(e.id, f);
     }
     if (e.kind === 'shunt') {
-      if (e.shunt === 'ap') return f.Q[EI[e.id]] > 0.3;
+      if (e.shunt === 'ap') return p.apShunt > 0.02 && f.Q[EI[e.id]] > 0.3;   // (the healthy liver's small baseline leak is not drawn: it showed as stray grey-blue hooks beside the portal branches)
       return f.D[EI[e.id]] > 0;
     }
     return true;
