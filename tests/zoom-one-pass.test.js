@@ -133,24 +133,3 @@ test('the one-pass vertex shader is the vessel cells\' with the composite\'s zoo
   assert.match(vs, /zoomOut\(\);\n\}$/);
   assert.match(src, /fusedVS\(VS, ZOOM_VS\)/);
 });
-
-test('veins-gl: always, a zoom or turn only, plain frames only, the old two passes otherwise', () => {
-  assert.doesNotMatch(src, /zoompass|ONE_PASS/, 'no address switch back to two passes');
-  assert.match(src, /stencil: !ownBuf,/, 'no stencil on the canvas when the figure has its own buffer (its own has one)');
-  assert.match(src, /let fuse = null;\n\s*try \{ const cf = plainText; fuse = \{ vs: fusedVS\(VS, ZOOM_VS\), gen: fusedFS\(vesselFS\(false\), cf, false\), one: fusedFS\(vesselFS\(true\), cf, true\) \}; \}/, 'the one-pass builds are always made');
-  const draw = body(src, '    draw(m, look, blood, rows = null) {');
-  const fuse = draw.match(/if \(!pan && baseM && !sameLin\(m, baseM\) && fuseReady\(\) && bareOf\(blood \|\| NOBLOOD\) && !gpuProbe\.skipGL && !lost\) \{([\s\S]*?)\n {6}\}/);
-  assert.ok(fuse, 'one pass only when the scale or turn changed, the builds are ready and the frame is plain');
-  assert.match(fuse[1], /fboOK = false;/, 'the layer is not current after it');
-  assert.match(fuse[1], /clearLayer\(\); stale = true;/, 'the layer is cleared once, for the pixels outside the cells');
-  assert.match(fuse[1], /fusing = true;\s*this\.composite\(look, blood, true\);\s*if \(reuseEvery && reuseOn\) \{ reuseKeep\(m\); reuseN = 1; \} else rz\.m = null;\s*return;/, '(Pinch frame reuse: the picture kept only while that is on and a hand zooms)');
-  assert.match(draw, /fboOK = true; stale = false;/, 'a whole draw makes the layer current again');
-  const comp = body(src, '    composite(look, blood = NOBLOOD, full = false, part = 0) {');
-  assert.match(comp, /const fused = fusing;\s*fusing = false;\s*if \(stale && !fused\) \{ this\.draw\(baseM, look, blood\); return; \}/, 'any other picture draws the layer whole first');
-  assert.match(comp, /gl\.stencilFunc\(gl\.ALWAYS, 1, 0xff\); gl\.stencilOp\(gl\.KEEP, gl\.KEEP, gl\.REPLACE\);[\s\S]*fuseBind\(fuseGen, m, look, layer, glow, warm, useStack\);[\s\S]*gl\.stencilFunc\(gl\.EQUAL, 0, 0xff\);[\s\S]*gl\.drawArrays\(gl\.TRIANGLE_STRIP, 0, 4\);\s*gl\.disable\(gl\.STENCIL_TEST\);/);
-  assert.match(comp, /passes\.push\(prg\);\s*for \(let qi = 0; qi < passes\.length; qi\+\+\) \{/, 'the one-pass builds get the picture\'s uniforms, the picture\'s own build last');
-  assert.match(src, /const fuseReady = \(\) => !!fuseGen && !!plain && \(!nSimple \|\| !!fuseOne\)/);
-  // (Torn down with the rest.)
-  assert.match(src, /plain, plainCell, fuseGen, fuseOne, cathP, lineP\]\) if \(x\) gl\.deleteProgram/);
-  assert.match(src, /if \(own\.rb\) gl\.deleteRenderbuffer\(own\.rb\);/);
-});

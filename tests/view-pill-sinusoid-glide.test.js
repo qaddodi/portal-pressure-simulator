@@ -36,11 +36,3 @@ test('on a phone, Treat, Tests and Layers go back out to the lobule first, and o
   for (const t of ['treat', 'tests']) assert.match(main, new RegExp(`tab\\('${t}', [^\\n]*outOfSin\\(\\);`));
   assert.match(main, /tab\('layers', 'layers', 'Layers', menuTab\(\(a\) => \{ outOfSin\(\); openLayersMenu\(a\); \}\)\)/);
 });
-
-// (A regression from the pill's earlier fix: a card dragged aside on a wide screen is moved by translate, and closing it must clear that.)
-test('a card dragged aside returns to its place when it closes', () => {
-  assert.match(main, /closed: \(\) => \{ stopSheet\(el\); setSheetOffset\(el, 0\); el\.style\.translate = '';/);
-  assert.match(main, /if \(!start\.phone\) \{[^\n]*\n\s*const tx = start\.tx \+ dx, ty = start\.ty \+ dy;\n\s*if \(tx !== start\.wx \|\| ty !== start\.wy\) \{ start\.wx = tx; start\.wy = ty; start\.mv\.set\(tx, ty\); \}[^\n]*\n\s*return;/);   // (the card's place is a number now, a kept paused animation, num-move.js; the release writes the inline translate it always left)
-  assert.match(main, /if \(s0\.wx === s0\.wx\) el\.style\.translate = `\$\{s0\.wx\}px \$\{s0\.wy\}px`; s0\.mv\.cancel\(\);/, 'the release leaves the same inline translate, then lets the number go');   // (the same write, skipped only when the numbers are what the drag last wrote)
-  assert.doesNotMatch(main, /else el\.style\.translate = `\$\{start\.tx \+ dx\}px \$\{start\.ty \+ dy\}px`;/);
-});

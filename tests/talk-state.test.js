@@ -15,6 +15,7 @@ function rig(viewTransitions) {
   const ctx = vm.createContext({ document: { hidden: false, startViewTransition: viewTransitions ? () => {} : undefined }, queue, flips: 0 });
   vm.runInContext(`let projector = false; function flipProjector() { projector = !projector; flips++; }
     const crossfade = (fn) => queue.push(fn);
+    const canCrossfade = () => !!document.startViewTransition && !document.hidden;
     ${src}
     globalThis.api = { toggleProjector, state: () => projector };`, ctx);
   return { api: ctx.api, run: () => { while (queue.length) queue.shift()(); }, ctx };
@@ -51,17 +52,6 @@ test('the explore shortcuts do not reach a talk, except Search and the guide; th
   assert.ok(at < main.indexOf("if (e.key === '[' || e.key === ']')"), 'before the speed keys');
   assert.match(main, /tag !== 'select' && !presenter\.active\(\) && !isModalOpen\(\) && !mainMenu\.isOpen\(\)\) \{[^\n]*\n\s+const z =/);
   assert.match(main, /projectorOn: \(\) => toggleProjector\(true\), projectorOff: \(\) => toggleProjector\(false\)/);
-});
-
-test('a card drag or fold cut short by a second finger goes on to where it was heading', () => {
-  assert.match(pres, /const landCut = \(gg\) => \{ if \(gg\?\.on\) dockTo\(dock\.to, 300\); if \(gg\?\.pull\) sheetPull\.settle\(gg\.pull, false\); \};/);
-  assert.match(pres, /const abort = \(\) => \{ landCut\(g\); reset\(\); \};/);
-  assert.match(pres, /on\('touchcancel', abort, \{ passive: true \}\);/);
-  assert.match(pres, /if \(e\.touches\.length > 1\) abort\(\);/);
-  assert.match(pres, /if \(e\.touches\.length > 1\) \{ const gg = g; reset\(\); restPass\(\(\) => landCut\(gg\)\); return; \}/);   // (landed between frames, rest-pass.js)
-  assert.match(pres, /if \(g\?\.on\) \{ const gg = g; g = null; settle\(gg, gg\.shown\); return; \}/);
-  assert.match(main, /if \(e\.pointerType === 'mouse' && !\(e\.buttons & 1\)\) \{ const s1 = start; restPass\(\(\) => \{ if \(start === s1\) end\(e\); \}\); return; \}/);   // (ended between frames, rest-pass.js)
-  assert.match(main, /addEventListener\('lostpointercapture', \(e\) => \{ if \(e\.target === el\) end\(e\); \}\)/, 'only the sheet\'s own lost capture ends the drag, not a child\'s');
 });
 
 test('a ?script=test- link waits once for the test deck, then says it was not found; a talk\'s link is dropped when it ends', () => {

@@ -3104,8 +3104,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     UC.i1(camP.u.uT, 0);
     UC.f2(camP.u.uDst, canvas.width, canvas.height);
-    gl.uniform3f(camP.u.uCam, k, ex, eyUp);
-    gl.uniform1f(camP.u.uA, a);
+    UC.f3(camP.u.uCam, k, ex, eyUp);
+    UC.f1(camP.u.uA, a);
     gl.bindVertexArray(compVAO);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     gl.bindVertexArray(null);
@@ -3129,9 +3129,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex);
     UC.i1(lyP.u.uT, 0);
     UC.f2(lyP.u.uDst, canvas.width, canvas.height);
-    gl.uniform4f(lyP.u.uM, d / det, -b / det, -c / det, a / det);
-    gl.uniform2f(lyP.u.uTr, tx, ty);
-    gl.uniform1f(lyP.u.uA, alpha);
+    UC.f4(lyP.u.uM, d / det, -b / det, -c / det, a / det);
+    UC.f2(lyP.u.uTr, tx, ty);
+    UC.f1(lyP.u.uA, alpha);
     gl.bindVertexArray(compVAO);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     gl.bindVertexArray(null);

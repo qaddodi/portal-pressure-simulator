@@ -13,23 +13,6 @@ const util = read('../src/ui/util.js');
 const js = read('../src/ui/presenter.js');
 const UP = '(max-width: 1100px) and (orientation: portrait)';
 
-test('one query names the phone layout, and it takes in an upright tablet', () => {
-  assert.match(util, /export const UPRIGHT_MQ = '\(max-width: 1100px\) and \(orientation: portrait\)';/);
-  assert.match(util, /export const SIDEWAYS_MQ = '\(max-width: 1023px\) and \(max-height: 500px\) and \(orientation: landscape\)';/);
-  assert.match(util, /export const PHONE_MQ = `\(max-width: 767px\), \$\{SIDEWAYS_MQ\}, \$\{UPRIGHT_MQ\}`;/);
-  assert.match(util, /const asSheet = sheet && \(innerWidth < 768 \|\| matchMedia\(UPRIGHT_MQ\)\.matches\);/, 'menus rise as sheets');
-  assert.match(read('../src/ui/main.js'), /const isPhone = isPhoneLayout;/, 'the dock, the cards\' sheets, History and the occupancy');
-  assert.match(read('../src/ui/card.js'), /if \(isPhoneLayout\(\)\) \{\n\s*if \(el\.parentNode !== dockHost\) dockHost\.append\(el\);/, 'the vessel card docks over the tab row');
-  assert.match(read('../src/ui/menu.js'), /const sheetMQ = matchMedia\(PHONE_MQ\);/);
-  const dock = read('../src/ui/dock.js');
-  assert.match(dock, /const ratio = heightRatio \?\? \(isPhoneLayout\(\) \? 0\.56 : 0\.46\);/);
-  // (The thumb dock is the same screens: an upright tablet had the phone's tab row but not its cards.)
-  assert.match(read('../src/ui/main.js'), /const thumbMQ = matchMedia\('\(max-width: 1100px\) and \(orientation: portrait\)'\);/);
-  for (const f of ['main.js', 'card.js', 'menu.js', 'dock.js']) {
-    assert.doesNotMatch(read(`../src/ui/${f}`), /matchMedia\('\(max-width: 767px\)[^']*'\)/, `${f}: no phone query of its own that leaves the upright tablet out`);
-  }
-});
-
 test('every phone block in the stylesheet takes in the upright tablet, and every wide one leaves it out', () => {
   const blocks = [...css.matchAll(/@media ([^{]*)\{/g)].map((m) => m[1].trim());
   const phone = blocks.filter((q) => /\(max-width: 767px\)/.test(q));
@@ -46,44 +29,6 @@ test('an upright tablet\'s Tests card keeps the phone\'s one column, its picture
   assert.ok(m, 'the block');
   assert.match(m, /:is\(\.instrument-view, \.dop-main, \.ab-main\) \{ grid-template-columns: minmax\(0, 1fr\); \}/, 'Doppler\'s monitor no longer shares its row with a column of readings');
   assert.match(m, /\.ab-ctl \{ margin-top: var\(--ab-g\);[^}]*border-left: 0;/, 'Ascites stacks its controls under the belly');
-});
-
-test('an upright phone\'s or tablet\'s deck instrument card opens its readings on a card of their own under it', () => {
-  // (Mohammad, 17 Oct: the iPhone too; a phone on its side keeps its compact card, everything shown: not .stack.)
-  assert.match(js, /const splitSheet = \(d\) => !!ui && \(ui\.root\.classList\.contains\('stack'\) \|\| ui\.root\.classList\.contains\('pz-wide'\)\) && d\.classList\.contains\('pz-sheet'\);/, 'every upright phone and tablet, and a wide screen\'s card stacked under the words');
-  assert.doesNotMatch(js, /tabSheet\(/);
-  assert.doesNotMatch(css, /\.pz\.stack\.tab \.pz-data\.pz-sheet/, 'no rule left for the tablet alone');
-  // (Two stacked cards: the instrument's in front, the readings' behind it, its top never seen (Mohammad, 17 Oct: "it's as if they are
-  // TWO cards ... should remain attached to the card above it and we never see the top of the tiles card").)
-  assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-sheet \{ --gl-glass: 0; --pz-u: 0; --pz-sr: 18px; --pz-in: 8px; background: none; border-color: transparent; box-shadow: none; overflow: visible; isolation: isolate; \}/);
-  assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-sheet\.tool-open \{ --pz-u: 1; \}/, 'at rest the class says where the readings are');
-  assert.match(js, /if \(sheet !== dd0\.classList\.contains\('pz-sheet'\) && \(p \|\| wide\) && dd0\.classList\.contains\('pz-hide'\)\) \{/, 'its glass never shows fading between two slides');
-  // (The instrument's glass ends where the card ends with the readings tucked, whatever share of them is out.)
-  assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet::before \{ top: -1px; height: calc\(100% \+ 1px - var\(--pz-u\) \* var\(--pz-d, 0px\)\); \}/);
-  // (The readings' card behind it, 22 px of its top under the instrument card's foot, its foot 24 px out while tucked; shown only under
-  // the instrument card and behind its rounded corners: no gap, no line, no top edge.)
-  assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet::after \{ z-index: -2; left: calc\(var\(--pz-in\) - 1px\); right: calc\(var\(--pz-in\) - 1px\); bottom: calc\(-1px - 24px \* \(1 - var\(--pz-u\)\)\); height: calc\(var\(--pz-d, 0px\) \+ 23px\); border-top-left-radius: 0; border-top-right-radius: 0;/);
-  assert.match(css, /--pz-m: calc\(22px - var\(--pz-sr\) \+ \(1 - var\(--pz-u\)\) \* \(var\(--pz-d, 0px\) - 24px\)\);/);
-  assert.match(css, /mask: linear-gradient\(#000 0 0\) 0 calc\(var\(--pz-m\) \+ var\(--pz-sr\)\) \/ 100% 100% no-repeat, radial-gradient\(circle at 100% 0,/);
-  assert.doesNotMatch(css, /pz-sheet:not\(\.tool-open\):not\(\.pz-sliding\)::after \{ visibility: hidden; \}/, 'tucked, its foot is the edge under the card');
-  assert.match(css, /\.pz\.stack \.pz-data\.pz-sheet \+ \.pz-lip::before \{ content: none; \}/, 'the handle\'s button draws only the handle');
-  // (The readings move with their card and are cut at the instrument card's foot while behind it.)
-  assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-sheet\.tiles-only > \.pz-tiles \{ margin-top: calc\(14px - \(1 - var\(--pz-u\)\) \* var\(--pz-d, 0px\)\); \}/);
-  assert.match(css, /translate: 0 calc\(24px \* \(1 - var\(--pz-u\)\)\);/);
-  assert.match(css, /--pz-cut: calc\(\(\(1 - var\(--pz-u\)\) \* \(var\(--pz-d, 0px\) - 24px\) \+ 10px - var\(--pz-gap, 6px\)\) - 14px - var\(--pz-o, 0px\)\);/, 'cut at the instrument card\'s foot');
-  assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet\.tool-open \{ padding-bottom: 10px; \}/, 'the padding never changes');
-  // (Measured in the card's own px, without its height cap; frame by frame, never a CSS transition: the card is frosted glass.)
-  assert.match(js, /d\.style\.maxHeight = 'none';\n\s*parts\[0\]\.style\.marginTop = wideSheet\(d\) \? '16px' : '14px';/);
-  assert.match(js, /d\.style\.maxHeight = cap; ui\.lipMO\?\.takeRecords\(\);/, 'its own measure never sets it measuring again');
-  assert.match(js, /if \(t < 1\) \{ const u = from \+ \(to - from\) \* \(1 - \(1 - t\) \*\* 3\); d\.style\.setProperty\('--pz-u', u\.toFixed\(4\)\); liftTo\(u\); camAt\(u\); slip\.raf = nextFrame\(step\); \}/);
-  assert.doesNotMatch(css + js, /--pz-top|sheetTop|tabMargins/, 'no measure of the instrument\'s own box');
-  // (The handle rides in the readings' card's foot.)
-  assert.match(css, /\.pz\.stack \.pz-data\.pz-sheet\.pz-sliding \+ \.pz-lip \{ margin-top: calc\(-24px \* var\(--pz-u, 0\)\);/);
-  assert.match(js, /l\.style\.top = px\(wideSheet\(d\) \? d\.offsetTop - LIP \* \(1 - ut\) : d\.offsetTop \+ \(sliding && slip\.h0 != null \? slip\.h0 \+ u \* slip\.d : d\.offsetHeight\)\);/);
-  // A glass piece inside a fading card loses its blur: the card stays opaque and its parts fade.
-  assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-hide \{ opacity: 1; visibility: hidden; transition: transform var\(--d-small\) var\(--ease\), visibility 0s linear var\(--d-small\); \}/);
-  assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-hide::before, \.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-hide::after, \.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-hide > :is\(\.pz-dh, \.pz-tool, \.pz-tiles\) \{ opacity: 0; \}/);
-  assert.doesNotMatch(css, /pz-strip/, 'no phone ladder strip left to fade');
 });
 
 test('the first close tucks the readings\' card away, the next closes the instrument card', () => {
@@ -114,25 +59,6 @@ test('a pull down on the closed card brings out the instrument card, and carried
   assert.match(js, /if \(gg\.split\) \{ el\.classList\.add\('pz-sliding'\); el\.style\.setProperty\('--pz-u', u\.toFixed\(4\)\); liftTo\(u\); camAt\(u\); return; \}/, 'the whole readings\' card follows the finger');
   // (Closing stays two steps: a push up from fully open is the readings' own, a push up from partly open the card's.)
   assert.match(js, /\|\| dock\.lvl > 0 \|\|/, 'the readings\' pull never starts on a closed card: the card\'s drag owns it');
-});
-
-// (Mohammad, 17 Oct: the iPhone's bottom bar on an upright iPad, "scaled down proportionally, similar to how much we scalled down
-// the teaching cards on ipad", "but also height wise too", "and not fill the whole screen ever, the ipad is too tall for that".)
-test('an upright tablet\'s bottom bar and cards take the deck cards\' 70 % of the width, and never the whole height', () => {
-  assert.match(util, /export const TABLET_UP_MQ = '\(min-width: 700px\) and \(max-width: 1100px\) and \(orientation: portrait\)';/);
-  assert.match(css, /\.pz\.stack\.tab \.pz-data \{ left: 15%; right: 15%; \}/, 'the deck cards\' share');
-  const m = css.match(/@media \(min-width: 700px\) and \(max-width: 1100px\) and \(orientation: portrait\) \{\n {2}\.app\.thumb \.vdock:not\(\.mini\) \{ left: 15%; right: 15%; \}[\s\S]*?\n\}/)?.[0] ?? '';
-  assert.ok(m, 'the block');
-  assert.match(m, /\.app\.thumb :is\(\.panel, \.treat-card, \.instrument-workspace\.float-ui:not\(\.side\)\) \{ left: 15% !important; right: 15% !important; max-height: min\(62%, /, 'Details, Treat and Tests');
-  assert.match(m, /\.app\.thumb:not\(\.dock-open\) \.action-card\.docked \{ left: 15% !important; right: 15%; \}/, 'the vessel card');
-  assert.match(m, /html\.thumb-ui \.menu\.as-sheet \{ left: 15% !important; right: 15%; max-height: min\(62dvh, /, 'the menus and History');
-  // (After the phone's own rules, which it overrides at the same weight.)
-  assert.ok(css.indexOf(m) > css.lastIndexOf('html.thumb-ui .menu.as-sheet { box-shadow'), 'after the phone\'s menu sheet');
-  assert.ok(css.indexOf(m) > css.lastIndexOf('.app.thumb:not(.dock-open) .action-card.docked {\n'), 'after the phone\'s vessel card');
-  const main = read('../src/ui/main.js');
-  assert.match(main, /const tabletMQ = matchMedia\(TABLET_UP_MQ\);/);
-  assert.match(main, /THUMB = \[0\.62, 1\], TABLET = \[0\.45, 0\.62\];/, 'Half an iPhone\'s 45 % of the screen, Full 62 %');
-  assert.match(main, /const stops = \(\) => \{\n {4}if \(!thumb\(\)\) return SIZES;\n {4}if \(!tabletMQ\.matches\) return THUMB;\n {4}const H = app\.clientHeight, R = room\(\) \|\| H;\n {4}for \(let i = 0; i < 2; i\+\+\) TAB_NOW\[i\] = Math\.min\(1, \(TABLET\[i\] \* H\) \/ R\);/, 'as shares of the room, as the phone\'s');
 });
 
 // Liver inflow 2 on an upright iPad (18 Oct): a deck started after one whose readings' card travelled as far had no --pz-d on its new

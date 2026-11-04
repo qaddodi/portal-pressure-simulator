@@ -6,7 +6,7 @@
 // measurement, the pressure under which the glass is the first thing the GPU gives up). No DOM here, so tests can run it.
 
 // The glass renderers (glass-gl.js) that keep a GPU mask for each callout; each adds its forget(glassEl) here and removes it on dispose.
-// dropLabel tells them all, so a dropped callout's mask texture and framebuffer are deleted (F1, 4 Nov 2026), not kept for the life of the figure.
+// dropLabel tells them all, so a dropped callout's mask texture and framebuffer are deleted (4 Nov 2026), not kept for the life of the figure.
 export const glassForgetters = new Set();
 
 const own = (el) => {

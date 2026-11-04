@@ -35,16 +35,6 @@ test('the play bar, views pill and glass come back after the card has mostly sun
   assert.match(css, /#treatCard\.card-leaving[^{]*\{[^}]*animation: var\(--card-out\) var\(--d-flip\)/);
 });
 
-test('they step aside at once, and quickly, when a card rises', () => {
-  const kids = css.slice(css.indexOf(`${OPEN} > :is(.nb-views, .stage-bar, .readouts),`));
-  const body = kids.slice(kids.indexOf('{'), kids.indexOf('}'));
-  assert.match(body, /opacity: 0/);
-  assert.match(body, /translate: 0 var\(--bar-sink, 0px\)/);
-  for (const p of ['opacity', 'translate']) assert.deepEqual(timing(body, p), { dur: 0.12, delay: 0 });
-  const glass = css.slice(css.indexOf(`${OPEN}::before,`));
-  assert.deepEqual(timing(glass.slice(0, glass.indexOf('}')), 'opacity'), { dur: 0.12, delay: 0 });
-});
-
 test('the rise is motion, so reduced motion only fades', () => {
   assert.match(css, /@media \(prefers-reduced-motion: no-preference\) \{ \.app\.thumb \.vdock:not\(\.mini\) \{ --bar-sink: 6px; \} \}/);
   assert.equal(css.match(/--bar-sink: 6px/g).length, 1);

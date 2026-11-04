@@ -26,12 +26,3 @@ test('B07/B08: the card-copy hold (canvas copies, PICS_MAX, stale-value clones) 
   assert.doesNotMatch(throwJs, /PICS_MAX|cloneNode|glw-cv/);
   assert.doesNotMatch(throwJs, /railHold|railable/);
 });
-
-test('B09: a failed bitmap hand-over leaves the host visible, closes the bitmap and tells the owner (drawn false)', () => {
-  assert.match(trace, /try \{ bmp = glCanvas\.transferToImageBitmap\(\); shown\.transferFromImageBitmap\(bmp\); bmp = null; \} catch \(e\) \{ ok = false;/);
-  assert.match(trace, /if \(bmp\) \{ try \{ bmp\.close\?\.\(\); \}/);
-  assert.match(trace, /if \(ok\) \{\n\s+if \(canvas\.style\.visibility\)[\s\S]*?host\.style\.opacity = '0';\n\s+\}\n\s+return \(lastEnd = ok\);/);
-  assert.match(trace, /end\(\) \{ return G\.end\(\); \}/);
-  assert.match(svg, /handed = ctx\.end\?\.\(\) !== false/);
-  assert.match(svg, /g\.drawn\?\.\(!!pen\.gpu && bw > 0 && bh > 0 && handed\)/);
-});

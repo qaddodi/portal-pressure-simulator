@@ -668,7 +668,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     sweepMasks(K);
     for (const p of panes) if (!p.rad && p.d) maskOf(p.g, p.d, p.lw, p.lh, K);
   }
-  // A glass element's mask given back (F1, 4 Nov 2026): its texture and framebuffer, deleted and taken out of the kit's sets. Until then the
+  // A glass element's mask given back (4 Nov 2026): its texture and framebuffer, deleted and taken out of the kit's sets. Until then the
   // sets held every callout's mask for as long as the figure's context lived, one texture and framebuffer for each reading ever shown.
   function freeMask(K, m) {
     K.maskRec.delete(m); K.masks.delete(m.g);
