@@ -279,6 +279,8 @@ export function throwState(el) {
   return { run: r.run, kind: r.kind, x: r.x, o: r.o, left: Math.max(0, r.t0 + r.ms - easeNow()), readable: r.kind !== 'out' && r.o >= 0.999, held: h, pinned: p };
 }
 /** Whether el still has a move, or is held or pinned out of sight (a throw's whole claim on it). */
+/** Whether el is on its way out (thrown out, or pinned for it): a card on its way in or held may still be kept. */
+export const throwLeaving = (el) => runs.get(el)?.kind === 'out' || pinned.has(el);
 export const throwBusy = (el) => runs.has(el) || held.has(el) || pinned.has(el);
 /** Resolves true when el's way in (or back) lands, false when it is stopped, or taken out, first; true at once when el has no run, and
  *  false at once when its run is on its way out (it will not land). */

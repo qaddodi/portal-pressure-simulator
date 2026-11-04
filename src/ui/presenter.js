@@ -74,7 +74,7 @@ import { glideOpacity, glideTranslate, glideStop, glideX, glideY } from './scrip
 import { signalMove } from './num-move.js';
 import { slideFold } from './fold-slide.js';
 import { pageOn, followOf, pageIn, swipeHeld } from './card-page.js';
-import { throwOut, throwIn, throwBack, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, throwOutNow, throwPinned, throwRelease, throwState, throwBusy, throwLanded, RAIL_GAP } from './card-throw.js';
+import { throwOut, throwIn, throwBack, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, throwOutNow, throwLeaving, throwHeld, throwPinned, throwRelease, throwState, throwBusy, throwLanded, RAIL_GAP } from './card-throw.js';
 import { readAnims, readBox, readCTM, readMetric, readRects, readStyle, readTiming } from './layout-snap.js';
 import { caught } from './caught.js';
 import { scrubSpec, scrubKey } from './scrub-plan.js';
@@ -3019,7 +3019,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     return dataPlan(s, { keys: tileKeys(s), ref: !!refOf(s, i), title: cardTitle(s), ghost: s.tool ? toolGhost(s, i) : null, under: under(s), sin: sinTiles(s), scrub: scrubKey(scrubSpec(slides, stateOf, i), i) });
   }
   // A card standing whole (not on its way in or out, not half folded or pulled) can be kept.
-  const dataStands = () => { const d = ui.data; return !d.hidden && !throwBusy(d) && !d.classList.contains('pz-hide') && !d.classList.contains('pz-sliding') && !['gone', 'prep', 'hold', 'colswap', 'folding'].some((k) => k in d.dataset); };
+  const dataStands = () => { const d = ui.data; return !d.hidden && !throwLeaving(d) && !throwHeld(d) && !d.classList.contains('pz-hide') && !d.classList.contains('pz-sliding') && !['gone', 'prep', 'hold', 'colswap', 'folding'].some((k) => k in d.dataset); };
   const textStands = () => { const t = ui.text; return !t.hidden && !throwBusy(t) && !throwBusy(ui.shade) && !!t.childElementCount && !t.classList.contains('pz-leave') && !ui.root.classList.contains('pz-prep'); };
   // Which cards slide `to` keeps from the slide on screen (prev). A change cut short, a start, a slide drawn again for a new text size, a case card,
   // a catheter, a time-lapse or a question (card-keep.js) keep nothing.
