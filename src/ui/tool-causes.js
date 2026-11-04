@@ -22,6 +22,7 @@ import { frameFor } from './frame.js';
 import { createSvgGL, svgModel, setWords, setGeo, setPts } from './svg-gl.js';
 import { numWords, signedWords } from './num-words.js';
 import { reduceMotionMQ } from './motion.js';
+import { chartCtx } from './chart-ctx.js';
 const nextFrame = frameFor('tool-causes');
 const mix = (a, b, k) => a + (b - a) * k;   // (one step toward b)
 
@@ -173,13 +174,13 @@ export function fitBars(r, w, h, f, metric = 'ppg') {
 
 // (2 Nov 2026: the chart is a model drawn on the GPU, svg-gl.js: the same tree, of plain elements, never painted by the browser.)
 const sv = svgModel;
-const colourOf = (g) => (GROUPS.find(([k]) => k === g)?.[2] ? `var(${GROUPS.find(([k]) => k === g)[2]})` : 'var(--text-3)');
+const colourOf = (g) => (GROUPS.find(([k]) => k === g)?.[2] || '--text-3').replace(/^--/, '');   // (a mechanism's colour token, by its name in theme-tokens.js: what a bar's data-p-c holds)
 
 export function createCauses({ host } = {}) {
   const reduceMQ = reduceMotionMQ;
   const el = document.createElement('div');
   el.className = 'pz-cbars';
-  const gl = createSvgGL(el);
+  const gl = createSvgGL(el, { host: 'causes' });
   let t = null, ctx = null, G = null, parts = null, lastSz = '', raf = 0, raw = null, data = null, list = [], gen = 0, busy = false, again = null, mode = 'own';
   const rows = new Map();   // key → { els, cur: { a, b, y, o }, goal, label, group, kind }
   const rowList = [];       // (the same rows in the order they came, walked by index in a frame: no iterator made)
@@ -191,15 +192,17 @@ export function createCauses({ host } = {}) {
 
   const size = () => {
     const w = el.clientWidth, z = w ? el.getBoundingClientRect().width / w : 1;
-    const f = Math.max(parseFloat(getComputedStyle(el).fontSize) || 12, z > 0.2 && z < 1 ? CS_MIN / z : 0);
+    let hs = 12;   // (the host's type size, from the chart's looks table: the card's own sizes handed over, never read off the page)
+    try { const cx = chartCtx(el); delete cx.svk; gl.setCtx(cx); hs = gl.hostSize(); } catch { /* (no card round it yet: the sizes as they stand) */ }
+    const f = Math.max(hs || 12, z > 0.2 && z < 1 ? CS_MIN / z : 0);
     return [Math.max(160, w || 420), Math.max(8 * f, el.clientHeight || 240), f];
   };
   function makeRow(r) {
     const { f } = G, lines = G.rows.find((p) => p.key === r.key)?.lines || wrapLabel(r.label, G.Lw, f);
-    const label = sv('text', { class: 'pcs-l', x: 0, 'text-anchor': 'start' }, lines.map((l, j) => sv('tspan', { x: 0, dy: j ? `${LH}em` : null }, l)));
-    const bar = sv('rect', { class: 'pcs-b', rx: 2, style: r.kind === 'total' ? null : `fill: ${colourOf(r.group)}` });
-    const val = sv('text', { class: 'pcs-v' });
-    const g = sv('g', { class: 'pcs-row' + (r.key === OTHER ? ' other' : '') + (r.kind === 'total' ? ' total' : '') + (r.key === NOW ? ' now' : '') }, label, bar, val);
+    const label = sv('text', { class: 'pcs-l', 'data-look': 'causes.l', x: 0, 'text-anchor': 'start' }, lines.map((l, j) => sv('tspan', { 'data-look': 'causes.l.span', x: 0, dy: j ? `${LH}em` : null }, l)));
+    const bar = sv('rect', r.kind === 'total' ? { class: 'pcs-b', 'data-look': 'causes.bar.total', rx: 2 } : { class: 'pcs-b', 'data-look': 'causes.bar.step', 'data-p-c': colourOf(r.group), rx: 2 });
+    const val = sv('text', { class: 'pcs-v', 'data-look': 'causes.val' });
+    const g = sv('g', { 'data-look': 'causes.row', class: 'pcs-row' + (r.key === OTHER ? ' other' : '') + (r.kind === 'total' ? ' total' : '') + (r.key === NOW ? ' now' : '') }, label, bar, val);
     setGeo(g, 'opacity', r.cur.o);   // (the strength is held on the piece as a number: set before its look is read)
     r.left = null;
     r.els = { g, label, bar, val, lines: lines.length };
@@ -207,17 +210,17 @@ export function createCauses({ host } = {}) {
   }
   function build() {
     const { w, h, f } = G;
-    const cutsG = sv('g', {}), links = sv('path', { class: 'pcs-c' }), rowsG = sv('g', {}), axG = sv('g', { class: 'pcs-ax' });
+    const cutsG = sv('g', { 'data-look': 'causes.g' }), links = sv('path', { class: 'pcs-c', 'data-look': 'causes.link' }), rowsG = sv('g', { 'data-look': 'causes.g' }), axG = sv('g', { class: 'pcs-ax', 'data-look': 'causes.g' });
     const cuts = cutsOf(metricOf(t)).map((c) => {
-      const line = sv('line', { y1: G.rows[0] ? Math.max(0, G.rows[0].y - G.bh / 2 - G.gap) : 0, y2: G.B });
-      const num = sv('text', { y: G.axY, 'text-anchor': 'middle' }, fmt(c.v, Number.isInteger(c.v) ? 0 : 1));
-      cutsG.append(sv('g', { class: 'pcs-cut', 'data-rate': c.rate }, line));
-      axG.append(sv('g', { class: 'pcs-cut', 'data-rate': c.rate }, num));
+      const line = sv('line', { 'data-look': 'causes.cut.line', y1: G.rows[0] ? Math.max(0, G.rows[0].y - G.bh / 2 - G.gap) : 0, y2: G.B });
+      const num = sv('text', { 'data-look': 'causes.cut.num', y: G.axY, 'text-anchor': 'middle' }, fmt(c.v, Number.isInteger(c.v) ? 0 : 1));
+      cutsG.append(sv('g', { class: 'pcs-cut', 'data-look': 'causes.cut', 'data-rate': c.rate }, line));
+      axG.append(sv('g', { class: 'pcs-cut', 'data-look': 'causes.cut', 'data-rate': c.rate }, num));
       return { v: c.v, line, num, tw: cw(num.textContent, f, true) };
     });
-    const unit = sv('text', { class: 'pcs-u', x: w, y: G.axY, 'text-anchor': 'end' }, data?.unit || TILE[metricOf(t)]?.u || 'mmHg');
+    const unit = sv('text', { class: 'pcs-u', 'data-look': 'causes.unit', x: w, y: G.axY, 'text-anchor': 'end' }, data?.unit || TILE[metricOf(t)]?.u || 'mmHg');
     axG.append(unit);
-    const svg = sv('svg', { viewBox: `0 0 ${w} ${h}`, width: w, height: h, role: 'img', style: `font-size: ${f.toFixed(2)}px` }, cutsG, links, rowsG, axG);
+    const svg = sv('svg', { 'data-look': 'causes.root', viewBox: `0 0 ${w} ${h}`, width: w, height: h, role: 'img', 'font-size': `${f.toFixed(2)}px` }, cutsG, links, rowsG, axG);
     return { svg, rowsG, links, cuts, unit, uw: cw(unit.textContent, f) };
   }
   const X = (v) => G.bx0 + (v - domCur.lo) * (G.bx1 - G.bx0) / Math.max(1e-6, domCur.hi - domCur.lo);
