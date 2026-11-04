@@ -317,14 +317,21 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
   function buildGroup(I, s) {
     let g = I.g;
     if (!g) { g = I.g = document.createElementNS(NS, 'g'); g.setAttribute('class', 'lb'); mblocks.append(g); I.ent = { g, x: 0, y: 0, rot: false }; }
-    if (I.gsv === I.sv && I.gs === s && I.ggr === glyphsReady() && I.garr === I.arrow) return g;
-    I.gsv = I.sv; I.gs = s; I.ggr = glyphsReady(); I.garr = I.arrow;
+    if (I.gsv === I.sv && I.gs === s && I.ggr === glyphsReady() && I.garr === I.arrow && I.gdec === I.decor) return g;
+    I.gsv = I.sv; I.gs = s; I.ggr = glyphsReady(); I.garr = I.arrow; I.gdec = I.decor;
     g.textContent = '';
     const bw = I.w * s;
     if (I.arrow) {   // (an owner's arrow: a small triangle about a point of the caption, turned to the way it points)
       const A = I.arrow, c = Math.cos(A.ang), sn = Math.sin(A.ang), ox = (A.x + c * A.r) * s, oy = (A.y + sn * A.r) * s, tri = document.createElementNS(NS, 'polygon');
       tri.setAttribute('points', [ox + (-4.5 * c + 5 * sn) * s, oy + (-4.5 * sn - 5 * c) * s, ox + 4.5 * c * s, oy + 4.5 * sn * s, ox + (-4.5 * c - 5 * sn) * s, oy + (-4.5 * sn + 5 * c) * s].map((v) => v.toFixed(2)).join(' '));
       tri.style.fill = A.colour; g.append(tri);
+    }
+    for (const D of I.decor || NONE) {   // (shapes the owner sets with a caption, in its own px from the caption's corner: a legend's dot and its ring)
+      const q = document.createElementNS(NS, 'polygon');
+      q.setAttribute('points', D.pts.map((v) => (v * s).toFixed(2)).join(' '));
+      q.style.fill = D.fill || 'none';
+      if (D.stroke) { q.style.stroke = D.stroke; q.style.strokeWidth = `${D.sw || 1}px`; }
+      g.append(q);
     }
     for (let li = 0, n = I.set.n ?? I.set.lines.length; li < n; li++) {
       const ln = I.set.lines[li], x0 = (bw - ln.w * s) / 2;
@@ -558,6 +565,8 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
       if (glyphsReady()) for (const ln of m.lines) for (const q of ln.runs) if (outlined(q.t)) outlineOf(q.t, q.r);   // (the words' outlines made here, between frames, not in the frame that first draws them)
       api.paint();
     },
+    /** Shapes drawn with a caption ([{ pts: [x, y, ...] from its corner, fill, stroke, sw }]): the legend's dot. */
+    decor(key, list) { const I = items.get(key); if (I && I.decor !== list) { I.decor = list; api.paint(); } },
     /** An arrow drawn with a caption ({ x, y, ang, r, colour }: about x, y of its box, turned ang, r out), or none (null). */
     arrow(key, A) { const I = items.get(key); if (I && I.arrow !== A) { I.arrow = A; api.paint(); } },
     /**
@@ -642,7 +651,7 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
       presented = false;
       if (was) lost?.();
       // alloc-rare: teardown, when the layer is let go, never in a frame
-      for (const k of ['look', 'measure', 'mirror', 'arrow', 'put', 'place', 'reset', 'lead', 'extra', 'view', 'paint', 'drawNow']) api[k] = NOOP;
+      for (const k of ['look', 'measure', 'mirror', 'arrow', 'decor', 'put', 'place', 'reset', 'lead', 'extra', 'view', 'paint', 'drawNow']) api[k] = NOOP;
       api.measure = () => ZERO;
       api.hasLook = () => false;
       api.leadOf = api.at = () => null;

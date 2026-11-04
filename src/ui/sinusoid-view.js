@@ -137,7 +137,10 @@ export function createSinusoidView({ host, before = null }) {
         dot: ds ? { d: px(ds.width) || 8, fill: ds.backgroundColor, ring: ringOf(ds.boxShadow) } : null, sh: shadowOf(cs.boxShadow),
       };
       const sig = JSON.stringify(L);
-      if (sig !== legLook.sig) { Object.assign(legLook, L, { sig }); ch = true; }
+      if (sig !== legLook.sig) {
+        Object.assign(legLook, L, { sig }); ch = true;
+        cap.look('legend', { lh: L.lh / L.size, gap: 0, halo: 0, haloC: '', runs: { name: { size: L.size, weight: L.weight, ls: 0, fill: rgbaOf(L.ink), op: 1, upper: false, mr: 0 } } });   // (the legend is a name like any other: label-gl draws it)
+      }
     }
     if (ch) { sizedNew = true; onSized?.(); }
   }
@@ -1011,6 +1014,8 @@ export function createSinusoidView({ host, before = null }) {
     return e.v;
   };
   const PUT = { x: 0, y: 0, off: null, show: 1, now: 0 }, NO_OFF = [0, 0, 1];
+  const LEGLINES = [[['Protein', 'name']]];   // (one list, so the legend's words are not set again each frame)
+  let legDotFor = null, legDecor = null;
   const LEADO = { x1: 0, y1: 0, x2: 0, y2: 0, show: 1, cut: false, of: null, follow: false, sg: 0, colour: null };
   // (Each caption where the layout put it, its step aside, and whether a card covers it; each leader with its ink and its name.)
   // The leaders and dots as the Anatomy and Circuit labels have them (app.css .leader, .leader-dot, .leader-dot-halo): the leader ink, the stage's paper
@@ -1042,27 +1047,20 @@ export function createSinusoidView({ host, before = null }) {
       LEADO.follow = !!L.follow; LEADO.sg = L.sg || 0; LEADO.colour = LEAD_LOOK.line;
       cap.lead(L.key, LEADO);
     }
-    cap.extra('legend', drawLegend);
-  }
-  // The legend: a dot and its word in a rounded frost, as its page model looks (app.css .sv-legend), drawn with the names.
-  function drawLegend(ctx) {
-    const L = legLook;
-    if (!L.sig || !LEG.w) return false;
-    // (No frost behind it: one label look, outlined words with no pill or box, V-LBL-5.)
-    let x = LEG.x + L.px;
-    const cy = LEG.y + LEG.h / 2;
-    if (L.dot) {
-      const d = L.dot.d;
-      if (L.dot.fill) { ctx.fillStyle = L.dot.fill; ctx.beginPath(); ctx.arc(x + d / 2, cy, d / 2, 0, Math.PI * 2); ctx.fill(); }
-      if (L.dot.ring?.colour) { ctx.strokeStyle = L.dot.ring.colour; ctx.lineWidth = L.dot.ring.w; ctx.beginPath(); ctx.arc(x + d / 2, cy, d / 2 - L.dot.ring.w / 2, 0, Math.PI * 2); ctx.stroke(); }
-      x += d + L.gap;
-    }
-    // (The word's baseline set as the page sets a line: the half leading of its line height over Inter's ascent and descent.)
-    const by = LEG.y + L.py + (L.lh - 1.2099609375 * L.size) / 2 + 0.96875 * L.size;
-    ctx.font = legFont(L); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillStyle = L.ink;
-    ctx.strokeStyle = inkOf('--label-halo'); ctx.lineWidth = 3; ctx.strokeText('Protein', x, by);   // (the label outline, as every name has it)
-    ctx.fillText('Protein', x, by);
-    return false;
+    const LL = legLook;
+    if (LL.sig && LEG.w && cap.hasLook('legend')) {
+      const wsz = cap.measure('legend', LEGLINES), ww = wsz[0], dd = LL.dot ? LL.dot.d + LL.gap : 0;
+      const left = LEG.x + LL.px;
+      PUT.x = left + dd + ww / 2; PUT.y = LEG.y + LEG.h / 2; PUT.off = NO_OFF; PUT.show = 1; PUT.now = now;
+      cap.put('legend', PUT);
+      if (LL.dot && LL.dot !== legDotFor) {
+        legDotFor = LL.dot;
+        const r = LL.dot.d / 2, cx = -dd + r, cy = wsz[1] / 2, ring = [], N = 20;
+        for (let i = 0; i < N; i++) ring.push(cx + r * Math.cos((i / N) * 2 * Math.PI), cy + r * Math.sin((i / N) * 2 * Math.PI));
+        legDecor = [{ pts: ring, fill: LL.dot.fill, stroke: LL.dot.ring?.colour, sw: LL.dot.ring?.w }];
+      }
+      cap.decor('legend', LL.dot ? legDecor : null);
+    } else cap.put('legend', { x: 0, y: 0, off: NO_OFF, show: 0, now });
   }
   // The page's model of the names, placed where the GPU draws them, between frames and once they rest: for screen readers and what reads
   // their boxes (credit.js keeps its art off them). A frame never writes it.
