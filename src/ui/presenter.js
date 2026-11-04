@@ -2037,7 +2037,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     c.style.removeProperty('transition'); c.style.removeProperty('transform');
     // The card and its glass read these same frame-clock values. Rotation cannot be followed by the glass's translation model.
     glideTranslate(c, x, y, reduce.matches ? x : dir * dist, y, ms, reduce.matches ? cssCurve('linear') : curve);
-    glideOpacity(c, Number.isFinite(opacity) ? opacity : 1, 0, ms, reduce.matches ? cssCurve('linear') : cssCurve('cubic-bezier(.4,0,.6,1)'));
+    // (No fade: the card, glass and words, flies off whole and is hidden once it is out of sight. Its opacity is held where it was, so the leave class's own 0 never shows.)
+    const o1 = Number.isFinite(opacity) ? opacity : 1;
+    glideOpacity(c, o1, o1, ms, cssCurve('linear'));
     card.flown = performance.now() + ms; caseGone(card);
   }
   function caseBack(card) {
@@ -5557,7 +5559,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const c = cd.card.c, w = cd.w, dx = (cd.baseX || 0) + moveX;
     cd.card.dx = dx;
     c.style.transform = `translateX(${dx}px)`;
-    c.style.opacity = String(Math.min(cd.opacity, 1 - Math.min(0.5, Math.abs(dx) / w * 0.6)));
+    // (Whole under the finger: the glass and the words move as one piece and the frost is never faded.)
+    c.style.opacity = String(cd.opacity);
     signalMove();
   }, { passive: false, capture: true });
   wrap.addEventListener('touchend', (e) => { if (cd && !e.touches.length) caseLet(true); }, { passive: true, capture: true });
