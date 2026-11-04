@@ -25,3 +25,32 @@ export const overlap = (a, b) => Math.max(0, Math.min(a.x1, b.x1) - Math.max(a.x
 export const overlapLRTB = (p, q) => Math.max(0, Math.min(p.r, q.r) - Math.max(p.l, q.l)) * Math.max(0, Math.min(p.b, q.b) - Math.max(p.t, q.t));
 /** How far a disc { x, y, r } reaches into a { l, r, t, b } box (0 for none). */
 export const discInto = (q, b) => Math.max(0, q.r - Math.hypot(Math.max(b.l - q.x, 0, q.x - b.r), Math.max(b.t - q.y, 0, q.y - b.b)));
+
+// A label's candidate spots round its point: the compass, then a ring of sixteenths of a turn (R0 due east), nearest the level first.
+export const RING_DIRS = [0, 8, 1, 15, 7, 9, 2, 14, 6, 10, 3, 13, 5, 11, 4, 12].map((k) => 'R' + k);
+const RING_K = {};   // (each spot's sixteenths of a turn, looked up by offset: the spot's name is not cut up on every call)
+for (let k = 0; k < 16; k++) RING_K['R' + k] = k;
+// (The offset goes into one kept pair, which its one caller reads at once.)
+const OFF_XY = [0, 0];
+export function offset(dir, it, gap) {
+  const w = it.w, hh = it.h, d = gap * 0.72;
+  let x = -w / 2, y = -hh / 2;   // 'C': centered on the anchor
+  switch (dir) {
+    case 'N': x = -w / 2; y = -gap - hh; break;
+    case 'S': x = -w / 2; y = gap; break;
+    case 'E': x = gap; y = -hh / 2; break;
+    case 'W': x = -gap - w; y = -hh / 2; break;
+    case 'EL': x = gap; y = -hh * 0.2; break;   // (beside it, a little low: a one-line reading at the top edge of the free space)
+    case 'WL': x = -gap - w; y = -hh * 0.2; break;
+    case 'NE': x = d; y = -d - hh; break;
+    case 'NW': x = -d - w; y = -d - hh; break;
+    case 'SE': x = d; y = d; break;
+    case 'SW': x = -d - w; y = d; break;
+    default:
+      // 'R<k>': centred on a ring of radius gap around the anchor, k sixteenths of a turn from due east (RING_DIRS)
+      if (dir[0] === 'R') { const a = (RING_K[dir] * Math.PI) / 8; x = gap * Math.cos(a) - w / 2; y = gap * Math.sin(a) - hh / 2; }
+  }
+  OFF_XY[0] = x; OFF_XY[1] = y;
+  return OFF_XY;
+}
+

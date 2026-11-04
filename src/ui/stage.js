@@ -60,7 +60,7 @@ import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js';
 import { hitLabel, explainText, createExplain } from './label-explain.js';
 import { nameSpots, NAME_BREAK } from './organ-names.js';
 import { createLabelGL } from './label-gl.js';
-import { hits, crosses, within } from './label-place.js';
+import { hits, crosses, within, RING_DIRS, offset } from './label-place.js';
 import { createGlassGL } from './glass-gl.js';
 import { writePoints, writeJoinNow } from './veins-sweep.js';
 import { ENT_W } from './veins-bin.js';
@@ -10911,9 +10911,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const rectOf = (it) => ({ x0: it.x - it.padX, y0: it.y - it.padY, x1: it.x + it.w + it.padX, y1: it.y + it.h + it.padY });
   // Candidate offset of a block around its anchor.
   // A ring's sixteen spots, level ones first (east, west), then ever further from level.
-  const RING_DIRS = [0, 8, 1, 15, 7, 9, 2, 14, 6, 10, 3, 13, 5, 11, 4, 12].map((k) => 'R' + k);
-  const RING_K = {};   // (each spot's sixteenths of a turn, looked up by offset: the spot's name is not cut up on every call)
-  for (let k = 0; k < 16; k++) RING_K['R' + k] = k;
   // Spots for a mark's centre around its station, every 6 px out to 150, nearest first (see the focus callout).
   const MARK_GRID = [];
   for (let x = -150; x <= 150; x += 6) for (let y = -150; y <= 150; y += 6) if (Math.hypot(x, y) <= 150 && Math.hypot(x, y) >= 24) MARK_GRID.push([x, y]);
@@ -10922,30 +10919,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const PULL_GRID = [];
   for (let x = -120; x <= 120; x += 4) for (let y = -120; y <= 120; y += 4) if ((x || y) && Math.hypot(x, y) <= 120) PULL_GRID.push([x, y]);
   PULL_GRID.sort((a, b) => Math.hypot(...a) - Math.hypot(...b));
-  // (The offset goes into one kept pair, which its one caller reads at once.)
-  const OFF_XY = [0, 0];
-  function offset(dir, it, gap) {
-    const w = it.w, hh = it.h, d = gap * 0.72;
-    let x = -w / 2, y = -hh / 2;   // 'C': centered on the anchor
-    switch (dir) {
-      case 'N': x = -w / 2; y = -gap - hh; break;
-      case 'S': x = -w / 2; y = gap; break;
-      case 'E': x = gap; y = -hh / 2; break;
-      case 'W': x = -gap - w; y = -hh / 2; break;
-      case 'EL': x = gap; y = -hh * 0.2; break;   // (beside it, a little low: a one-line reading at the top edge of the free space)
-      case 'WL': x = -gap - w; y = -hh * 0.2; break;
-      case 'NE': x = d; y = -d - hh; break;
-      case 'NW': x = -d - w; y = -d - hh; break;
-      case 'SE': x = d; y = d; break;
-      case 'SW': x = -d - w; y = d; break;
-      default:
-        // 'R<k>': centred on a ring of radius gap around the anchor, k sixteenths of a turn from due east (RING_DIRS)
-        if (dir[0] === 'R') { const a = (RING_K[dir] * Math.PI) / 8; x = gap * Math.cos(a) - w / 2; y = gap * Math.sin(a) - hh / 2; }
-    }
-    OFF_XY[0] = x; OFF_XY[1] = y;
-    return OFF_XY;
-  }
-
   const REF = () => {
     const st = store.get();
     if (!st.compareSnap && st.presenting && st.colorMode === 'since') return sinceRef();
