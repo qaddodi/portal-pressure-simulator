@@ -112,12 +112,10 @@ test('every WebGL2 surface rebuilds after a lost context (or is a probe or a sec
   assert.match(stageSource(), /vCanvas\.addEventListener\('webglcontextrestored'/);
   // (Lobule section 7: the tissue made again on restore, the field rebuilt in place, the sinusoid in place with its epoch so a paused view draws again.)
   const lz = src('src/ui/lobule-zoom.js');
-  assert.match(src('src/ui/field-gl.js'), /addEventListener\('webglcontextrestored', \(\) => \{\n\s*if \(dead\) return;\n\s*texs\.clear\(\);\n\s*try \{ build\(\); \}/);
   assert.match(src('src/ui/sinusoid-gl.js'), /addEventListener\('webglcontextrestored', \(\) => \{ epoch\+\+; tgt = null; sent\.clear\(\); ok = null; skipped = true; startLater\(\); \}\);/);
   assert.match(src('src/ui/sinusoid-view.js'), /gpu\.epoch/);
   // (Glass and labels: in place.)
   // (The glass draws in the figure's context since 4 Nov 2026: its programs are made again by the host's restore.)
-  assert.match(src('src/ui/label-gl.js'), /canvas\.addEventListener\('webglcontextrestored', \(\) => \{\n\s+if \(disposed\) return;/);
 });
 
 test('idle rest: the FibroScan probe\'s waves stop with the figure and start again on waking', () => {

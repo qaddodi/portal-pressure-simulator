@@ -540,12 +540,11 @@ export function createSinusoidGL(canvas, { warm = false, onReady = null, host = 
   if (!host) return null;   // (hosted only, the two-contexts plan)
   gl = host.gl;
   if (!gl) return null;
-  const evCv = host ? host.canvas : canvas;   // (whose context events say this drawer's context was lost or given back)
+  const evCv = host.canvas;   // (whose context events say this drawer's context was lost or given back)
   // Host mode: the texture the view is drawn into (its size is the canvas's), made at the first draw, back to a texel by free().
   let tgt = null;
-  const SCRN = () => (host && host.screen ? host.screen() : null);
+  const SCRN = () => (host.screen ? host.screen() : null);
   function bindT() {
-    if (!host) return;
     const w = Math.max(1, canvas.width), h = Math.max(1, canvas.height);
     if (!tgt) { tgt = { tex: gl.createTexture(), fbo: gl.createFramebuffer(), w: 0, h: 0 }; }
     if (tgt.w !== w || tgt.h !== h) {
@@ -561,7 +560,7 @@ export function createSinusoidGL(canvas, { warm = false, onReady = null, host = 
     gl.bindFramebuffer(gl.FRAMEBUFFER, tgt.fbo);
     gl.disable(gl.SCISSOR_TEST); gl.disable(gl.STENCIL_TEST); gl.disable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE);
   }
-  const unbindT = () => { if (host) { gl.disable(gl.BLEND); gl.bindVertexArray(null); gl.bindFramebuffer(gl.FRAMEBUFFER, SCRN()); } };
+  const unbindT = () => { gl.disable(gl.BLEND); gl.bindVertexArray(null); gl.bindFramebuffer(gl.FRAMEBUFFER, SCRN()); };
   // A program is started (compiled and linked, nothing read) and published later, when the driver has finished it (gl-compile.js).
   const finish = (h) => {   // alloc-rare: the sinusoid drawer is made once for a view (a context, its programs and handlers)
     try { checkProgram(gl, h); } catch (e) { if (!gl.isContextLost()) { console.error('sinusoid program:', e.message); return null; } }
@@ -622,7 +621,7 @@ export function createSinusoidGL(canvas, { warm = false, onReady = null, host = 
   // waits for it: on a phone without requestIdleCallback (Safari) it otherwise came 3 to 4 s after the cover lifted, in the first
   // seconds of use, and its status read blocks until the driver is done.
   if (!warm && booting()) holdCover(new Promise((done) => setTimeout(() => { try { publish(); } finally { done(); } }, 0)));   // (under the cover: no frame to keep)   // alloc-rare: the sinusoid drawer is made once for a view (a context, its programs and handlers)
-  evCv.addEventListener('webglcontextlost', (e) => { if (!host) e.preventDefault(); tgt = null; ok = false; pend = null; stopPoll?.(); stopPoll = null; });   // alloc-rare: the sinusoid drawer is made once for a view (a context, its programs and handlers)
+  evCv.addEventListener('webglcontextlost', (e) => { tgt = null; ok = false; pend = null; stopPoll?.(); stopPoll = null; });   // alloc-rare: the sinusoid drawer is made once for a view (a context, its programs and handlers)
   // (epoch: counts the restores, so a paused view whose picture is "the same as last frame" knows the context is new and draws it again.)
   let epoch = 0;
   // (Restored: compiled again beside the page and published by the poller, never read back in the restore's own task; onReady draws.)
@@ -728,16 +727,15 @@ export function createSinusoidGL(canvas, { warm = false, onReady = null, host = 
     top,
     /** Lays the last picture again (with what is drawn over it), at once: the glass changed, the sinusoid did not. */
     present() {
-      if (host) { if (!gl.isContextLost()) host.present?.(); return; }   // (hosted: the picture stands in its texture; the stage lays it again with what is over it)
-      if (haveLast && ready() && !gl.isContextLost()) { drawNow(lastU, lastPts, lastN); runTops(); }
+      if (!gl.isContextLost()) host.present?.();   // (hosted: the picture stands in its texture; the stage lays it again with what is over it)
     },
     /** Hosted: the texture the view is drawn in ({ tex, w, h }, null before its first draw or while given back), for the stage's present to lay. */
-    get target() { return host && tgt && tgt.w > 1 ? tgt : null; },
+    get target() { return tgt && tgt.w > 1 ? tgt : null; },
     /** Hosted: the texture back to a texel and the kept picture let go (the view is not shown; the shaders stay, ready for the next dive). */
     free() {
       if (mTex && !gl.isContextLost()) gl.deleteTexture(mTex);
       mTex = null;
-      if (host && tgt && !gl.isContextLost()) { gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tgt.tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); tgt.w = 1; tgt.h = 1; }
+      if (tgt && !gl.isContextLost()) { gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tgt.tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); tgt.w = 1; tgt.h = 1; }
     },
     get gl() { return gl; },
     /** How many new pictures have been drawn (the glass blurs again only when this changes). */
@@ -750,7 +748,7 @@ export function createSinusoidGL(canvas, { warm = false, onReady = null, host = 
       if (!ok || gl.isContextLost() || !canvas.width || !canvas.height || !mixReady()) return false;
       glOkBefore(gl);
       mTex ||= gl.createTexture();
-      if (host) bindT(); else gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      bindT();
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, mTex);
       gl.copyTexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 0, 0, canvas.width, canvas.height, 0);
@@ -761,7 +759,7 @@ export function createSinusoidGL(canvas, { warm = false, onReady = null, host = 
     },
     /** Lays the kept picture over the one just drawn, at weight a (1: the old picture alone, 0: the new). */
     mix(a) {
-      if (!mTex || !M || gl.isContextLost() || !(a > 0)) { if (!gl.isContextLost()) { if (host) host.present?.(); else runTops(); } return; }
+      if (!mTex || !M || gl.isContextLost() || !(a > 0)) { if (!gl.isContextLost()) { host.present?.(); } return; }
       bindT();
       gl.viewport(0, 0, canvas.width, canvas.height);
       gl.useProgram(M.p); gl.bindVertexArray(vao);
@@ -771,7 +769,7 @@ export function createSinusoidGL(canvas, { warm = false, onReady = null, host = 
       gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
       gl.bindVertexArray(null);
       unbindT();
-      if (host) host.present?.(); else runTops();
+      host.present?.();
     },
     /** Lets the kept picture go. */
     drop() { if (mTex && !gl.isContextLost()) gl.deleteTexture(mTex); mTex = null; },
@@ -785,7 +783,7 @@ export function createSinusoidGL(canvas, { warm = false, onReady = null, host = 
       drawNow(u, pts, n);
       seq++;
       for (const f of pics) f();
-      if (!mTex) { if (host) host.present?.(); else runTops(); }   // (a resolution's fade under way lays the old picture over this one first: mix lays the glass after it)
+      if (!mTex) { host.present?.(); }   // (a resolution's fade under way lays the old picture over this one first: mix lays the glass after it)
     },
   };
 }

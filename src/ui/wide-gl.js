@@ -55,18 +55,13 @@ export const wideShaders = { LAY_VS, LAY_FS, SHOW_VS, SHOW_FS };   // (for the s
 export function createWideGL(canvas, { host = null } = {}) {
   const SCRN = () => (host && host.screen ? host.screen() : null);   // (the framebuffer the host's canvas stands in as: null, or a shared renderer's texture)
   let gl = null;
-  if (host) { gl = host.gl; canvas = host.canvas; }
-  else return null;   // (hosted only, the two-contexts plan)
+  if (!host) return null;   // (hosted only, the two-contexts plan)
+  gl = host.gl; canvas = host.canvas;
   if (!gl) return null;
   let lost = false, stale = false;   // (stale: the copy was lost with the context, until the next begin)
-  if (!host) {
-    canvas.addEventListener('webglcontextlost', (e) => { lost = true; stale = true; tiles = []; e.preventDefault?.(); });
-    canvas.addEventListener('webglcontextrestored', () => { try { init(); lost = false; } catch (err) { console.warn('The wide copy falls back to the 2D canvas.', err); } });
-  }
   // (Hosted: a vertex array of its own, as the host's passes bind theirs, and the context put back after each call.)
   let vao = null;
   function hostDone() {
-    if (!host) return;
     gl.useProgram(null); gl.bindVertexArray(null); gl.bindBuffer(gl.ARRAY_BUFFER, null); gl.bindFramebuffer(gl.FRAMEBUFFER, SCRN());
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, null); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, null);
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false); gl.disable(gl.BLEND);
@@ -82,7 +77,7 @@ export function createWideGL(canvas, { host = null } = {}) {
     lay = prog(hl); show = prog(hs);
     uL = { S: U(lay, 'uS'), size: U(lay, 'uSize') }; uS = { T: U(show, 'uT'), rect: U(show, 'uRect'), cv: U(show, 'uCv'), uv: U(show, 'uUv'), a: U(show, 'uA') };
     tri = gl.createBuffer(); quad = gl.createBuffer();
-    if (host) { vao = gl.createVertexArray(); gl.bindVertexArray(vao); }
+    vao = gl.createVertexArray(); gl.bindVertexArray(vao);
     gl.bindBuffer(gl.ARRAY_BUFFER, tri); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
     gl.bindBuffer(gl.ARRAY_BUFFER, quad); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]), gl.STATIC_DRAW);
     gl.enableVertexAttribArray(0);
@@ -153,12 +148,10 @@ export function createWideGL(canvas, { host = null } = {}) {
     draw(W, H, dpr, box, k, x, y, tx, ty, alpha = 1) {
       if (this.lost) return false;
       // (Hosted: on the host's canvas as its owner sized it, over what the host cleared or laid (premultiplied); dpr its density.)
-      const cw = host ? canvas.width : Math.max(1, Math.round(W * dpr)), ch = host ? canvas.height : Math.max(1, Math.round(H * dpr));
-      if (!host && (canvas.width !== cw || canvas.height !== ch)) { canvas.width = cw; canvas.height = ch; }
+      const cw = canvas.width, ch = canvas.height;
       gl.bindFramebuffer(gl.FRAMEBUFFER, SCRN());
       gl.viewport(0, 0, cw, ch);
-      if (host) { gl.bindVertexArray(vao); gl.enable(gl.BLEND); gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); }
-      else { gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); }
+      { gl.bindVertexArray(vao); gl.enable(gl.BLEND); gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); }
       gl.useProgram(show);
       gl.bindBuffer(gl.ARRAY_BUFFER, quad); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
       gl.uniform1i(uS.T, 0); gl.uniform2f(uS.cv, cw, ch); gl.uniform1f(uS.a, alpha);
@@ -174,7 +167,7 @@ export function createWideGL(canvas, { host = null } = {}) {
       return true;
     },
     /** Gives the copy back: its tiles, and the canvas's pixels (hosted: the host's canvas is its owner's). */
-    release() { clear(); if (!host && canvas.width) { canvas.width = 0; canvas.height = 0; } },
+    release() { clear(); },
   };
   // A tile copied from the host's canvas: its top left pw × ph, flipped so the texture's row 0 is the picture's top (as a layer sent from a
   // canvas is), inside the context (no copy through a canvas), then mipmapped.

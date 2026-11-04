@@ -89,7 +89,7 @@ export function createFieldGL(canvas, { host = null } = {}) {
   if (!gl) return null;
   // (lost: the GPU does not draw the field, from the loss until the rebuilt program is published.)
   let pictured = false;   // (the canvas holds a frame at its present size)
-  let lost = false, dead = false, started = null, stopPoll = null;
+  let lost = false, started = null, stopPoll = null;
   let prog = null, U = null, failed = false;
   // Reads the finished program, sets its samplers and runs one small offscreen draw, so the first real draw has no driver work left.
   function publish() {
@@ -99,9 +99,9 @@ export function createFieldGL(canvas, { host = null } = {}) {
       U = Object.fromEntries(['uA', 'uB', 'uQA', 'uQB', 'uMix', 'uQuiet', 'uO', 'uRd', 'uH', 'uFade', 'uMid', 'uBg', 'uMask', 'uDof', 'uGrey'].map((n) => [n, gl.getUniformLocation(prog, n)]));
       gl.useProgram(prog);
       gl.uniform1i(U.uA, 0); gl.uniform1i(U.uB, 1); gl.uniform1i(U.uQA, 2); gl.uniform1i(U.uQB, 3);
-      if (host) gl.bindVertexArray(vao);
+      gl.bindVertexArray(vao);
       exerciseDraw(gl, () => gl.drawArrays(gl.TRIANGLES, 0, 3));
-      if (host) gl.bindVertexArray(null);
+      gl.bindVertexArray(null);
       lost = false;   // (after a restore: the GPU draws the field again)
     } catch (err) {
       if (gl.isContextLost()) { prog = null; U = null; return; }   // (lost while it was read: the restore makes it again)
@@ -114,25 +114,18 @@ export function createFieldGL(canvas, { host = null } = {}) {
   function build() {
     prog = null; U = null; failed = false;
     started = startProgram(gl, VS, fieldFS(), [['p', 0]]);
-    if (host && !vao) vao = gl.createVertexArray();
-    if (host) gl.bindVertexArray(vao);
+    if (!vao) vao = gl.createVertexArray();
+    gl.bindVertexArray(vao);
     const buf = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);   // one triangle over the whole canvas
     gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
-    if (host) { gl.bindVertexArray(null); gl.bindBuffer(gl.ARRAY_BUFFER, null); }
+    gl.bindVertexArray(null); gl.bindBuffer(gl.ARRAY_BUFFER, null);
     gl.disable(gl.BLEND); gl.disable(gl.DEPTH_TEST);
     stopPoll?.(); stopPoll = publishWhenDone(gl, [started], publish);
   }
-  try { build(); } catch (err) { console.warn('The lobule field falls back to the 2D canvas.', err); gl.getExtension('WEBGL_lose_context')?.loseContext(); return null; }
-  if (!host) canvas.addEventListener('webglcontextlost', (e) => { lost = true; pictured = false; texs.clear(); e.preventDefault?.(); });
-  // A context the browser gives back is built afresh; the field stays on the 2D canvas (lost) until the program is published, at an idle
-  // moment, and the tiles go up again as they are drawn.
-  if (!host) canvas.addEventListener('webglcontextrestored', () => {
-    if (dead) return;
-    texs.clear();
-    try { build(); } catch (err) { failed = true; console.warn('The lobule field could not be rebuilt; the 2D canvas stays.', err); }
-  });
+  try { build(); } catch (err) { console.warn('The lobule field falls back to the 2D canvas.', err); return null; }
+  // (A lost context is the figure's: the lobule draws the field again once it is back, and the tiles go up again as they are drawn.)
   // A tile's texture, made once per tile canvas (a new canvas for each tissue state and tone) and kept until that canvas is
   // given back (width 0: forget, sweep).
   const texs = new Map(), copier = createTileCopier(gl);
@@ -205,20 +198,18 @@ export function createFieldGL(canvas, { host = null } = {}) {
         for (let i = 0; i < tx.length; i++) if (!tx[i]) tx[i] = clearTex();
       }
       if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; pictured = false; }
-      if (host) {
-        if (!tgt) tgt = { tex: gl.createTexture(), fbo: gl.createFramebuffer(), w: 0, h: 0 };
-        if (tgt.w !== W || tgt.h !== H) {
-          gl.bindTexture(gl.TEXTURE_2D, tgt.tex);
-          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, W, H, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-          gl.bindFramebuffer(gl.FRAMEBUFFER, tgt.fbo);
-          gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tgt.tex, 0);
-          tgt.w = W; tgt.h = H; pictured = false;
-        }
-        gl.bindFramebuffer(gl.FRAMEBUFFER, tgt.fbo); gl.bindVertexArray(vao);
-        gl.disable(gl.BLEND); gl.disable(gl.SCISSOR_TEST); gl.disable(gl.STENCIL_TEST); gl.disable(gl.DEPTH_TEST);
+      if (!tgt) tgt = { tex: gl.createTexture(), fbo: gl.createFramebuffer(), w: 0, h: 0 };
+      if (tgt.w !== W || tgt.h !== H) {
+        gl.bindTexture(gl.TEXTURE_2D, tgt.tex);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, W, H, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, tgt.fbo);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tgt.tex, 0);
+        tgt.w = W; tgt.h = H; pictured = false;
       }
+      gl.bindFramebuffer(gl.FRAMEBUFFER, tgt.fbo); gl.bindVertexArray(vao);
+      gl.disable(gl.BLEND); gl.disable(gl.SCISSOR_TEST); gl.disable(gl.STENCIL_TEST); gl.disable(gl.DEPTH_TEST);
       gl.viewport(0, 0, W, H);
       gl.useProgram(prog);
       tx.forEach((t, unit) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t); });
@@ -233,15 +224,14 @@ export function createFieldGL(canvas, { host = null } = {}) {
       UC.f2(U.uGrey, grey ? grey[0] : 1, grey ? grey[1] : 1);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       pictured = true;
-      if (host) {   // (the context as the host's own passes expect to find it)
-        gl.useProgram(null); gl.bindVertexArray(null); gl.bindFramebuffer(gl.FRAMEBUFFER, host.screen ? host.screen() : null);
-        for (let u = 0; u < 4; u++) { gl.activeTexture(gl.TEXTURE0 + u); gl.bindTexture(gl.TEXTURE_2D, null); }
-        gl.activeTexture(gl.TEXTURE0);
-      }
+      // (the context as the host's own passes expect to find it)
+      gl.useProgram(null); gl.bindVertexArray(null); gl.bindFramebuffer(gl.FRAMEBUFFER, host.screen ? host.screen() : null);
+      for (let u = 0; u < 4; u++) { gl.activeTexture(gl.TEXTURE0 + u); gl.bindTexture(gl.TEXTURE_2D, null); }
+      gl.activeTexture(gl.TEXTURE0);
       return true;
     },
     /** Hosted: the picture's texture ({ tex, w, h }) once a frame was drawn, else null. */
-    get target() { return host && pictured && tgt?.w ? tgt : null; },
+    get target() { return pictured && tgt?.w ? tgt : null; },
     /** Hosted: gives back the picture's texture and framebuffer. */
     release() { if (tgt && !gl.isContextLost()) { gl.deleteTexture(tgt.tex); gl.deleteFramebuffer(tgt.fbo); } tgt = null; pictured = false; },
   };

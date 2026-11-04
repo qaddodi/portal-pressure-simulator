@@ -65,11 +65,11 @@ test('one context for the lobule: the tissue is drawn in the vessels\' context a
   assert.match(vgl, /gl\.clearColor\(0, 0, 0, 0\); gl\.clear\(gl\.COLOR_BUFFER_BIT\);\n\s+try \{ under\.draw\(\); \}/);
   assert.match(vgl, /under\(u\) \{ under = u; auxStart\('lay'\);/, 'its laying program compiled ahead');
   // The tissue: no context of its own, a picture of its own in the host's, the host's state put back after every call.
-  assert.match(tgl, /if \(host\) \{ gl = host\.gl; canvas = host\.canvas; \}/);
-  assert.match(tgl, /if \(!host\) canvas\.addEventListener\('webglcontextlost'/);
+  assert.match(tgl, /gl = host\.gl; canvas = host\.canvas;/);
+  assert.doesNotMatch(tgl, /addEventListener\('webglcontextlost'/);
   assert.match(tgl, /hostT = makeTarget\(W, H\); tgt\.width = W; tgt\.height = H; pictured = false;/);
   assert.match(tgl, /gl\.blitFramebuffer\(0, 0, tgt\.width, tgt\.height, 0, ch - dh, dw, ch, gl\.COLOR_BUFFER_BIT, k === 1 \? gl\.NEAREST : gl\.LINEAR\);/);
-  assert.match(tgl, /if \(!host\) gl\.getExtension\('WEBGL_lose_context'\)\?\.loseContext\(\); return null;/, 'a failed build never takes the host\'s context');
+  assert.doesNotMatch(tgl, /WEBGL_lose_context/, 'a failed build never takes the host\'s context');
   // The lobule: made with the vessels' renderer, laid while it shows (or for a wide tile drawn on the GPU), and a frame that drew it
   // but not the vessels lays a picture.
   assert.match(lz, /tissueGL = createTissueGL\(tissueG, \{ onLive: liveCompiled, host: gl\.top \}\) \|\| null;[^\n]*\n\s+tisHostOff = tissueGL \? gl\.top\.under\(\{ on: tisUnder, draw: \(\) => tissueGL\.under\(gl\?\.software \? 0\.5 : 1\) \}\) : null;/);

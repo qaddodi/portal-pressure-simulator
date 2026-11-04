@@ -128,11 +128,10 @@ export function createFxGL(canvas, { host = null } = {}) {
   let ucache = null;   // (the uniform cache, made at the first draw; uniforms are set only through it, uniform-cache.js)
   // alloc-rare: built once per context (createFxGL / restore), not per frame
   const D0 = new Float32Array(MAX_DUCTS * 4), D1 = new Float32Array(MAX_DUCTS * 4);   // (the ductules' two uniform arrays, refilled each frame)
-  if (host) gl = host.gl;
-  // alloc-rare: built once per context (createFxGL / restore), not per frame
-  else return null;   // (hosted only, the two-contexts plan)
+  if (!host) return null;   // (hosted only, the two-contexts plan)
+  gl = host.gl;
   if (!gl) return null;
-  if (host) canvas = host.canvas;
+  canvas = host.canvas;
   let lost = false, failed = false, P = null;
   // (A buffer per kind of instance: the eraser and the lining are kept while their key holds; the drops and beads change each frame.)
   // alloc-rare: built once per context (createFxGL / restore), not per frame
@@ -165,12 +164,9 @@ export function createFxGL(canvas, { host = null } = {}) {
     }
     gl.bindVertexArray(null);
   }
-  try { build(); } catch (err) { console.warn('The lobule overlay falls back to the 2D canvas.', err); gl.getExtension('WEBGL_lose_context')?.loseContext(); return null; }
+  try { build(); } catch (err) { console.warn('The lobule overlay falls back to the 2D canvas.', err); return null; }
   // (Hosted, the host's owner makes the layer again with the renderer it makes after a loss.)
   // alloc-rare: context loss/restore listeners, made once
-  if (!host) canvas.addEventListener('webglcontextlost', (e) => { lost = true; cov = null; lin = null; P = null; e.preventDefault?.(); });
-  // alloc-rare: context loss/restore listeners, made once
-  if (!host) canvas.addEventListener('webglcontextrestored', () => { try { build(); lost = false; for (const k in bufs) { bufs[k].arr = null; bufs[k].cap = 0; } } catch { failed = true; } });
   function target(t, w, h) {
     if (t && t.w === w && t.h === h) return t;
     if (t) { gl.deleteFramebuffer(t.fbo); gl.deleteTexture(t.tex); }
@@ -220,7 +216,7 @@ export function createFxGL(canvas, { host = null } = {}) {
       if (!ucache) ucache = uniformCache(gl);
       // (Hosted: over the whole of the host's canvas, as its owner sized it. The view places the overlay from the canvas's top left,
       // so a canvas larger than asked for (the wide copy's tiles, cropped from it) shows the same overlay there, and more of it.)
-      if (host) { W = canvas.width; H = canvas.height; if (!W || !H) return false; }
+      W = canvas.width; H = canvas.height; if (!W || !H) return false;
       else if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
       gl.disable(gl.DEPTH_TEST); gl.disable(gl.SCISSOR_TEST);
       if (lymph) {
@@ -266,11 +262,10 @@ export function createFxGL(canvas, { host = null } = {}) {
         ucache.fv4(U.uCLum, duct.lum); ucache.fv4(U.uCCell, duct.cell); ucache.fv4(U.uCEdge, duct.edge); ucache.fv4(U.uCNuc, duct.nuc);
         ucache.f1(U.uEdge, duct.width); ucache.f1(U.uAlpha, duct.alpha);
       }
-      // (Hosted: laid over the host's picture, premultiplied. On its own canvas: the canvas is the overlay alone.)
-      if (host) { gl.enable(gl.BLEND); gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); }
-      else { gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); }
+      // (Laid over the host's picture, premultiplied.)
+      gl.enable(gl.BLEND); gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-      if (host) {
+      {
         // (The context as the host's own passes expect to find it.)
         gl.disable(gl.BLEND); gl.useProgram(null); gl.bindVertexArray(null); gl.bindBuffer(gl.ARRAY_BUFFER, null);
         gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, null); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, null);

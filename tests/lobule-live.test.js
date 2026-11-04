@@ -209,7 +209,7 @@ test('the program without the live lobule is the one with it, less its additions
 function stubGL({ failLive = false, badFbo = false, shortBuffer = false } = {}) {
   const all = [], calls = [];
   const tissue = () => all.filter((p) => !p.shaders.some((sh) => sh.src.includes('uSigma')) && !p.shaders.every((sh) => PAINT_SRC.has(sh.src)));
-  let current = null, nfb = 0;
+  let current = null, nfb = 0, hostFb = -1;
   const bound = { read: null, draw: null, scissor: false, rect: null };
   const canvas = { width: 0, height: 0, getContext: () => gl, addEventListener() {} };
   const own = {
@@ -223,7 +223,7 @@ function stubGL({ failLive = false, badFbo = false, shortBuffer = false } = {}) 
     getShaderInfoLog: () => 'shader log', getProgramInfoLog: () => 'program log',
     getExtension: () => null, isContextLost: () => false, getParameter: () => null,
     getUniformLocation: (p, name) => ({ p: p.id, name }),
-    useProgram: (p) => { current = p; calls.push(['useProgram', p.id]); },
+    useProgram: (p) => { current = p; if (p) calls.push(['useProgram', p.id]); },
     createTexture: () => ({}), createBuffer: () => ({}), createFramebuffer: () => ({ fb: ++nfb }),
     // (The kept picture, tissue-gl.js: the targets made and given back, what is bound where, the copies and the draws, and under which scissor.)
     deleteFramebuffer: (f) => calls.push(['deleteFramebuffer', f.fb]),
@@ -236,6 +236,8 @@ function stubGL({ failLive = false, badFbo = false, shortBuffer = false } = {}) 
     enable: (c) => { if (c === 'SCISSOR_TEST') bound.scissor = true; },
     disable: (c) => { if (c === 'SCISSOR_TEST') bound.scissor = false; },
     scissor: (...a) => { bound.rect = a; },
+    // (Hosted, the picture is drawn into a target of its own: the one bound when the frame's viewport is set. `took` calls it the canvas, target 0.)
+    viewport: () => { hostFb = bound.draw ? bound.draw.fb : 0; },
     drawArrays: () => calls.push(['draw', bound.draw ? bound.draw.fb : 0, bound.scissor ? bound.rect : null]),
   };
   Object.defineProperty(own, 'drawingBufferWidth', { get: () => canvas.width - (shortBuffer ? 1 : 0) });
@@ -250,7 +252,8 @@ function stubGL({ failLive = false, badFbo = false, shortBuffer = false } = {}) 
       return () => {};
     },
   });
-  return { gl, canvas, get programs() { return tissue(); }, calls, set: (name) => calls.filter((c) => c[0] === 'set' && c[2] === name), used: () => calls.filter((c) => c[0] === 'useProgram').map((c) => c[1]) };
+  const host = { gl, canvas };
+  return { gl, canvas, host, hostFb: () => hostFb, get programs() { return tissue(); }, calls, set: (name) => calls.filter((c) => c[0] === 'set' && c[2] === name), used: () => calls.filter((c) => c[0] === 'useProgram').map((c) => c[1]) };
 }
 const tick = (ms = 150) => new Promise((r) => setTimeout(r, ms));
 function liveArgs(share) {
@@ -264,7 +267,7 @@ const frame = (live) => ({ W: 100, H: 80, qa: tile, qb: null, mix: 0, w: tile, w
 test('until the live program is asked for the tissue is one program with nothing of the live lobule in it, and drawing the bitmap asks for no other', async () => {
   const g = stubGL();
   const warn = console.warn; console.warn = () => {};
-  const tg = createTissueGL(g.canvas, { gl: g.gl, onLive: () => assert.fail('nobody asked for it') });
+  const tg = createTissueGL(g.canvas, { host: g.host, onLive: () => assert.fail('nobody asked for it') });
   await tick();
   assert.equal(g.programs.length, 1, 'one program made');
   assert.ok(g.programs[0].shaders.every((s) => !s.src.includes('liveTissue') && !s.src.includes('uLive')));
@@ -279,7 +282,7 @@ test('until the live program is asked for the tissue is one program with nothing
 test('the live program starts when it is first asked for, is ready once published, and is told to the caller once', async () => {
   const g = stubGL();
   let told = 0;
-  const tg = createTissueGL(g.canvas, { gl: g.gl, onLive: () => told++ });
+  const tg = createTissueGL(g.canvas, { host: g.host, onLive: () => told++ });
   await tick();
   assert.equal(tg.liveReady(), false, 'asked: its compile starts, it is not published yet');
   assert.equal(g.programs.length, 2);
@@ -293,7 +296,7 @@ test('the live program starts when it is first asked for, is ready once publishe
 
 test('a draw uses the live program only with a share and the program ready; with none, or before it is ready, the bitmap program', async () => {
   const g = stubGL();
-  const tg = createTissueGL(g.canvas, { gl: g.gl, onLive: () => {} });
+  const tg = createTissueGL(g.canvas, { host: g.host, onLive: () => {} });
   await tick();
   tg.liveReady();
   assert.equal(tg.draw(frame(liveArgs(0.5))), true, 'a share asked for before the program is ready: the bitmap, not a missing picture');
@@ -314,7 +317,7 @@ test('a live program that fails to build costs only the live drawing: the bitmap
   const g = stubGL({ failLive: true });
   const warn = console.warn, warned = []; console.warn = (...a) => warned.push(a[0]);
   let told = 0;
-  const tg = createTissueGL(g.canvas, { gl: g.gl, onLive: () => told++ });
+  const tg = createTissueGL(g.canvas, { host: g.host, onLive: () => told++ });
   await tick();
   tg.liveReady();
   await tick();
@@ -455,14 +458,17 @@ test('a long drag keeps the picture it started from: the reference moves in whol
 // The same on the real tissue-gl.js against the stub context: what it asks of the GPU.
 async function liveGL(opts) {
   const g = stubGL(opts);
-  const tg = createTissueGL(g.canvas, { gl: g.gl, onLive: () => {} });
+  const tg = createTissueGL(g.canvas, { host: g.host, onLive: () => {} });
   await tick(); tg.liveReady(); await tick();
   assert.equal(tg.liveReady(), true);
   return { g, tg, L: liveArgs(0.5) };
 }
 const at = (L, dx = 0, dy = 0, extra = {}) => ({ ...frame(L), ox: 50 + dx, oy: 40 + dy, rect: [dx, dy, 100], ...extra });
 // What the last draw did, in order: copies [from, to, rect], draws [target, scissor], deleted targets. (Target 0 is the canvas.)
-const took = (g) => { const c = g.calls.filter(([k]) => k === 'blit' || k === 'draw' || k === 'deleteFramebuffer'); g.calls.length = 0; return c; };
+const took = (g) => {
+  const h = g.hostFb(), c = g.calls.filter(([k]) => k === 'blit' || k === 'draw' || k === 'deleteFramebuffer'); g.calls.length = 0;
+  return c.map((e) => (e[0] === 'blit' ? [e[0], e[1] === h ? 0 : e[1], e[2] === h ? 0 : e[2], ...e.slice(3)] : e[0] === 'draw' && e[1] === h ? ['draw', 0, e[2]] : e));
+};
 const FULL = [0, 0, 100, 80, 0, 0, 100, 80];
 
 test('the first live frame is drawn whole into a target of its own, then copied to the canvas', async () => {
@@ -571,28 +577,24 @@ test('a frame of the bitmap program gives the kept targets back and draws straig
 
 test('the targets are given back with the canvas, and kept for it otherwise', async () => {
   const { g, tg, L } = await liveGL();
+  g.canvas.width = 100;   // (hosted, the canvas is the host's: its owner sizes it)
   tg.draw(at(L)); tg.draw(at(L, 1, 0)); g.calls.length = 0;
   tg.sweep();
   assert.equal(took(g).filter((e) => e[0] === 'deleteFramebuffer').length, 0, 'the canvas is in use');
   g.canvas.width = 0;
   tg.sweep();
-  assert.equal(took(g).filter((e) => e[0] === 'deleteFramebuffer').length, 2);
+  assert.equal(took(g).filter((e) => e[0] === 'deleteFramebuffer').length, 3, 'the two kept targets and the picture\'s own');
   g.canvas.width = 100;
   tg.draw(at(L, 1, 0));
   assert.equal(took(g).find((e) => e[0] === 'draw')[2], null, 'drawn whole afterwards');
 });
 
-test('no kept picture where it cannot be exact: a drawing buffer of another size, a target the GPU cannot complete', async () => {
-  const straight = (c) => c.length && c.every((e) => e[0] === 'draw' && e[1] === 0 && e[2] === null);
-  for (const opts of [{ shortBuffer: true }, { badFbo: true }]) {
-    const { g, tg, L } = await liveGL(opts);
-    g.calls.length = 0;
-    tg.draw(at(L)); const first = took(g);
-    tg.draw(at(L, 3, 0)); tg.draw(at(L, 3, 0)); const rest = took(g);
-    assert.ok(straight(first.filter((e) => e[0] !== 'deleteFramebuffer')), `${JSON.stringify(opts)}: straight to the canvas`);
-    assert.ok(straight(rest) && rest.length === 2, `${JSON.stringify(opts)}: and it does not try again`);
-    assert.deepEqual(tg.kept, { full: 0, shifted: 0, still: 0 });
-  }
+test('no kept picture where it cannot be exact: a target the GPU cannot complete draws nothing and does not try a kept one', async () => {
+  const { g, tg, L } = await liveGL({ badFbo: true });
+  g.calls.length = 0;
+  assert.equal(tg.draw(at(L)), false, 'the picture\'s own target did not complete: no frame, no black');
+  assert.equal(g.calls.filter(([k]) => k === 'blit').length, 0);
+  assert.deepEqual(tg.kept, { full: 0, shifted: 0, still: 0 });
 });
 
 // ── The bitmaps the shader covers (31 Oct, his proxy: "drop the painted bitmaps wherever the live path covers them") ──

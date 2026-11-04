@@ -94,21 +94,19 @@ export function createTissueGL(canvas, opts = {}) {   // alloc-rare: the tissue 
   // drawn into a picture of its own (hostT) in the host's context, and laid on the host's canvas under the vessels at each of its presents
   // (under). The owner makes it again with the renderer it makes after a lost context.
   const host = opts.host || null;
-  const SCRN = () => (host && host.screen ? host.screen() : null);   // (the framebuffer the host's canvas stands in as: null, or a shared renderer's texture)
-  if (host) { gl = host.gl; canvas = host.canvas; }
-  else
+  if (!host) return null;   // (hosted only: the figure's context is the lobule's one, and a lost one is waited for)
+  const SCRN = () => (host.screen ? host.screen() : null);   // (the framebuffer the host's canvas stands in as: null, or a shared renderer's texture)
+  gl = host.gl; canvas = host.canvas;
   // (See-through, not opaque: every pixel is drawn whole (alpha 1), so the picture is the same, but a frame in which the browser has no
   // picture for the canvas (its context taken back, or its buffer let go before a frame was drawn) shows the page through it, where an
   // opaque canvas showed solid black over the whole lobule and its surround, until the next draw (Mohammad, 31 Oct and 1 Nov: the
   // hepatocytes and the background all went black while zooming).)
   // (On a software renderer too, as the lobule's vessels are (veins-gl.js force): the tissue has no other drawing; nothing is drawn on a
   // 2D canvas.)
-  // (Hosted only, the two-contexts plan: the figure's context is the lobule's one and a lost one is waited for. opts.gl is a context handed in by a unit test's fake; this file makes none.)
-  if (opts.gl) gl = opts.gl; else return null;
   // (Hosted, the picture's own target, sized to each frame; tgt: the size it holds (the canvas itself, on a context of its own); scr():
   // the framebuffer a frame ends in, null for the canvas.)
   let hostT = null;
-  const tgt = host ? { width: 0, height: 0 } : canvas;   // alloc-rare: made once with the tissue
+  const tgt = { width: 0, height: 0 };   // alloc-rare: made once with the tissue
   const scr = () => (hostT ? hostT.fbo : null);   // alloc-rare: made once with the tissue
   paintGL(gl);   // (the painter of the lobule's picture, paint-gl.js: its programs start compiling now, beside the tissue's)
   // The program is started here and published once the driver has finished it (gl-compile.js); a draw that comes first publishes it.
@@ -117,12 +115,12 @@ export function createTissueGL(canvas, opts = {}) {   // alloc-rare: the tissue 
   // asks as soon as this exists), so a live program that fails to compile leaves this one working: the lobule keeps its painted
   // picture, and the bitmap alone is drawn by this program wherever the zoom gives the shader no share.
   let started;
-  try { started = startProgram(gl, VS, tissueFS(false), [['p', 0]]); } catch (err) { console.warn('The lobule tissue falls back to the 2D canvas.', err); if (!host) gl.getExtension('WEBGL_lose_context')?.loseContext(); return null; }   // alloc-rare: the program is started once, with the tissue
+  try { started = startProgram(gl, VS, tissueFS(false), [['p', 0]]); } catch (err) { console.warn('The lobule tissue falls back to the 2D canvas.', err); return null; }   // alloc-rare: the program is started once, with the tissue
   const buf = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, buf);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);   // one triangle over the whole canvas   // alloc-rare: the program's one triangle is uploaded once
   // (Hosted, in a context whose own passes bind vertex arrays of their own: one of its own, bound for each of its draws.)
-  const vao = host ? gl.createVertexArray() : null;
+  const vao = gl.createVertexArray();
   if (vao) gl.bindVertexArray(vao);
   gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
   if (vao) { gl.bindVertexArray(null); gl.bindBuffer(gl.ARRAY_BUFFER, null); }
@@ -136,10 +134,8 @@ export function createTissueGL(canvas, opts = {}) {   // alloc-rare: the tissue 
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
   let lost = false, pictured = false;   // (pictured: the canvas holds a frame at its present size, drawn by draw)
-  if (!host) canvas.addEventListener('webglcontextlost', (e) => { lost = true; pictured = false; texs.clear(); liveTex = null; pic = null; e.preventDefault?.(); });   // alloc-rare: the context-loss handler is added once
   // (Hosted: the context as the host's own passes expect to find it, after each of this one's calls.)
   function hostDone() {
-    if (!host) return;
     gl.useProgram(null); gl.bindVertexArray(null); gl.bindBuffer(gl.ARRAY_BUFFER, null); gl.bindFramebuffer(gl.FRAMEBUFFER, SCRN());
     for (let u = 0; u <= 12; u++) { gl.activeTexture(gl.TEXTURE0 + u); gl.bindTexture(gl.TEXTURE_2D, null); }   // (the tiles and bitmaps, SCRATCH and the live shapes: units 0–12)
     gl.activeTexture(gl.TEXTURE0);
@@ -160,7 +156,7 @@ export function createTissueGL(canvas, opts = {}) {   // alloc-rare: the tissue 
       gl.uniform1i(U0.uQA, 0); gl.uniform1i(U0.uQB, 1); gl.uniform1i(U0.uQO, 2); gl.uniform1i(U0.uW, 3); gl.uniform1i(U0.uWO, 4);
       if (vao) gl.bindVertexArray(vao);
       exerciseDraw(gl, () => gl.drawArrays(gl.TRIANGLES, 0, 3));   // alloc-rare: the program is published once, when the driver is done compiling
-    } catch (err) { failed = true; console.warn('The lobule tissue falls back to the 2D canvas.', err); if (!host) gl.getExtension('WEBGL_lose_context')?.loseContext(); }
+    } catch (err) { failed = true; console.warn('The lobule tissue falls back to the 2D canvas.', err); }
     hostDone();
   }
   publishWhenDone(gl, [started], publish);   // alloc-rare: the program is published once, when the driver is done compiling
@@ -310,7 +306,7 @@ export function createTissueGL(canvas, opts = {}) {   // alloc-rare: the tissue 
   // The live program is in use and its uniforms are set: draw the frame (sig: everything the frame is made from except where it lies;
   // pos: the lobule's centre and the bitmap's corner, device px).
   function drawLive(W, H, sig, pos) {
-    if (keepOff || (host ? tgt.width !== W || tgt.height !== H : gl.drawingBufferWidth !== W || gl.drawingBufferHeight !== H)) { dropKept(); tri(); return; }
+    if (keepOff || (tgt.width !== W || tgt.height !== H)) { dropKept(); tri(); return; }
     if (pic && (pic.W !== W || pic.H !== H)) dropKept();
     const full = FULL; full[2] = W; full[3] = H;
     if (pic && same(pic.sig, sig)) {
@@ -416,15 +412,13 @@ export function createTissueGL(canvas, opts = {}) {   // alloc-rare: the tissue 
         // laid over the page's colour by its alpha (over) shows the page's colour, a bitmap shows the surround under it, never black.)
         for (let i = 0; i < tx.length; i++) if (!tx[i]) tx[i] = none;
       }
-      if (host) {
-        if (!hostT || tgt.width !== W || tgt.height !== H) {
-          if (hostT) freeTarget(hostT);
-          hostT = makeTarget(W, H); tgt.width = W; tgt.height = H; pictured = false;
-          if (!hostT.ok) { freeTarget(hostT); hostT = null; tgt.width = tgt.height = 0; hostDone(); return false; }
-        }
-        gl.bindFramebuffer(gl.FRAMEBUFFER, hostT.fbo); gl.bindVertexArray(vao);
-        gl.disable(gl.BLEND); gl.disable(gl.SCISSOR_TEST); gl.disable(gl.STENCIL_TEST); gl.disable(gl.DEPTH_TEST);
-      } else if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; pictured = false; }
+      if (!hostT || tgt.width !== W || tgt.height !== H) {
+        if (hostT) freeTarget(hostT);
+        hostT = makeTarget(W, H); tgt.width = W; tgt.height = H; pictured = false;
+        if (!hostT.ok) { freeTarget(hostT); hostT = null; tgt.width = tgt.height = 0; hostDone(); return false; }
+      }
+      gl.bindFramebuffer(gl.FRAMEBUFFER, hostT.fbo); gl.bindVertexArray(vao);
+      gl.disable(gl.BLEND); gl.disable(gl.SCISSOR_TEST); gl.disable(gl.STENCIL_TEST); gl.disable(gl.DEPTH_TEST);
       gl.viewport(0, 0, W, H);
       // (With a share and the live program ready, the program that has the lobule's shapes in it; otherwise the first, which is the
       // bitmap over the surround and nothing else.)
