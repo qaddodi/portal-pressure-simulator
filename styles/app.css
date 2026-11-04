@@ -2956,19 +2956,10 @@ button.finding { cursor: pointer; }
 .ptk-grid line { stroke: color-mix(in srgb, var(--text) 11%, transparent); stroke-width: 1; }   /* (a tint of the ink, not the card border: it reads on the profile zones' tints and the plot panel alike) */
 .ptk-grid.cut line { stroke-dasharray: 4 5; stroke-width: 1.5; }
 .ptk-grid[data-rate="mid"] line { stroke: var(--caution); } .ptk-grid[data-rate="hi"] line { stroke: var(--danger); }
-.ptk-grid text, .ptk-mark text { font: 500 calc(15px * var(--svk, 1)) var(--font-ui); fill: var(--text-3); font-variant-numeric: tabular-nums; }
+.ptk-grid text { font: 500 calc(15px * var(--svk, 1)) var(--font-ui); fill: var(--text-3); font-variant-numeric: tabular-nums; }
 .ptk-ax { font: 600 calc(13px * var(--svk, 1)) var(--font-ui); letter-spacing: .06em; text-transform: uppercase; fill: var(--text-3); }
 .ptk-unit { font: 500 calc(13px * var(--svk, 1)) var(--font-ui); fill: var(--text-3); }
-.ptk-mark line { stroke: var(--border); stroke-dasharray: 2 6; }
-.ptk-mark text.ptk-ev { font: 600 16px var(--font-ui); fill: var(--text-2); }
-.ptk-mark.now text { fill: var(--text); font-weight: 700; }
 .ptk-line { fill: none; stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
-.ptk-line.hv { stroke: var(--text-2); stroke-width: 2.5; }
-.ptk-lbl { font: 700 14px var(--font-ui); }
-.ptk-pt { fill: var(--surface); stroke: var(--text-2); stroke-width: 2.5; }
-.ptk-pt[data-rate="mid"] { stroke: var(--caution); fill: var(--caution); } .ptk-pt[data-rate="hi"] { stroke: var(--danger); fill: var(--danger); }
-.ptk-v { font: 700 22px var(--font-ui); fill: var(--text); font-variant-numeric: tabular-nums; }
-.ptk-v[data-rate="mid"] { fill: var(--caution); } .ptk-v[data-rate="hi"] { fill: var(--danger); }
 .pz.stack .pz-data.has-tool { --pz-cap: 50%; max-height: var(--pz-cap); }   /* (--pz-cap: the stacked card's tucked cap, read by presenter.js layout) */
 /* (With its readings out under it, the card's cap grows by their height (--pz-d, presenter.js measureUnder): the instrument card keeps
    the size it had with them tucked, never fitted smaller to make room for them (Mohammad, 19 Oct: "Need to maintain same card size
@@ -6174,10 +6165,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .pz:not(.stack):not(.low) .pz-data.pz-beside > .pz-tool:not([data-kind]) { display: none; }   /* (a ladder with its tile: no instrument, so its empty slot takes no room) */
 /* The talk-so-far chart: drawn at its own pixels in the cards' one small size (presenter-tools.js talkTrace); the card's fit
    shortens the chart, never its words. */
-.pz-talk { font-size: var(--pz-sm, var(--pz-psm, 12px)); height: calc(var(--talk-h, 280px) * var(--pz-fit, 1)); }
-.pz-talk :is(.ptk-grid text, .ptk-mark text, .ptk-ax, .ptk-unit, .ptk-lbl) { font-size: 1em; }
-.pz-talk .ptk-ax { letter-spacing: .04em; }
-.pz-talk .ptk-v { font-size: 1.5em; }
+.pz-talk { height: calc(var(--talk-h, 280px) * var(--pz-fit, 1)); }
 .pz:not(.stack) .pz-tool[data-kind="talk"] .pz-talk { --talk-h: min(80cqi, calc(46 * var(--pzh))); }
 .pz:not(.stack):not(.low) .pz-data > .pz-tool[data-kind="talk"] { zoom: var(--pz-z, 1); container-type: inline-size; }
 .pz:not(.stack):not(.low) .pz-data.pz-beside[data-tn="1"] > .pz-tiles:not([data-n="0"]) { align-self: center; grid-auto-rows: auto; }   /* (one tile beside a picture: its own height, centred on it, not a tall empty box) */
@@ -7177,23 +7165,16 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
    chart the treatments' names on a row under the clock and a thin bar each, the chart taller by them (flow-time.js sets
    --band-room). The bands are stronger on a dark card, where a faint tint disappears. */
 .pz-talk.has-bands { height: calc((var(--talk-h, 280px) + var(--band-room, 0px)) * var(--pz-fit, 1)); }
-.ptk-band rect { fill: var(--rx); opacity: .12; }
 /* (The year chart's milestones style, talk-trace.js drawMiles: level names over the milestones, the HVPG line in its cut-off colours.) */
-.pz-talk .ptk-ms { font: 600 1em var(--font-ui); fill: var(--text-2); paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
-.pz-talk .ptk-ms.now { fill: var(--text); }
-.pz-talk.miles .ptk-line.hv[data-rate="mid"] { stroke: var(--caution); } .pz-talk.miles .ptk-line.hv[data-rate="hi"] { stroke: var(--danger); }
 .pft-band { fill: color-mix(in oklab, var(--rx) 70%, var(--text)); }   /* (a deeper shade on a light card: 3:1 for every treatment) */
 .pz-flowtime.has-bands { height: calc(var(--ft-h, max(60cqi, 15em)) + var(--band-room, 0em)); }
 @media (max-height: 960px) { .pz.stack .pz-flowtime.has-bands svg { max-height: calc(160px + var(--band-room, 0em)); } }   /* (a phone's cap, by as much) */
-:is(.ptk-band-n, .pft-band-n tspan) { font: 600 1em var(--font-ui); fill: color-mix(in oklab, var(--rx) 62%, var(--text)); }
-.ptk-band-n { paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
-:root[data-theme="dark"] .ptk-band rect { opacity: .24; }
+.pft-band-n tspan { font: 600 1em var(--font-ui); fill: color-mix(in oklab, var(--rx) 62%, var(--text)); }
 :root[data-theme="dark"] .pft-band { fill: var(--rx); opacity: .8; }
-:root[data-theme="dark"] :is(.ptk-band-n, .pft-band-n tspan) { fill: color-mix(in oklab, var(--rx) 72%, var(--text)); }
+:root[data-theme="dark"] .pft-band-n tspan { fill: color-mix(in oklab, var(--rx) 72%, var(--text)); }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]):not([data-theme="soft"]) .ptk-band rect { opacity: .24; }
   :root:not([data-theme="light"]):not([data-theme="soft"]) .pft-band { fill: var(--rx); opacity: .8; }
-  :root:not([data-theme="light"]):not([data-theme="soft"]) :is(.ptk-band-n, .pft-band-n tspan) { fill: color-mix(in oklab, var(--rx) 72%, var(--text)); }
+  :root:not([data-theme="light"]):not([data-theme="soft"]) .pft-band-n tspan { fill: color-mix(in oklab, var(--rx) 72%, var(--text)); }
 }
 /* ── Package B: end ── */
 
@@ -7622,9 +7603,8 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pzc-kl b { font-weight: 600; color: var(--text); }
 .pzc-sw { display: block; flex: none; width: 22px; height: 14px; border-radius: 4px; background: repeating-linear-gradient(-45deg, color-mix(in srgb, var(--text) 42%, var(--surface-3)) 0 2px, var(--surface-3) 0 4.95px); }
 /* The rounded plot (his G2 look, 27 Oct; plot-look.js): the panel behind a chart's lines, the app's own tile tone, its corners the plot's. */
-.pz-plotbg { fill: var(--surface-2); }
-:is(.pz-curve, .pz-flowtime, .pz-talk) { --surface: var(--surface-2); }   /* (inside these charts the halos round words and the rings' fill are the panel's own tone, so none shows as a patch on it) */
-:is(.pz-curve, .pz-flowtime, .pz-talk) .ptk-grid:not(.cut) line { stroke: color-mix(in srgb, var(--border-strong) 70%, transparent); }   /* (the hairlines read on the panel's tone as they did on the card's) */
+:is(.pz-curve, .pz-flowtime) { --surface: var(--surface-2); }   /* (inside these charts the halos round words and the rings' fill are the panel's own tone, so none shows as a patch on it) */
+:is(.pz-curve, .pz-flowtime) .ptk-grid:not(.cut) line { stroke: color-mix(in srgb, var(--border-strong) 70%, transparent); }   /* (the hairlines read on the panel's tone as they did on the card's) */
 /* A case card's own question (slide caseQ): the case's type and size, on a line of its own under it, in the accent so it reads as the ask. */
 .pz-case-q { margin-top: .55em; }
 

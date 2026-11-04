@@ -8,6 +8,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { plotR, plotPanel, plotFill, PLOT_R } from '../src/ui/plot-look.js';
+import { LOOKS } from '../src/ui/chart-looks/index.js';
 import { planeOf, frame, bleed, scaler, plotNumbers, hasAxes, PAD, est } from '../src/ui/visual-plane.js';
 import { xAxisRow, xAxisName, xTicks, fmtTick } from '../src/ui/tool-curve.js';
 import { ZONE_TOP } from '../src/ui/tool-profile.js';
@@ -29,6 +30,7 @@ test('the plot corner is 10 px, less on a small plot, and a panel is a clip and 
   assert.equal(p.url, `url(#${p.id})`);
   assert.deepEqual(p.clip.kids[0].attrs, { x: 2, y: 4, width: 300, height: 100, rx: 10 });
   assert.equal(p.back.attrs.class, 'pz-plotbg');
+  assert.equal(p.back.attrs['data-look'], 'plot.bg', 'the panel asks the looks table for its tone');
   assert.equal(p.back.attrs.rx, 10);
   assert.equal(plotPanel(sv, 0, 0, 10, 10, { fill: false }).back, null, 'fill: false leaves only the clip');
   assert.notEqual(plotPanel(sv, 0, 0, 10, 10).id, plotPanel(sv, 0, 0, 10, 10).id, 'every panel its own id');
@@ -105,7 +107,8 @@ test('the charts all put their plot on a rounded panel, the planes draw their zo
   for (const named of ['csph', 'hvpg-ppg']) assert.equal(hasAxes(planeOf(named)), false, `the ${named} plane keeps its zones' edge for an axis`);
   assert.equal(hasAxes(planeOf({ x: 'pv', y: 'whvp', zones: [] })), true, 'a plane with no zones draws axes');
   assert.doesNotMatch(plane, /rotate\(-90\)/, 'no rotated axis name: the names stand on the plot');
-  assert.match(css, /\.pz-plotbg \{ fill: var\(--surface-2\); \}/, 'the panel is the app\'s own tile tone');
+  assert.deepEqual(LOOKS['plot.bg'].base, { fill: { k: 'tok', n: 'surface-2' } }, 'the panel is the app\'s own tile tone (chart-looks/plot.js; the stylesheet\'s .pz-plotbg rule is gone)');
+  assert.doesNotMatch(css, /\.pz-plotbg\s*\{/, 'no .pz-plotbg rule: the panel\'s look is the table\'s');
   // (Mohammad, 29 Oct: the 55 % black outline the FibroScan readings wear on a picture smeared the plane's numbers and axis names, drawn in the
   // card's own dark text, on a light card. No outline now; the cut-off lines break behind the numbers instead, visual-plane.js.)
   assert.doesNotMatch(css, /\.pze-t, \.pze-ax \{[^}]*stroke/, 'the plane\'s numbers and names carry no outline');

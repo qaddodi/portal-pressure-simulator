@@ -18,13 +18,13 @@ export const PLOT_R = 10;
 export const plotR = (w, h) => Math.max(0, Math.min(PLOT_R, w / 4, h / 4));
 let n = 0;
 /** A rounded panel x, y, w, h: { id, r, clip, url, back }. clip is the <clipPath> to put in defs, url the value for a clip-path
- *  attribute (a group of fills that must keep the corners), back the panel's own rect (class pz-plotbg; null with fill: false). */
+ *  attribute (a group of fills that must keep the corners), back the panel's own rect (class pz-plotbg, look plot.bg in chart-looks/plot.js; null with fill: false). */
 export function plotPanel(sv, x, y, w, h, { fill = true } = {}) {
   const id = `pzr${++n}`, r = plotR(w, h);
   return {
     id, r, url: `url(#${id})`,
     clip: sv('clipPath', { id }, sv('rect', { x, y, width: w, height: h, rx: r })),
-    back: fill ? sv('rect', { class: 'pz-plotbg', x, y, width: w, height: h, rx: r }) : null,
+    back: fill ? sv('rect', { class: 'pz-plotbg', 'data-look': 'plot.bg', x, y, width: w, height: h, rx: r }) : null,
   };
 }
 /** The panel on a 2D canvas: x, y, w, h filled with `fill` (the tile tone, --surface-2, as the SVG charts' pz-plotbg), its corners plotR(w, h).
