@@ -11,4 +11,16 @@ export const sceneCam = {
   /** C's translation for a frame of reference whose origin is (left, top) in client px: x' = s x + tx(left), y' = s y + ty(top). */
   tx(left = 0) { return (this.ox - left) * (1 - this.s) + this.dx; },
   ty(top = 0) { return (this.oy - top) * (1 - this.s) + this.dy; },
+  /**
+   * A picture kept at the size of its stage (w x h) and carried by C covers the stage only while its move stays in [w(1-s), 0] on x and
+   * [h(1-s), 0] on y (the fixed point of a zoom to a card at an edge falls off the screen, and a strip of the stage is left bare). The
+   * move C's layers that carry a kept picture use: C's own where it covers, else the nearest that does. Written into out [tx, ty] (stage px
+   * from the stage's corner); s <= 1 is left as it is.
+   */
+  cover(out, left, top, w, h) {
+    let tx = this.tx(left), ty = this.ty(top);
+    if (this.s > 1) { tx = Math.min(0, Math.max(w * (1 - this.s), tx)); ty = Math.min(0, Math.max(h * (1 - this.s), ty)); }
+    out[0] = tx; out[1] = ty;
+    return out;
+  },
 };

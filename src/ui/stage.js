@@ -2734,7 +2734,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (pinTo), a label with no station is carried by its centre (label-gl ride), and the page's figure layers take one CSS matrix. The labels
   // keep their screen size. Closing is C back to the identity: nothing is laid out, so nothing settles.)
   let zoomLz = false, zoomM = null, zoomLayers = null;
-  const zoomM6 = [1, 0, 0, 1, 0, 0];   // (C in stage px, written in place each frame: the label ride's matrix and the pinned points')
+  const zoomM6 = [1, 0, 0, 1, 0, 0], zoomT = [0, 0];   // (C in stage px, written in place each frame: the label ride's matrix and the pinned points')
   function zoomOpen() {
     if (zoomBase) return false;
     if (lobuleOn && lz?.zoomOpen) { if (!lz.zoomOpen()) return false; zoomBase = { lz: true }; zoomLz = true; return true; }
@@ -2754,12 +2754,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (zoomLz) { lz.zoomAt(S, px, py, dx, dy); return; }
     if (!z.scene || !wrapRect) return;
     sceneCam.set(S, px, py, dx, dy);
-    zoomM6[0] = S; zoomM6[3] = S; zoomM6[4] = sceneCam.tx(wrapRect.left); zoomM6[5] = sceneCam.ty(wrapRect.top);
+    // (The picture is only the stage's size: where C's own move would bare a strip of the stage (a card at an edge), the figure and its
+    // labels take the nearest move that covers it: sceneCam.cover.)
+    sceneCam.cover(zoomT, wrapRect.left, wrapRect.top, wrapRect.width, wrapRect.height);
+    zoomM6[0] = S; zoomM6[3] = S; zoomM6[4] = zoomT[0]; zoomM6[5] = zoomT[1];
     zoomM = zoomM6;
     // The figure's canvas (canvas px), the page's figure layers (one matrix each) and the labels, all from the same camera, in this frame.
     const sx = vCanvas.width / (boxW || vCanvas.width || 1), sy = vCanvas.height / (boxH || vCanvas.height || 1);
     veins?.setScene?.(S, zoomM6[4] * sx, zoomM6[5] * sy);
-    for (const l of zoomLayers) l.el.style.transform = `matrix(${S.toFixed(5)},0,0,${S.toFixed(5)},${((S - 1) * (l.left - px) + dx).toFixed(2)},${((S - 1) * (l.top - py) + dy).toFixed(2)})`;
+    for (const l of zoomLayers) l.el.style.transform = `matrix(${S.toFixed(5)},0,0,${S.toFixed(5)},${((S - 1) * (l.left - wrapRect.left) + zoomT[0]).toFixed(2)},${((S - 1) * (l.top - wrapRect.top) + zoomT[1]).toFixed(2)})`;
     if (rideCTM) labelRider.ride(zoomM6);   // (draws every label: the stations' at C(their points), the rest carried)
     else labelGL?.pinDraw();
   }
