@@ -20,8 +20,9 @@ test('ride, crossfade and pinDraw ask the host for a present instead of drawing'
   assert.match(lg, /pinDraw\(\) \{ if \(lost \|\| !pinAt\) return; ask\(\); \},/);
 });
 
-test('a picture asked for from inside a picture is asked for in the next frame, never laid from inside the host\'s present', () => {
-  assert.match(lg, /if \(drawing\) \{ if \(!againF\) againF = nextFrame\(againTick\); return; \}/);
+test('a picture the labels ask for is laid in the next frame, never from inside the ask (no present from a settle: the boot hang of 4 Nov 2026)', () => {
+  assert.match(lg, /owed = true;[^]*?\n\s+if \(!againF\) againF = nextFrame\(againTick\);\n\s+\}/);
+  assert.doesNotMatch(lg.slice(lg.indexOf('function ask()'), lg.indexOf('function check()')), /host\.ask\(\)/);
   assert.match(lg, /function draw\(\) \{\n\s+if \(drawing\) return;/);
 });
 

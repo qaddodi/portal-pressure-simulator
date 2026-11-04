@@ -961,8 +961,9 @@ void main() { o = texture(uT, vUV) * uA; }`;
     // (Given back to the SVG and still not to be drawn over the figure: no picture is laid again for them.)
     if (released && !host.active()) return;
     owed = true;
-    if (drawing) { if (!againF) againF = nextFrame(againTick); return; }
-    host.ask();
+    // (Always the next frame, never a present from here: host.ask lays the figure's present at once, whose label pass draws, which can owe
+    // a settle, whose ask presented again in the same task: an endless loop of microtasks that hung the page on the loading screen, 4 Nov 2026.)
+    if (!againF) againF = nextFrame(againTick);
   }
   // Host mode, whenever something that decides whether the labels may be drawn over the figure changed (stage.js watches it): drawn
   // there and not to be any more, the picture is laid again now, without them, and the SVG given them in the same task, so they never
@@ -1282,7 +1283,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // (A picture asked for from inside a picture (the labels still moving, an ease going on) is asked for in the next frame: the host's present is
   // not laid again from inside its own.)
   let drawing = false, againF = 0;
-  const againTick = () => { againF = 0; if (!disposed) ask(); };   // (made once)
+  const againTick = () => { againF = 0; if (!disposed && !lost && owed && !(released && !host.active())) host.ask(); };   // (made once)
   function draw() {
     if (drawing) return;
     drawing = true;
