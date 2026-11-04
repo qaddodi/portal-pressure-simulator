@@ -255,7 +255,7 @@ export function createCore(post) {
   // ('crash'): the figure keeps the last good frame and the page offers Reload or Restart. Loading a patient
   // (or any state) clears it.
   let crashed = false;
-  const RECOVER = ['init', 'preset', 'reset', 'restore', 'morph', 'scrub'];
+  const RECOVER = ['init', 'preset', 'reset', 'restore', 'morph'];
   const finite = (a) => { for (let i = 0; i < a.length; i++) if (!Number.isFinite(a[i])) return false; return true; };
   function crash(err) {
     stop();
@@ -295,15 +295,15 @@ export function createCore(post) {
     last = now;
     eng.beat = beat;
     if (morph) {
-      const hold = morph.at != null, k = hold ? morph.at : Math.min(1, (now - morph.t0) / morph.ms);   // (a scrub holds its place: morph.at, linear)
+      const k = Math.min(1, (now - morph.t0) / morph.ms);
       // W2: the beat runs on through the blend. The snapshots carry no cardiac phase, so it is advanced here at the blended heart
       // rate (as step() does), so the pulse does not stop for 1.2 s. NO sample is taken: the blend's clock runs from the old moment to the
       // slide's (here backwards), and a trace fed one sample per frame of it saw a jump every frame and drew no line (3 Nov: the HVPG
       // catheter tracing and Pressure gut to heart). The traces take their first samples from the landed state.
       const cyc = eng.cyc || 0, COf = eng.COf;   // (a blend carries neither the phase nor the output filter: the live ones go on)
-      eng.restore(k >= 1 && !hold ? morph.to : morphAt(morph.from, morph.to, hold ? k : easeInOut(k)));
+      eng.restore(k >= 1 ? morph.to : morphAt(morph.from, morph.to, easeInOut(k)));
       eng.cyc = cyc + realDt * (eng.hr || 60) / 60; eng.COf = COf;
-      if (k >= 1 && !hold) morph = null;
+      if (k >= 1) morph = null;
       paramsDirty = true; frameDirty = true;
     } else if (running) {
       if (clock === 'hemo') {
@@ -502,19 +502,6 @@ export function createCore(post) {
       morph = { from: eng.snapshot(), to: snap, t0: performance.now(), ms };
       stoppedAt = timer ? null : morph.t0;   // (begun while the model stands still, the page hidden: it has not begun to play)
       running = true; start();
-    },
-    // The presenter's before / after scrub (N9): the live state held at k (0 to 1) of the way from one snapshot to another, linear, until another
-    // message replaces it (a morph for Next). The first message of a scrub carries both snapshots, the rest only k.
-    scrub({ from, to, k }) {
-      if (from && to) {
-        stateChanged();
-        lapse = null; clock = 'hemo'; speed = 1; diseaseAcc = 0; relaxUntil = 0;
-        morph = { from, to, t0: performance.now(), ms: 1, at: k };
-        stoppedAt = timer ? null : morph.t0;
-        running = true; start();
-      } else if (morph && morph.at != null) morph.at = k;
-      else return;
-      paramsDirty = true; frameDirty = true;
     },
     explain({ metric, reqId }) {
       const r = explain(eng, metric);

@@ -30,11 +30,11 @@ export const eases = (t) => !records(t) && !drawn(t);
  * A slide's data card as its build reads it, or null when the slide has none: the instrument and its options, the tiles and
  * whether they carry a ring for where they started, the title, the earlier-reading ghost and how the card sits. The numbers are not
  * in it (they ease); the highlighted tile (key) is not either (it is a class on a tile that stays).
- * o: { keys, ref, title, ghost, under, sin, scrub } as the presenter reads them for the slide.
+ * o: { keys, ref, title, ghost, under, sin } as the presenter reads them for the slide.
  */
 export function dataPlan(s, o = {}) {
   if (!s || s.visual || !(s.data === 'tiles' || s.tool)) return null;
-  return J([s.tool || null, s.data || null, o.keys || [], !!o.ref, s.clock || null, o.title || '', o.ghost || null, !!o.under, !!o.sin, !!s.hvpgResp, o.scrub || '']);
+  return J([s.tool || null, s.data || null, o.keys || [], !!o.ref, s.clock || null, o.title || '', o.ghost || null, !!o.under, !!o.sin, !!s.hvpgResp]);
 }
 
 // What a slide's teaching card is made of: the whole slide but what only the data card, the figure, the camera or the model read. A

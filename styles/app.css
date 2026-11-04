@@ -7712,11 +7712,6 @@ body { font-optical-sizing: auto; font-kerning: normal; }
    (a selected one, a keyboard focus, a pointer over it). A lit term, above, keeps its colour. lobule-zoom.js sets .sel and mirrors the label again. */
 :root:root:root:root:root:root:root .lz-lab.sel .n, :root:root:root:root:root:root:root .lz-lab:focus-visible .n { color: var(--accent-ink); }
 @media (hover: hover) { :root:root:root:root:root:root:root .lz-lab:hover .n { color: var(--accent-ink); } }
-/* The before / after scrub (N9, scrub.js): its row in the data card, between the instrument and the tiles; the slider is a what-if's (.pz-wi). */
-.pz-scrubbox:not([hidden]) { padding: 6px var(--pz-in, 0) 2px; box-sizing: border-box; pointer-events: auto; }
-.pz-scrubbox > .pz-wi { gap: .3em .7em; }
-.pz-scrubbox .pz-scrub-v { margin-left: auto; }
-
 /* A phone on its side (844x390): the view pill stands beside the play bar in one row instead of above it, so the figure keeps that height
    (Refit lobule, 3 Nov 2026: the figure had only 234 px of 390). The pair is centred; Compare shows its icon alone to make the room. */
 @media (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {

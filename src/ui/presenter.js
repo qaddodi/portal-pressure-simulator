@@ -76,8 +76,6 @@ import { pageOn, followOf, pageIn, swipeHeld } from './card-page.js';
 import { throwOut, throwIn, throwBack, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, throwOutNow, throwLeaving, throwHeld, throwPinned, throwRelease, throwState, throwBusy, throwLanded, RAIL_GAP } from './card-throw.js';
 import { readAnims, readBox, readCTM, readMetric, readRects, readStyle, readTiming, scrollInto } from './layout-snap.js';
 import { caught } from './caught.js';
-import { scrubSpec, scrubKey } from './scrub-plan.js';
-import { scrubEl } from './scrub.js';
 import { createInk } from './ink-gl.js';
 const nextFrame = frameFor('presenter');
 
@@ -1758,40 +1756,6 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     }
     if (mine()) abSlow();
   }
-  // The before / after scrub (N9, scrub.js): on a slide that counts its change from an earlier one, a slider in the data card holds the live model at
-  // k of the way from that slide's state (0) to this one's (1). The figure, the readings and the charts follow the model as a what-if slider's do;
-  // letting go keeps the place, Next morphs on from wherever it stands. Both snapshots go to the worker with the first move, then only k.
-  function scrubIn(s, i) {
-    const box = ui.scrubBox, sp = scrubSpec(slides, stateOf, i);
-    box.replaceChildren(); box.hidden = true;
-    if (!sp) return;
-    const mount = (A, B) => {
-      if (!A?.snap || !B?.snap || !ui || ui.scrubBox !== box || slides[i] !== s || want !== i) return;
-      const sc = { k: 1, held: false, at: 0, loop: false, raf: 0, first: true };
-      const sendK = () => { sc.raf = 0; host.send(sc.first ? { type: 'scrub', from: A.snap, to: B.snap, k: sc.k } : { type: 'scrub', k: sc.k }); sc.first = false; };
-      const e = scrubEl(sp, (k) => {
-        handOn = true; liveOff = true; sc.k = k; sc.held = true; sc.at = performance.now();
-        if (!sc.raf) sc.raf = nextFrame(sendK);
-        if (!sc.loop) scrubFollow(s, i, sc, A, B);
-      }, (k) => { sc.k = k; sc.held = false; sc.at = performance.now(); });
-      box.append(e.el); box.hidden = false;
-    };
-    if (states[sp.ia] && states[sp.ib]) mount(states[sp.ia], states[sp.ib]);
-    else Promise.all([stateReady(sp.ia), stateReady(sp.ib)]).then(([A, B]) => { mount(A, B); if (!box.hidden && !cardMoving()) layout(); });
-  }
-  // The readings follow the model while the dot moves and for a moment after it is let go; at either end they are the slide's settled numbers.
-  async function scrubFollow(s, i, sc, A, B) {
-    const g = ++abGen, mine = () => g === abGen && shown?.i === i && slides[i] === s && !!deck, ref = refOf(s, i);
-    sc.loop = true;
-    try {
-      while (mine() && (sc.held || performance.now() - sc.at < 500)) {
-        await wait(90);
-        const fr = store.get().frame;
-        if (fr?.metrics && mine()) dataTo(s, liveFp(fr), ref, 90);
-      }
-      if (mine() && !sc.held && (sc.k <= 0 || sc.k >= 1)) dataTo(s, (sc.k >= 1 ? B : A).fp, ref, 160);
-    } finally { sc.loop = false; }
-  }
   // A what-if slider (whatIf: { label, param, min, max, step, ends?, unit? }) drags one parameter of the live model
   // (or several together: param an array of paths, e.g. both lobes' fibrosis); the figure, the ladder and the tiles follow
   // it as with the buttons. It starts at the slide's own value (the first path's), and the slide's computed state comes
@@ -2981,7 +2945,6 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const ms = fresh || (bare && ui.root.classList.contains('pz-prep')) ? 0 : undefined;
       if (s.data) ui.tiles.paintTiles(respFp(s, now.fp), tileKeys(s), s.key || [], refOf(s, i), ms, now.params?.tips?.on);
       ui.tools.pin(now.fp);
-      scrubIn(s, i);
       clearTimeout(dataHideT); dataHideT = 0;   // (a card shown again is not hidden by the timer of its last leaving, while it fades in or waits to)
       if (data.hidden) { data.hidden = false; data.classList.add('pz-hide'); void readMetric(data, 'offsetWidth'); }
       if (!ui.root.classList.contains('pz-prep')) cardIn(data, 'pz-hide', THROW_STAGGER);   // (else once fitted: settle)
@@ -3016,7 +2979,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (!hasCard(s)) return null;
     const d = deltaOf(s, i);
     if (d === true ? i > 0 && !states[stateOf[i - 1]] : typeof d === 'string' && !fpOf(d)) return undefined;
-    return dataPlan(s, { keys: tileKeys(s), ref: !!refOf(s, i), title: cardTitle(s), ghost: s.tool ? toolGhost(s, i) : null, under: under(s), sin: sinTiles(s), scrub: scrubKey(scrubSpec(slides, stateOf, i), i) });
+    return dataPlan(s, { keys: tileKeys(s), ref: !!refOf(s, i), title: cardTitle(s), ghost: s.tool ? toolGhost(s, i) : null, under: under(s), sin: sinTiles(s) });
   }
   // A card standing whole (not on its way in or out, not half folded or pulled) can be kept.
   const dataStands = () => { const d = ui.data; return !d.hidden && !throwLeaving(d) && !throwHeld(d) && !d.classList.contains('pz-hide') && !d.classList.contains('pz-sliding') && !['gone', 'prep', 'hold', 'colswap', 'folding'].some((k) => k in d.dataset); };
@@ -5989,7 +5952,6 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const tiles = bigTiles();
     const text = h('section', { class: 'pz-text stage-blocker' });
     const dhT = h('span', {}, 'The patient');
-    const scrubBox = h('div', { class: 'pz-scrubbox', hidden: true });   // (N9: the before / after slider, scrubIn)
     const tools = createTools({ host, stage });
     // On a phone an instrument above tiles folds away (the tiles keep the reading), so the figure is not a strip between
     // two cards; the button opens it, and it stays open for the rest of the talk.
@@ -6079,7 +6041,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       else setFold(true);
     } });
     const data = h('section', { class: 'pz-data stage-blocker pz-hide', 'data-safe': 'right', 'data-safe-rest': '', 'data-safe-waits': '', 'data-gone': '', hidden: true, 'aria-label': 'The numbers' },
-      h('div', { class: 'pz-dh' }, dhT, fold, zbtn), tools.el, scrubBox, tiles.el, h('span', { class: 'pz-grip', 'aria-hidden': 'true' }));
+      h('div', { class: 'pz-dh' }, dhT, fold, zbtn), tools.el, tiles.el, h('span', { class: 'pz-grip', 'aria-hidden': 'true' }));
     const foldHs = foldTouch(data, fold, setFold, partOf, (on) => { if (on) { clearTimeout(foldT); data.dataset.folding = ''; } else foldT = setTimeout(foldStill, reduce.matches ? 0 : 450); }, lip);
     const dockHs = dockTouch(data, lip);
     const cardTouch = [foldHs, dockHs];   // (fold first: it stops the dock drag when it takes a move, as on the card)
@@ -6159,7 +6121,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // layer of its own throughout, so the swap that lost its picture on an iPhone no longer happens.)
     // alloc-rare: a card is built or tapped open: once per tap, not per frame
     const glass = stage.glass?.add(() => [shade, data, vcase, bar, scl, fk], { watch: [root, shade], before: shade, low: (e) => e === shade, read: (g) => (g === data || g.dataset?.ghost === 'data' ? sheetPanes(g) : undefined), shift: riseShift }) || null;
-    return { root, shade, safe, load, text, data, lip, lipRO, lipMO, shadeMO, cardTouch, setFold, zoom, zbtn, pscrim, partOf, vcase, fk, figKey, glass, dhT, scrubBox, tiles, tools, veil, panel, prog, scl, bar, black: blackEl, jump, say };
+    return { root, shade, safe, load, text, data, lip, lipRO, lipMO, shadeMO, cardTouch, setFold, zoom, zbtn, pscrim, partOf, vcase, fk, figKey, glass, dhT, tiles, tools, veil, panel, prog, scl, bar, black: blackEl, jump, say };
   }
   // The start's cover (see start). While it is up (booting) the camera cuts instead of gliding.
   let cover = null, booting = false, coverT = 0, noCase = false;   // (noCase: the slide a start lands on, a reload's included, does not play its case card)
