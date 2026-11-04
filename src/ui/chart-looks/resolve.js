@@ -79,7 +79,8 @@ const colourString = (c) => `color(srgb ${f6(c[0])} ${f6(c[1])} ${f6(c[2])} / ${
 function num(v) { return typeof v === 'number' ? v : 0; }
 /** One value node to a number, a colour string, an array or an ease record, for ctx and the piece's params. */
 function val(v, ctx, params) {
-  if (v === null || typeof v !== 'object' || Array.isArray(v)) return v;
+  if (Array.isArray(v)) return v.map((x) => val(x, ctx, params));   // (a dash list: each length may be a max() or an em)
+  if (v === null || typeof v !== 'object') return v;
   switch (v.k) {
     case 'tok': {
       const c = tokensOf(ctx)[v.n];
