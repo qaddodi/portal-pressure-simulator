@@ -6060,7 +6060,12 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
    caps: the text's grey, the app's corner brackets, a soft tint under the finger. Nothing but the icon and the cursor shows before the tap. */
 .pz-zscrim { position: absolute; inset: 0; background: color-mix(in srgb, var(--stage-bg) 58%, transparent); opacity: 0; pointer-events: none; cursor: zoom-out; transition: opacity var(--d-surface) var(--ease); }
 .pz-zscrim.on { opacity: 1; pointer-events: auto; }
-.pz-cam .pz-zscrim { background: none; transition: none; }   /* (a camera zoom is a pure camera move: nothing dims or fades; the veil only takes the tap that puts the card back) */
+.pz-cam .pz-zscrim { background: none; transition: none; }
+/* One darkness for a card, in motion and at rest (Mohammad, 4 Nov 2026: "the blur becomes darker once the zoom ends"). The glass drawn in the figure's canvas is the figure
+   blurred over the stage's own colour, under the tint; a card that glass does not cover (a dive, the lobule's zoom, until it is drawn) showed the tint alone over whatever
+   lay behind it, lighter. The fallback is now the same tint laid over the stage's colour, so the card is as dark before the glass arrives as after. (No backdrop-filter:
+   the frost itself is the GPU's, glass-gl.js.) */
+.pz .pz-data.pz-data:not([data-gl]), .pz .pz-shade.pz-shade:not([data-gl]) { background-color: var(--stage-bg); background-image: linear-gradient(var(--gl-tint), var(--gl-tint)); }   /* (a camera zoom is a pure camera move: nothing dims or fades; the veil only takes the tap that puts the card back) */
 .pz-zbtn { display: none; }
 .pz.pz-wide .pz-data.pz-zoomable { cursor: zoom-in; }
 .pz-zoomed .pz.pz-wide .pz-data { cursor: zoom-out; }
