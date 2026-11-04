@@ -3810,7 +3810,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function widthWrites(x, w, t, f, k) {
     const e = x.e;
     // The hit stroke is never thinner than the drawn tube (the IVC is wide, behind the liver) and never under ~10 px on screen.
-    { const narrow = CONTEXT_EDGES.has(e.id) || BACK_EDGES.has(e.id), hw = Math.round(Math.max(narrow ? 8 : 20, w + 6, 10 / ((CTM && CTM.sc) || 1))); if (x.hitW !== hw) { x.hitW = hw; pickVer++; } }
+    // (The thin hepatic artery has a narrow hit zone, and ranks below the portal vein it runs beside: the vein wins a shared tap.)
+    { const narrow = CONTEXT_EDGES.has(e.id) || BACK_EDGES.has(e.id) || !!ART_FADE[e.id], hw = Math.round(Math.max(narrow ? 8 : 20, w + 6, 10 / ((CTM && CTM.sc) || 1))); if (x.hitW !== hw) { x.hitW = hw; pickVer++; } }
     if (x.isArt) return;
     if (x.cbr) for (const cb of x.cbr) cb.w = Math.max(1.2, w * cb.k);
     if (x.strands) for (let i = 0; i < x.strands.length; i++) {
