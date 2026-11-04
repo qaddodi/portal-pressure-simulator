@@ -4390,6 +4390,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       if (!(k > 0)) return;
       if (scn.k === k && (k === 1 || (scn.ex === ex && scn.ey === ey))) return;
       scn.k = k; scn.ex = k === 1 ? 0 : ex; scn.ey = k === 1 ? 0 : ey;
+      // (The picture the glass blurs is a new one: its kept blur is of the figure where it stood, and the parts the blood reached since are the only
+      // ones the glass would blur again, so a card that came over parts it never blurred drew solid black.)
+      pictured();
       if (!lost) present(true, true);
     },
     get camera() { return cam; },
