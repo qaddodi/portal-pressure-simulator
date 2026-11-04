@@ -2642,12 +2642,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // are drawn), the labels solved whole, and the stage put back, nothing drawn in between.
   const solveTargetVT = { k: 1, x: 0, y: 0 };
   // (Runs fn with the stage at the change's end state, then puts it back, nothing drawn in between. Each slice of the solve runs inside it.)
-  function atTargetStage(d, fn) {
-    const tgt = morphTarget, keepVT = vt, keepMorph = morph, keepLast = lastMorph, vb0 = vbBox.x, vb1 = vbBox.y, vb2 = vbBox.width, vb3 = vbBox.height;
+  function atTargetStage(d, fn, tgt = morphTarget) {
+    const keepTgt = morphTarget, keepVT = vt, keepMorph = morph, keepLast = lastMorph, vb0 = vbBox.x, vb1 = vbBox.y, vb2 = vbBox.width, vb3 = vbBox.height;
     const curS = [], visS = [];
     glSuppress = true;
     try {
-      morph = tgt; lastMorph = tgt;
+      morph = tgt; lastMorph = tgt; morphTarget = tgt;
       const rr = rotEase(rotU), vbT = (i) => +lerp(VB_ANAT[i], lerp(VB_CIRC[i], VB_CIRC_R[i], rr), tgt).toFixed(1);
       vbBox.x = vbT(0); vbBox.y = vbT(1); vbBox.width = vbT(2); vbBox.height = vbT(3);
       solveTargetVT.k = d.k; solveTargetVT.x = d.x; solveTargetVT.y = d.y; vt = solveTargetVT;
@@ -2661,7 +2661,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       return fn();
     } finally {
       for (let i = 0; i < EV.length; i++) { geo[EV[i].e.id].cur = curS[i]; EV[i].vis = visS[i]; }
-      morph = keepMorph; lastMorph = keepLast; vt = keepVT;
+      morph = keepMorph; lastMorph = keepLast; morphTarget = keepTgt; vt = keepVT;
       vbBox.x = vb0; vbBox.y = vb1; vbBox.width = vb2; vbBox.height = vb3;
       CTM = null; refreshCTM();
       glSuppress = false;
@@ -2673,8 +2673,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const XF_SLICE_MS = 1.5;   // (a slice of the target's solve in a frame of the change: small, so the change itself keeps its frame rate; what is left goes on after it lands)
   function solveTargetView(d) {
     labelKey = null; solveAsked = true;
+    preAbort();
     xfSolving = true;
-    try { atTargetStage(d, () => { updateLabels(F, true); }); } finally { xfSolving = false; }
+    try {
+      atTargetStage(d, () => {
+        // (The other view's labels were solved ahead in idle time (preStep) for this very framing: their slots are carried, with no solve.)
+        if (pre.slots && pre.key === preKey(d) && preCommit()) return;
+        updateLabels(F, true);
+      });
+    } finally { xfSolving = false; }
     cancelMay('label solve');   // (the job is ours: no idle slice runs it)
     if (!labelJob) { labelGlSync(); return false; }
     return true;   // pending
@@ -2728,6 +2735,65 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     xfLayer(n);
     labelGL.crossfade(clamp(1 - 2 * p, 0, 1), n);
     if (p >= 1 || morph === morphTarget) viewXfEnd();
+  }
+  // The other view's labels solved ahead, in idle slices (a dry solve at that view's end state, the slots kept by a key of what the labels
+  // show, the framing and the stage): at a tap they are carried, with no solve. A real solve, a carry or anything moving drops one in progress.
+  const pre = { need: true, g: null, key: null, d: null, tgt: 0, slots: null, tasked: false };
+  const cutSig = (t) => t.slice(t.indexOf('|'));
+  function preKey(d) { return `${cutSig(labelSig(F))}|${Math.round(d.k * 100)},${Math.round(d.x)},${Math.round(d.y)},${stageBox().width},${stageBox().height},${rotU > 0.5},${labelFonts},${calloutSig()},${labelIns()}`; }
+  function preAbort() { if (pre.g) { pre.g.return(); pre.g = null; pre.need = true; } }
+  function preCommit() {
+    const keep = labelSol, m = new Map();
+    for (const [k, v] of pre.slots) m.set(k, { ...v });
+    labelSol = m;
+    if (layoutLabels(F, false) === false) { labelSol = keep; return false; }
+    const sf = solvedFor === SOLVED_A ? SOLVED_B : SOLVED_A, sig = labelSig(F);
+    sf.sig = sig; sf.sc = CTM.sc; sf.th = Math.atan2(CTM.b, CTM.a); sf.csig = calloutSig(); sf.ins = labelIns(); sf.view = morphTarget; sf.ck = null;
+    solvedFor = sf; solveAsked = false;
+    labelKey = keyInto(labelKeyArr, labelKeyNow(store.get(), sig, stageBox())); stats.layouts++;
+    labelTail();
+    return true;
+  }
+  const preIdle = () => !!F && !!labelGL && !labelGL.lost && !viewXf && !labelJob && !handRide && !gestureOn() && !camMove && !drifting && !carrying && !glSuppress
+    && morph === morphTarget && (morph === 0 || morph === 1) && rotU === rotTarget && !lobuleOn && !lz?.isOpen() && !(cath.st && !cath.st.keep) && !vtGliding;
+  function preAsk() {
+    if (pre.tasked || !(pre.need || pre.g) || !preIdle()) return;
+    pre.tasked = true;
+    mayTask('label presolve', preStep);
+  }
+  function preStep() {
+    pre.tasked = false;
+    if (!preIdle()) { preAbort(); return false; }
+    const tgt = morphTarget === 0 ? 1 : 0;
+    const keepSol = labelSol, keepSpare = labelSolSpare, keepTurn = labelTurned, keepK = labelK, kn = lbkNum, ks = lbkStr;
+    const dk = gLabels.dataset.k, lv = gLabels.style.getPropertyValue('--lbk');
+    let done = false;
+    try {
+      atTargetStage(pre.d || preFraming(tgt), () => {
+        if (!pre.g) {
+          pre.d = preFraming(tgt); pre.tgt = tgt; pre.need = false; pre.slots = null;
+          pre.key = preKey(pre.d);
+          labelSol = new Map(keepSol);   // (a turn between the views clears the slots it finds: not the standing ones)
+          pre.g = layoutLabelsGen(F, true, true);
+        }
+        done = labelSliceRun(pre.g, 3).valueOf();
+        if (done) { pre.slots = new Map(); for (const [k, v] of labelSol) pre.slots.set(k, { ...v }); }
+      }, tgt);
+    } catch (e) { pre.g = null; pre.d = null; throw e; }
+    finally {
+      labelSol = keepSol; labelSolSpare = keepSpare; labelTurned = keepTurn; labelK = keepK; lbkNum = kn; lbkStr = ks;
+      if (dk === undefined) delete gLabels.dataset.k; else gLabels.dataset.k = dk;
+      if (lv) gLabels.style.setProperty('--lbk', lv);
+    }
+    if (done) { pre.g = null; pre.d = null; return false; }
+    pre.tasked = true;
+    mayTask('label presolve', preStep);
+    return false;
+  }
+  // (The framing a tap on the other view would take: setView.)
+  function preFraming(tgt) {
+    const wasOut = tgt === 1 && (vt.k <= 1.001 || (homeAt && sameView(vt, homeAt)));
+    return wasOut ? circWhole() : defaultVT(tgt === 1);
   }
   function xfMarkCurrent(tap) {
     if (!F || !solvedFor || solvedFor.sig !== tap) return;
@@ -12005,6 +12071,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return [sig, Math.round(Math.log2(sc) * 4), Math.round(th * 100), Math.round(CTM.e / (b.width / 4)), Math.round(CTM.f / (b.height / 4)), b.width, b.height, rotU > 0.5, labelFonts, csig, ins].join('|');
   }
   function solCachePut(sf) {
+    pre.need = true;   // (what the labels show was solved again: the other view's ahead-of-time solve is made again in idle time)
     if (!sf.ck || !(morph === 1 && morphTarget === 1)) return;
     const m = new Map();
     for (const [k, v] of labelSol) m.set(k, { ...v });
@@ -12101,6 +12168,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         // they are, so each frame of a zoom or glide that asked for a fresh solve left them one more frame behind the figure, and
         // dropped the sliced solve the next frame. Mohammad, 2 Nov: "the labels and callouts move slower than the figure camera".)
         if (solvedFor && solvedFor.view === morphTarget && !(morph > 0 && morph < 1)) layoutLabels(f, false);   // (not another view's solution: its anchors are that view's world points, which would stand the labels and their dots where the figure has none)
+        preAbort();
         const g = layoutLabelsGen(f, true);
         if (!labelSliceRun(g, xfSolving ? 2 : gestureOn() || drifting || (morph > 0 && morph < 1) ? LABEL_SLICE_MS : LABEL_FIRST_REST_MS)) {   // (at rest the first slice is long: most solves land in it)
           labelJob = JOB; JOB.g = g; JOB.key = keyInto(jobKeyArr, key); JOB.solvedFor = sf; JOB.xfTap = null; JOB.t0 = performance.now(); stats.jobs++;
@@ -12143,6 +12211,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (scan.on) scanPaint();
     dprobePaint();
     labelPainted = true;
+    preAsk();
     labelGlSync();   // (last: the probe's place, just written, is drawn in this frame too)
   }
   // The solve running in slices (LABEL_SLICE_MS): its generator, the view's key it was started for and what it was solved for.
@@ -12348,6 +12417,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (All at once: a carry, a dry solve, a solve with slicing off. Any solve still in slices gives way to it.)
   function layoutLabels(f, solve, dry = false) {
     if (labelJob) labelJobDrop();
+    preAbort();
     const g = layoutLabelsGen(f, solve, dry);
     let r;
     do r = g.next(); while (!r.done);
