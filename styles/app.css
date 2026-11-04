@@ -4772,7 +4772,8 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
 .toast-wrap.docked .toast.wgl-on .toast-x { position: absolute; }
 /* A tooltip the GPU draws (tip-gl.js): its box, place and fade stay the page's, its card, shadow, words and key are the GPU's picture in it, so
    the page's own paint steps aside the moment that picture is up (.tip-gl), never before. The words stay in the page for a screen reader. */
-.tooltip.tip-gl { background: none !important; box-shadow: none !important; color: transparent; }
+.tooltip.tip-gl { color: transparent; }
+.tooltip.tip-gl[data-gl] { background: none !important; box-shadow: none !important; }   /* (the card is frosted GPU glass once drawn, menu-glass.js; until then the page's own fill) */
 /* A popover's or menu's fill, ring and shadow, drawn by the GPU on a plate laid under it (plate-gl.js). The plate rides where the menu does: its
    place, way in and way out are twins of the menu's own rules (made from this stylesheet at the first plate), its size the menu's. The menu's own
    background and shadow give way (.box-gl) once the plate is drawn. */
@@ -7746,3 +7747,5 @@ body { font-optical-sizing: auto; font-kerning: normal; }
    them ([data-gl]); until then, and where it cannot, they keep the fill, ring and shadow above. */
 .menu, .umenu, .why-pop { --gl-tint: color-mix(in srgb, var(--surface) 76%, transparent); --gl-line: var(--hairline); --gl-drop: var(--shadow-3); }
 :root:root :is(.menu, .umenu, .why-pop)[data-gl] { background: none; box-shadow: none; }
+.tooltip { --gl-tint: color-mix(in srgb, var(--text) 80%, transparent); --gl-drop: var(--shadow-2); }
+:root:root :is(.menu, .umenu, .why-pop).mg-move { background: var(--gl-tint); box-shadow: var(--shadow-3), 0 0 0 1px var(--hairline); }   /* (moving: the page's own card goes with the menu; the frost returns when it settles, menu-glass.js) */

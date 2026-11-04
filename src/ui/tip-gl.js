@@ -43,7 +43,8 @@ export function tipDraw(tip, L) {
     s.look = lookOf(tip, ON);
     if (!s.look.ok) { tip.classList.remove(ON); return false; }
     if (!s.wgl) {
-      s.wgl = widgetGL(tip, (ctx, w, h, pad) => { if (s.look && s.L) paintTip(ctx, s.L, s.look, pad, pad); queueMicrotask(() => { if (s.wgl?.live) tip.classList.add(ON); }); }, { pad: Math.max(8, s.look.pad) });
+      // (words and key only: the card is the glass's, or the page's own until it is drawn)
+      s.wgl = widgetGL(tip, (ctx, w, h, pad) => { if (s.look && s.L) paintTip(ctx, s.L, { ...s.look, bg: 'rgba(0,0,0,0)', shadows: [] }, pad, pad); queueMicrotask(() => { if (s.wgl?.live) tip.classList.add(ON); }); }, { pad: Math.max(8, s.look.pad) });
       if (!s.wgl) return false;
     }
     const host = tip.firstElementChild;
