@@ -2675,8 +2675,22 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let xfSolving = false;
   // (The change landed before the new view's labels were solved: they stay at nothing until the solve lands, never the old view's labels on the new figure.)
   let xfHold = false;
-  function xfRelease() { if (!xfHold) return; xfHold = false; xfLayer(1); labelGL.dropGhosts(); }
-  const XF_SLICE_MS = 1.2;   // (a slice of the target's solve in a frame of the change: small, so the change itself keeps its frame rate; what is left goes on after it lands)
+  // (Solved after the landing: the new labels come in with a fade, as they do through the change, never in one frame.)
+  const XF_FADE_MS = 160;
+  let xfRamp = 0;
+  function xfRelease() {
+    if (!xfHold) return;
+    xfHold = false;
+    const id = ++xfRamp, t0 = performance.now();
+    const step = () => {
+      if (id !== xfRamp || viewXf || xfHold) return;
+      const n = clamp((performance.now() - t0) / XF_FADE_MS, 0, 1);
+      xfLayer(n); labelGL.crossfade(0, n);
+      if (n < 1) nextFrame(step); else labelGL.dropGhosts();
+    };
+    step();
+  }
+  const XF_SLICE_MS = 4;   // (a slice of the target's solve in a frame of the change: the Circuit's whole solve is longer than the change, and at 1.2 ms it landed long after it, its labels popping in; what is left goes on after it lands)
   let xfKept = null;
   function solveTargetView(d) {
     labelKey = null; solveAsked = true;
@@ -2711,7 +2725,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return done;
   }
   function viewXfStart(d) {
-    xfHold = false;
+    xfHold = false; xfRamp++;
     viewXf = null;   // (a change begun on another: the new one is solved first, with the layers out of the old one's hands)
     labelJobDrop();
     if (handRide) handRideEnd();
