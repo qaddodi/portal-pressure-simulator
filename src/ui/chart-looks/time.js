@@ -125,9 +125,13 @@ export const TIME = {
     base: { font: [700, em(1)], fill: tok('text-3') },
     when: [[{ tc: 'mid' }, { fill: warn(70) }], [{ tc: 'hi' }, { fill: bad(80) }]],
   },
-  // 7240-7242 .pcv-stub: a short stub at the plot's edge. (The rating colours of 7241-7242 lost to the plain gridline's rule at 7607, which is more specific,
-  // so the stub always drew in the gridline's tone; it is written as it drew.)
-  'cv.stub': { base: { stroke: mix('srgb', tok('border-strong'), 70, 'transparent'), width: 2.5, cap: 'round' } },
+  // 7240-7242 .pcv-stub: a short stub at the plot's edge, in its rating's colour (amber a little darker, red). The stylesheet's rules for these colours always
+  // lost to the plain gridline's rule at 7607, so the stub drew in the gridline tone; Mohammad picked the rating colours (4 Nov 2026).
+  'cv.stub': {
+    state: { tc: 'data-tc' },
+    base: { stroke: mix('srgb', tok('border-strong'), 70, 'transparent'), width: 2.5, cap: 'round' },
+    when: [[{ tc: 'mid' }, { stroke: mix('srgb', tok('caution'), 85, tok('text')) }], [{ tc: 'hi' }, { stroke: tok('danger') }]],
+  },
   // 7243 .pcv-walk: a patient's visits joined in order
   'cv.walk': { base: { fill: 'none', stroke: param('c'), width: 1.5, dash: [2, 4], cap: 'round', opacity: 0.7 } },
   // 7244 .pcv-arrow: which way he went

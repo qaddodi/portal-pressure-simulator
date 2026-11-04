@@ -64,6 +64,8 @@ test('the cascade winners: sizes follow the fitted type, the gridline, the cut-o
   assert.equal(P('cv.cut', { rate: 'hi' }).fill === P('cv.cut', { rate: 'mid' }).fill, false);
   assert.equal(P('cv.dname', { num: true }).weight, 700);
   assert.equal(P('cv.tc', { tc: 'hi' }).weight, 700);
+  assert.equal(P('cv.stub', { tc: 'hi' }).stroke, '#D2452F', 'a stub is in its rating\'s colour');
+  assert.notEqual(P('cv.stub', { tc: 'mid' }).stroke, P('cv.stub', { tc: 'ok' }).stroke);
   assert.equal(P('co.z', { rate: 'hi', deep: '1' }).fill, P('co.z', { deep: '1' }).fill, 'the deepest zone beats its rating');
   assert.notEqual(P('co.z', { rate: 'hi' }).fill, P('co.z', { rate: 'mid' }).fill);
   assert.equal(P('ft.band.bar', {}, ctx({ theme: 'dark', dark: true })).opacity, 0.8);
