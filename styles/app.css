@@ -1422,7 +1422,6 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .timeline .tl-restart :is(svg, .ic) { width: var(--ic-m); height: var(--ic-m); }
 /* "Now": a small passive dot on the progress line (it is not a scrubber; the markers are the way back). */
 .tl-gpu > .tl-t-long, .tl-gpu > .tl-t-short { visibility: hidden; }   /* (a jump's day count drawn on the GPU over them, timeline.js) */
-.tl-day-gl { fill: currentColor; }
 .tl-time { flex: none; min-width: 64px; font-size: var(--fs-12); font-weight: 600; color: var(--text-2); white-space: nowrap; font-variant-numeric: tabular-nums; text-align: right; }
 .tl-jumps { display: flex; align-items: center; gap: 2px; flex: none; }
 .tl-pin { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--r-card); background: var(--surface); color: var(--text); font: 600 var(--fs-12) var(--font-ui); cursor: pointer; white-space: nowrap; }
@@ -1716,9 +1715,6 @@ button.finding { cursor: pointer; }
 .lz-labels .lz-off { opacity: 0; pointer-events: none; }
 .lz-labels :is(.lz-lab, .lz-zone).lz-off.lz-off { transition-duration: var(--d-small), var(--d-surface), var(--d-surface); }   /* (going, it fades on the quicker clock; opacity is first in every list) */
 @media (prefers-reduced-motion: reduce) { .lz-lab, .lz-zone { animation: none; } }
-.lz-leaders.cap-lead :is(.leader, .leader-dot) { opacity: 0 !important; transition: none !important; }   /* (drawn with their names by label-gl: caption-gl.js leadMarks) */
-.lz-leaders .leader { transition: opacity var(--d-small) var(--ease); } .lz-leaders .leader.lz-hid { opacity: 0; transition: none; }
-.lz-leaders .leader-dot { transition: opacity var(--d-small) var(--ease); } .lz-leaders .ld-gone { opacity: 0; transition: opacity var(--d-small) var(--ease); }   /* (a leader and dot leave with their label) */
 /* The presenter's camera gliding in the lobule: its labels ease out, and back in at their new places (lobule-zoom.js focusOn). */
 .lz.lz-cam .lz-leaders { opacity: 0; transition: opacity var(--d-small) var(--ease); } .lz.lz-cam .lz-labels { opacity: 0; transition: opacity var(--d-small) var(--ease); }
 .lz.lz-cam-in .lz-leaders { transition: opacity var(--d-surface) var(--ease); } .lz.lz-cam-in .lz-labels { transition: opacity var(--d-surface) var(--ease); }
@@ -1730,10 +1726,8 @@ button.finding { cursor: pointer; }
 /* Station cards: the anatomy's label style, as buttons that open the station's card */
 .lz-call { position: absolute; padding: 4px 10px 5px; border-radius: 999px; font: 600 14px/1.2 var(--font-ui); width: max-content; text-wrap: balance; color: var(--danger-ink); pointer-events: none; opacity: 0; transform: scale(.94); transition: opacity var(--d-surface) var(--ease), transform var(--d-surface) var(--ease); }
 .lz-call.on { opacity: 1; transform: none; }
-.lz-call-l, .lz-call-r { opacity: 0; transition: opacity var(--d-surface) var(--ease); stroke: var(--danger); stroke-width: 4px; fill: none; }
-.lz-call-l.on, .lz-call-r.on { opacity: 1; }
-.lz-call[data-kind="treat"] { color: var(--accent); } .lz-call-l[data-kind="treat"], .lz-call-r[data-kind="treat"] { stroke: var(--accent); }
-.lz-call[data-kind="note"] { color: var(--text); } .lz-call-l[data-kind="note"], .lz-call-r[data-kind="note"] { stroke: var(--text-2); }
+.lz-call[data-kind="treat"] { color: var(--accent); }
+.lz-call[data-kind="note"] { color: var(--text); }
 .lz-lab { position: absolute; pointer-events: auto; display: grid; gap: 1px; text-align: left; padding: 4px 8px 5px; border-radius: var(--r-control); border: 1px solid var(--hairline); background: var(--glass); box-shadow: 0 1px 1.5px rgb(var(--night-rgb) / .1); cursor: pointer; color: var(--text); font-family: var(--font-ui); }
 .lz:not(.on) .lz-lab { pointer-events: none; }   /* labels of a hidden or still-diving lobule view are not clickable */
 .lz-lab .n { font-size: 12px; font-weight: 500; color: var(--text-2); white-space: nowrap; }
@@ -5427,9 +5421,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .lz.lz-sin :is(.lz-lab, .lz-zone)::before { transition: opacity .01s linear .18s; }
 .sv:not(.on) .sv-region::before { transition: opacity .01s linear .6s; }
 /* Presenting, on a slide that lights something in the lobule or sinusoid: the lobule's labels it is not talking about dim to 35 % with their leaders and keep their places (Mohammad's pick 14.3 B, 3 Nov), so the lit ones read first. The sinusoid view keeps every name and arrow (Hepatocyte, Lymph, Portal venule, Central vein, ...): its slide's lit ones take the pill, the rest stay plain, as in Explore. */
-.lz-leaders :is(.leader, .leader-dot) { transition: opacity var(--d-surface) var(--ease); }
 .app.presenting:is([data-lit*="lobule:"], [data-lit*="sinusoid:"]) :is(.lz-lab, .lz-zone):not(:is(.app[data-lit~="lobule:triad"] [data-target="lobule:triad"], .app[data-lit~="lobule:arteriole"] [data-target="lobule:arteriole"], .app[data-lit~="lobule:ductule"] [data-target="lobule:ductule"], .app[data-lit~="lobule:sinusoid"] [data-target="lobule:sinusoid"], .app[data-lit~="lobule:central"] [data-target="lobule:central"], .app[data-lit~="lobule:lymph"] [data-target="lobule:lymph"], .app[data-lit~="lobule:zone1"] [data-target="lobule:zone1"], .app[data-lit~="lobule:zone3"] [data-target="lobule:zone3"], .app[data-lit~="sinusoid:fenestrae"] [data-target="sinusoid:fenestrae"], .app[data-lit~="sinusoid:disse"] [data-target="sinusoid:disse"], .app[data-lit~="sinusoid:stellate"] [data-target="sinusoid:stellate"], .app[data-lit~="sinusoid:kupffer"] [data-target="sinusoid:kupffer"], .app[data-lit~="sinusoid:hepatocyte"] [data-target="sinusoid:hepatocyte"], .app[data-lit~="sinusoid:lymph"] [data-target="sinusoid:lymph"], .app[data-lit~="sinusoid:lumen"] [data-target="sinusoid:lumen"])) { opacity: .35; }
-.app.presenting:is([data-lit*="lobule:"], [data-lit*="sinusoid:"]) :is(.lz-leaders .leader, .lz-leaders .leader-dot)[data-target]:not(:is(.app[data-lit~="lobule:triad"] [data-target="lobule:triad"], .app[data-lit~="lobule:arteriole"] [data-target="lobule:arteriole"], .app[data-lit~="lobule:ductule"] [data-target="lobule:ductule"], .app[data-lit~="lobule:sinusoid"] [data-target="lobule:sinusoid"], .app[data-lit~="lobule:central"] [data-target="lobule:central"], .app[data-lit~="lobule:lymph"] [data-target="lobule:lymph"], .app[data-lit~="lobule:zone1"] [data-target="lobule:zone1"], .app[data-lit~="lobule:zone3"] [data-target="lobule:zone3"], .app[data-lit~="sinusoid:fenestrae"] [data-target="sinusoid:fenestrae"], .app[data-lit~="sinusoid:disse"] [data-target="sinusoid:disse"], .app[data-lit~="sinusoid:stellate"] [data-target="sinusoid:stellate"], .app[data-lit~="sinusoid:kupffer"] [data-target="sinusoid:kupffer"], .app[data-lit~="sinusoid:hepatocyte"] [data-target="sinusoid:hepatocyte"], .app[data-lit~="sinusoid:lymph"] [data-target="sinusoid:lymph"], .app[data-lit~="sinusoid:lumen"] [data-target="sinusoid:lumen"])) { opacity: .35; }
 /* A presenter slide change in the liver (presenter.js hush): every label, pill, ring, leader and callout eases out together and
    stays out while the camera moves and the lit set changes underneath; then only the new slide's ease in together. Ahead of
    every other label state (the camera's, the sinusoid's, the lit set's), so none can bring a label back for a frame. */

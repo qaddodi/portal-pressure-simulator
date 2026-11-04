@@ -5,6 +5,7 @@ import { TALK } from './talk.js';
 import { CRIT } from './crit.js';
 import { CARD } from './card.js';
 import { INST } from './inst.js';
+import { SMALL } from './small.js';
 import { CAUSES } from './causes.js';
 import { PLANE } from './plane.js';
 import { FLUID } from './fluid.js';
@@ -18,6 +19,7 @@ export const LOOKS = {
   ...CRIT,
   ...CARD,
   ...INST,
+  ...SMALL,
   ...CAUSES,
   ...PLANE,
   ...FLUID,

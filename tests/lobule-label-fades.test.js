@@ -6,6 +6,8 @@ import { readFileSync } from 'node:fs';
 
 const js = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
 const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+import { LOOKS } from '../src/ui/chart-looks/index.js';
+import { makeCtx, withCtx, resolveProps } from '../src/ui/chart-looks/resolve.js';
 
 test('lobule labels, zone names and leaders never cut out', () => {
   assert.doesNotMatch(js, /(L\.line|L\.dotEl)\.style\.display\s*=/, 'a leader or dot is faded (.ld-gone), not display none');
@@ -17,7 +19,10 @@ test('lobule labels, zone names and leaders never cut out', () => {
   assert.match(css, /@keyframes lz-in \{ from \{ opacity: 0; \} \}/);
   assert.match(css, /\.lz-labels \.lz-off \{ opacity: 0; pointer-events: none; \}/);
   assert.match(css, /\.lz-labels :is\(\.lz-lab, \.lz-zone\)\.lz-off\.lz-off \{ transition-duration: var\(--d-small\)/, 'going, on the quicker clock');
-  assert.match(css, /\.lz-leaders \.ld-gone \{ opacity: 0; transition: opacity var\(--d-small\)/);
+  for (const k of ['small.lead.line', 'small.lead.dot']) {   // (a leader and dot leave with their label: the looks table, chart-looks/small.js)
+    const p = resolveProps(LOOKS[k], withCtx(makeCtx({ host: 'lobule' }), { theme: 'light', dark: false, palette: 'navy', view: 'anatomic' }), { gone: true }, {});
+    assert.equal(p.opacity, 0, k); assert.ok(p.ease.opacity.ms > 0, `${k} fades, it does not cut`);
+  }
   // The fades are layers' opacities (the compositor's, no repaint), so pill and letters fade together as their label does: no
   // registered variable is eased for them any more.
   assert.doesNotMatch(css, /--(lab|lit|off|pill)-o|--sv-in/, 'no label fade runs through a variable');

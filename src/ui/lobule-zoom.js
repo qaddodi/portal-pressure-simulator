@@ -157,8 +157,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // "Move everything to GPU"): leadersBox is what shows (its fades and its pan's shift are the compositor's), leaders the model in it,
   // whose numbers the picture draws as they stand; a change to one asks for a frame of the picture.
   const leadersBox = h('div', { class: 'lz-leaders svg-gl-box', 'aria-hidden': 'true' });
-  const leaders = svgModel('svg', { viewBox: '0 0 1 1', preserveAspectRatio: 'none' });
-  const leadGL = createSvgGL(leadersBox);
+  const leaders = svgModel('svg', { 'data-look': 'small.root', viewBox: '0 0 1 1', preserveAspectRatio: 'none' });
+  const leadGL = createSvgGL(leadersBox, { host: 'lobule' });
   const leadPaint = () => leadGL.paint();
   leadGL.cv.setAttribute('aria-hidden', 'true'); leadGL.cv.removeAttribute('role');
   leadGL.show(leaders, false);
@@ -167,7 +167,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   leadGL.skip = () => leadersBox.classList.contains('cap-lead') && !classHas(callRing, 'on');
   if (typeof MutationObserver === 'function') new MutationObserver(() => leadGL.paint()).observe(leaders, { subtree: true, childList: true, attributes: true, attributeFilter: ['x1', 'y1', 'x2', 'y2', 'cx', 'cy', 'r', 'viewBox', 'style', 'transform'] });
   // (What a slide lights is a class on the app: the leaders' looks are read again when it changes.)
-  { const app = document.querySelector('.app') || document.getElementById('app'); if (app && typeof MutationObserver === 'function') new MutationObserver(() => { leadGL.relook(); mirrorAll(); }).observe(app, { attributes: true, attributeFilter: ['data-lit', 'class'] }); }
+  { const app = document.querySelector('.app') || document.getElementById('app'); if (app && typeof MutationObserver === 'function') new MutationObserver(() => { syncDim(); leadGL.relook(); mirrorAll(); }).observe(app, { attributes: true, attributeFilter: ['data-lit', 'class'] }); }
   const labels = h('div', { class: 'lz-labels' });
   // The labels, zone names and the slide's call are drawn by the GPU (label-captions.js), each where the page set it (mirrorOf, read between
   // frames) and moved in the frame that moves the lobule; the page's own are a clear model for clicks and screen readers, placed between
@@ -176,8 +176,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // (The page's own names are made clear only once the GPU's picture of them is on the screen, and shown again if it is lost: label-captions.js presented.)
   // (Written in the task that handed the picture over, not in a later one: the page's names are made clear in the very frame the GPU's picture
   // first shows, never a frame, or a rest pass, after it, when both would show: the double captions.)
-  cap.onPresented = () => { labels.classList.add('cap-gl-on'); leadersBox.classList.add('cap-lead'); leadGL.relook(); };
-  cap.onLost = () => { labels.classList.remove('cap-gl-on'); leadersBox.classList.remove('cap-lead'); leadGL.relook(); };
+  cap.onPresented = () => { labels.classList.add('cap-gl-on'); leadersBox.classList.add('cap-lead'); leaders.classList.add('cap-lead'); leadGL.relook(); };   // (the model's root carries it too: its leaders' looks read it)
+  cap.onLost = () => { labels.classList.remove('cap-gl-on'); leadersBox.classList.remove('cap-lead'); leaders.classList.remove('cap-lead'); leadGL.relook(); };
 
   // ── What sits on the lobule ──
   // Zones and Lymph are layers (the toolbar's Layers menu keeps them in the store). Nothing floats in a card.
@@ -194,7 +194,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   };
   store.on('lobuleLayers', () => syncLayers());
   // A presenter slide's pointer at the lesion (D4): { at: 'triad' | 'sin' | 'cv', label, kind: block | treat | note }.
-  const callEl = h('div', { class: 'lz-call', 'aria-hidden': 'true' }), callLine = svgModel('line', { class: 'lz-call-l' }), callRing = svgModel('circle', { class: 'lz-call-r' });
+  const callEl = h('div', { class: 'lz-call', 'aria-hidden': 'true' }), callLine = svgModel('line', { class: 'lz-call-l', 'data-look': 'small.call' }), callRing = svgModel('circle', { class: 'lz-call-r', 'data-look': 'small.call' });
   const callParts = [callEl, callLine, callRing];   // (the pill, its leader and its ring: toggled together)
   let call = null, callWant = null, callSwap = 0;
   store.on('presentFp', () => { if (model) panel(); });   // (a slide's settled values arrive: the sinusoid label reads as its tile)
@@ -1461,7 +1461,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // Every label and its leader are made with the view, hidden, in the order the panel names them (so their tab order is the panel's):
   // a frame that first names one finds it made.
   function labMake(key) {
-    const L = labs[key] = { el: h('button', { class: 'lz-lab', type: 'button', 'data-target': `lobule:${LZ_TARGET[key] || key}` }), line: svgModel('line', { class: 'leader', 'data-target': `lobule:${LZ_TARGET[key] || key}` }), dotEl: svgModel('circle', { class: 'leader-dot', r: 3, 'data-target': `lobule:${LZ_TARGET[key] || key}` }) };
+    const L = labs[key] = { el: h('button', { class: 'lz-lab', type: 'button', 'data-target': `lobule:${LZ_TARGET[key] || key}` }), line: svgModel('line', { class: 'leader', 'data-look': 'small.lead.line', 'data-target': `lobule:${LZ_TARGET[key] || key}` }), dotEl: svgModel('circle', { class: 'leader-dot', 'data-look': 'small.lead.dot', r: 3, 'data-target': `lobule:${LZ_TARGET[key] || key}` }) };
     L.el.addEventListener('click', (ev) => { if (!geo || ev.detail !== 0) return; const q = anchorOf(key); if (classHas(L.el, 'edge')) centreOn(q); else select(hitKind(key), [q[0], q[1]]); });
     // (Hidden until it is first placed, where it fades in: a label its slide does not name never shows at all.)
     L.el.hidden = true;
@@ -1960,6 +1960,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   }
   // A label a slide's words leave unlit fades out (app.css, the presenting app's data-lit): the same test, on the lit terms kept.
   const DIM_A = 0.35;   // (an unlit name's alpha on a slide that lights terms: Mohammad's pick 14.3 B)
+  // (The leaders in this layer fade with their names: a class on each, as the sheet's presenting-and-lit rule set their strength, read again by the picture.)
+  const syncDim = () => { for (const k in labs) { const L = labs[k]; if (!L.line) continue; const d = dimmed(L.el.dataset.target); classSoon(L.line, 'lz-dim', d); classSoon(L.dotEl, 'lz-dim', d); } };
   const dimmed = (t) => {
     const lit = litOf();
     if (!litRaw || !/(^| )(lobule|sinusoid):/.test(litRaw) || !appEl?.classList.contains('presenting')) return false;

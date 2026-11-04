@@ -4,13 +4,17 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+import { LOOKS } from '../src/ui/chart-looks/index.js';
+import { makeCtx, withCtx, resolveProps } from '../src/ui/chart-looks/resolve.js';
 
 test('the lobule callout ring and leader are at least 4px thick, in every kind', () => {
-  const rule = css.match(/^\.lz-call-l, \.lz-call-r \{[^}]*\}/m)?.[0] || '';
-  const w = parseFloat(rule.match(/stroke-width:\s*([\d.]+)px/)?.[1]);
-  assert.ok(w >= 4, `stroke-width is ${w}px`);
-  assert.doesNotMatch(css, /\.lz-call-[lr][^{]*\{[^}]*stroke-width:\s*[0-3](\.\d+)?px/);
+  // (their looks are the chart-looks table's now: small.call, both pieces)
+  const c = withCtx(makeCtx({ host: 'lobule' }), { theme: 'light', dark: false, palette: 'navy', view: 'anatomic' });
+  for (const kind of [undefined, 'block', 'treat', 'note']) for (const on of [false, true]) {
+    const w = resolveProps(LOOKS['small.call'], c, { kind, on }, {}).width;
+    assert.ok(w >= 4, `stroke-width is ${w}px (${kind}, on ${on})`);
+  }
+  assert.doesNotMatch(readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8'), /\.lz-call-[lr]/, 'no sheet rule is left to thin it');
 });
 
 test('the lesion leader starts on the ring\'s edge, and labels keep clear of the ring', () => {
