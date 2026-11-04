@@ -49,6 +49,13 @@ export function keepLayer(ctx, name, sig, draw) {
 // and clipped to the chart's own box (place), so pixels still map 1:1 and nothing is copied or resized.)
 const pools = [];
 /** Size reallocations of the shared buffer and pictures handed over, since the page opened (the ?perf readout, audit R04). */
+// (P2, perf review 4 Nov 2026: the pool hands over its WHOLE buffer per chart, so a layer over a quarter of the screen, like the lobule's leaders once did,
+// slows every chart. It is noted once in pps.caught() and the ?perf paste, to find the next one.)
+let bigNoted = false;
+const bigLayer = (Wd, Hd) => {
+  const px = typeof screen !== 'undefined' && screen.width > 0 ? screen.width * screen.height * (devicePixelRatio || 1) ** 2 : 0;
+  return px > 0 && Wd * Hd > px / 4;
+};
 export const sharedStats = { covRemade: 0, resizes: 0, transfers: 0, moves: 0, covAllocs: 0, uploads: 0, subUploads: 0 };
 const CAP_STEP = 256;
 const SHRINK_MS = 1000;   // (the shared buffer is cut back to the largest chart drawn in the last one to two seconds)
@@ -797,6 +804,7 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
     /** Starts a frame over a chart w × h CSS px, drawn at Wd × Hd device px. False: the GPU cannot draw now (the 2D canvas draws the chart). */
     begin(w, h, Wd, Hd) {
       if (!api.ready || w < 1 || h < 1) { api.hide(); return false; }
+      if (!bigNoted && bigLayer(Wd, Hd)) { bigNoted = true; caught('trace-gl:big-layer', new Error(`a chart layer of ${Wd} x ${Hd} device px went through the shared pool: every hand-over copies the whole buffer`)); }   // alloc-rare: once per page
       if (shown) {
         // (Another chart's frame still open in the shared context is finished first: its picture handed over before this one starts.)
         if (shared.active && shared.active !== api) shared.active.end();
