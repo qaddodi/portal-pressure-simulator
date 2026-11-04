@@ -2982,9 +2982,13 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // figure's canvas (a hide, the first framing), as uniforms of one pass, so the glass drawn over the figure in the same present never moves
   // or fades with it. Set by the stage; none (k 1, a 1) is the plain copy, as before.
   const cam = { k: 1, ox: 0, oy: 0, a: 1 };
-  const camOn = () => cam.k !== 1 || cam.a !== 1;
+  // (The scene camera of a card's zoom, composed after the dive's: p' = k p + (ex, ey) in canvas px, y down. The glass drawn over the figure is
+  // not moved by it: it is drawn from the zoomed card's own place. setScene.)
+  const scn = { k: 1, ex: 0, ey: 0 };
+  const camOn = () => cam.k !== 1 || cam.a !== 1 || scn.k !== 1;
   let camP = null;
   function camDraw(tex, blend, k = cam.k, ex = (1 - cam.k) * cam.ox, eyUp = (1 - cam.k) * (canvas.height - cam.oy), a = cam.a) {
+    if (scn.k !== 1) { ex = scn.k * ex + scn.ex; eyUp = scn.k * eyUp + canvas.height * (1 - scn.k) - scn.ey; k *= scn.k; }
     if (camP === null) {
       try { camP = finishProgram(gl, startProgram(gl, REUSE_VS, CAM_FS)); } catch (e) { console.warn('Veins renderer: the camera shader could not be made.', e); camP = false; }
     }
@@ -4240,6 +4244,16 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       a = Math.min(1, a);
       if (cam.k === k && cam.a === a && (k === 1 || (cam.ox === ox && cam.oy === oy))) return;
       cam.k = k; cam.a = a; cam.ox = ox; cam.oy = oy;
+      if (!lost) present(true, true);
+    },
+    /**
+     * The scene camera of a card's zoom: the figure (and its overlays) laid scaled by k and moved by (ex, ey) (canvas px, y down), after the
+     * dive's camera; (1, 0, 0) is none. Lays the canvas again at once when it changed.
+     */
+    setScene(k, ex = 0, ey = 0) {
+      if (!(k > 0)) return;
+      if (scn.k === k && (k === 1 || (scn.ex === ex && scn.ey === ey))) return;
+      scn.k = k; scn.ex = k === 1 ? 0 : ex; scn.ey = k === 1 ? 0 : ey;
       if (!lost) present(true, true);
     },
     get camera() { return cam; },

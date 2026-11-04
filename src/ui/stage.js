@@ -61,7 +61,8 @@ import { hitLabel, explainText, createExplain } from './label-explain.js';
 import { nameSpots, NAME_BREAK } from './organ-names.js';
 import { createLabelGL } from './label-gl.js';
 import { hits, crosses, within, RING_DIRS, offset } from './label-place.js';
-import { createGlassGL, glassHold, glassRegions, GLASS, PANE, roundPath } from './glass-gl.js';
+import { sceneCam } from './scene-cam.js';
+import { createGlassGL, glassRegions, GLASS, PANE, roundPath } from './glass-gl.js';
 import { writePoints, writeJoinNow } from './veins-sweep.js';
 import { ENT_W } from './veins-bin.js';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js';
@@ -2706,7 +2707,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // (The view as it stands, when it stands still at a framing a card's room can be followed from: not mid-glide or push, nor in the
   // lobule, the circuit or a morph or dive.)
-  const viewNow = () => (following || vtGliding || drifting || lobuleOn || morphTarget !== 0 || morph > 0 || diveT > 0 ? null : { k: vt.k, x: vt.x, y: vt.y });
+  const viewNow = () => (following || zoomBase || vtGliding || drifting || lobuleOn || morphTarget !== 0 || morph > 0 || diveT > 0 ? null : { k: vt.k, x: vt.x, y: vt.y });
   function followStart(v0, v1) {
     if (!v0 || !v1 || sameView(v0, v1) || !viewNow()) return false;
     cancelFrame(vtAnim); driftEnd();
@@ -2727,34 +2728,53 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // and then moved by (dx, dy) screen px, the same transform the zoomed cards are given, so the figure, the liver and the labels' places ride with them.
   // zoomOpen takes the view as it stands (null: it is not at rest, nothing is zoomed); zoomAt is one frame of it, written as the view (k, x, y), one
   // transform, no glide of its own; zoomEnd gives the view up (the card has gone back, the view is the one it began at) and the labels are solved again.
-  let zoomLz = false;
+  // (The figure's camera is not moved by the card zoom any more, 4 Nov 2026, card-zoom-plan.md: the view (vt), the label solves and the
+  // cards' room stay as they rest, and one scene camera (scene-cam.js, written by card-zoom.js each frame) is read by every layer in the same
+  // frame: the figure's canvas lays its picture through it (veins-gl setScene), a station label is drawn at C(its point) plus its own offset
+  // (pinTo), a label with no station is carried by its centre (label-gl ride), and the page's figure layers take one CSS matrix. The labels
+  // keep their screen size. Closing is C back to the identity: nothing is laid out, so nothing settles.)
+  let zoomLz = false, zoomM = null, zoomLayers = null;
+  const zoomM6 = [1, 0, 0, 1, 0, 0];   // (C in stage px, written in place each frame: the label ride's matrix and the pinned points')
   function zoomOpen() {
     if (zoomBase) return false;
     if (lobuleOn && lz?.zoomOpen) { if (!lz.zoomOpen()) return false; zoomBase = { lz: true }; zoomLz = true; return true; }
     if (!viewNow()) return false;
-    cancelFrame(vtAnim);
-    const b = stageBox(), vb = vbBox, s = Math.min(b.sw / vb.width, b.sh / vb.height);
-    zoomBase = { vt: { ...vt }, s, ox: b.left + b.sx + (b.sw - vb.width * s) / 2 - vb.x * s, oy: b.top + b.sy + (b.sh - vb.height * s) / 2 - vb.y * s };
-    following = true; follow0 = follow1 = null;   // (the labels' places ride the zoom frame by frame; none is solved, none settles at its end)
+    refreshCTM();
+    // (The figure's page layers and where each stands, read now, before any write: the zoom's frames read nothing.)
+    const layers = [svg, wrap.querySelector('#stageOver'), wrap.querySelector('.cath-labels')].filter(Boolean);
+    zoomLayers = layers.map((el) => { const r = el.getBoundingClientRect(); return { el, left: r.left, top: r.top }; });
+    for (const l of zoomLayers) { l.el.style.transformOrigin = '0 0'; l.el.style.transition = 'none'; }
+    zoomBase = { scene: true };
+    rideStart();   // (the labels with no station ride the camera by their centres; the leaders' page layer eases out as in a ride)
     return true;
   }
-  function zoomAt(S, px, py, dx, dy) {
+  function cardZoomAt(S, px, py, dx, dy) {
     const z = zoomBase;
     if (!z) return;
     if (zoomLz) { lz.zoomAt(S, px, py, dx, dy); return; }
-    if (!following) return;
-    vt = { k: z.vt.k * S, x: S * z.vt.x + ((px - z.ox) / z.s) * (1 - S) + dx / z.s, y: S * z.vt.y + ((py - z.oy) / z.s) * (1 - S) + dy / z.s };
-    applyVT(); CTM = null;
-    if (cath.st) { refreshCTM(); cathLabelsSoon(); }
-    if (sites.list) { refreshCTM(); sitesPaint(); }
-    if (scan.on) scanPaint(); dprobePaint();
+    if (!z.scene || !wrapRect) return;
+    sceneCam.set(S, px, py, dx, dy);
+    zoomM6[0] = S; zoomM6[3] = S; zoomM6[4] = sceneCam.tx(wrapRect.left); zoomM6[5] = sceneCam.ty(wrapRect.top);
+    zoomM = zoomM6;
+    // The figure's canvas (canvas px), the page's figure layers (one matrix each) and the labels, all from the same camera, in this frame.
+    const sx = vCanvas.width / (boxW || vCanvas.width || 1), sy = vCanvas.height / (boxH || vCanvas.height || 1);
+    veins?.setScene?.(S, zoomM6[4] * sx, zoomM6[5] * sy);
+    for (const l of zoomLayers) l.el.style.transform = `matrix(${S.toFixed(5)},0,0,${S.toFixed(5)},${((S - 1) * (l.left - px) + dx).toFixed(2)},${((S - 1) * (l.top - py) + dy).toFixed(2)})`;
+    if (rideCTM) labelRider.ride(zoomM6);   // (draws every label: the stations' at C(their points), the rest carried)
+    else labelGL?.pinDraw();
   }
   function zoomEnd() {
     if (!zoomBase) return;
-    const z = zoomBase; zoomBase = null; glassHold.on = false;
+    const z = zoomBase; zoomBase = null;
     if (zoomLz) { zoomLz = false; lz?.zoomEnd(); return; }
-    if (following) { vt = { ...z.vt }; applyVT(); CTM = null; }
-    followEnd();
+    if (!z.scene) return;
+    sceneCam.off(); zoomM = null;
+    veins?.setScene?.(1, 0, 0);
+    for (const l of zoomLayers || []) { l.el.style.transform = ''; l.el.style.transformOrigin = ''; l.el.style.transition = ''; }
+    zoomLayers = null;
+    rideStop();
+    labelGL?.pinDraw();
+    stageWake();
   }
   function followEnd() {
     if (!following) return;
@@ -10382,9 +10402,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const PIN_DIR = { N: [0, -1], S: [0, 1], E: [1, 0], W: [-1, 0], EL: [1, 0], WL: [-1, 0], NE: [0.72, -0.72], NW: [-0.72, -0.72], SE: [0.72, 0.72], SW: [-0.72, 0.72] };
   if (labelGL) labelGL.pinTo((id, out, mid, au) => {
     if (!CTM) refreshCTM();
-    if (mid && au != null && au !== 0.5 && pinVesselAt(id, au)) { out[0] = PIN_P[0]; out[1] = PIN_P[1]; return Number.isFinite(out[0]) && Number.isFinite(out[1]); }
+    if (mid && au != null && au !== 0.5 && pinVesselAt(id, au)) { out[0] = PIN_P[0]; out[1] = PIN_P[1]; if (zoomM) { out[0] = zoomM[0] * out[0] + zoomM[4]; out[1] = zoomM[3] * out[1] + zoomM[5]; } return Number.isFinite(out[0]) && Number.isFinite(out[1]); }
     const t = easeInOut(morph), a = labelAnchor(id, t);
     if (mid || !a.mid) { out[0] = a.ax; out[1] = a.ay; } else { const p = nodePos(id, t); worldToLocalInto(PIN_P, p[0], p[1]); out[0] = PIN_P[0]; out[1] = PIN_P[1]; }
+    // (A card's zoom: the point is carried by the scene camera; the label's offset from it is not.)
+    if (zoomM) { const x = out[0], y = out[1]; out[0] = zoomM[0] * x + zoomM[4]; out[1] = zoomM[3] * y + zoomM[5]; }
     return Number.isFinite(out[0]) && Number.isFinite(out[1]);
   });
   wrap.dataset.labels = labelGL ? 'gpu' : 'svg';
@@ -15382,7 +15404,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     /** The camera is about to glide only to refit the figure to cards that changed (the same slide): a probe showing rides that glide out, never hides. */
     carryProbe() { dpr.refitUntil = performance.now() + 300; },
     /** The presenter's card followed frame by frame: aimView(fn) (where fn's framing would go), viewNow(), follow(v0, v1), followAt(u), followEnd(), following(). */
-    aimView, viewNow, follow: followStart, followAt, followEnd, following: () => following, zoomOpen, zoomAt, zoomEnd,
+    aimView, viewNow, follow: followStart, followAt, followEnd, following: () => following || !!zoomBase, zoomOpen, zoomAt: cardZoomAt, zoomEnd,
     fitSlow(ms = 1300, opt = {}) { if (lobuleOn) return; const to = defaultVT(morphTarget === 1); if (morphTarget !== 1) homeAt = to; else markCirc('focus', to); fitted = true; if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms, opt.steady ? { steady: true } : { scale: true }); },
     /** The same fit as a slow push (a time-lapse's lapse.cam 'fit'): see drifting. */
     fitDrift(ms) { if (lobuleOn) return; const to = defaultVT(morphTarget === 1); if (morphTarget !== 1) homeAt = to; else markCirc('focus', to); fitted = true; if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms, { drift: true }); },
