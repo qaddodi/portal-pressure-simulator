@@ -61,12 +61,16 @@ const cut = (e) => {
 };
 function ensure() {
   if (reg || !api?.add) return;
-  reg = api.add(live, { watch: document.body, before: document.body, cut });
+  // (No watch root: a subtree watch of the body measured every glass at each style or class write anywhere in the page, which flickered the pills and cards behind a menu. Each open menu is watched on its own, below.)
+  reg = api.add(live, { watch: [], before: document.body, cut });
 }
+const own = new MutationObserver((rs) => { if (rs.length) reg?.redraw?.(); });
+const watchOne = (el) => own.observe(el, { attributes: true, attributeFilter: ['style', 'class', 'hidden'] });
 /** Registers `el` (a .menu or .umenu) with the glass; null where there is no glass API (the caller then asks plate-gl.js). */
 export function glassPlate(el) {
   if (!api?.add) return null;
   open.add(el);
+  watchOne(el);
   listen();
   sync(el);
   ensure();
@@ -77,4 +81,4 @@ export function glassPlate(el) {
   };
 }
 /** The region is made once, with the app (it shares the cards' renderer, so it costs no second blur of the figure); the Why? pop, which stays in the page, is in it. */
-export function whyGlass() { if (api?.add) { listen(); ensure(); } }
+export function whyGlass() { if (api?.add) { listen(); ensure(); const w = document.getElementById('whyPop'); if (w) watchOne(w); } }

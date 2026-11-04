@@ -1788,10 +1788,11 @@ const CHROME = ['.topbar .tb-face:not([data-ghost])', '.topbar .float-pill:not(.
 let chromeGL = null;
 function chromeGlass() {
   if (chromeGL) return;
-  const roots = ['#topbar', '#vdock', '#zoomPill', '#stageView'].map((q) => $(q)).filter(Boolean);
+  const roots = ['#topbar', '#vdock', '#zoomPill'].map((q) => $(q)).filter(Boolean);
   if (!roots.length) return;
   const list = [];
   let at = -1e9;
+  // (Not #stageView: its labels and layers write styles every frame, each one a measure of every glass.)
   // (The set changes only when a pill is made or goes (a face is added, the legend comes with the lobule): looked up twice a second, not in each frame.)
   const live = () => { const t = performance.now(); if (t - at > 500) { at = t; list.length = 0; for (const el of document.querySelectorAll(CHROME)) list.push(el); } return list; };
   chromeGL = stage?.glass?.add(live, { watch: roots, before: roots[0], tint: (_g, cs) => cs.getPropertyValue('--frost') }) || null;
