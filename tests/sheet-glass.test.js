@@ -9,7 +9,7 @@ const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 
 test('the three sheets\' plates are drawn by the cards\' glass, cut at the sheet\'s still foot', () => {
   assert.match(main, /const SHEETS = \['#panel', '#treatCard', '#dock'\]/);
-  assert.match(main, /stage\?\.cardGlass\?\.\(\{ find: plates, watch: els, before: els\[0\], cut:/);
+  assert.match(main, /stage\?\.glass\?\.add\(plates, \{ watch: els, before: els\[0\], cut:/);
   assert.match(main, /\n {2}sheetGlass\(\);\n/, 'made once the sheets are set up');
   assert.match(glass, /const cut = cards\.cut \? cards\.cut\(g\) \|\| null : null;/);
   assert.match(glass, /G\.enable\(G\.SCISSOR_TEST\); G\.scissor\(0, Math\.max\(0, H - b\), W, Math\.max\(0, Math\.min\(H, b\)\)\);/);

@@ -1756,26 +1756,24 @@ const tabletMQ = matchMedia(TABLET_UP_MQ);
 // the plate's slide from its translate and its eases, never a read in a frame. It is cut at the sheet's still foot (cut: the sheet's box, read with the
 // glass's other boxes when the page is read, not in each frame), as the sheet's own clip cuts what slides below it on the page. Where the figure's canvas cannot take it, the plate keeps its paper (app.css).
 const SHEETS = ['#panel', '#treatCard', '#dock'];
-let sheetGL = null, sheetGLTry = 0;
+let sheetGL = null;
 function sheetGlass() {
   if (sheetGL) return;
   const els = SHEETS.map((q) => $(q)).filter(Boolean);
   if (!els.length) return;
   const plates = () => els.filter((el) => !el.hidden && el.classList.contains('has-plate')).map((el) => el.querySelector(':scope > .sheet-plate')).filter(Boolean);
-  sheetGL = stage?.cardGlass?.({ find: plates, watch: els, before: els[0], cut: (g) => { const el = g.parentElement; const b = el && readBox(el); return b ? { bottom: b.bottom } : null; } }) || null;
-  // (The figure's canvas not made yet: asked again shortly, a few times.)
-  if (!sheetGL && sheetGLTry++ < 20) setTimeout(sheetGlass, 500);
+  // (glass.add asks again by itself while the figure's canvas is not made yet.)
+  sheetGL = stage?.glass?.add(plates, { watch: els, before: els[0], cut: (g) => { const el = g.parentElement; const b = el && readBox(el); return b ? { bottom: b.bottom } : null; } }) || null;
 }
 // The toasts wear the same frosted GPU glass (Mohammad, 3 Nov 2026: "100% GPU", "CARDS ARE GLASS"): each card's tint, edge and shadow are drawn
 // in the figure's canvas, the words and buttons by the toast's own GPU picture (toast-gl.js). The card's box is read like any card's, and
 // it follows its slide and fade as the others do.
-let toastGL = null, toastGLTry = 0;
+let toastGL = null;
 function toastGlass() {
   if (toastGL) return;
   const wrap = $('#toasts');
   if (!wrap) return;
-  toastGL = stage?.cardGlass?.({ find: () => TOASTS, watch: [wrap], before: wrap }) || null;
-  if (!toastGL && toastGLTry++ < 20) setTimeout(toastGlass, 500);
+  toastGL = stage?.glass?.add(() => TOASTS, { watch: wrap, before: wrap }) || null;
 }
 const sheetInner = (c) => { const l = c.lastElementChild; if (!l) return 0; const b = parseFloat(readStyle(c).paddingBottom) + parseFloat(readStyle(l).marginBottom); return readBox(l).bottom - readBox(c).top + readMetric(c, 'scrollTop') + b; };
 function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = null, anywhere = false }) {

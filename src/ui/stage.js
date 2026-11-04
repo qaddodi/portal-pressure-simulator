@@ -61,7 +61,7 @@ import { hitLabel, explainText, createExplain } from './label-explain.js';
 import { nameSpots, NAME_BREAK } from './organ-names.js';
 import { createLabelGL } from './label-gl.js';
 import { hits, crosses, within, RING_DIRS, offset } from './label-place.js';
-import { createGlassGL } from './glass-gl.js';
+import { createGlassGL, glassRegions } from './glass-gl.js';
 import { writePoints, writeJoinNow } from './veins-sweep.js';
 import { ENT_W } from './veins-bin.js';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js';
@@ -8048,7 +8048,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const key = {};
     const g = createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, cards, live: () => !!frostLiver || (wrap.classList.contains('gl-on') && !anatCovered() && !(diveT > 0)), version: frostSeq, fresh: frostFresh, onFigure: (f) => veins.onPicture(f), copy: false, onHoles: frostHoles(key) });
     if (!g) return null;
-    hostFrost(g, { order: { low: 1, high: 3 }, active: () => !frostWhy(true), why: () => frostWhy(true), over: noOver, low: (el) => el === shade || el?.dataset?.ghost === 'shade' });
+    hostFrost(g, { order: { low: 1, high: 3 }, active: () => !frostWhy(true), why: () => frostWhy(true), over: noOver, low: (el) => el === shade || !!cards.isLow?.(el) || el?.dataset?.ghost === 'shade' });
     cardGLs.add(g);
     const dispose = g.dispose;
     g.dispose = () => { cardGLs.delete(g); frostHosts.delete(g); dispose(); if (holeSets.delete(key)) sendHoles(); };
@@ -15008,6 +15008,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (!on && scan.parked) { scan.parked = false; if (scan.on && !scan.raf) { scan.last = 0; scan.raf = nextFrame(scanTick); } }   // (the probe's waves, parked at rest: scanTick)
     },
     cardGlass,
+    /** One-call glass anywhere: glass.add(el, { blur, tint, shape }) -> { remove() } (glass-gl.js glassRegions). */
+    glass: glassRegions(cardGlass, wrap),
     blurWhy,
     glassBox,
     setView(v) {

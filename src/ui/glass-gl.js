@@ -512,7 +512,7 @@ export function dropsOf(v) {
 }
 export function createGlassGL(wrap, source, layers, { software = false, live = () => true, pane = null, cards = null, version = null, capture = null, onFigure = null, keep = null, due = null, copy = true, reblur = 0, fresh = null, full = false, onHoles = null } = {}) {
   if (reblur > 0) fresh = null;
-  const look = pane ? PANE : cards ? CARD : GLASS;
+  const look = pane ? PANE : cards ? (cards.look ? { ...CARD, ...cards.look } : CARD) : GLASS;   // (cards.look: a region's own blur, sat, scale, margin: glassRegions below)
   const SCALE = look.scale || SCALE0, MARGIN = look.margin || MARGIN0;
   // (While the cards' glass is drawn in the figure's canvas (html[data-cardgl]), a card not yet marked as drawn there shows no solid card
   // (app.css): a card coming in showed the solid fallback for its first frame or two, before its glass's first draw, a flash of solid then
@@ -766,7 +766,11 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
       if (cards) {
         // (Its CSS says whether this element's glass is its own (--gl-glass 1) and what its tint is; a filter on it (a brightness) would
         // not reach a glass drawn here, so such a card keeps the browser's.)
-        if (cs.getPropertyValue('--gl-glass').trim() !== '1' || (cs.filter && cs.filter !== 'none')) continue;
+        // (reg: the glass.add region of this element (cards.region, glassRegions): it asked for glass, so its CSS need not say --gl-glass 1; its tint
+        // and shape, when it gives them, are its own.)
+        const reg = cards.region ? cards.region(g) : null;
+        if (!reg && cs.getPropertyValue('--gl-glass').trim() !== '1') continue;
+        if (cs.filter && cs.filter !== 'none') continue;
         const r = drawnRect(g);
         if (!r.width || !r.height || !shows(a)) { if (r.width && r.height) fadedNow.add(g); continue; }
         const zk = g.drawnScale ? g.drawnScale() : 1;   // (a zoomed card's scale: its corners grow with it)
@@ -776,7 +780,9 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
         // (cut: the still box a glass that slides is cut off at (a phone sheet's paper sliding below its resting foot, which the sheet's
         // own clip hides on the page): { bottom } in client px, from cards.cut(g), kept where it is while the glass moves.)
         const cut = cards.cut ? cards.cut(g) || null : null;
-        panes.push({ g, el, oa: 1, a, r, d: null, rad: zk > 1.001 || zk < 0.999 ? radiiOf(cs).map((v) => v * zk) : radiiOf(cs), lw: r.width, lh: r.height, er: r, shadow: null, tint: cs.getPropertyValue('--gl-tint'), k: 1, drops, line, cut });
+        const shp = reg?.shape ? (typeof reg.shape === 'function' ? reg.shape(g, r) : reg.shape) : null;   // (a path: { d, w, h } in the box's own px; else the box's rounded corners)
+        const tn = reg?.tint ? (typeof reg.tint === 'function' ? reg.tint(g, cs) : reg.tint) : cs.getPropertyValue('--gl-tint');
+        panes.push({ g, el, oa: 1, a, r, d: shp?.d || null, rad: shp?.d ? null : zk > 1.001 || zk < 0.999 ? radiiOf(cs).map((v) => v * zk) : radiiOf(cs), lw: shp?.d ? shp.w : r.width, lh: shp?.d ? shp.h : r.height, er: r, shadow: null, tint: tn, k: 1, drops, line, cut });
         continue;
       }
       const r = g.getBoundingClientRect(), lw = NUM(g.style.width), lh = NUM(g.style.height);
@@ -1771,7 +1777,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   // is taken by its loop (takeRecords). The microtask draw it was had drawn a second time in a frame while callouts moved; 30 Oct,
   // review H4b.)
   const mo = new MutationObserver((recs) => { if (!recs?.length || changed(recs)) measureEarly(); quiet = 0; ask(); });
-  const watched = cards ? cards.watch : pane ? [pane] : layers;
+  const watched = cards ? [...cards.watch] : pane ? [pane] : layers;   // (a copy: watch(root) adds to it)
   for (const l of watched) mo.observe(l, { subtree: true, childList: true, attributes: true, attributeOldValue: true, attributeFilter: ['style', 'class', 'data-at', 'hidden'] });
   const again = () => measureEarly();
   const observers = [mo, new MutationObserver(again), new MutationObserver(again)];
@@ -1808,6 +1814,15 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   };
   const EVENTS = ['transitionrun', 'transitionstart', 'transitionend', 'transitioncancel', 'animationstart', 'animationend', 'animationcancel', 'pointerover', 'pointerout'];
   for (const l of watched) for (const t of EVENTS) l.addEventListener(t, held, true);
+  // A root watched from now on (a region added after the glass was made): the same watch, observer, parents and events as the first ones.
+  function watchMore(l) {
+    if (!l || dead || watched.includes(l)) return;
+    watched.push(l);
+    mo.observe(l, { subtree: true, childList: true, attributes: true, attributeOldValue: true, attributeFilter: ['style', 'class', 'data-at', 'hidden'] });
+    for (let e = l.parentElement; e && e.nodeType === 1; e = e.parentElement) parentsMo.observe(e, { attributes: true, attributeFilter: ['style', 'class', 'hidden'] });
+    for (const t of EVENTS) l.addEventListener(t, held, true);
+    measureEarly();
+  }
   addEventListener('resize', again);
   // (card-zoom.js moves the card in the frame loop and tells each frame: the glass is drawn in that frame, from the same zoom.)
   const onZoomFrame = () => { quiet = 0; ask(); };
@@ -1840,6 +1855,8 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   measureGeo();
   return {
     canvas,
+    /** Also watches `root` for writes that may move this glass's elements (a region added later). */
+    watch: watchMore,
     // (Asked from outside, often in a frame (the labels drew anew): it looks now, and reads the page once that has rested.)
     redraw() { measureAtRest(); wake(); },
     /** The figure's canvas to draw into while it may (see above); callouts only. */
@@ -1946,4 +1963,67 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
       canvas?.remove();
     },
   };
+}
+
+/**
+ * One-call glass anywhere (G2): `glass.add(el, { blur, tint, shape })` frosts the figure behind `el` on the GPU and returns a handle with
+ * remove(). Each frame the renderer reads the element's box and corner radius (or the given path) and cuts that region out of the blurred
+ * figure; the card, sheet and toast glass are plain users of it. `make` is stage.cardGlass (the renderer of one look); `wrap` is the stage.
+ *   el      an element, or a function that returns the live list of them (toasts come and go)
+ *   blur    CSS px of blur (default CARD.blur); regions of the same blur share one renderer and one blur of the figure
+ *   tint    a CSS colour, or (el, computedStyle) => colour; else the element's --gl-tint
+ *   shape   { d, w, h } or (el, box) => { d, w, h }: an SVG path in the box's own px; else the box's rounded corners
+ *   before  an element beside the cards' layer (where fades stop counting; default the element itself)
+ *   watch   roots whose writes may move it (default: its parent); cut / shift / read / low (true, or e => bool)   the cards' own hooks (glass-gl cards option)
+ * Where no renderer can be made yet (the figure's canvas not there) it is asked again, 20 times at 500 ms; a region that never gets one
+ * keeps the page's solid card, as the cards did.
+ */
+export function glassRegions(make, wrap) {
+  const groups = new Map();
+  const live = (grp) => { const out = grp.out; out.length = 0; for (const rec of grp.recs) { const l = rec.el; if (typeof l === 'function') { const m = l(); for (let i = 0; i < m.length; i++) out.push(m[i]); } else out.push(l); } return out; };
+  const recOf = (grp, g) => { for (const rec of grp.recs) { if (rec.el === g) return rec; if (typeof rec.el === 'function' && rec.items().includes(g)) return rec; } return null; };   // alloc-rare: only a pane's read
+  function build(grp) {
+    if (grp.g) return true;
+    const blur = grp.blur;
+    const roots = []; for (const rec of grp.recs) roots.push(...rec.roots());
+    const g = make({
+      find: () => live(grp), watch: roots, before: [...grp.recs].map((r) => r.before)[0] || wrap, look: { blur, scale: blur <= 12 ? 4 : CARD.scale, margin: Math.ceil(blur * 3) },
+      region: (e) => recOf(grp, e),
+      read: (e) => { const rec = recOf(grp, e); return rec?.read ? rec.read(e) : undefined; },
+      shift: (e) => { for (const rec of grp.recs) { const s = rec.shift?.(e); if (s) return s; } return null; },
+      cut: (e) => { const rec = recOf(grp, e); return rec?.cut ? rec.cut(e) : null; },
+      isLow: (e) => { for (const rec of grp.recs) if (rec.low && (typeof rec.low === 'function' ? rec.low(e) : rec.items().includes(e))) return true; return false; },
+    });
+    if (!g) return false;
+    grp.g = g;
+    return true;
+  }
+  function add(el, o = {}) {
+    const grp = groups.get(o.blur ?? CARD.blur) || (() => { const n = { blur: o.blur ?? CARD.blur, recs: new Set(), out: [], g: null, tries: 0, t: 0 }; groups.set(n.blur, n); return n; })();
+    const rec = {
+      el, before: o.before || (typeof el === 'function' ? wrap : el), tint: o.tint, shape: o.shape, read: o.read, shift: o.shift, cut: o.cut, low: o.low,
+      items: () => (typeof el === 'function' ? el() : [el]),
+      roots: () => (o.watch ? [].concat(o.watch) : typeof el === 'function' ? [] : [el.parentElement || el]).filter(Boolean),
+    };
+    grp.recs.add(rec);
+    const start = () => {
+      grp.t = 0;
+      if (!grp.recs.size) return;
+      if (!grp.g) { if (!build(grp)) { if (grp.tries++ < 20) grp.t = setTimeout(start, 500); return; } }
+      else for (const r of rec.roots()) grp.g.watch?.(r);
+      grp.g.redraw?.();
+    };
+    if (grp.g) start(); else if (!grp.t) start();
+    return {
+      // (The renderer's own readings, for checks and the ?perf readout: those of the renderer this region's blur shares.)
+      drawn: () => grp.g?.drawn() ?? null, why: (e) => grp.g?.why(e) ?? null, boxOf: (e) => grp.g?.boxOf(e) ?? null,
+      state: () => grp.g?.state() ?? null, redraw: () => grp.g?.redraw(), get on() { return !!grp.g?.on; }, get hosted() { return !!grp.g?.hosted; },
+      remove() {
+        if (!grp.recs.delete(rec)) return;
+        if (!grp.recs.size) { clearTimeout(grp.t); grp.t = 0; grp.tries = 0; grp.g?.dispose(); grp.g = null; }
+        else grp.g?.redraw?.();
+      },
+    };
+  }
+  return { add };
 }
