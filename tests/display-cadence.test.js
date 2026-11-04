@@ -18,13 +18,15 @@ test('no surface paces steady motion to a fixed frame rate of its own', () => {
 
 test('Battery saver alone paces motion', async () => {
   globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
-  const { paceMs, setSaver, SAVER_MS } = await import('../src/ui/frame.js');
+  const { paceMs, setSaver, SAVER_MS, setFigLab } = await import('../src/ui/frame.js');
+  setFigLab('motion60', false);   // (on by default since 4 Nov 2026, Mac heat R1: it paces steady motion to 60 a second on its own)
   setSaver(false);
   assert.equal(paceMs(), 0);
   setSaver(true);
   assert.equal(paceMs(), SAVER_MS);
   assert.ok(SAVER_MS > 60 && SAVER_MS < 67);
   setSaver(false);
+  setFigLab('motion60', true);
 });
 
 test("the anatomy's top quality step draws the blood on every frame", () => {

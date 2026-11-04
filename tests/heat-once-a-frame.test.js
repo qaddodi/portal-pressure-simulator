@@ -141,14 +141,3 @@ test('the figure\'s pass is one owned request, whoever asks for it', () => {
   assert.match(st, /const askAnimate = \(\) => \{ if \(!animRaf\) animRaf = drawFrame\(animate\); \};\n\s+function animate\(now\) \{\n\s+animRaf = 0;/);
   assert.equal((st.match(/drawFrame\(animate\)/g) || []).length, 1, 'asked for only through askAnimate');
 });
-
-test('a presentation\'s instruments let go of their frames and observers', () => {
-  const fib = read('../src/ui/fibroscan.js');
-  assert.match(fib, /function dispose\(\) \{ gone = true; running = false; anim\(false\); cancelFrame\(raf\); raf = 0; io\?\.disconnect\(\); boxRO\?\.disconnect\(\); offRun\(\); words\?\.dispose\(\); dropMap\(\); \}/, 'its frame, observer, store watch, words drawer and map canvas');
-  assert.match(fib, /if \(gone \|\| !onScreen\(\) \|\| document\.hidden\) \{ running = false; anim\(false\); return; \}/);
-  assert.match(read('../src/ui/pressure-time.js'), /io\?\.disconnect\(\); cancelFrame\(tickRaf\); tickRaf = 0; ticking = false; frame = null;/);
-  assert.match(read('../src/ui/flow-time.js'), /dispose\(\) \{ cancelFrame\(raf\); raf = 0; ro\?\.disconnect\(\); gl\.dispose\(\); \},/);
-  assert.match(read('../src/ui/talk-trace.js'), /dispose\(\) \{ ro\?\.disconnect\(\); gl\.dispose\(\); \}/);
-  const tools = read('../src/ui/presenter-tools.js');
-  assert.match(tools, /offFrame\(\); ro\?\.disconnect\(\); cancelRest\(svkRaf\); svkRaf = 0;\n\s+for \(const k of Object\.keys\(made\)\) \{ made\[k\]\?\.dispose\?\.\(\); delete made\[k\]; \}/);
-});

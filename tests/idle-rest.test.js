@@ -62,8 +62,8 @@ test('idle rest: listens to pointer, key, wheel, touch, scroll and focus', () =>
 test('idle rest is wired: Explore only, never in a talk or a time-lapse; the stage eases the blood and the worker holds', () => {
   const main = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8');
   assert.match(main, /st\.mode === 'explore' && !presenter\.active\(\) && !st\.lapse/);
-  assert.match(main, /onRest: \(\) => \{ stage\.rest\(true\); host\.send\(\{ type: 'visibility', visible: false \}\); \}/);
-  assert.match(main, /onWake: \(\) => \{ host\.send\(\{ type: 'visibility', visible: !document\.hidden \}\); stage\.rest\(false\); \}/);
+  assert.match(main, /onRest: \(\) => \{ setPageRest\(true\); stage\.rest\(true\); host\.send\(\{ type: 'visibility', visible: false \}\); \}/);
+  assert.match(main, /onWake: \(\) => \{ setPageRest\(false\); host\.send\(\{ type: 'visibility', visible: !document\.hidden \}\); stage\.rest\(false\); \}/);
   const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
   assert.match(stage, /const REST_IN_S = 1\.5, REST_OUT_S = 0\.4;/);
   assert.match(stage, /if \(!st\.running \|\| reduceMotion\.matches \|\| restStill\(\)\) return false;/);
