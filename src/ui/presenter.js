@@ -5824,7 +5824,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   }
   addEventListener('keydown', onKey, true);
   let ink = null;   // (N2: the pointer's spotlight and the pen, made at their first key: ink-gl.js)
-  const inkOf = () => ink ??= createInk({ host: view, xform: (o) => stage.figureXform(o), active: () => !!deck && !!ui && !black, onFigure: (e) => !!offFig(e) });
+  const inkOf = () => ink ??= createInk({ host: view, xform: (o) => stage.figureXform(o), top: () => stage.figureTop?.() ?? null, active: () => !!deck && !!ui && !black, onFigure: (e) => !!offFig(e) });
 
   // The card's own touch: along its axis it follows the finger (docking past half way or on a quick flick); a tap on the sliver opens it.
   function dockTouch(el, ...more) {   // (more: the card's sheet edge, its sibling, takes the same touch)

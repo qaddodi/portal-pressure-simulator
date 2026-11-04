@@ -6,12 +6,14 @@
 //    world, the lobule or the sinusoid) and laid again each frame the scheduler runs, through the figure's matrix (stage.figureXform), so it
 //    rides a pan, a zoom and a camera glide exactly as a label does, in the frame the figure moves. E erases; a new slide clears.
 //
-// One WebGL2 canvas of its own lies over the figure and under the cards (the stage view's last child, pointer-events none). It is made
-// when the first spotlight or stroke is wanted and given back once there is none, so the page holds the extra context only while ink is
-// on. Segments are drawn as instanced quads with a distance-field round end (5 floats a segment); the veil is one triangle.
+// No canvas or context of its own (F1, gpu-two-contexts-plan.md): the ink is a pass of the figure's present (veins-gl top.add), under the
+// glass and over the lobule's passes, laid in the same present as the picture it marks, so it can never be a frame off. The pass is added
+// when the first spotlight or stroke is wanted and taken out (and the figure presented once more) when none is. Segments are drawn as
+// instanced quads with a distance-field round end (5 floats a segment); the veil is one triangle.
 // No canvas 2D and no CPU pixels: the lines are the GPU's. While a program is still compiling the frame is asked again, nothing is drawn.
+// Where the figure has no WebGL2 context (the no-WebGL2 path) there is no ink.
 import { startProgram, compileDone, checkProgram } from './gl-compile.js';
-import { frameFor, onFrameFinal, easeNow } from './frame.js';
+import { frameFor, easeNow } from './frame.js';
 import { onTheme } from './theme-epoch.js';
 import { restPass } from './rest-pass.js';
 import { readStyle, stageBox } from './layout-snap.js';
@@ -20,6 +22,8 @@ import { caught } from './caught.js';
 
 export const HOLD_MS = 500, HOLD_SLOP = 10, PEN_PX = 3.5, STEP_PX = 1.5, MAX_SEGS = 24000;
 const VEIL = 0.62, FADE_MS = 90;
+/** The pass's place among the figure's tops: over the lobule's (LZ_UNDER_GLASS + 1 and below), under every glass (order 0 and up). */
+export const INK_ORDER = -2;
 
 /** The inverse of the affine m = { a, b, c, d, e, f } (x' = a x + c y + e, y' = b x + d y + f), written into o; false when it has none. */
 export function invertInto(o, m) {
@@ -118,13 +122,14 @@ const VAR = (name, fallback) => {
 
 /**
  * The ink for one stage view.
- *   host      the stage view (the canvas goes right after it, in the stage wrap, which the stage view fills)
+ *   host      the stage view (its cursor is the pen's)
+ *   top()     the figure's context (veins-gl top: { gl, canvas, screen, add, present }), or null where there is none
  *   xform(o)  writes the figure's affine { a, b, c, d, e, f } in host px into o and returns its kind ('' while there is none)
  *   active()  whether a talk is on
  *   onFigure(e)  whether a pointer event is on the figure (not a card or a control)
  */
-export function createInk({ host, xform, active, onFigure }) {
-  let cv = null, gl = null, prog = null, vprog = null, vao = null, buf = null, dead = false;
+export function createInk({ host, xform, active, onFigure, top }) {
+  let gl = null, topOf = null, offPass = null, prog = null, vprog = null, vao = null, buf = null, dead = false;
   let hs = null, hv = null, bufSegs = 0;
   let strokes = [], cur = null, penOn = false, spotOn = false, spotA = 0, spotAt = 0, penDown = false;
   let px = -1, py = -1, hasPos = false, holdT = 0, holdId = -1, holdX = 0, holdY = 0, touchSpot = false;
@@ -133,32 +138,20 @@ export function createInk({ host, xform, active, onFigure }) {
   let segs = new Float32Array(5 * 4096);
   const pen = [0.9, 0.22, 0.2, 1], veil = [0.97, 0.97, 0.97, VEIL];
   const snap = { seq: 0, kind: '', segs: [], spot: null };
-  let seq = 0, stopEnd = null, stopTheme = null;
+  let seq = 0, stopTheme = null;
 
   const colours = () => {
     const d = VAR('--danger', pen), b = VAR('--stage-bg', veil);
     pen[0] = d[0]; pen[1] = d[1]; pen[2] = d[2]; veil[0] = b[0]; veil[1] = b[1]; veil[2] = b[2];
   };
 
-  // ── the context, made when ink is first wanted and given back when it is not ──
-  // (The canvas joins the page once, as the talk begins (createInk); its context is made at the first spotlight or stroke and given back with the talk.)
-  const mount = () => {
-    cv = document.createElement('canvas');
-    cv.id = 'inkGl'; cv.setAttribute('aria-hidden', 'true');
-    cv.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:1;';   // (beside the stage view, not in it: its opacity .22 behind a slide's veil must not thin the ink; above it, under the cards)
-    cv.addEventListener('webglcontextlost', (e) => { e.preventDefault(); prog = vprog = null; }, false);
-    cv.addEventListener('webglcontextrestored', () => { gl = null; last.a = NaN; again(); }, false);
-    host.after(cv);
-  };
-  const make = () => {
-    if (!cv) return false;
-    if (gl && !gl.isContextLost()) return true;
-    if (typeof WebGL2RenderingContext === 'undefined') return false;
-    try { gl = cv.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false }); } catch (e) { caught('ink-gl:make', e); gl = null; }
-    if (!gl) return false;
-    hs = startProgram(gl, SEG_VS, SEG_FS); hv = startProgram(gl, VEIL_VS, VEIL_FS);
-    prog = vprog = null;
-    return true;
+  // ── the figure's context: the pass is in it while ink is wanted ──
+  const hostGL = () => {
+    const t = top?.();
+    if (!t || !t.gl || t.gl.isContextLost()) return null;
+    if (t.gl !== gl) { gl = t.gl; hs = startProgram(gl, SEG_VS, SEG_FS); hv = startProgram(gl, VEIL_VS, VEIL_FS); prog = vprog = null; vao = buf = null; bufSegs = 0; if (offPass) { offPass(); offPass = null; } }
+    topOf = t;
+    return t;
   };
   const take = () => {
     if (prog && vprog) return true;
@@ -175,43 +168,45 @@ export function createInk({ host, xform, active, onFigure }) {
     } catch (e) { caught('ink-gl:take', e); dead = true; return false; }
     return true;
   };
+  /** Takes the pass out of the figure's present and presents once more, so the last stroke leaves the picture. */
+  const unpass = () => {
+    if (!offPass) return;
+    offPass(); offPass = null;
+    try { topOf?.present?.(); } catch (e) { caught('ink-gl:unpass', e); }
+  };
   const release = () => {
     clearTimeout(idleT); idleT = 0;
-    if (stopEnd) { stopEnd(); stopEnd = null; }
-    if (cv) { try { gl?.getExtension('WEBGL_lose_context')?.loseContext(); } catch (e) { caught('ink-gl:release', e); } cv.remove(); cv = null; gl = null; prog = vprog = null; }
-    last.a = NaN;   // (only as the talk ends: the canvas and its context stay for the talk once made)
+    unpass();
+    last.n = -1;
   };
 
   // ── drawing ──
   const wanted = () => spotOn || spotA > 0.004 || strokes.length > 0;   // (spotOn: the veil fades in from nothing, so it is wanted before it shows)
-  const askDraw = () => { ask = 0; draw(true); }, endDraw = () => draw(false), askFrame = frameFor('ink');   // (kept: a frame's ask allocates nothing)
+  const askDraw = () => { ask = 0; sync(); }, askFrame = frameFor('ink');   // (kept: a frame's ask allocates nothing)
   const again = () => { if (!ask) ask = askFrame(askDraw); };
-  const draw = (force) => {
-    if (dead || !active()) return;
-    if (!wanted()) {   // (nothing left to show: the picture is cleared on the GPU, and the context given back a moment later)
-      if (stopEnd) { stopEnd(); stopEnd = null; }
-      if (cv && gl && !gl.isContextLost() && last.n !== -1) { gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); last.n = -1; last.a = NaN; }
-      return;
-    }
-    if (!make()) return;
+  /** Puts the pass in the figure's present while ink is wanted, out when it is not, and asks the figure to lay its picture again. */
+  const sync = () => {
+    if (dead || !active()) { unpass(); return; }
+    if (!wanted()) { unpass(); return; }
+    const t = hostGL(); if (!t) return;
     if (!take()) { again(); return; }
-    // (spot: eased on the scheduler's clock toward its target)
+    if (!offPass) offPass = t.add({ order: INK_ORDER, draw: pass });
+    try { t.present(); } catch (e) { caught('ink-gl:present', e); }
+  };
+  /** The pass itself, called inside each present of the figure: eases the spot, lays the segments through this frame's camera. */
+  const pass = () => {
+    if (dead || !gl || !prog || !vprog || !active() || gl.isContextLost()) return;
     const t = easeNow(), target = spotOn ? 1 : 0;
     if (spotA !== target) { const dt = Math.min(64, Math.max(0, t - spotAt)); spotA = target > spotA ? Math.min(1, spotA + dt / FADE_MS) : Math.max(0, spotA - dt / FADE_MS); if (Math.abs(spotA - target) < 0.004) spotA = target; }
     spotAt = t;
     const kind = xform(cam);
     const b = stageBox(); if (!b) return;
-    const w = Math.max(1, Math.round(b.width || b.sw || 1)), h = Math.max(1, Math.round(b.height || b.sh || 1));
+    const cw = topOf.canvas.width, ch = topOf.canvas.height;
+    W = Math.max(1, Math.round(b.width || b.sw || 1)); H = Math.max(1, Math.round(b.height || b.sh || 1)); dpr = cw / W;
     const nSeg = kind ? segmentsInto(segs, strokes, kind, cam) : 0;
-    const same = !force && last.a === cam.a && last.b === cam.b && last.c === cam.c && last.d === cam.d && last.e === cam.e && last.f === cam.f
-      && last.kind === kind && last.n === nSeg && last.spot === spotA && !spotOn;
-    if (same && w === W && h === H) return;
-    const d = Math.min(2, globalThis.devicePixelRatio || 1);
-    if (w !== W || h !== H || d !== dpr) { W = w; H = h; dpr = d; cv.width = Math.round(w * d); cv.height = Math.round(h * d); }
-    last.a = cam.a; last.b = cam.b; last.c = cam.c; last.d = cam.d; last.e = cam.e; last.f = cam.f; last.kind = kind; last.n = nSeg; last.spot = spotA;
-    gl.viewport(0, 0, cv.width, cv.height);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, topOf.screen);
+    gl.viewport(0, 0, cw, ch);
     gl.disable(gl.DEPTH_TEST); gl.disable(gl.SCISSOR_TEST);
-    gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
     gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.bindVertexArray(vao);
     if (spotA > 0.004 && hasPos) {
@@ -222,6 +217,7 @@ export function createInk({ host, xform, active, onFigure }) {
       gl.drawArrays(gl.TRIANGLES, 0, 3);
     }
     snap.seq = ++seq; snap.kind = kind; snap.spot = spotA > 0.004 && hasPos ? { x: px, y: py, a: spotA } : null; snap.n = nSeg; snap.x0 = nSeg ? segs[0] : NaN; snap.y0 = nSeg ? segs[1] : NaN; snap.x1 = nSeg ? segs[5 * nSeg - 3] : NaN; snap.y1 = nSeg ? segs[5 * nSeg - 2] : NaN;   // (the first and last point as laid, for the checks)
+    last.n = nSeg;
     if (nSeg) {
       gl.useProgram(prog);
       gl.uniform2f(prog.u.view, W, H); gl.uniform4f(prog.u.col, pen[0], pen[1], pen[2], 1);
@@ -232,9 +228,7 @@ export function createInk({ host, xform, active, onFigure }) {
     }
     gl.bindVertexArray(null);
     if (spotA !== (spotOn ? 1 : 0)) again();   // (the veil still easing)
-    if (!stopEnd) stopEnd = onFrameFinal(endDraw);   // (at the end of every frame the scheduler runs: a glide of the figure moves the ink in that same frame)
   };
-
   // ── input ──
   const local = (e) => { const b = stageBox(); return b ? [e.clientX - b.left, e.clientY - b.top] : [e.clientX, e.clientY]; };
   const say = (x) => { hasPos = true; px = x[0]; py = x[1]; };
@@ -294,8 +288,7 @@ export function createInk({ host, xform, active, onFigure }) {
   const onBlur = () => { spot(false); clearTimeout(holdT); holdT = 0; touchSpot = false; endStroke(); };
   const L = [['pointerdown', onDown], ['pointermove', onMove], ['pointerup', onUp], ['pointercancel', onUp], ['touchstart', onTouch], ['touchmove', onTouch], ['contextmenu', onMenu], ['click', onClick], ['blur', onBlur]];
   for (const [t, f] of L) addEventListener(t, f, { capture: true, passive: false });
-  mount();
-  colours(); stopTheme = onTheme(() => restPass(() => { colours(); last.a = NaN; if (wanted()) again(); }));   // (the tokens are read again in a rest pass, not in the theme's frame)
+  colours(); stopTheme = onTheme(() => restPass(() => { colours(); if (wanted()) again(); }));   // (the tokens are read again in a rest pass, not in the theme's frame)
 
   return {
     /** Holds the spotlight on (L down) or lets it go (L up). */
@@ -306,7 +299,7 @@ export function createInk({ host, xform, active, onFigure }) {
     togglePen(on = !penOn) { penOn = !!on && active(); host.style.cursor = penOn ? 'crosshair' : ''; if (!penOn) endStroke(); return penOn; },
     penOn: () => penOn,
     /** Erases every stroke (E, and a new slide). */
-    clear() { endStroke(); const had = strokes.length > 0; strokes = []; if (had) { last.a = NaN; again(); } },
+    clear() { endStroke(); const had = strokes.length > 0; strokes = []; if (had) again(); },
     /** The slide changed or the talk ended: erase, and let the veil go. */
     reset() { this.clear(); if (spotOn) { host.style.cursor = ''; document.documentElement.style.cursor = ''; } spotOn = false; spotA = 0; touchSpot = false; clearTimeout(holdT); holdT = 0; },
     count: () => strokes.length,
@@ -315,7 +308,7 @@ export function createInk({ host, xform, active, onFigure }) {
     /** For the checks: what the last draw laid ({ seq, kind, n, spot }), and the strokes' points in figure units. */
     snapshot: () => ({ ...snap, pen: pen.slice(0, 3), veil: veil.slice(0, 3), strokes: strokes.map((s) => ({ kind: s.kind, r: s.r, n: s.n, pts: Array.from(s.pts.subarray(0, 2 * s.n)) })) }),
     /** Draws now (the checks). */
-    drawNow: () => draw(true),
+    drawNow: () => sync(),
     dispose() {
       for (const [t, f] of L) removeEventListener(t, f, { capture: true });
       stopTheme?.(); clearTimeout(holdT); strokes = []; spotOn = false; spotA = 0; host.style.cursor = ''; document.documentElement.style.cursor = ''; release(); dead = true;

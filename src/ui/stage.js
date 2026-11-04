@@ -12987,6 +12987,8 @@ onRenderScale(() => { autoK = autoNow(); moveLow = false; adaptK = 1; moveGaps.l
     setCamera(to, ms = 900) { if (lobuleOn || !to || sameView(to, vtGliding ? vtTarget : vt)) return; fitted = false; animateVT({ ...to }, ms, { scale: true }); },
     cameraKey: () => `${vt.k.toFixed(3)}|${vt.x.toFixed(1)}|${vt.y.toFixed(1)}`,
     zoomLobule, zoomLiver, lobuleOpen: () => !!lz?.isOpen(), organsPictured: () => !!veins?.organs?.pictured?.(0), lobuleViewKey: () => lz?.viewKey(), lobuleCaptions: () => lz?.captions?.() ?? null, sinusoidCaptions: () => lz?.sinusoidCaptions?.() ?? null, lobuleLeaderEnds: () => lz?.leaderEnds?.() ?? [], lobuleGliding: () => !!lz?.labelsGliding?.(), lobuleCapture: () => lz?.capture?.() ?? null,
+    /** The figure's own context for what is drawn over it (veins-gl top), or null where there is none (the ink's pass, ink-gl.js). */
+    figureTop: () => (veins && !veins.lost ? veins.top : null),
     /** The figure on show → stage px as an affine { a, b, c, d, e, f } (the pen's, ink-gl.js), written into o; returns the view's kind ('w' world, 'l' lobule, 's' sinusoid). */
     figureXform(o) {
       if (lz?.isOpen() && lz.xform(o)) return lz.sinusoidOpen() ? 's' : 'l';

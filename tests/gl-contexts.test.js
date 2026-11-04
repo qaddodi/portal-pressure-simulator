@@ -26,7 +26,6 @@ const ALLOWED = {
   'src/ui/res-cover-gl.js': 1,  // L2
   'src/ui/fibroscan-gl.js': 1,  // U1
   'src/ui/vitals-gl.js': 1,     // U1
-  'src/ui/ink-gl.js': 1,        // F1
 };
 
 const root = new URL('../src/', import.meta.url).pathname;
