@@ -118,6 +118,7 @@ export function planSplit(src, spec, A = analyse(src, spec.stage || 'createStage
     const refs = refsOf(info), inside = refs.filter((r) => inM(r.identifier.range[0])), outside = refs.filter((r) => !inM(r.identifier.range[0]));
     if (M.has(info.unit)) { if (outside.length) returned.set(info.name, info); continue; }
     if (!inside.length) continue;
+    if (info.name === 'live' && info.scope === 'stage') continue;   // (the live record itself: the part's own parameter, handed on to the factories it calls)
     if (info.kind === 'import') { imports.set(info.name, info); continue; }
     // (A let, or a const made after the call site, is read through live: a getter asks at the moment of use, so nothing is copied or early.)
     const late = info.scope === 'stage' && info.unit > call && info.kind !== 'function';
@@ -267,7 +268,7 @@ export function splitStage(src, spec) {
 
 // Put every part back where its call stands: undo `live.x` to `x`, drop the `st` destructuring and the return, drop the live record.
 // Returns the inlined stage.js text, and the (source, imported, local) import bindings the parts brought.
-export function inlineFamily(stageSrc, readPart) {
+function inlineOnce(stageSrc, readPart) {
   const ast = parseSrc(stageSrc); annotate(ast);
   const fn = findStage(ast), body = fn.body.body;
   const factories = new Map();   // local factory name -> part file
@@ -348,4 +349,17 @@ export function checkNoCopies(stageSrc) {
     if (call.arguments[1] && !(call.arguments[1].type === 'Identifier' && call.arguments[1].name === 'live')) problems.push(`${call.callee.name}: the second argument must be the live record`);
   }
   return problems;
+}
+
+// Put every part back at its call, and then the parts' own nested factories (a part that calls another part's factory), until none is left.
+export function inlineFamily(stageSrc, readPart) {
+  let text = stageSrc; const partImports = [];
+  for (let pass = 0; pass < 8; pass++) {
+    const r = inlineOnce(text, readPart); text = r.text;
+    const nested = r.partImports.filter(([src, , local]) => /^\.\/stage-[^/]+\.js$/.test(src) && /^create[A-Z]/.test(local));
+    for (const x of r.partImports) if (!nested.includes(x)) partImports.push(x);
+    if (!nested.length) break;
+    text = nested.map(([src, imp, local]) => `import { ${imp === local ? imp : imp + ' as ' + local} } from '${src}';\n`).join('') + text;
+  }
+  return { text, partImports };
 }

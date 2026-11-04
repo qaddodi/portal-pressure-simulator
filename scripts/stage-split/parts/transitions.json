@@ -1,0 +1,1 @@
+{ "factory": "createTransitions", "file": "stage-transitions.js", "about": "The model-driven transitions and what rides on them: reveal and exit of vessels, reversal hold, circuit nodes, the ascites fluid, the stent mesh and the surgical ties.", "lines": [[4678, 5019]], "stay": ["readFluidInk", "hexDigit"] }

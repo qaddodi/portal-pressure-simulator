@@ -66,7 +66,7 @@ test('the fluid, the row redraw and the rebinning use the kept storage', () => {
 });
 
 test('the ascites surface\'s hidden SVG copy is not rewritten for the ripple\'s phase while the GPU draws it', () => {
-  assert.match(stage, /if \(!wrap\.classList\.contains\('gl-on'\) \|\| Math\.abs\(fluidH - ascWroteH\) > 0\.25 \|\| fluidAmp !== ascWroteAmp \|\| performance\.now\(\) - ascWroteAt > 1000\) ascitesSvg\(\);/);
+  assert.match(stage, /if \(!wrap\.classList\.contains\('gl-on'\) \|\| Math\.abs\((?:live\.)?(?:live\.)?fluidH - (?:live\.)?(?:live\.)?ascWroteH\) > 0\.25 \|\| (?:live\.)?(?:live\.)?fluidAmp !== (?:live\.)?(?:live\.)?ascWroteAmp \|\| performance\.now\(\) - (?:live\.)?(?:live\.)?ascWroteAt > 1000\) ascitesSvg\(\);/);
   // Every reader brings it up to date first: the selection's outline, the hover, the SVG shown again.
   assert.match(slice(stage, '  function syncSelFluid() {', '  function syncSelLine'), /ascitesSvg\(\);/);
   assert.match(stage, /ascitesSvg\(\);\n\s+const fd = ascitesPath\.getAttribute\('d'\);/);

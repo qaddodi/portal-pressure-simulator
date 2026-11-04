@@ -72,18 +72,18 @@ test('an organ picture given up because the change moved on makes the next one w
 
 test('a fluid level that moves while the fluid is drawn at no opacity asks for no whole repaint', () => {
   const src = stageSource();
-  assert.match(src, /const seen = fluidLook\.ink\[3\] > 0, was = fluidSeen;\n\s+fluidSeen = seen;\n[^\n]*\n[^\n]*\n\s+if \(!\(moved && \(seen \|\| was\)\)\) return false;/);
+  assert.match(src, /const seen = fluidLook\.ink\[3\] > 0, was = (?:live\.)?(?:live\.)?fluidSeen;\n\s+(?:live\.)?(?:live\.)?fluidSeen = seen;\n[^\n]*\n[^\n]*\n\s+if \(!\(moved && \(seen \|\| was\)\)\) return false;/);
   const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
   assert.match(gl, /if \(fluidInk\.a > 0\.0\) \{/, 'the shader draws no fluid at ink 0');
 });
 
 test('a fluid level that moves composites only the pool, from above the higher level down, never the whole screen', () => {
   const src = stageSource();
-  assert.match(src, /const pool = !!\(veins && !veins\.lost && veins\.fluidPool\(ABDOMEN_FLOOR \+ 5 - Math\.max\(from, fluidH\) - fluidAmp - 6\)\);\n\s+if \(pool\) poolFrames\+\+;\n\s+return !pool;/, 'a whole repaint only where there is no cavity to bound it');
-  assert.match(src, /if \(ascShown !== ascTarget\) \{\n\s+fluidFrom \?\?= fluidH;/, 'the level before the step, for a drain');
+  assert.match(src, /const (?:live\.)?pool = !!\((?:live\.)?veins && !(?:live\.)?veins\.lost && (?:live\.)?veins\.fluidPool\(ABDOMEN_FLOOR \+ 5 - Math\.max\(from, (?:live\.)?fluidH\) - (?:live\.)?fluidAmp - 6\)\);\n\s+if \((?:live\.)?pool\) (?:live\.)?poolFrames\+\+;\n\s+return !(?:live\.)?pool;/, 'a whole repaint only where there is no cavity to bound it');
+  assert.match(src, /if \((?:live\.)?ascShown !== (?:live\.)?ascTarget\) \{\n\s+(?:live\.)?fluidFrom \?\?= (?:live\.)?fluidH;/, 'the level before the step, for a drain');
   const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
   // The cavity's rect from `top` down, a cell's margin round it; drawn whole once, by the next composite that is not whole anyway.
   assert.match(gl, /for \(let y = Math\.max\(y0, top\) - CELL; y < y0 \+ h \+ CELL; y \+= CELL\) for \(let x = x0 - CELL; x < x0 \+ w \+ CELL; x \+= CELL\) cellList\.push\(x, y\);\n\s+nPool = cellList\.send\(poolBuf\);/);
-  assert.match(gl, /const pool = full \? 0 : nPool;\n\s+nPool = 0;\n\s+if \(!full && !nCells && !\(fl\?\.ripple && nFluid\) && !pool && !dirt && !cath\) return;/);
-  assert.match(gl, /if \(pool\) \{ gl\.bindVertexArray\(poolVAO\); gl\.drawArraysInstanced\(gl\.TRIANGLE_STRIP, 0, 4, pool\); \}/);
+  assert.match(gl, /const (?:live\.)?pool = full \? 0 : nPool;\n\s+nPool = 0;\n\s+if \(!full && !nCells && !\(fl\?\.ripple && nFluid\) && !(?:live\.)?pool && !dirt && !(?:live\.)?cath\) return;/);
+  assert.match(gl, /if \((?:live\.)?pool\) \{ gl\.bindVertexArray\(poolVAO\); gl\.drawArraysInstanced\(gl\.TRIANGLE_STRIP, 0, 4, (?:live\.)?pool\); \}/);
 });

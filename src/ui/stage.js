@@ -5,7 +5,7 @@ import { TIERS_ON, TIER_TOP, tierK, motionK } from './adapt-tier.js';
 import { hold as gpuHold, overMemory as gpuOverMemory } from './gpu-budget.js';
 import { WARM_VIEWS, WARM_MS } from './warm-views.js';
 import { EDGES, NODES, PORTAL_TERRITORY, dMinOf, isOccluded, isStent, stentSite, STENT_SITES, stentGate } from '../engine/topology.js';
-import { RECTUM_FADE, LABEL_VESSEL, TIP_FADE, ART_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, CAVITY_LOW, flankPath, abdomenOutline, cavityHalfWidths, SITES, ORGAN_LABELS, ATLAS_LABELS, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, SIN_EDGES, FEEDERS } from './anatomy.js';
+import { RECTUM_FADE, LABEL_VESSEL, TIP_FADE, ART_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NODE_POS, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, CAVITY_LOW, SITES, ORGAN_LABELS, ATLAS_LABELS, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, SIN_EDGES, FEEDERS } from './anatomy.js';
 import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, oxygenColor } from './colormap.js';
 import { sideEndScale } from './fork-joins.js';
 import { lookChanged, newLookSig } from './look-sig.js';
@@ -20,8 +20,8 @@ import { lesionEase } from './lesion-ease.js';
 import { bandsStep } from './band-ease.js';
 import { glideClock } from './glide-clock.js';
 import { clipBox, mapBox } from './fit-box.js';
-import { fluidTarget, poolFade, fluidLevel, fluidFloorAt, fluidBase } from './fluid-step.js';
-import { fluidSpring, fluidSpringFor } from './organ-ease.js';
+import { fluidTarget } from './fluid-step.js';
+import { fluidSpringFor } from './organ-ease.js';
 import { spleenMotion } from './spleen-motion.js';
 import { segHitsBox, lineIndex, indexHits, segsCross, leaderVesselHits } from './seg-hits.js';
 import { glassCallout, withGlass } from './callout.js';
@@ -52,7 +52,7 @@ import { varixBead, beadRadius } from './varix-bead.js';
 import { LOOK_SITE, varixSize, varixHold, varixWidthK, varixSpreadK, varixOpacity } from './varix-look.js';
 import { alongCurve } from './pressure-along.js';
 import { follow2, createColourFollow, SHOWN_TAU } from './display-state.js';
-import { createReversalHold, oxygenFor } from './blood.js';
+import { oxygenFor } from './blood.js';
 import { createSweepClient } from './sweep-client.js';
 import { createJunctionWidths } from './junction-widths.js';
 import { chainsOf, planChainInto } from './vessel-taper.js';
@@ -135,21 +135,15 @@ const OVER_ASK = typeof location !== 'undefined' && /[?&]stageover=gpu\b/.test(l
 import { lumOf } from './luma.js';
 import { createScan } from './stage-scan.js';
 import { createDoppler } from './stage-doppler.js';
-import { createMarks } from './stage-marks.js';
-import { createVenous } from './stage-venous.js';
 import { createBlood } from './stage-blood.js';
 import { createBalloon } from './stage-balloon.js';
 import { createCath } from './stage-cath.js';
-import { createOutlines } from './stage-outlines.js';
-import { createFocus } from './stage-focus.js';
 import { createHover } from './stage-hover.js';
 import { createRes } from './stage-res.js';
-import { createHalos } from './stage-halos.js';
 import { createGestures } from './stage-gestures.js';
 import { createOrgans } from './stage-organs.js';
 import { createResistors } from './stage-resistors.js';
 import { createPlate } from './stage-plate.js';
-import { createDiaphragm } from './stage-diaphragm.js';
 import { createDive } from './stage-dive.js';
 import { createPaths } from './stage-paths.js';
 import { createGeo } from './stage-geo.js';
@@ -161,16 +155,23 @@ import { createLabelDriver } from './stage-labels.js';
 import { createPick } from './stage-pick.js';
 import { createGlow } from './stage-glow.js';
 import { createFrame } from './stage-frame.js';
+import { createTransitions } from './stage-transitions.js';
 
 export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, onViewChange }) {
   // <stage-split live>
   // The stage's shared lets (and consts made after a part), read at the moment of use by the part files: never copied, so a part cannot draw a frame late.
   const live = {
+    get abdomenEl() { return abdomenEl; },
     get adaptK() { return adaptK; }, set adaptK(v) { adaptK = v; },
     get arcRun() { return arcRun; }, set arcRun(v) { arcRun = v; },
     get ascEls() { return ascEls; },
     get ascShown() { return ascShown; }, set ascShown(v) { ascShown = v; },
+    get ascStale() { return ascStale; }, set ascStale(v) { ascStale = v; },
     get ascTarget() { return ascTarget; }, set ascTarget(v) { ascTarget = v; },
+    get ascVel() { return ascVel; }, set ascVel(v) { ascVel = v; },
+    get ascWroteAmp() { return ascWroteAmp; }, set ascWroteAmp(v) { ascWroteAmp = v; },
+    get ascWroteAt() { return ascWroteAt; }, set ascWroteAt(v) { ascWroteAt = v; },
+    get ascWroteH() { return ascWroteH; }, set ascWroteH(v) { ascWroteH = v; },
     get autoK() { return autoK; }, set autoK(v) { autoK = v; },
     get autoT() { return autoT; }, set autoT(v) { autoT = v; },
     get balloonDraw() { return balloonDraw; },
@@ -249,8 +250,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get figureHidden() { return figureHidden; },
     get figureShown() { return figureShown; }, set figureShown(v) { figureShown = v; },
     get fitted() { return fitted; }, set fitted(v) { fitted = v; },
+    get fluidAmp() { return fluidAmp; }, set fluidAmp(v) { fluidAmp = v; },
+    get fluidBandH() { return fluidBandH; }, set fluidBandH(v) { fluidBandH = v; },
     get fluidEasing() { return fluidEasing; },
     get fluidFade() { return fluidFade; },
+    get fluidFrom() { return fluidFrom; }, set fluidFrom(v) { fluidFrom = v; },
+    get fluidH() { return fluidH; }, set fluidH(v) { fluidH = v; },
+    get fluidInkRGBA() { return fluidInkRGBA; },
+    get fluidMaskB() { return fluidMaskB; }, set fluidMaskB(v) { fluidMaskB = v; },
+    get fluidMaskOf() { return fluidMaskOf; }, set fluidMaskOf(v) { fluidMaskOf = v; },
+    get fluidMaskOfB() { return fluidMaskOfB; }, set fluidMaskOfB(v) { fluidMaskOfB = v; },
+    get fluidSeen() { return fluidSeen; }, set fluidSeen(v) { fluidSeen = v; },
     get fluidStillAt() { return fluidStillAt; }, set fluidStillAt(v) { fluidStillAt = v; },
     get fluidSurf() { return fluidSurf; }, set fluidSurf(v) { fluidSurf = v; },
     get following() { return following; }, set following(v) { following = v; },
@@ -260,6 +270,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get fullFailed() { return fullFailed; }, set fullFailed(v) { fullFailed = v; },
     get fullSwap() { return fullSwap; }, set fullSwap(v) { fullSwap = v; },
     get fx() { return fx; }, set fx(v) { fx = v; },
+    get fxAt() { return fxAt; }, set fxAt(v) { fxAt = v; },
     get fxSig() { return fxSig; }, set fxSig(v) { fxSig = v; },
     get geometryVersion() { return geometryVersion; }, set geometryVersion(v) { geometryVersion = v; },
     get gestureOn() { return gestureOn; },
@@ -423,6 +434,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get plateView() { return plateView; }, set plateView(v) { plateView = v; },
     get plateViewKey() { return plateViewKey; }, set plateViewKey(v) { plateViewKey = v; },
     get pool() { return pool; },
+    get poolFrames() { return poolFrames; }, set poolFrames(v) { poolFrames = v; },
     get projecting() { return projecting; }, set projecting(v) { projecting = v; },
     get putA() { return putA; },
     get quality() { return quality; }, set quality(v) { quality = v; },
@@ -439,6 +451,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get restOn() { return restOn; }, set restOn(v) { restOn = v; },
     get restStill() { return restStill; },
     get restU() { return restU; }, set restU(v) { restU = v; },
+    get revealN() { return revealN; }, set revealN(v) { revealN = v; },
+    get revF() { return revF; }, set revF(v) { revF = v; },
+    get revFlip() { return revFlip; }, set revFlip(v) { revFlip = v; },
+    get revH() { return revH; }, set revH(v) { revH = v; },
+    get revP() { return revP; }, set revP(v) { revP = v; },
+    get revT() { return revT; }, set revT(v) { revT = v; },
     get rideCTM() { return rideCTM; }, set rideCTM(v) { rideCTM = v; },
     get rideLeaders() { return rideLeaders; },
     get riseBox() { return riseBox; }, set riseBox(v) { riseBox = v; },
@@ -4675,65 +4693,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return labelRestK() >= 1.9 || (sel?.type === 'edge' && LIVER_EDGES.has(sel.id)) || (sel?.type === 'node' && LIVER_INNER.has(sel.id));
   }
 
-  // ── Model-driven transitions ──────────────────────
-  // Nothing flashes or sweeps across the anatomy. Pressure change shows as the vessel's own color
-  // easing; reversed flow is a steady state (its tracers run the other way);
-  // the one animation is a collateral or shunt that opens, drawn on in the direction of its
-  // flow, and, when it closes or is removed, retracted back the way it came. Nothing runs under
-  // reduced motion or in the figure view.
-  const track = {};
-  // (Each vessel's reveal record, made once here and written in place by revealOf: a reveal starting makes nothing.)
-  for (const x of EV) x.rv = { t0: 0, dur: 0, dir: 1, out: false };
-  const revealOf = (x, t0, dur, dir, out) => { const r = x.rv; r.t0 = t0; r.dur = dur; r.dir = dir; r.out = out; return r; };
-  const appEl = document.getElementById('app');
-  const quietFx = () => reduceMotion.matches || isImaging();
+  const { anastomoses, appEl, caliperAt, caliperSegs, canFade, clampA, clampFading, clampShade, easeLiver, fluidEasing, fluidFade, fluidLook, fxBuild, fxK, fxPill, fxSync, gMatrix, gSelO, glLines, holdReversals: holdReversals$, ligature, markA, marksStale, marksSync, mk, normal, normalSync, olFading, olKey, olRings, olSet, olStep, orgTone, pinOrgans, polysD, putMark, quietFx, revHold, reversedShown, setCallouts, spotOrgans, startExit: startExit$, stentMesh, stepFluid, stepReveals: stepReveals$, trackChanges: trackChanges$, updateFocus, updateNodesCircuit: updateNodesCircuit$, updateOrganSel, updateOrgans, venousSync } = createTransitions({ E, EI, EV, FLUID_COLS, FLUID_R, JUMP_MMHG, MAP, ND_PER, ND_SEG, NI, SEL_DIM, abdTo, anyReveal, arcMid, ascitesLine, ascitesPath, ascitesSvg, caud, clampW, clampWOut, collOpen, defs, diaCut, divideLen, drawFrame, easeInOut, edgeVisible, findingHidden, flag, flank, gBackdrop, gFx, gFxC, gOver, geo, haloEls, hidePlate, late, liveOn, liverR, liverTint, lv, morphLiver, nd, nextFrame, nodeDots, nodePos, organEls, organG, ov, plateOn, platePoke, pointAt, putA, qP, readFrame, recruitFrac, refreshCTM, resTheme, routeCustomShunts, setGlowSrc, setReveal, spleenMv, spot, svg, syncOrganMasks, syncVeins, themeKey, toRGB, update, updateGeometry, waist, wrap, wrapCls }, live);
+  function trackChanges(...a) { return trackChanges$(...a); }   // <stage-split stub>
+  function startExit(...a) { return startExit$(...a); }   // <stage-split stub>
+  function stepReveals(...a) { return stepReveals$(...a); }   // <stage-split stub>
+  function holdReversals(...a) { return holdReversals$(...a); }   // <stage-split stub>
+  function updateNodesCircuit(...a) { return updateNodesCircuit$(...a); }   // <stage-split stub>
   // A vessel that opened or closed while the figure was covered draws on or off from that moment, not when it is shown again (followHidden).
   let fxAt = null;
-  function trackChanges(f) {
-    const now = fxAt ?? performance.now();
-    const quiet = quietFx();
-    for (const x of EV) {
-      const e = x.e;
-      const q = f.Qf ? f.Qf[EI[e.id]] : f.Q[EI[e.id]];
-      const open = x.vis && !x.ghost && !x.reveal?.out;
-      const was = track[e.id];
-      track[e.id] = open;
-      if (was === false && open && canFade(x) && !quiet) setReveal(x, revealOf(x, now, e.kind === 'shunt' ? 900 : 1500, q >= 0 ? 1 : -1, false));
-    }
-  }
-  // The vessels that come and go with the disease (collaterals, shunts, the epigastric veins that
-  // open with the paraumbilical route) draw on when they appear and retract when they leave.
-  const canFade = (x) => !x.isArt && (x.e.kind === 'collateral' || x.e.kind === 'shunt' || NEEDS_C3.has(x.e.id));
-  function startExit(x, f) {
-    const q = f.Qf ? f.Qf[EI[x.e.id]] : f.Q[EI[x.e.id]];
-    setReveal(x, revealOf(x, fxAt ?? performance.now(), x.e.kind === 'shunt' ? 700 : 1100, q >= 0 ? 1 : -1, true));
-  }
-  // When the retraction ends: hide the vessel, or leave the dotted outline of a closed collateral.
-  function finishExit(x) {
-    if (!F) return;
-    edgeRev++;   // (the labels' signature: R04)
-    if (!edgeVisible(x, F)) x.vis = false;
-    else if (x.e.kind === 'collateral' && !collOpen(x.e.id, F)) x.ghost = true;
-  }
-  function stepReveals(now) {
-    if (!revealN) return;   // (nothing draws on or off: no walk over the vessels, rev 2 §2.8)
-    let finished = false;
-    for (const x of EV) {
-      if (!x.reveal) continue;
-      const r = x.reveal;
-      const u = clamp((now - r.t0) / r.dur, 0, 1);
-      // (The GPU draws the vessel on from x.reveal itself: syncVeins.)
-      const done = u >= 1 || quietFx();
-      if (done) { setReveal(x, null); finished = true; if (r.out) finishExit(x); }
-    }
-    // Rebuild at once so the vessel turns from the drawn-on stroke into its shaded tube on the
-    // same frame, rather than holding the stroke until the next model update.
-    if (finished && F && !inUpdate) update(F);
-    else if (veins && !inUpdate && anyReveal()) syncVeins(easeInOut(morph));
-  }
-  const { polysD } = createHalos({ E, NI, drawFrame, easeInOut, gOver, haloEls, nodePos, quietFx, routeCustomShunts, setGlowSrc, updateGeometry }, live);
  
-  const { caliperAt, caliperSegs, clampA, clampFading, clampShade, fxBuild, fxK, fxPill, fxSync, gMatrix, glLines, markA, markShade, normal, normalSync, olFading, olGeom, olKey, olRings, olSet, olStep, orgTone, pinOrgans, setCallouts, spotOrgans } = createOutlines({ E, MAP, ND_PER, ND_SEG, arcMid, caud, clampW, clampWOut, easeInOut, gFx, gFxC, geo, late, nd, nextFrame, nodeDots, organEls, organG, ov, pointAt, quietFx, readFrame, refreshCTM, resTheme, svg, themeKey, toRGB }, live);
   let clampLast = 0;
   let markLast = 0;
 
@@ -4743,174 +4711,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // their widest, is the room its pill keeps, so a number ticking never moves or resizes it (fxPill).
   let fx = null, fxSig = '';
 
-  const { marksStale, marksSync, mk } = createMarks({ gOver, glLines, ov, svg, themeKey, toRGB, wrapCls });
-
-  // A selected organ keeps a quiet outline; a selected site (varices, fundus, abdomen) a ring.
-  const gSelO = s('g', { id: 'organSel' });
-  gOver.after(gSelO);
-  const { syncSelFluid, syncSelLine, updateFocus, updateOrganSel } = createFocus({ E, EI, ascitesLine, ascitesPath, ascitesSvg, gSelO, glLines, late, olGeom, olSet, orgTone, organEls, organG, setGlowSrc }, live);
 
 
-  // Reversal as shown (the Direction lens, the moving blood, the watched stations): a vessel's flag changes only once its
-  // new direction has held for a whole breath of model time (respiration is a 4 s cycle), so flow near the cut-off no longer
-  // flips blue and orange with every breath; a jump in the model (a new patient, a time jump, Undo: pressures moved more than
-  // JUMP_MMHG, or the clock went back or leapt) takes the new flags at once (createReversalHold, blood.js). The model's own flags are untouched (round 2
-  // review, B3).
-  const revHolder = createReversalHold(EDGES.length, 4), revHold = revHolder.hold;
+
   let revF = null, revH = null, revT = 0, revP = null, revFlip = false;
-  function holdReversals(f) {
-    const H = store.get().healthy;
-    if (!f || (f === revF && H === revH)) return;
-    const P = f.Pf || f.P, t = f.t ?? 0;
-    let jump = !revF || H !== revH || t < revT || t - revT > 1 || !revP || revP.length !== P?.length;
-    if (!jump) for (let i = 0; i < P.length; i++) if (Math.abs(P[i] - revP[i]) > JUMP_MMHG) { jump = true; break; }
-    revF = f; revH = H; revT = t;
-    if (P) { if (!revP || revP.length !== P.length) revP = new Float64Array(P.length); revP.set(P); }
-    if (revHolder.step(revFlag, t, jump)) revFlip = true;
-  }
-  const revFlag = (k) => (isReversed(EDGES[k], revF) ? 1 : 0);   // (revF is the frame being held: holdReversals sets it just before)
-  const reversedShown = (e) => revHold[EI[e.id]] === 1;
-  function isReversed(e, f) {
-    const q = f.Qf[EI[e.id]];
-    const ref = st0Ref(e.id);
-    return q < -Math.max(0.12, 0.02 * Math.abs(ref));
-  }
-  const st0Ref = (id) => store.get().healthy?.Q?.[EI[id]] ?? 1;
 
-  function updateNodesCircuit(f) {
-    if (morph < 0.02) return;
-    for (const d of nodeDots) {
-      // (A junction dot fades with the vessels that come and go through it, as the figure's views fade: it popped. P21)
-      const on = nodeVisible(d.id);
-      if (d.on !== on) { d.on = on; mapWake = true; }
-    }
-    for (const id in liverR) {
-      const r = liverR[id], k = EI[id];
-      const q = f.Q[k];
-      const dp = f.P[NI[EDGES[k].from]] - f.P[NI[EDGES[k].to]];
-      r.R = Math.abs(q) > 1e-3 ? dp / (q * 0.06) : Infinity;
-    }
-  }
 
-  const { easeLiver, updateOrgans } = createDiaphragm({ EI, NI, abdTo, caud, diaCut, drawAscites, findingHidden, gBackdrop, hidePlate, liveOn, liverTint, lv, morphLiver, normalSync, organEls, organG, platePoke, putA, qP, recruitFrac, spleenMv, syncOrganMasks, syncSelFluid, syncSelLine }, live);
   let diaKey = '';
 
 
-  // Ascites collects in the flanks and the pelvis first (supine patient, frontal view), so its
-  // surface is a meniscus: highest at the sides, lowest in the middle. The abdominal wall bulges
-  // and the bowel floats up on it. A slow ripple runs along the surface while the model runs. On
-  // the GPU the fluid is drawn over the plate (not in its raster), so no lens tints it; the SVG
-  // copy stays for picking, the selection outline and exports.
-  let bulgeQ = 0;
-  // The fluid still easing toward its volume by more than a step of the wall's bulge (a tap, a drain, diuretics): the organ plate,
-  // whose wall and bowel follow the bulge, is rasterized once it settles, not at every step on the way (each about 712 KB of SVG and
-  // an 8 MB upload, several times per ease). The slow creep of a running model stays within a step, so it never holds the plate.
-  const fluidEasing = () => ascTarget !== null && Math.abs(clamp(ascTarget / 8500, 0, 1) - clamp(ascShown / 8500, 0, 1)) * 34 > 0.5;
   let ascTarget = null, ascShown = 0, ascVel = 0, fluidMaskB = null, fluidMaskOf = null, fluidMaskOfB = null, fluidBandH = -1, fluidH = 0, fluidAmp = 0, fluidInkRGBA = [0.9, 0.75, 0.28, 0.4];
-  const fluidLook = { s: [0, 0, 0, 0], ink: [0, 0, 0, 0], ripple: false };
-  const abdomenClipEl = defs.querySelector('#abdomenClip path');
-  // (The ripple's phase advances with the running model's frames, so it carries on from where it stood after a pause instead of
-  // jumping to the wall clock's; round 2 review, B11.)
-  let fluidPh = 0;
-  const fluidPhase = () => fluidPh;   // both ripple terms are periodic over 20π
-  let fluidSurfPh = 0;
-  const fluidSurfKept = (x) => fluidSurfAt(x, fluidSurfPh);   // (the surface at the phase of the last draw: fluidSurf is set anew with each, so it never reads an older one)
-  const fluidSurfAt = (x, ph) => fluidBase(x, fluidH) + (Math.sin(x / 38 + ph) * 0.7 + Math.sin(x / 23 - ph * 1.3) * 0.3) * fluidAmp;
-  // No pool while the readout grades the belly "None"; past that it fades in as it fills and out as it drains, so it never pops.
-  const fluidFade = () => poolFade(ascShown);
-  const fluidCellsBuf = [];
-  function drawAscites() {
-    const u = clamp(ascShown / 8500, 0, 1);
-    // The wall and the bowel move in half-unit steps of the bulge, with some hysteresis: each step re-rasterizes the
-    // organ plate (plateStateKey), so a pool that fills slowly at rest must not change them on every model tick.
-    const raw = u * 34;
-    if (Math.abs(raw - bulgeQ) > 0.4 || (raw < 0.5 && bulgeQ !== 0)) bulgeQ = Math.round(raw * 2) / 2;
-    const bulge = bulgeQ;
-    putA(flank, 'd', u < 0.04 ? '' : flankPath(bulge));
-    const d = abdomenOutline(bulge);
-    if (fluidMaskB !== bulge) { fluidMaskB = bulge; abdomenClipEl.setAttribute('d', d); abdomenEl.setAttribute('d', d); }
-    if (veins && !veins.lost && (fluidMaskOf !== veins || fluidMaskOfB !== bulge)) {
-      fluidMaskOf = veins; fluidMaskOfB = bulge; fluidBandH = -1;
-      // The cavity as a half-width per half unit of height (cavityHalfWidths), not a raster of its outline: copying a fresh
-      // 856 x 600 canvas into a texture took Safari about 220 ms, on nearly every frame of a fluid ease (a Timelines
-      // recording of HVPG slide 8 to 9, 17 Oct).
-      const R = FLUID_R;
-      veins.setFluidSpans(cavityHalfWidths(bulge, R[1], R[3], FLUID_COLS), R);   // (its second row: the liver's edge, setFluidLiver)
-    }
-    putA(organG.bowel, 'transform', `translate(0 ${(-bulge / 34 * 26).toFixed(1)})`);
-    // The fluid level (fluidLevel): the first pool lies under the appendix's tip, then each litre lifts it about as much. Near the
-    // top of the scale (about 8.5 L) the surface reaches the lower edge of the spleen: clearly concave (about 100 units
-    // lower in the middle than at the flanks), the same on both sides.
-    ({ h: fluidH, amp: fluidAmp } = fluidLevel(ascShown));
-    fluidSurf = null;
-    if (fluidFade() <= 0) { ascStale = false; putA(ascitesPath, 'd', ''); putA(ascitesLine, 'd', ''); }
-    else {
-      fluidSurfPh = reduceMotion.matches || plateOn() ? 0 : fluidPhase();
-      fluidSurf = fluidSurfKept;
-      // (R05, review pass 2: while the GPU draws the fluid (gl-on: #ascites hidden, app.css), the surface's SVG text, whose phase moves
-      // every frame of the ripple, is not built or written: it is marked stale and written when something reads it (the selection's
-      // outline, the hover, the SVG shown again: ascitesSvg). ?asclazy=0: written every frame, as before.)
-      // (The level itself is still written as it moves, a quarter unit at a time, and at least once a second, so the credit's art
-      // (credit.js FLUID) reads where the pool stands; only the ripple's phase is left out.)
-      ascStale = true;
-      if (!wrap.classList.contains('gl-on') || Math.abs(fluidH - ascWroteH) > 0.25 || fluidAmp !== ascWroteAmp || performance.now() - ascWroteAt > 1000) ascitesSvg();
-      // The cells the rippling surface (and its light band) passes through, redrawn each frame on the GPU.
-      if (veins && !veins.lost && Math.abs(fluidH - fluidBandH) > 0.25) {
-        fluidBandH = fluidH;
-        const cells = fluidCellsBuf;
-        cells.length = 0;
-        for (let x = 288; x < 1136; x += 16) {
-          const a = fluidBase(x, fluidH), b = fluidBase(x + 16, fluidH);
-          const y0 = Math.min(a, b) - fluidAmp - 2, y1 = Math.max(a, b) + fluidAmp + 10;
-          for (let y = y0; y < y1; y += 16) cells.push(x, y);
-        }
-        veins.setFluidCells(new Float32Array(cells));
-      }
-    }
-    syncSelFluid();
-    platePoke();
-  }
-  // Per animation frame: ease the shown volume and keep the GPU fluid's look current. True when the level moved.
-  const fluidLv = [1, 0];
-  function stepFluid(dt, st, easeDt = dt) {
-    if (ascTarget === null) return false;
-    let moved = false;
-    if (ascShown !== ascTarget) {
-      fluidFrom ??= fluidH;
-      // A large change shows the live drawing while it eases, as the liver's does: the wall and bowel move with the fluid, and the plate
-      // is rasterized once it settles (held under the plate, the wall would jump by the whole change when it landed).
-      const held = fluidEasing();
-      if (held && Math.abs(clamp(ascTarget / 8500, 0, 1) * 34 - bulgeQ) > 3 && veins && !veins.lost && veins.hasPlate(0) && !liveOn()) hidePlate();
-      // A critically damped spring on the drawn scale (volume^0.6), so the fluid fills in from the pelvis and
-      // drains out smoothly, starting and stopping gently, instead of jumping in or out of existence.
-      ({ shown: ascShown, vel: ascVel } = easeDt > 0.05 ? fluidSpringFor(ascShown, ascVel, ascTarget, easeDt) : fluidSpring(ascShown, ascVel, ascTarget, easeDt));
-      drawAscites(); moved = true;   // (its platePoke rasterizes once the fluid is within a step of its volume)
-    }
-    const run = st.running && !reduceMotion.matches;
-    if (run) fluidPh = (fluidPh + dt / 1.1) % (20 * Math.PI);
-    // (Under a slide's spotlight the fluid eases with the organs' dim: the plate's own value, less a lens's share of it.)
-    const spotK = spot.live && plateDim != null ? clamp(plateDim / (flag.dataLayer ? 0.72 : 1), SEL_DIM, 1) : 1;
-    const t = easeInOut(morph), k = (1 - t) * (flag.hasSel ? SEL_DIM : spotK);
-    const fs = fluidLook.s, fi = fluidLook.ink;   // (written in place: the look is read on the draw)
-    fs[0] = fluidFloorAt(fluidH); fs[1] = fluidH; fs[2] = fluidAmp; if (run) fs[3] = fluidPhase();
-    fi[0] = fluidInkRGBA[0]; fi[1] = fluidInkRGBA[1]; fi[2] = fluidInkRGBA[2]; fi[3] = fluidInkRGBA[3] * k * fluidFade();
-    fluidLook.ripple = run && fluidFade() > 0 && k > 0;
-    fluidLv[0] = liverScale; fluidLv[1] = liverFluidCut; fluidLook.lv = fluidLv;
-    if (vLook) vLook.fluid = fluidLook;
-    // (A level that moves under fluid drawn at no opacity changes no pixel (the shader draws none at ink 0): no whole repaint for it,
-    // only for the frame it fades to nothing. External review, 21 Oct.)
-    const seen = fluidLook.ink[3] > 0, was = fluidSeen;
-    fluidSeen = seen;
-    const from = fluidFrom ?? fluidH;
-    fluidFrom = null;
-    if (!(moved && (seen || was))) return false;
-    // Only the pool's cells are composited again, from above the higher of the two levels (the surface, its ripple and its light
-    // band) down: the rest of the picture does not change with it. It was the whole screen on every frame of a fill or a drain
-    // (Fable's lag review, item 4). A whole repaint where there is no cavity to bound it.
-    const pool = !!(veins && !veins.lost && veins.fluidPool(ABDOMEN_FLOOR + 5 - Math.max(from, fluidH) - fluidAmp - 6));
-    if (pool) poolFrames++;
-    return !pool;
-  }
   let fluidSeen = false, fluidFrom = null, poolFrames = 0;
   // (A hex digit's value from its character code, as parseInt(pair, 16) reads a colour's pairs; NaN for anything else.)
   const hexDigit = (c) => (c >= 48 && c <= 57 ? c - 48 : c >= 97 && c <= 102 ? c - 87 : c >= 65 && c <= 70 ? c - 55 : NaN);
@@ -4927,95 +4737,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
   }
 
-  // Point, unit normal and unit tangent at arc length `d` along a vessel's current centerline.
-  function frameAt(id, d) {
-    const g = geo[id];
-    const [x, y, dx, dy] = pointAt(g.cur, clamp(d / (g.len || 1), 0, 1));
-    const n = Math.hypot(dx, dy) || 1, q = frameKept;   // (read at once by its callers)
-    q.x = x; q.y = y; q.tx = dx / n; q.ty = dy / n; q.nx = -dy / n; q.ny = dx / n;
-    return q;
-  }
-  const frameKept = { x: 0, y: 0, tx: 0, ty: 0, nx: 0, ny: 0 };
-  // A self-expanding metal stent over the lumen (two rails, a diamond lattice of struts, radiopaque markers at both
-  // ends), so a shunt or a stented vein reads as a device, not a vessel. It runs from d0 to d1 along the vessel's drawn
-  // path (either way round) and is drawn k of the way (0 to 1) from d0, the lattice anchored there, so a growing stent
-  // unrolls instead of stretching. A narrowed stent pinches with its lumen (the same waist, in the segment its card names).
-  // Returns the paths, to append where the mesh belongs.
-  // The mesh's half-width at arc length d (its lumen's, a narrowed stent's waist included, plus the wall and the struts' own).
-  function meshR(id, p) {
-    const x = E[id], L = geo[id].len;
-    const v = isImaging() ? 0 : p.stenosis[id] || 0, wf = v > 0.01 ? waist(id, v, L, x.width, p) : null;
-    return (d) => (x.width / 2) * (wf ? wf(d / (L || 1)) : 1) + (x.wallPx || 1) + 1.2;
-  }
-  // ends: false leaves out the far end's marker (a stent unrolled by its front, venousDraw, carries that marker on the front).
-  function meshPaths(id, p, d0, d1, k = 1, ends = true) {
-    const sg = d1 >= d0 ? 1 : -1, A = Math.abs(d1 - d0), e = A * k;
-    const R = meshR(id, p);
-    const f = (a, side) => { const d = d0 + sg * a, q = frameAt(id, d), r = R(d); return [q.x + q.nx * r * side, q.y + q.ny * r * side]; };
-    const P = (p) => `${p[0].toFixed(1)} ${p[1].toFixed(1)}`;
-    const cell = Math.max(6, R(d0) * 1.7);
-    let rails = '', struts = '';
-    for (const side of [1, -1]) {
-      rails += 'M' + P(f(0, side));
-      for (let a = 3; a < e; a += 3) rails += ' L' + P(f(a, side));
-      rails += ' L' + P(f(e, side)) + ' ';
-    }
-    for (const start of [1, -1]) {
-      let side = start, prev = f(0, side);
-      struts += 'M' + P(prev);
-      for (let a = cell / 2; a <= A + 0.01; a += cell / 2) {
-        side = -side;
-        const q = f(Math.min(a, A), side);
-        if (a > e + 0.01) {   // (the lattice's growing end: the strut under way, drawn as far as it has come)
-          const u = (e - (a - cell / 2)) / (cell / 2);
-          if (u > 0.001) struts += ' L' + P([prev[0] + (q[0] - prev[0]) * u, prev[1] + (q[1] - prev[1]) * u]);
-          break;
-        }
-        struts += ' L' + P(q); prev = q;
-      }
-      struts += ' ';
-    }
-    let marks = '';
-    for (const a of k > 0.02 && ends ? [0, e] : [0]) { const m = f(a, 1), n = f(a, -1); marks += `M${P(m)} L${P(n)} `; }
-    return [s('path', { class: 'stent-strut', d: struts }), s('path', { class: 'stent-rail', d: rails }), s('path', { class: 'stent-rail-glint', d: rails }), s('path', { class: 'stent-mark', d: marks })];
-  }
-  // TIPS, DIPS and the shunts drawn with the stent tool: the whole drawn shunt, in place at once (the vessel itself draws on).
-  function stentMesh(id, p) { putMark(ov.stents, `stent:${id}`, id, meshPaths(id, p, 2, geo[id].len - 2)); }
   // A treatment's mark, built into its overlay group as one group of its own (data-mk: its key) that fades in and out with it: the
   // amount shown lives in markA across the overlays' rebuilds. vessel: the vessel it sits on (while that is drawn it may fade out
   // where it stands); anatOnly: it belongs to the anatomy view alone (a switch to the circuit takes it at once).
   let ovT = 0;   // (the morph the overlays are being built at)
-  function putMark(host, key, vessel, els, anatOnly = false) {
-    const g = s('g', { 'data-mk': key });
-    g.append(...els);
-    markShade(g, markA.want(key, { host, vessel, anatOnly, t: ovT }, quietFx()));
-    markA.hold(key, g);
-    host.append(g);
-  }
-  const { venousSync } = createVenous({ E, easeInOut, frameAt, geo, late, meshPaths, meshR, nextFrame, ov, putA }, live);
-  // Surgical shunts: a row of sutures across each anastomosis.
-  function anastomoses(id) {
-    const x = E[id], L = geo[id].len;
-    const R = x.width / 2 + (x.wallPx || 1) + 2;
-    let d = '';
-    for (const c of [Math.min(10, L * 0.1), Math.max(L - 10, L * 0.9)]) for (const o of [-3.5, 0, 3.5]) {
-      const q = frameAt(id, c + o);
-      d += `M${(q.x + q.nx * R).toFixed(1)} ${(q.y + q.ny * R).toFixed(1)} L${(q.x - q.nx * R).toFixed(1)} ${(q.y - q.ny * R).toFixed(1)} `;
-    }
-    putMark(ov.stents, `suture:${id}`, id, [s('path', { class: 'suture', d })]);
-  }
-  // A vessel divided at surgery (the splenic vein in a Warren shunt, the portal trunk in a portocaval
-  // shunt): two suture ties across its tied-off stump, a little apart, just behind the stump's rounded end.
-  function ligature(id, shunt) {
-    const x = E[id], c = Math.min(divideLen(id) + 5, geo[id].len * 0.6);
-    const R = x.width / 2 + (x.wallPx || 1) + 3;
-    let d = '';
-    for (const o of [-3.5, 3.5]) {
-      const q = frameAt(id, c + o);
-      d += `M${(q.x + q.nx * R).toFixed(1)} ${(q.y + q.ny * R).toFixed(1)} L${(q.x - q.nx * R).toFixed(1)} ${(q.y - q.ny * R).toFixed(1)} `;
-    }
-    putMark(ov.stents, `tie:${id}`, shunt, [s('path', { class: 'ligature', d })]);
-  }
 
   // ── The HVPG catheter (Measure › HVPG) ─────────────
   // A balloon catheter drawn along the real vessels: in from the neck, down the SVC, through the right
