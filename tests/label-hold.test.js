@@ -10,5 +10,5 @@ test('a moving frame leaves laid-out labels alone, and the values catch up after
   assert.match(stage, /sameKey\(key\) && \(inMotion\(\) \? holdValues\(f\) : refreshValues\(f\)\)/);
   assert.doesNotMatch(stage, /LABEL_HOLD|labelhold=/);
   assert.match(stage, /heldWait \|\|= afterMotion\(/);
-  assert.match(stage, /if \(!refreshValues\(g\)\) labelKey = null; labelGlSync\(\);/);
+  assert.match(stage, /if \(!refreshValues\(g\)\) (?:live\.)?(?:live\.)?labelKey = null; (?:live\.)?(?:live\.)?labelGlSync\(\);/);
 });

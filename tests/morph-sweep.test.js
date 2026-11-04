@@ -117,11 +117,11 @@ test('the change keeps the labels up: solved at the tap, ridden on the morph\'s 
   const stage = stageSource();
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
   // (No label work on a frame of the change: updateLabels returns while viewXf stands, and nothing is solved as it lands.)
-  assert.match(stage, /if \(viewXf\) return;/);
-  assert.match(stage, /if \(camMove\) \{ if \(!vtGliding\) camSettle\(\); return; \}/);
-  assert.match(stage, /vt = p >= 1 \? \{ \.\.\.viewXf\.to \} : lerpVT\(viewXf\.from, viewXf\.to, p\);/);
-  assert.match(stage, /labelGL\.crossfade\(clamp\(1 - 2 \* p, 0, 1\), n\);/);
+  assert.match(stage, /if \((?:live\.)?(?:live\.)?viewXf\) return;/);
+  assert.match(stage, /if \((?:live\.)?camMove\) \{ if \(!(?:live\.)?vtGliding\) camSettle\(\); return; \}/);
+  assert.match(stage, /(?:live\.)?vt = p >= 1 \? \{ \.\.\.viewXf\.to \} : lerpVT\((?:live\.)?viewXf\.from, (?:live\.)?viewXf\.to, p\);/);
+  assert.match(stage, /(?:live\.)?labelGL\.crossfade\(clamp\(1 - 2 \* p, 0, 1\), n\);/);
   const sv = stage.slice(stage.indexOf('    setView(v) {'), stage.indexOf('    relayout() {'));
   assert.ok(sv.includes('viewXfStart(d)') && !sv.includes('morph-fade'));
-  assert.doesNotMatch(css, /morph-fade/);
+  assert.doesNotMatch(css, /(?:live\.)?morph-fade/);
 });

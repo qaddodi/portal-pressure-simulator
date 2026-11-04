@@ -70,9 +70,9 @@ test('a camera ride holds each label inside the stage, and its leader\'s label e
 });
 
 test('a layout solved for another view is never carried onto this one, nor handed to the GPU while its own solve is pending', () => {
-  assert.match(st, /sf\.view = morphTarget;/);
-  assert.match(st, /if \(solvedFor && solvedFor\.view === morphTarget && !\(morph > 0 && morph < 1\)\) layoutLabels\(f, false\);/);
-  assert.match(st, /if \(!force && sameView8\(labelJob\.key, key\)\) \{ labelTail\(\); return; \}/);
+  assert.match(st, /sf\.view = (?:live\.)?(?:live\.)?morphTarget;/);
+  assert.match(st, /if \((?:live\.)?solvedFor && (?:live\.)?solvedFor\.view === (?:live\.)?morphTarget && !\((?:live\.)?morph > 0 && (?:live\.)?morph < 1\)\) layoutLabels\(f, false\);/);
+  assert.match(st, /if \(!force && sameView8\((?:live\.)?labelJob\.key, key\)\) \{ labelTail\(\); return; \}/);
   assert.ok(!st.includes('glHold'));
-  assert.match(st, /const labelGlSync = \(\) => \{ if \(!labelGL \|\| glSuppress\) return;/);
+  assert.match(st, /const (?:live\.)?labelGlSync = \(\) => \{ if \(!(?:live\.)?labelGL \|\| (?:live\.)?glSuppress\) return;/);
 });

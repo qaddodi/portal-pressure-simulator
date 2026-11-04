@@ -8,7 +8,7 @@ import { readFile } from 'node:fs/promises';
 test('the stent callout is held while the stent grows or the model morphs', async () => {
   const stage = stageSource();
   const core = await readFile(new URL('../src/worker-core.js', import.meta.url), 'utf8');
-  assert.match(core, /morphing: !!morph,/);
+  assert.match(core, /morphing: !!(?:live\.)?morph,/);
   const fn = stage.slice(stage.indexOf('function stentReady'), stage.indexOf('function labelSig'));
   for (const k of ['x.reveal', 'f.morphing', 'x.width !== x.wT', 'STENT_CALM_MS']) assert.ok(fn.includes(k), k);
   assert.match(stage, /if \(stentReady\(sid, f\) && EI\[sid\] >= 0\)/);
