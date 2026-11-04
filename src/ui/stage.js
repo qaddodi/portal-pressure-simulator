@@ -506,6 +506,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get rotTarget() { return rotTarget; }, set rotTarget(v) { rotTarget = v; },
     get rotU() { return rotU; }, set rotU(v) { rotU = v; },
     get rotWhole() { return rotWhole; }, set rotWhole(v) { rotWhole = v; },
+    get rotGlide() { return rotGlide; }, set rotGlide(v) { rotGlide = v; },
     get sameView() { return sameView; },
     get scan() { return scan; },
     get scanPaint() { return scanPaint; },
@@ -1343,8 +1344,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // to the new shape); zoomed in, it keeps the zoom and turns about the point at the middle of the
   // free space, which stays where it is on screen.
   let rotHold = null;
-    let rotWhole = null;
-  const { cardSpace, cardSpaceRead, circAt, circVB, circWhole, closeView, defaultVT, fit, flag, holdView, keptNow, markCirc, refit, reveal, safeInsets: safeInsets$, sameView, setCircuitRotated, snapFresh, spaceSig, unreveal, unseenCard } = createFit({ CIRC_C, EV, VB_CIRC_R, anchorFor, animateVT, applyVT, clientToWorld, driftEnd, gAscites, gBackdrop, gOrgans, geo, gutKids, readFrame, refreshCTM, rotDeg, setViewBox, stageBox, svg, vbBox, watch, wrap }, live);
+    let rotWhole = null, rotGlide = null;
+  const { cardSpace, cardSpaceRead, circAt, circVB, circWhole, closeView, defaultVT, fit, flag, holdView, keptNow, markCirc, refit, reveal, rotStep, safeInsets: safeInsets$, sameView, setCircuitRotated, snapFresh, spaceSig, unreveal, unseenCard } = createFit({ CIRC_C, EV, VB_CIRC_R, anchorFor, animateVT, applyVT, clientToWorld, driftEnd, gAscites, gBackdrop, gOrgans, geo, gutKids, readFrame, refreshCTM, rotDeg, rotEase, setViewBox, stageBox, svg, vbBox, watch, wrap }, live);
   function safeInsets(...a) { return safeInsets$(...a); }   // <stage-split stub>
 
 
@@ -2748,8 +2749,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (rotU !== rotTarget) {
       rotU = clamp(rotU + Math.sign(rotTarget - rotU) * dt / 0.5, 0, 1);
       setViewBox(easeInOut(morph));
-      if (rotHold) { holdView(rotHold); if (rotU === rotTarget) rotHold = null; }
-      else if (rotU === rotTarget && morphTarget === 1 && rotWhole) { writeVT({ ...rotWhole }); rotWhole = null; applyVT(); }
+      rotStep();   // (stage-fit.js: a held view keeps its spot; a whole one glides to the turned framing, rec 8)
     }
     stepReveals(now);
     stepRest(dt);

@@ -1,6 +1,7 @@
 // The framing: card and pill insets, the clear-of-pill view, the fit and default view for each view, refit, close view, the circuit rotation and reveal.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { VB_ANAT, VB_CIRC } from './anatomy.js';
+import { lerpVT } from './cam-arc.js';
 import { caught } from './caught.js';
 import { clipBox, mapBox } from './fit-box.js';
 import { cancelFrame } from './frame.js';
@@ -12,7 +13,7 @@ import { clamp, restBox, settledBox, translateRest } from './util.js';
 
 import { stageScope } from './stage-scope.js';
 export function createFit(st, live) {
-  const { CIRC_C, EV, VB_CIRC_R, anchorFor, animateVT, applyVT, clientToWorld, driftEnd, gAscites, gBackdrop, gOrgans, geo, gutKids, readFrame, refreshCTM, rotDeg, setViewBox, stageBox, svg, vbBox, watch, wrap } = st;
+  const { CIRC_C, EV, VB_CIRC_R, anchorFor, animateVT, applyVT, clientToWorld, driftEnd, gAscites, gBackdrop, gOrgans, geo, gutKids, readFrame, refreshCTM, rotDeg, rotEase, setViewBox, stageBox, svg, vbBox, watch, wrap } = st;
    // Default framing. The circuit is a wide map (≈ 1.9 : 1); in a squarish or tall viewport,
   // fitting its width would shrink every station to a dot, so it opens zoomed to fill the height,
   // centered on the portal vein and liver, and the learner pans sideways to the beds or heart.
@@ -371,10 +372,30 @@ export function createFit(st, live) {
     }
     live.rotTarget = on;
     cancelFrame(live.vtAnim); driftEnd();
+    const from = { ...live.vt };
     if (whole) live.vt = live.morphTarget === 1 ? circWhole() : { k: 1, x: 0, y: 0 };
     // (The framing the turn lands on, taken now, at the press: the turn's last frame sets it again without measuring the cards.)
     live.rotWhole = whole && live.morphTarget === 1 ? { ...live.vt } : null;
+    // (Rec 8: in the landed circuit the camera glides to that framing on the turn's own clock and ease (rotStep), never set outright.)
+    live.rotGlide = live.rotWhole && live.morph === 1 && !reduceMotion.matches ? { from, e0: rotEase(live.rotU) } : null;
+    if (live.rotGlide) live.vt = from;
     if (live.morphTarget !== 1 || reduceMotion.matches) { live.rotU = on; setViewBox(live.easeInOut(live.morph)); if (live.rotHold) { holdView(live.rotHold); live.rotHold = null; } }
+  }
+  // A frame of the turn (the stage's frame, after rotU stepped): a held view keeps its spot under the same screen point; a whole one glides
+  // from where the press found it to the turned framing, in step with the turn's eased share, and lands on it exactly.
+  function rotStep() {
+    if (live.rotHold) { holdView(live.rotHold); if (live.rotU === live.rotTarget) live.rotHold = null; return; }
+    const w = live.rotWhole, g = live.rotGlide;
+    if (!w || live.morphTarget !== 1) return;
+    if (live.rotU !== live.rotTarget) {
+      if (!g) return;
+      // (A hand that moves the view mid-turn takes it over: the glide, and the framing it was going to, are dropped.)
+      if (g.last && live.vt !== g.last) { live.rotGlide = null; live.rotWhole = null; return; }
+      const d = rotEase(live.rotTarget) - g.e0;
+      live.vt = g.last = lerpVT(g.from, w, d ? clamp((rotEase(live.rotU) - g.e0) / d, 0, 1) : 1); applyVT();
+      return;
+    }
+    live.vt = { ...w }; live.rotWhole = null; live.rotGlide = null; applyVT();
   }
   // A bottom sheet (the action card on a phone) covers the lower part of the figure. reveal() pans the figure,
   // no more than needed, so the selected structure stays in the part that is left; unreveal() puts the view back
@@ -407,5 +428,5 @@ export function createFit(st, live) {
     if (revealFrom && sameView(live.vt, revealTo)) animateVT(revealFrom, 320);
     revealFrom = revealTo = null;
   }
-  return { cardSpace, cardSpaceRead, circAt, circVB, circWhole, closeView, defaultVT, fit, flag, holdView, keptNow, markCirc, refit, reveal, safeInsets, sameView, setCircuitRotated, snapFresh, spaceSig, unreveal, unseenCard };
+  return { cardSpace, cardSpaceRead, circAt, circVB, circWhole, closeView, defaultVT, fit, flag, holdView, keptNow, markCirc, refit, reveal, rotStep, safeInsets, sameView, setCircuitRotated, snapFresh, spaceSig, unreveal, unseenCard };
 }
