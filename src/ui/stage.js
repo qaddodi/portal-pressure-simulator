@@ -3274,7 +3274,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // or a move on an arc, whose labels the push's own rules and the fade keep.)
     if (!drift && !arcRun && !opt.steady && !sameView(from, to) && landable(from, to) && solveLanding(to)) { landRide = true; landTo = to; labelKey = null; updateLabels(F); }
     dprLet();   // (a probe waiting for the slide's framing: a move hides it till it lands, a refit shows it now)
-    const stepGap = frameGapFor('glide');
+    // (0, 4 Nov 2026: a glide moves its camera every frame again while the figure flicker is chased; at 60 on a 120 Hz screen the figure
+    // stepped every other frame beside cards and labels that moved every frame.)
+    const stepGap = 0;
     let stepAt = -1e9;
     const step = (now) => {
       // A newer glide (or a framing set outright) took over: this one stops. A glide started from inside this step's
@@ -11447,7 +11449,8 @@ onRenderScale(() => { autoK = autoNow(); moveLow = false; adaptK = 1; moveGaps.l
   let drawnView = -1;
   let flowGate = lastT;
   // (The calm blood's pace, and how long nothing else may have moved before it counts: see animate.)
-  const CALM_MS = 32, CALM_AFTER_MS = 600;
+  // (CALM_MS 32 -> 0, 4 Nov 2026: the calm 30 Hz blood is taken out while the figure flicker is chased; the steady motion's 60 stands.)
+  const CALM_MS = 0, CALM_AFTER_MS = 600;
   let busyAt = 0;
   // On a software renderer only (WebGL drawn on the CPU), a vessel frame waits for the last to finish on the GPU and gives the
   // page as long again (see sw-yield.js); on a GPU there is no yield (null) and the loop below is unchanged.

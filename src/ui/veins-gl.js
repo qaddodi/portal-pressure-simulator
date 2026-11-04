@@ -2484,7 +2484,6 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     else if (sn < sigNow.length) sigNow[sn++] = +v || 0;
   };
   const bloodRow = new Uint8Array(nTubes);   // (rows that carry blood: setFlow)
-  let btLast = NaN;                          // (the blood clock of the last picture drawn: composite)
   const SPAN = [0, 0];   // (the changed span of rows changedRows writes, kept)
   // (Marks the rows of `data` that differ from `last`, `w` floats a row: before `last` takes them.)
   const markRows = (data, last, w) => {
@@ -4258,15 +4257,12 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       sg(fluidRect || R_UNIT); sg(fl?.s || V4_ZERO); sg(fl ? fl.ink : V4_ZERO); sg(fl?.lv || LV_DEF);
       sigNow[sn++] = +(blood.on) || 0; sigNow[sn++] = +(blood.chev) || 0; sigNow[sn++] = +(blood.still) || 0; sigNow[sn++] = +(blood.alpha ?? 1) || 0; sigNow[sn++] = +(blood.streakA ?? 1) || 0; sigNow[sn++] = +(blood.chevA ?? 1) || 0; sigNow[sn++] = +(blood.originA ?? 1) || 0;
       sg(blood.chevInk || CHEV_INK); sg(blood.chevLight || CHEV_LIGHT); sigNow[sn++] = +(blood.vdpr || 1) || 0; sigNow[sn++] = +(blood.origin) || 0; sigNow[sn++] = +(dyeAny && blood.dye !== false) || 0;
-      sigNow[sn++] = +(blood.streakLen) || 0;   // (the blood's clock is left out: the rows that carry blood are marked moved below when it moved)
+      // (The blood's clock is in the signature again (4 Nov 2026, the figure flicker): still lumens are left alone only while the blood stands still, as before 3c63d68.)
+      sigNow[sn++] = +(blood.streakLen) || 0; sigNow[sn++] = +(blood.bt || 0) || 0;
       sg(originColOf(blood.originCol || ORIGIN_WHITE)); sg(blood.dyeCol || DYE_COL); sg(blood.revCol || REV_COL);
       sg(blood.inkLight || INK_LIGHT); sg(blood.inkDark || INK_DARK); sg(ncv); sigNow[sn++] = +(ncN) || 0; sg(hb); sg(hr); sigNow[sn++] = +(hoN) || 0; sigNow[sn++] = +(layer) || 0; sigNow[sn++] = +(glow) || 0; sigNow[sn++] = +(warm) || 0; sigNow[sn++] = +(useStack) || 0; sigNow[sn++] = +(bare) || 0; sigNow[sn++] = +(texVer) || 0;
       sigNow[sn++] = halfOn ? 1 : 0;   // (the half-size streaks pass is on or off: a lumen drawn the other way is drawn again)
       sigNow[sn++] = map ? map.a : 0; if (map) { sg(map.dot); sg(map.zone); sg(map.fx); sg(map.alt); sg(map.fxX); sg(map.rot); }
-      // (The clock moved since the last picture: every row carrying blood changes with it, so its lumen is drawn again; the rest are left alone.)
-      const btNow = blood.bt || 0;
-      if (btNow !== btLast && (blood.on || blood.chev || blood.origin)) for (let r = 0; r < nTubes; r++) if (bloodRow[r]) moved[r] = 1;
-      btLast = btNow;
       let same = !!stillSig && sn === stillN && sn < sigNow.length;
       for (let i = 0; same && i < sn; i++) if (sigNow[i] !== stillSig[i]) same = false;
       const still = !full && !movedAll && !bl.length && same;

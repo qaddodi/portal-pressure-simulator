@@ -708,7 +708,9 @@ export const paceMs = () => frameGapFor('glide');
 // 120 Hz screen draws every 2nd frame at 60 and every 4th at 30; a 60 Hz screen draws all at 60 and every 2nd at 30). Battery saver
 // caps every kind at its own 15 Hz. Settings › Figure performance › Motion at 60 off lifts the 'glide' and 'flow' caps (every frame).
 export const FRAME_HZ = { hand: 0, glide: 60, flow: 30, still: 0, hidden: 0 };
-const FRAME_GAP_MS = { hand: 0, glide: MOTION60_MS, flow: 28, still: 0, hidden: 0 };
+// (flow 28 -> MOTION60_MS, 4 Nov 2026: the blood at rest stepping at 30 Hz, and the rate switching 30/60 as anything moved, read as a flicker
+// on Mohammad's Mac; it is back at the steady motion's 60 until the flicker is cleared.)
+const FRAME_GAP_MS = { hand: 0, glide: MOTION60_MS, flow: MOTION60_MS, still: 0, hidden: 0 };
 let handProbe = null;
 /** The surface that knows a hand is on the camera (a drag, a flick, a wheel, a pinch) registers its test once. */
 export function setHandProbe(fn) { handProbe = fn; }
