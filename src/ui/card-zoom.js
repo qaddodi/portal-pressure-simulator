@@ -27,7 +27,7 @@ export function unionBox(rects) {
 export const zoomMargin = (area) => Math.min(110, Math.max(72, 0.1 * Math.min(area.width, area.height)));
 
 // (A stacked card, its handle up on its edge: a little more room round it, so the zoom stops short and the stack behind it shows: Mohammad, 4 Nov 2026.)
-const STACK_ROOM = 1.7;
+export const STACK_ROOM = 1.7;
 
 // How much a box could grow and still leave the margin round it (no cap).
 export const fitScale = (box, area, margin = zoomMargin(area)) => Math.min((area.width - 2 * margin) / box.width, (area.height - 2 * margin) / box.height);
