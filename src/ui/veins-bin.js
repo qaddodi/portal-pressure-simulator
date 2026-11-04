@@ -96,7 +96,17 @@ export function binVeins(tubes, joins, memo = null) {
   }
   if (!tubes.length) return { ent: new Float32Array(0), rows: 1, cells: new Float32Array(0), nCells: 0, nEnt: 0, blood: new Float32Array(0), nBlood: 0, bloodQ: new Float32Array(0), nBloodQ: 0 }; // alloc-rare: no vessels: an empty result, once per empty figure
   x0 = Math.floor(x0 / CELL) * CELL; y0 = Math.floor(y0 / CELL) * CELL;
-  const nx = Math.max(1, Math.ceil((x1 - x0) / CELL)), ny = Math.max(1, Math.ceil((y1 - y0) / CELL));
+  let nx = Math.max(1, Math.ceil((x1 - x0) / CELL)), ny = Math.max(1, Math.ceil((y1 - y0) / CELL));
+  // (A kept grid: the cells are the same world boxes on any grid whose origin is a multiple of CELL, so a binning whose bounds still lie
+  // inside the last grid keeps it, and a vessel easing across a slide change no longer moves the bounds' corner and bins every vessel
+  // again whole, with its 2.7 MB upload, at each CELL it crosses. Bounds outside it take a grid two cells wider all round, once, so the
+  // next frames of the ease stay inside it too; one more than 2.5 times the bounds' area is let go.)
+  if (memo && memo.gnx !== undefined && memo.gx0 !== undefined) {
+    const gx1 = memo.gx0 + memo.gnx * CELL, gy1 = memo.gy0 + memo.gny * CELL, ex = x0 + nx * CELL, ey = y0 + ny * CELL;
+    const inside = x0 >= memo.gx0 && y0 >= memo.gy0 && ex <= gx1 && ey <= gy1;
+    if (inside && memo.gnx * memo.gny <= nx * ny * 2.5) { x0 = memo.gx0; y0 = memo.gy0; nx = memo.gnx; ny = memo.gny; }
+    else if (!inside && (x0 !== memo.gx0 || y0 !== memo.gy0 || nx !== memo.gnx || ny !== memo.gny)) { x0 -= 2 * CELL; y0 -= 2 * CELL; nx += 4; ny += 4; }
+  }
   const HALF = CELL * Math.SQRT1_2;
   // Pass 1: each vessel's (cell, sample) pairs, in order of sample (see the triples below).
   nSeg = 0;
