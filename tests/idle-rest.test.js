@@ -64,7 +64,7 @@ test('idle rest is wired: Explore, or a talk whose slide is idle (presenter.idle
   const main = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8');
   assert.match(main, /presenter\.active\(\) \? presenter\.idle\(\) : st\.mode === 'explore'\) && !st\.lapse/);
   const pres = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-  assert.match(pres, /!deck\.motion && !slides\[shown\.i\]\?\.motion/);
+  assert.match(pres, /!keepsMoving\(slides\[shown\.i\]\)/);
   assert.match(main, /onRest: \(\) => \{ setPageRest\(true\); stage\.rest\(true\); host\.send\(\{ type: 'visibility', visible: false \}\); \}/);
   assert.match(main, /onWake: \(\) => \{ setPageRest\(false\); host\.send\(\{ type: 'visibility', visible: !document\.hidden \}\); stage\.rest\(false\); \}/);
   const stage = stageSource();
