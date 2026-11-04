@@ -1995,7 +1995,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (With reduced motion it only fades where it was let go.)
     const ms = reduce.matches ? 300 : caseFlight(left, v);
     const slope = (Math.abs(v) * ms) / left;   // the finger's speed as the curve's starting slope
-    const curve = cssCurve(`cubic-bezier(.33,${clamp(0.33 * slope, 0.12, 0.9).toFixed(2)},.45,1)`);
+    const curve = cssCurve(`cubic-bezier(.33,${clamp(0.33 * slope, 0.12, 0.9).toFixed(2)},.45,1)`);   // motion-scale: own pace (the finger's speed is the curve's slope)
     caseFadeTokens.set(c, {}); glideStop(c);
     c.style.removeProperty('transition'); c.style.removeProperty('transform');
     // The card and its glass read these same frame-clock values. Rotation cannot be followed by the glass's translation model.
@@ -6096,7 +6096,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       scale: (el) => (el && el !== data && readMetric(el, 'offsetWidth') ? readBox(el).width / readMetric(el, 'offsetWidth') : readBox(wrap).width / (readMetric(wrap, 'clientWidth') || 1)) || 1,
       reduce: () => reduce.matches, boost: setCanvasBoost, hold: zoomCredit, settled: zoomSettled,
       // (The words' card stays up while the card is zoomed; its words, and its deck tab on the card's edge (the shade holds the tab), are cut away under the card, card-zoom.js, and it rests at slip.base's rise meanwhile.)
-      camera: { open: () => !!stage.zoomOpen?.(), at: (s, x, y, dx, dy) => stage.zoomAt?.(s, x, y, dx, dy), end: () => stage.zoomEnd?.() }, scene: () => [text, shade], under: () => [text, shade], shift: (el) => (el === text ? (root.classList.contains('pz-wide') ? [0, -slip.base] : null) : el === shade && shade.classList.contains('pz-card') && !shade.classList.contains('stack') && !shade.classList.contains('low') ? [0, -slip.base] : null), behind: zoomBehind });
+      camera: { open: () => !!stage.zoomOpen?.(), at: (s, x, y, dx, dy) => stage.zoomAt?.(s, x, y, dx, dy), end: () => stage.zoomEnd?.() }, scene: () => [text, shade], behind: zoomBehind });
     tapTracker(data, { ok: () => zoomReady() || zoom.up, onTap: () => zoomToggle() });
     tapTracker(panel, { ok: () => cellReady() || zoom.up, onTap: cellTap });
     const root = h('div', { class: 'pz' }, safe, veil, load, fk, text, zscrim, data, lip, panel, vcase, prog, scl, bar, jump, blackEl, say);

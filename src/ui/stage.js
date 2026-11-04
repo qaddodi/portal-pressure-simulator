@@ -1661,11 +1661,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Asking the browser (getScreenCTM / getBoundingClientRect) right after the SVG has been
   // updated forces a synchronous style + layout pass over thousands of elements, every frame;
   // the arithmetic is exact and free. The stage box is cached and kept current by observers.
-  let box = null, boxKept = null;
+  let box = null, boxKept = null;   // (boxKept: the last box measured, handed out while a new one is being read)
   const measureBox = () => {
-    // (Behind a zoomed data card the figure is pushed in a little by a CSS scale on its holder, presenter.js card zoom: measured so it would
-    // hold the wrong place, so the box stands as it was until the card is back.)
-    if (boxKept && document.getElementById('app')?.classList.contains('pz-zoomed')) { box = boxKept; return; }
     // Measured without the lobule dive's zoom (a CSS scale on the svg), or the vessels would be drawn zoomed twice.
     const tf = svg.style.transform; if (tf) svg.style.transform = '';
     const r = wrap.getBoundingClientRect(), q = svg.getBoundingClientRect();

@@ -9,13 +9,11 @@
 
 import { EASE_ARRIVE, easeArrive } from './ease.js';
 import { frameFor } from './frame.js';
-import { readBox, readStyle } from './layout-snap.js';
 import { sceneCam } from './scene-cam.js';
 export const ZOOM_MAX = 2.2;    // the most the card grows
 export const ZOOM_MIN = 1.2;    // under this the card is large enough; no zoom is offered
 export const ZOOM_MS = 520;     // in
 export const SHUT_MS = 440;     // and back
-const EASE = EASE_ARRIVE;   // (tokens.css --ease)
 
 // The box round some rects: { left, top, width, height }.
 export function unionBox(rects) {
@@ -81,7 +79,7 @@ export function tapTracker(card, { ok = () => true, onTap }) {
  * the slides"): one of the six cells of the ladders panel, { card: cell, scrim: [the page's veil, the panel's], part: true }. A part is only
  * centred and enlarged: the instrument's boost, the credit's sitting out, the words' cue and the readings' follow are for the data card.
  */
-export function createCardZoom({ card, along = [], scrim, app, area, scale = () => 1, reduce = () => false, boost = () => {}, hold = () => {}, settled = () => {}, behind = () => {}, under = () => [], shift = () => null, scene = () => [], camera = null, raf = frameFor('card-zoom') }) {
+export function createCardZoom({ card, along = [], scrim, app, area, scale = () => 1, reduce = () => false, boost = () => {}, hold = () => {}, settled = () => {}, behind = () => {}, scene = () => [], camera = null, raf = frameFor('card-zoom') }) {
   let st = null;   // { card, veils, part, plan, riders: [{ el, rest, own, anim }], closing, steady, box, mid, k, s, boosted, cur: { dx, dy, s }, mo }
   // The glide is run in the frame loop, not by the browser's clock (Mohammad, 2 Nov 2026: "the instrument card has a trailing card behind it").
   // Its animations are made paused and set to the frame's own time in the 'card-zoom' callback of each frame, so the card the page shows and the
@@ -111,7 +109,7 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
     for (const a of m.anims) a?.finish?.();
     m.done();
   }
-  /** Runs the glide to `to` over ms in the frame loop; the animations (made by glide, holeTo) are scrubbed with it. Resolves when it is there. */
+  /** Runs the glide to `to` over ms in the frame loop; the animations (made by glide) are scrubbed with it. Resolves when it is there. */
   function drive(to, ms, anims) {
     return new Promise((done) => {
       st.mo?.done();
@@ -152,43 +150,7 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
   const glide = (el, prop, to, ms, prev) => {
     const from = globalThis.getComputedStyle(el)[prop];
     prev?.cancel();
-    return el.animate?.([{ [prop]: from }, { [prop]: to }], { duration: ms, easing: 'linear', fill: 'forwards' }) || null;
-  };
-  // The words' card stays up behind the zoomed card (Mohammad, 2 Nov 2026: it must not vanish when the card is maximised), but its words are
-  // cut away where the zoomed card lies, so they never show sharp through the frost. The cut is one polygon on the words' box that follows the
-  // card's corners (linear in the glide, as the card's own scale and translate are), eased with the card's own curve and time, so it needs no
-  // frame of script. under(): the elements cut; shift(el): the translate they will rest at ([x, y] css px, or null), as the glide may still be
-  // easing it. Written in each element's own box: where it lies now, less the translate it has now, plus the one it ends at.
-  const BIG = 9999;
-  const carve = (h, b) => {
-    const L = ((b.left - h.x) / h.k).toFixed(1), T = ((b.top - h.y) / h.k).toFixed(1), R = ((b.right - h.x) / h.k).toFixed(1), B = ((b.bottom - h.y) / h.k).toFixed(1);
-    return `polygon(evenodd, -${BIG}px -${BIG}px, ${BIG}px -${BIG}px, ${BIG}px ${BIG}px, -${BIG}px ${BIG}px, -${BIG}px -${BIG}px, ${L}px ${T}px, ${R}px ${T}px, ${R}px ${B}px, ${L}px ${B}px, ${L}px ${T}px)`;
-  };
-  // (4 Nov 2026, Mohammad: the teaching card's words are NOT cut any more. The clip-path glide ran toward the zoomed card's FINAL box, so half the
-  // words vanished before the card got there, and it repainted the DOM words on every frame of the zoom, the lag. open() now keeps `holes` empty, so
-  // the zoom is the riders' compositor transform alone. holesOf/holeTo/carve stay for the loops that read st.holes, which are now no-ops.)
-  const holesOf = (k) => under().filter((el) => el && !el.hidden).map((el) => {
-    const r = readBox(el);
-    if (!(r.width > 0)) return null;
-    const t = (readStyle(el).translate || 'none').split(/\s+/).map(parseFloat), sh = shift(el) || [0, 0];
-    return { el, k, anim: null, x: r.left - (t[0] || 0) * k + sh[0] * k, y: r.top - (t[1] || 0) * k + sh[1] * k };
-  }).filter(Boolean);
-  // OPEN off-GPU item (paintAnim): a clip-path glide repaints the words on each frame of the zoom (about 0.4 s in and out). Compositor-only methods
-  // (transform, opacity) cannot cut a hole in DOM text; the real fix is the words drawn as GPU paragraph text (text-gl.js), cut in the shader.
-  const holeTo = (h, box, ms) => {
-    const to = carve(h, box), from = readStyle(h.el).clipPath;
-    h.anim?.cancel();
-    h.anim = h.el.animate?.([{ clipPath: ms && from && from !== 'none' ? from : to }, { clipPath: to }], { duration: ms || 1, easing: EASE, fill: 'forwards' }) || null;
-  };
-  // The pieces as they are drawn this frame (screen px): the card's own drawnBox where the zoom pinned it, else its box.
-  const drawnUnion = (riders) => {
-    let l = Infinity, t = Infinity, r = -Infinity, b = -Infinity;
-    for (const x of riders) {
-      const q = x.el.drawnBox ? x.el.drawnBox() : readBox(x.el);
-      if (!(q.width > 0)) continue;
-      l = Math.min(l, q.left); t = Math.min(t, q.top); r = Math.max(r, q.right); b = Math.max(b, q.bottom);
-    }
-    return l < r ? { left: l, top: t, right: r, bottom: b } : null;
+    return el.animate?.([{ [prop]: from }, { [prop]: to }], { duration: ms, easing: 'linear', fill: 'forwards' }) || null;   // motion-scale: own pace (scrubbed by the card-zoom frame, linear in its eased progress)
   };
   const boxAt = (b, mid, s, dx, dy) => { const f = (v, m, d) => m + (v - m) * s + d; const l = f(b.left, mid.x, dx), t = f(b.top, mid.y, dy); return { left: l, top: t, right: f(b.left + b.width, mid.x, dx), bottom: f(b.top + b.height, mid.y, dy) }; };
 
@@ -198,7 +160,6 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
     s.mo?.done(); s.mo = null;
     if (s.cam) camera.end();
     for (const r of s.riders) { r.anim?.cancel(); unpin(r); r.el.style.transformOrigin = ''; }
-    for (const h of s.holes) h.anim?.cancel();
     delete s.card.dataset.zoomed;
     app.classList.remove('pz-zoomed', 'pz-cam'); for (const v of s.veils) v.classList.remove('on');
     if (!s.part) { boost(1); hold(false); }
@@ -221,7 +182,7 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
       // (box and mid: the whole as it rests as the card zooms, and its middle, for follow below; steady: the glide in has ended, for the
       // data card only: a part has no readings to bring out.)
       sceneCam.aim = part ? null : { s: plan.s, ox: cx, oy: cy, dx: plan.dx, dy: plan.dy, box: boxAt(q, { x: cx, y: cy }, plan.s, plan.dx, plan.dy) };
-      st = { stacked, card: el, veils: [veil].flat(), part, plan, riders, closing: null, steady: ms === 0 && !part, box: q, mid: { x: cx, y: cy }, k, s: plan.s, boosted: plan.s, holes: [], cur: { dx: 0, dy: 0, s: 1 }, mo: null, cam: !part && !!camera?.open() };
+      st = { stacked, card: el, veils: [veil].flat(), part, plan, riders, closing: null, steady: ms === 0 && !part, box: q, mid: { x: cx, y: cy }, k, s: plan.s, boosted: plan.s, cur: { dx: 0, dy: 0, s: 1 }, mo: null, cam: !part && !!camera?.open() };
       for (const r of riders) {
         // (Each piece turns about the middle of them all, so they move as one.)
         r.el.style.transformOrigin = `${((cx - r.rest.left) / k).toFixed(2)}px ${((cy - r.rest.top) / k).toFixed(2)}px`;
@@ -239,9 +200,8 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
 
       const to = `translate(${(plan.dx / k).toFixed(2)}px, ${(plan.dy / k).toFixed(2)}px) scale(${plan.s.toFixed(4)})`;
       for (const r of riders) r.anim = glide(r.el, 'transform', to, ms);
-      for (const h of st.holes) { holeTo(h, q, 0); holeTo(h, boxAt(q, st.mid, plan.s, plan.dx, plan.dy), ms); }
       for (const v of st.veils) v.classList.add('on');
-      const me = st, going = drive({ dx: plan.dx, dy: plan.dy, s: plan.s }, ms, [...riders.map((r) => r.anim), ...st.holes.map((h) => h.anim)]);
+      const me = st, going = drive({ dx: plan.dx, dy: plan.dy, s: plan.s }, ms, riders.map((r) => r.anim));
       if (ms && !part) {
         // (A glide that never reports its end (a hidden tab runs no frames) is let go after its time; one whose frames are coming, however slowly, is not.)
         // (One watcher made here, asked again by the timer: no closure made at each ask.)
@@ -249,7 +209,7 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
           if (st !== me || me.closing || !me.mo) return;
           if (performance.now() - (me.tickAt ?? 0) < 400) { setTimeout(watch, 200); return; }
           me.mo.done(); me.mo = null; me.cur = { dx: plan.dx, dy: plan.dy, s: plan.s }; camAt(); me.steady = true; boost(me.boosted);   // alloc-rare: only a glide that never reported its end (a hidden tab), once, as it is let go
-          for (const a of [...riders.map((r) => r.anim), ...me.holes.map((h) => h.anim)]) a?.finish?.();   // alloc-rare: as above, once, as the glide is let go
+          for (const a of riders.map((r) => r.anim)) a?.finish?.();   // alloc-rare: as above, once, as the glide is let go
         };
         setTimeout(watch, ZOOM_MS + 120);
         going.then(() => { if (st === me && !me.closing) { me.steady = true; if (!part) boost(me.boosted); } });
@@ -277,30 +237,6 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
       const to = `translate(${(dx / k).toFixed(2)}px, ${(dy / k).toFixed(2)}px) scale(${sc.toFixed(4)})`;
       // (A new frame over the last: the card's own CSS eases a transform written to its style, so the glide's own kind is used.)
       for (const r of st.riders) { const prev = r.anim; r.anim = r.el.animate?.([{ transform: to }, { transform: to }], { duration: 1, fill: 'forwards' }) || null; prev?.cancel(); }
-      // (The cut under the words is the card as it is drawn now, read from the card itself: the readings' card out above and the card's own
-      // layout (its height grows as the readings come out) are not in the box it rested in at the start, so a cut worked out from that box
-      // left the top and bottom of the zoomed card uncut and the teaching card's words showed sharp through them: Mohammad, 3 Nov 2026.)
-      if (st.holes.length) {
-        const me = st, cut = drawnUnion(st.riders);
-        for (const h of st.holes) holeTo(h, cut || boxAt(q, mid, sc, dx, dy), 0);
-        // (And on every frame after, for as long as the card is up: the card's own CSS eases the transform written above, so it is still arriving
-        // after the last call, and its height and the readings settle behind it. One loop, ended with the zoom; it writes only a cut that moved.)
-        if (!me.cutting) {
-          me.cutting = true;
-          // (Not while the card glides: the cut is eased with it by one animation, and a new one and a read of the card's box each frame of the glide
-          // were the zoom's lag. Once it has landed, until the box has stood still for 20 frames, which ends the loop; follow() starts it again.)
-          let was = '', still = 0;
-          raf(function again() {
-            if (st !== me || me.closing) { me.cutting = false; return; }
-            if (!me.steady) { raf(again); return; }
-            const c = drawnUnion(me.riders), key = c ? [c.left, c.top, c.right, c.bottom].map(Math.round).join() : '';
-            if (c && key !== was) { for (const h of me.holes) holeTo(h, c, 0); still = 0; } else still++;
-            was = key;
-            if (still >= 20) { me.cutting = false; return; }
-            raf(again);
-          });
-        }
-      }
       st.cur = { dx, dy, s: sc };
       camAt();
       globalThis.dispatchEvent?.(frame);
@@ -321,13 +257,12 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
       const ms = Math.round(SHUT_MS * Math.max(0.35, Math.min(1, (s.cur.s - 1) / ((s.plan.s - 1) || 1))));
       if (!s.part && !s.cam) behind(false, ms);
       for (const r of s.riders) r.anim = glide(r.el, 'transform', 'none', ms, r.anim);
-      for (const h of s.holes) holeTo(h, s.box, ms);
       // (A glide that never reports its end, a tab hidden mid-way, is let go after its time.)
       let res = null;
       const guard = new Promise((r) => { res = r; });
       const watch = () => { if (st !== s || !s.mo || performance.now() - (s.tickAt ?? 0) >= 400) res(); else setTimeout(watch, 200); };
       setTimeout(watch, ms + 120);
-      s.closing = Promise.race([drive({ dx: 0, dy: 0, s: 1 }, ms, [...s.riders.map((r) => r.anim), ...s.holes.map((h) => h.anim)]), guard]).then(() => { if (st === s) end(); });
+      s.closing = Promise.race([drive({ dx: 0, dy: 0, s: 1 }, ms, s.riders.map((r) => r.anim)), guard]).then(() => { if (st === s) end(); });
       return s.closing;
     },
     toggle() { return this.up ? this.close() : this.open(); },

@@ -248,7 +248,8 @@ test('the card zooms on a wide screen for an instrument that stands whole, by a 
   assert.match(util, /const dpr = Math\.min\(saver\(\) \? 2 : 3, \(window\.devicePixelRatio \|\| 1\) \* canvasBoost\);/);
   // (The camera and the labels read the card where it rests: no entrance to take off, and the stage's box holds while the figure is pushed in.)
   assert.match(util, /if \(el\.dataset\?\.zoomed != null\) return q;/);
-  assert.match(stage, /if \(boxKept && document\.getElementById\('app'\)\?\.classList\.contains\('pz-zoomed'\)\) \{ box = boxKept; return; \}/);
+  // (The zoom is the scene camera now: the figure's box is never held back for it.)
+  assert.doesNotMatch(stage, /box = boxKept; return;/);
 });
 
 test('the icon is quiet and the app\'s own: the text\'s grey, corner brackets, a soft tint under the pointer, shown only where the card can grow; no stripe, glow or gradient', () => {

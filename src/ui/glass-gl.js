@@ -44,10 +44,6 @@ const SCALE0 = 4;    // CSS px for each texel of the blurred copy
 // from four ninths of the pixels. The masks are drawn at the same density.
 export const glassDpr = () => Math.min(2, window.devicePixelRatio || 1);
 const MARGIN0 = 48;  // CSS px of the figure taken around the callouts: three of the blur's sigmas (blur(16px): sigma 16 px)
-/** Set while the camera zooms with a card (stage.js zoomOpen): the figure under the glass is drawn again every frame, so each glass is blurred from one
- *  copy of the whole canvas, laid at most every HOLD_MS, never per frame (Mohammad, 4 Nov 2026: "needs to be fast"); the glass itself is drawn each frame. */
-export const glassHold = { on: false };
-const HOLD_MS = 80;
 /** The longest a glass drawn in the figure's canvas goes between two blurs when only the figure under it has been drawn again (a host that gives view()). */
 export const REBLUR_MS = 50;
 // (Off by default since 1 Nov 2026: on an iPhone the callouts' glass, blurred only every 50 ms while the figure under it moved each frame
@@ -1149,17 +1145,6 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
       const S = shareFor(shares, G, SKEY);
       const bx = shareReq.boxes;
       bx.length = panes.length;
-      if (glassHold.on) {
-        // (Held: one box, the whole canvas, so the parts to blur do not move with the glasses; the picture's key moves with the clock, in HOLD_MS steps.)
-        const b = boxPool[0] || (boxPool[0] = { x: 0, y: 0, w: 0, h: 0 });
-        b.x = 0; b.y = 0; b.w = cr.width; b.h = cr.height;
-        bx.length = 1; bx[0] = b;
-        shareReq.v = Math.floor(performance.now() / HOLD_MS); shareReq.f = '';
-        sharePrep(S, shareReq);
-        shareUse(S, shareId);
-        hk.share = S; hk.k = k; blurOK = true;
-        return;
-      }
       for (let i = 0; i < panes.length; i++) {
         const p = panes[i], b = boxPool[i] || (boxPool[i] = { x: 0, y: 0, w: 0, h: 0 });   // alloc-rare: the pool grows to the most glasses a picture has had
         b.x = p.r.left - cr.left; b.y = p.r.top - cr.top; b.w = p.r.width; b.h = p.r.height;
