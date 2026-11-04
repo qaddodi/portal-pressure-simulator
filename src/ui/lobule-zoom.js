@@ -238,6 +238,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // and never under what the view is at now. (Recs B3: the spare for twice the zoom no longer reaches past the deepest zoom.)
   const worldCap = (G, dpr) => Math.min(3600 / (2.6 * G.R), Math.max(dpr * kFit * KMAX, dpr * V.k) * Math.SQRT2);
   let kFit = 1, atFit = true;
+  let zoomCam = false;   // (a card's zoom carries the lobule: layShared lays the field through the camera too)
   let zbase = null;   // (the view as a card's camera zoom found it: zoomOpen)
   // A presenter's glide to a station still under way: its part, zoom and target (which refit moves, so the glide still lands on the station).
   let camAim = null;
@@ -769,7 +770,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const t = shareTop;
     if (!t || !gl || gl.lost) return;
     const r = (t.canvas.width || 1) / (shW || 1);   // (the stage canvas's pixels per CSS px)
-    if (fieldOp > 0.002 && fieldGL?.target) { const f = fieldGL.target; t.lay(f.tex, 1, 0, 0, 1, 0, 0, fieldOp); }
+    if (fieldOp > 0.002 && fieldGL?.target) { const f = fieldGL.target; if (zoomCam) t.lay(f.tex, diveK, 0, 0, diveK, diveE * r, diveF * r, fieldOp); else t.lay(f.tex, 1, 0, 0, 1, 0, 0, fieldOp); }
     if (fade <= 0 || el.style.visibility === 'hidden') return;
     const tg = gl.target;
     if (!tg?.w) return;
@@ -5005,16 +5006,28 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     /** The lobule zoomed with a card (card-zoom.js, via stage.js zoomOpen/zoomAt/zoomEnd): its view V scaled by S about the screen point (px, py) and
      *  moved by (dx, dy), the cards' own transform, drawn each frame with no glide of its own; zoomEnd puts V back as it was. Not in the sinusoid. */
     zoomOpen() {
-      if (zbase || !geo || fade < 0.98 || diveScaled || gliding || rubber || sinU > 0 || sinTo) return false;
-      stopInertia(); zbase = { k: V.k, x: V.x, y: V.y }; return true;
+      // (Only where the lobule's picture is in the figure's own context and drawn for the view as it stands: that picture is carried by the camera.)
+      if (zbase || !geo || fade < 0.98 || diveScaled || gliding || rubber || sinU > 0 || sinTo || !shared || wide || !drawnV.ok || glDirty) return false;
+      stopInertia(); zbase = { scene: true }; return true;
     },
     zoomAt(S, px, py, dx, dy) {
       if (!zbase) return;
+      // (Card zoom, 4 Nov 2026, card-zoom-plan.md: the view V and the labels' layout stay as they rest. The camera C, a scale S about (px, py) and a move
+      // (dx, dy), carries the lobule's picture in the figure's present (layShared, as the dive's does) and the names and leaders by the same view
+      // (cap.view, leadGL.view: a point is drawn where C puts it, a name keeps its size). The move is kept so the picture, only the stage's size, covers it.)
       const lx = px - snap.l, ly = py - snap.t;
-      V.k = zbase.k * S; V.x = S * zbase.x + (1 - S) * lx + dx; V.y = S * zbase.y + (1 - S) * ly + dy;
-      viewChanged();
+      let tx = (1 - S) * lx + dx, ty = (1 - S) * ly + dy;
+      if (S > 1) { tx = Math.min(0, Math.max(snap.w * (1 - S), tx)); ty = Math.min(0, Math.max(snap.h * (1 - S), ty)); }
+      zoomCam = true;
+      setDive(S, tx, ty);
+      shareTop?.present();
     },
-    zoomEnd() { if (!zbase) return; Object.assign(V, zbase); zbase = null; viewChanged(); },
+    zoomEnd() {
+      if (!zbase) return;
+      zbase = null; zoomCam = false;
+      setDive(1, 0, 0);
+      shareTop?.present();
+    },
     /** The presenter's camera: glide to the whole lobule ('fit') or close in on a portal tract ('triad'), the
      *  sinusoids between it and the centre ('sinusoid') or the central vein ('central'), zoom × the framing. */
     /** The way out of the lobule begins (on) or is called off (off): see heldFree. Called off with the lobule still up, it follows the
