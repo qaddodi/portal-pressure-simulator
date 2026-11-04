@@ -130,6 +130,16 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   if (gone.length) console.warn(`rules-lint: ${gone.length} listed source-regex test(s) no longer read source (${gone.slice(0, 3).join(', ')}${gone.length > 3 ? ', …' : ''}): run node scripts/test-classes.mjs --write`);
 }
 
+// Chrome glass (4 Nov 2026, "the top bar is not all glass"): app.css's [data-gl] / :not([data-gl]) fallback rules for the figure's chrome pills must list
+// exactly the selectors of main.js CHROME; a wider list paints a pill that main.js gives no glass (the patient pill, the Colored-by key) solid.
+{
+  const m = readFileSync(join(ROOT, 'src/ui/main.js'), 'utf8').match(/const CHROME = \[(.+)\]\.join/);
+  const css = readFileSync(join(ROOT, 'styles/app.css'), 'utf8').split('\n').filter((l) => /^:root:root :is\(/.test(l) && l.includes('.nb-views > .vp-face'));
+  const list = m && m[1].split(/',\s*'/).map((x) => x.replace(/^'|'$/g, '').trim()).join(', ');
+  if (!list) errors.push('main.js CHROME list not found (chrome glass rule)');
+  else if (css.length !== 2 || css.some((l) => !l.includes(`:is(${list})`))) errors.push('styles/app.css: the chrome [data-gl] and :not([data-gl]) rules must list exactly the selectors of main.js CHROME');
+}
+
 // Motion (PR-22): one reduce-motion read, and no new bare durations in the stylesheets.
 {
   const MOTION_READERS = new Set(['src/ui/motion.js', 'src/ui/stage.js', 'src/ui/focus-ring.js', 'src/ui/fibroscan.js', 'src/ui/ext-highlights.js']);
