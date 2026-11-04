@@ -3267,7 +3267,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // (Pinch frame reuse, when on, takes the zoom frames instead: its kept picture is laid only over a layer left empty.)
   // (Quality tiers, adapt-tier.js (R07): the targets are made once at the top tier's size (lowTop) and every tier draws inside them
   // at its own viewport, so stepping between tiers allocates nothing; prepLow makes them between frames, before the first is needed.)
-  let lowK = 0, lowOn = false, soft = false, lowTop = 0, lowMade = 0;   // (lowMade: how often the tiers' targets were made, R10)
+  let lowK = 0, lowOn = false, lowMorph = false, soft = false, lowTop = 0, lowMade = 0;   // (lowMade: how often the tiers' targets were made, R10)
   // (R10, review pass 2: a tier frame's small targets are read by the composite as they are (lowLive: the tier's [w, h] while they hold
   // the layer), not stretched into the full-size layer by three blits first: the layer's full-size writes are gone from a tier frame. Any
   // other draw into the layer lets them go (draw, layOut, trim). The new path only, no off switch.)
@@ -3811,7 +3811,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       if (panAt && (rows?.length || patchK)) { parts = rowParts(rows || NONE); if (parts.part.k > nCells * 0.6) parts = null; }
       const pan = panAt && (!(tubesNew || radRows.size || patchK) || parts);
       // (Vessels lower while pinching, when on and Pinch frame reuse is off: a zoom frame under a hand draws the layer lower: lowPass.)
-      if (lowK && lowOn && !reuseEvery && !pan && baseM && !sameLin(m, baseM) && !gpuProbe.skipGL && !lost) {
+      if (lowK && lowOn && !reuseEvery && !pan && baseM && (lowMorph || !sameLin(m, baseM)) && !gpuProbe.skipGL && !lost) {
         if (gpuProbe.on) gpuProbe.note('vessels: lower');
         layOut(layoutFor(m));   // (the picture's size: lowK is on)
         lowPass(m, look);
@@ -3992,8 +3992,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      * Vessels lower while pinching: `k` (0 off, else the share of the layer's width and height a zoom frame draws it at) and `now` (a
      * hand is zooming: only then). Off gives the small targets back.
      */
-    setLow(k, now, top = 0) {
-      lowOn = !!now;
+    setLow(k, now, top = 0, morphing = false) {
+      lowOn = !!now; lowMorph = !!morphing;   // (morphing: the figure morphs between the views, so a frame with the same view is drawn lower too)
       k = k > 0 && k < 1 ? k : 0;
       lowTop = top > 0 && top < 1 ? Math.max(top, k) : k;   // (the quality tiers' top: the targets' size, so a step allocates nothing)
       if (k === lowK) return;

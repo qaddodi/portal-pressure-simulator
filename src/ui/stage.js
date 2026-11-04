@@ -1,7 +1,7 @@
 // Anatomical stage (blueprint §6): the figure drawn on the GPU (plate, vessels, moving blood),
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
-import { TIERS_ON, TIER_TOP, tierK, onTierWarm } from './adapt-tier.js';
+import { TIERS_ON, TIER_TOP, tierK, motionK, onTierWarm } from './adapt-tier.js';
 import { hold as gpuHold, overMemory as gpuOverMemory } from './gpu-budget.js';
 import { WARM_VIEWS, WARM_MS } from './warm-views.js';
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js';
@@ -3639,7 +3639,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (A change that leaves the canvas's size as it is (Glows alone) still draws the figure again, its glow layers remade.)
   // (Auto's step is taken at once for the view as it stands, so a change goes in one eased step, not by Full and back.)
   if (TIERS_ON) onTierWarm(() => { if (veins && !veins.lost) veins.prepLow?.(TIER_TOP); });   // (the tiers' targets, made between frames)
-  onRenderScale(() => { autoK = autoNow(); moveLow = false; adaptK = 1; moveGaps.length = 0; easeRes(); veinsDirty = true; forceDraw = true; stageWake(); settleRes(); });
+    // (B3: the lower targets, made between frames a moment after the canvas was sized, so the first moving frame allocates nothing.)
+  let lowWarmT = 0;
+  const lowWarm = () => { clearTimeout(lowWarmT); lowWarmT = setTimeout(() => { if (veins && !veins.lost && !inMotion()) veins.prepLow?.(TIER_TOP); }, 1500); };
+  lowWarm(); new ResizeObserver(lowWarm).observe(wrap);
+onRenderScale(() => { autoK = autoNow(); moveLow = false; adaptK = 1; moveGaps.length = 0; easeRes(); veinsDirty = true; forceDraw = true; stageWake(); settleRes(); });
   resizeCanvas(); resizeReady = true;
   // A window dragged to a screen of another density keeps its CSS size, so no resize notice follows and the figure would stay at the old screen's
   // sharpness: the canvas is measured again when the density changes. (The query names the density now in force and fires once it stops matching, so it is made anew each time.)
@@ -5847,8 +5851,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (Quality tiers, adapt-tier.js (R07): under deadline pressure every zoom frame of a move, a hand's or a glide's, draws the layer at
     // the tier's share inside targets made once at the top tier's size; the view a move stops at is drawn at Full. ?tiers=0: off.)
     // (Not through the change between the views: its frames drawn lower and the landing at Full read as a flicker, soft then sharp, on the figure.)
-    const tk = TIERS_ON && morph === morphTarget ? tierK() : 0;
-    veins.setLow?.(tk || (low ? PINCH_LOW_K : 0), tk ? true : low && gestureOn(), TIERS_ON ? TIER_TOP : 0);
+    // (B3, pure-gpu-plan: while the camera glides, a hand or wheel zooms, or the figure morphs between the views, the vessels, blood and organs are drawn at
+    // MOTION_K of the layer's width and height and stretched in the present; labels, lines and glass are on their own layers, at Full. The frame that
+    // lands (morph at its target, the gesture over) draws the layer whole, and `soft` keeps the page awake until it has. Not in a dive, the lobule or a card's zoom.)
+    const morphing = morph !== morphTarget;
+    const moving = TIERS_ON && (morphing || vtGliding || gestureOn()) && !(diveT > 0) && !lobuleOn && !drawCam && !lz?.isOpen();
+    const tk = TIERS_ON && !morphing ? tierK() : 0, mk = moving ? motionK() : 0;
+    const lk = tk && mk ? Math.min(tk, mk) : tk || mk;
+    veins.setLow?.(lk || (low ? PINCH_LOW_K : 0), lk ? true : low && gestureOn(), TIERS_ON ? TIER_TOP : 0, morphing && !!mk);
     veins.draw(T, vLook, bloodLook(), rows);
     if (veins.reused || veins.soft) veinsDirty = true;
     return true;

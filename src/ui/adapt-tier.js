@@ -24,6 +24,8 @@ export const TIERS_ON = true;   // (switch deleted; kept for stage.js until its 
 // targets hold 69 MB. The render graph reads over its memory envelope with them, and that reads as pressure that steps the tier down.)
 export const TIERS = [0, 0.71, 0.5];
 export const TIER_TOP = 0.71;
+/** B3 (pure-gpu-plan): the share of the vessel layer's width and height every moving frame is drawn at (0.67: 0.45 of the pixels), tiers or no. Settings › Sharp while moving turns it off. */
+export const MOTION_K = 0.67;
 const DOWN_OF = 6, DOWN_N = 3, DOWN_GAP = 250, UP_CALM = 1500;
 
 let tier = 0, changedAt = -Infinity, calmSince = 0, warned = false;
@@ -47,6 +49,8 @@ try { sharp = localStorage.getItem('pps.sharp') === '1'; } catch { /* storage un
 export const sharpMoving = () => sharp;
 export const setSharpMoving = (on) => { sharp = !!on; };
 export const tierK = () => (sharp ? 0 : TIERS[tier]);
+/** The share a frame of motion is drawn at: the tier's if lower than MOTION_K, else MOTION_K (0 when moving is drawn sharp). */
+export const motionK = () => (sharp ? 0 : TIERS[tier] > 0 ? Math.min(TIERS[tier], MOTION_K) : MOTION_K);
 const whyOf = (e) => (e.kind === WHY_CALM ? `${UP_CALM} ms of frames on time with light script`
   : `${e.n} of ${DOWN_OF} frames ${e.kind === WHY_MISS ? `missed (${e.gap.toFixed(1)} ms at a ${e.b.toFixed(1)} ms frame)` : `heavy (script ${e.script.toFixed(1)} ms${e.over ? ', render graph over its envelope' : ''})`}`);
 /** The last tier changes, oldest first: { at, from, to, why, mb }. A fresh array of fresh objects (the ring is not handed out). */
