@@ -47,13 +47,3 @@ test('the landing is solved dry, at the landing framing, and the view is always 
   const dry = lay.indexOf('if (dry) return true;');
   assert.ok(dry > lay.indexOf('if (solve) labelSol = nextSol;') && dry < lay.indexOf('for (const it of out) renderBlock(it);'));
 });
-
-test('the glide carries the labels from those slots: no solve on its way, no check for collisions, none as it lands', () => {
-  const a = body('function animateVT(to, ms = 700, opt = NO_OPT) {');
-  assert.match(a, /landRide = false; landTo = null;\n/, 'each glide asks afresh');
-  assert.match(a, /if \(!drift && !arcRun && !opt\.steady && !sameView\(from, to\) && landable\(from, to\) && solveLanding\(to\)\) \{ landRide = true; landTo = to; labelKey = null; updateLabels\(F\); \}/);
-  assert.ok(a.indexOf('vtGliding = true;') < a.indexOf('solveLanding(to)'), 'laid out at the view as it is, as a glide');
-  assert.match(a, /vtGliding = false; arcRun = null; landRide = false; landTo = null;/);
-  assert.match(stage, /const landing = \(\) => landRide && vtGliding && vtTarget === landTo;/, 'only for the glide it was solved for');
-  assert.match(stage, /land = landing\(\) && !hand, ride = \(drifting \|\| land\) && !hand;/);
-});

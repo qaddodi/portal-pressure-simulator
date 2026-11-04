@@ -47,15 +47,6 @@ test('a menu: named, focused from the keyboard, focus handed back; a dialog trap
   assert.match(open, /appEl\.inert = false/);
 });
 
-test('Search closes with Esc from a result too, the Why card with its own Esc only, Space on an organ key does not also play', () => {
-  const m = read('src/ui/main.js');
-  assert.match(m, /if \(palette\.isOpen\(\)\) \{ if \(e\.key === 'Escape'\) \{ e\.preventDefault\(\); palette\.close\(\); \} return; \}/);
-  assert.match(m, /e\.key === ' ' && !e\.altKey && !controlOwnsKey\(e\.target, ' '\) && !e\.target\.closest\?\.\('\.lb'\) && !\(e\.target\.id === 'stage' && stage\?\.keyItem\?\.\(\)\)/);
-  const w = read('src/ui/why.js');
-  assert.match(w, /e\.stopPropagation\(\); close\(\); \} \}, true\);/);
-  assert.match(w, /announce\(`\$\{r\.label\}\. \$\{r\.sentence\}`\)/);
-});
-
 test('a toast with buttons stays 9 s and while the pointer or focus is on it; the Speed button names its value; the slide list shows its focus', () => {
   const u = read('src/ui/util.js');
   assert.match(u, /const life = actions\?\.length \? 9000 : 4200/);

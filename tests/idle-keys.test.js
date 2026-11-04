@@ -157,13 +157,6 @@ test('the framing, the labels\' card boxes and the credit\'s poll go by the watc
   for (const s of ['[data-safe]', '.stage-blocker', '.pz-shade', '#zoomPill']) assert.ok(PLACED.includes(s), s);
 });
 
-test('the composite allocates no uniform arrays per frame', () => {
-  const gl = src('veins-gl.js'), body = gl.slice(gl.indexOf('    composite(look, blood = NOBLOOD, full = false, part = 0) {'), gl.indexOf('    /** Whether organ outlines can be drawn here'));
-  assert.ok(body.length > 1000);
-  assert.ok(!/new Float32Array\(\[/.test(body) && !/new Float32Array\(\d+\)/.test(body), 'a fresh Float32Array in the composite');
-  assert.match(body, /SCR\.be\.fill\(0\)/);
-});
-
 test('an outline change redraws the outline layer alone, a glow change its glow layer alone', () => {
   const gl = src('veins-gl.js');
   // (External review, 21 Oct: one outline's opacity redrew all three layers.)

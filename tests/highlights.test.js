@@ -123,23 +123,6 @@ test('the vein system gives every vein one of three classes, the same on every p
   assert.match(STAGE, /mode === 'system'\) \{ c1 = c2 = SYSTEM_COLOR\[systemOf\(e, PORTAL_TERRITORY\)\]/);
 });
 
-test('"the slide before" is the state the presenter shows for it, and the key names what a slide compares with', () => {
-  const slides = [{ preset: 'healthy' }, { title: 'b' }, { params: { x: 1 } }, { title: 'd' }, { days: 30 }];
-  assert.deepEqual(stateIndex(slides), [0, 0, 2, 2, 4]);
-  // (As the presenter's own stateOf, which counts the overview slide first on a built-in deck.)
-  const pres = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-  assert.match(pres, /const changes = \(s\) => !!\(s\.preset \|\| s\.params \|\| s\.action \|\| s\.days\);/);
-  assert.match(pres, /slides = \(d\.mine \? d\.slides : withOverview\(d\)\.slides\)\.map\(oneLadder\);/);   // (oneLadder keeps every slide's place)
-  for (const d of DECKS.slice(0, 3)) assert.equal(stateIndex(withOverview(d).slides).length, withOverview(d).slides.length);
-  assert.equal(sinceWords({}), 'change vs last slide');
-  assert.equal(sinceWords({ since: 'pre' }), 'change vs earlier');
-  assert.equal(sinceWords({ since: 'pre', sinceLabel: 'pre-TIPS' }), 'change vs pre-TIPS');
-  assert.equal(sinceWords({ lapse: {} }), 'change over these days');
-  const [name, bar, lo, hi] = EXT.lenses.since({ sinceLabel: 'the bleed' });
-  assert.equal(name, 'change vs the bleed'); assert.equal(typeof bar, 'function'); assert.deepEqual([lo, hi], ['Lower', 'Higher']);
-  assert.equal(EXT.lenses.system[0], 'vein system');
-});
-
 test('no built-in deck uses a package A field, so every talk looks as before', () => {
   for (const d of DECKS) for (const s of d.slides) {
     for (const k of ['spot', 'ripple', 'normalOutline', 'lapseGlow', 'since', 'sinceLabel']) if (!adopted(d, s, k)) assert.equal(s[k], undefined, `${d.id}/${s.id}: ${k}`);

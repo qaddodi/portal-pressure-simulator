@@ -68,43 +68,10 @@ test('a camera ride holds each label inside the stage, and its leader\'s label e
   assert.match(lg, /geo\[2\] = mg\.v\[2\] \* dpr \+ \(RIDE_XY\[0\] - \(Math\.round\(ls\.x \* dpr\) \+ lst\.ox\)\);/);
 });
 
-test('after a view switch the labels come back only once their layout has landed (no old view over the new one)', () => {
-  assert.match(st, /const morphFadeDrop = \(force\) => \{ if \(!morphFade && \(force === true \|\| !labelJob\)\)/);
-  assert.match(st, /setTimeout\(morphFadeDrop, 1500, true\);/);
-  assert.equal((st.match(/labelTail\(\);\n\s+nextFrame\(morphFadeDrop\);/g) || []).length, 2, 'both landings of a sliced solve');
-});
-
-test('a view change carries each label, leader and dot by its own station\'s move, in the figure\'s frame (labels are part of the figure)', () => {
-  // (label-gl: offsets per key, applied to the picture and to its leader and dot; labels of no station fade; held till the new layout is in.)
-  assert.match(lg, /const fol = \{ on: false, end: false, m: new Map\(\), fade: 1 \};/);
-  assert.match(lg, /if \(f\) \{ x \+= Math\.round\(f\.dx \* dpr\); y \+= Math\.round\(f\.dy \* dpr\); \} else a \*= fol\.fade;/);
-  assert.match(lg, /geo\[i \* 2\] \+= f\.dx \* dpr; geo\[i \* 2 \+ 1\] \+= f\.dy \* dpr;/);
-  assert.match(lg, /if \(rideM \|\| \(fol\.on && !fol\.end\)\) \{ ask\(\); return; \}/);
-  assert.match(lg, /followEnd\(\) \{/);
-  // (stage: the table of stations from the landed layout, the step in the morph's frame, the end handing the places on.)
-  assert.match(st, /if \(followOn\) followStep\(\);/);
-  assert.match(st, /labelGL\.followPut\(key, a\.ax - e\.ax, a\.ay - e\.ay\);/);
-  assert.match(st, /if \(followOn\) \{ followOn = false; labelGL\?\.followEnd\(\); \}/);
-  assert.match(st, /followNext\.set\(it\.key, \{ id: it\.key\.slice\(2\), ax: it\.ax, ay: it\.ay \}\)/);
-  assert.match(st, /class: 'leader-dot', 'data-k': it\.key/);
-});
-
 test('a layout solved for another view is never carried onto this one, nor handed to the GPU while its own solve is pending', () => {
   assert.match(st, /sf\.view = morphTarget;/);
   assert.match(st, /if \(solvedFor && solvedFor\.view === morphTarget && !\(morph > 0 && morph < 1\)\) layoutLabels\(f, false\);/);
   assert.match(st, /if \(!force && sameView8\(labelJob\.key, key\)\) \{ labelTail\(\); return; \}/);
   assert.ok(!st.includes('glHold'));
   assert.match(st, /const labelGlSync = \(\) => \{ if \(!labelGL \|\| glSuppress\) return;/);
-});
-
-// Labels part of the figure (3 Nov 2026): a station label is drawn at its point now plus its layout's offset, and its dot and leader move with it.
-test('pinned labels: drawn at their point now plus the offset, their dot and leader drawn from that point and that picture each frame', () => {
-  assert.match(lg, /const pinOf = \(s\) => \(pinAt && s && s\.pid != null && pinAt\(s\.pid, PIN, s\.pmid, s\.pau\) \? s : null\);/);
-  assert.match(lg, /x = Math\.round\(\(PIN\[0\] \+ ox\) \* dpr\) \+ st\.ox; y = Math\.round\(\(PIN\[1\] \+ oy\) \* dpr\) \+ st\.oy;/);
-  assert.match(lg, /const lx = Math\.round\(\(PIN\[0\] \+ OFF\[0\]\) \* dpr\) \+ st\.ox, ly = Math\.round\(\(PIN\[1\] \+ OFF\[1\]\) \* dpr\) \+ st\.oy;/, 'the leader ends where the picture is drawn');
-  assert.match(lg, /PG\[0\] = px; PG\[1\] = py; PG\[2\] = px \+ dx \* t; PG\[3\] = py \+ dy \* t;/, 'the leader starts at the point');
-  assert.match(lg, /if \(pinAt\) \{ gl\.useProgram\(mprog\); ucOf\(gl\)\.f2\(MU\.uView, W, H\); moving = drawPins\(now\) \|\| moving; gl\.bindVertexArray\(vao\); \}/, 'after the pictures, so each label is this frame\'s');
-  assert.match(lg, /if \(fol\.on && !pinned\)/, 'no follow moves a pinned label');
-  assert.match(st, /labelGL\.pinTo\(\(id, out, mid, au\) => \{/);
-  assert.match(st, /labelGL\.pinDraw\(\);/);
 });

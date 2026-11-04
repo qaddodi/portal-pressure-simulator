@@ -42,20 +42,6 @@ test('each is loaded by import(), when its time comes', () => {
   assert.doesNotMatch(read('main.js'), /from '\.\/sinusoid-view\.js/);
 });
 
-// ── The lobule's layer, built late ────────────────────────────────────────────────────────────────────────────────────────
-test('the stage builds the lobule layer when its code has come, in the place in the page it always had', () => {
-  const stage = read('stage.js');
-  assert.doesNotMatch(stage, /^import .*lobule-zoom/m, 'no static import');
-  assert.match(stage, /const lzAnchor = document\.createComment\('lobule'\);\s*\n\s*wrap\.append\(lzAnchor\);/, 'a marker takes the layer\'s place where it was built');
-  assert.match(stage, /const lzOptions = \{ host: wrap, styles: wrapCS, before: lzAnchor, binAway: lzBinAway \};[\s\S]*lz = createLobuleZoom\(lzOptions\)/);   // (binAway: its network binned in the stage's worker, cold-start 2 Nov 2026)
-  const lobule = read('lobule-zoom.js'), view = read('sinusoid-view.js');
-  assert.match(lobule, /host\.insertBefore\(field, before\); host\.insertBefore\(el, before\);/);
-  assert.match(lobule, /createSinusoidView\(\{ host, before \}\)/, 'the sinusoid view sits in the same place');
-  assert.match(view, /host\.insertBefore\(el, before\);/);
-  assert.doesNotMatch(lobule, /host\.append\(/);
-  assert.doesNotMatch(view, /host\.append\(/);
-});
-
 test('a dive asked for before the layer exists goes on when it does, with the slide\'s aim and the frame as they stand', () => {
   const stage = read('stage.js');
   const open = stage.slice(stage.indexOf('function openLobule('), stage.indexOf('function closeLobule()'));

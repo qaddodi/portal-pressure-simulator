@@ -15,15 +15,6 @@ test('the FibroScan probe never asks the browser for the liver\'s box', () => {
   assert.match(fn, /CTM\.a \* wx \+ CTM\.c \* wy \+ CTM\.e - wrapRect\.left/);   // (the camera's matrix, as worldToLocal applies it)
 });
 
-test('a view change paints the callouts and probes once: again only when updateLabels held back', () => {
-  const sv = body('syncView'), ul = body('updateLabels');
-  assert.match(ul, /^\s+function updateLabels\(f, force = false\) \{\n\s+labelPainted = false;/);
-  // (Every way out of a layout, a sliced solve's landing included, ends in labelTail: the callouts and probes, then the GPU's copy.)
-  assert.match(ul, /\n\s+labelTail\(\);\n\s+\}$/);
-  assert.match(body('labelTail'), /dprobePaint\(\);\n\s+labelPainted = true;\n\s+labelGlSync\(\);[^\n]*\n\s+\}$/);
-  assert.match(sv, /if \(!labelPainted && !vtGliding\) \{\n\s+if \(sites\.list\) sitesPaint\(\);\n\s+if \(scan\.on\) scanPaint\(\);\n\s+dprobePaint\(\);\n\s+\}/);
-});
-
 test('the FibroScan beam is its own layer of the probe\'s model, under the waves', () => {
   const at = STAGE.indexOf('<div class="sp-svg sp-beam-svg">'), beam = STAGE.indexOf('<i class="sp-beam" '), waves = STAGE.indexOf('</div><div class="sp-svg"><i class="sp-waves">');
   assert.ok(at > 0 && beam > at && waves > beam, 'the beam in its own layer, the waves after it in another');

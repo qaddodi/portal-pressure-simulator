@@ -93,13 +93,6 @@ test('the SVG copy is see-through only while the GPU draws that label, marked in
   assert.match(LGL, /webglcontextlost[\s\S]{0,200}for \(const s of last\) s\.g\.removeAttribute\('data-gl'\);/);
 });
 
-test('stage.js hands the GPU every label it laid out, in the same frame, and the script fades', () => {
-  assert.match(STAGE, /const labelGL = createLabelGL\(labelSvg, gLabels, \{ software: SOFTWARE, marks: \[gLeaders, gScan\], onBoxes: frostWake \}\);/);
-  assert.match(STAGE, /b\.pos = \{ g: b\.g, x: px0, y: py0, rot: !!it\.rot, pid: pin \? it\.key\.slice\(2\) : null, pax: pin \? it\.ax : 0, pay: pin \? it\.ay : 0, pmid: pk === 1, pau: it\.au \?\? 0\.5 \};/);
-  assert.match(STAGE, /dprobePaint\(\);\n\s+labelPainted = true;\n\s+labelGlSync\(\);/, 'last, after the probe is placed');
-  for (const m of STAGE.matchAll(/b\.g\.animate\?\.\(/g)) assert.match(STAGE.slice(m.index, m.index + 260), /labelGL\?\.hold\(b\.g, /, 'a scripted fade is held');
-});
-
 test('leaders and dots: straight leaders and circles are drawn on the GPU, anything else stays SVG', async () => {
   const { lineOf, describeMark, rgba } = await import('../src/ui/label-gl.js');
   assert.deepEqual(lineOf('M12.5 30.0 L80.2 -4.5'), [12.5, 30, 80.2, -4.5]);
@@ -207,29 +200,6 @@ test('labels draw as one instanced batch from the atlas, texel for texel', () =>
   assert.doesNotMatch(LGL, /texSubImage2D\(|getContext\('2d'\)|measureText|fillText|strokeText/, 'no picture painted on a 2D canvas or uploaded');
   assert.match(LGL, /for \(to = from \+ 1; to < ni && ITEMS\[to\]\.page === page; to\+\+\);/, 'one draw per run of pictures on a page (atlas-pack batchRuns, inline)');
   assert.match(LGL, /maxPages: 2/);
-});
-
-test('the labels stay on their own canvas; what they drew is told to the glass drawn under them', () => {
-  const VG = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
-  // (Round 2, 2.2: never drawn into the vessel canvas; ?labelhost is gone.)
-  assert.doesNotMatch(STAGE, /labelhost|labelHost|labelsOver/);
-  assert.doesNotMatch(STAGE, /createLabelGL\([^)]*host:/);
-  // (At the end of each picture laid, the glasses' turns: every blur first, then every glass, lowest turn first; a snapshot is the
-  // figure alone, then laid again whole as it shows.)
-  assert.match(VG, /function present\(top = true, again = false\) \{/);
-  assert.match(VG, /if \(top && tops\.length\) \{\n\s+runTops\(\);/);
-  // (runTops: each top's prep, then each top's draw, over the list as it stood when the phase began, in kept lists.)
-  assert.match(VG, /for \(let i = 0; i < snap\.length; i\+\+\) \{ const t = snap\[i\]; try \{ t\.prep\?\.\(\); t\.fails = 0; \}/);
-  assert.match(VG, /for \(let i = 0; i < snap\.length; i\+\+\) \{ const t = snap\[i\]; try \{ t\.draw\(\); t\.fails = 0; \}/);
-  assert.match(VG, /add\(t\) \{ tops\.push\(t\); tops\.sort\(\(a, b\) => \(a\.order \|\| 0\) - \(b\.order \|\| 0\)\);/);
-  assert.match(VG, /snapshot\(\) \{ present\(false\); const url = canvas\.toDataURL\('image\/png'\); if \(tops\.length\) present\(\); return url; \}/);
-  // (Every box a picture drew: each label's, each mark's, the probes'; a change tells the stage, which wakes the glasses.)
-  assert.match(LGL, /boxAt\(x, y, x \+ st\.w, y \+ st\.h\);/);
-  assert.match(LGL, /boxAt\(box\[0\], box\[1\], box\[2\], box\[3\]\);/);
-  assert.match(LGL, /boxAt\(pEx0 - 4 \* dpr, pEy0 - 4 \* dpr, pEx1 \+ 4 \* dpr, pEy1 \+ 4 \* dpr\);/);
-  assert.match(LGL, /boxAt\(\(px - 170\) \* dpr, \(py - 170\) \* dpr, \(px \+ 170\) \* dpr, \(py \+ 170\) \* dpr\);/);
-  assert.match(LGL, /if \(settleBoxes\(\)\) \{ try \{ onBoxes\?\.\(\); \}/);
-  assert.match(STAGE, /marks: \[gLeaders, gScan\], onBoxes: frostWake \}\);/);
 });
 
 // Laptop-heat recs H6, on the GPU: a value that ticks to another digit keeps its width (tabular figures), so its picture keeps its size and

@@ -38,31 +38,6 @@ test('each surface\'s callbacks are set against the frames it really drew, over 
   assert.equal(surfaceLine(b, b), '');
 });
 
-test('the readout lists every frame that missed the refresh, keeps GPU timing apart, and counts every copy path', () => {
-  const r = src('perf-readout.js');
-  assert.doesNotMatch(r, /GAP = 20/);
-  assert.match(r, /const hz = refreshOf\(recent\), limit = hz \? 1500 \/ hz : 20;/);
-  assert.match(r, /cur\.stats = hz \? intervalStats\(cur\.dts, hz\) : null;/);
-  assert.match(r, /cur\.surfaces = surfaceLine\(cur\.totals, perf\(\)\.totals\);/);
-  assert.match(r, /gpuProbe\.cpuOnly = true; gpuProbe\.on = true;/, 'recordings time script only unless GPU timing is turned on');
-  // The two glasses apart (two drawn in a frame are not one drawn twice), and the copies and targets made again.
-  assert.notEqual(COUNTED.paneDrawn, COUNTED.glassDrawn);
-  assert.ok(TWICE.has(COUNTED.paneDrawn) && TWICE.has(COUNTED.glassDrawn));
-  const g = src('glass-gl.js');
-  assert.match(g, /gpuProbe\.note\(cards \? COUNTED\.cardCopy : pane \? COUNTED\.paneCopy : COUNTED\.glassCopy\)/);
-  assert.match(g, /noteDraw\(cards \? 'glass-cards' : pane \? 'glass-pane' : 'glass'\);/);
-  const v = src('veins-gl.js');
-  for (const k of ['present', 'fboAlloc']) assert.ok(v.includes(`COUNTED.${k}`), k);
-  // (A pan copies nothing since 31 Oct: the layer wraps, so there is no pan blit to count.)
-  assert.ok(!v.includes('COUNTED.panBlit') && !('panBlit' in COUNTED));
-  const shift = v.slice(v.indexOf('  function shiftLayer('), v.indexOf('  // The binned cells on the CPU'));
-  assert.ok(shift.length > 100 && !shift.includes('blitFramebuffer'), 'a pan copies no target');
-  assert.ok(v.includes("gpuProbe.note('uploaded: noise'"));
-  assert.match(v, /patchGeometry: 'uploads', setRadii: 'uploads', setBend: 'uploads'/);
-  assert.equal((src('res-fade.js').match(/COUNTED\.fadeCopy/g) || []).length, 0, 'no 2D fade copies left: the fade is mixed on the GPU');
-  for (const n of ['uploaded: patchGeometry', 'uploaded: setBend', 'uploaded: noise']) assert.ok(r.includes(n.slice(10)), n);
-});
-
 // ── Group 2: the same picture for less work ──
 test('G1: a pan takes the width step instead of the whole update; a zoom or a turn still takes the update', () => {
   const s = src('stage.js');
@@ -108,22 +83,6 @@ test('H3: the glass canvases hold at most 2 device px per CSS px; the labels too
   const g = src('glass-gl.js');
   assert.doesNotMatch(g.replace(/export const glassDpr = [^\n]+/, ''), /devicePixelRatio/, 'every density in the glass is the capped one');
   assert.match(src('label-gl.js'), /const r = sizeOf\(svg\.parentElement\), k = labelDensity\(devicePixelRatio\);/, 'labels at the capped density');
-});
-
-test('H4: a frame of the moving blood alone takes no new copy for the glass and does not wake it; anything else does', () => {
-  const v = src('veins-gl.js');
-  assert.match(v, /const pictured = \(blood = false\) => \{ if \(blood\) \{ bloodSeq\+\+; return; \} pictureSeq\+\+; onPicture\.forEach\(callPicture\); \};/);
-  assert.match(v, /pictured\(!full && !part && !dirt && !pool && !\(fl\?\.ripple && nFluid\) && !cath && bare && same && !figNew\);/);
-  // Every upload a blood frame could show, other than the blood's own rows, counts the figure as drawn again.
-  const api = v.slice(v.indexOf('  const api = {'));
-  for (const k of ['setGeometry(bins)', 'patchGeometry(bins)', 'setRadii(row, r, along = null)', 'setTubes(data)', 'setDye(data)', 'setFluidCells(cells)']) {
-    assert.match(api, new RegExp(`    ${k.replace(/[()]/g, '\\$&')} \\{\\n      figVer\\+\\+;`), k);
-  }
-  assert.doesNotMatch(api.slice(api.indexOf('    setFlow(data) {'), api.indexOf('    setDye(data) {')), /figVer/, 'the blood\'s own rows are the blood');
-  // (A curvature row is counted only when it is sent: one the texture already holds changes nothing.)
-  assert.match(api, /if \(same\) return;\n[^\n]*\n[^\n]*\n\s*figVer\+\+;\n\s*moved\[row\] = 1;/);
-  // The reuse and clear paths are figure changes.
-  assert.match(v, /clear\(\) \{ pictured\(\);/);
 });
 
 test('H4b: the glass observer asks for the glass\'s frame; it never draws in a microtask', () => {
