@@ -41,7 +41,7 @@ test('any phone, iPad or Mac band: clear when a clear place exists, and a clear 
 test('the stage places, eases and turns the readings with it, with no CSS flip', () => {
   const stage = stageSource(), css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
   assert.match(stage, /if \(first \|\| \(calm && !pillsClear\(q\)\)\) \{[\s\S]*?placePillsInto\(q, cathSideOut\);/);
-  assert.match(stage, /calm = !vtGliding && !cath\.glideRaf;/);
+  assert.match(stage, /calm = !(?:live\.)?(?:live\.)?vtGliding && !cath\.glideRaf;/);
   assert.match(stage, /if \(ready\) \{ const q = cathGlide\(el, bx, by, x, y\); cx = q\[0\]; cy = q\[1\]; \} else el\._gl = null;/);
   assert.match(css, /\.cath-label\.cath-js, \.cath-label\.cath-js\[data-at="ahead"\], \.cath-label\.cath-js\[data-at="ahead"\]\.above \{ translate: -50% var\(--pre, 0px\); \}/);
 });
