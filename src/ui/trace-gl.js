@@ -501,13 +501,25 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
     // alloc-rare: at most once for each context: atlasSoon holds a second one off until the first has run
     later(() => { atlasSoon = false; if (sendAtlas() && redraw && !dead) { try { redraw(); } catch (e) { console.warn('Charts on the GPU: the redraw failed.', e); } } });
   }
+  // (The uniform cache (uniform-cache.js) is keyed by the location object and believes what it last sent through it. Charts in one pool share one program,
+  // so they must share its locations too: each chart with locations of its own made its cache believe in values (the size, the line's half width, the
+  // colour, the alpha) that another chart had since replaced in the program, so a stroke was sent with another chart's numbers or none, and a chart's lines
+  // vanished while its fills, words and dots, which a size change happens to refresh, still drew.)
+  function ulocs(p, k) {
+    const make = () => Object.fromEntries(UN[k].map((n) => [n, gl.getUniformLocation(p, n)]));   // alloc-rare: once per program
+    if (!shown) return make();
+    const m = shared.ulocs ||= new WeakMap();   // alloc-rare: once per pool
+    let u = m.get(p);
+    if (!u) m.set(p, u = make());
+    return u;
+  }
   function publish() {
     if (P || failed || gl.isContextLost()) return;
     try {
       // alloc-rare: publish runs once when the programs have compiled (or a context is made again), never in a frame
       const out = {};
       // alloc-rare: publish runs once when the programs have compiled (or a context is made again), never in a frame
-      for (const k of Object.keys(SRC)) { const p = checkProgram(gl, started[k]); out[k] = { p, u: Object.fromEntries(UN[k].map((n) => [n, gl.getUniformLocation(p, n)])) }; }
+      for (const k of Object.keys(SRC)) { const p = checkProgram(gl, started[k]); out[k] = { p, u: ulocs(p, k) }; }
       // alloc-rare: publish runs once when the programs have compiled (or a context is made again), never in a frame
       exerciseDraw(gl, () => {
         gl.bindVertexArray(quadVao);
