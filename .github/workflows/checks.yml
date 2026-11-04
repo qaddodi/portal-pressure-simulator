@@ -1,26 +1,22 @@
 name: On request (smoke)
 
 # The one browser check, on request only (owner, 4 Nov 2026: no headless runs on every push; recs in checks-redesign-recs.md).
-# Ask with [smoke] in a commit message, or from the Actions tab. It never deploys or blocks.
+# Ask from the Actions tab only (Run workflow). It never deploys or blocks, and a push starts no run of it.
 #   scripts/smoke-lite.mjs on the production build: static, boot (desktop and phone), the three views, slide 1 of every deck,
 #   on the GPU path (software WebGL: CI has no graphics card). It judges errors and that each change ends; no pixels, no timings.
-# A push without the tag starts no job.
 
 on:
-  push:
-    branches: [claude/settings-topbar-icon-flvft1]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: on-request-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[smoke]') }}
+  group: on-request-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
   smoke:
-    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[smoke]')
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:

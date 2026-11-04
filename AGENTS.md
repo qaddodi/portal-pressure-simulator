@@ -30,7 +30,7 @@ Loop for every change (fast previews first, full tests before merge):
    Quick (`quick.yml`: lint, unit tests, the static checks) runs beside it as a warning, so a red one is fixed in a follow-up push.
    A red "Pages (live site + preview)" run means the preview did not publish. Check it finished (GitHub Actions tools), then tell
    the owner the preview URL. The one browser check, `scripts/smoke-lite.mjs` (boot, the three views, slide 1 of every deck, on the
-   GPU path; no pixels, no timings), runs only on request: `[smoke]` in a commit message (`checks.yml`), or the Actions tab.
+   GPU path; no pixels, no timings), runs only on request, from the Actions tab (`checks.yml`, dispatch only: a push never starts it).
 3. The owner tests on their devices and reports anything broken; repeat steps 1-2 quickly.
 4. On pull requests and on `main`, `ci.yml` runs lint, the unit tests, the static checks, a strict build (`BUILD_STRICT`: the chunk
    cap and the line budgets fail) and the smoke. The 84-shard browser suite (`tests/e2e/smoke.mjs`), the pixel comparison against
