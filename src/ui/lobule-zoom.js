@@ -5024,9 +5024,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       // drawn where C puts it, a name keeps its size). The camera is a record of its own: the dive's frames set the dive's and never undo it.)
       const lx = px - snap.l, ly = py - snap.t;
       let tx = (1 - S) * lx + dx, ty = (1 - S) * ly + dy;
-      if (zbase.sin) { sv.camera(S, tx, ty, (shareTop?.canvas.width || 1) / (shW || 1)); return; }   // (the sinusoid is not cut to the stage: its picture is the card's own camera exactly)
-      // (The lobule's picture is only the stage's size: its move is kept so it covers it.)
+      // (The picture, the lobule's or the sinusoid's, is only the stage's size: a zoom about a card at one side would carry the rest of it out of view
+      // and leave the stage bare, so its move is kept so it covers the stage.)
       if (S > 1) { tx = Math.min(0, Math.max(snap.w * (1 - S), tx)); ty = Math.min(0, Math.max(snap.h * (1 - S), ty)); }
+      if (zbase.sin) { sv.camera(S, tx, ty, (shareTop?.canvas.width || 1) / (shW || 1)); return; }
       zK = S; zE = tx; zF = ty; zoomCam = true;
       applyView();
       shareTop?.present();
