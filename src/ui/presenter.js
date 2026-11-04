@@ -24,7 +24,7 @@ import { swipeDir, SWIPE_MIN, SWIPE_RATIO, ownsSideways, ownsTouch, cardSwipe, c
 import { createSvgGL, svgModel, viewMap, noteLoop } from './svg-gl.js';
 import { sinusoidSupported } from './gl-support.js';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js';
-import { isCamOn, unionBox, regionBox, growBox, camNames } from './cam-frame.js';
+import { CIRC_REGIONS, isCamOn, unionBox, regionBox, growBox, camNames } from './cam-frame.js';
 import { runSoon } from './class-soon.js';
 import { NODE_POS } from './anatomy.js';
 import { DISEASE_SRC, diseasePieces } from './diseases.js';
@@ -1115,6 +1115,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const PW = 'pps.pzWidth', PW_K = { narrow: 0.8, medium: 1, wide: 1.3 };
   let pzWidth = 'medium';   // (fixed for now: no control offers it; a saved choice is ignored)
 
+  // A Circuit slide with a `zone` and no `cam` frames that zone's region (cam-frame.js CIRC_REGIONS).
+  const zoneCam = (s) => (!s.visual && s.view === 'circuit' && !s.cam && CIRC_REGIONS[s.zone] ? { ...s, cam: s.zone } : s);
+
   const all = () => [...DECKS, ...[...TESTING, ...readMine()].map(fromScript)];
   // An instructor's script (captured model states) as slides: its own titles and notes, the Gut to heart profile beside.
   // An imported deck file (s.deck: the full deck format, read without running it by deck-source.js) keeps every feature.
@@ -1347,7 +1350,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const gl = booting ? 0 : ms || 300;
     const held = insets.held;
     insetsGo(true);   // (the room the new cards leave, written as the glide sets off: it frames for it, and the labels wait for its landing)
-    frameTo(v === 'circuit' ? 'fit' : cam, s, gl);
+    frameTo(cam, s, gl);
     begun?.(); if (held) dispatchEvent(new Event('pps:occ'));   // (the glide has set off: the cards' last fitting runs under it, see transitionRun)
     // (Timed by the glide itself, camMs or an arc's stretch, never the 1.5 s asked: the camera had landed long before that wait ended.)
     if (early && gl) {
@@ -1403,7 +1406,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // The one move to a framing on the plate: the whole figure, or a slide's box (opt.drift: a slow push, see pushTo).
   // alloc-rare: slide arrival or a camera framing: once per slide change or card grab, never per frame
   function frameTo(cam, s, ms, opt = {}) {
-    if (cam === 'fit') { if (opt.drift) stage.fitDrift(ms); else stage.fitSlow(ms, opt); } else stage.frameBox(camBox(cam, s), ms, s.kMax || 3.2, !!s.clear, opt);
+    // (A Circuit slide's cam is a Circuit region, a raw box in circuit units or 'fit'; a name the circuit lacks is the fit.)
+    const circ = s.view === 'circuit', cb = circ && cam !== 'fit' ? regionBox(cam, CIRC_REGIONS) : null;
+    if (cam === 'fit' || (circ && !cb)) { if (opt.drift) stage.fitDrift(ms); else stage.fitSlow(ms, opt); } else stage.frameBox(circ ? cb : camBox(cam, s), ms, s.kMax || 3.2, !!s.clear, opt);
   }
   function camBox(cam, s) {
     let r = regionBox(isCamOn(cam) ? cam.near : cam, REGIONS);
@@ -6212,7 +6217,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     lastAt = -1;
     saved = before;
     if (saved && !saved.cards) saved.cards = stashCards?.();
-    deck = d; slides = (d.mine ? d.slides : withOverview(d).slides).map(oneLadder);   // (the old ladder card's slides show the Gut to heart profile)
+    deck = d; slides = (d.mine ? d.slides : withOverview(d).slides).map(oneLadder).map(zoneCam);   // (the old ladder card's slides show the Gut to heart profile)
     shown = null; entering = null; shownState = -1; black = false; app.classList.remove('pz-blacked');
     closeHome?.();
     const st0 = store.get();

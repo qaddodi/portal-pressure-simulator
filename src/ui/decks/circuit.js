@@ -1,5 +1,6 @@
 // Presenter talk: the circulation as an electrical circuit, pressure = flow × resistance, on the circuit view
-// throughout (the slide fields are described at the top of decks.js).
+// throughout (the slide fields are described at the top of decks.js). Each slide frames what it teaches: `cam` names a Circuit region
+// (cam-frame.js CIRC_REGIONS), or `zone` does by default; the relation chart and the summary table stay at the fit.
 
 const mi = (x) => `<mi>${x}</mi>`, mo = (x) => `<mo>${x}</mo>`, sub = (b, i) => `<msub>${b}<mtext>${i}</mtext></msub>`;
 const frac = (n, d) => `<mfrac><mrow>${n}</mrow><mrow>${d}</mrow></mfrac>`;
@@ -35,7 +36,7 @@ export const CIRCUIT = withPoints({
   summary: 'Portal hypertension as a circuit: more flow, more resistance, collaterals in parallel and TIPS, each read as ΔP = Q × R.',
   slides: [
     {
-      id: 'ohm', preset: 'healthy', view: C, sites: R, span: [{ from: 'CONF', to: 'IVCS', label: 'PPG {ppg}' }], data: 'tiles', tiles: ['pvFlow', 'ppg'],
+      id: 'ohm', preset: 'healthy', view: C, cam: 'series', sites: R, span: [{ from: 'CONF', to: 'IVCS', label: 'PPG {ppg}' }], data: 'tiles', tiles: ['pvFlow', 'ppg'],
       kicker: K, title: 'Pressure falls in proportion to flow and resistance',
       eq: [dP + mo('=') + mi('Q') + mo('×') + '<mi class="eq-wedge">R</mi>', 'ΔP pressure drop · Q flow · R resistance'],
       line: 'The pressure drop across a segment equals its flow times its resistance (ΔP = Q × R). Across the liver it rises when flow or resistance rises, usually both.',
@@ -50,14 +51,14 @@ export const CIRCUIT = withPoints({
       ask: ['Which resistance sets the portal inflow?', 'The splanchnic (gut) arterioles: they are the largest resistance before the portal vein.'],
     },
     {
-      id: 'meal', ...MEAL, view: C, sites: R, span: [{ from: 'CONF', to: 'IVCS', label: 'PPG {ppg}' }], data: 'tiles', tiles: ['pvFlow', 'ppg'], delta: true,
+      id: 'meal', ...MEAL, view: C, cam: 'gutLiver', sites: R, span: [{ from: 'CONF', to: 'IVCS', label: 'PPG {ppg}' }], data: 'tiles', tiles: ['pvFlow', 'ppg'], delta: true,
       kicker: K, title: 'A meal raises portal flow but barely the gradient',
       line: 'A healthy liver has very little resistance, so even a large rise in flow adds little pressure (gradient = flow × resistance).',
       notes: 'In people portal flow rises by 40 to 80% after a meal; the model shows a rise of about half. The Q term. The rise in the gradient is the rise in flow times the hepatic resistance, and a healthy liver\'s resistance is small. The same meal on a cirrhotic liver comes back two slides on.',
       ask: ['Why does a meal barely change portal pressure in a healthy liver?', 'The extra flow crosses a very low resistance.'],
     },
     {
-      id: 'resist', preset: 'csph', view: C, zone: 'liver', sites: R, span: [{ from: 'CONF', to: 'IVCS', label: 'PPG {ppg}' }], data: 'tiles', tiles: ['pvFlow', 'hvpg', 'ppg'], delta: 'ohm',
+      id: 'resist', preset: 'csph', view: C, zone: 'liver', kMax: 2.6, sites: R, span: [{ from: 'CONF', to: 'IVCS', label: 'PPG {ppg}' }], data: 'tiles', tiles: ['pvFlow', 'hvpg', 'ppg'], delta: 'ohm',
       whatIf: { label: 'Scarring', param: 'cirrhosis', min: 0, max: 1, step: 0.05, ends: ['None', 'Severe'] },
       kicker: K, site: 'sin', title: 'Cirrhosis raises the resistance in the liver',
       line: 'Scarring raises the resistance several-fold. Part of the rise is vascular tone, which drugs can relax.',
@@ -66,14 +67,14 @@ export const CIRCUIT = withPoints({
     },
     {
       id: 'both', ...MEAL,
-      question: 'In cirrhosis, will the same meal raise the gradient more?', view: C, sites: R, span: [{ from: 'CONF', to: 'IVCS', label: 'PPG {ppg}' }], data: 'tiles', tiles: ['pvFlow', 'hvpg'], delta: true,
+      question: 'In cirrhosis, will the same meal raise the gradient more?', view: C, cam: 'gutLiver', sites: R, span: [{ from: 'CONF', to: 'IVCS', label: 'PPG {ppg}' }], data: 'tiles', tiles: ['pvFlow', 'hvpg'], delta: true,
       kicker: K, site: 'sin', title: 'In cirrhosis the same meal raises the gradient more',
       line: 'The gradient rises more even though the flow rises less, because the extra flow now crosses a higher resistance.',
       notes: 'In cirrhosis the splanchnic arterioles dilate for good (nitric oxide, glucagon, bacterial products), so the inflow stays high: the hyperdynamic circulation. A raised resistance and a raised inflow multiply. The rise is less than the resistance alone would predict: in cirrhosis the meal raises flow less, and part of it leaves through collaterals. Large transfusions raise the portal pressure the same way and can provoke a variceal bleed; meals may too.',
       ask: ['Why does the same meal raise the gradient more in cirrhosis?', 'The extra flow, though smaller, crosses a higher resistance (ΔP = Q × R).'],
     },
     {
-      id: 'parallel', lens: 'flow', preset: 'cirr-decomp', view: C, sites: [...R, 'split'], tool: { kind: 'flows' }, data: 'tiles', tiles: ['liver', 'ppg'], delta: false,
+      id: 'parallel', lens: 'flow', preset: 'cirr-decomp', view: C, cam: 'collaterals', sites: [...R, 'split'], tool: { kind: 'flows' }, data: 'tiles', tiles: ['liver', 'ppg'], delta: false,
       kicker: K, site: 'sin', title: 'Collaterals divert flow without normalizing the gradient',
       eq: [frac('<mn>1</mn>', sub(mi('R'), 'total')) + mo('=') + frac('<mn>1</mn>', '<msub class="eq-wedge"><mi>R</mi><mtext>liver</mtext></msub>') + mo('+') + frac('<mn>1</mn>', '<msub class="eq-var"><mi>R</mi><mtext>collaterals</mtext></msub>'), 'Resistances in parallel: the total is lower than either'],
       line: 'Collaterals run in parallel with the liver. Colored by flow, they take a large share of the portal blood, yet the rest still meets the liver\'s high resistance.',
@@ -81,7 +82,7 @@ export const CIRCUIT = withPoints({
       ask: ['Why do collaterals not relieve portal hypertension?', 'Their resistance is still high and the inflow rises with them, so the gradient stays high.'],
     },
     {
-      id: 'tips', lens: 'flow', params: { tips: { on: true } }, view: C, sites: R, data: 'tiles', tiles: ['ppg', 'shunt', 'liver'], delta: true,
+      id: 'tips', lens: 'flow', params: { tips: { on: true } }, view: C, cam: 'tips', sites: R, data: 'tiles', tiles: ['ppg', 'shunt', 'liver'], delta: true,
       kicker: K, site: 'sin', title: 'TIPS lowers the gradient by bypassing the liver',
       line: 'A covered stent beside the sinusoids has far less resistance than they or any collateral do. Colored by flow, it carries most of the portal blood, and the gradient halves.',
       notes: 'A covered stent 8 to 10 mm wide has a far lower resistance than the sinusoids or any collateral, so most portal blood takes it. The gradient falls below 12 mmHg; the cost is less portal blood for the liver and a risk of encephalopathy. An 8 mm stent is a compromise between the two.',

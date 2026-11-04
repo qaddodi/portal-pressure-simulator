@@ -3111,10 +3111,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const bvScore = (q) => Math.min(bvFitK(q), bvKMax);
   const bvArea = (q) => (q.r - q.l) * (q.b - q.t);
   function boxVT(box, kMax = 4, clear = false) {
-    const x0 = box[0], y0 = box[1], x1 = box[2], y1 = box[3], rw = svg.clientWidth, rh = svg.clientHeight;
+    // (In the circuit the box is in the circuit's world units, turned a quarter turn about its centre when the map stands upright,
+    // and the view box is the circuit's: the same sums, the other plate.)
+    const circ = morphTarget === 1, VB = circ ? circVB() : VB_ANAT, turn = circ && rotTarget;
+    const x0 = turn ? CIRC_C[0] + (box[1] - CIRC_C[1]) : box[0], y0 = turn ? CIRC_C[1] - (box[2] - CIRC_C[0]) : box[1];
+    const x1 = turn ? CIRC_C[0] + (box[3] - CIRC_C[1]) : box[2], y1 = turn ? CIRC_C[1] - (box[0] - CIRC_C[0]) : box[3];
+    const rw = svg.clientWidth, rh = svg.clientHeight;
     if (!rw || !rh) return null;
     bvX0 = x0; bvY0 = y0; bvX1 = x1; bvY1 = y1; bvKMax = kMax;
-    const s0 = bvS0 = Math.min(rw / VB_ANAT[2], rh / VB_ANAT[3]);
+    const s0 = bvS0 = Math.min(rw / VB[2], rh / VB[3]);
     bvPad = clear ? 12 : 0;   // (clear: a margin for the vessels' glow)
     let rects = store.get().presenting && freeArea ? freeArea() : null;
     if (rects) {   // (between the cards, when the box fits there)
@@ -3129,13 +3134,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (let i = 1; i < rects.length; i++) { const q = rects[i]; if (bvScore(q) > bvScore(f) * 1.04 || (bvScore(q) >= bvScore(f) / 1.04 && bvArea(q) > bvArea(f))) f = q; }
     lastFree = { ...f, box: [x0, y0, x1, y1] };
     const k = clamp(bvFitK(f), clear ? 0.3 : 0.6, kMax);
-    const cx = VB_ANAT[0] + VB_ANAT[2] / 2 + ((f.l + f.r) / 2 - rw / 2) / s0, cy = VB_ANAT[1] + VB_ANAT[3] / 2 + ((f.t + f.b) / 2 - rh / 2) / s0;
+    const cx = VB[0] + VB[2] / 2 + ((f.l + f.r) / 2 - rw / 2) / s0, cy = VB[1] + VB[3] / 2 + ((f.t + f.b) / 2 - rh / 2) / s0;
     return { k, x: cx - k * ((x0 + x1) / 2), y: cy - k * ((y0 + y1) / 2) };
   }
   // (opt.drift: a slow push, see drifting.)
   function frameBox(box, ms = 1300, kMax = 4, clear = false, opt = {}) {
     fitted = false;
-    if (morphTarget !== 0) return;
+    if (morphTarget !== 0 && morphTarget !== 1) return;   // (the anatomy or the circuit; not on the way between)
     const to = boxVT(box, kMax, clear);
     if (!to || sameView(to, vtGliding ? vtTarget : vt)) return;
     if (opt.drift) animateVT(to, ms, { drift: true }); else animateVT(to, ms, { arc: true, steady: !!opt.steady, scale: !opt.steady });   // (a drift never arcs)

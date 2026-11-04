@@ -10,7 +10,8 @@
 //   view                     'anatomic' (default) or 'circuit'
 //   cam                      'fit', a region of REGIONS, [x0, y0, x1, y1] (anatomy world units), a list of regions
 //                            (['portal', 'spleen']: their union), or by name { on: ['PV_TRUNK', 'spleen'], near?: region }
-//                            (what the names point at: vessels, organs, term targets, stations, '@sets'; cam-frame.js),
+//                            (what the names point at: vessels, organs, term targets, stations, '@sets'; cam-frame.js).
+//                            On a Circuit slide: a Circuit region (cam-frame.js CIRC_REGIONS) or a box in circuit units; `zone` is its default.
 //                            'lobule', 'lobule:triad' | 'lobule:sinusoid' | 'lobule:central' (zoom: × the lobule's
 //                            framing), or 'sinusoid'
 //   labels                   the stations named on the anatomy (none when absent)

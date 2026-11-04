@@ -12,6 +12,23 @@
 // '@set' (presenter camOn). The camera lands on the box the names fill, the same way it lands on a region: centred in the room the
 // cards leave and no closer than the slide's kMax.
 
+import { CIRCUIT_ZONES } from './anatomy.js';
+
+// The Circuit view's named regions (circuit world units, x 30-1360, y 30-730; the series row runs along y 345). A circuit slide's `cam` names
+// one of these, gives a raw box or says 'fit'; with no `cam`, its `zone` names the region (presenter.js). The zones come from CIRCUIT_ZONES.
+const ZB = (i, y0, y1) => [CIRCUIT_ZONES[i][1], y0, CIRCUIT_ZONES[i][2], y1];
+export const CIRC_REGIONS = {
+  splanchnic: [60, 100, 640, 470],            // the gut beds and the portal veins (zone 'splanchnic')
+  portal: ZB(1, 230, 470),
+  liver: [600, 225, 1030, 470],               // the sinusoids, with the TIPS lane above them
+  hepatic: ZB(3, 230, 470),
+  heart: ZB(4, 200, 500),
+  series: [440, 230, 1180, 470],              // portal vein to IVC: the span the PPG bracket reads
+  gutLiver: [60, 230, 950, 470],              // gut to liver
+  collaterals: [380, 90, 1200, 700],          // the liver and the lanes above and below it
+  tips: [560, 190, 1060, 470],                // the liver and the stent's lane
+};
+
 const box4 = (c) => Array.isArray(c) && c.length === 4 && c.every(Number.isFinite);
 const names = (c) => {
   if (!Array.isArray(c) || c.length === 0) return false;
