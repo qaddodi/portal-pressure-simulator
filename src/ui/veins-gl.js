@@ -137,7 +137,7 @@ uniform highp vec3 uCam;
 uniform float uA;
 out vec4 o;
 void main() {
-  highp vec2 q = (gl_FragCoord.xy - uCam.yz) / uCam.x + uCam.yz;
+  highp vec2 q = (gl_FragCoord.xy - uCam.yz) / uCam.x;
   highp vec2 uv = q / uDst;
   o = (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) ? vec4(0.0) : texture(uT, uv) * uA;
 }`;
@@ -2810,6 +2810,11 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // glass waited for the figure's next picture, which a figure at rest never draws: the card showed clear, or solid once its wait ran out
   // (2 Nov 2026, Mohammad's Mac and iPhone: "no blur", every card that opened).)
   function present(top = true, again = false) {
+    presentSelf(top, again);
+    // (Shared: the picture is laid in this renderer's texture; the host lays it over the figure in its own present, which this asks for.)
+    if (share && top && !lost) share.present?.();
+  }
+  function presentSelf(top, again) {
     if (replace && !lost && replace.on()) {
       presents++;
       gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
@@ -2818,6 +2823,16 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
       try { replace.draw(); } catch (e) { console.warn('Veins renderer: what stands in for the figure failed.', e); replace = null; }
       gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
+      return;
+    }
+    if ((!own?.w || own.w !== PW() || own.h !== PH()) && !lost && tops.some((t) => t.solo)) {
+      // (A pass that stands alone, the lobule's, in a host with no figure picture of its own: the canvas cleared and the passes laid.)
+      presents++;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.disable(gl.SCISSOR_TEST); gl.disable(gl.STENCIL_TEST); gl.disable(gl.BLEND);
+      gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+      if (top) { runTops(); gl.bindFramebuffer(gl.FRAMEBUFFER, SCR()); }
       return;
     }
     if (!own?.w || lost) return;
@@ -2953,7 +2968,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   const cam = { k: 1, ox: 0, oy: 0, a: 1 };
   const camOn = () => cam.k !== 1 || cam.a !== 1;
   let camP = null;
-  function camDraw(tex, blend) {
+  function camDraw(tex, blend, k = cam.k, ex = (1 - cam.k) * cam.ox, eyUp = (1 - cam.k) * (canvas.height - cam.oy), a = cam.a) {
     if (camP === null) {
       try { camP = finishProgram(gl, startProgram(gl, REUSE_VS, CAM_FS)); } catch (e) { console.warn('Veins renderer: the camera shader could not be made.', e); camP = false; }
     }
@@ -2967,8 +2982,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     UC.i1(camP.u.uT, 0);
     UC.f2(camP.u.uDst, canvas.width, canvas.height);
-    gl.uniform3f(camP.u.uCam, cam.k, cam.ox, canvas.height - cam.oy);
-    gl.uniform1f(camP.u.uA, cam.a);
+    gl.uniform3f(camP.u.uCam, k, ex, eyUp);
+    gl.uniform1f(camP.u.uA, a);
     gl.bindVertexArray(compVAO);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     gl.bindVertexArray(null);
@@ -3755,6 +3770,10 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       gl, canvas,
       /** The framebuffer the canvas stands in as (null; shared, the texture's): what a pass laid on this renderer's picture binds. */
       screen: SCR,
+      /** Lays a texture over the canvas (blended, premultiplied) as k p + e (e in canvas px from the top left, y down), weighed by a: a shared renderer's picture. */
+      lay(tex, k, ex, ey, a = 1) { if (!lost) camDraw(tex, true, k, ex, canvas.height * (1 - k) - ey, a); },
+      /** Presents the canvas again with everything on it (a shared renderer's picture changed). */
+      present: () => present(true, true),
       add(t) { tops.push(t); tops.sort((a, b) => (a.order || 0) - (b.order || 0)); return () => { const i = tops.indexOf(t); if (i >= 0) tops.splice(i, 1); }; },
       /** What is drawn under the figure in this canvas ({ on(), draw() }, one at a time): drawn first at each present while on() says so,
        *  onto the cleared canvas, the kept picture laid over it. Returns the call that takes it out. */
@@ -4193,7 +4212,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     onPicture(f) { onPicture.add(f); return () => onPicture.delete(f); },
     clear() { pictured(); if (own?.w) { gl.bindFramebuffer(gl.FRAMEBUFFER, own.fbo); gl.viewport(0, 0, own.w, own.h); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); } gl.bindFramebuffer(gl.FRAMEBUFFER, SCR()); gl.viewport(0, 0, canvas.width, canvas.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); nCells = nBlood = nGen = nSimple = 0; baseM = null; fboOK = false; },
     /** The current picture as a PNG data URL (call right after draw, in the same task). */
-    snapshot() { const c = { ...cam }; cam.k = 1; cam.a = 1; try { present(false); const url = canvas.toDataURL('image/png'); Object.assign(cam, c); if (tops.length || camOn()) present(); return url; } finally { Object.assign(cam, c); } },   // (the figure alone; then laid again whole, as it shows)
+    snapshot() { if (share) return null; const c = { ...cam }; cam.k = 1; cam.a = 1; try { present(false); const url = canvas.toDataURL('image/png'); Object.assign(cam, c); if (tops.length || camOn()) present(); return url; } finally { Object.assign(cam, c); } },   // (the figure alone; then laid again whole, as it shows)
     /**
      * The canvas holding the whole current picture, for a reader that takes it in this same task (a download, a handout, the glass'
      * copy, drawImage, createImageBitmap, toDataURL): the kept picture is copied onto it first, so the reader

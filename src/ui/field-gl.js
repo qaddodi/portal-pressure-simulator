@@ -78,10 +78,13 @@ void main() {
 }`;
 
 const KEEP_ALL = () => true;   // (sweep's default: every tile is kept; one function, not a new one each call)
-export function createFieldGL(canvas) {
+/** host ({ gl, canvas, screen }: the figure's renderer's top, veins-gl.js): no context of its own. Each frame is drawn into a texture of its
+ *  own (target) in the host's context, which the lobule's pass lays under the lobule; `canvas` is then only the size carrier. */
+export function createFieldGL(canvas, { host = null } = {}) {
   let gl = null;
+  let vao = null, tgt = null;   // (hosted: its own vertex array, and the picture's texture and framebuffer)
   let ucache = null;   // (the uniform cache, made at the first draw)
-  try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, failIfMajorPerformanceCaveat: false }); } catch { gl = null; }
+  try { gl = host ? host.gl : canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, failIfMajorPerformanceCaveat: false }); } catch { gl = null; }
   if (!gl) return null;
   // (lost: the GPU does not draw the field, from the loss until the rebuilt program is published.)
   let pictured = false;   // (the canvas holds a frame at its present size)
@@ -95,7 +98,9 @@ export function createFieldGL(canvas) {
       U = Object.fromEntries(['uA', 'uB', 'uQA', 'uQB', 'uMix', 'uQuiet', 'uO', 'uRd', 'uH', 'uFade', 'uMid', 'uBg', 'uMask', 'uDof', 'uGrey'].map((n) => [n, gl.getUniformLocation(prog, n)]));
       gl.useProgram(prog);
       gl.uniform1i(U.uA, 0); gl.uniform1i(U.uB, 1); gl.uniform1i(U.uQA, 2); gl.uniform1i(U.uQB, 3);
+      if (host) gl.bindVertexArray(vao);
       exerciseDraw(gl, () => gl.drawArrays(gl.TRIANGLES, 0, 3));
+      if (host) gl.bindVertexArray(null);
       lost = false;   // (after a restore: the GPU draws the field again)
     } catch (err) {
       if (gl.isContextLost()) { prog = null; U = null; return; }   // (lost while it was read: the restore makes it again)
@@ -108,18 +113,21 @@ export function createFieldGL(canvas) {
   function build() {
     prog = null; U = null; failed = false;
     started = startProgram(gl, VS, fieldFS(), [['p', 0]]);
+    if (host && !vao) vao = gl.createVertexArray();
+    if (host) gl.bindVertexArray(vao);
     const buf = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);   // one triangle over the whole canvas
     gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    if (host) { gl.bindVertexArray(null); gl.bindBuffer(gl.ARRAY_BUFFER, null); }
     gl.disable(gl.BLEND); gl.disable(gl.DEPTH_TEST);
     stopPoll?.(); stopPoll = publishWhenDone(gl, [started], publish);
   }
   try { build(); } catch (err) { console.warn('The lobule field falls back to the 2D canvas.', err); gl.getExtension('WEBGL_lose_context')?.loseContext(); return null; }
-  canvas.addEventListener('webglcontextlost', (e) => { lost = true; pictured = false; texs.clear(); e.preventDefault?.(); });
+  if (!host) canvas.addEventListener('webglcontextlost', (e) => { lost = true; pictured = false; texs.clear(); e.preventDefault?.(); });
   // A context the browser gives back is built afresh; the field stays on the 2D canvas (lost) until the program is published, at an idle
   // moment, and the tiles go up again as they are drawn.
-  canvas.addEventListener('webglcontextrestored', () => {
+  if (!host) canvas.addEventListener('webglcontextrestored', () => {
     if (dead) return;
     texs.clear();
     try { build(); } catch (err) { failed = true; console.warn('The lobule field could not be rebuilt; the 2D canvas stays.', err); }
@@ -196,6 +204,20 @@ export function createFieldGL(canvas) {
         for (let i = 0; i < tx.length; i++) if (!tx[i]) tx[i] = clearTex();
       }
       if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; pictured = false; }
+      if (host) {
+        if (!tgt) tgt = { tex: gl.createTexture(), fbo: gl.createFramebuffer(), w: 0, h: 0 };
+        if (tgt.w !== W || tgt.h !== H) {
+          gl.bindTexture(gl.TEXTURE_2D, tgt.tex);
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, W, H, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+          gl.bindFramebuffer(gl.FRAMEBUFFER, tgt.fbo);
+          gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tgt.tex, 0);
+          tgt.w = W; tgt.h = H; pictured = false;
+        }
+        gl.bindFramebuffer(gl.FRAMEBUFFER, tgt.fbo); gl.bindVertexArray(vao);
+        gl.disable(gl.BLEND); gl.disable(gl.SCISSOR_TEST); gl.disable(gl.STENCIL_TEST); gl.disable(gl.DEPTH_TEST);
+      }
       gl.viewport(0, 0, W, H);
       gl.useProgram(prog);
       tx.forEach((t, unit) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t); });
@@ -210,7 +232,16 @@ export function createFieldGL(canvas) {
       UC.f2(U.uGrey, grey ? grey[0] : 1, grey ? grey[1] : 1);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       pictured = true;
+      if (host) {   // (the context as the host's own passes expect to find it)
+        gl.useProgram(null); gl.bindVertexArray(null); gl.bindFramebuffer(gl.FRAMEBUFFER, host.screen ? host.screen() : null);
+        for (let u = 0; u < 4; u++) { gl.activeTexture(gl.TEXTURE0 + u); gl.bindTexture(gl.TEXTURE_2D, null); }
+        gl.activeTexture(gl.TEXTURE0);
+      }
       return true;
     },
+    /** Hosted: the picture's texture ({ tex, w, h }) once a frame was drawn, else null. */
+    get target() { return host && pictured && tgt?.w ? tgt : null; },
+    /** Hosted: gives back the picture's texture and framebuffer. */
+    release() { if (tgt && !gl.isContextLost()) { gl.deleteTexture(tgt.tex); gl.deleteFramebuffer(tgt.fbo); } tgt = null; pictured = false; },
   };
 }
