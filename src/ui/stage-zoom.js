@@ -1,21 +1,20 @@
 // The card zoom: the figure's scene scaled and shifted under a card, its layers, glass and sharpness, and the follow that ends it.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { D_SMALL } from './ease.js';
-import { cams, camId, camSet, sceneCam } from './scene-cam.js';
+import { cams, camId, camSet, sceneCam, zoomRide } from './scene-cam.js';
 
 export function createZoom(st, live) {
   const { applyVT, drawVeins, driftEnd, flushVT, refreshCTM, rideNow, rideStart, rideStop, svg, vCanvas, viewNow, wrap } = st;
   const CARD = cams.stage.card;   // (the card camera: sceneSet is its only writer, sceneStop its identity; zoomM6, zoomT and zoomAff are views of it)
   const zoomM6 = [1, 0, 0, 1, 0, 0], zoomT = [0, 0];
-  const zoomGlass = [], zoomHid = [], zoomAff = { s: 1, dx: 0, dy: 0, ox: 0, oy: 0 };   // (the callouts' glass bodies given the zoom, and the callouts that go out under the zoomed card)
-  const zoomAffFn = () => (live.zoomLayers ? zoomAff : null), zoomScaleFn = () => zoomAff.s;   // (C in stage px, written in place each frame: the label ride's matrix and the pinned points')
+  const zoomGlass = [], zoomHid = [], zoomAff = { s: 1, dx: 0, dy: 0, ox: 0, oy: 0 };   // (the callouts' glass bodies given the zoom, and the callouts that go out under the zoomed card; zoomAff: C in client px, written in place each frame, the record the glass reads through zoomRide)
   function zoomOpen() {
     if (live.zoomBase) return false;
     if (live.lobuleOn && live.lz?.zoomOpen) { if (!live.lz.zoomOpen()) return false; live.zoomBase = { lz: true }; live.zoomLz = true; return true; }
     if (!viewNow()) return false;
     sceneStart();
     // (The figure's callouts (the HVPG pressures, a stent's points, the Doppler's readings) are page elements in two of those layers: their glass is drawn
-    // from the same camera (zoomAffine, glass-gl.js), and one that would end under the zoomed card goes out through the zoom, since a page element cannot be
+    // from the same camera (zoomRide, scene-cam.js), and one that would end under the zoomed card goes out through the zoom, since a page element cannot be
     // blurred behind the card's glass as the picture is: it showed sharp over the card.)
     zoomGlass.length = 0; zoomHid.length = 0;
     const aim = sceneCam.aim;
@@ -32,7 +31,7 @@ export function createZoom(st, live) {
           const l = live.wrapRect.left + S * (r.left - live.wrapRect.left) + fx, t = live.wrapRect.top + S * (r.top - live.wrapRect.top) + fy, rr = l + r.width * S, bb = t + r.height * S;
           if (l < bx.right + pad && rr > bx.left - pad && t < bx.bottom + pad && bb > bx.top - pad) zoomHid.push({ el: c, was: c.style.opacity, tr: c.style.transition });
         }
-        for (const g of L.getElementsByClassName('cl-glass')) { g.zoomAffine = zoomAffFn; g.drawnScale = zoomScaleFn; zoomGlass.push(g); }
+        for (const g of L.getElementsByClassName('cl-glass')) { zoomRide.set(g, zoomAff); zoomGlass.push(g); }
       }
       for (const h of zoomHid) { h.el.style.transition = `opacity ${D_SMALL}ms var(--ease)`; h.el.style.opacity = '0'; }
       live.frostWake();
@@ -92,7 +91,7 @@ export function createZoom(st, live) {
     live.veins?.setScene?.(1, 0, 0);
     for (const l of live.zoomLayers || []) { l.el.style.transform = ''; l.el.style.transformOrigin = ''; l.el.style.transition = ''; }
     live.zoomLayers = null;
-    for (const g of zoomGlass) { delete g.zoomAffine; delete g.drawnScale; }
+    for (const g of zoomGlass) zoomRide.drop(g);
     for (const h of zoomHid) { h.el.style.opacity = h.was; h.el.style.transition = h.tr; }
     zoomGlass.length = 0; zoomHid.length = 0;
     live.frostWake();

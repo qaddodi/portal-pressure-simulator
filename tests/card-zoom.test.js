@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import { unsnap } from './unsnap.js';
 import { zoomPlan, zoomMargin, unionBox, emptyTap, tapTracker, createCardZoom, ZOOM_MAX, ZOOM_MIN, ZOOM_MS, SHUT_MS, STACK_ROOM } from '../src/ui/card-zoom.js';
 import { EASE_ARRIVE, easeArrive } from '../src/ui/ease.js';
+import { zoomRide } from '../src/ui/scene-cam.js';
 
 // The data card zoomed to the middle of the screen (Mohammad, 28 Oct): "can we add a feature on large screens and ipad landscape for data card
 // instrument card to display it bigger when clicking on it directly; however it shouldn't like make the text smaller. the camera should like zoom
@@ -108,22 +109,24 @@ test('zoom: the card and its handle glide together about their common middle, th
   try {
     assert.equal(z.open(), true);
     assert.equal(z.on, true); assert.equal(z.up, true);
-    // (One transform on each piece, the same: about the card's middle, so the handle stays on the card's edge.)
-    const t = card.anims[0], tl = lip.anims[0];
-    assert.equal(t.prop, 'transform'); assert.equal(tl.prop, 'transform');
-    assert.equal(t.frames[1].transform, tl.frames[1].transform);
-    // (The handle stands 24 px over the card's top edge: the plan is for the two together, 404 px tall from the handle's top.)
-    const p = zoomPlan({ left: 40, top: 276, width: 420, height: 404 }, { left: 0, top: 0, width: 1440, height: 900 }, zoomMargin({ left: 0, top: 0, width: 1440, height: 900 }) * STACK_ROOM);
-    assert.equal(t.frames[1].transform, `translate(${p.dx.toFixed(2)}px, ${p.dy.toFixed(2)}px) scale(${p.s.toFixed(4)})`);
-    assert.equal(card.style.transformOrigin, '210.00px 178.00px');
-    assert.equal(lip.style.transformOrigin, '210.00px 202.00px', 'their middle, seen from the handle');
-    assert.equal(t.o.fill, 'forwards'); assert.equal(t.o.easing, 'linear', 'scrubbed by the frame loop: linear in the eased progress');
-    // (The figure behind does not move, Mohammad's "don't move anything": the controller is not given it, and the only thing it glides is a transform.)
-    assert.equal(zoomSrc.includes('PUSH'), false); assert.equal(/glide\([^)]*'scale'/.test(zoomSrc), false); assert.equal(/\bview\b/.test(zoomSrc.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '')), false);
-    assert.deepEqual([...zoomSrc.matchAll(/glide\(\w+(?:\.\w+)?, '(\w+)'/g)].map((m) => m[1]), ['transform', 'transform']);
+    // (No Web Animation: the frame loop writes each piece's transform, card-zoom-plan.md step 1.)
+    assert.equal(card.anims.length + lip.anims.length, 0); assert.equal(/\.animate\?*\.?\(/.test(zoomSrc), false); assert.equal(/currentTime/.test(zoomSrc), false);
+    assert.equal(card.style.transform, 'none', 'nothing moves before the first frame');
+    assert.ok(card.style.transitionProperty === 'opacity' && lip.style.transitionProperty === 'opacity', 'their own CSS eases no transform while they ride');
     assert.ok(scrim.classList.contains('on')); assert.ok(app.classList.contains('pz-zoomed')); assert.equal('zoomed' in card.dataset, true);
     // (The pictures are made larger once the glide has ended, never in its first frame: the shared chart canvas's resize was the lag.)
     assert.deepEqual(log, [['hold', true]]);
+    fl.run();
+    // (One transform on each piece, the same: about the card's middle, so the handle stays on the card's edge.)
+    assert.equal(card.style.transform, lip.style.transform);
+    // (The handle stands 24 px over the card's top edge: the plan is for the two together, 404 px tall from the handle's top.)
+    const p = zoomPlan({ left: 40, top: 276, width: 420, height: 404 }, { left: 0, top: 0, width: 1440, height: 900 }, zoomMargin({ left: 0, top: 0, width: 1440, height: 900 }) * STACK_ROOM);
+    assert.equal(card.style.transform, `translate(${p.dx.toFixed(2)}px, ${p.dy.toFixed(2)}px) scale(${p.s.toFixed(4)})`);
+    assert.equal(card.style.transformOrigin, '210.00px 178.00px');
+    assert.equal(lip.style.transformOrigin, '210.00px 202.00px', 'their middle, seen from the handle');
+    // (The figure behind does not move, Mohammad's "don't move anything": the controller is not given it, and the only thing it writes is a transform.)
+    assert.equal(zoomSrc.includes('PUSH'), false); assert.equal(/\bview\b/.test(zoomSrc.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '')), false);
+    assert.deepEqual([...zoomSrc.matchAll(/r\.el\.style\.(\w+) = /g)].map((m) => m[1]).sort(), ['transform', 'transform', 'transformOrigin', 'transformOrigin', 'transitionProperty'].sort());
     // (Everyone who asks the card or its handle where they are hears where they rest, however far the glide has come.)
     assert.deepEqual([card.getBoundingClientRect().left, card.getBoundingClientRect().width, card.getBoundingClientRect().bottom], [40, 420, 680]);
     assert.equal(lip.getBoundingClientRect().top, 276);
@@ -161,14 +164,14 @@ test('zoom: closing glides back from where it stands, then puts everything as it
   const { card, lip, scrim, app, log, z } = world(); const back = stands();
   try {
     z.open(); log.length = 0;
-    card.style.transform = 'matrix(1.9, 0, 0, 1.9, 300, 80)';   // (caught half way)
+    fl.run(160);   // (caught part way)
+    const half = card.style.transform;
+    assert.notEqual(half, 'none');
     const shut = z.close();
     assert.equal(z.up, false, 'on its way back');
     assert.equal(z.on, true, 'but still held: nothing is laid out yet');
     assert.ok(!scrim.classList.contains('on'));
-    const [a0, a1] = [card.anims[0], card.anims[1]];
-    assert.equal(a0.cancelled, true, 'the open glide is let go');
-    assert.deepEqual([a1.frames[0].transform, a1.frames[1].transform], ['matrix(1.9, 0, 0, 1.9, 300, 80)', 'none'], 'from where it stands to where it rests');
+    assert.equal(card.style.transform, half, 'it goes back from where it stands');
     assert.equal(z.close(), shut, 'closing twice is one close');
     assert.equal(z.open(), false, 'and it cannot open meanwhile');
     fl.run();
@@ -178,8 +181,10 @@ test('zoom: closing glides back from where it stands, then puts everything as it
     assert.equal(card.getBoundingClientRect().width, 420);
     assert.equal(card.style.transformOrigin, ''); assert.equal(lip.style.transformOrigin, '');
     assert.equal('zoomed' in card.dataset, false); assert.ok(!app.classList.contains('pz-zoomed'));
-    assert.ok(a1.cancelled, 'the glide\'s last frame is no longer held');
+    assert.equal(card.style.transform, 'none', 'its own transform as it was'); assert.equal(zoomRide.of(card), null);
     assert.deepEqual(log, [['boost', 1], ['hold', false], ['settled']]);
+    assert.equal(card.style.transitionProperty, 'opacity', 'held one more frame or two, so the step to rest is not eased');
+    fl.run(); assert.ok(card.style.transitionProperty === '' && lip.style.transitionProperty === '', 'its own CSS back, two frames after it rests');
   } finally { back(); }
 });
 
@@ -188,7 +193,7 @@ test('zoom: Reduce Motion moves it at once', () => {
     try {
       z.reduceNow = true;
       z.open();
-      assert.equal(card.anims[0].o.duration, 0);
+      assert.match(card.style.transform, /^translate\(/, 'there at once, with no frame');
       assert.ok(scrim.classList.contains('on'), 'the veil still fades');
       log.length = 0;
       return z.close().then(() => { assert.equal(z.on, false); assert.deepEqual(log, [['boost', 1], ['hold', false], ['settled']]); });
@@ -288,10 +293,10 @@ test('zoom: the readings come out above the zoomed card and the zoom is fitted a
     assert.equal(z.steady, false);
     await settle(w);
     assert.equal(z.steady, true, 'once the glide in has ended');
-    const open = parseT(card.anims[0].frames[1].transform);
+    const open = parseT(card.style.transform);
     // (Out: the handle's edge stands 150 px over the card, the top of the whole 126 px higher than with them tucked; their rise, 150 px, is not scaled by the zoom.)
     assert.equal(z.follow(126, 150), true);
-    const t = parseT(last(card).frames[1].transform), tl = parseT(last(lip).frames[1].transform);
+    const t = parseT(card.style.transform), tl = parseT(lip.style.transform);
     assert.deepEqual(t, tl, 'the card and its handle move as one');
     assert.ok(Math.abs(t.s - (900 - 2 * m) / 530) < 1e-3, 'smaller: the stack is taller (fitted by its height)');
     assert.ok(t.s < open.s);
@@ -300,14 +305,13 @@ test('zoom: the readings come out above the zoomed card and the zoom is fitted a
     assert.ok(Math.abs(where(150) - m) < 0.05, 'its top is one margin from the screen\'s');
     assert.ok(Math.abs(where(680) - (900 - m)) < 0.05, 'its foot one margin from the foot');
     assert.ok(Math.abs(t.dx - (720 - 250)) < 0.01, 'and in the middle across');
-    assert.equal(last(card).o.fill, 'forwards'); assert.equal(card.anims.at(-2).cancelled, true, 'each frame replaces the last');
     // (Tucked again: back to the plan it came in with.)
     z.follow(0, 0);
-    const back0 = parseT(last(card).frames[1].transform);
+    const back0 = parseT(card.style.transform);
     assert.ok(Math.abs(back0.s - open.s) < 1e-3 && Math.abs(back0.dx - open.dx) < 0.01 && Math.abs(back0.dy - open.dy) < 0.01);
     // (Halfway out the zoom is halfway between, in size and place: one frame never jumps from the last.)
     z.follow(63, 75);
-    const mid = parseT(last(card).frames[1].transform);
+    const mid = parseT(card.style.transform);
     assert.ok(mid.s < open.s && mid.s > t.s);
     // (Never larger than the most, never smaller than the card's own size.)
     assert.ok(mid.s <= ZOOM_MAX && t.s >= 1);
@@ -323,9 +327,9 @@ test('zoom: the stack that is out as the card zooms is fitted as it tucks, large
     // (Out at the start: the whole is 150 px over the card's top edge, 530 px tall.)
     lip.rect = { left: 40, top: 150, width: 420, height: 24 }; card.rect = { left: 40, top: 150, width: 420, height: 400 };   // (a stacked card's margin is wider: STACK_ROOM, so a taller whole would not zoom at all)
     z.open(); await settle(w); log.length = 0;
-    const out = parseT(card.anims[0].frames[1].transform);
+    const out = parseT(card.style.transform);
     z.follow(-126, -150);   // (tucked: the top of the whole 126 px lower, the readings' rise 150 px less)
-    const t = parseT(last(card).frames[1].transform);
+    const t = parseT(card.style.transform);
     assert.ok(t.s > out.s, 'larger as it shortens');
     assert.deepEqual(log, [['boost', +t.s.toFixed(2)]]);
   } finally { back(); }
@@ -518,8 +522,9 @@ test('zoom: a part glides and grows alone, dims the page and the panel, never ta
     assert.equal(z.open({ card: cell, along: [], scrim: [page, panelVeil], part: true }), true);
     const p = zoomPlan({ left: 120, top: 150, width: 470, height: 310 }, { left: 0, top: 0, width: 1440, height: 900 });
     // (One transform on the cell alone, about its middle; the data card and its handle are not touched.)
-    assert.equal(cell.anims.length, 1); assert.equal(data.anims.length, 0);
-    assert.equal(cell.anims[0].frames[1].transform, `translate(${p.dx.toFixed(2)}px, ${p.dy.toFixed(2)}px) scale(${p.s.toFixed(4)})`);
+    fl.run();
+    assert.equal(data.style.transform, 'none');
+    assert.equal(cell.style.transform, `translate(${p.dx.toFixed(2)}px, ${p.dy.toFixed(2)}px) scale(${p.s.toFixed(4)})`);
     assert.equal(cell.style.transformOrigin, '235.00px 155.00px');
     assert.equal('zoomed' in cell.dataset, true); assert.equal(cell.dataset.zoomed, '', 'up: the shadow of the card');
     assert.equal('zoomed' in data.dataset, false);
@@ -538,7 +543,7 @@ test('zoom: a part glides and grows alone, dims the page and the panel, never ta
     assert.ok(!page.classList.contains('on') && !panelVeil.classList.contains('on'));
     assert.equal(cell.dataset.zoomed, 'back');
     assert.deepEqual(log, [], 'the words\' card is not asked to move');
-    for (const x of cell.anims) x.done();
+    fl.run();
     await shut;
     assert.equal(z.on, false);
     assert.equal('zoomed' in cell.dataset, false); assert.equal(cell.style.transformOrigin, '');
@@ -559,7 +564,7 @@ test('zoom: a part put back at once (a slide, a resize, Reduce Motion) leaves th
     // (Reduce Motion: at once, the veils still fade.)
     z.reduceNow = true; log.length = 0;
     z.open({ card: cell, scrim: [scrim, veil], part: true });
-    assert.equal(cell.anims.at(-1).o.duration, 0); assert.ok(veil.classList.contains('on'));
+    assert.match(cell.style.transform, /^translate\(/); assert.ok(veil.classList.contains('on'));
     await z.close();
     assert.equal(z.on, false); assert.ok(!veil.classList.contains('on')); assert.deepEqual(log, [['settled']]);
     // (And the data card still zooms as before, with everything it takes.)
@@ -598,37 +603,37 @@ test('a tap on one of the six ladders zooms it, a tap on it, outside it, Esc, a 
 
 // The words' card stays up while the data card is zoomed (Mohammad, 2 Nov 2026: it vanished): its words are cut away under the zoomed card.
 // The glide runs in the frame loop, so the glass and the card are drawn from one zoom in each frame (Mohammad, 2 Nov 2026: "the instrument card
-// has a trailing card behind it"): its animations are scrubbed to the frame's time and zoomAffine answers for that same frame.
-test('zoom: every frame the card\'s animation and the zoom the glass is drawn from are at the same time and the same place, in and back', async () => {
+// has a trailing card behind it"): each frame writes the card's transform and the record the glass reads (zoomRide), from the same numbers.
+test('zoom: every frame the card\'s transform and the zoom the glass is drawn from are at the same time and the same place, in and back', async () => {
   const { z, card, lip } = world(); const back = stands();
   try {
     fl.q.length = 0; fl.t = 1000;
     z.open();
     const p = zoomPlan({ left: 40, top: 276, width: 420, height: 404 }, { left: 0, top: 0, width: 1440, height: 900 }, zoomMargin({ left: 0, top: 0, width: 1440, height: 900 }) * STACK_ROOM);
     const ease = (t) => easeArrive(Math.min(1, t / ZOOM_MS));
-    assert.equal(card.zoomAffine().s, 1, 'at rest before the first frame');
-    assert.equal(card.anims[0].paused, true, 'the page\'s clock does not run it');
+    assert.equal(zoomRide.of(card).s, 1, 'at rest before the first frame');
+    assert.equal(card.anims.length, 0, 'the page\'s clock runs nothing');
     let t0 = null;
     for (let i = 0; i < 40 && fl.q.length; i++) {
       fl.t += 16; const cbs = fl.q.splice(0); for (const cb of cbs) cb(fl.t);
       t0 ??= fl.t;
-      const t = fl.t - t0, a = card.zoomAffine(), e = ease(t);
+      const t = fl.t - t0, a = zoomRide.of(card), e = ease(t);
       assert.ok(Math.abs(a.s - (1 + (p.s - 1) * e)) < 1e-9 && Math.abs(a.dx - p.dx * e) < 1e-9 && Math.abs(a.dy - p.dy * e) < 1e-9, `frame ${i}: the glass's zoom is the glide's at ${t} ms`);
-      assert.ok(Math.abs(card.anims[0].currentTime - e * ZOOM_MS) < 1e-6, `frame ${i}: the card's animation is at the same place (the eased share of its time)`);
-      assert.deepEqual(lip.zoomAffine(), a, 'the handle rides the same zoom');
+      assert.equal(card.style.transform, a.s === 1 && a.dx === 0 && a.dy === 0 ? 'none' : `translate(${a.dx.toFixed(2)}px, ${a.dy.toFixed(2)}px) scale(${a.s.toFixed(4)})`, `frame ${i}: the card is drawn at the same place`);
+      assert.equal(zoomRide.of(lip), a, 'the handle rides the same zoom');
     }
     assert.equal(z.steady, false); await new Promise((r) => setTimeout(r, 0)); assert.equal(z.steady, true);
-    assert.ok(Math.abs(card.zoomAffine().s - p.s) < 1e-9, 'it ends on the plan');
-    const shut = z.close(); fl.t += 1000; let n = 0, last = card.zoomAffine().s;
+    assert.ok(Math.abs(zoomRide.of(card).s - p.s) < 1e-9, 'it ends on the plan');
+    const shut = z.close(); fl.t += 1000; let n = 0, last = zoomRide.of(card).s;
     t0 = null;
     for (; fl.q.length && n < 60; n++) {
       fl.t += 16; const cbs = fl.q.splice(0); for (const cb of cbs) cb(fl.t);
       t0 ??= fl.t;
-      const s = card.zoomAffine()?.s ?? 1;
+      const s = zoomRide.of(card)?.s ?? 1;
       assert.ok(s <= last + 1e-9, 'it only comes back'); last = s;
     }
     await shut;
-    assert.equal(card.zoomAffine, undefined, 'and once back the card is nobody\'s zoom');
+    assert.equal(zoomRide.of(card), null, 'and once back the card is nobody\'s zoom');
     assert.equal(Object.hasOwn(card, 'zoomAffine'), false);
   } finally { back(); }
 });

@@ -26,6 +26,28 @@ export const sceneCam = {
   },
 };
 
+// ── What a zoom moves on the page, for the glass (card-zoom-plan.md step 5: nothing hung on the element). A card zoom's pieces and the figure's
+// callouts' glass under the scene camera are each given the zoom's ONE record, { s, ox, oy, dx, dy } (screen px: scale s about (ox, oy), then the
+// move (dx, dy)), written in place by its one writer each frame, and, for a piece whose own box is pinned at rest, where it is really drawn.
+const rides = new WeakMap();
+const ride0 = { aff: null, real: null };
+export const zoomRide = {
+  /** el rides aff while zoomed; real(): its drawn box (a piece whose getBoundingClientRect answers its rest box), else none. */
+  set(el, aff, real = null) { rides.set(el, { aff, real }); },   // alloc-rare: once per element as a zoom opens
+  drop(el) { rides.delete(el); },
+  /** The zoom el rides this frame, or null. */
+  of(el) { return (rides.get(el) || ride0).aff; },
+  /** Where el is drawn: its box through the zoom. */
+  box(el) { const r = rides.get(el); return r?.real ? r.real() : el.getBoundingClientRect(); },
+  /** How many times larger el is drawn than it rests (its corners grow with it). */
+  scale(el) { return rides.get(el)?.aff.s ?? 1; },
+};
+// The zoom's frame, run by its writer once C is written for the frame (card-zoom.js tick and follow): whoever draws from it (the glass) draws in
+// this frame, never one behind.
+const zoomFrames = new Set();
+export function onZoomFrame(fn) { zoomFrames.add(fn); return () => zoomFrames.delete(fn); }
+export function zoomFrameRun() { for (const fn of zoomFrames) fn(); }
+
 // ── One affine record for every camera (one-camera-record-plan.md, 4 Nov 2026): p' = k p + (x, y), in stage px from the stage's top-left
 // corner. Identity: k 1, x 0, y 0. Pure and allocation-free: each takes the record it writes. A layer's frame camera is always
 // card ∘ dive ∘ (pan ∘) base; every record has exactly one writer, and a writer never clears another's.

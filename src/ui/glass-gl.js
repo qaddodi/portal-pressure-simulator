@@ -24,6 +24,7 @@ import { viewSize } from './layout-snap.js';
 import { parseCssColor } from './css-color.js';
 import { driven, isDrivenAnimation, onMove } from './num-move.js';
 import { counts } from './frame-counts.js';
+import { zoomRide, onZoomFrame as onSceneZoomFrame } from './scene-cam.js';
 
 /** The CSS glass this draws (app.css .cl-glass: blur(16px) saturate(1.15) over 58 % of --surface). */
 export const GLASS = { blur: 16, sat: 1.15, tint: 0.58 };
@@ -110,7 +111,7 @@ const NUM = (v) => parseFloat(v) || 0;
 const newRect = () => ({ left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 });
 function shiftInto(o, r, tx, ty) { o.left = r.left + tx; o.top = r.top + ty; o.right = r.right + tx; o.bottom = r.bottom + ty; o.width = r.width; o.height = r.height; return o; }
 function copyRect(o, r) { o.left = r.left; o.top = r.top; o.right = r.right; o.bottom = r.bottom; o.width = r.width; o.height = r.height; return o; }
-/** r zoomed by a (card-zoom.js zoomAffine: scale s about (ox, oy), then the move (dx, dy)), then moved by (tx, ty). */
+/** r zoomed by a (scene-cam.js zoomRide.of: scale s about (ox, oy), then the move (dx, dy)), then moved by (tx, ty). */
 function zoomInto(o, r, a, tx, ty) {
   const l = a.ox + (r.left - a.ox) * a.s + a.dx, t = a.oy + (r.top - a.oy) * a.s + a.dy, rt = a.ox + (r.right - a.ox) * a.s + a.dx, b = a.oy + (r.bottom - a.oy) * a.s + a.dy;
   o.left = l + tx; o.top = t + ty; o.right = rt + tx; o.bottom = b + ty; o.width = rt - l; o.height = b - t;
@@ -172,7 +173,7 @@ function fillHolesKey(K, panes) {
 /** An element's box as the browser has it drawn, whatever the page has put in place of its getBoundingClientRect: a zoomed card (card-zoom.js
  *  pin) answers with the box it rests in, so its glass, read from that, stayed a small frosted patch at the card's old place while the card
  *  itself grew over the bare figure (Mohammad, 2 Nov 2026, the data card zoomed: "everything behind the glass glitches"). */
-export const drawnRect = (e) => (e.drawnBox ? e.drawnBox() : e.getBoundingClientRect());
+export const drawnRect = (e) => zoomRide.box(e);
 /**
  * A colour as the canvas gives it back (#rrggbb, rgb(), rgba(), or color(srgb r g b / a), which Chrome and Safari give for a colour mixed
  * by color-mix(), the cards' --gl-tint), as straight [r, g, b, a] (0–1); [0, 0, 0, 0] when it is none of those.
@@ -711,7 +712,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
         if (cs.filter && cs.filter !== 'none') continue;
         const r = drawnRect(g);
         if (!r.width || !r.height || !shows(a)) { if (r.width && r.height) fadedNow.add(g); continue; }
-        const zk = g.drawnScale ? g.drawnScale() : 1;   // (a zoomed card's scale: its corners grow with it)
+        const zk = zoomRide.scale(g);   // (a zoomed card's scale: its corners grow with it)
         // (A card's own edge and drop shadows, drawn here with its glass where its CSS names them (--gl-line, --gl-drop): the page's own
         // are taken off while it is drawn here ([data-gl="edge"]), so the card is one GPU shape that may change size in view.)
         const drops = dropsOf(cs.getPropertyValue('--gl-drop')), line = cs.getPropertyValue('--gl-line').trim();
@@ -1430,7 +1431,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
         const ok = motionAt(kf, AM);
         // (One that has finished and holds its end, a card zoomed up, is in the box the page was read at: nothing to put back, and its end
         // read the page again already, so it no longer asks for a read in every frame.)
-        if (!ok && (st === 'finished' || e.zoomAffine)) continue;
+        if (!ok && (st === 'finished' || zoomRide.of(e))) continue;
         if (!ok) { flag.bad = true; if (st === 'running' && endsOf(an, rec)) flag.live = true; continue; }
         if (AM.hasT) { tx = AM.tx; ty = AM.ty; hasT = true; byProp = AM.prop; }
         if (AM.hasO) o = AM.o;
@@ -1443,7 +1444,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     if (s) {
       let im = inlines.get(e);
       if (!im) inlines.set(e, (im = new Inline()));   // alloc-rare: an element's inline reading is made once, the first time it is seen
-      if (!hasT && !e.zoomAffine && dn?.prop !== 'transform') { if (!inlineShift(im, s.transform)) flag.bad = true; else { tx = im.tx; ty = im.ty; } }
+      if (!hasT && !zoomRide.of(e) && dn?.prop !== 'transform') { if (!inlineShift(im, s.transform)) flag.bad = true; else { tx = im.tx; ty = im.ty; } }
       // (A card or a sheet's plate moved by a finger is held by a number (num-move.js), which replaces its inline translate while it lives: the same two numbers.)
       if (dn) {
         tx += dn.x; ty += dn.y;
@@ -1470,7 +1471,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     const W = a.width + (b.width - a.width) * e, H = a.height + (b.height - a.height) * e;
     return { left: L, top: T, right: L + W, bottom: T + H, width: W, height: H };
   }
-  // (card-zoom.js zoomAffine(): the zoom's scale s about (ox, oy), then the move (dx, dy), in screen px, as the card is drawn this frame.)
+  // (scene-cam.js zoomRide.of(): the zoom's scale s about (ox, oy), then the move (dx, dy), in screen px, as the card is drawn this frame.)
   const unzoom = (r, a) => { const f = (v, m, d) => m + (v - d - m) / a.s, l = f(r.left, a.ox, a.dx), t = f(r.top, a.oy, a.dy), rt = f(r.right, a.ox, a.dx), b = f(r.bottom, a.oy, a.dy); return { left: l, top: t, right: rt, bottom: b, width: rt - l, height: b - t }; };
   const shift = (r, t) => (t[0] || t[1] ? { left: r.left + t[0], top: r.top + t[1], right: r.right + t[0], bottom: r.bottom + t[1], width: r.width, height: r.height } : r);
   function chainMove(chain, flag) {
@@ -1509,9 +1510,9 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
       let aS = p.oa ?? 1;
       for (const e of chain) { if (moveOf(e, flag).o != null) continue; const v = fadeOf(e); if (v < 1) aS *= v; }   // (a missing or odd value is no fade)
       const back = [-mv.x, -mv.y];
-      // (A card card-zoom.js moves: its box is the rest box, its motion the zoom's analytic one (zoomAffine, put back each frame in nowGeo), so what is
+      // (A card card-zoom.js moves: its box is the rest box, its motion the zoom's analytic one (zoomRide.of, put back each frame in nowGeo), so what is
       // read now, at the zoom it has, is taken back to where the card rests.)
-      const za = p.g.zoomAffine?.() ?? null;
+      const za = zoomRide.of(p.g);
       const rest = (r) => (za ? unzoom(r, za) : r);
       const r0 = rest(shift(p.r, back)), er0 = rest(shift(p.er, back));
       // (A card the page asks to change size in view (data-gl-morph: the teaching card's glass kept up through a slide change) eases from
@@ -1589,7 +1590,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
       L.a = a;
       if (p.morph) { morphInto(L.r, p, performance.now(), mv.x, mv.y); copyRect(L.er, L.r); L.rad = p.rad; panes.push(L); continue; }
       if (p.zoomed) {
-        const za = p.g.zoomAffine?.() ?? null;
+        const za = zoomRide.of(p.g);
         if (za) { zoomInto(L.r, p.r0, za, mv.x, mv.y); zoomInto(L.er, p.er0, za, mv.x, mv.y); }
         else { shiftInto(L.r, p.r0, mv.x, mv.y); shiftInto(L.er, p.er0, mv.x, mv.y); }
         if (za && p.rad0) { const z = p.radZ; for (let i = 0; i < 4; i++) z[i] = p.rad0[i] * za.s; L.rad = z; } else L.rad = p.rad0;
@@ -1719,7 +1720,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   addEventListener('resize', again);
   // (card-zoom.js moves the card in the frame loop and tells each frame: the glass is drawn in that frame, from the same zoom.)
   const onZoomFrame = () => { quiet = 0; if (hostOn && host && !inPrep && !lost && !dead) host.now(); else ask(); };   // (the zoom's own frame: drawn in this frame's final phase, from this frame's zoom, so the shadow and frost are never a frame behind the card)
-  addEventListener('pps:zoomframe', onZoomFrame);
+  const offZoomFrame = onSceneZoomFrame(onZoomFrame);
   // (The readings' card tucking or coming out (presenter.js slideUnder) writes --pz-u each frame, which sizes the sheet's two panes. They were read in
   // the next frame's read phase, so the glass trailed the card by a frame: the card above's blur slid up from below and back down as the card
   // tucked and untucked (Mohammad, 3 Nov 2026). The presenter tells the glass right after the write, and a cards' glass reads the panes now, in
@@ -1816,7 +1817,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
       for (const t of DOC_END) document.removeEventListener?.(t, docEnd, true);
       anims.clear();
       for (const l of watched) for (const t of EVENTS) l.removeEventListener(t, held, true);
-      removeEventListener('resize', again); removeEventListener('pps:zoomframe', onZoomFrame); removeEventListener('pps:slideframe', onSlideFrame);
+      removeEventListener('resize', again); offZoomFrame(); removeEventListener('pps:slideframe', onSlideFrame);
       offFigure?.(); offMove();
       host?.canvas.removeEventListener('webglcontextlost', onHostLost);
       hostMo?.disconnect();

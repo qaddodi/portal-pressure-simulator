@@ -171,7 +171,11 @@ tap or Esc puts it back exactly where it was.
 - **V-ZOOM-2 (Fix)** The zoomed card is sharp at its zoomed size from the first frame it reaches it: its words and its GPU charts are
   drawn at the zoomed pixel scale (redrawn once, at landing, if needed, with the old picture kept until the new one is ready). It never
   shows blurry then sharp in a visible step.
-- **V-ZOOM-3 (Now)** The figure, the model and the instrument run on under the zoom; nothing behind moves (the veil dims it).
+- **V-ZOOM-3 (Now)** One camera, frozen layout (card-zoom-plan.md, 4 Nov 2026). The figure, the model and the instrument run on under
+  the zoom, and nothing is laid out again: the view (vt, the lobule's V), every label's place and every card's box stay as they rest. One
+  scene camera C (scene-cam.js), written once per frame by card-zoom.js's frame loop, moves the whole picture: the figure's canvas and
+  labels, the page's figure layers, and the cards' inline transform. The glass reads the same record (zoomRide), so it is never a frame
+  behind. No Web Animation drives the zoom. Closing eases C back to identity; there is nothing to settle at the end.
 - **V-ZOOM-4 (Fix)** Labels never show through the zoomed card or its veil. The veil is drawn by the GPU over the figure and its labels
   in the figure canvas, so there is no label layer above it. *Check*: `labels-off-cards.mjs` with the card zoomed: no label record
   drawn above veil opacity in the card's zoomed box.

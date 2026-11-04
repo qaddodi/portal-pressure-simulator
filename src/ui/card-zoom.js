@@ -9,7 +9,7 @@
 
 import { EASE_ARRIVE, easeArrive } from './ease.js';
 import { frameFor } from './frame.js';
-import { sceneCam } from './scene-cam.js';
+import { sceneCam, zoomRide, zoomFrameRun } from './scene-cam.js';
 export const ZOOM_MAX = 2.2;    // the most the card grows
 export const ZOOM_MIN = 1.2;    // under this the card is large enough; no zoom is offered
 export const ZOOM_MS = 520;     // in
@@ -80,15 +80,21 @@ export function tapTracker(card, { ok = () => true, onTap }) {
  * centred and enlarged: the instrument's boost, the credit's sitting out, the words' cue and the readings' follow are for the data card.
  */
 export function createCardZoom({ card, along = [], scrim, app, area, scale = () => 1, reduce = () => false, boost = () => {}, hold = () => {}, settled = () => {}, behind = () => {}, scene = () => [], camera = null, raf = frameFor('card-zoom') }) {
-  let st = null;   // { card, veils, part, plan, riders: [{ el, rest, own, anim }], closing, steady, box, mid, k, s, boosted, cur: { dx, dy, s }, mo }
-  // The glide is run in the frame loop, not by the browser's clock (Mohammad, 2 Nov 2026: "the instrument card has a trailing card behind it").
-  // Its animations are made paused and set to the frame's own time in the 'card-zoom' callback of each frame, so the card the page shows and the
-  // zoom the glass is drawn from (zoomAffine, below: the same numbers, worked out from the same frame time) move in the same frame, and neither can
-  // run a frame ahead of the other as a glide on the compositor's clock does. cur: where the whole is now ({ dx, dy } screen px, and the scale);
-  // mo: the glide in hand ({ from, to, ms, t0, anims, done }).
-  const frame = new Event('pps:zoomframe');
+  let st = null;   // { card, veils, part, plan, riders: [{ el, rest, own, tf0 }], closing, steady, box, mid, k, s, boosted, cur: { dx, dy, s }, aff, mo }
+  // The glide is run in the frame loop, never by the browser's clock (Mohammad, 2 Nov 2026: "the instrument card has a trailing card behind it";
+  // card-zoom-plan.md step 1: no Web Animations). Each frame's 'card-zoom' callback works out C (cur) once and writes it, in that frame, to the
+  // pieces' inline transform (paint), to the scene camera (camAt) and to the record the glass reads (zoomRide, scene-cam.js), so the card, the figure
+  // and the glass are one picture and none can run a frame ahead. cur: where the whole is now ({ dx, dy } screen px, and the scale); mo: the
+  // glide in hand ({ from, to, ms, t0, done }).
   // (The camera follows the card's zoom: the view is scaled and moved as the card is, about the same middle; once per frame, with st.cur.)
   const camAt = () => { if (st?.cam) camera.at(st.cur.s, st.mid.x, st.mid.y, st.cur.dx, st.cur.dy); };
+  // (C on the pieces, in this frame: one inline transform each, in the card's own px, and the glass's record of the same numbers.)
+  const paint = () => {
+    const c = st.cur, a = st.aff, k = st.k, to = c.s === 1 && c.dx === 0 && c.dy === 0 ? 'none' : `translate(${(c.dx / k).toFixed(2)}px, ${(c.dy / k).toFixed(2)}px) scale(${c.s.toFixed(4)})`;
+    a.s = c.s; a.dx = c.dx; a.dy = c.dy; a.ox = st.mid.x; a.oy = st.mid.y;
+    for (const r of st.riders) r.el.style.transform = to;
+  };
+  const step = () => { paint(); camAt(); zoomFrameRun(); };
   let tickId = 0;
   const lerpTo = (m, e) => ({ dx: m.from.dx + (m.to.dx - m.from.dx) * e, dy: m.from.dy + (m.to.dy - m.from.dy) * e, s: m.from.s + (m.to.s - m.from.s) * e });
   function tick(now) {
@@ -99,23 +105,17 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
     st.tickAt = performance.now();
     const t = Math.max(0, now - m.t0), p = Math.min(1, t / m.ms);
     st.cur = lerpTo(m, easeArrive(p));
-    camAt();
-    // (One progress for the frame, the eased one: the card's and the words' animations are linear in it, so each is set to that share of its time and the card, the words, the figure and the glass are at the same place at the same instant.)
-    const e = easeArrive(p);
-    for (const a of m.anims) if (a) a.currentTime = e * m.ms;
-    globalThis.dispatchEvent?.(frame);
+    step();
     if (p < 1) { tickId = raf(tick); return; }
     st.mo = null;
-    for (const a of m.anims) a?.finish?.();
     m.done();
   }
-  /** Runs the glide to `to` over ms in the frame loop; the animations (made by glide) are scrubbed with it. Resolves when it is there. */
-  function drive(to, ms, anims) {
+  /** Runs the glide to `to` over ms in the frame loop. Resolves when it is there. */
+  function drive(to, ms) {
     return new Promise((done) => {
       st.mo?.done();
-      if (!(ms > 0)) { st.cur = { ...to }; camAt(); st.mo = null; done(); return; }
-      st.mo = { from: { ...st.cur }, to, ms, t0: null, anims, done };
-      for (const a of anims) if (a) { a.pause?.(); a.currentTime = 0; }
+      if (!(ms > 0)) { st.cur = { ...to }; step(); st.mo = null; done(); return; }
+      st.mo = { from: { ...st.cur }, to, ms, t0: null, done };
       if (!tickId) tickId = raf(tick);
     });
   }
@@ -123,34 +123,35 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
   // box that is centred and fitted to the screen is the whole of them, never the card's box alone (Mohammad, 28 Oct: a stacked card sat off the
   // middle and ran off the bottom).
   // (scene: the rest of the page that rides the camera with the card (the teaching card and its glass): each turns about the same middle by the same transform, so the page is one picture that zooms toward the card, and the zoomed card never lies over its words (4 Nov 2026, Mohammad: "zoom the entire camera"). They are not part of the box that is fitted: pass.)
-  const pieces = (el = card, rides = along, extra = []) => [...[el, ...rides].map((x) => [x, false]), ...extra.map((x) => [x, true])].map(([x, pass]) => ({ el: x, pass, rest: x.hidden && x !== el ? null : x.getBoundingClientRect(), own: null, anim: null })).filter((r) => r.rest && r.rest.width > 0);
+  const pieces = (el = card, rides = along, extra = []) => [...[el, ...rides].map((x) => [x, false]), ...extra.map((x) => [x, true])].map(([x, pass]) => ({ el: x, pass, rest: x.hidden && x !== el ? null : x.getBoundingClientRect(), own: null, tf0: '' })).filter((r) => r.rest && r.rest.width > 0);
   const whole = (riders, el = card) => (riders.some((r) => r.el === el) ? unionBox(riders.filter((r) => !r.pass).map((r) => r.rest)) : null);
   // The piece's box as it rests, for everyone who asks the element (the figure's labels keep clear of the cards by it): a copy that does
   // not move with the glide. Its own getBoundingClientRect is put back as it was.
-  const pin = (r) => {
+  // (The glass is told where the piece is drawn by the zoom's one record, aff, through zoomRide (scene-cam.js): nothing is hung on the element but
+  // its resting box.)
+  // (The piece's own CSS eases a transform written to its style: while it rides only its opacity keeps a transition, so its transform is the
+  // frame's alone. Given back two frames after the piece is put back, so the step back to rest is never eased either.)
+  const pin = (r, aff) => {
     const { left, top, width, height } = r.rest;
     r.own = Object.hasOwn(r.el, 'getBoundingClientRect') ? r.el.getBoundingClientRect : null;
     const real = r.own || r.el.getBoundingClientRect;
     // (The one box, made here and handed back at every ask: the figure's labels read it every frame and keep none.)
     const rect = { x: left, y: top, left, top, width, height, right: left + width, bottom: top + height };
     r.el.getBoundingClientRect = () => rect;
-    r.el.drawnBox = () => real.call(r.el);
-    r.el.drawnScale = () => (width > 0 ? real.call(r.el).width / width : 1);   // (the glass reads the card where it is drawn, not where it rests: glass-gl drawnRect, sheet-glass)
-    // (The zoom as it is drawn this frame, for the glass to put on the box the card rests in: scale s about (ox, oy), then (dx, dy), screen px.)
-    // (Written into this piece's own record at each ask; the glass reads it at once, every frame.)
-    const aff = { s: 1, dx: 0, dy: 0, ox: 0, oy: 0 };
-    r.el.zoomAffine = () => {
-      if (!st) return null;
-      aff.s = st.cur.s; aff.dx = st.cur.dx; aff.dy = st.cur.dy; aff.ox = st.mid.x; aff.oy = st.mid.y;
-      return aff;
-    };
+    zoomRide.set(r.el, aff, () => real.call(r.el));
+    r.tf0 = r.el.style.transform;
+    if (!tp0.has(r.el)) tp0.set(r.el, r.el.style.transitionProperty || '');
+    r.el.style.transitionProperty = 'opacity';
+    riding.add(r.el);
   };
-  const unpin = (r) => { if (r.own) r.el.getBoundingClientRect = r.own; else delete r.el.getBoundingClientRect; delete r.el.drawnBox; delete r.el.drawnScale; delete r.el.zoomAffine; };
-  // From where the property stands now (a glide caught half way is taken up there) to `to`.
-  const glide = (el, prop, to, ms, prev) => {
-    const from = globalThis.getComputedStyle(el)[prop];
-    prev?.cancel();
-    return el.animate?.([{ [prop]: from }, { [prop]: to }], { duration: ms, easing: 'linear', fill: 'forwards' }) || null;   // motion-scale: own pace (scrubbed by the card-zoom frame, linear in its eased progress)
+  const riding = new Set(), tp0 = new Map();   // (the pieces riding now, and each one's own transition-property while it is held: a piece zoomed again before it was given back keeps it)
+  const unpin = (r) => {
+    if (r.own) r.el.getBoundingClientRect = r.own; else delete r.el.getBoundingClientRect;
+    zoomRide.drop(r.el);
+    r.el.style.transform = r.tf0;
+    riding.delete(r.el);
+    const el = r.el;
+    raf(() => raf(() => { if (riding.has(el) || !tp0.has(el)) return; el.style.transitionProperty = tp0.get(el); tp0.delete(el); }));   // alloc-rare: once per piece as a zoom ends
   };
   const boxAt = (b, mid, s, dx, dy) => { const f = (v, m, d) => m + (v - m) * s + d; const l = f(b.left, mid.x, dx), t = f(b.top, mid.y, dy); return { left: l, top: t, right: f(b.left + b.width, mid.x, dx), bottom: f(b.top + b.height, mid.y, dy) }; };
 
@@ -159,7 +160,7 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
     const s = st; st = null;
     s.mo?.done(); s.mo = null; clearTimeout(s.sharpT);
     if (s.cam) camera.end();
-    for (const r of s.riders) { r.anim?.cancel(); unpin(r); r.el.style.transformOrigin = ''; }
+    for (const r of s.riders) { unpin(r); r.el.style.transformOrigin = ''; }
     delete s.card.dataset.zoomed;
     app.classList.remove('pz-zoomed', 'pz-cam'); for (const v of s.veils) v.classList.remove('on');
     if (!s.part) { boost(1); hold(false); }
@@ -182,11 +183,11 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
       // (box and mid: the whole as it rests as the card zooms, and its middle, for follow below; steady: the glide in has ended, for the
       // data card only: a part has no readings to bring out.)
       sceneCam.aim = part ? null : { s: plan.s, ox: cx, oy: cy, dx: plan.dx, dy: plan.dy, box: boxAt(q, { x: cx, y: cy }, plan.s, plan.dx, plan.dy) };
-      st = { stacked, card: el, veils: [veil].flat(), part, plan, riders, closing: null, steady: ms === 0 && !part, box: q, mid: { x: cx, y: cy }, k, s: plan.s, boosted: plan.s, cur: { dx: 0, dy: 0, s: 1 }, mo: null, cam: !part && !!camera?.open() };
+      st = { stacked, card: el, veils: [veil].flat(), part, plan, riders, closing: null, steady: ms === 0 && !part, box: q, mid: { x: cx, y: cy }, k, s: plan.s, boosted: plan.s, cur: { dx: 0, dy: 0, s: 1 }, aff: { s: 1, dx: 0, dy: 0, ox: cx, oy: cy }, mo: null, cam: !part && !!camera?.open() };
       for (const r of riders) {
         // (Each piece turns about the middle of them all, so they move as one.)
         r.el.style.transformOrigin = `${((cx - r.rest.left) / k).toFixed(2)}px ${((cy - r.rest.top) / k).toFixed(2)}px`;
-        pin(r);
+        pin(r, st.aff);
       }
       el.dataset.zoomed = '';
       app.classList.add('pz-zoomed');
@@ -199,19 +200,16 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
       if (!part) { hold(true); if (!ms) boost(plan.s); if (!st.cam) behind(true, ms); }   // (A zoom of the camera moves no card but the zoom's own: the words' card is not eased back, 4 Nov 2026)
 
       const me0 = st;
-      const to = `translate(${(plan.dx / k).toFixed(2)}px, ${(plan.dy / k).toFixed(2)}px) scale(${plan.s.toFixed(4)})`;
-      for (const r of riders) r.anim = glide(r.el, 'transform', to, ms);
       for (const v of st.veils) v.classList.add('on');
       if (st.cam && !ms) setTimeout(() => { if (st === me0 && !me0.closing) camera.sharp?.(true); }, 0);
-      const me = st, going = drive({ dx: plan.dx, dy: plan.dy, s: plan.s }, ms, riders.map((r) => r.anim));
+      const me = st, going = drive({ dx: plan.dx, dy: plan.dy, s: plan.s }, ms);
       if (ms && !part) {
         // (A glide that never reports its end (a hidden tab runs no frames) is let go after its time; one whose frames are coming, however slowly, is not.)
         // (One watcher made here, asked again by the timer: no closure made at each ask.)
         const watch = () => {
           if (st !== me || me.closing || !me.mo) return;
           if (performance.now() - (me.tickAt ?? 0) < 400) { setTimeout(watch, 200); return; }
-          me.mo.done(); me.mo = null; me.cur = { dx: plan.dx, dy: plan.dy, s: plan.s }; camAt(); me.steady = true; boost(me.boosted); if (me.cam) camera.sharp?.(true);   // alloc-rare: only a glide that never reported its end (a hidden tab), once, as it is let go
-          for (const a of riders.map((r) => r.anim)) a?.finish?.();   // alloc-rare: as above, once, as the glide is let go
+          me.mo.done(); me.mo = null; me.cur = { dx: plan.dx, dy: plan.dy, s: plan.s }; step(); me.steady = true; boost(me.boosted); if (me.cam) camera.sharp?.(true);   // alloc-rare: only a glide that never reported its end (a hidden tab), once, as it is let go
         };
         setTimeout(watch, ZOOM_MS + 120);
         going.then(() => { if (st === me && !me.closing) { me.steady = true; if (!part) boost(me.boosted); if (me.cam) camera.sharp?.(true); } });
@@ -236,13 +234,10 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
       const sc = Math.min(ZOOM_MAX, Math.max(1, fitScale(q, a, zoomMargin(a) * (st.stacked ? STACK_ROOM : 1))));
       const dx = a.left + a.width / 2 - mid.x;
       const dy = a.top + a.height / 2 - mid.y - sc * (q.top + q.height / 2 - mid.y) + lift * k * (1 - sc);
-      const to = `translate(${(dx / k).toFixed(2)}px, ${(dy / k).toFixed(2)}px) scale(${sc.toFixed(4)})`;
-      // (A new frame over the last: the card's own CSS eases a transform written to its style, so the glide's own kind is used.)
-      for (const r of st.riders) { const prev = r.anim; r.anim = r.el.animate?.([{ transform: to }, { transform: to }], { duration: 1, fill: 'forwards' }) || null; prev?.cancel(); }
       st.cur = { dx, dy, s: sc };
-      camAt();
+      paint(); camAt();
       if (st.cam) { clearTimeout(st.sharpT); const me = st; me.sharpT = setTimeout(() => { if (st === me && !me.closing && me.steady) camera.sharp?.(true); }, 200); }   // (the readings still moving: sharp again 200 ms after the last step)
-      globalThis.dispatchEvent?.(frame);
+      zoomFrameRun();
       st.s = sc;
       if (sc > st.boosted + 0.01) { st.boosted = sc; boost(sc); }
       return true;
@@ -261,13 +256,12 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
       // (A zoom shut part of the way in goes back in the part of SHUT_MS it got, from where it is: V-ZOOM-5.)
       const ms = Math.round(SHUT_MS * Math.max(0.35, Math.min(1, (s.cur.s - 1) / ((s.plan.s - 1) || 1))));
       if (!s.part && !s.cam) behind(false, ms);
-      for (const r of s.riders) r.anim = glide(r.el, 'transform', 'none', ms, r.anim);
       // (A glide that never reports its end, a tab hidden mid-way, is let go after its time.)
       let res = null;
       const guard = new Promise((r) => { res = r; });
       const watch = () => { if (st !== s || !s.mo || performance.now() - (s.tickAt ?? 0) >= 400) res(); else setTimeout(watch, 200); };
       setTimeout(watch, ms + 120);
-      s.closing = Promise.race([drive({ dx: 0, dy: 0, s: 1 }, ms, s.riders.map((r) => r.anim)), guard]).then(() => { if (st === s) end(); });
+      s.closing = Promise.race([drive({ dx: 0, dy: 0, s: 1 }, ms), guard]).then(() => { if (st === s) end(); });
       return s.closing;
     },
     toggle() { return this.up ? this.close() : this.open(); },
