@@ -61,7 +61,7 @@ import { hitLabel, explainText, createExplain } from './label-explain.js';
 import { nameSpots, NAME_BREAK } from './organ-names.js';
 import { createLabelGL } from './label-gl.js';
 import { hits, crosses, within, RING_DIRS, offset } from './label-place.js';
-import { createGlassGL, glassRegions, GLASS, PANE, roundPath } from './glass-gl.js';
+import { createGlassGL, glassHold, glassRegions, GLASS, PANE, roundPath } from './glass-gl.js';
 import { writePoints, writeJoinNow } from './veins-sweep.js';
 import { ENT_W } from './veins-bin.js';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js';
@@ -2733,6 +2733,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const b = stageBox(), vb = vbBox, s = Math.min(b.sw / vb.width, b.sh / vb.height);
     zoomBase = { vt: { ...vt }, s, ox: b.left + b.sx + (b.sw - vb.width * s) / 2 - vb.x * s, oy: b.top + b.sy + (b.sh - vb.height * s) / 2 - vb.y * s };
     following = true; follow0 = follow1 = null; drifting = true;
+    glassHold.on = true;
     return true;
   }
   function zoomAt(S, px, py, dx, dy) {
@@ -2746,7 +2747,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   function zoomEnd() {
     if (!zoomBase) return;
-    const z = zoomBase; zoomBase = null;
+    const z = zoomBase; zoomBase = null; glassHold.on = false;
     if (following) { vt = { ...z.vt }; applyVT(); CTM = null; }
     followEnd();
   }
