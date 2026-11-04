@@ -23,8 +23,8 @@ test('every redraw of the marks and every change of zoom places the "60 %" by th
 
 test('the rule keeps the layout\'s side and spot, reads outward from it, and stays level on screen', () => {
   const at = body('function clampLabelAt(el) {', '// A quantized value');
-  assert.match(at, /const away = c\.id === clampFor \? clampAway : null;/);
-  assert.match(at, /kept = c\.id === clampFor \? clampD\.get\(c\.id\) : null, mv = c\.id !== clampFor \? clampMv\.get\(c\.id\)\?\.cur : null/);
+  assert.match(at, /const away = c\.id === (?:live\.)?(?:live\.)?clampFor \? (?:live\.)?(?:live\.)?clampAway : null;/);
+  assert.match(at, /kept = c\.id === (?:live\.)?clampFor \? clampD\.get\(c\.id\) : null, mv = c\.id !== (?:live\.)?clampFor \? clampMv\.get\(c\.id\)\?\.cur : null/);
   // The text ends at its spot on the clamp's left on screen and starts there on its right: never back over the arrows.
   assert.match(at, /left = xs\[k\] < xs\[1 - k\] - 0\.5/);
   assert.match(at, /if \(left\) el\.setAttribute\('text-anchor', 'end'\); else el\.removeAttribute\('text-anchor'\);/);

@@ -1,1 +1,1 @@
-{ "factory": "createClamps", "file": "stage-clamps.js", "about": "The clamp labels and overlays: where each clamp's label sits, the overlay paint and its commit.", "lines": [[5705, 5981]], "trust": ["clampLabelAt"], "stay": ["bal"] }
+{ "factory": "createClamps", "file": "stage-clamps.js", "about": "The clamp labels and overlays: where each clamp's label sits, the overlay paint and its commit.", "lines": [[5714, 5716]], "trust": ["clampLabelAt"], "stay": ["bal"] }

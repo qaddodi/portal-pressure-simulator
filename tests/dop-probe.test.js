@@ -241,7 +241,7 @@ test('a "60 %" the probe would cover steps out to a clear spot on a leader line,
   assert.match(stage, /el\.animate\?\.\(\[\{ opacity: 0 \}\], \{ duration: dur, fill: 'forwards' \}\)/);
   assert.match(stage, /k: 'cl:' \+ c\.id, tag: 'path', at: \{ class: 'leader'/);
   assert.match(stage, /c\.x \+ c\.nx \* \(c\.off \+ 8\), c\.y \+ c\.ny \* \(c\.off \+ 8\)/);
-  assert.match(stage, /mv = c\.id !== clampFor \? clampMv\.get\(c\.id\)\?\.cur : null/);
+  assert.match(stage, /mv = c\.id !== (?:live\.)?(?:live\.)?clampFor \? clampMv\.get\(c\.id\)\?\.cur : null/);
   // The gate bars are in the boxes labels and the probe keep off.
   const g = [300, 300], b = gateBoxes(g, 0, 50, 8)[0];
   assert.ok(b.x0 < 300 - 5 && b.x1 > 300 + 5 && b.y0 < 300 - 5 && b.y1 > 300 + 5);

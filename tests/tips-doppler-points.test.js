@@ -76,12 +76,12 @@ test("the column's side is chosen from the stent and the screen, never the pick,
   assert.match(stage, /const away = col \? \(ptSide === 'E' \? 'W' : 'E'\) : null;/);
   // (the "60 %" reads in the labels' own name size, 12 px at least (the lab role: the text size setting and a presentation's size in it),
   // at any zoom, its gap and its leader's stop-short in step with it)
-  assert.match(stage, /const px = fontPx\(11\.5\);\n\s+if \(Math\.abs\(px - clampBase\) > 0\.01\) \{ clampBase = px; applyClampFs\(\); \}/);
-  assert.match(stage, /const fs = CTM\.sc > 0 && CTM\.sc < 1 \? clampBase \/ CTM\.sc : 0;/);
+  assert.match(stage, /const px = (?:live\.)?(?:live\.)?fontPx\(11\.5\);\n\s+if \(Math\.abs\(px - (?:live\.)?(?:live\.)?clampBase\) > 0\.01\) \{ (?:live\.)?(?:live\.)?clampBase = px; applyClampFs\(\); \}/);
+  assert.match(stage, /const fs = (?:live\.)?CTM\.sc > 0 && (?:live\.)?CTM\.sc < 1 \? (?:live\.)?clampBase \/ (?:live\.)?CTM\.sc : 0;/);
   assert.match(stage, /el\.style\.fontSize = fs \? `\$\{fs\.toFixed\(2\)\}px` : '';/);
-  assert.match(stage, /const sk = CTM\?\.sc \|\| 0, cfs = sk > 0 \? \(clampBase \/ sk\)\.toFixed\(2\) : '';/);
-  assert.match(stage, /const gap = \(6 \* clampBase\) \/ 12 \/ Math\.max\(CTM\?\.sc \|\| 1, 1e-3\)/);
-  assert.match(stage, /const b = boxOfEl\(el, \(6 \* clampBase\) \/ 12\);/);
+  assert.match(stage, /const sk = (?:live\.)?CTM\?\.sc \|\| 0, cfs = sk > 0 \? \((?:live\.)?clampBase \/ sk\)\.toFixed\(2\) : '';/);
+  assert.match(stage, /const gap = \(6 \* (?:live\.)?clampBase\) \/ 12 \/ Math\.max\((?:live\.)?CTM\?\.sc \|\| 1, 1e-3\)/);
+  assert.match(stage, /const b = boxOfEl\(el, \(6 \* (?:live\.)?clampBase\) \/ 12\);/);
   assert.ok(roleOf(11.5) === 'lab' && rolePx('lab', 390, 844) >= 12 && rolePx('lab', 1440, 900) >= 12, "the labels' names are the lab role, 12 px at least on a phone and a laptop");
   assert.match(stage, /\{ proximal: 'Prox', mid: 'Mid', distal: 'Dist' \}\[point\]/);   // (short on a phone)
 });
