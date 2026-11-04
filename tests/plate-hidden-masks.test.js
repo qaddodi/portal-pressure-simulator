@@ -45,5 +45,5 @@ test('the liver\'s disease layers are hidden while faded to 0 (a clipped path at
   assert.match(stage, /const lvFade = \(el, a\) => \{ const o = a\.toFixed\(3\), v = \+o > 0 \? '' : 'hidden'; el\.style\.opacity = o; if \(el\.style\.visibility !== v\) el\.style\.visibility = v; \};/);
   for (const k of ['cong', 'isl', 'sep', 'nod']) assert.match(stage, new RegExp(`${k}: s\\('path', \\{[^\\n]*class: 'lv-${k}', 'clip-path': 'url\\(#clip-liver\\)', style: 'opacity:0;visibility:hidden' \\}\\)`));
   assert.match(stage, /lvFade\(lv\.sep, cn\); lvFade\(lv\.nod, cn\);/);
-  assert.match(stage, /const gn = smooth01\(g \/ 0\.5\); lvFade\(lv\.cong, gn\); lvFade\(lv\.isl, gn\);/);
+  assert.match(stage, /const gn = (?:live\.)?(?:live\.)?smooth01\(g \/ 0\.5\); lvFade\(lv\.cong, gn\); lvFade\(lv\.isl, gn\);/);
 });
