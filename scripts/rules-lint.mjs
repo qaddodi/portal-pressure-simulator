@@ -1,7 +1,7 @@
 // Rules held by lint, not by memory (Holding 120 Hz, revision 2, 2 Nov 2026). Fails `npm run lint` when:
 //
 //   switches   a runtime switch read from the address (/[?&]name/, searchParams.has/get('name')) that is not one of the measuring aids
-//              (perf, offgpu, fps, budget, inputs), a content deep link (script, slide, preset, home, back) or a cache stamp (v), and is not
+//              (perf, offgpu, fps, budget, inputs), a content deep link (script, slide, preset, home, back, presenter-view) or a cache stamp (v), and is not
 //              in scripts/switches-left.json, the switches still waiting for their deletion pass. The list may only shrink: a name in it that
 //              the source no longer reads fails too, so a deleted switch leaves the list in the same commit. No new switch, ever.
 //   import()   a dynamic import that is not in scripts/lazy-imports.json, where each one says what reads its module in before a person can
@@ -9,6 +9,7 @@
 //              parses tens of ms inside that frame: nothing is imported on a user tap.
 //   imports  a name imported from one of the app's own modules that the module does not export (a deleted switch's constant left in an
 //              import list breaks the page, and every test that loads it, only when the module loads).
+//   size     stage.js, presenter.js or app.css longer (in lines) than its number in scripts/size-budget.json. The numbers only go down (PR-09).
 //   (The built chunks' 200 KB limit is held by scripts/build.mjs itself: the build fails on a chunk over it.)
 //
 //   node scripts/rules-lint.mjs            check
@@ -20,7 +21,7 @@ import { fileURLToPath } from 'node:url';
 import { parse } from 'espree';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const KEEP = new Set(['perf', 'offgpu', 'fps', 'budget', 'inputs', 'script', 'slide', 'preset', 'home', 'back', 'v']);
+const KEEP = new Set(['perf', 'offgpu', 'fps', 'budget', 'inputs', 'script', 'slide', 'preset', 'home', 'back', 'presenter-view', 'v']);
 const walk = (p) => (statSync(p).isDirectory() ? readdirSync(p).flatMap((f) => walk(join(p, f))) : [p]);
 const files = [...walk(join(ROOT, 'src')).filter((f) => f.endsWith('.js')), join(ROOT, 'index.html'), join(ROOT, 'sw.js')];
 
@@ -74,6 +75,18 @@ for (const f of files.filter((x) => x.endsWith('.js'))) {
     if (have.has('*')) continue;
     for (const n of m[1].split(',')) { const k = n.trim().split(/\s+as\s+/)[0].trim(); if (k && !have.has(k)) errors.push(`${relative(ROOT, f)} imports ${k} from ${m[2]}, which does not export it`); }
   }
+}
+
+// Size budget: the three files that grow fastest may not pass their committed line count; a file under it asks for the number to come down.
+{
+  const sizeFile = join(ROOT, 'scripts/size-budget.json'), doc = JSON.parse(readFileSync(sizeFile, 'utf8'));
+  const tighten = process.argv.includes('--tighten');
+  for (const [rel, max] of Object.entries(doc.files)) {
+    const n = readFileSync(join(ROOT, rel), 'utf8').split('\n').length - 1;
+    if (n > max) errors.push(`${rel} has ${n} lines, over its budget of ${max} in scripts/size-budget.json: move code out into its own module first (PR-09)`);
+    else if (n < max && tighten) doc.files[rel] = n;   // (a file under its number passes; --tighten lowers the number so the gain cannot be spent again)
+  }
+  if (tighten) writeFileSync(sizeFile, JSON.stringify(doc, null, 1).replace(/\n {2,}"/g, ' "').replace(/\{\n {2}"src/, '{ "src') + '\n');
 }
 
 if (process.argv.includes('--list')) {

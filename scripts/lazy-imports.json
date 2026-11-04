@@ -3,6 +3,7 @@
   "imports": {
     "src/ui/host.js → ../worker-core.js": "only when a Worker cannot start (the engine runs on the page instead), at boot",
     "src/ui/presenter.js → ../worker-core.js": "the same fallback for a presentation's own engine, when its Worker cannot start",
+    "src/ui/main.js → ./presenter-view-page.js": "only the presenter's second window (?presenter-view), whose page loads it at boot instead of the app; no person reaches it from a tap",
     "src/ui/main.js → ./doppler.js": "main.js warmUp, idle after boot and under the loading cover",
     "src/ui/main.js → ./fibroscan.js": "main.js warmUp, idle after boot and under the loading cover",
     "src/ui/main.js → ./presenter.js": "main.js warmUp, idle after boot and under the loading cover",

@@ -743,9 +743,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // One GPU context for the figure (4 Nov 2026, Mohammad: "everything on one GPU context"): the lobule's vessels, tissue, overlay and field are
   // drawn in the stage's renderer (figure(): its top, veins-gl.js) into a texture of their own, which the stage lays over the figure in its
   // present, under the glass: no canvas, context or copy of its own. glCv stays in the page as the empty surface the pointer lands on, and as the
-  // size of the texture. ?lzshare=0 keeps the lobule's own context. Hosted from the first frame to the last; a new stage context makes it again.
-  const SHARE_ASK = (() => { try { return new URLSearchParams(location.search).get('lzshare') !== '0'; } catch { return true; } })();
-  const figureTop = () => { const t = SHARE_ASK ? figure?.() : null; return t && t.gl && !t.gl.isContextLost?.() ? t : null; };
+  // size of the texture. (No switch for the lobule's own context: one path, PR-01.) Hosted from the first frame to the last; a new stage context makes it again.
+  const figureTop = () => { const t = figure?.() ?? null; return t && t.gl && !t.gl.isContextLost?.() ? t : null; };
   let shareTop = null, shareOff = null, shW = 1, shared = false;
   const elXf = { rot: 0, Z: 1, ox: 0, oy: 0 };   // (the sinusoid zoom's turn and growth of the lobule about its fixed point: placeSinusoid)
   let fieldWas = 0;
