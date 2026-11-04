@@ -1714,12 +1714,12 @@ button.finding { cursor: pointer; }
 .lz-labels.lz-ease .lz-lab { transition: opacity var(--d-surface) var(--ease), translate var(--d-surface) var(--ease); }
 @media (prefers-reduced-motion: reduce) { .lz-labels.lz-ease .lz-lab { transition: none; } }
 /* Station cards: the anatomy's label style, as buttons that open the station's card */
-.lz-call { position: absolute; padding: 4px 10px 5px; border-radius: 999px; font: 600 14px/1.2 var(--font-ui); width: max-content; text-wrap: balance; color: var(--on-status); background: var(--danger); box-shadow: var(--shadow-1); pointer-events: none; opacity: 0; transform: scale(.94); transition: opacity var(--d-surface) var(--ease), transform var(--d-surface) var(--ease); }
+.lz-call { position: absolute; padding: 4px 10px 5px; border-radius: 999px; font: 600 14px/1.2 var(--font-ui); width: max-content; text-wrap: balance; color: var(--danger); pointer-events: none; opacity: 0; transform: scale(.94); transition: opacity var(--d-surface) var(--ease), transform var(--d-surface) var(--ease); }
 .lz-call.on { opacity: 1; transform: none; }
 .lz-call-l, .lz-call-r { opacity: 0; transition: opacity var(--d-surface) var(--ease); stroke: var(--danger); stroke-width: 4px; fill: none; }
 .lz-call-l.on, .lz-call-r.on { opacity: 1; }
-.lz-call[data-kind="treat"] { background: var(--accent); } .lz-call-l[data-kind="treat"], .lz-call-r[data-kind="treat"] { stroke: var(--accent); }
-.lz-call[data-kind="note"] { background: var(--surface); color: var(--text); border: 1px solid var(--text-2); } .lz-call-l[data-kind="note"], .lz-call-r[data-kind="note"] { stroke: var(--text-2); }
+.lz-call[data-kind="treat"] { color: var(--accent); } .lz-call-l[data-kind="treat"], .lz-call-r[data-kind="treat"] { stroke: var(--accent); }
+.lz-call[data-kind="note"] { color: var(--text); } .lz-call-l[data-kind="note"], .lz-call-r[data-kind="note"] { stroke: var(--text-2); }
 .lz-lab { position: absolute; pointer-events: auto; display: grid; gap: 1px; text-align: left; padding: 4px 8px 5px; border-radius: var(--r-control); border: 1px solid var(--hairline); background: var(--glass); box-shadow: 0 1px 1.5px rgb(var(--night-rgb) / .1); cursor: pointer; color: var(--text); font-family: var(--font-ui); }
 .lz:not(.on) .lz-lab { pointer-events: none; }   /* labels of a hidden or still-diving lobule view are not clickable */
 .lz-lab .n { font-size: 12px; font-weight: 500; color: var(--text-2); white-space: nowrap; }
@@ -4261,7 +4261,7 @@ html.chip-open .topbar .sb-right > .chip-btn[aria-expanded="true"], html.chip-op
 .lz-lab { display: grid; gap: 0; padding: 1px 8px; border: 0; border-radius: 0; background: none; box-shadow: none; text-align: left; line-height: 1.2; }
 .lz-lab.left { text-align: right; border-left: 0; padding: 1px 9px 1px 8px; }
 /* The anatomy's halo: a smooth outline around each letter (a stroke painted under the fill), so the labels read over the tissue. */
-.lz-lab .n, .lz-lab .v { --hw: max(1px, calc(1.5px * var(--label-k, 1)));
+.lz-lab :is(.n, .v, .x), .lz-call { --hw: max(1px, calc(1.5px * var(--label-k, 1)));
   -webkit-text-stroke: calc(var(--hw) * 2) var(--cap-outline); paint-order: stroke fill; stroke-linejoin: round; text-shadow: none; }
 /* Floors keep the pill's order at small label sizes: the reading never drops below its unit or name (all 11 px or more). */
 .lz-lab .n { font-size: calc(11.5px * var(--label-scale, 1)); font-weight: 600; color: var(--text-2); }
