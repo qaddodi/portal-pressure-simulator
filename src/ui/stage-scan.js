@@ -9,6 +9,7 @@ import { flattenPathInto, newFlat, polyBoxInto } from './shape-gl.js';
 import { store } from './store.js';
 import { clamp, putText } from './util.js';
 
+import { stageScope } from './stage-scope.js';
 export function createScan(st, live) {
   const { NO_LIST, SCAN_BOX, gMatrix, late, nextFrame, organEls, organG, readFrame, refreshCTM, sites, stageBox, viewMoving, watch } = st;
   // The FibroScan probe (the Presenter's stiffness slides): a transducer on the skin at the top left of the right
@@ -83,7 +84,7 @@ export function createScan(st, live) {
     if (live.restStill()) { scan.last = 0; scan.parked = true; return; }
     // Under an open lobule the probe is covered: it looks again four times a second instead of every frame (leaving the
     // lobule uncovers it gradually, so it is moving again before it shows).
-    if (live.lz?.isOpen()) { scan.last = 0; clearTimeout(scan.nap); scan.nap = setTimeout(scanNap, 250); return; }
+    if (live.lz?.isOpen()) { scan.last = 0; stageScope.clear(scan.nap); scan.nap = stageScope.timer(scanNap, 250); return; }
     // Drawn on every frame the screen offers, like the blood (15 a second in Battery saver).
     if (scan.last && now - scan.last < paceMs()) { scan.raf = nextFrame(scanTick); return; }
     const dt = scan.last && !reduceMotion.matches ? Math.min(0.1, (now - scan.last) / 1000) : 0; scan.last = now;
@@ -256,10 +257,10 @@ export function createScan(st, live) {
     // The callout and its leader fade out with the probe, then go.
     scan.leaving = true; scan.k = null;
     live.pool.get('scan')?.g.classList.add('lb-off'); live.gScan.classList.add('off');
-    setTimeout(() => { if (scan.on) return; scan.leaving = false; const b = live.pool.get('scan'); if (b) b.g.style.display = 'none'; }, 700);
+    stageScope.timer(() => { if (scan.on) return; scan.leaving = false; const b = live.pool.get('scan'); if (b) b.g.style.display = 'none'; }, 700);
     const el = scan.el; scan.el = null; scan.packs = null; scan.fronts = []; scan.v = 0; scan.next = 0; scan.nextTap = 0;
     if (scan.raf) { cancelFrame(scan.raf); scan.raf = 0; }
-    if (el) { el.classList.add('cath-pre'); setTimeout(() => { dropLabel(el); el.remove(); if (!scan.el) live.labelGL?.setScan(null); }, 500); }
+    if (el) { el.classList.add('cath-pre'); stageScope.timer(() => { dropLabel(el); el.remove(); if (!scan.el) live.labelGL?.setScan(null); }, 500); }
   }
   return { scan, scanCardsRead, scanPaint, scanTick, scanTipLocal, setScanProbe };
 }

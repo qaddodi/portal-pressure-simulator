@@ -11,6 +11,7 @@ import { store } from './store.js';
 import { glyphsReady, loadGlyphs, textBox, textPolys } from './text-gl.js';
 import { s } from './util.js';
 
+import { stageScope } from './stage-scope.js';
 export function createClamps(st, live) {
   const { E, LIGATED, NI, N_SAMPLES, anastomoses, applyClampFs, clampA, clampD, clampFading, clampMv, clampShade, clampW, clampWOut, findingHidden, geo, ligature, markA, marksSync, mk, ov, placeClampLabels, pointAt, polyD, polysD, putMark, qP, recruitFrac, rotDeg, stenosisAt, stentMesh, tubeOutline, updateLabels, venousSync, worldToLocalInto } = st;
   // How far a point's callout stands from its dot: clear of the stent's body, its leader 16 px at most.
@@ -40,7 +41,7 @@ export function createClamps(st, live) {
     // (From and to its own opacity as it stands, the keyframe left out: no style read for it. 1 Nov 2026.)
     // (2 Nov 2026: the fade it ran is kept and cancelled by name, not looked up with getAnimations, which read the page's styles.)
     for (const el of els()) { clampFades.get(el)?.cancel(); const a = el.animate?.([{ opacity: 0 }], { duration: dur, fill: 'forwards' }); if (a) clampFades.set(el, a); }
-    setTimeout(() => {
+    stageScope.timer(() => {
       m.cur = m.want; m.busy = false;
       for (const el of els()) { clampFades.get(el)?.cancel(); clampFades.delete(el); clampLabelAt(el); el.animate?.([{ opacity: 0, offset: 0 }], { duration: dur }); }
       if (live.F) updateLabels(live.F);

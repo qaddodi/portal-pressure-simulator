@@ -6,6 +6,7 @@ import { capDensity } from './pixel-budget.js';
 import { leftAlone } from './quiet.js';
 import { fadeOver } from './res-fade.js';
 
+import { stageScope } from './stage-scope.js';
 export function createRes(st, live) {
   const { OVER_ASK, QUALITY, drawVeins, schedulePlateView, stageBox, vCanvas, wrap } = st;
   const AUTO_STEPS = [1, 0.75, 0.5, 0.35, 0.25, 0.18, 0.14, 0.1];
@@ -50,12 +51,12 @@ export function createRes(st, live) {
   // Once the view has settled and been let go: Auto's step for the zoom, the canvas back from its moving share, Adapt's next step.
   function settleRes() {
     if (renderSetting() !== 'auto' && live.autoK === 1 && !live.moveLow && !figOpt('adapt') && live.adaptK === 1) return;
-    clearTimeout(live.autoT);
-    live.autoT = setTimeout(resSettled, 200);
+    stageScope.clear(live.autoT);
+    live.autoT = stageScope.timer(resSettled, 200);
   }
   function resSettled() {
     // (Never during a dive or a rise: its copy, laid over the canvas, would stand still while the dive's scale zooms the rest.)
-    if (!leftAlone(280) || live.vtGliding || (live.diveT > 0 && live.diveT < 1)) { live.autoT = setTimeout(resSettled, 120); return; }
+    if (!leftAlone(280) || live.vtGliding || (live.diveT > 0 && live.diveT < 1)) { live.autoT = stageScope.timer(resSettled, 120); return; }
     const k = autoNow(live.autoK), a = live.adaptK;
     adaptStep();
     if (k === live.autoK && !live.moveLow && a === live.adaptK) return;
@@ -158,7 +159,7 @@ export function createRes(st, live) {
   if (TIERS_ON) onTierWarm(() => { if (live.veins && !live.veins.lost) live.veins.prepLow?.(TIER_TOP); });   // (the tiers' targets, made between frames)
     // (B3: the lower targets, made between frames a moment after the canvas was sized, so the first moving frame allocates nothing.)
   let lowWarmT = 0;
-  const lowWarm = () => { clearTimeout(lowWarmT); lowWarmT = setTimeout(() => { if (live.veins && !live.veins.lost && !inMotion()) live.veins.prepLow?.(TIER_TOP); }, 1500); };
+  const lowWarm = () => { stageScope.clear(lowWarmT); lowWarmT = stageScope.timer(() => { if (live.veins && !live.veins.lost && !inMotion()) live.veins.prepLow?.(TIER_TOP); }, 1500); };
   lowWarm();
 new ResizeObserver(lowWarm).observe(wrap);
   return { autoNow, easeRes, moveGaps, noteMoveFrame, resizeCanvas, settleRes, subPixel };

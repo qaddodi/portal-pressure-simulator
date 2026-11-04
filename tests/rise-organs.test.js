@@ -18,8 +18,8 @@ test('before the way out, the covered anatomy follows the model again and its pi
   assert.match(prep, /const fit = preFit\(\);\n\s+if \(live\.F && !live\.inUpdate\) \{ live\.catchUp = fit; try \{ update\(live\.F\); \} finally \{ live\.catchUp = false; \} if \(fit\) preF = live\.F; \}\n\s+live\.platePoke\(\);/, 'taken to the rise\'s fit unseen and brought up to date there (next-view pre-render)');
   assert.match(st, /const under = anatCovered\(\) && !(?:live\.)?catchUp && !(?:live\.)?(?:live\.)?risePrep;/, 'model frames reach the organs meanwhile');
   // Done when the picture of the patient now lands; never left on.
-  assert.match(st, /if \(!(?:live\.)?(?:live\.)?(?:live\.)?plateOn\(\)\) (?:live\.)?(?:live\.)?(?:live\.)?plateKey = '';[^\n]*\n\s+else if \((?:live\.)?(?:live\.)?(?:live\.)?risePrep\) \{ (?:live\.)?(?:live\.)?(?:live\.)?risePrep = false; clearTimeout\((?:live\.)?(?:live\.)?(?:live\.)?risePrepT\); \}/);
-  assert.match(st, /function setLobule\(on, painted = false\) \{\n[^\n]*\n\s+(?:live\.)?(?:live\.)?risePrep = false; clearTimeout\((?:live\.)?(?:live\.)?risePrepT\);/);
+  assert.match(st, /if \(!(?:live\.)?(?:live\.)?(?:live\.)?plateOn\(\)\) (?:live\.)?(?:live\.)?(?:live\.)?plateKey = '';[^\n]*\n\s+else if \((?:live\.)?(?:live\.)?(?:live\.)?risePrep\) \{ (?:live\.)?(?:live\.)?(?:live\.)?risePrep = false; stageScope\.clear\((?:live\.)?(?:live\.)?(?:live\.)?risePrepT\); \}/);
+  assert.match(st, /function setLobule\(on, painted = false\) \{\n[^\n]*\n\s+(?:live\.)?(?:live\.)?risePrep = false; stageScope\.clear\((?:live\.)?(?:live\.)?risePrepT\);/);
 });
 
 test('ready means the picture shown is the state now: its key is the organs\' key, and nothing in it still eases', () => {

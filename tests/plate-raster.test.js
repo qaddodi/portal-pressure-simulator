@@ -52,7 +52,7 @@ test('the pictures made after a pan or pinch wait until the figure is let go', (
   assert.match(quiet, /on\('pointerdown', \(e\) => pressed\.add\(e\.pointerId\)\);/);
   assert.match(quiet, /for \(const ev of \['pointerup', 'pointercancel'\]\) on\(ev, \(e\) => pressed\.delete\(e\.pointerId\)\);/);
   const sched = stage.slice(stage.indexOf('function schedulePlateView'), stage.indexOf('function clientToWorldFast'));
-  assert.match(sched, /if \(!leftAlone\(280\)\) \{ (?:live\.)?(?:live\.)?plateSettle = setTimeout\(settled, 120\); return; \}/);
+  assert.match(sched, /if \(!leftAlone\(280\)\) \{ (?:live\.)?(?:live\.)?plateSettle = stageScope\.timer\(settled, 120\); return; \}/);
 });
 
 

@@ -3,6 +3,7 @@
 import { restPass } from './rest-pass.js';
 import { OVER_ALL, OVER_CLASS, overUnits } from './stage-over.js';
 
+import { stageScope } from './stage-scope.js';
 export function createGlass(st, live) {
   const { appEl, cardGLs, cath, frostWake, gOver, glass, labelSvg, lzShares, refreshCTM, sites, svg, vCanvas, wrap } = st;
   // (2 Nov 2026, the iPhone trace: the glass asked the figure's canvas for its computed look on every frame it drew, which made the
@@ -24,7 +25,7 @@ export function createGlass(st, live) {
   {
     const vcMo = new MutationObserver(vcStale);
     for (let e = vCanvas; e && e.nodeType === 1; e = e.parentElement) vcMo.observe(e, { attributes: true, attributeFilter: ['style', 'class', 'hidden', 'data-theme', 'data-palette'] });
-    const vcIn = (ev) => { if (ev.target === vCanvas) { vcEasing++; setTimeout(vcStale, 1600); } };
+    const vcIn = (ev) => { if (ev.target === vCanvas) { vcEasing++; stageScope.timer(vcStale, 1600); } };
     const vcOut = (ev) => { if (ev.target === vCanvas) { vcEasing = Math.max(0, vcEasing - 1); vcStale(); } };
     vCanvas.addEventListener('transitionrun', vcIn); vCanvas.addEventListener('animationstart', vcIn);
     for (const t of ['transitionend', 'transitioncancel', 'animationend', 'animationcancel']) vCanvas.addEventListener(t, vcOut);
@@ -66,7 +67,7 @@ export function createGlass(st, live) {
   let rehostT = 0;
   function rehostSoon() {
     if (rehostT) return;
-    rehostT = setTimeout(() => {
+    rehostT = stageScope.timer(() => {
       rehostT = 0;
       if (!live.veins?.top) return;
       const src = wrap.classList.contains('in-lobule') ? live.lz?.glassHost?.() || null : null;

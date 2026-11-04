@@ -86,7 +86,7 @@ test('every zoom into the lobule draws it first, for where it lands, then zooms;
   // Landed, the anatomy stays hidden under the lobule until it has settled; every other end shows it at once.
   assert.match(stage, /const landed = t >= 1 && !(?:live\.)?diveOut;\n\s+setDiveScale\(t >= 1 \? 1 : Math\.exp\(Math\.min\(z, LC \+ 0\.4\)\), landed\);/);
   assert.match(stage, /const diveUnhide = \(\) => \{ if \((?:live\.)?diveT >= 1 && (?:live\.)?lobuleOn\) \{ setDomHidden\(false\); setDiveHidden\(false, false\); setDiveFade\(null\); \} \};/);
-  assert.match(stage, /unhideAt = setTimeout\(diveUnhide, 500\)/);
+  assert.match(stage, /unhideAt = stageScope\.timer\(diveUnhide, 500\)/);
 });
 
 test('nothing is built during the zoom: the field\'s tiles and their quieted copies are ready before it starts', () => {

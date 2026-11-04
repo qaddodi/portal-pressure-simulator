@@ -8,6 +8,7 @@ import { reduceMotionMQ as reduceMotion } from './motion.js';
 import { store } from './store.js';
 import { clamp, systemEdge } from './util.js';
 
+import { stageScope } from './stage-scope.js';
 export function createGestures(st, live) {
   const { EI, animZoomAt, animateVT, applyVT, camSettle, cath, cathRoom, circVB, clientToVB, clientToVBFast, defaultVT, driftEnd, edgeFromEvent, freeCentre, gGuides, labelSvg, markCirc, nearbyEdge, nextFrame, onHoverInfo, onSelect, pick, pointers, readFrame, sameView, shuntDrop, snapFresh, stageBox, svg, vbBox, wrap, zoomAt } = st;
   // ── Gestures: wheel, trackpad, mouse and touch ──
@@ -17,14 +18,14 @@ export function createGestures(st, live) {
   // trackpad's legacy wheelDelta as exactly three times its delta, Firefox reports notches in lines.
   let wheelKind = null, wheelAt = 0, settleT = 0;
   const wheelPx = (ev, d) => d * (ev.deltaMode === 1 ? 16 : ev.deltaMode === 2 ? stageBox().height : 1);
-  const settleSoon = (ms = 220) => { clearTimeout(settleT); settleT = setTimeout(springBack, ms); };
+  const settleSoon = (ms = 220) => { stageScope.clear(settleT); settleT = stageScope.timer(springBack, ms); };
   // A Mac trackpad keeps sending scroll events for a second or more after the fingers lift (momentum). Pressed in that
   // time, Fit (or a zoom button) used to glide to its framing and then the rest of the old scroll carried the figure off it
   // again. The button wins: the scroll under way when it was pressed is ignored until it stops; a new one works as usual.
   let wheelMute = false;
   function handsOff() {
     if (performance.now() - wheelAt < 250) wheelMute = true;
-    stopGlide(); clearTimeout(settleT); panFit = null;
+    stopGlide(); stageScope.clear(settleT); panFit = null;
   }
   const onWheel = (ev) => {
     ev.preventDefault();
@@ -183,7 +184,7 @@ export function createGestures(st, live) {
     return { type: 'pinchzoom', pa: a, pb: b, d0: Math.max(1, Math.hypot(a[0] - b[0], a[1] - b[1])), k0: live.vt.k, wx: (vx - live.vt.x) / live.vt.k, wy: (vy - live.vt.y) / live.vt.k, mx, my, t0: performance.now(), moved: false };
   }
   let pressT = 0, lastTap = null;
-  const clearPress = () => { clearTimeout(pressT); pressT = 0; };
+  const clearPress = () => { stageScope.clear(pressT); pressT = 0; };
   // A finger (or the mouse) that lands on a label starts the same gesture as one on the figure: the labels cover
   // much of a phone's figure, and a pinch that began on one used to go unnoticed. A tap on a label still opens it.
   labelSvg.addEventListener('pointerdown', (ev) => { const lb = ev.target.closest?.('.lb'); if (lb) onDown(ev, lb); });
@@ -195,7 +196,7 @@ export function createGestures(st, live) {
     pointers.set(ev.pointerId, [ev.clientX, ev.clientY]);
     panFit = null;
     live.userMoved = true;
-    cancelFrame(live.vtAnim); driftEnd(); live.vtGliding = false; stopGlide(); clearTimeout(settleT);
+    cancelFrame(live.vtAnim); driftEnd(); live.vtGliding = false; stopGlide(); stageScope.clear(settleT);
     try { svg.setPointerCapture(ev.pointerId); } catch (e) { caught('stage:13253', e); /* pointer already gone */ }
     clearPress();
     if (pointers.size >= 2) {
@@ -211,7 +212,7 @@ export function createGestures(st, live) {
     wrap.classList.add('panning');
     if (ev.pointerType === 'touch' && !live.shunt && !label) {
       const d = live.drag, x = ev.clientX, y = ev.clientY;
-      pressT = setTimeout(() => {
+      pressT = stageScope.timer(() => {
         if (live.drag !== d || d.moved || pointers.size !== 1) return;
         const id = d.id && EI[d.id] != null ? d.id : nearbyEdge({ clientX: x, clientY: y, pointerType: 'touch' });
         if (!id) return;

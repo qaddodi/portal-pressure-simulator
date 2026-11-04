@@ -84,6 +84,7 @@ function harness({ on = false, busy = false, mangle = false } = {}) {
   }
   const env = { on, busy, loads: 0, pokes: 0 };
   const make = new Function('env', 'organG', 'organEls', `
+    const stageScope = { timer: setTimeout, clear: clearTimeout };
     const figLab = (k) => k === 'lightArt' && env.on, platePoke = () => env.pokes++;
     let plateKey = 'k', plateStale = false;
     const lobuleOn = false, vtGliding = false, camMove = false, drifting = false, diveT = 0, morph = 0, morphTarget = 0, lvMoving = false, fluidEasing = () => false, spleenMoving = () => false;

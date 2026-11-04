@@ -6,6 +6,7 @@ import { GAS, gasShape, pathAt, pullArrow, sheath, sheathArcs, tubePath, tubeTip
 import { restPass } from './rest-pass.js';
 import { s } from './util.js';
 
+import { stageScope } from './stage-scope.js';
 export function createBalloon(st, live) {
   const { ov } = st;
   // The tamponade tube goes in and its balloons fill in order, each eased: the tube slides down the esophagus and into the stomach (adv),
@@ -17,7 +18,7 @@ export function createBalloon(st, live) {
   const BAL_ADV_MS = BALLOON_MS.adv, BAL_INF_MS = BALLOON_MS.inflate, BAL_ESO_MS = BALLOON_MS.eso;
   const balEase = (x) => x * x * (3 - 2 * x);
   // (The tube's fit to the stomach is worked out once, in a few milliseconds: ahead of its first use, while the page is idle.)
-  (typeof requestIdleCallback === 'function' ? (f) => requestIdleCallback(f, { timeout: 5000 }) : (f) => setTimeout(f, 3000))(() => { tubePath(); });
+  (typeof requestIdleCallback === 'function' ? (f) => requestIdleCallback(f, { timeout: 5000 }) : (f) => stageScope.timer(f, 3000))(() => { tubePath(); });
   function balloonStep(p, anat) {
     const now = performance.now(), dt = Math.min(100, bal.last ? now - bal.last : 0);
     bal.last = now;

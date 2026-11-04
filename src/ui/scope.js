@@ -11,17 +11,17 @@ export function createScope() {
   const ids = new Set(), offs = [], ivs = new Set();
   return {
     live: () => !dead,
-    timer(fn, ms) {
+    timer(fn, ms, ...args) {   // (extra arguments are handed to fn, as setTimeout does)
       if (dead) return 0;
-      const id = setTimeout(() => { ids.delete(id); if (!dead) fn(); }, ms);
+      const id = setTimeout(() => { ids.delete(id); if (!dead) fn(...args); }, ms);
       ids.add(id);
       return id;
     },
     clear(id) { clearTimeout(id); ids.delete(id); },
     /** setInterval whose callback runs only while the scope is live; dispose() stops it. Returns the id (0 once disposed). */
-    interval(fn, ms) {
+    interval(fn, ms, ...args) {
       if (dead) return 0;
-      const id = setInterval(() => { if (!dead) fn(); }, ms);
+      const id = setInterval(() => { if (!dead) fn(...args); }, ms);
       ivs.add(id);
       return id;
     },

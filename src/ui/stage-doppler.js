@@ -7,6 +7,7 @@ import { readBox, readElAt } from './layout-snap.js';
 import { reduceMotionMQ as reduceMotion } from './motion.js';
 import { store } from './store.js';
 
+import { stageScope } from './stage-scope.js';
 export function createDoppler(st, live) {
   const { E, EV, arcMid, cath, clampW, dop, dpr, geo, nextFrame, olKey, olRings, organEls, pointAt, readFrame, scanCardsRead, sites, stageBox, unseenCard, viewMoving, watch, worldToLocalInto } = st;
   // The cards and bars it keeps off: the slide's cards, and the docked instruments and bars. Read at most four times a second, and
@@ -141,11 +142,11 @@ export function createDoppler(st, live) {
   // (In a deck it waits for the slide's zoom to settle: it fades out as a camera move starts and back in once it lands (camSettle
   // lays the labels out, which paints it): Mohammad, 20 Oct.)
   function dprHold() {
-    clearTimeout(dpr.hold); dpr.hold = setTimeout(dprLet, 1500);   // (no framing came: it shows anyway)
+    stageScope.clear(dpr.hold); dpr.hold = stageScope.timer(dprLet, 1500);   // (no framing came: it shows anyway)
   }
   function dprLet() {
     if (!dpr.hold) return;
-    clearTimeout(dpr.hold); dpr.hold = 0; dprobePaint();
+    stageScope.clear(dpr.hold); dpr.hold = 0; dprobePaint();
   }
   // No Doppler screen in sight, no probe (Mohammad, 20 Oct: "no doppler screen = no probe"): a monitor whose card is hidden,
   // folded, leaving, off screen or covered (the case card over it) leaves the probe hidden. Checked a few times a second while a
@@ -195,9 +196,9 @@ export function createDoppler(st, live) {
       if (!dprQuiet()) { dpr.monAt = 0; on = dprMonitorOn(); }
       if (on !== dpr.mon || (on && !dpr.on && !dpr.swap)) { dpr.mon = on; dprobePaint(); }
     }
-    if (!dprQuiet()) dprMonT = setTimeout(dprMonTick, 200);
+    if (!dprQuiet()) dprMonT = stageScope.timer(dprMonTick, 200);
   };
-  const dprMonSoon = () => { if (!dprMonT) dprMonT = setTimeout(dprMonTick, 200); };
+  const dprMonSoon = () => { if (!dprMonT) dprMonT = stageScope.timer(dprMonTick, 200); };
   watch.onTouch(dprMonSoon);
   dpr.kick = dprMonSoon;
   dprMonSoon();
@@ -257,7 +258,7 @@ export function createDoppler(st, live) {
     const gx = DPR_G[0], gy = DPR_G[1];
     DPR_T[0] -= gx; DPR_T[1] -= gy;
     // (A probe still drawing back to go is let finish where it stands before one shows again: it never jumps from half way out.)
-    if (!dpr.on && dpr.leaving) { dpr.leaveT ||= setTimeout(dprLeaveDone, PROBE.OUT_MS + 40); return; }
+    if (!dpr.on && dpr.leaving) { dpr.leaveT ||= stageScope.timer(dprLeaveDone, PROBE.OUT_MS + 40); return; }
     const r = live.cathRadOf(id, u ?? 0.5) * (live.CTM?.sc || 1), cards = dprCards();
     // (What its place is worked out for: the vessel, the camera, the stage, the gate and the cards, a little coarsely, as one number. While it
     // holds, the places the probe has left stay left; a change forgets them.)
@@ -284,7 +285,7 @@ export function createDoppler(st, live) {
     // A new vessel or third: it swings out where it stood and comes in at the new place.
     if (dpr.on && !sameKey) {
       dprLeave(); dpr.box = null; dpr.marks.length = 0; dprDots(); dprMind.hide();
-      dpr.swap = setTimeout(dprSwapDone, reduceMotion.matches ? 0 : PROBE.OUT_MS + 40);
+      dpr.swap = stageScope.timer(dprSwapDone, reduceMotion.matches ? 0 : PROBE.OUT_MS + 40);
       return;
     }
     // A new place on the same vessel: the probe swings round the gate to it, its distance and size easing with it (Mohammad,
@@ -302,15 +303,15 @@ export function createDoppler(st, live) {
     const A = DPR_ACT;
     A.pose = pose; A.tgt = n; A.on = dpr.on; A.cur = dpr.has ? dpr.cur : null; A.sig = sig; A.now = performance.now(); A.instant = reduceMotion.matches; A.swing = dpr.track || dpr.carry;
     const act = dprMind.act(A);
-    if (act !== 'hold' && dpr.noneT) { clearTimeout(dpr.noneT); dpr.noneT = 0; }
+    if (act !== 'hold' && dpr.noneT) { stageScope.clear(dpr.noneT); dpr.noneT = 0; }
     // (No place on the slide's free space at any side or distance, for good: it swings out and goes, and comes in once one opens.)
     if (act === 'hide') { dprHide(); return; }
-    if (act === 'hold') { dpr.noneT ||= setTimeout(dprNoneDone, NONE_MS + 30); return; }
+    if (act === 'hold') { dpr.noneT ||= stageScope.timer(dprNoneDone, NONE_MS + 30); return; }
     if (act === 'restart') { dprStale(); return; }
     if (act === 'wait') return;
     if (act === 'jump') {
       dprLeave(); dpr.box = null; dpr.marks.length = 0; dprDots();
-      dpr.swap = setTimeout(dprSwapDone, reduceMotion.matches ? 0 : PROBE.OUT_MS + 40);
+      dpr.swap = stageScope.timer(dprSwapDone, reduceMotion.matches ? 0 : PROBE.OUT_MS + 40);
       return;
     }
     // (Shown afresh it stands turned out of the way about the target and swings in to its place, the target where it will be.)

@@ -24,6 +24,7 @@ import { F_DIFFUSE, F_DOTTED, F_NOCASE, F_SHADOW, F_SPEC, F_VEIL, F_WHOLE, TUBE_
 import { writeJoinNow, writePoints } from './veins-sweep.js';
 import { chainsOf, planChainInto } from './vessel-taper.js';
 
+import { stageScope } from './stage-scope.js';
 export function createVessels(st, live) {
   const { E, EV, FADE_DOWN_Y, FADE_IN, FEEDER_FADE_Y, GL_ROWS, IVC_JOIN, LIGATED, MAP, MORPH_GPU, MORPH_JSLACK, MORPH_SLACK, N_SAMPLES, ORIGIN_LUMEN, PORTAL_CASING, SIN_FADE, STRAIGHT_COLL, TIER_ALPHA, TIER_ART, TIER_GROUP, TIER_LIFT, TIER_LIFT_FRONT, W_TAU, arcLen, binList, binMemo, binTube, binTubeOf, divideLen, easeInOut, edgeQ, geo, getOrganCovers, glow, joinKey, joinRoom, joinsKept, joinsOf, keep, layerMode, lenOfItem, levelTier, morphMiss, morphOff, morphTrackSoon, mt, noteMoveFrame, reachOf, refreshCTM, rowKey, selAKey, setOf, settleRes, spot, spotOn, strandAt, subPixel, sweepPiece, syncMapInk, tubeData, tubeFill, vCanvas, vesselAt, vh, viewKeep, viewNext, viewSame, widthMoving, wrap, wrapCS, wrapCls } = st;
   // ── A coil or a varix's spread easing at rest, on the GPU (2 Nov 2026, Mohammad: "Move. Everything. To. GPU.") ──
@@ -65,7 +66,7 @@ export function createVessels(st, live) {
   }
   function envSoon() {
     if (!EASE_GPU || et.checkT) return;
-    et.checkT = setTimeout(envCheck, 600);
+    et.checkT = stageScope.timer(envCheck, 600);
   }
   // At rest, the envelope for the figure as it stands, made when what it holds changed (the view's side, the vessels it can show).
   function envCheck() {
@@ -83,20 +84,20 @@ export function createVessels(st, live) {
     let part = null;
     const next = () => {
       if (gen !== et.gen || !live.veins || live.veins.lost) return;
-      if ((inMotion() || sinceInput() < 700) && snaps.length < 2 * ENV_AT.length) { setTimeout(next, 200); return; }
+      if ((inMotion() || sinceInput() < 700) && snaps.length < 2 * ENV_AT.length) { stageScope.timer(next, 200); return; }
       if (snaps.length < 2 * ENV_AT.length) {
         const m = snaps.length >> 1, [w, sp] = ENV_AT[m];
-        if (!part) { const items = envItemsAt(w, sp); part = { items, o: joinsKept(items), J2: null }; setTimeout(next, 0); return; }
+        if (!part) { const items = envItemsAt(w, sp); part = { items, o: joinsKept(items), J2: null }; stageScope.timer(next, 0); return; }
         // (The joins half way from the moment before too: an end's join can move across the step.)
         const P = m && ENV_AT[m - 1];
-        if (!part.J2) { part.J2 = P ? joinsKept(envItemsAt((P[0] + w) / 2, (P[1] + sp) / 2)).J : []; setTimeout(next, 0); return; }
+        if (!part.J2) { part.J2 = P ? joinsKept(envItemsAt((P[0] + w) / 2, (P[1] + sp) / 2)).J : []; stageScope.timer(next, 0); return; }
         const { items, o, J2 } = part;
         part = null;
         // (Each moment twice: with only the vessels shown now, and with every one. Which vessels are there changes how their runs are
         // smoothed where they meet (smoothRunOn): a vein running on into a hidden collateral was 6.4 off its course with every one.)
         const own = joinsKept(items.filter((it) => shown.has(it.row)));
         snaps.push({ items, J: own.J, smooth: own.smooth, reach: o.reach, J2: [], own: own.smooth }, { items, ...o, J2, own: o.smooth });
-        setTimeout(next, 0); return;
+        stageScope.timer(next, 0); return;
       }
       if (snaps.some((sn) => rowKey(sn.items) !== rows)) return;
       pc.rows = rows;
@@ -115,7 +116,7 @@ export function createVessels(st, live) {
         if (old?.set) { if (mt.using === old.set) morphOff(); old.set.owner.dropMorphSet(old.set); }
       }, () => {});
     };
-    setTimeout(next, 0);
+    stageScope.timer(next, 0);
   }
   // A frame of an ease drawn from its stretch, when its vessels fit it. Each vessel's course is followed between the two moments its
   // share of the ease left lies between (the vessels not easing have one course at every moment).
@@ -130,15 +131,15 @@ export function createVessels(st, live) {
     if (!frameFrom(pc, items, sOfNone, easeMiss)) return false;
     et.stats.gpu++;
     // (Landed, the figure goes back to a binning of its own once the page is quiet: the envelope's lists are wider than it needs.)
-    clearTimeout(et.restT);
-    et.restT = setTimeout(easeRest, 1500);
+    stageScope.clear(et.restT);
+    et.restT = stageScope.timer(easeRest, 1500);
     return true;
   }
   function easeRest() {
     et.restT = 0;
     if (live.easeHeld) return;   // (held for a check: binned when it asks, rebinNow)
     if (!et.pc?.set || mt.using !== et.pc.set) return;
-    if (live.coilEasing || inMotion() || live.inUpdate) { et.restT = setTimeout(easeRest, 600); return; }
+    if (live.coilEasing || inMotion() || live.inUpdate) { et.restT = stageScope.timer(easeRest, 600); return; }
     morphOff();
     live.vBinKey = ''; live.binShown = null; live.bendShown = null;
     syncVeins(easeInOut(live.morph));

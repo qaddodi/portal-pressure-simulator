@@ -131,6 +131,7 @@ import { createFit } from './stage-fit.js';
 import { createRide } from './stage-ride.js';
 import { createGlide } from './stage-glide.js';
 
+import { stageScope } from './stage-scope.js';
 export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, onViewChange }) {
   // <stage-split live>
   // The stage's shared lets (and consts made after a part), read at the moment of use by the part files: never copied, so a part cannot draw a frame late.
@@ -1039,7 +1040,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // (One timer, kept: it looks at the time of the last held write when it fires and waits out what is left. A timer made again for each
       // write was dozens of timers a frame through a change between the views.)
       geoAt = performance.now();
-      if (!geoT) geoT = setTimeout(geoQuiet, GEO_QUIET);
+      if (!geoT) geoT = stageScope.timer(geoQuiet, GEO_QUIET);
       return;
     }
     const m = geoHeld.get(el);
@@ -1052,13 +1053,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   function geoQuiet() {
     const left = GEO_QUIET - (performance.now() - geoAt);
-    if (left > 4) { geoT = setTimeout(geoQuiet, left); return; }   // (written again since: wait out the rest of the quiet)
+    if (left > 4) { geoT = stageScope.timer(geoQuiet, left); return; }   // (written again since: wait out the rest of the quiet)
     geoT = 0;
     if (!geoPass) geoPass = restPass(flushGeoPass);
   }
   function flushGeoPass() { geoPass = 0; flushGeo(); }
   function flushGeo() {
-    if (geoT) { clearTimeout(geoT); geoT = 0; }
+    if (geoT) { stageScope.clear(geoT); geoT = 0; }
     for (const [el, m] of geoHeld) for (const k in m) putG(el, k, m[k]);
     geoHeld.clear();
   }
@@ -1196,8 +1197,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // (Once faded out, hidden, its veins' mask is off (.gone): a hidden group's mask is still built on every repaint.)
       show(on, veins) {
         g.classList.toggle('on', !!on); if (on) g.classList.toggle('lobe-only', !veins);
-        clearTimeout(goneT);
-        if (on) g.classList.remove('gone'); else goneT = setTimeout(() => g.classList.add('gone'), 760);
+        stageScope.clear(goneT);
+        if (on) g.classList.remove('gone'); else goneT = stageScope.timer(() => g.classList.add('gone'), 760);
       },
       // Colored from the pressure they drain at (the IVC's: the lobe keeps its outflow); sized by its share of it.
       sync(c, kq) {
@@ -1394,7 +1395,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     try { diveFrame(diveT); } catch (err) { if (e < 1) console.error(err); }
     if (e < 1) lobAnim = nextFrame(lobuleStep);
     // the anatomy's raster, held back during the dive, catches up under the lobule (once the slide's cards have come in: frame.js holdMotion)
-    else if (on) setTimeout(lobuleRasterSoon, 600);
+    else if (on) stageScope.timer(lobuleRasterSoon, 600);
     else if (!on) {
       setDiveScale(1); lz.setDiveZoom(1, 0, 0); diveLand = null;
       platePoke();   // (held through the rise: the organs' picture for the state it landed on, if it changed on the way)
@@ -1407,7 +1408,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   function lobuleBackstop() {
     if (lobuleOn !== lobOn || diveT === lobTo) return;
-    if (PACED && diveT !== lobSeen) { lobSeen = diveT; lobEnd = setTimeout(lobuleBackstop, 1000); return; }
+    if (PACED && diveT !== lobSeen) { lobSeen = diveT; lobEnd = stageScope.timer(lobuleBackstop, 1000); return; }
     cancelFrame(lobAnim); lobuleStep(0, true);
   }
   let lobEnd = 0;
@@ -1519,8 +1520,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (Asked again for as long as the lobule is wanted and the way is not clear, one timer at a time, slower after a few seconds: it used to give up
     // after forty tries, 4.8 s, and a circuit's slow turn back to the anatomy (software GL, a few frames a second) outlasted that, leaving the lobule
     // wanted in the store and never opened.)
-    clearTimeout(lobuleRetryT);
-    if (!liverBox() || morphTarget !== 0 || morph > 0.02) { lobuleRetryT = setTimeout(lobuleRetry, tries < 40 ? 120 : 400, tries + 1); return; }
+    stageScope.clear(lobuleRetryT);
+    if (!liverBox() || morphTarget !== 0 || morph > 0.02) { lobuleRetryT = stageScope.timer(lobuleRetry, tries < 40 ? 120 : 400, tries + 1); return; }
     // The anatomy's card (the liver's, usually) would sit over the lobule: the lobule's parts have their own.
     if (store.get().selection && store.get().selection.type !== 'lobule') store.set1('selection', null);
     setLobule(true);
@@ -1530,7 +1531,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lobuleArrived = () => { lzWaiting = false; if (store.get().lobule) openLobule(); };
   const LOBULE_OFF_BOTH = { lobule: false, sinusoid: false }, LOBULE_OFF = { lobule: false };   // (patches the store reads and does not keep)
   const lobuleNotArrived = (err) => { lzWaiting = false; loadFailed(err); store.set(LOBULE_OFF_BOTH); };
-  function closeLobule() { clearTimeout(lobuleRetryT); setLobule(false); }
+  function closeLobule() { stageScope.clear(lobuleRetryT); setLobule(false); }
   store.on('lobule', (on) => (on ? openLobule() : closeLobule()));
   const zoomLobule = () => store.set1('lobule', true);
   // The lobule's layer (the zoom, the sinusoid view under it) is built when its code has arrived, which the stage asks for once the
@@ -1978,7 +1979,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (sq === lzSeqLast) return lzSeqN;
     const now = performance.now();
     if (now - lzSeqAt >= 80) { lzSeqLast = sq; lzSeqAt = now; lzSeqN++; }
-    else if (!lzSeqT) lzSeqT = setTimeout(() => { lzSeqT = 0; if (veins && !veins.lost) veins.present(true, true); }, 90);
+    else if (!lzSeqT) lzSeqT = stageScope.timer(() => { lzSeqT = 0; if (veins && !veins.lost) veins.present(true, true); }, 90);
     return lzSeqN;
   };
   // (4 Nov 2026, Mohammad: "Keep it glass through and through any zoom". The lobule and the sinusoid are passes of the figure's own context whenever it has one (lobule-zoom.js ensureGL: shared is simply "the figure has a top"), so the glass is never let go through a dive or a zoom, even before the lobule has made its renderer.)
@@ -2107,11 +2108,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let artLite = false, artLiteT = 0, artBack = null, artLiteOff = false, liteLoad = null;
   const artLiteBusy = () => lobuleOn || (diveT > 0 && diveT < 1) || morph > 0 || morphTarget !== 0 || vtGliding || camMove || drifting || lvMoving || fluidEasing() || spleenMoving() || gestureOn();
   function syncArtLite() {
-    clearTimeout(artLiteT);
+    stageScope.clear(artLiteT);
     const want = figLab('lightArt');
     if (want === artLite || artLiteOff) return;
     if (want && !liteLoad?.mod) { liteLoad ||= import('./organ-art-lite.js').then((m) => { liteLoad.mod = m; syncArtLite(); }, () => { liteLoad = null; }); return; }
-    if (artLiteBusy()) { artLiteT = setTimeout(syncArtLite, 1000); return; }
+    if (artLiteBusy()) { artLiteT = stageScope.timer(syncArtLite, 1000); return; }
     if (want) {
       const { LITE_D, LITE_ART } = liteLoad.mod, sets = [];
       for (const id of ['colon', 'bowel']) {
@@ -3252,8 +3253,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (!lobuleOn && diveT === 0 && morphTarget === 0 && !reduceMotion.matches) {
         store.set({ lobule: true });
         const t0 = performance.now();
-        while (!(lobuleOn && diveT >= 1 && lz?.isOpen()) && performance.now() - t0 < 12000) await new Promise((r) => setTimeout(r, 60));
-        await new Promise((r) => setTimeout(r, 120));
+        while (!(lobuleOn && diveT >= 1 && lz?.isOpen()) && performance.now() - t0 < 12000) await new Promise((r) => stageScope.timer(r, 60));
+        await new Promise((r) => stageScope.timer(r, 120));
         if (!lobuleOn || me !== sinMoveGen) return;
       }
       store.set({ lobule: true, sinusoid: true });
@@ -3263,7 +3264,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const me = ++sinMoveGen;
       if (!store.get().sinusoid || !lz?.sinusoidOpen()) { store.set({ sinusoid: false, lobule: false }); return; }
       store.set({ sinusoid: false });
-      const t0 = performance.now(), wait = (ms) => new Promise((r) => setTimeout(r, ms));
+      const t0 = performance.now(), wait = (ms) => new Promise((r) => stageScope.timer(r, ms));
       while ((lz.sinBusy() || lz.sinusoidOpen()) && performance.now() - t0 < 4000) await wait(60);
       if (me !== sinMoveGen || store.get().sinusoid) return;   // (a dive began meanwhile, or the sinusoid was asked for again: leave the lobule where it is)
       if (lz.focusOn('fit', { ms: 900 })) await wait(900);
@@ -3281,7 +3282,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     /** Briefly glow the given vessels (where a readout is measured). */
     flash(ids) {
       setGlowSrc('flash', ids.filter((id) => E[id]?.vis).map((id) => ({ id, col: 'var(--accent)', amt: 1.3, dur: 380 })));
-      clearTimeout(glow.flashT); glow.flashT = setTimeout(() => setGlowSrc('flash', []), 1000);
+      stageScope.clear(glow.flashT); glow.flashT = stageScope.timer(() => setGlowSrc('flash', []), 1000);
     },
     edgeMid: (id) => (geo[id] ? pointAt(geo[id].cur, 0.5) : null),
     /** The drawn network's box on screen (px, in the figure), for placing cards beside it. */

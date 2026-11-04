@@ -17,6 +17,7 @@ import { refine } from './refine.js';
 import { chainMat, elBoxInto } from './shape-gl.js';
 import { clamp } from './util.js';
 
+import { stageScope } from './stage-scope.js';
 export function createPlate(st, live) {
   const { EBOX, LAYER_SPENT, LENS_FADE, LIVE_LAYERS, LIVE_ORDER, PLATE_BASE, PLATE_RECT, bakeStep, bowelDy, defs, drawVeins, dropViewKeep, easeInOut, flag, flank, fullOk, gBackdrop, gOrgans, ghost, glWanted, gpuOrgansOn, gutKids, hidePlate, lensNow, liveOn, liverTint, lv, nextFrame, organEls, organG, plateOn, readFluidInk, readFrame, refreshCTM, setG, spleenMoving, spleenMv, spot, spotOn, stageBox, stageWrap, svg, themeKey, vCanvas, wrap, wrapCS, wrapCls } = st;
   // The organs' groups by the layer they are drawn in (organs-gl.js), back to front: the five pictures of the plan, with the two
@@ -390,7 +391,7 @@ export function createPlate(st, live) {
     const liveNow = liveOn();
     if (!liveNow && (live.lvMoving || live.fluidEasing())) { if (live.plateKey && live.veins.hasPlate(0) && plateStateKey() !== live.plateKey) hidePlate(); return; }
     // (A growing spleen: no new size may come once it stops, so a later poke rasterizes it once it has settled.)
-    if (!liveNow && spleenMoving()) { if (live.plateKey && live.veins.hasPlate(0) && plateStateKey() !== live.plateKey) hidePlate(); clearTimeout(live.spleenTimer); live.spleenTimer = setTimeout(platePoke, 320); return; }
+    if (!liveNow && spleenMoving()) { if (live.plateKey && live.veins.hasPlate(0) && plateStateKey() !== live.plateKey) hidePlate(); stageScope.clear(live.spleenTimer); live.spleenTimer = stageScope.timer(platePoke, 320); return; }
     const stale = live.plateStale; live.plateStale = false;
     const key = plateStateKey();
     if (key === live.plateKey && live.veins.hasPlate(0)) return;
@@ -421,8 +422,8 @@ export function createPlate(st, live) {
     // seconds after a change: external review, 22 Oct.)
     const still = live.plateMiss ? 800 : 400;
     const wait = themed ? 0 : liveNow ? Math.max(0, 500 - (performance.now() - live.plateLast)) : Math.max(0, 500 - (performance.now() - live.plateLast), still - (performance.now() - live.lvStillAt), 400 - (performance.now() - spleenMv.stillAt()), still - (performance.now() - live.fluidStillAt));
-    clearTimeout(live.plateTimer);
-    live.plateTimer = setTimeout(async () => {
+    stageScope.clear(live.plateTimer);
+    live.plateTimer = stageScope.timer(async () => {
       const moving = !liveOn() && (live.lvMoving || live.fluidEasing() || spleenMoving());
       if (figureHidden() || moving || (live.lobuleOn && !live.lz?.isOpen()) || (live.diveT > 0 && live.diveT < 1) || circuitInk() || document.hidden) return;   // hidden, moving or diving meanwhile: a later poke rasterizes
       const k = plateStateKey();
@@ -445,7 +446,7 @@ export function createPlate(st, live) {
           } else syncPlateLook();
           live.plateMiss = plateOn() ? 0 : Math.min(3, live.plateMiss + 1);
           if (!plateOn()) live.plateKey = '';   // not shown (the liver moved meanwhile): raster again once it settles
-          else if (live.risePrep) { live.risePrep = false; clearTimeout(live.risePrepT); }   // (made for the way out: the anatomy under the lobule rests again)
+          else if (live.risePrep) { live.risePrep = false; stageScope.clear(live.risePrepT); }   // (made for the way out: the anatomy under the lobule rests again)
           schedulePlateView();
         } else if (plateStateKey() !== k) live.plateAgain = true;   // (given up as out of date: drawn again for the state now)
         if (live.plateAgain && !plateOn()) live.plateMiss = Math.min(3, live.plateMiss + 1);   // (and the next one waits longer for the change to rest)
@@ -462,13 +463,13 @@ export function createPlate(st, live) {
   // After a pan or zoom settles, a raster of the view at the screen's resolution (when the
   // whole-plate raster would look soft there).
   function schedulePlateView() {
-    clearTimeout(live.plateSettle);
-    live.plateSettle = setTimeout(settled, 280);
+    stageScope.clear(live.plateSettle);
+    live.plateSettle = stageScope.timer(settled, 280);
   }
   async function settled() {
     // (Not with a finger or button still down, nor within 0.28 s of the last input: it is begun once the figure is let go.)
-    if (!leftAlone(280)) { live.plateSettle = setTimeout(settled, 120); return; }
-    if (live.moveLow) { live.plateSettle = setTimeout(settled, 120); return; }   // (While moving: made for the canvas at rest)
+    if (!leftAlone(280)) { live.plateSettle = stageScope.timer(settled, 120); return; }
+    if (live.moveLow) { live.plateSettle = stageScope.timer(settled, 120); return; }   // (While moving: made for the canvas at rest)
     if (!live.veins || !plateOn() || !live.CTM) return;
     // (Not in the circuit, or on the way to it: the organs are faded out there, and their sharp picture and the gut's were
     // drawn after every pan and pinch for nothing (Mohammad, 21 Oct: the lag "also happens in circuit view"). The way back to

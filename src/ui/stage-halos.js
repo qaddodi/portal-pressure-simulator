@@ -11,6 +11,7 @@ import { store } from './store.js';
 import { glyphsReady, loadGlyphs, textPolys } from './text-gl.js';
 import { s } from './util.js';
 
+import { stageScope } from './stage-scope.js';
 export function createHalos(st, live) {
   const { E, NI, drawFrame, easeInOut, gOver, haloEls, nodePos, quietFx, routeCustomShunts, setGlowSrc, updateGeometry } = st;
   // Δ halos: after a change, the three places whose pressure moved most get a brief ring and
@@ -87,15 +88,15 @@ if (live.haloK) gHalo.style.setProperty('--halo-k', live.haloK);
       for (let i = 0; i < P.length; i++) P[i] = src[i];   // (the nodes' pressures as they were: kept, written over, never made)
       haloBaseKept.t = performance.now(); haloBaseKept.timer = 0; haloBase = haloBaseKept;
     }
-    clearTimeout(haloBase.timer);
-    haloBase.timer = setTimeout(haloBaseFire, 1200);
+    stageScope.clear(haloBase.timer);
+    haloBase.timer = stageScope.timer(haloBaseFire, 1200);
   });
   // Loading a patient (or going back to one) is not a change to explain: no halos, and none left
   // over in a view they no longer mark.
   function dropHalos() {
-    if (haloBase) clearTimeout(haloBase.timer);
+    if (haloBase) stageScope.clear(haloBase.timer);
     haloBase = null;
-    clearTimeout(haloTimer);
+    stageScope.clear(haloTimer);
     gHalo.replaceChildren(); setGlowSrc('delta', haloNone);
   }
   store.on('presetId', dropHalos);
@@ -116,7 +117,7 @@ if (live.haloK) gHalo.style.setProperty('--halo-k', live.haloK);
       if (Math.abs(d) >= 1) cand.push([n.id, d]);
     }
     cand.sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
-    clearTimeout(haloTimer);
+    stageScope.clear(haloTimer);
     // The vessels whose pressure moved by 2 mmHg or more glow briefly (warm: up, cool: down), so the
     // reach of a change shows along the network, not only at the three rings.
     const glows = [];
@@ -138,8 +139,8 @@ if (live.haloK) gHalo.style.setProperty('--halo-k', live.haloK);
       return s('g', { class: 'halo ' + (d > 0 ? 'up' : 'down') + (gpu ? ' gl' : ''), transform: `translate(${x.toFixed(1)} ${y.toFixed(1)})` }, gpu ? s('g', { class: 'halo-gin', transform: `scale(${+live.haloK || 1})` }, ...inner) : s('g', { class: 'halo-in' }, ...inner));
     }));
     if (gpu) haloPlay();
-    haloTimer = setTimeout(haloClear, 1700);
-    clearTimeout(deltaT); deltaT = setTimeout(deltaClear, 1000);
+    haloTimer = stageScope.timer(haloClear, 1700);
+    stageScope.clear(deltaT); deltaT = stageScope.timer(deltaClear, 1000);
   }
   return { polysD };
 }

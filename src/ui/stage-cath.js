@@ -14,6 +14,7 @@ import { reduceMotionMQ as reduceMotion } from './motion.js';
 import { restPass } from './rest-pass.js';
 import { clamp, lerp, s } from './util.js';
 
+import { stageScope } from './stage-scope.js';
 export function createCath(st, live) {
   const { E, NO_LIST, animateVT, appEl, applyVT, blockersRead, cardSpace, cardSpaceRead, cath, clientToVB, clientToVBFast, drawFrame, easeFrame, easeInOut, geo, glWanted, late, nextFrame, polyD, readBlockersRead, readFrame, refreshCTM, safeInsets, stageBox, syncVeins, toRGB, worldToLocalInto, wrap, wrapCS } = st;
   const CATH_IDS = ['SVC_RA', 'IVCS_RA', 'RHV_IVC', 'POST_R_RHV'];   // (and down the IVC_IS to the hepatic vein)
@@ -394,7 +395,7 @@ export function createCath(st, live) {
     // Everything: the readings are removed once faded (or at once, when a new catheter ends the fade).
     me.done = () => {
       if (live.cathFade !== me) return;
-      live.cathFade = null; cancelFrame(me.raf); clearTimeout(me.timer);
+      live.cathFade = null; cancelFrame(me.raf); stageScope.clear(me.timer);
       catheterGone();
       cath.labels.hidden = true;
       if (cath.made) for (const el of cath.made.values()) dropLabel(el);
@@ -409,7 +410,7 @@ export function createCath(st, live) {
     };
     live.cathFade = me;
     me.raf = easeFrame(step);
-    me.timer = setTimeout(me.done, READING_OUT_MS + 150);   // (frames stalled in a background tab: it still ends)
+    me.timer = stageScope.timer(me.done, READING_OUT_MS + 150);   // (frames stalled in a background tab: it still ends)
   }   // the catheter's vertices, reused frame to frame
   const rFree = (r) => cathAt(r, r.free).r;
   // Without WebGL: the same catheter in SVG (the ivory shaft on its hairline edge, a rounded end, clear latex).
@@ -518,7 +519,7 @@ export function createCath(st, live) {
       if (travel && (k === 'f' || k === 'w')) { if (el._box) { const o = k === 'f' ? CATH_FROM_TIP : CATH_FROM_AHEAD; o.left = el._box.x0; o.top = el._box.y0; from[k === 'f' ? 'tip' : 'ahead'] = o; } dropLabel(el); el.remove(); continue; }
       // It fades out where it is on the figure (following the camera, never stuck on the screen), then goes.
       el.classList.add('cath-pre', 'cath-out'); leaving.set(el, el._l);
-      setTimeout(cathGone, 450, el);
+      stageScope.timer(cathGone, 450, el);
     }
     // (A reading is cloned from a model made ahead; its words are drawn by glWords, never written in a frame: gl-words.js.)
     for (const [k, l] of want) {

@@ -156,7 +156,7 @@ test('While moving drops the canvas once per move and back once it settles; the 
   const stage = stageSource().replace(/\blive\./g, '');   // (the stage's shared lets read live.x in a part; judged here by their names)
   const vt = stage.slice(stage.indexOf('const applyVT = () => {'), stage.indexOf('function syncView()'));
   assert.match(vt, /if \(resizeReady && !moveLow && figOpt\('move'\) < 1 && !\(diveT > 0\)\) \{ moveLow = true; easeRes\(\); settleRes\(\); \}/);
-  assert.match(stage, /if \(moveLow\) \{ plateSettle = setTimeout\(settled, 120\); return; \}/);
+  assert.match(stage, /if \(moveLow\) \{ plateSettle = stageScope\.timer\(settled, 120\); return; \}/);
   assert.ok(stage.indexOf('let glM = null') < stage.indexOf('const applyVT = () => {'), 'declared before applyVT can read it');
 });
 

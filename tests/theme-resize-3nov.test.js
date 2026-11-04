@@ -15,9 +15,9 @@ test('TH1: the surfaces that redraw for a new look listen to the one theme epoch
 
 test('RS1: the late home looks run only if the stage box moved since the last look', () => {
   const S = stageSource();
-  assert.match(S, /setTimeout\(lookHomeIfMoved, 500\)/);
-  assert.match(S, /setTimeout\(lookHomeIfMoved, 1300\)/);
-  assert.doesNotMatch(S, /setTimeout\(lookHome, (500|1300)\)/);
+  assert.match(S, /stageScope\.timer\(lookHomeIfMoved, 500\)/);
+  assert.match(S, /stageScope\.timer\(lookHomeIfMoved, 1300\)/);
+  assert.doesNotMatch(S, /stageScope\.timer\(lookHome, (500|1300)\)/);
 });
 
 test('RS2/RS3: the Tests card sizes itself in one rest pass per frame and keeps the pair it was cut from', () => {

@@ -10,6 +10,7 @@ import { clamp, lerp } from './util.js';
 import { OVER_ALL } from './stage-over.js';
 import { cams, camAbout, camId } from './scene-cam.js';
 
+import { stageScope } from './stage-scope.js';
 export function createDive(st, live) {
   const { applyVT, defaultVT, drawFrame, driftEnd, liverBox, lobuleBackstop, lobuleStep, nextFrame, refreshCTM, riseVT, sameView, spleenMoving, svg, syncSemantic, update, updateLabels, vCanvas, worldToLocal, wrap } = st;
   const DIVEC = cams.stage.dive;   // (the dive's camera, a scene-cam record in canvas px: setDiveScale is its only writer, pushCam hands it to the figure)
@@ -205,7 +206,7 @@ export function createDive(st, live) {
       // faded in. (Shown in the landing frame, Safari redrew the whole figure there, with everything else the landing does.)
       const landed = t >= 1 && !live.diveOut;
       setDiveScale(t >= 1 ? 1 : Math.exp(Math.min(z, LC + 0.4)), landed);
-      if (landed) { clearTimeout(unhideAt); unhideAt = setTimeout(diveUnhide, 500); }
+      if (landed) { stageScope.clear(unhideAt); unhideAt = stageScope.timer(diveUnhide, 500); }
       // The anatomy stays whole under the field as it fades in (and out, on the way back), and is hidden only once the field covers
       // it. (Faded out on the field's curve, the two half-clear layers let the page through, about a fifth of it, for a fifth of a
       // second as the field took over: a dark flash zooming in, in dark mode, Mohammad, 24 Oct. Zooming out it fell where the field
@@ -266,7 +267,7 @@ export function createDive(st, live) {
   }
   function prepRise() {
     if (!live.lobuleOn || live.diveT < 1 || live.morphTarget !== 0 || live.risePrep) return;
-    live.risePrep = true; clearTimeout(live.risePrepT); live.risePrepT = setTimeout(() => { live.risePrep = false; }, 6000);   // (never left on in the lobule)
+    live.risePrep = true; stageScope.clear(live.risePrepT); live.risePrepT = stageScope.timer(() => { live.risePrep = false; }, 6000);   // (never left on in the lobule)
     const fit = preFit();
     if (live.F && !live.inUpdate) { live.catchUp = fit; try { update(live.F); } finally { live.catchUp = false; } if (fit) preF = live.F; }
     live.platePoke();
@@ -280,7 +281,7 @@ export function createDive(st, live) {
   }
   function setLobule(on, painted = false) {
     if (on && live.morphTarget !== 0) return;
-    live.risePrep = false; clearTimeout(live.risePrepT);
+    live.risePrep = false; stageScope.clear(live.risePrepT);
     if (on) { preVT = null; preF = null; }   // (a fit made ahead holds only for the rise it was made for)
     if (live.diveWait) { live.diveWait = 0; live.diveGen++; }   // (any other ask calls a waiting dive off; a dive asked again waits afresh)
     const from0 = live.diveT;
@@ -357,9 +358,9 @@ export function createDive(st, live) {
     live.lobOn = on; live.lobFrom = from; live.lobTo = to; live.lobTurn = turn; live.lobMs = ms; live.lobT0 = t0; live.lobSeen = -1;
     lobuleStep(t0);
     // Backstop: if the frames stop (a throttled or dropped frame loop), land on the end state anyway.
-    clearTimeout(live.lobEnd);
+    stageScope.clear(live.lobEnd);
     // (With the eases' clock a run of long frames makes the zoom take longer: it is landed only once it stops moving, frames having stopped.)
-    live.lobEnd = setTimeout(lobuleBackstop, ms * Math.abs(to - from) + 250);
+    live.lobEnd = stageScope.timer(lobuleBackstop, ms * Math.abs(to - from) + 250);
   }
   return { anatCovered, camShowTo_, diveFrame, prepRise, pushCam, riseReady, setDiveScale, setLobule };
 }

@@ -10,6 +10,7 @@ import { elBoxInto } from './shape-gl.js';
 import { store } from './store.js';
 import { clamp, restBox, settledBox, translateRest } from './util.js';
 
+import { stageScope } from './stage-scope.js';
 export function createFit(st, live) {
   const { CIRC_C, EV, VB_CIRC_R, anchorFor, animateVT, applyVT, clientToWorld, driftEnd, gAscites, gBackdrop, gOrgans, geo, gutKids, readFrame, refreshCTM, rotDeg, setViewBox, stageBox, svg, vbBox, watch, wrap } = st;
    // Default framing. The circuit is a wide map (≈ 1.9 : 1); in a squarish or tall viewport,
@@ -78,7 +79,7 @@ export function createFit(st, live) {
   function snapFresh() { if (snapDirty) snapRead(); }
   function snapAgain() {
     snapDirty = true; snapAsk ||= readFrame(snapRead);
-    clearTimeout(snapSettle); snapSettle = setTimeout(snapAgainLater, 2600);   // (and once the watch has settled: a card's last eased box)
+    stageScope.clear(snapSettle); snapSettle = stageScope.timer(snapAgainLater, 2600);   // (and once the watch has settled: a card's last eased box)
   }
   function snapAgainLater() { snapDirty = true; snapAsk ||= readFrame(snapRead); }
   watch.onTouch(snapAgain);

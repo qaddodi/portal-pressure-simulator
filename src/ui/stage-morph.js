@@ -6,6 +6,7 @@ import { lerp } from './util.js';
 import { newJoinStore } from './vein-joins.js';
 import { ENT_W } from './veins-bin.js';
 
+import { stageScope } from './stage-scope.js';
 export function createMorph(st, live) {
   const { BLOOD_PAD, EV, GL_ROWS, N_SAMPLES, cavaAsOne, edgeVisible, geo, itemRadii, reachOf, strandAt, veinJoins, vesselAt, wrap } = st;
   // ── The change between the views on the GPU (2 Nov 2026, his iPhone: "going from anatomy to circuit is so laggy") ──
@@ -138,7 +139,7 @@ export function createMorph(st, live) {
   }
   function morphTrackSoon() {
     if (!MORPH_GPU || mt.checkT) return;
-    mt.checkT = setTimeout(morphTrackCheck, 400);
+    mt.checkT = stageScope.timer(morphTrackCheck, 400);
   }
   function morphTrackCheck() {
     mt.checkT = 0;
@@ -171,7 +172,7 @@ export function createMorph(st, live) {
       // (Not while the figure moves at rest, for a while: a moment is a pass over every vessel.)
       // (A move holds it for as long as the move lasts, however long: beginMotion ends one itself after MOTION_MAX_MS. Only the person's
       // own input is capped, at twelve looks.)
-      { const moving = inMotion(); if ((moving || (sinceInput() < 700 && held < 12)) && live.morph === live.morphTarget) { held++; setTimeout(next, 120); return; } }
+      { const moving = inMotion(); if ((moving || (sinceInput() < 700 && held < 12)) && live.morph === live.morphTarget) { held++; stageScope.timer(next, 120); return; } }
       const pc = pieces[k];
       const ts = Array.from({ length: MORPH_STEPS + 1 }, (_, i) => pc.t0 + (pc.t1 - pc.t0) * i / MORPH_STEPS);
       if (pc.t1 === 0.5) ts[MORPH_STEPS] = 0.5 - 1e-6;   // (the anatomy's side ends just short of the half, where the circuit's vessels take over)
@@ -181,29 +182,29 @@ export function createMorph(st, live) {
       // (The joins of the side's own vessels too: a vessel binned for the other side changes the joins it takes part in.)
       if (pc.snaps.length < ts.length) {
         const t = ts[pc.snaps.length], w = pc.work ||= { items: itemsAt(t, pc.anat), own: itemsAt(t, pc.anat, false), o: null, all: null, q: 1, J2: [] };
-        if (!w.o) { w.o = joinsAhead(w.own, t); setTimeout(next, 0); return; }
-        if (!w.all) { w.all = joinsAhead(w.items, t); setTimeout(next, 0); return; }
+        if (!w.o) { w.o = joinsAhead(w.own, t); stageScope.timer(next, 0); return; }
+        if (!w.all) { w.all = joinsAhead(w.items, t); stageScope.timer(next, 0); return; }
         // (The joins at moments between too: one can be there for less than a step, as two ends pass each other.)
-        if (pc.snaps.length && w.q < MORPH_JSUB) { const u = lerp(pc.snaps[pc.snaps.length - 1].t, t, w.q / MORPH_JSUB); w.J2.push(...joinsAhead(itemsAt(u, pc.anat, false), u).J); w.q++; setTimeout(next, 0); return; }
+        if (pc.snaps.length && w.q < MORPH_JSUB) { const u = lerp(pc.snaps[pc.snaps.length - 1].t, t, w.q / MORPH_JSUB); w.J2.push(...joinsAhead(itemsAt(u, pc.anat, false), u).J); w.q++; stageScope.timer(next, 0); return; }
         pc.work = null;
         const { items, own, o } = w;
         pc.snaps.push({ t, items, ...w.all, J2: o.J.concat(w.J2), own: new Map(own.map((it) => [it.row, o.smooth.get(it.row) || it.pts])) });
-        setTimeout(next, 0); return;
+        stageScope.timer(next, 0); return;
       }
       const snaps = pc.snaps;
       pc.snaps = null;
       const rows = rowKey(snaps[0].items);
-      if (snaps.some((sn) => rowKey(sn.items) !== rows)) { pc.bad = 'vessels'; put(pc); setTimeout(next, 0); return; }
+      if (snaps.some((sn) => rowKey(sn.items) !== rows)) { pc.bad = 'vessels'; put(pc); stageScope.timer(next, 0); return; }
       const side = pc.anat ? 0 : 1;
       pc.ts = ts; pc.rows = rows;
       sweepPiece(pc, snaps, mt.reach[side]).then((b) => {
         if (gen !== mt.gen || !b || !live.veins || live.veins.lost) return;
         setOf(pc, b);
         put(pc);
-        setTimeout(next, 0);
-      }, (e) => { if (gen !== mt.gen) return; pc.bad = String(e); put(pc); setTimeout(next, 0); });
+        stageScope.timer(next, 0);
+      }, (e) => { if (gen !== mt.gen) return; pc.bad = String(e); put(pc); stageScope.timer(next, 0); });
     };
-    setTimeout(next, 0);
+    stageScope.timer(next, 0);
   }
   // A stretch's courses, joins and reach from its moments (snaps), and its binning made in the worker: the change between the views
   // (morphTrackBuild) and a coil or a varix's spread easing at rest (envCheck). `more`: reach a vessel had elsewhere, kept.

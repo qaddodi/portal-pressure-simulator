@@ -24,6 +24,7 @@ import { varixBead } from './varix-bead.js';
 import { LOOK_SITE, varixHold, varixOpacity, varixSize, varixSpreadK, varixWidthK } from './varix-look.js';
 import { TUBE_TEXELS } from './veins-gl.js';
 
+import { stageScope } from './stage-scope.js';
 export function createTubes(st, live) {
   const { E, EI, EV, FEEDER_CONNECTOR, GPU_EASE, LIGATED, NI, N_SAMPLES, REVERSAL_WATCH, SEL_FADE, SIDE_HOSTS, SIDE_INSIDE, STRAIGHT_COLL, anatCovered, animateVT, anyReveal, applyVT, blockersRead, camShowTo_, circAt, collOpen, defaultVT, divideLen, dopApply, drawVeins, driftEnd, easeInOut, edgeVisible, flag, geo, glowOnlyOk, holdReversals, keptNow, layerMode, lobuleCode, lobuleReady, nearestLevel, nextFrame, pushCam, qHold, qP, readFrame, recruitFrac, refit, refreshCTM, revShown, sameView, sendRadii, setGlowSrc, setLevel, shownFrac, snapFresh, stageBox, startExit, stenosisAt, stepReveals, syncLift, syncVeins, trackChanges, updateGeometry, updateLabels, updateNodesCircuit, varixHeld, vesselPx, vh, waist, watch, wrap } = st;
   let glAtUpdate = false;   // (whether the GPU drew the figure at the last full update: the steps between take only that state)
@@ -45,9 +46,9 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
     nextFrame(figureReady1);
   };
   const figureReady3 = () => { window.ppsFigureReady = true; performance.mark?.('pps:figure-ready'); dispatchEvent(new Event('pps:figure-ready')); };
-  const figureReady2 = () => setTimeout(figureReady3, 260);
+  const figureReady2 = () => stageScope.timer(figureReady3, 260);
   const figureReady1 = () => nextFrame(figureReady2);
-  setTimeout(showFigure, 4000);   // never left hidden
+  stageScope.timer(showFigure, 4000);   // never left hidden
   function firstFrame() {
     if (live.firstFit || !live.F || !(live.morphTarget === 1 || patientReady)) return;
     live.firstFit = true;
@@ -78,8 +79,8 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
   // pan or pinch waiting until it lifts (Mohammad, 21 Oct: "hitch as soon as I stop panning", finger still down).)
   // (The function waiting is handed on as the timer's own argument, so no closure is made to carry it.)
   const IDLE_ASK = { timeout: 600 }, lobuleNoop = () => {};
-  function prepIdleGo(fn) { if (sinceInput() < 700 || inMotion()) setTimeout(prepIdleGo, 400, fn); else if (window.requestIdleCallback) requestIdleCallback(fn, IDLE_ASK); else setTimeout(fn, 50); }
-  const prepIdle = (fn) => { setTimeout(prepIdleGo, 0, fn); };
+  function prepIdleGo(fn) { if (sinceInput() < 700 || inMotion()) stageScope.timer(prepIdleGo, 400, fn); else if (window.requestIdleCallback) requestIdleCallback(fn, IDLE_ASK); else stageScope.timer(fn, 50); }
+  const prepIdle = (fn) => { stageScope.timer(prepIdleGo, 0, fn); };
   const prepLoad = () => lobuleReady().then(prepLobule, prepLoadLost);
   const prepLoadLost = (err) => console.warn('The lobule view did not load.', err);
   const prepCalm = () => live.morphTarget === 0 && live.morph < 0.02 && !live.lobuleOn && !live.diveWait && live.diveT === 0 && !live.vtGliding;
@@ -177,10 +178,10 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
   const boxKey = () => { const b = stageBox(); return b ? `${Math.round(b.left)},${Math.round(b.top)},${Math.round(b.width)},${Math.round(b.height)}` : ''; };
   const lookHomeIfMoved = () => { if (boxKey() !== lookedBox) lookHomeKept(); };
   const lookHomeKept = () => { lookedBox = boxKey(); lookHome(); };
-  const homeResizeGo = () => { homeResizeT = 0; lookHomeKept(); homeLateT[0] = setTimeout(lookHomeIfMoved, 500); homeLateT[1] = setTimeout(lookHomeIfMoved, 1300); };
+  const homeResizeGo = () => { homeResizeT = 0; lookHomeKept(); homeLateT[0] = stageScope.timer(lookHomeIfMoved, 500); homeLateT[1] = stageScope.timer(lookHomeIfMoved, 1300); };
   addEventListener('resize', () => {
-    clearTimeout(homeResizeT); homeLateT.forEach(clearTimeout);
-    homeResizeT = setTimeout(homeResizeGo, 200);
+    stageScope.clear(homeResizeT); homeLateT.forEach((t) => stageScope.clear(t));
+    homeResizeT = stageScope.timer(homeResizeGo, 200);
   });
   // (V-FIT: on the card's own clock, the next frame, not 150 ms after it; several announcements in one task make one look.)
   addEventListener('pps:occ', () => { if (!homeOccT) homeOccT = nextFrame(() => { homeOccT = 0; lookHome(); }); });

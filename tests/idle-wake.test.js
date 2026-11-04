@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
 const st = stageSource();
 
 test('the idle loop looks again once a second while shown and still, and keys the blood setting on the store version', () => {
-  assert.match(st, /function sleep\(\) \{\s+(?:live\.)?sleeping = true; clearTimeout\((?:live\.)?sleepTimer\); (?:live\.)?sleepTimer = 0;\s+const ms = sleepLook\(\);\s+if \(ms\) (?:live\.)?sleepTimer = setTimeout\(wake, ms\);/);
+  assert.match(st, /function sleep\(\) \{\s+(?:live\.)?sleeping = true; stageScope\.clear\((?:live\.)?sleepTimer\); (?:live\.)?sleepTimer = 0;\s+const ms = sleepLook\(\);\s+if \(ms\) (?:live\.)?sleepTimer = stageScope\.timer\(wake, ms\);/);
   // (C5: the once-a-second look is kept only for a still figure on screen; a figure not shown looks once, at the warm window's end)
   assert.match(st, /function sleepLook\(\) \{\s+if \(!unseen\(\)\) return 1000;/);
   assert.match(st, /return Math\.max\(0, WARM_MS - \(performance\.now\(\) - (?:live\.)?hiddenAt\)\) \+ 1;/);

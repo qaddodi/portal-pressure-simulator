@@ -15,6 +15,7 @@ import { onTheme } from './theme-epoch.js';
 import { s } from './util.js';
 import { inGrid, ringGrid, warmVisible } from './warm-vis.js';
 
+import { stageScope } from './stage-scope.js';
 export function createOutlines(st, live) {
   const { E, MAP, ND_PER, ND_SEG, arcMid, caud, clampW, clampWOut, easeInOut, gFx, gFxC, geo, late, nd, nextFrame, nodeDots, organEls, organG, ov, pointAt, quietFx, readFrame, refreshCTM, resTheme, svg, themeKey, toRGB } = st;
   // The organ outlines (selected, hovered) are drawn on the GPU with the figure, so a drag, pinch
@@ -277,7 +278,7 @@ readFrame(bandEdgeRead);   // (as made, and again in the first frame, once the s
     return (colonMask = { x0, y0, w, h, bits });
   }
   try { colonGrid(); } catch (e) { caught('stage:colon', e); /* the glow is not cut where the colon lies over it */ }   // (made as the stage is, once: a frame only reads colonMask)
-  (typeof requestIdleCallback === 'function' ? (f) => requestIdleCallback(f, { timeout: 5000 }) : (f) => setTimeout(f, 3000))(() => { try { if (organG.bowel && warmDCount('bowel')) warmVis('bowel'); } catch (e) { caught('stage:6172', e); /* each is made when a glow first needs it */ } });   // (made while idle, so a slide's start does not pay for them)
+  (typeof requestIdleCallback === 'function' ? (f) => requestIdleCallback(f, { timeout: 5000 }) : (f) => stageScope.timer(f, 3000))(() => { try { if (organG.bowel && warmDCount('bowel')) warmVis('bowel'); } catch (e) { caught('stage:6172', e); /* each is made when a glow first needs it */ } });   // (made while idle, so a slide's start does not pay for them)
   // A warm outline's source as parts (the organ's path and transform, the colon's transform, the bed's and pieces' widths, the tubes' paths):
   // told apart each frame with no string made (ol.sig is written when it moves).
   function warmKeyWalk(id) {
@@ -463,7 +464,7 @@ readFrame(bandEdgeRead);   // (as made, and again in the first frame, once the s
     for (const el of fxEls.values()) {
       if (el.seen || el.going) continue;
       el.going = true; el.classList.remove('on');
-      setTimeout(el.fxGone, reduceMotion.matches ? 0 : 420);
+      stageScope.timer(el.fxGone, reduceMotion.matches ? 0 : 420);
     }
     for (const [k, el] of fxEls) if (el.seen && el.going) { fxEls.delete(k); }   // (a line gone and wanted again starts afresh)
     if (t !== fxOpT) { fxOpT = t; gFx.style.opacity = t > 0 ? 1 - t : ''; }   // (written when it moves: nothing else sets it)

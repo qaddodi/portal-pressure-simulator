@@ -10,6 +10,7 @@ import { reduceMotionMQ as reduceMotion } from './motion.js';
 import { portalSplit } from './table-marks.js';
 import { clamp, fmt, putText } from './util.js';
 
+import { stageScope } from './stage-scope.js';
 export function createSitesPaint(st, live) {
   const { NI, NO_LIST, RES_BIT, SITE_DEF, SITE_EL, SITE_TPL, SPLIT_B, beatMean, breath, easeFrame, easeInOut, late, nextFrame, nodePos, pinned, readFrame, refreshCTM, resMade, resPaint, resRatio, sites, stageBox, viewMoving, watch, worldToLocalInto } = st;
   // The "Portal blood" callout: the share that bypasses the liver as its headline, over one bar split into the liver's
@@ -84,7 +85,7 @@ export function createSitesPaint(st, live) {
   function siteLeave(k, el) {
     if (sites.made.get(k) === el) sites.made.delete(k);
     el.classList.add('cath-leave');
-    setTimeout(siteGone, reduceMotion.matches ? 0 : 700, el);
+    stageScope.timer(siteGone, reduceMotion.matches ? 0 : 700, el);
   }
   const sitePreQ = [], sitePreRun = () => { for (let i = 0; i < sitePreQ.length; i++) sitePreQ[i].classList.remove('cath-pre'); sitePreQ.length = 0; sitesAgain(); };   // (the readings just made, shown from the frame after)
   const siteGone = (el) => { dropLabel(el); el.remove(); };

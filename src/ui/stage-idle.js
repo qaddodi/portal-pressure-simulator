@@ -5,6 +5,7 @@ import { hold as gpuHold } from './gpu-budget.js';
 import { store } from './store.js';
 import { WARM_MS, WARM_VIEWS } from './warm-views.js';
 
+import { stageScope } from './stage-scope.js';
 export function createIdle(st, live) {
   const { appEl, askAnimate, organEls, readFrame, vCanvas, wrap } = st;
   // (R08, warm-views.js: under the lobule the targets stay WARM_MS, so a quick Lobule → Anatomy makes nothing again; a hidden page
@@ -34,11 +35,11 @@ export function createIdle(st, live) {
     return Math.max(0, WARM_MS - (performance.now() - live.hiddenAt)) + 1;
   }
   function sleep() {
-    live.sleeping = true; clearTimeout(live.sleepTimer); live.sleepTimer = 0;
+    live.sleeping = true; stageScope.clear(live.sleepTimer); live.sleepTimer = 0;
     const ms = sleepLook();
-    if (ms) live.sleepTimer = setTimeout(wake, ms);
+    if (ms) live.sleepTimer = stageScope.timer(wake, ms);
   }
-  function wake() { if (!live.sleeping) return; live.sleeping = false; clearTimeout(live.sleepTimer); askAnimate(); }
+  function wake() { if (!live.sleeping) return; live.sleeping = false; stageScope.clear(live.sleepTimer); askAnimate(); }
   live.stageWake = wake;
   // (Not woken by a model frame alone: the frame's own update wakes the figure (update: stageWake), and nothing storeVer keys on is in it.
   // Rev 2 step 3.)

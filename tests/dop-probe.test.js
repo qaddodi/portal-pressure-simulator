@@ -407,7 +407,7 @@ test('a far move round the gate or in distance fades the probe rather than flyin
 test('stage: a probe shown afresh starts at its place, and a jump fades out and in', () => {
   const src = stageSource();
   assert.match(src, /if \(!dpr\.on \|\| !dpr\.has \|\| reduceMotion\.matches\) \{\s*dpr\.oP = reduceMotion\.matches \? 0 : 1; dpr\.has = true;\s*c\.ang = n\.ang; c\.d = n\.d; c\.k = n\.k; c\.o = 0;/);
-  assert.match(src, /if \(act === 'jump'\) \{\s*dprLeave\(\);[^}]*dpr\.swap = setTimeout/);
+  assert.match(src, /if \(act === 'jump'\) \{\s*dprLeave\(\);[^}]*dpr\.swap = stageScope\.timer/);
   assert.ok(src.indexOf("act === 'jump'") < src.indexOf('if (!dpr.on || !dpr.has || reduceMotion.matches) {'));
   // (the jump itself is decided in dop-probe.js, from where the probe is drawn and where it would stand)
   assert.match(readFileSync(new URL('../src/ui/dop-probe.js', import.meta.url), 'utf8'), /if \(on && cur && !swing && probeJumps\(cur, tgt\)\) \{ at = ''; pend = ''; return 'jump'; \}/);
@@ -601,8 +601,8 @@ test('stage: the probe\'s memory is in the loop (layout signature, banned places
   assert.match(paint, /dpr\.searchGap = sig === dpr\.lastSig \? Math\.min\(600, dpr\.searchGap \* 2\) : 150; dpr\.lastSig = sig;/, 'a place that holds is searched less often, up to 600 ms');
   assert.match(paint, /O\.ban = dprMind\.banned\(\); O\.lock = dprMind\.locked\(\); O\.slack = dpr\.headOff \? 0 : SLACK;/);
   assert.match(paint, /if \(!show\) \{\s*dprMind\.hide\(\);\s*dprHide\(\);/);
-  assert.match(paint, /dprDots\(\); dprMind\.hide\(\);\s*dpr\.swap = setTimeout/, 'a new vessel or third: it is no longer "leaving" a place');
-  assert.match(paint, /if \(act === 'hold'\) \{ dpr\.noneT \|\|= setTimeout\(dprNoneDone, NONE_MS \+ 30\); return; \}/, 'a held "no place" looks again when it has lasted');
+  assert.match(paint, /dprDots\(\); dprMind\.hide\(\);\s*dpr\.swap = stageScope\.timer/, 'a new vessel or third: it is no longer "leaving" a place');
+  assert.match(paint, /if \(act === 'hold'\) \{ dpr\.noneT \|\|= stageScope\.timer\(dprNoneDone, NONE_MS \+ 30\); return; \}/, 'a held "no place" looks again when it has lasted');
   assert.match(stage, /const dprNoneDone = \(\) => \{ dpr\.noneT = 0; dprobePaint\(\); \};/);
   assert.ok(paint.indexOf('dprMind.act(') > paint.indexOf('const n = dpr.nxt;'));
   assert.ok(paint.indexOf('dprMind.sync(') < paint.indexOf('fitPoseInto(pose, O)'));
@@ -616,7 +616,7 @@ test('stage: the Doppler monitor check keeps its last answer while nothing place
   assert.match(src, /dpr\.monAt = performance\.now\(\);\n\s+dprMonLast = dprMonitorLook\(\);/);
   assert.match(src, /if \(dpr\.ready && dop\.id\) \{\n\s+let on = dprMonLast;\n\s+if \(!dprQuiet\(\)\) \{ dpr\.monAt = 0; on = dprMonitorOn\(\); \}/);
   // (Since 1 Nov 2026 no timer at rest: the look starts on the change that makes the watch due, and on a new vessel, and stops once quiet.)
-  assert.match(src, /if \(!dprQuiet\(\)\) dprMonT = setTimeout\(dprMonTick, 200\);/);
+  assert.match(src, /if \(!dprQuiet\(\)\) dprMonT = stageScope\.timer\(dprMonTick, 200\);/);
   assert.match(src, /watch\.onTouch\(dprMonSoon\);\n\s+dpr\.kick = dprMonSoon;/);
   assert.match(src, /dop\.id = id; dop\.key = key; dop\.seg = seg; dop\.all = all;\n\s+dpr\.kick\?\.\(\);/);
   assert.doesNotMatch(src, /\}, 200\);\n\s+\/\/ What the probe remembers between frames/);
@@ -766,7 +766,7 @@ test('stage: every way the probe goes swings it out round the target (place and 
   // The hides: both draw-back-and-move paths and dprHide go through dprLeave; none sets the probe off by hand.
   assert.equal((stage.match(/dprLeave\(\)/g) || []).length, 4, 'dprHide, the new vessel, the jump, and the definition');
   // A probe still drawing back is let finish before one shows again.
-  assert.match(stage, /if \(!dpr\.on && dpr\.leaving\) \{ dpr\.leaveT \|\|= setTimeout\(dprLeaveDone, PROBE\.OUT_MS \+ 40\); return; \}/);
+  assert.match(stage, /if \(!dpr\.on && dpr\.leaving\) \{ dpr\.leaveT \|\|= stageScope\.timer\(dprLeaveDone, PROBE\.OUT_MS \+ 40\); return; \}/);
   assert.equal(PROBE.OUT_MS, 420);
 });
 
