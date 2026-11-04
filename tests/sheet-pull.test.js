@@ -115,22 +115,22 @@ function rig({ thumb = false, h = 600 } = {}) {
   globalThis.getComputedStyle = () => ({ overflowY: 'visible', transform: 'none' });
   swipeSheet(el, () => closed.push(1));
   const target = { closest: () => null, parentElement: null, scrollHeight: 0, clientHeight: 0, scrollTop: 0 };
-  const ev = (y) => ({ touches: [{ clientX: 50, clientY: y }], target, cancelable: true, preventDefault() {} });
+  const ev = (y) => ({ pointerType: 'touch', isPrimary: true, pointerId: 1, clientX: 50, clientY: y, target, cancelable: true, preventDefault() {} });
   return { el, on, closed, target, ev };
 }
 
 test('swipeSheet: a pull sets one clock per move and writes no style', () => {
   for (const thumb of [true, false]) {
     const { el, on, ev } = rig({ thumb });
-    on.touchstart(ev(100));
-    on.touchmove(ev(104));   // (under 8 px: not a pull yet)
+    on.pointerdown(ev(100));
+    on.pointermove(ev(104));   // (under 8 px: not a pull yet)
     assert.equal(el.made.length, 0);
-    on.touchmove(ev(120));
+    on.pointermove(ev(120));
     assert.equal(el.made.length, 1, 'the pull begins at the first move past a tap');
     const a = el.made[0];
     assert.deepEqual(Object.keys(a.kf[0]), [thumb ? 'translate' : 'transform']);
     assert.equal(posOf(a), 0, 'the sheet is where the finger took it: the 8 px a tap may wobble are not pulled');
-    for (const y of [140, 170, 200]) { on.touchmove(ev(y)); assert.equal(posOf(a), y - 120); }
+    for (const y of [140, 170, 200]) { on.pointermove(ev(y)); assert.equal(posOf(a), y - 120); }
     assert.equal(el.made.length, 1, 'one animation for the whole drag');
     assert.deepEqual(el.writes.filter(([k]) => k !== 'animation'), [], 'no style is written in the moves');
   }
@@ -138,9 +138,9 @@ test('swipeSheet: a pull sets one clock per move and writes no style', () => {
 
 test('swipeSheet: a short slow pull eases back, a long one goes and the menu is told', () => {
   let r = rig();
-  r.on.touchstart(r.ev(100));
-  r.on.touchmove(r.ev(120)); r.on.touchmove(r.ev(140));
-  r.on.touchend();
+  r.on.pointerdown(r.ev(100));
+  r.on.pointermove(r.ev(120)); r.on.pointermove(r.ev(140));
+  r.on.pointerup(r.ev(0));
   assert.equal(r.closed.length, 0);
   let rel = r.el.made[1];
   assert.equal(rel.kf[1].transform, 'translateY(0px)', 'it eases back to rest');
@@ -148,26 +148,26 @@ test('swipeSheet: a short slow pull eases back, a long one goes and the menu is 
   assert.equal(r.el.made[0].cancelled, true);
 
   r = rig({ thumb: true, h: 600 });
-  r.on.touchstart(r.ev(100));
-  r.on.touchmove(r.ev(150)); r.on.touchmove(r.ev(260));
-  r.on.touchend();
+  r.on.pointerdown(r.ev(100));
+  r.on.pointermove(r.ev(150)); r.on.pointermove(r.ev(260));
+  r.on.pointerup(r.ev(0));
   assert.equal(r.closed.length, 1, 'past the line the menu is told');
   rel = r.el.made[1];
-  assert.equal(rel.kf[1].translate, '0px 600px', 'it goes to its own height');
+  assert.equal(rel.kf[1].translate, '0px 608px', 'it goes to its own height and the dock\'s 8 px');
   assert.equal(rel.opts.duration, 220);
 });
 
 test('swipeSheet: a touch while the let-go eases takes the sheet over from where it is drawn, without a jump', () => {
   const r = rig();
-  r.on.touchstart(r.ev(100));
-  r.on.touchmove(r.ev(120)); r.on.touchmove(r.ev(150));
-  r.on.touchend();
+  r.on.pointerdown(r.ev(100));
+  r.on.pointermove(r.ev(120)); r.on.pointermove(r.ev(150));
+  r.on.pointerup(r.ev(0));
   const rel = r.el.made[1];
   rel.currentTime = rel.opts.duration * 0.5;   // (part way back)
   const here = pullAt({ a: rel, from: 50, to: 0, ms: rel.opts.duration, ease: (k) => k, over: false });
   assert.ok(here > 0 && here < 50);
-  r.on.touchstart(r.ev(100 + here));
-  r.on.touchmove(r.ev(100 + here + 10));
+  r.on.pointerdown(r.ev(100 + here));
+  r.on.pointermove(r.ev(100 + here + 10));
   const pull = r.el.made[2];
   assert.ok(pull.paused);
   assert.ok(posOf(pull) > 0 && posOf(pull) < 60, `the new pull carries on from where the sheet was drawn: ${posOf(pull)}`);

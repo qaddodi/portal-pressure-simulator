@@ -52,8 +52,8 @@ function splitRig({ reduce = false } = {}) {
   let id = 0, clock = 0;
   const easeFrame = (cb) => { queued.set(++id, cb); return id; };
   const cancelFrame = (i) => { queued.delete(i); };
-  const make = new Function('portalSplit', 'follow2', 'SHOWN_TAU', 'splitShow', 'easeFrame', 'cancelFrame', 'matchMedia', 'performance', `${splitSrc}\nreturn splitTo;`);
-  const splitTo = make(portalSplit, follow2, SHOWN_TAU, (el, sh) => shown.push(sh), easeFrame, cancelFrame, () => ({ matches: reduce }), { now: () => clock });
+  const make = new Function('portalSplit', 'follow2', 'SHOWN_TAU', 'splitShow', 'easeFrame', 'cancelFrame', 'reduceMotion', 'performance', `${splitSrc}\nreturn splitTo;`);
+  const splitTo = make(portalSplit, follow2, SHOWN_TAU, (el, sh) => shown.push(sh), easeFrame, cancelFrame, { matches: reduce }, { now: () => clock });
   // Runs the scheduled step, if any, at time `at` (the callback's own clock, which may be before the easing began).
   const run = (at) => { const first = queued.entries().next().value; if (!first) return false; queued.delete(first[0]); first[1](at); return true; };
   return { splitTo, shown, queued, at: (t) => { clock = t; }, run };

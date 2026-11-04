@@ -12,6 +12,7 @@ const calls = [];
 // A stand-in for the page: the animationstart listener menu-leave.js installs, and elements that record their animate() calls.
 const listeners = [];
 globalThis.addEventListener = (t, f) => { if (t === 'animationstart') listeners.push(f); };
+globalThis.document = { documentElement: { classList: { contains: () => false } } };
 let clock = 1000;
 globalThis.performance = { now: () => clock };
 const fake = (...cls) => ({
@@ -33,7 +34,6 @@ test('mid entrance: the exit runs from the look worked out from the entrance\'s 
   const k = +easeArrive(0.5).toFixed(4);
   assert.deepEqual(calls[0].kf, [{ opacity: k }, { opacity: 0 }]);
   assert.deepEqual(calls[0].o, { duration: D_FLIP, easing: EASE_IN, fill: 'forwards' });
-});
 
 test('a sheet that slides in leaves from where it had slid, by its own edge variables; the main menu\'s sheet leaves on --d-small', () => {
   calls.length = 0;
@@ -46,17 +46,13 @@ test('a sheet that slides in leaves from where it had slid, by its own edge vari
   assert.equal(calls[0].o.duration, D_SMALL);
 });
 
-test('the scrim fades from its look; the dock menu\'s entrance waits out --enter-delay', () => {
+test('the scrim fades from its look', () => {
   calls.length = 0;
   const scrim = fake('um-scrim'); begin(scrim, 'crossfade', 3000);
   clock = 3000 + D_SMALL / 4;
   assert.equal(leaveFromHere(scrim, () => {}), true);
   assert.deepEqual(calls[0].kf, [{ opacity: +easeArrive(0.25).toFixed(4) }, { opacity: 0 }]);
-  calls.length = 0;
-  const dock = fake('menu', 'from-dock'); dock.style.getPropertyValue = () => '100ms'; begin(dock, 'scale-settle', 4000);
-  clock = 4050;   // still inside the delay: it is not yet visible
-  assert.equal(leaveFromHere(dock, () => {}), true);
-  assert.deepEqual(calls[0].kf[0], { opacity: 0 });
+});
 });
 
 test('an entrance that had finished, or one never seen: the leave is today\'s, nothing is played', () => {

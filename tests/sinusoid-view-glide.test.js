@@ -64,7 +64,7 @@ globalThis.matchMedia = () => ({ matches: false, addEventListener() {}, addListe
 globalThis.getComputedStyle = () => ({ getPropertyValue: () => '', opacity: '1' });
 globalThis.addEventListener = (type, fn) => { (listeners[type] ||= []).push(fn); };
 globalThis.dispatchEvent = (ev) => { for (const fn of listeners[ev.type] || []) fn(ev); return true; };
-const app = { style: { getPropertyValue: (k) => appVars[k] ?? '', setProperty: (k, v) => { appVars[k] = String(v); } }, classList: { contains: (c) => appClasses.has(c) } };
+const app = { dataset: {}, style: { getPropertyValue: (k) => appVars[k] ?? '', setProperty: (k, v) => { appVars[k] = String(v); } }, classList: { contains: (c) => appClasses.has(c) } };
 globalThis.document = {
   createElement: (tag) => new El(tag), createElementNS: (ns, tag) => new El(tag), createTextNode: (t) => ({ nodeType: 3, textContent: String(t) }),
   getElementById: (id) => (id === 'app' ? app : null), querySelector: () => null, querySelectorAll: () => [], addEventListener() {},
