@@ -1854,6 +1854,10 @@ button.finding { cursor: pointer; }
 @media (prefers-reduced-transparency: reduce) { .pz-data.pz-data { --gl-glass: 0; background: color-mix(in srgb, var(--surface) 96%, transparent); } .pz-data.pz-data { background: var(--surface-2); } .pz-data .pz-tile, .pz-data .pz-tool .endo-read > div { background: var(--surface); } }
 .pz-safe { position: absolute; left: 0; top: 0; bottom: 0; width: 0; opacity: 0; pointer-events: none; }
 .pz.stack .pz-safe { right: 0; top: auto; bottom: 0; width: auto; }
+/* (Cards and sheets are contained, layout and style: a write inside one card (its words, a reading, a chart's numbers) or a card moving never
+   restyles or re-lays the figure or the other cards. Not paint: a card's tab, its glass and its text-shadow reach past its box, and a
+   clip there once painted solid strips (see model-contain above). A card moves by its one inline transform, written in card-throw.js.) */
+.pz-text, .pz-data, .pz-panel, .pz-case, .pz-shade, .menu, .umenu { contain: layout style; }
 .pz-text { position: absolute; left: clamp(20px, 3.4vw, 76px); top: clamp(20px, calc(8 * var(--pzh)), 110px); bottom: clamp(20px, calc(8 * var(--pzh)), 110px); height: fit-content; margin-block: auto; width: min(calc(clamp(300px, 29vw, 600px) * var(--pz-wk, 1)), 42vw); max-height: calc(100% - 2 * clamp(20px, calc(8 * var(--pzh)), 110px)); display: flex; flex-direction: column; gap: clamp(10px, calc(2.3 * var(--pzh)), 30px); transition: opacity var(--d-small) var(--ease), transform var(--d-small) var(--ease); }
 .pz-panel.pz-leave { opacity: 0; transform: translateY(-6px); }
 /* The teaching card leaves and arrives like the data card: a fade with a short slide toward its own edge, same timing. */

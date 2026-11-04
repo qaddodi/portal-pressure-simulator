@@ -51,7 +51,13 @@ const settleLands = (el, ok) => { const w = lands.get(el); if (!w) return; lands
 // string a frame. The transform's text takes the card's own x, which no table can hold, so it is the one string a moving card makes.)
 const OPACITY = new Array(1001);
 const opacityText = (o) => { const i = o > 0 ? (o < 1 ? Math.round(o * 1000) : 1000) : 0; return OPACITY[i] ?? (OPACITY[i] = (i / 1000).toFixed(3)); };   // alloc-rare: fills each of the 1001 table entries once, ever
-const write = (el, x, o) => { el.style.setProperty('transform', `translateX(${x.toFixed(2)}px)`, 'important'); el.style.setProperty('opacity', opacityText(o), 'important'); };
+// (A property is written only when its text changes: a card whose opacity has settled at 1 or 0 (in whole by 40 % of its way, out gone by
+// 85 %) or whose x holds still makes no style write for it in the frames left, so a move's last third restyles nothing but the transform.)
+const write = (el, x, o) => {
+  const st = el.style, tx = `translateX(${x.toFixed(2)}px)`, ot = opacityText(o);
+  if (st.transform !== tx) st.setProperty('transform', tx, 'important');
+  if (st.opacity !== ot || st.getPropertyPriority('opacity') !== 'important') st.setProperty('opacity', ot, 'important');
+};
 // (pz-throwing: the card is moved here, from its first frame out until it is let go at rest (or out of sight, held, until its class lets it go).
 // Mohammad, 2 Nov 2026: "the teaching card moves away, the data card just pops out disappears, and they don't go away same time". The data
 // card on the Mac, iPad and phone is a readings sheet whose leave class (.pz-sheet.pz-hide) faded its parts and its two glass pieces on a CSS
