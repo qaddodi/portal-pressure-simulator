@@ -46,6 +46,6 @@ test('the backdrop (the diaphragm) is read as shown: it is out of the page\'s la
   assert.match(stage, /const BACKDROP_READ = \{ shown: true \};/);
   assert.equal([...stage.matchAll(/add\('back', gBackdrop, BACKDROP_READ\)/g)].length, 2, 'both the whole set and the changing organs read the backdrop as shown');
   assert.doesNotMatch(stage, /add\('back', gBackdrop\)/);
-  assert.match(stage, /if \(getComputedStyle\(el\)\.display === 'none' && !opt\?\.shown\) return;/);
+  assert.match(stage, /if \((?:getComputedStyle|csNow)\(el\)\.display === 'none' && !opt\?\.shown\) return;/);
   assert.match(paint, /if \(cs\.display === 'none' && !\(c\.shown && el === root\)\) return;/);
 });

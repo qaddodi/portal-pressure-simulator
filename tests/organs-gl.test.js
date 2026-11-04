@@ -47,7 +47,7 @@ test('the bowel is a picture at rest gathered under the gut, moved by its float 
   const gl = readFileSync(new URL('../src/ui/organs-gl.js', import.meta.url), 'utf8');
   assert.match(stage, /const LIVE_ORDER = \['back', 'behind', 'bowel', 'gut', /);
   assert.match(stage, /for \(const L of LIVE_ORDER\) \{/);
-  assert.match(stage, /opacity: parseFloat\(getComputedStyle\((?:live\.)?(?:live\.)?(?:live\.)?gGut\)\.opacity\), under: \[\{ name: 'bowel', dy: (?:live\.)?bowelDy\(\) \}\]/);
+  assert.match(stage, /opacity: parseFloat\((?:getComputedStyle|csNow)\((?:live\.)?(?:live\.)?(?:live\.)?gGut\)\.opacity\), under: \[\{ name: 'bowel', dy: (?:live\.)?bowelDy\(\) \}\]/);
   assert.match(stage, /if \((?:live\.)?(?:live\.)?(?:live\.)?liveSet\) (?:live\.)?(?:live\.)?(?:live\.)?veins\.organs\.shift\('bowel', (?:live\.)?(?:live\.)?bowelDy\(\)\);/);
   // The picture: the bowel alone, painted where the bowel is (at), its float held in the pictures' state while the fluid eases and
   // taken once it settles.

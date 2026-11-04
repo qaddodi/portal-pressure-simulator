@@ -11,6 +11,8 @@ import { flattenPath } from './shape-gl.js';
 import { store, updateParams } from './store.js';
 import { putText, s, toast } from './util.js';
 import { createVesselPick } from './vessel-pick.js';
+import { sceneBegin, sceneStyle } from './scene-store.js';
+
 
 export function createHover(st, live) {
   const { E, EI, EV, GL_ROWS, MQ, SEL_FADE, TIER_ART, TIER_LIFT, TIER_LIFT_FRONT, ascitesLine, ascitesPath, ascitesSvg, clientToWorldFast, defs, easeInOut, explain, gGuides, gLeaders, gSelO, geo, glLines, late, lateRun, levelTier, nearbyEdge, nextFrame, nodePos, olSet, onHoverInfo, onSelect, orgTone, organEls, organG, pointAt, polyD, pool, readFrame, refreshCTM, setGlowSrc, spot, spotOn, stageBox, svg, syncPlateLook, updateLabels, vh, wrap } = st;
@@ -81,7 +83,7 @@ export function createHover(st, live) {
   // isPointInFill/isPointInStroke, which laid the page out in the pointer's move. A band's stroke width is read between frames, once.)
   const ptPolys = new Map(), ptSW = new WeakMap(), ptSWWant = new Set();
   let ptSWAsk = 0;
-  function ptSWRead() { ptSWAsk = 0; for (const el of ptSWWant) ptSW.set(el, parseFloat(getComputedStyle(el).strokeWidth) || 0); ptSWWant.clear(); }
+  function ptSWRead() { ptSWAsk = 0; sceneBegin(); for (const el of ptSWWant) ptSW.set(el, parseFloat((sceneStyle(el) || getComputedStyle(el)).strokeWidth) || 0); ptSWWant.clear(); }   // (the scene store's width; the browser only where it cannot say)
   const polysOf = (d) => {
     let p = ptPolys.get(d);
     if (!p) { p = flattenPath(d, 0.25); if (ptPolys.size > 64) ptPolys.clear(); ptPolys.set(d, p); }

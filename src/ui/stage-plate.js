@@ -14,12 +14,15 @@ import { cropToGrid } from './organs-gl.js';
 import { paintBox } from './plate-copy.js';
 import { leftAlone } from './quiet.js';
 import { refine } from './refine.js';
+import { sceneBegin, sceneStyle } from './scene-store.js';
 import { chainMat, elBoxInto } from './shape-gl.js';
 import { clamp } from './util.js';
 
 import { stageScope } from './stage-scope.js';
 export function createPlate(st, live) {
   const { EBOX, LAYER_SPENT, LENS_FADE, LIVE_LAYERS, LIVE_ORDER, PLATE_BASE, PLATE_RECT, bakeStep, bowelDy, defs, drawVeins, dropViewKeep, easeInOut, flag, flank, fullOk, gBackdrop, gOrgans, ghost, glWanted, gpuOrgansOn, gutKids, hidePlate, lensNow, liveOn, liverTint, lv, nextFrame, organEls, organG, plateOn, readFluidInk, readFrame, refreshCTM, setG, spleenMoving, spleenMv, spot, spotOn, stageBox, stageWrap, svg, themeKey, vCanvas, wrap, wrapCS, wrapCls } = st;
+  // (An element's style from the scene store (worked out from the page's rules, scene-store.js), from the page now; the browser only where it cannot say.)
+  const csNow = (el) => { sceneBegin(); return sceneStyle(el) || getComputedStyle(el); };
   // The organs' groups by the layer they are drawn in (organs-gl.js), back to front: the five pictures of the plan, with the two
   // organs that change shape, the spleen and the liver (its ghost line with it), each a layer of its own between them. An element
   // the list does not name (none today) goes with the layer before it, so the order of the SVG is always kept.
@@ -202,7 +205,7 @@ export function createPlate(st, live) {
         const groups = [];
         let ok = true;
         for (const el of els) {
-          if (!el || getComputedStyle(el).display === 'none') continue;
+          if (!el || csNow(el).display === 'none') continue;
           const spec = el.localName === 'g' ? readGroup(el, { withMask: el !== organG.stomach, nest: true }) : null;
           if (!spec) { console.warn('Organs on the GPU: not readable for painting, this layer stays a picture:', el); bakeWhy.set(L, `${elName(el)} not readable${readFail() ? `: ${readFail()[0]} on ${elName(readFail()[1])}` : ''}`); ok = false; break; }
           groups.push({ spec, m: matOfEl(el).slice() });
@@ -286,7 +289,7 @@ export function createPlate(st, live) {
     let ok = true;
     live.liveFailWhy = '';
     const add = (L, el, opt) => {
-      if (getComputedStyle(el).display === 'none' && !opt?.shown) return;
+      if (csNow(el).display === 'none' && !opt?.shown) return;
       const spec = readGroup(el, opt);
       if (!spec) { ok = false; live.liveFailWhy ||= `${elName(el)} not readable`; console.warn('Organs on the GPU: not readable for painting, the organs stay pictures:', el); return; }
       if (!organs.has(L)) organs.set(L, []);
@@ -311,7 +314,7 @@ export function createPlate(st, live) {
       if (!spec) { ok = false; live.liveFailWhy ||= `mask ${sel} not readable`; continue; }
       // (The gut's: its group's opacity laid with it, and the bowel's picture, at rest, gathered under it with its float. el: the
       // element whose frame m reads, watched by the stack for writes with the mask's own elements: organs-gl watchLive.)
-      masks.set(L, L === 'gut' ? { spec, el: g, get m() { return matOfEl(g); }, opacity: parseFloat(getComputedStyle(live.gGut).opacity), under: [{ name: 'bowel', dy: bowelDy() }] } : { spec, el: g, get m() { return matOfEl(g); } });
+      masks.set(L, L === 'gut' ? { spec, el: g, get m() { return matOfEl(g); }, opacity: parseFloat(csNow(live.gGut).opacity), under: [{ name: 'bowel', dy: bowelDy() }] } : { spec, el: g, get m() { return matOfEl(g); } });
     }
     nextFrame(() => liveApply(ok, organs, masks));
   }
@@ -559,10 +562,11 @@ export function createPlate(st, live) {
   // Every colour the organs paint with (shapes, their gradients' stops and patterns' contents), as computed with no grey on.
   const GREY_TAGS = new Set(['path', 'circle', 'ellipse', 'rect', 'polygon', 'polyline', 'line', 'text', 'tspan', 'use', 'stop']);
   function greyRead() {
+    sceneBegin();
     const list = [], refs = [], seen = new Set();
     const visit = (el) => {
       if (!GREY_TAGS.has(el.localName)) return true;
-      const cs = getComputedStyle(el);
+      const cs = sceneStyle(el) || getComputedStyle(el);
       for (const p of el.localName === 'stop' ? ['stop-color'] : ['fill', 'stroke']) {
         const v = cs.getPropertyValue(p).trim();
         if (!v || v === 'none') continue;
