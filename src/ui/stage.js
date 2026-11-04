@@ -13918,6 +13918,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // one frame (round 2 review, B4).
     const tR = performance.now();
     if (on) for (const x of EV) {
+      // The hepatic artery keeps its own red in the Blood origin lens: its row carries no streams, but a -1 in the origin texel tells the
+      // shader to keep the lumen's colour (an empty row read as 100 % systemic, a grey blue).
+      if (x.tube && x.vis && !x.ghost) { const o = x.row * FLOW_TEXELS * 4; flowData.fill(0, o, o + FLOW_TEXELS * 4); flowNow[x.row] = 1; flowData[o + 8] = -1; continue; }
       if (!x.vis || x.isArt || x.ghost) continue;
       const r = x.reveal, rs = r ? (r.out ? 1 - easeInOut(clamp((tR - r.t0) / r.dur, 0, 1)) : easeInOut(clamp((tR - r.t0) / r.dur, 0, 1))) : 1;
       const k = EI[x.e.id], q = Qf[k];
