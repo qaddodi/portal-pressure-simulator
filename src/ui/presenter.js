@@ -35,6 +35,7 @@ import { hvpgSev } from '../engine/pressure-cuts.js';
 import { createHvpgMonitor } from './hvpg-proc.js';
 import { createTools } from './presenter-tools.js';
 import { openHandout } from './handout.js';
+import { createPresenterLink } from './presenter-view.js';
 import { noteResume, resumeFor } from './resume.js';
 import { parseDeckSource, checkDeck } from './deck-source.js';
 import { cleanEq } from './import-safety.js';
@@ -2229,6 +2230,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     else if (want < slides.length - 1) { firstBeat = true; go(want + 1); firstBeat = false; } else stop();
   };
   const prev = () => { if (procBack()) return; if (beat > 0) toBeat(beat - 1); else if (want > 0) go(want - 1); };
+  // (N1: the presenter view's window: the slide on show goes to it, its Next, Back and jumps come back as the keys do.)
+  const pview = createPresenterLink({ onBlocked: () => toast('Allow pop-ups to open the presenter view'),
+    onCmd: (m) => { if (!deck || leaving) return; if (m.c === 'next') next(); else if (m.c === 'prev') prev(); else if (m.c === 'go' && Number.isFinite(m.i)) go(clamp(m.i | 0, 0, slides.length - 1)); } });
   // A beat asked for: the cards stay, the figure moves (beatMove, run). A zoomed card glides back first, as for a slide.
   function toBeat(k) {
     if (!deck || leaving) return;
@@ -5372,6 +5376,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   function paintChrome() {
     if (!ui) return;
     const n = slides.length, i = want;
+    pview.publish(deck, slides, i, beat, lastBeat(i) + 1);
     ui.prog.style.setProperty('--p', String((i + 1) / n));
     announce();
     const ph = phone(), skip = lapseOn && lapseLeft > 0, more = !skip && beat < lastBeat(i), last = i === n - 1 && !skip && !more;
@@ -5813,6 +5818,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     else if (lk === 'l') inkOf().hold(true);   // (N2: hold L for the spotlight; released on keyup)
     else if (lk === 'd') { if (!e.repeat) toast(inkOf().togglePen() ? 'Pen on: draw on the figure, E erases' : 'Pen off', '', { present: true }); }
     else if (lk === 'e') { if (!e.repeat) ink?.clear(); }
+    else if (lk === 'p') pview.open();   // (N1: the presenter view)
     else if (lk === 'n' || lk === 's') { /* the app's own N and S stay off while presenting */ }
     else if (k === 'F5') { /* a clicker's "start show": never reload the page */ }
     else if (k === 'Escape') { if (black) toggleBlack(false); else if (zoomOn()) ui.zoom.close().then(paintZoom); else stop(); }   // (a zoomed card first glides back)
@@ -6280,6 +6286,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     leaving = null;
     if (!deck) return;
     ink?.dispose(); ink = null;
+    pview.end();
     sess?.dispose(); sess = null; colT = refitT = reframeT = turnT = glassT = 0; swapNow = false;   // (R03: this talk's timers stop with it, none left to act on the next)
     if (cover) coverDown(true);
     stopLapse(); procStop(); cathStop(); abSlow(); liveOff = false; handOn = false;   // (before deck is cleared: stopping a time-lapse repaints the bar)
@@ -6446,6 +6453,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
 
   // What the unified menu (menu.js) lists and does: the presentations, this device's scripts and their actions.
   const library = () => ({ decks: DECKS, topics: TOPICS, levels: LEVELS, mine: readMine(), testing: TESTING, start, shareDeck, notes: (d) => openHandout(d, deckNumbers(d)),
+    startView: (id, at) => { pview.open(); return start(id, at); },   // (N1: the window opens inside the tap, then the talk starts)
     scriptNotes: (s) => { const d = fromScript(s); openHandout(d, deckNumbers(d)); }, newScript, importFile, addStep, shareScript, exportScript, remove, current: () => deck?.id ?? null,
     resumeAt: (d) => resumeFor(d.id, (d.mine ? d.slides : withOverview(d).slides).length) });
 

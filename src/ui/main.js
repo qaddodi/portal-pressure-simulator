@@ -2334,7 +2334,7 @@ function wirePanel() {
 const PRESENT_KEYS = [
   ['→ · Space · Enter', 'Next slide (during a time-lapse, run it to its end)'], ['← · Backspace', 'Previous slide'],
   ['↑ · ↓', 'Show / tuck the readings under the instrument card (Mac, iPad on its side)'],
-  ['Home · End', 'First / last slide'], ['Number, then Enter', 'Jump to that slide'], ['G', 'The slide list'],
+  ['Home · End', 'First / last slide'], ['Number, then Enter', 'Jump to that slide'], ['G', 'The slide list'], ['P', 'Presenter view: notes, next slide and clocks in a second window'],
   ['B or .', 'Black screen'], ['F', 'Full screen'], ['Hold L', 'Spotlight on the pointer (iPad: press and hold)'], ['D · E', 'Pen on / off · erase the pen'], ['?', 'This guide'], ['Esc', 'Put an enlarged card back, then stop presenting'],
 ];
 function openHelp(section) {
@@ -2507,7 +2507,7 @@ function armFeedbackAsk() {
   };
   timer = setInterval(tick, TICK);
 }
-main().catch((err) => {
+(/[?&]presenter-view(?:[=&]|$)/.test(location.search) ? import('./presenter-view-page.js').then((m) => m.run()) : main()).catch((err) => {   // (N1: ?presenter-view is the presenter's second window, text only)
   // (Told to the page's own boot card too, so a failed start shows "couldn't start / Reload" at once, not a pulsing logo for 15 s and then an empty shell.)
   (window.ppsBootErrors ||= []).push(String(err?.message || err).slice(0, 300)); window.ppsBootFail?.();
   console.error(err); document.body.append(h('pre', { style: { position: 'fixed', bottom: 0, left: 0, background: 'var(--white)', color: 'var(--critical)', padding: '8px', zIndex: 'var(--z-diag)' } }, String(err.stack || err))); });

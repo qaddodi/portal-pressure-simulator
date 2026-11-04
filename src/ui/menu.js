@@ -185,6 +185,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     h('div', { class: 'um-acts' },
       r ? h('button', { class: 'btn sm primary', onclick: () => { close(); lib.start(d.id, r.at); } }, svgIcon('play', 'mi-ic'), `Resume ${r.at + 1} / ${r.n}`) : null,
       h('button', { class: r ? 'btn sm' : 'btn sm primary', onclick: () => { close(); lib.start(d.id); } }, svgIcon('play', 'mi-ic'), r ? 'From the start' : 'Present'),
+      lib.startView ? h('button', { class: 'btn ghost sm', title: 'Present with notes, the next slide and clocks in a second window (P while presenting)', onclick: () => { lib.startView(d.id, r?.at); close(); } }, svgIcon('projector', 'mi-ic'), 'Presenter view') : null,
       h('button', { class: 'btn ghost sm', onclick: () => lib.shareDeck(d) }, svgIcon('share', 'mi-ic'), 'Copy link'),
       h('button', { class: 'btn ghost sm', title: 'Speaker notes and questions for the room, one row per slide', onclick: () => lib.notes(d) }, svgIcon('print', 'mi-ic'), 'Print notes')));
   const scriptPreview = (s, lib) => h('div', { class: 'um-pv-in' },
