@@ -16,7 +16,7 @@ test('L3: an opaque solo pass skips laying the figure\'s kept picture and leaves
 });
 
 test('L3: the lobule\'s pass says opaque only when faded in and carried over the whole canvas', () => {
-  assert.match(lz, /solo: true, opaque: shareOpaque, draw: layShared/);
+  assert.match(lz, /solo: true, on: [^\n]*opaque: shareOpaque, draw: layShared/);
   const a = lz.indexOf('function shareOpaque()');
   const body = lz.slice(a, a + 900);
   assert.match(body, /fade < 0\.999/);
