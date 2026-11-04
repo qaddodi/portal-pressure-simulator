@@ -1,8 +1,8 @@
 name: CI
 
-# Everything, on pull requests and on main: lint, unit tests and a strict build (BUILD_STRICT), then the browser checks of the source
-# site and the production build (browser.yml, strict: a visual drift or a frame time past its ceiling blocks), and the idle, gesture
-# and text-floor checks. A newer push to the same pull request replaces a run still in progress.
+# On pull requests and on main: lint, unit tests, the static checks and a strict build (BUILD_STRICT), then one smoke run of the
+# production build (scripts/smoke-lite.mjs: boot, the views, every deck opens; no pixels, no timings). A newer push to the same pull
+# request replaces a run still in progress. (The 84-shard browser suite, pixels and frame gates were retired on 4 Nov 2026.)
 
 on:
   push:
@@ -46,11 +46,13 @@ jobs:
         continue-on-error: true
       - name: Physiology acceptance tests and cache stamps
         run: npm test
+      - name: Static checks (conflict markers; the app and the worker bundle)
+        run: npm run check:static
       - name: Production build
         env:
           BUILD_STRICT: '1'
         run: npm run build
-      # Made once, here: every browser job downloads it.
+      # Made once, here: the smoke job downloads it.
       - name: Keep the build for the browser checks
         uses: actions/upload-artifact@v6
         with:
@@ -59,81 +61,16 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  browser:
-    needs: quick   # (no browser runner is taken until lint, the unit tests and the build have passed)
-    uses: ./.github/workflows/browser.yml
-    with:
-      sites: '["source", "build"]'
-      strict: true
-
-  # Left alone for two minutes, the anatomy and the lobule do not pile up memory, page nodes or listeners.
-  idle:
-    runs-on: ubuntu-24.04
+  smoke:
     needs: quick
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-browser
-      - name: Nothing piles up while a view is left alone
-        run: npm run smoke:idle
-      - name: A redraw of only the vessels that changed matches a whole redraw; nothing stale after any change
-        run: npm run smoke:rows
-      - name: The breathing widths' fast path draws what the full update would (six cases)
-        run: npm run smoke:widths
-        env:
-          N: 10
-      - name: The menu's kept rows equal rows made from nothing after each kind of change
-        run: npm run smoke:menu
-      - name: The figure draws its vessels (home and zoomed), and a paused figure sleeps after a lens switch
-        run: npm run smoke:draws
-
-  # Accessibility (PR-24): axe-core on the live app and the drawn-label twin check. Fails on violations the baseline does not know
-  # (tests/e2e/axe-baseline.json; none yet means report only). Advisory until the first baseline is written.
-  a11y:
-    runs-on: ubuntu-24.04
-    needs: quick
-    timeout-minutes: 20
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v5
-      - uses: ./.github/actions/setup-browser
-      - run: npm i --no-save axe-core@4.10.2
-      - name: axe-core and the label twins
-        run: node tests/e2e/axe.mjs
-
-  # Pan and pinch: the figure and the lobule follow the hand, and the moving picture is never undrawn or softer than a
-  # whole draw of the same view.
-  gesture:
-    runs-on: ubuntu-24.04
-    needs: quick
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v5
-      - uses: ./.github/actions/setup-browser
-      - name: Nothing undrawn or soft while the view moves
-        run: npm run smoke:veins
-      - name: Pinch and pan follow the hand (phone, lobule, trackpad, Safari gesture events)
-        run: npm run smoke:gesture
-      - name: Labels follow the figure (a pan, a zoom) and keep off the view switcher
-        run: npm run smoke:labels
-
-  # The compact layout (an iPad held sideways, a Mac window 700 px tall): no slide's text under 12 px on the screen.
-  text-floor:
-    name: text-floor (${{ matrix.device }} ${{ matrix.shard }})
-    runs-on: ubuntu-24.04
-    needs: quick
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        device: [ipadSide, macShort]
-        shard: [1/4, 2/4, 3/4, 4/4]
-    steps:
-      - uses: actions/checkout@v5
-      - uses: ./.github/actions/setup-browser
-      - name: Every slide's text 12 px or more
-        env:
-          DEVS: ${{ matrix.device }}
-          SHARD: ${{ matrix.shard }}
-          SLIDES_ONLY: '1'
-        run: node tests/e2e/text-floor.mjs
+      - uses: actions/download-artifact@v7
+        with:
+          name: dist
+          path: dist
+      - name: Smoke (boot, views, every deck opens)
+        run: npm run smoke:lite -- dist

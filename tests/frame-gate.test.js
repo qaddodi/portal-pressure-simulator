@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { loadLimits, limitsFor, judgeFrames, judgeInput, frameLines, inputLines, breachLine, allBreaches, annotation, exitCode, summaryMarkdown, verdictOf, idleLines, IDLE, MIN_FRAMES } from '../scripts/frame-gate-lib.mjs';
@@ -169,26 +169,15 @@ test('the gate drives the page through the scheduler and the input tracker, and 
   assert.match(read('package.json'), /"perf:gate": "node scripts\/frame-gate\.mjs"/);
 });
 
-test('the frame gate warns on the preview (checks.yml) and blocks in ci.yml, in the visual job of browser.yml, and adds no job', () => {
-  const browser = read('.github/workflows/browser.yml'), checks = read('.github/workflows/checks.yml'), ci = read('.github/workflows/ci.yml');
-  assert.match(browser, /PERF_GATE: \$\{\{ inputs\.strict && 'block' \|\| 'warn' \}\}\n[^\n]*\n\s+run: npm run perf:gate -- dist/);
-  assert.match(checks, /uses: \.\/\.github\/workflows\/browser\.yml\n\s+with:\n[^\n]*\n\s+strict: false/, 'checks.yml only warns');
-  assert.match(ci, /uses: \.\/\.github\/workflows\/browser\.yml\n\s+with:\n[^\n]*\n\s+strict: true/, 'ci.yml blocks');
-  // (the step is in the visual job, the last in browser.yml: a job of its own would take two more runners)
-  assert.ok(browser.indexOf('perf:gate') > browser.indexOf('\n  visual:\n'), 'browser.yml: in the visual job');
-  const jobs = (yml) => [...yml.slice(yml.indexOf('\njobs:')).matchAll(/^ {2}([a-z][a-z-]*):\s*$/gm)].map((m) => m[1]);
-  assert.deepEqual(jobs(browser), ['plan', 'browser-checks', 'gpu-organs', 'webkit', 'visual'], 'browser.yml: the browser jobs');
-  assert.deepEqual(jobs(checks).slice(0, 2), ['build', 'browser'], 'checks.yml: the build, then browser.yml (the gate and the sweeps follow)');
-  assert.deepEqual(jobs(ci), ['quick', 'browser', 'idle', 'gesture', 'text-floor'], 'ci.yml: quick, browser.yml and its own checks');
-  assert.ok(!/perf:gate|frame-gate/.test(read('.github/workflows/pages.yml')), 'pages.yml, the deploy, does not run it');
-  assert.match(browser, /continue-on-error: \$\{\{ !inputs\.strict \}\}\n\s+timeout-minutes: 15\n\s+env:\n\s+PERF_PROFILE/, 'a warning unless strict, never a red preview run');
+test('the frame gate is a local tool: no workflow runs it (CI judges no timings on a software GPU, 4 Nov 2026)', () => {
+  for (const f of ['ci.yml', 'checks.yml', 'quick.yml', 'pages.yml']) assert.ok(!/perf:gate|frame-gate/.test(read(`.github/workflows/${f}`)), `${f} does not run it`);
+  assert.ok(!existsSync(new URL('../.github/workflows/browser.yml', import.meta.url)), 'browser.yml is gone');
 });
 
 test('the gate keeps to its time: a budget inside the step\'s, a verdict whatever is done, a second run only if it fits', () => {
   const js = read('scripts/frame-gate.mjs');
   const budget = +js.match(/flag\('budget', 'PERF_BUDGET', '(\d+)'\)/)[1];
-  // (the budget, the 90 s grace of the watchdog and a minute to close the browser must fit in the step's 15 minutes)
-  assert.match(read('.github/workflows/browser.yml'), /timeout-minutes: 15\n\s+env:\n\s+PERF_PROFILE/);
+  // (the budget, the 90 s grace of the watchdog and a minute to close the browser fit in 15 minutes, the step it had in CI)
   assert.ok(budget + 90 + 60 < 15 * 60, `${budget} s and its grace fit in 15 minutes`);
   assert.match(js, /setTimeout\(\(\) => finish\(true\), BUDGET \+ 90000\)/, 'a call that hangs is cut off with the verdict');
   assert.match(js, /left\(\) < took \* 2 \+ 30000/, 'a frame scenario runs again only if there is time for two more');

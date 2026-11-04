@@ -24,43 +24,21 @@ Work happens in the cloud; previews are published to GitHub Pages.
   coding agent; do not add `codex/` branches without changing both deployment rules.
 
 Loop for every change (fast previews first, full tests before merge):
-1. Make the change and run `npm run lint && npm test` (seconds), then `npm run gate` (the pre-push gate, `scripts/gate.mjs`, a few
-   minutes): it fails on a conflict marker, an import that does not resolve, a page that does not boot, a deck slide change that does
-   not end whole (card frozen mid-fade, glass never arriving, camera still gliding), a Circuit/Anatomy/Lobule switch that does not
-   settle, a missing diaphragm, labels that do not follow a pan or zoom, and a rest view that drifts from `tests/visual/`. A thread pushes only
-   when it passes (`--only static,slides` for a quick run on a deck change; `--decks hvpg` narrows it). CI runs it only on request
-   (`checks.yml`: `[gate]` in a commit message, or `[gate-full]` to run every slide on desktop and phone too). Details: header of `scripts/gate.mjs`. Do not run the browser
-   checks (`npm run smoke`) or `npm run check` locally at this stage. For any UI change, also
-   take screenshots of the intended behaviour in the running app before pushing: phone
-   (390x844, deviceScaleFactor 3), iPad and desktop where the change applies. Check them
-   against the request, and do not report a fix as done without that check. Keep the
-   screenshots outside the repo (the scratchpad).
-2. Commit and push to the preview branch. The preview deploy (`pages.yml`) does not wait for lint and unit
-   (about a minute to live); they run beside it in `quick.yml` as a warning, so a red one is fixed in a follow-up
-   push. A red "Pages (live site + preview)" run means the preview did not publish. Check it finished (GitHub
-   Actions tools), then tell the owner the preview URL. The browser checks (`checks.yml`) run only on request:
-   `[checks]` in a commit message, or the Actions tab.
+1. Make the change. The owner's rule (4 Nov 2026): code only, no headless runs, screenshots or browser checks before a push.
+   `npm run lint && npm test && npm run check:static` (node only, seconds) are the fast checks; Quick runs them on every push anyway.
+2. Commit and push to the preview branch. The preview deploy (`pages.yml`) does not wait for the checks (about a minute to live).
+   Quick (`quick.yml`: lint, unit tests, the static checks) runs beside it as a warning, so a red one is fixed in a follow-up push.
+   A red "Pages (live site + preview)" run means the preview did not publish. Check it finished (GitHub Actions tools), then tell
+   the owner the preview URL. The one browser check, `scripts/smoke-lite.mjs` (boot, the three views, slide 1 of every deck, on the
+   GPU path; no pixels, no timings), runs only on request: `[smoke]` in a commit message (`checks.yml`), or the Actions tab.
 3. The owner tests on their devices and reports anything broken; repeat steps 1-2 quickly.
-4. When the owner is happy, run the full `npm run check` (lint, unit, build, smoke, smoke:dist),
-   fix anything it finds, and recommend any tests worth adding for the new behaviour.
-   The full CI (`ci.yml`) also runs every check on pull requests and on `main`, split over
-   parallel runners (source site and build, desktop in twenty-eight shares and phone in fourteen, plus the visual
-   check per device). A browser check that failed only by timing out gets one more try
-   (`SMOKE_RETRIES`); any other failure counts at once.
-   Visual references (`tests/visual/`): the browser checks compare the look (job `visual` in
-   `browser.yml`, called by `checks.yml` and `ci.yml`). On the preview (`checks.yml`) a drift is a warning with the diffs as an artifact; in `ci.yml` it blocks
-   the merge. If your change is meant to alter a view, run the "Visual references" workflow on your
-   branch right after pushing it (GitHub Actions API: run `visual-refs.yml` on the branch). It
-   redraws only the drifted views on CI's machines and commits them as "Visual references redrawn
-   on CI: <views>"; pull before your next push. Never run it to silence a drift you did not intend.
-   To redraw them all by hand (rarely needed), run `npm run visual -- --update`.
-   Frame time and input latency (`scripts/frame-gate.mjs`, limits in `scripts/perf-limits.json`): the production build is driven as a
-   person does on the laptop and phone profiles (a pan, a pinch, a camera glide, Next through a deck, a verb, a lens switch, the
-   menu) and judged by the scheduler's script time per frame and the time from an input to the first change on the page. It runs
-   inside the `visual` job of `browser.yml`: called by `checks.yml` it warns (the numbers in the job summary, the long frames in the
-   `perf-gate-*` artifact); called by `ci.yml` it blocks past a ceiling. A measure past its ceiling is a regression to fix, never a limit to raise;
-   tighten a ceiling to the measured number (plus its margin) when the runners have reported. In the app, `?perf` lists every frame over 50 ms with
-   its surfaces and phase and the slowest inputs, and Copy puts them in the paste.
+4. On pull requests and on `main`, `ci.yml` runs lint, the unit tests, the static checks, a strict build (`BUILD_STRICT`: the chunk
+   cap and the line budgets fail) and the smoke. The 84-shard browser suite (`tests/e2e/smoke.mjs`), the pixel comparison against
+   `tests/visual/`, the frame-time, motion-budget and input-latency gates, the gate (`scripts/gate.mjs`) and the deck and glitch
+   sweeps were retired from CI on 4 Nov 2026 (software WebGL on a shared runner judges neither the look nor the speed of a real
+   GPU; `/mnt/project-files/portal-reliability/checks-redesign-recs.md`). Their scripts stay in the repo as local tools, and
+   several unit tests reuse their judging code. In the app, `?perf` lists every frame over 50 ms with its surfaces and phase and
+   the slowest inputs, and Copy puts them in the paste.
 5. Merge to `main` only when the owner says so. That also resets `/preview/` to match `main`.
    If the branch is already merged, restart it from the latest `main` before more work.
 
@@ -72,7 +50,7 @@ with file, function, frame path and owning thread, is `docs/off-gpu-inventory.md
 `scripts/off-gpu-owners.json`). `npx eslint .` alone checks code style while the list is not yet empty. Never weaken the scanner or
 loosen its test to get green. `?offgpu=1` shows the same kinds of work live, per frame, and flashes red when any happens during motion.
 
-Pages serves each copy as its production build (`npm run build` → `dist/`: bundled, minified, hashed), built in the deploy job of `pages.yml`; the repository root still runs as is for `npm start`. The preview's browser checks (`checks.yml`) test that build, as shipped; `ci.yml` tests both the source and the build. Source imports are plain addresses: no `?v=<hash>` stamp is committed (2 Nov 2026), so parallel branches no longer conflict on them; cache-busting is the build's hashed
+Pages serves each copy as its production build (`npm run build` → `dist/`: bundled, minified, hashed), built in the deploy job of `pages.yml`; the repository root still runs as is for `npm start`. The on-request smoke (`checks.yml`) and `ci.yml` test that build, as shipped. Source imports are plain addresses: no `?v=<hash>` stamp is committed (2 Nov 2026), so parallel branches no longer conflict on them; cache-busting is the build's hashed
 file names and generated service worker. `tests/stamp.test.js` fails a committed stamp, and `npm run stamp` takes one out of a branch made before this.
 Workflows pin `ubuntu-24.04`, so a new runner image (and new visual references) is a deliberate change.
 

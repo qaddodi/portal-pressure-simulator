@@ -1,4 +1,4 @@
-name: Quick checks (lint, unit tests)
+name: Quick checks (lint, unit tests, static)
 
 # Lint and the unit tests on every push to the preview branch, beside the deploy (pages.yml) and never blocking it:
 # a red run here is fixed in a follow-up push. One run at a time; a newer push replaces only the waiting one.
@@ -43,3 +43,6 @@ jobs:
       - name: Unit tests
         if: success() || failure()   # (the tests run even when lint failed)
         run: npm test
+      - name: Static checks (conflict markers; the app and the worker bundle)
+        if: success() || failure()
+        run: npm run check:static
