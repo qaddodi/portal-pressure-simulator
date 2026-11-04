@@ -9,7 +9,7 @@ import { store } from './store.js';
 import { s, h, clamp, lerp, toast, loadFailed, restBox, translateRest, settledBox, UPRIGHT_MQ } from './util.js';
 import { recordLayer } from './over-records.js';
 import { lerpVT, camPath, blendPaths, viewsOverlap, driftEase } from './cam-arc.js';
-import { easeMove, easeArrive, camMs, carryRate, carried, D_SMALL, D_SURFACE } from './ease.js';
+import { easeMove, easeArrive, camMs, carryRate, carried, D_SURFACE } from './ease.js';
 import { glideClock } from './glide-clock.js';
 import { clipBox, mapBox } from './fit-box.js';
 import { spleenMotion } from './spleen-motion.js';
@@ -26,7 +26,6 @@ import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } fro
 import { elBoxInto } from './shape-gl.js';
 import { HOVER_LINK } from './hover-link.js';
 import { createExplain } from './label-explain.js';
-import { sceneCam } from './scene-cam.js';
 import { createGlassGL, glassRegions, GLASS, PANE, roundPath } from './glass-gl.js';
 import { ENT_W } from './veins-bin.js';
 import { createVeinsGL, TUBE_TEXELS, MAX_TIERS, ORIGIN_GREY } from './veins-gl.js';
@@ -130,6 +129,7 @@ import { createSitesPaint } from './stage-sites-paint.js';
 import { createCamera } from './stage-camera.js';
 import { createTubes } from './stage-tubes.js';
 import { createVessels } from './stage-vessels.js';
+import { createZoom } from './stage-zoom.js';
 
 export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, onViewChange }) {
   // <stage-split live>
@@ -257,11 +257,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get fluidSeen() { return fluidSeen; }, set fluidSeen(v) { fluidSeen = v; },
     get fluidStillAt() { return fluidStillAt; }, set fluidStillAt(v) { fluidStillAt = v; },
     get fluidSurf() { return fluidSurf; }, set fluidSurf(v) { fluidSurf = v; },
+    get follow0() { return follow0; }, set follow0(v) { follow0 = v; },
+    get follow1() { return follow1; }, set follow1(v) { follow1 = v; },
     get following() { return following; }, set following(v) { following = v; },
+    get followScene() { return followScene; }, set followScene(v) { followScene = v; },
+    get followU() { return followU; }, set followU(v) { followU = v; },
     get fontPx() { return fontPx; },
     get forceDraw() { return forceDraw; }, set forceDraw(v) { forceDraw = v; },
     get frameNo() { return frameNo; }, set frameNo(v) { frameNo = v; },
     get frostHold() { return frostHold; }, set frostHold(v) { frostHold = v; },
+    get frostWake() { return frostWake; },
     get fullFailed() { return fullFailed; }, set fullFailed(v) { fullFailed = v; },
     get fullSwap() { return fullSwap; }, set fullSwap(v) { fullSwap = v; },
     get fx() { return fx; }, set fx(v) { fx = v; },
@@ -571,6 +576,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get xfOp() { return xfOp; }, set xfOp(v) { xfOp = v; },
     get xfSolving() { return xfSolving; }, set xfSolving(v) { xfSolving = v; },
     get zoomBase() { return zoomBase; }, set zoomBase(v) { zoomBase = v; },
+    get zoomLayers() { return zoomLayers; }, set zoomLayers(v) { zoomLayers = v; },
+    get zoomLz() { return zoomLz; }, set zoomLz(v) { zoomLz = v; },
     get zoomM() { return zoomM; }, set zoomM(v) { zoomM = v; },
     get zShift() { return zShift; }, set zShift(v) { zShift = v; },
   };
@@ -1953,133 +1960,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (pinTo), a label with no station is carried by its centre (label-gl ride), and the page's figure layers take one CSS matrix. The labels
   // keep their screen size. Closing is C back to the identity: nothing is laid out, so nothing settles.)
   let zoomLz = false, zoomM = null, zoomLayers = null;
-  const zoomM6 = [1, 0, 0, 1, 0, 0], zoomT = [0, 0];
-  let drawCam = null;   // (a card's zoom landed: the figure's layer drawn for C·view, see zoomSharp; null: drawn for the view, carried by the camera)
-  const zoomGlass = [], zoomHid = [], zoomAff = { s: 1, dx: 0, dy: 0, ox: 0, oy: 0 };   // (the callouts' glass bodies given the zoom, and the callouts that go out under the zoomed card)
-  const zoomAffFn = () => (zoomLayers ? zoomAff : null), zoomScaleFn = () => zoomAff.s;   // (C in stage px, written in place each frame: the label ride's matrix and the pinned points')
-  function zoomOpen() {
-    if (zoomBase) return false;
-    if (lobuleOn && lz?.zoomOpen) { if (!lz.zoomOpen()) return false; zoomBase = { lz: true }; zoomLz = true; return true; }
-    if (!viewNow()) return false;
-    sceneStart();
-    // (The figure's callouts (the HVPG pressures, a stent's points, the Doppler's readings) are page elements in two of those layers: their glass is drawn
-    // from the same camera (zoomAffine, glass-gl.js), and one that would end under the zoomed card goes out through the zoom, since a page element cannot be
-    // blurred behind the card's glass as the picture is: it showed sharp over the card.)
-    zoomGlass.length = 0; zoomHid.length = 0;
-    const aim = sceneCam.aim;
-    if (aim) {
-      const S = aim.s;
-      const tx = (aim.ox - wrapRect.left) * (1 - S) + aim.dx, ty = (aim.oy - wrapRect.top) * (1 - S) + aim.dy;
-      const fx = Math.min(0, Math.max(wrapRect.width * (1 - S), tx)), fy = Math.min(0, Math.max(wrapRect.height * (1 - S), ty));
-      const bx = aim.box, pad = 8;
-      for (const L of [cath.labels, sites.el]) {
-        if (!L) continue;
-        for (const c of L.children) {
-          const r = c.getBoundingClientRect();
-          if (!(r.width > 0)) continue;
-          const l = wrapRect.left + S * (r.left - wrapRect.left) + fx, t = wrapRect.top + S * (r.top - wrapRect.top) + fy, rr = l + r.width * S, bb = t + r.height * S;
-          if (l < bx.right + pad && rr > bx.left - pad && t < bx.bottom + pad && bb > bx.top - pad) zoomHid.push({ el: c, was: c.style.opacity, tr: c.style.transition });
-        }
-        for (const g of L.getElementsByClassName('cl-glass')) { g.zoomAffine = zoomAffFn; g.drawnScale = zoomScaleFn; zoomGlass.push(g); }
-      }
-      for (const h of zoomHid) { h.el.style.transition = `opacity ${D_SMALL}ms var(--ease)`; h.el.style.opacity = '0'; }
-      frostWake();
-    }
-    zoomBase = { scene: true };
-    return true;
-  }
-  // The scene camera's layers, for a card's zoom and for the readings' card tucking away or coming out (followStart): the figure's page layers are taken
-  // (where each stands is read now, before any write: the frames read nothing), and the labels with no station ride by their centres (the leaders' page
-  // layer eases out as in a ride).
-  function sceneStart() {
-    refreshCTM();
-    const layers = [svg, wrap.querySelector('#stageOver'), cath.labels, sites.el].filter(Boolean);
-    zoomLayers = layers.map((el) => { const r = el.getBoundingClientRect(); return { el, left: r.left, top: r.top }; });
-    for (const l of zoomLayers) { l.el.style.transformOrigin = '0 0'; l.el.style.transition = 'none'; }
-    zoomGlass.length = 0; zoomHid.length = 0;
-    rideStart();
-  }
-  // One frame of the camera: p' = S p + (tx, ty) in stage px. The figure's canvas (canvas px), the page's figure layers (one matrix each), the callouts'
-  // glass and the labels, all from the same numbers, in this frame.
-  function sceneSet(S, tx, ty) {
-    if (!zoomLayers || !wrapRect) return;
-    zoomT[0] = tx; zoomT[1] = ty;
-    zoomM6[0] = S; zoomM6[3] = S; zoomM6[4] = tx; zoomM6[5] = ty;
-    zoomM = zoomM6;
-    zoomAff.s = S; zoomAff.dx = wrapRect.left * (1 - S) + tx; zoomAff.dy = wrapRect.top * (1 - S) + ty;
-    const sx = vCanvas.width / (boxW || vCanvas.width || 1), sy = vCanvas.height / (boxH || vCanvas.height || 1);
-    if (drawCam && (Math.abs(drawCam[0] - S) > 1e-4 || Math.abs(drawCam[4] - tx) > 0.01 || Math.abs(drawCam[5] - ty) > 0.01)) zoomSharp(false);   // (the zoom moved: the rest picture carried again)
-    if (!drawCam) veins?.setScene?.(S, tx * sx, ty * sy);
-    for (const l of zoomLayers) l.el.style.transform = `matrix(${S.toFixed(5)},0,0,${S.toFixed(5)},${((S - 1) * (l.left - wrapRect.left) + tx).toFixed(2)},${((S - 1) * (l.top - wrapRect.top) + ty).toFixed(2)})`;
-    if (rideCTM) labelRider.ride(zoomM6);   // (draws every label: the stations' at C(their points), the rest carried)
-    else labelGL?.pinDraw();
-  }
-  // Sharp at landing (card-zoom-plan.md 3.5): once the card has landed, the figure's layer is drawn again for exactly the view the camera carries it
-  // to, and the camera is let go for the figure's canvas: nothing moves, only the sharpness changes (the layout keeps reading the rest view, and the
-  // labels' points are still carried by C). Going back, or a change of the zoom (the readings coming out), carries the rest picture again first.
-  function zoomSharp(on) {
-    if (zoomLz && zoomBase) { lz?.zoomSharp?.(on); return; }
-    if (!zoomBase?.scene || !zoomLayers || !veins || veins.lost) return;
-    if (on === !!drawCam) return;
-    if (on) {
-      if (!zoomM) return;
-      drawCam = zoomM6.slice();
-      veins.setScene(1, 0, 0);
-    } else {
-      drawCam = null;
-      veins.setScene(1, 0, 0);
-    }
-    veinsDirty = true; CTM = null; refreshCTM();
-    drawVeins(true, 'zoom-sharp');
-    if (!on && zoomM) { const sx = vCanvas.width / (boxW || vCanvas.width || 1), sy = vCanvas.height / (boxH || vCanvas.height || 1); veins.setScene(zoomM6[0], zoomM6[4] * sx, zoomM6[5] * sy); }
-  }
-  function sceneStop() {
-    zoomM = null;
-    if (drawCam) { drawCam = null; veinsDirty = true; CTM = null; refreshCTM(); drawVeins(true, 'zoom-end'); }   // (landed sharp: drawn for the rest view again before the camera is let go)
-    veins?.setScene?.(1, 0, 0);
-    for (const l of zoomLayers || []) { l.el.style.transform = ''; l.el.style.transformOrigin = ''; l.el.style.transition = ''; }
-    zoomLayers = null;
-    for (const g of zoomGlass) { delete g.zoomAffine; delete g.drawnScale; }
-    for (const h of zoomHid) { h.el.style.opacity = h.was; h.el.style.transition = h.tr; }
-    zoomGlass.length = 0; zoomHid.length = 0;
-    frostWake();
-    rideStop();
-    labelGL?.pinDraw();
-    stageWake();
-  }
-  function cardZoomAt(S, px, py, dx, dy) {
-    const z = zoomBase;
-    if (!z) return;
-    if (zoomLz) { lz.zoomAt(S, px, py, dx, dy); return; }
-    if (!z.scene || !wrapRect) return;
-    sceneCam.set(S, px, py, dx, dy);
-    // (The picture is only the stage's size: where C's own move would bare a strip of the stage (a card at an edge), the figure and its
-    // labels take the nearest move that covers it: sceneCam.cover.)
-    sceneCam.cover(zoomT, wrapRect.left, wrapRect.top, wrapRect.width, wrapRect.height);
-    sceneSet(S, zoomT[0], zoomT[1]);
-  }
-  function zoomEnd() {
-    if (!zoomBase) return;
-    const z = zoomBase; zoomBase = null;
-    if (zoomLz) { zoomLz = false; lz?.zoomEnd(); return; }
-    if (!z.scene) return;
-    sceneCam.off();
-    sceneStop();
-  }
-  function followEnd() {
-    if (!following) return;
-    const a = follow0, b = follow1, f = followU, scene = followScene;
-    following = false; follow0 = follow1 = null; followScene = false;
-    if (scene) {
-      // (The view takes where the camera has carried it, drawn whole in this frame before the camera is given up, so nothing is seen to move.)
-      vt = { k: a.k + (b.k - a.k) * f, x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f };
-      applyVT(); CTM = null; refreshCTM(); flushVT();
-      drawVeins(true, 'follow-end');
-      sceneStop();
-      drifting = true;
-    }
-    driftEnd();
-  }
+    let drawCam = null;   // (a card's zoom landed: the figure's layer drawn for C·view, see zoomSharp; null: drawn for the view, carried by the camera)
+    let vdpr = 1, vBase = 1, boxW = -1, boxH = -1;   // (vBase: the canvas's pixels per CSS pixel at Full)
+    let labelGL = null, labelPassOff = null;
+  const { cardZoomAt, followEnd, sceneSet: sceneSet$, sceneStart: sceneStart$, zoomEnd, zoomOpen, zoomSharp } = createZoom({ applyVT, drawVeins, driftEnd, flushVT, refreshCTM, rideStart, rideStop, svg, vCanvas, viewNow, wrap }, live);
+  function sceneStart(...a) { return sceneStart$(...a); }   // <stage-split stub>
+  function sceneSet(...a) { return sceneSet$(...a); }   // <stage-split stub>
   // (A change of scale up to the 35 % a hand's zoom carries labels through, and a pan of up to 30 % of the width on view. Anything bigger
   // brings the labels onto each other and is the usual fade. Only where the labels already lie as solved for what they show, and no
   // callout, probe, scan or treatment has a layer of its own to move: those keep the fade.)
@@ -2417,7 +2303,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // solid, nor does a stored Blur effect off (index.html: only ?noglass=1 does).)
   const blurGuard = () => { let asked = null; try { asked = localStorage.getItem('pps.noGlass'); } catch (e) { caught('stage:2879', e); /* storage unavailable */ } guardBlur(document.documentElement, { low: SOFTWARE, asked: asked === '1' ? null : asked }); };
   blurGuard();
-  let vdpr = 1, vBase = 1, boxW = -1, boxH = -1;   // (vBase: the canvas's pixels per CSS pixel at Full)
   // Figure resolution › Auto: zoomed in past the home framing the canvas is drawn at 1/zoom of its pixels (each part of the figure
   // keeps about the pixels it had at home), in steps down to 10%. It is changed only once the view has settled and been let go,
   // so a pinch or a glide never reallocates the canvas as it moves.
@@ -3159,7 +3044,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const top = veins?.top;
     return top ? { gl: top.gl, canvas: top.canvas, ask: () => veins?.top?.present(), now: () => veins?.top?.present(), active: () => !!veins?.top && !veins.lost && wrap.classList.contains('gl-on'), scale: () => vCanvas.width / (stageBox().width || 1), layerAlpha: true } : null;
   };
-  let labelGL = null, labelPassOff = null;
   const { PIN_DIR, labelPass, pinKind } = createLabelHost({ E, LABELS_ORDER, arcMid, easeInOut, frostWake, gLabels, gLeaders, gScan, geo, labelAnchor, labelHost, labelSvg, morphAnchorAt, nodePos, refreshCTM, worldToLocalInto, wrap }, live);
   // The frosted glasses drawn inside the figure's canvas (round 2, 2.1, 31 Oct): each glass's blur is taken from the picture the vessel
   // renderer has just laid in its own context (veins-gl top), so nothing is copied off the GPU, and the glass's own canvas (the
