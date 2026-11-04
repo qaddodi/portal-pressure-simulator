@@ -206,7 +206,7 @@ export function reuseCovers(k, w, h) {
 // The origin colours flattened once per palette (the palette is one object for the page's life), not every frame (P8).
 const OC = new WeakMap();
 const originColOf = (src) => { let a = OC.get(src); if (!a) OC.set(src, a = new Float32Array(src.flat())); return a; };
-const SCR = { world: new Float32Array(9), inv: new Float32Array(9), be: new Float32Array(96), bb: new Float32Array(96), ncv: new Float32Array(48), hb: new Float32Array(64), hr: new Float32Array(16) };
+const SCRATCH = { world: new Float32Array(9), inv: new Float32Array(9), be: new Float32Array(96), bb: new Float32Array(96), ncv: new Float32Array(48), hb: new Float32Array(64), hr: new Float32Array(16) };
 const ORIGIN_WHITE = [[1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1]];
 // The composite's defaults and scratch, made once (it made an array for each default it fell back on, a rest list for its
 // signature and a list of passes, in every frame: 2 Nov 2026, scripts/frame-alloc.mjs). None is written to by a reader.
@@ -2086,7 +2086,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   function drawLines(m, soft, warm = false) {
     const U = lineP.u;
     gl.useProgram(lineP.p);
-    UC.m3(U.world, m3put(SCR.world, m[0], m[1], m[2], m[3], m[4], m[5]));
+    UC.m3(U.world, m3put(SCRATCH.world, m[0], m[1], m[2], m[3], m[4], m[5]));
     UC.f2(U.size, PW(), PH());
     UC.f1(U.soft, soft ? 1 : 0);
     UC.f1(U.pack, warm ? 1 : 0);
@@ -2462,7 +2462,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   function drawCath(m) {
     const U = cathP.u;
     gl.useProgram(cathP.p);
-    UC.m3(U.world, m3put(SCR.world, m[0], m[1], m[2], m[3], m[4], m[5]));
+    UC.m3(U.world, m3put(SCRATCH.world, m[0], m[1], m[2], m[3], m[4], m[5]));
     UC.f2(U.size, PW(), PH());
     UC.f2a(U.light, (cath.light || LIGHT));
     gl.enable(gl.BLEND);
@@ -2743,7 +2743,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   }
   // The vessel pass's program, uniforms and textures (vesselDraw; and the vessel half of a one-pass build, fuseBind).
   function vesselSet({ p, u }, m, look, redraw, tint, size = null) {
-    const M = m3put(SCR.world, m[0], m[1], m[2], m[3], m[4], m[5]);
+    const M = m3put(SCRATCH.world, m[0], m[1], m[2], m[3], m[4], m[5]);
     const SW = size ? size[0] : fboW, SH = size ? size[1] : fboH;   // (the layer's; a one-pass build draws onto the picture: fuseBind)
     gl.useProgram(p);
     UC.m3(u.world, M);
@@ -3124,7 +3124,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.useProgram(rz.P.p);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, rz.tex); UC.i1(rz.P.u.uT, 0);
     UC.f2(rz.P.u.uSize, PW(), PH());
-    UC.m3(rz.P.u.uMap, m3put(SCR.world, k[0], k[1], k[2], k[3], k[4], k[5]));
+    UC.m3(rz.P.u.uMap, m3put(SCRATCH.world, k[0], k[1], k[2], k[3], k[4], k[5]));
     gl.bindVertexArray(compVAO);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     gl.bindVertexArray(null);
@@ -4001,11 +4001,11 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       const cathPass = cathRect ? (bare ? plain : comp) : null;
       if (gpuProbe.on) gpuProbe.gauge('composite build', bare ? 'plain' : 'full');
       const bl = blood.bleed || NONE;
-      const be = SCR.be.fill(0), bb = SCR.bb.fill(0);
+      const be = SCRATCH.be.fill(0), bb = SCRATCH.bb.fill(0);
       for (let i = 0; i < Math.min(24, bl.length); i++) for (let j = 0; j < 4; j++) { be[i * 4 + j] = bl[i][j]; bb[i * 4 + j] = bl[i][4 + j]; }
-      const ncl = blood.noChev || NONE, ncN = Math.min(12, ncl.length), ncv = SCR.ncv.fill(0);
+      const ncl = blood.noChev || NONE, ncN = Math.min(12, ncl.length), ncv = SCRATCH.ncv.fill(0);
       for (let i = 0; i < ncN; i++) ncv.set(ncl[i], i * 4);
-      const hol = blood.holes || NONE, hoN = Math.min(16, hol.length), hb = SCR.hb.fill(0), hr = SCR.hr.fill(0);
+      const hol = blood.holes || NONE, hoN = Math.min(16, hol.length), hb = SCRATCH.hb.fill(0), hr = SCRATCH.hr.fill(0);
       for (let i = 0; i < hoN; i++) { const x = hol[i]; for (let j = 0; j < 4; j++) hb[i * 4 + j] = x[j] ?? 0; hr[i] = x[4] || 0; }
       const pm = (plate && !useStack ? (plates[0] ? 1 : 0) | (plates[1] ? 2 : 0) : 0);
       // (The circuit's map: drawn and read only while it shows.)
@@ -4022,11 +4022,11 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         gl.useProgram(P.p);
         const U = P.u;
         if (!full) {
-          UC.m3(U.world, m3put(SCR.world, m[0], m[1], m[2], m[3], m[4], m[5]));
+          UC.m3(U.world, m3put(SCRATCH.world, m[0], m[1], m[2], m[3], m[4], m[5]));
           UC.f2(U.size, PW(), PH());
           UC.f1(U.cell, CELL);
         }
-        UC.m3(U.inv, m3put(SCR.inv, ia, ib, ic, id, ie, iff));
+        UC.m3(U.inv, m3put(SCRATCH.inv, ia, ib, ic, id, ie, iff));
         UC.f1(U.H, PH());
         UC.f1(U.pxW, 1 / Math.max(1e-6, Math.hypot(m[0], m[1])));
         UC.i1(U.plates, pm);
