@@ -98,13 +98,17 @@ const VEIL_VS = `#version 300 es
 void main() { gl_Position = vec4(float((gl_VertexID & 1) << 2) - 1.0, float((gl_VertexID & 2) << 1) - 1.0, 0.0, 1.0); }`;
 const VEIL_FS = `#version 300 es
 precision highp float;
-uniform vec2 uView; uniform vec3 uC; uniform vec4 uCol; uniform float uDpr;
+uniform vec2 uView; uniform vec3 uC; uniform vec4 uCol; uniform vec4 uPen; uniform float uDpr;
 out vec4 o;
 void main() {
   vec2 px = vec2(gl_FragCoord.x, uView.y * uDpr - gl_FragCoord.y) / uDpr;
   float d = length(px - uC.xy);
   float a = uCol.a * smoothstep(uC.z * 0.8, uC.z * 1.55, d);
-  o = vec4(uCol.rgb * a, a);
+  // (a thin ring at the window's edge and a dot at its centre, in the pen's colour, so the pointer reads as a pointer on any slide)
+  float ring = (1.0 - smoothstep(0.75, 1.75, abs(d - uC.z * 0.8))) * 0.85;
+  float dot_ = 1.0 - smoothstep(4.0, 5.5, d);
+  float k = max(ring, dot_) * uPen.a;
+  o = vec4(uCol.rgb * a * (1.0 - k) + uPen.rgb * k, a * (1.0 - k) + k);
 }`;
 
 const VAR = (name, fallback) => {
@@ -162,7 +166,7 @@ export function createInk({ host, xform, active, onFigure }) {
     try {
       prog = checkProgram(gl, hs); vprog = checkProgram(gl, hv);
       prog.u = { view: gl.getUniformLocation(prog, 'uView'), col: gl.getUniformLocation(prog, 'uCol') };
-      vprog.u = { view: gl.getUniformLocation(vprog, 'uView'), c: gl.getUniformLocation(vprog, 'uC'), col: gl.getUniformLocation(vprog, 'uCol'), dpr: gl.getUniformLocation(vprog, 'uDpr') };
+      vprog.u = { view: gl.getUniformLocation(vprog, 'uView'), c: gl.getUniformLocation(vprog, 'uC'), col: gl.getUniformLocation(vprog, 'uCol'), pen: gl.getUniformLocation(vprog, 'uPen'), dpr: gl.getUniformLocation(vprog, 'uDpr') };
       vao = gl.createVertexArray(); buf = gl.createBuffer(); bufSegs = 0;
       gl.bindVertexArray(vao); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
       gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 4, gl.FLOAT, false, 20, 0); gl.vertexAttribDivisor(0, 1);
@@ -179,7 +183,7 @@ export function createInk({ host, xform, active, onFigure }) {
   };
 
   // ── drawing ──
-  const wanted = () => spotA > 0.004 || strokes.length > 0;
+  const wanted = () => spotOn || spotA > 0.004 || strokes.length > 0;   // (spotOn: the veil fades in from nothing, so it is wanted before it shows)
   const askDraw = () => { ask = 0; draw(true); }, endDraw = () => draw(false), askFrame = frameFor('ink');   // (kept: a frame's ask allocates nothing)
   const again = () => { if (!ask) ask = askFrame(askDraw); };
   const draw = (force) => {
@@ -214,7 +218,7 @@ export function createInk({ host, xform, active, onFigure }) {
       const R = Math.max(90, Math.min(190, Math.min(W, H) * 0.17));
       gl.useProgram(vprog);
       gl.uniform2f(vprog.u.view, W, H); gl.uniform3f(vprog.u.c, px, py, R); gl.uniform1f(vprog.u.dpr, dpr);
-      gl.uniform4f(vprog.u.col, veil[0], veil[1], veil[2], VEIL * spotA);
+      gl.uniform4f(vprog.u.col, veil[0], veil[1], veil[2], VEIL * spotA); gl.uniform4f(vprog.u.pen, pen[0], pen[1], pen[2], spotA);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
     }
     snap.seq = ++seq; snap.kind = kind; snap.spot = spotA > 0.004 && hasPos ? { x: px, y: py, a: spotA } : null; snap.n = nSeg; snap.x0 = nSeg ? segs[0] : NaN; snap.y0 = nSeg ? segs[1] : NaN; snap.x1 = nSeg ? segs[5 * nSeg - 3] : NaN; snap.y1 = nSeg ? segs[5 * nSeg - 2] : NaN;   // (the first and last point as laid, for the checks)
@@ -279,13 +283,15 @@ export function createInk({ host, xform, active, onFigure }) {
   };
   const onUp = (e) => {
     if (holdT && e.pointerId === holdId) { clearTimeout(holdT); holdT = 0; }
-    if (touchSpot && e.pointerId === holdId) { touchSpot = false; spot(false); }
+    if (touchSpot && e.pointerId === holdId) { touchSpot = false; spot(false); eatClick = performance.now() + 600; }
     if (cur) { endStroke(); e.stopImmediatePropagation?.(); }
   };
   const onTouch = (e) => { if (cur || touchSpot || (penOn && active() && onFigure(e))) { if (e.cancelable) e.preventDefault(); e.stopImmediatePropagation(); } };
+  let eatClick = 0;
+  const onClick = (e) => { if (eatClick && performance.now() < eatClick) { e.preventDefault(); e.stopImmediatePropagation(); } };   // (the click a lifted long press can leave: it must not also explain a label)
   const onMenu = (e) => { if (touchSpot || holdT || cur) e.preventDefault(); };
   const onBlur = () => { spot(false); clearTimeout(holdT); holdT = 0; touchSpot = false; endStroke(); };
-  const L = [['pointerdown', onDown], ['pointermove', onMove], ['pointerup', onUp], ['pointercancel', onUp], ['touchstart', onTouch], ['touchmove', onTouch], ['contextmenu', onMenu], ['blur', onBlur]];
+  const L = [['pointerdown', onDown], ['pointermove', onMove], ['pointerup', onUp], ['pointercancel', onUp], ['touchstart', onTouch], ['touchmove', onTouch], ['contextmenu', onMenu], ['click', onClick], ['blur', onBlur]];
   for (const [t, f] of L) addEventListener(t, f, { capture: true, passive: false });
   mount();
   colours(); stopTheme = onTheme(() => restPass(() => { colours(); last.a = NaN; if (wanted()) again(); }));   // (the tokens are read again in a rest pass, not in the theme's frame)
