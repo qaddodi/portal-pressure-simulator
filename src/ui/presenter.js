@@ -44,6 +44,7 @@ import { frameFor, cancelFrame, holdMotion, easeNow, PACED } from './frame.js';
 import { loadGlyphs, glyphsReady, textWidth } from './text-gl.js';
 import { restPass, cancelRest } from './rest-pass.js';
 import { createSlidePrep } from './slide-prep.js';
+import { createSlideStrip } from './slide-strip.js';
 import { createTxns, createLease, createScope } from './slide-txn.js';
 import { glEpoch, onGLRestored } from './gl-state.js';
 import { prepareShaders, shaderFailures } from './gl-compile.js';
@@ -74,7 +75,7 @@ import { signalMove } from './num-move.js';
 import { slideFold } from './fold-slide.js';
 import { pageOn, followOf, pageIn, swipeHeld } from './card-page.js';
 import { throwOut, throwIn, throwBack, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, throwOutNow, throwPinned, throwRelease, throwState, throwBusy, throwLanded, RAIL_GAP } from './card-throw.js';
-import { readAnims, readBox, readCTM, readMetric, readRects, readStyle, readTiming, scrollInto } from './layout-snap.js';
+import { readAnims, readBox, readCTM, readMetric, readRects, readStyle, readTiming } from './layout-snap.js';
 import { caught } from './caught.js';
 import { scrubSpec, scrubKey } from './scrub-plan.js';
 import { scrubEl } from './scrub.js';
@@ -2548,6 +2549,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     await unhush(cut);
     if (cut()) return;
     shown = { i: to, gen: g }; lastAt = to; shownBeat = b0;
+    strip.landed(to);   // (N5: this slide's picture for the overview, taken on the GPU a moment after it settles)
     // A lobule slide whose next slide leaves the lobule: once it has settled, the organs' picture for the way out is made ahead,
     // unseen under the lobule, so Next goes straight out with no wait (see toAnatomy).
     { const nx = slides[to + 1], nCam = nx ? (nx.visual ? nx.cam || null : nx.cam || 'fit') : null;
@@ -5201,7 +5203,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       paintOverlays(v, i, states[stateOf[i]] || null);
       await unhush(cut);
       if (cut()) return;
-      shownBeat = k; paintChrome();
+      shownBeat = k; paintChrome(); strip.landed(i);   // (N5: a slide's last view is the one its picture shows)
     } finally {
       creditOff();
     }
@@ -5471,32 +5473,28 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   addEventListener('pointermove', () => { if (deck) wake(); });
   addEventListener('pointerdown', () => { if (deck) wake(); });
 
-  // ── The slide list (G, or the count): every title, grouped under its kicker; a tap or Enter goes there ──
+  // ── The slide list (G, or the count): a strip of the slides' pictures, each with its title and kicker; a tap or Enter goes there ──
+  const strip = createSlideStrip({ h, layers: () => stage.figureLayers?.() || [], count: () => slides.length, still: (i) => !!deck && !!shown && shown.i === i && shown.i === want && shown.gen === gen && !busy && !leaving, reduced: () => reduce.matches });
   function toggleJump(on = ui?.jump.hidden) {
     if (!ui) return;
     const j = ui.jump;
     if (!on) {
       if (j.hidden) return;
       j.classList.add('pz-leave');
-      setTimeout(() => { if (j.classList.contains('pz-leave')) j.hidden = true; }, reduce.matches ? 0 : 220);
+      setTimeout(() => { if (j.classList.contains('pz-leave')) { j.hidden = true; strip.hide(); } }, reduce.matches ? 0 : 220);
       paintChrome();
       return;
     }
-    const groups = [];
-    slides.forEach((s, i) => { const k = s.kicker || ''; if (groups.at(-1)?.k !== k) groups.push({ k, items: [] }); groups.at(-1).items.push(i); });
-    j.replaceChildren(h('div', { class: 'pzj-h' }, h('span', {}, deck.title), h('button', { class: 'ib', 'aria-label': 'Close the slide list', onclick: () => toggleJump(false) }, icon('close'))),
-      h('div', { class: 'pzj-list' }, groups.map((g) => h('section', {}, g.k ? h('h3', {}, g.k) : null,
-        h('ol', {}, g.items.map((i) => h('li', {}, h('button', { type: 'button', 'aria-current': i === want ? 'true' : null, onclick: () => { toggleJump(false); go(i); } },
-          h('span', { class: 'n' }, String(i + 1)), h('span', { class: 't' }, nb(slides[i].title))))))))));
+    strip.build(j, { title: deck.title, items: slides, cur: want, pick: go, close: () => toggleJump(false), icon, nb });   // (N5: the slide pictures; slide-strip.js)
     j.classList.add('pz-leave'); j.hidden = false; void readMetric(j, 'offsetWidth'); j.classList.remove('pz-leave');
-    const curBtn = j.querySelector('[aria-current]');
-    curBtn?.focus({ preventScroll: true }); scrollInto(curBtn, { block: 'center' });
+    strip.shown();
+    j.querySelector('[aria-current]')?.focus({ preventScroll: true });
     paintChrome();
   }
   function jumpKey(e) {
     const k = e.key, btns = [...ui.jump.querySelectorAll('.pzj-list button')], at = btns.indexOf(document.activeElement);
     if (k === 'Escape' || k.toLowerCase?.() === 'g') toggleJump(false);
-    else if (k === 'ArrowDown' || k === 'ArrowUp') btns[clamp(at + (k === 'ArrowDown' ? 1 : -1), 0, btns.length - 1)]?.focus();
+    else if (k === 'ArrowDown' || k === 'ArrowUp' || k === 'ArrowRight' || k === 'ArrowLeft') btns[clamp(at + (k === 'ArrowDown' || k === 'ArrowRight' ? 1 : -1), 0, btns.length - 1)]?.focus({ preventScroll: true });
     else return;   // (Enter and Space press the focused title, Tab moves as usual)
     e.preventDefault(); e.stopImmediatePropagation();
   }
@@ -6295,6 +6293,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (cover) coverDown(true);
     stopLapse(); procStop(); cathStop(); abSlow(); liveOff = false; handOn = false;   // (before deck is cleared: stopping a time-lapse repaints the bar)
     txn?.end(); txn = null;
+    strip.drop();
     slidePrep.cancel(); clearTimeout(prepT); prepT = 0;   // (recs §6: the preparation stops with the deck; nothing it started publishes after)
     deck = null; shown = null; entering = null; want = 0; gen++;   // (gen: a slide move still in flight is cut where it is, even if another talk starts before it notices)
     for (const w of waiters) w.res(null);

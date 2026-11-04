@@ -15285,6 +15285,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     gpuOrgans(v) { gpuProbe.gpuOrgans = v; gpuProbe.onOrgans?.(); },
     /** The vessel canvas as a PNG data URL, its kept picture copied onto it first (the canvas keeps none of its own: veins-gl OWN_BUF). */
     veinsShot: () => (veins && !veins.lost ? veins.snapshot() : vCanvas.toDataURL()),
+    /** The canvases that make up the figure now, bottom first (the lobule's layers when it covers the anatomy, else the vessel canvas, its kept picture copied on first), then the label layers: the slide overview takes its pictures from them on the GPU (slide-strip.js, thumb-atlas.js). Read in a frame. */
+    figureLayers: () => {
+      const out = [];   // alloc-rare: once per slide landing, never in a frame of motion
+      if (anatCovered()) { for (const c of wrap.querySelectorAll('canvas.lz-canvas:not(.lz-res)')) if (c.width > 0 && c.style.opacity !== '0' && c.style.visibility !== 'hidden') out.push(c); }
+      else if (veins && !veins.lost) out.push(veins.capture());
+      for (const c of wrap.querySelectorAll('canvas.cap-gl, canvas#labelGl')) if (c.width > 0) out.push(c);
+      return out;
+    },
     veinsCheck(compositeOnly = false) {
       if (!veins || veins.lost || !vLook || !F) return null;
       const now = veins.snapshot();

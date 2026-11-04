@@ -2993,7 +2993,7 @@ button.finding { cursor: pointer; }
 .pz-bar button.pzb-n[aria-expanded="true"] { background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--text); }
 @media (hover: hover) { .pz-bar button.pzb-n { --hv-bg: color-mix(in srgb, var(--text) 8%, transparent); } .pz-bar button.pzb-n:hover::before { opacity: 1 } .pz-bar button.pzb-n:hover { color: var(--text); } }
 .pz-bar .pzb-next.skipping:not(:disabled) { background: var(--accent-soft); }
-.pz-jump { position: absolute; left: 50%; bottom: max(88px, calc(max(var(--pz-cm, 0px), calc(env(safe-area-inset-bottom, 0px) + 8px)) + 52px)); translate: -50% 0; width: min(560px, calc(100% - 24px)); max-height: min(70svh, calc(100% - 120px)); display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-sheet); box-shadow: var(--shadow-3); pointer-events: auto; overflow: hidden; transition: opacity var(--d-small) var(--ease), transform var(--d-small) var(--ease); }
+.pz-jump { position: absolute; left: 50%; bottom: max(88px, calc(max(var(--pz-cm, 0px), calc(env(safe-area-inset-bottom, 0px) + 8px)) + 52px)); translate: -50% 0; width: min(760px, calc(100% - 24px)); max-height: min(70svh, calc(100% - 120px)); display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-sheet); box-shadow: var(--shadow-3); pointer-events: auto; overflow: hidden; transition: opacity var(--d-small) var(--ease), transform var(--d-small) var(--ease); }
 .pz-jump.pz-leave { opacity: 0; transform: translateY(8px); }
 .pzj-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 10px 8px 18px; border-bottom: 1px solid var(--border); font: 600 var(--fs-14) var(--font-ui); color: var(--text-2); }
 .pzj-list { overflow-y: auto; overscroll-behavior: contain; padding: 6px 8px 12px; }
@@ -3004,6 +3004,20 @@ button.finding { cursor: pointer; }
 @media (hover: hover) { .pzj-list button { --hv-bg: var(--surface-2); } .pzj-list button:hover::before { opacity: 1 } .pzj-list button:hover { outline: none; } }
 .pzj-list button[aria-current] { background: color-mix(in srgb, var(--accent) 12%, var(--surface)); }
 .pzj-list .n { min-width: 2ch; text-align: right; font-variant-numeric: tabular-nums; color: var(--text-3); }
+/* The overview strip (N5): a row of slide pictures that scrolls itself; the GPU draws the pictures on .pzs-cv, in step with the row's transform. */
+.pzj-list.pzs { position: relative; overflow: hidden; padding: 4px 0 10px; touch-action: none; user-select: none; -webkit-user-select: none; overscroll-behavior: contain; }
+.pzj-list .pzs-row { list-style: none; margin: 0; padding: 0 14px; display: flex; gap: 10px; width: max-content; will-change: transform; }
+.pzs-row li { flex: none; display: flex; flex-direction: column; }
+.pzs-k { height: 22px; pointer-events: none; position: relative; z-index: 2; font: 600 var(--fs-12)/22px var(--font-ui); letter-spacing: .07em; text-transform: uppercase; color: var(--text-3); white-space: nowrap; overflow: visible; }
+.pzj-list.pzs button { display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 0 0 4px; border-radius: 10px; }
+.pzs-p { display: flex; align-items: center; justify-content: center; height: 100px; padding: 8px; border-radius: 8px; background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--border); font: 500 var(--fs-12)/1.3 var(--font-ui); color: var(--text-2); text-align: center; overflow: hidden; }
+.pzs-p.has .pzs-ft { visibility: hidden; }
+.pzj-list.pzs button[aria-current] { background: none; }
+.pzj-list.pzs button[aria-current] .pzs-p { box-shadow: inset 0 0 0 2px var(--accent); }
+.pzs-cap { display: flex; gap: 6px; padding: 0 2px; font: 500 var(--fs-12)/1.3 var(--font-ui); color: var(--text); }
+.pzs-cap .t { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.pzs-cap .n { min-width: 0; text-align: left; }
+.pzs-cv { position: absolute; left: 0; z-index: 1; pointer-events: none; display: block; }
 @media (pointer: coarse) {
   .pzj-list button { padding-block: 11.2px; }   /* (21.6 + 22.4: a 44 px row for a finger; 37.6 px before) */
   .pzj-h .ib { width: 44px; height: 44px; margin-block: -2px; }   /* (the header keeps its height) */
