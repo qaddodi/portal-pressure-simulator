@@ -2670,6 +2670,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The solve is a job sliced over the change's frames: one short slice in the tap's own frame (xfSolving shortens updateLabels' first slice), then one
   // per frame of the morph (viewXfStep), the rest at the landing if it comes first. The new labels stay at nothing until it lands.
   let xfSolving = false;
+  const XF_SLICE_MS = 1.5;   // (a slice of the target's solve in a frame of the change: small, so the change itself keeps its frame rate; what is left goes on after it lands)
   function solveTargetView(d) {
     labelKey = null; solveAsked = true;
     xfSolving = true;
@@ -2720,8 +2721,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (x.pending && !first) {
       if (!labelJob) { x.pending = false; labelKey = null; solveAsked = true; }   // (the job was dropped by another: laid out as it lands)
       else {
-        const age = performance.now() - x.tStart;
-        if (xfSolveSlice(x.to, Math.min(12, 4 + Math.max(0, age - 250) / 75))) { x.pending = false; x.sigTap = solvedFor?.sig || null; }
+        if (xfSolveSlice(x.to, XF_SLICE_MS)) { x.pending = false; x.sigTap = solvedFor?.sig || null; }
       }
     }
     const n = x.pending ? 0 : clamp(2 * p - 1, 0, 1);
@@ -2729,10 +2729,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     labelGL.crossfade(clamp(1 - 2 * p, 0, 1), n);
     if (p >= 1 || morph === morphTarget) viewXfEnd();
   }
+  function xfMarkCurrent(tap) {
+    if (!F || !solvedFor || solvedFor.sig !== tap) return;
+    const sig = labelSig(F), cut = (t) => t.slice(t.indexOf('|'));
+    if (sig !== tap && cut(sig) === cut(tap)) { solvedFor.sig = sig; if (labelKey) labelKey[16] = sig; }
+  }
   function viewXfEnd() {
     const x = viewXf;
     if (!x) return;
-    if (x.pending && labelJob) { while (!xfSolveSlice(x.to, 1e6)); x.sigTap = solvedFor?.sig || null; }   // (the morph landed first: the rest of the solve now)
+    // (The morph landed first: the solve goes on in the usual slices at rest, the stage being at its end state, and is marked current when it lands.)
+    if (x.pending && labelJob) { labelJob.xfTap = labelJob.solvedFor.sig; mayTask('label solve', labelJobStep, JOB_NOW); }
     x.pending = false;
     viewXf = null;
     if (!x.same) { vt = { ...x.to }; applyVT(); CTM = null; }
@@ -2742,10 +2748,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     refreshCTM();
     // (Laid out for this very camera already: the solve at the tap was for the landed geometry, so it stands. The signature differs only by the geometry's
     // version, which every morph frame bumped: marked current, the landing only refreshes values and does not solve again.)
-    if (F && x.sigTap && solvedFor && solvedFor.sig === x.sigTap && !labelJob) {
-      const sig = labelSig(F), cut = (t) => t.slice(t.indexOf('|'));
-      if (sig !== x.sigTap && cut(sig) === cut(x.sigTap)) { solvedFor.sig = sig; if (labelKey) labelKey[16] = sig; }
-    }
+    if (F && x.sigTap && !labelJob) xfMarkCurrent(x.sigTap);
     if (F) updateLabels(F);
   }
   // (Whether the view is moving now: a glide, a pan or a pinch. Boxes kept for the frame's reads are not read again while it is.)
@@ -12099,8 +12102,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         // dropped the sliced solve the next frame. Mohammad, 2 Nov: "the labels and callouts move slower than the figure camera".)
         if (solvedFor && solvedFor.view === morphTarget && !(morph > 0 && morph < 1)) layoutLabels(f, false);   // (not another view's solution: its anchors are that view's world points, which would stand the labels and their dots where the figure has none)
         const g = layoutLabelsGen(f, true);
-        if (!labelSliceRun(g, xfSolving ? 4 : gestureOn() || drifting || (morph > 0 && morph < 1) ? LABEL_SLICE_MS : LABEL_FIRST_REST_MS)) {   // (at rest the first slice is long: most solves land in it)
-          labelJob = JOB; JOB.g = g; JOB.key = keyInto(jobKeyArr, key); JOB.solvedFor = sf; JOB.t0 = performance.now(); stats.jobs++;
+        if (!labelSliceRun(g, xfSolving ? 2 : gestureOn() || drifting || (morph > 0 && morph < 1) ? LABEL_SLICE_MS : LABEL_FIRST_REST_MS)) {   // (at rest the first slice is long: most solves land in it)
+          labelJob = JOB; JOB.g = g; JOB.key = keyInto(jobKeyArr, key); JOB.solvedFor = sf; JOB.xfTap = null; JOB.t0 = performance.now(); stats.jobs++;
           mayTask('label solve', labelJobStep, handRide?.settle || !gestureOn() ? JOB_NOW : undefined);   // (at rest the slices run every frame, none waits two)
           stats.ms += performance.now() - t0;
           labelTail();
@@ -12185,6 +12188,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     solvedFor = j.solvedFor; solveAsked = false; solCachePut(solvedFor);
     if (gpuProbe.on) gpuProbe.note(COUNTED.labelSolve);
     labelKey = keyInto(labelKeyArr, j.key); stats.layouts++;
+    if (j.xfTap) xfMarkCurrent(j.xfTap);
     labelTail();
     return false;
   }
