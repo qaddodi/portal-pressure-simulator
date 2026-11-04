@@ -533,7 +533,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // As on the anatomy: a mouse wheel zooms about the pointer; a trackpad's two-finger scroll pans (once zoomed in)
   // and its pinch (ctrlKey) zooms; Ctrl/⌘ + wheel always zooms. A gesture is classified once, as it starts.
   let wheelKind = null, wheelAt = 0, wheelMute = false;
-  const rubberEnd = () => { rubber = false; const G0 = fitV(); glideTo(G0, 380); atFit = true; };   // (the wheel's rubber band lets go: springs back)
+  const rubberEnd = () => { rubberT = 0; if (!rubber) return; rubber = false; const G0 = fitV(); glideTo(G0, 380); atFit = true; };   // (the wheel's rubber band lets go: springs back)
   el.addEventListener('wheel', (ev) => {
     ev.preventDefault();
     if (wheelMute) { const now = performance.now(); if (now - wheelAt < 250) { wheelAt = now; return; } wheelMute = false; }
@@ -557,6 +557,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     }
     const f = ev.ctrlKey || ev.metaKey ? Math.exp(-clamp(dy, -50, 50) * 0.01) : Math.exp(-clamp(dy, -120, 120) * 0.0015);
     const px = localX(ev), py = localY(ev);
+    // (A two-finger drift at the framing that began a pad scroll leaves its rubber band and its 220 ms spring-back pending: a pinch that follows
+    // must end it here, or the spring-back glided the lobule to the framing in the middle of the zoom, then the pinch carried on.)
+    if (rubber && !rawK) { clearTimeout(rubberT); rubberT = 0; rubber = false; }
     if (V.k <= kFit * 1.001 && f < 1) {
       stretchBy(px, py, f); clearTimeout(stretchT); stretchT = setTimeout(endStretch, 220); return;   // a zoom-out at its framing stretches and springs back
     }
