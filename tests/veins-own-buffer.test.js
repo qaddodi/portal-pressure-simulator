@@ -59,9 +59,9 @@ function keepsItsOwn({ g, f, attrs, look }) {
   assert.deepEqual(binds.at(-1), ['bindFramebuffer', f.gl.FRAMEBUFFER, null]);
 }
 
-test('the stage\'s vessel canvas is made with no picture and no stencil of its own: the kept picture holds both', async () => {
+test('the stage\'s vessel canvas keeps its picture (no blank frame) and has no stencil of its own: the kept picture holds it', async () => {
   const { attrs } = await renderer('../src/ui/veins-gl.js');
-  assert.equal(attrs.preserveDrawingBuffer, false);
+  assert.equal(attrs.preserveDrawingBuffer, true);
   assert.equal(attrs.stencil, false);
 });
 
@@ -72,7 +72,7 @@ test('a renderer neither the stage\'s nor the lobule\'s keeps its own picture; t
 
 test('by default the lobule\'s vessel canvas draws into its kept picture too, so its overlay can be laid over each present', async () => {
   const { g, f, attrs, canvas, look } = await renderer('../src/ui/veins-gl.js', 'lobule');
-  assert.equal(attrs.preserveDrawingBuffer, false);
+  assert.equal(attrs.preserveDrawingBuffer, true);
   assert.ok(g.top, 'a top for the overlay');
   const n0 = f.calls.length;
   g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
@@ -96,7 +96,7 @@ test('a whole picture is drawn straight onto the canvas (no copy), and the next 
 test('a picture drawn into the kept texture is copied whole onto the canvas', async () => {
   {
     const { g, f, attrs, canvas, look } = await renderer('../src/ui/veins-gl.js');
-    assert.equal(attrs.preserveDrawingBuffer, false);
+    assert.equal(attrs.preserveDrawingBuffer, true);
     g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
     // (The whole picture went straight onto the canvas; the blood's frame after it is drawn whole into the kept picture.)
     const n0 = f.calls.length;
