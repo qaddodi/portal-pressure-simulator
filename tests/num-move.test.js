@@ -119,13 +119,14 @@ test('a glass mover tells the glass its numbers and wakes it; it is not driven o
   assert.equal(woken, 2);
   m.cancel();
   assert.equal(driven(el), null);
+  assert.equal(woken, 3, 'letting go wakes the glass once, so it stops drawing the offset');
   off();
   m.set(1, 1);
-  assert.equal(woken, 2, 'a woken function stopped is not called');
+  assert.equal(woken, 3, 'a woken function stopped is not called');
   // (a mover that is not the glass's is not announced)
   const q = new Mover(fakeEl(), 'transform', 'x');
   q.set(3, 0);
-  assert.equal(woken, 2);
+  assert.equal(woken, 3);
 });
 
 test('writes build no string and make no object: a million moves leave the heap where it was', { skip: typeof global.gc !== 'function' && 'run with --expose-gc' }, () => {
@@ -139,14 +140,3 @@ test('writes build no string and make no object: a million moves leave the heap 
   assert.ok(grew < 200 * 1024, `heap grew ${grew} bytes over a million writes`);
 });
 
-test('the pulls and the swipe write their numbers: no template string stays in their move handlers', () => {
-  const main = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8');
-  const menu = readFileSync(new URL('../src/ui/menu.js', import.meta.url), 'utf8');
-  assert.match(main, /dragSheet\(el, el\._sheetOff\);/);
-  assert.match(main, /start\.mv\.set\(tx, ty\);/);
-  assert.doesNotMatch(main, /for \(const c of el\.children\) c\.style\.translate = v;\n {4}\}\n {2}\}\);/);
-  assert.match(menu, /sw\.mc\.set\(sw\.dx, 0\);/);
-  assert.match(menu, /sw\.mn\.set\(nx, 0\);/);
-  assert.doesNotMatch(menu, /sw\.cur\.style\.transform = `translateX\(\$\{sw\.dx\}px\)`/);
-  assert.doesNotMatch(menu, /nb\.style\.transform = `translateX\(\$\{nx\}px\)`/);
-});

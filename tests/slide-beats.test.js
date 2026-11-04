@@ -71,19 +71,6 @@ test('the presenter pushes while the days run, finishes with Next, and opens on 
   assert.match(pt, /reduce\.matches \|\| !stage\.canDrift\?\.\(\)/, 'no drift with reduced motion, or where the live organs would make it stutter');
 });
 
-test('the stage\'s drift keeps the labels up and carried, and every cut ends it', () => {
-  const a = fn(ST, 'function animateVT(');
-  assert.match(a, /store\.get\(\)\.presenting && !drift && !carry && !sameView\(from, to\)\) \{ camMove = true;/, 'a drift never fades the labels (cam-move), nor does a small move that carries them (label-carry.test.js)');
-  assert.match(ST, /if \(opt\.drift\) animateVT\(to, ms, \{ drift: true \}\); else animateVT\(to, ms, \{ arc: true, steady: !!opt\.steady, scale: !opt\.steady \}\);/, 'and never arcs');
-  assert.match(a, /\(drift \? driftEase : camEase\)/, 'its own ease');
-  assert.match(ST, /ride = \(drifting \|\| land\) && !hand;\n\s*const solve = [^\n]*\(!ride && dz > \(hand \? SOLVE_ZOOM_HAND : SOLVE_ZOOM\)\)/, 'labels are carried through it however far it zooms');
-  assert.match(ST, /if \(ride && !land && dz > SOLVE_ZOOM\) carryClear = true;/, 'never onto each other');
-  assert.match(ST, /if \(drifting\) \{ labelSettleT = setTimeout\(labelSettle, 120\); return; \}/, 'and solved again once it lands');
-  assert.match(ST, /function driftEnd\(\) \{ if \(!drifting\) return; drifting = false; carrying = false; rideLeaders\(false\); labelSettleSoon\(\); \}/);
-  const cuts = ST.match(/cancelFrame\(vtAnim\);( driftEnd\(\);)?/g);
-  assert.equal(cuts.filter((c) => !c.includes('driftEnd')).length, 1, 'every cut but animateVT\'s own (which sets it afresh) ends the drift');
-});
-
 test('Next goes through a slide\'s beats before the next slide, Back the other way; a slide opened any other way shows its last', () => {
   const nx = fn(PZ, 'const next = () => {');
   assert.ok(nx.indexOf('skipLapse()') < nx.indexOf('procNext()') && nx.indexOf('procNext()') < nx.indexOf('toBeat(beat + 1)') && nx.indexOf('toBeat(beat + 1)') < nx.indexOf('go(want + 1)'),

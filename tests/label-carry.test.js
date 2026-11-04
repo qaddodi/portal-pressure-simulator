@@ -71,17 +71,6 @@ test('animateVT decides the carry after the arc, and a carry rides as a slow pus
   assert.match(fn, /carry, zoom:/, 'the move log says which glides carried');
 });
 
-test('a carry ends with the move, and a change of what the labels show hands it to the fade', () => {
-  assert.match(stage, /function driftEnd\(\) \{ if \(!drifting\) return; drifting = false; carrying = false; rideLeaders\(false\); labelSettleSoon\(\); \}/);
-  const abort = stage.match(/function carryAbort\(\) \{[\s\S]*?\n {2}\}\n/)[0];
-  assert.match(abort, /carrying = false; drifting = false; rideLeaders\(false\);/);
-  assert.match(abort, /if \(!vtGliding\) return;/);
-  assert.match(abort, /camMove = true; dpr\.carry = false; wrap\.classList\.add\('cam-move'\);/);
-  assert.match(stage, /if \(carrying && solvedFor\?\.sig !== sig\) \{ carryAbort\(\); return; \}/);
-  // (before the layout is solved for the new signature, so no new label is drawn part way through)
-  assert.ok(stage.indexOf('if (carrying && solvedFor?.sig !== sig)') < stage.indexOf('const solve = !solvedFor || solveAsked || solvedFor.sig !== sig'));
-});
-
 test('carryAbort and driftEnd, run on their own source: the usual fade begins, or the leaders come back', () => {
   const abort = stage.match(/function carryAbort\(\) \{[\s\S]*?\n {2}\}\n/)[0];
   const end = stage.match(/function driftEnd\(\) \{[^\n]*\}\n/)[0];

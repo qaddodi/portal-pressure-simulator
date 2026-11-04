@@ -145,6 +145,7 @@ const OTHER_KEYFRAMES = {
   'pill-in': 'a lit pill\'s entrance, by its ::before\'s opacity, that presenter.js waits on by name', thumbIn: 'a card without a plate rising a short way from behind the opaque tab row (translate, which the drag\'s --sink also sets, and opacity)',
   thumbOut: 'the same card sinking back behind the tab row as it fades',
   'sheet-rise': 'a phone sheet\'s content rising by translate under its still clip (sheet-move.js)', 'sheet-sink': 'a phone sheet\'s content sinking by translate under its still clip (sheet-move.js)',
+  'dock-sheet-in': 'a menu or popover sheet rising from the dock\'s top edge by translate, one engine (menu-system-plan)', 'dock-sheet-out': 'the same sheet sinking back to the dock\'s top edge',
   'sheet-hold': 'holds a sinking sheet\'s box until its content has gone, so its leave ends on it',
   'odo-up': 'a value that follows the model (a number rolling its digits)', 'odo-down': 'a value that follows the model (a number rolling its digits)',
 };

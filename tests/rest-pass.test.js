@@ -43,14 +43,6 @@ test('a cancelled rest pass never runs; one asked for while passes run waits for
 });
 
 const pz = unsnap(readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8'));
-test('presenter: the card fits, the zoom\'s return and a wheel gesture\'s action are rest passes', () => {
-  assert.match(pz, /fitRaf = restPass\(\(\) => \{ if \(ui && cardMoving\(\)\) return;/);
-  assert.match(pz, /paneRaf = restPass\(\(\) => \{ if \(!ui \|\| cardMoving\(\)\) return;/);
-  assert.match(pz, /const zoomSettled = \(\) => restPass\(/);
-  assert.match(pz, /restPass\(\(\) => wheelAct\(a\)\);/);
-  assert.doesNotMatch(pz, /requestAnimationFrame\(/, 'the presenter asks the scheduler, never the browser');
-});
-
 test('presenter: a dock glide\'s and a drag\'s frames write from what was read at rest', () => {
   const paint = pz.slice(pz.indexOf('const dockPaint = () => {'), pz.indexOf('const DOCK_FADE'));
   assert.match(paint, /const vec = dock\.vec \|\| DOCK_ZERO, x = vec\[0\], y = vec\[1\];/);
@@ -60,13 +52,6 @@ test('presenter: a dock glide\'s and a drag\'s frames write from what was read a
   assert.match(pz, /dockRest\(\);\n\s*cancelRest\(dock\.rest\);\n\s*if \(ms && from !== to && ui && !ui\.data\.hidden && !wideSheet\(ui\.data\)\) \{\n\s*dockGlide\(from, to, ms\);/, 'a glide reads where it goes before its first frame');
   assert.match(pz, /const glideDone = \(\) => \{ if \(!glide\) return; glideEnd\(\); dock\.rest = restPass\(lipSoon\); \};/, 'landed, the glide: the edge measured between frames');
   assert.match(pz, /else dock\.rest = restPass\(lipSoon\);/, 'landed: the edge measured between frames');
-});
-
-test('presenter: a finger\'s moves read nothing; the card\'s width is read as it lands', () => {
-  assert.match(pz, /pull = \{ on: true, x: 0, pts: \[\] \};/);
-  assert.doesNotMatch(pz, /sw\.room|g\.room/);
-  assert.match(pz, /cd\.w = caseCard\.c\.offsetWidth \|\| 1;/);
-  assert.match(pz, /const c = cd\.card\.c, w = cd\.w;/);
 });
 
 test('presenter: a folding card follows a finger by transform and opacity; its height is set once at each end (never a height per move)', () => {

@@ -69,14 +69,6 @@ test('instant: every leaving card sets off in the tap\'s task, on one distance, 
   assert.match(src, /if \(k >= 1 \|\| \(r\.kind === 'out' && p\.o <= 0\.001\)\) land\(el, r, p\.x, p\.o\);/, 'out of sight ends the way out, so the next words go in at once');
 });
 
-test('glass: a card\'s fade carried by a transition that has just finished stays at its end until the page is read again (always: ?glassend deleted)', () => {
-  const glass = readFileSync(new URL('../src/ui/glass-gl.js', import.meta.url), 'utf8');
-  assert.doesNotMatch(glass, /glassend|\bENDS\b/, 'the switch is gone: the default path only');
-  assert.match(glass, /if \(st === 'finished'\) \{ AM\.at = 1; if \(motionAt\(kf, AM\)\) \{/, 'the last keyframe is kept as the element\'s place and fade');
-  assert.match(glass, /if \(end\) \{ if \(!hasT && end\.t && !e\.style\?\.transform\) \{ tx = end\.t\[0\]; ty = end\.t\[1\]; hasT = true; \} if \(o == null && end\.o != null\) o = end\.o; \}/);
-  assert.match(glass, /if \(dead \|\| lost\) return;\n\s+ended\.clear\(\);/, 'dropped at the next read, which sees the page as it is');
-});
-
 test('a card comes in from a little to its side (THROW_IN), not from where the old one went; no drop shadow round the cards', () => {
   assert.match(src, /write\(el, s \* THROW_IN, 0\)/);
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');

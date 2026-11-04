@@ -58,6 +58,6 @@ test('a failure in either reading leaves the draft as it was', () => {
 test('Send feedback puts them in the draft, and the privacy page says so', () => {
   const main = read('../src/ui/main.js');
   assert.match(main, /import \{ feedbackDiagnostics \} from '\.\/feedback-diag\.js/);
-  assert.match(main, /\.\.\.feedbackDiagnostics\(\{ perf: framePerf, blurWhy: \(el\) => stage\.blurWhy\?\.\(el\) \?\? null \}\)\]\.join\('\\n'\);/);
-  assert.match(main, /opens a draft in your own email app with your device, screen size, how fast the page is running, which blurs the browser is drawing and a link to the view you were on\. Nothing is sent unless you send that email yourself\./);
+  assert.match(main, /\.\.\.feedbackDiagnostics\(\{ perf: framePerf, blurWhy: \(el\) => stage\.blurWhy\?\.\(el\) \?\? null \}\), \.\.\.reportLines\(\)\]\.join\('\\n'\);/);
+  assert.match(main, /opens a draft in your own email app with your device, screen size, how fast the page is running, which blurs the browser is drawing, a short list of recent errors and page reloads, and a link to the view you were on\. Nothing is sent unless you send that email yourself\./);
 });

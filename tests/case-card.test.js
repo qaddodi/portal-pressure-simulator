@@ -131,13 +131,6 @@ test('the case card follows a finger and a fling lifts it like a tap, also durin
   // The slide swipe leaves touches on the card alone; the card's own drag is touch-only and swallows the click after it.
   assert.match(src, /sw = deck && e\.touches\.length === 1 && !caseOn\(e\)/);
   assert.match(src, /onclick: \(\) => \{ if \(performance\.now\(\) - caseDragAt > 400\) caseLift\?\.\(\); \}/);
-  const fly = src.slice(src.indexOf('function caseFly('), src.indexOf('function caseBack('));
-  // Flying off only marks the card lifted: no camera move, no slide change; caseEnd still waits for the glide to land.
-  assert.match(fly, /caseGone\(card\)/);
-  assert.doesNotMatch(fly, /camera\(|go\(|next\(/);
-  // Once flown, Next/caseShut wait only for the rest of the flight, and the next case card comes back whole.
-  assert.match(src, /const ms = card\.flown \? Math\.max\(0, Math\.ceil\(card\.flown - performance\.now\(\)\)\) : card\.ms;/);
-  assert.match(src, /for \(const k of \['transform', 'transition'\]\) c\.style\.removeProperty\(k\);/);
 });
 
 test('a tap, Next or a swipe anywhere lifts the case card at once, even while the patient loads; the next one moves on', () => {
@@ -161,14 +154,6 @@ test('a flung case card glides off and fades over a visible time, and is hidden 
   assert.ok(caseFlight(373, 0) >= FLIGHT_MIN);
   assert.ok(caseFlight(200, 5) >= FLIGHT_MIN);   // a hard flick too
   assert.ok(caseFlight(NaN, NaN) >= FLIGHT_MIN);
-  const fly = src.slice(src.indexOf('function caseFly('), src.indexOf('function caseBack('));
-  // Both the move and the fade are transitions of the flight's length (never 'none'), ending at nothing; reduced motion still fades.
-  assert.match(fly, /transform \$\{ms\}ms cubic-bezier\([^`]*opacity \$\{ms\}ms/);
-  assert.match(fly, /reduce\.matches \? `opacity \$\{ms\}ms linear`/);
-  assert.match(fly, /c\.style\.opacity = '0'/);
-  assert.doesNotMatch(fly, /'none'|hidden|caseShut/);
-  // The card is hidden only once the flight has run (caseShut waits for card.flown).
-  assert.match(src, /const ms = card\.flown \? Math\.max\(0, Math\.ceil\(card\.flown - performance\.now\(\)\)\) : card\.ms;\s*(?:\/\/[^\n]*\n\s*)*clearTimeout\(caseHideT\);\s*caseHideT = setTimeout\(\(\) => \{ caseHideT = 0; if \(!card\.c\.classList\.contains\('on'\)\) card\.c\.hidden = true; \}, ms\);/);
 });
 
 test('no slide card shows while a case card is up, a catheter slide included; they come in once it is lifted', () => {

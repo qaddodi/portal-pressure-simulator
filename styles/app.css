@@ -6643,7 +6643,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
      (.ac-in is on only for the entrance, so a rebuilt card does not slide again) and sink back, 240 ms each way. */
   .app.thumb:not(.dock-open) .action-card.docked.has-plate { animation: none; }
   .app.thumb:not(.dock-open) .action-card.docked.has-plate.ac-in > * { animation: sheet-rise var(--d-small) var(--ease-arrive) backwards; }
-  .app.thumb:not(.dock-open) .action-card.docked.has-plate.ac-leaving { animation: sheet-hold var(--d-small) forwards; }
+  .app.thumb:not(.dock-open) .action-card.docked.has-plate.ac-leaving { animation: sheet-hold var(--d-small) var(--ease) forwards; }
   .app.thumb:not(.dock-open) .action-card.docked.has-plate.ac-leaving > * { animation: sheet-sink var(--d-small) var(--ease-in) forwards; }
   .app.thumb:not(.dock-open) .action-card.docked.has-plate.ac-in.sw-in.sw-in > * { animation: crossfade var(--d-small) var(--ease-arrive) backwards; }
   .app.thumb:not(.dock-open) .action-card.docked.has-plate.ac-leaving.sw-out.sw-out > * { animation: crossfade-out var(--d-small) var(--ease-in) forwards; }
