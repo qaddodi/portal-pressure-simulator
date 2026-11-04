@@ -13317,17 +13317,30 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         // (Then out on the same rings over a vessel, with the solid halo: on a phone the free space round VAR is all vessels, and
         // nearer than the rings there is no room.)
         const farOn = far.map((ps) => ({ ...ps, clear: false, ring: 'any' }));
-        const ok = [far, near, farOn, near.map((ps) => ({ ...ps, overZones: true }))].some((R) => {
+        // (Each try is a pass over every spot of its rings: the solve yields between tries, so a slice of the change between the views is never
+        // one whole rescue. Entering the Circuit zoomed out, most readings come here, and a rescue in one go held each frame of the change for
+        // tens of ms: 5 fps on the way into the Circuit, 60 on the way out. Same tries, same order, same answer.)
+        let ok = false;
+        const tries1 = [far, near, farOn, near.map((ps) => ({ ...ps, overZones: true }))];
+        for (let ti = 0; ti < tries1.length && !ok; ti++) {
+          if (solve && sliceOver()) yield;
+          const R = tries1[ti];
           Object.assign(it, { lines: it._full.lines, w: it._full.w, h: it._full.h, short: it._full.short, abbr: it._full.abbr, one: false });   // (whole again for each try)
-          return placeMulti(it, dirs, R, 0, R.length, false, 1);
-        }) || [0, 1].some((sh) => [far, near, farOn, far.map((ps) => ({ ...ps, overZones: true })), near.map((ps) => ({ ...ps, overZones: true }))].some((R) => {
-          // (Else on one line, name then value (then without its units): a station at the top of the free space, RA under a phone's
-          // data card, has room beside it only for a reading one line tall.)
-          Object.assign(it, { lines: it._full.lines, w: it._full.w, h: it._full.h, short: it._full.short, abbr: it._full.abbr, one: false });
-          if (sh && !((it.short || 0) < 1 && shortenItem(it, false) && it.short === 1)) return false;
-          oneLine(it);
-          return it.one && placeMulti(it, [...dirs, 'EL', 'WL'], R, 0, R.length, false, it.short || 0);
-        }));
+          ok = placeMulti(it, dirs, R, 0, R.length, false, 1);
+        }
+        if (!ok) {
+          const tries2 = [far, near, farOn, far.map((ps) => ({ ...ps, overZones: true })), near.map((ps) => ({ ...ps, overZones: true }))];
+          for (let sh = 0; sh < 2 && !ok; sh++) for (let ti = 0; ti < tries2.length && !ok; ti++) {
+            if (solve && sliceOver()) yield;
+            const R = tries2[ti];
+            // (Else on one line, name then value (then without its units): a station at the top of the free space, RA under a phone's
+            // data card, has room beside it only for a reading one line tall.)
+            Object.assign(it, { lines: it._full.lines, w: it._full.w, h: it._full.h, short: it._full.short, abbr: it._full.abbr, one: false });
+            if (sh && !((it.short || 0) < 1 && shortenItem(it, false) && it.short === 1)) continue;
+            oneLine(it);
+            ok = !!it.one && placeMulti(it, [...dirs, 'EL', 'WL'], R, 0, R.length, false, it.short || 0);
+          }
+        }
         // (Its slot is not one of the usual passes': marked so the next layout does not take it for one held there.)
         if (ok) { it.onVessel = lineHits(it._r, 2) > 0; const sol = nextSol.get(it.key); if (sol) { sol.onv = it.onVessel; sol.pi = -1; sol.one = !!it.one; } continue; }
         Object.assign(it, { lines: was.lines, w: was.w, h: was.h, short: was.short, abbr: was.abbr, x: was.x, y: was.y, dir: was.dir, leader: was.leader, _r: was._r, one: false });
@@ -13392,17 +13405,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           const anchors = P?.length > 1 ? SLIDE.map((u) => { if (u === 0.5) return [it.ax, it.ay, 0, it.au ?? 0.5]; const m = arcMid(P, u), [x, y] = worldToLocal(m[0], m[1]); return [x, y, Math.abs(u - 0.5) * 50, u]; }) : [[it.ax, it.ay, 0, it.au ?? 0.5]];   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
           let best = null;
           for (const [ax, ay, slide, au] of anchors) {
+            if (solve && sliceOver()) yield;   // (each of the reading's eleven anchors is 216 spots: a slice ends between them)
             const dot = it.mid ? { x0: ax - 4, y0: ay - 4, x1: ax + 4, y1: ay + 4 } : null;   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
             let rank = 0;
             const tryAt = (dir, gap, pass) => {   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
               const [dx, dy] = offset(dir, it, gap), r = boxAt(it, ax + dx, ay + dy);
               if (!within(r, view)) return;
-              const f = faults(it, r, pass + slide, ax, ay, lines);
-              if (f.cost >= now.cost - 1 || (best && f.cost >= best.f.cost)) return;
+              // (The box tests first: they are cheap and reject most spots, and faults() walks every leader and vessel. The same spots pass.)
               if (dot && hits(r, dot)) return;
               if (placed.some((p) => (p.dot ? hits(r, p) : hits(r, { x0: p.x0 - 3, y0: p.y0 - 3, x1: p.x1 + 3, y1: p.y1 + 3 })))) return;   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
               if (obstacles.some((o) => !o.zone && hits(r, { x0: o.x0 - 10, y0: o.y0 - 10, x1: o.x1 + 10, y1: o.y1 + 10 }))) return;   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
               if (lines.some((sg) => segHitsBox({ x0: sg[0], y0: sg[1], x1: sg[2], y1: sg[3] }, r, 3))) return;   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
+              const f = faults(it, r, pass + slide, ax, ay, lines);
+              if (f.cost >= now.cost - 1 || (best && f.cost >= best.f.cost)) return;
               best = { f, dx, dy, dir, r, ax, ay, au, dot };   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
             };
             for (const gap of TIDY_GAPS) for (const dir of ['N', 'S', 'E', 'W', 'NE', 'NW', 'SE', 'SW']) tryAt(dir, gap + it.vw / 2, (rank++ % 8) * 0.01 + dirs.indexOf(dir) * 2);   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
