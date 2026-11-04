@@ -4146,7 +4146,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       // ?perf of 4 Nov showed "composite build: plain" and the kept picture copied onto the canvas in 36 of 49 frames of a motion). A lone whole
       // picture beside blood-alone frames still goes through the kept one, as before. The frame that has to make the kept picture again after
       // a direct run (ownStale, not full) is never direct, so the run ends there.)
-      const bloodOk = !blood.on || moving || wholeRun >= 2;
+      // (Reverted to the kept picture while blood moves (4 Nov 2026, Mohammad: the figure flickers at rest in Anatomy): B2's direct runs beside
+      // blood frames are taken out until the flicker is cleared, so a whole picture with blood on goes through the kept one again.)
+      const bloodOk = !blood.on;
       const direct = who !== 'lobule' && !noDirect && !!own && full && bloodOk && !up && !camOn() && !(under && under.on()) && !(replace && replace.on()) && !(fused && !ctxStencil);
       wholeRun = full ? wholeRun + 1 : 0;
       if (own && ownStale && !full) full = true;
