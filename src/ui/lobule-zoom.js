@@ -59,7 +59,7 @@ import { caught } from './caught.js';
 import { createCaptionGL, composeView, inkRows, mirrorOf, rgbaOf as capRGBA } from './caption-gl.js';
 import { readStyle, readBox as boxOf } from './layout-snap.js';
 import { hitLabel, explainText } from './label-explain.js';
-import { overlapLRTB, discInto } from './label-place.js';
+import { overlapLRTB, discInto, SHORT_LEAD, LONG_LEAD } from './label-place.js';
 import { reduceMotionMQ } from './motion.js';
 import { darkMQ } from './look.js';
 const nextFrame = frameFor('lobule-zoom');
@@ -1626,8 +1626,6 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     for (let i = 0; i < 6; i++) { d = keepBuf[i + 1]; d.x = sX(C[i][0]); d.y = sY(C[i][1]); d.r = Math.max(14, (g.rt || 6) * TRACT_KEEP * V.k); }
     return keepBuf;
   };
-  const LONG_LEAD = 140;   // px: the longest leader an optional label may take (a vessel label pays steeply past it)
-  const SHORT_LEAD = 45;   // px: a leader longer than this pays for every pixel past it (short callouts: Mohammad, 2 Nov 2026)
   const DESIGN = ['triad', 'lymph', 'cv', 'sin'];   // the labels with a designed spot (layoutLabels designed)
   const CORE = ['cv', 'sin', 'triad'];   // the vessel labels: never left out for the slide's pill
   // The ring on the spot: its centre and radius on screen (null while the spot is out of view), and how far from the ring's
