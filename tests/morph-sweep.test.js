@@ -120,7 +120,9 @@ test('the change keeps the labels up: solved at the tap, ridden on the morph\'s 
   assert.match(stage, /if \((?:live\.)?(?:live\.)?viewXf\) return;/);
   assert.match(stage, /if \((?:live\.)?camMove\) \{ if \(!(?:live\.)?vtGliding\) camSettle\(\); return; \}/);
   assert.match(stage, /(?:live\.)?vt = p >= 1 \? \{ \.\.\.viewXf\.to \} : lerpVT\((?:live\.)?viewXf\.from, (?:live\.)?viewXf\.to, p\);/);
-  assert.match(stage, /(?:live\.)?labelGL\.crossfade\(clamp\(1 - 2 \* p, 0, 1\), n\);/);
+  // (From the change's progress and the share at which the new labels were whole (view-xf.js viewXfMix): the ghosts ride at full until then, never a timer.)
+  assert.match(stage, /const m = viewXfMix\(p, x\.landAt, XF_MIX\);\s*xfLayer\(m\.n\);\s*(?:live\.)?labelGL\.crossfade\(m\.o, m\.n\);/);
+  assert.doesNotMatch(stage, /XF_FADE_MS|xfRamp/);
   const sv = stage.slice(stage.indexOf('    setView(v) {'), stage.indexOf('    relayout() {'));
   assert.ok(sv.includes('viewXfStart(d)') && !sv.includes('morph-fade'));
   assert.doesNotMatch(css, /(?:live\.)?morph-fade/);

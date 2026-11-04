@@ -4,9 +4,10 @@ import { VB_ANAT, VB_CIRC } from './anatomy.js';
 import { cancelFrame, cancelMay, mayTask } from './frame.js';
 import { store } from './store.js';
 import { clamp, lerp } from './util.js';
+import { viewXfMix } from './view-xf.js';
 
 export function createView(st, live) {
-  const { EV, VB_CIRC_R, applyVT, circWhole, defaultVT, driftEnd, edgeVisible, geo, handRideEnd, labelJobDrop, labelJobStep, labelKeyNow, labelSig, labelSliceRun, labelTail, layoutLabels, layoutLabelsGen, nextFrame, refreshCTM, rotEase, sameView, stageBox, updateLabels, vbBox, vesselAt, visAt, worldToLocalInto } = st;
+  const { EV, VB_CIRC_R, applyVT, circWhole, defaultVT, driftEnd, edgeVisible, geo, handRideEnd, labelJobDrop, labelJobStep, labelKeyNow, labelSig, labelSliceRun, labelTail, layoutLabels, layoutLabelsGen, refreshCTM, rotEase, sameView, stageBox, updateLabels, vbBox, vesselAt, visAt, worldToLocalInto } = st;
   const xfVis = [null, null];
   function viewXfP() { const x = live.viewXf, t = live.easeInOut(live.morph); return x.tT === x.t0 ? 1 : clamp((t - x.t0) / (x.tT - x.t0), 0, 1); }
   // (The label layers the GPU does not draw (the SVG's own, the liver's pane) come in with the new labels.)
@@ -83,22 +84,15 @@ export function createView(st, live) {
       live.glSuppress = false;
     }
   }
-  // (Solved after the landing: the new labels come in with a fade, as they do through the change, never in one frame.)
-  const XF_FADE_MS = 160;
-  let xfRamp = 0;
+  // (The target's solve landed after the change did: the old view's labels, which rode the figure as ghosts all the while, give way to the new
+  // ones in one frame. No timer fade: a fade after the figure has stopped is what read as a pop (Mohammad, 4 Nov 2026: "nothing arrives then
+  // they show up pop in existence"), and the ghosts stood on the figure until this frame, so there is no empty screen to fade from.)
   function xfRelease() {
     if (!live.xfHold) return;
     live.xfHold = false;
-    const id = ++xfRamp, t0 = performance.now();
-    const step = () => {
-      if (id !== xfRamp || live.viewXf || live.xfHold) return;
-      const n = clamp((performance.now() - t0) / XF_FADE_MS, 0, 1);
-      xfLayer(n); live.labelGL.crossfade(0, n);
-      if (n < 1) nextFrame(step); else live.labelGL.dropGhosts();
-    };
-    step();
+    xfLayer(1); live.labelGL.dropGhosts();
   }
-  const XF_SLICE_MS = 4;   // (a slice of the target's solve in a frame of the change: the Circuit's whole solve is longer than the change, and at 1.2 ms it landed long after it, its labels popping in; what is left goes on after it lands)
+  const XF_SLICE_MS = 8;   // (a slice of the target's solve in a frame of the change (GPU-drawn): twice the 4 it was lands the Circuit's in half the frames; the ghosts ride until it lands, however late)
   let xfKept = null;
   function solveTargetView(d) {
     live.labelKey = null; live.solveAsked = true;
@@ -135,7 +129,7 @@ export function createView(st, live) {
     return done;
   }
   function viewXfStart(d) {
-    live.xfHold = false; xfRamp++;
+    live.xfHold = false;
     live.viewXf = null;   // (a change begun on another: the new one is solved first, with the layers out of the old one's hands)
     labelJobDrop();
     if (live.handRide) handRideEnd();
@@ -147,25 +141,30 @@ export function createView(st, live) {
     if (live.drifting) driftEnd();
     live.drifting = false;
     const to = { k: d.k, x: d.x, y: d.y };
-    live.viewXf = { t0: live.easeInOut(live.morph), tT: live.morphTarget, from: { ...live.vt }, to, same: sameView(live.vt, to), pending, tStart: performance.now(), sigTap: live.solvedFor?.sig || null };
+    // (landAt: the share of the change at which the target's labels were whole (0: at the tap), null while they are still being solved. The old
+    // view's labels ride as ghosts at full until then: viewXfMix.)
+    live.viewXf = { t0: live.easeInOut(live.morph), tT: live.morphTarget, from: { ...live.vt }, to, same: sameView(live.vt, to), pending, landAt: pending ? null : 0, tStart: performance.now(), sigTap: live.solvedFor?.sig || null };
     live.vtTarget = to; live.vtGliding = !live.viewXf.same; live.vtUntil = performance.now() + 700; live.vtMs = 700;
     live.xfOp = '';
     xfLayer(0);
     viewXfStep(true);
   }
   // (Each frame of the change, after the figure is drawn at its morph: the crossfade from its progress. The camera was set before it.)
+  // (The old labels ride as ghosts at full until the new ones are whole, then the two cross over the change's remaining progress (from its
+  // half when the solve was ahead of it, as before; from the frame the solve lands when it was late): never a frame with no labels on the figure.)
+  const XF_MIX = { o: 1, n: 0 };   // (written each frame of the change: no record made)
   function viewXfStep(first = false) {
     const x = live.viewXf, p = viewXfP();
     refreshCTM();
     if (x.pending && !first) {
-      if (!live.labelJob) { x.pending = false; live.labelKey = null; live.solveAsked = true; }   // (the job was dropped by another: laid out as it lands)
+      if (!live.labelJob) { x.pending = false; x.landAt = p; live.labelKey = null; live.solveAsked = true; }   // (the job was dropped by another: laid out as it lands)
       else {
-        if (xfSolveSlice(x.to, XF_SLICE_MS)) { x.pending = false; x.sigTap = live.solvedFor?.sig || null; }
+        if (xfSolveSlice(x.to, XF_SLICE_MS)) { x.pending = false; x.landAt = p; x.sigTap = live.solvedFor?.sig || null; }
       }
     }
-    const n = x.pending ? 0 : clamp(2 * p - 1, 0, 1);
-    xfLayer(n);
-    live.labelGL.crossfade(clamp(1 - 2 * p, 0, 1), n);
+    const m = viewXfMix(p, x.landAt, XF_MIX);
+    xfLayer(m.n);
+    live.labelGL.crossfade(m.o, m.n);
     if (p >= 1 || live.morph === live.morphTarget) viewXfEnd();
   }
   // The other view's labels solved ahead, in idle slices (a dry solve at that view's end state, the slots kept by a key of what the labels
@@ -255,14 +254,15 @@ export function createView(st, live) {
   function viewXfEnd() {
     const x = live.viewXf;
     if (!x) return;
-    // (The morph landed first: the solve goes on in the usual slices at rest, the stage being at its end state, and is marked current when it lands.)
-    if (x.pending && live.labelJob) { live.labelJob.xfTap = live.labelJob.solvedFor.sig; mayTask('label solve', labelJobStep, live.JOB_NOW); }
+    // (The morph landed first: the solve goes on at rest, a slice every frame and the longest it takes (its clock set back so it is not eased in),
+    // the stage being at its end state, and is marked current when it lands. The old labels stay as ghosts on the landed figure until then.)
+    if (x.pending && live.labelJob) { live.labelJob.xfTap = live.labelJob.solvedFor.sig; live.labelJob.t0 = performance.now() - 1000; mayTask('label solve', labelJobStep, live.JOB_NOW); }
     live.xfHold = !!(x.pending && live.labelJob);
     x.pending = false;
     live.viewXf = null;
     if (!x.same) { live.vt = { ...x.to }; applyVT(); live.CTM = null; }
     live.vtGliding = false;
-    if (live.xfHold) { live.labelGL.dropGhosts(); live.labelGL.crossfade(0, 0); } else { xfLayer(1); live.labelGL.dropGhosts(); }
+    if (live.xfHold) { xfLayer(0); live.labelGL.crossfade(1, 0); } else { xfLayer(1); live.labelGL.dropGhosts(); }
     refreshCTM();
     // (Laid out for this very camera already: the solve at the tap was for the landed geometry, so it stands. The signature differs only by the geometry's
     // version, which every morph frame bumped: marked current, the landing only refreshes values and does not solve again.)
