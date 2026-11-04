@@ -75,9 +75,9 @@ test('the stage keeps no dot of a station without a drawn vessel: starts off, fo
   const src = stageSource();
   assert.match(src, /const hasDot = new Set\(nodeDots\.map\(\(d\) => d\.id\)\);/);
   assert.match(src, /const NODE_ENDS = nodeEnds\(ALL_EDGES, \(e\) => E\[e\.id\]\);/);
-  assert.match(src, /const nodeVisible = \(id\) => [^;]*nodeDrawn\(NODE_ENDS\[id\]\);/);
-  assert.match(src, /const on = nodeVisible\(d\.id\);\s*if \(d\.on !== on\) \{ d\.on = on; mapWake = true; \}/);
-  assert.match(src, /\|\| !NODE_POS\[n\.id\] \|\| !nodeVisible\(n\.id\)\) continue;/);
+  assert.match(src, /const (?:live\.)?nodeVisible = \(id\) => [^;]*nodeDrawn\(NODE_ENDS\[id\]\);/);
+  assert.match(src, /const on = (?:live\.)?nodeVisible\(d\.id\);\s*if \(d\.on !== on\) \{ d\.on = on; (?:live\.)?mapWake = true; \}/);
+  assert.match(src, /\|\| !NODE_POS\[n\.id\] \|\| !(?:live\.)?(?:live\.)?nodeVisible\(n\.id\)\) continue;/);
 });
 
 const hits = (a, b) => a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0;
