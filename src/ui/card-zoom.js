@@ -230,7 +230,8 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
       // larger on each side in the glide's first frame (a 1440 x 900 canvas to 3168 x 1980, 400 to 800 ms of the main thread in a software-GL
       // profile, none at rest), the zoom's lag: Mohammad, 3 Nov 2026. They are drawn at the card's resting density, grown by the transform, for the
       // glide's half second and sharp the moment it ends. With no glide (Reduce Motion) they are larger at once.)
-      if (!part) { hold(true); if (!ms) boost(plan.s); behind(true, ms); }
+      if (!part) { hold(true); if (!ms) boost(plan.s); if (!st.cam) behind(true, ms); }   // (A zoom of the camera moves no card but the zoom's own: the words' card is not eased back, 4 Nov 2026)
+
       const to = `translate(${(plan.dx / k).toFixed(2)}px, ${(plan.dy / k).toFixed(2)}px) scale(${plan.s.toFixed(4)})`;
       for (const r of riders) r.anim = glide(r.el, 'transform', to, ms);
       for (const h of st.holes) { holeTo(h, q, 0); holeTo(h, boxAt(q, st.mid, plan.s, plan.dx, plan.dy), ms); }
@@ -308,12 +309,12 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
       if (st.closing) return st.closing;
       const s = st;
       for (const v of s.veils) v.classList.remove('on');
-      if (instant || reduce()) { if (!s.part) behind(false, 0); end(); return Promise.resolve(); }
+      if (instant || reduce()) { if (!s.part && !s.cam) behind(false, 0); end(); return Promise.resolve(); }
       globalThis.dispatchEvent?.(new Event('pps:cardzoom'));   // alloc-rare: once per zoom out
       s.card.dataset.zoomed = 'back';   // (on its way back: its shadow eases out, styles/app.css)
       // (A zoom shut part of the way in goes back in the part of SHUT_MS it got, from where it is: V-ZOOM-5.)
       const ms = Math.round(SHUT_MS * Math.max(0.35, Math.min(1, (s.cur.s - 1) / ((s.plan.s - 1) || 1))));
-      if (!s.part) behind(false, ms);
+      if (!s.part && !s.cam) behind(false, ms);
       for (const r of s.riders) r.anim = glide(r.el, 'transform', 'none', ms, r.anim);
       for (const h of s.holes) holeTo(h, s.box, ms);
       // (A glide that never reports its end, a tab hidden mid-way, is let go after its time.)
@@ -326,6 +327,6 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
     },
     toggle() { return this.up ? this.close() : this.open(); },
     /** Everything put back at once: a slide, a resize or the end of the talk comes first. */
-    reset() { if (st) { for (const v of st.veils) v.classList.remove('on'); if (!st.part) behind(false, 0); end(); } },
+    reset() { if (st) { for (const v of st.veils) v.classList.remove('on'); if (!st.part && !st.cam) behind(false, 0); end(); } },
   };
 }
