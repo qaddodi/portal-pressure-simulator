@@ -237,6 +237,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // and never under what the view is at now. (Recs B3: the spare for twice the zoom no longer reaches past the deepest zoom.)
   const worldCap = (G, dpr) => Math.min(3600 / (2.6 * G.R), Math.max(dpr * kFit * KMAX, dpr * V.k) * Math.SQRT2);
   let kFit = 1, atFit = true;
+  let zbase = null;   // (the view as a card's camera zoom found it: zoomOpen)
   // A presenter's glide to a station still under way: its part, zoom and target (which refit moves, so the glide still lands on the station).
   let camAim = null;
   const appStyle = document.getElementById('app')?.style;
@@ -4997,6 +4998,19 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     resetView,
     /** The zoom buttons: in or out about the middle of the free space, and Fit. */
     zoomBy, fitView,
+    /** The lobule zoomed with a card (card-zoom.js, via stage.js zoomOpen/zoomAt/zoomEnd): its view V scaled by S about the screen point (px, py) and
+     *  moved by (dx, dy), the cards' own transform, drawn each frame with no glide of its own; zoomEnd puts V back as it was. Not in the sinusoid. */
+    zoomOpen() {
+      if (zbase || !geo || fade < 0.98 || diveScaled || gliding || rubber || sinU > 0 || sinTo) return false;
+      stopInertia(); zbase = { k: V.k, x: V.x, y: V.y }; return true;
+    },
+    zoomAt(S, px, py, dx, dy) {
+      if (!zbase) return;
+      const lx = px - snap.l, ly = py - snap.t;
+      V.k = zbase.k * S; V.x = S * zbase.x + (1 - S) * lx + dx; V.y = S * zbase.y + (1 - S) * ly + dy;
+      viewChanged();
+    },
+    zoomEnd() { if (!zbase) return; Object.assign(V, zbase); zbase = null; viewChanged(); },
     /** The presenter's camera: glide to the whole lobule ('fit') or close in on a portal tract ('triad'), the
      *  sinusoids between it and the centre ('sinusoid') or the central vein ('central'), zoom × the framing. */
     /** The way out of the lobule begins (on) or is called off (off): see heldFree. Called off with the lobule still up, it follows the

@@ -2727,8 +2727,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // and then moved by (dx, dy) screen px, the same transform the zoomed cards are given, so the figure, the liver and the labels' places ride with them.
   // zoomOpen takes the view as it stands (null: it is not at rest, nothing is zoomed); zoomAt is one frame of it, written as the view (k, x, y), one
   // transform, no glide of its own; zoomEnd gives the view up (the card has gone back, the view is the one it began at) and the labels are solved again.
+  let zoomLz = false;
   function zoomOpen() {
-    if (zoomBase || !viewNow()) return false;
+    if (zoomBase) return false;
+    if (lobuleOn && lz?.zoomOpen) { if (!lz.zoomOpen()) return false; zoomBase = { lz: true }; zoomLz = true; glassHold.on = true; return true; }
+    if (!viewNow()) return false;
     cancelFrame(vtAnim); driftEnd();
     const b = stageBox(), vb = vbBox, s = Math.min(b.sw / vb.width, b.sh / vb.height);
     zoomBase = { vt: { ...vt }, s, ox: b.left + b.sx + (b.sw - vb.width * s) / 2 - vb.x * s, oy: b.top + b.sy + (b.sh - vb.height * s) / 2 - vb.y * s };
@@ -2738,7 +2741,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   function zoomAt(S, px, py, dx, dy) {
     const z = zoomBase;
-    if (!z || !following) return;
+    if (!z) return;
+    if (zoomLz) { lz.zoomAt(S, px, py, dx, dy); return; }
+    if (!following) return;
     vt = { k: z.vt.k * S, x: S * z.vt.x + ((px - z.ox) / z.s) * (1 - S) + dx / z.s, y: S * z.vt.y + ((py - z.oy) / z.s) * (1 - S) + dy / z.s };
     applyVT(); CTM = null;
     if (cath.st) { refreshCTM(); cathLabelsSoon(); }
@@ -2748,6 +2753,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function zoomEnd() {
     if (!zoomBase) return;
     const z = zoomBase; zoomBase = null; glassHold.on = false;
+    if (zoomLz) { zoomLz = false; lz?.zoomEnd(); return; }
     if (following) { vt = { ...z.vt }; applyVT(); CTM = null; }
     followEnd();
   }

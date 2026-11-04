@@ -1692,7 +1692,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   }
   addEventListener('resize', again);
   // (card-zoom.js moves the card in the frame loop and tells each frame: the glass is drawn in that frame, from the same zoom.)
-  const onZoomFrame = () => { quiet = 0; ask(); };
+  const onZoomFrame = () => { quiet = 0; if (hostOn && host && !inPrep && !lost && !dead) host.now(); else ask(); };   // (the zoom's own frame: drawn in this frame's final phase, from this frame's zoom, so the shadow and frost are never a frame behind the card)
   addEventListener('pps:zoomframe', onZoomFrame);
   // (The readings' card tucking or coming out (presenter.js slideUnder) writes --pz-u each frame, which sizes the sheet's two panes. They were read in
   // the next frame's read phase, so the glass trailed the card by a frame: the card above's blur slid up from below and back down as the card
