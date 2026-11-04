@@ -1190,7 +1190,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // fade out at their ends. The same GPU fade.)
     const tipFade = TIP_FADE[e.id] && !isArt ? { frac: TIP_FADE[e.id], line: [0, 0, 1, 0], joined: false } : ART_FADE[e.id]?.in ? { frac: ART_FADE[e.id].in, line: [0, 0, 1, 0], joined: false, keep: true } : null;
     const endFade = ART_FADE[e.id]?.out ? { frac: 1 - ART_FADE[e.id].out, line: [0, 0, 1, 0] } : null;
-    E[e.id] = { e, tipFade, endFade, tube: isArt && !!ART_FADE[e.id], strands, feeders, isArt, vis: true, width: 4, wallPx: 1, shadeOk: false, shadeVer: 0 };
+    E[e.id] = { e, tipFade, endFade, tube: isArt && (!!ART_FADE[e.id] || e.kind === 'shunt'),   // (an arterioportal shunt has the artery's wall too: a casing and a lit lumen, not a bare grey-blue stroke)
+     strands, feeders, isArt, vis: true, width: 4, wallPx: 1, shadeOk: false, shadeVer: 0 };
   }
   ALL_EDGES.forEach((e, i) => { E[e.id].row = i; });
   // (Every vessel, in E's order, as one list kept from here on: E is built once above and never gains or loses a key, so the
