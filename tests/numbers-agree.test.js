@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // Patients numbers agree with each other (review 15 Oct, #6, #7, #8): a gradient equals its two readings as shown, a
 // vessel reads one velocity everywhere, an event fires once rather than with every breath, the vitals hold steady
 // through a breath, and the bottom bar repaints a paused model. (dock.js and readouts-pane.js need a DOM, so they
@@ -42,7 +43,7 @@ test('a vessel reads one velocity: Details, the tip, the labels and colours read
   }
   // (the jejunal veins are drawn at 6 mm but probed at 9.5: they read about 23 cm/s, not 54)
   for (const p of ['inspector.js', 'main.js', 'actions.js']) assert.doesNotMatch(src(p), /Math\.PI \* D \* D/, `${p} works out a velocity from the drawn width`);
-  assert.match(src('stage.js'), /const edgeVel = meanVel;/);
+  assert.match(stageSource(), /const edgeVel = meanVel;/);
 });
 
 test('Details reads the smoothed pressures and flows, as the vessel card does', () => {
@@ -126,7 +127,7 @@ test('the right atrium is read over two breaths everywhere it is shown, and that
   }
   assert.ok(hi - lo > 0.4, `the beat-by-beat RA swings (${lo.toFixed(2)}–${hi.toFixed(2)}), which is why it is not shown`);
   assert.ok(vhi - vlo < 0.3, `RA over two breaths holds within 0.3 mmHg (${vlo.toFixed(2)}–${vhi.toFixed(2)})`);
-  assert.match(src('stage.js'), /mk === 'ra' \? f\.metrics\?\.vitals\?\.ra/, 'the figure reads RA over two breaths');
+  assert.match(stageSource(), /mk === 'ra' \? f\.metrics\?\.vitals\?\.ra/, 'the figure reads RA over two breaths');
   // (The slide data card: the presenter's live fingerprint and the worker's slide states are one function, engine/fingerprint.js.)
   assert.match(src('../engine/fingerprint.js'), /ra: m\.vitals\?\.ra \?\? m\.ra/, 'the slide data card reads RA over two breaths');
   assert.match(src('presenter.js'), /const liveFp = \(fr\) => fingerprintOf\(/, 'the live slide data is that fingerprint');

@@ -125,7 +125,7 @@ test('every WebGL2 surface rebuilds after a lost context (or is a probe or a sec
 
 test('idle rest: the FibroScan probe\'s waves stop with the figure and start again on waking', () => {
   const st = stageSource();
-  assert.match(st, /if \(restStill\(\)\) \{ scan\.last = 0; scan\.parked = true; return; \}/);
+  assert.match(st, /if \((?:live\.)?restStill\(\)\) \{ scan\.last = 0; scan\.parked = true; return; \}/);
   assert.match(st, /if \(!on && scan\.parked\) \{ scan\.parked = false; if \(scan\.on && !scan\.raf\) \{ scan\.last = 0; scan\.raf = nextFrame\(scanTick\); \} \}/);
   // (The other loops of the figure's marks stop by themselves once nothing eases: the halos, the Doppler probe's ease and its card tracking.)
   assert.match(st, /glow\.raf = moving \? nextFrame\(glowStep\) : 0;/);

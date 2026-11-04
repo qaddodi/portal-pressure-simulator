@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // The performance and heat review of 30 Oct, groups 1 and 2: a ruler that can see a missed 120 Hz frame, and cuts that remove work
 // that never reaches the screen (the picture stays the same; every setting keeps working).
 import { test } from 'node:test';
@@ -40,7 +41,7 @@ test('each surface\'s callbacks are set against the frames it really drew, over 
 
 // ── Group 2: the same picture for less work ──
 test('G1: a pan takes the width step instead of the whole update; a zoom or a turn still takes the update', () => {
-  const s = src('stage.js');
+  const s = stageSource();
   const fn = s.slice(s.indexOf('  function stepWidths() {'), s.indexOf('  // In the same way, while the organs ease'));
   assert.match(fn, /if \(!f \|\| f !== widthF \|\| storeVer !== widthVer \|\| !widthCTM \|\| coilEasing \|\| organsEasing \|\| catchUp \|\| bandsMoving\(\) \|\| lesionsMoving\(\)\) return false;/);
   assert.match(fn, /if \(!CTM\) refreshCTM\(\);/);
@@ -120,7 +121,7 @@ test('H7: the pressure strip and the vitals monitor scroll at the pace the figur
 });
 
 test('H10: the FibroScan probe\'s tap restarts with no style read and no layout (1 Nov 2026: two copies of its animation, turned between)', () => {
-  const s = src('stage.js');
+  const s = stageSource();
   assert.doesNotMatch(s, /void scan\.el\.offsetWidth/);
   assert.doesNotMatch(s, /void getComputedStyle\(scan\.el/);
   assert.match(s, /scan\.tapB = !scan\.tapB; scan\.el\.classList\.toggle\('tap', !scan\.tapB\); scan\.el\.classList\.toggle\('tap2', scan\.tapB\);/);

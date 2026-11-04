@@ -13,7 +13,7 @@ test('the FibroScan probe never asks the browser for the liver\'s box', () => {
   assert.doesNotMatch(fn, /getBoundingClientRect|getBBox|getScreenCTM/);
   assert.match(fn, /polyBoxInto\(flattenPathInto\(d, 0\.05, SCAN_FLAT\)/);
   assert.match(fn, /gMatrix\(organG\.liver\)/);
-  assert.match(fn, /CTM\.a \* wx \+ CTM\.c \* wy \+ CTM\.e - wrapRect\.left/);   // (the camera's matrix, as worldToLocal applies it)
+  assert.match(fn, /(?:live\.)?CTM\.a \* wx \+ (?:live\.)?CTM\.c \* wy \+ (?:live\.)?CTM\.e - (?:live\.)?wrapRect\.left/);   // (the camera's matrix, as worldToLocal applies it)
 });
 
 test('the FibroScan beam is its own layer of the probe\'s model, under the waves', () => {

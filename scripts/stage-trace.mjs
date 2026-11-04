@@ -107,7 +107,7 @@ export async function runTrace() {
     if (frames.length && st.update) st.update(frames[fi++ % frames.length]);
     H.h = 2166136261 >>> 0; H.calls = 0;
     pump(16.7);
-    let snap = '';
+    let snap;
     try { snap = JSON.stringify(st.labelSnapshot?.() ?? null, (k, v) => (typeof v === 'number' ? Math.round(v * 1e3) / 1e3 : v)); } catch (e) { snap = 'ERR ' + e.message; }
     let lh = 2166136261 >>> 0; for (let i = 0; i < snap.length; i++) lh = Math.imul(lh ^ snap.charCodeAt(i), 16777619) >>> 0;
     // the page's own scene under the stage (SVG model, label host, overlays: every attribute and style the frame set)

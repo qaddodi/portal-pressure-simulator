@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // Opening the Tests card leaves the camera where it is (Mohammad, 20 Oct): no refit when it opens, none while the sheet
 // settles or a tool's card changes height, and none from the home framing's look; a slide keeps framing itself, and any
 // other change to the free space (another card, a resize, a turn) still refits.
@@ -15,7 +16,7 @@ test('opening Tests keeps the view outside a slide; closing it and every other c
 });
 
 test('the stage skips the refit and the home look only while the Tests card alone has changed the free space', () => {
-  const stage = src('stage.js');
+  const stage = stageSource();
   // The space is read without the Tests card and the vitals dock; any other change (size, another card) ends the hold.
   assert.match(stage, /safeInsets\(false, \[document\.getElementById\('dock'\), document\.getElementById\('vdock'\)\]\)/);
   assert.match(stage, /if \(!store\.get\(\)\.presenting && keptSpace === spaceSig\(\)\) return true;\s*keptSpace = null;\s*return false;/);

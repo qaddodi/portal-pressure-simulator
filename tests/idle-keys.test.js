@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // Loops that ran while nothing changed now skip their work, and only that (Fable's review, item 2 and the safe performance
 // fixes): the Pressure chart stops repainting an unchanged picture, the home framing, the labels' card boxes and the corner
 // credit's poll measure only when something they measure may have moved, the comparison line is rebuilt only when a number
@@ -139,11 +140,11 @@ test('a transition that moves no box leaves the watch settled; one that moves a 
   listeners.animationstart({ target: fill }); assert.equal(w.due(), true, 'an animation: its properties are unknown');
   assert.ok(PAINT_ONLY.has('color') && INNER_FREE.has('transform'));
   // (and the model's parameters, set several times a second by a slide's time-lapse, wake the stage's watch no more than its frames do)
-  assert.match(src('stage.js'), /for \(let i = 0; i < keys\.length; i\+\+\) if \(keys\[i\] !== 'frame' && keys\[i\] !== 'params'\) \{ watch\.touch\(\); break; \}/);
+  assert.match(stageSource(), /for \(let i = 0; i < keys\.length; i\+\+\) if \(keys\[i\] !== 'frame' && keys\[i\] !== 'params'\) \{ watch\.touch\(\); break; \}/);
 });
 
 test('the framing, the labels\' card boxes and the credit\'s poll go by the watch', () => {
-  const stage = src('stage.js');
+  const stage = stageSource();
   assert.match(stage, /if \(home && now - homeCheck > 500 && watch\.due\(\)\)/);
   assert.match(stage, /if \(home && !wasHome\) watch\.touch\(\)/);
   assert.match(stage, /performance\.now\(\) - blockersAt > 100 && watch\.due\(\)/);

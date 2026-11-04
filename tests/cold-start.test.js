@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // The first minute after a load (2 Nov 2026, Mohammad: "15-60 seconds of lagginess then it becomes fast"): the start-up jobs that
 // ran as long tasks are cheaper, split or off the main thread. Profile them with scripts/cold-load.mjs.
 import test from 'node:test';
@@ -37,7 +38,7 @@ test('the noise table\'s GPU fill hashes as noiseBlock does: the same octaves, s
 });
 
 test('start-up jobs: one pass over the joins a task, idle-gated; the lobule\'s binning goes to the worker', () => {
-  const st = src('stage.js');
+  const st = stageSource();
   assert.match(src('vein-joins.js'), /function nearCourse\(pts, q, lim\)/);
   assert.match(src('vein-joins.js'), /nearCourse\(y\.pts, q, y\.obj\.glMaxR \+ 0\.5 \* rq \+ 2 \+ margin\)/);
   assert.match(st, /\(inMotion\(\) \|\| sinceInput\(\) < 700\) && snaps\.length < 2 \* ENV_AT\.length/);

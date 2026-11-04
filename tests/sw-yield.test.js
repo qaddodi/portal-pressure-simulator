@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -48,7 +49,7 @@ test('a GPU makes no yield', () => {
 
 test('a pan, zoom, glide or forced draw is drawn in its own frame, never held by the yield', () => {
   // (veins-gesture: a moved view drawn a frame late shows the vessels behind the rest of the figure)
-  const js = readFileSync(new URL('stage.js', SRC), 'utf8');
+  const js = stageSource();
   assert.match(js, /swYield && !swYield\.ready\(now, forceDraw \|\| drawOnce \|\| viewVersion !== drawnView\)/);
   const lob = readFileSync(new URL('lobule-zoom.js', SRC), 'utf8');
   assert.match(lob, /lzYield && !lzYield\.ready\(now, viewVer !== pacedVer\)/);

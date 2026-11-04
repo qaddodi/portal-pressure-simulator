@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -30,7 +31,7 @@ test('Battery saver alone paces motion', async () => {
 });
 
 test("the anatomy's top quality step draws the blood on every frame", () => {
-  const js = readFileSync(new URL('stage.js', SRC), 'utf8');
+  const js = stageSource();
   const q = js.match(/const QUALITY = \[([^\]]*)\]/);
   assert.ok(q, 'QUALITY table found');
   assert.match(q[1].trim(), /^\{ fps: 0, res: 1 \}/, 'the first (default) step is unpaced at full resolution');
@@ -40,7 +41,7 @@ test("the anatomy's top quality step draws the blood on every frame", () => {
 // anatomy's frame-time governor, its zoom resolution and dynamic resolution, the lobule's resolution governor and the
 // FibroScan's shrinking map size are gone, and a level an older build stored is dropped.
 test('no surface steps its own resolution or frame rate down', () => {
-  const stage = readFileSync(new URL('stage.js', SRC), 'utf8');
+  const stage = stageSource();
   for (const name of ['governQuality', 'governRes', 'dynRes', 'zoomRes']) assert.ok(!new RegExp(`\\b${name}\\b`).test(stage), `stage.js: ${name} is back`);
   assert.ok(!/localStorage\.setItem\('pps\.(quality|q)'/.test(stage), 'stage.js stores a quality level again');
   assert.match(stage, /removeItem\('pps\.quality'\)/, 'an old stored level is dropped');

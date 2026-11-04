@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // Settings › Figure performance (30 Oct, Round 3 of the resolution review): one switch per idea, each off by default, and off
 // changes nothing: every path a switch adds is behind its own check, and the code it leaves runs as before.
 import test from 'node:test';
@@ -62,7 +63,7 @@ test('Motion at 60 (on by default since 4 Nov 2026): paceMs is 10 ms (every othe
 });
 
 test('Motion at 60 in the figure loop: off, the interval and the gate are as before; on, no phase is carried; view moves never wait', () => {
-  const stage = src('stage.js');
+  const stage = stageSource();
   const fn = stage.slice(stage.indexOf('function animate(now)'), stage.indexOf('const dt = Math.min(0.1, (now - lastT) / 1000);', stage.indexOf('function animate(now)')));
   assert.match(fn, /const m60 = !paceOf\(quality\) && figLab\('motion60'\);/);
   assert.match(fn, /const interval = m60 \? MOTION60_MS : paceOf\(quality\);/);
@@ -88,7 +89,7 @@ test('Credit check in talks: off, Present looks every second as before; on, only
   const credit = src('credit.js');
   // (The lobule and the sinusoid no longer look every second since 1 Nov 2026: their view and gliding names are in the key.)
   assert.match(credit, /if \(watch\.due\(\) \|\| k !== polled \|\| \(app\?\.classList\.contains\('presenting'\) && !figLab\('creditLean'\)\)\) soon\(\);/);
-  assert.match(src('stage.js'), /labelStamp: \(\) => `\$\{stats\.layouts\}\|\$\{vt\.k\},\$\{vt\.x\},\$\{vt\.y\}\|\$\{morph\}\|\$\{rotU\}\|\$\{lz\?\.isOpen\?\.\(\) \? lz\.viewKey\(\) : ''\}\|\$\{lz\?\.sinusoidMoving\?\.\(\) \? performance\.now\(\) : ''\}`,/);
+  assert.match(stageSource(), /labelStamp: \(\) => `\$\{stats\.layouts\}\|\$\{vt\.k\},\$\{vt\.x\},\$\{vt\.y\}\|\$\{morph\}\|\$\{rotU\}\|\$\{lz\?\.isOpen\?\.\(\) \? lz\.viewKey\(\) : ''\}\|\$\{lz\?\.sinusoidMoving\?\.\(\) \? performance\.now\(\) : ''\}`,/);
 });
 
 test('Lymph drawn by the GPU each frame it moves: the drops stepped once a frame, their rings as wide as the 2D drawing stroked them', () => {

@@ -129,9 +129,9 @@ test('the Doppler probe is drawn on the GPU under the leaders, from a model of p
 });
 
 test('the FibroScan probe is drawn on the GPU over the labels, from a model of plain elements the page never paints', () => {
-  assert.match(STAGE, /scan\.el = el; scan\.deg = 45;\n\s+labelGL\?\.setScan\(el\);/);
-  assert.match(STAGE, /labelGL\?\.redraw\(\); {3}\/\/ \(the waves moved/, 'each frame of its waves drawn in that frame');
-  assert.match(STAGE, /el\.remove\(\); if \(!scan\.el\) labelGL\?\.setScan\(null\);/, 'gone from the GPU layer when its element goes');
+  assert.match(STAGE, /scan\.el = el; scan\.deg = 45;\n\s+(?:live\.)?labelGL\?\.setScan\(el\);/);
+  assert.match(STAGE, /(?:live\.)?labelGL\?\.redraw\(\); {3}\/\/ \(the waves moved/, 'each frame of its waves drawn in that frame');
+  assert.match(STAGE, /el\.remove\(\); if \(!scan\.el\) (?:live\.)?labelGL\?\.setScan\(null\);/, 'gone from the GPU layer when its element goes');
   // (Its model has no SVG since 1 Nov: plain elements carrying the shapes' numbers, never painted by the page.)
   assert.match(CSS, /\.scan-probe > \.sp-svg \{ visibility: hidden; \}/);
   assert.doesNotMatch(STAGE.slice(STAGE.indexOf('function scanPaint('), STAGE.indexOf('function setScanProbe(')), /<svg|<path|<rect|<text|<g[ >]/);

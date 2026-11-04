@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // Review 22 Oct, item 10: the lobule view, the sinusoid view, the Doppler and the FibroScan load after the first paint (about 700 kB of
 // script that most sessions open late or never). These tests pin the three things that make that safe: the first load really does not
 // reach them, nothing a late-built layer or pane would have heard is lost, and the page keeps the order it had.
@@ -35,7 +36,7 @@ test('the first load does not reach the lobule, the sinusoid view, the Doppler o
 });
 
 test('each is loaded by import(), when its time comes', () => {
-  assert.match(read('stage.js'), /import\('\.\/lobule-zoom\.js'\)/);
+  assert.match(stageSource(), /import\('\.\/lobule-zoom\.js'\)/);
   assert.match(read('main.js'), /lazy\(\(\) => import\('\.\/doppler\.js'\), \(\{ createDoppler \}\) => createDoppler\(\{ onProbe: probeTo \}\)\)/);
   assert.match(read('main.js'), /lazy\(\(\) => import\('\.\/fibroscan\.js'\), \(\{ createFibroScan \}\) => createFibroScan\(\)\)/);
   for (const file of ['main.js', 'presenter.js']) assert.match(read(file), /import \{ sinusoidSupported \} from '\.\/gl-support\.js/, `${file} asks gl-support.js, which does not load the view`);
@@ -43,7 +44,7 @@ test('each is loaded by import(), when its time comes', () => {
 });
 
 test('a dive asked for before the layer exists goes on when it does, with the slide\'s aim and the frame as they stand', () => {
-  const stage = read('stage.js');
+  const stage = stageSource();
   const open = stage.slice(stage.indexOf('function openLobule('), stage.indexOf('function closeLobule()'));
   assert.match(open, /if \(!lz\) \{\s*\n\s*if \(!lzWaiting\) \{[\s\S]*?lobuleReady\(\)\.then\(lobuleArrived, lobuleNotArrived\)/);
   assert.match(open, /const lobuleArrived = \(\) => \{ lzWaiting = false; if \(store\.get\(\)\.lobule\) openLobule\(\); \};/);
@@ -55,7 +56,7 @@ test('a dive asked for before the layer exists goes on when it does, with the sl
 });
 
 test('the first dive is prepared ahead as before: the code is fetched as the figure is shown, the layer built when the page is quiet', () => {
-  const stage = read('stage.js');
+  const stage = stageSource();
   const prep = stage.slice(stage.indexOf('function prepLobule()'), stage.indexOf('let catchUp = false'));
   assert.match(prep, /if \(figureShown && !lzLoad && !lzSoon\) \{ lzSoon = true; lobuleCode\(\)\.catch\(lobuleNoop\); prepIdle\(prepLoad\);/);
   assert.match(stage, /const prepLoad = \(\) => lobuleReady\(\)\.then\(prepLobule, prepLoadLost\);/);
