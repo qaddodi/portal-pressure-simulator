@@ -172,7 +172,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // The labels, zone names and the slide's call are drawn by the GPU (label-captions.js), each where the page set it (mirrorOf, read between
   // frames) and moved in the frame that moves the lobule; the page's own are a clear model for clicks and screen readers, placed between
   // frames (2 Nov 2026, "Move everything to GPU").
-  const cap = createCaptions(labels);
+  const cap = createCaptions(labels, { deferred: true });   // (drawn in the figure's context once ensureGL knows it; else in a canvas of their own)
   // (The page's own names are made clear only once the GPU's picture of them is on the screen, and shown again if it is lost: label-captions.js presented.)
   // (Written in the task that handed the picture over, not in a later one: the page's names are made clear in the very frame the GPU's picture
   // first shows, never a frame, or a rest pass, after it, when both would show: the double captions.)
@@ -821,6 +821,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     shareOff?.(); shareOff = null;
     if (shareTop) { try { shareTop.canvas.removeEventListener('webglcontextrestored', onFigureBack); } catch { /* gone */ } }
     shareTop = null; shared = false;
+    cap.detach();   // (the names' pass was in that renderer's present; ensureGL attaches them again to the new one)
     host.classList.remove('lz-shared');
   }
   // (The stage made a new renderer, or its context was lost and came back: the lobule's passes are made again in the new one, after the stage's own.)
@@ -842,7 +843,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       fig.canvas.addEventListener('webglcontextrestored', onFigureBack);
       shareOff = fig.add({ order: LZ_UNDER_GLASS - 5, solo: true, opaque: shareOpaque, draw: layShared });
       host.classList.add('lz-shared');
-    } else gl = createVeinsGL(glCv, { tubes: MAXT, force: true, who: 'lobule' });
+      // The names and their leaders are a pass of the same present (L1, docs/gpu-two-contexts-plan.md): over the lobule's overlay and the wide copy, under every
+      // glass, so the cards frost them and no hole is cut. The layer's own fades (the camera's, the dive's, a hush) are followed by layer-alpha.js.
+      cap.attach({ top: fig, order: LZ_UNDER_GLASS + 2, near: el, active: () => shared && shareTop === fig, scale: () => (fig.canvas.width || 1) / (shW || 1) });
+    } else { gl = createVeinsGL(glCv, { tubes: MAXT, force: true, who: 'lobule' }); cap.attach(null); }
     restAttr(el, 'data-vessels', gl ? 'webgl2' : 'flat');
     // (A software renderer only: each lobule frame waits for the last to finish on the GPU and gives the page as long again,
     // as the anatomy's vessels do; see sw-yield.js. On a GPU there is no yield.)
@@ -4661,7 +4665,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // lobule grows about that sinusoid, turning it to lie along the screen and carrying it to where the
   // sinusoid view draws its own; as the zoom lands the sinusoid view, at the same size and angle, resolves in and
   // covers it. Zooming out (the zoom buttons, a pinch, the wheel), its back button or Escape reverse it.
-  const sv = createSinusoidView({ host, before, share: { top: () => (shared && shareTop && gl && !gl.lost ? shareTop : null), order: LZ_UNDER_GLASS - 4 } });   // (the sinusoid is a pass of the stage's present too, over the lobule's, under the glass)
+  const sv = createSinusoidView({ host, before, share: { top: () => (shared && shareTop && gl && !gl.lost ? shareTop : null), order: LZ_UNDER_GLASS - 4, capOrder: LZ_UNDER_GLASS + 2 } });   // (the sinusoid is a pass of the stage's present too, over the lobule's, under the glass)
   let sinU = 0, sinTo = 0, sinRaf = 0, sinDive = null, sinPick = null, quietSin = false, sinPending = false;
   let sinZ = 0;   // (sinZ: the sinusoid zoom's log scale so far, for the tests)
   const easeIO = easeMove;   // (the sinusoid zoom is a move of the view: the camera's quintic, ease.js, which the pill and the bars that ride it share)

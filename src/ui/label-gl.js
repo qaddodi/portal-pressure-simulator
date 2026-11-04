@@ -659,7 +659,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   if (!host) svg.after(canvas);
   // (The labels' words are Inter's outlines (text-gl.js), fetched as the layer starts: till they come, the SVG shows every label.)
   if (!glyphsReady()) loadGlyphs().then(() => { for (const s of last) dirty.add(s.g); ask(); }, () => {});
-  let lost = false, dpr = 1, W = 1, H = 1, last = [], raf = 0;
+  let lost = false, disposed = false, dpr = 1, W = 1, H = 1, last = [], raf = 0;
   // (The loading cover waits for the labels' first picture, inside its own cap (index.html): it lifted on a figure with no labels, and
   // they arrived a beat later. 1.5 s here, so a view that shows none does not hold it.)
   let coverOpen = null;   // alloc-rare: one promise for the cover, made once, only while it is up
@@ -927,12 +927,13 @@ void main() { o = texture(uT, vUV) * uA; }`;
     for (const t of ['transitionrun', 'transitionend', 'transitioncancel', 'animationstart', 'animationend', 'animationcancel']) root.addEventListener(t, (ev) => { const el = markOf(ev.target); if (el) { keepAnims(el, false); markDirty.add(el); markLive.set(el, performance.now() + 800); ask(); } }, true);
   }
   const allMarks = () => { const t = performance.now() + 700; for (const root of marks) { markDirty.add(root); markLive.set(root, t); if (!TRACK) markExact.set(root, t); for (const el of root.children) { markDirty.add(el); markLive.set(el, t); if (!TRACK) markExact.set(el, t); } } };
+  const ac = new AbortController();   // (listeners on the host's canvas end with dispose())
   canvas.addEventListener('webglcontextlost', (e) => {
     e.preventDefault(); lost = true; undisplace();
     for (const s of last) s.g.removeAttribute('data-gl');
     for (const root of marks) for (const el of root.children) el.removeAttribute('data-gl');
     scanEl?.removeAttribute('data-gl');
-  });
+  }, { signal: ac.signal });
   // The context given back (iOS Safari returns to the page, or a GPU process restarts): the programs are started again at once and read
   // when the driver has finished them, at an idle moment, not in a frame (the SVG draws every label meanwhile, as in the loss). Then every
   // picture goes up again, packed afresh, and the layer is drawn: the labels, marks and probes are the GPU's again, in the same frame.
@@ -951,9 +952,11 @@ void main() { o = texture(uT, vUV) * uA; }`;
       ask();
     });
   });
+  // (The host's canvas pixels per CSS px: its owner's scale() when it gives one (a canvas drawn at its own density, the lobule's captions), else the screen's.)
+  const hostK = () => (host.scale ? host.scale() : 0) || devicePixelRatio || 1;
   // (The host's canvas, sized by its owner at the screen's density: stage.js resizeCanvas. Read as each picture is laid: no layout.)
   function hostSize() {
-    const k = devicePixelRatio || 1, w = canvas.width, h = canvas.height;
+    const k = hostK(), w = canvas.width, h = canvas.height;
     if (w === W && h === H && k === dpr) return false;
     W = w; H = h; dpr = k;
     for (const s of last) dirty.add(s.g);
@@ -2371,6 +2374,23 @@ void main() { o = texture(uT, vUV) * uA; }`;
     setProbe,
     setProbeCam(f) { probeCam = f; },
     setScan,
+    /** Lets the layer go (host mode: its captions' owner took it out): no more drawing, observers and listeners ended, its GPU objects freed. */
+    dispose() {
+      if (disposed) return;
+      disposed = true; lost = true;
+      if (raf) { cancelFrame(raf); raf = 0; }
+      mo.disconnect(); mmo.disconnect(); outer.disconnect(); ac.abort();
+      try {
+        for (const t of pageTex) if (t) gl.deleteTexture(t);
+        for (const t of rpTex) if (t) gl.deleteTexture(t);
+        if (rpFbo) gl.deleteFramebuffer(rpFbo);
+        for (const p of [prog, mprog, rprog, aprog]) if (p) gl.deleteProgram(p);
+        for (const v of [vao, avao]) if (v) gl.deleteVertexArray(v);
+        if (abuf) gl.deleteBuffer(abuf);
+      } catch { /* the context is gone with it */ }
+      pageTex = []; rpTex = [];
+      if (!host) canvas.remove();
+    },
     /** Draws now (a mark the stage just moved, outside a label layout: the probe's ease). */
     redraw() { if (lost) return; if (host) { ask(); return; } if (raf) { cancelFrame(raf); raf = 0; } draw(); },
     setHoles,
@@ -2400,7 +2420,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       if (lost) return;
       // Compare the density actually used by this canvas. On a 3x screen its 2x cap otherwise looked like a density change on every sync,
       // repeatedly scheduling a resize task and another GPU draw throughout a gesture.
-      if ((host ? (devicePixelRatio || 1) : labelDensity(devicePixelRatio)) !== dpr) densityChanged();
+      if ((host ? hostK() : labelDensity(devicePixelRatio)) !== dpr) densityChanged();
       take(mo.takeRecords());
       for (const r of mmo.takeRecords()) { if (!changed(r)) continue; const el = markOf(r.target); if (el) markDirty.add(el); }
       // A sliced landing or a value refresh may sync while the camera still carries the old layout. Taking its new positions here

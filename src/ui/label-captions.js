@@ -23,6 +23,7 @@ import { D_SURFACE, easeArrive } from './ease.js';
 import { cssColor } from './css-color.js';
 import { readBox, readRects, readStyle } from './layout-snap.js';
 import { createLabelGL } from './label-gl.js';
+import { createLayerAlpha } from './layer-alpha.js';
 
 const finalFrame = finalFrameFor('label-captions');
 const RETRIES = 30;   // (frames a failed hand-over is drawn again, in a row)
@@ -271,7 +272,7 @@ export function inkRows(el, out = []) {
  * when the drawer is gone for good (dispose, or no WebGL2). New words before the next frame do not take it back either (a flash);
  * `gen` counts the content generations and a frame always draws the latest.
  */
-export function createCaptions(box, { labelGL = createLabelGL } = {}) {
+export function createCaptions(box, { labelGL = createLabelGL, deferred = false } = {}) {
   // The words are drawn by label-gl, the Anatomy and Circuit labels' own renderer (Mohammad, 3 Nov 2026: "Same engine for labels everywhere"):
   // each caption is a label group (.lb, its words as <text><tspan>) in a model svg, laid out and drawn by a label-gl layer of its own over this box.
   // Leaders, dots, arrows and the legend's dot are label-gl's marks and groups too; with no label-gl (no WebGL2) the page's own names show.
@@ -281,7 +282,11 @@ export function createCaptions(box, { labelGL = createLabelGL } = {}) {
   box.append(model);
   const lroot = document.createElementNS(NS, 'g');
   lroot.setAttribute('class', 'lb-leaders'); model.prepend(lroot);
-  const LG = labelGL(model, mblocks, { force: true, id: 'capLabelGl', marks: [lroot] });
+  // The layer is drawn in the figure's own context (attach, L1 of docs/gpu-two-contexts-plan.md): a pass of its present, under the glass, so a name
+  // is in the very picture the figure is, never a frame off, and no canvas of its own lies over the stage. `deferred`: the owner attaches it
+  // when it knows the figure (a view made before the figure's renderer exists); attach(null) is the own-canvas layer the names had before.
+  let LG = deferred ? null : labelGL(model, mblocks, { force: true, id: 'capLabelGl', marks: [lroot] });
+  let hosted = null;   // { top, off (the pass's removal), spec, alpha } while the names are drawn in a host's context
   const lgList = [];
   const lgOn = () => !!LG && !LG.lost;
   let svSeq = 0;
@@ -367,10 +372,22 @@ export function createCaptions(box, { labelGL = createLabelGL } = {}) {
     try {
       // (The owner's places for this frame, set as it is drawn: a glide its page eased, a pan's ride.)
       if (onFrame?.(now)) more = true;
-      if (!(w > 0 && h > 0)) return;
+      if (!(w > 0 && h > 0)) {
+        // (In a host's context nothing hides an empty layer: the names last handed over would stay drawn.)
+        if (hosted && LG) { lgList.length = 0; LG.sync(lgList); }
+        return;
+      }
       // (The whole layer carried by the owner's view, view(): a point p is at k p + (e, f). A pan, or the lobule's dive about a point. Only the
       // places go through it: the words, their halo, the leaders' width and the dots keep their size on the screen at any zoom, as the
       // Anatomy and Circuit labels do (Mohammad, 3 Nov 2026), so nothing here is scaled by it.)
+      // (The page's fades of the layer (the camera's, the sinusoid's, a slide's hush, the lobule's own fade), which reached the canvas that lay inside
+      // it, reach the picture drawn in the host's context: layer-alpha.js, no read of the page in a frame while none changes.)
+      let la = 1;
+      if (hosted) {
+        hosted.alpha ||= createLayerAlpha(box, { near: hosted.spec.near || null, onChange: () => api.paint() });   // alloc-rare: once per attach, on its first frame
+        la = hosted.alpha.now();
+        if (hosted.alpha.moving) more = true;
+      }
       // Leaders under the names, as their layer was.
       for (const [key, L] of leads) {
         const a = easeAt(L.a, now) * (L.of ? itemA(L.of, now) : 1);
@@ -387,7 +404,7 @@ export function createCaptions(box, { labelGL = createLabelGL } = {}) {
         { const q = drawnL[drawnLN++] || (drawnL[drawnLN - 1] = { key: '', x0: 0, y0: 0, x1: 0, y1: 0, a: 0 }); q.key = key; q.x0 = x2; q.y0 = y2; q.x1 = sx; q.y1 = sy; q.a = a; }   // (what this frame drew, for snapshot(): the figure's point and the name's end, view applied; alloc-rare, only until a frame has drawn as many leaders as any frame will)
         // The leader and its dot as the Anatomy and Circuit labels draw them (app.css .leader, .leader-dot): a 1px line in the leader ink, the dot on
         // its point with the stage's paper round it and the text ink's ring.
-        if (lgOn()) leadMarks(key, L, sx, sy, x2, y2, a);
+        if (lgOn()) leadMarks(key, L, sx, sy, x2, y2, a * la);
       }
       lgList.length = 0;
       for (const I of items.values()) {
@@ -405,7 +422,7 @@ export function createCaptions(box, { labelGL = createLabelGL } = {}) {
           if (I.set.lines.length && (I.set.n ?? 1) > 0) {
             const g = buildGroup(I, s), e = I.ent;
             e.x = l; e.y = t;
-            const o = a.toFixed(3);
+            const o = (a * la).toFixed(3);
             if (g.style.opacity !== o) g.style.opacity = o;
             lgList.push(e);
           }
@@ -428,10 +445,36 @@ export function createCaptions(box, { labelGL = createLabelGL } = {}) {
     else if (wasMoving) onRest?.();   // (its eases done: the owner may place its page model, between frames)
     wasMoving = more;
   }
+  // The layer's drawer let go: its pass out of the host's present, its fade follower ended, the drawer disposed.
+  function dropLG() {
+    if (hosted) { hosted.off?.(); hosted.alpha?.dispose(); hosted = null; }
+    if (LG) { LG.dispose?.(); LG = null; }
+    lgList.length = 0;
+  }
   function itemA(key, now) { const I = items.get(key); return I ? easeAt(I.a, now) : 1; }
   // (Inter's outlines, the Anatomy pen's: till they are here the names are drawn from the atlas, and set again, then drawn from the outlines.)
   if (!glyphsReady()) loadGlyphs().then(() => { if (!dead) { gen++; api.paint(); } }, () => {});
   const api = {
+    /**
+     * Where the names are drawn. `{ top, order, active, near, scale }`: in the figure's context (veins-gl top), as a pass of its present at `order`
+     * (under the glass: no holes are cut); active(): whether the host may draw them now; near: the element up whose chain a style write
+     * is watched for the layer's fades; scale(): the host canvas's pixels per CSS px. `null`: a canvas of the layer's own, as before (no figure).
+     * Called again when the figure's renderer is made anew; the names already set are drawn again at once.
+     */
+    attach(spec) {
+      if (dead) return;
+      dropLG();
+      if (spec?.top) {
+        const top = spec.top;
+        const host = { gl: top.gl, canvas: top.canvas, ask: () => top.present(), now: () => top.present(), active: () => !dead && !top.gl.isContextLost() && (spec.active ? !!spec.active() : true), scale: spec.scale };
+        LG = labelGL(model, mblocks, { force: true, id: 'capLabelGl', marks: [lroot], host });
+        if (LG) hosted = { top, spec, alpha: null, off: top.add({ order: spec.order ?? 0, solo: true, draw: () => { if (lgList.length || leads.size) LG?.drawInto?.(); } }) };   // (nothing to draw: the present has cleared the canvas, no pass is run)
+      } else LG = labelGL(model, mblocks, { force: true, id: 'capLabelGl', marks: [lroot] });
+      gen++;
+      api.paint();
+    },
+    /** The figure's renderer is gone (or about to be made anew): its pass is taken out; the last picture stays in the figure's canvas until it is. */
+    detach() { if (!dead) dropLG(); },
     /** Whether the GPU draws the names (WebGL2 and the charts' drawer are here); false: the page's own names must show. */
     get on() { return !dead && !!LG; },
     /** Called once, after the first frame the GPU drew the names and handed over. */
@@ -585,11 +628,11 @@ export function createCaptions(box, { labelGL = createLabelGL } = {}) {
       const was = presented, lost = onLost;
       onFrame = onRest = onDrawn = onPresented = onLost = null;
       items.clear(); leads.clear(); looks.clear(); drawn = []; shown = []; drawnL = []; shownL = []; drawnN = shownN = drawnLN = shownLN = 0;
-      model.remove(); LG?.dispose?.();
+      model.remove(); dropLG();
       presented = false;
       if (was) lost?.();
       // alloc-rare: teardown, when the layer is let go, never in a frame
-      for (const k of ['look', 'measure', 'mirror', 'arrow', 'decor', 'put', 'place', 'reset', 'lead', 'view', 'paint', 'drawNow']) api[k] = NOOP;
+      for (const k of ['look', 'measure', 'mirror', 'arrow', 'decor', 'put', 'place', 'reset', 'lead', 'view', 'paint', 'drawNow', 'attach', 'detach']) api[k] = NOOP;
       api.measure = () => ZERO;
       api.hasLook = () => false;
       api.leadOf = api.at = () => null;

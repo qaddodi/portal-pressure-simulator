@@ -65,7 +65,7 @@ export function createSinusoidView({ host, before = null, share = null }) {
   // placed in the frame that moves the view; the page's own names are a quiet model (screen readers, data-target, what reads their boxes
   // at rest), made clear by .cap-gl-on and placed between frames (domPlace). Their sizes are set from the GPU's own type (their looks are
   // read between frames, readLooks), so no layout is read for them. A name made new is drawn once its look is read, fading in.
-  const cap = createCaptions(labels);
+  const cap = createCaptions(labels, { deferred: true });   // (drawn in the figure's context once ensureGpu knows it; else in a canvas of their own)
   let sizedNew = false, onSized = null;
   const ZERO2 = [0, 0], NO_LINES = [];
   const szOf = (R) => (R ? cap.measure(R.key, R.lines || NO_LINES) : ZERO2);
@@ -223,7 +223,10 @@ export function createSinusoidView({ host, before = null, share = null }) {
     // context, hidden and not drawn until the zoom brings it in, its texture back to a texel when it goes (place). Else the view's own canvas and context.)
     const ft = share?.top?.() || null;
     gpu = createSinusoidGL(canvas, { warm: true, onReady: () => { gpuKey = ''; wake(); }, host: ft });
-    if (gpu && ft) { shareTop = ft; shareOff = ft.add({ order: share.order, solo: true, draw: laySin }); }   // (published after a draw found it compiling: drawn now) // alloc-rare: the GPU view is made once, the first time it is needed
+    if (gpu && ft) { shareTop = ft; shareOff = ft.add({ order: share.order, solo: true, draw: laySin }); }
+    // The names and their leaders are a pass of the same present (L1, docs/gpu-two-contexts-plan.md), over the view and under every glass; the layer's own fades are followed by layer-alpha.js.
+    if (gpu && ft) cap.attach({ top: ft, order: share.capOrder ?? share.order + 1, near: el, active: () => shareTop === ft && !!gpu && !gpu.lost, scale: () => (hostWH ? ft.canvas.width / hostWH[0] : 0) });
+    else cap.attach(null);   // (published after a draw found it compiling: drawn now) // alloc-rare: the GPU view is made once, the first time it is needed
     noteSinusoidSupport(!!gpu);
     // (A software renderer only: a frame of the view waits for the last to finish on the GPU and gives the page as long again,
     // as the anatomy's vessels do; see sw-yield.js. On a GPU there is no yield.)
