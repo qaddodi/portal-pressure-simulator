@@ -2579,46 +2579,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // A presenter's camera move: the labels ease out as it starts, are not laid out while it runs, and ease
   // back in at their new places once it settles (they never slide across the figure).
   let camMove = false;
-  // The change between the Anatomy and the Circuit fades the labels out as it starts and lays them out once, where it lands, as a
-  // presenter's camera move does (cam-move): each frame of it had carried every label with the moving vessels and solved them all
-  // again at its half, the longest frame of the change (his iPhone, 1 Nov: "going from anatomy to circuit is so laggy").
-  // (The fade is a class on the two label layers themselves (app.css .morph-fade), not on the stage, and the liver label's pane an
-  // opacity, as a ride does it (rideStart): a class on the stage or the pane has a glass read the page again, 70 to 110 ms in the
-  // first frames of the change, headless; an opacity alone it takes as a motion.)
-  let morphFade = false;
-  // A view change carries each label by how far its own station moves in the figure, in the figure's own frame (followStep): the
-  // layout's labels keyed to the station each names and where that station stood in it (stage px). followNext is the layout being made.
-  let followTab = new Map(), followNext = new Map(), followOn = false, followM0 = 0;
-  const morphFadeBuf = [];   // (the two label layers, in one kept list written in place; the callers loop over it at once)
-  const morphFadeEls = () => { const b = morphFadeBuf, gl = wrap.querySelector('#labelGl'); b.length = 0; if (labelSvg) b.push(labelSvg); if (gl) b.push(gl); return b; };
-  // (The labels come back only once their layout for the new view is down: a solve still in slices would show the old view's labels,
-  // their leaders and dots over the new one. A failsafe after 1.5 s brings them back whatever.)
-  const morphFadeShow = () => { if (morphFade) return; const els = morphFadeEls(); for (let i = 0; i < els.length; i++) els[i].classList.remove('morph-fade'); glass.style.opacity = ''; };
-  // (Shown only after the GPU has drawn the new view's labels whole: never the old view's, nor pictures half built. The failsafe shows them whatever.)
-  const morphFadeDrop = (force) => { if (!morphFade && (force === true || !labelJob)) { if (force !== true && labelGL?.afterDraw) labelGL.afterDraw(morphFadeShow); else morphFadeShow(); } };
-  function followStep() {
-    if (!labelGL?.following) return;
-    refreshCTM();
-    const t = easeInOut(morph);
-    for (const [key, e] of followTab) {
-      const a = labelAnchor(e.id, t);
-      labelGL.followPut(key, a.ax - e.ax, a.ay - e.ay);
-    }
-    labelGL.followDraw(Math.max(0, 1 - 2 * Math.abs(morph - followM0)));   // (a label of no station that moves: faded out within the first half of the change)
-  }
-  function morphFadeEnd() {
-    if (!morphFade) return;
-    morphFade = false;
-    if (followOn) { followOn = false; labelGL?.followEnd(); }
-    labelKey = null;
-    labelGL?.rush?.(2000);   // (and their pictures are built in this frame and the next, not a few at a time)
-    camSettle();
-    // (The new view's labels are laid out in this frame, whole: a solve left in slices kept the other view's labels standing, Mohammad 4 Nov: "labels should just update instantly".)
-    if (labelJob) labelJobFinish();
-    labelGL?.invalidate?.();   // (every picture is built again for the new view's text: none is reused by its key)
-    morphFadeDrop();   // (in this frame, not the next)
-    setTimeout(morphFadeDrop, 1500, true);
-  }
   // The change between the views, labels and camera on its one clock (view-switch-labels-recs.md, option B2). At the tap the new view's labels are
   // solved for where the change lands (solveTargetView) and the labels standing become ghosts (label-gl.js freezeGhosts); the figure's own progress p
   // then runs everything: the camera is lerped from its framing to the target's by p, the ghosts ride their points at 1 - 2p and the new labels
@@ -2803,7 +2763,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     camMove = true; dpr.carry = false; wrap.classList.add('cam-move');   // (and camSettle lays them out at their new places as the glide lands)
   }
   function camSettle() {
-    if (!camMove || morphFade) return;
+    if (!camMove) return;
     camMove = false; dpr.carry = false;
     rideStop();
     if (F) updateLabels(F);
@@ -10988,9 +10948,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let labelGlA = [], labelGlB = [];
   // (Only a label laid out for the view shown now is handed to the GPU: a block the new view does not use keeps the place it had in the old one, and was drawn from it.)
   const labelGlAdd = (b) => { if (b.pos && b.pos.view === morphTarget) labelGlA.push(b.pos); };
-  const NO_LABELS = [];
-  let glHold = false;
-  const labelGlSync = () => { if (!labelGL || glSuppress) return; if (glHold) { labelGL.sync(NO_LABELS); return; }   // (a layout of another view stands: none of its labels is drawn)
+  const labelGlSync = () => { if (!labelGL || glSuppress) return;
     const t = labelGlA; labelGlA = labelGlB; labelGlB = t; labelGlA.length = 0; pool.forEach(labelGlAdd); labelGL.sync(labelGlA); };
   const FONT = 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
   // (Words measured from the GPU atlas's own Inter metrics, glyph-measure.js, as label-gl.js sets them: no 2D canvas.)
@@ -12017,7 +11975,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     labelPainted = false;
     if (viewXf) return;   // (the change between the views: the new view's labels were solved at the tap for where it lands, and ride it)
     // Laid out once the presenter's camera settles (see camSettle), or at once if its glide was cut short.
-    if (camMove) { if (!vtGliding && !morphFade) camSettle(); return; }
+    if (camMove) { if (!vtGliding) camSettle(); return; }
     // (Not while the HVPG catheter hides them (cath-on, after its .25 s fade): its view follows the tip every frame, and every frame
     // of it had laid out, drawn and sent to the GPU labels nobody could see. setCatheter lays them out as it goes.)
     if (cathHid()) { labelKey = null; return; }
@@ -12051,7 +12009,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // value, a callout) is taken up after it, as after any solve. A camera that moved (the key's first eight: the transform, the stage
     // box, the morph and the turn) drops it, and the labels carry as they always did.)
     if (labelJob) {
-      if (!force && sameView8(labelJob.key, key)) { labelTail(solvedFor?.view !== morphTarget); return; }
+      if (!force && sameView8(labelJob.key, key)) { labelTail(); return; }
       labelJobDrop();
     }
     if (!force && sameKey(key) && (inMotion() ? holdValues(f) : refreshValues(f))) { stats.skips++; stats.ms += performance.now() - t0; }
@@ -12087,7 +12045,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           labelJob = JOB; JOB.g = g; JOB.key = keyInto(jobKeyArr, key); JOB.solvedFor = sf; JOB.t0 = performance.now(); stats.jobs++;
           mayTask('label solve', labelJobStep, handRide?.settle || !gestureOn() ? JOB_NOW : undefined);   // (at rest the slices run every frame, none waits two)
           stats.ms += performance.now() - t0;
-          labelTail(solvedFor?.view !== morphTarget);
+          labelTail();
           return;
         }
         solvedFor = sf; solveAsked = false;
@@ -12115,11 +12073,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   function handRideEnd() { if (!handRide) return; handRide = null; cancelFrame(handRideT); handRideT = 0; rideStop(); }
   // (What every layout of the labels ends with, a carried, a skipped or a sliced one too: the callouts and probes painted, then the GPU's copy.)
-  function labelTail(noGl = false) {
-    glHold = noGl;   // (the layout standing is another view's, a solve for this one still running: the GPU keeps what it shows, never that)
+  function labelTail() {
     pinchLiftNow(false);   // (the labels hidden for a zoom that rode no further come back once their layout is down)
     if (handRide?.settle && !labelJob) handRideEnd();   // (the layout for where the hand stopped has landed: the ride ends as it is drawn)
-    if (!labelJob) { const t = followTab; followTab = followNext; followNext = t; }   // (a layout that has landed: its stations are what a view change carries)
     if (sites.list) sitesPaint();
     if (scan.on) scanPaint();
     dprobePaint();
@@ -12148,7 +12104,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     solvedFor = j.solvedFor; solveAsked = false;
     labelKey = keyInto(labelKeyArr, j.key); stats.layouts++;
     labelTail();
-    nextFrame(morphFadeDrop);
   }
   // (A slice in a frame's spare time: true while there is more to do.)
   function labelJobStep(left) {
@@ -12171,7 +12126,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (gpuProbe.on) gpuProbe.note(COUNTED.labelSolve);
     labelKey = keyInto(labelKeyArr, j.key); stats.layouts++;
     labelTail();
-    nextFrame(morphFadeDrop);
     return false;
   }
   // (R04: the labels' key as numbers and identities, written into one kept list. The callouts' boxes fold into one number.)
@@ -13545,7 +13499,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (solve && useLines && lineHits(rectOf(it), 2)) { it.onVessel = true; const sol = nextSol.get(it.key); if (sol) sol.onv = true; }   // (on a vessel: the solid halo)
       }
     }
-    followNext.clear();
     for (const it of out) {
       // (How far the stage's edge pulled this label in from its slot: the glide eases the slot, never this, which is fixed to the screen.)
       const rp = ringPull.get(it);
@@ -13573,7 +13526,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // (nothing of the column hides: Review 16 Oct); at most every quarter second, so a card still easing cannot keep it searching.)
       if (it.hide && !solve && dop.all && (it.point || /^focus/.test(it.key)) && performance.now() - colResolve > 250) { colResolve = performance.now(); return false; }
       labelVis.set(it.key, !it.hide);
-      if (!it.hide && it.key.startsWith('n:')) followNext.set(it.key, { id: it.key.slice(2), ax: it.ax, ay: it.ay });   // (the station it names: a view change carries the label by its move, followStep)
     }
     // Last pass: no two labels showing may overlap. A pan can pull a label in from the stage edge onto
     // another, and carried slots are not searched again. The more important label keeps its place; the
@@ -14351,9 +14303,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (viewXf && !viewXf.same) { const p = viewXfP(); vt = p >= 1 ? { ...viewXf.to } : lerpVT(viewXf.from, viewXf.to, p); }
       if (F) update(F); else updateGeometry(true);
       if (viewXf) viewXfStep();
-      if (followOn) followStep();
-      // (Landed: the labels laid out once, in a task of their own after the landing frame's (it writes every path), then faded in.)
-      if (morph === morphTarget && morphFade) setTimeout(() => { if (morph === morphTarget) morphFadeEnd(); }, 0);
     } else if (widthEasing && F && !stepOrgans() && !stepWidths()) update(F);   // a width still easing to its target: one step a frame (stepWidths: the widths alone, when nothing else changed)
     if (rotU !== rotTarget) {
       rotU = clamp(rotU + Math.sign(rotTarget - rotU) * dt / 0.5, 0, 1);
@@ -15423,18 +15372,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // (The change between the views carries the camera, the ghosts of the old labels and the new view's labels on its one clock: viewXfStart.)
       if (F && labelGL && !labelGL.lost && !(cath.st && !cath.st.keep) && !lobuleOn && !lz?.isOpen()) { viewXfStart(d); return; }
       if (d.k !== vt.k || d.x !== vt.x || d.y !== vt.y) animateVT(d, 600);
-      if (F && !reduceMotion.matches && !(cath.st && !cath.st.keep) && !lobuleOn && !lz?.isOpen()) {
-        rideStop(); morphFade = true; camMove = true; dpr.carry = false;
-        // (The GPU labels are carried by their stations through the change; the SVG's own are faded out as before.)
-        // (Every label is hidden for the change and shown whole the moment the new view lands, Mohammad 4 Nov: "hide the labels during the switch then show once done instantly".)
-        for (const e of morphFadeEls()) e.classList.add('morph-fade');
-        glass.style.opacity = '0';
-      } else if (F) {
-        // (No morph to wait for here: reduced motion, a catheter or a lobule. The layers are hidden for the switch all the same and shown once the new view's labels are drawn whole.)
-        for (const e of morphFadeEls()) e.classList.add('morph-fade');
-        glass.style.opacity = '0';
-        nextFrame(() => nextFrame(() => { if (!morphFade) { if (labelGL?.afterDraw) labelGL.afterDraw(morphFadeShow); else morphFadeShow(); } }));
-      }
+      // (No morph to ride here: a catheter or a lobule. The labels are laid out afresh for the new view.)
+      if (F) { labelKey = null; solveAsked = true; }
     },
     relayout() { refreshCTM(); if (F) updateLabels(F, true); },
     // How often the labels were laid out, skipped or only had their values refreshed, and the time spent (for perf checks).
@@ -15577,7 +15516,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (a label solve still running in slices, or one still owed: the view or the camera still moving to where it will be laid out, or a layout
     // dropped and not yet laid again, or labels still gliding to their new spots. The browser checks had read the Circuit's labels mid-change,
     // two readings, as a landed layout, and the anatomy's mid-glide after a zoom as where they stood before a pan.)
-    labelSolving: () => !!labelJob || !!glideRaf || ((camMove || morphFade || morph !== morphTarget || labelKey == null) && !!F && !lz?.isOpen() && !cathHid()),
+    labelSolving: () => !!labelJob || !!glideRaf || ((camMove || morph !== morphTarget || labelKey == null) && !!F && !lz?.isOpen() && !cathHid()),
     anchorPos(anchor) {
       const t = easeInOut(morph);
       if (NODE_POS[anchor]) return nodePos(anchor, t);

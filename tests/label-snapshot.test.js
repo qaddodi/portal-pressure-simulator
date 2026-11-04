@@ -92,10 +92,9 @@ test('a view change carries each label, leader and dot by its own station\'s mov
 test('a layout solved for another view is never carried onto this one, nor handed to the GPU while its own solve is pending', () => {
   assert.match(st, /sf\.view = morphTarget;/);
   assert.match(st, /if \(solvedFor && solvedFor\.view === morphTarget && !\(morph > 0 && morph < 1\)\) layoutLabels\(f, false\);/);
-  assert.match(st, /labelTail\(solvedFor\?\.view !== morphTarget\);\n\s+return;/);
-  assert.match(st, /if \(!force && sameView8\(labelJob\.key, key\)\) \{ labelTail\(solvedFor\?\.view !== morphTarget\); return; \}/);
-  assert.match(st, /glHold = noGl;/);
-  assert.match(st, /const labelGlSync = \(\) => \{ if \(!labelGL \|\| glHold\) return;/);
+  assert.match(st, /if \(!force && sameView8\(labelJob\.key, key\)\) \{ labelTail\(\); return; \}/);
+  assert.ok(!st.includes('glHold'));
+  assert.match(st, /const labelGlSync = \(\) => \{ if \(!labelGL \|\| glSuppress\) return;/);
 });
 
 // Labels part of the figure (3 Nov 2026): a station label is drawn at its point now plus its layout's offset, and its dot and leader move with it.

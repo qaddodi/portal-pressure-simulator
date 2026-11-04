@@ -1115,7 +1115,6 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // before anything is painted (an attribute written and written back in one task is never drawn).
   // todo: label → what it is owed (1 turned, 2 its look changed, 4 its colour ease moved, 8 read it again).
   const todo = new Map();
-  const afterQ = [];   // (calls waiting for a draw that leaves no picture owed: afterDraw)
   let touched = false, settleQ = false, settling = false;
   const settleSoon = () => { if (!settleQ && !settling) { settleQ = true; queueMicrotask(settle); } };
   function settle() {
@@ -1133,7 +1132,6 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // next chunk keep the picture they have, or are hidden if they have none, so a slide change that owes many captions does not build
   // them all before one paint. At least REBUILD_LEAST labels go each time, so it always ends.)
   const REBUILD_MS = 4, REBUILD_LEAST = 12;
-  let rushUntil = 0;   // (a view change has landed: every picture the page owes is built now, within no frame budget)
   function dropGhosts() {
     for (const gh of ghosts) {
       const st = sprites.get(gh.s.g), slot = gh.st.slot;
@@ -1154,7 +1152,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
         if (!g.isConnected) { todo.delete(g); pending.delete(g); continue; }
         let st = sprites.get(g);
         if ((pass === 0) !== !st) continue;
-        if (did >= REBUILD_LEAST && now >= rushUntil && performance.now() - now > REBUILD_MS) { over = true; break; }
+        if (did >= REBUILD_LEAST && performance.now() - now > REBUILD_MS) { over = true; break; }
         did++; todo.delete(g); pending.delete(g);
         const rot = (f & 1) !== 0;
         if (f & 8) {
@@ -1402,10 +1400,6 @@ void main() { o = texture(uT, vUV) * uA; }`;
       }
       if (!pinned) st.pin = false;
       a *= xfNew;   // (the view change's crossfade: this view's labels come in as it passes its half)
-      if (fol.on && !pinned) {
-        const k = st.fk ??= g.dataset?.key, f = k && fol.m.get(k);
-        if (f) { x += Math.round(f.dx * dpr); y += Math.round(f.dy * dpr); } else a *= fol.fade;
-      }
       st.dx = x; st.dy = y; st.drawn = now;
       if (x > W || y > H || x + st.w < 0 || y + st.h < 0) continue;
       st.seq = frameSeq;
@@ -1451,7 +1445,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     if (host) hostTail();
     // (R09: while a ride or a landing glide has the pictures off their DOM labels, the labels' pointer events are held off, app.css
     // #labels.lb-displaced: a click or a hover would land where the label was. A class between frames; keyboard and focus are untouched.)
-    { const off = displacedNow(!!rideM || fol.on, shifted); if (off !== displaced) { displaced = off; classSoon(svg, 'lb-displaced', off); } }
+    { const off = displacedNow(!!rideM, shifted); if (off !== displaced) { displaced = off; classSoon(svg, 'lb-displaced', off); } }
     // (A full atlas is packed again beside the old one, never reset (repackWork). And the second page is made at rest, ahead of the first
     // picture that needs it, once the first is more than half full.)
     if ((needRepack && !stuck) || rp || todo.size) settleSoon();   // (a repack goes on a few copies a frame, and what the pass left over is built next, R11/R12)
@@ -1462,7 +1456,6 @@ void main() { o = texture(uT, vUV) * uA; }`;
     if (!host) { const empty = nb === 0; if (empty !== blank) { blank = empty; canvas.toggleAttribute('data-blank', empty); } }
     if (nb && coverOpen) { coverOpen(); coverOpen = null; }
     // (What waits for the labels to stand drawn: run once a draw has left nothing owed, the pictures all built.)
-    if (afterQ.length && !todo.size && !pending.size && !rp) { const q = afterQ.splice(0); for (const fn of q) { try { fn(); } catch (e) { caught('label-gl:after', e); } } }
     if (moving) ask();
   }
   // ── Holes (1 Nov 2026): the frosted glasses drawn in the figure's canvas, under this one (glass-gl.js onHoles) ──
@@ -1661,11 +1654,6 @@ void main() { o = texture(uT, vUV) * uA; }`;
   let markDrawn = 0;   // (the marks, leaders and dots, drawn in the last frame that drew any: for the checks, which look at what the GPU shows)
   // A label's place under a camera ride (device px): its centre carried by the ride's matrix, then held inside the canvas (4 px margin) when
   // it fits. RIDE_XY: [x, y, how far the hold moved it in x, in y].
-  // A view change (circuit <-> anatomy): each label's picture, leader and dot carried by how far its own station has moved in the figure
-  // (stage.js followStep), in the same frame as the figure, so they never lag it or stand where the other view had them. A label of no
-  // station that moves fades out with the change's progress. After it, the carried places hold until the new layout is handed in (sync),
-  // from which each glides on.
-  const fol = { on: false, end: false, m: new Map(), fade: 1 };
   const RIDE_XY = [0, 0, 0, 0];
   function rideAt(s, st) {
     const x = Math.round(s.x * dpr) + st.ox, y = Math.round(s.y * dpr) + st.oy, M = rideM;
@@ -1739,11 +1727,6 @@ void main() { o = texture(uT, vUV) * uA; }`;
             // labels that rode on, and spread over the figure, for as long as the ride lasted.)
             // (After a ride's landing each label glides from where it rode to its slot, and its leader's label end goes with it, not to the
             // slot at once: the line was longer than the distance to the label for as long as the glide ran.)
-            if (geo && fol.on) {
-              const f = mg.k && fol.m.get(mg.k);
-              if (f) { for (let i = 0; i < (isPath ? 2 : 1); i++) { geo[i * 2] += f.dx * dpr; geo[i * 2 + 1] += f.dy * dpr; } }
-              else folA = fol.fade;
-            }
             if (geo && !rideM && isPath && mg.k && glides.size) {
               const ls = labelByKey.get(mg.k), gl0 = ls && glides.get(ls.g), lst = gl0 && !gl0.fadeIn && sprites.get(ls.g);
               if (lst && lst.mode === 'gl') {
@@ -2377,8 +2360,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       for (const r of mmo.takeRecords()) { if (!changed(r)) continue; const el = markOf(r.target); if (el) markDirty.add(el); }
       // A sliced landing or a value refresh may sync while the camera still carries the old layout. Taking its new positions here
       // would apply that camera move twice. rideEnd hands the drawn positions to the first sync of the landed layout instead.
-      if (rideM || (fol.on && !fol.end)) { ask(); return; }
-      if (fol.on) { fol.on = false; fol.end = false; fol.m.clear(); fol.fade = 1; }   // (the new layout is in: the carried places are done, each label glides on from where it was drawn)
+      if (rideM) { ask(); return; }
       WAS.clear();
       for (const s of last) WAS.add(s.g);
       // (The first layout after a ride: each label that stays glides from where it rode, a new one fades in, one that goes fades out.)
@@ -2462,10 +2444,6 @@ void main() { o = texture(uT, vUV) * uA; }`;
       for (const f of fromMap.values()) gpool.push(f);
       fromMap.clear();
     },
-    /** The pictures owed are built without a frame budget for the next `ms` (a view change has landed and shows its labels at once). */
-    rush(ms) { rushUntil = performance.now() + ms; },
-    /** Calls fn after a draw that left no picture owed: the layer is shown only then, so no label of the old view or half built is ever seen. */
-    afterDraw(fn) { afterQ.push(fn); ask(); },
     /** A view change begins: the anchored labels standing are kept as ghosts (their pictures, pins and leaders), and their labels owe new pictures. */
     freezeGhosts() {
       if (lost || host) return 0;
@@ -2487,31 +2465,11 @@ void main() { o = texture(uT, vUV) * uA; }`;
     /** The change has landed: the ghosts go, each giving its picture to its label as the one for that view's look. */
     dropGhosts() { dropGhosts(); xfOld = 1; xfNew = 1; ask(); },
     get ghosting() { return ghosts.length > 0; },
-    /** Every picture standing is read and built again: a label whose text or look changed with the view never shows its old picture. */
-    invalidate() { for (const s of last) dirty.add(s.g); ask(); },
     get riding() { return !!rideM; },
     /** Pins the station labels to the figure: f(id, out) writes where the figure has station id's point now (stage px) and returns true. */
     pinTo(f, w = null, z = null) { pinAt = f; pinWorldAt = w; pinZoneAt = z; ask(); },
     /** The figure moved (its camera or its morph): the pinned labels drawn with it, in this frame. */
     pinDraw() { if (lost || !pinAt) return; if (raf) { cancelFrame(raf); raf = 0; } draw(); },
-    /** A view change begins: the labels now laid out are carried by their stations (followPut), the rest faded (followDraw). */
-    followStart() { fol.on = true; fol.end = false; fol.fade = 1; rideT0 = performance.now(); },
-    /** How far a label's station has moved since the layout (CSS px). A label with none is faded by followDraw's `fade`. */
-    followPut(key, dx, dy) { let f = fol.m.get(key); if (!f) { f = { dx: 0, dy: 0 }; fol.m.set(key, f); } f.dx = dx; f.dy = dy; },   // alloc-rare: a record per label, once
-    followDraw(fade) { if (lost || !fol.on) return; fol.fade = fade; if (raf) { cancelFrame(raf); raf = 0; } draw(); },
-    /** The change is over: the carried places stand till the next layout (sync) is handed in, which each label glides on from. */
-    followEnd() {
-      if (!fol.on) return;
-      for (const f of fromMap.values()) gpool.push(f);
-      fromMap.clear();
-      for (const s of last) {
-        const st = sprites.get(s.g);
-        if (st && st.mode === 'gl' && st.drawn >= rideT0) { const f = takeRec(); f.x = st.dx; f.y = st.dy; f.a = Math.min(1, st.opacity * (fol.m.has(st.fk) ? 1 : fol.fade)); fromMap.set(s.g, f); }
-      }
-      rideFrom = fromMap.size ? fromMap : null;
-      fol.end = true;
-    },
-    get following() { return fol.on; },
     /** Where each label's picture stood in the last frame, keyed: [{ key, x, y, w, h, a (its opacity) }] in CSS px from the canvas's corner (the browser check's lag test). */
     drawnLabels() {
       const o = [];   // alloc-rare: asked only by the browser check

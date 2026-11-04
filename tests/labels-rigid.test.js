@@ -45,27 +45,21 @@ test('view switch: the new view solve is finished in the frame the morph lands',
   assert.ok(/camSettle\(\);\s*\/\/[^\n]*\n\s*if \(labelJob\) labelJobFinish\(\);/.test(st));
 });
 
-test('view switch: labels hidden for the change, shown at once, pictures rushed', () => {
-  assert.ok(!st.includes("labelGL.followStart()"));
-  assert.ok(st.includes('labelGL?.rush?.(2000)'));
-  assert.ok(gl.includes('now >= rushUntil'));
-});
-
-test('view switch: the label layers are shown only after the GPU drew the new view whole', () => {
-  assert.ok(st.includes('labelGL.afterDraw(morphFadeShow)'));
-  assert.ok(gl.includes('afterQ.length && !todo.size'));
+test('view switch: no hide, no rush, no wait for a draw: the old labels ride as ghosts and the new ones are already solved', () => {
+  for (const w of ['morph-fade', 'afterDraw', 'morphFadeEnd', 'labelGL?.rush', 'labelGL.followStart']) assert.ok(!st.includes(w), w);
+  assert.ok(st.includes('labelGL.freezeGhosts()') && st.includes('labelGL.crossfade('));
+  assert.ok(!gl.includes('rushUntil') && !gl.includes('afterQ'));
 });
 
 test('view switch: only labels laid out for the shown view reach the GPU', () => {
   assert.ok(st.includes('b.pos.view === morphTarget'));
-  assert.ok(/view: morphTarget \}/.test(st));
-  assert.ok(st.includes('labelGL.sync(NO_LABELS)'));
+  assert.ok(/view: morphTarget, mA: null \}/.test(st));
+  assert.ok(!st.includes('NO_LABELS'));
 });
 
-test('view switch: pictures are built again, and the hide runs without a morph too', () => {
-  assert.ok(st.includes('labelGL?.invalidate?.()'));
-  assert.ok(gl.includes('invalidate() {'));
-  assert.ok(st.includes('No morph to wait for here'));
+test('view switch: no landing-time rebuild; a picture of the other view is kept as the label\'s alternative', () => {
+  assert.ok(!st.includes('invalidate?.()') && !gl.includes('invalidate() {'));
+  assert.ok(gl.includes('st.alt') && gl.includes('dropGhosts'));
 });
 
 test('step 3b: zone titles are placed every frame by the GPU from their band', () => {

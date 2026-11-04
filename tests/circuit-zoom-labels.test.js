@@ -65,7 +65,7 @@ test('a hand zoom in the Circuit carries the readings on the GPU; where they can
   // (EXT-PERF-1: a late solve keeps its slices, looked at every 200 ms, and the labels come back as they stand after 3 s; never drained in one task.)
   assert.doesNotMatch(rel, /labelJobFinish\(\)/);
   assert.match(rel, /if \(labelJob && \+\+pinchLiftN < 13\) \{ pinchLiftT = setTimeout\(pinchLiftCheck, 200\); return; \}/);
-  assert.match(stage, /function labelTail\(noGl = false\) \{\n(\s*glHold = noGl;[^\n]*\n)?\s*pinchLiftNow\(false\);/);
+  assert.match(stage, /function labelTail\(\) \{\n\s*pinchLiftNow\(false\);/);
   // Laid out while hidden, they take their new places at once (no glide from where they were).
   assert.match(stage, /const snap = [^\n]*wrap\.classList\.contains\('pinch-hide'\)/);
 });

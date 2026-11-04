@@ -112,15 +112,15 @@ test('a frame of the change draws from a stretch only once every point, reach an
   assert.match(readFileSync(new URL('../scripts/build.mjs', import.meta.url), 'utf8'), /sweep-worker\.js/);
 });
 
-test('the change fades the labels out and lays them out once, where it lands', () => {
+test('the change keeps the labels up: solved at the tap, ridden on the morph\'s clock, crossfaded by its progress', () => {
   const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
-  // (No label work on a frame of the change: updateLabels returns at camMove, and nothing settles it before the landing.)
-  assert.match(stage, /if \(camMove\) \{ if \(!vtGliding && !morphFade\) camSettle\(\); return; \}/);
-  assert.match(stage, /function camSettle\(\) \{\n\s*if \(!camMove \|\| morphFade\) return;/);
-  assert.match(stage, /if \(morph === morphTarget && morphFade\) setTimeout\(\(\) => \{ if \(morph === morphTarget\) morphFadeEnd\(\); \}, 0\);/);
-  // (On the label layers, not the stage: a class on the stage has the glasses read the page again.)
+  // (No label work on a frame of the change: updateLabels returns while viewXf stands, and nothing is solved as it lands.)
+  assert.match(stage, /if \(viewXf\) return;/);
+  assert.match(stage, /if \(camMove\) \{ if \(!vtGliding\) camSettle\(\); return; \}/);
+  assert.match(stage, /vt = p >= 1 \? \{ \.\.\.viewXf\.to \} : lerpVT\(viewXf\.from, viewXf\.to, p\);/);
+  assert.match(stage, /labelGL\.crossfade\(clamp\(1 - 2 \* p, 0, 1\), n\);/);
   const sv = stage.slice(stage.indexOf('    setView(v) {'), stage.indexOf('    relayout() {'));
-  assert.ok(sv.includes("e.classList.add('morph-fade')") && !sv.includes("wrap.classList.add('cam-move')"));
-  assert.match(css, /#labels\.morph-fade, #labelGl\.morph-fade \{ opacity: 0; \}/);
+  assert.ok(sv.includes('viewXfStart(d)') && !sv.includes('morph-fade'));
+  assert.doesNotMatch(css, /morph-fade/);
 });
