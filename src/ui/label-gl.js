@@ -940,7 +940,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     publishWhenDone(gl, hs, () => {
       if (!lost || gl.isContextLost()) return;   // (lost again: the next restore starts over)
       try { finish(hs); } catch { return; }   // (the shaders will not build: the SVG keeps every label)
-      pageTex = []; rpDrop(); retry.clear(); pending.clear(); stuck = false; needRepack = false; packer.reset(); outgoing.length = 0; ghosts = []; xfOld = xfNew = 1; for (const [, v] of sprites) v.alt = null; glides.clear(); rideFrom = null;
+      pageTex = []; rpDrop(); retry.clear(); pending.clear(); stuck = false; needRepack = false; packer.reset(); outgoing.length = 0; ghosts = []; xfOld = xfNew = 1; for (const [, v] of sprites) { v.alt = null; v.alts = null; } glides.clear(); rideFrom = null;
       holeMasks = new WeakMap(); holeShape = null; picPaint = null; lostPic(headSp); lostPic(sHeadSp); slotTex = null;
       for (const s of last) { const st = sprites.get(s.g); if (st) { st.slot = null; st.key = ''; } dirty.add(s.g); }
       pReadSoon(); sReadSoon(); allMarks(); nbk = -1;
@@ -1025,7 +1025,26 @@ void main() { o = texture(uT, vUV) * uA; }`;
       Object.assign(st, { slot: al.slot, ox: al.ox, oy: al.oy, w: al.w, h: al.h, shadows: al.shadows, frame: al.frame, key: al.key, wait: false }, { ver: (st.ver | 0) + 1 });
       st.alt = cur;
     }
+    // (Per look: a look this label had before (an abbreviated and a full text, a unit shown and dropped) is kept in a picture of its own, up to two, so
+    // a change back builds nothing. Only a change of letters keeps one: a reading ticking through its figures is overwritten as it always was.)
+    if (st.key !== key && st.alts) {
+      const i = st.alts.findIndex((a) => a.key === key && a.slot);
+      if (i >= 0) {
+        const al = st.alts[i], cur = st.slot ? { key: st.key, slot: st.slot, ox: st.ox, oy: st.oy, w: st.w, h: st.h, shadows: st.shadows, frame: st.frame } : null;
+        Object.assign(st, { slot: al.slot, ox: al.ox, oy: al.oy, w: al.w, h: al.h, shadows: al.shadows, frame: al.frame, key: al.key, knorm: key.replace(/\d/g, '0'), wait: false }, { ver: (st.ver | 0) + 1 });
+        if (cur) st.alts[i] = cur; else st.alts.splice(i, 1);
+      }
+    }
+    let stashed = null;
     if (st.key !== key) {
+      const kn = key.replace(/\d/g, '0');
+      if (st.slot && st.key && st.knorm !== kn) {
+        stashed = { key: st.key, slot: st.slot, ox: st.ox, oy: st.oy, w: st.w, h: st.h, shadows: st.shadows, frame: st.frame };
+        (st.alts ||= []).push(stashed);
+        if (st.alts.length > 2) { const o = st.alts.shift(); if (o.slot) packer.free(o.slot); if (o === stashed) stashed = null; }
+        st.slot = null;
+      }
+      st.knorm = kn;
       const lay = layBlock(d, dpr, rot);
       if (!lay) { st.mode = 'none'; return st; }
       // (Its place in the atlas: kept while the picture stays the same size, else a new one found before the old is given back, so a
@@ -1033,6 +1052,15 @@ void main() { o = texture(uT, vUV) * uA; }`;
       let slot = st.slot;
       if (slot && (slot.w !== lay.w || slot.h !== lay.h)) { slot = packer.alloc(lay.w, lay.h); if (slot) { packer.free(st.slot); st.slot = slot; } }
       else if (!slot) { slot = packer.alloc(lay.w, lay.h); st.slot = slot; }
+      if (!slot && st.alts?.length) {   // (pressure: the kept looks are given back first)
+        for (const o of st.alts) if (o.slot && o !== stashed) packer.free(o.slot);
+        st.alts = stashed ? [stashed] : null;
+        slot = packer.alloc(lay.w, lay.h); st.slot = slot;
+      }
+      if (!slot && stashed) {   // (still none: the picture it had stays, as before)
+        st.alts.splice(st.alts.indexOf(stashed), 1);
+        Object.assign(st, { slot: stashed.slot, ox: stashed.ox, oy: stashed.oy, w: stashed.w, h: stashed.h, shadows: stashed.shadows, frame: stashed.frame });
+      }
       if (!slot) {
         // (The pages are full: the atlas is packed again beside this one (repackWork), the label keeping the picture it has, or none shown
         // till the new pages are in place, never the SVG's copy; asked again once they are.)
@@ -1194,7 +1222,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     for (const s of last) { const st = sprites.get(s.g); if (st?.slot) a.push(st); }   // alloc-rare: as above
     for (const o of outgoing) if (o.st?.slot) a.push(o.st);   // alloc-rare: as above
     for (const gh of ghosts) if (gh.st.slot) a.push(gh.st);   // alloc-rare: as above
-    for (const s of last) { const al = sprites.get(s.g)?.alt; if (al?.slot) a.push(al); }   // alloc-rare: as above
+    for (const s of last) { const sp = sprites.get(s.g), al = sp?.alt; if (al?.slot) a.push(al); if (sp?.alts) for (const o of sp.alts) if (o.slot) a.push(o); }   // alloc-rare: as above
     return a;
   }
   function rpCopy(from, to, w, h) {
@@ -2406,7 +2434,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       labelByKey.clear();
       for (const s of list) { const k = s.g.dataset?.key; if (k) labelByKey.set(k, s); }
       for (const s of list) WAS.delete(s.g);
-      for (const g of WAS) { g.removeAttribute('data-gl'); todo.delete(g); dropGlide(g); const st = sprites.get(g); if (st) { if (st.slot) packer.free(st.slot); if (st.alt?.slot) packer.free(st.alt.slot); sprites.delete(g); } live.delete(g); }
+      for (const g of WAS) { g.removeAttribute('data-gl'); todo.delete(g); dropGlide(g); const st = sprites.get(g); if (st) { if (st.slot) packer.free(st.slot); if (st.alt?.slot) packer.free(st.alt.slot); if (st.alts) for (const o of st.alts) if (o.slot) packer.free(o.slot); sprites.delete(g); } live.delete(g); }
       if (host) { ask(); return; }
       if (raf) { cancelFrame(raf); raf = 0; }
       draw();
