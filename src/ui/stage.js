@@ -2758,6 +2758,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // keep their screen size. Closing is C back to the identity: nothing is laid out, so nothing settles.)
   let zoomLz = false, zoomM = null, zoomLayers = null;
   const zoomM6 = [1, 0, 0, 1, 0, 0], zoomT = [0, 0];
+  let drawCam = null;   // (a card's zoom landed: the figure's layer drawn for C·view, see zoomSharp; null: drawn for the view, carried by the camera)
   const zoomGlass = [], zoomHid = [], zoomAff = { s: 1, dx: 0, dy: 0, ox: 0, oy: 0 };   // (the callouts' glass bodies given the zoom, and the callouts that go out under the zoomed card)
   const zoomAffFn = () => (zoomLayers ? zoomAff : null), zoomScaleFn = () => zoomAff.s;   // (C in stage px, written in place each frame: the label ride's matrix and the pinned points')
   function zoomOpen() {
@@ -2811,13 +2812,33 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     zoomM = zoomM6;
     zoomAff.s = S; zoomAff.dx = wrapRect.left * (1 - S) + tx; zoomAff.dy = wrapRect.top * (1 - S) + ty;
     const sx = vCanvas.width / (boxW || vCanvas.width || 1), sy = vCanvas.height / (boxH || vCanvas.height || 1);
-    veins?.setScene?.(S, tx * sx, ty * sy);
+    if (drawCam && (Math.abs(drawCam[0] - S) > 1e-4 || Math.abs(drawCam[4] - tx) > 0.01 || Math.abs(drawCam[5] - ty) > 0.01)) zoomSharp(false);   // (the zoom moved: the rest picture carried again)
+    if (!drawCam) veins?.setScene?.(S, tx * sx, ty * sy);
     for (const l of zoomLayers) l.el.style.transform = `matrix(${S.toFixed(5)},0,0,${S.toFixed(5)},${((S - 1) * (l.left - wrapRect.left) + tx).toFixed(2)},${((S - 1) * (l.top - wrapRect.top) + ty).toFixed(2)})`;
     if (rideCTM) labelRider.ride(zoomM6);   // (draws every label: the stations' at C(their points), the rest carried)
     else labelGL?.pinDraw();
   }
+  // Sharp at landing (card-zoom-plan.md 3.5): once the card has landed, the figure's layer is drawn again for exactly the view the camera carries it
+  // to, and the camera is let go for the figure's canvas: nothing moves, only the sharpness changes (the layout keeps reading the rest view, and the
+  // labels' points are still carried by C). Going back, or a change of the zoom (the readings coming out), carries the rest picture again first.
+  function zoomSharp(on) {
+    if (!zoomBase?.scene || !zoomLayers || !veins || veins.lost) return;
+    if (on === !!drawCam) return;
+    if (on) {
+      if (!zoomM) return;
+      drawCam = zoomM6.slice();
+      veins.setScene(1, 0, 0);
+    } else {
+      drawCam = null;
+      veins.setScene(1, 0, 0);
+    }
+    veinsDirty = true; CTM = null; refreshCTM();
+    drawVeins(true, 'zoom-sharp');
+    if (!on && zoomM) { const sx = vCanvas.width / (boxW || vCanvas.width || 1), sy = vCanvas.height / (boxH || vCanvas.height || 1); veins.setScene(zoomM6[0], zoomM6[4] * sx, zoomM6[5] * sy); }
+  }
   function sceneStop() {
     zoomM = null;
+    if (drawCam) { drawCam = null; veinsDirty = true; CTM = null; refreshCTM(); drawVeins(true, 'zoom-end'); }   // (landed sharp: drawn for the rest view again before the camera is let go)
     veins?.setScene?.(1, 0, 0);
     for (const l of zoomLayers || []) { l.el.style.transform = ''; l.el.style.transformOrigin = ''; l.el.style.transition = ''; }
     zoomLayers = null;
@@ -5513,7 +5534,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!CTM) refreshCTM();
     const m = CTM;
     const T = drawT;
-    T[0] = vdpr * m.a; T[1] = vdpr * m.b; T[2] = vdpr * m.c; T[3] = vdpr * m.d; T[4] = vdpr * (m.e - wrapRect.left); T[5] = vdpr * (m.f - wrapRect.top);
+    // (A card's zoom at rest on its landing, zoomSharp: the layer is drawn for the view the scene camera has carried it to, C after the view, so it is
+    // sharp; the layout still reads the rest view (CTM). C is a scale S and a move in stage px: p' = S p + (tx, ty).)
+    const dc = drawCam, S = dc ? dc[0] : 1, tx = dc ? dc[4] : 0, ty = dc ? dc[5] : 0;
+    T[0] = vdpr * S * m.a; T[1] = vdpr * S * m.b; T[2] = vdpr * S * m.c; T[3] = vdpr * S * m.d; T[4] = vdpr * (S * (m.e - wrapRect.left) + tx); T[5] = vdpr * (S * (m.f - wrapRect.top) + ty);
     subPixel(T);
     // (R04: the view the layer was drawn in is kept as numbers (thousandths) and compared one by one; a new view gets a new number
     // as its key. Nothing is joined into a string on a camera frame.)
@@ -5537,7 +5561,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // moves the drawn layer, and draws their cells again, rather than drawing it all.)
     const rows = veinsDirty ? null : pending || NO_ROWS;
     veinsDirty = false; veinsDrawKey = key; viewKeep.set(viewNext); rowsShown();
-    glMBuf[0] = m.a; glMBuf[1] = m.b; glMBuf[2] = m.c; glMBuf[3] = m.d; glMBuf[4] = m.e - wrapRect.left; glMBuf[5] = m.f - wrapRect.top;
+    glMBuf[0] = S * m.a; glMBuf[1] = S * m.b; glMBuf[2] = S * m.c; glMBuf[3] = S * m.d; glMBuf[4] = S * (m.e - wrapRect.left) + tx; glMBuf[5] = S * (m.f - wrapRect.top) + ty;
     glM = glMBuf;
     // (Settings › Figure performance › Pinch frame reuse (frame.js): only while a hand zooms; a frame that laid the last picture again
     // leaves the layer to be drawn whole, so the view a pinch stops at is always shaded afresh.)
@@ -15504,7 +15528,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     /** The camera is about to glide only to refit the figure to cards that changed (the same slide): a probe showing rides that glide out, never hides. */
     carryProbe() { dpr.refitUntil = performance.now() + 300; },
     /** The presenter's card followed frame by frame: aimView(fn) (where fn's framing would go), viewNow(), follow(v0, v1), followAt(u), followEnd(), following(). */
-    aimView, viewNow, follow: followStart, followAt, followEnd, following: () => following || !!zoomBase, zoomOpen, zoomAt: cardZoomAt, zoomEnd,
+    aimView, viewNow, follow: followStart, followAt, followEnd, following: () => following || !!zoomBase, zoomOpen, zoomAt: cardZoomAt, zoomEnd, zoomSharp,
     fitSlow(ms = 1300, opt = {}) { if (lobuleOn) return; const to = defaultVT(morphTarget === 1); if (morphTarget !== 1) homeAt = to; else markCirc('focus', to); fitted = true; if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms, opt.steady ? { steady: true } : { scale: true }); },
     /** The same fit as a slow push (a time-lapse's lapse.cam 'fit'): see drifting. */
     fitDrift(ms) { if (lobuleOn) return; const to = defaultVT(morphTarget === 1); if (morphTarget !== 1) homeAt = to; else markCirc('focus', to); fitted = true; if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms, { drift: true }); },

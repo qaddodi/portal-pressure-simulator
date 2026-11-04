@@ -157,7 +157,7 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
   function end() {
     if (!st) return;
     const s = st; st = null;
-    s.mo?.done(); s.mo = null;
+    s.mo?.done(); s.mo = null; clearTimeout(s.sharpT);
     if (s.cam) camera.end();
     for (const r of s.riders) { r.anim?.cancel(); unpin(r); r.el.style.transformOrigin = ''; }
     delete s.card.dataset.zoomed;
@@ -198,9 +198,11 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
       // glide's half second and sharp the moment it ends. With no glide (Reduce Motion) they are larger at once.)
       if (!part) { hold(true); if (!ms) boost(plan.s); if (!st.cam) behind(true, ms); }   // (A zoom of the camera moves no card but the zoom's own: the words' card is not eased back, 4 Nov 2026)
 
+      const me0 = st;
       const to = `translate(${(plan.dx / k).toFixed(2)}px, ${(plan.dy / k).toFixed(2)}px) scale(${plan.s.toFixed(4)})`;
       for (const r of riders) r.anim = glide(r.el, 'transform', to, ms);
       for (const v of st.veils) v.classList.add('on');
+      if (st.cam && !ms) setTimeout(() => { if (st === me0 && !me0.closing) camera.sharp?.(true); }, 0);
       const me = st, going = drive({ dx: plan.dx, dy: plan.dy, s: plan.s }, ms, riders.map((r) => r.anim));
       if (ms && !part) {
         // (A glide that never reports its end (a hidden tab runs no frames) is let go after its time; one whose frames are coming, however slowly, is not.)
@@ -208,11 +210,11 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
         const watch = () => {
           if (st !== me || me.closing || !me.mo) return;
           if (performance.now() - (me.tickAt ?? 0) < 400) { setTimeout(watch, 200); return; }
-          me.mo.done(); me.mo = null; me.cur = { dx: plan.dx, dy: plan.dy, s: plan.s }; camAt(); me.steady = true; boost(me.boosted);   // alloc-rare: only a glide that never reported its end (a hidden tab), once, as it is let go
+          me.mo.done(); me.mo = null; me.cur = { dx: plan.dx, dy: plan.dy, s: plan.s }; camAt(); me.steady = true; boost(me.boosted); if (me.cam) camera.sharp?.(true);   // alloc-rare: only a glide that never reported its end (a hidden tab), once, as it is let go
           for (const a of riders.map((r) => r.anim)) a?.finish?.();   // alloc-rare: as above, once, as the glide is let go
         };
         setTimeout(watch, ZOOM_MS + 120);
-        going.then(() => { if (st === me && !me.closing) { me.steady = true; if (!part) boost(me.boosted); } });
+        going.then(() => { if (st === me && !me.closing) { me.steady = true; if (!part) boost(me.boosted); if (me.cam) camera.sharp?.(true); } });
       }
       return true;
     },
@@ -239,6 +241,7 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
       for (const r of st.riders) { const prev = r.anim; r.anim = r.el.animate?.([{ transform: to }, { transform: to }], { duration: 1, fill: 'forwards' }) || null; prev?.cancel(); }
       st.cur = { dx, dy, s: sc };
       camAt();
+      if (st.cam) { clearTimeout(st.sharpT); const me = st; me.sharpT = setTimeout(() => { if (st === me && !me.closing && me.steady) camera.sharp?.(true); }, 200); }   // (the readings still moving: sharp again 200 ms after the last step)
       globalThis.dispatchEvent?.(frame);
       st.s = sc;
       if (sc > st.boosted + 0.01) { st.boosted = sc; boost(sc); }
@@ -249,6 +252,8 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
       if (!st) return Promise.resolve();
       if (st.closing) return st.closing;
       const s = st;
+      clearTimeout(s.sharpT);
+      if (s.cam) camera.sharp?.(false);
       for (const v of s.veils) v.classList.remove('on');
       if (instant || reduce()) { if (!s.part && !s.cam) behind(false, 0); end(); return Promise.resolve(); }
       globalThis.dispatchEvent?.(new Event('pps:cardzoom'));   // alloc-rare: once per zoom out
