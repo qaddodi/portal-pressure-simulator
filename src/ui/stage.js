@@ -1149,7 +1149,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // fade out at their ends. The same GPU fade.)
     const tipFade = TIP_FADE[e.id] && !isArt ? { frac: TIP_FADE[e.id], line: [0, 0, 1, 0], joined: false } : ART_FADE[e.id]?.in ? { frac: ART_FADE[e.id].in, line: [0, 0, 1, 0], joined: false, keep: true } : null;
     const endFade = ART_FADE[e.id]?.out ? { frac: 1 - ART_FADE[e.id].out, line: [0, 0, 1, 0] } : null;
-    E[e.id] = { e, tipFade, endFade, strands, feeders, isArt, vis: true, width: 4, wallPx: 1, shadeOk: false, shadeVer: 0 };
+    E[e.id] = { e, tipFade, endFade, tube: isArt && !!ART_FADE[e.id], strands, feeders, isArt, vis: true, width: 4, wallPx: 1, shadeOk: false, shadeVer: 0 };
   }
   ALL_EDGES.forEach((e, i) => { E[e.id].row = i; });
   // (Every vessel, in E's order, as one list kept from here on: E is built once above and never gains or loses a key, so the
@@ -3996,7 +3996,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // The liver's own small vessels (portal venules, central veins) are the liver to the pointer in the anatomy:
       // no hover, no tap on them; it falls through to the organ. The sinusoids are a vessel of their own.
       x.noHit = LIVER_EDGES.has(e.id) && !SIN_EDGES.has(e.id) && !ART_FADE[e.id] && t < 0.5;
-      if (!x.isArt) {
+      if (!x.isArt || x.tube) {   // (the hepatic artery has the veins' wall: a casing and a lit lumen, so it reads as drawn as they do)
         const baseD = IVC_EDGES.has(e.id) ? E.IVC_IS.e.d : e.d || (e.dMax ? dMinOf(e) : 3);   // one wall thickness along the whole cava
         // The circuit is a map: a slightly wider border (drawn by the GPU, as one shape with filleted
         // joins) gives its lines their weight.
@@ -5374,10 +5374,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // The network recedes to netA with a vessel selected (the lifted tier and the vessels behind the organs are not faded as a
       // group): the selected vessel eases out of that dimming and, deselected, back into it (selA), so it never snaps.
       if (x.back || tier >= TIER_LIFT) alpha *= netA + (1 - netA) * easeInOut(Math.max(vh.selA.get(id) || 0, ra ? vh.selA.get(ra.e.id) || 0 : 0));
-      const shade = !x.isArt && !ghost;
+      const shade = (!x.isArt || x.tube) && !ghost;
       const veil = IVC_EDGES.has(id) && !ivcOn, whole = IVC_EDGES.has(id) && ivcOn;
       const spec = shade && !veil && kind !== 'f' && kind !== 'c' && !CONTEXT_EDGES.has(id) && !x.back && x.width >= 3.4;
-      const flags = (shade ? F_DIFFUSE : 0) | (spec ? F_SPEC : 0) | (!x.back && !x.isArt && !ghost && !veil ? F_SHADOW : 0) | (ghost ? F_DOTTED : 0) | (x.isArt ? F_NOCASE : 0) | (veil ? F_VEIL : 0) | (whole ? F_WHOLE : 0);
+      const flags = (shade ? F_DIFFUSE : 0) | (spec ? F_SPEC : 0) | (!x.back && !x.isArt && !ghost && !veil ? F_SHADOW : 0) | (ghost ? F_DOTTED : 0) | (x.isArt && !x.tube ? F_NOCASE : 0) | (veil ? F_VEIL : 0) | (whole ? F_WHOLE : 0);
       const z = (kind === 'v' ? x.row + 0.5 : x.row) / GL_ROWS;
       colT[0] = c0[0]; colT[1] = c0[1]; colT[2] = c0[2]; colT[3] = c1[0]; colT[4] = c1[1]; colT[5] = c1[2];
       const k = colFollow.step(it.row, colT, colDt, !!lensFrom || reduceMotion.matches);
@@ -5393,7 +5393,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (sinStrand) alpha *= SIN_PERFUSION.fade;
       // (The portal tree carries a slightly heavier casing than the systemic side, PORTAL_CASING: how an atlas separates the system
       // it is about from the rest without colour. Looks review, 31 Oct.)
-      tubeData[o] = s0[0]; tubeData[o + 1] = s0[1]; tubeData[o + 2] = s0[2]; tubeData[o + 3] = x.isArt ? 0 : x.wallPx * (x.front ? PORTAL_CASING : 1);
+      tubeData[o] = s0[0]; tubeData[o + 1] = s0[1]; tubeData[o + 2] = s0[2]; tubeData[o + 3] = x.isArt && !x.tube ? 0 : x.wallPx * (x.front ? PORTAL_CASING : 1);
       tubeData[o + 4] = s1[0]; tubeData[o + 5] = s1[1]; tubeData[o + 6] = s1[2]; tubeData[o + 7] = alpha;
       tubeData[o + 8] = tier; tubeData[o + 9] = z; tubeData[o + 10] = flags; tubeData[o + 11] = 0;
       // Fades, as the SVG masks: into an organ (TIP_FADE), out of the plate, into a deeper vein,
@@ -12200,7 +12200,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const ZZ_ITEM = { x: { width: 22 }, obj: { w: 22 }, pts: null, kind: 'z' };
   function segLine(n, it) {
     const x = it.x, rec = segLinePool[n] || (segLinePool[n] = { pts: null, R: undefined, wall: 0, flat: 0, id: '' });   // (more lines than ever before: one more is made)
-    rec.pts = it.pts; rec.R = it.obj.glR; rec.wall = x.isArt ? 0 : x.wallPx || 0; rec.flat = it.kind === 'v' ? (x.width || 4) / 2 : (it.obj.w || 2) / 2; rec.id = x.e ? x.e.id : 'res';   // (a resistor's zigzag has no vessel)
+    rec.pts = it.pts; rec.R = it.obj.glR; rec.wall = x.isArt && !x.tube ? 0 : x.wallPx || 0; rec.flat = it.kind === 'v' ? (x.width || 4) / 2 : (it.obj.w || 2) / 2; rec.id = x.e ? x.e.id : 'res';   // (a resistor's zigzag has no vessel)
     segLines[n] = rec;
   }
   function buildSegs() {
