@@ -1,7 +1,7 @@
 // The callouts' glass drawn into the figure's canvas (recs A1, glass; glass-gl setHost): while the host says it may, the glass takes no
 // copy of the canvas and its own canvas stands aside; each picture the figure lays draws the glass from that picture, blurred again only
-// when the figure under it was drawn again. When the host says no, or a glass crosses what lies between, it goes back to its own canvas
-// with the browser's glass until its first copy is in, never a frame with both glasses or none.
+// when the figure under it was drawn again. When the host says no, or a glass crosses what lies between, it goes back to the browser's
+// glass at once (no canvas or copy of its own since G5, 4 Nov 2026), never a frame with both glasses or none.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -26,8 +26,7 @@ globalThis.CSS = { supports: () => true };
 globalThis.matchMedia = () => ({ matches: false });
 globalThis.WebGL2RenderingContext = class {};
 globalThis.Path2D = class {};
-let copies = 0;
-globalThis.createImageBitmap = () => { copies++; return Promise.resolve({ close() {} }); };
+globalThis.createImageBitmap = () => Promise.resolve({ close() {} });
 function fakeGL(name) {
   const n = { draw: 0, blur: 0, blit: 0, clear: 0, deleted: 0, calls: [] };
   let progs = 0, prog = null;
@@ -88,25 +87,21 @@ const add = (t) => { tops.push(t); tops.sort((a, b) => a.order - b.order); retur
 const present = () => { presents++; for (const t of tops) t.prep?.(); for (const t of tops) t.draw(); };
 const blood = async (k) => { for (let i = 0; i < k; i++) { seq++; for (const f of figure) f(); present(); frame(); await flush(); } };
 
-test('without a host, the glass copies the figure and draws on its own canvas', async () => {
+test('without a host, the glass is the browser\'s and not hosted', async () => {
   await frames(4);
-  assert.ok(copies > 0 && own.n.draw > 0 && glass.attrs.has('data-gl'));
   assert.equal(G.hosted, false);
 });
 
-test('with one, the next frame draws it into the figure\'s picture, from that picture: no copy, its own canvas aside', async () => {
+test('with one, the next frame draws it into the figure\'s picture, from that picture: from that picture', async () => {
   G.setHost({ gl: fig.gl, canvas: source, add, order: 2, now: present, active: () => may, over: () => between });
   assert.equal(tops.length, 1, 'one turn in the figure\'s picture');
-  const c = copies, p = presents;
+  const p = presents;
   await frames(2);
   assert.equal(G.hosted, true);
   assert.ok(presents > p, 'the picture laid again at once, with the glass');
   assert.ok(fig.n.blit >= 2 && fig.n.blur === 2 && fig.n.draw === 1, `taken from the picture, blurred, drawn (${fig.n.blit}, ${fig.n.blur}, ${fig.n.draw})`);
   assert.ok(glass.attrs.has('data-gl'), 'still marked: the browser\'s blur never shows with it');
-  assert.equal(glassCanvas.style.visibility, 'hidden');
-  assert.equal(glassCanvas.width, 1, 'its own canvas holds nothing meanwhile');
   await frames(4);
-  assert.equal(copies, c, 'no copy of the canvas at all');
   const first = fig.n.calls.find((c) => c[0] === 'blitFramebuffer');
   // (Shared blur, blur-share.js: the copy lies on the whole canvas's grid, so the part made is the callout's box and BLUR_KEEP (14) texels
   // of 4 CSS px around it (56 px), no longer cut at its 48 px margin: 8 CSS px (16 device px) more each side than the old region's.)
@@ -139,18 +134,16 @@ test('a callout moved: read in the glass\'s frame and laid at once at its new pl
   assert.equal(presents, p + 1);
 });
 
-test('the host says no: that picture has no glass, the browser\'s shows at once, then its own canvas takes over', async () => {
+test('the host says no: that picture has no glass, the browser\'s shows at once, and it stays there', async () => {
   may = false;
-  const d = fig.n.draw, c = copies;
+  const d = fig.n.draw;
   present();
   assert.equal(fig.n.draw, d, 'not drawn into the picture');
   assert.equal(glass.attrs.has('data-gl'), false, 'given back to the browser\'s glass in the same task');
   assert.equal(G.hosted, false);
-  assert.equal(glassCanvas.style.visibility, '');
   await frames(3);
-  assert.ok(copies > c, 'its own copy again');
-  assert.ok(glass.attrs.has('data-gl'), 'and its own glass once that is in');
-  assert.ok(glassCanvas.width > 1);
+  assert.equal(G.hosted, false);
+  assert.equal(glass.attrs.has('data-gl'), false, 'no glass of its own to take over');
 });
 
 // (1 Nov 2026: each callout decides alone, as the cards do: one crossing what lies between goes back to the browser's glass only once it has

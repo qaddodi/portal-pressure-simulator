@@ -11,7 +11,7 @@ export const FONT = `500 ${PX}px Inter`;
 const GLYPHS = sdfAtlas.GLYPHS[500];
 export const lum = (c) => { const m = String(c).match(/[\d.]+/g) || []; return 0.2126 * +m[0] + 0.7152 * +m[1] + 0.0722 * +m[2]; };
 
-/** Whether Inter's atlas holds every character of `s` (⌘, ⌥ and ⇧ it does not: those words stay as the page paints them). */
+/** Whether Inter's atlas holds every character of `s` (⌥ and ⇧ it does not: those words stay as the page paints them; ⌘ is in it since 4 Nov 2026). */
 export const covers = (s) => { for (const ch of s) if (ch !== ' ' && !GLYPHS[ch]) return false; return true; };
 const wordW = (w) => measure(w, FONT) + LS * [...w].length;
 

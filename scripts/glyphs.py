@@ -19,6 +19,9 @@ CHARS = [chr(c) for c in range(0x20, 0x7F)] + list('−·×–°µ‰≥≤→�
 # Signs Inter has no outline for, taken from Noto Sans Math (scripts/font-sources/noto-sans-math-latin.woff2, SIL OFL; one weight for all four) and the subscript two
 # made from Inter's own two (smaller, set low): the clinical marks (HVPG ≥ 10, → , ≤, √, ↔, τ) draw on the GPU like every other letter.
 FALLBACK = list('→≤≥√↔τ')
+# ⌘ (the keyboard hint) is in neither Inter nor Noto Sans Math's Latin cut: its outline is DejaVu Sans's (U+2318 only, scripts/font-sources/dejavu-sans-command.woff2;
+# a character DejaVu added, public domain, see dejavu-sans-LICENSE.txt), one weight for all four.
+FALLBACK2 = [('scripts/font-sources/dejavu-sans-command.woff2', '⌘')]
 
 import importlib.util
 _spec = importlib.util.spec_from_file_location('glyph_helpers', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'glyph-helpers.py'))
@@ -46,6 +49,13 @@ for w in WEIGHTS:
         if not n or ch in chars: continue
         pen = SVGPathPen(ngs, lambda v: ('%.1f' % v).rstrip('0').rstrip('.')); tp = TransformPen(pen, (sc, 0, 0, sc, 0, 0)); ngs[n].draw(tp)
         chars[ch] = [round(nh[n][0] * sc), pen.getCommands()]
+    for path, sign in FALLBACK2:
+        xf = TTFont(os.path.join(ROOT, path)); xcm = xf.getBestCmap(); xgs = xf.getGlyphSet(); xh = xf['hmtx']; xsc = 2048 / xf['head'].unitsPerEm
+        for ch in sign:
+            n = xcm.get(ord(ch))
+            if not n or ch in chars: continue
+            pen = SVGPathPen(xgs, lambda v: ('%.1f' % v).rstrip('0').rstrip('.')); tp = TransformPen(pen, (xsc, 0, 0, xsc, 0, 0)); xgs[n].draw(tp)
+            chars[ch] = [round(xh[n][0] * xsc), pen.getCommands()]
     if '2' in chars:   # (the subscript two: Inter's two at 62 %, lowered)
         two = cmap.get(ord('2')); pen = SVGPathPen(gs, lambda v: ('%.1f' % v).rstrip('0').rstrip('.')); tp = TransformPen(pen, (0.62, 0, 0, 0.62, 0, -260)); gs[two].draw(tp)
         chars['₂'] = [round(hmtx[two][0] * 0.62), pen.getCommands()]

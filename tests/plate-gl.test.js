@@ -32,7 +32,7 @@ test('layoutTip: as wide as its words up to 300 px, then wrapped to the full wid
   const keyed = layoutTip('Play', 'Space', 1440);
   assert.ok(keyed.key && keyed.key.x > 10 + measure('Play', '500 12px Inter'));
   assert.equal(covers('Zoom in (+)'), true);
-  assert.equal(covers('Search (⌘K)'), false, 'a character the atlas lacks leaves the tip to the page');
+  assert.equal(covers('Search (⌥K)'), false, 'a character the atlas lacks leaves the tip to the page');
 });
 
 test('the popover and the main menu get a plate; the tooltip is sized from its layout and drawn through tipDraw', () => {
