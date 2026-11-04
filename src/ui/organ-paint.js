@@ -17,6 +17,7 @@ import { flattenPath, flattenCmds, ellipsePoly, polyBoxInto, polyMeshInto, prest
 import { prestart, linkProgram } from './gl-compile.js';
 import { strHash } from './liver-geo.js';
 import { readStyle, readLocalCTM } from './layout-snap.js';
+import { sceneBegin, sceneStyle } from './scene-store.js';
 import { getLive } from './live-style.js';
 import { STOPS, STOPS_CMAP, STOP_LOOK } from './stop-tokens.js';
 // (The colour a clear writes, one array for every clear: none made per call, plan rev 2 §2.8.)
@@ -465,7 +466,11 @@ function strokeOp(E, el, geom, me, paint, alpha, w, cap, cl, ch, a0, dash, nss) 
   return (E.stroke = op);
 }
 
+// (An element's style: worked out in script from the page's rules (scene-store.js), never asked of the browser; the browser is asked only
+// for an element the store cannot answer (a CSS transform, a rule under @container). A reading starts from what the page is now.)
+const styleOf = (el) => sceneStyle(el) || readStyle(el);
 export function readGroup(root, opt) {
+  if (rd === 0) sceneBegin();
   const r0 = rd, d0 = dp, l0 = ld;
   const c = CTX[rd] || (CTX[rd] = newCtx());   // alloc-rare: as above
   rd++;
@@ -487,7 +492,7 @@ function readRoot(c, root) {
   // from the chain at each paint (liveOf); what the page's styles give (read here, computed) stands until the group is read again.
   walk(c, root, ID, 1, null, 'visible', E.rch || (E.rch = []), list, 0);   // alloc-rare: a root's (empty) chain, the first time it is read
   if (!c.ok) return null;
-  const rcs = readStyle(root);
+  const rcs = styleOf(root);
   const opacity = parseFloat(rcs.opacity) || 0;
   CS_O.set(root, opacity);
   let mask = null;
@@ -516,7 +521,7 @@ function walkEl(c, el, m, alpha, clip, vis, chain, out, a0) {
   const root = c.root, doc = c.doc;
   // (Definitions kept inside an organ's own art (the colon's and the bowel's clips) paint nothing where they are.)
   if (el !== root && DEFS_RE.test(el.localName)) return;
-  const cs = readStyle(el);
+  const cs = styleOf(el);
   if (cs.display === 'none' && !(c.shown && el === root)) return;
   const E = rec(el);
   if (c.strict) {
