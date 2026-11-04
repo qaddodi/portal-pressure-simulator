@@ -108,7 +108,9 @@ export function createView(st, live) {
     try {
       atTargetStage(d, () => {
         // (The other view's labels were solved ahead in idle time (preStep) for this very framing: their slots are carried, with no solve.)
-        if (pre.slots && pre.key === preKey(d) && preCommit()) return;
+        // (Kept slots made for a stage a little different from the tap's (a value moved, an inset, a 4 Nov solve that wiped them as the model
+        // played) are tried too, carried only if every label still fits clear of the others; only when none fit is the target solved here.)
+        if (pre.slots && pre.slotsTgt === live.morphTarget && (pre.key === preKey(d) || preNear(d)) && preCommit(pre.key !== preKey(d))) return;
         updateLabels(live.F, true);
       }, live.morphTarget, xfKept);
     } finally { live.xfSolving = false; }
@@ -168,15 +170,28 @@ export function createView(st, live) {
   }
   // The other view's labels solved ahead, in idle slices (a dry solve at that view's end state, the slots kept by a key of what the labels
   // show, the framing and the stage): at a tap they are carried, with no solve. A real solve, a carry or anything moving drops one in progress.
-  const pre = { need: true, g: null, key: null, cur: '', d: null, tgt: 0, slots: null, tasked: false };
+  // (slots, key, slotsTgt, slotsD: the last whole solve and what it was made for, kept while the next is made, so a tap mid-way still finds one;
+  // g, gKey, d, tgt: the solve under way.)
+  const pre = { need: true, g: null, key: null, gKey: null, cur: '', d: null, tgt: 0, slots: null, slotsTgt: -1, slotsD: null, tasked: false };
   const cutSig = (t) => t.slice(t.indexOf('|'));
   function preKey(d) { return `${cutSig(labelSig(live.F))}|${Math.round(d.k * 100)},${Math.round(d.x)},${Math.round(d.y)},${stageBox().width},${stageBox().height},${live.rotU > 0.5},${live.labelFonts},${live.calloutSig()},${live.labelIns()}`; }
   function preAbort() { if (pre.g) { pre.g.return(); pre.g = null; pre.need = true; } }
-  function preCommit() {
-    const keep = live.labelSol, m = new Map();
+  // (The kept slots' framing near enough the tap's to carry them: the same zoom within a tenth, the centre within an eighth of the stage.)
+  function preNear(d) {
+    const o = pre.slotsD, b = stageBox();
+    return !!o && Math.abs(Math.log(d.k / o.k)) < 0.1 && Math.abs(d.x - o.x) * 8 < b.width && Math.abs(d.y - o.y) * 8 < b.height;
+  }
+  function preCommit(loose = false) {
+    const keep = live.labelSol, keepTurn = live.labelTurned, m = new Map();
     for (const [k, v] of pre.slots) m.set(k, { ...v });
     live.labelSol = m;
-    if (layoutLabels(live.F, false) === false) { live.labelSol = keep; return false; }
+    // (The slots were solved turned as the target view is (a phone's Circuit is drawn turned): the layer is told so first. Otherwise the turn
+    // between the views cleared them in layoutLabels and the carry failed every time, so on the iPhone each tap on the Circuit solved it all.)
+    live.labelTurned = live.easeInOut(live.morph) >= 0.5 && live.rotU > 0.5;
+    if (loose) live.carryClear = true;   // (made for a stage a little different: carried only clear of each other)
+    let ok;
+    try { ok = layoutLabels(live.F, false) !== false; } finally { live.carryClear = false; }
+    if (!ok) { live.labelSol = keep; live.labelTurned = keepTurn; return false; }
     const sf = live.solvedFor === live.SOLVED_A ? live.SOLVED_B : live.SOLVED_A, sig = labelSig(live.F);
     sf.sig = sig; sf.sc = live.CTM.sc; sf.th = Math.atan2(live.CTM.b, live.CTM.a); sf.csig = live.calloutSig(); sf.ins = live.labelIns(); sf.view = live.morphTarget; sf.ck = null;
     live.solvedFor = sf; live.solveAsked = false;
@@ -190,7 +205,7 @@ export function createView(st, live) {
   // stale, and it is made again at once in idle time. Otherwise a solution that no longer matched at the tap was never replaced, and the tap solved it all.)
   const preNowKey = () => (pre.d ? preKey(preFraming(pre.tgt)) : '');
   function preAsk() {
-    if (pre.slots && !pre.g && preIdle() && preNowKey() !== pre.cur) { pre.slots = null; pre.need = true; }
+    if (pre.slots && !pre.g && !pre.need && preIdle() && preNowKey() !== pre.cur) pre.need = true;   // (the kept slots stand until the new ones are whole)
     if (pre.tasked || !(pre.need || pre.g) || !preIdle()) return;
     pre.tasked = true;
     mayTask('label presolve', preStep, live.JOB_NOW);   // (a slice a frame while the figure rests, not when a frame happens to be spare)
@@ -202,16 +217,19 @@ export function createView(st, live) {
     const keepSol = live.labelSol, keepSpare = live.labelSolSpare, keepTurn = live.labelTurned, keepK = live.labelK, kn = live.lbkNum, ks = live.lbkStr;
     const dk = live.gLabels.dataset.k, lv = live.gLabels.style.getPropertyValue('--lbk');
     let done = false;
+    // (A new solve's framing is read before the stage is put to its end: it was read inside, after the first slice's stage had been put at the
+    // last solve's framing, so a framing that had moved since (a zoom in the anatomy) keyed and began its solve for the old one.)
+    if (!pre.g) { pre.d = preFraming(tgt); pre.tgt = tgt; }
     try {
-      atTargetStage(pre.d || preFraming(tgt), () => {
+      atTargetStage(pre.d, () => {
         if (!pre.g) {
-          pre.d = preFraming(tgt); pre.tgt = tgt; pre.need = false; pre.slots = null;
-          pre.key = preKey(pre.d);
+          pre.need = false;
+          pre.gKey = preKey(pre.d);
           live.labelSol = new Map(keepSol);   // (a turn between the views clears the slots it finds: not the standing ones)
           pre.g = layoutLabelsGen(live.F, true, true);
         }
         done = labelSliceRun(pre.g, 3).valueOf();
-        if (done) { pre.slots = new Map(); for (const [k, v] of live.labelSol) pre.slots.set(k, { ...v }); pre.cur = ''; }
+        if (done) { const m = new Map(); for (const [k, v] of live.labelSol) m.set(k, { ...v }); pre.slots = m; pre.key = pre.gKey; pre.slotsTgt = pre.tgt; pre.slotsD = { ...pre.d }; pre.cur = ''; }
       }, tgt);
     } catch (e) { pre.g = null; pre.d = null; throw e; }
     finally {
