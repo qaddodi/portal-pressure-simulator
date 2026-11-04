@@ -4863,9 +4863,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const cardSig = () => (ui ? [ui.text, ui.data].map((el) => (el.hidden ? '-' : ((r) => [r.left, r.top, r.width, r.height].map((v) => Math.round(v / 4)).join())(readBox(el)))).join('|') : '');
   function reframe(ms) {
     const s = figOf(shown.i);
-    // (A view the learner pinched, dragged or zoomed stays: a card that changed size, a dock or a settling sheet does not pull it back to the
+    // (In a talk that opts in (deck keepPinch), a view the learner pinched, dragged or zoomed stays: a card that changed size, a dock or a settling sheet does not pull it back to the
     // slide's framing. Next, Back, a jump, Fit and a turn of the device frame it again: they clear the hand, stage.handClear / the slide's own move.)
-    if (stage.handMoved?.() && !booting) return;
+    if (deck?.keepPinch && stage.handMoved?.() && !booting) return;
     // (Under the start's cover the framing is set outright: unseen, a glide only kept the reveal waiting, or was caught by it.)
     const cam = s.visual ? s.cam : s.cam || 'fit';
     // (A slide with no framing of its own (the outline, a table) leaves the figure at the stage's fit, which follows the cards:
@@ -4888,7 +4888,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const camAt = (u) => { if (!stage.following?.()) return; if (camSlide === want && camSlideGen === gen && shown?.i === want) stage.followAt(u); else stage.followEnd?.(); };
   const camKind = () => { const s = figOf(shown.i); return s.visual ? s.cam : s.cam || 'fit'; };
   const camFollowOk = () => !!ui && !!shown && shown.i === want && shown.gen === gen && !(busy && !playing) && !leaving && !booting && !reduce.matches
-    && dock.to === 0 && dock.lvl === 0 && !zoomOn() && !reframeT && !stage.handMoved?.() && !(cath.on && cath.cam) && !procRun?.running
+    && dock.to === 0 && dock.lvl === 0 && !zoomOn() && !reframeT && !(deck?.keepPinch && stage.handMoved?.()) && !(cath.on && cath.cam) && !procRun?.running
     // alloc-rare: slide arrival or a camera framing: once per slide change or card grab, never per frame
     && !(push && push.i === shown.i && push.until > performance.now()) && !store.get().lobule && ((c) => !!c && !LOBULE_CAM.test(c))(camKind());
   // (Where the slide's camera would frame the cards as they stand now: the handle placed at the card's foot first, as it rests.)
