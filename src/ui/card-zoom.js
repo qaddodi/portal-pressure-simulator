@@ -27,6 +27,9 @@ export function unionBox(rects) {
 // tall a margin up from the foot, stay clear of it).
 export const zoomMargin = (area) => Math.min(110, Math.max(72, 0.1 * Math.min(area.width, area.height)));
 
+// (A stacked card, its handle up on its edge: a little more room round it, so the zoom stops short and the stack behind it shows: Mohammad, 4 Nov 2026.)
+const STACK_ROOM = 1.7;
+
 // How much a box could grow and still leave the margin round it (no cap).
 export const fitScale = (box, area, margin = zoomMargin(area)) => Math.min((area.width - 2 * margin) / box.width, (area.height - 2 * margin) / box.height);
 
@@ -208,13 +211,13 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
     plan() { const q = whole(pieces()); return q && zoomPlan(q, area()); },
     open({ card: el = card, along: rides = along, scrim: veil = scrim, part = false } = {}) {
       if (st) return false;
-      const a = area(), riders = pieces(el, rides, part ? [] : scene()), q = whole(riders, el), plan = q && zoomPlan(q, a, zoomMargin(a));
+      const a = area(), riders = pieces(el, rides, part ? [] : scene()), q = whole(riders, el), stacked = riders.some((r) => !r.pass && r.el !== el), plan = q && zoomPlan(q, a, zoomMargin(a) * (stacked ? STACK_ROOM : 1));
       if (!plan) return false;
       const k = scale(el) || 1, ms = reduce() ? 0 : ZOOM_MS;
       const cx = q.left + q.width / 2, cy = q.top + q.height / 2;
       // (box and mid: the whole as it rests as the card zooms, and its middle, for follow below; steady: the glide in has ended, for the
       // data card only: a part has no readings to bring out.)
-      st = { card: el, veils: [veil].flat(), part, plan, riders, closing: null, steady: ms === 0 && !part, box: q, mid: { x: cx, y: cy }, k, s: plan.s, boosted: plan.s, holes: [], cur: { dx: 0, dy: 0, s: 1 }, mo: null, cam: !part && !!camera?.open() };
+      st = { stacked, card: el, veils: [veil].flat(), part, plan, riders, closing: null, steady: ms === 0 && !part, box: q, mid: { x: cx, y: cy }, k, s: plan.s, boosted: plan.s, holes: [], cur: { dx: 0, dy: 0, s: 1 }, mo: null, cam: !part && !!camera?.open() };
       for (const r of riders) {
         // (Each piece turns about the middle of them all, so they move as one.)
         r.el.style.transformOrigin = `${((cx - r.rest.left) / k).toFixed(2)}px ${((cy - r.rest.top) / k).toFixed(2)}px`;
@@ -262,7 +265,7 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
       if (!st || st.closing || !st.steady) return false;
       const a = area(), { box: b, mid, k } = st, up = rise * k;
       const q = { left: b.left, top: b.top - up, width: b.width, height: b.height + up };
-      const sc = Math.min(ZOOM_MAX, Math.max(1, fitScale(q, a, zoomMargin(a))));
+      const sc = Math.min(ZOOM_MAX, Math.max(1, fitScale(q, a, zoomMargin(a) * (st.stacked ? STACK_ROOM : 1))));
       const dx = a.left + a.width / 2 - mid.x;
       const dy = a.top + a.height / 2 - mid.y - sc * (q.top + q.height / 2 - mid.y) + lift * k * (1 - sc);
       const to = `translate(${(dx / k).toFixed(2)}px, ${(dy / k).toFixed(2)}px) scale(${sc.toFixed(4)})`;
