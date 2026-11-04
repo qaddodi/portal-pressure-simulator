@@ -108,7 +108,7 @@ test('the figure places the gate where the callout points (the middle of the ves
   // It follows the camera with the labels, and the labels keep clear of its body.
   assert.equal((stage.match(/^\s*dprobePaint\(\);$|^\s*if \(dop\.id\) \{ dprobePaint\(\); live\.labelGL\?\.redraw\(\); \}$/gm) || []).length, 4, 'view change, zoom glide, labels laid out, Doppler set');
   // It hides while the views morph and in the liver's own views, and moves by fading out and back in.
-  assert.match(stage, /\((?:live\.)?(?:live\.)?(?:live\.)?morph < 0\.01 \|\| (?:live\.)?(?:live\.)?(?:live\.)?morph > 0\.99\) && !camHides && !dpr\.hold && dprMonitorOn\(\) && !st\.lobule && !st\.sinusoid && !(?:live\.)?(?:live\.)?(?:live\.)?lz\?\.isOpen\(\)/);
+  assert.match(stage, /\((?:live\.)?(?:live\.)?(?:live\.)?(?:live\.)?morph < 0\.01 \|\| (?:live\.)?(?:live\.)?(?:live\.)?(?:live\.)?morph > 0\.99\) && !camHides && !dpr\.hold && dprMonitorOn\(\) && !st\.lobule && !st\.sinusoid && !(?:live\.)?(?:live\.)?(?:live\.)?(?:live\.)?lz\?\.isOpen\(\)/);
   // (it goes and comes by drawing back along its line of sight, then fading as it leaves, on its own clock in the stage's record: dprShape; no CSS fade)
   assert.doesNotMatch(css, /\.dop-probe[^{]*\{[^}]*transition/);
 });

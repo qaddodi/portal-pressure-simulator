@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 
 test('a site reading\'s width is keyed on its text with every digit as a zero', () => {
   const src = stageSource();
-  assert.match(src, /const wk = `\$\{el\.className\.replace\(\/\(\?:\^\|\\s\)off\(\?=\\s\|\$\)\/, ''\)\}\|\$\{el\.textContent\.replace\(\/\\d\/g, '0'\)\}\|\$\{W\}\|\$\{labelBase\(\)\}\|\$\{labelFonts\}`;/);
+  assert.match(src, /const wk = `\$\{el\.className\.replace\(\/\(\?:\^\|\\s\)off\(\?=\\s\|\$\)\/, ''\)\}\|\$\{el\.textContent\.replace\(\/\\d\/g, '0'\)\}\|\$\{W\}\|\$\{(?:live\.)?(?:live\.)?labelBase\(\)\}\|\$\{(?:live\.)?(?:live\.)?labelFonts\}`;/);
   assert.match(src, /if \(el\._wk !== wk \|\| !el\._half\) siteSize\(el, d, wk\);/);
   // (Read first in the next frame, never between the frame's writes: 1 Nov 2026.)
   assert.match(src, /function siteMeasure\(el, d, wk\) \{\n\s+el\._wk = wk; el\._half = el\.offsetWidth \/ 2;/);

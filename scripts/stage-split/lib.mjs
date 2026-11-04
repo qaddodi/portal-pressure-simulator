@@ -49,12 +49,15 @@ function unitRanges(src, ast, body) {
 const declaresFnOnly = (n) => n.type === 'FunctionDeclaration' || n.type === 'ClassDeclaration' && false
   || (n.type === 'VariableDeclaration' && n.declarations.every((d) => d.init && isFn(d.init)));
 // Does the statement run code at boot beyond making functions? (a call, new, assignment, update or tagged template outside any nested function)
+const PURE_NEW = new Set(['Map', 'Set', 'WeakMap', 'WeakSet', 'Float32Array', 'Float64Array', 'Int32Array', 'Uint8Array', 'Uint16Array']);
 function runsCode(n) {
   if (n.type === 'ExpressionStatement') return true;
   if (n.type === 'FunctionDeclaration') return false;
   let hit = false;
   estraverse.traverse(n, { fallback: 'iteration', enter(x) {
     if (isFn(x) && x !== n) return estraverse.VisitorOption.Skip;
+    // (A fresh Map, Set or typed array made from nothing or from literals touches nothing: it has no order to keep.)
+    if (x.type === 'NewExpression' && x.callee.type === 'Identifier' && PURE_NEW.has(x.callee.name) && x.arguments.every((y) => y.type === 'Literal' || (y.type === 'ArrayExpression' && y.elements.every((e) => e?.type === 'Literal')))) return estraverse.VisitorOption.Skip;
     if (x.type === 'CallExpression' || x.type === 'NewExpression' || x.type === 'AssignmentExpression' || x.type === 'UpdateExpression' || x.type === 'TaggedTemplateExpression') hit = true;
   } });
   return hit;

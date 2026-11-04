@@ -54,8 +54,13 @@ test('the resistors are named in full, and "vs healthy liver" is said once, in t
 test('a slide\'s readings keep the cards\' margin from every edge and stay above the nav pill\'s row', () => {
   assert.match(stage, /(?:live\.)?pillEdge = r\?\.width \? \{ m: Math\.max\(6, Math\.round\(wr\.right - r\.right\)\), top: r\.top - wr\.top \} : null;/);
   assert.match(stage, /view\.x0 = M; view\.y0 = M; view\.x1 = W - M; view\.y1 = H - M;/);   // (the kept rectangle LAB_VIEW, written in place)
+<<<<<<< ours
   assert.match(stage, /if \(st\.presenting && (?:live\.)?(?:live\.)?pillEdge\) view\.y1 = Math\.max\(H \* 0\.5, Math\.min\(view\.y1, (?:live\.)?(?:live\.)?pillEdge\.top - 8\)\);/);
   assert.match(stage, /const x0 = Math\.max\(M, pzInset\('--pz-l'\) \+ 8\), x1 = W - Math\.max\(M, pzInset\('--pz-r'\) \+ 8\)/);
+=======
+  assert.match(stage, /if \(st\.presenting && (?:live\.)?pillEdge\) view\.y1 = Math\.max\(H \* 0\.5, Math\.min\(view\.y1, (?:live\.)?pillEdge\.top - 8\)\);/);
+  assert.match(stage, /const x0 = Math\.max\(M, (?:live\.)?(?:live\.)?pzInset\('--pz-l'\) \+ 8\), x1 = W - Math\.max\(M, (?:live\.)?(?:live\.)?pzInset\('--pz-r'\) \+ 8\)/);
+>>>>>>> theirs
 });
 
 test('on a slide the circuit stands centred in the free height, and its readings keep out of the header row', () => {
