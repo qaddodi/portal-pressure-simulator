@@ -11773,6 +11773,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const JOB = { g: null, key: null, solvedFor: null, t0: 0 }, jobKeyArr = [], labelKeyArr = [];   // (the solve in slices: one at a time, its key and the key of the layout that stands, kept)
   const keyInto = (to, from) => { to.length = from.length; for (let i = 0; i < from.length; i++) to[i] = from[i]; return to; };
   const labelVis = new Map(); // key → shown last frame (hysteresis against blockers)
+  const zoneStick = new Map();   // zone title key -> [world x, y] of its centre at the last layout (sticky placement)
   let lapHid = new Set();     // keys the last layout's overlap pass hid (its hysteresis)
   let labelTurned = false;   // labels remember their side; turning the circuit changes which side is right
   // Levels of detail (Blood menu › Labels). Key: at the home framing only the portal vein, the HVPG pair
@@ -12984,6 +12985,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // ── Circuit: zone titles, then stations by priority, then resistances ──
       // Turned upright, a direction given on the map (N, E, ...) points somewhere else on the screen.
       const turned = rotU > 0.5, dirOf = (d) => (turned ? TURN_DIR[d] : d);
+      // (A title keeps the place it had if it still fits in the visible part of its band (sticky: a small pan never nudges it); else it takes the
+      // middle of that part. Kept as a screen coordinate along the band's axis (c) with the band's own key.)
+      const zoneKeep = (key, lo, hi, mid, tn, other) => { const p = zoneStick.get(key), q = p ? worldToLocal(p[0], p[1]) : null, k = q ? q[tn ? 1 : 0] : NaN, c = k >= lo && k <= hi ? k : Math.min(hi, Math.max(lo, mid)); zoneStick.set(key, localToWorld(tn ? other : c, tn ? c : other)); return c; };
       for (const [txt, x0, x1] of CIRCUIT_ZONES) {
         const [a, ay0] = worldToLocal(x0, 60), [b, by] = worldToLocal(x1, 60);
         // The liver's and the heart's titles open their cards (there is no organ to click in the circuit).
@@ -13000,7 +13004,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const zoneAt = (x, y) => { it.ax = x; it.ay = y; const bx = it.rot ? it.h : it.w, by2 = it.rot ? it.w : it.h; it.x = x - bx / 2; it.y = y - by2 / 2; return rectOf({ ...it, x: it.x, y: it.y, w: bx, h: by2 }); };
         // A narrow zone (a zoomed-out circuit, or large text) takes a shorter title rather than none; one that
         // still does not fit its band is left out rather than run into its neighbour's.
-        const span = turned ? Math.abs(by - ay0) : b - a;
+        // (At rest the title is set over the VISIBLE part of its band, not the band's whole width: a band panned half off the screen, or
+        // zoomed past it, keeps its title in view. The full or short text is picked by that visible width. Option C, zone-titles-recs.md.)
+        const v0 = turned ? Math.max(Math.min(ay0, by), 6) : Math.max(a, 6), v1 = turned ? Math.min(Math.max(ay0, by), H - 6) : Math.min(b, W - 6);
+        const span = v1 - v0;
         for (const alt of ZONE_SHORT[txt] || []) {
           if (span > it.w + 6) break;
           it.lines = [[{ ...it.lines[0][0], t: alt }]]; it.w = lineW(it.lines[0]);
@@ -13011,19 +13018,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           // bottom to top), centred on the band.
           it.rot = true;
           // (On a slide the readings keep out of the whole title column, not just the title's box: 17 Oct design review.)
-          if (solve) { const zb = zoneAt((a + b) / 2, (ay0 + by) / 2); placed.push(st.presenting ? { x0: -1e4, y0: Math.min(ay0, by), x1: zb.x1 + 2, y1: Math.max(ay0, by), zone: true } : { ...zb, zone: true }); }
-          const zx = Math.max(it.h / 2 + 8, (a + b) / 2), zr = zoneAt(zx, (ay0 + by) / 2);
+          if (solve) { const zb = zoneAt((a + b) / 2, (v0 + v1) / 2); placed.push(st.presenting ? { x0: -1e4, y0: Math.min(ay0, by), x1: zb.x1 + 2, y1: Math.max(ay0, by), zone: true } : { ...zb, zone: true }); }
+          const zx = Math.max(it.h / 2 + 8, (a + b) / 2), zlo = v0 + it.w / 2 + 3, zhi = v1 - it.w / 2 - 3;
+          const zc = zoneKeep(it.key, zlo, zhi, (v0 + v1) / 2, true, zx), zr = zoneAt(zx, zc);
           // (It may slide along its band: see the last pass.)
-          it._slide = { at: (c) => zoneAt(zx, c), c: (ay0 + by) / 2, lo: Math.min(ay0, by) + it.w / 2 + 3, hi: Math.max(ay0, by) - it.w / 2 - 3 };
+          it._slide = { at: (c) => zoneAt(zx, c), c: zc, lo: zlo, hi: zhi };
           if (within(zr, { x0: 6, y0: 6, x1: W - 6, y1: H - 6 }) && !blockers.some((o) => hits(zr, o)) && !callouts.some((o) => hits(zr, o))) { out.push(it); obstacles.push({ ...zr, zone: true, key: it.key }); it._zr = zr; }
           continue;
         }
         if (b - a > it.w + 6) {
           // (On a slide the readings keep out of the whole header row over the zone, not just the title's box: a reading and its
           // leader had crossed "Portal veins", and the resistances had sat in the row: 17 Oct design review.)
-          if (solve) { const zb = zoneAt((a + b) / 2, by), y1 = Math.max(zb.y1, zoneAt((a + b) / 2, Math.max(14, by)).y1); placed.push(st.presenting ? { x0: a, y0: -1e4, x1: b, y1: y1 + 2, zone: true } : { ...zb, zone: true }); }
-          const zy = Math.max(14, by), zr = zoneAt((a + b) / 2, zy);
-          it._slide = { at: (c) => zoneAt(c, zy), c: (a + b) / 2, lo: a + it.w / 2 + 3, hi: b - it.w / 2 - 3 };
+          if (solve) { const zb = zoneAt((v0 + v1) / 2, by), y1 = Math.max(zb.y1, zoneAt((v0 + v1) / 2, Math.max(14, by)).y1); placed.push(st.presenting ? { x0: a, y0: -1e4, x1: b, y1: y1 + 2, zone: true } : { ...zb, zone: true }); }
+          const zy = Math.max(14, by), zlo = v0 + it.w / 2 + 3, zhi = v1 - it.w / 2 - 3;
+          const zc = zoneKeep(it.key, zlo, zhi, (v0 + v1) / 2, false, zy), zr = zoneAt(zc, zy);
+          it._slide = { at: (c) => zoneAt(c, zy), c: zc, lo: zlo, hi: zhi };
           if (within(zr, { x0: 6, y0: 6, x1: W - 6, y1: H - 6 }) && !blockers.some((o) => hits(zr, o)) && !callouts.some((o) => hits(zr, o))) { out.push(it); obstacles.push({ ...zr, zone: true, key: it.key }); it._zr = zr; }
         }
       }

@@ -67,3 +67,8 @@ test('step 2 (option C): a zone title is a world-anchored figure label, not plac
   assert.ok(!/NO_ANCHOR = \/\^\(z:/.test(st));
   assert.ok(!/const zoneAt = \(x, y\) => \{ it\.live/.test(st));
 });
+
+test('step 7 (option C): a zone title is set over the visible part of its band and keeps its place while it fits', () => {
+  assert.ok(st.includes('const zoneKeep = ') && st.includes('const zoneStick = new Map()'));
+  assert.ok(/const span = v1 - v0;/.test(st));
+});
