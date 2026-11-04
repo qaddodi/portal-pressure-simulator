@@ -33,6 +33,7 @@ test('a camera-only call reuses the labels\' signature; a revision rebuilds it',
     get EV() { built++; return vessels; },
   };
   env.store = { get: () => st, get rev() { return env.rev; } };
+  env.live = new Proxy({}, { get: (_, k) => env[k] });
   const src = slice("  let sigText = '';", '  const sigStats');
   // (sloppy-mode `with`: the function's free names are the stand-ins above, read live)
   const labelSig = new Function('env', `with (env) { var sigStats = { builds: 0 }; ${src} return labelSig; }`)(env);

@@ -9,7 +9,8 @@ test('the stent callout is held while the stent grows or the model morphs', asyn
   const stage = stageSource();
   const core = await readFile(new URL('../src/worker-core.js', import.meta.url), 'utf8');
   assert.match(core, /morphing: !!(?:live\.)?(?:live\.)?morph,/);
-  const fn = stage.slice(stage.indexOf('function stentReady'), stage.indexOf('function labelSig'));
+  const lab = await readFile(new URL('../src/ui/stage-labels.js', import.meta.url), 'utf8');   // (the label driver's own file)
+  const fn = lab.slice(lab.indexOf('function stentReady'), lab.indexOf('function labelSig'));
   for (const k of ['x.reveal', 'f.morphing', 'x.width !== x.wT', 'STENT_CALM_MS']) assert.ok(fn.includes(k), k);
   assert.match(stage, /if \(stentReady\(sid, f\) && EI\[sid\] >= 0\)/);
   // (R04: read once per call, and part of the signature's dependencies, so the layout runs again when the callout may show.)

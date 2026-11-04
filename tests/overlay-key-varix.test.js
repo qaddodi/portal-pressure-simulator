@@ -16,10 +16,10 @@ const between = (from, to) => { const a = stage.indexOf(from), b = stage.indexOf
 test('the overlays\' rebuild key holds no varix number (they pulse with the beat and nothing the overlays draw follows them)', () => {
   const inputs = between('function overlayInputs(f, p, t) {', 'function updateOverlays(');
   assert.doesNotMatch(inputs.replace(/\/\/[^\n]*/g, ''), /varix|Varix|metrics|hold\('v[drt]'|hold\('gd'/, 'overlayInputs reads no varix metric');
-  assert.match(inputs.replace(/\/\/[^\n]*/g, ''), /Math\.round\(f\.bands \|\| 0\), hold\('c3', recruitFrac\('C3', f\), 0\.1\),\s*p\.splenicRx === 1 \? hold\('sp', f\.slow\.spleen \/ 11, 0\.02\) : 0, lastMorph\);/, 'the key still ends in the bands, the C3 recruitment, the spleen\'s size (patches only) and the morph');
+  assert.match(inputs.replace(/\/\/[^\n]*/g, ''), /Math\.round\(f\.bands \|\| 0\), hold\('c3', recruitFrac\('C3', f\), 0\.1\),\s*p\.splenicRx === 1 \? hold\('sp', f\.slow\.spleen \/ 11, 0\.02\) : 0, (?:live\.)?lastMorph\);/, 'the key still ends in the bands, the C3 recruitment, the spleen\'s size (patches only) and the morph');
 });
 
 test('what the overlays rebuild draws from reads no varix number either', () => {
-  const body = between('function updateOverlays(f, p, gain, t) {', '// ── Labels: a screen-space layer');
+  const body = between('function updateOverlays(f, p, gain, t) {', 'return { clampFontAt');
   assert.doesNotMatch(body.replace(/\/\/[^\n]*/g, ''), /metrics\??\.(varix|gastricVarix)|varixGrowth|varicesPresent/, 'updateOverlays draws no varix from its metrics');
 });

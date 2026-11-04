@@ -11,7 +11,7 @@ const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 
 const hidSrc = stage.match(/const cathHid = \(\) => [^\n]*\n/)?.[0];
 const cathHid = (env) => new Function(...Object.keys(env), `${hidSrc}return cathHid;`)(...Object.values(env))();
-const env = (over = {}) => ({ cath: { st: {} }, wrap: { classList: { contains: (c) => c === 'cath-on' } }, performance: { now: () => 1000 }, cathHidAt: 0, ...over });
+const env = (over = {}) => { const e = { cath: { st: {} }, wrap: { classList: { contains: (c) => c === 'cath-on' } }, performance: { now: () => 1000 }, cathHidAt: 0, ...over }; e.live = { cathHidAt: e.cathHidAt }; return e; };
 
 test('hidden labels are skipped only under the HVPG catheter, once their fade is over', () => {
   assert.ok(hidSrc);
@@ -27,8 +27,8 @@ test('hidden labels are skipped only under the HVPG catheter, once their fade is
 
 test('updateLabels returns early, the layout key cleared, right after the camera check', () => {
   const u = stage.slice(stage.indexOf('function updateLabels(f, force = false) {'), stage.indexOf('function refreshValues(f) {'));
-  assert.ok(u.indexOf('if (camMove)') < u.indexOf('if (cathHid()) { labelKey = null; return; }'));
-  assert.ok(u.indexOf('if (cathHid()) { labelKey = null; return; }') < u.indexOf('refreshCTM();'));
+  assert.ok(u.indexOf('if (live.camMove)') < u.indexOf('if (cathHid()) { live.labelKey = null; return; }'));
+  assert.ok(u.indexOf('if (cathHid()) { live.labelKey = null; return; }') < u.indexOf('refreshCTM();'));
 });
 
 test('as the catheter goes (or a treatment keeps the names), the labels are laid out at once, for the view as it is', () => {
