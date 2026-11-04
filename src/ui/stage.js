@@ -8461,6 +8461,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     else if (!lzSeqT) lzSeqT = setTimeout(() => { lzSeqT = 0; if (veins && !veins.lost) veins.present(true, true); }, 90);
     return lzSeqN;
   };
+  // (4 Nov 2026, Mohammad: "Keep it glass through and through any zoom". The lobule and the sinusoid are passes of the figure's own context whenever it has one (lobule-zoom.js ensureGL: shared is simply "the figure has a top"), so the glass is never let go through a dive or a zoom, even before the lobule has made its renderer.)
+  const lzShares = () => !!lz?.shared || (!!veins?.top && !veins.lost);
   const lzInFigure = () => !!lz?.shared && (lobuleOn || lz.isShown());
   // (Mac heat R2: the frost blurs again only once the blood has moved FROST_EVERY frames on; the count handed over is the real one, so the dirty squares still cover the frames between.)
   const FROST_EVERY = 3, thirdSeq = () => { let held = -Infinity; return () => { const q = veins.bloodSeq; if (q < held || q - held >= FROST_EVERY) held = q; return held; }; }, frostFresh = (() => { const t = thirdSeq(); return () => (frostLiver ? 0 : t()); })();
@@ -8505,7 +8507,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     cards.holesWhile = () => diveT > 0;   // (glass-gl.js: while the dive has the glass off the figure's canvas, the labels still leave the cards' places out)
     const shade = cards.low;
     const key = {};
-    const g = createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, cards, live: () => !!frostLiver || (wrap.classList.contains('gl-on') && (lzInFigure() || (!anatCovered() && !(diveT > 0 && !lz?.shared)))), version: frostSeq, fresh: frostFresh, dirty: (a, b, o) => veins.bloodDirty(a, b, o), onFigure: (f) => veins.onPicture(f), onHoles: frostHoles(key) });
+    const g = createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, cards, live: () => !!frostLiver || (wrap.classList.contains('gl-on') && (lzShares() || (!anatCovered() && !(diveT > 0)))), version: frostSeq, fresh: frostFresh, dirty: (a, b, o) => veins.bloodDirty(a, b, o), onFigure: (f) => veins.onPicture(f), onHoles: frostHoles(key) });
     if (!g) return null;
     hostFrost(g, { order: { low: 1, high: 3 }, active: () => !frostWhy(true), why: () => frostWhy(true), over: noOver, low: (el) => el === shade || !!cards.isLow?.(el) || el?.dataset?.ghost === 'shade' });
     cardGLs.add(g);
@@ -10790,16 +10792,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // to a flat card: Mohammad, 2 Nov 2026, Circulation 6 on the iPhone, "No blur at all on top, solid card on bottom".)
     if (wrap.classList.contains('in-lobule')) {
       const src = lz?.glassHost?.() || null;
-      if (!src) return 'the lobule is moving';
-      if (frostCtx !== src.gl) { rehostSoon(); return 'the glass is moving to the liver\'s canvas'; }
-      return '';
+      if (src) {
+        if (frostCtx !== src.gl) { rehostSoon(); return 'the glass is moving to the liver\'s canvas'; }
+        return '';
+      }
+      if (!lzShares()) return 'the lobule is moving';   // (drawn in its own canvas, which has none to give for now; in the figure's context the glass goes on there)
     }
     if (frostLiver || frostCtx !== veins.top.gl) { rehostSoon(); return 'the glass is moving back to the figure\'s canvas'; }
     if (veins.lost) return 'the GPU context is lost';
-    if (diveT > 0 && !lz?.shared) return 'the dive is under way';   // (the lobule drawn in the figure's own context: the dive is a pass of its present, the glass stays frosted)
+    if (diveT > 0 && !lzShares()) return 'the dive is under way';   // (the lobule drawn in the figure's own context: the dive is a pass of its present, the glass stays frosted)
     const wc = wrap.classList;
     if (!wc.contains('gl-on')) return 'the GPU figure is not showing';
-    if (wc.contains('in-lobule')) return 'the lobule is showing';
     if (wc.contains('unframed')) return 'the figure is unframed';
     if (vcWhy == null) { vcStale(); return 'the figure\'s canvas is being read'; }
     return vcWhy;
