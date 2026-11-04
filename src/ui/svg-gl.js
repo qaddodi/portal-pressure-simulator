@@ -890,7 +890,12 @@ export function createSvgGL(box) {
   function draw() {
     g.ask = 0;
     if (g.dead || !cv.isConnected) return;
-    if (g.blank && !g.ins.size && !hasInk()) return;
+    // (An owner's say that nothing in the box shows now (g.skip: the lobule's leaders and dots, drawn with their names by label-gl, with no
+    // slide pointer up): the picture is cleared once and then left alone. The lobule's full-screen leader layer was cleared, drawn with
+    // nothing visible and handed over on every frame of a zoom, resizing the charts' shared canvas between it and the dock's charts,
+    // 35 ms a frame on a Mac (4 Nov 2026, Mohammad: "zooming into the lobule still flickers"). A fade under way finishes first.)
+    const skip = !!g.skip && !g.eased && !g.ins.size && g.skip();
+    if (g.blank && (skip || (!g.ins.size && !hasInk()))) return;
     const pen = framePart('svg-gl: begin (size, context)', fitPen, cv, g.gpu), { ctx, w, h } = pen;   // (named, so a long frame says whether the drawing's time went in the shared canvas's size, the pieces or the hand-over)
     const now = easeNow();
     easing = false;
@@ -902,10 +907,11 @@ export function createSvgGL(box) {
       // (The whole picture carried by the owner's view, g.view: a pan or a zoom about a point, drawn as it is, never a transform on the page.)
       const moved = g.vk !== 1 || g.ve !== 0 || g.vf !== 0;
       if (moved) { ctx.save(); ctx.translate(g.ve + BLEED * (1 - g.vk), g.vf + BLEED * (1 - g.vk)); ctx.scale(g.vk, g.vk); }
-      const last = drawModels(ctx, now, bw, bh);
+      const last = skip ? null : drawModels(ctx, now, bw, bh);
       if (moved) ctx.restore();
-      if (g.holes?.length) eraseHoles(ctx, cv, w, h, g.holes);   // (the glasses over the picture: left out under them)
-      g.blank = !hasInk();
+      if (g.holes?.length && !skip) eraseHoles(ctx, cv, w, h, g.holes);   // (the glasses over the picture: left out under them)
+      g.blank = skip || !hasInk();
+      g.eased = easing;
       const label = last?.getAttribute('aria-label');
       if (label) attrSoon(cv, 'aria-label', label);
     } finally { handed = framePart('svg-gl: hand over', endPen, ctx); }   // (false: the picture could not be handed over, trace-gl.js end)

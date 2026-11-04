@@ -162,6 +162,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const leadPaint = () => leadGL.paint();
   leadGL.cv.setAttribute('aria-hidden', 'true'); leadGL.cv.removeAttribute('role');
   leadGL.show(leaders, false);
+  // (With label-gl drawing the leaders and dots (cap-lead), this layer shows only a slide's pointer: with none up it draws nothing, so a zoom's
+  // frames never clear and hand over a full-screen picture of hidden lines. See svg-gl.js g.skip.)
+  leadGL.skip = () => leadersBox.classList.contains('cap-lead') && !classHas(callRing, 'on');
   if (typeof MutationObserver === 'function') new MutationObserver(() => leadGL.paint()).observe(leaders, { subtree: true, childList: true, attributes: true, attributeFilter: ['x1', 'y1', 'x2', 'y2', 'cx', 'cy', 'r', 'viewBox', 'style', 'transform'] });
   // (What a slide lights is a class on the app: the leaders' looks are read again when it changes.)
   { const app = document.querySelector('.app') || document.getElementById('app'); if (app && typeof MutationObserver === 'function') new MutationObserver(() => { leadGL.relook(); mirrorAll(); }).observe(app, { attributes: true, attributeFilter: ['data-lit', 'class'] }); }
