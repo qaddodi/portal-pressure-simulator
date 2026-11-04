@@ -62,8 +62,11 @@ test('the lobule and the anatomy both stop their leaders with leader-end.js', ()
 test('an optional lobule label gives way rather than take a leader across the lobule', () => {
   // (Batch 04, a phone: the Lymph label sat at the top right, its leader 420 px long over the whole lobule.)
   const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
-  const m = /const LONG_LEAD = (\d+);/.exec(lz);
+  // (LONG_LEAD is the shared leader length from label-place.js since the lobule took its lengths from there, 4 Nov.)
+  const lp = readFileSync(new URL('../src/ui/label-place.js', import.meta.url), 'utf8');
+  const m = /LONG_LEAD = (\d+)/.exec(lp);
   assert.ok(m && +m[1] <= 160, 'LONG_LEAD is missing or too long');
+  assert.match(lz, /import \{[^}]*\bLONG_LEAD\b[^}]*\} from '\.\/label-place\.js';/);
   assert.match(lz, /const nameless = !CORE\.includes\(k\) && !named\(k\);/);
   assert.match(lz, /\(nameless && lead > LONG_LEAD \? 1e6/);
   assert.match(lz, /const dropCost = \(k\) => \(named\(k\) \? 2e7 : CORE\.includes\(k\) \? 1e7 : 3e4\);/);

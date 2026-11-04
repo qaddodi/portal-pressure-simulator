@@ -100,7 +100,9 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   for (const rel of stageFamily().slice(1)) if (!(rel in doc.files) && lines(rel) > PART_MAX) errors.push(`${rel} has ${lines(rel)} lines, over the ${PART_MAX} a stage part may have (PR-09)`);
   for (const [rel, max] of Object.entries(doc.files)) {
     const n = rel.endsWith('*') ? stageFamily().reduce((a, f) => a + lines(f), 0) : lines(rel);
-    if (n > max) errors.push(`${rel} has ${n} lines, over its budget of ${max} in scripts/size-budget.json: move code out into its own module first (PR-09)`);
+    // (Over the line: an error with BUILD_STRICT (main and ci.yml), a warning on the preview, as the build's chunk cap does: a few lines
+    // too many never paints every preview push red while the stage split moves code out.)
+    if (n > max) (process.env.BUILD_STRICT ? errors.push.bind(errors) : (t) => console.warn(`::warning title=Size budget::${t}`))(`${rel} has ${n} lines, over its budget of ${max} in scripts/size-budget.json: move code out into its own module first (PR-09)`);
     else if (n < max && tighten) doc.files[rel] = n;   // (a file under its number passes; --tighten lowers the number so the gain cannot be spent again)
   }
   if (tighten) writeFileSync(sizeFile, JSON.stringify(doc, null, 1).replace(/\n {2,}"/g, ' "').replace(/\{\n {2}"src/, '{ "src') + '\n');

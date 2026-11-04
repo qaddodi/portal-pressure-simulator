@@ -38,8 +38,10 @@ jobs:
           key: deck-states-${{ hashFiles('src/engine/**', 'src/worker-core.js', 'src/worker.js', 'src/ui/decks/**') }}
           restore-keys: deck-states-
       - name: Lint
+        env:
+          BUILD_STRICT: '1'   # (the size budget fails here; on the preview it only warns)
         run: npm run lint
-      - name: Types (advisory: the allow-list in jsconfig.json, PR-11)
+      - name: 'Types (advisory: the allow-list in jsconfig.json, PR-11)'
         run: npm run typecheck
         continue-on-error: true
       - name: Physiology acceptance tests and cache stamps
