@@ -133,7 +133,7 @@ test('B7: vessel colour bins hold until the value is 0.4 mmHg from the bin shown
 
 test('B8: label keep-out boxes are taken after the glide, and cut the arrowheads with a pixel of antialiasing', () => {
   const stage = stageSource(), gl = read('src/ui/veins-gl.js');
-  assert.ok(stage.indexOf('    labelGlide(out);\n') < stage.indexOf('    noChevBoxes = out.filter('));
+  assert.ok(stage.indexOf('    labelGlide(out);\n') < stage.indexOf('    live.noChevBoxes = out.filter('));
   assert.match(gl, /c \*= smoothstep\(-pxW, pxW, length\(max\(q, 0\.0\)\) \+ min\(max\(q\.x, q\.y\), 0\.0\)\);/);
   assert.doesNotMatch(gl, /bool hole/);
 });

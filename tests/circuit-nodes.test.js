@@ -115,7 +115,7 @@ test('the stage gives every dot without a reading its box, and draws each dot at
   const src = stageSource();
   assert.match(src, /\{ id: n\.id, r: dotRadius\(n\.kind\), on: false, u: 0 \}/);
   assert.match(src, /const labelled = new Set\(nodes\.map\(\(it\) => it\.node\)\);/);
-  assert.match(src, /bareDots\(NODES\.filter\(\(n\) => hasDot\.has\(n\.id\)\), \{ labelled, shown: nodeVisible, at: \(id\) => worldToLocal\(\.\.\.nodePos\(id, t\)\), scale: CTM\.sc, minX: ringRX, minY: ringR \}\)/);
+  assert.match(src, /bareDots\(NODES\.filter\(\(n\) => hasDot\.has\(n\.id\)\), \{ labelled, shown: (?:live\.)?(?:live\.)?nodeVisible, at: \(id\) => worldToLocal\(\.\.\.nodePos\(id, t\)\), scale: (?:live\.)?(?:live\.)?CTM\.sc, minX: ringRX, minY: ringR \}\)/);
   assert.match(src, /placed\.push\(\{ \.\.\.d\.box, dot: true \}\); ringXY\.push\(\[d\.x, d\.y, ringRX\]\);/);
   assert.match(src, /V\[o\+\+\] = 1; V\[o\+\+\] = 0\.8;/, 'the outline width the box allows for (half of 1.6 either side of the radius)');
 });

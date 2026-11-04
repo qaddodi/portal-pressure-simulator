@@ -30,7 +30,7 @@ test('one callout per point, at its own third, the three in a column beside thei
   assert.match(stage, /kind === 'vel' \? velItem\(id, f, mode\)/);   // (a live refresh keeps each callout's point)
   // (Review 15 Oct: in order, all on one side, each level with its own dot, a leader of 16 px at most.)
   assert.match(stage, /const colGap = \(sid\) => Math\.min\(16, /);
-  assert.match(stage, /it\.pri = 8; it\.side = 'R'; it\.col = ptSide; it\.colGap = colGap\(sid\);/);   // (one priority: the pick never reorders them)
+  assert.match(stage, /it\.pri = 8; it\.side = 'R'; it\.col = (?:live\.)?(?:live\.)?ptSide; it\.colGap = colGap\(sid\);/);   // (one priority: the pick never reorders them)
   assert.match(stage, /const COL = \[0, -6, 6, -12, 12, -18, 18\];/);
   // (Level with its dot first, a little farther out up to 16 px; slid up or down only after that.)
   // (The jet clears its narrowing's arrow level, past the arrow, before sliding off its dot's line: Mac slide 9 distal.)
@@ -61,11 +61,11 @@ test('one callout per point, at its own third, the three in a column beside thei
   assert.match(stage, /obstacles\.some\(\(o\) => !\(it\.point && o\.probe\) && hits\(r, \{ x0: o\.x0 - 4, y0: o\.y0 - 4, x1: o\.x1 \+ 4, y1: o\.y1 \+ 4 \}\)\)\) return;/);
   assert.match(stage, /held \? \(ps\.clear \? \(it\.point && it\.col \? 5e3 : 1e5\) : 4\) : 0\)/);
   // (the mark keeps 2 px off its own stent's drawn mesh in every pass; the "60 %" halo fills its digits' counters)
-  assert.match(stage, /if \(mk && dop\.id && lineHits\(r, 3, \{ only: dop\.id \}\)\) return;/);
+  assert.match(stage, /if \((?:live\.)?mk && dop\.id && lineHits\(r, 3, \{ only: dop\.id \}\)\) return;/);
   assert.match(stage, /const csw = sk > 0 \? `\$\{\(7 \/ sk\)\.toFixed\(2\)\}px` : ''/);   // (7 px on screen: --clamp-sw on the clamps' groups, app.css)
   assert.match(stage, /holes\.push\(\[x0, y0, x1, y1, -5 \* k\]\)/);   // and along every leader ending at a point
   assert.match(gl, /if \(hr < 0\.0\) \{ vec2 ab = h\.zw - h\.xy;/);
-  assert.match(stage, /L\.holes = (?:live\.)?(?:live\.)?chevHoles;/);
+  assert.match(stage, /L\.holes = (?:live\.)?(?:live\.)?(?:live\.)?chevHoles;/);
   assert.ok(stage.indexOf('if (it.point && it.col && placeMulti') < stage.indexOf('// Focus callout'), 'the points are placed before the mark');
 });
 
@@ -73,15 +73,15 @@ test("the column's side is chosen from the stent and the screen, never the pick,
   const side = stage.slice(stage.indexOf('A stent called out at its three points: the three stand in a column'), stage.indexOf('// Stenosis clamps and their percentages'));
   assert.ok(side.length > 0 && !/dop\.seg|dopGateOf|st\.dopGate/.test(side), 'the side does not read the sampled point');
   assert.match(stage, /textW\(r\.cls === 'lb-val' \? '000' : r\.t, /);   // (a fixed template width: the values the pick changes do not tip it)
-  assert.match(stage, /const away = col \? \(ptSide === 'E' \? 'W' : 'E'\) : null;/);
+  assert.match(stage, /const away = col \? \((?:live\.)?(?:live\.)?ptSide === '(?:live\.)?(?:live\.)?E' \? 'W' : '(?:live\.)?(?:live\.)?E'\) : null;/);
   // (the "60 %" reads in the labels' own name size, 12 px at least (the lab role: the text size setting and a presentation's size in it),
   // at any zoom, its gap and its leader's stop-short in step with it)
-  assert.match(stage, /const px = (?:live\.)?(?:live\.)?fontPx\(11\.5\);\n\s+if \(Math\.abs\(px - (?:live\.)?(?:live\.)?clampBase\) > 0\.01\) \{ (?:live\.)?(?:live\.)?clampBase = px; applyClampFs\(\); \}/);
-  assert.match(stage, /const fs = (?:live\.)?CTM\.sc > 0 && (?:live\.)?CTM\.sc < 1 \? (?:live\.)?clampBase \/ (?:live\.)?CTM\.sc : 0;/);
+  assert.match(stage, /const px = (?:live\.)?(?:live\.)?(?:live\.)?fontPx\(11\.5\);\n\s+if \(Math\.abs\(px - (?:live\.)?(?:live\.)?(?:live\.)?clampBase\) > 0\.01\) \{ (?:live\.)?(?:live\.)?(?:live\.)?clampBase = px; applyClampFs\(\); \}/);
+  assert.match(stage, /const fs = (?:live\.)?(?:live\.)?CTM\.sc > 0 && (?:live\.)?(?:live\.)?CTM\.sc < 1 \? (?:live\.)?(?:live\.)?clampBase \/ (?:live\.)?(?:live\.)?CTM\.sc : 0;/);
   assert.match(stage, /el\.style\.fontSize = fs \? `\$\{fs\.toFixed\(2\)\}px` : '';/);
-  assert.match(stage, /const sk = (?:live\.)?CTM\?\.sc \|\| 0, cfs = sk > 0 \? \((?:live\.)?clampBase \/ sk\)\.toFixed\(2\) : '';/);
-  assert.match(stage, /const gap = \(6 \* (?:live\.)?clampBase\) \/ 12 \/ Math\.max\((?:live\.)?CTM\?\.sc \|\| 1, 1e-3\)/);
-  assert.match(stage, /const b = boxOfEl\(el, \(6 \* (?:live\.)?clampBase\) \/ 12\);/);
+  assert.match(stage, /const sk = (?:live\.)?(?:live\.)?CTM\?\.sc \|\| 0, cfs = sk > 0 \? \((?:live\.)?(?:live\.)?clampBase \/ sk\)\.toFixed\(2\) : '';/);
+  assert.match(stage, /const gap = \(6 \* (?:live\.)?(?:live\.)?clampBase\) \/ 12 \/ Math\.max\((?:live\.)?(?:live\.)?CTM\?\.sc \|\| 1, 1e-3\)/);
+  assert.match(stage, /const b = boxOfEl\(el, \(6 \* (?:live\.)?(?:live\.)?clampBase\) \/ 12\);/);
   assert.ok(roleOf(11.5) === 'lab' && rolePx('lab', 390, 844) >= 12 && rolePx('lab', 1440, 900) >= 12, "the labels' names are the lab role, 12 px at least on a phone and a laptop");
   assert.match(stage, /\{ proximal: 'Prox', mid: 'Mid', distal: 'Dist' \}\[point\]/);   // (short on a phone)
 });

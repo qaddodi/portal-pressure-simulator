@@ -35,5 +35,5 @@ test('organ names and crowded labels come back only with room to spare', () => {
   assert.match(stage, /obstacles\.some\(\(o\) => hits\(grown, o\)\)/);
   assert.match(stage, /const p = lapWas\.has\(it\.key\) \? 4 : 0;/);
   assert.doesNotMatch(stage, /LABEL_HYST|labelhyst=/);
-  assert.match(stage, /if \(!it\.sel && crowded\(it, r\)\) \{ it\.hide = true; lapHid\.add\(it\.key\); continue; \}/);
+  assert.match(stage, /if \(!it\.sel && crowded\(it, r\)\) \{ it\.hide = true; (?:live\.)?(?:live\.)?lapHid\.add\(it\.key\); continue; \}/);
 });

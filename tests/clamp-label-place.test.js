@@ -34,7 +34,7 @@ test('the rule keeps the layout\'s side and spot, reads outward from it, and sta
 
 test('a "60 %" that stands off from its arrows, on the column\'s side or moved off the probe, is joined to the nearer arrow by a leader', () => {
   const lead = body('// (A "60 %" that stands off from its clamp', 'leaders.push(...dots);');
-  assert.match(lead, /own = c && c\.id === clampFor && ptSide && clampD\.get\(c\.id\)/);
+  assert.match(lead, /own = c && c\.id === (?:live\.)?(?:live\.)?clampFor && (?:live\.)?(?:live\.)?ptSide && clampD\.get\(c\.id\)/);
   assert.match(lead, /gap\(tips\[1\]\) < gap\(tips\[0\]\) \? tips\[1\] : tips\[0\]/);
   assert.doesNotMatch(lead, /if \(solve/, 'read from the label as it stands, so a carried layout keeps the line');
   assert.match(lead, /k: 'cl:' \+ c\.id, tag: 'path', at: \{ class: 'leader'/);
