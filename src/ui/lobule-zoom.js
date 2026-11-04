@@ -1944,7 +1944,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   };
   // Every name's place and show for this frame, drawn in it: a label gliding to its new spot on the page's curve (easeLab), one riding
   // a pan at its spot's shift (tr), a zone name at its centre, the call pill easing in from a little smaller.
-  const LEADO = { x1: 0, y1: 0, x2: 0, y2: 0, show: 1, colour: 'rgba(150, 150, 150, .5)', cut: false, of: null, follow: false, sg: 0 };   // (one record, rewritten for each lead)
+  const LEADO = { x1: 0, y1: 0, x2: 0, y2: 0, show: 1, colour: 'rgba(150, 150, 150, .5)', cut: false, of: null, follow: false, sg: 0 };   // (one record, rewritten for each lead)   // colour-exempt: the leaders' neutral grey, set per leader by the layout
   function capSync(t) {
     if (fade <= 0) return false;
     const now = tlNow();   // (the page's clock, which the labels' glides are noted on; t: the names' own, for their fades)

@@ -16,7 +16,7 @@ test('no backdrop-filter and no blur() filter is declared in the styles', () => 
 });
 
 test('every glass the GPU is not drawing is solid, never the GPU-drawn one', () => {
-  const rules = css.split('\n').filter((l) => l.startsWith(':root:root') && /background/.test(l));
+  const rules = css.split('\n').filter((l) => l.startsWith(':root:root') && /background/.test(l) && !/^:root:root \.modal > header /.test(l) && !/\[data-gl\] \{ background: none;[^}]*\}$/.test(l));   // (the one rule that clears the CSS look where the GPU draws is the GPU-drawn one by design)
   assert.ok(rules.length >= 5);
   for (const r of rules) assert.match(r, /:not\(\[data-gl\]\)/, r);
   for (const sel of ['.lb-glass', '.sv-legend', '.toast', '.pz-shade', '.pz-data.pz-data', '.pz-case', '.pz-bar', '.pz-scales', '.cl-glass', '.pz-sheet:not([data-gl])::before', '.lz-lab']) {

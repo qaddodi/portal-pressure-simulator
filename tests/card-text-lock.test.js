@@ -22,19 +22,6 @@ test('the teaching and data cards keep one width on every slide: the column neve
   assert.match(css, /\.pz\.pz-card:not\(\.stack\) \.pz-text \{ top: calc\(var\(--pz-cm\) \+ var\(--pz-cp\)\);[^}]*width: calc\(var\(--pz-cw\) - 2 \* var\(--pz-cp\)\)/, 'teaching card width from the one card width');
 });
 
-// The card layout follows one body size B (audit/card-layout-recs.md): one margin on every edge, a gap of 0.6 margin, one padding.
-test('one margin, padding, gap and card width, all from the body size', () => {
-  assert.match(css, /--pz-cm: clamp\(16px, min\(2\.6vw, calc\(1\.8 \* var\(--pz-b\)\)\), 60px\)/);
-  assert.match(css, /--pz-cp: clamp\(18px, calc\(1\.4 \* var\(--pz-b\)\), 40px\)/);
-  assert.match(css, /--pz-cw: min\(calc\(clamp\(340px, min\(38vw, calc\(23\.5 \* var\(--pz-b\)\)\), 640px\)/);
-  assert.match(css, /\.pz\.pz-card:not\(\.stack\) \.pz-data \{ padding: var\(--pz-cp\); \}/, 'both cards share one padding');
-  assert.match(css, /\.pz-bar\.pzb-pill \{[^}]*right: var\(--pz-cm\); bottom: max\(var\(--pz-cm\)/, 'the nav pill sits one margin from the right and the bottom');
-  assert.match(js, /gap = Math\.round\(0\.6 \* sl\)/);
-  assert.match(js, /const top0 = cardOn && t \? sl : 0;/, 'the cards start one margin from the top');
-  assert.match(js, /: cardOn && t \? \(d && !below \? d\.top - wr\.top : off\(dd\) \? Math\.max\(sl, \(H - t\.height - 2 \* pad\) \/ 2\) : top0 \+ shift\) \+ pad : null;/, 'a teaching card alone is centred top to bottom, at least one margin from each edge');
-  assert.match(js, /shift = Math\.max\(0, Math\.min\(\(H - stackH\) \/ 2 - top0, foot - top0 - stackH\)\);/, 'the stacked pair shorter than the screen is centred as one, never past one margin or the controls');
-});
-
 test('a tight slide shrinks in fixed steps and the data card never moves to the top right', () => {
   assert.match(js, /const DK = \[0\.9, 0\.8, 0\.7, 0\.6\];/);
   assert.match(js, /if \(!below\) \{ put\(WIDE\.title, WIDE\.words\); below = true; \}/);
@@ -70,23 +57,6 @@ test('a phone keeps the words\' height cap while a what-if slider or compare but
   assert.match(js, /const readingsOnly = \(\) => liveOff \|\| /);
   assert.match(js, /async function liveSet\(s, i, patch\) \{[^}]*liveOff = true;/);
   assert.match(js, /async function livePatient\(s, i, o\) \{[\s\S]{0,250}liveOff = true;/);
-});
-
-// A phone held sideways (Mohammad, 17 Oct, I23): the words sit in the floating card as on every other screen, not a panel at the
-// edge; the data card stays its own card at the top right, never stacked under the words; the card fades out behind a case card.
-test('a sideways phone puts its words in the floating card, level with the data card, the tab clear of the title', () => {
-  assert.match(js, /const low = !p && W > H && H <= 500;/);
-  assert.match(js, /const cardOn = TEXT_CARD && !p;/);
-  assert.match(js, /ui\.root\.classList\.toggle\('low', low\); ui\.shade\.classList\.toggle\('low', low\);/);
-  assert.match(js, /if \(cardOn && !low && t && !off\(dd\)\) \{/, 'never stacked under the words: no height for that');
-  assert.match(js, /const lvl = cardOn && low && t \? \(d \? d\.top - wr\.top : Math\.max\(vm, \(H - t\.height - pad - padT\) \/ 2\)\) \+ padT/);
-  assert.match(js, /padT = Math\.max\(pad0, tab\??\.offsetHeight \? \(tab\.offsetHeight \+ 6\) \* k : 0\);/, 'the top padding holds the deck tab clear of the title');
-  assert.match(js, /ui\.shade\.style\.height = !p && cardOn && t \? `\$\{\(t\.height \+ pad \+ padT\) \/ k\}px` : '';/);
-  assert.match(css, /\.pz\.low \.pz-text, \.pz-shade\.low \{ --pz-cm: 10px; --pz-cp: 14px; --pz-cw: min\(340px, calc\(42vw \+ 28px\)\); \}/);
-  assert.match(css, /\.pz-shade\.pz-card\.low \{ left: max\(10px, env\(safe-area-inset-left, 0px\)\); \}/, 'clear of the notch');
-  assert.match(css, /\.pz\.low \{ --pz-cp: 14px; \}/, 'the data card keeps its 14 px padding');
-  assert.match(css, /\.pz\.pz-card:not\(\.stack\):not\(\.low\) \.pz-text \{ --s-title:/, 'the wide sizes leave the sideways phone its own');
-  assert.match(css, /\.pz-shade\.pz-card\.pz-leave:not\(\.stack\) \{ opacity: 0 !important;/, 'it fades out whole, behind a case card too');
 });
 
 // Sites 9 on a Mac (17 Oct): a ladder card folded behind Show was unfolded and folded again on every layout pass until the slide

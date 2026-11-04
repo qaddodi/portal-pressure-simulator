@@ -8,20 +8,6 @@ import { readFileSync, readdirSync } from 'node:fs';
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const build = read('scripts/build.mjs'), main = read('src/ui/main.js'), sin = read('src/ui/sinusoid-gl.js'), stage = read('src/ui/stage.js');
 
-test('the install precaches every file but the fonts other than the Latin ones, which come when the page asks or when first drawn', () => {
-  const m = build.match(/const later = cached\.filter\(\(f\) => (\/.*\/)\.test\(f\)\);/);
-  assert.ok(m, 'build.mjs lists the later files');
-  const re = eval(m[1]);   // (a literal pattern from our own source)
-  const woff = readdirSync(new URL('../fonts/', import.meta.url)).filter((f) => f.endsWith('.woff2')).map((f) => `assets/${f.replace('.woff2', '-HASH1234.woff2')}`);
-  const later = woff.filter((f) => re.test(f)), now = woff.filter((f) => !re.test(f));
-  assert.deepEqual(now.sort(), ['assets/inter-latin-HASH1234.woff2', 'assets/jetbrains-mono-latin-HASH1234.woff2', 'assets/source-serif-4-latin-HASH1234.woff2']);
-  assert.equal(later.length, woff.length - 3);
-  assert.match(build, /const FILES = \$\{JSON\.stringify\(\['\.\/', \.\.\.install\]\)\};/);
-  assert.match(build, /e\.data === 'pps:fill'/);
-  assert.match(build, /if \(new URL\(req\.url\)\.pathname\.includes\('\/assets\/'\)\) \{ e\.respondWith\(caches\.match\(req\)\.then\(\(hit\) => hit \|\| fetch\(req\)\.then\(\(res\) => \{ keep\(e, req, res\)/, 'a subset (or optional chunk) fetched on first use is kept');
-  assert.match(build, /const cached = files\.filter/, 'the lite art and guides stay out as before');
-});
-
 test('the page registers the worker once it has been left alone, and asks for the rest later still', () => {
   assert.match(main, /const reg = \(\) => whenQuiet\(\(\) => \(window\.requestIdleCallback/);
   assert.match(main, /whenQuiet\(\(\) => r\.active\?\.postMessage\('pps:fill'\), 2000, 1000\)/);

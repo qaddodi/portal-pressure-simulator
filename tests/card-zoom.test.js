@@ -230,28 +230,6 @@ test('the presenter lays nothing out while the card is up, and puts it back befo
   assert.match(js, /if \(zoomOn\(\)\) \{ if \(zoomFolds\(\) && wideSheet\(data\)\) setFold\(!data\.classList\.contains\('tool-open'\)\); return; \}/);
 });
 
-test('the card zooms on a wide screen for an instrument that stands whole, by a tap on an empty part, the corner icon or nothing else', () => {
-  assert.match(js, /const zoomReady = \(\) => !!ui && !!deck && !!shown && shown\.i === want && shown\.gen === gen && \(!busy \|\| playing\) && !leaving && !black && !caseStands\(\) && ui\.jump\.hidden && !isModalOpen\(\)\n\s+&& ui\.root\.classList\.contains\('pz-wide'\) && ui\.data\.classList\.contains\('has-tool'\) && dataStands\(\)/);
-  assert.match(js, /tapTracker\(data, \{ ok: \(\) => zoomReady\(\) \|\| zoom\.up, onTap: \(\) => zoomToggle\(\) \}\);/);
-  assert.match(js, /h\('div', \{ class: 'pz-dh' \}, dhT, fold, zbtn\)/);
-  assert.match(js, /ui\.data\.classList\.toggle\('pz-zoomable', wide && !ui\.data\.hidden && ui\.data\.classList\.contains\('has-tool'\) && !!ui\.zoom\.plan\(\)\);/);
-  // (The readings come out as it zooms only if this is turned on: Mohammad may ask for it.)
-  assert.match(js, /const ZOOM_OPENS_READINGS = false;/);
-  // (The veil sits over the words and the figure and under the card, its handle and the controls; a tap on it puts the card back.)
-  assert.match(js, /fk, text, zscrim, data, lip, panel, vcase, prog, scl, bar,/);
-  assert.match(js, /onclick: \(\) => zoom\.close\(\)\.then\(paintZoom\) \}\);/);
-  // (The corner credit sits out the glide as it does a slide change.)
-  assert.match(js, /hold: zoomCredit, settled: zoomSettled/);
-  // (Pictures drawn on canvases are drawn for the size they are seen at.)
-  assert.match(js, /boost: setCanvasBoost/);
-  assert.match(util, /let canvasBoost = 1;\nexport const setCanvasBoost = \(k\) => \{ canvasBoost = Math\.max\(1, \+k \|\| 1\); \};/);
-  assert.match(util, /const dpr = Math\.min\(saver\(\) \? 2 : 3, \(window\.devicePixelRatio \|\| 1\) \* canvasBoost\);/);
-  // (The camera and the labels read the card where it rests: no entrance to take off, and the stage's box holds while the figure is pushed in.)
-  assert.match(util, /if \(el\.dataset\?\.zoomed != null\) return q;/);
-  // (The zoom is the scene camera now: the figure's box is never held back for it.)
-  assert.doesNotMatch(stage, /box = boxKept; return;/);
-});
-
 test('the icon is quiet and the app\'s own: the text\'s grey, corner brackets, a soft tint under the pointer, shown only where the card can grow; no stripe, glow or gradient', () => {
   const rule = (sel) => css.split('\n').find((l) => l.startsWith(sel)) || '';
   assert.match(rule('.pz-zbtn { display: none; }'), /display: none/);

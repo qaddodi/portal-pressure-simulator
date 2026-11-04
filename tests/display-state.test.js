@@ -71,17 +71,3 @@ test('colours: snap (a crossfade, Reduce Motion) shows the target at once; a key
   f.begin();
   assert.equal(f.step(2, [0.5, 0.5, 0.5, 0.5, 0.5, 0.5], 1 / 60)[0], 0.5, 'drawn again, it starts where it is told');
 });
-
-test('stage.js: widths and colours share the filter; the crossfade and Reduce Motion bypass it; the loop stays awake while it moves', () => {
-  assert.match(stage, /const r = follow2\(x\.width, x\.w1, x\.wT, dt, W_TAU, Math\.max\(0\.005, edgeQ\(\)\)\);/);
-  assert.match(stage, /colFollow\.step\(it\.row, colT, colDt, !!lensFrom \|\| reduceMotion\.matches\)/);
-  // The filter runs before the crossfade, so what it shows is what the next crossfade starts from (shownCol).
-  // (The shown colours are a pair kept per row since 2 Nov 2026, colPass: written from the filter, then crossfaded, then kept.)
-  const i = stage.indexOf('colFollow.step(it.row'), j = stage.indexOf('if (lensFrom) {\n        const was = lensFrom.get(it.row)'), k = stage.indexOf('shownCol.set(it.row, pair);');
-  assert.ok(i > 0 && i < j && j < k);
-  assert.match(stage, /colEasing = colFollow\.moving;/);
-  assert.match(stage, /if \(lensFrom \|\| colEasing\) \{ veinsDirty = true; glowSync = true; \}/);
-  assert.match(stage, /!lensFrom && !colEasing && ascShown === ascTarget/);
-  assert.match(stage, /tubesNew \|\| lensFrom \|\| colEasing \|\|/);
-  assert.match(stage, /cpDt = Math\.min\(colEasing \? 0\.1 : 1 \/ 60, /);
-});

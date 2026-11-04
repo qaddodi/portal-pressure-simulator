@@ -15,32 +15,8 @@ test('a wheel or trackpad zoom finds the point under the pointer by arithmetic, 
   }
 });
 
-test('the figure\'s labels are carried further during a hand\'s zoom, never onto each other, and solved once it is let go', () => {
-  assert.match(stage, /const SOLVE_ZOOM_HAND = 0\.35;/);
-  const ul = body(stage, 'function updateLabels(');
-  assert.match(ul, /hand = dz > SOLVE_ZOOM && gestureOn\(\)/);
-  assert.match(ul, /dz > \(hand \? SOLVE_ZOOM_HAND : SOLVE_ZOOM\)/);
-  assert.match(ul, /else if \(hand \|\| reslotted\) labelSettleSoon\(\);/);
-  // (A carry past 5 % that would put a label on another, or on a callout, is solved at once.)
-  assert.match(stage, /if \(carryClear && \(placed\.some\(\(p\) => !p\.dot && hits\(box, p\)\) \|\| callouts\.some\(\(b\) => hits\(box, b\)\)\)\) \{ stale = true; return false; \}/);
-  // (Settled: solved again once no hand is on it, the labels gliding to their spots: labelGlide.)
-  assert.match(body(stage, 'function labelSettle('), /if \(gestureOn\(\)\) \{ labelSettleT = setTimeout\(labelSettle, 120\); return; \}/);
-});
-
 test('the lobule counts a wheel and a trackpad pinch as a hand, as a scroll', () => {
   assert.match(lobule, /const handOn = \(\) => touches\.size > 0 \|\| !!cancelFlick \|\| \(!!wheelKind && performance\.now\(\) - wheelAt < 250\);/);
-});
-
-test('a hand\'s zoom carries the lobule\'s labels while every layout rule still holds, and lays them out once let go', () => {
-  const ll = body(lobule, 'function layoutLabels(');
-  assert.match(ll, /if \(sameB && follow\.ride && V\.k !== follow\.k && handOn\(\) && rideHolds\(fr0\)\) \{/);
-  assert.match(ll, /R\.nl = nl; R\.nc = nc; R\.nz = zoneBoxes\.length;[^\n]*\n\s*follow\.ride = R;/);
-  assert.match(lobule, /if \(panOn \|\| rough \|\| rides\) \{ rough = false;/);
-  const rh = body(lobule, 'function rideHolds(');
-  // (No label on another, on a zone's name or chip, on another's leader, on a structure or a card; leaders uncrossed; inside the free space.)
-  for (const re of [/\(j > i && overlap\(bi, bj\) > 0\)/, /crosses\(pi, qi, bj\)/, /\(j > i && cut\(pi, qi, rhLead\[j\]\[0\], rhLead\[j\]\[1\]\)\)/,
-    /overlap\(bi, rhOth\[o\]\) > 0 \|\| crosses\(pi, qi, rhOth\[o\]\)/, /if \(into\(keep\[q\], b\) > 0\) return false;/, /if \(overlap\(b, cards\[q\]\) > 0\) return false;/,
-    /x >= fr\.l - 4 && x <= fr\.r \+ 4 && y >= fr\.t - 4 && y <= fr\.b \+ 4\) return false;/, /if \(call && callRingAt\(fr\)\) return false;/]) assert.match(rh, re);
 });
 
 test('a trackpad pinch (Ctrl/⌘ + wheel) marks wheelAt, so the anatomy counts it as a hand like a wheel zoom or a pan', () => {

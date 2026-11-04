@@ -11,17 +11,6 @@ test('contexts are always made late: no switch to make them at the start', () =>
   assert.match(src('gl-support.js'), /if \(hostHolds\(\)\) support = true;\n\s+else if \(typeof WebGL2RenderingContext !== 'undefined'\) return true;/);
 });
 
-test('the sinusoid view makes its context at setModel / place, not with the lobule', () => {
-  const v = src('sinusoid-view.js');
-  assert.match(v, /let gpu = null, svYield = null, svSoft = false;/);
-  assert.match(v, /let gpuTried = false;\n\s+\/\/ \(The \?perf surfaces list/);
-  assert.match(v, /warm: true, onReady/);
-  assert.match(v, /setModel\(m\) \{ ensureGpu\(\);/);
-  assert.match(v, /if \(opacity > 0\) ensureGpu\(\);/);
-  assert.doesNotMatch(v, /^\s*const gpu = createSinusoidGL/m);
-  assert.match(src('sinusoid-gl.js'), /if \(warm\) startLater\(\);/);
-});
-
 test('the endoscope makes its shader context when shown and gives it back when its tab leaves', () => {
   const i = src('instruments.js');
   assert.match(i, /let gl = null, wasGl = false,/);

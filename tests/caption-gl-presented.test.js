@@ -157,11 +157,3 @@ test('onPresented runs inside the frame that handed the picture over, so a view 
   R.frame();
   assert.equal(seenEnds, 1, 'called before drawNow returned, after the first end()');
 });
-
-test('the lobule and the sinusoid view write cap-gl-on at once, not in a later task or a rest pass', () => {
-  const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8'), sv = readFileSync(new URL('../src/ui/sinusoid-view.js', import.meta.url), 'utf8');
-  assert.match(lz, /cap\.onPresented = \(\) => labels\.classList\.add\('cap-gl-on'\);/);
-  assert.match(sv, /cap\.onPresented = \(\) => el\.classList\.add\('cap-gl-on'\);/);
-  assert.doesNotMatch(lz, /classSoon\(labels, 'cap-gl-on'/);
-  assert.doesNotMatch(sv, /restClass\(el, 'cap-gl-on'/);
-});

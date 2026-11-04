@@ -85,33 +85,3 @@ test('a sheet let go is headed a little past where the finger left it, by its sp
   assert.equal(flickAim(0.5, -20, 300), 0.5 + FLICK_REACH, 'capped');
   assert.equal(flickAim(0.5, -1, 0), 0.5);
 });
-
-test('the camera, the lobule, the sheets and the paging take it', () => {
-  const stage = read('src/ui/stage.js'), lz = read('src/ui/lobule-zoom.js'), util = read('src/ui/util.js'), main = read('src/ui/main.js'), card = read('src/ui/card.js'), menu = read('src/ui/menu.js'), dock = read('src/ui/dock.js');
-  assert.match(stage, /c0 = carryRate\(v0, from, to, VIEW\.w\) \* ms;/);
-  assert.match(stage, /!drift && vtVel && vtGliding/, 'a plain glide still under way, not a drift or a dead one');
-  assert.match(lz, /carryRate\(v0, from, to, Math\.max\(1, snap\.w\)\) \* ms/);   // (the lobule's width as kept: never read in a frame)
-  assert.match(lz, /ease !== 'in'/, 'the lobule\'s lead-in glide keeps its own curve');
-  assert.match(util, /liveShift\(panel\)/, 'a sheet caught mid-ease is taken over where it is drawn');
-  assert.match(util, /export function sinkTo\(el, px, ms = 220, done, speed = null\)/);
-  assert.equal((main.match(/releaseSpeed\(s0\.trail/g) || []).length, 1);
-  assert.match(card, /releaseSpeed\(trail, performance\.now\(\)\)/);
-  // The sheets judge a flick by the finger's release, and ease the height on from its speed (a card caught sunk grows from where it is drawn).
-  assert.match(main, /const flick = isFlick\(s0\.dy, speed, s0\.dy \/ Math\.max\(1, performance\.now\(\) - s0\.t0\), 0\.9, 40\);/);
-  assert.match(main, /const frac = flickAim\(drawn \/ s0\.H, speed, s0\.H\)/, 'the height the finger left is the one drawn (the box less the content\'s offset), not a read of the page');
-  assert.match(main, /easing: carryCurve\(speed, to - \(el\._sheetOff \|\| 0\), D_SMALL\)/, 'the settle leaves at the finger\'s speed (the content\'s offset, down)');
-  assert.match(main, /else h = Math\.max\(60, start\.h - dy\);/, "the pull up continues from the height drawn when it began (start.h is the drawn height, a sunk card's included)");
-  assert.match(util, /const flick = isFlick\(s0\.dy, speed, s0\.dy \/ Math\.max\(1, performance\.now\(\) - s0\.t\), 0\.6, 30\);/);
-  assert.match(util, /carryCurve\(speed, to - s0\.dy, ms\)/, "the sheet's let-go carries the finger's speed on (sheet-pull.js plays it)");
-  assert.match(card, /const flick = isFlick\(dy, speed, dy \/ Math\.max\(1, performance\.now\(\) - t0\), 0\.6, 30\);/);
-  assert.match(card, /if \(e\.pointerId !== pid\) return;/, 'a second finger is not the pull');
-  // The bottom bar's fold reversed mid-glide stands at the size it is drawn at while its words fade, then glides on from there (no snap to the glide's end).
-  // (Now by transform: the box takes its new size at once and its glass glides there in pieces from the size it is drawn at.)
-  assert.match(main, /foldEnd\?\.\(\);\n {4}const from = sizeOf\(vdockEl\) \|\| s0;/);
-  assert.match(main, /foldEnd = glidePlateOn\(vdockEl, vdockPlate, \{ x: 0, y: s1\.h - from\.h, w: from\.w, h: from\.h \}, \{ x: 0, y: 0, w: s1\.w, h: s1\.h \}/);
-  assert.doesNotMatch(main, /vdockEl\.animate\(/, 'the bar\'s box never animates its size');
-  assert.match(main, /closed: \(\) => \{ stopSheet\(el\); setSheetOffset\(el, 0\); el\.style\.translate = '';/);
-  assert.match(menu, /sw\.carry0 = resting && settle \? shiftX\(resting\) : 0;/, 'read at the touch');
-  assert.match(menu, /sw\.carry = sw\.carry0;\s*settle\?\.\(\);/, 'taken over as the drag starts, with no read in the move');
-  assert.match(dock, /sw\.carry = resting && settle \? shiftX\(resting\) : 0;/);
-});

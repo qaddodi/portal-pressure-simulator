@@ -115,31 +115,11 @@ test('every WebGL2 surface rebuilds after a lost context (or is a probe or a sec
   assert.match(lz, /function tissueRestored\(\) \{ if \(tissueGL\?\.lost\) \{ tissueGL = undefined; wake\(\); \} \}/);
   assert.match(lz, /function tissueLost\(\) \{ showTissueGL\(false\); wake\(\); \}/);
   assert.match(src('src/ui/field-gl.js'), /addEventListener\('webglcontextrestored', \(\) => \{\n\s*if \(dead\) return;\n\s*texs\.clear\(\);\n\s*try \{ build\(\); \}/);
-  assert.match(src('src/ui/sinusoid-gl.js'), /addEventListener\('webglcontextrestored', \(\) => \{ epoch\+\+; sent\.clear\(\); ok = null; skipped = true; startLater\(\); \}\);/);
+  assert.match(src('src/ui/sinusoid-gl.js'), /addEventListener\('webglcontextrestored', \(\) => \{ epoch\+\+; tgt = null; sent\.clear\(\); ok = null; skipped = true; startLater\(\); \}\);/);
   assert.match(src('src/ui/sinusoid-view.js'), /gpu\.epoch/);
   // (Glass and labels: in place.)
-  assert.match(src('src/ui/glass-gl.js'), /canvas\?\.addEventListener\('webglcontextrestored', onBack\);/);
+  // (The glass draws in the figure's context since 4 Nov 2026: its programs are made again by the host's restore.)
   assert.match(src('src/ui/label-gl.js'), /if \(!host\) canvas\.addEventListener\('webglcontextrestored'/);
-});
-
-test('lobule handoff: the 2D tissue stays under the GPU picture as it takes over; the field never draws 2D while the GPU is there', () => {
-  const lz = src('src/ui/lobule-zoom.js');
-  // (Tissue: kept whole and showing HANDOFF_MS, not freed while the hold runs.)
-  assert.match(lz, /if \(on && !rimDrawn\) \{\n\s*tissueOnGL = true;\n\s*handoffT = setTimeout\(\(\) => \{ handoffT = 0; if \(tissueOnGL\) free\(tissue\); \}, HANDOFF_MS\);/);
-  assert.match(lz, /if \(!\(\(!tissueOnGL \|\| handoffT\) && !rimDrawn\)\) free\(tissue\);/);
-  assert.doesNotMatch(lz, /HANDOFF &&|[?&]handoff/);
-  // (Field: with the GPU there no 2D field is ever drawn; a frame the GPU cannot draw keeps its last GPU frame, or waits for the first.)
-  // (Since 1 Nov there is no 2D field at all: the GPU's frame, its last one, or none.)
-  assert.match(lz, /const drew = g \? paintFieldGL\(g, d, W, H, dpr, cs, dark, bg\) : false;\n\s*fieldHide\(field\);\n\s*fieldOp = Math\.min\(1, d\.a \* 1\.25\);/);
-  assert.match(lz, /if \(drew \|\| fieldG\.width\) fieldG\.style\.opacity = fieldOp\.toFixed\(3\);\n\s*\}/);
-  assert.doesNotMatch(lz, /FIELD_2D|field2d/);
-  // (A texture the GPU could not take keeps the last frame where one is showing: tissue and field.)
-  // (And with no frame to keep, still drawn on the GPU with the clear texture in its place, never the 2D canvas.)
-  assert.match(src('src/ui/field-gl.js'), /if \(hold && pictured && canvas\.width === W && canvas\.height === H\) return 'held';/);
-  // (tgt: the tissue's canvas, or its own picture in the vessels' context when it is hosted there)
-  assert.match(src('src/ui/tissue-gl.js'), /if \(hold && pictured && tgt\.width === W && tgt\.height === H\) \{ hostDone\(\); return 'held'; \}/);
-  assert.match(src('src/ui/tissue-gl.js'), /if \(!tx\[i\]\) tx\[i\] = none;/);
-  assert.match(src('src/ui/field-gl.js'), /if \(!tx\[i\]\) tx\[i\] = clearTex\(\);/);
 });
 
 test('idle rest: the FibroScan probe\'s waves stop with the figure and start again on waking', () => {

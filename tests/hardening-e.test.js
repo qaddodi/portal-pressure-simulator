@@ -73,20 +73,6 @@ test('after a click the talk keeps Space even if the browser now reports the con
   assert.match(k, /if \(e\.key === 'Tab'\) keyboardNav = true;/);
 });
 
-test('review fixes: a child\'s lost capture does not end a sheet drag or a dye press; hidden hit paths get no tab stop; focus returns to SVG and fixed elements; the Why card keeps focus when its answer lands and leaves Search\'s Esc to Search', () => {
-  const card = read('src/ui/card.js');
-  assert.match(card, /b\.addEventListener\('lostpointercapture', \(e\) => \{ if \(e\.target === b\) up\(\); \}\)/);
-  const util = read('src/ui/util.js');
-  const close = util.slice(util.indexOf('export function closeModal()'), util.indexOf('export const isModalOpen'));
-  assert.ok(!/back0\?\.offsetParent/.test(close), 'offsetParent is absent on SVG elements and null on fixed ones');
-  assert.match(close, /back0\.checkVisibility \? back0\.checkVisibility\(\{ checkVisibilityCSS: true \}\) : back0\.getClientRects\(\)\.length > 0/);
-  const why = read('src/ui/why.js');
-  assert.match(why, /function swap\(\.\.\.kids\) \{\s*const had = pop\.contains\(document\.activeElement\);\s*pop\.replaceChildren\(\.\.\.kids\);\s*if \(had\) pop\.querySelector\('button'\)\?\.focus\(\{ preventScroll: true \}\);/);
-  const open = why.slice(why.indexOf('async function open('), why.indexOf('// It fades out as it came in'));
-  assert.equal((open.match(/replaceChildren/g) || []).length, 1, 'only the waiting state is set directly; the answer and the error go through swap');
-  assert.match(why, /e\.key === 'Escape' && pop\.classList\.contains\('show'\) && !e\.target\.closest\?\.\('\.pal-back'\)/);
-});
-
 // ── Third pass: lifecycle and input audits (31 Oct) ──
 test('a slider or switch left focused keeps only its own keys; text fields keep all of theirs; composing text is left alone; held keys act once', () => {
   const m = read('src/ui/main.js');

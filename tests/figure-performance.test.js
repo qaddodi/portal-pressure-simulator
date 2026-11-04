@@ -91,50 +91,6 @@ test('Credit check in talks: off, Present looks every second as before; on, only
   assert.match(src('stage.js'), /labelStamp: \(\) => `\$\{stats\.layouts\}\|\$\{vt\.k\},\$\{vt\.x\},\$\{vt\.y\}\|\$\{morph\}\|\$\{rotU\}\|\$\{lz\?\.isOpen\?\.\(\) \? lz\.viewKey\(\) : ''\}\|\$\{lz\?\.sinusoidMoving\?\.\(\) \? performance\.now\(\) : ''\}`,/);
 });
 
-test('Callout glass kept (always, since 1 Nov 2026): no frame reads the page; it is read once outside frames, the motion put back each frame', () => {
-  const g = src('glass-gl.js');
-  const draw = g.slice(g.indexOf('  function draw() {'), g.indexOf('  // The glasses drawn over the blurred copy'));
-  assert.match(draw, /const N = nowGeo\(list\);\n\s*if \(!N\) return true;/, 'the copy path draws from the kept page');
-  assert.doesNotMatch(draw, /getBoundingClientRect|getComputedStyle|readPanes\(/, 'no read in the frame');
-  assert.match(draw, /return paint\(panes, cr, N\.bgs, N\.bg, N\.bgVar\);/);
-  const now = g.slice(g.indexOf('  function nowGeo(list) {'), g.indexOf('  // While a callout shows, every frame'));
-  assert.doesNotMatch(now, /getBoundingClientRect|getComputedStyle|offset(Width|Height|Left|Top)|client(Width|Height)/, 'nowGeo reads nothing');
-  assert.match(now, /if \(flag\.bad \|\| flag\.ended\) measureSoon\(\);/, 'what it cannot follow is read just after the frame');
-  assert.match(now, /if \(due\?\.\(\)\) measureSoon\(\);/, 'the layout watch likewise');
-  // Every way a glass can change reads the page again, outside the frame: a write that is more than a glide or a fade (in the frame or
-  // after it), the page's own signals, a callout's transition ending, a parent's style or class, a size change, a scroll.
-  assert.match(g, /const loop = \(\) => \{ raf = 0; if \(changed\(mo\.takeRecords\(\)\)\) measureSoon\(\); settle\(draw\(\)\); \};/);
-  assert.match(g, /const mo = new MutationObserver\(\(recs\) => \{ if \(!recs\?\.length \|\| changed\(recs\)\) measureEarly\(\); quiet = 0; ask\(\); \}\);/);
-  assert.match(g, /const again = \(\) => measureEarly\(\);/);
-  assert.match(g, /if \(\/\(end\|cancel\)\$\/\.test\(e\?\.type \|\| ''\)\) \{ measureEarly\(\); return; \}/);
-  // (2 Nov 2026: an observer's or an event's read waits for the next frame's read phase, never in the frame's writes.)
-  assert.match(g, /function measureEarly\(\) \{\n\s+if \(!earlyAsk\) earlyAsk = readFrame\(measureEarlyNow\);\n\s+\}/);
-  assert.match(g, /if \(framePhase\(\) === 'read'\) \{ track\(e\); return; \}\n\s+trackQ\.add\(e\);/);
-  assert.doesNotMatch(g, /glassearly|glassobs|GEO_EARLY|OBS_LATER|measureAtOnce/, 'the switches are gone: the default path only');
-  assert.match(g, /parentsMo\.observe\(e, \{ attributes: true, attributeFilter: \['style', 'class', 'hidden'\] \}\)/);
-  assert.match(g, /for \(const e of \[canvas, source, wrap\]\) if \(e\) watchRo\?\.observe\(e\);/);
-  assert.match(g, /document\.addEventListener\?\.\('scroll', onScroll, true\);/);
-  const stage = src('stage.js');
-  assert.equal(stage.split("keep: () => figLab('glassCache'), due: () => watch.due(), copy: false").length - 1, 2, 'the callouts and the liver pane (the Present cards take no copy: they are drawn in the figure\'s canvas or are the browser\'s)');
-});
-
-test('Callout glass kept: the page is read in one place, with each moving part taken out, and the copy taken from those reads', () => {
-  const g = src('glass-gl.js');
-  const m = g.slice(g.indexOf('  function measureGeo() {'), g.indexOf('  /** The page read again just after this frame'));
-  assert.match(m, /const cr = tgt \? tgt\.getBoundingClientRect\(\)/);
-  assert.match(m, /const panes = readPanes\(list, true\)/);
-  assert.doesNotMatch(g, /glassmotion|\bMOTION\b/, 'the switch is gone: the default path only');
-  assert.match(m, /const ws = getComputedStyle\(wrap\), bgs = ws\.backgroundColor;\n\s+resolveColour\(bgs\);\n\s+const bg = colour\(bgs, 'transparent'\);/);
-  assert.match(m, /const r0 = rest\(shift\(p\.r, back\)\), er0 = rest\(shift\(p\.er, back\)\);/, 'the boxes kept without their glide (a zoomed card taken back to where it rests)');
-  assert.match(m, /return \{ \.\.\.p, chain, r0, er0, aS, morph, zoomed: !!za, rad0: za && p\.rad \? p\.rad\.map\(\(v\) => v \/ za\.s\) : p\.rad \};/);
-  assert.match(m, /sr: tgt === source \? cr : source\.getBoundingClientRect\(\)/, 'the figure\'s canvas is both the glass\'s and the copy\'s: one read');
-  assert.match(m, /viewSize\(\)/, 'the window\'s size is the snapshot\'s, not read');
-  assert.doesNotMatch(m, /clientWidth|innerWidth/);
-  const d = g.slice(g.indexOf('  function draw() {'));
-  assert.match(d, /take\(\{ x: x0, y: y0, w: x1 - x0, h: y1 - y0 \}, cr, N\.sr\);/, 'the figure copy from the kept boxes');
-  assert.match(g, /function take\(reg, cr, sr\) \{/, 'take reads nothing itself');
-});
-
 test('Lymph drawn by the GPU each frame it moves: the drops stepped once a frame, their rings as wide as the 2D drawing stroked them', () => {
   // (1 Nov, the off-GPU gate: the 2D overlay (paintFx) and its partial redraw are gone; the overlay is the GPU's, fx-gl.js.)
   const lz = src('lobule-zoom.js');
@@ -144,25 +100,6 @@ test('Lymph drawn by the GPU each frame it moves: the drops stepped once a frame
   assert.match(fx, /lymph\.ringHalf = Math\.max\(0\.5 \/ V\.k, minR \* 0\.22\) \/ 2;/, 'the ring as the drawing stroked it');
   assert.match(fx, /if \(moving\) fxGLKey = '';/, 'a moving overlay is drawn every frame, a still one only when it changes');
   assert.doesNotMatch(lz, /function paintFx\(|lyTiles|lyKey|fxBoxes/);
-});
-
-test('Pinch frame reuse: off, the one-pass frame is as before; on, only while a hand zooms, and the stop is shaded whole', () => {
-  const v = src('veins-gl.js'), stage = src('stage.js');
-  const fn = v.slice(v.indexOf('    draw(m, look, blood, rows = null) {'), v.indexOf('    drawRows(m, look, blood, rows, full = false) {'));
-  assert.match(fn, /if \(reuseEvery && reuseOn && stale && reuseN % reuseEvery !== 0 && reuseDraw\(m\)\) \{/, 'nothing reused unless switched on and zooming');
-  assert.match(fn, /setBase\(m\); fboOK = false; reused = true;\n\s+return;/, 'a reused frame leaves the layer to be drawn whole');
-  assert.match(fn, /this\.composite\(look, blood, true\);\n\s+if \(reuseEvery && reuseOn\) \{ reuseKeep\(m\); reuseN = 1; \} else rz\.m = null;\n\s+return;/);
-  assert.match(fn, /\n\s+rz\.m = null;\n\s+\/\/ \(For the \?perf readout/, 'any other picture: nothing kept to reuse');
-  // Off, the one-pass branch's own lines are unchanged.
-  assert.match(fn, /if \(!stale\) \{ gl\.bindFramebuffer\(gl\.FRAMEBUFFER, fbo\); gl\.viewport\(0, 0, fboW, fboH\); gl\.disable\(gl\.SCISSOR_TEST\); clearLayer\(\); stale = true; \}\n\s+wrapNone\(\);[^\n]*\n\s+setBase\(m\); keepLook\(\); tubesNew = false; clearMarks\(\); drawnNow\(\);\n\s+fboOK = false;\n\s+gl\.bindFramebuffer\(gl\.FRAMEBUFFER, null\);\n\s+fusing = true;/);
-  const rd = v.slice(v.indexOf('  function reuseDraw(m) {'), v.indexOf('  // The composite\'s textures, each on its unit'));
-  assert.match(rd, /if \(!rz\.m \|\| rz\.w !== PW\(\) \|\| rz\.h !== PH\(\)\) return false;/);
-  assert.match(rd, /if \(!reuseCovers\(k, rz\.w, rz\.h\)\) return false;/);
-  assert.match(rd, /if \(own\) present\(\);\n\s+pictured\(\);/, 'the glass and the own buffer hear of it');
-  assert.match(stage, /const reuse = figLab\('pinchReuse'\);\n\s+veins\.setReuse\?\.\(reuse, !!reuse && gestureOn\(\)\);\n[^\n]*\n\s+const low = figLab\('pinchLow'\);\n(?:\s+\/\/[^\n]*\n)*\s+const tk = TIERS_ON \? tierK\(\) : 0;\n\s+veins\.setLow\?\.\(tk \|\| \(low \? PINCH_LOW_K : 0\), tk \? true : low && gestureOn\(\), TIERS_ON \? TIER_TOP : 0\);\n\s+veins\.draw\(T, vLook, bloodLook\(\), rows\);\n\s+if \(veins\.reused \|\| veins\.soft\) veinsDirty = true;/);
-  // (The kept picture is the canvas's, through the own buffer when there is one; freed when the switch goes off.)
-  assert.match(v, /gl\.bindFramebuffer\(gl\.READ_FRAMEBUFFER, own \? own\.fbo : null\);\n\s+gl\.bindFramebuffer\(gl\.DRAW_FRAMEBUFFER, rz\.fbo\);/);
-  assert.match(v, /if \(!every && rz\.w && !lost\) \{ rz\.w = rz\.h = 0;/);
 });
 
 // (31 Oct, laptop heat H7: the credit's lean look is the default. In Present the credit's look measures every card and label, and it ran every

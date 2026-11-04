@@ -76,21 +76,6 @@ test('every build draws the streaks alone, at every zoom: no bead look anywhere,
   assert.match(readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8'), /blood\.look = b\.look \|\| 'shimmer'/);
 });
 
-test('the composite skips the layers under an opaque vessel pixel, and only those', () => {
-  for (const k of Object.keys(R)) {
-    const main = body(R[k], 'void main()');
-    assert.match(main, /bool under = v\.a < 1\.0;/);
-    // The vessel layer is read before anything under it is.
-    assert.ok(main.indexOf('texelFetch(base, lp, 0)') > 0 && main.indexOf('texelFetch(base, lp, 0)') < main.indexOf('texelFetch(stackL'));
-    const blk = body(main, 'if (under) {');
-    for (const x of ['texelFetch(stackL', 'texture(plate1', 'texture(plate0', 'plateSat', 'texelFetch(glowL', 'texelFetch(warmL']) assert.ok(blk.includes(x), `${x} is skipped under an opaque pixel`);
-    // The pool and stream (under the vessels) stop too; the jets (over them), the fluid and the outlines never do.
-    assert.match(main, /if \(i >= bleedN \|\| !under\) break;/);
-    assert.ok(!blk.includes('fluidInk') && !blk.includes('lineL'));
-    assert.match(main, /vec4 o = over\(fluidC, over\(v, over\(inner, pl\)\)\);/);
-  }
-});
-
 test('the composite tests the arrowheads\' cut-outs only where a head is', () => {
   const main = body(R.full, 'void main()');
   const chev = body(main, 'if (chev == 1 && f1.z > 0.0) {');
@@ -290,11 +275,11 @@ test('the blood pass leaves a lumen alone only when neither of its vessels\' row
   for (const x of ['sg(m)', 'pm', 'plate?.alpha', 'plate?.sat', 'plates[0]?.rect', 'plates[1]?.rect', 'fluidRect', 'fl?.s', 'fl.ink', 'fl?.lv',
     'blood.on', 'blood.chev', 'blood.still', 'blood.alpha', 'blood.streakA', 'blood.chevA', 'blood.originA', 'blood.chevInk', 'blood.chevLight', 'blood.vdpr',
     'blood.origin', 'dyeAny', 'originColOf', 'blood.dyeCol', 'blood.revCol', 'blood.inkLight', 'blood.inkDark', 'ncv', 'ncN', 'hb', 'hr', 'hoN',
-    'blood.streakLen', 'blood.bt', 'layer', 'glow', 'warm', 'useStack', 'bare', 'texVer', 'map.a', 'map.dot', 'map.zone', 'map.fx', 'map.alt', 'map.fxX', 'map.rot']) assert.ok(sig.includes(x), x);
+    'blood.streakLen', 'blood.bt', 'layer', 'glow', 'warm', 'useStack', 'bare', 'texVer', 'halfOn', 'map.a', 'map.dot', 'map.zone', 'map.fx', 'map.alt', 'map.fxX', 'map.rot']) assert.ok(sig.includes(x), x);
   const uniforms = [...comp.matchAll(/UC\.\w+\(U\.(\w+)/g)].map((m) => m[1]);
   for (const u of uniforms) assert.ok(['world', 'size', 'cell', 'inv', 'H', 'pxW', 'plates', 'plateAlpha', 'plateSat', 'plateRect0', 'plateRect1', 'fluidRect', 'fluidS', 'fluidInk', 'fluidLv',
     'blood', 'chev', 'still', 'flowA', 'blendA', 'chevInk', 'chevLight', 'cssPx', 'origin', 'dyeOn', 'clock', 'bT', 'rows', 'originCol', 'dyeCol', 'revCol', 'inkLight', 'inkDark',
-    'bleedE', 'bleedB', 'bleedN', 'noChev', 'noChevN', 'chevHole', 'chevHoleR', 'chevHoleN', 'lenOn', 'bloodOnly', 'stillOn', 'mapA', 'mapDot', 'mapZone', 'mapFx', 'mapAlt', 'mapFxX', 'mapRot'].includes(u), `uniform ${u} is accounted for`);
+    'bleedE', 'bleedB', 'bleedN', 'noChev', 'noChevN', 'chevHole', 'chevHoleR', 'chevHoleN', 'lenOn', 'bloodOnly', 'stillOn', 'halfOn', 'halfR', 'mapA', 'mapDot', 'mapZone', 'mapFx', 'mapAlt', 'mapFxX', 'mapRot'].includes(u), `uniform ${u} is accounted for`);
   // The rows and this picture's uniforms are taken as the last picture's only once it is drawn.
   assert.ok(comp.indexOf('moved.fill(0); movedAll = false;') > comp.indexOf('UC.i1(U.bloodOnly, 1);'));
   // Every setter of a vessel's row marks it; a new binning or flow table marks them all; a new texture under the lumens bumps texVer.

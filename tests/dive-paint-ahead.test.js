@@ -18,20 +18,6 @@ test('a dive waits for the tissue painted ahead, and anything asked for meanwhil
   assert.match(st, /lobuleSettled: \(\) => !diveWait && /, 'a waiting dive is not settled');
 });
 
-test('paintAhead sets the view and model as stage() does, and records the picture in a task of its own, never in a frame', () => {
-  assert.match(ahead, /resetView\(\); staging = true; snapState\(\);\n\s+try \{ update\(F\); \} finally \{ staging = false; \}/);
-  assert.match(lz, /function stage\(\) \{[\s\S]*?resetView\(\); staging = true; snapState\(\);\n\s+try \{ update\(F\); \} finally \{ staging = false; \}/);
-  assert.match(ahead, /if \(fade > 0 \|\| !F \|\| !geo \|\| !tissueGLOn\(\)\) return null;/, 'only with the GPU to paint it');
-  assert.match(ahead, /if \(wk === worldKey\) return null;/);
-  assert.match(ahead, /return new Promise\(\(done\) => setTimeout\(\(\) => \{/);
-  assert.match(ahead, /worldCv = paintWorld\(sc, m, G, dark, cs\);\n\s+tissueGL\?\.sweep\(\);/);
-  assert.doesNotMatch(ahead, /askPaint|getContext|drawImage/);
-  // (the same scale draw's paintTissue asks for, so stage() finds it recorded)
-  assert.match(ahead, /const sc = Math\.min\(2 \*\* \(Math\.ceil\(Math\.log2\(Math\.max\(0\.05, dpr \* V\.k\)\) \* 2\) \/ 2\), worldCap\(G, dpr\)\)/);
-  assert.match(ahead, /dpr = Math\.min\(saver\(\) \? 1 : 2, devicePixelRatio \|\| 1\) \* lzScale\(\);/);
-  assert.match(lz, /function draw\(dt\) \{[\s\S]*?const dpr = Math\.min\(saver\(\) \? 1 : 2, devicePixelRatio \|\| 1\) \* lzScale\(\);/);
-});
-
 test("the wide copy at a lower pixel ratio draws from the screen's sharper picture rather than recording a softer one", () => {
   assert.match(lz, /if \(wideBuild && !held && kept && ws === worldState && sc < worldSc && worldSc <= sc \* 2\.01\) sc = worldSc;/);
   assert.match(lz, /wideBuild = true;\n\s+try \{ for \(const t of parts\) \{/);

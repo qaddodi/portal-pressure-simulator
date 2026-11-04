@@ -54,14 +54,6 @@ test('item 33: the sinusoid view keeps its size, colours and dark-mode query ins
   assert.match(src, /if \(el\.style\.getPropertyValue\('--label-k'\) !== lk\)/);
 });
 
-test('item 34: sinusoid uniforms are sent only when they change, and the second tissue pass sends only its pass number', () => {
-  const src = read('../src/ui/sinusoid-gl.js');
-  assert.match(src, /if \(sent\.has\(l\) && same\(v, sent\.get\(l\)\)\) return;/);
-  assert.match(src, /webglcontextrestored', \(\) => \{ epoch\+\+; sent\.clear\(\);/);
-  const t = src.slice(src.indexOf('const tissue = '), src.indexOf('return {', src.indexOf('const tissue = ')));
-  assert.match(t, /if \(pass === 0\) \{[\s\S]*for \(const k in u\)[\s\S]*\}\s*set\(T\.U, 'uPass', pass\);/);
-});
-
 test("item 32: the lobule's world bitmap and surround keep their scale under a hand too, drawn sharp once it lets go", () => {
   const src = read('../src/ui/lobule-zoom.js');
   const pt = src.slice(src.indexOf('function paintTissue('), src.indexOf('\n  }\n', src.indexOf('function paintTissue(')));

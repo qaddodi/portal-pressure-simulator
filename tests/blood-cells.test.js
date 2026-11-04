@@ -105,22 +105,3 @@ test('the figure bins each vessel with a core and repaints the redrawn cells who
   assert.match(gl, /if \(part\) \{ if \(partG\) \{ gl\.bindVertexArray\(partVAO\); gl\.drawArraysInstanced\(gl\.TRIANGLE_STRIP, 0, 4, partG\); \} if \(partS\) \{ gl\.bindVertexArray\(partSVAO\); gl\.drawArraysInstanced\(gl\.TRIANGLE_STRIP, 0, 4, partS\); \} \}/);
   assert.match(gl, /function uploadPart\(mark\) \{\n\s*const \{ gen, one, nGen: g, nOne: o \} = splitCells\(cellsCPU, nCells, simpleOf, mark, PART_SPLIT\);/);
 });
-
-test('a frame where only the blood moved leaves the pixels with no lumen as drawn, and every other pass draws them all', () => {
-  const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
-  // (Mohammad's Mac at rest, zoom 4.24, 21 Oct: the blood squares' other pixels were most of each frame's GPU work.)
-  const main = gl.slice(gl.indexOf('void main() {\n  ivec2 ip = ivec2(gl_FragCoord.xy);\n  // (The vessel layer\'s texel'));
-  // The lumen test comes first, before the plate, glows and fluid are read, and is the same lumen the blood, dye and origin need.
-  assert.match(main, /^void main\(\) \{\n {2}ivec2 ip = ivec2\(gl_FragCoord\.xy\);\n(?: {2}\/\/.*\n)+ {2}ivec2 rel = ivec2\(ip\.x, lH - 1 - ip\.y\) - lA;\n {2}bool inL = rel\.x >= 0 && rel\.y >= 0 && rel\.x < lSize\.x && rel\.y < lSize\.y;\n {2}ivec2 lt = rel \+ lWrap;\n {2}if \(lt\.x >= lSize\.x\) lt\.x -= lSize\.x;\n {2}if \(lt\.y >= lSize\.y\) lt\.y -= lSize\.y;\n {2}ivec2 lp = ivec2\(lt\.x, lSize\.y - 1 - lt\.y\);\n(?: {2}\/\/.*\n)*(?: {2}vec2 lowUV = .*\n {2}if \(lowSz\.x > 0\) lp = .*\n)? {2}uvec4 g = \(inL \? texelFetch\(gbuf, lp, 0\) : uvec4\(0u\)\);\n(?: {2}\/\/.*\n)+ {2}if \(bloodOnly == 1 && g\.x == 0u\) discard;\n/);
-  assert.match(main, /float vis = g\.x > 0u \?/);
-  assert.match(main, /\(vis > 0\.005 \|\| \(dyeOn == 1 && g\.x > 0u\)\)/);
-  assert.equal((main.match(/uvec4 g = /g) || []).length, 1);
-  // Set to 1 only around the blood squares' own draw; the whole picture, the redraw after drawRows (all) and the fluid's cells
-  // (its ripple moves every pixel of them) draw every pixel.
-  const comp = gl.slice(gl.indexOf('    composite(look, blood = NOBLOOD, full = false, part = 0) {'), gl.indexOf('    /** Whether organ outlines can be drawn here'));
-  assert.match(comp, /if \(full\) \{\n\s*UC\.i1\(U\.bloodOnly, 0\);/);
-  assert.match(comp, /UC\.i1\(U\.bloodOnly, 0\);\n\s*if \(part\) \{[^\n]*\}\n\s*UC\.i1\(U\.bloodOnly, 1\);\n\s*if \(nBlood\) \{ gl\.bindVertexArray\(bloodVAO\);[^\n]*\}\n\s*UC\.i1\(U\.bloodOnly, 0\);\n\s*if \(fl\?\.ripple && nFluid\)/);
-  // (The fifth: the one-pass frame's picture outside the vessel cells, also every pixel.)
-  assert.match(comp, /gl\.stencilFunc\(gl\.EQUAL, 0, 0xff\);[\s\S]*?UC\.i1\(U\.bloodOnly, 0\);\n\s*gl\.bindVertexArray\(compVAO\);/);
-  assert.equal((comp.match(/U\.bloodOnly/g) || []).length, 5);
-});

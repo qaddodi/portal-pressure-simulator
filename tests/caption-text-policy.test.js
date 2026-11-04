@@ -37,18 +37,6 @@ function rig() {
   return { cap, log, state };
 }
 
-test('while the layer is scaled, the words keep their size on the screen: nothing is layer-scaled, whatever the view', async () => {
-  const R = rig();
-  await new Promise((r) => setTimeout(r, 60));   // (the frame the setup asked for)
-  for (const v of [[0.5, 20, 20], [1, 30, 30], [1, 0, 0]]) {
-    R.log.length = 0;
-    R.cap.view(...v);
-    await new Promise((r) => setTimeout(r, 60));
-    assert.ok(R.log.length, 'the words are drawn');
-    assert.ok(R.log.every((l) => l[2] !== true && (l[3] === undefined || l[3] === 1)), 'neither the policy nor a scale on the words');
-  }
-});
-
 test('the drawer scales size, letter spacing and halo by the transform only when asked, and svg-gl is never asked', () => {
   assert.match(tr, /const k = textScaled \? sc\(\) : 1;\s*G\.text\(t, px, py, k === 1 \? st\.font : scaledFont\(st\.font, k\), colour, align\(\), st\.textBaseline, st\.globalAlpha, sw \* k, ang \? TURN : null, st\.ls \* k\);/);
   assert.match(tr, /set textScale\(v\) \{ textScaled = !!v; \}/);

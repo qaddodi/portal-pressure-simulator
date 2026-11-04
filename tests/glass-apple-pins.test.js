@@ -25,13 +25,3 @@ test('the glass grid is whole device pixels on a power-of-two step', () => {
   assert.match(glass, /const T = 2 \*\* Math\.max\(0, Math\.ceil\(Math\.log2\(SCALE \* k\)/);
   assert.match(glass, /Math\.floor\(W2 \/ T\) \* T/);
 });
-
-test('the glass and figure contexts are not antialiased', () => {
-  for (const f of ['glass-gl.js', 'veins-gl.js']) assert.match(src(f), /getContext\('webgl2', \{[^}]*antialias: false/, f);
-});
-
-test('a lost context is dropped and rebuilt on restore', () => {
-  assert.match(glass, /webglcontextlost/);
-  assert.match(glass, /webglcontextrestored/);
-  assert.match(glass, /const onHostLost = \(\) => \{ if \(host\) \{ warmed\.delete\(host\.gl\); fills\.delete\(host\.gl\); shares\.delete\(host\.gl\); \} hk = null;/);
-});

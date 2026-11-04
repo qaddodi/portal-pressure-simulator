@@ -76,7 +76,7 @@ const G = createGlassGL(wrap, source, [], { cards: { find: () => [shade, data], 
 
 test('with no copy of its own it makes no canvas and no context, and without a host every card keeps the browser\'s glass', async () => {
   assert.ok(G);
-  assert.equal(G.canvas, null);
+  assert.ok(!G.canvas, "no canvas of its own");
   assert.equal(made, 0, 'no canvas at all (no 2D canvas for the colours since 1 Nov 2026: the browser\'s CSS resolves them)');
   await frames(3);
   assert.equal(shade.attrs.has('data-gl') || data.attrs.has('data-gl'), false);

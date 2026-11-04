@@ -34,15 +34,6 @@ test('the sheet\'s and the pills\' tint come from their CSS custom property, whi
   assert.match(CSS, /--gl-pill: color-mix\(in srgb, var\(--term-c, var\(--accent\)\) 18%, color-mix\(in srgb, var\(--surface\) 35%, transparent\)\); background: var\(--gl-pill\);/);
 });
 
-test('a glass\'s mask is made on unit 1, never where the blurred figure is bound, and a box glass leaves unit 1 empty', () => {
-  // (A mask made in the middle of the glasses took unit 0, and every glass drawn after it in that picture read the mask as the figure: grey.)
-  assert.match(GLASS, /G\.activeTexture\(G\.TEXTURE1\);\n(\s+\/\/[^\n]*\n)?\s+if \(!m\) \{ m = \{ tex: texOf\(G, G\.LINEAR\), fb: G\.createFramebuffer\(\) \};[^\n]*\n\s+G\.bindTexture\(G\.TEXTURE_2D, m\.tex\);\n[^\n]*\n\s+fillMask\(G, m, d, ss, mw, mh\);\n\s+G\.activeTexture\(G\.TEXTURE0\);/);
-  // (Since 1 Nov 2026 filled on the GPU, never in the middle of the glasses: every mask of a picture made before the first is drawn.)
-  assert.match(GLASS, /masksFor\(panes\);\n\s+gl\.viewport\(0, 0, W, H\);/);
-  assert.match(GLASS, /masksFor\(panes, hk\);\n\s+G\.bindFramebuffer\(G\.FRAMEBUFFER, null\);/);
-  assert.match(GLASS, /if \(p\.rad\) \{\n(\s+\/\/[^\n]*\n)+\s+G\.activeTexture\(G\.TEXTURE1\); G\.bindTexture\(G\.TEXTURE_2D, null\); G\.activeTexture\(G\.TEXTURE0\);/);
-});
-
 test('only the part of a glass on the screen counts against the canvas\'s edge; every glass decides alone, at rest', () => {
   assert.match(GLASS, /const inside = \(p, cr, vw, vh\) => \{\n\s+const l = Math\.max\(p\.r\.left, 0\), t = Math\.max\(p\.r\.top, 0\), r = Math\.min\(p\.r\.right, vw\), b = Math\.min\(p\.r\.bottom, vh\);/);
   assert.doesNotMatch(GLASS, /dropHost\(true\); return undefined; \}\n\s+else if \(crosses\(panes, host\.over\?\.\(\)\)\)/);

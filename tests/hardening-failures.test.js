@@ -56,7 +56,7 @@ test('a part of the app that cannot load says so once with a Reload, and the cal
 
 test('GL: a restored sinusoid context draws a paused picture again; the lobule gives back its old instance; an unused Doppler context is let go', () => {
   const gl = read('src/ui/sinusoid-gl.js');
-  assert.match(gl, /addEventListener\('webglcontextrestored', \(\) => \{ epoch\+\+; sent\.clear\(\); ok = null; skipped = true; startLater\(\); \}\)/);
+  assert.match(gl, /addEventListener\('webglcontextrestored', \(\) => \{ epoch\+\+; tgt = null; sent\.clear\(\); ok = null; skipped = true; startLater\(\); \}\)/);
   assert.match(gl, /get epoch\(\) \{ return epoch; \}/);
   assert.match(read('src/ui/sinusoid-view.js'), /sigW === canvas\.width && sigH === canvas\.height && sigEpoch === gpu\.epoch/);
   assert.match(read('src/ui/lobule-zoom.js'), /glTried = false; gl\?\.dispose\?\.\(\); gl = null;/);

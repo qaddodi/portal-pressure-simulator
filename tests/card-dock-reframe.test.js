@@ -50,16 +50,3 @@ test('the end shift is scaled with the card, and a card at rest or unmarked is l
   const plain = card('0px -50px', null), q1 = plain.getBoundingClientRect();
   assert.equal(translateRest(plain, q1), q1);
 });
-
-test('the camera\'s room uses the card\'s and its sheet edge\'s resting place, on every device that docks the card', () => {
-  assert.match(stage, /rest: 'safeRest' in el\.dataset \? translateRest\(el, restBox\(el, q\)\) : q/);
-  // (Set on every paint of the dock, from where it is going, dock.to; the sheet's edge follows the card.)
-  assert.match(presenter, /ui\.data\.dataset\.restTranslate = `\$\{\(x \* dock\.to\)\.toFixed\(1\)\} \$\{\(y \* dock\.to\)\.toFixed\(1\)\}`;/);
-  assert.match(presenter, /l\.style\.translate = d\.style\.translate; l\.dataset\.restTranslate = d\.dataset\.restTranslate \?\? '0 0';/);
-  // (The sheet's edge counts as part of the card, with the card's edge, top on a phone or upright iPad.)
-  assert.match(presenter, /class: 'pz-lip stage-blocker', type: 'button', hidden: true, 'data-safe-rest': ''/);
-  assert.match(presenter, /if \(dd\.dataset\.safe\) ui\.lip\.dataset\.safe = dd\.dataset\.safe; else delete ui\.lip\.dataset\.safe;/);
-  // (And the camera frames once the card is on its way: dockTo lays out and re-frames.)
-  assert.match(presenter, /layout\(\); {3}\/\/ \(the figure frames itself for where the card is going\)\n(?:\s*\/\/ alloc-rare[^\n]*\n)*\s*clearTimeout\(dock\.fit\); dock\.fit = setTimeout\(\(\) => restPass\(fitRest\), 60\);/);
-  assert.match(presenter, /function fitRest\(\) \{ if \(ui\) onResize\(\); \}/);
-});

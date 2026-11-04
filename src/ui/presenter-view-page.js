@@ -24,7 +24,7 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .pv-ask p { margin: 0; } .pv-ask .a { margin-top: 4px; color: var(--text-2); }
 .pv-bar { display: flex; gap: 10px; align-items: center; }
 .pv-bar button { font: inherit; padding: 10px 22px; border-radius: 8px; border: 1px solid var(--rule); background: transparent; color: inherit; cursor: pointer; }
-.pv-bar button.go { background: var(--accent); border-color: transparent; color: #fff; }
+.pv-bar button.go { background: var(--accent); border-color: transparent; color: #fff; } /* colour-exempt: white on the accent button */
 .pv-bar button:disabled { opacity: .4; cursor: default; }
 .pv-bar small { margin-left: auto; color: var(--text-2); }
 .pv-wait { margin: auto; color: var(--text-2); font-size: 18px; text-align: center; }

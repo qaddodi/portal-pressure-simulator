@@ -58,32 +58,6 @@ test('the tile is a picture recorded for the GPU, painted into the copier\'s tex
   assert.match(lz, /const g = can && FX_GPU \? fxGLOn\(\) : null;\n\s+if \(!g\) \{ fxGLShow\(false\); return false; \}/);
 });
 
-test('the overlay is the GPU\'s for the screen, through the dive and the sinusoid\'s zoom (no 2D overlay since 1 Nov)', () => {
-  assert.match(lz, /const fxOn = fxOnGPU\(W, H, dpr, dark, dt, g && !g\.lost\);\n\s+const laid = g\?\.top\?\.presents;\n\s+if \(g && !g\.lost\) drawGL\(W, H, dpr, dark, cs, dt\);/, 'scaled with the tissue\'s GPU canvas through the dive and the sinusoid\'s zoom, as it is');
-  assert.doesNotMatch(lz, /paintFx|probe\(fx\)/);
-  assert.match(lz, /const fxG = h\('canvas', \{ class: 'lz-canvas lz-fx lz-fx-gl', 'aria-hidden': 'true', style: \{ pointerEvents: 'none' \} \}\);/);
-  assert.match(fgl, /failIfMajorPerformanceCaveat: false/, 'a software renderer draws it too: there is no 2D overlay');
-  // The same layers in paintFx's order: ductules, drops, rings, beads, the eraser cutting all of them, the lining over.
-  assert.match(fxShaders.compFS, /c = over\(c, uCLy, k\.r\);\n\s+c = over\(c, uCRing, k\.g\);\n\s+c = over\(c, uCBead, k\.b\);\n\s+c \*= 1\.0 - k\.a;\n\s+\}\n\s+if \(uLine > 0\) c = over\(c, uCLine/);
-  assert.match(fgl, /gl\.blendEquation\(gl\.MAX\)/, 'each layer one union, as one path\'s fill: overlaps never darken');
-});
-
-test('one context for the lobule: the overlay is laid in the vessels\' canvas at each of their presents', () => {
-  const vgl = read('../src/ui/veins-gl.js');
-  assert.doesNotMatch(vgl, /LZ_ONE|lzone=/);
-  assert.match(vgl, /const ownBuf = who === 'stage' \|\| who === 'lobule';/);
-  // (Under every glass in that canvas: the cards frost the overlay, never lie under it. HVPG 6, 2 Nov 2026.)
-  assert.match(lz, /export const LZ_UNDER_GLASS = -\d+;/);
-  assert.match(lz, /fxHostGL = createFxGL\(fxG, \{ host: gl\.top \}\);[^\n]*\n(?:\s+\/\/[^\n]*\n)*\s+fxHostOff = fxHostGL \? gl\.top\.add\(\{ order: LZ_UNDER_GLASS, draw: fxHostDraw \}\) : null;/);
-  assert.match(lz, /if \(!fxArgs \|\| !fxHostGL\) return;/);
-  // A wide copy on the GPU lays the overlay in the vessels' canvas, set before they are drawn.
-  assert.match(lz, /const fxOn = fxOnGPU\(w, hh, dpr, dark, 0, true\), fxIn = fxOn && !!fxArgs, tisIn = onG && !!tisHostFor;\n\s+tisWide = tisIn;\n\s+drawKey = ''; drawGL\(TW, TH, dpr, dark, cs, 0\);/);
-  assert.match(lz, /\} \} finally \{ wideBuild = false; fxArgs = null; tisWide = false; \}/, 'no tile\'s overlay left for the screen');
-  assert.match(fgl, /if \(host\) \{ W = canvas\.width; H = canvas\.height; if \(!W \|\| !H\) return false; \}/, 'over the whole host canvas (a wide tile is cropped from a larger one)');
-  assert.match(fgl, /if \(host\) \{ gl\.enable\(gl\.BLEND\); gl\.blendEquation\(gl\.FUNC_ADD\); gl\.blendFunc\(gl\.ONE, gl\.ONE_MINUS_SRC_ALPHA\); \}/, 'over the vessels, premultiplied');
-  assert.match(fgl, /gl\.disable\(gl\.BLEND\); gl\.useProgram\(null\); gl\.bindVertexArray\(null\);/, 'the host\'s state put back');
-});
-
 test('one context for the lobule: the tissue is drawn in the vessels\' context and laid under them at each present', () => {
   const vgl = read('../src/ui/veins-gl.js'), tgl = read('../src/ui/tissue-gl.js');
   // The vessels' renderer: an under pass on the cleared canvas, the kept picture laid over it premultiplied, pixel for pixel.

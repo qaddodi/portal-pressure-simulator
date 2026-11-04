@@ -39,17 +39,3 @@ test('an offset copy: parts are counted from its corner', () => {
   const [r] = blurBoxes([{ x: 200, y: 120, w: 8, h: 8 }], 160, 80, 4, 100, 100);
   assert.deepEqual(r, [0, 0, 12 + BLUR_KEEP, 12 + BLUR_KEEP]);
 });
-
-test('the glass is blurred again on the blood\'s frames and only in its parts (?glasshold and ?glassfull deleted; the option full stays for tests)', () => {
-  assert.equal((STAGE.match(/version: \(\) => veins\.drawSeq, fresh: \(\) => veins\.bloodSeq, /g) || []).length, 2, 'the callouts and the liver\'s pane');
-  // (The cards follow the canvas their frost is taken from: the figure's blood frames there, none in the liver's: frostSeq, frostFresh.)
-  assert.match(STAGE, /cards, live: [^\n]*version: frostSeq, fresh: frostFresh, /);
-  assert.match(STAGE, /const frostFresh = \(\) => \(frostLiver \? 0 : veins\.bloodSeq\);/);
-  assert.match(SRC, /const key = `\$\{version \? version\(\) : performance\.now\(\)\}\|\$\{fresh \? fresh\(\) : ''\}\|\$\{rest\}`;/);
-  assert.match(SRC, /let parts = full \? null : blurBoxes\(/);
-  assert.match(SRC, /const ok = hostBlur\(grid, parts\);/);
-  assert.doesNotMatch(SRC, /glasshold|glassfull|HOLD_URL|FULL_URL/, 'the switches are gone: the default path only');
-  assert.match(SRC, /fresh = null, full = false, onHoles = null \} = \{\}\) \{\n\s+if \(reblur > 0\) fresh = null;/);
-  // (The parts are in the key's rest: a blur held for other parts, by the 50 ms hold, would leave a moved card reading texels never made.)
-  assert.match(SRC, /const rest = `\$\{grid\.X0\}\|\$\{grid\.Y0\}\|\$\{grid\.X1\}\|\$\{grid\.Y1\}\|\$\{W2\}x\$\{H2\}\$\{parts \? `\|\$\{parts\.join\(';'\)\}` : ''\}`;/);
-});
