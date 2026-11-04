@@ -60,7 +60,7 @@ export function createLabelLayer(st, live) {
     // (Drawn by the GPU, no label eases here: its offset from its point is the layout's at once, and label-gl.js alone moves one that changes
     // slot, once (V-LBL-1). Eased here as well, the GPU's labels were carried to their places over 450 ms: "the labels match slowly
     // towards their positions", Mohammad, 3 Nov.)
-    const snap = (!!live.labelGL && !live.labelGL.lost) || reduceMotion.matches || live.camMove || !!live.handRide?.settle || wrap.classList.contains('cam-move') || wrap.classList.contains('cath-on') || !!live.lz?.isOpen();
+    const snap = (!!live.labelGL && !live.labelGL.lost) || reduceMotion.matches || live.camMove || wrap.classList.contains('cam-move') || wrap.classList.contains('cath-on') || !!live.lz?.isOpen();
     let moving = false;
     for (const it of out) {
       const b = pool.get(it.key);   // (a label with no block yet is new: it fades in where it stands)

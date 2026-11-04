@@ -196,7 +196,6 @@
  "label-hold.test.js",
  "label-host-ride.test.js",
  "label-key.test.js",
- "label-land.test.js",
  "label-onvessel-halo.test.js",
  "label-paint-reads.test.js",
  "label-pills.test.js",

@@ -141,10 +141,9 @@ export function createView(st, live) {
     xfVisFill();
     const pending = solveTargetView(d);
     // (A glide of the camera that was running is over: the change's own clock moves it now.)
-    cancelFrame(live.vtAnim); live.arcRun = null; live.landRide = false; live.landTo = null; live.following = false;
+    cancelFrame(live.vtAnim); live.arcRun = null; live.following = false;
     if (live.drifting) driftEnd();
     live.drifting = false;
-    if (live.carrying) { live.carrying = false; live.rideLeaders(false); }
     const to = { k: d.k, x: d.x, y: d.y };
     live.viewXf = { t0: live.easeInOut(live.morph), tT: live.morphTarget, from: { ...live.vt }, to, same: sameView(live.vt, to), pending, tStart: performance.now(), sigTap: live.solvedFor?.sig || null };
     live.vtTarget = to; live.vtGliding = !live.viewXf.same; live.vtUntil = performance.now() + 700; live.vtMs = 700;
@@ -185,7 +184,7 @@ export function createView(st, live) {
     labelTail();
     return true;
   }
-  const preIdle = () => !!live.F && !!live.labelGL && !live.labelGL.lost && !live.viewXf && !live.labelJob && !live.handRide && !live.gestureOn() && !live.camMove && !live.drifting && !live.carrying && !live.glSuppress
+  const preIdle = () => !!live.F && !!live.labelGL && !live.labelGL.lost && !live.viewXf && !live.labelJob && !live.handRide && !live.gestureOn() && !live.camMove && !live.drifting && !live.glSuppress
     && live.morph === live.morphTarget && (live.morph === 0 || live.morph === 1) && live.rotU === live.rotTarget && !live.lobuleOn && !live.lz?.isOpen() && !(live.cath.st && !live.cath.st.keep) && !live.vtGliding;
   // (What the kept solution was made for, read at the stage as it stands: a change in any of these, a new patient frame, a selection, a resize, a font, makes it
   // stale, and it is made again at once in idle time. Otherwise a solution that no longer matched at the tap was never replaced, and the tap solved it all.)

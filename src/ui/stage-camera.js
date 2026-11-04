@@ -131,7 +131,7 @@ addEventListener('orientationchange', saRead);
     return o;
   }
   // (The inverse: a stage point (local px) as a world point under the camera now.)
-  const NO_ANCHOR = /^(lane:|scan|stage|fxs:|tips|dips|dsrs|portocaval|mesocaval|custom|60%:)/, ANCHOR_W = [0, 0];
+  const NO_ANCHOR = /^(lane:|scan|stage|60%:)/, ANCHOR_W = [0, 0];
   function localToWorldInto(o, x, y) {
     if (!live.CTM) refreshCTM();
     const px = x + live.wrapRect.left - live.CTM.e, py = y + live.wrapRect.top - live.CTM.f, det = live.CTM.a * live.CTM.d - live.CTM.b * live.CTM.c;

@@ -8,11 +8,9 @@ import { readFileSync } from 'node:fs';
 const st = stageSource();
 const lg = readFileSync(new URL('../src/ui/label-gl.js', import.meta.url), 'utf8');
 
-test('a presenter move rides the labels when it can, else fades them as before', () => {
-  assert.match(st, /camMove = true; dpr\.carry = dpr\.on && performance\.now\(\) < dpr\.refitUntil; if \(!rideStart\(\)\) wrap\.classList\.add\('cam-move'\);/);
-  // (Not under the HVPG catheter (which hides the labels), a pinch, the lobule or a dive, nor with a label the SVG draws, nor under reduced
-  // motion. A treatment's catheter keeps the labels on: they ride.)
-  assert.match(st, /if \(!labelRider\?\.canRide\(\) \|\| \(cath\.st && !cath\.st\.keep\) \|\| lobuleOn \|\| lz\?\.isOpen\(\) \|\| diveT > 0 \|\| wrap\.classList\.contains\('cam-move'\)\) return false;/);
+test('a presenter move rides no label: they are pose-driven, and never faded for it', () => {
+  assert.match(st, /camMove = true; dpr\.carry = dpr\.on && performance\.now\(\) < dpr\.refitUntil; setTimeout/);
+  assert.ok(!/ride\w*\(\)\) wrap\.classList\.add\('cam-move'\)/.test(st));
 });
 
 test('each frame of the glide carries them on the GPU; the landing ends the ride before the labels are laid out again', () => {

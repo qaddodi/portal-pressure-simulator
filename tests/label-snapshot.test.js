@@ -55,9 +55,6 @@ test('a leader\'s label end follows its label\'s landing glide, and a pan (carri
   assert.match(lg, /labelByKey\.clear\(\);/);
 });
 
-test('a pinch landing solves again a label that rode out of the stage margins (it was carried half off the screen)', () => {
-  assert.match(st, /if \((?:live\.)?(?:live\.)?handRide\?\.settle\) \{ const vw = viewOf\(it\); if \((?:live\.)?(?:live\.)?box\.x0 < vw\.x0 - 4/);
-});
 
 test('a camera ride holds each label inside the stage, and its leader\'s label end with it', () => {
   assert.match(lg, /function rideAt\(s, st\) \{/);

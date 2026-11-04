@@ -7,7 +7,7 @@ import { COUNTED, gpuProbe } from './gpu-probe.js';
 import { store } from './store.js';
 
 export function createLabelDriver(st, live) {
-  const { E, EI, EV, LABEL_FIRST_REST_MS, LABEL_REST_SLICE_MS, LABEL_SLICE_MS, calloutSig, camSettle, carryAbort, cath, dop, dpr, dprobePaint, easeInOut, explain, fxBuild, hasVarices, isImaging, labelBase, labelGlSync, landing, layerMode, layoutLabels, layoutLabelsGen, nextFrame, nodeItem, pre, preAbort, preAsk, pzInset, refreshCTM, renderBlock, resItem, rideStart, rideStep, rideStop, sameDeps, scan, scanItem, scanPaint, shortenTo, sigFold, sites, sitesPaint, stageBox, themeKey, velItem, wrap, xfMarkCurrent, xfRelease } = st;
+  const { E, EI, EV, LABEL_FIRST_REST_MS, LABEL_REST_SLICE_MS, LABEL_SLICE_MS, calloutSig, camSettle, cath, dop, dpr, dprobePaint, easeInOut, explain, fxBuild, hasVarices, isImaging, labelBase, labelGlSync, layerMode, layoutLabels, layoutLabelsGen, nextFrame, nodeItem, pre, preAbort, preAsk, pzInset, refreshCTM, renderBlock, resItem, sameDeps, scan, scanItem, scanPaint, shortenTo, sigFold, sites, sitesPaint, stageBox, themeKey, velItem, wrap, xfMarkCurrent, xfRelease } = st;
   const SOLVED_A = { sig: null, sc: 0, th: 0, csig: 0, ins: 0 }, SOLVED_B = { sig: null, sc: 0, th: 0, csig: 0, ins: 0 };   // (what updateLabels writes it into, by turns)
   const JOB_NOW = { maxWait: 0 };
   const HAND_STILL_MS = 90;   // (a wheel step is over this long after its last tick: the settle no longer waits the 250 ms of gestureOn)
@@ -47,7 +47,6 @@ export function createLabelDriver(st, live) {
   // no carried label comes onto another (carryClear); they are solved for where the view stopped once it is let go (labelSettleSoon),
   // and glide to their new spots (labelGlide). Solving every 5 % was a full search about every third frame of a pinch.
   const SOLVE_ZOOM_HAND = 0.35;
-  const PINCH_ZOOM = 0.01;   // (a 1 % change of scale under a hand is a zoom; a pan leaves the scale exactly as it was)
   // (What the labels show, as identities: a hand's ride compares it with what it was when the ride began. Not the vessels' widths or
   // geometry, nor the two flags the zoom itself flips (vt.k > 1.35, zoomedIn): on a playing model the widths move every few frames and
   // the zoom crosses the flags, and the signature then ended every ride within a frame or two. Written into kept lists, no string made.)
@@ -145,7 +144,6 @@ export function createLabelDriver(st, live) {
     live.labelSol = keep;
     return false;
   }
-  const handRideRec = { settle: false };   // (the one record of a hand's zoom ridden: handRide points at it while a ride runs)
   function updateLabels(f, force = false) {
     live.labelPainted = false;
     if (live.viewXf) return;   // (the change between the views: the new view's labels were solved at the tap for where it lands, and ride it)
@@ -157,32 +155,19 @@ export function createLabelDriver(st, live) {
     const t0 = performance.now();
     refreshCTM();
     const st = store.get(), b = stageBox();
-    // (A hand's zoom, in the Circuit as in the anatomy: the labels ride it, solved once the hand lets go. Only at rest in one view or the
-    // other, never between them. What the labels show is compared by rideKeyHeld, not the signature: on a playing model that changes every
-    // few frames (widths, geometry), and the two flags the zoom itself flips.)
+    // (Rigid labels, labels-plan.md step 6: while the camera moves (a hand's pan, pinch or wheel, a glide, a slow push, a card's zoom) and what
+    // the labels show is the same, nothing is laid out. Every label stands at CTM x its world anchor + its offset, drawn by the GPU in the figure's
+    // own frame (label-gl pinDraw), so it moves with the figure to the pixel; the layout is solved once, when the camera comes to rest. What the
+    // labels show is compared by rideKeyHeld, not the signature: on a playing model that changes every few frames (widths, geometry).)
     const restView = live.morph === 0 || live.morph === 1;
-    // (The hand came back while the settle solve ran: back to riding, the solve dropped, no carry, no ride end and no glide.)
-    if (live.handRide?.settle && live.gestureOn() && live.rideCTM && restView && rideKeyHeld(st)) {
-      labelJobDrop(); live.handRide.settle = false; handRideWatch();
-      rideStep(); stats.skips++; stats.ms += performance.now() - t0;
-      return;
-    }
-    if (live.handRide && !live.handRide.settle) {
-      if (live.rideCTM && live.gestureOn() && restView && rideKeyHeld(st)) { rideStep(); stats.skips++; stats.ms += performance.now() - t0; return; }
+    const moving = live.gestureOn() || live.vtGliding || live.drifting || !!live.zoomBase;
+    if (moving && live.solvedFor && restView && !live.lobuleOn && !live.lz?.isOpen() && !(live.diveT > 0)) {
+      if (!live.handRide) { rideKeyInto(rideKeyA, st); live.handRide = true; labelJobDrop(); handRideWatch(); }
+      if (rideKeyHeld(st)) { stats.skips++; stats.ms += performance.now() - t0; return; }
       handRideEnd(); live.labelKey = null;
-    } else if (!live.handRide && live.gestureOn() && live.solvedFor && restView && live.layCTM && Math.abs(Math.log(live.CTM.sc / Math.hypot(live.layCTM[0], live.layCTM[1]))) > PINCH_ZOOM && rideStart(live.layCTM)) {
-      // A playing model may have another solve in slices. The last committed layout can still ride: discard the unfinished solve,
-      // rather than hiding the labels or carrying them from the camera of an older solve.
-      labelJobDrop();
-      rideKeyInto(rideKeyA, st);   // (what the labels show as the ride begins)
-      handRideRec.settle = false; live.handRide = handRideRec;
-      handRideWatch();
-      rideStep(); stats.skips++; stats.ms += performance.now() - t0;
-      return;
-    }
+    } else if (live.handRide) { handRideEnd(); live.labelKey = null; }
     // (Labels are never hidden for a zoom: the anchored ones ride the camera on the GPU (world anchors), the rest are carried and solved as it goes. Mohammad, 4 Nov: "after I zoom there is like 2-3 s until labels show up in the Circuit" was this hide, lifted by a 3 s poll.)
     const sig = labelSig(f);
-    if (live.carrying && live.solvedFor?.sig !== sig) { carryAbort(); return; }   // (what the labels show changed mid-move: the usual fade, then laid out as it lands)
     // (R04: the key is a list of numbers and identities compared one by one, not a string joined on every camera frame: the camera's
     // part (the transform in hundredths, the stage box, the morph and turn) and the revisions of the rest.)
     const key = labelKeyNow(st, sig, b);
@@ -204,12 +189,11 @@ export function createLabelDriver(st, live) {
       // jump. They are solved again as it lands: driftEnd. A glide whose labels were solved for where it lands (landing) carries them
       // all the way, without that check: one may pass over another for a moment, the overlap pass below showing the more important.)
       // (Between the two views the labels ride with the change however far its camera zooms: solved again at its half and as it lands.)
-      const dz = live.solvedFor && !(live.morph > 0 && live.morph < 1) ? Math.abs(Math.log(sc / live.solvedFor.sc)) : 0, hand = dz > SOLVE_ZOOM && live.gestureOn(), land = landing() && !hand, ride = (live.drifting || land || !!live.zoomBase) && !hand;
-      const landingRide = !!live.handRide?.settle;
+      const dz = live.solvedFor && !(live.morph > 0 && live.morph < 1) ? Math.abs(Math.log(sc / live.solvedFor.sc)) : 0, hand = dz > SOLVE_ZOOM && live.gestureOn(), ride = (live.drifting || !!live.zoomBase) && !hand;
       const changed = !live.solvedFor || live.solveAsked || live.solvedFor.sig !== sig || live.solvedFor.csig !== csig || live.solvedFor.ins !== ins || Math.abs(th - live.solvedFor.th) > SOLVE_TURN;
-      const solve = changed || (!landingRide && !ride && dz > (hand ? SOLVE_ZOOM_HAND : SOLVE_ZOOM));
-      live.carryClear = hand || landingRide; live.carryReslot = live.gestureOn();
-      if (ride && !land && dz > SOLVE_ZOOM) live.carryClear = true;   // (carried, but never onto each other)
+      const solve = changed || (!ride && dz > (hand ? SOLVE_ZOOM_HAND : SOLVE_ZOOM));
+      live.carryClear = hand; live.carryReslot = live.gestureOn();
+      if (ride && dz > SOLVE_ZOOM) live.carryClear = true;   // (carried, but never onto each other)
       const solved = solve || layoutLabels(f, false) === false;
       live.carryReslot = false;
       if (solved) {
@@ -228,7 +212,7 @@ export function createLabelDriver(st, live) {
         const g = layoutLabelsGen(f, true);
         if (!labelSliceRun(g, live.xfSolving ? 2 : live.gestureOn() || live.drifting || (live.morph > 0 && live.morph < 1) ? LABEL_SLICE_MS : LABEL_FIRST_REST_MS)) {   // (at rest the first slice is long: most solves land in it)
           live.labelJob = JOB; JOB.g = g; JOB.key = keyInto(jobKeyArr, key); JOB.solvedFor = sf; JOB.xfTap = null; JOB.t0 = performance.now(); stats.jobs++;
-          mayTask('label solve', labelJobStep, live.handRide?.settle || !live.gestureOn() ? JOB_NOW : undefined);   // (at rest the slices run every frame, none waits two)
+          mayTask('label solve', labelJobStep, !live.gestureOn() ? JOB_NOW : undefined);   // (at rest the slices run every frame, none waits two)
           stats.ms += performance.now() - t0;
           labelTail();
           return;
@@ -236,7 +220,6 @@ export function createLabelDriver(st, live) {
         live.solvedFor = sf; live.solveAsked = false; solCachePut(sf);
         }
       }
-      else if (landingRide) { live.solvedFor.sc = sc; }
       else if (hand || live.reslotted) labelSettleSoon();
       if (gpuProbe.on) gpuProbe.note(solved ? COUNTED.labelSolve : COUNTED.labelCarry);
       live.carryClear = false;
@@ -244,24 +227,21 @@ export function createLabelDriver(st, live) {
     }
     labelTail();
   }
-  // The hand's ride (see updateLabels): watched until the hand lets go, then the labels are laid out for where the view stopped while
-  // they still ride, and only once that layout has landed (a sliced solve too) does the ride end, each label gliding on from where it
-  // rode (label-gl.js rideEnd, sync). Ending it before would draw the old layout, uncarried, for the frames the solve takes.
+  // The hold (see updateLabels): watched every frame until the camera is still (hand up, wheel quiet, glide and push landed), then the labels are
+  // laid out once for where it stopped. (live.handRide is only the flag that a hold is on.)
   function handRideWatch() {
     cancelFrame(live.handRideT);
-    live.handRideT = nextFrame(handRideWait);   // (checked every frame, not on a timer: the settle starts in the first frame the hand has been still)
+    live.handRideT = nextFrame(handRideWait);
   }
   function handRideWait() {
-    if (!live.handRide || live.handRide.settle) return;
-    if (live.drag || live.glide || live.gestureOn()) {   // (the settle starts once the hand has let go: pointer up, or the wheel quiet, not at any short pause)
-      live.handRideT = nextFrame(handRideWait); return; }
-    live.handRideT = 0; live.handRide.settle = true;
-    if (live.F && !live.camMove && !live.lz?.isOpen()) { live.labelKey = null; updateLabels(live.F); } else handRideEnd();
+    if (!live.handRide) return;
+    if (live.drag || live.glide || live.gestureOn() || live.vtGliding || live.drifting || live.zoomBase) { live.handRideT = nextFrame(handRideWait); return; }
+    live.handRideT = 0; live.handRide = false;
+    if (live.F && !live.camMove && !live.lz?.isOpen()) { live.labelKey = null; updateLabels(live.F); }
   }
-  function handRideEnd() { if (!live.handRide) return; live.handRide = null; cancelFrame(live.handRideT); live.handRideT = 0; rideStop(); }
+  function handRideEnd() { if (!live.handRide) return; live.handRide = false; cancelFrame(live.handRideT); live.handRideT = 0; }
   // (What every layout of the labels ends with, a carried, a skipped or a sliced one too: the callouts and probes painted, then the GPU's copy.)
   function labelTail() {
-    if (live.handRide?.settle && !live.labelJob) handRideEnd();   // (the layout for where the hand stopped has landed: the ride ends as it is drawn)
     if (sites.list) sitesPaint();
     if (scan.on) scanPaint();
     dprobePaint();
