@@ -197,7 +197,7 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
     for (const r of s.riders) { r.anim?.cancel(); unpin(r); r.el.style.transformOrigin = ''; }
     for (const h of s.holes) h.anim?.cancel();
     delete s.card.dataset.zoomed;
-    app.classList.remove('pz-zoomed'); for (const v of s.veils) v.classList.remove('on');
+    app.classList.remove('pz-zoomed', 'pz-cam'); for (const v of s.veils) v.classList.remove('on');
     if (!s.part) { boost(1); hold(false); }
     settled();
   }
@@ -225,6 +225,7 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
       }
       el.dataset.zoomed = '';
       app.classList.add('pz-zoomed');
+      if (st.cam) app.classList.add('pz-cam');   // (a camera zoom: the labels, leaders and overlays ride the view with the figure, rigidly, none hidden or eased: app.css .pz-zoomed:not(.pz-cam))
       globalThis.dispatchEvent?.(new Event('pps:cardzoom'));   // alloc-rare: once per zoom (the ?perf readout names its window)
       // (The pictures are drawn larger once the card has arrived, not as it sets off: the instruments' shared GPU canvas was made 2.2 times
       // larger on each side in the glide's first frame (a 1440 x 900 canvas to 3168 x 1980, 400 to 800 ms of the main thread in a software-GL
