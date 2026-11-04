@@ -215,8 +215,6 @@ export const EDGE_PATH = {
   // clear below the epigastric vein where that crosses the trunk at y 79. tests/ascending-lumbar-route.test.js holds these.
   C9: 'M620 566 C 574.7 544.9 528.1 470 526 410 C 523.6 342.4 517.3 272.5 522 205 C 524.5 169.1 528.2 135.1 562.9 108',
 
-  AP_R: 'M655 478 C 612 470 552 432 505 398',
-  AP_L: 'M655 478 C 668 440 680 405 688 378',
   TIPS: 'M505 398 C 498 356 536 298 540 240',   // one gentle curve through the parenchyma, portal → hepatic vein
   // DIPS: a short tract from the portal bifurcation (PVH), up through the caudate lobe in one gentle curve (no
   // bend sharper than about 15° per stretch), meeting the IVC from the side just below the hepatic vein
