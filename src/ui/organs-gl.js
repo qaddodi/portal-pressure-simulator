@@ -286,29 +286,8 @@ export function createOrganStack(gl, { painter: shared = null, moves = !shared }
     for (let i = 0; i < a.n; i++) if (!numEq(a.m[i], b.m[i])) return false;
     return true;
   };
-  // (B5, pure-gpu-plan: a layer picture's texture is made at one size per layer and view, so a view switch made new ones, ~100 allocations
-  // in one switch, and Safari stalls on a texture made inside a motion. Baked pictures' textures are given back here when let go, kept by
-  // size up to POOL_BYTES, and taken again by the next bake of that size (a view returned to, a patient changed back). Their size is on the
-  // record (pw, ph); textures a plate job staged have none and are deleted as ever. The bake clears what it takes, so no old picture shows.)
-  const POOL_BYTES = 72 * 1048576;
-  const texPool = new Map(); let poolBytes = 0;   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
-  const takeTex = (W, H) => { const a = texPool.get(`${W}x${H}`); const t = a?.pop(); if (t) poolBytes -= W * H * 4; return t || null; };
-  const poolTrim = () => {
-    for (const [k, a] of texPool) {
-      while (a.length && poolBytes > POOL_BYTES) { gl.deleteTexture(a.shift()); const [w, h] = k.split('x'); poolBytes -= w * h * 4; }
-      if (!a.length) texPool.delete(k);
-    }
-  };
-  const poolDrop = () => { for (const a of texPool.values()) for (const t of a) gl.deleteTexture(t); texPool.clear(); poolBytes = 0; };
-  const freeTex = (L) => {   // a layer's texture: kept for the next bake of its size, or deleted (no size on it, or a pool full of the same size)
-    if (!L.pw) { gl.deleteTexture(L.tex); return; }
-    const k = `${L.pw}x${L.ph}`;
-    let a = texPool.get(k); if (!a) texPool.set(k, (a = []));   // alloc-rare: a size's list, made the first time a texture of it is given back
-    a.push(L.tex); poolBytes += L.pw * L.ph * 4;
-    if (poolBytes > POOL_BYTES) poolTrim();
-  };
-  const dropPrev = (L) => { if (L.prev) { freeTex(L.prev); L.prev = null; } };   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
-  const free = (map) => { for (const L of map.values()) { freeTex(L); dropPrev(L); } map.clear(); };   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
+  const dropPrev = (L) => { if (L.prev) { gl.deleteTexture(L.prev.tex); L.prev = null; } };   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
+  const free = (map) => { for (const L of map.values()) { gl.deleteTexture(L.tex); dropPrev(L); } map.clear(); };   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
   // (A view's picture fading in: its key moves with the clock until it is whole, so each frame draws it a step further.)
   // (`fading()`: one is still to be drawn whole; the stage's frames are kept going for it, for no longer than three fades whatever is drawn.)
   const pending = () => { for (const L of live[1].values()) if (L.from != null) return true; return false; };   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
@@ -593,7 +572,7 @@ export function createOrganStack(gl, { painter: shared = null, moves = !shared }
      */
     stage(slot, name, tex, rect, at = 0, flip = false) {
       const was = staged[slot].get(name);
-      if (was) freeTex(was);
+      if (was) gl.deleteTexture(was.tex);
       staged[slot].set(name, { tex, rect, at, flip });   // alloc-rare: one layer record per staged picture (a view settling, a patient change), kept as the live layer
     },
     /**
@@ -606,9 +585,10 @@ export function createOrganStack(gl, { painter: shared = null, moves = !shared }
     bake(slot, name, groups, rect, scale, at = 0) {
       if (!painter) return null;
       const W = Math.max(1, Math.round(rect[2] * scale)), H = Math.max(1, Math.round(rect[3] * scale));
-      const pooled = takeTex(W, H), tex = pooled || gl.createTexture(), fb = gl.createFramebuffer();
+      const tex = gl.createTexture(), fb = gl.createFramebuffer();
       gl.bindTexture(gl.TEXTURE_2D, tex);
-      if (!pooled) { setTexParams(gl.LINEAR); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, W, H, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); }
+      setTexParams(gl.LINEAR);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, W, H, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
       gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
       gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
       gl.viewport(0, 0, W, H);
@@ -644,11 +624,11 @@ export function createOrganStack(gl, { painter: shared = null, moves = !shared }
           if (gi < groups.length) return false;
           done = true; live = false; free();
           const was = staged[slot].get(name);
-          if (was) freeTex(was);
-          staged[slot].set(name, { tex, rect, at, flip: true, pw: W, ph: H });   // alloc-rare: one layer record per staged picture (a view settling, a patient change), kept as the live layer
+          if (was) gl.deleteTexture(was.tex);
+          staged[slot].set(name, { tex, rect, at, flip: true });   // alloc-rare: one layer record per staged picture (a view settling, a patient change), kept as the live layer
           return true;
         },
-        drop() { if (!live) return; live = false; free(); freeTex({ tex, pw: W, ph: H }); },
+        drop() { if (!live) return; live = false; free(); gl.deleteTexture(tex); },
       };
     },
     /** Lets go of the shapes the pictures keep on the GPU (bake), when no picture is being made. */
@@ -813,8 +793,7 @@ export function createOrganStack(gl, { painter: shared = null, moves = !shared }
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
     },
     dispose() {
-      for (const s of [0, 1]) { free(live[s]); free(staged[s]); }
-      poolDrop();   // alloc-rare: teardown (dispose)
+      for (const s of [0, 1]) { free(live[s]); free(staged[s]); }   // alloc-rare: teardown (dispose)
       freeCache();
       moveDrop();
       if (moveP) gl.deleteProgram(moveP.p);
