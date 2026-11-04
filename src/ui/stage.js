@@ -8457,12 +8457,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return lzSeqN;
   };
   const lzInFigure = () => !!lz?.shared && (lobuleOn || lz.isShown());
-  // (Mac heat R2, 4 Nov 2026: the frost is a 22 px blur of blood that moves a few px a frame, so it is blurred again only when the blood has
-  // moved on by FROST_EVERY frames since its last blur, not on every one; the count handed over is the real one, so the glass's dirty squares
-  // still cover exactly the frames between two blurs. A view move or a card moving changes the glass's other key parts and blurs at once.)
-  const FROST_EVERY = 3;
-  const thirdSeq = () => { let held = -Infinity; return () => { const q = veins.bloodSeq; if (q < held || q - held >= FROST_EVERY) held = q; return held; }; };
-  const frostFresh = (() => { const t = thirdSeq(); return () => (frostLiver ? 0 : t()); })();
+  // (Mac heat R2: the frost blurs again only once the blood has moved FROST_EVERY frames on; the count handed over is the real one, so the dirty squares still cover the frames between.)
+  const FROST_EVERY = 3, thirdSeq = () => { let held = -Infinity; return () => { const q = veins.bloodSeq; if (q < held || q - held >= FROST_EVERY) held = q; return held; }; }, frostFresh = (() => { const t = thirdSeq(); return () => (frostLiver ? 0 : t()); })();
   // The callouts' frosted glass, drawn on the GPU under both callout layers while it can be (glass-gl.js); else the browser's.
   // (A region of stage.glass.add (calloutsGlass, below, where the glass hosts are set), made by cardGlass with cards.callouts; set there.)
   let glassGL = null;
@@ -15294,7 +15290,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const o = organAt(wx, wy);
     onSelect(o ? { type: 'organ', id: o, at: [wx, wy], lobe: o === 'liver' ? (wx < LIVER_SPLIT_X ? 'R' : 'L') : undefined } : null);
   }
-
 
   // Keyboard: the figure is one Tab stop (no element per vessel). Inside it Tab and Shift+Tab walk its items (every vessel shown, then,
   // in the anatomy, the organs a tap opens) and leave it at either end, Enter or Space acts on the item, and the arrows walk along the

@@ -47,7 +47,7 @@ test('the history ends on the last sample posted, one 4 ms sample after another,
 });
 
 test('the history is the live beat: the same moment of the same beat at the seam, the same heart rate, and pressures where the live ones are', async (t) => {
-  const { core, msgs, samples, frames } = await runCore('cirr-decomp', 1500);
+  const { core, msgs, samples, frames } = await runCore('cirr-decomp', 3000);
   t.after(() => core.dispose());
   const posted = samples().at(-1).t.at(-1), phase = samples().at(-1).ph.at(-1);
   const m = await askHistory(core, msgs, 10);
