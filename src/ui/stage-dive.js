@@ -163,6 +163,23 @@ export function createDive(st, live) {
     for (let i = 0; i < live.diveOrig.length; i++) { const el = live.diveOrig[i][0]; if (el !== vCanvas) el.style.transform = tf; }
     live.camK = k; pushCam();
   }
+  // The labels' fade in once a rise has landed: from where their layer stands (0 after a rise) to whole over D_SMALL, smoothstep, on the
+  // frames; the inline opacity goes back to '' at its end. A new dive or rise stops it (diveFrame), and reduced motion shows them at once.
+  let labInRaf = 0, labInT0 = 0, labInFrom = 0, labInEl = null;
+  function labelsInStep(now) {
+    labInRaf = 0;
+    const u = Math.min(1, (now - labInT0) / D_SMALL), e = u * u * (3 - 2 * u);
+    labInEl.style.opacity = u >= 1 ? '' : (labInFrom + (1 - labInFrom) * e).toFixed(3);
+    if (u < 1) labInRaf = drawFrame(labelsInStep);
+  }
+  function labelsInStop() { if (labInRaf) { cancelFrame(labInRaf); labInRaf = 0; } }
+  function labelsIn(lab) {
+    if (labInRaf) return;
+    const cur = lab.style.opacity === '' ? 1 : parseFloat(lab.style.opacity);
+    if (!(cur < 1) || reduceMotion.matches) { lab.style.opacity = ''; return; }
+    labInEl = lab; labInFrom = Math.max(0, cur); labInT0 = performance.now();
+    labInRaf = drawFrame(labelsInStep);
+  }
   const diveFrom = [0, 0], diveTo = [0, 0];   // (the rise's two ends, written in place for riseCentre)
   const diveField = { a: 0, x: 0, y: 0, r: 0, ox: 0, oy: 0, quiet: 0, focus: 0, blur: 0, dof: 0 };   // (the field's state for lz.setDive, written in place)
   function diveFrame(t) {
@@ -195,8 +212,15 @@ export function createDive(st, live) {
       setDiveFade(t <= 0 ? null : landed ? 0 : 1);
       // The anatomy's labels leave as the zoom starts.
       const lab = wrap.querySelector('#labels');
-      // (Going out they come back over the last half of the zoom, in place, rather than at the very end.)
-      if (lab) lab.style.opacity = t <= 0 ? '' : (1 - smoothT(0, live.diveOut ? 0.55 : 0.12, t)).toFixed(3);
+      // Going out they stay away for the whole zoom and fade in only once it has landed, where they were laid out (setLobule lays them
+      // out for the final framing as the rise begins). They are pinned to the figure at its rest camera, not under the dive's scale
+      // (camK, drawn by the GPU about camOx/camOy), so shown part way they stood at their landed places over a figure still magnified
+      // and moving under them (Mohammad, 4 Nov 2026: "labels show up too early, wrong place, in place while zoom is zooming out").
+      // The fade in is the landing's own, on the frame clock, like a view switch's (labelsIn).
+      if (lab) {
+        if (t <= 0) labelsIn(lab);
+        else { labelsInStop(); lab.style.opacity = live.diveOut ? '0' : (1 - smoothT(0, 0.12, t)).toFixed(3); }
+      }
       // The detailed lobule comes in while the zoom is still settling, zooming with the field.
       const r = RH * Math.exp(z - LC);
       const [ox, oy] = live.diveAt;
