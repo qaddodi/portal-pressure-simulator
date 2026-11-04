@@ -5,6 +5,8 @@ name: Look tokens
 
 on:
   workflow_dispatch:
+  push:
+    branches: [claude/settings-topbar-icon-flvft1]   # (only a commit that says [looks]: a new workflow file runs from the Actions tab only once it is on main)
 
 permissions:
   contents: write
@@ -15,6 +17,7 @@ concurrency:
 
 jobs:
   tokens:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[looks]')
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
