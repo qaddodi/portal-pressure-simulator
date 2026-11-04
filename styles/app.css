@@ -7204,24 +7204,6 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
    of the rating colours, clear green, amber and red as the tiles' scale bars (deep tints in the dark themes, where a thin amber
    over navy reads as olive), their words 4.5:1 or more on them; a deck's own box is a dashed outline; the case in the card is a
    ring that eases. */
-.pze-plot, .pze-ckey, .pze-key {
-  --pze-ok: color-mix(in srgb, var(--ok) 28%, var(--surface)); --pze-mid: color-mix(in srgb, var(--caution) 40%, var(--surface)); --pze-hi: color-mix(in srgb, var(--danger) 30%, var(--surface));
-  --pze-ok-ink: color-mix(in srgb, var(--ok) 55%, var(--text)); --pze-mid-ink: color-mix(in srgb, var(--caution) 40%, var(--text)); --pze-hi-ink: color-mix(in srgb, var(--danger) 55%, var(--text));
-  --pze-ppg: color-mix(in srgb, var(--tr-hv) 32%, var(--surface)); --pze-hvpg: color-mix(in srgb, var(--ramp-violet) 24%, var(--surface)); --pze-both: color-mix(in srgb, var(--ramp-wine) 26%, var(--surface));   /* (blue, and the pressure ramp's violet and wine stops; quieter tints of the same colours, Mohammad 29 Oct, each still 30 apart from the others, plane-callouts test) */
-  --pze-ppg-ink: color-mix(in srgb, var(--tr-hv) 30%, var(--text)); --pze-hvpg-ink: color-mix(in srgb, var(--ramp-violet) 25%, var(--text)); --pze-both-ink: color-mix(in srgb, var(--ramp-wine) 35%, var(--text));
-}
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) :is(.pze-plot, .pze-ckey, .pze-key) {
-  --pze-ok: color-mix(in srgb, var(--ok) 42%, var(--black)); --pze-mid: color-mix(in srgb, var(--caution) 55%, var(--black)); --pze-hi: color-mix(in srgb, var(--danger) 50%, var(--black));
-  --pze-ok-ink: var(--text); --pze-mid-ink: var(--text); --pze-hi-ink: var(--text);
-  --pze-ppg: color-mix(in srgb, var(--tr-hv) 45%, var(--black)); --pze-hvpg: color-mix(in srgb, var(--ramp-violet) 55%, var(--black)); --pze-both: color-mix(in srgb, var(--ramp-wine) 55%, var(--black));
-  --pze-ppg-ink: var(--text); --pze-hvpg-ink: var(--text); --pze-both-ink: var(--text);
-} }
-:root[data-theme="dark"] :is(.pze-plot, .pze-ckey, .pze-key) {
-  --pze-ok: color-mix(in srgb, var(--ok) 42%, var(--black)); --pze-mid: color-mix(in srgb, var(--caution) 55%, var(--black)); --pze-hi: color-mix(in srgb, var(--danger) 50%, var(--black));
-  --pze-ok-ink: var(--text); --pze-mid-ink: var(--text); --pze-hi-ink: var(--text);
-  --pze-ppg: color-mix(in srgb, var(--tr-hv) 45%, var(--black)); --pze-hvpg: color-mix(in srgb, var(--ramp-violet) 55%, var(--black)); --pze-both: color-mix(in srgb, var(--ramp-wine) 55%, var(--black));
-  --pze-ppg-ink: var(--text); --pze-hvpg-ink: var(--text); --pze-both-ink: var(--text);
-}
 .pze-planewrap { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: clamp(16px, 3vw, 48px); align-items: center; width: 100%; }
 .pz.stack .pze-planewrap { grid-template-columns: minmax(0, 1fr); gap: 12px; }
 .pze-planewrap.pze-nokey { grid-template-columns: minmax(0, 1fr); }   /* (a plane whose zones name themselves: the plot takes the key's width too) */
@@ -7236,57 +7218,15 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pz.stack .pze-plot.pze-incard.pze-ownwords { height: calc(168px + 1.3em + 6px); }
 .pz.low .pze-plot.pze-incard.pze-ownwords { height: calc(132px + 1.3em + 6px); }
 .pze-plot :is(svg, .ic) { position: absolute; inset: 0; display: block; overflow: visible; }
-.pze-zone { fill: var(--surface-2); }
-.pze-zone[data-tone="ok"] { fill: var(--pze-ok); }
 /* (The gray zone, "CSPH unclear", in a stronger amber than the other zones' tints, so it reads as its own band in both themes.) */
-.pze-zone[data-tone="mid"] { fill: var(--pze-mid); }
-.pze-zone[data-tone="hi"] { fill: var(--pze-hi); }
-.pze-zone[data-tone="ppg"] { fill: var(--pze-ppg); } .pze-zone[data-tone="hvpg"] { fill: var(--pze-hvpg); } .pze-zone[data-tone="both"] { fill: var(--pze-both); }   /* (blue, violet, wine: the HVPG against PPG plane's raised zones) */
-.pze-box { fill: none; stroke: var(--text-2); stroke-width: 1.5; stroke-dasharray: 6 5; }
-.pze-zt { font-weight: 700; fill: var(--text-2); }
-.pze-zt[data-tone="ok"] { fill: var(--pze-ok-ink); } .pze-zt[data-tone="mid"] { fill: var(--pze-mid-ink); } .pze-zt[data-tone="hi"] { fill: var(--pze-hi-ink); }
-.pze-zt[data-tone="ppg"] { fill: var(--pze-ppg-ink); } .pze-zt[data-tone="hvpg"] { fill: var(--pze-hvpg-ink); } .pze-zt[data-tone="both"] { fill: var(--pze-both-ink); }   /* (4.5:1 or more on its own fill, tests/plane-callouts.test.js) */
-.pze-zt.pze-bxw { font-weight: 600; fill: var(--text-2); }
-.pze-cut { stroke: var(--text-3); stroke-width: 1; stroke-dasharray: 3 4; }
-.pze-diag { stroke: var(--text-3); stroke-width: 1.5; stroke-dasharray: 3 4; }   /* (where the two readings are equal) */
 /* A scatter's axes (a plane with no zones, visual-plane.js axesFrame and axesMarks): the app's chart panel under hairline gridlines at the
    numbers, an axis line on the left and along the foot with a short tick at each number, the diagonal a step stronger than the grid so
    it still reads as the line that matters. Inside it the halos round words are the panel's own tone, as in every chart panel. */
-.pze-plot.pze-axes { --surface: var(--surface-2); }
-.pze-grid { stroke: color-mix(in srgb, var(--border-strong) 70%, transparent); stroke-width: 1; }
-.pze-axis { stroke: var(--text-3); stroke-width: 1.5; }
-.pze-axes .pze-diag { stroke: var(--text-2); }
-.pze-axes .pze-dt { paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }   /* (the grid breaks behind the diagonal's name) */
 .pz.stack .pze-plot.pze-axes { aspect-ratio: .94; }   /* (an iPhone's plot is taller than the zones' 1.15: the axes take their rows and columns out of it, and the dots of Schistosomiasis and a clot, 1.2 mmHg apart each way, must stay clear of each other) */
-.pze-dt { font-weight: 600; fill: var(--text-2); }
-.pze-ln { font-weight: 600; fill: var(--text); }   /* (a cut-off line's own name: CSPH ≥10, Bleed risk ≥12) */
 /* (His G2 look, 27 Oct: no axis lines, the plot's rounded edge is the axis; the numbers and the axes' names stand on the plot, a cut-off's number full and the rest and the names quieter. They carry no outline: the 55 % black one the FibroScan readings wear on a picture smeared these in the card's own dark text on a light card, Mohammad 29 Oct; the cut-off lines break behind them instead, visual-plane.js.) */
-.pze-t { fill: var(--text-2); font-weight: 600; font-variant-numeric: tabular-nums; }
-.pze-t.on { fill: var(--text); font-weight: 700; }
-.pze-ax { fill: var(--text-2); font-weight: 500; }
 /* (The points come in one after the other, faded in by the picture, visual-plane.js: a CSS animation on the hidden model read as nothing, so the points never showed, 2 Nov.) */
-.pze-pt { animation: none; }
-.pze-pt circle { fill: var(--site, var(--text-2)); stroke: var(--surface); stroke-width: 3; }
-.pze-pt text { fill: var(--text); font-weight: 600; paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
-.pze-lead { stroke: var(--text-2); stroke-width: 1; opacity: .7; }
-.pze-path { stroke: var(--site, var(--text-2)); stroke-width: 1.5; opacity: .5; }   /* (from where the patient started) */
-.pze-pt .pze-was { fill: var(--surface); stroke: var(--site, var(--text-2)); stroke-width: 2; }
-.pze-ring { transition: transform var(--d-surface) var(--ease), opacity var(--d-surface) var(--ease); }
-.pze-ring .pze-halo { fill: var(--surface); }   /* (the clear gap around the case's dot, in the card's own colour) */
-.pze-ring .pze-dot { fill: var(--text); }
-.pze-cwords .pze-zt { transition: opacity var(--d-flip) var(--ease); }
 /* (The patient's trail on the card, a tool's trail: Mohammad, 1 Nov, mock B. Hollow rings where he stood on the slides before, their
    short names beside them, and a thin line through them that is drawn on behind the dot as it glides. It eases in once.) */
-.pze-trail { transition: opacity var(--d-surface) var(--ease); }
-.pze-walk { fill: none; stroke: var(--text); stroke-opacity: .7; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-.pze-stop { fill: none; stroke: var(--text); stroke-width: 1.6; }
-.pze-sn { fill: var(--text); font-weight: 600; paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
-.pze-zt.pze-onl[data-tone="ok"] { paint-order: stroke; stroke: var(--pze-ok); stroke-width: 6px; stroke-linejoin: round; }   /* (words that must sit across a line inside their zone hide it) */
-.pze-zt.pze-onl[data-tone="mid"] { paint-order: stroke; stroke: var(--pze-mid); stroke-width: 6px; stroke-linejoin: round; }
-.pze-zt.pze-onl[data-tone="hi"] { paint-order: stroke; stroke: var(--pze-hi); stroke-width: 6px; stroke-linejoin: round; }
-.pze-zt.pze-onl[data-tone="ppg"] { paint-order: stroke; stroke: var(--pze-ppg); stroke-width: 6px; stroke-linejoin: round; }
-.pze-zt.pze-onl[data-tone="hvpg"] { paint-order: stroke; stroke: var(--pze-hvpg); stroke-width: 6px; stroke-linejoin: round; }
-.pze-zt.pze-onl[data-tone="both"] { paint-order: stroke; stroke: var(--pze-both); stroke-width: 6px; stroke-linejoin: round; }
 .pze-ckey { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 12px; margin: 6px 0 0; padding: 0; list-style: none; font-size: var(--ch-cap, var(--s-cap)); color: var(--text-2); }
 .pze-ckey li { display: inline-flex; align-items: center; gap: .35em; white-space: nowrap; }
 .pze-ckey i { width: .8em; height: .8em; border-radius: 2px; background: var(--surface-3); }

@@ -154,6 +154,12 @@ export const TOKENS = {
     // WP11 (card diagrams): flat colours the same in every look, read by chart-looks/card.js (the pressure ramp's 12 and 20 mmHg stops; the hepatocyte)
     'ramp-violet': '#925CDD', 'ramp-wine': '#A4216E', 'pz-hepatocyte': '#C58B5C',
 
+    // WP9 plane (chart-looks/plane.js reads the same mixes as numbers; these are printed for the keys' swatches, .pze-key and .pze-ckey): a zone's fill and its words' ink
+    // (blue, and the pressure ramp's violet and wine stops; quieter tints of the same colours, Mohammad 29 Oct, each still 30 apart from the others, plane-callouts test)
+    'pze-ok': 'color-mix(in srgb, var(--ok) 28%, var(--surface))', 'pze-mid': 'color-mix(in srgb, var(--caution) 40%, var(--surface))', 'pze-hi': 'color-mix(in srgb, var(--danger) 30%, var(--surface))',
+    'pze-ok-ink': 'color-mix(in srgb, var(--ok) 55%, var(--text))', 'pze-mid-ink': 'color-mix(in srgb, var(--caution) 40%, var(--text))', 'pze-hi-ink': 'color-mix(in srgb, var(--danger) 55%, var(--text))',
+    'pze-ppg': 'color-mix(in srgb, var(--tr-hv) 32%, var(--surface))', 'pze-hvpg': 'color-mix(in srgb, var(--ramp-violet) 24%, var(--surface))', 'pze-both': 'color-mix(in srgb, var(--ramp-wine) 26%, var(--surface))',
+    'pze-ppg-ink': 'color-mix(in srgb, var(--tr-hv) 30%, var(--text))', 'pze-hvpg-ink': 'color-mix(in srgb, var(--ramp-violet) 25%, var(--text))', 'pze-both-ink': 'color-mix(in srgb, var(--ramp-wine) 35%, var(--text))',
     'color-scheme': 'light',
   },
   // Soft light: warm, low-glare paper with frosted cards and softer ink; organ colours unchanged.
@@ -222,6 +228,11 @@ export const TOKENS = {
     'sv-gl-hsc-nucleus': '#60382A', 'sv-gl-kupffer': '#846AB0', 'sv-gl-kupffer-nucleus': '#4A3674',
     'sv-gl-kupffer-edge': '#3A2A60', 'sv-gl-rbc': '#B03E48', 'albumin': '#F2B64A', 'sv-gl-albumin-edge': '#6E3A00',
     'sv-gl-lymph-lo': '#B8C2B0', 'sv-gl-lymph-mid': '#B2C4A8', 'sv-gl-lymph-hi': '#A3BF94',
+    // WP9 plane (chart-looks/plane.js reads the same mixes as numbers; these are printed for the keys' swatches, .pze-key and .pze-ckey): a zone's fill and its words' ink
+    'pze-ok': 'color-mix(in srgb, var(--ok) 42%, var(--black))', 'pze-mid': 'color-mix(in srgb, var(--caution) 55%, var(--black))', 'pze-hi': 'color-mix(in srgb, var(--danger) 50%, var(--black))',
+    'pze-ok-ink': 'var(--text)', 'pze-mid-ink': 'var(--text)', 'pze-hi-ink': 'var(--text)',
+    'pze-ppg': 'color-mix(in srgb, var(--tr-hv) 45%, var(--black))', 'pze-hvpg': 'color-mix(in srgb, var(--ramp-violet) 55%, var(--black))', 'pze-both': 'color-mix(in srgb, var(--ramp-wine) 55%, var(--black))',
+    'pze-ppg-ink': 'var(--text)', 'pze-hvpg-ink': 'var(--text)', 'pze-both-ink': 'var(--text)',
     'color-scheme': 'dark',
   },
   // Two more dark looks (Settings > Appearance: Navy and Black). A look like this is a variant of Dark, not a theme of its own: the page

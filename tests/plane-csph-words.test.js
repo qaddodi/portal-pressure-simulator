@@ -6,6 +6,7 @@
 import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { LOOKS } from '../src/ui/chart-looks/index.js';
 import { readFileSync } from 'node:fs';
 import { planeOf, frame, scaler, placeCardWords, dotBoxes, dotSize, cutSegs, lineBoxes, layoutPlane, plotNumbers, planeReading, zoneOf } from '../src/ui/visual-plane.js';
 import { runSteps } from './deck-states.js';
@@ -36,10 +37,10 @@ test('the data card: no key, a dot in proportion to the plot with a gap around i
   assert.match(src, /pl\.key === 'never' \? null : planeCardKey\(pl\)/, 'no key under the card plot');
   assert.match(src, /card && pl\.key === 'never' \? ' pze-ownwords' : ''/, 'the plot takes the key\'s room');
   assert.match(css, /\.pz\.stack \.pze-plot\.pze-incard\.pze-ownwords \{ height: calc\(168px \+ 1\.3em \+ 6px\); \}/);
-  assert.match(src, /ringG = sv\('g', \{ class: 'pze-ring' \}, halo, dot\)/, 'a dot with its gap, no ring');
+  assert.match(src, /ringG = sv\('g', \{ class: 'pze-ring', 'data-look': 'plane.ring' \}, halo, dot\)/, 'a dot with its gap, no ring');
   assert.match(src, /svg\.append\(base, wordsG, ringG\)/, 'the dot and the words stay the same elements, so they ease');
-  assert.match(css, /\.pze-ring \.pze-halo \{ fill: var\(--surface\); \}/);
-  assert.match(css, /\.pze-ring \{ transition: transform var\(--d-surface\) var\(--ease\)/, 'the dot eases to each new reading');
+  assert.deepEqual(LOOKS['plane.halo'].base.fill, { k: 'tok', n: 'surface' }, 'the gap round the dot is the card\'s own colour');
+  assert.ok(LOOKS['plane.ring'].base.ease.transform && LOOKS['plane.ring'].base.ease.opacity, 'the dot eases to each new reading');
   for (const [W, H, fs, where] of CARD) {
     const fr = frame(W, H), { X, Y } = scaler(pl, fr), { r, g } = dotSize(fr), R = r + g, rules = lineBoxes(pl, X, Y, fr), numBoxes = plotNumbers(pl, fr, X, Y, fs).map((n) => n.box);
     assert.ok(r >= 4 && r <= Math.min(fr.R - fr.L, fr.B - fr.T) * 0.05 && g >= 2.5, `${where}: the dot in proportion (r ${r.toFixed(1)})`);

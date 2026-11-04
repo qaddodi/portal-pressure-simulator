@@ -30,6 +30,7 @@ import { plotPanel } from './plot-look.js';
 import { frameFor, easeNow } from './frame.js';
 import { easeArrive, D_SURFACE, EASE_ARRIVE } from './ease.js';
 import { createSvgGL, svgModel, setPts, moveAt } from './svg-gl.js';
+import { chartCtx } from './chart-ctx.js';
 import { propSoon } from './class-soon.js';
 import { reduceMotionMQ } from './motion.js';
 const reduceDot = typeof matchMedia === 'function' ? reduceMotionMQ : { matches: false };
@@ -735,10 +736,11 @@ const unitOf = (k) => TILE[k]?.u || '';
  *  points: [{ f, from?, name, site }] (from: where the patient started, drawn as a ring with a line to the point); ring: the case's fingerprint or null. */
 export function planePlot(pl, { card = false } = {}) {
   // (pze-axes from the start, so the plot has its size, which a scatter's axes need more of, before it is drawn.)
-  const el = h('div', { class: 'pze-plot' + (card ? ' pze-incard' : '') + (card && pl.key === 'never' ? ' pze-ownwords' : '') + (!card && hasAxes(pl) ? ' pze-axes' : ''), role: 'img' });
-  const svg = sv('svg', { class: 'pze-plane', 'aria-hidden': 'true' });
+  const axes = !card && hasAxes(pl);
+  const el = h('div', { class: 'pze-plot' + (card ? ' pze-incard' : '') + (card && pl.key === 'never' ? ' pze-ownwords' : '') + (axes ? ' pze-axes' : ''), role: 'img' });
+  const svg = sv('svg', { class: 'pze-plane', 'aria-hidden': 'true', 'data-axes': axes ? 'on' : null });   // (the scatter's plot gives its halos and fills the panel's own tone: chart-looks/plane.js)
   // (The drawing redraws in base; the card's zone words and its dot stay the same elements, so they ease from where they were.)
-  const halo = sv('circle', { class: 'pze-halo' }), dot = sv('circle', { class: 'pze-dot' });
+  const halo = sv('circle', { class: 'pze-halo', 'data-look': 'plane.halo' }), dot = sv('circle', { class: 'pze-dot', 'data-look': 'plane.dot' });
   let dotGo = null;   // (the dot's glide: from fx, fy to tx, ty, started at t0)
   const DOT_AT = { x: 0, y: 0 };   // (the dot's place now, one kept pair written in place; a caller reads it as it is returned)
   const dotEased = (t = easeNow()) => {
@@ -747,10 +749,10 @@ export function planePlot(pl, { card = false } = {}) {
     DOT_AT.x = dotGo.fx + (dotGo.tx - dotGo.fx) * k; DOT_AT.y = dotGo.fy + (dotGo.ty - dotGo.fy) * k;
     return DOT_AT;
   };
-  const base = sv('g'), wordsG = sv('g', { class: 'pze-cwords' }), ringG = sv('g', { class: 'pze-ring' }, halo, dot);
+  const base = sv('g'), wordsG = sv('g', { class: 'pze-cwords' }), ringG = sv('g', { class: 'pze-ring', 'data-look': 'plane.ring' }, halo, dot);
   svg.append(base, wordsG, ringG);
   el.append(svg);
-  const gl = createSvgGL(el);
+  const gl = createSvgGL(el, { host: card ? 'planecard' : 'plane' });
   const cardWords = new Map();   // (zone → its text element in the card)
   let pts = [], ring = null, size = '', was = null, sizeWas = '', ptsVer = 0, ptsFaded = 0, drawn = '', lastSize = [0, 0];
   // The patient's trail (card only, set by trail()): the stops' readings and names, the dot's way since the slide came up (in the
@@ -770,7 +772,9 @@ export function planePlot(pl, { card = false } = {}) {
     if (!W || !H) return;
     lastSize = [W, H];
     size = `${W}x${H}`;
-    const fs = Math.max(12, parseFloat(getComputedStyle(el).fontSize) || 13);
+    let host = 13;
+    try { const cx = chartCtx(el); delete cx.svk; gl.setCtx(cx); host = gl.hostSize(); } catch { /* (no card round it yet: the size as it stands) */ }
+    const fs = Math.max(12, host || 13);
     // (The case is read as its tiles print it.)
     const rg = ring ? shownReading(pl, ring) : null;
     const key = `${size}|${fs}|${ptsVer}|${rg ? ringKeys.map((k) => rg[k]).join(',') : '-'}|${sizeWas}|${was ? `${was.x},${was.y}` : '-'}|${stops.length ? stops.map((s) => `${s.f[pl.x.key]},${s.f[pl.y.key]},${s.name}`).join(';') : ''}`;
@@ -786,11 +790,11 @@ export function planePlot(pl, { card = false } = {}) {
     const panel = plotPanel(sv, 0, 0, W, H, { fill: axed });
     const fills = [...pl.zones].reverse().map((z) => {
       const [x0, x1, y0, y1] = zoneRect(pl, z), b = bleed({ x1: X(x0), x2: X(x1), y1: Y(y1), y2: Y(y0) }, fr, W, H);
-      return sv('rect', { class: 'pze-zone', 'data-tone': z.tone || 'none', x: b.x1, y: b.y1, width: b.x2 - b.x1, height: b.y2 - b.y1 });
+      return sv('rect', { class: 'pze-zone', 'data-look': 'plane.zone', 'data-tone': z.tone || 'none', x: b.x1, y: b.y1, width: b.x2 - b.x1, height: b.y2 - b.y1 });
     });
     kids.push(sv('defs', {}, panel.clip), axed ? panel.back : sv('g', { 'clip-path': panel.url }, fills));
     const ax = axed ? axesMarks(pl, fr, X, Y, fs, W) : null;
-    if (ax) for (const g of ax.grid) kids.push(sv('line', { class: 'pze-grid', ...g }));
+    if (ax) for (const g of ax.grid) kids.push(sv('line', { class: 'pze-grid', 'data-look': 'plane.grid', ...g }));
     // The patients' names first, so every point keeps its name; the zones' words then take what room is left (the key names
     // every zone anyway; with no key, each zone's words search the whole zone for a clear place).
     // (Each at the numbers as printed, as the case's dot is: the zone it stands in is the one its numbers name.)
@@ -807,29 +811,29 @@ export function planePlot(pl, { card = false } = {}) {
     const nums = card ? cardNums : axed ? [...ax.nums, ...ax.names] : [...axisNames, ...plotNumbers(pl, fr, X, Y, fs, [...pointBoxes, ...axisNames.map((n) => n.box), ...names.filter(Boolean).map((n) => n.box), ...words.map((w) => w.box), ...lines.map((l) => l.box)], 'ticks')];
     for (const b of pl.boxes || []) {
       const [x0, x1, y0, y1] = zoneRect(pl, b);
-      kids.push(sv('rect', { class: 'pze-box', x: X(x0), y: Y(y1), width: X(x1) - X(x0), height: Y(y0) - Y(y1) }));
+      kids.push(sv('rect', { class: 'pze-box', 'data-look': 'plane.box', x: X(x0), y: Y(y1), width: X(x1) - X(x0), height: Y(y0) - Y(y1) }));
     }
     for (const w of words) {
-      kids.push(sv('text', { class: 'pze-zt ' + w.cls, 'data-tone': w.z.tone || 'none', x: w.x, y: w.y, 'text-anchor': w.anchor, style: `font-size:${fs}px` }, w.lines.map((l, i) => sv('tspan', { x: w.x, dy: i ? fs * 1.2 : null }, l))));
+      kids.push(sv('text', { class: 'pze-zt ' + w.cls, 'data-look': 'plane.zt', 'data-tone': w.z.tone || 'none', x: w.x, y: w.y, 'text-anchor': w.anchor, 'font-size': fs }, w.lines.map((l, i) => sv('tspan', { x: w.x, dy: i ? fs * 1.2 : null }, l))));
     }
     // The cut-off lines, the axes and their ticks.
     // (Broken 4 px clear of a name that sits across one, and of a number a line runs to: the numbers carry no outline to hide it, which
     // smeared them on a light card.)
-    for (const c of gapSegs(cutSegs(pl, X, Y, fr, true), [...names.filter((n) => n?.across).map((n) => n.box), ...nums.map((n) => n.box)])) kids.push(sv('line', { class: 'pze-cut', ...bleed(c, fr, W, H) }));
-    for (const l of lines) kids.push(sv('text', { class: 'pze-ln', x: l.x, y: l.y, 'text-anchor': l.anchor, style: `font-size:${fs}px` }, l.text));
+    for (const c of gapSegs(cutSegs(pl, X, Y, fr, true), [...names.filter((n) => n?.across).map((n) => n.box), ...nums.map((n) => n.box)])) kids.push(sv('line', { class: 'pze-cut', 'data-look': 'plane.cut', ...bleed(c, fr, W, H) }));
+    for (const l of lines) kids.push(sv('text', { class: 'pze-ln', 'data-look': 'plane.ln', x: l.x, y: l.y, 'text-anchor': l.anchor, 'font-size': fs }, l.text));
     const dg = diagOf(pl, X, Y, fs);
-    if (dg) kids.push(sv('line', { class: 'pze-diag', ...dg.seg }), dg.label ? sv('text', { class: 'pze-dt', x: dg.label.x, y: dg.label.y, 'text-anchor': dg.label.anchor, style: `font-size:${fs}px` }, dg.label.text) : null);
+    if (dg) kids.push(sv('line', { class: 'pze-diag', 'data-look': 'plane.diag', ...dg.seg }), dg.label ? sv('text', { class: 'pze-dt', 'data-look': 'plane.dt', x: dg.label.x, y: dg.label.y, 'text-anchor': dg.label.anchor, 'font-size': fs }, dg.label.text) : null);
     // The axes: their lines and ticks over the diagonal's start, the numbers and names beside them.
-    if (ax) for (const l of [...ax.axes, ...ax.ticks]) kids.push(sv('line', { class: 'pze-axis', ...l }));
+    if (ax) for (const l of [...ax.axes, ...ax.ticks]) kids.push(sv('line', { class: 'pze-axis', 'data-look': 'plane.axis', ...l }));
     // The numbers and the axes' names on the plot (a plane with zones: no axis lines, the shape's edge is the axis).
-    for (const n of nums) kids.push(sv('text', { class: n.cls, x: n.x, y: n.y, 'text-anchor': n.anchor, style: `font-size:${fs}px` }, n.text));
+    for (const n of nums) kids.push(sv('text', { class: n.cls, 'data-look': n.cls === 'pze-ax' ? 'plane.ax' : 'plane.t', x: n.x, y: n.y, 'text-anchor': n.anchor, 'font-size': fs }, n.text));
     // The patients: a point each, its name beside it.
     at.forEach((p, i) => {
       const n = names[i];
-      kids.push(sv('g', { class: 'pze-pt', 'data-site': p.site || 'none', style: `--i:${i}` }, p.was ? sv('line', { class: 'pze-path', x1: p.was.x, y1: p.was.y, x2: p.x, y2: p.y }) : null,
-        p.was ? sv('circle', { class: 'pze-was', cx: p.was.x, cy: p.was.y, r: 6 }) : null,
-        n?.lead ? sv('line', { class: 'pze-lead', x1: p.x, y1: p.y, x2: n.lead[0], y2: n.lead[1] }) : null, sv('circle', { cx: p.x, cy: p.y, r: pr }),
-        n ? sv('text', { x: n.x, y: n.y, 'text-anchor': n.anchor, style: `font-size:${fs}px` }, n.lines.map((l, j) => sv('tspan', { x: n.x, dy: j ? fs * 1.2 : null }, l))) : null));
+      kids.push(sv('g', { class: 'pze-pt', 'data-site': p.site || 'none', style: `--i:${i}` }, p.was ? sv('line', { class: 'pze-path', 'data-look': 'plane.path', x1: p.was.x, y1: p.was.y, x2: p.x, y2: p.y }) : null,
+        p.was ? sv('circle', { class: 'pze-was', 'data-look': 'plane.was', cx: p.was.x, cy: p.was.y, r: 6 }) : null,
+        n?.lead ? sv('line', { class: 'pze-lead', 'data-look': 'plane.lead', x1: p.x, y1: p.y, x2: n.lead[0], y2: n.lead[1] }) : null, sv('circle', { 'data-look': 'plane.pt.dot', cx: p.x, cy: p.y, r: pr }),
+        n ? sv('text', { 'data-look': 'plane.pt.name', x: n.x, y: n.y, 'text-anchor': n.anchor, 'font-size': fs }, n.lines.map((l, j) => sv('tspan', { x: n.x, dy: j ? fs * 1.2 : null }, l))) : null));
     });
     // The slide's case: a dot in proportion to the plot, a gap in the card's colour around it, that eases from where it was (a
     // transform, so Safari eases it too).
@@ -854,7 +858,7 @@ export function planePlot(pl, { card = false } = {}) {
         let t = cardWords.get(w.z);
         const pos = `translate(${w.x.toFixed(1)}px, ${w.y.toFixed(1)}px)`, body = w.lines.join('\n') + '|' + w.fs;
         if (!t) {
-          t = sv('text', { class: 'pze-zt pze-zw', 'data-tone': w.z.tone || 'none', 'text-anchor': 'middle' });
+          t = sv('text', { class: 'pze-zt pze-zw', 'data-look': 'plane.zt', 'data-tone': w.z.tone || 'none', 'text-anchor': 'middle' });
           t.style.transform = pos; t.dataset.pos = pos;
           cardWords.set(w.z, t); wordsG.append(t);
         } else if (t.dataset.pos !== pos) {
@@ -866,7 +870,7 @@ export function planePlot(pl, { card = false } = {}) {
         }
         if (t.dataset.body !== body) {
           t.dataset.body = body;
-          t.style.fontSize = `${w.fs}px`;
+          t.setAttribute('font-size', +w.fs.toFixed(1));
           t.replaceChildren(...w.lines.map((l, j) => sv('tspan', { x: 0, dy: j ? w.fs * 1.2 : null }, l)));
         }
         t.classList.toggle('pze-onl', w.onLine);
@@ -888,8 +892,8 @@ export function planePlot(pl, { card = false } = {}) {
   // the dot moves); returns the boxes the zones' words keep clear of.
   function drawStops(fr, X, Y, fs, now, avoid) {
     if (!trailG) {
-      walkPath = sv('path', { class: 'pze-walk' }); stopsG = sv('g', { class: 'pze-stops' });
-      trailG = sv('g', { class: 'pze-trail' }, walkPath, stopsG);
+      walkPath = sv('path', { class: 'pze-walk', 'data-look': 'plane.walk' }); stopsG = sv('g', { class: 'pze-stops' });
+      trailG = sv('g', { class: 'pze-trail', 'data-look': 'plane.trail' }, walkPath, stopsG);
       svg.insertBefore(trailG, wordsG);
     }
     const lo = (a) => a.min ?? 0;
@@ -902,8 +906,8 @@ export function planePlot(pl, { card = false } = {}) {
     if (k !== stopsKey) {
       const first = !stopsKey;
       stopsKey = k;
-      stopsG.replaceChildren(...at.flatMap((p, i) => [sv('circle', { class: 'pze-stop', cx: p.x.toFixed(1), cy: p.y.toFixed(1), r: 5 }),
-        names[i] ? sv('text', { class: 'pze-sn', x: names[i].x.toFixed(1), y: names[i].y.toFixed(1), 'text-anchor': names[i].anchor, style: `font-size:${fs}px` }, p.name) : null]));
+      stopsG.replaceChildren(...at.flatMap((p, i) => [sv('circle', { class: 'pze-stop', 'data-look': 'plane.stop', cx: p.x.toFixed(1), cy: p.y.toFixed(1), r: 5 }),
+        names[i] ? sv('text', { class: 'pze-sn', 'data-look': 'plane.sn', x: names[i].x.toFixed(1), y: names[i].y.toFixed(1), 'text-anchor': names[i].anchor, 'font-size': fs }, p.name) : null]));
       // (They ease in the first time, with the line, never pop.)
       if (first) gl.fadeEl(trailG, D_SURFACE, EASE_ARRIVE);   // (in the picture, on the trail's old ease, --d-surface on --ease)
     }

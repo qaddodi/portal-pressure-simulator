@@ -12,6 +12,7 @@ import { DECKS } from '../src/ui/decks.js';
 import { readFileSync } from 'node:fs';
 import { PLANES, planeOf, frame, scaler, layoutPlane, plotNumbers, cutNumbers, widen, crosses, cutSegs, gapSegs } from '../src/ui/visual-plane.js';
 import { deckStates } from './deck-states.js';
+import { TOKENS } from '../src/ui/theme-tokens.js';
 
 const touch = (a, o) => a[0] < o[2] && a[2] > o[0] && a[1] < o[3] && a[3] > o[1];
 // [W, H, caption px, where]: the summary panel's plot, from an iPhone upright to a wide Mac.
@@ -127,7 +128,9 @@ test('the plane\'s green, amber and red zones: words 4.5:1 on their fills, light
   const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((m, n) => m - n); return (y + 0.05) / (x + 0.05); };
   const hex = (c) => '#' + c.map((v) => Math.round(v).toString(16).padStart(2, '0')).join('');
   // (Each theme's variables as app.css sets them: the light and soft rule first, then the dark one.)
-  const light = css.match(/\.pze-plot, \.pze-ckey, \.pze-key \{([^}]*)\}/)[1], dark = css.match(/:root\[data-theme="dark"\] :is\(\.pze-plot, \.pze-ckey, \.pze-key\) \{([^}]*)\}/)[1];
+  // (The swatch tokens are written in src/ui/theme-tokens.js, printed into tokens.css: light's, and what the dark looks change.)
+  const printed = (t) => Object.entries(t).filter(([k]) => k.startsWith('pze-')).map(([k, v]) => `--${k}: ${v};`).join('\n');
+  const light = printed(TOKENS.light), dark = printed(TOKENS.dark);
   const val = (rule, th, k) => {
     const m = rule.match(new RegExp(`--pze-${k}: ([^;]+);`))[1].trim(), c = m.match(/color-mix\(in srgb, var\(--([\w-]+)\) (\d+)%, var\(--([\w-]+)\)\)/);
     if (!c) return rgb(th[m.match(/var\(--([\w-]+)\)/)[1]]);
@@ -152,7 +155,7 @@ test('the plane\'s green, amber and red zones: words 4.5:1 on their fills, light
     }
   }
   assert.deepEqual(PLANES['hvpg-ppg'].zones.map((z) => z.tone), ['ok', 'ppg', 'hvpg', 'both'], 'each of the four zones has its own colour');
-  assert.match(css, /@media \(prefers-color-scheme: dark\) \{ :root:not\(\[data-theme="light"\]\):not\(\[data-theme="soft"\]\) :is\(\.pze-plot, \.pze-ckey, \.pze-key\) \{\n {2}--pze-ok: color-mix\(in srgb, var\(--ok\) 42%, var\(--black\)\)/, 'the system dark theme matches');
+  assert.match(tok, /@media \(prefers-color-scheme: dark\) \{\n {2}:root:not\(\[data-theme="light"\]\):not\(\[data-theme="soft"\]\) \{[^}]*--pze-ok: color-mix\(in srgb, var\(--ok\) 42%, var\(--black\)\)/, 'the system dark theme matches');
   for (const k of ['ok', 'mid', 'hi', 'ppg', 'hvpg', 'both']) assert.ok(css.includes(`.pze-key li[data-tone="${k}"] i { background: var(--pze-${k}); }`) && css.includes(`.pze-ckey li[data-tone="${k}"] i { background: var(--pze-${k}); }`), `${k}: the keys' swatches are the plot's fills`);
 });
 

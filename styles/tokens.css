@@ -366,6 +366,18 @@
   --ramp-violet: #925CDD;
   --ramp-wine: #A4216E;
   --pz-hepatocyte: #C58B5C;
+  --pze-ok: color-mix(in srgb, var(--ok) 28%, var(--surface));
+  --pze-mid: color-mix(in srgb, var(--caution) 40%, var(--surface));
+  --pze-hi: color-mix(in srgb, var(--danger) 30%, var(--surface));
+  --pze-ok-ink: color-mix(in srgb, var(--ok) 55%, var(--text));
+  --pze-mid-ink: color-mix(in srgb, var(--caution) 40%, var(--text));
+  --pze-hi-ink: color-mix(in srgb, var(--danger) 55%, var(--text));
+  --pze-ppg: color-mix(in srgb, var(--tr-hv) 32%, var(--surface));
+  --pze-hvpg: color-mix(in srgb, var(--ramp-violet) 24%, var(--surface));
+  --pze-both: color-mix(in srgb, var(--ramp-wine) 26%, var(--surface));
+  --pze-ppg-ink: color-mix(in srgb, var(--tr-hv) 30%, var(--text));
+  --pze-hvpg-ink: color-mix(in srgb, var(--ramp-violet) 25%, var(--text));
+  --pze-both-ink: color-mix(in srgb, var(--ramp-wine) 35%, var(--text));
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
@@ -564,6 +576,18 @@
     --sv-gl-lymph-lo: #B8C2B0;
     --sv-gl-lymph-mid: #B2C4A8;
     --sv-gl-lymph-hi: #A3BF94;
+    --pze-ok: color-mix(in srgb, var(--ok) 42%, var(--black));
+    --pze-mid: color-mix(in srgb, var(--caution) 55%, var(--black));
+    --pze-hi: color-mix(in srgb, var(--danger) 50%, var(--black));
+    --pze-ok-ink: var(--text);
+    --pze-mid-ink: var(--text);
+    --pze-hi-ink: var(--text);
+    --pze-ppg: color-mix(in srgb, var(--tr-hv) 45%, var(--black));
+    --pze-hvpg: color-mix(in srgb, var(--ramp-violet) 55%, var(--black));
+    --pze-both: color-mix(in srgb, var(--ramp-wine) 55%, var(--black));
+    --pze-ppg-ink: var(--text);
+    --pze-hvpg-ink: var(--text);
+    --pze-both-ink: var(--text);
     color-scheme: dark;
   }
 }
@@ -762,6 +786,18 @@
   --sv-gl-lymph-lo: #B8C2B0;
   --sv-gl-lymph-mid: #B2C4A8;
   --sv-gl-lymph-hi: #A3BF94;
+  --pze-ok: color-mix(in srgb, var(--ok) 42%, var(--black));
+  --pze-mid: color-mix(in srgb, var(--caution) 55%, var(--black));
+  --pze-hi: color-mix(in srgb, var(--danger) 50%, var(--black));
+  --pze-ok-ink: var(--text);
+  --pze-mid-ink: var(--text);
+  --pze-hi-ink: var(--text);
+  --pze-ppg: color-mix(in srgb, var(--tr-hv) 45%, var(--black));
+  --pze-hvpg: color-mix(in srgb, var(--ramp-violet) 55%, var(--black));
+  --pze-both: color-mix(in srgb, var(--ramp-wine) 55%, var(--black));
+  --pze-ppg-ink: var(--text);
+  --pze-hvpg-ink: var(--text);
+  --pze-both-ink: var(--text);
   color-scheme: dark;
 }
 /* Soft light: warm, low-glare paper with frosted cards and softer ink. */
