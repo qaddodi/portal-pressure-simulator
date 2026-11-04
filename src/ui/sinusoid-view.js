@@ -235,10 +235,10 @@ export function createSinusoidView({ host, before = null, share = null }) {
     const tg = gpu.target;
     if (!tg) return;
     // (A card's zoom carries the picture by its camera: a point p is at k p + (e, f) in CSS px from the stage's corner.)
-    if (zk !== 1 || ze || zf) { const r = (shareTop.canvas.width || 1) / ((hostWH && hostWH[0]) || shareTop.canvas.clientWidth || shareTop.canvas.width || 1); shareTop.lay(tg.tex, zk, 0, 0, zk, ze * r, zf * r, Math.min(1, shown)); }
+    if (zk !== 1 || ze || zf) { const r = zr || (shareTop.canvas.width || 1) / ((hostWH && hostWH[0]) || shareTop.canvas.clientWidth || shareTop.canvas.width || 1); shareTop.lay(tg.tex, zk, 0, 0, zk, ze * r, zf * r, Math.min(1, shown)); }
     else shareTop.lay(tg.tex, 1, 0, 0, 1, 0, 0, Math.min(1, shown));
   }
-  let zk = 1, ze = 0, zf = 0;
+  let zk = 1, ze = 0, zf = 0, zr = 0;
   // (The ?perf surfaces list, gpu-surfaces.js: read by the readout only.)
   surface('sinusoid', () => (!open ? null : gpu && !gpu.lost ? { on: svSoft ? 'fallback' : 'gpu', via: svSoft ? 'WebGL2 on the CPU' : 'WebGL2', why: svSoft ? 'software renderer' : '' } : { on: 'fallback', via: 'nothing drawn', why: gpu ? 'context lost (drawn again when it is given back)' : 'no WebGL2' }));   // (answered by this view's own context: sinusoidSupported need not make a throwaway one) // alloc-rare: read only by the ?perf readout, twice a second while it is open (gpu-surfaces.js), never in a frame
 
@@ -1292,9 +1292,9 @@ export function createSinusoidView({ host, before = null, share = null }) {
     setExplain(key) { exKey = key; },
     /** A card's zoom (lobule-zoom.js zoomAt, card-zoom-plan.md): the view's picture and its names and leaders are carried by one camera, a point p drawn at
      *  k p + (e, f) (CSS px from the stage's corner), the names keeping their size. Nothing is laid out again. (1, 0, 0) gives it up. False: not the shared picture. */
-    camera(k, e, f) {
+    camera(k, e, f, r = 0) {
       if (!shareTop || !gpu || gpu.lost) return false;
-      zk = k; ze = e; zf = f;
+      zk = k; ze = e; zf = f; if (r > 0) zr = r;
       cap.view(k, e, f);
       shareTop.present();
       return true;
