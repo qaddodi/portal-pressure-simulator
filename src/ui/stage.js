@@ -2641,7 +2641,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The new view's labels laid out for where the change lands: the stage put to its end (the view, the camera, the vessels' courses and which
   // are drawn), the labels solved whole, and the stage put back, nothing drawn in between.
   const solveTargetVT = { k: 1, x: 0, y: 0 };
-  function solveTargetView(d) {
+  // (Runs fn with the stage at the change's end state, then puts it back, nothing drawn in between. Each slice of the solve runs inside it.)
+  function atTargetStage(d, fn) {
     const tgt = morphTarget, keepVT = vt, keepMorph = morph, keepLast = lastMorph, vb0 = vbBox.x, vb1 = vbBox.y, vb2 = vbBox.width, vb3 = vbBox.height;
     const curS = [], visS = [];
     glSuppress = true;
@@ -2657,9 +2658,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         x.vis = x.reveal?.out ? true : edgeVisible(x, F);
       }
       CTM = null; refreshCTM();
-      labelKey = null; solveAsked = true;
-      updateLabels(F, true);
-      if (labelJob) labelJobFinish();
+      return fn();
     } finally {
       for (let i = 0; i < EV.length; i++) { geo[EV[i].e.id].cur = curS[i]; EV[i].vis = visS[i]; }
       morph = keepMorph; lastMorph = keepLast; vt = keepVT;
@@ -2667,7 +2666,33 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       CTM = null; refreshCTM();
       glSuppress = false;
     }
-    labelGlSync();
+  }
+  // The solve is a job sliced over the change's frames: one short slice in the tap's own frame (xfSolving shortens updateLabels' first slice), then one
+  // per frame of the morph (viewXfStep), the rest at the landing if it comes first. The new labels stay at nothing until it lands.
+  let xfSolving = false;
+  function solveTargetView(d) {
+    labelKey = null; solveAsked = true;
+    xfSolving = true;
+    try { atTargetStage(d, () => { updateLabels(F, true); }); } finally { xfSolving = false; }
+    cancelMay('label solve');   // (the job is ours: no idle slice runs it)
+    if (!labelJob) { labelGlSync(); return false; }
+    return true;   // pending
+  }
+  // (One slice of the pending solve, at the stage's end state; true once it has landed.)
+  function xfSolveSlice(d, ms) {
+    const j = labelJob;
+    if (!j) return true;
+    let done = false;
+    atTargetStage(d, () => {
+      try { done = labelSliceRun(j.g, ms); } catch (e) { labelJob = null; labelKey = null; throw e; }
+      if (!done) return;
+      labelJob = null;
+      solvedFor = j.solvedFor; solveAsked = false;
+      labelKey = keyInto(labelKeyArr, j.key); stats.layouts++;
+      labelTail();
+    });
+    if (done) labelGlSync();
+    return done;
   }
   function viewXfStart(d) {
     viewXf = null;   // (a change begun on another: the new one is solved first, with the layers out of the old one's hands)
@@ -2675,24 +2700,31 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (handRide) handRideEnd();
     labelGL.freezeGhosts();
     xfVisFill();
-    solveTargetView(d);
+    const pending = solveTargetView(d);
     // (A glide of the camera that was running is over: the change's own clock moves it now.)
     cancelFrame(vtAnim); arcRun = null; landRide = false; landTo = null; following = false;
     if (drifting) driftEnd();
     drifting = false;
     if (carrying) { carrying = false; rideLeaders(false); }
     const to = { k: d.k, x: d.x, y: d.y };
-    viewXf = { t0: easeInOut(morph), tT: morphTarget, from: { ...vt }, to, same: sameView(vt, to) };
+    viewXf = { t0: easeInOut(morph), tT: morphTarget, from: { ...vt }, to, same: sameView(vt, to), pending, tStart: performance.now(), sigTap: solvedFor?.sig || null };
     vtTarget = to; vtGliding = !viewXf.same; vtUntil = performance.now() + 700; vtMs = 700;
     xfOp = '';
     xfLayer(0);
-    viewXfStep();
+    viewXfStep(true);
   }
   // (Each frame of the change, after the figure is drawn at its morph: the crossfade from its progress. The camera was set before it.)
-  function viewXfStep() {
+  function viewXfStep(first = false) {
     const x = viewXf, p = viewXfP();
     refreshCTM();
-    const n = clamp(2 * p - 1, 0, 1);
+    if (x.pending && !first) {
+      if (!labelJob) { x.pending = false; labelKey = null; solveAsked = true; }   // (the job was dropped by another: laid out as it lands)
+      else {
+        const age = performance.now() - x.tStart;
+        if (xfSolveSlice(x.to, Math.min(12, 4 + Math.max(0, age - 250) / 75))) { x.pending = false; x.sigTap = solvedFor?.sig || null; }
+      }
+    }
+    const n = x.pending ? 0 : clamp(2 * p - 1, 0, 1);
     xfLayer(n);
     labelGL.crossfade(clamp(1 - 2 * p, 0, 1), n);
     if (p >= 1 || morph === morphTarget) viewXfEnd();
@@ -2700,13 +2732,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function viewXfEnd() {
     const x = viewXf;
     if (!x) return;
+    if (x.pending && labelJob) { while (!xfSolveSlice(x.to, 1e6)); x.sigTap = solvedFor?.sig || null; }   // (the morph landed first: the rest of the solve now)
+    x.pending = false;
     viewXf = null;
     if (!x.same) { vt = { ...x.to }; applyVT(); CTM = null; }
     vtGliding = false;
     xfLayer(1);
     labelGL.dropGhosts();
     refreshCTM();
-    // (Laid out for this very camera already: this finds the key the same, and only refreshes values.)
+    // (Laid out for this very camera already: the solve at the tap was for the landed geometry, so it stands. The signature differs only by the geometry's
+    // version, which every morph frame bumped: marked current, the landing only refreshes values and does not solve again.)
+    if (F && x.sigTap && solvedFor && solvedFor.sig === x.sigTap && !labelJob) {
+      const sig = labelSig(F), cut = (t) => t.slice(t.indexOf('|'));
+      if (sig !== x.sigTap && cut(sig) === cut(x.sigTap)) { solvedFor.sig = sig; if (labelKey) labelKey[16] = sig; }
+    }
     if (F) updateLabels(F);
   }
   // (Whether the view is moving now: a glide, a pan or a pinch. Boxes kept for the frame's reads are not read again while it is.)
@@ -11971,6 +12010,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // other, never between them. What the labels show is compared by rideKeyHeld, not the signature: on a playing model that changes every
     // few frames (widths, geometry), and the two flags the zoom itself flips.)
     const restView = morph === 0 || morph === 1;
+    // (The hand came back while the settle solve ran: back to riding, the solve dropped, no carry, no ride end and no glide.)
+    if (handRide?.settle && gestureOn() && rideCTM && restView && rideKeyHeld(st)) {
+      labelJobDrop(); handRide.settle = false; handRideWatch();
+      rideStep(); stats.skips++; stats.ms += performance.now() - t0;
+      return;
+    }
     if (handRide && !handRide.settle) {
       if (rideCTM && gestureOn() && restView && rideKeyHeld(st)) { rideStep(); stats.skips++; stats.ms += performance.now() - t0; return; }
       handRideEnd(); labelKey = null;
@@ -12026,7 +12071,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         // dropped the sliced solve the next frame. Mohammad, 2 Nov: "the labels and callouts move slower than the figure camera".)
         if (solvedFor && solvedFor.view === morphTarget && !(morph > 0 && morph < 1)) layoutLabels(f, false);   // (not another view's solution: its anchors are that view's world points, which would stand the labels and their dots where the figure has none)
         const g = layoutLabelsGen(f, true);
-        if (!labelSliceRun(g, gestureOn() || drifting || (morph > 0 && morph < 1) ? LABEL_SLICE_MS : LABEL_FIRST_REST_MS)) {   // (at rest the first slice is long: most solves land in it)
+        if (!labelSliceRun(g, xfSolving ? 4 : gestureOn() || drifting || (morph > 0 && morph < 1) ? LABEL_SLICE_MS : LABEL_FIRST_REST_MS)) {   // (at rest the first slice is long: most solves land in it)
           labelJob = JOB; JOB.g = g; JOB.key = keyInto(jobKeyArr, key); JOB.solvedFor = sf; JOB.t0 = performance.now(); stats.jobs++;
           mayTask('label solve', labelJobStep, handRide?.settle || !gestureOn() ? JOB_NOW : undefined);   // (at rest the slices run every frame, none waits two)
           stats.ms += performance.now() - t0;
@@ -12052,7 +12097,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   function handRideWait() {
     if (!handRide || handRide.settle) return;
-    if (drag || glide || performance.now() - wheelAt < HAND_STILL_MS) { handRideT = nextFrame(handRideWait); return; }
+    if (drag || glide || gestureOn()) {   // (the settle starts once the hand has let go: pointer up, or the wheel quiet, not at any short pause)
+      handRideT = nextFrame(handRideWait); return; }
     handRideT = 0; handRide.settle = true;
     if (F && !camMove && !lz?.isOpen()) { labelKey = null; updateLabels(F); } else handRideEnd();
   }
@@ -14310,7 +14356,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (morph !== morphTarget) {
       morph = clamp(morph + Math.sign(morphTarget - morph) * dt / 0.6, 0, 1);
       // (The camera is on the change's clock: its framing is the share of the way the figure has come.)
-      if (viewXf && !viewXf.same) { const p = viewXfP(); vt = p >= 1 ? { ...viewXf.to } : lerpVT(viewXf.from, viewXf.to, p); }
+      if (viewXf && !viewXf.same) { const p = viewXfP(); vt = p >= 1 ? { ...viewXf.to } : lerpVT(viewXf.from, viewXf.to, p); viewVersion++; }   // (the camera moved: a view move, never paced like the model's motion)
       if (F) update(F); else updateGeometry(true);
       if (viewXf) viewXfStep();
     } else if (widthEasing && F && !stepOrgans() && !stepWidths()) update(F);   // a width still easing to its target: one step a frame (stepWidths: the widths alone, when nothing else changed)
