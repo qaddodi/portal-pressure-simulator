@@ -254,11 +254,11 @@ html.chip-open :is(.chip-btn, .lens-btn)[aria-expanded="true"] { background: var
    their leader lines and dots fade with them (paintLeaders). The entry fade fills backwards only: one filling forwards stays on the
    label's opacity after it ends, and the browser then starts no transition of it, so every later hide or show (lb-off, ld-gone) snapped
    off and on at once (2 Nov, "labels turn on and off randomly"). */
-#labels .lb { transition: opacity var(--d-small) var(--ease); animation: crossfade var(--d-small) var(--ease) backwards; }
+#labels .lb { transition: none; animation: none; }   /* (4 Nov: a label shows and goes at once, no entry fade) */
 /* Tap a label to explain it (stage.js explainApply, label-explain.js): the others step back to 35 %, their leaders with them. Before .lb-off and .ld-gone, which stay at 0. */
 #labels .lb.spot-dim, .lb-leaders > .spot-dim { opacity: .35; }
 #labels .lb.lb-off { opacity: 0; pointer-events: none; }
-.lb-leaders > * { transition: opacity var(--d-small) var(--ease); animation: crossfade var(--d-small) var(--ease) backwards; }
+.lb-leaders > * { transition: none; animation: none; }
 .lb-leaders > .ld-gone { opacity: 0; }
 .lb-leaders > .dpr-hid { opacity: 0; transition-duration: var(--d-surface); }   /* (the station dot under the Doppler's gate fades with the probe, stage.js dprDots) */
 @media (prefers-reduced-motion: reduce) { #labels .lb, .lb-leaders > * { transition: none; animation: none; } }
