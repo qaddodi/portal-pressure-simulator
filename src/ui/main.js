@@ -453,7 +453,9 @@ async function main() {
     const reg = () => whenQuiet(() => (window.requestIdleCallback || ((fn) => setTimeout(fn, 1500)))(() => navigator.serviceWorker.register('sw.js')
       .then(() => navigator.serviceWorker.ready).then((r) => whenQuiet(() => r.active?.postMessage('pps:fill'), 2000, 1000))
       .catch(() => { /* offline support is optional */ })));
-    if (window.ppsFigureReady) reg(); else addEventListener('pps:figure-ready', reg, { once: true });
+    // (The source site, `npm start`, loads src/ui/main.js and has no worker of its own: the build writes dist/sw.js, so only a built page registers one.)
+    const built = !document.querySelector('script[type=module][src^="src/"]');
+    if (built) { if (window.ppsFigureReady) reg(); else addEventListener('pps:figure-ready', reg, { once: true }); }
   }
   performance.mark?.('pps:booted');   // (P3: the first figure frame and the first input accepted are read from these marks and the browser's own first-input entry)
   // The surfaces most sessions never open are fetched and read in once the page is idle, one at a time, each only after the page has been

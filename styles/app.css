@@ -34,6 +34,7 @@ body {
 button, input, select { font: inherit; color: inherit; }
 /* the interface has three weights (400 · 500 · 600): nothing falls back to the browser's bold */
 b, strong, h1, h2, h3, h4, th, summary { font-weight: 600; }
+html { -webkit-tap-highlight-color: transparent; }   /* (inherited: no new button, tile or row flashes grey on iOS) */
 button { -webkit-tap-highlight-color: transparent; }
 svg { flex: none; }
 .num { font-variant-numeric: tabular-nums; }
