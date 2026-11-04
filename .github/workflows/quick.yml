@@ -1,7 +1,7 @@
 name: Quick checks (lint, unit tests, static)
 
 # Lint and the unit tests on every push to the preview branch, beside the deploy (pages.yml) and never blocking it:
-# a red run here is fixed in a follow-up push. One run at a time; a newer push replaces only the waiting one.
+# a red run here is fixed in a follow-up push. A newer push cancels the run before it.
 # (Main runs the same checks before its deploy, in pages.yml's validate job, and in ci.yml.)
 
 on:
@@ -14,7 +14,7 @@ permissions:
 
 concurrency:
   group: quick-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true   # (only the newest push is checked)
 
 jobs:
   quick:
