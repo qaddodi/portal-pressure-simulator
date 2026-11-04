@@ -123,7 +123,7 @@ const readFrame = readFrameFor('stage-read');
 // (recs.md 2.1: a solve of the figure's labels runs in slices of LABEL_SLICE_MS, yielding between labels, the rest in the next frames'
 // spare time (frame.js mayTask), the labels standing as they were meanwhile; a solve that fits its first slice lands in the same frame, as
 // before. A camera that moves under it drops it, and the labels carry as they always did.)
-const LABEL_SLICE_MS = 2;
+const LABEL_SLICE_MS = 2, LABEL_REST_SLICE_MS = 8;
 function sameDeps(a, b) { for (let i = 0; i < b.length; i++) if (a[i] !== b[i]) return false; return true; }
 let themeKeyTheme, themeKeyPalette, themeKeyVal = '';   // (the last theme and palette read, and the key made of them: built again only when one changed)
 const themeKey = () => {
@@ -6179,7 +6179,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Circuit liver module: collapsed unless asked for, selected into, or zoomed in on.
   function liverExpanded() {
     const sel = store.get().selection;
-    return vt.k >= 1.9 || (sel?.type === 'edge' && LIVER_EDGES.has(sel.id)) || (sel?.type === 'node' && LIVER_INNER.has(sel.id));
+    return labelRestK() >= 1.9 || (sel?.type === 'edge' && LIVER_EDGES.has(sel.id)) || (sel?.type === 'node' && LIVER_INNER.has(sel.id));
   }
 
   // ── Model-driven transitions ──────────────────────
@@ -11568,7 +11568,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const KEY_NODES = ['CONF', 'SIN_R', 'RHV'];
   // (The zoom the labels' level of detail is read from is the camera at rest: the view a card zoom began at, or where a glide is headed, never the live
   // view part way, so a zoom or glide cannot flip a flag and solve the labels mid-move.)
-  const labelRestK = () => (zoomBase?.vt ? zoomBase.vt.k : vtGliding && vtTarget ? vtTarget.k : vt.k);
+  function labelRestK() { return zoomBase?.vt ? zoomBase.vt.k : vtGliding && vtTarget ? vtTarget.k : vt.k; }
   const zoomedIn = () => labelRestK() > (homeAt?.k || 1) * 1.3;
   // (The stations flagged, written into a kept list: one for the layout, which keeps its list while it runs, and one for the signature, which
   // is asked for on every frame, a layout in slices between its slices too.)
@@ -11707,13 +11707,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const d = sigNow;
     d[0] = f; d[1] = store.rev; d[2] = labelGeo; d[3] = t >= 0.5; d[4] = rotU > 0.5; d[5] = labelBase(); d[6] = stageBox().width < 700;
     d[7] = labelRestK() > 1.35; d[8] = zoomedIn(); d[9] = scan.on; d[10] = fxSig; d[11] = fx; d[12] = slideGlow; d[13] = dop.key; d[14] = edgeRev;
-    d[15] = tips; d[16] = dips; d[17] = projecting; d[18] = glowSetAt;
+    d[15] = tips; d[16] = dips; d[17] = projecting; d[18] = glowSetAt; d[19] = labelRestK() >= 1.9;
     if (sigDeps.length === d.length && sameDeps(sigDeps, d)) return sigText;
     for (let i = 0; i < d.length; i++) sigDeps[i] = d[i];
     sigStats.builds++;
     const edges = EV.filter((x) => x.vis).map((x) => `${x.e.id}${sigWidth(x)}${x.ghost ? 'g' : ''}`).join(',');
     return (sigText = [labelGeo, t >= 0.5, rotU > 0.5, labelBase(), stageBox().width < 700, st.selection?.type + ':' + st.selection?.id, paramJSON((f.viewParams || st.params).stenosis), paramJSON((f.viewParams || st.params).stenosisSite),
-      isImaging(), st.layers.labels, st.layers.chips, layerMode(), st.focus?.label, st.focus?.edges?.[0], st.focus?.marks && paramJSON(st.focus.marks), fxSig, fx?.steps && slideGlow.map((g) => g.id + g.at).join(), (fx?.organs.some((o) => o.organ === 'spleen') || fx?.calipers.some((c) => c.organ)) && Math.round((f.slow?.spleen ?? 11) * 2), d[7], st.labelLevel, st.presenting && st.presentLabels?.join(','), st.presenting && paramJSON(st.presentTerms || null), st.presenting && st.presentNames, explain.key, scan.on, [...(st.hiddenLabels || [])].join(','), d[8], flagged(f, flagSigBuf).join(','), edges, `${tips}${dips}`, dop.key].join('|'));
+      isImaging(), st.layers.labels, st.layers.chips, layerMode(), st.focus?.label, st.focus?.edges?.[0], st.focus?.marks && paramJSON(st.focus.marks), fxSig, fx?.steps && slideGlow.map((g) => g.id + g.at).join(), (fx?.organs.some((o) => o.organ === 'spleen') || fx?.calipers.some((c) => c.organ)) && Math.round((f.slow?.spleen ?? 11) * 2), d[7], st.labelLevel, st.presenting && st.presentLabels?.join(','), st.presenting && paramJSON(st.presentTerms || null), st.presenting && st.presentNames, explain.key, scan.on, [...(st.hiddenLabels || [])].join(','), d[8], flagged(f, flagSigBuf).join(','), edges, `${tips}${dips}`, dop.key, d[19]].join('|'));
   }
   const sigStats = { builds: 0 };
   // (A vessel's label width moved by its 2 px step, outside a model frame: the width's own ease, stepWidths. See sigWidth.)
@@ -11890,7 +11890,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // second): on a slow phone, 1 ms slices a few frames apart left another view's layout standing for most of a minute, the Circuit
     // showing two readings and the anatomy's names after the switch.)
     stats.slices++;
-    const age = performance.now() - (j.t0 || 0), ms = Math.min(12, LABEL_SLICE_MS + Math.max(0, age - 250) / 75);
+    const age = performance.now() - (j.t0 || 0), ms = Math.max(gestureOn() || drifting ? 0 : LABEL_REST_SLICE_MS, Math.min(12, LABEL_SLICE_MS + Math.max(0, age - 250) / 75));   // (at rest a solve takes a longer slice each frame, so it lands in a few frames)
     try { done = labelSliceRun(j.g, Math.max(ms, Math.min(LABEL_SLICE_MS, left || LABEL_SLICE_MS))); } catch (e) { labelJob = null; labelKey = null; throw e; }
     // (Past 400 ms a slice runs every frame, not every third: on a busy frame budget the may task waited its two frames each time, and a
     // Circuit solve took half a minute to land, two readings standing meanwhile.)

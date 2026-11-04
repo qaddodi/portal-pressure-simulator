@@ -16,9 +16,16 @@ test('step 1: a card zoom neither drifts nor settles, and the level of detail re
   const end = st.slice(st.indexOf('function zoomEnd()'), st.indexOf('function followEnd()'));
   assert.ok(!/driftEnd|labelSettleSoon/.test(end));
   assert.ok(st.includes('d[7] = labelRestK() > 1.35'));
-  assert.ok(/const zoomedIn = \(\) => restK\(\)/.test(st));
+  assert.ok(/const zoomedIn = \(\) => labelRestK\(\)/.test(st));
 });
 
 test('step 1: no 260 ms settle timer', () => {
   assert.ok(!/setTimeout\(labelSettle/.test(st));
+});
+
+test('section 8: zone titles are not carried by a ride, and every zoom rule reads the rest camera', () => {
+  assert.ok(/startsWith\('z:'\)\) a = 0/.test(gl));
+  assert.ok(/function liverExpanded\(\) \{\s*const sel = store.get\(\).selection;\s*return labelRestK\(\) >= 1\.9/.test(st));
+  assert.ok(st.includes('d[19] = labelRestK() >= 1.9'));
+  assert.ok(st.includes('LABEL_REST_SLICE_MS = 8'));
 });

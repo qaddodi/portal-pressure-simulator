@@ -1339,6 +1339,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
         // label carried past the edge by the zoom stood half off the screen with its leader coming from beyond it, and glided in from there.)
         rideAt(s, st);
         x = RIDE_XY[0]; y = RIDE_XY[1];
+        // (A zone title is screen furniture placed by its band, not a figure label: carried and clamped it sat at the stage's edge over the wrong vessels. It is hidden while the camera rides and the layout places it.)
+        if ((st.fk ??= g.dataset?.key)?.startsWith('z:')) a = 0;
       } else {
         const gl0 = glides.get(g);
         if (gl0) {
@@ -2379,7 +2381,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       fromMap.clear();
       for (const s of last) {
         const st = sprites.get(s.g);
-        if (st && st.mode === 'gl' && st.drawn >= rideT0) { const f = takeRec(); f.x = st.dx; f.y = st.dy; f.a = Math.min(1, st.opacity); fromMap.set(s.g, f); }
+        if (st && st.mode === 'gl' && st.drawn >= rideT0 && !(st.fk ??= s.g.dataset?.key)?.startsWith('z:')) { const f = takeRec(); f.x = st.dx; f.y = st.dy; f.a = Math.min(1, st.opacity); fromMap.set(s.g, f); }
       }
       rideFrom = fromMap.size ? fromMap : null;
     },
