@@ -6571,18 +6571,17 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
    is ever drawn lower, and the figure shows under the dock. The cut follows the tab row's rounded top corners and leaves
    the sides open, so the card's shadow falls past those corners like any other shadow, with no straight edge or square
    corner in it; a menu, drawn above the whole app, still casts nothing on the tab row itself.) */
-.app.thumb:is(.dock-open, .panel-open) .vdock:not(.mini)::before, .app.thumb:has(#treatCard:not([hidden]), .action-card.docked:not([hidden]):not(.ac-leaving)) .vdock:not(.mini)::before, html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb .vdock:not(.mini)::before { opacity: 0; transition: opacity var(--d-flip) var(--ease); }
 /* (The dock's parts are named, not "> :not(.thumb-bar)": a :has() rule whose last part names nothing restyled the whole app
    (3,500 elements) on every node a model tick wrote anywhere in it, 30–60% of the CPU while a slide sat still.) */
-.app.thumb:is(.dock-open, .panel-open) .vdock:not(.mini) > :is(.nb-views, .stage-bar, .readouts), .app.thumb:has(#treatCard:not([hidden]), .action-card.docked:not([hidden]):not(.ac-leaving)) .vdock:not(.mini) > :is(.nb-views, .stage-bar, .readouts), html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb .vdock:not(.mini) > :is(.nb-views, .stage-bar, .readouts) { opacity: 0; pointer-events: none; translate: 0 var(--bar-sink, 0px); transition: opacity var(--d-flip) var(--ease), translate var(--d-flip) var(--ease); }
+/* (4 Nov, Mohammad) The dock is never covered: the play bar, the timeline, the readouts and the tab row stay up and live, and every card
+   and menu rests 8 px above the dock's top (--sheet-foot). Only the view pill, which floats in that slot, steps aside. It comes back
+   a beat late (.3 s), so between two cards, while one has gone and the next is yet to rise, it does not blink in and out.) */
+.app.thumb:is(.dock-open, .panel-open) .vdock:not(.mini) > .nb-views, .app.thumb:has(#treatCard:not([hidden]), .action-card.docked:not([hidden]):not(.ac-leaving)) .vdock:not(.mini) > .nb-views, html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb .vdock:not(.mini) > .nb-views { opacity: 0; pointer-events: none; translate: 0 var(--bar-sink, 0px); transition: opacity var(--d-flip) var(--ease), translate var(--d-flip) var(--ease); }
+.app.thumb .vdock:not(.mini) > .nb-views { transition: opacity var(--d-small) var(--ease) .3s, translate var(--d-small) var(--ease) .3s; }
 /* (Open, the tab row's top hairline is its edge ring on the outer edge, as on a card: its own top border goes, with 1 px more padding, so no fill shows above the line.) */
-.app.thumb:is(.dock-open, .panel-open) .vdock:not(.mini) .thumb-bar::before, .app.thumb:has(#treatCard:not([hidden]), .action-card.docked:not([hidden]):not(.ac-leaving)) .vdock:not(.mini) .thumb-bar::before, html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb .vdock:not(.mini) .thumb-bar::before { opacity: 0; transition: opacity var(--d-flip) var(--ease); }
-.app.thumb:is(.dock-open, .panel-open) .vdock:not(.mini) .thumb-bar::after, .app.thumb:has(#treatCard:not([hidden]), .action-card.docked:not([hidden]):not(.ac-leaving)) .vdock:not(.mini) .thumb-bar::after, html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb .vdock:not(.mini) .thumb-bar::after { opacity: 1; transition: opacity var(--d-flip) var(--ease); }
 @media (prefers-reduced-motion: no-preference) { .app.thumb .vdock:not(.mini) { --bar-sink: 6px; } }   /* (the rise; with reduced motion the bar only fades) */
 
 /* While a card covers the play bar, the bar's empty top row must not catch taps meant for the card's bottom edge (the Doppler's stent tiles sit there): only the tab row takes touches. */
-.app.thumb:is(.dock-open, .panel-open) .vdock:not(.mini), .app.thumb:has(#treatCard:not([hidden]), .action-card.docked:not([hidden]):not(.ac-leaving)) .vdock:not(.mini), html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb .vdock:not(.mini) { pointer-events: none; }
-.app.thumb:is(.dock-open, .panel-open) .vdock:not(.mini) .thumb-bar, .app.thumb:has(#treatCard:not([hidden]), .action-card.docked:not([hidden]):not(.ac-leaving)) .vdock:not(.mini) .thumb-bar, html.thumb-ui:has(body > .menu:not(.leaving)) .app.thumb .vdock:not(.mini) .thumb-bar { pointer-events: auto; }
 
 /* (15 Oct, Mohammad) A vessel's or organ's card on a phone is one of these cards too: it sits whole on the tab row's top
    edge (the play bar steps aside, above), rises from behind the tab row and sinks back behind it, and stays out of the

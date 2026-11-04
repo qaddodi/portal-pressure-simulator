@@ -448,10 +448,9 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
       if (below < el.scrollHeight && r.top - 16 > below) { at = 'above'; barTop = null; el.style.maxHeight = (r.top - 16) + 'px'; }
       else el.style.maxHeight = Math.max(160, below) + 'px';
     }
-    // A menu from the thumb dock's tab row sits on the tab row's top edge, 8 px clear of it, over the play bar (which steps
-    // aside), like the cards and the phone's sheets: it rises from behind the tab row and is cut on its top line. (Above
-    // the whole dock, it had risen out of thin air over the faded play bar, its cut-off shadow left as a ghost there.)
-    const bar = anchor.closest('.thumb-bar'), tabTop = bar ? bar.getBoundingClientRect().top : null;
+    // A menu from the thumb dock's tab row rests 8 px above the whole dock (the play bar and timeline stay up under it, 4 Nov),
+    // like the cards and the phone's sheets: it rises from behind the dock and is cut on the dock's top line.
+    const bar = anchor.closest('.thumb-bar'), dockEl = bar && bar.closest('.vdock'), tabTop = bar ? (dockEl || bar).getBoundingClientRect().top : null;
     if (bar && /auto|scroll/.test(getComputedStyle(el).overflowY)) el.style.maxHeight = Math.max(160, tabTop - 16) + 'px';
     const vb = visibleBottom();
     // A menu with no height rule of its own (Blood and Colored-by on a phone held sideways: 511-560 px of rows in 284-332 px of

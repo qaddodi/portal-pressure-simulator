@@ -1608,7 +1608,7 @@ function wireFloating() {
     // On a phone the instruments sheet rises from the bottom edge, over the vitals dock.
     // (With the thumb dock the sheet sits above the dock instead.)
     // (Over the thumb dock a sheet sits on the tab row's top edge, so a card above it rests on the sheet, not above the whole dock.)
-    const nbR = thumb && vdH ? readBox($('#thumbBar')) : null;
+    const nbR = thumb && vdH ? readBox(vd) : null;   // (the dock's box, 4 Nov: cards and menus rest on its top edge, not the tab row's)
     const ar = readBox(app), tabOcc = nbR && nbR.height ? ar.bottom - nbR.top + 8 : 0;
     const bot = isPhone() && sheet && !thumb ? Math.max(vdock + gap, sheet) : tabOcc && sheet ? tabOcc + sheet : vdock + gap + sheet;
     // The patient chart is a bottom sheet on a phone, over the dock: the corner credit rides above it, unless the
@@ -1624,13 +1624,13 @@ function wireFloating() {
     for (const k in vars) if (pubVals[k] !== vars[k]) { pubVals[k] = vars[k]; app.style.setProperty(k, vars[k]); changed = true; }
     // (A phone's menu sheets open above the thumb dock, 8 px clear of its top edge like the cards. Measured from the
     // screen's bottom, since the sheets are fixed to it and the dock sits above the home indicator's safe area.)
-    // The cards and sheets sit on the tab row's top edge, over the play bar (which they cover), and slide away behind
-    // the tab row: --nb-occ from the app's bottom (the cards), --thumb-occ from the screen's (the menu sheets).
-    // (8 px clear of it: the tab row is its own rounded piece while a card is up, 15 Oct.)
+    // The cards and sheets rest 8 px above the dock's top edge (the play bar, the timeline, the readouts and the tab row stay
+    // up and live; only the view pill steps aside) and slide away behind the dock: --nb-occ (= --sheet-foot) from the app's
+    // bottom (the cards), --thumb-occ from the screen's (the menu sheets).
     const nbOcc = px(tabOcc);
-    if (pubVals.nbOcc !== nbOcc) { pubVals.nbOcc = nbOcc; app.style.setProperty('--nb-occ', nbOcc); }
+    if (pubVals.nbOcc !== nbOcc) { pubVals.nbOcc = nbOcc; app.style.setProperty('--nb-occ', nbOcc); app.style.setProperty('--sheet-foot', nbOcc); }
     const occ = px(nbR && nbR.height ? innerHeight - nbR.top + 8 : 0);
-    if (pubVals.occ !== occ) { pubVals.occ = occ; document.documentElement.style.setProperty('--thumb-occ', occ); }
+    if (pubVals.occ !== occ) { pubVals.occ = occ; document.documentElement.style.setProperty('--thumb-occ', occ); document.documentElement.style.setProperty('--sheet-foot-screen', occ); }
     // (and the top bar's foot, so a tall sheet stops under the view switch and leaves it in reach)
     const topOcc = px(thumb ? readBox(tb).bottom : 0);
     if (pubVals.topOcc !== topOcc) { pubVals.topOcc = topOcc; document.documentElement.style.setProperty('--thumb-top', topOcc); }
