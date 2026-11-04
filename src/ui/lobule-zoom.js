@@ -4898,9 +4898,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
      *  either is moving (a dive, the zoom into or out of a sinusoid), drawn as tiles, or has no such canvas. { gl, canvas, add, warmIn, now,
      *  seq, onPicture }. */
     glassHost() {
-      if (sinU > 0 || sinTo === 1) return !sinBusyNow() && sv.isOpen() ? sv.glassHost?.() ?? null : null;
+      // (4 Nov 2026: the shared branch is asked first, so the glass stays on the figure's canvas through the zoom into and out of a sinusoid too.)
       // (Hosted in the stage's context, the lobule is part of the figure's own canvas: the glass is taken from it through a dive and a zoom too.)
       if (shared && shareTop && gl && !gl.lost) { const f = shareTop, g = gl; return { gl: f.gl, canvas: f.canvas, add: f.add, warmIn: f.warmIn, now: () => { if (!g.lost) f.present(); }, seq: () => g.drawSeq, onPicture: (fn) => g.onPicture(fn) }; }
+      if (sinU > 0 || sinTo === 1) return !sinBusyNow() && sv.isOpen() ? sv.glassHost?.() ?? null : null;
       if (fade <= 0.98 || diveScaled || !gl || gl.lost || !gl.top || wide || el.style.transform || glCv.style.visibility === 'hidden') return null;
       const g = gl;
       return { gl: g.top.gl, canvas: g.top.canvas, add: g.top.add, warmIn: g.top.warmIn, now: () => { if (!g.lost) g.present(); }, seq: () => g.drawSeq, onPicture: (f) => g.onPicture(f) };
