@@ -10,6 +10,7 @@ import { parse } from 'espree';
 import { analyze } from 'eslint-scope';
 import estraverse from 'estraverse';
 
+export const STUB_MARK = '// <stage-split stub>';
 export const MARK_A = '// <stage-split live>', MARK_B = '// </stage-split live>';
 
 const parseSrc = (src) => parse(src, { ecmaVersion: 'latest', sourceType: 'module', range: true, loc: true, comment: true });
@@ -190,7 +191,21 @@ export function planSplit(src, spec, A = analyse(src, spec.stage || 'createStage
     ...(retNames.length ? [`  return { ${retNames.join(', ')} };`] : []), '}', ''].join('\n');
 
   // --- build stage.js ---
-  const callText = `${retNames.length ? `const { ${retNames.join(', ')} } = ` : ''}${fname}({ ${stNames.join(', ')} }${usesLive ? ', live' : ''});`;
+  // A returned function that a statement BEFORE the call site already reads (an earlier factory is handed it, by value, in its st) would be a
+  // const still in its dead zone there. It stays reachable the way it was: a hoisted forwarding function of the same name in stage.js, and the
+  // part's own is taken as name$ (check.mjs puts the part back and drops the stub).
+  const stubs = new Map();
+  for (const [name, info] of returned) {
+    const node = info.def?.node;
+    if (info.kind !== 'function' || !node || node.type !== 'FunctionDeclaration') continue;
+    const early = info.v.references.some((r) => { const u = unitAt(r.identifier.range[0]); return u >= 0 && u < call && !M.has(u); });
+    if (!early) continue;
+    if (node.async) return { ok: false, refusals: [`${name}: an async function read before the call site cannot be given a forwarding stub`], stage: src, part: '', report: {} };
+    stubs.set(name, node.generator);
+  }
+  const callLhs = retNames.map((n) => (stubs.has(n) ? `${n}: ${n}$` : n)).join(', ');
+  const stubText = [...stubs].map(([n, gen]) => `\n  ${gen ? `function* ${n}(...a) { return yield* ${n}$(...a); }` : `function ${n}(...a) { return ${n}$(...a); }`}   ${STUB_MARK}`).join('');
+  const callText = `${retNames.length ? `const { ${callLhs} } = ` : ''}${fname}({ ${stNames.join(', ')} }${usesLive ? ', live' : ''});${stubText}`;
   const removes = moved.map((i) => [units[i].start, Math.min(src.length, units[i].end + (src[units[i].end] === '\n' ? 1 : 0))]);
   let stage = '', pos = 0;
   for (let k = 0; k < removes.length; k++) {
@@ -260,6 +275,7 @@ export function inlineFamily(stageSrc, readPart) {
   const edits = [], partImports = [];
   const lr = [stageSrc.indexOf(`  ${MARK_A}`), stageSrc.indexOf(MARK_B)];
   if (lr[0] >= 0) edits.push([lr[0], stageSrc.indexOf('\n', lr[1]) + 1, '']);
+  for (const m of stageSrc.matchAll(new RegExp(`^ *function\\*? \\w+\\(\\.\\.\\.a\\) \\{[^\\n]*\\} +${STUB_MARK.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\n`, 'gm'))) edits.push([m.index, m.index + m[0].length, '']);
   for (const [name, file] of factories) {
     const decl = ast.body.find((n) => n.type === 'ImportDeclaration' && n.source.value === './' + file && n.specifiers.some((s) => s.local.name === name));
     edits.push([decl.range[0], decl.range[1] + (stageSrc[decl.range[1]] === '\n' ? 1 : 0), '']);

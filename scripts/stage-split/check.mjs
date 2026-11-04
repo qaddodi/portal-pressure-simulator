@@ -3,10 +3,11 @@
 // 1. Inline equivalence: every part is put back at its call (live.x back to x) and the result is the same program as stage.js at the base.
 // 2. No copies: nothing a part gets by value is a let or a reassigned name; the second argument is the live record.
 // 3. Budgets: stage.js and the family are not over scripts/size-budget.json.
+// 4. Boot: tests/warm-alloc.test.js boots the real stage in node, so a part made too late for an earlier one (a TDZ at boot) fails here.
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { checkEquivalence, checkNoCopies, inlineFamily } from './lib.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -27,4 +28,6 @@ const fam = ['stage.js', ...parts].reduce((a, f) => a + lines(f), 0);
 if (budget['src/ui/stage.js'] != null && lines('stage.js') > budget['src/ui/stage.js']) problems.push(`stage.js has ${lines('stage.js')} lines, over its budget ${budget['src/ui/stage.js']}`);
 if (budget['src/ui/stage*'] != null && fam > budget['src/ui/stage*']) problems.push(`the stage family has ${fam} lines, over its budget ${budget['src/ui/stage*']}`);
 if (problems.length) { console.error('stage-split check: FAILED against ' + base + '\n  - ' + problems.join('\n  - ')); process.exit(1); }
+const boot = spawnSync('node', ['--test', join(ROOT, 'tests/warm-alloc.test.js')], { cwd: ROOT, encoding: 'utf8' });
+if (boot.status !== 0) { console.error('stage-split check: FAILED, the stage does not boot in node (tests/warm-alloc.test.js)\n' + (boot.stdout || '').split('\n').filter((l) => /error:|ReferenceError|TypeError/.test(l)).slice(0, 6).join('\n')); process.exit(1); }
 console.log(`stage-split check: ok against ${base} (${parts.length} part file${parts.length === 1 ? '' : 's'}, family ${fam} lines)`);
