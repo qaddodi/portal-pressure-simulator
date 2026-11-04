@@ -50,3 +50,8 @@ test('view switch: labels hidden for the change, shown at once, pictures rushed'
   assert.ok(st.includes('labelGL?.rush?.(2000)'));
   assert.ok(gl.includes('now >= rushUntil'));
 });
+
+test('view switch: the label layers are shown only after the GPU drew the new view whole', () => {
+  assert.ok(st.includes('labelGL.afterDraw(morphFadeShow)'));
+  assert.ok(gl.includes('afterQ.length && !todo.size'));
+});

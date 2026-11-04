@@ -1101,6 +1101,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // before anything is painted (an attribute written and written back in one task is never drawn).
   // todo: label → what it is owed (1 turned, 2 its look changed, 4 its colour ease moved, 8 read it again).
   const todo = new Map();
+  const afterQ = [];   // (calls waiting for a draw that leaves no picture owed: afterDraw)
   let touched = false, settleQ = false, settling = false;
   const settleSoon = () => { if (!settleQ && !settling) { settleQ = true; queueMicrotask(settle); } };
   function settle() {
@@ -1416,6 +1417,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
     // nothing over the figure on every frame the blood moves. It shows again in the task that draws the first thing back. app.css [data-blank].)
     if (!host) { const empty = nb === 0; if (empty !== blank) { blank = empty; canvas.toggleAttribute('data-blank', empty); } }
     if (nb && coverOpen) { coverOpen(); coverOpen = null; }
+    // (What waits for the labels to stand drawn: run once a draw has left nothing owed, the pictures all built.)
+    if (afterQ.length && !todo.size && !pending.size && !rp) { const q = afterQ.splice(0); for (const fn of q) { try { fn(); } catch (e) { caught('label-gl:after', e); } } }
     if (moving) ask();
   }
   // ── Holes (1 Nov 2026): the frosted glasses drawn in the figure's canvas, under this one (glass-gl.js onHoles) ──
@@ -2396,6 +2399,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
     },
     /** The pictures owed are built without a frame budget for the next `ms` (a view change has landed and shows its labels at once). */
     rush(ms) { rushUntil = performance.now() + ms; },
+    /** Calls fn after a draw that left no picture owed: the layer is shown only then, so no label of the old view or half built is ever seen. */
+    afterDraw(fn) { afterQ.push(fn); ask(); },
     get riding() { return !!rideM; },
     /** Pins the station labels to the figure: f(id, out) writes where the figure has station id's point now (stage px) and returns true. */
     pinTo(f, w = null) { pinAt = f; pinWorldAt = w; ask(); },

@@ -2593,7 +2593,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const morphFadeEls = () => { const b = morphFadeBuf, gl = wrap.querySelector('#labelGl'); b.length = 0; if (labelSvg) b.push(labelSvg); if (gl) b.push(gl); return b; };
   // (The labels come back only once their layout for the new view is down: a solve still in slices would show the old view's labels,
   // their leaders and dots over the new one. A failsafe after 1.5 s brings them back whatever.)
-  const morphFadeDrop = (force) => { if (!morphFade && (force === true || !labelJob)) { const els = morphFadeEls(); for (let i = 0; i < els.length; i++) els[i].classList.remove('morph-fade'); glass.style.opacity = ''; } };
+  const morphFadeShow = () => { if (morphFade) return; const els = morphFadeEls(); for (let i = 0; i < els.length; i++) els[i].classList.remove('morph-fade'); glass.style.opacity = ''; };
+  // (Shown only after the GPU has drawn the new view's labels whole: never the old view's, nor pictures half built. The failsafe shows them whatever.)
+  const morphFadeDrop = (force) => { if (!morphFade && (force === true || !labelJob)) { if (force !== true && labelGL?.afterDraw) labelGL.afterDraw(morphFadeShow); else morphFadeShow(); } };
   function followStep() {
     if (!labelGL?.following) return;
     refreshCTM();
