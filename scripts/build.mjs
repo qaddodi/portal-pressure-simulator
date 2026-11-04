@@ -21,6 +21,7 @@ import { createHash } from 'node:crypto';
 import { join, dirname, resolve, relative, basename, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
+import { execSync } from 'node:child_process';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, 'dist');
@@ -56,7 +57,16 @@ const build = async (opts) => {
   if (bad.length) throw new Error('Build refused, an import is always undefined:\n' + bad.map((w) => `  ${w.location?.file}:${w.location?.line} ${w.text}`).join('\n'));
   return r;
 };
-const common = { bundle: true, format: 'esm', minify: true, target: ['es2022'], legalComments: 'none', logLevel: 'warning', plugins: [stripStamps] };
+// Release identity (PR-04): the newest v2026.11.N tag (when the checkout has tags) plus the short commit, so a tester's "which version?"
+// has an answer and a bad merge has a rollback target. PPS_RELEASE overrides it; a checkout with no git says "build".
+const RELEASE = (() => {
+  if (process.env.PPS_RELEASE) return process.env.PPS_RELEASE;
+  const git = (a) => { try { return execSync('git ' + a, { cwd: ROOT, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); } catch { return ''; } };
+  const tag = git('describe --tags --abbrev=0 --match "v20*"');
+  const hash = (process.env.GITHUB_SHA || git('rev-parse HEAD')).slice(0, 8);
+  return [tag, hash].filter(Boolean).join(' · ') || 'build';
+})();
+const common = { define: { __PPS_RELEASE__: JSON.stringify(RELEASE) }, bundle: true, format: 'esm', minify: true, target: ['es2022'], legalComments: 'none', logLevel: 'warning', plugins: [stripStamps] };
 
 // 1. The engine worker, as one self-contained module.
 const worker = await build({ ...common, entryPoints: [join(ROOT, 'src/worker.js')], outdir: ASSETS, entryNames: 'worker-[hash]', write: true, metafile: true });
@@ -194,6 +204,7 @@ const head = [
 ].filter(Boolean).map((l) => '  ' + l).join('\n');
 html = html.replace('</head>', `${head}\n</head>`);
 writeFileSync(join(OUT, 'index.html'), html);
+writeFileSync(join(OUT, 'release.txt'), RELEASE + '\n');
 
 // 6. Service worker: precache everything; hashed assets never change, so cache-first is safe.
 const walk = (p) => (statSync(p).isDirectory() ? readdirSync(p).flatMap((f) => walk(join(p, f))) : [p]);

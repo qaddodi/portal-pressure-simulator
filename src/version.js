@@ -2,7 +2,9 @@
 // anywhere; package.json keeps one only for SCORM exports). A class taught on content of one date
 // behaves the same all term: the model, presets and decks only change when the content date does.
 // A no-break space keeps month and year on one line.
-export const UPDATED = 'October\u00a02026';
+export const UPDATED = 'November\u00a02026';
+// Which build this is: the release tag and short commit, written by scripts/build.mjs (define). The unbuilt source site says "source".
+export const RELEASE = typeof __PPS_RELEASE__ === 'undefined' ? 'source' : __PPS_RELEASE__; // eslint-disable-line no-undef
 export const CONTENT_UPDATED = 'October\u00a02026';
 
 // Creator, and the page that lists all of their teaching tools.

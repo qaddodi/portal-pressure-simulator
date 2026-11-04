@@ -21,7 +21,7 @@ import { createChart } from './chart.js';
 import { createMenu } from './menu.js';
 import { caption } from './a11y.js';
 import { startLMS } from './lms.js';
-import { UPDATED, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js';
+import { UPDATED, RELEASE, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js';
 import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js';
 import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js';
@@ -2250,7 +2250,7 @@ function openAbout(section) {
       h('li', {}, 'Guyton AC. Venous return and the systemic filling pressure.')),
     h('h3', {}, 'Licenses'),
     h('p', { class: 'sub' }, '© 2026 Mohammad Almeqdadi. All rights reserved. Fonts: Inter, JetBrains Mono and Source Serif 4 under the SIL Open Font License, served from this site. Anatomy, pathology art and icons were drawn for this project.'),
-    h('p', { class: 'disclaimer' }, 'Educational simulation. Simplified model with illustrative values; not for diagnosis or treatment decisions.')), { wide: true, sub: `Updated ${UPDATED}` });
+    h('p', { class: 'disclaimer' }, 'Educational simulation. Simplified model with illustrative values; not for diagnosis or treatment decisions.')), { wide: true, sub: `Updated ${UPDATED} · ${RELEASE}` });
   scrollToSection(section);
 }
 function openPrivacy() {
