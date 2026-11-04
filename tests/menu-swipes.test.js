@@ -52,8 +52,8 @@ test('every menu (sheet or popover) gets the pull down and the sideways paging, 
   assert.match(menu, /setTab\(TABS\[s\.j\], false, true\)/);
 });
 
-test('upright, the sheet follows the finger down (--sink) and the other list shows beside the open one while dragging', () => {
-  assert.match(css, /html\.thumb-ui \.umenu\.sheet \{ translate: 0 var\(--sink, 0px\); \}/);
+test('upright, the sheet follows the finger down (the compositor, no --sink) and the other list shows beside the open one while dragging', () => {
+  assert.doesNotMatch(css, /html\.thumb-ui \.umenu\.sheet \{ translate: 0 var\(--sink/);
   assert.match(css, /\.umenu\[data-tab\] \.um-col\[data-col\]\.um-peer \{ display: block; position: absolute;/);
   assert.match(css, /\.um-cols \{ position: relative; overflow-x: clip; \}/);
 });

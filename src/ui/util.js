@@ -1,12 +1,12 @@
 // DOM & formatting helpers.
-import { saver, frame, cancelFrame, readFrame } from './frame.js';
+import { saver, frame, readFrame } from './frame.js';
 import { restPass, restAttr, restRemove } from './rest-pass.js';
 import { glWords } from './gl-words.js';
 import { slideFold } from './fold-slide.js';
 import { classSoon, dataSoon } from './class-soon.js';
 import { moverOf } from './num-move.js';
 import { pullRelease, pullAt, pullStop } from './sheet-pull.js';
-import { SHEET_FLICK_MIN, SHEET_FLICK_FAR, SHEET_CLOSE_PX, SHEET_CLOSE_SHARE, releaseSpeed, isFlick, carryCurve, settleSlope, settleAt, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js';
+import { SHEET_FLICK_MIN, SHEET_FLICK_FAR, SHEET_CLOSE_PX, SHEET_CLOSE_SHARE, releaseSpeed, isFlick, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js';
 import { reduceMotionMQ } from './motion.js';
 import { leaveFromHere } from './menu-leave.js';
 import { follow2, jumpCount, SHOWN_TAU } from './display-state.js';
@@ -428,9 +428,9 @@ export const visibleBottom = () => { const v = window.visualViewport; if (!v) re
  *  Puts el by translate from the window's corner (left and top are never written, so nothing is laid out), clear of the notch (env() is 0
  *  elsewhere), and returns the top it took. side: 'below' | 'above' the button; align: 'start' | 'center' | 'end'; gap: px between the two;
  *  margin: the least clearance from the window's edges; edge: a line to sit on or under instead of the button's own top (the tab row's);
- *  flip: opens on the other side, and keeps clear of the bottom, where there is no room (false: placed where asked, only its left held in);
- *  sink: rides --sink, the thumb dock's. Its entrance is opacity alone (app.css scale-settle), so no transform-origin is set. */
-export function placeAt(el, anchor, { side = 'below', align = 'start', gap = 8, margin = 8, edge = null, flip = true, sink = false } = {}) {
+ *  flip: opens on the other side, and keeps clear of the bottom, where there is no room (false: placed where asked, only its left held in).
+ *  Its entrance is opacity alone (app.css scale-settle) or a sheet's slide, so no transform-origin is set. */
+export function placeAt(el, anchor, { side = 'below', align = 'start', gap = 8, margin = 8, edge = null, flip = true } = {}) {
   const r = anchor.getBoundingClientRect();
   // (Layout size, not the rectangle: an entrance may be moving the box.)
   const w = el.offsetWidth, hh = el.offsetHeight, vb = visibleBottom(), cw = document.documentElement.clientWidth || innerWidth;
@@ -442,7 +442,7 @@ export function placeAt(el, anchor, { side = 'below', align = 'start', gap = 8, 
     y = clamp(y, margin, vb - hh - margin);
   }
   const leftCss = `clamp(calc(${margin}px + env(safe-area-inset-left, 0px)), ${x}px, calc(${cw - w - margin}px - env(safe-area-inset-right, 0px)))`;
-  el.style.translate = sink ? `${leftCss} calc(${y}px + var(--sink, 0px))` : `${leftCss} ${y}px`;   // alloc-rare: the text of one placement (an open, or a window resize)
+  el.style.translate = `${leftCss} ${y}px`;   // alloc-rare: the text of one placement (an open, or a window resize)
   return y;
 }
 
@@ -491,8 +491,8 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
       if (natural > room) { el.style.maxHeight = room + 'px'; el.style.overflowY = 'auto'; el.style.overscrollBehavior = 'contain'; }
     }
     // (One placer, placeAt: a menu from the tab row sits on its top edge, 8 px clear of it; the rest open below or above their button.
-    // --sink is the thumb dock's sink, which a menu from the dock rides, as styles/app.css says.)
-    placedTop = placeAt(el, anchor, { side: at === 'above' || bar ? 'above' : 'below', align, edge: bar ? tabTop : null, sink: true });
+    // Nothing rides a --sink any more: a menu sheet's pull is the compositor's (swipeSheet) and its cut the sheet layer's.)
+    placedTop = placeAt(el, anchor, { side: at === 'above' || bar ? 'above' : 'below', align, edge: bar ? tabTop : null });
     barAt = barTop;
     clipBar();
   };
@@ -985,7 +985,7 @@ export function closePopover() {
   if (el.contains(document.activeElement) && openMenu.anchor.isConnected) openMenu.anchor.focus?.(NO_SCROLL);
   // (A menu already out of the page has nothing to fade or remove. With Reduce Motion it still fades: app.css turns popOut into a fade.)
   // A sheet swiped away is already sliding down; it leaves when it is out of sight.
-  // (Over the thumb dock it sinks behind the tab row, as the cards do, in the same step: a leave is one flip, app.css thumbOut.)
+  // (Over the thumb dock it sinks behind the dock, as the cards do, in the same step: a leave is one flip, app.css dock-sheet-out.)
   // alloc-rare: a menu closes (a tap away or a choice): its leave closure and the timer's, once for each close
   if (el.isConnected) {
     const ms = menuExitMs(el), plate = openMenu.plate, scrim = openMenu.scrim; const leave = () => el.classList.add('leaving');
@@ -997,39 +997,7 @@ export function closePopover() {
   lastMenu.anchor = openMenu.anchor; lastMenu.t = performance.now();   // (the one record, written in place)
   openMenu = null;
 }
-/** Over the thumb dock a card slides down behind the tab row by --sink (styles/app.css: it moves the card and cuts it at
- *  its resting bottom edge together). This eases --sink to px frame by frame, so the move and the cut stay in step on
- *  iOS too, then calls done. A new drag stops it (stopSink). */
 const NO_SCROLL = Object.freeze({ preventScroll: true });   // (the options of a focus that must not scroll: kept, not made at each call)
-const sinking = new WeakMap();
-export function stopSink(el) { const a = sinking.get(el); if (a) { cancelFrame(a.raf); clearTimeout(a.timer); } sinking.delete(el); }
-export function sinkTo(el, px, ms = 220, done, speed = null) {
-  stopSink(el);
-  // alloc-rare: a sink starts (a sheet is let go or sent away): its record and closures, once for each release
-  const from = parseFloat(el.style.getPropertyValue('--sink')) || 0, t0 = performance.now(), a = {};
-  // (speed: the finger's, px per ms down, when it let go: the card carries it on and slows to rest, instead of leaving at the ease's own
-  // speed, which a slow pull let go of felt as a lurch. Without it, the cubic ease out as before.)
-  const m0 = speed == null ? null : settleSlope(speed, px - from, ms);
-  // alloc-rare: the sink's end, made once as the sink starts
-  const finish = () => {
-    if (sinking.get(el) !== a) return;
-    stopSink(el);
-    // alloc-rare: the sink's resting value, written once as it ends
-    if (px) el.style.setProperty('--sink', `${px}px`); else el.style.removeProperty('--sink');
-    done?.();
-  };
-  // alloc-rare: the sink's step, made once as the sink starts
-  const step = (now) => {
-    const k = clamp((now - t0) / ms, 0, 1);   // (the frame's time can be a few ms before t0, taken in the handler: held at 0, so the cubic ease out never starts backwards)
-    if (k >= 1) { finish(); return; }
-    el.style.setProperty('--sink', `${from + (px - from) * (m0 == null ? 1 - (1 - k) ** 3 : settleAt(k, m0))}px`);
-    a.raf = frame(step, 'numbers');
-  };
-  // (A page whose frames stall, in the background or a busy browser, still lands and closes on time.)
-  a.timer = setTimeout(finish, ms + 120);
-  sinking.set(el, a);
-  a.raf = frame(step, 'numbers');
-}
 /** A phone's bottom sheet follows a vertical drag from anywhere on it and closes past a short pull (or a quick
  *  flick) down; a short one eases back. Content scrolled away from its top scrolls back first, a sideways drag
  *  and a slider keep their own gestures, and taps work as normal. onClose closes it; the sheet is already
@@ -1111,7 +1079,7 @@ export function swipeSheet(panel, onClose, enabled = null) {   // (enabled: a ca
     const gone = s0.dy > 0 && (flick || s0.dy > Math.min(SHEET_CLOSE_PX, H * SHEET_CLOSE_SHARE));
     // (A let-go carries the finger's own speed: the curve opens at its slope. Over the thumb dock it sinks behind the dock, its cut a still
     // clip, so the move needs no cut beside it. Away it goes to the sheet's own height and stays there until the menu takes it off.)
-    const to = gone ? H + (s0.thumb ? 8 : 0) : 0, ms = s0.thumb ? 220 : D_SMALL;
+    const to = gone ? H + (s0.thumb ? 8 : 0) : 0, ms = D_SMALL;   // (240 ms, the one sheet time, over the dock or away)
     if (gone) dataSoon(panel, 'swiped', '1');
     easing = pullRelease(panel, s0.thumb ? 'translate' : 'transform', s0.pull, s0.dy, to, ms, carryCurve(speed, to - s0.dy, ms), clearEasing);   // alloc-rare: a let-go
     if (gone) onClose();

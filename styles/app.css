@@ -3983,8 +3983,7 @@ html.thumb-ui .sheet-layer { clip-path: inset(0 0 max(0px, calc(var(--sheet-foot
 .umenu.sheet.still { animation: none; }
 .umenu.sheet.pulling { animation: none; }   /* (a finger has the sheet: its entrance gives way, util.js swipeSheet) */
 .umenu.sheet.out { animation: slide-to-edge var(--d-small) var(--ease-in) forwards; }
-/* Upright (over the thumb dock) the shared sheet swipe moves it by --sink (util.js swipeSheet): it follows the finger down. */
-html.thumb-ui .umenu.sheet { translate: 0 var(--sink, 0px); }
+/* Upright (over the thumb dock) the shared sheet swipe moves it by the compositor (util.js swipeSheet): it follows the finger down. */
 /* (4 Nov, Mohammad: "when I slide the menu down it still goes on top of everything".) Over the thumb dock the main menu rests on the dock's top,
    8 px clear, inset and round like every other sheet there (--thumb-occ), and stops under the top bar; the keyboard, when up, lifts it higher.
    It used to rest on the screen's foot, over the play bar, the timeline and the tabs, and slid down over them with no cut. */
@@ -6434,13 +6433,12 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 @keyframes thumbOut { to { opacity: 0; translate: 0 var(--thumb-rise, 24px); } }
 /* (Only a menu that opens from the dock, class from-dock (util.js popover), rises and sinks this way: the Colored-by menu
    from the top bar of an upright iPad had slid up from under its spot, its card cut away but its shadow showing, 17 Oct.) */
-.app.thumb :is(.panel, .treat-card, .instrument-workspace.float-ui), html.thumb-ui .menu.from-dock { translate: 0 var(--sink, 0px); }
+.app.thumb :is(.panel, .treat-card, .instrument-workspace.float-ui) { translate: 0 var(--sink, 0px); }
 .app.thumb :is(.panel, .treat-card, .instrument-workspace.float-ui:not(.side)) { clip-path: polygon(-40px -40px, calc(100% + 40px) -40px, calc(100% + 40px) calc(100% + 40px), 100% calc(100% + 40px), 100% calc(100% - var(--sink, 0px) + 8px + var(--r-sheet)), calc(100% - var(--r-sheet) * .134) calc(100% - var(--sink, 0px) + 8px + var(--r-sheet) * .5), calc(100% - var(--r-sheet) * .5) calc(100% - var(--sink, 0px) + 8px + var(--r-sheet) * .134), calc(100% - var(--r-sheet)) calc(100% - var(--sink, 0px) + 8px), var(--r-sheet) calc(100% - var(--sink, 0px) + 8px), calc(var(--r-sheet) * .5) calc(100% - var(--sink, 0px) + 8px + var(--r-sheet) * .134), calc(var(--r-sheet) * .134) calc(100% - var(--sink, 0px) + 8px + var(--r-sheet) * .5), 0 calc(100% - var(--sink, 0px) + 8px + var(--r-sheet)), 0 calc(100% + 40px), -40px calc(100% + 40px)); }
 /* (A menu is drawn above the whole app, the tab row included, and sits on the tab row's top edge like the cards: its cut runs
    across its whole shadow on that line, so it casts nothing on the tab row beside it either; a phone's sheet too.) */
 /* The Settings menu ends above the bottom bar: its shadow is cut at the bar's top (util.js clipBar writes only --bar-clip). */
 .menu.app-menu { clip-path: inset(-64px -64px var(--bar-clip, -64px) -64px); }
-html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0px) - 8px) -64px); }
 /* (4 Nov) A menu sheet (Settings, Why?, Layers, History, Blood) rises from behind the dock and sinks back behind it: the slide is its own, the cut on the
    dock's top line is the sheet layer's (.sheet-layer above), so no move of it, a pull, a let-go, a flick, its entrance or its exit, carries a cut of its own. */
 @keyframes dock-sheet-in { from { opacity: var(--edge-o, 1); transform: translateY(calc(100% + 8px)); } }
@@ -6450,6 +6448,8 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
   html.thumb-ui :is(.menu.as-sheet, .why-pop.as-sheet).leaving { animation-name: dock-sheet-out; }
   html.thumb-ui :is(.menu.as-sheet, .why-pop.as-sheet).leaving[data-swiped], html.thumb-ui :is(.menu.as-sheet, .why-pop.as-sheet).pulling { animation: none; }
 }
+/* (W4) With Reduce Motion a menu sheet only fades where it rests, 120 ms each way (--d-flip); a swipe-close is the finger's own move. */
+@media (prefers-reduced-motion: reduce) { html.thumb-ui :is(.menu.as-sheet, .why-pop.as-sheet) { animation: crossfade var(--d-flip) var(--ease) backwards; } html.thumb-ui :is(.menu.as-sheet, .why-pop.as-sheet).leaving { animation: crossfade-out var(--d-flip) var(--ease-in) forwards; } html.thumb-ui :is(.menu.as-sheet, .why-pop.as-sheet):is(.leaving[data-swiped], .pulling) { animation: none; } }
 .app.thumb :is(.panel, .treat-card, .instrument-workspace.float-ui) { --card-out: thumbOut; }
 @media (prefers-reduced-motion: no-preference) {
   #app.thumb.panel-open .panel, #app.thumb .treat-card, #app.thumb .instrument-workspace.float-ui.entering { animation: thumbIn var(--d-small) var(--ease) backwards; }
@@ -6513,7 +6513,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
   .app.thumb:not(.dock-open) .action-card.docked {
     left: calc(env(safe-area-inset-left) + 6px) !important; right: calc(env(safe-area-inset-right) + 6px); bottom: var(--nb-occ, calc(var(--vdock-h) + 14px));
     border-radius: var(--r-sheet); height: auto; max-height: min(46%, 400px, calc(100% - var(--top-safe, 0px) - var(--nb-occ, var(--vdock-h)) - 22px));
-    translate: 0 var(--sink, 0px); clip-path: polygon(-40px -40px, calc(100% + 40px) -40px, calc(100% + 40px) calc(100% + 40px), 100% calc(100% + 40px), 100% calc(100% - var(--sink, 0px) + 8px + var(--r-sheet)), calc(100% - var(--r-sheet) * .134) calc(100% - var(--sink, 0px) + 8px + var(--r-sheet) * .5), calc(100% - var(--r-sheet) * .5) calc(100% - var(--sink, 0px) + 8px + var(--r-sheet) * .134), calc(100% - var(--r-sheet)) calc(100% - var(--sink, 0px) + 8px), var(--r-sheet) calc(100% - var(--sink, 0px) + 8px), calc(var(--r-sheet) * .5) calc(100% - var(--sink, 0px) + 8px + var(--r-sheet) * .134), calc(var(--r-sheet) * .134) calc(100% - var(--sink, 0px) + 8px + var(--r-sheet) * .5), 0 calc(100% - var(--sink, 0px) + 8px + var(--r-sheet)), 0 calc(100% + 40px), -40px calc(100% + 40px));
+    clip-path: polygon(-40px -40px, calc(100% + 40px) -40px, calc(100% + 40px) calc(100% + 40px), 100% calc(100% + 40px), 100% calc(100% + 8px + var(--r-sheet)), calc(100% - var(--r-sheet) * .134) calc(100% + 8px + var(--r-sheet) * .5), calc(100% - var(--r-sheet) * .5) calc(100% + 8px + var(--r-sheet) * .134), calc(100% - var(--r-sheet)) calc(100% + 8px), var(--r-sheet) calc(100% + 8px), calc(var(--r-sheet) * .5) calc(100% + 8px + var(--r-sheet) * .134), calc(var(--r-sheet) * .134) calc(100% + 8px + var(--r-sheet) * .5), 0 calc(100% + 8px + var(--r-sheet)), 0 calc(100% + 40px), -40px calc(100% + 40px));
   }
   .app.thumb.panel-open .action-card.docked { visibility: hidden; transition: visibility 0s linear var(--d-small); }
   /* No X on a phone card: a pull down puts it away (card.js wireSheet), as the others. */
@@ -6959,6 +6959,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
   @keyframes thumbOut { to { opacity: 0; } }
   @keyframes sheet-rise { from { opacity: 0; } }
   @keyframes sheet-sink { to { opacity: 0; } }
+  @keyframes dock-sheet-in { from { opacity: 0; } } @keyframes dock-sheet-out { to { opacity: 0; } }
   @keyframes spin { 50% { opacity: .35; } }
   @keyframes pz-spin { 50% { opacity: .35; } }
   @keyframes pzw-drift { }

@@ -11,9 +11,9 @@
 // into a string to be compared.
 
 import { store, updateParams } from './store.js';
-import { h, icon, svgIcon, clamp, infoButton, sinkTo, stopSink, paintRange, isPhoneLayout, countTo, swapText, transformEndX, afterExit, markGone, switchIn, releaseWords } from './util.js';
-import { sheetParts } from './sheet-move.js';
-import { releaseSpeed, isFlick, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN, easeArrive } from './ease.js';
+import { h, icon, svgIcon, clamp, infoButton, paintRange, isPhoneLayout, countTo, swapText, transformEndX, afterExit, markGone, switchIn, releaseWords } from './util.js';
+import { sheetParts, dragSheet, glideSheet, stopSheet, setSheetOffset, sheetOffset } from './sheet-move.js';
+import { releaseSpeed, isFlick, carryCurve, SHEET_FLICK_MIN, SHEET_FLICK_FAR, SHEET_CLOSE_PX, SHEET_CLOSE_SHARE, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN, easeArrive } from './ease.js';
 import { glideTranslate, glideStop, glideRunning } from './script-glide.js';
 import { signalMove } from './num-move.js';
 import { cardFor, normalizeSel } from './actions.js';
@@ -195,7 +195,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   const afterLeave = () => { el.hidden = true; el.classList.remove('ac-leaving'); releaseWords(el); };
   function hide() {
     stopSheetGesture();
-    if (el.dataset.swiped) { delete el.dataset.swiped; el.hidden = true; el.style.removeProperty('--sink'); }   // (pulled away: already out of sight behind the tab row)
+    if (el.dataset.swiped) { delete el.dataset.swiped; el.hidden = true; setSheetOffset(el, 0); }   // (pulled away: already out of sight behind the tab row)
     if (!el.hidden && !el.classList.contains('ac-leaving')) {
       // (Docked, it sinks away; a desktop card fades out where it stands: it had closed in one frame.)
       // (With Reduce Motion both only fade: app.css turns the keyframes into fades.)
@@ -436,8 +436,9 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   }
 
   // Track swipes outside the header too; release all listeners on close or selection change.
-  // Over the thumb dock (an upright phone) the card follows the finger down behind the tab row (--sink, as the other
-  // cards there) and, let go past a short pull or flicked, sinks out of sight and closes; a short pull eases back.
+  // Over the thumb dock (an upright phone) the card follows the finger down behind the dock, as the other sheets do: its box and its still cut
+  // stand where they are and its plate and content ride one offset (sheet-move.js dragSheet/glideSheet, no --sink, no clip written per move).
+  // Let go past a short pull or flicked (the shared sheet rules, ease.js SHEET_*), it sinks out of sight in 240 ms and closes; a short one eases back.
   // (The gesture's state is this card's own, kept here: a second finger's moves and lifts are not the pull (pid: the finger that has the
   // card); px, py: where it came down; held: past the 6 px a tap may wobble; trail: the last eight [time, y] of the finger, pairs
   // taken from a pool of eight and given back when the next pull begins.)
@@ -458,31 +459,33 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     if (!held) { if (Math.hypot(e.clientX - px, e.clientY - py) < 6) return; held = true; }
     const pair = trail.length >= 8 ? trail.shift() : trailPool.pop();
     pair[0] = performance.now(); pair[1] = e.clientY; trail.push(pair);
-    if (thumb()) el.style.setProperty('--sink', `${dy}px`);
+    if (thumb()) dragSheet(el, dy);
   }
-  const sheetGone = () => { if (el.hidden) return; el.dataset.swiped = '1'; store.set({ selection: null }); if (!el.hidden) { delete el.dataset.swiped; el.style.removeProperty('--sink'); } };
+  const sheetGone = () => { if (el.hidden) return; el.dataset.swiped = '1'; store.set({ selection: null }); if (!el.hidden) { delete el.dataset.swiped; setSheetOffset(el, 0); } };
   function settle(gone, speed) {
-    if (!thumb()) { if (gone) store.set({ selection: null }); return; }
-    if (!gone) { sinkTo(el, 0, 220, undefined, speed); return; }
-    sinkTo(el, sizes.h, 220, sheetGone, speed);
+    if (!thumb()) { setSheetOffset(el, 0); if (gone) store.set({ selection: null }); return; }
+    // (One let-go for every sheet over the dock: D_SMALL on the curve that carries the finger's speed on, as swipeSheet and dock-sheet.js.)
+    const from = sheetOffset(el), to = gone ? sizes.h + 8 : 0;
+    // alloc-rare: a let-go
+    glideSheet(el, to, { easing: carryCurve(speed, to - from, D_SMALL), duration: D_SMALL, done: gone ? sheetGone : undefined });
   }
   function sheetUp(e) {
     if (e.pointerId !== pid) return;
     dy = Math.max(0, e.clientY - y0);
     const speed = releaseSpeed(trail, performance.now());   // (the finger's, px per ms down: the settle carries it on)
     // (A flick is how fast the finger was going as it lifted, not only the pull's average: a slow start and a quick flick at the end is one.)
-    const flick = isFlick(dy, speed, dy / Math.max(1, performance.now() - t0), 0.6, 30);
+    const flick = isFlick(dy, speed, dy / Math.max(1, performance.now() - t0), SHEET_FLICK_MIN, SHEET_FLICK_FAR);
     sheetStop();
-    settle(flick || dy > 40, speed);
+    settle(dy > 0 && (flick || dy > Math.min(SHEET_CLOSE_PX, sizes.h * SHEET_CLOSE_SHARE)), speed);
   }
   function sheetCancel(e) { if (e.pointerId !== pid) return; sheetStop(); settle(false, releaseSpeed(trail, performance.now())); }
   // (Until the first card is built there is no pull to stop.)
-  function stopSheetGesture() { if (!sheetWired) return; if (y0 != null) sheetStop(); stopSink(el); el.style.removeProperty('--sink'); }
+  function stopSheetGesture() { if (!sheetWired) return; if (y0 != null) sheetStop(); setSheetOffset(el, 0); }
   function onSheetDown(e) {
     if (!isDocked() || !e.isPrimary || e.button !== 0 || e.target.closest('.ac-close, .ac-foot')) return;
-    y0 = e.clientY - (parseFloat(el.style.getPropertyValue('--sink')) || 0); t0 = performance.now(); dy = 0; pid = e.pointerId; px = e.clientX; py = e.clientY; held = false;
+    stopSheet(el);   // (caught mid-ease: the pull carries on from where the content is drawn)
+    y0 = e.clientY - sheetOffset(el); t0 = performance.now(); dy = 0; pid = e.pointerId; px = e.clientX; py = e.clientY; held = false;
     while (trail.length) trailPool.push(trail.pop());
-    stopSink(el);
     addEventListener('pointermove', sheetMove);
     addEventListener('pointerup', sheetUp);
     addEventListener('pointercancel', sheetCancel);

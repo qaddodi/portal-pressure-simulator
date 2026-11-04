@@ -692,7 +692,8 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     workspace.dataset.safe = side ? 'right' : 'bottom';
     divider.setAttribute('aria-orientation', side ? 'vertical' : 'horizontal');
     if (side) putWidth(readMetric(stageWrap, 'clientWidth'));
-    else putHeight(readMetric(stageWrap, 'clientHeight'), sheetMax(readMetric(stageWrap, 'clientHeight')));
+    // (Over the thumb dock the card's height is the dock sheet's alone (dock-sheet.js, Menu system plan W3): no --instrument-h is written there.)
+    else if (!app.classList.contains('thumb')) putHeight(readMetric(stageWrap, 'clientHeight'), sheetMax(readMetric(stageWrap, 'clientHeight')));
     fitHeight();
   }
   // The card's size from the stage's (W wide, H high): worked out with no read of the page, so a drag can size it from the stage
@@ -723,13 +724,24 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   // play bar (the Wall mechanics view keeps the full card). The scope's view is its second child, after the Scope view / Wall switch.
   const FIT = ['abdomen', 'hvpg', 'fibroscan', 'doppler', 'endoscopy', 'readouts'];
   const fitView = (id) => (id === 'endoscopy' ? endoscopy.el : byId[id].el.firstElementChild);
-  let fitTimer = 0;
+  let fitTimer = 0, fitKids = [];
   function fitHeight() {
     const id = open.length === 1 && FIT.includes(open[0]) && state === 'open' && !(open[0] === 'endoscopy' && endoSub === 'wall') ? open[0] : null;
+    // Over the thumb dock (a phone, an upright iPad) the dock sheet owns the card's height (dock-sheet.js): the fit lets go of it at once,
+    // with no glide, no timer and nothing measured, so there is one owner of that height (Menu system plan W3, 4 Nov 2026).
+    if (app.classList.contains('thumb')) {
+      for (const o of FIT) fitView(o).classList.remove('nat');
+      if (classHas(workspace, 'fit')) {
+        clearTimeout(fitTimer); glideStop(workspace); workspace.style.transform = '';
+        for (const c of fitKids) c.style.transform = '';
+        fitKids = [];
+        classSoon(workspace, 'fit', false);
+      }
+      return;
+    }
     for (const o of FIT) if (o !== id) fitView(o).classList.remove('nat');
     const view = id ? fitView(id) : null;
-    // Over the thumb dock (a phone, an upright iPad) the card keeps its height whatever the tab: nothing fits there.
-    let fits = !!view && !sidewaysMQ.matches && (isSide() || heightRatio == null) && matchMedia('(min-width: 768px)').matches && !document.getElementById('app')?.classList.contains('thumb');
+    let fits = !!view && !sidewaysMQ.matches && (isSide() || heightRatio == null) && matchMedia('(min-width: 768px)').matches;
     if (view) view.classList.toggle('nat', fits);   // nat: the view at its natural height, to measure it
     fits = fits && readMetric(view, 'offsetHeight') > 0;
     const on = classHas(workspace, 'fit');
@@ -763,7 +775,6 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   // place. The scales are worked out on the arrival curve and written by the frames (script-glide.js glideCall), in the frame the glass over the
   // card reads them in (3 Nov 2026, cards trailing: a compositor animation can stand a display frame off it), so the inverse is exact.
   // (Was a CSS height transition: the card and everything in it laid out again in every frame of the ease.)
-  let fitKids = [];
   function setFit(h0, h1) {
     if (workspace.style.getPropertyValue('--fit-h') === `${h1}px`) return;
     glideStop(workspace);

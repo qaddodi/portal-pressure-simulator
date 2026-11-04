@@ -3,8 +3,9 @@
 //   - A card's box is never laid out on the finger's account: a pull up that needs a taller box holds what flexes (the Tests chart) at the
 //     size it is drawn at, so the first touch changes nothing on the page (holdFrame); the box and the content are committed once, in the
 //     frame the sheet lands in (commit), together with the offset going back to 0.
-//   - The release reads one set of numbers for cards and menus (FLICK_MIN, FLICK_FAR, CLOSE_PX, CLOSE_SHARE).
-// Moved out of main.js unchanged but for the frame hold and the menu sheet (menuSheet, below).
+//   - The release reads one set of numbers for cards and menus (ease.js SHEET_FLICK_MIN/FAR, SHEET_CLOSE_PX/SHARE, D_SMALL): the cards here, the
+//     menu sheets in util.js swipeSheet, and a vessel's or organ's card in card.js, on the same rules and the same 240 ms let-go.
+// Moved out of main.js unchanged but for the frame hold.
 import { $, isPhoneLayout, TABLET_UP_MQ } from './util.js';
 import { sheetParts, sheetOffset, setSheetOffset, stopSheet, glideSheet, dragSheet } from './sheet-move.js';
 import { SHEET_FLICK_MIN, SHEET_FLICK_FAR, SHEET_CLOSE_PX, SHEET_CLOSE_SHARE, releaseSpeed, isFlick, flickAim, carryCurve, D_SMALL } from './ease.js';

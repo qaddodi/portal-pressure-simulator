@@ -26,7 +26,7 @@ const onStart = (e) => {
 };
 if (typeof addEventListener === 'function') addEventListener('animationstart', onStart, { capture: true, passive: true });
 
-// The entrance's time (app.css: .menu, .umenu, .why-pop scale-settle on --d-flip; the dock's menu on --d-small after --enter-delay;
+// The entrance's time (app.css: .menu, .umenu, .why-pop scale-settle on --d-flip; the dock's menu on --d-small;
 // the sheets' slide-from-edge and the scrim's crossfade on --d-small; all on --ease) and the exit's (scale-settle-out and
 // crossfade-out as the menu's, slide-to-edge --d-flip, the main menu's sheet and scrim --d-small), in ms.
 const timeIn = (el, name) => (name === 'scale-settle' ? (el.classList.contains('from-dock') ? D_SMALL : D_FLIP) : D_SMALL);

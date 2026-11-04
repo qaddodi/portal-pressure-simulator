@@ -154,7 +154,7 @@ test('swipeSheet: a short slow pull eases back, a long one goes and the menu is 
   assert.equal(r.closed.length, 1, 'past the line the menu is told');
   rel = r.el.made[1];
   assert.equal(rel.kf[1].translate, '0px 608px', 'it goes to its own height and the dock\'s 8 px');
-  assert.equal(rel.opts.duration, 220);
+  assert.equal(rel.opts.duration, 240, 'one sheet time, D_SMALL, over the dock too (W4)');
 });
 
 test('swipeSheet: a touch while the let-go eases takes the sheet over from where it is drawn, without a jump', () => {

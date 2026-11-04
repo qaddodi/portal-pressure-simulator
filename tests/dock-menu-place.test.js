@@ -38,8 +38,8 @@ function dock() {
   return btn;
 }
 const sized = (el) => { Object.assign(el, { offsetWidth: 280, offsetHeight: 600, scrollHeight: 600, clientHeight: 600, scrollTop: 0 }); return el; };
-// (The menu's place is its translate: calc(<top>px + var(--sink, 0px)).)
-const topOf = (el) => parseFloat(/calc\(([\d.-]+)px \+ var\(--sink, 0px\)\)$/.exec(el.style.translate)[1]);
+// (The menu's place is its translate: <left> <top>px. No --sink rides it since W4, 4 Nov 2026.)
+const topOf = (el) => parseFloat(/ ([\d.-]+)px$/.exec(el.style.translate)[1]);
 const open = (anchor, opts) => { const orig = document.createElement; document.createElement = (t) => sized(new FakeEl(t)); try { return popover(anchor, [], opts); } finally { document.createElement = orig; } };
 
 test("Settings from the tab row sits 8 px above the whole dock's top edge: the play bar is never covered", () => {
@@ -56,9 +56,11 @@ test('a dock menu opened with the default placement lands above the dock too, ne
   closePopover();
 });
 
-test("a dock menu's cut runs across its whole shadow on the tab row's top line, so nothing of it is drawn lower", () => {
+test("a dock menu has no cut of its own: the sheet layer cuts it on the dock's top line (W4, 4 Nov 2026)", () => {
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
-  assert.match(css, /html\.thumb-ui \.menu\.from-dock \{ clip-path: inset\(-64px -64px calc\(var\(--sink, 0px\) - 8px\) -64px\); \}/);
+  assert.doesNotMatch(css, /html\.thumb-ui \.menu\.from-dock \{ clip-path/);
+  assert.doesNotMatch(css, /\.menu\.from-dock \{ translate: 0 var\(--sink/);
+  assert.doesNotMatch(css, /html\.thumb-ui \.menu\.from-dock[^{]*\{[^}]*--sink/);
   // (The cards keep their polygon, open at the sides: the dock is drawn over their shadow.)
   assert.doesNotMatch(css, /html\.thumb-ui \.menu\.from-dock \{ clip-path: polygon/);
 });

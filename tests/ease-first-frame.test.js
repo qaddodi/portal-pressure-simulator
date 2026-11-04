@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 
 // Two easings that took their start time in a handler but ran on the frame scheduler's own time:
 //  - that time is the frame's start, which can be a few ms before the handler's performance.now(), so (now - t0) / ms came out
-//    slightly negative; the cubic ease out of util.js sinkTo then drew the first frame the wrong way (about 20% of the travel at the
+//    slightly negative; the cubic ease out of util.js sinkTo (gone since W4) then drew the first frame the wrong way (about 20% of the travel at the
 //    sheet's 220 ms);
 //  - the portal split bar (stage.js splitTo) stopped for good when its tile had left the page, leaving it part way while _shTo
 //    already held the target, so the same share asked for again returned at once and the bar stayed there;
@@ -18,31 +18,10 @@ globalThis.Element ??= class {};
 globalThis.matchMedia ??= () => ({ matches: false, addEventListener() {}, addListener() {} });
 globalThis.document ??= { documentElement: { dataset: {}, style: { setProperty() {} } }, addEventListener() {}, createElement: () => ({ getContext: () => ({}) }) };
 globalThis.addEventListener ??= () => {};
-let asked = null;
-globalThis.requestAnimationFrame = (cb) => { asked = cb; return 1; };
-globalThis.cancelAnimationFrame = () => { asked = null; };
-const { sinkTo, stopSink } = await import('../src/ui/util.js');
+globalThis.requestAnimationFrame = () => 1;
+globalThis.cancelAnimationFrame = () => {};
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
-const fakeSheet = (sink) => {
-  const v = new Map(sink == null ? [] : [['--sink', `${sink}px`]]);
-  return { style: { getPropertyValue: (k) => v.get(k) ?? '', setProperty: (k, x) => v.set(k, x), removeProperty: (k) => v.delete(k) }, sink: () => parseFloat(v.get('--sink')) };
-};
-// Runs the frame the scheduler asked for, at a time `lead` ms before the easing began.
-const frameAt = (t, lead) => { const cb = asked; asked = null; cb(t - lead); };
-
-test('a sheet pulled back or let go does not start its first frame the wrong way', () => {
-  for (const [from, to, speed] of [[0, 100, null], [80, 0, null], [0, 100, 0.3], [80, 0, 0.3]]) {
-    const el = fakeSheet(from), before = performance.now();
-    sinkTo(el, to, 220, undefined, speed);
-    frameAt(before, 16);   // (the frame began 16 ms before the handler asked)
-    const first = el.sink(), lo = Math.min(from, to), hi = Math.max(from, to);
-    assert.ok(first >= lo - 1e-9 && first <= hi + 1e-9, `${from} to ${to} (speed ${speed}): first frame ${first} is outside its travel`);
-    assert.ok(Math.abs(first - from) < 1e-9, `${from} to ${to}: the first frame stays where it was, not ${first}`);
-    stopSink(el);
-  }
-});
-
 // splitTo with its helpers, as stage.js has them, and the surfaces they touch stubbed (the real follow2 and portalSplit).
 const stage = stageSource();
 const { follow2, SHOWN_TAU } = await import('../src/ui/display-state.js');
@@ -148,7 +127,8 @@ test('a tile that leaves the page mid-glide lands on its share, so asking for th
 });
 
 test('the same three easings are clamped at the source', () => {
-  assert.match(read('src/ui/util.js'), /const k = clamp\(\(now - t0\) \/ ms, 0, 1\);/);
+  // (util.js sinkTo is gone, W4 4 Nov 2026: a vessel's card lets go on sheet-move.js glideSheet, as every sheet over the dock.)
+  assert.doesNotMatch(read('src/ui/util.js'), /export function sinkTo/);
   assert.match(stage, /dt = Math\.max\(0, \(now - el\._shAt\) \/ 1000\);/);
   assert.match(stage, /follow2\(el\._sh, el\._shW, T, dt, SHOWN_TAU, SPLIT_EPS\)/);
 });
