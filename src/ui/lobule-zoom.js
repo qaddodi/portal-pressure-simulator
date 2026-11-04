@@ -5007,8 +5007,12 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
      *  moved by (dx, dy), the cards' own transform, drawn each frame with no glide of its own; zoomEnd puts V back as it was. Not in the sinusoid. */
     zoomOpen() {
       // (Only where the lobule's picture is in the figure's own context and drawn for the view as it stands: that picture is carried by the camera.)
-      if (zbase || !geo || fade < 0.98 || diveScaled || gliding || rubber || sinU > 0 || sinTo || !shared || wide || !drawnV.ok || glDirty) return false;
-      stopInertia(); zbase = { scene: true }; return true;
+      if (zbase || !geo || fade < 0.98 || diveScaled || gliding || rubber || sinBusyNow() || !shared || wide) return false;
+      // (Landed in the sinusoid: its view is the picture carried, with its names; else the lobule's, drawn for the view as it stands.)
+      const sin = sinTo === 1 && sinU >= 1 && sv.isOpen() && sv.cameraReady;
+      if ((sinU > 0 || sinTo) && !sin) return false;
+      if (!sin && (!drawnV.ok || glDirty)) return false;
+      stopInertia(); zbase = { scene: true, sin }; return true;
     },
     zoomAt(S, px, py, dx, dy) {
       if (!zbase) return;
@@ -5018,13 +5022,16 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       const lx = px - snap.l, ly = py - snap.t;
       let tx = (1 - S) * lx + dx, ty = (1 - S) * ly + dy;
       if (S > 1) { tx = Math.min(0, Math.max(snap.w * (1 - S), tx)); ty = Math.min(0, Math.max(snap.h * (1 - S), ty)); }
+      if (zbase.sin) { sv.camera(S, tx, ty); return; }
       zoomCam = true;
       setDive(S, tx, ty);
       shareTop?.present();
     },
     zoomEnd() {
       if (!zbase) return;
+      const sin = zbase.sin;
       zbase = null; zoomCam = false;
+      if (sin) { sv.camera(1, 0, 0); return; }
       setDive(1, 0, 0);
       shareTop?.present();
     },
