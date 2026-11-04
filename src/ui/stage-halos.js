@@ -5,6 +5,7 @@ import { HIDDEN_NODES, NODE_POS } from './anatomy.js';
 import { easeArrive } from './ease.js';
 import { cancelFrame } from './frame.js';
 import { reduceMotionMQ as reduceMotion } from './motion.js';
+import { createScope } from './scope.js';
 import { restPass } from './rest-pass.js';
 import { store } from './store.js';
 import { glyphsReady, loadGlyphs, textPolys } from './text-gl.js';
@@ -27,7 +28,7 @@ if (live.haloK) gHalo.style.setProperty('--halo-k', live.haloK);
   // keyframes haloRing and haloText eased them. (Until the outlines are in, the SVG text and its CSS animation.)
   const haloNone = [];   // (no glow: the delta source is set to this, never to a fresh empty list)
   const haloNoop = () => {};
-  setTimeout(() => loadGlyphs().catch(haloNoop), 3000);   // (the outlines fetched ahead of the first halo, after start-up)
+  createScope().timer(() => loadGlyphs().catch(haloNoop), 3000);   // (the outlines fetched ahead of the first halo, after start-up)
   // (A circle's path by its radius: the last one kept, so the three halos of a frame share one string, and a still frame builds none.)
   let ringDr = NaN, ringDs = '';
   function ringD(r) {

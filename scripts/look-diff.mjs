@@ -27,7 +27,7 @@ export function specificity(sel) {
   s = s.replace(/:[\w-]+(?:\([^)]*\))?/g, () => { b++; return ' '; });
   s = s.replace(/#[\w-]+/g, () => { a++; return ' '; });
   s = s.replace(/\.[\w-]+/g, () => { b++; return ' '; });
-  s = s.replace(/(^|[\s>+~])([a-zA-Z][\w-]*)/g, () => { c++; return ' '; });
+  s.replace(/(^|[\s>+~])([a-zA-Z][\w-]*)/g, () => { c++; return ' '; });
   return [a, b, c];
 }
 const spec = (selector) => selector.split(/,(?![^(]*\))/).map((p) => specificity(p.trim())).sort((x, y) => x[0] - y[0] || x[1] - y[1] || x[2] - y[2]).pop();

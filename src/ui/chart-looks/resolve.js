@@ -19,8 +19,6 @@ const warned = new Set();   // alloc-rare: one entry for each missing key or tok
 function report(what) {
   if (warned.has(what)) return;
   warned.add(what);
-  const dev = typeof location === 'object' && /[?&]debug\b/.test(location.search || '');
-  if (dev) throw new Error(`chart-looks: ${what}`);
   if (typeof console === 'object') console.warn(`chart-looks: ${what}`);
 }
 

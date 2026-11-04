@@ -29,7 +29,7 @@ test('a phone upright: the roles times 1.45 on the words, plain on a table, 1.15
   near(t.body, 14 * 1.45); near(t.title, 28 * 1.45); near(tb.body, 14); near(d.cap, 12 * 1.15); near(d.lab, 12 * 1.15); near(d.body, 14);
 });
 test('an upright iPad: 1.39 and 1.3', () => {
-  near(cardScale({ vw: 820, vh: 1180, layout: 'tab', part: 'text' }).body, 14.0 + (820 - 390) * 0.00392 > 16 ? 16 * 1.39 : (14 + 430 * 0.00392) * 1.39);
+  near(cardScale({ vw: 820, vh: 1180, layout: 'tab', part: 'text' }).body, (14 + 430 * 0.00392) * 1.39);
   near(cardScale({ vw: 820, vh: 1180, layout: 'tab', part: 'data' }).cap, 12 * 1.3);
 });
 test('a phone on its side: the words and panel at 1.3', () => {
