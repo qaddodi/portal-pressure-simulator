@@ -7757,3 +7757,7 @@ body { font-optical-sizing: auto; font-kerning: normal; }
 /* Before the GPU has drawn a menu's glass (its first frames, and wherever it cannot) the fill is already the glass's own tint, so nothing changes when the frost lands under it:
    no solid-to-glass flash (Mohammad, 4 Nov 2026, "when the menus first appear they still flicker"). Blur effect off keeps the solid fill above. */
 :root:not([data-noglass]) :is(.menu, .umenu, .why-pop, .um-pv.on, .modal, .pal):not([data-gl]) { background: var(--gl-tint); }
+
+/* Frame-rate counter (fps-counter.js): bottom-left, over everything, never takes a tap. */
+.fps-counter { position: fixed; left: max(8px, env(safe-area-inset-left)); bottom: max(8px, env(safe-area-inset-bottom)); z-index: 9999; pointer-events: none; font: 600 12px/1.2 Inter, system-ui, sans-serif; font-variant-numeric: tabular-nums; color: var(--text, #fff); text-shadow: 0 0 2px var(--bg, #000), 0 0 4px var(--bg, #000); }
+.fps-counter small { margin-left: 3px; font-size: 10px; font-weight: 500; opacity: .7; }

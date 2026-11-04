@@ -80,6 +80,7 @@ import { pillState, foldPill, stopFold } from './pill-motion.js';
 import { readAnims, readBox, readElAt, readMetric, readStyle, scrollInto } from './layout-snap.js';
 import './scroll-edges.js';   // (soft fades at the ends of lists that scroll, only where there is more; ?edges=0 off)
 import { caught, caughtNow } from './caught.js';
+import { setFpsCounter } from './fps-counter.js';
 const nextFrame = frameFor('main');
 
 // Color lenses: [title, what it shows, legend swatch].
@@ -1205,6 +1206,8 @@ function wireTopbar() {
 }
 // Two menus with one job each: Settings (how the simulator looks and reads) and Help (how to
 // use it, what it is, and who made it).
+const fpsOn = () => { try { return localStorage.getItem('pps.fps') === '1'; } catch { return false; } };
+setFpsCounter(fpsOn());
 function openSettings(anchor, withSearch = false) {
   const cur = currentLook() || 'system';
   // While presenting, only what changes how the talk looks (appearance, full screen, text size, blur effect), and Send feedback.
@@ -1230,6 +1233,10 @@ function openSettings(anchor, withSearch = false) {
       try { localStorage.setItem('pps.noGlass', on ? '0' : '1'); } catch (e) { caught('main:1038', e); /* storage unavailable */ }
       document.documentElement.toggleAttribute('data-noglass', !on);
       document.documentElement.removeAttribute('data-noglass-auto');   // (chosen now: no longer the software renderer's own choice, blur-guard.js)
+    }),
+    menuToggle(fpsOn(), 'gauge', 'Show frame rate', 'A small counter in the bottom-left corner', (on) => {
+      try { localStorage.setItem('pps.fps', on ? '1' : '0'); } catch (e) { caught('main:fps', e); /* storage unavailable */ }
+      setFpsCounter(on);
     }),
     // (What the model shows and how far it goes has its own heading: "Always show HVPG" is not an accessibility setting, and a rule under Blur
     // left it reading as one.)
