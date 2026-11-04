@@ -120,7 +120,7 @@ test('every WebGL2 surface rebuilds after a lost context (or is a probe or a sec
   assert.match(src('src/ui/sinusoid-view.js'), /gpu\.epoch/);
   // (Glass and labels: in place.)
   // (The glass draws in the figure's context since 4 Nov 2026: its programs are made again by the host's restore.)
-  assert.match(src('src/ui/label-gl.js'), /if \(!host\) canvas\.addEventListener\('webglcontextrestored'/);
+  assert.match(src('src/ui/label-gl.js'), /canvas\.addEventListener\('webglcontextrestored', \(\) => \{\n\s+if \(disposed\) return;/);
 });
 
 test('idle rest: the FibroScan probe\'s waves stop with the figure and start again on waking', () => {

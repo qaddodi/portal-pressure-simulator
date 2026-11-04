@@ -2,18 +2,14 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-// The label layer's own canvas never exceeds 2 device px per CSS px.
+// The stage labels are drawn in the figure's canvas (S2): at that canvas's density, which the stage caps (2 device px per CSS px and the
+// pixel budget, stage-res.js resizeCanvas). The label layer has no canvas of its own to cap.
 const src = readFileSync(new URL('../src/ui/label-gl.js', import.meta.url), 'utf8');
-const m = src.match(/export const LABEL_DPR_MAX = (\d+);\nexport const labelDensity = [^\n]+/);
-test('label density is capped at 2x', () => {
-  assert.ok(m, 'cap helper present');
-  const { labelDensity, LABEL_DPR_MAX } = new Function(`${m[0].replace(/export /g, '')}; return { labelDensity, LABEL_DPR_MAX };`)();
-  assert.equal(LABEL_DPR_MAX, 2);
-  assert.equal(labelDensity(3), 2);
-  assert.equal(labelDensity(2), 2);
-  assert.equal(labelDensity(1), 1);
-  assert.equal(labelDensity(undefined), 1);
-});
-test('size() uses the capped density for the canvas', () => {
-  assert.match(src, /k = labelDensity\(devicePixelRatio\)/);
+const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const res = readFileSync(new URL('../src/ui/stage-res.js', import.meta.url), 'utf8');
+test('the labels follow the figure canvas\'s density, which is capped at 2x', () => {
+  assert.doesNotMatch(src, /document\.createElement\('canvas'\)|getContext\(/, 'no canvas of its own');
+  assert.match(src, /const hostK = \(\) => \(host\.scale \? host\.scale\(\) : 0\) \|\| devicePixelRatio \|\| 1;/);
+  assert.match(stage, /scale: \(\) => vCanvas\.width \/ \(stageBox\(\)\.width \|\| 1\)/);
+  assert.match(res, /Math\.min\(2, devicePixelRatio \|\| 1\)/);
 });

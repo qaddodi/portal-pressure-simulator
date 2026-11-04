@@ -30,11 +30,14 @@ const animatesOpacity = (a) => { try { return a.effect.getKeyframes().some((k) =
 /**
  * `leaf`: the layer's element. `near`: the last element up the chain whose inline style is watched too (the layer's own fades are
  * scripted there); farther ones are watched by class only, so a write to their style (a camera's transform every frame) asks for nothing.
- * `gcs`: getComputedStyle (a stand-in in the tests).
+ * `shared`: see below. `gcs`: getComputedStyle (a stand-in in the tests).
  */
-export function createLayerAlpha(leaf, { near = null, onChange = null, gcs = (e) => getComputedStyle(e) } = {}) {
+export function createLayerAlpha(leaf, { near = null, shared = null, onChange = null, gcs = (e) => getComputedStyle(e) } = {}) {
   const chain = [];
-  for (let e = leaf; e; e = e.parentElement) chain.push(e);
+  // (`shared`: a canvas the layer is drawn in that has the same ancestors above some point: the fades of those reach the canvas on their own, and
+  // are left out here, so they are not applied twice.)
+  let cut = Infinity;
+  for (let e = leaf; e; e = e.parentElement) { if (shared && cut === Infinity && e.contains?.(shared)) cut = chain.length; chain.push(e); }
   const n = chain.length;
   const vals = new Float64Array(n).fill(1);
   const trks = new Array(n).fill(null);
@@ -56,6 +59,7 @@ export function createLayerAlpha(leaf, { near = null, onChange = null, gcs = (e)
   function reread(t) {
     dirty = false;
     for (let i = 0; i < n; i++) {
+      if (i >= cut) { vals[i] = 1; trks[i] = null; continue; }   // (the canvas has these ancestors too: their own fades reach it, and their classes are still watched)
       const e = chain[i], cs = gcs(e), v = parseFloat(cs.opacity);
       vals[i] = Number.isFinite(v) ? v : 1;
       if (i === 0) hidden = cs.visibility === 'hidden' || cs.display === 'none';

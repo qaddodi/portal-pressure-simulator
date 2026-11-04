@@ -13,16 +13,17 @@
 // once the context is lost, the SVG draws them all, as it always has.
 
 import { glGet, glCap } from './gl-state.js';
-import { frameFor, cancelFrame } from './frame.js';
 import { ucOf } from './uniform-cache.js';
 import { classOnly, GESTURE_LOOK } from './idle-keys.js';
 import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js';
 import { createAtlasPacker } from './atlas-pack.js';
 import { easeMove, D_SURFACE, D_SMALL } from './ease.js';
-import { createShapeGL, flattenPath, polyMeshInto, ellipsePoly } from './shape-gl.js';
+import { createShapeGL, flattenPath, ellipsePoly } from './shape-gl.js';
 import { createOrganPaint, parseColor, mul } from './organ-paint.js';
 import { textPolys, textWidth, loadGlyphs, glyphsReady, textCovers } from './text-gl.js';
-import { watchSize, sizeOf, rectSoon } from './geom.js';
+import { watchSize } from './geom.js';
+import { createLayerAlpha } from './layer-alpha.js';
+import { frameFor, cancelFrame } from './frame.js';
 import { trackOf, trackAt, settleUnder, mixColour, mixRgbaInto, timingOf, progressAt, keysOf } from './label-track.js';
 import { caught } from './caught.js';
 import { booting, holdCover } from './quiet.js';
@@ -32,7 +33,6 @@ import { readStyle } from './layout-snap.js';
 import { reduceMotionMQ } from './motion.js';
 import { leaderEnd } from './leader-end.js';
 import { darkMQ } from './look.js';
-const HOLE_MESH = { tri: null, seg: null, nTri: 0, nSeg: 0 };   // alloc-rare: made once (a hole's mask is meshed into it and released after its draw)
 // (The colour a clear writes, one array for every clear: none made per call, plan rev 2 §2.8.)
 const CLEAR0 = new Float32Array(4);
 
@@ -48,7 +48,6 @@ const TRACK = true;
 const HOLD_MAX = 400;   // (ms: the longest a label waits at its last drawn opacity for its animations, see takeAnims)
 const REDUCE = typeof matchMedia === 'function' ? reduceMotionMQ : null;
 
-const nextFrame = frameFor('labels-gl');
 const VS = `#version 300 es
 uniform vec4 uR;      // the picture's box: left, top, width, height (device px, from the top left)
 uniform vec2 uView;   // the canvas (device px)
@@ -180,17 +179,6 @@ void main() {
     float t = clamp(length(p - uR4.zw) / max(uGeo.w, 1e-6), 0.0, 1.0);
     vec4 col = mix(uS0, uS1, clamp((t - uSO.x) / max(uSO.y - uSO.x, 1e-6), 0.0, 1.0));
     o = col * c * uA;
-    return;
-  }
-  if (uKind == 6) {
-    // A box with a radius of its own at each corner (uR4: top left, top right, bottom right, bottom left), from its top left uGeo.xy, its
-    // size uGeo.zw (device px): a frosted glass's shape, which the labels leave out (setHoles).
-    vec2 c = p - uGeo.xy - uGeo.zw * 0.5;
-    float r = c.x < 0.0 ? (c.y < 0.0 ? uR4.x : uR4.w) : (c.y < 0.0 ? uR4.y : uR4.z);
-    r = min(r, min(uGeo.z, uGeo.w) * 0.5);
-    vec2 q = abs(c) - uGeo.zw * 0.5 + r;
-    float dist = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
-    o = uFill * clamp(0.5 - dist, 0.0, 1.0) * uA;
     return;
   }
   if (uKind == 2) {
@@ -416,10 +404,8 @@ export function describeBlock(g, cs = getComputedStyle, boxOf) {   // (boxOf: a 
 }
 
 /** The look of a description, as a key: a picture is drawn again only when it changes (the opacity is the GPU's, not the picture's). */
-// The label layer's own canvas is capped at 2 device px per CSS px (the figure's cap, stage.js resizeCanvas): a 3x iPhone Pro Max made it a
-// 1320 x 2868 buffer.
-export const LABEL_DPR_MAX = 2;
-export const labelDensity = (dpr) => Math.min(dpr || 1, LABEL_DPR_MAX);
+// (The labels are drawn at the figure's canvas density, which stage.js resizeCanvas caps at 2 device px per CSS px and the pixel budget.)
+const nextFrame = frameFor('labels-gl');
 export const lookKey = (d, rot, dpr) => JSON.stringify([d.filter, d.parts, rot, dpr]);
 
 const INTER = /^\s*"?Inter\b/i;
@@ -596,11 +582,9 @@ export function snapshotItem(key, dx, dy, dw, dh, a, dpr, W, H) {
   return { key, x: dx / dpr, y: dy / dpr, w: dw / dpr, h: dh / dpr, a, clipped: dx < 0 || dy < 0 || dx + dw > W || dy + dh > H };
 }
 export function createLabelGL(svg, blocks, { software = false, marks = [], host = null, force = false, onBoxes = null, id = 'labelGl' } = {}) {
-  if ((software && !force) || typeof WebGL2RenderingContext === 'undefined') return null;
-  const canvas = host ? host.canvas : document.createElement('canvas');
-  if (!host) { canvas.id = id; canvas.setAttribute('aria-hidden', 'true'); }
-  let gl = host ? host.gl : null;
-  if (!host) { try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, failIfMajorPerformanceCaveat: true }); } catch { gl = null; } }
+  if (!host || (software && !force) || typeof WebGL2RenderingContext === 'undefined') return null;
+  const canvas = host.canvas;
+  const gl = host.gl;
   if (!gl) return null;
   // A picture turned on the GPU, sampled smoothly: only for what is soft anyway (the FibroScan's blurred beam), never for words.
   const RVS = `#version 300 es
@@ -656,16 +640,14 @@ void main() { o = texture(uT, vUV) * uA; }`;
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     return t;
   };
-  if (!host) svg.after(canvas);
   // (The labels' words are Inter's outlines (text-gl.js), fetched as the layer starts: till they come, the SVG shows every label.)
   if (!glyphsReady()) loadGlyphs().then(() => { for (const s of last) dirty.add(s.g); ask(); }, () => {});
-  let lost = false, disposed = false, dpr = 1, W = 1, H = 1, last = [], raf = 0;
+  let lost = false, disposed = false, dpr = 1, W = 1, H = 1, last = [];
   // (The loading cover waits for the labels' first picture, inside its own cap (index.html): it lifted on a figure with no labels, and
   // they arrived a beat later. 1.5 s here, so a view that shows none does not hold it.)
   let coverOpen = null;   // alloc-rare: one promise for the cover, made once, only while it is up
   if (booting()) holdCover(new Promise((done) => { coverOpen = done; setTimeout(done, 1500); }));
   let frameSeq = 0, gen = 0, displaced = false;   // (the displayed-label snapshot: frames drawn so far, and the layout/atlas generation, up by every layout and every repack)
-  const rafDraw = () => { raf = 0; draw(); };   // (the frame's callback, made once)
   // A slide's camera glide (stage.js, ?labelride=0 off): the labels ride with the figure on the GPU instead of fading out for the whole
   // move. rideM maps where they were laid out (stage px) to where that point is now; each label's picture keeps its size, its centre
   // carried. At the landing they are laid out again, and each label glides from where it rode to its new place (one that stays), fades
@@ -723,7 +705,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // frostOver); onBoxes() is told when they change.)
   // (Written into BX as each is drawn (four numbers a box), and compared with the frame before's BP: `boxes` is a new array only when one
   // changed, so what keys on its identity keeps its picture while the labels stand still. BK holds the whole pixels onBoxes is told by.)
-  let boxes = [], blank = false;
+  let boxes = [];
   let BX = new Float64Array(256), BP = new Float64Array(256), BK = new Int32Array(256), nb = 0, npb = 0, nbk = 0;
   const BOXP = [];   // the box arrays handed out, kept to fill again
   function growBoxes() {
@@ -876,15 +858,15 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // through what no animation of the label's own shows. The rest, its own CSS fades and colour eases and script fades, are followed: label-track.js.)
   const exact = new Until();
   const dirty = new Set();
-  // The label layer's inline style (the dive's zoom and fade, its visibility) is the canvas's too; its classes' rules are in app.css.
-  const copyStyle = () => { const w = canvas.style.width, h = canvas.style.height; canvas.style.cssText = svg.style.cssText; canvas.style.width = w; canvas.style.height = h; placeSoon(); };
-  if (!host) new MutationObserver(copyStyle).observe(svg, { attributes: true, attributeFilter: ['style'] });
+  // The label layer's own fades and hides (its inline opacity, the classes' rules in app.css: a camera move, a pinch, the catheter, the lobule) reach
+  // the pictures as a factor LA of every draw (layer-alpha.js, no read of the page in a frame while none changes), the canvas being the figure's.
+  let LA = 1, la = null;
+  const layerA = () => { if (!host.layerAlpha) return 1; la ||= createLayerAlpha(svg, { near: svg, shared: canvas, onChange: () => ask() }); return la.now(); };
   // (Host mode: the layer's own fade or visibility changed (the dive's, a camera move's): whether the labels may be drawn over the
   // figure is asked again, at the next picture, and when its fade ends, so they come back onto the GPU once it has settled.)
-  if (host) {
-    new MutationObserver(() => check()).observe(svg, { attributes: true, attributeFilter: ['style', 'class'] });
-    svg.addEventListener('transitionend', (e) => { if (e.target === svg) ask(); });
-  }
+  const layerMo = new MutationObserver(() => check());
+  layerMo.observe(svg, { attributes: true, attributeFilter: ['style', 'class'] });
+  svg.addEventListener('transitionend', (e) => { if (e.target === svg) ask(); });
   // A label changed (its words, a class, a colour, its place in the list): its look is read again.
   const labelOf = (n) => (n.nodeType === 1 ? n : n.parentElement)?.closest?.('.lb');
   // (Not its transform: where it stands comes with sync, every frame of a pan, and asks for no new picture. A write that changed
@@ -937,21 +919,22 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // The context given back (iOS Safari returns to the page, or a GPU process restarts): the programs are started again at once and read
   // when the driver has finished them, at an idle moment, not in a frame (the SVG draws every label meanwhile, as in the loss). Then every
   // picture goes up again, packed afresh, and the layer is drawn: the labels, marks and probes are the GPU's again, in the same frame.
-  // (Host mode has no restore of its own: the host owns the context and the layer is not made with one.)
-  if (!host) canvas.addEventListener('webglcontextrestored', () => {
+  // (The host's canvas gets its context back as the same object: the layer's own programs, pages and buffers are made anew, the host laying its pass again.)
+  canvas.addEventListener('webglcontextrestored', () => {
+    if (disposed) return;
     let hs;
     try { hs = start(); } catch { return; }
     publishWhenDone(gl, hs, () => {
       if (!lost || gl.isContextLost()) return;   // (lost again: the next restore starts over)
       try { finish(hs); } catch { return; }   // (the shaders will not build: the SVG keeps every label)
       pageTex = []; rpDrop(); retry.clear(); pending.clear(); stuck = false; needRepack = false; packer.reset(); outgoing.length = 0; ghosts = []; xfOld = xfNew = 1; for (const [, v] of sprites) { v.alt = null; v.alts = null; } glides.clear(); rideFrom = null;
-      holeMasks = new WeakMap(); holeShape = null; picPaint = null; lostPic(headSp); lostPic(sHeadSp); slotTex = null;
+      picPaint = null; lostPic(headSp); lostPic(sHeadSp); slotTex = null;
       for (const s of last) { const st = sprites.get(s.g); if (st) { st.slot = null; st.key = ''; } dirty.add(s.g); }
       pReadSoon(); sReadSoon(); allMarks(); nbk = -1;
       lost = false;
       ask();
     });
-  });
+  }, { signal: ac.signal });
   // (The host's canvas pixels per CSS px: its owner's scale() when it gives one (a canvas drawn at its own density, the lobule's captions), else the screen's.)
   const hostK = () => (host.scale ? host.scale() : 0) || devicePixelRatio || 1;
   // (The host's canvas, sized by its owner at the screen's density: stage.js resizeCanvas. Read as each picture is laid: no layout.)
@@ -962,21 +945,9 @@ void main() { o = texture(uT, vUV) * uA; }`;
     for (const s of last) dirty.add(s.g);
     return true;
   }
-  // (Its own canvas: sized from the stage's box when that changes (the ResizeObserver below, and a change of screen density), never in a frame.)
-  function size() {
-    if (host) return hostSize();
-    const r = sizeOf(svg.parentElement), k = labelDensity(devicePixelRatio);   // (the stage's box, kept by geom.js's observer: the dive zooms the layer itself; null until it first reports, and then the observer below asks again)
-    if (!r) return false;
-    const w = Math.max(1, Math.round(r.w * k)), h = Math.max(1, Math.round(r.h * k));
-    if (w === W && h === H && k === dpr) return false;
-    W = w; H = h; dpr = k; canvas.width = w; canvas.height = h;
-    // (Exactly one canvas pixel per device pixel: a canvas scaled even a little would be filtered, and the words soften.)
-    canvas.style.width = `${w / k}px`; canvas.style.height = `${h / k}px`;
-    for (const s of last) dirty.add(s.g);
-    return true;
-  }
-  // (Its callback runs once the page is laid out: the canvas's place read there costs no extra layout.)
-  watchSize(svg.parentElement, () => { placeHoles(); if (size()) ask(); });
+  // (Sized with the host's canvas, by its owner: read as each picture is laid, and when the stage's box or the screen's density changes.)
+  const size = () => hostSize();
+  watchSize(svg.parentElement, () => { if (size()) ask(); });
   let densT = 0;
   const densRun = () => { densT = 0; size(); ask(); };
   const densityChanged = () => { if (!densT) densT = setTimeout(densRun, 0); };
@@ -988,14 +959,16 @@ void main() { o = texture(uT, vUV) * uA; }`;
   function ask() {
     if (lost) return;
     // (Given back to the SVG and still not to be drawn over the figure: no picture is laid again for them.)
-    if (host) { if (released && !host.active()) return; owed = true; host.ask(); return; }
-    if (!raf) raf = nextFrame(rafDraw);
+    if (released && !host.active()) return;
+    owed = true;
+    if (drawing) { if (!againF) againF = nextFrame(againTick); return; }
+    host.ask();
   }
   // Host mode, whenever something that decides whether the labels may be drawn over the figure changed (stage.js watches it): drawn
   // there and not to be any more, the picture is laid again now, without them, and the SVG given them in the same task, so they never
   // show twice nor vanish for a frame; given back and now to be drawn there again, a picture with them is asked for.
   function check() {
-    if (!host || lost) return;
+    if (lost) return;
     if (!released) { if (!host.active()) { host.now(); if (!released) release(); } return; }
     if (host.active()) ask();
   }
@@ -1148,18 +1121,14 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // before anything is painted (an attribute written and written back in one task is never drawn).
   // todo: label → what it is owed (1 turned, 2 its look changed, 4 its colour ease moved, 8 read it again).
   const todo = new Map();
-  let touched = false, settleQ = false, settling = false;
-  const settleSoon = () => { if (!settleQ && !settling) { settleQ = true; queueMicrotask(settle); } };
+  let touched = false, settleQ = false;
+  const settleSoon = () => { if (!settleQ) { settleQ = true; queueMicrotask(settle); } };
   function settle() {
     settleQ = false;
     if (lost || gl.isContextLost()) { todo.clear(); mtodo.clear(); return; }
     rebuildPass();
     markPass();
-    if (host) { ask(); return; }
-    if (raf) { cancelFrame(raf); raf = 0; }
-    settling = true;
-    try { draw(); } finally { settling = false; }
-    if (todo.size || mtodo.size || rp) ask();   // (what the redraw found owed again, e.g. a label read each frame while it eases: the next frame)
+    ask();   // (the host lays its picture with the changed labels in it, in this frame's present)
   }
   // (R11: the pass builds what the page owes in chunks, new labels first, within REBUILD_MS of a frame's time; the labels it leaves for the
   // next chunk keep the picture they have, or are hidden if they have none, so a slide change that owes many captions does not build
@@ -1177,7 +1146,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     ghosts = [];
   }
   function rebuildPass() {
-    if (host && !host.active()) { todo.clear(); pending.clear(); return; }
+    if (!host.active()) { todo.clear(); pending.clear(); return; }
     const now = performance.now();
     let did = 0, over = false;
     for (let pass = 0; pass < 2 && !over; pass++) {
@@ -1210,7 +1179,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     if (over) for (const g of todo.keys()) pending.add(g);
     repackWork();
     // (The host's context as its own passes expect to find it, as after a picture of the labels.)
-    if (host && touched) hostTail();
+    if (touched) hostTail();
     touched = false;
   }
   function hostTail() {
@@ -1297,7 +1266,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     if (box[0] > W || box[1] > H || box[2] < 0 || box[3] < 0) return;
     boxAt(box[0], box[1], box[2], box[3]);
     ucOf(gl).f4a(MU.uBox, box); ucOf(gl).f4(MU.uGeo, x, y, sh.hw, sh.hh); ucOf(gl).f1(MU.uW, sh.r);
-    ucOf(gl).f2(MU.uDash, sh.sig, 0); ucOf(gl).f4a(MU.uFill, sh.col); ucOf(gl).f1(MU.uA, Math.min(1, a));
+    ucOf(gl).f2(MU.uDash, sh.sig, 0); ucOf(gl).f4a(MU.uFill, sh.col); ucOf(gl).f1(MU.uA, LA * Math.min(1, a));
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
   // A keyboard focus's ring (kind 9) over the label's picture at (x, y) device px.
@@ -1307,24 +1276,32 @@ void main() { o = texture(uT, vUV) * uA; }`;
     if (box[0] > W || box[1] > H || box[2] < 0 || box[3] < 0) return;
     boxAt(box[0], box[1], box[2], box[3]);
     ucOf(gl).f4a(MU.uBox, box); ucOf(gl).f4(MU.uGeo, x + r.x0, y + r.y0, x + r.x1, y + r.y1); ucOf(gl).f1(MU.uW, r.w);
-    ucOf(gl).f4a(MU.uStroke, r.col); ucOf(gl).f1(MU.uA, Math.min(1, a));
+    ucOf(gl).f4a(MU.uStroke, r.col); ucOf(gl).f1(MU.uA, LA * Math.min(1, a));
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
+  // (A picture asked for from inside a picture (the labels still moving, an ease going on) is asked for in the next frame: the host's present is
+  // not laid again from inside its own.)
+  let drawing = false, againF = 0;
+  const againTick = () => { againF = 0; if (!disposed) ask(); };   // (made once)
   function draw() {
+    if (drawing) return;
+    drawing = true;
+    try { drawIn(); } finally { drawing = false; }
+  }
+  function drawIn() {
     if (lost || gl.isContextLost()) return;
-    if (host) {
-      owed = false;
-      hostSize();
-      if (!host.active()) { if (!released) release(); return; }
-      if (released) { released = false; for (const s of last) dirty.add(s.g); allMarks(); pReadSoon(); sReadSoon(); }
-    }
+    owed = false;
+    hostSize();
+    if (!host.active()) { if (!released) release(); return; }
+    if (released) { released = false; for (const s of last) dirty.add(s.g); allMarks(); pReadSoon(); sReadSoon(); }
+    LA = layerA();   // (the layer's own fade, this frame's)
+    if (la?.moving) ask();
     svgLeft.clear();
     nb = 0;
     frameSeq++;
     const now = performance.now();
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, W, H);
-    if (!host) { gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); }
     gl.useProgram(prog); gl.bindVertexArray(vao);
     gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     ucOf(gl).f2(U.uView, W, H); ucOf(gl).i1(U.uT, 0); gl.activeTexture(gl.TEXTURE0);
@@ -1448,7 +1425,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     }
     if (ni) {
       if (inst.length < ni * 8) inst = new Float32Array(Math.max(ni * 8, inst.length * 2));   // alloc-rare: only when there are more pictures than ever before (doubling)
-      for (let i = 0; i < ni; i++) { const it = ITEMS[i], o = i * 8; inst[o] = it.x; inst[o + 1] = it.y; inst[o + 2] = it.w; inst[o + 3] = it.h; inst[o + 4] = it.ax; inst[o + 5] = it.ay; inst[o + 6] = it.a; inst[o + 7] = 0; }
+      for (let i = 0; i < ni; i++) { const it = ITEMS[i], o = i * 8; inst[o] = it.x; inst[o + 1] = it.y; inst[o + 2] = it.w; inst[o + 3] = it.h; inst[o + 4] = it.ax; inst[o + 5] = it.ay; inst[o + 6] = it.a * LA; inst[o + 7] = 0; }
       gl.useProgram(aprog); gl.bindVertexArray(avao);
       ucOf(gl).f2(AU.uView, W, H); ucOf(gl).i1(AU.uT, 0);
       gl.bindBuffer(gl.ARRAY_BUFFER, abuf);
@@ -1473,9 +1450,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
     for (let i = 0; i < ni; i++) ITEMS[i].st = null;   // (the pictures are not held past the frame)
     dirty.clear();
     moving = drawScan(now) || moving;   // (the FibroScan probe over the labels, as its layer lay)
-    if (!host && holes.length) cutHoles();
     // (In the host's context: its state as its own passes expect to find it.)
-    if (host) hostTail();
+    hostTail();
     // (R09: while a ride or a landing glide has the pictures off their DOM labels, the labels' pointer events are held off, app.css
     // #labels.lb-displaced: a click or a hover would land where the label was. A class between frames; keyboard and focus are untouched.)
     { const off = displacedNow(!!rideM, shifted); if (off !== displaced) { displaced = off; classSoon(svg, 'lb-displaced', off); } }
@@ -1484,129 +1460,9 @@ void main() { o = texture(uT, vUV) * uA; }`;
     if ((needRepack && !stuck) || rp || todo.size) settleSoon();   // (a repack goes on a few copies a frame, and what the pass left over is built next, R11/R12)
     if (!moving && !pageTex[1] && packer.maxPages > 1 && packer.used > packer.size * packer.size * 0.5) reserve();
     if (settleBoxes()) { try { onBoxes?.(); } catch (e) { caught('label-gl:1031', e); /* (a listener's failure is not the labels') */ } }
-    // (Nothing drawn at all (every label, mark and probe has a box): the canvas is hidden, so the compositor does not blend a full-stage layer of
-    // nothing over the figure on every frame the blood moves. It shows again in the task that draws the first thing back. app.css [data-blank].)
-    if (!host) { const empty = nb === 0; if (empty !== blank) { blank = empty; canvas.toggleAttribute('data-blank', empty); } }
     if (nb && coverOpen) { coverOpen(); coverOpen = null; }
     // (What waits for the labels to stand drawn: run once a draw has left nothing owed, the pictures all built.)
     if (moving) ask();
-  }
-  // ── Holes (1 Nov 2026): the frosted glasses drawn in the figure's canvas, under this one (glass-gl.js onHoles) ──
-  // The labels, marks and probes are left out under each, by its fade: what the browser's blur would show of them there is a faint smear.
-  // A rounded box is cut as a shape (uKind 6); a callout's outline (its pointer included) from a mask drawn once from its path.
-  let holes = [], hpn = -1, HP = new Float64Array(128);
-  const HD = [], RAD = new Float64Array(4), HMAT = [1, 0, 0, -1, 0, 0], HSZ = [0, 0], HCH = [true, true, true, true];   // (the last list of holes as numbers; scratch for a mask and a corner: kept)
-  let holeMasks = new WeakMap();
-  function holeMask(h) {
-    const m = holeMasks.get(h.el);
-    if (m && m.d === h.d && m.lw === h.lw && m.lh === h.lh && m.dpr === dpr) return m;
-    const mw = Math.max(1, Math.ceil(h.lw * dpr)), mh = Math.max(1, Math.ceil(h.lh * dpr));
-    return holeMaskGL(h, m, mw, mh);
-  }
-  // The shaped hole's mask on the GPU: the path's coverage (shape-gl's stencil fill, its edge smoothed) in every channel of a texture of
-  // its own, laid as the 2D one was (its first row the path's top). The blend cutHoles set is set again after (the fill leaves it off).
-  let holeShape = null;
-  function holeMaskGL(h, m, mw, mh) {
-    holeShape ||= createShapeGL(gl);
-    if (!m?.fbo) {
-      m = m || { tex: null, fbo: null, st: null, w: 0, h: 0, d: null, lw: 0, lh: 0, dpr: 0, sw: 0, sh: 0 };   // alloc-rare: one record for each glass with a shaped hole, made the first time it is seen
-      m.tex = gl.createTexture(); m.fbo = gl.createFramebuffer(); m.st = gl.createRenderbuffer();
-      gl.bindTexture(gl.TEXTURE_2D, m.tex);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    }
-    if (m.w !== mw || m.h !== mh) {
-      gl.bindTexture(gl.TEXTURE_2D, m.tex);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, mw, mh, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-      gl.bindRenderbuffer(gl.RENDERBUFFER, m.st); gl.renderbufferStorage(gl.RENDERBUFFER, gl.STENCIL_INDEX8, mw, mh);
-      gl.bindFramebuffer(gl.FRAMEBUFFER, m.fbo);
-      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, m.tex, 0);
-      gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.STENCIL_ATTACHMENT, gl.RENDERBUFFER, m.st);
-      m.w = mw; m.h = mh;
-    }
-    gl.bindFramebuffer(gl.FRAMEBUFFER, m.fbo);
-    gl.viewport(0, 0, mw, mh);
-    gl.disable(gl.BLEND);
-    gl.clearBufferfv(gl.COLOR, 0, CLEAR0); gl.clearBufferfi(gl.DEPTH_STENCIL, 0, 1, 0);
-    // (Path px → the target's y-down px, turned over so that its first row holds the path's top, as an uploaded canvas's does.)
-    const mesh = polyMeshInto(flattenPath(h.d, Math.min(0.25, 0.2 / dpr)), 0, null, HOLE_MESH);
-    HMAT[0] = dpr; HMAT[3] = -dpr; HMAT[5] = mh; HSZ[0] = mw; HSZ[1] = mh;
-    holeShape.fill(mesh, HMAT, HSZ, HCH);
-    holeShape.release(mesh);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.viewport(0, 0, W, H);
-    gl.enable(gl.BLEND); gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.ZERO, gl.ONE_MINUS_SRC_ALPHA);
-    m.d = h.d; m.lw = h.lw; m.lh = h.lh; m.dpr = dpr; m.sw = h.lw * dpr / mw; m.sh = h.lh * dpr / mh;
-    holeMasks.set(h.el, m);
-    return m;
-  }
-  // (The canvas's place on the page, read only when the page may have moved it: the stage laid out again (its resize, the window's), its own
-  // style changing, a scroll (read in a task after it, once per burst). Never in a frame: a read there, after the stage has written that
-  // frame's places, made the browser lay the page out again mid-frame.)
-  let holeCr = { left: 0, top: 0 }, holeT = 0;
-  function placeHoles() { if (!host) holeCr = canvas.getBoundingClientRect(); }
-  const holeGot = (r) => { holeT = 0; holeCr = r; };
-  function placeSoon() { if (!host && !holeT) { holeT = 1; rectSoon(canvas).then(holeGot); } }   // (the browser's own next layout hands the box over: no read)
-  const holeOrigin = () => holeCr;
-  if (!host) { addEventListener('resize', placeHoles); addEventListener('scroll', placeSoon, { capture: true, passive: true }); }
-  function cutHoles() {
-    const cr = holeOrigin();
-    // (Each hole takes away what lies under it: the destination kept by one less the hole's cover.)
-    gl.enable(gl.BLEND); gl.blendFunc(gl.ZERO, gl.ONE_MINUS_SRC_ALPHA);
-    for (const h of holes) {
-      if (!(h.a > 0.001) || !(h.w > 0) || !(h.h > 0)) continue;
-      const x = (h.x - cr.left) * dpr, y = (h.y - cr.top) * dpr, w = h.w * dpr, hh = h.h * dpr;
-      if (x > W || y > H || x + w < 0 || y + hh < 0) continue;
-      if (h.d) {
-        const m = holeMask(h);
-        gl.useProgram(rprog); gl.bindVertexArray(vao);
-        ucOf(gl).f2(RU.uView, W, H); ucOf(gl).f2(RU.uP, x, y); ucOf(gl).f2(RU.uS, w / m.sw, hh / m.sh); ucOf(gl).f2(RU.uO, 0, 0);
-        ucOf(gl).f1(RU.uAng, 0); ucOf(gl).i1(RU.uT, 0); ucOf(gl).f1(RU.uA, h.a);
-        gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, m.tex);
-        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-      } else {
-        gl.useProgram(mprog); gl.bindVertexArray(vao);
-        ucOf(gl).f2(MU.uView, W, H);
-        ucOf(gl).f4(MU.uBox, x - 1, y - 1, x + w + 1, y + hh + 1);
-        ucOf(gl).i1(MU.uKind, 6);
-        ucOf(gl).f4(MU.uGeo, x, y, w, hh);
-        for (let i = 0; i < 4; i++) RAD[i] = h.rad[i] * dpr;
-        ucOf(gl).f4a(MU.uR4, RAD);
-        ucOf(gl).f4(MU.uFill, 1, 1, 1, 1);
-        ucOf(gl).f1(MU.uA, h.a);
-        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-      }
-    }
-    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-  }
-  /** The glasses drawn in the figure's canvas now (client px boxes, their fades, their shapes): the labels leave them out, drawn again at
-   *  once when they changed, so the labels and the glass change in the same frame. */
-  // (Whether this list of holes is the last one, number by number: no key string is made.)
-  function holesSame(list) {
-    if (list.length !== hpn) return false;
-    for (let i = 0; i < list.length; i++) {
-      const h = list[i], o = i * 11, r = h.rad;
-      if (HP[o] !== h.x || HP[o + 1] !== h.y || HP[o + 2] !== h.w || HP[o + 3] !== h.h || HP[o + 4] !== h.a || HP[o + 5] !== h.lw || HP[o + 6] !== h.lh || HD[i] !== (h.d || '')) return false;
-      if (r && (HP[o + 7] !== r[0] || HP[o + 8] !== r[1] || HP[o + 9] !== r[2] || HP[o + 10] !== r[3])) return false;
-    }
-    return true;
-  }
-  function holesKeep(list) {
-    if (list.length * 11 > HP.length) HP = new Float64Array(list.length * 22);   // alloc-rare: only when there are more holes than ever before (doubling)
-    for (let i = 0; i < list.length; i++) {
-      const h = list[i], o = i * 11, r = h.rad;
-      HP[o] = h.x; HP[o + 1] = h.y; HP[o + 2] = h.w; HP[o + 3] = h.h; HP[o + 4] = h.a; HP[o + 5] = h.lw; HP[o + 6] = h.lh; HD[i] = h.d || '';
-      HP[o + 7] = r ? r[0] : 0; HP[o + 8] = r ? r[1] : 0; HP[o + 9] = r ? r[2] : 0; HP[o + 10] = r ? r[3] : 0;
-    }
-    hpn = list.length;
-  }
-  function setHoles(list) {
-    if (host || lost) return;
-    if (holesSame(list)) return;
-    holesKeep(list);
-    holes = list;
-    if (raf) { cancelFrame(raf); raf = 0; }
-    draw();
   }
   // A mark's look, read again while it may be changing: a frame draws the look it has kept and, when it may have changed, owes it to the
   // pass between frames (markPass, as the labels': 2 Nov 2026), which describes it again and keeps the result.
@@ -1815,7 +1671,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
         ucOf(gl).f2(MU.uDash, st.dash[0] * dpr, st.dash[1] * dpr);
         ucOf(gl).f4a(MU.uStroke, st.stroke || CLEAR);
         ucOf(gl).f4a(MU.uFill, st.fill || CLEAR);
-        ucOf(gl).f1(MU.uA, Math.min(1, a));
+        ucOf(gl).f1(MU.uA, LA * Math.min(1, a));
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
         markDrawn++;
         if (mgD) { mgD.seq = frameSeq; mgD.a = Math.min(1, a); for (let i = 0; i < 4; i++) mgD.d[i] = geo[i]; }   // (what this frame drew, for the browser check's snapshot: no read, four numbers)
@@ -1850,7 +1706,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     ucOf(gl).f2(MU.uDash, st.dash[0] * dpr, st.dash[1] * dpr);
     ucOf(gl).f4a(MU.uStroke, st.stroke || CLEAR);
     ucOf(gl).f4a(MU.uFill, st.fill || CLEAR);
-    ucOf(gl).f1(MU.uA, Math.min(1, a));
+    ucOf(gl).f1(MU.uA, LA * Math.min(1, a));
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     markDrawn++;
     return true;
@@ -2085,7 +1941,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     ucOf(gl).i1(MU.uKind, st.cap === 'round' ? 2 : 0);
     ucOf(gl).f4(MU.uBox, Math.min(x0, x1) - m, Math.min(y0, y1) - m, Math.max(x0, x1) + m, Math.max(y0, y1) + m);
     ucOf(gl).f4(MU.uGeo, x0, y0, x1, y1); ucOf(gl).f1(MU.uW, w); ucOf(gl).f2(MU.uDash, 0, 0);
-    ucOf(gl).f4a(MU.uStroke, st.col); ucOf(gl).f1(MU.uA, op);
+    ucOf(gl).f4a(MU.uStroke, st.col); ucOf(gl).f1(MU.uA, LA * op);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   };
   const P4 = [0, 0, 0, 0], PT0 = [0, 0], PT1 = [0, 0], PT2 = [0, 0], PT = new Float64Array(2);   // (PT: the FibroScan probe's point, below)
@@ -2113,7 +1969,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       ucOf(gl).f4(MU.uG, PT0[0], PT0[1], pX(G.far, 0), pY(G.far, 0));
       ucOf(gl).f4a(MU.uS0, L.stops[0][1]); ucOf(gl).f4a(MU.uS1, L.stops[1][1]); ucOf(gl).f4a(MU.uS2, L.stops[2][1]);
       ucOf(gl).f3(MU.uSO, L.stops[0][0], L.stops[1][0], L.stops[2][0]);
-      ucOf(gl).f1(MU.uA, op);
+      ucOf(gl).f1(MU.uA, LA * op);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     }
     // Rim under line, the line of sight, then the flow axis, then the gate's bars on top (dop-probe.js PROBE_MODEL's order).
@@ -2144,7 +2000,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       gl.useProgram(prog);
       ucOf(gl).f2(U.uView, W, H); ucOf(gl).i1(U.uT, 0);
       gl.bindTexture(gl.TEXTURE_2D, headSp.tex);
-      ucOf(gl).f4(U.uR, Math.round(hx) + headSp.ox, Math.round(hy) + headSp.oy, headSp.w, headSp.h); ucOf(gl).f1(U.uA, Math.min(1, hop));
+      ucOf(gl).f4(U.uR, Math.round(hx) + headSp.ox, Math.round(hy) + headSp.oy, headSp.w, headSp.h); ucOf(gl).f1(U.uA, LA * Math.min(1, hop));
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       pGrow(Math.round(hx) + headSp.ox, Math.round(hy) + headSp.oy); pGrow(Math.round(hx) + headSp.ox + headSp.w, Math.round(hy) + headSp.oy + headSp.h);
     }
@@ -2292,7 +2148,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     ucOf(gl).f4(MU.uR4, bsec.dir + L.ang, bsec.half, gx, gy);
     ucOf(gl).f1(MU.uW, sg);
     ucOf(gl).f4a(MU.uS0, L.st0); ucOf(gl).f4a(MU.uS1, L.st1); ucOf(gl).f3(MU.uSO, L.beam.stops[0][0], L.beam.stops[1][0], 1);
-    ucOf(gl).f1(MU.uA, Math.min(1, L.op));
+    ucOf(gl).f1(MU.uA, LA * Math.min(1, L.op));
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     // The waves: each packet's arcs (read off the probe's model every frame, where scanTick writes them), at the packet's opacity.
     sat(PIV[0], PIV[1]);
@@ -2313,7 +2169,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
           ucOf(gl).i1(MU.uKind, 4);
           ucOf(gl).f4(MU.uBox, cx - wr - w - 2, cy - wr - w - 2, cx + wr + w + 2, cy + wr + w + 2);
           ucOf(gl).f4(MU.uGeo, cx, cy, wr, 0); ucOf(gl).f4(MU.uR4, a0, a1 < a0 ? a1 + Math.PI * 2 : a1, 0, 0); ucOf(gl).f1(MU.uW, w);
-          ucOf(gl).f4a(MU.uStroke, st.pm); ucOf(gl).f1(MU.uA, Math.min(1, L.op * po));
+          ucOf(gl).f4a(MU.uStroke, st.pm); ucOf(gl).f1(MU.uA, LA * Math.min(1, L.op * po));
           gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
         }
       }
@@ -2327,7 +2183,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       ucOf(gl).i1(MU.uKind, L.cable.cap === 'round' ? 2 : 0);
       ucOf(gl).f4(MU.uBox, Math.min(x0, x1) - m, Math.min(y0, y1) - m, Math.max(x0, x1) + m, Math.max(y0, y1) + m);
       ucOf(gl).f4(MU.uGeo, x0, y0, x1, y1); ucOf(gl).f1(MU.uW, w); ucOf(gl).f2(MU.uDash, 0, 0);
-      ucOf(gl).f4a(MU.uStroke, L.cable.col); ucOf(gl).f1(MU.uA, Math.min(1, L.op * L.cableOp));
+      ucOf(gl).f4a(MU.uStroke, L.cable.col); ucOf(gl).f1(MU.uA, LA * Math.min(1, L.op * L.cableOp));
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     }
     if (L.headOp > 0.001 && L.headOps && glyphsReady()) {
@@ -2349,7 +2205,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       gl.useProgram(prog);
       ucOf(gl).f2(U.uView, W, H); ucOf(gl).i1(U.uT, 0);
       gl.bindTexture(gl.TEXTURE_2D, sHeadSp.tex);
-      ucOf(gl).f4(U.uR, Math.round(px * dpr) + sHeadSp.ox, Math.round(py * dpr) + sHeadSp.oy, sHeadSp.w, sHeadSp.h); ucOf(gl).f1(U.uA, Math.min(1, L.op * L.headOp));
+      ucOf(gl).f4(U.uR, Math.round(px * dpr) + sHeadSp.ox, Math.round(py * dpr) + sHeadSp.oy, sHeadSp.w, sHeadSp.h); ucOf(gl).f1(U.uA, LA * Math.min(1, L.op * L.headOp));
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       // The tip, over the body, at its tap's place along the probe.
       const t = L.tip;
@@ -2362,7 +2218,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
         const TR = Math.hypot(t.w, t.h) / 2 * dpr + 2;
         ucOf(gl).f4(MU.uBox, tcx - TR, tcy - TR, tcx + TR, tcy + TR);
         ucOf(gl).f4(MU.uGeo, tcx, tcy, t.w / 2 * dpr, t.h / 2 * dpr); ucOf(gl).f1(MU.uW, Math.min(t.rx, t.w / 2, t.h / 2) * dpr); ucOf(gl).f4(MU.uR4, L.ang, 0, 0, 0);
-        ucOf(gl).f4a(MU.uFill, t.fa); ucOf(gl).f1(MU.uA, Math.min(1, L.op * L.headOp));
+        ucOf(gl).f4a(MU.uFill, t.fa); ucOf(gl).f1(MU.uA, LA * Math.min(1, L.op * L.headOp));
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       }
     }
@@ -2378,8 +2234,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
     dispose() {
       if (disposed) return;
       disposed = true; lost = true;
-      if (raf) { cancelFrame(raf); raf = 0; }
-      mo.disconnect(); mmo.disconnect(); outer.disconnect(); ac.abort();
+      if (againF) { cancelFrame(againF); againF = 0; }
+      mo.disconnect(); mmo.disconnect(); outer.disconnect(); layerMo.disconnect(); la?.dispose(); ac.abort();
       try {
         for (const t of pageTex) if (t) gl.deleteTexture(t);
         for (const t of rpTex) if (t) gl.deleteTexture(t);
@@ -2389,15 +2245,11 @@ void main() { o = texture(uT, vUV) * uA; }`;
         if (abuf) gl.deleteBuffer(abuf);
       } catch { /* the context is gone with it */ }
       pageTex = []; rpTex = [];
-      if (!host) canvas.remove();
     },
     /** Draws now (a mark the stage just moved, outside a label layout: the probe's ease). */
-    redraw() { if (lost) return; if (host) { ask(); return; } if (raf) { cancelFrame(raf); raf = 0; } draw(); },
-    setHoles,
-    /** Whether the labels leave the figure's glasses out (setHoles): their own canvas, drawn by the GPU. */
-    get holes() { return !host && !lost; },
+    redraw() { if (lost) return; ask(); },
     /** Host mode: draws the labels into the host's canvas now (veins-gl top, at the end of each present). */
-    drawInto() { if (host) draw(); },
+    drawInto() { draw(); },
     /** Host mode: something that decides whether the labels may be drawn over the figure changed (see check). */
     check() { check(); },
     /** Host mode: whether the host's canvas owes a picture with the labels. */
@@ -2420,7 +2272,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       if (lost) return;
       // Compare the density actually used by this canvas. On a 3x screen its 2x cap otherwise looked like a density change on every sync,
       // repeatedly scheduling a resize task and another GPU draw throughout a gesture.
-      if ((host ? hostK() : labelDensity(devicePixelRatio)) !== dpr) densityChanged();
+      if (hostK() !== dpr) densityChanged();
       take(mo.takeRecords());
       for (const r of mmo.takeRecords()) { if (!changed(r)) continue; const el = markOf(r.target); if (el) markDirty.add(el); }
       // A sliced landing or a value refresh may sync while the camera still carries the old layout. Taking its new positions here
@@ -2474,9 +2326,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       for (const s of list) { const k = s.g.dataset?.key; if (k) labelByKey.set(k, s); }
       for (const s of list) WAS.delete(s.g);
       for (const g of WAS) { g.removeAttribute('data-gl'); todo.delete(g); dropGlide(g); const st = sprites.get(g); if (st) { if (st.slot) packer.free(st.slot); if (st.alt?.slot) packer.free(st.alt.slot); if (st.alts) for (const o of st.alts) if (o.slot) packer.free(o.slot); sprites.delete(g); } live.delete(g); }
-      if (host) { ask(); return; }
-      if (raf) { cancelFrame(raf); raf = 0; }
-      draw();
+      ask();
     },
     /** Whether the labels can ride a camera move on the GPU. A label the SVG still draws (one with a glyph Inter's cut lacks, as the Circuit's
      *  "Epigastric → SVC" caption) cannot be carried: the stage fades it with the leaders for the ride (app.css lb-ride), it is back at the landing. */
@@ -2492,9 +2342,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       rideM = m;
       for (const r of glides.values()) gpool.push(r);
       glides.clear();
-      if (host) { ask(); return; }   // (S1: the host's present draws it, with the camera of that frame)
-      if (raf) { cancelFrame(raf); raf = 0; }
-      draw();
+      ask();   // (the host's present draws it, with the camera of that frame)
     },
     /** The ride is over: the next layout (sync) glides each label on from where it rode. */
     rideEnd() {
@@ -2527,7 +2375,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       return ghosts.length;
     },
     /** The change's crossfade, from its own progress: the old view's ghosts at `o`, the new view's labels at `n`; a draw in this frame. */
-    crossfade(o, n) { xfOld = o; xfNew = n; if (lost) return; if (host) { ask(); return; } if (raf) { cancelFrame(raf); raf = 0; } draw(); },
+    crossfade(o, n) { xfOld = o; xfNew = n; if (lost) return; ask(); },
     /** The change has landed: the ghosts go, each giving its picture to its label as the one for that view's look. */
     dropGhosts() { dropGhosts(); xfOld = 1; xfNew = 1; ask(); },
     get ghosting() { return ghosts.length > 0; },
@@ -2535,7 +2383,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     /** Pins the station labels to the figure: f(id, out) writes where the figure has station id's point now (stage px) and returns true. */
     pinTo(f, w = null) { pinAt = f; pinWorldAt = w; ask(); },
     /** The figure moved (its camera or its morph): the pinned labels drawn with it, in this frame. */
-    pinDraw() { if (lost || !pinAt) return; if (host) { ask(); return; } if (raf) { cancelFrame(raf); raf = 0; } draw(); },
+    pinDraw() { if (lost || !pinAt) return; ask(); },
     /** Where each label's picture stood in the last frame, keyed: [{ key, x, y, w, h, a (its opacity) }] in CSS px from the canvas's corner (the browser check's lag test). */
     drawnLabels() {
       const o = [];   // alloc-rare: asked only by the browser check

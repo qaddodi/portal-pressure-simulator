@@ -9,7 +9,7 @@
     "src/ui/focus-ring.js": 19,
     "src/ui/topbar-motion.js": 16,
     "src/ui/glass-gl.js": 10,
-    "src/ui/label-gl.js": 8,
+    "src/ui/label-gl.js": 7,
     "src/ui/doppler.js": 13,
     "src/ui/legend-morph.js": 12,
     "src/ui/sinusoid-view.js": 10,

@@ -67,8 +67,8 @@ test('label-gl follows a label\'s own animations, hovers, focus and theme change
   assert.match(src, /if \(!fillT\) fillT = setTimeout\(fillStyles, 0\);/);
   const fn = src.slice(src.indexOf('function styleOf('), src.indexOf('function fillStyles('));
   assert.doesNotMatch(fn, /getComputedStyle/);
-  // (The canvas's place is read only when the page may have moved it, never in a frame: no ?holecache=0 any more.)
-  assert.match(src, /const holeOrigin = \(\) => holeCr;/);
+  // (The canvas is the figure's: its place is never read here, no hole being cut.)
+  assert.doesNotMatch(src, /getBoundingClientRect/);
   assert.match(src, /if \(\(needRepack && !stuck\) \|\| rp \|\| todo\.size\) settleSoon\(\);/);   // (R12: a repack goes on beside the old atlas, a few copies a frame, mid-move too)
   assert.match(src, /if \(!moving && !pageTex\[1\] && packer\.maxPages > 1/);
 });

@@ -3267,6 +3267,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     liverKey = '';   // (nor the liver's lower edge the ascites stops at: morphLiver sends it again)
     for (const x of EV) for (const o of [x, ...(x.strands || []), ...(x.feeders || [])]) { o.gkC = 0; o.glRSent = null; }
     for (const [g, o] of frostHosts) hostFrost(g, o);   // (the glasses drawn in the new context's canvas)
+    labelPass();   // (the labels' pass in the new renderer's present: their own pictures come back with the context, label-gl.js)
+    labelGL?.check();
     if (F) update(F);
   });
   wrap.dataset.quality = String(quality);
@@ -6947,15 +6949,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     wrap.append(el);
     return { el, list: null, fp: null, made: new Map(), dy: null, dyG: null };
   })();
-  // (The glasses drawn in the figure's canvas, each as the labels are to leave it out (glass-gl.js onHoles, label-gl.js setHoles): every
-  // glass's list, told to the labels as one whenever one changes. The labels' renderer is made further down (labelHoles).)
+  // (The glasses drawn in the figure's canvas, each as the labels are to leave it out (glass-gl.js onHoles): every
+  // glass's list, told to the lobule's layers as one whenever one changes. (The stage's labels are drawn under the glass: they leave nothing out.))
   const holeSets = new Map();
-  let labelHoles = null;
   const holesAll = [];   // (every glass's list as one, written in place: the labels compare it number by number and keep nothing of it but its length)
   const sendHoles = () => {
     holesAll.length = 0;
     for (const l of holeSets.values()) for (let i = 0; i < l.length; i++) holesAll.push(l[i]);
-    labelHoles?.setHoles(holesAll);
     // (The liver's names and leaders, and the sinusoid's, are the lobule's own layers: a copy, as each keeps the list it is given.)
     lz?.setHoles(holesAll.length ? holesAll.slice() : NO_HOLES);
   };
@@ -6995,7 +6995,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const cardGLs = new Set();
   // (A card is never kept out of its GPU glass by what lies between the figure's canvas and it: kept out, it showed no glass at all, the
   // figure sharp through it (Mohammad, 2 Nov 2026, HVPG 6 in the lobule: "CARDS ARE GLASS"), as the anatomy's overlay boxes, kept from
-  // before the lobule covered it, still crossed it there. The labels the GPU draws already leave every card's glass out (setHoles); the
+  // before the lobule covered it, still crossed it there. The labels the GPU draws are under every card's glass; the
   // card's own words lie over whatever else does.)
   const NO_OVER = [], noOver = () => NO_OVER;   // (no box lies over a card's glass: a list read by the glass, never written)
   const cardGlass = (cards) => {
@@ -7639,11 +7639,22 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // app.css. Never an SVG filter: the grown-glyph filter drew dark boxes on iPhone and was redrawn on every frame: 16 Oct.)
   labelSvg.append(gLeaders, gScan, gLabels);
   // The labels' words and pills, their leaders and dots drawn on the GPU (label-gl.js), the SVG kept as their model; the SVG draws them itself on a software
-  // renderer, without WebGL2, or once the GPU's context is lost. Always on a canvas of their own (round 2, 2.2: the
-  // labels change at other moments and at another density than the figure; drawn into the vessel canvas, 31 Oct, they went missing on
-  // the iPhone).
+  // renderer, without WebGL2, or once the GPU's context is lost. Drawn in the figure's own context, as a pass of its present under every glass (S2,
+  // docs/gpu-two-contexts-plan.md): the same present, the same camera numbers, so they can never be a frame behind the figure, and a card over a label
+  // shows it blurred, as glass would: no hole is cut. (Until 4 Nov 2026 they had a canvas of their own.)
   const frostWake = () => { glassGL?.redraw(); paneGL?.redraw(); for (const g of cardGLs) g.redraw(); };
-  const labelGL = createLabelGL(labelSvg, gLabels, { software: SOFTWARE, marks: [gLeaders, gScan], onBoxes: frostWake });
+  const LABELS_ORDER = -6;   // (over the lobule's and sinusoid's pictures and their captions, under the glasses at 0 … 3: veins-gl top.add)
+  const labelHost = () => {
+    const top = veins?.top;
+    return top ? { gl: top.gl, canvas: top.canvas, ask: () => veins?.top?.present(), now: () => veins?.top?.present(), active: () => !!veins?.top && !veins.lost && wrap.classList.contains('gl-on'), scale: () => vCanvas.width / (stageBox().width || 1), layerAlpha: true } : null;
+  };
+  let labelGL = null, labelPassOff = null;
+  // (The labels' pass in the figure's present: its prep, so they are laid before any glass takes its blur, which then has them in it.)
+  const labelPass = () => {
+    labelPassOff?.(); labelPassOff = null;
+    if (labelGL && veins?.top) labelPassOff = veins.top.add({ order: LABELS_ORDER, prep: () => labelGL?.drawInto(), draw: () => {} });
+  };
+  { const host = labelHost(); labelGL = host ? createLabelGL(labelSvg, gLabels, { software: SOFTWARE, marks: [gLeaders, gScan], onBoxes: frostWake, host }) : null; labelPass(); }
   // (Labels part of the figure: each station label drawn at its point as the figure has it in this frame, label-gl.js pinTo.)
   // (The same kind of point the layout took (pmid): the middle of the vessel it names, or the station itself. A view change that shows or hides
   // that vessel must not swap one for the other part way: the label would leap between the two.)
@@ -7685,8 +7696,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   wrap.dataset.labels = labelGL ? 'gpu' : 'svg';
   labelRider = labelGL;
   labelGL?.setProbeCam?.(() => zoomM);   // (the Doppler probe rides a card's zoom with the figure)
-  labelHoles = labelGL?.setHoles ? labelGL : null;
-  sendHoles();
   // The frosted glasses drawn inside the figure's canvas (round 2, 2.1, 31 Oct): each glass's blur is taken from the picture the vessel
   // renderer has just laid in its own context (veins-gl top), so nothing is copied off the GPU, and the glass's own canvas (the
   // callouts', the liver pane's) or the browser's blur (the Present cards') is not needed. Drawn in the page's order: the pane (under the
@@ -7854,7 +7863,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // transform, every frame of a glide) reads nothing: their boxes, read once, are carried by the figure's transform (frostCarry).)
   const frostPart = { over: 0, pane: 0, labels: 0, shade: 0, marks: 0 };
   const frostAll = () => { for (const k in frostPart) frostPart[k]++; };
-  const frostPartOf = (t) => (!t?.nodeType ? '' : svgOver?.contains(t) ? 'over' : glass?.contains(t) ? 'pane' : labelSvg?.contains(t) || (labelGL && t === labelGL.canvas) ? 'labels'
+  const frostPartOf = (t) => (!t?.nodeType ? '' : svgOver?.contains(t) ? 'over' : glass?.contains(t) ? 'pane' : labelSvg?.contains(t) ? 'labels'
     : cath.labels?.contains(t) || sites.el?.contains(t) ? 'marks' : t.closest?.('.pz-shade, .stage-credit') ? 'shade' : '');
   const frostTouch = (e) => { frostDirty++; const p = frostPartOf(e?.target); if (p) frostPart[p]++; else frostAll(); };
   function frostRecords(list) {
@@ -7880,7 +7889,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       for (let i = 0; i < 5; i++) if (FROST_EL[i]) frostListen(FROST_EL[i]);
       for (let i = 0; i < 5; i++) FROST_EL[i] = null;
     }
-    frostSee(labelGL && !labelGL.lost ? labelGL.canvas : null);
     const shades = document.getElementsByClassName('pz-shade');
     for (let i = 0; i < shades.length; i++) frostSee(shades[i]);
     frostSee(document.querySelector('.stage-credit'));
@@ -7938,15 +7946,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   function frostReadPane(o) { if (!glass.hidden && !paneGL?.hosted) o.push(glass.getBoundingClientRect()); }
   function frostReadLabels(o) {
-    const lc = labelGL && !labelGL.lost ? labelGL.canvas : labelSvg;
-    if (visible(lc) && visible(labelSvg)) {
+    if (visible(labelSvg)) {
       if (labelGL && !labelGL.lost) {
-        // (The labels the GPU draws leave every glass drawn in the figure's canvas out (setHoles): they never send a glass back to the
-        // browser's blur. Only those the SVG still draws itself lie over it.)
-        if (!labelGL.holes) {
-          const r = lc.getBoundingClientRect();
-          for (const b of labelGL.boxes) o.push({ left: r.left + b[0] - 1, top: r.top + b[1] - 1, right: r.left + b[2] + 1, bottom: r.top + b[3] + 1 });
-        }
+        // (The labels the GPU draws are in the figure's canvas, under every glass: they never send a glass back to the browser's blur. Only
+        // those the SVG still draws itself lie over it.)
         for (const el of labelGL.svgLeft()) o.push(el.getBoundingClientRect());
       } else for (const el of labelSvg.querySelectorAll('.lb, .leader, .leader-dot')) o.push(el.getBoundingClientRect());
     }

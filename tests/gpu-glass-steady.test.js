@@ -42,13 +42,13 @@ test('only the part of a glass on the screen counts against the canvas\'s edge; 
   assert.match(GLASS, /else if \(nowT - s\.since >= 400\) \{ s\.out = want; s\.since = 0; \}/);
 });
 
-test('the labels leave out every glass drawn in the figure\'s canvas, told in the same task, so labels never send a glass back', () => {
-  assert.match(GLASS, /hf = hfSet;\n\s+hf\.panes = panes; hf\.cr = cr; hf\.base = [^\n]+\n\s+tellHoles\(panes\);/);
-  assert.match(LABELS, /if \(!host && holes\.length\) cutHoles\(\);/);
-  assert.match(LABELS, /gl\.enable\(gl\.BLEND\); gl\.blendFunc\(gl\.ZERO, gl\.ONE_MINUS_SRC_ALPHA\);/);
-  assert.match(LABELS, /if \(raf\) \{ cancelFrame\(raf\); raf = 0; \}\n\s+draw\(\);\n\s+\}/, 'drawn again at once');
+test('the stage labels are a pass of the figure\'s present under every glass: no hole is cut, none is told to them', () => {
+  assert.match(GLASS, /hf = hfSet;\n\s+hf\.panes = panes; hf\.cr = cr; hf\.base = [^\n]+\n\s+tellHoles\(panes\);/);   // (the lobule's layers still take the list)
+  assert.doesNotMatch(LABELS, /cutHoles|setHoles|holeMask/);
   assert.match(STAGE, /onHoles: frostHoles\('callouts'\)/);
   assert.match(STAGE, /onHoles: frostHoles\(key\)/);
-  assert.match(STAGE, /if \(!labelGL\.holes\) \{/);
+  assert.doesNotMatch(STAGE, /labelHoles|labelGL\.holes/);
+  assert.match(STAGE, /const LABELS_ORDER = -6;/);
+  assert.match(STAGE, /veins\.top\.add\(\{ order: LABELS_ORDER, prep: \(\) => labelGL\?\.drawInto\(\), draw: \(\) => \{\} \}\)/, 'laid before any glass takes its blur');
   assert.match(STAGE, /function hostFrost\(g, o\) \{ if \(!g \|\| !veins\?\.top\) return;/);
 });

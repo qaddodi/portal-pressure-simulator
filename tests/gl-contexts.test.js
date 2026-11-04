@@ -22,7 +22,6 @@ const ALLOWED = {
   'src/ui/fx-gl.js': 1,         // F2
   'src/ui/wide-gl.js': 1,       // F2
   'src/ui/field-gl.js': 1,      // F2
-  'src/ui/label-gl.js': 1,      // S2: own-canvas mode
 };
 
 const root = new URL('../src/', import.meta.url).pathname;

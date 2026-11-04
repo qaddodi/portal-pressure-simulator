@@ -80,13 +80,13 @@ test('a picture is drawn again when its look changes, never for its opacity alon
 test('pictures are laid at whole device pixels, one texel per pixel, never scaled', () => {
   assert.match(LGL, /texelFetch\(uT, q, 0\)/);
   assert.match(LGL, /Math\.round\(s\.x \* dpr\) \+ st\.ox, y = Math\.round\(s\.y \* dpr\) \+ st\.oy/);
-  assert.match(LGL, /canvas\.style\.width = `\$\{w \/ k\}px`; canvas\.style\.height = `\$\{h \/ k\}px`;/);
+  assert.match(LGL, /W = w; H = h; dpr = k;/, 'the host\'s canvas, at its own size: one canvas pixel per device pixel');
   assert.match(LGL, /TEXTURE_MIN_FILTER, gl\.NEAREST/);
 });
 
 test('the SVG copy is see-through only while the GPU draws that label, marked in the frame its picture is drawn', () => {
   assert.match(CSS, /#labels \.lb\[data-gl\] > \* \{ opacity: 0; \}/);
-  assert.match(CSS, /\.stage-view > canvas#labelGl \{ pointer-events: none; \}/);
+  assert.doesNotMatch(CSS, /canvas#labelGl/, 'no canvas of its own');
   assert.match(CSS, /\.stage-view\.cam-move > #labelGl/);
   assert.match(CSS, /\.stage-view\.in-lobule #labelGl/);
   assert.match(CSS, /\.cath-on :is\(#labels, #labelGl\)/);
@@ -112,7 +112,7 @@ test('leaders and dots: straight leaders and circles are drawn on the GPU, anyth
 });
 
 test('the leaders\' and the FibroScan callout\'s layers go to the GPU with the labels, their SVG copies hidden but still fading', () => {
-  assert.match(STAGE, /marks: \[gLeaders, gScan\], onBoxes: frostWake \}\);/);
+  assert.match(STAGE, /marks: \[gLeaders, gScan\], onBoxes: frostWake, host \}\) : null;/);
   assert.match(CSS, /#labels :is\(\.lb-leaders, \.lb-scan\) > \[data-gl\] \{ visibility: hidden; \}/);
   assert.match(STAGE, /el\.animate\?\.\(\[\{ opacity: 0 \}, \{ opacity: 1 \}\], \{ duration: D_SURFACE, delay: wait, easing: EASE_ARRIVE, fill: 'backwards' \}\); labelGL\?\.hold\(el, wait \+ D_SURFACE\); \}/);
   assert.match(LGL, /float span\(float x, float a, float b\)/);
@@ -230,15 +230,13 @@ test('a ticking value keeps its picture\'s size and place; a wider one gets a bi
 
 // (Laptop-heat, 31 Oct: the label canvas covers the whole stage and was put together with the figure on every frame the blood moved, even
 // when it held nothing. With no label, mark or probe drawn it is hidden; the first thing drawn back shows it in the same task.)
-test('a label canvas that drew nothing is hidden, and shows again in the task that draws something', () => {
-  assert.match(LGL, /if \(!host\) \{ const empty = nb === 0; if \(empty !== blank\) \{ blank = empty; canvas\.toggleAttribute\('data-blank', empty\); \} \}/);
-  assert.match(LGL, /let boxes = \[\], blank = false;/);
-  assert.match(CSS, /\.stage-view > canvas#labelGl\[data-blank\] \{ visibility: hidden; \}/);
-  // (Everything the canvas draws has a box: labels, marks, the probes.)
+test('the labels have no canvas to hide: an empty picture is the figure\'s own, and the layer\'s fade is a factor of every draw', () => {
+  assert.doesNotMatch(LGL, /data-blank|toggleAttribute/);
+  assert.doesNotMatch(CSS, /canvas#labelGl\[data-blank\]/);
+  assert.match(LGL, /LA = layerA\(\);/);
+  assert.match(LGL, /inst\[o \+ 6\] = it\.a \* LA;/);
+  // (Everything drawn has a box: labels, marks, the probes.)
   assert.equal((LGL.match(/boxAt\(/g) || []).length >= 5, true);
-  // (The toggle comes after the last draw call and the boxes' key, in the same draw.)
-  const at = LGL.indexOf('canvas.toggleAttribute(\'data-blank\'');
-  assert.ok(at > LGL.indexOf('drawScan(now)') && at > LGL.indexOf('settleBoxes()'));
 });
 
 test('the leaders and dots stand for the stage\'s ride: their layer\'s kept style is keyed on lb-ride, and only the marks are read again when it comes or goes', () => {

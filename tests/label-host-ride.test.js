@@ -13,13 +13,25 @@ test('host mode keeps ghosts and rides: neither is refused for a host', () => {
   assert.ok(!/freezeGhosts\(\) \{\s*if \(lost \|\| host\)/.test(lg));
 });
 
-test('in host mode ride, crossfade and pinDraw ask the host for a present instead of drawing', () => {
-  assert.match(body(/ride\(m\) \{[\s\S]*?draw\(\);\n {4}\},/), /if \(host\) \{ ask\(\); return; \}[\s\S]*draw\(\);/);
-  assert.match(lg, /crossfade\(o, n\) \{[^\n]*if \(host\) \{ ask\(\); return; \}/);
-  assert.match(lg, /pinDraw\(\) \{[^\n]*if \(host\) \{ ask\(\); return; \}/);
+test('ride, crossfade and pinDraw ask the host for a present instead of drawing', () => {
+  assert.match(body(/ride\(m\) \{[\s\S]*?\n {4}\},/), /ask\(\);[^\n]*\n\s+\},$/m);
+  assert.doesNotMatch(body(/ride\(m\) \{[\s\S]*?\n {4}\},/), /\bdraw\(\)/);
+  assert.match(lg, /crossfade\(o, n\) \{[^\n]*if \(lost\) return; ask\(\); \},/);
+  assert.match(lg, /pinDraw\(\) \{ if \(lost \|\| !pinAt\) return; ask\(\); \},/);
 });
 
-test('host mode cuts no holes: the labels are under the glass', () => {
-  assert.match(lg, /if \(!host && holes\.length\) cutHoles\(\);/);
-  assert.match(lg, /get holes\(\) \{ return !host && !lost; \}/);
+test('a picture asked for from inside a picture is asked for in the next frame, never laid from inside the host\'s present', () => {
+  assert.match(lg, /if \(drawing\) \{ if \(!againF\) againF = nextFrame\(againTick\); return; \}/);
+  assert.match(lg, /function draw\(\) \{\n\s+if \(drawing\) return;/);
+});
+
+test('the labels cut no holes (drawn under the glass), and have no canvas of their own', () => {
+  assert.doesNotMatch(lg, /cutHoles|get holes|setHoles|createElement\('canvas'\)|getContext\(/);
+  assert.match(lg, /if \(!host \|\| \(software && !force\)/, 'no host, no layer: the SVG shows the labels');
+});
+
+test('the layer\'s own fade reaches every draw as a factor, not as a hand-over to the SVG', () => {
+  assert.match(lg, /LA = layerA\(\);/);
+  assert.match(lg, /createLayerAlpha\(svg, \{ near: svg, shared: canvas, onChange: \(\) => ask\(\) \}\)/);
+  for (const m of lg.matchAll(/\.f1\((?:MU|U)\.uA, ([^\n]+)/g)) assert.match(m[1], /^LA \* /, m[0]);
 });

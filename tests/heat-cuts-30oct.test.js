@@ -83,7 +83,7 @@ test('H3: the glass canvases hold at most 2 device px per CSS px; the labels too
   delete globalThis.devicePixelRatio;
   const g = src('glass-gl.js');
   assert.doesNotMatch(g.replace(/export const glassDpr = [^\n]+/, ''), /devicePixelRatio/, 'every density in the glass is the capped one');
-  assert.match(src('label-gl.js'), /const r = sizeOf\(svg\.parentElement\), k = labelDensity\(devicePixelRatio\);/, 'labels at the capped density');
+  assert.match(src('label-gl.js'), /const hostK = \(\) => \(host\.scale \? host\.scale\(\) : 0\) \|\| devicePixelRatio \|\| 1;/, 'labels at the figure canvas\'s capped density');
 });
 
 test('H4b: the glass observer asks for the glass\'s frame; it never draws in a microtask', () => {
