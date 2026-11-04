@@ -1,8 +1,9 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const stage = stageSource();
 const vg = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
 
 // The inferior vena cava lies behind the liver and the portal vein. A selected, spotlit or shunt-targeted cava is shown whole

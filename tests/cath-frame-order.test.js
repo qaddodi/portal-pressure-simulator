@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // The HVPG catheter's frame (review of 3b099a80, 26 Oct): the shaft is sampled once along the whole route and sent to the GPU
 // once, a frame adding only the piece to the tip, the band, the balloon and the ripples; the readings' sizes and the cards' room
 // are kept until they change; and each frame runs in order: the catheter's step, the camera following it, the readings, then the
@@ -7,7 +8,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
-const stage = read('src/ui/stage.js'), gl = read('src/ui/veins-gl.js');
+const stage = stageSource(), gl = read('src/ui/veins-gl.js');
 const fn = (src, name) => src.match(new RegExp(`function ${name}\\([^)]*\\) \\{[\\s\\S]*?\\n {2}\\}`))[0];
 
 test('a late callback runs after every other callback of its frame, once; asked for in it, the next frame', async () => {

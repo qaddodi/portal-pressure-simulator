@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // Numbers hold still (2 Nov 2026: "make sure the text everywhere and the numbers everywhere aren't jiggly and changing sizes
 // constantly"). The body sets font-variant-numeric: tabular-nums and every element inherits it, but the `font` shorthand resets it to
 // normal: a rule written `font: 600 14px …` with no font-variant-numeric of its own drew proportional digits, a different width at each
@@ -36,7 +37,7 @@ test('the pages JS writes (inline styles, SVG attributes) never set the figures 
 });
 
 test('a stenosis\'s "60 %" is measured in the tabular figures it is drawn in, so its box is one width whatever its digits are', async () => {
-  const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const stage = stageSource();
   assert.match(stage, /const clampTbOpts = \{ anchor: 'start', weight: 600, size: 12, tnum: true, k: 1 \};/);   // (the options, kept and rewritten for each box)
   assert.match(stage, /o\.size = size; o\.k = CTM\?\.sc > 0 \? CTM\.sc : 1;/);
   const { loadGlyphs, textBox } = await import('../src/ui/text-gl.js');

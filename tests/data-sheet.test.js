@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -71,7 +72,7 @@ test('a sideways phone shows the compact instrument and its tiles together, no s
 // test all deck's clot slide on an iPhone, 19 Oct). Only that card: the closed Tests sheet and Details panel are hidden by
 // visibility too, and counted, the app opened on every screen size framed small, as if a sheet stood over the figure (19 Oct).)
 test('a sheet card waiting unseen for its entry still counts where it rests; a closed sheet or panel never does', () => {
-  const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const stage = stageSource();
   const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
   assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-hide \{ opacity: 1; visibility: hidden;/, 'the case this guards');
   assert.match(js, /class: 'pz-data stage-blocker pz-hide', 'data-safe': 'right', 'data-safe-rest': '', 'data-safe-waits': ''/);

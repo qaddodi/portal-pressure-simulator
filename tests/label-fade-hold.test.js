@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // "Labels turn on and off randomly" (Mohammad, iPhone, 2 Nov 2026). Traced frame by frame: a label's entry fade, filling forwards, stayed on
 // its opacity after it ended, so the browser started no fade for any later hide or show (they snapped off and on), and the GPU labels drew
 // an at-rest or first-frame opacity while a fade was starting or under way (blinks of one to five frames). These pin the fixes and their
@@ -7,7 +8,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
-const css = read('styles/app.css'), gl = read('src/ui/label-gl.js'), stage = read('src/ui/stage.js');
+const css = read('styles/app.css'), gl = read('src/ui/label-gl.js'), stage = stageSource();
 
 test('no label or leader entry fade fills forwards (it would block every later fade)', () => {
   for (const m of css.matchAll(/^([^\n{]*(?:#labels \.lb|\.lb-leaders > \*)[^\n{]*)\{[^}]*animation: crossfade[^;}]*;/gm)) assert.ok(!/ both;/.test(m[0]), `${m[1].trim()} fills forwards`);

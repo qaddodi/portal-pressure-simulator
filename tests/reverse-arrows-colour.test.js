@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // The reversed colour and the way the blood and its chevrons run turn on one signal (isReversed), so a
 // vein never shows hepatofugal colour while its arrows still point to the liver.
 import { test } from 'node:test';
@@ -5,7 +6,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { advanceStream, REVERSE_HOLD, REVERSE_RAMP, REVERSE_SETTLE } from '../src/ui/blood.js';
 
-const STAGE = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const STAGE = stageSource();
 
 test('a large forward flow that turns into a small reversed one turns its arrows with the colour', () => {
   const st = { seed: 2 };

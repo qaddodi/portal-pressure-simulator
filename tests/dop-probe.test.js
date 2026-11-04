@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // The Doppler probe on the figure (19 Oct, Mohammad's pick "B1 + white"; marks as a scanner draws them, from his textbook reference
 // of 20 Oct): a small curved probe stands off the sampled vessel; its line of sight runs straight through the vessel, the sample
 // volume's two bars (white on a black rim) cross it inside the lumen, and the flow axis marks the gate (no arc or θ on the figure: the monitor names θ), at the
@@ -10,7 +11,7 @@ import { readFileSync } from 'node:fs';
 import { AWAY, probePose, fitPose, SIZES, QUIET, ZOOMED_OUT, probeGeomInto, makeProbeGeom, makeProbeDraw, probeFade, probeTurn, probeSwing, probeJumps, JUMP_DEG, JUMP_PX, gateDims, bodyBox, beamBoxes, gateBoxes, wedgeBoxes, PROBE, PROBE_MODEL, placeId, createProbeMind, SLACK, NONE_MS, PEND_MS, LEAVES } from '../src/ui/dop-probe.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
-const stage = read('src/ui/stage.js'), doppler = read('src/ui/doppler.js'), css = read('styles/app.css'), tokens = read('styles/tokens.css');
+const stage = stageSource(), doppler = read('src/ui/doppler.js'), css = read('styles/app.css'), tokens = read('styles/tokens.css');
 // (The marks as the old path strings, to read them as lines: the numbers are what the probe's record holds, dop-probe.js probeGeomInto.)
 const f1 = (v) => +v.toFixed(1);
 const probeShapes = (D, r, phi = PROBE.ANGLE, size = 1, out = 0) => {
@@ -402,7 +403,7 @@ test('a far move round the gate or in distance fades the probe rather than flyin
 });
 
 test('stage: a probe shown afresh starts at its place, and a jump fades out and in', () => {
-  const src = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const src = stageSource();
   assert.match(src, /if \(!dpr\.on \|\| !dpr\.has \|\| reduceMotion\.matches\) \{\s*dpr\.oP = reduceMotion\.matches \? 0 : 1; dpr\.has = true;\s*c\.ang = n\.ang; c\.d = n\.d; c\.k = n\.k; c\.o = 0;/);
   assert.match(src, /if \(act === 'jump'\) \{\s*dprLeave\(\);[^}]*dpr\.swap = setTimeout/);
   assert.ok(src.indexOf("act === 'jump'") < src.indexOf('if (!dpr.on || !dpr.has || reduceMotion.matches) {'));
@@ -412,7 +413,7 @@ test('stage: a probe shown afresh starts at its place, and a jump fades out and 
 });
 
 test('stage: on a slide the probe waits, hidden, for the slide\'s camera to settle (Doppler 2)', () => {
-  const src = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const src = stageSource();
   assert.match(src, /if \(id && store\.get\(\)\.presenting\) dprHold\(\);/);
   assert.match(src, /const show = [^;]*!camHides && !dpr\.hold/);
   const av = src.slice(src.indexOf('function animateVT('), src.indexOf('const step = (now)', src.indexOf('function animateVT(')));
@@ -420,7 +421,7 @@ test('stage: on a slide the probe waits, hidden, for the slide\'s camera to sett
 });
 
 test('stage: no Doppler screen in sight, no probe; shown afresh it waits for its place to hold still, then fades in there', () => {
-  const src = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const src = stageSource();
   assert.match(src, /const show = [^;]*dprMonitorOn\(\)/);
   const mon = src.slice(src.indexOf('function dprMonitorLook('), src.indexOf('function dprobePaint('));
   for (const k of ["'[hidden], .card-leaving, .vd-out'", "'[data-folding]:not(.pz-sheet)'", 'checkVisibility', 'readElAt']) assert.ok(mon.includes(k), k);
@@ -607,7 +608,7 @@ test('stage: the probe\'s memory is in the loop (layout signature, banned places
 
 // Review item 28: the monitor check reads layout only while the page's layout watch says a card or bar may have moved.
 test('stage: the Doppler monitor check keeps its last answer while nothing placed has moved', () => {
-  const src = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const src = stageSource();
   assert.match(src, /const dprQuiet = \(\) => dpr\.monAt > 0 && !watch\.due\(\);/);
   assert.match(src, /if \(!dprQuiet\(\)\) dprMonAsk \|\|= readFrame\(dprMonRead\);/, 'looked at first in the next frame, never between its writes');
   assert.match(src, /dpr\.monAt = performance\.now\(\);\n\s+dprMonLast = dprMonitorLook\(\);/);

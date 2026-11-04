@@ -1,10 +1,11 @@
+import { stageSource } from './stage-src.js';
 // The circuit's pan and zoom frames (Mohammad, 26 Oct: "Circuit view in particular is slow when zoomed"): what the circuit paints
 // on every camera frame and the anatomy does not, cut without changing a pixel. Source patterns (no browser or GL in node).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const stage = stageSource();
 const veins = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
 const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 

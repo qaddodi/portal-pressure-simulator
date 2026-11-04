@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -43,7 +44,7 @@ test('a sheet pulled back or let go does not start its first frame the wrong way
 });
 
 // splitTo with its helpers, as stage.js has them, and the surfaces they touch stubbed (the real follow2 and portalSplit).
-const stage = read('src/ui/stage.js');
+const stage = stageSource();
 const { follow2, SHOWN_TAU } = await import('../src/ui/display-state.js');
 const { portalSplit } = await import('../src/ui/table-marks.js');
 const splitSrc = stage.match(/const SPLIT_EPS[\s\S]*?(?=\n {2}const siteLive)/)[0];

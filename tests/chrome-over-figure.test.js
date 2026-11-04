@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // 3 Nov 2026, Mohammad, iPhone, zoomed and panning: "the vessels, arrows and blood draw on top of the view switcher and the bottom bar".
 // The cause: while the figure moved, stage-busy stepped every .float-ui (top bar, bottom dock, zoom pill, cards) back to .55 opacity, so
 // each glass bar was 52 % of its 95 % glass and the GPU's vessels, arrows and labels showed through it crisp and unfrosted, its words
@@ -8,7 +9,7 @@ import { readFileSync } from 'node:fs';
 
 const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 const tokens = readFileSync(new URL('../styles/tokens.css', import.meta.url), 'utf8');
-const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const stage = stageSource();
 const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 
 // Every rule of the sheet as [selector, body] (media blocks flattened; comments dropped).

@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // Into or out of the lobule (Present and Patients, every deck): the ascites filling, a varix growing or the liver changing paused while
 // the view zoomed and went on once it landed (Mohammad, 30 Oct: "animations should continue to play while we zoom"). Now the anatomy
 // follows the patient, drawn, for as long as it shows through the dive or the rise; only once the lobule or the dive's field covers it
@@ -6,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const st = stageSource();
 const fn = (head) => { const i = st.indexOf(head); assert.ok(i >= 0, head); return st.slice(i, st.indexOf('\n  }\n', i) + 4); };
 const line = (head) => { const i = st.indexOf(head); assert.ok(i >= 0, head); return st.slice(i, st.indexOf('\n', i)); };
 

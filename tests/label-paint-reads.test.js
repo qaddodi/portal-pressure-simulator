@@ -1,9 +1,10 @@
+import { stageSource } from './stage-src.js';
 // The FibroScan probe finds the liver from numbers, and a pan paints the callouts and probes once (labels and probes review, 25 Oct).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const STAGE = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const STAGE = stageSource();
 const CSS = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 const body = (name) => { const at = STAGE.indexOf(`  function ${name}(`); assert.ok(at > 0, name); return STAGE.slice(at, STAGE.indexOf('\n  }\n', at) + 4); };
 

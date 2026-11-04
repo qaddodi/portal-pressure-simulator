@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createOrganPaint } from '../src/ui/organ-paint.js';
@@ -150,7 +151,7 @@ test("the painter's targets stay within the room the canvas gives them, however 
 
 test("the view's sharp picture keeps its sides within the painter's room beside the canvas", async () => {
   const { readFileSync } = await import('node:fs');
-  const src = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const src = stageSource();
   // (The picture's size: the canvas's, or under Sharper upscaling the smaller picture drawn under it.)
   assert.match(src, /const roomW = picNow \? picNow\[0\] : vCanvas\.width, roomH = picNow \? picNow\[1\] : vCanvas\.height;[^\n]*\n\s+const room = targetRoom\(roomW, roomH\);/);
   assert.match(src, /room \/ \(Math\.max\(1, roomH\) \* \(x1 - x0\)\), room \/ \(Math\.max\(1, roomW\) \* \(y1 - y0\)\)\);/);

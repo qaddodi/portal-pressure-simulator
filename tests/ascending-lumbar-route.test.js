@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // The ascending lumbar collateral (C9) runs up behind the liver, faded there, and joins the azygos the way a tributary joins a vein
 // (Mohammad, 31 Oct, Budd–Chiari: "the ascending lumbar vein is intersecting with hepatic vein and also doesn't look good at
 // azygous junction"; then, of the lane behind the liver: "I like behind the liver fade"). In the body it climbs the posterior
@@ -99,7 +100,7 @@ test('C9 leaves the cava below the liver, climbs behind it, and comes out above 
 
 test('C9 is a back-tier vessel, and the stage fades it behind the liver: solid under the liver, a ghost across the hepatic veins, solid above the dome', () => {
   assert.ok(BACK_EDGES.has('C9'), 'the organ covers veil it');
-  const src = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const src = stageSource();
   const m = src.match(/SIN_FADE\.C9 = \[([^\]]+)\];/);
   assert.ok(m, 'stage.js fades C9 (SIN_FADE.C9)');
   const [x1, y1, x2, y2, off, a0, am, mode] = m[1].split(',').map(Number);

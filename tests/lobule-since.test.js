@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // A change-since slide (lens 'since', ext-highlights.js) in the lobule views: the lobule's vessels, labels and changes count from the
 // same network the figure's vessels do (since-ref.js), and only that lens on a slide takes it: every other lens, Patients and a
 // pinned moment read as before.
@@ -82,7 +83,7 @@ test('the lobule draws the lens as the Change colours, eases its reference and n
 });
 
 test('the stage hands the lobule the reference its own vessels count from', () => {
-  const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const stage = stageSource();
   assert.match(stage, /sinceSource\(sinceRef\);/);
   assert.match(stage, /import \{ sinceSource \} from '\.\/since-ref\.js/);
 });

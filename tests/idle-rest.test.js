@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -64,7 +65,7 @@ test('idle rest is wired: Explore only, never in a talk or a time-lapse; the sta
   assert.match(main, /st\.mode === 'explore' && !presenter\.active\(\) && !st\.lapse/);
   assert.match(main, /onRest: \(\) => \{ setPageRest\(true\); stage\.rest\(true\); host\.send\(\{ type: 'visibility', visible: false \}\); \}/);
   assert.match(main, /onWake: \(\) => \{ setPageRest\(false\); host\.send\(\{ type: 'visibility', visible: !document\.hidden \}\); stage\.rest\(false\); \}/);
-  const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const stage = stageSource();
   assert.match(stage, /const REST_IN_S = 1\.5, REST_OUT_S = 0\.4;/);
   assert.match(stage, /if \(!st\.running \|\| reduceMotion\.matches \|\| restStill\(\)\) return false;/);
   assert.match(stage, /bloodClock = \(bloodClock \+ dt \* restK\) % 10000;/);

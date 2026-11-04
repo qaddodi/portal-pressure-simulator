@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // The displayed-label snapshot (R17): { seq, gen, items: [{ key, x, y, w, h, a, clipped }] } from the pictures drawn in the last frame.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -5,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { snapshotItem } from '../src/ui/label-gl.js';
 
 const lg = readFileSync(new URL('../src/ui/label-gl.js', import.meta.url), 'utf8');
-const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const st = stageSource();
 
 test('an item is in CSS px with its opacity, and clipped only where it leaves the canvas', () => {
   assert.deepEqual(snapshotItem('a', 20, 40, 60, 30, 0.5, 2, 400, 300), { key: 'a', x: 10, y: 20, w: 30, h: 15, a: 0.5, clipped: false });

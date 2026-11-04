@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // A label's colour is restyled on the text it already has; only a change of structure (its runs' sizes, weights, gaps, the
 // box) builds it again (stage.js renderBlock). A run's colour comes from its fill or its class (a change badge's ▲ "up" or
 // ▼ "down"), so neither may be in the label's structure signature, and both are set on the same tspan in the update loop.
@@ -7,7 +8,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const stage = stageSource();
 const block = stage.slice(stage.indexOf('  function renderBlock(it) {'), stage.indexOf('  const rectOf = (it) =>'));
 
 test('a label\'s structure signature leaves out its runs\' text, fill and class', () => {

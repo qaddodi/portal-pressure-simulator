@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // Production pass, batch D (31 Oct): a talk's figure is out of the Tab order, a hidden label is neither a stop nor read aloud,
 // the debug overlay shows only under ?debug, Windows high contrast keeps the on and selected states, and a preset that fails to
 // load does not leave the figure waiting. The wiring is read from source, as the repo's other review tests do.
@@ -8,7 +9,7 @@ import { readFileSync } from 'node:fs';
 const read = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 
 test('the figure (one stop for its vessels and organs) and its labels are Tab stops only while keyStops is on', () => {
-  const s = read('src/ui/stage.js');
+  const s = stageSource();
   assert.match(s, /let keyStops = true;/);
   assert.match(s, /svg\.setAttribute\('tabindex', '0'\);/, 'the figure is one stop');
   assert.doesNotMatch(s, /class: 'v-hit'|class: 'org-key'/, 'no element per vessel or organ');
@@ -21,7 +22,7 @@ test('the figure (one stop for its vessels and organs) and its labels are Tab st
 });
 
 test('a hidden label leaves the Tab order and the screen reader, and one with focus keeps its place', () => {
-  const s = read('src/ui/stage.js');
+  const s = stageSource();
   const fn = s.slice(s.indexOf('function labelStop(b, hid)'), s.indexOf('function blockEl('));
   assert.match(fn, /aria-hidden', 'true'/);
   assert.match(fn, /removeAttribute\('aria-hidden'\)/);

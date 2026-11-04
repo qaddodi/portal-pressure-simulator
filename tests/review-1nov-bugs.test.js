@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // The outside review of 1 Nov (the non-science findings): a device without WebGL2 (A1), text at 200 % clipping a data card (V1), the
 // first-use hint and the feedback ask over the wrong surfaces (V2), the 9 px preview badge (V3), the catheter monitor's readings for a
 // screen reader (A2) and a slide announced before it is shown (A3). Read from the code; the moves themselves are in the browser checks
@@ -8,7 +9,7 @@ import { readFileSync } from 'node:fs';
 import { badgeHtml, BADGE_H } from '../scripts/preview-badge.mjs';
 
 const read = (f) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
-const STAGE = read('src/ui/stage.js'), PZ = read('src/ui/presenter.js'), MAIN = read('src/ui/main.js'), PROC = read('src/ui/hvpg-proc.js');
+const STAGE = stageSource(), PZ = read('src/ui/presenter.js'), MAIN = read('src/ui/main.js'), PROC = read('src/ui/hvpg-proc.js');
 const body = (src, head) => { const i = src.indexOf(head); assert.ok(i >= 0, head); let d = 0, k = src.indexOf('{', i); for (let j = k; j < src.length; j++) { if (src[j] === '{') d++; else if (src[j] === '}' && --d === 0) return src.slice(i, j + 1); } return src.slice(i); };
 
 // ── A1: no WebGL2 ──

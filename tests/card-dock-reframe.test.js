@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -16,7 +17,7 @@ globalThis.DOMRect ??= class { constructor(x, y, width, height) { Object.assign(
 const { parseTranslate, translateRest } = await import('../src/ui/util.js');
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
-const presenter = read('src/ui/presenter.js'), stage = read('src/ui/stage.js');
+const presenter = read('src/ui/presenter.js'), stage = stageSource();
 
 test('a translate value reads as x and y px', () => {
   assert.deepEqual(parseTranslate('none'), [0, 0]);

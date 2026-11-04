@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -6,7 +7,7 @@ import { readFileSync } from 'node:fs';
 // patient change (HVPG slides 8 and 9, 17 Oct): the pixels are read from a canvas kept in memory and sent a strip per frame
 // (plate-upload.js), into a texture shown only once full. Every raster draws into a canvas of its own, so a quick second
 // raster (a view switch, a slide, a resize, a theme change) never has its drawing wiped by an earlier one.
-const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const stage = stageSource();
 
 
 test('the ascites cavity reaches the GPU as row half-widths, never as a canvas', () => {

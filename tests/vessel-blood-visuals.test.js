@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // The vessel and blood visuals from the October review (docs/REVIEW_2026-10.md §4, G9, G10, G12, G14 and G17):
 // what each draws, checked without a browser.
 import { test } from 'node:test';
@@ -8,7 +9,7 @@ import { LUMEN, LUMEN_AREA, LUMEN_BOTTOM, STO_N, lumenSurface, lumenAt } from '.
 import { varixBead, beadRadius, BEAD_MAX } from '../src/ui/varix-bead.js';
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
-const STAGE = src('src/ui/stage.js'), GL = src('src/ui/veins-gl.js');
+const STAGE = stageSource(), GL = src('src/ui/veins-gl.js');
 
 test('G9: blood that turns round stands still for 0.6 s at the turn, then sets off the other way', () => {
   const st = { seed: 3 };

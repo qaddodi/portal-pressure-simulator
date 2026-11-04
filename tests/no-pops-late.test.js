@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // The last of the motion review's pops (MOTION_HEAT_REVIEW P3, P13, P16–P23): what fades or glides must keep doing so.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -46,8 +47,8 @@ test('lists update in place, toasts leave through their own exit (P18, P19)', ()
 test('popovers and figure pieces fade out instead of vanishing (P20, P21, P23)', () => {
   assert.match(css, /\.pal-back\.leaving \{[^}]*animation: crossfade-out/);
   assert.match(css, /\.why-pop\.leaving \{ display: block;[^}]*animation: scale-settle-out/);
-  assert.match(read('src/ui/stage.js'), /if \(d\.u !== to\) \{ d\.u = to > d\.u \? Math\.min\(1, d\.u \+ k\) : Math\.max\(0, d\.u - k\); nd\.dirty = true; \}/, 'a station dot eases out on the GPU (stepMap)');
-  assert.match(read('src/ui/stage.js'), /cath\.at = null; cathFadeOut\(\); return;/);
+  assert.match(stageSource(), /if \(d\.u !== to\) \{ d\.u = to > d\.u \? Math\.min\(1, d\.u \+ k\) : Math\.max\(0, d\.u - k\); nd\.dirty = true; \}/, 'a station dot eases out on the GPU (stepMap)');
+  assert.match(stageSource(), /cath\.at = null; cathFadeOut\(\); return;/);
   assert.match(css, /\.mon\.bad \.mv \{ animation: monAlarm 1\.2s var\(--ease-move\) infinite; \}/);
 });
 

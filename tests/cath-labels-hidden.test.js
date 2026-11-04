@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // The HVPG catheter hides the figure's labels (cath-on) while its view follows the tip every frame. Every frame of that follow had laid the
 // hidden labels out, drawn them and sent them to the GPU labels (the HVPG deck's lag, 31 Oct). Once their fade is over they are not laid
 // out; as the catheter goes they are laid out at once, for the view as it is, before they fade back in.
@@ -5,7 +6,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const stage = stageSource();
 const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 
 const hidSrc = stage.match(/const cathHid = \(\) => [^\n]*\n/)?.[0];

@@ -1,9 +1,10 @@
+import { stageSource } from './stage-src.js';
 // Zooming and panning in the circuit and the lobule lagged (Mohammad, 25 Oct): per-frame work a hand's zoom did that it need not.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const stage = stageSource();
 const lobule = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
 const body = (src, head) => { const i = src.indexOf(head); assert.ok(i >= 0, head); return src.slice(i, src.indexOf('\n  }\n', i)); };
 

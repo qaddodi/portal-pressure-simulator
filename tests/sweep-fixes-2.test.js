@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // Sweep batches 02–04 (16 Oct): the Pressure chart and the HVPG tab read the bottom bar's own HVPG and PPG, the chart's
 // words are 12 px with every station value shown clear of the pills, the stylesheet sets no word under 12 px, the pressure
 // dial keeps its words at 12 px however small it is drawn, a disabled button reads clearly, the navel ring shows only with the
@@ -10,7 +11,7 @@ import { setShown, shownOr } from '../src/ui/shown.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const css = read('../styles/app.css'), charts = read('../src/ui/charts.js'), hvpg = read('../src/ui/hvpg-proc.js'), dock = read('../src/ui/dock.js');
-const stage = read('../src/ui/stage.js'), main = read('../src/ui/main.js'), instr = read('../src/ui/instruments.js');
+const stage = stageSource(), main = read('../src/ui/main.js'), instr = read('../src/ui/instruments.js');
 
 test('the value the bottom bar shows is the one the chart and the HVPG tab read', () => {
   assert.equal(shownOr('hvpg', 7), 7);

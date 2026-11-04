@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // The vessel look's signature (look-sig.js) sees every number the old JSON text of the look did: the vessel layer is drawn again whenever
 // any of them changes, and only then. The test takes the look as stage.js builds it (its literal, read from the source), walks every
 // number in it and changes each in turn: one the signature does not read fails here, so a field added to the look cannot change
@@ -7,7 +8,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { lookChanged, newLookSig } from '../src/ui/look-sig.js';
 
-const STAGE = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const STAGE = stageSource();
 const literal = (re) => { const m = re.exec(STAGE); assert.ok(m, String(re)); return m[1]; };
 
 // The look and the pieces it holds, from stage.js's own text.

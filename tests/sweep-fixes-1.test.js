@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // Small layout rules from the overnight screenshot sweeps (review/random-sweep, batches 01 to 03). Each was seen broken
 // on a device; these checks keep the rule that fixed it in place.
 import { test } from 'node:test';
@@ -51,7 +52,7 @@ test('a scrolling menu fades right to its own bottom edge, and Settings above th
 });
 
 test('the credit keeps off a steady vessel glow', () => {
-  const credit = readFileSync(new URL('../src/ui/credit.js', import.meta.url), 'utf8'), stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const credit = readFileSync(new URL('../src/ui/credit.js', import.meta.url), 'utf8'), stage = stageSource();
   assert.match(stage, /steadyGlows: \(\) => \['sel', 'dop', 'slide', 'focus'\]/);
   assert.match(credit, /\+ 2 \* 12 \* Math\.min\(1\.3, Math\.max\(0\.5, wide\)\)/);
 });

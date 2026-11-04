@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // The treatment marks on the figure (a stent's mesh, sutures, the tie on a divided vein, the cross on a closed shunt, the splenic
 // patches, the variceal bands) come and go with a fade, not a pop (src/ui/mark-fade.js; stage.js putMark, updateOverlays, olStep).
 import test from 'node:test';
@@ -99,7 +100,7 @@ test('a step never overshoots, and a mark at rest costs no frames', () => {
 });
 
 // The wiring in stage.js, pinned in the source (the stage cannot be built without a browser).
-const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const stage = stageSource();
 test('stage.js: every treatment mark is built through putMark, so none is added to its group bare', () => {
   assert.doesNotMatch(stage, /ov\.(stents|plugs|bands)\.append\(/, 'a mark appended without a fade');
   for (const key of ['`stent:${id}`', '`suture:${id}`', '`tie:${id}`', '`plug:${id}`', "'spleen:patches'", "'spleen:cross'", '`band:${i}`']) assert.ok(stage.includes(key), `${key} is a mark`);

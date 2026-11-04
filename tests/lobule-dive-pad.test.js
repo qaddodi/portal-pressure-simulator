@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // Diving into a lobule framed zoomed in (a slide aimed at a station), the lobule showed as a cropped box until it landed: its
 // layers were the screen's size, scaled down for the dive (Mohammad, 20 Oct, lobule deck 5 → 6). Such a dive now shows the wide
 // copy: the whole lobule flattened into tiles at the screen's own pixel ratio; on landing the layers, drawn before the zoom, show.
@@ -35,7 +36,7 @@ test('the rise out of a zoomed-in lobule shrinks it whole, whichever way out', (
   assert.match(pz, /if \(stage\.lobuleOpen\(\)\) \{ const ms = reduce\.matches \|\| booting \? 0 : RISE_FIT_MS; if \(stage\.lobuleFocus\('fit', \{ ms, ease: 'in' \}\)\) \{ await wait\(ms\); if \(cut\(\)\) return; \} \}\n\s+if \(next && !reduce\.matches && !booting\) stage\.riseTo\(next\.box, next\.kMax, next\.clear\);[^\n]*\n\s+store\.set\(\{ lobule: false \}\);/);
   assert.match(lz, /focusOn\(part, \{ zoom = 2, ms = 1400, ease = 'inOut' \} = \{\}\) \{[\s\S]*?const moved = [^\n]*> 0\.5;[\s\S]*?return moved;/, 'it waits whenever the view moves');
   // Every other way out (back to healthy, the view buttons, a key) from a zoomed-in view: the whole copy, before the rise's clock.
-  const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const st = stageSource();
   assert.ok(st.indexOf('lz.stageRise();') > 0 && st.indexOf('lz.stageRise();') < st.indexOf('const t0 = PACED ? easeNow() : performance.now();\n    lobOn = on;'), 'built before the rise is timed');
   assert.match(st, /riseFast = true;\n\s+lz\.stageRise\(\);/);
   // The way back to the fit reaches it still moving (eased in only, Mohammad 20 Oct: Circulation 9 to 10 stopped midway), quick enough

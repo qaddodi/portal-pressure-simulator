@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // A slide's camera glide sets off no style passes of its own (1 Nov 2026, iPhone: the slide-change zoom at about 3 fps). Its classes
 // (cam-move, pinch-hide, off-home) change no colour the stage, the organs' grey, the vessel marks or the glow read, nor any label's
 // look; the vessel marks read every style before writing any data-gl; and a glide's own step paints the callouts and probes once a
@@ -7,7 +8,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { GESTURE_LOOK, onlyClasses } from '../src/ui/idle-keys.js';
 
-const STAGE = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const STAGE = stageSource();
 const CSS = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 
 test('the glide\'s classes are no look the stage\'s keyed readers depend on', () => {

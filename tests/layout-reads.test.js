@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // Plan "Holding 120 Hz, always", 3.4: the page's geometry is asked of the browser in one place, src/ui/layout-snap.js. A direct layout
 // read anywhere else counts against its file's allowance (scripts/layout-read-allowance.json), which may only go down.
 import { test } from 'node:test';
@@ -31,6 +32,6 @@ test('the counter sees each kind of direct read, and not writes, comments or the
 });
 
 test('the snapshot hands the stage its box and matrix without a read, and keeps the stage\'s own', () => {
-  const src = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const src = stageSource();
   assert.match(src, /provideStage\(\{ box: stageBox, ctm: /);
 });

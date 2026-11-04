@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // A leader reaches its label and stops on the edge of what is seen of it: never short of it (the anatomy's stopped 9 px
 // short when zoomed in) and never in under its letters (the lobule's ran to each label's middle, through the text).
 // Both views take the end from leader-end.js; the browser check "leaders reach their labels in every frame" follows it
@@ -49,7 +50,7 @@ test('a label seen run by run: the leader stops on the first run of letters it m
 
 test('the lobule and the anatomy both stop their leaders with leader-end.js', () => {
   const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
-  const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const st = stageSource();
   assert.match(lz, /import \{[^}]*\bleaderEnd\b[^}]*\} from '\.\/leader-end\.js/);
   assert.match(st, /import \{[^}]*\bleaderEnd as edgeOf\b[^}]*\bleaderEndRects\b[^}]*\} from '\.\/leader-end\.js/);
   // The lobule's leaders never end at the label's middle again (x2/y2 set straight from the placement's centre).
@@ -93,7 +94,7 @@ test('a leader towards a pill\'s rounded corner stops on the curve, not the squa
 test('an anatomy leader coming down on lowercase letters stops at their height, not the capitals\'', () => {
   // (Desktop, four quick zoom-ins: the Right portal vein leader met "vein" from above and stopped 3.1 px over its x-height,
   // at the capitals' 0.72 of the size.)
-  const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const st = stageSource();
   const m = /const LOW = \/\[([a-z]+)\]\/, X_HEIGHT = ([\d.]+);/.exec(st);
   assert.ok(m, 'inkRects has no box for the x-height letters');
   for (const ch of 'aceomnrsuvwxz') assert.ok(m[1].includes(ch), `${ch} is not counted as an x-height letter`);

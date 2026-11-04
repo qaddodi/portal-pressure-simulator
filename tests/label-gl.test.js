@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // The labels drawn on the GPU (label-gl.js): which labels it may draw, when a picture is drawn again, and how stage.js hands
 // them over (Mohammad, 25 Oct: "move everything ... to GPU").
 import { test } from 'node:test';
@@ -5,7 +6,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { svgOnly, lookKey, layBlock, blockOps, shadowsOf, ringBox, rgba } from '../src/ui/label-gl.js';
 
-const STAGE = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const STAGE = stageSource();
 const CSS = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 const LGL = readFileSync(new URL('../src/ui/label-gl.js', import.meta.url), 'utf8');
 // (The same copy of the GPU text module label-gl.js uses, by its stamped name, with Inter's outlines loaded as the page loads them.)

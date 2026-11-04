@@ -1,10 +1,11 @@
+import { stageSource } from './stage-src.js';
 // A vessel's colours are fields the GPU reads (x.col); the SVG gradient stops they used to write are gone with the SVG tubes
 // (2 Nov 2026, figure model to data). A colour that did not change is not written again, so nothing re-uploads.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const st = stageSource();
 
 test('vessel colours are a field, replaced only when one of the two changes', () => {
   assert.match(st, /setColPair\(x, c1, c2\);/);

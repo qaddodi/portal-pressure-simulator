@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // Out of the lobule to a wider view, the camera only zooms out: the lobule's framing is held in the space the leaving slide's cards
 // left, so the next slide's cards (which come in before the rise) never send it in and down first (Mohammad, 21 Oct, Ascites 4 to 5
 // on a phone). Every deck, every lobule exit (anatomy, circuit, catheter), every device size.
@@ -7,7 +8,7 @@ import { readFileSync } from 'node:fs';
 
 const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
 const pr = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const st = stageSource();
 
 test('the lobule frames itself in the held space while a way out is under way', () => {
   const fr = lz.match(/function freeRect\(\) \{[\s\S]*?\n {2}\}/)?.[0];

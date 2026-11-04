@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // In a lens other than Pressure the anatomy's organs are grey (stage.js plateTargets). The lobules round the one in focus, in the dive's
 // field and in the open lobule view, must be the same grey as the liver they are zoomed into or out of; the lobule in focus keeps
 // the lens's colours (Mohammad, 26 Oct: "the surrounding lobules should also be gray as the color of the liver").
@@ -11,7 +12,7 @@ import { greyOf } from '../src/ui/organ-grey.js';
 import { lensModeOf } from '../src/ui/lobule-model.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
-const stage = read('../src/ui/stage.js');
+const stage = stageSource();
 const lz = read('../src/ui/lobule-zoom.js');
 const fgl = read('../src/ui/field-gl.js');
 const tgl = read('../src/ui/tissue-gl.js');

@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // The Circuit talk, slide 2 to 3 (Mohammad, 16 Oct: "the whole app crashes; nothing happens after"). Slide 3 shows the gut
 // arterioles' resistor, and the figure's labels keep off every resistor's zigzag (stage.js buildSegs). A zigzag is not a
 // vessel, so reading its vessel id threw on every model frame and the figure froze. This walks the deck from slide 2 to 3
@@ -9,7 +10,7 @@ import { CIRCUIT } from '../src/ui/decks/circuit.js';
 import { withOverview } from '../src/ui/decks.js';
 import { runSteps } from './deck-states.js';
 
-const SRC = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const SRC = stageSource();
 const body = SRC.slice(SRC.indexOf('const segLines = '), SRC.indexOf('const segLines = ') + 4000);
 
 test('Circuit slide 3 shows the resistors, the gut arterioles\' among them, over the same patient as slide 2', async () => {

@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // Deck visuals, package A (figure highlights: src/ui/ext-highlights.js, src/ui/highlight-math.js): the new organs have
 // shapes to outline, the named sets name real vessels, the spot list sorts vessels from organs, the ripple picks the same
 // vessels Patients' Δ glow would, the vein system gives every vein one class, and no built-in deck uses any of it.
@@ -17,7 +18,7 @@ import { deepMerge } from '../src/engine/scenario.js';
 
 const VESSELS = new Set(EDGES.map((e) => e.id));
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
-const STAGE = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const STAGE = stageSource();
 
 test('the new organs are drawn, and each target points at one of them in a colour the tokens define', () => {
   const shapes = new Map(ORGANS.map((o) => [o.id, o]));

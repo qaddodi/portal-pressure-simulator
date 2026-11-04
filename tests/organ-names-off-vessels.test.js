@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // Organ names stay off the vessels, and an upright tablet's colour key stands level with the nav pill (iPad portrait, 1 Nov 2026:
 // the review found STOMACH under the splenic vein and the K of KIDNEY on the colon's vein on Ascites 5, and the "Flow volume" key
 // 5 px from the teaching card's edge, 8 px below the pill, on Varices 4).
@@ -9,7 +10,7 @@ import { ORGANS, ORGAN_LABELS } from '../src/ui/anatomy.js';
 import { pathCmds, flattenCmds } from '../src/ui/shape-gl.js';
 import { nameSpots, NAME_ORGAN, NAME_BREAK, NEAR, APART, MOST } from '../src/ui/organ-names.js';
 
-const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const stage = stageSource();
 const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
 
 // (The outline read on its own, finer than the module's, with the even-odd rule: a ring's hole is outside.)

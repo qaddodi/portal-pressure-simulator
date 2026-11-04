@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // 31 Oct 2026 (Explore smoothness and heat): the overlays (clamps, clots, plugs, bands, balloons) are rebuilt when overlayInputs' key
 // changes, and every rebuild bumps the vessel marks' version (a style read of every overlay shape and a triangulation of them all).
 // The key held the varix's diameter, radius and wall-stress ratio, and the fundal varix's diameter, in steps narrower than the beat's
@@ -9,7 +10,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const stage = stageSource();
 const between = (from, to) => { const a = stage.indexOf(from), b = stage.indexOf(to, a); assert.ok(a > 0 && b > a, `${from} ... ${to}`); return stage.slice(a, b); };
 
 test('the overlays\' rebuild key holds no varix number (they pulse with the beat and nothing the overlays draw follows them)', () => {

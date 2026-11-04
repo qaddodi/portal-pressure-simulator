@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // Review items U2, U4, U8, U9, U10, U11, U12, U13 and U16 (docs/REVIEW_2026-10.md on its branch): undo on touch, a way out of
 // the collapse banner (banner removed 18 Oct), "Why?" sentences that read aloud, Why? for Hb, failures in learner words, the shunt hint,
 // "colored by" instead of "lens", one platelet unit, and the toast policy. The UI modules need a DOM, so they are read as text.
@@ -48,7 +49,7 @@ test('U2: Undo is reachable on touch, and no collapse banner covers the figure (
 });
 
 test('U10: failures are said in learner words', () => {
-  const main = read('../src/ui/main.js'), stage = read('../src/ui/stage.js');
+  const main = read('../src/ui/main.js'), stage = stageSource();
   assert.doesNotMatch(main, /see the console/);
   assert.match(main, /if \(kind === 'main'\) toast\(/);
   assert.match(main, /cannot draw the sinusoid view \(it needs WebGL2\)/);

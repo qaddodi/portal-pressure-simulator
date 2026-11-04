@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // Visual glitch sweep 1 (31 Oct): the change halos and the shunt's target name keep their size on screen at any zoom and fade in;
 // a catheter leaving for a new patient no longer dims the whole figure first; the lobule's zone bands stay on through its way out.
 import { test } from 'node:test';
@@ -5,7 +6,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
-const css = read('../styles/app.css'), stage = read('../src/ui/stage.js'), pres = read('../src/ui/presenter.js');
+const css = read('../styles/app.css'), stage = stageSource(), pres = read('../src/ui/presenter.js');
 
 test('the change halos are sized on screen, fade in, and show one decimal', () => {
   assert.match(css, /\.halo-in \{ transform: scale\(var\(--halo-k, 1\)\); \}/);
@@ -77,6 +78,6 @@ test('a line name with no clear place sits on lines before it sits on a word', (
 });
 
 test('a stent\'s velocity callout hides when its stent is out of the frame', () => {
-  const src = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const src = stageSource();
   assert.match(src, /if \(!within\(\{ x0: ax, y0: ay, x1: ax, y1: ay \}, view\)\) continue;\n {10}const it = velItem\(sid, f\);/);
 });

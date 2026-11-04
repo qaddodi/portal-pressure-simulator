@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // Closing the Tests card (17 Oct): a fitted view is fitted again to the space the card leaves; a view the learner zoomed
 // or panned stays where it is. Every way of closing it (the Tests button, its close button, Esc, a swipe) runs through
 // setPanelTab, so they all end the same. Opening it still frames the figure.
@@ -7,7 +8,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
-const main = read('../src/ui/main.js'), stage = read('../src/ui/stage.js'), dock = read('../src/ui/dock.js');
+const main = read('../src/ui/main.js'), stage = stageSource(), dock = read('../src/ui/dock.js');
 
 test('opening Tests refits; closing it refits only a fitted view', () => {
   const body = main.match(/function setPanelTab\(tab\) \{[\s\S]*?\n\}/)[0];

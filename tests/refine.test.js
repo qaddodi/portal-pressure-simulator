@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -93,7 +94,7 @@ test('the allowance is 1 ms', () => {
 });
 
 test('the stage gives every refinement a turn: the layer bake and the shapes read, none a fixed 6 ms of its own', () => {
-  const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const stage = stageSource();
   assert.match(stage, /const refineHeld = \(\) => gestureOn\(\) \|\| !leftAlone\(120\);/, 'a gesture, or an input in the last 120 ms or a finger down');
   assert.match(stage, /const refineWaitFrame = \(\) => new Promise\(refineWaitExec\), refineWaitExec = \(res\) => nextFrame\(res\);/);   // (kept, no closure per turn)
   assert.match(stage, /const refineTurn = \(gone\) => refine\.turn\(refineWaitFrame, refineHeld, gone\);/);

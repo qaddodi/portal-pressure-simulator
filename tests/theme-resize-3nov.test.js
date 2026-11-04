@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // Glitch audit second pass (3 Nov 2026): TH1/TH2 theme epoch, RS1-RS5 resize, FN1/FN2 fonts, FL1 first load.
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -13,7 +14,7 @@ test('TH1: the surfaces that redraw for a new look listen to the one theme epoch
 });
 
 test('RS1: the late home looks run only if the stage box moved since the last look', () => {
-  const S = src('src/ui/stage.js');
+  const S = stageSource();
   assert.match(S, /setTimeout\(lookHomeIfMoved, 500\)/);
   assert.match(S, /setTimeout\(lookHomeIfMoved, 1300\)/);
   assert.doesNotMatch(S, /setTimeout\(lookHome, (500|1300)\)/);
@@ -33,7 +34,7 @@ test('RS4/RS5: the charts drop their looks once a resize has settled; the labels
 });
 
 test('FN1/FN2: label widths drop at every font that loads; the fallback face has Inter\'s metrics', () => {
-  assert.match(src('src/ui/stage.js'), /fonts\?\.addEventListener\?\.\('loadingdone', fontsIn\)/);
+  assert.match(stageSource(), /fonts\?\.addEventListener\?\.\('loadingdone', fontsIn\)/);
   assert.match(src('fonts/fonts.css'), /font-family: 'Inter Fallback';[\s\S]*size-adjust: 107\.4%;[\s\S]*ascent-override/);
   assert.match(src('styles/tokens.css'), /--font-ui: 'Inter', 'Inter Fallback'/);
 });

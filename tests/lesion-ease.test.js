@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // A narrowing and a clot are drawn as they follow the params in a moment, not whole in one frame (src/ui/lesion-ease.js; stage.js
 // updateInner, stepWidths, stepOrgans).
 import test from 'node:test';
@@ -61,7 +62,7 @@ test('Reduce Motion lands at once; a long frame carries no further than the time
   assert.ok(LESION_SNAP < 0.01 && LESION_TAU > 0.05 && LESION_TAU < 0.15);
 });
 
-const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const stage = stageSource();
 test('stage.js: the full update draws the lesions as they follow, and the width and organ steps stand aside while they move', () => {
   assert.match(stage, /const pRaw = f\.viewParams \|\| st\.params, p = lesions\.view\(pRaw, dtW, reduceMotion\.matches\);/);
   assert.match(stage, /if \(lesions\.differs\(pRaw\)\) widthEasing = true;/);

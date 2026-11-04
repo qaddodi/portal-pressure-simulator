@@ -14,10 +14,11 @@ import { fileURLToPath } from 'node:url';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const TESTS = join(ROOT, 'tests');
 const READS_SRC = /readFileSync\([^)]*(?:\.\.\/)?(?:src|styles)\/|readFileSync\([^)]*index\.html|readFileSync\(\s*new URL\(\s*['"`]\.\.\/(?:src|styles)\/|readFileSync\(\s*new URL\(\s*['"`]\.\.\/index\.html/;
+const READS_STAGE = /from\s*['"]\.\/stage-src\.js['"]/;
 const IMPORTS_SRC = /^import[^;]*from\s*['"]\.\.\/src\//m;
 
 export function classify(text) {
-  if (READS_SRC.test(text)) return 'source-regex';
+  if (READS_SRC.test(text) || READS_STAGE.test(text)) return 'source-regex';
   if (IMPORTS_SRC.test(text)) return 'behaviour';
   return 'other';
 }

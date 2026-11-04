@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // What lies between the figure and a glass (stage.js frostOverRead) is kept part by part (2 Nov 2026, merged GPU plan; motion
 // budget: the circuit slide change read every part again on every frame of the camera's glide, about 2,400 style and box reads).
 // The overlays' boxes follow the camera by arithmetic; only a part that changed is read again.
@@ -5,7 +6,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const st = stageSource();
 const read = st.slice(st.indexOf('  function frostOverRead(level) {'), st.indexOf('  hostFrost(paneGL, { order: 0'));
 const carrySrc = st.slice(st.indexOf('  const CARRY_M = '), st.indexOf('  function frostOverRead(level) {'));
 

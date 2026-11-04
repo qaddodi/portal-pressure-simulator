@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // Mohammad, 29 Oct (iPhone): "when I untuck and tuck card stacked ... the view is snapping into new camera position instead of easing".
 // The camera's refit to a card that moved begins just after the layout and label passes the same change sets off, on a phone a frame or
 // two of 100 ms or more. Timed on the wall clock, such a frame carried the glide a third of the way in one step. A refit glide now runs on
@@ -49,7 +50,7 @@ test('a clock that goes back (a timestamp from before the glide began) never run
 });
 
 // ── Where it is used ──
-const stage = read('src/ui/stage.js'), presenter = read('src/ui/presenter.js'), lobule = read('src/ui/lobule-zoom.js'), proc = read('src/ui/proc-anim.js');
+const stage = stageSource(), presenter = read('src/ui/presenter.js'), lobule = read('src/ui/lobule-zoom.js'), proc = read('src/ui/proc-anim.js');
 
 test('the stage times a steady glide by the clock, and never a drift or a move on an arc', () => {
   const a = fn(stage, 'function animateVT(');

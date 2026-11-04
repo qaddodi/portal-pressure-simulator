@@ -1,10 +1,11 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 // The figure's idle loop (review item 27): its safety look comes once a second, its still-key reads the blood setting's text
 // only after a store write, and every organ picture that lands outside a frame wakes it, so nothing waits on the look.
-const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const st = stageSource();
 
 test('the idle loop looks again once a second and keys the blood setting on the store version', () => {
   assert.match(st, /function sleep\(\) \{\s+sleeping = true; clearTimeout\(sleepTimer\); sleepTimer = setTimeout\(wake, 1000\);/);

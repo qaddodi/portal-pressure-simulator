@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // The treatment procedures played on the anatomy (proc-anim.js): each eases in and back out, its step order holds, the model
 // takes the change the Treat buttons make, one the patient cannot have says why, and built-in slides use it only where adopted.
 import { test } from 'node:test';
@@ -240,7 +241,7 @@ test('in Tests it plays through by itself, every step in turn, and leaves the ch
 test('presented, Next drives it: the first Next starts it, each Next plays a step, then the slide moves on; the steps are progress only', async () => {
 
   const pz = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-  const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const st = stageSource();
   const next = pz.match(/const next = \(\) => \{[\s\S]*?\n {2}\};/)[0];
   assert.ok(next.indexOf('procNext()') > 0 && next.indexOf('procNext()') < next.indexOf('go(want + 1)'), 'a procedure step comes before the next slide');
   assert.match(pz, /const prev = \(\) => \{ if \(procBack\(\)\) return;/);
@@ -299,6 +300,6 @@ test("a step's callout comes only once its step has happened", () => {
   const pa = readFileSync(new URL('../src/ui/proc-anim.js', import.meta.url), 'utf8');
   assert.match(pa, /const mk = f\.step < 0 \? -2 : t >= markAt\(kind, f\.step\) \? f\.step : -1;/);
   // (and it keeps off the catheter, its balloon and the part it names, which the vessels' lines do not hold)
-  const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const st = stageSource();
   assert.match(st, /const av = m\.pin \? pinAvoid\(m\.edges\[0\]\) : undefined;/);
 });

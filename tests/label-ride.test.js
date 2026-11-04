@@ -1,10 +1,11 @@
+import { stageSource } from './stage-src.js';
 // A presenter's camera move with every label on the GPU: the labels ride it on the GPU (label-gl.js ride) instead of fading out for the
 // whole move, and glide on to their new places at the landing (Mohammad, 1 Nov: "Labels don't seem like GPU").
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const st = stageSource();
 const lg = readFileSync(new URL('../src/ui/label-gl.js', import.meta.url), 'utf8');
 
 test('a presenter move rides the labels when it can, else fades them as before', () => {

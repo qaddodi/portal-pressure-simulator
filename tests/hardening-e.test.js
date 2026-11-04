@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // Production pass, batch E (31 Oct): the search card is a real combobox that keeps Tab inside it, a shared link the app cannot read says so,
 // overlapping dives into and out of the sinusoid do not finish over each other, a stopped talk cuts its in-flight slide move.
 // Wiring is read from source, as the repo's other review tests do.
@@ -33,7 +34,7 @@ test('a #s= link the app cannot read opens the healthy patient and says so; a re
 });
 
 test('a dive into or out of the sinusoid stops when a newer one has begun', () => {
-  const s = read('src/ui/stage.js');
+  const s = stageSource();
   assert.match(s, /let sinMoveGen = 0;/);
   const dive = s.slice(s.indexOf('async diveToSinusoid()'), s.indexOf('async exitSinusoid()'));
   assert.match(dive, /const me = \+\+sinMoveGen;/);
@@ -51,7 +52,7 @@ test('stopping a talk moves the slide generation on, so a move still in flight i
 });
 
 test('the figure is measured again when the window moves to a screen of another density', () => {
-  const s = read('src/ui/stage.js');
+  const s = stageSource();
   assert.match(s, /const watchDensity = \(\) => matchMedia\(`\(resolution: \$\{devicePixelRatio\}dppx\)`\)\.addEventListener\?\.\('change', \(\) => \{ resizeCanvas\(\); watchDensity\(\); \}, \{ once: true \}\);/);
   assert.ok(s.indexOf('watchDensity();') > s.indexOf('resizeCanvas(); resizeReady = true;'), 'after the first measure');
 });
@@ -290,7 +291,7 @@ test('the organs with a look of their own keep it over the general organ lines: 
 });
 
 test('the overlays are drawn again when the spleen\'s size moves (infarcted patches) or a lesioned collateral coils (its marks)', () => {
-  const s = read('src/ui/stage.js');
+  const s = stageSource();
   const at = s.indexOf('function okLesion');   // (the inputs are written onto a kept list and compared: okLesion, then overlayInputs)
   const key = s.slice(at, at + 4800);
   assert.match(key, /p\.splenicRx === 1 \? hold\('sp', f\.slow\.spleen \/ 11, 0\.02\) : 0/, 'the patches ride the organ\'s size');

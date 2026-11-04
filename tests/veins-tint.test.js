@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -241,7 +242,7 @@ test('a refused partial draw names its reason, and a drawn one says so', async (
 });
 
 test('the stage keeps its changed rows through a refused partial draw and lets them go only once drawn', () => {
-  const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const st = stageSource();
   const fn = st.slice(st.indexOf('function drawVeins('), st.indexOf('function clearJoins('));
   assert.match(fn, /pendRows\.length = 0;\n\s+if \(veinsRows\.size\) veinsRows\.forEach\(pendPush\);\n\s+const pending = pendRows\.length \? pendRows : null;/);   // (a kept list, written in place)
   assert.doesNotMatch(fn, /veinsRows\.clear\(\)/, 'never cleared before a draw has shown them');

@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // The frosted glass drawn in the figure's canvas holds steady (1 Nov 2026, "Move the whole figure onto the GPU"): the causes of the iPhone's
 // sheet, card, callout and lobule pill flicker found by watching the glass frame by frame in a browser, each pinned here.
 import { test } from 'node:test';
@@ -8,7 +9,7 @@ import { pillOf } from '../src/ui/lz-pills.js';
 import { parseColour } from '../src/ui/glass-gl.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
-const GLASS = read('../src/ui/glass-gl.js'), LABELS = read('../src/ui/label-gl.js'), STAGE = read('../src/ui/stage.js'), CSS = read('../styles/app.css');
+const GLASS = read('../src/ui/glass-gl.js'), LABELS = read('../src/ui/label-gl.js'), STAGE = stageSource(), CSS = read('../styles/app.css');
 const box = (l, t, w, h) => ({ left: l, top: t, width: w, height: h, right: l + w, bottom: t + h });
 
 test('a colour mixed by color-mix() (the cards\' tint), as the canvas gives it back, is read as that colour, not as none', () => {

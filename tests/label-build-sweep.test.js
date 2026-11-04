@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // The label pool's deferred builds (stage.js blockBuild, renderBlock, late): a label asked for by an old layout is never built after a
 // newer one, and a label's new pieces land in the task that moves it (2 Nov 2026, code sweep for glitches).
 import { test } from 'node:test';
@@ -6,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { createLateQueue } from '../src/ui/late-queue.js';
 import { dropLabel } from '../src/ui/drop-label.js';
 
-const STAGE = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const STAGE = stageSource();
 
 // A rest-pass stand-in: passes wait in a list until the test runs them.
 function rig() {

@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -6,7 +7,7 @@ const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 
 // 22 Oct review items 1, 2, 4, 11 and 12: the GPU is let go of, or fallen back from, where the figure or an instrument is not shown.
 test('a lost vessel context drops the GPU classes at once (the vessels are drawn only by the GPU, sent again on its restore)', () => {
-  const s = src('src/ui/stage.js');
+  const s = stageSource();
   const lost = s.slice(s.indexOf("vCanvas.addEventListener('webglcontextlost'"), s.indexOf("vCanvas.addEventListener('webglcontextrestored'"));
   assert.match(lost, /wrap\.classList\.remove\('gl-on'\)/);
   assert.match(lost, /wrap\.classList\.remove\('gl-plate'\); syncPlateLook\(\)/);
@@ -17,7 +18,7 @@ test('a lost vessel context drops the GPU classes at once (the vessels are drawn
 });
 
 test('the vessel framebuffer and layers are given back while the figure is hidden, once per sleep', () => {
-  const s = src('src/ui/stage.js');
+  const s = stageSource();
   assert.match(s, /home-open'\)\) \{ lastT = flowGate = now; trimVeins\(\); sleep\(\); return; \}/);
   assert.match(s, /if \(lz\?\.isOpen\(\)\) \{ trimVeins\(\); sleep\(\); return; \}\n\s+veinsTrimmed = false;/);
   // (Review pass item 8: the warm window is a holder in the global budget, which may give it back early; the trim itself is unchanged.)
@@ -27,7 +28,7 @@ test('the vessel framebuffer and layers are given back while the figure is hidde
 });
 
 test('no gut picture is ever made: the gut is painted on the GPU with the other organs, never rasterized from an SVG copy', () => {
-  const s = src('src/ui/stage.js');
+  const s = stageSource();
   assert.doesNotMatch(s, /gutPicSoon|makeGutPic|gGutPics|encodePNG/);
 });
 

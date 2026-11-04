@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // Mohammad, 30 Oct (iPhone): "The view still snaps/jumps when I untuck a stacked card". On a phone or an upright iPad the readings' card
 // coming out or tucking away changes the room the figure has. The camera framed that room only once the card had come to rest (foldStill,
 // 450 ms or more after the tap): the card slid over the figure and stopped, then the figure moved off from under it. And on a slide framed
@@ -9,7 +10,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
-const presenter = read('src/ui/presenter.js'), stage = read('src/ui/stage.js');
+const presenter = read('src/ui/presenter.js'), stage = stageSource();
 const between = (src, a, b) => { const i = src.indexOf(a); assert.ok(i >= 0, a); const j = src.indexOf(b, i); assert.ok(j > i, b); return src.slice(i, j); };
 
 test('a stacked card that folds frames the camera as it starts to move, between its layout and its slide', () => {

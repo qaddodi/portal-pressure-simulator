@@ -1,9 +1,10 @@
+import { stageSource } from './stage-src.js';
 // Leftover phone layout bugs, 1 Nov 2026 (source pins, nobody looked at these in a test browser).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const stage = stageSource();
 const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
 
 test('an upright phone gives the name the room the widest key leaves it, so it wraps the same on every lens', () => {

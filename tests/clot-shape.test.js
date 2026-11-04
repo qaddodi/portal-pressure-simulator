@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // The drawn clot: lumpy, resting on one wall, growing smoothly with the occlusion, never wider than the lumen.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -53,7 +54,7 @@ test('the clot is soft layers of one red that fade at the edges, with a hairline
   assert.equal(clotLayers[0].k, 1, 'the outermost layer is the clot itself');
   for (let i = 1; i < clotLayers.length; i++) assert.ok(clotLayers[i].k < clotLayers[i - 1].k, 'each layer sits inside the last');
   assert.ok(CLOT_EDGE > 0.9 && CLOT_EDGE <= 1, 'the hairline hugs the outer edge');
-  const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const stage = stageSource();
   for (const { cls } of clotLayers) assert.ok(/\.thrombus(-halo|-core)?\b/.test(`.${cls}`), cls);
   assert.ok(stage.includes("'thrombus-edge'"));
   // no cartoon marks: no pale rim, sheen, speckles or pink channel stroke beside the clot

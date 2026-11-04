@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -75,8 +76,8 @@ test('whenQuiet waits out a gesture, calls once, and a cancel stops it', async (
 
 test('the stage, the vessel renderer, the compile helper and the warm-up all read this one clock', () => {
   const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
-  assert.match(src('src/ui/stage.js'), /import \{ leftAlone, sinceInput(?:, booting, holdCover)? \} from '\.\/quiet\.js/);
-  assert.doesNotMatch(src('src/ui/stage.js'), /let inputAt|const pressed = new Set/, 'no second set of listeners');
+  assert.match(stageSource(), /import \{ leftAlone, sinceInput(?:, booting, holdCover)? \} from '\.\/quiet\.js/);
+  assert.doesNotMatch(stageSource(), /let inputAt|const pressed = new Set/, 'no second set of listeners');
   assert.match(src('src/ui/veins-gl.js'), /if \(!leftAlone\(PUBLISH_QUIET_MS\)\) return;/, 'prepare() publishes the optional builds after a gesture');
   assert.match(src('src/ui/gl-compile.js'), /import \{ leftAlone \} from '\.\/quiet\.js/);
   const main = src('src/ui/main.js');

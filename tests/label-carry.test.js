@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // A presenter's small camera move keeps its labels (31 Oct, round2-recs § 6.4, his yes to the combined plan): the names ride with the
 // figure as a slow push's do and only the leaders fade (lb-ride), back in once it lands. A move that is big, that changes what the labels
 // show, or that has a layer of its own to move (callouts, a probe, a scan, a treatment) keeps the usual fade (cam-move).
@@ -5,7 +6,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const stage = stageSource();
 const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 
 // carryable, run on its own source with the stage's state stubbed in.

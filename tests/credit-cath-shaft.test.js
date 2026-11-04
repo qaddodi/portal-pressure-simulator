@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // The corner credit stood on the catheter's shaft (HVPG 2, an iPhone held sideways: the line from the neck ran through "© 2026 Mohammad
 // Almeqdadi, MD"). On the GPU the shaft is not in the page, so the credit's art test could not see it; the stage now hands over the route as
 // boxes (cathBoxes, the whole way, so they stand still as the catheter travels) and the credit keeps clear of them like any label.
@@ -8,7 +9,7 @@ import { readFileSync } from 'node:fs';
 import { freeSpots } from '../src/ui/credit.js';
 
 const credit = readFileSync(new URL('../src/ui/credit.js', import.meta.url), 'utf8');
-const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const stage = stageSource();
 
 test('the credit counts the catheter shaft among the things it keeps clear of, and it does not make the credit "busy"', () => {
   assert.match(stage, /cathBoxes\(\) \{\s*const st = cath\.st, r = st && cathRoute\(\);/);

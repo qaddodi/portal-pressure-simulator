@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // Parcels and arrowheads carried through junctions (combined plan B1 + C1): blood.js createStreamChain, its wiring in stage.js
 // (chainRows, ?bloodchain=0) and the composite's use of it (veins-gl.js). No GL in node: the chain's numbers are checked here,
 // the shader as source.
@@ -137,7 +138,7 @@ test('a vessel drawn again after it went starts afresh, with no ease', () => {
   assert.equal(c.w[1], 1);
 });
 
-const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const stage = stageSource();
 const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
 
 test('stage: the links are written into the rows put() filled, by the model\'s mean speeds', () => {

@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // The live SVG organs dim and grey exactly as the GPU copy of them does (a lens other than pressure, a selected vessel), through
 // an SVG filter that Safari draws: its CSS filter functions on SVG elements did nothing, so the organs flashed back to full colour
 // whenever the live drawing showed (a patient change in the Sites deck).
@@ -8,7 +9,7 @@ import { organDimMatrix, LUMA } from '../src/ui/organ-dim.js';
 import { parseColor, greyOf, paintRef } from '../src/ui/organ-grey.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
-const stage = read('../src/ui/stage.js');
+const stage = stageSource();
 const app = read('../styles/app.css');
 const gl = read('../src/ui/veins-gl.js');
 

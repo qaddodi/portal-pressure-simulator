@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // Deck visuals, package F (figure callouts, src/ui/ext-callouts.js and callout-math.js): live readings in a mark's words, marks
 // on organs, calipers, numbered steps and the circuit's brackets and lit zone. All opt-in: no built-in slide uses a field.
 import './dom-shim.js';
@@ -121,7 +122,7 @@ test('a list in a numbered glow is one step: its vessels light together and its 
   assert.deepEqual(got.at(-1).steps.map((p) => [p.n, p.at, p.ids, !!p.group]), [[1, 0, ['V_INT', 'V_SPL', 'V_IMV'], true], [2, 550, ['PVH_R', 'PVH_L'], true], [3, 1100, ['SIN_RR'], false]]);
   const P = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
   assert.match(P, /forEach\(\(g0, i\) => \{ for \(const g of Array\.isArray\(g0\) \? expandIds\(g0\) : \[g0\]\)/, 'the presenter lights a group at its entry\'s moment');
-  const S = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const S = stageSource();
   assert.match(S, /if \(g\.group && mids\.length > 1\) \{ fans = mids;/, 'a group\'s number stands between its vessels');
   assert.match(S, /\.\.\.nearFar\(near\)\.map\(\(ps\) => \(\{ \.\.\.ps, fans \}\)\)[^\n]*\.\.\.nearFar\(near\)\]/, 'its leaders keep clear first, and it never vanishes');
   assert.match(S, /k: `lf:\$\{it\.key\}:\$\{j\}`/, 'one leader to each vessel');

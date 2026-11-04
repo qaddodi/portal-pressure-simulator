@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -6,7 +7,7 @@ import { readFileSync } from 'node:fs';
 // is still built on each repaint (the diaphragm's covered the whole abdomen with ascites, on every pan frame). The copy the
 // GPU draws is cloned from the mask attributes, which the rule leaves alone.
 const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
-const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const stage = stageSource();
 
 test('the hidden plate groups draw no masks', () => {
   const hide = css.match(/\.stage-view\.gl-plate :is\(([^)]*)\) \{ visibility: hidden; \}/);

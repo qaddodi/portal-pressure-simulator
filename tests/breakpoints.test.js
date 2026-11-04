@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -37,7 +38,7 @@ test("the style sheet's phone blocks use exactly those queries", () => {
 });
 
 test('the presenter and the stage read the shared queries, not their own pixel rules', () => {
-  const pz = read('../src/ui/presenter.js'), st = read('../src/ui/stage.js'), dock = read('../src/ui/dock.js');
+  const pz = read('../src/ui/presenter.js'), st = stageSource(), dock = read('../src/ui/dock.js');
   assert.match(pz, /const stackMQ = matchMedia\(STACK_MQ\), shortMQ = matchMedia\(SHORT_SIDE_MQ\), tabMQ = matchMedia\(TABLET_UP_MQ\);/);
   assert.match(pz, /const phone = \(\) => stackMQ\.matches && !shortMQ\.matches;/);
   assert.match(pz, /const tabUp = \(\) => tabMQ\.matches;/);

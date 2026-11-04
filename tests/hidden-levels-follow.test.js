@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -7,7 +8,7 @@ import { easeTo, fluidSpring, fluidSpringFor } from '../src/ui/organ-ease.js';
 // shape and congestion, the ascites) run on the same clock, so zooming out shows the state reached by then, not an ease that
 // only starts from the patient before.
 
-const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const stage = stageSource();
 const fnBody = (name) => {
   const i = stage.indexOf(`function ${name}(`);
   assert.ok(i >= 0, `${name} not found`);

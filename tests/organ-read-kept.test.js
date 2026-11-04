@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // The organs' groups are read for painting (organ-paint readGroup) once and kept until something they were read from changes
 // (2 Nov 2026, merged GPU plan; motion budget: about 1,800 to 3,000 style reads in one Varices slide change were the same groups
 // read again).
@@ -5,7 +6,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const stage = stageSource();
 const paint = readFileSync(new URL('../src/ui/organ-paint.js', import.meta.url), 'utf8');
 
 test('a reading is kept with its group and the gradients it read', () => {

@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -24,7 +25,7 @@ test("a path cut from its commands is the path cut from its text, for every orga
 });
 
 test("the liver's outline and nodules are handed to the painter as the numbers their text says", () => {
-  const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const stage = stageSource();
   assert.match(stage, /cmds = cmdsReset\(liverMorphCmds\);\n\s+for \(let i = 0; i < xy\.length; i\+\+\) \(i \? cmdL : cmdM\)\(cmds, \+xy\[i\]\[0\], \+xy\[i\]\[1\]\);\n\s+cmdZ\(cmds\);/);
   assert.match(stage, /d = 'M' \+ xy\.map\(\(\[x, y\]\) => `\$\{x\} \$\{y\}`\)\.join\(' L'\) \+ ' Z';/);
   assert.match(stage, /for \(const el of liverPaths\) \{ el\.setAttribute\('d', d\); bindShape\(el, src\); \}/);

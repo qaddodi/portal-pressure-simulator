@@ -1,9 +1,10 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const gl = readFileSync(new URL('../src/ui/label-gl.js', import.meta.url), 'utf8');
-const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const st = stageSource();
 
 test('step 1: pinned labels take a new offset at once (no glide, no held wait)', () => {
   for (const id of ['pinGlides', 'pinHeldNow', 'pinHeldFn', 'PIN_SNAP', 'pinWasHeld']) assert.ok(!gl.includes(id), `${id} is gone from label-gl.js`);

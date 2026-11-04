@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // Lighter organ art (Settings › Figure performance, off by default): the colon's and small bowel's straight runs with fewer
 // points (scripts/organ-art-lite.mjs → src/ui/organ-art-lite.js), set on the drawn paths by the stage (syncArtLite).
 // Pinned here: the thinned lines never stray more than TOL from the drawn ones, the file is what the script makes from the
@@ -11,7 +12,7 @@ import * as LITE from '../src/ui/organ-art-lite.js';
 import { TOL, thin, pathsOf, liteSource } from '../scripts/organ-art-lite.mjs';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
-const stage = read('src/ui/stage.js');
+const stage = stageSource();
 const ARTS = { colon: COLON_ART, bowel: BOWEL_ART };
 
 test('the lighter lines are the ones the script makes from the organ art now', () => {

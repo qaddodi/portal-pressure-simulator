@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -121,7 +122,7 @@ test('the upscale filter: Catmull-Rom in five reads, held within the four neares
 });
 
 test('the stage: off, the canvas and its early return are as before; on, the canvas stays at Full under a smaller picture', () => {
-  const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const stage = stageSource();
   const fn = stage.slice(stage.indexOf('  function resizeCanvas() {'), stage.indexOf('  new ResizeObserver(resizeCanvas).observe(wrap);'));
   assert.match(fn, /else if \(figLab\('upscale'\) && veins\?\.setPicture && !SOFTWARE && vdpr < base - 1e-9\) \{ bw = Math\.max\(1, Math\.round\(r\.width \* base\)\); bh = Math\.max\(1, Math\.round\(r\.height \* base\)\); \}/);
   assert.match(fn, /const pic = bw !== pw \|\| bh !== ph \? picNext : null;\n\s+if \(pic\) \{ pic\[0\] = pw; pic\[1\] = ph; \}/);

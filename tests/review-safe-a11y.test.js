@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // Review items Q3 (popover listener race), Q4 (mistyped patient links), Q17 (organs by keyboard) and Q19 (screen-reader
 // announcements coalesced, not dropped). Browser-free: the announcer runs on a fake clock, the rest is read from source.
 import { test } from 'node:test';
@@ -66,7 +67,7 @@ test('a share link naming an unknown patient opens healthy and says so', () => {
 });
 
 test('the organs a tap opens are keyboard items of the figure that never take the pointer or show a ring', () => {
-  const stage = read('src/ui/stage.js');
+  const stage = stageSource();
   assert.match(stage, /const ORGAN_KEYS = \[\['heart', 'Right heart'\], \['liver', 'Liver'\], \['spleen', 'Spleen'\]\];/);
   const keys = stage.slice(stage.indexOf('  const figKeys = '), stage.indexOf('  // ── Shunts: from a source vessel to a drop target ──'));
   assert.match(keys, /if \(morph < 0\.5\) for \(const \[id\] of ORGAN_KEYS\) out\.push\('organ:' \+ id\);/, 'no organ items in the circuit view');

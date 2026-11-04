@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -6,7 +7,7 @@ import { readFileSync } from 'node:fs';
 // The cover now lifts only on the final framing, set outright under it, and the stage's first fit leaves a slide's framing alone.
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
-const pz = read('../src/ui/presenter.js'), st = read('../src/ui/stage.js');
+const pz = read('../src/ui/presenter.js'), st = stageSource();
 
 test('under the start cover the camera is set outright, never a glide the reveal can catch', () => {
   assert.match(pz, /const gl = booting \? 0 : ms \|\| 300;/);

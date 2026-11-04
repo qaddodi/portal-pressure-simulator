@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // Out of the lobule with a new patient (HVPG 7 to 8 and every other lobule exit): under the lobule the anatomy stops following the
 // model, so its organs' picture still held the patient from before the dive. Dropped as the rise began, the live drawing showed,
 // scaled up, and Safari lost the stomach and gut until partway down; held through the rise, the organs changed in one frame at
@@ -7,7 +8,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const st = stageSource();
 const pz = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
 const prep = st.match(/function prepRise\(\) \{[\s\S]*?\n {2}\}\n/)[0];
 const ready = st.match(/function riseReady\(\) \{[\s\S]*?\n {2}\}\n/)[0];

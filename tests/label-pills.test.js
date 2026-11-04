@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // A label's pill (31 Oct, Mohammad's yes to "pills without the hairline stroke, 6 px corners"): the figure's label pills are their
 // fill alone, no hairline round them, and their corners are 6 px, the cards' tile family. A pill that wants an outline says so
 // itself (a note mark, a selected or focused name, the liver card), and a numbered marker stays a round chip.
@@ -6,7 +7,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
-const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const stage = stageSource();
 const rule = (sel) => css.split('\n').find((l) => l.startsWith(sel));
 
 test('the base rule of a label pill has a fill and no stroke', () => {

@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // Heat, phase 2 (26 Oct): the blood table without a whole clear or a whole upload each frame, the junction widths without
 // per-frame arrays and sorts, and text written only when it changes. The picture and the clinical numbers stay the same.
 import { test } from 'node:test';
@@ -101,7 +102,7 @@ test('junction widths: the second widest vessel at each node, the widest when al
 });
 
 test('stepBlood: no whole-table clear and no filtered or reduced copies of the strands each frame; setFlow sends a span', () => {
-  const stage = read('src/ui/stage.js').replace(/^\s*\/\/.*$/gm, ''), gl = read('src/ui/veins-gl.js');
+  const stage = stageSource().replace(/^\s*\/\/.*$/gm, ''), gl = read('src/ui/veins-gl.js');
   const blood = fn(stage, '  function stepBlood(dt) {');
   assert.doesNotMatch(blood, /flowData\.fill\(0\);/);
   assert.doesNotMatch(blood, /\.filter\(|\.reduce\(/);
@@ -116,7 +117,7 @@ test('stepBlood: no whole-table clear and no filtered or reduced copies of the s
 });
 
 test('width step: junction widths reused, no per-node arrays or sorts; the sync it took is counted under ?perf', () => {
-  const stage = read('src/ui/stage.js').replace(/^\s*\/\/.*$/gm, '');
+  const stage = stageSource().replace(/^\s*\/\/.*$/gm, '');
   const inner = fn(stage, '  function stepWidthsInner(f) {'), upd = fn(stage, '  function updateInner(f) {');
   for (const src of [inner, upd]) { assert.match(src, /const J = junctionWidths\(\);/); assert.doesNotMatch(src, /ws\.sort\(/); }
   assert.match(inner, /if \(syncRadiiOnly\(t\)\) gpuProbe\.note\(COUNTED\.widthRadii\);\s*else \{ gpuProbe\.note\(COUNTED\.widthWhole\); syncVeins\(t\); \}/);

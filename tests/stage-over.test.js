@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -64,7 +65,7 @@ test('a batch of changes that came to nothing (the marks\' data-gl taken off and
   const kids = { type: 'childList' };
   const out = netChanges([rec(a, 'data-gl', ''), rec(a, 'data-gl', null), rec(a, 'fill', 'red'), rec(b, 'fill', 'red'), rec(b, 'fill', 'green'), kids]);
   assert.deepEqual(out.map((r) => [r.target === a ? 'a' : r.target === b ? 'b' : '-', r.attributeName, r.oldValue ?? null]), [['-', undefined, null], ['b', 'fill', 'red']]);
-  const st = read('../src/ui/stage.js');
+  const st = stageSource();
   assert.match(st, /const watch = new MutationObserver\(\(rs\) => \{\n\s+for \(const r of netChanges\(rs\)\) \{/);
 });
 
@@ -172,7 +173,7 @@ test('a strict reading takes visibility as the page computes it, and refuses a m
 });
 
 test('the stage: off unless asked for; the painted groups\' SVG hidden by an empty clip; read again on a change, and while a CSS ease runs', () => {
-  const st = read('../src/ui/stage.js'), css = read('../styles/app.css');
+  const st = stageSource(), css = read('../styles/app.css');
   assert.match(st, /const OVER_ASK = typeof location !== 'undefined' && \/\[\?&\]stageover=gpu\\b\/\.test\(location\.search\);/);
   assert.doesNotMatch(st, /OVER_GPU|stageover=svg/);
   assert.match(st, /let OVER_ON = !!veins\?\.overlay && \(!SOFTWARE \|\| OVER_ASK\);/);

@@ -1,10 +1,11 @@
+import { stageSource } from './stage-src.js';
 // The moving blood in the round 2 motion review (MOTION_HEAT_REVIEW_ROUND2 B9, B10, B4, B6): what eases must keep easing.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
-const stage = read('src/ui/stage.js');
+const stage = stageSource();
 const fn = (src, head) => { const i = src.indexOf(head); assert.ok(i >= 0, head); return src.slice(i, src.indexOf('\n  }\n', i) + 4); };
 
 test('B10: a reversed colour or chevron fade still on its way keeps the figure awake, so it never stops part-way while paused', () => {

@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -186,5 +187,5 @@ test('the figure counts a vessel\'s strands apart at a node (stage.js veinJoins)
   assert.match(src, /import \{ nodeJoinsInto, newJoinAnswer \} from '\.\/fork-joins\.js/);
   assert.match(src, /nodeJoinsInto\(PEND, nu, OUT\)/);
   assert.match(src, /e\.strand = it\.kind === 's'/);
-  assert.match(readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8'), /import \{ sideEndScale \} from '\.\/fork-joins\.js/);
+  assert.match(stageSource(), /import \{ sideEndScale \} from '\.\/fork-joins\.js/);
 });

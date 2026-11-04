@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // Past a packed lane, more flow draws denser, brighter streaks (combined plan B2). Streaks only, at
 // every zoom: no beads, and the arrowheads never fade on a wide lumen (Mohammad, 31 Oct: "Dots suck. Keep streaks", "Without pop in
 // and pop out"). No GL in node: the shader as source, and its numbers mirrored here.
@@ -6,7 +7,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
-const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const stage = stageSource();
 const lob = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
 // The shader's gain past a packed lane (x: the lane's occupancy before it is capped at 1).
 const gain = (x) => { const ov = Math.max(x, 1); return 1 + 0.35 * Math.min(1, Math.max(0, (2.885 * (ov - 1)) / (ov + 1))); };

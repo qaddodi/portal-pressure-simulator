@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -23,7 +24,7 @@ test('transforms compose and invert as the SVG matrices do', () => {
 });
 
 test('with the GPU organs on, the liver, spleen and fluid ease with no drop to the SVG drawing', () => {
-  const src = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const src = stageSource();
   assert.match(src, /const LIVE_LAYERS = /);
   // The liver's, the spleen's and the fluid's own drops, as they ease.
   assert.equal(src.match(/veins\.hasPlate\(0\) && !liveOn\(\)\) hidePlate\(\);/g)?.length, 3);

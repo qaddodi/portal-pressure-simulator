@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // The figure's kept shapes (src/ui/over-records.js): records the overlay painter draws with no SVG element behind them, eased on a clock the
 // caller gives (the page's own curve and length), checked here on a stepped clock.
 import { test } from 'node:test';
@@ -6,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { recordLayer } from '../src/ui/over-records.js';
 import { easeArrive, D_SURFACE } from '../src/ui/ease.js';
 
-const STAGE = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const STAGE = stageSource();
 const out = { changed: false, moving: false };
 const zig = () => [new Float32Array([0, 0, 10, 5, 20, 0])];
 const part = (polys, extra = {}) => ({ polys, kind: 'stroke', rgb: [0.1, 0.2, 0.3], a: 0.8, w: 2, nss: true, cap: 1, ...extra });

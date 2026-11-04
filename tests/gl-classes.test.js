@@ -1,10 +1,11 @@
+import { stageSource } from './stage-src.js';
 // `gl-on` and `gl-plate` follow the GPU's state by what it tells the stage, not by a write in every sync (3 Nov 2026). The browser walk
 // (tests/e2e/gl-classes.mjs) samples them frame by frame through load, slide changes, resizes and a lost context; this pins the wiring.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const stage = stageSource();
 const veins = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
 const sync = stage.slice(stage.indexOf('  function syncVeinsNow(t) {'), stage.indexOf('  function syncVeinsNow(t) {') + 1800);
 

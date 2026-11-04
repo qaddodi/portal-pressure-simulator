@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -5,7 +6,7 @@ import { spleenMotion, SPLEEN_STILL } from '../src/ui/spleen-motion.js';
 
 // A spleen growing through a time-lapse stood still under the organs' picture, jumped bigger, waited and jumped again, while
 // its outline grew smoothly (all-new-visuals slide 8, 19 Oct). While it grows, the live drawing (at its size each frame) shows.
-const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const stage = stageSource();
 
 // A 10 s time-lapse at 60 frames a second, the spleen from 11 to 16 cm along an ease in and out.
 function lapse(m, t0 = 0) {

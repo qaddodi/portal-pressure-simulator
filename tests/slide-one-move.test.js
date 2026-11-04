@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // A slide change is one move (premium-feel R1): over the plate the cards come in during the camera's last 40 percent, and a change
 // of patient eases under the glide, where the figure can move smoothly while its organs change.
 import { test } from 'node:test';
@@ -5,7 +6,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const stage = stageSource();
 const run = src.slice(src.indexOf('async function transitionRun('), src.indexOf('function paintOverlays('));
 const cam = src.slice(src.indexOf('async function camera('), src.indexOf('const cardsEntering ='));
 

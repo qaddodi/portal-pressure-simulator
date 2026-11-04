@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // A coil or a varix's spread easing at rest (a Varices slide change) is drawn from one binning made ahead, at rest, of every shape the
 // collaterals can take (their coil 0 to COIL_MAX, their fan 0.55 to 1), the frame's points sent up in a few rows, instead of a whole
 // binning of every vessel each time a strand spreads into a new cell (10 to 19 in one Varices slide change, motion budget, 3 Nov 2026).
@@ -6,7 +7,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const st = stageSource();
 const body = (name, end) => st.slice(st.indexOf(`  function ${name}(`), st.indexOf(end, st.indexOf(`  function ${name}(`)));
 
 test('it rides on the morph worker', () => {

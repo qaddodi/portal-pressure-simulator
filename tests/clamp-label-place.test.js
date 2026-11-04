@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // A narrowing's "60 %" (Mohammad, 22 Oct: "the callout for 60% narrowing does not fit well"): on the TIPS slides it stood between its
 // clamp's arrow and the distal callout, its "%" hidden under "TIPS". A redraw of the marks had put it back on the vessel's own side,
 // undoing the side the label layout chose (the other side from the stent's column of callouts), and its text stayed anchored from the
@@ -6,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const stage = stageSource();
 const body = (from, to) => stage.slice(stage.indexOf(from), stage.indexOf(to, stage.indexOf(from)));
 
 test('every redraw of the marks and every change of zoom places the "60 %" by the one rule the layout also uses', () => {

@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { binVeins } from '../src/ui/veins-bin.js';
@@ -47,7 +48,7 @@ test('the geometry is not rebuilt while nothing about it changed', () => {
 
 test('the figure uploads the vessel geometry only when binning gave a new result', async () => {
   const { readFileSync } = await import('node:fs');
-  const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const stage = stageSource();
   assert.match(stage, /binVeins\([^;]*, binMemo\);\s*\n(?:\s*\/\/.*\n)*\s*let patched = null, whole = false;\s*if \(bins !== binShown\) \{\s*if \(bins\.patch && binShown\?\.ent === bins\.ent\) \{ veins\.patchGeometry\(bins\); if \(bins\.patchRows\) patched = bins\.patchRows; else whole = true; \} else \{ veins\.setGeometry\(bins\); whole = true; \}\s*binShown = bins;\s*\}/);
 });
 
@@ -136,7 +137,7 @@ test('the renderer keeps its vessel layer for a geometry patch, and the figure n
   assert.match(gl, /const pan = panAt && \(!\(tubesNew \|\| radRows\.size \|\| patchK\) \|\| parts\);/);
   assert.doesNotMatch(gl, /radRows\.clear\(\)(?!; patchMark = null)/, 'every let-go of radRows lets go of the joins\' cells');
   assert.match(gl, /movedAll = true; patchMark = null; patchK = 0;/, 'a whole binning drops them');
-  const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const stage = stageSource();
   assert.match(stage, /if \(patched\) for \(const r of patched\) veinsRows\.add\(r\);\s*else if \(whole\) tubesNew = true;/);
   // (A binning that gives back the bins already shown (nothing the GPU holds changed: a coil easing on a hidden vessel) draws nothing.)
   assert.match(stage, /let patched = null, whole = false;\n\s+if \(bins !== binShown\) \{\n\s+if \(bins\.patch && binShown\?\.ent === bins\.ent\) \{ veins\.patchGeometry\(bins\); if \(bins\.patchRows\) patched = bins\.patchRows; else whole = true; \} else \{ veins\.setGeometry\(bins\); whole = true; \}/);

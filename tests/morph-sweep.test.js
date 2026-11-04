@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // The change between the Anatomy and the Circuit drawn on the GPU (2 Nov 2026, "Anatomy to circuit is so laggy"): a stretch of the
 // change is binned once, ahead (veins-sweep.js binSwept, in sweep-worker.js), and each of its frames only sends the vessels' points
 // and the joins (stage.js morphFrame, veins-gl setMorphFrame). These check that the stretch's lists hold every segment and join that
@@ -97,7 +98,7 @@ test('the frame\'s rows follow the lists: each vessel\'s points by row and sampl
 });
 
 test('a frame of the change draws from a stretch only once every point, reach and join is checked; else it is binned as before', () => {
-  const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const stage = stageSource();
   const mf = stage.slice(stage.indexOf('  function morphFrame(items) {'), stage.indexOf('  const veinsRows = new Set();'));
   assert.ok(mf.indexOf("return morphMiss('course')") < mf.indexOf('veins.setMorphFrame(buf)'));
   assert.ok(mf.indexOf("return morphMiss('joins')") < mf.indexOf('veins.useMorphSet(pc.set)'));
@@ -113,7 +114,7 @@ test('a frame of the change draws from a stretch only once every point, reach an
 });
 
 test('the change keeps the labels up: solved at the tap, ridden on the morph\'s clock, crossfaded by its progress', () => {
-  const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const stage = stageSource();
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
   // (No label work on a frame of the change: updateLabels returns while viewXf stands, and nothing is solved as it lands.)
   assert.match(stage, /if \(viewXf\) return;/);

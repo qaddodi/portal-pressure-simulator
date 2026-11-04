@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // Production pass (31 Oct): a failed start shows the boot card, a part that cannot load says so, the colour and label caches stay
 // bounded, a restored GL context draws again, a worker that never started is terminated. Browser-free: the cache runs for real
 // against a stand-in style; the wiring is read from source, as the repo's other review tests do.
@@ -20,7 +21,7 @@ test('cssAlpha: a fade that asks for a new alpha every frame does not grow the c
 });
 
 test('the label width cache is cut at 1500 and the input tracker is made on read, not on every perf() call', () => {
-  assert.match(read('src/ui/stage.js'), /if \(widthN > 1500\) \{ widths\.clear\(\); widthN = 0; e = undefined; \}/);
+  assert.match(stageSource(), /if \(widthN > 1500\) \{ widths\.clear\(\); widthN = 0; e = undefined; \}/);
   assert.match(read('src/ui/frame.js'), /get inputToPaint\(\) \{ return inputMeasure\(\); \}/);
 });
 
@@ -51,7 +52,7 @@ test('a part of the app that cannot load says so once with a Reload, and the cal
   assert.match(m, /open: \(\) => paletteL\.get\(\)\.then\(\(p\) => p\.open\(\)\)\.catch\(\(\) => \{\}\)/);
   const menu = read('src/ui/menu.js');
   assert.equal((menu.match(/library\(\)\.then\([^\n]*\.catch\((?:\(\) => \{\}|NOOP)\)/g) || []).length, 2);
-  assert.match(read('src/ui/stage.js'), /lzWaiting = false; loadFailed\(err\); store\.set\(LOBULE_OFF_BOTH\)/);
+  assert.match(stageSource(), /lzWaiting = false; loadFailed\(err\); store\.set\(LOBULE_OFF_BOTH\)/);
 });
 
 test('GL: a restored sinusoid context draws a paused picture again; the lobule gives back its old instance; an unused Doppler context is let go', () => {

@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // No stray dots in the circuit: a station's marker (dot, label, Δ ring) shows only while a vessel is drawn at it, and the dot
 // really fades when it must (the stylesheet's "show every circuit dot" rule used to win over the one that hides it). And no reading
 // sits on a dot: every visible dot, with a reading beside it or not, has a box the readings keep out of.
@@ -63,7 +64,7 @@ test('a vessel that draws on or retracts is drawn at its upstream end only; the 
 // A station's dot is drawn by the GPU (2 Nov 2026, no element): off until a vessel is drawn at it, then eased in and out by its own share
 // (stepMap), times the circuit's own fade (MAP.a), so a dot marked off shows nothing and one that is on shows whole.
 test('in the circuit a dot marked off is invisible, and one that is not shows (its alpha on the GPU, not a rule that exists)', () => {
-  const src = read('src/ui/stage.js');
+  const src = stageSource();
   assert.match(src, /\.map\(\(n\) => \(\{ id: n\.id, r: dotRadius\(n\.kind\), on: false, u: 0 \}\)\)/, 'each dot starts off');
   assert.match(src, /const a = MAP\.a \* easeMove\(nodeDots\[i\]\.u\), f = n0 \+ i \* ND_PER;\s*if \(a <= 0\) continue;/, 'off (u 0) or no circuit (MAP.a 0): not drawn');
   assert.match(src, /count: 3 \* ND_SEG, col: null, alpha: 0, tri: true \}, \{ first: 0, count: 2 \* \(ND_SEG \+ 1\), col: null, alpha: 0 \}[\s\S]*sa\.first = f; sa\.col = nd\.fill; sa\.alpha = a; sb\.first = f \+ 3 \* ND_SEG; sb\.col = nd\.ring; sb\.alpha = a;/, 'the disc and its ring, one alpha');
@@ -71,7 +72,7 @@ test('in the circuit a dot marked off is invisible, and one that is not shows (i
 });
 
 test('the stage keeps no dot of a station without a drawn vessel: starts off, follows nodeDrawn, no Δ ring over one', () => {
-  const src = read('src/ui/stage.js');
+  const src = stageSource();
   assert.match(src, /const hasDot = new Set\(nodeDots\.map\(\(d\) => d\.id\)\);/);
   assert.match(src, /const NODE_ENDS = nodeEnds\(ALL_EDGES, \(e\) => E\[e\.id\]\);/);
   assert.match(src, /const nodeVisible = \(id\) => [^;]*nodeDrawn\(NODE_ENDS\[id\]\);/);
@@ -111,7 +112,7 @@ test('every visible dot without a reading gets a box (the colon bed under the sp
 });
 
 test('the stage gives every dot without a reading its box, and draws each dot at the size the box assumes', () => {
-  const src = read('src/ui/stage.js');
+  const src = stageSource();
   assert.match(src, /\{ id: n\.id, r: dotRadius\(n\.kind\), on: false, u: 0 \}/);
   assert.match(src, /const labelled = new Set\(nodes\.map\(\(it\) => it\.node\)\);/);
   assert.match(src, /bareDots\(NODES\.filter\(\(n\) => hasDot\.has\(n\.id\)\), \{ labelled, shown: nodeVisible, at: \(id\) => worldToLocal\(\.\.\.nodePos\(id, t\)\), scale: CTM\.sc, minX: ringRX, minY: ringR \}\)/);

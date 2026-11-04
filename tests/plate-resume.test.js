@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -6,7 +7,7 @@ import { readFileSync } from 'node:fs';
 // system takes the app switcher's pictures, and an organ picture begun in the light theme's colours finished on the way
 // back and was shown until the next replaced it. A picture of a state that ended meanwhile is never shown, and none is
 // begun in the background (stage.js rasterPlate, platePoke).
-const src = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const src = stageSource();
 const body = (name) => {
   const at = src.indexOf(`function ${name}(`);
   assert.ok(at >= 0, `${name} not found`);
@@ -59,7 +60,7 @@ test('a change of the device light or dark setting redraws the figure at once, w
 });
 
 test('an organ picture given up because the change moved on makes the next one wait longer, and one that lands resets it', () => {
-  const src = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const src = stageSource();
   // (Mohammad's iPhone ?perf recording, 21 Oct: a time-lapse began a whole organ picture in each pause and threw it away.)
   // (One step, 0.8 s, since the whole picture is made a strip per frame: a picture given up costs a strip. External review, 22 Oct.)
   assert.match(src, /const still = plateMiss \? 800 : 400;/);
@@ -70,14 +71,14 @@ test('an organ picture given up because the change moved on makes the next one w
 
 
 test('a fluid level that moves while the fluid is drawn at no opacity asks for no whole repaint', () => {
-  const src = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const src = stageSource();
   assert.match(src, /const seen = fluidLook\.ink\[3\] > 0, was = fluidSeen;\n\s+fluidSeen = seen;\n[^\n]*\n[^\n]*\n\s+if \(!\(moved && \(seen \|\| was\)\)\) return false;/);
   const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
   assert.match(gl, /if \(fluidInk\.a > 0\.0\) \{/, 'the shader draws no fluid at ink 0');
 });
 
 test('a fluid level that moves composites only the pool, from above the higher level down, never the whole screen', () => {
-  const src = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const src = stageSource();
   assert.match(src, /const pool = !!\(veins && !veins\.lost && veins\.fluidPool\(ABDOMEN_FLOOR \+ 5 - Math\.max\(from, fluidH\) - fluidAmp - 6\)\);\n\s+if \(pool\) poolFrames\+\+;\n\s+return !pool;/, 'a whole repaint only where there is no cavity to bound it');
   assert.match(src, /if \(ascShown !== ascTarget\) \{\n\s+fluidFrom \?\?= fluidH;/, 'the level before the step, for a drain');
   const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');

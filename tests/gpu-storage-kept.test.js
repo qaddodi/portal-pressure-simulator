@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -5,7 +6,7 @@ import { readFileSync } from 'node:fs';
 // R05 (review pass 2): reusing a JS array is not enough: the GPU storage behind it must be kept too. The vessel layer's dynamic
 // buffers (the fluid's ripple cells, the row redraw's cells) and its entries' texture keep their storage and rewrite their used part.
 const veins = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
-const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const stage = stageSource();
 const slice = (src, a, b) => src.slice(src.indexOf(a), src.indexOf(b, src.indexOf(a)));
 
 function fakeGL() {

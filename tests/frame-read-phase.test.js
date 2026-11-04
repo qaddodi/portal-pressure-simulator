@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // The frame's read phase (frame.js readFrame; 1 Nov 2026, "Move everything to GPU": zero layout inside the frame): boxes are read first
 // in a frame, while the layout is the last frame's, and the writes that follow them run in the same frame.
 import { test } from 'node:test';
@@ -24,7 +25,7 @@ test('read callbacks run before every other callback of their frame, and what th
 });
 
 test('stage: the figure\'s boxes are read in the read phase at a change, never between the frame\'s writes', () => {
-  const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const st = stageSource();
   assert.match(st, /homeAsk \|\|= readFrame\(homeLookRead\);/, 'the home look');
   assert.match(st, /kpAsk \|\|= readFrame\(keyPillRead\);/, 'the key pill');
   assert.match(st, /dprCardsAsk \|\|= readFrame\(dprCardsRead\);/, 'the Doppler probe\'s cards');

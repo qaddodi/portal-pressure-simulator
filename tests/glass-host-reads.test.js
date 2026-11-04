@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -142,7 +143,7 @@ test('let go: its page-wide listeners go with it', () => {
 
 test('what lies between the figure and a glass (stage.js frostOver) is kept until something there may have moved', async () => {
   const { readFileSync } = await import('node:fs');
-  const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const st = stageSource();
   const f = st.slice(st.indexOf('  function frostOver(level) {'), st.indexOf('  function frostOverRead(level) {'));
   assert.doesNotMatch(st, /FROST_KEEP|glassreads=/);
   assert.doesNotMatch(f, /return frostOverRead\(level\);/);

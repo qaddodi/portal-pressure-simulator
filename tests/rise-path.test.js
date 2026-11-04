@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // Out of a zoomed-in lobule (Circulation 9 to 10): the camera pulls straight out toward the next view, with no sideways pan across
 // the lobule before it zooms out (Mohammad, 20 Oct).
 import { test } from 'node:test';
@@ -32,7 +33,7 @@ test('no pan before the zoom: the share of the way travelled never runs ahead of
 });
 
 test('the stage uses the straight path for every way out of a landed lobule, the dive in keeps its drift', () => {
-  const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const st = stageSource();
   assert.match(st, /if \(riseLine\) \{ diveFrom\[0\] = diveLand\.x; diveFrom\[1\] = diveLand\.y; diveTo\[0\] = ox; diveTo\[1\] = oy; const c = riseCentre\(diveFrom, diveTo, Math\.exp\(-lt\), Math\.exp\(z - lt\)\); px = c\[0\]; py = c\[1\]; \}\n\s*else \{ px = lerp\(ox, diveLand\.x, g\); py = lerp\(oy, diveLand\.y, g\); \}/);
   assert.match(st, /riseFast = false; riseLine = false;/, 'a fresh dive in drops it');
   assert.match(st, /\} else if \(!on && diveT >= 1\) \{\n\s+riseLine = true;/, 'set as any way out of the landed lobule begins');

@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // A resolution fade (res-fade.js) never changes the figure's brightness (Mohammad, 30 Oct: "it flashes whenever it switches
 // resolution"). Since 1 Nov ("Move everything to GPU") the fade is made only on the GPU, inside the canvas's own presents
 // (res-fade-gl.js): the canvas stays shown, its opacity is never touched, and no 2D canvas is drawn or laid over it. A canvas with
@@ -28,7 +29,7 @@ test('without a renderer to mix in, or without its box, the change is taken at o
 });
 
 test('stage.js gives the fade the box it last laid the canvas out at', () => {
-  const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const st = stageSource();
   assert.match(st, /fadeBox\.w = boxW; fadeBox\.h = boxH; fadeOver\(vCanvas, resFollow, veinsPresent, veins && !veins\.lost \? veins\.top : null, fadeBox\);/);
 });
 

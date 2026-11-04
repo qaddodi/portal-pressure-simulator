@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // A measuring site's reading counts to each new value (siteCount): its width is read again only when its text changes other
 // than in its digits, which are tabular, so a counting number no longer forces a layout of the page at each step (his Mac, 30 Oct).
 import { test } from 'node:test';
@@ -5,7 +6,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 test('a site reading\'s width is keyed on its text with every digit as a zero', () => {
-  const src = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const src = stageSource();
   assert.match(src, /const wk = `\$\{el\.className\.replace\(\/\(\?:\^\|\\s\)off\(\?=\\s\|\$\)\/, ''\)\}\|\$\{el\.textContent\.replace\(\/\\d\/g, '0'\)\}\|\$\{W\}\|\$\{labelBase\(\)\}\|\$\{labelFonts\}`;/);
   assert.match(src, /if \(el\._wk !== wk \|\| !el\._half\) siteSize\(el, d, wk\);/);
   // (Read first in the next frame, never between the frame's writes: 1 Nov 2026.)

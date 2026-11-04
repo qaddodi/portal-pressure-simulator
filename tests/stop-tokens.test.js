@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -27,7 +28,7 @@ test('the table has a column for every look the page can wear, and every stop ha
 });
 
 test('the stops the figure builds are in the table (their class, style and presentation attributes make the signature)', () => {
-  const stage = readFileSync(new URL('src/ui/stage.js', ROOT), 'utf8');
+  const stage = stageSource();
   // Every class a stop takes in stage.js's own markup, and the custom properties its inline styles read, have a row.
   const classes = new Set([...stage.matchAll(/<stop [^>]*?class="([\w-]+)"/g)].map((m) => m[1]));
   assert.ok(classes.size >= 15, 'the markup was read');

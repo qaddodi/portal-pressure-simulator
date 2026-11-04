@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // The glass's blur made only where a glass reads it (glass-gl.js blurBoxes, 1 Nov 2026): every texel a glass samples lies in a part,
 // parts never leave the copy, overlapping parts are one, and parts that cover most of the copy give the whole copy.
 import { test } from 'node:test';
@@ -6,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { blurBoxes, BLUR_KEEP } from '../src/ui/glass-gl.js';
 
 const SRC = readFileSync(new URL('../src/ui/glass-gl.js', import.meta.url), 'utf8');
-const STAGE = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const STAGE = stageSource();
 
 const inside = (parts, x, y) => parts.some((r) => x >= r[0] && x < r[2] && y >= r[1] && y < r[3]);
 

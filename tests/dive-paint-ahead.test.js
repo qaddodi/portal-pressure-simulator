@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // HVPG 5 to 6 (CI's frame gate, run 1121): the dive into the lobule for a new patient painted the lobule's tissue bitmap on the main
 // thread in the frame the zoom started (1.8 s on the laptop profile). Now its shapes are recorded first, in a task of their own (the GPU
 // paints them, paint-gl.js), and the dive waits for that.
@@ -5,7 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const st = stageSource();
 const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
 const set = st.match(/function setLobule\(on, painted = false\) \{[\s\S]*?\n {4}lobuleOn = on;/)[0];
 const ahead = lz.match(/function paintAhead\(\) \{[\s\S]*?\n {2}\}\n/)[0];

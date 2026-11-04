@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // Settle and sharpen (combined plan step 12, 31 Oct): the view's sharper organ picture fades in inside the organ stack (organs-gl),
 // over 350 ms (smoothstep), from what showed there before; the blood is never mixed with a still picture of itself. A stand-in GL
 // logs the uniforms each layer is drawn with.
@@ -106,7 +107,7 @@ test('the shader: whole as before at k1 = 1; mixed from what showed before while
   assert.match(G, /export const VIEW_FADE_MS = D_SURFACE;/);
   const { FADE_MS } = await import('../src/ui/res-fade.js').catch(() => ({ FADE_MS: 420 }));
   assert.equal(VIEW_FADE_MS, FADE_MS, 'the same as a resolution change');
-  const ST = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const ST = stageSource();
   assert.match(ST, /!sprayFading\(\) && !veins\?\.organs\?\.fading && !lensFrom/);
   const VG = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
   assert.match(VG, /get fading\(\) \{ return stack\.fading; \}/);

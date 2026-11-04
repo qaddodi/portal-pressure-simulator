@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -91,7 +92,7 @@ test('the label atlas draws a picture only when its look key changed, and the ke
 });
 
 test('the stage resizes its drawing buffer from the wrap size and ratio, never from the zoom', () => {
-  const src = read('../src/ui/stage.js');
+  const src = stageSource();
   const fn = src.slice(src.indexOf('function resizeCanvas()'), src.indexOf('new ResizeObserver(resizeCanvas)'));
   assert.doesNotMatch(fn, /CTM\.sc|\bvt\b|zoom/);
   assert.match(fn, /vCanvas\.width = /);
@@ -99,7 +100,7 @@ test('the stage resizes its drawing buffer from the wrap size and ratio, never f
 });
 
 test('a resize notice that leaves the backing size and ratio as they were neither clears the canvas nor draws in the same task', () => {
-  const src = read('../src/ui/stage.js');
+  const src = stageSource();
   const fn = src.slice(src.indexOf('function resizeCanvas()'), src.indexOf('new ResizeObserver(resizeCanvas)'));
   const guard = fn.indexOf('bw === vCanvas.width && bh === vCanvas.height && vdpr === was');
   assert.ok(guard > 0, 'the unchanged size is checked');

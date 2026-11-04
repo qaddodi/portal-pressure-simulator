@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // The figure's callouts after the 17 Oct design review: stations named in full, a change written "+7.9" in its reading's colour
 // and on a slide only where its words point, one unit rule across the circuit, the resistors named in full with one key, and the
 // readings, the circuit and the FibroScan probe kept clear of the slide's edges and cards. And the colour keys: balanced when they
@@ -8,7 +9,7 @@ import { readFileSync } from 'node:fs';
 import { unsnap } from './unsnap.js';
 import { SHORT } from '../src/ui/anatomy.js';
 
-const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const stage = stageSource();
 const presenter = unsnap(readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8'));
 const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 

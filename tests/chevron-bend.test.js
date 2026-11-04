@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -28,6 +29,6 @@ test('bendCurvature: a straight line reads 0', () => {
 test('the arrowhead uses the curvature and the stage uploads it with the geometry', () => {
   const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
   assert.match(gl, /u \*= clamp\(1\.0 - bendAt\(id, sc, len\) \* yd/);
-  const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const st = stageSource();
   assert.match(st, /veins\.setBend\(it\.row, smooth\.get\(it\.row\) \|\| it\.pts\)/);
 });

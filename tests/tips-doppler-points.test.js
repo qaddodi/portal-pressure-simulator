@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // TIPS Doppler's stent slides call out the stent's velocity at all three points (proximal, mid, distal), not only the sampled one
 // (Mohammad, 15 Oct): the slide that teaches the three points, the narrowed stent (where it narrows too) and the reopened stent. Each
 // callout reads what the Doppler's tile for its point reads, and the sampled one is named in the Doppler's green. After review the three
@@ -9,7 +10,7 @@ import { TIPS_DOPPLER } from '../src/ui/decks/tips-doppler.js';
 import { rolePx, roleOf } from '../src/ui/type-scale.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
-const stage = read('src/ui/stage.js'), doppler = read('src/ui/doppler.js'), tools = read('src/ui/presenter-tools.js'), gl = read('src/ui/veins-gl.js'), css = read('styles/app.css');
+const stage = stageSource(), doppler = read('src/ui/doppler.js'), tools = read('src/ui/presenter-tools.js'), gl = read('src/ui/veins-gl.js'), css = read('styles/app.css');
 
 test('the stent slides, and only they, call out all three points', () => {
   const on = TIPS_DOPPLER.slides.filter((s) => s.tool?.points).map((s) => s.id);

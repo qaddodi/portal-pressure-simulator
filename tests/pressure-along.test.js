@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // Where the pressure falls along a stenosed vessel (combined plan V1): pressure-along.js alongCurve, its upload with the radii and
 // the colour mix in both shaders (veins-gl.js alongAt). No GL in node: the curve here, the shader as source.
 import test from 'node:test';
@@ -44,7 +45,7 @@ test('a near-closed vessel never puts the whole drop on one sample', () => {
 });
 
 const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
-const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const stage = stageSource();
 
 test('the curve rides with the radii (−1 for a vessel without one) and both shaders mix the colour by it', () => {
   assert.match(gl, /gl\.texImage2D\(gl\.TEXTURE_2D, 0, gl\.RGBA32F, N_SAMPLES, nTubes, 0, gl\.RGBA, gl\.FLOAT, null\);/);

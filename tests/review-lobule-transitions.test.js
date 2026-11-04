@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // Fable review (16 Oct), graphics G18, G20, G21 and G22: one clock for organ and vessel transitions, the organ selection in its
 // own tone, hepatocyte cords that read as cords, and the quieter (softened) neighbouring lobules.
 import { test } from 'node:test';
@@ -6,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { SIN_NARROW, cordTone, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped } from '../src/ui/lobule-look.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
-const stage = read('../src/ui/stage.js');
+const stage = stageSource();
 const lz = read('../src/ui/lobule-zoom.js');
 const lp = read('../src/ui/lobule-paint.js');   // (the tissue's painting: lobule-paint.js paintLobule)
 const app = read('../styles/app.css');

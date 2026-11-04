@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // A reading and its vessel light together on hover (sprint brief 8, 1 Nov 2026): the label under the pointer lights what it names with the
 // vessel's own hover glow, a hovered vessel lifts its label.
 import './dom-shim.js';
@@ -9,7 +10,7 @@ import { LABEL_VESSEL } from '../src/ui/anatomy.js';
 import { HOVER_LINK, labelTarget, labelsOf, edgesOfLabel } from '../src/ui/hover-link.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
-const stage = read('src/ui/stage.js');
+const stage = stageSource();
 const css = read('styles/app.css').replace(/\/\*[\s\S]*?\*\//g, '');
 const EDGE_IDS = new Set(EDGES.map((e) => e.id));
 

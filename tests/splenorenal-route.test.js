@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // The splenorenal shunts (spontaneous and Warren) leave the splenic vein midway between the spleen and the IMV
 // junction and join the left renal vein just below, never crossing the IMV; a Warren shunt divides the splenic
 // vein between the shunt and the IMV, so the IMV still drains to the portal vein.
@@ -64,7 +65,7 @@ test('Warren slide: the varices decompress while the PPG stays high and the live
 
 test('the figure ties off the same vessels the engine closes for each surgical shunt', async () => {
   const fs = await import('node:fs');
-  const stage = fs.readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const stage = stageSource();
   const engine = fs.readFileSync(new URL('../src/engine/engine.js', import.meta.url), 'utf8');
   assert.match(stage, /\['S_DSR', 'SV_MID'\]/);
   assert.match(stage, /\['S_PC', 'PV_TRUNK'\]/);
@@ -96,6 +97,6 @@ test('splenorenal shunts keep clear of the descending colon and ease into the re
     assert.ok(Math.hypot(k[0] - b[0], k[1] - b[1]) < 3, `${id} ends on the renal vein's centre line`);
   }
   const fs = await import('node:fs');
-  const stage = fs.readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const stage = stageSource();
   assert.match(stage, /if \(e\.id === 'C6' && mode !== 'flow' && EI\.V_SPL != null\) w = Math\.min\(w, /);
 });

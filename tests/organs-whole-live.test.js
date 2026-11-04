@@ -1,10 +1,11 @@
+import { stageSource } from './stage-src.js';
 // The organs never fall back to the page's SVG while their pictures are made (2 Nov 2026, merged GPU plan; Mohammad: "no SVG
 // fallback"): every layer is painted live on the GPU until the pictures land, at start and after a theme change.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const stage = stageSource();
 const gl = readFileSync(new URL('../src/ui/organs-gl.js', import.meta.url), 'utf8');
 const veins = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
 

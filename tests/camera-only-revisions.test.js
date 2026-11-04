@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -5,7 +6,7 @@ import { readFileSync } from 'node:fs';
 // R04 (review pass 2): a camera-only move (pan, pinch, glide) rebuilds neither the labels' signature nor any string key. The
 // signature follows revisions (the frame, the store's revision, the geometry's version, the vessels' shown set); the labels' key and
 // the vessel layer's drawn view are numbers compared one by one.
-const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const stage = stageSource();
 const slice = (a, b) => stage.slice(stage.indexOf(a), stage.indexOf(b, stage.indexOf(a)));
 
 test('the store counts a revision for every change but the model frame', async () => {

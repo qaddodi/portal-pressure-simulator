@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // A vein a slide shows stented (slide field `stented`): the cross-section's ring follows it, and every built-in slide whose
 // mark says "Stent" on a vein the model has no device for lists that vein, so the label never points at nothing (30 Oct:
 // the right hepatic vein's "Stent" had no mesh on the figure and no ring in the cross-section).
@@ -61,7 +62,7 @@ test('the Budd–Chiari "One open hepatic vein" slide stents the right hepatic v
 });
 
 test('the figure unrolls and rolls back a stented vein on its own clock, and the presenter hands each slide its veins', () => {
-  const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const stage = stageSource();
   const pres = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
   assert.match(stage, /function meshPaths\(id, p, d0, d1, k = 1, ends = true\)/, 'one mesh for the TIPS and the veins');
   // (2 Nov 2026: the vein's mesh is built once and unrolled by its frames and a clip, on the GPU.)

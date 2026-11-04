@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // Round 2 review follow-ups: the streaks' density reads between whole lane counts (BM9), and a narrowing's clamp and
 // "60 %" fade in and out instead of popping.
 import { test } from 'node:test';
@@ -51,7 +52,7 @@ test('BM9: the shader and the lobule read the same table, with no lane loop left
 });
 
 test("a narrowing's clamp and label fade out from their own group, which the label layout never reads", () => {
-  const stage = read('src/ui/stage.js'), css = read('styles/app.css');
+  const stage = stageSource(), css = read('styles/app.css');
   assert.match(stage, /clamps: s\('g'\), clampsOut: s\('g'\)/);
   assert.match(stage, /el\.classList\.replace\('clamp', 'clamp-out'\); el\.classList\.replace\('clamp-label', 'clamp-label-out'\);/);
   assert.doesNotMatch(stage, /ov\.clampsOut\.querySelectorAll\('\.clamp/);

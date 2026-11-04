@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -6,7 +7,7 @@ import { readFileSync } from 'node:fs';
 // glide's target (vtTarget) outright; when they were one object, the first zoom changed all three, the home look (followHome) then took the
 // zoomed view for home and glided it back to the fit as soon as a card moved: a pinch in the first seconds after the page opened was undone
 // (4 times in 10 loads of the production build; the browser check "pan and pinch: marks and labels stay locked to the figure" tripped on it).
-const src = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const src = stageSource();
 
 test('no code changes a field of the view in place', () => {
   const hits = src.split('\n').map((l, i) => [i + 1, l]).filter(([, l]) => /\bvt\.[kxy]\s*(?:[-+*/]?=)(?!=)/.test(l));

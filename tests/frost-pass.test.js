@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // The frosted glasses drawn inside the figure's canvas (round 2, 2.1, 31 Oct; glass-gl setHost): no canvas or context of
 // their own and no copy of the figure; each picture the figure lays blurs once (prep) and draws each glass in its turn, the teaching
 // card's shade in the low turn and the other cards in the high one, sharing one set of marks. A card that crosses what the page lays
@@ -200,7 +201,7 @@ test('one edge softness for the vessels and the organ painter (V3 b): one device
 
 test('recs B6: the liver\'s nodules are worked out and written only when the cirrhosis changes, the islands only as they come or go', async () => {
   const { readFileSync } = await import('node:fs');
-  const ST = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const ST = stageSource();
   assert.match(ST, /const nk = cn > 0\.01 \? c : -1;\n\s+if \(nk !== nodKey\) \{\n\s+nodKey = nk;/);
   assert.match(ST, /if \(\(g > 0\.01\) !== islOn\) \{\n\s+islOn = g > 0\.01;\n\s+lv\.isl\.setAttribute\('d', islOn \? baseLiver\.isl : ''\);/);
   // (The nodules' shapes follow the cirrhosis alone: liverField takes no congestion.)

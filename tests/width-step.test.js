@@ -1,10 +1,11 @@
+import { stageSource } from './stage-src.js';
 // Between the model's frames a breathing vessel's width eases on every display frame. That step writes only what follows
 // from the widths (stepWidths); anything else under way takes the full update, so the picture is the same frame for frame.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const STAGE = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const STAGE = stageSource();
 const body = (name) => {
   const at = STAGE.indexOf(`  function ${name}(`);
   assert.ok(at >= 0, `${name} exists`);

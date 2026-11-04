@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // One easing family and one duration scale (combined plan M2): the camera's quintic, the arrivals' bezier, the same in CSS, and
 // camera times from how far a glide goes on screen.
 import test from 'node:test';
@@ -52,7 +53,7 @@ test('camMs: 480 ms up to half a screen, then in proportion, at most 900 ms', ()
 });
 
 test('stage and lobule glides run on the quintic; scaled glides take their reach\'s time, never longer than asked', () => {
-  const stage = read('src/ui/stage.js'), lob = read('src/ui/lobule-zoom.js');
+  const stage = stageSource(), lob = read('src/ui/lobule-zoom.js');
   assert.match(stage, /const camEase = easeMove;/);
   assert.match(stage, /const raw = clamp\(\(clock \? clock\(now\) : now - t0\) \/ ms, 0, 1\), u = \(drift \? driftEase : camEase\)\(raw\);/);
   assert.match(stage, /const u = camEase\(clamp\(\(performance\.now\(\) - prev\.t0\) \/ prev\.ms, 0, 1\)\);/);

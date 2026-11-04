@@ -1,8 +1,9 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const js = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const js = stageSource();
 
 // Sites 9 in the dark theme (17 Oct): the right atrium's term tone is a token of its own ('--tour-sys'); written as
 // var(--tr---tour-sys) it named nothing, so its label fell back to black on the dark figure. Every tone goes through toneCol.

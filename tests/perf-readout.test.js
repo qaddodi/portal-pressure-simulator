@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -68,7 +69,7 @@ test('a recording runs 6 s and counts the frames that redrew the whole picture o
 });
 
 test('a running change names its parts in the readout: the vessel sync and the update are split by job', () => {
-  const src = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const src = stageSource();
   for (const name of ['vessel sync: list', 'vessel sync: radii', 'vessel sync: binning', 'vessel sync: colours', 'update: geometry', 'update: tubes', 'update: overlays', 'update: labels', 'update: organs', 'update: slide marks', 'update: nodes']) {
     // (A step is a named function with its arguments after it since 2 Nov 2026 (gpuProbe.time(null, name, fn, a, b, c)): no closure made per frame.)
     assert.match(src, new RegExp(`gpuProbe\\.time\\(null, '${name}', (\\(\\) => |[A-Za-z]\\w*[,)])`), name);
@@ -111,7 +112,7 @@ test('a whole draw and a target sized again name who asked, from a fixed list th
   const { COUNTED, BY } = await import('../src/ui/gpu-probe.js');
   const { readFileSync } = await import('node:fs');
   const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
-  const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const st = stageSource();
   const pr = readFileSync(new URL('../src/ui/perf-readout.js', import.meta.url), 'utf8');
   assert.equal(new Set(BY).size, BY.length);
   assert.match(gl, /gpuProbe\.note\(COUNTED\.whole\);\n\s+gpuProbe\.note\(COUNTED\.wholeBy \+ askedBy\(\)\);/);

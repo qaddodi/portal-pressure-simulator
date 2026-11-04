@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -23,7 +24,7 @@ test("a layer's rect is its box grown out to whole pixels of the picture's grid,
 });
 
 test('the stage splits the organs into the layers in the SVG order, and shows a set only whole', () => {
-  const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const stage = stageSource();
   assert.match(stage, /const ORGAN_LAYERS = \['back', 'behind', 'gut', 'kidney', 'spleen', 'stomach', 'liver', 'front'\];/);
   // (An organ the list does not name goes with the layer before it: the SVG's order is always kept.)
   assert.match(stage, /for \(const k of gOrgans\.children\) \{ last = by\.get\(k\) \|\| last; out\.set\(k, last\); \}/);
@@ -42,7 +43,7 @@ test('the stage splits the organs into the layers in the SVG order, and shows a 
 // settles), under the rest of the gut, the gut's opacity and mask laid over the two as one group (as the SVG lays it): nothing is drawn again while the
 // fluid eases (it was every half step of the bulge, the bowel standing still until each new picture landed).
 test('the bowel is a picture at rest gathered under the gut, moved by its float on the GPU', () => {
-  const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const stage = stageSource();
   const gl = readFileSync(new URL('../src/ui/organs-gl.js', import.meta.url), 'utf8');
   assert.match(stage, /const LIVE_ORDER = \['back', 'behind', 'bowel', 'gut', /);
   assert.match(stage, /for \(const L of LIVE_ORDER\) \{/);
@@ -113,7 +114,7 @@ test("a clip's coverage is cleared over its own box, not the canvas", () => {
 // read again only when what is in them changes (a part hidden or shown, the liver's mask, the ghost line, a lens, the theme);
 // they were read again, about fifty computed styles, on every frame of an ease. (Review item 3.)
 test('the live organs are read once per state; the painter reads the eased values from the page', () => {
-  const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const stage = stageSource();
   const paint = readFileSync(new URL('../src/ui/organ-paint.js', import.meta.url), 'utf8');
   const gl = readFileSync(new URL('../src/ui/organs-gl.js', import.meta.url), 'utf8');
   assert.match(stage, /k\[0\] = organG\.liver\.getAttribute\('mask'\) \?\? ''; k\[1\] = ghost\.style\.display; k\[2\] = lv\.sep\.style\.visibility; k\[3\] = lv\.nod\.style\.visibility; k\[4\] = lv\.cong\.style\.visibility; k\[5\] = lv\.isl\.style\.visibility;\n\s+k\[6\] = cs\.getPropertyValue\('--stage-bg'\)/);
@@ -134,7 +135,7 @@ test('the live organs are read once per state; the painter reads the eased value
 // element) and renders again only after a write that left one different, taken synchronously so the same task's composite sees it.
 test('the live organs are described again only after a write to what the painter reads', () => {
   const gl = readFileSync(new URL('../src/ui/organs-gl.js', import.meta.url), 'utf8');
-  const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const stage = stageSource();
   assert.match(gl, /const pull = \(\) => \{ if \(!watch\) return; const rs = watch\.takeRecords\(\); if \(rs\.length && netChanged\(rs\)\) pageVer\+\+; \};/);
   const els = gl.slice(gl.indexOf('const elsOf = '), gl.indexOf('function watchLive()'));
   for (const k of ['out.add(spec.root)', 'out.add(op.el)', 'out.add(op.geom?.el)', 'for (const e of op.chain || []) out.add(e)', 'out.add(op.clip.geom?.el)', 'for (const e of op.clip.chain || []) out.add(e)', 'elsOf(spec.mask, out)']) assert.ok(els.includes(k), k);
@@ -149,7 +150,7 @@ test('the live organs are described again only after a write to what the painter
 // The organs' pictures painted on the GPU from their shapes (Mohammad, 25 Oct: no SVG → image → canvas → read back → upload on the
 // way): each layer the painter can read is painted into a texture of its own that stays on the GPU; only an unreadable one is rasterized.
 test('the organ layers are painted on the GPU from their shapes, with no SVG picture, canvas, read back or upload', () => {
-  const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const stage = stageSource();
   const gl = readFileSync(new URL('../src/ui/organs-gl.js', import.meta.url), 'utf8');
   const paint = readFileSync(new URL('../src/ui/organ-paint.js', import.meta.url), 'utf8');
   const shape = readFileSync(new URL('../src/ui/shape-gl.js', import.meta.url), 'utf8');

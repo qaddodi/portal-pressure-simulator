@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -92,7 +93,7 @@ test('a remembered binning (a coil patched in place) has the same blood cells as
 });
 
 test('the figure bins each vessel with a core and repaints the redrawn cells whole after a partial vessel redraw', () => {
-  const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const stage = stageSource();
   const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
   // The core: the reach less the 18 reachOf adds for casing, shadow and glow, plus a pad.
   assert.match(stage, /const reachOf = \(it\) => Math\.ceil\(\(it\.obj\.glMaxR \+ \(it\.x\.wallPx \|\| 1\) \+ 18\) \/ 2\) \* 2;/);

@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -122,7 +123,7 @@ test('the taper is a pure function of the calibers and lengths: nothing carries 
 });
 
 // ── The wiring (stage.js is not loaded by the unit tests: nobody can run it without a browser).
-const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const stage = stageSource();
 
 test('the GPU radii take the run\'s taper for vessels that run on at a two-vessel node; forks, strands and the cava drawn as one keep their own eases', () => {
   // (Allocation-free since 2 Nov 2026: the chains are found again only when the links change, each chain planned into kept plans.)

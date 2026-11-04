@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // Colored by oxygen (Fable review G11, Mohammad yes 16 Oct): each vessel's oxygen saturation, from the flows the
 // model already mixes for blood origin. The hepatic artery is arterial, the portal vein carries gut venous blood,
 // the sinusoids use oxygen along their length and the hepatic veins carry what is left.
@@ -63,7 +64,7 @@ test('oxygen: a view in the Colored by menu, the legend, the lobule, the vessel 
   assert.match(main, /oxygen: \['Oxygen', /, 'a Colored by choice');
   assert.match(main, /oxygen: 'Oxygen'/, 'the menu label');
   assert.match(main, /m === 'oxygen'/, 'its own legend');
-  assert.match(src('src/ui/stage.js'), /mode === 'oxygen'\) \{ c1 = oxygenColor\(oxy\[2 \* k\]\); c2 = oxygenColor\(oxy\[2 \* k \+ 1\]\)/, 'the figure colors each lumen end');
+  assert.match(stageSource(), /mode === 'oxygen'\) \{ c1 = oxygenColor\(oxy\[2 \* k\]\); c2 = oxygenColor\(oxy\[2 \* k \+ 1\]\)/, 'the figure colors each lumen end');
   assert.match(src('src/ui/lobule-zoom.js'), /M === 'oxygen'/, 'the lobule colors its vessels');
   assert.match(src('src/ui/lobule-model.js'), /m\.mode === 'oxygen'/);
   assert.match(src('src/ui/actions.js'), /lens === 'oxygen'/, 'the vessel card reads the saturation');
@@ -87,7 +88,7 @@ test('oxygen: its ramp runs blue to red and its pill colour is its own', () => {
 // Mohammad, 17 Oct: in the Oxygen lens the figure's labels read the oxygen saturation (% O₂), not pressure, from the same
 // saturation the lens colours by: the anatomy's station labels and the lobule's Portal venule, Sinusoids and Central vein.
 test('oxygen: the labels read % O₂ in the Oxygen lens, from the value the lens colours by', () => {
-  const stage = src('src/ui/stage.js'), lz = src('src/ui/lobule-zoom.js');
+  const stage = stageSource(), lz = src('src/ui/lobule-zoom.js');
   const runs = stage.slice(stage.indexOf('function layerRuns('), stage.indexOf('function shortenItem('));
   assert.match(runs, /lm !== 'oxygen'/, 'the oxygen lens has its own label runs');
   assert.match(runs, /oxygenFor\(EDGES, NODES, f\)\.node\[NI\[id\]\]/, 'anatomy labels read the station node\'s saturation');

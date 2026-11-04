@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // Heat, 26 Oct (steps 2 and 10): every surface draws at most once in a frame, and a closed one does no more work. The scheduler's
 // phases, the vitals monitor's strip and numbers (one loop, never a second frame of their own while it scrolls), and the instruments
 // a presentation lets go of (no frame, timer or observer left running).
@@ -137,7 +138,7 @@ test('the endoscope\'s field is drawn once a frame: a model frame taken in early
 });
 
 test('the figure\'s pass is one owned request, whoever asks for it', () => {
-  const st = read('../src/ui/stage.js');
+  const st = stageSource();
   assert.match(st, /const askAnimate = \(\) => \{ if \(!animRaf\) animRaf = drawFrame\(animate\); \};\n\s+function animate\(now\) \{\n\s+animRaf = 0;/);
   assert.equal((st.match(/drawFrame\(animate\)/g) || []).length, 1, 'asked for only through askAnimate');
 });

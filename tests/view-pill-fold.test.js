@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // The view pill folds rather than snapping to a new width (17 Oct, Mohammad): into the lobule the Sinusoid button "should slide
 // out not just appear snap", and into the sinusoid view Anatomy and Circuit "fold inside the pill" (and come back out of it). The
 // face grows or shrinks about the pill's centre, the buttons that stay slide to their places, and a button that comes or goes
@@ -9,7 +10,7 @@ import { foldPlan, faceClip, coverFade, easeIO3, FOLD_MS, FOLD_EASE } from '../s
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const main = read('../src/ui/main.js');
-const stage = read('../src/ui/stage.js');
+const stage = stageSource();
 const motion = read('../src/ui/pill-motion.js');
 const css = read('../styles/app.css');
 

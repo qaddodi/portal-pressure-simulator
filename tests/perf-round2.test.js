@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // Round 2 review's same-picture performance items (MOTION_HEAT_REVIEW_ROUND2 §4): less work, nothing drawn differently.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -19,7 +20,7 @@ test('P5: the Over time trace is drawn before its hero text is written', () => {
 });
 
 test('P7: live labels, the clock and the stage readouts rewrite their text node in place', () => {
-  const stage = read('src/ui/stage.js'), tl = read('src/ui/timeline.js');
+  const stage = stageSource(), tl = read('src/ui/timeline.js');
   assert.match(stage, /putText\(sp, r\.t\);/);
   assert.match(stage, /if \(v != null\) putText\(b, v\);/);
   assert.match(tl, /putText\(timeLong, t\); putText\(timeShort,/);
@@ -44,7 +45,7 @@ test('putText keeps the text node and changes only its data; an element without 
 });
 
 test('P6: the radius sync compares a copy element by element, with no joined key, spread max or some() per frame', () => {
-  const sync = read('src/ui/stage.js').replace(/^\s*\/\/.*$/gm, '');
+  const sync = stageSource().replace(/^\s*\/\/.*$/gm, '');
   assert.doesNotMatch(sync, /R\.join\(','\)/);
   assert.doesNotMatch(sync, /Math\.max\(\.\.\.R\)/);
   assert.doesNotMatch(sync, /tubeData\.some\(/);
@@ -53,7 +54,7 @@ test('P6: the radius sync compares a copy element by element, with no joined key
 });
 
 test('P8: stepBlood keeps per-frame facts per model frame, syncEnds compares in place', () => {
-  const stage = read('src/ui/stage.js').replace(/^\s*\/\/.*$/gm, ''), gl = read('src/ui/veins-gl.js');
+  const stage = stageSource().replace(/^\s*\/\/.*$/gm, ''), gl = read('src/ui/veins-gl.js');
   assert.match(stage, /if \(perF !== F \|\| perH !== H\) \{/);
   assert.match(stage, /advanceStreamAt\(streams\[k\], velQf, velQ, k, so\)/);
   assert.match(stage, /KEY_K\[k\] === 1 \|\| \(KEY_K\[k\] === 2 && keyChevron\(EDGES\[k\], laneOpen\)\)/);
@@ -109,7 +110,7 @@ test('NP9, NP11, NP12: the Compare badge stands under the desktop top bar; closi
 });
 
 test('RF4 and NP3: the lens key and its name are watched by the top bar glide; Add shunt targets glow and stand out on the GPU figure', () => {
-  const tb = read('src/ui/topbar-motion.js'), stage = read('src/ui/stage.js');
+  const tb = read('src/ui/topbar-motion.js'), stage = stageSource();
   assert.match(tb, /for \(const id of \['scenarioName', 'legend', 'colorModeLabel'\]\)/);
   assert.match(stage, /const GLOW_RANK = \[[^\]]*'shunt', 'key'\];/);
   assert.match(stage, /setGlowSrc\('shunt', \[\.\.\.shunt\.targets\.keys\(\)\]\.map\(\(id\) => \(\{ id, col: 'var\(--accent\)'/);
@@ -118,7 +119,7 @@ test('RF4 and NP3: the lens key and its name are watched by the top bar glide; A
 });
 
 test('B7: vessel colour bins hold until the value is 0.4 mmHg from the bin shown (no flicker with the breath)', () => {
-  const stage = read('src/ui/stage.js');
+  const stage = stageSource();
   const def = stage.slice(stage.indexOf('  const qHold = '), stage.indexOf('  };', stage.indexOf('  const qHold = ')) + 4);
   assert.match(def, /if \(!\(Math\.abs\(v - was\) < 0\.4\)\) a\[i\] = qP\(v\);/);
   // The logic itself, on a value breathing across the 12.25 edge between the 12.0 and 12.5 bins.
@@ -131,14 +132,14 @@ test('B7: vessel colour bins hold until the value is 0.4 mmHg from the bin shown
 });
 
 test('B8: label keep-out boxes are taken after the glide, and cut the arrowheads with a pixel of antialiasing', () => {
-  const stage = read('src/ui/stage.js'), gl = read('src/ui/veins-gl.js');
+  const stage = stageSource(), gl = read('src/ui/veins-gl.js');
   assert.ok(stage.indexOf('    labelGlide(out);\n') < stage.indexOf('    noChevBoxes = out.filter('));
   assert.match(gl, /c \*= smoothstep\(-pxW, pxW, length\(max\(q, 0\.0\)\) \+ min\(max\(q\.x, q\.y\), 0\.0\)\);/);
   assert.doesNotMatch(gl, /bool hole/);
 });
 
 test('B11: bleed jets and the ascites ripple run on clocks that stand still while paused; the dye front reads the caliber between samples', () => {
-  const stage = read('src/ui/stage.js'), gl = read('src/ui/veins-gl.js');
+  const stage = stageSource(), gl = read('src/ui/veins-gl.js');
   assert.match(stage, /return fadeBleedShapes\(bleedShapes\(sprayLast\.bleed, sprayLast\.rate, reduceMotion\.matches \? 0 : bloodClock, SITES, sprayLast\.hr\), sprayA\);/);   // (fading in and out: deck-review-bugs)
   assert.match(stage, /if \(run\) fluidPh = \(fluidPh \+ dt \/ 1\.1\) % \(20 \* Math\.PI\);/);
   assert.doesNotMatch(stage.replace(/^\s*\/\/.*$/gm, ''), /performance\.now\(\) \/ 1100/);

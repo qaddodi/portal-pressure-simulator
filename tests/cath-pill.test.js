@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // The HVPG catheter's two readings (cath-pill.js) never sit on a card, the top sheet or each other (2 Nov 2026, his ask: on an iPhone
 // the WHVP reading hung below its point onto the teaching card, HVPG slide 4, and the FHVP one stood close above it).
 import test from 'node:test';
@@ -38,7 +39,7 @@ test('any phone, iPad or Mac band: clear when a clear place exists, and a clear 
 });
 
 test('the stage places, eases and turns the readings with it, with no CSS flip', () => {
-  const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8'), css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const stage = stageSource(), css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
   assert.match(stage, /if \(first \|\| \(calm && !pillsClear\(q\)\)\) \{[\s\S]*?placePillsInto\(q, cathSideOut\);/);
   assert.match(stage, /calm = !vtGliding && !cath\.glideRaf;/);
   assert.match(stage, /if \(ready\) \{ const q = cathGlide\(el, bx, by, x, y\); cx = q\[0\]; cy = q\[1\]; \} else el\._gl = null;/);

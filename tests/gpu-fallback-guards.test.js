@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -69,7 +70,7 @@ test('a software renderer or Battery saver never turns the browser blur on by it
 });
 
 test('the stage runs the blur guard at start, on a changed renderer and on Battery saver; Settings takes it over', () => {
-  const st = src('src/ui/stage.js');
+  const st = stageSource();
   assert.match(st, /guardBlur\(document\.documentElement, \{ low: SOFTWARE, asked: asked === '1' \? null : asked \}\)/);
   assert.match(st, /wrap\.dataset\.renderer = SOFTWARE \? 'software' : 'gpu'; wrap\.dataset\.quality = String\(quality\);\n\s*blurGuard\(\);/);
   assert.match(st, /saverOn = !!on;\n\s*blurGuard\(\);/);
@@ -88,7 +89,7 @@ test('8 MP pixel budget: the default, the figure canvas and its full-density ove
   // (Phones, iPads, a 16-inch MacBook: unchanged.)
   for (const [w, h, k] of [[390, 844, 3], [1024, 1366, 2], [1728, 1117, 2]]) assert.equal(capDensity(k, w, h, 8), k);
   assert.equal(capDensity(2, 2560, 1440, 0), 2);
-  const st = src('src/ui/stage.js');
+  const st = stageSource();
   assert.match(st, /full = capDensity\(full, r\.width, r\.height, figOpt\('cap'\)\);/);
   assert.match(st, /const cap = figOpt\('cap'\) \* 1e6, px = w \* h \* \(base \* k\) \*\* 2;\n\s*if \(cap > 0 && px > cap\) k \*= Math\.sqrt\(cap \/ px\);/);
 });
@@ -108,7 +109,7 @@ test('every WebGL2 surface rebuilds after a lost context (or is a probe or a sec
     else assert.match(s, /webglcontextrestored/, `${f}: no restore`);
   }
   // (The ones that read an existing context: the anatomy's and the lobule's vessels restore through their owner.)
-  assert.match(src('src/ui/stage.js'), /vCanvas\.addEventListener\('webglcontextrestored'/);
+  assert.match(stageSource(), /vCanvas\.addEventListener\('webglcontextrestored'/);
   assert.match(src('src/ui/lobule-zoom.js'), /glCv\.addEventListener\('webglcontextrestored'/);
   // (Lobule section 7: the tissue made again on restore, the field rebuilt in place, the sinusoid in place with its epoch so a paused view draws again.)
   const lz = src('src/ui/lobule-zoom.js');
@@ -123,7 +124,7 @@ test('every WebGL2 surface rebuilds after a lost context (or is a probe or a sec
 });
 
 test('idle rest: the FibroScan probe\'s waves stop with the figure and start again on waking', () => {
-  const st = src('src/ui/stage.js');
+  const st = stageSource();
   assert.match(st, /if \(restStill\(\)\) \{ scan\.last = 0; scan\.parked = true; return; \}/);
   assert.match(st, /if \(!on && scan\.parked\) \{ scan\.parked = false; if \(scan\.on && !scan\.raf\) \{ scan\.last = 0; scan\.raf = nextFrame\(scanTick\); \} \}/);
   // (The other loops of the figure's marks stop by themselves once nothing eases: the halos, the Doppler probe's ease and its card tracking.)

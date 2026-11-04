@@ -1,8 +1,9 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const stage = stageSource();
 
 test('a selected vessel glows as a hovered one does, with no solid ring', () => {
   assert.doesNotMatch(stage, /\? F_SEL : 0/, 'the GPU ring with hard round ends is not drawn');

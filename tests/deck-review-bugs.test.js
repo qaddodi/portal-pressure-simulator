@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -10,7 +11,7 @@ import { EXT } from '../src/ui/slide-ext.js';
 // Three bugs from the external deck review (18 Oct): what-if tiles froze 7 s after a tap, a bleed's jets vanished in one
 // frame, and the variceal bleed summary headed a column with the raw key "hb".
 const presenter = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const stage = stageSource();
 
 test('a what-if follows the model until its readings hold still, not for a fixed 7 s', () => {
   assert.equal(liveSettled(LIVE_MIN - 1, LIVE_MIN), false, 'never before the minimum');

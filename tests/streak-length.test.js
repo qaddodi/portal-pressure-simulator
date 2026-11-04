@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // Blood streaks say speed by their length (1 Nov, sprint brief 6): a fast vessel's streaks run long and a slow one's are short dashes,
 // so a still frame shows speed too. The composite moves the two noise layers' shares by the vessel's display speed (veins-gl.js bloodAt,
 // shimN); nothing in a streak moves for it (no coordinate changes). Source patterns (no GL
@@ -18,7 +19,7 @@ globalThis.getComputedStyle ??= () => ({ getPropertyValue: () => '' });
 const { COMP_FS } = await import('../src/ui/veins-gl.js');
 const { displaySpeed } = await import('../src/ui/blood.js');
 const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
-const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const stage = stageSource();
 const lobule = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
 
 // The shader's own preprocessor, as far as the composite uses it (as blood-shading-fast.test.js).

@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // Phone text and labels (review 15 Oct, #23, #48-#51): the figure's captions and the catheter callouts' small words are 12 px
 // on a phone too, the meal chart's words never zoom under 12 px with its card, the FibroScan probe stands steeper beside the
 // screen's edge so its reading stays on screen, figure labels keep off the teaching card's glass, and a phone held sideways
@@ -8,7 +9,7 @@ import { readFileSync } from 'node:fs';
 import { ROLES } from '../src/ui/type-scale.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
-const css = read('../styles/app.css'), tokens = read('../styles/tokens.css'), stage = read('../src/ui/stage.js'), flow = read('../src/ui/flow-time.js');
+const css = read('../styles/app.css'), tokens = read('../styles/tokens.css'), stage = stageSource(), flow = read('../src/ui/flow-time.js');
 
 test('captions are 12 px on every screen, the SVG labels as the stylesheet', () => {
   assert.match(tokens, /--t-cap: 12px;/);

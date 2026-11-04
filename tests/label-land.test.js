@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // A glide with the labels up (premium-feel recs P2, 31 Oct): its labels are solved once, as it starts, for the framing it lands at,
 // then carried there with no solve while it runs and none as it lands. Only where nothing the labels are placed against moves with
 // the camera and what they show is the same at both ends.
@@ -5,7 +6,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const stage = stageSource();
 const body = (head) => stage.match(new RegExp(`${head.replace(/[()[\]{}.*+?^$|\\]/g, '\\$&')}[\\s\\S]*?\\n {2}\\}\\n`))?.[0];
 
 const landSrc = body('function landable(from, to) {');

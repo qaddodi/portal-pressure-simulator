@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -98,7 +99,7 @@ test('the Guide says what a figure label shows now: the value, the unit once in 
   assert.doesNotMatch(main, /Labels give the value in mmHg; ▲ \/ ▼ is the change from healthy/);
   assert.match(main, /the legend names the unit once\. A label gives a station’s value\. Select the station, color by Change or compare with an earlier moment to see ▲ \/ ▼/);
   // US spelling in what a reader sees
-  assert.doesNotMatch(src('src/ui/stage.js'), /still show their colours and readings/);
+  assert.doesNotMatch(stageSource(), /still show their colours and readings/);
   assert.doesNotMatch(src('src/ui/why.js'), /grey is what they add together/);
 });
 
@@ -332,7 +333,7 @@ test('visible words in the talks, the Testing deck and the toasts are US spellin
   for (const f of ['src/ui/test-decks/demo-all-new-visuals.js', 'src/ui/decks/ascites.js']) {
     assert.doesNotMatch(src(f), /\b(the|a|its|rating|cut-off|switch the|plain) (grey|colours?)\b/i, f);
   }
-  assert.doesNotMatch(src('src/ui/stage.js'), /toast\('[^']*cancelled/);
+  assert.doesNotMatch(stageSource(), /toast\('[^']*cancelled/);
 });
 
 test('a History change line that folds extra parts says "+N more", as the Compare line does', () => {

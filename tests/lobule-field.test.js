@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // The lobule dive's field: few, large lobules (a field of hundreds slowed the zoom), and the ones away from the
 // landing lobule fade into the page as the zoom goes on, ending on the lobule view's own surround.
 import { test } from 'node:test';
@@ -5,7 +6,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
-const stage = read('../src/ui/stage.js');
+const stage = stageSource();
 const lz = read('../src/ui/lobule-zoom.js');
 const lp = read('../src/ui/lobule-paint.js');   // (the tissue's painting)
 

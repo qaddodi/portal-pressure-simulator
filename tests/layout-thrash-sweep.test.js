@@ -1,10 +1,11 @@
+import { stageSource } from './stage-src.js';
 // 31 Oct sweep of forced layouts and repeated figure updates on the hot paths (code review; pixels unchanged).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { unsnap } from './unsnap.js';
 
-const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const st = stageSource();
 const mn = unsnap(readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8'));
 
 test("a card's own list scrolling keeps the figure's box; the page's scroll, or one holding the figure, drops it", () => {

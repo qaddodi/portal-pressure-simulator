@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // 29 Oct, Mohammad: "Gastric varices should visibly get smaller and less intense the less pressurized they are", and (through the
 // coordinator, his proxy) the same for the esophageal varices. The varix (the model's varix.d and gastricVarix.d) follows the
 // pressure now, but its channels (the coronary vein C1a and its drain C1b; the short gastric feeder C2 and the gastrorenal shunt
@@ -11,7 +12,7 @@ import { computeMetrics } from '../src/engine/metrics.js';
 import { deepMerge } from '../src/engine/scenario.js';
 import { LOOK_SITE, VARIX_REST_MM, VARIX_FULL_MM, varixSize, varixHold, varixMean, VARIX_MEAN_MS, VARIX_JUMP_MM, varixWidthK, varixSpreadK, varixOpacity } from '../src/ui/varix-look.js';
 
-const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const stage = stageSource();
 const sizes = (id, patch) => {
   const e = new Engine(); e.loadPreset(id);
   if (patch) { e.setParams(deepMerge(e.params, patch)); e.settle(); }
@@ -138,6 +139,6 @@ test('a paused model\'s frame takes the diameter at once: its one frame per chan
   assert.equal(varixHold(unsnapped, 5.2), 6.0, 'held at 6.0 by the part-way mean');
   const snapped = { m: 6.0, at: 0, d: 6.0, now: 1000, snap: true };
   assert.equal(varixHold(snapped, 5.2), 5.0, 'drawn at the new size');
-  const src = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const src = stageSource();
   assert.match(src, /varixHeld\.VAR\.snap = varixHeld\.GV\.snap = f\.running === false \|\| !!f\.jump;/);
 });
