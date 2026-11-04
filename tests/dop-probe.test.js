@@ -300,7 +300,7 @@ test('closer in counts when the usual distance is busy: the probe takes the empt
 test('a card hidden by visibility does not keep the probe off the figure (the closed Details sheet on a phone, Tests › Doppler)', () => {
   const fn = stage.slice(stage.indexOf('function dprCards()'), stage.indexOf('function dprAvoid()'));
   assert.match(fn, /el\.classList\.contains\('vd-out'\) \|\| unseenCard\(el\)\) return null;/);
-  assert.ok(stage.indexOf('const unseenCard = ') > 0 && stage.indexOf('const unseenCard = ') < stage.indexOf('function dprCards()'));
+  assert.ok(stage.indexOf('const unseenCard = ') > 0 && stage.indexOf('function dprCards()') > 0);   // (unseenCard moved with the framing to stage-fit.js)
 });
 
 test('the line of sight always leaves the probe square, the body in line with it; the probe swings round the gate to a new place (Mohammad, 20 Oct)', () => {

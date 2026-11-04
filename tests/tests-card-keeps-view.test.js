@@ -19,10 +19,10 @@ test('the stage skips the refit and the home look only while the Tests card alon
   const stage = stageSource();
   // The space is read without the Tests card and the vitals dock; any other change (size, another card) ends the hold.
   assert.match(stage, /safeInsets\(false, \[document\.getElementById\('dock'\), document\.getElementById\('vdock'\)\]\)/);
-  assert.match(stage, /if \(!store\.get\(\)\.presenting && keptSpace === spaceSig\(\)\) return true;\s*keptSpace = null;\s*return false;/);
-  assert.match(stage, /function refitRead\(\) \{\s*snapFresh\(\);[^\n]*\n\s*refitAsk = 0;\s*if \(lobuleOn \|\| keptNow\(\)\) return;/);
+  assert.match(stage, /if \(!store\.get\(\)\.presenting && (?:live\.)?(?:live\.)?keptSpace === spaceSig\(\)\) return true;\s*(?:live\.)?(?:live\.)?keptSpace = null;\s*return false;/);
+  assert.match(stage, /function refitRead\(\) \{\s*snapFresh\(\);[^\n]*\n\s*refitAsk = 0;\s*if \((?:live\.)?lobuleOn \|\| keptNow\(\)\) return;/);
   assert.match(stage, /if \(keptNow\(\)\) return;\s{3}\/\/ \(the Tests card alone has changed the space/);
-  assert.match(stage, /keepView\(on\) \{ keptSpace = on \? spaceSig\(\) : null; \}/);
+  assert.match(stage, /keepView\(on\) \{ (?:live\.)?keptSpace = on \? spaceSig\(\) : null; \}/);
   // The Fit button is an explicit ask and always fits.
   const fit = stage.slice(stage.indexOf('const fit = () => {'), stage.indexOf('// A card or sheet opened or closed'));
   assert.ok(!fit.includes('keptNow'));
