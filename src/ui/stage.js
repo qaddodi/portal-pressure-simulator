@@ -4,7 +4,7 @@
 import { TIERS_ON, TIER_TOP, tierK, motionK, onTierWarm } from './adapt-tier.js';
 import { hold as gpuHold, overMemory as gpuOverMemory } from './gpu-budget.js';
 import { WARM_VIEWS, WARM_MS } from './warm-views.js';
-import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js';
+import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js';
 import { route as metroRoute, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, ART_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, CAVITY_LOW, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js';
 import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js';
 import { sideEndScale } from './fork-joins.js';
@@ -12,7 +12,7 @@ import { lookChanged, newLookSig } from './look-sig.js';
 import { veinJoins as joinsPass, smoothRunOn as smoothPass, newJoinStore, runOnSamples } from './vein-joins.js';
 import { nodeEnds, nodeDrawn, dotRadius, bareDots } from './circuit-nodes.js';
 import { STATION_VESSEL, meanVel, velNormal, judgeFlow } from './velNormal.js';
-import { store, updateParams, varicesPresent, varixGrowth, shownVel } from './store.js';
+import { store, varicesPresent, varixGrowth, shownVel } from './store.js';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, loadFailed, systemEdge, restBox, translateRest, settledBox, putText, UPRIGHT_MQ, cssVar, cssRGB } from './util.js';
 import { recordLayer } from './over-records.js';
 import { riseCentre } from './rise-path.js';
@@ -49,9 +49,9 @@ import { measure as measureWords } from './glyph-measure.js';
 import { readGroup as readGroupNow, readGroupRefs, readFail, shapeSource, reshape, bindShape, targetRoom, mulTo, elMat } from './organ-paint.js';
 import { setLive, getLive, dropLive } from './live-style.js';
 import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js';
-import { pathCmds, flattenPath, newCmds, cmdsReset, cmdM, cmdL, cmdQ, cmdZ, measurePath, elBoxInto, chainMat } from './shape-gl.js';
-import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js';
-import { hitLabel, explainText, createExplain } from './label-explain.js';
+import { pathCmds, newCmds, cmdsReset, cmdM, cmdL, cmdQ, cmdZ, measurePath, elBoxInto, chainMat } from './shape-gl.js';
+import { HOVER_LINK, labelTarget } from './hover-link.js';
+import { explainText, createExplain } from './label-explain.js';
 import { nameSpots, NAME_BREAK } from './organ-names.js';
 import { createLabelGL } from './label-gl.js';
 import { hits, crosses, within, RING_DIRS, offset, needsLeader, LEAD_ON } from './label-place.js';
@@ -72,7 +72,6 @@ import { frameFor, lateFrameFor, cancelFrame, mayTask, cancelMay, noteDraw, ease
 import { softwareYield } from './sw-yield.js';
 import { portalSplit } from './table-marks.js';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js';
-import { createVesselPick } from './vessel-pick.js';
 import { leaderEnd as edgeOf, leaderEndRects as edgeOfRects } from './leader-end.js';
 import { layoutWatch } from './idle-keys.js';
 import { writeGlowTexels } from './glow-texels.js';
@@ -86,7 +85,6 @@ import { capDensity } from './pixel-budget.js';
 import { liftEnd, rippleList, systemOf, SYSTEM_COLOR } from './highlight-math.js';
 import { organAnchor, stepGroups, spanOf, SPAN_TICK, insideBy, clearOf, besideLine } from './callout-math.js';
 import { CellGrid, geomOf } from './cell-grid.js';
-import { classSoon } from './class-soon.js';
 import { restPass, cancelRest } from './rest-pass.js';
 import { createLateQueue } from './late-queue.js';
 import { dropLabel } from './drop-label.js';
@@ -163,6 +161,7 @@ import { createBalloon } from './stage-balloon.js';
 import { createCath } from './stage-cath.js';
 import { createOutlines } from './stage-outlines.js';
 import { createFocus } from './stage-focus.js';
+import { createHover } from './stage-hover.js';
 
 export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, onViewChange }) {
   // <stage-split live>
@@ -187,13 +186,22 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get CTM() { return CTM; }, set CTM(v) { CTM = v; },
     get dprCardsAt() { return dprCardsAt; }, set dprCardsAt(v) { dprCardsAt = v; },
     get dprCardsList() { return dprCardsList; }, set dprCardsList(v) { dprCardsList = v; },
+    get drag() { return drag; }, set drag(v) { drag = v; },
     get dyeShown() { return dyeShown; }, set dyeShown(v) { dyeShown = v; },
+    get edgeRev() { return edgeRev; }, set edgeRev(v) { edgeRev = v; },
     get F() { return F; }, set F(v) { F = v; },
+    get figKeys() { return figKeys; },
     get fluidFade() { return fluidFade; },
+    get fluidSurf() { return fluidSurf; }, set fluidSurf(v) { fluidSurf = v; },
     get fx() { return fx; }, set fx(v) { fx = v; },
     get fxSig() { return fxSig; }, set fxSig(v) { fxSig = v; },
     get geometryVersion() { return geometryVersion; }, set geometryVersion(v) { geometryVersion = v; },
+    get glowSync() { return glowSync; }, set glowSync(v) { glowSync = v; },
     get gScan() { return gScan; },
+    get guideGlow() { return guideGlow; },
+    get guideLab() { return guideLab; },
+    get guideLine() { return guideLine; },
+    get hoverId() { return hoverId; }, set hoverId(v) { hoverId = v; },
     get inUpdate() { return inUpdate; }, set inUpdate(v) { inUpdate = v; },
     get labelGL() { return labelGL; },
     get labelSvg() { return labelSvg; },
@@ -201,6 +209,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get leadEls() { return leadEls; },
     get LINE_H() { return LINE_H; },
     get lineW() { return lineW; },
+    get linkEdge() { return linkEdge; }, set linkEdge(v) { linkEdge = v; },
+    get linkKbd() { return linkKbd; }, set linkKbd(v) { linkKbd = v; },
+    get linkLit() { return linkLit; }, set linkLit(v) { linkLit = v; },
+    get linkOrgan() { return linkOrgan; }, set linkOrgan(v) { linkOrgan = v; },
+    get linkPtr() { return linkPtr; }, set linkPtr(v) { linkPtr = v; },
+    get lobuleOn() { return lobuleOn; }, set lobuleOn(v) { lobuleOn = v; },
     get lz() { return lz; }, set lz(v) { lz = v; },
     get mapWake() { return mapWake; }, set mapWake(v) { mapWake = v; },
     get markLast() { return markLast; }, set markLast(v) { markLast = v; },
@@ -216,12 +230,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get organMorphA() { return organMorphA; }, set organMorphA(v) { organMorphA = v; },
     get origins() { return origins; }, set origins(v) { origins = v; },
     get originsF() { return originsF; }, set originsF(v) { originsF = v; },
+    get pickVer() { return pickVer; }, set pickVer(v) { pickVer = v; },
     get pillEdge() { return pillEdge; }, set pillEdge(v) { pillEdge = v; },
     get pool() { return pool; },
     get restK() { return restK; }, set restK(v) { restK = v; },
     get restOn() { return restOn; }, set restOn(v) { restOn = v; },
     get restStill() { return restStill; },
     get restU() { return restU; }, set restU(v) { restU = v; },
+    get shunt() { return shunt; }, set shunt(v) { shunt = v; },
     get sprayA() { return sprayA; }, set sprayA(v) { sprayA = v; },
     get sprayLast() { return sprayLast; }, set sprayLast(v) { sprayLast = v; },
     get stageWake() { return stageWake; }, set stageWake(v) { stageWake = v; },
@@ -11744,368 +11760,12 @@ onRenderScale(() => { autoK = autoNow(); moveLow = false; adaptK = 1; moveGaps.l
   let drag = null;
   let shunt = null; // { src, wx, wy, targets: Map(id → rule), hover }
 
-  function edgeFromEvent(ev) {
-    // A pointer is picked on the vessels' data (hitVessel), never by the browser's hit test; an event with no point (a key on the
-    // figure) names the vessel the keyboard is on (figKeys).
-    if (ev.clientX != null) return lobuleOn ? null : hitVessel(ev.clientX, ev.clientY, 0);
-    return ev.target === svg && figKeys.cur && !figKeys.cur.startsWith('organ:') ? figKeys.cur : null;
-  }
-  // Vessel picking on the vessels' own data (vessel-pick.js; plan "Holding 120 Hz" §3.5, and 2 Nov 2026 "everything on GPU"): each
-  // vessel's drawn course, its strands' and its drawn trunks', tested as a stroke of its hit width with round caps, in world units
-  // through the camera's matrix (CTM), never through an element (no path text parsed, no style or ancestor read). The rules are the
-  // ones its hit stroke had: the width x.hitW (else 8 in the context and back layers, else 20), 12 for a strand or a trunk; none for a
-  // vessel not shown (x.vis) or the liver's own small vessels in the anatomy (x.noHit); a strand only while it is live, strands and
-  // trunks only in the anatomy. On a stroke, the one the GPU draws on top wins (its tier, then its row); near one, the nearest within
-  // slop CSS px past its edge (nearbyEdge).
-  const pickTier = (x) => (x.lifted && !x.back ? (x.front ? TIER_LIFT_FRONT : TIER_LIFT) : x.isArt ? TIER_ART : levelTier(x));
-  const vesselPick = createVesselPick((visit) => {
-    const anat = morph < 0.5;
-    for (const x of EV) {
-      if (!x.vis || x.noHit) continue;
-      const id = x.e.id, rank = pickTier(x) * GL_ROWS + x.row;
-      const narrow = CONTEXT_EDGES.has(id) || BACK_EDGES.has(id);
-      visit(id, rank, (x.hitW || (narrow ? 8 : 20)) / 2, geo[id]?.cur);
-      if (!anat) continue;
-      if (x.strands) for (const sd of x.strands) if ((sd.live ?? 1) >= 0.5) visit(id, rank, 6, sd.cur);
-      if (x.feeders) for (const fd of x.feeders) if (!fd.fan) visit(id, rank, 6, fd.cur);
-    }
-  });
-  let shapesMemo = null;
-  function vesselShapes() {
-    const ver = pickVer + '|' + edgeRev;
-    if (shapesMemo?.ver === ver) return shapesMemo;
-    const list = [], anat = morph < 0.5;
-    const add = (id, w, P, main) => {
-      if (!P?.length) return;
-      const pts = new Float32Array(P.length * 2);
-      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-      for (let i = 0; i < P.length; i++) {
-        const x = P[i][0], y = P[i][1];
-        pts[2 * i] = x; pts[2 * i + 1] = y;
-        if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
-      }
-      list.push({ id, w, main, path: { polys: [{ pts, closed: false }] }, box: [x0, y0, x1, y1] });
-    };
-    for (const x of EV) {
-      if (!x.vis) continue;
-      const id = x.e.id, narrow = CONTEXT_EDGES.has(id) || BACK_EDGES.has(id);
-      add(id, x.hitW || (narrow ? 8 : 20), geo[id]?.cur, true);
-      if (!anat) continue;
-      if (x.strands) for (const sd of x.strands) if ((sd.live ?? 1) >= 0.5) add(id, 12, sd.cur, false);
-      if (x.feeders) for (const fd of x.feeders) if (!fd.fan) add(id, 12, fd.cur, false);
-    }
-    return (shapesMemo = { ver, list });
-  }
-  function hitVessel(cx, cy, slop) {
-    if (!CTM) refreshCTM();
-    const C = CTM, det = C.a * C.d - C.b * C.c;
-    if (!det) return null;
-    // (The client point in world units: the camera's matrix, undone.)
-    const qx = cx - C.e, qy = cy - C.f;
-    return vesselPick.pick((C.d * qx - C.c * qy) / det, (-C.b * qx + C.a * qy) / det, Math.sqrt(Math.abs(det)), slop);
-  }
+  const { abdomenEl, cancelShunt, edgeFromEvent, explainAt, explainChanged, gHovO, hitVessel, linkFocus, linkHeld, linkHover, linkSync, organAt, setOrganHover, shuntDrop, shuntDropOn, startShunt, vesselShapes, vhStep } = createHover({ E, EI, EV, GL_ROWS, MQ, SEL_FADE, TIER_ART, TIER_LIFT, TIER_LIFT_FRONT, ascitesLine, ascitesPath, ascitesSvg, clientToWorldFast, defs, easeInOut, explain, gGuides, gLeaders, gSelO, geo, glLines, labelGL, late, lateRun, levelTier, nearbyEdge, nextFrame, nodePos, olSet, onHoverInfo, onSelect, orgTone, organEls, organG, pointAt, polyD, pool, readFrame, refreshCTM, setGlowSrc, spot, spotOn, stageBox, svg, syncPlateLook, updateLabels, vh, wrap }, live);
 
-  // Organs under a point (anatomy only). The varices and fundus are small sites. The abdomen is
-  // only the visible fluid itself, so the bowel and its vessels never open the ascites view by accident.
-  const ORGAN_OF = { liver: 'liver', heart: 'heart', 'heart-ra': 'heart', spleen: 'spleen', stomach: null, esophagus: null, bowel: null, colon: null, appendix: null, duodenum: null, 'kidney-l': null };
-  // (2 Nov 2026: tested in script against the outline's own numbers (nonzero fill, or within half the stroke), not by the browser's
-  // isPointInFill/isPointInStroke, which laid the page out in the pointer's move. A band's stroke width is read between frames, once.)
-  const ptPolys = new Map(), ptSW = new WeakMap(), ptSWWant = new Set();
-  let ptSWAsk = 0;
-  function ptSWRead() { ptSWAsk = 0; for (const el of ptSWWant) ptSW.set(el, parseFloat(getComputedStyle(el).strokeWidth) || 0); ptSWWant.clear(); }
-  const polysOf = (d) => {
-    let p = ptPolys.get(d);
-    if (!p) { p = flattenPath(d, 0.25); if (ptPolys.size > 64) ptPolys.clear(); ptPolys.set(d, p); }
-    return p;
-  };
-  const ptIn = (el, x, y, stroke) => {
-    if (!el) return false;
-    const d = el.getAttribute('d');
-    if (!d) return false;
-    const polys = polysOf(d);
-    if (stroke) {
-      const sw = ptSW.get(el);
-      if (sw == null) { ptSWWant.add(el); if (!ptSWAsk) ptSWAsk = restPass(ptSWRead); return false; }
-      const r2 = (sw / 2) ** 2;
-      for (const { pts, closed } of polys) {
-        const n = pts.length / 2;
-        for (let k = 0; k < (closed ? n : n - 1); k++) {
-          const ax = pts[2 * k], ay = pts[2 * k + 1], j = ((k + 1) % n) * 2, bx = pts[j], by = pts[j + 1];
-          const dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy, t = l2 ? Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / l2)) : 0;
-          const ex = ax + t * dx - x, ey = ay + t * dy - y;
-          if (ex * ex + ey * ey <= r2) return true;
-        }
-      }
-      return false;
-    }
-    let wn = 0;
-    for (const { pts } of polys) {
-      const n = pts.length / 2;
-      for (let k = 0; k < n; k++) {
-        const ax = pts[2 * k], ay = pts[2 * k + 1], j = ((k + 1) % n) * 2, bx = pts[j], by = pts[j + 1];
-        const side = (bx - ax) * (y - ay) - (x - ax) * (by - ay);
-        if (ay <= y) { if (by > y && side > 0) wn++; } else if (by <= y && side < 0) wn--;
-      }
-    }
-    return wn !== 0;
-  };
-  function organAt(wx, wy) {
-    if (morph > 0.5) return null;
-    for (const o of [...ORGANS].reverse()) {
-      if (o.deco || !ORGAN_OF[o.id]) continue;
-      const el = organEls[o.id];
-      if (o.band ? ptIn(el, wx, wy, true) : ptIn(el, wx, wy)) return ORGAN_OF[o.id];
-    }
-    if (fluidSurf && ptIn(abdomenEl, wx, wy) && wy > fluidSurf(wx)) return 'abdomen';
-    return null;
-  }
-  const abdomenEl = s('path', { d: ABDOMEN_CLIP, fill: 'none', stroke: 'none' });
-  defs.append(abdomenEl);
 
-  // The IVC is one vessel to the eye: hovering any stretch of it lights all of it.
-  // (vh.also: a reading label that names more than one run of a vessel lights them together, linkApply; a vessel hovered itself never has it.)
-  const vhEdges = (id) => (IVC_EDGES.has(id) ? [...IVC_EDGES] : [id, ...(id === vh.id && vh.also || [])]).filter((e) => E[e]?.vis);
-  function setHover(id, also = null) {
-    if (id === hoverId && also === vh.also) return;
-    hoverId = id;
-    classSoon(wrap, 'over-vessel', !!id && !lobuleOn);   // (the pointer's cursor over a vessel: there is no hit element to carry it)
-    const on = id && store.get().tool === 'select' && !shunt ? id : null;
-    if (on === vh.id && also === vh.also) return;
-    vh.id = on; vh.also = also;
-    setGlowSrc('hover', on ? vhEdges(on).map((id) => ({ id, col: null, amt: 1.0, wide: 0.5, dur: 280 })) : []);
-    if (!vh.raf) { vh.t = performance.now(); vh.raf = nextFrame(vhStep); }
-    if (HOVER_LINK) linkSync();   // (its reading lifts as it lights, lets go as it dims)
-  }
-  // (The sets a step works in are kept and cleared, not made anew in each step; vhAdd puts in them what vhEdges would list.)
-  const vhWant = new Set(), vhOut = new Set(), vhLift = new Set();
-  function vhAdd(set, id) {
-    if (IVC_EDGES.has(id)) { for (const e of IVC_EDGES) if (E[e]?.vis) set.add(e); return; }
-    if (E[id]?.vis) set.add(id);
-    const also = id === vh.id && vh.also;
-    if (also) for (const e of also) if (E[e]?.vis) set.add(e);
-  }
-  function vhStep(now) {
-    const dt = Math.min(0.1, (now - vh.t) / 1000); vh.t = now;
-    const want = vhWant; want.clear();
-    if (vh.id) vhAdd(want, vh.id);
-    for (const id of vh.sel) want.add(id);
-    if (spotOn()) for (const id of spot.ids) want.add(id);   // (a slide's spotlit vessels brighten as a selected one: V2)
-    for (const id of want) if (!vh.amt.has(id)) vh.amt.set(id, 0);
-    let moving = false;
-    for (const [id, v] of vh.amt) {
-      const to = want.has(id) ? 1 : 0, nv = to > v ? Math.min(1, v + dt / 0.28) : Math.max(0, v - dt / 0.28);
-      if (nv <= 0 && !to) vh.amt.delete(id); else vh.amt.set(id, nv);
-      if (nv !== to) moving = true;
-    }
-    // (While a shunt is being made, its source and every vessel it can join stand out of the dimmed network too: NP3.)
-    let out = vh.sel;
-    if (shunt) {
-      out = vhOut; out.clear();
-      for (const id of vh.sel) if (E[id]?.vis) out.add(id);
-      if (E[shunt.src]?.vis) out.add(shunt.src);
-      for (const id of shunt.targets.keys()) if (E[id]?.vis) out.add(id);
-    }
-    // (A slide's spotlit vessels stand out the same way: deck visuals V2.)
-    let lift = out;
-    if (spotOn() && spot.ids.size) { lift = vhLift; lift.clear(); for (const id of out) lift.add(id); for (const id of spot.ids) lift.add(id); }
-    for (const id of lift) if (!vh.selA.has(id)) vh.selA.set(id, 0);
-    for (const [id, v] of vh.selA) {
-      const to = lift.has(id) ? 1 : 0, k = reduceMotion.matches ? 1 : dt / SEL_FADE, nv = to > v ? Math.min(1, v + k) : Math.max(0, v - k);
-      if (nv <= 0 && !to) vh.selA.delete(id); else vh.selA.set(id, nv);
-      if (nv !== to) moving = true;
-    }
-    glowSync = true; stageWake();
-    vh.raf = moving ? nextFrame(vhStep) : 0;
-  }
 
-  // Organ and site hover: a soft version of the selection outline, never kept once the pointer is away.
-  const gHovO = s('g', { id: 'organHover', 'aria-hidden': 'true' });
-  gSelO.after(gHovO);
-  let hovO = '';
-  function setOrganHover(o, lobe) {
-    const key = o ? o + (lobe || '') : '';
-    if (key === hovO) return;
-    hovO = key;
-    const byOrgan = o && { liver: 'liver', heart: 'heart', spleen: 'spleen' }[o];
-    if (glLines) olSet('hov', byOrgan || null);
-    // (Built between frames too, never in the frame the pointer moved in: 2 Nov 2026, "Move everything to GPU". The newest wins.)
-    hovWant = [o, byOrgan];
-    if (!hovAsk) hovAsk = restPass(() => { hovAsk = 0; lateRun('hover', organHoverNodes(...hovWant)); });
-  }
-  let hovWant = null, hovAsk = 0;
-  // (The soft outline's nodes, built here and put in the page between frames: late('hover').)
-  function organHoverNodes(o, byOrgan) {
-    if (!o) return [];
-    if (byOrgan) {
-      if (glLines) return [];
-      const d = organEls[byOrgan]?.getAttribute('d');
-      if (!d) return [];
-      const el = s('path', { class: 'org-hov-line', d, style: `stroke: rgb(${orgTone(byOrgan).map((x) => Math.round(x * 255))})` }), tr = organG[byOrgan].getAttribute('transform');
-      if (tr) el.setAttribute('transform', tr);
-      return [el];
-    }
-    if (o === 'abdomen') {   // the fluid itself, clipped as it is drawn, so it grows with the ascites
-      ascitesSvg();
-      const fd = ascitesPath.getAttribute('d');
-      if (!fd) return [];
-      return [s('g', { 'clip-path': 'url(#abdomenClip)' }, s('path', { class: 'org-hov-fluid', d: fd }), s('path', { class: 'org-hov-line', d: ascitesLine.getAttribute('d') || '' }))];
-    }
-    return [];
-  }
-  // Nothing stays lit once the pointer is gone, cancelled or lifted (a finger has no hover).
-  function clearHover() { hoverEv = null; setHover(null); setOrganHover(null); onHoverInfo(null); if (linkPtr) { linkPtr = null; linkApply(); } }
-  svg.addEventListener('pointerover', (ev) => {
-    if (ev.pointerType === 'touch') return;
-    const id = edgeFromEvent(ev);
-    if (id && EI[id] != null) {
-      setHover(id);
-      // The element under a still pointer can change (the figure redraws): show the readings then too, not only on a move.
-      if (F && !shunt) { const r = wrap.getBoundingClientRect(); onHoverInfo({ id, x: ev.clientX - r.left, y: ev.clientY - r.top }); }
-    }
-  });
-  svg.addEventListener('pointerleave', clearHover);
-  svg.addEventListener('pointercancel', clearHover);
-  svg.addEventListener('pointerup', (ev) => { if (ev.pointerType === 'touch') clearHover(); });
-  svg.addEventListener('touchend', clearHover, { passive: true });
-  svg.addEventListener('touchcancel', clearHover, { passive: true });
-  document.documentElement.addEventListener('mouseleave', clearHover);
-  window.addEventListener('blur', clearHover);
-  // Hover is hit-tested once per frame (a mouse reports up to 1000 moves a second), and not at all while the figure is
-  // being dragged (the view moves under the pointer and nothing is lit then).
-  let hoverEv = null, hoverRaf = 0;
-  svg.addEventListener('pointermove', (ev) => {
-    if (shunt) { shuntEv = ev; shuntAsk ||= readFrame(shuntRead); }
-    if (ev.pointerType === 'touch') return;   // a finger has no hover (a long press peeks instead)
-    if (drag?.type === 'pan' && drag.moved && !drag.peeked) { if (hoverId) setHover(null); hoverEv = null; return; }
-    hoverEv = ev;
-    // (Hit-tested first in the next frame, while the layout is still the last frame's (readFrame), and lit after (nextFrame).)
-    hoverRaf ||= readFrame(hoverRead);
-  });
-  let nearHover = null;   // (hoverAt's last ring of hit tests: when, the view, where, and what it found)
-  function hoverRead() {
-    hoverRaf = 0;
-    const e = hoverEv; hoverEv = null;
-    if (!e || linkHeld()) return;
-    const look = hoverLook(e);
-    nextFrame(() => hoverAt(e, look));
-  }
-  // The hit tests alone: the vessel under the pointer, and the one near it (at most one ring every 50 ms, see below).
-  function hoverLook(ev) {
-    const id = edgeFromEvent(ev);
-    let near = null;
-    if (!(id && EI[id] != null && F && !shunt) && !shunt && !drag && !lobuleOn && store.get().tool === 'select') {
-      const [wx, wy] = clientToWorldFast(ev.clientX, ev.clientY);
-      if (organAt(wx, wy)) {
-        const now = performance.now(), nh = nearHover;
-        near = nh && now - nh.t < 50 && nh.v === viewVersion && Math.abs(nh.x - ev.clientX) + Math.abs(nh.y - ev.clientY) < 24 ? nh.id
-          : (nearHover = { t: now, v: viewVersion, x: ev.clientX, y: ev.clientY, id: nearbyEdge(ev) }).id;
-      }
-    }
-    return { id, near };
-  }
-  function hoverAt(ev, look) {
-    if (linkHeld()) return;   // (the pointer is on a reading label: that vessel stays lit, whatever frame this move was kept for)
-    const id = look.id;
-    if (id && EI[id] != null && F && !shunt) {
-      const r = stageBox();   // (the kept box: a hover each frame no longer lays out the figure just written)
-      onHoverInfo({ id, x: ev.clientX - r.left, y: ev.clientY - r.top });
-      setHover(id); setOrganHover(null);
-      return;
-    }
-    if (hoverId) setHover(null);   // the pointer is over no vessel any more (also after a captured drag)
-    if (!drag) onHoverInfo(null);
-    if (!shunt && !drag && !lobuleOn && store.get().tool === 'select') {
-      const [wx, wy] = clientToWorldFast(ev.clientX, ev.clientY), o = organAt(wx, wy);   // (the kept transform, as a pan's: no layout)
-      const sel = store.get().selection;
-      // A click here would pick this vessel, so the organ must not light. (Up to 36 hit tests, each a layout and a hit test of the
-      // figure: at most one ring every 50 ms while the mouse moves, near where it was and with the view unchanged; between, the last answer.)
-      const near = o ? look.near : null;
-      if (near && EI[near] != null && F) { setHover(near); setOrganHover(null); return; }
-      if (o && !(sel?.type === 'organ' && sel.id === o)) setOrganHover(o, o === 'liver' ? (wx < LIVER_SPLIT_X ? 'R' : 'L') : '');
-      else setOrganHover(null);
-    } else setOrganHover(null);
-  }
 
-  // ── A reading and its vessel light together (hover-link.js; ?hoverlink=0 turns it off) ──
-  // The reading label under the pointer (or with keyboard focus) lights what it names through setHover, so the glow is the very one the vessel
-  // gets when it is hovered itself, and a hovered vessel lifts its reading: .hov-link on the label and its leader (app.css) takes the name to
-  // full ink and the leader a step darker. Only for a pointer that hovers and never in a talk, whose slides set the lights. Nothing is lit
-  // while the figure is dragged: the press on a label hands the pointer to the figure (capture), which ends the label's hover (clearHover).
-  const linkOK = () => HOVER_LINK && MQ[3].matches && !store.get().presenting && store.get().tool === 'select' && !shunt;
-  // Whether the pointer is still on the label it entered (a label that fades out or is laid out away from a still pointer may send no leave).
-  function linkHeld() {
-    if (!linkPtr) return false;
-    const g = pool.get(linkPtr)?.g;
-    if (g && g.style.display !== 'none' && !g.classList.contains('lb-off') && g.matches(':hover')) return true;
-    linkPtr = null; linkApply();
-    return false;
-  }
-  function linkHover(key, leaving) { if (key == null && linkPtr !== leaving) return; linkPtr = key; if (key) hoverEv = null; linkApply(); }
-  function linkFocus(key, leaving) { if (key == null && linkKbd !== leaving) return; linkKbd = key; linkApply(); }
-  function linkApply() {
-    const key = linkOK() ? linkPtr || linkKbd : null, t = key ? labelTarget(key) : null;
-    const edge = t?.edge && E[t.edge] ? t.edge : null, also = edge && t.also.length ? t.also : null, organ = t?.organ && morph <= 0.5 && !lobuleOn ? t.organ : null;
-    if (edge !== linkEdge) { if (edge) setHover(edge, also); else if (linkEdge && hoverId === linkEdge) setHover(null); linkEdge = edge; }
-    if (organ !== linkOrgan) { if (organ) setOrganHover(organ); else if (linkOrgan && hovO === linkOrgan) setOrganHover(null); linkOrgan = organ; }
-    linkSync();
-  }
-  // The labels (and their leaders) that name the vessels lit by the pointer, and the label the pointer is on: lifted; the rest let go.
-  function linkSync() {
-    const key = linkOK() ? linkPtr || linkKbd : null, want = new Set(vh.id && linkOK() ? labelsOf(pool.keys(), new Set(vhEdges(vh.id))) : []);
-    if (key) want.add(key);
-    const lift = (k, on) => {
-      const g = pool.get(k)?.g;
-      if (g && g.classList.contains('hov-link') !== on) g.classList.toggle('hov-link', on);
-      if (g || !on) for (const el of gLeaders.querySelectorAll(`[data-k="${k}"]`)) if (el.classList.contains('hov-link') !== on) el.classList.toggle('hov-link', on);
-    };
-    for (const k of linkLit) if (!want.has(k)) lift(k, false);
-    for (const k of want) lift(k, true);
-    linkLit = want;
-  }
-  // (A talk that opens, a tool that is picked and a shunt that starts take the link back; setHover brings the vessel's own lift and let-go.)
-  if (HOVER_LINK) { store.on('presenting', linkApply); store.on('tool', linkApply); MQ[3].addEventListener?.('change', linkApply); }
 
-  // ── Tap a label to explain it (N4, V-LIT-7; label-explain.js) ──
-  // A tap in a talk is judged against what the GPU last drew (the labels' snapshot), never the page's boxes. The explained label's station lights as
-  // a hovered one does (setHover), its label takes a line with the name and live readings (nodeItem), and the others step back (.spot-dim).
-  // A second tap on it, the next slide, or the talk's end clears it.
-  let explainEdge = null;
-  function explainApply() {
-    const key = explain.key, t = key ? labelTarget(key) : null;
-    const edge = t?.edge && E[t.edge] ? t.edge : null;
-    if (edge !== explainEdge) { if (edge) setHover(edge, t.also.length ? t.also : null); else if (explainEdge && hoverId === explainEdge) setHover(null); explainEdge = edge; }
-    for (const [k, b] of pool) {
-      const sv = explain.state(k);
-      b.g.classList.toggle('spot-on', sv === 'on'); b.g.classList.toggle('spot-dim', sv === 'dim');
-    }
-    explainLeaders();
-  }
-  // (The leaders and dots: the explained label's own keep their ink, every other steps back. Run again whenever the leaders are painted.)
-  function explainLeaders() {
-    const key = explain.key;
-    for (const el of gLeaders.children) {
-      const k = el.getAttribute('data-k'), on = key && k === key, dim = !!key && !on;
-      if (el.classList.contains('spot-dim') !== dim) el.classList.toggle('spot-dim', dim);
-      if (el.classList.contains('spot-on') !== !!on) el.classList.toggle('spot-on', !!on);
-    }
-  }
-  function explainChanged() {
-    explainApply();
-    nextFrame(() => { if (F) updateLabels(F, true); });   // (the label's new line, laid out in the next frame)
-  }
-  store.on('presenting', () => { if (!store.get().presenting) { explain.clear(); lz?.explainClear?.(); } });
-  /** A tap at client (x, y): explains the station label under it, or clears when it is the one explained. True when a label took the tap. */
-  function explainAt(x, y) {
-    if (!store.get().presenting) return false;
-    if (lobuleOn || lz?.isOpen()) return !!lz?.explainAt?.(x, y);
-    const r = stageBox(), items = labelGL?.drawnLabels?.();   // (each label's last drawn picture, whatever frame drew it: a tap lands between frames)
-    if (!items) return false;
-    for (const it of items) { it.x += r.left; it.y += r.top; }
-    const hit = hitLabel(items, x, y, 8, (k) => k.startsWith('n:') && labelTarget(k) != null);
-    if (!hit) return false;
-    explain.tap(hit.key);
-    return true;
-  }
 
   // ── Gestures: wheel, trackpad, mouse and touch ──
   // A mouse wheel zooms about the pointer. A trackpad's two-finger scroll pans and its pinch (a
@@ -12517,119 +12177,7 @@ onRenderScale(() => { autoK = autoNow(); moveLow = false; adaptK = 1; moveGaps.l
     }
   });
 
-  // ── Shunts: from a source vessel to a drop target ──
-  // Any portal vein to any systemic vein. The shunt joins each vessel at its end nearer the
-  // other; when that pair is exactly a named procedure's (TIPS is right portal →
-  // right hepatic vein), it is that procedure, otherwise a custom shunt between those two veins.
-  const NAMED_RULES = {
-    'RPV>RHV': { key: 'tips', label: 'TIPS' },
-    'PVH>IVCI': { key: 'dips', label: 'DIPS' },
-    'RPV>IVCS': { key: 'dips', label: 'DIPS' },
-    'CONF>IVCI': { key: 'portocaval', label: 'Portocaval shunt' },
-    'SV>LRV': { key: 'dsrs', label: 'Distal splenorenal shunt' },
-    'SVD>LRV': { key: 'dsrs', label: 'Distal splenorenal shunt' },
-    'SMV>IVCI': { key: 'mesocaval', label: 'Mesocaval shunt' },
-  };
-  function shuntRule(a, b, ax, ay, bx, by) {
-    const t = easeInOut(morph);
-    const ends = (id, set, x, y) => [E[id].e.from, E[id].e.to].filter((n) => set.includes(n))
-      .sort((m, n) => Math.hypot(nodePos(m, t)[0] - x, nodePos(m, t)[1] - y) - Math.hypot(nodePos(n, t)[0] - x, nodePos(n, t)[1] - y))[0];
-    for (const [pe, px, py, se, sx, sy] of [[a, ax, ay, b, bx, by], [b, bx, by, a, ax, ay]]) {
-      // Each vessel is joined at its end nearer the other vessel.
-      const pn = ends(pe, SHUNT_PORTAL, sx, sy), sn = ends(se, SHUNT_SYSTEMIC, px, py);
-      if (!pn || !sn) continue;
-      if (NAMED_RULES[`${pn}>${sn}`]) return NAMED_RULES[`${pn}>${sn}`];
-      const id = customShuntId(pn, sn);
-      if (EI[id] != null) return { key: 'custom', id, label: EDGES[EI[id]].label };
-    }
-    return null;
-  }
-  function startShunt(src, { only } = {}) {
-    if (!E[src]?.vis) return false;
-    cancelShunt(true);
-    const [wx, wy] = pointAt(geo[src].cur, 0.5);
-    const targets = new Map();
-    for (const x of EV) {
-      if (!x.vis || x.isArt || x.e.id === src || x.e.kind === 'shunt' || x.e.kind === 'liver') continue;
-      const [tx, ty] = pointAt(geo[x.e.id].cur, 0.5);
-      const r = shuntRule(src, x.e.id, wx, wy, tx, ty);
-      if (r && (!only || r.key === only)) { targets.set(x.e.id, r); x.shuntTarget = true; }
-    }
-    if (!targets.size) { toast('No vessel on the other side of the circulation to connect this one to.'); return false; }
-    shunt = { src, wx, wy, targets, hover: null };
-    E[src].shuntSrc = true;
-    wrap.classList.add('shunting');
-    setHover(null);
-    // On the GPU figure the targets glow and stand out of the dimmed network, as the SVG's do (the hint says "a glowing
-    // vein"; they had shown nothing until hovered, and nothing on touch; round 2 review, NP3).
-    shuntGlow(null);
-    if (!vh.raf) { vh.t = performance.now(); vh.raf = nextFrame(vhStep); }
-    syncPlateLook(); stageWake();
-    store.set({ shunting: { src, only: only || null } });
-    return true;
-  }
-  function cancelShunt(silent) {
-    if (!shunt) return;
-    for (const id of shunt.targets.keys()) if (E[id]) E[id].shuntTarget = false;
-    if (E[shunt.src]) E[shunt.src].shuntSrc = false;
-    shunt = null;
-    gGuides.innerHTML = '';
-    wrap.classList.remove('shunting');
-    setGlowSrc('shunt', []);
-    if (!vh.raf) { vh.t = performance.now(); vh.raf = nextFrame(vhStep); }
-    syncPlateLook(); stageWake();
-    if (!silent) store.set({ shunting: null });
-  }
-  // The shunt's targets in the accent, the one under the pointer stronger and wider.
-  function shuntGlow(on) {
-    if (!shunt) return;
-    setGlowSrc('shunt', [...shunt.targets.keys()].map((id) => ({ id, col: 'var(--accent)', amt: id === on ? 1.4 : 0.9, wide: id === on ? 0.9 : 0.6, dur: 300 })));
-  }
-  // (A drag's target is hit-tested first in the next frame, while the layout is the last frame's, and its guide drawn after.)
-  let shuntEv = null, shuntAsk = 0;
-  function shuntRead() {
-    shuntAsk = 0;
-    const ev = shuntEv; shuntEv = null;
-    if (!ev || !shunt) return;
-    const tgt = edgeFromEvent(ev);
-    nextFrame(() => { if (shunt) shuntMove(ev, tgt); });
-  }
   const guideLine = s('path', { class: 'stent-guide' }), guideGlow = s('path', { class: 'target-glow' }), guideLab = s('text', { class: 'guide-label' });
-  function shuntMove(ev, tgt) {
-    const [wx, wy] = clientToWorldFast(ev.clientX, ev.clientY);   // (the kept transform: no layout read among the guide's writes)
-    const ok = tgt && shunt.targets.has(tgt);
-    if ((ok ? tgt : null) !== shunt.hover) shuntGlow(ok ? tgt : null);
-    shunt.hover = ok ? tgt : null;
-    // (The guide's three pieces are kept and only their attributes move; one not in the page yet goes in between frames: late('guide').)
-    guideLine.setAttribute('class', 'stent-guide' + (tgt && !ok && tgt !== shunt.src ? ' invalid' : ''));
-    guideLine.setAttribute('d', `M${shunt.wx} ${shunt.wy} L ${wx} ${wy}`);
-    const need = [guideLine];
-    if (ok) {
-      guideGlow.setAttribute('d', geo[tgt]?.cur ? polyD(geo[tgt].cur) : ''); guideGlow.setAttribute('stroke-width', E[tgt].width + 16);
-      const r = shunt.targets.get(tgt);
-      // (Placed and sized in screen pixels, as the halos: in world units it was 3 to 8 px.)
-      const k = CTM?.sc > 0 ? 1 / CTM.sc : 1;
-      guideLab.setAttribute('x', wx + 14 * k); guideLab.setAttribute('y', wy - 10 * k); putText(guideLab, r.label);
-      need.push(guideGlow, guideLab);
-    } else { guideGlow.remove(); guideLab.remove(); }
-    if (need.some((el) => el.parentNode !== gGuides)) late('guide', need);
-  }
-  function shuntDrop(ev) {
-    const tgt = edgeFromEvent(ev);
-    if (tgt && shunt.targets.has(tgt)) { shuntDropOn(tgt); return; }
-    if (!tgt) { cancelShunt(); toast('Shunt canceled.'); }
-  }
-  function shuntDropOn(tgt) {
-    const r = shunt?.targets.get(tgt);
-    if (!r) return;
-    cancelShunt();
-    if (r.key === 'tips') updateParams({ tips: { on: true, d: store.get().params.tips.d || 8 } }, { label: 'TIPS' });
-    else if (r.key === 'dips') updateParams({ dips: { on: true, d: store.get().params.dips.d || 8 } }, { label: 'DIPS' });
-    else if (r.key === 'custom') updateParams((p) => { p.customShunts = { ...(p.customShunts || {}), [r.id]: 10 }; return p; }, { label: r.label });
-    else updateParams({ [r.key]: true }, { label: r.label });
-    toast(`${r.label} created.`);
-    onSelect({ type: 'edge', id: r.key === 'tips' ? 'TIPS' : r.key === 'dips' ? 'DIPS' : r.key === 'custom' ? r.id : { portocaval: 'S_PC', dsrs: 'S_DSR', mesocaval: 'S_MC' }[r.key] });
-  }
 
   // ── Anchors for the action card ───────────────────
   const ORGAN_ANCHOR = { liver: [470, 360], heart: [650, 118], spleen: [1052, 362], varices: SITES.varix, gastric: SITES.fundus, abdomen: [720, 770] };

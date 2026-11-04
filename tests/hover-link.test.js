@@ -74,20 +74,20 @@ test('off, the stage adds no class, no listener and no lift (stage.js)', () => {
 });
 
 test('a finger, a talk and a drag light nothing', () => {
-  assert.match(stage, /const linkOK = \(\) => HOVER_LINK && MQ\[3\]\.matches && !store\.get\(\)\.presenting && store\.get\(\)\.tool === 'select' && !shunt;/, 'a hovering pointer, never a talk, only the select tool');
+  assert.match(stage, /const linkOK = \(\) => HOVER_LINK && MQ\[3\]\.matches && !store\.get\(\)\.presenting && store\.get\(\)\.tool === 'select' && !(?:live\.)?shunt;/, 'a hovering pointer, never a talk, only the select tool');
   assert.match(stage, /g\.addEventListener\('pointerenter', \(e\) => \{ if \(e\.pointerType !== 'touch'\) linkHover\(key\); \}\);/, 'never a touch');
   // (The press on a label hands the pointer to the figure by capture, which ends the label's hover: clearHover also clears the link.)
-  assert.match(stage, /function clearHover\(\) \{[^}]*if \(linkPtr\) \{ linkPtr = null; linkApply\(\); \} \}/);
+  assert.match(stage, /function clearHover\(\) \{[^}]*if \((?:live\.)?linkPtr\) \{ (?:live\.)?linkPtr = null; linkApply\(\); \} \}/);
   // (A move kept for the next frame no longer overrides the vessel the label lit.)
   assert.match(stage, /function hoverAt\(ev, look\) \{\s*if \(linkHeld\(\)\) return;/);
   // (A label that fades out under a still pointer sends no leave: the hold checks :hover, so the vessels never stay deaf to the pointer.)
-  assert.match(stage, /function linkHeld\(\) \{[\s\S]*?g\.matches\(':hover'\)[\s\S]*?linkPtr = null; linkApply\(\);/);
+  assert.match(stage, /function linkHeld\(\) \{[\s\S]*?g\.matches\(':hover'\)[\s\S]*?(?:live\.)?linkPtr = null; linkApply\(\);/);
 });
 
 test('the label lights the vessel through setHover, so the glow is the vessel\'s own', () => {
   assert.match(stage, /if \(edge\) setHover\(edge, also\);/);
   // (setHover, with no `also`, is what it was: the vessel under the pointer and nothing else.)
-  assert.match(stage, /function setHover\(id, also = null\) \{\s*if \(id === hoverId && also === vh\.also\) return;/);
+  assert.match(stage, /function setHover\(id, also = null\) \{\s*if \(id === (?:live\.)?(?:live\.)?hoverId && also === vh\.also\) return;/);
   assert.match(stage, /setGlowSrc\('hover', on \? vhEdges\(on\)\.map\(\(id\) => \(\{ id, col: null, amt: 1\.0, wide: 0\.5, dur: 280 \}\)\) : \[\]\);/);
   assert.match(stage, /g\.addEventListener\('focus'/);
   assert.match(stage, /g\.matches\(':focus-visible'\)/, 'focus lights it only from the keyboard, not after a click');

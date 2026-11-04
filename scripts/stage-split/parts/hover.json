@@ -1,0 +1,1 @@
+{ "factory": "createHover", "file": "stage-hover.js", "about": "Hover and pick: the interaction section (pointer reads, hover link, label explain) and the shunts card.", "lines": [[11739, 12109], [12520, 12633]], "stay": ["pointers", "drag", "shunt", "guideLine", "guideGlow", "guideLab"] }

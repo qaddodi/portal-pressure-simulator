@@ -112,10 +112,10 @@ test('NP9, NP11, NP12: the Compare badge stands under the desktop top bar; closi
 test('RF4 and NP3: the lens key and its name are watched by the top bar glide; Add shunt targets glow and stand out on the GPU figure', () => {
   const tb = read('src/ui/topbar-motion.js'), stage = stageSource();
   assert.match(tb, /for \(const id of \['scenarioName', 'legend', 'colorModeLabel'\]\)/);
-  assert.match(stage, /const GLOW_RANK = \[[^\]]*'shunt', 'key'\];/);
-  assert.match(stage, /setGlowSrc\('shunt', \[\.\.\.shunt\.targets\.keys\(\)\]\.map\(\(id\) => \(\{ id, col: 'var\(--accent\)'/);
-  assert.match(stage, /if \(shunt\) \{\n\s+out = vhOut; out\.clear\(\);\n\s+for \(const id of vh\.sel\) if \(E\[id\]\?\.vis\) out\.add\(id\);\n\s+if \(E\[shunt\.src\]\?\.vis\) out\.add\(shunt\.src\);\n\s+for \(const id of shunt\.targets\.keys\(\)\) if \(E\[id\]\?\.vis\) out\.add\(id\);/);
-  assert.match(stage, /wrap\.classList\.remove\('shunting'\);\n\s*setGlowSrc\('shunt', \[\]\);/);
+  assert.match(stage, /const GLOW_RANK = \[[^\]]*'(?:live\.)?shunt', 'key'\];/);
+  assert.match(stage, /setGlowSrc\('(?:live\.)?(?:live\.)?shunt', \[\.\.\.(?:live\.)?shunt\.targets\.keys\(\)\]\.map\(\(id\) => \(\{ id, col: 'var\(--accent\)'/);
+  assert.match(stage, /if \((?:live\.)?shunt\) \{\n\s+out = vhOut; out\.clear\(\);\n\s+for \(const id of vh\.sel\) if \(E\[id\]\?\.vis\) out\.add\(id\);\n\s+if \(E\[(?:live\.)?shunt\.src\]\?\.vis\) out\.add\((?:live\.)?shunt\.src\);\n\s+for \(const id of (?:live\.)?shunt\.targets\.keys\(\)\) if \(E\[id\]\?\.vis\) out\.add\(id\);/);
+  assert.match(stage, /wrap\.classList\.remove\('shunting'\);\n\s*setGlowSrc\('(?:live\.)?shunt', \[\]\);/);
 });
 
 test('B7: vessel colour bins hold until the value is 0.4 mmHg from the bin shown (no flicker with the breath)', () => {

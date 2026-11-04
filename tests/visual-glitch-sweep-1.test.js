@@ -18,7 +18,7 @@ test('the change halos are sized on screen, fade in, and show one decimal', () =
 
 test('the shunt target name is 12 px on screen at any zoom', () => {
   assert.match(css, /\.guide-label \{ font-size: calc\(var\(--fs-12\) \* var\(--halo-k, 1\)\);/);
-  assert.match(stage, /guideLab\.setAttribute\('x', wx \+ 14 \* k\); guideLab\.setAttribute\('y', wy - 10 \* k\)/);
+  assert.match(stage, /(?:live\.)?(?:live\.)?guideLab\.setAttribute\('x', wx \+ 14 \* k\); (?:live\.)?(?:live\.)?guideLab\.setAttribute\('y', wy - 10 \* k\)/);
 });
 
 test('the hover tip unit is not under 12 px', () => {

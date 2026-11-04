@@ -47,7 +47,7 @@ test("a lens switch moves the key in the press's own frame and updates the figur
 
 test("a hover over an organ runs the ring of vessel hit tests at most every 50 ms, near the last spot, with the view unchanged", () => {
   const hov = st.match(/function hoverLook\(ev\) \{[\s\S]*?\n {2}\}\n/)[0];
-  assert.match(hov, /nh && now - nh\.t < 50 && nh\.v === viewVersion && Math\.abs\(nh\.x - ev\.clientX\) \+ Math\.abs\(nh\.y - ev\.clientY\) < 24 \? nh\.id/);
-  assert.match(hov, /\(nearHover = \{ t: now, v: viewVersion, x: ev\.clientX, y: ev\.clientY, id: nearbyEdge\(ev\) \}\)\.id/);
+  assert.match(hov, /nh && now - nh\.t < 50 && nh\.v === (?:live\.)?(?:live\.)?viewVersion && Math\.abs\(nh\.x - ev\.clientX\) \+ Math\.abs\(nh\.y - ev\.clientY\) < 24 \? nh\.id/);
+  assert.match(hov, /\(nearHover = \{ t: now, v: (?:live\.)?viewVersion, x: ev\.clientX, y: ev\.clientY, id: nearbyEdge\(ev\) \}\)\.id/);
   assert.match(st, /function pick\(id, ev\) \{\n\s+if \(!\(id && EI\[id\] != null\)\) id = nearbyEdge\(ev\);/, 'a click always tests afresh');
 });
