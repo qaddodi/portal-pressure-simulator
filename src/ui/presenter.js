@@ -3008,7 +3008,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // eases (followData), nothing jumping ahead of the figure. A kept card that the new slide's layout would change (its size, fit or fold) is not
   // kept after all: put back as it stood, it leaves and is built again as every card is (keepNote, keepFall).
   const NO_KEEP = { data: false, text: false, swap: false };
-  let keepRun = false;   // (the kept data card is the catheter run's monitor: whatever the new slide's layout does to it, it is never let go and built again)
+  let keepRun = false;   // (the kept data card, the same instrument from slide to slide (the HVPG catheter run included): whatever the new slide's layout does to it, it is never let go and built again)
   let keepNow = NO_KEEP, keepArgs = null, keepSnap = null, keepBad = [], keepCut = () => true;
   let dataOn = null, textOn = null;   // (the plans of the cards on screen: null, no such card, or one built from a slide this plan does not know)
   // What a data card is made of for slide i, or null (no card), or undefined (not yet known: a state its tiles' ring is counted from is still being computed).
@@ -3027,7 +3027,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     keepSnap = null; keepBad = []; keepRun = false;
     if (!ui || !prev || booting || reduce.matches || caseLift || caseCard || o.again || !states[stateOf[to]] || (to > 0 && !states[stateOf[to - 1]])) return NO_KEEP;   // (the states a tile's ring and the readings come from must be in)
     const data = dataStands() && keepData({ from: dataOn, to: planOf(s, to), prev, next: s, swap, again: o.again });
-    keepRun = !!data && !!(prev.cath && s.cath && prev.tool?.catheter && s.tool?.catheter);   // (the HVPG catheter run: one monitor card from step to step)
+    keepRun = !!data;   // (the same instrument stays mounted whatever the new slide's layout does to its size, fold or class: only its data changes)
     const text = textStands() && keepText({ from: textOn, to: textPlan(s), prev, next: s, swap, again: o.again });
     if (!data && !text) return NO_KEEP;
     keepSnap = { data: data ? cardSnap(ui.data) : null, text: text ? cardSnap(ui.text) : null };
@@ -3038,7 +3038,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   function keepNote() {
     if (!ui || !keepSnap) return;
     for (const k of ['data', 'text']) {
-      if (k === 'data' && keepRun) continue;   // (the layout's size, fold or class stand as they are: a snap at worst, never the card leaving and coming back: Mohammad, 4 Nov 2026, the HVPG monitor)
+      if (k === 'data' && keepRun) continue;   // (the layout's size, fold or class stand as they are: a snap at worst, never the card leaving and coming back: Mohammad, 4 Nov 2026, "the card shouldn't hide and appear again; it's the same instrument and the data transitions")
       const sn = keepNow[k] && keepSnap[k];
       const why = sn ? cardChangedWhy(sn, k === 'data') : '';
       if (!why) continue;
