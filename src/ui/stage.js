@@ -61,7 +61,7 @@ import { hitLabel, explainText, createExplain } from './label-explain.js';
 import { nameSpots, NAME_BREAK } from './organ-names.js';
 import { createLabelGL } from './label-gl.js';
 import { hits, crosses, within, RING_DIRS, offset } from './label-place.js';
-import { createGlassGL, glassRegions, GLASS } from './glass-gl.js';
+import { createGlassGL, glassRegions, GLASS, PANE, roundPath } from './glass-gl.js';
 import { writePoints, writeJoinNow } from './veins-sweep.js';
 import { ENT_W } from './veins-bin.js';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js';
@@ -8056,6 +8056,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!veins?.top) return null;
     // (The figure's callouts (cards.callouts): the same renderer with the callouts' own ways: drawn while the figure is on, from the figure's own
     // pictures and blood, in the turn between the cards' two, over what lies over the callouts, and their holes in the labels under 'callouts'.)
+    if (cards.pane) {
+      const g = createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, cards, live: () => wrap.classList.contains('gl-on'), version: () => veins.drawSeq, fresh: () => veins.bloodSeq, onFigure: (f) => veins.onPicture(f) });
+      if (!g) { wrap.dataset.pane = 'css'; return null; }
+      hostFrost(g, { order: 0, over: () => frostOver('pane') });
+      paneGL = g;
+      const dispose = g.dispose;
+      g.dispose = () => { if (paneGL === g) paneGL = null; frostHosts.delete(g); dispose(); };
+      return g;
+    }
     if (cards.callouts) {
       const g = createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, cards, live: () => wrap.classList.contains('gl-on'), version: () => veins.drawSeq, fresh: () => veins.bloodSeq, onFigure: (f) => veins.onPicture(f), onHoles: frostHoles('callouts') });
       if (!g) { wrap.dataset.glass = 'css'; return null; }
@@ -10253,7 +10262,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const glass = h('div', { class: 'lb-glass', 'aria-hidden': 'true', hidden: true });
   labelSvg.before(glass);
   // (Drawn on the GPU under the labels while it can be, as the callouts' glass is: glass-gl.js.)
-  const paneGL = veins ? createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, live: () => wrap.classList.contains('gl-on'), pane: glass, version: () => veins.drawSeq, fresh: () => veins.bloodSeq, capture: () => veins?.capture(), onFigure: (f) => veins.onPicture(f), keep: () => figLab('glassCache'), due: () => watch.due() }) : null;
+  let paneGL = null;   // (a region of stage.glass.add, made by cardGlass with cards.pane; set there)
   let glassWant = ['', ''], glassSizing = 0;
   const sizeGlass = () => { glassSizing = 0; glass.style.width = glassWant[0]; glass.style.height = glassWant[1]; };
   onFigLab((k) => { if (k === 'glassCache') { glassGL?.redraw(); paneGL?.redraw(); for (const g of cardGLs) g.redraw(); } });
@@ -10291,7 +10300,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   onFigLab((k) => { if (k === 'lightArt') syncArtLite(); });
   if (figLab('lightArt')) syncArtLite();
-  wrap.dataset.pane = paneGL ? 'gpu' : 'css';
+  wrap.dataset.pane = veins && !SOFTWARE ? 'gpu' : 'css';
   const gLeaders = s('g', { class: 'lb-leaders' });
   const gLabels = s('g', { class: 'lb-blocks' });
   const gScan = s('g', { class: 'lb-scan off' }, s('path', { class: 'leader scan' }), s('circle', { class: 'leader-dot scan', r: 2.6 }));   // the FibroScan callout's leader: its own layer, so it eases with the probe
@@ -10620,10 +10629,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (level === 'callouts') return frostPush(out, frostPartRead('shade', frostReadShade).out);
     return frostPush(out, frostPartRead('marks', frostReadMarks).out);
   }
-  hostFrost(paneGL, { order: 0, over: () => frostOver('pane') });
   // The callouts' glass: one region of stage.glass.add over both callout layers' glass bodies (callout.js .cl-glass), each its outline path (read from
   // its model), its size from its style, its tint the surface at the glass's strength and its soft shadow the callout's own box-shadow, drawn under
   // the callouts (its turn between the cards' two); asked for again by glass.add while the figure's canvas is not made yet.
+  // The liver label's pane likewise: its rounded box (its border radius, its size from its style) tinted with --frost, drawn under the labels (order 0).
+  glassAdd(glass, {
+    pane: true, blur: PANE.blur, sat: PANE.sat, scale: 4, margin: 48, before: glass, watch: glass,
+    tint: (g, cs) => cs.getPropertyValue('--frost'),
+    shape: (g) => { const w = parseFloat(g.style.width) || 0, h = parseFloat(g.style.height) || 0; return w && h ? { d: roundPath(w, h, parseFloat(getComputedStyle(g).borderTopLeftRadius) || 0), w, h } : false; },
+  });
   {
     const body = [], layers = [cath.labels, sites.el];
     const NUMPX = (v) => parseFloat(v) || 0;
