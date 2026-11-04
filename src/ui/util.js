@@ -7,6 +7,7 @@ import { classSoon, dataSoon } from './class-soon.js';
 import { moverOf } from './num-move.js';
 import { pullRelease, pullAt, pullStop } from './sheet-pull.js';
 import { SHEET_FLICK_MIN, SHEET_FLICK_FAR, SHEET_CLOSE_PX, SHEET_CLOSE_SHARE, releaseSpeed, isFlick, carryCurve, settleSlope, settleAt, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js';
+import { reduceMotionMQ } from './motion.js';
 import { leaveFromHere } from './menu-leave.js';
 import { follow2, jumpCount, SHOWN_TAU } from './display-state.js';
 import { measure as measureWords } from './glyph-measure.js';
@@ -400,7 +401,7 @@ addEventListener('pointerdown', (e) => {
 /** How long a menu takes to leave: a sheet, and a menu from the thumb dock (which settles in over --d-small), take --d-small both ways; any other, --d-flip. */
 export const menuExitMs = (el) => (el.classList.contains('as-sheet') || (el.classList.contains('from-dock') && document.documentElement.classList.contains('thumb-ui')) ? D_SMALL : D_FLIP);
 let lastMenu = { anchor: null, t: 0 };   // (the menu that just closed: on iOS a tapped button takes no focus, so a dialog it opens returns here)
-export const reduceMotionMQ = matchMedia('(prefers-reduced-motion: reduce)');
+export { reduceMotionMQ };   // (the one list lives in motion.js)
 /** How a scroll the app makes on its own moves: smooth, or at once with Reduce Motion (as the menu's already did). */
 export const scrollBehavior = () => (reduceMotionMQ.matches ? 'auto' : 'smooth');
 // One card or menu at a time above the thumb dock. A sheet that opens while another is still going out does not wait for it (Menu system

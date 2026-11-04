@@ -23,6 +23,7 @@ import { traceRoom, TRACE_MIN } from './trace-room.js';
 import { rateOf } from './table-marks.js';
 import { drawCallout, dropK, sideFor, calloutCell, calloutText, inkSeg } from './trace-callouts.js';
 import { PROCS, PROC_KINDS, procBlocked, procOffered, playProcedure } from './proc-anim.js';
+import { reduceMotionMQ } from './motion.js';
 const nextFrame = frameFor('hvpg-proc');
 
 let stageRef = null;
@@ -383,7 +384,7 @@ export function createHvpgMonitor() {
     // Already wedged (back from the result slide): the pressure is on its plateau, nothing climbs again.
     if (m !== 'free' && bal >= 1) t = Math.max(t, T.wedge);
     mode = m; t1 = span[1];
-    if ((instant || matchMedia('(prefers-reduced-motion: reduce)').matches) && !falling()) t = t1;
+    if ((instant || reduceMotionMQ.matches) && !falling()) t = t1;
     // (Once the card is laid out: the canvas sizes itself to it.)
     go();
   }

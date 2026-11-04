@@ -22,6 +22,7 @@ import { restPass, cancelRest } from './rest-pass.js';
 import { classSoon, runSoon, propSoon, attrSoon, textSoon } from './class-soon.js';
 import { placeCard, coverCount, vesselPoints } from './card-place.js';
 import { readBox, readMetric } from './layout-snap.js';
+import { reduceMotionMQ } from './motion.js';
 const nextFrame = frameFor('card');
 
 // A reading's printed number ("12.5", "−3.0"), with its decimals, or null for one that isn't a plain number: `out` ({ n, d }, a kept
@@ -124,7 +125,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   leader.setAttribute('class', 'ac-leader'); leader.setAttribute('aria-hidden', 'true');
   view.append(leader);
   const tabletTouch = matchMedia('(pointer: coarse) and (min-width: 768px) and (max-width: 1366px)');
-  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+  const reduceMotion = reduceMotionMQ;
   const sizes = { vw: view.clientWidth, vh: view.clientHeight, w: 0, h: 0 };
   new ResizeObserver(() => { const moved = Math.abs(sizes.vw - view.clientWidth) > 2 || !sizes.vh; sizes.vw = view.clientWidth; sizes.vh = view.clientHeight; if (moved) { placedOk = false; lastLayout = ''; pinned = null; } position(); if (isDocked()) reveal(); }).observe(view);
   new ResizeObserver(() => { const first = !sizes.w; sizes.w = el.offsetWidth; sizes.h = el.offsetHeight; el.style.setProperty('--sheet-size', sizes.h + 'px'); if (first) { placedOk = false; lastLayout = ''; pinned = null; } else lastLayout = ''; position(); syncMore(); if (isDocked()) reveal(); }).observe(el);

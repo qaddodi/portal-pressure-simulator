@@ -6,6 +6,7 @@
 // translate and scale, all on the same curve, so together they are always one rounded plate from the old box to the new. Nothing
 // is laid out or painted again per frame: the compositor carries every piece. The box takes its own glass back as they land.
 import { D_FLIP, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js';
+import { reduceMotionMQ } from './motion.js';
 
 const O = 64;   // (room each piece keeps for its shadow on its outer sides)
 const PIECES = [
@@ -83,7 +84,7 @@ export function glidePlateOn(host, made, from, to, { R = 16, duration = D_SURFAC
  *  from where they stood (FLIP). Sizes and places are read once per change, in the ResizeObserver, after layout and before paint;
  *  nothing is laid out per frame. Reduce Motion: the box takes its new size at once. Returns a function that stops watching. */
 export function glideOnResize(host, { R = 16, duration = D_SURFACE, easing = EASE_ARRIVE } = {}) {
-  const still = matchMedia('(prefers-reduced-motion: reduce)');
+  const still = reduceMotionMQ;
   let last = null, end = null;
   const read = () => ({ x: host.offsetLeft, y: host.offsetTop, w: host.offsetWidth, h: host.offsetHeight,
     kids: new Map([...host.children].filter((c) => !c.classList.contains('pg-piece') && !c.dataset.ghost).map((c) => [c, [c.offsetLeft, c.offsetTop, c.offsetWidth, c.offsetHeight]])) });

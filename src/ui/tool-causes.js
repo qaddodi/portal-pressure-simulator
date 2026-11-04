@@ -21,6 +21,7 @@ import { restClass } from './rest-pass.js';
 import { frameFor } from './frame.js';
 import { createSvgGL, svgModel, setWords, setGeo, setPts } from './svg-gl.js';
 import { numWords, signedWords } from './num-words.js';
+import { reduceMotionMQ } from './motion.js';
 const nextFrame = frameFor('tool-causes');
 const mix = (a, b, k) => a + (b - a) * k;   // (one step toward b)
 
@@ -175,7 +176,7 @@ const sv = svgModel;
 const colourOf = (g) => (GROUPS.find(([k]) => k === g)?.[2] ? `var(${GROUPS.find(([k]) => k === g)[2]})` : 'var(--text-3)');
 
 export function createCauses({ host } = {}) {
-  const reduceMQ = matchMedia('(prefers-reduced-motion: reduce)');
+  const reduceMQ = reduceMotionMQ;
   const el = document.createElement('div');
   el.className = 'pz-cbars';
   const gl = createSvgGL(el);

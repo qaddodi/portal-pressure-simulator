@@ -17,6 +17,7 @@
 import { D_SMALL } from './ease.js';
 import { restPass } from './rest-pass.js';
 import { readBox, readMetric, readStyle } from './layout-snap.js';
+import { reduceMotionMQ } from './motion.js';
 
 const SEL = '.seg, .instr-tabs, .um-tabs, .pressure-switch';
 const PICKED = '[aria-pressed="true"], [aria-selected="true"]';
@@ -92,7 +93,7 @@ const same = (a, b) => !!a && !!b && Math.abs(a.x - b.x) < .05 && Math.abs(a.y -
 export function startSegGlide(root = document.body) {
   if (typeof MutationObserver === 'undefined') return null;
   const states = new Map();   // control -> { btn, box, org, until, token }
-  const reduce = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const reduce = () => reduceMotionMQ.matches;
   const GPU = true;
   const ro = typeof ResizeObserver === 'function' ? new ResizeObserver((entries) => {
     const seen = new Set();

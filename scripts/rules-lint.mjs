@@ -12,6 +12,9 @@
 //   size     stage.js, presenter.js or app.css longer (in lines) than its number in scripts/size-budget.json. The numbers only go down (PR-09).
 //   tests    a new tests/*.test.js that reads the text of src/, styles/ or index.html (a source-regex test) and is not in scripts/source-regex-tests.json.
 //              The list may only shrink (a listed test that no longer reads source is reported; take it off with node scripts/test-classes.mjs --write) (PR-02).
+//   motion   (PR-22, PR-28) the Reduce Motion media query is read only by src/ui/motion.js (import reduceMotionMQ / reduced() from it; four files still
+//              read it themselves, listed in MOTION_READERS, and may only come off); and the count of transition/animation lines in styles/ that
+//              carry no --d-* duration token may not rise above scripts/motion-allowance.json (it only falls: --tighten lowers it).
 //   (The built chunks' 200 KB limit is held by scripts/build.mjs itself: the build fails on a chunk over it.)
 //
 //   node scripts/rules-lint.mjs            check
@@ -98,6 +101,20 @@ for (const f of files.filter((x) => x.endsWith('.js'))) {
   for (const n of now) if (!listed.has(n)) errors.push(`tests/${n} reads the text of src/ or styles/: test what the module does instead, or put the rule in scripts/rules-lint.mjs with a one-line reason (PR-02)`);
   const gone = doc.files.filter((n) => !now.includes(n));
   if (gone.length) console.warn(`rules-lint: ${gone.length} listed source-regex test(s) no longer read source (${gone.slice(0, 3).join(', ')}${gone.length > 3 ? ', …' : ''}): run node scripts/test-classes.mjs --write`);
+}
+
+// Motion (PR-22): one reduce-motion read, and no new bare durations in the stylesheets.
+{
+  const MOTION_READERS = new Set(['src/ui/motion.js', 'src/ui/stage.js', 'src/ui/focus-ring.js', 'src/ui/fibroscan.js', 'src/ui/ext-highlights.js']);
+  for (const f of files.filter((x) => x.endsWith('.js'))) {
+    const rel = relative(ROOT, f).split('\\').join('/');
+    if (!MOTION_READERS.has(rel) && /prefers-reduced-motion/.test(readFileSync(f, 'utf8').split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n'))) errors.push(`${rel} reads prefers-reduced-motion itself: import reduceMotionMQ or reduced() from src/ui/motion.js (PR-22)`);
+  }
+  const bare = readdirSync(join(ROOT, 'styles')).filter((n) => n.endsWith('.css')).reduce((n, name) => n + readFileSync(join(ROOT, 'styles', name), 'utf8').split('\n')
+    .filter((l) => /(?:^|[\s;{])(?:transition|animation)(?:-duration)?\s*:/.test(l) && !/var\(--d-|var\(--vp-ms|var\(--dur|transition\s*:\s*(?:none|var\()|animation\s*:\s*none/.test(l)).length, 0);
+  const mFile = join(ROOT, 'scripts/motion-allowance.json'), mDoc = JSON.parse(readFileSync(mFile, 'utf8'));
+  if (bare > mDoc.bareDurations) errors.push(`styles/ has ${bare} transition/animation lines without a --d-* duration token, over the allowance of ${mDoc.bareDurations} in scripts/motion-allowance.json: use var(--d-flip|small|surface|camera) and var(--ease-*) (PR-22)`);
+  else if (bare < mDoc.bareDurations && process.argv.includes('--tighten')) writeFileSync(mFile, JSON.stringify({ ...mDoc, bareDurations: bare }, null, 1) + '\n');
 }
 
 if (process.argv.includes('--list')) {

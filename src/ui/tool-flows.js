@@ -24,6 +24,7 @@ import { portalSplit } from './table-marks.js';
 import { measure } from './glyph-measure.js';
 import { createSvgGL, svgModel, setGeo, setPts, setWords } from './svg-gl.js';
 import { pctWords } from './num-words.js';
+import { reduceMotionMQ } from './motion.js';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const STENTS = new Set(['TIPS', 'DIPS']);
@@ -273,7 +274,7 @@ export function createFlowsTool() {
   const el = document.createElement('div');
   el.className = 'pz-flows';
   const gl = createSvgGL(el);
-  const reduceMQ = matchMedia('(prefers-reduced-motion: reduce)');
+  const reduceMQ = reduceMotionMQ;
   const clip = `pfl-clip-${++uid}`;
   let of = 'portal', params = null, goal = null, hGoal = null, ctx0 = null, raf = 0, size = '', memo = null, wait = 0;
   // What a frame eases and draws, kept (made when the model is built): each part's numbers (x, pct, op, lx, row, hop) in shownP, the bar's

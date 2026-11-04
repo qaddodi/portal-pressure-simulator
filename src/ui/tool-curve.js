@@ -76,6 +76,7 @@ import { createSvgGL, svgModel, setWords, wordsOf, setGeo } from './svg-gl.js';
 import { airRatio } from './endo-size.js';
 import { NODES } from '../engine/topology.js';
 import { safeParamPath, pathOf, getAt, patchOf, mergeOf } from './import-safety.js';
+import { reduceMotionMQ } from './motion.js';
 const nextFrame = frameFor('tool-curve');
 
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
@@ -563,7 +564,7 @@ const haveOf = (tool, c) => { const p = c?.snap && !overScope(tool) ? keepOf(c.d
 export function warmCurve(t, c) { return t && c ? curveWork(t, c) ?? null : null; }   // (B16: a rejection is returned, not turned into null: slide-prep marks the manifest failed)
 
 export function createCurve() {
-  const reduceMQ = matchMedia('(prefers-reduced-motion: reduce)');
+  const reduceMQ = reduceMotionMQ;
   const el = document.createElement('div');
   el.className = 'pz-curve';
   const gl = createSvgGL(el);

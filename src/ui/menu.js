@@ -23,6 +23,7 @@ import { plateFor } from './plate-gl.js';
 import { glassPlate } from './menu-glass.js';
 import { releaseSpeed, carryCurve, cssCurve, D_FLIP, D_SMALL, EASE_ARRIVE, RISE_PX } from './ease.js';
 import { moverOf, cancelMoves } from './num-move.js';
+import { reduceMotionMQ } from './motion.js';
 const nextFrame = frameFor('menu');
 const profFrame = frameFor('menu-profile');
 // The hover preview's change of size and place runs without layout per frame: the card is laid out once at the taller of its old
@@ -111,7 +112,7 @@ const fold = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-
 const matches = (hay, words) => words.every((w) => hay.includes(w));
 
 export function createMenu({ anchor, library, libraryNow, onPreset, share, help, onToggle }) {
-  const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+  const reduce = reduceMotionMQ;
   const sheetMQ = matchMedia(STACK_MQ);
   const fine = matchMedia('(hover: hover) and (pointer: fine)');
   let el = null, back = null, plate = null, pv = null, coldOpen = false, open = false, hoverT = 0, hideT = 0, pvKey = null, pvTok = 0, mark = null, query = '', tab = 'present';

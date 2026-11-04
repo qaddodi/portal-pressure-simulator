@@ -9,6 +9,7 @@
 // Nothing moves on a window resize or with reduced motion: the bar just takes its new layout.
 import { D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN, EASE_MOVE } from './ease.js';
 import { removeSoon } from './class-soon.js';
+import { reduceMotionMQ } from './motion.js';
 
 const ITEMS = '.tb-id, .tb-id > *, .sb-left, .sb-right, #viewSeg, #viewSeg > button, .sb-right > :not(.tb-face), .top-right, .top-right > *';
 // Pills that grow reveal their new width from the old one instead of snapping wide.
@@ -26,7 +27,7 @@ const MOVE_MS = D_SMALL, IN_MS = D_SMALL, OUT_MS = D_FLIP, EASE = EASE_ARRIVE;
 export function initTopbarMotion() {
   const bar = document.getElementById('topbar'), app = document.getElementById('app');
   if (!bar || !app || !bar.animate) return;
-  const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+  const reduce = reduceMotionMQ;
   // (The pill's glass moves onto a face of its own, as the patient pill's, so the plate can change width while the row inside is already laid out.)
   const row = bar.querySelector('.sb-right');
   if (row && !row.querySelector(':scope > .tb-face')) {

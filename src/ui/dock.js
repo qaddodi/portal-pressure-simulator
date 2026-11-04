@@ -27,6 +27,7 @@ import { releaseSpeed, carryCurve, cubicBezier, easeArrive, D_FLIP, D_SMALL, EAS
 import { readAnims, readBox, readMetric, readStyle, scrollInto } from './layout-snap.js';
 import { attrSoon, dataSoon } from './class-soon.js';
 import { caught } from './caught.js';
+import { reduceMotionMQ } from './motion.js';
 const nextFrame = frameFor('dock');
 
 // A number that changes rewrites its text node in place (setting textContent replaces the node: a DOM rebuild per paint).
@@ -790,7 +791,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     };
     glideCall(workspace, D_SMALL, easeArrive, write);
   }
-  const reduceFit = matchMedia('(prefers-reduced-motion: reduce)');
+  const reduceFit = reduceMotionMQ;
   const fitWatch = new ResizeObserver(() => fitHeight());
   for (const id of FIT) fitWatch.observe(fitView(id));
   function setState(next) {
@@ -826,7 +827,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     body.classList.toggle('pair', isPair());
     paintTitle();
     // (In a tight row the open tab shows its name and the others give way at once; each slides from where it stood by translate.)
-    const flip = tabs.classList.contains('tight') && !matchMedia('(prefers-reduced-motion: reduce)').matches ? TABS.map((id) => [tabEls[id].b, readMetric(tabEls[id].b, 'offsetLeft')]) : null;
+    const flip = tabs.classList.contains('tight') && !reduceMotionMQ.matches ? TABS.map((id) => [tabEls[id].b, readMetric(tabEls[id].b, 'offsetLeft')]) : null;
     for (const id of TABS) {
       const at = open.findIndex((x) => tabOf(x) === id), on = at >= 0;
       tabEls[id].b.setAttribute('aria-selected', String(on));

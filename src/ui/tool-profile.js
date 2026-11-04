@@ -22,6 +22,7 @@ import { measure } from './glyph-measure.js';
 import { hvpgRate, ppgRate } from '../engine/pressure-cuts.js';
 import { numWords } from './num-words.js';
 import { createSvgGL, svgModel, setWords, setGeo, setPts } from './svg-gl.js';
+import { reduceMotionMQ } from './motion.js';
 
 const PATH = PROFILE_PATHS[0];
 export const STATIONS = PATH.nodes;
@@ -653,7 +654,7 @@ export function createProfileTool() {
   const el = document.createElement('div');
   el.className = 'pz-prof';
   const gl = createSvgGL(el);
-  const reduceMQ = matchMedia('(prefers-reduced-motion: reduce)');
+  const reduceMQ = reduceMotionMQ;
   let goal = null, shown = null, ref = null, cfg = { from: null }, ctx0 = null, raf = 0, plan = null, stale = false, size = '', wantMin = null;
   let fSeen = 0;   // (the type size it was drawn at, x100: a zoom the box's own size does not show)
   let S = null, geoNow = null;   // (the model drawn and the layout it was made for)

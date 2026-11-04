@@ -31,6 +31,7 @@ import { D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, easeMove } from './
 import { removeSoon } from './class-soon.js';
 import { setGeo, rawGeo, holdPts, dropPts, holdCmds, dropCmds, holdMat, dropMat } from './held-geo.js';
 import { pathCmds, newCmds } from './shape-gl.js';
+import { reduceMotionMQ } from './motion.js';
 
 const nextLate = lateFrameFor('svg-morph');
 
@@ -259,7 +260,7 @@ export function planMorph(A, B) {
 
 // ── The morph on the page ───────────────────────────────────────────────────────────────────────────────────────────
 const active = new WeakMap();   // host → the morph going on in it
-const reduced = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+const reduced = () => typeof matchMedia === 'function' && reduceMotionMQ.matches;
 const clamp01 = (v) => (v <= 0 ? 0 : v >= 1 ? 1 : v);
 const canFade = (el) => typeof el.animate === 'function' && typeof getComputedStyle === 'function';
 /** A piece's opacity now and whether an earlier fade is still on it: { o, flying }. */

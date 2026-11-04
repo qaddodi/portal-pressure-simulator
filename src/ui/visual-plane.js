@@ -31,7 +31,8 @@ import { frameFor, easeNow } from './frame.js';
 import { easeArrive, D_SURFACE, EASE_ARRIVE } from './ease.js';
 import { createSvgGL, svgModel, setPts, moveAt } from './svg-gl.js';
 import { propSoon } from './class-soon.js';
-const reduceDot = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : { matches: false };
+import { reduceMotionMQ } from './motion.js';
+const reduceDot = typeof matchMedia === 'function' ? reduceMotionMQ : { matches: false };
 
 const nextFrame = frameFor('plane');
 

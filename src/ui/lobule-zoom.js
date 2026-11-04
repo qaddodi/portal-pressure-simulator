@@ -60,6 +60,7 @@ import { createCaptionGL, composeView, inkRows, mirrorOf, rgbaOf as capRGBA } fr
 import { readStyle, readBox as boxOf } from './layout-snap.js';
 import { hitLabel, explainText } from './label-explain.js';
 import { overlapLRTB, discInto } from './label-place.js';
+import { reduceMotionMQ } from './motion.js';
 const nextFrame = frameFor('lobule-zoom');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -147,7 +148,7 @@ const css = (a) => {
 export const LZ_UNDER_GLASS = -10;
 
 export function createLobuleZoom({ host, styles = () => getComputedStyle(host), before = null, binAway = null, figure = null }) {
-  const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+  const reduce = reduceMotionMQ;
   const tissue = h('canvas', { class: 'lz-canvas', role: 'img', 'aria-label': 'Liver lobule microcirculation' });
   const glCv = h('canvas', { class: 'lz-canvas lz-gl', 'aria-hidden': 'true' });
   const fx = h('canvas', { class: 'lz-canvas lz-fx', 'aria-hidden': 'true' });

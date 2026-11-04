@@ -17,6 +17,7 @@ import { RX, bandKeys } from './rx-bands.js';
 import { createSvgGL, svgModel, setWords, setGeo, setPts } from './svg-gl.js';
 import { fix1, round1, printedKey } from './fix-text.js';
 import { D_SURFACE, EASE_ARRIVE } from './ease.js';
+import { reduceMotionMQ } from './motion.js';
 const nextFrame = frameFor('flow-time');
 
 // (No imports: the series and scales load in Node for the unit tests. Every value here is positive.)
@@ -125,7 +126,7 @@ export function headLeft(hx, hy, tw, f, w, boxes = NO_BOXES) {
 }
 
 export function createFlowTime() {
-  const reduceMQ = matchMedia('(prefers-reduced-motion: reduce)');   // (one query, read each frame: a new one was made every frame)
+  const reduceMQ = reduceMotionMQ;   // (one query, read each frame: a new one was made every frame)
   const el = document.createElement('div');
   el.className = 'pz-flowtime';
   const gl = createSvgGL(el);

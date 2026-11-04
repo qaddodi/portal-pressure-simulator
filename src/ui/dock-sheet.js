@@ -12,6 +12,7 @@ import { moverOf, cancelMoves } from './num-move.js';
 import { restPass } from './rest-pass.js';
 import { classSoon } from './class-soon.js';
 import { readBox, readMetric, readStyle } from './layout-snap.js';
+import { reduceMotionMQ } from './motion.js';
 
 const app = $('#app');
 const isPhone = isPhoneLayout;
@@ -139,7 +140,7 @@ export function sheetBehaviour(el, { handle, drag, onClose, active = () => true,
   // committed once landed; otherwise at once (a turn of the device, an opening).
   const apply = (glide = false, h0 = 0, easing) => {
     const v = sizeValue();
-    if (!glide || !isPhone() || matchMedia('(prefers-reduced-motion: reduce)').matches) { stopSheet(el); commit(v); return; }
+    if (!glide || !isPhone() || reduceMotionMQ.matches) { stopSheet(el); commit(v); return; }
     const h1 = pxOf(v), H = Math.max(h0, h1);
     if (Math.abs(h1 - h0) < 1) { stopSheet(el); commit(v); return; }
     if (lay !== H) { stopSheet(el); hold(); el.style.height = `${H}px`; lay = H; setSheetOffset(el, H - h0); }

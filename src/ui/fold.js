@@ -3,9 +3,10 @@
 // (hidden while folded away), so CSS and tests that read the attribute still hold. Nothing animates when the piece is not on screen
 // (a closed section) or under Reduce Motion: it is then shown or hidden at once.
 import { D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js';
+import { reduceMotionMQ } from './motion.js';
 
 const jobs = new WeakMap();
-const still = matchMedia('(prefers-reduced-motion: reduce)');
+const still = reduceMotionMQ;
 const SPACE = ['paddingTop', 'paddingBottom', 'marginTop', 'marginBottom'];
 
 export function fold(el, show, { flat = false } = {}) {

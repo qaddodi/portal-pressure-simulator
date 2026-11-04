@@ -151,7 +151,7 @@ const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const REVERSAL_WATCH = new Set(['PV_TRUNK', 'SV_CONF', 'SMV_CONF', 'LGV_CONF', 'PVH_R', 'PVH_L', 'PRE_R', 'PRE_L', 'V_SPL', 'SV_MID', 'V_IMV', 'V_INT', 'RHV_IVC', 'MHV_IVC', 'LHV_IVC', 'V_STO', 'IVC_IS']);
 
-const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+import { reduceMotionMQ as reduceMotion } from './motion.js';
 // The figure's overlays drawn on the GPU, in the vessel canvas (stage-over.js; 31 Oct, recs A1): on wherever the GPU draws the
 // vessels. Not on a software renderer (the CPU would paint them) unless asked for (?stageover=gpu), as
 // CI's visual check asks, to compare it with the page's own drawing.
@@ -8557,7 +8557,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (el._shTo === to) return;
     el._shTo = to; el.dataset.rate = portalSplit(to).rate;
     const rest = !el._shRaf;
-    if (el._sh == null || matchMedia('(prefers-reduced-motion: reduce)').matches) { cancelFrame(el._shRaf); el._shRaf = 0; el._shW = el._sh = to; splitPaint(el, to, true); return; }
+    if (el._sh == null || reduceMotion.matches) { cancelFrame(el._shRaf); el._shRaf = 0; el._shW = el._sh = to; splitPaint(el, to, true); return; }
     if (rest && Math.abs(to - el._sh) < SPLIT_EPS) { el._shW = el._sh = to; splitPaint(el, to, false); return; }
     if (rest) { el._shAt = performance.now(); el._shStep ||= (now) => splitStep(el, now); el._shRaf = easeFrame(el._shStep); }
   }

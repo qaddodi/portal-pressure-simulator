@@ -10,6 +10,7 @@
 // Cost: no scroll listener and no read of the page as it scrolls or in a frame: the browser reports the ends (IntersectionObserver), and
 // the box's overflow and padding are read only as it is resized; a list is only watched while it is in the page.
 import { restPass } from './rest-pass.js';
+import { reduceMotionMQ } from './motion.js';
 
 const LISTS = '.um-col, .um-cols, .tc-body, .ac-scroll, .menu:not(.tl-history), .instrument-workspace .dock-pane';
 const SLOP = 1;   // (px: a fraction of a pixel of scroll, from zoom or rounding, is not "more")
@@ -73,7 +74,7 @@ export function initScrollEdges(root = document.body) {
   // their own entrance (a crossfade keyframe in app.css, from the first style they have) and out by their opacity transition, and the
   // class goes when that transition ends; a list's mask takes its ends at once, so its class goes at once.
   const menuOf = (el) => el.classList.contains('menu');
-  const still = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const still = () => typeof matchMedia === 'function' && reduceMotionMQ.matches;
   const gone = (l) => { l.drop = 0; l.el.classList.remove('se'); };
   function apply(l) {
     const { el } = l;

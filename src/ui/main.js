@@ -1698,7 +1698,7 @@ function wireFloating() {
   const figureFocus = (ms) => {
     clearTimeout(focusT);
     // (The thumb dock stays put: its tab row is how the tools are reached, and it is slim already.)
-    if (!isPhone() || app.classList.contains('thumb') || $('#strip').classList.contains('all') || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (!isPhone() || app.classList.contains('thumb') || $('#strip').classList.contains('all') || reduceMotionMQ.matches) return;
     if (!focused) { focused = true; classSoon(app, 'figure-focus', true); }
     foldSoon(true);
     if (ms) focusT = setTimeout(unfocus, ms);
@@ -1727,7 +1727,7 @@ function wireFloating() {
     if (on === foldGoal) return;
     foldGoal = on;
     const kids = [...vdockEl.children].filter((k) => !k.classList.contains('pg-piece')), tok = ++foldTok;
-    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches || !vdockEl.animate;
+    const reduced = reduceMotionMQ.matches || !vdockEl.animate;
     const s0 = sizeOf(vdockEl);
     foldAnims.forEach((a) => a.cancel());
     foldAnims = [];
@@ -1820,6 +1820,7 @@ function chromeGlass() {
   chromeGL = stage?.glass?.add(live, { watch: roots, before: roots[0], tint: (_g, cs) => cs.getPropertyValue('--frost') }) || null;
 }
 import { sheetBehaviour } from './dock-sheet.js';
+import { reduceMotionMQ } from './motion.js';
 // ── The thumb dock (15 Oct) ─────────────────────────
 // A phone, or a tablet held upright, in Patients: the top keeps only the patient (left) and the Colored-by key
 // (right), and Treat, Tests, History, Layers and Settings sit in a tab row at the foot of the dock, under the play bar,
@@ -1850,7 +1851,7 @@ const pillHome = () => { const b = $('#viewSeg')?.parentElement; return b && b.i
 // there to where it now rests (pill-motion.js FOLD_MS). The sinusoid view keeps the dock, its timeline and readouts, where they are
 // (2 Nov, Mohammad), so nothing else moves: the pill stays in its home above the dock.
 function pillChange(change) {
-  const seg = $('#viewSeg'), reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const seg = $('#viewSeg'), reduce = reduceMotionMQ.matches;
   const box0 = pillHome(), before = reduce || !box0 ? null : pillState(seg, box0);
   change();
   syncThumb();

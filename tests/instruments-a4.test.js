@@ -109,7 +109,7 @@ test('the HVPG card: the HVPG is the difference of the two readings as shown, an
   assert.match(src, /pending = forward && !again \? 'sweep' : 'result'/, 'it plays going forward onto the slide, once');
   assert.match(src, /cur\.hvpg = tenthGap\(cur\.whvp, cur\.fhvp, target\.hvpg\)/, 'the levels ease and the HVPG follows them');
   assert.match(read('../src/ui/hvpg-proc.js'), /function set\(m, f = null, b = bal, instant = false\)/);
-  assert.match(read('../src/ui/hvpg-proc.js'), /if \(\(instant \|\| matchMedia\('\(prefers-reduced-motion: reduce\)'\)\.matches\) && !falling\(\)\) t = t1;/);
+  assert.match(read('../src/ui/hvpg-proc.js'), /if \(\(instant \|\| reduceMotionMQ\.matches\) && !falling\(\)\) t = t1;/);
   // The presenter tells the tools when a slide is stepped onto, and not when its card is only kept or rebuilt in place.
   assert.match(presenter, /const showTool = \(s, i, lap = false, forward = false\) => ui\.tools\.show\(s\.tool, \{ slide: i, stateKey: stateOf\[i\], forward,/);
   assert.match(presenter, /showTool\(s, i, lap, i === lastAt \+ 1\)/);

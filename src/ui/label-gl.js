@@ -29,6 +29,7 @@ import { booting, holdCover } from './quiet.js';
 import { planRepack, stepRepack, reconcileRepack, commitRepack } from './label-repack.js';
 import { classSoon } from './class-soon.js';
 import { readStyle } from './layout-snap.js';
+import { reduceMotionMQ } from './motion.js';
 const HOLE_MESH = { tri: null, seg: null, nTri: 0, nSeg: 0 };   // alloc-rare: made once (a hole's mask is meshed into it and released after its draw)
 // (The colour a clear writes, one array for every clear: none made per call, plan rev 2 §2.8.)
 const CLEAR0 = new Float32Array(4);
@@ -43,7 +44,7 @@ const TRACK = true;
 // frame whose animations are not taken yet keeps following the fade it had, instead of a reading of the fade's first frame (0), which
 // blinked the label out for one to three frames.)
 const HOLD_MAX = 400;   // (ms: the longest a label waits at its last drawn opacity for its animations, see takeAnims)
-const REDUCE = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
+const REDUCE = typeof matchMedia === 'function' ? reduceMotionMQ : null;
 
 const nextFrame = frameFor('labels-gl');
 const VS = `#version 300 es

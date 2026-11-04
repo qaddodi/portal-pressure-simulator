@@ -40,6 +40,7 @@ import { surface } from './gpu-surfaces.js';
 import { restPass, restClass, restAttr } from './rest-pass.js';
 import { hitLabel } from './label-explain.js';
 import { readBox as boxOf } from './layout-snap.js';
+import { reduceMotionMQ } from './motion.js';
 const HEP_CELL = { j: 0, x0: 0, x1: 0, nu: 0, nv: 0, nr: 0, bi: false };   // alloc-rare: made once (the hepatocyte's cell, written in place by each layout)
 const nextFrame = frameFor('sinusoid-view');
 
@@ -50,7 +51,7 @@ export { sinusoidSupported } from './gl-support.js';
 
 /** `before`: a node of `host` to sit ahead of (the lobule layer, built late, takes the place it would have had). */
 export function createSinusoidView({ host, before = null, share = null }) {
-  const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+  const reduce = reduceMotionMQ;
   const phoneMQ = matchMedia('(max-width: 720px)');
   const canvas = h('canvas', { class: 'sv-canvas', role: 'img', 'aria-label': 'A sinusoid, cut along its length' });
   const labels = h('div', { class: 'lz-labels' });

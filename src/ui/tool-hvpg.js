@@ -15,8 +15,9 @@ import { T, ease, k01 } from './hvpg-clock.js';
 import { frameFor, cancelFrame } from './frame.js';
 import { tenthGap } from '../engine/gap.js';
 import { follow2, SHOWN_TAU } from './display-state.js';
+import { reduceMotionMQ } from './motion.js';
 const nextFrame = frameFor('tool-hvpg');
-const REDUCED = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+const REDUCED = () => typeof matchMedia === 'function' && reduceMotionMQ.matches;
 /** The readings a card shows from a fingerprint (or the live metrics): the two pressures, and the HVPG as the difference of them as printed. */
 export const levelsOf = (m) => (m && Number.isFinite(m.fhvp) && Number.isFinite(m.whvp) ? { fhvp: m.fhvp, whvp: m.whvp, hvpg: tenthGap(m.whvp, m.fhvp, m.hvpg) } : null);
 /** How long the free sweep lasts before the balloon starts, and the stretch between the balloon being up and the result taking over (ms on the procedure's clock). */

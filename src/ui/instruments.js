@@ -26,6 +26,7 @@ import { createSvgGL, svgModel, setWords, wordsOf, setGeo } from './svg-gl.js';
 import { textWidth } from './text-gl.js';
 import { D_SURFACE, easeArrive } from './ease.js';
 import { inkBox } from './glyph-measure.js';
+import { reduceMotionMQ } from './motion.js';
 // (The endoscope's field: drawn in the late part of a frame, after the model's frame of it has been taken in, so once a frame.)
 const drawFrame = lateFrameFor('instruments');
 
@@ -148,7 +149,7 @@ export function createEndoscopy({ onAction }) {
   // at that pressure; the grade, the pressure inside it and the model are not touched); red, true or false (the red wale marks shown or hidden whatever
   // the wall stress; absent: the model's rule); readings, three more rows (the pressure in the varix, in the lumen and across the wall).
   const opt = { air: 0, red: null, readings: false };
-  const dark = matchMedia('(prefers-color-scheme: dark)'), still = matchMedia('(prefers-reduced-motion: reduce)');
+  const dark = matchMedia('(prefers-color-scheme: dark)'), still = reduceMotionMQ;
   // The field as it showed before it last changed (the drawer's texture 'old'), the new one fading in over it from fadeT0
   // (endo-motion.js); the balloon's and the jet's strength (0..1) easing toward on or off. On the display clock, so a
   // paused model still finishes a fade.
@@ -688,7 +689,7 @@ function iapDial() {
   if (typeof ResizeObserver === 'function') new ResizeObserver((es) => { const b = es[es.length - 1].contentBoxSize?.[0]; boxW = b ? b.inlineSize : es[es.length - 1].contentRect.width; fit(); }).observe(el);
   // The knob's turn, eased on the frame clock as the page's transition was (D_SURFACE on the arrive curve); reduced motion: at once.
   let ang = 90, turn = null, turnAsk = 0;
-  const KNOB_STILL = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : { matches: false };
+  const KNOB_STILL = typeof matchMedia === 'function' ? reduceMotionMQ : { matches: false };
   const rotTxt = [];   // (the knob's turn by hundredths of a degree, made the first time that angle is drawn and kept)
   const knobAt = (a) => { const k = Math.round(a * 100); setGeo(knob, 'transform', rotTxt[k] ?? (rotTxt[k] = `rotate(${(k / 100).toFixed(2)} ${C} ${C})`)); };   // alloc-rare: only the first time that angle is drawn
   knobAt(ang);

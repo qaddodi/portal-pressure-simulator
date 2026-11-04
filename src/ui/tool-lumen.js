@@ -10,6 +10,7 @@ import { store } from './store.js';
 import { frameFor, cancelFrame } from './frame.js';
 import { createSvgGL, svgModel, snapOp, setWords, setGeo, setPts } from './svg-gl.js';
 import { restPass } from './rest-pass.js';
+import { reduceMotionMQ } from './motion.js';
 const nextFrame = frameFor('lumen');
 
 const STENTS = new Set(['TIPS', 'DIPS']);
@@ -159,7 +160,7 @@ export function createLumen() {
   const el = h('div', { class: 'gl' }, h('div', { class: 'gl-stage' }, pic));
   const gl = createSvgGL(el.firstChild);   // (its looks are read once it is on the page and sized: fit)
   const set = setWords;   // (words kept on the piece, drawn by the picture: no text node made in a frame)
-  const reduce = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
+  const reduce = typeof matchMedia === 'function' ? reduceMotionMQ : null;
   // What the picture shows now, easing to the model's state (a compare button or a new slide jumps the params; the picture eases).
   // (shown and goal are kept and written in place; hasShown says shown holds the picture's state.)
   const shown = { stenosis: 0, thrombus: 0 }, goal = { stenosis: 0, thrombus: 0 };

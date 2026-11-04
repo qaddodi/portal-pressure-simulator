@@ -21,6 +21,7 @@ import { createSvgGL, svgModel, setPolys } from './svg-gl.js';
 import { textPolys, textBox, loadGlyphs, glyphsReady } from './text-gl.js';
 import { textSoon, attrSoon } from './class-soon.js';
 import { restPass } from './rest-pass.js';
+import { reduceMotionMQ } from './motion.js';
 const nextFrame = frameFor('timeline');
 
 const SEV = { critical: 'var(--critical)', danger: 'var(--danger)', caution: 'var(--caution)', info: 'var(--info)', ok: 'var(--ok)' };
@@ -368,7 +369,7 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
       const ic = f.running ? 'pause' : (lp ? 'playlapse' : 'play');
       if (ic !== lastIcon) {
         lastIcon = ic;
-        const nu = icon(ic), still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const nu = icon(ic), still = reduceMotionMQ.matches;
         const old = [...playBtn.children];
         if (!nu.animate || !playBtn.isConnected) playBtn.replaceChildren(nu);
         else {

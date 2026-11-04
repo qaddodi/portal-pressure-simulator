@@ -8,6 +8,7 @@ import { D_FLIP, D_SMALL, EASE_ARRIVE, EASE_MOVE } from './ease.js';
 import { restRemove } from './rest-pass.js';
 import { glidePlate } from './plate-glide.js';
 import { sheetLayer } from './sheet-layer.js';
+import { reduceMotionMQ } from './motion.js';
 
 export function createWhy(pop) {
   if (pop?.isConnected) sheetLayer().append(pop);   // (laid in the one sheet layer, cut on the dock's top line: sheet-layer.js)
@@ -79,7 +80,7 @@ export function createWhy(pop) {
     // rather than the card jumping to a new size (P20).
     // (By transform: the card takes its new size and place at once and its paper glides there from the old in pieces, plate-glide.js;
     // nothing is laid out per frame. The words come in as the paper is nearly there, so they never show past it.)
-    const h1 = pop.offsetHeight, glide = !asSheet() && pop.animate && h0 && Math.abs(h1 - h0) > 1 && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const h1 = pop.offsetHeight, glide = !asSheet() && pop.animate && h0 && Math.abs(h1 - h0) > 1 && !reduceMotionMQ.matches;
     if (glide) {
       glideEnd?.();
       const w = pop.offsetWidth, dy = t0 - placedTop;

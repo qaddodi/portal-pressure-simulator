@@ -88,7 +88,7 @@ let TESTING = [];
 const testingLoad = PREVIEW ? import('./test-decks/demo-all-new-visuals.js').then(({ DEMO_ALL }) => { TESTING = [DEMO_ALL].map((d) => ({ id: 'test-' + d.id, title: d.title, summary: d.summary || '', deck: checkDeck(d), test: true })); }).catch(() => { /* the preview's test deck only */ }) : Promise.resolve();
 // alloc-rare: one timer per awaited step of a procedure, seconds apart, not per frame
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+import { reduceMotionMQ as reduce } from './motion.js';
 const ease = (u) => (u < 0.5 ? 4 * u * u * u : 1 - (-2 * u + 2) ** 3 / 2);
 /** Poll (not frames: a hidden tab runs none) until fn() holds or ms pass. */
 async function until(fn, ms = 3000) { const t0 = performance.now(); while (!fn() && performance.now() - t0 < ms) await wait(40); }

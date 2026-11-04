@@ -13,6 +13,7 @@
 import { rgb2oklab, oklab2rgb } from './colormap.js';
 import { cssRGB, swapFade, hasBox } from './util.js';
 import { D_SURFACE, EASE_MOVE } from './ease.js';
+import { reduceMotionMQ } from './motion.js';
 
 export const MORPH_STOPS = 24;
 const clamp01 = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
@@ -87,7 +88,7 @@ export function pairItems(olds, news) {
 // old ramp (where it had got to, for a key switched again mid-way) and fades out by opacity on the compositor, riding the bar's
 // glide. Nothing is repainted per frame.
 const jobs = new WeakMap();
-const reduced = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+const reduced = () => typeof matchMedia === 'function' && reduceMotionMQ.matches;
 const opt = (extra = {}) => ({ duration: D_SURFACE, easing: EASE_MOVE, ...extra });   // alloc-rare: once per lens, mode or reference switch (a store change of the key's model, main.js renderLegend), the gesture that starts the key's morph; never per frame, the morph itself runs on the compositor
 const shown = (n) => !!n && n.getClientRects().length > 0;
 

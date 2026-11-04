@@ -10,6 +10,7 @@ import { endoGrow, LARGE_MM } from './endo-size.js';
 import { D_SURFACE, easeArrive } from './ease.js';
 import { createTraceGL, fitPen } from './trace-gl.js';
 import { frameFor, cancelFrame } from './frame.js';
+import { reduceMotionMQ } from './motion.js';
 
 const RES = 168, STEPS = 14, NONE_MM = 2.5;   // (2.5 mm: below it the metrics call it no varix)
 export const scopeKey = (d) => (Number.isFinite(d) && d >= NONE_MM ? Math.round(endoGrow(d) * STEPS) : -1);
@@ -38,7 +39,7 @@ export function createScopeTile() {
   const disc = h('span', { class: 'pzs-disc' }, top);
   const el = h('div', { class: 'pzs-pic' }, disc, word);
   const wordW = glWords(word);
-  const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+  const reduce = reduceMotionMQ;
   let key = null, img = null, ver = 0, swap = false, fadeT0 = -1, asked = 0, dead = false;
   const pen = createTraceGL(top, { redraw: () => paint() });
   // (The picture is shaded by the scope's own WebGL2 shader (endo-gl.js), as the instrument's is, and taken up by the drawer as a texture, GPU to

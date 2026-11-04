@@ -15,9 +15,10 @@
 // Reduced motion, or no Web Animations: set at once, as before with no ease.
 
 import { EASE_ARRIVE } from './ease.js';
+import { reduceMotionMQ } from './motion.js';
 
 const runs = new WeakMap();
-const reduced = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+const reduced = () => typeof matchMedia === 'function' && reduceMotionMQ.matches;
 
 /** The elements after `item` that its height pushes: its later siblings and its ancestors' later siblings, up to `root`. */
 export function followers(item, root) {
