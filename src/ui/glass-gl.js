@@ -2016,7 +2016,7 @@ export function glassRegions(make, wrap) {
     if (grp.g) start(); else if (!grp.t) start();
     return {
       // (The renderer's own readings, for checks and the ?perf readout: those of the renderer this region's blur shares.)
-      drawn: () => grp.g?.drawn() ?? null, why: (e) => grp.g?.why(e) ?? null, boxOf: (e) => grp.g?.boxOf(e) ?? null,
+      drawn: () => grp.g?.drawn() ?? null, why: (e) => (grp.g ? grp.g.why(e) : grp.recs.has(rec) ? 'no figure canvas to draw into yet (asked again; the card stays solid, never a CPU copy)' : null), boxOf: (e) => grp.g?.boxOf(e) ?? null,
       state: () => grp.g?.state() ?? null, redraw: () => grp.g?.redraw(), get on() { return !!grp.g?.on; }, get hosted() { return !!grp.g?.hosted; },
       remove() {
         if (!grp.recs.delete(rec)) return;
