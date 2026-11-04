@@ -24,7 +24,6 @@ import { fluidSpringFor } from './organ-ease.js';
 import { spleenMotion } from './spleen-motion.js';
 import { segHitsBox, lineIndex, indexHits } from './seg-hits.js';
 import { glassCallout, withGlass } from './callout.js';
-import { rolePx, roleOf } from './type-scale.js';
 import { smooth01 } from './liver-morph.js';
 import { COLON_ART, BOWEL_ART, DUO_CLIPS, DUO_B } from './organ-art.js';
 import { gpuProbe, COUNTED } from './gpu-probe.js';
@@ -154,6 +153,7 @@ import { createIdle } from './stage-idle.js';
 import { createLabelSolve } from './stage-label-solve.js';
 import { createLabelHost } from './stage-label-host.js';
 import { createLabelText } from './stage-label-text.js';
+import { createLabelSize } from './stage-label-size.js';
 
 export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, onViewChange }) {
   // <stage-split live>
@@ -318,6 +318,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get labelPainted() { return labelPainted; }, set labelPainted(v) { labelPainted = v; },
     get labelPassOff() { return labelPassOff; }, set labelPassOff(v) { labelPassOff = v; },
     get labelRider() { return labelRider; }, set labelRider(v) { labelRider = v; },
+    get labelScale() { return labelScale; }, set labelScale(v) { labelScale = v; },
     get labelSettleT() { return labelSettleT; }, set labelSettleT(v) { labelSettleT = v; },
     get labelShown() { return labelShown; }, set labelShown(v) { labelShown = v; },
     get labelSol() { return labelSol; }, set labelSol(v) { labelSol = v; },
@@ -5599,16 +5600,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Projection ramp: presenting sets the atlas labels at projector sizes (at 2: values 28 px, names 23 px),
   // readable from the back of a room. The presenter passes a scale for the screen it is on.
   let projecting = false;
-  // (Projecting, the projector's size times the viewer's own text size from Settings.)
-  const labelBase = () => (projecting ? (typeof projecting === 'number' ? projecting : 2) * labelScale : labelScale * deskK());
-  // (A window dragged between a desktop's width and a narrow one: the labels follow; a presentation sets its own.)
-  deskMQ.addEventListener?.('change', () => { if (projecting) return; document.documentElement.style.setProperty('--label-k', String(labelScale * deskK())); document.documentElement.style.setProperty('--label-scale', String(labelScale)); document.documentElement.style.setProperty('--ts', String(labelScale)); dispatchEvent(new Event('pps:labelscale')); });
-  // A line is a list of runs { t, size, weight, cls, track }. Returns [width, height].
-  // A run's size on screen: its role (reading, name, caption) at this screen's size, times the text size setting;
-  // a presentation raises it to the projector's size (never below Explore's).
-  const fontPx = (size) => rolePx(roleOf(size)) * labelScale * (projecting ? Math.max(1, Math.min(typeof projecting === 'number' ? projecting : 2, 2.2) / 1.5) : 1);
-  const LINE_H = (line) => { let m = -Infinity; for (let i = 0; i < line.length; i++) m = Math.max(m, fontPx(line[i].size)); return m * 1.24; };
-  const lineW = (line) => { let w = 0; for (let i = 0; i < line.length; i++) { const r = line[i]; w = w + textW(r.t, fontPx(r.size), r.weight, r.track || 0) + (i ? (r.gap ?? 3) * labelK : 0); } return w; };
+  const { LINE_H, fontPx, labelBase, lineW } = createLabelSize({ deskK, deskMQ, textW }, live);
 
   const pool = new Map(); // key → { g, sig, … }
   // Tap a label to explain it (N4, label-explain.js): the tapped station's label grows a line of its own (name and live value, drawn by the GPU with
