@@ -2,8 +2,7 @@
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
 import { TIERS_ON, TIER_TOP, tierK, motionK } from './adapt-tier.js';
-import { hold as gpuHold, overMemory as gpuOverMemory } from './gpu-budget.js';
-import { WARM_VIEWS, WARM_MS } from './warm-views.js';
+import { overMemory as gpuOverMemory } from './gpu-budget.js';
 import { EDGES, NODES, PORTAL_TERRITORY, dMinOf, isOccluded, isStent, stentSite, STENT_SITES, stentGate } from '../engine/topology.js';
 import { RECTUM_FADE, LABEL_VESSEL, TIP_FADE, ART_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NODE_POS, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, CAVITY_LOW, SITES, ORGAN_LABELS, ATLAS_LABELS, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, SIN_EDGES, FEEDERS } from './anatomy.js';
 import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, oxygenColor } from './colormap.js';
@@ -156,6 +155,7 @@ import { createPick } from './stage-pick.js';
 import { createGlow } from './stage-glow.js';
 import { createFrame } from './stage-frame.js';
 import { createTransitions } from './stage-transitions.js';
+import { createIdle } from './stage-idle.js';
 
 export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, onViewChange }) {
   // <stage-split live>
@@ -296,6 +296,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get handed() { return handed; }, set handed(v) { handed = v; },
     get handRide() { return handRide; }, set handRide(v) { handRide = v; },
     get handRideT() { return handRideT; }, set handRideT(v) { handRideT = v; },
+    get hiddenAt() { return hiddenAt; }, set hiddenAt(v) { hiddenAt = v; },
     get homeAt() { return homeAt; }, set homeAt(v) { homeAt = v; },
     get hoverId() { return hoverId; }, set hoverId(v) { hoverId = v; },
     get inUpdate() { return inUpdate; }, set inUpdate(v) { inUpdate = v; },
@@ -472,6 +473,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get sigW() { return sigW; },
     get sinceP() { return sinceP; }, set sinceP(v) { sinceP = v; },
     get sites() { return sites; },
+    get sleeping() { return sleeping; }, set sleeping(v) { sleeping = v; },
+    get sleepTimer() { return sleepTimer; }, set sleepTimer(v) { sleepTimer = v; },
     get sliceEnd() { return sliceEnd; }, set sliceEnd(v) { sliceEnd = v; },
     get slideGlow() { return slideGlow; }, set slideGlow(v) { slideGlow = v; },
     get smooth01() { return smooth01; },
@@ -488,6 +491,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get stats() { return stats; },
     get STENT_CALM_MS() { return STENT_CALM_MS; },
     get stentCalm() { return stentCalm; },
+    get storeVer() { return storeVer; }, set storeVer(v) { storeVer = v; },
     get svgOver() { return svgOver; }, set svgOver(v) { svgOver = v; },
     get thrombiKey() { return thrombiKey; }, set thrombiKey(v) { thrombiKey = v; },
     get tokenRGB() { return tokenRGB; },
@@ -497,6 +501,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get vdpr() { return vdpr; }, set vdpr(v) { vdpr = v; },
     get veins() { return veins; }, set veins(v) { veins = v; },
     get veinsDirty() { return veinsDirty; }, set veinsDirty(v) { veinsDirty = v; },
+    get veinsHold() { return veinsHold; }, set veinsHold(v) { veinsHold = v; },
+    get veinsTrimmed() { return veinsTrimmed; }, set veinsTrimmed(v) { veinsTrimmed = v; },
     get viewSeq() { return viewSeq; }, set viewSeq(v) { viewSeq = v; },
     get viewVersion() { return viewVersion; }, set viewVersion(v) { viewVersion = v; },
     get viewXf() { return viewXf; }, set viewXf(v) { viewXf = v; },
@@ -7648,64 +7654,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // outline layers and the organ stack (about 58 bytes a pixel of GPU memory) are given back; the first draw on the way
   // back makes them again, whole (veins-gl.js trim: ensureFBO and the layer keys). Once per sleep; the plates stay.
   let veinsTrimmed = false, hiddenAt = 0, veinsHold = null;
-  // (R08, warm-views.js: under the lobule the targets stay WARM_MS, so a quick Lobule → Anatomy makes nothing again; a hidden page
-  // gives them back at once. ?warmviews=0: at once, as before.)
-  function trimVeins() {
-    if (veinsTrimmed || !veins || veins.lost || glowSync) return;
-    if (WARM_VIEWS && !document.hidden) {
-      const t = performance.now();
-      if (!hiddenAt) {
-        hiddenAt = t;
-        // (Review pass item 8: the warm window is held in the global budget too (gpu-budget.js hold): several warm views at once, or memory
-        // over the envelope, give these back before WARM_MS. Its release is this trim, once; showing the figure again drops the hold.)
-        veinsHold = gpuHold({ owner: 'veins (under the lobule)', kind: 'warm', gl: veins.gl, bytes: () => (veinsTrimmed ? 0 : vCanvas.width * vCanvas.height * 58), release: () => { veinsHold = null; if (!veinsTrimmed && veins && !veins.lost && !glowSync) { veins.trim(); veinsTrimmed = true; veinsDirty = true; } } });
-      }
-      if (t - hiddenAt < WARM_MS) return;
-    }
-    veinsHold?.drop(); veinsHold = null;
-    veins.trim(); veinsTrimmed = true; veinsDirty = true;
-  }
-  function sleep() {
-    sleeping = true; clearTimeout(sleepTimer); sleepTimer = setTimeout(wake, 1000);
-  }
-  function wake() { if (!sleeping) return; sleeping = false; clearTimeout(sleepTimer); askAnimate(); }
-  stageWake = wake;
-  // (Not woken by a model frame alone: the frame's own update wakes the figure (update: stageWake), and nothing storeVer keys on is in it.
-  // Rev 2 step 3.)
-  store.on('*', wake, { frames: false });
-  store.on('*', () => { storeVer++; }, { frames: false });
-  document.addEventListener('visibilitychange', wake);
-  new MutationObserver(wake).observe(wrap, { attributes: true, attributeFilter: ['class'] });
-  if (appEl) new MutationObserver(wake).observe(appEl, { attributes: true, attributeFilter: ['class'] });
+  const { getOrganCovers: getOrganCovers$, sleep: sleep$, trimVeins: trimVeins$, wake } = createIdle({ appEl, askAnimate, organEls, readFrame, vCanvas, wrap }, live);
+  function trimVeins(...a) { return trimVeins$(...a); }   // <stage-split stub>
+  function sleep(...a) { return sleep$(...a); }   // <stage-split stub>
+  function getOrganCovers(...a) { return getOrganCovers$(...a); }   // <stage-split stub>
 
-  // Opaque organ shapes (anatomy), as canvas paths; built once, band widths read from the CSS (as the stage is made, coverWRead).
-  let organCovers = null;
-  const coverW = new Map();
-  function coverWRead() {
-    let moved = false;
-    for (const o of ORGANS) {
-      if (!o.band || !organEls[o.id]) continue;
-      const w = parseFloat(getComputedStyle(organEls[o.id]).strokeWidth) || 0;
-      if (coverW.get(o.id) !== w) { coverW.set(o.id, w); moved = true; }
-    }
-    if (moved) { organCovers = null; }   // (built again with the widths read)
-  }
-  coverWRead(); readFrame(coverWRead);
-  function getOrganCovers() {
-    if (organCovers) return organCovers;
-    organCovers = [];
-    for (const o of ORGANS) {
-      if (o.deco || o.noCover || !organEls[o.id]) continue;
-      if (o.circle) { const p = new Path2D(); p.arc(o.circle[0], o.circle[1], o.circle[2], 0, Math.PI * 2); organCovers.push({ p, w: 0, src: { circle: o.circle } }); continue; }
-      // (The gut's tubes cover the vessels behind them along their earlier centre lines and widths: ORGANS cover.)
-      if (o.cover) { organCovers.push({ p: new Path2D(o.cover.d), w: o.cover.w, src: { d: o.cover.d } }); continue; }
-      const w = o.band ? coverW.get(o.id) || 0 : 0;
-      if (o.band && w < 4) continue; // the diaphragm is a hairline, not a cover
-      organCovers.push({ p: new Path2D(o.d), w, src: { d: o.d } });
-    }
-    return organCovers;
-  }
-
+ 
   // ── Interaction ───────────────────────────────────
   // A click picks a structure (a vessel, else the organ under the pointer, else nothing); a drag
   // pans. The only gestures that stay "armed" are the shunt (from its source to a drop target)
