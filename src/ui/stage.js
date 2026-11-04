@@ -72,7 +72,7 @@ import { createReversalHold, oxygenFor } from './blood.js';
 import { createSweepClient } from './sweep-client.js';
 import { createJunctionWidths } from './junction-widths.js';
 import { chainsOf, planChainInto } from './vessel-taper.js';
-import { frameFor, lateFrameFor, cancelFrame, mayTask, cancelMay, noteDraw, easeNow, inMotion, afterMotion, PACED, setSaver as setFrameSaver, renderScale, renderSetting, onRenderScale, figOpt, figLab, onFigLab, MOTION60_MS, PINCH_LOW_K, readFrameFor } from './frame.js';
+import { frameFor, lateFrameFor, cancelFrame, mayTask, cancelMay, noteDraw, easeNow, inMotion, afterMotion, PACED, setSaver as setFrameSaver, renderScale, renderSetting, onRenderScale, figOpt, figLab, onFigLab, PINCH_LOW_K, readFrameFor, frameGapFor, setHandProbe } from './frame.js';
 import { softwareYield } from './sw-yield.js';
 import { portalSplit } from './table-marks.js';
 import { hashSeed, clotSide, clotSpan, clotRadius, clotShift, clotLayers, CLOT_EDGE } from './clot-shape.js';
@@ -3251,10 +3251,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // or a move on an arc, whose labels the push's own rules and the fade keep.)
     if (!drift && !arcRun && !opt.steady && !sameView(from, to) && landable(from, to) && solveLanding(to)) { landRide = true; landTo = to; labelKey = null; updateLabels(F); }
     dprLet();   // (a probe waiting for the slide's framing: a move hides it till it lands, a refit shows it now)
+    const stepGap = frameGapFor('glide');
+    let stepAt = -1e9;
     const step = (now) => {
       // A newer glide (or a framing set outright) took over: this one stops. A glide started from inside this step's
       // frame (a refit a view change set off) left two running, and the older could land last, where nobody wanted it.
       if (vtTarget !== to) return;
+      // (The governor, frame.js: a glide the app runs itself moves the camera 60 times a second, not 120, camera, labels and figure together
+      // (they all read this step's camera, so none is a frame ahead of another). Its time is the clock's, so nothing jumps; the landing and a hand's
+      // frames are never held.)
+      if (now - stepAt < stepGap && now - t0 < ms - 20 && !gestureOn()) { vtAnim = nextFrame(step); return; }
+      stepAt = now;
       const raw = clamp((clock ? clock(now) : now - t0) / ms, 0, 1), u = (drift ? driftEase : camEase)(raw);
       vt = at(u, raw);
       if (!drift) {   // (the speed a glide begun now would carry on: per ms, the zoom as its logarithm)
@@ -13167,7 +13174,7 @@ onRenderScale(() => { autoK = autoNow(); moveLow = false; adaptK = 1; moveGaps.l
     // Anything else (busyAt) takes the full rate on its own frame, and the first moving frame after a calm one waits at most CALM_MS.
     if (viewMoved || forceDraw || drawOnce || restOn || restU !== 1) busyAt = now;
     const calm = now - busyAt > CALM_AFTER_MS;
-    const base = m60 ? MOTION60_MS : paceOf(quality);
+    const base = m60 ? frameGapFor('glide') : paceOf(quality);   // (the governor, frame.js: 60 Hz while something moves; the calm 30 Hz below is its 'flow')
     const interval = calm ? Math.max(base, CALM_MS) : base;
     if (interval && !viewMoved && !forceDraw && now - flowGate < interval) { askAnimate(); return; }
     flowGate = interval && (!m60 || calm) ? now - ((now - flowGate) % interval) : now;
@@ -13772,6 +13779,7 @@ onRenderScale(() => { autoK = autoNow(); moveLow = false; adaptK = 1; moveGaps.l
   // held, so each move of a drag, wheel or flick is arithmetic only. A new gesture, a card or a resize reads it afresh.
   let panFit = null;
   const gestureOn = () => !!drag || !!glide || performance.now() - wheelAt < 250;
+  setHandProbe(gestureOn);   // (the frame-rate governor, frame.js: a hand on the camera is the one reason for the screen's full rate)
   function fitForPan() {
     const c = morphTarget === 1;
     if (!gestureOn()) { panFit = null; return defaultVT(c); }

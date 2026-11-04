@@ -698,4 +698,37 @@ export const MOTION60_MS = 10;
 /** Vessels lower while pinching: the share of the layer's width and height (0.71: half its pixels). */
 export const PINCH_LOW_K = 0.71;
 /** The least time between two drawn frames of steady motion: 0 (every frame) unless Battery saver or Motion at 60 is on. */
-export const paceMs = () => (saverOn ? SAVER_MS : figLabs.motion60 ? MOTION60_MS : 0);
+export const paceMs = () => frameGapFor('glide');
+
+// ── The frame-rate governor (pure-gpu-plan C4, 4 Nov 2026) ── 120 Hz only where it pays: while a finger or trackpad drives the camera
+// ('hand'), the screen's own rate; for glides and motion the app runs itself (slide changes, view switches, the blood while things move)
+// 60 Hz ('glide'); for the blood alone at rest 30 Hz ('flow'); nothing when nothing moves ('still', or a hidden or resting page).
+// frameRateFor(reason) is the rate in Hz (0: no frame wanted; the screen's maximum for 'hand'); frameGapFor(reason) the least time in ms
+// between two drawn frames of that kind, which a surface that paces itself compares with its last drawn frame (no phase is carried: a
+// 120 Hz screen draws every 2nd frame at 60 and every 4th at 30; a 60 Hz screen draws all at 60 and every 2nd at 30). Battery saver
+// caps every kind at its own 15 Hz. Settings › Figure performance › Motion at 60 off lifts the 'glide' and 'flow' caps (every frame).
+export const FRAME_HZ = { hand: 0, glide: 60, flow: 30, still: 0, hidden: 0 };
+const FRAME_GAP_MS = { hand: 0, glide: MOTION60_MS, flow: 28, still: 0, hidden: 0 };
+let handProbe = null;
+/** The surface that knows a hand is on the camera (a drag, a flick, a wheel, a pinch) registers its test once. */
+export function setHandProbe(fn) { handProbe = fn; }
+export const handDriven = () => !!handProbe && !!handProbe();
+/** What the frame is for now: 'hand', 'glide' (a move or a transition is running), 'flow' (only the blood), 'still' (a hidden or resting page). */
+export function frameReason() {
+  if (pageRestOn || (typeof document !== 'undefined' && document.hidden)) return 'hidden';
+  if (handDriven()) return 'hand';
+  return inMotion() ? 'glide' : 'flow';
+}
+/** Rate in Hz for a reason (a reason of its own, or none: the one now). 0 means no frame; 'hand' is the screen's full rate. */
+export function frameRateFor(reason = frameReason()) {
+  if (reason === 'hand') return saverOn ? 15 : refreshMaxHz() || 60;
+  const hz = FRAME_HZ[reason] ?? 0;
+  if (!hz) return 0;
+  return saverOn ? Math.min(15, hz) : hz;
+}
+/** The least ms between two drawn frames of a reason: 0 (every frame) for 'hand' and where Motion at 60 is off. */
+export function frameGapFor(reason = frameReason()) {
+  if (saverOn) return reason === 'still' || reason === 'hidden' ? 0 : SAVER_MS;
+  if (reason === 'hand' || !figLabs.motion60) return 0;
+  return FRAME_GAP_MS[reason] || 0;
+}
