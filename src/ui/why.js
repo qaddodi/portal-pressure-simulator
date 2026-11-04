@@ -2,30 +2,25 @@
 
 import { classSoon } from './class-soon.js';
 import { host } from './host.js';
-import { h, fmt, svgIcon, visibleBottom, announce, claimSurface, releaseSurface } from './util.js';
+import { h, fmt, svgIcon, announce, claimSurface, releaseSurface, placeAt, swipeSheet, STACK_MQ } from './util.js';
 import { leaveFromHere } from './menu-leave.js';
 import { D_FLIP, D_SMALL, EASE_ARRIVE, EASE_MOVE } from './ease.js';
+import { restRemove } from './rest-pass.js';
 import { glidePlate } from './plate-glide.js';
 
 export function createWhy(pop) {
   // (The one surface on top: util.js claimSurface routes Esc and the outside tap to it; a metric, finding, vital, button or link is not 'outside', it opens the next card.)
   const me = { close: () => close(), has: (n) => pop.contains(n) || !!n.closest?.('.metric, .finding, .vital, .btn, .link') };
   let openFor = null, anchorEl = null;
-  // (Placed by translate from the window's corner, as util.js popover places a menu: left and top are never written, so nothing is laid
-  // out, and the left is not read back; the clamp keeps it clear of the notch (env() is 0 elsewhere) and inside the window.)
-  let placedTop = 0;
+  // (Placed by util.js placeAt, the one placer: under the button, centred on it, or above it where there is no room. On a phone, upright
+  // or an upright iPad, it is a short bottom sheet instead, as every other menu is there: CSS places it, with a scrim that takes the tap,
+  // and a pull down closes it. A phone held sideways keeps the card, as a Mac does.)
+  let placedTop = 0, scrim = null;
+  const sheetMQ = matchMedia(STACK_MQ), asSheet = () => pop.classList.contains('as-sheet');
+  swipeSheet(pop, () => close(), asSheet);
   function place(anchor) {
-    const r = anchor.getBoundingClientRect();
-    const pw = pop.offsetWidth || Math.min(440, innerWidth - 24);
-    const cw = document.documentElement.clientWidth || innerWidth;
-    const leftCss = `clamp(calc(12px + env(safe-area-inset-left, 0px)), ${r.left + r.width / 2 - pw / 2}px, calc(${cw - pw - 12}px - env(safe-area-inset-right, 0px)))`;
-    const ph = pop.offsetHeight || 260;
-    const below = r.bottom + 10;
-    const top = below + ph > visibleBottom() - 8 ? Math.max(8, r.top - ph - 10) : below;
-    placedTop = top;
-    pop.style.translate = `${leftCss} ${top}px`;
-    // It settles from, and leaves toward, the button's centre.
-    pop.style.transformOrigin = `calc(${(r.left + r.width / 2).toFixed(0)}px - ${leftCss}) ${(r.top + r.height / 2 - top).toFixed(0)}px`;
+    if (asSheet()) return;
+    placedTop = placeAt(pop, anchor, { align: 'center', gap: 10, margin: 12 });
   }
   const head = (title) => h('header', {}, h('h3', {}, svgIcon('bulb'), title), h('button', { class: 'ib', 'aria-label': 'Close', onclick: close }, svgIcon('close')));
   // (The card's content replaced: focus that was on its Close button, the keyboard's way in, goes to the new one, not to the page.)
@@ -38,6 +33,12 @@ export function createWhy(pop) {
     if (openFor === metric && pop.classList.contains('show')) { close(); return; }
     openFor = metric; anchorEl = anchor;
     clearTimeout(leaveT); pop.classList.remove('leaving');
+    const sheet = sheetMQ.matches;
+    // (A card put away by a swipe was left drawn off the screen: that, and its swiped mark, are cleared before it comes in again.)
+    for (const a of pop.getAnimations()) a.cancel();
+    delete pop.dataset.swiped; pop.style.translate = ''; pop.style.transform = '';
+    pop.classList.toggle('as-sheet', sheet); placedTop = 0;
+    if (sheet && !scrim) { scrim = h('div', { class: 'um-scrim why-scrim' }); document.body.append(scrim); }
     pop.replaceChildren(head('Why?'), h('div', { class: 'sub' }, 'Working out what drives it…'), h('div', { class: 'skeleton', style: { width: '90%' } }), h('div', { class: 'skeleton', style: { width: '70%' } }), h('div', { class: 'skeleton', style: { width: '80%' } }));
     pop.classList.add('show');
     claimSurface(me);
@@ -76,7 +77,7 @@ export function createWhy(pop) {
     // rather than the card jumping to a new size (P20).
     // (By transform: the card takes its new size and place at once and its paper glides there from the old in pieces, plate-glide.js;
     // nothing is laid out per frame. The words come in as the paper is nearly there, so they never show past it.)
-    const h1 = pop.offsetHeight, glide = pop.animate && h0 && Math.abs(h1 - h0) > 1 && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const h1 = pop.offsetHeight, glide = !asSheet() && pop.animate && h0 && Math.abs(h1 - h0) > 1 && !matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (glide) {
       glideEnd?.();
       const w = pop.offsetWidth, dy = t0 - placedTop;
@@ -89,9 +90,12 @@ export function createWhy(pop) {
   let leaveT = 0;
   function close() {
     if (pop.classList.contains('show')) {
-      leaveFromHere(pop, () => { pop.classList.remove('show'); pop.classList.add('leaving'); });
-      clearTimeout(leaveT); leaveT = setTimeout(() => classSoon(pop, 'leaving', false), 200);
+      // (A card swiped away is already sliding down: it leaves as it is.)
+      if (pop.dataset.swiped) { pop.classList.remove('show'); pop.classList.add('leaving'); }
+      else leaveFromHere(pop, () => { pop.classList.remove('show'); pop.classList.add('leaving'); });
+      clearTimeout(leaveT); leaveT = setTimeout(() => classSoon(pop, 'leaving', false), asSheet() ? D_SMALL + 20 : 200);
     }
+    if (scrim) { const sc = scrim; scrim = null; leaveFromHere(sc, () => sc.classList.add('out')); setTimeout(() => restRemove(sc), D_SMALL + 20); }
     releaseSurface(me);
     openFor = null; anchorEl?.focus?.({ preventScroll: true }); anchorEl = null;
   }

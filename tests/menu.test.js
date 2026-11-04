@@ -54,7 +54,7 @@ test('over the thumb dock only a sheet or a menu from the dock rises from behind
   assert.match(util, /const fromDock = asSheet \|\| !!anchor\.closest\?\.\('\.vdock'\);/);
   // (The Colored-by menu on an upright iPad opened from the top bar but slid up from under its spot, its card cut away and its shadow showing.)
   assert.doesNotMatch(css, /html\.thumb-ui \.menu(?!\.from-dock)[ ,{]/);
-  assert.match(css, /html\.thumb-ui \.menu\.from-dock \{ animation: scale-settle var\(--d-small\)[^}]*transform-origin: 50% 100%;/, 'drawn above the tab row, it settles from its foot and never crosses it');
+  assert.match(css, /html\.thumb-ui \.menu\.from-dock \{ animation: scale-settle var\(--d-small\)[^}]*\}/, 'drawn above the tab row, it settles in place and never crosses it');
   assert.match(css, /html\.thumb-ui \.menu\.from-dock \{ translate: 0 var\(--sink, 0px\); \}/);
 });
 

@@ -90,5 +90,5 @@ test('the three places a menu leaves from go through it, and keep their classes'
   assert.match(m, /leaveFromHere\(scrim, \(\) => scrim\.classList\.add\('out'\)\)/);
   assert.doesNotMatch(m, /menuLeaveOff|menuleave=0/, 'opened again while fading: the old panel is left to finish, never removed at once');
   assert.match(m, /\n\s+panel\.inert = true;/);
-  assert.match(m, /\n\s+settleFrom\(el, r, left, top\);/);
+  assert.match(m, /\n\s+placeAt\(el, anchor, \{ margin: 12, flip: false \}\);/, 'the main menu is placed by the one placer');
 });

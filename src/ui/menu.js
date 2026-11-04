@@ -6,7 +6,7 @@
 
 import { store } from './store.js';
 import { createTraceGL, fitPen } from './trace-gl.js';
-import { h, icon, svgIcon, cssVar, clamp, settleFrom, swipeSheet, visibleBottom, fadeWhileMore, STACK_MQ, fmt, shownOf, claimSurface, releaseSurface } from './util.js';
+import { h, icon, svgIcon, cssVar, clamp, placeAt, swipeSheet, visibleBottom, fadeWhileMore, STACK_MQ, fmt, shownOf, claimSurface, releaseSurface } from './util.js';
 import { SNAPSHOTS } from './snapshots.js';
 import { HVPG_CUTS, PPG_CUTS, sevOfCuts } from '../engine/pressure-cuts.js';
 import { pressureColor } from './colormap.js';
@@ -528,12 +528,8 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
   }
   function place() {
     if (!el || el.classList.contains('sheet')) return;
-    const r = anchor.getBoundingClientRect();
-    const left = clamp(r.left, 12, Math.max(12, innerWidth - el.offsetWidth - 12)), top = r.bottom + 8;
-    // (Placed by translate from the window's corner, as util.js popover places a menu: left and top are never written, so nothing is laid out.)
-    el.style.translate = `${left}px ${top}px`;
-    // It settles from, and leaves toward, the button's centre, as every other popover does (it had grown from its own top-left corner).
-    settleFrom(el, r, left, top);
+    // (The one placer, util.js placeAt: under the button, 8 px clear, held 12 px in from the window's sides; it settles in by opacity alone.)
+    placeAt(el, anchor, { margin: 12, flip: false });
   }
   // The panel opens with its groups rising into place one after another, 30 ms apart, over the panel's own entrance:
   // the eye reads it top down instead of seeing the whole list land at once. Only the first few in sight, so a long list

@@ -6,7 +6,7 @@
 //   - its place and its way in and out are the menu's own CSS (position, translate, animation, clip), carried over by twin rules made
 //     from the stylesheet when the first plate is made (twinRules: every rule whose subject is the menu gets a twin for the plate, so
 //     an edit to the menu's CSS reaches its plate with it);
-//   - what the menu's inline style sets (its translate from the corner, its transform-origin, a swipe's transform, the dock's --sink)
+//   - what the menu's inline style sets (its translate from the corner, a swipe's transform, the dock's --sink)
 //     is copied across in the same microtask, before the frame that draws it (a MutationObserver, class and style);
 //   - its size is the menu's, from the menu's ResizeObserver (a border box that cost no layout read), and its picture is drawn in the
 //     same callback, so the plate and the menu are never of two sizes in one frame.

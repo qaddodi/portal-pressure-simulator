@@ -381,7 +381,7 @@ html.chip-open :is(.chip-btn, .lens-btn)[aria-expanded="true"] { background: var
    the entrance reversed, played at the step below (ease.js, tokens.css) and toward where the piece came from.
    fade-rise: words, rows, chips and panes rise 6 px into place.   slide-from-edge: a sheet, a side card, the docked toast
    come from their edge (--edge-x / --edge-y: how far, --edge-o: the opacity it starts at; a sheet keeps 1).
-   scale-settle: a card or popover settles from .98 about its anchor (transform-origin, set where it is placed).
+   scale-settle: a card or popover settles by its opacity alone (since 2 Nov 2026; placed by util.js placeAt).
    crossfade: a swap of text, a lens, the figure's dim. Every other @keyframes below is a loop, an attention cue or a
    scene that teaches, or it moves a registered variable some other code also reads (motion-scale.test.js keeps the list). ── */
 @property --rise-x { syntax: '<length-percentage>'; inherits: false; initial-value: 0px; }
@@ -400,7 +400,7 @@ html.chip-open :is(.chip-btn, .lens-btn)[aria-expanded="true"] { background: var
 /* (2 Nov 2026, "stop text jiggling": a card or popover settles by its opacity alone. Its text was scaled from .98 to 1 as it came in, and a
    browser draws text in a scaled layer a little soft, then sharp at the end of the entrance (WebKit rasterises it at the scale it has, then again at
    rest): the words popped as they arrived. Opacity runs on the compositor with no re-raster, and the name and the origin of the keyframes are kept
-   for everything that reads them (menu-leave.js, settleFrom).) */
+   for everything that reads them (menu-leave.js).) */
 @keyframes scale-settle { from { opacity: 0; } }
 @keyframes scale-settle-out { to { opacity: 0; } }
 @keyframes crossfade { from { opacity: 0; } }
@@ -1006,6 +1006,12 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .why-pop { position: fixed; left: 0; top: 0; /* (placed by translate: why.js) */ z-index: var(--z-popover); width: min(440px, calc(100vw - 24px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px))); max-height: calc(100dvh - 16px); overflow: hidden auto; overscroll-behavior: contain; background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3), 0 0 0 1px var(--hairline); padding: 16px 16px 16px; display: none; }
 .why-pop.show { display: block; animation: scale-settle var(--d-flip) var(--ease); }
 .why-pop.leaving { display: block; pointer-events: none; animation: scale-settle-out var(--d-flip) var(--ease-in) forwards; }
+/* (Why? on an upright phone or iPad: a short bottom sheet like every menu there, why.js; the scrim takes the tap. A swipe away is already sliding, so it plays no exit of its own.) */
+.why-pop.as-sheet { left: 0; right: 0; top: auto; bottom: 0; width: auto; max-height: 75dvh; touch-action: pan-y; padding: 12px 14px calc(14px + env(safe-area-inset-bottom)); border-radius: var(--r-sheet) var(--r-sheet) 0 0; --edge-y: 100%; animation: slide-from-edge var(--d-small) var(--ease); }
+.why-pop.as-sheet.leaving { animation: slide-to-edge var(--d-small) var(--ease-in) forwards; }
+.why-pop.as-sheet.leaving[data-swiped] { animation: none; }
+.why-pop.as-sheet.pulling { animation: none; }
+.um-scrim.why-scrim { z-index: calc(var(--z-popover) - 1); }   /* (the card is in the page before its scrim, so the scrim is laid just under it) */
 .why-pop header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px; }
 .why-pop h3 { margin: 0; font-size: var(--fs-14); font-weight: 600; display: flex; align-items: center; gap: 8px; }
 .why-pop h3 :is(svg, .ic) { width: var(--ic-s); height: var(--ic-s); stroke: var(--accent); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; } .why-pop h3 .ic { -webkit-mask-image: url("../brand/icons/icons-r.png"); mask-image: url("../brand/icons/icons-r.png"); background-color: var(--accent); }
@@ -6500,6 +6506,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
      and never takes a touch, so the head under it gets the tap or the drag. */
   .app.thumb :is(.panel-grab, .sheet-grab) { pointer-events: none; }
   html.thumb-ui .menu.as-sheet { box-shadow: var(--shadow-3), inset 0 0 0 1px var(--hairline); left: calc(env(safe-area-inset-left) + 6px) !important; right: calc(env(safe-area-inset-right) + 6px); --thumb-bot: max(var(--thumb-occ, 0px), calc(env(safe-area-inset-bottom, 0px) + 6px)); bottom: var(--thumb-bot); max-height: calc(100dvh - var(--thumb-bot) - max(72px, var(--thumb-top, 0px) + 8px)); padding-bottom: 10px; border-radius: var(--r-sheet); }
+  html.thumb-ui .why-pop.as-sheet { box-shadow: var(--shadow-3), inset 0 0 0 1px var(--hairline); left: calc(env(safe-area-inset-left) + 6px); right: calc(env(safe-area-inset-right) + 6px); --thumb-bot: max(var(--thumb-occ, 0px), calc(env(safe-area-inset-bottom, 0px) + 6px)); bottom: var(--thumb-bot); max-height: calc(100dvh - var(--thumb-bot) - max(72px, var(--thumb-top, 0px) + 8px)); padding-bottom: 14px; border-radius: var(--r-sheet); }
 }
 /* Fit and the circuit's turn upright live in the Layers tab's menu (15 Oct, option 2), so nothing floats over the figure
    above the dock, the sinusoid view included, which keeps the dock (2 Nov): its view pill goes back out to the lobule. */
@@ -6536,8 +6543,8 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .app.thumb :is(.panel, .treat-card, .instrument-workspace.float-ui) { --card-out: thumbOut; }
 @media (prefers-reduced-motion: no-preference) {
   #app.thumb.panel-open .panel, #app.thumb .treat-card, #app.thumb .instrument-workspace.float-ui.entering { animation: thumbIn var(--d-small) var(--ease) var(--enter-delay, 0ms) backwards; }
-  /* (A menu is drawn above the tab row, so it never rises across it: it settles in from its own foot, by scale and opacity.) */
-  html.thumb-ui .menu.from-dock { animation: scale-settle var(--d-small) var(--ease) var(--enter-delay, 0ms) backwards; transform-origin: 50% 100%; }
+  /* (A menu is drawn above the tab row, so it never rises across it: it settles in where it rests, by opacity.) */
+  html.thumb-ui .menu.from-dock { animation: scale-settle var(--d-small) var(--ease) var(--enter-delay, 0ms) backwards; }
   html.thumb-ui .menu.from-dock.leaving { animation: scale-settle-out var(--d-small) var(--ease-in) forwards; }
   /* A sheet moved by its content (has-plate, sheet-move.js) rises and sinks the same way, but by its content's translate alone under
      its still clip: no --sink is eased frame by frame on the main thread. The box holds (sheet-hold) so its leave still ends on it. */
@@ -6615,6 +6622,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
   html.thumb-ui .menu.as-sheet { left: 15% !important; right: 15%; max-height: min(62dvh, calc(100dvh - var(--thumb-bot, var(--thumb-occ, 0px)) - max(72px, var(--thumb-top, 0px) + 8px))); }
   html.thumb-ui .menu.as-sheet .tl-pop.tl-history { max-height: calc(62dvh - 24px); }   /* (History's list scrolls under its head, as on the phone) */
   html:not(.thumb-ui) .menu.as-sheet { left: 15% !important; right: 15%; max-height: 62dvh; }   /* (a talk has no thumb dock, and Settings there is the same 70 % and 62 % as every other sheet on the iPad) */
+  .why-pop.as-sheet { left: 15%; right: 15%; max-height: min(62dvh, calc(100dvh - var(--thumb-bot, var(--thumb-occ, 0px)) - max(72px, var(--thumb-top, 0px) + 8px))); }   /* (Why?: the same 70 % and 62 % as the other sheets) */
 }
 
 /* ── History beside Treat and Tests (15 Oct) ───────────────────────

@@ -414,10 +414,26 @@ export function enterAfterGone(el) { el.style.setProperty('--enter-delay', Math.
 // popover; pass false for a menu that lays itself out.
 /** The bottom of what is visible: above the on-screen keyboard on iOS, where innerHeight does not shrink. */
 export const visibleBottom = () => { const v = window.visualViewport; if (!v) return innerHeight; const { offsetTop: top, height } = v; return Math.min(innerHeight, top + height); };   // (the visual viewport's own numbers, not an element's layout)
-// A popover or card settles from, and leaves toward, the thing that opened it (premium-feel R11: scale-settle's origin is its
-// anchor): the scale's origin is the anchor's centre, in the piece's own frame, set where the piece is placed.
-export function settleFrom(el, anchor, left, top) {
-  el.style.transformOrigin = `${(anchor.left + anchor.width / 2 - left).toFixed(0)}px ${(anchor.top + anchor.height / 2 - top).toFixed(0)}px`;
+/** The one placer for a floating menu or card beside its button (the popover, the main menu and the Why card; menu motion recs 5, 4 Nov 2026).
+ *  Puts el by translate from the window's corner (left and top are never written, so nothing is laid out), clear of the notch (env() is 0
+ *  elsewhere), and returns the top it took. side: 'below' | 'above' the button; align: 'start' | 'center' | 'end'; gap: px between the two;
+ *  margin: the least clearance from the window's edges; edge: a line to sit on or under instead of the button's own top (the tab row's);
+ *  flip: opens on the other side, and keeps clear of the bottom, where there is no room (false: placed where asked, only its left held in);
+ *  sink: rides --sink, the thumb dock's. Its entrance is opacity alone (app.css scale-settle), so no transform-origin is set. */
+export function placeAt(el, anchor, { side = 'below', align = 'start', gap = 8, margin = 8, edge = null, flip = true, sink = false } = {}) {
+  const r = anchor.getBoundingClientRect();
+  // (Layout size, not the rectangle: an entrance may be moving the box.)
+  const w = el.offsetWidth, hh = el.offsetHeight, vb = visibleBottom(), cw = document.documentElement.clientWidth || innerWidth;
+  const x = align === 'end' ? r.right - w : align === 'center' ? r.left + r.width / 2 - w / 2 : r.left;
+  const top0 = edge ?? r.top;
+  let y = side === 'above' ? top0 - hh - gap : r.bottom + gap;
+  if (flip) {
+    if (y + hh > vb - margin) y = Math.max(margin, top0 - hh - gap);
+    y = clamp(y, margin, vb - hh - margin);
+  }
+  const leftCss = `clamp(calc(${margin}px + env(safe-area-inset-left, 0px)), ${x}px, calc(${cw - w - margin}px - env(safe-area-inset-right, 0px)))`;
+  el.style.translate = sink ? `${leftCss} calc(${y}px + var(--sink, 0px))` : `${leftCss} ${y}px`;   // alloc-rare: the text of one placement (an open, or a window resize)
+  return y;
 }
 
 export function popover(anchor, content, { cls = '', align = 'start', place = 'below', onClose, sheet = true } = {}) {
@@ -435,7 +451,7 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
   const put = () => {
     if (asSheet) return;
     const r = anchor.getBoundingClientRect(), w0 = el.offsetWidth;
-    let x = align === 'end' ? r.right - w0 : align === 'center' ? r.left + r.width / 2 - w0 / 2 : r.left;
+    const x = align === 'end' ? r.right - w0 : align === 'center' ? r.left + r.width / 2 - w0 / 2 : r.left;
     // A scrolling menu below its button may use all the room down to the 8 px margin, so it ends whole where it fits; never
     // over the bottom bar where the two meet (a phone held sideways: Settings had run 87 px over it; sweep 04 #01).
     let barTop = null, at = place;
@@ -463,19 +479,9 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
       const room = Math.max(160, above ? roomAbove : roomBelow);
       if (natural > room) { el.style.maxHeight = room + 'px'; el.style.overflowY = 'auto'; el.style.overscrollBehavior = 'contain'; }
     }
-    // Layout size, not the rectangle: the opening animation scales the menu for a moment.
-    const mr = { width: el.offsetWidth, height: el.offsetHeight };
-    const top = bar ? tabTop : r.top;
-    let y = at === 'above' || bar ? top - mr.height - 8 : r.bottom + 8;
-    if (y + mr.height > vb - 8) y = Math.max(8, top - mr.height - 8);
-    // Clear of the notch and the home indicator: a phone held sideways has 47-59 px of unsafe screen at each side (env() is 0 elsewhere).
-    // (Placed by translate from the window's corner, the compositor's: left and top are never written, so nothing is laid out. The
-    // menu rests at 0,0 and is measured there. --sink is the thumb dock's sink, which a menu from the dock rides, as styles/app.css says.)
-    const topPx = clamp(y, 8, vb - mr.height - 8), cw = document.documentElement.clientWidth || innerWidth;
-    const leftCss = `clamp(calc(8px + env(safe-area-inset-left, 0px)), ${x}px, calc(${cw - mr.width - 8}px - env(safe-area-inset-right, 0px)))`;
-    el.style.translate = `${leftCss} calc(${topPx}px + var(--sink, 0px))`;
-    placedTop = topPx;
-    el.style.transformOrigin = `calc(${(r.left + r.width / 2).toFixed(0)}px - ${leftCss}) ${(r.top + r.height / 2 - topPx).toFixed(0)}px`;
+    // (One placer, placeAt: a menu from the tab row sits on its top edge, 8 px clear of it; the rest open below or above their button.
+    // --sink is the thumb dock's sink, which a menu from the dock rides, as styles/app.css says.)
+    placedTop = placeAt(el, anchor, { side: at === 'above' || bar ? 'above' : 'below', align, edge: bar ? tabTop : null, sink: true });
     barAt = barTop;
     clipBar();
   };
@@ -1032,7 +1038,7 @@ function sheetGrab(panel, target, t, thumb, easing) {
   for (let n = target; n && n !== panel.parentElement; n = n.parentElement) if (n.scrollHeight > n.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(n).overflowY)) { sc = n; break; }
   return { x: t.clientX, y: t.clientY, top: !sc || sc.scrollTop <= 0, on: false, dy: 0, t: 0, trail: [], shift: easing ? pullAt(easing) : thumb ? 0 : liveShift(panel), h: panel.offsetHeight, thumb, pull: null };
 }
-export function swipeSheet(panel, onClose) {
+export function swipeSheet(panel, onClose, enabled = null) {   // (enabled: a card that is a sheet only on a phone says when it is one)
   // Over the thumb dock the sheet slides down behind the tab row: what passes below its resting bottom edge is clipped (its own still clip, app.css).
   const thumbUi = () => document.documentElement.classList.contains('thumb-ui');
   // The pull and the let-go are the compositor's (sheet-pull.js): a move of the finger sets one animation's clock, nothing is written to the
@@ -1041,7 +1047,7 @@ export function swipeSheet(panel, onClose) {
   const clearEasing = () => { easing = null; };
   panel.addEventListener('touchstart', (e) => {
     s = null;
-    if (e.touches.length !== 1 || e.target.closest('input[type="range"], textarea, [contenteditable]')) return;
+    if ((enabled && !enabled()) || e.touches.length !== 1 || e.target.closest('input[type="range"], textarea, [contenteditable]')) return;
     const t = e.touches[0];
     // (Where the sheet is drawn, how tall it is and whether its list is at the top, read at the touch, never in the moves that follow: sheetGrab.)
     s = sheetGrab(panel, e.target, t, thumbUi(), easing && !easing.over ? easing : null);
