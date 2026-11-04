@@ -3356,6 +3356,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // the full-height glass panel at the left edge). (An upright phone keeps its words' panel at the foot either way.)
   const TEXT_CARD = true;
   const SHORT_H = 860;   // (a wider screen this tall or less takes the compact layout, .pz.short: css px)
+  const SIDEWAYS_WORDS = [[0.62, 0.8], [0.58, 0.72], [0.54, 0.64], [0.5, 0.58]];   // (the words' card's extra steps on a phone held sideways: title and words scales, below Compact)
   const LOW_M = 10;   // (a phone held sideways: its teaching card's margin from the top and bottom, css px; styles/app.css .pz.low)
   // (auto: closed by the layout, a slide whose card does not fit beside the words and the figure; autoKey: the slide it closed on.
   // A card the reader closed stays closed from slide to slide; one the layout closed opens again on the next slide that fits.)
@@ -4443,6 +4444,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
         // (Still too tall at the smallest step: the pair stays stacked at the one card width, the words at their smallest (the title one step
         // down and no CAUSES line) and the blocks at their smallest step; the data card is never moved to the top right, its own fit (fitCards)
         // makes the rest fit its room.)
+        // (A phone held sideways, 3 Nov 2026, Mohammad: "the instrument card should look good even if the text of the teaching card is smaller": the instrument
+        // keeps its size and the words' card shrinks further, the title and the words a few steps below Compact, until the pair stands in the 390 px.)
+        if (!below && H <= 500 * k) { trim = 2; for (const [tk, bk] of SIDEWAYS_WORDS) { if (below) break; below = put(tk, bk); } }
         if (!below) { put(WIDE.title, WIDE.words); below = true; }
       }
       if (dk < 1) dd.style.setProperty('--pz-dk', dk); else dd.style.removeProperty('--pz-dk');
