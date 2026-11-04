@@ -16,7 +16,7 @@ H = importlib.util.module_from_spec(spec); spec.loader.exec_module(H)
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WEIGHTS = [400, 500, 600, 700]
 STOPS = [14, 16, 18, 20, 24, 32]
-CHARS = [chr(c) for c in range(0x20, 0x7F)] + list('−·⋅×–—°µ‰≥≤→’‘“”…σαβΔ ⁠̄')
+CHARS = [chr(c) for c in range(0x20, 0x7F)] + list('−·⋅×±–—°µ‰≥≤→’‘“”…σαβΔ ⁠̄')
 FILES = ['inter-latin', 'inter-latin-ext', 'inter-greek']
 
 def load(w, o):
