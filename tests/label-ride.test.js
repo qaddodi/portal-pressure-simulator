@@ -12,7 +12,7 @@ test('a presenter move rides the labels when it can, else fades them as before',
   assert.match(st, /camMove = true; dpr\.carry = dpr\.on && performance\.now\(\) < dpr\.refitUntil; if \(!rideStart\(\)\) wrap\.classList\.add\('cam-move'\);/);
   // (Not under the HVPG catheter (which hides the labels), a pinch, the lobule or a dive, nor with a label the SVG draws, nor under reduced
   // motion. A treatment's catheter keeps the labels on: they ride.)
-  assert.match(st, /if \(!labelRider\?\.canRide\(\) \|\| \(cath\.st && !cath\.st\.keep\) \|\| pinchHide \|\| lobuleOn \|\| lz\?\.isOpen\(\) \|\| diveT > 0 \|\| wrap\.classList\.contains\('cam-move'\)\) return false;/);
+  assert.match(st, /if \(!labelRider\?\.canRide\(\) \|\| \(cath\.st && !cath\.st\.keep\) \|\| lobuleOn \|\| lz\?\.isOpen\(\) \|\| diveT > 0 \|\| wrap\.classList\.contains\('cam-move'\)\) return false;/);
 });
 
 test('each frame of the glide carries them on the GPU; the landing ends the ride before the labels are laid out again', () => {
@@ -23,10 +23,8 @@ test('each frame of the glide carries them on the GPU; the landing ends the ride
 
 test('the ride moves pictures only: each centre carried, at whole device pixels, and the landing eases every label', () => {
   assert.match(lg, /const ux = Math\.round\(\(M\[0\] \* cx \+ M\[2\] \* cy \+ M\[4\]\) \* dpr - st\.w \/ 2\), uy = Math\.round\(\(M\[1\] \* cx \+ M\[3\] \* cy \+ M\[5\]\) \* dpr - st\.h \/ 2\);/);   // (R: now held inside the stage by rideAt)
-  assert.match(lg, /const u = easeMove\(Math\.min\(1, \(now - gl0\.t0\) \/ RIDE_MS\)\);/);
-  // (The glide and fade-out records come from a pool and are given back, so a landing makes none: 2 Nov 2026.)
-  assert.match(lg, /r\.t0 = t0; r\.fadeIn = !f;\n\s+if \(f\) \{ r\.fx = f\.x; r\.fy = f\.y; \}\n\s+glides\.set\(s\.g, r\);/);
-  assert.match(lg, /o\.g = g; o\.st = st; o\.x = f\.x; o\.y = f\.y; o\.a = f\.a; o\.t0 = t0; outgoing\.push\(o\)/);
+  // (Rigid labels: no glide after a ride and no fade-out where it rode: those records are gone.)
+  for (const w of ['glides', 'outgoing', 'RIDE_MS', 'fadeIn', 'rideFrom', 'fromMap']) assert.ok(!lg.includes(w), w);
 });
 
 // The carry itself: the camera's move since the layout, as stage.js works it out (rideStep), takes a point laid out under one view to

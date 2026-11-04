@@ -12,7 +12,7 @@ const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 // carryable, run on its own source with the stage's state stubbed in.
 const fnSrc = stage.match(/function carryable\(from, to\) \{[\s\S]*?\n {2}\}\n/)?.[0];
 const base = () => ({
-  store: { get: () => ({ presenting: true }) }, reduceMotion: { matches: false }, F: {}, solvedFor: { sig: 'S' }, camMove: false, pinchHide: false,
+  store: { get: () => ({ presenting: true }) }, reduceMotion: { matches: false }, F: {}, solvedFor: { sig: 'S' }, camMove: false,
   cath: { st: null }, lobuleOn: false, lz: null, morph: 0, morphTarget: 0, diveT: 0, sites: { list: null }, scan: { on: false }, dpr: { on: false },
   E: {}, arcRoom: () => ({ vb: { w: 1000 } }), CARRY_ZOOM: 0.35, CARRY_PAN: 0.3, homeAt: { k: 1 }, labelSig: () => 'S',
 });
@@ -33,7 +33,6 @@ test('only a presenter\'s move, and only where the labels lie as solved for what
   assert.equal(carryable({ F: null }), false);
   assert.equal(carryable({ solvedFor: null }), false, 'nothing solved yet');
   assert.equal(carryable({ camMove: true }), false, 'labels already hidden by an earlier move');
-  assert.equal(carryable({ pinchHide: true }), false);
   assert.equal(carryable({ labelSig: () => 'T' }), false, 'what the labels show has changed since they were solved');
 });
 

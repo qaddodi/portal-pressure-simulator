@@ -11,7 +11,7 @@ const body = (head) => stage.match(new RegExp(`${head.replace(/[()[\]{}.*+?^$|\\
 
 const landSrc = body('function landable(from, to) {');
 const base = () => ({
-  landAt: -1e9, F: {}, inUpdate: false, catchUp: false, solvedFor: { sig: 'S', csig: 'C', ins: '' }, camMove: false, pinchHide: false,
+  landAt: -1e9, F: {}, inUpdate: false, catchUp: false, solvedFor: { sig: 'S', csig: 'C', ins: '' }, camMove: false,
   gestureOn: () => false, sameView: (a, b) => a.k === b.k && a.x === b.x && a.y === b.y,
   cath: { st: null }, lobuleOn: false, lz: null, morph: 0, morphTarget: 0, diveT: 0, sites: { list: null }, scan: { on: false }, dpr: { on: false },
   dop: { all: false }, E: {}, labelSig: () => 'S', calloutSig: () => 'C', labelIns: () => '',
@@ -28,7 +28,7 @@ test('a plain glide with the labels up is solved for its landing, however far it
 });
 
 test('not where the labels are hidden, held, mid-solve or placed against something the camera moves', () => {
-  for (const over of [{ F: null }, { inUpdate: true }, { catchUp: true }, { solvedFor: null }, { camMove: true }, { pinchHide: true },
+  for (const over of [{ F: null }, { inUpdate: true }, { catchUp: true }, { solvedFor: null }, { camMove: true },
     { gestureOn: () => true }, { cath: { st: {} } }, { lobuleOn: true }, { lz: { isOpen: () => true } }, { morph: 0.4 }, { diveT: 0.2 },
     { sites: { list: [] } }, { scan: { on: true } }, { dpr: { on: true } }, { dop: { all: true } }, { E: { TIPS: { vis: true } } }, { E: { DIPS: { vis: true } } },
     { landAt: performance.now() }, { labelSig: () => 'other' }, { calloutSig: () => 'other' }, { labelIns: () => '1,2' }]) {

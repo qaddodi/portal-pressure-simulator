@@ -37,7 +37,6 @@ test('pointer activation is held off while a ride or a moving glide has the pict
   // (A class between frames on the labels' svg, toggled on a change only; a fade-in glide does not count, it moves nothing.)
   assert.match(lg, /import \{ classSoon \} from '\.\/class-soon\.js';/);
   assert.match(lg, /if \(off !== displaced\) \{ displaced = off; classSoon\(svg, 'lb-displaced', off\); \}/);
-  assert.match(lg, /if \(u < 1\) shifted\+\+; \}/);
 });
 
 test('the pointer hold is lifted when the pictures are given back to the SVG or the context is lost', () => {
@@ -53,8 +52,6 @@ test('a camera ride carries the leaders and dots with the labels (they were left
 
 test('a leader\'s label end follows its label\'s landing glide, and a pan (carried by layout each frame, no ride) needs no more', () => {
   assert.match(lg, /mg\.k = el\.getAttribute\('data-k'\);/);
-  assert.match(lg, /const ls = labelByKey\.get\(mg\.k\), gl0 = ls && glides\.get\(ls\.g\)/);
-  assert.match(lg, /geo\[2\] \+= \(gl0\.fx - \(Math\.round\(ls\.x \* dpr\) \+ lst\.ox\)\) \* \(1 - u\);/);
   assert.match(lg, /labelByKey\.clear\(\);/);
 });
 

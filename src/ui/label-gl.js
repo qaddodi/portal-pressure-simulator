@@ -17,7 +17,6 @@ import { ucOf } from './uniform-cache.js';
 import { classOnly, GESTURE_LOOK } from './idle-keys.js';
 import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js';
 import { createAtlasPacker } from './atlas-pack.js';
-import { easeMove, D_SURFACE, D_SMALL } from './ease.js';
 import { createShapeGL, flattenPath, ellipsePoly } from './shape-gl.js';
 import { createOrganPaint, parseColor, mul } from './organ-paint.js';
 import { textPolys, textWidth, loadGlyphs, glyphsReady, textCovers } from './text-gl.js';
@@ -575,7 +574,7 @@ export function ringBox(d, dpr, frame) {
  * figure's overlays not all on the GPU, the labels' layer fading or hidden), it draws nothing and the SVG shows every label.
  * `force`: on a software renderer too (CI's visual check, ?stageover=gpu).
  */
-/** Whether the pictures stand off their DOM labels (a camera ride, or glides moving labels): pointer activation is held off meanwhile. */
+/** Whether the pictures stand off their DOM labels (a camera ride): pointer activation is held off meanwhile. */
 export const displacedNow = (riding, gliding) => riding || gliding > 0;
 /** One drawn picture as the snapshot reports it: device px in, CSS px out; clipped when any of it lies outside the canvas. */
 export function snapshotItem(key, dx, dy, dw, dh, a, dpr, W, H) {
@@ -650,9 +649,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
   let frameSeq = 0, gen = 0, displaced = false;   // (the displayed-label snapshot: frames drawn so far, and the layout/atlas generation, up by every layout and every repack)
   // A slide's camera glide (stage.js, ?labelride=0 off): the labels ride with the figure on the GPU instead of fading out for the whole
   // move. rideM maps where they were laid out (stage px) to where that point is now; each label's picture keeps its size, its centre
-  // carried. At the landing they are laid out again, and each label glides from where it rode to its new place (one that stays), fades
-  // in (a new one) or fades out where it rode (one that goes), over D_SURFACE on the app's curve: nothing jumps.
-  let rideM = null, rideFrom = null, rideT0 = 0;
+  // carried. At the landing they are laid out again and stand where that layout puts them: no glide, no fade (rigid labels plan).
+  let rideM = null;
   // Labels part of the figure (Mohammad, 3 Nov 2026: "can you put labels as part of the figure", "the labels jump all over the place with
   // zooming and switching and panning", "the lines go all over the place and move and elongate"). A station's label is pinned to the point
   // it names: the layout gives it an offset from that point (its place minus the point, both as laid out: pos.pax, pos.pay), and every
@@ -681,20 +679,11 @@ void main() { o = texture(uT, vUV) * uA; }`;
     OFF[0] = s.x - s.pax; OFF[1] = s.y - s.pay;
     return 1;
   }
-  const glides = new Map();   // group → { fx, fy (device px, where it rode), t0 } or { fadeIn: true, t0 }
-  const outgoing = [];        // [{ g, st, x, y, a, t0 }]: labels gone at the landing, fading out where they rode
   // The view change (B2): the labels standing as it begins are kept as ghosts, frozen (their pictures, their pins and offsets, their leaders'
   // and dots' looks), and ride the morphing figure under the pin of their world anchors, drawn at xfOld; the new view's labels, already
   // solved, ride it too at xfNew. Both opacities are the change's own progress (1 - 2t and 2t - 1), never a timer. Once it lands the ghosts'
   // pictures are given to their labels as the alternative picture (st.alt), so a change back to that view builds nothing.
   let ghosts = [], xfOld = 1, xfNew = 1;
-  // (These records are taken from a pool and given back when a glide or fade ends, so a landing makes none: x, y, a, t0 for a label that
-  // rode, fx, fy, t0, fadeIn for one that glides.)
-  const gpool = [];
-  const takeRec = () => gpool.pop() || { g: null, st: null, x: 0, y: 0, a: 0, t0: 0, fx: 0, fy: 0, fadeIn: false };   // alloc-rare: one record for each label that rides at once, the most there ever were
-  const dropGlide = (g) => { const r = glides.get(g); if (r) { glides.delete(g); gpool.push(r); } };
-  const fromMap = new Map();  // the labels that rode: group → { x, y, a } (rideEnd), read by the next layout (sync)
-  const RIDE_MS = D_SURFACE;
   // (Host mode: whether a picture with the labels is owed to the host's canvas; whether the SVG was given every label back.)
   let owed = false, released = true;   // (at first the SVG shows every label: none is marked yet)
   // (Host mode: the labels and marks the SVG still draws, as of the last picture: what lies between the figure's canvas and the callouts'
@@ -927,7 +916,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     publishWhenDone(gl, hs, () => {
       if (!lost || gl.isContextLost()) return;   // (lost again: the next restore starts over)
       try { finish(hs); } catch { return; }   // (the shaders will not build: the SVG keeps every label)
-      pageTex = []; rpDrop(); retry.clear(); pending.clear(); stuck = false; needRepack = false; packer.reset(); outgoing.length = 0; ghosts = []; xfOld = xfNew = 1; for (const [, v] of sprites) { v.alt = null; v.alts = null; } glides.clear(); rideFrom = null;
+      pageTex = []; rpDrop(); retry.clear(); pending.clear(); stuck = false; needRepack = false; packer.reset(); ghosts = []; xfOld = xfNew = 1; for (const [, v] of sprites) { v.alt = null; v.alts = null; }
       picPaint = null; lostPic(headSp); lostPic(sHeadSp); slotTex = null;
       for (const s of last) { const st = sprites.get(s.g); if (st) { st.slot = null; st.key = ''; } dirty.add(s.g); }
       pReadSoon(); sReadSoon(); allMarks(); nbk = -1;
@@ -1197,7 +1186,6 @@ void main() { o = texture(uT, vUV) * uA; }`;
   function liveSprites() {
     const a = [];   // alloc-rare: a repack's step, between frames
     for (const s of last) { const st = sprites.get(s.g); if (st?.slot) a.push(st); }   // alloc-rare: as above
-    for (const o of outgoing) if (o.st?.slot) a.push(o.st);   // alloc-rare: as above
     for (const gh of ghosts) if (gh.st.slot) a.push(gh.st);   // alloc-rare: as above
     for (const s of last) { const sp = sprites.get(s.g), al = sp?.alt; if (al?.slot) a.push(al); if (sp?.alts) for (const o of sp.alts) if (o.slot) a.push(o); }   // alloc-rare: as above
     return a;
@@ -1310,21 +1298,6 @@ void main() { o = texture(uT, vUV) * uA; }`;
     moving = drawMarks(now) || moving;
     // (Every label's box and atlas place, in painter order; drawn below as one batch per run of pictures on a page.)
     ni = 0;
-    let shifted = 0;   // (pictures standing off their DOM label: glides on their way)
-    // (The labels gone at a ride's landing first, under the rest, fading out where they rode; their pictures given back once faded.)
-    if (outgoing.length) {
-      let kept = 0;
-      for (let i = 0; i < outgoing.length; i++) {
-        const o = outgoing[i];
-        const u = easeMove(Math.min(1, (now - o.t0) / RIDE_MS));
-        if (u >= 1 || !o.st.slot) { if (o.st.slot) packer.free(o.st.slot); o.g = null; o.st = null; gpool.push(o); continue; }
-        outgoing[kept++] = o; moving = true;
-        if (o.x > W || o.y > H || o.x + o.st.w < 0 || o.y + o.st.h < 0) continue;
-        takeItem(o.st.slot.page, o.x, o.y, o.st.w, o.st.h, o.st.slot.x, o.st.slot.y, o.a * (1 - u), o.st);
-        boxAt(o.x, o.y, o.x + o.st.w, o.y + o.st.h);
-      }
-      outgoing.length = kept;
-    }
     // (The view change's ghosts: the old view's labels, frozen, each at its world anchor under this frame's camera and morph plus its offset.)
     if (ghosts.length) {
       moving = true;
@@ -1388,8 +1361,6 @@ void main() { o = texture(uT, vUV) * uA; }`;
         // (Pinned: at its point now plus its offset, the offset easing from where it was drawn only while a new layout's glide runs.)
         pinOff(s);
         const ox = OFF[0], oy = OFF[1];
-        const fi = glides.get(g);
-        if (fi?.fadeIn) { const u = easeMove(Math.min(1, (now - fi.t0) / RIDE_MS)); a *= u; if (u >= 1) dropGlide(g); else moving = true; }
         st.pox = ox; st.poy = oy; st.pin = true; st.ppx = PIN[0]; st.ppy = PIN[1];
         let pl = pinLast.get(g); if (!pl) pinLast.set(g, pl = new Float64Array(2));   // alloc-rare: one per pinned label
         pl[0] = ox; pl[1] = oy;
@@ -1401,13 +1372,6 @@ void main() { o = texture(uT, vUV) * uA; }`;
         x = RIDE_XY[0]; y = RIDE_XY[1];
         // (A zone title is screen furniture placed by its band, not a figure label: carried and clamped it sat at the stage's edge over the wrong vessels. It is hidden while the camera rides and the layout places it.)
         if ((st.fk ??= g.dataset?.key)?.startsWith('z:')) a = 0;
-      } else {
-        const gl0 = glides.get(g);
-        if (gl0) {
-          const u = easeMove(Math.min(1, (now - gl0.t0) / RIDE_MS));
-          if (gl0.fadeIn) a *= u; else { x = Math.round(gl0.fx + (x - gl0.fx) * u); y = Math.round(gl0.fy + (y - gl0.fy) * u); if (u < 1) shifted++; }
-          if (u >= 1) dropGlide(g); else moving = true;
-        }
       }
       if (!pinned) st.pin = false;
       a *= xfNew;   // (the view change's crossfade: this view's labels come in as it passes its half)
@@ -1455,7 +1419,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     hostTail();
     // (R09: while a ride or a landing glide has the pictures off their DOM labels, the labels' pointer events are held off, app.css
     // #labels.lb-displaced: a click or a hover would land where the label was. A class between frames; keyboard and focus are untouched.)
-    { const off = displacedNow(!!rideM, shifted); if (off !== displaced) { displaced = off; classSoon(svg, 'lb-displaced', off); } }
+    { const off = displacedNow(!!rideM, 0); if (off !== displaced) { displaced = off; classSoon(svg, 'lb-displaced', off); } }
     // (A full atlas is packed again beside the old one, never reset (repackWork). And the second page is made at rest, ahead of the first
     // picture that needs it, once the first is more than half full.)
     if ((needRepack && !stuck) || rp || todo.size) settleSoon();   // (a repack goes on a few copies a frame, and what the pass left over is built next, R11/R12)
@@ -1615,15 +1579,6 @@ void main() { o = texture(uT, vUV) * uA; }`;
             // (A camera ride carries the leaders and dots as it carries the labels: each point where the figure's matching point now is, the
             // lines keeping their width and the dots their size. Left where they were laid out, they stretched from their points to the
             // labels that rode on, and spread over the figure, for as long as the ride lasted.)
-            // (After a ride's landing each label glides from where it rode to its slot, and its leader's label end goes with it, not to the
-            // slot at once: the line was longer than the distance to the label for as long as the glide ran.)
-            if (geo && !rideM && isPath && mg.k && glides.size) {
-              const ls = labelByKey.get(mg.k), gl0 = ls && glides.get(ls.g), lst = gl0 && !gl0.fadeIn && sprites.get(ls.g);
-              if (lst && lst.mode === 'gl') {
-                const u = easeMove(Math.min(1, (now - gl0.t0) / RIDE_MS));
-                if (u < 1) { geo[2] += (gl0.fx - (Math.round(ls.x * dpr) + lst.ox)) * (1 - u); geo[3] += (gl0.fy - (Math.round(ls.y * dpr) + lst.oy)) * (1 - u); }
-              }
-            }
             if (geo && rideM) {
               const M = rideM, n = isPath ? 2 : 1;
               for (let i = 0; i < n; i++) {
@@ -1738,8 +1693,6 @@ void main() { o = texture(uT, vUV) * uA; }`;
       if (!st || st.mode !== 'gl' || !(st.opacity > 0.001)) continue;
       const want = pinWant.get(key) | 0, lk = pinLooks.get(key);
       let a = Math.min(1, st.opacity) * xfNew;
-      const fi = glides.get(s.g);
-      if (fi?.fadeIn) a *= easeMove(Math.min(1, (now - fi.t0) / RIDE_MS));
       const px = PIN[0] * dpr, py = PIN[1] * dpr;
       pinOff(s, now);
       const lx = Math.round((PIN[0] + OFF[0]) * dpr) + st.ox, ly = Math.round((PIN[1] + OFF[1]) * dpr) + st.oy;
@@ -2225,7 +2178,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     }
     return live;
   }
-  const WAS = new Set(), NOW2 = new Set(), SVGL = [], CNT = { marksDrawn: 0, labels: 0, svg: 0, marks: 0 };   // (kept: a layout, the SVG's list and the counts make none)
+  const WAS = new Set(), SVGL = [], CNT = { marksDrawn: 0, labels: 0, svg: 0, marks: 0 };   // (kept: a layout, the SVG's list and the counts make none)
   return {
     canvas,
     setProbe,
@@ -2281,31 +2234,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       if (rideM) { ask(); return; }
       WAS.clear();
       for (const s of last) WAS.add(s.g);
-      // (The first layout after a ride: each label that stays glides from where it rode, a new one fades in, one that goes fades out.)
-      const from = rideFrom;
-      rideFrom = null;
-      if (from) {
-        const t0 = performance.now();
-        NOW2.clear();
-        for (const s of list) NOW2.add(s.g);
-        for (const s of list) {
-          const f = from.get(s.g);
-          dropGlide(s.g);
-          const r = takeRec();
-          r.t0 = t0; r.fadeIn = !f;
-          if (f) { r.fx = f.x; r.fy = f.y; }
-          glides.set(s.g, r);
-        }
-        for (const [g, f] of from) {
-          if (NOW2.has(g)) continue;
-          const st = sprites.get(g);
-          if (st?.slot && st.mode === 'gl') { const o = takeRec(); o.g = g; o.st = st; o.x = f.x; o.y = f.y; o.a = f.a; o.t0 = t0; outgoing.push(o); sprites.delete(g); }
-        }
-        for (const f of from.values()) gpool.push(f);
-        from.clear();
-      }
       // (Pinned labels take their layout's offset at once; no glide. A ride's or a follow's glide is not theirs.)
-      if (pinAt) for (const x of list) if (x.pid != null && glides.get(x.g)?.fadeIn !== true) dropGlide(x.g);
       last = list; gen++; stuck = false;
       // (The marks as they stand with this layout: what a pinned label's dot and leader are drawn from until the next.)
       for (const root of marks) for (const el of root.children) {
@@ -2326,7 +2255,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       labelByKey.clear();
       for (const s of list) { const k = s.g.dataset?.key; if (k) labelByKey.set(k, s); }
       for (const s of list) WAS.delete(s.g);
-      for (const g of WAS) { g.removeAttribute('data-gl'); todo.delete(g); dropGlide(g); const st = sprites.get(g); if (st) { if (st.slot) packer.free(st.slot); if (st.alt?.slot) packer.free(st.alt.slot); if (st.alts) for (const o of st.alts) if (o.slot) packer.free(o.slot); sprites.delete(g); } live.delete(g); }
+      for (const g of WAS) { g.removeAttribute('data-gl'); todo.delete(g); const st = sprites.get(g); if (st) { if (st.slot) packer.free(st.slot); if (st.alt?.slot) packer.free(st.alt.slot); if (st.alts) for (const o of st.alts) if (o.slot) packer.free(o.slot); sprites.delete(g); } live.delete(g); }
       ask();
     },
     /** Whether the labels can ride a camera move on the GPU. A label the SVG still draws (one with a glyph Inter's cut lacks, as the Circuit's
@@ -2336,29 +2265,14 @@ void main() { o = texture(uT, vUV) * uA; }`;
     ride(m) {
       if (lost) return;
       if (m && !rideM) {
-        rideT0 = performance.now();
         // The caller alternates and refills two lists. Own this ride's layout until it ends, even across several syncs.
         last = last.slice();   // alloc-rare: once when a camera ride starts, never on its steps
       }
       rideM = m;
-      for (const r of glides.values()) gpool.push(r);
-      glides.clear();
       ask();   // (the host's present draws it, with the camera of that frame)
     },
-    /** The ride is over: the next layout (sync) glides each label on from where it rode. */
-    rideEnd() {
-      if (!rideM) return;
-      rideM = null;
-      for (const f of fromMap.values()) gpool.push(f);
-      fromMap.clear();
-      for (const s of last) {
-        const st = sprites.get(s.g);
-        if (st && st.mode === 'gl' && st.drawn >= rideT0 && !(st.fk ??= s.g.dataset?.key)?.startsWith('z:')) { const f = takeRec(); f.x = st.dx; f.y = st.dy; f.a = Math.min(1, st.opacity); fromMap.set(s.g, f); }
-      }
-      rideFrom = null;   // (no glide from where the labels rode: the layout stands as it lands)
-      for (const f of fromMap.values()) gpool.push(f);
-      fromMap.clear();
-    },
+    /** The ride is over: the next layout stands as it lands (no glide from where the labels rode). */
+    rideEnd() { rideM = null; },
     /** A view change begins: the anchored labels standing are kept as ghosts (their pictures, pins and leaders), and their labels owe new pictures. */
     freezeGhosts() {
       if (lost) return 0;   // (S1: host mode keeps ghosts too, drawn in the host's present)
@@ -2397,7 +2311,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       const items = [];   // alloc-rare: asked only by the browser check
       for (const s of last) {
         const st = sprites.get(s.g);
-        if (st && st.mode === 'gl' && st.seq === frameSeq && s.g.dataset?.key) { const it = snapshotItem(s.g.dataset.key, st.dx, st.dy, st.w, st.h, st.held ?? 0, dpr, W, H); it.pin = !!st.pin; if (st.pin) { it.px = st.ppx; it.py = st.ppy; } it.glide = glides.has(s.g); items.push(it); }
+        if (st && st.mode === 'gl' && st.seq === frameSeq && s.g.dataset?.key) { const it = snapshotItem(s.g.dataset.key, st.dx, st.dy, st.w, st.h, st.held ?? 0, dpr, W, H); it.pin = !!st.pin; if (st.pin) { it.px = st.ppx; it.py = st.ppy; } items.push(it); }
       }
       // (The marks this frame drew: each dot's centre and radius, each leader's two ends, keyed by its label, CSS px from the canvas's corner.)
       const marksOut = [];   // alloc-rare: asked only by the browser check

@@ -417,10 +417,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get picLin() { return picLin; }, set picLin(v) { picLin = v; },
     get picNow() { return picNow; }, set picNow(v) { picNow = v; },
     get pillEdge() { return pillEdge; }, set pillEdge(v) { pillEdge = v; },
-    get pinchHide() { return pinchHide; }, set pinchHide(v) { pinchHide = v; },
-    get pinchLift() { return pinchLift; }, set pinchLift(v) { pinchLift = v; },
-    get pinchLiftT() { return pinchLiftT; }, set pinchLiftT(v) { pinchLiftT = v; },
-    get pinchT() { return pinchT; }, set pinchT(v) { pinchT = v; },
     get pinned() { return pinned; },
     get plateAgain() { return plateAgain; }, set plateAgain(v) { plateAgain = v; },
     get plateBusy() { return plateBusy; }, set plateBusy(v) { plateBusy = v; },
@@ -1925,7 +1921,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (The change landed before the new view's labels were solved: they stay at nothing until the solve lands, never the old view's labels on the new figure.)
   let xfHold = false;
   // (Whether the view is moving now: a glide, a pan or a pinch. Boxes kept for the frame's reads are not read again while it is.)
-  const viewMoving = () => vtGliding || camMove || wrap.classList.contains('pinch-hide') || wrap.classList.contains('panning');
+  const viewMoving = () => vtGliding || camMove || wrap.classList.contains('panning');
   // A slow push (opt.drift: a time-lapse's lapse.cam) is not a move of that kind: the labels stay up and ride with the figure, each kept
   // on its side as a hand's zoom keeps them (updateLabels), and are solved again for where it stopped once it lands, gliding there.
   let drifting = false;
@@ -1957,7 +1953,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function rideStart(from = null) {
     if (rideCTM) return true;   // (a move taken over by another: the labels ride on from where they were laid out)
     // (A treatment's catheter keeps the figure's labels on (keep): they ride its glides too. The HVPG catheter hides them: nothing to carry.)
-    if (!labelRider?.canRide() || (cath.st && !cath.st.keep) || pinchHide || lobuleOn || lz?.isOpen() || diveT > 0 || wrap.classList.contains('cam-move')) return false;   // (reduced motion rides too: a label that stays on its point as the figure moves adds no motion of its own; hidden, the names went for every pinch and glide)
+    if (!labelRider?.canRide() || (cath.st && !cath.st.keep) || lobuleOn || lz?.isOpen() || diveT > 0 || wrap.classList.contains('cam-move')) return false;   // (reduced motion rides too: a label that stays on its point as the figure moves adds no motion of its own; hidden, the names went for every pinch and glide)
     refreshCTM();
     if (from) { for (let q = 0; q < 6; q++) stagePxRide[q] = from[q]; } else stagePxInto(stagePxRide, CTM);
     rideCTM = stagePxRide;
@@ -2195,7 +2191,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // callout, probe, scan or treatment has a layer of its own to move: those keep the fade.)
   const CARRY_ZOOM = 0.35, CARRY_PAN = 0.3;
   function carryable(from, to) {
-    if (!store.get().presenting || reduceMotion.matches || !F || !solvedFor || camMove || pinchHide) return false;
+    if (!store.get().presenting || reduceMotion.matches || !F || !solvedFor || camMove) return false;
     if (cath.st || lobuleOn || lz?.isOpen() || morph !== morphTarget || diveT > 0 || sites.list || scan.on || dpr.on || E.TIPS?.vis || E.DIPS?.vis) return false;
     const room = arcRoom();
     if (!room || Math.abs(Math.log(to.k / from.k)) > CARRY_ZOOM || Math.hypot(to.x - from.x, to.y - from.y) > room.vb.w * CARRY_PAN) return false;
@@ -2211,7 +2207,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Whether a glide from `from` to `to` can have its labels solved for where it lands (see landRide).
   function landable(from, to) {
     // (Not twice within 150 ms: a glide asked again and again, as refits can be, solves as it always did.)
-    if (!F || inUpdate || catchUp || !solvedFor || camMove || pinchHide || gestureOn() || sameView(from, to) || performance.now() - landAt < 150) return false;
+    if (!F || inUpdate || catchUp || !solvedFor || camMove || gestureOn() || sameView(from, to) || performance.now() - landAt < 150) return false;
     if (cath.st || lobuleOn || lz?.isOpen() || morph !== morphTarget || diveT > 0 || sites.list || scan.on || dpr.on || dop.all || E.TIPS?.vis || E.DIPS?.vis) return false;
     return solvedFor.sig === labelSig(F) && solvedFor.csig === calloutSig() && solvedFor.ins === labelIns();
   }
@@ -5352,8 +5348,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // A hand's zoom in the Circuit: the readings ease out as it starts, are not laid out while it lasts, and ease back in, solved for
   // where the view stopped, once it is let go (as a presenter's camera move does: cam-move). Mohammad, 26 Oct, his pick "Both,
   // readings first" for "the problem is during the zoom itself it's very very choppy". A pan alone keeps them, carried.
-  let pinchHide = false, pinchT = 0;
-  let pinchLift = false, pinchLiftT = 0;
   // A vessel's width as the labels see it: it moves only once the vessel has changed by 2 px, so a width
   // easing or hovering at a rounding edge does not lay the labels out again on every model update.
   const sigW = new Map();
@@ -6233,7 +6227,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
      *  and stale (shown, not riding, laid out under a camera that is not this one: the old labels over the new view). */
     labelCarry: () => {
       refreshCTM();
-      const hidden = pinchHide || pinchLift || wrap.classList.contains('pinch-hide') || wrap.classList.contains('cam-move'), riding = !!rideCTM;
+      const hidden = wrap.classList.contains('cam-move'), riding = !!rideCTM;
       let moved = false;
       if (layCTM) { const n = stagePxInto(stagePxNow, CTM); for (let i = 0; i < 6; i++) if (Math.abs(n[i] - layCTM[i]) > (i < 4 ? 1e-4 : 0.5)) moved = true; }
       return { hidden, riding, job: !!labelJob, laid: !!solvedFor && !labelJob && labelKey != null && morph === morphTarget, stale: !hidden && !riding && !labelJob && moved };

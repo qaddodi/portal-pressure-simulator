@@ -59,44 +59,6 @@ export function createLabelDriver(st, live) {
     return k;
   }
   const rideKeyHeld = (st) => sameDeps(rideKeyA, rideKeyInto(rideKeyB, st));
-  function pinchRelease() {
-    clearTimeout(live.pinchT);
-    live.pinchT = setTimeout(pinchRel, 160);
-  }
-  function pinchRel() {
-    {
-      if (live.gestureOn()) { live.pinchT = setTimeout(pinchRel, 120); return; }
-      // (They are laid out for where the zoom stopped. The labels still standing are carried to this camera first, then solved: solvedFor is
-      // kept, with a solve asked for, so that carry runs; solvedFor = null skipped it, and the labels as they stood before the zoom were
-      // shown, at their old screen places, over the zoomed vessels when the hide was lifted, till the solve landed.)
-      live.pinchT = 0; live.pinchHide = false; live.reslotted = false; live.solveAsked = true;
-      live.pinchLift = true;
-      if (live.F && !live.camMove && !live.lz?.isOpen()) { live.labelKey = null; updateLabels(live.F); }
-      // (Shown only once that layout has landed (pinchLiftNow, from labelTail). A solve still in its slices after 600 ms keeps its slices: it
-      // was finished in one task there, the whole remaining solve on the main thread just as the hand let go (external review EXT-PERF-1).
-      // It is looked at again every 200 ms, and after 3 s the labels come back as they stand, so they are never hidden for good.)
-      clearTimeout(live.pinchLiftT);
-      pinchLiftN = 0;
-      live.pinchLiftT = setTimeout(pinchLiftCheck, 600);
-      pinchLiftNow(false);
-    }
-  }
-  let pinchLiftN = 0;
-  function pinchLiftCheck() {
-    live.pinchLiftT = 0;
-    if (!live.pinchLift || live.pinchHide) return;
-    if (live.labelJob && ++pinchLiftN < 13) { live.pinchLiftT = setTimeout(pinchLiftCheck, 200); return; }
-    pinchLiftNow(true);
-  }
-  // (Lifts the hide once the labels stand laid out for the camera: no solve running, the layout's key kept. `force`: whatever stands.)
-  function pinchLiftNow(force) {
-    if (!live.pinchLift || live.pinchHide) return;
-    if (!force && (live.labelJob || live.labelKey == null)) return;
-    live.pinchLift = false; clearTimeout(live.pinchLiftT); live.pinchLiftT = 0;
-    // (Shown a frame after the last write, where they stay: they fade in.)
-    // alloc-rare: one closure when the hide is lifted after a pinch, never per frame
-    nextFrame(() => { if (!live.pinchHide) wrap.classList.remove('pinch-hide'); });
-  }
   // (No timer: the labels are solved in the first frame after the hand lets go and any push has landed.)
   function labelSettleSoon() {
     cancelFrame(live.labelSettleT);
@@ -208,7 +170,7 @@ export function createLabelDriver(st, live) {
     if (live.handRide && !live.handRide.settle) {
       if (live.rideCTM && live.gestureOn() && restView && rideKeyHeld(st)) { rideStep(); stats.skips++; stats.ms += performance.now() - t0; return; }
       handRideEnd(); live.labelKey = null;
-    } else if (!live.handRide && !live.pinchHide && !live.pinchLift && live.gestureOn() && live.solvedFor && restView && live.layCTM && Math.abs(Math.log(live.CTM.sc / Math.hypot(live.layCTM[0], live.layCTM[1]))) > PINCH_ZOOM && rideStart(live.layCTM)) {
+    } else if (!live.handRide && live.gestureOn() && live.solvedFor && restView && live.layCTM && Math.abs(Math.log(live.CTM.sc / Math.hypot(live.layCTM[0], live.layCTM[1]))) > PINCH_ZOOM && rideStart(live.layCTM)) {
       // A playing model may have another solve in slices. The last committed layout can still ride: discard the unfinished solve,
       // rather than hiding the labels or carrying them from the camera of an older solve.
       labelJobDrop();
@@ -299,7 +261,6 @@ export function createLabelDriver(st, live) {
   function handRideEnd() { if (!live.handRide) return; live.handRide = null; cancelFrame(live.handRideT); live.handRideT = 0; rideStop(); }
   // (What every layout of the labels ends with, a carried, a skipped or a sliced one too: the callouts and probes painted, then the GPU's copy.)
   function labelTail() {
-    pinchLiftNow(false);   // (the labels hidden for a zoom that rode no further come back once their layout is down)
     if (live.handRide?.settle && !live.labelJob) handRideEnd();   // (the layout for where the hand stopped has landed: the ride ends as it is drawn)
     if (sites.list) sitesPaint();
     if (scan.on) scanPaint();
