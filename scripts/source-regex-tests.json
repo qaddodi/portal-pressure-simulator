@@ -223,7 +223,6 @@
  "morph-joins.test.js",
  "morph-sweep.test.js",
  "no-event-track.test.js",
- "num-move.test.js",
  "number-units-1nov.test.js",
  "numbers-agree.test.js",
  "numbers-tabular.test.js",
