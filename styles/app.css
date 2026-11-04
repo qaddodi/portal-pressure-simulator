@@ -6550,20 +6550,20 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
    (Settings, Why?) is drawn above the whole app, so every move of it down, a pull, a let-go, the stylesheet's own exit, is cut on the dock's top line:
    at rest its foot is 8 px above that line (the cut sits 8 px under it); a move of T px down leaves T - 8 px of it cut off the bottom (the pull
    and let-go write the same clip-path beside their translate: num-move.js dockCut). Never over the play bar, the timeline or the tabs. */
-html.thumb-ui :is(.menu.as-sheet, .why-pop.as-sheet):not(.from-dock) { clip-path: inset(-64px -64px -8px -64px); }
+html.thumb-ui :is(.menu.as-sheet, .why-pop.as-sheet) { clip-path: inset(-64px -64px -8px -64px); }
 @keyframes dock-sheet-in { from { opacity: var(--edge-o, 1); transform: translateY(calc(100% + 8px)); clip-path: inset(-64px -64px 100% -64px); } }
 @keyframes dock-sheet-out { to { opacity: var(--edge-o, 1); transform: translateY(calc(100% + 8px)); clip-path: inset(-64px -64px 100% -64px); } }
 @media (prefers-reduced-motion: no-preference) {
-  html.thumb-ui :is(.menu.as-sheet, .why-pop.as-sheet):not(.from-dock) { animation-name: dock-sheet-in; }
-  html.thumb-ui :is(.menu.as-sheet, .why-pop.as-sheet):not(.from-dock).leaving { animation-name: dock-sheet-out; }
-  html.thumb-ui :is(.menu.as-sheet, .why-pop.as-sheet):not(.from-dock).leaving[data-swiped], html.thumb-ui :is(.menu.as-sheet, .why-pop.as-sheet):not(.from-dock).pulling { animation: none; }
+  html.thumb-ui :is(.menu.as-sheet, .why-pop.as-sheet) { animation-name: dock-sheet-in; }
+  html.thumb-ui :is(.menu.as-sheet, .why-pop.as-sheet).leaving { animation-name: dock-sheet-out; }
+  html.thumb-ui :is(.menu.as-sheet, .why-pop.as-sheet).leaving[data-swiped], html.thumb-ui :is(.menu.as-sheet, .why-pop.as-sheet).pulling { animation: none; }
 }
 .app.thumb :is(.panel, .treat-card, .instrument-workspace.float-ui) { --card-out: thumbOut; }
 @media (prefers-reduced-motion: no-preference) {
   #app.thumb.panel-open .panel, #app.thumb .treat-card, #app.thumb .instrument-workspace.float-ui.entering { animation: thumbIn var(--d-small) var(--ease) backwards; }
-  /* (A menu is drawn above the tab row, so it never rises across it: it settles in where it rests, by opacity.) */
-  html.thumb-ui .menu.from-dock { animation: scale-settle var(--d-small) var(--ease) backwards; }
-  html.thumb-ui .menu.from-dock.leaving { animation: scale-settle-out var(--d-small) var(--ease-in) forwards; }
+  /* (A menu is drawn above the tab row, so it never rises across it: it settles in where it rests, by opacity; a menu sheet, as-sheet, slides like the cards, below.) */
+  html.thumb-ui .menu.from-dock:not(.as-sheet) { animation: scale-settle var(--d-small) var(--ease) backwards; }
+  html.thumb-ui .menu.from-dock:not(.as-sheet).leaving { animation: scale-settle-out var(--d-small) var(--ease-in) forwards; }
   /* A sheet moved by its content (has-plate, sheet-move.js) rises and sinks the same way, but by its content's translate alone under
      its still clip: no --sink is eased frame by frame on the main thread. The box holds (sheet-hold) so its leave still ends on it. */
   #app.thumb.panel-open .panel.has-plate, #app.thumb .treat-card.has-plate, #app.thumb .instrument-workspace.float-ui.entering.has-plate { animation: none; }
