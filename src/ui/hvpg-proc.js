@@ -408,6 +408,7 @@ function drawTrace(cv, st, g = null) {
   const p = fitPen(cv, g);
   try { traceOn(p, st); } finally { p.ctx.end?.(); }
 }
+let FS = 12;   // the monitor's word size this frame (traceRoom's fs: 12 on a small monitor, up to 15 on a wide one)
 function traceOn({ ctx, w, h: hh }, { ph, t, v, blocked, running }) {
   if (w < 80 || hh < 60) return;
   ctx.clearRect(0, 0, w, hh);
@@ -416,15 +417,15 @@ function traceOn({ ctx, w, h: hh }, { ph, t, v, blocked, running }) {
   const narrow = W < 300;
   ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
   // (Every word on the monitor at 12 px or more; the header takes the longest form that clears the big reading.)
-  const { big } = traceRoom(W, H);
+  const { big, fs } = traceRoom(W, H); FS = fs;
   ctx.font = FONT(700, big); const room = W - ctx.measureText('88.8').width - 12;
-  ctx.fillStyle = C.text; ctx.font = FONT(600, 12);
+  ctx.fillStyle = C.text; ctx.font = FONT(600, FS);
   ctx.fillText(fitLine(ctx, HEADS, room), x, y + 13);
   let label, num = '', col = C.text;
   if (ph === 'abort') {
-    ctx.font = FONT(600, 12); ctx.fillStyle = C.danger; ctx.fillText('Aborted', x, y + 32);
-    ctx.textAlign = 'center'; ctx.font = FONT(600, 12); ctx.fillText(narrow ? 'Unable to cannulate hepatic vein' : 'Unable to cannulate hepatic vein: procedure aborted', w / 2, hh / 2 + 8);
-    ctx.fillStyle = C.text; ctx.font = FONT(500, 12); ctx.fillText('HVPG not measurable', w / 2, hh / 2 + 28);
+    ctx.font = FONT(600, FS); ctx.fillStyle = C.danger; ctx.fillText('Aborted', x, y + 32);
+    ctx.textAlign = 'center'; ctx.font = FONT(600, FS); ctx.fillText(narrow ? 'Unable to cannulate hepatic vein' : 'Unable to cannulate hepatic vein: procedure aborted', w / 2, hh / 2 + 8);
+    ctx.fillStyle = C.text; ctx.font = FONT(500, FS); ctx.fillText('HVPG not measurable', w / 2, hh / 2 + 28);
     return;
   }
   if (ph === 'idle') label = 'Ready';
@@ -434,14 +435,14 @@ function traceOn({ ctx, w, h: hh }, { ph, t, v, blocked, running }) {
   else if (ph === 'wedge') { label = t < T.wedge ? 'Balloon inflating' : t < T.callout ? 'Settling' : 'WHVP'; num = fmt(t < T.callout ? pAt(t, v) : v.whvp, 1); col = C.wedge; }
   else if (running && t < T.sum) { label = 'WHVP'; num = fmt(v.whvp, 1); col = C.wedge; }
   else { label = 'HVPG'; num = fmt(v.hvpg, 1); col = C[sevOf(v.hvpg)]; }
-  ctx.font = FONT(600, 12); ctx.fillStyle = col === C.text ? C.bright : col; ctx.fillText(label, x, y + 32);
+  ctx.font = FONT(600, FS); ctx.fillStyle = col === C.text ? C.bright : col; ctx.fillText(label, x, y + 32);
   if (num) { ctx.font = FONT(700, big); ctx.textAlign = 'right'; ctx.fillText(num, x + W, y + 14 + big); ctx.textAlign = 'left'; }
-  const { top, bot } = traceRoom(W, H, y), L = x + 22, R = x + W - (narrow ? 2 : 50);
+  const { top, bot } = traceRoom(W, H, y), L = x + Math.round(FS * 1.8), R = x + W - (narrow ? 2 : Math.round(FS * 4.2));
   if (bot - top < TRACE_MIN) {
     // (Too short for the tracing, a phone held sideways: its note alone, in the longest form that fits, so the box is never
     // blank under "Ready". Sweep batch 03, shot 03.)
     if (ph !== 'idle' && ph !== 'enter') return;
-    ctx.font = FONT(500, 12);
+    ctx.font = FONT(500, FS);
     const say = blocked && t >= TB.probe0 ? NOTE_PROBE : ph === 'idle' ? NOTE_IDLE : NOTE_WAIT;
     const ty = Math.min(hh - 12, Math.max(y + 54, (y + 40 + hh) / 2));
     monitorNote(ctx, fitLine(ctx, say, W - 16), x + 8, x + W - 8, ty - 4);
@@ -449,7 +450,7 @@ function traceOn({ ctx, w, h: hh }, { ph, t, v, blocked, running }) {
   }
   const ymax = Math.max(15, Math.ceil((Math.max(v.whvp, v.fhvp) + 5) / 5) * 5);
   axTop = top; axBot = bot; axMax = ymax; axL = L; axR = R;   // (Y and X, above, read these)
-  ctx.lineWidth = 1; ctx.font = FONT(500, 12); ctx.fillStyle = C.text; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  ctx.lineWidth = 1; ctx.font = FONT(500, FS); ctx.fillStyle = C.text; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
   for (let p = 0; p <= ymax; p += 5) {
     ctx.fillStyle = p ? C.grid : C.line; ctx.fillRect(L, Math.round(Y(p)), R - L, 1);   // (boxes, not stroked lines: see inkSeg)
     if (p % 10 === 0 || ymax <= 20) { ctx.fillStyle = C.text; ctx.fillText(tick(p), L - 5, Y(p)); }
@@ -458,7 +459,7 @@ function traceOn({ ctx, w, h: hh }, { ph, t, v, blocked, running }) {
     // (Wrapped inside the grid, 8 px clear of the axis numbers and the monitor's right edge, on a solid patch of the monitor
     // so no gridline runs through it: at 320 px it ran past the edge over "20" and "10", on a Mac and an iPad the 15 line
     // struck through it, sweep 2 review items 14 and 15.)
-    ctx.font = FONT(500, 12);
+    ctx.font = FONT(500, FS);
     monitorNote(ctx, blocked && t >= TB.probe0 ? NOTE_PROBE[0] : ph === 'idle' ? NOTE_IDLE[0] : NOTE_WAIT[0],
       L + 8, Math.min(R, x + W) - 8, (top + bot) / 2);
     return;
@@ -481,7 +482,7 @@ function traceOn({ ctx, w, h: hh }, { ph, t, v, blocked, running }) {
     if (a > 0.6) {
       ctx.save(); ctx.globalAlpha = ease(k01(t, T.sum, T.sum + 450));
       if (!Object.is(cHT.v, v.hvpg)) { cHT.v = v.hvpg; cHT.s = `HVPG ${fmt(v.hvpg, 1)}`; }   // alloc-rare: only when the HVPG differs from the one this text was built from
-      const txt = cHT.s; ctx.font = FONT(700, 12);
+      const txt = cHT.s; ctx.font = FONT(700, FS);
       const tw = ctx.measureText(txt).width + 12, lx = xa - tw - 6, ly = (y1 + y2) / 2;
       ctx.fillStyle = C.bg; rrect(ctx, lx, ly - 9, tw, 18, 9); ctx.fill(); ctx.strokeStyle = col2; ctx.lineWidth = 1; ctx.stroke();
       ctx.fillStyle = col2; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(txt, lx + 6, ly + 0.5);
@@ -493,14 +494,14 @@ function traceOn({ ctx, w, h: hh }, { ph, t, v, blocked, running }) {
   const tFree = T.inflate - 80;
   if (ph !== 'abort' && t >= tFree) {
     const yp = Y(pAt(tFree, v));
-    drawCallout(ctx, calloutText(mkF, 'Free', v.fhvp), X(tFree), yp, sideFor(yp, 1, top, bot), C.free, C.bg, dropK(t - tFree), 1, L, R, top, bot);
+    drawCallout(ctx, calloutText(mkF, 'Free', v.fhvp), X(tFree), yp, sideFor(yp, 1, top, bot), C.free, C.bg, dropK(t - tFree), 1, L, R, top, bot, FS);
   }
   if (ph !== 'abort' && t >= T.callout) {
     const yp = Y(pAt(T.callout, v));
-    drawCallout(ctx, calloutText(mkW, 'Wedge', v.whvp), X(T.callout), yp, sideFor(yp, -1, top, bot), C.wedge, C.bg, dropK(t - T.callout), 1, L, R, top, bot);
+    drawCallout(ctx, calloutText(mkW, 'Wedge', v.whvp), X(T.callout), yp, sideFor(yp, -1, top, bot), C.wedge, C.bg, dropK(t - T.callout), 1, L, R, top, bot, FS);
   }
-  ctx.fillStyle = C.text; ctx.font = FONT(500, 12); ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-  ctx.fillText('balloon up', X(T.inflate), bot + 15);
+  ctx.fillStyle = C.text; ctx.font = FONT(500, FS); ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+  ctx.fillText('balloon up', X(T.inflate), bot + FS + 3);
   ctx.fillStyle = C.line; ctx.fillRect(X(T.inflate) - 0.5, bot, 1, 4);
 }
 
@@ -526,7 +527,7 @@ function level(ctx, p, colr, txt, ly, narrow, R, L, c) {
   const dy = Math.round(Y(p));
   for (let dx = L; dx < R; dx += DASH[0] + DASH[1]) ctx.fillRect(dx, dy, Math.min(DASH[0], R - dx), 1);   // (dashes as boxes: see seg)
   ctx.restore();
-  if (!narrow) { ctx.fillStyle = colr; ctx.font = FONT(600, 12); ctx.textAlign = 'left'; ctx.fillText(txt, R + 6, ly - 7); ctx.font = FONT(700, 12); ctx.fillText(fm1(c, p), R + 6, ly + 7); }
+  if (!narrow) { ctx.fillStyle = colr; ctx.font = FONT(600, FS); ctx.textAlign = 'left'; ctx.fillText(txt, R + 6, ly - FS * 0.6); ctx.font = FONT(700, FS); ctx.fillText(fm1(c, p), R + 6, ly + FS * 0.6); }
 }
 // One end of the difference's bracket: a small arrowhead at yy, pointing d (1 down the page's way, -1 the other).
 function arrowHead(ctx, xa, yy, d) {
@@ -540,7 +541,7 @@ const NOTE_BOX = { x: 0, y: 0, w: 0, h: 0, lines: null };
  *  lines), on a patch of the monitor's own background 8 px wider and 4 px taller than the words each side. Returns its box (a kept
  *  object, valid until the next note). The wrap is redone only when the width, or the width the font gives the whole text, changes. */
 export function monitorNote(ctx, text, x0, x1, cy) {
-  const pad = 8, padY = 4, lh = 16, maxW = Math.max(40, x1 - x0 - 2 * pad);
+  const pad = 8, padY = 4, lh = FS + 4, maxW = Math.max(40, x1 - x0 - 2 * pad);
   let e = noteWrap.get(text);
   if (!e) noteWrap.set(text, e = { maxW: -1, probe: -1, tw: 0, lines: [] });   // alloc-rare: only the first time this note's words are drawn
   const probe = ctx.measureText(text).width;

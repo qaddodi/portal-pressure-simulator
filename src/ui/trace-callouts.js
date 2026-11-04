@@ -46,11 +46,11 @@ export function sideFor(y, want, top, bot) {
 
 /** Draw one marker on ctx. (x, y): the trace point it marks. side: -1 above it, 1 below. drop: dropK (0..1), alpha: 0..1.
  *  The marker is a ring on the point, a stem and a pill with the words, kept inside [x0, x1] × [top, bot]. Returns the pill's centre x. */
-export function drawCallout(ctx, text, x, y, side, colour, bg, drop, alpha, x0, x1, top, bot) {
+export function drawCallout(ctx, text, x, y, side, colour, bg, drop, alpha, x0, x1, top, bot, px = 12) {
   if (alpha <= 0.01 || drop <= 0) return x;
   ctx.save();
   ctx.globalAlpha *= alpha;
-  ctx.font = FONT(700, 12); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.font = FONT(700, px); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
   const tw = ctx.measureText(text).width + 2 * PAD, half = tw / 2;
   const cx = Math.min(Math.max(x, x0 + half), Math.max(x0 + half, x1 - half));
   const lift = (1 - drop) * DROP_PX * side * -1;   // (starts a little further out and drops onto its point)

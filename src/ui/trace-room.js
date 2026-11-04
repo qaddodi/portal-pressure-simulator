@@ -5,9 +5,10 @@ export const TRACE_MIN = 30;
 export const MON_MIN = 132;
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 // W, H: the drawn area (the canvas less its padding); y: the padding above it.
-const ROOM = { big: 0, top: 0, bot: 0 };   // alloc-rare: made once; every caller takes its numbers out at once
+const ROOM = { big: 0, fs: 12, top: 0, bot: 0 };   // alloc-rare: made once; every caller takes its numbers out at once
 export function traceRoom(W, H, y = 10) {
   const big = Math.round(clamp(Math.min(W * 0.1, H * 0.14), 22, 40));
+  ROOM.fs = clamp(Math.round(W / 64), 12, 15);   // (the monitor's words: 12 px on a small card, 13 to 15 on a wide one, to read well on a Mac or a phone held sideways)
   ROOM.big = big; ROOM.top = y + 30 + Math.max(big, 22) - 4; ROOM.bot = y + H - 16;
   return ROOM;
 }
