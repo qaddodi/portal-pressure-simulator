@@ -60,6 +60,7 @@ import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js';
 import { hitLabel, explainText, createExplain } from './label-explain.js';
 import { nameSpots, NAME_BREAK } from './organ-names.js';
 import { createLabelGL } from './label-gl.js';
+import { hits, crosses, within } from './label-place.js';
 import { createGlassGL } from './glass-gl.js';
 import { writePoints, writeJoinNow } from './veins-sweep.js';
 import { ENT_W } from './veins-bin.js';
@@ -10908,21 +10909,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
 
   const rectOf = (it) => ({ x0: it.x - it.padX, y0: it.y - it.padY, x1: it.x + it.w + it.padX, y1: it.y + it.h + it.padY });
-  const hits = (a, b) => a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0;
-  // Whether the segment (x0, y0) → (x1, y1) passes through the box (clipped against it, Liang–Barsky).
-  const crosses = (x0, y0, x1, y1, b) => {
-    let t0 = 0, t1 = 1;
-    const dx = x1 - x0, dy = y1 - y0;
-    for (let n = 0; n < 4; n++) {
-      const p = n === 0 ? -dx : n === 1 ? dx : n === 2 ? -dy : dy, q = n === 0 ? x0 - b.x0 : n === 1 ? b.x1 - x0 : n === 2 ? y0 - b.y0 : b.y1 - y0;
-      if (!p) { if (q < 0) return false; continue; }
-      const r = q / p;
-      if (p < 0) t0 = Math.max(t0, r); else t1 = Math.min(t1, r);
-      if (t0 > t1) return false;
-    }
-    return true;
-  };
-  const within = (r, B) => r.x0 >= B.x0 && r.y0 >= B.y0 && r.x1 <= B.x1 && r.y1 <= B.y1;
   // Candidate offset of a block around its anchor.
   // A ring's sixteen spots, level ones first (east, west), then ever further from level.
   const RING_DIRS = [0, 8, 1, 15, 7, 9, 2, 14, 6, 10, 3, 13, 5, 11, 4, 12].map((k) => 'R' + k);
