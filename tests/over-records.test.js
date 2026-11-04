@@ -107,14 +107,15 @@ test('a step that moves nothing says so (a still frame writes nothing and asks n
 test('the stage keeps the circuit\'s resistors as records, hands them to the painter, and writes no element for them', () => {
   assert.match(STAGE, /import \{ recordLayer \} from '\.\/over-records\.js/);
   assert.match(STAGE, /const recs = recordLayer\(\{ ease: easeArrive, ms: D_SURFACE \}\);/);
-  const rp = STAGE.slice(STAGE.indexOf('  function resPaint('), STAGE.indexOf("  // The wide screen's nav pill"));
+  const RESISTORS = readFileSync(new URL('../src/ui/stage-resistors.js', import.meta.url), 'utf8');   // (the resistors moved out of stage.js)
+  const rp = RESISTORS.slice(RESISTORS.indexOf('  function resPaint('));
   assert.match(rp, /recs\.put\(RES_KEYS\[k\]/);
   assert.match(rp, /recs\.drop\(RES_KEYS\[k\]/);
-  assert.match(STAGE, /RES_KEYS\[k\] = 'res:' \+ k/, 'each reading\'s record key is res:<name>, made once');
+  assert.match(RESISTORS, /RES_KEYS\[k\] = 'res:' \+ k/, 'each reading\'s record key is res:<name>, made once');
   assert.doesNotMatch(rp, /setAttribute|classList|\.style\.|setProperty|dataset|createElementNS|cloneNode/, 'a resistor writes no element, class or style');
   assert.doesNotMatch(STAGE, /res-one|RES_TPL/, 'no resistor element is built');
   // The painter is told when a kept shape was written in place (the page's watch cannot see it), and when the set of shapes changed.
-  assert.match(STAGE, /veins\.overlay\.touch\(\);/);
+  assert.match(STAGE, /(?:live\.)?veins\.overlay\.touch\(\);/);
   assert.match(STAGE, /if \(recs\.spec\) \{ groups\.set\('rec', \[recGroup\]\); names\.push\('rec'\); \}/);
   // The circuit view fades them as .circuit-only did.
   assert.match(STAGE, /recs\.show\(t > 0\.5 \? 1 : 0, performance\.now\(\), reduceMotion\.matches\)/);
