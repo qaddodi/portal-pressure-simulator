@@ -74,14 +74,14 @@ test('off, the stage adds no class, no listener and no lift (stage.js)', () => {
 });
 
 test('a finger, a talk and a drag light nothing', () => {
-  assert.match(stage, /const linkOK = \(\) => HOVER_LINK && MQ\[3\]\.matches && !store\.get\(\)\.presenting && store\.get\(\)\.tool === 'select' && !(?:live\.)?shunt;/, 'a hovering pointer, never a talk, only the select tool');
-  assert.match(stage, /g\.addEventListener\('pointerenter', \(e\) => \{ if \(e\.pointerType !== 'touch'\) linkHover\(key\); \}\);/, 'never a touch');
+  assert.match(stage, /const linkOK = \(\) => HOVER_LINK && MQ\[3\]\.matches && !store\.get\(\)\.presenting && store\.get\(\)\.tool === 'select' && !(?:live\.)?(?:live\.)?shunt;/, 'a hovering pointer, never a talk, only the select tool');
+  assert.match(stage, /g\.addEventListener\('pointerenter', \(e\) => \{ if \(e\.pointerType !== 'touch'\) (?:live\.)?linkHover\(key\); \}\);/, 'never a touch');
   // (The press on a label hands the pointer to the figure by capture, which ends the label's hover: clearHover also clears the link.)
-  assert.match(stage, /function clearHover\(\) \{[^}]*if \((?:live\.)?linkPtr\) \{ (?:live\.)?linkPtr = null; linkApply\(\); \} \}/);
+  assert.match(stage, /function clearHover\(\) \{[^}]*if \((?:live\.)?(?:live\.)?linkPtr\) \{ (?:live\.)?(?:live\.)?linkPtr = null; linkApply\(\); \} \}/);
   // (A move kept for the next frame no longer overrides the vessel the label lit.)
   assert.match(stage, /function hoverAt\(ev, look\) \{\s*if \(linkHeld\(\)\) return;/);
   // (A label that fades out under a still pointer sends no leave: the hold checks :hover, so the vessels never stay deaf to the pointer.)
-  assert.match(stage, /function linkHeld\(\) \{[\s\S]*?g\.matches\(':hover'\)[\s\S]*?(?:live\.)?linkPtr = null; linkApply\(\);/);
+  assert.match(stage, /function linkHeld\(\) \{[\s\S]*?g\.matches\(':hover'\)[\s\S]*?(?:live\.)?(?:live\.)?linkPtr = null; linkApply\(\);/);
 });
 
 test('the label lights the vessel through setHover, so the glow is the vessel\'s own', () => {

@@ -9,5 +9,5 @@ const st = stageSource();
 
 test('a leader left without a blank marks the shortfall, and the refill lays the labels out again', () => {
   assert.match(st, /if \(!el\) \{ el = leadTake\(w\.tag\); if \(!el\) \{ leadShort = true; if \(!leadFill\) leadFill = restPass\(leadTop\); continue; \}/);
-  assert.match(st, /if \(leadShort\) \{ leadShort = false; nextFrame\(\(\) => \{ if \(F\) updateLabels\(F, true\); \}\); \}/);
+  assert.match(st, /if \(leadShort\) \{ leadShort = false; nextFrame\(\(\) => \{ if \((?:live\.)?(?:live\.)?F\) updateLabels\((?:live\.)?(?:live\.)?F, true\); \}\); \}/);
 });

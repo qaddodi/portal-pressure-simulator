@@ -27,7 +27,7 @@ test('a hidden label leaves the Tab order and the screen reader, and one with fo
   assert.match(fn, /aria-hidden', 'true'/);
   assert.match(fn, /removeAttribute\('aria-hidden'\)/);
   assert.match(fn, /document\.activeElement === b\.g/, 'focus is never pulled out from under a person');
-  assert.match(fn, /hid \|\| !keyStops \? '-1' : '0'/);
+  assert.match(fn, /hid \|\| !(?:live\.)?(?:live\.)?keyStops \? '-1' : '0'/);
   // Every place a label is hidden goes through it: the per-frame draw and the fade-out.
   assert.match(s, /b\.g\.classList\.toggle\('lb-off', !!it\.hide\);\s*labelStop\(b, !!it\.hide\);/);
   assert.match(s, /b\.g\.classList\.add\('lb-off'\); labelStop\(b, true\);/);

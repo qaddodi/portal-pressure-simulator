@@ -68,10 +68,10 @@ test('stage.js: the build pass lands a label\'s pieces with its move, and a newe
   assert.match(build, /renderBlock\(it\);\s*\}\s*[^]*lateQueue\.now\(\);\s*\}/, 'the queue is applied before the pass ends');
   assert.match(STAGE, /const lateQueue = createLateQueue\(\(op, a, b\) => lateRun\(op, a, b\), restPass, cancelRest\);/);
   // The layout's own sweep: what it wants replaces what an earlier layout asked to have built.
-  assert.match(STAGE, /laidFrame = frameNo; blockWant\.clear\(\);\s*for \(const it of out\) renderBlock\(it\);/);
+  assert.match(STAGE, /(?:live\.)?laidFrame = frameNo; blockWant\.clear\(\);\s*for \(const it of out\) renderBlock\(it\);/);
   // A label is stamped with the layout that wanted it, not the one now being solved (a sliced solve moves frameNo on first).
   const render = STAGE.slice(STAGE.indexOf('function renderBlock(it)'), STAGE.indexOf('// A presenter slide\'s term'));
-  assert.match(render, /b\.seen = laidFrame;[^]*b\.seen = laidFrame;/);
+  assert.match(render, /b\.seen = (?:live\.)?(?:live\.)?laidFrame;[^]*b\.seen = (?:live\.)?(?:live\.)?laidFrame;/);
   assert.doesNotMatch(render, /\.seen = frameNo/);
 });
 
