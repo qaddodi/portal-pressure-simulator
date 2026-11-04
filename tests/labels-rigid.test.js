@@ -55,3 +55,9 @@ test('view switch: the label layers are shown only after the GPU drew the new vi
   assert.ok(st.includes('labelGL.afterDraw(morphFadeShow)'));
   assert.ok(gl.includes('afterQ.length && !todo.size'));
 });
+
+test('view switch: only labels laid out for the shown view reach the GPU', () => {
+  assert.ok(st.includes('b.pos.view === morphTarget'));
+  assert.ok(/view: morphTarget \}/.test(st));
+  assert.ok(st.includes('labelGL.sync(NO_LABELS)'));
+});
