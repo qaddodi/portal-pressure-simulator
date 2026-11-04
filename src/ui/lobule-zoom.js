@@ -61,6 +61,7 @@ import { readStyle, readBox as boxOf } from './layout-snap.js';
 import { hitLabel, explainText } from './label-explain.js';
 import { overlapLRTB, discInto } from './label-place.js';
 import { reduceMotionMQ } from './motion.js';
+import { darkMQ } from './look.js';
 const nextFrame = frameFor('lobule-zoom');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -1978,7 +1979,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   labels.addEventListener('focusin', (ev) => mirrorSoon(ev.target.closest?.('.lz-lab')));
   labels.addEventListener('focusout', (ev) => mirrorSoon(ev.target.closest?.('.lz-lab')));
   if (typeof MutationObserver === 'function') new MutationObserver(() => mirrorAll()).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-palette'] });
-  matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => mirrorAll());
+  darkMQ.addEventListener?.('change', () => mirrorAll());
   function put(e, x, y) {
     const p = spot.get(e);
     if (p) { p[0] = x; p[1] = y; } else spot.set(e, [x, y]);   // alloc-once: the first spot an element is given; after it the pair is written in place
@@ -3055,7 +3056,6 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const [W, H] = snap.hostWH;
     if (W !== was[0] || H !== was[1]) { idleDrawn = ''; draw(0); }
   }).observe(host, { box: 'border-box' });
-  const darkMQ = matchMedia('(prefers-color-scheme: dark)');   // (one query kept, not a new one each frame)
   const isDark = () => { const d = document.documentElement.dataset; return d.theme === 'dark' ? (d.palette || true) : (!d.theme && darkMQ.matches); };   // (truthy for every dark look; Navy and Black answer their name, so the caches below that hold `dark` in their keys repaint when the palette changes)
 
   // ── The dive's field ──

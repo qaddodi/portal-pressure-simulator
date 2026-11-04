@@ -30,6 +30,7 @@ import { shadowsOf } from './shadow-parse.js';
 import { readStyle } from './layout-snap.js';
 import { replayExit } from './menu-leave.js';
 import { restRemove } from './rest-pass.js';
+import { darkMQ } from './look.js';
 
 const ON = 'box-gl';
 // The classes that decide where a menu sits and how it comes and goes (app.css): the plate takes the same ones, prefixed (bp-).
@@ -140,7 +141,7 @@ function watchTheme() {
   // (A new theme or palette: every plate is drawn again in the microtask that follows the write, before the frame that shows it, so a menu
   // left open while the theme changes never shows its old surface under its new words.)
   new MutationObserver(() => { for (const p of PLATES) p.refresh(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-palette', 'data-noglass'] });   // alloc-rare: one observer for the page, made with the first plate
-  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { for (const p of PLATES) p.refresh(); });   // alloc-rare: one listener for the page
+  darkMQ.addEventListener('change', () => { for (const p of PLATES) p.refresh(); });   // alloc-rare: one listener for the page
 }
 
 /** The GPU plate for `el` (a .menu or a .umenu, in the page), or null where the GPU cannot take it. */

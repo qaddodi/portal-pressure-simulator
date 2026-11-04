@@ -258,7 +258,7 @@ test('Next during a bedside time-lapse while the page is hidden carries on forwa
 
 test('a change of the device\'s light or dark setting repaints the instruments too, and the FibroScan reads Reduce Motion live', () => {
   const m = read('src/ui/main.js');
-  const at = m.indexOf("matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {");
+  const at = m.indexOf("darkMQ.addEventListener('change', () => {");
   assert.ok(at > 0);
   assert.match(m.slice(at, at + 400), /if \(f\) \{ stage\?\.update\(viewFrame\(f\)\); dock\?\.update\(f\); \}/);
   const f = read('src/ui/fibroscan.js');

@@ -41,6 +41,7 @@ import { restPass, restClass, restAttr } from './rest-pass.js';
 import { hitLabel } from './label-explain.js';
 import { readBox as boxOf } from './layout-snap.js';
 import { reduceMotionMQ } from './motion.js';
+import { darkMQ } from './look.js';
 const HEP_CELL = { j: 0, x0: 0, x1: 0, nu: 0, nv: 0, nr: 0, bi: false };   // alloc-rare: made once (the hepatocyte's cell, written in place by each layout)
 const nextFrame = frameFor('sinusoid-view');
 
@@ -309,7 +310,6 @@ export function createSinusoidView({ host, before = null, share = null }) {
   addEventListener('resize', () => { readHost(); readGap(); askLooks(); });   // (the names' type follows the screen's size: --t-lab)
   // The page's look (the theme, a setting's class): a change counts up, and the colours read from the style sheet are
   // read again; otherwise they are kept (thirty property reads a frame before).
-  const darkMQ = matchMedia('(prefers-color-scheme: dark)');
   // (The look's values are read between frames, a rest pass (rest-pass.js), as the look changes; the frames use them as read.)
   let cssStale = true;
   // (2 Nov 2026: the gap is read in that rest pass too, not in the observer's microtask straight after the page's writes, where the

@@ -21,6 +21,7 @@ import { glassPlate } from './menu-glass.js';
 import { sheetLayer } from './sheet-layer.js';
 import { layoutTip, covers } from './tip-layout.js';
 import { tipDraw, tipUndrawn } from './tip-gl.js';
+import { darkMQ } from './look.js';
 
 // replaceChildren/append stringify null and arrays: flatten and drop empties instead.
 // (Nodes and strings alone, the usual call, go straight through: the flattened copy is made only for a list that holds an array, null or false.)
@@ -1312,7 +1313,7 @@ const varsSoon = () => { if (!varsAsk) varsAsk = restPass(readVars); };
 let varsEarly = 0;
 const varsFirst = () => { varsEarly = 0; readVars(); };
 new MutationObserver((rs) => { if (rs.some((r) => r.attributeName !== 'style')) { if (!varsEarly) varsEarly = readFrame(varsFirst); } else varsSoon(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-palette', 'style', 'class'] });
-matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readVars);
+darkMQ.addEventListener('change', readVars);
 readVars();   // (at load, before any frame: the stylesheets are in, a module runs after them)
 export function cssVar(name) {
   const v = varCache.get(name);

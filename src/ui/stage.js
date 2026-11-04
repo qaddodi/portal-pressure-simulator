@@ -151,7 +151,7 @@ const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const REVERSAL_WATCH = new Set(['PV_TRUNK', 'SV_CONF', 'SMV_CONF', 'LGV_CONF', 'PVH_R', 'PVH_L', 'PRE_R', 'PRE_L', 'V_SPL', 'SV_MID', 'V_IMV', 'V_INT', 'RHV_IVC', 'MHV_IVC', 'LHV_IVC', 'V_STO', 'IVC_IS']);
 
-import { reduceMotionMQ as reduceMotion } from './motion.js';
+import { reduceMotionMQ as reduceMotion } from './motion.js'; import { darkMQ } from './look.js';
 // The figure's overlays drawn on the GPU, in the vessel canvas (stage-over.js; 31 Oct, recs A1): on wherever the GPU draws the
 // vessels. Not on a software renderer (the CPU would paint them) unless asked for (?stageover=gpu), as
 // CI's visual check asks, to compare it with the page's own drawing.
@@ -6430,12 +6430,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const g of greyList) g.el.style.setProperty(g.p, greyOf(g.c, q), 'important');
   }
   // The colours are read again when what they depend on changes (the theme, the stage's classes), before the next paint.
-  const greyDeps = () => { const r = document.documentElement; return `${wrapCls()}|${r.className}|${themeKey()}|${matchMedia('(prefers-color-scheme: dark)').matches}`; };
+  const greyDeps = () => { const r = document.documentElement; return `${wrapCls()}|${r.className}|${themeKey()}|${darkMQ.matches}`; };
   let greyAt = '';
   const greyStale = () => { if (greyList && greyDeps() !== greyAt) { greyClear(); organDimKey = ''; syncOrganDim(); } };
   new MutationObserver(greyStale).observe(wrap, { attributes: true, attributeFilter: ['class'] });
   new MutationObserver(greyStale).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-palette', 'class'] });   // (not its style: label sizes change there on every frame of a glide)
-  matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', greyStale);
+  darkMQ.addEventListener?.('change', greyStale);
   // (The colours are read first in the next frame, while the layout is still the last frame's (readFrame), and greyed in that frame's
   // own phase after: the grey starts a frame later, from no grey, as its ease does anyway.)
   let greyAsk = 0, greyWant = false, greySat = 1, greyNew = null;
@@ -6708,7 +6708,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // (Every organ's tone, read as the stage is made and in the theme's observer (never in a frame): a frame takes the one kept.)
   function orgToneRead() {
-    const t = themeKey(), dk = matchMedia('(prefers-color-scheme: dark)').matches ? 1 : 0;   // (darkMQ, by its own query: declared further down)
+    const t = themeKey(), dk = darkMQ.matches ? 1 : 0;   // (darkMQ, by its own query: declared further down)
     let by = orgToneCache.get(t);
     if (!by) orgToneCache.set(t, by = [new Map(), new Map()]);
     for (const id of Object.keys(organG)) {
@@ -6721,7 +6721,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (A new look: the tones are read at once, and the resolution painters are drawn again in the theme epoch's frame, the same as every
   // other surface (theme-epoch.js). A class change on the page alone draws them again in the next frame, as before.)
   new MutationObserver((rs) => { orgToneRead(); if (rs.some((r) => r.attributeName === 'class')) nextFrame(resTheme); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-palette', 'class'] });
-  matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', orgToneRead);
+  darkMQ.addEventListener?.('change', orgToneRead);
   onTheme(resTheme);
   const OL_FADE = 160;   // ms
   // A narrowing's clamp and its "60 %" fade in and out with the narrowing (they had popped): each narrowing's shown amount
@@ -7374,7 +7374,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // vessels. Each shape (not text) is read as the SVG draws it now, styles included, into world-space strokes and
   // fills; the SVG copy stays, hidden (data-gl), and shows again wherever the GPU cannot draw.
   const mk = { key: '', ver: 0, verts: new Float32Array(0), draws: [], all: null, dirty: false, ndAt: 0, ndRev: -1 };
-  const darkMQ = matchMedia('(prefers-color-scheme: dark)');
+// (darkMQ: the page's one dark-mode list, look.js, imported at the top)
     const marksKey = () => `${mk.ver}|${wrapCls()}|${themeKey()}|${darkMQ.matches}`;
   // (Rev 2 §2.8: whether the marks' key moved, told from its parts as they were at the last build (mk.dep), field by field: no string
   // is built a frame. The figure's classes as wrapCls keeps them (worked out again only when the class string changed); the theme by

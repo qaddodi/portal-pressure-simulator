@@ -15,6 +15,8 @@
 //   motion   (PR-22, PR-28) the Reduce Motion media query is read only by src/ui/motion.js (import reduceMotionMQ / reduced() from it; four files still
 //              read it themselves, listed in MOTION_READERS, and may only come off); and the count of transition/animation lines in styles/ that
 //              carry no --d-* duration token may not rise above scripts/motion-allowance.json (it only falls: --tighten lowers it).
+//   look     (PR-19) the dark-mode media query is made only by src/ui/look.js (import darkMQ / isDark() from it); stage.js's list of queries, fibroscan.js,
+//              organ-paint.js and theme-epoch.js (guarded forms) are the only other readers.
 //   (The built chunks' 200 KB limit is held by scripts/build.mjs itself: the build fails on a chunk over it.)
 //
 //   node scripts/rules-lint.mjs            check
@@ -109,6 +111,11 @@ for (const f of files.filter((x) => x.endsWith('.js'))) {
   for (const f of files.filter((x) => x.endsWith('.js'))) {
     const rel = relative(ROOT, f).split('\\').join('/');
     if (!MOTION_READERS.has(rel) && /prefers-reduced-motion/.test(readFileSync(f, 'utf8').split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n'))) errors.push(`${rel} reads prefers-reduced-motion itself: import reduceMotionMQ or reduced() from src/ui/motion.js (PR-22)`);
+  }
+  const LOOK_READERS = new Set(['src/ui/look.js', 'src/ui/stage.js', 'src/ui/fibroscan.js', 'src/ui/organ-paint.js', 'src/ui/theme-epoch.js']);
+  for (const f of files.filter((x) => x.endsWith('.js'))) {
+    const rel = relative(ROOT, f).split('\\').join('/');
+    if (!LOOK_READERS.has(rel) && /matchMedia\??\.?\(\s*['"]\(prefers-color-scheme/.test(readFileSync(f, 'utf8'))) errors.push(`${rel} makes its own prefers-color-scheme query: import darkMQ or isDark() from src/ui/look.js (PR-19)`);
   }
   const bare = readdirSync(join(ROOT, 'styles')).filter((n) => n.endsWith('.css')).reduce((n, name) => n + readFileSync(join(ROOT, 'styles', name), 'utf8').split('\n')
     .filter((l) => /(?:^|[\s;{])(?:transition|animation)(?:-duration)?\s*:/.test(l) && !/var\(--d-|var\(--vp-ms|var\(--dur|transition\s*:\s*(?:none|var\()|animation\s*:\s*none/.test(l)).length, 0);

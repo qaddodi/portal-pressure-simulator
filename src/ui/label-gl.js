@@ -30,6 +30,7 @@ import { planRepack, stepRepack, reconcileRepack, commitRepack } from './label-r
 import { classSoon } from './class-soon.js';
 import { readStyle } from './layout-snap.js';
 import { reduceMotionMQ } from './motion.js';
+import { darkMQ } from './look.js';
 const HOLE_MESH = { tri: null, seg: null, nTri: 0, nSeg: 0 };   // alloc-rare: made once (a hole's mask is meshed into it and released after its draw)
 // (The colour a clear writes, one array for every clear: none made per call, plan rev 2 §2.8.)
 const CLEAR0 = new Float32Array(4);
@@ -911,7 +912,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     if (rs.some((r) => changed(r) && !classOnly(r, GESTURE_LOOK))) { all(); pReadSoon(); }   // (the Doppler probe's look follows the theme too)
   });
   for (let el = svg.parentElement; el; el = el.parentElement) outer.observe(el, { attributes: true, attributeOldValue: true, attributeFilter: ['class', 'data-theme', 'data-palette', 'data-noglass', 'data-mode'] });
-  matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => { all(); pReadSoon(); });
+  darkMQ.addEventListener?.('change', () => { all(); pReadSoon(); });
   addEventListener('pps:labelscale', all);   // (the text size: --label-k on the page)
   // A CSS fade or colour ease, a hover, a focus: that label's eases are followed till they end (its style read once, off the frame: styleOf).
   const hold = (ev, ms = 700) => { const g = labelOf(ev.target); if (g) { keepAnims(g, true); if (ev.type === 'focusin') keepRing(g); dirty.add(g); const t = performance.now() + ms; live.set(g, t); if (!TRACK) exact.set(g, t); ask(); } };

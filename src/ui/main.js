@@ -1329,7 +1329,7 @@ function openHelpMenu(anchor, at = { align: 'start', cls: 'app-menu' }) {
 function sendFeedback() {
   try { localStorage.setItem(ASK_KEY, 'done'); } catch (e) { caught('main:1120', e); /* storage unavailable */ }   // (sent once: the timed ask never comes)
   const build = document.getElementById('preview-badge')?.textContent.trim() || 'Live site';
-  const theme = currentLook() || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  const theme = currentLook() || (darkMQ.matches ? 'dark' : 'light');
   const body = ['What happened, and what did you expect to happen?', '', '', '',
     'Please keep these details:', `Build: ${build}`, `Device: ${navigator.userAgent}`,
     `Screen: ${innerWidth} × ${innerHeight} at ${devicePixelRatio}×, ${theme} theme`, `View: ${resumeUrl()}`,
@@ -1339,7 +1339,7 @@ function sendFeedback() {
 function doUndo() { timeline.undo(); }
 function doRedo() { timeline.redo(); }
 function toggleTheme() {
-  const cur = currentLook() || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  const cur = currentLook() || (darkMQ.matches ? 'dark' : 'light');
   switchTheme(isDarkLook(cur) ? 'light' : lastDarkLook());   // (a dark look goes to Light; from any other, back to the dark look last worn)
 }
 function settle() { host.send({ type: 'settle' }); toast('Settled to equilibrium.'); }
@@ -1397,7 +1397,7 @@ function syncStatusBar() {
 // A change of the device's light or dark setting applies at once (no crossfade), and the figure is drawn again in the same task,
 // hidden or not: an iPhone or iPad turns the page light and back while it takes the app switcher's pictures, often with the
 // page in the background and the model paused, so no frame came to redraw the organs and vessels in the colours now.
-matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+darkMQ.addEventListener('change', () => {
   const f = store.get().frame; if (f) { stage?.update(viewFrame(f)); dock?.update(f); }   // (the instruments too: with the model paused no frame comes to repaint their canvases)
 });
 // (2 Nov 2026, glitch audit TH2: only for a new look, in the theme epoch's frame (theme-epoch.js). The stage's colour depends on the look
@@ -1821,6 +1821,7 @@ function chromeGlass() {
 }
 import { sheetBehaviour } from './dock-sheet.js';
 import { reduceMotionMQ } from './motion.js';
+import { darkMQ } from './look.js';
 // ── The thumb dock (15 Oct) ─────────────────────────
 // A phone, or a tablet held upright, in Patients: the top keeps only the patient (left) and the Colored-by key
 // (right), and Treat, Tests, History, Layers and Settings sit in a tab row at the foot of the dock, under the play bar,

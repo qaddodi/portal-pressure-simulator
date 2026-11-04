@@ -27,6 +27,7 @@ import { textWidth } from './text-gl.js';
 import { D_SURFACE, easeArrive } from './ease.js';
 import { inkBox } from './glyph-measure.js';
 import { reduceMotionMQ } from './motion.js';
+import { darkMQ } from './look.js';
 // (The endoscope's field: drawn in the late part of a frame, after the model's frame of it has been taken in, so once a frame.)
 const drawFrame = lateFrameFor('instruments');
 
@@ -149,7 +150,7 @@ export function createEndoscopy({ onAction }) {
   // at that pressure; the grade, the pressure inside it and the model are not touched); red, true or false (the red wale marks shown or hidden whatever
   // the wall stress; absent: the model's rule); readings, three more rows (the pressure in the varix, in the lumen and across the wall).
   const opt = { air: 0, red: null, readings: false };
-  const dark = matchMedia('(prefers-color-scheme: dark)'), still = reduceMotionMQ;
+  const dark = darkMQ, still = reduceMotionMQ;
   // The field as it showed before it last changed (the drawer's texture 'old'), the new one fading in over it from fadeT0
   // (endo-motion.js); the balloon's and the jet's strength (0..1) easing toward on or off. On the display clock, so a
   // paused model still finishes a fade.

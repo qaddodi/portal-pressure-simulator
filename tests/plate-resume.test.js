@@ -51,7 +51,7 @@ test('hidden, the vessel layer is drawn in the same task as the update (no anima
 });
 
 test('a change of the device light or dark setting redraws the figure at once, with no crossfade', () => {
-  const at = main.indexOf("matchMedia('(prefers-color-scheme: dark)').addEventListener('change'");
+  const at = main.indexOf("darkMQ.addEventListener('change'");
   assert.ok(at > 0);
   const h = main.slice(at, main.indexOf('\n});', at));
   assert.match(h, /stage\?\.update\(viewFrame\(f\)\)/, 'the stage is updated in the colours now');
