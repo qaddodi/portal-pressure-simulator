@@ -56,7 +56,7 @@ import { classSoon, classHas, textSoon, runSoon } from './class-soon.js';
 import { easeMove, carryRate, carried, cubicBezier, D_SMALL, D_SURFACE } from './ease.js';
 import { surface } from './gpu-surfaces.js';
 import { caught } from './caught.js';
-import { createCaptionGL, composeView, inkRows, mirrorOf, rgbaOf as capRGBA } from './caption-gl.js';
+import { createCaptions, composeView, inkRows, mirrorOf, rgbaOf as capRGBA } from './label-captions.js';
 import { readStyle, readBox as boxOf } from './layout-snap.js';
 import { hitLabel, explainText } from './label-explain.js';
 import { overlapLRTB, discInto, needsLeader, SHORT_LEAD, LONG_LEAD } from './label-place.js';
@@ -166,11 +166,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // (What a slide lights is a class on the app: the leaders' looks are read again when it changes.)
   { const app = document.querySelector('.app') || document.getElementById('app'); if (app && typeof MutationObserver === 'function') new MutationObserver(() => { leadGL.relook(); mirrorAll(); }).observe(app, { attributes: true, attributeFilter: ['data-lit', 'class'] }); }
   const labels = h('div', { class: 'lz-labels' });
-  // The labels, zone names and the slide's call are drawn by the GPU (caption-gl.js), each where the page set it (mirrorOf, read between
+  // The labels, zone names and the slide's call are drawn by the GPU (label-captions.js), each where the page set it (mirrorOf, read between
   // frames) and moved in the frame that moves the lobule; the page's own are a clear model for clicks and screen readers, placed between
   // frames (2 Nov 2026, "Move everything to GPU").
-  const cap = createCaptionGL(labels);
-  // (The page's own names are made clear only once the GPU's picture of them is on the screen, and shown again if it is lost: caption-gl.js presented.)
+  const cap = createCaptions(labels);
+  // (The page's own names are made clear only once the GPU's picture of them is on the screen, and shown again if it is lost: label-captions.js presented.)
   // (Written in the task that handed the picture over, not in a later one: the page's names are made clear in the very frame the GPU's picture
   // first shows, never a frame, or a rest pass, after it, when both would show: the double captions.)
   cap.onPresented = () => { labels.classList.add('cap-gl-on'); leadersBox.classList.add('cap-lead'); leadGL.relook(); };
@@ -4913,7 +4913,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     /** The glasses over the liver's names, leaders and the sinusoid's names (stage.js, glass-gl.js tellHoles): what lies under one is left out. */
     setHoles(list) { cap.holes(list); leadGL.setHoles(list); sv.setHoles(list); },
     sinZoom: () => sinZ,
-    /** What the GPU's names drew in the last frame that landed ({ seq, gen, w, h, items }, caption-gl.js snapshot: CSS px from the names' canvas corner), for the browser checks. */
+    /** What the GPU's names drew in the last frame that landed ({ seq, gen, w, h, items }, label-captions.js snapshot: CSS px from the names' canvas corner), for the browser checks. */
     captions: () => cap.snapshot(),
     /** A tap at client (x, y) in a talk (N4, label-explain.js): explains the station label the GPU drew there, or ends it when it is the one explained. True when a label took the tap. */
     explainAt(x, y) {

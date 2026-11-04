@@ -94,7 +94,7 @@ const { createSinusoidView } = await import('../src/ui/sinusoid-view.js');
 const { store } = await import('../src/ui/store.js');
 
 const MODEL = { fibSin: 0.2, act: 0.2, zone: { sin: 1 }, congU: 0, flow: 1, rev: { sin: false }, lymph: 0.6, lymph0: 0.6, sigma: 0.2, lyProt: 0.8, hide: false, P1: 12, P2: 9, P3: 4 };
-// (Where the GPU draws each name this frame: the view's own placement, caption-gl.js, never the page's model, placed between frames.)
+// (Where the GPU draws each name this frame: the view's own placement, label-captions.js, never the page's model, placed between frames.)
 const at = (p) => p;
 const KEY = { lumen: 'sin', fenestrae: 'fen', disse: 'disse', in: 'in', out: 'out' };
 

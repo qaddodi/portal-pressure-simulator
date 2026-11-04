@@ -91,7 +91,7 @@ test('item 6: a short lobule glide carries the labels with their spots and lays 
   // Each piece moves by its own spot's move at its own size (a translate), and is written into its place at landing.
   assert.match(rd, /if \(p\) tr\(e, p\[0\] \+ d0, p\[1\] \+ d1\);/);
   assert.doesNotMatch(rd, /style\.translate/, 'a ride writes no style: the GPU draws the leaders from their geometry, the names from their spots');
-  // (Where the GPU draws the names, caption-gl.js, tr hands each place to it in the frame and the page's clear model is placed between
+  // (Where the GPU draws the names, label-captions.js, tr hands each place to it in the frame and the page's clear model is placed between
   // frames, domFlush; there is no per-frame translate write when the names are not on the GPU either.)
   assert.doesNotMatch(src, /const tr = \(e, x, y\) => \{[^}]*e\.style\.translate/);
   assert.match(src, /function domFlush\(\) \{[\s\S]{0,200}if \(rides\) return;[\s\S]{0,200}e\.style\.translate = /);

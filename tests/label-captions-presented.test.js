@@ -1,4 +1,4 @@
-// A figure's names drawn by the GPU hide the page's own only once the GPU's picture is on the screen (caption-gl.js presented): a frame
+// A figure's names drawn by the GPU hide the page's own only once the GPU's picture is on the screen (label-captions.js presented): a frame
 // at nonzero size whose end() did not return false. A failed hand-over, a lost context or a size of nothing show the page's names again.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -12,19 +12,16 @@ globalThis.Element = dom.window.Element;
 globalThis.ResizeObserver ??= class { observe() {} disconnect() {} };
 globalThis.requestAnimationFrame ||= (f) => setTimeout(() => f(performance.now()), 0);
 globalThis.cancelAnimationFrame ||= (id) => clearTimeout(id);
-const { createCaptionGL } = await import('../src/ui/caption-gl.js');
+const { createCaptions } = await import('../src/ui/label-captions.js');
 
-// (A drawer and a pen the test drives: the pen's record is what fitPen gives, ctx.end() answers as the test says.)
+// (A label-gl layer the test drives: its sync() lands or not as the test says, and the box has the size the test gives.)
 function rig() {
-  const R = { w: 100, h: 50, ok: true, gpuLost: false, ends: 0, redraw: null, lose: null, pg: true };
-  const noop = () => {};
-  const ctx = new Proxy({ end() { R.ends++; return R.ok; } }, { get: (t, k) => (k in t ? t[k] : noop), set: () => true });
-  R.pen = { ctx, w: 0, h: 0, gpu: true };
-  const make = (cv, o) => { R.redraw = o.redraw; R.lose = o.lose; return { get lost() { return R.gpuLost; }, dispose() { R.disposed = (R.disposed || 0) + 1; } }; };
-  const pen = () => { R.pen.w = R.w; R.pen.h = R.h; R.pen.gpu = R.pg; return R.pen; };
+  const R = { w: 100, h: 50, ok: true, gpuLost: false, ends: 0, pg: true };
+  const labelGL = () => ({ get lost() { return R.gpuLost || !R.ok; }, sync() { R.ends++; }, setHoles() {}, dispose() { R.disposed = (R.disposed || 0) + 1; } });
   const box = document.createElement('div');
   document.body.append(box);
-  R.cap = createCaptionGL(box, { make, pen });
+  box.getBoundingClientRect = () => ({ width: R.w, height: R.h, left: 0, top: 0, right: R.w, bottom: R.h });
+  R.cap = createCaptions(box, { labelGL });
   R.ev = [];
   R.cap.onPresented = () => R.ev.push('presented');
   R.cap.onLost = () => R.ev.push('lost');
@@ -76,7 +73,7 @@ test('a lost context keeps the class and asks for a frame; the drawer going for 
   const R = rig();
   R.frame();
   R.gpuLost = true;
-  R.lose();
+  R.cap.paint();
   assert.equal(R.cap.presented, true);
   const ends = R.ends;
   await new Promise((r) => setTimeout(r, 120));
@@ -106,7 +103,7 @@ test('a late onPresented hears of a presentation already made', () => {
 });
 
 // ── R13: dispose lets go once and for good ──
-test('dispose cancels the queued frame, lets go the canvas, drawer and callbacks, and every later call does nothing', async () => {
+test('dispose cancels the queued frame, lets go the drawer and callbacks, and every later call does nothing', async () => {
   const R = rig();
   let frames = 0, rest = 0;
   R.cap.onRest = () => rest++;
@@ -116,7 +113,6 @@ test('dispose cancels the queued frame, lets go the canvas, drawer and callbacks
   R.cap.paint();                       // (a frame is queued)
   R.cap.dispose();
   assert.equal(R.disposed, 1);
-  assert.equal(R.cap.cv.isConnected, false, 'canvas removed');
   assert.equal(R.cap.on, false);
   assert.equal(R.cap.presented, false);
   assert.deepEqual(R.ev, ['presented', 'lost']);

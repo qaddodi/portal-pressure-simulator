@@ -8,16 +8,14 @@
 // transitions eased them (D_SURFACE on the arrive curve). A frame that moves the figure moves its names in the same frame: the owner
 // puts their new places and calls paint(), and the names are drawn in that frame's last turn (finalFrame).
 //
-//   const cap = createCaptionGL(box);            // box: the names' layer (the canvas goes in first, under the page's own names)
+//   const cap = createCaptions(box);            // box: the names' layer 
 //   cap.look(key, look)                         // its type, ink and halo, read between frames (lookOf below)
 //   cap.measure(key, lines)                     // lines: per line [[text, kind], ...]; its [w, h] in its look
 //   cap.put(key, { x, y, off, show })           // x, y: the box's centre (px); off: [dx, dy, scale]
 //   cap.lead(key, { x1, y1, x2, y2, show, colour, of })
-//   cap.extra(key, draw)                        // anything else drawn with the names (the legend): draw(ctx, now)
 //   cap.box(key) / cap.at(key)                  // its box (px) / where it is drawn now
 //   cap.paint()
 
-import { createTraceGL, fitPen, eraseHoles } from './trace-gl.js';
 import { finalFrameFor, easeNow, cancelFrame } from './frame.js';
 import { measure } from './glyph-measure.js';
 import { textPolys, textWidth, glyphsReady, textCovers, loadGlyphs } from './text-gl.js';
@@ -26,7 +24,7 @@ import { cssColor } from './css-color.js';
 import { readBox, readRects, readStyle } from './layout-snap.js';
 import { createLabelGL } from './label-gl.js';
 
-const finalFrame = finalFrameFor('caption-gl');
+const finalFrame = finalFrameFor('label-captions');
 const RETRIES = 30;   // (frames a failed hand-over is drawn again, in a row)
 const NONE = [];
 const NOOP = () => {};   // (a disposed layer's mutators)
@@ -264,7 +262,7 @@ export function inkRows(el, out = []) {
 }
 
 /**
- * The names' layer in `box`: see above. `make`, `pen`: the GPU drawer and its pen, the charts' own (given only by a test).
+ * The names' layer in `box`: see above.
  *
  * Presented (R06): `presented` turns true at the first frame at nonzero size whose end() did not return false, and onPresented fires then;
  * until it does the page's own names are what shows (the owner adds app.css .cap-gl-on only on it). Once presented it stays: everything is
@@ -273,21 +271,17 @@ export function inkRows(el, out = []) {
  * when the drawer is gone for good (dispose, or no WebGL2). New words before the next frame do not take it back either (a flash);
  * `gen` counts the content generations and a frame always draws the latest.
  */
-export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen } = {}) {
-  const cv = document.createElement('canvas');
-  cv.className = 'cap-gl';
-  cv.setAttribute('aria-hidden', 'true');
-  box.prepend(cv);
+export function createCaptions(box, { labelGL = createLabelGL } = {}) {
   // The words are drawn by label-gl, the Anatomy and Circuit labels' own renderer (Mohammad, 3 Nov 2026: "Same engine for labels everywhere"):
   // each caption is a label group (.lb, its words as <text><tspan>) in a model svg, laid out and drawn by a label-gl layer of its own over this box.
-  // The pen below draws only what is not words (leaders, arrows, the legend) and is the words' fallback where label-gl is not available.
+  // Leaders, dots, arrows and the legend's dot are label-gl's marks and groups too; with no label-gl (no WebGL2) the page's own names show.
   const NS = 'http://www.w3.org/2000/svg';
   const model = document.createElementNS(NS, 'svg'), mblocks = document.createElementNS(NS, 'g');
   model.setAttribute('class', 'cap-model'); model.setAttribute('aria-hidden', 'true'); mblocks.setAttribute('class', 'lb-blocks'); model.append(mblocks);
   box.append(model);
   const lroot = document.createElementNS(NS, 'g');
   lroot.setAttribute('class', 'lb-leaders'); model.prepend(lroot);
-  const LG = createLabelGL(model, mblocks, { force: true, id: 'capLabelGl', marks: [lroot] });
+  const LG = labelGL(model, mblocks, { force: true, id: 'capLabelGl', marks: [lroot] });
   const lgList = [];
   const lgOn = () => !!LG && !LG.lost;
   let svSeq = 0;
@@ -301,7 +295,7 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
     const o = a.toFixed(3);
     if (M.o !== o) { M.o = o; M.p.style.opacity = M.h.style.opacity = M.d.style.opacity = o; }
   }
-  // Whether label-gl can draw all of a caption's words (Inter's outlines have every glyph); else the pen below draws it, so no name goes blank.
+  // Whether label-gl can draw all of a caption's words (Inter's outlines have every glyph); else it is not drawn until they are (draw() runs again when they load).
   function covered(I) {
     if (I.cvSv === I.sv && I.cvGr === glyphsReady()) return I.cv;
     I.cvSv = I.sv; I.cvGr = glyphsReady();
@@ -343,11 +337,11 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
     }
     return g;
   }
-  const items = new Map(), leads = new Map(), extras = new Map(), looks = new Map();
+  const items = new Map(), leads = new Map(), looks = new Map();
   // (The leaders' and dots' look, the Anatomy's: the owner reads it from the page's tokens between frames, leadLook(); these are its defaults.)
   const leadLook = { line: '', lw: 1, r: 2.4, fill: '', ring: '', rw: 1.3, halo: '', haloR: 5 };
   let holes = NONE;   // (the glasses lying over this layer, as glass-gl.js tells them: the names under them are left out)
-  let vk = 1, ve = 0, vf = 0, ask = 0, gpu = null, drewOnce = false, onDrawn = null, onRest = null, onFrame = null, wasMoving = false, lastT = 0, drawing = false;
+  let vk = 1, ve = 0, vf = 0, ask = 0, drewOnce = false, onDrawn = null, onRest = null, onFrame = null, wasMoving = false, lastT = 0, drawing = false;
   let presented = false, onPresented = null, onLost = null, gen = 0, retries = 0, dead = false;
   // The names the last frame drew, for the browser checks (R17, snapshot()): two record lists, the one being drawn and the one last handed over,
   // their records reused; nothing is made in a frame once they have grown to the most names a frame draws.
@@ -364,8 +358,8 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
   };
   function draw() {
     ask = 0;
-    if (dead || !cv.isConnected) return;
-    const pen = penOf(cv, gpu), { ctx, w, h } = pen;
+    if (dead || !box.isConnected) return;
+    const bx = readBox(box), w = bx.width, h = bx.height;
     const now = easeNow();
     lastT = now;
     let more = false, failed = false;
@@ -373,12 +367,10 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
     try {
       // (The owner's places for this frame, set as it is drawn: a glide its page eased, a pan's ride.)
       if (onFrame?.(now)) more = true;
-      ctx.clearRect(0, 0, w, h);
       if (!(w > 0 && h > 0)) return;
       // (The whole layer carried by the owner's view, view(): a point p is at k p + (e, f). A pan, or the lobule's dive about a point. Only the
       // places go through it: the words, their halo, the leaders' width and the dots keep their size on the screen at any zoom, as the
       // Anatomy and Circuit labels do (Mohammad, 3 Nov 2026), so nothing here is scaled by it.)
-      const moved = vk !== 1 || ve !== 0 || vf !== 0;
       // Leaders under the names, as their layer was.
       for (const [key, L] of leads) {
         const a = easeAt(L.a, now) * (L.of ? itemA(L.of, now) : 1);
@@ -420,22 +412,16 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
           continue;
         }
       }
-      if (lgOn()) LG.sync(lgList);
-      ctx.globalAlpha = 1;
-      // (The owner's own drawing, the legend: placed in the layer's space, so it rides the view as a whole.)
-      if (moved) { ctx.save(); ctx.translate(ve, vf); ctx.scale(vk, vk); }
-      for (const f of extras.values()) if (f(ctx, now)) more = true;
-      if (moved) ctx.restore();
-      if (holes.length) eraseHoles(ctx, cv, w, h, holes);   // (the glasses over the names: left out under them)
+      if (LG) LG.sync(lgList);
     } finally {
       drawing = false;
-      const handed = ctx.end?.() !== false;   // (false: the picture could not be handed over, trace-gl.js end)
+      const handed = lgOn();   // (label-gl is here and its context is not lost: the picture went to it)
       // (In the finally: a frame at no size returns above.) A frame that could not be handed over, or came while the context was gone,
       // leaves the last picture in the canvas and the class on: it is drawn again (a few tries, then at the next paint or restore).
-      if (pen.gpu) {
+      if (LG) {
         if (w > 0 && h > 0 && handed) { retries = 0; seq++; const t = shown; shown = drawn; drawn = t; shownN = drawnN; shownLN = drawnLN; { const t2 = shownL; shownL = drawnL; drawnL = t2; } shownGen = drawnGen; { const v = shownV; shownV = drawnV; drawnV = v; } shownW = w; shownH = h; present(true); if (!drewOnce) { drewOnce = true; onDrawn?.(); } }
-        else if (w > 0 && h > 0 && handed === false) failed = true;
-      } else if (gpu?.lost) failed = true;
+        else if (w > 0 && h > 0 && !handed) failed = true;
+      }
     }
     if (failed && retries++ < RETRIES) more = true;
     if (more) ask = finalFrame(draw);
@@ -443,13 +429,11 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
     wasMoving = more;
   }
   function itemA(key, now) { const I = items.get(key); return I ? easeAt(I.a, now) : 1; }
-  gpu = make(cv, { redraw: () => api.paint(), lose: () => api.paint() });
   // (Inter's outlines, the Anatomy pen's: till they are here the names are drawn from the atlas, and set again, then drawn from the outlines.)
   if (!glyphsReady()) loadGlyphs().then(() => { if (!dead) { gen++; api.paint(); } }, () => {});
   const api = {
-    cv,
     /** Whether the GPU draws the names (WebGL2 and the charts' drawer are here); false: the page's own names must show. */
-    get on() { return !!gpu; },
+    get on() { return !dead && !!LG; },
     /** Called once, after the first frame the GPU drew the names and handed over. */
     set onDrawn(f) { if (dead) return; onDrawn = f; if (drewOnce) f?.(); },
     /** True while the GPU's picture of the names is on the screen (a frame at nonzero size, handed over); false: the page's own names must show. */
@@ -569,7 +553,6 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
       for (const k in lk) if (lk[k] !== undefined && leadLook[k] !== lk[k]) { leadLook[k] = lk[k]; ch = true; }
       if (ch) { gen++; api.paint(); }
     },
-    extra(key, f) { if (f) extras.set(key, f); else extras.delete(key); api.paint(); },
     /** Where a caption is drawn (its box's centre, step aside included) and how much it shows: { x, y, w, h, a }, or null; by default as
      *  of the frame that last placed or drew the names. */
     at(key, now = lastT || easeNow()) {
@@ -601,13 +584,12 @@ export function createCaptionGL(box, { make = createTraceGL, pen: penOf = fitPen
       ask = 0;
       const was = presented, lost = onLost;
       onFrame = onRest = onDrawn = onPresented = onLost = null;
-      gpu?.dispose?.(); gpu = null;
-      items.clear(); leads.clear(); extras.clear(); looks.clear(); drawn = []; shown = []; drawnL = []; shownL = []; drawnN = shownN = drawnLN = shownLN = 0;
-      cv.remove(); model.remove(); LG?.dispose?.();
+      items.clear(); leads.clear(); looks.clear(); drawn = []; shown = []; drawnL = []; shownL = []; drawnN = shownN = drawnLN = shownLN = 0;
+      model.remove(); LG?.dispose?.();
       presented = false;
       if (was) lost?.();
       // alloc-rare: teardown, when the layer is let go, never in a frame
-      for (const k of ['look', 'measure', 'mirror', 'arrow', 'decor', 'put', 'place', 'reset', 'lead', 'extra', 'view', 'paint', 'drawNow']) api[k] = NOOP;
+      for (const k of ['look', 'measure', 'mirror', 'arrow', 'decor', 'put', 'place', 'reset', 'lead', 'view', 'paint', 'drawNow']) api[k] = NOOP;
       api.measure = () => ZERO;
       api.hasLook = () => false;
       api.leadOf = api.at = () => null;

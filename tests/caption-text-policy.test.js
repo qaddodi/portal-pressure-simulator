@@ -1,5 +1,5 @@
 // Two text policies (R07). Constant screen size is the drawer's default: the transform places and turns words, and a caller that sizes its own
-// words for the screen (svg-gl.js: font and halo times the viewBox map) is not scaled twice. Layer-scaled is asked for by caption-gl while the
+// words for the screen (svg-gl.js: font and halo times the viewBox map) is not scaled twice. Layer-scaled is asked for by label-captions while the
 // whole layer's view scales (the lobule's dive): ctx.textScale = true, and the drawer scales the glyphs, letter spacing and halo with it.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -15,27 +15,9 @@ globalThis.matchMedia ??= () => ({ matches: false, addEventListener() {}, addLis
 globalThis.ResizeObserver ??= class { observe() {} disconnect() {} };
 globalThis.requestAnimationFrame ||= (f) => setTimeout(() => f(performance.now()), 0);
 globalThis.cancelAnimationFrame ||= (id) => clearTimeout(id);
-const { createCaptionGL } = await import('../src/ui/caption-gl.js');
+const { createCaptions } = await import('../src/ui/label-captions.js');
 const tr = readFileSync(new URL('../src/ui/trace-gl.js', import.meta.url), 'utf8');
 const svg = readFileSync(new URL('../src/ui/svg-gl.js', import.meta.url), 'utf8');
-
-function rig() {
-  const log = [];
-  const state = { textScale: undefined };
-  const ctx = new Proxy({ end() { return true; }, fillText(t) { log.push(['fill', t, state.textScale, state.scale]); }, strokeText(t) { log.push(['stroke', t, state.textScale, state.scale]); }, scale(k) { state.scale = k; }, addPolys() { log.push(['polys', 'Hepatic', state.textScale, state.scale]); }, restore() { state.scale = 1; } }, {
-    get: (t, k) => (k in t ? t[k] : k === 'textScale' ? state.textScale : () => {}),
-    set: (t, k, v) => { if (k === 'textScale') state.textScale = v; return true; },
-  });
-  const pen = { ctx, w: 200, h: 100, gpu: true };
-  const box = document.createElement('div');
-  document.body.append(box);
-  const cap = createCaptionGL(box, { make: () => ({ lost: false, dispose() {} }), pen: () => pen });
-  const run = { size: 12, weight: 400, ls: 0.5, fill: 'rgba(0,0,0,1)', op: 1, upper: false, mr: 0 };
-  cap.look('a', { lh: 1, gap: 0, halo: 2, haloC: 'rgba(255,255,255,1)', runs: { name: run } });
-  cap.measure('a', [[['Hepatic', 'name']]]);
-  cap.put('a', { x: 50, y: 50, show: 1 });
-  return { cap, log, state };
-}
 
 test('the drawer scales size, letter spacing and halo by the transform only when asked, and svg-gl is never asked', () => {
   assert.match(tr, /const k = textScaled \? sc\(\) : 1;\s*G\.text\(t, px, py, k === 1 \? st\.font : scaledFont\(st\.font, k\), colour, align\(\), st\.textBaseline, st\.globalAlpha, sw \* k, ang \? TURN : null, st\.ls \* k\);/);
@@ -47,10 +29,10 @@ test('the drawer scales size, letter spacing and halo by the transform only when
 // ── R17 (caption half): snapshot() reads what the last landed frame drew ──
 test('snapshot: the names the last landed frame drew, view included; a failed frame changes nothing; the generation and seq count', async () => {
   const log = { ok: true };
-  const ctx = new Proxy({ end() { return log.ok; } }, { get: (t, k) => (k in t ? t[k] : () => {}), set: () => true });
   const box = document.createElement('div');
   document.body.append(box);
-  const cap = createCaptionGL(box, { make: () => ({ lost: false, dispose() {} }), pen: () => ({ ctx, w: 200, h: 100, gpu: true }) });
+  box.getBoundingClientRect = () => ({ width: 200, height: 100, left: 0, top: 0, right: 200, bottom: 100 });
+  const cap = createCaptions(box, { labelGL: () => ({ get lost() { return !log.ok; }, sync() {}, setHoles() {}, dispose() {} }) });
   const run = { size: 12, weight: 400, ls: 0, fill: 'rgba(0,0,0,1)', op: 1, upper: false, mr: 0 };
   cap.look('a', { lh: 1, gap: 0, halo: 0, haloC: '', runs: { name: run } });
   const size = cap.measure('a', [[['Hepatic', 'name']]]);

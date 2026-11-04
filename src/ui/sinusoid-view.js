@@ -20,7 +20,7 @@
 // around it.
 
 import { h, fmt, clamp, lerp } from './util.js';
-import { createCaptionGL, lookOf, ringOf, shadowOf, rgbaOf } from './caption-gl.js';
+import { createCaptions, lookOf, ringOf, shadowOf, rgbaOf } from './label-captions.js';
 import { measure } from './glyph-measure.js';
 import { readStyle } from './layout-snap.js';
 import { pressureColor } from './colormap.js';
@@ -61,11 +61,11 @@ export function createSinusoidView({ host, before = null, share = null }) {
   // leader, with its reading (if any) beneath in the lobule's number style. Captions in a narrow band (the lumen,
   // Disse) run along the vessel; those in the hepatocyte plates stay level.
   const regions = {};
-  // The names are drawn by the GPU (caption-gl.js: their words, halo, lit terms' colour and leaders, and the legend), laid out here in script and
+  // The names are drawn by the GPU (label-captions.js: their words, halo, lit terms' colour and leaders, and the legend), laid out here in script and
   // placed in the frame that moves the view; the page's own names are a quiet model (screen readers, data-target, what reads their boxes
   // at rest), made clear by .cap-gl-on and placed between frames (domPlace). Their sizes are set from the GPU's own type (their looks are
   // read between frames, readLooks), so no layout is read for them. A name made new is drawn once its look is read, fading in.
-  const cap = createCaptionGL(labels);
+  const cap = createCaptions(labels);
   let sizedNew = false, onSized = null;
   const ZERO2 = [0, 0], NO_LINES = [];
   const szOf = (R) => (R ? cap.measure(R.key, R.lines || NO_LINES) : ZERO2);
@@ -188,7 +188,7 @@ export function createSinusoidView({ host, before = null, share = null }) {
   const legend = h('div', { class: 'sv-legend', 'aria-hidden': 'true' },
     h('span', {}, h('i', { class: 'alb' }), 'Protein'));
   // Thin leaders from a name in the plate to the part it names (a portrait screen's narrow bands and cells): drawn by the GPU with the
-  // names (caption-gl.js), in the colour of what they name. A lit term, a theme or a class on the app reads the names' looks again.
+  // names (label-captions.js), in the colour of what they name. A lit term, a theme or a class on the app reads the names' looks again.
   { const app = document.querySelector('.app') || document.getElementById('app'); if (app && typeof MutationObserver === 'function') new MutationObserver(() => askLooks()).observe(app, { attributes: true, attributeFilter: ['data-lit', 'class'] }); }
   const tok = (n) => { let x = cssVals.get(n); if (x == null) { cssVals.set(n, null); cssMiss = true; x = ''; } return x; };
   const lead = {};
@@ -206,7 +206,7 @@ export function createSinusoidView({ host, before = null, share = null }) {
     L.x1 = sx; L.y1 = sy; L.x2 = tx; L.y2 = ty; L.show = on ? 1 : 0; L.follow = false; L.sg = Math.sign(tx - R.cx); L.w = R.w;
   }
   const el = h('div', { class: 'sv', 'aria-hidden': 'true' }, canvas, labels, legend);
-  // (The page's own names made clear while the GPU's picture of them is on the screen: app.css .cap-gl-on, caption-gl.js presented.)
+  // (The page's own names made clear while the GPU's picture of them is on the screen: app.css .cap-gl-on, label-captions.js presented.)
   // (Written in the task that handed the picture over: a rest pass could come long after it, with both showing.)
   cap.onPresented = () => el.classList.add('cap-gl-on');
   cap.onLost = () => el.classList.remove('cap-gl-on');
@@ -814,7 +814,7 @@ export function createSinusoidView({ host, before = null, share = null }) {
   const BAND = [0, 0];   // a portrait screen's band for the other names, between the ends' (px down the screen)
   // How much an end's name shows now (0 to 1): its pill's own fades (a presenter slide that is not about it, the names leaving).
   // In the presenter an end's arrow follows it, so no direction arrow shows without its name (Explore keeps both as they are).
-  // (Its own fade is the GPU's, caption-gl.js: the page's model is clear.)
+  // (Its own fade is the GPU's, label-captions.js: the page's model is clear.)
   const endShown = (key) => {
     const e = regions[key]?.el;
     if (!document.getElementById('app')?.classList.contains('presenting')) return 1;
@@ -950,7 +950,7 @@ export function createSinusoidView({ host, before = null, share = null }) {
       boxAt(cx, cy, w, hh, off[0], off[1], off[2]);
       let covered = false;
       for (let i = 0; i < cards.length && !covered; i++) { const p = cards[i]; if (BX[0] < p.r && p.l < BX[1] && BX[2] < p.b && p.t < BX[3]) covered = true; }
-      // (Covered, it fades out, and its leader goes at once; both eased by the GPU's picture, caption-gl.js.)
+      // (Covered, it fades out, and its leader goes at once; both eased by the GPU's picture, label-captions.js.)
       R.covered = covered;
       if (lead[k]) lead[k].hide = covered;
       addPlaced(BX[0], BX[1], BX[2], BX[3]);
@@ -965,7 +965,7 @@ export function createSinusoidView({ host, before = null, share = null }) {
         continue;
       }
       // (A leader's near end follows its name's step aside as the GPU eases it, to the edge of the smaller box when the name was set
-      // smaller: caption-gl.js, follow.)
+      // smaller: label-captions.js, follow.)
       const L = lead[k];
       if (L) { L.follow = true; L.sg = Math.sign(L.x2 - cx); }
     }
@@ -1020,7 +1020,7 @@ export function createSinusoidView({ host, before = null, share = null }) {
     if (g.vert) BAND[0] = Math.max(BAND[0], VW.ins[0] + 12 + LEG.h + 8);
   }
 
-  // ── The names, to the GPU (caption-gl.js) and to the page's model ──
+  // ── The names, to the GPU (label-captions.js) and to the page's model ──
   // (The ink as the GPU takes it, made again only when the css value changes; the records handed to the captions are kept, they copy what they need.)
   const INK = new Map();
   const inkOf = (n) => {
@@ -1282,7 +1282,7 @@ export function createSinusoidView({ host, before = null, share = null }) {
 
   return {
     el,
-    /** What the GPU's names drew in the last frame that landed ({ seq, gen, w, h, items }, caption-gl.js snapshot: CSS px from the names' canvas corner), for the browser checks. */
+    /** What the GPU's names drew in the last frame that landed ({ seq, gen, w, h, items }, label-captions.js snapshot: CSS px from the names' canvas corner), for the browser checks. */
     captions: () => cap.snapshot(),
     /** A tap at client (x, y): the key of the explainable name the GPU drew there, or null (N4, label-explain.js). The tap's own read: no frame is running. */
     explainHit(x, y) {

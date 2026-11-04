@@ -1,4 +1,4 @@
-// The GPU's caption halo comes from the theme's token (--label-halo), not from the browser's computed stroke colour (caption-gl.js haloOf).
+// The GPU's caption halo comes from the theme's token (--label-halo), not from the browser's computed stroke colour (label-captions.js haloOf).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
@@ -12,7 +12,7 @@ globalThis.matchMedia ??= () => ({ matches: false, addEventListener() {}, addLis
 globalThis.ResizeObserver ??= class { observe() {} disconnect() {} };
 globalThis.requestAnimationFrame ||= (f) => setTimeout(() => f(performance.now()), 0);
 globalThis.cancelAnimationFrame ||= (id) => clearTimeout(id);
-const { haloOf, lookOf } = await import('../src/ui/caption-gl.js');
+const { haloOf, lookOf } = await import('../src/ui/label-captions.js');
 
 const style = (token, stroke) => ({ getPropertyValue: (n) => (n === '--label-halo' ? token : ''), webkitTextStrokeColor: stroke });
 

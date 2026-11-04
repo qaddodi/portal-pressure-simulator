@@ -1,6 +1,6 @@
 // Tap a label to explain it (N4, V-LIT-7; Mohammad, 3 Nov 2026). During a talk a tap on a label lights it and what it names, the other labels
 // step back to 35 % (14.3 B), and a one-line tooltip with the structure's name and live value rides under the label. A second tap on it, or
-// Next, clears it. The tooltip is a line of the label's own picture (label-gl.js, caption-gl.js), so it is drawn by the GPU in the frame
+// Next, clears it. The tooltip is a line of the label's own picture (label-gl.js, label-captions.js), so it is drawn by the GPU in the frame
 // that draws the label and moves with it; the tap is judged against what the GPU last drew (the layer's snapshot), never the page's boxes.
 //
 // This file is the pure part: which drawn label a tap lands on, what the tooltip says, and the toggle. The layers do the lighting.

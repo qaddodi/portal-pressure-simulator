@@ -354,7 +354,7 @@ const svCovered = async (page) => {
       const bad = [];
       for (const e of document.querySelectorAll('.sv.on .sv-region')) {
         const k = e.firstElementChild, b = e.getBoundingClientRect();
-        if (e.hidden || !k || !b.width || +getComputedStyle(k).opacity < 0.05 || e.hasAttribute('data-covered')) continue;   // (covered: faded out by the GPU, caption-gl.js)
+        if (e.hidden || !k || !b.width || +getComputedStyle(k).opacity < 0.05 || e.hasAttribute('data-covered')) continue;   // (covered: faded out by the GPU, label-captions.js)
         for (const [c, q] of cards) if (b.left < q.right - 1 && q.left < b.right - 1 && b.top < q.bottom - 1 && q.top < b.bottom - 1) bad.push(`"${e.textContent.replace(/\s+/g, ' ').trim().slice(0, 24)}" under ${c.className.split(' ')[0]}`);
       }
       return bad.length ? 'sinusoid names over a card: ' + bad.join(', ') : null;

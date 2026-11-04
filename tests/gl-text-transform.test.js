@@ -28,7 +28,7 @@ test('a scaled, translated anchor lands where the 2D canvas puts it, and a pure 
   assert.ok(Math.abs(X(r, x, y) - old[0]) < 1e-9 && Math.abs(Y(r, x, y) - old[1]) < 1e-9);
 });
 
-// (The names drawn by the GPU, caption-gl.js, set their capitals' letter spacing as the page does: after every character, the last too.)
+// (The names drawn by the GPU, label-captions.js, set their capitals' letter spacing as the page does: after every character, the last too.)
 test('letterSpacing is kept in the 2D context, added after each character and measured with the words', () => {
   assert.match(js, /set letterSpacing\(v\) \{ st\.ls = parseFloat\(v\) \|\| 0; \}/);
   assert.match(js, /const width = measure\(str, font\) \+ \(ls \? ls \* pointsIn\(str\) : 0\);/);

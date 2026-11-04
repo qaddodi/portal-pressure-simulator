@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const read = (f) => readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf8');
-const lz = read('lobule-zoom.js'), cap = read('caption-gl.js'), svg = read('svg-gl.js');
+const lz = read('lobule-zoom.js'), cap = read('label-captions.js'), svg = read('svg-gl.js');
 
 test('captions and the leaders both take a view, and draw their whole picture inside it', () => {
   assert.match(cap, /view\(k, e, f\) \{ if \(vk === k && ve === e && vf === f\) return; vk = k; ve = e; vf = f; api\.paint\(\); \}/);

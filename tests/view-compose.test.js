@@ -1,4 +1,4 @@
-// The lobule's pan and dive are two records composed into the one view the GPU draws names and leaders with (R08, caption-gl.js composeView):
+// The lobule's pan and dive are two records composed into the one view the GPU draws names and leaders with (R08, label-captions.js composeView):
 // p → k (p + d) + (e, f). Each owner clears only its own record; a pan ending never erases the dive, and bakeFollow does nothing without a pan.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -14,7 +14,7 @@ globalThis.matchMedia ??= () => ({ matches: false, addEventListener() {}, addLis
 globalThis.ResizeObserver ??= class { observe() {} disconnect() {} };
 globalThis.requestAnimationFrame ||= (f) => setTimeout(() => f(performance.now()), 0);
 globalThis.cancelAnimationFrame ||= (id) => clearTimeout(id);
-const { composeView } = await import('../src/ui/caption-gl.js');
+const { composeView } = await import('../src/ui/label-captions.js');
 
 const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
 const at = (v, x, y) => [v[0] * x + v[1], v[0] * y + v[2]];

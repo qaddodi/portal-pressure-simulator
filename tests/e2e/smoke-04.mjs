@@ -123,7 +123,7 @@ export default async function register({ CHART_TEXT_SIZES, LADDER_SIZES, barSett
     if (!c || !c.dataset.endArrows) return null;
     const a = c.dataset.endArrows.split(' ').map(Number), names = [...document.querySelectorAll('.sv.on .sv-end')];
     if (names.length !== 2) return `${names.length} end names`;
-    // (Names drawn by the GPU, caption-gl.js: how much each shows is the GPU's, with its layer's fade and its words' own strength.)
+    // (Names drawn by the GPU, label-captions.js: how much each shows is the GPU's, with its layer's fade and its words' own strength.)
     const gpuA = c.dataset.endNames ? c.dataset.endNames.split(' ').map(Number) : null, lab = document.querySelector('.sv.on .lz-labels');
     const bad = names.map((e, i) => {
       const k = e.firstElementChild, own = gpuA ? gpuA[i] * (+getComputedStyle(lab).opacity || 0) : +getComputedStyle(e).opacity || 0;

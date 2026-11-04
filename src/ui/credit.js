@@ -194,7 +194,7 @@ function labelRectsRead(wr, wrap, kept = null) {
   // The measuring callouts (the catheter's WHVP and FHVP, the slide's site readings) and the lobule and sinusoid views' labels, names and
   // resistance pills (the figure key must never cover one), likewise.
   for (const el of document.querySelectorAll(LABEL_SEL)) {
-    // (A name the GPU draws (caption-gl.js: the lobule's and the sinusoid's) keeps a clear model in the page, its opacity held at 0 by
+    // (A name the GPU draws (label-captions.js: the lobule's and the sinusoid's) keeps a clear model in the page, its opacity held at 0 by
     // app.css .cap-gl-on: it counts as shown unless it is fading out, hidden, an unlit call, or set clear by its view; its layers' fades count.)
     const gpu = el.closest?.('.cap-gl-on');
     if (gpu && (el.classList.contains('lz-off') || (el.classList.contains('lz-call') && !el.classList.contains('on')) || el.style.opacity === '0')) continue;

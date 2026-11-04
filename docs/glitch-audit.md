@@ -197,7 +197,7 @@ the figure are in the same frame.
 
 ---
 
-## 5. Lobule and sinusoid captions (`src/ui/caption-gl.js`). Overlap: thread D
+## 5. Lobule and sinusoid captions (`src/ui/label-captions.js`). Overlap: thread D
 
 ### C1. One or more frames with the captions shown twice (P2, S, Confirmed)
 - **Where:** `lobule-zoom.js:168` (`cap.onPresented = () => classSoon(labels, 'cap-gl-on', true)`), `sinusoid-view.js:196`
@@ -209,7 +209,7 @@ the figure are in the same frame.
   `cap-gl-on` in the same rest pass. Both change in one style pass, so they never overlap. The reverse order applies for `onLost`.
 
 ### C2. Caption halos change thickness with the dive's scale (P3, S, Plausible)
-- **Where:** `caption-gl.js` text policy (R07, ledger: "glyph size, letter spacing and halo scale with the layer" while view k ≠ 1).
+- **Where:** `label-captions.js` text policy (R07, ledger: "glyph size, letter spacing and halo scale with the layer" while view k ≠ 1).
 - **What you see:** during the dive into the lobule, the halo widens with the glyphs, and then snaps back to the CSS `--hw` clamp
   (`app.css:1636`) when the page's captions take over at rest.
 - **Fix:** clamp the GPU halo width to the same `clamp(1px, …, 2px)` range in screen pixels, scaling only the glyphs.

@@ -1,5 +1,5 @@
 // How far each leader's end stands from its caption's box, as the GPU drew them (R17 caption half): the caption snapshot's boxes
-// (caption-gl.js snapshot) and the leaders' ends (stage.lobuleLeaderEnds), both in the layer's px with its view applied.
+// (label-captions.js snapshot) and the leaders' ends (stage.lobuleLeaderEnds), both in the layer's px with its view applied.
 // Pure, so a unit test can run it: tests/leader-gap.test.js.
 
 /** Distance from the point (x, y) to the box { x, y, w, h }: 0 inside it. */
