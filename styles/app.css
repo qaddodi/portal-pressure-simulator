@@ -6540,6 +6540,18 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 /* The Settings menu ends above the bottom bar: its shadow is cut at the bar's top (util.js clipBar writes only --bar-clip). */
 .menu.app-menu { clip-path: inset(-64px -64px var(--bar-clip, -64px) -64px); }
 html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0px) - 8px) -64px); }
+/* (4 Nov, Mohammad: "sliding the menu down still shows on top of everything including the bottom bar".) A menu sheet that is not from the dock
+   (Settings, Why?) is drawn above the whole app, so every move of it down, a pull, a let-go, the stylesheet's own exit, is cut on the dock's top line:
+   at rest its foot is 8 px above that line (the cut sits 8 px under it); a move of T px down leaves T - 8 px of it cut off the bottom (the pull
+   and let-go write the same clip-path beside their translate: num-move.js dockCut). Never over the play bar, the timeline or the tabs. */
+html.thumb-ui :is(.menu.as-sheet, .why-pop.as-sheet):not(.from-dock) { clip-path: inset(-64px -64px -8px -64px); }
+@keyframes dock-sheet-in { from { opacity: var(--edge-o, 1); transform: translateY(calc(100% + 8px)); clip-path: inset(-64px -64px 100% -64px); } }
+@keyframes dock-sheet-out { to { opacity: var(--edge-o, 1); transform: translateY(calc(100% + 8px)); clip-path: inset(-64px -64px 100% -64px); } }
+@media (prefers-reduced-motion: no-preference) {
+  html.thumb-ui :is(.menu.as-sheet, .why-pop.as-sheet):not(.from-dock) { animation-name: dock-sheet-in; }
+  html.thumb-ui :is(.menu.as-sheet, .why-pop.as-sheet):not(.from-dock).leaving { animation-name: dock-sheet-out; }
+  html.thumb-ui :is(.menu.as-sheet, .why-pop.as-sheet):not(.from-dock).leaving[data-swiped], html.thumb-ui :is(.menu.as-sheet, .why-pop.as-sheet):not(.from-dock).pulling { animation: none; }
+}
 .app.thumb :is(.panel, .treat-card, .instrument-workspace.float-ui) { --card-out: thumbOut; }
 @media (prefers-reduced-motion: no-preference) {
   #app.thumb.panel-open .panel, #app.thumb .treat-card, #app.thumb .instrument-workspace.float-ui.entering { animation: thumbIn var(--d-small) var(--ease) var(--enter-delay, 0ms) backwards; }

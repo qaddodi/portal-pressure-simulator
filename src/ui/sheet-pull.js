@@ -9,6 +9,7 @@
 //   pullStop(r) // the let-go stops where it stands (a new touch takes the panel over)
 
 import { cssCurve } from './ease.js';
+import { dockCut } from './num-move.js';
 
 const OFF = (prop, y) => (prop === 'translate' ? `0px ${y}px` : `translateY(${y}px)`);   // alloc-rare: a let-go's two ends, made as the finger lifts
 
@@ -18,10 +19,10 @@ const OFF = (prop, y) => (prop === 'translate' ? `0px ${y}px` : `translateY(${y}
  * leaves the page. `pull` (the pull's mover, num-move.js: anything with cancel()) is taken away once the let-go is in place under it, so the panel never shows a frame
  * at the page's own place between the two. Returns the let-go's record (pullAt, pullStop).
  */
-export function pullRelease(el, prop, pull, from, to, ms, easing, done) {
+export function pullRelease(el, prop, pull, from, to, ms, easing, done, clip = false) {
   if (typeof el.animate !== 'function') { pull?.cancel(); done?.(); return null; }
   // alloc-rare: a let-go: one animation, its record and its end, once for each release of the finger
-  const a = el.animate([{ [prop]: OFF(prop, from) }, { [prop]: OFF(prop, to) }], { duration: ms, easing, fill: 'both' });
+  const a = el.animate(clip ? [{ [prop]: OFF(prop, from), clipPath: dockCut(from) }, { [prop]: OFF(prop, to), clipPath: dockCut(to) }] : [{ [prop]: OFF(prop, from) }, { [prop]: OFF(prop, to) }], { duration: ms, easing, fill: 'both' });
   // alloc-rare: the let-go's record and its end, once for each release of the finger
   const r = { a, from, to, ms, ease: cssCurve(easing), over: false, timer: 0 };
   pull?.cancel();

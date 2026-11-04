@@ -39,12 +39,15 @@ export function driven(el) {
 }
 
 const AX = 1, AY = 2;
+/** A menu sheet over the thumb dock is cut on the dock's top line while it is pulled down: its resting bottom edge is 8 px above that line, so a
+ *  pull of y px leaves y - 8 px of it cut off the bottom (clip-path is a compositor property, so it moves with the translate; sheet-pull.js uses the same). */
+export const dockCut = (y) => `inset(-64px -64px ${y - 8}px -64px)`;
 
 export class Mover {
   /** prop: 'translate' | 'transform'; axes: 'x' | 'y' | 'xy' ('xy' only with 'translate'); glass: tell the glass about it. */
-  constructor(el, prop, axes, glass = false) {
+  constructor(el, prop, axes, glass = false, clip = false) {
     if (prop !== 'translate' && prop !== 'transform') throw new Error(`Mover: ${prop}`);
-    this.el = el; this.prop = prop; this.glass = glass;
+    this.el = el; this.prop = prop; this.glass = glass; this.clip = clip;
     this.m = (axes.includes('x') ? AX : 0) | (axes.includes('y') ? AY : 0);
     if (!this.m || (prop === 'transform' && this.m === (AX | AY))) throw new Error(`Mover: ${prop} ${axes}`);
     this.ax = null; this.ay = null; this.lx = 0; this.ly = 0;
@@ -76,7 +79,7 @@ export class Mover {
     }
     if (m & AY) {
       this.ly = Math.floor(y) - HALF;
-      this.ay = this.make(tr ? [{ translate: `0px ${this.ly}px` }, { translate: `0px ${this.ly + 2 * HALF}px` }] : [{ transform: `translateY(${this.ly}px)` }, { transform: `translateY(${this.ly + 2 * HALF}px)` }], m === (AX | AY));   // alloc-rare: the drag's first write, or a value out of the window; never per write
+      this.ay = this.make(tr ? (this.clip ? [{ translate: `0px ${this.ly}px`, clipPath: dockCut(this.ly) }, { translate: `0px ${this.ly + 2 * HALF}px`, clipPath: dockCut(this.ly + 2 * HALF) }] : [{ translate: `0px ${this.ly}px` }, { translate: `0px ${this.ly + 2 * HALF}px` }]) : [{ transform: `translateY(${this.ly}px)` }, { transform: `translateY(${this.ly + 2 * HALF}px)` }], m === (AX | AY));   // alloc-rare: the drag's first write, or a value out of the window; never per write
     }
     this.on = true;
     if (this.d) this.d.on = true;
@@ -111,11 +114,11 @@ export class Mover {
 }
 
 /** The element's mover for prop and axes, made once and kept. */
-export function moverOf(el, prop, axes, glass = false) {
+export function moverOf(el, prop, axes, glass = false, clip = false) {
   let rec = MOVERS.get(el);
-  const key = `${prop}:${axes}`;   // alloc-rare: looked up when a drag begins or ends, never per write
+  const key = `${prop}:${axes}${clip ? ':clip' : ''}`;   // alloc-rare: looked up when a drag begins or ends, never per write
   if (!rec) { rec = {}; MOVERS.set(el, rec); }   // alloc-rare: once per element
-  const mover = rec[key] || (rec[key] = new Mover(el, prop, axes, glass));   // alloc-rare: once per element and kind
+  const mover = rec[key] || (rec[key] = new Mover(el, prop, axes, glass, clip));   // alloc-rare: once per element and kind
   if (glass) mover.enableGlass();
   return mover;
 }

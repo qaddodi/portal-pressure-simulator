@@ -61,10 +61,12 @@ const live = () => {
 const cut = (e) => {
   const c = getComputedStyle(e).clipPath;
   if (!c || c === 'none' || !c.startsWith('inset(')) return null;
-  const v = c.slice(6, c.indexOf(')')).split(/\s+/).map(parseFloat);
-  const bot = v.length === 1 ? v[0] : v.length === 2 ? v[0] : v[2];
+  const t = c.slice(6, c.indexOf(')')).split(/\s+/);
+  const w = t.length === 1 ? t[0] : t.length === 2 ? t[0] : t[2];
+  const r = e.getBoundingClientRect();
+  const bot = w.endsWith('%') ? parseFloat(w) / 100 * r.height : parseFloat(w);   // (a sheet's exit cuts by a share of its own height: app.css dock-sheet-out)
   if (!(bot > 0)) return null;
-  return { bottom: e.getBoundingClientRect().bottom - bot };
+  return { bottom: r.bottom - bot };
 };
 function ensure() {
   if (reg || !api?.add) return;

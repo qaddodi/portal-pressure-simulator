@@ -1076,7 +1076,7 @@ export function swipeSheet(panel, onClose, enabled = null) {   // (enabled: a ca
       const here = easing && !easing.over ? pullAt(easing) : s.shift;
       s.on = true; s.y = e.clientY - here; s.t = performance.now();
       classSoon(panel, 'pulling', true);   // (the stylesheet's entrance, if it is still playing, gives way to the finger: a class, written between frames, app.css .pulling)
-      s.pull = moverOf(panel, s.thumb ? 'translate' : 'transform', 'y');   // (num-move.js: one paused animation, its clock the finger's distance)
+      s.pull = moverOf(panel, s.thumb ? 'translate' : 'transform', 'y', false, s.thumb);   // (num-move.js: one paused animation, its clock the finger's distance)
       s.pull.set(0, here);
       pullStop(easing); easing = null;
       panel.setPointerCapture?.(e.pointerId);
@@ -1099,9 +1099,9 @@ export function swipeSheet(panel, onClose, enabled = null) {   // (enabled: a ca
     const gone = s0.dy > 0 && (flick || s0.dy > Math.min(SHEET_CLOSE_PX, H * SHEET_CLOSE_SHARE));
     // (A let-go carries the finger's own speed: the curve opens at its slope. Over the thumb dock it sinks behind the dock, its cut a still
     // clip, so the move needs no cut beside it. Away it goes to the sheet's own height and stays there until the menu takes it off.)
-    const to = gone ? H : 0, ms = s0.thumb ? 220 : D_SMALL;
+    const to = gone ? H + (s0.thumb ? 8 : 0) : 0, ms = s0.thumb ? 220 : D_SMALL;
     if (gone) dataSoon(panel, 'swiped', '1');
-    easing = pullRelease(panel, s0.thumb ? 'translate' : 'transform', s0.pull, s0.dy, to, ms, carryCurve(speed, to - s0.dy, ms), clearEasing);   // alloc-rare: a let-go
+    easing = pullRelease(panel, s0.thumb ? 'translate' : 'transform', s0.pull, s0.dy, to, ms, carryCurve(speed, to - s0.dy, ms), clearEasing, s0.thumb);   // alloc-rare: a let-go
     if (gone) onClose();
   };
   panel.addEventListener('pointerup', end);
