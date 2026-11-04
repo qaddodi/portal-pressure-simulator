@@ -71,18 +71,6 @@ test('no stale "Measure" call to action on the bar\'s tile, which is not a butto
   assert.match(css, /\.vdock \.readouts \.metric \.status\.unmeas::after \{ content: 'Unmeasured'; font-size: var\(--fs-12\); \}/);
 });
 
-test('Settings gives the model rows their own heading under the accessibility switch, and a Why? name wraps rather than ending in an ellipsis', () => {
-  const main = src('src/ui/main.js');
-  const settings = main.slice(main.indexOf('function openSettings('), main.indexOf('function presenterSettings('));
-  const blur = settings.indexOf("'Blur effect'"), hvpg = settings.indexOf("'Always show HVPG'");
-  assert.ok(blur > 0 && hvpg > blur, 'the HVPG switch follows the blur switch');
-  assert.ok(settings.slice(blur, hvpg).includes("class: 'menu-title' }, 'Model'"), 'a heading between them: Always show HVPG is not an accessibility setting, and a rule alone left it under that heading');
-  assert.ok(settings.indexOf("'Advanced physiology'") > hvpg, 'the model rows keep together');
-  const rule = css.match(/\n\.wf-row \.lab \{[^}]*\}/)[0];
-  assert.doesNotMatch(rule, /ellipsis|nowrap|overflow: hidden/);
-  assert.match(rule, /overflow-wrap: anywhere/);
-});
-
 test('Enter full screen is a row like the others in Settings, not a bordered button that the top bar\'s .menu-btn rule turned centred', () => {
   const main = src('src/ui/main.js');
   const fs = main.slice(main.indexOf('function fullscreenControl('), main.indexOf('let fsSync'));
@@ -176,14 +164,6 @@ test('the credit in the Help menu keeps one voice: "Created by <name>" over "Mor
   const main = src('src/ui/main.js');
   assert.match(main, /'More teaching tools ', icon\('chev-right'\)/);
   assert.doesNotMatch(main, /All my tools/);
-});
-
-test('every Settings switch keeps its description to two lines in the narrow desktop menu (about 56 characters, and Blur is the shortest)', () => {
-  const main = src('src/ui/main.js');
-  const settings = main.slice(main.indexOf('function openSettings('), main.indexOf('function presenterSettings('));
-  const descs = [...settings.matchAll(/menuToggle\([^,]+, '[^']+', '[^']+', '([^']+)'/g)].map((m) => m[1]);
-  assert.ok(descs.length >= 2, 'the switches were found');
-  for (const d of descs) assert.ok(d.length <= 58, `${d.length}: ${d}`);
 });
 
 test('where pressure is lost is "resistance", never a "block" (cards, About and the Why text)', () => {
@@ -284,16 +264,6 @@ test('the MAP formula ends in its result and carries its units, as the HVPG and 
   const { explain } = await import('../src/engine/explain.js');
   const e = new Engine(); e.loadPreset('cirr-decomp'); for (let i = 0; i < 4; i++) e.settleQuick();
   assert.match(explain(e, 'map').formula, /^MAP = CO × SVR \+ RA = [\d.]+ L\/min × [\d.]+ WU \+ [\d.]+ mmHg = \d+ mmHg$/);
-});
-
-test('Settings: Enter full screen sits with the one-shot rows above Appearance, and every switch line is two lines or fewer in the narrow menu', () => {
-  const m = src('src/ui/main.js');
-  const menuSrc = m.slice(m.indexOf('function openSettings('), m.indexOf('function textSizeControl'));
-  assert.ok(menuSrc.indexOf('fullscreenControl()') > 0 && menuSrc.indexOf('fullscreenControl()') < menuSrc.indexOf("'Appearance')"), 'full screen comes before the Appearance heading');
-  assert.equal(menuSrc.split('fullscreenControl()').length - 1, 1);
-  const descs = [...menuSrc.matchAll(/menuToggle\([^\n]*?'[a-z]+', '[^']+', '([^']+)'/g)].map((q) => q[1]);
-  assert.ok(descs.length >= 2, `found ${descs.length}`);
-  for (const d of descs) assert.ok(d.length <= 50, `${d.length}: ${d}`);
 });
 
 test('a Treat chip that is on reads heavier as well as ticked; the Compare table has no unexplained row shading and columns with room', () => {

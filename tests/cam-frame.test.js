@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { EDGES, NODES } from '../src/engine/topology.js';
 import { DECKS, REGIONS } from '../src/ui/decks.js';
+import { CIRC_REGIONS } from '../src/ui/cam-frame.js';
 import { isCamOn, unionBox, regionBox, growBox, camNames, camProblems } from '../src/ui/cam-frame.js';
 import { camOn } from '../src/ui/presenter.js';
 import { scaleViews } from '../src/ui/scale-switch.js';
@@ -73,7 +74,8 @@ test('every built-in slide\'s camera, and every anatomy view\'s, is a form the c
   for (const d of DECKS) for (const s of d.slides) {
     const cams = [[s.cam, `${d.id}/${s.id}`], ...Object.entries(scaleViews(s)).filter(([k]) => k === 'anatomy').map(([, v]) => [v?.cam, `${d.id}/${s.id} (anatomy view)`])];
     for (const [cam, where] of cams) {
-      assert.deepEqual(camProblems(cam, REGIONS), [], where);
+      // (A Circuit slide's camera names a Circuit region, cam-frame.js CIRC_REGIONS; its anatomy view's, an anatomy one.)
+      assert.deepEqual(camProblems(cam, s.view === 'circuit' && !where.endsWith('(anatomy view)') ? CIRC_REGIONS : REGIONS), [], where);
       if (isCamOn(cam)) NAMES_OK(cam.on, where);
     }
   }
