@@ -129,6 +129,7 @@ import { createZoom } from './stage-zoom.js';
 import { createGlass } from './stage-glass.js';
 import { createMorph } from './stage-morph.js';
 import { createFit } from './stage-fit.js';
+import { createRide } from './stage-ride.js';
 
 export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, onViewChange }) {
   // <stage-split live>
@@ -136,6 +137,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const live = {
     get abdomenEl() { return abdomenEl; },
     get adaptK() { return adaptK; }, set adaptK(v) { adaptK = v; },
+    get aimed() { return aimed; }, set aimed(v) { aimed = v; },
+    get aiming() { return aiming; }, set aiming(v) { aiming = v; },
     get arcRun() { return arcRun; }, set arcRun(v) { arcRun = v; },
     get ascEls() { return ascEls; },
     get ascShown() { return ascShown; }, set ascShown(v) { ascShown = v; },
@@ -1439,65 +1442,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // A slow push (opt.drift: a time-lapse's lapse.cam) is not a move of that kind: the labels stay up and ride with the figure, each kept
   // on its side as a hand's zoom keeps them (updateLabels), and are solved again for where it stopped once it lands, gliding there.
   let drifting = false;
-  const rideLeaders = (on) => wrap.classList.toggle('lb-ride', on);
-  // A card's zoom (zoomOpen) carries the labels that have no world anchor by the scene camera's ride (label-gl.js ride). Every other camera move (a hand, a glide, a slow push, a presenter's move) rides nothing: the labels are pose-driven (updateLabels, labels-plan.md).
+    // A card's zoom (zoomOpen) carries the labels that have no world anchor by the scene camera's ride (label-gl.js ride). Every other camera move (a hand, a glide, a slow push, a presenter's move) rides nothing: the labels are pose-driven (updateLabels, labels-plan.md).
   let labelRider = null, rideCTM = null;
-  let handRide = false, handRideT = 0, layCTM = null;   // (handRide: the labels are held while the camera moves, see updateLabels; layCTM: the camera they were last laid out under)
-  // (A matrix in stage px, written into a kept six: stagePx is the camera the labels were last laid out under (layCTM keeps it, written in
-  // place at each layout); a ride keeps its own copy, and the ride's frame matrix is one more.)
-  const stagePxLay = [0, 0, 0, 0, 0, 0], stagePxRide = [0, 0, 0, 0, 0, 0], stagePxNow = [0, 0, 0, 0, 0, 0], rideM6 = [1, 0, 0, 1, 0, 0];
-  const stagePxInto = (o, m) => { o[0] = m.a; o[1] = m.b; o[2] = m.c; o[3] = m.d; o[4] = m.e - wrapRect.left; o[5] = m.f - wrapRect.top; return o; };
-  const stagePx = (m) => stagePxInto(stagePxLay, m);
-  // (from: the camera the labels were last laid out under, stage px (layCTM); a presenter's glide starts from the camera as it is.)
-  function rideStart(from = null) {
-    if (rideCTM) return true;   // (a move taken over by another: the labels ride on from where they were laid out)
-    // (A treatment's catheter keeps the figure's labels on (keep): they ride its glides too. The HVPG catheter hides them: nothing to carry.)
-    if (!labelRider?.canRide() || (cath.st && !cath.st.keep) || lobuleOn || lz?.isOpen() || diveT > 0 || wrap.classList.contains('cam-move')) return false;   // (reduced motion rides too: a label that stays on its point as the figure moves adds no motion of its own; hidden, the names went for every pinch and glide)
-    refreshCTM();
-    if (from) { for (let q = 0; q < 6; q++) stagePxRide[q] = from[q]; } else stagePxInto(stagePxRide, CTM);
-    rideCTM = stagePxRide;
-    rideLeaders(true); glass.style.opacity = '0';
-    rideM6[0] = 1; rideM6[1] = 0; rideM6[2] = 0; rideM6[3] = 1; rideM6[4] = 0; rideM6[5] = 0;
-    labelRider.ride(rideM6);
-    return true;
-  }
-  function rideStep() {
-    if (!rideCTM) return;
-    refreshCTM();
-    const [a, b, c, d, e, f] = rideCTM, n = stagePxInto(stagePxNow, CTM), det = a * d - b * c || 1e-9;
-    const i0 = d / det, i1 = -b / det, i2 = -c / det, i3 = a / det, i4 = (c * f - d * e) / det, i5 = (b * e - a * f) / det;   // (where the labels were laid out, inverted)
-    rideM6[0] = n[0] * i0 + n[2] * i1; rideM6[1] = n[1] * i0 + n[3] * i1; rideM6[2] = n[0] * i2 + n[2] * i3; rideM6[3] = n[1] * i2 + n[3] * i3; rideM6[4] = n[0] * i4 + n[2] * i5 + n[4]; rideM6[5] = n[1] * i4 + n[3] * i5 + n[5];
-    labelRider.ride(rideM6);
-  }
-  // (The landing, before the labels are laid out again: they glide on from where they rode.)
-  function rideStop() {
-    if (!rideCTM) return;
-    rideCTM = null;
-    labelRider?.rideEnd();
-    rideLeaders(false); glass.style.opacity = '';
-  }
-  function driftEnd() { if (!drifting) return; drifting = false; rideLeaders(false); labelSettleSoon(); }
-  function camSettle() {
-    if (!camMove) return;
-    camMove = false; dpr.carry = false;
-    rideStop();
-    if (F) updateLabels(F);
-    nextFrame(camMoveOff);
-  }
-  const camMoveOff = () => { if (!camMove) wrap.classList.remove('cam-move'); };
-  const camSettleIdle = () => { if (!vtGliding) camSettle(); };
-  // The arc a presenter's long move is taking (see cam-arc.js), so a refit while it runs bends it to the new framing instead of starting over.
-  let arcRun = null;
-  // The viewBox units the stage really shows (the svg meets its viewBox, so the spare room on one axis shows more), and the widest
-  // view an arc may pull back to: the whole figure's fit.
-  function arcRoom() {
-    const b = stageBox(), cw = b.sw, ch = b.sh;   // (the svg's box, kept: no layout read)
-    if (!cw || !ch) return null;
-    const s0 = Math.min(cw / VIEW.w, ch / VIEW.h), vb = { w: cw / s0, h: ch / s0, cx: VIEW.w / 2, cy: VIEW.h / 2 };
-    // (The anatomy's fit zoom as last framed, kept by defaultVT: an arc's frames no longer measure the cards and the figure.)
-    return { vb, wMax: vb.w / (fitKept || 1) };
-  }
-  // opt.arc: a presenter's framing. A long move (the two views share nothing) pulls back and comes in rather than panning across at full zoom.
+    // opt.arc: a presenter's framing. A long move (the two views share nothing) pulls back and comes in rather than panning across at full zoom.
   // The view following a presenter's card frame by frame (Mohammad, 30 Oct, iPhone: "The view still snaps/jumps when I untuck a stacked
   // card"): as the readings' card slides out or tucks away, under the finger or on its own ease, the view is set each frame between the
   // framing for the readings tucked (v0) and the framing for them out (v1), at the same share u the card has travelled. The figure then
@@ -1506,43 +1453,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // push (drifting) and are solved again once it ends (followEnd, driftEnd). Any glide or framing set outright ends it (animateVT).
   // aimView: where a framing would go, without moving: the camera functions run with animateVT only noting its target.
   let following = false, follow0 = null, follow1 = null, aiming = false, aimed = null, followScene = false, followU = 0;
-  function aimView(fn) {
-    aiming = true; aimed = null;
-    try { fn(); } finally { aiming = false; }
-    const v = aimed || (vtGliding ? vtTarget : vt); aimed = null;
-    return v ? { k: v.k, x: v.x, y: v.y } : null;
-  }
-  // (The view as it stands, when it stands still at a framing a card's room can be followed from: not mid-glide or push, nor in the
-  // lobule, the circuit or a morph or dive.)
-  const viewNow = () => (following || zoomBase || vtGliding || drifting || lobuleOn || morphTarget !== 0 || morph > 0 || diveT > 0 ? null : { k: vt.k, x: vt.x, y: vt.y });
-  function followStart(v0, v1) {
-    if (!v0 || !v1 || sameView(v0, v1) || !viewNow()) return false;
-    cancelFrame(vtAnim); driftEnd();
-    following = true; follow0 = { ...v0 }; follow1 = { ...v1 };
-    // (A camera-only move, 4 Nov 2026, Mohammad: "the whole figure view moves instead of this being a camera only move with everything sticking to
-    // their locations": the view stays as it rests and the scene camera carries it from v0 to where v1 puts it, as a card's zoom does (sceneSet);
-    // the view takes v1 in the frame the move ends. With no room for that (the GPU figure not up) it is the view's own move, as before.)
-    followScene = !!(veins && !veins.lost && veins.setScene && wrapRect && vCanvas);
-    if (followScene) { sceneStart(); followU = 0; } else drifting = true;   // (drifting: the labels ride, see drifting; driftEnd solves them again)
-    return true;
-  }
-  function followAt(u) {
-    if (!following) return;
-    const f = clamp(u, 0, 1), a = follow0, b = follow1;
-    if (followScene) {
-      // (v(f) from v0: screen' = S screen + t, where S = k(f)/k0 and t = (O + s x(f)) - S (O + s x0), O and s the view box's place in the stage.)
-      followU = f;
-      const bx = stageBox(), vb = vbBox, sc = Math.min(bx.sw / vb.width, bx.sh / vb.height), O = bx.sx + (bx.sw - vb.width * sc) / 2 - vb.x * sc, Oy = bx.sy + (bx.sh - vb.height * sc) / 2 - vb.y * sc;
-      const k = a.k + (b.k - a.k) * f, x = a.x + (b.x - a.x) * f, y = a.y + (b.y - a.y) * f, S = k / a.k;
-      sceneSet(S, O + sc * x - S * (O + sc * a.x), Oy + sc * y - S * (Oy + sc * a.y));
-      return;
-    }
-    vt = { k: a.k + (b.k - a.k) * f, x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f };
-    applyVT(); CTM = null;
-    if (cath.st) { refreshCTM(); cathLabelsSoon(); }
-    if (sites.list) { refreshCTM(); sitesPaint(); }
-    if (scan.on) scanPaint(); dprobePaint();
-  }
+  const { aimView, arcRoom, camSettle, camSettleIdle, driftEnd: driftEnd$, followAt, followStart, rideLeaders, rideStart, rideStep, rideStop, stagePx, stagePxInto, stagePxNow, viewNow } = createRide({ applyVT, dpr, labelSettleSoon, nextFrame, refreshCTM, sameView, sceneSet, sceneStart, sitesPaint, stageBox, updateLabels, vCanvas, vbBox, wrap }, live);
+  function driftEnd(...a) { return driftEnd$(...a); }   // <stage-split stub>
+  let handRide = false, handRideT = 0, layCTM = null;   // (handRide: the labels are held while the camera moves, see updateLabels; layCTM: the camera they were last laid out under)
+  // The arc a presenter's long move is taking (see cam-arc.js), so a refit while it runs bends it to the new framing instead of starting over.
+  let arcRun = null;
   // The camera zoomed with a card (card-zoom.js, 4 Nov 2026, "zoom the entire camera"): the whole view is scaled by S about the screen point (px, py)
   // and then moved by (dx, dy) screen px, the same transform the zoomed cards are given, so the figure, the liver and the labels' places ride with them.
   // zoomOpen takes the view as it stands (null: it is not at rest, nothing is zoomed); zoomAt is one frame of it, written as the view (k, x, y), one
