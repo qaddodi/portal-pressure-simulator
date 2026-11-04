@@ -59,7 +59,7 @@ import { caught } from './caught.js';
 import { createCaptionGL, composeView, inkRows, mirrorOf, rgbaOf as capRGBA } from './caption-gl.js';
 import { readStyle, readBox as boxOf } from './layout-snap.js';
 import { hitLabel, explainText } from './label-explain.js';
-import { overlapLRTB, discInto, SHORT_LEAD, LONG_LEAD } from './label-place.js';
+import { overlapLRTB, discInto, needsLeader, SHORT_LEAD, LONG_LEAD } from './label-place.js';
 import { reduceMotionMQ } from './motion.js';
 import { darkMQ } from './look.js';
 const nextFrame = frameFor('lobule-zoom');
@@ -1784,7 +1784,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   }
   function fadeIn(el) { clearTimeout(el._lzOff); el._lzOff = 0; classSoon(el, 'lz-off', false); setHid(el, false); }
   const gone = (el) => isHid(el) || classHas(el, 'lz-off');
-  const leadOff = (L) => { classSoon(L.line, 'ld-gone', true); classSoon(L.dotEl, 'ld-gone', true); };
+  const leadOff = (L) => { L.hadLead = false; classSoon(L.line, 'ld-gone', true); classSoon(L.dotEl, 'ld-gone', true); };
   const leadOn = (L) => { classSoon(L.line, 'ld-gone', false); classSoon(L.dotEl, 'ld-gone', false); };
   const ZONE_TPL = [['Zone 1', 'periportal'], ['Zone 2', 'midzonal'], ['Zone 3', 'centrilobular']].map(([t, d], i) => {
     const z = h('div', { class: 'lz-zone z' + (i + 1), 'aria-hidden': 'true', 'data-target': `lobule:zone${i + 1}` }, h('b', {}, t), h('span', {}, d));
@@ -2663,8 +2663,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       // (The label's spot is kept in the label's own pair: the layout's records are written again by the next.)
       const ab = L.ab || (L.ab = [0, 0]);   // alloc-once: a label's pair is made with its first layout
       ab[0] = a[0]; ab[1] = a[1];
-      // (A name that stands against the central vein's rim names it by standing there: no leader.)
-      if (k === 'cv' && Math.hypot(Math.max(0, Math.abs(a[0] - x) - w / 2), Math.max(0, Math.abs(a[1] - y) - hh / 2)) <= cvKeep(g) + hx + 10) { leadOff(L); L.a = ab; continue; }
+      // (One leader rule for every view, label-place.js needsLeader: the line shows once the name stands past 12 px of what it names, from the letters' box
+      // to the point, or to the central vein's rim, and stays until it comes within 8; a name that stands against it names it by standing there.)
+      const gapPx = Math.hypot(Math.max(0, Math.abs(a[0] - x) - w / 2), Math.max(0, Math.abs(a[1] - y) - hh / 2)) - (k === 'cv' ? cvKeep(g) + hx : 0);
+      L.hadLead = needsLeader(false, gapPx, L.hadLead);
+      if (!L.hadLead) { classSoon(L.line, 'ld-gone', true); classSoon(L.dotEl, 'ld-gone', true); L.a = ab; continue; }
       leadOn(L);
       L.a = ab;
       setGeo(L.line, 'x1', a[0]); setGeo(L.line, 'y1', a[1]);
