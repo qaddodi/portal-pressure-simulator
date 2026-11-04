@@ -60,9 +60,11 @@ test('idle rest: listens to pointer, key, wheel, touch, scroll and focus', () =>
   for (const k of ['pointerdown', 'pointermove', 'keydown', 'wheel', 'touchstart', 'scroll', 'focusin']) assert.ok(handlers.has(k), k);
 });
 
-test('idle rest is wired: Explore only, never in a talk or a time-lapse; the stage eases the blood and the worker holds', () => {
+test('idle rest is wired: Explore, or a talk whose slide is idle (presenter.idle); never in a time-lapse; the stage eases the blood and the worker holds', () => {
   const main = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8');
-  assert.match(main, /st\.mode === 'explore' && !presenter\.active\(\) && !st\.lapse/);
+  assert.match(main, /presenter\.active\(\) \? presenter\.idle\(\) : st\.mode === 'explore'\) && !st\.lapse/);
+  const pres = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  assert.match(pres, /!deck\.motion && !slides\[shown\.i\]\?\.motion/);
   assert.match(main, /onRest: \(\) => \{ setPageRest\(true\); stage\.rest\(true\); host\.send\(\{ type: 'visibility', visible: false \}\); \}/);
   assert.match(main, /onWake: \(\) => \{ setPageRest\(false\); host\.send\(\{ type: 'visibility', visible: !document\.hidden \}\); stage\.rest\(false\); \}/);
   const stage = stageSource();

@@ -309,6 +309,8 @@ export function createInk({ host, xform, active, onFigure }) {
     /** The slide changed or the talk ended: erase, and let the veil go. */
     reset() { this.clear(); spotOn = false; spotA = 0; touchSpot = false; clearTimeout(holdT); holdT = 0; },
     count: () => strokes.length,
+    /** Whether the laser or a stroke in progress is live (the talk is not idle while it is). */
+    live: () => spotOn || spotA > 0.004 || penDown,
     /** For the checks: what the last draw laid ({ seq, kind, n, spot }), and the strokes' points in figure units. */
     snapshot: () => ({ ...snap, pen: pen.slice(0, 3), veil: veil.slice(0, 3), strokes: strokes.map((s) => ({ kind: s.kind, r: s.r, n: s.n, pts: Array.from(s.pts.subarray(0, 2 * s.n)) })) }),
     /** Draws now (the checks). */

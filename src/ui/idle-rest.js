@@ -8,33 +8,36 @@ const INPUTS = ['pointerdown', 'pointermove', 'keydown', 'wheel', 'touchstart', 
 
 /**
  * createIdleRest({ after, canRest, onRest, onWake, target, now, setTimer, clearTimer }): { resting(), poke(), dispose() }.
+ * after: ms of no input before resting, or a function giving it (asked each time).
  * canRest(): whether resting is allowed now (asked when the time is up, and again every 5 s while it says no).
  * target: where the inputs are listened for (window); now/setTimer/clearTimer: the clock (tests pass their own).
  */
 export function createIdleRest({ after = REST_AFTER_MS, canRest = () => true, onRest = () => {}, onWake = () => {}, target = globalThis.window,
   now = () => performance.now(), setTimer = (f, ms) => setTimeout(f, ms), clearTimer = (t) => clearTimeout(t), doc = globalThis.document } = {}) {
+  const afterMs = () => (typeof after === 'function' ? after() : after);   // (a talk rests sooner than Explore: the delay is asked each time)
   let last = now(), timer = 0, resting = false;
   const arm = (ms) => { clearTimer(timer); timer = setTimer(check, Math.max(50, ms)); };
   function check() {
     timer = 0;
     if (resting) return;
     const idle = now() - last;
-    if (idle < after) { arm(after - idle); return; }
-    if (doc?.hidden || !canRest()) { arm(Math.min(after, 5000)); return; }   // (asked again soon: a talk or a time-lapse may end without an input)
+    const wait = afterMs();
+    if (idle < wait) { arm(wait - idle); return; }
+    if (doc?.hidden || !canRest()) { arm(Math.min(wait, 5000)); return; }   // (asked again soon: a talk or a time-lapse may end without an input)
     resting = true;
     onRest();
   }
   // (A pointer move only stamps the time while awake: no timer is reset per move, the check reads the stamp when it fires.)
   function poke() {
     last = now();
-    if (resting) { resting = false; onWake(); arm(after); }
-    else if (!timer) arm(after);
+    if (resting) { resting = false; onWake(); arm(afterMs()); }
+    else if (!timer) arm(afterMs());
   }
   const onVis = () => { if (!doc.hidden) poke(); };
   const opts = { capture: true, passive: true };
   for (const t of INPUTS) target?.addEventListener(t, poke, opts);
   doc?.addEventListener?.('visibilitychange', onVis);
-  arm(after);
+  arm(afterMs());
   return {
     resting: () => resting,
     poke,

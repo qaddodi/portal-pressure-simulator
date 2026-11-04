@@ -1105,7 +1105,7 @@ function makeCalc() {
   };
 }
 
-export function createPresenter({ openSettings, loadPreset, host, stage, projectorOn, projectorOff, closeHome, stashCards, rerenderHome }) {
+export function createPresenter({ openSettings, loadPreset, host, stage, poke = () => {}, projectorOn, projectorOff, closeHome, stashCards, rerenderHome }) {
   const app = document.getElementById('app'), view = document.getElementById('stageView'), wrap = document.getElementById('stageWrap');
   let calc = null;
   const getCalc = () => (calc ||= makeCalc());
@@ -5359,6 +5359,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   // (force: a move that ended in an error, whose cards came back; busy: the cards are changing, so a reader waits for them.)
   const landedNow = () => !!shown && shown.i === want && shown.gen === gen;
   function announce(force = false) {
+    poke();   // (a change of slide or a beat wakes a resting page, whoever asked: a clicker, the presenter's window)
     if (!ui) return;
     const i = want, t = `Slide ${i + 1} of ${slides.length}${slides[i]?.title ? `: ${slides[i].title}` : ''}`;
     if ((force || landedNow()) && ui.say.textContent !== t) ui.say.textContent = t;
@@ -6450,7 +6451,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     scriptNotes: (s) => { const d = fromScript(s); openHandout(d, deckNumbers(d)); }, newScript, importFile, addStep, shareScript, exportScript, remove, current: () => deck?.id ?? null,
     resumeAt: (d) => resumeFor(d.id, (d.mine ? d.slides : withOverview(d).slides).length) });
 
-  return { start, stop, library, readLink, active: () => !!deck, ink: () => ink,
+  // Idle talk (Mohammad, 4 Nov 2026: "if the slide has nothing actively happening, let the decks decide to pause it to preserve battery and
+  // heat"): true when the slide shown is settled and nothing on it moves of its own: no slide change, card move, camera glide, beat,
+  // time-lapse, zoom, laser or stroke under way. The deck decides the rest: `motion: true` on a deck or a slide (decks.js) says
+  // its figure's own flow or animation is the point, and the page never rests there. main.js asks it for the idle rest in a talk.
+  const idle = () => !!deck && !!ui && !!shown && shown.i === want && !busy && !playing && !prepT && !leaving && !booting && !reframeT && !lapseOn
+    && !zoomOn() && !stage.gliding() && !ink?.live() && !deck.motion && !slides[shown.i]?.motion;
+  return { start, stop, library, readLink, active: () => !!deck, idle, ink: () => ink,
     // Where the show is (for the preview pill's reload): the deck and the slide on screen, or the one it is moving to.
     position: () => (deck ? { id: deck.id, at: shown?.i ?? want } : null),
     // For the browser checks: straight to slide i (0-based) of the deck shown, as the arrow keys move.
