@@ -2730,13 +2730,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let zoomLz = false;
   function zoomOpen() {
     if (zoomBase) return false;
-    if (lobuleOn && lz?.zoomOpen) { if (!lz.zoomOpen()) return false; zoomBase = { lz: true }; zoomLz = true; glassHold.on = true; return true; }
+    if (lobuleOn && lz?.zoomOpen) { if (!lz.zoomOpen()) return false; zoomBase = { lz: true }; zoomLz = true; return true; }
     if (!viewNow()) return false;
     cancelFrame(vtAnim); driftEnd();
     const b = stageBox(), vb = vbBox, s = Math.min(b.sw / vb.width, b.sh / vb.height);
     zoomBase = { vt: { ...vt }, s, ox: b.left + b.sx + (b.sw - vb.width * s) / 2 - vb.x * s, oy: b.top + b.sy + (b.sh - vb.height * s) / 2 - vb.y * s };
     following = true; follow0 = follow1 = null; drifting = true;
-    glassHold.on = true;
     return true;
   }
   function zoomAt(S, px, py, dx, dy) {
