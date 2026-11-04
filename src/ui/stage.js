@@ -6809,7 +6809,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   };
   function clampShade(id) {
     const e = clampEase(id), op = e < 1 ? e.toFixed(3) : '';
-    for (const g of [ov.clamps, ov.clampsOut, clampW, clampWOut]) for (const el of g.querySelectorAll(`[data-id="${id}"]`)) if (el.tagName === 'text' || !glLines) el.style.opacity = op;
+    for (const g of [ov.clamps, ov.clampsOut, clampW, clampWOut]) for (const el of g.querySelectorAll(`[data-id="${id}"]`)) if (el._c || !glLines) el.style.opacity = op;
   }
   // The heart a slide points at (the right atrium, the heart itself) is lit whole by a soft glow, not a line: one band
   // easing out from its edge (the GPU shades the falloff smoothly, behind the organs): reach in world units, peak opacity.
@@ -9389,6 +9389,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (Math.abs(px - clampBase) > 0.01) { clampBase = px; applyClampFs(); }
     const fs = CTM.sc > 0 && CTM.sc < 1 ? clampBase / CTM.sc : 0;   // (written only when it moved: the same size is no change)
     if (el._fs !== fs) { el._fs = fs; el.style.fontSize = fs ? `${fs.toFixed(2)}px` : ''; }
+    clampGlyphs(el);
   };
   // Moves a "60 %" to `want` ({ d, t } or null: back where it belongs): it fades out where it stands, then in at the new place.
   const clampFades = new WeakMap();
@@ -9422,6 +9423,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (el._ag !== gap || el._al !== left) { el._ag = gap; el.setAttribute('dx', (left ? -gap : gap).toFixed(2)); el.setAttribute('dy', gap.toFixed(2)); }
     if (el._al !== left) { el._al = left; if (left) el.setAttribute('text-anchor', 'end'); else el.removeAttribute('text-anchor'); }
     if (el._ad !== deg || el._atx !== x || el._aty !== y) { el._ad = deg; el._atx = x; el._aty = y; if (deg) el.setAttribute('transform', `rotate(${(-deg).toFixed(2)} ${x.toFixed(2)} ${y.toFixed(2)})`); else el.removeAttribute('transform'); }
+    clampGlyphs(el);
   }
   // (2 Nov 2026: a "60 %"'s box worked out in script, from its own attributes and Inter's advances and metrics (textBox), as getBBox
   // gives it, so the labels' search lays nothing out. Its size: its own, else the clamps' --clamp-fs. The outlines come in once, and
@@ -9430,14 +9432,28 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const clampTbOpts = { anchor: 'start', weight: 600, size: 12, tnum: true, k: 1 };
   const attrNum = (el, k) => parseFloat(el.getAttribute(k)) || 0;
   const clampTmp = [0, 0], clampXs = [0, 0], clampPos = { x: 0, y: 0, left: false, gap: 0, deg: 0 };
-  const clampGlyphsIn = () => { if (F) updateLabels(F); };
+  // A "60 %"'s outlines: two paths (the halo, then the glyphs) from Inter's outlines at the label's own size and spot, written only when
+  // one of them moved. Not yet drawn while the outlines are not in (clampGlyphsIn lays it again then).
+  const clampLook = { weight: 600, size: 12, tnum: true };
+  function clampGlyphs(el) {
+    if (el._txt == null || !glyphsReady()) return;
+    const size = parseFloat(el.style.fontSize) || (parseFloat(clampFs) || 12), end = el.getAttribute('text-anchor') === 'end';
+    const x = attrNum(el, 'x') + attrNum(el, 'dx'), y = attrNum(el, 'y') + attrNum(el, 'dy');
+    if (el._gs === size && el._gx === x && el._gy === y && el._ge === end && el._gp) return;
+    el._gs = size; el._gx = x; el._gy = y; el._ge = end;
+    clampLook.size = size;
+    const w = textPolys(el._txt, 0, 0, clampLook).w, d = polysD(textPolys(el._txt, end ? x - w : x, y, clampLook).polys);
+    if (!el._gp) { el._gp = [s('path', { class: 'clamp-halo' }), s('path', { class: 'clamp-glyph' })]; el.replaceChildren(el._gp[0], el._gp[1]); }
+    el._gp[0].setAttribute('d', d); el._gp[1].setAttribute('d', d);
+  }
+  const clampGlyphsIn = () => { placeClampLabels(); if (F) updateLabels(F); };
   function clampTextBox(el) {
     if (!glyphsReady()) { if (!clampGlyphAsk) { clampGlyphAsk = true; loadGlyphs().then(clampGlyphsIn); } return null; }
     const cls = el.getAttribute('class') || '';
     const size = parseFloat(el.style.fontSize) || (/clamp-label/.test(cls) && parseFloat(clampFs)) || 12;
     const o = clampTbOpts;   // (kept, rewritten: textBox reads it and holds nothing)
     o.anchor = el.getAttribute('text-anchor') || 'start'; o.size = size; o.k = CTM?.sc > 0 ? CTM.sc : 1;
-    return textBox(el.textContent, attrNum(el, 'x') + attrNum(el, 'dx'), attrNum(el, 'y') + attrNum(el, 'dy'), o);   // (tnum: the "60 %" is drawn in tabular figures (#labels text), so its box is one width whatever its digits are)
+    return textBox(el._txt ?? el.textContent, attrNum(el, 'x') + attrNum(el, 'dx'), attrNum(el, 'y') + attrNum(el, 'dy'), o);   // (tnum: the "60 %" is drawn in tabular figures (#labels text), so its box is one width whatever its digits are)
   }
   // Where clampLabelAt puts a clamp's percentage (its spot, which side its text runs and its offset), without writing it.
   function clampLabelPos(el) {
@@ -9542,7 +9558,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (!c) { el.remove(); continue; }
       c.on = false;
       el.classList.replace('clamp', 'clamp-out'); el.classList.replace('clamp-label', 'clamp-label-out');
-      (el.tagName === 'text' ? clampWOut : ov.clampsOut).append(el);
+      (el._c ? clampWOut : ov.clampsOut).append(el);
     }
     for (const id of want) {
       const c = clampA.get(id);
@@ -9567,7 +9583,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const ux = dx / n * 4.5, uy = dy / n * 4.5;
         ov.clamps.append(s('path', { class: 'clamp', 'data-id': id, d: `M${tx} ${ty} L ${bx + ux} ${by + uy} L ${bx - ux} ${by - uy} Z` }));
       }
-      const lab = s('text', { class: 'clamp-label', 'data-id': id }, document.createTextNode(`${Math.round(v * 100)}%`));
+      // (A group of two outline paths, the halo and the glyphs, drawn by the overlay painter: words are not its own, clampGlyphs.)
+      const lab = s('g', { class: 'clamp-label', 'data-id': id });
+      lab._txt = `${Math.round(v * 100)}%`;
       lab._c = { id, x, y, nx, ny, off }; clampLabelAt(lab); clampFontAt(lab);
       clampW.append(lab);
       clampShade(id);
@@ -11418,7 +11436,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       out.push({ key, shown, box: [r.x0, r.y0, r.x1, r.y1].map((v) => +v.toFixed(1)), clear: +n.d.toFixed(2), vessel: n.id, level: d ? +((r.y0 + r.y1) / 2 - d[1]).toFixed(1) : null, ring: g.classList.contains('ring') ? (parseFloat(pill && getComputedStyle(pill).strokeWidth) || 0) / 2 : 0 });
     }
     for (const el of document.querySelectorAll('.clamp-label')) {
-      if (!el.getClientRects().length || !el.textContent) continue;
+      if (!el.getClientRects().length || !(el._txt ?? el.textContent)) continue;
       const r = box(el, (parseFloat(getComputedStyle(el).strokeWidth) || 0) * (CTM.sc || 1) / 2), n = near(r, el._c?.id);
       out.push({ key: `60%:${el._c?.id}`, shown: true, box: [r.x0, r.y0, r.x1, r.y1].map((v) => +v.toFixed(1)), clear: +n.d.toFixed(2), vessel: n.id, level: null });
     }
@@ -11537,7 +11555,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function clFree(b) { return b && !clProbeHit(b) && within(b, CLB.view) && lineHits(b, 6, CLB.id) < 1 && !(CLB.credit && hits(b, CLB.credit)); }
   // An element's box in stage px, `m` px grown, written into `out` (or null when it has none).
   function boxOfElInto(out, el, m = 2) {
-    const b = elBoxInto(el, EBOX, clampTextBox);
+    const b = el._txt != null ? clampTextBox(el) : elBoxInto(el, EBOX, clampTextBox);
     if (!b?.width) return null;
     const bx = b.x, by = b.y, bw = b.width, bh = b.height;
     worldToLocalInto(SB_A, bx, by); let x0 = SB_A[0], y0 = SB_A[1], x1 = x0, y1 = y0;

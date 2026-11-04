@@ -732,6 +732,10 @@ html.press-fx :is(.modes button, .um-tab, .instr-tab, .ps-btn, .pz-scales > butt
 .clamp, .clamp-out { fill: var(--text); fill-opacity: .82; }
 .clamp-label, .clamp-label-out, .guide-label { font: 600 var(--fs-12) var(--font-ui); fill: var(--text); paint-order: stroke; stroke: var(--stage-bg); stroke-width: 4px; stroke-linejoin: round; }
 .clamp-label, .clamp-label-out { font-size: var(--clamp-fs, var(--fs-12)); stroke-width: var(--clamp-sw, 4px); }
+/* (A "60 %" is a group of two outline paths, the painter's own shapes (stage.js clampGlyphs): the halo is the stroke alone, the glyphs the fill alone, as paint-order drew them.) */
+.clamp-label > path, .clamp-label-out > path { paint-order: normal; }
+.clamp-label > .clamp-halo, .clamp-label-out > .clamp-halo { fill: none; }
+.clamp-label > .clamp-glyph, .clamp-label-out > .clamp-glyph { stroke: none; }
 .guide-label { font-size: calc(var(--fs-12) * var(--halo-k, 1)); stroke-width: calc(4px * var(--halo-k, 1)); }   /* (the shunt's target name, 12 px on screen at any zoom) */   /* (the labels' own name size on screen at any zoom: stage.js applyClampFs) */
 /* Soft clot: three translucent layers of one red build toward the thick middle and fade at the edges. */
 .thrombus-halo { fill: var(--thrombus); fill-opacity: .4; }

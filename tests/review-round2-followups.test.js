@@ -59,7 +59,7 @@ test("a narrowing's clamp and label fade out from their own group, which the lab
   // (The GPU draws the arrows: their fade rides on the draw's alpha, never on a baked SVG opacity.)
   assert.match(stage, /d\.fade \? olFaded\(d\) : d/);
   assert.match(stage, /const fadeEase = \(key\) => \(markA\.has\(key\) \? markA\.amount\(key\) : clampEase\(key\)\);/);
-  assert.match(stage, /if \(el\.tagName === 'text' \|\| !glLines\) el\.style\.opacity = op;/);
+  assert.match(stage, /if \(el\._c || !glLines\) el\.style\.opacity = op;/);
   assert.match(stage, /!clampFading\(\) && !markA\.moving\(\) && !widthEasing/);
   assert.match(css, /\.clamp, \.clamp-out \{/);
   assert.match(css, /\.clamp-label, \.clamp-label-out \{ font-size/);
