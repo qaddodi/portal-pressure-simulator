@@ -2948,6 +2948,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // frame folded in: the figure's own picture and the glass's ask after its cards moved (host.now) were two whole copies of the kept
   // picture and two draws of every card's glass. A reader that takes the canvas in the frame (capture) lays the pending one first; a
   // present outside a frame, or once the frame's end has passed, is laid at once as before.)
+  const PRES_FOLD = false;
   let presPend = 0, presFlushing = false, presDoneAt = -1;
   function flushPresent() {
     presDoneAt = frameCount();
@@ -2959,7 +2960,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   }
   const offPresFinal = onFrameFinal(flushPresent);
   function present(top = true, again = false) {
-    if (top && !presFlushing && !lost && framePhase() && presDoneAt !== frameCount()) { presPend |= 1 | (again ? 2 : 0); return; }
+    // (Laid at once again (4 Nov 2026, the figure flicker Mohammad still saw after the other speed changes came out): the fold into one present
+    // at the frame's end (2e44012) is off while it is chased. PRES_FOLD brings it back.)
+    if (PRES_FOLD && top && !presFlushing && !lost && framePhase() && presDoneAt !== frameCount()) { presPend |= 1 | (again ? 2 : 0); return; }
     if (presPend && top) { again = again || (presPend & 2) !== 0; presPend = 0; }
     presentNow(top, again);
   }
