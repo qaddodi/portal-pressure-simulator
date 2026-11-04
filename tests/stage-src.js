@@ -6,7 +6,9 @@ import { join } from 'node:path';
 
 const UI = fileURLToPath(new URL('../src/ui/', import.meta.url));
 export const stageFiles = () => ['stage.js', ...readdirSync(UI).filter((f) => /^stage-.+\.js$/.test(f)).sort()];
-export const stageSource = () => stageFiles().map((f) => readFileSync(join(UI, f), 'utf8')).join('\n');
+// (A forwarding stub the move tool leaves in stage.js, `function f(...a) { return f$(...a); }   // <stage-split stub>`, is left out: the real function is the one in its part.)
+const STUB = /^[ \t]*function\*? \w+\(\.\.\.a\) \{ return (?:yield\* )?\w+\$\(\.\.\.a\); \}[ \t]*\/\/ <stage-split stub>\n?/gm;
+export const stageSource = () => stageFiles().map((f) => readFileSync(join(UI, f), 'utf8').replace(STUB, '')).join('\n');
 
 // Text of `function name(...) {...}` / `async function` / `function*` (brace matched; strings and comments are not special-cased, as the
 // regex tests it replaces were not either).

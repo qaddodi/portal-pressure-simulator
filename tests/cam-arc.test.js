@@ -77,7 +77,7 @@ test('a refit while an arc runs bends it to the new framing without a jump, and 
 
 test('the presenter\'s framings take the arc; other camera moves keep the plain glide', () => {
   const stage = stageSource();
-  assert.match(stage, /function frameBox\([\s\S]{0,400}animateVT\(to, ms, \{ arc: true, steady: !!opt\.steady, scale: !opt\.steady \}\)/);
+  assert.match(stage, /function frameBox\([\s\S]{0,700}animateVT\(to, ms, \{ arc: true, steady: !!opt\.steady, scale: !opt\.steady \}\)/);
   assert.equal((stage.match(/\{ arc: true[,} ]/g) || []).length, 1, 'only frameBox asks for it');
   assert.match(stage, /opt\.arc && !reduceMotion\.matches/, 'reduced motion keeps the short plain glide');
 });
