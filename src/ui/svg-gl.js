@@ -891,6 +891,9 @@ export function createSvgGL(box, opts = null) {
     // 35 ms a frame on a Mac (4 Nov 2026, Mohammad: "zooming into the lobule still flickers"). A fade under way finishes first.)
     const skip = !!g.skip && !g.eased && !g.ins.size && g.skip();
     if (g.blank && (skip || (!g.ins.size && !hasInk()))) return;
+    // (Nothing to show: the picture on show is cleared where it stands, with no frame drawn. Drawn as an empty frame, a full-screen layer
+    // (the lobule's leaders) sized the charts' one shared buffer to the whole screen for every chart after it.)
+    if (skip && g.gpu?.clearShown?.()) { g.blank = true; g.eased = false; return; }
     const pen = framePart('svg-gl: begin (size, context)', fitPen, cv, g.gpu), { ctx, w, h } = pen;   // (named, so a long frame says whether the drawing's time went in the shared canvas's size, the pieces or the hand-over)
     const now = easeNow();
     easing = false;

@@ -44,13 +44,14 @@ export function keepLayer(ctx, name, sig, draw) {
   return false;
 }
 // (2 Nov 2026, audit R04, then two-contexts plan D3/U2, 4 Nov 2026: ONE shared context for every chart. Its drawing buffer grows in CAP_STEP
-// steps to the largest chart drawn so far and is never shrunk, so charts of different sizes never resize it. Each chart draws in the
+// steps to the largest chart drawn lately (shrunk again after a quiet SHRINK_MS, see begin), so charts of different sizes never resize it. Each chart draws in the
 // buffer's lower left W x H (viewport and scissor), and its card canvas, given the buffer's size by the hand-over, is shown at that size
 // and clipped to the chart's own box (place), so pixels still map 1:1 and nothing is copied or resized.)
 const pools = [];
 /** Size reallocations of the shared buffer and pictures handed over, since the page opened (the ?perf readout, audit R04). */
 export const sharedStats = { covRemade: 0, resizes: 0, transfers: 0, moves: 0, covAllocs: 0, uploads: 0, subUploads: 0 };
 const CAP_STEP = 256;
+const SHRINK_MS = 1000;   // (the shared buffer is cut back to the largest chart drawn in the last one to two seconds)
 export const capOf = (n) => Math.ceil(Math.max(1, n) / CAP_STEP) * CAP_STEP;
 function makePool() {
   const pool = { dead: true, users: 0 };   // alloc-rare: a drawing pool (a GL context) is made once, a timer ahead of the first chart that needs it
@@ -800,8 +801,18 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
         // (Another chart's frame still open in the shared context is finished first: its picture handed over before this one starts.)
         if (shared.active && shared.active !== api) shared.active.end();
         shared.active = api;
-        // (U2: the one buffer grows to the largest chart in CAP_STEP steps and is never shrunk; a smaller chart draws in its lower left.)
-        if (glCanvas.width < Wd || glCanvas.height < Hd) { glCanvas.width = Math.max(glCanvas.width, capOf(Wd)); glCanvas.height = Math.max(glCanvas.height, capOf(Hd)); sharedStats.resizes++; }
+        // (U2: the one buffer grows to the largest chart in CAP_STEP steps; a smaller chart draws in its lower left.)
+        // (It shrinks again once no chart has needed its size for a second (SHRINK_MS): every hand-over transfers the WHOLE buffer, so
+        // after one full-screen layer drew (the lobule's leaders, 3700 x 2400 device px on a Mac) each small card chart handed over a
+        // 9 MP picture, and its card canvas held one: svg-gl 163 ms a frame in the lobule, 5 fps (4 Nov 2026, Mohammad's ?perf).)
+        const t = performance.now();
+        if (!(t - shared.winT0 <= SHRINK_MS)) { shared.lastW = shared.winW || 0; shared.lastH = shared.winH || 0; shared.winW = 0; shared.winH = 0; shared.winT0 = t; }
+        if (Wd > shared.winW) shared.winW = Wd;
+        if (Hd > shared.winH) shared.winH = Hd;
+        const fitW = capOf(Math.max(shared.lastW, shared.winW)), fitH = capOf(Math.max(shared.lastH, shared.winH));
+        if (glCanvas.width < Wd || glCanvas.height < Hd || glCanvas.width > fitW || glCanvas.height > fitH) {
+          glCanvas.width = Math.max(fitW, capOf(Wd)); glCanvas.height = Math.max(fitH, capOf(Hd)); sharedStats.resizes++;
+        }
         gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.bindVertexArray(null); gl.useProgram(null);
         gl.clearStencil(0); gl.stencilMask(0xff);
       }
@@ -846,6 +857,13 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
         if (host.style.opacity !== '0') host.style.opacity = '0';
       }
       return (lastEnd = ok);
+    },
+    /** The picture on show cleared without drawing a frame (no buffer sized, nothing handed over): true when it was. Only for a chart in the
+     *  shared context (its canvas takes pictures); a chart with a context of its own draws an empty frame instead. */
+    clearShown() {
+      if (!shown || dead || inFrame) return false;
+      try { shown.transferFromImageBitmap(null); } catch (e) { caught('trace-gl:clearShown', e); return false; }
+      return true;
     },
     /** The 2D canvas draws the chart (shown again); the GPU's picture is hidden. */
     hide() {

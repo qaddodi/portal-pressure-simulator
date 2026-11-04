@@ -103,3 +103,17 @@ test('a coverage target the driver lost, or never completed, is made again, so s
   assert.equal(sharedStats.covAllocs, a3, 'once complete it is kept for good');
   C.dispose();
 });
+
+test('one full-screen chart does not leave every small chart handing over a full-screen buffer: the buffer shrinks back after a quiet second', () => {
+  const big = createTraceGL(host()), small = createTraceGL(host());
+  clock += 3000;
+  assert.ok(draw(big, 1860, 1200));   // (the lobule's leader layer on a Mac: 3720 x 2400 device px)
+  for (let i = 0; i < 10; i++) { clock += 16; assert.ok(draw(small, 200, 90)); }
+  const r0 = sharedStats.resizes;
+  for (let i = 0; i < 200; i++) { clock += 16; assert.ok(draw(small, 200, 90)); }
+  assert.ok(sharedStats.resizes - r0 >= 1, 'cut back once the big chart stopped drawing');
+  const r1 = sharedStats.resizes;
+  for (let i = 0; i < 200; i++) { clock += 16; assert.ok(draw(small, 200, 90)); }
+  assert.equal(sharedStats.resizes, r1, 'and then left alone');
+  big.dispose(); small.dispose();
+});
