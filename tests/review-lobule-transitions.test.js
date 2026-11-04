@@ -17,11 +17,11 @@ test('G18: organs and vessels ease on one clock and one curve', () => {
   // (One surface step of the motion scale, ease.js D_SURFACE, 420 ms.)
   assert.match(stage, /const LENS_FADE = D_SURFACE;/);
   assert.match(stage, /const PLATE_FADE = LENS_FADE;/, 'the GPU plate eases over the vessels\' own lens crossfade');
-  assert.match(stage, /plateT0 = lensFrom && now - lensT0 < 60 \? lensT0 : now;/, 'from the moment the lens switch started');
+  assert.match(stage, /plateT0 = (?:live\.)?lensFrom && now - (?:live\.)?lensT0 < 60 \? (?:live\.)?lensT0 : now;/, 'from the moment the lens switch started');
   assert.match(lz, /const LENS_FADE = D_SURFACE,/, 'the lobule\'s lens crossfade takes the same time');
   assert.match(tokens, /--d-surface: 420ms;/, 'the SVG organs\' CSS fade takes the same time');
   // The quintic (easeMove) on every clock, and as a CSS curve.
-  assert.match(stage, /u = easeMove\(clamp\(\(\(PACED \? easeNow\(\) : now\) - lensT0\) \/ LENS_FADE, 0, 1\)\)/);
+  assert.match(stage, /u = easeMove\(clamp\(\(\(PACED \? easeNow\(\) : now\) - (?:live\.)?lensT0\) \/ LENS_FADE, 0, 1\)\)/);
   assert.match(stage, /const u = easeMove\(clamp\(\(now - plateT0\) \/ PLATE_FADE, 0, 1\)\);/);
   assert.match(read('../src/ui/organs-gl.js'), /L\.k = easeMove\(\(now - L\.from\) \/ VIEW_FADE_MS\);/);
   assert.doesNotMatch(app, /#net \{ transition|#backEdges \.vg/, 'the vessels have no CSS fade left (the GPU draws them)');
@@ -34,10 +34,10 @@ test('G20: a selected organ is outlined in its own deep tone with a soft glow; t
   assert.match(stage, /const OL_LOOK = \{ sel: \[2\.6, /, 'the selection line is 2.6 units');
   assert.match(stage, /getComputedStyle\(g\)\.getPropertyValue\('--o3'\)/, 'its colour is the organ\'s own --og-<tone>-3');
   assert.match(stage, /PASS_SEL = \[\[true, SEL_GLOW\.reach, SEL_GLOW\.alpha\]/, 'a soft glow under the line');
-  assert.match(stage, /const col = o\.col \|\| \(o\.kind === 'pin' \? (?:live\.)?olCol : orgTone\(o\.id\)\);/, 'slide pins keep their station colour');
+  assert.match(stage, /const col = o\.col \|\| \(o\.kind === 'pin' \? (?:live\.)?(?:live\.)?olCol : orgTone\(o\.id\)\);/, 'slide pins keep their station colour');
   assert.match(stage, /const SEL_DIM = 0\.6;/);
   assert.match(stage, /\(sel \? SEL_DIM : 1\) \* \(dataLayer \? 0\.72 : 1\)/, 'the GPU plate dims to SEL_DIM');
-  assert.match(stage, /const on = !plateOn\(\) && \(plateDim < 1 \|\| plateSat < 1\);/, 'the SVG organs dim with the same values (syncOrganDim)');
+  assert.match(stage, /const on = !(?:live\.)?plateOn\(\) && \((?:live\.)?plateDim < 1 \|\| (?:live\.)?plateSat < 1\);/, 'the SVG organs dim with the same values (syncOrganDim)');
   // Every selectable organ has a tone class that sets --o3.
   for (const t of ['liver', 'spleen', 'heart']) assert.match(app, new RegExp(`\\.tone-${t} \\{[^}]*--o3: var\\(--og-${t}-3\\)`));
 });

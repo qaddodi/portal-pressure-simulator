@@ -18,9 +18,9 @@ const body = (name) => {
 
 test('no organ picture is begun or shown while the page is in the background, and the state is checked on return', () => {
   const p = body('platePoke');
-  assert.match(p.split('\n').find((l) => l.includes('glWanted(easeInOut(morph))')), /document\.hidden/, 'platePoke waits while hidden');
+  assert.match(p.split('\n').find((l) => l.includes('glWanted(easeInOut(live.morph))')), /document\.hidden/, 'platePoke waits while hidden');
   assert.match(p.split('\n').find((l) => l.includes('figureHidden() ||') && l.includes('moving')), /document\.hidden/, 'the delayed raster waits while hidden');
-  assert.match(p, /else if \(plateStateKey\(\) !== k\) plateAgain = true/, 'a picture given up is drawn again for the state now');
+  assert.match(p, /else if \(plateStateKey\(\) !== k\) (?:live\.)?plateAgain = true/, 'a picture given up is drawn again for the state now');
   assert.match(src, /addEventListener\('visibilitychange', \(\) => \{ if \(!document\.hidden\) platePoke\(\); \}\)/);
 });
 
@@ -38,11 +38,11 @@ const main = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8')
 
 test('a picture in colours the page no longer has is dropped while hidden, and none is begun there', () => {
   const p = body('platePoke');
-  const drop = p.indexOf('if (document.hidden && veins'), guard = p.split('\n').findIndex((l) => l.includes('glWanted(easeInOut(morph))'));
+  const drop = p.indexOf('if (document.hidden && live.veins'), guard = p.split('\n').findIndex((l) => l.includes('glWanted(easeInOut(live.morph))'));
   assert.ok(drop > 0, 'platePoke checks the shown picture against the colours now while hidden');
   const branch = p.slice(drop, p.indexOf('\n    }', drop));
-  assert.match(branch, /theme !== plateTheme\) \{ plateTheme = theme; hidePlate\(\); \}/, 'a picture of other colours gives way to the live drawing');
-  assert.doesNotMatch(branch, /rasterPlate|plateTimer/, 'nothing is drawn into a new picture while hidden');
+  assert.match(branch, /theme !== (?:live\.)?plateTheme\) \{ (?:live\.)?plateTheme = theme; hidePlate\(\); \}/, 'a picture of other colours gives way to the live drawing');
+  assert.doesNotMatch(branch, /rasterPlate|(?:live\.)?plateTimer/, 'nothing is drawn into a new picture while hidden');
   assert.ok(p.slice(0, drop).split('\n').length - 1 < guard, 'the drop comes before the guard that keeps a hidden page from drawing a picture');
 });
 
@@ -63,10 +63,10 @@ test('an organ picture given up because the change moved on makes the next one w
   const src = stageSource();
   // (Mohammad's iPhone ?perf recording, 21 Oct: a time-lapse began a whole organ picture in each pause and threw it away.)
   // (One step, 0.8 s, since the whole picture is made a strip per frame: a picture given up costs a strip. External review, 22 Oct.)
-  assert.match(src, /const still = plateMiss \? 800 : 400;/);
-  assert.match(src, /still - \(performance\.now\(\) - lvStillAt\), 400 - \(performance\.now\(\) - spleenMv\.stillAt\(\)\), still - \(performance\.now\(\) - fluidStillAt\)\);/);
-  assert.match(src, /plateMiss = plateOn\(\) \? 0 : Math\.min\(3, plateMiss \+ 1\);\n\s*if \(!plateOn\(\)\) plateKey = '';/);
-  assert.match(src, /\} else if \(plateStateKey\(\) !== k\) plateAgain = true;[^\n]*\n\s*if \(plateAgain && !plateOn\(\)\) plateMiss = Math\.min\(3, plateMiss \+ 1\);/);
+  assert.match(src, /const still = (?:live\.)?(?:live\.)?plateMiss \? 800 : 400;/);
+  assert.match(src, /still - \(performance\.now\(\) - (?:live\.)?lvStillAt\), 400 - \(performance\.now\(\) - spleenMv\.stillAt\(\)\), still - \(performance\.now\(\) - (?:live\.)?fluidStillAt\)\);/);
+  assert.match(src, /(?:live\.)?plateMiss = (?:live\.)?plateOn\(\) \? 0 : Math\.min\(3, (?:live\.)?plateMiss \+ 1\);\n\s*if \(!(?:live\.)?plateOn\(\)\) (?:live\.)?plateKey = '';/);
+  assert.match(src, /\} else if \(plateStateKey\(\) !== k\) (?:live\.)?plateAgain = true;[^\n]*\n\s*if \((?:live\.)?plateAgain && !(?:live\.)?plateOn\(\)\) (?:live\.)?plateMiss = Math\.min\(3, (?:live\.)?plateMiss \+ 1\);/);
 });
 
 

@@ -95,7 +95,7 @@ test('the allowance is 1 ms', () => {
 
 test('the stage gives every refinement a turn: the layer bake and the shapes read, none a fixed 6 ms of its own', () => {
   const stage = stageSource();
-  assert.match(stage, /const refineHeld = \(\) => gestureOn\(\) \|\| !leftAlone\(120\);/, 'a gesture, or an input in the last 120 ms or a finger down');
+  assert.match(stage, /const refineHeld = \(\) => (?:live\.)?gestureOn\(\) \|\| !leftAlone\(120\);/, 'a gesture, or an input in the last 120 ms or a finger down');
   assert.match(stage, /const refineWaitFrame = \(\) => new Promise\(refineWaitExec\), refineWaitExec = \(res\) => nextFrame\(res\);/);   // (kept, no closure per turn)
   assert.match(stage, /const refineTurn = \(gone\) => refine\.turn\(refineWaitFrame, refineHeld, gone\);/);
   assert.doesNotMatch(stage, /performance\.now\(\) \+ 6\)/);
@@ -104,7 +104,7 @@ test('the stage gives every refinement a turn: the layer bake and the shapes rea
   assert.match(bake, /refine\.spent\(performance\.now\(\) - t0, LAYER_SPENT\[L\]\)/, 'the longest step is named by layer');
   assert.match(stage, /LAYER_SPENT\[L\] = `organ layer \$\{L\}`/);
   const layers = stage.slice(stage.indexOf('async function rasterLayers'), stage.indexOf('function bakeAll'));
-  assert.match(layers, /if \(await refineTurn\(\(\) => seq0 !== plateSeq \|\| drops0 !== plateDrops \|\| v !== veins \|\| !v \|\| v\.lost\) === null\) return false;/, 'reading every organ\'s shapes waits its turn too');
+  assert.match(layers, /if \(await refineTurn\(\(\) => seq0 !== (?:live\.)?plateSeq \|\| drops0 !== (?:live\.)?plateDrops \|\| v !== (?:live\.)?veins \|\| !v \|\| v\.lost\) === null\) return false;/, 'reading every organ\'s shapes waits its turn too');
   assert.match(layers, /refineStep\('organ layers: shapes read', bakeAll\)/);
 });
 

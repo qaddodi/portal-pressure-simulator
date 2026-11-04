@@ -14,12 +14,12 @@ const prep = st.match(/function prepRise\(\) \{[\s\S]*?\n {2}\}\n/)[0];
 const ready = st.match(/function riseReady\(\) \{[\s\S]*?\n {2}\}\n/)[0];
 
 test('before the way out, the covered anatomy follows the model again and its picture is made for the patient now', () => {
-  assert.match(prep, /if \(!lobuleOn \|\| diveT < 1 \|\| morphTarget !== 0 \|\| risePrep\) return;/, 'only from a landed lobule');
-  assert.match(prep, /if \(F && !inUpdate\) update\(F\);\n\s+platePoke\(\);/);
-  assert.match(st, /const under = anatCovered\(\) && !catchUp && !risePrep;/, 'model frames reach the organs meanwhile');
+  assert.match(prep, /if \(!(?:live\.)?lobuleOn \|\| (?:live\.)?diveT < 1 \|\| (?:live\.)?morphTarget !== 0 \|\| (?:live\.)?risePrep\) return;/, 'only from a landed lobule');
+  assert.match(prep, /if \((?:live\.)?F && !(?:live\.)?inUpdate\) update\((?:live\.)?F\);\n\s+platePoke\(\);/);
+  assert.match(st, /const under = anatCovered\(\) && !catchUp && !(?:live\.)?risePrep;/, 'model frames reach the organs meanwhile');
   // Done when the picture of the patient now lands; never left on.
-  assert.match(st, /if \(!plateOn\(\)\) plateKey = '';[^\n]*\n\s+else if \(risePrep\) \{ risePrep = false; clearTimeout\(risePrepT\); \}/);
-  assert.match(st, /function setLobule\(on, painted = false\) \{\n[^\n]*\n\s+risePrep = false; clearTimeout\(risePrepT\);/);
+  assert.match(st, /if \(!(?:live\.)?(?:live\.)?plateOn\(\)\) (?:live\.)?(?:live\.)?plateKey = '';[^\n]*\n\s+else if \((?:live\.)?(?:live\.)?risePrep\) \{ (?:live\.)?(?:live\.)?risePrep = false; clearTimeout\((?:live\.)?(?:live\.)?risePrepT\); \}/);
+  assert.match(st, /function setLobule\(on, painted = false\) \{\n[^\n]*\n\s+(?:live\.)?risePrep = false; clearTimeout\((?:live\.)?risePrepT\);/);
 });
 
 test('ready means the picture shown is the state now: its key is the organs\' key, and nothing in it still eases', () => {
@@ -39,10 +39,10 @@ test('the rise waits for it at rest in the lobule, then glides straight on and o
   // During the rise the picture is only dropped for a change made after it was ready (its key no longer matches): platePoke's
   // check comes before any drop.
   const poke = st.match(/function platePoke\(\) \{[\s\S]*?\n {2}\}\n/)[0];
-  assert.ok(poke.indexOf('if (key === plateKey && veins.hasPlate(0)) return;') < poke.indexOf('if (drop && veins.hasPlate(0))'));
+  assert.ok(poke.indexOf('if (key === live.plateKey && live.veins.hasPlate(0)) return;') < poke.indexOf('if (drop && live.veins.hasPlate(0))'));
   // With the changing organs painted live, a return from under the lobule keeps the GPU picture up (no SVG organs through the rise
   // and the glide after it).
-  assert.match(poke, /const drop = themed \|\| \(stale && !live\);/);
+  assert.match(poke, /const drop = themed \|\| \(stale && !liveNow\);/);
 });
 
 test('the picture for the way out is begun early, so Next goes straight out: ahead on a settled lobule slide, and as the change begins', () => {
@@ -52,5 +52,5 @@ test('the picture for the way out is begun early, so Next goes straight out: ahe
   assert.match(pz, /if \(nx && LOBULE_CAM\.test\(cam \|\| ''\) && !LOBULE_CAM\.test\(nCam \|\| ''\)\) \{ clearTimeout\(prepAheadT\); prepAheadT = setTimeout\(\(\) => \{ if \(shown\?\.i === to && shown\.gen === g && gen === g\) stage\.prepRise\?\.\(\); \}, RISE_AHEAD_MS\); \}/);
   assert.ok(+/const RISE_AHEAD_MS = (\d+);/.exec(pz)[1] <= 2000);
   // Made ahead and nothing changed since: ready at once (its key still matches), so the wait in toAnatomy costs nothing.
-  assert.match(st, /if \(key === plateKey && veins\.hasPlate\(0\)\) return;/);
+  assert.match(st, /if \(key === (?:live\.)?(?:live\.)?plateKey && (?:live\.)?(?:live\.)?veins\.hasPlate\(0\)\) return;/);
 });

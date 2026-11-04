@@ -16,7 +16,7 @@ test('the idle loop looks again once a second and keys the blood setting on the 
 });
 
 test('organ pictures that land outside a frame wake the loop', () => {
-  assert.match(st, /dropViewKeep\(\); {3}\/\/ \(a picture of the state before[^\n]*\n\s+veinsDirty = true; stageWake\(\);/);
-  assert.match(st, /veins\.dropPlate\(1\); veinsDirty = true; stageWake\(\); \} return; \}/);
-  assert.match(st, /plateView = \[x0, y0, x1, y1, scale\]; veinsDirty = true; stageWake\(\); \}/);
+  assert.match(st, /dropViewKeep\(\); {3}\/\/ \(a picture of the state before[^\n]*\n\s+(?:live\.)?(?:live\.)?veinsDirty = true; (?:live\.)?(?:live\.)?stageWake\(\);/);
+  assert.match(st, /(?:live\.)?veins\.dropPlate\(1\); (?:live\.)?veinsDirty = true; (?:live\.)?stageWake\(\); \} return; \}/);
+  assert.match(st, /(?:live\.)?plateView = \[x0, y0, x1, y1, scale\]; (?:live\.)?veinsDirty = true; (?:live\.)?stageWake\(\); \}/);
 });

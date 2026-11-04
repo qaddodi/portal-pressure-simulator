@@ -27,9 +27,9 @@ test('the GPU fills a plate texture of its own and swaps it in whole', () => {
 test('an ease that outgrows the plate shows on the live drawing, and the plate is drawn again once it settles', () => {
   // (Held, the organs inside the plate stood still while their outlines moved through a fill played over days, then jumped.)
   const poke = stage.slice(stage.indexOf('function platePoke'), stage.indexOf('const key = plateStateKey();', stage.indexOf('function platePoke')));
-  assert.match(poke, /if \(!live && \(lvMoving \|\| fluidEasing\(\)\)\) \{ if \(plateKey && veins\.hasPlate\(0\) && plateStateKey\(\) !== plateKey\) hidePlate\(\); return; \}/);
+  assert.match(poke, /if \(!liveNow && \((?:live\.)?(?:live\.)?lvMoving \|\| (?:live\.)?(?:live\.)?fluidEasing\(\)\)\) \{ if \((?:live\.)?(?:live\.)?plateKey && (?:live\.)?(?:live\.)?veins\.hasPlate\(0\) && plateStateKey\(\) !== (?:live\.)?(?:live\.)?plateKey\) hidePlate\(\); return; \}/);
   // (Unless the changing organs are painted live: then nothing is dropped, and the pictures under them hold none of them.)
-  assert.match(poke, /const live = liveOn\(\);/);
+  assert.match(poke, /const liveNow = liveOn\(\);/);
   // (The bowel's float only once the fluid settles: its picture is moved on the GPU while it eases.)
   assert.match(stage, /if \(liveOn\(\)\) return \['live', bowelHeld, cs\.getPropertyValue\('--stage-bg'\)/);
 });
@@ -52,14 +52,14 @@ test('the pictures made after a pan or pinch wait until the figure is let go', (
   assert.match(quiet, /on\('pointerdown', \(e\) => pressed\.add\(e\.pointerId\)\);/);
   assert.match(quiet, /for \(const ev of \['pointerup', 'pointercancel'\]\) on\(ev, \(e\) => pressed\.delete\(e\.pointerId\)\);/);
   const sched = stage.slice(stage.indexOf('function schedulePlateView'), stage.indexOf('function clientToWorldFast'));
-  assert.match(sched, /if \(!leftAlone\(280\)\) \{ plateSettle = setTimeout\(settled, 120\); return; \}/);
+  assert.match(sched, /if \(!leftAlone\(280\)\) \{ (?:live\.)?(?:live\.)?plateSettle = setTimeout\(settled, 120\); return; \}/);
 });
 
 
 test('in the circuit, where the organs are faded out, no organ picture is made after a pan or pinch', () => {
   // (Mohammad, 21 Oct: the lag after a pan or zoom "also happens in circuit view".)
   const sched = stage.slice(stage.indexOf('function schedulePlateView'), stage.indexOf('function clientToWorldFast'));
-  assert.match(sched, /if \(!veins \|\| !plateOn\(\) \|\| !CTM\) return;\n(?:\s+\/\/.*\n)+\s+if \(morphTarget !== 0 \|\| morph > 0\) return;/);
+  assert.match(sched, /if \(!(?:live\.)?(?:live\.)?veins \|\| !(?:live\.)?(?:live\.)?plateOn\(\) \|\| !(?:live\.)?(?:live\.)?CTM\) return;\n(?:\s+\/\/.*\n)+\s+if \((?:live\.)?(?:live\.)?morphTarget !== 0 \|\| (?:live\.)?(?:live\.)?morph > 0\) return;/);
 });
 
 test("an ordinary pan makes no new picture of the view while the one shown still covers the screen", () => {
@@ -67,7 +67,7 @@ test("an ordinary pan makes no new picture of the view while the one shown still
   // screen; only the margin around it had left it.)
   const sched = stage.slice(stage.indexOf('function schedulePlateView'), stage.indexOf('async function makeGutPic'));
   assert.match(sched, /const vx0 = Math\.max\(PLATE_RECT\[0\], ax\), vy0 = Math\.max\(PLATE_RECT\[1\], ay\), vx1 = Math\.min\(PLATE_RECT\[0\] \+ PLATE_RECT\[2\], bx\), vy1 = Math\.min\(PLATE_RECT\[1\] \+ PLATE_RECT\[3\], by\);/);
-  assert.match(sched, /if \(plateView && vx0 >= plateView\[0\] && vy0 >= plateView\[1\] && vx1 <= plateView\[2\] && vy1 <= plateView\[3\] && scale <= plateView\[4\] \* 1\.05\) return;/, 'the screen, not its margin, inside the kept picture');
+  assert.match(sched, /if \((?:live\.)?plateView && vx0 >= (?:live\.)?plateView\[0\] && vy0 >= (?:live\.)?plateView\[1\] && vx1 <= (?:live\.)?plateView\[2\] && vy1 <= (?:live\.)?plateView\[3\] && scale <= (?:live\.)?plateView\[4\] \* 1\.05\) return;/, 'the screen, not its margin, inside the kept picture');
   // Painted on the GPU, the picture reaches half a view past each side, never so far its resolution drops below the screen's.
   assert.match(sched, /const reach = liveOn\(\) \? Math\.max\(0\.15, Math\.min\(0\.5, \(Math\.sqrt\(4\.2e6 \/ Math\.max\(1, vw \* vh\)\) - 1\) \/ 2, \(4094 \/ Math\.max\(1, vw, vh\) - 1\) \/ 2\)\) : 0\.15;/);
   // (The bound: a view of vw × vh px at reach r spans (1 + 2r)² vw·vh px, within the 4.2e6 the scale is held to, and a side within 4094.)

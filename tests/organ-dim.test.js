@@ -33,12 +33,12 @@ test('the live organs grey through their own colours and dim through the groups\
   assert.match(stage, /<filter id="organDim" filterUnits="userSpaceOnUse" x="200" y="-200" width="1020" height="1320" color-interpolation-filters="sRGB"><feColorMatrix type="matrix"\/><\/filter>/, 'kept for a colour the grey cannot read');
   assert.match(stage, /const PLATE_RECT = \[200, -200, 1020, 1320\];/, 'the same rectangle as the GPU copy');
   const sync = stage.slice(stage.indexOf('function syncOrganDim'), stage.indexOf('const plateEasing'));
-  assert.match(sync, /organDimA = on \? plateDim : 1; paintOrganAlpha\(\);\n\s+if \(grey\) greyOn\(plateSat\); else greyOff\(\);/);
+  assert.match(sync, /(?:live\.)?(?:live\.)?organDimA = on \? (?:live\.)?(?:live\.)?plateDim : 1; paintOrganAlpha\(\);\n\s+if \(grey\) greyOn\((?:live\.)?(?:live\.)?plateSat\); else greyOff\(\);/);
   assert.match(stage, /for \(const g of greyList\) g\.el\.style\.setProperty\(g\.p, greyOf\(g\.c, q\), 'important'\);/);
   assert.match(stage, /if \(!greyList\) \{ greyFilter = true; for \(let i = 0; i < organGs\.length; i\+\+\) organGs\[i\]\.setAttribute\('filter', 'url\(#organDim\)'\); \}/, 'only when a colour cannot be read');
-  assert.match(stage, /const a = String\(organMorphA \* organDimA\), tr = organDimA !== 1 \? 'none' : '';\n\s+for \(let i = 0; i < organGs\.length; i\+\+\) \{\n\s+const g = organGs\[i\];\n\s+if \(\(getLive\(g, 'transition'\) \?\? g\.style\.transition\) !== tr\) setG\(g, 'style:transition', tr\);\n\s+if \(\(getLive\(g, 'opacity'\) \?\? g\.style\.opacity\) !== a\) setG\(g, 'style:opacity', a\);/, 'the dim times the morph\'s fade, set at once: the groups\' .5 s opacity transition would flash the undimmed organs');
+  assert.match(stage, /const a = String\((?:live\.)?organMorphA \* (?:live\.)?organDimA\), tr = (?:live\.)?organDimA !== 1 \? 'none' : '';\n\s+for \(let i = 0; i < organGs\.length; i\+\+\) \{\n\s+const g = organGs\[i\];\n\s+if \(\(getLive\(g, 'transition'\) \?\? g\.style\.transition\) !== tr\) setG\(g, 'style:transition', tr\);\n\s+if \(\(getLive\(g, 'opacity'\) \?\? g\.style\.opacity\) !== a\) setG\(g, 'style:opacity', a\);/, 'the dim times the morph\'s fade, set at once: the groups\' .5 s opacity transition would flash the undimmed organs');
   assert.match(app, /#organs \{ transition: opacity var\(--d-surface\) var\(--ease\); \}/, 'the transition the dim turns off');
-  assert.match(stage, /organMorphA = 1 - t; paintOrganAlpha\(\);/);
+  assert.match(stage, /(?:live\.)?organMorphA = 1 - t; paintOrganAlpha\(\);/);
   assert.doesNotMatch(app, /#organs[^{]*\{[^}]*filter:/, 'no CSS filter on the organs (it would override the attribute in Chrome)');
   assert.doesNotMatch(app, /#backdrop[^{,]*\{[^}]*filter:/);
   assert.match(stage, /const greyed = !!greyList;\n\s+if \(greyed\) \{ greyClear\(\); organDimKey = ''; \}/, 'the GPU pictures take the organs\' own colours');

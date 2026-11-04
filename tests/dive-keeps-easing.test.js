@@ -46,7 +46,7 @@ test('the frame loop draws what eases while the anatomy shows; at rest the zoom 
   assert.ok(rest.indexOf('stepFluid(dt, st, easeDt)') > 0 && rest.indexOf('drawVeins(fluidMoved)') > 0);
   assert.ok(rest.indexOf('if (lz?.isOpen()) { trimVeins(); sleep(); return; }') < rest.indexOf('stepFluid('));
   // The plate's picture is still not made mid-dive (it waits for the landing): only the live drawing moves.
-  assert.match(fn('  function platePoke() {'), /if \(\(lobuleOn && !lz\?\.isOpen\(\)\) \|\| \(diveT > 0 && diveT < 1\)\) return;/);
+  assert.match(fn('  function platePoke() {'), /if \(\((?:live\.)?(?:live\.)?lobuleOn && !(?:live\.)?(?:live\.)?lz\?\.isOpen\(\)\) \|\| \((?:live\.)?(?:live\.)?diveT > 0 && (?:live\.)?(?:live\.)?diveT < 1\)\) return;/);
 });
 
 test('out of the lobule, live-painted organs do not hold the rise until they finish easing unseen', () => {
@@ -67,9 +67,9 @@ test('a fill eased frame by frame through the zoom and one followed unseen reach
 // Nothing may flash, flicker or soften mid-zoom (30 Oct review against the Figure resolution work, every option off or on).
 test('no organ picture is dropped or swapped mid-zoom: it is made once the dive or the rise has landed', () => {
   const poke = fn('  function platePoke() {');
-  assert.match(poke, /if \(\(lobuleOn && !lz\?\.isOpen\(\)\) \|\| \(diveT > 0 && diveT < 1\)\) return;/);
-  assert.match(poke, /\|\| \(diveT > 0 && diveT < 1\) \|\| circuitInk\(\)/, 'a raster begun before the zoom does not land in it');
-  assert.match(st, /setDiveScale\(1\); lz\.setDiveZoom\(1, 0, 0\); diveLand = null;\n\s+platePoke\(\);/, 'poked once the rise lands');
+  assert.match(poke, /if \(\((?:live\.)?(?:live\.)?lobuleOn && !(?:live\.)?(?:live\.)?lz\?\.isOpen\(\)\) \|\| \((?:live\.)?(?:live\.)?diveT > 0 && (?:live\.)?(?:live\.)?diveT < 1\)\) return;/);
+  assert.match(poke, /\|\| \((?:live\.)?diveT > 0 && (?:live\.)?diveT < 1\) \|\| circuitInk\(\)/, 'a raster begun before the zoom does not land in it');
+  assert.match(st, /setDiveScale\(1\); (?:live\.)?lz\.setDiveZoom\(1, 0, 0\); diveLand = null;\n\s+platePoke\(\);/, 'poked once the rise lands');
 });
 
 test('Figure resolution never changes the canvas mid-zoom: no fade copy that stands still, no soft rise from While moving', () => {

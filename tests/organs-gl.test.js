@@ -28,13 +28,13 @@ test('the stage splits the organs into the layers in the SVG order, and shows a 
   assert.match(stage, /const ORGAN_LAYERS = \['back', 'behind', 'gut', 'kidney', 'spleen', 'stomach', 'liver', 'front'\];/);
   // (An organ the list does not name goes with the layer before it: the SVG's order is always kept.)
   assert.match(stage, /for \(const k of gOrgans\.children\) \{ last = by\.get\(k\) \|\| last; out\.set\(k, last\); \}/);
-  assert.match(stage, /if \(!\(await bakeLayer\(slot, L, baked\.get\(L\), r, scale\)\) \|\| v !== veins \|\| !v\.organs\) return false;/, 'a layer given up gives up the set');
+  assert.match(stage, /if \(!\(await bakeLayer\(slot, L, baked\.get\(L\), r, scale\)\) \|\| v !== (?:live\.)?veins \|\| !v\.organs\) return false;/, 'a layer given up gives up the set');
   // (With the changing organs painted live, their layers are not made, and the gut and the stomach are made without their masks.)
   assert.match(stage, /if \(LIVE_LAYERS\.has\(L\)\) continue;/);
   assert.match(stage, /const LIVE_LAYERS = new Set\(\['back', 'spleen', 'liver', 'front'\]\);/);
   assert.match(stage, /const MASK_OF = \{ gut: '#gutHide', stomach: '#frontM' \};/);
   assert.match(stage, /v\.organs\.commit\(slot, names\);/);
-  assert.match(stage, /const gpuOrgansOn = \(\) => !!\(gpuProbe\.gpuOrgans && veins\?\.organs\);/, 'on every renderer');
+  assert.match(stage, /const gpuOrgansOn = \(\) => !!\(gpuProbe\.gpuOrgans && (?:live\.)?veins\?\.organs\);/, 'on every renderer');
   const gl = readFileSync(new URL('../src/ui/organs-gl.js', import.meta.url), 'utf8');
   assert.match(gl, /gl\.blendFunc\(gl\.ONE, gl\.ONE_MINUS_SRC_ALPHA\)/, 'plain "over", premultiplied');
 });
@@ -47,12 +47,12 @@ test('the bowel is a picture at rest gathered under the gut, moved by its float 
   const gl = readFileSync(new URL('../src/ui/organs-gl.js', import.meta.url), 'utf8');
   assert.match(stage, /const LIVE_ORDER = \['back', 'behind', 'bowel', 'gut', /);
   assert.match(stage, /for \(const L of LIVE_ORDER\) \{/);
-  assert.match(stage, /opacity: parseFloat\(getComputedStyle\(gGut\)\.opacity\), under: \[\{ name: 'bowel', dy: bowelDy\(\) \}\]/);
-  assert.match(stage, /if \(liveSet\) veins\.organs\.shift\('bowel', bowelDy\(\)\);/);
+  assert.match(stage, /opacity: parseFloat\(getComputedStyle\((?:live\.)?(?:live\.)?gGut\)\.opacity\), under: \[\{ name: 'bowel', dy: bowelDy\(\) \}\]/);
+  assert.match(stage, /if \((?:live\.)?liveSet\) (?:live\.)?veins\.organs\.shift\('bowel', bowelDy\(\)\);/);
   // The picture: the bowel alone, painted where the bowel is (at), its float held in the pictures' state while the fluid eases and
   // taken once it settles.
   assert.match(stage, /out\.set\(L, ok \? \{ groups, at: L === 'bowel' \? bowelDy\(\) : 0, key \} : null\);/);
-  assert.match(stage, /if \(!fluidEasing\(\)\) bowelHeld = organG\.bowel\.getAttribute\('transform'\);\n\s+if \(liveOn\(\)\) return \['live', bowelHeld, /);
+  assert.match(stage, /if \(!(?:live\.)?fluidEasing\(\)\) bowelHeld = organG\.bowel\.getAttribute\('transform'\);\n\s+if \(liveOn\(\)\) return \['live', bowelHeld, /);
   // On the GPU: moved by whole device pixels, drawn under the gut's picture, laid with the gut's opacity.
   assert.match(gl, /const dy = Math\.round\(\(\(u\.dy \|\| 0\) - U0\.at\) \* m\[3\]\);\n[^\n]*\n\s+mm\.set\(mat\);\n\s+mm\[7\] \+= dy;/);
   assert.match(gl, /for \(let i = 0; i < nUnder; i\+\+\) drawLayer\(underU0\[i\], underU1\[i\], underMM\[i\], b\);\n\s+drawLayer\(cutL0, cutL1, mat, b\);/);
@@ -161,7 +161,7 @@ test('the organ layers are painted on the GPU from their shapes, with no SVG pic
   // a few ms painted a frame.
   assert.match(stage, /if \(unread\) \{ organPaths\.clear\(\); organPaths\.set\(unread\[0\], `SVG \(\$\{bakeWhy\.get\(unread\[0\]\) \|\| 'not readable'\}\)`\); return false; \}/);
   for (const gone of ['async function rasterPlate', 'function plateMarkup', 'function plateBuild', 'async function svgPicture', 'async function makeGutPic', 'XMLSerializer', "'image/svg+xml'"]) assert.ok(!stage.includes(gone), gone);
-  assert.match(stage, /const gone = \(\) => seq !== plateSeq \|\| drops !== plateDrops \|\| v !== (?:live\.)?veins \|\| v\.lost \|\| !v\.organs \|\| \(slot === 1 && vseq !== viewSeq\) \|\| key !== plateStateKey\(\);/);
+  assert.match(stage, /const gone = \(\) => seq !== (?:live\.)?(?:live\.)?plateSeq \|\| drops !== (?:live\.)?(?:live\.)?plateDrops \|\| v !== (?:live\.)?(?:live\.)?(?:live\.)?veins \|\| v\.lost \|\| !v\.organs \|\| \(slot === 1 && vseq !== (?:live\.)?(?:live\.)?viewSeq\) \|\| key !== plateStateKey\(\);/);
   // (Not a fixed 6 ms a frame of its own any more: a step is what is left of the allowance every refinement shares, in a frame outside a gesture: refine.js.)
   assert.match(stage, /const ms = await refineTurn\(gone\);\n\s+if \(ms === null\) return false;\n\s+const t0 = performance\.now\(\);\n\s+const done = gpuProbe\.time\(null, 'organ picture: GPU paint', bakeStep, job, t0 \+ ms\);/);   // (bakeStep: the kept (job, until) => job.step(until), no closure per frame)
   assert.doesNotMatch(stage, /job\.step\(performance\.now\(\) \+ 6\)/);
