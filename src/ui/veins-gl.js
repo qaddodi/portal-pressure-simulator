@@ -2986,8 +2986,11 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
       return;
     }
-    if ((!own?.w || own.w !== PW() || own.h !== PH()) && !lost && tops.some((t) => t.solo)) {
+    if ((!own?.w || own.w !== PW() || own.h !== PH()) && !lost && tops.some(soloOn)) {
       // (A pass that stands alone, the lobule's, in a host with no figure picture of its own: the canvas cleared and the passes laid.)
+      // (Only while such a pass shows (its on()): the lobule's and its names' passes stay in the list for the rest of the page once the lobule has
+      // been opened, so a present asked between a resize and the next composite (a slide's cards resizing the stage, the glass asking) cleared
+      // the whole figure to black and laid passes that drew nothing: Mohammad's black frame on the HVPG slide, 4 Nov 2026.)
       presents++;
       gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
       gl.viewport(0, 0, canvas.width, canvas.height);
@@ -3059,6 +3062,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // What is drawn over the figure in this canvas: each top's prep, then each top's draw, over the list as it stood when the phase began
   // (a top that is added or taken out meanwhile joins the next picture). The lists are kept, one for each depth a draw can lay a picture
   // from inside another's (a glass asking for the canvas), not made again.
+  // (A pass that stands alone and shows now: one with no on() shows whenever it is in the list.)
+  const soloOn = (t) => !!t.solo && (!t.on || !!t.on());
   const TOP_SNAPS = [[], [], [], []];
   let topDepth = 0;
   function snapTops() {

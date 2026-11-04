@@ -223,7 +223,7 @@ export function createSinusoidView({ host, before = null, share = null }) {
     // context, hidden and not drawn until the zoom brings it in, its texture back to a texel when it goes (place). Else the view's own canvas and context.)
     const ft = share?.top?.() || null;
     gpu = createSinusoidGL(canvas, { warm: true, onReady: () => { gpuKey = ''; wake(); }, host: ft });
-    if (gpu && ft) { shareTop = ft; shareOff = ft.add({ order: share.order, solo: true, draw: laySin }); }
+    if (gpu && ft) { shareTop = ft; shareOff = ft.add({ order: share.order, solo: true, on: () => shown > 0 && !!gpu && !gpu.lost, draw: laySin }); }
     // The names and their leaders are a pass of the same present (L1, docs/gpu-two-contexts-plan.md), over the view and under every glass; the layer's own fades are followed by layer-alpha.js.
     if (gpu && ft) cap.attach({ top: ft, order: share.capOrder ?? share.order + 1, near: el, active: () => shareTop === ft && !!gpu && !gpu.lost, scale: () => (hostWH ? ft.canvas.width / hostWH[0] : 0) });
     else cap.attach(null);   // (published after a draw found it compiling: drawn now) // alloc-rare: the GPU view is made once, the first time it is needed

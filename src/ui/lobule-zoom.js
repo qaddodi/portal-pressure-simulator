@@ -846,7 +846,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (gl) {
       shareTop = fig; shared = true;
       fig.canvas.addEventListener('webglcontextrestored', onFigureBack);
-      shareOff = fig.add({ order: LZ_UNDER_GLASS - 5, solo: true, opaque: shareOpaque, draw: layShared });
+      shareOff = fig.add({ order: LZ_UNDER_GLASS - 5, solo: true, on: () => !!gl && !gl.lost && (fieldOp > 0.002 || (fade > 0 && el.style.visibility !== 'hidden')), opaque: shareOpaque, draw: layShared });   // (on: it shows now; left in the list once the lobule closes)
       host.classList.add('lz-shared');
       // The names and their leaders are a pass of the same present (L1, docs/gpu-two-contexts-plan.md): over the lobule's overlay and the wide copy, under every
       // glass, so the cards frost them and no hole is cut. The layer's own fades (the camera's, the dive's, a hush) are followed by layer-alpha.js.
