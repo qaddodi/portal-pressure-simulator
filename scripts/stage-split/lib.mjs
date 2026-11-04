@@ -124,7 +124,10 @@ export function planSplit(src, spec, A = analyse(src, spec.stage || 'createStage
     st.set(info.name, info);
   }
   // Moved code that runs at boot reads only what already exists at the call site.
-  const nested = (id, i) => { for (let n = id.parent; n && n !== body[i]; n = n.parent) if (isFn(n)) return true; return false; };
+  const SYNC_CB = new Set(['map', 'forEach', 'filter', 'flatMap', 'reduce', 'some', 'every', 'find', 'findIndex', 'sort', 'fromEntries']);
+  // (a function handed straight to an array method runs at once, so it is not "nested" for the boot walk)
+  const runsAtOnce = (n) => isFn(n) && n.parent?.type === 'CallExpression' && n.parent.arguments.includes(n) && ((n.parent.callee.type === 'MemberExpression' && SYNC_CB.has(n.parent.callee.property.name)) || n.parent.callee === n);
+  const nested = (id, i) => { for (let n = id.parent; n && n !== body[i]; n = n.parent) if (isFn(n) && !runsAtOnce(n)) return true; return false; };
   const unitRefs = (i, onlyCalls = false, flat = false) => [...vars.values()].filter((x) => x.v.references.some((r) => unitAt(r.identifier.range[0]) === i && !(flat && nested(r.identifier, i))
     && (!onlyCalls || ((r.identifier.parent.type === 'CallExpression' || r.identifier.parent.type === 'NewExpression') && r.identifier.parent.callee === r.identifier))));
   for (const i of M) {
