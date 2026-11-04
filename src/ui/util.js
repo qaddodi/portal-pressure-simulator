@@ -1038,13 +1038,8 @@ function sheetGrab(panel, target, t, thumb, easing) {
   for (let n = target; n && n !== panel.parentElement; n = n.parentElement) if (n.scrollHeight > n.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(n).overflowY)) { sc = n; break; }
   return { sc, x: t.clientX, y: t.clientY, top: !sc || sc.scrollTop <= 0, on: false, dy: 0, t: 0, trail: [], shift: easing ? pullAt(easing) : thumb ? 0 : liveShift(panel), h: panel.offsetHeight, thumb, pull: null };
 }
-<<<<<<< Updated upstream
 export function swipeSheet(panel, onClose, enabled = null) {   // (enabled: a card that is a sheet only on a phone says when it is one)
-  // Over the thumb dock the sheet slides down behind the tab row: what passes below its resting bottom edge is clipped (its own still clip, app.css).
-=======
-export function swipeSheet(panel, onClose) {
   // Over the thumb dock the sheet slides down behind the dock: what passes below its resting bottom edge is clipped (its own still clip, app.css).
->>>>>>> Stashed changes
   const thumbUi = () => document.documentElement.classList.contains('thumb-ui');
   // The pull and the let-go are the compositor's (sheet-pull.js): a move of the finger sets one animation's clock, nothing is written to the
   // panel's style, and the let-go is one animation that carries the finger's speed on. `easing`: the let-go still under way.
@@ -1054,12 +1049,7 @@ export function swipeSheet(panel, onClose) {
   const clearEasing = () => { easing = null; };
   panel.addEventListener('pointerdown', (e) => {
     s = null;
-<<<<<<< Updated upstream
-    if ((enabled && !enabled()) || e.touches.length !== 1 || e.target.closest('input[type="range"], textarea, [contenteditable]')) return;
-    const t = e.touches[0];
-=======
-    if (e.pointerType === 'mouse' || !e.isPrimary || e.target.closest('input[type="range"], textarea, [contenteditable]')) return;
->>>>>>> Stashed changes
+    if ((enabled && !enabled()) || e.pointerType === 'mouse' || !e.isPrimary || e.target.closest('input[type="range"], textarea, [contenteditable]')) return;
     // (Where the sheet is drawn, how tall it is and whether its list is at the top, read at the touch, never in the moves that follow: sheetGrab.)
     s = sheetGrab(panel, e.target, e, thumbUi(), easing && !easing.over ? easing : null);
     s.id = e.pointerId;
