@@ -6,12 +6,9 @@ const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 
 // 120 fps addendum §7: the instrument canvases no longer ask the browser to keep their drawing buffer. Each draws a complete
 // image every time it changes, and the only reads happen in the same task as the draw.
-test('the Endoscopy, Doppler and FibroScan canvases do not preserve their drawing buffer', () => {
-  const s = src('src/ui/fibroscan-gl.js');
-  assert.match(s, /preserveDrawingBuffer: false/);
-  assert.doesNotMatch(s, /preserveDrawingBuffer: true/);
-  // (The Doppler's trace and the endoscopy field have no context, so no drawing buffer, of their own: they draw in the chart drawer's, pure-GPU plan B1.)
-  for (const f of ['endo-gl', 'doppler-gl']) assert.doesNotMatch(src(`src/ui/${f}.js`), /getContext\(|createElement\('canvas'\)/, f);
+test('the Endoscopy, Doppler, FibroScan and vitals draw in the chart pool: no drawing buffer, no context of their own', () => {
+  // (They have no context, so no drawing buffer, of their own: they draw in the chart drawer's, pure-GPU plan B1 and gpu-two-contexts-plan U1.)
+  for (const f of ['endo-gl', 'doppler-gl', 'fibroscan-gl', 'vitals-gl']) assert.doesNotMatch(src(`src/ui/${f}.js`).replace(/\/\/.*$/gm, ''), /getContext\(|createElement\('canvas'\)|preserveDrawingBuffer/, f);
 });
 
 test('the one read of the Endoscopy canvas follows its draw in the same call', () => {
@@ -21,11 +18,10 @@ test('the one read of the Endoscopy canvas follows its draw in the same call', (
   assert.doesNotMatch(s, /getContext\('2d'\)|drawImage\(/, 'no 2D canvas in the scope');
 });
 
-test('the FibroScan map is shown from its own canvas (never copied out), and the Doppler trace is cleared and drawn whole', () => {
+test('the FibroScan map is drawn in the chart drawer (never copied out), and the Doppler trace is cleared and drawn whole', () => {
   const f = src('src/ui/fibroscan.js');
-  assert.match(f, /m0\.draw\(fields\(\), NB, WAVE_T0, N, c, t\)/);
-  assert.match(f, /cv\.before\(mapCv\)/, 'the map canvas sits in the page under the words');
-  assert.doesNotMatch(f, /drawImage|getContext\('2d'|putImageData|getImageData/, 'nothing of the panel on a 2D canvas copy');
+  assert.match(f, /const drawn = ctx\.onGPU === true && !!mapU\?\.drew\(\);/);
+  assert.doesNotMatch(f, /createElastogramGL|cv\.before\(|drawImage|getContext\('2d'|putImageData|getImageData/, 'no canvas of the map\'s own, nothing of the panel on a 2D canvas copy');
   const d = src('src/ui/doppler-gl.js');
   // (drawn into the chart drawer's frame, whole, over the black the monitor laid under it)
   assert.match(d, /gl\.viewport\(dx, oy, RW, RH\);/);

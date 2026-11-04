@@ -2773,7 +2773,6 @@ button.finding { cursor: pointer; }
 .pz:not(.stack):not(.low) .pz-data.pz-beside > .pz-tiles:not([data-n="0"]) > .pz-tile { grid-column: auto; container-type: normal; }
 /* (The instrument's own words at the tiles' small size: the FibroScan reads its canvas's font size.) */
 .fibroscan-box > canvas { font-size: 12px; }
-.fibroscan-box > canvas.fs-map { border-radius: 12px; }   /* (the map, fibroscan.js: its own GPU canvas under the words, cut to the panel's edge) */
 .pz-tool .fibroscan-box > canvas { font-size: var(--pz-sm, 14px); }
 @container pzd (min-width: 420px) {
   .pz:not(.stack) .pz-data:is(.col, .under, .has-tool) .pz-tiles[data-n="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }

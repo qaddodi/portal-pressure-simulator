@@ -24,8 +24,6 @@ const ALLOWED = {
   'src/ui/field-gl.js': 1,      // F2
   'src/ui/label-gl.js': 1,      // S2: own-canvas mode
   'src/ui/res-cover-gl.js': 1,  // L2
-  'src/ui/fibroscan-gl.js': 1,  // U1
-  'src/ui/vitals-gl.js': 1,     // U1
 };
 
 const root = new URL('../src/', import.meta.url).pathname;

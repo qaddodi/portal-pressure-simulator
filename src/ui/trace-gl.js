@@ -810,6 +810,8 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
     /** The context this chart draws in now (null where it cannot draw), and which build of it this is: with the context, gen changes whenever it is made again (and the context itself when the chart moves to another pool). */
     glNow() { return lost || failed || dead || gl.isContextLost() ? null : gl; },
     get gen() { return shown ? shared.gen : gen; },
+    /** The glyph atlas texture of the context the chart draws in (the pool's one copy), for a sharer that sets glyphs from it (vitals-gl.js); null before it is made. */
+    get atlas() { return atlasIn ? atlasTex : null; },
     /** Enters the open frame for a pass of the sharer's own: what the chart batched is laid first, scissor and clip are off. Null where no frame is open. leave() gives the chart's state back. */
     enter() {
       if (!inFrame || !P || lost || failed || dead || gl.isContextLost()) return null;

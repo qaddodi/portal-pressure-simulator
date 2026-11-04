@@ -160,7 +160,7 @@ test('the lobule tissue, lobule field, sinusoid and the instruments start their 
   for (const f of ['tissue-gl', 'field-gl', 'doppler-gl', 'fibroscan-gl', 'endo-gl']) {
     const s = src(`src/ui/${f}.js`);
     assert.match(s, /startProgram\(gl, /, f);
-    assert.match(s, /publishWhenDone\(gl, \[(r\.)?started\], /, f);
+    assert.match(s, /publishWhenDone\(gl, \[(r\.)?started(, started2)?\], /, f);
     assert.match(s, /exerciseDraw\(gl, /, f);
     assert.doesNotMatch(s, /gl\.linkProgram/, `${f} links through gl-compile.js`);
   }
@@ -182,7 +182,7 @@ test('a draw that comes before its program is published publishes it first', () 
   assert.match(src('src/ui/endo-gl.js'), /ready\(\) \{ const e = sync\(\); if \(!e\) return false; if \(e\.u\) return true; if \(this\.pending\) return true; publish\(e\); return !!e\.u; \},/);
   // (A shader that failed is let go for the CPU renderer; a lost context is kept, for the GPU to take over again once it is built afresh.)
   assert.match(src('src/ui/instruments.js'), /if \(gl && !gl\.ready\(\) && !gl\.lost\) \{ gl\.dispose\(\); gl = null; glId = 0; noGl = true; \}/);
-  assert.match(src('src/ui/fibroscan-gl.js'), /s\.publish\(\);\n\s+if \(s\.lost \|\| !s\.published\) return null;/);
+  assert.match(src('src/ui/fibroscan-gl.js'), /publishWhenDone\(gl, \[started, started2\], \(\) => \{\n\s+if \(G !== g \|\| gl\.isContextLost\(\)\) return;/);
 });
 
 test('a failed shader hands the picture to the 2D path rather than leaving a blank', () => {

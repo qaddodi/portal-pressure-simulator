@@ -8,7 +8,7 @@
 // parks it for a moment) the monitor goes on: the strip scrolls on this card's clock and lays beats at the heart rate shown, closing in as the
 // number climbs, then hands over to the live beat where the model's phase resumes, so the strip neither stalls nor jumps (ekg.js walkBeats).
 
-import { h, fmt, fitBox, clamp, cssVar } from './util.js';
+import { h, fmt, canvasSize, clamp, cssVar } from './util.js';
 import { createVitalsGL, colorOf, textWidth } from './vitals-gl.js';
 import { frameFor, cancelFrame, paceMs, noteDraw, frameAnimating, pageRest, onPageWake } from './frame.js';
 import { VITALS, vitalReading } from './vital-read.js';
@@ -56,7 +56,10 @@ export function vitalCells(m, ids, xs, running, now) {
 /** `makeGL`: how the GPU drawer is made (vitals-gl.js; the tests give a recorder). `gpu: false`: nothing is drawn (the strip's clock still runs). */
 export function createVitalsMonitor({ gpu = true, makeGL = createVitalsGL } = {}) {
   const cv = h('canvas', { role: 'img', 'aria-label': 'Vital signs monitor' });
-  const glr = gpu ? makeGL(cv) : null;   // (null where WebGL 2 is not there: nothing is drawn; makeGL: the tests give a recorder)
+  // (The GPU drawer works in the chart pool's context (vitals-gl.js) and shows its picture in a canvas of its own beside `cv`, which stays the
+  // monitor's box: its size, its role and its label. null where WebGL 2 is not there: nothing is drawn; makeGL: the tests give a recorder.
+  // The pool asks for the monitor to be drawn again when its programs or glyphs come in.)
+  const glr = gpu ? makeGL(cv, { redraw: () => { if (!gone) draw(); } }) : null;
   const el = h('div', { class: 'chart-box vitals-box' }, cv);
   const clock = createBeatClock();
   const WALK_TO = { ph: NaN, left: NaN };   // (walkBeats reads it as it is called)
@@ -149,7 +152,7 @@ export function createVitalsMonitor({ gpu = true, makeGL = createVitalsGL } = {}
   }
   const rafDraw = (t) => { raf = 0; draw(t); };
   function drawGL(now) {
-    const { w, h: hh, dpr } = fitBox(cv);
+    const { w, h: hh, dpr, W: devW, H: devH } = canvasSize(cv);
     if (w < 120 || hh < 90) return;
     const m = pinned ? metricsOfFp(pinned) : frame?.metrics;
     const cells = m ? vitalCells(m, ids, xs, !!frame?.running, now) : blankCells();
@@ -204,7 +207,7 @@ export function createVitalsMonitor({ gpu = true, makeGL = createVitalsGL } = {}
       }
     }
     RECTS.length = nr; TEXTS.length = nt;
-    DRAW.W = cv.width; DRAW.H = cv.height; DRAW.dpr = dpr; DRAW.line = line; DRAW.redraw = atlasIn;
+    DRAW.W = devW; DRAW.H = devH; DRAW.dpr = dpr; DRAW.line = line; DRAW.redraw = atlasIn;
     const drawn = glr.draw(DRAW);
     if (!drawn && !glr.lost && !ticking && !raf) raf = nextFrame(rafDraw);   // (its programs are not ready yet: the next frame)
     if (!m) return;

@@ -195,8 +195,9 @@ test('no glyph atlas is sent and no program published inside the frame that firs
   assert.match(trace, /if \(!atlasIn\) \{\n(?:\s+\/\/[^\n]*\n)*\s+sendAtlasSoon\(\); return false;\n\s+\}/, 'charts: the atlas goes up at an idle moment, the chart drawn then');
   assert.match(trace, /P = out; lost = false;\n\s+sendAtlas\(\);/, 'charts: the atlas goes up with the programs');
   const vitals = src('vitals-gl.js');
-  assert.match(vitals, /\n\s+cancelPub = publishWhenDone\(gl, Object\.values\(progs\), \(\) => \{ cancelPub = null; if \(!dead && R && !lost && publish\(\)\) atlasReady\(\); \}\);/);
-  assert.match(vitals, /atlasTakers\.delete\(taker\);/, 'a disposed monitor is let go of');
+  // (The monitor draws in the chart pool, U1: its programs are published when the driver is done and it is drawn again then; its glyphs are the pool's atlas, sent by the drawer at an idle moment.)
+  assert.match(vitals, /cancelPub = publishWhenDone\(gl, Object\.values\(progs\), \(\) => \{ cancelPub = null; if \(!dead && R === mine && !gl\.isContextLost\(\) && publish\(\)\) \{ try \{ redraw\?\.\(\); \}/);
+  assert.doesNotMatch(vitals, /texImage2D|new Image\(/, 'no glyph atlas of its own');
   assert.match(src('doppler-gl.js'), /if \(waitingDraw\) \{ waitingDraw = false; try \{ onReady\?\.\(\); \}/, 'the monitor is drawn again once published');
   assert.match(src('endo-gl.js'), /for \(const h of r\.holders\) if \(h\.need\) \{ h\.need = false; try \{ h\.onBack\?\.\(\); \}/, 'the field is drawn again once published');
   assert.match(src('instruments.js'), /if \(!sameKey && !gl\.pending\) \{/, 'no field is shaded while its program compiles');

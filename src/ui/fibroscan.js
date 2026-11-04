@@ -9,12 +9,12 @@ import { createTraceGL, fitPen, keepLayer } from './trace-gl.js';
 import { FONT } from './charts.js';
 import { simTime, isPaused, fibroReading } from './clock.js';
 import { store } from './store.js';
-import { createElastogramGL, elastogramUnder } from './fibroscan-gl.js';
+import { elastogramUnder } from './fibroscan-gl.js';
 import { surface } from './gpu-surfaces.js';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, frameAnimating } from './frame.js';
 import { createFollow } from './display-state.js';
 import { fix1 } from './fix-text.js';
-import { attrSoon, dataSoon } from './class-soon.js';
+import { dataSoon } from './class-soon.js';
 const nextFrame = frameFor('fibroscan');
 
 const WAVE_T0 = 8; // ms: the shear wave reaches the top of the measurement window about 8 ms after the push
@@ -40,8 +40,8 @@ const colors = () => theme;
 // (Kept for every frame: the dash patterns and depth lines, the labels' texts, and the ?perf rows. The chart drawer copies a dash it is given.)
 const DASH = [2, 4], NO_DASH = [], WINDOW = [WIN0, WIN1];
 const DEPTH_TXT = ['30', '45 mm', '60'], TIME_TXT = ['0 ms', '20', '40', '60', '80'];
-const ROW_WORDS = { on: 'gpu', via: 'map WebGL2, words on the GPU chart drawer' }, ROW_2D = { on: 'gpu', via: 'map WebGL2, words 2D canvas (?tracegl=0)' };
-const ROW_NONE = { on: 'fallback', via: 'none', why: 'no WebGL2 or a lost context: no map' };
+const ROW_WORDS = { on: 'gpu', via: 'map and words in the chart pool\'s WebGL2' };
+const ROW_NONE = { on: 'fallback', via: 'none', why: 'no WebGL2, no chart drawer or a lost context: no map' };
 // alloc-rare: the generator and the noise fields are made once, in fields() (FIELDS.built), for all panels
 const rnd = (seed) => { let x = seed >>> 0; return () => { x = (x * 1664525 + 1013904223) >>> 0; return x / 4294967296; }; };
 
@@ -120,26 +120,11 @@ function rrect(ctx, x, y, w, h2, r) {
 export function createFibroScan() {
   if (!theme) readTheme();
   watchTheme();
-  // (The map's shader is started at the next idle moment and compiles beside the page, not at the first map; a map that comes sooner starts it itself.)
-  // (The panel's map: its own WebGL2 canvas under the words, made when the panel comes on screen and let go when it leaves: a page holds
-  // only so many WebGL contexts (about 16), and past that the browser drops the oldest, the figure's. The words, lines and edge are drawn
-  // over it by the GPU's chart drawer, trace-gl.js, in a canvas of its own (?tracegl=0: on the panel's own canvas, still over the map).
-  // Nothing is copied from one canvas to another, and nothing of the map is drawn on the CPU: without WebGL2 it is not drawn.)
-  let map, mapCv = null;
-  const makeMap = () => {
-    if (map !== undefined || gone || !onScreen()) return map ?? null;
-    // alloc-rare: only when the panel comes on screen and has no map yet (makeMap returns at once while it has one)
-    map = createElastogramGL(fields(), { className: 'fs-map', onReady: () => { if (!gone) paint(performance.now()); } });
-    if (map) { mapCv = map.canvas; attrSoon(mapCv, 'aria-hidden', 'true'); cv.before(mapCv); }
-    return map;
-  };
-  const dropMap = () => { map?.dispose(); map = undefined; mapCv = null; mapGpu = null; };
   const cv = h('canvas', { role: 'img', 'aria-label': 'Simulated FibroScan elastography panel, live' });
-  let mapGpu = null;   // (whether the last map came from the GPU: the ?perf surfaces list)
+  let mapGpu = null;   // (whether the last map was drawn: the ?perf surfaces list)
   const box = h('div', { class: 'chart-box fibroscan-box' }, cv);
   const note = h('p', { class: 'ctl-sub' }, 'A simulated FibroScan, live: the slope of the shear wave front gives its speed and so the stiffness. It is an estimate from the model, not a measurement. Normal is about 5 kPa; >25 kPa with a low platelet count, clinically significant portal hypertension is near certain. A congested liver (heart, hepatic veins) is stiff too.');
   const el = h('div', { class: 'dock-pane', 'data-pane': 'fibroscan' }, box, note);
-  let N = 0;
   const cap = 300;
   let model = 10, running = false, shown = null, last = 0;
   const kShown = createFollow({ small: 0.05, eps: 0.01 });
@@ -156,7 +141,7 @@ export function createFibroScan() {
   let animating = false;
   const anim = (on) => { if (animating !== on) { animating = on; frameAnimating('fibroscan', on); } };
   const start = () => { if (!running && !gone) { running = true; anim(true); raf = nextFrame(loop); } };
-  const io = typeof IntersectionObserver === 'function' ? new IntersectionObserver((es) => { const was = seen; seen = es[es.length - 1].isIntersecting; if (seen && !was && fed) start(); if (!seen && was) dropMap(); }) : null;
+  const io = typeof IntersectionObserver === 'function' ? new IntersectionObserver((es) => { const was = seen; seen = es[es.length - 1].isIntersecting; if (seen && !was && fed) start(); }) : null;
   io?.observe(cv); boxRO?.observe(cv);
   const onScreen = () => cv.isConnected && (io ? seen : true);   // (no observer, a bare test page: taken as shown)
 
@@ -189,7 +174,7 @@ export function createFibroScan() {
   }
   function paintWith({ ctx, w, h: hh }) {
     if (w < 80 || hh < 80) return;
-    const { t, c } = fr;
+    const { c } = fr;
     const th = colors();
     const reading = fix1(shown); dataSoon(cv, 'reading', reading);
     fibroReading.txt = reading; fibroReading.cv = cv; fibroReading.show?.(reading);
@@ -211,19 +196,11 @@ export function createFibroScan() {
     // run long). (Battery saver: a third of them.)
     const lo = saver();
     const want = clamp(Math.round(Math.max(ew, ph) * sized.r * (lo ? 0.5 : 0.75)), lo ? 100 : 140, lo ? Math.min(cap, 200) : cap);
-    N = want;
-    // The map: drawn by the GPU into its own canvas, under these words (the same formula and noise, a fraction of a millisecond).
-    // (On the chart drawer the map was drawn as its frame began; else in the panel's own map canvas, under this one.)
-    let drawn;
-    if (ctx.onGPU === true) {
-      if (map !== undefined) dropMap();
-      drawn = !!mapU?.drew();
-    } else {
-      const m0 = makeMap();
-      drawn = !!m0 && m0.draw(fields(), NB, WAVE_T0, N, c, t);
-    }
+
+    // The map: drawn by the GPU in the chart pool's context, under these words, as the chart drawer's frame began (the same formula and
+    // noise, a fraction of a millisecond). Without the drawer (no WebGL2, a frame it could not draw) there is no map.
+    const drawn = ctx.onGPU === true && !!mapU?.drew();
     mapGpu = drawn;
-    // (A map not drawn this frame is cleared on the GPU by its drawer (fibroscan-gl.js draw), so its canvas never holds an old picture: nothing to hide.)
     // The still parts (the window lines, the edge, the depth and time words with their halos, "kPa" and the reading's fitted size) are kept as one
     // GPU picture, drawn again only when the size, the words' size or the theme's colours change, not on every frame of the wave; each frame
     // lays that picture and draws the fitted line and the reading. (The kept layer, as the Doppler's scale does; the fit is worked out with it.)
@@ -302,7 +279,7 @@ export function createFibroScan() {
   const offRun = store.on('running', (on) => { if (on && onScreen()) start(); });
   /** The panel is done with (a presentation's own instruments go with it): its frame, observer and store watch are let go. */
   // (The ?perf surfaces list, gpu-surfaces.js: read by the readout only.)
-  const offSurface = surface('FibroScan map', () => (!cv.isConnected || mapGpu === null ? null : mapGpu ? (words ? ROW_WORDS : ROW_2D) : ROW_NONE));
-  function dispose() { gone = true; running = false; anim(false); cancelFrame(raf); raf = 0; io?.disconnect(); boxRO?.disconnect(); offRun(); words?.dispose(); dropMap(); }
+  const offSurface = surface('FibroScan map', () => (!cv.isConnected || mapGpu === null ? null : mapGpu ? ROW_WORDS : ROW_NONE));
+  function dispose() { gone = true; running = false; anim(false); cancelFrame(raf); raf = 0; io?.disconnect(); boxRO?.disconnect(); offRun(); words?.dispose(); }
   return { id: 'fibroscan', label: 'FibroScan', el, update, pin(fp) { pinned = fp?.lsm ?? null; if (pinned != null) model = pinned; }, dispose() { dispose(); offSurface(); } };
 }

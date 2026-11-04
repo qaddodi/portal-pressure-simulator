@@ -1,14 +1,18 @@
 // The vitals monitor on the GPU (vitals-monitor.js). Nothing is drawn with a 2D context while it runs:
 // - the panel, the baseline and a reading's alarm patch are rounded rectangles, each one instance of a quad whose edge is found in the shader;
 // - the EKG strip is a line of capsules, one instance per segment, read from the strip's points (two floats a point, the only data sent a frame);
-// - every word and digit is a glyph of the shared SDF atlas of Inter (glyphs-inter.js, made offline by scripts/glyph-atlas.mjs and loaded
-//   as an image: no canvas draws a letter), laid out from its own advances and kerning and edged in the shader at the canvas's density,
-//   so a number that changes, a reading that turns to the alarm colour or a new size needs no new picture.
-// Its three programs are started when the monitor is made (gl-compile.js) and published once the driver says they are done; a frame
-// before that draws nothing new. A lost context draws nothing until it is restored, when everything is made again.
+// - every word and digit is a glyph of the shared SDF atlas of Inter (glyphs-inter.js, made offline by scripts/glyph-atlas.mjs), laid out
+//   from its own advances and kerning and edged in the shader at the canvas's density, so a number that changes, a reading that turns to
+//   the alarm colour or a new size needs no new picture.
+// It has no WebGL context of its own (gpu-two-contexts-plan.md, U1, 4 Nov 2026): it draws in the chart pool's context (trace-gl.js, the
+// same move the Doppler and the FibroScan map made), as the first thing in a frame of the monitor's chart drawer, and the drawer hands the
+// picture to the monitor's own small canvas. The glyphs come from the pool's atlas texture, not a copy of its own.
+// Its three programs are started when the context is first met (gl-compile.js) and published once the driver says they are done; a frame
+// before that draws nothing new. A context made again, or the chart moved to another pool, builds everything afresh.
 import { sdfAtlas } from './text-gl.js';   // (the app's one door to GPU text: its SDF atlas, for text that changes every frame)
-const { GLYPHS, KERN, BASE, RADIUS, CUTOFF, ATLAS_W, ATLAS_H, ATLAS_PNG } = sdfAtlas;
+const { GLYPHS, KERN, BASE, RADIUS, CUTOFF, ATLAS_W, ATLAS_H } = sdfAtlas;
 import { startProgram, compileDone, checkProgram, publishWhenDone } from './gl-compile.js';
+import { createTraceGL } from './trace-gl.js';
 
 /** '#rgb', '#rrggbb', 'rgb()' or 'rgba()' as premultiplied [r, g, b, a] in 0–1. */
 export function colorOf(c) {
@@ -83,13 +87,6 @@ void main() {
   o = vCol * a;
 }`;
 
-// The atlas's image, decoded once for every monitor (no canvas); a monitor drawn before it is in is drawn again when it is.
-let atlasImage = null;
-const waiting = new Set();
-// (Review pass 2, item 2: each monitor's context takes the atlas up as the picture is decoded (a task of its own) or as its programs are
-// published, never in the first frame that draws words.)
-const atlasTakers = new Set();
-if (typeof Image === 'function') { const im = new Image(); im.decoding = 'async'; im.onload = () => { atlasImage = im; for (const f of [...atlasTakers]) f(); atlasTakers.clear(); for (const f of [...waiting]) f(); waiting.clear(); }; im.src = ATLAS_PNG; }
 const WEIGHTS = Object.keys(GLYPHS).map(Number);
 function weightOf(w) {
   let a = WEIGHTS[0];
@@ -106,18 +103,21 @@ export function textWidth(str, w, px) {
 }
 
 /**
- * A GPU renderer on `cv`, or null where WebGL 2 cannot be had (the caller keeps its 2D canvas: no context of any kind was made on it then).
+ * A GPU renderer for the monitor whose layout box is `cv`, or null where WebGL 2 cannot be had (nothing is drawn then). `redraw`: called
+ * when the monitor can be drawn that it could not be (the pool's programs or atlas came in, a context came back).
  */
-export function createVitalsGL(cv) {
+export function createVitalsGL(cv, { redraw = null } = {}) {
   if (typeof WebGL2RenderingContext === 'undefined') return null;
-  let gl = null;
-  try { gl = cv.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, preserveDrawingBuffer: false }); } catch { gl = null; }
-  if (!gl) return null;
-  let R = null, lost = false, dead = false, cancelPub = null;
-  const mine = new Set();   // (this monitor's redraw asks in the shared waiting set: removed on dispose)
-  let atlasIn = false;   // (the atlas's image is in this context's texture)
+  let S = null;   // the frame being drawn (set by draw, read by under as the chart drawer's frame begins)
+  let R = null, glOf = null, genOf = -1, drew = false, dead = false, failed = null, cancelPub = null;
+  const pen = createTraceGL(cv, { redraw, keep: true, under: (gl) => { drew = false; if (sync(gl) && S) drew = paint(gl, S); } });
+  if (!pen) return null;
 
-  function init() {
+  // What the pool's context holds for this monitor: three programs (started now, published when the driver is done), a quad and the
+  // instance buffers of each. Made when the monitor first meets a context, and again whenever the chart's context is made again or the
+  // chart moves to another pool: none of it survives that.
+  function init(gl) {
+    release();
     const quad = new Float32Array([0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1]);
     const progs = {
       rect: startProgram(gl, RECT_VS, RECT_FS, [['aCorner', 0], ['iRect', 1], ['iR', 2], ['iCol', 3]]),
@@ -135,25 +135,32 @@ export function createVitalsGL(cv) {
       gl.bindVertexArray(null);
       return { vao, buf, cap: 0 };
     };
-    const tex = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, tex);
-    for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
     R = {
-      progs, ready: false, u: null, tex,
+      gl, progs, ready: false, u: null, qb,
       rect: mk([[1, 4, 36, 0], [2, 1, 36, 16], [3, 4, 36, 20]]),
       line: mk([[1, 2, 8, 0], [2, 2, 8, 8]]),
       glyph: mk([[1, 4, 52, 0], [2, 4, 52, 16], [3, 4, 52, 32], [4, 1, 52, 48]]),
     };
-    atlasIn = false;
-    if (cancelPub) { try { cancelPub(); } catch { /* already done */ } cancelPub = null; }
-    cancelPub = publishWhenDone(gl, Object.values(progs), () => { cancelPub = null; if (!dead && R && !lost && publish()) atlasReady(); });
+    glOf = gl; failed = null;
+    const mine = R;
+    cancelPub = publishWhenDone(gl, Object.values(progs), () => { cancelPub = null; if (!dead && R === mine && !gl.isContextLost() && publish()) { try { redraw?.(); } catch (e) { console.warn('Vitals monitor: the redraw failed.', e); } } });
   }
-  const taker = () => { if (!dead && R && !lost && !gl.isContextLost()) atlasReady(); };
-  if (!atlasImage) atlasTakers.add(taker);
+  // Lets go of what this monitor made in the context it was in (not for a lost context: it holds nothing).
+  function release() {
+    if (cancelPub) { try { cancelPub(); } catch { /* already done */ } cancelPub = null; }
+    const r = R; R = null;
+    if (!r || r.gl.isContextLost()) return;
+    try {
+      const gl = r.gl;
+      if (r.p) for (const k of Object.keys(r.p)) gl.deleteProgram(r.p[k]);
+      for (const k of ['rect', 'line', 'glyph']) { gl.deleteVertexArray(r[k].vao); gl.deleteBuffer(r[k].buf); }
+      gl.deleteBuffer(r.qb);
+    } catch { /* a lost context holds nothing */ }
+  }
   function publish() {
     if (R.ready) return true;
-    if (!compileDone(gl, Object.values(R.progs))) return false;
+    if (!compileDone(R.gl, Object.values(R.progs))) return false;
+    const gl = R.gl;
     try {
       const p = {}; for (const [k, h] of Object.entries(R.progs)) p[k] = checkProgram(gl, h);
       const u = (pr, n) => gl.getUniformLocation(pr, n);
@@ -164,24 +171,19 @@ export function createVitalsGL(cv) {
         glyph: { size: u(p.glyph, 'uSize'), atlas: u(p.glyph, 'uAtlas'), tex: u(p.glyph, 'uTex'), sdf: u(p.glyph, 'uSdf') },
       };
       R.ready = true;
-    } catch (e) { R.failed = String(e?.message || e); return false; }
+    } catch (e) { if (gl.isContextLost()) return false; failed = R.failed = String(e?.message || e); return false; }
     return true;
   }
-  const onLost = (e) => { e.preventDefault(); lost = true; R = null; };
-  const onRestored = () => { if (dead) return; lost = false; init(); };
-  cv.addEventListener('webglcontextlost', onLost);
-  cv.addEventListener('webglcontextrestored', onRestored);
-  init();
-
-  /** Puts the atlas's image in the texture once it is decoded (an upload of the image, once per context). False until then. */
-  function atlasReady(redraw) {
-    if (atlasIn) return true;
-    if (!atlasImage) { if (redraw && !dead) { waiting.add(redraw); mine.add(redraw); } return false; }
-    gl.bindTexture(gl.TEXTURE_2D, R.tex);
-    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, atlasImage);
-    atlasIn = true;
-    return true;
+  // The build for the context the chart draws in now: false where there is none or its programs are not published yet.
+  function sync(gl) {
+    if (dead || !gl || gl.isContextLost()) return false;
+    if (!R || glOf !== gl || genOf !== pen.gen) { genOf = pen.gen; init(gl); }
+    return publish();
+  }
+  function send(gl, slot, data) {
+    gl.bindBuffer(gl.ARRAY_BUFFER, slot.buf);
+    if (data.length > slot.cap) { slot.cap = Math.max(64, data.length * 2); gl.bufferData(gl.ARRAY_BUFFER, slot.cap * 4, gl.DYNAMIC_DRAW); }
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, data);
   }
   // A word's glyphs as instance data: each glyph's box on the canvas from the pen, its box in the atlas, the colour and the field's scale.
   function layText(out, n, str, w, px, x, y, col, dpr) {
@@ -199,67 +201,72 @@ export function createVitalsGL(cv) {
     }
     return n;
   }
-  function send(slot, data) {
-    gl.bindBuffer(gl.ARRAY_BUFFER, slot.buf);
-    if (data.length > slot.cap) { slot.cap = Math.max(64, data.length * 2); gl.bufferData(gl.ARRAY_BUFFER, slot.cap * 4, gl.DYNAMIC_DRAW); }
-    gl.bufferSubData(gl.ARRAY_BUFFER, 0, data);
+  // The frame, inside the chart drawer's own (its target cleared, its viewport the whole canvas): the pool's atlas is the glyphs' texture.
+  function paint(gl, s) {
+    const { W, H, dpr } = s;
+    const atlas = pen.atlas;
+    gl.viewport(0, 0, W, H);
+    gl.disable(gl.SCISSOR_TEST);
+    gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    // Rectangles.
+    const rd = new Float32Array(s.rects.length * 9);
+    s.rects.forEach(([x, y, w, h, r, col], i) => { rd.set([x * dpr, y * dpr, w * dpr, h * dpr, r * dpr, ...col], i * 9); });
+    if (s.rects.length) {
+      gl.useProgram(R.p.rect); gl.uniform2f(R.u.rect.size, W, H);
+      send(gl, R.rect, rd); gl.bindVertexArray(R.rect.vao); gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, s.rects.length);
+    }
+    // The strip.
+    const L = s.line;
+    if (L && L.n > 1) {
+      gl.useProgram(R.p.line); gl.uniform2f(R.u.line.size, W, H); gl.uniform1f(R.u.line.half, L.half); gl.uniform4fv(R.u.line.col, L.col);
+      gl.enable(gl.SCISSOR_TEST);
+      const [cx, cy, cw, ch] = L.clip; gl.scissor(Math.round(cx), Math.round(H - cy - ch), Math.round(cw), Math.round(ch));
+      send(gl, R.line, L.pts.subarray(0, L.n * 2)); gl.bindVertexArray(R.line.vao);
+      gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, L.n - 1);
+      gl.disable(gl.SCISSOR_TEST);
+    }
+    // Words and digits, from the pool's atlas (the drawer only begins a frame once it is in).
+    if (s.texts.length && atlas) {
+      let cap = 0; for (const t of s.texts) cap += String(t[0]).length;
+      const gd = new Float32Array(cap * 13);
+      let n = 0;
+      for (const [str, w, px, x, y, col] of s.texts) n = layText(gd, n, str, w, px, x, y, col, dpr);
+      if (n) {
+        gl.useProgram(R.p.glyph); gl.uniform2f(R.u.glyph.size, W, H); gl.uniform2f(R.u.glyph.atlas, ATLAS_W, ATLAS_H); gl.uniform2f(R.u.glyph.sdf, RADIUS, CUTOFF);
+        gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, atlas); gl.uniform1i(R.u.glyph.tex, 0);
+        send(gl, R.glyph, gd.subarray(0, n * 13)); gl.bindVertexArray(R.glyph.vao); gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, n);
+      }
+    }
+    gl.bindVertexArray(null);
+    return true;
   }
 
   return {
-    get ready() { return !dead && !!R && !lost && publish(); },
-    get lost() { return lost || gl.isContextLost(); },
-    get failed() { return R?.failed || null; },
+    get ready() { return !dead && !!R && !R.gl.isContextLost() && R.ready; },
+    get lost() { return !dead && pen.lost; },
+    get failed() { return failed; },
     /**
      * One frame. `s`: { W, H (device pixels), dpr, rects: [[x, y, w, h, r, col], …] (CSS pixels), line: { pts: Float32Array of device
-     * pixels, n, half, col, clip: [x, y, w, h] device }, texts: [[text, weight, px, x, y, col], …] (x, y the pen on the baseline, CSS px),
-     * redraw: called once the atlas is in if it was not yet }. False when nothing could be drawn (no program yet, a lost context).
+     * pixels, n, half, col, clip: [x, y, w, h] device }, texts: [[text, weight, px, x, y, col], …] (x, y the pen on the baseline, CSS px) }.
+     * False when nothing could be drawn (no program yet, a lost context, the pool's atlas not in): the monitor asks again; the last
+     * completed picture stays on show meanwhile.
      */
     draw(s) {
-      if (dead || !R || lost || gl.isContextLost() || !publish()) return false;
-      const { W, H, dpr } = s;
-      gl.viewport(0, 0, W, H);
-      gl.disable(gl.SCISSOR_TEST);
-      gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
-      gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-      // Rectangles.
-      const rd = new Float32Array(s.rects.length * 9);
-      s.rects.forEach(([x, y, w, h, r, col], i) => { rd.set([x * dpr, y * dpr, w * dpr, h * dpr, r * dpr, ...col], i * 9); });
-      if (s.rects.length) {
-        gl.useProgram(R.p.rect); gl.uniform2f(R.u.rect.size, W, H);
-        send(R.rect, rd); gl.bindVertexArray(R.rect.vao); gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, s.rects.length);
-      }
-      // The strip.
-      const L = s.line;
-      if (L && L.n > 1) {
-        gl.useProgram(R.p.line); gl.uniform2f(R.u.line.size, W, H); gl.uniform1f(R.u.line.half, L.half); gl.uniform4fv(R.u.line.col, L.col);
-        gl.enable(gl.SCISSOR_TEST);
-        const [cx, cy, cw, ch] = L.clip; gl.scissor(Math.round(cx), Math.round(H - cy - ch), Math.round(cw), Math.round(ch));
-        send(R.line, L.pts.subarray(0, L.n * 2)); gl.bindVertexArray(R.line.vao);
-        gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, L.n - 1);
-        gl.disable(gl.SCISSOR_TEST);
-      }
-      // Words and digits, from the shared atlas (none until its image is in; the monitor is drawn again then).
-      if (s.texts.length && atlasReady(s.redraw)) {
-        let cap = 0; for (const t of s.texts) cap += String(t[0]).length;
-        const gd = new Float32Array(cap * 13);
-        let n = 0;
-        for (const [str, w, px, x, y, col] of s.texts) n = layText(gd, n, str, w, px, x, y, col, dpr);
-        if (n) {
-          gl.useProgram(R.p.glyph); gl.uniform2f(R.u.glyph.size, W, H); gl.uniform2f(R.u.glyph.atlas, ATLAS_W, ATLAS_H); gl.uniform2f(R.u.glyph.sdf, RADIUS, CUTOFF);
-          gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, R.tex); gl.uniform1i(R.u.glyph.tex, 0);
-          send(R.glyph, gd.subarray(0, n * 13)); gl.bindVertexArray(R.glyph.vao); gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, n);
-        }
-      }
-      gl.bindVertexArray(null);
-      return true;
+      if (dead) return false;
+      // (Built and published before the frame begins: a frame that cannot draw the monitor never clears the picture on show.)
+      const gl = pen.glNow();
+      if (!gl || !sync(gl)) return false;
+      S = s; drew = false;
+      try {
+        if (!pen.begin(s.W / s.dpr, s.H / s.dpr, s.W, s.H)) return false;
+        return pen.end() && drew;
+      } finally { S = null; }
     },
     dispose() {
       if (dead) return;
       dead = true;
-      if (cancelPub) { try { cancelPub(); } catch { /* already done */ } cancelPub = null; }
-      cv.removeEventListener('webglcontextlost', onLost); cv.removeEventListener('webglcontextrestored', onRestored);
-      atlasTakers.delete(taker); for (const f of mine) waiting.delete(f); mine.clear();
-      gl.getExtension('WEBGL_lose_context')?.loseContext(); R = null; lost = true;
+      release();
+      pen.dispose();
     },
   };
 }

@@ -1,5 +1,6 @@
 // Teardown leaks (bugs-recs B03 to B06, B29, 2 Nov 2026): what a view owns is let go when the view goes.
-// - B29 vitals-gl: a disposed monitor creates no GPU object when its context is restored, and its listeners are gone.
+// - B29 vitals-gl: a disposed monitor creates no GPU object when its context is restored; it has no context or listeners of its own (it draws
+//   in the chart pool, gpu-two-contexts-plan.md U1) and gives back what it made there.
 // - B05 trace-gl: dispose removes both context listeners from the shared canvas, the size subscription and the atlas wait; idempotent.
 // - B06 svg-gl: dispose is permanent; queued frames, rest passes and entrance timers are cancelled; mutators do nothing after.
 // - B03 util.js/gl-words.js: putText's implicit wrappers can be released (releaseWords), and a sweep frees those that left the page.
@@ -30,32 +31,16 @@ function fakeGL() {
   return { gl, made };
 }
 
-test('B29: a disposed vitals monitor builds nothing when its context is restored, and removes its listeners', async () => {
-  const { createVitalsGL } = await import('../src/ui/vitals-gl.js');
-  const { gl, made } = fakeGL();
-  const ls = {};
-  const cv = { getContext: () => gl, addEventListener: (t, f) => { (ls[t] ||= new Set()).add(f); }, removeEventListener: (t, f) => ls[t]?.delete(f) };
-  const r = createVitalsGL(cv);
-  assert.ok(r, 'the monitor is made');
-  assert.equal(ls.webglcontextlost.size, 1);
-  assert.equal(ls.webglcontextrestored.size, 1);
-  const restore = [...ls.webglcontextrestored][0];
-  r.dispose();
-  assert.equal(ls.webglcontextlost.size, 0, 'the lost listener is removed');
-  assert.equal(ls.webglcontextrestored.size, 0, 'the restored listener is removed');
-  const before = made.n;
-  restore();   // (an event already in flight)
-  assert.equal(made.n, before, 'no program, buffer or texture after disposal');
-  assert.equal(r.ready, false);
-  assert.equal(r.draw({ W: 1, H: 1, dpr: 1, rects: [], texts: [] }), false);
-  r.dispose();   // (idempotent)
-});
-
-test('B29: the monitor keeps its publication handle and a dead flag', () => {
+test('B29: a disposed vitals monitor builds nothing in the pool, gives back what it made, and its chart drawer goes with it', () => {
   const t = strip(src('vitals-gl.js'));
-  assert.match(t, /cancelPub = publishWhenDone\(/);
-  assert.match(t, /removeEventListener\('webglcontextrestored', onRestored\)/);
-  assert.match(t, /const onRestored = \(\) => \{ if \(dead\) return;/);
+  assert.doesNotMatch(t, /getContext\(|addEventListener|WEBGL_lose_context/, 'no context and no listeners of its own');
+  assert.match(t, /cancelPub = publishWhenDone\(/, 'the publication handle is kept');
+  assert.match(t, /if \(!dead && R === mine && !gl\.isContextLost\(\) && publish\(\)\)/, 'a publication that comes after disposal builds nothing');
+  assert.match(t, /if \(dead \|\| !gl \|\| gl\.isContextLost\(\)\) return false;/, 'a disposed monitor builds nothing for a context');
+  const d = t.slice(t.indexOf('dispose() {', t.indexOf('draw(s) {')));
+  assert.match(d, /if \(dead\) return;\n\s+dead = true;\n\s+release\(\);\n\s+pen\.dispose\(\);/, 'idempotent: its objects in the pool deleted, the drawer disposed');
+  assert.match(t, /gl\.deleteProgram\(r\.p\[k\]\)/);
+  assert.match(t, /gl\.deleteVertexArray\(r\[k\]\.vao\); gl\.deleteBuffer\(r\[k\]\.buf\)/);
 });
 
 test('B05: a chart disposes its context listeners, size subscription and atlas wait once', () => {
