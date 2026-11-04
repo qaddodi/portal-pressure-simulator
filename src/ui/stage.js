@@ -11467,8 +11467,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const one = mode === 'inline';   // one line, no box, on every screen (as on a phone)
     const lines = [[{ t: name, size: 11.5, weight: one ? 600 : 500, cls: 'lb-name' }]];
     const sel = st.selection?.type === 'node' && st.selection.id === id;
-    const lr = isImaging() ? null : layerRuns(f, id, compact);
-    const pr = lr ? lr.runs : pressureRuns(P, id, compact);
+    // (The hepatic artery's label is its name only: its pressure sits off the venous scale and says little; its flow is in the selection card.)
+    const lr = isImaging() || id === 'HA' ? null : layerRuns(f, id, compact);
+    const pr = id === 'HA' ? null : lr ? lr.runs : pressureRuns(P, id, compact);
     // A station whose own vessel's flow has reversed carries ⟲ after its value, in the reversed-flow orange (blueprint §6.2).
     const rev = !!pr && revShown.has(STATION_VESSEL[id]);
     if (rev) pr.push({ t: '⟲', size: 12, weight: 650, cls: 'lb-rev', gap: 5 });
@@ -11542,9 +11543,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   const LADDER_TAG = { SIN_R: 'WHVP', RHV: 'FHVP' };
   const LADDER_KEY = { CONF: 'pv', SIN_R: 'whvp', RHV: 'fhvp', IVCS: 'ivc', RA: 'ra' };
-  const ANAT_PRI = { CONF: 10, VAR: 9, SIN_R: 9, RHV: 8, RA: 8, SV: 7, SMV: 7, GV: 7, IVCS: 6, MHV: 5, LHV: 5, RPV: 5, LPV: 5, SIN_L: 5, IMV: 4, LGV: 4, W_R: 12, W_M: 12, W_L: 12 };
+  const ANAT_PRI = { HA: 1, CONF: 10, VAR: 9, SIN_R: 9, RHV: 8, RA: 8, SV: 7, SMV: 7, GV: 7, IVCS: 6, MHV: 5, LHV: 5, RPV: 5, LPV: 5, SIN_L: 5, IMV: 4, LGV: 4, W_R: 12, W_M: 12, W_L: 12 };
   // Stations labelled only when zoomed in enough to give them room, in this order (see updateLabels).
-  const ANAT_EXTRA = ['MHV', 'LHV', 'RPV', 'LPV', 'SIN_L', 'IMV', 'LGV'];
+  const ANAT_EXTRA = ['MHV', 'LHV', 'RPV', 'LPV', 'SIN_L', 'IMV', 'LGV', 'HA'];
 
   let blockerBoxes = null, blockersAt = -1e9, blockersStale = true;
   const staleBlockers = () => { blockersStale = true; };

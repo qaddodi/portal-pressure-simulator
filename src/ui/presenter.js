@@ -214,6 +214,8 @@ const TARGETS = {
   rLiver: { res: 'rLiver', tone: 'wedge', words: 'resistance' },
   rColl: { res: 'rColl', tone: 'var', words: 'collaterals' },
   rGut: { res: 'rGut', site: 'rGut', tone: 'smv', words: 'gut arterioles' },
+  // The hepatic artery (both views): one word lights it, in the artery's colour, as the lobule's arterioles are.
+  ha: { node: 'HA', edges: ['A_HEP', 'A_HR', 'A_HL'], tone: '--artery', words: 'hepatic arter(?:y|ies)' },
   lpv: { node: 'LPV', edges: ['PVH_L'], tone: 'pv', words: 'left portal vein' },
   lrv: { node: 'LRV', edges: ['LRV_IVC', 'V_KID_L'], tone: 'ivc', words: 'left renal vein' },
   spleen: { organ: 'spleen', tone: 'sv', words: 'spleen' },

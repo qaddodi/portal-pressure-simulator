@@ -426,7 +426,7 @@ export const CIRCUIT_LABELS = {
   RHV: { dirs: ['E', 'NE', 'SE'], pri: 8 }, MHV: { dirs: ['SW', 'W', 'S'], pri: 4 }, LHV: { dirs: ['S', 'SE', 'SW'], pri: 5 },
   IVCI: { dirs: ['E', 'SE', 'NE'], pri: 5 }, IVCS: { dirs: ['NE', 'N', 'SE'], pri: 8 }, RA: { dirs: ['E', 'S', 'N'], pri: 9 }, SVC: { dirs: ['N', 'E'], pri: 4 }, AZY: { dirs: ['N', 'NW', 'W'], pri: 5 },
   ILI: { dirs: ['E', 'SE'], pri: 3 }, EPI: { dirs: ['S', 'SW', 'W'], pri: 3 }, KID_L: { dirs: ['W', 'S', 'N'], pri: 2 }, LRV: { dirs: ['N', 'NE', 'S'], pri: 3 },
-  HA: { dirs: ['N', 'NW', 'NE'], pri: 4 },
+  HA: { dirs: ['N', 'S', 'NE'], pri: 1 },   // (the lowest priority: the first caption to drop when space is short)
 };
 
 // A station's label names a vessel, so its callout hangs from the middle of that vessel rather
@@ -434,7 +434,7 @@ export const CIRCUIT_LABELS = {
 // sinusoids and the varix/fundus sites have no single run and keep the station itself. The value
 // shown is still the station's pressure, so it matches the readout strip.
 export const LABEL_VESSEL = {
-  CONF: 'PV_TRUNK', SMV: 'SMV_CONF', SV: 'V_SPL', IMV: 'V_IMV', LGV: 'LGV_CONF', RPV: 'PVH_R', LPV: 'PVH_L',
+  HA: 'A_HEP', CONF: 'PV_TRUNK', SMV: 'SMV_CONF', SV: 'V_SPL', IMV: 'V_IMV', LGV: 'LGV_CONF', RPV: 'PVH_R', LPV: 'PVH_L',
   SIN_R: 'SIN_RR', SIN_L: 'SIN_LL',
   RHV: 'RHV_IVC', MHV: 'MHV_IVC', LHV: 'LHV_IVC', IVCS: 'IVCS_RA', IVCI: 'IVC_IS', SVC: 'SVC_RA', AZY: 'AZY_SVC',
   LRV: 'LRV_IVC', ILI: 'ILI_IVC', VAR: 'C1a', TIPS: 'TIPS', DIPS: 'DIPS',
@@ -623,6 +623,7 @@ export const ATLAS_LABELS = {
   VAR: { name: 'Esophageal varices', side: 'R' },
   GV: { name: 'Fundal varices', side: 'R' },
   CONF: { name: 'Portal vein', side: 'R' },
+  HA: { name: 'Hepatic artery', side: 'R' },
   SV: { name: 'Splenic vein', side: 'R' },
   SMV: { name: 'Sup. mesenteric vein', side: 'R' },
 };
@@ -665,7 +666,7 @@ export const SHORT = {
 
 // Where a vessel's label is crowded it reads its clinical abbreviation first ("RPV 9.8" before it drops a number or hides), and
 // the full name returns once a zoom makes room (Mohammad, 18 Oct). No abbreviation ends in a full stop (17 Oct design review).
-export const ABBR = { CONF: 'PV', RPV: 'RPV', LPV: 'LPV', SV: 'SV', RHV: 'RHV', MHV: 'MHV', LHV: 'LHV' };
+export const ABBR = { HA: 'HA', CONF: 'PV', RPV: 'RPV', LPV: 'LPV', SV: 'SV', RHV: 'RHV', MHV: 'MHV', LHV: 'LHV' };
 
 // Chips shown by default (major vessels)
 export const CHIP_NODES = ['CONF', 'SV', 'SMV', 'SIN_R', 'RHV', 'IVCS', 'IVCI', 'RA', 'VAR'];
