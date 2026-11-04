@@ -10633,7 +10633,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // its model), its size from its style, its tint the surface at the glass's strength and its soft shadow the callout's own box-shadow, drawn under
   // the callouts (its turn between the cards' two); asked for again by glass.add while the figure's canvas is not made yet.
   // The liver label's pane likewise: its rounded box (its border radius, its size from its style) tinted with --frost, drawn under the labels (order 0).
-  glassAdd(glass, {
+  glassAdd.add(glass, {
     pane: true, blur: PANE.blur, sat: PANE.sat, scale: 4, margin: 48, before: glass, watch: glass,
     tint: (g, cs) => cs.getPropertyValue('--frost'),
     shape: (g) => { const w = parseFloat(g.style.width) || 0, h = parseFloat(g.style.height) || 0; return w && h ? { d: roundPath(w, h, parseFloat(getComputedStyle(g).borderTopLeftRadius) || 0), w, h } : false; },
@@ -10641,7 +10641,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   {
     const body = [], layers = [cath.labels, sites.el];
     const NUMPX = (v) => parseFloat(v) || 0;
-    glassAdd(() => { body.length = 0; for (const l of layers) { const c = l.getElementsByClassName('cl-glass'); for (let i = 0; i < c.length; i++) body.push(c[i]); } return body; }, {
+    glassAdd.add(() => { body.length = 0; for (const l of layers) { const c = l.getElementsByClassName('cl-glass'); for (let i = 0; i < c.length; i++) body.push(c[i]); } return body; }, {
       callouts: true, blur: GLASS.blur, scale: 4, before: cath.labels, watch: layers, outer: true, shadow: true, k: GLASS.tint,
       tint: (g, cs) => cs.getPropertyValue('--surface'),
       shape: (g) => { const d = g.firstChild?.firstChild?.getAttribute?.('d'), w = NUMPX(g.style.width), h = NUMPX(g.style.height); return d && w && h ? { d, w, h } : false; },
