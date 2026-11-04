@@ -54,3 +54,12 @@ export function offset(dir, it, gap) {
   return OFF_XY;
 }
 
+
+// When a name gets a leader (one rule for every view, Mohammad 4 Nov 2026): a region's name never does (organs, zone titles, lobule zones,
+// sinusoid regions: it is drawn inside what it names); a name for a point or a thin vessel does only once it stands clear of it, past
+// LEAD_ON px, and keeps it until it comes within LEAD_OFF px, so a pan or pinch never makes the line flicker. gapPx is measured from the
+// label's box to the target as drawn. Decided at layout and carried (hadLeader) until the next one.
+export const LEAD_ON = 12, LEAD_OFF = 8;
+export const needsLeader = (region, gapPx, hadLeader) => !region && (gapPx > LEAD_ON || (!!hadLeader && gapPx >= LEAD_OFF));
+// The two costs a leader pays in a placement: free up to SHORT_LEAD px, dearer to LONG_LEAD, never beyond.
+export const SHORT_LEAD = 45, LONG_LEAD = 140;

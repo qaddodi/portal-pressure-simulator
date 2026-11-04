@@ -60,7 +60,7 @@ import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js';
 import { hitLabel, explainText, createExplain } from './label-explain.js';
 import { nameSpots, NAME_BREAK } from './organ-names.js';
 import { createLabelGL } from './label-gl.js';
-import { hits, crosses, within, RING_DIRS, offset } from './label-place.js';
+import { hits, crosses, within, RING_DIRS, offset, needsLeader, LEAD_ON } from './label-place.js';
 import { sceneCam } from './scene-cam.js';
 import { createGlassGL, glassRegions, GLASS, PANE, roundPath } from './glass-gl.js';
 import { writePoints, writeJoinNow } from './veins-sweep.js';
@@ -12985,10 +12985,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const slack = it.rot ? 0 : wRes - it.w, dir = best.dir;
       it.x = it.ax + best.dx + (dir.includes('W') ? slack : dir.includes('E') ? 0 : slack / 2);
       it.y = it.ay + best.dy; it.dir = dir;
-      // A leader line shows only when the label sits clearly away from its station: it appears past
-      // 18 px and goes only below 10 px, so it cannot flicker as the view moves.
+      // A leader line shows only when the label sits clearly away from its station (label-place.js needsLeader: on past 12 px, off below 8).
       const rr = best.r, gapPx = Math.hypot(Math.max(rr.x0 - it.ax, 0, it.ax - rr.x1), Math.max(rr.y0 - it.ay, 0, it.ay - rr.y1));
-      const lead = gapPx > 18 || (!!prev?.lead && gapPx >= 10);
+      const lead = needsLeader(it.cls === 'organ', gapPx, prev?.lead);
       it.leader = !!best.leader || lead;
       localWorldXY(it.ax, it.ay);
       nextSol.set(it.key, { wx: LW_XY[0], wy: LW_XY[1], dx: best.dx, dy: best.dy, dir, pi: best.pi, w: wRes, h: it.h, leader: it.leader, lead, short: it.short || 0, abbr: !!it.abbr, au: it.au, vh: it.vw > 0 ? it.vw / 2 : null });
@@ -13787,8 +13786,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // (Elsewhere the leader stops on the edge of the letters it meets first, run by run: seenEnd.)
       const le0 = leaderEnd(r, it.ax, it.ay, circuit ? 2 : 6), le = circuit ? le0 : seenEnd(it);
       const far = Math.hypot(le0.x - it.ax, le0.y - it.ay) > 5;
-      // (In the Circuit a reading more than 10 px from its station is always joined to it, so its ring is never in doubt.)
-      const dl = (it.focusLeader || (it.leader && (circuit || far)) || (circuit && Math.hypot(le.x - it.ax, le.y - it.ay) > 10)) && lineFrom(it, le);
+      // (In the Circuit a reading more than LEAD_ON (12) px from its station is joined to it, so its ring is never in doubt.)
+      const dl = (it.focusLeader || (it.leader && (circuit || far)) || (circuit && Math.hypot(le.x - it.ax, le.y - it.ay) > LEAD_ON)) && lineFrom(it, le);
       if (dl) leaders.push({ k: 'l:' + it.key, tag: 'path', at: { class: it.focusLeader ? `leader focus${it.mk ? ` k-${it.mk}` : ''}` : `leader${it.sel ? ' hl' : ''}`, 'data-k': it.key, d: dl } });
       if (it.focusLeader || it.free) continue;
       const cx = it.ax.toFixed(1), cy = it.ay.toFixed(1);
