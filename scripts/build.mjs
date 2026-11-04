@@ -22,6 +22,7 @@ import { join, dirname, resolve, relative, basename, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 import { execSync } from 'node:child_process';
+import { withCsp } from './csp.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, 'dist');
@@ -203,7 +204,7 @@ const head = [
   `<script type="module" src="assets/${appFile}"></script>`,
 ].filter(Boolean).map((l) => '  ' + l).join('\n');
 html = html.replace('</head>', `${head}\n</head>`);
-writeFileSync(join(OUT, 'index.html'), html);
+writeFileSync(join(OUT, 'index.html'), withCsp(html));   // (the policy hashes the page's inline scripts, so it is added last)
 writeFileSync(join(OUT, 'release.txt'), RELEASE + '\n');
 
 // 6. Service worker: precache everything; hashed assets never change, so cache-first is safe.

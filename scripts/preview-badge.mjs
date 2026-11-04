@@ -7,6 +7,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { withCsp } from './csp.mjs';
 
 const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
@@ -31,6 +32,6 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   let html = readFileSync(file, 'utf8');
   if (!html.includes('</body>') || !html.includes('<title>')) { console.error('index.html: no </body> or <title> to mark'); process.exit(1); }
   html = html.replace('</body>', () => `${badgeHtml(label)}\n</body>`);
-  writeFileSync(file, html);
+  writeFileSync(file, withCsp(html));   // (the pill's script is inline: the page's policy is made again to allow it)
   console.log(`Marked ${file} as preview`);
 }
