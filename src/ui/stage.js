@@ -61,7 +61,7 @@ import { hitLabel, explainText, createExplain } from './label-explain.js';
 import { nameSpots, NAME_BREAK } from './organ-names.js';
 import { createLabelGL } from './label-gl.js';
 import { hits, crosses, within, RING_DIRS, offset } from './label-place.js';
-import { createGlassGL, glassRegions } from './glass-gl.js';
+import { createGlassGL, glassRegions, GLASS } from './glass-gl.js';
 import { writePoints, writeJoinNow } from './veins-sweep.js';
 import { ENT_W } from './veins-bin.js';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, F_WHOLE, ORIGIN_GREY } from './veins-gl.js';
@@ -8037,8 +8037,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lzInFigure = () => !!lz?.shared && (lobuleOn || lz.isShown());
   const frostFresh = () => (frostLiver ? 0 : veins.bloodSeq);
   // The callouts' frosted glass, drawn on the GPU under both callout layers while it can be (glass-gl.js); else the browser's.
-  const glassGL = veins ? createGlassGL(wrap, vCanvas, [cath.labels, sites.el], { software: SOFTWARE, live: () => wrap.classList.contains('gl-on'), version: () => veins.drawSeq, fresh: () => veins.bloodSeq, capture: () => veins?.capture(), onFigure: (f) => veins.onPicture(f), keep: () => figLab('glassCache'), due: () => watch.due(), onHoles: frostHoles('callouts') }) : null;
-  wrap.dataset.glass = glassGL ? 'gpu' : 'css';
+  // (A region of stage.glass.add (calloutsGlass, below, where the glass hosts are set), made by cardGlass with cards.callouts; set there.)
+  let glassGL = null;
+  wrap.dataset.glass = veins && !SOFTWARE ? 'gpu' : 'css';
   // The Present cards' glass (recs A2, 31 Oct): the same renderer, one per presenter run (cardGlass, below), drawing each card's blur
   // and tint from the figure's canvas while the anatomy shows (not the lobule, nor a dive), so the browser re-blurs none of them as the
   // blood moves. Off with the callouts' (software, no GPU figure): the cards keep the browser's glass.
@@ -8053,6 +8054,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const NO_OVER = [], noOver = () => NO_OVER;   // (no box lies over a card's glass: a list read by the glass, never written)
   const cardGlass = (cards) => {
     if (!veins?.top) return null;
+    // (The figure's callouts (cards.callouts): the same renderer with the callouts' own ways: drawn while the figure is on, from the figure's own
+    // pictures and blood, in the turn between the cards' two, over what lies over the callouts, and their holes in the labels under 'callouts'.)
+    if (cards.callouts) {
+      const g = createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, cards, live: () => wrap.classList.contains('gl-on'), version: () => veins.drawSeq, fresh: () => veins.bloodSeq, onFigure: (f) => veins.onPicture(f), onHoles: frostHoles('callouts') });
+      if (!g) { wrap.dataset.glass = 'css'; return null; }
+      hostFrost(g, { order: 2, over: () => frostOver('callouts') });
+      glassGL = g;
+      const dispose = g.dispose;
+      g.dispose = () => { if (glassGL === g) glassGL = null; frostHosts.delete(g); dispose(); };
+      return g;
+    }
     cards.holesWhile = () => diveT > 0;   // (glass-gl.js: while the dive has the glass off the figure's canvas, the labels still leave the cards' places out)
     const shade = cards.low;
     const key = {};
@@ -8064,6 +8076,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     g.dispose = () => { cardGLs.delete(g); frostHosts.delete(g); dispose(); if (holeSets.delete(key)) sendHoles(); };
     return g;
   };
+  // One-call glass anywhere (glass-gl.js glassRegions): the cards, sheets and toasts, and the figure's callouts (below), are regions of it.
+  const glassAdd = glassRegions(cardGlass, wrap);
   // A slide's numbers (its fingerprint, or a what-if's or time-lapse's since): the tiles show them, and a callout or figure
   // label that agrees with the model reads them too, so a laptop and a tablet show the same number at the same moment.
   let slideFp = null;
@@ -10607,7 +10621,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return frostPush(out, frostPartRead('marks', frostReadMarks).out);
   }
   hostFrost(paneGL, { order: 0, over: () => frostOver('pane') });
-  hostFrost(glassGL, { order: 2, over: () => frostOver('callouts') });
+  // The callouts' glass: one region of stage.glass.add over both callout layers' glass bodies (callout.js .cl-glass), each its outline path (read from
+  // its model), its size from its style, its tint the surface at the glass's strength and its soft shadow the callout's own box-shadow, drawn under
+  // the callouts (its turn between the cards' two); asked for again by glass.add while the figure's canvas is not made yet.
+  {
+    const body = [], layers = [cath.labels, sites.el];
+    const NUMPX = (v) => parseFloat(v) || 0;
+    glassAdd(() => { body.length = 0; for (const l of layers) { const c = l.getElementsByClassName('cl-glass'); for (let i = 0; i < c.length; i++) body.push(c[i]); } return body; }, {
+      callouts: true, blur: GLASS.blur, scale: 4, before: cath.labels, watch: layers, outer: true, shadow: true, k: GLASS.tint,
+      tint: (g, cs) => cs.getPropertyValue('--surface'),
+      shape: (g) => { const d = g.firstChild?.firstChild?.getAttribute?.('d'), w = NUMPX(g.style.width), h = NUMPX(g.style.height); return d && w && h ? { d, w, h } : false; },
+    });
+  }
   // (The list is one of two kept arrays taken in turn: the labels' picture holds the last list it was given until the next, so the one it holds is never the one filled.)
   let labelGlA = [], labelGlB = [];
   const labelGlAdd = (b) => { if (b.pos) labelGlA.push(b.pos); };
@@ -15019,7 +15044,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     },
     cardGlass,
     /** One-call glass anywhere: glass.add(el, { blur, tint, shape }) -> { remove() } (glass-gl.js glassRegions). */
-    glass: glassRegions(cardGlass, wrap),
+    glass: glassAdd,
     blurWhy,
     glassBox,
     setView(v) {

@@ -501,6 +501,9 @@ export function dropsOf(v) {
 }
 export function createGlassGL(wrap, source, layers, { software = false, live = () => true, pane = null, cards = null, version = null, capture = null, onFigure = null, keep = null, due = null, reblur = 0, fresh = null, full = false, onHoles = null } = {}) {
   if (reblur > 0) fresh = null;
+  // (cards.callouts: the figure's callouts, a glass.add region of their own (stage.js): the cards' machinery, with the callouts' own ways kept: no
+  // wait for a first draw, no html[data-cardgl], one turn ('all') between the cards' two, one over-list, their shadow and tint strength, the parent's box.)
+  const co = !!cards?.callouts;
   const look = pane ? PANE : cards ? (cards.look ? { ...CARD, ...cards.look } : CARD) : GLASS;   // (cards.look: a region's own blur, sat, scale, margin: glassRegions below)
   const SCALE = look.scale || SCALE0, MARGIN = look.margin || MARGIN0;
   // (While the cards' glass is drawn in the figure's canvas (html[data-cardgl]), a card not yet marked as drawn there shows no solid card
@@ -572,7 +575,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   }
   const wantSet = new Set(), inListSet = new Set();   // (kept, cleared at each use)
   function waitFor(list) {
-    if (!cards) return;
+    if (!cards || co) return;
     const t = performance.now(), want = wantSet;
     want.clear();
     for (const p of list) if (!marked.has(p.g) && !wasDrawn.has(p.g)) want.add(p.g);   // (a card drawn here before and not now: solid at once)
@@ -685,9 +688,12 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
         // (cut: the still box a glass that slides is cut off at (a phone sheet's paper sliding below its resting foot, which the sheet's
         // own clip hides on the page): { bottom } in client px, from cards.cut(g), kept where it is while the glass moves.)
         const cut = cards.cut ? cards.cut(g) || null : null;
-        const shp = reg?.shape ? (typeof reg.shape === 'function' ? reg.shape(g, r) : reg.shape) : null;   // (a path: { d, w, h } in the box's own px; else the box's rounded corners)
+        const shp = reg?.shape ? (typeof reg.shape === 'function' ? reg.shape(g, r) : reg.shape) : null;   // (a path: { d, w, h } in the box's own px; else the box's rounded corners; false: no shape to draw yet, so none)
+        if (shp === false) continue;
+        // (outer: the card this glass belongs to (its parent): its box bounds the glass's shadow and its box-shadow is the glass's soft shadow, the callouts'.)
+        const outer = reg?.outer ? g.parentElement : null;
         const tn = reg?.tint ? (typeof reg.tint === 'function' ? reg.tint(g, cs) : reg.tint) : cs.getPropertyValue('--gl-tint');
-        panes.push({ g, el, oa: 1, a, r, d: shp?.d || null, rad: shp?.d ? null : zk > 1.001 || zk < 0.999 ? radiiOf(cs).map((v) => v * zk) : radiiOf(cs), lw: shp?.d ? shp.w : r.width, lh: shp?.d ? shp.h : r.height, er: r, shadow: null, tint: tn, k: 1, drops, line, cut });
+        panes.push({ g, el, oa: 1, a, r, d: shp?.d || null, rad: shp?.d ? null : zk > 1.001 || zk < 0.999 ? radiiOf(cs).map((v) => v * zk) : radiiOf(cs), lw: shp?.d ? shp.w : r.width, lh: shp?.d ? shp.h : r.height, er: outer ? outer.getBoundingClientRect() : r, shadow: outer && reg.shadow ? parseShadow(getComputedStyle(outer).boxShadow) : null, tint: tn, k: reg?.k ?? 1, drops, line, cut });
         continue;
       }
       const r = g.getBoundingClientRect(), lw = NUM(g.style.width), lh = NUM(g.style.height);
@@ -885,7 +891,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   function dropHost(again) {
     if (!hostOn) return;
     hostOn = false; hf = null;
-    if (cards) document.documentElement?.removeAttribute?.('data-cardgl');
+    if (cards && !co) document.documentElement?.removeAttribute?.('data-cardgl');
     if (hk) hk.key = '';
     unmark();
     tellHoles(NONE);
@@ -926,7 +932,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
         if (!s) { s = { out: false, since: 0, box: [], nb: 0, cur: [], nc: 0, moved: -1e9, ep: 0, edge: false, cross: false, fresh: true }; heldOut.set(p.g, s); }   // alloc-rare: a card seen for the first time (once per card)
         if (s.ep !== ep) { s.ep = ep; s.edge = false; s.cross = false; s.nc = 0; }
         if (!inside(p, cr, vw, vh)) s.edge = true;
-        else if (crosses(p, !cards ? R.over.all : host.low?.(p.g) ? R.over.low : R.over.high)) s.cross = true;
+        else if (crosses(p, !cards || co ? R.over.all : host.low?.(p.g) ? R.over.low : R.over.high)) s.cross = true;
         const c = s.cur;
         c[s.nc++] = p.r.left; c[s.nc++] = p.r.top; c[s.nc++] = p.r.width; c[s.nc++] = p.r.height;
       }
@@ -962,7 +968,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     fillPanesKey(keyNow, panes, cr, bgs, bgVar);
     if (!hostOn) {
       hostOn = true; hf = null; gen++;
-      if (cards) document.documentElement?.setAttribute?.('data-cardgl', '');
+      if (cards && !co) document.documentElement?.setAttribute?.('data-cardgl', '');
     }
     if (hf && sameKey(keyNow, keyHf)) return panes.length ? 'same' : false;
     { const t = keyHf; keyHf = keyNow; keyNow = t; }
@@ -1256,8 +1262,8 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     }
     if (!panes.length) { if (final) { noteSeen(panes, true); settleMarks(frameMarks); } return; }
     const W2 = host.canvas.width, H2 = host.canvas.height, k = hk.k;
-    noteDraw(cards ? 'glass-cards' : pane ? 'glass-pane' : 'glass');
-    if (gpuProbe.on) gpuProbe.note(cards ? COUNTED.cardDrawn : pane ? COUNTED.paneDrawn : COUNTED.glassDrawn);
+    noteDraw(cards && !co ? 'glass-cards' : pane ? 'glass-pane' : 'glass');
+    if (gpuProbe.on) gpuProbe.note(cards && !co ? COUNTED.cardDrawn : pane ? COUNTED.paneDrawn : COUNTED.glassDrawn);
     const U = hk.PU, R = hk.share ? hk.share.reg : hk.reg;
     masksFor(panes, hk);
     G.bindFramebuffer(G.FRAMEBUFFER, null);
@@ -1276,7 +1282,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     G.activeTexture(G.TEXTURE1); G.bindTexture(G.TEXTURE_2D, null); G.activeTexture(G.TEXTURE0); G.bindTexture(G.TEXTURE_2D, null);
     G.pixelStorei(G.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
   }
-  const onHostLost = () => { if (host) { warmed.delete(host.gl); fills.delete(host.gl); shares.delete(host.gl); } hk = null; if (hostOn) { hostOn = false; hf = null; if (cards) document.documentElement?.removeAttribute?.('data-cardgl'); unmark(); tellHoles(NONE); ask(); } };
+  const onHostLost = () => { if (host) { warmed.delete(host.gl); fills.delete(host.gl); shares.delete(host.gl); } hk = null; if (hostOn) { hostOn = false; hf = null; if (cards && !co) document.documentElement?.removeAttribute?.('data-cardgl'); unmark(); tellHoles(NONE); ask(); } };
   const sameList = (a, b) => {
     if (a.length !== b.length) return false;
     for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
@@ -1486,7 +1492,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
       p.radZ = p.rad0 ? [0, 0, 0, 0] : null;
       p.live = { ...p, r: newRect(), er: newRect(), a: 0 };
     }
-    const over = host ? (cards ? { low: host.over?.('low') || [], high: host.over?.('high') || [] } : { all: host.over?.() || [] }) : null;
+    const over = host ? (cards && !co ? { low: host.over?.('low') || [], high: host.over?.('high') || [] } : { all: host.over?.() || [] }) : null;
     geo = { list, cr0: shift(cr, [-cmx, -cmy]), tgt, sr: tgt === source ? cr : source.getBoundingClientRect(),   // (the figure's canvas is both: one read, not two)
       vw, vh, bgs, bg, bgVar, panes, over, vk: host?.view?.() ?? null };
     if (watchRo) { if (tgt) watchRo.observe(tgt); for (const g of list) watchRo.observe(g); }
@@ -1497,7 +1503,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   // animations and boxes read there made the browser restyle and lay out the page then, up to 14 ms on a slide change. Those reads wait
   // for the first, read-only phase of the next frame (frame.js readFrame), where the page is as the browser last laid it, and the glass
   // drawn in that frame's final phase still has them.)
-  const readFrame = readFrameFor(cards ? 'glass-cards' : pane ? 'glass-pane' : 'glass');
+  const readFrame = readFrameFor(cards && !co ? 'glass-cards' : pane ? 'glass-pane' : 'glass');
   let earlyAsk = 0;
   function measureEarlyNow() { earlyAsk = 0; if (trackQ.size) trackNow(); measureGeo(); }
   // (Likewise a transition or animation that has just started: its keyframes are taken in the next frame's read phase, which comes after
@@ -1576,7 +1582,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   // A callout written outside a frame is drawn in the next frame's final phase, before that frame is shown, so the glass never trails its outline.
   // (On the shared scheduler's final phase: after every other surface's frame, the figure's own pass and the callouts' writes
   // included, so it blurs the figure of this frame, not the last, and is drawn once in a frame whoever asked.)
-  const later = finalFrameFor(cards ? 'glass-cards' : pane ? 'glass-pane' : 'glass');
+  const later = finalFrameFor(cards && !co ? 'glass-cards' : pane ? 'glass-pane' : 'glass');
   // (The writes made before it in this frame: a glide or a fade is put back by the motion now; anything else is read just after this frame.)
   const loop = () => { raf = 0; if (changed(mo.takeRecords())) measureSoon(); settle(draw()); };
   function ask() { if (!raf && !lost && !dead) raf = later(loop); }
@@ -1677,7 +1683,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   // the next frame's read phase, so the glass trailed the card by a frame: the card above's blur slid up from below and back down as the card
   // tucked and untucked (Mohammad, 3 Nov 2026). The presenter tells the glass right after the write, and a cards' glass reads the panes now, in
   // the frame that wrote them, once: the layout is the one this frame has to make anyway.)
-  const onSlideFrame = () => { if (!cards) return; if (earlyAsk) { earlyAsk = 0; } measureGeo(); quiet = 0; ask(); };
+  const onSlideFrame = () => { if (!cards || co) return; if (earlyAsk) { earlyAsk = 0; } measureGeo(); quiet = 0; ask(); };
   addEventListener('pps:slideframe', onSlideFrame);
   const offMove = onMove(() => wake());   // (a pull moves a card or a sheet by a number, which writes no style for the observer to see)
   // (The figure drawn again: the blur under a glass that shows is taken again. With none showing, the figure is not its business.)
@@ -1705,7 +1711,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
       host = h;
       warmPrograms(h.gl, false); if (SHADER_WARM) h.warmIn?.(warmTask(h.gl));   // (started now, published when done: see warmPrograms, warmTask)
       host.canvas.addEventListener('webglcontextlost', onHostLost);
-      hostTops = cards
+      hostTops = cards && !co
         ? [host.add({ order: h.order?.low ?? 1, prep: prepInto, draw: () => drawInto('low') }), host.add({ order: h.order?.high ?? 3, draw: () => drawInto('high') })]
         : [host.add({ order: h.order ?? 2, prep: prepInto, draw: () => drawInto('all') })];
       // (The figure's canvas faded, hidden or moved by a style of its own (a resolution's fade, a sub-pixel rest): looked at again.)
@@ -1776,7 +1782,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
       hostTops = [];
       unmark();
       tellHoles(NONE);
-      if (hostOn) { hostOn = false; hf = null; if (cards) document.documentElement?.removeAttribute?.('data-cardgl'); host?.now(); }
+      if (hostOn) { hostOn = false; hf = null; if (cards && !co) document.documentElement?.removeAttribute?.('data-cardgl'); host?.now(); }
       hostFree();
       maskTex.clear(); maskFb.clear();
     },
@@ -1791,6 +1797,8 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
  *   blur    CSS px of blur (default CARD.blur); regions of the same blur share one renderer and one blur of the figure
  *   tint    a CSS colour, or (el, computedStyle) => colour; else the element's --gl-tint
  *   shape   { d, w, h } or (el, box) => { d, w, h }: an SVG path in the box's own px; else the box's rounded corners
+ *   k       the tint's strength (default 1); outer  true: the glass's parent is the card it belongs to, whose box bounds the glass's shadow;
+ *           shadow  true: that card's box-shadow is drawn with the glass; callouts  true: the figure's callouts' renderer (own turn, blur grid and over-list); scale  CSS px a texel of the blur
  *   before  an element beside the cards' layer (where fades stop counting; default the element itself)
  *   watch   roots whose writes may move it (default: its parent); cut / shift / read / low (true, or e => bool)   the cards' own hooks (glass-gl cards option)
  * Where no renderer can be made yet (the figure's canvas not there) it is asked again, 20 times at 500 ms; a region that never gets one
@@ -1805,7 +1813,7 @@ export function glassRegions(make, wrap) {
     const blur = grp.blur;
     const roots = []; for (const rec of grp.recs) roots.push(...rec.roots());
     const g = make({
-      find: () => live(grp), watch: roots, before: [...grp.recs].map((r) => r.before)[0] || wrap, look: { blur, scale: blur <= 12 ? 4 : CARD.scale, margin: Math.ceil(blur * 3) },
+      find: () => live(grp), watch: roots, before: [...grp.recs].map((r) => r.before)[0] || wrap, look: { blur, scale: grp.scale ?? (blur <= 12 ? 4 : CARD.scale), margin: Math.ceil(blur * 3) }, callouts: grp.callouts,
       region: (e) => recOf(grp, e),
       read: (e) => { const rec = recOf(grp, e); return rec?.read ? rec.read(e) : undefined; },
       shift: (e) => { for (const rec of grp.recs) { const s = rec.shift?.(e); if (s) return s; } return null; },
@@ -1817,9 +1825,11 @@ export function glassRegions(make, wrap) {
     return true;
   }
   function add(el, o = {}) {
-    const grp = groups.get(o.blur ?? CARD.blur) || (() => { const n = { blur: o.blur ?? CARD.blur, recs: new Set(), out: [], g: null, tries: 0, t: 0 }; groups.set(n.blur, n); return n; })();
+    // (callouts: the figure's callouts, a renderer of their own with their own blur grid (scale), turn and over-list: see createGlassGL's `co`.)
+    const key = `${o.blur ?? CARD.blur}${o.callouts ? 'c' : ''}`;
+    const grp = groups.get(key) || (() => { const n = { blur: o.blur ?? CARD.blur, scale: o.scale, callouts: !!o.callouts, recs: new Set(), out: [], g: null, tries: 0, t: 0 }; groups.set(key, n); return n; })();
     const rec = {
-      el, before: o.before || (typeof el === 'function' ? wrap : el), tint: o.tint, shape: o.shape, read: o.read, shift: o.shift, cut: o.cut, low: o.low,
+      el, before: o.before || (typeof el === 'function' ? wrap : el), tint: o.tint, shape: o.shape, k: o.k, outer: o.outer, shadow: o.shadow, read: o.read, shift: o.shift, cut: o.cut, low: o.low,
       items: () => (typeof el === 'function' ? el() : [el]),
       roots: () => (o.watch ? [].concat(o.watch) : typeof el === 'function' ? [] : [el.parentElement || el]).filter(Boolean),
     };
@@ -1835,7 +1845,7 @@ export function glassRegions(make, wrap) {
     return {
       // (The renderer's own readings, for checks and the ?perf readout: those of the renderer this region's blur shares.)
       drawn: () => grp.g?.drawn() ?? null, why: (e) => (grp.g ? grp.g.why(e) : grp.recs.has(rec) ? 'no figure canvas to draw into yet (asked again; the card stays solid, never a CPU copy)' : null), boxOf: (e) => grp.g?.boxOf(e) ?? null,
-      state: () => grp.g?.state() ?? null, redraw: () => grp.g?.redraw(), get on() { return !!grp.g?.on; }, get hosted() { return !!grp.g?.hosted; },
+      state: () => grp.g?.state() ?? null, release: () => grp.g?.release(), redraw: () => grp.g?.redraw(), get on() { return !!grp.g?.on; }, get hosted() { return !!grp.g?.hosted; },
       remove() {
         if (!grp.recs.delete(rec)) return;
         if (!grp.recs.size) { clearTimeout(grp.t); grp.t = 0; grp.tries = 0; grp.g?.dispose(); grp.g = null; }
