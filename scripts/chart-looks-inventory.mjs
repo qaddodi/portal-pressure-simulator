@@ -35,7 +35,7 @@ export const CHARTS = {
   small: ['tl-day-gl', 'lz-call-', 'leader', 'leader-dot', 'cl-'],
 };
 // `gl-words` is the glyph label engine, not the lumen chart.
-const NOT_CLASS = new Set(['gl-words']);
+const NOT_CLASS = new Set(['gl-words', 'gl-on', 'gl-plate']);   // (gl-on and gl-plate are the stage's GPU state classes)
 
 // A declaration that sets how a piece looks. Layout (width, height, margin, display, position ...) is not a look.
 const LOOK = /^(?:fill(?:-opacity)?|stroke(?:-[a-z]+)?|opacity|color|font(?:-[a-z-]+)?|letter-spacing|text-transform|text-anchor|dominant-baseline|paint-order|transition(?:-[a-z-]+)?|animation(?:-[a-z-]+)?|transform(?:-[a-z-]+)?|filter|mix-blend-mode|visibility|stop-color|stop-opacity|vector-effect|shape-rendering)$/;

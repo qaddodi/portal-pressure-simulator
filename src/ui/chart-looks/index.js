@@ -7,6 +7,8 @@ import { CARD } from './card.js';
 import { INST } from './inst.js';
 import { CAUSES } from './causes.js';
 import { PLANE } from './plane.js';
+import { FLUID } from './fluid.js';
+import { LUMEN } from './lumen.js';
 
 /** key → entry. A key is <group>.<part>[.<sub>] (lowercase, dots). */
 export const LOOKS = {
@@ -17,6 +19,8 @@ export const LOOKS = {
   ...INST,
   ...CAUSES,
   ...PLANE,
+  ...FLUID,
+  ...LUMEN,
 };
 
 /** host name → (ctx) → the host's base type size in px, what an `em` of that host means. A host missing here is 12. */
@@ -26,4 +30,5 @@ export const HOSTS = {
   causes: (c) => c.scale.sm ?? 12,   // app.css 7184 .pz-cbars { font-size: var(--pz-sm, var(--pz-psm, 12px)) }, the same rule
   plane: (c) => c.scale.cap ?? 12,   // app.css 7318 .pze-plot { font-size: var(--s-cap) }
   planecard: (c) => (c.in === 'cell' ? c.scale.chCap : c.scale.cap) ?? 12,   // 7320 .pze-plot.pze-incard { font-size: var(--ch-cap, var(--s-cap)) }; --ch-cap is set in a card's cell only (2266, 2628)
+  fluid: (c) => Math.max(c.scale.fs12 ?? 12, 12 / ((c.fit || 1) * (c.dk || 1))),   // app.css 7466 .gf { font-size: var(--gs-fs) }; --gs-fs: max(var(--fs-12), 12px / (--pz-fit * --pz-dk)), --fs-12 = scale.fs12
 };

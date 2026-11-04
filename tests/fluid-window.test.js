@@ -7,6 +7,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fluidDay, stripWords, stripParts, tugParts, STRIP_GAP, STRIP_MARK } from '../src/ui/tool-fluid.js';
+import { LOOKS } from '../src/ui/chart-looks/index.js';
+import { makeCtx, withCtx, resolveProps } from '../src/ui/chart-looks/resolve.js';
 
 const perMin = (d) => ({ hep: d.liver / 1440, spl: d.gut / 1440, cap: d.limit / 1440, back: d.back / 1440 });
 const STATES = {
@@ -129,7 +131,8 @@ test('the strip draws each part, keys its swatches, and never sets text under 12
   for (const cls of ['gs-car', 'gs-blue', 'gs-shrink', 'gs-build', 'gs-ghost', 'gs-brk', 'gs-wall', 'gs-push', 'gs-pull', 'gs-sw-car', 'gs-sw-back', 'gs-sw-build']) assert.ok(src.includes(cls), `${cls} is built`);
   assert.match(src, /swBack\.classList\.toggle\('none'/); assert.match(src, /swBuild\.classList\.toggle\('down'/);
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
-  assert.match(css, /\.gs-ghost \{[^}]*stroke-dasharray/);
+  // (the room's dashed outline is the table's: chart-looks/fluid.js 'fluid.seg.ghost')
+  assert.deepEqual(resolveProps(LOOKS['fluid.seg.ghost'], withCtx(makeCtx({ host: 'fluid' }), { theme: 'light', dark: false }), {}, {}).dash, [3, 2.5]);
   assert.match(css, /\.gs-sw\.none \{[^}]*dashed/);
   assert.match(css, /--gs-fs: max\(var\(--fs-12\), calc\(12px \/ \(var\(--pz-fit, 1\) \* var\(--pz-dk, 1\)\)\)\)/, 'the text size holds 12 px on the screen after the card\'s zoom');
   const px = [...css.matchAll(/\.gs[\w-]*[^{}]*\{[^}]*font-size: (\d+(?:\.\d+)?)px/g)].map((m) => +m[1]);
@@ -185,7 +188,7 @@ test('a strip part\'s outline: rounded or pointed ends, shortened together under
 
 test('the strip and the forces strip are drawn by the GPU picture: no style written to a piece in a frame', () => {
   const src = readFileSync(new URL('../src/ui/tool-fluid.js', import.meta.url), 'utf8');
-  assert.match(src, /const glStrip = createSvgGL\(plate\)/); assert.match(src, /const glTug = createSvgGL\(tug\)/);
+  assert.match(src, /const glStrip = createSvgGL\(plate, \{ host: 'fluid' \}\)/); assert.match(src, /const glTug = createSvgGL\(tug, \{ host: 'fluid' \}\)/);
   const frame = src.slice(src.indexOf('function draw()'), src.indexOf('function tick('));
   assert.ok(frame.length > 500 && !/\.style\b/.test(frame), 'draw() writes no style');
   assert.doesNotMatch(src, /num-words/, 'no table of CSS words: the pieces are points');

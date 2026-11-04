@@ -136,26 +136,30 @@ export const lumenNumOpacity = (occlusion) => smooth(0.5, 1, Math.max(0, occlusi
 // (2 Nov 2026: the picture is a model drawn on the GPU, svg-gl.js: the same tree, of plain elements, never painted by the browser.)
 const sv = (tag, attrs = {}) => svgModel(tag, attrs);
 
+/** The name's and "occluded"'s size in units of the 100-unit picture, for u px per unit: 12 px on screen, held between 9 and 12 units. */
+export const WORD_FIRST = 9;   // (the size before the picture is measured: 1.4 px a unit, the style's own first guess)
+export const wordSize = (u) => Math.max(9, Math.min(12, 12 / (u || 1.4)));
+
 export function createLumen() {
   let id = 'PV_TRUNK', tool = null;
-  const wall = sv('circle', { class: 'gl-wall', cx: 50, cy: 50, r: LUMEN_R });
-  const lumen = sv('circle', { class: 'gl-open', cx: 50, cy: 50 });
-  const clot = sv('path', { class: 'gl-clot' });
-  const ring = sv('circle', { class: 'gl-stent', cx: 50, cy: 50, r: LUMEN_R - LUMEN_WALL });
+  const wall = sv('circle', { class: 'gl-wall', 'data-look': 'lumen.wall', cx: 50, cy: 50, r: LUMEN_R });
+  const lumen = sv('circle', { class: 'gl-open', 'data-look': 'lumen.open', cx: 50, cy: 50 });
+  const clot = sv('path', { class: 'gl-clot', 'data-look': 'lumen.clot' });
+  const ring = sv('circle', { class: 'gl-stent', 'data-look': 'lumen.stent', cx: 50, cy: 50, r: LUMEN_R - LUMEN_WALL });
   ring.style.opacity = '0';
-  const pic = sv('svg', { class: 'gl-pic', viewBox: '0 0 100 100', role: 'img' });
+  const pic = sv('svg', { class: 'gl-pic', 'data-vessel': 'portal', viewBox: '0 0 100 100', role: 'img' });
   // The share of the lumen filled (clot, or tissue in a stent), one size at the vessel's centre, white with a dark outline so
   // it reads over the open lumen and the clot alike; the clot fills in behind it. Nothing else under the picture: a deck that
   // wants the grade shows the "clot" tile on the data card.
   // The vessel's name, the number and the word under it are one block, centred on the vessel's centre; the word fades with
   // the number, and the name stays at 0 %, so the circle always says which vessel it is (centred then; lumenBlock). The block
   // sits a little low, where the circle is wider, so "Proximal TIPS" fits inside the lumen at 12 px on a phone's 120 px picture.
-  const inName = sv('text', { class: 'gl-in gl-word gl-name', x: 50, y: 50, 'text-anchor': 'middle', 'dominant-baseline': 'central' });
-  const inNum = sv('text', { class: 'gl-in', x: 50, y: LUMEN_NUM_Y, 'text-anchor': 'middle', 'dominant-baseline': 'central' });
-  const inWord = sv('text', { class: 'gl-in gl-word', x: 50, y: LUMEN_WORD_Y, 'text-anchor': 'middle', 'dominant-baseline': 'central' });
+  const inName = sv('text', { class: 'gl-in gl-word gl-name', 'data-look': 'lumen.word', 'font-size': WORD_FIRST, x: 50, y: 50, 'text-anchor': 'middle', 'dominant-baseline': 'central' });
+  const inNum = sv('text', { class: 'gl-in', 'data-look': 'lumen.in', x: 50, y: LUMEN_NUM_Y, 'text-anchor': 'middle', 'dominant-baseline': 'central' });
+  const inWord = sv('text', { class: 'gl-in gl-word', 'data-look': 'lumen.word', 'font-size': WORD_FIRST, x: 50, y: LUMEN_WORD_Y, 'text-anchor': 'middle', 'dominant-baseline': 'central' });
   inWord.textContent = 'occluded';
   // Tissue narrowing a stent, in the clot's colour and edge so it reads at a glance against the open lumen.
-  const tissue = sv('circle', { class: 'gl-clot gl-tissue', cx: 50, cy: 50, r: LUMEN_R - LUMEN_WALL });
+  const tissue = sv('circle', { class: 'gl-clot gl-tissue', 'data-look': 'lumen.clot', cx: 50, cy: 50, r: LUMEN_R - LUMEN_WALL });
   pic.append(wall, tissue, lumen, clot, ring, inName, inNum, inWord);
   const el = h('div', { class: 'gl' }, h('div', { class: 'gl-stage' }, pic));
   const gl = createSvgGL(el.firstChild);   // (its looks are read once it is on the page and sized: fit)
@@ -226,16 +230,21 @@ export function createLumen() {
     const v = t?.vessel || 'PV_TRUNK';
     const fresh = v !== id || !hasShown;
     if (fresh) { id = v; hasShown = false; }
-    el.dataset.vessel = SYSTEMIC.has(id) ? 'systemic' : id.startsWith('A_') ? 'artery' : 'portal';
+    const kind = SYSTEMIC.has(id) ? 'systemic' : id.startsWith('A_') ? 'artery' : 'portal';
+    if (pic.getAttribute('data-vessel') !== kind) { pic.setAttribute('data-vessel', kind); gl.relook(); }   // (the look table reads the vessel off the picture's root: lumen.js)
     tool = t || null;
     if (fresh) {   // (a new vessel is drawn at once, its ring with it: no fade from the vessel before)
       ring.style.opacity = hasStent(id, store.get().stented) ? '1' : '0'; snapOp(ring);
     }
     update();
   }
-  // The word is never under 12 px on screen: the picture scales with its card, so tell the style how many px one unit is.
+  // The word is never under 12 px on screen: the picture scales with its card, so its size in units is 12 over the px one unit is, held
+  // between 9 and 12 (was app.css .gl-word: max(9px, min(12px, 12px / --gl-u))). It is the words' font-size attribute, which the look leaves alone.
   const stage = el.firstChild;
-  const fit = () => { const w = stage.offsetWidth; if (w > 0) { el.style.setProperty('--gl-u', (w / 100).toFixed(3)); gl.relook(); } };   // (the words' size read again)
+  const fit = () => {
+    const w = stage.offsetWidth;
+    if (w > 0) { const fs = wordSize(w / 100); inName.setAttribute('font-size', fs); inWord.setAttribute('font-size', fs); gl.relook(); }   // (the words' size read again)
+  };
   const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(fit) : null;
   ro?.observe(stage);
   // (2 Nov 2026, bug sweep: the instrument had no dispose, so each presentation's cross-section kept its GPU drawer and observer.)

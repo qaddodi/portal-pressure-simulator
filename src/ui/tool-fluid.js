@@ -8,6 +8,7 @@
 
 import { frame, cancelFrame } from './frame.js';
 import { createSvgGL, svgModel } from './svg-gl.js';
+import { chartCtx } from './chart-ctx.js';
 import { h, fmt, clamp } from './util.js';
 import { NODES } from '../engine/topology.js';
 import { store } from './store.js';
@@ -252,8 +253,8 @@ export function partPts(b, x, w, y0, y1, eL, eR, kL, kR) {
   }
   return n;
 }
-function span(cls, ends = [0.4, 0.4], kinds = [END_ROUND, END_ROUND], inset = 0, hid = false) {
-  const el = svgModel('path', hid ? { class: cls, opacity: '0' } : { class: cls });
+function span(look, cls, ends = [0.4, 0.4], kinds = [END_ROUND, END_ROUND], inset = 0, hid = false) {
+  const el = svgModel('path', hid ? { class: cls, 'data-look': look, opacity: '0' } : { class: cls, 'data-look': look });
   const buf = new Float64Array(PART_PTS);
   el._at = (x, w, y0, y1, em) => {
     if (!em) return;
@@ -264,7 +265,7 @@ function span(cls, ends = [0.4, 0.4], kinds = [END_ROUND, END_ROUND], inset = 0,
 // A word set inside a part: it fades with its goal (it fits where the part is going: fit() below) and with the part's own length, so
 // it never spills out of a part that is still growing or shrinking under it. Its place follows the part's.
 function inWord(pad) {
-  const el = svgModel('text', { class: 'gs-in', opacity: '0' });
+  const el = svgModel('text', { class: 'gs-in', 'data-look': 'fluid.in', opacity: '0' });
   const L = { el, pad, on: false, v: 0, need: 0 };
   L.at = (x, w, cy, em) => {
     setGeo(el, 'x', x + pad * em); setGeo(el, 'y', cy);
@@ -279,16 +280,16 @@ export function createFluid() {
   const gBands = sv('g'), gNodes = sv('g'), gText = sv('g');
   flow.append(gBands, gNodes, gText);
   // (its box, FLOW_H tall at the card's width, which the GPU's picture fills)
-  const flowBox = h('div', { class: 'gf-flowbox', style: `height: ${FLOW_H}px` }, flow), gl = createSvgGL(flowBox);
-  const bandEls = {}, nodeEls = {}, roomEl = sv('rect', { class: 'gf-room', rx: 2 }), textEls = {};
+  const flowBox = h('div', { class: 'gf-flowbox', style: `height: ${FLOW_H}px` }, flow), gl = createSvgGL(flowBox, { host: 'fluid' });
+  const bandEls = {}, nodeEls = {}, roomEl = sv('rect', { class: 'gf-room', 'data-look': 'fluid.room', rx: 2 }), textEls = {};
   gNodes.append(roomEl);
   for (const id of Object.keys(NAMES)) {
-    nodeEls[id] = sv('rect', { class: `gf-node ${FILL[id]}`, rx: 2 }); gNodes.append(nodeEls[id]);
-    const t = sv('text', { class: 'gf-t' }), n = sv('tspan', {}), v = sv('tspan', { class: 'gf-tv', dx: 5 });
+    nodeEls[id] = sv('rect', { class: `gf-node ${FILL[id]}`, 'data-look': `fluid.node.${id}`, rx: 2 }); gNodes.append(nodeEls[id]);
+    const t = sv('text', { class: 'gf-t', 'data-look': 'fluid.flow.t' }), n = sv('tspan', { 'data-look': 'fluid.flow.span' }), v = sv('tspan', { class: 'gf-tv', 'data-look': 'fluid.flow.tv', dx: 5 });
     t.append(n, v); n.textContent = NAMES[id]; textEls[id] = { t, v }; gText.append(t);
   }
   const bandBufs = {};   // (each band's points, kept)
-  for (const a of ['liver', 'gut']) for (const b of ['carried', 'back', 'build']) { bandEls[`${a}-${b}`] = sv('path', { class: `gf-band ${FILL[b]}` }); bandBufs[`${a}-${b}`] = new Float64Array(BAND_PTS); gBands.append(bandEls[`${a}-${b}`]); }
+  for (const a of ['liver', 'gut']) for (const b of ['carried', 'back', 'build']) { bandEls[`${a}-${b}`] = sv('path', { class: `gf-band ${FILL[b]}`, 'data-look': `fluid.band.${b}` }); bandBufs[`${a}-${b}`] = new Float64Array(BAND_PTS); gBands.append(bandEls[`${a}-${b}`]); }
   for (const id of ['liver', 'gut']) textEls[id].t.setAttribute('text-anchor', 'end');   // (the left names stand left of their nodes)
   const unit = h('span', { class: 'gf-unit' }, 'mL/min');
   const words = h('p', { class: 'gf-words' });
@@ -304,14 +305,14 @@ export function createFluid() {
   // (The strip's parts, the bracket and the words in the parts are a model the GPU draws over the plate: the bracket's row and the track.
   // The plate is BRK_H + GAP + BAR em tall, the track at its foot; the words of the bracket's row are the page's.)
   const lCar = inWord(0.55), lSpare = inWord(0.55);
-  const segCar = span('gs-seg gs-car'), segBlue = span('gs-seg gs-blue'), segShrink = span('gs-seg gs-shrink'), segBuild = span('gs-seg gs-build');
-  const segRoom = span('gs-ghost', [0.4, 0.4], [END_ROUND, END_ROUND], 0.75, true);
-  const brk = svgModel('path', { class: 'gs-brk', opacity: '0' }), brkBuf = new Float64Array(8);
+  const segCar = span('fluid.seg.car', 'gs-seg gs-car'), segBlue = span('fluid.seg.blue', 'gs-seg gs-blue'), segShrink = span('fluid.seg.shrink', 'gs-seg gs-shrink'), segBuild = span('fluid.seg.build', 'gs-seg gs-build');
+  const segRoom = span('fluid.seg.ghost', 'gs-ghost', [0.4, 0.4], [END_ROUND, END_ROUND], 0.75, true);
+  const brk = svgModel('path', { class: 'gs-brk', 'data-look': 'fluid.brk', opacity: '0' }), brkBuf = new Float64Array(8);
   const stripModel = svgModel('svg', { class: 'gs-svg', 'aria-hidden': 'true' }, brk, segCar, segBlue, segShrink, segBuild, segRoom, lCar.el, lSpare.el);
   const trk = h('div', { class: 'gs-trk' });
   // (The model is in its box before the picture is made, as the flow picture's is: a piece added after would start a look read of its own.)
   const plate = h('div', { class: 'gs-plate' }, h('div', { class: 'gs-brkrow' }, h('span', {}, 'Leaked ', sLeak)), trk, stripModel);
-  const glStrip = createSvgGL(plate);
+  const glStrip = createSvgGL(plate, { host: 'fluid' });
   glStrip.cv.setAttribute('aria-hidden', 'true'); glStrip.cv.removeAttribute('role');   // (the card's own label says it; the picture is a drawing of it)
   const legCar = h('span', {}, swCar, 'Carried ', sCarN);
   const lab = h('div', { class: 'gs-lab' }, legCar, h('span', {}, swBack, 'Reabsorbed ', sBack, h('span', { class: 'gs-gap' }, swBuild, nBuild, sBuildN)));
@@ -322,11 +323,11 @@ export function createFluid() {
   // The forces across the sinusoid wall (forces: true): a line naming the wall and the net, over one strip: the push from the
   // blood's side and the pull from the tissue's side as two arrows meeting at the wall, each as long as its pressure, named inside.
   const fNet = h('b'), lPush = inWord(0.6), lPull = inWord(1.1);
-  const segPush = span('gs-seg gs-push', [0.4, 0.7], [END_ROUND, END_POINT]), segPull = span('gs-seg gs-pull', [0.7, 0.4], [END_POINT, END_ROUND]);
-  const wall = svgModel('path', { class: 'gs-wall' }), wallBuf = new Float64Array(4);
+  const segPush = span('fluid.seg.push', 'gs-seg gs-push', [0.4, 0.7], [END_ROUND, END_POINT]), segPull = span('fluid.seg.pull', 'gs-seg gs-pull', [0.7, 0.4], [END_POINT, END_ROUND]);
+  const wall = svgModel('path', { class: 'gs-wall', 'data-look': 'fluid.wall' }), wallBuf = new Float64Array(4);
   const tugModel = svgModel('svg', { class: 'gs-svg', 'aria-hidden': 'true' }, segPush, segPull, wall, lPush.el, lPull.el);
   const tug = h('div', { class: 'gs-trk gs-tug' }, tugModel);
-  const glTug = createSvgGL(tug);
+  const glTug = createSvgGL(tug, { host: 'fluid' });
   glTug.cv.setAttribute('aria-hidden', 'true'); glTug.cv.removeAttribute('role');
   const forces = h('div', { class: 'gs-forces' }, h('div', { class: 'gs-fcap' }, h('span', {}, 'Across the sinusoid wall · mmHg'), h('span', {}, 'net ', fNet)), tug);
   const el = h('div', { class: 'gf', role: 'img' }, win, flowBox, unit, words, forces, caveat);
@@ -359,13 +360,19 @@ export function createFluid() {
     L.on = false;
     return false;
   };
+  // The card's type size, what an em of the strip is: handed to the three pictures with the card's layout and zoom (chart-ctx.js), and asked of
+  // the table's host (chart-looks/index.js HOSTS.fluid), never of the page's style. Made when the strip's widths change, not in a frame.
+  const hostEm = () => {
+    try { const cx = chartCtx(win); delete cx.svk; gl.setCtx(cx); glStrip.setCtx(cx); glTug.setCtx(cx); } catch { /* (no card round it yet: the sizes as they stand) */ }
+    return glStrip.hostSize() || 14;
+  };
   let sizeSig = '', roSeen = false;
   function labels() {
     const sized = roSeen, tw = sized ? TW : trk.clientWidth, fw = sized ? FW : tug.clientWidth;   // (the observer's widths once it has reported)
     const sig = `${tw}|${fw}|${day ? JSON.stringify(day) : ''}|${fGoal ? `${fmt(fGoal.out, 1)}${fmt(fGoal.pull, 1)}` : ''}`;
     if (sig === labSig) return;
     labSig = sig;
-    if (sizeSig !== `${tw}|${fw}` || !em) { sizeSig = `${tw}|${fw}`; em = parseFloat(getComputedStyle(win).fontSize) || 14; }
+    if (sizeSig !== `${tw}|${fw}` || !em) { sizeSig = `${tw}|${fw}`; em = hostEm(); }
     if (opts.window && day && tw) {
       const P = stripParts(dayOf(goal), tw), sw = stripWords(day);
       const seen = fit(lCar, sw.carried, P.car.w, em);

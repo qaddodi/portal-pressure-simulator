@@ -7280,32 +7280,13 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .pz-tool[data-kind="lumen"] .gl-stage { flex: none; width: min(62%, max(100px, calc(22 * var(--pzh, 8px)))); }   /* (100px: the words in it stay 12px on a phone held sideways) */
 .gl-pic { display: block; width: 100%; height: auto; aspect-ratio: 1; overflow: visible; }
 .gl-stage { aspect-ratio: 1; }   /* (the picture is drawn on the GPU, svg-gl.js, over a square box: its model takes no room) */
-.gl { --gl-v: var(--vein-portal); }
-.gl[data-vessel="systemic"] { --gl-v: var(--vein-systemic); }
-.gl[data-vessel="artery"] { --gl-v: var(--artery); }
-.gl-wall { fill: color-mix(in srgb, var(--gl-v) 30%, var(--surface)); stroke: color-mix(in srgb, var(--gl-v) 75%, var(--text)); stroke-width: 1.5; }
-.gl-clot { fill: var(--thrombus); stroke: var(--thrombus-edge); stroke-width: .8; stroke-linejoin: round; }
-.gl-open { fill: var(--gl-v); transition: opacity var(--d-small) var(--ease); }
-.gl-in { font: 650 22px/1 var(--font-ui); fill: var(--gl-in-ink); stroke: var(--gl-in-edge); stroke-width: 1.9; stroke-linejoin: round; paint-order: stroke; font-variant-numeric: tabular-nums; pointer-events: none; }
-.gl-word { font-size: max(9px, min(12px, calc(12px / var(--gl-u, 1.4)))); font-weight: 600; stroke-width: 1.3; }
-.gl-stent { fill: none; stroke: var(--stent-metal); stroke-width: 2.2; stroke-dasharray: 4.6 2.2; transition: opacity var(--d-surface) var(--ease); }
 .pz.stack .pz-tool[data-kind="lumen"] .gl-stage { width: min(44%, calc(18 * var(--pzh, 8px))); }
 
 /* V27, the fluid balance (src/ui/tool-fluid.js): the lymph made flowing into what the lymphatics carry, what the belly takes
    back and what stays as ascites, each band as thick as its flow, named beside its node; the forces across the sinusoid wall as two arrows. */
-.pz-tool[data-kind="fluid"] .gf { display: flex; flex-direction: column; gap: 4px; min-width: 0; font: 500 var(--fs-12)/1.3 var(--font-ui); color: var(--text-2);
-  --gf-liver: var(--organ-liver); --gf-gut: var(--organ-gut); --gf-carried: color-mix(in srgb, var(--text) 42%, var(--surface)); --gf-back: var(--vein-systemic); --gf-build: var(--ascites); --gf-build-edge: color-mix(in srgb, var(--ascites) 40%, var(--text)); }
+.pz-tool[data-kind="fluid"] .gf { display: flex; flex-direction: column; gap: 4px; min-width: 0; font: 500 var(--fs-12)/1.3 var(--font-ui); color: var(--text-2); }
 .pz:not(.stack):not(.low) .pz-data.pz-beside > .pz-tool[data-kind="fluid"] > .gf { display: flex; justify-content: center; }
 .gf-flow { display: block; width: 100%; overflow: visible; }
-.gf-t { font: 500 13px/1 var(--font-ui); fill: var(--text-2); dominant-baseline: central; }
-.gf-tv { font-weight: 650; fill: var(--text); font-variant-numeric: tabular-nums; }
-.gf-band { opacity: .55; transition: opacity var(--d-small) var(--ease); }
-.gf-node.gf-liver { fill: var(--gf-liver); } .gf-node.gf-gut { fill: var(--gf-gut); }
-.gf-carried { fill: var(--gf-carried); } .gf-back { fill: var(--gf-back); }
-/* (the build-up keeps the soft ascites colour, edged in it mixed toward the text colour so it reads at 3:1 or more) */
-.gf-build { fill: var(--gf-build); }
-.gf-node.gf-build { stroke: var(--gf-build-edge); stroke-width: 1; }
-.gf-room { fill: none; stroke: var(--gf-carried); stroke-width: 1.5; stroke-dasharray: 3 2.5; }
 .gf-unit { align-self: flex-end; font-size: var(--fs-12); color: var(--text-3); }
 .gf-words { margin: 2px 0; font: 600 var(--bs, 16px)/1.3 var(--font-ui); color: var(--text); }
 .gf-caveat { margin: 0; font-size: var(--fs-12); color: var(--text-3); }
@@ -7317,7 +7298,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
    card's zoom (--pz-fit, --pz-dk) has shrunk it. */
 .pz-tool[data-kind="fluid"] .gf { --gs-fs: max(var(--fs-12), calc(12px / (var(--pz-fit, 1) * var(--pz-dk, 1)))); font-size: var(--gs-fs);
   --gs-lymph: var(--sv-gl-lymph-hi); --gs-carried: var(--gs-lymph); --gs-back: color-mix(in srgb, var(--vein-systemic) 80%, var(--surface)); --gs-build: var(--caution);
-  --gs-push: var(--vein-portal); --gs-pull: color-mix(in srgb, var(--text) 42%, var(--surface)); --gs-slot: color-mix(in srgb, var(--text) 7%, transparent);
+  --gs-slot: color-mix(in srgb, var(--text) 7%, transparent);
   --gs-dash: color-mix(in srgb, var(--gs-lymph) 40%, var(--text-2)); --gs-bar: 1.25em; }
 :root[data-theme="dark"] .pz-tool[data-kind="fluid"] .gf { --gs-lymph: color-mix(in srgb, var(--sv-gl-lymph-hi) 55%, var(--surface)); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) .pz-tool[data-kind="fluid"] .gf { --gs-lymph: color-mix(in srgb, var(--sv-gl-lymph-hi) 55%, var(--surface)); } }
@@ -7340,13 +7321,7 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
    strength set by its width, so it fades, never pops.) */
 .gs-plate { position: relative; display: flex; flex-direction: column; gap: .3em; }
 .gs-svg { display: none; }
-.gs-seg { fill: var(--gs-c, none); }
-.gs-ghost { fill: none; stroke: var(--gs-dash); stroke-width: 1.5; stroke-dasharray: 3 2.5; }
-.gs-car { --gs-c: var(--gs-carried); } .gs-blue { --gs-c: var(--gs-back); } .gs-shrink { --gs-c: var(--ok); } .gs-build { --gs-c: var(--gs-build); }
-.gs-push { --gs-c: var(--gs-push); } .gs-pull { --gs-c: var(--gs-pull); }
 /* (the Leaked bracket: a line over what leaked with a short tick down at each end) */
-.gs-brk { fill: none; stroke: color-mix(in srgb, var(--text) 45%, transparent); stroke-width: 1.5; stroke-linejoin: miter; }
-.gs-in { fill: var(--text); font-weight: 600; dominant-baseline: central; }
 .gs-lab { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: .1em .8em; }
 .gs-lab > span { white-space: nowrap; }
 .gs-gap { margin-left: 1em; }
@@ -7356,7 +7331,6 @@ html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0p
 .gs-forces { display: flex; flex-direction: column; gap: .3em; margin-top: .1em; color: var(--text-3); font: 500 var(--gs-fs)/1.25 var(--font-ui); font-variant-numeric: tabular-nums; }
 .gs-fcap { border-top: 1px solid var(--border); padding-top: .3em; }
 /* (the push and the pull are arrows meeting at the wall: a point on each, drawn in the tug's model) */
-.gs-wall { fill: none; stroke: color-mix(in srgb, var(--text) 60%, transparent); stroke-width: 1.5; stroke-dasharray: 3 2.5; }
 
 /* ── Package G: end ── */
 

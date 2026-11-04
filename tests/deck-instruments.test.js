@@ -9,13 +9,15 @@ import { readFileSync } from 'node:fs';
 import { Engine } from '../src/engine/engine.js';
 import { computeMetrics } from '../src/engine/metrics.js';
 import { createCore } from '../src/worker-core.js';
-import { lumenOf, lumenShape, lumenWords, lumenFacts, lumenLabel, lumenSite, lumenBlock, LUMEN_NAME_Y, LUMEN_NUM_Y, LUMEN_WORD_Y, clotPath, LUMEN_R, LUMEN_WALL } from '../src/ui/tool-lumen.js';
+import { lumenOf, lumenShape, lumenWords, lumenFacts, lumenLabel, lumenSite, lumenBlock, LUMEN_NAME_Y, LUMEN_NUM_Y, LUMEN_WORD_Y, clotPath, LUMEN_R, LUMEN_WALL, wordSize } from '../src/ui/tool-lumen.js';
 import { fluidOf, fluidBars, fluidWords, sinusoidForces, pinnedForces } from '../src/ui/tool-fluid.js';
 import { pulsatility, caliperPick, caliperFrame, caliperEase, caliperLevel, caliperX, CAL_FADE, CAL_SECS, pairOf, pairBand, pairScale, PAIR_GAP } from '../src/ui/doppler-marks.js';
 import ext from '../src/ui/ext-instruments.js';
 import { EXT } from '../src/ui/slide-ext.js';
 import { DECKS } from '../src/ui/decks.js';
 import { adopted } from './deck-adopted.js';
+import { LOOKS } from '../src/ui/chart-looks/index.js';
+import { makeCtx, withCtx, resolveProps } from '../src/ui/chart-looks/resolve.js';
 
 const DOP = readFileSync(new URL('../src/ui/doppler.js', import.meta.url), 'utf8');
 const near = (a, b, tol, msg) => assert.ok(Math.abs(a - b) <= tol, `${msg}: ${a} vs ${b}`);
@@ -194,9 +196,9 @@ test('fluid balance flow: every band arrives, labels keep apart, and it fits the
 });
 
 test('V19: the % in the cross-section is large, and "100 %" still clears the inner wall with room on both sides', () => {
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
-  const rule = css.match(/^\.gl-in \{([^}]*)\}/m)[1];
-  const size = +rule.match(/font:\s*\d+\s+(\d+(?:\.\d+)?)px/)[1], edge = +rule.match(/stroke-width:\s*([\d.]+)/)[1];
+  // (the number's look is the table's now: chart-looks/lumen.js, 'lumen.in': a 22-unit font and a halo 1.9 wide)
+  const num = resolveProps(LOOKS['lumen.in'], withCtx(makeCtx({}), { theme: 'light', dark: false }), {}, {});
+  const size = num.size, edge = num.width;
   // Inter at weight 650: "100 %" is about 3.02 em wide (measured from fonts/inter-latin.woff2); the outline adds its width.
   const width = 3.02 * size + edge, room = (2 * (LUMEN_R - LUMEN_WALL) - width) / 2;
   assert.ok(size >= 20, `the number is at least 20 units in the 100-unit picture (was 16): ${size}`);
@@ -214,7 +216,6 @@ test('V19: the % in the cross-section fades with the share filled, so nothing sh
 
 test('V19: "occluded" sits under the % as one block, fades with it, and is never under 12 px on screen', () => {
   const src = readFileSync(new URL('../src/ui/tool-lumen.js', import.meta.url), 'utf8');
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
   assert.match(src, /inWord\.textContent = 'occluded'/);
   assert.match(src, /setGeo\(inWord, 'opacity', numOp\); setGeo\(inNum, 'opacity', numOp\)/);
   assert.match(src, /inNum = sv\('text'[^)]*y: LUMEN_NUM_Y/);
@@ -222,10 +223,11 @@ test('V19: "occluded" sits under the % as one block, fades with it, and is never
   const yn = LUMEN_NUM_Y, yw = LUMEN_WORD_Y;
   assert.ok(yw > yn + 12, 'the word is under the number');
   // The word's font: 12 px on screen (12 / px-per-unit units), held between 9 and 12 units; the number is 22 units.
-  const rule = css.match(/^\.gl-word \{([^}]*)\}/m)[1];
-  assert.match(rule, /font-size: max\(9px, min\(12px, calc\(12px \/ var\(--gl-u/);
+  // (the size is the picture's font-size attribute, set in fit(); the look leaves it alone: tool-lumen.js wordSize)
+  assert.equal(resolveProps(LOOKS['lumen.word'], withCtx(makeCtx({}), { theme: 'light', dark: false }), {}, {}).size, undefined, 'the table leaves the words\' size to the builder');
   for (const u of [1.2, 1.5, 2.5, 4]) {
-    const fs = Math.max(9, Math.min(12, 12 / u));
+    const fs = wordSize(u);
+    assert.equal(fs, Math.max(9, Math.min(12, 12 / u)));
     assert.ok(fs * u >= 12 - 1e-9 || fs === 9, `${u} px per unit: the word is 12 px on screen unless the picture is large`);
     assert.ok(fs * 4.7 + 2 <= 2 * Math.sqrt((LUMEN_R - LUMEN_WALL) ** 2 - (yw + 4.5 - 50) ** 2) - 6, `the word clears the wall at ${u} px per unit`);
   }

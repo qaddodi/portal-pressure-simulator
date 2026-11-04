@@ -14,5 +14,5 @@ export function chartCtx(svg) {
   const data = svg.closest('.pz-data'), text = svg.closest('.pz-text') || pz?.querySelector('.pz-text');
   const ts = num(document.documentElement, '--ts');
   const scale = cardScale({ vw: window.innerWidth, vh: window.innerHeight, layout, part, card: !!cl && cl.contains('pz-card'), ts, bk: num(text, '--pz-bk'), tk: num(text, '--pz-tk'), dk: num(data, '--pz-dk') });
-  return { layout, in: part === 'cell' ? 'cell' : '', fit: num(data, '--pz-fit'), svk: num(svg.closest('svg[viewBox]') || svg, '--svk'), scale };
+  return { layout, in: part === 'cell' ? 'cell' : '', fit: num(data, '--pz-fit'), dk: num(data, '--pz-dk'), svk: num(svg.closest('svg[viewBox]') || svg, '--svk'), scale };
 }

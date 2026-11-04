@@ -150,6 +150,9 @@ export const TOKENS = {
     'sv-gl-hsc-nucleus': '#925A42', 'sv-gl-kupffer': '#B296D6', 'sv-gl-kupffer-nucleus': '#6C509C',
     'sv-gl-kupffer-edge': '#60468E', 'sv-gl-rbc': '#CC4A50', 'sv-gl-albumin-edge': '#8C4C00',
     'sv-gl-lymph-lo': '#EBF0E0', 'sv-gl-lymph-mid': '#E0EBD1', 'sv-gl-lymph-hi': '#D1E3BD',
+    // ── WP10, fluid + lumen (the vessel cross-section's clot and its numbers; one value in every look) ──
+    'thrombus': '#5A1A24', 'thrombus-edge': '#36101A',
+    'gl-in-ink': '#FFFFFF', 'gl-in-edge': 'rgba(20, 8, 14, .7)',
 
     // WP11 (card diagrams): flat colours the same in every look, read by chart-looks/card.js (the pressure ramp's 12 and 20 mmHg stops; the hepatocyte)
     'ramp-violet': '#925CDD', 'ramp-wine': '#A4216E', 'pz-hepatocyte': '#C58B5C',

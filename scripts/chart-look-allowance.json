@@ -10,8 +10,8 @@
   "causes": 0,
   "criteria": 45,
   "plane": 10,
-  "fluid": 25,
-  "lumen": 10,
+  "fluid": 10,
+  "lumen": 0,
   "card": 4,
   "instruments": 118,
   "small": 29

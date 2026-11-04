@@ -55,7 +55,7 @@ export function makeCtx(local = null) {
   const l = local || {};
   const c = {
     theme, dark, palette: ra('data-palette') || 'navy', view: l.view || viewNow, motion: mq('(prefers-reduced-motion: reduce)') ? 'reduce' : 'full',
-    host: l.host || '', layout: l.layout || '', in: l.in || '', boxW: l.boxW || 0, scale: l.scale || NO_SCALE, svk: l.svk || 1, fit: l.fit || 1, hostPx: 12, sig: '',
+    host: l.host || '', layout: l.layout || '', in: l.in || '', boxW: l.boxW || 0, scale: l.scale || NO_SCALE, svk: l.svk || 1, fit: l.fit || 1, dk: l.dk || 1, hostPx: 12, sig: '',
   };
   c.hostPx = HOSTS[c.host] ? HOSTS[c.host](c) : 12;
   c.sig = ctxSig(c);
@@ -63,7 +63,7 @@ export function makeCtx(local = null) {
 }
 const NO_SCALE = {};
 function ctxSig(c) {
-  let s = `${c.theme}${c.dark ? 'd' : ''}|${c.palette}|${c.view}|${c.motion}|${c.host}|${c.layout}|${c.in}|${c.svk}|${c.fit}|${c.hostPx}`;
+  let s = `${c.theme}${c.dark ? 'd' : ''}|${c.palette}|${c.view}|${c.motion}|${c.host}|${c.layout}|${c.in}|${c.svk}|${c.fit}|${c.dk}|${c.hostPx}`;
   for (const k in c.scale) s += `|${k}=${c.scale[k]}`;
   return s;
 }
