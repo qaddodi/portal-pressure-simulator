@@ -4,6 +4,7 @@ import { PLOT } from './plot.js';
 import { TALK } from './talk.js';
 import { CRIT } from './crit.js';
 import { CARD } from './card.js';
+import { INST } from './inst.js';
 import { CAUSES } from './causes.js';
 
 /** key → entry. A key is <group>.<part>[.<sub>] (lowercase, dots). */
@@ -12,6 +13,7 @@ export const LOOKS = {
   ...TALK,
   ...CRIT,
   ...CARD,
+  ...INST,
   ...CAUSES,
 };
 

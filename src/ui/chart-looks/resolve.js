@@ -38,7 +38,7 @@ function tokensOf(ctx) {
 
 // ── The context ──
 let viewNow = 'anatomic';
-/** The figure's view, 'anatomic' | 'circuit' (the circuit view re-colours the dock's instruments in dark looks). */
+/** The figure's view, 'anatomic' | 'circuit' (the circuit view re-colours the dock's instruments in dark looks), for a chart that hands none of its own (local.view, set by a chart that sits inside the figure's wrap). */
 export function setView(v) { if (v !== viewNow) { viewNow = v; } }
 const mq = (q) => (typeof globalThis.matchMedia === 'function' ? globalThis.matchMedia(q).matches : false);
 /**
@@ -54,7 +54,7 @@ export function makeCtx(local = null) {
   const theme = attr === 'light' || attr === 'soft' || attr === 'dark' ? attr : dark ? 'dark' : 'light';
   const l = local || {};
   const c = {
-    theme, dark, palette: ra('data-palette') || 'navy', view: viewNow, motion: mq('(prefers-reduced-motion: reduce)') ? 'reduce' : 'full',
+    theme, dark, palette: ra('data-palette') || 'navy', view: l.view || viewNow, motion: mq('(prefers-reduced-motion: reduce)') ? 'reduce' : 'full',
     host: l.host || '', layout: l.layout || '', in: l.in || '', boxW: l.boxW || 0, scale: l.scale || NO_SCALE, svk: l.svk || 1, fit: l.fit || 1, hostPx: 12, sig: '',
   };
   c.hostPx = HOSTS[c.host] ? HOSTS[c.host](c) : 12;

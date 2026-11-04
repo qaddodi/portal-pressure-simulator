@@ -631,29 +631,29 @@ function iapDial() {
   const C = 64, R = 56, TX = 42;   // pivot on the flat (belly) side, ring radius, the text column
   const pt = (v, r) => { const t = Math.PI / 2 + (v / IAP_MAX) * Math.PI; return [C + r * Math.cos(t), C + r * Math.sin(t)]; };
   const arc = (a, b, r) => { const [x0, y0] = pt(a, r), [x1, y1] = pt(b, r); return `M${x0.toFixed(2)} ${y0.toFixed(2)}A${r} ${r} 0 0 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`; };
-  const svg = s('svg', { class: 'ab-dial', viewBox: '-12 0 76 128', preserveAspectRatio: 'xMidYMid meet' });
+  const svg = s('svg', { class: 'ab-dial', 'data-look': 'inst.root', viewBox: '-12 0 76 128', preserveAspectRatio: 'xMidYMid meet' });
   const live = [];
   for (const [a, b, sev] of IAP_BANDS) {
     const a1 = a ? a + 0.3 : a, b1 = b < IAP_MAX ? b - 0.3 : b, d = arc(a1, b1, R);
-    svg.append(s('path', { class: 'ab-dial-band', d, 'data-sev': sev }));
-    const lp = s('path', { class: 'ab-dial-live', d, 'data-sev': sev, pathLength: '100', 'stroke-dasharray': '0 100' });
+    svg.append(s('path', { class: 'ab-dial-band', 'data-look': 'inst.dial.band', d, 'data-rate': sev }));
+    const lp = s('path', { class: 'ab-dial-live', 'data-look': 'inst.dial.live', d, 'data-rate': sev, pathLength: '100', 'stroke-dasharray': '0 100' });
     svg.append(lp); live.push([a1, b1, lp]);
   }
   const tls = [];
   for (const v of [12, 20]) {
     const [x0, y0] = pt(v, R + 5), [x1, y1] = pt(v, R + 9);
-    svg.append(s('line', { class: 'ab-dial-tick', x1: x0.toFixed(2), y1: y0.toFixed(2), x2: x1.toFixed(2), y2: y1.toFixed(2) }));
-    const tl = s('text', { class: 'ab-dial-tl' }, String(v));
+    svg.append(s('line', { class: 'ab-dial-tick', 'data-look': 'inst.dial.tick', x1: x0.toFixed(2), y1: y0.toFixed(2), x2: x1.toFixed(2), y2: y1.toFixed(2) }));
+    const tl = s('text', { class: 'ab-dial-tl', 'data-look': 'inst.dial.tl', 'font-size': 8.5 }, String(v));
     svg.append(tl); tls.push([v, tl]);
   }
   // The knob: drawn pointing right (into the belly), then turned to the reading about the pivot, eased round the ring.
-  const knob = s('g', { class: 'ab-dial-knob' });
-  knob.append(s('line', { x1: C + R - 12, y1: C, x2: C + R - 6, y2: C }), s('circle', { cx: C + R, cy: C, r: 4.6 }));
-  const num = s('text', { class: 'ab-dial-n', x: TX, y: 70 }, '—'), word = s('text', { class: 'ab-dial-w', x: TX }, '');
-  const key = s('text', { class: 'ab-dial-k', x: TX, y: 43 }, 'IAP'), unit = s('text', { class: 'ab-dial-u', x: TX }, 'mmHg');
+  const knob = s('g', { class: 'ab-dial-knob', 'data-look': 'inst.g' });
+  knob.append(s('line', { 'data-look': 'inst.dial.knob.line', x1: C + R - 12, y1: C, x2: C + R - 6, y2: C }), s('circle', { 'data-look': 'inst.dial.knob.dot', cx: C + R, cy: C, r: 4.6 }));
+  const num = s('text', { class: 'ab-dial-n', 'data-look': 'inst.dial.n', x: TX, y: 70 }, '—'), word = s('text', { class: 'ab-dial-w', 'data-look': 'inst.dial.w', 'font-size': 9, x: TX }, '');
+  const key = s('text', { class: 'ab-dial-k', 'data-look': 'inst.dial.k', 'font-size': 8.5, x: TX, y: 43 }, 'IAP'), unit = s('text', { class: 'ab-dial-u', 'data-look': 'inst.dial.u', 'font-size': 8.5, x: TX }, 'mmHg');
   svg.append(knob, key, num, unit, word);
   const el = h('div', { class: 'ab-dial-box svg-gl-box', title: 'Intra-abdominal pressure. 12 mmHg and above: intra-abdominal hypertension. 20 mmHg and above: abdominal compartment syndrome.' }, svg);
-  const gl = createSvgGL(el);
+  const gl = createSvgGL(el, { host: 'dock' });
   gl.show(svg, false);
   // The small words are 12 px on screen at least, however small the dial is drawn (sweep batch 04: the ticks at about 7 px,
   // the caption at 9.6 px on a phone): their size in the drawing grows as the dial shrinks, the lines below the number move
@@ -669,26 +669,37 @@ function iapDial() {
     fitK = k;
     const f = (base) => Math.max(base, 12.2 * k);
     const fk = f(8.5), fu = f(8.5), fw = f(9), ft = f(8.5);
-    key.style.fontSize = `${fk.toFixed(2)}px`; unit.style.fontSize = `${fu.toFixed(2)}px`; word.style.fontSize = `${fw.toFixed(2)}px`;
+    key.setAttribute('font-size', fk.toFixed(2)); unit.setAttribute('font-size', fu.toFixed(2)); word.setAttribute('font-size', fw.toFixed(2));   // (a model's size is its attribute: the table sets none for these)
     const yu = 74 + 0.72 * fu, yw = yu + 3.5 + 0.72 * fw;
     unit.setAttribute('y', yu.toFixed(2)); word.setAttribute('y', yw.toFixed(2));
     for (const [v, tl] of tls) {
       const [lx, ly] = pt(v, R + 10 + 0.65 * ft);
-      tl.style.fontSize = `${ft.toFixed(2)}px`; tl.setAttribute('x', lx.toFixed(2)); tl.setAttribute('y', (ly + 0.36 * ft).toFixed(2));
+      tl.setAttribute('font-size', ft.toFixed(2)); tl.setAttribute('x', lx.toFixed(2)); tl.setAttribute('y', (ly + 0.36 * ft).toFixed(2));
     }
     gl.relook();   // (the new type sizes are styles: the model's looks are read again, between frames)
     fitWord();
   };
   // (The chord of the ring's inside at the word's baseline, from the text column to the flat side; the word's width from its outlines.)
   const fitWord = () => {
-    const fw = parseFloat(word.style.fontSize) || 9, y = parseFloat(word.getAttribute('y')) || 92, top = y - 0.72 * fw;
+    const fw = parseFloat(word.getAttribute('font-size')) || 9, y = parseFloat(word.getAttribute('y')) || 92, top = y - 0.72 * fw;
     const dy = Math.max(Math.abs(y - C), Math.abs(top - C)), half = Math.sqrt(Math.max(0, (R - 4) ** 2 - dy * dy));
     fitOpt.size = fw;
     const tw = textWidth(wordsOf(word), fitOpt);
     word.style.display = tw > 0 && (tw / 2 > C - TX + 0 || TX - tw / 2 < C - half) ? 'none' : '';
     gl.paint();
   };
-  if (typeof ResizeObserver === 'function') new ResizeObserver((es) => { const b = es[es.length - 1].contentBoxSize?.[0]; boxW = b ? b.inlineSize : es[es.length - 1].contentRect.width; fit(); }).observe(el);
+  // (The Circuit view re-colours the dock in the dark looks: the figure's wrap carries .cmap from the middle of the change of view, and the dial's
+  // tokens are the map's from then on. The wrap's class is read once the dial is on the page and watched from then, never read in a frame.)
+  let wrapMO = null;
+  const viewNow = () => { const w = el.closest('.stage-wrap'); return w && w.classList.contains('cmap') ? 'circuit' : 'anatomic'; };
+  const hookView = () => {
+    const w = el.closest('.stage-wrap');
+    if (!w || wrapMO) return;
+    gl.setCtx({ view: viewNow() });
+    wrapMO = new MutationObserver(() => gl.setCtx({ view: viewNow() }));
+    wrapMO.observe(w, { attributes: true, attributeFilter: ['class'] });
+  };
+  if (typeof ResizeObserver === 'function') new ResizeObserver((es) => { const b = es[es.length - 1].contentBoxSize?.[0]; boxW = b ? b.inlineSize : es[es.length - 1].contentRect.width; hookView(); fit(); }).observe(el);
   // The knob's turn, eased on the frame clock as the page's transition was (D_SURFACE on the arrive curve); reduced motion: at once.
   let ang = 90, turn = null, turnAsk = 0;
   const KNOB_STILL = typeof matchMedia === 'function' ? reduceMotionMQ : { matches: false };
@@ -713,7 +724,7 @@ function iapDial() {
     last = n;
     const sev = iapSev(v);
     setWords(num, intTxt(n)); setWords(word, IAP_WORD[sev]);
-    dataSoon(svg, 'sev', sev);
+    dataSoon(svg, 'rate', sev);   // (the rating, read by the table's rows: data-rate is the attribute the picture watches)
     for (let i = 0; i < live.length; i++) setGeo(live[i][2], 'stroke-dasharray', dashOf(i, v));
     const to = 90 + (v / IAP_MAX) * 180;
     if (KNOB_STILL.matches) { turn = null; ang = to; knobAt(ang); } else { turn = turnS; turnS.from = ang; turnS.to = to; turnS.t0 = easeNow(); if (!turnAsk) turnAsk = drawFrame(knobStep); }

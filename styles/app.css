@@ -5128,27 +5128,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .instrument-workspace .dock-pane > .instrument-view.ab .ab-vol > .ab-gauge { grid-column: 2; position: relative; width: auto; justify-self: center; }
 .instrument-workspace .dock-pane > .instrument-view.ab .ab-vol > .ab-gauge > .ab-belly.ab-belly { width: var(--ab-bw); height: var(--ab-bw); }
 .dock-pane > .instrument-view.ab .ab-dial-box { display: block; position: absolute; top: 50%; right: calc(100% + 6px); width: var(--ab-dw); transform: translateY(-50%); }
-.ab-dial { display: block; width: 100%; height: auto; overflow: visible; }
 .ab-dial-box { aspect-ratio: 76 / 128; }   /* (the dial is a model drawn on the GPU, svg-gl: the box keeps the drawing's shape itself) */
-.ab-dial-band { fill: none; stroke-width: 7; opacity: .2; }
-.ab-dial-live { fill: none; stroke-width: 7; transition: none; }
-.ab-dial :is(.ab-dial-band, .ab-dial-live)[data-sev="ok"] { stroke: var(--ok); }
-.ab-dial :is(.ab-dial-band, .ab-dial-live)[data-sev="caution"] { stroke: var(--caution); }
-.ab-dial :is(.ab-dial-band, .ab-dial-live)[data-sev="danger"] { stroke: var(--danger); }
-.ab-dial-tick { stroke: var(--text-3); stroke-width: 1.2; stroke-linecap: round; }
-.ab-dial-tl { fill: var(--text-3); font: 600 8.5px var(--font-ui); text-anchor: middle; font-variant-numeric: tabular-nums; }
-.ab-dial-knob { transform-box: view-box; transform-origin: 64px 64px; transition: transform var(--d-surface) var(--ease); }
-.ab-dial-knob line { stroke: var(--text-2); stroke-width: 2; stroke-linecap: round; }
-.ab-dial-knob circle { fill: var(--surface); stroke: var(--ok); stroke-width: 2.6; transition: none; }
-.ab-dial[data-sev="caution"] .ab-dial-knob circle { stroke: var(--caution); }
-.ab-dial[data-sev="danger"] .ab-dial-knob circle { stroke: var(--danger); }
-.ab-dial text:not(.ab-dial-tl) { text-anchor: middle; font-family: var(--font-ui); }
-.ab-dial-k { fill: var(--text-3); font-size: 8.5px; font-weight: 600; letter-spacing: .12em; }
-.ab-dial-n { fill: var(--text); font-size: 25px; font-weight: 650; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
-.ab-dial-u { fill: var(--text-3); font-size: 8.5px; font-weight: 500; }
-.ab-dial-w { fill: var(--ok); font-size: 9px; font-weight: 650; transition: none; }
-.ab-dial[data-sev="caution"] .ab-dial-w { fill: var(--caution); }
-.ab-dial[data-sev="danger"] .ab-dial-w { fill: var(--danger); }
 /* The drain: its label level with the dial's, then litres, albumin and the button, as wide as the dial at most. */
 .dock-pane > .instrument-view.ab .ab-dp { display: grid; grid-column: 3; justify-self: start; align-content: center; gap: 5px; width: 100%; max-width: max(116px, var(--ab-dw)); min-width: 0; }
 .ab-dp-k { text-align: center; color: var(--text-3); font: 600 12px/1.2 var(--font-ui); letter-spacing: .12em; text-transform: uppercase; }
