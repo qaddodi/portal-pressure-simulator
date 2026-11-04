@@ -238,7 +238,7 @@ export function createSinusoidView({ host, before = null, share = null }) {
     if (zk !== 1 || ze || zf) { const r = zr || (shareTop.canvas.width || 1) / ((hostWH && hostWH[0]) || shareTop.canvas.clientWidth || shareTop.canvas.width || 1); shareTop.lay(tg.tex, zk, 0, 0, zk, ze * r, zf * r, Math.min(1, shown)); }
     else shareTop.lay(tg.tex, 1, 0, 0, 1, 0, 0, Math.min(1, shown));
   }
-  let zk = 1, ze = 0, zf = 0, zr = 0;
+  let zk = 1, ze = 0, zf = 0, zr = 0, zres = 1;
   // (The ?perf surfaces list, gpu-surfaces.js: read by the readout only.)
   surface('sinusoid', () => (!open ? null : gpu && !gpu.lost ? { on: svSoft ? 'fallback' : 'gpu', via: svSoft ? 'WebGL2 on the CPU' : 'WebGL2', why: svSoft ? 'software renderer' : '' } : { on: 'fallback', via: 'nothing drawn', why: gpu ? 'context lost (drawn again when it is given back)' : 'no WebGL2' }));   // (answered by this view's own context: sinusoidSupported need not make a throwaway one) // alloc-rare: read only by the ?perf readout, twice a second while it is open (gpu-surfaces.js), never in a frame
 
@@ -1150,7 +1150,7 @@ export function createSinusoidView({ host, before = null, share = null }) {
     if (run && dt > 0 && go > 0) stepMovers(dt * go);
     if (!paint) return;
     if (svWant != null && gpu && open && !dive) svSwap();
-    const dpr = Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * svScale();   // (Battery saver: one pixel per CSS pixel)
+    const dpr = Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * svScale() * zres;   // (Battery saver: one pixel per CSS pixel; zres: a card's zoom landed, sharpen)
     if (canvas.width !== Math.round(W * dpr) || canvas.height !== Math.round(H * dpr)) { canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr); }
     const dark = document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && darkMQ.matches);
     // The names are laid out where the view will rest, during the zoom too (hidden until it lands), so the end arrows
@@ -1298,6 +1298,14 @@ export function createSinusoidView({ host, before = null, share = null }) {
       cap.view(k, e, f);
       shareTop.present();
       return true;
+    },
+    /** A card's zoom has landed (on) or is going (off): the picture is drawn at k times the density, the same geometry and layout, so what the camera carries
+     *  is sharp. Capped so the canvas is no more than 3 device px per CSS px. */
+    sharpen(on) {
+      const base = Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * svScale();
+      const z = on ? Math.max(1, Math.min(zk, 3 / (base || 1))) : 1;
+      if (z === zres) return;
+      zres = z; gpuKey = ''; wake();
     },
     get cameraReady() { return !!shareTop && !!gpu && !gpu.lost; },
     /** The glasses over the names (stage.js, glass-gl.js tellHoles): the names under them are left out. */
