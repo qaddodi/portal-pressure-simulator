@@ -81,7 +81,7 @@ export function createTools({ host, stage }) {
   // A chart drawn in its own units (a viewBox) shrinks its letters with the card: its smallest words (13 units) are kept
   // 12 px or more on the screen, the chart's letters all grown by the same factor (--svk), up to twice.
   const svk = () => { for (const sv of box.querySelectorAll('svg[viewBox]')) { const w = +sv.getAttribute('viewBox').split(/[\s,]+/)[2], r = sv.getBoundingClientRect().width;
-    if (!w || !r) continue; const k = Math.min(2, Math.max(1, 12 / (13 * r / w))); if (Math.abs(k - (+sv.style.getPropertyValue('--svk') || 1)) > 0.02) sv.style.setProperty('--svk', k.toFixed(2)); } };
+    if (!w || !r) continue; const k = Math.min(2, Math.max(1, 12 / (13 * r / w))); if (Math.abs(k - (+sv.style.getPropertyValue('--svk') || 1)) > 0.02) { sv.style.setProperty('--svk', k.toFixed(2)); sv.closest('.svg-gl-box')?._svgGL?.setCtx({ svk: +k.toFixed(2) }); } } };   // (the chart's looks written in code take the same factor: WP3)
   // (One rest pass asked for at a time, between frames, however many sizes the card goes through; the observer is let go with the tools.)
   let svkRaf = 0;
   const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(() => { if (!svkRaf) svkRaf = restPass(() => { svkRaf = 0; svk(); }); }) : null;

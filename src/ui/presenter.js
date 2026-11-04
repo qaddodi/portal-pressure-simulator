@@ -22,6 +22,7 @@ import { titleParts } from './title-units.js';
 import { liveText, wordsOf } from './live-text.js';
 import { swipeDir, SWIPE_MIN, SWIPE_RATIO, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight, wheelFinger, wheelGesture, ownsWheel } from './swipe.js';
 import { createSvgGL, svgModel, viewMap, noteLoop } from './svg-gl.js';
+import { cardScale } from './card-scale.js';
 import { sinusoidSupported } from './gl-support.js';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js';
 import { CIRC_REGIONS, isCamOn, unionBox, regionBox, growBox, camNames } from './cam-frame.js';
@@ -578,7 +579,21 @@ const ROLE_NAMES = ['cap', 'lab', 'body', 'val', 'big'];
 const fitted = new Set();
 // (A chart whose fit throws is counted and left: reFit runs these for every chart before any new card comes in, and one error there left
 // the cards unseen with the figure dimmed. 3 Nov 2026.)
-const fitNow = (c) => { try { fitLoop(c); if (c.gl && c.fs) { if (c.placed) c.gl.relook(); else { c.placed = true; c.gl.place(c.root); c.onPlace?.(); } } } catch (e) { caught('presenter:fit', e); } };
+// What a chart's looks written in code need of its card (WP3): the layout, the card's own type sizes (card-scale.js, the stylesheet's formulas as
+// numbers), the fit zoom and the letter scale. Read from the classes and inline values the layout wrote, in a rest pass, never in a frame.
+const PARTS = [['.pz-cell', 'cell'], ['.pz-data', 'data'], ['.pz-table', 'table'], ['.pz-grid', 'grid'], ['.pz-panel', 'panel'], ['.pz-text', 'text']];
+function chartCtx(svg) {
+  const pz = svg.closest('.pz'), cl = pz ? pz.classList : null;
+  const layout = !cl ? 'wide' : cl.contains('stack') ? (cl.contains('tab') ? 'tab' : 'stack') : cl.contains('low') ? 'low' : cl.contains('short') ? 'short' : 'wide';
+  let part = 'data', el = null;
+  for (const [sel, name] of PARTS) { el = svg.closest(sel); if (el) { part = name; break; } }
+  const num = (e, n, d = 1) => { const v = e ? parseFloat(e.style.getPropertyValue(n)) : NaN; return v > 0 ? v : d; };
+  const data = svg.closest('.pz-data'), text = svg.closest('.pz-text') || pz?.querySelector('.pz-text');
+  const ts = num(document.documentElement, '--ts');
+  const scale = cardScale({ vw: window.innerWidth, vh: window.innerHeight, layout, part, card: !!cl && cl.contains('pz-card'), ts, bk: num(text, '--pz-bk'), tk: num(text, '--pz-tk'), dk: num(data, '--pz-dk') });
+  return { layout, fit: num(data, '--pz-fit'), svk: num(svg.closest('svg[viewBox]') || svg, '--svk'), scale };
+}
+const fitNow = (c) => { try { fitLoop(c); if (c.gl && c.fs) { const cx = chartCtx(c.svg); if (c.placed) { c.gl.setCtx(cx); c.gl.relook(); } else { Object.assign(c.gl.local, cx);  c.placed = true; c.gl.place(c.root); c.onPlace?.(); } } } catch (e) { caught('presenter:fit', e); } };
 const fitLoop = (c) => {
   const { svg, lay } = c;
   if (!svg.isConnected) { fitted.delete(c); c.ro?.disconnect(); return; }
