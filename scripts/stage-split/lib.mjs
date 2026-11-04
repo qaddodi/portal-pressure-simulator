@@ -210,11 +210,17 @@ export function planSplit(src, spec, A = analyse(src, spec.stage || 'createStage
   const callLhs = retNames.map((n) => (stubs.has(n) ? `${n}: ${n}$` : n)).join(', ');
   const stubText = [...stubs].map(([n, gen]) => `\n  ${gen ? `function* ${n}(...a) { return yield* ${n}$(...a); }` : `function ${n}(...a) { return ${n}$(...a); }`}   ${STUB_MARK}`).join('');
   const callText = `${retNames.length ? `const { ${callLhs} } = ` : ''}${fname}({ ${stNames.join(', ')} }${usesLive ? ', live' : ''});${stubText}`;
-  const removes = moved.map((i) => [units[i].start, Math.min(src.length, units[i].end + (src[units[i].end] === '\n' ? 1 : 0))]);
-  let stage = '', pos = 0;
-  for (let k = 0; k < removes.length; k++) {
-    const [a, b] = removes[k];
-    stage += src.slice(pos, a); if (k === 0) stage += `  ${callText}\n`;
+  // A plain `let x = <literal>` the moved code reads through live, declared after the call site, is declared just before it: the part may touch it
+  // while it runs at boot, and a getter or setter over a let that does not exist yet is a crash (the declaration holds no code, so nothing else changes).
+  const pureInit = (n) => !n || n.type === 'Literal' || (n.type === 'ArrayExpression' && !n.elements.length) || (n.type === 'ObjectExpression' && !n.properties.length) || (n.type === 'UnaryExpression' && n.argument.type === 'Literal') || (n.type === 'Identifier' && n.name === 'undefined');
+  const hoisted = [...new Set([...live.values()].filter((x) => x.kind === 'let' && x.unit > call && !M.has(x.unit)).map((x) => x.unit))]
+    .filter((u) => units[u].stmt.type === 'VariableDeclaration' && units[u].stmt.kind === 'let' && units[u].stmt.declarations.every((d) => pureInit(d.init))).sort((a, b) => a - b);
+  const cutRange = (i) => [units[i].start, Math.min(src.length, units[i].end + (src[units[i].end] === '\n' ? 1 : 0))];
+  const hoistText = hoisted.map((i) => '  ' + src.slice(...cutRange(i))).join('');
+  const removes = [...moved, ...hoisted].sort((a, b) => units[a].start - units[b].start).map((i) => ({ i, r: cutRange(i) }));
+  let stage = '', pos = 0, placed = false;
+  for (const { i, r: [a, b] } of removes) {
+    stage += src.slice(pos, a); if (!placed && M.has(i)) { stage += hoistText + `  ${callText}\n`; placed = true; }
     pos = b;
   }
   stage += src.slice(pos);
