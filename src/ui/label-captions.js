@@ -392,7 +392,7 @@ export function createCaptions(box, { labelGL = createLabelGL, deferred = false 
       for (const [key, L] of leads) {
         const a = easeAt(L.a, now) * (L.of ? itemA(L.of, now) : 1);
         more ||= easing(L.a, now);
-        if (a <= 0.002 || !L.colour) { if (L.m && L.m.o !== '0.000') { L.m.o = '0.000'; L.m.p.style.opacity = L.m.h.style.opacity = L.m.d.style.opacity = '0'; } continue; }
+        if (a * la <= 0.002 || !L.colour) { if (L.m && L.m.o !== '0.000') { L.m.o = '0.000'; L.m.p.style.opacity = L.m.h.style.opacity = L.m.d.style.opacity = '0'; } continue; }
         let { x1, y1 } = L;
         const I = L.of && items.get(L.of);
         // (Its near end follows its name's step aside, as eased, to the edge of the smaller box when the name was set smaller.)
@@ -412,7 +412,9 @@ export function createCaptions(box, { labelGL = createLabelGL, deferred = false 
         if (!lk || !I.set) continue;
         const a = easeAt(I.a, now), s = easeAt(I.s, now), dx = easeAt(I.dx, now), dy = easeAt(I.dy, now);
         more ||= easing(I.a, now) || easing(I.s, now) || easing(I.dx, now) || easing(I.dy, now);
-        if (a <= 0.002) continue;
+        // (Nothing of a layer the page has faded out (its view closed: the sinusoid's names in the lobule, the lobule's in the anatomy) is handed to the GPU:
+        // a name at nothing is left out of the list, its leader's marks put at nothing above, whatever picture or look the drawer still holds for it.)
+        if (a * la <= 0.002) continue;
         // (Where the box's middle stands on the screen, the layer's view included: k p + (e, f); its size is its own, never the view's.)
         const bw = I.w * s, bh = I.h * s, l = vk * (I.x + dx) + ve - bw / 2, t = vk * (I.y + dy) + vf - bh / 2;
         record(I.key, l, t, bw, bh, a, w, h, I, l, t, s);

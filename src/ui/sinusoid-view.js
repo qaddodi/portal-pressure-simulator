@@ -1347,6 +1347,9 @@ export function createSinusoidView({ host, before = null, share = null }) {
       restClass(el, 'on', isOpen);
       restAttr(el, 'aria-hidden', isOpen ? 'false' : 'true');
       // Closed: the drawing buffer is given back (it is sized again on the way in).
+      // (Closed: the names, their leaders and the legend go at once with the view, as the lobule's do (lobule-zoom.js cap.hideAll): drawn in the figure's
+      // context, they are not inside the faded layer any more, and must not be left drawn over the lobule. They fade in again, placed afresh, on the next visit.)
+      if (opacity <= 0 && was > 0) cap.hideAll();
       if (opacity <= 0 && was > 0) { svFadeEnd(); canvas.width = 0; canvas.height = 0; gpuKey = ''; if (shareTop) { gpu?.free?.(); shareTop.present(); } }
       else if (shareTop && opacity > 0 && !model) shareTop.present();
       if (opacity > 0 && was <= 0) {
