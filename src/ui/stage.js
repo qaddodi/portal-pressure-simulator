@@ -11368,8 +11368,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // a point the layout chose by other rules, is not pinned and moves as before.)
     const pk = it.key.startsWith('n:') && !it.live && Number.isFinite(it.ax) && Number.isFinite(it.ay) ? pinKind(it.key.slice(2), it.ax, it.ay, it.au) : 0, pin = pk > 0;
     const px0 = +it.x.toFixed(1), py0 = +(it.rot ? it.y + it.w : it.y).toFixed(1);
-    // (Every other figure label gets a world anchor (step 3 of the rigid-labels plan): its point as laid out, taken back to the world under this layout's camera,
-    // so the GPU keeps it on that point through any pan, pinch or zoom. Not the screen's furniture (zone titles, lanes, the scan, the stage) and not between views.)
+    // (Every other figure label gets a world anchor (step 3 of the rigid-labels plan): its point as laid out, taken back to the world under this layout's camera, so the GPU keeps it on that point through any pan, pinch or zoom. Not the screen's furniture (zone titles, lanes, the scan, the stage) and not between views. An organ's name is a region name (leader rule L1): its point is where it is drawn, so it never stands off its own anchor.)
+    if (it.cls === 'organ' && !it.rot) { it.ax = it.x + it.w / 2; it.ay = it.y + it.h / 2; }
     const gp = !pin && !it.live && !it.hide && Number.isFinite(it.ax) && Number.isFinite(it.ay) && (morph === 0 || morph === 1) && !NO_ANCHOR.test(it.key);
     if (gp) localToWorldInto(ANCHOR_W, it.ax, it.ay);
     const gw = gp && Number.isFinite(ANCHOR_W[0]) && Number.isFinite(ANCHOR_W[1]);
