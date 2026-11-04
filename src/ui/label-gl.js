@@ -1819,7 +1819,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   }
   // The dots and leaders of the pinned labels: the dot on the point as the figure has it this frame, the leader from that point to where the
   // label's picture is drawn this frame, cut at its edge. Rigid: they cannot lag, stretch on their own or point at nothing. A dot is drawn
-  // where the layout gave the label one (pinWant, taken at sync), a leader wherever the picture stands clear of its point.
+  // where the layout gave the label one (pinWant, taken at sync), a leader only where the layout asked for one.
   const pinLooks = new Map(), pinWant = new Map(), pinDrawn = new Map();
   const PG = new Float64Array(4);
   let defLine = null, defDot = null, PIN_LINE0 = null;
@@ -1867,10 +1867,10 @@ void main() { o = texture(uT, vUV) * uA; }`;
       let rec = pinDrawn.get(key);
       if (!rec) pinDrawn.set(key, rec = { seq: -1, hasLine: false, hasDot: false, line: new Float64Array(4), dot: new Float64Array(2), a: 0 });   // alloc-rare: one record per pinned label key
       rec.seq = frameSeq; rec.hasLine = false; rec.hasDot = false; rec.a = a;
-      // (The leader: from the point to the picture's edge, where the picture stands more than 10 px clear of it.)
+      // (The leader: only where the layout asked for one (want bit 4), from the point to the picture's edge once the picture stands clear of it.)
       const cx = lx + st.w / 2, cy = ly + st.h / 2, dx = cx - px, dy = cy - py, hw = st.w / 2, hh = st.h / 2;
       const gap = Math.hypot(Math.max(lx - px, 0, px - (lx + st.w)), Math.max(ly - py, 0, py - (ly + st.h))) / dpr;
-      if (gap > 10) {
+      if ((want & 4) && gap > 2) {
         const t = 1 - Math.min(dx ? hw / Math.abs(dx) : Infinity, dy ? hh / Math.abs(dy) : Infinity);
         PG[0] = px; PG[1] = py; PG[2] = px + dx * t; PG[3] = py + dy * t;
         if (pinMark(lk?.line?.stroke ? lk.line : defLine, PG, true, a)) { rec.hasLine = true; for (let i = 0; i < 4; i++) rec.line[i] = PG[i] / dpr; }
@@ -1891,7 +1891,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       const px = gh.px * dpr, py = gh.py * dpr, lx = gh.lx, ly = gh.ly;
       const cx = lx + st.w / 2, cy = ly + st.h / 2, dx = cx - px, dy = cy - py, hw = st.w / 2, hh = st.h / 2;
       const gap = Math.hypot(Math.max(lx - px, 0, px - (lx + st.w)), Math.max(ly - py, 0, py - (ly + st.h))) / dpr;
-      if (gap > 10) {
+      if ((gh.want & 4) && gap > 2) {
         const t = 1 - Math.min(dx ? hw / Math.abs(dx) : Infinity, dy ? hh / Math.abs(dy) : Infinity);
         PG[0] = px; PG[1] = py; PG[2] = px + dx * t; PG[3] = py + dy * t;
         pinMark(lk?.line?.stroke ? lk.line : defLine, PG, true, a);
