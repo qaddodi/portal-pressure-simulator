@@ -1806,7 +1806,30 @@ export function boxOfCells(cells, n, cell) {
   return [x0, y0, x1 + cell, y1 + cell];
 }
 
-export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'stage', onPlate = null }) {
+export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'stage', onPlate = null, share = null }) {
+  // share (the lobule, 4 Nov 2026: one GPU context for the figure): another renderer's `top` ({ gl, canvas }). This one then makes no context
+  // and no canvas of its own: it draws in the host's context, and what it would put on its canvas goes to a texture and framebuffer of
+  // its own (scr, SCR() where a canvas is bound), which the host lays in its present (target). `canvas` is then only the size carrier
+  // (width and height as the owner sets them); its loss events are the host's canvas's.
+  const hostCv = share?.canvas || null;
+  const scr = share ? { tex: null, fbo: null, w: 0, h: 0 } : null;
+  // The framebuffer a present lays on: null (the canvas) or, shared, the texture's, sized to the canvas as it is now (made and sized here, lazily).
+  function SCR() {
+    if (!scr) return null;
+    const w = Math.max(1, canvas.width), h = Math.max(1, canvas.height);
+    if (!scr.fbo) { scr.tex = gl.createTexture(); scr.fbo = gl.createFramebuffer(); }
+    if (scr.w !== w || scr.h !== h) {
+      gl.bindTexture(gl.TEXTURE_2D, scr.tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, scr.fbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, scr.tex, 0);
+      gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+      scr.w = w; scr.h = h;
+    }
+    return scr.fbo;
+  }
   // (A row is written in ROW2_BITS bits in the second lumen target: many more rows than the figure has, about two hundred.)
   if (nTubes + 1 > ROW2_MASK) { console.warn(`Veins renderer: ${nTubes} vessel rows do not fit the second lumen target.`); return null; }
   // (For the ?perf readout: who asked for a whole draw or a target sized again, gpu-probe.js BY.)
@@ -1820,7 +1843,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // one-pass frames mark their cells in that buffer's stencil, never the canvas's.)
   const ownBuf = who === 'stage' || who === 'lobule';
   let gl = null;
-  try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: !ownBuf, preserveDrawingBuffer: !ownBuf, failIfMajorPerformanceCaveat: !force }); } catch { gl = null; }
+  try { gl = share ? share.gl : canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: !ownBuf, preserveDrawingBuffer: !ownBuf, failIfMajorPerformanceCaveat: !force }); } catch { gl = null; }
   if (!gl) return null;
   // The composite's per-frame uniforms are sent only when they changed (uniform-cache.js; laptop-heat Q2). They are set nowhere else.
   const UC = uniformCache(gl);
@@ -2006,7 +2029,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.viewport(0, 0, L.w, L.h);
     gl.clearBufferfv(gl.COLOR, 0, [0, 0, 0, 0]);
     drawLines(m, soft, warm);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
   }
   function renderLayerLow(L, m, soft, warm) {
     const w = Math.max(1, Math.round(PW() * layerK)), h = Math.max(1, Math.round(PH() * layerK));
@@ -2034,9 +2057,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, L.fbo);
     gl.disable(gl.SCISSOR_TEST);
     gl.blitFramebuffer(0, 0, w, h, 0, 0, L.w, L.h, gl.COLOR_BUFFER_BIT, gl.LINEAR);
-    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
-    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, SCR());
+    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, SCR());
+    gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
   }
   function freeLayer(L) {   // back to a single texel while nothing is drawn in it
     if (!L.w) return;
@@ -2388,7 +2411,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT2, gl.TEXTURE_2D, gTex2, 0);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT3, gl.TEXTURE_2D, depTex, 0);
     gl.drawBuffers(ATTACH);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
   }
   // Clears the bound vessel framebuffer's four targets (within the scissor, when it is on).
   const CLR_F = new Float32Array(4), CLR_U = new Uint32Array(4);
@@ -2637,7 +2660,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       gl.viewport(0, 0, fboW, fboH);
       pM = m; pLook = look; pMode = 1;
       eachPiece(la[0], la[1], fboW, fboH);
-      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
     }
     partCells += part.k;
   }
@@ -2653,7 +2676,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       gl.viewport(0, 0, fboW, fboH);
       pM = m; pLook = look; pMode = 2;
       eachPiece(la[0], la[1], fboW, fboH);
-      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
     }
     tintCells += part.k;
   }
@@ -2777,7 +2800,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.renderbufferStorage(gl.RENDERBUFFER, gl.STENCIL_INDEX8, own.w, own.h);
     gl.bindRenderbuffer(gl.RENDERBUFFER, null);
     gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.STENCIL_ATTACHMENT, gl.RENDERBUFFER, own.rb);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
     return true;
   }
   // The kept picture onto the canvas, every pixel, as it is (no scaling, no filtering).
@@ -2789,12 +2812,12 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   function present(top = true, again = false) {
     if (replace && !lost && replace.on()) {
       presents++;
-      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
       gl.viewport(0, 0, canvas.width, canvas.height);
       gl.disable(gl.SCISSOR_TEST); gl.disable(gl.STENCIL_TEST); gl.disable(gl.BLEND);
       gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
       try { replace.draw(); } catch (e) { console.warn('Veins renderer: what stands in for the figure failed.', e); replace = null; }
-      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
       return;
     }
     if (!own?.w || lost) return;
@@ -2820,7 +2843,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       overLay();
       if (top && tops.length) {
         runTops();
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
       }
       directNow = false; directP = pictureSeq; directB = bloodSeq;
       return;
@@ -2833,15 +2856,15 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     else if (!(up && !upLin && upDraw())) {
       // (A picture under the canvas's size with the plain upscale: filtered, as the page's compositor scales a smaller canvas up.)
       gl.bindFramebuffer(gl.READ_FRAMEBUFFER, own.fbo);
-      gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+      gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, SCR());
       gl.blitFramebuffer(0, 0, own.w, own.h, 0, 0, up ? canvas.width : own.w, up ? canvas.height : own.h, gl.COLOR_BUFFER_BIT, up ? gl.LINEAR : gl.NEAREST);
-      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
     }
     overLay();
     // (What is drawn over the figure in this canvas, the glasses: on every picture laid, as the overlays are.)
     if (top && tops.length) {
       runTops();
-      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
     }
   }
   // What is drawn over the figure in this canvas: each top's prep, then each top's draw, over the list as it stood when the phase began
@@ -2871,12 +2894,12 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       try { layP = auxTake('lay', true) || finishProgram(gl, startProgram(gl, REUSE_VS, LAY_FS)); } catch (e) { console.warn('Veins renderer: the overlays\' shader could not be made.', e); layP = false; }
     }
     if (!layP) return false;
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.disable(gl.STENCIL_TEST); gl.disable(gl.BLEND);
     gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
     try { under.draw(); } catch (e) { console.warn('Veins renderer: what is drawn under the figure failed.', e); under = null; }
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.disable(gl.SCISSOR_TEST); gl.disable(gl.STENCIL_TEST);
     gl.enable(gl.BLEND); gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
@@ -2912,7 +2935,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       try { layP = auxTake('lay', true) || finishProgram(gl, startProgram(gl, REUSE_VS, LAY_FS)); } catch (e) { console.warn('Veins renderer: the overlays\' shader could not be made.', e); layP = false; }
     }
     if (!layP) return;
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.disable(gl.SCISSOR_TEST); gl.disable(gl.STENCIL_TEST);
     gl.enable(gl.BLEND); gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
@@ -2935,7 +2958,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       try { camP = finishProgram(gl, startProgram(gl, REUSE_VS, CAM_FS)); } catch (e) { console.warn('Veins renderer: the camera shader could not be made.', e); camP = false; }
     }
     if (!camP) return false;
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.disable(gl.SCISSOR_TEST); gl.disable(gl.STENCIL_TEST);
     if (blend) { gl.enable(gl.BLEND); gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); } else { gl.disable(gl.BLEND); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); }
@@ -2964,7 +2987,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       upP = P;
     }
     if (!upP) return false;
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.disable(gl.BLEND); gl.disable(gl.STENCIL_TEST);
     gl.useProgram(upP.p);
@@ -3021,7 +3044,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.bindFramebuffer(gl.READ_FRAMEBUFFER, own ? own.fbo : null);
     gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, rz.fbo);
     gl.blitFramebuffer(0, 0, rz.w, rz.h, 0, 0, rz.w, rz.h, gl.COLOR_BUFFER_BIT, gl.NEAREST);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
     for (let i = 0; i < 6; i++) RZM[i] = m[i];   // (a copy: m is the frame's scratch)
     rz.m = RZM;
   }
@@ -3048,7 +3071,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.bindVertexArray(compVAO);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     gl.bindVertexArray(null);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
     if (own) present();
     pictured();
     return true;
@@ -3142,7 +3165,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
     tx.forEach((t, i) => { gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, fmt[i][0], 1, 1, 0, fmt[i][1], fmt[i][2], null); gl.framebufferTexture2D(gl.FRAMEBUFFER, ATTACH[i], gl.TEXTURE_2D, t, 0); });
     gl.drawBuffers(ATTACH);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
     // (One cell far off the figure: it lists nothing, so its pixels, none of them inside the target anyway, draw nothing.)
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1e6, -1e6, 0, 0, 0, 0]), gl.STATIC_DRAW);
@@ -3171,7 +3194,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       gl.bindVertexArray(null);
       gl.drawBuffers(ATTACH);
     }
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
   }
   const anyAux = () => { for (const k in aux) return true; return false; };
   function prepare() {
@@ -3187,7 +3210,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       freeTasks.splice(freeTasks.indexOf(t), 1);
       try { t.run(); } catch (e) { console.warn('Veins renderer: a warm-up drawn over the figure failed.', e); }
     }
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
     if (!later.length) return;
     for (const k of [...later]) {
       const sts = startsOf(k);
@@ -3204,8 +3227,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   if (ownBuf && SHADER_WARM) { const t = warmFade(gl); if (t) freeTasks.push(t); }
   const onLost = (e) => { e.preventDefault(); lost = true; UC.reset(); };
   const onRestored = () => UC.reset();
-  canvas.addEventListener('webglcontextlost', onLost);
-  canvas.addEventListener('webglcontextrestored', onRestored);
+  (hostCv || canvas).addEventListener('webglcontextlost', onLost);
+  (hostCv || canvas).addEventListener('webglcontextrestored', onRestored);
   // A software renderer (no usable GPU: the browser draws on the CPU) is told apart so the stage
   // can draw less often and at a lower resolution there.
   // (One test for every view, sw-yield.js softwareGL: the renderer's name, the address's override and the browser's own answer. Never
@@ -3602,7 +3625,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         lowPass(m, look);
         setBase(m); keepLook(); tubesNew = false; clearMarks(); drawnNow();
         fboOK = false; stale = false; soft = true; rz.m = null;
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
         this.composite(look, blood, true);
         return;
       }
@@ -3623,7 +3646,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         wrapNone(); lowLive = null;   // (the layer empty, its texels where they show)
         setBase(m); keepLook(); tubesNew = false; clearMarks(); drawnNow();
         fboOK = false;
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
         fusing = true;
         this.composite(look, blood, true);
         if (reuseEvery && reuseOn) { reuseKeep(m); reuseN = 1; } else rz.m = null;
@@ -3652,7 +3675,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       setBase(m); keepLook(); tubesNew = false; clearMarks(); drawnNow();
       fboOK = true; stale = false;
       if (gpuProbe.on) gpuProbe.gauge('vessel cells, one-vessel program', simpleP ? `${nSimple} of ${nCells}` : 'off');
-      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
       this.composite(look, blood, true);
     },
     /**
@@ -3729,7 +3752,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     /** The canvas's own context for what is drawn over the figure in it (the glasses): add({ order, prep, draw }) puts one in at the end of
      *  each present (see tops) and returns the call that takes it out. */
     top: ownBuf ? {
-      gl, canvas,
+      gl, canvas: hostCv || canvas,
+      /** The framebuffer the canvas stands in as (null; shared, the texture's): what a pass laid on this renderer's picture binds. */
+      screen: SCR,
       add(t) { tops.push(t); tops.sort((a, b) => (a.order || 0) - (b.order || 0)); return () => { const i = tops.indexOf(t); if (i >= 0) tops.splice(i, 1); }; },
       /** What is drawn under the figure in this canvas ({ on(), draw() }, one at a time): drawn first at each present while on() says so,
        *  onto the cleared canvas, the kept picture laid over it. Returns the call that takes it out. */
@@ -3783,7 +3808,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       if (lost || !(top > 0 && top < 1) || PW() < 1 || PH() < 1) return;
       lowTop = Math.max(lowTop, top);
       lowTargets(Math.round(PW() * top), Math.round(PH() * top));
-      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
     },
     /** R10: how many times the quality tiers' targets have been made (a tier step makes none). */
     get lowMade() { return lowMade; },
@@ -4003,7 +4028,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       // last picture). This is what lets a figure whose blood stands still sleep through the model's own frames (31 Oct: a running
       // model redrew the whole canvas about ten times a second though nothing on it changed).
       if (still && !fused && !part && !dirt && !pool && !(fl?.ripple && nFluid) && !cath && figVer === figAt && !moved.includes(1)) {
-        if (own) gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        if (own) gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
         if (gpuProbe.on) gpuProbe.note(COUNTED.pictureSkipped);
         return false;
       }
@@ -4156,6 +4181,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       if (!lost) present(true, true);
     },
     get camera() { return cam; },
+    /** Shared (share): the texture this renderer's present lays its picture on, { tex, w, h } (null otherwise); the host lays it over its own. */
+    get target() { if (!scr) return null; SCR(); return scr; },
     /** Changes whenever the canvas is drawn on again, but for a frame of the moving blood alone (the glass takes a new copy of the figure only then). */
     get drawSeq() { return pictureSeq; },
     /** The frames of the moving blood alone, which drawSeq leaves out. */
@@ -4164,7 +4191,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     get viewKey() { return baseM ? viewKeyStr : ''; },
     /** Calls f each time drawSeq changes; returns the call that stops it. */
     onPicture(f) { onPicture.add(f); return () => onPicture.delete(f); },
-    clear() { pictured(); if (own?.w) { gl.bindFramebuffer(gl.FRAMEBUFFER, own.fbo); gl.viewport(0, 0, own.w, own.h); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); } gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, canvas.width, canvas.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); nCells = nBlood = nGen = nSimple = 0; baseM = null; fboOK = false; },
+    clear() { pictured(); if (own?.w) { gl.bindFramebuffer(gl.FRAMEBUFFER, own.fbo); gl.viewport(0, 0, own.w, own.h); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); } gl.bindFramebuffer(gl.FRAMEBUFFER, SCR()); gl.viewport(0, 0, canvas.width, canvas.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); nCells = nBlood = nGen = nSimple = 0; baseM = null; fboOK = false; },
     /** The current picture as a PNG data URL (call right after draw, in the same task). */
     snapshot() { const c = { ...cam }; cam.k = 1; cam.a = 1; try { present(false); const url = canvas.toDataURL('image/png'); Object.assign(cam, c); if (tops.length || camOn()) present(); return url; } finally { Object.assign(cam, c); } },   // (the figure alone; then laid again whole, as it shows)
     /**
@@ -4211,8 +4238,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      * then cannot draw until the browser restores it, so give the next instance a new canvas.
      */
     dispose({ lose = false } = {}) {
-      canvas.removeEventListener('webglcontextlost', onLost);
-      canvas.removeEventListener('webglcontextrestored', onRestored);
+      (hostCv || canvas).removeEventListener('webglcontextlost', onLost);
+      (hostCv || canvas).removeEventListener('webglcontextrestored', onRestored);
       if (!lost) {
         useMorphSet(null);
         for (const S of [...morphSets]) dropSet(S);
@@ -4232,7 +4259,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         if (warmT) { for (const t of warmT.tx) gl.deleteTexture(t); gl.deleteFramebuffer(warmT.fb); gl.deleteBuffer(warmT.buf); gl.deleteVertexArray(warmT.va); }
         // (Builds still compiling: given back unpublished, with every shader.)
         if (later.length) { for (const k of later) for (const st of startsOf(k)) gl.deleteProgram(st.p); later.length = 0; freeShaders(); }
-        if (lose) gl.getExtension('WEBGL_lose_context')?.loseContext();
+        if (scr?.fbo) { gl.deleteTexture(scr.tex); gl.deleteFramebuffer(scr.fbo); scr.fbo = scr.tex = null; scr.w = scr.h = 0; }
+        if (lose && !share) gl.getExtension('WEBGL_lose_context')?.loseContext();
       }
       plates[0] = plates[1] = null; lines = cath = null; nCells = nBlood = nFluid = nGen = nSimple = 0; baseM = null; fboW = fboH = 0;
       lost = true;
