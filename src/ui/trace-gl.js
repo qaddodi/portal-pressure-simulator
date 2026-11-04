@@ -43,19 +43,14 @@ export function keepLayer(ctx, name, sig, draw) {
   draw();
   return false;
 }
-// (2 Nov 2026, audit R04: each chart sets the shared drawing buffer to its own size as its frame begins, so two charts of different sizes
-// drawn in one frame reallocated it twice a frame, and a full-screen picture (the page's words) beside a small chart, every frame. The
-// charts are spread over a few shared contexts (POOLS, least used first), so charts that draw in the same frame mostly keep their
-// own buffer's size. Each pool compiles the programs and holds the glyph field once.)
-const POOLS = 3;
+// (2 Nov 2026, audit R04, then two-contexts plan D3/U2, 4 Nov 2026: ONE shared context for every chart. Its drawing buffer grows in CAP_STEP
+// steps to the largest chart drawn so far and is never shrunk, so charts of different sizes never resize it. Each chart draws in the
+// buffer's lower left W x H (viewport and scissor), and its card canvas, given the buffer's size by the hand-over, is shown at that size
+// and clipped to the chart's own box (place), so pixels still map 1:1 and nothing is copied or resized.)
 const pools = [];
-/** Size reallocations of the shared buffers and pictures handed over, since the page opened (the ?perf readout, audit R04). */
+/** Size reallocations of the shared buffer and pictures handed over, since the page opened (the ?perf readout, audit R04). */
 export const sharedStats = { covRemade: 0, resizes: 0, transfers: 0, moves: 0, covAllocs: 0, uploads: 0, subUploads: 0 };
-// (Review pass item 6, 2 Nov 2026: a pool whose buffer was sized for another chart less than SIZE_HOLD ms ago and is asked for a
-// different size again is thrashing. The chart asking moves, once per MOVE_GAP ms at most, to a pool already at its size or idle in
-// size, and a pool is prepared in a timer for the next chart if none is (programs and glyph field in, never in a frame). Coverage
-// targets are one per pool, grown in CAP_STEP steps and never shrunk, so charts of different sizes never reallocate them.)
-const SIZE_HOLD = 1000, MOVE_GAP = 2000, CAP_STEP = 256;
+const CAP_STEP = 256;
 export const capOf = (n) => Math.ceil(Math.max(1, n) / CAP_STEP) * CAP_STEP;
 function makePool() {
   const pool = { dead: true, users: 0 };   // alloc-rare: a drawing pool (a GL context) is made once, a timer ahead of the first chart that needs it
@@ -64,7 +59,7 @@ function makePool() {
   const canvas = new OffscreenCanvas(1, 1);
   try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: true, preserveDrawingBuffer: false, powerPreference: 'low-power', failIfMajorPerformanceCaveat: true }); } catch { gl = null; }   // alloc-rare: a drawing pool is made once
   if (!gl || typeof gl.createShader !== 'function' || typeof canvas.transferToImageBitmap !== 'function') return pool;
-  Object.assign(pool, { dead: false, canvas, gl, gen: 0, started: null, atlasTex: null, atlasIn: false, active: null, sizedAt: -1e9, sizedBy: null, cov: null });   // alloc-rare: a drawing pool is made once
+  Object.assign(pool, { dead: false, canvas, gl, gen: 0, started: null, atlasTex: null, atlasIn: false, active: null, cov: null });   // alloc-rare: a drawing pool is made once
   canvas.addEventListener?.('webglcontextlost', (e) => { e.preventDefault(); pool.started = null; pool.atlasTex = null; pool.atlasIn = false; pool.cov = null; });   // alloc-rare: a drawing pool is made once
   canvas.addEventListener?.('webglcontextrestored', () => { pool.gen++; });   // alloc-rare: a drawing pool is made once
   return pool;
@@ -76,57 +71,16 @@ const progList = (started) => {
   if (!l) { l = Object.values(started); progLists.set(started, l); }   // alloc-rare: made once for each set of started programs
   return l;
 };
-const poolCompiling = (q) => stillCompiling(q.gl, progList(q.started));
 const NO_OPTS = Object.freeze({});   // (a stroke asked for with no options: nothing is made for it)
 const LS_TEXT = new Map();
 const lsText = (n) => LS_TEXT.get(n) ?? (LS_TEXT.size >= 400 && LS_TEXT.clear(), LS_TEXT.set(n, `${n}px`).get(n));   // alloc-rare: the text of a letter spacing is made the first time that spacing is set, then looked up
 function sharedGL() {
   if (!pools.length) { const first = makePool(); pools.push(first); if (first.dead) return null; }
   if (pools[0].dead) return null;
-  // (One context at the start; the others are made, ahead and in a timer, only when charts of different sizes meet in one: prewarmSoon.
-  // A page holds only so many contexts, and the dock's charts are made at the start but drawn only when shown.)
-  let best = pools[0];
-  for (let i = 1; i < pools.length; i++) if (pools[i].users < best.users) best = pools[i];
-  best.users++;
-  return best;
+  pools[0].users++;
+  return pools[0];
 }
 const startPool = (p) => (p.started ||= Object.fromEntries(Object.entries(SRC).map(([k, [vs, fs]]) => [k, startProgram(p.gl, vs, fs)])));   // alloc-rare: a pool's programs are started once
-function atlasInto(p) {
-  const gl = p.gl;
-  if (p.atlasIn || !glyphImage || gl.isContextLost()) return;
-  if (!p.atlasTex) {
-    p.atlasTex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, p.atlasTex);
-    for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);   // alloc-rare: the glyph atlas goes up once per pool
-  }
-  gl.bindTexture(gl.TEXTURE_2D, p.atlasTex);
-  gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, ATLAS_W, ATLAS_H, 0, gl.RED, gl.UNSIGNED_BYTE, glyphImage);
-  p.atlasIn = true;
-}
-// (A pool made ready ahead, in a timer: never inside a chart's frame.)
-let prewarmT = 0;
-function prewarmSoon() {
-  if (prewarmT || pools.length >= POOLS) return;
-  prewarmT = setTimeout(() => {
-    prewarmT = 0;
-    if (pools.length >= POOLS) return;
-    const p = makePool();
-    if (p.dead) return;
-    pools.push(p); startPool(p); atlasInto(p);
-  }, 0);
-}
-/** The pool a chart of Wd × Hd should move to from `from`: one at that size, or one no chart has sized for SIZE_HOLD ms, whose
- *  programs and glyph field are in (nothing compiled or uploaded in the frame that moves). Null: none (one is prepared meanwhile). */
-export function poolFor(list, from, Wd, Hd, now, compiling = () => false) {
-  let idle = null;
-  for (const p of list) {
-    if (p === from || p.dead || !p.started || !p.atlasIn || compiling(p)) continue;
-    if (p.canvas.width === Wd && p.canvas.height === Hd) return p;
-    if (!idle && now - p.sizedAt > SIZE_HOLD) idle = p;
-  }
-  return idle;
-}
-
 // Paint (a colour or a linear gradient of up to sixteen stops: the profile's curve has a stop per station), shared by the fills and the strokes' laying down. Positions in CSS px.
 const PAINT = `
 uniform vec4 pc[16];                 // the stops' colours (premultiplied)
@@ -428,7 +382,7 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
   glCanvas.addEventListener?.('webglcontextlost', onLost);
   let P = null, started = null, stopPoll = null;
   let quad = null, quadVao = null, segBuf = null, segVao = null, fillBuf = null, fillVao = null, boxBuf = null, boxVao = null, textBuf = null, textVao = null;
-  let covTex = null, fbo = null, ownCov = null, movedAt = -1e9, atlasTex = null, atlasIn = false, unitBuf = null, unitVao = null;
+  let covTex = null, fbo = null, ownCov = null, atlasTex = null, atlasIn = false, unitBuf = null, unitVao = null;
   // alloc-rare: made once with the chart (createTraceGL runs once for a chart), never in a frame
   const images = new Map();   // (a picture's key → { tex, ver }: textures kept from frame to frame, a few at most)
   // alloc-rare: made once with the chart (createTraceGL runs once for a chart), never in a frame
@@ -559,20 +513,6 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
       layerHold?.drop(); layerHold = null;
       if (ownCov) { gl.deleteTexture(ownCov.tex); gl.deleteFramebuffer(ownCov.fb); ownCov = null; }
     } catch (e) { caught('trace-gl:501', e); /* a lost context holds nothing */ }
-  }
-  // (Review pass item 6: to a pool at this chart's size, so two charts of different sizes stop resizing one buffer every frame.)
-  function moveTo(p) {
-    stopPoll?.();
-    freeOwn();
-    if (shared.active === api) shared.active = null;
-    shared.users = Math.max(0, shared.users - 1);
-    glCanvas.removeEventListener?.('webglcontextlost', onLost); glCanvas.removeEventListener?.('webglcontextrestored', onRestored);
-    shared = p; p.users++; gl = p.gl; glCanvas = p.canvas;
-    glCanvas.addEventListener?.('webglcontextlost', onLost); glCanvas.addEventListener?.('webglcontextrestored', onRestored);
-    build(); publish();
-    atlasIn = !!p.atlasIn;
-    sharedStats.moves++;
-    return !!P;
   }
   host.after(canvas);
   // (Parking: the context is given back while the chart is off the screen, display:none included, and taken again as it comes near.)
@@ -800,6 +740,17 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
     covTex = c.tex; fbo = c.fb;
   }
 
+  // (U2: the card canvas holds the whole buffer (bw x bh device px). It is shown at that size in CSS px, drawn from the box's top left, and
+  // moved up and clipped so that only the chart's lower-left W x H shows, exactly over its box. Written only when a number changes.)
+  let plW = -1, plH = -1, plBW = -1, plBH = -1, plK = -1;
+  function place(bw, bh) {
+    if (plW === W && plH === H && plBW === bw && plBH === bh && plK === K) return;
+    plW = W; plH = H; plBW = bw; plBH = bh; plK = K;
+    const st = canvas.style;
+    if (bw === W && bh === H) { st.width = st.height = st.translate = st.clipPath = ''; return; }
+    const dy = (bh - H) / K, dx = (bw - W) / K;
+    st.width = `${bw / K}px`; st.height = `${bh / K}px`; st.translate = `0 ${-dy}px`; st.clipPath = `inset(${dy}px ${dx}px 0px 0px)`;
+  }
   // alloc-rare: made once with the chart (createTraceGL runs once for a chart), never in a frame
   const api = {
     canvas,
@@ -849,26 +800,18 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
         // (Another chart's frame still open in the shared context is finished first: its picture handed over before this one starts.)
         if (shared.active && shared.active !== api) shared.active.end();
         shared.active = api;
-        if (glCanvas.width !== Wd || glCanvas.height !== Hd) {
-          const t = performance.now();
-          if (shared.sizedBy !== api && t - shared.sizedAt < SIZE_HOLD && t - movedAt > MOVE_GAP) {   // (another chart sized it just now; a chart changing its own size stays)
-            const p = poolFor(pools, shared, Wd, Hd, t, poolCompiling);
-            if (p) {
-              movedAt = t;
-              if (!moveTo(p)) { shared.active = null; missed = true; api.hide(); return false; }
-              shared.active = api;
-            } else prewarmSoon();
-          }
-          if (glCanvas.width !== Wd || glCanvas.height !== Hd) { glCanvas.width = Wd; glCanvas.height = Hd; sharedStats.resizes++; shared.sizedAt = t; shared.sizedBy = api; }
-        }
+        // (U2: the one buffer grows to the largest chart in CAP_STEP steps and is never shrunk; a smaller chart draws in its lower left.)
+        if (glCanvas.width < Wd || glCanvas.height < Hd) { glCanvas.width = Math.max(glCanvas.width, capOf(Wd)); glCanvas.height = Math.max(glCanvas.height, capOf(Hd)); sharedStats.resizes++; }
         gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.bindVertexArray(null); gl.useProgram(null);
         gl.clearStencil(0); gl.stencilMask(0xff);
       }
-      if (canvas.width !== Wd || canvas.height !== Hd) { canvas.width = Wd; canvas.height = Hd; }
+      if (!shown && (canvas.width !== Wd || canvas.height !== Hd)) { canvas.width = Wd; canvas.height = Hd; }   // (a shared chart's canvas takes the buffer's size from the hand-over)
       W = Wd; H = Hd; K = Wd / w;
       gl.viewport(0, 0, W, H);
       gl.disable(gl.SCISSOR_TEST); gl.disable(gl.STENCIL_TEST);
+      if (shown) { gl.enable(gl.SCISSOR_TEST); gl.scissor(0, 0, W, H); }   // (only the chart's own W x H of the larger buffer is cleared)
       gl.clearColor(0, 0, 0, 0); gl.clear(shown ? gl.COLOR_BUFFER_BIT | gl.STENCIL_BUFFER_BIT : gl.COLOR_BUFFER_BIT);
+      if (shown) gl.disable(gl.SCISSOR_TEST);
       if (under) {
         // (A picture of the chart's own drawn first in this context, under the words: gen changes when the context is made again,
         // so its programs and textures are made again.)
@@ -895,7 +838,7 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
         if (shared.active === api) shared.active = null;
         sharedStats.transfers++; notePass('transfer', W * H);
         let bmp = null;
-        try { bmp = glCanvas.transferToImageBitmap(); shown.transferFromImageBitmap(bmp); bmp = null; } catch (e) { ok = false; console.warn('Charts on the GPU: the picture could not be handed over.', e); }
+        try { bmp = glCanvas.transferToImageBitmap(); shown.transferFromImageBitmap(bmp); bmp = null; place(glCanvas.width, glCanvas.height); } catch (e) { ok = false; console.warn('Charts on the GPU: the picture could not be handed over.', e); }
         if (bmp) { try { bmp.close?.(); } catch { /* already gone */ } }
       }
       if (ok) {
@@ -1240,7 +1183,6 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
         // alloc-rare: teardown, when the chart is let go, never in a frame
         if (P && !shown) for (const k of Object.keys(P)) gl.deleteProgram(P[k].p);   // (shared: the programs and the field stay for the others)
       } catch (e) { caught('trace-gl:1029', e); /* a lost context holds nothing */ }
-      if (shown && shared.sizedBy === api) shared.sizedBy = null;
       if (shown && shared.active === api) shared.active = null;
       if (shown) shared.users = Math.max(0, shared.users - 1);
       canvas.width = canvas.height = 0;

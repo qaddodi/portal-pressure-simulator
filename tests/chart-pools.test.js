@@ -1,5 +1,5 @@
 // The chart pipeline's shared contexts (trace-gl.js, review pass item 6, 2 Nov 2026): charts of different sizes drawn in the same frames
-// stop resizing one shared buffer (the chart asking moves to a pool at its size, made ready in a timer, never in its frame), coverage is
+// stop resizing one shared buffer (one pool, grown in steps, U2), coverage is
 // one grow-only target per pool, a picture of the same size is written into its storage (texSubImage2D), and every picture handed over
 // is counted.
 import { test } from 'node:test';
@@ -34,33 +34,26 @@ const elem = () => ({ width: 1, height: 1, style: {}, setAttribute() {}, remove(
 globalThis.document = { createElement: elem };
 globalThis.MutationObserver = class { observe() {} disconnect() {} }; globalThis.ResizeObserver = class { observe() {} disconnect() {} }; globalThis.IntersectionObserver = class { observe() {} disconnect() {} }; globalThis.matchMedia = () => ({ matches: false, addEventListener() {}, addListener() {} }); globalThis.devicePixelRatio = 2; globalThis.innerWidth = 800; globalThis.innerHeight = 600; globalThis.addEventListener = () => {}; globalThis.removeEventListener = () => {}; globalThis.window = globalThis; globalThis.requestAnimationFrame = () => 0; globalThis.Element = class {}; globalThis.HTMLElement = class {}; globalThis.HTMLCanvasElement = class {};
 globalThis.location = { search: '' };
-const { createTraceGL, sharedStats, capOf, poolFor } = await import('../src/ui/trace-gl.js');
+const { createTraceGL, sharedStats, capOf } = await import('../src/ui/trace-gl.js');
 await new Promise((r) => setImmediate(r)); runTimers();
 
 const host = () => ({ style: {}, after() {} });
 const draw = (c, w, h) => { const ctx = c.ctx2d(w, h, w * 2, h * 2); if (ctx) { c.line([0, w], [0, h], 2, '#fff', 1); c.end(); } return !!ctx; };
 
-test('capacity steps and the pool a thrashing chart moves to', () => {
+test('capacity steps', () => {
   assert.equal(capOf(1), 256); assert.equal(capOf(256), 256); assert.equal(capOf(257), 512);
-  const mk = (w, h, sizedAt, ready = true) => ({ canvas: { width: w, height: h }, sizedAt, started: ready ? {} : null, atlasIn: ready, dead: false });
-  const a = mk(100, 100, 0), b = mk(300, 200, 990), c = mk(50, 50, 0);
-  b.sizedAt = 1400;
-  assert.equal(poolFor([a, b, c], a, 300, 200, 1500), b, 'one already at its size');
-  assert.equal(poolFor([a, b], a, 640, 480, 1500), null, 'b was sized less than a second ago, and a is the one asking: none');
-  assert.equal(poolFor([a, b, c], a, 640, 480, 1500), c, 'an idle one');
-  assert.equal(poolFor([a, mk(640, 480, 0, false)], a, 640, 480, 5000), null, 'never one still compiling or without its glyphs');
 });
 
-test('a chart sharing a pool with one of another size moves to the pool at its own size, and the resizes stop', async () => {
-  // (Three pools; the fourth chart is given the least used one, the first chart's, and is 200 x 90 as the second chart is.)
+test('charts of mixed sizes share ONE context and one grow-only buffer: no resize after warm-up (U2)', async () => {
+  const made = contexts.length;
   const A = createTraceGL(host()), B = createTraceGL(host()), C = createTraceGL(host()), D = createTraceGL(host());
   assert.ok(A && B && C && D);
-  const frame = () => { clock += 16; for (const [c, w, h] of [[A, 300, 120], [B, 200, 90], [C, 250, 100], [D, 200, 90]]) assert.ok(draw(c, w, h)); runTimers(); };
-  for (let i = 0; i < 6; i++) frame();
+  const frame = (k) => { clock += 16; for (const [c, w, h] of [[A, 300, 120], [B, 200, 90], [C, 250 + (k % 5), 100], [D, 640, 300]]) assert.ok(draw(c, w, h)); runTimers(); };
+  for (let i = 0; i < 6; i++) frame(i);
   const r0 = sharedStats.resizes;
-  for (let i = 0; i < 60; i++) frame();
-  assert.ok(sharedStats.moves >= 1, 'moved');
+  for (let i = 0; i < 60; i++) frame(i);
   assert.equal(sharedStats.resizes - r0, 0, `resizes in 60 frames: ${sharedStats.resizes - r0}`);
+  assert.ok(contexts.length - made <= 1, `one shared context for all the charts, made ${contexts.length - made}`);
   assert.ok(sharedStats.transfers >= 264, 'every picture handed over is counted');
   for (const c of [A, B, C, D]) c.dispose();
 });

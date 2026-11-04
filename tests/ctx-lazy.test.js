@@ -31,10 +31,10 @@ test('the support question asks the host (the figure, then any context the state
   assert.match(src('gl-state.js'), /export function heldGL\(\)/);
 });
 
-test('charts share one context at the start; more are made only when charts of different sizes meet (prewarmSoon)', () => {
+test('charts share ONE context, always (U2: no second pool, no prewarm)', () => {
   const t = src('trace-gl.js');
   assert.doesNotMatch(t, /best\.users > 0 && pools\.length < POOLS/);
-  assert.match(t, /\} else prewarmSoon\(\);/);
+  assert.doesNotMatch(t, /prewarmSoon|POOLS/);
 });
 
 test('a dev assert allows at most 2 of the page\'s own live contexts plus the charts\'', () => {

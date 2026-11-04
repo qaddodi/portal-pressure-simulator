@@ -10,7 +10,7 @@ import { join, relative, sep } from 'node:path';
 const ALLOWED = {
   // end state
   'src/ui/veins-gl.js': 1,      // the figure
-  'src/ui/trace-gl.js': 2,      // the chart pool (its full-screen drawer is U2's to place)
+  'src/ui/trace-gl.js': 2,      // the chart pool (U2: one pool; no drawer is full-screen over the figure) plus the own-canvas fallback
   'src/ui/gl-support.js': 2,    // probes: made once, thrown away
   'src/ui/sw-yield.js': 2,      // probe (webgl2, then webgl, on one line)
   // today's sites, each deleted by the package named
