@@ -132,6 +132,7 @@ export async function runTrace() {
   call('rise', () => store.set1('lobule', false)); run(150, 'rise');
   call('card', () => st.zoomOpen()); for (let i = 0; i <= 30; i++) { call('card', () => st.zoomAt(1 + i / 30, 600, 400, 50, 0)); run(1, 'card'); }
   call('cardEnd', () => st.zoomEnd()); run(10, 'cardEnd');
+  if (process.env.TRACE_PERF) { const { perf } = await import('../src/ui/frame.js'); const t = perf().totals; console.log(JSON.stringify({ frames: t.frames, asks: t.asks, drawn: t.drawn }, null, 1)); }
   return out;
 }
 
