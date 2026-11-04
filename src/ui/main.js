@@ -2,7 +2,7 @@
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
 import { motionBudget } from './motion-budget.js';   // (first: counts from the start when ?perf or ?budget=1 asks)
-import { budget as gpuBudget } from './gpu-budget.js';   // (the render graph's registry and pass counts, R06: before any context is made)
+import { budget as gpuBudget, deviceClass, overBudget } from './gpu-budget.js';   // (the render graph's registry and pass counts, R06: before any context is made)
 import './gl-state.js';   // (early: every WebGL2 context is recorded from its creation, R09/R06)
 import { startHost, host, hostFailed, restartHost } from './host.js';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js';
@@ -1344,8 +1344,11 @@ function setSpeed(v, lapse = false) {
 // A theme chosen in the app crossfades the whole page (.45 s): the old look is held as a still picture at full resolution and
 // fades over the live new one (View Transitions, styles/app.css). Where that is not supported it changes at once, as before
 // (motion review P1). Page load and a change of the device's own theme apply at once.
+// (PR-16: only on the desktop, and never over the memory budget. A crossfade holds the old 8 MP page as a texture beside the new one, two
+// more full-page surfaces on a phone or iPad already near its envelope; there the change applies at once, as under reduced motion.)
+const canCrossfade = () => !!document.startViewTransition && !document.hidden && deviceClass() === 'desktop' && !overBudget();
 function switchTheme(t, clear) {
-  if (!document.startViewTransition || document.hidden) { applyTheme(t, clear); return; }
+  if (!canCrossfade()) { applyTheme(t, clear); return; }
   // (The new page is whole before the crossfade captures it: every surface has drawn the look, themeSettled in theme-epoch.js, capped.)
   crossfade(() => { applyTheme(t, clear); return themeSettled(); });
 }
@@ -2122,7 +2125,7 @@ function toggleProjector(on = !projector) {
   if (on === projWant && on === projector) return;
   projWant = on;
   const go = () => { if (projector !== projWant) flipProjector(); };
-  if (!document.startViewTransition || document.hidden) { go(); return; }
+  if (!canCrossfade()) { go(); return; }
   crossfade(go);
 }
 function flipProjector() {
