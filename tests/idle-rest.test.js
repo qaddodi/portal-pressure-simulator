@@ -69,6 +69,6 @@ test('idle rest is wired: Explore, or a talk whose slide is idle (presenter.idle
   assert.match(main, /onWake: \(\) => \{ setPageRest\(false\); host\.send\(\{ type: 'visibility', visible: !document\.hidden \}\); stage\.rest\(false\); \}/);
   const stage = stageSource();
   assert.match(stage, /const REST_IN_S = 1\.5, REST_OUT_S = 0\.4;/);
-  assert.match(stage, /if \(!st\.running \|\| reduceMotion\.matches \|\| restStill\(\)\) return false;/);
-  assert.match(stage, /bloodClock = \(bloodClock \+ dt \* restK\) % 10000;/);
+  assert.match(stage, /if \(!st\.running \|\| reduceMotion\.matches \|\| (?:live\.)?restStill\(\)\) return false;/);
+  assert.match(stage, /(?:live\.)?(?:live\.)?bloodClock = \((?:live\.)?(?:live\.)?bloodClock \+ dt \* (?:live\.)?(?:live\.)?restK\) % 10000;/);
 });

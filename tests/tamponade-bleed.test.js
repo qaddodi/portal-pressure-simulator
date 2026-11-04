@@ -142,7 +142,7 @@ test('the figure eases the spray out as its balloon fills, and the scope as its 
   const stage = stageSource();
   assert.match(stage, /const BAL_ADV_MS = BALLOON_MS\.adv, BAL_INF_MS = BALLOON_MS\.inflate, BAL_ESO_MS = BALLOON_MS\.eso;/, 'the figure fills its balloons over the times the seal is held to');
   assert.match(stage, /const pressedShut = \(\) => bal\.wantGas && bal\.gas >= 1;/, 'the gastric balloon, filled and drawn up, is what presses a tear shut');
-  assert.match(stage, /const sprayOn = \(\) => !!F\?\.bleed\?\.active && morph < 0\.5 && !pressedShut\(\);/, 'full balloon, no spray; the fade out is stepBleedFade');
+  assert.match(stage, /const sprayOn = \(\) => !!(?:live\.)?F\?\.bleed\?\.active && (?:live\.)?morph < 0\.5 && !pressedShut\(\);/, 'full balloon, no spray; the fade out is stepBleedFade');
   const scope = readFileSync(new URL('../src/ui/instruments.js', import.meta.url), 'utf8');
   assert.match(scope, /const bleeding = bleedNow && !\(shut && shutA >= 1\);/, 'the jet eases out for the gastric balloon, the first step');
   assert.match(scope, /balA = glide\(balA, \+balloon, du\)/, 'the esophageal balloon fills the view on its own ease');

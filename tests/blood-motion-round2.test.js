@@ -10,12 +10,12 @@ const fn = (src, head) => { const i = src.indexOf(head); assert.ok(i >= 0, head)
 
 test('B10: a reversed colour or chevron fade still on its way keeps the figure awake, so it never stops part-way while paused', () => {
   const blood = fn(stage, '  function stepBlood(dt) {');
-  assert.match(blood, /bloodEasing = false;/);
+  assert.match(blood, /(?:live\.)?bloodEasing = false;/);
   assert.match(blood, /sm\.rev = sm\.rev == null \? rt : eased\(sm\.rev, rt, ease\);/);
   assert.match(blood, /sm\.chevK = sm\.chevK == null \? ct : eased\(sm\.chevK, ct, ease\);/);
-  assert.match(stage, /const eased = \(v, to, k\) => \{ if \(Math\.abs\(to - v\) <= 0\.002\) return to; bloodEasing = true; return v \+ \(to - v\) \* k; \};/);
+  assert.match(stage, /const eased = \(v, to, k\) => \{ if \(Math\.abs\(to - v\) <= 0\.002\) return to; (?:live\.)?(?:live\.)?bloodEasing = true; return v \+ \(to - v\) \* k; \};/);
   // The loop sleeps only once they have landed (exactly on their ends).
-  assert.match(stage, /!widthEasing && !bloodEasing && !plateEasing\(\)/);
+  assert.match(stage, /!widthEasing && !(?:live\.)?bloodEasing && !plateEasing\(\)/);
 });
 
 test('B9: while the anatomy still shows during the lobule dive, its blood keeps moving (the plate itself holds still)', () => {
@@ -32,8 +32,8 @@ test('atlas picks (18 Oct): smaller chevrons with a tinted dark core and softer 
   // A1: 4–8 CSS px half-width, never over 0.8 of the lumen; the stage and the lobule both say how many canvas px a CSS px is.
   assert.match(gl, /float hw = min\(0\.8 \* R, clamp\(0\.5 \* R, 4\.0 \* cssPx \* pxW, 8\.0 \* cssPx \* pxW\)\)/);
   assert.match(gl, /vec3 ink = mix\(chevInk, vc \* 0\.3, 0\.2\);/);
-  assert.match(stage, /L\.holes = chevHoles; L\.vdpr = vdpr;\n\s+L\.originCol = bc\.originCol; L\.dyeCol = bc\.dyeCol;/);
-  assert.match(read('src/ui/lobule-zoom.js'), /bleed: \[\], vdpr: 1, originCol: null/);
+  assert.match(stage, /L\.holes = (?:live\.)?(?:live\.)?chevHoles; L\.vdpr = (?:live\.)?(?:live\.)?vdpr;\n\s+L\.originCol = bc\.originCol; L\.dyeCol = bc\.dyeCol;/);
+  assert.match(read('src/ui/lobule-zoom.js'), /bleed: \[\], (?:live\.)?vdpr: 1, originCol: null/);
   assert.match(read('src/ui/lobule-zoom.js'), /const bc = bloodColors\(\), blood = bloodArg;/);
   // AL3: the chevrons read the radius between its samples.
   assert.match(gl, /float radAt\(int id, float s, float len\)/);

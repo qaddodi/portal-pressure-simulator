@@ -55,7 +55,7 @@ test('P6: the radius sync compares a copy element by element, with no joined key
 
 test('P8: stepBlood keeps per-frame facts per model frame, syncEnds compares in place', () => {
   const stage = stageSource().replace(/^\s*\/\/.*$/gm, ''), gl = read('src/ui/veins-gl.js');
-  assert.match(stage, /if \(perF !== F \|\| perH !== H\) \{/);
+  assert.match(stage, /if \(perF !== (?:live\.)?(?:live\.)?F \|\| perH !== H\) \{/);
   assert.match(stage, /advanceStreamAt\(streams\[k\], velQf, velQ, k, so\)/);
   assert.match(stage, /KEY_K\[k\] === 1 \|\| \(KEY_K\[k\] === 2 && keyChevron\(EDGES\[k\], laneOpen\)\)/);
   assert.doesNotMatch(stage, /list\.map\(\(x\) => x\.e\.id\)\.join/);
@@ -140,7 +140,7 @@ test('B8: label keep-out boxes are taken after the glide, and cut the arrowheads
 
 test('B11: bleed jets and the ascites ripple run on clocks that stand still while paused; the dye front reads the caliber between samples', () => {
   const stage = stageSource(), gl = read('src/ui/veins-gl.js');
-  assert.match(stage, /return fadeBleedShapes\(bleedShapes\(sprayLast\.bleed, sprayLast\.rate, reduceMotion\.matches \? 0 : bloodClock, SITES, sprayLast\.hr\), sprayA\);/);   // (fading in and out: deck-review-bugs)
+  assert.match(stage, /return fadeBleedShapes\(bleedShapes\((?:live\.)?(?:live\.)?sprayLast\.bleed, (?:live\.)?(?:live\.)?sprayLast\.rate, reduceMotion\.matches \? 0 : (?:live\.)?(?:live\.)?bloodClock, SITES, (?:live\.)?(?:live\.)?sprayLast\.hr\), (?:live\.)?(?:live\.)?sprayA\);/);   // (fading in and out: deck-review-bugs)
   assert.match(stage, /if \(run\) fluidPh = \(fluidPh \+ dt \/ 1\.1\) % \(20 \* Math\.PI\);/);
   assert.doesNotMatch(stage.replace(/^\s*\/\/.*$/gm, ''), /performance\.now\(\) \/ 1100/);
   const dye = gl.slice(gl.indexOf('float dyeAt('), gl.indexOf('void main()', gl.indexOf('float dyeAt(')));

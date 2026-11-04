@@ -53,7 +53,7 @@ test('the stage passes the colour signal to the stream', () => {
   // lens and the watched stations read the same held flags.)
   assert.match(STAGE, /revHolder\.step\(revFlag, t, jump\)/);
   assert.match(STAGE, /const revFlag = \(k\) => \(isReversed\(EDGES\[k\], revF\) \? 1 : 0\);/);
-  assert.match(STAGE, /if \(perF !== F \|\| perH !== H\) \{\n\s*perF = F; perH = H;\n\s*holdReversals\(F\);/);
+  assert.match(STAGE, /if \(perF !== (?:live\.)?(?:live\.)?F \|\| perH !== H\) \{\n\s*perF = (?:live\.)?(?:live\.)?F; perH = H;\n\s*holdReversals\((?:live\.)?(?:live\.)?F\);/);
   assert.match(STAGE, /const rt = revHold\[k\];\s*so\.large = LARGE\[k\]; so\.rev = !!rt;\s*const sm = advanceStreamAt\([^;]*, so\);/);
   assert.match(STAGE, /mode === 'direction'\) \{ const rev = reversedShown\(e\)/);
   assert.match(STAGE, /x\.rev = REVERSAL_WATCH\.has\(e\.id\) && reversedShown\(e\);/);

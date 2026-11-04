@@ -65,7 +65,7 @@ test('one callout per point, at its own third, the three in a column beside thei
   assert.match(stage, /const csw = sk > 0 \? `\$\{\(7 \/ sk\)\.toFixed\(2\)\}px` : ''/);   // (7 px on screen: --clamp-sw on the clamps' groups, app.css)
   assert.match(stage, /holes\.push\(\[x0, y0, x1, y1, -5 \* k\]\)/);   // and along every leader ending at a point
   assert.match(gl, /if \(hr < 0\.0\) \{ vec2 ab = h\.zw - h\.xy;/);
-  assert.match(stage, /L\.holes = chevHoles;/);
+  assert.match(stage, /L\.holes = (?:live\.)?(?:live\.)?chevHoles;/);
   assert.ok(stage.indexOf('if (it.point && it.col && placeMulti') < stage.indexOf('// Focus callout'), 'the points are placed before the mark');
 });
 
