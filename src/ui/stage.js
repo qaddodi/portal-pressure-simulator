@@ -2698,7 +2698,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // and a finger's pull slid the card over a figure that only moved once it was let go. The labels ride with it as they do with a slow
   // push (drifting) and are solved again once it ends (followEnd, driftEnd). Any glide or framing set outright ends it (animateVT).
   // aimView: where a framing would go, without moving: the camera functions run with animateVT only noting its target.
-  let following = false, follow0 = null, follow1 = null, aiming = false, aimed = null;
+  let following = false, follow0 = null, follow1 = null, aiming = false, aimed = null, followScene = false, followU = 0;
   function aimView(fn) {
     aiming = true; aimed = null;
     try { fn(); } finally { aiming = false; }
@@ -2712,12 +2712,24 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!v0 || !v1 || sameView(v0, v1) || !viewNow()) return false;
     cancelFrame(vtAnim); driftEnd();
     following = true; follow0 = { ...v0 }; follow1 = { ...v1 };
-    drifting = true;   // (the labels ride, see drifting; driftEnd solves them again)
+    // (A camera-only move, 4 Nov 2026, Mohammad: "the whole figure view moves instead of this being a camera only move with everything sticking to
+    // their locations": the view stays as it rests and the scene camera carries it from v0 to where v1 puts it, as a card's zoom does (sceneSet);
+    // the view takes v1 in the frame the move ends. With no room for that (the GPU figure not up) it is the view's own move, as before.)
+    followScene = !!(veins && !veins.lost && veins.setScene && wrapRect && vCanvas);
+    if (followScene) { sceneStart(); followU = 0; } else drifting = true;   // (drifting: the labels ride, see drifting; driftEnd solves them again)
     return true;
   }
   function followAt(u) {
     if (!following) return;
     const f = clamp(u, 0, 1), a = follow0, b = follow1;
+    if (followScene) {
+      // (v(f) from v0: screen' = S screen + t, where S = k(f)/k0 and t = (O + s x(f)) - S (O + s x0), O and s the view box's place in the stage.)
+      followU = f;
+      const bx = stageBox(), vb = vbBox, sc = Math.min(bx.sw / vb.width, bx.sh / vb.height), O = bx.sx + (bx.sw - vb.width * sc) / 2 - vb.x * sc, Oy = bx.sy + (bx.sh - vb.height * sc) / 2 - vb.y * sc;
+      const k = a.k + (b.k - a.k) * f, x = a.x + (b.x - a.x) * f, y = a.y + (b.y - a.y) * f, S = k / a.k;
+      sceneSet(S, O + sc * x - S * (O + sc * a.x), Oy + sc * y - S * (Oy + sc * a.y));
+      return;
+    }
     vt = { k: a.k + (b.k - a.k) * f, x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f };
     applyVT(); CTM = null;
     if (cath.st) { refreshCTM(); cathLabelsSoon(); }
@@ -2741,11 +2753,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (zoomBase) return false;
     if (lobuleOn && lz?.zoomOpen) { if (!lz.zoomOpen()) return false; zoomBase = { lz: true }; zoomLz = true; return true; }
     if (!viewNow()) return false;
-    refreshCTM();
-    // (The figure's page layers and where each stands, read now, before any write: the zoom's frames read nothing.)
-    const layers = [svg, wrap.querySelector('#stageOver'), cath.labels, sites.el].filter(Boolean);
-    zoomLayers = layers.map((el) => { const r = el.getBoundingClientRect(); return { el, left: r.left, top: r.top }; });
-    for (const l of zoomLayers) { l.el.style.transformOrigin = '0 0'; l.el.style.transition = 'none'; }
+    sceneStart();
     // (The figure's callouts (the HVPG pressures, a stent's points, the Doppler's readings) are page elements in two of those layers: their glass is drawn
     // from the same camera (zoomAffine, glass-gl.js), and one that would end under the zoomed card goes out through the zoom, since a page element cannot be
     // blurred behind the card's glass as the picture is: it showed sharp over the card.)
@@ -2770,34 +2778,35 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       frostWake();
     }
     zoomBase = { scene: true };
-    rideStart();   // (the labels with no station ride the camera by their centres; the leaders' page layer eases out as in a ride)
     return true;
   }
-  function cardZoomAt(S, px, py, dx, dy) {
-    const z = zoomBase;
-    if (!z) return;
-    if (zoomLz) { lz.zoomAt(S, px, py, dx, dy); return; }
-    if (!z.scene || !wrapRect) return;
-    sceneCam.set(S, px, py, dx, dy);
-    // (The picture is only the stage's size: where C's own move would bare a strip of the stage (a card at an edge), the figure and its
-    // labels take the nearest move that covers it: sceneCam.cover.)
-    sceneCam.cover(zoomT, wrapRect.left, wrapRect.top, wrapRect.width, wrapRect.height);
-    zoomM6[0] = S; zoomM6[3] = S; zoomM6[4] = zoomT[0]; zoomM6[5] = zoomT[1];
+  // The scene camera's layers, for a card's zoom and for the readings' card tucking away or coming out (followStart): the figure's page layers are taken
+  // (where each stands is read now, before any write: the frames read nothing), and the labels with no station ride by their centres (the leaders' page
+  // layer eases out as in a ride).
+  function sceneStart() {
+    refreshCTM();
+    const layers = [svg, wrap.querySelector('#stageOver'), cath.labels, sites.el].filter(Boolean);
+    zoomLayers = layers.map((el) => { const r = el.getBoundingClientRect(); return { el, left: r.left, top: r.top }; });
+    for (const l of zoomLayers) { l.el.style.transformOrigin = '0 0'; l.el.style.transition = 'none'; }
+    zoomGlass.length = 0; zoomHid.length = 0;
+    rideStart();
+  }
+  // One frame of the camera: p' = S p + (tx, ty) in stage px. The figure's canvas (canvas px), the page's figure layers (one matrix each), the callouts'
+  // glass and the labels, all from the same numbers, in this frame.
+  function sceneSet(S, tx, ty) {
+    if (!zoomLayers || !wrapRect) return;
+    zoomT[0] = tx; zoomT[1] = ty;
+    zoomM6[0] = S; zoomM6[3] = S; zoomM6[4] = tx; zoomM6[5] = ty;
     zoomM = zoomM6;
-    zoomAff.s = S; zoomAff.dx = wrapRect.left * (1 - S) + zoomT[0]; zoomAff.dy = wrapRect.top * (1 - S) + zoomT[1];
-    // The figure's canvas (canvas px), the page's figure layers (one matrix each) and the labels, all from the same camera, in this frame.
+    zoomAff.s = S; zoomAff.dx = wrapRect.left * (1 - S) + tx; zoomAff.dy = wrapRect.top * (1 - S) + ty;
     const sx = vCanvas.width / (boxW || vCanvas.width || 1), sy = vCanvas.height / (boxH || vCanvas.height || 1);
-    veins?.setScene?.(S, zoomM6[4] * sx, zoomM6[5] * sy);
-    for (const l of zoomLayers) l.el.style.transform = `matrix(${S.toFixed(5)},0,0,${S.toFixed(5)},${((S - 1) * (l.left - wrapRect.left) + zoomT[0]).toFixed(2)},${((S - 1) * (l.top - wrapRect.top) + zoomT[1]).toFixed(2)})`;
+    veins?.setScene?.(S, tx * sx, ty * sy);
+    for (const l of zoomLayers) l.el.style.transform = `matrix(${S.toFixed(5)},0,0,${S.toFixed(5)},${((S - 1) * (l.left - wrapRect.left) + tx).toFixed(2)},${((S - 1) * (l.top - wrapRect.top) + ty).toFixed(2)})`;
     if (rideCTM) labelRider.ride(zoomM6);   // (draws every label: the stations' at C(their points), the rest carried)
     else labelGL?.pinDraw();
   }
-  function zoomEnd() {
-    if (!zoomBase) return;
-    const z = zoomBase; zoomBase = null;
-    if (zoomLz) { zoomLz = false; lz?.zoomEnd(); return; }
-    if (!z.scene) return;
-    sceneCam.off(); zoomM = null;
+  function sceneStop() {
+    zoomM = null;
     veins?.setScene?.(1, 0, 0);
     for (const l of zoomLayers || []) { l.el.style.transform = ''; l.el.style.transformOrigin = ''; l.el.style.transition = ''; }
     zoomLayers = null;
@@ -2809,9 +2818,37 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     labelGL?.pinDraw();
     stageWake();
   }
+  function cardZoomAt(S, px, py, dx, dy) {
+    const z = zoomBase;
+    if (!z) return;
+    if (zoomLz) { lz.zoomAt(S, px, py, dx, dy); return; }
+    if (!z.scene || !wrapRect) return;
+    sceneCam.set(S, px, py, dx, dy);
+    // (The picture is only the stage's size: where C's own move would bare a strip of the stage (a card at an edge), the figure and its
+    // labels take the nearest move that covers it: sceneCam.cover.)
+    sceneCam.cover(zoomT, wrapRect.left, wrapRect.top, wrapRect.width, wrapRect.height);
+    sceneSet(S, zoomT[0], zoomT[1]);
+  }
+  function zoomEnd() {
+    if (!zoomBase) return;
+    const z = zoomBase; zoomBase = null;
+    if (zoomLz) { zoomLz = false; lz?.zoomEnd(); return; }
+    if (!z.scene) return;
+    sceneCam.off();
+    sceneStop();
+  }
   function followEnd() {
     if (!following) return;
-    following = false; follow0 = follow1 = null;
+    const a = follow0, b = follow1, f = followU, scene = followScene;
+    following = false; follow0 = follow1 = null; followScene = false;
+    if (scene) {
+      // (The view takes where the camera has carried it, drawn whole in this frame before the camera is given up, so nothing is seen to move.)
+      vt = { k: a.k + (b.k - a.k) * f, x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f };
+      applyVT(); CTM = null; refreshCTM(); flushVT();
+      drawVeins(true, 'follow-end');
+      sceneStop();
+      drifting = true;
+    }
     driftEnd();
   }
   // (A change of scale up to the 35 % a hand's zoom carries labels through, and a pan of up to 30 % of the width on view. Anything bigger
