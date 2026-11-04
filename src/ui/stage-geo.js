@@ -21,14 +21,28 @@ export function createGeo(st, live) {
     return `M${x1} ${y1} Q ${(mx + nx * k).toFixed(1)} ${(my + ny * k).toFixed(1)} ${x2} ${y2}`;
   };
   const geo = {};
+  // Whether a vessel's direction reverses between the views (its chord, end to end, turns more than 120 degrees), for the wide circuit and
+  // the upright one (C turned a quarter turn counter-clockwise: the chord (dx, dy) becomes (dy, -dx)). Such a vessel draws out toward its
+  // downstream end over the first half of the change and draws in from its upstream end over the second, instead of shrinking to a point
+  // and flipping (vessel-transition-recs v3.4; the mask is the tube's drawn stretch, stage-vessels.js).
+  const FLIP_COS = Math.cos((120 * Math.PI) / 180);
+  function flipOf(g) {
+    const A = g.A, C = g.C, n = A.length, m = C.length;
+    const ax = A[n - 1][0] - A[0][0], ay = A[n - 1][1] - A[0][1], cx = C[m - 1][0] - C[0][0], cy = C[m - 1][1] - C[0][1];
+    const la = Math.hypot(ax, ay), lc = Math.hypot(cx, cy);
+    if (!(la > 1e-6 && lc > 1e-6)) { g.flip = null; return; }
+    const w = (ax * cx + ay * cy) / (la * lc) < FLIP_COS, u = (ax * cy - ay * cx) / (la * lc) < FLIP_COS;
+    g.flip = w || u ? [w, u] : null;
+  }
   for (const e of ALL_EDGES) {
     const a = NODE_POS[e.from], b = NODE_POS[e.to];
     const dA = EDGE_PATH[e.id] || defaultPath(a[0], b[0], false);
     const dC = CIRCUIT_PATH[e.id] || (e.shunt === 'custom' ? bypassPath(a[1], b[1]) : defaultPath(a[1], b[1], true));
     // A spontaneous shunt (gastrorenal, splenorenal) is one large vein, drawn like one.
     const A = (e.kind === 'collateral' && !e.spontaneous) || e.kind === 'shunt' ? sample(dA) : meander(sample(dA), e.id);
-    geo[e.id] = { dA, dC, A, C: sample(dC), cur: null, mix: null, mixI: 0, len: 0, wig: 0, lit: Array.from({ length: N_SAMPLES }, () => [0, 0, 0]) };   // (lit: the lit normals, one triple a sample, written in place by litNormals)
+    geo[e.id] = { dA, dC, A, C: sample(dC), flip: null, cur: null, mix: null, mixI: 0, len: 0, wig: 0, lit: Array.from({ length: N_SAMPLES }, () => [0, 0, 0]) };   // (lit: the lit normals, one triple a sample, written in place by litNormals)
   }
+  for (const e of ALL_EDGES) flipOf(geo[e.id]);
   // Tributaries and feeders (anatomic only), sampled once, with a vein's gentle meander (a
   // feeder that is a collateral gets a serpentine instead).
   const feedGeo = {};
@@ -136,6 +150,7 @@ export function createGeo(st, live) {
       const g = geo[id];
       g.dC = metroRoute(pts, 16);
       g.C = sample(g.dC);
+      flipOf(g);
       router.addLine(g.C, true);
       customRoutes.set(id, pts);
     }

@@ -764,6 +764,9 @@ export function createVessels(st, live) {
         const r = x.reveal, u = clamp((now - r.t0) / r.dur, 0, 1), off = r.out ? easeInOut(u) : 1 - easeInOut(u);
         if (r.dir > 0) hi = 1 - off; else lo = off;
       }
+      // (A vessel whose direction reverses between the views draws out toward its downstream end over the first half of the change and draws
+      // in from its upstream end over the second, never shrinking to a point and flipping: geo flip, vessel-transition-recs v3.4.)
+      if (kind === 'v' && !ra && !x.reveal && T0 > 0 && T0 < 1) { const fl = geo[id].flip; if (fl && fl[live.rotU > 0.5 ? 1 : 0]) { if (T0 < 0.5) lo = 2 * T0; else hi = 2 * T0 - 1; } }
       if (kind === 'v' && ligatedAt(id)) lo = Math.max(lo, divideLen(id) / (it.len || geo[id].len || 1));
       tubeData[o + 20] = lo; tubeData[o + 21] = hi; tubeData[o + 22] = kind === 's' ? obj.len : kind === 'f' ? lenOfItem(it) || 1 : it.len || geo[id].len || 1;
       for (let j = 23; j < 28; j++) tubeData[o + j] = 0;
