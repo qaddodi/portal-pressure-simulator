@@ -4593,7 +4593,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // lobule grows about that sinusoid, turning it to lie along the screen and carrying it to where the
   // sinusoid view draws its own; as the zoom lands the sinusoid view, at the same size and angle, resolves in and
   // covers it. Zooming out (the zoom buttons, a pinch, the wheel), its back button or Escape reverse it.
-  const sv = createSinusoidView({ host, before });
+  const sv = createSinusoidView({ host, before, share: { top: () => (shared && shareTop && gl && !gl.lost ? shareTop : null), order: LZ_UNDER_GLASS - 4 } });   // (the sinusoid is a pass of the stage's present too, over the lobule's, under the glass)
   let sinU = 0, sinTo = 0, sinRaf = 0, sinDive = null, sinPick = null, quietSin = false, sinPending = false;
   let sinZ = 0;   // (sinZ: the sinusoid zoom's log scale so far, for the tests)
   const easeIO = easeMove;   // (the sinusoid zoom is a move of the view: the camera's quintic, ease.js, which the pill and the bars that ride it share)

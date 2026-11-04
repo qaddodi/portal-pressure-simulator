@@ -49,7 +49,7 @@ function rng(seed) { let q = seed >>> 0; return () => { q = (q * 1664525 + 10139
 export { sinusoidSupported } from './gl-support.js';
 
 /** `before`: a node of `host` to sit ahead of (the lobule layer, built late, takes the place it would have had). */
-export function createSinusoidView({ host, before = null }) {
+export function createSinusoidView({ host, before = null, share = null }) {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)');
   const phoneMQ = matchMedia('(max-width: 720px)');
   const canvas = h('canvas', { class: 'sv-canvas', role: 'img', 'aria-label': 'A sinusoid, cut along its length' });
@@ -216,15 +216,25 @@ export function createSinusoidView({ host, before = null }) {
   function ensureGpu() {
     if (gpu || gpuTried) return;
     gpuTried = true;
-    gpu = createSinusoidGL(canvas, { warm: true, onReady: () => { gpuKey = ''; wake(); } });   // (published after a draw found it compiling: drawn now) // alloc-rare: the GPU view is made once, the first time it is needed
+    // (share: { top(), order }: the figure's renderer when the lobule is drawn in it (lobule-zoom.js); the view is then a pass of its present, drawn into a texture of that
+    // context, hidden and not drawn until the zoom brings it in, its texture back to a texel when it goes (place). Else the view's own canvas and context.)
+    const ft = share?.top?.() || null;
+    gpu = createSinusoidGL(canvas, { warm: true, onReady: () => { gpuKey = ''; wake(); }, host: ft });
+    if (gpu && ft) { shareTop = ft; shareOff = ft.add({ order: share.order, solo: true, draw: laySin }); }   // (published after a draw found it compiling: drawn now) // alloc-rare: the GPU view is made once, the first time it is needed
     noteSinusoidSupport(!!gpu);
     // (A software renderer only: a frame of the view waits for the last to finish on the GPU and gives the page as long again,
     // as the anatomy's vessels do; see sw-yield.js. On a GPU there is no yield.)
-    const swGL = gpu ? canvas.getContext('webgl2') : null;
+    const swGL = gpu ? (shareTop ? gpu.gl : canvas.getContext('webgl2')) : null;
     svSoft = !!(swGL && softwareGL(swGL));   // (for the ?perf surfaces list below)
     svYield = svSoft ? softwareYield(true, swGL) : null;
   }
-  let gpuTried = false;
+  let gpuTried = false, shareTop = null, shareOff = null;
+  // The view's texture laid over the lobule in the stage's present (under the glass), weighed by the view's opacity.
+  function laySin() {
+    if (!shareTop || !(shown > 0) || !gpu || gpu.lost) return;
+    const tg = gpu.target;
+    if (tg) shareTop.lay(tg.tex, 1, 0, 0, 1, 0, 0, Math.min(1, shown));
+  }
   // (The ?perf surfaces list, gpu-surfaces.js: read by the readout only.)
   surface('sinusoid', () => (!open ? null : gpu && !gpu.lost ? { on: svSoft ? 'fallback' : 'gpu', via: svSoft ? 'WebGL2 on the CPU' : 'WebGL2', why: svSoft ? 'software renderer' : '' } : { on: 'fallback', via: 'nothing drawn', why: gpu ? 'context lost (drawn again when it is given back)' : 'no WebGL2' }));   // (answered by this view's own context: sinusoidSupported need not make a throwaway one) // alloc-rare: read only by the ?perf readout, twice a second while it is open (gpu-surfaces.js), never in a frame
 
@@ -1281,6 +1291,7 @@ export function createSinusoidView({ host, before = null }) {
     /** The canvas the cards' frosted glass is drawn into while the sinusoid is open and still (lobule-zoom.js glassHost), else null. */
     glassHost() {
       if (!gpu || gpu.lost || !open || shown < 1 || dive || !canvas.width || !canvas.height) return null;
+      if (shareTop) { const f = shareTop; return { gl: f.gl, canvas: f.canvas, add: f.add, warmIn: f.warmIn, now: () => { f.present(); }, seq: () => gpu.drawSeq, onPicture: (fn) => gpu.onPicture(fn) }; }
       return { gl: gpu.top.gl, canvas, add: gpu.top.add, warmIn: gpu.top.warmIn, now: () => { gpu.present(); }, seq: () => gpu.drawSeq, onPicture: (f) => gpu.onPicture(f) };
     },
     /** The lobule's model (lobuleState), each time it changes. */
@@ -1302,7 +1313,8 @@ export function createSinusoidView({ host, before = null }) {
       restClass(el, 'on', isOpen);
       restAttr(el, 'aria-hidden', isOpen ? 'false' : 'true');
       // Closed: the drawing buffer is given back (it is sized again on the way in).
-      if (opacity <= 0 && was > 0) { svFadeEnd(); canvas.width = 0; canvas.height = 0; gpuKey = ''; }
+      if (opacity <= 0 && was > 0) { svFadeEnd(); canvas.width = 0; canvas.height = 0; gpuKey = ''; if (shareTop) { gpu?.free?.(); shareTop.present(); } }
+      else if (shareTop && opacity > 0 && !model) shareTop.present();
       if (opacity > 0 && was <= 0) {
         svK = renderScale(); svWant = null;   // (Figure resolution, as it is now: taken up as it opens)
         last = 0; lastKey = ''; VW.k = 0; movers.length = 0; spawnAcc = 0; bounceAcc = 0;
