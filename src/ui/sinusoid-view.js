@@ -1048,9 +1048,7 @@ export function createSinusoidView({ host, before = null }) {
   function drawLegend(ctx) {
     const L = legLook;
     if (!L.sig || !LEG.w) return false;
-    const r = LEG.h / 2;
-    if (L.sh) ctx.shadowBox(LEG.x, LEG.y, LEG.w, LEG.h, r, L.sh.colour, L.sh.blur, L.sh.dy);
-    if (L.bg) { ctx.globalAlpha = 1; ctx.fillStyle = L.bg; ctx.beginPath(); ctx.roundRect(LEG.x, LEG.y, LEG.w, LEG.h, r); ctx.fill(); }
+    // (No frost behind it: one label look, outlined words with no pill or box, V-LBL-5.)
     let x = LEG.x + L.px;
     const cy = LEG.y + LEG.h / 2;
     if (L.dot) {
@@ -1062,6 +1060,7 @@ export function createSinusoidView({ host, before = null }) {
     // (The word's baseline set as the page sets a line: the half leading of its line height over Inter's ascent and descent.)
     const by = LEG.y + L.py + (L.lh - 1.2099609375 * L.size) / 2 + 0.96875 * L.size;
     ctx.font = legFont(L); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillStyle = L.ink;
+    ctx.strokeStyle = inkOf('--label-halo'); ctx.lineWidth = 3; ctx.strokeText('Protein', x, by);   // (the label outline, as every name has it)
     ctx.fillText('Protein', x, by);
     return false;
   }
