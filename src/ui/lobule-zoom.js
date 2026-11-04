@@ -4888,6 +4888,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       // Leaving the lobule closes a part's card, so it is not waiting next time.
       if (was > 0.98 && fade <= 0.98) { stopInertia(); if (store.get().selection?.type === 'lobule') store.set({ selection: null }); }
       // (Mid-zoom out, the canvases are given back when the zoom ends: freeing them there is one more thing in a moving frame.)
+      if (fade === 0 && was > 0) cap.hideAll();   // (the names go at once with the view, never left drawn, collapsed by the dive's scale; they fade in again, placed afresh, on the next visit)
       if (fade === 0) { resCoverEnd(); cancelFrame(raf); raf = 0; last = 0; if (was > 0) { if (diveScaled) relLater = true; else release(); } }
       // Out of the lobule: a presenter's aim is spent (the next way in frames the whole lobule).
       if (fade === 0 && was > 0) { aimed = null; camHeld = false; heldFree = null; if (camMove) { camMove = false; classSoon(el, 'lz-cam', false); } }

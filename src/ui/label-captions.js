@@ -582,6 +582,12 @@ export function createCaptions(box, { labelGL = createLabelGL, deferred = false 
     },
     /** Hides a caption at once (as a view leaves): it fades in again the next time it is placed. */
     reset(key) { const I = items.get(key); if (I) { I.placed = false; snap(I.a, 0); } },
+    /** Hides every caption and leader at once (the view they belong to is gone): each fades in again the next time it is placed, from nothing, at its own place. */
+    hideAll() {
+      for (const I of items.values()) { I.placed = false; snap(I.a, 0); }
+      for (const L of leads.values()) snap(L.a, 0);
+      api.paint();
+    },
     lead(key, L) {
       let o = leads.get(key);
       if (!o) leads.set(key, o = { a: easer(L.show ?? 1) });
@@ -632,7 +638,7 @@ export function createCaptions(box, { labelGL = createLabelGL, deferred = false 
       presented = false;
       if (was) lost?.();
       // alloc-rare: teardown, when the layer is let go, never in a frame
-      for (const k of ['look', 'measure', 'mirror', 'arrow', 'decor', 'put', 'place', 'reset', 'lead', 'view', 'paint', 'drawNow', 'attach', 'detach']) api[k] = NOOP;
+      for (const k of ['look', 'measure', 'mirror', 'arrow', 'decor', 'put', 'place', 'reset', 'hideAll', 'lead', 'view', 'paint', 'drawNow', 'attach', 'detach']) api[k] = NOOP;
       api.measure = () => ZERO;
       api.hasLook = () => false;
       api.leadOf = api.at = () => null;
