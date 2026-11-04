@@ -112,7 +112,11 @@ void main() {
   float ring = (1.0 - smoothstep(0.75, 1.75, abs(d - uC.z * 0.8))) * 0.85;
   float dot_ = 1.0 - smoothstep(4.6, 5.2, d);   // (a solid dot, opaque to its edge)
   float k = max(ring, dot_) * uPen.a;
-  o = vec4(uCol.rgb * a * (1.0 - k) + uPen.rgb * k, a * (1.0 - k) + k);
+  // (a soft glow round the dot, additive in the pen's colour: premultiplied with less alpha than colour, so it brightens and never darkens)
+  float gr = uC.z * 0.5;
+  float glw = exp(-(d * d) / (gr * gr * 0.5)) * 0.75 * uPen.a;
+  vec4 base = vec4(uCol.rgb * a * (1.0 - k) + uPen.rgb * k, a * (1.0 - k) + k);
+  o = vec4(base.rgb * (1.0 - glw) + uPen.rgb * glw, max(base.a, glw * 0.45));
 }`;
 
 const VAR = (name, fallback) => {
