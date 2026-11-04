@@ -6194,7 +6194,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let plateFrom = null, plateTo = null, plateT0 = 0;
   const plateFromBuf = [0, 0, 0], plateToBuf = [0, 0, 0];   // (kept: plateFrom and plateTo point at these while an ease runs)
   function stepPlateEase() {
-    if (lensFrom || colEasing) { veinsDirty = true; glowSync = true; }   // (each frame of the crossfade, or of the colours' follow, syncs the vessels, paused too, so it runs to its end)
+    // (Each frame of the crossfade, or of the colours' follow, syncs the vessels, paused too, so it runs to its end. Only the crossfade
+    // redraws the whole vessel layer: the colours' follow changes the vessels' own colours, which the sync sends as the rows that changed,
+    // drawn again as their cells alone (tint) or as the whole when most changed. It had marked the layer dirty for every frame of a follow,
+    // and a running model's colours follow all the time: 17 whole vessel draws a second at 17 fps on the iPad, 4 Nov.)
+    if (lensFrom) veinsDirty = true;
+    if (lensFrom || colEasing) glowSync = true;
     if (!spot.on && !plateEasing()) spot.live = false;   // (the spotlight's dim has eased away: the ascites goes back to its own)
     if (!plateEasing()) { plateFrom = null; return; }
     const to = plateTargets(), now = lensNow();
