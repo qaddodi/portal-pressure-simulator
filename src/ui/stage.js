@@ -2612,10 +2612,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     morphFade = false;
     if (followOn) { followOn = false; labelGL?.followEnd(); }
     labelKey = null;
+    labelGL?.rush?.(2000);   // (and their pictures are built in this frame and the next, not a few at a time)
     camSettle();
     // (The new view's labels are laid out in this frame, whole: a solve left in slices kept the other view's labels standing, Mohammad 4 Nov: "labels should just update instantly".)
     if (labelJob) labelJobFinish();
-    nextFrame(morphFadeDrop);
+    morphFadeDrop();   // (in this frame, not the next)
     setTimeout(morphFadeDrop, 1500, true);
   }
   // (Whether the view is moving now: a glide, a pan or a pinch. Boxes kept for the frame's reads are not read again while it is.)
@@ -15247,8 +15248,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (F && !reduceMotion.matches && !(cath.st && !cath.st.keep) && !lobuleOn && !lz?.isOpen()) {
         rideStop(); morphFade = true; camMove = true; dpr.carry = false;
         // (The GPU labels are carried by their stations through the change; the SVG's own are faded out as before.)
-        if (labelGL && labelGL.canRide() && followTab.size && !labelJob) { if (!followOn) { followOn = true; followM0 = morph; labelGL.followStart(); } if (labelSvg) labelSvg.classList.add('morph-fade'); }
-        else for (const e of morphFadeEls()) e.classList.add('morph-fade');
+        // (Every label is hidden for the change and shown whole the moment the new view lands, Mohammad 4 Nov: "hide the labels during the switch then show once done instantly".)
+        for (const e of morphFadeEls()) e.classList.add('morph-fade');
         glass.style.opacity = '0';
       }
     },

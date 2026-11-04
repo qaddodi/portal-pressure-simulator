@@ -176,6 +176,8 @@ html.model-contain .stage-view.gl-on :is(svg#stage, svg#labels) { contain: layou
 .stage-view.cam-move > #labels, .stage-view.cam-move > #labelGl, .stage-view.cam-move .lb-glass { opacity: 0; }
 /* The change between the Anatomy and the Circuit: the same, on the label layers themselves (stage.js morphFade). */
 #labels.morph-fade, #labelGl.morph-fade { opacity: 0; }
+/* The label layers show and hide at once (4 Nov: no fade after a view change, a camera move or a zoom). */
+.stage-view > #labels, .stage-view > #labelGl { transition: none; }
 /* A hand's zoom in the Circuit: the same, until it is let go (stage.js pinchHide). */
 .stage-view.pinch-hide > #labels, .stage-view.pinch-hide > #labelGl, .stage-view.pinch-hide .lb-glass { opacity: 0; }
 /* A presenter's small camera move that keeps its labels (stage.js animateVT, carry): the names ride with the figure and only the leaders

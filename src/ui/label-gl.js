@@ -1118,6 +1118,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // next chunk keep the picture they have, or are hidden if they have none, so a slide change that owes many captions does not build
   // them all before one paint. At least REBUILD_LEAST labels go each time, so it always ends.)
   const REBUILD_MS = 4, REBUILD_LEAST = 12;
+  let rushUntil = 0;   // (a view change has landed: every picture the page owes is built now, within no frame budget)
   function rebuildPass() {
     if (host && !host.active()) { todo.clear(); pending.clear(); return; }
     const now = performance.now();
@@ -1127,7 +1128,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
         if (!g.isConnected) { todo.delete(g); pending.delete(g); continue; }
         let st = sprites.get(g);
         if ((pass === 0) !== !st) continue;
-        if (did >= REBUILD_LEAST && performance.now() - now > REBUILD_MS) { over = true; break; }
+        if (did >= REBUILD_LEAST && now >= rushUntil && performance.now() - now > REBUILD_MS) { over = true; break; }
         did++; todo.delete(g); pending.delete(g);
         const rot = (f & 1) !== 0;
         if (f & 8) {
@@ -2393,6 +2394,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
       for (const f of fromMap.values()) gpool.push(f);
       fromMap.clear();
     },
+    /** The pictures owed are built without a frame budget for the next `ms` (a view change has landed and shows its labels at once). */
+    rush(ms) { rushUntil = performance.now() + ms; },
     get riding() { return !!rideM; },
     /** Pins the station labels to the figure: f(id, out) writes where the figure has station id's point now (stage px) and returns true. */
     pinTo(f, w = null) { pinAt = f; pinWorldAt = w; ask(); },

@@ -44,3 +44,9 @@ test('Circuit: no label hide for a zoom', () => {
 test('view switch: the new view solve is finished in the frame the morph lands', () => {
   assert.ok(/camSettle\(\);\s*\/\/[^\n]*\n\s*if \(labelJob\) labelJobFinish\(\);/.test(st));
 });
+
+test('view switch: labels hidden for the change, shown at once, pictures rushed', () => {
+  assert.ok(!st.includes("labelGL.followStart()"));
+  assert.ok(st.includes('labelGL?.rush?.(2000)'));
+  assert.ok(gl.includes('now >= rushUntil'));
+});
