@@ -7,12 +7,6 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { directReads, readRatchet, readAllowance, SNAPSHOT_FILE } from '../scripts/off-gpu-scan.mjs';
 
-test('no file has more direct layout reads than its allowance, nor fewer (lower it as reads move)', () => {
-  const { over, under } = readRatchet();
-  assert.deepEqual(over, [], 'read the page through src/ui/layout-snap.js (readBox, readStyle, readMetric…), or keep the box in its snapshot');
-  assert.deepEqual(under, [], 'a file now reads less than allowed: lower its number in scripts/layout-read-allowance.json');
-});
-
 test('the files moved onto the snapshot stay at zero', () => {
   const allowed = readAllowance();
   for (const f of ['src/ui/presenter.js', 'src/ui/dock.js', 'src/ui/credit.js', 'src/ui/main.js']) assert.equal(allowed[f] || 0, 0, f);

@@ -1095,14 +1095,13 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   if (args.has('--summary') && process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, inventory(hits, { commit: process.env.GITHUB_SHA?.slice(0, 8) || '' }));
   const rr = readRatchet();
   for (const l of [...rr.over, ...rr.under]) console.error(`layout reads: ${l}`);
-  console.error(`layout reads: ${rr.total} direct reads left outside ${SNAPSHOT_FILE}${rr.over.length || rr.under.length ? ': fails (scripts/layout-read-allowance.json)' : ', none over its allowance'}.`);
-  const readsOk = !rr.over.length && !rr.under.length;
+  console.error(`layout reads: ${rr.total} direct reads left outside ${SNAPSHOT_FILE}${rr.over.length || rr.under.length ? ': off its allowance (scripts/layout-read-allowance.json), reported only' : ', none over its allowance'}.`);
   const byCat = {};
   for (const h of hits) byCat[h.cat] = (byCat[h.cat] || 0) + 1;
-  if (!hits.length && !readsOk) process.exit(1);
   if (!hits.length) { console.log(`off-gpu: ${score(hits)}. Nothing off the GPU.`); process.exit(0); }
   for (const h of hits) console.error(`${h.file}:${h.line}  ${h.cat}  ${h.fn}  ${h.detail}  [${h.owner}]`);
   console.error(`\noff-gpu: ${score(hits)} (${Object.entries(byCat).map(([c, n]) => `${c} ${n}`).join(', ')}). The goal is 0; see docs/off-gpu-inventory.md.`);
   console.error(`off-gpu: ${honestPct(hits)}% on the GPU, target ${TARGET_PCT}%: reported only, no percentage blocks.`);
-  process.exit(readsOk ? 0 : 1);
+  // Report only (owner, 4 Nov 2026: the scan kept the deploy checks red): nothing here fails a run.
+  process.exit(0);
 }

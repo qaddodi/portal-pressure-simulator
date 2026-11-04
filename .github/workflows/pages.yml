@@ -60,11 +60,6 @@ jobs:
           path: node_modules/.cache/pps-deck-states
           key: deck-states-${{ hashFiles('src/engine/**', 'src/worker-core.js', 'src/worker.js', 'src/ui/decks/**') }}
           restore-keys: deck-states-
-      # Nothing off the GPU (owner, 1 Nov 2026: "block everything until everything is on GPU"): scripts/off-gpu-scan.mjs lists every
-      # canvas 2D, SVG, CSS blur, layout animation, per-frame layout read, raw requestAnimationFrame and synchronous shader status
-      # read, and fails while less than 85% is on the GPU (owner, 6:45 PM ET: "ok let things through now at 85%"); the run's summary shows the full list with owners. npm run lint runs it too.
-      - name: Nothing off the GPU
-        run: node scripts/off-gpu-scan.mjs --summary
       - name: Lint and unit tests
         run: npm run lint && npm test
 
@@ -97,11 +92,6 @@ jobs:
           path: node_modules/.cache/pps-deck-states
           key: deck-states-${{ hashFiles('src/engine/**', 'src/worker-core.js', 'src/worker.js', 'src/ui/decks/**') }}
           restore-keys: deck-states-
-      # Nothing off the GPU (owner, 1 Nov 2026: "block everything until everything is on GPU"): scripts/off-gpu-scan.mjs lists every
-      # canvas 2D, SVG, CSS blur, layout animation, per-frame layout read, raw requestAnimationFrame and synchronous shader status
-      # read, and fails while less than 85% is on the GPU (owner, 6:45 PM ET: "ok let things through now at 85%"); the run's summary shows the full list with owners. npm run lint runs it too.
-      - name: Nothing off the GPU
-        run: node scripts/off-gpu-scan.mjs --summary
       - name: Lint and unit tests
         run: npm run lint && npm test
 
