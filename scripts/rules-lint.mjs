@@ -10,6 +10,8 @@
 //   imports  a name imported from one of the app's own modules that the module does not export (a deleted switch's constant left in an
 //              import list breaks the page, and every test that loads it, only when the module loads).
 //   size     stage.js, presenter.js or app.css longer (in lines) than its number in scripts/size-budget.json. The numbers only go down (PR-09).
+//   tests    a new tests/*.test.js that reads the text of src/, styles/ or index.html (a source-regex test) and is not in scripts/source-regex-tests.json.
+//              The list may only shrink (a listed test that no longer reads source is reported; take it off with node scripts/test-classes.mjs --write) (PR-02).
 //   (The built chunks' 200 KB limit is held by scripts/build.mjs itself: the build fails on a chunk over it.)
 //
 //   node scripts/rules-lint.mjs            check
@@ -19,6 +21,7 @@ import { readFileSync, writeFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse } from 'espree';
+import { sourceRegexTests } from './test-classes.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const KEEP = new Set(['perf', 'offgpu', 'fps', 'budget', 'inputs', 'script', 'slide', 'preset', 'home', 'back', 'presenter-view', 'v']);
@@ -87,6 +90,14 @@ for (const f of files.filter((x) => x.endsWith('.js'))) {
     else if (n < max && tighten) doc.files[rel] = n;   // (a file under its number passes; --tighten lowers the number so the gain cannot be spent again)
   }
   if (tighten) writeFileSync(sizeFile, JSON.stringify(doc, null, 1).replace(/\n {2,}"/g, ' "').replace(/\{\n {2}"src/, '{ "src') + '\n');
+}
+
+// No new source-regex tests (PR-02): a test judges behaviour, or its rule lives here with a reason.
+{
+  const doc = JSON.parse(readFileSync(join(ROOT, 'scripts/source-regex-tests.json'), 'utf8')), listed = new Set(doc.files), now = sourceRegexTests();
+  for (const n of now) if (!listed.has(n)) errors.push(`tests/${n} reads the text of src/ or styles/: test what the module does instead, or put the rule in scripts/rules-lint.mjs with a one-line reason (PR-02)`);
+  const gone = doc.files.filter((n) => !now.includes(n));
+  if (gone.length) console.warn(`rules-lint: ${gone.length} listed source-regex test(s) no longer read source (${gone.slice(0, 3).join(', ')}${gone.length > 3 ? ', …' : ''}): run node scripts/test-classes.mjs --write`);
 }
 
 if (process.argv.includes('--list')) {
