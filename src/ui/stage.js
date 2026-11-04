@@ -1440,7 +1440,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // then runs everything: the camera is lerped from its framing to the target's by p, the ghosts ride their points at 1 - 2p and the new labels
   // theirs at 2p - 1. Nothing is solved or built as it lands; the pictures of the new view are built in the frames of the change.
   let viewXf = null, glSuppress = false, xfOp = '';
-  const { morphAnchorAt, pre, preAbort, preAsk, viewXfP, viewXfStart, viewXfStep, xfMarkCurrent, xfRelease } = createView({ EV, VB_CIRC_R, applyVT, circWhole, defaultVT, driftEnd, edgeVisible, geo, handRideEnd, labelJobDrop, labelJobStep, labelKeyNow, labelSig, labelSliceRun, labelTail, layoutLabels, layoutLabelsGen, refreshCTM, rotEase, sameView, stageBox, updateLabels, vbBox, vesselAt, visAt, worldToLocalInto }, live);
+  const { morphAnchorAt, pre, preAbort, preAsk, viewXfP, viewXfStart, viewXfStep, xfMarkCurrent, xfRelease } = createView({ CIRC_C, EV, VB_CIRC_R, applyVT, circTurn, circWhole, defaultVT, driftEnd, edgeVisible, geo, handRideEnd, labelJobDrop, labelJobStep, labelKeyNow, labelSig, labelSliceRun, labelTail, layoutLabels, layoutLabelsGen, refreshCTM, rotEase, sameView, stageBox, updateLabels, vbBox, vesselAt, visAt, worldToLocalInto }, live);
   // The solve is a job sliced over the change's frames: one short slice in the tap's own frame (xfSolving shortens updateLabels' first slice), then one
   // per frame of the morph (viewXfStep), the rest at the landing if it comes first. The new labels stay at nothing until it lands.
   let xfSolving = false;

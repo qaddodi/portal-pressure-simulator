@@ -7,7 +7,7 @@ import { clamp, lerp } from './util.js';
 import { viewXfMix } from './view-xf.js';
 
 export function createView(st, live) {
-  const { EV, VB_CIRC_R, applyVT, circWhole, defaultVT, driftEnd, edgeVisible, geo, handRideEnd, labelJobDrop, labelJobStep, labelKeyNow, labelSig, labelSliceRun, labelTail, layoutLabels, layoutLabelsGen, refreshCTM, rotEase, sameView, stageBox, updateLabels, vbBox, vesselAt, visAt, worldToLocalInto } = st;
+  const { CIRC_C, EV, VB_CIRC_R, applyVT, circTurn, circWhole, defaultVT, driftEnd, edgeVisible, geo, handRideEnd, labelJobDrop, labelJobStep, labelKeyNow, labelSig, labelSliceRun, labelTail, layoutLabels, layoutLabelsGen, refreshCTM, rotEase, sameView, stageBox, updateLabels, vbBox, vesselAt, visAt, worldToLocalInto } = st;
   const xfVis = [null, null];
   function viewXfP() { const x = live.viewXf, t = live.easeInOut(live.morph); return x.tT === x.t0 ? 1 : clamp((t - x.t0) / (x.tT - x.t0), 0, 1); }
   // (The label layers the GPU does not draw (the SVG's own, the liver's pane) come in with the new labels.)
@@ -46,8 +46,13 @@ export function createView(st, live) {
     let x = wx, y = wy;
     if (r.id) {
       const g = geo[r.id], t = live.easeInOut(live.morph), a0 = g.A[r.i], a1 = g.A[r.i + 1], c0 = g.C[r.i], c1 = g.C[r.i + 1], w = view === 0 ? 1 - t : t;
-      x = lerp(a0[0] + (a1[0] - a0[0]) * r.f, c0[0] + (c1[0] - c0[0]) * r.f, t) + r.dx * w;
-      y = lerp(a0[1] + (a1[1] - a0[1]) * r.f, c0[1] + (c1[1] - c0[1]) * r.f, t) + r.dy * w;
+      // (Mid-change on an upright circuit the CTM carries no turn: the circuit's side is laid out already turned about CIRC_C (circ-turn.js),
+      // so its point, and a circuit label's offset from it, are turned here the same way, or the ghosts would drift off the figure.)
+      const T = circTurn(live.morph), tc = T.on ? T.c : 1, ts = T.on ? T.s : 0, cx = CIRC_C[0], cy = CIRC_C[1];
+      const px = c0[0] + (c1[0] - c0[0]) * r.f - cx, py = c0[1] + (c1[1] - c0[1]) * r.f - cy;
+      const ox = view === 0 ? r.dx : tc * r.dx - ts * r.dy, oy = view === 0 ? r.dy : ts * r.dx + tc * r.dy;
+      x = lerp(a0[0] + (a1[0] - a0[0]) * r.f, cx + tc * px - ts * py, t) + ox * w;
+      y = lerp(a0[1] + (a1[1] - a0[1]) * r.f, cy + ts * px + tc * py, t) + oy * w;
     }
     worldToLocalInto(out, x, y);
     return Number.isFinite(out[0]) && Number.isFinite(out[1]);
