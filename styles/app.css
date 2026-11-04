@@ -7792,6 +7792,6 @@ body { font-optical-sizing: auto; font-kerning: normal; }
 :root:not([data-noglass]) :is(.menu, .umenu, .why-pop, .um-pv.on, .modal, .pal):not([data-gl]) { background: var(--gl-tint); }
 
 /* Frame-rate counter (fps-counter.js): bottom-left, over everything, never takes a tap. */
-.fps-counter { position: fixed; left: max(8px, env(safe-area-inset-left)); bottom: max(8px, env(safe-area-inset-bottom)); z-index: 9999; pointer-events: none; display: flex; align-items: baseline; gap: 3px; font: 600 12px/1.2 Inter, system-ui, sans-serif; font-variant-numeric: tabular-nums; color: var(--text, white); }
+.fps-counter { position: fixed; left: max(8px, env(safe-area-inset-left)); bottom: max(8px, env(safe-area-inset-bottom)); z-index: 9999; pointer-events: none; display: flex; align-items: baseline; gap: 3px; font: 600 12px/1.2 Inter, system-ui, sans-serif; color: var(--text, white); }
 .fps-counter .fps-num { min-width: 2.2em; text-align: right; }
 .fps-counter .fps-unit { font-size: 10px; font-weight: 500; opacity: .7; }

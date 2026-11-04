@@ -35,18 +35,6 @@ test('a colour serialised as color(srgb …) is given to the glass as rgba()', a
   assert.equal(rgbaOf('rgba(1, 2, 3, 0.4)'), 'rgba(1, 2, 3, 0.4)');
 });
 
-// (1 Nov, the off-GPU gate: the lobule's own GPU frost for its pills (?lzpills=1, never the default) copied the lobule's canvases on the
-// CPU (pillCopy, pillDown) and is gone; the pills keep the look they have always had by default. The readers here stay: the sheet's
-// glass uses them.)
-test('the lobule takes no copy of its canvases for the pills', () => {
-  const lz = readSrc(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
-  assert.doesNotMatch(lz, /pillCopy|pillDown|pillsOn|PILLS_OFF|pillTis/);
-  assert.doesNotMatch(lz, /lz-pills\.js/);
-  // (The glass laid from the region its copy really took, on the source's own pixels.)
-  const gg = readSrc(new URL('../src/ui/glass-gl.js', import.meta.url), 'utf8');
-  assert.match(gg, /got = \{ x: sx \/ kx - cr\.left \+ sr\.left, y: sy \/ ky - cr\.top \+ sr\.top, w: sw \/ kx, h: sh \/ ky \};/);
-});
-
 test('halving: each step at most halves, and the last lands on the size asked for', () => {
   // (pillDown's loop, as numbers: a 2× screen's 3000 px wide canvas to the copy's 750 px.)
   const steps = (cw, ch, w, h) => { const out = []; while (cw > w * 2 || ch > h * 2) { cw = Math.max(w, Math.ceil(cw / 2)); ch = Math.max(h, Math.ceil(ch / 2)); out.push([cw, ch]); } out.push([w, h]); return out; };

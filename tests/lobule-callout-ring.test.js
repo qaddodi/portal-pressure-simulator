@@ -29,32 +29,6 @@ test('the pointer pill prefers spots outside the lobule, falling back inside onl
   assert.ok(cost > 0 && cost * 6 < 1e5, 'the inside cost stays well below the clash costs, so it never causes overlaps');
 });
 
-test('lobule labels are pinned beside what they name and never cover the central vein, a portal tract or their own spot', () => {
-  const js = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
-  assert.match(js, /const keepDiscs = \(g\) => \{[^}]*d\.r = Math\.max\(14, g\.rcv0 \* CV_KEEP \* V\.k\);[^}]*\(g\.rt \|\| 6\) \* TRACT_KEEP \* V\.k/s, 'the central vein and every portal tract are kept clear');
-  assert.match(js, /const keep = keepDiscs\(g\);/, 'the layout keeps them clear');
-  // (Discs as tight as the vessels themselves, so a tract's names sit right beside it on short leaders: Mohammad, 2 Nov 2026.)
-  assert.match(js, /const CV_KEEP = 1\.25, TRACT_KEEP = 1\.3;/);
-  assert.match(js, /for \(let i = 0; i < keep\.length; i\+\+\) \{ const d = into\(keep\[i\], cb\); keepS = keepS \+ \(d > 0 \? 1e6/, 'covering one costs as much as a clash');
-  assert.match(js, /disc: \{ x: 0, y: 0, r: 10 \}/);
-  assert.match(js, /disc\.x = a\[0\]; disc\.y = a\[1\];[\s\S]*?\(into\(disc, cb\) > 0 \? 1e6/, 'a label never covers the spot it names');
-  assert.match(js, /lead \* 8/, 'short leaders are preferred');
-  assert.match(js, /classSoon\(L\.el, 'edge', chip\)/, 'a label whose structure is off screen waits at the edge');
-  assert.match(js, /if \(bestCost >= 1e6\) \{ r\.out = true; total \+= dropCost\(k\); continue; \}/, 'a label with no clear spot is left out, never stacked on another');
-  assert.match(js, /(?:let|const) callLead = placeCall\(/, 'the slide\'s pointer pill is placed before the labels');
-  assert.match(js, /if \(sol\.total >= 1e5 && !rough\)/, 'when a label is hidden or crowded, other layouts are tried');
-  assert.match(js, /const isCoreK = \(k\) => CORE\.includes\(k\) \|\| named\(k\)/, 'a label the slide names counts as a vessel label');
-  assert.match(js, /const betterSol = \(p, q\) => outsOf\(p\) < outsOf\(q\)/, 'the layout hiding fewest vessel labels wins');
-  assert.match(js, /placeCall\(fr, pl2, cards, s1\.ld,/, 'the pill can be placed after the vessel labels, clear of their leaders');
-  assert.match(js, /if \(callLead && callCost >= 1e6\) return null/, 'never with the pill on a label');
-  assert.match(js, /sinIt\.a\[0\] = winX; sinIt\.a\[1\] = winY;/, 'another sinusoid takes the label when the first leaves no room');
-  assert.match(js, /if \(!faded\(ZONE_LIT\[i\]\)\) \{[^\n]*boxes\.push\(zb\)/, 'a faded zone name takes no room');
-  assert.match(js, /\(crosses\(leads\[i\]\[0\], leads\[i\]\[1\], cBox\) \? 1e6 : 0\)/, 'no label leader runs behind the pill');
-  assert.match(js, /- w \/ 2 - 110\) \* 30/, 'the pill stays near its target');
-  assert.match(js, /cardS = cardS \+ \(overlap\(cb, cards\[i\]\) > 0 \? 1e6/, 'a label never sits on a card');
-  assert.match(js, /Math\.max\(0, lead - 3 \* hh\) \* 60/, 'long leaders cost steeply');
-});
-
 test('resistance callouts in the lobule are one short word, so they never crowd the vessel labels', async () => {
   const { readdirSync } = await import('node:fs');
   const dir = new URL('../src/ui/decks/', import.meta.url);

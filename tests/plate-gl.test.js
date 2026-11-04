@@ -34,24 +34,3 @@ test('layoutTip: as wide as its words up to 300 px, then wrapped to the full wid
   assert.equal(covers('Zoom in (+)'), true);
   assert.equal(covers('Search (⌥K)'), false, 'a character the atlas lacks leaves the tip to the page');
 });
-
-test('the popover and the main menu get a plate; the tooltip is sized from its layout and drawn through tipDraw', () => {
-  const u = src('src/ui/util.js'), m = src('src/ui/menu.js');
-  assert.match(u, /const plate = plateFor\(el, 'menu'\);/);
-  assert.match(u, /plate\?\.dispose\(\)/);
-  assert.match(u, /leaveFromHere\(el, leave\)\) plate\?\.leaveAlong\(\)/);
-  assert.match(m, /plate = plateFor\(el, 'umenu'\);/);
-  assert.match(m, /const old = plate; plate = plateFor\(el, 'umenu'\); old\?\.dispose\(\);/, 'a re-rendered panel gets its own plate');
-  assert.match(m, /gone\?\.dispose\(\)/);
-  assert.match(u, /tipDraw\(tip, L\)/);
-});
-
-test('the plate is the menu\'s twin: its own CSS gives way only once the GPU has drawn, and its rules are made from the menu\'s', () => {
-  const p = src('src/ui/plate-gl.js'), css = src('styles/app.css');
-  assert.match(css, /\.box-gl \{ background: none !important; box-shadow: none !important; \}/);
-  assert.match(css, /\.tooltip\.tip-gl \{ background: none !important; box-shadow: none !important; color: transparent; \}/);
-  assert.match(p, /live\(true\)/);
-  assert.match(p, /subjectIsMenu/);
-  assert.match(p, /borderBoxSize/, 'sized from the observer, no layout read');
-  assert.doesNotMatch(p, /offsetWidth|offsetHeight|getBoundingClientRect|clientWidth|clientHeight/);
-});

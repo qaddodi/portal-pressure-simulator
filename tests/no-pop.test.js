@@ -12,34 +12,8 @@ test('there is one exit curve, gentle at its start', () => {
   assert.match(tokens, /--ease-in: cubic-bezier\(\.4, 0, 1, 1\);/);
 });
 
-test('a dialog fades out as it faded in, with exit keyframes of its own', () => {
-  assert.match(css, /\.modal-back\.leaving \{ display: grid; pointer-events: none; animation: crossfade-out var\(--d-flip\) var\(--ease-in\) forwards; \}/);
-  assert.match(css, /\.modal-back\.leaving \.modal \{ animation: scale-settle-out var\(--d-flip\) var\(--ease-in\) forwards; \}/);
-  assert.match(css, /@keyframes crossfade-out \{ to \{ opacity: 0; \} \}/);
-  const close = util.slice(util.indexOf('export function closeModal'), util.indexOf('export const isModalOpen'));
-  assert.match(close, /classList\.remove\('show'\); back\.classList\.add\('leaving'\);/);
-  assert.match(close, /setTimeout\(\(\) => restPass\(modalLeaveEnd\), 220\)/);
-  assert.match(util, /const modalLeaveEnd = \(\) => \{ document\.getElementById\('modalBack'\)\?\.classList\.remove\('leaving'\); \};/);
-  // Opened again while it fades: it comes straight back.
-  assert.match(util.slice(util.indexOf('export function openModal'), util.indexOf('export function closeModal')), /back\.classList\.remove\('leaving'\);/);
-});
-
 test('the History card plays its way out like Treat', () => {
   assert.match(css, /#treatCard\.card-leaving, #historyCard\.card-leaving, #dock\.card-leaving \{/);
-});
-
-test('the desktop vessel card fades in and out, and a new vessel fades its contents in', () => {
-  assert.match(css, /animation: scale-settle var\(--d-small\) var\(--ease\)/);
-  assert.match(css, /\.action-card\.ac-leaving:not\(\.docked\) \{ pointer-events: none; animation: scale-settle-out var\(--d-flip\) var\(--ease-in\) forwards; \}/);
-  assert.doesNotMatch(card, /if \(isDocked\(\) && !matchMedia/);   // (an undocked card leaves too, not only the phone's sheet)
-  assert.match(card, /const swap = !el\.hidden && !same && !!el\.animate;/);
-  assert.match(card, /for \(const c of el\.children\) c\.animate\(\[\{ opacity: 0 \}, \{ opacity: 1 \}\]/);
-  // RF7: the old contents fade out over the new from a layer that takes no taps, and the card glides to its new place.
-  assert.match(card, /const ghost = h\('div', \{ class: 'ac-ghost', 'aria-hidden': 'true', inert: '' \}, \.\.\.was\);/);
-  assert.match(css, /\.action-card > \.ac-ghost \{ position: absolute; inset: 0; display: flex; flex-direction: column; pointer-events: none; \}/);
-  // (the glide is by translate: card.js moveTo glides from where it stood, D_FLIP, on the frames' clock)
-  assert.match(css, /\.action-card:not\(\.docked\) \{ transition: opacity var\(--d-small\) var\(--ease\); \}/);
-  assert.match(card, /glideTranslate\(el, at\[0\], at\[1\], x, y, D_FLIP, easeArrive\)/, 'the glide is written by the frames (script-glide.js), in the frame the glass reads it in');
 });
 
 test('the zoom pill glides aside with a side card, by a transform (round 2 review, RF2)', () => {

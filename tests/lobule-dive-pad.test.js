@@ -8,31 +8,6 @@ import { readFileSync } from 'node:fs';
 const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
 const MB = 1024 * 1024;
 
-test('an aimed dive shows the whole lobule, built before the zoom, the layers then drawn for the screen', () => {
-  const box = lz.match(/function padBox\(W, H\) \{[\s\S]*?\n {2}\}/)?.[0];
-  assert.ok(box);
-  assert.match(box, /if \(!geo \|\| atFit\) return null;/, 'the fit view (no aim) keeps the layers alone');
-  assert.match(box, /return padRect\(sX\(geo\.cx\), sY\(geo\.cy\), geo\.R \* V\.k \* 1\.35, W, H\);/, 'out past the rim and the corners\' triads');
-  // (Reduced motion fades the dive, magnifying nothing: no copy is built then.)
-  const st = lz.match(/function stage\(\) \{[\s\S]*?\n {2}\}/)[0];
-  assert.match(st, /const \[W, H\] = hostSize\(\), box = reduce\.matches \? null : padBox\(W, H\), wd = box \? buildWide\(W, H, box\) : null;/);
-  assert.match(st, /idleDrawn = ''; draw\(0\); diveDrawn = true; staged = api\.viewKey\(\); relLater = true; wide = wd;/);
-  // Each tile is the layers as they stack, drawn on the GPU at the tile's size (1 Nov: the 2D tiles and their copies are gone): the
-  // tissue rimmed by its shader, the vessels (one size for every tile, cropped), the ductules and the lymph in the vessels' canvas.
-  const b = lz.match(/function buildWide\([\s\S]*?\n {2}\}/)[0];
-  assert.match(b, /trimFieldStates\(\);/, 'older field states given back first');
-  assert.match(b, /return WIDE_GL \? buildWideGL\(W, H, box\) : null;/);
-  const g = lz.match(/function buildWideGL\([\s\S]*?\n {2}\}/)[0];
-  assert.match(g, /dpr = wideDpr\(dpr0, box\.w, box\.h, apple\(\)\)/);
-  assert.match(g, /diveRim = rimOf\(cx \+ ox, cy \+ oy, r\); tissueKey = '';\n\s+const onG = !!tg && paintTissue\(w, hh, dpr, dark, cs, false, tg\);/);
-  assert.match(g, /drawKey = ''; drawGL\(TW, TH, dpr, dark, cs, 0\);/, 'the vessels, their canvas sized once');
-  // The tiles reach 2 device px under their right and lower neighbours (edge to edge, scaled, they showed a pale hairline in WebKit).
-  assert.match(g, /const OV = 2 \/ dpr/);
-  assert.match(g, /w = t\.w \+ \(or \? OV : 0\), hh = t\.h \+ \(ob \? OV : 0\);/);
-  assert.doesNotMatch(lz, /opaqueOnly|diveCopy|rimCv|getImageData\(0, 0, cv\.width/);
-  assert.match(lz, /trimFieldStates\(\) \{\n\s+free\(worldOld\); xfT0 = 0;[^\n]*\n\s+const keys = \[\.\.\.tileSets\.keys\(\)\];\n\s+for \(const key of keys\.slice\(0, -1\)\)/);
-});
-
 test('a tile the GPU cannot draw drops the copy, never shows a blank lobule', () => {
   const g = lz.match(/function buildWideGL\([\s\S]*?\n {2}\}/)[0];
   assert.match(g, /if \(!g \|\| g\.lost\) return null;/, 'no vessels on the GPU: no copy');

@@ -5,6 +5,9 @@
 //   glassPlate(el)  -> { leaveAlong(), dispose() }, the shape plate-gl.js's plate has, so the callers are as they were.
 
 import { dockLine, inSheetLayer } from './sheet-layer.js';
+import { frameFor } from './frame.js';
+
+const nextFrame = frameFor('menu-glass');
 
 let api = null;
 const open = new Set();   // alloc-rare: the menus open now (one added as each opens)
@@ -28,12 +31,12 @@ const tick = () => {
   for (const e of movers) if (!e.isConnected || !e.classList.contains('mg-move')) movers.delete(e);
   if (!movers.size) return;
   reg?.redraw?.();
-  raf = requestAnimationFrame(tick);
+  raf = nextFrame(tick);
 };
 const sync = (e) => {
   const m = moving(e);
   if (m !== e.classList.contains('mg-move')) e.classList.toggle('mg-move', m);
-  if (m) { movers.add(e); if (!raf) raf = requestAnimationFrame(tick); } else movers.delete(e);
+  if (m) { movers.add(e); if (!raf) raf = nextFrame(tick); } else movers.delete(e);
 };
 let listening = false;
 function listen() {
