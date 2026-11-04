@@ -2383,7 +2383,20 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   const bendTex = dataTex(gl);
   gl.bindTexture(gl.TEXTURE_2D, bendTex);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, N_SAMPLES, nTubes, 0, gl.RED, gl.FLOAT, new Float32Array(N_SAMPLES * nTubes));
-  const radRow = new Float32Array(N_SAMPLES * 4), rmaxOne = new Float32Array(1), bendRow = new Float32Array(N_SAMPLES);
+  // (The radii as the GPU should hold them, and the span of rows written since the last send: setRadii, flushRadii.)
+  const radAll = new Float32Array(N_SAMPLES * 4 * nTubes), rmaxAll = new Float32Array(nTubes);
+  let radLo = Infinity, radHi = -1;
+  function flushRadii() {
+    if (radHi < radLo) return;
+    const n = radHi - radLo + 1;
+    if (gpuProbe.on) gpuProbe.note('uploaded: setRadii', n * (N_SAMPLES * 16 + 4) / 1024);
+    gl.bindTexture(gl.TEXTURE_2D, radTex);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, radLo, N_SAMPLES, n, gl.RGBA, gl.FLOAT, radAll, radLo * N_SAMPLES * 4);
+    gl.bindTexture(gl.TEXTURE_2D, rmaxTex);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, radLo, 1, n, gl.RED, gl.FLOAT, rmaxAll, radLo);
+    radLo = Infinity; radHi = -1;
+  }
+  const bendRow = new Float32Array(N_SAMPLES);
   // (What the curvature texture holds, as bits: all zero, as made above; see setBend.)
   const bendRowBits = new Uint32Array(bendRow.buffer), bendBits = new Uint32Array(N_SAMPLES * nTubes);
   // Per-vessel blood (FLOW_TEXELS texels a row) and dye (DYE_BINS along the course).
@@ -3355,6 +3368,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     return (warmT = { fb, tx, buf, va: cellVAO(buf) });
   }
   function warm(k) {
+    flushRadii();
     const w = warmTarget();
     gl.bindFramebuffer(gl.FRAMEBUFFER, w.fb);
     gl.viewport(0, 0, 1, 1);
@@ -3568,19 +3582,21 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      */
     setRadii(row, r, along = null) {
       figVer++;
+      if (!(row >= 0 && row < nTubes)) return;
       const A = along;
       let mx = -Infinity;
+      // (Written into the kept mirror of both textures and sent in ONE call each for the span of rows that changed, as a draw
+      // begins (flushRadii): a frame's 174 vessels were 348 small texSubImage2D calls. Pure GPU plan C1.)
+      const o = row * N_SAMPLES * 4;
       for (let i = 0; i < N_SAMPLES; i++) {
         const j = Math.min(N_SAMPLES - 1, i + 1);
-        radRow[i * 4] = r[i]; radRow[i * 4 + 1] = r[j];
-        radRow[i * 4 + 2] = A ? A[i] : -1; radRow[i * 4 + 3] = A ? A[j] : -1;
+        radAll[o + i * 4] = r[i]; radAll[o + i * 4 + 1] = r[j];
+        radAll[o + i * 4 + 2] = A ? A[i] : -1; radAll[o + i * 4 + 3] = A ? A[j] : -1;
         if (r[i] > mx) mx = r[i];
       }
-      gl.bindTexture(gl.TEXTURE_2D, radTex);
-      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, row, N_SAMPLES, 1, gl.RGBA, gl.FLOAT, radRow);
-      rmaxOne[0] = mx; rowMaxR[row] = mx; rMaxDirty = true;
-      gl.bindTexture(gl.TEXTURE_2D, rmaxTex);
-      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, row, 1, 1, gl.RED, gl.FLOAT, rmaxOne);
+      rmaxAll[row] = mx; rowMaxR[row] = mx; rMaxDirty = true;
+      if (row < radLo) radLo = row;
+      if (row > radHi) radHi = row;
       // (A vessel's radii change only the pixels of the cells that list it, as its attributes do: drawRows may stand in
       // for a whole draw when it is given this row.)
       radRows.add(row); moved[row] = 1;
@@ -3791,6 +3807,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      * transform [a, b, c, d, e, f]; `look`: the theme's inks and the per-tier opacity and group.
      */
     draw(m, look, blood, rows = null) {
+      flushRadii();
       counts.draw++;
       for (let i = 0; i < 6; i++) OVER[i] = m[i];
       overM = OVER;
@@ -3881,6 +3898,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      * (nothing they hold is dropped by a refusal). `rowsStatus` says which: 'drawn', or why it was refused (ROWS_REFUSED).
      */
     drawRows(m, look, blood, rows, full = false) {
+      flushRadii();
       for (let i = 0; i < 6; i++) OVER[i] = m[i];
       overM = OVER;
       m = whole(m, WM);
@@ -4028,6 +4046,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      * cells drawRows drew again (the vessel layer changed under them).
      */
     composite(look, blood = NOBLOOD, full = false, part = 0) {
+      flushRadii();
       compLook = look; compBlood = blood;
       if (!baseM || fboPW !== PW() || fboPH !== PH()) return;
       // (After one-pass frames the layer is empty: this picture has it drawn whole first, and is drawn whole on it. `fused`: the

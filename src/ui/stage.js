@@ -12943,6 +12943,9 @@ onRenderScale(() => { autoK = autoNow(); moveLow = false; adaptK = 1; moveGaps.l
   }
   let drawnView = -1;
   let flowGate = lastT;
+  // (The calm blood's pace, and how long nothing else may have moved before it counts: see animate.)
+  const CALM_MS = 32, CALM_AFTER_MS = 600;
+  let busyAt = 0;
   // On a software renderer only (WebGL drawn on the CPU), a vessel frame waits for the last to finish on the GPU and gives the
   // page as long again (see sw-yield.js); on a GPU there is no yield (null) and the loop below is unchanged.
   let swYield = softwareYield(SOFTWARE, SOFTWARE ? vCanvas.getContext('webgl2') : null);
@@ -13156,12 +13159,18 @@ onRenderScale(() => { autoK = autoNow(); moveLow = false; adaptK = 1; moveGaps.l
     // (Settings › Figure performance › Motion at 60 (frame.js): on a faster screen, a frame of the model's own motion under 10 ms
     // after the last drawn one waits. No phase is carried, so a 120 Hz screen draws exactly every other frame.)
     const m60 = !paceOf(quality) && figLab('motion60');
-    const interval = m60 ? MOTION60_MS : paceOf(quality);
     // A pan or zoom redraws at once (the picture must stay under the pointer); only the model's
     // own motion is paced, and only on a lower step (see QUALITY).
     const viewMoved = viewVersion !== drawnView;
+    // Calm (pure GPU plan C2): nothing but the blood has moved for CALM_AFTER_MS (no camera, glide, ease, redraw of the vessel layer, input
+    // or idle-rest change), so the flow alone is drawn, at 30 Hz: the shader steps it on the blood's clock (uClock), so it reads the same.
+    // Anything else (busyAt) takes the full rate on its own frame, and the first moving frame after a calm one waits at most CALM_MS.
+    if (viewMoved || forceDraw || drawOnce || restOn || restU !== 1) busyAt = now;
+    const calm = now - busyAt > CALM_AFTER_MS;
+    const base = m60 ? MOTION60_MS : paceOf(quality);
+    const interval = calm ? Math.max(base, CALM_MS) : base;
     if (interval && !viewMoved && !forceDraw && now - flowGate < interval) { askAnimate(); return; }
-    flowGate = interval && !m60 ? now - ((now - flowGate) % interval) : now;
+    flowGate = interval && (!m60 || calm) ? now - ((now - flowGate) % interval) : now;
     const dt = Math.min(0.1, (now - lastT) / 1000);
     // (On a software renderer a frame waits its turn for up to 2 s: the fluid's ease catches up on the time that passed, so it
     // settles when it would on a GPU instead of crawling 50 ms per drawn frame, and a picture taken after it is always the same.)
@@ -13225,7 +13234,8 @@ onRenderScale(() => { autoK = autoNow(); moveLow = false; adaptK = 1; moveGaps.l
     // The vessel layer is redrawn only when something in it changed; the blood every frame.
     if (glowSync && !syncGlowOnly(easeInOut(morph))) syncVeins(easeInOut(morph));
     olStep(now);
-    if (drawVeins(fluidMoved)) { noteDraw('stage'); swYield?.drew(now); }
+    if (fluidMoved || morph !== morphTarget || rotU !== rotTarget || widthEasing || bloodEasing || plateEasing() || veinsDirty || veinsRows.size > 0 || glowSync || sprayFading() || bolus.active || lensFrom || colEasing || !!veins?.organs?.fading) busyAt = now;
+    if (drawVeins(fluidMoved)) { busyAt = now; noteDraw('stage'); swYield?.drew(now); }
     else if (veins && !veins.lost && vLook && F && veins.composite(vLook, bloodLook(), fluidMoved) !== false) { noteDraw('stage'); swYield?.drew(now); }
     drawnView = viewVersion;
     if (still) copyKey(keyNow, keyDrawn); else keyDrawn.on = false;
