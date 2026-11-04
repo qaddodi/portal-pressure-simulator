@@ -7776,6 +7776,8 @@ body { font-optical-sizing: auto; font-kerning: normal; }
 /* The figure's chrome (pills, zoom controls, the bottom dock, the view switcher's face, the sinusoid legend) wears frosted GPU glass (main.js chromeGlass): its fill is drawn in
    the figure's canvas under it once the GPU has drawn it ([data-gl]); until then, and wherever the canvas cannot take it, it keeps the --glass fill above. Its ring and shadow stay the page's. */
 :root:root :is(.topbar .tb-face, .topbar .float-pill, .topbar #viewSeg, .topbar .lens-btn, .zoom-pill, .vdock, .nb-views > .vp-face, .sv-legend)[data-gl] { background: none; }
+/* (4 Nov 2026, Mohammad: the view pill went transparent through a view switch. While the figure's GPU glass is not drawn under a chrome pill (a change of canvas, a dive, a zoom into the sinusoid) it shows the solid surface, as every other glass does, never the bare translucent --glass fill.) */
+:root:root :is(.topbar .tb-face, .topbar .float-pill, .topbar #viewSeg, .topbar .lens-btn, .zoom-pill, .vdock, .nb-views > .vp-face, .sv-legend):not([data-gl]) { background: var(--surface); }
 
 /* Menus, popovers and the Why? pop are frosted GPU glass (menu-glass.js): tint, ring and shadow drawn in the figure's canvas under them once the GPU has drawn
    them ([data-gl]); until then, and where it cannot, they keep the fill, ring and shadow above. */
