@@ -2721,6 +2721,34 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (sites.list) { refreshCTM(); sitesPaint(); }
     if (scan.on) scanPaint(); dprobePaint();
   }
+  // The camera zoomed with a card (card-zoom.js, 4 Nov 2026, "zoom the entire camera"): the whole view is scaled by S about the screen point (px, py)
+  // and then moved by (dx, dy) screen px, the same transform the zoomed cards are given, so the figure, the liver and the labels' places ride with them.
+  // zoomOpen takes the view as it stands (null: it is not at rest, nothing is zoomed); zoomAt is one frame of it, written as the view (k, x, y), one
+  // transform, no glide of its own; zoomEnd gives the view up (the card has gone back, the view is the one it began at) and the labels are solved again.
+  let zoomBase = null;
+  function zoomOpen() {
+    if (zoomBase || !viewNow()) return false;
+    cancelFrame(vtAnim); driftEnd();
+    const b = stageBox(), vb = vbBox, s = Math.min(b.sw / vb.width, b.sh / vb.height);
+    zoomBase = { vt: { ...vt }, s, ox: b.left + b.sx + (b.sw - vb.width * s) / 2 - vb.x * s, oy: b.top + b.sy + (b.sh - vb.height * s) / 2 - vb.y * s };
+    following = true; follow0 = follow1 = null; drifting = true;
+    return true;
+  }
+  function zoomAt(S, px, py, dx, dy) {
+    const z = zoomBase;
+    if (!z || !following) return;
+    vt = { k: z.vt.k * S, x: S * z.vt.x + ((px - z.ox) / z.s) * (1 - S) + dx / z.s, y: S * z.vt.y + ((py - z.oy) / z.s) * (1 - S) + dy / z.s };
+    applyVT(); CTM = null;
+    if (cath.st) { refreshCTM(); cathLabelsSoon(); }
+    if (sites.list) { refreshCTM(); sitesPaint(); }
+    if (scan.on) scanPaint(); dprobePaint();
+  }
+  function zoomEnd() {
+    if (!zoomBase) return;
+    const z = zoomBase; zoomBase = null;
+    if (following) { vt = { ...z.vt }; applyVT(); CTM = null; }
+    followEnd();
+  }
   function followEnd() {
     if (!following) return;
     following = false; follow0 = follow1 = null;
@@ -15346,7 +15374,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     /** The camera is about to glide only to refit the figure to cards that changed (the same slide): a probe showing rides that glide out, never hides. */
     carryProbe() { dpr.refitUntil = performance.now() + 300; },
     /** The presenter's card followed frame by frame: aimView(fn) (where fn's framing would go), viewNow(), follow(v0, v1), followAt(u), followEnd(), following(). */
-    aimView, viewNow, follow: followStart, followAt, followEnd, following: () => following,
+    aimView, viewNow, follow: followStart, followAt, followEnd, following: () => following, zoomOpen, zoomAt, zoomEnd,
     fitSlow(ms = 1300, opt = {}) { if (lobuleOn) return; const to = defaultVT(morphTarget === 1); if (morphTarget !== 1) homeAt = to; else markCirc('focus', to); fitted = true; if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms, opt.steady ? { steady: true } : { scale: true }); },
     /** The same fit as a slow push (a time-lapse's lapse.cam 'fit'): see drifting. */
     fitDrift(ms) { if (lobuleOn) return; const to = defaultVT(morphTarget === 1); if (morphTarget !== 1) homeAt = to; else markCirc('focus', to); fitted = true; if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms, { drift: true }); },
