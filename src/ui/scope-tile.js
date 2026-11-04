@@ -5,7 +5,7 @@
 import { h } from './util.js';
 import { glWords } from './gl-words.js';
 import { renderEndo } from './endo-render.js';
-import { createEndoGL } from './endo-gl.js';
+import { acquireEndoGL } from './endo-gl.js';
 import { endoGrow, LARGE_MM } from './endo-size.js';
 import { D_SURFACE, easeArrive } from './ease.js';
 import { createTraceGL, fitPen } from './trace-gl.js';
@@ -48,7 +48,7 @@ export function createScopeTile() {
   // picture showing stays and the picture is asked for again once the shader is back.)
   let egl = null, eglNo = false, wantK = null, retryT = 0;
   const sOpt = { grow: 0, vis: 0, red: 0, def: [0, 0, 0, 0], kn: new Array(16).fill(0) };   // (an unbanded field: no column deflated, no knuckle)
-  const needGl = () => { if (!egl && !eglNo) { egl = createEndoGL({ onBack: () => { if (wantK !== null && wantK !== key && !dead) show(wantK); } }); if (!egl) eglNo = true; } return egl; }
+  const needGl = () => { if (!egl && !eglNo) { egl = acquireEndoGL({ onBack: () => { if (wantK !== null && wantK !== key && !dead) show(wantK); } }); if (!egl) eglNo = true; } return egl; }
   const shadeGL = (k) => {
     const g = needGl();
     if (!g) return null;

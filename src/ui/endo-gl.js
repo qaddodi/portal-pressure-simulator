@@ -291,3 +291,36 @@ export function createEndoGL({ onBack = null } = {}) {
     },
   };
 }
+
+// One endoscopy shader context for the whole page (production review PR-05): the instrument (instruments.js) and the Endoscopy tile of a
+// slide (scope-tile.js) each made their own, two WebGL contexts for one shader. acquireEndoGL() hands each owner a handle with the same
+// surface as createEndoGL's; they share the one context, canvas and program, made at the first acquire and let go with the last release.
+// Both owners render and take the canvas up in the same task (render(), then upload/drawImage at once; the drawing buffer is not kept), so
+// the one canvas never shows one owner the other's field; each draws the whole field on every render. onBack goes to every holder.
+let shared = null, holders = null;
+/** A handle on the shared endoscopy GL (or null where there is none). dispose() lets this holder go; the context goes with the last. */
+export function acquireEndoGL({ onBack = null } = {}) {
+  if (!shared) {
+    holders = new Set();   // alloc-rare: one set for the shared context
+    const g = createEndoGL({ onBack: () => { for (const h of holders) { try { h.onBack?.(); } catch (e) { caught('endo-gl:shared', e); /* the holder's redraw, not this drawing's failure */ } } } });
+    if (!g) return null;
+    shared = g;
+  }
+  const hold = { onBack };   // alloc-rare: one per holder
+  holders.add(hold);
+  const g = shared;
+  let released = false;
+  return {
+    get canvas() { return g.canvas; },
+    ready: () => g.ready(),
+    get pending() { return g.pending; },
+    get lost() { return g.lost; },
+    render: (res, st) => g.render(res, st),
+    pixels: () => g.pixels(),
+    dispose() {
+      if (released) return;
+      released = true; holders.delete(hold);
+      if (!holders.size && shared === g) { shared = null; holders = null; g.dispose(); }
+    },
+  };
+}

@@ -8,7 +8,7 @@ import { pressureColor } from './colormap.js';
 import { h, fmt, canvasSize, cssVar, cssAlpha, clamp, icon, swapText, putText, countTo } from './util.js';
 import { wordSetter } from './gl-words.js';
 import { simTime, isPaused } from './clock.js';
-import { createEndoGL } from './endo-gl.js';
+import { acquireEndoGL } from './endo-gl.js';
 import { surface } from './gpu-surfaces.js';
 import { renderEndo } from './endo-render.js';
 import { endoGrow, airRatio, airFlat } from './endo-size.js';
@@ -119,7 +119,7 @@ export function createEndoscopy({ onAction }) {
   const lastS = { f: null, vx: null };   // (the frame and its varix the field was last asked to draw: `last` is this, written in place, or null)
   const redraw = () => { raf = 0; if (last) draw(last.f, last.vx); };
   const glOpts = { onBack: () => { if (!raf) raf = drawFrame(redraw); } };
-  const mkGl = () => createEndoGL(glOpts);
+  const mkGl = () => acquireEndoGL(glOpts);
   let gl = null, wasGl = false, glGone = false, noGl = false, away = false;   // (wasGl: which renderer drew the field last, so a change between them fades; glGone: the context was given back, not failed; away: the tab is off the screen)
   function needGl() {
     if (gl || noGl || away) return;
