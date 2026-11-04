@@ -7751,9 +7751,8 @@ body { font-optical-sizing: auto; font-kerning: normal; }
    their digits (gl-words.js), so the picture and the page set a number the same width. tests/numbers-tabular.test.js pins it. */
 *, *::before, *::after { font-variant-numeric: tabular-nums lining-nums !important; font-feature-settings: 'cv11', 'ss01' !important; }   /* (lining too: the rules that asked for lining figures in the serif keep them; and the body's cv11 and ss01, which the shorthand also resets, so the page sets its digits as the GPU words' atlas does (glyph-atlas.mjs STYLE): in the fonts as shipped the two features change no glyph, checked pixel for pixel in Inter, Source Serif 4 and JetBrains Mono) */
 
-/* Lobule and sinusoid names: the caption's own colour (its term's, deepened with --cap-ink) over a white outline, in every theme (Mohammad, 3 Nov 2026).
-   The theme-wide white (dark) and the lit tint (lighter in dark) are overridden here so the ink always contrasts with the outline. */
-:root:root:root:root:root:root :is(.lz-lab .n, .lz-lab .v, .lz-lab .v b, .lz-lab small, .lz-lab .d, .lz-zone, .lz-zone b, .sv-region, .sv-region .v, .sv-region > span:first-child) { color: color-mix(in srgb, var(--term-c, var(--text-2)) 68%, var(--cap-ink)); }
+/* Lobule and sinusoid names at rest: the theme's label ink (--cap-ink) over the theme's --label-halo, exactly as Anatomy and Circuit labels. */
+:root:root:root:root:root:root :is(.lz-lab .n, .lz-lab .v, .lz-lab .v b, .lz-lab small, .lz-lab .d, .lz-zone, .lz-zone b, .sv-region, .sv-region .v, .sv-region > span:first-child) { color: var(--cap-ink); }   /* (at rest: the theme's one label ink on its halo, as Anatomy and Circuit; only a lit term, below, takes its colour. 4 Nov 2026: the term-coloured rest ink was the 3 Nov rule, superseded by "one style everywhere") */
 
 /* A slide's lit term, in every view, is the Circuit's way: its words in the term's colour with the same outline, no pill or box behind (Mohammad, 3 Nov 2026: "the
    text colour, keep the outlines"). The outline stays the theme's --label-halo; only the ink changes. */
