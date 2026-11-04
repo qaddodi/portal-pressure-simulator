@@ -14,6 +14,7 @@ import { readAnims } from './layout-snap.js';
 import { deckSig, patientSig } from './menu-keep.js';
 import { ownsSideways, pageGo } from './swipe.js';
 import { frameFor } from './frame.js';
+import { sheetLayer } from './sheet-layer.js';
 import { restPass } from './rest-pass.js';
 import { classSoon, removeSoon } from './class-soon.js';
 import { slideFold } from './fold-slide.js';
@@ -225,7 +226,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
       pv._in = pv.firstChild.firstChild;
       pv.addEventListener('pointerenter', () => clearTimeout(hideT));
       pv.addEventListener('pointerleave', () => { hideT = setTimeout(() => hidePreview(), 220); });
-      document.body.append(pv);
+      sheetLayer().append(pv);   // (beside its menu, in the one sheet layer)
     }
     const key = row.dataset.k;
     if (pvKey !== key) {
@@ -591,8 +592,9 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
         const sp = spare; spare = null;
         el = sp && sp.key === spareKey(lib) ? sp.el : null;
         if (!el) el = build(lib); coldOpen = !lib;
-        if (sheet) { el.classList.add('sheet'); back = h('div', { class: 'um-scrim', onclick: () => close() }); document.body.append(back); }
-        document.body.append(el);
+        // (In the one sheet layer, cut on the dock's top line, with its scrim: sheet-layer.js.)
+        if (sheet) { el.classList.add('sheet'); back = h('div', { class: 'um-scrim', onclick: () => close() }); sheetLayer().append(back); }
+        sheetLayer().append(el);
         plate = glassPlate(el) || plateFor(el, 'umenu');   // (its fill, ring and shadow are the GPU's, a plate laid under it: plate-gl.js)
         openAt = performance.now(); place(); filter(); groupsIn(el);
         anchor.setAttribute('aria-expanded', 'true');

@@ -17,6 +17,7 @@ import { readMetric, readAnims, readStyle, readBox } from './layout-snap.js';
 import { sliderOf, sliderFor, dotWidth, jump, glide, gliding, setHover, setHeld, setFocus, releaseAll, followInput } from './slider-gl.js';
 import { plateFor } from './plate-gl.js';
 import { glassPlate } from './menu-glass.js';
+import { sheetLayer } from './sheet-layer.js';
 import { layoutTip, covers } from './tip-layout.js';
 import { tipDraw, tipUndrawn } from './tip-gl.js';
 
@@ -453,8 +454,9 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
   switchIn(el);
   // A sheet has a light scrim that takes the tap away, as the main menu's does.
   const scrim = asSheet ? h('div', { class: 'um-scrim' }) : null;
-  if (scrim) document.body.append(scrim);
-  document.body.append(el);
+  // (In the one sheet layer, cut on the dock's top line: sheet-layer.js. The scrim too, so the dock is never dimmed or covered.)
+  if (scrim) sheetLayer().append(scrim);
+  sheetLayer().append(el);
   const put = () => {
     if (asSheet) return;
     const r = anchor.getBoundingClientRect(), w0 = el.offsetWidth;
@@ -1046,7 +1048,8 @@ function sheetGrab(panel, target, t, thumb, easing) {
   return { sc, x: t.clientX, y: t.clientY, top: !sc || sc.scrollTop <= 0, on: false, dy: 0, t: 0, trail: [], shift: easing ? pullAt(easing) : thumb ? 0 : liveShift(panel), h: panel.offsetHeight, thumb, pull: null };
 }
 export function swipeSheet(panel, onClose, enabled = null) {   // (enabled: a card that is a sheet only on a phone says when it is one)
-  // Over the thumb dock the sheet slides down behind the dock: what passes below its resting bottom edge is clipped (its own still clip, app.css).
+  // Over the thumb dock the sheet slides down behind the dock: what passes below the dock's top line is cut by the one sheet layer it is laid in
+  // (sheet-layer.js, app.css .sheet-layer), whatever moves it.
   const thumbUi = () => document.documentElement.classList.contains('thumb-ui');
   // The pull and the let-go are the compositor's (sheet-pull.js): a move of the finger sets one animation's clock, nothing is written to the
   // panel's style, and the let-go is one animation that carries the finger's speed on. `easing`: the let-go still under way.
@@ -1083,7 +1086,7 @@ export function swipeSheet(panel, onClose, enabled = null) {   // (enabled: a ca
       const here = easing && !easing.over ? pullAt(easing) : s.shift;
       s.on = true; s.y = e.clientY - here; s.t = performance.now();
       classSoon(panel, 'pulling', true);   // (the stylesheet's entrance, if it is still playing, gives way to the finger: a class, written between frames, app.css .pulling)
-      s.pull = moverOf(panel, s.thumb ? 'translate' : 'transform', 'y', false, s.thumb);   // (num-move.js: one paused animation, its clock the finger's distance)
+      s.pull = moverOf(panel, s.thumb ? 'translate' : 'transform', 'y');   // (no cut of its own: the sheet layer cuts it on the dock's line, sheet-layer.js)   // (num-move.js: one paused animation, its clock the finger's distance)
       s.pull.set(0, here);
       pullStop(easing); easing = null;
       panel.setPointerCapture?.(e.pointerId);
@@ -1108,7 +1111,7 @@ export function swipeSheet(panel, onClose, enabled = null) {   // (enabled: a ca
     // clip, so the move needs no cut beside it. Away it goes to the sheet's own height and stays there until the menu takes it off.)
     const to = gone ? H + (s0.thumb ? 8 : 0) : 0, ms = s0.thumb ? 220 : D_SMALL;
     if (gone) dataSoon(panel, 'swiped', '1');
-    easing = pullRelease(panel, s0.thumb ? 'translate' : 'transform', s0.pull, s0.dy, to, ms, carryCurve(speed, to - s0.dy, ms), clearEasing, s0.thumb);   // alloc-rare: a let-go
+    easing = pullRelease(panel, s0.thumb ? 'translate' : 'transform', s0.pull, s0.dy, to, ms, carryCurve(speed, to - s0.dy, ms), clearEasing);   // alloc-rare: a let-go
     if (gone) onClose();
   };
   panel.addEventListener('pointerup', end);

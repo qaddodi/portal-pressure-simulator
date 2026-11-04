@@ -4057,6 +4057,14 @@ button.finding { cursor: pointer; }
   .um-kb { display: none; }
 }
 /* Phone: the same content as a bottom sheet, one column, the column headings sticking. */
+/* The one sheet layer (sheet-layer.js): every menu, the main menu, Why? and their scrims are laid in it. Over the thumb dock it is cut on the
+   dock's top line (--sheet-foot-screen is 8 px above it), so nothing in it, however it is moved, dragged or animated, is ever drawn below that
+   line or takes a touch there: the play bar, the timeline, the readouts and the tabs are never covered, and stay live under an open menu.
+   It is the containing block of what is in it (contain: layout) and spans the viewport, so their fixed places are what they were. One cut for
+   every sheet; none of them carries its own. One above the popover level, so the start screen (the same level) never covers a menu. */
+.sheet-layer { position: fixed; inset: 0; z-index: calc(var(--z-popover) + 1); pointer-events: none; contain: layout; }
+:where(.sheet-layer > *) { pointer-events: auto; }
+html.thumb-ui .sheet-layer { clip-path: inset(0 0 max(0px, calc(var(--sheet-foot-screen, 8px) - 8px)) 0); }
 .um-scrim { position: fixed; inset: 0; z-index: var(--z-popover); background: var(--scrim-menu); animation: crossfade var(--d-small) var(--ease); }
 .um-scrim.out { animation: crossfade-out var(--d-small) var(--ease-in) forwards; }
 .umenu.sheet { left: 0 !important; right: 0; top: auto !important; bottom: var(--menu-kb, 0px); width: auto; height: var(--menu-h, 88dvh); max-height: none; border-radius: var(--r-sheet) var(--r-sheet) 0 0; --edge-y: 100%; animation: slide-from-edge var(--d-small) var(--ease); padding-bottom: env(safe-area-inset-bottom, 0px); padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }   /* (the sheet's glass runs edge to edge, its rows keep clear of the notch or island when the phone is held sideways) */
@@ -4065,6 +4073,10 @@ button.finding { cursor: pointer; }
 .umenu.sheet.out { animation: slide-to-edge var(--d-small) var(--ease-in) forwards; }
 /* Upright (over the thumb dock) the shared sheet swipe moves it by --sink (util.js swipeSheet): it follows the finger down. */
 html.thumb-ui .umenu.sheet { translate: 0 var(--sink, 0px); }
+/* (4 Nov, Mohammad: "when I slide the menu down it still goes on top of everything".) Over the thumb dock the main menu rests on the dock's top,
+   8 px clear, inset and round like every other sheet there (--thumb-occ), and stops under the top bar; the keyboard, when up, lifts it higher.
+   It used to rest on the screen's foot, over the play bar, the timeline and the tabs, and slid down over them with no cut. */
+html.thumb-ui .umenu.sheet { left: calc(env(safe-area-inset-left, 0px) + 6px) !important; right: calc(env(safe-area-inset-right, 0px) + 6px); bottom: max(var(--menu-kb, 0px), var(--thumb-occ, 0px)); height: min(var(--menu-h, 88dvh), calc(100dvh - var(--thumb-occ, 0px) - max(72px, var(--thumb-top, 0px) + 8px))); border-radius: var(--r-sheet); padding-bottom: 6px; }
 .umenu.sheet .um-grab { display: block; flex: none; height: 16px; position: relative; touch-action: none; }
 .umenu.sheet .um-grab::before { content: ''; position: absolute; left: 50%; top: 6px; width: 40px; height: 4px; border-radius: 2px; background: var(--border-strong); transform: translateX(-50%); }
 .umenu.sheet .um-top { padding: 2px 10px 10px 14px; touch-action: none; }
@@ -6546,13 +6558,10 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 /* The Settings menu ends above the bottom bar: its shadow is cut at the bar's top (util.js clipBar writes only --bar-clip). */
 .menu.app-menu { clip-path: inset(-64px -64px var(--bar-clip, -64px) -64px); }
 html.thumb-ui .menu.from-dock { clip-path: inset(-64px -64px calc(var(--sink, 0px) - 8px) -64px); }
-/* (4 Nov, Mohammad: "sliding the menu down still shows on top of everything including the bottom bar".) A menu sheet that is not from the dock
-   (Settings, Why?) is drawn above the whole app, so every move of it down, a pull, a let-go, the stylesheet's own exit, is cut on the dock's top line:
-   at rest its foot is 8 px above that line (the cut sits 8 px under it); a move of T px down leaves T - 8 px of it cut off the bottom (the pull
-   and let-go write the same clip-path beside their translate: num-move.js dockCut). Never over the play bar, the timeline or the tabs. */
-html.thumb-ui :is(.menu.as-sheet, .why-pop.as-sheet) { clip-path: inset(-64px -64px -8px -64px); }
-@keyframes dock-sheet-in { from { opacity: var(--edge-o, 1); transform: translateY(calc(100% + 8px)); clip-path: inset(-64px -64px 100% -64px); } }
-@keyframes dock-sheet-out { to { opacity: var(--edge-o, 1); transform: translateY(calc(100% + 8px)); clip-path: inset(-64px -64px 100% -64px); } }
+/* (4 Nov) A menu sheet (Settings, Why?, Layers, History, Blood) rises from behind the dock and sinks back behind it: the slide is its own, the cut on the
+   dock's top line is the sheet layer's (.sheet-layer above), so no move of it, a pull, a let-go, a flick, its entrance or its exit, carries a cut of its own. */
+@keyframes dock-sheet-in { from { opacity: var(--edge-o, 1); transform: translateY(calc(100% + 8px)); } }
+@keyframes dock-sheet-out { to { opacity: var(--edge-o, 1); transform: translateY(calc(100% + 8px)); } }
 @media (prefers-reduced-motion: no-preference) {
   html.thumb-ui :is(.menu.as-sheet, .why-pop.as-sheet) { animation-name: dock-sheet-in; }
   html.thumb-ui :is(.menu.as-sheet, .why-pop.as-sheet).leaving { animation-name: dock-sheet-out; }
@@ -6607,7 +6616,7 @@ html.thumb-ui :is(.menu.as-sheet, .why-pop.as-sheet) { clip-path: inset(-64px -6
 /* (4 Nov, Mohammad) The dock is never covered: the play bar, the timeline, the readouts and the tab row stay up and live, and every card
    and menu rests 8 px above the dock's top (--sheet-foot). Only the view pill, which floats in that slot, steps aside. It comes back
    a beat late (.3 s), so between two cards, while one has gone and the next is yet to rise, it does not blink in and out.) */
-.app.thumb:is(.dock-open, .panel-open) .vdock:not(.mini) > .nb-views, .app.thumb:has(#treatCard:not([hidden]), .action-card.docked:not([hidden]):not(.ac-leaving)) .vdock:not(.mini) > .nb-views, html.thumb-ui:has(body > .menu:not(.leaving), body > .why-pop.as-sheet.show) .app.thumb .vdock:not(.mini) > .nb-views { opacity: 0; pointer-events: none; translate: 0 var(--bar-sink, 0px); transition: opacity var(--d-flip) var(--ease), translate var(--d-flip) var(--ease); }
+.app.thumb:is(.dock-open, .panel-open) .vdock:not(.mini) > .nb-views, .app.thumb:has(#treatCard:not([hidden]), .action-card.docked:not([hidden]):not(.ac-leaving)) .vdock:not(.mini) > .nb-views, html.thumb-ui:has(.sheet-layer > .menu:not(.leaving), .sheet-layer > .why-pop.as-sheet.show) .app.thumb .vdock:not(.mini) > .nb-views { opacity: 0; pointer-events: none; translate: 0 var(--bar-sink, 0px); transition: opacity var(--d-flip) var(--ease), translate var(--d-flip) var(--ease); }
 .app.thumb .vdock:not(.mini) > .nb-views { transition: opacity var(--d-small) var(--ease) .3s, translate var(--d-small) var(--ease) .3s; }
 /* (Open, the tab row's top hairline is its edge ring on the outer edge, as on a card: its own top border goes, with 1 px more padding, so no fill shows above the line.) */
 @media (prefers-reduced-motion: no-preference) { .app.thumb .vdock:not(.mini) { --bar-sink: 6px; } }   /* (the rise; with reduced motion the bar only fades) */

@@ -81,6 +81,7 @@ import { readAnims, readBox, readElAt, readMetric, readStyle, scrollInto } from 
 import './scroll-edges.js';   // (soft fades at the ends of lists that scroll, only where there is more; ?edges=0 off)
 import { caught, caughtNow } from './caught.js';
 import { setFpsCounter } from './fps-counter.js';
+import { setDockTop } from './sheet-layer.js';
 const nextFrame = frameFor('main');
 
 // Color lenses: [title, what it shows, legend swatch].
@@ -1630,6 +1631,7 @@ function wireFloating() {
     const nbOcc = px(tabOcc);
     if (pubVals.nbOcc !== nbOcc) { pubVals.nbOcc = nbOcc; app.style.setProperty('--nb-occ', nbOcc); app.style.setProperty('--sheet-foot', nbOcc); }
     const occ = px(nbR && nbR.height ? innerHeight - nbR.top + 8 : 0);
+    setDockTop(nbR && nbR.height ? nbR.top : null);   // (the one sheet layer and the menus' GPU glass are cut on this line: sheet-layer.js)
     if (pubVals.occ !== occ) { pubVals.occ = occ; document.documentElement.style.setProperty('--thumb-occ', occ); document.documentElement.style.setProperty('--sheet-foot-screen', occ); }
     // (and the top bar's foot, so a tall sheet stops under the view switch and leaves it in reach)
     const topOcc = px(thumb ? readBox(tb).bottom : 0);

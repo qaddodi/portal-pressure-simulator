@@ -7,8 +7,10 @@ import { leaveFromHere } from './menu-leave.js';
 import { D_FLIP, D_SMALL, EASE_ARRIVE, EASE_MOVE } from './ease.js';
 import { restRemove } from './rest-pass.js';
 import { glidePlate } from './plate-glide.js';
+import { sheetLayer } from './sheet-layer.js';
 
 export function createWhy(pop) {
+  if (pop?.isConnected) sheetLayer().append(pop);   // (laid in the one sheet layer, cut on the dock's top line: sheet-layer.js)
   // (The one surface on top: util.js claimSurface routes Esc and the outside tap to it; a metric, finding, vital, button or link is not 'outside', it opens the next card.)
   const me = { close: () => close(), has: (n) => pop.contains(n) || !!n.closest?.('.metric, .finding, .vital, .btn, .link') };
   let openFor = null, anchorEl = null;
@@ -38,7 +40,7 @@ export function createWhy(pop) {
     for (const a of pop.getAnimations()) a.cancel();
     delete pop.dataset.swiped; pop.style.translate = ''; pop.style.transform = '';
     pop.classList.toggle('as-sheet', sheet); placedTop = 0;
-    if (sheet && !scrim) { scrim = h('div', { class: 'um-scrim why-scrim' }); document.body.append(scrim); }
+    if (sheet && !scrim) { scrim = h('div', { class: 'um-scrim why-scrim' }); sheetLayer().append(scrim); }
     pop.replaceChildren(head('Why?'), h('div', { class: 'sub' }, 'Working out what drives it…'), h('div', { class: 'skeleton', style: { width: '90%' } }), h('div', { class: 'skeleton', style: { width: '70%' } }), h('div', { class: 'skeleton', style: { width: '80%' } }));
     pop.classList.add('show');
     claimSurface(me);

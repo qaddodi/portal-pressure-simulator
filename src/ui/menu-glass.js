@@ -4,6 +4,8 @@
 // (no glass.add, not made yet, the GPU lost, Blur effect off) the menu keeps its CSS fill, ring and shadow (the page's, never a CSS blur).
 //   glassPlate(el)  -> { leaveAlong(), dispose() }, the shape plate-gl.js's plate has, so the callers are as they were.
 
+import { dockLine, inSheetLayer } from './sheet-layer.js';
+
 let api = null;
 const open = new Set();   // alloc-rare: the menus open now (one added as each opens)
 const list = [], others = [], seen = new WeakSet();
@@ -57,16 +59,22 @@ const live = () => {
   if (tip && (tip.classList.contains('show') || tip.getAnimations?.().length)) list.push(tip);   // (the tooltip's card is glass too; its words are the GPU picture of tip-gl.js)
   return list;
 };
-// The dock menus' clip-path (inset(.. .. bottom ..), app.css, the sink): the glass is cut at the same foot, in client px, read with the box.
+// The cut: a menu in the one sheet layer is never drawn below the dock's top line (sheet-layer.js; the layer's own clip, app.css), so its glass,
+// drawn in the figure's canvas under the dock, is cut there too. A menu's own inset clip-path (a dock menu's sink) cuts it higher where it does.
+// In client px, read with the box.
 const cut = (e) => {
+  const line = inSheetLayer(e) ? dockLine() : null;
+  let own = null;
   const c = getComputedStyle(e).clipPath;
-  if (!c || c === 'none' || !c.startsWith('inset(')) return null;
-  const t = c.slice(6, c.indexOf(')')).split(/\s+/);
-  const w = t.length === 1 ? t[0] : t.length === 2 ? t[0] : t[2];
-  const r = e.getBoundingClientRect();
-  const bot = w.endsWith('%') ? parseFloat(w) / 100 * r.height : parseFloat(w);   // (a sheet's exit cuts by a share of its own height: app.css dock-sheet-out)
-  if (!(bot > 0)) return null;
-  return { bottom: r.bottom - bot };
+  if (c && c !== 'none' && c.startsWith('inset(')) {
+    const t = c.slice(6, c.indexOf(')')).split(/\s+/);
+    const w = t.length === 1 ? t[0] : t.length === 2 ? t[0] : t[2];
+    const r = e.getBoundingClientRect();
+    const bot = w.endsWith('%') ? parseFloat(w) / 100 * r.height : parseFloat(w);
+    if (bot > 0) own = r.bottom - bot;
+  }
+  if (own == null && line == null) return null;
+  return { bottom: own == null ? line : line == null ? own : Math.min(own, line) };
 };
 function ensure() {
   if (reg || !api?.add) return;
