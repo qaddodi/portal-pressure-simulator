@@ -2708,10 +2708,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // A vessel's course at t of the change between the views (eased: 0 the anatomy, 1 the circuit), as updateGeometry draws it; and its
   // strands' (strandAt). Pure: the GPU morph (morphTrack) asks for moments ahead of the one drawn.
   const vesOut = { pts: null, base: null, u0: 0 };   // (the answer, written in place: every caller reads it at once, before the next ask)
-  function vesselAt(x, t) {
+  // `frame`: asked for the frame drawn now (updateGeometry), not for a moment ahead: between the views the course is then written into one of the
+  // vessel's two kept lists (g.mix, alternating: the frame before's is still being read by the draw), nothing allocated per vessel per frame.
+  function vesselAt(x, t, frame = false) {
     const g = geo[x.e.id];
     let pts;
-    if (t === 0) pts = g.A; else if (t === 1) pts = g.C; else pts = g.A.map((p, i) => [lerp(p[0], g.C[i][0], t), lerp(p[1], g.C[i][1], t)]);
+    if (t === 0) pts = g.A; else if (t === 1) pts = g.C;
+    else if (frame) {
+      const A = g.A, C = g.C, n = A.length;
+      const mix = g.mix ||= [null, null];   // alloc-rare: made once for the vessel
+      g.mixI ^= 1;
+      let m = mix[g.mixI];
+      if (!m || m.length !== n) { m = mix[g.mixI] = Array.from({ length: n }, () => [0, 0]); }   // alloc-rare: made once for the vessel (and again if its sampling changes)
+      for (let i = 0; i < n; i++) { const q = m[i]; q[0] = lerp(A[i][0], C[i][0], t); q[1] = lerp(A[i][1], C[i][1], t); }
+      pts = m;
+    } else pts = g.A.map((p, i) => [lerp(p[0], g.C[i][0], t), lerp(p[1], g.C[i][1], t)]);
     const base = pts;
     const u0 = STRAND_FROM[x.e.id] || 0;
     if (x.e.kind === 'collateral' && !x.e.spontaneous && t < 1) { const wz = wiggle(pts, g.wig * (1 - t), x.e.id.length); pts = u0 ? blendFrom(base, wz, u0) : wz; }
@@ -2741,7 +2752,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // frame of the change.)
     const lazy = t > 0 && t < 1;
     for (const x of full ? EV : only) {
-      const g = geo[x.e.id], v = vesselAt(x, t), { u0 } = v;
+      const g = geo[x.e.id], v = vesselAt(x, t, true), { u0 } = v;
       const pts = v.pts;
       if (x.strands) for (const sd of x.strands) {
         const sp = strandAt(x, sd, t, v);

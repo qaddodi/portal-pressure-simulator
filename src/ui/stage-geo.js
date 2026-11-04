@@ -27,7 +27,7 @@ export function createGeo(st, live) {
     const dC = CIRCUIT_PATH[e.id] || (e.shunt === 'custom' ? bypassPath(a[1], b[1]) : defaultPath(a[1], b[1], true));
     // A spontaneous shunt (gastrorenal, splenorenal) is one large vein, drawn like one.
     const A = (e.kind === 'collateral' && !e.spontaneous) || e.kind === 'shunt' ? sample(dA) : meander(sample(dA), e.id);
-    geo[e.id] = { dA, dC, A, C: sample(dC), cur: null, len: 0, wig: 0, lit: Array.from({ length: N_SAMPLES }, () => [0, 0, 0]) };   // (lit: the lit normals, one triple a sample, written in place by litNormals)
+    geo[e.id] = { dA, dC, A, C: sample(dC), cur: null, mix: null, mixI: 0, len: 0, wig: 0, lit: Array.from({ length: N_SAMPLES }, () => [0, 0, 0]) };   // (lit: the lit normals, one triple a sample, written in place by litNormals)
   }
   // Tributaries and feeders (anatomic only), sampled once, with a vein's gentle meander (a
   // feeder that is a collateral gets a serpentine instead).
