@@ -2673,6 +2673,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The solve is a job sliced over the change's frames: one short slice in the tap's own frame (xfSolving shortens updateLabels' first slice), then one
   // per frame of the morph (viewXfStep), the rest at the landing if it comes first. The new labels stay at nothing until it lands.
   let xfSolving = false;
+  // (The change landed before the new view's labels were solved: they stay at nothing until the solve lands, never the old view's labels on the new figure.)
+  let xfHold = false;
+  function xfRelease() { if (!xfHold) return; xfHold = false; xfLayer(1); labelGL.dropGhosts(); }
   const XF_SLICE_MS = 1.2;   // (a slice of the target's solve in a frame of the change: small, so the change itself keeps its frame rate; what is left goes on after it lands)
   let xfKept = null;
   function solveTargetView(d) {
@@ -2708,6 +2711,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return done;
   }
   function viewXfStart(d) {
+    xfHold = false;
     viewXf = null;   // (a change begun on another: the new one is solved first, with the layers out of the old one's hands)
     labelJobDrop();
     if (handRide) handRideEnd();
@@ -2810,12 +2814,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!x) return;
     // (The morph landed first: the solve goes on in the usual slices at rest, the stage being at its end state, and is marked current when it lands.)
     if (x.pending && labelJob) { labelJob.xfTap = labelJob.solvedFor.sig; mayTask('label solve', labelJobStep, JOB_NOW); }
+    xfHold = !!(x.pending && labelJob);
     x.pending = false;
     viewXf = null;
     if (!x.same) { vt = { ...x.to }; applyVT(); CTM = null; }
     vtGliding = false;
-    xfLayer(1);
-    labelGL.dropGhosts();
+    if (xfHold) { labelGL.dropGhosts(); labelGL.crossfade(0, 0); } else { xfLayer(1); labelGL.dropGhosts(); }
     refreshCTM();
     // (Laid out for this very camera already: the solve at the tap was for the landed geometry, so it stands. The signature differs only by the geometry's
     // version, which every morph frame bumped: marked current, the landing only refreshes values and does not solve again.)
@@ -12220,6 +12224,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     dprobePaint();
     labelPainted = true;
     preAsk();
+    if (xfHold && !labelJob) xfRelease();
     labelGlSync();   // (last: the probe's place, just written, is drawn in this frame too)
   }
   // The solve running in slices (LABEL_SLICE_MS): its generator, the view's key it was started for and what it was solved for.
