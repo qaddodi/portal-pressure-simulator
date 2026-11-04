@@ -9,7 +9,7 @@
 // trailing behind": a compositor animation can stand a display frame off the glass drawn over the same sheet).
 import { D_SMALL, EASE_ARRIVE, cssCurve } from './ease.js';
 import { moverOf, signalMove } from './num-move.js';
-import { glideTranslate, glideStop, glideY } from './script-glide.js';
+import { glideTranslate, glideStop, glideY, glideCall } from './script-glide.js';
 
 /** The sheet's moving parts (its plate first, put in once). */
 export function sheetParts(el) {
@@ -81,16 +81,19 @@ export function stopSheet(el) {
   if (Number.isFinite(y)) el._sheetOff = y;
   runs.delete(el); clearTimeout(r.timer);
   for (const c of r.parts) glideStop(c);
+  glideStop(el);   // (the sheet's own called run, glideSheet's `frame`)
 }
 
 /** Eases the content from where it is drawn to y px down, on `easing` (a finger's carry curve, or the arrival), then calls done. */
-export function glideSheet(el, y, { easing = EASE_ARRIVE, duration = D_SMALL, done } = {}) {
+// frame(offset): called in each frame with the offset the content is drawn at (the same eased value the parts are written with), for what grows with
+// the sheet (the Tests chart, dock-sheet.js).
+export function glideSheet(el, y, { easing = EASE_ARRIVE, duration = D_SMALL, done, frame } = {}) {
   const from = sheetOffset(el);
   stopSheet(el);
   const parts = [...el.children];   // (the plate first, put in as the sheet was set up: sheetParts)
   el._sheetOff = y;
   const v = y ? `0px ${y}px` : '';
-  if (Math.abs(from - y) < 0.5) { for (const c of parts) c.style.translate = v; signalMove(); done?.(); return; }
+  if (Math.abs(from - y) < 0.5) { for (const c of parts) c.style.translate = v; frame?.(y); signalMove(); done?.(); return; }
   const ease = cssCurve(easing);
   // alloc-rare: a sheet's ease begins: one record and its end, once for each move, not for each frame
   const r = { parts, to: y, timer: 0 };
@@ -98,5 +101,6 @@ export function glideSheet(el, y, { easing = EASE_ARRIVE, duration = D_SMALL, do
   // (Put where it lands, in the exact text the stylesheet and a pull expect; every part's glide ended first, so none writes after.)
   const end = () => { if (runs.get(el) !== r) return; runs.delete(el); clearTimeout(r.timer); for (const c of parts) { glideStop(c); c.style.translate = v; } signalMove(); done?.(); };
   for (let i = 0; i < parts.length; i++) glideTranslate(parts[i], 0, from, 0, y, duration, ease, i ? undefined : end);
+  if (frame) glideCall(el, duration, ease, (e) => frame(from + (y - from) * e));   // (after the parts: the same frame, the same ease)
   r.timer = setTimeout(end, duration + 120);   // (a page whose frames stall, in the background or a busy browser, still lands on time)
 }

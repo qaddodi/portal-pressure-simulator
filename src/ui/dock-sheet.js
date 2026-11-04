@@ -39,7 +39,7 @@ function releaseFrame(el) {
 }
 
 const sheetInner = (c) => { const l = c.lastElementChild; if (!l) return 0; const b = parseFloat(readStyle(c).paddingBottom) + parseFloat(readStyle(l).marginBottom); return readBox(l).bottom - readBox(c).top + readMetric(c, 'scrollTop') + b; };
-export function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = null, anywhere = false }) {
+export function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = null, anywhere = false, grow = false }) {
   const SIZES = [0.32, 0.56, 0.9], THUMB = [0.62, 1], TABLET = [0.45, 0.62];
   const thumb = () => app.classList.contains('thumb') && isPhone();
   // (17 Oct, Mohammad: an upright iPad's cards open "proportional to the ipad proportions vertically" and never fill the whole
@@ -62,6 +62,51 @@ export function sheetBehaviour(el, { handle, drag, onClose, active = () => true,
   // rest. `lay`: the height the box is laid out at while it is held taller than it is drawn (0: its own, --sheet-size).
   sheetParts(el);
   let lay = 0;
+  // The chart grows with the finger (Menu system plan W3, option A; `grow`, the Tests card): while the pane is held at the size it is laid
+  // out at, each chart box in it is stretched by the compositor (scale, from its top edge) by what the card has grown since, and what
+  // follows it is moved down by the same. Words in the box are hidden meanwhile (not stretched). The growth is dock.js's own rule for the
+  // plot (the card's height less 150, between 190 and 420), so in the frame the sheet lands, when the pane is let go, laid out and drawn once
+  // at its true size, and these are taken off in the same task, the picture is where the stretch had it. A pull down from Full shrinks the same way.
+  let gr = null;   // { base: the card's height the pane is laid out at, p0, items: [[element, boxes above it, its height | 0 for a follower]], last }
+  const plotAt = (H) => Math.min(420, Math.max(190, H - 150));
+  const growArm = (base) => {
+    if (!grow || gr || !isPhone() || !thumb()) return;
+    const pane = el.querySelector('.dock-body .dock-pane.active');
+    if (!pane || readMetric(pane, 'scrollTop') > 0) return;
+    const boxes = [...pane.querySelectorAll('.chart-box:not(.square)')].filter((b) => readMetric(b, 'offsetHeight') > 0);   // alloc-rare: once for each gesture
+    if (!boxes.length || !(parseFloat(el.style.getPropertyValue('--plot-h')) > 0)) return;
+    const rects = boxes.map((b) => readBox(b));   // alloc-rare: once for each gesture
+    const items = [], seen = new Set();   // alloc-rare: once for each gesture
+    const above = (top) => rects.reduce((n, r) => n + (r.bottom <= top + 1 ? 1 : 0), 0);
+    boxes.forEach((b, i) => {
+      items.push([b, above(rects[i].top), readMetric(b, 'offsetHeight')]); seen.add(b);
+      for (let n = b; n && n !== pane; n = n.parentElement) for (let s = n.nextElementSibling; s; s = s.nextElementSibling) {
+        if (seen.has(s) || boxes.includes(s) || readBox(s).top < rects[i].bottom - 1) continue;
+        seen.add(s); items.push([s, above(readBox(s).top), 0]);
+      }
+    });
+    for (const it of items) if (it[2]) it[0].style.transformOrigin = '50% 0';
+    gr = { base, items, last: NaN };
+    el.classList.add('sheet-grow');
+  };
+  const growTo = (off) => {
+    if (!gr) return;
+    const ga = Math.round((plotAt((lay || gr.base) - off) - plotAt(gr.base)) * 4) / 4;
+    if (ga === gr.last) return;
+    gr.last = ga;
+    for (const [e, n, hb] of gr.items) {
+      e.style.translate = n ? `0px ${n * ga}px` : '';
+      if (hb) e.style.scale = `1 ${Math.max(0.2, (hb + ga) / hb)}`;
+    }
+  };
+  const growOff = () => {
+    if (!gr) return;
+    for (const [e, , hb] of gr.items) { e.style.translate = ''; if (hb) { e.style.scale = ''; e.style.transformOrigin = ''; } }
+    gr = null;
+    el.classList.remove('sheet-grow');
+  };
+  // Holds the pane at the size it is laid out at (once for a gesture), before the box is made taller.
+  const hold = () => { if (held.has(el)) return; const base = readMetric(el, 'offsetHeight'); holdFrame(el); growArm(base); };
   const natural = () => {
     if (!fit || !isPhone() || el.hidden) return Infinity;
     const cs = readStyle(el);
@@ -86,7 +131,7 @@ export function sheetBehaviour(el, { handle, drag, onClose, active = () => true,
   const commit = (v) => {
     classSoon(el, 'sheet-half', thumb() && size === half());   // (a phone's Tests card hides its longer words at Half)
     el.style.setProperty('--sheet-size', v);
-    releaseFrame(el);
+    releaseFrame(el); growOff();
     el.style.height = ''; lay = 0;
     setSheetOffset(el, 0);
   };
@@ -97,9 +142,9 @@ export function sheetBehaviour(el, { handle, drag, onClose, active = () => true,
     if (!glide || !isPhone() || matchMedia('(prefers-reduced-motion: reduce)').matches) { stopSheet(el); commit(v); return; }
     const h1 = pxOf(v), H = Math.max(h0, h1);
     if (Math.abs(h1 - h0) < 1) { stopSheet(el); commit(v); return; }
-    if (lay !== H) { stopSheet(el); holdFrame(el); el.style.height = `${H}px`; lay = H; setSheetOffset(el, H - h0); }
+    if (lay !== H) { stopSheet(el); hold(); el.style.height = `${H}px`; lay = H; setSheetOffset(el, H - h0); }
     classSoon(el, 'sheet-half', thumb() && size === half());
-    glideSheet(el, H - h1, { easing, done: () => commit(v) });
+    glideSheet(el, H - h1, { easing, done: () => commit(v), frame: growTo });
   };
   const drawnHeight = () => (lay || readMetric(el, 'offsetHeight')) - sheetOffset(el);
   // A new tab refits the sheet to its content (the height eases).
@@ -140,7 +185,7 @@ export function sheetBehaviour(el, { handle, drag, onClose, active = () => true,
     const off = sheetOffset(el), drawn = start.box - off, H = Math.max(start.box, Math.round(start.top));
     if (H <= start.box + 1) return;
     stopSheet(el);
-    holdFrame(el);   // (the pane that fills the card keeps its size: the chart is not laid out, resized or redrawn by the touch)
+    hold();   // (the pane that fills the card keeps its size: the chart is not laid out, resized or redrawn by the touch)
     el.style.height = `${H}px`; lay = H;
     start.box = readMetric(el, 'offsetHeight');   // (as laid out: the stylesheet's cap may hold it lower)
     lay = start.box;
@@ -159,6 +204,7 @@ export function sheetBehaviour(el, { handle, drag, onClose, active = () => true,
       // (Held where it is drawn: the pull's number (dragSheet, below, this same move) takes over from the ease's end value at once.)
       stopSheet(el); el._sheetOff = start.off0;
       if (!start.phone) start.mv = moverOf(el, 'translate', 'xy', true);   // alloc-rare: once, at the pull's first move
+      if (grow && start.full && start.phone) hold();   // (from Full the pane is held at Full size: a pull down shrinks the chart with the finger)
       el.setPointerCapture?.(e.pointerId);   // (only once it moves: captured at once, a tap's click would land on the sheet, not the grabber)
     }
     classSoon(el, 'dragging', true);
@@ -183,7 +229,8 @@ export function sheetBehaviour(el, { handle, drag, onClose, active = () => true,
     el._sheetOff = Math.max(0, box - h);
     if (el._sheetOff !== start.wOff) {   // (written only when the offset has moved from what this drag last wrote)
       start.wOff = el._sheetOff;
-      dragSheet(el, el._sheetOff);   // (every child held that far down by a number: sheet-move.js, num-move.js)
+      dragSheet(el, el._sheetOff);
+      growTo(el._sheetOff);   // (every child held that far down by a number: sheet-move.js, num-move.js)
     }
   });
   // Once the sheet follows the finger, the page must not scroll under it, and the lift is not a tap.
@@ -218,11 +265,11 @@ export function sheetBehaviour(el, { handle, drag, onClose, active = () => true,
         // (the card eases from where the finger left it: back to Full after a short pull, to Half otherwise, leaving at the finger's speed)
         if (s0.dy > 40) size = half();
         const v = sizeValue(), to = box - pxOf(v);
-        glideSheet(el, Math.max(0, to), { easing: carry(Math.max(0, to)), done: () => commit(v) });
+        glideSheet(el, Math.max(0, to), { easing: carry(Math.max(0, to)), done: () => commit(v), frame: growTo });
         return;
       }
       const gone = flick || s0.dy > Math.min(SHEET_CLOSE_PX, s0.h * SHEET_CLOSE_SHARE);
-      if (!gone) { const to = box - s0.h; glideSheet(el, to, { easing: carry(to), done: () => commit(sizeValue()) }); return; }
+      if (!gone) { const to = box - s0.h; glideSheet(el, to, { easing: carry(to), done: () => commit(sizeValue()), frame: growTo }); return; }
       // Sinks out of sight behind the tab row, then closes (already gone, so the close plays nothing of its own).
       glideSheet(el, box + 8, { easing: carry(box + 8), done: () => { el.dataset.swiped = '1'; onClose(); delete el.dataset.swiped; setSheetOffset(el, 0); } });
       return;
@@ -232,11 +279,11 @@ export function sheetBehaviour(el, { handle, drag, onClose, active = () => true,
     if (frac < (s0.thumb ? 0.4 : SIZES[0] * 0.7)) { onClose(); return; }
     size = S.reduce((best, v, i) => (Math.abs(v - frac) < Math.abs(S[best] - frac) ? i : best), 0);
     const v = sizeValue(), h1 = pxOf(v);
-    if (h1 > box + 1) { stopSheet(el); holdFrame(el); el.style.height = `${h1}px`; lay = h1; setSheetOffset(el, h1 - drawn); }
+    if (h1 > box + 1) { stopSheet(el); hold(); el.style.height = `${h1}px`; lay = h1; setSheetOffset(el, h1 - drawn); }
     const B = lay || box, to = Math.max(0, B - h1);
-    glideSheet(el, to, { easing: carryCurve(speed, to - (el._sheetOff || 0), D_SMALL), done: () => commit(v) });
+    glideSheet(el, to, { easing: carryCurve(speed, to - (el._sheetOff || 0), D_SMALL), done: () => commit(v), frame: growTo });
   };
   el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end); el.addEventListener('lostpointercapture', (e) => { if (e.target === el) end(e); });   // (not a child's: a touch is first captured by what is under the finger, and handing the capture to the sheet at 6 px ends that one, which bubbles up here)
   // (Opening sizes the sheet at once: it never comes in at the last size it had and shrinks into place, and the figure frames once.)
-  return { open: () => { if (isPhone()) { size = half(); stopSheet(el); commit(sizeValue()); } }, closed: () => { stopSheet(el); setSheetOffset(el, 0); el.style.translate = ''; cancelMoves(el); releaseFrame(el); el.style.height = ''; lay = 0; el.style.clipPath = ''; } };
+  return { open: () => { if (isPhone()) { size = half(); stopSheet(el); commit(sizeValue()); } }, closed: () => { stopSheet(el); setSheetOffset(el, 0); el.style.translate = ''; cancelMoves(el); releaseFrame(el); growOff(); el.style.height = ''; lay = 0; el.style.clipPath = ''; } };
 }

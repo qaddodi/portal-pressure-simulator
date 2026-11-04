@@ -4532,6 +4532,11 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
   .panel .panel-head { touch-action: none; border-radius: 0; }
 }
 
+/* The Tests chart grows with the finger (dock-sheet.js, W3): while the pane is held, the stretched boxes and what moves down with them may
+   pass the pane's held edge, and the words in a stretched box (not stretched, but hidden) wait for the landing, where it is drawn once. */
+.instrument-workspace.sheet-grow :is(.dock-body, .dock-pane) { overflow: visible; }
+.instrument-workspace.sheet-grow .chart-box:not(.square) > :not(canvas) { opacity: 0; }
+
 /* Findings: what has been changed, with its value; a tap on × takes it back. */
 .chg-list { display: flex; flex-direction: column; }
 .chg { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 2px 0; font-size: var(--fs-14); }
