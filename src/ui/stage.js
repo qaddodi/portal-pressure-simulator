@@ -10536,7 +10536,28 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!CTM) refreshCTM();
     worldToLocalInto(out, wx, wy);
     return Number.isFinite(out[0]) && Number.isFinite(out[1]);
+  }, (s, out) => {
+    // (A zone title's centre under this frame's camera: the middle of the visible part of its band, kept inside it, on the map's top edge, or on its left edge when
+    // the map is turned upright. False: its band is off screen or narrower than the title, and it is not drawn.)
+    if (!(morph === 0 || morph === 1) || morph !== s.pwv) return false;
+    if (!CTM) refreshCTM();
+    const { width: W, height: H } = stageBox(), w = s.pzw;
+    worldToLocalInto(ZONE_A, s.pzx0, 60); worldToLocalInto(ZONE_B, s.pzx1, 60);
+    const a = ZONE_A[0], ay0 = ZONE_A[1], b = ZONE_B[0], by = ZONE_B[1];
+    if (s.pzt) {
+      if (Math.abs(by - ay0) <= w + 6) return false;
+      const lo = Math.max(Math.min(ay0, by) + w / 2 + 3, 6 + w / 2), hi = Math.min(Math.max(ay0, by) - w / 2 - 3, H - 6 - w / 2);
+      if (lo > hi) return false;
+      out[0] = Math.max(s.pzh / 2 + 8, (a + b) / 2); out[1] = Math.min(hi, Math.max(lo, (ay0 + by) / 2));
+    } else {
+      if (b - a <= w + 6) return false;
+      const lo = Math.max(a + w / 2 + 3, 6 + w / 2), hi = Math.min(b - w / 2 - 3, W - 6 - w / 2);
+      if (lo > hi) return false;
+      out[0] = Math.min(hi, Math.max(lo, (Math.max(a, 0) + Math.min(b, W)) / 2)); out[1] = Math.max(14, by);
+    }
+    return Number.isFinite(out[0]) && Number.isFinite(out[1]);
   });
+  const ZONE_A = [0, 0], ZONE_B = [0, 0];
   wrap.dataset.labels = labelGL ? 'gpu' : 'svg';
   labelRider = labelGL;
   labelHoles = labelGL?.setHoles ? labelGL : null;
@@ -11175,7 +11196,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const gp = !pin && !it.live && !it.hide && Number.isFinite(it.ax) && Number.isFinite(it.ay) && (morph === 0 || morph === 1) && !NO_ANCHOR.test(it.key);
     if (gp) localToWorldInto(ANCHOR_W, it.ax, it.ay);
     const gw = gp && Number.isFinite(ANCHOR_W[0]) && Number.isFinite(ANCHOR_W[1]);
-    b.pos = { g: b.g, x: px0, y: py0, rot: !!it.rot, pid: pin ? it.key.slice(2) : gw ? it.key : null, pax: pin || gw ? it.ax : 0, pay: pin || gw ? it.ay : 0, pmid: pk === 1, pau: it.au ?? 0.5, pwx: gw ? ANCHOR_W[0] : 0, pwy: gw ? ANCHOR_W[1] : 0, pwv: gw ? morph : null, view: morphTarget };
+    const zn = it._zone && (morph === 0 || morph === 1) && Number.isFinite(it.ax) && Number.isFinite(it.ay) ? it._zone : null;
+    b.pos = { g: b.g, x: px0, y: py0, rot: !!it.rot, pid: pin ? it.key.slice(2) : gw || zn ? it.key : null, pax: pin || gw || zn ? it.ax : 0, pay: pin || gw || zn ? it.ay : 0, pmid: pk === 1, pau: it.au ?? 0.5, pwx: gw ? ANCHOR_W[0] : 0, pwy: gw ? ANCHOR_W[1] : 0, pwv: gw || zn ? morph : null, pz: !!zn, pzx0: zn ? zn[0] : 0, pzx1: zn ? zn[1] : 0, pzt: zn ? zn[2] : false, pzw: zn ? it.w : 0, pzh: zn ? it.h : 0, view: morphTarget };
     // (Its box on an 8 px grid, for the corner credit's look (labelBoxStamp): a number ticking inside it moves nothing the credit avoids.)
     const c0 = Math.floor((it.x - it.padX) / 8), c1 = Math.floor((it.y - it.padY) / 8), c2 = Math.ceil((it.x + (it.rot ? it.h : it.w) + it.padX) / 8), c3 = Math.ceil((it.y + (it.rot ? it.w : it.h) + it.padY) / 8), ch = !!it.hide;
     if (!b.box || c0 !== b.bc0 || c1 !== b.bc1 || c2 !== b.bc2 || c3 !== b.bc3 || ch !== b.bch) {
@@ -12922,6 +12944,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         // Zone titles are screen furniture (they keep to the map's top or left edge as it pans), so they are
         // set out every frame rather than solved. Figure labels were placed round their natural spot, and
         // one that a pan brings under a title is hidden.
+        it._zone = [x0, x1, turned];   // (its band in the world: the GPU places the title every frame from it, label-gl.js pinZoneAt)
         const zoneAt = (x, y) => { it.live = true; it.ax = x; it.ay = y; const bx = it.rot ? it.h : it.w, by2 = it.rot ? it.w : it.h; it.x = x - bx / 2; it.y = y - by2 / 2; return rectOf({ ...it, x: it.x, y: it.y, w: bx, h: by2 }); };
         // A narrow zone (a zoomed-out circuit, or large text) takes a shorter title rather than none; one that
         // still does not fit its band is left out rather than run into its neighbour's.

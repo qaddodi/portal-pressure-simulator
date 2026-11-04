@@ -67,3 +67,10 @@ test('view switch: pictures are built again, and the hide runs without a morph t
   assert.ok(gl.includes('invalidate() {'));
   assert.ok(st.includes('No morph to wait for here'));
 });
+
+test('step 3b: zone titles are placed every frame by the GPU from their band', () => {
+  assert.ok(st.includes('it._zone = [x0, x1, turned]'));
+  assert.ok(st.includes('pz: !!zn'));
+  assert.ok(gl.includes('s.pz && pinZoneAt'));
+  assert.ok(gl.includes('if (pinned && PIN_HID) continue;'));
+});

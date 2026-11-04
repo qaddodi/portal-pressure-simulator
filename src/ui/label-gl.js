@@ -675,7 +675,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // offset, its dot on the point and its leader from the point to the label, all moved by the same step in the same frame. No ride, carry
   // or follow moves a pinned label: a pan, a pinch or a view change moves its point, and the label goes with it, rigid. Only a new layout
   // changes the offset, and the label takes it at once (no glide), its point and dot not moving.
-  let pinAt = null, pinWorldAt = null;
+  let pinAt = null, pinWorldAt = null, pinZoneAt = null, PIN_HID = false;
   const PIN = [0, 0];
   // (The offset each pinned label was last drawn at, by its group, kept past its picture: a label whose picture is made again (its text
   // size changes with the zoom) still eases from where it stood, never jumps to its new offset.)
@@ -683,7 +683,10 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // (A label with a world anchor (pwv set: step 3, every figure label) is pinned by that world point, taken to the stage under the camera of this frame;
   // a station's is named by its id. Either way the label is its point now plus its layout's offset.)
   const pinOf = (s) => {
+    PIN_HID = false;
     if (!pinAt || !s || s.pid == null) return null;
+    // (A zone title (step 3b): placed every frame from its band by the stage, never carried or ridden. Hidden when its band is off screen or too narrow.)
+    if (s.pz && pinZoneAt) { if (!pinZoneAt(s, PIN)) PIN_HID = true; return s; }
     if (s.pwv != null) return pinWorldAt && pinWorldAt(s.pwx, s.pwy, s.pwv, PIN) ? s : null;
     return pinAt(s.pid, PIN, s.pmid, s.pau) ? s : null;
   };
@@ -1332,6 +1335,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       // (The label's origin on a whole device pixel, the picture at its offset from it.)
       let x = Math.round(s.x * dpr) + st.ox, y = Math.round(s.y * dpr) + st.oy, a = Math.min(1, st.opacity);
       const pinned = pinOf(s);
+      if (pinned && PIN_HID) continue;
       if (pinned) {
         // (Pinned: at its point now plus its offset, the offset easing from where it was drawn only while a new layout's glide runs.)
         pinOff(s);
@@ -2405,7 +2409,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     invalidate() { for (const s of last) dirty.add(s.g); ask(); },
     get riding() { return !!rideM; },
     /** Pins the station labels to the figure: f(id, out) writes where the figure has station id's point now (stage px) and returns true. */
-    pinTo(f, w = null) { pinAt = f; pinWorldAt = w; ask(); },
+    pinTo(f, w = null, z = null) { pinAt = f; pinWorldAt = w; pinZoneAt = z; ask(); },
     /** The figure moved (its camera or its morph): the pinned labels drawn with it, in this frame. */
     pinDraw() { if (lost || !pinAt) return; if (raf) { cancelFrame(raf); raf = 0; } draw(); },
     /** A view change begins: the labels now laid out are carried by their stations (followPut), the rest faded (followDraw). */
