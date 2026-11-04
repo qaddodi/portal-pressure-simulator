@@ -60,7 +60,6 @@ import { liftEnd, systemOf, SYSTEM_COLOR } from './highlight-math.js';
 import { CellGrid, geomOf } from './cell-grid.js';
 import { restPass, cancelRest } from './rest-pass.js';
 import { createLateQueue } from './late-queue.js';
-import { provideStage } from './layout-snap.js';
 const STENT_FACTORS = [0, 0, 0];   // alloc-rare: made once (stentSegments writes into it; the caller reads one entry at once)
 const EBOX = { x: 0, y: 0, width: 0, height: 0 }, SCAN_BOX = [0, 0, 0, 0];   // alloc-rare: made once (an element's box is read from EBOX at once; scanLvBox is SCAN_BOX)
 import { caught } from './caught.js';
@@ -151,6 +150,7 @@ import { createLabelText } from './stage-label-text.js';
 import { createLabelSize } from './stage-label-size.js';
 import { createSites } from './stage-sites.js';
 import { createSitesPaint } from './stage-sites-paint.js';
+import { createCamera } from './stage-camera.js';
 
 export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, onViewChange }) {
   // <stage-split live>
@@ -183,6 +183,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get bloodEasing() { return bloodEasing; }, set bloodEasing(v) { bloodEasing = v; },
     get box() { return box; }, set box(v) { box = v; },
     get boxH() { return boxH; }, set boxH(v) { boxH = v; },
+    get boxKept() { return boxKept; }, set boxKept(v) { boxKept = v; },
     get boxW() { return boxW; }, set boxW(v) { boxW = v; },
     get calloutSig() { return calloutSig; },
     get camDive() { return camDive; }, set camDive(v) { camDive = v; },
@@ -202,6 +203,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get cath() { return cath; },
     get cathFade() { return cathFade; }, set cathFade(v) { cathFade = v; },
     get cathHidAt() { return cathHidAt; }, set cathHidAt(v) { cathHidAt = v; },
+    get cathLabelsSoon() { return cathLabelsSoon; },
     get cathRadOf() { return cathRadOf; },
     get cathTint() { return cathTint; }, set cathTint(v) { cathTint = v; },
     get cathVer() { return cathVer; }, set cathVer(v) { cathVer = v; },
@@ -212,6 +214,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get clampFor() { return clampFor; }, set clampFor(v) { clampFor = v; },
     get clampFs() { return clampFs; }, set clampFs(v) { clampFs = v; },
     get clampLast() { return clampLast; }, set clampLast(v) { clampLast = v; },
+    get clampSw() { return clampSw; }, set clampSw(v) { clampSw = v; },
     get colEasing() { return colEasing; }, set colEasing(v) { colEasing = v; },
     get colResolve() { return colResolve; }, set colResolve(v) { colResolve = v; },
     get colShown() { return colShown; }, set colShown(v) { colShown = v; },
@@ -240,6 +243,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get dyeShown() { return dyeShown; }, set dyeShown(v) { dyeShown = v; },
     get E() { return E; },
     get easeInOut() { return easeInOut; },
+    get easeRes() { return easeRes; },
     get edgeRev() { return edgeRev; }, set edgeRev(v) { edgeRev = v; },
     get F() { return F; }, set F(v) { F = v; },
     get fastGap() { return fastGap; }, set fastGap(v) { fastGap = v; },
@@ -475,7 +479,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get riseUsed() { return riseUsed; }, set riseUsed(v) { riseUsed = v; },
     get rotTarget() { return rotTarget; }, set rotTarget(v) { rotTarget = v; },
     get rotU() { return rotU; }, set rotU(v) { rotU = v; },
+    get sameView() { return sameView; },
+    get scan() { return scan; },
+    get scanPaint() { return scanPaint; },
     get segIdx() { return segIdx; }, set segIdx(v) { segIdx = v; },
+    get settleRes() { return settleRes; },
     get shownCol() { return shownCol; }, set shownCol(v) { shownCol = v; },
     get shunt() { return shunt; }, set shunt(v) { shunt = v; },
     get sigW() { return sigW; },
@@ -511,6 +519,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get veinsDirty() { return veinsDirty; }, set veinsDirty(v) { veinsDirty = v; },
     get veinsHold() { return veinsHold; }, set veinsHold(v) { veinsHold = v; },
     get veinsTrimmed() { return veinsTrimmed; }, set veinsTrimmed(v) { veinsTrimmed = v; },
+    get viewRaf() { return viewRaf; }, set viewRaf(v) { viewRaf = v; },
     get viewSeq() { return viewSeq; }, set viewSeq(v) { viewSeq = v; },
     get viewVersion() { return viewVersion; }, set viewVersion(v) { viewVersion = v; },
     get viewXf() { return viewXf; }, set viewXf(v) { viewXf = v; },
@@ -522,6 +531,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get vtTarget() { return vtTarget; }, set vtTarget(v) { vtTarget = v; },
     get vtUntil() { return vtUntil; }, set vtUntil(v) { vtUntil = v; },
     get widthEasing() { return widthEasing; }, set widthEasing(v) { widthEasing = v; },
+    get worldOver() { return worldOver; }, set worldOver(v) { worldOver = v; },
     get wrapRect() { return wrapRect; }, set wrapRect(v) { wrapRect = v; },
     get xfHold() { return xfHold; }, set xfHold(v) { xfHold = v; },
     get xfOp() { return xfOp; }, set xfOp(v) { xfOp = v; },
@@ -1215,177 +1225,51 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function placeClampLabels() {
     for (const t of clampW.querySelectorAll('.clamp-label')) clampLabelAt(t);
   }
-  // (Holding 120 Hz §3.10, 2 Nov 2026: input is coalesced. A move, a wheel step or a pinch only sets the view (vt) and asks for the frame;
-  // the SVG world's transform is written once, in that frame (flushVT, first thing in syncView), however many events came before it: a
-  // trackpad reports a wheel step every few ms, and each wrote two transform attributes. The view's own maths (CTM, clientToVBFast) use
-  // vt, never the attribute; a reader of the attribute's matrix (clientToWorld) flushes first.)
-  let vtDirty = false;
-  let zoomBase = null;   // (the camera zoomed with a card: zoomOpen)
-  const flushVT = () => {
-    if (!vtDirty) return;
-    vtDirty = false;
-    const deg = rotDeg(), tr = `translate(${vt.x} ${vt.y}) scale(${vt.k})${deg ? ` rotate(${deg.toFixed(3)} ${CIRC_C[0]} ${CIRC_C[1]})` : ''}`;
-    mapTurn(deg);
-    world.setAttribute('transform', tr);
-    worldOver?.setAttribute('transform', tr);
-  };
-  const applyVT = () => {
-    vtDirty = true;
-    syncSemantic();
-    CTM = null; viewVersion++; stageWake();
-    // (While moving: the first step of a move drops the canvas to its moving share, once; it is back at rest when the view settles.)
-    // (Not for the lobule's own moves: the unseen refit as a rise begins is no move of the viewer's, and dropping the share there
-    // showed the whole rise soft, then faded back up partway through it.)
-    if (resizeReady && !moveLow && figOpt('move') < 1 && !(diveT > 0)) { moveLow = true; easeRes(); settleRes(); }
-    if (!viewRaf) viewRaf = nextFrame(syncView);
-  };
-  const syncLabelsRun = () => updateLabels(F), syncCardsRun = () => onViewChange?.();   // (made once: the probe is handed the same functions each frame)
-  function syncView() {
-    viewRaf = 0;
-    flushVT();
-    if (!F || lz?.isOpen()) return;
-    refreshCTM();
-    gpuProbe.time(null, 'labels (script)', syncLabelsRun);
-    if (cath.st) cathLabelsSoon();
-    // (updateLabels ends by painting the callouts and both probes, unless a camera glide held the labels back: they are painted here
-    // only then, not a second time, whose reads came after the first paint's writes.)
-    // (Nor while a glide runs: its own step paints them in this frame, after it has moved the view; painted here too, each was laid
-    // out twice a frame, first at the view before the step. ?glidepaint=0: twice, as before.)
-    if (!labelPainted && !vtGliding) {
-      if (sites.list) sitesPaint();
-      if (scan.on) scanPaint();
-      dprobePaint();
-    }
-    // (Not while the camera zooms with a card: the cards are the ones moving it, and each frame's cards-follow pass was script per frame of the zoom.)
-    if (!zoomBase) gpuProbe.time(null, 'cards follow (script)', syncCardsRun);
-    // (The zoom pill reads it: at full ink while the view is away from its fit, quiet at home on a pointer device; app.css .off-home.)
-    wrap.classList.toggle('off-home', !!homeAt && !sameView(vt, homeAt));
-  }
-  applyVT();
-  // The figure's screen transform, computed from the viewBox, the zoom state and the stage box.
+    let zoomBase = null;   // (the camera zoomed with a card: zoomOpen)
+    // The figure's screen transform, computed from the viewBox, the zoom state and the stage box.
   // Asking the browser (getScreenCTM / getBoundingClientRect) right after the SVG has been
   // updated forces a synchronous style + layout pass over thousands of elements, every frame;
   // the arithmetic is exact and free. The stage box is cached and kept current by observers.
   let box = null, boxKept = null;   // (boxKept: the last box measured, handed out while a new one is being read)
-  const measureBox = () => {
-    // Measured without the lobule dive's zoom (a CSS scale on the svg), or the vessels would be drawn zoomed twice.
-    const tf = svg.style.transform; if (tf) svg.style.transform = '';
-    const r = wrap.getBoundingClientRect(), q = svg.getBoundingClientRect();
-    if (tf) svg.style.transform = tf; box = boxKept = { left: r.left, top: r.top, width: r.width, height: r.height, right: r.right, bottom: r.bottom, sx: q.left - r.left, sy: q.top - r.top, sw: q.width, sh: q.height }; };
-  // (1 Nov 2026, "Move everything to GPU": measured as the stage is made, when its size changes (the observer's callback, after the
-  // browser's own layout) and first in the frame after a resize or a scroll that may have moved it (readFrame); never inside a frame's
-  // writes. Until then the last box serves.)
-  let boxAsk = 0;
-  // (The read itself is its own function, handed to the read phase and called from nowhere else.)
-  function boxRead() { boxAsk = 0; if (!box) { measureBox(); CTM = null; } }
-  // (One read already asked for: a second call (stageBox while the box is still out) must not drop the transform refreshCTM has just
-  // built from the kept box: the lobule's close threw on CTM.a in updateLabels.)
-  const boxAgain = () => { if (boxAsk) return; box = null; CTM = null; boxAsk = readFrame(boxRead); };
-  const stageBox = () => { if (!box) boxAgain(); return box || boxKept; };
-  measureBox();
-  new ResizeObserver(() => { measureBox(); CTM = null; }).observe(wrap);
-  addEventListener('resize', boxAgain);
-  // (Only a scroll that can move the figure: the page's, or a box holding it. A card's own list scrolling (Treat, Tests, a menu) left the
-  // box dropped, so the next model frame measured the whole figure again after writing it, on every frame of the scroll.)
-  addEventListener('scroll', (e) => { const t = e.target; if (t === document || t === window || t?.contains?.(wrap)) boxAgain(); }, true);
-  // The screen's left and right safe-area insets (a notched phone held sideways, 47 to 59 px), read once from a zero-size probe (an
-  // unregistered custom property hands env() back unresolved) and again after a resize or a turn. Zero everywhere else.
-  // (Read as the stage is made and after a resize or a turn, in those events: never on a frame.)
-  let saSnap = null;
-  const saRead = () => {
-    {
-      const p = document.createElement('div');
-      p.style.cssText = 'position:absolute;width:0;height:0;visibility:hidden;pointer-events:none;padding:0 env(safe-area-inset-right,0px) 0 env(safe-area-inset-left,0px)';
-      document.body.append(p);
-      const cs = getComputedStyle(p);
-      saSnap = { l: parseFloat(cs.paddingLeft) || 0, r: parseFloat(cs.paddingRight) || 0 };
-      p.remove();
-    }
-  };
-  saRead();
-  addEventListener('resize', saRead); addEventListener('orientationchange', saRead);
-  const saSides = () => saSnap;
-  // (The page's layout snapshot (layout-snap.js) holds these three for the rest of the app: the kept box, the arithmetic matrix, the sides.)
-  provideStage({ box: stageBox, ctm: () => { if (!CTM) refreshCTM(); return CTM; }, sides: saSides });
-  let ctmLast = null;
-  function refreshCTM() {
-    const b = stageBox(), vb = vbBox;
-    const s = Math.min(b.sw / vb.width, b.sh / vb.height);
-    const ox = b.left + b.sx + (b.sw - vb.width * s) / 2 - vb.x * s, oy = b.top + b.sy + (b.sh - vb.height * s) / 2 - vb.y * s;
-    // world → view box: translate(vt) · scale(k) · rotate(θ about the circuit's centre); then the view box → screen.
-    const th = (rotDeg() * Math.PI) / 180, co = Math.cos(th), si = Math.sin(th), sk = s * vt.k;
-    const ma = sk * co, mb = sk * si, mc = -sk * si, md = sk * co, me = ox + s * vt.x + sk * (CIRC_C[0] - co * CIRC_C[0] + si * CIRC_C[1]), mf = oy + s * vt.y + sk * (CIRC_C[1] - si * CIRC_C[0] - co * CIRC_C[1]);
-    // An unchanged view keeps the same object, so the frame loop (which compares it) sees that nothing moved; a new one is made only when it moved.
-    if (!(ctmLast && ctmLast.a === ma && ctmLast.b === mb && ctmLast.c === mc && ctmLast.d === md && ctmLast.e === me && ctmLast.f === mf && ctmLast.sc === sk)) ctmLast = { a: ma, b: mb, c: mc, d: md, e: me, f: mf, sc: sk };
-    CTM = ctmLast;
-    // (A dot keeps at least a 4 px radius on screen however far the map is zoomed out: written where the scale steps a quarter octave.)
-    if (sk > 0) { const rm = DOT_MIN_PX / 2 ** (Math.round(Math.log2(sk) * 4) / 4); if (rm !== nd.rmin) { nd.rmin = rm; if (nd.at > 0) nodeVerts(nd.at); } }
-    wrapRect = b;
-    applyClampFs();
-  }
-  // (A narrowing's "60 %" is drawn in the figure: its size there is that of the labels' names on screen at any zoom, sweep batch 03 at 6–7 px.)
-  function applyClampFs() {
-    const sk = CTM?.sc || 0, cfs = sk > 0 ? (clampBase / sk).toFixed(2) : '';
-    const csw = sk > 0 ? `${(7 / sk).toFixed(2)}px` : '';   // (the clamps' halo, 7 px on screen: --clamp-sw, app.css)
-    if (csw && csw !== clampSw) { clampSw = csw; for (let i = 0; i < clampGs.length; i++) clampGs[i].style.setProperty('--clamp-sw', csw); }
-    if (cfs && cfs !== clampFs) { clampFs = cfs; for (let i = 0; i < clampGs.length; i++) clampGs[i].style.setProperty('--clamp-fs', `${cfs}px`); placeClampLabels(); }
-    // (The pressure-change halos and the shunt's target name: their size on screen at any zoom, as above.)
-    const hk = sk > 0 ? (1 / sk).toFixed(3) : '';
-    if (hk && hk !== haloK) { haloK = hk; for (const g of haloEls) g.style.setProperty('--halo-k', hk); }
-  }
-  function worldToLocal(x, y) {
-    if (!CTM) refreshCTM();
-    return [CTM.a * x + CTM.c * y + CTM.e - wrapRect.left, CTM.b * x + CTM.d * y + CTM.f - wrapRect.top];
-  }
-  /** worldToLocal, written into o (a kept pair) rather than made. */
-  function worldToLocalInto(o, x, y) {
-    if (!CTM) refreshCTM();
-    o[0] = CTM.a * x + CTM.c * y + CTM.e - wrapRect.left; o[1] = CTM.b * x + CTM.d * y + CTM.f - wrapRect.top;
-    return o;
-  }
-  // (The inverse: a stage point (local px) as a world point under the camera now.)
-  const NO_ANCHOR = /^(lane:|scan|stage|fxs:|tips|dips|dsrs|portocaval|mesocaval|custom|60%:)/, ANCHOR_W = [0, 0];
-  function localToWorldInto(o, x, y) {
-    if (!CTM) refreshCTM();
-    const px = x + wrapRect.left - CTM.e, py = y + wrapRect.top - CTM.f, det = CTM.a * CTM.d - CTM.b * CTM.c;
-    if (!det) { o[0] = NaN; o[1] = NaN; return o; }
-    o[0] = (CTM.d * px - CTM.c * py) / det; o[1] = (CTM.a * py - CTM.b * px) / det;
-    return o;
-  }
-  function clientToWorld(cx, cy) {
-    flushVT(); if (geoHeld.size) flushGeo();
-    const m = world.getScreenCTM().inverse();
-    return [m.a * cx + m.c * cy + m.e, m.b * cx + m.d * cy + m.f];
-  }
-  function clientToVB(cx, cy) {
-    if (geoHeld.size) flushGeo();
-    const m = svg.getScreenCTM().inverse();
-    return [m.a * cx + m.c * cy + m.e, m.b * cx + m.d * cy + m.f];
-  }
-  function freeCentre() { const ins = safeInsets(), b = stageBox(); return [b.left + (ins.l + ins.W - ins.r) / 2, b.top + (ins.t + ins.H - ins.b) / 2]; }
-  // A zoom step by the buttons glides there instead of jumping.
-  function animZoomAt(cx, cy, factor) {
-    fitted = false; handed = !lobuleOn;
-    if (lobuleOn) return;
-    const [vx, vy] = clientToVBFast(cx, cy), base = vtTarget && vtAnim ? vtTarget : vt;
-    const k = clamp(base.k * factor, 0.6, 6), wx = (vx - vt.x) / vt.k, wy = (vy - vt.y) / vt.k;
-    animateVT({ k, x: vx - wx * k, y: vy - wy * k }, 260);
-  }
-  // A trackpad pinch may stretch a little past the limits (it springs back when it ends).
-  function zoomAt(cx, cy, factor, stretch = false) {
-    if (lobuleOn) return;   // the lobule view has its own zoom
-    // (By arithmetic, as a touch pinch does: asking the browser for the matrix (getScreenCTM) after the last event's new transform laid
-    // the whole figure out again, on every wheel event of a trackpad pinch, several a frame on a Mac.)
-    const [vx, vy] = clientToVBFast(cx, cy);
-    const wx = (vx - vt.x) / vt.k, wy = (vy - vt.y) / vt.k;
-    // (A new view, never the old one changed in place: the first fit sets the view, the home framing and the glide's target outright, and
-    // a zoom that changed the one object changed them all, so the home look took the zoomed view for home and glided it back to the fit
-    // as soon as a card moved: a pinch in the first seconds after the page opened was undone.)
-    const k = stretch ? clamp(vt.k * factor, 0.5, 7.2) : clamp(vt.k * factor, 0.6, 6);
-    vt = { k, x: vx - wx * k, y: vy - wy * k };
-    applyVT(); CTM = null;
-  }
-  // Default framing. The circuit is a wide map (≈ 1.9 : 1); in a squarish or tall viewport,
+    // Fit shows the whole figure. On a narrow screen the circuit opens as a close-up of the portal vein
+  // and liver (see defaultVT), which is not a fit: there Fit shows the entire map, and tapping it
+  // again returns to the close-up, so the button always does something visible.
+  // Whether the view is a fit (Fit, a refit for the cards, the anatomy's home framing) rather than one the learner zoomed or
+  // panned: a pinch, a drag, the wheel or a zoom step clears it. The tools' own camera trips (the HVPG catheter's route and
+  // close-up, there and back) leave it as it was, so a card closed after a measurement still fits (see closeView).
+  let fitted = false;
+    // Whether the learner's own hand (a pinch, a drag, the wheel, a zoom step) placed the view since the camera last framed it: a talk's
+  // refit for a card that changed size leaves such a view alone (presenter reframe, handMoved). A slide's framing, Fit, a view switch
+  // or a turn of the device clears it. (`fitted` cannot say: a slide's own box framing clears that too.)
+  let handed = false;
+    let lobuleOn = false, lobU = 0, lobAnim = 0;
+    // Into the lobule, a dive (2.2 s): one continuous zoom from a spot in the liver, gentle at both ends.
+  // The anatomy is magnified as it stands (a compositor transform: nothing is redrawn); a field of
+  // lobules blooms out from that spot over it, first a fine grain about as large as real lobules are in a liver that size
+  // (Mohammad, 24 Oct: "we should be zooming quite a bit more to get to the lobule level"), then simple lobules, then defined
+  // ones as they grow (the field's tile sizes, blended on the GPU: field-gl.js); the zoom goes on through them and
+  // settles onto one, where the lobule's tissue fades in, in place, and then its labels and card.
+  // Out, the same in reverse, quicker. (About four times the zoom of the 1.6 s dive before, so a little longer: on a log scale
+  // its pace is about the same.)
+  // The anatomy's own framing is never touched. diveT is the dive's clock, 0 (anatomy) to 1 (lobule).
+  let diveAt = null, diveLand = null, diveT = 0, diveOut = false;
+    let vtAnim = 0, vtGliding = false;
+    let vtTarget = null;   // where the last animated move was headed
+    // ── Frame state ───────────────────────────────────
+  let F = null;            // latest frame
+    // The anatomy opens fitted to everything it draws, once the first frame has drawn it; a view the
+  // learner has already zoomed or panned is left alone.
+  // Every zoom out of the anatomy (the first frame, Fit, back from the circuit) goes to the same home
+  // framing, measured from what is drawn. While the view is still at home it follows what is drawn:
+  // when ascites fills the pelvis or the spleen grows, home grows with it and the view follows.
+  let firstFit = false, homeAt = null, homeCheck = 0, userMoved = false;
+    // Layout runs only when one of its inputs changed: the camera and stage box (the CTM), the label
+  // signature (geometry, widths, selection, layers, levels...), the morph and turn, the floating panels,
+  // fonts, theme and the presenter's insets. Otherwise the last layout stands, and only the live values
+  // are refreshed in place (see refreshValues); a value whose text changes shape lays the labels out again.
+  let labelKey = null, labelFonts = 0, labelShown = [], noChevBoxes = [], labelPainted = false;   // labelPainted: the last updateLabels painted the callouts and probes
+  const { ANCHOR_W, NO_ANCHOR, animZoomAt, applyClampFs, applyVT, clientToVB, clientToWorld, flushVT, freeCentre, localToWorldInto, refreshCTM, saSides, stageBox, syncView, worldToLocal, worldToLocalInto, zoomAt } = createCamera({ CIRC_C, DOT_MIN_PX, animateVT, clampGs, clientToVBFast, flushGeo, geoHeld, haloEls, mapTurn, nd, nextFrame, nodeVerts, onViewChange, placeClampLabels, readFrame, rotDeg, safeInsets, sitesPaint, svg, syncSemantic, updateLabels, vbBox, world, wrap }, live);
+   // Default framing. The circuit is a wide map (≈ 1.9 : 1); in a squarish or tall viewport,
   // fitting its width would shrink every station to a dot, so it opens zoomed to fill the height,
   // centered on the portal vein and liver, and the learner pans sideways to the beds or heart.
   // The esophagus and the great veins run on above the plate and fade out; Fit stops where they fade.
@@ -1661,17 +1545,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const fx = 640, fy = cy;
     return insetVT({ k, x: cx - k * fx, y: cy - k * fy }, VB_CIRC);
   }
-  // Fit shows the whole figure. On a narrow screen the circuit opens as a close-up of the portal vein
-  // and liver (see defaultVT), which is not a fit: there Fit shows the entire map, and tapping it
-  // again returns to the close-up, so the button always does something visible.
-  // Whether the view is a fit (Fit, a refit for the cards, the anatomy's home framing) rather than one the learner zoomed or
-  // panned: a pinch, a drag, the wheel or a zoom step clears it. The tools' own camera trips (the HVPG catheter's route and
-  // close-up, there and back) leave it as it was, so a card closed after a measurement still fits (see closeView).
-  let fitted = false;
-  // Whether the learner's own hand (a pinch, a drag, the wheel, a zoom step) placed the view since the camera last framed it: a talk's
-  // refit for a card that changed size leaves such a view alone (presenter reframe, handMoved). A slide's framing, Fit, a view switch
-  // or a turn of the device clears it. (`fitted` cannot say: a slide's own box framing clears that too.)
-  let handed = false;
   // Which framing the circuit was last given ('whole' map or 'focus' close-up: setView, Fit, a refit). The circuit has no home
   // look of its own, so a turn of the device or a new window size takes the same kind of framing again, for the new shape (lookHome).
   // circAt: that framing as given, so a turn or a resize takes it again only while the view is still exactly there (a card's pan to
@@ -1818,17 +1691,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // liver's card, the palette, a presenter step) and cross-fades over the plate.
   let liverBB = null;
   const liverBBox = { x: 0, y: 0, w: 0, h: 0 };   // (liverBB's box, written in place once)
-  let lobuleOn = false, lobU = 0, lobAnim = 0;
-  // Into the lobule, a dive (2.2 s): one continuous zoom from a spot in the liver, gentle at both ends.
-  // The anatomy is magnified as it stands (a compositor transform: nothing is redrawn); a field of
-  // lobules blooms out from that spot over it, first a fine grain about as large as real lobules are in a liver that size
-  // (Mohammad, 24 Oct: "we should be zooming quite a bit more to get to the lobule level"), then simple lobules, then defined
-  // ones as they grow (the field's tile sizes, blended on the GPU: field-gl.js); the zoom goes on through them and
-  // settles onto one, where the lobule's tissue fades in, in place, and then its labels and card.
-  // Out, the same in reverse, quicker. (About four times the zoom of the 1.6 s dive before, so a little longer: on a log scale
-  // its pace is about the same.)
-  // The anatomy's own framing is never touched. diveT is the dive's clock, 0 (anatomy) to 1 (lobule).
-  let diveAt = null, diveLand = null, diveT = 0, diveOut = false;
   const { anatCovered, camShowTo_, diveFrame, prepRise, pushCam, riseReady, setDiveScale, setLobule } = createDive({ applyVT, defaultVT, drawFrame, driftEnd, liverBox, lobuleBackstop, lobuleStep, nextFrame, refreshCTM, riseVT, sameView, spleenMoving, svg, syncSemantic, update, updateLabels, vCanvas, worldToLocal, wrap }, live);
   let diveZ = 0;   // the dive's zoom so far (log scale), kept for cameraZoom
   let riseLine = false, riseFast = false, zShift = 0;   // (zShift: for cameraZoom, the plate's zoom is reset unseen when the rise begins)
@@ -1900,12 +1762,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     wrap.classList.toggle('in-lobule', u > 0.98);
     if (lobIn !== (u > 0.98 && !!lz?.shared)) { lobIn = !lobIn; pushCam(); }
   }
-  let vtAnim = 0, vtGliding = false;
   let vtUntil = 0, vtMs = 0;   // (the glide under way: when it lands and how long it runs in all, for the presenter's cards: glideLeft)
   let vtVel = null, vtLast = null;   // (the last frames of a plain glide: its speed per ms, so another begun on it carries that on)
   const vtVelBuf = { t: 0, dlogk: 0, x: 0, y: 0 }, vtLastBuf = { t: 0, k: 1, x: 0, y: 0 };   // (what they are while set, written in place)
   const camMoves = [], logMove = (m) => { camMoves.push(m); if (camMoves.length > 60) camMoves.shift(); };   // every glide of the camera (and dive), kept for the tests: a way into or out of the lobule is a single move
-  let vtTarget = null;   // where the last animated move was headed
   // A presenter's camera move: the labels ease out as it starts, are not laid out while it runs, and ease
   // back in at their new places once it settles (they never slide across the figure).
   let camMove = false;
@@ -2546,8 +2406,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const watchDensity = () => matchMedia(`(resolution: ${devicePixelRatio}dppx)`).addEventListener?.('change', () => { resizeCanvas(); watchDensity(); }, { once: true });
   watchDensity();
 
-  // ── Frame state ───────────────────────────────────
-  let F = null;            // latest frame
   let hoverId = null;
   // The hover link (below): the reading label under the pointer or with keyboard focus, what it lit, and the labels lifted.
   let linkPtr = null, linkKbd = null, linkEdge = null, linkOrgan = null, linkLit = new Set();
@@ -2562,12 +2420,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // ── Update from frame ─────────────────────────────
   let inUpdate = false;
   let glAtUpdate = false;   // (whether the GPU drew the figure at the last full update: the steps between take only that state)
-  // The anatomy opens fitted to everything it draws, once the first frame has drawn it; a view the
-  // learner has already zoomed or panned is left alone.
-  // Every zoom out of the anatomy (the first frame, Fit, back from the circuit) goes to the same home
-  // framing, measured from what is drawn. While the view is still at home it follows what is drawn:
-  // when ascites fills the pelvis or the spleen grows, home grows with it and the view follows.
-  let firstFit = false, homeAt = null, homeCheck = 0, userMoved = false;
   // A patient has arrived and none is on its way (opening one from Home, the first frames are still the last one's).
   const patientArrived = () => ((store.get().historyTick || 0) > 0 || !!store.get().booted) && !store.get().presetLoading;
   let patientReady = patientArrived();
@@ -5359,11 +5211,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // slide's marks and terms (the presenter sets new ones per slide) and the cards' boxes (readBlockers returns a new list):
   // their text is built once per object, not on every call (review item 25).
   const paramJSONs = new WeakMap();
-  // Layout runs only when one of its inputs changed: the camera and stage box (the CTM), the label
-  // signature (geometry, widths, selection, layers, levels...), the morph and turn, the floating panels,
-  // fonts, theme and the presenter's insets. Otherwise the last layout stands, and only the live values
-  // are refreshed in place (see refreshValues); a value whose text changes shape lays the labels out again.
-  let labelKey = null, labelFonts = 0, labelShown = [], noChevBoxes = [], labelPainted = false;   // labelPainted: the last updateLabels painted the callouts and probes
   let cathHidAt = 0;
   // The Circuit's solved slots kept by zoom (a quarter octave a step), pan bucket, turn and what the labels show, a few, least recently used out:
   // a settle at a step already solved commits them at once. Only at rest in the Circuit; every label must still fit (the carry says), else it solves.
