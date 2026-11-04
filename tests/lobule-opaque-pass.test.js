@@ -6,7 +6,7 @@ const veins = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'u
 const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
 
 test('L3: an opaque solo pass skips laying the figure\'s kept picture and leaves it stale, not lost', () => {
-  const i = veins.indexOf('t.solo && t.opaque?.()');
+  const i = veins.indexOf('soloOn(t) && t.opaque?.()');
   assert.ok(i > 0, 'presentSelf asks solo passes whether they are opaque');
   const body = veins.slice(i, i + 700);
   assert.match(body, /directNow\) \{ directNow = false; ownStale = true; \}/);

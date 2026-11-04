@@ -3002,7 +3002,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     // (L3, 4 Nov 2026: a pass that stands alone says it is opaque and covers the whole canvas (the lobule, faded in, carried to cover the screen): the
     // figure's kept picture, 31 MB at 3840x2230, would be laid under it and hidden. The canvas is cleared and the passes laid; the kept picture and
     // its stale mark are left as they are, so the figure is whole again, drawn or laid, the frame the pass lets go.)
-    if (!lost && tops.some((t) => t.solo && t.opaque?.())) {
+    if (!lost && tops.some((t) => soloOn(t) && t.opaque?.())) {
       presents++;
       if (directNow) { directNow = false; ownStale = true; }   // (the canvas held the figure's picture itself: it is cleared here, so the figure is drawn whole again)
       gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
