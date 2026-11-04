@@ -107,7 +107,7 @@ test('the figure places the gate where the callout points (the middle of the ves
   // It follows the camera with the labels, and the labels keep clear of its body.
   assert.equal((stage.match(/^\s*dprobePaint\(\);$/gm) || []).length, 4, 'view change, zoom glide, labels laid out, Doppler set');
   // It hides while the views morph and in the liver's own views, and moves by fading out and back in.
-  assert.match(stage, /\(morph < 0\.01 \|\| morph > 0\.99\) && !camHides && !dpr\.hold && dprMonitorOn\(\) && !st\.lobule && !st\.sinusoid && !lz\?\.isOpen\(\)/);
+  assert.match(stage, /\((?:live\.)?morph < 0\.01 \|\| (?:live\.)?morph > 0\.99\) && !camHides && !dpr\.hold && dprMonitorOn\(\) && !st\.lobule && !st\.sinusoid && !(?:live\.)?lz\?\.isOpen\(\)/);
   // (it goes and comes by drawing back along its line of sight, then fading as it leaves, on its own clock in the stage's record: dprShape; no CSS fade)
   assert.doesNotMatch(css, /\.dop-probe[^{]*\{[^}]*transition/);
 });
@@ -159,9 +159,9 @@ test('the probe and its line of sight take the side clear of the labels and call
 });
 
 test('in a deck the probe shows only once the zoom has settled: hidden while the camera moves, repainted when it lands', () => {
-  assert.match(stage, /morph > 0\.99\) && !camHides && !dpr\.hold && dprMonitorOn\(\) && !st\.lobule/);
-  assert.match(stage, /const camHides = camMove && !dpr\.carry;/, 'a camera move hides it unless it is only a refit to the cards, with the probe showing');
-  assert.match(stage, /camMove = false; dpr\.carry = false;\s*rideStop\(\);\s*if \(F\) updateLabels\(F\);/);   // (rideStop: labels that rode the move on the GPU, label-ride.test.js)
+  assert.match(stage, /(?:live\.)?morph > 0\.99\) && !camHides && !dpr\.hold && dprMonitorOn\(\) && !st\.lobule/);
+  assert.match(stage, /const camHides = (?:live\.)?camMove && !dpr\.carry;/, 'a camera move hides it unless it is only a refit to the cards, with the probe showing');
+  assert.match(stage, /(?:live\.)?camMove = false; dpr\.carry = false;\s*rideStop\(\);\s*if \((?:live\.)?F\) updateLabels\((?:live\.)?F\);/);   // (rideStop: labels that rode the move on the GPU, label-ride.test.js)
 });
 
 test('the line of sight stops at the near gate bar, the flow axis reaches past both bars, and the bars are a bit thicker than the axis line', () => {
@@ -326,7 +326,7 @@ test('organ outlines count as busy, at half a vessel\'s weight, and only while t
   const one = probePose({ g, t, r, w: W, h: H, side: 1, busy: [[...mid, 1]] }).busy, half = probePose({ g, t, r, w: W, h: H, side: 1, busy: [[...mid, 1, 0.5]] }).busy;
   assert.equal(one, 1); assert.equal(half, 0.5);
   assert.match(stage, /busyPush\(PW\[0\], PW\[1\], 1, 0\.5\)/);
-  assert.match(stage, /if \(organMorphA < 0\.5\) return DPR_ORGS;/);
+  assert.match(stage, /if \((?:live\.)?organMorphA < 0\.5\) return DPR_ORGS;/);
 });
 
 test('with no place for the whole probe, its marks stay and the head fades (as the FibroScan\'s does under a card); none only when the marks are covered too', () => {
@@ -374,7 +374,7 @@ test('"Smaller there" (Mohammad, 20 Oct): in a crowded view the probe shrinks un
   // In the figure: chosen with its size kept, and eased in place (never popped) to a new size.
   assert.match(stage, /fitPoseInto\(pose, O\);/);
   assert.match(stage, /O\.keepK = dpr\.k;/);
-  assert.match(stage, /O\.sc = CTM\?\.sc \|\| 1;/);
+  assert.match(stage, /O\.sc = (?:live\.)?CTM\?\.sc \|\| 1;/);
   assert.ok(ZOOMED_OUT > 0.3 && ZOOMED_OUT < 0.7, 'a phone\'s whole body shrinks it; a phone slide on the vessel and the Mac\'s whole figure do not');
   assert.match(stage, /n\.ang = pose\.ang; n\.d = pose\.D - Math\.max\(0, r\); n\.k = pose\.k;/);
   // A smaller size it stands at is kept while it still fits (the labels make way for it, and it swung between two sizes).
@@ -592,7 +592,7 @@ test('no place for a moment holds the probe (NONE_MS), and only a lack that last
 test('stage: the probe\'s memory is in the loop (layout signature, banned places, lock, give, a held "no place", hides forget)', () => {
   const paint = stage.slice(stage.indexOf('function dprobePaint('), stage.indexOf('function dprShape('));
   assert.match(stage, /const dprMind = createProbeMind\(\);/);
-  assert.match(paint, /let syncKey = keyV;\s*if \(CTM\) \{ syncKey = hMix\(syncKey, Math\.round\(CTM\.a \* 100\)\)/, 'a new layout (vessel, camera, stage, gate, cards) forgets the places left');
+  assert.match(paint, /let syncKey = keyV;\s*if \((?:live\.)?CTM\) \{ syncKey = hMix\(syncKey, Math\.round\((?:live\.)?CTM\.a \* 100\)\)/, 'a new layout (vessel, camera, stage, gate, cards) forgets the places left');
   assert.match(paint, /dprMind\.sync\(syncKey\);/);
   // (Asked on every model frame, the search runs at most every 150 ms while the layout holds and the probe shows; a new layout runs it at once.)
   assert.match(paint, /if \(syncKey === dpr\.syncKey && dpr\.on && tNow - dpr\.searchAt < dpr\.searchGap\) return;\s*if \(syncKey !== dpr\.syncKey\) dpr\.searchGap = 150;[^\n]*\n\s*dpr\.syncKey = syncKey; dpr\.searchAt = tNow;\s*dprMind\.sync\(syncKey\);/);
@@ -659,7 +659,7 @@ test('stage: while the readings slide, the probe is placed on every frame agains
   assert.match(tr, /document\.querySelector\('\.pz-data\.pz-sliding'\) \? 0 : dprTrackQuiet \+ 1/);
   assert.match(tr, /dpr\.track = dprTrackQuiet <= 6;/);
   assert.match(tr, /if \(was && !dpr\.track\) dprStale\(\);/);
-  assert.match(tr, /if \(dop\.id\) \{ dprobePaint\(\); labelGL\?\.redraw\(\); \}/);   // (and drawn by the GPU's label layer in that frame)
+  assert.match(tr, /if \(dop\.id\) \{ dprobePaint\(\); (?:live\.)?labelGL\?\.redraw\(\); \}/);   // (and drawn by the GPU's label layer in that frame)
   assert.match(tr, /if \(dpr\.track\) dprTrackRaf = nextFrame\(dprTrack\);/);
   assert.doesNotMatch(tr, /getBoundingClientRect/);
   // (The sliding card counts as far as it may still reach, so the probe is out of its way as it starts, never chasing it.)
@@ -753,7 +753,7 @@ test('stage: every way the probe goes swings it out round the target (place and 
   assert.doesNotMatch(leave, /draw\.x|draw\.y|dpr\.cur|dpr\.tgt|dpr\.gateA|\.ang\b/);
   assert.match(stage, /dw\.ang = probeTurn\(c\.ang, t\.sw, c\.o\);/);
   assert.match(stage, /n\.sw = probeSwing\(pose\.side, O\.away === pose\.rev\);/);
-  const shape = stage.slice(stage.indexOf('function dprShape('), stage.indexOf('// The station dot'));
+  const shape = stage.slice(stage.indexOf('function dprShape('), stage.indexOf('// The station dot under the gate'));
   // While it goes, the step moves only the draw-back (the angle, distance and size stay as they were).
   assert.match(shape, /if \(dpr\.on\) \{\s*q\.ang \+= /);
   assert.match(shape, /dpr\.oP = dpr\.on \? Math\.max\(0, dpr\.oP - stepP\) : Math\.min\(1, dpr\.oP \+ stepP\);/);
@@ -769,7 +769,7 @@ test('stage: every way the probe goes swings it out round the target (place and 
 
 // ── The probe is numbers, not page (2 Nov 2026, "take the probe off the GPU scan with real fixes") ──
 test('the probe is a record of numbers drawn by the labels\' layer: no page element is placed, shown, hidden or written, in or out of a frame', () => {
-  const frame = stage.slice(stage.indexOf('function dprobePaint('), stage.indexOf('// The station dot')).replace(/\/\/.*$/gm, '');   // (code only: the comments say what it was)
+  const frame = stage.slice(stage.indexOf('function dprobePaint('), stage.indexOf('// The station dot under the gate')).replace(/\/\/.*$/gm, '');   // (code only: the comments say what it was)
   assert.doesNotMatch(frame, /\.style\.|classList|setAttribute|querySelector|\.className|innerHTML/, 'nothing of the page is touched while it moves');
   assert.doesNotMatch(frame, /`/, 'no string is built (a layout is a number)');
   assert.doesNotMatch(frame, /=> \{|\.map\(|\.filter\(|\.join\(|\.toFixed\(|\[\.\.\./, 'no closure, copy or string made while it is placed');

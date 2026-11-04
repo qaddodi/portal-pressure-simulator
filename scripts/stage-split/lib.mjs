@@ -205,16 +205,14 @@ export function planSplit(src, spec, A = analyse(src, spec.stage || 'createStage
     const cuts = [];
     for (const [decl, specs] of gone) {
       const all = decl.specifiers;
-      if (specs.length === all.length) cuts.push([decl.range[0], decl.range[1] + (src[decl.range[1]] === '\n' ? 1 : 0)]);
-      else for (const s of specs) {
-        const k = all.indexOf(s), isLast = k === all.length - 1;
-        // a named specifier: drop it and one comma; the braces stay (the decl keeps at least one other specifier)
-        const a = isLast ? all[k - 1].range[1] : s.range[0], b = isLast ? s.range[1] : all[k + 1].range[0];
-        cuts.push([a, b]);
-      }
+      if (specs.length === all.length) { cuts.push([decl.range[0], decl.range[1] + (src[decl.range[1]] === '\n' ? 1 : 0), '']); continue; }
+      const kept = all.filter((s) => !specs.includes(s)), named = kept.filter((s) => s.type === 'ImportSpecifier');
+      const txt = (s) => (s.imported.name === s.local.name ? s.local.name : `${s.imported.name} as ${s.local.name}`);
+      const head = [kept.find((s) => s.type === 'ImportDefaultSpecifier')?.local.name, kept.find((s) => s.type === 'ImportNamespaceSpecifier') && `* as ${kept.find((s) => s.type === 'ImportNamespaceSpecifier').local.name}`, named.length && `{ ${named.map(txt).join(', ')} }`].filter(Boolean).join(', ');
+      cuts.push([decl.range[0], decl.range[1], `import ${head} from ${decl.source.raw};`]);
     }
     cuts.sort((x, y) => y[0] - x[0]);
-    for (const [a, b] of cuts) { stage = stage.slice(0, a) + stage.slice(b); }
+    for (const [a, b, r] of cuts) { stage = stage.slice(0, a) + r + stage.slice(b); }
   }
   // import of the factory, after the last import
   const impLine = `import { ${fname} } from './${spec.file.replace(/\.js$/, '')}.js';`;
@@ -299,7 +297,7 @@ export function familyKeys(src) {
 }
 
 // Is the new family the same program as the old stage.js? Returns a list of problems (empty = proven by text).
-export function checkEquivalence(baseSrc, newStageSrc, readPart) {
+export function checkEquivalence(baseSrc, newStageSrc, readPart, baseImports = []) {
   const problems = [], { text, partImports } = inlineFamily(newStageSrc, readPart);
   const B = familyKeys(baseSrc), I = familyKeys(text);
   const bag = (xs) => { const m = new Map(); for (const x of xs) m.set(x, (m.get(x) || 0) + 1); return m; };
@@ -308,7 +306,7 @@ export function checkEquivalence(baseSrc, newStageSrc, readPart) {
   for (const [k, n] of ib) if (bb.get(k) !== n) problems.push(`statement added or changed (inlined line ${I.body.find((x) => x.key === k).line}): ${k.slice(0, 90)}`);
   if (B.body.filter((x) => x.runs).map((x) => x.key).join('\n') !== I.body.filter((x) => x.runs).map((x) => x.key).join('\n')) problems.push('the statements that run code at boot are not in the same order as before');
   if (B.outside.join('\n') !== I.outside.join('\n')) problems.push('module-level statements outside createStage differ');
-  const baseImp = new Set(B.imports);
+  const baseImp = new Set([...B.imports, ...baseImports.map((x) => x.join('|'))]);
   for (const [s, i, l] of partImports) if (!baseImp.has([s, i, l].join('|'))) problems.push(`a part imports ${l} from ${s}, which stage.js did not`);
   for (const k of I.imports) if (!baseImp.has(k)) problems.push(`stage.js imports ${k} that it did not before`);
   return problems;

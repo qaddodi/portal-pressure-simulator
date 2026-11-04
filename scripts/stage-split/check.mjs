@@ -18,9 +18,9 @@ const stage = readFileSync(join(ROOT, 'src/ui/stage.js'), 'utf8');
 const parts = readdirSync(join(ROOT, 'src/ui')).filter((n) => /^stage-.+\.js$/.test(n));
 const readBase = (f) => git('show', `${base}:src/ui/${f}`);
 // A base that already has parts is read as its inlined self, so a later move is compared to the whole program as it stood.
-let baseText = readBase('stage.js');
-if (/import \{ create[A-Z]\w* \} from '\.\/stage-[^']+\.js'/.test(baseText)) baseText = inlineFamily(baseText, readBase).text;
-const problems = [...checkEquivalence(baseText, stage, (f) => readFileSync(join(ROOT, 'src/ui', f), 'utf8')), ...checkNoCopies(stage)];
+let baseText = readBase('stage.js'), baseImports = [];
+if (/import \{ create[A-Z]\w* \} from '\.\/stage-[^']+\.js'/.test(baseText)) { const r = inlineFamily(baseText, readBase); baseText = r.text; baseImports = r.partImports; }
+const problems = [...checkEquivalence(baseText, stage, (f) => readFileSync(join(ROOT, 'src/ui', f), 'utf8'), baseImports), ...checkNoCopies(stage)];
 const budget = JSON.parse(readFileSync(join(ROOT, 'scripts/size-budget.json'), 'utf8')).files;
 const lines = (f) => readFileSync(join(ROOT, 'src/ui', f), 'utf8').split('\n').length - 1;
 const fam = ['stage.js', ...parts].reduce((a, f) => a + lines(f), 0);

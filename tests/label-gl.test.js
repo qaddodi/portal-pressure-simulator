@@ -119,8 +119,8 @@ test('the leaders\' and the FibroScan callout\'s layers go to the GPU with the l
 });
 
 test('the Doppler probe is drawn on the GPU under the leaders, from a model of plain elements the page never paints', () => {
-  assert.match(STAGE, /labelSvg\.before\(el\); dpr\.el = el;\n\s+labelGL\?\.setProbe\(el, dpr\.draw\);/);
-  assert.match(STAGE, /dw\.op = probeFade\(dpr\.oP\); dw\.headOp = smooth01\(dpr\.headP\);\n\s+labelGL\?\.redraw\(\);/, 'each frame of its ease drawn in that frame');
+  assert.match(STAGE, /(?:live\.)?(?:live\.)?labelSvg\.before\(el\); dpr\.el = el;\n\s+(?:live\.)?(?:live\.)?labelGL\?\.setProbe\(el, dpr\.draw\);/);
+  assert.match(STAGE, /dw\.op = probeFade\(dpr\.oP\); dw\.headOp = smooth01\(dpr\.headP\);\n\s+(?:live\.)?labelGL\?\.redraw\(\);/, 'each frame of its ease drawn in that frame');
   assert.match(CSS, /\.dop-probe > \.dpr-svg \{ position: absolute; left: 0; top: 0; visibility: hidden; \}/);
   assert.match(LGL, /let moving = drawProbe\(\);\n\s+moving = drawMarks\(now\) \|\| moving;/, 'the probe under the leaders and labels, as it lay under their SVG');
   // Its marks in PROBE_MODEL's order: beam, rim under line, axis, then the bars on top, then the head.

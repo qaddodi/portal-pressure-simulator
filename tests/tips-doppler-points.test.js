@@ -118,8 +118,8 @@ test("the three callouts never give way to the Doppler probe: the column's side,
   // the probe knows where the column stands before it picks a side: it waits for the callouts to show (four seconds at most), only
   // while it is not already showing
   assert.match(stage, /colShown = out\.some\(\(it\) => it\.point && !it\.hide && it\.w && it\.h\);/);
-  assert.match(stage, /const waitCol = !dpr\.on && !dpr\.swap && dop\.all && !colShown && performance\.now\(\) - colWaitAt < 4000;/);
-  assert.match(stage, /!lz\?\.isOpen\(\) && !waitCol\);/);
+  assert.match(stage, /const waitCol = !dpr\.on && !dpr\.swap && dop\.all && !(?:live\.)?colShown && performance\.now\(\) - (?:live\.)?colWaitAt < 4000;/);
+  assert.match(stage, /!(?:live\.)?lz\?\.isOpen\(\) && !waitCol\);/);
   assert.match(stage, /ptSide = null; colShown = false; clampD\.clear\(\);/);
   // and it keeps off them: the callouts' boxes are what its place is searched against
   assert.match(stage, /O\.avoid = dprAvoid\(\)/);
