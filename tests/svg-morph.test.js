@@ -29,7 +29,6 @@ let frames = [];
 globalThis.requestAnimationFrame = (cb) => { const id = setTimeout(() => cb(performance.now()), 4); frames.push(id); return id; };
 globalThis.cancelAnimationFrame = (id) => clearTimeout(id);
 globalThis.matchMedia = () => ({ matches: false, addEventListener() {} });
-globalThis.getComputedStyle = (el) => ({ opacity: el.css });
 const M = await import('../src/ui/svg-morph.js');
 const { reduceMotionMQ } = await import('../src/ui/motion.js');
 const { splitNums, joinNums, polyPoints, polyD, tweenOf, tweenAt, describe, planMorph, morphSvg, holdTween } = M;
@@ -173,8 +172,8 @@ test('a number the chart writes itself while a piece glides is kept, and the gli
 
 test('a piece the stylesheet holds at less than full strength is never faded by the morph (a ring that is off)', () => {
   const [, old] = mount(line(0, 0, 10, 0, { class: 'g' }), text(9, 9, 'gone'));
-  old.children[1].css = '0';
-  const ring = text(20, 3, 'fresh'); ring.css = '0';
+  old.children[1].setAttribute('opacity', '0');
+  const ring = text(20, 3, 'fresh'); ring.setAttribute('opacity', '0');
   const next = svgOf(line(0, 20, 30, 20, { class: 'g' }), ring);
   assert.equal(morphSvg(old, next), true);
   assert.equal(old.children[1].anims.length, 0); assert.equal(ring.anims.length, 0);

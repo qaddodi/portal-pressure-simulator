@@ -2079,8 +2079,6 @@ button.finding { cursor: pointer; }
 .pz.pz-card:not(.stack) .pz-data { padding: var(--pz-cp); }   /* (the same padding as the teaching card, so the two cards' text edges line up) */
 .pz-dh { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; text-align: center; gap: 4px 12px; font: var(--caps-w) var(--s-cap)/1.25 var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; color: var(--text-3); }
 .pz-unit { text-transform: none; letter-spacing: normal; }   /* (a unit in a title: "mL/day", never "ML/DAY"; title-units.js) */
-.pz-hb { fill: color-mix(in srgb, var(--danger) 10%, transparent); }
-.pz-hs { fill: var(--danger); fill-opacity: .55; }
 .pz-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: clamp(8px, calc(1.2 * var(--pzh)), 14px); }
 .pz-tiles[data-n="0"] { display: none; }   /* (a ladder alone: its brackets give the HVPG and PPG) */
 .pz-tile { display: flex; flex-direction: column; align-items: center; text-align: center; gap: .2em; container-type: inline-size; padding: clamp(10px, calc(1.5 * var(--pzh)), 18px) clamp(12px, calc(1.6 * var(--pzh)), 20px); border-radius: clamp(12px, calc(1.6 * var(--pzh)), 18px); background: var(--surface-2); border: 2px solid transparent; min-width: 0; transition: none; }
@@ -2531,7 +2529,6 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-data:is(.tool-lead, .pz-sheet) .pz-tool[data-kind="scope"] .chart-side { flex: 1; min-width: 0; }
 .pz.stack .pz-data:is(.tool-lead, .pz-sheet) .pz-tool[data-kind="scope"] .endo-pos { display: none; }
 /* A phone's pressure card: the ladder becomes a strip (one row of stations, no axis or gridlines), shorter than the chart. */
-.pzs-drop { stroke: var(--danger); stroke-width: 1.2; stroke-opacity: .7; transition: opacity var(--d-surface) var(--ease); }
 .pz.stack .pz-tile { padding: 6px 10px; }
 .pz.stack .pzt-v { font-size: var(--s-title); }
 /* (Centred in the figure above the controls' pill: top and bottom set, its own height, auto margins.) */
@@ -2882,13 +2879,6 @@ button.finding { cursor: pointer; }
 .pz-flowtime svg { grid-area: 1 / 1; width: 100%; height: auto; overflow: visible; transition: opacity var(--d-surface) var(--ease); }
 @media (max-height: 960px) { .pz.stack .pz-flowtime svg { max-height: 160px; } }/* (A phone's after-meal chart keeps one size: .pz.stack.stack .pz-flowtime.) */
 .pz-flowtime svg.in { opacity: 0; }
-.ptk-grid line { stroke: color-mix(in srgb, var(--text) 11%, transparent); stroke-width: 1; }   /* (a tint of the ink, not the card border: it reads on the profile zones' tints and the plot panel alike) */
-.ptk-grid.cut line { stroke-dasharray: 4 5; stroke-width: 1.5; }
-.ptk-grid[data-rate="mid"] line { stroke: var(--caution); } .ptk-grid[data-rate="hi"] line { stroke: var(--danger); }
-.ptk-grid text { font: 500 calc(15px * var(--svk, 1)) var(--font-ui); fill: var(--text-3); font-variant-numeric: tabular-nums; }
-.ptk-ax { font: 600 calc(13px * var(--svk, 1)) var(--font-ui); letter-spacing: .06em; text-transform: uppercase; fill: var(--text-3); }
-.ptk-unit { font: 500 calc(13px * var(--svk, 1)) var(--font-ui); fill: var(--text-3); }
-.ptk-line { fill: none; stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
 .pz.stack .pz-data.has-tool { --pz-cap: 50%; max-height: var(--pz-cap); }   /* (--pz-cap: the stacked card's tucked cap, read by presenter.js layout) */
 /* (With its readings out under it, the card's cap grows by their height (--pz-d, presenter.js measureUnder): the instrument card keeps
    the size it had with them tucked, never fitted smaller to make room for them (Mohammad, 19 Oct: "Need to maintain same card size

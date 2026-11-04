@@ -414,7 +414,7 @@ export function braceD(xa, xb, y0, d) {
 const sv = svgModel;
 // The block's hatching: bold diagonal red stripes over a faint red tint (styles/app.css .pz-hb, .pz-hs), as the old ladder's.
 const hatchDef = (id, s) => sv('pattern', { id, width: s, height: s, patternUnits: 'userSpaceOnUse', patternTransform: 'rotate(45)' },
-  sv('rect', { class: 'pz-hb', width: s, height: s }), sv('rect', { class: 'pz-hs', width: s / 2, height: s }));
+  sv('rect', { class: 'pz-hb', 'data-look': 'card.hatch.bg', width: s, height: s }), sv('rect', { class: 'pz-hs', 'data-look': 'card.hatch.stripe', width: s / 2, height: s }));
 const one = (v) => (Math.round(v * 10) / 10).toFixed(1);
 const lerp = (a, b, k) => a + (b - a) * k;
 // (a word's width as Inter sets it, from the GPU atlas's own metrics: no canvas)

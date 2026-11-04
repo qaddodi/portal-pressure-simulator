@@ -104,25 +104,10 @@ const rgbaOf = (c) => {
   const [r, g, b, a] = cssColor(c);
   return `rgba(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)}, ${a})`;
 };
-// (A piece with data-look takes its look from the chart-looks table, in the chart's context lc (makeCtx), and asks the page nothing; every
-// other piece is read from the page as before, until the last chart has moved: docs/chart-looks-in-code-plan.md.)
+// (A piece takes its look from the chart-looks table, in the chart's context lc (makeCtx), by its data-look; a piece with none takes its
+// attributes and its parent's, as SVG does. The page is asked nothing: docs/chart-looks-in-code-plan.md WP12.)
 function resolve(el, parentRaw, parentOut, lc) {
-  if (el.getAttribute('data-look')) return lookFor(el, lc || makeCtx(), parentOut, PROPS);
-  const cs = getComputedStyle(el), raw = {}, o = {};
-  for (const [k, attr, inh, init] of PROPS) {
-    const v = cs[k];
-    raw[k] = v;
-    const css = parentRaw ? (inh ? v !== parentRaw[k] : v !== init) : true;   // (the stylesheet set it on this element)
-    const a = el.getAttribute(attr);
-    if (!css && a != null && a !== '') { o[k] = a; if (attr === 'opacity' || attr === 'stop-color') o[`@${attr}`] = true; }
-    else if (!css && inh && parentOut) o[k] = parentOut[k];
-    else o[k] = v;
-    if (attr === 'text-anchor' && !css) o['@text-anchor'] = true;   // (the stylesheet leaves it to the attribute, which a frame may move)
-  }
-  // (A drawing's own root is never hidden by the page round it: a card hidden while it slides in hides the picture with it, and its
-  // looks, read then, would have kept every piece hidden after.)
-  if (!parentRaw) o.visibility = 'visible';
-  return { raw, o, cs };
+  return lookFor(el, lc || makeCtx(), parentOut, PROPS);
 }
 function lookOf(o, size) {
   const fs = /em$/.test(String(o.fontSize)) ? num(o.fontSize) * size : num(o.fontSize, size || 12);
@@ -155,14 +140,6 @@ function setEase(el, from, to, t0, ms, ease) {
   else { e.from = from; e.to = to; e.t0 = t0; e.ms = ms; e.ease = ease; }
   return e;
 }
-const secs = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? (/ms$/.test(String(v).trim()) ? n : n * 1000) : 0; };
-function opEase(cs, prop = 'opacity') {
-  const ps = String(cs.transitionProperty || '').split(','), i = ps.findIndex((q) => q.trim() === prop || q.trim() === 'all');
-  if (i < 0) return null;
-  const pick = (v) => { const l = String(v || '').split(/,(?![^(]*\))/); return l[i % l.length]; };
-  const ms = secs(pick(cs.transitionDuration));
-  return ms > 0 ? { ms, delay: secs(pick(cs.transitionDelay)), ease: cssCurve(pick(cs.transitionTimingFunction)?.trim() || 'ease') } : null;
-}
 // (A piece's look by what the stylesheet sees of it, under its parent's: a chart that builds its pieces again (a redraw, a frame of its
 // glide) takes each one's look from the one before with the same classes, attributes and parent, never asking the page in a frame.)
 const URL_ID = /url\(#[^)]*\)/g, LIVE_ATTRS = new Set(['opacity', 'stop-color', 'text-anchor']);   // (a drawing's own ids, made afresh each time, and what is read live)
@@ -180,7 +157,7 @@ function keyOf(el, pk) {
 // ancestors, the theme): the next slide's chart, built in the task that changes the slide, takes the looks of the pieces like it already
 // read, and only a new kind of piece asks the page (2 Nov 2026: the charts asked the page about 230 times in a slide change). Dropped
 // on a new theme or palette and on a resize (the stylesheet's media queries).
-const SHARED = new Map(), SCALE_VARS = ['--svk', '--pzh', '--ch-cap', '--s-cap'];
+const SHARED = new Map();
 function clearShared() { SHARED.clear(); ROOTS.clear(); }
 const ROOTS = new Map();   // (place key → the keys its roots' shared looks are kept by)
 /** Drops the shared looks of the roots of every box standing at place key pk. */
@@ -221,10 +198,10 @@ function readLooks(root, fresh = false, cache = null, shared = '', lc = null) {
       const r = resolve(el, pr, po, lc);
       raw = r.raw; o = r.o;
       L = lookOf(o, num(raw.fontSize, 12));
-      L.tr = r.cs ? opEase(r.cs) : r.tr; L.trT = r.cs ? opEase(r.cs, 'transform') : r.trT;
+      L.tr = r.tr; L.trT = r.trT;
       if (shared && !pr) {
         const plain = key;
-        key += `|${PROPS.map(([k]) => raw[k]).join('|')}|${r.cs ? SCALE_VARS.map((v) => r.cs.getPropertyValue(v)).join('|') : ''}`;
+        key += `|${PROPS.map(([k]) => raw[k]).join('|')}`;
         if (cache) cache.set(plain, { raw, o, L, full: key });   // (a drawing built again in a frame finds its root by its plain key: adoptLooks)
         SHARED.set(plain, { raw, o, L, full: key });
         let ks = ROOTS.get(shared); if (!ks) ROOTS.set(shared, ks = new Set()); ks.add(plain);
@@ -994,6 +971,8 @@ export function createSvgGL(box, opts = null) {
   // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)
   g.fadeIn = (root, ms, easing = 'ease') => { g.ins.set(root, { t0: easeNow(), ms, ease: cssCurve(easing) }); g.paint(); };
   g.noteFade = noteFade;
+  // A piece's strength now, for svg-morph's fades: the fade it is in, else its look's strength (a piece not yet looked at is resolved here), never the page's.
+  g.strengthOf = (el) => { const f = fadeOf(el); if (f != null) return f; const L = looks.get(el); return L ? L.op : num(lookFor(el, g.lc || makeCtx(g.local), null, PROPS).o.opacity, 1); };
   // A new drawing in place of the old: each piece in both glides to its new place (svg-morph.js); where that cannot be, the new one fades
   // in over the old, which then goes (never a jump); without a fade (a new size) it simply takes over.
   // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)

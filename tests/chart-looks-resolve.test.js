@@ -139,3 +139,13 @@ test('the default token source is theme-tokens.js: a table entry reads the look 
   assert.deepEqual(rgba(look('t.real', {}, c).o.fill), rgba(tokensFor(c).text));
   assert.notDeepEqual(rgba(look('t.real', {}, withCtx(c, { dark: true, theme: 'dark', palette: 'black' })).o.fill), rgba(tokensFor(c).text));
 });
+
+test('a piece with no data-look takes its attributes and its parent\'s, and asks nothing of the page (WP12)', () => {
+  const parent = lookFor(new El({ fill: '#123456', 'font-size': '13' }), ctxLight(), null, PROPS);
+  const kid = lookFor(new El({ stroke: '#abcdef', opacity: '0.4' }, null), ctxLight(), parent.o, PROPS).o;
+  assert.equal(kid.fill, '#123456', 'fill is inherited');
+  assert.equal(kid.stroke, '#abcdef');
+  assert.equal(kid.opacity, '0.4');
+  assert.equal(kid.visibility, 'visible');
+  assert.equal(parent.cs, null);
+});

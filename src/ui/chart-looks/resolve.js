@@ -12,6 +12,7 @@ import { mixColor, parseCssColor } from '../css-color.js';
 import { D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, cssCurve } from '../ease.js';
 import { LOOKS, HOSTS } from './index.js';
 import { tokensFor as themeTokens } from '../theme-tokens.js';
+import { reduced } from '../motion.js';
 
 const MAGENTA = 'rgb(255, 0, 255)';   // colour-exempt: (a colour or a key the table lacks: seen at once in a dev build)
 const warned = new Set();   // alloc-rare: one entry for each missing key or token, kept
@@ -54,7 +55,7 @@ export function makeCtx(local = null) {
   const theme = attr === 'light' || attr === 'soft' || attr === 'dark' ? attr : dark ? 'dark' : 'light';
   const l = local || {};
   const c = {
-    theme, dark, palette: ra('data-palette') || 'navy', view: l.view || viewNow, motion: mq('(prefers-reduced-motion: reduce)') ? 'reduce' : 'full',
+    theme, dark, palette: ra('data-palette') || 'navy', view: l.view || viewNow, motion: reduced() ? 'reduce' : 'full',
     host: l.host || '', layout: l.layout || '', in: l.in || '', boxW: l.boxW || 0, scale: l.scale || NO_SCALE, svk: l.svk || 1, fit: l.fit || 1, dk: l.dk || 1, lad: l.lad || 1, hostPx: 12, sig: '',
   };
   c.hostPx = l.px > 0 ? l.px : HOSTS[c.host] ? HOSTS[c.host](c) : 12;   // (px: the size a fitted chart is drawn in, flow-time, curve and course: its host's size, grown to keep the type readable on a zoomed card)
@@ -237,15 +238,17 @@ export function resolveProps(entry, ctx, state, params) {
   return P;
 }
 
+const NO_PROPS = Object.freeze({});
 /**
- * A model piece with data-look: { raw, o, cs: null, tr, trT } in the form svg-gl's resolve() answers. props is svg-gl's PROPS list
+ * A model piece, with data-look or without: { raw, o, cs: null, tr, trT } in the form svg-gl's resolve() answers. props is svg-gl's PROPS list
  * ([CSS property, attribute, inherited, initial]), parentOut the parent's `o`, ctx the chart's context (makeCtx).
  */
 export function lookFor(el, ctx, parentOut, props) {
   const key = el.getAttribute('data-look');
-  const entry = LOOKS[key];
+  const entry = key ? LOOKS[key] : null;
   let own;
-  if (!entry) { report(`no look "${key}"`); own = { fill: MAGENTA, stroke: MAGENTA }; } else {
+  if (!key) own = NO_PROPS;   // (a piece with no look of its own: a group, a clip path, a word whose colour is its attribute; it takes its attributes and its parent's)
+  else if (!entry) { report(`no look "${key}"`); own = { fill: MAGENTA, stroke: MAGENTA }; } else {
     const f = flagsOf(entry);
     const state = {};
     let sig = '';

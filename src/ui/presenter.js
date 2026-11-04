@@ -633,12 +633,12 @@ const fsOf = (el, px) => { el.style.fontSize = px.toFixed(2) + 'px'; el.setAttri
 // The block is a hatched fill: bold diagonal red stripes over a faint red tint (visible in light and dark, no label).
 // Shared by the ladders and the level rail, so the block looks the same everywhere.
 const hatch = (id, s) => sv('pattern', { id, width: s, height: s, patternUnits: 'userSpaceOnUse', patternTransform: 'rotate(45)' },
-  sv('rect', { class: 'pz-hb', width: s, height: s }), sv('rect', { class: 'pz-hs', width: s / 2, height: s }));
+  sv('rect', { class: 'pz-hb', 'data-look': 'card.hatch.bg', width: s, height: s }), sv('rect', { class: 'pz-hs', 'data-look': 'card.hatch.stripe', width: s / 2, height: s }));
 /** The block on the level rail: the phone ladder's block (rounded, red outline, red hatching) wrapped round the blocked level's whole bar. */
 function railBlock() {
   const id = 'pzRailB' + ++uid;
   // (A model drawn on the GPU in px of its box: its viewBox and its block's size are the box's own, set as the box is laid out.)
-  const pat = hatch(id, 7), drop = sv('rect', { class: 'pzs-drop', width: '100%', height: '100%', rx: 6, fill: `url(#${id})` });
+  const pat = hatch(id, 7), drop = sv('rect', { class: 'pzs-drop', 'data-look': 'card.drop', width: '100%', height: '100%', rx: 6, fill: `url(#${id})` });
   const model = sv('svg', { viewBox: '0 0 100 20', preserveAspectRatio: 'none' }, sv('defs', {}, pat), drop);
   const box = glBox('pz-rail-blk', model, { 'aria-hidden': 'true' });
   fitChart(box, () => {

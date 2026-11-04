@@ -81,7 +81,7 @@ test('every bracket and the healthy line\'s name keep clear of the blocks; a blo
   assert.equal((prof.match(/for \(const i of blocksOf\(goal, hl\)\) place\.take\(blockBox\(G, tw, goal, i\)\);/g) || []).length, 3, 'the brackets, the lines\' names and the pills');
   assert.match(prof, /if \(!b \|\| b\.a !== a\) \{ blkS\[i\]\.from = reduceMQ\.matches \? a : b \? blkOp\(b, t\) : 0; blkS\[i\]\.a = a; blkS\[i\]\.t0 = t; blkLive\[i\] = 1; \}/);
   assert.match(prof, /if \(blkLive\[i\] && t - blkS\[i\]\.t0 < FADE_MS\) fading = true;/);
-  assert.match(prof, /sv\('rect', \{ class: 'pz-hb', width: s, height: s \}\), sv\('rect', \{ class: 'pz-hs', width: s \/ 2, height: s \}\)/);
+  assert.match(prof, /sv\('rect', \{ class: 'pz-hb', 'data-look': 'card\.hatch\.bg', width: s, height: s \}\), sv\('rect', \{ class: 'pz-hs', 'data-look': 'card\.hatch\.stripe', width: s \/ 2, height: s \}\)/);
   // (The block's ring is the table's prof.blk: tests/profile-looks.test.js.)
-  assert.match(css, /\.pz-hs \{ fill: var\(--danger\); fill-opacity: \.55; \}/);
+  assert.doesNotMatch(css, /\.pz-hs \{/);   // (the stripes' look is the table's card.hatch.stripe)
 });

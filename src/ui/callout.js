@@ -4,7 +4,8 @@
 // hairline of cl-hair strokes 2 px, so 1 px shows). The pointer reaches outside the card's box, so the child is the box grown by the pointer's depth.
 
 import { createSvgGL, svgModel, setGeo } from './svg-gl.js';
-import { restPass } from './rest-pass.js';
+import { restPass, cancelRest } from './rest-pass.js';
+import { onTheme } from './theme-epoch.js';
 
 const PTR = 11;   // how far the pointer reaches past the card's edge, and its half-width at the edge
 const KEEP = 28;  // the pointer stays this far from the card's sides, clear of the rounded corners
@@ -87,9 +88,31 @@ export function glassCallout(el, { pointer = true } = NO_OPTS) {
     // 2026). The observation ends with dispose(), which every caller makes as the card goes.)
     if (!el.isConnected) return;
     [size, rad] = observedSize(el, es);
+    askLine();
     update();
   }) : null;
   ro?.observe(el);
-  update.dispose = () => { ro?.disconnect(); S.gone = true; S.gl?.dispose(); };   // alloc-rare: made once for each callout, as it is first built (stage.js makes a callout only when it first shows), never per frame
+  // The outline's colour and weight are the stylesheet's word for this callout (its reading's colour --c, the theme's border), so they are read here,
+  // between frames, when the callout's size is observed, the theme changes or its classes change (a tone), and written on the path as attributes,
+  // which the picture takes: the picture itself asks the page nothing (chart-looks WP12).
+  let lineT = 0, lineCls = '';
+  const readLine = () => {
+    lineT = 0;
+    if (S.gone || !el.isConnected) return;
+    if (typeof getComputedStyle !== 'function') return;
+    const cs = getComputedStyle(path);
+    lineCls = el.className;
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', cs.stroke);
+    path.setAttribute('stroke-width', cs.strokeWidth);
+    path.setAttribute('stroke-linejoin', cs.strokeLinejoin);
+    S.gl?.relook();
+  };
+  const askLine = () => { if (!lineT && !S.gone) lineT = restPass(readLine); };
+  const offTheme = onTheme(askLine);
+  const classed = typeof MutationObserver === 'function' ? new MutationObserver(() => { if (el.className !== lineCls) askLine(); }) : null;   // alloc-rare: made once for each callout, as it is first built
+  classed?.observe(el, { attributes: true, attributeFilter: ['class'] });
+  askLine();
+  update.dispose = () => { ro?.disconnect(); offTheme(); classed?.disconnect(); if (lineT) cancelRest(lineT); S.gone = true; S.gl?.dispose(); };   // alloc-rare: made once for each callout, as it is first built (stage.js makes a callout only when it first shows), never per frame
   return update;
 }

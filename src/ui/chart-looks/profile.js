@@ -18,9 +18,9 @@ const pillText = (t) => ({ fill: mix('srgb', tok(t), 82, tok('text')) });
 
 export const PROFILE = {
   // 7117-7119 .ppf-liver / .ppf-pre / .ppf-post rect: the zones' tints (tokens.css 43-44 --chart-*-band, kept there for charts.js)
-  'prof.zone.liver': { base: { fill: 'rgba(176, 96, 84, 0.09)' } },
-  'prof.zone.pre': { base: { fill: 'rgba(92, 128, 186, 0.1)' } },
-  'prof.zone.post': { base: { fill: 'rgba(84, 164, 142, 0.1)' } },
+  'prof.zone.liver': { base: { fill: 'rgba(176, 96, 84, 0.09)' } },   // colour-exempt: a tint written as tokens.css does (--chart-*-band)
+  'prof.zone.pre': { base: { fill: 'rgba(92, 128, 186, 0.1)' } },   // colour-exempt: a tint written as tokens.css does (--chart-*-band)
+  'prof.zone.post': { base: { fill: 'rgba(84, 164, 142, 0.1)' } },   // colour-exempt: a tint written as tokens.css does (--chart-*-band)
   // 7120-7121 .ppf-zone text (its size is the piece's own, and its letter-spacing .06em, 0 when tight, as attributes)
   'prof.zone.text': { base: { weight: 600, fill: tok('text-3') } },
   // 7123, 7126, 2276-2277 .ppf-hl: the healthy line

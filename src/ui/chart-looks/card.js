@@ -26,6 +26,12 @@ const SITE = [
 const STEP = Array.from({ length: 32 }, (_, i) => [{ i: String(i) }, { ease: { opacity: ease('surface', undefined, 300 + 180 * i), transform: ease('surface', undefined, 300 + 180 * i) } }]);
 
 export const CARD = {
+  // ── the block's hatching and the rail's block (shared with the pressure ladder, tool-profile.js) ──
+  // 2082 .pz-hb: the faint red tint under the stripes; 2083 .pz-hs: the bold stripes
+  'card.hatch.bg': { base: { fill: mix('srgb', tok('danger'), 10, 'transparent') } },
+  'card.hatch.stripe': { base: { fill: tok('danger'), fillOpacity: 0.55 } },
+  // 2534 .pzs-drop: the rail's block, outlined in red; it fades with its card (surface ease)
+  'card.drop': { base: { stroke: tok('danger'), width: 1.2, strokeOpacity: 0.7, ease: { opacity: ease('surface') } } },
   // ── the still column (2138-2158) ──
   'card.root': NONE,
   'card.g': NONE,

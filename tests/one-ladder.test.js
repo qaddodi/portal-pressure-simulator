@@ -31,7 +31,7 @@ test('the presenter has no old ladder left: no five-station drawing, strip, lege
   assert.doesNotMatch(css, /pz-ladder|pz-strip|pz-lg|pzl-(base|bg|bk|br|drop|from|grid|k|lead|line|nb|pt|v)\b|lad-swap|lad-fixed/);
   // (The level rail keeps its own hatched block: it names the level, not a station.)
   assert.match(pres, /function railBlock\(\)/);
-  assert.match(css, /\.pzs-drop \{/);
+  assert.match(pres, /class: 'pzs-drop', 'data-look': 'card\.drop'/);   // (its look is the table's card.drop)
 });
 
 test('every slide that had the old ladder shows the Gut to heart chart, or keeps its instrument with the readings as tiles', () => {

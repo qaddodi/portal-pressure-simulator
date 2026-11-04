@@ -167,6 +167,19 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   if (process.argv.includes('--tighten')) writeFileSync(aFile, JSON.stringify({ ...aDoc, charts: Object.fromEntries(Object.entries(now).map(([c, n]) => [c, Math.min(n, aDoc.charts[c] ?? n)])) }, null, 1) + '\n');
 }
 
+// Chart looks (WP12): the GPU picture and the chart builders ask the page for no style. svg-gl.js, svg-morph.js, chart-looks/ and every chart
+// builder (tool-*.js, flow-time.js, talk-trace.js, visual-plane.js) hold no getComputedStyle: a chart's looks are its table's (src/ui/chart-looks/).
+// The page-element code that also makes a model keeps its reads, named here: callout.js (its outline's colour is the callout's own --c, read between
+// frames and written as attributes), gl-words.js (it draws a page element's own words in that element's style), instruments.js (the endoscopy
+// card's font size, a canvas), lobule-zoom.js and timeline.js (page elements), presenter.js (the cards).
+{
+  const strict = files.filter((f) => /\/src\/ui\/(svg-gl|svg-morph|tool-[\w-]+|flow-time|talk-trace|visual-plane|chart-looks\/[\w-]+)\.js$/.test(f.replace(/\\/g, '/')));
+  for (const f of strict) {
+    const code = readFileSync(f, 'utf8').split('\n').map((l) => l.replace(/\/\/.*$/, '')).join('\n');
+    if (/getComputedStyle|readStyle\(/.test(code)) errors.push(`${relative(ROOT, f)} reads the page's style (getComputedStyle): a chart's looks live in src/ui/chart-looks/ (chart-looks-in-code plan, WP12)`);
+  }
+}
+
 if (process.argv.includes('--list')) {
   console.log('switches:', [...switches.keys()].filter((n) => !KEEP.has(n)).sort().join(' '));
   console.log('imports:\n  ' + [...new Set(lazy)].join('\n  '));

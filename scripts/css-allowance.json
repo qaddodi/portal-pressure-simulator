@@ -1,5 +1,5 @@
 {
  "note": "Lines in styles/*.css with !important or a doubled class (.a.a), PR-21. The numbers only go down: node scripts/rules-lint.mjs --tighten lowers them to today's count.",
- "important": 135,
+ "important": 133,
  "doubledClass": 153
 }

@@ -263,10 +263,11 @@ export function planMorph(A, B) {
 const active = new WeakMap();   // host → the morph going on in it
 const reduced = () => typeof matchMedia === 'function' && reduceMotionMQ.matches;
 const clamp01 = (v) => (v <= 0 ? 0 : v >= 1 ? 1 : v);
-const canFade = (el) => typeof el.animate === 'function' && typeof getComputedStyle === 'function';
+const canFade = (el) => typeof el.animate === 'function';
 /** A piece's opacity now and whether an earlier fade is still on it: { o, flying }. */
-const probe = (el) => {
-  const o = parseFloat(getComputedStyle(el).opacity);
+// (Its strength is the picture's: the table's strength for the piece, or its fade's own place; a drawing with no picture, its attribute. The page is asked nothing.)
+const probe = (el, gl) => {
+  const o = gl?.strengthOf ? gl.strengthOf(el) : parseFloat(el.getAttribute?.('opacity'));
   return { o: Number.isFinite(o) ? o : 1, flying: (el.getAnimations?.().length || 0) > 0 };
 };
 const FULL = 0.999;
@@ -303,8 +304,9 @@ class Morph {
     const fade = canFade(next);
     // (What each piece is doing now, read before anything is written: a piece caught mid-fade by an earlier morph carries on from the strength
     // it has; one the stylesheet holds at less than full strength is left to the stylesheet.)
-    const gone = fade ? plan.oldOnly.map((a) => probe(a.el)) : [], came = fade ? plan.newOnly.map((b) => probe(b.el)) : [];
-    const kept = fade ? plan.pairs.map(({ a, b }) => { const pa = probe(a.el); return pa.flying ? { from: pa.o, to: probe(b.el).o } : null; }) : [];
+    const gl = host._svgGL;
+    const gone = fade ? plan.oldOnly.map((a) => probe(a.el, gl)) : [], came = fade ? plan.newOnly.map((b) => probe(b.el, gl)) : [];
+    const kept = fade ? plan.pairs.map(({ a, b }) => { const pa = probe(a.el, gl); return pa.flying ? { from: pa.o, to: probe(b.el, gl).o } : null; }) : [];
     if (fade) for (const { a } of plan.pairs) a.el.getAnimations?.().forEach((x) => x.cancel());
     // (The new drawing starts exactly as the old one stood: its pieces at the old pieces' places, the old ones put out of sight under them.)
     for (const { a, b, tweens } of plan.pairs) {
