@@ -90,7 +90,7 @@ function workerClock(onHz) {
 
 export function startFrameHud() {
   const gaps = [], scripts = [];
-  let dead = false, c0 = { ...counts };
+  let dead = false, c0 = { ...counts, why: { ...counts.why }, refused: { ...counts.refused } };
   let last = perf().totals, lastFrames = last.frames, workerHz = 0, idleAt = 0, lastCharts = { ...sharedStats };
   // (A visibility change is marked as it happens: the one interval that spans it is left out, by that published rule and no other;
   // a foreground stall of any length stays in.)
@@ -133,7 +133,9 @@ export function startFrameHud() {
     el.textContent = hudText(st, { hz, maxHz, workerHz, target: targetHz(), missed, budget: b, surfaces, gov: w.governor, yielded: w.yielded, streak: w.streak, loaf: loafText(worst), may: mayStats(), charts: { resizes: sharedStats.resizes - lastCharts.resizes, transfers: sharedStats.transfers - lastCharts.transfers }, mode: w.mode, shed: w.shed, throttle: throttleOf({ hz, maxHz, workerHz, target: targetHz(), hidden: document.hidden }) });
     const cn = { draw: counts.draw - c0.draw, composite: counts.composite - c0.composite, whole: counts.whole - c0.whole, blur: counts.blur - c0.blur };
     el.textContent += `\nper second: vessel draws ${cn.draw}, composites ${cn.composite} (whole ${cn.whole}), glass blurs ${cn.blur}`;
-    c0 = { ...counts };
+    const wh = (r, r0) => Object.keys(r).map((k) => `${k} ${r[k] - (r0[k] || 0)}`).filter((t) => !t.endsWith(' 0')).join(', ');
+    el.textContent += `\nwhole vessel draws by reason: ${wh(counts.why, c0.why) || 'none'}\nrow draws refused: ${wh(counts.refused, c0.refused) || 'none'}`;
+    c0 = { ...counts, why: { ...counts.why }, refused: { ...counts.refused } };
     last = now; lastFrames = now.frames; lastCharts = { ...sharedStats };
   };
   const tick = () => { if (dead) return; if (!document.hidden) restPass(write); setTimeout(tick, 1000); };

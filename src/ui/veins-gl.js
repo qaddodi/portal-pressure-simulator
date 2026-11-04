@@ -53,7 +53,7 @@ import { createNoiseFiller } from './noise-gl.js';
 import { softwareGL } from './sw-yield.js';
 import { frameCount, framePhase } from './frame.js';
 import { caught } from './caught.js';
-import { counts } from './frame-counts.js';
+import { counts, tally } from './frame-counts.js';
 const ORGAN_MESH = { tri: null, seg: null, nTri: 0, nSeg: 0 };   // alloc-rare: made once (the organ texture's shapes are meshed into it one at a time, each released after its draw)
 
 export { binVeins };
@@ -2738,7 +2738,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   let patchMark = null, patchK = 0;
   const clearMarks = () => { radRows.clear(); patchMark = null; patchK = 0; };
   let rowsStatus = '';
-  const refuse = (why) => { rowsStatus = why; if (gpuProbe.on) gpuProbe.note(COUNTED.rowsRefused + why); return false; };
+  const refuse = (why) => { rowsStatus = why; tally(counts.refused, why); if (gpuProbe.on) gpuProbe.note(COUNTED.rowsRefused + why); return false; };
   const radCovered = (rows) => {
     if (!radRows.size) return true;
     if (!rows) return false;
@@ -3825,6 +3825,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         return;
       }
       rz.m = null;
+      if (!pan) tally(counts.why, !fboOK ? 'no kept layer' : !radCovered(rows) ? 'radii changed' : !lkSame ? 'look changed' : !(dx || dy) ? 'same place' : !near ? 'moved too far' : !sameLin(m, baseM) ? 'zoom or turn' : 'tubes changed');
       // (For the ?perf readout: a pan shift, or a whole draw and the first condition that made it one.)
       if (gpuProbe.on) {
         if (pan) gpuProbe.note(COUNTED.pan);
