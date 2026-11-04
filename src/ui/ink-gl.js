@@ -6,7 +6,7 @@
 //    world, the lobule or the sinusoid) and laid again each frame the scheduler runs, through the figure's matrix (stage.figureXform), so it
 //    rides a pan, a zoom and a camera glide exactly as a label does, in the frame the figure moves. E erases; a new slide clears.
 //
-// No canvas or context of its own (F1, gpu-two-contexts-plan.md): the ink is a pass of the figure's present (veins-gl top.add), under the
+// No canvas or context of its own (gpu-two-contexts-plan.md): the ink is a pass of the figure's present (veins-gl top.add), under the
 // glass and over the lobule's passes, laid in the same present as the picture it marks, so it can never be a frame off. The pass is added
 // when the first spotlight or stroke is wanted and taken out (and the figure presented once more) when none is. Segments are drawn as
 // instanced quads with a distance-field round end (5 floats a segment); the veil is one triangle.
