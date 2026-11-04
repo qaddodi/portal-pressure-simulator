@@ -1873,6 +1873,14 @@ button.finding { cursor: pointer; }
 .pz.low .pz-text .pz-h { font-size: var(--s-val); }
 .pz.low .pz-text :is(.pz-line, .pz-kick, .pz-check) { font-size: var(--s-lab); }
 .pz.low .pz-text .pz-eq math { font-size: calc(var(--s-lab) * 1.1 * var(--eq-k, 1)); }
+/* A phone held sideways, fitted to its 390 px of height (Mohammad, 3 Nov 2026, "size the cards so they fit iPhone landscape"): the Mac and iPad
+   landscape cards stacked at the left, but with the margins and padding the old sideways card had: 10 px from the top and bottom, 14 px of
+   padding, about 340 px wide, and the left edge clear of the Dynamic Island (presenter.js keeps the top and bottom margin without the inset). */
+@media (orientation: landscape) and (max-height: 500px) {
+  :root { --pz-cm: 10px; --pz-cp: 14px; --pz-cw: min(340px, calc(42vw + 28px)); }
+  .pz-shade.pz-card:not(.stack) { left: max(10px, env(safe-area-inset-left, 0px)); }
+  .pz.pz-card:not(.stack) .pz-text, .pz.pz-card:not(.stack) .pz-data.under { left: calc(max(10px, env(safe-area-inset-left, 0px)) + var(--pz-cp)); }
+}
 @media (orientation: landscape) and (max-height: 500px) { .pz.low .pz-data { top: 8px; max-height: calc(100% - 8px - max(var(--pz-cm), calc(env(safe-area-inset-bottom, 0px) + 8px)) - 44px - 4px); max-width: calc(58vw - 50px); }
   .pz.low .pz-data.pz-sheet:not(.tool-open) { max-height: calc(100% - 8px - max(var(--pz-cm), calc(env(safe-area-inset-bottom, 0px) + 8px)) - 44px - 4px - 24px); } }   /* (partly open: its sheet's edge below it, .pz-lip) */
 /* (Except the summary table: its five to seven columns only fit a phone at the roles' own size.) */

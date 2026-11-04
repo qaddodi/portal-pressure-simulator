@@ -3489,8 +3489,17 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     if (parts[1] && parts[1].style.getPropertyValue('--pz-o') !== `${o.toFixed(2)}px`) parts[1].style.setProperty('--pz-o', `${o.toFixed(2)}px`);
   }
   // The screen's right safe-area inset, read once from a zero-size probe (an unregistered custom property hands env() back unresolved) and again after a resize.
-  let insetRight = null;
-  addEventListener('resize', () => { insetRight = null; });
+  let insetRight = null, insetLeft = null;
+  addEventListener('resize', () => { insetRight = null; insetLeft = null; });
+  // (The left one too: a phone on its side keeps its cards clear of the Dynamic Island, 3 Nov 2026.)
+  const insetL = () => {
+    if (insetLeft == null) {
+      const p = document.createElement('div');
+      p.style.cssText = 'position:absolute;width:0;height:0;visibility:hidden;pointer-events:none;padding-left:env(safe-area-inset-left,0px)';
+      document.body.append(p); insetLeft = parseFloat(readStyle(p).paddingLeft) || 0; p.remove();
+    }
+    return insetLeft;
+  };
   const insetR = () => {
     if (insetRight == null) {
       const p = document.createElement('div');
@@ -4315,16 +4324,16 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     fitCards(ui.text);
     let t = r(ui.text);
     if (cardOn && low && t && lowKey(t, r(ui.data), padT, pad0, vm, wr, H, k)) { fitDone.delete(ui.text); fitCards(ui.text); t = r(ui.text); }
-    const sl = readMetric(ui.shade, 'offsetLeft') * k, pad = cardOn && t ? t.left - wr.left - sl : 0, dd = ui.data, ts = ui.text.style;
+    const sl = readMetric(ui.shade, 'offsetLeft') * k, sm = Math.min(sl, Math.max(sl - insetL() * k, 8 * k)), pad = cardOn && t ? t.left - wr.left - sl : 0, dd = ui.data, ts = ui.text.style;
     if (!(cardOn && low)) padT = pad;
     // On a laptop or tablet the data card always stacks under the words' card, at its width, a gap below it (0.6 of the margin),
     // above the controls; what does not fit is made smaller in fixed steps, never moved to the top right. A card in view that
     // changes place fades out, moves while unseen and fades back in.
     let below = false, gap = 0, cw = 0, foot = H, wordsCap = Infinity;   // (wordsCap: the height the words' card is held to where the data card needs the room, below)
     slip.base = 0;
-    const top0 = cardOn && t ? sl : 0;   // (the cards' top: one margin from the top, as from the side)
+    const top0 = cardOn && t ? sm : 0;   // (the cards' top: one margin from the top, as from the side)
     if (cardOn && !low && t && !off(dd)) {
-      gap = Math.round(0.6 * sl); cw = t.right - wr.left + pad - sl;
+      gap = Math.round(0.6 * sm); cw = t.right - wr.left + pad - sl;
       // (Folding the instrument behind Show is the last step, below: each new measure starts unfolded. It snaps while the card is
       // measured, so the measure sees where it rests; a tap on Show or Hide then eases it.)
       const canFold = dd.classList.contains('has-tool') && !dd.classList.contains('tool-only') && !dd.classList.contains('tool-lead') && !dd.classList.contains('pz-sheet');   // (a stacked card tucks its readings instead)
@@ -4344,7 +4353,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
       const held = !lock && foldHeld === foldKey && dd.classList.contains('pz-folds');
       if (!lock && !held && dd.classList.contains('pz-folds')) setFolds(false);
       const q = ui.bar.hidden || !readMetric(ui.bar, 'offsetWidth') ? null : readBox(ui.bar);
-      foot = q && q.left - wr.left < sl + cw ? q.top - wr.top - gap : H - sl;
+      foot = q && q.left - wr.left < sl + cw ? q.top - wr.top - gap : H - sm;
       let ch = colHeight(cw / k) * k, dk = 1;
       const slack = dd.classList.contains('col') ? 8 : 0;
       below = top0 + t.height + 2 * pad + gap + ch <= foot + slack;
@@ -4550,12 +4559,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (A phone held sideways: level with the data card at the top right, or centred with no data card, one margin (LOW_M) from the
     // top and the foot; the deck's tab sits in its taller top padding, padT.)
     const lvl = cardOn && low && t ? (d ? d.top - wr.top : Math.max(vm, (H - t.height - pad - padT) / 2)) + padT
-      : cardOn && t ? (d && !below ? d.top - wr.top : off(dd) ? Math.max(sl, (H - t.height - 2 * pad) / 2) : top0 + shift) + pad : null;
+      : cardOn && t ? (d && !below ? d.top - wr.top : off(dd) ? Math.max(sm, (H - t.height - 2 * pad) / 2) : top0 + shift) + pad : null;
     // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     ts.top = lvl != null ? `${(lvl / k).toFixed(1)}px` : ''; ts.bottom = ts.marginBlock = lvl != null ? 'auto' : '';
     if (lvl != null) ts.marginBlock = '0';
     // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
-    ts.maxHeight = lvl != null ? `${Math.min((H - lvl - pad - (low ? vm : sl)) / k, wordsCap).toFixed(1)}px` : phoneCap != null ? `${phoneCap.toFixed(1)}px` : '';   // (one margin at the bottom too)
+    ts.maxHeight = lvl != null ? `${Math.min((H - lvl - pad - (low ? vm : sm)) / k, wordsCap).toFixed(1)}px` : phoneCap != null ? `${phoneCap.toFixed(1)}px` : '';   // (one margin at the bottom too)
     if (t) t = r(ui.text);   // (always: the words may already stand there, and the glass is sized to where they are)
     // The words sit on a frosted glass pane: the figure shows through it blurred, behind a crisp edge with a soft
     // shadow. The figure frames itself just past that shadow, so nothing it frames is hidden.
