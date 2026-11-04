@@ -75,6 +75,7 @@ import { restPass } from './rest-pass.js';
 import { classSoon, runSoon } from './class-soon.js';
 import { sizeOf, watchSize, rectsSoon, restTask } from './geom.js';
 import { feedbackDiagnostics } from './feedback-diag.js';
+import { startReport, reportLines } from './report.js';
 import { noteJump } from './display-state.js';
 import { createIdleRest } from './idle-rest.js';
 import { pillState, foldPill, stopFold } from './pill-motion.js';
@@ -141,6 +142,7 @@ const presenter = {
 };
 
 async function main() {
+  startReport(() => { const st = store.get(), pos = presenter.position(); return pos ? `${pos.id} slide ${pos.at + 1}` : `${st.mode} ${st.lobule ? (st.sinusoid ? 'sinusoid' : 'lobule') : st.view}`; });   // (PR-03: the ring, the reload count and the heartbeat, before anything else can fail)
   const savedTheme = readLS('pps.theme');
   applyTheme(knownLook(savedTheme));   // an unknown saved theme falls back to the device's
   startLMS();
@@ -1331,7 +1333,7 @@ function sendFeedback() {
   const body = ['What happened, and what did you expect to happen?', '', '', '',
     'Please keep these details:', `Build: ${build}`, `Device: ${navigator.userAgent}`,
     `Screen: ${innerWidth} × ${innerHeight} at ${devicePixelRatio}×, ${theme} theme`, `View: ${resumeUrl()}`,
-    ...feedbackDiagnostics({ perf: framePerf, blurWhy: (el) => stage.blurWhy?.(el) ?? null })].join('\n');
+    ...feedbackDiagnostics({ perf: framePerf, blurWhy: (el) => stage.blurWhy?.(el) ?? null }), ...reportLines()].join('\n');
   location.href = `mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent('Portal Pressure Simulator feedback')}&body=${encodeURIComponent(body)}`;
 }
 function doUndo() { timeline.undo(); }
@@ -2260,7 +2262,7 @@ function openPrivacy() {
   openModal('Privacy', h('div', {},
     h('p', {}, 'The simulator runs entirely in your browser. It makes no requests to any other site: no analytics, no trackers, no advertising, no third-party fonts or scripts. There is no account and no server that stores anything about you.'),
     h('p', {}, 'What stays on this device, in your browser’s storage: your preferences (theme) and presenter scripts you create. It leaves the device only when you share it (a link or a script file).'),
-    FEEDBACK_EMAIL ? h('p', {}, 'Send feedback (in Settings) opens a draft in your own email app with your device, screen size, how fast the page is running, which blurs the browser is drawing and a link to the view you were on. Nothing is sent unless you send that email yourself.') : null,
+    FEEDBACK_EMAIL ? h('p', {}, 'Send feedback (in Settings) opens a draft in your own email app with your device, screen size, how fast the page is running, which blurs the browser is drawing, a short list of recent errors and page reloads, and a link to the view you were on. Nothing is sent unless you send that email yourself.') : null,
     h('p', {}, 'For institutions: no personal data is processed by the publisher, which supports FERPA and GDPR compliance.'),
     h('p', { class: 'sub' }, keys.length ? `Stored now: ${keys.join(', ')}.` : 'Nothing is stored on this device yet.'),
     clearRow(keys)));
