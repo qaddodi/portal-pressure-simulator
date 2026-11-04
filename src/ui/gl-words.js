@@ -191,10 +191,10 @@ function measureWrite(S, { at, pad, L, U }) {
   // translation. A change fills the slots it needs; longer words than the slots hold take the one-path way, as before.)
   S.vSlots = slotsOf(V_CAP, L.fill); S.uSlots = slotsOf(U_CAP, U.fill);
   S.gl.show(svgModel('svg', { viewBox: `${-pad.l} ${-pad.t} ${at.w + pad.l + pad.r} ${at.h + pad.t + pad.b}`, preserveAspectRatio: 'none' }, S.vPath, S.uPath, S.vSlots.map((q) => q.el), S.uSlots.map((q) => q.el)), false);
-  S.at = at; S.stale = false;
+  at.pad = pad; S.at = at; S.stale = false;
   // (Kept words are drawn again here, in the same pass, where they stand: the page's own words stay clear, the picture is never empty
   // between the new place and the words.)
-  if (S.keep && S.want.t && glyphsReady() && textCovers(S.want.t + S.want.u) && !(S.want.u && !S.small && !S.after)) { draw(S, S.want.t, S.want.u); return; }
+  if (S.keep && S.want.t && glyphsReady() && textCovers(S.want.t + S.want.u) && !(S.want.u && !S.small && !S.after) && draw(S, S.want.t, S.want.u)) return;
   S.gl.paint();   // (a first, empty, drawing: the picture's canvas is sized now, between frames, so the first new words are drawn whole)
 }
 // (2 Nov 2026, "the HVPG and PPG numbers disappear now and then": the picture's two canvases join the box once, as the picture is made.
@@ -242,6 +242,12 @@ function draw(S, t, u) {
   const x = align === 'end' ? at.x1 - w : align === 'middle' ? (at.x0 + at.x1) / 2 - w / 2 : at.x0;
   // (after: the unit is the element's own ::after (attr(data-…)), set beside the words, outside the box, a no-break space after them)
   const uy = S.small && !after ? at.uy : at.y;
+  // (4 Nov 2026, "Portal in 8" and a half digit: the picture reaches only as far as the room measured around the box (pad), and a box inside a
+  // clip (the tile's .v) has none. A number longer than the one laid out, drawn before the box was measured again, was cut at the box's
+  // edge, a digit sliced in half. Words that do not fit whole in the picture are not drawn: the page's own take them, between frames
+  // (measured again at the same time), never a cut number.)
+  const pd = at.pad;
+  if (pd && (x < -pd.l - 0.5 || x + w > at.w + pd.r + 0.5)) { S.stale = true; return false; }
   const rv = glyphRun(tt, x, L, runV).glyphs, ru = u ? glyphRun(uu, x + wv + sp, U, runU).glyphs : (runU.length = 0, runU);
   if (S.vSlots && rv.length <= S.vSlots.length && ru.length <= S.uSlots.length) {
     if (geoOf(S.vPath, 'd')) setGeo(S.vPath, 'd', '');
@@ -255,6 +261,7 @@ function draw(S, t, u) {
   S.pend = true;
   S.handOver = false;   // (new words drawn: a hand-over to the page's own words that was waiting for its cleared picture is off)
   S.gl.paint();
+  return true;
 }
 // (2 Nov 2026, his iPhone: "the information of the instrument data cards disappear". The page's words were made clear as the new words
 // were asked of the GPU, but the GPU does not always draw that frame (its shaders still being built, its context lost or busy, a canvas
@@ -387,7 +394,7 @@ export function glWords(el, { unitClass = '', after = false, host = el, onLand =
       // (Kept words that cannot be drawn now: the picture's old words go, the page's own show; drawn again once measured.)
       if (S.keep && S.on && !(S.at && !S.stale && glyphsReady() && t && textCovers(t + u) && !(u && !S.small && !after) && attached(S))) release(S);
       if (!S.at || S.stale || !glyphsReady() || !t || !textCovers(t + u) || (u && !S.small && !after) || !attached(S)) { askLand(S); return; }
-      draw(S, t, u);
+      if (!draw(S, t, u)) { askLand(S); return; }   // (it would be cut: the page's own words take it)
       clearTimeout(S.landT);
       if (S.keep) { askLand(S); return; }   // (kept words: the page's own are written between frames and stay clear under the picture)
       S.landT = setTimeout(S.quietFn, QUIET);
