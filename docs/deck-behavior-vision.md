@@ -206,6 +206,7 @@ hides, the figure glides to use the new room. When the top card on a phone hides
   that caused it. Labels ride the reframe (section 7), so they never stand still while the figure moves.
 - **V-FIT-4 (Now)** The figure never reframes while a card zoom is up (the zoomed card reports its rest place).
 - **V-FIT-6 (Now)** A Circuit slide frames what it teaches: its `cam` (a Circuit region or a box in circuit units), else its `zone`, else the fit. The glide is `frameBox`, so labels ride it as in Anatomy. Check: `deck: circuit` slides ohm, where, meal, resist, both, parallel and tips each frame a different box.
+- **V-FIT-7 (Now)** A view the learner pinched, dragged, wheeled or zoomed by a step stays put in a talk when a card changes size, the dock moves or a sheet settles (`stage.handMoved`, presenter `reframe`). Next, Back, a jump, Fit, a view switch and a turn of the device frame it again. Check: pinch on any slide, tuck the data card: the view does not glide back.
 - **V-FIT-5 (Now)** The framing leaves room for the slide's marks, lit vessels, readings and labels (`cam-room.js`), so none stands
   outside the frame or under a card.
 - **V-FIT-7 (Fix)** When a card hides, the figure glides to centre in the new free space and grows to fill it, up to the slide's own

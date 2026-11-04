@@ -1761,7 +1761,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function freeCentre() { const ins = safeInsets(), b = stageBox(); return [b.left + (ins.l + ins.W - ins.r) / 2, b.top + (ins.t + ins.H - ins.b) / 2]; }
   // A zoom step by the buttons glides there instead of jumping.
   function animZoomAt(cx, cy, factor) {
-    fitted = false;
+    fitted = false; handed = !lobuleOn;
     if (lobuleOn) return;
     const [vx, vy] = clientToVBFast(cx, cy), base = vtTarget && vtAnim ? vtTarget : vt;
     const k = clamp(base.k * factor, 0.6, 6), wx = (vx - vt.x) / vt.k, wy = (vy - vt.y) / vt.k;
@@ -2064,6 +2064,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // panned: a pinch, a drag, the wheel or a zoom step clears it. The tools' own camera trips (the HVPG catheter's route and
   // close-up, there and back) leave it as it was, so a card closed after a measurement still fits (see closeView).
   let fitted = false;
+  // Whether the learner's own hand (a pinch, a drag, the wheel, a zoom step) placed the view since the camera last framed it: a talk's
+  // refit for a card that changed size leaves such a view alone (presenter reframe, handMoved). A slide's framing, Fit, a view switch
+  // or a turn of the device clears it. (`fitted` cannot say: a slide's own box framing clears that too.)
+  let handed = false;
   // Which framing the circuit was last given ('whole' map or 'focus' close-up: setView, Fit, a refit). The circuit has no home
   // look of its own, so a turn of the device or a new window size takes the same kind of framing again, for the new shape (lookHome).
   // circAt: that framing as given, so a turn or a resize takes it again only while the view is still exactly there (a card's pan to
@@ -2093,7 +2097,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const fit = () => {
     // In the lobule view, Fit shows the whole lobule again (it never leaves the view). Inside the sinusoid it steps back out to the lobule.
     if (lobuleOn) { if (store.get().sinusoid) { store.set({ sinusoid: false }); return; } lz.fitView(); return; }
-    handsOff();
+    handsOff(); handed = false;
     const circuit = morphTarget === 1, focus = defaultVT(circuit), whole = circuit ? circWhole() : { k: 1, x: 0, y: 0 };
     const near = (a, b) => Math.abs(a.k - b.k) < 0.02 && Math.abs(a.x - b.x) < 1 && Math.abs(a.y - b.y) < 1;
     // Judged from where a glide in progress is going, so a second tap toggles as expected.
@@ -3139,7 +3143,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // (opt.drift: a slow push, see drifting.)
   function frameBox(box, ms = 1300, kMax = 4, clear = false, opt = {}) {
-    fitted = false;
+    fitted = false; handed = false;
     if (morphTarget !== 0 && morphTarget !== 1) return;   // (the anatomy or the circuit; not on the way between)
     const to = boxVT(box, kMax, clear);
     if (!to || sameView(to, vtGliding ? vtTarget : vt)) return;
@@ -3151,7 +3155,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let riseBox = null, riseExp = 0, riseUsed = false;
   function riseTo(box, kMax, clear) { riseBox = box ? { box, kMax, clear } : null; riseExp = performance.now() + 4000; }
   function riseVT() {
-    const r = riseBox; riseBox = null;
+    const r = riseBox; riseBox = null; handed = false;
     if (!r || performance.now() > riseExp) return null;
     const box = typeof r.box === 'function' ? r.box() : r.box;
     return box ? boxVT(box, r.kMax, r.clear) : null;
@@ -14801,7 +14805,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (wheelMute) { if (now - wheelAt < 250) { wheelAt = now; return; } wheelMute = false; }
     // The hand takes over from any camera glide (as a press does): the glide would overwrite each step of the scroll or pinch.
     if (vtGliding) { cancelFrame(vtAnim); driftEnd(); vtGliding = false; camSettle(); }
-    stopGlide(); userMoved = true; fitted = false;
+    stopGlide(); userMoved = true; fitted = false; handed = !lobuleOn;
     const dx = wheelPx(ev, ev.deltaX), dy = wheelPx(ev, ev.deltaY);
     if (ev.ctrlKey || ev.metaKey) {
       // (A trackpad pinch is a gesture like a drag: wheelAt marks it, so gestureOn() is true through it (the pinch frame reuse, the lowered
@@ -15020,7 +15024,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (lobuleOn) return;
       const k = softK(drag.k0 * d / drag.d0);
       const [vx, vy] = clientToVBFast(mx, my);
-      VT_BUF.k = k; VT_BUF.x = vx - drag.wx * k; VT_BUF.y = vy - drag.wy * k; vt = VT_BUF; fitted = false;
+      VT_BUF.k = k; VT_BUF.x = vx - drag.wx * k; VT_BUF.y = vy - drag.wy * k; vt = VT_BUF; fitted = false; handed = true;
       applyVT(); CTM = null;
       return;
     }
@@ -15034,7 +15038,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
       if (drag.moved) {
         PAN_IN.k = vt.k; PAN_IN.x = drag.vx + (ev.clientX - drag.x) / drag.s0; PAN_IN.y = drag.vy + (ev.clientY - drag.y) / drag.s0;
-        vt = softPan(PAN_IN, VT_BUF); fitted = false;
+        vt = softPan(PAN_IN, VT_BUF); fitted = false; handed = true;
         applyVT(); CTM = null;
         const now = performance.now(), tr = drag.trail;
         tr.push(now, ev.clientX, ev.clientY);
@@ -15368,7 +15372,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (target === morphTarget) return;
       // (The dive into the lobule never moves the anatomy's own framing.)
       const fromLobule = lobuleOn || lobU > 0, at = vt;
-      morphTarget = target;
+      morphTarget = target; handed = false;
       syncSemantic();
       // Zoomed out (or fitted) in the anatomy, the circuit opens zoomed out too: the whole map, not
       // the close-up it opens with on a phone. From a zoomed-in view it takes its usual framing.
@@ -15635,9 +15639,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     carryProbe() { dpr.refitUntil = performance.now() + 300; },
     /** The presenter's card followed frame by frame: aimView(fn) (where fn's framing would go), viewNow(), follow(v0, v1), followAt(u), followEnd(), following(). */
     aimView, viewNow, follow: followStart, followAt, followEnd, following: () => following || !!zoomBase, zoomOpen, zoomAt: cardZoomAt, zoomEnd, zoomSharp,
-    fitSlow(ms = 1300, opt = {}) { if (lobuleOn) return; const to = defaultVT(morphTarget === 1); if (morphTarget !== 1) homeAt = to; else markCirc('focus', to); fitted = true; if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms, opt.steady ? { steady: true } : { scale: true }); },
+    fitSlow(ms = 1300, opt = {}) { if (lobuleOn) return; handed = false; const to = defaultVT(morphTarget === 1); if (morphTarget !== 1) homeAt = to; else markCirc('focus', to); fitted = true; if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms, opt.steady ? { steady: true } : { scale: true }); },
     /** The same fit as a slow push (a time-lapse's lapse.cam 'fit'): see drifting. */
-    fitDrift(ms) { if (lobuleOn) return; const to = defaultVT(morphTarget === 1); if (morphTarget !== 1) homeAt = to; else markCirc('focus', to); fitted = true; if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms, { drift: true }); },
+    fitDrift(ms) { if (lobuleOn) return; handed = false; const to = defaultVT(morphTarget === 1); if (morphTarget !== 1) homeAt = to; else markCirc('focus', to); fitted = true; if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms, { drift: true }); },
     /** The anatomy/circuit camera (where it is headed, if gliding), and a glide back to one saved earlier (the presenter puts the view back). */
     cameraState: () => ({ ...(vtGliding && vtTarget ? vtTarget : vt) }),
     /** The organs are drawn from the GPU copy again after a patient change (or never will be: no WebGL), so a camera move costs only the GPU's draw. */
@@ -15651,6 +15655,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     /** A slow push can run smoothly here: the organs are drawn live on the GPU while a time-lapse changes them (otherwise every frame of
      *  a move over the live SVG drawing paints the organs again whole, as the catheter's route once did at about 1 fps). */
     canDrift: () => liveOn(),
+    /** The learner placed the view by hand and nothing has framed it since (a talk leaves such a view when a card changes size). */
+    handMoved: () => handed && !lobuleOn,
+    /** A turn of the device or a new window size: the next framing is the camera's again. */
+    handClear() { handed = false; },
     setCamera(to, ms = 900) { if (lobuleOn || !to || sameView(to, vtGliding ? vtTarget : vt)) return; fitted = false; animateVT({ ...to }, ms, { scale: true }); },
     cameraKey: () => `${vt.k.toFixed(3)}|${vt.x.toFixed(1)}|${vt.y.toFixed(1)}`,
     zoomLobule, zoomLiver, lobuleOpen: () => !!lz?.isOpen(), organsPictured: () => !!veins?.organs?.pictured?.(0), lobuleViewKey: () => lz?.viewKey(), lobuleCaptions: () => lz?.captions?.() ?? null, sinusoidCaptions: () => lz?.sinusoidCaptions?.() ?? null, lobuleLeaderEnds: () => lz?.leaderEnds?.() ?? [], lobuleGliding: () => !!lz?.labelsGliding?.(), lobuleCapture: () => lz?.capture?.() ?? null,

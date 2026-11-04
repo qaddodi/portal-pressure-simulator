@@ -2305,6 +2305,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     const g = gen, tx = txn, s = slides[to], cut = () => !deck || want !== to || gen !== g || !txnLive(tx);
     // The slide on screen is leaving, so a move cut short never counts as showing it: going back and forward again to that
     // slide (summary table included) draws it afresh instead of leaving the half-changed screen.
+    stage.handClear?.();   // (a new slide frames the figure itself: a pinch on the last one does not hold)
     scalePick = null; const was = shown;   // (a flip of the scale is a detour: every slide opens on its own scale; was: the slide on screen, for the cards it may keep)
     shown = null; entering = null;
     // A time-lapse starts from the slide before's state; a catheter slide drives its own camera.
@@ -4862,6 +4863,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const cardSig = () => (ui ? [ui.text, ui.data].map((el) => (el.hidden ? '-' : ((r) => [r.left, r.top, r.width, r.height].map((v) => Math.round(v / 4)).join())(readBox(el)))).join('|') : '');
   function reframe(ms) {
     const s = figOf(shown.i);
+    // (A view the learner pinched, dragged or zoomed stays: a card that changed size, a dock or a settling sheet does not pull it back to the
+    // slide's framing. Next, Back, a jump, Fit and a turn of the device frame it again: they clear the hand, stage.handClear / the slide's own move.)
+    if (stage.handMoved?.() && !booting) return;
     // (Under the start's cover the framing is set outright: unseen, a glide only kept the reveal waiting, or was caught by it.)
     const cam = s.visual ? s.cam : s.cam || 'fit';
     // (A slide with no framing of its own (the outline, a table) leaves the figure at the stage's fit, which follows the cards:
@@ -4884,7 +4888,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
   const camAt = (u) => { if (!stage.following?.()) return; if (camSlide === want && camSlideGen === gen && shown?.i === want) stage.followAt(u); else stage.followEnd?.(); };
   const camKind = () => { const s = figOf(shown.i); return s.visual ? s.cam : s.cam || 'fit'; };
   const camFollowOk = () => !!ui && !!shown && shown.i === want && shown.gen === gen && !(busy && !playing) && !leaving && !booting && !reduce.matches
-    && dock.to === 0 && dock.lvl === 0 && !zoomOn() && !reframeT && !(cath.on && cath.cam) && !procRun?.running
+    && dock.to === 0 && dock.lvl === 0 && !zoomOn() && !reframeT && !stage.handMoved?.() && !(cath.on && cath.cam) && !procRun?.running
     // alloc-rare: slide arrival or a camera framing: once per slide change or card grab, never per frame
     && !(push && push.i === shown.i && push.until > performance.now()) && !store.get().lobule && ((c) => !!c && !LOBULE_CAM.test(c))(camKind());
   // (Where the slide's camera would frame the cards as they stand now: the handle placed at the card's foot first, as it rests.)
@@ -4970,6 +4974,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, project
     // (For 0.8 s after a resize or a turn the data card takes each new place at once, with no fade or glide: the words' card
     // re-fits in steps as the size settles, and a data card easing after it passed over the words.)
     const turn = e?.type === 'resize';
+    if (turn) stage.handClear?.();   // (a turn of the device or a new window size: the camera frames the slide again)
     if (turn) { ui.root.classList.add('pz-turning'); clearTimeout(turnT); turnT = stimer(() => ui?.root.classList.remove('pz-turning'), 800); }
     if (ui.bar.dataset.kind !== pillKind()) paintChrome();   // (turned between a phone's, a tablet's and a wide screen's pill: its buttons change before the words are fitted around it)
     layout();
