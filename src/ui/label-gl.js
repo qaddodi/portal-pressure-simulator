@@ -674,11 +674,9 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // frame draws it at the point where the figure has it now (pinAt, the stage's labelAnchor under this frame's camera and morph) plus that
   // offset, its dot on the point and its leader from the point to the label, all moved by the same step in the same frame. No ride, carry
   // or follow moves a pinned label: a pan, a pinch or a view change moves its point, and the label goes with it, rigid. Only a new layout
-  // changes the offset, and the label then eases from the offset it was drawn at to the new one (pinGlides), its point and dot not moving.
-  let pinAt = null, pinHeldFn = null, pinWasHeld = false;
-  const pinHeldNow = () => !!pinHeldFn?.();
+  // changes the offset, and the label takes it at once (no glide), its point and dot not moving.
+  let pinAt = null;
   const PIN = [0, 0];
-  const pinGlides = new Map();   // group -> { fx, fy (the offset it was drawn at, CSS px), t0 }
   // (The offset each pinned label was last drawn at, by its group, kept past its picture: a label whose picture is made again (its text
   // size changes with the zoom) still eases from where it stood, never jumps to its new offset.)
   const pinLast = new WeakMap();   // group -> Float64Array [ox, oy]
@@ -686,15 +684,10 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // (The offset a pinned label is drawn at this frame, CSS px, into OFF: its layout's, or part way there from where it was drawn while its
   // glide runs. Returns the glide's share, 1 once it is over or there is none. The marks and the label read the same.)
   const OFF = [0, 0];
-  const PIN_FRAMES = 6, PIN_SNAP = 16;   // (a slot change's glide: D_SMALL and at least PIN_FRAMES frames; a nudge up to PIN_SNAP px is at once)
-  function pinOff(s, now) {
-    let ox = s.x - s.pax, oy = s.y - s.pay, u = 1;
-    const pg = pinGlides.get(s.g);
-    // (Over at least PIN_FRAMES drawn frames as well as RIDE_MS: on a slow phone a frame can take longer than the whole glide, and the label
-    // jumped to its new place in one frame: the Circuit's sinusoids and right hepatic vein, 78 px, as an iPhone pan sprang back.)
-    if (pg) { u = pg.t0 === Infinity ? 0 : easeMove(Math.max(0, Math.min(1, (now - pg.t0) / D_SMALL, pg.n / PIN_FRAMES))); ox = pg.fx + (ox - pg.fx) * u; oy = pg.fy + (oy - pg.fy) * u; }
-    OFF[0] = ox; OFF[1] = oy;
-    return u;
+  function pinOff(s) {
+    // (A new layout's offset is taken at once: no glide, no wait for the hand. The label is rigid on its point.)
+    OFF[0] = s.x - s.pax; OFF[1] = s.y - s.pay;
+    return 1;
   }
   const glides = new Map();   // group → { fx, fy (device px, where it rode), t0 } or { fadeIn: true, t0 }
   const outgoing = [];        // [{ g, st, x, y, a, t0 }]: labels gone at the landing, fading out where they rode
@@ -1263,8 +1256,6 @@ void main() { o = texture(uT, vUV) * uA; }`;
     nb = 0;
     frameSeq++;
     const now = performance.now();
-    // (The hand let go: the offsets held through it ease to their layout's now.)
-    if (pinAt) { const h = pinHeldNow(); if (pinWasHeld && !h) for (const pg of pinGlides.values()) if (pg.t0 === Infinity) pg.t0 = now; pinWasHeld = h; }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, W, H);
     if (!host) { gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); }
@@ -1335,10 +1326,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
       const pinned = pinOf(s);
       if (pinned) {
         // (Pinned: at its point now plus its offset, the offset easing from where it was drawn only while a new layout's glide runs.)
-        const pgN = pinGlides.get(g);
-        if (pgN && pgN.t0 !== Infinity) pgN.n++;   // (one more frame of its glide drawn)
-        const u0 = pinOff(s, now), ox = OFF[0], oy = OFF[1];
-        if (pinGlides.has(g)) { if (u0 >= 1) pinGlides.delete(g); else { moving = true; shifted++; } }
+        pinOff(s);
+        const ox = OFF[0], oy = OFF[1];
         const fi = glides.get(g);
         if (fi?.fadeIn) { const u = easeMove(Math.min(1, (now - fi.t0) / RIDE_MS)); a *= u; if (u >= 1) dropGlide(g); else moving = true; }
         st.pox = ox; st.poy = oy; st.pin = true; st.ppx = PIN[0]; st.ppy = PIN[1];
@@ -2338,33 +2327,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
         for (const f of from.values()) gpool.push(f);
         from.clear();
       }
-      // (Pinned labels: a label whose new offset differs from the one it was drawn at eases there (pinGlides); its point does not move. A ride's
-      // or a follow's glide is not theirs: their pictures stood at their points all along.)
-      if (pinAt) {
-        const t0 = performance.now();
-        for (const s of list) {
-          if (s.pid == null) continue;
-          const st = sprites.get(s.g);
-          if (glides.get(s.g)?.fadeIn !== true) dropGlide(s.g);
-          const pl = pinLast.get(s.g), fresh = !st || !st.drawn || st.mode !== 'gl';
-          if (fresh && !pl) continue;
-          // (Where it was drawn, as an offset from its point now: its own offset if it was pinned, else from where its picture stood (a label
-          // that rode or was laid out against another point), so no label jumps as it becomes pinned. A picture made again: its last offset.)
-          let fx = fresh ? pl[0] : st.pox, fy = fresh ? pl[1] : st.poy;
-          if (!fresh && !st.pin) { if (!pinOf(s)) continue; fx = (st.dx - st.ox) / dpr - PIN[0]; fy = (st.dy - st.oy) / dpr - PIN[1]; }
-          const nx = s.x - s.pax, ny = s.y - s.pay, pg = pinGlides.get(s.g);
-          // (Only a change of slot moves by a glide (V-LBL-1, V-LBL-6): a nudge of up to PIN_SNAP px (an edge's pull as the figure pans, a
-          // width that changed) is the layout's at once, so the label never trails towards where it belongs.)
-          // (While a hand moves the figure every change waits (below), small ones too: taken at once, they were steps of 4-14 px at each
-          // layout of a pinch.)
-          const held = pinHeldNow(), waiting = !!pg && pg.t0 === Infinity, d = Math.hypot(nx - fx, ny - fy);
-          if (d <= 0.75 || (!held && !waiting && d <= PIN_SNAP)) { if (pg) pinGlides.delete(s.g); continue; }
-          // (While a hand moves the figure (pinHeld) a new layout's offset waits: the label stays rigid on its point, and eases to its new
-          // place once the hand lets go. An edge pull or a reslot in the middle of a pan was a label sliding against its point.)
-          const tg = held ? Infinity : t0;
-          if (pg) { if (pg.t0 !== Infinity || tg === Infinity) { pg.fx = fx; pg.fy = fy; } pg.t0 = tg; pg.n = 0; } else pinGlides.set(s.g, { fx, fy, t0: tg, n: 0 });   // alloc-rare: one record per label that moves at a layout
-        }
-      }
+      // (Pinned labels take their layout's offset at once; no glide. A ride's or a follow's glide is not theirs.)
+      if (pinAt) for (const x of list) if (x.pid != null && glides.get(x.g)?.fadeIn !== true) dropGlide(x.g);
       last = list; gen++; stuck = false;
       // (The marks as they stand with this layout: what a pinned label's dot and leader are drawn from until the next.)
       for (const root of marks) for (const el of root.children) {
@@ -2421,7 +2385,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     },
     get riding() { return !!rideM; },
     /** Pins the station labels to the figure: f(id, out) writes where the figure has station id's point now (stage px) and returns true. */
-    pinTo(f, held = null) { pinAt = f; pinHeldFn = held; ask(); },
+    pinTo(f) { pinAt = f; ask(); },
     /** The figure moved (its camera or its morph): the pinned labels drawn with it, in this frame. */
     pinDraw() { if (lost || !pinAt) return; if (raf) { cancelFrame(raf); raf = 0; } draw(); },
     /** A view change begins: the labels now laid out are carried by their stations (followPut), the rest faded (followDraw). */
@@ -2454,7 +2418,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       const items = [];   // alloc-rare: asked only by the browser check
       for (const s of last) {
         const st = sprites.get(s.g);
-        if (st && st.mode === 'gl' && st.seq === frameSeq && s.g.dataset?.key) { const it = snapshotItem(s.g.dataset.key, st.dx, st.dy, st.w, st.h, st.held ?? 0, dpr, W, H); it.pin = !!st.pin; if (st.pin) { it.px = st.ppx; it.py = st.ppy; } it.glide = (pinGlides.has(s.g) && pinGlides.get(s.g).t0 !== Infinity) || glides.has(s.g); items.push(it); }
+        if (st && st.mode === 'gl' && st.seq === frameSeq && s.g.dataset?.key) { const it = snapshotItem(s.g.dataset.key, st.dx, st.dy, st.w, st.h, st.held ?? 0, dpr, W, H); it.pin = !!st.pin; if (st.pin) { it.px = st.ppx; it.py = st.ppy; } it.glide = glides.has(s.g); items.push(it); }
       }
       // (The marks this frame drew: each dot's centre and radius, each leader's two ends, keyed by its label, CSS px from the canvas's corner.)
       const marksOut = [];   // alloc-rare: asked only by the browser check

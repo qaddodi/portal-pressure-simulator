@@ -1,0 +1,24 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
+const gl = readFileSync(new URL('../src/ui/label-gl.js', import.meta.url), 'utf8');
+const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+
+test('step 1: pinned labels take a new offset at once (no glide, no held wait)', () => {
+  for (const id of ['pinGlides', 'pinHeldNow', 'pinHeldFn', 'PIN_SNAP', 'pinWasHeld']) assert.ok(!gl.includes(id), `${id} is gone from label-gl.js`);
+  assert.ok(!st.includes('pinHeldReady'));
+});
+
+test('step 1: a card zoom neither drifts nor settles, and the level of detail reads the rest camera', () => {
+  const open = st.slice(st.indexOf('function zoomOpen()'), st.indexOf('function zoomAt('));
+  assert.ok(!/driftEnd|drifting\s*=\s*true/.test(open));
+  const end = st.slice(st.indexOf('function zoomEnd()'), st.indexOf('function followEnd()'));
+  assert.ok(!/driftEnd|labelSettleSoon/.test(end));
+  assert.ok(st.includes('d[7] = labelRestK() > 1.35'));
+  assert.ok(/const zoomedIn = \(\) => restK\(\)/.test(st));
+});
+
+test('step 1: no 260 ms settle timer', () => {
+  assert.ok(!/setTimeout\(labelSettle/.test(st));
+});

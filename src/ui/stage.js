@@ -2732,10 +2732,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (zoomBase) return false;
     if (lobuleOn && lz?.zoomOpen) { if (!lz.zoomOpen()) return false; zoomBase = { lz: true }; zoomLz = true; return true; }
     if (!viewNow()) return false;
-    cancelFrame(vtAnim); driftEnd();
+    cancelFrame(vtAnim);
     const b = stageBox(), vb = vbBox, s = Math.min(b.sw / vb.width, b.sh / vb.height);
     zoomBase = { vt: { ...vt }, s, ox: b.left + b.sx + (b.sw - vb.width * s) / 2 - vb.x * s, oy: b.top + b.sy + (b.sh - vb.height * s) / 2 - vb.y * s };
-    following = true; follow0 = follow1 = null; drifting = true;
+    following = true; follow0 = follow1 = null;   // (the labels' places ride the zoom frame by frame; none is solved, none settles at its end)
     return true;
   }
   function zoomAt(S, px, py, dx, dy) {
@@ -10380,14 +10380,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // (How a label's place moves as its gap grows by one px, per direction (stage.js offset).)
   const PIN_DIR = { N: [0, -1], S: [0, 1], E: [1, 0], W: [-1, 0], EL: [1, 0], WL: [-1, 0], NE: [0.72, -0.72], NW: [-0.72, -0.72], SE: [0.72, 0.72], SW: [-0.72, 0.72] };
-  let pinHeldReady = false;
   if (labelGL) labelGL.pinTo((id, out, mid, au) => {
     if (!CTM) refreshCTM();
     if (mid && au != null && au !== 0.5 && pinVesselAt(id, au)) { out[0] = PIN_P[0]; out[1] = PIN_P[1]; return Number.isFinite(out[0]) && Number.isFinite(out[1]); }
     const t = easeInOut(morph), a = labelAnchor(id, t);
     if (mid || !a.mid) { out[0] = a.ax; out[1] = a.ay; } else { const p = nodePos(id, t); worldToLocalInto(PIN_P, p[0], p[1]); out[0] = PIN_P[0]; out[1] = PIN_P[1]; }
     return Number.isFinite(out[0]) && Number.isFinite(out[1]);
-  }, () => pinHeldReady && gestureOn());   // (gestureOn is declared further down: asked only once the stage is built)
+  });
   wrap.dataset.labels = labelGL ? 'gpu' : 'svg';
   labelRider = labelGL;
   labelHoles = labelGL?.setHoles ? labelGL : null;
@@ -11542,7 +11541,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (wedged sinusoids and the free hepatic vein) and the stations the model flags; zoomed in, every
   // station in view. All: every station at every zoom. None: only a selected station.
   const KEY_NODES = ['CONF', 'SIN_R', 'RHV'];
-  const zoomedIn = () => vt.k > (homeAt?.k || 1) * 1.3;
+  // (The zoom the labels' level of detail is read from is the camera at rest: the view a card zoom began at, or where a glide is headed, never the live
+  // view part way, so a zoom or glide cannot flip a flag and solve the labels mid-move.)
+  const labelRestK = () => (zoomBase?.vt ? zoomBase.vt.k : vtGliding && vtTarget ? vtTarget.k : vt.k);
+  const zoomedIn = () => labelRestK() > (homeAt?.k || 1) * 1.3;
   // (The stations flagged, written into a kept list: one for the layout, which keeps its list while it runs, and one for the signature, which
   // is asked for on every frame, a layout in slices between its slices too.)
   const flagBuf = [], flagSigBuf = [];
@@ -11628,13 +11630,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // alloc-rare: one closure when the hide is lifted after a pinch, never per frame
     nextFrame(() => { if (!pinchHide) wrap.classList.remove('pinch-hide'); });
   }
+  // (No timer: the labels are solved in the first frame after the hand lets go and any push has landed.)
   function labelSettleSoon() {
-    clearTimeout(labelSettleT);
-    labelSettleT = setTimeout(labelSettle, 260);
+    cancelFrame(labelSettleT);
+    labelSettleT = nextFrame(labelSettle);
   }
   function labelSettle() {
-    if (gestureOn()) { labelSettleT = setTimeout(labelSettle, 120); return; }
-    if (drifting) { labelSettleT = setTimeout(labelSettle, 120); return; }   // (and a slow push lands first)
+    if (gestureOn() || drifting) { labelSettleT = nextFrame(labelSettle); return; }
     labelSettleT = 0;
     if (reslotted) { reslotted = false; solvedFor = null; }   // (readings placed one by one mid-gesture: all solved together now)
     if (F && !camMove && !lz?.isOpen()) { labelKey = null; updateLabels(F); }
@@ -11679,7 +11681,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const tips = +stentReady('TIPS', f), dips = +stentReady('DIPS', f);
     const d = sigNow;
     d[0] = f; d[1] = store.rev; d[2] = labelGeo; d[3] = t >= 0.5; d[4] = rotU > 0.5; d[5] = labelBase(); d[6] = stageBox().width < 700;
-    d[7] = vt.k > 1.35; d[8] = zoomedIn(); d[9] = scan.on; d[10] = fxSig; d[11] = fx; d[12] = slideGlow; d[13] = dop.key; d[14] = edgeRev;
+    d[7] = labelRestK() > 1.35; d[8] = zoomedIn(); d[9] = scan.on; d[10] = fxSig; d[11] = fx; d[12] = slideGlow; d[13] = dop.key; d[14] = edgeRev;
     d[15] = tips; d[16] = dips; d[17] = projecting; d[18] = glowSetAt;
     if (sigDeps.length === d.length && sameDeps(sigDeps, d)) return sigText;
     for (let i = 0; i < d.length; i++) sigDeps[i] = d[i];
@@ -11768,7 +11770,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // jump. They are solved again as it lands: driftEnd. A glide whose labels were solved for where it lands (landing) carries them
       // all the way, without that check: one may pass over another for a moment, the overlap pass below showing the more important.)
       // (Between the two views the labels ride with the change however far its camera zooms: solved again at its half and as it lands.)
-      const dz = solvedFor && !(morph > 0 && morph < 1) ? Math.abs(Math.log(sc / solvedFor.sc)) : 0, hand = dz > SOLVE_ZOOM && gestureOn(), land = landing() && !hand, ride = (drifting || land) && !hand;
+      const dz = solvedFor && !(morph > 0 && morph < 1) ? Math.abs(Math.log(sc / solvedFor.sc)) : 0, hand = dz > SOLVE_ZOOM && gestureOn(), land = landing() && !hand, ride = (drifting || land || !!zoomBase) && !hand;
       const landingRide = !!handRide?.settle;
       const changed = !solvedFor || solveAsked || solvedFor.sig !== sig || solvedFor.csig !== csig || solvedFor.ins !== ins || Math.abs(th - solvedFor.th) > SOLVE_TURN;
       const solve = changed || (!landingRide && !ride && dz > (hand ? SOLVE_ZOOM_HAND : SOLVE_ZOOM));
@@ -14612,7 +14614,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // held, so each move of a drag, wheel or flick is arithmetic only. A new gesture, a card or a resize reads it afresh.
   let panFit = null;
   const gestureOn = () => !!drag || !!glide || performance.now() - wheelAt < 250;
-  pinHeldReady = true;
   function fitForPan() {
     const c = morphTarget === 1;
     if (!gestureOn()) { panFit = null; return defaultVT(c); }
