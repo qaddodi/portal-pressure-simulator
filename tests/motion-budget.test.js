@@ -47,8 +47,8 @@ test('every measured motion has a ceiling, and the checks run one as a warning o
     assert.ok(c, `${n}: a ceiling`);
     for (const k of ['reads', 'writes', 'made']) assert.ok(Number.isInteger(c[k]) && c[k] >= 0, `${n} ${k}`);
   }
-  const checks = read('.github/workflows/checks.yml');
-  assert.match(checks, /- name: Motion budget \(Anatomy to Circuit, phone\)\n\s+if: success\(\) \|\| failure\(\)\n\s+continue-on-error: true\n\s+timeout-minutes: 20\n\s+run: node scripts\/motion-budget\.mjs --only "anatomy to circuit" --check/);
+  const browser = read('.github/workflows/browser.yml');
+  assert.match(browser, /- name: Motion budget \(Anatomy to Circuit, phone\)\n\s+if: success\(\) \|\| failure\(\)\n\s+continue-on-error: true\n\s+timeout-minutes: 20\n\s+run: node scripts\/motion-budget\.mjs --only "anatomy to circuit" --check/);
 });
 
 test('R02: each WebGL call is decoded by its own overload', async () => {

@@ -1,5 +1,9 @@
 name: CI
 
+# Everything, on pull requests and on main: lint, unit tests and a strict build (BUILD_STRICT), then the browser checks of the source
+# site and the production build (browser.yml, strict: a visual drift or a frame time past its ceiling blocks), and the idle, gesture
+# and text-floor checks. A newer push to the same pull request replaces a run still in progress.
+
 on:
   push:
     branches: [main]
@@ -8,27 +12,23 @@ on:
 permissions:
   contents: read
 
-# A newer push to the same pull request replaces a run still in progress.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-# The browser checks used to run one after another in a single job (source site, then build, then
-# the visual check): about 40 minutes, and one timeout meant starting over. Now every share runs on
-# its own runner at the same time, so the run takes as long as the slowest share.
 jobs:
   quick:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
       - run: npm ci
       - name: Restore saved deck states
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         continue-on-error: true
         timeout-minutes: 1
         env:
@@ -42,214 +42,24 @@ jobs:
       - name: Physiology acceptance tests and cache stamps
         run: npm test
       - name: Production build
+        env:
+          BUILD_STRICT: '1'
         run: npm run build
-      # Made once, here: every browser share of the build site downloads it (they each built it before, 42 times over).
+      # Made once, here: every browser job downloads it.
       - name: Keep the build for the browser checks
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: dist
           path: dist/
           if-no-files-found: error
           retention-days: 1
 
-  # The source site and the production build (what Pages serves, and the SCORM package), each on
-  # a desktop and a phone, desktop in twenty-eight shares and phone in fourteen: eighty-four runners, one check at a time on each (a runner is
-  # too small to run several browsers at once). A check that only timed out gets one more try.
-  browser-checks:
-    name: browser-checks (${{ matrix.site }}, ${{ matrix.device }} ${{ matrix.shard }})
-    runs-on: ubuntu-24.04
+  browser:
     needs: quick   # (no browser runner is taken until lint, the unit tests and the build have passed)
-    timeout-minutes: 60   # (as checks.yml: a desktop share is about 32 minutes by measured times, and a runner under load takes longer;
-                          # at 40 minutes, thirteen shares of PR #60's run were cut off mid-check and left their checks without a result)
-    strategy:
-      fail-fast: false
-      # At most 16 browser runners at a time (the rule for every workflow here), so a pull request's 84 shares never take every
-      # runner from a preview deploy (pages.yml) or the integration branch's checks; a full run takes about six rounds.
-      max-parallel: 16
-      matrix:
-        # Desktop in twenty-eight shares and phone in fourteen, as checks.yml: about 24 minutes a share by each check's own time on a
-        # runner (tests/e2e/check-times.json; SMOKE_PLAN=1 npm run smoke prints them).
-        include:
-          - { site: source, device: desktop, shard: '1/28' }
-          - { site: source, device: desktop, shard: '2/28' }
-          - { site: source, device: desktop, shard: '3/28' }
-          - { site: source, device: desktop, shard: '4/28' }
-          - { site: source, device: desktop, shard: '5/28' }
-          - { site: source, device: desktop, shard: '6/28' }
-          - { site: source, device: desktop, shard: '7/28' }
-          - { site: source, device: desktop, shard: '8/28' }
-          - { site: source, device: desktop, shard: '9/28' }
-          - { site: source, device: desktop, shard: '10/28' }
-          - { site: source, device: desktop, shard: '11/28' }
-          - { site: source, device: desktop, shard: '12/28' }
-          - { site: source, device: desktop, shard: '13/28' }
-          - { site: source, device: desktop, shard: '14/28' }
-          - { site: source, device: desktop, shard: '15/28' }
-          - { site: source, device: desktop, shard: '16/28' }
-          - { site: source, device: desktop, shard: '17/28' }
-          - { site: source, device: desktop, shard: '18/28' }
-          - { site: source, device: desktop, shard: '19/28' }
-          - { site: source, device: desktop, shard: '20/28' }
-          - { site: source, device: desktop, shard: '21/28' }
-          - { site: source, device: desktop, shard: '22/28' }
-          - { site: source, device: desktop, shard: '23/28' }
-          - { site: source, device: desktop, shard: '24/28' }
-          - { site: source, device: desktop, shard: '25/28' }
-          - { site: source, device: desktop, shard: '26/28' }
-          - { site: source, device: desktop, shard: '27/28' }
-          - { site: source, device: desktop, shard: '28/28' }
-          - { site: source, device: phone, shard: '1/14' }
-          - { site: source, device: phone, shard: '2/14' }
-          - { site: source, device: phone, shard: '3/14' }
-          - { site: source, device: phone, shard: '4/14' }
-          - { site: source, device: phone, shard: '5/14' }
-          - { site: source, device: phone, shard: '6/14' }
-          - { site: source, device: phone, shard: '7/14' }
-          - { site: source, device: phone, shard: '8/14' }
-          - { site: source, device: phone, shard: '9/14' }
-          - { site: source, device: phone, shard: '10/14' }
-          - { site: source, device: phone, shard: '11/14' }
-          - { site: source, device: phone, shard: '12/14' }
-          - { site: source, device: phone, shard: '13/14' }
-          - { site: source, device: phone, shard: '14/14' }
-          - { site: build, device: desktop, shard: '1/28' }
-          - { site: build, device: desktop, shard: '2/28' }
-          - { site: build, device: desktop, shard: '3/28' }
-          - { site: build, device: desktop, shard: '4/28' }
-          - { site: build, device: desktop, shard: '5/28' }
-          - { site: build, device: desktop, shard: '6/28' }
-          - { site: build, device: desktop, shard: '7/28' }
-          - { site: build, device: desktop, shard: '8/28' }
-          - { site: build, device: desktop, shard: '9/28' }
-          - { site: build, device: desktop, shard: '10/28' }
-          - { site: build, device: desktop, shard: '11/28' }
-          - { site: build, device: desktop, shard: '12/28' }
-          - { site: build, device: desktop, shard: '13/28' }
-          - { site: build, device: desktop, shard: '14/28' }
-          - { site: build, device: desktop, shard: '15/28' }
-          - { site: build, device: desktop, shard: '16/28' }
-          - { site: build, device: desktop, shard: '17/28' }
-          - { site: build, device: desktop, shard: '18/28' }
-          - { site: build, device: desktop, shard: '19/28' }
-          - { site: build, device: desktop, shard: '20/28' }
-          - { site: build, device: desktop, shard: '21/28' }
-          - { site: build, device: desktop, shard: '22/28' }
-          - { site: build, device: desktop, shard: '23/28' }
-          - { site: build, device: desktop, shard: '24/28' }
-          - { site: build, device: desktop, shard: '25/28' }
-          - { site: build, device: desktop, shard: '26/28' }
-          - { site: build, device: desktop, shard: '27/28' }
-          - { site: build, device: desktop, shard: '28/28' }
-          - { site: build, device: phone, shard: '1/14' }
-          - { site: build, device: phone, shard: '2/14' }
-          - { site: build, device: phone, shard: '3/14' }
-          - { site: build, device: phone, shard: '4/14' }
-          - { site: build, device: phone, shard: '5/14' }
-          - { site: build, device: phone, shard: '6/14' }
-          - { site: build, device: phone, shard: '7/14' }
-          - { site: build, device: phone, shard: '8/14' }
-          - { site: build, device: phone, shard: '9/14' }
-          - { site: build, device: phone, shard: '10/14' }
-          - { site: build, device: phone, shard: '11/14' }
-          - { site: build, device: phone, shard: '12/14' }
-          - { site: build, device: phone, shard: '13/14' }
-          - { site: build, device: phone, shard: '14/14' }
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup-browser
-      - name: Production build (made once, in quick)
-        if: matrix.site == 'build'
-        uses: actions/download-artifact@v4
-        with:
-          name: dist
-          path: dist
-      - name: Browser checks
-        env:
-          SHOTS: browser-shots
-          SMOKE_DEVICE: ${{ matrix.device }}
-          SMOKE_SHARD: ${{ matrix.shard }}
-          SMOKE_WORKERS: 1
-        run: npm run smoke -- ${{ matrix.site == 'build' && 'dist' || '.' }}
-      # Needs a browser and the build: one of the build runners reports it. Report only (no --budget): the runners have
-      # no graphics card, so their frame times say nothing about a real device and must never fail a pull request.
-      - name: Performance report
-        if: matrix.site == 'build' && matrix.device == 'desktop' && matrix.shard == '1/28'
-        continue-on-error: true
-        timeout-minutes: 8
-        run: npm run perf -- dist
-      # Main-thread time per surface (Tests dock open, a vessel hovered, the lobule): report only, for the same reason.
-      - name: Frame cost report
-        if: matrix.site == 'build' && matrix.device == 'desktop' && matrix.shard == '1/28'
-        continue-on-error: true
-        timeout-minutes: 5
-        run: npm run perf:frames -- dist
-      - uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: browser-checks-${{ matrix.site }}-${{ matrix.device }}-${{ strategy.job-index }}
-          path: browser-shots/
-          if-no-files-found: ignore
-          retention-days: 1
-
-  # The organs drawn as GPU layers, as every GPU device draws them (since 22 Oct, on by default). A software renderer, which these runners
-  # have, keeps the one picture unless the address says ?gpuorgans=force, so no other job here ever ran that path. Three checks of it: the
-  # layers make the picture the plate does, the organs painted live match the browser's drawing of their SVG, and the figure's own browser
-  # checks (SMOKE_GPUORGANS=force: every page opens with the switch, see tests/e2e/smoke.mjs FIGURE_CHECKS) pass with the organs on the GPU.
-  gpu-organs:
-    runs-on: ubuntu-24.04
-    needs: quick
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup-browser
-      - name: Production build (made once, in quick)
-        uses: actions/download-artifact@v4
-        with:
-          name: dist
-          path: dist
-      - name: The layers draw the plate's picture, and the screen with the organs live is the one without
-        run: npm run smoke:layers
-      - name: The organs painted on the GPU match the browser's drawing of their SVG
-        if: success() || failure()   # (each check runs even when the one before it failed, so one red run tells them all)
-        run: npm run smoke:paint
-      - name: The diaphragm is drawn on the Anatomy view (after a reload and a patient change too)
-        if: success() || failure()
-        run: npm run smoke:diaphragm
-      - name: The figure's browser checks, organs on the GPU
-        if: success() || failure()   # (each check runs even when the one before it failed, so one red run tells them all)
-        env:
-          SHOTS: gpu-organs-shots
-          SMOKE_GPUORGANS: force
-          SMOKE_DEVICE: desktop
-          SMOKE_WORKERS: 1
-        run: npm run smoke -- dist
-      - uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: gpu-organs-shots
-          path: gpu-organs-shots/
-          if-no-files-found: ignore
-          retention-days: 1
-
-  # The presenter's words on an iPhone's engine (WebKit): they show once, at their final size.
-  webkit:
-    runs-on: ubuntu-24.04
-    needs: quick
-    timeout-minutes: 40
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - name: WebKit for Playwright
-        run: timeout 300 npx playwright install --with-deps webkit
-      - name: Presenter words keep one size (iPhone, WebKit)
-        run: npm run smoke:webkit
-      - name: Labels stand on the figure through every motion (iPhone, WebKit)
-        continue-on-error: true   # (the gate lands before the fixes it measures; drop this line when the labels pass it)
-        run: npm run smoke:gate-labels:webkit
+    uses: ./.github/workflows/browser.yml
+    with:
+      sites: '["source", "build"]'
+      strict: true
 
   # Left alone for two minutes, the anatomy and the lobule do not pile up memory, page nodes or listeners.
   idle:
@@ -257,7 +67,7 @@ jobs:
     needs: quick
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-browser
       - name: Nothing piles up while a view is left alone
         run: npm run smoke:idle
@@ -279,7 +89,7 @@ jobs:
     needs: quick
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-browser
       - name: Nothing undrawn or soft while the view moves
         run: npm run smoke:veins
@@ -300,7 +110,7 @@ jobs:
         device: [ipadSide, macShort]
         shard: [1/4, 2/4, 3/4, 4/4]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-browser
       - name: Every slide's text 12 px or more
         env:
@@ -308,69 +118,3 @@ jobs:
           SHARD: ${{ matrix.shard }}
           SLIDES_ONLY: '1'
         run: node tests/e2e/text-floor.mjs
-
-  # The look (organ tones and light, vessels, lobule) against tests/visual, one device per runner;
-  # on a failure the current pictures and diffs are kept as an artifact.
-  visual:
-    name: visual (${{ matrix.device }})
-    runs-on: ubuntu-24.04
-    needs: quick
-    timeout-minutes: 45   # (25 until 31 Oct, plus the frame-time and input-latency step below, which has its own 15)
-    strategy:
-      fail-fast: false
-      matrix:
-        device: [desktop, phone]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup-browser
-      - name: Visual regression
-        id: visual
-        env:
-          VISUAL_DEVICE: ${{ matrix.device }}
-          VISUAL_KEEP: test-results/visual-now
-        run: npm run visual
-      # The figure's overlays painted on the GPU (stage-over.js; the software renderer here only when asked, ?stageover=gpu),
-      # against the pictures the step above just took: they must look as the SVG draws them.
-      - name: Visual regression, overlays on the GPU
-        if: always() && steps.visual.outcome != 'skipped'
-        env:
-          VISUAL_DEVICE: ${{ matrix.device }}
-          VISUAL_QUERY: '&stageover=gpu'
-          VISUAL_AGAINST: test-results/visual-now
-          VISUAL_OUT: test-results/visual-stageover
-        run: npm run visual
-      - uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: visual-diff-${{ matrix.device }}
-          path: |
-            test-results/visual
-            test-results/visual-stageover
-          retention-days: 1
-      # Frame time and input latency (premium-feel recs R2, R5; scripts/frame-gate.mjs), on the production build made in quick: the laptop
-      # profile in this job's desktop run, the phone profile in its phone run. A measure past its ceiling in scripts/perf-limits.json blocks
-      # the merge (checks.yml, on every preview push, only warns, and reports the same numbers first). The runners have no graphics card, so
-      # what is judged is the app's own script time per frame and the time to the first change after an input, never the interval between
-      # frames; the ceilings are twice the recs' bars until the runners' own numbers set them, and a scenario over one is run again, the
-      # better run kept. (The "Performance report" and "Frame cost report" above stay report-only.)
-      - name: Production build (made once, in quick)
-        if: always()
-        uses: actions/download-artifact@v4
-        with:
-          name: dist
-          path: dist
-      - name: Frame time and input latency
-        if: always()
-        timeout-minutes: 15
-        env:
-          PERF_PROFILE: ${{ matrix.device == 'phone' && 'phone' || 'laptop' }}
-          PERF_GATE: block
-          PERF_OUT: test-results/perf-gate
-        run: npm run perf:gate -- dist
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: perf-gate-${{ matrix.device }}
-          path: test-results/perf-gate
-          if-no-files-found: ignore
-          retention-days: 3

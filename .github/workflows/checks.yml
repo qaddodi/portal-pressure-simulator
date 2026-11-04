@@ -1,285 +1,47 @@
 name: Checks (browser, visual, WebKit)
 
-# Every browser, visual and WebKit check on each push to main and the integration branch, beside
-# pages.yml (which only lints, unit-tests and deploys, so a preview never waits for these).
-# On the integration branch a run that has started always finishes, so a full result arrives about every
-# 35-40 minutes on a recent commit even while pushes land every few minutes. Only the waiting run is
-# replaced: a newer push takes the place of the one queued behind the running run (GitHub's concurrency
-# group keeps one running and one waiting, with no runner needed), so at most one run holds runners and
-# old checks never pile up in front of a deploy. (15 Oct: cancelling the running run on every push meant
-# no run ever finished, so nobody saw a failure.) On main every run goes to the end.
+# The browser checks on the preview branch, on request only (owner, 4 Nov 2026: no headless or browser checks on every push):
+# run it from the Actions tab, or push a commit whose message contains [checks]. It checks the production build, never blocks
+# the deploy, and a visual drift or a frame time past its ceiling only warns (ci.yml blocks on them). The jobs are in browser.yml.
 
 on:
   push:
-    branches: [claude/settings-topbar-icon-flvft1]   # (main is covered by ci.yml, which runs the same build checks on every push there; until 22 Oct both ran, 42 shares twice a merge)
+    branches: [claude/settings-topbar-icon-flvft1]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  # (main: a group of its own per run, so nothing on main is cancelled or dropped)
-  group: checks-${{ github.ref_name == 'main' && github.run_id || github.ref }}
+  # (a push that does not ask for the checks never takes the place of one that does; a run that has started always finishes)
+  group: checks-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[checks]') }}
   cancel-in-progress: false
 
 jobs:
-  # The production build, made once for the run: every browser share below downloads it (each built its own, forty-two times over).
+  # The production build, made once: every browser job downloads it.
   build:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[checks]')
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
       - run: npm ci
       - name: Production build
         run: npm run build
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: dist
           path: dist/
           if-no-files-found: error
           retention-days: 1
 
-  # The browser checks run alongside the deploy (pages.yml), not before it: a failure marks this run red
-  # (so it is seen) but the preview is already published for testing on devices.
-  # Split over forty-two runners (desktop in twenty-eight shares, phone in fourteen), filled by each check's own time on a runner
-  # (tests/e2e/check-times.json), one check at a time per runner: a runner is too small to run several browsers at once.
-  browser-checks:
-    runs-on: ubuntu-24.04
+  browser:
     needs: build
-    # Covers the install (capped at 4 minutes below) plus the checks: about 32 minutes a desktop share by measured times, so a
-    # slow runner still finishes. (The old 25-minute limit cut almost every share off mid-check and every run ended red without a
-    # result; 40 minutes did the same to a third of the desktop shares once the checks grew.)
-    timeout-minutes: 60
-    strategy:
-      fail-fast: false
-      # 14 shards + 2 visual + 1 WebKit = 17 of the account's ~20 runners, so pages.yml's lint and deploy always find one.
-      # (42 shards take three rounds at 14 at a time, about 75 minutes for a full run while failing checks still time out.)
-      max-parallel: 14
-      matrix:
-        # About 24 minutes a share by the measured times (SMOKE_PLAN=1 npm run smoke prints them), well inside the 40-minute limit.
-        # (15 Oct: twenty desktop shares planned from estimates ran 40+ minutes and nine hit the limit; the longest checks are now
-        # split by size or deck, so none holds a share alone for more than about 15 minutes.)
-        include:
-          - { device: desktop, shard: '1/28' }
-          - { device: desktop, shard: '2/28' }
-          - { device: desktop, shard: '3/28' }
-          - { device: desktop, shard: '4/28' }
-          - { device: desktop, shard: '5/28' }
-          - { device: desktop, shard: '6/28' }
-          - { device: desktop, shard: '7/28' }
-          - { device: desktop, shard: '8/28' }
-          - { device: desktop, shard: '9/28' }
-          - { device: desktop, shard: '10/28' }
-          - { device: desktop, shard: '11/28' }
-          - { device: desktop, shard: '12/28' }
-          - { device: desktop, shard: '13/28' }
-          - { device: desktop, shard: '14/28' }
-          - { device: desktop, shard: '15/28' }
-          - { device: desktop, shard: '16/28' }
-          - { device: desktop, shard: '17/28' }
-          - { device: desktop, shard: '18/28' }
-          - { device: desktop, shard: '19/28' }
-          - { device: desktop, shard: '20/28' }
-          - { device: desktop, shard: '21/28' }
-          - { device: desktop, shard: '22/28' }
-          - { device: desktop, shard: '23/28' }
-          - { device: desktop, shard: '24/28' }
-          - { device: desktop, shard: '25/28' }
-          - { device: desktop, shard: '26/28' }
-          - { device: desktop, shard: '27/28' }
-          - { device: desktop, shard: '28/28' }
-          - { device: phone, shard: '1/14' }
-          - { device: phone, shard: '2/14' }
-          - { device: phone, shard: '3/14' }
-          - { device: phone, shard: '4/14' }
-          - { device: phone, shard: '5/14' }
-          - { device: phone, shard: '6/14' }
-          - { device: phone, shard: '7/14' }
-          - { device: phone, shard: '8/14' }
-          - { device: phone, shard: '9/14' }
-          - { device: phone, shard: '10/14' }
-          - { device: phone, shard: '11/14' }
-          - { device: phone, shard: '12/14' }
-          - { device: phone, shard: '13/14' }
-          - { device: phone, shard: '14/14' }
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup-browser
-      # Pages serves the production build (pages.yml builds each copy), so the browser checks run against
-      # that build, as shipped (made once, in the build job). ci.yml checks the source site as well on pull requests and main.
-      - name: Production build (made once, in the build job)
-        uses: actions/download-artifact@v4
-        with:
-          name: dist
-          path: dist
-      - name: Browser checks
-        env:
-          SHOTS: workspace-shots
-          SMOKE_DEVICE: ${{ matrix.device }}
-          SMOKE_SHARD: ${{ matrix.shard }}
-          SMOKE_WORKERS: 1
-        run: npm run smoke:dist
-      - uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: workspace-browser-checks-${{ matrix.device }}-${{ strategy.job-index }}
-          path: workspace-shots/
-          if-no-files-found: ignore
-          retention-days: 1
-
-  # The organs drawn as GPU layers, as every GPU device draws them (since 22 Oct, on by default). A software renderer, which these runners
-  # have, keeps the one picture unless the address says ?gpuorgans=force, so no other job here ever ran that path. Three checks of it: the
-  # layers make the picture the plate does, the organs painted live match the browser's drawing of their SVG, and the figure's own browser
-  # checks (SMOKE_GPUORGANS=force: every page opens with the switch, see tests/e2e/smoke.mjs FIGURE_CHECKS) pass with the organs on the GPU.
-  # One more runner than the 17 above, so pages.yml still finds one of the account's ~20.
-  gpu-organs:
-    runs-on: ubuntu-24.04
-    needs: build
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup-browser
-      - name: Production build (made once, in the build job)
-        uses: actions/download-artifact@v4
-        with:
-          name: dist
-          path: dist
-      - name: The layers draw the plate's picture, and the screen with the organs live is the one without
-        run: npm run smoke:layers
-      - name: The organs painted on the GPU match the browser's drawing of their SVG
-        if: success() || failure()   # (each check runs even when the one before it failed, so one red run tells them all)
-        run: npm run smoke:paint
-      - name: The figure draws, sleeps when paused, and with ?flow=dashes stays still at rest while the dashes move
-        if: success() || failure()   # (each check runs even when the one before it failed, so one red run tells them all)
-        run: npm run smoke:draws -- dist
-      - name: The figure's browser checks, organs on the GPU
-        if: success() || failure()   # (each check runs even when the one before it failed, so one red run tells them all)
-        env:
-          SHOTS: gpu-organs-shots
-          SMOKE_GPUORGANS: force
-          SMOKE_DEVICE: desktop
-          SMOKE_WORKERS: 1
-        run: npm run smoke:dist
-      # The motion budget (merged GPU plan, item 1): what the Anatomy to Circuit switch asks of the main thread (style and layout reads,
-      # DOM writes, WebGL contexts made), against its ceiling in tests/motion-budget.json. A warning, never a block: the ceilings only go
-      # down. Headless counts vary a lot between runs (what is still settling in the window: the credit placing itself, organ pictures landing), so
-      # each ceiling is the highest count seen with a margin; lower it when the meter says. The deck slide changes (the same file) take minutes each on software GL, so they are run by hand: node scripts/motion-budget.mjs --check.
-      - name: Motion budget (Anatomy to Circuit, phone)
-        if: success() || failure()
-        continue-on-error: true
-        timeout-minutes: 20
-        run: node scripts/motion-budget.mjs --only "anatomy to circuit" --check
-      - uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: gpu-organs-shots
-          path: gpu-organs-shots/
-          if-no-files-found: ignore
-          retention-days: 1
-
-  # The presenter's words on an iPhone's engine (WebKit): they show once, at their final size.
-  webkit:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - name: WebKit for Playwright
-        run: timeout 300 npx playwright install --with-deps webkit
-      - name: Presenter words keep one size (iPhone, WebKit)
-        run: npm run smoke:webkit
-
-  # The look against tests/visual on every preview push, so a drift shows up now, not at merge
-  # time. A drift is a warning here (the diffs are kept as an artifact) and blocks only in ci.yml.
-  # When the change to the look is intended, run the "Visual references" workflow on the branch,
-  # which redraws the drifted views on these same machines and commits them.
-  visual:
-    name: visual (${{ matrix.device }})
-    runs-on: ubuntu-24.04
-    timeout-minutes: 45   # (25 until 31 Oct, plus the frame-time and input-latency step below, which has its own 15)
-    strategy:
-      fail-fast: false
-      matrix:
-        device: [desktop, phone]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup-browser
-      - name: Visual regression
-        id: visual
-        continue-on-error: true
-        env:
-          VISUAL_DEVICE: ${{ matrix.device }}
-          VISUAL_KEEP: test-results/visual-now
-        shell: bash
-        run: npm run visual | tee visual.log
-      - name: Report drifted views
-        if: steps.visual.outcome == 'failure'
-        run: |
-          views=$(grep -o '^FAIL [^:]*' visual.log | cut -c6- | paste -sd' ' -)
-          echo "::warning title=Visual references drifted::$views. If intended, run the Visual references workflow on this branch; ci.yml blocks the merge until then."
-      - uses: actions/upload-artifact@v4
-        if: steps.visual.outcome == 'failure'
-        with:
-          name: visual-diff-${{ matrix.device }}
-          path: test-results/visual
-          if-no-files-found: ignore
-          retention-days: 1
-      # The same views with the figure's overlays painted on the GPU (?stageover=gpu, off by default; recs A1), against the
-      # pictures the step above just took of the page as it is: each group moved onto the GPU must look as the SVG drew it,
-      # whatever the references say. A hard check: it fails the job.
-      - name: Visual regression, overlays on the GPU
-        id: visual_over
-        if: always()
-        env:
-          VISUAL_DEVICE: ${{ matrix.device }}
-          VISUAL_QUERY: '&stageover=gpu'
-          VISUAL_AGAINST: test-results/visual-now
-          VISUAL_OUT: test-results/visual-stageover
-        shell: bash
-        run: npm run visual | tee visual-over.log
-      - name: Report views that differ with the overlays on the GPU
-        if: always() && steps.visual_over.outcome == 'failure'
-        run: |
-          views=$(grep -o '^FAIL [^:]*' visual-over.log | cut -c6- | paste -sd' ' -)
-          echo "::error title=Overlays on the GPU differ from the page's own drawing::$views (?stageover=gpu, off by default)."
-      - uses: actions/upload-artifact@v4
-        if: always() && steps.visual_over.outcome == 'failure'
-        with:
-          name: visual-diff-stageover-${{ matrix.device }}
-          path: test-results/visual-stageover
-          if-no-files-found: ignore
-          retention-days: 1
-      # Frame time and input latency (premium-feel recs R2, R5; scripts/frame-gate.mjs): the production build, as Pages serves it, driven as a
-      # person does on the laptop profile (this job's desktop run) and the phone profile (its phone run), one runner each and one thing at a
-      # time, so the timings are not shared with a browser check. A pan, a pinch, a camera glide and a slide change are judged by the
-      # scheduler's script time per frame; Next, a verb, a lens switch and the menu by the time to the first change on the page. Here
-      # it only warns (an annotation on any measure past its ceiling in scripts/perf-limits.json, the numbers in the job summary, every
-      # frame's numbers and the long frames with their surfaces in the artifact); ci.yml blocks. In this job and not a job of its own: two more
-      # runners would leave pages.yml fewer of the account's ~20 to deploy with.
-      - name: Production build
-        if: always()
-        run: npm run build
-      - name: Frame time and input latency
-        if: always()
-        continue-on-error: true
-        timeout-minutes: 15
-        env:
-          PERF_PROFILE: ${{ matrix.device == 'phone' && 'phone' || 'laptop' }}
-          PERF_GATE: warn
-          PERF_OUT: test-results/perf-gate
-        run: npm run perf:gate -- dist
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: perf-gate-${{ matrix.device }}
-          path: test-results/perf-gate
-          if-no-files-found: ignore
-          retention-days: 3
+    uses: ./.github/workflows/browser.yml
+    with:
+      sites: '["build"]'
+      strict: false

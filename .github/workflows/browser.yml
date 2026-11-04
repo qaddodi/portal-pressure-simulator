@@ -1,0 +1,229 @@
+name: Browser checks
+
+# The browser, GPU-organ, WebKit and visual checks, defined once and called by checks.yml (the preview branch, on request:
+# the production build only, drifts and frame times warn) and ci.yml (pull requests and main: source and build, both block).
+# The caller uploads the production build as the artifact "dist" before calling.
+# One check at a time per runner (a runner is too small for several browsers): desktop in 28 shares and phone in 14, filled by
+# each check's measured time (tests/e2e/check-times.json; SMOKE_PLAN=1 npm run smoke prints them).
+
+on:
+  workflow_call:
+    inputs:
+      sites:
+        description: 'JSON list of the sites to check: "source" (the repository as is) and/or "build" (dist)'
+        type: string
+        required: true
+      strict:
+        description: 'Visual drift and frame-time ceilings fail the run (true) or only warn (false)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      shards: ${{ steps.shards.outputs.shards }}
+    steps:
+      - name: List the shares
+        id: shards
+        env:
+          SITES: ${{ inputs.sites }}
+        run: |
+          node -e '
+            const out = [];
+            for (const site of JSON.parse(process.env.SITES))
+              for (const [device, n] of [["desktop", 28], ["phone", 14]])
+                for (let i = 1; i <= n; i++) out.push({ site, device, shard: `${i}/${n}` });
+            console.log("shards=" + JSON.stringify(out));
+          ' >> "$GITHUB_OUTPUT"
+
+  browser-checks:
+    name: browser-checks (${{ matrix.site }}, ${{ matrix.device }} ${{ matrix.shard }})
+    needs: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60   # (a desktop share is about 32 minutes by measured times; a loaded runner takes longer)
+    strategy:
+      fail-fast: false
+      max-parallel: 14   # (leaves runners for the deploy and the quick checks)
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.shards) }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-browser
+      - name: Production build (made once, by the caller)
+        if: matrix.site == 'build'
+        uses: actions/download-artifact@v7
+        with:
+          name: dist
+          path: dist
+      - name: Browser checks
+        env:
+          SHOTS: browser-shots
+          SMOKE_DEVICE: ${{ matrix.device }}
+          SMOKE_SHARD: ${{ matrix.shard }}
+          SMOKE_WORKERS: 1
+        run: npm run smoke -- ${{ matrix.site == 'build' && 'dist' || '.' }}
+      # Report only: the runners have no graphics card, so these frame times say nothing about a real device.
+      - name: Performance report
+        if: inputs.strict && matrix.site == 'build' && matrix.device == 'desktop' && matrix.shard == '1/28'
+        continue-on-error: true
+        timeout-minutes: 8
+        run: npm run perf -- dist
+      - name: Frame cost report
+        if: inputs.strict && matrix.site == 'build' && matrix.device == 'desktop' && matrix.shard == '1/28'
+        continue-on-error: true
+        timeout-minutes: 5
+        run: npm run perf:frames -- dist
+      - uses: actions/upload-artifact@v6
+        if: failure()
+        with:
+          name: browser-checks-${{ matrix.site }}-${{ matrix.device }}-${{ strategy.job-index }}
+          path: browser-shots/
+          if-no-files-found: ignore
+          retention-days: 1
+
+  # The organs drawn as GPU layers, as every GPU device draws them. The software renderer here keeps the one picture unless the address
+  # says ?gpuorgans=force, so this is the only job that runs that path. Each step runs even when the one before it failed.
+  gpu-organs:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-browser
+      - name: Production build (made once, by the caller)
+        uses: actions/download-artifact@v7
+        with:
+          name: dist
+          path: dist
+      - name: The layers draw the plate's picture, and the screen with the organs live is the one without
+        run: npm run smoke:layers
+      - name: The organs painted on the GPU match the browser's drawing of their SVG
+        if: success() || failure()
+        run: npm run smoke:paint
+      - name: The diaphragm is drawn on the Anatomy view (after a reload and a patient change too)
+        if: success() || failure()
+        run: npm run smoke:diaphragm
+      - name: The figure draws, sleeps when paused, and with ?flow=dashes stays still at rest while the dashes move
+        if: success() || failure()
+        run: npm run smoke:draws -- dist
+      - name: The figure's browser checks, organs on the GPU
+        if: success() || failure()
+        env:
+          SHOTS: gpu-organs-shots
+          SMOKE_GPUORGANS: force
+          SMOKE_DEVICE: desktop
+          SMOKE_WORKERS: 1
+        run: npm run smoke -- dist
+      # What the Anatomy to Circuit switch asks of the main thread, against tests/motion-budget.json. A warning, never a block.
+      - name: Motion budget (Anatomy to Circuit, phone)
+        if: success() || failure()
+        continue-on-error: true
+        timeout-minutes: 20
+        run: node scripts/motion-budget.mjs --only "anatomy to circuit" --check
+      - uses: actions/upload-artifact@v6
+        if: failure()
+        with:
+          name: gpu-organs-shots
+          path: gpu-organs-shots/
+          if-no-files-found: ignore
+          retention-days: 1
+
+  # The presenter's words on an iPhone's engine (WebKit): they show once, at their final size.
+  webkit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: WebKit for Playwright
+        run: timeout 300 npx playwright install --with-deps webkit
+      - name: Presenter words keep one size (iPhone, WebKit)
+        run: npm run smoke:webkit
+      - name: Labels stand on the figure through every motion (iPhone, WebKit)
+        continue-on-error: true   # (the gate lands before the fixes it measures; drop this line when the labels pass it)
+        run: npm run smoke:gate-labels:webkit
+
+  # The look against tests/visual, one device per runner, then the frame-time and input-latency gate on the same runner.
+  # strict: a drift or a measure past its ceiling (scripts/perf-limits.json) fails the job; otherwise both only warn.
+  # When a change to the look is intended, run the "Visual references" workflow on the branch.
+  visual:
+    name: visual (${{ matrix.device }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        device: [desktop, phone]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-browser
+      - name: Visual regression
+        id: visual
+        continue-on-error: ${{ !inputs.strict }}
+        env:
+          VISUAL_DEVICE: ${{ matrix.device }}
+          VISUAL_KEEP: test-results/visual-now
+        shell: bash
+        run: npm run visual | tee visual.log
+      - name: Report drifted views
+        if: always() && steps.visual.outcome == 'failure'
+        run: |
+          views=$(grep -o '^FAIL [^:]*' visual.log | cut -c6- | paste -sd' ' -)
+          echo "::warning title=Visual references drifted::$views. If intended, run the Visual references workflow on this branch."
+      # The figure's overlays painted on the GPU (?stageover=gpu) against the pictures the step above just took. A hard check.
+      - name: Visual regression, overlays on the GPU
+        id: visual_over
+        if: always() && steps.visual.outcome != 'skipped'
+        env:
+          VISUAL_DEVICE: ${{ matrix.device }}
+          VISUAL_QUERY: '&stageover=gpu'
+          VISUAL_AGAINST: test-results/visual-now
+          VISUAL_OUT: test-results/visual-stageover
+        shell: bash
+        run: npm run visual | tee visual-over.log
+      - name: Report views that differ with the overlays on the GPU
+        if: always() && steps.visual_over.outcome == 'failure'
+        run: |
+          views=$(grep -o '^FAIL [^:]*' visual-over.log | cut -c6- | paste -sd' ' -)
+          echo "::error title=Overlays on the GPU differ from the page's own drawing::$views (?stageover=gpu, off by default)."
+      - uses: actions/upload-artifact@v6
+        if: always() && (steps.visual.outcome == 'failure' || steps.visual_over.outcome == 'failure')
+        with:
+          name: visual-diff-${{ matrix.device }}
+          path: |
+            test-results/visual
+            test-results/visual-stageover
+          if-no-files-found: ignore
+          retention-days: 1
+      # Frame time and input latency (scripts/frame-gate.mjs) on the production build: the laptop profile on the desktop run, the phone
+      # profile on the phone run. What is judged is the app's script time per frame and the time to the first change after an input.
+      - name: Production build (made once, by the caller)
+        if: always()
+        uses: actions/download-artifact@v7
+        with:
+          name: dist
+          path: dist
+      - name: Frame time and input latency
+        if: always()
+        continue-on-error: ${{ !inputs.strict }}
+        timeout-minutes: 15
+        env:
+          PERF_PROFILE: ${{ matrix.device == 'phone' && 'phone' || 'laptop' }}
+          PERF_GATE: ${{ inputs.strict && 'block' || 'warn' }}
+          PERF_OUT: test-results/perf-gate
+        run: npm run perf:gate -- dist
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: perf-gate-${{ matrix.device }}
+          path: test-results/perf-gate
+          if-no-files-found: ignore
+          retention-days: 3
