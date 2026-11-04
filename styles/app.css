@@ -3338,7 +3338,7 @@ button.finding { cursor: pointer; }
   --c: var(--text); --rg: color-mix(in srgb, var(--c) 70%, transparent); --lo: 1;
   color: var(--text); font: 500 12px var(--font-ui);
   box-shadow: var(--shadow-cath-label);
-  translate: -50% calc(-100% - 18px + var(--pre, 0px)); transition: translate var(--d-surface) var(--ease); }   /* (--pre: the arrival's rise, cath-pre, eased by translate on the compositor, not by top) */
+  translate: -50% calc(-100% - 18px + var(--pre, 0px)); transition: translate var(--d-surface) var(--ease), box-shadow var(--d-surface) var(--ease); }   /* (--pre: the arrival's rise, cath-pre, eased by translate on the compositor, not by top) */
 /* The body is frosted glass like the panels (the data card's tint and blur), drawn by callout.js as one shape: the card and
    its pointer (down to the tip, or up to the wedged vein, for the reading ahead of it) with its 2 px outline.
    The fades run on the label's children, not the label: a faded ancestor would stop the glass seeing the figure behind it. */
@@ -3373,7 +3373,7 @@ button.finding { cursor: pointer; }
 .cath-label.wedge { --c: var(--tr-wedge); }
 .cath-label.ghost { --lo: .5; }
 /* The presenter's measuring sites (PPG: portal vein and IVC), in the tracing colours; one off the free space waits hidden. */
-.cath-label.site { transition: scale var(--d-surface) var(--ease) .35s, translate var(--d-surface) var(--ease); } .cath-label.site > * { transition: opacity var(--d-surface) var(--ease) .35s; }
+.cath-label.site { transition: scale var(--d-surface) var(--ease) .35s, translate var(--d-surface) var(--ease), box-shadow var(--d-surface) var(--ease) .35s; } .cath-label.site > * { transition: opacity var(--d-surface) var(--ease) .35s; }
 /* One leaving fades out whole and at once (no entrance pause), its glass and shadow with it; the glass is hidden outright only once
    faded (stage.js siteLeave removes it after). */
 .cath-label.site.cath-leave { --lo: 0; box-shadow: var(--shadow-cath-label-off); }
@@ -3492,7 +3492,7 @@ button.finding { cursor: pointer; }
 .cath-sum.cath-pre .cath-label { --lo: 0; } .cath-sum.cath-pre .cath-brace, .cath-sum.cath-pre .cath-leads { opacity: 0; transition-delay: 0s; }
 /* The summary after the readings travel in: the bracket and leaders follow, then the HVPG fades and rises in. */
 .cath-sum .cath-brace, .cath-sum .cath-leads { transition: opacity var(--d-surface) var(--ease) .65s; }
-.cath-sum .cath-label.in-sum.calc { transition: translate var(--d-surface) var(--ease) .75s; } .cath-sum .cath-label.in-sum.calc > * { transition: opacity var(--d-surface) var(--ease) .75s; }
+.cath-sum .cath-label.in-sum.calc { transition: translate var(--d-surface) var(--ease) .75s, box-shadow var(--d-surface) var(--ease) .75s; } .cath-sum .cath-label.in-sum.calc > * { transition: opacity var(--d-surface) var(--ease) .75s; }
 .cath-sum.cath-travel .cath-brace, .cath-sum.cath-travel .cath-leads { opacity: 0; transition: none; }
 .cath-sum.cath-travel .cath-label.in-sum.calc { --lo: 0; transition: none; } .cath-sum.cath-travel .cath-label.in-sum.calc > * { transition: none; }
 .cath-sum.cath-travel .cath-label.in-sum.calc { translate: 0 6px; }
@@ -3500,6 +3500,8 @@ button.finding { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) { .hvpg-kv dd.in { animation-name: crossfade; } }
 /* A small rise from just below, never a scale: scale composes with the positioning transform and would slide the box in from the corner. */
 .cath-label.cath-pre:not(.in-sum), .cath-sum.cath-pre .cath-sum-box { --pre: 6px; }
+/* The HVPG readings (cath-js) come in with no rise: their place is their transform's alone, so the glass and the shadow drawn on the GPU and the body in the page never differ by an eased translate (a percentage the glass cannot follow). */
+.cath-label.cath-js.cath-pre { --pre: 0px; }
 @media (prefers-reduced-motion: reduce) { .cath-label, .cath-label.site, .cath-sum-box { transition-property: opacity; } .cath-label.cath-pre:not(.in-sum), .cath-sum.cath-pre .cath-sum-box { --pre: 0px; } }
 /* HVPG procedure (Measure › HVPG): the monitor canvas, the readings and the four steps. */
 .instrument-view[data-pane="hvpg"] { gap: 10px; }
