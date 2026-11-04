@@ -43,51 +43,28 @@ test('the browser\'s glass stays with the blur effect off, reduced transparency,
 });
 
 test('the stage lays the GPU glass under both callout layers, off with the other GPU layers and on a software renderer', () => {
-  assert.match(STAGE, /const glassGL = veins \? createGlassGL\(wrap, vCanvas, \[cath\.labels, sites\.el\], \{ software: SOFTWARE, live: \(\) => wrap\.classList\.contains\('gl-on'\), version: \(\) => veins\.drawSeq, fresh: \(\) => veins\.bloodSeq, capture: \(\) => veins\?\.capture\(\), onFigure: \(f\) => veins\.onPicture\(f\), keep: \(\) => figLab\('glassCache'\), due: \(\) => watch\.due\(\), copy: false, onHoles: frostHoles\('callouts'\) \}\) : null;/);
+  assert.match(STAGE, /const glassGL = veins \? createGlassGL\(wrap, vCanvas, \[cath\.labels, sites\.el\], \{ software: SOFTWARE, live: \(\) => wrap\.classList\.contains\('gl-on'\), version: \(\) => veins\.drawSeq, fresh: \(\) => veins\.bloodSeq, capture: \(\) => veins\?\.capture\(\), onFigure: \(f\) => veins\.onPicture\(f\), keep: \(\) => figLab\('glassCache'\), due: \(\) => watch\.due\(\), onHoles: frostHoles\('callouts'\) \}\) : null;/);
   // (Drawn in the figure's canvas, its turn between the cards' two.)
   assert.match(STAGE, /hostFrost\(glassGL, \{ order: 2, over: \(\) => frostOver\('callouts'\) \}\);/);
   // (1 Nov 2026: off unless ?glasshost=1 at 759be3e1, the iPhone's callouts and sheet cards flickering; on again by default the same day, its causes
   // fixed (a sheet's tint lost when marked, a mask bound where the figure's blur was, a swap at the screen's edge), and no switch back to the browser's blur.)
   assert.match(STAGE, /\n {2}function hostFrost\(g, o\) \{ if \(!g \|\| !veins\?\.top\) return;/);
   assert.doesNotMatch(STAGE, /FROST_HOST|glasshost=/);
-  assert.match(CSS, /#glassGl \{ position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 4; \}/);
-  assert.match(SRC, /if \(canvas\) \(cards \? cards\.before : pane \|\| layers\[0\]\)\.before\(canvas\);/, 'under the callouts, which share its z-index and come after it');
   // A write to a callout asks for the glass's own frame (its final phase, before that frame shows), so it never trails the outline and is
   // drawn once in it; no draw of its own in a microtask (review H4b, 30 Oct).
   assert.match(SRC, /const mo = new MutationObserver\(\(recs\) => \{ if \(!recs\?\.length \|\| changed\(recs\)\) measureEarly\(\); quiet = 0; ask\(\); \}\);/);
   assert.doesNotMatch(SRC, /queueMicrotask/);
-  // Until a copy of the figure is in, and after the browser refuses one, the browser's own glass stays.
-  assert.match(SRC, /if \(!panes\.length\) \{ if \(cards\) unmark\(\); clear\(\); return false; \}\n\s+\/\/ \(Until the first copy is in, the browser's own glass stays\.\)\n\s+if \(!ready\) return true;/);
-  assert.match(SRC, /if \(\+\+fails > 3\) \{ dead = true; unmark\(\); clear\(\); \}/);
 });
 
 test('the liver label\'s frosted pane is drawn the same way, under the labels, with its own blur and tint', () => {
   assert.match(CSS, /\.lb-glass \{[^}]*background: var\(--frost\);/, 'the CSS pane');
   assert.equal(PANE.blur, 9);
   assert.equal(PANE.sat, 1.2);
-  assert.match(STAGE, /labelSvg\.before\(glass\);\n.*\n\s+const paneGL = veins \? createGlassGL\(wrap, vCanvas, \[\], \{ software: SOFTWARE, live: \(\) => wrap\.classList\.contains\('gl-on'\), pane: glass, version: \(\) => veins\.drawSeq, fresh: \(\) => veins\.bloodSeq, capture: \(\) => veins\?\.capture\(\), onFigure: \(f\) => veins\.onPicture\(f\), keep: \(\) => figLab\('glassCache'\), due: \(\) => watch\.due\(\), copy: false \}\) : null;/);
-  assert.match(SRC, /if \(canvas\) \(cards \? cards\.before : pane \|\| layers\[0\]\)\.before\(canvas\);/, 'its canvas just before the pane, so under the labels');
+  assert.match(STAGE, /labelSvg\.before\(glass\);\n.*\n\s+const paneGL = veins \? createGlassGL\(wrap, vCanvas, \[\], \{ software: SOFTWARE, live: \(\) => wrap\.classList\.contains\('gl-on'\), pane: glass, version: \(\) => veins\.drawSeq, fresh: \(\) => veins\.bloodSeq, capture: \(\) => veins\?\.capture\(\), onFigure: \(f\) => veins\.onPicture\(f\), keep: \(\) => figLab\('glassCache'\), due: \(\) => watch\.due\(\) \}\) : null;/);
   assert.match(STAGE, /hostFrost\(paneGL, \{ order: 0, over: \(\) => frostOver\('pane'\) \}\);/, 'in the figure\'s canvas: the first turn, under the labels');
   assert.match(CSS, /\.cl-glass\[data-gl\], \.lb-glass\[data-gl\] \{ background: none; \}/);
   assert.equal(roundPath(100, 40, 8), 'M8 0H92A8 8 0 0 1 100 8V32A8 8 0 0 1 92 40H8A8 8 0 0 1 0 32V8A8 8 0 0 1 8 0Z');
   assert.match(roundPath(10, 6, 20), /^M3 0H7A3 3/, 'the radius kept inside the box');
-});
-
-test('the glass takes a new copy of the figure only when the figure, the region or the canvas\' place changed', () => {
-  const VEINS = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
-  // The key: the figure's draw count, the region behind the callouts, and where both canvases lie, and how big the source is.
-  assert.match(SRC, /const key = version \? `\$\{version\(\)\}\|\$\{reg\.x\}\|\$\{reg\.y\}\|\$\{reg\.w\}\|\$\{reg\.h\}\|\$\{cr\.left\}\|\$\{cr\.top\}\|\$\{sr\.left\}\|\$\{sr\.top\}\|\$\{sr\.width\}\|\$\{sr\.height\}\|\$\{source\.width\}x\$\{source\.height\}` : '';/);
-  // A copy still current is not asked for again; the key is read before the copy is asked for and kept only once it has arrived.
-  assert.match(SRC, /if \(key && key === takenKey && ready\) \{ if \(gpuProbe\.on\) gpuProbe\.note\(cards \? COUNTED\.cardSkip : pane \? COUNTED\.paneSkip : COUNTED\.glassSkip\); return; \}/);
-  assert.match(SRC, /ready = \{ \.\.\.got \};\n\s+takenKey = key;/);
-  assert.ok(SRC.indexOf('const key = version') < SRC.indexOf('createImageBitmap(source'), 'the key is read before the snapshot');
-  // Without a version the old rule stands: a copy whenever the last has arrived.
-  assert.match(SRC, /version = null, capture = null, onFigure = null, keep = null, due = null, copy = true, reblur = 0, fresh = null, full = false, onHoles = null \} = \{\}\) \{/);
-  // The figure counts every time its canvas is drawn on: a composite that drew something, and a clear; and the stage hands that on.
-  // (But for a frame of the moving blood alone, whose streaks the glass's blur evens out: review H4, 30 Oct.)
-  assert.match(VEINS, /pictured\(!full && !part && !dirt && !pool && !\(fl\?\.ripple && nFluid\) && !cath && bare && same && !figNew\);/);
-  assert.match(VEINS, /clear\(\) \{ pictured\(\);/);
-  assert.match(VEINS, /const pictured = \(blood = false\) => \{ if \(blood\) \{ bloodSeq\+\+; return; \} pictureSeq\+\+; onPicture\.forEach\(callPicture\); \};/, 'and each time, it tells the glass');
 });
 
 test('the glass is drawn on the shared final phase, once a frame, after the figure\'s own frame', () => {

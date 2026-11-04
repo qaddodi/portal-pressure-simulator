@@ -1,4 +1,4 @@
-// The frosted glasses drawn inside the figure's canvas (round 2, 2.1, 31 Oct; glass-gl copy: false, setHost): no canvas or context of
+// The frosted glasses drawn inside the figure's canvas (round 2, 2.1, 31 Oct; glass-gl setHost): no canvas or context of
 // their own and no copy of the figure; each picture the figure lays blurs once (prep) and draws each glass in its turn, the teaching
 // card's shade in the low turn and the other cards in the high one, sharing one set of marks. A card that crosses what the page lays
 // between the figure's canvas and it goes back to the browser's glass alone, in the same picture; when the figure's canvas cannot
@@ -72,7 +72,7 @@ const frames = async (k) => { for (let i = 0; i < k; i++) { clock += 16; for (co
 
 // (The whole region blurred in one go (the option full): the counts below are its two passes. By default each part of it a glass reads is
 // blurred alone, two passes a part, to the same texels: tests/glass-parts.test.js.)
-const G = createGlassGL(wrap, source, [], { cards: { find: () => [shade, data], watch: [root], before: { parentNode: null } }, version: () => seq, copy: false, full: true });
+const G = createGlassGL(wrap, source, [], { cards: { find: () => [shade, data], watch: [root], before: { parentNode: null } }, version: () => seq, full: true });
 
 test('with no copy of its own it makes no canvas and no context, and without a host every card keeps the browser\'s glass', async () => {
   assert.ok(G);

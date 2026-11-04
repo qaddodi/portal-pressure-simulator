@@ -79,13 +79,13 @@ const frame = () => { clock += 16; const q = rafs.splice(0); for (const cb of q)
 const frames = async (k) => { for (let i = 0; i < k; i++) { frame(); await flush(); } };
 
 
-// (A second glass of the same look, on a layer of its own; no canvas of its own (copy: false), as the cards'.)
+// (A second glass of the same look, on a layer of its own; no canvas of its own, as the cards'.)
 let at2 = rect(180, 150, 160, 70);   // (near the first: their parts are one)
 const card2 = { getBoundingClientRect: () => at2 };
 glass2 = { ...glass, parentElement: card2, attrs: new Set(), getBoundingClientRect: () => at2 };
 const layer2 = { ...listen(), list: [glass2], getElementsByClassName() { return this.list; }, before() {} };
-const A = createGlassGL(wrap, source, [layer], { version: () => seq, copy: false, onFigure: (f) => { figure.add(f); return () => figure.delete(f); } });
-const B = createGlassGL(wrap, source, [layer2], { version: () => seq, copy: false, onFigure: (f) => { figure.add(f); return () => figure.delete(f); } });
+const A = createGlassGL(wrap, source, [layer], { version: () => seq, onFigure: (f) => { figure.add(f); return () => figure.delete(f); } });
+const B = createGlassGL(wrap, source, [layer2], { version: () => seq, onFigure: (f) => { figure.add(f); return () => figure.delete(f); } });
 const tops = [];
 const add = (t) => { tops.push(t); tops.sort((a, b) => a.order - b.order); return () => { const i = tops.indexOf(t); if (i >= 0) tops.splice(i, 1); }; };
 const present = () => { for (const t of tops) t.prep?.(); for (const t of tops) t.draw(); };
