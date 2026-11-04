@@ -74,3 +74,7 @@ test('crowded labels: abbreviate first, never cover a vessel (Mohammad, 4 Nov)',
   const an = readFileSync(new URL('../src/ui/anatomy.js', import.meta.url), 'utf8');
   for (const k of ['HA', 'CONF', 'RPV', 'LPV', 'SV', 'RHV', 'MHV', 'LHV']) assert.ok(new RegExp(`\\b${k}: '`).test(an.slice(an.indexOf('export const ABBR'))));
 });
+
+test('the hepatic artery label reads HA', () => {
+  assert.ok(st.includes("id === 'HA' ? 'HA' : (SHORT[id] || id)"));
+});

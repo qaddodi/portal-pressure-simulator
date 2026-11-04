@@ -11475,7 +11475,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const at = pin.at?.P[NI[id]];
       P = Number.isFinite(at) && Math.abs(P - at) < breath(at) ? at : beatMean('n:' + id, P, 6);
     }
-    let name = mode === 'atlas' ? (meta?.name || NODES[NI[id]].label) : (SHORT[id] || id);
+    let name = mode === 'atlas' ? (meta?.name || NODES[NI[id]].label) : id === 'HA' ? 'HA' : (SHORT[id] || id);   // (the hepatic artery reads "HA" on the figure, Mohammad 4 Nov; its card has the full name)
     // On a presenter's ladder and catheter slides, the stations the ladder names carry its name too (one vocabulary).
     if (st.presenting && st.presentNames && LADDER_TAG[id]) name += ` · ${LADDER_TAG[id]}`;
     // On a small screen an inline label is one quiet line (name, value) on a text halo, not a
