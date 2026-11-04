@@ -1614,6 +1614,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // trackpad reports a wheel step every few ms, and each wrote two transform attributes. The view's own maths (CTM, clientToVBFast) use
   // vt, never the attribute; a reader of the attribute's matrix (clientToWorld) flushes first.)
   let vtDirty = false;
+  let zoomBase = null;   // (the camera zoomed with a card: zoomOpen)
   const flushVT = () => {
     if (!vtDirty) return;
     vtDirty = false;
@@ -1649,7 +1650,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (scan.on) scanPaint();
       dprobePaint();
     }
-    gpuProbe.time(null, 'cards follow (script)', syncCardsRun);
+    // (Not while the camera zooms with a card: the cards are the ones moving it, and each frame's cards-follow pass was script per frame of the zoom.)
+    if (!zoomBase) gpuProbe.time(null, 'cards follow (script)', syncCardsRun);
     // (The zoom pill reads it: at full ink while the view is away from its fit, quiet at home on a pointer device; app.css .off-home.)
     wrap.classList.toggle('off-home', !!homeAt && !sameView(vt, homeAt));
   }
@@ -2725,7 +2727,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // and then moved by (dx, dy) screen px, the same transform the zoomed cards are given, so the figure, the liver and the labels' places ride with them.
   // zoomOpen takes the view as it stands (null: it is not at rest, nothing is zoomed); zoomAt is one frame of it, written as the view (k, x, y), one
   // transform, no glide of its own; zoomEnd gives the view up (the card has gone back, the view is the one it began at) and the labels are solved again.
-  let zoomBase = null;
   function zoomOpen() {
     if (zoomBase || !viewNow()) return false;
     cancelFrame(vtAnim); driftEnd();
