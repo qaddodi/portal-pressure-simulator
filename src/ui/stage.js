@@ -8032,8 +8032,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (The canvas the glasses are drawn into now: frostCtx, its context; frostLiver, the liver's canvas (lobule-zoom.js glassHost) while the
   // frost is taken from it, else null and the figure's. What the glass keys its blur on follows it: a new picture there, not the figure's.)
   let frostCtx = null, frostLiver = null;
-  const frostSeq = () => (frostLiver ? `l${frostLiver.seq()}` : lzInFigure() ? `${veins.drawSeq}.${lz.drawSeq()}` : veins.drawSeq);
+  const frostSeq = () => (frostLiver ? `l${frostLiver.seq()}` : lzInFigure() ? `${veins.drawSeq}.${lzGlassSeq()}` : veins.drawSeq);
   // (The lobule drawn in the figure's own canvas: the glass is drawn over it there, with no hand-over to the lobule's canvas; its pictures count with the figure's.)
+  // (The lobule's pictures count for the glass at most every 80 ms: a pan or pinch inside it drew one a frame, and the glass blurred the figure again
+  // for each, over every card. One more is asked for after the last, so the frost always ends on the picture that stands.)
+  let lzSeqN = 0, lzSeqLast = -1, lzSeqAt = 0, lzSeqT = 0;
+  const lzGlassSeq = () => {
+    const sq = lz.drawSeq();
+    if (sq === lzSeqLast) return lzSeqN;
+    const now = performance.now();
+    if (now - lzSeqAt >= 80) { lzSeqLast = sq; lzSeqAt = now; lzSeqN++; }
+    else if (!lzSeqT) lzSeqT = setTimeout(() => { lzSeqT = 0; if (veins && !veins.lost) veins.present(true, true); }, 90);
+    return lzSeqN;
+  };
   const lzInFigure = () => !!lz?.shared && (lobuleOn || lz.isShown());
   const frostFresh = () => (frostLiver ? 0 : veins.bloodSeq);
   // The callouts' frosted glass, drawn on the GPU under both callout layers while it can be (glass-gl.js); else the browser's.
