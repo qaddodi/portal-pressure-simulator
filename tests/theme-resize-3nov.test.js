@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 const src = (f) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
 
 test('TH1: the surfaces that redraw for a new look listen to the one theme epoch, not their own observers', () => {
-  for (const f of ['src/ui/widget-gl.js', 'src/ui/col-wave.js', 'src/ui/gl-words.js', 'src/ui/stage.js', 'src/ui/main.js']) assert.match(src(f), /onTheme\(/, f);
+  for (const f of ['src/ui/widget-gl.js', 'src/ui/col-wave.js', 'src/ui/gl-words.js', 'src/ui/stage.js', 'src/ui/main.js']) assert.match(f === 'src/ui/stage.js' ? stageSource() : src(f), /onTheme\(/, f);
   const E = src('src/ui/theme-epoch.js');
   assert.match(E, /export function onTheme/);
   assert.match(E, /export function themeSettled/);

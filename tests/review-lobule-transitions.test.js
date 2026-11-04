@@ -34,7 +34,7 @@ test('G20: a selected organ is outlined in its own deep tone with a soft glow; t
   assert.match(stage, /const OL_LOOK = \{ sel: \[2\.6, /, 'the selection line is 2.6 units');
   assert.match(stage, /getComputedStyle\(g\)\.getPropertyValue\('--o3'\)/, 'its colour is the organ\'s own --og-<tone>-3');
   assert.match(stage, /PASS_SEL = \[\[true, SEL_GLOW\.reach, SEL_GLOW\.alpha\]/, 'a soft glow under the line');
-  assert.match(stage, /const col = o\.col \|\| \(o\.kind === 'pin' \? olCol : orgTone\(o\.id\)\);/, 'slide pins keep their station colour');
+  assert.match(stage, /const col = o\.col \|\| \(o\.kind === 'pin' \? (?:live\.)?olCol : orgTone\(o\.id\)\);/, 'slide pins keep their station colour');
   assert.match(stage, /const SEL_DIM = 0\.6;/);
   assert.match(stage, /\(sel \? SEL_DIM : 1\) \* \(dataLayer \? 0\.72 : 1\)/, 'the GPU plate dims to SEL_DIM');
   assert.match(stage, /const on = !plateOn\(\) && \(plateDim < 1 \|\| plateSat < 1\);/, 'the SVG organs dim with the same values (syncOrganDim)');

@@ -106,10 +106,10 @@ test('stage.js: every treatment mark is built through putMark, so none is added 
   for (const key of ['`stent:${id}`', '`suture:${id}`', '`tie:${id}`', '`plug:${id}`', "'spleen:patches'", "'spleen:cross'", '`band:${i}`']) assert.ok(stage.includes(key), `${key} is a mark`);
 });
 test('stage.js: the GPU draws a mark at its key\'s amount, the loop stays awake while one moves, and a finished one is taken out and read again', () => {
-  assert.match(stage, /el\.closest\('\[data-mk\]'\)\?\.dataset\.mk/);
+  assert.match(stage, /el\.closest\('\[data-(?:live\.)?mk\]'\)\?\.dataset\.mk/);
   assert.match(stage, /c\.alpha = d\.alpha \* fadeEase\(d\.fade\)/);
   assert.equal((stage.match(/markA\.moving\(\)/g) || []).length >= 3, true);
-  assert.match(stage, /for \(const el of r\.gone\) el\.remove\(\); mk\.ver\+\+;/);
+  assert.match(stage, /for \(const el of r\.gone\) el\.remove\(\); (?:live\.)?(?:live\.)?mk\.ver\+\+;/);
   assert.match(stage, /markA\.end\(\(key, m, fading\) => m\.t === t && \(anat \|\| !m\.anatOnly\) && \(fading \|\| !m\.vessel \|\| E\[m\.vessel\]\?\.vis\)\)/);
 });
 test('stage.js: the GPU copy takes the amount on the draw and never as the group\'s opacity (or each step would be read as a new look)', () => {

@@ -161,7 +161,7 @@ test('the organ layers are painted on the GPU from their shapes, with no SVG pic
   // a few ms painted a frame.
   assert.match(stage, /if \(unread\) \{ organPaths\.clear\(\); organPaths\.set\(unread\[0\], `SVG \(\$\{bakeWhy\.get\(unread\[0\]\) \|\| 'not readable'\}\)`\); return false; \}/);
   for (const gone of ['async function rasterPlate', 'function plateMarkup', 'function plateBuild', 'async function svgPicture', 'async function makeGutPic', 'XMLSerializer', "'image/svg+xml'"]) assert.ok(!stage.includes(gone), gone);
-  assert.match(stage, /const gone = \(\) => seq !== plateSeq \|\| drops !== plateDrops \|\| v !== veins \|\| v\.lost \|\| !v\.organs \|\| \(slot === 1 && vseq !== viewSeq\) \|\| key !== plateStateKey\(\);/);
+  assert.match(stage, /const gone = \(\) => seq !== plateSeq \|\| drops !== plateDrops \|\| v !== (?:live\.)?veins \|\| v\.lost \|\| !v\.organs \|\| \(slot === 1 && vseq !== viewSeq\) \|\| key !== plateStateKey\(\);/);
   // (Not a fixed 6 ms a frame of its own any more: a step is what is left of the allowance every refinement shares, in a frame outside a gesture: refine.js.)
   assert.match(stage, /const ms = await refineTurn\(gone\);\n\s+if \(ms === null\) return false;\n\s+const t0 = performance\.now\(\);\n\s+const done = gpuProbe\.time\(null, 'organ picture: GPU paint', bakeStep, job, t0 \+ ms\);/);   // (bakeStep: the kept (job, until) => job.step(until), no closure per frame)
   assert.doesNotMatch(stage, /job\.step\(performance\.now\(\) \+ 6\)/);
