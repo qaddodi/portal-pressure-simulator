@@ -1688,7 +1688,6 @@ button.finding { cursor: pointer; }
 /* The names, their leaders, pills and the legend drawn by the GPU (caption-gl.js) on a canvas under the names' page model, inside the
    names' layer, so the layer's own fades (the view opening, a slide's hush) are the compositor's on the GPU picture. The model stays for
    screen readers and for what reads its boxes, clear and still: its looks are read from it between frames, so nothing on it eases. */
-.cap-gl, .cap-gl + .trace-gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
 .cap-gl-on :is(.sv-region, .sv-legend) { opacity: 0 !important; animation: none !important; transition: none !important; }
 .cap-gl-on .sv-region::before { visibility: hidden; animation: none !important; transition: none !important; }
 .lz-labels.cap-gl-on > :is(.lz-lab, .lz-zone, .lz-call) { opacity: 0 !important; animation: none !important; transition: none !important; }   /* (drawn by the GPU, caption-gl.js: the page's are a clear model) */
