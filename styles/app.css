@@ -7751,4 +7751,7 @@ body { font-optical-sizing: auto; font-kerning: normal; }
 /* The main menu's preview card, the dialogs and the search palette are frosted GPU glass too (menu-glass.js). Their sticky head keeps no fill of its own over it. */
 .um-pv, .modal, .pal { --gl-tint: color-mix(in srgb, var(--surface) 76%, transparent); --gl-line: var(--hairline); --gl-drop: var(--shadow-3); }
 :root:root :is(.um-pv, .modal, .pal)[data-gl] { background: none; box-shadow: none; }
-:root:root .modal[data-gl] > header { background: none; }
+:root:root .modal > header { background: color-mix(in srgb, var(--surface) 92%, transparent); }   /* (sticky: nearly solid, so scrolled rows do not show through it)  */
+/* Before the GPU has drawn a menu's glass (its first frames, and wherever it cannot) the fill is already the glass's own tint, so nothing changes when the frost lands under it:
+   no solid-to-glass flash (Mohammad, 4 Nov 2026, "when the menus first appear they still flicker"). Blur effect off keeps the solid fill above. */
+:root:not([data-noglass]) :is(.menu, .umenu, .why-pop, .um-pv.on, .modal, .pal):not([data-gl]) { background: var(--gl-tint); }
