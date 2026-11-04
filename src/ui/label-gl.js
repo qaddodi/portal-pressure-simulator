@@ -687,7 +687,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     if (!pinAt || !s || s.pid == null) return null;
     // (A zone title (step 3b): placed every frame from its band by the stage, never carried or ridden. Hidden when its band is off screen or too narrow.)
     if (s.pz && pinZoneAt) { if (!pinZoneAt(s, PIN)) PIN_HID = true; return s; }
-    if (s.pwv != null) return pinWorldAt && pinWorldAt(s.pwx, s.pwy, s.pwv, PIN) ? s : null;
+    if (s.pwv != null) return pinWorldAt && pinWorldAt(s.pwx, s.pwy, s.pwv, PIN, s) ? s : null;
     return pinAt(s.pid, PIN, s.pmid, s.pau) ? s : null;
   };
   // (The offset a pinned label is drawn at this frame, CSS px, into OFF: its layout's, or part way there from where it was drawn while its
@@ -700,6 +700,11 @@ void main() { o = texture(uT, vUV) * uA; }`;
   }
   const glides = new Map();   // group → { fx, fy (device px, where it rode), t0 } or { fadeIn: true, t0 }
   const outgoing = [];        // [{ g, st, x, y, a, t0 }]: labels gone at the landing, fading out where they rode
+  // The view change (B2): the labels standing as it begins are kept as ghosts, frozen (their pictures, their pins and offsets, their leaders'
+  // and dots' looks), and ride the morphing figure under the pin of their world anchors, drawn at xfOld; the new view's labels, already
+  // solved, ride it too at xfNew. Both opacities are the change's own progress (1 - 2t and 2t - 1), never a timer. Once it lands the ghosts'
+  // pictures are given to their labels as the alternative picture (st.alt), so a change back to that view builds nothing.
+  let ghosts = [], xfOld = 1, xfNew = 1;
   // (These records are taken from a pool and given back when a glide or fade ends, so a landing makes none: x, y, a, t0 for a label that
   // rode, fx, fy, t0, fadeIn for one that glides.)
   const gpool = [];
@@ -937,7 +942,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     publishWhenDone(gl, hs, () => {
       if (!lost || gl.isContextLost()) return;   // (lost again: the next restore starts over)
       try { finish(hs); } catch { return; }   // (the shaders will not build: the SVG keeps every label)
-      pageTex = []; rpDrop(); retry.clear(); pending.clear(); stuck = false; needRepack = false; packer.reset(); outgoing.length = 0; glides.clear(); rideFrom = null;
+      pageTex = []; rpDrop(); retry.clear(); pending.clear(); stuck = false; needRepack = false; packer.reset(); outgoing.length = 0; ghosts = []; xfOld = xfNew = 1; for (const [, v] of sprites) v.alt = null; glides.clear(); rideFrom = null;
       holeMasks = new WeakMap(); holeShape = null; picPaint = null; lostPic(headSp); lostPic(sHeadSp); slotTex = null;
       for (const s of last) { const st = sprites.get(s.g); if (st) { st.slot = null; st.key = ''; } dirty.add(s.g); }
       pReadSoon(); sReadSoon(); allMarks(); nbk = -1;
@@ -1016,6 +1021,12 @@ void main() { o = texture(uT, vUV) * uA; }`;
     st.mode = !d ? 'none' : svgOnly(d) ? 'svg' : 'gl';
     if (st.mode !== 'gl') return st;
     const key = lookKey(d, rot, dpr);
+    if (st.key !== key && st.alt && st.alt.key === key && st.alt.slot) {
+      // (The picture this label had in the other view, kept when that view's ghost landed: swapped back in, nothing painted. The one it leaves is kept in its place.)
+      const al = st.alt, cur = st.slot ? { key: st.key, slot: st.slot, ox: st.ox, oy: st.oy, w: st.w, h: st.h, shadows: st.shadows, frame: st.frame } : null;
+      Object.assign(st, { slot: al.slot, ox: al.ox, oy: al.oy, w: al.w, h: al.h, shadows: al.shadows, frame: al.frame, key: al.key, wait: false }, { ver: (st.ver | 0) + 1 });
+      st.alt = cur;
+    }
     if (st.key !== key) {
       const lay = layBlock(d, dpr, rot);
       if (!lay) { st.mode = 'none'; return st; }
@@ -1123,6 +1134,17 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // them all before one paint. At least REBUILD_LEAST labels go each time, so it always ends.)
   const REBUILD_MS = 4, REBUILD_LEAST = 12;
   let rushUntil = 0;   // (a view change has landed: every picture the page owes is built now, within no frame budget)
+  function dropGhosts() {
+    for (const gh of ghosts) {
+      const st = sprites.get(gh.s.g), slot = gh.st.slot;
+      if (!slot) continue;
+      if (st && st.mode === 'gl' && st.key !== gh.lkey && !(st.alt?.slot)) {
+        st.alt = { key: gh.lkey, slot, ox: gh.st.ox, oy: gh.st.oy, w: gh.st.w, h: gh.st.h, shadows: gh.st.shadows, frame: gh.st.frame };
+      } else packer.free(slot);
+      gh.st.slot = null;
+    }
+    ghosts = [];
+  }
   function rebuildPass() {
     if (host && !host.active()) { todo.clear(); pending.clear(); return; }
     const now = performance.now();
@@ -1175,6 +1197,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
     const a = [];   // alloc-rare: a repack's step, between frames
     for (const s of last) { const st = sprites.get(s.g); if (st?.slot) a.push(st); }   // alloc-rare: as above
     for (const o of outgoing) if (o.st?.slot) a.push(o.st);   // alloc-rare: as above
+    for (const gh of ghosts) if (gh.st.slot) a.push(gh.st);   // alloc-rare: as above
+    for (const s of last) { const al = sprites.get(s.g)?.alt; if (al?.slot) a.push(al); }   // alloc-rare: as above
     return a;
   }
   function rpCopy(from, to, w, h) {
@@ -1292,6 +1316,21 @@ void main() { o = texture(uT, vUV) * uA; }`;
       }
       outgoing.length = kept;
     }
+    // (The view change's ghosts: the old view's labels, frozen, each at its world anchor under this frame's camera and morph plus its offset.)
+    if (ghosts.length) {
+      moving = true;
+      for (let i = 0; i < ghosts.length; i++) {
+        const gh = ghosts[i], q = gh.s, st = gh.st;
+        gh.on = false;
+        if (!(xfOld * gh.a0 * st.opacity > 0.001) || !st.slot || !pinOf(q) || PIN_HID) continue;
+        pinOff(q);
+        const x = Math.round((PIN[0] + OFF[0]) * dpr) + st.ox, y = Math.round((PIN[1] + OFF[1]) * dpr) + st.oy;
+        gh.on = true; gh.px = PIN[0]; gh.py = PIN[1]; gh.lx = x; gh.ly = y;
+        if (x > W || y > H || x + st.w < 0 || y + st.h < 0) continue;
+        takeItem(st.slot.page, x, y, st.w, st.h, st.slot.x, st.slot.y, Math.min(1, st.opacity) * xfOld * gh.a0, st);
+        boxAt(x, y, x + st.w, y + st.h);
+      }
+    }
     for (const s of last) {
       const { g } = s, rot = !!s.rot;
       const until = live.get(g);
@@ -1362,6 +1401,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
         }
       }
       if (!pinned) st.pin = false;
+      a *= xfNew;   // (the view change's crossfade: this view's labels come in as it passes its half)
       if (fol.on && !pinned) {
         const k = st.fk ??= g.dataset?.key, f = k && fol.m.get(k);
         if (f) { x += Math.round(f.dx * dpr); y += Math.round(f.dy * dpr); } else a *= fol.fade;
@@ -1734,7 +1774,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
         // (A mark this drawing cannot give stays the SVG's; one it draws is hidden there, in the same frame.)
         if (st === false || (st && !geo)) { if (el.hasAttribute('data-gl')) el.removeAttribute('data-gl'); svgLeft.add(el); continue; }
         if (!el.hasAttribute('data-gl')) el.setAttribute('data-gl', '');
-        const a = (st?.op ?? 0) * (ro?.op ?? 1) * folA;
+        const a = (st?.op ?? 0) * (ro?.op ?? 1) * folA * xfNew;
         if (!st || !(a > 0.001) || (!st.stroke && !st.fill)) continue;
         const w = st.stroke ? st.w * dpr : 0, m = w / 2 + 2;
         const box = MBOX;
@@ -1807,7 +1847,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       const st = sprites.get(s.g);
       if (!st || st.mode !== 'gl' || !(st.opacity > 0.001)) continue;
       const want = pinWant.get(key) | 0, lk = pinLooks.get(key);
-      let a = Math.min(1, st.opacity);
+      let a = Math.min(1, st.opacity) * xfNew;
       const fi = glides.get(s.g);
       if (fi?.fadeIn) a *= easeMove(Math.min(1, (now - fi.t0) / RIDE_MS));
       const px = PIN[0] * dpr, py = PIN[1] * dpr;
@@ -1829,6 +1869,27 @@ void main() { o = texture(uT, vUV) * uA; }`;
         if (lk?.halo) { PG[0] = px; PG[1] = py; PG[2] = lk.haloR * dpr; PG[3] = 0; pinMark(lk.halo, PG, false, a * (lk.halo.op ?? 1)); }
         PG[0] = px; PG[1] = py; PG[2] = (lk?.dotR ?? 2.4) * dpr; PG[3] = 0;
         if (pinMark(ds, PG, false, a * (ds?.op ?? 1))) { rec.hasDot = true; rec.dot[0] = px / dpr; rec.dot[1] = py / dpr; }
+      }
+    }
+    // (The ghosts' leaders and dots, as their labels had them, riding their points and fading with them.)
+    for (let i = 0; i < ghosts.length; i++) {
+      const gh = ghosts[i], st = gh.st, lk = gh.lk;
+      if (!gh.on) continue;
+      const a = Math.min(1, st.opacity) * xfOld * gh.a0;
+      if (!(a > 0.001)) continue;
+      const px = gh.px * dpr, py = gh.py * dpr, lx = gh.lx, ly = gh.ly;
+      const cx = lx + st.w / 2, cy = ly + st.h / 2, dx = cx - px, dy = cy - py, hw = st.w / 2, hh = st.h / 2;
+      const gap = Math.hypot(Math.max(lx - px, 0, px - (lx + st.w)), Math.max(ly - py, 0, py - (ly + st.h))) / dpr;
+      if (gap > 10) {
+        const t = 1 - Math.min(dx ? hw / Math.abs(dx) : Infinity, dy ? hh / Math.abs(dy) : Infinity);
+        PG[0] = px; PG[1] = py; PG[2] = px + dx * t; PG[3] = py + dy * t;
+        pinMark(lk?.line?.stroke ? lk.line : defLine, PG, true, a);
+      }
+      if (gh.want & 1) {
+        const ds = lk?.dot || defDot;
+        if (lk?.halo) { PG[0] = px; PG[1] = py; PG[2] = lk.haloR * dpr; PG[3] = 0; pinMark(lk.halo, PG, false, a * (lk.halo.op ?? 1)); }
+        PG[0] = px; PG[1] = py; PG[2] = (lk?.dotR ?? 2.4) * dpr; PG[3] = 0;
+        pinMark(ds, PG, false, a * (ds?.op ?? 1));
       }
     }
     return false;
@@ -2365,7 +2426,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       labelByKey.clear();
       for (const s of list) { const k = s.g.dataset?.key; if (k) labelByKey.set(k, s); }
       for (const s of list) WAS.delete(s.g);
-      for (const g of WAS) { g.removeAttribute('data-gl'); todo.delete(g); dropGlide(g); const st = sprites.get(g); if (st) { packer.free(st.slot); sprites.delete(g); } live.delete(g); }
+      for (const g of WAS) { g.removeAttribute('data-gl'); todo.delete(g); dropGlide(g); const st = sprites.get(g); if (st) { if (st.slot) packer.free(st.slot); if (st.alt?.slot) packer.free(st.alt.slot); sprites.delete(g); } live.delete(g); }
       if (host) { ask(); return; }
       if (raf) { cancelFrame(raf); raf = 0; }
       draw();
@@ -2405,6 +2466,27 @@ void main() { o = texture(uT, vUV) * uA; }`;
     rush(ms) { rushUntil = performance.now() + ms; },
     /** Calls fn after a draw that left no picture owed: the layer is shown only then, so no label of the old view or half built is ever seen. */
     afterDraw(fn) { afterQ.push(fn); ask(); },
+    /** A view change begins: the anchored labels standing are kept as ghosts (their pictures, pins and leaders), and their labels owe new pictures. */
+    freezeGhosts() {
+      if (lost || host) return 0;
+      dropGhosts();
+      for (const s of last) {
+        const g = s.g, st = sprites.get(g);
+        if (s.pid == null || !st || st.mode !== 'gl' || !st.slot || !(st.opacity > 0.001)) continue;
+        const key = g.dataset?.key;
+        ghosts.push({ s, key, a0: xfNew, want: key ? pinWant.get(key) | 0 : 0, lk: key ? pinLooks.get(key) : null, on: false, px: 0, py: 0, lx: 0, ly: 0, lkey: st.key,
+          st: { slot: st.slot, w: st.w, h: st.h, ox: st.ox, oy: st.oy, shadows: st.shadows, frame: st.frame, ring: null, opacity: st.opacity } });
+        st.slot = null; st.key = ''; dirty.add(g); pending.add(g);
+      }
+      xfOld = 1; xfNew = 0;
+      ask();
+      return ghosts.length;
+    },
+    /** The change's crossfade, from its own progress: the old view's ghosts at `o`, the new view's labels at `n`; a draw in this frame. */
+    crossfade(o, n) { xfOld = o; xfNew = n; if (lost) return; if (raf) { cancelFrame(raf); raf = 0; } draw(); },
+    /** The change has landed: the ghosts go, each giving its picture to its label as the one for that view's look. */
+    dropGhosts() { dropGhosts(); xfOld = 1; xfNew = 1; ask(); },
+    get ghosting() { return ghosts.length > 0; },
     /** Every picture standing is read and built again: a label whose text or look changed with the view never shows its old picture. */
     invalidate() { for (const s of last) dirty.add(s.g); ask(); },
     get riding() { return !!rideM; },

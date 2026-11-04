@@ -2619,6 +2619,126 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     morphFadeDrop();   // (in this frame, not the next)
     setTimeout(morphFadeDrop, 1500, true);
   }
+  // The change between the views, labels and camera on its one clock (view-switch-labels-recs.md, option B2). At the tap the new view's labels are
+  // solved for where the change lands (solveTargetView) and the labels standing become ghosts (label-gl.js freezeGhosts); the figure's own progress p
+  // then runs everything: the camera is lerped from its framing to the target's by p, the ghosts ride their points at 1 - 2p and the new labels
+  // theirs at 2p - 1. Nothing is solved or built as it lands; the pictures of the new view are built in the frames of the change.
+  let viewXf = null, glSuppress = false, xfOp = '';
+  const xfVis = [null, null];
+  function viewXfP() { const x = viewXf, t = easeInOut(morph); return x.tT === x.t0 ? 1 : clamp((t - x.t0) / (x.tT - x.t0), 0, 1); }
+  // (The label layers the GPU does not draw (the SVG's own, the liver's pane) come in with the new labels.)
+  function xfLayer(n) {
+    const v = n >= 1 ? '' : n.toFixed(3);
+    if (v === xfOp) return;
+    xfOp = v;
+    if (labelSvg) labelSvg.style.opacity = v;
+    glass.style.opacity = v;
+  }
+  function xfVisFill() {
+    for (let v = 0; v < 2; v++) { const a = xfVis[v] ||= new Uint8Array(EV.length); for (let i = 0; i < EV.length; i++) a[i] = F && visAt(EV[i], v === 0) ? 1 : 0; }
+  }
+  // Where a world point laid out for `view` (0 anatomy, 1 circuit) is at this frame of the change: found once, on the nearest drawn vessel of that view
+  // (its segment and share along it, and what is left over), then carried by that vessel's own two courses, A and C, as the change blends them.
+  // A point on no vessel (an organ's name) keeps its place in the world.
+  const MA_NONE = { i: -1, f: 0, dx: 0, dy: 0, id: null };
+  function resolveMorphAnchor(wx, wy, view) {
+    const vis = xfVis[view];
+    let best = null, bd = 25 * 25;
+    for (let n = 0; n < EV.length; n++) {
+      if (vis && !vis[n]) continue;
+      const g = geo[EV[n].e.id], P = g && (view === 0 ? g.A : g.C);
+      if (!P || P.length < 2 || !g.C || g.C.length !== g.A.length) continue;
+      for (let i = 0; i < P.length - 1; i++) {
+        const ax = P[i][0], ay = P[i][1], bx = P[i + 1][0], by = P[i + 1][1], ex = bx - ax, ey = by - ay, l2 = ex * ex + ey * ey;
+        const f = l2 > 0 ? clamp(((wx - ax) * ex + (wy - ay) * ey) / l2, 0, 1) : 0, qx = ax + ex * f, qy = ay + ey * f, d2 = (wx - qx) * (wx - qx) + (wy - qy) * (wy - qy);
+        if (d2 < bd) { bd = d2; best = { id: EV[n].e.id, i, f, dx: wx - qx, dy: wy - qy }; }
+      }
+    }
+    return best || MA_NONE;
+  }
+  function morphAnchorAt(wx, wy, view, out, s) {
+    let r = s ? s.mA : null;
+    if (!r) { r = resolveMorphAnchor(wx, wy, view); if (s) s.mA = r; }
+    let x = wx, y = wy;
+    if (r.id) {
+      const g = geo[r.id], t = easeInOut(morph), a0 = g.A[r.i], a1 = g.A[r.i + 1], c0 = g.C[r.i], c1 = g.C[r.i + 1], w = view === 0 ? 1 - t : t;
+      x = lerp(a0[0] + (a1[0] - a0[0]) * r.f, c0[0] + (c1[0] - c0[0]) * r.f, t) + r.dx * w;
+      y = lerp(a0[1] + (a1[1] - a0[1]) * r.f, c0[1] + (c1[1] - c0[1]) * r.f, t) + r.dy * w;
+    }
+    worldToLocalInto(out, x, y);
+    return Number.isFinite(out[0]) && Number.isFinite(out[1]);
+  }
+  // The new view's labels laid out for where the change lands: the stage put to its end (the view, the camera, the vessels' courses and which
+  // are drawn), the labels solved whole, and the stage put back, nothing drawn in between.
+  const solveTargetVT = { k: 1, x: 0, y: 0 };
+  function solveTargetView(d) {
+    const tgt = morphTarget, keepVT = vt, keepMorph = morph, keepLast = lastMorph, vb0 = vbBox.x, vb1 = vbBox.y, vb2 = vbBox.width, vb3 = vbBox.height;
+    const curS = [], visS = [];
+    glSuppress = true;
+    try {
+      morph = tgt; lastMorph = tgt;
+      const rr = rotEase(rotU), vbT = (i) => +lerp(VB_ANAT[i], lerp(VB_CIRC[i], VB_CIRC_R[i], rr), tgt).toFixed(1);
+      vbBox.x = vbT(0); vbBox.y = vbT(1); vbBox.width = vbT(2); vbBox.height = vbT(3);
+      solveTargetVT.k = d.k; solveTargetVT.x = d.x; solveTargetVT.y = d.y; vt = solveTargetVT;
+      for (let i = 0; i < EV.length; i++) {
+        const x = EV[i], g = geo[x.e.id];
+        curS.push(g.cur); visS.push(x.vis);
+        g.cur = vesselAt(x, tgt).pts;
+        x.vis = x.reveal?.out ? true : edgeVisible(x, F);
+      }
+      CTM = null; refreshCTM();
+      labelKey = null; solveAsked = true;
+      updateLabels(F, true);
+      if (labelJob) labelJobFinish();
+    } finally {
+      for (let i = 0; i < EV.length; i++) { geo[EV[i].e.id].cur = curS[i]; EV[i].vis = visS[i]; }
+      morph = keepMorph; lastMorph = keepLast; vt = keepVT;
+      vbBox.x = vb0; vbBox.y = vb1; vbBox.width = vb2; vbBox.height = vb3;
+      CTM = null; refreshCTM();
+      glSuppress = false;
+    }
+    labelGlSync();
+  }
+  function viewXfStart(d) {
+    viewXf = null;   // (a change begun on another: the new one is solved first, with the layers out of the old one's hands)
+    labelJobDrop();
+    if (handRide) handRideEnd();
+    labelGL.freezeGhosts();
+    xfVisFill();
+    solveTargetView(d);
+    // (A glide of the camera that was running is over: the change's own clock moves it now.)
+    cancelFrame(vtAnim); arcRun = null; landRide = false; landTo = null; following = false;
+    if (drifting) driftEnd();
+    drifting = false;
+    if (carrying) { carrying = false; rideLeaders(false); }
+    const to = { k: d.k, x: d.x, y: d.y };
+    viewXf = { t0: easeInOut(morph), tT: morphTarget, from: { ...vt }, to, same: sameView(vt, to) };
+    vtTarget = to; vtGliding = !viewXf.same; vtUntil = performance.now() + 700; vtMs = 700;
+    xfOp = '';
+    xfLayer(0);
+    viewXfStep();
+  }
+  // (Each frame of the change, after the figure is drawn at its morph: the crossfade from its progress. The camera was set before it.)
+  function viewXfStep() {
+    const x = viewXf, p = viewXfP();
+    refreshCTM();
+    const n = clamp(2 * p - 1, 0, 1);
+    xfLayer(n);
+    labelGL.crossfade(clamp(1 - 2 * p, 0, 1), n);
+    if (p >= 1 || morph === morphTarget) viewXfEnd();
+  }
+  function viewXfEnd() {
+    const x = viewXf;
+    if (!x) return;
+    viewXf = null;
+    if (!x.same) { vt = { ...x.to }; applyVT(); CTM = null; }
+    vtGliding = false;
+    xfLayer(1);
+    labelGL.dropGhosts();
+    refreshCTM();
+    // (Laid out for this very camera already: this finds the key the same, and only refreshes values.)
+    if (F) updateLabels(F);
+  }
   // (Whether the view is moving now: a glide, a pan or a pinch. Boxes kept for the frame's reads are not read again while it is.)
   const viewMoving = () => vtGliding || camMove || wrap.classList.contains('pinch-hide') || wrap.classList.contains('panning');
   // A slow push (opt.drift: a time-lapse's lapse.cam) is not a move of that kind: the labels stay up and ride with the figure, each kept
@@ -10529,9 +10649,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (A card's zoom: the point is carried by the scene camera; the label's offset from it is not.)
     if (zoomM) { const x = out[0], y = out[1]; out[0] = zoomM[0] * x + zoomM[4]; out[1] = zoomM[3] * y + zoomM[5]; }
     return Number.isFinite(out[0]) && Number.isFinite(out[1]);
-  }, (wx, wy, view, out) => {
+  }, (wx, wy, view, out, s) => {
     // (A world anchor, any figure label: where the point is under this frame's camera. Only at rest in the view it was laid out for: between the
     // two views the geometry moves, and those labels follow as before.)
+    if (viewXf) { if (!CTM) refreshCTM(); return morphAnchorAt(wx, wy, view, out, s); }   // (the change between the views: the point rides the vessel it lies on)
     if (!(morph === 0 || morph === 1) || morph !== view) return false;
     if (!CTM) refreshCTM();
     worldToLocalInto(out, wx, wy);
@@ -10539,7 +10660,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }, (s, out) => {
     // (A zone title's centre under this frame's camera: the middle of the visible part of its band, kept inside it, on the map's top edge, or on its left edge when
     // the map is turned upright. False: its band is off screen or narrower than the title, and it is not drawn.)
-    if (!(morph === 0 || morph === 1) || morph !== s.pwv) return false;
+    if (!viewXf && (!(morph === 0 || morph === 1) || morph !== s.pwv)) return false;
     if (!CTM) refreshCTM();
     const { width: W, height: H } = stageBox(), w = s.pzw;
     worldToLocalInto(ZONE_A, s.pzx0, 60); worldToLocalInto(ZONE_B, s.pzx1, 60);
@@ -10869,7 +10990,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const labelGlAdd = (b) => { if (b.pos && b.pos.view === morphTarget) labelGlA.push(b.pos); };
   const NO_LABELS = [];
   let glHold = false;
-  const labelGlSync = () => { if (!labelGL) return; if (glHold) { labelGL.sync(NO_LABELS); return; }   // (a layout of another view stands: none of its labels is drawn)
+  const labelGlSync = () => { if (!labelGL || glSuppress) return; if (glHold) { labelGL.sync(NO_LABELS); return; }   // (a layout of another view stands: none of its labels is drawn)
     const t = labelGlA; labelGlA = labelGlB; labelGlB = t; labelGlA.length = 0; pool.forEach(labelGlAdd); labelGL.sync(labelGlA); };
   const FONT = 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
   // (Words measured from the GPU atlas's own Inter metrics, glyph-measure.js, as label-gl.js sets them: no 2D canvas.)
@@ -11197,7 +11318,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (gp) localToWorldInto(ANCHOR_W, it.ax, it.ay);
     const gw = gp && Number.isFinite(ANCHOR_W[0]) && Number.isFinite(ANCHOR_W[1]);
     const zn = it._zone && (morph === 0 || morph === 1) && Number.isFinite(it.ax) && Number.isFinite(it.ay) ? it._zone : null;
-    b.pos = { g: b.g, x: px0, y: py0, rot: !!it.rot, pid: pin ? it.key.slice(2) : gw || zn ? it.key : null, pax: pin || gw || zn ? it.ax : 0, pay: pin || gw || zn ? it.ay : 0, pmid: pk === 1, pau: it.au ?? 0.5, pwx: gw ? ANCHOR_W[0] : 0, pwy: gw ? ANCHOR_W[1] : 0, pwv: gw || zn ? morph : null, pz: !!zn, pzx0: zn ? zn[0] : 0, pzx1: zn ? zn[1] : 0, pzt: zn ? zn[2] : false, pzw: zn ? it.w : 0, pzh: zn ? it.h : 0, view: morphTarget };
+    b.pos = { g: b.g, x: px0, y: py0, rot: !!it.rot, pid: pin ? it.key.slice(2) : gw || zn ? it.key : null, pax: pin || gw || zn ? it.ax : 0, pay: pin || gw || zn ? it.ay : 0, pmid: pk === 1, pau: it.au ?? 0.5, pwx: gw ? ANCHOR_W[0] : 0, pwy: gw ? ANCHOR_W[1] : 0, pwv: gw || zn ? morph : null, pz: !!zn, pzx0: zn ? zn[0] : 0, pzx1: zn ? zn[1] : 0, pzt: zn ? zn[2] : false, pzw: zn ? it.w : 0, pzh: zn ? it.h : 0, view: morphTarget, mA: null };
     // (Its box on an 8 px grid, for the corner credit's look (labelBoxStamp): a number ticking inside it moves nothing the credit avoids.)
     const c0 = Math.floor((it.x - it.padX) / 8), c1 = Math.floor((it.y - it.padY) / 8), c2 = Math.ceil((it.x + (it.rot ? it.h : it.w) + it.padX) / 8), c3 = Math.ceil((it.y + (it.rot ? it.w : it.h) + it.padY) / 8), ch = !!it.hide;
     if (!b.box || c0 !== b.bc0 || c1 !== b.bc1 || c2 !== b.bc2 || c3 !== b.bc3 || ch !== b.bch) {
@@ -11894,6 +12015,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const handRideRec = { settle: false };   // (the one record of a hand's zoom ridden: handRide points at it while a ride runs)
   function updateLabels(f, force = false) {
     labelPainted = false;
+    if (viewXf) return;   // (the change between the views: the new view's labels were solved at the tap for where it lands, and ride it)
     // Laid out once the presenter's camera settles (see camSettle), or at once if its glide was cut short.
     if (camMove) { if (!vtGliding && !morphFade) camSettle(); return; }
     // (Not while the HVPG catheter hides them (cath-on, after its .25 s fade): its view follows the tip every frame, and every frame
@@ -14225,7 +14347,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     stepMap(dt);
     if (morph !== morphTarget) {
       morph = clamp(morph + Math.sign(morphTarget - morph) * dt / 0.6, 0, 1);
+      // (The camera is on the change's clock: its framing is the share of the way the figure has come.)
+      if (viewXf && !viewXf.same) { const p = viewXfP(); vt = p >= 1 ? { ...viewXf.to } : lerpVT(viewXf.from, viewXf.to, p); }
       if (F) update(F); else updateGeometry(true);
+      if (viewXf) viewXfStep();
       if (followOn) followStep();
       // (Landed: the labels laid out once, in a task of their own after the landing frame's (it writes every path), then faded in.)
       if (morph === morphTarget && morphFade) setTimeout(() => { if (morph === morphTarget) morphFadeEnd(); }, 0);
@@ -15295,6 +15420,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const d = wasOut ? circWhole() : defaultVT(target === 1);
       if (target === 0) { homeAt = d; fitted = true; }   // back to the anatomy: always its home framing
       else { markCirc(wasOut ? 'whole' : 'focus', d); fitted = true; }   // the circuit opens fitted: a turn of the device refits it
+      // (The change between the views carries the camera, the ghosts of the old labels and the new view's labels on its one clock: viewXfStart.)
+      if (F && labelGL && !labelGL.lost && !(cath.st && !cath.st.keep) && !lobuleOn && !lz?.isOpen()) { viewXfStart(d); return; }
       if (d.k !== vt.k || d.x !== vt.x || d.y !== vt.y) animateVT(d, 600);
       if (F && !reduceMotion.matches && !(cath.st && !cath.st.keep) && !lobuleOn && !lz?.isOpen()) {
         rideStop(); morphFade = true; camMove = true; dpr.carry = false;
