@@ -34,6 +34,7 @@ test('mid entrance: the exit runs from the look worked out from the entrance\'s 
   const k = +easeArrive(0.5).toFixed(4);
   assert.deepEqual(calls[0].kf, [{ opacity: k }, { opacity: 0 }]);
   assert.deepEqual(calls[0].o, { duration: D_FLIP, easing: EASE_IN, fill: 'forwards' });
+});
 
 test('a sheet that slides in leaves from where it had slid, by its own edge variables; the main menu\'s sheet leaves on --d-small', () => {
   calls.length = 0;
