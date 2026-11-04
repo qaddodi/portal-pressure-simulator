@@ -18,6 +18,7 @@ import { Inline, inlineShift, inlineTranslate, Motion, compileKeyframes, motionA
 import { pathPolys, fanTriangles } from './path-poly.js';
 import { easeArrive, D_SURFACE } from './ease.js';
 import { caught } from './caught.js';
+import { glassForgetters } from './drop-label.js';
 import { booting, holdCover } from './quiet.js';
 import { viewSize } from './layout-snap.js';
 import { parseCssColor } from './css-color.js';
@@ -653,7 +654,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     // a mask made in the middle of them once took its place, a grey glass for one frame (1 Nov 2026).)
     G.activeTexture(G.TEXTURE1);
     // alloc-rare: a glass's first mask
-    if (!m) { m = { tex: texOf(G, G.LINEAR), fb: G.createFramebuffer() }; K.maskTex.add(m.tex); K.maskFb.add(m.fb); }
+    if (!m) { m = { tex: texOf(G, G.LINEAR), fb: G.createFramebuffer(), g }; K.maskTex.add(m.tex); K.maskFb.add(m.fb); K.maskRec.add(m); }
     G.bindTexture(G.TEXTURE_2D, m.tex);
     if (m.w !== mw || m.h !== mh) { G.texImage2D(G.TEXTURE_2D, 0, G.RGBA8 ?? G.RGBA, mw, mh, 0, G.RGBA, G.UNSIGNED_BYTE, null); m.w = mw; m.h = mh; }
     fillMask(G, m, d, ss, mw, mh);
@@ -663,7 +664,23 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     return m;
   }
   // Every mask a picture's glasses need, made before the first of them is drawn (the state they are drawn with set after).
-  function masksFor(panes, K) { for (const p of panes) if (!p.rad && p.d) maskOf(p.g, p.d, p.lw, p.lh, K); }
+  function masksFor(panes, K) {
+    sweepMasks(K);
+    for (const p of panes) if (!p.rad && p.d) maskOf(p.g, p.d, p.lw, p.lh, K);
+  }
+  // A glass element's mask given back (F1, 4 Nov 2026): its texture and framebuffer, deleted and taken out of the kit's sets. Until then the
+  // sets held every callout's mask for as long as the figure's context lived, one texture and framebuffer for each reading ever shown.
+  function freeMask(K, m) {
+    K.maskRec.delete(m); K.masks.delete(m.g);
+    K.maskTex.delete(m.tex); K.maskFb.delete(m.fb);
+    if (!K.G.isContextLost()) { K.G.deleteTexture(m.tex); K.G.deleteFramebuffer(m.fb); }
+  }
+  function forgetMask(g) { const K = hk, m = K && K.masks.get(g); if (m) freeMask(K, m); }
+  // (The safety net: a mask whose element has left the page, whoever forgot to say so, is freed at the next picture's masks.)
+  function sweepMasks(K) {
+    if (!K.maskRec.size) return;
+    for (const m of K.maskRec) if (!m.g.isConnected) freeMask(K, m);
+  }
   // Each callout's glass as the page lays it out this frame (its fades, glides and the card's shadow included).
   function readPanes(list, keep0 = false) {
     fadeMemo = new Map();
@@ -882,7 +899,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     const K = { G, ...P,   // alloc-rare: the kit is made once per figure context (setHost), never per frame
       vao: G.createVertexArray(), copy: texOf(G, G.LINEAR), pass: texOf(G, G.LINEAR), blurred: texOf(G, G.LINEAR),
       fbCopy: G.createFramebuffer(), fbPass: G.createFramebuffer(), fbOut: G.createFramebuffer(), steps: [], size: '', key: '', reg: null, k: 1,   // alloc-rare: once per figure context
-      masks: new WeakMap(), maskTex: new Set(), maskFb: new Set() };   // alloc-rare: once per figure context
+      masks: new WeakMap(), maskTex: new Set(), maskFb: new Set(), maskRec: new Set() };   // alloc-rare: once per figure context
     G.bindTexture(G.TEXTURE_2D, null);
     return K;
   }
@@ -1713,6 +1730,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   // (The figure drawn again: the blur under a glass that shows is taken again. With none showing, the figure is not its business.)
   const offFigure = onFigure?.(() => { if (shown && !hostOn) wake(); });   // (drawn into the figure's canvas: laid with each picture)
   measureGeo();
+  glassForgetters.add(forgetMask);   // (dropLabel tells every renderer a callout's glass is going; dispose() leaves the list)
   return {
     /** Also watches `root` for writes that may move this glass's elements (a region added later). */
     watch: watchMore,
@@ -1809,7 +1827,10 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
       if (hostOn) { hostOn = false; hf = null; if (cards && !co) document.documentElement?.removeAttribute?.('data-cardgl'); host?.now(); }
       hostFree();
       maskTex.clear(); maskFb.clear();
+      glassForgetters.delete(forgetMask);
     },
+    /** Gives back the mask of a glass element that is going (a callout dropped): its texture and framebuffer. Safe to call again. */
+    forget: forgetMask,
   };
 }
 

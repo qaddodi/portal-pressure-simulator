@@ -5,7 +5,13 @@
 // alive, a GPU drawer each, every time the summary was dismissed (2 Nov 2026, code sweep for glitches: GPU memory grows with every
 // measurement, the pressure under which the glass is the first thing the GPU gives up). No DOM here, so tests can run it.
 
+// The glass renderers (glass-gl.js) that keep a GPU mask for each callout; each adds its forget(glassEl) here and removes it on dispose.
+// dropLabel tells them all, so a dropped callout's mask texture and framebuffer are deleted (F1, 4 Nov 2026), not kept for the life of the figure.
+export const glassForgetters = new Set();
+
 const own = (el) => {
+  const gl = el.firstElementChild;
+  if (gl && glassForgetters.size) for (const f of glassForgetters) f(gl);
   el._glass?.dispose?.();
   // (Kept, disposed: a late set on them does nothing.)
   el._kW?.dispose?.(); el._bW?.dispose?.(); el._uW?.dispose?.();
