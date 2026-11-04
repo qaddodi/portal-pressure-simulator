@@ -8,8 +8,8 @@
 // words, 7365) is the .pze-cwords group they sit in.
 import { tok, mix, ease } from './dsl.js';
 
-// Colours that never change with the look (styles/tokens.css 31 and 120): the pressure ramp's violet and wine stops, and pure black.
-const VIOLET = '#925CDD', WINE = '#A4216E', BLACK = '#000000';
+// Colours that never change with the look, all tokens (theme-tokens.js): the pressure ramp's violet and wine stops, and pure black.
+const VIOLET = tok('ramp-violet'), WINE = tok('ramp-wine'), BLACK = tok('pze-black');
 
 // One row for each zone tone: [tone, its colour, % of it in the fill on the card (light looks), % in a dark look (over black), % in its words' ink].
 // The fill is `--pze-<tone>` and the words' ink `--pze-<tone>-ink` of app.css 7295-7311 (now printed from theme-tokens.js for the keys' swatches).

@@ -13,7 +13,8 @@ const ctx = (theme = 'light', dark = false, palette = 'navy', host = 'plane') =>
 const P = (k, st = {}, c = ctx()) => resolveProps(LOOKS[k], c, st, {});
 const keys = Object.keys(LOOKS).filter((k) => k.startsWith('plane.'));
 const tokens = readFileSync(new URL('../styles/tokens.css', import.meta.url), 'utf8');
-const STATIC = { 'ramp-violet': tokens.match(/--ramp-violet: (#[0-9A-Fa-f]{6})/)[1], 'ramp-wine': tokens.match(/--ramp-wine: (#[0-9A-Fa-f]{6})/)[1], black: tokens.match(/--black: (#[0-9A-Fa-f]{6})/)[1] };
+const STATIC = { black: tokens.match(/--black: (#[0-9A-Fa-f]{6})/)[1] };   // (--black is tokens.css's own; pze-black must equal it)
+assert.equal(tokensFor({ theme: 'light' })['pze-black'].toLowerCase(), STATIC.black.toLowerCase());
 // A swatch token as the page computes it: its text with every var() filled in from the look's tokens, read as a colour.
 const swatch = (c, name) => {
   const t = { ...tokensFor(c), ...STATIC };

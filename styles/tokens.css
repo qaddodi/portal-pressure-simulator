@@ -370,6 +370,7 @@
   --ramp-wine: #A4216E;
   --pz-hepatocyte: #C58B5C;
   --fibroscan: #f0924a;
+  --pze-black: #000000;
   --pze-ok: color-mix(in srgb, var(--ok) 28%, var(--surface));
   --pze-mid: color-mix(in srgb, var(--caution) 40%, var(--surface));
   --pze-hi: color-mix(in srgb, var(--danger) 30%, var(--surface));

@@ -157,6 +157,7 @@ export const TOKENS = {
     // WP11 (card diagrams, the lobule leaders): flat colours the same in every look, read by chart-looks/card.js (the pressure ramp's 12 and 20 mmHg stops; the hepatocyte)
     'ramp-violet': '#925CDD', 'ramp-wine': '#A4216E', 'pz-hepatocyte': '#C58B5C', 'fibroscan': '#f0924a',
 
+    'pze-black': '#000000',   // (the dark looks' zone tints are mixed over it; the same as --black)
     // WP9 plane (chart-looks/plane.js reads the same mixes as numbers; these are printed for the keys' swatches, .pze-key and .pze-ckey): a zone's fill and its words' ink
     // (blue, and the pressure ramp's violet and wine stops; quieter tints of the same colours, Mohammad 29 Oct, each still 30 apart from the others, plane-callouts test)
     'pze-ok': 'color-mix(in srgb, var(--ok) 28%, var(--surface))', 'pze-mid': 'color-mix(in srgb, var(--caution) 40%, var(--surface))', 'pze-hi': 'color-mix(in srgb, var(--danger) 30%, var(--surface))',
