@@ -981,18 +981,15 @@ function bloodItems() {
   const toggle = menuToggle;
   const layer = (key, ic, label, sub) => toggle(st.layers[key] !== false, ic, label, sub, (on) => store.set({ layers: { ...store.get().layers, [key]: on } }));
   return [
-    h('div', { class: 'menu-title' }, 'Moving blood'),
-    toggle(flowOn, 'streaks', 'Streaks', 'Silky streaks carried by the flow', (on) => { store.set({ layers: { ...store.get().layers, flow: on } }); syncBloodBtn(); }),
-    toggle(!!b.chevrons, 'chevrons', 'Chevrons', 'Flow arrows, orange where reversed', (on) => setBlood({ chevrons: on })),
-    toggle(!!b.keyChevrons, 'chevrons', 'Key chevrons only', 'Just the main routes, not every vessel', (on) => setBlood({ keyChevrons: on })),
-    h('div', { class: 'menu-sep' }),
-    h('div', { class: 'menu-title' }, 'Show on the figure'),
-    layer('chips', 'tag', 'Pressure values', 'The number beside each vessel\u2019s name'),
-    layer('collaterals', 'route', 'Potential collaterals', 'Dotted routes that open with pressure'),
-    layer('labels', 'liver', 'Organ names', 'The caption on each organ'),
-    h('div', { class: 'menu-sep' }),
-    h('div', { class: 'menu-title' }, 'Labels'),
-    labelLevelSeg(),
+    menuSection('Moving blood',
+      toggle(flowOn, 'streaks', 'Streaks', 'Silky streaks carried by the flow', (on) => { store.set({ layers: { ...store.get().layers, flow: on } }); syncBloodBtn(); }),
+      toggle(!!b.chevrons, 'chevrons', 'Chevrons', 'Flow arrows, orange where reversed', (on) => setBlood({ chevrons: on })),
+      toggle(!!b.keyChevrons, 'chevrons', 'Key chevrons only', 'Just the main routes, not every vessel', (on) => setBlood({ keyChevrons: on }))),
+    menuSection('Show on the figure',
+      layer('chips', 'tag', 'Pressure values', 'The number beside each vessel\u2019s name'),
+      layer('collaterals', 'route', 'Potential collaterals', 'Dotted routes that open with pressure'),
+      layer('labels', 'liver', 'Organ names', 'The caption on each organ')),
+    menuSection('Labels', labelLevelSeg()),
   ];
 }
 // Which stations are labelled: the key ones (portal vein, the HVPG pair, what is abnormal; everything once
@@ -1015,9 +1012,9 @@ function lobuleLayerItems() {
   const l = store.get().lobuleLayers || {};
   const set = (patch) => store.set({ lobuleLayers: { ...store.get().lobuleLayers, ...patch } });
   return [
-    h('div', { class: 'menu-title' }, 'Show on the lobule'),
-    menuToggle(!!l.zones, 'zones', 'Zones', 'Zones 1 to 3, portal to central vein', (on) => set({ zones: on })),
-    menuToggle(!!l.lymph, 'lymph', 'Lymph', 'Where lymph forms and drains', (on) => set({ lymph: on })),
+    menuSection('Show on the lobule',
+      menuToggle(!!l.zones, 'zones', 'Zones', 'Zones 1 to 3, portal to central vein', (on) => set({ zones: on })),
+      menuToggle(!!l.lymph, 'lymph', 'Lymph', 'Where lymph forms and drains', (on) => set({ lymph: on }))),
   ];
 }
 function lensKeys() { return Object.keys(LENSES); }
@@ -1308,15 +1305,15 @@ function fullscreenControl() {
 let fsSync = null, fsListening = false;
 function openHelpMenu(anchor, at = { align: 'start', cls: 'app-menu' }) {
   popover(anchor, [
-    h('div', { class: 'menu-title' }, 'Help'),
-    menuItem('Guide', { icon: 'book', onClick: () => { closePopover(); openHelp(); } }),
-    menuItem('Keyboard shortcuts', { icon: 'grid', kb: '?', onClick: () => { closePopover(); openHelp('keys'); } }),
-    menuItem('About the model', { icon: 'info', onClick: () => { closePopover(); openAbout(); } }),
-    menuItem('References', { icon: 'case', onClick: () => { closePopover(); openAbout('refs'); } }),
-    menuItem('Privacy', { icon: 'lock', onClick: () => { closePopover(); openPrivacy(); } }),
-    h('div', { class: 'menu-sep' }),
-    h('a', { class: 'menu-credit', href: AUTHOR_URL, target: '_blank', rel: 'noopener', onclick: () => closePopover() },
-      h('span', {}, 'Created by ', h('b', {}, AUTHOR)), h('span', { class: 'mc-link' }, 'More teaching tools ', icon('chev-right'))),
+    menuSection('Help',
+      menuItem('Guide', { icon: 'book', onClick: () => { closePopover(); openHelp(); } }),
+      menuItem('Keyboard shortcuts', { icon: 'grid', kb: '?', onClick: () => { closePopover(); openHelp('keys'); } }),
+      menuItem('About the model', { icon: 'info', onClick: () => { closePopover(); openAbout(); } }),
+      menuItem('References', { icon: 'case', onClick: () => { closePopover(); openAbout('refs'); } }),
+      menuItem('Privacy', { icon: 'lock', onClick: () => { closePopover(); openPrivacy(); } })),
+    menuSection(null,
+      h('a', { class: 'menu-credit', href: AUTHOR_URL, target: '_blank', rel: 'noopener', onclick: () => closePopover() },
+        h('span', {}, 'Created by ', h('b', {}, AUTHOR)), h('span', { class: 'mc-link' }, 'More teaching tools ', icon('chev-right')))),
   ], at);
 }
 // Send feedback: a draft in the viewer's own email app, addressed to the author, with what a bug report needs underneath

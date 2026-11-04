@@ -15,7 +15,7 @@ test('a label shortened past the round\'s allowance is put back whole (a rescue 
 });
 
 test('menu rows keep their own height; the menu scrolls instead of squeezing them onto the next row', () => {
-  assert.match(css, /\.menu > :is\(\.menu-item, \.lens-opt, \.menu-title\) \{ flex-shrink: 0; \}/);
+  assert.match(css, /\.menu > :is\(\.menu-item, \.lens-opt, \.menu-title, \.menu-group\) \{ flex-shrink: 0; \}/);
 });
 
 test('a small Ascites belly is 84 px (its mL/day line cleared the circle by less than the text)', () => {
