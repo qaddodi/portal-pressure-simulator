@@ -6,7 +6,7 @@ import { hold as gpuHold, overMemory as gpuOverMemory } from './gpu-budget.js';
 import { WARM_VIEWS, WARM_MS } from './warm-views.js';
 import { gastricUp } from '../engine/scenario.js';
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId, isStent, stentSite, STENT_SITES, STENT_SPANS, stentGate, stentSegments } from '../engine/topology.js';
-import { route as metroRoute, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, CAVITY_LOW, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js';
+import { route as metroRoute, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, ART_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, CAVITY_LOW, flankPath, abdomenOutline, cavityHalfWidths, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, ABBR, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, SIN_EDGES, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js';
 import { pressureColor, deltaColor, dropColor, flowColor, heatColor, velColorOf, velocityColor, oxygenColor } from './colormap.js';
 import { sideEndScale } from './fork-joins.js';
 import { lookChanged, newLookSig } from './look-sig.js';
@@ -1145,8 +1145,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (fadeMask: a tributary that sinks into a retroperitoneal vein fades into it, FEEDER_FADE_Y, unless its trunk is carried on.)
     const feeders = !isArt && feedGeo[e.id] ? feedGeo[e.id].map(({ pts: cur, k: fk, fan, when, src, out }, i) => ({ cur, fk, fan, when, src, out, len: arcLen(cur), ph: i * 0.37, fadeMask: !!FEEDER_FADE_Y[e.id] })) : null;
     // A vein that ends in the organ it drains fades out over its first stretch (TIP_FADE, drawn by the GPU from `line`): none in the circuit.
-    const tipFade = TIP_FADE[e.id] && !isArt ? { frac: TIP_FADE[e.id], line: [0, 0, 1, 0], joined: false } : null;
-    E[e.id] = { e, tipFade, strands, feeders, isArt, vis: true, width: 4, wallPx: 1, shadeOk: false, shadeVer: 0 };
+    // (The hepatic artery's own fades, ART_FADE: its start fades in in both views (keep: the circuit does not let go of it), its branches
+    // fade out at their ends. The same GPU fade.)
+    const tipFade = TIP_FADE[e.id] && !isArt ? { frac: TIP_FADE[e.id], line: [0, 0, 1, 0], joined: false } : ART_FADE[e.id]?.in ? { frac: ART_FADE[e.id].in, line: [0, 0, 1, 0], joined: false, keep: true } : null;
+    const endFade = ART_FADE[e.id]?.out ? { frac: 1 - ART_FADE[e.id].out, line: [0, 0, 1, 0] } : null;
+    E[e.id] = { e, tipFade, endFade, strands, feeders, isArt, vis: true, width: 4, wallPx: 1, shadeOk: false, shadeVer: 0 };
   }
   ALL_EDGES.forEach((e, i) => { E[e.id].row = i; });
   // (Every vessel, in E's order, as one list kept from here on: E is built once above and never gains or loses a key, so the
@@ -3574,6 +3577,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       g.cur = pts;
       g.len = arcLen(pts);
       if (x.tipFade) { const ln = x.tipFade.line, pa = pointAt(pts, x.tipFade.frac); ln[0] = pts[0][0]; ln[1] = pts[0][1]; ln[2] = pa[0]; ln[3] = pa[1]; ln[4] = pa[2]; ln[5] = pa[3]; }   // (written in the vessel's own list)
+      if (x.endFade) { const ln = x.endFade.line, pa = pointAt(pts, x.endFade.frac), pe = pts[pts.length - 1]; ln[0] = pa[0]; ln[1] = pa[1]; ln[2] = pe[0]; ln[3] = pe[1]; }
       x.shadeOk = false;
       if (lazy) continue;
       litNormals(pts, g.lit);   // (a clot's layers follow the tube's lit side: updateOverlays)
@@ -3990,7 +3994,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       x.wMode = mode;
       // The liver's own small vessels (portal venules, central veins) are the liver to the pointer in the anatomy:
       // no hover, no tap on them; it falls through to the organ. The sinusoids are a vessel of their own.
-      x.noHit = LIVER_EDGES.has(e.id) && !SIN_EDGES.has(e.id) && t < 0.5;
+      x.noHit = LIVER_EDGES.has(e.id) && !SIN_EDGES.has(e.id) && !ART_FADE[e.id] && t < 0.5;
       if (!x.isArt) {
         const baseD = IVC_EDGES.has(e.id) ? E.IVC_IS.e.d : e.d || (e.dMax ? dMinOf(e) : 3);   // one wall thickness along the whole cava
         // The circuit is a map: a slightly wider border (drawn by the GPU, as one shape with filleted
@@ -5399,7 +5403,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const cfg = FEEDERS[id];
         if (obj.fadeMask && !x.feedJoined) { const yy = FEEDER_FADE_Y[id]; fade = put8(0, yy[0], 0, yy[1], 0, 1, 0, 1); }
         else if (obj.fan && cfg.fan) { const fan = cfg.fan, fr = fan.fade === undefined ? FAN_FR : fan.fade; fade = put8(fan.at[0], fan.at[1], fan.len * (fan.levels ? 2.7 : 1.35), 0, 0, fr[0], fr[1], 2); }
-      } else if (x.tipFade) { const L = x.tipFade.line; fade = put8(L[0], L[1], L[2], L[3], 0, x.tipFade.joined ? 1 : T0, 1, 1); }
+      } else if (x.tipFade) { const L = x.tipFade.line; fade = put8(L[0], L[1], L[2], L[3], 0, x.tipFade.joined ? 1 : x.tipFade.keep ? 0 : T0, 1, 1); }
+      else if (x.endFade) { const L = x.endFade.line; fade = put8(L[0], L[1], L[2], L[3], 0, 1, 0, 1); }
       else if (kind === 'v' && IVC_JOIN[id]) { if (!ivcOn) { const J = IVC_JOIN[id]; fade = put8(J[0], J[1], J[2], J[3], J[4], J[5], J[6], J[7]); } }
       else if (FADE_DOWN_Y[id] && !(ivcOn && IVC_EDGES.has(id))) { const yy = FADE_DOWN_Y[id]; fade = put8(0, yy[0], 0, yy[1], 0, 1, 0, 1); }
       else if (SIN_FADE[id] && (kind === 'v' || kind === 's')) { const J = SIN_FADE[id]; fade = put8(J[0], J[1], J[2], J[3], J[4], J[5], J[6], J[7]); }

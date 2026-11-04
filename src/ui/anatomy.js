@@ -26,9 +26,9 @@ export const ATLAS_COLUMNS = [318, 1102];
 // Model vessels that are never drawn, and nodes that therefore have no position of their own.
 export const HIDDEN_EDGES = new Set(['A_SMA', 'A_IMA', 'A_SPL', 'A_LGA', 'A_REN_L', 'A_REN_R', 'A_LOW', 'A_UP', 'A_AZY', 'A_EPI',
   'V_LOW', 'V_KID_R', 'RRV_IVC',
-  // The hepatic artery and its branches (and the arterioportal shunts off them) are modeled
-  // but not drawn: the plate is about the venous portal circulation.
-  'A_HEP', 'A_HR', 'A_HL', 'AP_R', 'AP_L',
+  // The arterioportal shunts off the hepatic artery are modeled but drawn only once opened (the artery itself is drawn, thin
+  // and under the portal vein: see ART_FADE).
+  'AP_R', 'AP_L',
   // The interlobar sinusoidal link is modeled but not drawn: it carries almost nothing and added
   // a line that only lit up with congestion the lobes already show.
   'SIN_RL',
@@ -50,7 +50,7 @@ export const CAUDATE = {
   veins: [['M588 334 Q 601 332 613 327', 3], ['M582 368 Q 598 365 613 359', 3.6], ['M590 398 Q 602 395 613 389', 2.8]],
   wall: 613, anchor: [612, 362], grow: [0.12, 0.2],
 };
-export const HIDDEN_NODES = new Set(['AO', 'UPPV', 'LOWV', 'KID_R', 'RRV', 'HA', 'SVD']);
+export const HIDDEN_NODES = new Set(['AO', 'UPPV', 'LOWV', 'KID_R', 'RRV', 'SVD']);
 // Systemic veins drawn quietly: they matter only as the places collaterals drain to.
 export const CONTEXT_EDGES = new Set(['V_UP', 'SVC_RA', 'AZY_SVC', 'ILI_IVC', 'EPI_ILI', 'EPI_SVC', 'V_KID_L', 'LRV_IVC']);
 // Edges the circuit draws but the anatomy leaves out (none at present).
@@ -71,7 +71,8 @@ export const BACK_EDGES = new Set(['IVC_IS', 'IVCS_RA', 'SVC_RA', 'V_UP', 'ILI_I
 // Node positions: [anatomic, circuit]
 export const NODE_POS = {
   AO: [[760, 540], [610, 240]],
-  HA: [[655, 478], [740, 228]],
+  // The proper hepatic artery's fork: beside the portal trunk in the anatomy, on the midline between the lobes in the circuit.
+  HA: [[621, 443.5], [774, 345]],
   INT: [[756, 800], [140, 394]],
   COL: [[960, 790], [140, 310]],
   SPL: [[1034, 360], [140, 261]],
@@ -114,9 +115,12 @@ export const NODE_POS = {
 
 // Anatomic edge paths (SVG path data). Edges without an entry are drawn from node to node.
 export const EDGE_PATH = {
-  A_HEP: 'M760 540 C 730 520 690 495 655 478',
-  A_HR: 'M655 478 C 610 462 545 430 505 412 C 472 398 444 372 420 345',
-  A_HL: 'M655 478 C 672 440 690 400 712 362 C 728 336 740 318 750 300',
+  // The hepatic artery: a thin companion line beside the portal trunk on its upper side (it enters from the lower right and fades in),
+  // forking at the hilum; the left branch rides the left portal vein on its lower side, the right passes under the bifurcation and
+  // rides the right portal vein on its upper side. Offsets 11-13 from the vein's own course (the mock's PHA, LHA, RHA).
+  A_HEP: 'M688 516 L676 503 L666 493 L659.8 485.3 L656.4 481.3 L652.9 477.4 L649.4 473.4 L645.9 469.5 L642.3 465.6 L638.8 461.7 L635.2 457.8 L631.6 453.9 L628 450.1 L624.4 446.3 L621 443.5',
+  A_HR: 'M621 443.5 L592 426 L583.4 422.3 L574.9 418.7 L566.4 415.1 L558 411.4 L549.8 407.7 L541.6 403.9 L533.6 400.1 L525.6 396.2 L517.8 392.3 L510.2 388.3',
+  A_HL: 'M621 443.5 L627.2 436.2 L634.8 430.4 L642.4 424.7 L649.9 419.1 L657.4 413.6 L664.8 408.2 L672.2 402.8 L679.6 397.5 L687 392.2 L694.4 387',
 
   V_INT: 'M756 800 C 752 758 700 716 690 660',
   V_COL: 'M960 790 C 952 760 942 725 932 690',
@@ -260,6 +264,9 @@ export const STRAND_FROM = { C2: 0.5, C1a: 0.22, C4: 0.68, C7: 0.2 };
 // the colon, the left kidney) end as a straight vessel that fades out over the first fraction of its
 // length, rather than as a tree of branches: vessel → fraction of its length (from its first point)
 // over which it fades from nothing to solid. Anatomic view only.
+// The hepatic artery's fades (both views): `in` = the fraction of its length, from its start, over which it fades in; `out` = the
+// fraction at its end over which it fades out (where the portal branches turn into sinusoids). Drawn by the same GPU fade as TIP_FADE.
+export const ART_FADE = { A_HEP: { in: 0.28 }, A_HR: { out: 0.3 }, A_HL: { out: 0.3 } };
 export const TIP_FADE = { V_SPL: 0.66, V_INT: 0.2, V_COL: 0.5, V_KID_L: 0.45, LGV_CONF: 0.28 };
 // A vessel whose tip fades unless something attaches there: it is drawn solid to its end while any
 // of the listed collaterals is open. The coronary vein's upper end is where the collaterals to the
@@ -317,7 +324,11 @@ export function route(pts, r = 16) {
 export const CIRCUIT_PATH = {
   // hepatic arterial supply and the intrahepatic bypasses stay gentle curves
   CAUD: route([[900, 303], [940, 252], [1086, 252], [1120, 290], [1120, 345]], 18),
-  A_HL: route([[740, 228], [770, 258], [770, 357], [800, 387]], 12),
+  // The hepatic artery enters the liver on its midline (y 345), in the gap between the two lobes' trees, and its two stubs join the
+  // first channel of each tree where the portal venules reach the sinusoids: it crosses no lane.
+  A_HEP: 'M636 345 L 774 345',
+  A_HR: 'M774 345 L 786 333 L 800 333',
+  A_HL: 'M774 345 L 786 357 L 800 357',
   AP_L: route([[740, 228], [706, 262], [706, 361], [680, 387]], 12),
   // TIPS: leaves the right portal vein straight up, crosses the top of the liver in a lane of its
   // own (clear of the right lobe's lane and of the right hepatic vein's last stretch, which it
