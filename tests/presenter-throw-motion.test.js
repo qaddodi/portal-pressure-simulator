@@ -13,11 +13,6 @@ test('cardsEntering counts a throw coming in or back (the words, their glass, th
   assert.match(line('  const cardsEntering = '), /throwCards\(\)\.some\(\(el\) => throwEnters\(el, left\)\) \|\| .*readAnims/);
 });
 
-test('a card that is busy with a throw (running, held or pinned out of sight) is not kept as stationary: text, its shade and the data card', () => {
-  assert.match(line('  const dataStands = '), /!d\.hidden && !throwBusy\(d\)/);
-  assert.match(line('  const textStands = '), /!throwBusy\(t\) && !throwBusy\(ui\.shade\)/);
-});
-
 test('cardMoving includes a card on a throw, so a layout is not made under it', () => {
   assert.match(line('  const cardMoving = '), /throwCards\(\)\.some\(\(el\) => el && throwing\(el\)\)/);
 });

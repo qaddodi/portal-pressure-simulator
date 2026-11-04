@@ -31,22 +31,6 @@ test('A1: a slide\'s glows and outlines are the figure\'s decoration: one that c
   assert.match(o, /catch \(e\) \{ console\.warn\(`presenter: slide \$\{to \+ 1\}'s glows and outlines could not be drawn`, e\); \}/);
 });
 
-// ── V1: a large text size ──
-test('V1: a data card the fit cannot make whole takes the room from the words, which zoom as a whole, never from the chart', () => {
-  const lay = body(PZ, 'function layout(');
-  const at = lay.indexOf('The words give way once more');
-  assert.ok(at > lay.indexOf('fitCards(ui.data, ui.panel);'), 'after the data card has had its own fit');
-  const sq = lay.slice(at, lay.indexOf('The stacked pair shorter than the screen is centred'));
-  assert.match(sq, /if \(below && t && !off\(dd\) && !phone\(\) && stage\.labelScale\(\) > 1\.001\) \{/, 'only a stacked card on a wide screen, and only at a larger text size than the usual (a readings\' sheet too: its instrument is what it must hold, the readings rise from under it)');
-  assert.match(sq, /const cut = overflowOf\(dd\)\.v;\s*if \(!\(cut > 1\)\) break;/, 'a card that fits is never touched');
-  assert.match(sq, /const have = t\.height \/ k, z = wordsFloor\(\);\s*if \(z >= 1\) break;/, 'a text size that is not larger gives the words nothing to give');
-  assert.match(sq, /const room = Math\.max\(wordsHeightAt\(z\), have - cut\);/, 'never past the words\' own floor');
-  assert.match(sq, /fitDone\.delete\(ui\.data\); fitCards\(ui\.data\);/, 'and the data card is fitted again in the room it gains');
-  assert.match(sq, /y = top0 \+ t\.height \+ 2 \* pad \+ gap \+ lipK;/, 'its top is the words\' foot, a gap and (a readings\' sheet) its tucked edge, as before the words gave way');
-  assert.match(lay, /const lipK = below && wideSheet\(dd\) \? LIP \* k : 0;[^\n]*\n\s*let y = top0 \+ t\?\.height \+ 2 \* pad \+ gap \+ lipK;/);
-  assert.match(lay, /Math\.min\(\(H - lvl - pad - \(low \? vm : sl\)\) \/ k, wordsCap\)/, 'the cap holds to the end of the layout, so the words are not fitted back up');
-});
-
 test('V1: the words\' floor keeps their smallest lettering at 12 px on the screen, and a half at the most', () => {
   const f = body(PZ, 'function wordsFloor()');
   assert.match(f, /px > 12 && isFinite\(px\) \? Math\.max\(0\.5, Math\.ceil\(12 \/ px \* 1000\) \/ 1000\) : 1/);

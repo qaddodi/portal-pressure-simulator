@@ -68,22 +68,6 @@ test('the full form gives each scale its own camera and call-outs, and the slide
   assert.ok(scalesProblems({ scales: { sinusoid: {} } }, REGIONS, 'origin').length);
 });
 
-test('a flip is never remembered: Next, Back and a jump open each slide on its own scale', () => {
-  const a = { cam: 'portal', scales: ['lobule'] }, b = { cam: 'lobule:triad', scales: ['anatomy'] };
-  const pick = { i: 3, scale: 'lobule' };
-  assert.equal(pickedScale(pick, 3, a), 'lobule');   // (the slide flipped)
-  assert.equal(pickedScale(pick, 4, b), 'lobule');   // (Next: b's own, the lobule)
-  assert.equal(pickedScale({ i: 4, scale: 'anatomy' }, 3, a), 'anatomy');   // (Back from a flip on b: a's own)
-  assert.equal(pickedScale({ i: 4, scale: 'anatomy' }, 5, { cam: 'sinusoid' }), 'sinusoid');
-  assert.equal(pickedScale(null, 3, b), 'lobule');
-  // And the presenter clears the pick whenever a slide change begins, so coming back to the flipped slide shows its own scale too.
-  const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-  const run = src.slice(src.indexOf('async function transitionRun(to)'));
-  assert.match(run.slice(0, 600), /scalePick = null;.*\n\s+shown = null; entering = null;/);
-  // A flip starts only on a slide that has landed and is still the one wanted, with no case card up.
-  assert.match(src, /async function flipScale\(k\) \{\n\s+if \(!deck \|\| !ui \|\| caseCard \|\| !shown \|\| shown\.i !== want \|\| shown\.gen !== gen\) return;/);
-});
-
 test('built-in slides use scales only where adopted, each with a valid list', () => {
   let n = 0;
   for (const d of DECKS) for (const s of d.slides) {

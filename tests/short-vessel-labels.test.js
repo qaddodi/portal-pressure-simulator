@@ -8,7 +8,7 @@ import { SHORT, ABBR } from '../src/ui/anatomy.js';
 const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
 
 test('each abbreviation names a labelled vessel and none ends in a full stop', () => {
-  assert.deepEqual(ABBR, { CONF: 'PV', RPV: 'RPV', LPV: 'LPV', SV: 'SV', RHV: 'RHV', MHV: 'MHV', LHV: 'LHV' });
+  assert.deepEqual(ABBR, { HA: 'HA', CONF: 'PV', PVH: 'PV', RPV: 'RPV', LPV: 'LPV', SV: 'SV', RHV: 'RHV', MHV: 'MHV', LHV: 'LHV', LGV: 'LGV', IVCI: 'IVC', RA: 'RA', LRV: 'LRV', RRV: 'RRV' });
   for (const [id, a] of Object.entries(ABBR)) {
     assert.ok(SHORT[id], `${id} has a full name`);
     assert.ok(a.length < SHORT[id].length, `${id}: "${a}" is shorter`);

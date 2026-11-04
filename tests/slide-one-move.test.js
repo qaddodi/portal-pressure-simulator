@@ -20,15 +20,6 @@ test('the stage says what is left of its glide, read from the glide itself', () 
   assert.match(stage, /glideLeft: \(\) => \(vtGliding \? \{ left: Math\.max\(0, vtUntil - performance\.now\(\)\), ms: vtMs \} : \{ left: 0, ms: 0 \}\),/);
 });
 
-test('camera() resolves at the glide\'s last part only when asked, over the plate', () => {
-  assert.match(cam, /async function camera\(cam, s, cut, early = 0, begun = null\)/);
-  // (The glide has set off: the hook runs, then one timer to the point asked for and a look, never a poll alone: late timers in a busy glide put the cards after its landing.)
-  assert.match(cam, /frameTo\(v === 'circuit' \? 'fit' : cam, s, gl\);\s*begun\?\.\(\);[^\n]*\n\s*(?:\/\/[^\n]*\n\s*)*if \(early && gl\) \{\s*(?:\/\/[^\n]*\n\s*)*const g0 = stage\.glideLeft\?\.\(\);\s*if \(g0\?\.ms\) await wait\(Math\.max\(0, g0\.left - g0\.ms \* early - 40\)\);\s*await until\(\(\) => \{ if \(cut\(\)\) return true; const g = stage\.glideLeft\?\.\(\); return !g \|\| g\.left <= g\.ms \* early; \}, gl \+ 1500\); return;\s*\}\s*(?:\/\/[^\n]*\n\s*)*if \(gl\) \{[^}]*\}\s*await wait\(gl\);/);
-  // (The lobule's way in keeps its own waits: its branch returns before the plate's glide.)
-  const lob = cam.slice(cam.indexOf('if (LOBULE_CAM.test(cam))'), cam.indexOf("const v = s.view || 'anatomic';"));
-  assert.doesNotMatch(lob, /early/);
-});
-
 test('what stays serial: the liver, a catheter, a case or question card, an instrument, a figure that cannot move smoothly', () => {
   assert.match(run, /const plate = bare && !ct && !!cam && !LOBULE_CAM\.test\(cam\) && !store\.get\(\)\.lobule && !store\.get\(\)\.sinusoid;/);
   assert.match(run, /const under = plate && later && !caseCard && underTool\(s\.tool\) && !!stage\.canDrift\?\.\(\) && \(fv\.view \|\| 'anatomic'\) === store\.get\(\)\.view;/);

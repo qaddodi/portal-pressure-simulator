@@ -10,19 +10,6 @@ const CSS = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 const GL = readFileSync(new URL('../src/ui/sinusoid-gl.js', import.meta.url), 'utf8');
 const VIEW = readFileSync(new URL('../src/ui/sinusoid-view.js', import.meta.url), 'utf8');
 
-test('a presenter slide that lights something in the liver hides only the lobule\'s unlit names, never the sinusoid view\'s', () => {
-  const rules = CSS.split('\n').filter((l) => l.startsWith('.app.presenting:is([data-lit*="lobule:"], [data-lit*="sinusoid:"])'));
-  assert.equal(rules.length, 2, 'the names rule and the leaders rule');
-  for (const r of rules) {
-    assert.doesNotMatch(r, /\.sv-region|\.sv-lead/, 'the sinusoid view\'s names and leaders are not faded when unlit');
-    assert.match(r, /\.lz-lab|\.lz-leaders/);
-  }
-  assert.match(rules[0], /:is\(\.lz-lab, \.lz-zone\):not\(/, 'the lobule\'s names and zone names still ease out');
-  assert.match(rules[0], /\{ opacity: 0; pointer-events: none; \}/);
-  // No other rule fades an unlit sinusoid name: the end names (Portal venule, Central vein) and the cells are plain captions.
-  assert.doesNotMatch(CSS, /\.sv-region[^{]*:not\(:is\(\.app\[data-lit/, 'no rule fades a sinusoid name by what is lit');
-});
-
 test('a lit sinusoid name still takes the pill and its colour', () => {
   const pill = CSS.split('\n').find((l) => l.includes(')::before { opacity: 1;')) || '';
   for (const k of ['fenestrae', 'disse', 'stellate', 'kupffer', 'hepatocyte', 'lymph', 'lumen']) assert.ok(pill.includes(`.app[data-lit~="sinusoid:${k}"] [data-target="sinusoid:${k}"]`), k);

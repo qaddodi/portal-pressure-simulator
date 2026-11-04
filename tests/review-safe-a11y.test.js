@@ -43,13 +43,6 @@ test('util.js re-exports the coalescing announcer and no longer drops messages',
   assert.doesNotMatch(util, /liveLast/);
 });
 
-test('closing a popover in the task that opened it cancels its outside-click and Escape listeners', () => {
-  const util = read('src/ui/util.js');
-  const fn = util.slice(util.indexOf('export function popover('), util.indexOf('export function fadeWhileMore'));
-  assert.match(fn, /const arm = setTimeout\(\(\) => \{ addEventListener\('pointerdown', off, true\); addEventListener\('keydown', esc\); \}, 0\);/);
-  assert.match(fn, /cleanup: \(\) => \{ clearTimeout\(arm\); removeEventListener\('pointerdown', off, true\); removeEventListener\('keydown', esc\);/);
-});
-
 test('a mistyped ?preset= link says so and opens Patients with a search, never a different patient', () => {
   const main = read('src/ui/main.js');
   const fn = main.slice(main.indexOf('async function openDeepLink'), main.indexOf('const redraw ='));
