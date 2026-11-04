@@ -47,8 +47,8 @@ test('the stage labels are a pass of the figure\'s present under every glass: no
   assert.doesNotMatch(LABELS, /cutHoles|setHoles|holeMask/);
   assert.match(STAGE, /onHoles: frostHoles\('callouts'\)/);
   assert.match(STAGE, /onHoles: frostHoles\(key\)/);
-  assert.doesNotMatch(STAGE, /labelHoles|labelGL\.holes/);
+  assert.doesNotMatch(STAGE, /labelHoles|(?:live\.)?labelGL\.holes/);
   assert.match(STAGE, /const LABELS_ORDER = -6;/);
-  assert.match(STAGE, /veins\.top\.add\(\{ order: LABELS_ORDER, prep: \(\) => \{ if \(!gpuProbe\.skipLabels\) labelGL\?\.drawInto\(\); \}, draw: \(\) => \{\} \}\)/, 'laid before any glass takes its blur');
-  assert.match(STAGE, /function hostFrost\(g, o\) \{ if \(!g \|\| !veins\?\.top\) return;/);
+  assert.match(STAGE, /(?:live\.)?veins\.top\.add\(\{ order: LABELS_ORDER, prep: \(\) => \{ if \(!gpuProbe\.skipLabels\) (?:live\.)?labelGL\?\.drawInto\(\); \}, draw: \(\) => \{\} \}\)/, 'laid before any glass takes its blur');
+  assert.match(STAGE, /function hostFrost\(g, o\) \{ if \(!g \|\| !(?:live\.)?veins\?\.top\) return;/);
 });
