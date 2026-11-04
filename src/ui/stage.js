@@ -2734,16 +2734,41 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (pinTo), a label with no station is carried by its centre (label-gl ride), and the page's figure layers take one CSS matrix. The labels
   // keep their screen size. Closing is C back to the identity: nothing is laid out, so nothing settles.)
   let zoomLz = false, zoomM = null, zoomLayers = null;
-  const zoomM6 = [1, 0, 0, 1, 0, 0], zoomT = [0, 0];   // (C in stage px, written in place each frame: the label ride's matrix and the pinned points')
+  const zoomM6 = [1, 0, 0, 1, 0, 0], zoomT = [0, 0];
+  const zoomGlass = [], zoomHid = [], zoomAff = { s: 1, dx: 0, dy: 0, ox: 0, oy: 0 };   // (the callouts' glass bodies given the zoom, and the callouts that go out under the zoomed card)
+  const zoomAffFn = () => (zoomLayers ? zoomAff : null), zoomScaleFn = () => zoomAff.s;   // (C in stage px, written in place each frame: the label ride's matrix and the pinned points')
   function zoomOpen() {
     if (zoomBase) return false;
     if (lobuleOn && lz?.zoomOpen) { if (!lz.zoomOpen()) return false; zoomBase = { lz: true }; zoomLz = true; return true; }
     if (!viewNow()) return false;
     refreshCTM();
     // (The figure's page layers and where each stands, read now, before any write: the zoom's frames read nothing.)
-    const layers = [svg, wrap.querySelector('#stageOver'), wrap.querySelector('.cath-labels')].filter(Boolean);
+    const layers = [svg, wrap.querySelector('#stageOver'), cath.labels, sites.el].filter(Boolean);
     zoomLayers = layers.map((el) => { const r = el.getBoundingClientRect(); return { el, left: r.left, top: r.top }; });
     for (const l of zoomLayers) { l.el.style.transformOrigin = '0 0'; l.el.style.transition = 'none'; }
+    // (The figure's callouts (the HVPG pressures, a stent's points, the Doppler's readings) are page elements in two of those layers: their glass is drawn
+    // from the same camera (zoomAffine, glass-gl.js), and one that would end under the zoomed card goes out through the zoom, since a page element cannot be
+    // blurred behind the card's glass as the picture is: it showed sharp over the card.)
+    zoomGlass.length = 0; zoomHid.length = 0;
+    const aim = sceneCam.aim;
+    if (aim) {
+      const S = aim.s;
+      const tx = (aim.ox - wrapRect.left) * (1 - S) + aim.dx, ty = (aim.oy - wrapRect.top) * (1 - S) + aim.dy;
+      const fx = Math.min(0, Math.max(wrapRect.width * (1 - S), tx)), fy = Math.min(0, Math.max(wrapRect.height * (1 - S), ty));
+      const bx = aim.box, pad = 8;
+      for (const L of [cath.labels, sites.el]) {
+        if (!L) continue;
+        for (const c of L.children) {
+          const r = c.getBoundingClientRect();
+          if (!(r.width > 0)) continue;
+          const l = wrapRect.left + S * (r.left - wrapRect.left) + fx, t = wrapRect.top + S * (r.top - wrapRect.top) + fy, rr = l + r.width * S, bb = t + r.height * S;
+          if (l < bx.right + pad && rr > bx.left - pad && t < bx.bottom + pad && bb > bx.top - pad) zoomHid.push({ el: c, was: c.style.opacity, tr: c.style.transition });
+        }
+        for (const g of L.getElementsByClassName('cl-glass')) { g.zoomAffine = zoomAffFn; g.drawnScale = zoomScaleFn; zoomGlass.push(g); }
+      }
+      for (const h of zoomHid) { h.el.style.transition = `opacity ${D_SMALL}ms var(--ease)`; h.el.style.opacity = '0'; }
+      frostWake();
+    }
     zoomBase = { scene: true };
     rideStart();   // (the labels with no station ride the camera by their centres; the leaders' page layer eases out as in a ride)
     return true;
@@ -2759,6 +2784,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     sceneCam.cover(zoomT, wrapRect.left, wrapRect.top, wrapRect.width, wrapRect.height);
     zoomM6[0] = S; zoomM6[3] = S; zoomM6[4] = zoomT[0]; zoomM6[5] = zoomT[1];
     zoomM = zoomM6;
+    zoomAff.s = S; zoomAff.dx = wrapRect.left * (1 - S) + zoomT[0]; zoomAff.dy = wrapRect.top * (1 - S) + zoomT[1];
     // The figure's canvas (canvas px), the page's figure layers (one matrix each) and the labels, all from the same camera, in this frame.
     const sx = vCanvas.width / (boxW || vCanvas.width || 1), sy = vCanvas.height / (boxH || vCanvas.height || 1);
     veins?.setScene?.(S, zoomM6[4] * sx, zoomM6[5] * sy);
@@ -2775,6 +2801,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     veins?.setScene?.(1, 0, 0);
     for (const l of zoomLayers || []) { l.el.style.transform = ''; l.el.style.transformOrigin = ''; l.el.style.transition = ''; }
     zoomLayers = null;
+    for (const g of zoomGlass) { delete g.zoomAffine; delete g.drawnScale; }
+    for (const h of zoomHid) { h.el.style.opacity = h.was; h.el.style.transition = h.tr; }
+    zoomGlass.length = 0; zoomHid.length = 0;
+    frostWake();
     rideStop();
     labelGL?.pinDraw();
     stageWake();

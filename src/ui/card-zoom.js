@@ -10,6 +10,7 @@
 import { EASE_ARRIVE, easeArrive } from './ease.js';
 import { frameFor } from './frame.js';
 import { readBox, readStyle } from './layout-snap.js';
+import { sceneCam } from './scene-cam.js';
 export const ZOOM_MAX = 2.2;    // the most the card grows
 export const ZOOM_MIN = 1.2;    // under this the card is large enough; no zoom is offered
 export const ZOOM_MS = 520;     // in
@@ -219,6 +220,7 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
       const cx = q.left + q.width / 2, cy = q.top + q.height / 2;
       // (box and mid: the whole as it rests as the card zooms, and its middle, for follow below; steady: the glide in has ended, for the
       // data card only: a part has no readings to bring out.)
+      sceneCam.aim = part ? null : { s: plan.s, ox: cx, oy: cy, dx: plan.dx, dy: plan.dy, box: boxAt(q, { x: cx, y: cy }, plan.s, plan.dx, plan.dy) };
       st = { stacked, card: el, veils: [veil].flat(), part, plan, riders, closing: null, steady: ms === 0 && !part, box: q, mid: { x: cx, y: cy }, k, s: plan.s, boosted: plan.s, holes: [], cur: { dx: 0, dy: 0, s: 1 }, mo: null, cam: !part && !!camera?.open() };
       for (const r of riders) {
         // (Each piece turns about the middle of them all, so they move as one.)
