@@ -971,7 +971,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     publishWhenDone(gl, hs, () => {
       if (!lost || gl.isContextLost()) return;   // (lost again: the next restore starts over)
       try { finish(hs); } catch { return; }   // (the shaders will not build: the SVG keeps every label)
-      pageTex = []; rpDrop(); retry.clear(); pending.clear(); stuck = false; needRepack = false; packer.reset(); ghosts = []; xfOld = xfNew = 1; for (const [, v] of sprites) { v.alt = null; v.alts = null; }
+      pageTex = []; rpDrop(); retry.clear(); pending.clear(); stuck = false; needRepack = false; packer.reset(); ghosts = []; xfOld = xfNew = 1; for (const s of last) { const v = sprites.get(s.g); if (v) { v.alt = null; v.alts = null; } }   // (sprites is a WeakMap, not iterable: the restore threw here and the layer stayed lost)
       picPaint = null; lostPic(headSp); lostPic(sHeadSp); slotTex = null;
       for (const s of last) { const st = sprites.get(s.g); if (st) { st.slot = null; st.key = ''; } dirty.add(s.g); }
       pReadSoon(); sReadSoon(); marksTaken(); allMarks(); nbk = -1;
