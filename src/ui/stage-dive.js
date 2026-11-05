@@ -93,6 +93,7 @@ export function createDive(st, live) {
       if (el === vCanvas && live.lz?.shared) { el.style.visibility = ''; continue; }
       el.style.visibility = (el.id === 'labels' ? lab : on) ? 'hidden' : '';
     }
+    live.labelGL?.check();   // (the label layer shown or hidden: label-gl.js check)
   }
   // The anatomy is out of sight: under the landed lobule (or the sinusoid), or under the dive's field once it is whole. Until then,
   // through the start of a dive and the end of a rise, it shows, magnified, and goes on following the patient as it does anywhere:
@@ -176,7 +177,7 @@ export function createDive(st, live) {
   let labOpTxt = null;   // (the layer's opacity text as written: written only when it changes)
   function labelsRide(lab, t, cover) {
     const op = t <= 0 ? '' : t >= 1 ? '0' : (1 - cover).toFixed(3);
-    if (lab && op !== labOpTxt) { labOpTxt = op; lab.style.opacity = op; lab.style.transition = t > 0 && t < 1 ? 'none' : ''; }   // (its own CSS fade off while the zoom drives it: a fade lagged the figure)
+    if (lab && op !== labOpTxt) { labOpTxt = op; lab.style.opacity = op; lab.style.transition = t > 0 && t < 1 ? 'none' : ''; live.labelGL?.check(); }   // (its own CSS fade off while the zoom drives it: a fade lagged the figure)
     const r = live.labelRider;
     if (!r || live.rideCTM) return;   // (a card's zoom owns the ride; none during a dive)
     if (DIVEC.k > 1.0001 && t > 0 && t < 1) { diveRideM[0] = DIVEC.k; diveRideM[3] = DIVEC.k; diveRideM[4] = DIVEC.x; diveRideM[5] = DIVEC.y; r.ride(diveRideM); }

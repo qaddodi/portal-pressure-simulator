@@ -17,6 +17,7 @@ export function createView(st, live) {
     live.xfOp = v;
     if (live.labelSvg) live.labelSvg.style.opacity = v;
     live.glass.style.opacity = v;
+    live.labelGL?.check();   // (the label layer's own fade changed: label-gl.js check)
   }
   function xfVisFill() {
     for (let v = 0; v < 2; v++) { const a = xfVis[v] ||= new Uint8Array(EV.length); for (let i = 0; i < EV.length; i++) a[i] = live.F && visAt(EV[i], v === 0) ? 1 : 0; }

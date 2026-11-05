@@ -1421,7 +1421,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function syncSemantic() {
     if (!lz) return;
     // Turning to the circuit closes the lobule view.
-    if (lobuleOn && morphTarget !== 0) { lobuleOn = false; lobU = 0; diveT = 0; diveLand = null; lz.setDive(null); lz.setDiveZoom(1, 0, 0); if (diveAt) setDiveScale(1); { const lab = wrap.querySelector('#labels'); if (lab) lab.style.opacity = ''; } cancelFrame(lobAnim); if (store.get().lobule) store.setSoon(LOBULE_OFF); }
+    if (lobuleOn && morphTarget !== 0) { lobuleOn = false; lobU = 0; diveT = 0; diveLand = null; lz.setDive(null); lz.setDiveZoom(1, 0, 0); if (diveAt) setDiveScale(1); { const lab = wrap.querySelector('#labels'); if (lab) lab.style.opacity = ''; labelGL?.check(); } cancelFrame(lobAnim); if (store.get().lobule) store.setSoon(LOBULE_OFF); }
     const u = morphTarget === 0 ? lobU : 0;
     const wasOpen = lz.isOpen();
     lz.setFade(u);

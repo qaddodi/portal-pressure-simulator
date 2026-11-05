@@ -890,10 +890,9 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // the pictures as a factor LA of every draw (layer-alpha.js, no read of the page in a frame while none changes), the canvas being the figure's.
   let LA = 1, la = null;
   const layerA = () => { if (!host.layerAlpha) return 1; la ||= createLayerAlpha(svg, { near: svg, shared: canvas, onChange: () => ask() }); return la.now(); };
-  // (Host mode: the layer's own fade or visibility changed (the dive's, a camera move's): whether the labels may be drawn over the
-  // figure is asked again, at the next picture, and when its fade ends, so they come back onto the GPU once it has settled.)
-  const layerMo = new MutationObserver(() => check());
-  layerMo.observe(svg, { attributes: true, attributeFilter: ['style', 'class'] });
+  // (Host mode: the layer's own fade or visibility changed (the dive's, a camera move's, a view change's): its writers call check() (stage-view.js
+  // xfLayer, stage-dive.js labelsRide and setDiveHidden, stage.js leaving the lobule), so whether the labels may be drawn over the figure is
+  // asked again, at the next picture; and when its fade ends, so they come back onto the GPU once it has settled. No observer of its style.)
   svg.addEventListener('transitionend', (e) => { if (e.target === svg) ask(); });
   // A label changed (its words, a class, a colour, its place in the list): its look is read again.
   const labelOf = (n) => (n.nodeType === 1 ? n : n.parentElement)?.closest?.('.lb');
@@ -2283,7 +2282,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       if (disposed) return;
       disposed = true; lost = true;
       if (againF) { cancelFrame(againF); againF = 0; }
-      mo.disconnect(); mmo.disconnect(); outer.disconnect(); layerMo.disconnect(); la?.dispose(); ac.abort();
+      mo.disconnect(); mmo.disconnect(); outer.disconnect(); la?.dispose(); ac.abort();
       try {
         for (const t of pageTex) if (t) gl.deleteTexture(t);
         for (const t of rpTex) if (t) gl.deleteTexture(t);
