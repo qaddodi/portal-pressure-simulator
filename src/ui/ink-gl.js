@@ -208,7 +208,7 @@ export function createInk({ host, xform, active, onFigure, top }) {
     const cw = topOf.canvas.width, ch = topOf.canvas.height;
     W = Math.max(1, Math.round(b.width || b.sw || 1)); H = Math.max(1, Math.round(b.height || b.sh || 1)); dpr = cw / W;
     const nSeg = kind ? segmentsInto(segs, strokes, kind, cam) : 0;
-    gl.bindFramebuffer(gl.FRAMEBUFFER, topOf.screen);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, topOf.screen ? topOf.screen() : null);   // (screen is the host's call, veins-gl top.screen = SCR: bound uncalled, the function itself, bindFramebuffer threw on every present and the laser never drew)
     gl.viewport(0, 0, cw, ch);
     gl.disable(gl.DEPTH_TEST); gl.disable(gl.SCISSOR_TEST);
     gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);

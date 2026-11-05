@@ -21,7 +21,11 @@ test('the pass is added to the figure\'s tops under the glass and taken out with
 });
 
 test('the pass draws through the host\'s present into the figure\'s own framebuffer', () => {
-  assert.match(src, /gl\.bindFramebuffer\(gl\.FRAMEBUFFER, topOf\.screen\)/);
+  // (screen is a call (veins-gl top.screen = SCR), as every other pass reads it: bound uncalled, the function threw on every present and the laser never drew)
+  assert.match(src, /gl\.bindFramebuffer\(gl\.FRAMEBUFFER, topOf\.screen \? topOf\.screen\(\) : null\)/);
+  assert.ok(!/bindFramebuffer\(gl\.FRAMEBUFFER, topOf\.screen\)/.test(src), 'the framebuffer is screen(), never the function');
+  const veins = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
+  assert.match(veins, /screen: SCR,/, 'the host hands screen as a function');
   assert.match(src, /cw = topOf\.canvas\.width/);
   assert.ok(!/onFrameFinal/.test(src), 'no frame-final redraw: the present lays it');
 });
