@@ -1791,9 +1791,9 @@ void main() { o = texture(uT, vUV) * uA; }`;
       let rec = pinDrawn.get(key);
       if (!rec) pinDrawn.set(key, rec = { seq: -1, hasLine: false, hasDot: false, line: new Float64Array(4), dot: new Float64Array(2), a: 0 });   // alloc-rare: one record per pinned label key
       rec.seq = frameSeq; rec.hasLine = false; rec.hasDot = false; rec.a = a;
-      // (The leader: only where the layout asked for one (want bit 4), from the point to the picture's edge once the picture stands clear of it.)
-      const gap = Math.hypot(Math.max(lx - px, 0, px - (lx + st.w)), Math.max(ly - py, 0, py - (ly + st.h))) / dpr;
-      if ((want & 4) && gap > 2 && leaderGeom(px, py, lx, ly, st.w, st.h, want & 1 ? lk?.dotR ?? 2.4 : 0)) {
+      // (The leader: exactly where the layout asked for one (want bit 4: the one leader rule, decided at the solve, stage-label-solve.js), from
+      // the point to the picture's edge; no test of its own here, only none where the point lies inside the letters (leaderGeom).)
+      if ((want & 4) && leaderGeom(px, py, lx, ly, st.w, st.h, want & 1 ? lk?.dotR ?? 2.4 : 0)) {
         if (pinMark(lk?.line?.stroke ? lk.line : defLine, PG, true, a)) { rec.hasLine = true; for (let i = 0; i < 4; i++) rec.line[i] = PG[i] / dpr; }
       }
       if (want & 1) {
@@ -1810,8 +1810,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       const a = Math.min(1, st.opacity) * xfOld * gh.a0;
       if (!(a > 0.001)) continue;
       const px = gh.px * dpr, py = gh.py * dpr, lx = gh.lx, ly = gh.ly;
-      const gap = Math.hypot(Math.max(lx - px, 0, px - (lx + st.w)), Math.max(ly - py, 0, py - (ly + st.h))) / dpr;
-      if ((gh.want & 4) && gap > 2 && leaderGeom(px, py, lx, ly, st.w, st.h, gh.want & 1 ? lk?.dotR ?? 2.4 : 0)) {
+      if ((gh.want & 4) && leaderGeom(px, py, lx, ly, st.w, st.h, gh.want & 1 ? lk?.dotR ?? 2.4 : 0)) {
         pinMark(lk?.line?.stroke ? lk.line : defLine, PG, true, a);
       }
       if (gh.want & 1) {

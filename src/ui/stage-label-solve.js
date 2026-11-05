@@ -6,7 +6,7 @@ import { SPAN_TICK, besideLine, clearOf, insideBy, organAnchor, spanOf, stepGrou
 import { bareDots } from './circuit-nodes.js';
 import { D_SURFACE, EASE_ARRIVE } from './ease.js';
 import { HOVER_LINK } from './hover-link.js';
-import { LEAD_ON, RING_DIRS, crosses, hits, needsLeader, offset, within } from './label-place.js';
+import { RING_DIRS, boxGap, crosses, hits, needsLeader, offset, within } from './label-place.js';
 import { reduceMotionMQ as reduceMotion } from './motion.js';
 import { NAME_BREAK, nameSpots } from './organ-names.js';
 import { leaderVesselHits, segHitsBox, segsCross } from './seg-hits.js';
@@ -562,10 +562,12 @@ export function createLabelSolve(st, live) {
       const slack = it.rot ? 0 : wRes - it.w, dir = best.dir;
       it.x = it.ax + best.dx + (dir.includes('W') ? slack : dir.includes('E') ? 0 : slack / 2);
       it.y = it.ay + best.dy; it.dir = dir;
-      // A leader line shows only when the label sits clearly away from its station (label-place.js needsLeader: on past 12 px, off below 8).
-      const rr = best.r, gapPx = Math.hypot(Math.max(rr.x0 - it.ax, 0, it.ax - rr.x1), Math.max(rr.y0 - it.ay, 0, it.ay - rr.y1));
-      const lead = needsLeader(it.cls === 'organ', gapPx, prev?.lead);
-      it.leader = !!best.leader || lead;
+      // A leader line shows only when the label sits clearly away from its station (label-place.js needsLeader: on past 12 px, off below 8),
+      // measured from its box. Decided once here and kept in the solution: paintLeaders draws one exactly when it is set, a carry takes it
+      // as it was, and label-gl.js draws what the layout asked for with no test of its own (one leader rule, 5 Nov 2026 review #7). A
+      // pass's own leader flag no longer overrides it.
+      const lead = needsLeader(it.cls === 'organ', boxGap(best.r, it.ax, it.ay), prev?.lead);
+      it.leader = lead;
       localWorldXY(it.ax, it.ay);
       nextSol.set(it.key, { wx: LW_XY[0], wy: LW_XY[1], dx: best.dx, dy: best.dy, dir, pi: best.pi, w: wRes, h: it.h, leader: it.leader, lead, short: it.short || 0, abbr: !!it.abbr, au: it.au, vh: it.vw > 0 ? it.vw / 2 : null });
       it._r = best.r; placed.push(best.r); out.push(it);
@@ -1003,11 +1005,13 @@ export function createLabelSolve(st, live) {
           }
           if (!best) { placed.push(old); if (dotAt) placed.push(dotAt); continue; }
           it.ax = best.ax; it.ay = best.ay; it.au = best.au;   // (au: how far along its vessel the point slid, 0.5 its middle: what the GPU pins the label to)
-          it.x = it.ax + best.dx; it.y = it.ay + best.dy; it.dir = best.dir; it.leader = best.f.drawn; it.onVessel = best.f.onv; it._r = best.r;
+          // (Its leader by the one rule, from its new box, as placeMulti decides it.)
+          const lead = needsLeader(false, boxGap(best.r, it.ax, it.ay), was.sol?.lead);
+          it.x = it.ax + best.dx; it.y = it.ay + best.dy; it.dir = best.dir; it.leader = lead; it.onVessel = best.f.onv; it._r = best.r;
           placed.push(best.r);
           if (best.dot) placed.push({ ...best.dot, dot: true });   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
           const sol = was.sol;
-          if (sol) { const [wx, wy] = localToWorld(it.ax, it.ay); nextSol.set(it.key, { ...sol, wx, wy, dx: best.dx, dy: best.dy, dir: best.dir, pi: -1, w: it.w, h: it.h, leader: best.f.drawn, lead: best.f.drawn, onv: best.f.onv, dot: false, au: best.au }); }   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
+          if (sol) { const [wx, wy] = localToWorld(it.ax, it.ay); nextSol.set(it.key, { ...sol, wx, wy, dx: best.dx, dy: best.dy, dir: best.dir, pi: -1, w: it.w, h: it.h, leader: lead, lead, onv: best.f.onv, dot: false, au: best.au }); }   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
         }
       }
       // Collateral and shunt lanes, captioned along their run.
@@ -1361,10 +1365,9 @@ export function createLabelSolve(st, live) {
       // (A Circuit reading's leader reaches its text: the nearer of its lines, as wide as that line's words, not the block's box.)
       if (circuit && it.key.startsWith('n:')) r = leadRectOf(it, it.x, it.y, it.ax, it.ay);
       // (Elsewhere the leader stops on the edge of the letters it meets first, run by run: seenEnd.)
-      const le0 = leaderEnd(r, it.ax, it.ay, circuit ? 2 : 6), le = circuit ? le0 : seenEnd(it);
-      const far = Math.hypot(le0.x - it.ax, le0.y - it.ay) > 5;
-      // (In the Circuit a reading more than LEAD_ON (12) px from its station is joined to it, so its ring is never in doubt.)
-      const dl = (it.focusLeader || (it.leader && (circuit || far)) || (circuit && Math.hypot(le.x - it.ax, le.y - it.ay) > LEAD_ON)) && lineFrom(it, le);
+      const le = circuit ? leaderEnd(r, it.ax, it.ay, 2) : seenEnd(it);
+      // (Exactly where the layout decided one (it.leader: needsLeader at the solve, kept by a carry; a pull off the stage's edge joins it too), or a slide's mark.)
+      const dl = (it.focusLeader || it.leader) && lineFrom(it, le);
       if (dl) leaders.push({ k: 'l:' + it.key, tag: 'path', at: { class: it.focusLeader ? `leader focus${it.mk ? ` k-${it.mk}` : ''}` : `leader${it.sel ? ' hl' : ''}`, 'data-k': it.key, d: dl } });
       if (it.focusLeader || it.free) continue;
       const cx = it.ax.toFixed(1), cy = it.ay.toFixed(1);

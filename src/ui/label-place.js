@@ -61,5 +61,7 @@ export function offset(dir, it, gap) {
 // label's box to the target as drawn. Decided at layout and carried (hadLeader) until the next one.
 export const LEAD_ON = 12, LEAD_OFF = 8;
 export const needsLeader = (region, gapPx, hadLeader) => !region && (gapPx > LEAD_ON || (!!hadLeader && gapPx >= LEAD_OFF));
+// The gap needsLeader is given: how far the point (x, y) stands from the box { x0, y0, x1, y1 }, 0 when it lies inside.
+export const boxGap = (b, x, y) => Math.hypot(Math.max(b.x0 - x, 0, x - b.x1), Math.max(b.y0 - y, 0, y - b.y1));
 // The two costs a leader pays in a placement: free up to SHORT_LEAD px, dearer to LONG_LEAD, never beyond.
 export const SHORT_LEAD = 45, LONG_LEAD = 140;

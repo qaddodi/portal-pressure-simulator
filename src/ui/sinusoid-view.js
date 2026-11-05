@@ -42,7 +42,7 @@ import { hitLabel } from './label-explain.js';
 import { readBox as boxOf } from './layout-snap.js';
 import { reduceMotionMQ } from './motion.js';
 import { darkMQ } from './look.js';
-import { needsLeader } from './label-place.js';
+import { boxGap, needsLeader } from './label-place.js';
 const HEP_CELL = { j: 0, x0: 0, x1: 0, nu: 0, nv: 0, nr: 0, bi: false };   // alloc-rare: made once (the hepatocyte's cell, written in place by each layout)
 const nextFrame = frameFor('sinusoid-view');
 
@@ -190,7 +190,7 @@ export function createSinusoidView({ host, before = null, share = null }) {
   // names (label-captions.js), in the colour of what they name. A lit term, a theme or a class on the app reads the names' looks again.
   { const app = document.querySelector('.app') || document.getElementById('app'); if (app && typeof MutationObserver === 'function') new MutationObserver(() => askLooks()).observe(app, { attributes: true, attributeFilter: ['data-lit', 'class'] }); }
   const tok = (n) => { let x = cssVals.get(n); if (x == null) { cssVals.set(n, null); cssMiss = true; x = ''; } return x; };
-  const lead = {};
+  const lead = {}, SV_BOX = { x0: 0, y0: 0, x1: 0, y1: 0 };   // (SV_BOX: the name's box, kept and written for each leader)
   function leader(key, R, x, y) {
     const L = lead[key] ||= { key };   // alloc-rare: a leader is made once, the first time it is needed
     const ts = toScreen(x, y), tx = ts[0], ty = ts[1];
@@ -198,7 +198,9 @@ export function createSinusoidView({ host, before = null, share = null }) {
     // else from the side of the name facing it.)
     const vert = Math.abs(tx - R.cx) < R.w / 2 - 2 && Math.abs(ty - R.cy) > R.hh / 2 + 6;
     const sx = vert ? tx : R.cx + Math.sign(tx - R.cx) * (R.w / 2 + 3), sy = vert ? R.cy + Math.sign(ty - R.cy) * (R.hh / 2 + 3) : clamp(ty, R.cy - R.hh / 2 + 4, R.cy + R.hh / 2 - 4);
-    const on = needsLeader(false, vert ? Math.abs(ty - sy) : Math.abs(tx - sx), L.show) && (vert || Math.sign(tx - R.cx) === Math.sign(tx - sx));   // (none when the name already sits on it)
+    // (The one leader rule, label-place.js: from the name's box to what it names, as every view measures it.)
+    const bx = SV_BOX; bx.x0 = R.cx - R.w / 2; bx.x1 = R.cx + R.w / 2; bx.y0 = R.cy - R.hh / 2; bx.y1 = R.cy + R.hh / 2;
+    const on = needsLeader(false, boxGap(bx, tx, ty), L.show) && (vert || Math.sign(tx - R.cx) === Math.sign(tx - sx));   // (none when the name already sits on it)
     L.x1 = sx; L.y1 = sy; L.x2 = tx; L.y2 = ty; L.show = on ? 1 : 0; L.follow = false; L.sg = Math.sign(tx - R.cx); L.w = R.w;
   }
   const el = h('div', { class: 'sv', 'aria-hidden': 'true' }, canvas, labels, legend);
