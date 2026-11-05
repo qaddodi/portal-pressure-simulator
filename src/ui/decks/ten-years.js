@@ -47,14 +47,14 @@ export const TEN_YEARS = {
       ask: ['Stiffness 21 kPa and platelets 115. How likely is CSPH?', 'Likely: in the gray zone, a stiffness >20 kPa with low platelets gives ANTICIPATE a high probability of CSPH. A spleen stiffness >55 kPa on the 100 Hz probe would settle it.'],
     },
     {
-      id: 'd365', tick: 'Year 1', days: 275, ramp: ramp(0.54, 0.66), cam: 'liver', tool: { kind: 'hvpg' }, data: 'tiles', tiles: ['hvpg'], key: ['hvpg'], delta: 'd0',
+      id: 'd365', tick: 'Year 1', days: 275, ramp: ramp(0.54, 0.66), cath: 'result', tool: { kind: 'hvpg', catheter: true }, data: 'tiles', tiles: ['hvpg'], key: ['hvpg'], delta: 'd0',
       kicker: 'Year 1', site: 'sin', title: 'Year 1: the HVPG is >12',
       line: 'The HVPG is {hvpg}, up from {hvpg@d0} at diagnosis and well past the {>=10 mmHg} where CSPH begins. From about 12, the risk of a variceal bleed rises steeply.',
       notes: 'A year on, the gradient has risen by about 4 mmHg, and small varices would now show on a scope: in compensated cirrhosis they bleed rarely, but they mean the gradient is past 10 mmHg. Above about 12 mmHg a variceal bleed becomes more likely, and the risk of ascites and other decompensation rises with each mmHg. Repeat catheter studies are not routine; in practice the stiffness, the platelets and the scope track this rise, and a small amount of fluid seen only on ultrasound (grade 1 ascites) may already be there, without being decompensation.',
       ask: ['His HVPG is 13 mmHg and he feels well. Does he need a drug?', 'Yes. Baveno VIII recommends carvedilol at CSPH, to prevent decompensation.'],
     },
     {
-      id: 'carv', tick: 'Carvedilol', milestone: 'Carvedilol', when: 'On carvedilol', params: CARV, cam: 'liver', tool: { kind: 'hvpg' }, data: 'tiles', tiles: ['map'], key: ['hvpgFall'], delta: 'd365', hvpgResp: 'd365',
+      id: 'carv', tick: 'Carvedilol', milestone: 'Carvedilol', when: 'On carvedilol', params: CARV, cath: 'result', tool: { kind: 'hvpg', catheter: true }, data: 'tiles', tiles: ['map'], key: ['hvpgFall'], delta: 'd365', hvpgResp: 'd365',
       kicker: 'Year 1', site: 'sin', title: 'Carvedilol at CSPH prevents decompensation',
       line: 'Baveno VIII recommends carvedilol in compensated cirrhosis with CSPH, to prevent decompensation and improve survival. It lowers his HVPG from {hvpg@d365} to {hvpg}.',
       notes: 'Carvedilol acts on both flow and resistance: it lowers the portal inflow and relaxes the liver\'s resistance, so it lowers the HVPG more than propranolol. Baveno VIII prefers it in compensated cirrhosis with CSPH (3.15), as in the PREDESCI trial, and it replaces the screening endoscopy for most patients who take it. The dose is raised slowly (6.25 mg, then 12.5 mg a day), and the systolic pressure has to stay above 90 mmHg. A fall in HVPG of 10% or more on drugs predicts benefit in compensated patients; the tile shows the percent fall from the year-1 reading.',

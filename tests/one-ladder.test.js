@@ -49,7 +49,8 @@ test('every slide that had the old ladder shows the Gut to heart chart, or keeps
 test('the earlier line keeps its name: Before TIPS and Year 8 on Ten years\' profile slides, the HVPG tracing on the drug slides', () => {
   // (Lowering portal pressure's propranolol and carvedilol slides read the HVPG tracing and the percent fall now, not the line: C3, 25 Oct.)
   for (const id of ['prop', 'carv', 'carv-sin']) assert.deepEqual(at('treatment.js', id).tool, { kind: 'hvpg' }, id);
-  for (const id of ['d365', 'carv']) assert.deepEqual(at('ten-years.js', id).tool, { kind: 'hvpg' }, id);
+  // (Ten years' Year 1 and carvedilol slides play the catheter on the figure and their tracing follows it: Mohammad, 5 Nov 2026, "no hvpg catheter or animations".)
+  for (const id of ['d365', 'carv']) { assert.deepEqual(at('ten-years.js', id).tool, { kind: 'hvpg', catheter: true }, id); assert.equal(at('ten-years.js', id).cath, 'result', id); }
   assert.deepEqual(at('ten-years.js', 'rebleed').tool, { kind: 'profile', from: 'bands', fromLabel: 'Year 8' });
   assert.deepEqual(at('ten-years.js', 'tips').tool, { kind: 'profile', from: 'rebleed', fromLabel: 'Before TIPS' });
   const prof = readFileSync(new URL('../src/ui/tool-profile.js', import.meta.url), 'utf8');
