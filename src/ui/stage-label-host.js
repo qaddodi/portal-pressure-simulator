@@ -57,7 +57,7 @@ export function createLabelHost(st, live) {
     if (!(live.morph === 0 || live.morph === 1) || live.morph !== view) return false;
     if (!live.CTM) refreshCTM();
     worldToLocalInto(out, wx, wy);
-    camOut(out, DIVEC, null);   // (the dive's zoom carries this point too; a card's zoom is applied here as it was, that is not yet: card-zoom seam)
+    camOut(out, DIVEC, live.zoomM);   // (the dive's zoom and a card's zoom carry this point, as they do a station's: an organ's name rides a card's zoom with the figure)
     return Number.isFinite(out[0]) && Number.isFinite(out[1]);
   });
   wrap.dataset.labels = live.labelGL ? 'gpu' : 'svg';
