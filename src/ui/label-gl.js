@@ -1805,7 +1805,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // (A record's own want bits where its writer gave them (pos.want, stage-label-layer.js paintLeaders), else the ones read from the leaders' layer at sync.)
   const wantOf = (s, key) => (typeof s.want === 'number' ? s.want : pinWant.get(key) | 0);
   const PG = new Float64Array(4);
-  let defLine = null, defDot = null, PIN_LINE0 = null;
+  let defLine = null, defDot = null, PIN_LINE0 = null, PIN_DOT0 = null;
   function pinMark(st, geo, isPath, a) {
     if (!st || !(a > 0.001) || (!st.stroke && !st.fill)) return false;
     const w = st.stroke ? st.w * dpr : 0, m = w / 2 + 2, box = MBOX;
@@ -1850,6 +1850,13 @@ void main() { o = texture(uT, vUV) * uA; }`;
     for (const lk of pinLooks.values()) { if (lk.line?.stroke && lk.line.op > 0.5 && !defLine) defLine = lk.line; if (lk.dot && !defDot) defDot = lk.dot; }
     // (No leader seen yet, a Circuit opened with none: the page's leader colour, read once from a leader the page has, else its text's.)
     if (!defLine) defLine = PIN_LINE0 ||= { op: 1, stroke: rgba(readStyle(svg).getPropertyValue('--leader').trim() || readStyle(svg).color), w: 1, fill: null, dash: [0, 0] };   // alloc-rare: once
+    // (No dot seen yet: the page's dot, app.css .leader-dot (the stage's ground ringed in the second ink, 1.3 px), read once from its tokens, so
+    // a dot the layout asked for (want bit 1) is drawn from the first frame, not only once a dot of the page's has been read: a slide's first
+    // dots, laid out as its glide set off, were left out.)
+    if (!defDot) {
+      const cs = readStyle(svg), ink = cs.getPropertyValue('--text-2').trim() || cs.color, bg = cs.getPropertyValue('--stage-bg').trim();
+      defDot = PIN_DOT0 ||= { op: 1, stroke: rgba(ink), w: 1.3, fill: bg ? rgba(bg) : null, dash: [0, 0] };   // alloc-rare: once
+    }
     for (const s of last) {
       const key = s.g.dataset?.key;
       if (!key || !pinOf(s)) continue;

@@ -56,7 +56,8 @@ function installAnimations(win) {
   P.getAnimations = function (opt) { const out = running(this); if (opt?.subtree) for (const c of this.querySelectorAll('*')) out.push(...running(c)); return out; };
 }
 
-export async function bootGL() {
+// (labels: the station labels' level the page opens with, 'none' for a stage that has laid out no leader or dot yet.)
+export async function bootGL({ labels = null } = {}) {
   await (await import('../src/ui/text-gl.js')).loadGlyphs();
   const glMod = await import('../scripts/warm/gl-stub.mjs');
   const { installPage } = await import('../scripts/warm/dom.mjs');
@@ -84,6 +85,7 @@ export async function bootGL() {
   core.handle({ type: 'init' }); core.handle({ type: 'run', running: true });
   for (let i = 0; i < 60; i++) pump(33);
   core.handle({ type: 'run', running: false });
+  if (labels) (await import('../src/ui/store.js')).store.set({ labelLevel: labels });
   const { createStage } = await import('../src/ui/stage.js');
   const st = createStage({ wrap: page.document.getElementById('stageView'), onSelect() {}, onAction() {}, onOpenTab() {}, onHoverInfo() {}, onViewChange() {} });
   let fi = 0;
