@@ -100,7 +100,7 @@ export function createRes(st, live) {
       // (The picture kept for the fade is the figure without the glasses drawn in its canvas: they go back to their own way first, and
       // come back once the fade has ended, frostOn.)
       live.frostHold = true;
-      try { live.glassGL?.release(); live.paneGL?.release(); fadeBox.w = live.boxW; fadeBox.h = live.boxH; fadeOver(vCanvas, resFollow, veinsPresent, live.veins && !live.veins.lost ? live.veins.top : null, fadeBox); } finally { live.frostHold = false; }
+      try { live.glassGL?.release(); fadeBox.w = live.boxW; fadeBox.h = live.boxH; fadeOver(vCanvas, resFollow, veinsPresent, live.veins && !live.veins.lost ? live.veins.top : null, fadeBox); } finally { live.frostHold = false; }
       for (let q = 0; q < 6; q++) fadeM0Buf[q] = live.glM[q];
       fadeM0 = fadeM0Buf;
     }

@@ -48,7 +48,6 @@ export function slideFinal({ want, title, wantData, wantText }) {
   const st = window.pps.stage;
   if (st.gliding?.()) out.push('the figure camera is still gliding');
   if (st.drifting?.()) out.push('the figure camera is still drifting');
-  if (document.querySelector('.cam-move')) out.push('the camera move class is still on (cam-move)');
   for (const e of document.querySelectorAll('[data-gl-wait]')) {
     const r = e.getBoundingClientRect();
     if (r.width > 40 && r.height > 20 && +getComputedStyle(e).opacity > 0.5 && !e.hasAttribute('data-gl') && document.documentElement.dataset.glass !== 'off') { out.push(`a card at ${Math.round(r.left)},${Math.round(r.top)} is still waiting for its glass (data-gl-wait)`); break; }

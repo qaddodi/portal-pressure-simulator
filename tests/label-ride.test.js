@@ -10,7 +10,6 @@ const lg = readFileSync(new URL('../src/ui/label-gl.js', import.meta.url), 'utf8
 
 test('a presenter move rides no label: they are pose-driven, and never faded for it', () => {
   assert.match(st, /camMove = true; dpr\.carry = dpr\.on && performance\.now\(\) < dpr\.refitUntil; stageScope\.timer/);
-  assert.ok(!/ride\w*\(\)\) wrap\.classList\.add\('cam-move'\)/.test(st));
 });
 
 test('each frame of the glide carries them on the GPU; the landing ends the ride before the labels are laid out again', () => {

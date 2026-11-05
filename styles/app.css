@@ -173,8 +173,6 @@ html.model-contain .stage-view.gl-on :is(svg#stage, svg#labels) { contain: layou
 .stage-view #stage:focus, .stage-view #stage:focus-visible { outline: none; }
 .stage-view > :is(#stage, #stageOver, #labels, canvas:not(#veins)) { transition: opacity var(--d-small) var(--ease); }   /* (#veins is eased as an alpha in the renderer's present: stage.js camShowTo_) */
 .stage-view.unframed > :is(#stage, #stageOver, #labels, canvas:not(#veins)) { opacity: 0; }
-/* A presenter's camera move: the labels ease out as it starts and back in once it settles (stage.js camSettle). */
-.stage-view.cam-move > #labels, .stage-view.cam-move .lb-glass { opacity: 0; }
 /* The label layers show and hide at once (4 Nov: no fade after a view change, a camera move or a zoom). */
 .stage-view > #labels { transition: none; }
 /* A presenter's small camera move that keeps its labels (stage.js animateVT, carry): the names ride with the figure and only the leaders
@@ -186,10 +184,9 @@ html.model-contain .stage-view.gl-on :is(svg#stage, svg#labels) { contain: layou
 .stage-view .lb:not([data-gl]) { transition: opacity var(--d-small) var(--ease); }
 .stage-view.lb-ride .lb:not([data-gl]) { opacity: 0; }
 /* The labels the GPU draws (label-gl.js): their SVG copy stays, for its layout, clicks, focus and screen readers, but paints nothing;
-   the canvas over it takes the label layer's rules (cam-move, unframed, the lobule, the catheter) and never takes a pointer. */
+   the canvas over it takes the label layer's rules (unframed, the lobule, the catheter) and never takes a pointer. */
 #labels .lb[data-gl] > * { opacity: 0; }
 #labels :is(.lb-leaders, .lb-scan) > [data-gl] { visibility: hidden; }   /* (a leader or dot the GPU draws: its fades still run here, and are read) */
-.stage-view .lb-glass { transition: opacity var(--d-small) var(--ease); }
 .stage-view.panning #stage { cursor: grabbing; }
 
 .chip-btn {
@@ -323,11 +320,7 @@ html.chip-open :is(.chip-btn, .lens-btn)[aria-expanded="true"] { background: var
 .lb.zonecap.link.sel .lb-zone { fill: var(--accent-ink); }
 @media (hover: hover) { .lb.zonecap.link:hover .lb-zone { fill: var(--accent-ink); } }
 .lb.zonecap.link:focus-visible .lb-hit { stroke: var(--focus); stroke-width: 2; }
-/* The liver card is frosted glass: a translucent pane that blurs the vessels under it (an HTML element, since
-   backdrop-filter does not work on SVG); its own rect is left clear. */
 #labels .lb.module .lb-bg { fill: transparent; stroke: var(--module-line); }
-.lb-glass { position: absolute; left: 0; top: 0; border-radius: var(--r-control); pointer-events: none; background: var(--frost); box-shadow: 0 1px 8px rgb(var(--night-rgb) / .1); }
-.lb-glass[hidden] { display: none; }
 .lb.module:focus-visible .lb-bg { stroke: var(--accent); }
 @media (hover: hover) { .lb.module:hover .lb-bg { stroke: var(--accent); } }
 .lb-lane { fill: var(--text-3); font-style: italic; }
@@ -3258,7 +3251,7 @@ button.finding { cursor: pointer; }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .cl-glass { background: color-mix(in srgb, var(--surface) 94%, transparent); } }
 @media (prefers-reduced-transparency: reduce) { .cl-glass { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
 /* (Its blur and tint drawn on the GPU under the callout layers instead, glass-gl.js: the outline above stays the DOM's) */
-.cl-glass[data-gl], .lb-glass[data-gl] { background: none; }
+.cl-glass[data-gl] { background: none; }
 /* (The Present cards likewise, recs A2: their blur and tint in the figure's canvas under them (presenter.js build, stage.cardGlass), each card's border,
    edge and shadow still the DOM's. Specific enough to win over every glass rule above, the stacked and the phone's bar included.) */
 .pz-shade.pz-shade.pz-shade.pz-shade[data-gl], .pz .pz-data.pz-data.pz-data.pz-data.pz-data[data-gl], .pz .pz-fk.pz-fk.pz-fk.pz-fk.pz-fk[data-gl], .pz .pz-case.pz-case.pz-case.pz-case.pz-case[data-gl], .pz .pz-bar.pz-bar.pz-bar.pz-bar.pz-bar[data-gl], .pz .pz-scales.pz-scales.pz-scales.pz-scales.pz-scales[data-gl] { background: none; }
@@ -6557,7 +6550,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 /* Settings › "Frosted glass" off (html[data-noglass]): no live blur anywhere, which spares the GPU re-blurring the
    moving figure every frame. Cards and the figure's label pills turn solid instead. */
 :root[data-noglass] *, :root[data-noglass] *::before, :root[data-noglass] *::after { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
-:root[data-noglass] :is(.lb-glass, .sv-legend, .pz-fk, .pz .pz-fk.pz-fk, .toast) { background: var(--surface); }
+:root[data-noglass] :is(.sv-legend, .pz-fk, .pz .pz-fk.pz-fk, .toast) { background: var(--surface); }
 :root[data-noglass] :is(.pz-shade, .pz-shade.pz-card, .pz-shade.stack, .pz-data.pz-data, .pz-case, .pz-bar, .pz.stack .pz-bar, .pz-scales, .cl-glass) { --gl-glass: 0; background: var(--surface); }
 /* (The upright split sheet's two glass pieces: its own fill is none, the pieces carry the glass, so they turn solid with the rest.) */
 /* (The split sheet is its two pseudo-element cards, solid here; its own box is no third card behind them: with the blur off it showed as a second rounded panel round the tiles and the instrument card, Mohammad, 3 Nov 2026.) */
@@ -6575,7 +6568,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
    (the lobule, a dive, a fade, a label across it), shows the solid look of Settings › Blur effect off instead of the browser's backdrop blur, so
    nothing over the moving figure is re-blurred by the browser on any frame. The teaching card's shade keeps a layer of its own the whole time,
    never made and dropped as its glass changes hands (the iPhone lost its outline, tabs and credit on that swap, 1 Nov). */
-:root:root :is(.lb-glass, .sv-legend, .pz-fk, .pz .pz-fk.pz-fk, .toast):not([data-gl]) { background: var(--surface); }
+:root:root :is(.sv-legend, .pz-fk, .pz .pz-fk.pz-fk, .toast):not([data-gl]) { background: var(--surface); }
 :root:root :is(.pz-shade, .pz-shade.pz-card, .pz-shade.stack, .pz-data.pz-data, .pz-case, .pz-bar, .pz.stack .pz-bar, .pz-scales, .cl-glass):not([data-gl]) { background: var(--surface); }
 :root:root .pz.stack.stack .pz-data.pz-sheet:not([data-gl])::before, :root:root .pz.stack.stack .pz-data.pz-sheet:not([data-gl])::after { background: var(--surface); }
 :root:root .pz.pz-wide.pz-wide .pz-data.pz-sheet:not([data-gl])::before, :root:root .pz.pz-wide.pz-wide .pz-data.pz-sheet:not([data-gl])::after { background: var(--surface); }

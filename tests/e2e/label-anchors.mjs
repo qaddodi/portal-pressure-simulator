@@ -60,8 +60,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     let last = -1, same = 0;
     for (let i = 0; i < 90 && same < 2; i++) {
       await page.waitForTimeout(1000);
-      const s = await page.evaluate(() => { const c = window.pps.stage.labelCarry(); return [window.pps.stage.labelSnapshot().seq, c.laid, c.hidden, c.job]; });
-      same = s[0] === last && s[1] && !s[2] && !s[3] ? same + 1 : 0; last = s[0];
+      const s = await page.evaluate(() => { const c = window.pps.stage.labelCarry(); return [window.pps.stage.labelSnapshot().seq, c.laid, c.job]; });
+      same = s[0] === last && s[1] && !s[2] ? same + 1 : 0; last = s[0];
     }
   };
   const view = (v) => page.evaluate((v) => document.querySelector(`#viewSeg [data-view="${v}"]`)?.click(), v);

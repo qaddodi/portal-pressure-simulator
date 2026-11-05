@@ -6,7 +6,7 @@ import { EDGES, NODES, PORTAL_TERRITORY, isStent, stentSite, STENT_SITES } from 
 import { RECTUM_FADE, LABEL_VESSEL, TIP_FADE, ART_FADE, VIEW, VB_CIRC, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NODE_POS, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, CAVITY_LOW, SITES, LIVER_SPLIT_X, CIRCUIT_ZONES, STRANDS, SIN_EDGES } from './anatomy.js';
 import { nodeEnds, nodeDrawn, dotRadius } from './circuit-nodes.js';
 import { store } from './store.js';
-import { s, h, clamp, lerp, toast, loadFailed, UPRIGHT_MQ } from './util.js';
+import { s, clamp, lerp, toast, loadFailed, UPRIGHT_MQ } from './util.js';
 import { recordLayer } from './over-records.js';
 import { lerpVT } from './cam-arc.js';
 import { easeArrive, createGlideTracker, D_SURFACE } from './ease.js';
@@ -23,7 +23,7 @@ import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } fro
 import { elBoxInto } from './shape-gl.js';
 import { HOVER_LINK } from './hover-link.js';
 import { createExplain } from './label-explain.js';
-import { createGlassGL, glassRegions, GLASS, PANE, roundPath } from './glass-gl.js';
+import { createGlassGL, glassRegions, GLASS } from './glass-gl.js';
 import { createVeinsGL, TUBE_TEXELS, MAX_TIERS, ORIGIN_GREY } from './veins-gl.js';
 import { frameFor, lateFrameFor, cancelFrame, noteDraw, easeNow, afterMotion, PACED, setSaver as setFrameSaver, onRenderScale, figOpt, figLab, onFigLab, readFrameFor, frameGapFor } from './frame.js';
 import { softwareYield } from './sw-yield.js';
@@ -284,10 +284,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get gestureOn() { return gestureOn; },
     get gGut() { return gGut; }, set gGut(v) { gGut = v; },
     get gLabels() { return gLabels; },
-    get glass() { return glass; },
     get glassGL() { return glassGL; }, set glassGL(v) { glassGL = v; },
-    get glassSizing() { return glassSizing; }, set glassSizing(v) { glassSizing = v; },
-    get glassWant() { return glassWant; },
     get glide() { return glide; }, set glide(v) { glide = v; },
     get glideCam() { return glideCam; }, set glideCam(v) { glideCam = v; },
     get glideRaf() { return glideRaf; }, set glideRaf(v) { glideRaf = v; },
@@ -433,7 +430,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get overlayKey() { return overlayKey; }, set overlayKey(v) { overlayKey = v; },
     get ovT() { return ovT; }, set ovT(v) { ovT = v; },
     get paintOrganAlpha() { return paintOrganAlpha; },
-    get paneGL() { return paneGL; }, set paneGL(v) { paneGL = v; },
     get paramJSONs() { return paramJSONs; },
     get pickVer() { return pickVer; }, set pickVer(v) { pickVer = v; },
     get picLin() { return picLin; }, set picLin(v) { picLin = v; },
@@ -605,11 +601,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (A settings change reaches its listeners only at the next frame: a read between, from a timer or an idle moment, checks them itself.)
   let csSnap = null, csMq = null;
   // A class list less the classes a pan or pinch puts on and takes off, which change no colour or look the stage draws.
-  // (And a slide's camera glide's own classes: cam-move and pinch-hide fade only the label layer, off-home only the zoom pill, and none
+  // (And a slide's camera glide's own classes: pinch-hide fades only the label layer, off-home only the zoom pill, and none
   // of the readers keyed on this (the stage's colours, the organs' grey, the vessel marks, the glow) reads either. Counted, each glide
   // began and ended with the marks rebuilt shape by shape, every organ's colours read again and the stage's colours dropped: about
   // 300 style passes on a phone's slide change.)
-  const gestureFree = (c) => (c || '').replace(/(?:^|\s)(?:panning|stage-busy|figure-focus|lb-ride|cam-move|pinch-hide|off-home)(?=\s|$)/g, '');
+  const gestureFree = (c) => (c || '').replace(/(?:^|\s)(?:panning|stage-busy|figure-focus|lb-ride|pinch-hide|off-home)(?=\s|$)/g, '');
   // (bugs-recs 8, 2 Nov 2026: the figure's classes as the still-frame and look keys see them: the gesture and camera classes left out
   // (they move nothing the picture draws) and the rest sorted, so two toggles in one frame that leave the same set, in another order,
   // are no change and no redraw. Worked out again only when the class string itself changed.)
@@ -1462,7 +1458,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // push (drifting) and are solved again once it ends (followEnd, driftEnd). Any glide or framing set outright ends it (animateVT).
   // aimView: where a framing would go, without moving: the camera functions run with animateVT only noting its target.
   let following = false, follow0 = null, follow1 = null, aiming = false, aimed = null, followScene = false, followU = 0;
-  const { aimView, arcRoom, camSettle, camSettleIdle, driftEnd: driftEnd$, followAt, followStart, rideLeaders, rideNow, rideStart, rideStep, rideStop, stagePx, stagePxInto, stagePxNow, viewNow } = createRide({ applyVT, dpr, labelSettleSoon, nextFrame, refreshCTM, sameView, sceneSet, sceneStart, sitesPaint, stageBox, updateLabels, vCanvas, vbBox, wrap }, live);
+  const { aimView, arcRoom, camSettle, camSettleIdle, driftEnd: driftEnd$, followAt, followStart, rideLeaders, rideNow, rideStart, rideStep, rideStop, stagePx, stagePxInto, stagePxNow, viewNow } = createRide({ applyVT, dpr, labelSettleSoon, refreshCTM, sameView, sceneSet, sceneStart, sitesPaint, stageBox, updateLabels, vCanvas, vbBox, wrap }, live);
   function driftEnd(...a) { return driftEnd$(...a); }   // <stage-split stub>
   let handRide = false, handRideT = 0, layCTM = null;   // (handRide: the labels are held while the camera moves, see updateLabels; layCTM: the camera they were last laid out under)
   // The arc a presenter's long move is taking (see cam-arc.js), so a refit while it runs bends it to the new framing instead of starting over.
@@ -2008,15 +2004,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!veins?.top) return null;
     // (The figure's callouts (cards.callouts): the same renderer with the callouts' own ways: drawn while the figure is on, from the figure's own
     // pictures and blood, in the turn between the cards' two, over what lies over the callouts, and their holes in the labels under 'callouts'.)
-    if (cards.pane) {
-      const g = createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, cards, live: () => wrap.classList.contains('gl-on'), version: () => veins.drawSeq, fresh: thirdSeq(), dirty: (a, b, o) => veins.bloodDirty(a, b, o), onFigure: (f) => veins.onPicture(f) });
-      if (!g) { wrap.dataset.pane = 'css'; return null; }
-      hostFrost(g, { order: 0, over: () => frostOver('pane') });
-      paneGL = g;
-      const dispose = g.dispose;
-      g.dispose = () => { if (paneGL === g) paneGL = null; frostHosts.delete(g); dispose(); };
-      return g;
-    }
     if (cards.callouts) {
       const g = createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, cards, live: () => wrap.classList.contains('gl-on'), version: () => veins.drawSeq, fresh: thirdSeq(), dirty: (a, b, o) => veins.bloodDirty(a, b, o), onFigure: (f) => veins.onPicture(f), onHoles: frostHoles('callouts') });
       if (!g) { wrap.dataset.glass = 'css'; return null; }
@@ -2091,14 +2078,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // around its anchor. The same layer is serialized into exported figures.
   const labelSvg = wrap.querySelector('#labels');
   if (HOVER_LINK) labelSvg.classList.add('hovlink');   // (the hover link's look in app.css hangs on it: hover-link.js; ?hoverlink=0 leaves the layer as it was)
-  // Frosted pane behind the liver card: a backdrop blur needs an HTML element, and the labels are SVG.
-  const glass = h('div', { class: 'lb-glass', 'aria-hidden': 'true', hidden: true });
-  labelSvg.before(glass);
-  // (Drawn on the GPU under the labels while it can be, as the callouts' glass is: glass-gl.js.)
-  let paneGL = null;   // (a region of stage.glass.add, made by cardGlass with cards.pane; set there)
-  let glassWant = ['', ''], glassSizing = 0;
-  const sizeGlass = () => { glassSizing = 0; glass.style.width = glassWant[0]; glass.style.height = glassWant[1]; };
-  onFigLab((k) => { if (k === 'glassCache') { glassGL?.redraw(); paneGL?.redraw(); for (const g of cardGLs) g.redraw(); } });
+  onFigLab((k) => { if (k === 'glassCache') { glassGL?.redraw(); for (const g of cardGLs) g.redraw(); } });
   // (Sharper upscaling on or off: the canvas takes its new size and picture under the eased change every resolution change takes.)
   onFigLab((k) => { if (k === 'upscale') { easeRes(); veinsDirty = true; forceDraw = true; stageWake(); } });
   // Lighter organ art (Settings, Figure performance; off by default): the colon's and small bowel's lines with fewer points, none
@@ -2133,7 +2113,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   onFigLab((k) => { if (k === 'lightArt') syncArtLite(); });
   if (figLab('lightArt')) syncArtLite();
-  wrap.dataset.pane = veins && !SOFTWARE ? 'gpu' : 'css';
   const gLeaders = s('g', { class: 'lb-leaders' });
   const gLabels = s('g', { class: 'lb-blocks' });
   const gScan = s('g', { class: 'lb-scan off' }, s('path', { class: 'leader scan' }), s('circle', { class: 'leader-dot scan', r: 2.6 }));   // the FibroScan callout's leader: its own layer, so it eases with the probe
@@ -2144,7 +2123,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // renderer, without WebGL2, or once the GPU's context is lost. Drawn in the figure's own context, as a pass of its present under every glass (S2,
   // docs/gpu-two-contexts-plan.md): the same present, the same camera numbers, so they can never be a frame behind the figure, and a card over a label
   // shows it blurred, as glass would: no hole is cut. (Until 4 Nov 2026 they had a canvas of their own.)
-  const frostWake = () => { glassGL?.redraw(); paneGL?.redraw(); for (const g of cardGLs) g.redraw(); };
+  const frostWake = () => { glassGL?.redraw(); for (const g of cardGLs) g.redraw(); };
   const LABELS_ORDER = -6;   // (over the lobule's and sinusoid's pictures and their captions, under the glasses at 0 … 3: veins-gl top.add)
   const labelHost = () => {
     const top = veins?.top;
@@ -2159,7 +2138,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // canvas (a resolution's fade, a dive, the lobule), the callouts and the pane go back to their own way (?glasscopy=1: their own canvas,
   // from a copy, as before 31 Oct; by default the browser's glass) and a card to the browser's glass.
   let frostHold = false;
-  const { blurWhy, frostHosts, frostOver: frostOver$, frostWhy, glassBox, hostFrost: hostFrost$, visible } = createGlass({ appEl, cardGLs, cath, frostWake, gOver, glass, labelSvg, lzShares, refreshCTM, sites, svg, vCanvas, wrap }, live);
+  const { blurWhy, frostHosts, frostOver: frostOver$, frostWhy, glassBox, hostFrost: hostFrost$, visible } = createGlass({ appEl, cardGLs, cath, frostWake, gOver, labelSvg, lzShares, refreshCTM, sites, svg, vCanvas, wrap }, live);
   function hostFrost(...a) { return hostFrost$(...a); }   // <stage-split stub>
   function frostOver(...a) { return frostOver$(...a); }   // <stage-split stub>
   // The ?perf surfaces list (gpu-surfaces.js): the anatomy's own surfaces, each from state this file already keeps. Read by the readout
@@ -2208,18 +2187,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     };
     const blurAsk = () => sr('fallback', 'browser blur', SOFTWARE ? 'software renderer' : !veins ? 'no WebGL2' : 'no GPU glass made');
     surface('callout glass', glassRow(() => glassGL, () => (document.getElementsByClassName('cl-glass').length ? blurAsk() : null)));
-    surface('liver label pane glass', glassRow(() => paneGL, () => (glass.hidden ? null : blurAsk())));
     surface('card glass', glassRow(() => { for (const g of cardGLs) if (g.state()) return g; return null; }, () => (document.querySelector('.pz-shade') ? blurAsk() : null)));
   }
   // The callouts' glass: one region of stage.glass.add over both callout layers' glass bodies (callout.js .cl-glass), each its outline path (read from
   // its model), its size from its style, its tint the surface at the glass's strength and its soft shadow the callout's own box-shadow, drawn under
   // the callouts (its turn between the cards' two); asked for again by glass.add while the figure's canvas is not made yet.
-  // The liver label's pane likewise: its rounded box (its border radius, its size from its style) tinted with --frost, drawn under the labels (order 0).
-  glassAdd.add(glass, {
-    pane: true, blur: PANE.blur, sat: PANE.sat, scale: 4, margin: 48, before: glass, watch: glass,
-    tint: (g, cs) => cs.getPropertyValue('--frost'),
-    shape: (g) => { const w = parseFloat(g.style.width) || 0, h = parseFloat(g.style.height) || 0; return w && h ? { d: roundPath(w, h, parseFloat(getComputedStyle(g).borderTopLeftRadius) || 0), w, h } : false; },
-  });
   {
     const body = [], layers = [cath.labels, sites.el];
     const NUMPX = (v) => parseFloat(v) || 0;
@@ -2260,7 +2232,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Tap a label to explain it (N4, label-explain.js): the tapped station's label grows a line of its own (name and live value, drawn by the GPU with
   // it, so it rides with it), the rest of the labels and their leaders step back to 35 % (.spot-dim, app.css). explainApply sets the classes.
   const explain = createExplain(() => explainChanged());
-  const { MARK_GRID, PULL_GRID, REF, blockWant, labelGlide, labelStop, leadEls, paintLeaders, rectOf, renderBlock, termTone } = createLabelLayer({ ANCHOR_W, LABEL_GLIDE_MS, LINE_H, NO_ANCHOR, dprDots, easeInOut, explain, fontPx, gLeaders, glass, late, lateQueue, localToWorldInto, nextFrame, onSelect, pinKind, pool, setA, sizeGlass, toneCol, unlitKeys, updateLabels, wrap }, live);
+  const { MARK_GRID, PULL_GRID, REF, blockWant, labelGlide, labelStop, leadEls, paintLeaders, rectOf, renderBlock, termTone } = createLabelLayer({ ANCHOR_W, LABEL_GLIDE_MS, LINE_H, NO_ANCHOR, dprDots, easeInOut, explain, fontPx, gLeaders, late, lateQueue, localToWorldInto, nextFrame, onSelect, pinKind, pool, setA, toneCol, unlitKeys, updateLabels, wrap }, live);
   let frameNo = 0;
   // A label the layout moves (a slide's or a patient's change found it a new spot) glides there instead of jumping (17 Oct: "labels and
   // callouts all snap"). It keeps its offset from the point it names, so it still follows the camera exactly and only a change of that
@@ -2315,7 +2287,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // during the zoom itself it's very very choppy", and his pick "Re-place only the bumped reading".)
   let carryReslot = false, reslotted = false;
   // A hand's zoom in the Circuit: the readings ease out as it starts, are not laid out while it lasts, and ease back in, solved for
-  // where the view stopped, once it is let go (as a presenter's camera move does: cam-move). Mohammad, 26 Oct, his pick "Both,
+  // where the view stopped, once it is let go. Mohammad, 26 Oct, his pick "Both,
   // readings first" for "the problem is during the zoom itself it's very very choppy". A pan alone keeps them, carried.
   // A vessel's width as the labels see it: it moves only once the vessel has changed by 2 px, so a width
   // easing or hovering at a rounding edge does not lay the labels out again on every model update.
@@ -2434,7 +2406,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // (The solver keeps what a layout carries from label to label in two records written in place: the live layout's and the solve ahead's.)
   let lbkNum = NaN, lbkStr = '', labelSolSpare = new Map();
-  const { layoutLabelsGen: layoutLabelsGen$ } = createLabelSolve({ ANAT_EXTRA, ANAT_PRI, CIRCUIT_LABEL_K, E, EBOX, EI, KEY_NODES, LINE_H, LW_XY, MARK_GRID, NI, NO_BLK, PIN_DIR, PULL_GRID, TURN_DIR, ZONE_SHORT, arcMid, blockWant, buildSegs, caliperAt, caliperSegs, calloutBoxes, cath, cathRadOf, clampD, clampFontAt, clampLabelAt, clampLabelPos, clampMv, clampStep, clampTextBox, clampW, colGap, dop, dpr, easeInOut, flagged, fontPx, fxBuild, fxK, fxPill, gLabels, gScan, geo, glass, hasDot, hasVarices, isImaging, labelAnchor, labelBase, labelGlide, labelHidden, labelStop, labelVis, laneAlt, laneU, leadEls, leadRectOf, leaderEnd, lineHits, lineW, liverExpanded, localToWorld, localWorldXY, nodeItem, nodePos, onSelect, oneLine, organEls, ov, paintLeaders, pointAt, pool, procIn, pzInset, rectOf, renderBlock, resItem, resPlace, saSides, scan, scanTipLocal, seenEnd, shortenItem, shortenTo, sites, sliceOver, stageBox, stagePx, stenosisAt, stentReady, textW, velItem, vh, worldToLocal, worldToLocalInto, zoneStick, zoomedIn }, live);
+  const { layoutLabelsGen: layoutLabelsGen$ } = createLabelSolve({ ANAT_EXTRA, ANAT_PRI, CIRCUIT_LABEL_K, E, EBOX, EI, KEY_NODES, LINE_H, LW_XY, MARK_GRID, NI, NO_BLK, PIN_DIR, PULL_GRID, TURN_DIR, ZONE_SHORT, arcMid, blockWant, buildSegs, caliperAt, caliperSegs, calloutBoxes, cath, cathRadOf, clampD, clampFontAt, clampLabelAt, clampLabelPos, clampMv, clampStep, clampTextBox, clampW, colGap, dop, dpr, easeInOut, flagged, fontPx, fxBuild, fxK, fxPill, gLabels, gScan, geo, hasDot, hasVarices, isImaging, labelAnchor, labelBase, labelGlide, labelHidden, labelStop, labelVis, laneAlt, laneU, leadEls, leadRectOf, leaderEnd, lineHits, lineW, liverExpanded, localToWorld, localWorldXY, nodeItem, nodePos, onSelect, oneLine, organEls, ov, paintLeaders, pointAt, pool, procIn, pzInset, rectOf, renderBlock, resItem, resPlace, saSides, scan, scanTipLocal, seenEnd, shortenItem, shortenTo, sites, sliceOver, stageBox, stagePx, stenosisAt, stentReady, textW, velItem, vh, worldToLocal, worldToLocalInto, zoneStick, zoomedIn }, live);
   function* layoutLabelsGen(...a) { return yield* layoutLabelsGen$(...a); }   // <stage-split stub>
   // A station's marker (its dot, its label, the Δ ring) shows only while a vessel is drawn at it (circuit-nodes.js): a vessel the
   // plate leaves out, or one still closed, leaves no dot floating where it would end, and one that draws on or retracts brings
@@ -3186,14 +3158,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     },
     labelClearance: () => clearanceReport(),   // (the browser check's: see clearanceReport)
     labelPresolveRun: (ms, between) => preRun(ms, between), labelLayoutNow: (solve = true) => { if (!F) return null; labelKey = null; if (solve) solveAsked = true; updateLabels(F); return labelSol; },   // (the node check of the solve ahead: preRun; a layout now, a solve or (false) a carry)
-    /** The labels' state against the camera, for the browser check: hidden (the pinch hide), riding (carried by the camera's move on the GPU),
-     *  and stale (shown, not riding, laid out under a camera that is not this one: the old labels over the new view). */
+    /** The labels' state against the camera, for the browser check: riding (carried by the camera's move on the GPU),
+     *  and stale (not riding, laid out under a camera that is not this one: the old labels over the new view). */
     labelCarry: () => {
       refreshCTM();
-      const hidden = wrap.classList.contains('cam-move'), riding = !!rideCTM;
+      const riding = !!rideCTM;
       let moved = false;
       if (layCTM) { const n = stagePxInto(stagePxNow, CTM); for (let i = 0; i < 6; i++) if (Math.abs(n[i] - layCTM[i]) > (i < 4 ? 1e-4 : 0.5)) moved = true; }
-      return { hidden, riding, job: !!labelJob, laid: !!solvedFor && !labelJob && labelKey != null && morph === morphTarget, stale: !hidden && !riding && !labelJob && moved };
+      return { riding, job: !!labelJob, laid: !!solvedFor && !labelJob && labelKey != null && morph === morphTarget, stale: !riding && !labelJob && moved };
     },
     /** For the browser check of the Circuit's leaders (tests/e2e/circuit-leaders.mjs): the vessels as the labels' solver sees them (stage px, half width, id)
      *  and the stage's corner in client px, so the labels' boxes and leaders can be read against them. */

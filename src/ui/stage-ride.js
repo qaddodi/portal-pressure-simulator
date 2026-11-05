@@ -6,7 +6,7 @@ import { cams } from './scene-cam.js';
 import { clamp, rideChanged } from './util.js';
 
 export function createRide(st, live) {
-  const { applyVT, dpr, labelSettleSoon, nextFrame, refreshCTM, sameView, sceneSet, sceneStart, sitesPaint, stageBox, updateLabels, vCanvas, vbBox, wrap } = st;
+  const { applyVT, dpr, labelSettleSoon, refreshCTM, sameView, sceneSet, sceneStart, sitesPaint, stageBox, updateLabels, vCanvas, vbBox, wrap } = st;
   const rideLeaders = (on) => { wrap.classList.toggle('lb-ride', on); rideChanged(); };   // (the leaders' layer fades under it: label-theme.js)
   // (A matrix in stage px, written into a kept six: stagePx is the camera the labels were last laid out under (layCTM keeps it, written in
   // place at each layout); a ride keeps its own copy, and the ride's frame matrix is one more.)
@@ -17,11 +17,11 @@ export function createRide(st, live) {
   function rideStart(from = null) {
     if (live.rideCTM) return true;   // (a move taken over by another: the labels ride on from where they were laid out)
     // (A treatment's catheter keeps the figure's labels on (keep): they ride its glides too. The HVPG catheter hides them: nothing to carry.)
-    if (!live.labelRider?.canRide() || (live.cath.st && !live.cath.st.keep) || live.lobuleOn || live.lz?.isOpen() || live.diveT > 0 || wrap.classList.contains('cam-move')) return false;   // (reduced motion rides too: a label that stays on its point as the figure moves adds no motion of its own; hidden, the names went for every pinch and glide)
+    if (!live.labelRider?.canRide() || (live.cath.st && !live.cath.st.keep) || live.lobuleOn || live.lz?.isOpen() || live.diveT > 0) return false;   // (reduced motion rides too: a label that stays on its point as the figure moves adds no motion of its own; hidden, the names went for every pinch and glide)
     refreshCTM();
     if (from) { for (let q = 0; q < 6; q++) stagePxRide[q] = from[q]; } else stagePxInto(stagePxRide, live.CTM);
     live.rideCTM = stagePxRide;
-    rideLeaders(true); live.glass.style.opacity = '0';
+    rideLeaders(true);
     rideM6[0] = 1; rideM6[1] = 0; rideM6[2] = 0; rideM6[3] = 1; rideM6[4] = 0; rideM6[5] = 0;
     live.labelRider.ride(rideM6);
     return true;
@@ -48,7 +48,7 @@ export function createRide(st, live) {
     if (!live.rideCTM) return;
     live.rideCTM = null;
     live.labelRider?.rideEnd();
-    rideLeaders(false); live.glass.style.opacity = '';
+    rideLeaders(false);
   }
   function driftEnd() { if (!live.drifting) return; live.drifting = false; rideLeaders(false); labelSettleSoon(); }
   function camSettle() {
@@ -56,9 +56,7 @@ export function createRide(st, live) {
     live.camMove = false; dpr.carry = false;
     rideStop();
     if (live.F) updateLabels(live.F);
-    nextFrame(camMoveOff);
   }
-  const camMoveOff = () => { if (!live.camMove) wrap.classList.remove('cam-move'); };
   const camSettleIdle = () => { if (!live.vtGliding) camSettle(); };
   // The viewBox units the stage really shows (the svg meets its viewBox, so the spare room on one axis shows more), and the widest
   // view an arc may pull back to: the whole figure's fit.

@@ -10,13 +10,12 @@ export function createView(st, live) {
   const { CIRC_C, EV, VB_CIRC_R, applyVT, circTurn, circWhole, defaultVT, driftEnd, edgeVisible, geo, handRideEnd, labelJobDrop, labelJobStep, labelKeyNow, labelSig, labelSliceRun, labelTail, layoutLabels, layoutLabelsGen, refreshCTM, rotEase, sameView, stageBox, updateLabels, vbBox, vesselAt, visAt, worldToLocalInto } = st;
   const xfVis = [null, null];
   function viewXfP() { const x = live.viewXf, t = live.easeInOut(live.morph); return x.tT === x.t0 ? 1 : clamp((t - x.t0) / (x.tT - x.t0), 0, 1); }
-  // (The label layers the GPU does not draw (the SVG's own, the liver's pane) come in with the new labels.)
+  // (The label layers the GPU does not draw (the SVG's own) come in with the new labels.)
   function xfLayer(n) {
     const v = n >= 1 ? '' : n.toFixed(3);
     if (v === live.xfOp) return;
     live.xfOp = v;
     if (live.labelSvg) live.labelSvg.style.opacity = v;
-    live.glass.style.opacity = v;
     live.labelGL?.check();   // (the label layer's own fade changed: label-gl.js check)
   }
   function xfVisFill() {

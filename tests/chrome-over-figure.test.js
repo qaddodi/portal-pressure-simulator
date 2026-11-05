@@ -17,7 +17,7 @@ const rules = [];
 for (const m of css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)) rules.push([m[1].trim().replace(/\s+/g, ' '), m[2]]);
 const z = (name) => +new RegExp(`--z-${name}:\\s*(\\d+)`).exec(tokens)[1];
 
-const GESTURE = /\.(?:stage-busy|figure-focus|panning|pinch-hide|cam-move|lb-ride|off-home)\b/;
+const GESTURE = /\.(?:stage-busy|figure-focus|panning|pinch-hide|lb-ride|off-home)\b/;
 const CHROME = /\.float-ui|\.float-pill|\.topbar|\.vdock|\.zoom-pill|\.stage-bar|\.nb-views|#nbViews|\.stage-fit|\.stage-rotate|\.sb-center|\.instrument-workspace|\.treat-card|\.panel\b|#dock\b/;
 
 test('no gesture class fades a piece of the chrome whose glass is its own: only frosted plates fade whole, the rest fade their ink', () => {

@@ -10,7 +10,7 @@ import { store } from './store.js';
 import { clamp, putText, s } from './util.js';
 
 export function createLabelLayer(st, live) {
-  const { ANCHOR_W, LABEL_GLIDE_MS, LINE_H, NO_ANCHOR, dprDots, easeInOut, explain, fontPx, gLeaders, glass, late, lateQueue, localToWorldInto, nextFrame, onSelect, pinKind, pool, setA, sizeGlass, toneCol, unlitKeys, updateLabels, wrap } = st;
+  const { ANCHOR_W, LABEL_GLIDE_MS, LINE_H, NO_ANCHOR, dprDots, easeInOut, explain, fontPx, gLeaders, late, lateQueue, localToWorldInto, nextFrame, onSelect, pinKind, pool, setA, toneCol, unlitKeys, updateLabels, wrap } = st;
   // A label that is hidden (off the screen, behind a card, colliding, fading out) is neither a keyboard stop nor read aloud: it keeps only its look
   // until it is wanted again. (One with focus on it keeps its place until focus moves.)
   function labelStop(b, hid) {
@@ -60,7 +60,7 @@ export function createLabelLayer(st, live) {
     // (Drawn by the GPU, no label eases here: its offset from its point is the layout's at once, and label-gl.js alone moves one that changes
     // slot, once (V-LBL-1). Eased here as well, the GPU's labels were carried to their places over 450 ms: "the labels match slowly
     // towards their positions", Mohammad, 3 Nov.)
-    const snap = (!!live.labelGL && !live.labelGL.lost) || reduceMotion.matches || live.camMove || wrap.classList.contains('cam-move') || wrap.classList.contains('cath-on') || !!live.lz?.isOpen();
+    const snap = (!!live.labelGL && !live.labelGL.lost) || reduceMotion.matches || live.camMove || wrap.classList.contains('cath-on') || !!live.lz?.isOpen();
     let moving = false;
     for (const it of out) {
       const b = pool.get(it.key);   // (a label with no block yet is new: it fades in where it stands)
@@ -269,8 +269,6 @@ export function createLabelLayer(st, live) {
     lmC((it.sel ? 1 : 0) | (b.unlit ? 2 : 0) | (b.onVessel ? 4 : 0) | (it.hide ? 8 : 0) | (g.contains('spot-on') ? 16 : 0) | (g.contains('spot-dim') ? 32 : 0) | (g.contains('ring') ? 64 : 0));
     return (lh1 >>> 0) * 2097152 + ((lh2 >>> 0) & 0x1fffff);
   }
-  // (What the liver's glass and each label's place were last written from: the numbers, so the text for the page is made only when one moved.)
-  let glassX = NaN, glassY = NaN, glassW = NaN, glassH = NaN;
   function blockRest(b, it) {
     for (const text of b.textLines) setA(text, 'x', it.align === 'end' ? it.w - (it.swatch ? 7 : 0) : it.align === 'middle' ? it.w / 2 : it.swatch ? 7 : 0);
     if (b.bg) { setA(b.bg, 'width', it.w + 2 * it.padX); setA(b.bg, 'height', it.h + 2 * it.padY); }
@@ -279,17 +277,6 @@ export function createLabelLayer(st, live) {
     b.g.classList.toggle('sel', !!it.sel);
     b.g.classList.toggle('lb-off', !!it.hide);
     labelStop(b, !!it.hide);
-    if (it.key === 'liver') {
-      const gx = it.x - it.padX, gy = it.y - it.padY;
-      if (gx !== glassX || gy !== glassY) { glassX = gx; glassY = gy; glass.style.transform = `translate(${gx.toFixed(1)}px, ${gy.toFixed(1)}px)`; }
-      // (its size is laid out in a rest pass between frames, never in the frame that placed it: sizeGlass)
-      const gwN = it.w + 2 * it.padX, ghN = it.h + 2 * it.padY;
-      if (gwN !== glassW || ghN !== glassH) {
-        glassW = gwN; glassH = ghN;
-        const gw = `${gwN.toFixed(1)}px`, gh = `${ghN.toFixed(1)}px`;
-        if (gw !== live.glassWant[0] || gh !== live.glassWant[1]) { live.glassWant[0] = gw; live.glassWant[1] = gh; if (!live.glassSizing) live.glassSizing = restPass(sizeGlass); }
-      }
-    }
     // A turned caption reads bottom to top: its box's top-left is (x, y), and its text runs up from the bottom.
     if (it.x !== b.tx || it.y !== b.ty || it.w !== b.tw || !!it.rot !== b.tr) {
       b.tx = it.x; b.ty = it.y; b.tw = it.w; b.tr = !!it.rot;

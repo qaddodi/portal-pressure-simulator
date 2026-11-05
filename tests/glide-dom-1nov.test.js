@@ -1,6 +1,6 @@
 import { stageSource } from './stage-src.js';
 // A slide's camera glide sets off no style passes of its own (1 Nov 2026, iPhone: the slide-change zoom at about 3 fps). Its classes
-// (cam-move, pinch-hide, off-home) change no colour the stage, the organs' grey, the vessel marks or the glow read, nor any label's
+// (pinch-hide, off-home) change no colour the stage, the organs' grey, the vessel marks or the glow read, nor any label's
 // look; the vessel marks read every style before writing any data-gl; and a glide's own step paints the callouts and probes once a
 // frame.
 import { test } from 'node:test';
@@ -14,12 +14,11 @@ const CSS = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 test('the glide\'s classes are no look the stage\'s keyed readers depend on', () => {
   const src = STAGE.match(/const gestureFree = \(c\) => \(c \|\| ''\)\.replace\((\/[^ ]+\/g), ''\);/)[1];
   const re = new RegExp(src.slice(1, -2), 'g'), free = (c) => c.replace(re, '');
-  assert.equal(free('stage-view gl-on cam-move'), free('stage-view gl-on'));
   assert.equal(free('stage-view gl-on off-home pinch-hide'), free('stage-view gl-on'));
   assert.notEqual(free('stage-view gl-on in-lobule'), free('stage-view gl-on'), 'a class that changes the look still counts');
-  // (What the three do in the style sheet: the label layer's opacity and the zoom pill's ink, nothing the marks, organs or glow read.)
-  const rules = CSS.split('\n').filter((l) => /cam-move|pinch-hide|off-home/.test(l) && !/^\s*\/?\*/.test(l) && /\{/.test(l));
-  for (const r of rules) assert.match(r, /(#labels|\.lb-glass|\.zoom-pill)[^{]*\{ opacity: [\d.]+; \}/, r);
+  // (What the two do in the style sheet: the label layer's opacity and the zoom pill's ink, nothing the marks, organs or glow read.)
+  const rules = CSS.split('\n').filter((l) => /pinch-hide|off-home/.test(l) && !/^\s*\/?\*/.test(l) && /\{/.test(l));
+  for (const r of rules) assert.match(r, /(#labels|\.zoom-pill)[^{]*\{ opacity: [\d.]+; \}/, r);
 });
 
 test('off-home changes no label\'s look (label-gl.js reads them again only for a look)', () => {
@@ -52,7 +51,7 @@ test('the status bar\'s colour is taken from the token cache for a new look only
   assert.doesNotMatch(MAIN, /observe\(document\.getElementById\('app'\)[^\n]*syncStatusBar|statusLater/);
   // (The stage's colour is the theme's: no class on #app sets it.)
   const TOKENS = readFileSync(new URL('../styles/tokens.css', import.meta.url), 'utf8');
-  for (const l of (CSS + TOKENS).split('\n').filter((x) => /--stage-bg:/.test(x))) assert.doesNotMatch(l, /figure-focus|stage-busy|cam-move|off-home|panning|pinch-hide|lb-ride/);
+  for (const l of (CSS + TOKENS).split('\n').filter((x) => /--stage-bg:/.test(x))) assert.doesNotMatch(l, /figure-focus|stage-busy|off-home|panning|pinch-hide|lb-ride/);
 });
 
 // bugs-recs 8 (2 Nov 2026): the still-frame and look keys read the figure's classes as a set (wrapCls): the gesture classes left out

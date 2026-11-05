@@ -62,7 +62,7 @@ export async function gotoSlide(page, url, deck, i) {
 export async function quiet(page, { still = 250, timeout = 8000 } = {}) {
   await page.evaluate(() => { window.__qs = null; });
   return page.waitForFunction((still) => {
-    if (document.querySelector('.pz-load.on, .cam-move')) { window.__qs = null; return false; }
+    if (document.querySelector('.pz-load.on')) { window.__qs = null; return false; }
     if (document.getAnimations().some((a) => a.playState === 'running' && isFinite(a.effect?.getTiming().iterations) && a.effect.getTiming().duration > 1)) { window.__qs = null; return false; }
     const box = (s) => { const e = document.querySelector(s); if (!e) return ''; const r = e.getBoundingClientRect(); return [r.left, r.top, r.width, r.height].map(Math.round).join(',') + (e.hidden ? 'h' : '') + getComputedStyle(e).opacity; };
     const m = document.getElementById('world')?.getScreenCTM();

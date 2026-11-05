@@ -5,7 +5,7 @@ import { OVER_ALL, OVER_CLASS, overUnits } from './stage-over.js';
 
 import { stageScope } from './stage-scope.js';
 export function createGlass(st, live) {
-  const { appEl, cardGLs, cath, frostWake, gOver, glass, labelSvg, lzShares, refreshCTM, sites, svg, vCanvas, wrap } = st;
+  const { appEl, cardGLs, cath, frostWake, gOver, labelSvg, lzShares, refreshCTM, sites, svg, vCanvas, wrap } = st;
   // (2 Nov 2026, the iPhone trace: the glass asked the figure's canvas for its computed look on every frame it drew, which made the
   // browser restyle the page there and then, mid-frame. The look is read between frames instead: once at the start, after any write to
   // the canvas or what holds it, and when one of its transitions or animations ends; while one runs the canvas counts as easing, so no
@@ -81,9 +81,9 @@ export function createGlass(st, live) {
   }
   // The ?perf blur gauge's question: why the browser's blur, not a glass drawn in the figure's canvas, shows on `el` (null: no glass
   // here is meant to own it, as the toast or the fold chip; '' : its glass is drawn, a mark is about to be set).
-  const blurWhy = (el) => { for (const g of [live.glassGL, live.paneGL, ...cardGLs]) { const w = g?.why?.(el); if (w != null) return w; } return null; };
+  const blurWhy = (el) => { for (const g of [live.glassGL, ...cardGLs]) { const w = g?.why?.(el); if (w != null) return w; } return null; };
   // Where the glass drawn for `el` stands now ({ left, top, width, height }), for a check that compares it with the card (null: none is drawn for it).
-  const glassBox = (el) => { for (const g of [live.glassGL, live.paneGL, ...cardGLs]) { const b = g?.boxOf?.(el); if (b) return b; } return null; };
+  const glassBox = (el) => { for (const g of [live.glassGL, ...cardGLs]) { const b = g?.boxOf?.(el); if (b) return b; } return null; };
   // (Each glass and what it was set with: set again on a new renderer, after a lost context is restored.)
   const frostHosts = new Map();
   // (On since 1 Nov 2026 (Mohammad: "Move to GPU"). It had been off since
@@ -92,8 +92,8 @@ export function createGlass(st, live) {
   // labels leave every glass drawn here out (sendHoles), so they never send one back; and what still does (an overlay the GPU does not
   // paint, a callout under a card) changes it only after it has rested 400 ms, never while anything moves (glass-gl.js hostDraw).)
   function hostFrost(g, o) { if (!g || !live.veins?.top) return; frostHosts.set(g, o); g.setHost(frostHost(o, live.frostLiver)); if (!live.frostLiver) live.frostCtx = live.veins.top.gl; }
-  // (What the page lays between the figure's canvas and a glass, as client boxes. 'pane': the overlays the GPU does not paint (#stageOver's
-  // SVG). 'low' (the teaching card's shade, z-index 1, over the whole stage view): those, the liver pane when the browser blurs it, the
+  // (What the page lays between the figure's canvas and a glass, as client boxes: the overlays the GPU does not paint (#stageOver's
+  // SVG), always. 'low' (the teaching card's shade, z-index 1, over the whole stage view): those, the
   // labels and marks (their GPU canvas's boxes, or the SVG's own). 'callouts' (z-index 4): those, the shade (its tabs and words), and the
   // credit when it lies under them (outside Present). 'cards' (the Present cards, over everything in the stage view): 'low', and the
   // callouts.)
@@ -103,7 +103,7 @@ export function createGlass(st, live) {
     return c.display !== 'none' && c.visibility === 'visible' && +c.opacity > 0.001;
   };
   // (What lies between, kept (1 Nov 2026, "Move everything to GPU"): read again only when something there may have moved: a write in the
-  // overlays, the labels, the liver pane, the catheter's or the sites' labels or the stage's own class or style, a teaching card's shade
+  // overlays, the labels, the catheter's or the sites' labels or the stage's own class or style, a teaching card's shade
   // written or animating, a new labels picture (labelGL.boxes), the camera (viewKey), a resize, or any CSS transition or animation on the
   // page and for 0.6 s after it. A frame that only moves the blood reads no box.)
   let frostDirty = 0, frostMo = null;
@@ -114,9 +114,9 @@ export function createGlass(st, live) {
   // (Each part between keeps its own count, so a part that moved reads alone: the catheter's labels following a glide read
   // themselves, not the overlays, the labels picture and the shade too. The overlays' group following the camera (worldOver's
   // transform, every frame of a glide) reads nothing: their boxes, read once, are carried by the figure's transform (frostCarry).)
-  const frostPart = { over: 0, pane: 0, labels: 0, shade: 0, marks: 0 };
+  const frostPart = { over: 0, labels: 0, shade: 0, marks: 0 };
   const frostAll = () => { for (const k in frostPart) frostPart[k]++; };
-  const frostPartOf = (t) => (!t?.nodeType ? '' : live.svgOver?.contains(t) ? 'over' : glass?.contains(t) ? 'pane' : labelSvg?.contains(t) ? 'labels'
+  const frostPartOf = (t) => (!t?.nodeType ? '' : live.svgOver?.contains(t) ? 'over' : labelSvg?.contains(t) ? 'labels'
     : cath.labels?.contains(t) || sites.el?.contains(t) ? 'marks' : t.closest?.('.pz-shade, .stage-credit') ? 'shade' : '');
   const frostTouch = (e) => { frostDirty++; const p = frostPartOf(e?.target); if (p) frostPart[p]++; else frostAll(); };
   function frostRecords(list) {
@@ -129,18 +129,18 @@ export function createGlass(st, live) {
   }
   const FROST_EVS = ['transitionrun', 'transitionend', 'transitioncancel', 'animationstart', 'animationend', 'animationcancel'];
   const frostListen = (el) => { for (const t of FROST_EVS) el.addEventListener(t, frostTouch, true); };
-  const FROST_OBS_ALL = { attributes: true, childList: true, subtree: true, characterData: true }, FROST_OBS_ATTR = { attributes: true }, FROST_EL = [null, null, null, null, null];
+  const FROST_OBS_ALL = { attributes: true, childList: true, subtree: true, characterData: true }, FROST_OBS_ATTR = { attributes: true }, FROST_EL = [null, null, null, null];
   const frostSee = (el) => { if (el && !frostSeen.has(el)) { frostSeen.add(el); frostMo.observe(el, FROST_OBS_ATTR); frostListen(el); frostTouch(); } };
   function frostWatch() {
     if (!frostMo) {
       frostMo = new MutationObserver(frostRecords);
-      FROST_EL[0] = live.svgOver; FROST_EL[1] = labelSvg; FROST_EL[2] = glass; FROST_EL[3] = cath.labels; FROST_EL[4] = sites.el;
-      for (let i = 0; i < 5; i++) if (FROST_EL[i]) frostMo.observe(FROST_EL[i], FROST_OBS_ALL);
+      FROST_EL[0] = live.svgOver; FROST_EL[1] = labelSvg; FROST_EL[2] = cath.labels; FROST_EL[3] = sites.el;
+      for (let i = 0; i < 4; i++) if (FROST_EL[i]) frostMo.observe(FROST_EL[i], FROST_OBS_ALL);
       frostMo.observe(wrap, FROST_OBS_ATTR);
       frostMo.observe(document.documentElement, FROST_OBS_ATTR);
       addEventListener('resize', frostTouch);
-      for (let i = 0; i < 5; i++) if (FROST_EL[i]) frostListen(FROST_EL[i]);
-      for (let i = 0; i < 5; i++) FROST_EL[i] = null;
+      for (let i = 0; i < 4; i++) if (FROST_EL[i]) frostListen(FROST_EL[i]);
+      for (let i = 0; i < 4; i++) FROST_EL[i] = null;
     }
     const shades = document.getElementsByClassName('pz-shade');
     for (let i = 0; i < shades.length; i++) frostSee(shades[i]);
@@ -197,7 +197,6 @@ export function createGlass(st, live) {
       for (const u of overUnits(live.worldOver, gOver)) if (!u.classList.contains(OVER_CLASS) && visible(u)) o.push(u.getBoundingClientRect());
     }
   }
-  function frostReadPane(o) { if (!glass.hidden && !live.paneGL?.hosted) o.push(glass.getBoundingClientRect()); }
   function frostReadLabels(o) {
     if (visible(labelSvg)) {
       if (live.labelGL && !live.labelGL.lost) {
@@ -220,8 +219,6 @@ export function createGlass(st, live) {
   function frostOverRead(level) {
     const out = [];
     frostCarry(frostPartRead('over', frostReadOver), out);
-    if (level === 'pane') return out;
-    frostPush(out, frostPartRead('pane', frostReadPane).out);
     frostPush(out, frostPartRead('labels', frostReadLabels).out);
     if (level === 'low') return out;
     if (level === 'callouts') return frostPush(out, frostPartRead('shade', frostReadShade).out);
