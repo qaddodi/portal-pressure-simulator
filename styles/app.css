@@ -175,11 +175,8 @@ html.model-contain .stage-view.gl-on :is(svg#stage, svg#labels) { contain: layou
 .stage-view.unframed > :is(#stage, #stageOver, #labels, canvas:not(#veins)) { opacity: 0; }
 /* The label layers show and hide at once (4 Nov: no fade after a view change, a camera move or a zoom). */
 .stage-view > #labels { transition: none; }
-/* A presenter's small camera move that keeps its labels (stage.js animateVT, carry): the names ride with the figure and only the leaders
-   and their dots ease out, back in once it lands. (The layer is a mark of the GPU label painter: it reads this opacity and the
-   transition's events, as it does a leader's own fade.) */
-.lb-leaders { transition: opacity var(--d-small) var(--ease); }
-.stage-view.lb-ride .lb-leaders { opacity: 0; }
+/* A camera ride (stage-ride.js) carries the leaders and their dots on the GPU with their labels (label-gl.js drawMarks): they no longer
+   fade for it, so a pinned label's leader and an unpinned one's stay alike through a card zoom (5 Nov 2026 review #10). */
 /* (A label the SVG still draws cannot ride on the GPU: it eases out with the leaders and back at the landing.) */
 .stage-view .lb:not([data-gl]) { transition: opacity var(--d-small) var(--ease); }
 .stage-view.lb-ride .lb:not([data-gl]) { opacity: 0; }

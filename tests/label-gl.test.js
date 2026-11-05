@@ -237,12 +237,8 @@ test('the labels have no canvas to hide: an empty picture is the figure\'s own, 
   assert.equal((LGL.match(/boxAt\(/g) || []).length >= 5, true);
 });
 
-test('the leaders and dots stand for the stage\'s ride: their layer\'s kept style is keyed on lb-ride, and only the marks are read again when it comes or goes', () => {
-  // (2 Nov 2026, "Labels just stuck": app.css fades the leaders' layer under .stage-view.lb-ride while the names ride the camera. The layer's kept
-  // style was keyed by what lies under the labels' SVG only, and lb-ride is a gesture class that asks for no restyle (GESTURE_LOOK), so the
-  // GPU kept drawing the dots and leaders whole at the places they were laid out, while the names moved with the figure.)
-  assert.match(CSS, /\.stage-view\.lb-ride \.lb-leaders \{ opacity: 0; \}/, 'the page fades the leaders layer for the ride');
-  assert.match(LGL, /classList\?\.contains\('lb-leaders'\)\) mixC\(rideLook \? 10 : 11\)/, 'the layer\'s style key follows the ride');
+test('a label the SVG still draws is faded in the stage\'s ride and its kept style is keyed on lb-ride; the leaders are carried, not faded', () => {
+  // (5 Nov 2026 review #10: the leaders' and dots' lb-ride fade is gone, and with it their layer's ride key: the GPU carries them with their labels.)
   assert.match(LGL, /const rideSeen = \(\) => \{[\s\S]*?const on = !!svg\.parentElement\?\.closest\?\.\('\.lb-ride'\);[\s\S]*?allMarks\(\); ask\(\);/, 'a ride coming or going reads the marks again');
   // (The ride's toggle calls each layer's rideSeen: label-theme.js rideChanged, tests/label-theme.test.js.)
   assert.match(LGL, /classList\?\.contains\('lb'\) && rideLook && !e\.hasAttribute\('data-gl'\)\) mixC\(12\)/, 'a label the SVG still draws is faded in the ride: keyed apart');
@@ -251,5 +247,5 @@ test('the leaders and dots stand for the stage\'s ride: their layer\'s kept styl
   for (const m of CSS.matchAll(/([^{}]*\.(?:panning|stage-busy|figure-focus|pinch-hide|lb-ride|off-home)\b[^{}]*)\{/g)) {
     for (const sel of m[1].split(',')) if (/\.(?:panning|stage-busy|figure-focus|pinch-hide|lb-ride|off-home)\b[^,]*\s(?:[^,]*\s)?(?:\.lb\b|\.lb-[a-z]+|#labels\s+\S)/.test(sel) && !/> #labels/.test(sel)) inside.push(sel.trim());
   }
-  assert.deepEqual(inside, ['.stage-view.lb-ride .lb-leaders', '.stage-view.lb-ride .lb:not([data-gl])'], 'a gesture class that restyles anything under the labels must be in the style key');
+  assert.deepEqual(inside, ['.stage-view.lb-ride .lb:not([data-gl])'], 'a gesture class that restyles anything under the labels must be in the style key');
 });

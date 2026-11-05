@@ -786,7 +786,6 @@ void main() { o = texture(uT, vUV) * uA; }`;
       for (let i = 0; i < at.length; i++) { const a = at[i]; if (!VOLATILE.has(a.name)) { mixC(4); mixS(a.name); mixC(5); mixS(a.value); } }
       if (e.classList?.contains('lb')) { try { mixC(e.matches(':hover') ? 6 : 7); mixC(e.matches(':focus-visible') ? 8 : 9); } catch (err) { caught('label-gl:581', err); /* no state */ } }
       if (e.classList?.contains('lb') && rideLook && !e.hasAttribute('data-gl')) mixC(12);   // (a label the SVG still draws is faded under lb-ride, app.css: read apart from its look at rest)
-      if (e.classList?.contains('lb-leaders')) mixC(rideLook ? 10 : 11);   // (the stage's lb-ride fades this layer on the page: the leaders and dots stand for it, see rideSeen)
     }
     return (kh1 >>> 0) * 2097152 + ((kh2 >>> 0) & 0x1fffff);
   }
@@ -2331,7 +2330,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       ask();
     },
     /** Whether the labels can ride a camera move on the GPU. A label the SVG still draws (one with a glyph Inter's cut lacks, as the Circuit's
-     *  "Epigastric → SVC" caption) cannot be carried: the stage fades it with the leaders for the ride (app.css lb-ride), it is back at the landing. */
+     *  "Epigastric → SVC" caption) cannot be carried: the stage fades it for the ride (app.css lb-ride), it is back at the landing. */
     canRide() { return !lost; },   // (S1: host mode rides too; the carry is read in each present of the host)
     /** A camera move's carry, [a, b, c, d, e, f] (where the labels were laid out, stage px, to where that point is now), drawn now. */
     ride(m) {
