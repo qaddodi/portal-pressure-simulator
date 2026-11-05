@@ -329,7 +329,7 @@ export function createFluid() {
   const tug = h('div', { class: 'gs-trk gs-tug' }, tugModel);
   const glTug = createSvgGL(tug, { host: 'fluid' });
   glTug.cv.setAttribute('aria-hidden', 'true'); glTug.cv.removeAttribute('role');
-  const forces = h('div', { class: 'gs-forces' }, h('div', { class: 'gs-fcap' }, h('span', {}, 'Across the sinusoid wall · mmHg'), h('span', {}, 'net ', fNet)), tug);
+  const forces = h('div', { class: 'gs-forces' }, h('div', { class: 'gs-fcap' }, h('span', {}, 'Across the sinusoid wall · mmHg'), h('span', {}, fNet)), tug);
   const el = h('div', { class: 'gf', role: 'img' }, win, flowBox, unit, words, forces, caveat);
   const set = (n, t) => { if (n.textContent === t) return false; n.textContent = t; return true; };
   // (A part goes where its points are written: span() above; the wall is a line.)
@@ -355,7 +355,8 @@ export function createFluid() {
   const fit = (L, cands, room, em) => {
     for (const c of cands) {
       const w = measure(c, `600 ${em}px Inter`);
-      if (w + em * 1.05 <= room) { setWords(L.el, c); L.need = w; L.on = true; return true; }
+      // (natural width only: a part too short for the words at the card's type size shows none, never a squeezed run; an unread size shows none)
+      if (em >= 9 && w + em * 1.05 <= room) { setWords(L.el, c); L.need = w; L.on = true; return true; }
     }
     L.on = false;
     return false;
@@ -528,7 +529,7 @@ export function createFluid() {
       fo = fAvg;
     }
     const net = fo.out - fo.pull;
-    set(fNet, `${fmt(Math.abs(net), 1)} ${net >= 0 ? 'out' : 'in'}`);
+    set(fNet, `${fmt(Math.max(0, fo.out), 1)} out − ${fmt(fo.pull, 1)} in = net ${fmt(Math.abs(net), 1)} ${net >= 0 ? 'out' : 'in'}`);   // (the two forces' values live here, in the page's own words: the bars' words sit inside only when they fit)
     fGoal = { out: Math.max(0, fo.out), pull: fo.pull }; labels(); kick();
   }
   return {

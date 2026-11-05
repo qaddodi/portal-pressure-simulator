@@ -5904,7 +5904,11 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .pz.pz-wide .pz-lip:not([hidden]) { display: block; position: absolute; height: 24px; margin: 0; padding: 0; border: 0; background: none; pointer-events: auto; touch-action: none;
   cursor: pointer; -webkit-tap-highlight-color: transparent; transition: opacity var(--d-small) var(--ease) .42s, transform var(--d-surface) var(--ease) .12s; }
 .pz.pz-wide .pz-lip::after { content: ''; position: absolute; left: 50%; top: 50%; width: 34px; height: 4px; translate: -50% -50%; border-radius: 2px; background: color-mix(in srgb, var(--text) 32%, transparent); }
-.pz.pz-wide .pz-data.pz-hide + .pz-lip { transform: translateX(-18px); }   /* (as the card leaves, .pz-data.col) */
+.pz.pz-wide .pz-data.pz-hide + .pz-lip { transform: translateX(-18px); }
+/* (The tucked readings' edge says what is behind it: "Readings" beside the handle, so the 24 px step reads as a tab to pull, not an empty stray plate (ascites 3 to 5). Opened, the lip is the card's foot and the handle stands alone as before.) */
+.pz.pz-wide .pz-data:not(.tool-open) + .pz-lip::after { left: calc(50% - 38px); }
+.pz.pz-wide .pz-data:not(.tool-open) + .pz-lip::before { content: 'Readings'; position: absolute; left: calc(50% - 14px); top: 50%; translate: 0 -50%; font: 600 11px/1 Inter, system-ui, sans-serif; letter-spacing: .02em; color: var(--text-2); white-space: nowrap; pointer-events: none; }
+   /* (as the card leaves, .pz-data.col) */
 .pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet { --gl-glass: 0; --pz-u: 0; --pz-sr: clamp(16px, calc(2.2 * var(--pzh)), 28px); --pz-in: 8px; padding-top: 10px; background: none; border-color: transparent; box-shadow: none; overflow: visible; isolation: isolate; }
 .pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet.tool-open { --pz-u: 1; }
 .pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet > :not(.pz-tool) { zoom: 1; }
@@ -7172,7 +7176,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .gs-sw-car { background: var(--gs-carried); } .gs-sw-back { background: var(--gs-back); } .gs-sw-build { background: var(--gs-build); } .gs-sw-build.down { background: var(--ok); }
 .gs-sw.none { background: none; border: 1.5px dashed var(--gs-dash); }
 .gs-forces { display: flex; flex-direction: column; gap: .3em; margin-top: .1em; color: var(--text-3); font: 500 var(--gs-fs)/1.25 var(--font-ui); font-variant-numeric: tabular-nums; }
-.gs-fcap { border-top: 1px solid var(--border); padding-top: .3em; }
+.gs-fcap { border-top: 1px solid var(--border); padding-top: .3em; flex-wrap: wrap; }
 /* (the push and the pull are arrows meeting at the wall: a point on each, drawn in the tug's model) */
 
 /* ── Package G: end ── */
