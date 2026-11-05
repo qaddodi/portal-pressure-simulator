@@ -207,7 +207,7 @@ export function createBlood(st, live) {
     // (One options object and one key-chevrons answer for the whole loop, not one per vessel per frame: advanceStream reads
     // the options at once and keeps none of them.)
     const so = streamOpts, key = keyOnly();
-    so.phasic = !!b.phasic; so.speed = speed; so.still = still; so.dt = moving ? dt * live.restK : 0; so.bt = bT;
+    so.phasic = !!b.phasic || (live.morph < 0.5 && STYLE_ANATOMY === STYLE_D); so.speed = speed; so.still = still; so.dt = moving ? dt * live.restK : 0; so.bt = bT;
     // (bloodEasing: a reversed colour or a chevron fade still on its way keeps the figure awake, paused too, so it never stops
     // part-way until Play; each lands exactly once within 0.002 of its end. Round 2 review, B10.)
     live.bloodEasing = false;
