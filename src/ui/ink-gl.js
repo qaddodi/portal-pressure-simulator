@@ -108,16 +108,12 @@ void main() {
   vec2 px = vec2(gl_FragCoord.x, uView.y * uDpr - gl_FragCoord.y) / uDpr;
   float d = length(px - uC.xy);
   float a = uCol.a * smoothstep(uC.z * 0.8, uC.z * 1.55, d);
-  // (a thin ring at the window's edge, in the pen's colour, so the pointer reads as a pointer on any slide)
-  float ring = (1.0 - smoothstep(0.75, 1.75, abs(d - uC.z * 0.8))) * 0.85;
-  // (no solid dot in the middle (Mohammad, 5 Nov): the glow alone marks the centre)
+  // (a spotlight cut-out (Mohammad, 5 Nov: "keep the figure lit as normal, and dim everything not laser"): inside the window the figure is
+  // as it is, nothing added; outside it the veil dims it. No dot and no glow. A faint thin ring at the window's edge, in the pen's colour,
+  // so the pointer still reads as a pointer on any slide.)
+  float ring = (1.0 - smoothstep(0.75, 1.75, abs(d - uC.z * 0.8))) * 0.3;
   float k = ring * uPen.a;
-  // (a soft glow at the centre, plain white light, not the pen's red (Mohammad, 5 Nov: "no red middle glow, just normal glow"): additive,
-  // premultiplied with less alpha than colour, so it brightens the figure and never darkens or tints it)
-  float gr = uC.z * 0.5;
-  float glw = exp(-(d * d) / (gr * gr * 0.5)) * 0.55 * uPen.a;
-  vec4 base = vec4(uCol.rgb * a * (1.0 - k) + uPen.rgb * k, a * (1.0 - k) + k);
-  o = vec4(base.rgb * (1.0 - glw) + vec3(glw), max(base.a, glw * 0.35));
+  o = vec4(uCol.rgb * a * (1.0 - k) + uPen.rgb * k, a * (1.0 - k) + k);
 }`;
 
 const VAR = (name, fallback) => {
