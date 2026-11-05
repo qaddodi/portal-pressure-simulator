@@ -1553,6 +1553,15 @@ void main() { o = texture(uT, vUV) * uA; }`;
     }
     // (The pinned labels' dots and leaders, after the pictures: each label's opacity and place are this frame's by now.)
     if (pinAt) { gl.useProgram(mprog); ucOf(gl).f2(MU.uView, W, H); moving = drawPins(now) || moving; gl.bindVertexArray(vao); }
+    // (The pinned labels' marks, by their labels' renderer this frame: the GPU's where it drew the label, the SVG's, as laid out, where that did.)
+    for (let i = 0; i < pinEls.length; i++) {
+      const el = pinEls[i], mg = markGeo.get(el), ls = mg && labelByKey.get(mg.k);
+      if (ls?.g?.hasAttribute('data-gl')) { if (!el.hasAttribute('data-gl')) el.setAttribute('data-gl', ''); continue; }
+      markSvg(el, mg, false);
+      if (el.hasAttribute('data-gl')) el.removeAttribute('data-gl');
+      svgLeft.add(el);
+    }
+    pinEls.length = 0;
     if (anyRing) {
       gl.useProgram(mprog); ucOf(gl).f2(MU.uView, W, H); ucOf(gl).i1(MU.uKind, 9);
       for (let i = 0; i < ni; i++) { const it = ITEMS[i]; if (it.st?.ring) ringDraw(it.x, it.y, it.st.ring, it.a); }
@@ -1697,9 +1706,16 @@ void main() { o = texture(uT, vUV) * uA; }`;
     }
     if (fade && mg.own && !mg.svgA) { mg.svgA = true; el.style.opacity = String(mg.ra); }
   }
+  // (5 Nov 2026, iPhone: "1, 2, 3, 4, 5 with no leaders or dots, and they flicker". A pinned label's dot and leader are drawn by drawPins only
+  // while the GPU draws the label itself; a label the SVG draws this frame (no picture yet, its look one the layer cannot draw, the glyphs
+  // not in, a hold's first frame, its atlas place given back) is skipped there. Their SVG copies were hidden all the same, so such a label
+  // stood with neither, and one that went from the SVG to the GPU and back blinked its marks. They follow their label now: hidden where the
+  // GPU draws it, the SVG's, at the layout's geometry, where the SVG does.)
+  const pinEls = [];
   function drawMarks(now) {
     let moving = false;
     markDrawn = 0;
+    pinEls.length = 0;
     if (!marks.length) return false;
     gl.useProgram(mprog);
     ucOf(gl).f2(MU.uView, W, H);
@@ -1731,7 +1747,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
               if (!pk) pinLooks.set(mg.k, pk = { line: null, dot: null, halo: null, dotR: 2.4, haloR: 5 });   // alloc-rare: one record per pinned label key
               const cls = el.getAttribute('class') || '';
               if (isPath) pk.line = st; else if (cls.includes('halo')) { pk.halo = st; if (mg.ok) pk.haloR = mg.v[2]; } else { pk.dot = st; if (mg.ok) pk.dotR = mg.v[2]; }
-              if (!el.hasAttribute('data-gl')) el.setAttribute('data-gl', '');
+              pinEls.push(el);   // (whose copy shows is settled once the labels are, drawIn)
               continue;
             }
             // (Every other mark is drawn from its geometry as of the layout the GPU was last handed (sync: mg.pv), as its label is, never a newer

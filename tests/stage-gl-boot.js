@@ -57,16 +57,39 @@ function installAnimations(win) {
 }
 
 // (labels: the station labels' level the page opens with, 'none' for a stage that has laid out no leader or dot yet.)
-export async function bootGL({ labels = null } = {}) {
+// (A media query answered for a screen w × h CSS px with a coarse pointer and no hover (a phone), or a desktop's fine pointer: each comma-separated
+// part of it matches when all its (feature: value) terms do.)
+function mediaFor(w, h, coarse) {
+  const term = (t) => {
+    const m = /\(\s*([a-z-]+)\s*(?::\s*([^)]+))?\)/.exec(t);
+    if (!m) return t.trim() === 'all' || t.trim() === 'screen';
+    const [, f, v0] = m, v = (v0 || '').trim(), px = parseFloat(v);
+    switch (f) {
+      case 'max-width': return w <= px; case 'min-width': return w >= px; case 'max-height': return h <= px; case 'min-height': return h >= px;
+      case 'orientation': return v === (h >= w ? 'portrait' : 'landscape');
+      case 'pointer': case 'any-pointer': return v === (coarse ? 'coarse' : 'fine');
+      case 'hover': case 'any-hover': return v === (coarse ? 'none' : 'hover');
+      case 'prefers-color-scheme': return v === 'dark';
+      default: return false;
+    }
+  };
+  return (q) => String(q).split(',').some((part) => part.split(/\band\b/).every((t) => (/^\s*not\b/.test(t) ? !term(t.replace(/^\s*not\b/, '')) : term(t))));
+}
+
+// (w, h, dpr, coarse: the screen; a phone held upright is { w: 395, h: 859, dpr: 3, coarse: true }, whose media queries are answered for it
+// (mediaFor); a desktop keeps the page stub's.)
+export async function bootGL({ labels = null, w = 1200, h = 800, dpr = 1, coarse = false, gl = true } = {}) {
   await (await import('../src/ui/text-gl.js')).loadGlyphs();
   const glMod = await import('../scripts/warm/gl-stub.mjs');
   const { installPage } = await import('../scripts/warm/dom.mjs');
   const page = installPage();
+  if (coarse) { const mq = mediaFor(w, h, coarse); const mm = (q) => ({ matches: mq(q), media: q, onchange: null, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} }); globalThis.matchMedia = mm; page.dom.window.matchMedia = mm; }
+  globalThis.devicePixelRatio = dpr; globalThis.innerWidth = w; globalThis.innerHeight = h;
   const win = page.dom.window, g = globalThis;
   { const s = page.document.createElement('style'); s.textContent = CSS; page.document.head.append(s); }
   installAnimations(win);
   globalThis.AbortController = win.AbortController;
-  globalThis.WebGL2RenderingContext ??= function WebGL2RenderingContext() {};
+  if (gl) globalThis.WebGL2RenderingContext ??= function WebGL2RenderingContext() {};   // (none: label-gl is not made, the SVG draws the labels)
   { const cs = win.getComputedStyle.bind(win); globalThis.getComputedStyle = (el, p) => cs(el, p); }   // (each read the page's as it is now)
   for (const k of ['dispatchEvent', 'addEventListener', 'removeEventListener']) if (!g[k]) g[k] = win[k].bind(win);
   const ctx2d = (canvas) => new Proxy({ canvas, measureText: (s) => ({ width: String(s).length * 7, actualBoundingBoxLeft: 0, actualBoundingBoxRight: String(s).length * 7, actualBoundingBoxAscent: 9, actualBoundingBoxDescent: 3, fontBoundingBoxAscent: 10, fontBoundingBoxDescent: 3 }),
@@ -76,9 +99,9 @@ export async function bootGL({ labels = null } = {}) {
     if (type === '2d') return (this.__2d ??= ctx2d(this));
     return type === 'webgl2' ? (this.__gl ??= glMod.makeGL(this)) : null;
   };
-  const BOX = { x: 0, y: 0, left: 0, top: 0, right: 1200, bottom: 800, width: 1200, height: 800 }, NONE = { x: 0, y: 0, left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 };
+  const BOX = { x: 0, y: 0, left: 0, top: 0, right: w, bottom: h, width: w, height: h }, NONE = { x: 0, y: 0, left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 };
   win.Element.prototype.getBoundingClientRect = function () { return this.id === 'stageView' || (this.tagName.toLowerCase() === 'svg' && this.parentElement?.id === 'stageView') ? BOX : NONE; };
-  for (const [k, v] of [['clientWidth', 1200], ['clientHeight', 800], ['offsetWidth', 1200], ['offsetHeight', 800]]) Object.defineProperty(win.HTMLElement.prototype, k, { get() { return this.id === 'stageView' ? v : 0; }, configurable: true });
+  for (const [k, v] of [['clientWidth', w], ['clientHeight', h], ['offsetWidth', w], ['offsetHeight', h]]) Object.defineProperty(win.HTMLElement.prototype, k, { get() { return this.id === 'stageView' ? v : 0; }, configurable: true });
   const { createCore } = await import('../src/worker-core.js');
   const frames = [];
   const core = createCore((m) => { if (m.type === 'frame') frames.push(m); });
