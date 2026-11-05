@@ -37,6 +37,8 @@ export const zoomRide = {
   drop(el) { rides.delete(el); },
   /** The zoom el rides this frame, or null. */
   of(el) { return (rides.get(el) || ride0).aff; },
+  /** Whether anything rides a zoom now. */
+  riding() { return rides.size > 0; },
   /** Where el is drawn: its box through the zoom. */
   box(el) { const r = rides.get(el); return r?.real ? r.real() : el.getBoundingClientRect(); },
   /** How many times larger el is drawn than it rests (its corners grow with it). */

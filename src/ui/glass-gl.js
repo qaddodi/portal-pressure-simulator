@@ -514,7 +514,7 @@ export function dropsOf(v) {
   }
   return out;
 }
-export function createGlassGL(wrap, source, layers, { software = false, live = () => true, pane = null, cards = null, version = null, capture = null, onFigure = null, keep = null, due = null, reblur = 0, fresh = null, dirty = null, dirtyRects = null, pictureRects = null, full = false, onHoles = null } = {}) {
+export function createGlassGL(wrap, source, layers, { software = false, live = () => true, pane = null, cards = null, version = null, capture = null, onFigure = null, keep = null, due = null, reblur = 0, fresh = null, dirty = null, dirtyRects = null, pictureRects = null, camKey = null, full = false, onHoles = null } = {}) {
   if (reblur > 0) fresh = null;
   // (cards.callouts: the figure's callouts, a glass.add region of their own (stage.js): the cards' machinery, with the callouts' own ways kept: no
   // wait for a first draw, no html[data-cardgl], one turn ('all') between the cards' two, one over-list, their shadow and tint strength, the parent's box.)
@@ -1265,7 +1265,11 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     if (!grid) { shareForget(S); return false; }
     const bw = (grid.X1 - grid.X0) / grid.T, bh = (grid.Y1 - grid.Y0) / grid.T;
     const nT = tapN(look.blur * grid.k / grid.T);
-    const plan = sharePlan(S, grid, grid.T / k, bw, bh, full, keepFor(nT + 2), dirty || dirtyRects ? dirtyFn : null, keepFor(2 * nT + 3), pictureRects ? picDirtyFn : null, nT + 1);   // (the parts grown by the taps this sigma has, one for the glass's sampling between two texels, one spare)
+    // (3d, a glass moved over a figure standing still, only with no camera on and none changed since the kept blur: a camera's change (a card's
+    // zoom easing out, the deck's fade as it closes) changes what lies under the glasses with no new picture counted, and the kept blur then
+    // showed the figure as it lay before, inside a card that had shrunk, until the camera rested and the glass blurred again. 5 Nov 2026.)
+    const ck = camKey ? camKey() : -1, ring = ck >= 0 && ck === S.camAt && !zoomRide.riding() ? nT + 1 : 0;
+    const plan = sharePlan(S, grid, grid.T / k, bw, bh, full, keepFor(nT + 2), dirty || dirtyRects ? dirtyFn : null, keepFor(2 * nT + 3), pictureRects ? picDirtyFn : null, ring);   // (the parts grown by the taps this sigma has, one for the glass's sampling between two texels, one spare)
     const sr = S.reg || (S.reg = { x: 0, y: 0, w: 0, h: 0 });   // alloc-rare: the share's region record is made at its first blur
     sr.x = grid.x; sr.y = grid.y; sr.w = grid.w; sr.h = grid.h;
     // (In use in this frame, kept or made again: see the release below.)
@@ -1297,7 +1301,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     G.bindTexture(G.TEXTURE_2D, null); G.useProgram(null); G.bindVertexArray(null);
     if (ok) shareKeep(S); else shareForget(S);
     S.ok = !!ok;
-    if (ok) { S.blurs++; counts.blur++; }
+    if (ok) { S.blurs++; counts.blur++; S.camAt = ck; }
     return S.ok;
   }
   // (pass: 'low', 'high' or 'all'; the last turn of the frame ('high', 'all') gives back the marks of the glasses not drawn.)

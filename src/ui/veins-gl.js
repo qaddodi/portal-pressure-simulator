@@ -3221,6 +3221,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // not moved by it: it is drawn from the zoomed card's own place. setScene.)
   const scn = { k: 1, ex: 0, ey: 0 };
   const camOn = () => cam.k !== 1 || cam.a !== 1 || scn.k !== 1;
+  let camSeq = 0;   // (counts the cameras' changes (setCameraRec, setScene): the glass takes a kept blur as current only with no camera on and none changed)
   let camP = null;
   function camDraw(tex, blend) {
     // (The scene's camera after the dive's, composed in y down as the scene camera records are, and flipped for the framebuffer once, at the end.)
@@ -4542,7 +4543,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       a = Math.min(1, a);
       if (k === 1) ex = ey = 0;
       if (cam.k === k && cam.a === a && cam.ex === ex && cam.ey === ey) return;
-      cam.k = k; cam.a = a; cam.ex = ex; cam.ey = ey;
+      cam.k = k; cam.a = a; cam.ex = ex; cam.ey = ey; camSeq++;
       if (!lost) present(true, true);
     },
     /**
@@ -4552,13 +4553,15 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     setScene(k, ex = 0, ey = 0) {
       if (!(k > 0)) return;
       if (scn.k === k && (k === 1 || (scn.ex === ex && scn.ey === ey))) return;
-      scn.k = k; scn.ex = k === 1 ? 0 : ex; scn.ey = k === 1 ? 0 : ey;
+      scn.k = k; scn.ex = k === 1 ? 0 : ex; scn.ey = k === 1 ? 0 : ey; camSeq++;
       // (The picture the glass blurs is a new one: its kept blur is of the figure where it stood, and the parts the blood reached since are the only
       // ones the glass would blur again, so a card that came over parts it never blurred drew solid black.)
       pictured();
       if (!lost) present(true, true);
     },
     get camera() { return cam; },
+    /** The cameras' change count while none is on (the canvas is the picture as drawn), else -1. */
+    get camKey() { return camOn() ? -1 : camSeq; },
     /** Shared (share): the texture this renderer's present lays its picture on, { tex, w, h } (null otherwise); the host lays it over its own. */
     get target() { if (!scr) return null; SCR(); return scr; },
     /** Changes whenever the canvas is drawn on again, but for a frame of the moving blood alone (the glass takes a new copy of the figure only then). */
