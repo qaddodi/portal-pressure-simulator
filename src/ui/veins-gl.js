@@ -41,7 +41,7 @@ import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js';
 import { CELL, ENT_W, binVeins, splitRows, simpleCells, splitCells, cellsOfJoinEntries } from './veins-bin.js';
 import { gpuProbe, COUNTED } from './gpu-probe.js';
 import { changedRows } from './flow-rows.js';
-import { leftAlone } from './quiet.js';
+import { leftAlone, whenQuiet } from './quiet.js';
 import { uniformCache } from './uniform-cache.js';
 import { PUBLISH_QUIET_MS, SHADER_WARM, exerciseDraw } from './gl-compile.js';
 import { createShapeGL, flattenPath, ellipsePoly, polyMeshInto } from './shape-gl.js';
@@ -2132,6 +2132,25 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   const cathT = () => drawCath(baseM), linesT = () => drawLines(baseM, false);
   let organM = null;   // (the view the organ layers are drawn at, for organT)
   const organT = () => stack.render(organM, PW(), PH());
+  // Next-view pre-render: with the plate faded out whole (the circuit) and the camera at rest, the margin the change back to the anatomy
+  // paints in its tap frame is painted once the page is left alone (organs-gl prepMove), for the view held now. A move, or the plate
+  // shown again, calls it off. (prepBuf: that view; prepOff: the wait's cancel.)
+  const prepBuf = [0, 0, 0, 0, 0, 0];   // alloc-rare: once per renderer
+  let prepOff = null, prepSet = false, prepDone = false, prepT = 0;
+  const prepRun = () => {   // alloc-rare: once per renderer
+    prepOff = null;
+    if (performance.now() - prepT < 400) { const t = setTimeout(prepRun, 400); prepOff = () => clearTimeout(t); return; }   // (the camera moved meanwhile: once it has held)   // alloc-rare: once per camera rest in the circuit
+    prepDone = true;
+    if (!lost && stack?.has(0)) stack.prepMove(prepBuf, PW(), PH());
+  };
+  function prepAhead(m, on) {
+    if (!on) { if (prepOff) { prepOff(); prepOff = null; } prepSet = false; return; }
+    if (!prepSet || prepBuf[0] !== m[0] || prepBuf[1] !== m[1] || prepBuf[2] !== m[2] || prepBuf[3] !== m[3] || prepBuf[4] !== m[4] || prepBuf[5] !== m[5]) {
+      for (let i = 0; i < 6; i++) prepBuf[i] = m[i];
+      prepSet = true; prepDone = false; prepT = performance.now();
+    }
+    if (!prepOff && !prepDone) prepOff = whenQuiet(prepRun, 700);   // alloc-rare: once per camera rest in the circuit, never per frame
+  }
   const lineLayerT = () => renderLayer(lineLayer, baseM, false), glowLayerT = () => renderLayer(glowLayer, baseM, true), warmLayerT = () => renderLayer(warmLayer, baseM, true, true);
   // Figure resolution › Glows (setLayerScale): under 1, a glow layer's lines are drawn into a smaller target (lo) and stretched into the
   // layer by a filtered blit, so the composite reads the layer exactly as ever (its shader is the live site's). At 1 none of it runs.
@@ -4145,6 +4164,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       // Mohammad, 26 Oct: "Circuit view in particular is slow when zoomed". The same pixels: pl stays 0, as plate × 0 was.)
       const plate = look.plate && look.plate.alpha > 0 ? look.plate : null;
       const useStack = !!(plate?.stack && stack?.has(0));
+      prepAhead(m, !plate && !!look.plate?.stack && !!stack?.has(0));
       // (Only a live organ's own box changed: the cells over it are composited again, as the pool's are; the rest of the picture is as it was.)
       let dirt = 0;
       if (useStack && stack.stale(m, PW(), PH())) {

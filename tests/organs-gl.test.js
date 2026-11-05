@@ -275,3 +275,12 @@ test('only for the same content and size, the same view to a hundredth of a pixe
   assert.match(lands, /Math\.abs\(b\[4\] - m\[4\]\) > 0\.01 \|\| Math\.abs\(b\[5\] - m\[5\]\) > 0\.01/);
   assert.match(lands, /for \(const L of live\[1\]\.values\(\)\) if \(L\.from != null\) return false;/);
 });
+
+test('next-view pre-render: the circuit\'s idle paints the margin the change back would paint in its tap frame', () => {
+  const pm = ogl.slice(ogl.indexOf('    prepMove(m, cw, ch) {'), ogl.indexOf('    get texture() { return stackTex; },'));
+  assert.match(pm, /if \(!moveOk\(ck, cw, ch\) \|\| !ensureBase\(ck, cw, ch\)\) return false;/);
+  assert.match(pm, /\|\| margOk\(ck, s, m, cw, ch\)\) return false;\n\s+paintMargin\(m, s, ck, cw, ch\);/, 'only when the tap frame would paint it');
+  const vg = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
+  assert.match(vg, /prepAhead\(m, !plate && !!look\.plate\?\.stack && !!stack\?\.has\(0\)\);/, 'while the plate is faded out whole');
+  assert.match(vg, /if \(!prepOff && !prepDone\) prepOff = whenQuiet\(prepRun, 700\);/, 'once the page is left alone, never in a frame');
+});

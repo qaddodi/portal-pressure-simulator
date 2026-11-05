@@ -437,7 +437,7 @@ export function createOrganStack(gl, { painter: shared = null, moves = !shared }
   const exactBuf = { m: [1, 0, 0, 1, 0, 0], ck: '' }, baseBuf = { m: [1, 0, 0, 1, 0, 0], s: 1, ck: '' }, margBuf = { p: [1, 0, 0, 1, 0, 0], s: 1, ck: '' };   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
   let exactAt = null, base = null, marg = null, mvShown = false, mvAt = 0, mvS = null, mvM = null;
   const setExact = (m, ck) => { copyView(exactBuf.m, m); exactBuf.ck = ck; exactAt = exactBuf; };   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
-  const moveStats = { moved: 0, bases: 0, margins: 0, exact: 0, restored: 0 };   // (for the tests and ?organpaths: frames moved, bases copied, margins painted, exact paints)   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
+  const moveStats = { moved: 0, bases: 0, margins: 0, exact: 0, restored: 0, ahead: 0 };   // (for the tests and ?organpaths: frames moved, bases copied, margins painted, exact paints)   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
   // (The content's name, built again only when a number in it moved: a camera-only frame finds the same string.)
   let ckVer = -1, ckLive = -1, ckPage = -1, ckW = -1, ckH = -1, ckStr = '';
   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
@@ -531,27 +531,33 @@ export function createOrganStack(gl, { painter: shared = null, moves = !shared }
   const margOk = (ck, s, m, cw, ch) => marg?.ck === ck && s <= marg.s * 1.05 && s >= marg.s * 0.5 && viewInside(marg.p, m, cw, ch);   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
   const setM = (u, a) => { mat[0] = a[0]; mat[1] = a[1]; mat[2] = 0; mat[3] = a[2]; mat[4] = a[3]; mat[5] = 0; mat[6] = a[4]; mat[7] = a[5]; mat[8] = 1; UC.m3(u, mat); };   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
   /** A frame of a moving camera drawn from the pictures (true), or false when it must be painted exactly (its base then dropped). */
+  // The base of a move: the exact picture copied (mvS) as the camera sets off. False when there is no exact picture of this content.
+  function ensureBase(ck, cw, ch) {
+    if (base?.ck === ck) return true;
+    if (exactAt?.ck !== ck) return false;
+    mvS = moveTarget(mvS, cw, ch);
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, fbo); gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, mvS.fb);
+    gl.disable(gl.SCISSOR_TEST);
+    gl.blitFramebuffer(0, 0, cw, ch, 0, 0, cw, ch, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null); gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+    copyView(baseBuf.m, exactAt.m); baseBuf.s = scaleOf(exactAt.m); baseBuf.ck = ck; base = baseBuf; moveStats.bases++;
+    if (marg?.ck !== ck) marg = null;
+    return true;
+  }
+  // The margin around view m (mvM), painted from the shapes: what a move outside the base is drawn from.
+  function paintMargin(m, s, ck, cw, ch) {
+    const p = marginViewTo(MP, m, cw, ch);
+    mvM = moveTarget(mvM, cw, ch);
+    paintStack(p, null, mvM.fb, cw, ch, null, null);
+    copyView(margBuf.p, p); margBuf.s = s; margBuf.ck = ck; marg = margBuf; moveStats.margins++;
+  }
   function moveFrame(m, ck, cw, ch) {
-    if (base?.ck !== ck) {
-      if (exactAt?.ck !== ck) return false;
-      mvS = moveTarget(mvS, cw, ch);
-      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, fbo); gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, mvS.fb);
-      gl.disable(gl.SCISSOR_TEST);
-      gl.blitFramebuffer(0, 0, cw, ch, 0, 0, cw, ch, gl.COLOR_BUFFER_BIT, gl.NEAREST);
-      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null); gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
-      copyView(baseBuf.m, exactAt.m); baseBuf.s = scaleOf(exactAt.m); baseBuf.ck = ck; base = baseBuf; moveStats.bases++;
-      if (marg?.ck !== ck) marg = null;
-    }
+    if (!ensureBase(ck, cw, ch)) return false;
     const s = scaleOf(m);
     // (Zoomed in past the step: the base would be drawn blurred; this frame is painted exactly and becomes the next base.)
     if (s > base.s * MOVE_ZOOM_IN) return false;
     const inS = s >= base.s * 0.5 && viewInside(base.m, m, cw, ch);
-    if (!inS && !margOk(ck, s, m, cw, ch)) {
-      const p = marginViewTo(MP, m, cw, ch);
-      mvM = moveTarget(mvM, cw, ch);
-      paintStack(p, null, mvM.fb, cw, ch, null, null);
-      copyView(margBuf.p, p); margBuf.s = s; margBuf.ck = ck; marg = margBuf; moveStats.margins++;
-    }
+    if (!inS && !margOk(ck, s, m, cw, ch)) paintMargin(m, s, ck, cw, ch);
     const useM = !inS || (marg?.ck === ck && margOk(ck, s, m, cw, ch));
     const U = moveP.u, im = invTo(IM, m);
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
@@ -801,6 +807,22 @@ export function createOrganStack(gl, { painter: shared = null, moves = !shared }
       gl.activeTexture(gl.TEXTURE0);
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       return whole ? true : DIRTY;
+    },
+    /**
+     * Next-view pre-render: the margin a move to view m would paint in its first frame, painted now (an idle moment while the stack is not
+     * laid: the circuit, its plate faded out), so the change back to the anatomy starts from it with nothing painted from shapes in its tap
+     * frame. Nothing is painted when that frame would not need it (inside the base, a margin already there) or could not use it.
+     */
+    prepMove(m, cw, ch) {
+      pull();
+      const ck = contentKey(cw, ch);
+      if (!moveOk(ck, cw, ch) || !ensureBase(ck, cw, ch)) return false;
+      const s = scaleOf(m);
+      if (s > base.s * MOVE_ZOOM_IN || (s >= base.s * 0.5 && viewInside(base.m, m, cw, ch)) || margOk(ck, s, m, cw, ch)) return false;
+      paintMargin(m, s, ck, cw, ch);
+      gl.bindVertexArray(null); gl.disable(gl.BLEND); gl.disable(gl.SCISSOR_TEST); gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      moveStats.ahead++;
+      return true;
     },
     get texture() { return stackTex; },   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
     /** The painter it paints with (or null), for a stack that shares it. */
