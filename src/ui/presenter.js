@@ -3961,16 +3961,6 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (z.open()) paintZoom();
   }
   function zoomToggle() { if (!ui) return; if (ui.zoom.up) ui.zoom.close().then(paintZoom); else zoomOpen(); }
-  // The teaching card on its own, zoomed to the middle of the screen (Mohammad, 5 Nov 2026: "give the option to zoom into the teaching card in focus center
-  // screen"): a tap on an empty part of its words, the card and its glass riding as one piece (a part: no instrument, no readings, no boost).
-  const textReady = () => !!ui && !!deck && !!shown && shown.i === want && shown.gen === gen && (!busy || playing) && !leaving && !black && !caseStands() && ui.jump.hidden && !isModalOpen()
-    && ui.root.classList.contains('pz-wide') && !ui.text.hidden && !ui.text.classList.contains('pz-leave') && !ui.root.classList.contains('pz-prep');
-  function textZoomToggle() {
-    if (!ui) return;
-    if (ui.zoom.up) { ui.zoom.close().then(paintZoom); return; }
-    if (!textReady() || ui.zoom.on) return;
-    if (ui.zoom.open({ card: ui.text, along: [ui.shade], part: true })) paintZoom();
-  }
   // ── One of the six ladders zoomed to the middle (Sites 10, Where-resistance 14; Mohammad, 29 Oct: "on this slide i feel we should be allowed to
   // click individual ladder cards and have them zoom in similar to how we do it in the slides") ──
   // The same zoom as the data card's (src/ui/card-zoom.js), taken to one cell of the panel's grid: a tap on a cell glides it to the middle of
@@ -5913,7 +5903,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       // (The words' card stays up while the card is zoomed; its words, and its deck tab on the card's edge (the shade holds the tab), are cut away under the card, card-zoom.js, and it rests at slip.base's rise meanwhile.)
       camera: { open: () => !!stage.zoomOpen?.(), at: (s, x, y, dx, dy) => stage.zoomAt?.(s, x, y, dx, dy), end: () => stage.zoomEnd?.(), sharp: (on) => stage.zoomSharp?.(on) }, scene: () => [text, shade], behind: zoomBehind });
     tapTracker(data, { ok: () => zoomReady() || zoom.up, onTap: () => zoomToggle() });
-    tapTracker(text, { ok: () => textReady() || zoom.up, onTap: () => textZoomToggle() });
+    tapTracker(text, { ok: () => zoomReady() || zoom.up, onTap: () => zoomToggle() });   // (a tap on the teaching card is the same zoom as on the data card: both come into view together, 5 Nov 2026)
     tapTracker(panel, { ok: () => cellReady() || zoom.up, onTap: cellTap });
     const root = h('div', { class: 'pz' }, safe, veil, load, fk, text, zscrim, data, lip, panel, vcase, prog, scl, bar, jump, blackEl, say);
     root.classList.add('pz-page'); shade.classList.add('pz-page');   // (the teaching card as one page: card-page.js)
