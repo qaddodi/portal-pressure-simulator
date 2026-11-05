@@ -56,11 +56,12 @@ export function vitalCells(m, ids, xs, running, now) {
 /** `makeGL`: how the GPU drawer is made (vitals-gl.js; the tests give a recorder). `gpu: false`: nothing is drawn (the strip's clock still runs). */
 export function createVitalsMonitor({ gpu = true, makeGL = createVitalsGL } = {}) {
   const cv = h('canvas', { role: 'img', 'aria-label': 'Vital signs monitor' });
+  const el = h('div', { class: 'chart-box vitals-box' }, cv);
+  // (The box is made before the drawer: the drawer lays its picture's canvas after `cv` (trace-gl.js host.after), which does nothing for a canvas with no parent, so a monitor made the other way round was never shown.)
   // (The GPU drawer works in the chart pool's context (vitals-gl.js) and shows its picture in a canvas of its own beside `cv`, which stays the
   // monitor's box: its size, its role and its label. null where WebGL 2 is not there: nothing is drawn; makeGL: the tests give a recorder.
   // The pool asks for the monitor to be drawn again when its programs or glyphs come in.)
   const glr = gpu ? makeGL(cv, { redraw: () => { if (!gone) draw(); } }) : null;
-  const el = h('div', { class: 'chart-box vitals-box' }, cv);
   const clock = createBeatClock();
   const WALK_TO = { ph: NaN, left: NaN };   // (walkBeats reads it as it is called)
   const raw = { t: [], ph: [] };   // (the (time, phase) samples the beat clock was made from: a history goes in front of them and the clock is made again)
