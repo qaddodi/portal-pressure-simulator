@@ -1419,11 +1419,11 @@ export function createLabelSolve(st, live) {
     const sit = out.find((o) => o.key === 'scan'), sblk = pool.get('scan');
     if (sit && !sit.hide) {
       const le = seenEnd(sit);
-      const [lp, ld] = gScan.children;
-      lp.setAttribute('d', `M${sit.ax.toFixed(1)} ${sit.ay.toFixed(1)} L${le.x.toFixed(1)} ${le.y.toFixed(1)}`);
-      ld.setAttribute('cx', sit.ax.toFixed(1)); ld.setAttribute('cy', sit.ay.toFixed(1));
-      gScan.classList.remove('off');
-    } else { gScan.classList.add('off'); if (sblk && sblk.seen !== live.frameNo) sblk.g.classList.add('lb-off'); }   // no callout this frame (circuit view, covered): it fades, never pops
+      // (Handed to label-gl as text, which writes the SVG's copy only while it does not draw it: L3 P6.)
+      const [lp, ld] = gScan.children, lg = live.labelGL, d = `M${sit.ax.toFixed(1)} ${sit.ay.toFixed(1)} L${le.x.toFixed(1)} ${le.y.toFixed(1)}`, cx = sit.ax.toFixed(1), cy = sit.ay.toFixed(1);
+      if (lg) { lg.markAt(lp, d); lg.markAt(ld, cx, cy, ld.getAttribute('r') || ''); } else { lp.setAttribute('d', d); ld.setAttribute('cx', cx); ld.setAttribute('cy', cy); }
+      if (gScan.classList.contains('off')) { gScan.classList.remove('off'); lg?.markLook(gScan); }
+    } else { if (!gScan.classList.contains('off')) { gScan.classList.add('off'); live.labelGL?.markLook(gScan); } if (sblk && sblk.seen !== live.frameNo) sblk.g.classList.add('lb-off'); }   // no callout this frame (circuit view, covered): it fades, never pops
     live.labelShown = out.filter((it) => it.src && !it.hide);
     // A label no longer wanted fades out (lb-off), then leaves; one wanted again before then simply fades back (renderBlock).
     for (const [k, b] of pool) {

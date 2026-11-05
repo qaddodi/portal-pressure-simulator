@@ -292,13 +292,14 @@ export function createCaptions(box, { labelGL = createLabelGL, deferred = false 
   let svSeq = 0;
   // A leader and its dot as marks label-gl draws (the Anatomy's .leader, .leader-dot-halo, .leader-dot): written here, drawn by the GPU.
   const mk = (cls) => { const e = document.createElementNS(NS, cls === 'leader' ? 'path' : 'circle'); e.setAttribute('class', cls); lroot.append(e); return e; };
+  // (Handed to label-gl as text with their fade (markAt), taken with the sync that follows; it writes the model's copy only while it does not
+  // draw them. No write to the page here: L3 P6.)
   function leadMarks(key, L, x1, y1, x2, y2, a) {
     const M = L.m || (L.m = { p: mk('leader'), h: mk('leader-dot-halo'), d: mk('leader-dot') });
-    M.p.setAttribute('d', `M${x2.toFixed(2)} ${y2.toFixed(2)} L${x1.toFixed(2)} ${y1.toFixed(2)}`);
-    for (const e of [M.h, M.d]) { e.setAttribute('cx', x2.toFixed(2)); e.setAttribute('cy', y2.toFixed(2)); }
-    M.h.setAttribute('r', String(leadLook.haloR)); M.d.setAttribute('r', String(L.r ?? leadLook.r));
-    const o = a.toFixed(3);
-    if (M.o !== o) { M.o = o; M.p.style.opacity = M.h.style.opacity = M.d.style.opacity = o; }
+    const cx = x2.toFixed(2), cy = y2.toFixed(2), o = +a.toFixed(3);
+    M.o = o;
+    LG.markAt?.(M.p, `M${cx} ${cy} L${x1.toFixed(2)} ${y1.toFixed(2)}`, '', '', o);
+    LG.markAt?.(M.h, cx, cy, String(leadLook.haloR), o); LG.markAt?.(M.d, cx, cy, String(L.r ?? leadLook.r), o);
   }
   // Whether label-gl can draw all of a caption's words (Inter's outlines have every glyph); else it is not drawn until they are (draw() runs again when they load).
   function covered(I) {
@@ -414,7 +415,7 @@ export function createCaptions(box, { labelGL = createLabelGL, deferred = false 
       for (const [key, L] of leads) {
         const a = easeAt(L.a, now) * (L.of ? itemA(L.of, now) : 1);
         more ||= easing(L.a, now);
-        if (a * la <= 0.002 || !L.colour) { if (L.m && L.m.o !== '0.000') { L.m.o = '0.000'; L.m.p.style.opacity = L.m.h.style.opacity = L.m.d.style.opacity = '0'; } continue; }
+        if (a * la <= 0.002 || !L.colour) { if (L.m && L.m.o !== 0 && LG) { L.m.o = 0; LG.markAlpha?.(L.m.p, 0); LG.markAlpha?.(L.m.h, 0); LG.markAlpha?.(L.m.d, 0); } continue; }
         let { x1, y1 } = L;
         const I = L.of && items.get(L.of);
         // (Its near end follows its name's step aside, as eased, to the edge of the smaller box when the name was set smaller.)

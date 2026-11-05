@@ -22,15 +22,16 @@ await TEXT.loadGlyphs();
 
 const tick = () => new Promise((r) => setTimeout(r, 60));
 function rig() {
-  const R = { passes: [], synced: [] };
+  const R = { passes: [], synced: [], fade: new Map() };
   R.top = { gl: { isContextLost: () => false }, canvas: { width: 2000, height: 1000 }, present() { for (const p of R.passes) p.draw(); }, add(t) { R.passes.push(t); return () => {}; } };
-  const labelGL = (svg, blocks, opts) => ({ lost: false, sync(list) { R.synced = list.map((e) => `${e.g.getAttribute('class')}@${e.alpha}`); opts.host?.ask(); }, setHoles() {}, drawInto() {}, dispose() {} });
+  const labelGL = (svg, blocks, opts) => ({ lost: false, sync(list) { R.synced = list.map((e) => `${e.g.getAttribute('class')}@${e.alpha}`); opts.host?.ask(); }, markAt(el, a0, a1, a2, a) { R.fade.set(el, a); }, markAlpha(el, a) { R.fade.set(el, a); }, setHoles() {}, drawInto() {}, dispose() {} });
   R.near = document.createElement('div'); R.near.className = 'sv';
   R.box = document.createElement('div'); R.box.className = 'lz-labels'; R.near.append(R.box); document.body.append(R.near);
   R.box.getBoundingClientRect = () => ({ width: 1000, height: 500, left: 0, top: 0, right: 1000, bottom: 500 });
   R.cap = createCaptions(R.box, { labelGL, deferred: true });
   R.cap.attach({ top: R.top, order: 2, near: R.near, active: () => true, scale: () => 2 });
-  R.marks = () => [...R.box.querySelectorAll('.lb-leaders > *')].map((e) => `${e.getAttribute('class')}@${e.style.opacity}`);
+  // (A leader's marks and their fade are handed to label-gl as records (markAt, markAlpha: L3 P6), never written to the page.)
+  R.marks = () => [...R.box.querySelectorAll('.lb-leaders > *')].map((e) => `${e.getAttribute('class')}@${R.fade.get(e)}${e.style.opacity}`);
   R.frame = async () => { await tick(); R.cap.drawNow(); R.top.present(); };
   return R;
 }

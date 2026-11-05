@@ -386,7 +386,7 @@ export function createDoppler(st, live) {
     for (const [k, el] of live.leadEls) {
       if (!/^(d|h):/.test(k)) continue;
       const a = el._a, hide = !!g && !el._gone && Math.hypot(+a.cx - g[0], +a.cy - g[1]) < 6;
-      if (hide !== !!el._dprHid) { el._dprHid = hide; el.classList.toggle('dpr-hid', hide); }
+      if (hide !== !!el._dprHid) { el._dprHid = hide; el.classList.toggle('dpr-hid', hide); live.labelGL?.markLook(el); }
     }
   }
   return { dprDots, dprHold, dprLet, dprMake, dprobePaint, smooth01 };

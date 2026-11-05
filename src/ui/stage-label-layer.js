@@ -112,8 +112,17 @@ export function createLabelLayer(st, live) {
   const leadBits = new Map();
   // (Only a label this layout laid: one fading out keeps the bits it had, so its dot and leader fade with it, as the SVG's did.)
   const wantPut = (b, k) => { if (b.pos && b.seen === live.laidFrame) b.pos.want = leadBits.get(k) | 0; };
+  // (Drawn by the GPU, a leader's or dot's geometry is handed to label-gl as text (markAt), which writes the SVG's copy only while it does not draw
+  // them; a class written here is told to it (markLook). The geometry stays in el._a, as setA keeps it, for what reads it (dprDots). L3 P6.)
+  const GEO_AT = { d: 1, cx: 1, cy: 1, r: 1 }, look = (el) => live.labelGL?.markLook(el);
+  function leadPut(el, w, lg) {
+    const at = w.at, c = el._a || (el._a = {}), cls = c.class;
+    for (const a in at) if (!GEO_AT[a]) setA(el, a, at[a]); else c[a] = at[a];
+    if (w.tag === 'path') lg.markAt(el, at.d ?? ''); else lg.markAt(el, String(at.cx ?? ''), String(at.cy ?? ''), String(at.r ?? ''));
+    if (c.class !== cls) lg.markLook(el);
+  }
   function paintLeaders(want) {
-    const keep = leadKeep, els = leadWantEls;
+    const keep = leadKeep, els = leadWantEls, lg = live.labelGL;
     keep.clear(); els.length = 0; leadBits.clear();
     for (let i = 0; i < want.length; i++) {
       const w = want[i], k = w.at['data-k'];
@@ -125,9 +134,9 @@ export function createLabelLayer(st, live) {
       let el = leadEls.get(w.k);
       if (el && el.tagName !== w.tag) { el.remove(); leadEls.delete(w.k); el = null; }
       if (!el) { el = leadTake(w.tag); if (!el) { leadShort = true; if (!leadFill) leadFill = restPass(leadTop); continue; } leadEls.set(w.k, el); }
-      if (el._gone) { clearTimeout(el._gone); el._gone = 0; el.classList.remove('ld-gone'); }
-      for (const a in w.at) setA(el, a, w.at[a]);
-      if (explain.key) { const on = w.at['data-k'] === explain.key; el.classList.toggle('spot-dim', !on); el.classList.toggle('spot-on', on); }   // (a leader made or moved while a label is explained: label-explain.js)
+      if (el._gone) { clearTimeout(el._gone); el._gone = 0; el.classList.remove('ld-gone'); look(el); }
+      if (lg) leadPut(el, w, lg); else for (const a in w.at) setA(el, a, w.at[a]);
+      if (explain.key) { const on = w.at['data-k'] === explain.key; if (el.classList.contains('spot-on') !== on || el.classList.contains('spot-dim') === on) { el.classList.toggle('spot-dim', !on); el.classList.toggle('spot-on', on); look(el); } }   // (a leader made or moved while a label is explained: label-explain.js)
       els.push(el);
     }
     // (A new one goes in just before the next one wanted that is already in, so every line still lies under every dot.)
@@ -136,7 +145,7 @@ export function createLabelLayer(st, live) {
     for (const [k, el] of leadEls) {
       if (keep.has(k) || el._gone) continue;
       if (reduceMotion.matches) { el.remove(); leadEls.delete(k); continue; }
-      el.classList.add('ld-gone');
+      el.classList.add('ld-gone'); look(el);
       el._gone = setTimeout(leadGoneFire, 360, k, el);
     }
   }
@@ -194,7 +203,7 @@ export function createLabelLayer(st, live) {
     // A slide that lights terms (presentTerms) dims every station it does not light to 35 %, its leader too, and it keeps its place (V-LIT-3, Mohammad's pick 14.3 B): .unlit, app.css.
     // (A slide's step numbers (fx-step, V10) point at what the card's words number: they keep full strength, as the card's own do.)
     const unlit = !tone && termsLit() && !/\b(focus|fx-step)\b/.test(it.cls);
-    if (unlit !== !!b.unlit) { b.unlit = unlit; if (unlit) unlitKeys.add(it.key); else unlitKeys.delete(it.key); b.g.classList.toggle('unlit', unlit); for (const el of gLeaders.querySelectorAll(`[data-k="${it.key}"]`)) el.classList.toggle('unlit', unlit); }
+    if (unlit !== !!b.unlit) { b.unlit = unlit; if (unlit) unlitKeys.add(it.key); else unlitKeys.delete(it.key); b.g.classList.toggle('unlit', unlit); for (const el of gLeaders.querySelectorAll(`[data-k="${it.key}"]`)) { el.classList.toggle('unlit', unlit); look(el); } }
     if (!!it.onVessel !== !!b.onVessel) { b.onVessel = !!it.onVessel; b.g.classList.toggle('on-vessel', b.onVessel); }
     let i = 0;
     for (const line of it.lines) for (const r of line) {

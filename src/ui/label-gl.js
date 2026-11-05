@@ -766,6 +766,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   const MISS = new Error('style not read yet');
   const STYLE_PROPS = ['display', 'opacity', 'filter', 'outlineStyle', 'outlineWidth', 'outlineColor', 'outlineOffset', 'fill', 'stroke', 'strokeWidth', 'paintOrder',
     'fontStyle', 'fontWeight', 'fontSize', 'fontFamily', 'letterSpacing', 'fontVariantNumeric', 'strokeLinejoin', 'strokeLinecap', 'strokeDasharray', 'strokeDashoffset'];
+  const MARK_PROPS = ['display', 'opacity', 'fill', 'stroke', 'strokeWidth', 'strokeLinecap', 'strokeDasharray', 'strokeDashoffset'];
   const VOLATILE = new Set(['points', 'x', 'y', 'dx', 'dy', 'width', 'height', 'rx', 'ry', 'cx', 'cy', 'r', 'd', 'transform', 'data-gl', 'aria-label', 'tabindex', 'role']);
   let epoch = 0, fillT = 0, rideLook = !!svg.parentElement?.closest?.('.lb-ride');   // (rideLook: the stage is in a ride, see rideSeen)
   const snaps = new Map(), easing = new WeakMap(), unread = new Set(), waiting = new Set();
@@ -860,13 +861,16 @@ void main() { o = texture(uT, vUV) * uA; }`;
       if (snaps.has(k) || easing.get(el)?.key === k) continue;
       // (The scene store's answer (worked out from the page's rules, scene-store.js) where it gives every property read here: a leader's or
       // dot's look. A text block's fonts and focus outline it does not work out, so those, and anything it cannot say, are asked of the browser.)
-      let c = sceneStyle(el);
-      if (c) for (const p of STYLE_PROPS) if (c[p] === undefined) { c = null; break; }
+      // (A mark's look (L3 P6) needs only the paint describeMark reads, which the store works out: no text, no outline. One easing is asked
+      // of the browser, which has the ease's moment; the store has only where it ends.)
+      let anims;
+      try { anims = el.getAnimations().filter((a) => a.playState !== 'finished' && a.playState !== 'idle'); } catch { anims = []; }
+      let c = anims.length ? null : sceneStyle(el);
+      const need = markOf(el) ? MARK_PROPS : STYLE_PROPS;
+      if (c) for (const p of need) if (c[p] === undefined) { c = null; break; }
       if (!c) c = readStyle(el);
       const s = {};
       for (const p of STYLE_PROPS) s[p] = c[p];
-      let anims;
-      try { anims = el.getAnimations().filter((a) => a.playState !== 'finished' && a.playState !== 'idle'); } catch { anims = []; }
       if (!anims.length) { snaps.set(k, s); continue; }
       easing.set(el, { key: k, s });
       // (Read mid-ease, this style is that moment's: the label's fades are followed from the next frame instead.)
@@ -929,9 +933,10 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // The leaders and their dots (marks: their layers, the leaders' and the FibroScan callout's): read as the labels are.
   const looks = new WeakMap(), markLive = new Until(), markDirty = new Set(), markExact = new Until();
   const markOf = (n) => { const el = n.nodeType === 1 ? n : n.parentElement; return marks.includes(el) ? el : marks.includes(el?.parentElement) ? el : null; };
-  const mmo = new MutationObserver((rs) => { for (const r of rs) { if (!changed(r)) continue; const el = markOf(r.target); if (el) markDirty.add(el); } ask(); });
+  // (No observer of the marks (L3 P6): their writers hand each one's geometry as numbers (markAt), which sync takes with the layout, and say
+  // when its class changes (markLook); the SVG's copy is written only while the layer does not draw them (released, lost: markSvg). A
+  // transition or animation on one still announces itself here.)
   for (const root of marks) {
-    mmo.observe(root, { subtree: true, childList: true, attributes: true, attributeOldValue: true, attributeFilter: ['class', 'style'] });
     for (const t of ['transitionrun', 'transitionend', 'transitioncancel', 'animationstart', 'animationend', 'animationcancel']) root.addEventListener(t, (ev) => { const el = markOf(ev.target); if (el) { keepAnims(el, false); markDirty.add(el); markLive.set(el, performance.now() + 800); ask(); } }, true);
   }
   const allMarks = () => { const t = performance.now() + 700; for (const root of marks) { markDirty.add(root); markLive.set(root, t); if (!TRACK) markExact.set(root, t); for (const el of root.children) { markDirty.add(el); markLive.set(el, t); if (!TRACK) markExact.set(el, t); } } };
@@ -939,7 +944,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   canvas.addEventListener('webglcontextlost', (e) => {
     e.preventDefault(); lost = true; undisplace();
     for (const s of last) s.g.removeAttribute('data-gl');
-    for (const root of marks) for (const el of root.children) el.removeAttribute('data-gl');
+    for (const root of marks) for (const el of root.children) { el.removeAttribute('data-gl'); markSvg(el, markGeo.get(el)); }
     scanEl?.removeAttribute('data-gl');
   }, { signal: ac.signal });
   // The context given back (iOS Safari returns to the page, or a GPU process restarts): the programs are started again at once and read
@@ -956,7 +961,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       pageTex = []; rpDrop(); retry.clear(); pending.clear(); stuck = false; needRepack = false; packer.reset(); ghosts = []; xfOld = xfNew = 1; for (const [, v] of sprites) { v.alt = null; v.alts = null; }
       picPaint = null; lostPic(headSp); lostPic(sHeadSp); slotTex = null;
       for (const s of last) { const st = sprites.get(s.g); if (st) { st.slot = null; st.key = ''; } dirty.add(s.g); }
-      pReadSoon(); sReadSoon(); allMarks(); nbk = -1;
+      pReadSoon(); sReadSoon(); marksTaken(); allMarks(); nbk = -1;
       lost = false;
       ask();
     });
@@ -1005,7 +1010,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   function release() {
     undisplace();
     for (const s of last) s.g.removeAttribute('data-gl');
-    for (const root of marks) for (const el of root.children) el.removeAttribute('data-gl');
+    for (const root of marks) for (const el of root.children) { el.removeAttribute('data-gl'); markSvg(el, markGeo.get(el)); }
     scanEl?.removeAttribute('data-gl');
     released = true;
   }
@@ -1372,7 +1377,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     owed = false;
     hostSize();
     if (!host.active()) { if (!released) release(); return; }
-    if (released) { released = false; for (const s of last) dirty.add(s.g); allMarks(); pReadSoon(); sReadSoon(); }
+    if (released) { released = false; for (const s of last) dirty.add(s.g); marksTaken(); allMarks(); pReadSoon(); sReadSoon(); }
     LA = layerA();   // (the layer's own fade, this frame's)
     if (la?.moving) ask();
     svgLeft.clear();
@@ -1550,7 +1555,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       // (A followed mark's look as this frame has it: its opacity and eased colours written into these, never a new object in a frame.)
       if (lk.trk && lk.st) lk.cur = { ...lk.st, sa: new Float64Array(4), fa: new Float64Array(4) };
       looks.set(el, lk);
-      if (el.tagName !== 'g' && !markGeo.has(el)) markGeo.set(el, { a0: null, a1: null, a2: null, ok: false, v: new Float64Array(4), d: new Float64Array(4), seq: -1, a: 0, pv: new Float64Array(4), pgen: -1, pok: false, k: null });
+      if (el.tagName !== 'g' && !markGeo.has(el)) markGeo.set(el, newMg());
     }
     mtodo.clear();
   }
@@ -1609,14 +1614,38 @@ void main() { o = texture(uT, vUV) * uA; }`;
   }
   const labelByKey = new Map();   // (key → the layout's entry for that label, written at each layout: a leader finds its label's glide by it)
   const markGeo = new WeakMap(), MGEO = new Float64Array(4), MBOX = new Float64Array(4), CLEAR = new Float64Array(4);
-  // (A mark's line or circle, parsed again only when its attributes changed.)
-  function markParse(el, mg, isPath) {
-    const a0 = el.getAttribute(isPath ? 'd' : 'cx'), a1 = isPath ? '' : el.getAttribute('cy'), a2 = isPath ? '' : el.getAttribute('r');
-    if (mg.a0 === a0 && mg.a1 === a1 && mg.a2 === a2) return;
+  // (A mark's geometry: v as its writer last gave it (markAt) or, for a mark no writer hands over, as its attributes read at sync; pv as of
+  // the last sync, what it is drawn from; put: handed over by its writer; ra / pra: the writer's own fade of it, as given and as synced; svg:
+  // the SVG's copy is up to date (it is written only while the layer does not draw the mark: markSvg).)
+  const newMg = () => ({ a0: null, a1: null, a2: null, ok: false, v: new Float64Array(4), d: new Float64Array(4), seq: -1, a: 0, pv: new Float64Array(4), pgen: -1, pok: false, k: null, put: false, ra: 1, pra: 1, own: false, svg: true, svgA: false });   // alloc-rare: once per mark element
+  // (Its line or circle from its text, parsed again only when that changed.)
+  function markText(mg, isPath, a0, a1, a2) {
+    if (mg.a0 === a0 && mg.a1 === a1 && mg.a2 === a2) return false;
     mg.a0 = a0; mg.a1 = a1; mg.a2 = a2;
-    mg.k = el.getAttribute('data-k');   // (the label a leader belongs to, its line's far end being that label's)
     if (isPath) mg.ok = lineInto(a0, mg.v);
     else { mg.v[0] = NUM(a0); mg.v[1] = NUM(a1); mg.v[2] = NUM(a2); mg.v[3] = 0; mg.ok = true; }
+    return true;
+  }
+  function markParse(el, mg, isPath) {
+    mg.k = el.getAttribute('data-k');   // (the label a leader belongs to, its line's far end being that label's)
+    markText(mg, isPath, el.getAttribute(isPath ? 'd' : 'cx'), isPath ? '' : el.getAttribute('cy'), isPath ? '' : el.getAttribute('r'));
+  }
+  // (The SVG's copy of a handed-over mark, written from what its writer gave: only when the layer gives the marks back (released, lost), or
+  // for a mark it cannot draw itself (a path of more than one piece) or has no look for yet, which the SVG draws meanwhile.)
+  // (The marks taken back from the SVG: a writer's own fade given to the SVG's copy (style.opacity) is the record's again, not its look's.)
+  function marksTaken() {
+    for (const root of marks) for (const el of root.children) { const mg = markGeo.get(el); if (mg?.own && mg.svgA) { el.style.opacity = ''; mg.svgA = false; } }
+  }
+  // (Its writer's fade (svgA) only when the marks are given back: written for the one frame the SVG draws a mark with no look yet, it would
+  // be read into that look, and drawn twice over once the GPU has it.)
+  function markSvg(el, mg, fade = true) {
+    if (!mg || !mg.put) return;
+    if (!mg.svg) {
+      mg.svg = true;
+      if (el.tagName === 'path') el.setAttribute('d', mg.a0 || '');
+      else { el.setAttribute('cx', mg.a0 || ''); el.setAttribute('cy', mg.a1 || ''); el.setAttribute('r', mg.a2 || ''); }
+    }
+    if (fade && mg.own && !mg.svgA) { mg.svgA = true; el.style.opacity = String(mg.ra); }
   }
   function drawMarks(now) {
     let moving = false;
@@ -1636,8 +1665,13 @@ void main() { o = texture(uT, vUV) * uA; }`;
           const isPath = el.tagName === 'path';
           const mg = markGeo.get(el);
           mgD = mg;
+          if (mg && mg.put && mg.pgen !== gen) {
+            // (Handed over and put in the layer since the last sync (the stage puts a new leader in between frames): under a ride it is of a
+            // layout the GPU does not have yet, drawn with it, its SVG copy hidden; else it is taken now, as the layout it came with is.)
+            if (rideM) { if (!el.hasAttribute('data-gl')) el.setAttribute('data-gl', ''); continue; }
+            mg.k = el.getAttribute('data-k'); mg.pv.set(mg.v); mg.pok = mg.ok; mg.pra = mg.ra; mg.pgen = gen;
+          }
           if (mg) {
-            markParse(el, mg, isPath);
             // (A pinned label's dot and leader are not the page's: drawn below from the point and the label as they are this frame (drawPins),
             // in the look the page gives them, kept here. Its SVG copy stays hidden.)
             const pl0 = mg.k ? pinOf(labelByKey.get(mg.k)) : null;
@@ -1679,9 +1713,9 @@ void main() { o = texture(uT, vUV) * uA; }`;
         // (A leader with no line yet (the FibroScan callout's, before it has a callout: no `d`) shows nothing in the SVG either: it is the GPU's, drawn as nothing, not a mark left to the SVG.)
         if (st && !geo && el.tagName === 'path' && !el.getAttribute('d')) { if (!el.hasAttribute('data-gl')) el.setAttribute('data-gl', ''); continue; }
         // (A mark this drawing cannot give stays the SVG's; one it draws is hidden there, in the same frame.)
-        if (st === false || (st && !geo)) { if (el.hasAttribute('data-gl')) el.removeAttribute('data-gl'); svgLeft.add(el); continue; }
+        if (st === false || (st && !geo)) { markSvg(el, markGeo.get(el), false); if (el.hasAttribute('data-gl')) el.removeAttribute('data-gl'); svgLeft.add(el); continue; }
         if (!el.hasAttribute('data-gl')) el.setAttribute('data-gl', '');
-        const a = (st?.op ?? 0) * (ro?.op ?? 1) * folA * xfNew;
+        const a = (st?.op ?? 0) * (ro?.op ?? 1) * folA * xfNew * mgD.pra;   // (pra: its writer's own fade, as synced: the captions')
         if (!st || !(a > 0.001) || (!st.stroke && !st.fill)) continue;
         const w = st.stroke ? st.w * dpr : 0, m = w / 2 + 2;
         const box = MBOX;
@@ -2227,7 +2261,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       if (disposed) return;
       disposed = true; lost = true;
       if (againF) { cancelFrame(againF); againF = 0; }
-      mo.disconnect(); mmo.disconnect(); unlayer(); la?.dispose(); ac.abort();
+      mo.disconnect(); unlayer(); la?.dispose(); ac.abort();
       try {
         for (const t of pageTex) if (t) gl.deleteTexture(t);
         for (const t of rpTex) if (t) gl.deleteTexture(t);
@@ -2266,7 +2300,6 @@ void main() { o = texture(uT, vUV) * uA; }`;
       // repeatedly scheduling a resize task and another GPU draw throughout a gesture.
       if (hostK() !== dpr) densityChanged();
       take(mo.takeRecords());
-      for (const r of mmo.takeRecords()) { if (!changed(r)) continue; const el = markOf(r.target); if (el) markDirty.add(el); }
       // A sliced landing or a value refresh may sync while the camera still carries the old layout. Taking its new positions here
       // would apply that camera move twice. rideEnd hands the drawn positions to the first sync of the landed layout instead.
       if (rideM) { ask(); return; }
@@ -2278,9 +2311,9 @@ void main() { o = texture(uT, vUV) * uA; }`;
       for (const root of marks) for (const el of root.children) {
         if (el.tagName === 'g') continue;
         let mg = markGeo.get(el);
-        if (!mg) markGeo.set(el, mg = { a0: null, a1: null, a2: null, ok: false, v: new Float64Array(4), d: new Float64Array(4), seq: -1, a: 0, pv: new Float64Array(4), pgen: -1, pok: false, k: null });   // alloc-rare: once per mark element
-        markParse(el, mg, el.tagName === 'path');
-        mg.pv.set(mg.v); mg.pok = mg.ok; mg.pgen = gen;
+        if (!mg) markGeo.set(el, mg = newMg());
+        if (mg.put) mg.k = el.getAttribute('data-k'); else markParse(el, mg, el.tagName === 'path');
+        mg.pv.set(mg.v); mg.pok = mg.ok; mg.pgen = gen; mg.pra = mg.ra;
       }
       // (Which pinned labels the layout gave a dot (1) or a leader (4): drawPins draws them so until the next layout. A record that carries
       // its own bits (s.want) is drawn from those; these, read from the leaders' layer, stand for a record that does not.)
@@ -2367,6 +2400,21 @@ void main() { o = texture(uT, vUV) * uA; }`;
       }
       return { seq: frameSeq, gen, items, marks: marksOut };
     },
+    /** A leader's or dot's geometry, from its writer (L3 P6): a path's `d` (a0), or a circle's cx, cy and r (a0, a1, a2), as the text its
+     *  attributes would take, and its writer's own fade (alpha, optional). Taken with the next sync, as its label is. The SVG's copy is
+     *  written here, and only while the layer does not draw the mark (released, lost, a path of more than one piece). */
+    markAt(el, a0, a1 = '', a2 = '', alpha) {
+      let mg = markGeo.get(el);
+      if (!mg) markGeo.set(el, mg = newMg());
+      mg.put = true;
+      if (markText(mg, el.tagName === 'path', a0, a1, a2)) mg.svg = false;
+      if (alpha != null && (alpha !== mg.ra || !mg.own)) { mg.ra = alpha; mg.own = true; mg.svgA = false; }
+      if (lost || released || disposed || !mg.ok) markSvg(el, mg);
+    },
+    /** A mark's own fade alone, its geometry as last given (markAt). */
+    markAlpha(el, alpha) { const mg = markGeo.get(el); if (!mg || (mg.own && mg.ra === alpha)) return; mg.ra = alpha; mg.own = true; mg.svgA = false; if (lost || released || disposed) markSvg(el, mg); },
+    /** A mark's (or a marks layer's) class changed: its look is read again, off the frame. */
+    markLook(el) { if (!el) return; markDirty.add(el); ask(); },
     /** A label animated by script (the Web Animations API, which sends no events): read each frame for `ms`. */
     hold(g, ms) {
       if (!g) return;

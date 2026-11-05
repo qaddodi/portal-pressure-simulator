@@ -324,7 +324,7 @@ export function createHover(st, live) {
     const lift = (k, on) => {
       const g = pool.get(k)?.g;
       if (g && g.classList.contains('hov-link') !== on) g.classList.toggle('hov-link', on);
-      if (g || !on) for (const el of gLeaders.querySelectorAll(`[data-k="${k}"]`)) if (el.classList.contains('hov-link') !== on) el.classList.toggle('hov-link', on);
+      if (g || !on) for (const el of gLeaders.querySelectorAll(`[data-k="${k}"]`)) if (el.classList.contains('hov-link') !== on) { el.classList.toggle('hov-link', on); live.labelGL?.markLook(el); }
     };
     for (const k of live.linkLit) if (!want.has(k)) lift(k, false);
     for (const k of want) lift(k, true);
@@ -352,8 +352,8 @@ export function createHover(st, live) {
     const key = explain.key;
     for (const el of gLeaders.children) {
       const k = el.getAttribute('data-k'), on = key && k === key, dim = !!key && !on;
-      if (el.classList.contains('spot-dim') !== dim) el.classList.toggle('spot-dim', dim);
-      if (el.classList.contains('spot-on') !== !!on) el.classList.toggle('spot-on', !!on);
+      if (el.classList.contains('spot-dim') === dim && el.classList.contains('spot-on') === !!on) continue;
+      el.classList.toggle('spot-dim', dim); el.classList.toggle('spot-on', !!on); live.labelGL?.markLook(el);   // (no observer of the marks: label-gl is told)
     }
   }
   function explainChanged() {
