@@ -207,8 +207,11 @@ export function createLabelSolve(st, live) {
     // (A solve in the anatomy at the zoom, turn and view it was last solved for (a pan, a value that changed what shows): every label
     // whose old spot beside its point is still free keeps it, and only the others are placed again. Solved whole, a pan's release had
     // put CONF, SMV, SV and IMV on other sides of their vessels, the labels sliding against the figure as the hand let go: 3 Nov 2026.)
-    const keepSlots = solve && !dry && !circuit && !!live.solvedFor && live.solvedFor.view === live.morphTarget && (live.morph === 0 || live.morph === 1)
-      && Math.abs(Math.log(live.CTM.sc / live.solvedFor.sc)) < 0.03 && Math.abs(Math.atan2(live.CTM.b, live.CTM.a) - live.solvedFor.th) < 0.01;
+    // (Any zoom and either view, 5 Nov 2026 review #4: a label keeps its screen size, so its old slot at a new zoom is the same picture, and only the
+    // checks below decide whether it is still free. Held to the Anatomy at the solved scale, every Circuit landing and every pinch's landing placed
+    // all again, and labels swapped sides as the hand let go. The view and the turn still have to match.)
+    const keepSlots = solve && !dry && !!live.solvedFor && live.solvedFor.view === live.morphTarget && (live.morph === 0 || live.morph === 1)
+      && Math.abs(Math.atan2(live.CTM.b, live.CTM.a) - live.solvedFor.th) < 0.01;
     const out = [];
     const leaders = [];   // { k, tag, at }: every line, then every dot (paintLeaders)
     let useLines = false, rings = [], ringXY = [];   // rings: the Circuit's stations with a reading (see placeMulti); ringXY: their dots
