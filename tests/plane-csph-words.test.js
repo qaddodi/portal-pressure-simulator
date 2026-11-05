@@ -36,7 +36,7 @@ test('the data card: no key, a dot in proportion to the plot with a gap around i
   const src = readFileSync(new URL('../src/ui/visual-plane.js', import.meta.url), 'utf8'), css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
   assert.match(src, /pl\.key === 'never' \? null : planeCardKey\(pl\)/, 'no key under the card plot');
   assert.match(src, /card && pl\.key === 'never' \? ' pze-ownwords' : ''/, 'the plot takes the key\'s room');
-  assert.match(css, /\.pz\.stack \.pze-plot\.pze-incard\.pze-ownwords \{ height: calc\(clamp\(210px, 66cqi, 300px\) \* var\(--pz-fit, 1\) \+ 1\.3em \+ 6px\); \}/);
+  assert.match(css, /\.pz\.stack \.pze-plot\.pze-incard\.pze-ownwords \{ height: calc\(min\(clamp\(210px, 66cqi, 300px\) \* var\(--pz-fit, 1\), max\(150px, var\(--pz-ph, 9999px\)\)\) \+ 1\.3em \+ 6px\); \}/);
   assert.match(src, /ringG = sv\('g', \{ class: 'pze-ring', 'data-look': 'plane.ring' \}, halo, dot\)/, 'a dot with its gap, no ring');
   assert.match(src, /svg\.append\(base, wordsG, ringG\)/, 'the dot and the words stay the same elements, so they ease');
   assert.deepEqual(LOOKS['plane.halo'].base.fill, { k: 'tok', n: 'surface' }, 'the gap round the dot is the card\'s own colour');

@@ -24,8 +24,11 @@ test('Present phone: the Doppler and FibroScan are not zoomed and the fit shorte
   const r = rule('.pz.stack:not(.low) .pz-data.has-tool.has-tool > .pz-tool:is([data-kind="doppler"], [data-kind="fibroscan"])');
   assert.match(r, /--tz: 1;/);
   assert.match(r, /zoom: 1/);
-  assert.match(rule('.pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="doppler"] .dop-box'), /128px \* var\(--pz-fit, 1\) \/ var\(--tz, 1\)/);
-  assert.match(rule('.pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="fibroscan"] .fibroscan-box'), /168px \* var\(--pz-fit, 1\) \/ var\(--tz, 1\)/);
+  // (their picture heights come from the one shared chart rule, --pz-chart-hh = --pz-chart-h x the fit, capped by the card's room)
+  const h = rule('.app.presenting .pz.stack:not(.low) .pz-data.has-tool .pz-tool[data-kind="vitals"] .vitals-box');
+  assert.match(h, /\.pz-tool\[data-kind="fibroscan"\] \.fibroscan-box/);
+  assert.match(h, /\.pz-tool\[data-kind="doppler"\] \.dop-box/);
+  assert.match(h, /height: calc\(var\(--pz-chart-hh\)/);
 });
 
 test('a slide\'s Doppler strip reads signed as drawn and as a steady running mean', () => {
