@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { bootGL } from './stage-gl-boot.js';
 
-const { st, frame } = await bootGL();
+const { st, page, frame } = await bootGL();
 const { store } = await import('../src/ui/store.js');
 const { stepPlan } = await import('../src/ui/callout-math.js');
 const { EDGES } = await import('../src/engine/topology.js');
@@ -41,6 +41,14 @@ test("every step's number that stands off its vessel's point has a leader to it 
       assert.ok(Math.hypot(line.x0 - d.px, line.y0 - d.py) < 6, `${d.key}'s leader starts at its dot`);
     }
   }
+  // (Drawn from each number's record (its want bits, L3 P2), not from the page's leaders: with those taken out of the layer, the same marks.)
+  const before = st.labelSnapshot().marks.filter((m) => m.k.startsWith('fxs:')).map((m) => `${m.k} ${m.kind}`).sort();
+  const layer = page.document.querySelector('#labels .lb-leaders'), kids = [...layer.children];
+  for (const el of kids) if (el.getAttribute('data-k')?.startsWith('fxs:')) el.remove();
+  await frame(); await frame();
+  const after = st.labelSnapshot().marks.filter((m) => m.k.startsWith('fxs:')).map((m) => `${m.k} ${m.kind}`).sort();
+  assert.deepEqual(after, before);
+  for (const el of kids) if (!el.isConnected) layer.append(el);
 });
 
 test("a group's number is joined to each of its vessels by a line of its fan, not by one leader from the point between them", async () => {

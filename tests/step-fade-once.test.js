@@ -30,6 +30,12 @@ test("each step's number shows from its vessel's moment on, and only then, throu
     for (let n = 1; n <= GLOW.length; n++) {
       const k = 'fxs:' + n, at = (n - 1) * SEQ, d = sn.items.find((x) => x.key === k), a = d ? +d.a : 0;
       if (t < at - 20) assert.ok(a <= 0.01, `${k} is not shown before its vessel lights at ${at} ms (at ${Math.round(t)} ms it was drawn at ${a.toFixed(2)})`);
+      // (Its leader and dot are the GPU's, from its record's want bits, in every frame once the glide has landed (its crossfade draws the new
+      // labels and their marks at its progress): its layout ran before any leader or dot of the page's was made.)
+      if (t > 1000 && a > 0.5 && !(d.px >= d.x && d.px <= d.x + d.w && d.py >= d.y && d.py <= d.y + d.h)) {
+        const mk = sn.marks.filter((m) => m.k === k);
+        assert.ok(mk.some((m) => m.kind === 'leader-dot') && mk.some((m) => m.kind === 'line'), `${k} has its dot and leader at ${Math.round(t)} ms: ${JSON.stringify(mk)}`);
+      }
       const s = seen.get(k);
       if (!s) { if (a > 0.01) seen.set(k, { first: t, last: a }); continue; }
       assert.ok(a >= s.last - 0.01, `${k} goes on coming in once it has begun: ${s.last.toFixed(2)} then ${a.toFixed(2)} at ${Math.round(t)} ms`);
@@ -37,4 +43,12 @@ test("each step's number shows from its vessel's moment on, and only then, throu
     }
   }
   for (let n = 1; n <= GLOW.length; n++) assert.ok(seen.get('fxs:' + n)?.last > 0.99, `fxs:${n} stands in full at the end: ${JSON.stringify(seen.get('fxs:' + n))}`);
+  // (Their leaders and dots are the GPU's, from each record's want bits: drawn though no leader or dot of the page's had been made yet, as on
+  // this first slide whose layout ran with the glide.)
+  const sn = st.labelSnapshot();
+  for (const d of sn.items.filter((x) => x.key.startsWith('fxs:'))) {
+    if (d.px >= d.x && d.px <= d.x + d.w && d.py >= d.y && d.py <= d.y + d.h) continue;
+    const mk = sn.marks.filter((m) => m.k === d.key);
+    assert.ok(mk.some((m) => m.kind === 'leader-dot') && mk.some((m) => m.kind === 'line'), `${d.key} has its dot and leader: ${JSON.stringify(mk)}`);
+  }
 });
