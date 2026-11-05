@@ -65,7 +65,7 @@ test('an op that asks for more while the queue is applied gets a pass of its own
 
 test('stage.js: the build pass lands a label\'s pieces with its move, and a newer layout drops older builds', () => {
   const build = STAGE.slice(STAGE.indexOf('function blockBuild()'), STAGE.indexOf('const blockSig ='));
-  assert.match(build, /renderBlock\(it\);\s*\}\s*[^]*lateQueue\.now\(\);\s*\}/, 'the queue is applied before the pass ends');
+  assert.match(build, /renderBlock\(it\);\s*\}\s*[^]*lateQueue\.now\(\);[^]*labelGlSync\?\.\(\);\s*\}/, 'the queue is applied before the pass ends, then the built labels go to the GPU (review #3)');
   assert.match(STAGE, /const lateQueue = createLateQueue\(\(op, a, b\) => lateRun\(op, a, b\), restPass, cancelRest\);/);
   // The layout's own sweep: what it wants replaces what an earlier layout asked to have built.
   assert.match(STAGE, /(?:live\.)?(?:live\.)?(?:live\.)?laidFrame = (?:live\.)?(?:live\.)?frameNo; blockWant\.clear\(\);\s*for \(const it of out\) renderBlock\(it\);/);

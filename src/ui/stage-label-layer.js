@@ -149,9 +149,26 @@ export function createLabelLayer(st, live) {
     // (This pass is between frames already, and it moved each label to its place: its new pieces, fills and the label itself land in the
     // same task, not a later one, in which a frame could draw its old words or pill against the new place.)
     lateQueue.now();
+    // (Handed to the GPU now, with the anchors taken at their layout: a label built during a pan or a glide used to wait for the next labelTail,
+    // which the camera's hold skips, and showed only at the landing. 5 Nov 2026 review #3. sync itself waits while a ride runs.)
+    live.labelGlSync?.();
   }
   const blockSig = (it) => JSON.stringify([it.lines.map((line) => line.map(({ t, fill, cls, ...style }) => style)), it.align, !!it.swatch, it.bg, !!it.hit, it.cls, live.labelK, fontPx(14), it.fxw ?? (/^focus/.test(it.key) ? it.lines.map((line) => line.map((r) => r.t).join('')) : 0)]);
+  // (Where a label is anchored, taken in the layout's own frame, under the camera it was solved under: a label built later in a rest pass (new,
+  // or its pieces changed) keeps these, never the camera of that later moment. 5 Nov 2026 review #2: a pan begun between the layout and the
+  // build put its world anchor off by the pan, and it stood rigidly on the wrong spot until the next solve.)
+  function stampAnchor(it) {
+    if (it.aSt) return;
+    it.aSt = true;
+    it.aPk = it.key.startsWith('n:') && !it.live && Number.isFinite(it.ax) && Number.isFinite(it.ay) ? pinKind(it.key.slice(2), it.ax, it.ay, it.au) : 0;
+    if (it.cls === 'organ' && !it.rot) { it.ax = it.x + it.w / 2; it.ay = it.y + it.h / 2; }
+    const gp = !(it.aPk > 0) && !it.live && !it.hide && Number.isFinite(it.ax) && Number.isFinite(it.ay) && (live.morph === 0 || live.morph === 1) && !NO_ANCHOR.test(it.key);
+    if (gp) localToWorldInto(ANCHOR_W, it.ax, it.ay);
+    it.aGw = gp && Number.isFinite(ANCHOR_W[0]) && Number.isFinite(ANCHOR_W[1]);
+    it.aWx = it.aGw ? ANCHOR_W[0] : 0; it.aWy = it.aGw ? ANCHOR_W[1] : 0; it.aWv = live.morph; it.aView = live.morphTarget;
+  }
   function renderBlock(it) {
+    stampAnchor(it);
     const b = pool.get(it.key), sig = blockSig(it);
     if (!b || sig !== b.sig) {
       blockWant.set(it.key, it);
@@ -253,14 +270,11 @@ export function createLabelLayer(st, live) {
     // reference as x and y, so the GPU draws it at the point's place now plus its offset, label-gl.js pinTo. Unrounded: the offset is exact.)
     // (Which point it was laid out against, found by matching it: the middle of its vessel (1) or the station itself (2). One that is neither,
     // a point the layout chose by other rules, is not pinned and moves as before.)
-    const pk = it.key.startsWith('n:') && !it.live && Number.isFinite(it.ax) && Number.isFinite(it.ay) ? pinKind(it.key.slice(2), it.ax, it.ay, it.au) : 0, pin = pk > 0;
+    const pk = it.aPk, pin = pk > 0;   // (taken in the layout's frame: stampAnchor)
     const px0 = +it.x.toFixed(1), py0 = +(it.rot ? it.y + it.w : it.y).toFixed(1);
     // (Every other figure label gets a world anchor (step 3 of the rigid-labels plan): its point as laid out, taken back to the world under this layout's camera, so the GPU keeps it on that point through any pan, pinch or zoom. Not the screen's furniture (zone titles, lanes, the scan, the stage) and not between views. An organ's name is a region name (leader rule L1): its point is where it is drawn, so it never stands off its own anchor.)
-    if (it.cls === 'organ' && !it.rot) { it.ax = it.x + it.w / 2; it.ay = it.y + it.h / 2; }
-    const gp = !pin && !it.live && !it.hide && Number.isFinite(it.ax) && Number.isFinite(it.ay) && (live.morph === 0 || live.morph === 1) && !NO_ANCHOR.test(it.key);
-    if (gp) localToWorldInto(ANCHOR_W, it.ax, it.ay);
-    const gw = gp && Number.isFinite(ANCHOR_W[0]) && Number.isFinite(ANCHOR_W[1]);
-    b.pos = { g: b.g, x: px0, y: py0, rot: !!it.rot, pid: pin ? it.key.slice(2) : gw ? it.key : null, pax: pin || gw ? it.ax : 0, pay: pin || gw ? it.ay : 0, pmid: pk === 1, pau: it.au ?? 0.5, pwx: gw ? ANCHOR_W[0] : 0, pwy: gw ? ANCHOR_W[1] : 0, pwv: gw ? live.morph : null, view: live.morphTarget, mA: null };
+    const gw = it.aGw;
+    b.pos = { g: b.g, x: px0, y: py0, rot: !!it.rot, pid: pin ? it.key.slice(2) : gw ? it.key : null, pax: pin || gw ? it.ax : 0, pay: pin || gw ? it.ay : 0, pmid: pk === 1, pau: it.au ?? 0.5, pwx: it.aWx, pwy: it.aWy, pwv: gw ? it.aWv : null, view: it.aView, mA: null };
     // (Its box on an 8 px grid, for the corner credit's look (labelBoxStamp): a number ticking inside it moves nothing the credit avoids.)
     const c0 = Math.floor((it.x - it.padX) / 8), c1 = Math.floor((it.y - it.padY) / 8), c2 = Math.ceil((it.x + (it.rot ? it.h : it.w) + it.padX) / 8), c3 = Math.ceil((it.y + (it.rot ? it.w : it.h) + it.padY) / 8), ch = !!it.hide;
     if (!b.box || c0 !== b.bc0 || c1 !== b.bc1 || c2 !== b.bc2 || c3 !== b.bc3 || ch !== b.bch) {
