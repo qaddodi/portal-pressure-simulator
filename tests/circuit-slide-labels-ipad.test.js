@@ -5,12 +5,23 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { bootCircuitSlide, labelFaults } from './circuit-slide-stage.js';
 
+const boot = bootCircuitSlide({ W: 1366, H: 1024, cardR: 570 });
+
 test('iPad 1366: the Circuit slide\'s readings are clear of vessels, zigzags and rings', async () => {
-  const { st } = await bootCircuitSlide({ W: 1366, H: 1024, cardR: 570 });
+  const { st } = await boot;
   const got = labelFaults(st, /^n:/, 1);
   assert.ok(got.length >= 6 && got.some((g) => g.key === 'n:SPL'), `the slide's stations are read, the spleen's among them: ${got.map((g) => g.key)}`);
   for (const g of got) {
     assert.deepEqual(g.vessels, [], `${g.key} at ${g.box} sits on ${g.vessels}`);
     assert.deepEqual(g.rings, [], `${g.key} at ${g.box} covers a station's ring at ${JSON.stringify(g.rings)}`);
   }
+});
+
+test("iPad 1366: the liver's resistance reading stands off the liver's vessels and zigzags", async () => {
+  const { st } = await boot;
+  const [res] = labelFaults(st, /^r:rLiver$/, 1);
+  assert.ok(res, 'the slide reads the liver\'s resistance');
+  assert.deepEqual(res.vessels, [], `"R liver" at ${res.box} sits on ${res.vessels}`);
+  const [, ys] = st.worldToLocal(850, 303), [, yi] = st.worldToLocal(850, 387);   // (the two lobes' zigzags: stage-sites.js RES_LIVER)
+  assert.ok(res.box[3] < ys - 12 || res.box[1] > yi + 12 || (res.box[1] > ys + 12 && res.box[3] < yi - 12), `"R liver" at ${res.box} is clear of the zigzags at y ${ys.toFixed(0)} and ${yi.toFixed(0)}`);
 });

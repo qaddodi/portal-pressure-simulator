@@ -788,12 +788,24 @@ export function createLabelSolve(st, live) {
           if (within(zr, { x0: 6, y0: 6, x1: W - 6, y1: H - 6 }) && !blockers.some((o) => hits(zr, o)) && !callouts.some((o) => hits(zr, o))) { out.push(it); obstacles.push({ ...zr, zone: true, key: it.key }); it._zr = zr; }
         }
       }
-      // The resistors' readings (label-gl figure labels at their zigzags, resItem): placed straight, not solved; their boxes are kept clear by the stations after.
+      // The resistors' readings (label-gl figure labels at their zigzags, resItem): placed straight; their boxes are kept clear by the stations after.
+      // (Where its spot puts it on a vessel, a reading slides up or down off the vessels, the nearest clear spot within 120 px, up first; the
+      // shift is solved once and kept in the solution, so a carry holds it. Circuit slide 4 on a sideways iPad: "R liver ×1.0 / vs healthy
+      // liver" between the two lobes lay over the outer sinusoids of both and the hepatic artery's branches; it now stands above the liver.)
       if (sites.list && t >= 0.5) {
         for (const k of ['rGut', 'rColl', 'rLiver']) {
           if (!sites.list.includes(k)) continue;
           const it = resItem(k);
           if (!it || !resPlace(it)) continue;
+          const prev = prevSol.get(it.key);
+          let dy = prev && !prev.drop ? prev.dy : 0;
+          if (solve) {
+            buildLines();
+            const free = (d) => { const r = rectOf({ ...it, y: it.y + d }); return within(r, view) && !lineHits(r, 2, true) && !placed.some((p) => hits(r, p)) && !obstacles.some((o) => hits(r, o)); };   // alloc-rare: a resistor's shift, solved only in a solve (the view settled, a reading changed), never in a carried frame
+            if (!free(dy)) { dy = 0; if (!free(0)) for (let d = 3; d <= 120; d += 3) { if (free(-d)) { dy = -d; break; } if (free(d)) { dy = d; break; } } }
+            nextSol.set(it.key, { res: true, dir: 'res', pi: 0, dx: 0, dy });   // alloc-rare: a resistor's shift, solved only in a solve (the view settled, a reading changed), never in a carried frame
+          }
+          it.y += dy;
           out.push(it); placed.push({ ...rectOf(it), res: true });
         }
       }
