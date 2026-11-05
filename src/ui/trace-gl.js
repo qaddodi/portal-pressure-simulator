@@ -755,9 +755,13 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
     if (plW === W && plH === H && plBW === bw && plBH === bh && plK === K) return;
     plW = W; plH = H; plBW = bw; plBH = bh; plK = K;
     const st = canvas.style;
-    if (bw === W && bh === H) { st.width = st.height = st.translate = st.clipPath = ''; return; }
+    // (The picture is always set at its own size in CSS px and stretched to exactly that: the canvas's attributes stay 1 x 1, so the
+    // stylesheet's object-fit: contain, which holds a picture to its own shape, took the 1:1 of those for the picture's shape and drew
+    // every one wider than tall at half width: the Gut to heart chart and the Fluid strip, squeezed to the left of their box.)
     const dy = (bh - H) / K, dx = (bw - W) / K;
-    st.width = `${bw / K}px`; st.height = `${bh / K}px`; st.translate = `0 ${-dy}px`; st.clipPath = `inset(${dy}px ${dx}px 0px 0px)`;
+    st.objectFit = 'fill'; st.width = `${bw / K}px`; st.height = `${bh / K}px`;
+    if (bw === W && bh === H) { st.translate = st.clipPath = ''; return; }
+    st.translate = `0 ${-dy}px`; st.clipPath = `inset(${dy}px ${dx}px 0px 0px)`;
   }
   // alloc-rare: made once with the chart (createTraceGL runs once for a chart), never in a frame
   const api = {
