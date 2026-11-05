@@ -191,10 +191,10 @@ export function createCauses({ host } = {}) {
   const linkBuf = new Float64Array(6 * 32);
 
   const size = () => {
-    const w = el.clientWidth, z = w ? el.getBoundingClientRect().width / w : 1;
+    const w = el.clientWidth;
     let hs = 12;   // (the host's type size, from the chart's looks table: the card's own sizes handed over, never read off the page)
     try { const cx = chartCtx(el); delete cx.svk; gl.setCtx(cx); hs = gl.hostSize(); } catch { /* (no card round it yet: the sizes as they stand) */ }
-    const f = Math.max(hs || 12, z > 0.2 && z < 1 ? CS_MIN / z : 0);
+    const f = Math.max(hs || 12, CS_MIN);
     return [Math.max(160, w || 420), Math.max(8 * f, el.clientHeight || 240), f];
   };
   function makeRow(r) {

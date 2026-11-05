@@ -288,8 +288,8 @@ export function createFlowTime() {
   // (The card zooms its contents to its own scale, a Mac's data card to 0.8 and an iPad's lower: the chart's type is set larger
   // by as much, so its words are never under 12 px on the screen; they were 9.6 px on a Mac and 8 px on an iPad held sideways.)
   const size = () => {
-    const w = el.clientWidth, z = w ? el.getBoundingClientRect().width / w : 1;
-    const f = fittedType(el, gl, z > 0.2 && z < 1 ? FT_MIN / z : 0);   // (the card's small type from the chart's looks table, grown to stay readable on a zoomed card)
+    const w = el.clientWidth;
+    const f = fittedType(el, gl, FT_MIN);   // (the card's small type from the chart's looks table, never under the least)
     return [Math.max(160, w || 420), Math.max(8 * f, el.clientHeight || 260), f];
   };
   let lastSz = '';

@@ -13,7 +13,6 @@ import { elastogramUnder } from './fibroscan-gl.js';
 import { surface } from './gpu-surfaces.js';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, frameAnimating } from './frame.js';
 import { createFollow } from './display-state.js';
-import { screenMin } from './screen-zoom.js';
 import { fix1 } from './fix-text.js';
 import { dataSoon } from './class-soon.js';
 const nextFrame = frameFor('fibroscan');
@@ -67,7 +66,6 @@ function noiseField(w, hh, cell, seed) {
 
 const NB = 104; // the noise fields are laid out on this grid; the map is sampled at any resolution from it
 const REDUCED_MQ = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : { matches: false };   // (read live: Reduce Motion turned on or off while the app is open applies to the next frame)
-const TOUCH = typeof matchMedia === 'function' ? matchMedia('(pointer: coarse)') : { matches: false };   // (read live: a finger's screen keeps the 12 px floor on the canvas words)
 const FIELDS = { built: false };
 function fields() {
   if (FIELDS.built) return FIELDS;
@@ -184,7 +182,7 @@ export function createFibroScan() {
     // edge and the reading inside its top right corner (the clearest part: the wave front starts at the top left).
     // A short, wide panel (a phone's presenter card on its side) differs only in its smaller words.
     const side = !cv.closest('.pz-tool') && hh < 200 && w > hh * 2.2;
-    const FLOOR = Math.min(24, Math.max(TOUCH.matches ? 12 : 10, screenMin(cv)));   // (a finger's screen keeps the 12 px floor; a mouse's panel keeps its small words)
+    const FLOOR = 12;   // (the monitor is not zoomed by the card, so its words are drawn at the size they read on the screen: 12 px at least)
     // The panel's words are the size of the card's small words (the canvas's own font size, which a slide sets to the tiles'
     // small size), so the labels never look tiny beside the card: one size for the axes and the units.
     // (The box's ratio to its layout width is read with the size, when it changes: read every frame, it laid the page out mid-frame.)

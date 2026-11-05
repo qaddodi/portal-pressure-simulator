@@ -2756,7 +2756,7 @@ button.finding { cursor: pointer; }
 .pz-tool:not([data-kind]) { display: none; }
 .pz-ghost { display: flex; flex-wrap: wrap; align-items: baseline; gap: .2em .6em; margin-top: 6px; font: 600 var(--s-cap)/1.2 var(--font-ui); color: var(--text-3); opacity: 0; max-height: 0; overflow: hidden; transition: opacity var(--d-surface) var(--ease); }
 .pz-ghost.on { opacity: 1; max-height: 3em; }
-.pz-ghost span { letter-spacing: .06em; text-transform: uppercase; font-size: max(.85em, calc(11.5px / var(--pz-dk, 1))); }
+.pz-ghost span { letter-spacing: .06em; text-transform: uppercase; font-size: max(.85em, calc(12px / var(--pz-dk, 1))); }
 .pz-ghost b { color: var(--text-2); opacity: .7; font-variant-numeric: tabular-nums; }
 .pz-data.tool-only .pz-tiles { display: none; }
 .pz-tool .ab-main { display: block; }
@@ -2771,9 +2771,9 @@ button.finding { cursor: pointer; }
 .pz-tool .ab-tile dt, .pz-tool .ab-u { font-size: var(--fs-12); }
 .pz-tool .ab-tile dd { font-size: var(--s-val); }
 .pz-tool { position: relative; flex: none; }
-/* (On a slide an instrument's small words follow the card's type scale, as the tiles' do, and stay 11.5 px or more on the
-   screen when a stacked data card's blocks are at a smaller step, --pz-dk; its sizes in px were the Explore pane's.) */
-.pz-tool { --fs-12: max(var(--s-cap), calc(11.5px / var(--pz-dk, 1))); --fs-14: max(calc(var(--s-cap) * 1.12), calc(12.5px / var(--pz-dk, 1))); }
+/* (On a slide an instrument's small words follow the card's type scale, as the tiles' do, and are 12 px or more: an instrument is
+   not zoomed by the card, so they are drawn at the size they read on the screen; its sizes in px were the Explore pane's.) */
+.pz-tool { --fs-12: max(var(--s-cap), 12px); --fs-14: max(calc(var(--s-cap) * 1.12), 12.5px); }
 .pz-tool .dop-ticks { height: 1.3em; font-size: var(--fs-12); line-height: 1.3; }
 .pz-tool .dop .dop-report .dop-stats dt, .pz-tool .dop .dop-report .dop-stats dd small { font-size: var(--fs-12); }
 .pz-tool .dop .dop-report .dop-stats dd { font-size: max(16px, var(--fs-14)); }
@@ -2813,7 +2813,7 @@ button.finding { cursor: pointer; }
 .pz:not(.stack) .pz-data.col > .pz-tool[data-kind="scope"] { width: 100%; }   /* (the card's full width: the row of readings needs it, and the view is sized on its own below) */
 .pz:not(.stack) .pz-tool[data-kind="scope"] .endo-read > .endo-g { grid-column: auto; }
 .pz:not(.stack) .pz-tool[data-kind="scope"] .endo-read > .endo-red { grid-column: 1 / -1; }
-.pz:not(.stack) .pz-tool[data-kind="scope"] .endo-read dt { font-size: max(calc(12px / var(--pz-dk, 1)), var(--s-cap)); letter-spacing: .04em; }
+.pz:not(.stack) .pz-tool[data-kind="scope"] .endo-read dt { font-size: max(12px, var(--s-cap)); letter-spacing: .04em; }
 .pz:not(.stack) .pz-tool[data-kind="scope"] :is(.endo-num, .endo-chip-v, .endo-grade, .endo-grade span, .endo-grade b) { white-space: nowrap; }
 .pz:not(.stack) .pz-tool[data-kind="scope"] .endo-num small { font-size: inherit; }
 .pz:not(.stack) .pz-tool[data-kind="scope"] .endo-more { display: none; }
@@ -2858,6 +2858,7 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-mon { margin-top: 8px; }
 .pz.stack .pz-text:has(.pz-mon) { max-height: 50%; }
 .pz.stack .pz-mon .hvpg-box { height: 136px; }
+.pz.stack .pz-data .pz-mon .hvpg-box { height: calc(clamp(180px, 50cqi, 230px) * var(--pz-fit, 1)); }   /* (the catheter tracing on the data card: a real height at the card's full width; 136 px zoomed by the fit was a strip) */
 .pz-talk svg { grid-area: 1 / 1; width: 100%; height: 100%; overflow: visible; transition: opacity var(--d-surface) var(--ease); }
 .pz-talk svg.in { opacity: 0; }
 /* Portal pressure and flow over a time-lapse (flow-time.js): two scales, the lines drawing as it plays. */
@@ -2875,6 +2876,7 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-tool[data-kind="doppler"] .dop-box { height: 140px; }
 .pz.stack .pz-tool[data-kind="fibroscan"] .fibroscan-box { height: 140px; }
 .pz.stack .pz-tool[data-kind="vitals"] .vitals-box { height: 140px; }
+.pz-tool[data-kind="vitals"] .vitals-box { flex: none; min-width: 120px; min-height: 96px; }   /* (the monitor draws from 120 x 90 px: a tucked card squeezed its box to 70 px and it drew nothing, the blank Vital signs card) */
 .pz.stack .pz-tool[data-kind="beats"] .pt-box { height: 172px; }   /* (tall enough for the pressures and the HVPG lane, trace-lanes.js; the EKG strip needs a taller card) */
 /* Phone: the scope sits beside its grade and size, and the Doppler drops its sentence, so a tile still fits under the instrument. */
 .pz.stack .pz-tool[data-kind="scope"] .pz-inst { flex-direction: row; align-items: center; gap: 12px; }
@@ -2930,18 +2932,17 @@ button.finding { cursor: pointer; }
 .app.presenting .stage-view { touch-action: pan-x pan-y; }
 .pz-text, .pz-data, .pz-panel { overflow: clip; overscroll-behavior: none; }
 .pz-text > *, .pz-data > *, .pz-panel > * { zoom: var(--pz-fit, 1); }
-.pz-data.col > * { zoom: calc(var(--pz-fit, 1) * var(--pz-dk, 1)); }   /* (stacked under the words when the pair would not fit: the data card's blocks at one of a few fixed smaller sizes, presenter.js DK) */
-/* (The card's smallest words, a heading, a tile's name, stay 11.5 px or more on the screen at every step; a chart keeps its own scale.) */
-.pz-data.col > :not(svg) { --s-cap: max(calc(clamp(12px, calc(1.733 * var(--pzh)), 21px) * var(--ts, 1) * var(--pk, 1)), calc(11.5px / var(--pz-dk, 1))); }
-/* (An instrument drawn to the card's width shrinks with the card's fit too: zoomed alone it was drawn wider by as much, so it kept
-   its size on the screen and the fit squeezed only the readings and tiles below it, to half size on a sideways phone.) */
-.pz-data > .pz-tool:not([data-kind="abdomen"]):not([data-kind="doppler"]):not([data-kind="fibroscan"]):not([data-kind="beats"]):not([data-kind="fluid"]) { width: calc(100% * var(--pz-fit, 1)); margin-inline: auto; }
-/* A live monitor (Doppler, FibroScan, tracing) always fills the card's width; when the card is tight it gets shorter (the card's
-   zoom, --pz-fit and the block step, scales its height), never narrower. */
-.pz-data > .pz-tool:is([data-kind="doppler"], [data-kind="fibroscan"], [data-kind="beats"]) { width: 100%; }   /* (an instrument; a ladder sets its own lettering to its width, so it keeps the card's) */
-/* (The fluid balance's strip the same: its text is set to the card's zoom (tool-fluid.js), so a narrower block only crowded it.) */
-.pz-data > .pz-tool[data-kind="fluid"] { width: 100%; }
-.pz-data.col > :is(.pz-quad, .pz-tool:not([data-kind="abdomen"]):not([data-kind="doppler"]):not([data-kind="fibroscan"]):not([data-kind="beats"]):not([data-kind="fluid"])) { width: calc(100% * var(--pz-fit, 1) * var(--pz-dk, 1)); margin-inline: auto; }   /* (a chart drawn to the card's width: narrower by the same step, so it is smaller in height too, not only its zoom) */
+.pz-data.col > :not(.pz-tool) { zoom: calc(var(--pz-fit, 1) * var(--pz-dk, 1)); }   /* (stacked under the words when the pair would not fit: the data card's blocks at one of a few fixed smaller sizes, presenter.js DK) */
+/* Pictures never zoom (card sizing, 5 Nov 2026): an instrument or chart (.pz-tool) is drawn in real screen px, at the size its box has,
+   so its words are 12 px or more because they are drawn at 12 px or more, with no 1/zoom boost anywhere. Its height follows the room the
+   card leaves (the rules below, in px or cqi, times --pz-fit where a tight card gives height way); its width is always the card's. The
+   words and tiles round it are the only blocks the fit and the block step zoom. */
+.pz-data > .pz-tool[data-kind] { zoom: 1; }
+/* (The card's smallest words, a heading, a tile's name, stay 12 px or more on the screen at every step.) */
+.pz-data.col > :not(svg):not(.pz-tool) { --s-cap: max(calc(clamp(12px, calc(1.733 * var(--pzh)), 21px) * var(--ts, 1) * var(--pk, 1)), calc(12px / var(--pz-dk, 1))); }
+/* An instrument or chart always fills the card's width (never narrower by the fit or the block step); when the card is tight its height gives way. */
+.pz-data > .pz-tool:not([data-kind="abdomen"]) { width: 100%; margin-inline: auto; }
+.pz-data > .pz-tool[data-kind="fluid"] { width: 100%; }   /* (the fluid balance's strip too: its text is set to its own box, so a narrower block only crowded it) */
 /* A phone's opened (or only) instrument is the one part that gives way when it is taller than the card: the header and tiles stay full size. */
 .pz.stack .pz-data:is(.tool-open, .tool-only) > :not(.pz-tool) { zoom: 1; }
 /* A slide whose card is the instrument alone gets more of the phone's height, so the instrument stays near full size. */
@@ -5779,11 +5780,11 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .pz.low.low .pz-data.has-tool.has-tool .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .endo-stage .chart-box.square > canvas { width: 100%; height: 100%; }
 .pz.low.low .pz-data.has-tool.has-tool .pz-tool[data-kind="trace"] .chart-box { height: 104px; }
 .pz.low.low .pz-data.has-tool.has-tool .pz-tool[data-kind="abdomen"] .ab-belly { max-height: 104px; }
-/* (A phone's Doppler and FibroScan give way when the card is short, but by their pictures: the instrument's own zoom stops at .85,
-   so its words stay 10 px or more on the screen (they were 7.9 at the fit's .65), and the rest of the fit shortens the picture.) */
-.pz.stack:not(.low) .pz-data.has-tool.has-tool > .pz-tool:is([data-kind="doppler"], [data-kind="fibroscan"]) { --tz: max(var(--pz-fit, 1), .85); zoom: var(--tz); }
+/* (A phone's Doppler and FibroScan give way when the card is short, but by their pictures: the instrument is not zoomed, so its words
+   are drawn at 12 px or more, and the fit shortens the picture's height.) */
+.pz.stack:not(.low) .pz-data.has-tool.has-tool > .pz-tool:is([data-kind="doppler"], [data-kind="fibroscan"]) { --tz: 1; zoom: 1; }
 .pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="doppler"] .dop-box { min-height: 0; height: calc(128px * var(--pz-fit, 1) / var(--tz, 1) + var(--dop-free, 0px)); }
-.pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="beats"] .pt-box { height: 140px; }
+.pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="beats"] .pt-box { height: calc(clamp(200px, 52cqi, 250px) * var(--pz-fit, 1)); }
 .pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .endo-stage { width: min(56cqi, 150px); }
 .pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="abdomen"] .ab-belly { max-height: min(52cqi, 200px); }
 .pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="fibroscan"] .fibroscan-box { height: calc(168px * var(--pz-fit, 1) / var(--tz, 1)); }
@@ -6040,7 +6041,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
    (The widths are :root tokens, read where --pz-b is the body text: presenter.js sets --pz-b on the app element as the bottom room in px.) */
 .pz:not(.stack):not(.low) .pz-panel:not(.fill) { width: var(--pz-rw-chart); }   /* (every other full card, the scale, the SAAG plot, the two walls, a plane: the table's width; only the six ladders, .fill, keep the screen) */
 .pz:not(.stack):not(.low) .pz-panel[data-visual="outline"] { width: var(--pz-rw-outline); }
-.pz:not(.stack):not(.low) .pz-panel[data-visual="table"] { width: var(--pz-rw-table); }
+.pz:not(.stack):not(.low) .pz-panel[data-visual="table"] { width: min(var(--pz-rw-table), max(calc(var(--pz-tu, 99) * var(--s-body, 16px) + 120px), 560px)); }   /* (a table is as wide as its columns want, centred, never past the reading width: spread over the whole card its first column was a third of the screen and the Doppler traces sat in empty space) */
 .pz:not(.stack):not(.low) .pz-panel[data-visual="check"] { width: var(--pz-rw-check); }
 .pz:not(.stack):not(.low) .pz-panel[data-visual="plane"] { width: var(--pz-rw-plane); }   /* (a plane is an illustration, not a table: a narrower card than the other charts', its margin wider on every side) */
 /* A ladder card on a laptop or tablet: the ladder's words at the cards' sizes (presenter.js fitNow reads --ch-<role>), never
@@ -7022,8 +7023,8 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .pz-curve, .pz-cbars { display: grid; font-size: var(--pz-sm, var(--pz-psm, 12px)); min-height: 9em; }
 .pz-curve { height: calc(var(--cv-h, max(56cqi, 15em)) * var(--pz-fit, 1)); }
 .pz-cbars { height: calc(var(--cs-h, max(56cqi, 22em)) * var(--pz-fit, 1)); }
-.pz.stack .pz-curve { --cv-h: min(max(54cqi, 175px), 190px); }   /* (a narrow phone (320 px) had a 152 px chart and a plot of 41 to 66 px, Treatment 10's Carvedilol and Propranolol almost one line: it keeps 175 px (180 put "Response" on "HVPG 10"); from about a 350 px phone up, 54cqi already passes it and nothing changes) */
-.pz.stack .pz-cbars { --cs-h: min(60cqi, 214px); }
+.pz.stack .pz-curve { --cv-h: clamp(190px, 64cqi, 290px); }   /* (a plot at least 0.6 of the card's width tall: 54cqi capped at 190 px left a strip) */   /* (a narrow phone (320 px) had a 152 px chart and a plot of 41 to 66 px, Treatment 10's Carvedilol and Propranolol almost one line: it keeps 175 px (180 put "Response" on "HVPG 10"); from about a 350 px phone up, 54cqi already passes it and nothing changes) */
+.pz.stack .pz-cbars { --cs-h: clamp(214px, 66cqi, 300px); }
 /* (An iPad held upright stacks its cards too, but has room: the charts take more of its height.) */
 @media (min-width: 700px) and (min-height: 900px) {
   .pz.stack .pz-curve { --cv-h: min(42cqi, 270px); }
@@ -7063,10 +7064,10 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .pze-plot { position: relative; width: 100%; height: calc(44 * var(--pzh)); min-height: 240px; font-size: var(--s-cap); }   /* (a summary's plot is an illustration: lower than the 52 it was, so its card stands smaller on every side, Mohammad 29 Oct) */
 .pz.stack .pze-plot { height: auto; aspect-ratio: 1.15; min-height: 0; }
 .pze-plot.pze-incard { height: clamp(200px, calc(30 * var(--pzh)), 360px); min-height: 0; font-size: var(--ch-cap, var(--s-cap)); }
-.pz.stack .pze-plot.pze-incard { height: 168px; aspect-ratio: auto; }
+.pz.stack .pze-plot.pze-incard { height: calc(clamp(210px, 66cqi, 300px) * var(--pz-fit, 1)); aspect-ratio: auto; }
 .pz.low .pze-plot.pze-incard { height: 132px; }
 .pze-plot.pze-incard.pze-ownwords { height: calc(clamp(200px, calc(30 * var(--pzh)), 360px) + 1.3em + 6px); }   /* (a plane whose zones name themselves has no key under it in the card: the plot takes the key's room) */
-.pz.stack .pze-plot.pze-incard.pze-ownwords { height: calc(168px + 1.3em + 6px); }
+.pz.stack .pze-plot.pze-incard.pze-ownwords { height: calc(clamp(210px, 66cqi, 300px) * var(--pz-fit, 1) + 1.3em + 6px); }
 .pz.low .pze-plot.pze-incard.pze-ownwords { height: calc(132px + 1.3em + 6px); }
 .pze-plot :is(svg, .ic) { position: absolute; inset: 0; display: block; overflow: visible; }
 /* (The gray zone, "CSPH unclear", in a stronger amber than the other zones' tints, so it reads as its own band in both themes.) */
@@ -7101,6 +7102,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .pz-table.pz-table td.pze-wcell { padding-inline: max(.5em, 6px); }
 .pz-table.pz-table td.pze-wcell { padding-right: max(.75em, 10px); }   /* (the trace ends clear of the table's edge, as far in as the row names start on the left, on every size) */
 .pze-wbox { display: block; width: 6.5em; max-width: 100%; min-width: min(4em, 100%); height: 1.8em; margin-inline: auto; }
+.pz:not(.stack):not(.low) .pze-wbox { width: 14em; min-width: min(8em, 100%); height: clamp(40px, 2.2em, 56px); }   /* (a wide screen's trace fills its column and is tall enough to read: 40 to 56 px) */
 .pze-wbox.pze-in { animation: crossfade var(--d-surface) var(--ease) both; }
 .pze-wbox:has(> .pze-wave) { position: relative; }
 .pze-wave, .pze-wave + .trace-gl { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }   /* (the trace's box and the GPU's picture over it, col-wave.js) */
@@ -7145,9 +7147,9 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 /* window: true, the day strip (tool-fluid.js; "One strip", 21 Oct): the day's change first, then the lymph made and its sources, then
    one strip that splits the day on one scale: what the lymphatics carry (named inside), what the belly reabsorbs, what builds, a
    bracket over what leaked and the room the lymphatics have left as a dashed outline; under it, the forces as one strip too. The
-   sizes are em, from one text size, so the card scales as one: that size is the card's 12 px at least on the screen, after the
-   card's zoom (--pz-fit, --pz-dk) has shrunk it. */
-.pz-tool[data-kind="fluid"] .gf { --gs-fs: max(var(--fs-12), calc(12px / (var(--pz-fit, 1) * var(--pz-dk, 1)))); font-size: var(--gs-fs);
+   sizes are em, from one text size, so the card scales as one: that size is the card's 12 px at least, drawn so on the screen
+   (the strip is not zoomed by the card). */
+.pz-tool[data-kind="fluid"] .gf { --gs-fs: var(--fs-12); font-size: var(--gs-fs);
   --gs-lymph: var(--sv-gl-lymph-hi); --gs-carried: var(--gs-lymph); --gs-back: color-mix(in srgb, var(--vein-systemic) 80%, var(--surface)); --gs-build: var(--caution);
   --gs-slot: color-mix(in srgb, var(--text) 7%, transparent);
   --gs-dash: color-mix(in srgb, var(--gs-lymph) 40%, var(--text-2)); --gs-bar: 1.25em; }

@@ -695,13 +695,12 @@ export function createProfileTool() {
   // rest pass, rest-pass.js); the frames draw at the size last read. fs: the box's own type size.)
   let sz0 = null, fs0 = 12, measuring = 0;
   const measure0 = () => {
-    const w = el.clientWidth, hh = el.clientHeight, z = w ? el.getBoundingClientRect().width / w : 1;
+    const w = el.clientWidth, hh = el.clientHeight;
     // (The box's own type size from the chart's looks table: the card's sizes handed over, never read off the page.)
     fs0 = fittedType(el, gl) || 12;
     if (!w || !hh) { sz0 = null; return null; }
-    // (Zoomed by the page or an ancestor (the card's own fit leaves the chart unzoomed: styles/app.css): the type is set larger by as
-    // much, never under 12 px on the screen.)
-    const f = Math.max(fs0, z > 0.2 && z < 1 ? 12 / z : 0);
+    // (The card leaves the chart unzoomed, styles/app.css: its words are drawn at their size on the screen, never under 12 px.)
+    const f = Math.max(fs0, 12);
     gl.setCtx({ px: f });   // (the size the chart is drawn at: an em of its pieces' looks)
     sz0 = [w, hh, f];
     return sz0;

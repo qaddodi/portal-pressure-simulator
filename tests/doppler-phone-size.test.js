@@ -20,10 +20,10 @@ test('Present phone data card: direction and mean step down, the spectrum is tal
   assert.ok(h >= 140, `spectrum is ${h}px`);
 });
 
-test('Present phone: the Doppler and FibroScan zoom stops at .85 and the fit shortens their pictures', () => {
+test('Present phone: the Doppler and FibroScan are not zoomed and the fit shortens their pictures', () => {
   const r = rule('.pz.stack:not(.low) .pz-data.has-tool.has-tool > .pz-tool:is([data-kind="doppler"], [data-kind="fibroscan"])');
-  assert.match(r, /--tz: max\(var\(--pz-fit, 1\), \.85\)/);
-  assert.match(r, /zoom: var\(--tz\)/);
+  assert.match(r, /--tz: 1;/);
+  assert.match(r, /zoom: 1/);
   assert.match(rule('.pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="doppler"] .dop-box'), /128px \* var\(--pz-fit, 1\) \/ var\(--tz, 1\)/);
   assert.match(rule('.pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="fibroscan"] .fibroscan-box'), /168px \* var\(--pz-fit, 1\) \/ var\(--tz, 1\)/);
 });

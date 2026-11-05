@@ -32,7 +32,7 @@ test('the view is bigger than before and the card spans the full width for the r
 });
 
 test('a value is one line in a fixed shape, and the stigmata read as a short sign in the row', () => {
-  assert.match(rule(`${ROW} dt`), /font-size:\s*max\(calc\(12px/);
+  assert.match(rule(`${ROW} dt`), /font-size:\s*max\(12px/);
   assert.match(css, /\.pz:not\(\.stack\) \.pz-tool\[data-kind="scope"\] :is\(\.endo-num[^{]*\{[^}]*white-space:\s*nowrap/);
   assert.match(rule('.pz:not(.stack) .pz-tool[data-kind="scope"] .endo-more'), /display:\s*none/);
   assert.match(src, /'Red wale'/);

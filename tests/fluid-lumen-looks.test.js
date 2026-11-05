@@ -18,11 +18,10 @@ test('each fluid and lumen entry resolves in every look and state with no missin
     for (const v of Object.values(p)) assert.doesNotMatch(String(v), /255, 0, 255/, `${k} ${theme}/${palette}`);
   }
 });
-test('the host size is the card\'s 12 px text, held at 12 on the screen after the card\'s zoom', () => {
+test('the host size is the card\'s 12 px text, drawn at 12 or more (the strip is not zoomed by the card)', () => {
   assert.equal(HOSTS.fluid(ctx()), 12.5);
   assert.equal(HOSTS.fluid({ scale: {}, fit: 1, dk: 1 }), 12);
-  assert.equal(HOSTS.fluid({ scale: { fs12: 12 }, fit: 0.8, dk: 1 }), 15, '12 / 0.8: the zoom shrank it');
-  assert.equal(HOSTS.fluid({ scale: { fs12: 12 }, fit: 0.8, dk: 0.5 }), 30, 'and the block step too');
+  assert.equal(HOSTS.fluid({ scale: { fs12: 12 }, fit: 0.8, dk: 0.5 }), 12, 'no boost by the fit or the block step');
   assert.equal(P('fluid.in').size, 12.5, 'a word in a part is 1em of it');
 });
 test('the strip\'s lymph is the lymph green, 55 % of it in a dark look; the carried part and the spare room follow it', () => {

@@ -25,7 +25,8 @@ test('every other full card takes the chart width, and only the ladders keep the
 
 test('each reading card has its own width rule, for the wide layout only', () => {
   for (const v of VISUALS) {
-    assert.match(css, new RegExp(`\\.pz:not\\(\\.stack\\):not\\(\\.low\\) \\.pz-panel\\[data-visual="${v}"\\] \\{ width: var\\(--pz-rw-${v}\\); \\}`), v);
+    // (A table's card is as wide as its columns want, never past the reading width: width: min(var(--pz-rw-table), ...).)
+    assert.match(css, new RegExp(`\\.pz:not\\(\\.stack\\):not\\(\\.low\\) \\.pz-panel\\[data-visual="${v}"\\] \\{ width: ${v === 'table' ? 'min\\(var\\(--pz-rw-table\\), ' : 'var\\(--pz-rw-' + v + '\\); \\}'}`), v);
     // (A phone, upright or on its side, and an upright tablet keep their own full-width and 70% cards.)
     assert.doesNotMatch(css, new RegExp(`\\.pz\\.(?:stack|low)[^{]*\\.pz-panel\\[data-visual="${v}"\\] \\{[^}]*\\bwidth:`), `${v}: no phone width`);
   }

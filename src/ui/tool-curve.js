@@ -574,8 +574,8 @@ export function createCurve() {
   let altNow = false;   // (with against: the lines' key stands in, with rows of its own, because their names did not fit on the drawing)
 
   const size = () => {
-    const w = el.clientWidth, z = w ? el.getBoundingClientRect().width / w : 1;
-    const f = fittedType(el, gl, z > 0.2 && z < 1 ? CV_MIN / z : 0);   // (the card's small type from the chart's looks table, grown to stay readable on a zoomed card)
+    const w = el.clientWidth;
+    const f = fittedType(el, gl, CV_MIN);   // (the card's small type from the chart's looks table, never under the least: the chart is drawn at the size it has on the screen)
     return [Math.max(160, w || 420), Math.max(8 * f, el.clientHeight || 240), f];
   };
   // A dot's place on line j (shown units), or null: with against every line is the one reading, so a dot sits once, on the first.
@@ -755,7 +755,7 @@ export function createCurve() {
       // (The two end numbers stand inside the plot's ends, clear of the corner numbers of the y axes.)
       xt.map((x) => sv('text', { class: 'pft-tk', 'data-look': 'time.tk', x: X(x), y: B + 1.25 * f, 'text-anchor': X(x) <= L + 1 ? 'start' : X(x) >= R - 1 ? 'end' : 'middle' }, fmtTick(x, ax.d))),
       // (The name on the numbers' row where it fits between them, else on a row of its own under them, xAxisRow.)
-      sv('text', { class: 'pcv-ax', 'data-look': 'cv.ax', x: G.nameAt ?? (L + R) / 2, y: B + (G.nameAt == null ? 2.6 : 1.25) * f, 'text-anchor': 'middle' }, xAxisName(ax))];
+      sv('text', { class: 'pcv-ax', 'data-look': 'cv.ax', x: G.nameAt ?? Math.max(8 + cw(xAxisName(ax), f, 1) / 2, Math.min(G.w - 8 - cw(xAxisName(ax), f, 1) / 2, (L + R) / 2)), y: B + (G.nameAt == null ? 2.6 : 1.25) * f, 'text-anchor': 'middle' }, xAxisName(ax))];
     const lines = ls.map((l, j) => {
       const Y = j && !G.one ? YR || YL : YL, ys = ser?.ys[j], xs = lineX(j);
       const d = ys ? ys.map((y, i) => (Number.isFinite(y) ? [X(xs[i]), Y(y)] : null)).filter(Boolean).map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join('') : '';

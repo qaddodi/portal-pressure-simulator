@@ -134,7 +134,7 @@ test('the strip draws each part, keys its swatches, and never sets text under 12
   // (the room's dashed outline is the table's: chart-looks/fluid.js 'fluid.seg.ghost')
   assert.deepEqual(resolveProps(LOOKS['fluid.seg.ghost'], withCtx(makeCtx({ host: 'fluid' }), { theme: 'light', dark: false }), {}, {}).dash, [3, 2.5]);
   assert.match(css, /\.gs-sw\.none \{[^}]*dashed/);
-  assert.match(css, /--gs-fs: max\(var\(--fs-12\), calc\(12px \/ \(var\(--pz-fit, 1\) \* var\(--pz-dk, 1\)\)\)\)/, 'the text size holds 12 px on the screen after the card\'s zoom');
+  assert.match(css, /--gs-fs: var\(--fs-12\)/, 'the text size is the card\'s 12 px (the strip is not zoomed)');
   const px = [...css.matchAll(/\.gs[\w-]*[^{}]*\{[^}]*font-size: (\d+(?:\.\d+)?)px/g)].map((m) => +m[1]);
   assert.ok(px.every((n) => n >= 12), 'no text under 12 px in the card');
   assert.match(css, /\[data-kind="fluid"\] \{ width: 100%; \}/, 'the strip fills the card\'s width, as a monitor does');

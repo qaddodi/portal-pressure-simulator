@@ -18,9 +18,9 @@ test('captions are 12 px on every screen, the SVG labels as the stylesheet', () 
   assert.match(css, /\.scan-probe \.sp-unit \{ font-size: 12px;/);
 });
 
-test('the meal chart sets its words larger by its card\'s zoom, to 12 px at least', () => {
+test('the meal chart draws its words at 12 px at least (the card does not zoom it)', () => {
   assert.match(flow, /const FT_MIN = 12;/);
-  assert.match(flow, /FT_MIN \/ z/);
+  assert.match(flow, /fittedType\(el, gl, FT_MIN\)/);
   assert.match(flow, /font-size: \$\{G\.f\.toFixed\(2\)\}px/);
 });
 

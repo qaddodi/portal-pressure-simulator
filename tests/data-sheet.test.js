@@ -288,9 +288,9 @@ test('the ladder and the portal blood bars keep the stacked card\'s full width, 
   };
   const sel = (head) => css.split('\n').map((l) => l.match(/^(.*?)\s*\{/)?.[1]).find((s) => s?.startsWith(head));
   const keep = sel('.pz .pz-data.pz-data'), narrow = sel('.pz-data.col > :is(.pz-quad');
-  assert.ok(keep && narrow, 'both rules are there');
+  assert.ok(keep && !narrow, 'the full-width rule is there and the stacked card\'s narrowing rule is gone (instruments are not zoomed or narrowed by the card)');
   assert.match(keep, /\[data-kind="profile"\], \[data-kind="flows"\]/);
-  assert.ok(spec(keep) > spec(narrow), `the full-width rule (${spec(keep)}) stands over the stacked card's width rule (${spec(narrow)})`);
+  void spec;
   // (And the ladder's height steps with the card's block step, never with its fit, and is at least 28 % of the window's height: a ladder
   // beside its tiles is narrow, and 62 % of its width alone left it at its minimum.)
   assert.match(css, /\.pz:not\(\.stack\) \.pz-tool\[data-kind="profile"\] \.pz-prof \{ --prof-h: calc\(min\(max\(62cqi, calc\(28 \* var\(--pzh\)\)\), calc\(40 \* var\(--pzh\)\)\) \* var\(--pz-dk, 1\) - 1\.6em\); \}/);

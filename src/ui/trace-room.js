@@ -6,11 +6,10 @@ export const MON_MIN = 132;
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 // W, H: the drawn area (the canvas less its padding); y: the padding above it.
 const ROOM = { big: 0, fs: 12, k: 1, top: 0, bot: 0 };   // alloc-rare: made once; every caller takes its numbers out at once
-// least: the smallest the words may be, in the canvas's px (a card that zooms the monitor down asks for more so they read 11 px on the screen);
 // k: how much the header's lines are spread for words past 15 px.
-export function traceRoom(W, H, y = 10, least = 0) {
+export function traceRoom(W, H, y = 10) {
   const big = Math.round(clamp(Math.min(W * 0.1, H * 0.14), 22, 40));
-  ROOM.fs = Math.max(clamp(Math.round(W / 64), 12, 15), Math.min(26, least));   // (the monitor's words: 12 px on a small card, 13 to 15 on a wide one, to read well on a Mac or a phone held sideways)
+  ROOM.fs = clamp(Math.round(W / 64), 12, 15);   // (the monitor's words: 12 px on a small card, 13 to 15 on a wide one, to read well on a Mac or a phone held sideways)
   const k = Math.max(1, ROOM.fs / 15);
   ROOM.k = k; ROOM.big = big; ROOM.top = y + 30 * k + Math.max(big, 22) - 4; ROOM.bot = y + H - Math.max(16, ROOM.fs + 1);
   return ROOM;

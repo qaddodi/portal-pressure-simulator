@@ -43,7 +43,7 @@ test('the compact layout under 860 px tall: the stacked roles, label 12 px or mo
 test('derived sizes: the small size, the number, the chart caption, the instrument sizes', () => {
   const s = cardScale({ vw: 1440, vh: 900, part: 'data' });
   near(s.sm, 12); near(s.num, 28.602 * 1.08); near(s.fs12, 15.597); near(s.fs14, 15.597 * 1.12);
-  near(cardScale({ vw: 1440, vh: 900, part: 'data', dk: 0.5 }).fs12, 23);
+  near(cardScale({ vw: 1440, vh: 900, part: 'data', dk: 0.5 }).fs12, 15.597);   // (an instrument is not zoomed by the block step)
   near(cardScale({ vw: 800, vh: 430, part: 'cell' }).chCap, 12); near(cardScale({ vw: 1440, vh: 900, part: 'cell' }).chLab, 18);
 });
 test('the same input is the same object', () => {

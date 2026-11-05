@@ -39,13 +39,13 @@ const trail = Array.from({ length: 181 }, (_, d) => [d, 11.6 + 4.3 * d / 180, 3.
 const latest = (el) => { let n = el.children.at(-1); while (n.replaced) n = n.replaced; return n; };   // (the stand-in's replaceWith leaves the old one in place, naming the new)
 const typeOf = (el) => +/font-size: ([\d.]+)px/.exec(latest(el).attrs.style)[1];
 
-test('a chart drawn while its card was zoomed to half draws again at 12 px when the card has fitted, its box the same size', () => {
+test('a chart is drawn at 12 px whatever the card zoom, and a refit with the same box leaves the drawing alone', () => {
   const ft = createFlowTime();
   ft.el.clientWidth = 390; ft.el.clientHeight = 234;
   globalThis.getComputedStyle = () => ({ fontSize: '12px' });
   ft.el.zoom = 0.5;   // (the fit tries the card at half size)
   ft.set(trail, 1, { clock: 'days', lines: ['hvpg', 'varix'] });
-  assert.equal(typeOf(ft.el), 24, 'at half size the type is set twice as large, so it reads 12 px on the screen');
+  assert.equal(typeOf(ft.el), 12, 'no boost by the zoom: a chart is drawn at the size it reads on the screen');
   ft.el.zoom = 1;     // (the fit is done: the card at full size, the chart box 390 x 234 still)
   ft.refit();
   assert.equal(typeOf(ft.el), 12, 'redrawn at 12 px');

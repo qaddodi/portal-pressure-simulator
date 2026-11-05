@@ -127,6 +127,11 @@ export function layout(w, h, f, c, ser, keyRow = false) {
   const lead = Math.max(2, 0.075 * total), x0 = -lead * 1.6, x1 = total * 1.025, X = (d) => L + (R - L) * (d - x0) / (x1 - x0);
   const step = xStep(total), xt = [];
   for (let d = 0; d <= total + 1e-9; d += step) xt.push({ d, text: d ? fmtTick(d / 7, 1) : c.words.event });
+  // (Numbers that would stand closer than 12 px to the one before it, or on its words, are dropped: the year chart's 10, 5, 0 crowded.)
+  for (let i = 1, kept = 0; i < xt.length; i++) {
+    const a = xt[kept], b = xt[i], ax = X(a.d), bx = X(b.d), need = Math.max(12, (cw(a.text, f) + cw(b.text, f)) / 2 + 6);
+    if (bx - ax < need) xt.splice(i--, 1); else kept = i;
+  }
   // (With keyRow the lines' names stand in a row of their own under the caption, a swatch of the line's colour before each: for a card too short or too
   // narrow to put them by the lines' ends, where they would land on the lines.)
   let kx = 0;
@@ -229,8 +234,8 @@ export function createCourse() {
   let t = null, c = null, ctx = null, ser = null, parts = null, G = null, labels = null, zoneNames = [], key = '', lastSz = '';
 
   const size = () => {
-    const w = el.clientWidth, z = w ? el.getBoundingClientRect().width / w : 1;
-    const f = fittedType(el, gl, z > 0.2 && z < 1 ? CO_MIN / z : 0);   // (the card's small type from the chart's looks table, grown to stay readable on a zoomed card)
+    const w = el.clientWidth;
+    const f = fittedType(el, gl, CO_MIN);   // (the card's small type from the chart's looks table, never under the least: the chart is drawn at the size it has on the screen)
     return [Math.max(160, w || 420), Math.max(8 * f, el.clientHeight || 240), f];
   };
   const fmt = (v) => `${v < 0.05 ? '0' : v.toFixed(1)} ${ser.unit === 'L' ? 'liters' : ser.unit}`;

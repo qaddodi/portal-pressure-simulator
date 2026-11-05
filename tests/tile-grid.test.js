@@ -21,7 +21,7 @@ test('no tile sits alone, centred at half width, and no tile grid auto-fits to a
 });
 
 test('live monitors fill the card width and get shorter when tight, never narrower', () => {
-  assert.ok(css.includes('.pz-data > .pz-tool:is([data-kind="doppler"], [data-kind="fibroscan"], [data-kind="beats"]) { width: 100%; }'));
+  assert.ok(css.includes('.pz-data > .pz-tool:not([data-kind="abdomen"]) { width: 100%; margin-inline: auto; }'));   // (every instrument but the dial; none is zoomed or narrowed by the card)
   assert.match(css, /\.pz-tool\[data-kind="fibroscan"\] \.fibroscan-box \{ width: 100%; height: clamp\([^}]*\); \}/);
 });
 

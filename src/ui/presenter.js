@@ -2670,6 +2670,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       if (panel.hidden) { panel.classList.add('pz-leave'); panel.hidden = false; void readMetric(panel, 'offsetWidth'); }
       panel.classList.toggle('fill', s.visual === 'ladders');
       panel.dataset.visual = s.visual;
+      panel.style.setProperty('--pz-tu', s.visual === 'table' ? String(tableUnits(s)) : '');   // (a table's own width in body-text em, so its card fits it: app.css .pz-panel[data-visual="table"])
       const tab = s.visual !== 'outline' && deckTab();   // (the outline names the talk in full instead)
       panel.classList.toggle('tabbed', !!tab);
       panel.replaceChildren(...(tab ? [tab] : []), h('div', { class: 'pz-ph' }, s.visual === 'outline' ? h('h1', { class: 'pz-dtitle' }, nb(deck.title)) : null, h('h1', { class: 'pz-h' }, ...diseaseNodes(nb(s.title))), s.eq ? equation(s.eq) : null, s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp, !!st?.params?.tips?.on)) : null, s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null, citeEl(s)),
@@ -2994,6 +2995,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   const UNIT_WORDS = { press: 'pressures in mmHg', varix: 'varix in mm', gv: 'fundal varix in mm', asc: 'ascites in liters', liver: 'liver blood flow in % of normal', shunt: 'shunted blood in %', plt: 'platelets × 10³/µL',
     lsm: 'stiffness in kPa', hr: 'heart rate in beats/min', pvFlow: 'portal flow in L/min', res: 'liver resistance in mmHg per L/min', spleen: 'spleen in cm', co: 'cardiac output in L/min', bv: 'blood volume in L' };
   const colExt = (k) => (!COLS[k] && Object.hasOwn(EXT.columns, k) ? EXT.columns[k] : null);
+  // How wide a table wants to be, in em of its body text: the row names, each value column, a Doppler trace's column, the ascites pair
+  // and each note column. The wide card is this wide (never wider than the reading width), so the columns stand close to their content.
+  function tableUnits(s) {
+    const cols = s.cols || [], notes = s.note ? [s.note].flat().length : 0;
+    return 14 + cols.reduce((a, k) => a + (k === 'wave' ? 14 : 8), 0) + ((s.asc ?? !s.cols) ? 16 : 0) + (s.cols ? 0 : 56) + 14 * notes;
+  }
   function summaryTable(s, arrived = -1) {
     const cols = s.cols || ['pv', 'whvp', 'fhvp', 'ivc', 'ra', 'hvpg', 'ppg'], ascCols = s.asc ?? !s.cols, rows = rowsOf(s);
     const perRow = rows.some((r) => r.vs), rel = s.vs === 'first' || perRow;

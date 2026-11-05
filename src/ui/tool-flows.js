@@ -285,9 +285,9 @@ export function createFlowsTool() {
   // The card's size, zoom and lettering, read between frames (a new slide, a new size: rest-pass.js), never in a glide's frame.
   let box = null, measuring = 0;
   const measureBox = () => {
-    const w = el.clientWidth, z = w ? el.getBoundingClientRect().width / w : 1;
+    const w = el.clientWidth;
     // (The box's own type size from the chart's looks table: the card's sizes handed over, never read off the page.)
-    const f = fittedType(el, gl, z > 0.2 && z < 1 ? 12 / z : 0);
+    const f = fittedType(el, gl, 12);
     box = [Math.max(160, w || 420), Math.max(6 * f, el.clientHeight || 160), f];
   };
   const sizeNow = () => box || [420, 160, 12];

@@ -81,8 +81,8 @@ export function cardScale(inp) {
   const cellStack = stack || i.layout === 'low';
   r.chCap = cellStack ? r.cap : Math.max(12, r.cap * 0.74);                   // --ch-cap (app.css:2266, 2628)
   r.chLab = cellStack ? r.lab : r.chCap * 1.5;                                // --ch-lab
-  r.fs12 = Math.max(r.cap, 11.5 / i.dk);                                      // --fs-12 (app.css:2851)
-  r.fs14 = Math.max(r.cap * 1.12, 12.5 / i.dk);                               // --fs-14
+  r.fs12 = Math.max(r.cap, 12);                                               // --fs-12 (app.css .pz-tool: an instrument is not zoomed)
+  r.fs14 = Math.max(r.cap * 1.12, 12.5);                                    // --fs-14
   memo.set(key, o = Object.freeze(r));
   return o;
 }
