@@ -1724,7 +1724,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
           if (mg) {
             // (A pinned label's dot and leader are not the page's: drawn below from the point and the label as they are this frame (drawPins),
             // in the look the page gives them, kept here. Its SVG copy stays hidden.)
-            const pl0 = mg.k ? pinOf(labelByKey.get(mg.k)) : null;
+            // (A numbered group's fan (class fan, stage-label-solve.js) is not its label's leader: each line is drawn from its own geometry, below.)
+            const pl0 = mg.k && !el.classList.contains('fan') ? pinOf(labelByKey.get(mg.k)) : null;
             if (pl0) {
               let pk = pinLooks.get(mg.k);
               if (!pk) pinLooks.set(mg.k, pk = { line: null, dot: null, halo: null, dotR: 2.4, haloR: 5 });   // alloc-rare: one record per pinned label key
@@ -2374,6 +2375,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
         const k = el.getAttribute('data-k');
         if (!k) continue;
         const cls = el.getAttribute('class') || '';
+        if (cls.includes('fan')) continue;   // (a group's fan: drawn from its own geometry, not as its label's leader)
         pinWant.set(k, (pinWant.get(k) | 0) | (el.tagName === 'path' ? 4 : cls.includes('halo') ? 2 : 1));
       }
       labelByKey.clear(); recOf.clear();

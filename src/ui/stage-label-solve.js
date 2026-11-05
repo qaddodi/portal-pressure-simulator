@@ -417,7 +417,9 @@ export function createLabelSolve(st, live) {
       if (keepSlots && prev && !prev.drop && prev.pi >= from && prev.pi < to && it.w <= prev.w + 0.5 && it.h <= prev.h + 0.5 && !it.point && !/^focus/.test(it.key)) {
         // (Its point too: the one on the figure it was solved at, while that is still on the stage. A vessel's label is anchored at the middle of
         // the part in view, which slides along the vessel as the view pans; held there, the label would move against the figure.)
-        const V = viewOf(it, S), [kx, ky] = worldToLocal(prev.wx, prev.wy), atOld = kx >= V.x0 && kx <= V.x1 && ky >= V.y0 && ky <= V.y1;
+        // (Not a step's number: its point is its vessel's, fixed, and the same key on the next slide names another vessel; held at the old
+        // point it stood by the last slide's vessel.)
+        const V = viewOf(it, S), [kx, ky] = worldToLocal(prev.wx, prev.wy), atOld = it.cls !== 'fx-step' && kx >= V.x0 && kx <= V.x1 && ky >= V.y0 && ky <= V.y1;
         const ax = atOld ? kx : it.ax, ay = atOld ? ky : it.ay;
         const r = rectOf({ ...probe, x: ax + prev.dx, y: ay + prev.dy });
         if (within(r, V) && !placed.some((p) => hits(r, p)) && !obstacles.some((o) => hits(r, o)) && !callouts.some((b) => hits(r, b))
@@ -1202,12 +1204,23 @@ export function createLabelSolve(st, live) {
           if (g.group && mids.length > 1) { fans = mids; ax = mids.reduce((a, p) => a + p[0], 0) / mids.length; ay = mids.reduce((a, p) => a + p[1], 0) / mids.length; near = 4; }
           else { [ax, ay] = mids[0]; near = 4 + ((E[ids[0]].width || 4) * k) / 2; }
         }
-        const it = { key: 'fxs:' + g.n, cls: 'fx-step', lines: [[{ t: String(g.n), size: 11.5, weight: 750, cls: 'lb-step' }]], align: 'middle', bg: true, chip: true, padX: 5, padY: 2, ax, ay, pri: 20, delay: g.at, free: true, label: `Step ${g.n}` };   // (free: no dot on the vessel, only a leader when it stands off)
+        const it = { key: 'fxs:' + g.n, cls: 'fx-step', lines: [[{ t: String(g.n), size: 11.5, weight: 750, cls: 'lb-step' }]], align: 'middle', bg: true, chip: true, padX: 5, padY: 2, ax, ay, pri: 20, delay: g.at, free: true, label: `Step ${g.n}` };   // (free: no dot where it stands on its point, or for a group or an organ: see below)
         it.h = LINE_H(it.lines[0]); it.w = Math.max(lineW(it.lines[0]), it.h - 4);
         buildLines();
         // (A group's spots keep its leaders clear first; where none does, it takes the usual ones, so the number never vanishes.)
         if (fans) it.fans = fans;
-        placeMulti(it, ['NE', 'NW', 'SE', 'SW', 'N', 'S', 'E', 'W'], fans ? [...nearFar(near).map((ps) => ({ ...ps, fans })), ...nearFar(24).map((ps) => ({ ...ps, fans })), ...nearFar(near)] : nearFar(near));
+        const put = placeMulti(it, ['NE', 'NW', 'SE', 'SW', 'N', 'S', 'E', 'W'], fans ? [...nearFar(near).map((ps) => ({ ...ps, fans })), ...nearFar(24).map((ps) => ({ ...ps, fans })), ...nearFar(near)] : nearFar(near));
+        // (A vessel's number that does not stand on its point is joined to it: a leader to a dot on the vessel, however near it stands. Off by
+        // 4 to 12 px it had none (needsLeader starts at 12), and read as a badge floating beside the vessel: Mohammad, 5 Nov, "1,2,3,4,5 without
+        // leaders". Decided from where it stands, so a solve and a carry agree. A group's number keeps its fan; an organ's, none.)
+        if (put && !fans && !g.organ) {
+          const r = rectOf(it);
+          if (!(it.ax >= r.x0 && it.ax <= r.x1 && it.ay >= r.y0 && it.ay <= r.y1)) {
+            it.leader = true; it.free = false;
+            const sol = nextSol.get(it.key);
+            if (sol && !sol.drop) sol.leader = sol.lead = true;
+          }
+        }
       }
       if (circuit) live.fx.spans.forEach((sp, i) => {
         // A bracket's reading, under its middle (above it where the stage ends first).
@@ -1378,7 +1391,7 @@ export function createLabelSolve(st, live) {
       if (it.fans) {
         it.fans.forEach(([fx, fy], j) => {
           const le = leaderEnd(r, fx, fy, 6);
-          if (Math.hypot(le.x - fx, le.y - fy) > 4) leaders.push({ k: `lf:${it.key}:${j}`, tag: 'path', at: { class: 'leader', 'data-k': it.key, d: `M${fx.toFixed(1)} ${fy.toFixed(1)} L${le.x.toFixed(1)} ${le.y.toFixed(1)}` }, fanOf: it });
+          if (Math.hypot(le.x - fx, le.y - fy) > 4) leaders.push({ k: `lf:${it.key}:${j}`, tag: 'path', at: { class: 'leader fan', 'data-k': it.key, d: `M${fx.toFixed(1)} ${fy.toFixed(1)} L${le.x.toFixed(1)} ${le.y.toFixed(1)}` }, fanOf: it });
         });
         continue;
       }

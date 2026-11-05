@@ -130,7 +130,8 @@ export function createLabelLayer(st, live) {
     for (let i = 0; i < want.length; i++) {
       const w = want[i], k = w.at['data-k'];
       keep.add(w.k);
-      if (k) leadBits.set(k, (leadBits.get(k) | 0) | (w.tag === 'path' ? 4 : (w.at.class || '').includes('halo') ? 2 : 1));
+      // (A group's fan is its own lines, from each vessel, drawn from their geometry (label-gl.js: class fan): no leader from the number's point.)
+      if (k && !w.fanOf) leadBits.set(k, (leadBits.get(k) | 0) | (w.tag === 'path' ? 4 : (w.at.class || '').includes('halo') ? 2 : 1));
     }
     pool.forEach(wantPut);
     for (const w of want) {
