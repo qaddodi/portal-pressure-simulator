@@ -642,6 +642,8 @@ test('zoom: a tap on the teaching card frames and centres it, the data card ridi
     const want = zoomPlan({ left: 500, top: 200, width: 400, height: 300 }, { left: 0, top: 0, width: 1440, height: 900 });
     assert.ok(Math.abs(z.scale - want.s) < 1e-9, 'fitted to the teaching card, not the data card');
     assert.equal(z.follow(10, 10), false, 'the readings do not refit a zoom on the words');
+    assert.ok(words.classList.contains('pz-zmain'), 'the words stand above the veil, not dimmed');
     z.reset();
+    assert.ok(!words.classList.contains('pz-zmain'), 'and are given back');
   } finally { back(); }
 });

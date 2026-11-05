@@ -161,6 +161,7 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
     if (s.cam) camera.end();
     for (const r of s.riders) { unpin(r); r.el.style.transformOrigin = ''; }
     delete s.card.dataset.zoomed;
+    if (s.main) for (const m of s.main) m.classList.remove('pz-zmain');
     app.classList.remove('pz-zoomed', 'pz-cam'); for (const v of s.veils) v.classList.remove('on');
     if (!s.part) { boost(1); hold(false); }
     settled();
@@ -190,13 +191,14 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
       // (box and mid: the whole as it rests as the card zooms, and its middle, for follow below; steady: the glide in has ended, for the
       // data card only: a part has no readings to bring out.)
       sceneCam.aim = null;   // (no camera aim: the figure is not zoomed)
-      st = { stacked, card: el, veils: [veil].flat(), part, plan, riders, closing: null, steady: ms === 0 && !part, main: !!main, box: q, mid: { x: cx, y: cy }, k, s: plan.s, boosted: plan.s, cur: { dx: 0, dy: 0, s: 1 }, aff: { s: 1, dx: 0, dy: 0, ox: cx, oy: cy }, mo: null, cam: false };
+      st = { stacked, card: el, veils: [veil].flat(), part, plan, riders, closing: null, steady: ms === 0 && !part, main: main || null, box: q, mid: { x: cx, y: cy }, k, s: plan.s, boosted: plan.s, cur: { dx: 0, dy: 0, s: 1 }, aff: { s: 1, dx: 0, dy: 0, ox: cx, oy: cy }, mo: null, cam: false };
       for (const r of riders) {
         // (Each piece turns about the middle of them all, so they move as one.)
         r.el.style.transformOrigin = `${((cx - r.rest.left) / k).toFixed(2)}px ${((cy - r.rest.top) / k).toFixed(2)}px`;
         pin(r, st.aff);
       }
       el.dataset.zoomed = '';
+      if (main) for (const m of main) m.classList.add('pz-zmain');   // (the words are the card framed: above the veil, as the data card is, not dimmed by it: app.css .pz-zmain)
       app.classList.add('pz-zoomed');
       if (st.cam) app.classList.add('pz-cam');   // (a camera zoom: the labels, leaders and overlays ride the view with the figure, rigidly, none hidden or eased: app.css .pz-zoomed:not(.pz-cam))
       globalThis.dispatchEvent?.(new Event('pps:cardzoom'));   // alloc-rare: once per zoom (the ?perf readout names its window)

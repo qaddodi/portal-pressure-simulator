@@ -5968,6 +5968,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
    caps: the text's grey, the app's corner brackets, a soft tint under the finger. Nothing but the icon and the cursor shows before the tap. */
 .pz-zscrim { position: absolute; inset: 0; background: color-mix(in srgb, var(--stage-bg) 58%, transparent); opacity: 0; pointer-events: none; cursor: zoom-out; transition: opacity var(--d-surface) var(--ease); }
 .pz-zscrim.on { opacity: 1; pointer-events: auto; }
+.pz .pz-text.pz-zmain { z-index: 2; }   /* (the teaching card zoomed as the main card stands above the veil, as the data card does; it is dimmed by nothing) */
 .pz-cam .pz-zscrim { background: none; transition: none; }
 .pz-zbtn { display: none; }
 .pz.pz-wide .pz-data.pz-zoomable { cursor: zoom-in; }
