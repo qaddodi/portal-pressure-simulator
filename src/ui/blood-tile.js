@@ -76,6 +76,25 @@ float dNoise(int id, float s, float qy, float D, float ay, float cellA, float dr
   float nm = (w0 * (na - 0.5) + w1 * (nb - 0.5)) * inversesqrt(w0 * w0 + w1 * w1) + 0.5;   // (even contrast through the crossfade)
   return lnS == 1.0 ? nm : 0.5 + (nm - 0.5) * lnS;
 }`;
+/**
+ * Look E's streaks (Circuit): the same flow-map as look D (two phases half a cycle apart, triangle weights, even contrast) with
+ * sines in place of the tile, so no texture is read. Same arguments and return as dNoise; a view's streaks run on through joins by
+ * the stream distance D as ever. Fades to the mean where the finest sine would fall under two device pixels (dxu: tile units per
+ * pixel in dNoise; here pxW / cellA is the pixel in cells).
+ */
+export const E_GLSL = `
+float eNoise(int id, float s, float qy, float D, float ay, float cellA, float drift, float pxCell) {
+  float g = max(2.0, 16.0 * (1.0 - 0.64 * ay * ay)) * 0.125;
+  float f0 = fract(D / D_CYCLE), f1 = fract(f0 + 0.5);
+  float w0 = 1.0 - abs(1.0 - 2.0 * f0), w1 = 1.0 - abs(1.0 - 2.0 * f1);
+  float idf = float(id) * 2.3999632, q = qy * 0.5;
+  float ua = ((s - g * f0 * D_CYCLE) / cellA + drift) * 0.12566371, ub = ((s - g * f1 * D_CYCLE) / cellA + drift) * 0.12566371;
+  float na = 0.5 + 0.30 * sin(7.0 * ua + 1.1 * q + idf) * sin(11.0 * ua - 0.6 * q + 2.3 * idf) + 0.16 * sin(3.0 * ua + 0.35 * q + 4.1 * idf);
+  float nb = 0.5 + 0.30 * sin(7.0 * ub + 1.1 * q + idf) * sin(11.0 * ub - 0.6 * q + 2.3 * idf) + 0.16 * sin(3.0 * ub + 0.35 * q + 4.1 * idf);
+  float nm = (w0 * (na - 0.5) + w1 * (nb - 0.5)) * inversesqrt(w0 * w0 + w1 * w1) + 0.5;
+  nm = mix(nm, 0.5, smoothstep(0.18, 0.4, pxCell));   // (11 * 0.1257 rad a cell: its period is 4.5 cells; under 2 px a wave aliases)
+  return lnS == 1.0 ? nm : 0.5 + (nm - 0.5) * lnS;
+}`;
 /** Texel rows the tile moves a lattice row: the tile's V per lattice row (for the pixel gradients). */
 export const TILE_V_PER_ROW = TILE_ROW / (TILE_H * TILE_L);
 

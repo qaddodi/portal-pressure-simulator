@@ -51,7 +51,7 @@ import { warmFade } from './res-fade-gl.js';
 import { fusedVS, fusedFS } from './veins-fuse.js';
 import { NOISE_W, NOISE_H, NOISE_PER_ROW, OCTAVES, noiseBlock, blockAt, tableSize } from './blood-noise.js';
 import { createNoiseFiller } from './noise-gl.js';
-import { createBloodTile, D_GLSL, STYLE_D, TILE_V_PER_ROW } from './blood-tile.js';
+import { createBloodTile, D_GLSL, E_GLSL, STYLE_D, STYLE_E, TILE_V_PER_ROW } from './blood-tile.js';
 import { softwareGL } from './sw-yield.js';
 import { frameCount, framePhase, onFrameFinal } from './frame.js';
 import { caught } from './caught.js';
@@ -1113,7 +1113,7 @@ uniform int bloodOnly;                // 1: a frame where only the blood moved (
 flat in vec4 zoomA;                    // the zoom's numbers for the streaks, worked out per vertex (ZOOM_VS)
 flat in vec3 zoomB;
 uniform highp sampler2D noiseT;        // the streak noise's lattice corners, a block per vessel (blood-noise.js)
-uniform int bloodStyle;                // 1: blood style D (blood-tile.js): the streaks from the baked tile, which then sits on the noise unit; 0: the lattice
+uniform int bloodStyle;                // 2: blood style E (blood-tile.js eNoise): the same streaks from sines, no texture read. 1: blood style D (blood-tile.js): the streaks from the baked tile, which then sits on the noise unit; 0: the lattice
 uniform int noiseOn;                   // 1: the table is there (every row the streaks draw in filled before its flow goes up)
 uniform int stillOn;                   // 1: the uniforms are the last picture's; flow column FLOW_TEXELS says which rows moved since
 out vec4 outColor;
@@ -1194,6 +1194,7 @@ float shimN(int id, float s, float qy, float D, float k0, float t, float sx, flo
   return lnS == 1.0 ? nm : 0.5 + (nm - 0.5) * lnS;
 }
 ${D_GLSL}
+${E_GLSL}
 // The caliber at arc length s, interpolated between its samples (not the nearest one), so nothing scaled by it steps along the vessel.
 ${ALONG_GLSL}
 float radAt(int id, float s, float len) {
@@ -1285,6 +1286,18 @@ vec4 bloodAt(int id, float s, float y, vec3 col, vec4 f0, vec4 f1, float len, fl
       vec2 ch5 = rootDD(rid, texelFetch(flow, ivec2(5, id), 0).xy);
       float se = ch4.y + ch4.z * s, bs = max(abs(ch4.z), 1e-3);
       float nc = dNoise(rid, se, qy, ch5.x, ay, cellD, ch5.y, dxu * bs, dyv);
+      nz = cw >= 1.0 ? nc : mix(nz, nc, cw);
+    }
+  } else if (bloodStyle == 2) {
+    // Style E: style D's flow-map with sines (eNoise), no texture read; chained children carry the root's pattern on, as in D.
+    float laneW = max(0.55 * 1.6 * R / clamp(1.7 * R / Lg, 1.0, 7.0), 3.2 * pxW);
+    float cellD = 5.12 * zoomB.z, pxc = pxW / cellD;
+    if (cw < 1.0) nz = eNoise(id, s, qy, D, ay, cellD, drift, pxc);
+    if (cw > 0.0) {
+      int rid = int(ch4.x + 0.5) - 1;
+      vec2 ch5 = rootDD(rid, texelFetch(flow, ivec2(5, id), 0).xy);
+      float se = ch4.y + ch4.z * s, bs = max(abs(ch4.z), 1e-3);
+      float nc = eNoise(rid, se, qy, ch5.x, ay, cellD, ch5.y, pxc * bs);
       nz = cw >= 1.0 ? nc : mix(nz, nc, cw);
     }
   } else {
@@ -2523,7 +2536,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   let noiseTex = dataTex(gl), noiseRows = 0, noiseBuf = null, noiseW = 0, noiseH = 0, noiseAll = false;
   const noiseGPU = noiseTex ? createNoiseFiller(gl) : null;
   // Blood look D's baked tile (blood-tile.js): made on the first frame a view asks for the look, read on the noise unit in those frames.
-  let tileGPU = null, tileTried = false, tileNow = null;
+  let tileGPU = null, tileTried = false, tileNow = null, styleE = false;
   const noiseDone = new Uint8Array(nTubes);
   const growNoise = (rows) => {
     const [W, H] = tableSize(rows);
@@ -3481,7 +3494,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     // (Look D: the baked tile takes the noise unit and the lattice table is not read; the frame's `tileNow` is set by composite.)
     if (tileNow) bindUnit(U, 15, tileNow, 'noiseT');
     else if (noiseTex && noiseRows) bindUnit(U, 15, noiseTex, 'noiseT');
-    UC.i1(U.bloodStyle, tileNow ? 1 : 0);
+    UC.i1(U.bloodStyle, styleE ? 2 : tileNow ? 1 : 0);
     UC.i1(U.noiseOn, noiseTex && noiseRows ? 1 : 0);
   }
 
@@ -4191,7 +4204,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       flushRadii();
       compLook = look; compBlood = blood;
       // (Blood look D, where the view asks for it and the tile is baked: until then, and for any other view, today's lattice look.)
-      tileNow = null;
+      tileNow = null; styleE = blood.style === STYLE_E;   // (look E reads no texture: it needs no bake)
       if (blood.style === STYLE_D) {
         if (!tileTried) { tileTried = true; tileGPU = createBloodTile(gl); }
         if (tileGPU?.bake()) tileNow = tileGPU.tex();

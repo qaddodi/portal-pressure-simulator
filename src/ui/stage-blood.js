@@ -10,10 +10,10 @@ import { reduceMotionMQ as reduceMotion } from './motion.js';
 import { store } from './store.js';
 import { bloodColors, clamp } from './util.js';
 import { FLOW_TEXELS } from './veins-gl.js';
-import { STYLE_LEGACY, STYLE_D } from './blood-tile.js';
+import { STYLE_D, STYLE_E } from './blood-tile.js';
 
-// The blood look each view draws (blood-tile.js): Anatomy look D; Circuit keeps today's streaks until look E.
-const STYLE_ANATOMY = STYLE_D, STYLE_CIRCUIT = STYLE_LEGACY;
+// The blood look each view draws (blood-tile.js): Anatomy look D; Circuit look E (sines, no texture read).
+const STYLE_ANATOMY = STYLE_D, STYLE_CIRCUIT = STYLE_E;
 
 export function createBlood(st, live) {
   const { E, EI, EV, GL_ROWS, bal, cath, easeInOut, geo, glow, holdReversals, layerMode, revHold } = st;
