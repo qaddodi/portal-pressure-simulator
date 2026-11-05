@@ -10,6 +10,10 @@ import { reduceMotionMQ as reduceMotion } from './motion.js';
 import { store } from './store.js';
 import { bloodColors, clamp } from './util.js';
 import { FLOW_TEXELS } from './veins-gl.js';
+import { STYLE_LEGACY, STYLE_D } from './blood-tile.js';
+
+// The blood look each view draws (blood-tile.js): Anatomy look D; Circuit keeps today's streaks until look E.
+const STYLE_ANATOMY = STYLE_D, STYLE_CIRCUIT = STYLE_LEGACY;
 
 export function createBlood(st, live) {
   const { E, EI, EV, GL_ROWS, bal, cath, easeInOut, geo, glow, holdReversals, layerMode, revHold } = st;
@@ -322,13 +326,14 @@ export function createBlood(st, live) {
   }
   // (The look handed to the vessel layer is one kept record, written in place on each ask: the layer reads it at once; the colours are
   // the cached set bloodColors gives.)
-  const BLOOD_LOOK = { on: false, still: false, chev: false, look: undefined, origin: false, streakA: 0, chevA: 0, originA: 0, streakLen: true, clock: 0, bt: 0, dye: true, bleed: NONE, noChev: undefined, holes: undefined, vdpr: 1,
+  const BLOOD_LOOK = { on: false, still: false, chev: false, look: undefined, origin: false, streakA: 0, chevA: 0, originA: 0, streakLen: true, clock: 0, bt: 0, style: 0, dye: true, bleed: NONE, noChev: undefined, holes: undefined, vdpr: 1,
     originCol: null, dyeCol: null, inkLight: null, inkDark: null, revCol: null, chevInk: null, chevLight: null };
   function bloodLook() {
     const st = store.get(), b = st.blood || NO_OBJ, L = BLOOD_LOOK, bc = bloodColors();
     // (Each drawn while it shows at all, by its eased share: stepBlood's blendA; its own switch before the first step.)
     const sA = blendA.s ?? (bloodOn() ? 1 : 0), cA = blendA.c ?? (chevOn() && !cath.st ? 1 : 0), oA = blendA.o ?? (originOn() ? 1 : 0);
     L.on = sA > 0; L.still = reduceMotion.matches; L.chev = cA > 0; L.look = b.look; L.origin = oA > 0; L.streakA = sA; L.chevA = cA; L.originA = oA;
+    L.style = live.morph < 0.5 ? STYLE_ANATOMY : STYLE_CIRCUIT;   // (a view's look: blood-tile.js STYLE_*; Circuit's is its own thread's to change)
     L.clock = live.bloodClock; L.bt = live.bloodClock - bEpoch; L.dye = !st.imaging; L.bleed = bleedSpray(); L.noChev = live.noChevBoxes; L.holes = live.chevHoles; L.vdpr = live.vdpr;
     L.originCol = bc.originCol; L.dyeCol = bc.dyeCol; L.inkLight = bc.inkLight; L.inkDark = bc.inkDark; L.revCol = bc.revCol; L.chevInk = bc.chevInk; L.chevLight = bc.chevLight;
     return L;
