@@ -17,8 +17,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WEIGHTS = [400, 500, 600, 700]
 CHARS = [chr(c) for c in range(0x20, 0x7F)] + list('−·×–°µ‰≥≤→…—±')
 # Signs Inter has no outline for, taken from Noto Sans Math (scripts/font-sources/noto-sans-math-latin.woff2, SIL OFL; one weight for all four) and the subscript two
-# made from Inter's own two (smaller, set low): the clinical marks (HVPG ≥ 10, → , ≤, √, ↔, τ) draw on the GPU like every other letter.
-FALLBACK = list('→≤≥√↔τ')
+# made from Inter's own two (smaller, set low): the clinical marks (HVPG ≥ 10, → , ≤, √, ↔, τ, and ⟲ the reversed-flow mark) draw on the GPU like every other letter.
+FALLBACK = list('→≤≥√↔τ⟲')
 # ⌘ (the keyboard hint) is in neither Inter nor Noto Sans Math's Latin cut: its outline is DejaVu Sans's (U+2318 only, scripts/font-sources/dejavu-sans-command.woff2;
 # a character DejaVu added, public domain, see dejavu-sans-LICENSE.txt), one weight for all four.
 FALLBACK2 = [('scripts/font-sources/dejavu-sans-command.woff2', '⌘')]
