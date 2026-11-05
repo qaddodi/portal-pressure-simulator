@@ -5909,7 +5909,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .pz.pz-wide .pz-data.pz-hide + .pz-lip { transform: translateX(-18px); }
 /* (The tucked readings' edge says what is behind it: "Readings" beside the handle, so the 24 px step reads as a tab to pull, not an empty stray plate (ascites 3 to 5). Opened, the lip is the card's foot and the handle stands alone as before.) */
 .pz.pz-wide .pz-data:not(.tool-open) + .pz-lip::after { left: calc(50% - 38px); }
-.pz.pz-wide .pz-data:not(.tool-open) + .pz-lip::before { content: 'Readings'; position: absolute; left: calc(50% - 14px); top: 50%; translate: 0 -50%; font: 600 11px/1 Inter, system-ui, sans-serif; letter-spacing: .02em; color: var(--text-2); white-space: nowrap; pointer-events: none; }
+.pz.pz-wide .pz-data:not(.tool-open) + .pz-lip::before { content: 'Readings'; position: absolute; left: calc(50% - 14px); top: 50%; translate: 0 -50%; font: 600 12px/1 var(--font-ui); letter-spacing: .02em; color: var(--text-2); white-space: nowrap; pointer-events: none; }
    /* (as the card leaves, .pz-data.col) */
 .pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet { --gl-glass: 0; --pz-u: 0; --pz-sr: clamp(16px, calc(2.2 * var(--pzh)), 28px); --pz-in: 8px; padding-top: 10px; background: none; border-color: transparent; box-shadow: none; overflow: visible; isolation: isolate; }
 .pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet.tool-open { --pz-u: 1; }
