@@ -106,9 +106,9 @@ test('pulling the readings out of a stacked card never closes the card', () => {
 });
 
 // Mohammad, 20 Oct (iPhone, TIPS Doppler 9): the stacked card's monitor was taller with its readings tucked than out.
-test('a stacked card keeps one size with its readings tucked or out: it is fitted with them out', () => {
-  assert.match(js, /const under = el === ui\.data && splitSheet\(el\) && !el\.classList\.contains\('tool-open'\) && !el\.classList\.contains\('pz-sliding'\);\n\s*if \(under\) el\.classList\.add\('tool-open'\);/);
-  assert.match(js, /if \(under\) \{ el\.classList\.remove\('tool-open'\); ui\.lipMO\?\.takeRecords\(\); \}\n\s*if \(stacked\) \{ el\.style\.removeProperty\('--pz-grow'\); ui\.lipMO\?\.takeRecords\(\); \}\n\s*fitDone\.set\(el, fitSig\(el\)\);/);
+test('a stacked card keeps one size with its readings tucked or out: it is fitted with them tucked', () => {
+  assert.match(js, /const split = el === ui\.data && splitSheet\(el\);\n\s*const wasOpen = split && el\.classList\.contains\('tool-open'\), wasU = split \? el\.style\.getPropertyValue\('--pz-u'\) : '';\n\s*if \(split\) \{ el\.classList\.remove\('tool-open'\);/);
+  assert.match(js, /if \(split\) \{\n\s*measureUnder\(el\);[^\n]*\n\s*if \(wasOpen\) el\.classList\.add\('tool-open'\);\n\s*if \(wasU\) el\.style\.setProperty\('--pz-u', wasU\);\n\s*ui\.lipMO\?\.takeRecords\(\);\n\s*\}\n\s*fitDone\.set\(el, fitSig\(el\)\);/);
 });
 
 // Mohammad, 20 Oct (iPhone, TIPS Doppler 3, "With TIPS"): tucking the readings away, the instrument card's glass cut through the
@@ -120,7 +120,8 @@ test('a stacked card\'s cap grows with its readings while they slide, so its gla
   assert.match(js, /const capT = roomT > 0 \? \(tuck === 'none' \? `\$\{roomT\}px` : `min\(\$\{tuck\}, \$\{roomT\}px\)`\) : tuck;\n(?:\s*\/\/ alloc-rare[^\n]*\n)*\s*if \(roomO > 0\) dd\.style\.maxHeight = capT === 'none' \? `\$\{roomO\}px` : `min\(calc\(\$\{capT\} \+ var\(--pz-grow, 0px\)\), \$\{roomO\}px\)`;/, 'the phone\'s cap takes it, never past the opened card\'s room, even with no tucked room left');
   assert.doesNotMatch(js, /if \(roomT > 0\) dd\.style\.maxHeight/, 'an opened card is capped at its room whatever room the tucked card has');
   // (Fitted at rest, never mid-slide: fitCards' stacked fit runs only without .pz-sliding.)
-  assert.match(js, /const under = el === ui\.data && splitSheet\(el\) && !el\.classList\.contains\('tool-open'\) && !el\.classList\.contains\('pz-sliding'\);/);
+  assert.match(js, /const split = el === ui\.data && splitSheet\(el\);/);
+  assert.match(js, /const ovOf = \(e\) => \{ if \(split\) measureUnder\(e\); return overflowOf\(e\); \};/, 'its travel is measured at each trial fit, never before the plan');
 });
 
 // Mohammad, 20 Oct (iPhone, Sites 3): opening the stacked cards, the upper card grew and its chart snapped to the new size. Open, the
@@ -131,7 +132,8 @@ test('a stacked card is fitted against its tucked cap whether its readings are o
   assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet\.has-tool\.tool-open \{ max-height: calc\(var\(--pz-cap\) \+ var\(--pz-d, 0px\)\); \}/);
   assert.match(js, /const tuck = cs\.getPropertyValue\('--pz-cap'\)\.trim\(\) \|\| 'none';/);
   assert.match(js, /const roomT = Math\.floor\(base - LIP - \(phoneCap != null && !phoneShut \? Math\.max\(0, phoneFig \/ k - LIP - 2\) : 0\)\), roomO = Math\.floor\(base\);/, 'the tucked room whatever state the readings are in');
-  assert.match(js, /const stacked = el === ui\.data && splitSheet\(el\);\n\s*if \(stacked\) el\.style\.setProperty\('--pz-grow', 'var\(--pz-d, 0px\)'\);/, 'fitted against the cap it has with the readings out, in either state');
+  assert.doesNotMatch(js, /style\.setProperty\('--pz-grow'/, 'no pretend open: the fit never feeds the readings back into the cap it is fitted against');
+  assert.doesNotMatch(js, /const under = el === ui\.data/, 'fitted tucked in either state');
 });
 
 // Mohammad, 20 Oct (iPhone, One year 8, the abdomen card): opening the stacked cards slowly, the readings' card flickered over the

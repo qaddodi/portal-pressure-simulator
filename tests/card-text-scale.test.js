@@ -37,7 +37,8 @@ test('phone slide words at 1.45, upright iPad at 1.39, one line spacing with sli
 // (Mohammad, 19 Oct: "Two fixed sizes"; tests/card-type.test.js checks the sizes' order).
 test('a tight phone slide steps the whole card to Compact, never its title alone', () => {
   const js = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-  assert.match(js, /const mins = small \? \[\.\.\.new Set\(\[floor, phone\(\) \? floor : 0\.5\]\)\] : \[lowFloor \|\| floor\];/);
+  assert.match(js, /const mins = \[lowFloor \|\| floor\];/);
+  assert.match(js, /if \(small && fits\(\)\) \{ k = over = Math\.max\(COMPACT, floor\);/, 'the whole card steps to Compact first');
   assert.doesNotMatch(js, /--pz-ptk/, 'no title step of its own');
 });
 

@@ -215,10 +215,10 @@ test('zoom: reset and a card that is large already', () => {
 test('the presenter lays nothing out while the card is up, and puts it back before a slide, a resize, Esc or the end of the talk', () => {
   // (Held: the card's watchers, its layout and its refits wait; one pass runs once it is back.)
   assert.match(js, /const cardMoving = \(\) => !!ui && \(ui\.data\.classList\.contains\('pz-sliding'\) \|\| 'folding' in ui\.data\.dataset \|\| zoomHeld\(\) \|\| throwCards\(\)\.some\(\(el\) => el && throwing\(el\)\)\);/);
-  assert.match(js, /const zoomHeld = \(\) => \{ if \(!ui\?\.zoom\.on\) return false; zoomMissed = true; return true; \};/);
+  assert.match(js, /const zoomHeld = \(\) => \{ if \(!ui\?\.zoom\.on\) return false; if \(!zoomMissed\) zoomWas = zoomKey\(\); zoomMissed = true; return true; \};/);
   assert.match(js, /function layout\(\) \{\n {4}if \(!ui\) return;\n {4}if \(zoomHeld\(\)\) return;/);
   assert.match(js, /const reFit = \(\) => \{ if \(zoomHeld\(\)\) return; fitted\.forEach\(fitNow\); \};/);
-  assert.match(js, /const zoomSettled = \(\) => restPass\(\(\) => \{ if \(!ui \|\| !zoomMissed \|\| ui\.zoom\.on\) return; zoomMissed = false; fitDone\.delete\(ui\.data\); onResize\(\); \}\);/);
+  assert.match(js, /const zoomSettled = \(\) => restPass\(\(\) => \{ if \(!ui \|\| !zoomMissed \|\| ui\.zoom\.on\) return; zoomMissed = false; if \(zoomKey\(\) === zoomWas && fitDone\.get\(ui\.data\) === fitSig\(ui\.data\)\) return; fitDone\.delete\(ui\.data\); onResize\(\); \}\);/);
   // (A slide: the card glides back, and only then does the slide run.)
   assert.match(js, /if \(zoomOn\(\)\) \{ (?:const d0 = deck(?:, t0 = txn)?; )?ui\.zoom\.close\(\)\.then\(\(\) => \{ (?:if \(deck !== d0[^}]*?return; )?paintZoom\(\); zoomMissed = false; if \(deck && !busy\) run\(\); \}\); return; \}[^\n]*\n {4}if \(!busy\) run\(\);/);
   // (Any move that did not come by go, a slide asked for while a time-lapse plays, a new text size: the card glides back first, it never snaps.)
