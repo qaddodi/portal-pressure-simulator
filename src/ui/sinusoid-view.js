@@ -156,9 +156,8 @@ export function createSinusoidView({ host, before = null, share = null }) {
   }
   const NO_OPT = { along: false, side: 0, slide: false };
   function region(key, name, value, x, y, opt = NO_OPT) {
-    const along = opt.along, side = opt.side, slide = opt.slide;
+    const along = opt.along, side = opt.side;
     const R = caption(key, null, name, value);
-    if (slide) { R.tx = x; x += R.sd || 0; }   // (a place the layout moved at once starts where the name stood: see noteJumps)
     const at = R.at || (R.at = [0, 0]);   // alloc-rare: a caption's place, made the first time it is named
     at[0] = x; at[1] = y;   // (what it names, µm)
     // side ±1: the caption sits wholly on that side of y (across the vessel), its near edge at y.
@@ -194,9 +193,6 @@ export function createSinusoidView({ host, before = null, share = null }) {
   const lead = {};
   function leader(key, R, x, y) {
     const L = lead[key] ||= { key };   // alloc-rare: a leader is made once, the first time it is needed
-    // (The fenestrae's callout ends on a pore picked by where its name stands, so the pick can pass to another pore: the end slides
-    // along the lining to that one, on the lining's own line, and never hops.)
-    if (key === 'fen') { L.tx = x; const sd = L.sd || 0; y += halfW(x) - halfW(x + sd); x += sd; }
     const ts = toScreen(x, y), tx = ts[0], ty = ts[1];
     // (A target above or below the name, within its width: the leader runs straight up or down from the name's edge to it, short;
     // else from the side of the name facing it.)
@@ -295,8 +291,7 @@ export function createSinusoidView({ host, before = null, share = null }) {
   }
   const S = {};          // the drawing's state, easing toward sinusoidTargets(model)
   let geo = null, geoKey = 0, geoW = -1, geoH = -1, geoPres = false;   // geoKey: counts the times the geometry was made again
-  // The share of the way the view's own glide (stepView) takes each frame, and whether a name is still catching up (see noteJumps).
-  let easeA = 0, layoutBusy = false, svMoving = false;
+  let layoutBusy = false, svMoving = false;
 
   // Where the sinusoid sits: centred in the space the floating pieces leave (a row kept for the legend).
   const appStyle = document.getElementById('app')?.style;
@@ -411,7 +406,6 @@ export function createSinusoidView({ host, before = null, share = null }) {
     const to = viewTo(), cur = viewVec();
     if (!VW.vel) { VW.vel = VEL; VEL.fill(0); }
     const vel = VW.vel, gap0 = viewGap(cur, to), still = calm(vel);
-    easeA = 0;
     let moving = false;
     if (dive || (gap0 < 0.05 && still)) { viewPut(to); vel.fill(0); }   // (held at its mark while the zoom carries it)
     else {
@@ -424,7 +418,6 @@ export function createSinusoidView({ host, before = null, share = null }) {
         cur[i] = to[i] + (dx + t * s) * e; vel[i] = (vel[i] - SPRING * t * s) * e;
       }
       const gap1 = viewGap(cur, to);
-      easeA = gap0 > 1e-6 ? Math.min(1, Math.max(0, 1 - gap1 / gap0)) : 0;   // (the share of the way left that this frame went: what the names' lags decay by)
       if (gap1 < 0.05 && calm(vel)) { viewPut(to); vel.fill(0); } else viewPut(cur);
     }
     // The zoom from the lobule (lobule-zoom.js): a turn and scale about the view's centre c, moved toward the lobule's sinusoid.
@@ -791,25 +784,8 @@ export function createSinusoidView({ host, before = null, share = null }) {
     // The Kupffer cell's name in the plate beside it (the lumen is narrower than its name), a short leader across the lining to its body.
     { const kx = geo.xk, ky = halfW(kx) - 2.5 * clamp(halfW(kx) / 5.2, 0.6, 1); region('kup', 'Kupffer\ncell', '', kx, midTall(kx)); const kc = regions.kup.cell || (regions.kup.cell = [0, 0]); kc[0] = kx; kc[1] = ky; }   // alloc-rare: the Kupffer cell's place, made once
   }
-  // The fenestrae's and Disse's names on a wide screen are placed for the view at rest, and the pore the fenestrae's callout ends on by
-  // where its name stands, so a card that opens or closes (or a pore picked anew) can move one at once, along the vessel. It is drawn
-  // where it stood and catches up with the view's glide, `sd` µm behind its place, and never jumps. (The names laid against the eased
-  // room, and every name on a portrait screen, move with it and need none.)
-  const SLID = [null, null, null];
-  const slid = () => { SLID[0] = regions.fen; SLID[1] = regions.disse; SLID[2] = lead.fen; return SLID; };   // (a kept list: the three that slide)
-  function noteJumps() {
-    let moved = false;
-    for (const o of slid()) {
-      if (!o || o.tx == null) continue;
-      if (o.pt == null || o.pv !== geo.vert || dive) { if (o.sd) moved = true; o.sd = 0; }   // (a first look, a turn, or the zoom carrying the view)
-      else if (Math.abs(o.tx - o.pt) * VW.k > 0.5) { o.sd = (o.sd || 0) + o.pt - o.tx; moved = true; }   // (half a pixel or less is no move)
-      o.pt = o.tx; o.pv = geo.vert;
-    }
-    return moved;
-  }
-  function settleJumps() {
-    for (const o of slid()) if (o?.sd) { o.sd *= 1 - easeA; if (Math.abs(o.sd) * VW.k < 0.3) o.sd = 0; else layoutBusy = true; }
-  }
+  // (The fenestrae's and Disse's names on a wide screen take a place a layout moved them to at once, with the view, as every label does: no catching
+  // up `sd` µm behind it on an ease, 5 Nov 2026 review #8, labels move 100% with the figure.)
   // The Kupffer cell is named on one line just above it, clear of its highest process (sinusoid-gl.js sdKup0 reaches 6.6 µm into the
   // stream at its scale kupK), in the lumen, never over its body (its name tinted as the cell). (Mohammad, 2 Nov 2026, label mocks.)
   const kupTop = () => halfW(geo.xk) - 6.6 * clamp(halfW(geo.xk) / 5.2, 0.6, 1);
@@ -1166,8 +1142,6 @@ export function createSinusoidView({ host, before = null, share = null }) {
     if (lkNew || lastKey === '' || layoutBusy || sizedNew) {
       lastKey = 'laid'; layoutBusy = false; sizedNew = false;
       layoutEnds(); layoutTags();
-      if (noteJumps()) layoutTags();   // (laid out again from where the names stood, so the frame they move in shows no step)
-      settleJumps();
       declutter();
       putCaps();
     }
@@ -1355,7 +1329,6 @@ export function createSinusoidView({ host, before = null, share = null }) {
       if (opacity > 0 && was <= 0) {
         svK = renderScale(); svWant = null;   // (Figure resolution, as it is now: taken up as it opens)
         last = 0; lastKey = ''; VW.k = 0; movers.length = 0; spawnAcc = 0; bounceAcc = 0;
-        for (const o of [...slid(), ...Object.values(regions)]) if (o) { o.sd = 0; o.pt = null; o.tx = null; }   // alloc-rare: once, as the view opens
         if (model) {
           for (const k in S) delete S[k];
           // Arrive with the wall already at work: a few seconds of traffic run before the first frame.

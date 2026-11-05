@@ -172,7 +172,9 @@ test('a paused simulation glides too (its traffic stopped, the room still moves 
   assert.ok(Math.abs(ys.at(-1) - at(rest.name('in'))[1]) < 0.6, `the end name rests where a fresh view puts it (${ys.at(-1)} vs ${at(rest.name('in'))[1]})`);
 });
 
-test('across a wide screen: a card docking at the right moves the fenestrae and Disse names along the vessel by a share each frame, never at once', () => {
+test('across a wide screen: a card docking at the right moves the fenestrae and Disse names with the view, and a new place is taken at once, in one frame, never caught up with on an ease', () => {
+  // (5 Nov 2026, review #8: names move 100% with the figure. A name the layout moves takes its new place at once, as every label does; between that
+  // one frame it rides the eased view like the others, never trailing its place by a decaying lag.)
   const o = open({ ...PHONE, '--pz-t': '0px', '--pz-b': '0px', '--pz-l': '0px', '--pz-r': '0px' }, { width: 1180, height: 700, left: 0, top: 0 });
   const rd = () => ['fenestrae', 'disse'].map((t) => at(o.name(t))[0]);
   const x0 = rd();
@@ -180,10 +182,10 @@ test('across a wide screen: a card docking at the right moves the fenestrae and 
   const xs = glide(o, rd, 120);
   for (let j = 0; j < 2; j++) {
     const series = xs.map((p) => p[j]), total = series.at(-1) - series[0];
-    let worst = 0;
-    for (let i = 1; i < series.length; i++) worst = Math.max(worst, Math.abs(series[i] - series[i - 1]));
-    // (A name that the card leaves in its place needs no glide; one the room moves must not step.)
-    if (Math.abs(total) > 20) assert.ok(worst < Math.abs(total) * 0.2, `name ${j}: largest step ${worst.toFixed(1)} of ${total.toFixed(1)} px`);
+    if (!(Math.abs(total) > 20)) continue;
+    let big = 0;
+    for (let i = 1; i < series.length; i++) if (Math.abs(series[i] - series[i - 1]) > Math.abs(total) * 0.2) big++;
+    assert.ok(big <= 1, `name ${j}: ${big} frames each moved more than a fifth of the way (${total.toFixed(1)} px): a new place is taken once, then it rides the view`);
   }
   assert.ok(x0.every(Number.isFinite));
 });
