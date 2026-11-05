@@ -121,7 +121,8 @@ export const CASES = [
     name: 'label-gl: reading 30 labels (describeBlock, svgOnly, lookKey), as a sync reads those that changed',
     async setup() {
       await withPage();
-      const { describeBlock, lookKey, svgOnly } = await import('../../src/ui/label-gl.js');
+      const { createLookStyles, lookKey, svgOnly } = await import('../../src/ui/label-gl.js');
+      const looks = createLookStyles();   // (the 30 are of one look: its styles read for the first, kept for the rest, as refresh reads them)
       const NS = 'http://www.w3.org/2000/svg', doc = page.document, svg = doc.createElementNS(NS, 'svg');
       const style = (o) => ({ display: 'inline', opacity: '1', filter: 'none', fill: 'rgb(20, 20, 20)', stroke: 'none', strokeWidth: '0px', paintOrder: 'normal', fontStyle: 'normal', fontWeight: '600', fontSize: '12px', fontFamily: 'Inter', letterSpacing: 'normal', fontVariantNumeric: 'normal', strokeLinejoin: 'round', outlineStyle: 'none', outlineWidth: '0px', outlineColor: '', outlineOffset: '0px', ...o });
       const styles = new WeakMap(), blocks = [];
@@ -135,7 +136,7 @@ export const CASES = [
       const cs = (el) => styles.get(el);
       return (i) => {
         for (let k = 0; k < blocks.length; k++) {
-          const d = describeBlock(blocks[k], cs, null);
+          const d = looks.describe(blocks[k], 1, cs, null);
           if (d && !svgOnly(d, true)) lookKey(d, false, 2);
         }
         void i;

@@ -249,6 +249,26 @@ export function createLabelLayer(st, live) {
       b.bg = bgEl;
     }
   }
+  // A label's look id (L3 P3, pos.look): a number made from everything its look is written from here, its pieces and their sizes (its
+  // signature, blockSig), each run's class and colour, its swatch's colour, its states (sel, unlit, tone, on a vessel, hidden, explained) and
+  // its key's family (up to the second colon: the stylesheet selects some by it, app.css [data-key^="n:TIPS:"]). Its words, its width and its
+  // place are not in it: label-gl.js describes the labels of one look from styles read once (createLookStyles).
+  let lh1 = 0, lh2 = 0;
+  const lmC = (c) => { lh1 = Math.imul(lh1 ^ c, 0x01000193); lh2 = (Math.imul(lh2 + c + 1, 0x85ebca6b) ^ (lh2 >>> 13)) | 0; };
+  const lmS = (str) => { if (str) for (let i = 0; i < str.length; i++) lmC(str.charCodeAt(i)); lmC(1); };
+  function lookOf(b, it) {
+    lh1 = 0x811c9dc5 | 0; lh2 = 0x9e3779b9 | 0;
+    lmS(b.sig);
+    const k = it.key, i0 = k.indexOf(':'), i1 = i0 < 0 ? -1 : k.indexOf(':', i0 + 1), n = i1 >= 0 ? i1 + 1 : i0 + 1;
+    for (let c = 0; c < n; c++) lmC(k.charCodeAt(c));
+    lmC(2);
+    for (const line of it.lines) { for (const r of line) { lmS(r.cls); lmS(r.fill); } lmC(3); }
+    lmS(it.swatch || '');
+    lmS(b.tone ? toneCol(b.tone) : '');
+    const g = b.g.classList;
+    lmC((it.sel ? 1 : 0) | (b.unlit ? 2 : 0) | (b.onVessel ? 4 : 0) | (it.hide ? 8 : 0) | (g.contains('spot-on') ? 16 : 0) | (g.contains('spot-dim') ? 32 : 0) | (g.contains('ring') ? 64 : 0));
+    return (lh1 >>> 0) * 2097152 + ((lh2 >>> 0) & 0x1fffff);
+  }
   // (What the liver's glass and each label's place were last written from: the numbers, so the text for the page is made only when one moved.)
   let glassX = NaN, glassY = NaN, glassW = NaN, glassH = NaN;
   function blockRest(b, it) {
@@ -284,7 +304,7 @@ export function createLabelLayer(st, live) {
     const px0 = +it.x.toFixed(1), py0 = +(it.rot ? it.y + it.w : it.y).toFixed(1);
     // (Every other figure label gets a world anchor (step 3 of the rigid-labels plan): its point as laid out, taken back to the world under this layout's camera, so the GPU keeps it on that point through any pan, pinch or zoom. Not the screen's furniture (zone titles, lanes, the scan, the stage) and not between views. An organ's name is a region name (leader rule L1): its point is where it is drawn, so it never stands off its own anchor.)
     const gw = it.aGw;
-    b.pos = { g: b.g, x: px0, y: py0, rot: !!it.rot, pid: pin ? it.key.slice(2) : gw ? it.key : null, pax: pin || gw ? it.ax : 0, pay: pin || gw ? it.ay : 0, pmid: pk === 1, pau: it.au ?? 0.5, pwx: it.aWx, pwy: it.aWy, pwv: gw ? it.aWv : null, view: it.aView, mA: null, want: leadBits.get(it.key) | 0 };
+    b.pos = { g: b.g, x: px0, y: py0, rot: !!it.rot, pid: pin ? it.key.slice(2) : gw ? it.key : null, pax: pin || gw ? it.ax : 0, pay: pin || gw ? it.ay : 0, pmid: pk === 1, pau: it.au ?? 0.5, pwx: it.aWx, pwy: it.aWy, pwv: gw ? it.aWv : null, view: it.aView, mA: null, want: leadBits.get(it.key) | 0, look: lookOf(b, it) };
     // (Its box on an 8 px grid, for the corner credit's look (labelBoxStamp): a number ticking inside it moves nothing the credit avoids.)
     const c0 = Math.floor((it.x - it.padX) / 8), c1 = Math.floor((it.y - it.padY) / 8), c2 = Math.ceil((it.x + (it.rot ? it.h : it.w) + it.padX) / 8), c3 = Math.ceil((it.y + (it.rot ? it.w : it.h) + it.padY) / 8), ch = !!it.hide;
     if (!b.box || c0 !== b.bc0 || c1 !== b.bc1 || c2 !== b.bc2 || c3 !== b.bc3 || ch !== b.bch) {

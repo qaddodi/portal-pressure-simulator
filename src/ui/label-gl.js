@@ -403,6 +403,36 @@ export function describeBlock(g, cs = getComputedStyle, boxOf) {   // (boxOf: a 
   return d;
 }
 
+/** A label's description from the computed styles kept for its look (L3 P3): the first label of a look is described from the page (cs) and the
+ *  styles it read are kept, in the order describeBlock asked for them; every other label of that look is described from those, reading none.
+ *  Its own geometry, texts and spaces are still its own (the attributes and words of its elements). An id names everything its elements'
+ *  styles are decided by (label-gl.js lookHash), so two labels of one id ask describeBlock for the same styles in the same order. spoil(): a
+ *  style read for the description being made is not the label's rest look (read mid-ease): it is not kept. */
+export function createLookStyles(max = 500) {
+  const kept = new Map(), NO = new Error('look not kept');
+  let arr = null, i = 0, rec = null, src = null, bad = false;
+  const play = () => { const c = arr[i++]; if (!c) throw NO; return c; };
+  const record = (el) => { const c = src(el); rec.push(c); return c; };
+  return {
+    describe(g, id, cs, boxOf) {
+      const t = kept.get(id);
+      if (t) {
+        arr = t; i = 0;
+        try { return describeBlock(g, play, boxOf); } catch (e) { if (e !== NO) throw e; kept.delete(id); } finally { arr = null; }
+      }
+      rec = []; src = cs; bad = false;   // alloc-rare: once per look, when its first label is read
+      try {
+        const d = describeBlock(g, record, boxOf);
+        if (!bad) { if (kept.size >= max) kept.clear(); kept.set(id, rec); }
+        return d;
+      } finally { rec = null; src = null; }
+    },
+    spoil() { bad = true; },
+    has: (id) => kept.has(id),
+    clear() { kept.clear(); },
+  };
+}
+
 /** The look of a description, as a key: a picture is drawn again only when it changes (the opacity is the GPU's, not the picture's). */
 // (The labels are drawn at the figure's canvas density, which stage.js resizeCanvas caps at 2 device px per CSS px and the pixel budget.)
 const nextFrame = frameFor('labels-gl');
@@ -758,9 +788,11 @@ void main() { o = texture(uT, vUV) * uA; }`;
     }
     return (kh1 >>> 0) * 2097152 + ((kh2 >>> 0) & 0x1fffff);
   }
+  let styleEased = false;   // (the last style styleOf gave was one read mid-ease: lookSrc)
   function styleOf(el) {
     const k = styleKey(el), e = easing.get(el);
-    if (e && e.key === k) return e.s;
+    styleEased = !!(e && e.key === k);
+    if (styleEased) return e.s;
     const s = snaps.get(k);
     if (s) return s;
     unread.add(el);
@@ -979,20 +1011,73 @@ void main() { o = texture(uT, vUV) * uA; }`;
     scanEl?.removeAttribute('data-gl');
     released = true;
   }
+  // (L3 P3) A label whose record names its look (s.look, stage-label-layer.js blockRest) is described from the styles kept for that look:
+  // describeBlock reads the page's styles once per look, for its first label, and every other label of it reads none. The id is the record's
+  // look mixed with what decides the styles of its elements on the page (their tags and attributes but the volatile ones and the key, which
+  // the stylesheet selects on only by its family, app.css [data-key^="n:TIPS:"]; its ancestors' as styleKey takes them; the epoch), so a class
+  // or colour written outside the record's writer still gives a look of its own. A hovered or focused label, or one whose eases are followed
+  // (live), is read as before.
+  const lookStyles = createLookStyles(), lookRep = new Map(), lookWait = new Map(), recOf = new Map();
+  const lookSrc = (el) => { const c = styleOf(el); if (styleEased) lookStyles.spoil(); return c; };
+  function lookMixEl(el, depth) {
+    mixS(el.tagName);
+    const at = el.attributes;
+    for (let i = 0; i < at.length; i++) {
+      const a = at[i];
+      if (VOLATILE.has(a.name)) continue;
+      mixC(4); mixS(a.name); mixC(5);
+      if (a.name === 'data-key') { const v = a.value, i0 = v.indexOf(':'), i1 = i0 < 0 ? -1 : v.indexOf(':', i0 + 1), n = i1 >= 0 ? i1 + 1 : i0 + 1; for (let c = 0; c < n; c++) mixC(v.charCodeAt(c)); mixC(1); } else mixS(a.value);
+    }
+    if (depth < 3) { mixC(21); for (let c = el.firstElementChild; c; c = c.nextElementSibling) lookMixEl(c, depth + 1); mixC(22); }
+  }
+  function lookHash(g, look) {
+    kh1 = 0x811c9dc5 | 0; kh2 = 0x9e3779b9 | 0;
+    mixC(epoch & 0xffff); mixC((epoch >>> 16) & 0xffff); mixC(13);
+    for (let v = look, n = 0; n < 4; n++) { mixC(v % 65536); v = Math.floor(v / 65536); }
+    lookMixEl(g, 0);
+    if (rideLook && !g.hasAttribute('data-gl')) mixC(12);
+    for (let e = g.parentElement; e; e = e.parentElement) {
+      mixS(e.tagName);
+      if (e === svg) { mixC(3); mixS(e.getAttribute('class') || ''); break; }
+      const at = e.attributes;
+      for (let i = 0; i < at.length; i++) { const a = at[i]; if (!VOLATILE.has(a.name)) { mixC(4); mixS(a.name); mixC(5); mixS(a.value); } }
+    }
+    return (kh1 >>> 0) * 2097152 + ((kh2 >>> 0) & 0x1fffff);
+  }
+  const uiHeld = (g) => { try { if (g.matches(':hover')) return true; } catch { /* no state */ } const a = document.activeElement; return !!a && a !== document.body && g.contains(a); };
+  // (Its style not read yet: its last picture stays, or the SVG draws it for this frame; read just after it, then drawn again.)
+  function waitStyle(g, st) {
+    waiting.add(g);
+    // (A view switch's new labels are read in the first frames of the fade: held hidden, never handed to the SVG, till the read comes and the picture is drawn, A1.)
+    if (st.mode !== 'gl' || !st.slot) { st.mode = 'gl'; st.wait = true; }
+    return st;
+  }
+  // (A look kept: the labels that waited for its first label's read are described now, in this pass.)
+  function lookFlush() {
+    if (!lookWait.size) return;
+    for (const [w, r] of lookWait) if (w.isConnected) todo.set(w, (todo.get(w) | 0) | 8 | 2 | (r ? 1 : 0));
+    lookWait.clear();
+    settleSoon();
+  }
   // A label's state, read again when its look may have changed: 'gl' (its picture, drawn again only when its look changed), 'svg'
   // (the SVG draws it) or 'none' (it shows nothing).
   function refresh(g, rot, given = null) {
     let st = sprites.get(g);
     if (!st) { st = { mode: 'none', key: '', slot: null }; sprites.set(g, st); }
     let d;
-    try { d = given || describeBlock(g, styleOf, ringBoxOf); } catch (e) {
-      if (e !== MISS) throw e;
-      // (Its style not read yet: its last picture stays, or the SVG draws it for this frame; read just after it, then drawn again.)
-      waiting.add(g);
-      // (A view switch's new labels are read in the first frames of the fade: held hidden, never handed to the SVG, till the read comes and the picture is drawn, A1.)
-      if (st.mode !== 'gl' || !st.slot) { st.mode = 'gl'; st.wait = true; }
-      return st;
+    const s = given ? null : recOf.get(g), lk = s && s.look != null && !live.has(g) && !exact.has(g) && !uiHeld(g) ? lookHash(g, s.look) : null;
+    if (lk != null && !lookStyles.has(lk)) {
+      // (Its look's first label is being read: this one waits for that read, and reads nothing of its own.)
+      const rep = lookRep.get(lk);
+      if (rep && rep !== g && rep.isConnected && (waiting.has(rep) || dirty.has(rep) || todo.has(rep))) { lookWait.set(g, rot); return waitStyle(g, st); }
+      if (lookRep.size > 500) lookRep.clear();
+      lookRep.set(lk, g);
     }
+    try { d = given || (lk != null ? lookStyles.describe(g, lk, lookSrc, ringBoxOf) : describeBlock(g, styleOf, ringBoxOf)); } catch (e) {
+      if (e !== MISS) throw e;
+      return waitStyle(g, st);
+    }
+    if (lk != null && lookRep.get(lk) === g) { lookRep.delete(lk); lookFlush(); }
     st.mode = !d ? 'none' : svgOnly(d) ? 'svg' : 'gl';
     if (st.mode !== 'gl') { st.wait = false; return st; }
     const key = lookKey(d, rot, dpr);
@@ -2262,8 +2347,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
         const cls = el.getAttribute('class') || '';
         pinWant.set(k, (pinWant.get(k) | 0) | (el.tagName === 'path' ? 4 : cls.includes('halo') ? 2 : 1));
       }
-      labelByKey.clear();
-      for (const s of list) { const k = s.g.dataset?.key; if (k) labelByKey.set(k, s); }
+      labelByKey.clear(); recOf.clear();
+      for (const s of list) { recOf.set(s.g, s); const k = s.g.dataset?.key; if (k) labelByKey.set(k, s); }
       for (const s of list) WAS.delete(s.g);
       for (const g of WAS) { g.removeAttribute('data-gl'); todo.delete(g); const st = sprites.get(g); if (st) { if (st.slot) packer.free(st.slot); if (st.alt?.slot) packer.free(st.alt.slot); if (st.alts) for (const o of st.alts) if (o.slot) packer.free(o.slot); sprites.delete(g); } live.delete(g); }
       ask();
