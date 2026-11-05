@@ -1441,14 +1441,7 @@ export function createLabelSolve(st, live) {
     for (const it of out) renderBlock(it);
     live.lbRects = out.filter((it) => !it.hide && it.w && it.h).map((it) => it._r || rectOf(it));
     live.colShown = out.some((it) => it.point && !it.hide && it.w && it.h);
-    // (A step's number comes in as its vessel lights, deck visuals V10; with reduced motion all at once.)
-    for (const it of out) {
-      if (it.delay == null || it.hide) continue;
-      const b = pool.get(it.key), wait = it.delay - (performance.now() - live.glowSetAt);
-      if (!b || b.fxIn) continue;
-      b.fxIn = true;
-      if (wait > 0 && !reduceMotion.matches) { b.g.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SURFACE, delay: wait, easing: EASE_ARRIVE, fill: 'backwards' }); live.labelGL?.hold(b.g, wait + D_SURFACE); }
-    }
+    // (A step's number comes in as its vessel lights: begun by renderBlock as its block is first rendered, stage-label-layer.js stepIn.)
     const sit = out.find((o) => o.key === 'scan'), sblk = pool.get('scan');
     if (sit && !sit.hide) {
       const le = seenEnd(sit);

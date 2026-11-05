@@ -227,6 +227,16 @@ export function createLabelLayer(st, live) {
       }
     }
     blockRest(b, it, ch);
+    if (it.delay != null && !it.hide && !b.fxIn) stepIn(b, it.delay);
+  }
+  // (A step's number comes in as its vessel lights, deck visuals V10; with reduced motion all at once. Begun here, where its block is first
+  // rendered, so in the same task the label is first shown: begun by the next layout instead, the block that a rest pass had built and handed
+  // to the GPU stood at full strength until then (on a presenter's glide, through the whole glide), and the fade's backwards fill then hid it
+  // until its vessel lit. Its leaders and dot fade with it: the GPU draws them at the label's opacity.)
+  function stepIn(b, delay) {
+    b.fxIn = true;
+    const wait = delay - (performance.now() - live.glowSetAt);
+    if (wait > 0 && !reduceMotion.matches) { b.g.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SURFACE, delay: wait, easing: EASE_ARRIVE, fill: 'backwards' }); live.labelGL?.hold(b.g, wait + D_SURFACE); }
   }
   // ── L3 P10: a label label-gl draws holds only its name (label-lean.js) ──
   // The full SVG build is the one made while label-gl does not draw the labels (none, its context lost, the labels given back to the SVG),
