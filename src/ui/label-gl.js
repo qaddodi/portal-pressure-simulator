@@ -23,7 +23,8 @@ import { textPolys, textWidth, loadGlyphs, glyphsReady, textCovers } from './tex
 import { watchSize } from './geom.js';
 import { createLayerAlpha } from './layer-alpha.js';
 import { frameFor, cancelFrame } from './frame.js';
-import { trackOf, trackAt, settleUnder, mixColour, mixRgbaInto, timingOf, progressAt, keysOf } from './label-track.js';
+import { trackOf, trackAt, settleUnder, mixColour, mixRgbaInto } from './label-track.js';
+import { scanStep } from './scan-ease.js';
 import { caught } from './caught.js';
 import { booting, holdCover } from './quiet.js';
 import { planRepack, stepRepack, reconcileRepack, commitRepack } from './label-repack.js';
@@ -1822,39 +1823,6 @@ void main() { o = texture(uT, vUV) * uA; }`;
     }
     return false;
   }
-  // A probe's eased values, read once as their animations start and run by the frame with no read of the page (label-track.js's
-  // timing): `list` is [[element, CSS property, parse (keyframe value → number), set (number → the look)]]; each animation of that
-  // property on that element is taken with its keyframes and clock. easeStep(tracks, now) sets each value where it stands and says
-  // whether any still runs. A value whose animation cannot be followed exactly stays as last read (the read after its end corrects it).
-  function easeCapture(list, now) {
-    const out = [];
-    for (const [el, prop, parse, set] of list) {
-      if (!el) continue;
-      for (const an of el.getAnimations?.() || []) {
-        if (an.effect?.target !== el || an.effect.pseudoElement) continue;
-        let kf;
-        try { kf = an.effect.getKeyframes(); } catch { continue; }
-        const keys = keysOf(kf, prop), t = keys && timingOf(an, now);
-        if (!t) continue;
-        const v = keys.map((k) => ({ o: k.o, ease: k.ease, v: parse(k.v) }));
-        if (v.every((k) => Number.isFinite(k.v))) out.push({ t, keys: v, set, end: t.t0 + t.delay + t.dur });
-      }
-    }
-    return out;
-  }
-  function easeStep(tracks, now) {
-    let on = false;
-    for (const k of tracks) {
-      const p = progressAt(k.t, now);
-      if (now < k.end) on = true;
-      if (p == null) continue;
-      let i = 0;
-      while (i < k.keys.length - 2 && p >= k.keys[i + 1].o) i++;
-      const a = k.keys[i], b = k.keys[i + 1], span = b.o - a.o, u = span > 0 ? a.ease(Math.min(1, Math.max(0, (p - a.o) / span))) : 1;
-      k.set(a.v + (b.v - a.v) * u);
-    }
-    return on;
-  }
   // A small picture (a probe's head) painted on the GPU: `ops` (organ-paint ops, their frames in the picture's px, y down) laid by the
   // organs' painter into a texture of its own, w × h, its first row the picture's top (as the labels' shader fetches it). The labels'
   // drawing state is set again after (the painter leaves its own).
@@ -2056,10 +2024,11 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // Over the labels, as its layer lay. Its beam (blurred) is a picture drawn once and turned here; its waves are arcs and its cable a
   // line, drawn as shapes each frame; its body, screen and reading a picture drawn at its angle (again only when that or the reading
   // changes); the tip, which taps, a rounded rectangle at its place each frame.
-  let scanEl = null, sLook = null, sTracks = [], sReadT = 0, sVer = 0;
-  // (Its look read after the frame that changed it, never inside one, and its eases (the turn, the fades, the tip's tap) followed from
-  // their own clocks: easeCapture. The waves' opacities and the probe's place change every frame and are read off their attributes.)
-  const tipXOf = (t) => { const m = /matrix\(([^)]+)\)/.exec(t || ''); return m ? Number(m[1].split(',')[4]) : /translate(?:X)?\(\s*(-?[\d.]+)px/.exec(t || '') ? Number(/translate(?:X)?\(\s*(-?[\d.]+)px/.exec(t)[1]) : t === 'none' ? 0 : NaN; };
+  let scanEl = null, scanRec = null, sLook = null, sReadT = 0, sPrepT = 0, sVer = 0, sEpoch = -1;
+  // (Its look (colours, widths, shapes, fonts) read in a task of its own when it comes, after a lost context and when the page's look
+  // changes (the epoch), never inside a frame. Its numbers (where it stands, its turn, its fades, the tip's tap, its reading) are the
+  // stage's record, scan-ease.js, handed over with setScan and eased from their own clocks: nothing of the model is watched. The waves'
+  // opacities and arcs change every frame and are read off their attributes.)
   const PIV = [66, 48];   // (the tip: the point the probe turns about, in its SVGs' own px; stage.js SCAN_TIP)
   // What a frame needs of its look as kept numbers, worked out once per read here (a task of its own): the beam's sector and its two
   // stops premultiplied, the waves' colours with their opacity, the cable's two ends, the tip's colour, and the body, screen and reading
@@ -2099,41 +2068,37 @@ void main() { o = texture(uT, vUV) * uA; }`;
   const sRead = () => {
     sReadT = 0;
     if (!scanEl?.isConnected) return;
-    const now = performance.now(), q = (k) => scanEl.querySelector(k);
+    sEpoch = epoch;
     sLook = scanLookRead(scanEl);
-    const L = sLook;
-    if (L) prepScan(L);
-    if (L) sTracks = easeCapture([[scanEl, 'opacity', parseFloat, (v) => { L.op = v; }], [scanEl.querySelectorAll(':scope > .sp-svg')[1], 'transform', (t) => (t === 'none' ? 0 : /matrix/.test(t) ? angOf(t) : NaN), (v) => { L.ang = v; }],
-      [q('.sp-head'), 'opacity', parseFloat, (v) => { L.headOp = v; }], [q('.sp-cable'), 'opacity', parseFloat, (v) => { L.cableOp = v; }], [q('.sp-tip'), 'transform', tipXOf, (v) => { L.tipX = v; }]], now);
+    if (sLook) { scanText(sLook); prepScan(sLook); }
     ask();
   };
   const sReadSoon = () => { if (!sReadT) sReadT = setTimeout(sRead, 0); };
-  const smo = new MutationObserver((rs) => { if (rs.some((r) => changed(r) && r.target !== scanEl && !r.target.closest?.('.sp-waves'))) sReadSoon(); ask(); });
-  const holdScan = () => { sReadSoon(); ask(); };
+  // (The reading the record gives, in place of the model's: only its words change, so the head's ops are made again from the look kept.)
+  const scanText = (L) => { const r = L.read.runs[L.read.val]; if (r && scanRec?.txt && r.t !== scanRec.txt) { r.t = scanRec.txt; return true; } return false; };
+  const sPrep = () => { sPrepT = 0; if (sLook && scanText(sLook)) { prepScan(sLook); ask(); } };
   const noop = () => {};
   const scanGlyphs = () => { sReadSoon(); ask(); };   // (the reading's outlines came: its head is made with them)
-  // (Handed over by the stage in a frame, taken up in a task of its own: its observers, listeners and glyph wait are set then.)
-  let scanWant = null, scanSwapT = 0;
-  function setScan(el) {
-    if (scanWant === el) return;
-    scanWant = el;
+  // (Handed over by the stage in a frame as its record (rec.el its model), taken up in a task of its own: its look's read and glyph wait
+  // are set then. Like setProbe's record: the stage writes its numbers, this reads them in the frame.)
+  let scanWant = null, scanWantRec = null, scanSwapT = 0;
+  function setScan(rec) {
+    const el = rec?.el || null;
+    if (scanWant === el && scanWantRec === rec) return;
+    scanWant = el; scanWantRec = el ? rec : null;
     if (!scanSwapT) scanSwapT = setTimeout(scanSwap, 0);
   }
   function scanSwap() {
     scanSwapT = 0;
     const el = scanWant;
+    scanRec = scanWantRec;
     if (scanEl === el) return;
     scanEl?.removeAttribute('data-gl');
-    scanEl = el; sLook = null; sTracks = []; lostPic(sHeadSp);
+    scanEl = el; sLook = null; lostPic(sHeadSp);
     if (el) sReadSoon();
     if (el && !glyphsReady()) loadGlyphs().then(scanGlyphs, noop);   // (the reading's outlines, ahead of its first picture)
-    smo.disconnect();
     ask();
-    if (!el) return;
-    smo.observe(el, { subtree: true, attributes: true, attributeOldValue: true, attributeFilter: ['class', 'style'], characterData: true, childList: true });
-    for (const t of ['transitionrun', 'transitionend', 'transitioncancel', 'animationstart', 'animationend', 'animationcancel']) el.addEventListener(t, holdScan, true);
   }
-  const angOf = (t) => { const m = /matrix\(([^)]+)\)/.exec(t || ''); if (!m) return 0; const v = m[1].split(',').map(Number); return Math.atan2(v[1], v[0]); };
   function scanLookRead(el) {
     const q = (k) => el.querySelector(k), scs = (e) => getComputedStyle(e);
     const svgs = el.querySelectorAll(':scope > .sp-svg'), beam = q('.sp-beam'), body = q('.sp-body'), tip = q('.sp-tip'), screen = q('.sp-screen'), cable = q('.sp-cable'), read = q('.sp-read');
@@ -2143,11 +2108,10 @@ void main() { o = texture(uT, vUV) * uA; }`;
     const runs = [...read.children].map((sp) => { const r = scs(sp); return { t: sp.textContent, dx: NUM(sp.getAttribute('dx')), font: `${r.fontWeight} ${r.fontSize} ${r.fontFamily}`, weight: r.fontWeight, size: NUM(r.fontSize), ls: 0, tnum: /tabular-nums/.test(r.fontVariantNumeric), fill: none(r.fill) ? '' : r.fill }; });
     const cc = scs(cable), wave = (k) => { const e = q(k); if (!e) return null; const c = scs(e); return { col: rgba(c.stroke), so: NUM(c.strokeOpacity), w: NUM(c.strokeWidth) }; };
     return {
-      op: NUM(scs(el).opacity), ang: angOf(scs(svgs[1]).transform), headOp: NUM(scs(q('.sp-head')).opacity), cableOp: NUM(cc.opacity),
       beam: { d: beam.getAttribute('d'), filter: bc.filter && bc.filter !== 'none' ? bc.filter : NUM(bc.getPropertyValue?.('--sp-soft')) > 0 ? `blur(${NUM(bc.getPropertyValue('--sp-soft'))}px)` : '',   // (its softness: app.css --sp-soft, drawn once here, never a CSS blur)
       stops, grad: ['cx', 'cy', 'r'].map((k) => NUM(el.querySelector('#sp-beam').getAttribute(k))) },
-      body: rect(body), screen: rect(screen), tip: rect(tip), tipX: (() => { const m = /matrix\(([^)]+)\)/.exec(scs(tip).transform); return m ? Number(m[1].split(',')[4]) : 0; })(),
-      read: { x: NUM(read.getAttribute('x')), y: NUM(read.getAttribute('y')), anchor: read.getAttribute('text-anchor') || 'start', runs },
+      body: rect(body), screen: rect(screen), tip: rect(tip),
+      read: { x: NUM(read.getAttribute('x')), y: NUM(read.getAttribute('y')), anchor: read.getAttribute('text-anchor') || 'start', runs, val: [...read.children].findIndex((sp) => sp.classList.contains('sp-val')) },
       cable: { d: cable.getAttribute('d'), col: none(cc.stroke) ? null : rgba(cc.stroke), w: NUM(cc.strokeWidth), cap: cc.strokeLinecap },
       rip: wave('.sp-rip'), front: wave('.sp-front'),
     };
@@ -2159,23 +2123,18 @@ void main() { o = texture(uT, vUV) * uA; }`;
     PT[1] = (sgy + (u - PIV[0]) * ssa + (v - PIV[1]) * sca) * dpr;
   }
   function drawScan(now) {
-    if (!scanEl?.isConnected) return false;
+    if (!scanEl?.isConnected || !scanRec) return false;
+    if (sEpoch !== epoch) sReadSoon();   // (the page's look changed: the theme, the palette, a mode; read after this frame)
     if (!sLook) return false;   // (read after this frame: sReadSoon)
-    const live = easeStep(sTracks, now), L = sLook;
+    const SR = scanRec, live = scanStep(SR, now), L = sLook;
+    if (SR.txt && !sPrepT && L.read.runs[L.read.val]?.t !== SR.txt) sPrepT = setTimeout(sPrep, 0);   // (a new reading: its picture made after this frame)
     // (The beam's blur needs the canvas's filter only where the 2D picture draws it: the shader's sector needs none, as on Safari.)
     // (A beam the shader cannot draw as its sector (another markup), or ?beamgl=0: the SVG keeps the probe.)
     if (!L.drawn) { if (scanEl.hasAttribute('data-gl')) scanEl.removeAttribute('data-gl'); return live; }
     if (!scanEl.hasAttribute('data-gl')) scanEl.setAttribute('data-gl', '');
-    if (!(L.op > 0.001)) return live;
-    const tf = scanEl.style.transform || '';
-    let j = tf.indexOf('translate(');
-    if (j < 0) return live;
-    j = numFrom(tf, j + 10, true);
-    if (j < 0) return live;
-    const tx = NUM_V;
-    if (numFrom(tf, j, false) < 0) return live;
+    if (!(SR.op > 0.001) || !SR.placed) return live;
     // (Its box stands at the written place, raised by half its height (app.css translate: 0 −50%); its SVGs turn about the tip.)
-    const px = tx + PIV[0], py = NUM_V, ca = Math.cos(L.ang), sa = Math.sin(L.ang);
+    const px = SR.x + PIV[0], py = SR.y, ca = Math.cos(SR.ang), sa = Math.sin(SR.ang);
     sgx = px; sgy = py; sca = ca; ssa = sa;
     // (Its box, for the glass: everything it draws lies within 170 px of the tip: the beam's 150 px arc and its blur, the body.)
     boxAt((px - 170) * dpr, (py - 170) * dpr, (px + 170) * dpr, (py + 170) * dpr);
@@ -2190,10 +2149,10 @@ void main() { o = texture(uT, vUV) * uA; }`;
     ucOf(gl).i1(MU.uKind, 7);
     ucOf(gl).f4(MU.uBox, ax - bm, ay - bm, ax + bm, ay + bm);
     ucOf(gl).f4(MU.uGeo, ax, ay, R, L.beam.grad[2] * dpr);
-    ucOf(gl).f4(MU.uR4, bsec.dir + L.ang, bsec.half, gx, gy);
+    ucOf(gl).f4(MU.uR4, bsec.dir + SR.ang, bsec.half, gx, gy);
     ucOf(gl).f1(MU.uW, sg);
     ucOf(gl).f4a(MU.uS0, L.st0); ucOf(gl).f4a(MU.uS1, L.st1); ucOf(gl).f3(MU.uSO, L.beam.stops[0][0], L.beam.stops[1][0], 1);
-    ucOf(gl).f1(MU.uA, LA * Math.min(1, L.op));
+    ucOf(gl).f1(MU.uA, LA * Math.min(1, SR.op));
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     // The waves: each packet's arcs (read off the probe's model every frame, where scanTick writes them), at the packet's opacity.
     sat(PIV[0], PIV[1]);
@@ -2210,17 +2169,17 @@ void main() { o = texture(uT, vUV) * uA; }`;
           if (readNums(path.getAttribute('d') || '', 0, WN) < 9) continue;
           const st = path.classList.contains('sp-front') ? L.front : L.rip;
           if (!st) continue;
-          const r = WN[2], a0 = Math.atan2(WN[1] - PIV[1], WN[0] - PIV[0]) + L.ang, a1 = Math.atan2(WN[8] - PIV[1], WN[7] - PIV[0]) + L.ang, wr = r * dpr, w = st.w * dpr;
+          const r = WN[2], a0 = Math.atan2(WN[1] - PIV[1], WN[0] - PIV[0]) + SR.ang, a1 = Math.atan2(WN[8] - PIV[1], WN[7] - PIV[0]) + SR.ang, wr = r * dpr, w = st.w * dpr;
           ucOf(gl).i1(MU.uKind, 4);
           ucOf(gl).f4(MU.uBox, cx - wr - w - 2, cy - wr - w - 2, cx + wr + w + 2, cy + wr + w + 2);
           ucOf(gl).f4(MU.uGeo, cx, cy, wr, 0); ucOf(gl).f4(MU.uR4, a0, a1 < a0 ? a1 + Math.PI * 2 : a1, 0, 0); ucOf(gl).f1(MU.uW, w);
-          ucOf(gl).f4a(MU.uStroke, st.pm); ucOf(gl).f1(MU.uA, LA * Math.min(1, L.op * po));
+          ucOf(gl).f4a(MU.uStroke, st.pm); ucOf(gl).f1(MU.uA, LA * Math.min(1, SR.op * po));
           gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
         }
       }
     }
     // The cable's short stub (a straight line written as a curve), round-ended, fading with the head.
-    if (L.cp && L.cable.col && L.cableOp > 0.001) {
+    if (L.cp && L.cable.col && SR.cableOp > 0.001) {
       sat(L.cp[0], L.cp[1]);
       const x0 = PT[0], y0 = PT[1];
       sat(L.cp[2], L.cp[3]);
@@ -2228,12 +2187,12 @@ void main() { o = texture(uT, vUV) * uA; }`;
       ucOf(gl).i1(MU.uKind, L.cable.cap === 'round' ? 2 : 0);
       ucOf(gl).f4(MU.uBox, Math.min(x0, x1) - m, Math.min(y0, y1) - m, Math.max(x0, x1) + m, Math.max(y0, y1) + m);
       ucOf(gl).f4(MU.uGeo, x0, y0, x1, y1); ucOf(gl).f1(MU.uW, w); ucOf(gl).f2(MU.uDash, 0, 0);
-      ucOf(gl).f4a(MU.uStroke, L.cable.col); ucOf(gl).f1(MU.uA, LA * Math.min(1, L.op * L.cableOp));
+      ucOf(gl).f4a(MU.uStroke, L.cable.col); ucOf(gl).f1(MU.uA, LA * Math.min(1, SR.op * SR.cableOp));
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     }
-    if (L.headOp > 0.001 && L.headOps && glyphsReady()) {
+    if (SR.headOp > 0.001 && L.headOps && glyphsReady()) {
       // The body, its screen and the reading: a picture at the probe's angle, painted again when that or the reading changes.
-      const aq = Math.round(L.ang * 10000);
+      const aq = Math.round(SR.ang * 10000);
       if (sHeadSp.ver !== L.ver || sHeadSp.kq !== aq || sHeadSp.dpr !== dpr) {
         let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
         for (let i = 0; i < 8; i += 2) {
@@ -2250,20 +2209,20 @@ void main() { o = texture(uT, vUV) * uA; }`;
       gl.useProgram(prog);
       ucOf(gl).f2(U.uView, W, H); ucOf(gl).i1(U.uT, 0);
       gl.bindTexture(gl.TEXTURE_2D, sHeadSp.tex);
-      ucOf(gl).f4(U.uR, Math.round(px * dpr) + sHeadSp.ox, Math.round(py * dpr) + sHeadSp.oy, sHeadSp.w, sHeadSp.h); ucOf(gl).f1(U.uA, LA * Math.min(1, L.op * L.headOp));
+      ucOf(gl).f4(U.uR, Math.round(px * dpr) + sHeadSp.ox, Math.round(py * dpr) + sHeadSp.oy, sHeadSp.w, sHeadSp.h); ucOf(gl).f1(U.uA, LA * Math.min(1, SR.op * SR.headOp));
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       // The tip, over the body, at its tap's place along the probe.
       const t = L.tip;
       if (t.fill) {
-        sat(t.x + t.w / 2 + L.tipX, t.y + t.h / 2);
+        sat(t.x + t.w / 2 + SR.tipX, t.y + t.h / 2);
         const tcx = PT[0], tcy = PT[1];
         gl.useProgram(mprog);
         ucOf(gl).f2(MU.uView, W, H);
         ucOf(gl).i1(MU.uKind, 5);
         const TR = Math.hypot(t.w, t.h) / 2 * dpr + 2;
         ucOf(gl).f4(MU.uBox, tcx - TR, tcy - TR, tcx + TR, tcy + TR);
-        ucOf(gl).f4(MU.uGeo, tcx, tcy, t.w / 2 * dpr, t.h / 2 * dpr); ucOf(gl).f1(MU.uW, Math.min(t.rx, t.w / 2, t.h / 2) * dpr); ucOf(gl).f4(MU.uR4, L.ang, 0, 0, 0);
-        ucOf(gl).f4a(MU.uFill, t.fa); ucOf(gl).f1(MU.uA, LA * Math.min(1, L.op * L.headOp));
+        ucOf(gl).f4(MU.uGeo, tcx, tcy, t.w / 2 * dpr, t.h / 2 * dpr); ucOf(gl).f1(MU.uW, Math.min(t.rx, t.w / 2, t.h / 2) * dpr); ucOf(gl).f4(MU.uR4, SR.ang, 0, 0, 0);
+        ucOf(gl).f4a(MU.uFill, t.fa); ucOf(gl).f1(MU.uA, LA * Math.min(1, SR.op * SR.headOp));
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       }
     }

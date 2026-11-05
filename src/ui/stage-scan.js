@@ -3,7 +3,8 @@
 import { fibroReading } from './clock.js';
 import { dropLabel } from './drop-label.js';
 import { cancelFrame, paceMs } from './frame.js';
-import { reduceMotionMQ as reduceMotion } from './motion.js';
+import { D_SMALL, D_SURFACE, reduceMotionMQ as reduceMotion } from './motion.js';
+import { createScanRec, scanRecReset, scanTap, scanTo } from './scan-ease.js';
 import { paintWave, wavePacks } from './scan-waves.js';
 import { flattenPathInto, newFlat, polyBoxInto } from './shape-gl.js';
 import { store } from './store.js';
@@ -19,6 +20,10 @@ export function createScan(st, live) {
   // roughly linear in kPa (5× from 5 to 25) so the difference reads at a glance, easing to a new speed when the reading changes.
   const scan = { on: false, el: null, raf: 0, deg: 45, v: 0, fronts: [], next: 0, nextTap: 0, last: 0, k: null, leaving: false, headAt: 0 };   // k: the stiffness the callout shows, eased
   const SCAN_EDGE = 8, SCAN_TIP = [66, 48], SCAN_SPAN = 150, SCAN_EVERY = 1 / 3, SCAN_N = 12, SCAN_HALF = 0.5, SCAN_GAP = 6;   // three pulses a second, so several fronts are in flight at once
+  // (The probe's numbers for the GPU layer that draws it, one kept record, eased where its classes and turn are set: scan-ease.js, L3 P9.)
+  const scanRec = createScanRec();
+  const scanEase = (k, to, dur) => { if (scanTo(scanRec, k, to, performance.now(), dur)) live.labelGL?.redraw(); };
+  const scanOp = () => { const e = scan.el; scanEase('op', e && !e.classList.contains('cath-pre') && !e.classList.contains('off') ? 1 : 0, D_SURFACE); };
   const scanSpeed = () => 35 * (clamp(live.F?.metrics?.lsm ?? 5, 4, 40) / 5) ** 1.3;   // px/s, steeper than linear: 35 at 5 kPa (clearly slow), 240 at 25 (7x), 520 from 40
   function scanArc(r) {
     const [cx, cy] = SCAN_TIP, h = SCAN_HALF * (0.75 + 0.25 * Math.min(1, r / 50));   // the front widens a little with depth
@@ -71,6 +76,7 @@ export function createScan(st, live) {
     let hit = false;
     for (const r of scanLook('head')) if (r.x0 < q.x1 && r.x1 > q.x0 && r.y0 < q.y1 && r.y1 > q.y0) { hit = true; break; }
     scan.el.classList.toggle('head-off', hit);
+    scanEase('headOp', hit ? 0 : 1, D_SMALL); scanEase('cableOp', hit ? 0 : 1, D_SMALL);
   }
   const scanNap = () => { if (scan.on && !scan.raf) scan.raf = nextFrame(scanTick); };
   let scanWaveR = 0, scanWaveGap = 0;   // (the packet being drawn: its front and the ripples' gap, which scanArcAt reads)
@@ -95,7 +101,7 @@ export function createScan(st, live) {
     scanShow();
     if (!(now < scan.headAt)) { scan.headAt = now + 250; scanHead(); }
     if (now >= scan.next) { scan.fronts.push(0); scan.next = now + SCAN_EVERY * 1000; }
-    if (!(now < scan.nextTap)) { scan.nextTap = scan.nextTap && now - scan.nextTap < 250 ? scan.nextTap + 1000 : now + 1000; scan.tapB = !scan.tapB; scan.el.classList.toggle('tap', !scan.tapB); scan.el.classList.toggle('tap2', scan.tapB); }   // the probe itself shakes once a second; the waves keep their own rhythm
+    if (!(now < scan.nextTap)) { scan.nextTap = scan.nextTap && now - scan.nextTap < 250 ? scan.nextTap + 1000 : now + 1000; scan.tapB = !scan.tapB; scan.el.classList.toggle('tap', !scan.tapB); scan.el.classList.toggle('tap2', scan.tapB); scanTap(scanRec, now); }   // the probe itself shakes once a second; the waves keep their own rhythm
     const span = clamp(scan.v * 2.5, 70, SCAN_SPAN);   // slow fronts fade sooner, so a healthy liver shows a few calm arcs, not a crowd
     const fr = scan.fronts, step = scan.v * dt;   // (each front moves on, those past the span are left out: in place)
     let nf = 0;
@@ -152,7 +158,7 @@ export function createScan(st, live) {
     const card = fibroReading.cv, k = scan.k;   // (no layout asked: the card's own frame gives the number)
     const txt = cardTxt ?? (card?.isConnected && !card.closest('[hidden]') && fibroReading.txt != null ? fibroReading.txt : k == null ? '--' : k.toFixed(1));
     const sv = scan.svEl?.isConnected && scan.el.contains(scan.svEl) ? scan.svEl : (scan.svEl = scan.el.querySelector('.sp-val'));   // (found once, not queried every frame)
-    putText(sv, txt);
+    putText(sv, txt); scanRec.txt = txt;
     scan.shown = cardTxt != null ? cardTxt : null;
   }
   fibroReading.show = scanShow;
@@ -207,7 +213,7 @@ export function createScan(st, live) {
       }
       if (best >= 0) deg = best;
     }
-    if (deg !== scan.deg) { scan.deg = deg; scan.el.style.setProperty('--sp-turn', SCAN_DEG[deg]); }
+    if (deg !== scan.deg) { scan.deg = deg; scan.el.style.setProperty('--sp-turn', SCAN_DEG[deg]); scanEase('ang', deg * Math.PI / 180, D_SURFACE); }
     // (The cable stays a short stub behind the body at every angle: laid flatter it used to run on to the screen's edge, a long
     // straight wire across the stage and under the cards, 18 Oct.)
   }
@@ -226,7 +232,7 @@ export function createScan(st, live) {
 
     return el;
   })();
-  const scanShown = () => scan.el?.classList.remove('cath-pre');
+  const scanShown = () => { if (!scan.el) return; scan.el.classList.remove('cath-pre'); scanRec.fresh = false; scanOp(); };
   function scanPaint() {
     if (!scan.el) {
       const el = SCAN_TPL.cloneNode(true);
@@ -234,21 +240,22 @@ export function createScan(st, live) {
       // The probe's model: plain elements carrying its shapes' numbers (x, y, width, height, rx, d; the beam's gradient and stops), styled
       // by app.css, from which label-gl.js reads its look and draws it on the GPU over the labels. Nothing of it is drawn by the page: no
       // SVG (1 Nov 2026: nothing off the GPU). The rects and the reading take their boxes too, for what keeps clear of the probe's body.
-      late('add', sites.el, el); scan.el = el; scan.deg = 45;
-      live.labelGL?.setScan(el);   // (drawn over the labels on their GPU layer while it can be; label-gl.js)
+      late('add', sites.el, el); scan.el = el; scan.deg = 45; scanRecReset(scanRec, el);
+      live.labelGL?.setScan(scanRec);   // (drawn over the labels on their GPU layer while it can be; label-gl.js)
       const t0 = scanTipLocal(); if (t0) scanTurn(t0.tx, t0.y);   // (turned before it first shows, so it fades in at its angle rather than swinging to it)
       nextFrame(scanShown);   // (its first look at cath-pre is this frame's own style pass: no layout forced for the fade)
       if (reduceMotion.matches) { scan.fronts.length = 0; scan.fronts.push(40, 90); scan.v = 0; scan.next = scan.nextTap = Infinity; }
       if (!scan.raf) { scan.last = 0; scan.raf = nextFrame(scanTick); }
     }
     const tip = scanTipLocal(), wr = stageBox();   // (the cached box: reading the wrap's on each paint forced a layout)
-    if (!tip) { scan.el.classList.add('off'); return; }
+    if (!tip) { scan.el.classList.add('off'); scanOp(); return; }
     const { tx, y } = tip, x = tx - SCAN_TIP[0];
     // Turned 45° down-right, the probe's body and its kPa screen reach 75 px left of the tip; where the liver sits near the
     // screen's left edge (a phone), the probe stands steeper, up to 80°, so its reading stays whole on screen.
     scanTurn(tx, y);
-    scan.el.classList.toggle('off', tx < -30 || tx > wr.width + 30 || y < -30 || y > wr.height + 30);
+    scan.el.classList.toggle('off', tx < -30 || tx > wr.width + 30 || y < -30 || y > wr.height + 30); scanOp();
     scan.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
+    scanRec.x = Math.round(x * 10) / 10; scanRec.y = Math.round(y * 10) / 10; scanRec.placed = true;   // (the place as written, for the GPU copy)
   }
   function setScanProbe(on) {
     if (scan.on === !!on) return;
@@ -260,7 +267,7 @@ export function createScan(st, live) {
     stageScope.timer(() => { if (scan.on) return; scan.leaving = false; const b = live.pool.get('scan'); if (b) b.g.style.display = 'none'; }, 700);
     const el = scan.el; scan.el = null; scan.packs = null; scan.fronts = []; scan.v = 0; scan.next = 0; scan.nextTap = 0;
     if (scan.raf) { cancelFrame(scan.raf); scan.raf = 0; }
-    if (el) { el.classList.add('cath-pre'); stageScope.timer(() => { dropLabel(el); el.remove(); if (!scan.el) live.labelGL?.setScan(null); }, 500); }
+    if (el) { el.classList.add('cath-pre'); scanOp(); stageScope.timer(() => { dropLabel(el); el.remove(); if (!scan.el) live.labelGL?.setScan(null); }, 500); }
   }
   return { scan, scanCardsRead, scanPaint, scanTick, scanTipLocal, setScanProbe };
 }

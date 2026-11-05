@@ -130,7 +130,7 @@ test('the Doppler probe is drawn on the GPU under the leaders, from a model of p
 });
 
 test('the FibroScan probe is drawn on the GPU over the labels, from a model of plain elements the page never paints', () => {
-  assert.match(STAGE, /scan\.el = el; scan\.deg = 45;\n\s+(?:live\.)?labelGL\?\.setScan\(el\);/);
+  assert.match(STAGE, /scan\.el = el; scan\.deg = 45; scanRecReset\(scanRec, el\);\n\s+(?:live\.)?labelGL\?\.setScan\(scanRec\);/);
   assert.match(STAGE, /(?:live\.)?labelGL\?\.redraw\(\); {3}\/\/ \(the waves moved/, 'each frame of its waves drawn in that frame');
   assert.match(STAGE, /el\.remove\(\); if \(!scan\.el\) (?:live\.)?labelGL\?\.setScan\(null\);/, 'gone from the GPU layer when its element goes');
   // (Its model has no SVG since 1 Nov: plain elements carrying the shapes' numbers, never painted by the page.)
@@ -149,8 +149,6 @@ test('the FibroScan probe is drawn on the GPU over the labels, from a model of p
   assert.match(LGL, /if \(uKind == 7\) \{/);
   assert.match(LGL, /L\.sec = L\.beam\.stops\.length === 2 \? beamSector\(L\.beam\) : null;/);
   assert.doesNotMatch(CSS, /\.sp-beam \{[^}]*filter: blur/);
-  // The waves' writes ask for a frame, not a new look (they are read as it draws).
-  assert.match(LGL, /!r\.target\.closest\?\.\('\.sp-waves'\)/);
 });
 
 test('the scan paint uses the cached stage box, not a fresh layout', () => {
