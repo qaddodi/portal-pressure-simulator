@@ -9,6 +9,7 @@ import { explainText } from './label-explain.js';
 import { leaderEnd as edgeOf, leaderEndRects as edgeOfRects } from './leader-end.js';
 import { reduceMotionMQ as reduceMotion } from './motion.js';
 import { restPass } from './rest-pass.js';
+import { sceneBegin, sceneStyle } from './scene-store.js';
 import { shownVel, store, varicesPresent } from './store.js';
 import { clamp, fmt, fmtFlow, fp } from './util.js';
 import { STATION_VESSEL, judgeFlow, meanVel, velNormal } from './velNormal.js';
@@ -32,7 +33,8 @@ export function createLabelItems(st, live) {
   function ripple(from, to) {
     clearTimeout(rippleT);
     const list = from && to && !quietFx() ? rippleList(EDGES, NI, from, to, (e) => { const x = E[e.id]; return !!x?.vis && !x.isArt && !x.ghost; }) : [];
-    const cs = getComputedStyle(svg), lift = clamp(cssNum(cs, '--ripple-lift', 0), 0, 1);
+    sceneBegin();
+    const cs = sceneStyle(svg) || getComputedStyle(svg), lift = clamp(cssNum(cs, '--ripple-lift', 0), 0, 1);
     const tone = (v) => { const c = mix3(toRGB(v, cs), [1, 1, 1], lift); return `rgb(${c.map((x) => Math.round(x * 255)).join(', ')})`; };   // colour-exempt: built from the glow tokens
     const up = tone('var(--glow-up)'), down = tone('var(--glow-down)');
     setGlowSrc('delta', list.map(([id, d]) => ({ id, col: d > 0 ? up : down, amt: RIPPLE_AMT, wide: 1.3, dur: 420 })));

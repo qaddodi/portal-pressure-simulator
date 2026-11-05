@@ -29,6 +29,7 @@ import { booting, holdCover } from './quiet.js';
 import { planRepack, stepRepack, reconcileRepack, commitRepack } from './label-repack.js';
 import { classSoon } from './class-soon.js';
 import { readStyle } from './layout-snap.js';
+import { sceneBegin, sceneStyle } from './scene-store.js';
 import { reduceMotionMQ } from './motion.js';
 import { leaderEnd } from './leader-end.js';
 import { darkMQ } from './look.js';
@@ -819,11 +820,17 @@ void main() { o = texture(uT, vUV) * uA; }`;
     fillT = 0;
     const els = [...unread];
     unread.clear();
+    sceneBegin();
     for (const el of els) {
       if (!el.isConnected) continue;
       const k = styleKey(el);
       if (snaps.has(k) || easing.get(el)?.key === k) continue;
-      const c = getComputedStyle(el), s = {};
+      // (The scene store's answer (worked out from the page's rules, scene-store.js) where it gives every property read here: a leader's or
+      // dot's look. A text block's fonts and focus outline it does not work out, so those, and anything it cannot say, are asked of the browser.)
+      let c = sceneStyle(el);
+      if (c) for (const p of STYLE_PROPS) if (c[p] === undefined) { c = null; break; }
+      if (!c) c = readStyle(el);
+      const s = {};
       for (const p of STYLE_PROPS) s[p] = c[p];
       let anims;
       try { anims = el.getAnimations().filter((a) => a.playState !== 'finished' && a.playState !== 'idle'); } catch { anims = []; }
