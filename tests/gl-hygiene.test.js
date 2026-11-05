@@ -19,7 +19,7 @@ test('a lost vessel context drops the GPU classes at once (the vessels are drawn
 
 test('the vessel framebuffer and layers are given back while the figure is hidden, once per sleep', () => {
   const s = stageSource();
-  assert.match(s, /home-open'\)\) \{ lastT = flowGate = now; trimVeins\(\); sleep\(\); return; \}/);
+  assert.match(s, /if \(stageCovered\(\)\) \{ lastT = flowGate = now; trimVeins\(\); sleep\(\); return; \}/);   // (seen.js: the page hidden, the home screen, the black screen)
   assert.match(s, /if \((?:live\.)?lz\?\.isOpen\(\)\) \{ trimVeins\(\); sleep\(\); return; \}\n\s+(?:live\.)?veinsTrimmed = false;/);
   // (Review pass item 8: the warm window is a holder in the global budget, which may give it back early; the trim itself is unchanged.)
   assert.match(s, /function trimVeins\(\) \{\n\s+if \((?:live\.)?(?:live\.)?veinsTrimmed \|\| !(?:live\.)?(?:live\.)?veins \|\| (?:live\.)?(?:live\.)?veins\.lost \|\| (?:live\.)?(?:live\.)?glowSync\) return;\n(\s+if \(WARM_VIEWS && !document\.hidden\) \{[\s\S]*?\n {4}\}\n)?\s+(?:live\.)?(?:live\.)?veinsHold\?\.drop\(\); (?:live\.)?(?:live\.)?veinsHold = null;\n\s+(?:live\.)?(?:live\.)?veins\.trim\(\); (?:live\.)?(?:live\.)?veinsTrimmed = true; (?:live\.)?(?:live\.)?veinsDirty = true;/);

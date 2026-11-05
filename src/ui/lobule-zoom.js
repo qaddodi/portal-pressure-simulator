@@ -19,6 +19,7 @@
 // tapped (triad, inlet venule, sinusoid, arteriole, central vein, septum, hepatocytes).
 // Without WebGL2 the vessels are drawn flat on the tissue canvas.
 
+import { stageCovered } from './seen.js';
 import { carryCovers, carryBetween } from './carry-cover.js';
 import { runFlick, FLICK } from './flick.js';
 import { store } from './store.js';
@@ -2770,6 +2771,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   function loop(now) {
     raf = 0;
     if (fade <= 0 || !model) return;
+    // (Render-cost plan 1: under the presenter's black screen, the home screen or a hidden page nothing is drawn; looked at again four times a
+    // second, and drawn as things stand then, the first frame stepping nothing.)
+    if (stageCovered()) { last = 0; clearTimeout(sleepT); sleepT = setTimeout(sleepWake, 250); return; }
     const soft = !!gl?.software;
     if (soft && now - lastPaint < 110) { raf = nextFrame(loop); return; }
     if (lzYield && !lzYield.ready(now, viewVer !== pacedVer)) { raf = nextFrame(loop); return; }   // (a pan or zoom: drawn now)

@@ -1,5 +1,6 @@
 // The idle loop and the organ covers: when the figure sleeps and wakes, giving back the vessel buffers while hidden, and the organs' cover widths.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
+import { stageCovered } from './seen.js';
 import { ORGANS } from './anatomy.js';
 import { hold as gpuHold } from './gpu-budget.js';
 import { store } from './store.js';
@@ -27,7 +28,7 @@ export function createIdle(st, live) {
   }
   // (C5: a still figure on screen looks again once a second; one not shown (page hidden, home screen, lobule over it) is woken by what
   // shows it again, and looks only at the warm window's end, to give its buffers back (trimVeins), and never once they are.)
-  const unseen = () => document.hidden || !!appEl?.classList.contains('home-open') || !!live.lz?.isOpen();
+  const unseen = () => stageCovered() || !!live.lz?.isOpen();
   function sleepLook() {
     if (!unseen()) return 1000;
     if (live.veinsTrimmed || !live.veins || live.veins.lost) return 0;

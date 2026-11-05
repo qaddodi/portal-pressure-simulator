@@ -19,6 +19,7 @@
 // the sinusoid exactly over the lobule's one at every step: first the vessel itself, then the tissue
 // around it.
 
+import { stageCovered } from './seen.js';
 import { h, fmt, clamp, lerp } from './util.js';
 import { createCaptions, lookOf, ringOf, shadowOf, rgbaOf } from './label-captions.js';
 import { measure } from './glyph-measure.js';
@@ -1250,6 +1251,7 @@ export function createSinusoidView({ host, before = null, share = null }) {
   function loop(now) {
     raf = 0;
     if (shown <= 0 || !model) return;
+    if (stageCovered()) { last = 0; clearTimeout(sleepT); sleepT = setTimeout(wake, 250); return; }   // (render-cost plan 1, seen.js: covered, nothing drawn)
     // (The governor, frame.js (pure GPU plan C2, C4), as the anatomy has it: a zoom, a dive or a glide draws at once or at the glide's rate;
     // once only the flow has moved for CALM_AFTER, it is drawn at the flow's 30 Hz, the shader stepping it on its own clock. On a 120 Hz
     // Mac the sinusoid drew every other screen frame whatever moved (4 Nov 2026, Mohammad: "is it in lobule too? and sinusoid?").)

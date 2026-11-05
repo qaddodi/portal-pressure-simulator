@@ -1,6 +1,7 @@
 // Anatomical stage (blueprint §6): the figure drawn on the GPU (plate, vessels, moving blood),
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
+import { stageCovered } from './seen.js';
 import { createCircTurn } from './circ-turn.js';
 import { EDGES, NODES, PORTAL_TERRITORY, isStent, stentSite, STENT_SITES } from '../engine/topology.js';
 import { RECTUM_FADE, LABEL_VESSEL, TIP_FADE, ART_FADE, VIEW, VB_CIRC, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NODE_POS, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, CAVITY_LOW, SITES, LIVER_SPLIT_X, CIRCUIT_ZONES, STRANDS, SIN_EDGES } from './anatomy.js';
@@ -2648,7 +2649,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (viewRaf) { cancelFrame(viewRaf); syncView(); }
     cathLabelsNow();
     // The blood moves by elapsed time, so speeds and transitions are the same at any frame rate.
-    if (document.hidden || appEl?.classList.contains('home-open')) { lastT = flowGate = now; trimVeins(); sleep(); return; }
+    // (Render-cost plan 1: the page hidden, the home screen or the presenter's black screen over the stage, seen.js: nothing is drawn.)
+    if (stageCovered()) { lastT = flowGate = now; trimVeins(); sleep(); return; }
     // The dive magnifies the figure as it stands (a compositor scale): at rest, nothing under it is redrawn until it lands. While the
     // anatomy still shows and something on it eases (anatEasing), the frame goes on below and draws it, as anywhere else: the
     // patient's changes never pause for the zoom. (The box is measured without the dive's scale: measureBox.)
