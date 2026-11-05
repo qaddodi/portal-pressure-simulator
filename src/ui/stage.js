@@ -2378,11 +2378,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const sid = dop.id, dots = sid && geo[sid]?.cur?.length > 1 ? Object.fromEntries(['proximal', 'mid', 'distal'].map((pt) => [pt, worldToLocal(...pointAt(geo[sid].cur, STENT_SITES[pt]))])) : {};
     for (const g of document.querySelectorAll('#labels g.lb')) {
       const key = g.dataset.key || '';
-      if (!/^(n:TIPS:|n:DIPS:|focus)/.test(key)) continue;
+      if (!/^(n:TIPS:|n:DIPS:|focus)/.test(key) || g.closest('.lb-samples')) continue;   // (a look's sample is no label: stage-label-layer.js)
       const shown = g.style.display !== 'none' && !g.classList.contains('lb-off');
-      const pill = g.querySelector('rect.lb-bg'), t = g.querySelector('text');
-      const halo = pill && /^focus/.test(key) ? 0 : (parseFloat(t && getComputedStyle(t).strokeWidth) || 0) / 2;
-      const r = box(pill && /^focus/.test(key) ? pill : t || g, halo), n = near(r, null), pt = key.split(':')[2], d = dots[pt];
+      // (A label the GPU draws holds only its name: its box is its pointer's rect, over its laid-out box with its padding, and its pieces' styles its look's sample's. L3 P10.)
+      const lb = pool.get(key), lean = !!lb?.lean && lb.g === g, sm = lean ? lb.pos?.sample : null;
+      const pill = (sm || g).querySelector('rect.lb-bg'), t = (sm || g).querySelector('text');
+      const halo = lean || (pill && /^focus/.test(key)) ? 0 : (parseFloat(t && getComputedStyle(t).strokeWidth) || 0) / 2;
+      const r = box(lean ? lb.pick : pill && /^focus/.test(key) ? pill : t || g, halo), n = near(r, null), pt = key.split(':')[2], d = dots[pt];
       out.push({ key, shown, box: [r.x0, r.y0, r.x1, r.y1].map((v) => +v.toFixed(1)), clear: +n.d.toFixed(2), vessel: n.id, level: d ? +((r.y0 + r.y1) / 2 - d[1]).toFixed(1) : null, ring: g.classList.contains('ring') ? (parseFloat(pill && getComputedStyle(pill).strokeWidth) || 0) / 2 : 0 });
     }
     for (const el of document.querySelectorAll('.clamp-label')) {

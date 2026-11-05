@@ -183,7 +183,7 @@ function labelRectsRead(wr, wrap, kept = null) {
     for (let el = g; el && el !== wrap && o > 0.01; el = el.parentElement) o *= own(el);
     if (o <= 0.01) continue;
     let l = Infinity, t = Infinity, r = -Infinity, b = -Infinity;
-    for (const q of g.querySelectorAll('text, .lb-bg')) {
+    for (const q of g.querySelectorAll('text, .lb-bg, .lb-pick')) {   // (.lb-pick: a label the GPU draws holds only its name and this rect over its box, L3 P10)
       const k = readBox(q);
       if (k.width < 1 || k.height < 1) continue;
       l = Math.min(l, k.left); t = Math.min(t, k.top); r = Math.max(r, k.right); b = Math.max(b, k.bottom);

@@ -273,20 +273,20 @@ html.chip-open :is(.chip-btn, .lens-btn)[aria-expanded="true"] { background: var
 .lb-zone { fill: var(--text-3); }
 .lb.node { pointer-events: auto; cursor: pointer; outline: none; }
 .lb.node.sel .lb-name { fill: var(--accent-ink); }
-@media (hover: hover) { .lb.node:hover .lb-name { fill: var(--accent-ink); } }
+@media (hover: hover) { .lb.node:is(:hover, .ui-hover) .lb-name { fill: var(--accent-ink); } }
 /* The hover link (hover-link.js, stage.js linkSync): a reading and its vessel light together. The reading whose vessel is
    hovered, or that is itself hovered or focused, lifts one step on --d-small: its name to full ink, its unit to the name's ink, its leader a step darker. No panel,
    no border, no glow on the label, and never in a talk (its slides set the lights). A label under the pointer keeps its accent name (above); a selected one its own. */
 @media (hover: hover) {
   .app:not(.presenting) #labels.hovlink .lb :is(.lb-name, .lb-unit) { transition: none; }
   .app:not(.presenting) #labels.hovlink .lb-leaders > .leader { transition: opacity var(--d-small) var(--ease); }
-  #labels.hovlink .lb.hov-link:not(.sel):not(:hover) .lb-name { fill: var(--text); }
+  #labels.hovlink .lb.hov-link:not(.sel):not(:hover):not(.ui-hover) .lb-name { fill: var(--text); }
   #labels.hovlink .lb.hov-link .lb-unit { fill: var(--text-2); }
   #labels.hovlink .lb-leaders > .leader.hov-link:not(.hl, .focus) { stroke: color-mix(in srgb, var(--text) 62%, transparent); }
 }
 @media (prefers-reduced-motion: reduce) { .app:not(.presenting) #labels.hovlink .lb :is(.lb-name, .lb-unit), .app:not(.presenting) #labels.hovlink .lb-leaders > .leader { transition: none; } }
 /* A stent called out at its three points: the point the Doppler samples is named in the Doppler's green, as its third glows. */
-.lb.node:focus-visible .lb-bg, .lb.node.sel.inline .lb-bg { stroke: var(--accent); stroke-width: 1.5; }
+.lb.node:is(:focus-visible, .ui-fv) .lb-bg, .lb.node.sel.inline .lb-bg { stroke: var(--accent); stroke-width: 1.5; }
 .lb.node.atlas:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
 #labels .lb.focus .lb-bg { fill: var(--accent); stroke: none; }
 .lb.focus text { fill: var(--on-accent); }
@@ -313,13 +313,13 @@ html.chip-open :is(.chip-btn, .lens-btn)[aria-expanded="true"] { background: var
 /* (R09: while a camera ride or a landing glide has the GPU pictures off their DOM labels, label-gl.js sets #labels.lb-displaced: a click or a
    hover would land where the label was, so the labels' pointer events wait. Keyboard and focus are untouched.) */
 #labels.lb-displaced .lb.node, #labels.lb-displaced .lb.module, #labels.lb-displaced .lb.zonecap.link { pointer-events: none; }
-.lb-hit { fill: transparent; }
+.lb-hit, .lb-pick { fill: transparent; }   /* (.lb-pick: the pointer's target of a label label-gl draws, which holds only its name, L3 P10; ui-hover and ui-fv: its look's sample hovered or focused as it, label-gl.js mirror) */
 .lb.zonecap.link.sel .lb-zone { fill: var(--accent-ink); }
-@media (hover: hover) { .lb.zonecap.link:hover .lb-zone { fill: var(--accent-ink); } }
-.lb.zonecap.link:focus-visible .lb-hit { stroke: var(--focus); stroke-width: 2; }
+@media (hover: hover) { .lb.zonecap.link:is(:hover, .ui-hover) .lb-zone { fill: var(--accent-ink); } }
+.lb.zonecap.link:is(:focus-visible, .ui-fv) .lb-hit { stroke: var(--focus); stroke-width: 2; }
 #labels .lb.module .lb-bg { fill: transparent; stroke: var(--module-line); }
-.lb.module:focus-visible .lb-bg { stroke: var(--accent); }
-@media (hover: hover) { .lb.module:hover .lb-bg { stroke: var(--accent); } }
+.lb.module:is(:focus-visible, .ui-fv) .lb-bg { stroke: var(--accent); }
+@media (hover: hover) { .lb.module:is(:hover, .ui-hover) .lb-bg { stroke: var(--accent); } }
 .lb-lane { fill: var(--text-3); font-style: italic; }
 
 /* Figure header: the compare switch */
