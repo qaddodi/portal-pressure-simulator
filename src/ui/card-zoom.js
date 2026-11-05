@@ -87,7 +87,7 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
   // and the glass are one picture and none can run a frame ahead. cur: where the whole is now ({ dx, dy } screen px, and the scale); mo: the
   // glide in hand ({ from, to, ms, t0, done }).
   // (The camera follows the card's zoom: the view is scaled and moved as the card is, about the same middle; once per frame, with st.cur.)
-  const camAt = () => { if (st?.cam) camera.at(st.cur.s, st.mid.x, st.mid.y, st.cur.dx, st.cur.dy); };
+  const camAt = () => { if (st?.cam) camera.at(st.cur.s, st.mid.x, st.mid.y, 0, 0); };   // (the scene only scales about the card's middle: the card's own move is not the scene's, so the figure holds its place behind the card and never needs sceneCam.cover; Mohammad, 5 Nov 2026)
   // (C on the pieces, in this frame: one inline transform each, in the card's own px, and the glass's record of the same numbers.)
   const paint = () => {
     const c = st.cur, a = st.aff, k = st.k, to = c.s === 1 && c.dx === 0 && c.dy === 0 ? 'none' : `translate(${(c.dx / k).toFixed(2)}px, ${(c.dy / k).toFixed(2)}px) scale(${c.s.toFixed(4)})`;
@@ -182,7 +182,7 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
       const cx = q.left + q.width / 2, cy = q.top + q.height / 2;
       // (box and mid: the whole as it rests as the card zooms, and its middle, for follow below; steady: the glide in has ended, for the
       // data card only: a part has no readings to bring out.)
-      sceneCam.aim = part ? null : { s: plan.s, ox: cx, oy: cy, dx: plan.dx, dy: plan.dy, box: boxAt(q, { x: cx, y: cy }, plan.s, plan.dx, plan.dy) };
+      sceneCam.aim = part ? null : { s: plan.s, ox: cx, oy: cy, dx: 0, dy: 0, box: boxAt(q, { x: cx, y: cy }, plan.s, plan.dx, plan.dy) };
       st = { stacked, card: el, veils: [veil].flat(), part, plan, riders, closing: null, steady: ms === 0 && !part, box: q, mid: { x: cx, y: cy }, k, s: plan.s, boosted: plan.s, cur: { dx: 0, dy: 0, s: 1 }, aff: { s: 1, dx: 0, dy: 0, ox: cx, oy: cy }, mo: null, cam: !part && !!camera?.open() };
       for (const r of riders) {
         // (Each piece turns about the middle of them all, so they move as one.)

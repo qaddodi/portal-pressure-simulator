@@ -63,3 +63,21 @@ test('each record has its own writer: zoomAt writes only the card, setDive only 
   assert.doesNotMatch(zoomEnd, /\b(DIVE|PAN)\b|\bV\.[kxy] =/);
   assert.match(lz, /const setDive = [^\n]*camSet\(DIVE, k, e, f\)/);
 });
+
+test('a card zoom scales the scene about the card with no move, so the stage is always covered and cover never clamps (5 Nov)', () => {
+  const out = [0, 0];
+  for (let i = 0; i < 200; i++) {
+    const w = 400 + rnd() * 1200, h = 300 + rnd() * 800, left = rnd() * 50, top = rnd() * 50;
+    const ox = left + rnd() * w, oy = top + rnd() * h, S = 1 + rnd() * 1.2;
+    sceneCam.set(S, ox, oy, 0, 0);
+    const tx = sceneCam.tx(left), ty = sceneCam.ty(top);
+    sceneCam.cover(out, left, top, w, h);
+    close(out[0], tx); close(out[1], ty);
+  }
+  sceneCam.off();
+});
+test('card-zoom.js hands the camera no move: the scene only scales about the card (5 Nov)', async () => {
+  const src = (await import('node:fs')).readFileSync(new URL('../src/ui/card-zoom.js', import.meta.url), 'utf8');
+  assert.match(src, /camera\.at\(st\.cur\.s, st\.mid\.x, st\.mid\.y, 0, 0\)/);
+  assert.match(src, /sceneCam\.aim = part \? null : \{ s: plan\.s, ox: cx, oy: cy, dx: 0, dy: 0,/);
+});
