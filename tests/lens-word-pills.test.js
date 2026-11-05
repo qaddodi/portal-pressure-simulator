@@ -1,6 +1,6 @@
 // The words name the view the vessels are colored by ("With the vessels colored by congestion"): the view's name is a
-// pill in that view's own colour, red for congestion (Mohammad, 16 Oct). Every such phrase in every deck must name a
-// view the presenter knows, so none is left plain, and each view's colour must exist in the tokens.
+// pill in that view's own colour, red for congestion (Mohammad, 16 Oct). The built-in decks no longer write the phrase in a
+// line (Mohammad, 5 Nov: the key already names the view); the pill stays for imported decks, and each view's colour must exist.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -14,17 +14,10 @@ const obj = (name) => {
 };
 const WORDS = obj('LENS_WORDS'), TONE = obj('LENS_TONE');
 
-test('every "colored by" in a slide line names a view that gets its pill', () => {
-  const plain = [];
-  let n = 0;
-  for (const d of DECKS) for (const s of d.slides) {
-    for (const m of (s.line || '').matchAll(/\bcolou?red by (\w+(?: \w+)?)/gi)) {
-      n++;
-      if (!Object.keys(WORDS).some((w) => m[1] === w || m[1].startsWith(`${w} `))) plain.push(`${d.id}/${s.id}: colored by ${m[1]}`);
-    }
-  }
-  assert.ok(n > 30, `found ${n} phrases`);   // (40 before the deck rebuild cut the Circulation lenses slide and the Ascites merge trimmed lines)
-  assert.deepEqual(plain, []);
+test('no built-in slide line says "colored by": the key on the figure names the view (Mohammad, 5 Nov)', () => {
+  const found = [];
+  for (const d of DECKS) for (const s of d.slides) if (/\bcolou?red by\b/i.test(s.line || '')) found.push(`${d.id}/${s.id}`);
+  assert.deepEqual(found, []);
 });
 
 test('each view the words name has a colour defined in the tokens, congestion red', () => {

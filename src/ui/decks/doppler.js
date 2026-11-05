@@ -53,7 +53,7 @@ export const DOPPLER = {
       kicker: 'Cirrhosis', site: 'sin', title: 'Cirrhosis slows the portal vein',
       vignette: 'A 62-year-old man with alcohol-associated cirrhosis has ascites on spironolactone and furosemide and large esophageal varices. He comes fasting for a Doppler ultrasound.',
       caseQ: 'How fast will his portal vein run?',
-      line: 'Resistance in the sinusoids slows portal flow. A velocity {<15 cm/s} is abnormal. Colored by velocity, the whole portal vein turns pale.',
+      line: 'Resistance in the sinusoids slows portal flow. A velocity {<15 cm/s} is abnormal.',
       notes: 'As intrahepatic resistance rises, portal velocity falls and the vein widens (a main portal vein over 13 mm is a soft sign). The congestion index, cross-sectional area over mean velocity, is about 0.07 cm × s in health; above 0.1 suggests portal hypertension. These signs are specific but insensitive: a normal Doppler does not exclude clinically significant portal hypertension. Splenomegaly, collaterals and reversed flow in the paraumbilical vein add to the picture.',
       ask: ['What portal vein velocity is abnormal?', 'A velocity <15 cm/s.'],
     },

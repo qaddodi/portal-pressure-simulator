@@ -54,7 +54,7 @@ export const ENDOSCOPY = {
       id: 'across', ...SAME, tool: PRESSURES,
       kicker: 'Insufflation',
       title: 'Air lowers the pressure across the varix wall',
-      line: 'Air outside the varix lowers the pressure across its wall, though the pressure inside the varix does not change.',
+      line: 'The pressure inside the varix does not change; only the push from outside does.',
       notes: 'AASLD 2024 ties the tension in the varix wall to the pressure across it (the transluminal pressure), the diameter and the wall thickness. In this teaching model the pressure in the lumen is taken off the pressure inside the varix, so the wall is stretched less and the varix looks narrower. Around 9 mmHg was reported in one diagnostic study (Ushimaru et al., Sci Rep 2020, PMID 33097772); the spread was wide. That is context, not a dose, and the slider range of 0 to 20 mmHg is a teaching range.',
       ask: ['A varix holds 18 mmHg inside, and the air outside it is 10 mmHg. What pressure stretches the wall?', '8 mmHg: the pressure inside less the pressure outside.'],
     },

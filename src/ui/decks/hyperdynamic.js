@@ -59,8 +59,8 @@ export const HYPERDYNAMIC = {
       id: 'forward', cam: 'portal', terms: ['pv'], tool: VITALS, data: 'tiles', tiles: ['bv', 'pv'], key: ['pv'], delta: 'rest',
       whatIf: { label: 'Gut arteriole tone', param: 'splanchnicTone', min: 0.6, max: 1.6, step: 0.05, ends: ['Dilated', 'Constricted'] },
       kicker: 'Cirrhosis', site: 'sin', title: 'Wide gut arteries keep the portal pressure up',
-      line: 'Wide gut arteries pour more blood into the [portal vein](pv) and hold its pressure at {pv}. The slider tightens or widens them: tighter lowers the pressure, as beta-blockers do.',
-      notes: 'Portal pressure is portal inflow times the resistance it meets. The resistance rises first, in the scarred liver; once the gradient reaches about 10 mmHg, collaterals and splanchnic vasodilation follow, and the extra inflow pushes the pressure higher still (AASLD 2024, Figure 2). The slider changes the tone of the gut arterioles: dilated adds inflow, constricted takes it away.',
+      line: 'Wide gut arteries pour more blood into the [portal vein](pv) and hold its pressure at {pv}. Tighter arteries lower it, as beta-blockers do.',
+      notes: 'The slider tightens or widens them. Portal pressure is portal inflow times the resistance it meets. The resistance rises first, in the scarred liver; once the gradient reaches about 10 mmHg, collaterals and splanchnic vasodilation follow, and the extra inflow pushes the pressure higher still (AASLD 2024, Figure 2). The slider changes the tone of the gut arterioles: dilated adds inflow, constricted takes it away.',
       ask: ['Two parts make the portal pressure. Name them.', 'The resistance to portal flow (the liver and the collaterals) and the portal inflow from the gut arteries.'],
     },
     {

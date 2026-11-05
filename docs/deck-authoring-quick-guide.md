@@ -52,7 +52,7 @@ Each slide has a `title` that stands on its own and a `line` of 30 words or fewe
 - **Handout only.** `notes` and `ask` print in the handout and never show on screen.
 - **The closing quick check.** `checks` holds 3 or 4 `[question, answer]` pairs, and the app turns them into the last slide. Make one a reasoning question that gives a change in the numbers and asks what moved: `['The HVPG falls from 16 to 11 mmHg on a beta-blocker. Is the bleeding risk gone?', 'Much lower, not gone: varices can still bleed below 12 mmHg.']`. A card with four questions is full: merge two recall checks to make room for a reasoning one.
 - **Puzzle first.** End the slide before a reveal on the paradox as a plain statement ("A meal is about to raise the portal flow by half."), and let the next slide resolve it.
-- **One coloring a line, and a title that names the finding.** Write a "Colored by …" sentence only when the color is the finding, since the key already says what each coloring shows. Title a slide "A clotted hepatic artery starves the bile ducts", not "Hepatic artery thrombosis".
+- **One coloring a line, and a title that names the finding.** Never write "Colored by …" in a line: the key already names each coloring, so say the finding the color shows. Title a slide "A clotted hepatic artery starves the bile ducts", not "Hepatic artery thrombosis".
 - **Say when the patient changes.** "In another patient with CSPH, …" for a new one, and "Back in the first patient, …" for a return (that slide then carries its own `preset`, `days` and `ramp`).
 - **Name the setting of a source.** Baveno VIII Table 3's HVPG response (a fall of 10% or more, or to 12 mmHg or less) is stated for primary prophylaxis. EASL 2025's recanalization is about 4 in 10 without cirrhosis and 7 in 10 with it. Check a claim against `/mnt/project-files/guidelines/` and leave out what no file supports.
 - **Taking a slide out.** Delete its handout figure and its `tests/deck-adopted.js` entries, fix `sections` and `objectives`, then run `UPDATE=1 node --test tests/deck-terms.test.js` once, after reading the diff.
@@ -97,7 +97,7 @@ Full guide: section 5.1 to 5.8.
 
 ## Colouring the vessels
 
-`lens: 'velocity'` colours every vessel by its speed instead of its pressure, and a small key appears on the figure. Use a lens when the colour is the point of the slide, such as a reversed vein on `direction` or a fast stent on `velocity`. Say in the line what the colours show ("colored by velocity").
+`lens: 'velocity'` colours every vessel by its speed instead of its pressure, and a small key appears on the figure. Use a lens when the colour is the point of the slide, such as a reversed vein on `direction` or a fast stent on `velocity`. Say in the line what the colours show (the fast stent), not the coloring's name: the key names it.
 
 Two lenses are for decks only:
 

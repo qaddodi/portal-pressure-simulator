@@ -63,7 +63,7 @@ export const NEXT_BLEED = {
     {
       id: 'both', terms: ['varix'], action: [BAND, BAND, BAND], cam: 'varices', mark: BANDED, tool: SCOPE, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'], delta: 'after',
       kicker: 'Both together', site: 'sin', title: 'Carvedilol and bands together come first',
-      line: 'After a first bleed, carvedilol and banding together are first line. The bands shrink the varices to {varix}, and with carvedilol the HVPG is {hvpg}, against {hvpg@bands} with bands alone.',
+      line: 'The bands shrink the varices to {varix}, and with carvedilol the HVPG is {hvpg}, against {hvpg@bands} with bands alone.',
       notes: 'Compared with banding alone, adding a beta-blocker lowered rebleeding in every group of patients and improved survival in Child–Pugh B and C. The two work on different things: the bands close the varix, the drug lowers the pressure that refills it. A patient who cannot take either one keeps the one he tolerates. (Baveno VIII 4.8; AASLD 2024 statement 38.)',
       ask: ['Why combine a beta-blocker with banding instead of banding alone?', 'Banding closes the varix; the beta-blocker lowers the pressure that refills it. Together they cut rebleeding further.'],
     },

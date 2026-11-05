@@ -44,7 +44,7 @@ export const TREATMENT = {
       id: 'carv-sin', lens: 'flow', cam: 'lobule:sinusoid', terms: { sinusoids: 'lobule:sinusoid' }, tool: { kind: 'hvpg' }, data: 'tiles', key: ['hvpgFall'], tiles: [], delta: 'target', hvpgResp: 'target',
       compare: [{ label: 'Propranolol', params: PROP }, { label: 'Carvedilol', own: true, params: CARV }],
       kicker: 'Non-selective beta-blocker', site: 'sin', title: 'Carvedilol lowers the HVPG more than propranolol in cirrhosis',
-      line: 'Most of the resistance sits in the sinusoids. Carvedilol\'s α1 blockade is thought to relax their stellate cells, so the HVPG falls to {hvpg}. Switch drugs to compare.',
+      line: 'Most of the resistance sits in the sinusoids. Carvedilol\'s α1 blockade is thought to relax their stellate cells, so the HVPG falls to {hvpg}.',
       notes: 'Switch between the two drugs: carvedilol acts on both flow and resistance, so it lowers the HVPG more; in trials, by about 2 mmHg more than propranolol. In the model the gap between the two widens as the sinusoidal resistance grows, from under 1 mmHg in mild cirrhosis to about 2 mmHg in advanced disease. Baveno VIII prefers carvedilol in compensated cirrhosis with clinically significant portal hypertension, to prevent decompensation, and so does the choice with ascites and varices. Whenever the systolic pressure stays below 90 mmHg, the mean pressure below 65 mmHg, or kidney injury develops, reduce the dose or stop the drug, and restart it once these resolve (Baveno VIII 3.15, 4.6).',
       ask: ['Why does carvedilol lower the HVPG more than propranolol in cirrhosis?', 'Unlike propranolol, it lowers the resistance in the sinusoids, where most of the resistance sits.'],
     },

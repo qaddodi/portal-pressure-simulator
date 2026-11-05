@@ -50,7 +50,7 @@ export const PREHEPATIC = {
     {
       id: 'cavernoma', lens: 'velocity', preset: 'pvt-chronic', cam: 'portal', labels: ['CONF'], mark: { edges: ['PV_TRUNK'], label: 'Occluded portal vein' }, tool: { kind: 'lumen', vessel: 'PV_TRUNK' }, data: 'tiles', tiles: ['pv', 'ppg'], key: ['ppg'], delta: 'clot',
       kicker: 'Months later', site: 'pre', title: 'Without recanalization, collaterals grow around the clot',
-      line: 'A cavernoma, a web of small collaterals, grows around the clotted vein; colored by velocity, it carries the blood the trunk cannot, and varices form.',
+      line: 'A cavernoma, a web of small collaterals, grows around the clotted vein and carries the blood the trunk cannot. Varices form.',
       notes: 'Cavernous transformation is a web of collaterals around the occluded portal vein, seen within weeks to months. It does not carry enough blood to bring the portal pressure down, so varices, a large spleen and low platelets follow. Screen for varices with endoscopy and treat them as in cirrhosis: a non-selective beta-blocker or banding. Long-term anticoagulation is advised when a thrombophilia persists. Large collaterals around the bile duct can narrow it (portal cholangiopathy). In children the clot often follows umbilical vein catheterization or sepsis in infancy.',
       ask: ['A child bleeds from varices with normal liver tests. What is the likely cause?', 'Chronic portal vein thrombosis with a cavernoma: varices with a normal liver point to resistance before the sinusoids.'],
     },

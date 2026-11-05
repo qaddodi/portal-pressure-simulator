@@ -32,7 +32,7 @@ export const GASTRIC = {
     {
       id: 'shunt', lens: 'flow', cam: 'fundus', terms: ['gv', 'lrv'], mark: { edges: ['C5'], label: 'Gastrorenal shunt', kind: 'note' }, tool: { kind: 'flows' }, data: 'tiles', tiles: ['gv', 'liver'], key: ['gv'],
       kicker: 'Where they lie', site: 'sin', title: 'Fundal varices drain through a shunt',
-      line: 'Most fundal varices drain through a gastrorenal shunt into the [left renal vein](lrv). Colored by flow, the shunt takes much of the portal blood: the liver gets {liver} of normal.',
+      line: 'Most fundal varices drain through a gastrorenal shunt into the [left renal vein](lrv). The shunt takes so much portal blood that the liver gets {liver} of normal.',
       notes: 'Source: AASLD 2024. The short and posterior gastric veins feed the fundal varices, and a spontaneous gastrorenal shunt, often by way of the left inferior phrenic vein, drains them into the left renal vein. AASLD notes that gastric varices form and bleed at a lower portal pressure than esophageal varices, and that this system competes with the portal vein for blood. The wide varix has a high wall stress even at a modest gradient. A large shunt also takes portal blood away from the liver, which raises the risk of encephalopathy. The shunt is the route BRTO uses, later in this talk.',
       ask: ['Into which vein does a gastrorenal shunt drain?', 'The left renal vein.'],
     },
@@ -62,7 +62,7 @@ export const GASTRIC = {
       id: 'svt', lens: 'origin', preset: 'svt', cam: 'splenic', terms: ['sv', 'gv', 'spleen'], mark: { edges: ['SV_CONF'], label: 'Clot' }, data: 'tiles', tiles: ['gv', 'pv', 'plt'], key: ['gv'],
       vignette: 'A 36-year-old man with a pancreatic pseudocyst after gallstone pancreatitis bleeds from a fundal varix. His liver stiffness is 5 kPa, and CT shows a clotted splenic vein and a large spleen.',
       kicker: 'A clotted splenic vein', site: 'pre', title: 'Left-sided portal hypertension',
-      line: 'With the [splenic vein](sv) clotted, the spleen\'s blood, colored by origin, detours through the short gastric veins into fundal varices of {gv}; the portal vein pressure stays {pv}.',
+      line: 'With the [splenic vein](sv) clotted, the spleen\'s blood detours through the short gastric veins into fundal varices of {gv}; the portal vein pressure stays {pv}.',
       notes: 'Source: AASLD 40, 47. Pancreatitis, a pseudocyst or a pancreatic tumor can clot the splenic vein. Only the splenic side of the portal system is under pressure, so this is called left-sided or sinistral portal hypertension: fundal varices with a normal liver, a normal portal vein pressure and often no esophageal varices. AASLD advises looking for a clot whenever gastric varices are found.',
       ask: ['Fundal varices with a liver stiffness of 5 kPa. What is the likely cause?', 'A clotted splenic vein (left-sided portal hypertension).'],
     },
@@ -71,8 +71,8 @@ export const GASTRIC = {
       compare: [{ label: 'Spleen in place', short: 'None', own: true, params: { splenicRx: 0 } }, { label: 'Partial embolization', short: 'Embolized', params: { splenicRx: 1 } }, { label: 'Splenectomy', short: 'Removed', params: { splenicRx: 2 } }],
       data: 'tiles', tiles: ['gv', 'plt'], key: ['gv'], delta: 'svt',
       kicker: 'A clotted splenic vein', site: 'pre', title: 'Treat the spleen',
-      line: 'The spleen feeds the {gv} fundal varices, and the platelets are {plt}. Leave it, embolize part of it, or remove it: you choose.',
-      notes: 'Source: AASLD 47. AASLD: bleeding gastric varices from an isolated splenic vein clot should be considered for splenectomy, a splenic vein stent or splenic artery embolization. The pressure comes from the spleen\'s own outflow, so a TIPS, which decompresses the portal vein, does not reach it. The buttons compare the spleen in place, partial embolization and splenectomy. Partial splenic embolization infarcts half to two thirds of the splenic pulp through a catheter in the splenic artery; pain and fever for a few days are common afterwards, and splenic abscess and portal vein thrombosis are rarer. Splenectomy carries real risk and splenic and portal vein thrombosis is common after it, because blood stagnates in the stump of the splenic vein, so look for a clot in the weeks after it.',
+      line: 'The spleen feeds the {gv} fundal varices, and the platelets are {plt}.',
+      notes: 'Leave it, embolize part of it, or remove it: the presenter chooses. Source: AASLD 47. AASLD: bleeding gastric varices from an isolated splenic vein clot should be considered for splenectomy, a splenic vein stent or splenic artery embolization. The pressure comes from the spleen\'s own outflow, so a TIPS, which decompresses the portal vein, does not reach it. The buttons compare the spleen in place, partial embolization and splenectomy. Partial splenic embolization infarcts half to two thirds of the splenic pulp through a catheter in the splenic artery; pain and fever for a few days are common afterwards, and splenic abscess and portal vein thrombosis are rarer. Splenectomy carries real risk and splenic and portal vein thrombosis is common after it, because blood stagnates in the stump of the splenic vein, so look for a clot in the weeks after it.',
       ask: ['Why does a TIPS not help a fundal bleed caused by a clotted splenic vein?', 'The portal vein pressure is normal; the high pressure is on the splenic side of the clot, which a TIPS does not decompress.'],
     },
     {

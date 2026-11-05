@@ -37,7 +37,7 @@ export const SHUNTS = {
       kicker: 'Spontaneous', site: 'sin', title: 'Spontaneous collaterals',
       vignette: 'A 56-year-old man with alcohol-associated cirrhosis has ascites despite spironolactone and furosemide, and large esophageal varices. His platelets are 57,000/µL.',
       eq: [frac('<mn>1</mn>', sub(mi('R'), 'total')) + mo('=') + frac('<mn>1</mn>', sub(mi('R'), 'liver')) + mo('+') + frac('<mn>1</mn>', sub(mi('R'), 'shunt')), 'R resistance to portal flow · the liver and the shunt in parallel'],
-      line: 'Colored by flow, collaterals carry part of the portal blood around the liver, yet the gradient falls only slightly.',
+      line: 'Collaterals carry part of the portal blood around the liver, yet the gradient falls only slightly.',
       notes: 'A shunt is a second path for portal blood, in parallel with the liver. Paths in parallel add their conductances, so any shunt lowers the total resistance, and with it the portal pressure, for the same inflow. In cirrhosis the collaterals open as the pressure rises, but the splanchnic inflow rises too, so the gradient stays high. The blood they carry skips the liver: less portal blood for the liver cells, and gut-derived ammonia and toxins reach the brain.',
       ask: ['Why do collaterals fail to bring the portal pressure down?', 'Portal inflow rises as they open, and they are not wide enough to carry it all at a low gradient.'],
     },
@@ -70,7 +70,7 @@ export const SHUNTS = {
     {
       id: 'play', lens: 'flow', cam: 'liver', labels: ['CONF'], procedure: 'tips', data: 'tiles', tiles: ['ppg', 'liver'], key: ['ppg'],
       kicker: 'The stent', site: 'sin', title: 'The catheter goes from the neck vein to the portal vein',
-      line: 'The catheter enters the right jugular vein and reaches the right hepatic vein. A needle crosses to the right portal vein, and a covered stent holds the tract. Press Next.',
+      line: 'The catheter enters the right jugular vein and reaches the right hepatic vein. A needle crosses to the right portal vein, and a covered stent holds the tract.',
       notes: 'A TIPS is a tunnel inside the liver between a hepatic vein and a branch of the portal vein. The catheter reaches it from the jugular vein, so there is no incision in the belly. A covered stent keeps the tunnel open: Baveno VIII names polytetrafluoroethylene-covered stents. When the stent opens, the portal pressure falls at once. (Baveno VIII 5.31.)',
       ask: ['Which kind of stent does Baveno VIII name for a pre-emptive TIPS?', 'A polytetrafluoroethylene (PTFE) covered stent.'],
     },
@@ -111,7 +111,7 @@ export const SHUNTS = {
       // (Three tiles: the varices drain, the liver keeps its flow and the PPG stays high are the three halves of the point.)
       data: 'tiles', tiles: ['ppg', 'varix', 'liver'], delta: 'own',
       kicker: 'A surgical shunt', site: 'sin', title: 'Distal splenorenal (Warren) shunt',
-      line: 'The splenic vein is divided near the portal vein and joined to the left renal vein. Colored by origin, gut blood still reaches the liver; the PPG stays {ppg}.',
+      line: 'The splenic vein is divided near the portal vein and joined to the left renal vein. Gut blood still reaches the liver, and the PPG stays {ppg}.',
       notes: 'The Warren shunt is a selective shunt. The splenic vein is divided close to its junction with the portal vein; the spleen end is sewn to the left renal vein, and the portal end is tied off. Blood from the gastroesophageal varices drains through the short gastric veins and the spleen to the renal vein, so the varices decompress, while SMV blood keeps perfusing the liver at portal pressure. The PPG stays high, so ascites is not relieved and can worsen; refractory ascites is a contraindication. Encephalopathy is less common than after a total shunt or TIPS. Today it is rare: it suits patients with preserved liver function and recurrent variceal bleeding, usually where TIPS is not suitable. The tiles compare with the same patient without the shunt. On the figure, colored by origin, splenic blood leaves through the shunt, while the portal vein carries only gut blood. The varices drain through the spleen, and the PPG stays high.',
       ask: ['Why is the Warren shunt called selective?', 'It drains the varices through the spleen to the left renal vein, while SMV blood keeps perfusing the liver at portal pressure.'],
     },

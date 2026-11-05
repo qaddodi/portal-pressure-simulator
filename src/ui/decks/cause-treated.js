@@ -39,7 +39,7 @@ export const CAUSE_TREATED = {
       id: 'year1', days: 365, ramp: { cirrhosis: [0.6, 0.45] }, lapse: { seconds: 8, from: 'Cure', to: 'One year later' }, cam: 'liver',
       tool: { kind: 'flowtime', clock: 'days', lines: ['hvpg', 'varix'], title: 'HVPG and varix over the year' }, data: 'tiles', tiles: ['hvpg', 'varix', 'lsm', 'plt'], key: ['lsm'], delta: 'before',
       kicker: HCV, site: 'sin', title: 'A year after cure, the pressure and the stiffness fall',
-      line: 'A year after cure the stiffness reads {lsm}, the platelets have risen to {plt} and the HVPG has fallen to {hvpg}.',
+      line: 'The stiffness reads {lsm}, the platelets have risen to {plt} and the HVPG has fallen to {hvpg}.',
       notes: 'After cure, inflammation settles first, so the stiffness falls faster than the scar regresses, and an early fall overstates how much fibrosis has gone. The HVPG falls more slowly and less completely, and in some patients with CSPH before treatment it stays at 10 mmHg or more. Whether carvedilol can stop once CSPH resolves is not settled.',
       ask: ['The stiffness falls fast in the first year after cure. Has the fibrosis regressed as fast?', 'No: much of the early fall is inflammation settling, so the stiffness overstates the regression.'],
     },
@@ -49,7 +49,7 @@ export const CAUSE_TREATED = {
       tool: { ...PLANE, trail: [{ slide: 'before', name: 'Before cure' }, { slide: 'year1', name: '1 year' }] },
       data: 'tiles', tiles: ['hvpg', 'ppg'], key: ['hvpg'], delta: 'before',
       kicker: HCV, site: 'sin', title: 'Two years after cure, CSPH has resolved',
-      line: 'Two years after cure the stiffness reads {lsm}, which is {<10 kPa}, and the platelets {plt}: by Baveno VIII, CSPH has resolved.',
+      line: 'The stiffness reads {lsm}, which is {<10 kPa}, and the platelets {plt}: by Baveno VIII, CSPH has resolved.',
       notes: 'After treating the cause, Baveno VIII advises reassessing CSPH, and counts it as resolved when the HVPG is under 10 mmHg, the stiffness under 10 kPa, or the stiffness under 15 kPa with a spleen stiffness under 25 kPa. Liver cancer surveillance every 6 months continues, because cirrhosis was present before the cure. Recheck the stiffness and the platelets if a new cause of liver injury appears.',
       ask: ['Does he still need liver cancer surveillance?', 'Yes, every 6 months: cirrhosis was present before the cure, and the cancer risk remains.'],
     },
@@ -65,8 +65,8 @@ export const CAUSE_TREATED = {
     {
       id: 'high2', days: 730, ramp: { cirrhosis: [0.75, 0.57] }, lapse: { seconds: 10, from: 'Cure', to: 'Two years later' }, cam: 'liver', compare: [{ label: 'First patient', short: 'First', slide: 'year2' }, { label: 'This patient', short: 'This one', own: true }], tool: { kind: 'profile' }, data: 'tiles', key: ['hvpg'], tiles: ['lsm', 'varix'], delta: 'high',
       kicker: HIGH, site: 'sin', title: 'Two years after cure, CSPH persists',
-      line: 'Two years after cure the HVPG is still {hvpg}, which is {>=10 mmHg}, so CSPH persists and she keeps carvedilol. Switch to the first patient to compare his HVPG.',
-      notes: 'When the HVPG starts well above 10 mmHg, CSPH often persists after cure, and so does the risk of decompensation. She keeps carvedilol and liver cancer surveillance every 6 months. Her stiffness, still in the gray zone, cannot tell on its own whether CSPH has gone.',
+      line: 'The HVPG is still {hvpg}, which is {>=10 mmHg}, so CSPH persists and she keeps carvedilol.',
+      notes: 'Switch to the first patient to compare his HVPG. When the HVPG starts well above 10 mmHg, CSPH often persists after cure, and so does the risk of decompensation. She keeps carvedilol and liver cancer surveillance every 6 months. Her stiffness, still in the gray zone, cannot tell on its own whether CSPH has gone.',
       ask: ['Should she stop carvedilol now that the virus is gone?', 'No: CSPH persists, so carvedilol continues.'],
     },
     {

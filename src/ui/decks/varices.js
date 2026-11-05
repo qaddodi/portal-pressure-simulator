@@ -34,7 +34,7 @@ export const VARICES = {
     {
       id: 'eso', lens: 'flow', cam: 'varices', spot: ['@esophageal'], labels: ['LGV', 'VAR', 'AZY'], terms: ['lgv', 'azy', 'varix'], mark: { edges: ['C1a', 'C1b'], label: 'Esophageal varices', kind: 'note' }, data: 'tiles', tiles: ['hvpg', 'varix'], key: ['varix'],
       kicker: 'Varices', site: 'sin', title: 'Esophageal varices drain to the azygos vein',
-      line: 'Colored by flow, the left gastric vein and the short gastric veins fill the esophageal varices, which drain to the azygos vein.',
+      line: 'The left gastric vein and the short gastric veins feed the esophageal varices, which drain to the azygos vein.',
       notes: 'Gastroesophageal varices are the collaterals that matter most, because they bleed. Blood runs from the left gastric (coronary) and short gastric veins through veins in the wall of the lower esophagus to the azygos system. Both layers enlarge: the palisade veins in the lamina propria, which the scope sees, and the submucosal veins beneath them. The left gastric vein is also called the coronary vein. At endoscopy small varices are under 5 mm and large ones are 5 mm or more; red wale marks are thin spots in the wall. About half of patients have varices when cirrhosis is diagnosed. On the figure, colored by flow, the varices and the azygos vein carry blood they barely carry in health.',
       ask: ['Into which systemic vein do esophageal varices drain?', 'The azygos vein.'],
     },

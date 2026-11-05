@@ -25,15 +25,15 @@ export const TWO_INFLOWS = {
     {
       id: 'dual', lens: 'origin', preset: 'healthy', cam: 'liver', tool: INFLOW, data: 'tiles', tiles: ['pvFlow', 'liver'], key: ['pvFlow'],
       kicker: 'Two inflows', title: 'Two vessels feed the liver',
-      line: 'About three quarters of the liver\'s blood arrives by the [portal vein](pv), {pvFlow} here, and a quarter by the [hepatic artery](ha). Colored by origin, the inflows enter separately.',
+      line: 'About three quarters of the liver\'s blood arrives by the [portal vein](pv), {pvFlow} here, and a quarter by the [hepatic artery](ha).',
       notes: 'Each vessel brings about half of the liver\'s oxygen. Portal blood has already passed through the gut and the spleen, so it is partly deoxygenated but rich in absorbed nutrients and gut hormones. Arterial blood is fully saturated, so the artery supplies about half of the oxygen with only a quarter of the flow. The bars show the two inflows against each other: the portal vein carries about three quarters of the flow and the artery the rest. Later slides show the hepatic artery\'s Doppler, a low-resistance waveform with flow throughout diastole.',
       ask: ['What share of the liver\'s oxygen comes from the portal vein?', 'About half, although it carries about three quarters of the flow.'],
     },
     {
       id: 'meet', lens: 'origin', cam: 'lobule:triad', compare: [{ label: 'Origin', lens: 'origin', own: true }, { label: 'Oxygen', lens: 'oxygen' }], terms: { 'portal venule': 'lobule:triad', 'hepatic arteriole': 'lobule:arteriole', sinusoids: 'lobule:sinusoid' },
       kicker: 'Two inflows', title: 'Portal and arterial blood mix in the sinusoids',
-      line: 'A portal venule and a hepatic arteriole empty into the same sinusoids, where the two colors meet. The Oxygen button shows portal blood only a little darker.',
-      notes: 'Portal blood is only a little darker than arterial blood, and it still brings half the oxygen. The portal tract holds a portal venule, a hepatic arteriole and a bile ductule. Arteriolar blood enters the sinusoids near the tract, in zone 1, and mixes with portal blood; part of it first feeds the capillary plexus around the bile ducts. The bile ducts have no portal supply, so they depend on the artery alone.',
+      line: 'A portal venule and a hepatic arteriole empty into the same sinusoids, where the two colors meet.',
+      notes: 'The Oxygen button shows portal blood only a little darker. Portal blood is only a little darker than arterial blood, and it still brings half the oxygen. The portal tract holds a portal venule, a hepatic arteriole and a bile ductule. Arteriolar blood enters the sinusoids near the tract, in zone 1, and mixes with portal blood; part of it first feeds the capillary plexus around the bile ducts. The bile ducts have no portal supply, so they depend on the artery alone.',
       ask: ['Where do portal and arterial blood meet?', 'In the sinusoids, which both enter at the portal tracts.'],
     },
     {
@@ -41,8 +41,8 @@ export const TWO_INFLOWS = {
       kicker: 'The buffer', site: 'pre', title: 'A clot stops the portal flow',
       vignette: 'A 47-year-old man with a newly diagnosed JAK2-positive myeloproliferative neoplasm has had 3 days of constant abdominal pain. His liver tests are normal.',
       caseQ: 'What will his hepatic artery do?',
-      line: 'With the portal vein clotted, the [artery](ha) carries about twice its usual flow, so liver blood flow falls only to {liver} of normal. The Oxygen button shows the sinusoids brightening.',
-      notes: 'This is the hepatic arterial buffer response. Adenosine is released at a steady rate around the hepatic arterioles and is normally washed away by portal flow; when portal flow falls, adenosine builds up and dilates the artery. The buffer makes up part, not all, of the lost flow. It is why acute portal vein thrombosis rarely infarcts the liver. On the Oxygen button, blood entering the sinusoids rises from about 88% to 95% saturation, because most of it is now arterial.',
+      line: 'With the portal vein clotted, the [artery](ha) carries about twice its usual flow, so liver blood flow falls only to {liver} of normal.',
+      notes: 'The Oxygen button shows the sinusoids brightening. This is the hepatic arterial buffer response. Adenosine is released at a steady rate around the hepatic arterioles and is normally washed away by portal flow; when portal flow falls, adenosine builds up and dilates the artery. The buffer makes up part, not all, of the lost flow. It is why acute portal vein thrombosis rarely infarcts the liver. On the Oxygen button, blood entering the sinusoids rises from about 88% to 95% saturation, because most of it is now arterial.',
       ask: ['Why does acute portal vein thrombosis rarely cause a liver infarct?', 'The hepatic artery dilates (the buffer response) and keeps the liver perfused.'],
     },
     {
@@ -73,7 +73,7 @@ export const TWO_INFLOWS = {
     {
       id: 'tips', question: "After a TIPS, will the artery or the portal vein carry most of the liver's blood?", lens: 'origin', params: { tips: { on: true } }, cam: 'liver', scales: { lobule: {} }, sites: ['split'], mark: { edges: ['TIPS'], label: 'TIPS', kind: 'treat' }, tool: INFLOW, data: 'tiles', tiles: ['liver', 'shunt'], key: ['liver'], delta: 'cirr',
       kicker: 'Cirrhosis and TIPS', site: 'sin', title: 'After TIPS, most liver inflow is arterial',
-      line: 'After a TIPS the portal branches turn toward the stent and the [artery](ha) dilates. Liver flow falls to {liver} of normal. Colored by origin, the sinusoids carry mostly arterial blood.',
+      line: 'After a TIPS the portal branches turn toward the stent and the [artery](ha) dilates. Liver flow falls to {liver} of normal.',
       notes: 'After a TIPS, flow in the intrahepatic portal branches usually turns toward the stent, and the hepatic artery velocity rises as the buffer responds. A liver with little reserve may not cope: a rising bilirubin and encephalopathy are the warning signs, and the reason TIPS is avoided in very advanced liver failure. On the figure, colored by origin, the sinusoids carry almost all arterial blood, while portal blood runs through the stent.',
       ask: ['Which way does blood run in the intrahepatic portal branches after a TIPS?', 'Usually toward the stent, away from the liver tissue, because the stent is the path of least resistance.'],
     },
